@@ -512,6 +512,21 @@ binary is a category error.
   `Nat` case: whenever a `Deq` has to move from an open context to a
   closed instance, prefer this route.
 
+  **LANDED, and stated for an arbitrary domain.**  `Deq.close2` and
+  `Deq.close1` (`Setlec/TTVerify/Weaken.lean`) are the recipe
+  mechanized:
+
+  > A `Deq` in context `[A, A]` holds at any two terms of `A`, in any
+  > context.
+
+  Nothing about `Nat` enters the proof, which is the evidence that the
+  recipe was the right abstraction rather than a `Nat` trick: the
+  statement did not have to be specialized to get it through.  Step 3
+  of the recipe above is also simpler than written — `Deq.intro`
+  accepts any proof term, so the two `symm`s the original sketch called
+  for are unnecessary; the `eqE` slot being inert does the work
+  directly.
+
   `String` literals need nothing: `strLitToConstructor` is finite and
   explicit.
 * **Modeled iota, eta, unit-like, K.**  Not a risk: the `_model`

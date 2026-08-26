@@ -1,4 +1,6 @@
 import Setlec.TT.Judgment
+import Setlec.TT.Deq
+import Setlec.TTVerify.VClosed
 
 /-!
 # Context weakening
@@ -95,5 +97,57 @@ theorem HasType.weakenTail (Δ : List VExpr) : ∀ {Γ : List VExpr}
 theorem HasType.weakenNil {e A : VExpr} (h : HasType [] e A)
     (Δ : List VExpr) : HasType Δ e A := by
   simpa using HasType.weakenTail Δ h
+
+/-! ## Closing an open equation at arguments
+
+`Setlec/TTVerify/DESIGN.md` §5's recipe, mechanized once.  An
+environment law stated over free variables — `NatOpsTT`'s recurrences
+are the case in hand, at depth 2 in context `[Nat, Nat]` — has to be
+used at *closed* instances, and the temptation is to reach for a
+substitution lemma about `HasType`.
+
+**Do not.**  The theory internalizes its own substitution:
+
+1. `lam` twice.  The rule carries **no domain premise**, so this is
+   free; it turns the open equation into a closed λ-λ-equation.
+2. `app` twice, at the arguments.  The rule's own `B.inst a` performs
+   the instantiation *object-level, in the type*.
+3. `Deq.intro` re-slots the result, the proof term being irrelevant.
+
+Nothing about `Nat` enters, which is why this is stated for an
+arbitrary domain: whenever a `Deq` has to move from an open context to
+a closed instance, this is the route. -/
+
+/-- **Closing a two-variable equation.**  A `Deq` in context `[A, A]`
+holds at any two terms of `A`, in any context. -/
+theorem Deq.close2 {A T L R : VExpr} (hA : VExpr.Closed A)
+    (h : HasType [A, A] .prf (.eqE T L R)) {Γ : List VExpr} {a b : VExpr}
+    (ha : HasType Γ a A) (hb : HasType Γ b A) :
+    Deq Γ ((L.inst a 1).inst b) ((R.inst a 1).inst b) := by
+  have h1 : HasType Γ (.lam A (.lam A .prf)) (.pi A (.pi A (.eqE T L R))) :=
+    HasType.weakenNil (HasType.lam (HasType.lam h)) Γ
+  have h2 := HasType.app h1 ha
+  rw [VExpr.inst_pi, VExpr.inst_eq_self_of_closed hA] at h2
+  have h3 := HasType.app h2 hb
+  rw [VExpr.inst_eqE] at h3
+  exact Deq.intro h3
+
+/-- **Closing a one-variable equation.**  The `Nat.pred` shape.
+
+Note it needs **no** closedness hypothesis on `A`, where `close2` does:
+`close2`'s second `app` meets the domain after one instantiation has
+already run over it, and only closedness makes that instantiation
+invisible.  With one binder there is no such instantiation.  The
+asymmetry is real, not an oversight — and it was the linter that
+pointed it out, which is the one variety of §8.2's defect something
+else catches for you. -/
+theorem Deq.close1 {A T L R : VExpr}
+    (h : HasType [A] .prf (.eqE T L R)) {Γ : List VExpr} {a : VExpr}
+    (ha : HasType Γ a A) : Deq Γ (L.inst a) (R.inst a) := by
+  have h1 : HasType Γ (.lam A .prf) (.pi A (.eqE T L R)) :=
+    HasType.weakenNil (HasType.lam h) Γ
+  have h2 := HasType.app h1 ha
+  rw [VExpr.inst_eqE] at h2
+  exact Deq.intro h2
 
 end Setlec.TT
