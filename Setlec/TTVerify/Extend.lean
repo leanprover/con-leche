@@ -1,4 +1,5 @@
 import Setlec.TTVerify.Denote
+import Setlec.TTVerify.EnvTT
 
 /-!
 # Denotations survive environment extension
@@ -201,6 +202,16 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
 
 /-! ## Changing the valuation at a fresh name
 
+**Read this together with `denote_mono` above: they are two halves of
+one fact**, and a reader meeting either alone would not see it —
+
+> *Installing a fresh constant disturbs no existing denotation.*
+
+`denote_mono` moves a denotation to a **larger environment**;
+`denote_cval_congr` moves it to a **changed valuation**.  An install
+does both at once, so every case of `CheckDeclTT` uses both, and
+neither alone says anything reassuring.
+
 The companion to `denote_mono`, and the other half of what every
 install case needs.  `denote_mono` moves a denotation to a **larger
 environment**; this moves it to a **changed valuation** — which is what
@@ -215,10 +226,26 @@ the old environment, and the new name is not among them.
 The literal-support agreements are named **one by one** — the seven
 names `natLitT` and `strLitT` actually read — rather than as a blanket
 "the valuations agree".  A blanket hypothesis would make the lemma
-*trivially true and useless*, which is a failure mode worth naming: a
-statement can typecheck, prove, and be worth nothing because one of its
-hypotheses subsumes its conclusion.  Check the hypotheses of a lemma
-that proved suspiciously easily.
+*trivially true and useless*.
+
+**The failure mode, and how it relates to the ease-of-proof signal of
+`Setlec/TTVerify/DESIGN.md` §0.**  A statement can typecheck, prove,
+and be worth nothing because a hypothesis subsumes its conclusion — and
+unlike a *wrong* statement it leaves no trace, since everything
+downstream still compiles.  §0 says a proof going through without
+adaptation is evidence the statement has the right shape.  Both are
+true, and they are **ordered, not in tension**:
+
+> **First check the hypotheses are weaker than the conclusion; then
+> take ease of proof as evidence.**  Ease is confirmation of a
+> statement already established to be non-vacuous, never a substitute
+> for establishing it.
+
+So a suspiciously easy proof is not a reason to distrust the ease — it
+is a reason to go and read the hypotheses.  **The tell to look for is a
+hypothesis quantified more broadly than the conclusion needs**: here,
+"the valuations agree *everywhere*" where exactly seven names are read.
+Listing the seven is the fix.
 
 They are hypotheses for the same reason they are in `denote_mono`: deriving them from the guards needs
 `natLitSupported_inv`, a `V`-free fact stranded in
@@ -291,5 +318,67 @@ theorem denote_cval_congr {cval₁ cval₂ : TConstVal} {env : Env}
     | .proj a b c => exact (k8 a b c rfl).elim
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim
+
+/-! ## The install transport
+
+What every case of `CheckDeclTT` does to the *old* constants: they must
+still denote, and still be derivably of their types, in the extended
+environment under the extended valuation.  Both transport lemmas above
+fire here, which is the point of naming them a pair.
+
+The valuation hypothesis is stated as "agrees away from the new name"
+rather than "agrees where the environment resolves", because that form
+is **discharged by freshness alone** — `List.find?_eq_none` turns
+`hfresh` into name-distinctness for every stored constant, with no
+appeal to well-formedness. -/
+
+/-- Old constants keep their derivations across a fresh install.
+
+The seven literal-support agreements are separate hypotheses rather
+than consequences of `hag`, and the reason is a real case rather than
+caution: during a **basis install** the new constant *is* one of those
+names, so `n ≠ c₀.name` does not hold for them.  An ordinary install
+discharges all seven from `hag` immediately; the basis install owes
+them, which is correct — it is the one changing those valuations. -/
+theorem has_type_cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
+    {cval' : TConstVal}
+    (hfresh : env.find? c₀.name = none)
+    (hag : ∀ n, n ≠ c₀.name → m.cval n = cval' n)
+    (hnat : m.cval natZeroName = cval' natZeroName)
+    (hsucc : m.cval natSuccName = cval' natSuccName)
+    (hsol : m.cval stringOfListName = cval' stringOfListName)
+    (hnil : m.cval listNilName = cval' listNilName)
+    (hcons : m.cval listConsName = cval' listConsName)
+    (hchar : m.cval charName = cval' charName)
+    (hofn : m.cval charOfNatName = cval' charOfNatName)
+    (hguardN : natLitSupported env = true →
+      natLitSupported ⟨c₀ :: env.consts⟩ = true)
+    (hguardS : strLitSupported env = true →
+      strLitSupported ⟨c₀ :: env.consts⟩ = true)
+    (hlp : ∀ n, levelParamsAt ⟨c₀ :: env.consts⟩ n = levelParamsAt env n) :
+    ∀ c ∈ env.consts, ∀ φ : Name → Nat,
+      ∃ t, denoteClosed cval' ⟨c₀ :: env.consts⟩ φ c.toConstantVal.type
+          = some t ∧ HasType [] (cval' c.name φ) t := by
+  -- freshness gives name-distinctness for every stored constant, with
+  -- no appeal to well-formedness
+  have hne : ∀ c ∈ env.consts, c.name ≠ c₀.name := by
+    have h0 := hfresh
+    rw [Env.find?, List.find?_eq_none] at h0
+    intro c hc h
+    exact h0 c hc (by simp [h])
+  have hagE : ∀ n ci, env.find? n = some ci → m.cval n = cval' n := by
+    intro n ci hfind
+    refine hag n ?_
+    intro h
+    rw [h, hfresh] at hfind
+    exact nomatch hfind
+  intro c hc φ
+  obtain ⟨t, ht, hd⟩ := m.has_type c hc φ
+  refine ⟨t, ?_, ?_⟩
+  · rw [denoteClosed] at ht ⊢
+    rw [denote_cval_congr hagE hnat hsucc hsol hnil hcons hchar hofn 0 _] at ht
+    exact denote_mono (EnvExtends.cons hfresh) hguardN hguardS hlp 0 _ ht
+  · rw [← hag c.name (hne c hc)]
+    exact hd
 
 end Setlec.TTVerify
