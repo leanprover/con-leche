@@ -459,4 +459,194 @@ theorem defeq_claimsTT_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     DefEqClaimsTT m φ (fuel + 1) :=
   defeq_claimsTT m φ (defeqStep_claim m φ hcl ihwc ihw hpi hstk hspine)
 
+/-! ## The same-head spine short-circuit
+
+`defeqSpine` is the lazy-delta step's attempt to avoid unfolding: if
+both sides are the *same* stored constant applied to spines, compare
+the levels and the arguments instead.  Its soundness is one congruence
+and one induction, and the levels enter through `val_params` — the
+checker compares them with `Level.isEquiv`, which is sound for `eval`,
+and a constant's valuation reads nothing else. -/
+
+/-- Pairwise `Deq` lifts to spines. -/
+theorem Deq.mkAppN {Δ : List VExpr} : ∀ {as bs : List VExpr} {f g : VExpr},
+    Deq Δ f g → as.length = bs.length →
+    (∀ i : Fin as.length, Deq Δ as[i] (bs.getD i default)) →
+    Deq Δ (VExpr.mkAppN f as) (VExpr.mkAppN g bs) := by
+  intro as
+  induction as with
+  | nil =>
+    intro bs f g hf hlen _
+    obtain rfl : bs = [] := by
+      cases bs with
+      | nil => rfl
+      | cons _ _ => exact nomatch hlen
+    exact hf
+  | cons x xs ih =>
+    intro bs f g hf hlen hall
+    cases bs with
+    | nil => exact nomatch hlen
+    | cons y ys =>
+      refine ih (bs := ys) (f := .app f x) (g := .app g y)
+        (Deq.app hf ?_) (by simpa using hlen) ?_
+      · have := hall ⟨0, by simp⟩
+        simpa using this
+      · intro i
+        have := hall ⟨i.1 + 1, by simp⟩
+        simpa using this
+
+/-- Inversion for `defEqList`: every pair is definitionally equal. -/
+theorem defEqList_inv {env : Env} {fuel d : Nat} :
+    ∀ {as bs : List Expr}, defEqListP env fuel d as bs = .ok true →
+      as.length = bs.length ∧
+      ∀ i : Fin as.length,
+        isDefEqCore env fuel d as[i] (bs.getD i default) = .ok true := by
+  intro as
+  induction as with
+  | nil =>
+    intro bs h
+    cases bs with
+    | nil => exact ⟨rfl, fun i => nomatch i.2⟩
+    | cons _ _ => simp [defEqListP, defEqList, pure, Except.pure] at h
+  | cons x xs ih =>
+    intro bs h
+    cases bs with
+    | nil => simp [defEqListP, defEqList, pure, Except.pure] at h
+    | cons y ys =>
+      simp only [defEqListP, defEqList, Bind.bind, Except.bind,
+        defeq_def] at h
+      cases hxy : isDefEqCore env fuel d x y with
+      | error err => rw [hxy] at h; exact nomatch h
+      | ok r =>
+      rw [hxy] at h
+      cases r with
+      | false => simp [pure, Except.pure] at h
+      | true =>
+        simp only [if_true] at h
+        obtain ⟨hlen, hall⟩ := ih (by rw [defEqListP]; exact h)
+        refine ⟨by simpa using hlen, ?_⟩
+        intro i
+        match i with
+        | ⟨0, _⟩ => simpa using hxy
+        | ⟨j + 1, hj⟩ =>
+          have := hall ⟨j, by simpa using hj⟩
+          simpa using this
+
+/-- A denoted spine's entries, indexed. -/
+theorem DenoteSpine.get {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d : Nat} {as : List Expr} {vs : List VExpr}
+    (h : DenoteSpine cval env φ d as vs) :
+    ∀ i : Fin as.length,
+      denote cval env φ d as[i] = some (vs.getD i default) := by
+  induction h with
+  | nil => intro i; exact nomatch i.2
+  | @cons a v as vs ha _ ih =>
+    intro i
+    match i with
+    | ⟨0, _⟩ => simpa using ha
+    | ⟨j + 1, hj⟩ =>
+      have := ih ⟨j, by simpa using hj⟩
+      simpa using this
+
+/-- Level lists with pointwise equal evaluations are indistinguishable
+to a substitution.  The checker compares levels with `Level.isEquiv`,
+which is sound for `eval` and nothing stronger, so this is exactly the
+form the spine short-circuit's soundness needs. -/
+theorem substFn_of_evalEqList {φ : Name → Nat} :
+    ∀ (ks : List Name) {us us' : List Level}, Level.EvalEqList φ us us' →
+      ∀ p, Level.substFn φ ks us p = Level.substFn φ ks us' p := by
+  intro ks
+  induction ks with
+  | nil =>
+    intro us us' h p
+    cases us <;> cases us' <;> simp [Level.substFn] <;> exact nomatch h
+  | cons k ks ih =>
+    intro us us' h p
+    cases us with
+    | nil => cases us' with
+      | nil => rfl
+      | cons _ _ => exact nomatch h
+    | cons u uss => cases us' with
+      | nil => exact nomatch h
+      | cons u' uss' =>
+        obtain ⟨h1, h2⟩ := h
+        simp only [Level.substFn]
+        split
+        · exact h1
+        · exact ih h2 p
+
+/-- **`DefEqSpineStepTT`, discharged.** -/
+theorem defeqSpine_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (ihd : DefEqClaimsTT m φ fuel) :
+    DefEqSpineStepTT m φ fuel := by
+  intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
+  obtain ⟨n, us, us', hfa, hfb, hlenAB, hlev, hlist⟩ := defeqSpine_inv h
+  -- both sides are the same constant applied to a spine
+  have hea : a = Expr.mkAppN (.const n us) a.getAppArgs := by
+    rw [← hfa, Expr.mkAppN_getApp]
+  have heb : b = Expr.mkAppN (.const n us') b.getAppArgs := by
+    rw [← hfb, Expr.mkAppN_getApp]
+  rw [hea] at hva
+  rw [heb] at hvb
+  obtain ⟨vfa, vas, hvfa, hspa, rfl⟩ := denote_mkAppN_inv hva
+  obtain ⟨vfb, vbs, hvfb, hspb, rfl⟩ := denote_mkAppN_inv hvb
+  -- the two level instantiations are indistinguishable to the valuation
+  have hheads : vfa = vfb := by
+    rw [denote_const] at hvfa hvfb
+    cases hf : env.find? n with
+    | none => rw [hf] at hvfa; exact nomatch hvfa
+    | some ci =>
+      rw [hf] at hvfa hvfb
+      dsimp only at hvfa hvfb
+      split at hvfa
+      · next hlenU =>
+        split at hvfb
+        · next hlenU' =>
+          rw [← Option.some.inj hvfa, ← Option.some.inj hvfb]
+          refine m.val_params n ci hf _ _ ?_
+          intro p hp
+          exact substFn_of_evalEqList _ (Level.isEquivList_sound hlev φ) p
+        · exact nomatch hvfb
+      · exact nomatch hvfa
+  subst hheads
+  -- and the arguments are pairwise equal
+  obtain ⟨hlen2, hall⟩ := defEqList_inv hlist
+  refine Deq.mkAppN Deq.refl (by rw [hspa.length, hspb.length, hlen2]) ?_
+  intro i
+  have hi2 : (i : Nat) < a.getAppArgs.length := by
+    rw [← hspa.length]; exact i.2
+  have hi3 : (i : Nat) < b.getAppArgs.length := by rw [← hlen2]; exact hi2
+  have hma : a.getAppArgs[(i : Nat)]'hi2 ∈ a.getAppArgs := List.getElem_mem hi2
+  have hmb : b.getAppArgs.getD (i : Nat) default ∈ b.getAppArgs := by
+    simp only [List.getD, List.getElem?_eq_getElem hi3]
+    exact List.getElem_mem hi3
+  have hfa' : ∀ x ∈ a.getAppArgs, Expr.WScoped d x ∧
+      x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+      CtxOk m.cval env φ d Δ x := by
+    intro x hx
+    refine ⟨hwa.getAppArgs x hx, looseBVarsBounded_getAppArgs hba x hx,
+      fun l hl => hLa l (fvarLeaves_getAppArgs hx l hl),
+      CtxOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl) hCa⟩
+  have hfb' : ∀ x ∈ b.getAppArgs, Expr.WScoped d x ∧
+      x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+      CtxOk m.cval env φ d Δ x := by
+    intro x hx
+    refine ⟨hwb.getAppArgs x hx, looseBVarsBounded_getAppArgs hbb x hx,
+      fun l hl => hLb l (fvarLeaves_getAppArgs hx l hl),
+      CtxOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl) hCb⟩
+  obtain ⟨hw1, hb1, hL1, hC1⟩ := hfa' _ hma
+  obtain ⟨hw2, hb2, hL2, hC2⟩ := hfb' _ hmb
+  have hbeq : b.getAppArgs.getD (i : Nat) default
+      = b.getAppArgs[(i : Nat)]'hi3 := by
+    simp only [List.getD, List.getElem?_eq_getElem hi3]
+    rfl
+  have hva' := hspa.get ⟨i, hi2⟩
+  have hlt : (i : Nat) < vas.length := i.2
+  simp only [List.getD, List.getElem?_eq_getElem hlt, Option.getD_some]
+    at hva'
+  have hvb' : denote m.cval env φ d (b.getAppArgs.getD (i : Nat) default)
+      = some (vbs.getD (i : Nat) default) := by
+    rw [hbeq]; exact hspb.get ⟨i, hi3⟩
+  exact ihd (hall ⟨i, hi2⟩) hw1 hb1 hL1 hw2 hb2 hL2 hC1 hC2 hva' hvb'
+
 end Setlec.TTVerify
