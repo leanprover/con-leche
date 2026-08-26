@@ -77,7 +77,7 @@ theorem HasType.weakenTail (Δ : List VExpr) : ∀ {Γ : List VExpr}
   | zeta => exact .zeta
   | eta _ ih => exact .eta ih
   | funext _ _ _ ih1 ih2 ih3 => exact .funext ih1 ih2 ih3
-  | proofIrrel _ _ _ ih1 ih2 ih3 => exact .proofIrrel ih1 ih2 ih3
+  | proofIrrel _ _ _ _ ih1 ih2 ih3 ih4 => exact .proofIrrel ih1 ih2 ih3 ih4
   | natRecZero _ _ _ ih1 ih2 ih3 => exact .natRecZero ih1 ih2 ih3
   | natRecSucc _ _ _ _ ih1 ih2 ih3 ih4 => exact .natRecSucc ih1 ih2 ih3 ih4
   | punitRecUnit _ _ ih1 ih2 => exact .punitRecUnit ih1 ih2

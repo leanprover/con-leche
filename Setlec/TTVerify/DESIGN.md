@@ -1355,3 +1355,65 @@ cost is itself the argument for the generalization.
 *Status.*  Not implemented here.  A layer change belongs on its own
 branch with the layer's own gate (the axiom check on
 `Setlec.TT.*`), as the projection former did.
+
+## 11. DECIDED: how the pinned `Eq` block denotes
+
+The mismatch is inherent, not accidental: `eqE` **must** be a syntactic
+former because `conv` pattern-matches on it — equality reflection
+requires that — while the checker has `Eq` as an ordinary pinned
+inductive **constant**, which can appear partially applied.
+
+### The measurement that settled it
+
+Two candidates: denote the bare constant as its **eta-expansion**, or
+**special-case the spine** `@Eq A a b` in `denote`'s `.app` clause.
+Counting occurrences in real input (graph walk over the export's
+hash-consed expression table, since arity is not greppable):
+
+| stream | `Eq` fully applied | **partially applied** |
+|---|---|---|
+| init-prelude (preprocessed) | 1942 | **1** |
+| all 36 e2e fixtures containing `Eq` | many | **0** |
+
+**So the spine special-case would have passed the entire e2e suite and
+failed only on the real stream.**  One occurrence in ~2000 is exactly
+the density that makes "it never happens" feel safe and be wrong, and
+it is why this was worth measuring rather than assuming.
+
+### The decision
+
+**Denote the bare constant as its eta-expansion**, and state the field
+as a *fired law* rather than as a pinned valuation — matching
+`rec_rules` and `caps_ok`:
+
+> for `A, a, b` typed at the `Eq` telescope's domains,
+> `Deq Δ (mkAppN (cval eqName ψ) [⟦A⟧, ⟦a⟧, ⟦b⟧]) (eqE ⟦A⟧ ⟦a⟧ ⟦b⟧)`.
+
+The law is what consumers need; the eta-expansion
+`lam (sort u) (lam #0 (lam #1 (eqE #2 #1 #0)))` is the natural witness
+at the pinned block's install, and partial applications denote to it
+correctly because `denote` never has to know the arity.
+
+Three independent reasons, of which the first alone is decisive:
+
+1. **Empirical** — partial application occurs, so the special-case is
+   incomplete on the corpus we actually check.
+2. **Principled** — a spine special-case is a *computing* clause in
+   `denote`, breaking the structural rule of §2 that §7's accounting
+   (four substitution lemmas, not six and climbing) depends on.
+3. **Precedent** — it is how the layer already relates a former to the
+   constants it replaces: `psigmaFst`/`psigmaSnd` became lambdas over
+   the `proj` former and left `BConst` (`Setlec/TT/DESIGN.md` §3).
+
+*Cost, and where it is paid.*  Converting a spine to the former takes
+three `beta` steps, each wanting `⊢ arg : dom`.  Those come from the
+**app-argument certificate**, which §6 has already established is
+permanent — so this is a third consumer of that certificate rather than
+a new obligation.
+
+### The block's other constants
+
+* `Eq.refl` — the analogous lambda over the layer's canonical proof
+  (`prf` at an `eqE`), by the same argument.
+* `Eq.rec` — **nothing new needed**: `eqRec_derivable`
+  (`Setlec/TT/Examples.lean`) already exists, from the `congrEq` work.
