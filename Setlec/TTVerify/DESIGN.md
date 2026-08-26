@@ -413,3 +413,71 @@ The practical upshot does not depend on the answer, which is why this
 is comfortable to leave open: performance is unaffected either way
 (beta is free once the app-argument certificate goes).  Only "validate
 `--yolo` literally" turns on it.
+
+## 7. The next increment: the substitution stack
+
+`CheckStepTT` is the clause-by-clause work, and it has a single
+bottleneck that every interesting clause runs through — `app`, `beta`,
+`zeta` and every iota rule.  Naming it here rather than discovering it
+again next session.
+
+### What the clauses need
+
+The checker's `infer` on `.app f a` returns the `Expr` `B.instantiate1
+a`.  The layer's `HasType.app` concludes at `(⟦B⟧).inst ⟦a⟧`.  Those
+have to be the same `VExpr`, which is
+
+> **`denote` commutes with instantiation.**  If
+> `denote (d+1) (body.instantiate1 (.fvar d n ty)) = some B` and
+> `denote d a = some x`, then
+> `denote d (body.instantiate1 a) = some (B.inst x)`.
+
+The set model's counterpart is `interp_beta`
+(`Setlec/Model/Subst.lean`), reached through `interp_substFvarAt`, and
+the `Expr`-side machinery both lean on — `substFvarAt`,
+`substFvarAt_instantiate1{,_self}`, `fvarsBelow_instantiate1_gen`,
+`shiftFrom` and its lemmas — is in `Setlec/Verify/{Shift,Subst}.lean`,
+which this hierarchy may import.  So the mirror has its scaffolding
+already.
+
+### Where the transposition is *nicer* than the original
+
+`interp_substFvarAt` contracts the *valuation* at `p` (`delV`).  There
+is no valuation here, so the contraction becomes a de Bruijn
+substitution — and the index arithmetic comes out exactly right,
+which is worth recording because it is not obvious in advance:
+
+* at depth `D+1` the variable `fvar p` denotes `.bvar (D - p)`, so the
+  substitution happens at cut `k = D - p`;
+* an outer `fvar j` (`j < p`) denotes `.bvar (p-1-j)` at depth `p` and
+  `.bvar (D-1-j)` at depth `D`, and `D-1-j = (p-1-j) + (D-p)` — i.e.
+  the denotation at the deeper level is the shallower one lifted by
+  exactly `D - p`;
+* `VExpr.inst e a k` already substitutes `liftN k a`.
+
+So `k = D - p` makes `VExpr.inst`'s built-in lift *be* the depth shift.
+No auxiliary shifting appears in the statement at all:
+
+> `denote D (substFvarAt p a e) = (denote (D+1) e).map (·.inst x (D - p))`
+> where `denote p a = some x`.
+
+### The prerequisite, and why it is the real cost
+
+That `.fvar p` case needs
+
+> **the shift lemma**: for `e` scoped below `p` and `p ≤ D`,
+> `denote D e = (denote p e).map (·.liftN (D - p))`,
+
+which is also what a binder-opening site needs to re-establish `CtxOk`
+(at `D = d+1`, lift by `1`).  It is the one place the de Bruijn
+convention charges rent, and it is not a `denote.induct` proof: the
+binder clause compares `denote (D+1) (body.instantiate1 (.fvar D …))`
+with `denote (p+1) (body.instantiate1 (.fvar p …))`, two *different*
+expressions related by `Expr.shiftFrom`.  So it wants a generalization
+over the lift cut, with `shiftFrom` on the `Expr` side — the tools are
+in `Setlec/Verify/Shift.lean` and the model's `interp_lift` is the
+shape to mirror.
+
+Note the one thing that does *not* need shifting: the freshly opened
+variable itself.  `fvar D` at depth `D+1` and `fvar p` at depth `p+1`
+both denote `.bvar 0`.  That is what makes the cut behave.
