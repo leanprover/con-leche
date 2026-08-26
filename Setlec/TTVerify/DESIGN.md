@@ -599,21 +599,52 @@ yield `HasType Δ ⟦arg⟧ ⟦ta⟧` and `HasType Δ ⟦e₂⟧ ⟦te⟧` — b
 is §6's question again, which says it does not go through.
 
 **D — a finding about my own claim shape, and the reading above makes
-it likeliest.**  The check turned up *where* the missing fact actually
-lives: `whnfCoreBody`'s `.proj` clause relies on an invariant
-established by the **annotate** pass, whose own `.proj` clause *does*
-infer the subject, whnf its type, and normalise the node's `sn` to that
-type's head.  The set model carries exactly that invariant into
-reduction — `WhnfCoreClaims` takes `AnnotOk … e` as a **hypothesis**,
-and its `.proj` conjunct is the `sigmaSet` membership.
+it likeliest.**  The check located *where* the missing fact lives:
+`whnfCoreBody`'s `.proj` clause relies on an invariant established by
+the **annotate** pass, whose own `.proj` clause *does* infer the
+subject, whnf its type and normalise the node's `sn` to that head.  The
+set model carries exactly that invariant into reduction —
+`WhnfCoreClaims` takes `AnnotOk … e` as a **hypothesis**, and its
+`.proj` conjunct is the `sigmaSet` membership.  `WhnfCoreClaimsTT`
+carries nothing.
 
-`WhnfCoreClaimsTT` carries nothing: `AnnotOk` was dropped because a
-derivation supplies its facts, and the typing hypothesis was then
-withdrawn for §6's reasons.  Each move was justified on its own; the
-`.proj` clause may be where their conjunction bites.  So what D needs
-is not "a typing hypothesis" in the abstract but **the analogue of
-*the annotation is truthful*** — which is precisely what `AnnotOk` is,
-and precisely what this bridge claims to do without.
+#### Is D's fact semantic or syntactic?  Semantic — and it is F1 again
+
+A reviewer suggested the needed fact might be purely syntactic —
+`sn = head (whnf (infer p))`, an `Expr`-level side condition of the
+same class as `WScoped`, which the claims already carry and the
+checker's guards already establish.  That would make D far less
+uncomfortable: one more side condition, and "`AnnotOk` disappears"
+still true in the sense that matters.
+
+**Analysed, and it does not come out that way.**  Trace what each
+would give.
+
+* The *syntactic* condition, plus `InferClaimsTT` and the whnf claim
+  on the type, yields `⊢ ⟦p⟧ : psigmaT …` — a typing of the
+  **subject as written**.
+* The clause, however, reduces `e' = whnf p` and needs
+  `projFstMk`'s premises about **`e'`'s own components**.  Moving the
+  typing from `p` to `e'` across `Deq Δ ⟦p⟧ ⟦e'⟧` is *exactly the
+  schema F1 refutes*.
+* The set model has no such problem, and the reason is precise:
+  `interp e' = interp e` is **value identity**, so the `sigmaSet`
+  membership carries over for nothing.  Equations in this layer carry
+  no typing; interpretations carry everything.
+
+So the fact D needs is **semantic**, it is not obtainable from a side
+condition, and the obstruction is the headline fact of §6 at a *third*
+site — after subject reduction and the infer-only route.  Note also
+that neither `whnfCoreBody`'s `.proj` clause nor `projCert` ever checks
+that `e'`'s inferred type is *pair-headed*: `projCert` compares only
+its **sort** to `structSort`.
+
+*This is analysis, not proof.*  It predicts that the `.proj` clause is
+where certificate-only claims fail, and that the repair lives at the
+claim level (a reduct typing) rather than at the side-condition level.
+The proof attempt settles it, and the enumeration above stays open
+until then — including the possibility that this analysis is wrong,
+which would be the most interesting outcome of the four.
 
 Note carefully what D is **not**: it is not the threading withdrawn in
 `Setlec/TTVerify/Claims.lean`.  That withdrawal was about the
@@ -1079,3 +1110,29 @@ they stay — for instance that task #117's `letE` typing will want the
 type premise anyway.  Either is fine; leaving it unremarked is not,
 because the doctrine is load-bearing elsewhere and an unexplained
 exception erodes it.
+
+## 9. A constraint on task #117 (recorded here because nowhere else has it)
+
+Task #117 plans to eliminate the input-normalization pass; its item 4
+moves the projection rewrite from a stored pass to an implicit step at
+typecheck/reduction time.
+
+**Reduction currently depends on that pass.**  `whnfCoreBody`'s
+`.proj` clause reads the structure name off the *node* —
+`env.findProj? sn i` where `sn` comes from `.proj sn i pe` — and never
+infers the subject to obtain it.  What makes that sound is an
+invariant the **annotate** pass establishes: its own `.proj` clause
+infers the subject, whnfs the type, and *normalises the node's `sn` to
+that type's head* (`Setlec/Kernel/Core.lean`, `annotateBody`).  The
+set model carries the invariant into reduction inside `AnnotOk`.
+
+So #117 must either **preserve that invariant by another route** or
+**establish it at the point of use** — i.e. have the `.proj` reduction
+itself determine the structure from the subject's type rather than
+trusting the node.  The second is closer to what the reference kernels
+do and would also remove the bridge's dependence on it (§6, branch D),
+but it is a change to the reduction clause, not a deletion of a pass.
+
+Recorded as a constraint on the design, not as an observation about
+today's clause: whoever picks up #117 needs it *before* designing,
+and until now it existed only in this task's working notes.
