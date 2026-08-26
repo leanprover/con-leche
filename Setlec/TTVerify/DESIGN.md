@@ -54,6 +54,20 @@ statement that owes its own justification.  Both `cval_closed` and the
 counterpart, the second as a counterpart that could not be
 transposed.
 
+**And the failure mode one level up: follow your own asides.**  The
+`.proj` resolution (§6) was blocked for a turn by an analysis that
+concluded "F1 again" — while the sentence that refuted it was already
+in my own notes, filed as an aside: *neither the clause nor `projCert`
+checks that `e'`'s inferred type is pair-headed*.  The material was in
+hand; the practice was not applied to it.
+
+That is the same class of error this rule exists to prevent, committed
+one level up — not "I did not look" but "I looked, wrote it down, and
+did not follow it".  So: **an observation you park as an aside is an
+unexplored branch, not a footnote.**  Before concluding, re-read your
+own asides and ask which of them, followed, would change the
+conclusion.  Cheaper written down than relearned.
+
 The rule composes with `Setlec/TT/DESIGN.md` §3.1's house rule
 ("mechanize a consumer"): §3.1 says do not believe a definition until
 something uses it; this says do not *write* the definition until you
@@ -1015,10 +1029,14 @@ recursor and constructor, the rule, the level and argument spines,
 *both* `iotaCertsP … = .ok true` facts, and `eout` in exactly the form
 `RecRulesTT` concludes about.  So the clause splits cleanly:
 
-1. **Assembly — de-risked.**  `iotaRec_inv`, then `certs_typed` twice
-   (once per telescope) to build the two `TeleTyped`s, then
-   `EnvTT.rec_rules`.  Every piece exists; nothing here needs
-   invention.
+1. **Assembly — done** (`rec_rules_fire`,
+   `Setlec/TTVerify/Iota.lean`).  `certs_typed` twice, once per
+   telescope, then `EnvTT.rec_rules`.  It compiled on the first
+   attempt, which is what "de-risked by scouting" was supposed to buy
+   and did.  The scoping side conditions are hypotheses, to be
+   discharged by the clause from `EnvTT.wf` and the reduction's
+   invariants, exactly as the set model's iota case discharges its
+   own.
 2. **`majorToCtor` soundness — the real remaining work.**  The contract
    speaks about a redex whose major is already in constructor form,
    while the clause sees the major as written.  Bridging them is the

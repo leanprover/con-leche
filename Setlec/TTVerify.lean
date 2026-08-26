@@ -5,6 +5,7 @@ import Setlec.TTVerify.Shift
 import Setlec.TTVerify.Inst
 import Setlec.TTVerify.Tele
 import Setlec.TTVerify.Certs
+import Setlec.TTVerify.Iota
 import Setlec.TTVerify.Inversion
 import Setlec.TTVerify.EnvTT
 import Setlec.TTVerify.Claims
