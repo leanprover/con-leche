@@ -810,6 +810,16 @@ def eqValT (ψ : Name → Nat) : VExpr :=
 def eqReflValT (ψ : Name → Nat) : VExpr :=
   .lam (.sort (ψ uNT)) (.lam (.bvar 0) .prf)
 
+/-- The tower is closed. -/
+theorem eqValT_closed (ψ : Name → Nat) : VExpr.Closed (eqValT ψ) := by
+  simp only [eqValT, VExpr.Closed, VExpr.bvarsBelow]
+  exact ⟨trivial, by omega, by omega, by omega, by omega, by omega⟩
+
+/-- `Eq.refl`'s tower is closed. -/
+theorem eqReflValT_closed (ψ : Name → Nat) : VExpr.Closed (eqReflValT ψ) := by
+  simp only [eqReflValT, VExpr.Closed, VExpr.bvarsBelow]
+  exact ⟨trivial, by omega, trivial⟩
+
 /-- **The `Eq` law, from the tower.**  Three β-steps and the lift
 absorptions they leave. -/
 theorem eqValT_law {ψ : Name → Nat} {Δ : List VExpr} {A a b : VExpr}
@@ -848,6 +858,143 @@ theorem eqValT_law {ψ : Name → Nat} {Δ : List VExpr} {A a b : VExpr}
     simp [VExpr.liftN_zero] at this
     exact Deq.intro this
   exact Deq.trans (Deq.appFun (Deq.trans (Deq.appFun h1) h2)) h3
+
+
+/-- The `Eq` spine is a `Prop`, as a term — the tower's codomain is
+`Sort 0` and three `app`s reach it. -/
+theorem eqValT_sort {ψ : Name → Nat} {Δ : List VExpr} {A a b : VExpr}
+    (hA : HasType Δ A (.sort (ψ uNT))) (ha : HasType Δ a A)
+    (hb : HasType Δ b A) :
+    HasType Δ (VExpr.mkAppN (eqValT ψ) [A, a, b]) (.sort 0) := by
+  have h0 : HasType Δ (eqValT ψ)
+      (.pi (.sort (ψ uNT)) (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0)))) :=
+    HasType.weakenNil (.lam (.lam (.lam HasType.eqType))) Δ
+  have h1 := HasType.app h0 hA
+  simp only [VExpr.inst, VExpr.liftN_zero, reduceIte] at h1
+  have h2 := HasType.app h1 ha
+  simp only [VExpr.inst, Nat.lt_irrefl, if_false, Nat.zero_lt_one, if_true,
+    Nat.zero_add] at h2
+  rw [VExpr.inst_liftN_absorb A (Nat.zero_le _) (Nat.le_refl 0) a,
+    VExpr.liftN_zero] at h2
+  have h3 := HasType.app h2 hb
+  simpa [VExpr.mkAppN, VExpr.inst] using h3
+
+/-- `Eq.refl`'s tower, applied. -/
+theorem eqReflValT_typed {ψ : Name → Nat} {Δ : List VExpr} {A a : VExpr}
+    (hA : HasType Δ A (.sort (ψ uNT))) (ha : HasType Δ a A) :
+    HasType Δ (VExpr.mkAppN (eqReflValT ψ) [A, a])
+      (VExpr.mkAppN (eqValT ψ) [A, a, a]) := by
+  have hbody : HasType [VExpr.bvar 0, VExpr.sort (ψ uNT)] VExpr.prf
+      (VExpr.mkAppN (eqValT ψ) [.bvar 1, .bvar 0, .bvar 0]) := by
+    have hα : HasType [VExpr.bvar 0, VExpr.sort (ψ uNT)] (.bvar 1)
+        (.sort (ψ uNT)) := by
+      have := HasType.bvar (Γ := [VExpr.bvar 0, VExpr.sort (ψ uNT)])
+        (i := 1) (A := .sort (ψ uNT)) (by simp)
+      simpa using this
+    have ha' : HasType [VExpr.bvar 0, VExpr.sort (ψ uNT)] (.bvar 0)
+        (.bvar 1) := by
+      have := HasType.bvar (Γ := [VExpr.bvar 0, VExpr.sort (ψ uNT)])
+        (i := 0) (A := VExpr.bvar 0) (by simp)
+      simpa [VExpr.liftN] using this
+    exact HasType.conv (HasType.refl (T := VExpr.bvar 1))
+      ((eqValT_law hα ha' ha').symm.toHasType (VExpr.bvar 1))
+  have h0 : HasType Δ (eqReflValT ψ)
+      (.pi (.sort (ψ uNT)) (.pi (.bvar 0)
+        (VExpr.mkAppN (eqValT ψ) [.bvar 1, .bvar 0, .bvar 0]))) :=
+    HasType.weakenNil (.lam (.lam hbody)) Δ
+  have h1 := HasType.app h0 hA
+  simp only [VExpr.inst, VExpr.mkAppN, VExpr.inst_app,
+    VExpr.inst_eq_self_of_closed (eqValT_closed ψ), VExpr.liftN_zero,
+    reduceIte] at h1
+  have h2 := HasType.app h1 ha
+  simp only [VExpr.inst, Nat.lt_irrefl, if_false, Nat.zero_lt_one, if_true,
+    Nat.zero_add] at h2
+  rw [VExpr.inst_liftN_absorb A (Nat.zero_le _) (Nat.le_refl 0) a,
+    VExpr.liftN_zero] at h2
+  rw [VExpr.inst_eq_self_of_closed (eqValT_closed ψ)] at h2
+  simpa [VExpr.mkAppN, VExpr.liftN_zero] using h2
+
+
+/-- `Eq.rec`'s valuation: the minor premise, returned.  Transport is
+the identity — `eqRec_derivable` (`Setlec/TT/Examples.lean`), which is
+why the layer does not carry `Eq.rec` at all. -/
+def eqRecValT (ψ : Name → Nat) : VExpr :=
+  .lam (.sort (ψ uNT))
+    (.lam (.bvar 0)
+      (.lam (.pi (.bvar 1)
+          (.pi (VExpr.mkAppN (eqValT ψ) [.bvar 2, .bvar 1, .bvar 0])
+            (.sort (ψ u1NT))))
+        (.lam (.app (.app (.bvar 0) (.bvar 1))
+            (VExpr.mkAppN (eqReflValT ψ) [.bvar 2, .bvar 1]))
+          (.lam (.bvar 3)
+            (.lam (VExpr.mkAppN (eqValT ψ) [.bvar 4, .bvar 3, .bvar 0])
+              (.bvar 2))))))
+
+/-- `Eq.rec`'s frame, innermost first: `[t, b, refl, motive, a, α]`. -/
+def eqRecCtx (ψ : Name → Nat) : List VExpr :=
+  [VExpr.mkAppN (eqValT ψ) [.bvar 4, .bvar 3, .bvar 0], VExpr.bvar 3,
+   VExpr.app (.app (.bvar 0) (.bvar 1))
+     (VExpr.mkAppN (eqReflValT ψ) [.bvar 2, .bvar 1]),
+   VExpr.pi (.bvar 1) (.pi (VExpr.mkAppN (eqValT ψ)
+     [.bvar 2, .bvar 1, .bvar 0]) (.sort (ψ u1NT))),
+   VExpr.bvar 0, VExpr.sort (ψ uNT)]
+
+/-- **`Eq.rec`'s typing** — the derivable-eliminator shape.  The body
+has the motive at `a` and `Eq.refl`, where the motive at `b` and the
+hypothesis is wanted; two `congrApp`s close the gap, over the equation
+*read off the hypothesis* through the law and proof irrelevance. -/
+theorem eqRecValT_typed (ψ : Name → Nat) :
+    HasType [] (eqRecValT ψ)
+      (.pi (.sort (ψ uNT))
+        (.pi (.bvar 0)
+          (.pi (.pi (.bvar 1)
+              (.pi (VExpr.mkAppN (eqValT ψ) [.bvar 2, .bvar 1, .bvar 0])
+                (.sort (ψ u1NT))))
+            (.pi (.app (.app (.bvar 0) (.bvar 1))
+                (VExpr.mkAppN (eqReflValT ψ) [.bvar 2, .bvar 1]))
+              (.pi (.bvar 3)
+                (.pi (VExpr.mkAppN (eqValT ψ) [.bvar 4, .bvar 3, .bvar 0])
+                  (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))))))) := by
+  refine .lam (.lam (.lam (.lam (.lam (.lam ?_)))))
+  show HasType (eqRecCtx ψ) (VExpr.bvar 2) _
+  have hα : HasType (eqRecCtx ψ) (.bvar 5) (.sort (ψ uNT)) := by
+    have := HasType.bvar (Γ := eqRecCtx ψ) (i := 5) (A := .sort (ψ uNT))
+      (by simp [eqRecCtx])
+    simpa using this
+  have ha : HasType (eqRecCtx ψ) (VExpr.bvar 4) (VExpr.bvar 5) := by
+    have := HasType.bvar (Γ := eqRecCtx ψ) (i := 4) (A := VExpr.bvar 0)
+      (by simp [eqRecCtx])
+    simpa [VExpr.liftN] using this
+  have hb : HasType (eqRecCtx ψ) (VExpr.bvar 1) (VExpr.bvar 5) := by
+    have := HasType.bvar (Γ := eqRecCtx ψ) (i := 1) (A := VExpr.bvar 3)
+      (by simp [eqRecCtx])
+    simpa [VExpr.liftN] using this
+  have ht : HasType (eqRecCtx ψ) (VExpr.bvar 0)
+      (VExpr.mkAppN (eqValT ψ) [.bvar 5, .bvar 4, .bvar 1]) := by
+    have := HasType.bvar (Γ := eqRecCtx ψ) (i := 0)
+      (A := VExpr.mkAppN (eqValT ψ) [.bvar 4, .bvar 3, .bvar 0])
+      (by simp [eqRecCtx])
+    simpa [VExpr.mkAppN, VExpr.liftN,
+      VExpr.liftN_eq_self_of_closed (eqValT_closed ψ)] using this
+  have hab : Deq (eqRecCtx ψ) (VExpr.bvar 4) (VExpr.bvar 1) :=
+    Deq.intro (HasType.conv ht
+      ((eqValT_law hα ha hb).toHasType (VExpr.bvar 5)))
+  have hrt : Deq (eqRecCtx ψ) (VExpr.mkAppN (eqReflValT ψ) [.bvar 5, .bvar 4])
+      (VExpr.bvar 0) :=
+    Deq.intro (HasType.proofIrrel (eqValT_sort hα ha ha)
+      (eqValT_sort hα ha hb) (eqReflValT_typed hα ha) ht)
+  have hmot : HasType (eqRecCtx ψ) (VExpr.bvar 2)
+      (VExpr.app (.app (.bvar 3) (.bvar 4))
+        (VExpr.mkAppN (eqReflValT ψ) [.bvar 5, .bvar 4])) := by
+    have := HasType.bvar (Γ := eqRecCtx ψ) (i := 2)
+      (A := VExpr.app (.app (.bvar 0) (.bvar 1))
+        (VExpr.mkAppN (eqReflValT ψ) [.bvar 2, .bvar 1])) (by simp [eqRecCtx])
+    simpa [VExpr.mkAppN, VExpr.liftN,
+      VExpr.liftN_eq_self_of_closed (eqReflValT_closed ψ)] using this
+  exact HasType.conv hmot
+    ((Deq.app (Deq.appArg hab) hrt).toHasType
+      (VExpr.app (.app (.bvar 3) (.bvar 4))
+        (VExpr.mkAppN (eqReflValT ψ) [.bvar 5, .bvar 4])))
 
 
 /-- **`Eq`, installed** — and with it §11's law, discharged from the

@@ -2784,6 +2784,26 @@ applies to any future clause whose premises land on that certificate.
 * `Eq.rec` — **nothing new needed**: `eqRec_derivable`
   (`Setlec/TT/Examples.lean`) already exists, from the `congrEq` work.
 
+### CONFIRMED at the install, with a reason nobody priced
+
+The ruling above chose "fired law" over "pinned valuation equation" by
+analogy with `rec_rules` and `caps_ok`.  The install
+(`Setlec/TTVerify/DeclBasis.lean`) shows the reason that actually
+matters, and it is not analogy:
+
+> **The law gets used in both directions inside a single block.**
+> `Eq`'s own typing reads it forwards (spine ⇒ former); `Eq.refl`'s
+> reads it *backwards*, `conv`-ing `HasType.refl`'s `eqE` into the
+> spine the pinned type demands; and `Eq.rec`'s reads it forwards again,
+> to recover `a ≡ b` from its hypothesis.
+
+A valuation *equation* would have given only one direction — it fixes
+what the constant **is**, and every consumer would then have to unfold
+it. A `Deq`-valued law is symmetric by construction (`Deq.symm`), so
+the reverse direction costs nothing.  **Bidirectionality is the reason
+to prefer laws over equations**, and it was discovered at the first
+consumer that needed the reverse, not at the ruling.
+
 ## 12. The governing design directive, and what it changes
 
 A user directive arrived before `DefEqClaimsTT` and `InferClaimsTT`
@@ -3777,6 +3797,24 @@ it as a law rather than as a valuation equation (§11's ruling) was the
 load-bearing choice.  `substFn_param_self` is the small fact every
 basis type needs: a declaration read at its *own* level parameters is
 read at the ambient assignment.
+
+**All three towers are elaborated and typed** (`eqValT`, `eqReflValT`,
+`eqRecValT` with `eqValT_law`, `eqValT_sort`, `eqReflValT_typed`,
+`eqRecValT_typed`).  `Eq.rec`'s typing is the derivable-eliminator
+shape in full: its body has the motive at `a` and `Eq.refl` where the
+motive at `b` and the hypothesis is wanted, and two `congrApp`s close
+the gap over
+
+* `a ≡ b`, **read off the hypothesis** by pushing its stored-`Eq` type
+  through the law and taking `Deq.intro`, and
+* `Eq.refl α a ≡ t`, by `proofIrrel` — the two proofs need not inhabit
+  the same `Prop`, which is the #127 relaxation paying out again, now
+  in the same block whose install it also rescued from the level
+  question.
+
+The frame is factored as `eqRecCtx` rather than written six times; that
+is worth noting only because the six-entry context appears in eight
+statements and the factoring is what made the proof readable.
 
 **The computation needed a per-constructor `instantiate1` kit.**
 `denote` opens every binder with `instantiate1` at cut `0`, so a basis
