@@ -3921,6 +3921,31 @@ entry is `none` by design.  So the conclusion is now
 `∃ m', m'.cval = cvalSet …`, and a block lemma threads the equations
 forward.
 
+> **THE DEFERRAL'S DEBIT.**  §11's decision to leave the four derived
+> constants out of `pinnedDirectT` has been tallied generously — the
+> towers' shapes could not have been guessed early, the law is
+> bidirectional, the counterfactual is that writing them sooner could
+> only have been right by accident.  The cost belongs in the same
+> record: **a design decision to leave something unpinned propagates
+> into the interface of the thing that installs it.**  Because the
+> derived constants have no pin to read a valuation back from, the
+> installer must *return* its valuation rather than merely assert an
+> environment exists.  `Empty` and `PUnit` masked this completely —
+> everything they install is pinned — so it surfaced only at the third
+> block, one interface change and a threaded equation later.  Small,
+> paid once, and invisible from the decision, which is exactly why it
+> is recorded where the decision is praised.
+
+*The general lesson in miniature*: an install lemma's consumer is the
+**next install**, and what that consumer needs is the *state*, not the
+existence.  A `Nonempty`-shaped conclusion is right only where nothing
+sequential consumes it.  Checked across the bridge: the per-declaration
+obligations (`DeclDefnTT` and its five siblings), the single-constant
+installs (`extendValueTT`, the axiom and opaque cases) and the three
+block lemmas are all consumed by the *fold*, which needs only an
+`EnvTT` — so `Nonempty` is correct at every one of them.  The basis
+chain was the sole sequential consumer, and it is fixed.
+
 **A second candidate, filed unproved.**  The reason `denote_eqRec_rhs`
 lands at *the same four domains the type has* is that **the stored rule
 is the eliminator's own telescope re-abstracted**, so its binders are
