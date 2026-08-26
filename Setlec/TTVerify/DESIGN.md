@@ -87,6 +87,22 @@ definition has the wrong *shape*; **repeated bookkeeping** at use sites
 says it is missing a *hypothesis*.  Both are read off the consumers,
 which is why the consumers are worth reading first.
 
+**The family, closed.**  A third member appeared later (§8.6's
+factoring rule) and completes it, because it is the limit case of the
+first: a lemma with **no possible consumer**.
+
+| what you see at the use sites | what it says |
+|---|---|
+| a shim | the definition has the wrong **shape** |
+| the same bookkeeping repeated | it is missing a **hypothesis** |
+| no use site can exist | it was **sliced where the code does not slice** |
+
+The third is the sharpest because it is not a matter of degree: a lemma
+that is true, compiles, and can never be applied is one that cut a
+sequential body at a point the body does not expose.  All three are
+read off the consumers — including, in the third case, off their
+absence.
+
 ### The second practice: measure rare shapes; the suite does not cover them
 
 > **A fixture suite being green says nothing about argument shapes it
@@ -1549,6 +1565,13 @@ The rule that produced that choice, worth keeping: **put the boundary
 where it leaves the fewest unproved steps outside it.** An obligation
 is a promise about what remains; a promise that leaves debris around it
 is worse than a larger promise that does not.
+
+**The three rules, and what each answers.**  They arrived separately
+and are a set: §8.6's *boundary* rule says **where** to put an
+obligation (fewest unproved steps outside it); §12.7's *estimation*
+rule says **how big** it is (read the inversion, not the conclusion);
+and the rule below says **where factoring is possible at all**.  Apply
+them in that order — the third can veto the first.
 
 **Where a checker body may be factored at all** (learned by producing a
 non-composable lemma and withdrawing it within the hour):
