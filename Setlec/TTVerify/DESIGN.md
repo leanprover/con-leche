@@ -1305,6 +1305,65 @@ away from where it is defined.  The objection is not merely weaker
 here — it is inverted, because the "side conditions" it feared are
 typing premises, which are this layer's currency.
 
+### 8.1 Correction: the fired form must not quantify over `Expr`s
+
+**The decision above survives; the shape it was recorded in does not.**
+Found while building the first field transport (`rec_rules` across a
+fresh install), and worth recording as a *correction* rather than a
+tidy-up, because the fired form was written down as closed.
+
+As first stated, `RecRulesTT` quantified over the argument
+*expressions* `args margs : List Expr` and took the redex's and
+reduct's denotations as **hypotheses**.  That does not transport.  An
+install grows the environment, so a law about `⟨c₀ :: env⟩` has to be
+discharged from the law about `env`; but the arguments quantified over
+in the bigger environment may mention `c₀`, and then they have **no
+denotation in the smaller one**.  `denote_mono` runs the wrong way, and
+no side condition repairs it: the arguments are arbitrary, and at a
+fire site inside `checkDecl` they really can mention the constant just
+installed.
+
+The general rule the episode establishes, which applies to any
+environment-indexed invariant and not just to this one:
+
+> **Every environment-dependent fact in a law's *hypotheses* must be
+> about a *stored* expression.**  Facts about arbitrary expressions may
+> appear only in the conclusion.
+
+The set model obeys this without ever saying so, and that is why
+`EnvModel` transports: `EtaLaw` quantifies over `ps : List V` — values,
+not expressions — and its one `Expr` is `cvT.type`, which is stored.
+Its transport (`CapsOk.cons`, `Setlec/Model/Extend/Sibs.lean`) then runs
+that single hypothesis *down* through `TeleFit.env_shrink`, guarded by
+`Expr.constsResolve`, which `EnvWF` supplies for stored types.  Reading
+that proof is what identified the fix; **the shape was in the model all
+along, and the fired form's mistake was to depart from it in a detail
+that looked cosmetic.**
+
+The repair, taken:
+
+* the spines move to `VExpr` (`VTeleTyped`, the transpose of `TeleFit`,
+  beside the existing `TeleTyped`, which is `TeleFitI`'s transpose —
+  the model keeps both for the same reason);
+* the remaining `denote` hypotheses are all of stored expressions, and
+  transport by `denote_env_shrink`, the transpose of `interp_mono`;
+* `RecRulesTT` gains the `constsResolve` clause its model counterpart
+  already has, for the rule's right-hand side.
+
+The cost lands where the model pays it too: at the *consumer*.
+`rec_rules_fire` now has to split the recursor's certified spine at its
+major premise and rebuild both sides as `VExpr` applications
+(`DenoteSpine.snoc_inv`, `.append`, `.take`, `.drop`, `.map`).  That
+bookkeeping is not incidental — it is the price of a law whose
+quantifiers do not mention the environment, and it is the right price.
+
+**The tell, for next time.**  A law is suspect when a *hypothesis*
+mentions both the environment and a universally quantified expression.
+That combination is exactly what fails to transport, and it is visible
+in the statement without doing any proof — the same class of check as
+"read the hypotheses before believing an easy proof" (§0), applied to
+definitions rather than lemmas.
+
 ### `HasType.letE`'s first two premises are not consumed by soundness
 
 `Setlec/TT/Semantics/Soundness.lean`'s `letE` case uses only the third

@@ -107,31 +107,35 @@ def RecRulesTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     env.find? n = some (.recInfo cv mI rP rules) →
     ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
+    (RecRule.rhs rl).constsResolve env = true ∧
     ∀ (cvj : ConstantVal) (cnP cnF : Nat),
       env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
     ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr)
-      (us usj : List Level) (args margs : List Expr)
-      (xs ys : List VExpr) (restR restC : Expr) (L R : VExpr),
-      args.length = mI →
-      margs.length = RecRule.ctorParams rl + RecRule.nfields rl →
+      (us usj : List Level) (xs ys : List VExpr)
+      (TV TVj restR restC R : VExpr),
+      xs.length = mI →
+      ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+      us.length = cv.levelParams.length →
+      usj.length = cvj.levelParams.length →
+      -- the two stored types, denoted (`denote_env_shrink` moves these)
+      denote cval env φ d
+        (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
+      denote cval env φ d
+        (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVj →
+      denote cval env φ d
+        ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us) = some R →
       -- the recursor's spine, typed against its telescope
-      TeleTyped cval env φ d Δ
-        (cv.type.instantiateLevelParams cv.levelParams us)
-        (args ++ [Expr.mkAppN (.const (RecRule.ctor rl) usj) margs])
-        xs restR →
+      VTeleTyped Δ TV
+        (xs ++ [VExpr.mkAppN
+          (cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys])
+        restR →
       -- the constructor's spine, typed against its own
-      TeleTyped cval env φ d Δ
-        (cvj.type.instantiateLevelParams cvj.levelParams usj) margs ys
-        restC →
-      denote cval env φ d
-        (Expr.mkAppN (.const n us)
-          (args ++ [Expr.mkAppN (.const (RecRule.ctor rl) usj) margs])) =
-        some L →
-      denote cval env φ d
-        (Expr.mkAppN
-          ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
-          (args.take rP ++ margs.drop (RecRule.ctorParams rl))) = some R →
-      Deq Δ L R
+      VTeleTyped Δ TVj ys restC →
+      Deq Δ
+        (VExpr.mkAppN (cval n (Level.substFn φ cv.levelParams us))
+          (xs ++ [VExpr.mkAppN
+            (cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys]))
+        (VExpr.mkAppN R (xs.take rP ++ ys.drop (RecRule.ctorParams rl)))
 
 theorem RecRulesTT.empty (cval : TConstVal) : RecRulesTT Env.empty cval := by
   intro n cv mI rP rules h
@@ -183,19 +187,20 @@ written and confirmed verbatim (`Setlec/TTVerify/DESIGN.md` §6). -/
 def EtaLawTT (env : Env) (cval : TConstVal) (T : Name) (cvT : ConstantVal)
     (caps : IndCaps) : Prop :=
   ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr) (us : List Level)
-    (ps : List Expr) (b : Expr) (xs : List VExpr) (rest : Expr)
-    (B F : VExpr),
-    ps.length = caps.etaParams →
-    TeleTyped cval env φ d Δ
-      (cvT.type.instantiateLevelParams cvT.levelParams us) ps xs rest →
-    denote cval env φ d b = some B →
+    (xs : List VExpr) (TV rest B : VExpr),
+    xs.length = caps.etaParams →
+    denote cval env φ d
+      (cvT.type.instantiateLevelParams cvT.levelParams us) = some TV →
+    VTeleTyped Δ TV xs rest →
     HasType Δ B
       (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us)) xs) →
-    denote cval env φ d
-      (Expr.mkAppN (.const caps.etaCtor us)
-        (ps ++ (List.range caps.etaFields).map fun j =>
-          Expr.mkAppN (.const (projFnName T j) us) (ps ++ [b]))) = some F →
-    Deq Δ B F
+    Deq Δ B
+      (VExpr.mkAppN (cval caps.etaCtor
+          (Level.substFn φ (levelParamsAt env caps.etaCtor) us))
+        (xs ++ (List.range caps.etaFields).map fun j =>
+          VExpr.mkAppN (cval (projFnName T j)
+            (Level.substFn φ (levelParamsAt env (projFnName T j)) us))
+            (xs ++ [B])))
 
 /-- **The unit-like law, fired.**  Transpose of `EnvModel`'s
 `UnitLaw`: any two inhabitants of a unit-like family's type are
@@ -204,13 +209,11 @@ equal.  Consumed by the proof-irrelevance path and by
 def UnitLawTT (env : Env) (cval : TConstVal) (T : Name) (cvT : ConstantVal)
     (caps : IndCaps) : Prop :=
   ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr) (us : List Level)
-    (ps : List Expr) (b b' : Expr) (xs : List VExpr) (rest : Expr)
-    (B B' : VExpr),
-    ps.length = caps.unitParams →
-    TeleTyped cval env φ d Δ
-      (cvT.type.instantiateLevelParams cvT.levelParams us) ps xs rest →
-    denote cval env φ d b = some B →
-    denote cval env φ d b' = some B' →
+    (xs : List VExpr) (TV rest B B' : VExpr),
+    xs.length = caps.unitParams →
+    denote cval env φ d
+      (cvT.type.instantiateLevelParams cvT.levelParams us) = some TV →
+    VTeleTyped Δ TV xs rest →
     HasType Δ B
       (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us)) xs) →
     HasType Δ B'
@@ -370,6 +373,8 @@ lemma. -/
 def NatOpsTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ c ∈ natOpNames, ∀ cv v hint, env.find? c = some (.defnInfo cv v hint) →
     natOpGuard env c = true ∧
+    (∀ eq ∈ natOpEquations 0 c,
+      eq.1.constsResolve env = true ∧ eq.2.constsResolve env = true) ∧
     ∀ eq ∈ natOpEquations 0 c, ∀ (φ : Name → Nat) (L R : VExpr),
       denote cval env φ 2 eq.1 = some L →
       denote cval env φ 2 eq.2 = some R →

@@ -1,5 +1,6 @@
 import Setlec.TTVerify.Denote
 import Setlec.TTVerify.EnvTT
+import Setlec.Verify.EnvWF
 
 /-!
 # Denotations survive environment extension
@@ -425,6 +426,181 @@ theorem levelParamsAt_cons_of_ne {env : Env} {c₀ : ConstantInfo} {n : Name}
     levelParamsAt ⟨c₀ :: env.consts⟩ n = levelParamsAt env n := by
   unfold levelParamsAt
   rw [Env.find?_cons, if_neg h]
+
+/-! ## Denotations run *backwards* across a fresh install
+
+`denote_mono` moves a denotation from the smaller environment to the
+larger one.  The environment invariant needs the other direction as
+well, and it needs it for a reason that only shows up when a *field* is
+transported rather than a term (`Setlec/TTVerify/DESIGN.md` §8.1): a
+law that takes a denotation as a **hypothesis** is stated about the
+larger environment after the install, so discharging it from the
+smaller environment's law means running that hypothesis down, not up.
+
+The converse is false in general — the larger environment denotes
+strictly more — so it is guarded exactly as the set model guards
+`interp_mono`: by `Expr.constsResolve`, which holds of every *stored*
+expression by `EnvWF`.  This is the transpose of `interp_mono`
+(`Setlec/Model/InterpLemmas.lean`), and it is consumed the way the
+model consumes it, through a telescope-level shrink at the law's own
+premise.
+
+**It needs no guard or level-parameter hypotheses**, unlike
+`denote_mono`: for a literal node `constsResolve` already asserts that
+every slot the guard reads is stored in the *small* environment, and
+freshness then says the new constant is none of them. -/
+
+/-- A stored name is not the freshly installed one. -/
+theorem ne_of_isSome_fresh {env : Env} {c₀ : ConstantInfo} {n : Name}
+    (hfresh : env.find? c₀.name = none) (h : (env.find? n).isSome = true) :
+    c₀.name ≠ n := by
+  intro he
+  rw [← he, hfresh] at h
+  exact nomatch h
+
+/-- Denotation is unchanged by a fresh install on expressions whose
+constants already resolve.  Transpose of `interp_mono`. -/
+theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) :
+    ∀ (d : Nat) (e : Expr), e.constsResolve env = true →
+      denote cval ⟨c₀ :: env.consts⟩ φ d e = denote cval env φ d e := by
+  intro d e
+  induction d, e using denote.induct (cval := cval) (env := env) (φ := φ) with
+  | case1 d u => intro _; rw [denote_sort, denote_sort]
+  | case2 d idx nm ty => intro _; rw [denote_fvar, denote_fvar]
+  | case3 d n us ci h1 h2 =>
+    intro _
+    simp only [denote_const, h1, if_pos h2,
+      Env.find?_cons_of_isSome hfresh (by rw [h1]; rfl)]
+  | case4 d n us ci h1 h2 =>
+    intro _
+    simp only [denote_const, h1, if_neg h2,
+      Env.find?_cons_of_isSome hfresh (by rw [h1]; rfl)]
+  | case5 d n us h1 =>
+    intro hres
+    rw [Expr.constsResolve, h1] at hres
+    exact nomatch hres
+  | case6 d n ty body mb h1 ihty =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_forallE, denote_forallE, ihty hres.1, h1]
+  | case7 d n ty body mb B h1 h2 ihty ihbody =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_forallE, denote_forallE, ihty hres.1, h1,
+      ihbody (Expr.constsResolve_instantiate1 hres.1 0 hres.2), h2]
+  | case8 d n ty body mb B h1 B' h2 ihty ihbody =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_forallE, denote_forallE, ihty hres.1, h1,
+      ihbody (Expr.constsResolve_instantiate1 hres.1 0 hres.2), h2]
+  | case9 d n ty body mb h1 ihty =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_lam, denote_lam, ihty hres.1, h1]
+  | case10 d n ty body mb B h1 h2 ihty ihbody =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_lam, denote_lam, ihty hres.1, h1,
+      ihbody (Expr.constsResolve_instantiate1 hres.1 0 hres.2), h2]
+  | case11 d n ty body mb B h1 B' h2 ihty ihbody =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_lam, denote_lam, ihty hres.1, h1,
+      ihbody (Expr.constsResolve_instantiate1 hres.1 0 hres.2), h2]
+  | case12 d f a vf va h1 h2 ihf iha =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_app, denote_app, ihf hres.1, iha hres.2]
+  | case13 d f a hbad ihf iha =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_app, denote_app, ihf hres.1, iha hres.2]
+  | case14 d n ty val body vf va h1 h2 h3 ihty ihval ihbody =>
+    intro hres
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_letE, denote_letE, ihty hres.1.1, ihval hres.1.2,
+      ihbody (Expr.constsResolve_instantiate1 hres.1.1 0 hres.2)]
+  | case15 d n ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
+    intro hres
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_letE, denote_letE, ihty hres.1.1, ihval hres.1.2,
+      ihbody (Expr.constsResolve_instantiate1 hres.1.1 0 hres.2)]
+  | case16 d n ty val body hbad ihty ihval =>
+    intro hres
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_letE, denote_letE, ihty hres.1.1, ihval hres.1.2]
+    split
+    · next vf va k1 k2 => exact (hbad vf va k1 k2).elim
+    · rfl
+  | case17 d sn i e h1 ihe =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_proj, denote_proj, ihe hres.2]
+  | case18 d sn i e B h1 h2 ihe =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_proj, denote_proj, ihe hres.2]
+  | case19 d sn i e B h1 h2 ihe =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_proj, denote_proj, ihe hres.2]
+  | case20 d n hg =>
+    intro hres
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_natLit, denote_natLit,
+      natLitSupported_cons_of_ne (ne_of_isSome_fresh hfresh hres.1.1)
+        (ne_of_isSome_fresh hfresh hres.1.2)
+        (ne_of_isSome_fresh hfresh hres.2)]
+  | case21 d n hg =>
+    intro hres
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_natLit, denote_natLit,
+      natLitSupported_cons_of_ne (ne_of_isSome_fresh hfresh hres.1.1)
+        (ne_of_isSome_fresh hfresh hres.1.2)
+        (ne_of_isSome_fresh hfresh hres.2)]
+  | case22 d s hg =>
+    intro hres
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨k1, k2⟩, k3⟩, k4⟩, k5⟩, k6⟩, k7⟩, k8⟩, k9⟩, k10⟩ := hres
+    rw [denote_strLit, denote_strLit,
+      strLitSupported_cons_of_ne (ne_of_isSome_fresh hfresh k1)
+        (ne_of_isSome_fresh hfresh k2) (ne_of_isSome_fresh hfresh k3)
+        (ne_of_isSome_fresh hfresh k4) (ne_of_isSome_fresh hfresh k5)
+        (ne_of_isSome_fresh hfresh k6) (ne_of_isSome_fresh hfresh k7)
+        (ne_of_isSome_fresh hfresh k8) (ne_of_isSome_fresh hfresh k9)
+        (ne_of_isSome_fresh hfresh k10),
+      strLitT, strLitT,
+      levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k7),
+      levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k8)]
+  | case23 d s hg =>
+    intro hres
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨k1, k2⟩, k3⟩, k4⟩, k5⟩, k6⟩, k7⟩, k8⟩, k9⟩, k10⟩ := hres
+    rw [denote_strLit, denote_strLit,
+      strLitSupported_cons_of_ne (ne_of_isSome_fresh hfresh k1)
+        (ne_of_isSome_fresh hfresh k2) (ne_of_isSome_fresh hfresh k3)
+        (ne_of_isSome_fresh hfresh k4) (ne_of_isSome_fresh hfresh k5)
+        (ne_of_isSome_fresh hfresh k6) (ne_of_isSome_fresh hfresh k7)
+        (ne_of_isSome_fresh hfresh k8) (ne_of_isSome_fresh hfresh k9)
+        (ne_of_isSome_fresh hfresh k10),
+      strLitT, strLitT,
+      levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k7),
+      levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k8)]
+  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+    intro _
+    match x with
+    | .bvar i => rw [denote_bvar, denote_bvar]
+    | .sort u => exact (k1 u rfl).elim
+    | .fvar a b c => exact (k2 a b c rfl).elim
+    | .const a b => exact (k3 a b rfl).elim
+    | .forallE a b c dd => exact (k4 a b c dd rfl).elim
+    | .lam a b c dd => exact (k5 a b c dd rfl).elim
+    | .app a b => exact (k6 a b rfl).elim
+    | .letE a b c dd => exact (k7 a b c dd rfl).elim
+    | .proj a b c => exact (k8 a b c rfl).elim
+    | .lit (.natVal n) => exact (k9 n rfl).elim
+    | .lit (.strVal t) => exact (k10 t rfl).elim
 
 /-- The literal-support agreements, bundled.  Every install transport
 needs the same seven, so they travel together rather than as seven

@@ -45,6 +45,8 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hctor : env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF))
     (hlenA : args.length = mI)
     (hlenM : margs.length = RecRule.ctorParams rl + RecRule.nfields rl)
+    (hlenR : us.length = cv.levelParams.length)
+    (hlenJ : usj.length = cvj.levelParams.length)
     -- the recursor's telescope, certified at the full spine
     {TR : VExpr}
     (hcertR : iotaCertsP env fuel d
@@ -74,7 +76,9 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hargsC : ∀ x ∈ margs, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
       CtxOk m.cval env φ d Δ x)
     -- the two sides denote
-    {L R : VExpr}
+    {L R RH : VExpr}
+    (hRH : denote m.cval env φ d
+      ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us) = some RH)
     (hL : denote m.cval env φ d
       (Expr.mkAppN (.const n us)
         (args ++ [Expr.mkAppN (.const (RecRule.ctor rl) usj) margs])) = some L)
@@ -86,13 +90,46 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
   -- the checker's two certification runs become the contract's two
   -- telescope-typing hypotheses; this is `certs_typed`, i.e. the
   -- `iotaCerts` prediction of DESIGN §6 in use
-  obtain ⟨xs, restR, hfitR⟩ :=
+  obtain ⟨zs, restR, hfitR⟩ :=
     certs_typed m φ hcl ihd ihi _ _ TR hcertR hwR hbR hCR hiR hargsR
   obtain ⟨ys, restC, hfitC⟩ :=
     certs_typed m φ hcl ihd ihi _ _ TC hcertC hwC hbC hCC hiC hargsC
-  exact m.rec_rules n cv mI rP rules hrec rl hrl hfire cvj cnP cnF hctor
-    φ d Δ us usj args margs xs ys restR restC L R hlenA hlenM hfitR hfitC
-    hL hR
+  -- the constructor's spine denotes elementwise, so the major premise's
+  -- own denotation is its `VExpr` application
+  have hspC : DenoteSpine m.cval env φ d margs ys := hfitC.spine
+  have hmaj : denote m.cval env φ d
+      (Expr.mkAppN (.const (RecRule.ctor rl) usj) margs) =
+      some (VExpr.mkAppN
+        (m.cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) := by
+    refine denote_mkAppN hspC ?_
+    simp [denote_const, hctor, ConstantInfo.toConstantVal, hlenJ]
+  -- split the recursor's spine at its last entry, the major premise
+  obtain ⟨xs, y, rfl, hspR, hy⟩ := DenoteSpine.snoc_inv hfitR.spine
+  obtain rfl : y = VExpr.mkAppN
+      (m.cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys := by
+    rw [hmaj] at hy; exact (Option.some.inj hy).symm
+  -- the two sides are the spines' `VExpr` applications
+  obtain ⟨RVR, hvR, -⟩ := hfitR.toV hcl hiR
+  obtain ⟨RVC, hvC, -⟩ := hfitC.toV hcl hiC
+  obtain rfl : L = VExpr.mkAppN (m.cval n (Level.substFn φ cv.levelParams us))
+      (xs ++ [VExpr.mkAppN
+        (m.cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys]) := by
+    rw [denote_mkAppN (vf := m.cval n (Level.substFn φ cv.levelParams us))
+      (DenoteSpine.append hspR (.cons hy .nil))
+      (by simp [denote_const, hrec, ConstantInfo.toConstantVal, hlenR])] at hL
+    exact (Option.some.inj hL).symm
+  obtain rfl : R = VExpr.mkAppN RH
+      (xs.take rP ++ ys.drop (RecRule.ctorParams rl)) := by
+    rw [denote_mkAppN (DenoteSpine.append (hspR.take rP)
+      (hspC.drop (RecRule.ctorParams rl))) hRH] at hR
+    exact (Option.some.inj hR).symm
+  refine (m.rec_rules n cv mI rP rules hrec rl hrl hfire).2
+    cvj cnP cnF hctor φ d Δ us usj xs ys TR TC RVR RVC RH ?_ ?_ hlenR hlenJ
+    hiR hiC hRH hvR hvC
+  · have := hspR.length
+    omega
+  · have := hspC.length
+    omega
 
 /-! ## The stuck-major rescues
 
@@ -130,26 +167,60 @@ afterwards. -/
 /-- **The eta rescue.**  A stuck major and its fabricated constructor
 form denote to `Deq`-equal terms. -/
 theorem eta_rescue {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     {d : Nat} {Δ : List VExpr}
     {T : Name} {cvT : ConstantVal} {caps : IndCaps} {ust : List Level}
     {major : Expr} {targs : List Expr} {xs : List VExpr} {rest : Expr}
-    {B F : VExpr}
+    {TV B : VExpr}
     (hT : env.find? T = some (.indInfo cvT caps))
     (heta : caps.eta = true)
     (hres : reservedBasisNames.contains T = false)
     (hfam : EtaFamilyStoredT env T caps)
     (hlen : targs.length = caps.etaParams)
+    (hlenC : ust.length = (levelParamsAt env caps.etaCtor).length)
+    (hlenP : ∀ j, j < caps.etaFields →
+      ust.length = (levelParamsAt env (projFnName T j)).length)
+    (hTV : denote m.cval env φ d
+      (cvT.type.instantiateLevelParams cvT.levelParams ust) = some TV)
     (hfit : TeleTyped m.cval env φ d Δ
       (cvT.type.instantiateLevelParams cvT.levelParams ust) targs xs rest)
     (hB : denote m.cval env φ d major = some B)
     (hBt : HasType Δ B
-      (VExpr.mkAppN (m.cval T (Level.substFn φ cvT.levelParams ust)) xs))
-    (hF : denote m.cval env φ d
+      (VExpr.mkAppN (m.cval T (Level.substFn φ cvT.levelParams ust)) xs)) :
+    ∃ F, denote m.cval env φ d
       (Expr.mkAppN (.const caps.etaCtor ust)
-        (etaFabArgs T ust targs major caps.etaFields)) = some F) :
-    Deq Δ B F :=
-  m.caps_ok.1 T cvT caps hT heta hres hfam φ d Δ ust targs major xs rest
-    B F hlen hfit hB hBt hF
+        (etaFabArgs T ust targs major caps.etaFields)) = some F ∧
+      Deq Δ B F := by
+  obtain ⟨hcres, ⟨cvC, hfC⟩, hfP⟩ := hfam
+  obtain ⟨rest', hvfit, -⟩ := hfit.toV hcl hTV
+  have hsp : DenoteSpine m.cval env φ d targs xs := hfit.spine
+  -- every fabricated field denotes to the law's projection application
+  have hproj : DenoteSpine m.cval env φ d
+      ((List.range caps.etaFields).map fun j =>
+        Expr.mkAppN (.const (projFnName T j) ust) (targs ++ [major]))
+      ((List.range caps.etaFields).map fun j =>
+        VExpr.mkAppN (m.cval (projFnName T j)
+          (Level.substFn φ (levelParamsAt env (projFnName T j)) ust))
+          (xs ++ [B])) := by
+    refine DenoteSpine.map fun j hj => ?_
+    obtain ⟨cvP, mI, rP, rules, hfPj⟩ := hfP j (List.mem_range.mp hj)
+    refine denote_mkAppN (DenoteSpine.append hsp (.cons hB .nil)) ?_
+    simp [denote_const, hfPj, levelParamsAt, ConstantInfo.toConstantVal,
+      hlenP j (List.mem_range.mp hj)]
+  refine ⟨VExpr.mkAppN (m.cval caps.etaCtor
+      (Level.substFn φ (levelParamsAt env caps.etaCtor) ust))
+      (xs ++ (List.range caps.etaFields).map fun j =>
+        VExpr.mkAppN (m.cval (projFnName T j)
+          (Level.substFn φ (levelParamsAt env (projFnName T j)) ust))
+          (xs ++ [B])), ?_, ?_⟩
+  · rw [etaFabArgs]
+    refine denote_mkAppN (vf := m.cval caps.etaCtor
+      (Level.substFn φ (levelParamsAt env caps.etaCtor) ust))
+      (DenoteSpine.append hsp hproj) ?_
+    simp [denote_const, hfC, levelParamsAt, ConstantInfo.toConstantVal, hlenC]
+  · refine m.caps_ok.1 T cvT caps hT heta hres
+      ⟨hcres, ⟨cvC, hfC⟩, hfP⟩ φ d Δ ust xs TV rest' B ?_ hTV hvfit hBt
+    rw [hsp.length, hlen]
 
 /-! ## The stuck-major K rescue
 
