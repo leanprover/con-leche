@@ -493,12 +493,32 @@ The general principle, worth keeping: **a structural `denote` is what
 keeps the bridge's substitution metatheory small.**  Whenever a clause
 is tempted to compute, the cost lands here.
 
+### Landed: instantiation commutes (`Setlec/TTVerify/Inst.lean`)
+
+`denote_substFvarAt` and `denote_beta`, transposing
+`interp_substFvarAt` and `interp_beta`.  Both predictions from the
+analysis held:
+
+* **the cut is free.**  `k = D - p` makes `VExpr.inst`'s *built-in*
+  `liftN k` on the substituend be exactly the depth shift, so the one
+  interesting case — the variable being substituted for — is
+  `denote_lift` and nothing else.  No auxiliary shifting appears in the
+  statement, unlike the model's `delV` contraction;
+* **every binder case is structural**, because `denote` is.  This is
+  the dividend of the `letE` withdrawal above: had `denote` performed a
+  substitution, this proof would need lifting-commutes-with-
+  instantiation exactly as the shift lemma would have.  It needs
+  neither, and between the two lemmas the bridge's entire substitution
+  metatheory is `liftN_liftN`, `liftN_zero` and the two closedness
+  facts.
+
+For contrast, that is the same accounting `Setlec/TT/DESIGN.md` §6
+makes for the layer: lean4lean needs ~123 syntactic lemmas where the
+semantic route needs two.  The bridge does have de Bruijn bookkeeping
+and so cannot get to two — but it gets to four, and only because
+`denote` was kept structural.
+
 ### Next
 
-`denote` commutes with instantiation, mirroring `interp_substFvarAt`
-and `interp_beta`, then the clauses of `CheckStepTT` against the
-threaded claims of §6.  With `denote` structural, that proof's binder
-cases are structural too, and its one interesting case — a free
-variable at the substitution point — is discharged by `denote_lift`,
-because `VExpr.inst`'s built-in `liftN k` on the substituend is exactly
-the depth shift (§7's arithmetic note above).
+The clauses of `CheckStepTT`, against the threaded claims of §6.  The
+substitution stack is no longer in the way of any of them.
