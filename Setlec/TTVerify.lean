@@ -1,6 +1,7 @@
 import Setlec.TTVerify.Denote
 import Setlec.TTVerify.EnvTT
 import Setlec.TTVerify.Consistency
+import Setlec.TTVerify.HasTypeSubst
 
 /-!
 # The TTVerify bridge (task #119)
