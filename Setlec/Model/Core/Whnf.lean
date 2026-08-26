@@ -304,7 +304,7 @@ theorem whnfCore_claims (m : EnvModel V env)
     have hie : interpExpr V m.val env φ d ρ e₂ =
         interpExpr V m.val env φ d ρ e := hie₂.trans hie₁
     rcases hcase with rfl |
-      ⟨us, entry, hfn, hf, hnat, hi2, hlen, hus, hred, hcert⟩
+      ⟨us, entry, hfn, hf, hnat, hi2, hlen, hus, hred, hcert, -⟩
     · -- stuck projection
       refine ⟨?_, ?_⟩
       · simp only [interpExpr]

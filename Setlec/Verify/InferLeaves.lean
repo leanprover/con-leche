@@ -537,7 +537,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
             cases this
         simp only [fvarLeaves]
         rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
+          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -, -⟩
         · simp only [fvarLeaves] at hl
           exact ihLoop he l (hsub₃ l hl)
         · have hl2 := ihCore hred l hl
@@ -666,7 +666,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           · exact hbe₂
           · exact ihLoop hred (strLitToConstructor_looseBVars s 0)
         rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
+          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -, -⟩
         · simpa [looseBVarsBounded] using hbe₃
         · exact ihCore hred
             (looseBVarsBounded_getAppArgs hbe₃ _ (getD_mem (by omega)))

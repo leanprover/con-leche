@@ -8058,3 +8058,85 @@ survives the next declaration of this shape.
   instantiated in one mirror and static in another is worse than
   either — and the now-redundant copy in the 0-field sub-branch is
   gone.
+
+## The `.proj` clause certifies the constructor telescope (2026-08-26, task #126)
+
+**The first change the TT bridge (task #119) asked of the checker — a
+design output rather than a verification result.**
+
+`whnfCoreBody`'s `.proj` clause reduces `proj i p` by whnf-ing the
+subject to `e'`, matching `e'.getAppFn` against the table entry's
+constructor, and running `projCert`.  `projCert` checks *levels*: the
+field's type's sort against the entry's pinned `fieldSort` and the
+subject's type's sort against its `structSort` — the collapse guard,
+which is what the set model consumes (`projCert_inv` feeds
+`Nat.max … = 0`; the memberships come from `AnnotOk`'s own `.proj`
+clause, which inference establishes).
+
+The layer's rules for the same reduction (`projFstMk`/`projSndMk`,
+`Setlec/TT/*`) name four premises about the reduct's components, with
+`⟦e'⟧ = psigmaMkT u v A B a b`:
+
+```
+⊢ A : .sort u    ⊢ B : arrow A (.sort v)    ⊢ a : A    ⊢ b : .app B a
+```
+
+`projCert` supplies **none of the four**: it never checks the sorts of
+the parameters `A` and `B`, and its own typing fact is the field at its
+*inferred* type rather than at the domain the rule names.  Those four
+premises are exactly the four telescope domains of `PSigma'.mk`'s
+stored type, so **one `iotaCerts` call on the constructor spine**
+produces all of them — the call `iotaRec` already makes for its
+constructor telescope, which the `.proj` clause did not.  That is
+`projTeleCert` (spec), `projTeleCertI` (interned), run after `projCert`
+and gating the reduction the same way.
+
+**This is not a soundness bug, and the phrasing matters.**  Nothing
+here says the reduction is wrong; the checker simply *certified less
+than its rule needs*, so a typing derivation could not be rebuilt from
+what it recorded.  A reader who finds this section must not go looking
+for an unsoundness that is not there.  The set model is unaffected —
+it never consumed the missing facts, and `Setlec/Model/Core/Whnf.lean`
+takes the new conjunct as `-`.
+
+Merely checking that the reduct's *inferred type* is pair-headed would
+not do: by the bridge's "premises are supplied where the rule fires",
+a typing at some other domain cannot be moved to the pinned one, so the
+descent to the components would stay unjustified.
+
+**Mirrors and their asymmetry.**  Spec (`Setlec/Kernel/Core.lean`),
+interned (`Setlec/Kernel/CoreI.lean`) and the pure `whnfCoreStepM`
+mirror (`Setlec/Verify/BetaSpine.lean`) all run it.  `CoreNC.lean`
+**skips** it: the cert-skipping measurement mode exists to price the
+calls that are there only for the proofs, and this is an `iotaCertsI`
+telescope certification — the very family NC already skips at
+`iotaRecNC`, `structEtaCertWithNC` and `structUnitCertNC`.  The
+references reduce a `.proj` node by direct field selection and certify
+nothing (lean4lean `projectCore`; official kernel `whnf_core`'s proj
+case), so keeping it in NC would inflate the "verification tax" number
+with work no reference kernel does.  (`projCertI` stays in NC: it is
+outside the task-#76 site list, reported there as residue.)
+
+**Verification.**  The proof-side mirrors are mechanical: `projTeleCertP`
++ fold (`Verify/Knot.lean`), `projTeleCert_atF` (`Fueled.lean`),
+`_fst_proj`/`_snd_proj` (`PairM.lean`), `_mono` (`BetaSpine.lean`),
+`_shift` (`Deep.lean`), `_disc` (`Disc.lean`), `projTeleCertI_sim`
+(`DiscI2.lean`) and the `.proj` clause of the interned walk
+(`DiscI4.lean`).  `whnf_proj_inv` grew one conjunct, and
+`projTeleCert_inv` (`InferLemmas.lean`) turns a successful run into the
+constructor lookup plus the `iotaCertsP` fact — the entry point for
+`certs_fit` (set model) and `certs_typed` (bridge).
+
+**Measured** (init-prelude probe, `perf stat -e instructions:u`, median
+of 3; 188 `proj` records in the stream):
+
+| mode | before | after | delta |
+|---|---|---|---|
+| certified | 33.891 G | 33.940 G | **+0.145 %** |
+| `SETLEC_NO_PROOF_CERTS=1` | 11.501 G | 11.501 G | 0.00 % (skipped) |
+
+Verdicts unmoved: init-prelude stdout/stderr byte-identical in both
+modes, arena 90/92, e2e 67/67, split driver 11/11.  A telescope
+certification that *failed* on real input would have shown up as a
+decline here — it does not, which is the evidence that the checker was
+always in a position to write these facts down.

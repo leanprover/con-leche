@@ -65,6 +65,15 @@ Skipped here (each site cites why it is proof-only):
 * `structUnitCertNC` (vs `structUnitCertI`): the type-former telescope
   certification — lean4lean's `isDefEqUnitLike` checks exactly the
   unit-like shape and the defeq of the two types (kept).
+* `whnfCoreBodyNC`'s proj clause (vs `whnfCoreStepI`'s): the
+  constructor-telescope certification `projTeleCertI` (task #126) — the
+  same `iotaCertsI` family skipped at every other site above.  It was
+  added so that a *typing derivation* for `proj_i (C p⃗ x⃗) ↦ x_i` can be
+  rebuilt from what the checker records (the projection rules' four
+  premises are that telescope's domains); the references reduce a
+  `.proj` node by direct field selection and certify nothing
+  (lean4lean `projectCore`, official kernel `whnf_core`'s proj case),
+  so it is proof-only in exactly the task-#76 sense.
 
 Not skipped (also proof-only, but outside the task-#76 site list —
 reported as residue): `projCertI`, the possibly-Prop projection
@@ -376,9 +385,12 @@ decreasing_by
 
 end
 
-/-- Cert-skipping twin of `whnfCoreBodyI` (only the app clause differs,
-through `whnfAppNC`; the possibly-Prop projection certificate
-`projCertI` is outside the task-#76 site list and kept). -/
+/-- Cert-skipping twin of `whnfCoreBodyI`: the app clause differs
+through `whnfAppNC`, and the proj clause drops the
+constructor-telescope certification `projTeleCertI` (task #126, an
+`iotaCertsI` site like every other one this mode skips).  The
+possibly-Prop projection certificate `projCertI` is outside the
+task-#76 site list and kept. -/
 def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
   fun depth e => do
     match ← viewI e with
