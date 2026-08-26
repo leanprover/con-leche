@@ -24,6 +24,8 @@ import Setlec.TTVerify.StuckStep
 import Setlec.TTVerify.EtaCertStep
 import Setlec.TTVerify.StuckIrrelStep
 import Setlec.TTVerify.StructEtaCertStep
+import Setlec.TTVerify.LitCtorStep
+import Setlec.TTVerify.MajorStep
 import Setlec.TTVerify.Extend
 import Setlec.TTVerify.Consistency
 import Setlec.TTVerify.HasTypeSubst

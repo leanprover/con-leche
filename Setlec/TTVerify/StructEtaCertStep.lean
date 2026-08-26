@@ -95,39 +95,33 @@ theorem etaFab_frames {cval : TConstVal} {env : Env} {φ : Name → Nat}
     · simp [Expr.fvarLeaves] at h
     · exact (hmem x hx).2.2.2 l hlx
 
-/-- **`StructEtaCertStepTT`, discharged.** -/
-theorem structEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) : StructEtaCertStepTT m φ fuel := by
-  intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
-  obtain ⟨tb, wtb, htb, hwtb, hcert⟩ := structEtaCert_inv h
+/-- **The certificate against a given reduced type.**  Stated at
+`structEtaCertWith` rather than at `structEtaCert` because that is
+where the checker factors: `majorToCtor`'s eta rescue calls it with
+the major's already-reduced type, and `structEtaCert` calls it with a
+type it reduces itself.  Both consumers get the same lemma. -/
+theorem structEtaCertWith_stepTT {env : Env} (m : EnvTT env)
+    (φ : Name → Nat) {fuel : Nat}
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    {d : Nat} {Δ : List VExpr} {a b wtb : Expr} {va vb W : VExpr}
+    (hcert : structEtaCertWithP env fuel d a b wtb = .ok true)
+    (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a) (hCa : CtxOk m.cval env φ d Δ a)
+    (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded b) (hCb : CtxOk m.cval env φ d Δ b)
+    (hwr : Expr.WScoped d wtb) (hbr : wtb.looseBVarsBounded 0 = true)
+    (hLr : Expr.LeavesBounded wtb) (hCr : CtxOk m.cval env φ d Δ wtb)
+    (hW : denote m.cval env φ d wtb = some W) (hbT : HasType Δ vb W)
+    (hva : denote m.cval env φ d a = some va)
+    (hvb : denote m.cval env φ d b = some vb) : Deq Δ va vb := by
   obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, hfn, hfc, hlenA, hfnb,
-    hfT, heta, hctor, hpP, hpF, hresT, hresC, hlenT, hlenU, hlps, -,
+    hfT, heta, hctor, hpP, hpF, hresT, hresC, hlenT, hlenU, hlps, _,
     hlev, hcerts, hprojs, hd1, hd2⟩ := structEtaCertWith_inv hcert
-  -- `b`'s reduced type, and its frames
-  obtain ⟨vb', Tb, hvb', hTb, hbT⟩ := ihi htb hwb hbb hLb hCb
-  obtain rfl : vb = vb' := by
-    rw [hvb'] at hvb; exact (Option.some.inj hvb).symm
-  have hCtb : CtxOk m.cval env φ d Δ tb :=
-    CtxOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htb hwb) hCb
-  have hwtb' : Expr.WScoped d tb := inferTypeCore_WScoped m.wf fuel htb hwb
-  have hbtb : tb.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLb
-  have hLtb : Expr.LeavesBounded tb := fun l hl =>
-    hLb l (inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
-  obtain ⟨W, hW, hDW⟩ := ihw hwtb hwtb' hbtb hLtb hCtb hTb
-  have hwr : Expr.WScoped d wtb := whnf_WScoped m.wf fuel hwtb hwtb'
-  have hbr : wtb.looseBVarsBounded 0 = true :=
-    whnf_looseBVars m.wf fuel hwtb hbtb
-  have hLr : Expr.LeavesBounded wtb := fun l hl =>
-    hLtb l (whnf_fvarLeaves m.wf fuel hwtb l hl)
-  have hCr : CtxOk m.cval env φ d Δ wtb :=
-    CtxOk.of_subset (whnf_fvarLeaves m.wf fuel hwtb) hCtb
   -- the family's telescope, certified
   obtain ⟨TV, hTV⟩ := denote_declType m φ hfT hcl us' d
   obtain ⟨hwty, hbty, hLty, hCty⟩ := closed_frames (cval := m.cval)
-    (env := env) (φ := φ) hCb.1
+    (env := env) (φ := φ) hCr.1
     (by rw [Expr.hasFvar_instantiateLevelParams cvT.levelParams us']
         exact (m.wf _ (find?_mem hfT)).1)
     (by
@@ -157,8 +151,7 @@ theorem structEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     rw [← hmk, hW] at this
     exact Option.some.inj this
   have hBt : HasType Δ vb (VExpr.mkAppN
-      (m.cval T (Level.substFn φ cvT.levelParams us')) xs) := by
-    rw [← hWeq]; exact Deq.conv hbT hDW
+      (m.cval T (Level.substFn φ cvT.levelParams us')) xs) := hWeq ▸ hbT
   -- the family is complete: constructor and projection functions stored
   have hfam : EtaFamilyStoredT env T caps := by
     refine ⟨by rw [hctor]; exact hresC, ⟨cvc, ?_⟩, fun j hj => ?_⟩
@@ -234,7 +227,7 @@ theorem structEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
           (fun y hy => (hargs y hy).1) (fun y hy => (hargs y hy).2.1)
           (fun y hy => (hargs y hy).2.2.1)
           (fun y hy => (hargs y hy).2.2.2) hwb hbb hLb hCb j).2.2.1 l hlx
-  · refine ⟨hCb.1, fun l hl => ?_⟩
+  · refine ⟨hCr.1, fun l hl => ?_⟩
     rcases fvarLeaves_mkAppN hl with hl' | ⟨x, hx, hlx⟩
     · simp [Expr.fvarLeaves] at hl'
     · rcases List.mem_append.mp hx with h | h
@@ -244,6 +237,32 @@ theorem structEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
           (fun y hy => (hargs y hy).1) (fun y hy => (hargs y hy).2.1)
           (fun y hy => (hargs y hy).2.2.1)
           (fun y hy => (hargs y hy).2.2.2) hwb hbb hLb hCb j).2.2.2).2 l hlx
+
+/-- **`StructEtaCertStepTT`, discharged.** -/
+theorem structEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
+    (ihi : InferClaimsTT m φ fuel) : StructEtaCertStepTT m φ fuel := by
+  intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
+  obtain ⟨tb, wtb, htb, hwtb, hcert⟩ := structEtaCert_inv h
+  obtain ⟨vb', Tb, hvb', hTb, hbT⟩ := ihi htb hwb hbb hLb hCb
+  obtain rfl : vb = vb' := by
+    rw [hvb'] at hvb; exact (Option.some.inj hvb).symm
+  have hCtb : CtxOk m.cval env φ d Δ tb :=
+    CtxOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htb hwb) hCb
+  have hwtb' : Expr.WScoped d tb := inferTypeCore_WScoped m.wf fuel htb hwb
+  have hbtb : tb.looseBVarsBounded 0 = true :=
+    inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLb
+  have hLtb : Expr.LeavesBounded tb := fun l hl =>
+    hLb l (inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
+  obtain ⟨W, hW, hDW⟩ := ihw hwtb hwtb' hbtb hLtb hCtb hTb
+  exact structEtaCertWith_stepTT m φ hcl ihd ihi hcert hwa hba hLa hCa
+    hwb hbb hLb hCb
+    (whnf_WScoped m.wf fuel hwtb hwtb')
+    (whnf_looseBVars m.wf fuel hwtb hbtb)
+    (fun l hl => hLtb l (whnf_fvarLeaves m.wf fuel hwtb l hl))
+    (CtxOk.of_subset (whnf_fvarLeaves m.wf fuel hwtb) hCtb)
+    hW (Deq.conv hbT hDW) hva hvb
 
 /-! ## The chain, closed but for one link
 

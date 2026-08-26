@@ -412,8 +412,33 @@ inductions on the set-model side too.
 | --- | --- |
 | `WhnfClaimsTT` | **closed** |
 | `InferClaimsTT` | **closed** |
-| `WhnfCoreClaimsTT` | closed modulo three chain links (`litMajorToCtor`, `majorToCtor`, `projLitToCtor`) |
+| `WhnfCoreClaimsTT` | **closed** |
 | `DefEqClaimsTT` | closed modulo `PairEtaCertStepTT` alone (**blocked on task #130, §13**) |
+
+**`CheckStepTT` is therefore one hypothesis away from proved**, and the
+hypothesis is a single named certificate: `checkStepTT_pairEta`
+(`Setlec/TTVerify/MajorStep.lean`) takes `PairEtaCertStepTT` at every
+fuel level and returns `CheckStepTT`.  When #130 lands, the edit is to
+replace that argument with the discharged lemma and delete the
+parameter; nothing else in the hierarchy moves.
+
+The three `WhnfCoreClaimsTT` chain links closed with no surprises, and
+two of them are §2's identity a third time: `litMajorToCtor` and
+`projLitToCtor` expand a literal to its constructor form, and both
+expansions are `denote`-**transparent** (`denote_natLitToConstructor`,
+`denote_strLitToConstructor`), so the accumulated equation does not
+grow across them.  `majorToCtor` is the one with content, and its two
+obligations were both discharged by *the checker's own guards*
+(§8.4 at its cleanest): the fabrication's frame conditions are exactly
+the three Booleans of the scope guard `majorToCtor` already runs
+(`wscopedB`, `looseBVarsBounded`, `fvarLeaves ⊆ major`'s), and the
+fabrication's *denotation* is exactly what the synthetic-spine
+`iotaCerts` of task #71 produces once `certs_typed` transposes it.
+Neither guard was added for the bridge.
+
+Discharged inside `WhnfCoreClaimsTT`: `LitMajorToCtorStepTT`,
+`ProjLitToCtorStepTT`, `MajorToCtorStepTT` — hence `IotaStepTT` and
+`ProjStepTT`, hence the quarter.
 
 Discharged inside `DefEqClaimsTT`: `defeqStep_claim`, `defeqLoop_claim`,
 `ProofIrrelStepTT`, `DefEqSpineStepTT`, `DefEqStuckStepTT` (all
