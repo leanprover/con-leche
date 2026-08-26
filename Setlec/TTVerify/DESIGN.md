@@ -3957,6 +3957,20 @@ constant's own obligation, where `cval'` was already in scope.  Two
 adjacent problems with different answers, and conflating them would
 have credited the fix with something the original design had right.
 
+> **ATTRIBUTION DISCIPLINE.**  A *payout* claim needs the same evidence
+> as any other claim.  An interface fix that appears to keep paying is
+> precisely the shape to check **before** the claim is made rather than
+> after — the reading is flattering, the two problems are adjacent, and
+> the difference (threading *between* constants versus resolution
+> *within* one constant's obligation) is invisible unless you look at
+> both shapes side by side.
+
+The same paragraph records the pre-registration's ordinary return: the
+flag was a **non-event**, and a non-event is data only because it was
+named as a prediction first.  Had the shape not been flagged, its
+absence would have been indistinguishable from never having thought
+about it.
+
 *The general lesson in miniature*: an install lemma's consumer is the
 **next install**, and what that consumer needs is the *state*, not the
 existence.  A `Nonempty`-shaped conclusion is right only where nothing
