@@ -1330,6 +1330,22 @@ environment-indexed invariant and not just to this one:
 > about a *stored* expression.**  Facts about arbitrary expressions may
 > appear only in the conclusion.
 
+**The mechanism is variance**, and the rule should always be quoted with
+it, because the reason is what tells you when it generalises.
+Hypotheses are contravariant: to prove a law in the larger environment
+you must *use* the law from the smaller one, so every hypothesis of the
+larger law has to be dischargeable in the smaller.  A fact about a
+**stored** expression transports downward, because the expression is
+still stored there and `constsResolve` says so.  A fact about an
+**arbitrary** expression does not, because the expression may mention
+the constant that was just installed.  Conclusions run the other way
+and are free.
+
+**The statement-level tell** — check it without doing any proof: *a
+hypothesis that mentions both the environment and a universally
+quantified expression*.  That combination is precisely the
+contravariant one, and it is visible in the definition.
+
 The set model obeys this without ever saying so, and that is why
 `EnvModel` transports: `EtaLaw` quantifies over `ps : List V` — values,
 not expressions — and its one `Expr` is `cvT.type`, which is stored.
@@ -1347,8 +1363,11 @@ The repair, taken:
   the model keeps both for the same reason);
 * the remaining `denote` hypotheses are all of stored expressions, and
   transport by `denote_env_shrink`, the transpose of `interp_mono`;
-* `RecRulesTT` gains the `constsResolve` clause its model counterpart
-  already has, for the rule's right-hand side.
+* the `constsResolve` side conditions the transports need are *not*
+  added as field clauses: `EnvTT` already carries `wf : EnvWF env`,
+  which supplies every one of them.  Clauses were briefly added
+  mirroring `RecRulesOk`, then removed — see the "too strong" note
+  below.
 
 The cost lands where the model pays it too: at the *consumer*.
 `rec_rules_fire` now has to split the recursor's certified spine at its
@@ -1357,12 +1376,57 @@ major premise and rebuild both sides as `VExpr` applications
 bookkeeping is not incidental — it is the price of a law whose
 quantifiers do not mention the environment, and it is the right price.
 
-**The tell, for next time.**  A law is suspect when a *hypothesis*
-mentions both the environment and a universally quantified expression.
-That combination is exactly what fails to transport, and it is visible
-in the statement without doing any proof — the same class of check as
-"read the hypotheses before believing an easy proof" (§0), applied to
-definitions rather than lemmas.
+**A correction to §8's own framing, from the coordinator, recorded
+because the flawed version is quotable and should not survive.**  When
+the contract decision was closed, "five fields, one shape" was endorsed
+as the *checkable* claim, against "we chose the fired form" as the one
+requiring trust.  That was too generous.  Uniformity is checkable, but
+it establishes **consistency, not correctness** — and here all five
+fields shared one defect, so the uniformity being praised was uniform
+wrongness.  The defensible reading: a uniform structure makes a
+*deviation* easy to spot, which is worth having, but it is no evidence
+that the shape is right.  Read §8's closing paragraphs with that
+caveat.
+
+**What actually confirmed the diagnosis** was not uniformity but its
+opposite: `ReduceOpsTT` and `DivModTT` needed no change at all, having
+been `VExpr`-only from the start.  Two fields that were already right,
+for reasons unconnected to the repair, agreeing with the repair's
+prediction — that is evidence; five fields agreeing with each other is
+not.
+
+**And on §0's practice.**  This is the "look for the set-model
+counterpart" habit catching an error *already made* rather than
+preventing one.  Both are wins; only the second is comfortable, and a
+practice that only ever caught errors in advance would be one nobody
+had tested.
+
+### 8.2 "Too strong" is the recurring defect, not "too weak"
+
+Three instances in three increments, all found by reading a statement
+rather than by a proof failing:
+
+1. `denote_cval_congr` first took agreement at *all* names, which
+   subsumes its own conclusion — the vacuity bug, caught because it
+   compiled first try (§0).
+2. `denote_mono`'s level-parameter hypothesis was quantified over all
+   names when the proof reads exactly two (`listNilName`,
+   `listConsName`).
+3. `RecRulesTT`/`NatOpsTT` were given `constsResolve` clauses that
+   `EnvWF` already supplies, so the field asserted content it did not
+   own.
+
+None of these is a soundness hole — an over-strong hypothesis makes a
+lemma *harder* to apply, not wrong — which is exactly why they survive
+review: nothing breaks. They surface later as transports that will not
+go through, or as fields nobody can discharge.
+
+**The default when writing a hypothesis: ask what the proof actually
+reads, not what would obviously suffice.**  "Obviously suffices" is how
+all three arose. The three tells, in the order they are cheap to check:
+a hypothesis quantified more broadly than the conclusion needs; a
+hypothesis that subsumes the conclusion; and a clause duplicating one
+an adjacent field already carries.
 
 ### `HasType.letE`'s first two premises are not consumed by soundness
 
