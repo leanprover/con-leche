@@ -3667,6 +3667,38 @@ level question (§14.4) and `Nat.rec`'s recursive occurrence: **if the
 clauses are shaped wrong, `PSigma'` is where it shows**, and a
 non-event there is only informative because it was predicted here.
 
+> **THE FLAG FIRED — but one level up from where it was aimed.**  The
+> two `proj` clauses are fine.  What is wrong is `extendBasisTT`'s
+> **`hres : reservedBasisNames.contains ci.name = true`**, and it is
+> *unsatisfiable* for the only two constants that would test them:
+>
+> ```
+> reservedBasisNames.contains pairFstA.name = false   -- by decide
+> pairFstA.name = projFnName psigmaName 0             -- by rfl
+> ```
+>
+> `reservedBasisNames` lists twenty *names*; a projection function's
+> name is `(T.str "proj").num i`, which is none of them — a fact this
+> file already proves, as `projFnName_ne_reserved`, and uses to
+> discharge `hheadEta`'s third disjunct.  **The wrapper assumes every
+> pinned constant is reserved.  Twenty of the twenty-two are.**
+
+The defect is §8.2's again, in the form the vacuity flag was written to
+catch: a premise that four blocks satisfied for free, and that the
+fifth cannot satisfy at all.  It was invisible for four blocks precisely
+*because* those blocks discharged the clauses it guards by constructor
+disjointness — the vacuity hid not the clauses' shape but the
+**premise's**.
+
+**Sharper than the flag predicted, and worth the rule.**  The flag said
+"an obligation discharged vacuously has never been consumed, so its
+shape is conjecture".  True, but incomplete: *the hypotheses a vacuous
+discharge lets you get away with are conjecture too*, and they are the
+harder half to notice, because nothing in the four passing blocks points
+at them.  A vacuously-discharged obligation should be read as putting
+**its whole surrounding signature** on probation, not just its own
+statement.
+
 One thing already known from reading the declarations, which the
 clauses will have to fit: a `projInfo`'s `toConstantVal` is
 `⟨projFnName e.structName e.idx, e.levelParams, e.ty⟩` — the entry
