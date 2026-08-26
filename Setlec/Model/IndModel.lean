@@ -86,39 +86,6 @@ theorem ChainSlots_append (v : V) (xs ys : List V) :
     simp only [List.cons_append, ChainSlots, SpineFold_cons, ih,
       and_assoc]
 
-/-- Block completeness: whenever a pinned basis *recursor* is stored,
-the other members of its block are stored (pinned) too.  This holds
-because blocks install as a unit with the recursor last; iota soundness
-uses it to resolve the constants a rule right-hand side mentions. -/
-def BasisBlocks (env : Env) : Prop :=
-  (∀ cv mI rP rules,
-    env.find? (eqName.str "rec") = some (.recInfo cv mI rP rules) →
-    env.find? eqName = some eqA ∧ env.find? eqReflName = some eqReflA) ∧
-  (∀ cv mI rP rules,
-    env.find? (natName.str "rec") = some (.recInfo cv mI rP rules) →
-    env.find? natName = some natA ∧ env.find? natZeroName = some natZeroA ∧
-    env.find? natSuccName = some natSuccA) ∧
-  (∀ cv mI rP rules,
-    env.find? (psigmaName.str "rec") = some (.recInfo cv mI rP rules) →
-    env.find? psigmaName = some psigmaA ∧
-    env.find? psigmaMkName = some psigmaMkA) ∧
-  (∀ cv mI rP rules,
-    env.find? (punitName.str "rec") = some (.recInfo cv mI rP rules) →
-    env.find? punitName = some punitA ∧
-    env.find? punitUnitName = some punitUnitA)
-
-/-- Every stored recursor rule's constructor is itself stored: blocks
-carry their constructors, and the recursor is installed after them. -/
-def RecCtorsStored (env : Env) : Prop :=
-  ∀ n cv mI rP rules,
-    env.find? n = some (.recInfo cv mI rP rules) →
-    ∀ r ∈ rules, ∃ cvj cnP cnF,
-      env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)
-
-theorem RecCtorsStored.empty : RecCtorsStored Env.empty := by
-  intro n cv mI rP rules h
-  simp [Env.find?, Env.empty] at h
-
 /-- The environment's inductive-kind constants have models: every fact
 here is what some checker rule's soundness consumes.  Grows on demand as
 rules land (iota equations come with the recursor rules). -/
@@ -137,27 +104,6 @@ def IndOk (env : Env) (val : ConstVal V) : Prop :=
   BasisBlocks env ∧
   RecCtorsStored env ∧
   (∀ (ψ : Name → Nat) (x : V), x ∈ˢ val emptyName ψ → False)
-
-/-- Every stored *native* projection-table entry is one of the two
-pinned pair entries, with the pair block's members stored pinned
-alongside (native entries install only with the pinned `PSigma'`
-block; the proj rules' soundness identifies the pair through this
-clause instead of by name).  Template entries carry no obligation
-here: the fallback's output is re-checked at every use. -/
-def ProjOk (env : Env) : Prop :=
-  ∀ n entry, env.find? n = some (.projInfo entry) →
-    entry.native = true →
-    (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
-    env.find? psigmaName = some psigmaA ∧
-    env.find? psigmaMkName = some psigmaMkA
-
-theorem ProjOk.empty : ProjOk Env.empty := by
-  intro n entry h
-  simp [Env.find?, Env.empty] at h
-
-theorem BasisBlocks.empty : BasisBlocks Env.empty := by
-  refine ⟨?_, ?_, ?_, ?_⟩ <;>
-    (intro cv mI rP rules h; simp [Env.find?, Env.empty] at h)
 
 theorem IndOk.empty (val : ConstVal V)
     (hE : ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val emptyName ψ → False) :

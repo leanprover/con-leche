@@ -1,5 +1,6 @@
 import Setlec.Kernel.Basis
 import Setlec.SetTheory.Basic
+import Setlec.Verify.EnvPreds
 
 /-!
 # The hand-written valuations of the basis constants
@@ -21,10 +22,6 @@ open SetTheory Name
 
 /-- The type of constant valuations. -/
 abbrev ConstVal (V : Type u) := Name → (Name → Nat) → V
-
-def uN : Name := anonymous |>.str "u"
-def u1N : Name := anonymous |>.str "u_1"
-def vN : Name := anonymous |>.str "v"
 
 /-- The value of the basis pair type former. -/
 noncomputable def psigmaVal (ψ : Name → Nat) : V :=
@@ -255,11 +252,6 @@ def pinnedInfo (n : Name) : ConstantInfo :=
   else if n = quotIndName then quotIndA
   else if n = quotSoundName then quotSoundA
   else .axiomInfo ⟨n, [], .sort .zero⟩
-
-/-- Is this constant-info one of the basis kinds? -/
-def ConstantInfo.isBasis : ConstantInfo → Bool
-  | .indInfo _ _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ => true
-  | _ => false
 
 /-- Which names carry constructor-shaped pinned declarations. -/
 theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}

@@ -1,3 +1,4 @@
+import Setlec.Verify.Extend.Sibs
 import Setlec.Verify.InstSpine
 import Setlec.Model.Extend.Inversions
 
@@ -17,79 +18,6 @@ namespace Setlec
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
-
-/-- The sibling-availability data `BasisBlocks` preservation needs when
-extending by one (fresh) constant: if the constant is a recursor-kind
-record, the members of its block are already stored. -/
-def SibFinds (env : Env) (c₀ : ConstantInfo) : Prop :=
-  ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
-    (c₀.name = eqName.str "rec" →
-      env.find? eqName = some eqA ∧ env.find? eqReflName = some eqReflA) ∧
-    (c₀.name = natName.str "rec" →
-      env.find? natName = some natA ∧
-      env.find? natZeroName = some natZeroA ∧
-      env.find? natSuccName = some natSuccA) ∧
-    (c₀.name = psigmaName.str "rec" →
-      env.find? psigmaName = some psigmaA ∧
-      env.find? psigmaMkName = some psigmaMkA) ∧
-    (c₀.name = punitName.str "rec" →
-      env.find? punitName = some punitA ∧
-      env.find? punitUnitName = some punitUnitA)
-
-theorem BasisBlocks.cons {env : Env} {c₀ : ConstantInfo}
-    (hb : BasisBlocks env) (hfind' : env.find? c₀.name = none)
-    (hsib : SibFinds env c₀) :
-    BasisBlocks (⟨c₀ :: env.consts⟩ : Env) := by
-  have keep : ∀ {s : Name} {X : ConstantInfo}, env.find? s = some X →
-      Env.find? ⟨c₀ :: env.consts⟩ s = some X := by
-    intro s X hs
-    rw [Env.find?_cons_of_isSome hfind' (by rw [hs]; rfl)]
-    exact hs
-  refine ⟨?_, ?_, ?_, ?_⟩
-  · intro cv mI rP rules h
-    rw [Env.find?_cons] at h
-    split at h
-    · next hn =>
-      obtain heq := (Option.some.inj h)
-      obtain ⟨hs, -, -, -⟩ := hsib cv mI rP rules heq
-      obtain ⟨h1, h2⟩ := hs hn
-      exact ⟨keep h1, keep h2⟩
-    · next hn =>
-      obtain ⟨h1, h2⟩ := hb.1 cv mI rP rules h
-      exact ⟨keep h1, keep h2⟩
-  · intro cv mI rP rules h
-    rw [Env.find?_cons] at h
-    split at h
-    · next hn =>
-      obtain heq := (Option.some.inj h)
-      obtain ⟨-, hs, -, -⟩ := hsib cv mI rP rules heq
-      obtain ⟨h1, h2, h3⟩ := hs hn
-      exact ⟨keep h1, keep h2, keep h3⟩
-    · next hn =>
-      obtain ⟨h1, h2, h3⟩ := hb.right.left cv mI rP rules h
-      exact ⟨keep h1, keep h2, keep h3⟩
-  · intro cv mI rP rules h
-    rw [Env.find?_cons] at h
-    split at h
-    · next hn =>
-      obtain heq := (Option.some.inj h)
-      obtain ⟨-, -, hs, -⟩ := hsib cv mI rP rules heq
-      obtain ⟨h1, h2⟩ := hs hn
-      exact ⟨keep h1, keep h2⟩
-    · next hn =>
-      obtain ⟨h1, h2⟩ := hb.right.right.left cv mI rP rules h
-      exact ⟨keep h1, keep h2⟩
-  · intro cv mI rP rules h
-    rw [Env.find?_cons] at h
-    split at h
-    · next hn =>
-      obtain heq := (Option.some.inj h)
-      obtain ⟨-, -, -, hs⟩ := hsib cv mI rP rules heq
-      obtain ⟨h1, h2⟩ := hs hn
-      exact ⟨keep h1, keep h2⟩
-    · next hn =>
-      obtain ⟨h1, h2⟩ := hb.right.right.right cv mI rP rules h
-      exact ⟨keep h1, keep h2⟩
 
 /-- The fold facts a single (freshly installed) recursor-kind member
 must supply, phrased over the extended environment and valuation:
@@ -114,30 +42,6 @@ def RecMemberOk (env' : Env) (val' : ConstVal V)
             AnnotOk V val' env' ψ 0 (rho0 V) (closeLamsAt fvms bL) ∧
             ∃ Rv, interpClosed V val' env' ψ (closeLamsAt fvms bL) = some Rv ∧
               interpClosed V val' env' ψ (RecRule.rhs r) = some Rv
-
-/-- `RecCtorsStored` is preserved by a fresh extension, given the
-stored-constructor facts for the new member (vacuous unless it is a
-recursor). -/
-theorem RecCtorsStored.cons {env : Env} {c₀ : ConstantInfo}
-    (hold : RecCtorsStored env) (hfresh : env.find? c₀.name = none)
-    (hnew : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
-      ∀ r ∈ rules, ∃ cvj cnP cnF,
-        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) :
-    RecCtorsStored (⟨c₀ :: env.consts⟩ : Env) := by
-  intro n cv mI rP rules hfp r hr
-  rw [Env.find?_cons] at hfp
-  split at hfp
-  · next hn =>
-    obtain hceq := Option.some.inj hfp
-    obtain ⟨cvj, cnP, cnF, hf⟩ := hnew _ _ _ _ hceq r hr
-    refine ⟨cvj, cnP, cnF, ?_⟩
-    rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
-    exact hf
-  · next hn =>
-    obtain ⟨cvj, cnP, cnF, hf⟩ := hold n cv mI rP rules hfp r hr
-    refine ⟨cvj, cnP, cnF, ?_⟩
-    rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
-    exact hf
 
 /-- `RecRulesOk` is preserved by a fresh extension, given the fold
 facts for the new member (vacuous unless it is a recursor).  The
