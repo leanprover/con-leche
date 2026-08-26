@@ -1698,5 +1698,180 @@ theorem extendNatSuccTT {env : Env} (m : EnvTT env)
     simp [denote_forallE, Expr.instantiate1, hNc]
 
 
+/-- The `Nat` block's earlier constants, denoted in the environment
+`Nat.rec` is going into. -/
+theorem denote_natRec_consts {env : Env} (m : EnvTT env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    (∀ d : Nat, denote (cvalSet m.cval natRecA.name val)
+        ⟨natRecA :: env.consts⟩ φ d (.const natName []) = some natT) ∧
+    (∀ d : Nat, denote (cvalSet m.cval natRecA.name val)
+        ⟨natRecA :: env.consts⟩ φ d (.const natZeroName [])
+        = some natZeroT) ∧
+    (∀ d : Nat, denote (cvalSet m.cval natRecA.name val)
+        ⟨natRecA :: env.consts⟩ φ d (.const natSuccName [])
+        = some (VExpr.const .natSucc [])) := by
+  refine ⟨fun d => ?_, fun d => ?_, fun d => ?_⟩
+  · refine denote_const_pin m (by decide) hN rfl (by decide) ?_ d
+    simp +decide [pinnedDirectT]
+    rfl
+  · refine denote_const_pin m (by decide) hZ rfl (by decide) ?_ d
+    simp +decide [pinnedDirectT]
+    rfl
+  · refine denote_const_pin m (by decide) hS rfl (by decide) ?_ d
+    simp +decide [pinnedDirectT]
+
+/-- **`Nat.rec`'s pinned type, denoted at any depth and any level.** -/
+theorem denote_natRec_type {env : Env} (m : EnvTT env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w : Level)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    denote (cvalSet m.cval natRecA.name val) ⟨natRecA :: env.consts⟩ φ d
+        (natRecA.toConstantVal.type.instantiateLevelParams
+          natRecA.toConstantVal.levelParams [w])
+      = some (.pi (.pi natT (.sort (w.eval φ)))
+        (.pi (.app (.bvar 0) natZeroT)
+          (.pi (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 3) (.app (VExpr.const .natSucc []) (.bvar 1)))))
+            (.pi natT (.app (.bvar 3) (.bvar 0)))))) := by
+  obtain ⟨hNc, hZc, hSc⟩ := denote_natRec_consts m (val := val) φ hN hZ hS
+  have hsu : Level.subst [uNT] [w] (.param uNT) = w := by
+    simp [Level.subst, Level.subst.go]
+  rw [show natRecA.toConstantVal.levelParams = [uNT] from rfl,
+    show natRecA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "motive")
+          (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+            (.sort (.param uNT)) { bi := .default })
+          (Expr.forallE (Name.anonymous.str "zero")
+            (.app (.bvar 0) (.const natZeroName []))
+            (Expr.forallE (Name.anonymous.str "succ")
+              (Expr.forallE (Name.anonymous.str "n") (.const natName [])
+                (Expr.forallE (Name.anonymous.str "n_ih")
+                  (.app (.bvar 2) (.bvar 0))
+                  (.app (.bvar 3)
+                    (.app (.const natSuccName []) (.bvar 1)))
+                  { bi := .default })
+                { bi := .default })
+              (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+                (.app (.bvar 3) (.bvar 0)) { bi := .default })
+              { bi := .default })
+            { bi := .default })
+          { bi := .implicit } from rfl]
+  simp [Expr.instantiateLevelParams, hsu, denote_forallE, denote_sort,
+    denote_app, denote_fvar, hNc, hZc, hSc]
+
+
+/-- `Nat.rec`'s two stored rules. -/
+def natRecZeroRule : RecRule :=
+  { ctor := natZeroName, nfields := 0, ctorParams := 0, fire := .plain,
+    rhs := Expr.lam (Name.anonymous.str "motive")
+      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+        (.sort (.param uNT)) { bi := .default })
+      (Expr.lam (Name.anonymous.str "zero")
+        (.app (.bvar 0) (.const natZeroName []))
+        (Expr.lam (Name.anonymous.str "succ")
+          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
+            (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
+              { bi := .default })
+            { bi := .default })
+          (.bvar 1) { bi := .default })
+        { bi := .default })
+      { bi := .default } }
+
+def natRecSuccRule : RecRule :=
+  { ctor := natSuccName, nfields := 1, ctorParams := 0, fire := .plain,
+    rhs := Expr.lam (Name.anonymous.str "motive")
+      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+        (.sort (.param uNT)) { bi := .default })
+      (Expr.lam (Name.anonymous.str "zero")
+        (.app (.bvar 0) (.const natZeroName []))
+        (Expr.lam (Name.anonymous.str "succ")
+          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
+            (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
+              { bi := .default })
+            { bi := .default })
+          (Expr.lam (Name.anonymous.str "n") (.const natName [])
+            (.app (.app (.bvar 1) (.bvar 0))
+              (.app (.app (.app (.app (.const (natName.str "rec")
+                [.param uNT]) (.bvar 3)) (.bvar 2)) (.bvar 1)) (.bvar 0)))
+            { bi := .default })
+          { bi := .default })
+        { bi := .default })
+      { bi := .default } }
+
+theorem natRecA_eq :
+    natRecA = .recInfo natRecA.toConstantVal 3 3
+      [natRecZeroRule, natRecSuccRule] := rfl
+
+/-- The `zero` rule's right-hand side, denoted. -/
+theorem denote_natRec_zeroRhs {env : Env} (m : EnvTT env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w : Level)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    denote (cvalSet m.cval natRecA.name val) ⟨natRecA :: env.consts⟩ φ d
+        ((RecRule.rhs natRecZeroRule).instantiateLevelParams
+          natRecA.toConstantVal.levelParams [w])
+      = some (.lam (.pi natT (.sort (w.eval φ)))
+        (.lam (.app (.bvar 0) natZeroT)
+          (.lam (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 3) (.app (VExpr.const .natSucc []) (.bvar 1)))))
+            (.bvar 1)))) := by
+  obtain ⟨hNc, hZc, hSc⟩ := denote_natRec_consts m (val := val) φ hN hZ hS
+  have hsu : Level.subst [uNT] [w] (.param uNT) = w := by
+    simp [Level.subst, Level.subst.go]
+  rw [show natRecA.toConstantVal.levelParams = [uNT] from rfl]
+  simp only [natRecZeroRule]
+  simp [Expr.instantiateLevelParams, hsu, denote_lam, denote_forallE,
+    denote_sort, denote_app, denote_fvar, hNc, hZc, hSc]
+
+
+/-- **The `succ` rule's right-hand side, denoted** — the first stored
+rule in any block whose right-hand side mentions the recursor being
+installed.  It resolves to `cval'`, the post-install valuation, which
+`hheadRec` has always been stated at. -/
+theorem denote_natRec_succRhs {env : Env} (m : EnvTT env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w : Level)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    denote (cvalSet m.cval natRecA.name val) ⟨natRecA :: env.consts⟩ φ d
+        ((RecRule.rhs natRecSuccRule).instantiateLevelParams
+          natRecA.toConstantVal.levelParams [w])
+      = some (.lam (.pi natT (.sort (w.eval φ)))
+        (.lam (.app (.bvar 0) natZeroT)
+          (.lam (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 3) (.app (VExpr.const .natSucc []) (.bvar 1)))))
+            (.lam natT
+              (.app (.app (.bvar 1) (.bvar 0))
+                (VExpr.mkAppN (val (Level.substFn φ [uNT] [w]))
+                  [.bvar 3, .bvar 2, .bvar 1, .bvar 0])))))) := by
+  obtain ⟨hNc, hZc, hSc⟩ := denote_natRec_consts m (val := val) φ hN hZ hS
+  have hsu : Level.subst [uNT] [w] (.param uNT) = w := by
+    simp [Level.subst, Level.subst.go]
+  have hRc : ∀ e : Nat,
+      denote (cvalSet m.cval natRecA.name val) ⟨natRecA :: env.consts⟩ φ e
+        (.const (natName.str "rec") [w])
+        = some (val (Level.substFn φ [uNT] [w])) := by
+    intro e
+    rw [denote_const, Env.find?_cons,
+      if_pos (show ConstantInfo.name natRecA = natName.str "rec" from rfl)]
+    simp only [show ([w] : List Level).length
+      = natRecA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [show cvalSet m.cval natRecA.name val (natName.str "rec") = val from
+      cvalSet_self (n := natRecA.name)]
+    rfl
+  rw [show natRecA.toConstantVal.levelParams = [uNT] from rfl]
+  simp only [natRecSuccRule]
+  simp [Expr.instantiateLevelParams, hsu, denote_lam, denote_forallE,
+    denote_sort, denote_app, denote_fvar, hNc, hZc, hSc, hRc,
+    VExpr.mkAppN]
+
+
 end Setlec.TTVerify
 

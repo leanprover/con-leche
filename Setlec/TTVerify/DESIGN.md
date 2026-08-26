@@ -3967,7 +3967,13 @@ have credited the fix with something the original design had right.
 
 The same paragraph records the pre-registration's ordinary return: the
 flag was a **non-event**, and a non-event is data only because it was
-named as a prediction first.  Had the shape not been flagged, its
+named as a prediction first.
+
+**Confirmed in code** (`denote_natRec_succRhs`): the `succ` rule's
+right-hand side denotes with its `Nat.rec` occurrence resolving through
+`cvalSet … natRecA.name val` — one `cvalSet_self` rewrite, the same
+step any *non*-recursive constant of the block takes.  The recursive
+case is not a case.  Had the shape not been flagged, its
 absence would have been indistinguishable from never having thought
 about it.
 
