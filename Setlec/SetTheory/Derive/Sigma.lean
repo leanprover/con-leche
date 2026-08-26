@@ -117,11 +117,11 @@ theorem sigmaSet_ne_pt {w : Nat} {A : V} {B : V → V} :
     exact truthVal_ne_pt _
   · rw [sigmaSet_pos (Nat.pos_iff_ne_zero.mp hw)]
     intro h
-    have hmem : (empty : V) ∈ˢ sigmaPairs A B := by
+    have hmem : (ptTag : V) ∈ˢ sigmaPairs A B := by
       rw [h]
-      exact mem_pt.mpr rfl
+      exact ptTag_mem_pt
     obtain ⟨a, -, b, -, hp⟩ := mem_sigmaPairs.mp hmem
-    exact kpair_ne_empty hp.symm
+    exact ptTag_ne_kpair a b hp
 
 /-- Formation along the tower, at the joint level `max u v`. -/
 theorem sigma_mem_univ {u v : Nat} {A : V} {B : V → V}

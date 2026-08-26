@@ -4,8 +4,8 @@ import Setlec.SetTheory.Derive.Pt
 # Function graphs, application, and the raw dependent-function set
 
 * `graph F A = {⟨x, F x⟩ : x ∈ A}` — the set-theoretic function graph
-  (replacement); never equal to `pt`, since `pt`'s element is empty
-  and a pair is not.
+  (replacement); never equal to `pt`, since `pt`'s element `ptTag` has
+  an empty member and so is not a Kuratowski pair.
 * `app f a = ⋃ {y : ⟨a, y⟩ ∈ f}` — untagged application on non-`pt`
   arguments; `app pt a = pt` is the tag that makes proofs degenerate
   (`app_pt` in the `SetTheory` interface).
@@ -33,8 +33,9 @@ theorem mem_graph {F : V → V} {A p : V} :
 
 theorem graph_ne_pt {F : V → V} {A : V} : graph F A ≠ (pt : V) := by
   intro h
-  obtain ⟨x, -, hx⟩ := mem_graph.mp (h ▸ mem_pt.mpr rfl : (empty : V) ∈ˢ graph F A)
-  exact kpair_ne_empty hx.symm
+  obtain ⟨x, -, hx⟩ :=
+    mem_graph.mp (h ▸ ptTag_mem_pt : (ptTag : V) ∈ˢ graph F A)
+  exact ptTag_ne_kpair x (F x) hx
 
 theorem graph_congr {F F' : V → V} {A : V} (h : ∀ x, x ∈ˢ A → F x = F' x) :
     graph F A = graph F' A :=
@@ -144,9 +145,9 @@ theorem graph_mem_piSet {A : V} {B F : V → V}
 theorem ne_pt_of_mem_piSet {A f : V} {B : V → V} (hf : f ∈ˢ piSet A B) :
     f ≠ pt := by
   rintro rfl
-  have := (mem_piSet.mp hf).1 empty (mem_pt.mpr rfl)
+  have := (mem_piSet.mp hf).1 ptTag ptTag_mem_pt
   obtain ⟨x, -, y, -, hy⟩ := mem_sigmaPairs.mp this
-  exact kpair_ne_empty hy.symm
+  exact ptTag_ne_kpair x y hy
 
 theorem app_mem_of_mem_piSet {A f a : V} {B : V → V}
     (hf : f ∈ˢ piSet A B) (ha : a ∈ˢ A) : app f a ∈ˢ B a := by

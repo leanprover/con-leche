@@ -183,6 +183,46 @@ theorem quotLift_mem {u v : Nat} {A R f B : V} (_hA : A ∈ˢ (univ u : V))
   unfold quotLift
   exact lamC_mem fun q hq => app_mem_piC hf (qrep_spec hq).1
 
+/-! ## pt-freshness refutation evidence (task #109)
+
+Quotient types are **not** unconditionally pt-fresh, for *any*
+constructible proof point: classes are arbitrary nonempty subsets of
+the base, so with base `ptTag` itself and a total relation the class
+set is exactly `{ptTag} = pt`.  Never resurrect a `quotSet_ne_pt`; the
+#109 syntactic freshness guards exclude `Quot`-typed slots instead.
+(The base `ptTag` is not the interpretation of any *writable* type —
+the obstruction is semantic, in the ∀-A-R quantification of the model
+lemmas.  The old `pt = {∅}` was the unique choice immune to this — the
+empty set is never a class — which is exactly what the re-choice
+trades for data freshness.) -/
+
+theorem quotSet_eq_pt_countermodel :
+    ∃ A R : V, quotSet 1 A R = pt := by
+  refine ⟨ptTag, graph (fun _ => graph (fun _ => unitSet) ptTag) ptTag, ?_⟩
+  have hrel : ∀ a b : V, a ∈ˢ (ptTag : V) → b ∈ˢ (ptTag : V) →
+      QuotRel ptTag (graph (fun _ => graph (fun _ => unitSet) ptTag) ptTag)
+        a b := by
+    intro a b ha hb
+    refine QuotRel.base ha hb ⟨pt, ?_⟩
+    rw [app_graph ha, app_graph hb]
+    exact pt_mem_unitSet
+  have hclass : ∀ a : V, a ∈ˢ (ptTag : V) →
+      qclass ptTag (graph (fun _ => graph (fun _ => unitSet) ptTag) ptTag) a
+        = ptTag := by
+    intro a ha
+    apply ext fun z => ?_
+    rw [mem_qclass]
+    exact ⟨fun h => h.1, fun hz => ⟨hz, hrel a z ha hz⟩⟩
+  unfold quotSet
+  rw [if_neg Nat.one_ne_zero]
+  apply ext fun z => ?_
+  rw [mem_image, mem_pt]
+  constructor
+  · rintro ⟨a, ha, rfl⟩
+    exact hclass a ha
+  · rintro rfl
+    exact ⟨empty, empty_mem_ptTag, (hclass empty empty_mem_ptTag).symm⟩
+
 /- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
 content. -/
 private unsafe def quotSetImpl {V : Type u} [SetTheory V] (_u : Nat) (_A _R : V) : V := unsafeCast ()
