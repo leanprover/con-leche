@@ -144,7 +144,7 @@ theorem natSuccVal_mem_pi (m : EnvModel V env)
     m.val natSuccName φ ∈ˢ
       pi 1 (m.val natName φ) (fun _ => m.val natName φ) := by
   obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hn, hz, hsc, h1, h2, h3, h4, h5,
-    nm, mb, h6, h7⟩ := natLitSupported_inv hs
+    nm, mb, h6⟩ := natLitSupported_inv hs
   obtain ⟨t1, ht1, hmem1⟩ := m.mem_type _ (find?_mem hsc) φ
   rw [show (ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal = cv1 from rfl,
     h6] at ht1

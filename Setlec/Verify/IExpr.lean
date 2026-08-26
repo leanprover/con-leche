@@ -326,8 +326,6 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -347,7 +345,7 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
             have hlvI : ∀ u ∈ (ENode.lam nm ty' body' m).levels,
                 u < st₂.lnodes.size := fun u hu =>
               Nat.lt_of_lt_of_le
-                (hwf.getNode_levels_lt hn u (by simpa [ENode.levels] using hu))
+                (hwf.getNode_levels_lt hn u (by simp [ENode.levels] at hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.lam nm ty' body' m)).2.TWF :=
               intern_twf hwf₂ hcI hlvI (fun p hp =>
@@ -391,8 +389,6 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -412,7 +408,7 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
             have hlvI : ∀ u ∈ (ENode.forallE nm ty' body' m).levels,
                 u < st₂.lnodes.size := fun u hu =>
               Nat.lt_of_lt_of_le
-                (hwf.getNode_levels_lt hn u (by simpa [ENode.levels] using hu))
+                (hwf.getNode_levels_lt hn u (by simp [ENode.levels] at hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.forallE nm ty' body' m)).2.TWF :=
               intern_twf hwf₂ hcI hlvI (fun p hp =>
@@ -750,8 +746,6 @@ theorem abstract1IGo_spec {dd : Nat} :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -770,7 +764,7 @@ theorem abstract1IGo_spec {dd : Nat} :
             have hlvI : ∀ u ∈ (ENode.lam nm ty' body' m).levels,
                 u < st₂.lnodes.size := fun u hu =>
               Nat.lt_of_lt_of_le
-                (hwf.getNode_levels_lt hn u (by simpa [ENode.levels] using hu))
+                (hwf.getNode_levels_lt hn u (by simp [ENode.levels] at hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.lam nm ty' body' m)).2.TWF :=
               intern_twf hwf₂ hcI hlvI (fun p hp =>
@@ -814,8 +808,6 @@ theorem abstract1IGo_spec {dd : Nat} :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -834,7 +826,7 @@ theorem abstract1IGo_spec {dd : Nat} :
             have hlvI : ∀ u ∈ (ENode.forallE nm ty' body' m).levels,
                 u < st₂.lnodes.size := fun u hu =>
               Nat.lt_of_lt_of_le
-                (hwf.getNode_levels_lt hn u (by simpa [ENode.levels] using hu))
+                (hwf.getNode_levels_lt hn u (by simp [ENode.levels] at hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.forallE nm ty' body' m)).2.TWF :=
               intern_twf hwf₂ hcI hlvI (fun p hp =>
@@ -1167,8 +1159,6 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -1187,7 +1177,7 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
             have hlvI : ∀ u ∈ (ENode.lam nm ty' body' m).levels,
                 u < st₂.lnodes.size := fun u hu =>
               Nat.lt_of_lt_of_le
-                (hwf.getNode_levels_lt hn u (by simpa [ENode.levels] using hu))
+                (hwf.getNode_levels_lt hn u (by simp [ENode.levels] at hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.lam nm ty' body' m)).2.TWF :=
               intern_twf hwf₂ hcI hlvI (fun p hp =>
@@ -1231,8 +1221,6 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -1251,7 +1239,7 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
             have hlvI : ∀ u ∈ (ENode.forallE nm ty' body' m).levels,
                 u < st₂.lnodes.size := fun u hu =>
               Nat.lt_of_lt_of_le
-                (hwf.getNode_levels_lt hn u (by simpa [ENode.levels] using hu))
+                (hwf.getNode_levels_lt hn u (by simp [ENode.levels] at hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.forallE nm ty' body' m)).2.TWF :=
               intern_twf hwf₂ hcI hlvI (fun p hp =>
@@ -1783,31 +1771,15 @@ theorem substLIList_spec {ks : List Name} {us : List LIdx} {lus : List Level} :
 theorem substLIBM_spec {ks : List Name} {us : List LIdx} {lus : List Level}
     {m : IBinderMeta} {st : EStore} {memo : LMemo} {m' : IBinderMeta}
     {st' : EStore} {memo' : LMemo}
-    (hwf : st.TWF) (hus : denoteLList st.denoteL us = some lus)
+    (hwf : st.TWF) (_hus : denoteLList st.denoteL us = some lus)
     (hinv : LvlMemoInv st (Level.subst ks lus) memo)
     (hgo : substLIBM ks us st memo m = (m', st', memo')) :
     st'.TWF ∧ Ext st st' ∧
       LvlMemoInv st' (Level.subst ks lus) memo' ∧
       ∀ bm, denoteBM st.denoteL m = some bm →
-        denoteBM st'.denoteL m'
-          = some ⟨bm.bi, bm.cod.map (Level.subst ks lus)⟩ := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · cases hgo
-    refine ⟨hwf, Ext.refl st, hinv, ?_⟩
-    intro bm hbm
-    simp only [denoteBM, Option.some.injEq] at hbm
-    subst hbm
-    rfl
-  · dsimp only [substLIBM] at hgo
-    rcases h₁ : substLIGo ks us st memo u with ⟨u', st₁, memo₁⟩
-    rw [h₁] at hgo
-    cases hgo
-    obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := substLIGo_spec u hwf hus hinv h₁
-    refine ⟨hwf₁, hext₁, hinv₁, ?_⟩
-    intro bm hbm
-    simp only [denoteBM, Option.map_eq_some_iff] at hbm
-    obtain ⟨l, hl, rfl⟩ := hbm
-    simp [denoteBM, hden₁ l hl]
+        denoteBM st'.denoteL m' = some bm := by
+  cases hgo
+  exact ⟨hwf, Ext.refl st, hinv, fun bm hbm => hbm⟩
 
 theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
     {lus : List Level} :
@@ -2064,8 +2036,6 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -2082,7 +2052,7 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             obtain ⟨hwf₃, hext₃, hlinv₃, hbden₃⟩ :=
               substLIBM_spec hwf₂ hus₂ hlinv₂ h₃
             have hm₃ : denoteBM st₃.denoteL m'
-                = some ⟨bm.bi, bm.cod.map (Level.subst ks lus)⟩ := hbden₃ bm hbm₂
+                = some bm := hbden₃ bm hbm₂
             have ht₃ : st₃.denoteT ty' = some (xt.instantiateLevelParams ks lus) :=
               denoteT_mono hext₃ (denoteT_mono hext₂ (hden₁ xt ht))
             have hb₃ : st₃.denoteT body'
@@ -2096,7 +2066,7 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
               · exact denoteT_valid2 hb₃
             have hwf₄ : (st₃.intern (.lam nm ty' body' m')).2.TWF :=
               intern_twf hwf₃ hcI
-                (by simpa [ENode.levels] using denoteBM_lt_size hm₃)
+                (by simp [ENode.levels])
                 (fun p hp => Nat.lt_of_lt_of_le
                   (hnms p (by simpa [ENode.names] using hp))
                   (hext₁.trans (hext₂.trans hext₃)).nsize_le)
@@ -2140,8 +2110,6 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -2158,7 +2126,7 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             obtain ⟨hwf₃, hext₃, hlinv₃, hbden₃⟩ :=
               substLIBM_spec hwf₂ hus₂ hlinv₂ h₃
             have hm₃ : denoteBM st₃.denoteL m'
-                = some ⟨bm.bi, bm.cod.map (Level.subst ks lus)⟩ := hbden₃ bm hbm₂
+                = some bm := hbden₃ bm hbm₂
             have ht₃ : st₃.denoteT ty' = some (xt.instantiateLevelParams ks lus) :=
               denoteT_mono hext₃ (denoteT_mono hext₂ (hden₁ xt ht))
             have hb₃ : st₃.denoteT body'
@@ -2172,7 +2140,7 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
               · exact denoteT_valid2 hb₃
             have hwf₄ : (st₃.intern (.forallE nm ty' body' m')).2.TWF :=
               intern_twf hwf₃ hcI
-                (by simpa [ENode.levels] using denoteBM_lt_size hm₃)
+                (by simp [ENode.levels])
                 (fun p hp => Nat.lt_of_lt_of_le
                   (hnms p (by simpa [ENode.names] using hp))
                   (hext₁.trans (hext₂.trans hext₃)).nsize_le)
@@ -2569,8 +2537,6 @@ theorem looseBVarsBoundedIGo_spec {st : EStore} (hwf : st.TWF) :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -2622,8 +2588,6 @@ theorem looseBVarsBoundedIGo_spec {st : EStore} (hwf : st.TWF) :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -2957,8 +2921,6 @@ theorem wscopedBIGo_spec {st : EStore} (hwf : st.TWF) :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -3008,8 +2970,6 @@ theorem wscopedBIGo_spec {st : EStore} (hwf : st.TWF) :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -3356,8 +3316,6 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.TWF) :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -3409,8 +3367,6 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.TWF) :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -3785,8 +3741,6 @@ theorem fvarLeavesIGo_spec {st : EStore} (hwf : st.TWF) :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))
@@ -3820,8 +3774,6 @@ theorem fvarLeavesIGo_spec {st : EStore} (hwf : st.TWF) :
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             have hnms := hwf.getNode_names_lt hn
             obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
               (hnms nm (by simp [ENode.names]))

@@ -139,14 +139,10 @@ theorem FrameOk.ofCheckedType {env : Env} (m : EnvModel V env) {F : Nat}
       ((annotateCore_WScoped F _ hann (WScoped.of_not_hasFvar hfv)).fvarsBelow)
   have htyb : tyA.looseBVarsBounded 0 = true :=
     annotateCore_looseBVars F _ hann hlb
-  have hAty : AnnotOk V m.val env φ 0 (rho0 V) tyA :=
-    annotate_sound m _ hann (WScoped.of_not_hasFvar hfv) hlb
-      (Expr.LeavesBounded.of_not_hasFvar hfv) (rho0 V)
-      (FvarsOk.of_not_hasFvar hfv)
-  obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
+  obtain ⟨hAty, ⟨v, tv, hvi, -, -⟩, -, -⟩ :=
     inferTypeCore_sound (φ := φ) m F hst (WScoped.of_not_hasFvar htyf) htyb
       (Expr.LeavesBounded.of_not_hasFvar htyf)
-      (FvarsOk.of_not_hasFvar htyf) hAty
+      (FvarsOk.of_not_hasFvar htyf)
   rw [htypeA]
   exact ⟨WScoped.of_not_hasFvar htyf, htyb,
     Expr.LeavesBounded.of_not_hasFvar htyf, FvarsOk.of_not_hasFvar htyf,
@@ -234,25 +230,25 @@ theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
   have htlp : cvTa.type.allLevelParamsDefined cvTa.levelParams = true := by
     rw [htypeA, hlpsA]; exact hlp
   have htres : cvTa.type.constsResolve env = true := by rw [htypeA]; exact hres
+  have htyfA : tyA.hasFvar = false := by rw [← htypeA]; exact htyf
   have hAty : ∀ ψ : Name → Nat,
       AnnotOk V m.val env ψ 0 (rho0 V) cvTa.type := by
     intro ψ
     rw [htypeA]
-    exact annotate_sound m _ hann (WScoped.of_not_hasFvar hfv) hlb
-      (Expr.LeavesBounded.of_not_hasFvar hfv) (rho0 V)
-      (FvarsOk.of_not_hasFvar hfv)
-  have htyfA : tyA.hasFvar = false := by rw [← htypeA]; exact htyf
+    exact (inferTypeCore_sound (φ := ψ) m F hst
+      (WScoped.of_not_hasFvar htyfA)
+      (by rw [← htypeA]; exact htyb)
+      (Expr.LeavesBounded.of_not_hasFvar htyfA)
+      (FvarsOk.of_not_hasFvar htyfA)).1
   have hityI : ∀ ψ : Name → Nat, ∃ Tv,
       interpExpr V m.val env ψ 0 (rho0 V) cvTa.type = some Tv := by
     intro ψ
-    have hAtyA : AnnotOk V m.val env ψ 0 (rho0 V) tyA := by
-      rw [← htypeA]; exact hAty ψ
-    obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
+    obtain ⟨-, ⟨v, tv, hvi, -, -⟩, -, -⟩ :=
       inferTypeCore_sound (φ := ψ) m F hst
         (WScoped.of_not_hasFvar htyfA)
         (by rw [← htypeA]; exact htyb)
         (Expr.LeavesBounded.of_not_hasFvar htyfA)
-        (FvarsOk.of_not_hasFvar htyfA) hAtyA
+        (FvarsOk.of_not_hasFvar htyfA)
     exact ⟨v, by rw [htypeA]; exact hvi⟩
   have hsP : p.resSort.allParamsDefined cvTa.levelParams = true := by
     have h := allLevelParamsDefined_stripPis_body p.nP hstrip htlp
@@ -893,9 +889,14 @@ theorem extend_direct_ctor {env env₁ : Env} (m : EnvModel V env)
       AnnotOk V m₁.val env₁ ψ 0 (rho0 V) cvCa.type := by
     intro ψ
     rw [htypeA]
-    exact annotate_sound m₁ _ hann (WScoped.of_not_hasFvar hfv) hlb
-      (Expr.LeavesBounded.of_not_hasFvar hfv) (rho0 V)
-      (FvarsOk.of_not_hasFvar hfv)
+    have htyfA : tyA.hasFvar = false := by rw [← htypeA]; exact htyf
+    have htybA : tyA.looseBVarsBounded 0 = true := by
+      rw [← htypeA]; exact htyb
+    exact (inferTypeCore_sound (φ := ψ) m₁ F hst
+      (WScoped.of_not_hasFvar htyfA)
+      htybA
+      (Expr.LeavesBounded.of_not_hasFvar htyfA)
+      (FvarsOk.of_not_hasFvar htyfA)).1
   have hnresC : reservedBasisNames.contains
       (ConstantInfo.ctorInfo cvCa p.nP p.nF).name = false := hnres
   have hwf : ConstWF ⟨.ctorInfo cvCa p.nP p.nF :: env₁.consts⟩
@@ -1632,17 +1633,18 @@ theorem directRec_rule_eq {env₂ : Env} (m₂ : EnvModel V env₂)
     not_hasFvar_of_fvarsBelow_zero (hfrC (fun _ => 0)).ws.fvarsBelow
   have hArhs : ∀ ψ : Name → Nat,
       AnnotOk V m₂.val env₂ ψ 0 (rho0 V) rhsA :=
-    fun ψ => annotate_sound m₂ _ hann (Expr.WScoped.of_not_hasFvar hrawf)
-      hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
-      (FvarsOk.of_not_hasFvar hrawf)
+    fun ψ => (inferTypeCore_sound (φ := ψ) m₂ F hity
+      (Expr.WScoped.of_not_hasFvar hrf) hrb
+      (Expr.LeavesBounded.of_not_hasFvar hrf)
+      (FvarsOk.of_not_hasFvar hrf)).1
   have hIrhs : ∀ ψ : Name → Nat, ∃ L,
       interpClosed V m₂.val env₂ ψ rhsA = some L := by
     intro ψ
-    obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
+    obtain ⟨-, ⟨v, tv, hvi, -, -⟩, -, -⟩ :=
       inferTypeCore_sound (φ := ψ) m₂ F hity
         (Expr.WScoped.of_not_hasFvar hrf) hrb
         (Expr.LeavesBounded.of_not_hasFvar hrf)
-        (FvarsOk.of_not_hasFvar hrf) (hArhs ψ)
+        (FvarsOk.of_not_hasFvar hrf)
     exact ⟨v, hvi⟩
   have hfP₁ : (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩] :: env₂.consts⟩ : Env).find?
@@ -2535,16 +2537,14 @@ theorem directProj_facts {envP : Env} (mP : EnvModel V envP)
     hbbA, hfvA, hstA, hsty, hu, hnone, hshape, hopP, hsstrip, hsdom,
     hpin1, hopT, htfv, hcinst, hpin2, hrule, henv⟩ := checkDirectProj_inv hpj
   -- the annotated projection type's frame conditions
-  have hAptyA : AnnotOk V mP.val envP φ 0 (rho0 V) ptyA :=
-    annotate_sound mP _ hann (Expr.WScoped.of_not_hasFvar hptyf) hptyb
-      (Expr.LeavesBounded.of_not_hasFvar hptyf) (rho0 V)
-      (FvarsOk.of_not_hasFvar hptyf)
+  obtain ⟨hAptyA, ⟨v0, tv0, hvi0, -, -⟩, -, -⟩ :=
+    inferTypeCore_sound (φ := φ) mP F hsty
+      (Expr.WScoped.of_not_hasFvar hfvA) hbbA
+      (Expr.LeavesBounded.of_not_hasFvar hfvA)
+      (FvarsOk.of_not_hasFvar hfvA)
   have hfrPty : FrameOk V mP.val envP φ 0 (rho0 V) ptyA := by
-    obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
-      inferTypeCore_sound (φ := φ) mP F hsty
-        (Expr.WScoped.of_not_hasFvar hfvA) hbbA
-        (Expr.LeavesBounded.of_not_hasFvar hfvA)
-        (FvarsOk.of_not_hasFvar hfvA) hAptyA
+    obtain ⟨v, hvi⟩ : ∃ v, interpExpr V mP.val envP φ 0 (rho0 V) ptyA
+        = some v := ⟨v0, hvi0⟩
     exact ⟨Expr.WScoped.of_not_hasFvar hfvA, hbbA,
       Expr.LeavesBounded.of_not_hasFvar hfvA, FvarsOk.of_not_hasFvar hfvA,
       hAptyA, v, hvi⟩
@@ -3190,17 +3190,18 @@ theorem directProj_rule_eq {envP : Env} (mP : EnvModel V envP)
   intro c₀ val' hc₀name hlpsP hagree hvalP hfirep
   -- the stored data's syntactic and semantic well-formedness
   have hAty : ∀ ψ : Name → Nat, AnnotOk V mP.val envP ψ 0 (rho0 V) ptyA :=
-    fun ψ => annotate_sound mP _ hann (Expr.WScoped.of_not_hasFvar hptyf)
-      hptyb (Expr.LeavesBounded.of_not_hasFvar hptyf) (rho0 V)
-      (FvarsOk.of_not_hasFvar hptyf)
+    fun ψ => (inferTypeCore_sound (φ := ψ) mP F hsty
+      (Expr.WScoped.of_not_hasFvar hfvA) hbbA
+      (Expr.LeavesBounded.of_not_hasFvar hfvA)
+      (FvarsOk.of_not_hasFvar hfvA)).1
   have hIty : ∀ ψ : Name → Nat, ∃ T,
       interpClosed V mP.val envP ψ ptyA = some T := by
     intro ψ
-    obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
+    obtain ⟨-, ⟨v, tv, hvi, -, -⟩, -, -⟩ :=
       inferTypeCore_sound (φ := ψ) mP F hsty
         (Expr.WScoped.of_not_hasFvar hfvA) hbbA
         (Expr.LeavesBounded.of_not_hasFvar hfvA)
-        (FvarsOk.of_not_hasFvar hfvA) (hAty ψ)
+        (FvarsOk.of_not_hasFvar hfvA)
     exact ⟨v, hvi⟩
   have hACty : ∀ ψ : Name → Nat,
       AnnotOk V mP.val envP ψ 0 (rho0 V) cvCa.type :=
@@ -3211,18 +3212,21 @@ theorem directProj_rule_eq {envP : Env} (mP : EnvModel V envP)
     obtain ⟨t, ht, -⟩ := mP.mem_type _ (find?_mem hCfind) ψ
     exact ⟨t, ht⟩
   have hArhs : ∀ ψ : Name → Nat, AnnotOk V mP.val envP ψ 0 (rho0 V) rhsA :=
-    fun ψ => annotate_sound mP _ hannR (Expr.WScoped.of_not_hasFvar hrawf)
-      hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
-      (FvarsOk.of_not_hasFvar hrawf)
+    fun ψ => by
+      obtain ⟨rhsTy, hity⟩ := hrhsTy
+      exact (inferTypeCore_sound (φ := ψ) mP F hity
+        (Expr.WScoped.of_not_hasFvar hfvR) hbbR
+        (Expr.LeavesBounded.of_not_hasFvar hfvR)
+        (FvarsOk.of_not_hasFvar hfvR)).1
   have hIrhs : ∀ ψ : Name → Nat, ∃ L,
       interpClosed V mP.val envP ψ rhsA = some L := by
     intro ψ
     obtain ⟨rhsTy, hity⟩ := hrhsTy
-    obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
+    obtain ⟨-, ⟨v, tv, hvi, -, -⟩, -, -⟩ :=
       inferTypeCore_sound (φ := ψ) mP F hity
         (Expr.WScoped.of_not_hasFvar hfvR) hbbR
         (Expr.LeavesBounded.of_not_hasFvar hfvR)
-        (FvarsOk.of_not_hasFvar hfvR) (hArhs ψ)
+        (FvarsOk.of_not_hasFvar hfvR)
     exact ⟨v, hvi⟩
   obtain ⟨hCcl, -, hCres, hCb, -⟩ := mP.wf _ (find?_mem hCfind)
   have hfresh : envP.find? c₀.name = none := by rw [hc₀name]; exact hnone
@@ -3242,16 +3246,14 @@ theorem directProj_rule_eq {envP : Env} (mP : EnvModel V envP)
   have hinv := hinv φ
   have hvalP := hvalP φ
   -- the annotated projection type's frame conditions
-  have hAptyA : AnnotOk V mP.val envP φ 0 (rho0 V) ptyA :=
-    annotate_sound mP _ hann (Expr.WScoped.of_not_hasFvar hptyf) hptyb
-      (Expr.LeavesBounded.of_not_hasFvar hptyf) (rho0 V)
-      (FvarsOk.of_not_hasFvar hptyf)
+  obtain ⟨hAptyA, ⟨v0, tv0, hvi0, -, -⟩, -, -⟩ :=
+    inferTypeCore_sound (φ := φ) mP F hsty
+      (Expr.WScoped.of_not_hasFvar hfvA) hbbA
+      (Expr.LeavesBounded.of_not_hasFvar hfvA)
+      (FvarsOk.of_not_hasFvar hfvA)
   have hfrPty : FrameOk V mP.val envP φ 0 (rho0 V) ptyA := by
-    obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
-      inferTypeCore_sound (φ := φ) mP F hsty
-        (Expr.WScoped.of_not_hasFvar hfvA) hbbA
-        (Expr.LeavesBounded.of_not_hasFvar hfvA)
-        (FvarsOk.of_not_hasFvar hfvA) hAptyA
+    obtain ⟨v, hvi⟩ : ∃ v, interpExpr V mP.val envP φ 0 (rho0 V) ptyA
+        = some v := ⟨v0, hvi0⟩
     exact ⟨Expr.WScoped.of_not_hasFvar hfvA, hbbA,
       Expr.LeavesBounded.of_not_hasFvar hfvA, FvarsOk.of_not_hasFvar hfvA,
       hAptyA, v, hvi⟩
@@ -3712,9 +3714,10 @@ theorem extend_direct_rec {env₂ : Env} (m₂ : EnvModel V env₂)
       refine AnnotOk.mono hfindI _ 0 (rho0 V) hrhsres
         (AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm) _ 0
           (rho0 V) ?_)
-      exact annotate_sound m₂ _ hannR (Expr.WScoped.of_not_hasFvar hrawf)
-        hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
-        (FvarsOk.of_not_hasFvar hrawf)
+      exact (inferTypeCore_sound (φ := ψ) m₂ F hityR
+        (Expr.WScoped.of_not_hasFvar hrhsf) hrhsb0
+        (Expr.LeavesBounded.of_not_hasFvar hrhsf)
+        (FvarsOk.of_not_hasFvar hrhsf)).1
     refine ⟨hArhs₁, fun _ => Nat.le_refl _,
       fun _ => show p.nP ≤ p.nP + 2 from by omega,
       fun lvls pins hcon => absurd hcon (hnotnested lvls pins), ?_⟩
@@ -3826,15 +3829,11 @@ theorem extend_direct_proj {envP : Env} (mP : EnvModel V envP)
   have hfrPty : ∀ φ : Name → Nat,
       FrameOk V mP.val envP φ 0 (rho0 V) ptyA := by
     intro φ
-    have hAptyA : AnnotOk V mP.val envP φ 0 (rho0 V) ptyA :=
-      annotate_sound mP _ hann (Expr.WScoped.of_not_hasFvar hptyf) hptyb
-        (Expr.LeavesBounded.of_not_hasFvar hptyf) (rho0 V)
-        (FvarsOk.of_not_hasFvar hptyf)
-    obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
+    obtain ⟨hAptyA, ⟨v, tv, hvi, -, -⟩, -, -⟩ :=
       inferTypeCore_sound (φ := φ) mP F hsty
         (Expr.WScoped.of_not_hasFvar hfvA) hbbA
         (Expr.LeavesBounded.of_not_hasFvar hfvA)
-        (FvarsOk.of_not_hasFvar hfvA) hAptyA
+        (FvarsOk.of_not_hasFvar hfvA)
     exact ⟨Expr.WScoped.of_not_hasFvar hfvA, hbbA,
       Expr.LeavesBounded.of_not_hasFvar hfvA, FvarsOk.of_not_hasFvar hfvA,
       hAptyA, v, hvi⟩
@@ -3953,9 +3952,11 @@ theorem extend_direct_proj {envP : Env} (mP : EnvModel V envP)
       refine AnnotOk.mono hfindI _ 0 (rho0 V) hresR
         (AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm) _ 0
           (rho0 V) ?_)
-      exact annotate_sound mP _ hannR (Expr.WScoped.of_not_hasFvar hrawf)
-        hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
-        (FvarsOk.of_not_hasFvar hrawf)
+      obtain ⟨rhsTy, hity⟩ := hrhsTy
+      exact (inferTypeCore_sound (φ := ψ) mP F hity
+        (Expr.WScoped.of_not_hasFvar hfvR) hbbR
+        (Expr.LeavesBounded.of_not_hasFvar hfvR)
+        (FvarsOk.of_not_hasFvar hfvR)).1
     refine ⟨hArhs₁, fun _ => Nat.le_refl _, fun _ => Nat.le_refl _,
       fun lvls pins hcon => absurd hcon (hnotnested lvls pins), ?_⟩
     intro cvj' cnP' cnF' hfj hnotinert

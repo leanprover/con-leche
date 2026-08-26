@@ -215,7 +215,7 @@ theorem listVal_mem_pi (m : EnvModel V env)
   obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, htS, htH, htO,
     htL, -⟩ := strLitSupported_inv hs
-  obtain ⟨nm, mb, htyL, hcodL⟩ := htL
+  obtain ⟨nm, mb, htyL⟩ := htL
   have hlp : env.levelParamsAt listName = [pL] := by
     simp only [Env.levelParamsAt, hfL, hpL]
   rw [hlp]
@@ -248,7 +248,7 @@ theorem charOfNatVal_mem_pi (m : EnvModel V env)
   obtain ⟨hnat, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, htS, htH, htO,
     htL, htN, htC, htF⟩ := strLitSupported_inv hs
-  obtain ⟨nm, mb, htyF, hcodF⟩ := htF
+  obtain ⟨nm, mb, htyF⟩ := htF
   obtain ⟨t, ht, hmem⟩ := m.mem_type _ (find?_mem hfF) φ
   rw [htyF] at ht
   rw [find?_name' hfF] at hmem
@@ -289,7 +289,7 @@ theorem listNilVal_mem_pi (m : EnvModel V env)
   obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, htS, htH, htO,
     htL, htN, -⟩ := strLitSupported_inv hs
-  obtain ⟨nm, mb, htyN, hcodN⟩ := htN
+  obtain ⟨nm, mb, htyN⟩ := htN
   have hlpN : env.levelParamsAt listNilName = [pN] := by
     simp only [Env.levelParamsAt, hfN, hpN]
   have hlpL : env.levelParamsAt listName = [pL] := by
@@ -355,7 +355,7 @@ theorem listConsVal_mem_pi (m : EnvModel V env)
   obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, htS, htH, htO,
     htL, htN, htC, -⟩ := strLitSupported_inv hs
-  obtain ⟨nm1, nm2, nm3, mb1, mb2, mb3, htyC, hcod3, hcod2, hcod1⟩ := htC
+  obtain ⟨nm1, nm2, nm3, mb1, mb2, mb3, htyC⟩ := htC
   have hlpC : env.levelParamsAt listConsName = [pC] := by
     simp only [Env.levelParamsAt, hfC, hpC]
   have hlpL : env.levelParamsAt listName = [pL] := by
@@ -468,7 +468,7 @@ theorem stringOfListVal_mem_pi (m : EnvModel V env)
   obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, htS, htH, htO,
     -⟩ := strLitSupported_inv hs
-  obtain ⟨nm, mb, htyO, hcodO⟩ := htO
+  obtain ⟨nm, mb, htyO⟩ := htO
   obtain ⟨t, ht, hmem⟩ := m.mem_type _ (find?_mem hfO) φ
   rw [htyO] at ht
   rw [find?_name' hfO] at hmem

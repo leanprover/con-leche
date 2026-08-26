@@ -2530,24 +2530,7 @@ private theorem annotate_step (henv : EnvWF env)
     have hwf' : WScoped d f' := annotateCore_WScoped fuel f hf' hw.1
     refine bind_rel _ _ (ih.annotate hpd hw.2) ?_
     intro a' ha'
-    have hwa' : WScoped d a' := annotateCore_WScoped fuel a ha' hw.2
-    refine bind_rel _ _ (ih.infer hpd hwf') ?_
-    intro tf htf
-    refine bind_rel _ _
-      (ih.whnf hpd (inferTypeCore_WScoped henv fuel htf hwf')) ?_
-    intro w hww
-    cases w <;> try rfl
-    case fvar => rw [shiftFrom_fvar]; rfl
-    case forallE n' ty' body' m' =>
-    have hwPi : WScoped d (Expr.forallE n' ty' body' m') :=
-      whnf_WScoped henv fuel hww (inferTypeCore_WScoped henv fuel htf hwf')
-    simp only [WScoped] at hwPi
-    refine bind_rel _ _ (ih.infer hpd hwa') ?_
-    intro ta hta
-    refine bind_rel_eq _
-      (ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hwa') hwPi.1) ?_
-    intro bb _
-    exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
+    rfl
   | .forallE n ty body mb =>
     simp only [WScoped] at hw
     show annotateBody (pureFns env fuel) env (d + 1)
@@ -2564,15 +2547,6 @@ private theorem annotate_step (henv : EnvWF env)
     rw [shiftFrom_instantiate1 hpd] at hbody
     refine bind_rel _ _ hbody ?_
     intro body' hbody'
-    have hwbody' : WScoped (d + 1) body' :=
-      annotateCore_WScoped fuel _ hbody' hopen
-    refine bind_rel _ _
-      (ih.infer (p := p) (d := d + 1) (by omega) hwbody') ?_
-    intro tb htb
-    refine bind_rel_eq _ (ensureSort_shift henv ih (p := p)
-      (d := d + 1) (by omega)
-      (inferTypeCore_WScoped henv fuel htb hwbody')) ?_
-    intro v _
     rw [← shiftFrom_abstract1 hpd]
     rfl
   | .lam n ty body mb =>
@@ -2591,20 +2565,6 @@ private theorem annotate_step (henv : EnvWF env)
     rw [shiftFrom_instantiate1 hpd] at hbody
     refine bind_rel _ _ hbody ?_
     intro body' hbody'
-    have hwbody' : WScoped (d + 1) body' :=
-      annotateCore_WScoped fuel _ hbody' hopen
-    refine bind_rel _ _
-      (ih.infer (p := p) (d := d + 1) (by omega) hwbody') ?_
-    intro bt hbt
-    have hwbt : WScoped (d + 1) bt :=
-      inferTypeCore_WScoped henv fuel hbt hwbody'
-    refine bind_rel _ _
-      (ih.infer (p := p) (d := d + 1) (by omega) hwbt) ?_
-    intro tbt htbt
-    refine bind_rel_eq _ (ensureSort_shift henv ih (p := p)
-      (d := d + 1) (by omega)
-      (inferTypeCore_WScoped henv fuel htbt hwbt)) ?_
-    intro v _
     rw [← shiftFrom_abstract1 hpd]
     rfl
   | .proj sn i pe =>

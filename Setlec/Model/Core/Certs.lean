@@ -224,7 +224,7 @@ theorem certs_fit {m : EnvModel V env} {fuel : Nat}
     obtain ⟨haw, hab, haL, haF, haA⟩ := hargs a List.mem_cons_self
     -- the domain interprets (the ∀-tower interp forces it)
     simp only [AnnotOk] at hAty
-    obtain ⟨hAdom, vE, hcond⟩ := hAty
+    obtain ⟨hAdom, hcond⟩ := hAty
     rw [interpExpr] at hity
     obtain ⟨A, hidom, hpieq⟩ : ∃ A,
         interpExpr V m.val env φ d ρ dom = some A ∧
@@ -239,8 +239,8 @@ theorem certs_fit {m : EnvModel V env} {fuel : Nat}
         dsimp only at hity
         exact ⟨A, rfl, (Option.some.inj hity).symm⟩
     -- the inferred type's value equals the domain's
-    obtain ⟨⟨va, tva, hiva, hita, hmemta⟩, hAta⟩ :=
-      ihi hta haw hab haL haF haA
+    obtain ⟨-, ⟨va, tva, hiva, hita, hmemta⟩, hAta⟩ :=
+      ihi hta haw hab haL haF
     obtain rfl : va = v := by rw [hiva] at hia; exact Option.some.inj hia
     have htaw : WScoped d ta := inferTypeCore_WScoped m.wf fuel hta haw
     have htab : ta.looseBVarsBounded 0 = true :=
@@ -264,7 +264,7 @@ theorem certs_fit {m : EnvModel V env} {fuel : Nat}
     have hvA : va ∈ˢ A := hveq ▸ hmemta
     -- the instantiated body interprets and stays truthful
     obtain ⟨hbodyA, hwfact⟩ := hcond va A hidom hvA
-    obtain ⟨w, hwi, -⟩ := hwfact
+    obtain ⟨w, hwi⟩ := hwfact
     have hfb : Expr.fvarsBelow d body := hwty'.2.fvarsBelow
     have hibody : interpExpr V m.val env φ d ρ (body.instantiate1 a) =
         some w := by

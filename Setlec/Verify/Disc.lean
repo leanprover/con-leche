@@ -1098,40 +1098,13 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     show DiscV env _
       ((C : CoreFns CheckSM).annotate d g' >>= fun f' =>
         (C : CoreFns CheckSM).annotate d a >>= fun a' =>
-        (C : CoreFns CheckSM).infer d f' >>= fun tf =>
-        (C : CoreFns CheckSM).whnf d tf >>= fun w =>
-        match w with
-        | .forallE _ ty _ _ =>
-          (C : CoreFns CheckSM).infer d a' >>= fun ta =>
-          (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
-          if b then pure (Expr.app f' a')
-          else throw (.invalid "application argument type mismatch")
-        | _ => throw (.invalid "function expected"))
+        pure (Expr.app f' a'))
       ((G : CoreFns CheckSM).annotate d g' >>= fun f' =>
         (G : CoreFns CheckSM).annotate d a >>= fun a' =>
-        (G : CoreFns CheckSM).infer d f' >>= fun tf =>
-        (G : CoreFns CheckSM).whnf d tf >>= fun w =>
-        match w with
-        | .forallE _ ty _ _ =>
-          (G : CoreFns CheckSM).infer d a' >>= fun ta =>
-          (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
-          if b then pure (Expr.app f' a')
-          else throw (.invalid "application argument type mismatch")
-        | _ => throw (.invalid "function expected"))
+        pure (Expr.app f' a'))
     refine DiscV.bind (ih.site_annotate hwfa.1) (fun f' hf' => ?_)
     refine DiscV.bind (ih.site_annotate hwfa.2) (fun a' ha' => ?_)
-    refine DiscV.bind (ih.site_infer henv hf') (fun tf htf => ?_)
-    refine DiscV.bind (ih.site_whnf henv htf) (fun w hww => ?_)
-    split <;> try exact DiscV.throw _
-    rename_i nw tyw bodyw mbw
-    have hwty : WScoped d tyw := by
-      simp only [WScoped] at hww
-      exact hww.1
-    refine DiscV.bind (ih.site_infer henv ha') (fun ta hta => ?_)
-    refine DiscV.bind (ih.site_defeq hta hwty) (fun b _ => ?_)
-    split
-    · exact DiscV.pure (by simp only [WScoped]; exact ⟨hf', ha'⟩)
-    · exact DiscV.throw _
+    exact DiscV.pure (by simp only [WScoped]; exact ⟨hf', ha'⟩)
   | .forallE n ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
@@ -1139,20 +1112,14 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        (C : CoreFns CheckSM).infer (d + 1) body' >>= fun tb =>
-        ensureSort C env (d + 1) tb >>= fun v =>
-        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, some v⟩))
+        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        (G : CoreFns CheckSM).infer (d + 1) body' >>= fun tb =>
-        ensureSort G env (d + 1) tb >>= fun v =>
-        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, some v⟩))
+        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi⟩))
     refine DiscV.bind (ih.site_annotate hwtb.1) (fun ty' hty' => ?_)
     refine DiscV.bind (ih.site_annotate
       (WScoped.instantiate1 hty' 0 hwtb.2)) (fun body' hbody' => ?_)
-    refine DiscV.bind (ih.site_infer henv hbody') (fun tb htb => ?_)
-    refine DiscV.bind (ensureSort_disc ih henv htb) (fun v _ => ?_)
     refine DiscV.pure ?_
     simp only [WScoped]
     exact ⟨hty', WScoped.abstract1 0 hbody'⟩
@@ -1163,23 +1130,14 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        (C : CoreFns CheckSM).infer (d + 1) body' >>= fun bt =>
-        (C : CoreFns CheckSM).infer (d + 1) bt >>= fun tbt =>
-        ensureSort C env (d + 1) tbt >>= fun v =>
-        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, some v⟩))
+        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        (G : CoreFns CheckSM).infer (d + 1) body' >>= fun bt =>
-        (G : CoreFns CheckSM).infer (d + 1) bt >>= fun tbt =>
-        ensureSort G env (d + 1) tbt >>= fun v =>
-        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, some v⟩))
+        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi⟩))
     refine DiscV.bind (ih.site_annotate hwtb.1) (fun ty' hty' => ?_)
     refine DiscV.bind (ih.site_annotate
       (WScoped.instantiate1 hty' 0 hwtb.2)) (fun body' hbody' => ?_)
-    refine DiscV.bind (ih.site_infer henv hbody') (fun bt hbt => ?_)
-    refine DiscV.bind (ih.site_infer henv hbt) (fun tbt htbt => ?_)
-    refine DiscV.bind (ensureSort_disc ih henv htbt) (fun v _ => ?_)
     refine DiscV.pure ?_
     simp only [WScoped]
     exact ⟨hty', WScoped.abstract1 0 hbody'⟩

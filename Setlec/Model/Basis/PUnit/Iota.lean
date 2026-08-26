@@ -59,23 +59,21 @@ theorem annotOk_punitRec_rhs {cval : ConstVal V}
       cval ((Name.anonymous.str "PUnit").str "unit") ψ' = pt := hvalU
   simp only [punitRecRhsA, punitRecA, ConstantInfo.recRules, List.getD,
     List.getElem?_cons_zero, Option.getD_some, AnnotOk]
-  refine ⟨?_,
-    (if ψ u1N = 0 then 0 else Nat.max (ψ u1N) (ψ u1N)), ?_⟩
+  refine ⟨?_, ?_⟩
   · -- the motive space
     try simp only [AnnotOk]
-    refine ⟨trivial, ψ u1N + 1, ?_⟩
+    refine ⟨trivial, ?_⟩
     intro t A hA ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-    refine ⟨univ (ψ u1N), ?_, ?_⟩
-    · simp [Expr.instantiate1, interpExpr, Level.eval, u1N]
-    · exact univ_mem_univ (ψ u1N)
+    refine ⟨univ (ψ u1N), ?_⟩
+    simp [Expr.instantiate1, interpExpr, Level.eval, u1N]
   · intro M A hA hM
     have hA' : A = pi (ψ u1N + 1) unitSet fun _ => univ (ψ u1N) := by
       have : interpExpr V cval env ψ 0 (rho0 V)
           (Expr.forallE (Name.anonymous.str "t")
             (Expr.const (Name.anonymous.str "PUnit") [Level.param (Name.anonymous.str "u")])
             (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-            ⟨BinderInfo.default, some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩) =
+            ⟨BinderInfo.default⟩) =
           some (pi (ψ u1N + 1) unitSet fun _ => univ (ψ u1N)) := by
         simp only [interpExpr, hfindP', hvalP', punitA, ConstantInfo.toConstantVal,
           List.length_cons, List.length_nil, reduceIte, Level.eval, Level.substFn]
@@ -89,9 +87,8 @@ theorem annotOk_punitRec_rhs {cval : ConstVal V}
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
       refine ⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
         (by simp [Expr.instantiate1, AnnotOk]),
-        M, pt, ψ u1N + 1, unitSet, (fun _ => univ (ψ u1N)),
-        ?_, ?_, hM, pt_mem_unitSet,
-        fun _ _ => univ_mem_univ (ψ u1N)⟩, ψ u1N, ?_⟩
+        M, pt, unitSet, (fun _ => univ (ψ u1N)),
+        ?_, ?_, hM, pt_mem_unitSet⟩, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV]
       · simp [interpExpr, Expr.instantiate1, updV, hfindU', hvalU',
           punitUnitA, ConstantInfo.toConstantVal]
@@ -104,23 +101,17 @@ theorem annotOk_punitRec_rhs {cval : ConstVal V}
         exact hAm.symm
       rw [hAm'] at hm
       refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-      refine ⟨m, SetTheory.app M pt, ?_, hm, ?_⟩
-      · simp [interpExpr, Expr.instantiate1, updV]
-      · exact app_mem hM pt_mem_unitSet (fun _ _ => univ_mem_univ (ψ u1N))
+      refine ⟨m, SetTheory.app M pt, ?_, hm⟩
+      simp [interpExpr, Expr.instantiate1, updV]
     · refine ⟨SetTheory.lam (ψ u1N) (SetTheory.app M pt) (fun m => m),
         pi (ψ u1N) (SetTheory.app M pt) (fun _ => SetTheory.app M pt),
-        ?_, ?_, ?_⟩
+        ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, hfindU', hvalU',
           punitUnitA, ConstantInfo.toConstantVal, Level.eval, u1N,
           -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
         try rfl
       · exact lam_mem (V := V) (B := fun _ => SetTheory.app M pt)
           fun m hm => hm
-      · have hMpt : SetTheory.app M pt ∈ˢ univ (ψ u1N) :=
-          app_mem hM pt_mem_unitSet (fun _ _ => univ_mem_univ (ψ u1N))
-        exact pi_mem_univ (u := ψ u1N) (v := ψ u1N) hMpt
-          (fun _ _ => hMpt)
-
 /-- The fold equation of `PUnit.rec`'s rule. -/
 theorem punitRec_iota {cval : ConstVal V}
     (hfindP : env.find? punitName = some punitA)
@@ -373,11 +364,8 @@ theorem punitRec_ruleOk {cval : ConstVal V}
              (Expr.const (Name.anonymous.str "PUnit")
                [Level.param (Name.anonymous.str "u")])
              (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-             ⟨BinderInfo.default,
-               some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩),
-         ⟨BinderInfo.default,
-           some (Level.imax (Level.param (Name.anonymous.str "u_1"))
-             (Level.param (Name.anonymous.str "u_1")))⟩),
+             ⟨BinderInfo.default⟩),
+         ⟨BinderInfo.default⟩),
         (Expr.fvar 1 (Name.anonymous.str "unit")
            (Expr.app
              (Expr.fvar 0 (Name.anonymous.str "motive")
@@ -385,13 +373,10 @@ theorem punitRec_ruleOk {cval : ConstVal V}
                  (Expr.const (Name.anonymous.str "PUnit")
                    [Level.param (Name.anonymous.str "u")])
                  (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-                 ⟨BinderInfo.default,
-                   some (Level.succ
-                     (Level.param (Name.anonymous.str "u_1")))⟩))
+                 ⟨BinderInfo.default⟩))
              (Expr.const ((Name.anonymous.str "PUnit").str "unit")
                [Level.param (Name.anonymous.str "u")])),
-         ⟨BinderInfo.default,
-           some (Level.param (Name.anonymous.str "u_1"))⟩)],
+         ⟨BinderInfo.default⟩)],
        Expr.app
          (Expr.app
            (Expr.app
@@ -403,9 +388,7 @@ theorem punitRec_ruleOk {cval : ConstVal V}
                  (Expr.const (Name.anonymous.str "PUnit")
                    [Level.param (Name.anonymous.str "u")])
                  (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-                 ⟨BinderInfo.default,
-                   some (Level.succ
-                     (Level.param (Name.anonymous.str "u_1")))⟩)))
+                 ⟨BinderInfo.default⟩)))
            (Expr.fvar 1 (Name.anonymous.str "unit")
              (Expr.app
                (Expr.fvar 0 (Name.anonymous.str "motive")
@@ -413,9 +396,7 @@ theorem punitRec_ruleOk {cval : ConstVal V}
                    (Expr.const (Name.anonymous.str "PUnit")
                      [Level.param (Name.anonymous.str "u")])
                    (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-                   ⟨BinderInfo.default,
-                     some (Level.succ
-                       (Level.param (Name.anonymous.str "u_1")))⟩))
+                   ⟨BinderInfo.default⟩))
                (Expr.const ((Name.anonymous.str "PUnit").str "unit")
                  [Level.param (Name.anonymous.str "u")]))))
          (Expr.const ((Name.anonymous.str "PUnit").str "unit")
@@ -439,8 +420,7 @@ theorem punitRec_ruleOk {cval : ConstVal V}
           (Expr.const (Name.anonymous.str "PUnit")
             [Level.param (Name.anonymous.str "u")])
           (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-          ⟨BinderInfo.default,
-            some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩) =
+          ⟨BinderInfo.default⟩) =
         some (pi (ψ' u1N + 1) unitSet fun _ => univ (ψ' u1N)) := by
       simp only [interpExpr, hfindP', hvalP', punitA, ConstantInfo.toConstantVal,
         List.length_cons, List.length_nil, reduceIte, Level.eval, Level.substFn]
@@ -451,15 +431,13 @@ theorem punitRec_ruleOk {cval : ConstVal V}
           (Expr.const (Name.anonymous.str "PUnit")
             [Level.param (Name.anonymous.str "u")])
           (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-          ⟨BinderInfo.default,
-            some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩) := by
+          ⟨BinderInfo.default⟩) := by
       simp only [AnnotOk]
-      refine ⟨trivial, ψ' u1N + 1, ?_⟩
+      refine ⟨trivial, ?_⟩
       intro t A hA ht
       refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
-      refine ⟨univ (ψ' u1N), ?_, ?_⟩
-      · simp [Expr.instantiate1, interpExpr, Level.eval, u1N]
-      · exact univ_mem_univ (ψ' u1N)
+      refine ⟨univ (ψ' u1N), ?_⟩
+      simp [Expr.instantiate1, interpExpr, Level.eval, u1N]
     have hAR : AnnotOk V cval env ψ' 0 (rho0 V) punitRecRhsA :=
       annotOk_punitRec_rhs (cval := cval) (ψ := ψ') hfindP hvalP hfindU hvalU
     have hstep : ∀ {fvms : List (Expr × BinderMeta)} {bL : Expr},
@@ -486,8 +464,7 @@ theorem punitRec_ruleOk {cval : ConstVal V}
               (Expr.const (Name.anonymous.str "PUnit")
                 [Level.param (Name.anonymous.str "u")])
               (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-              ⟨BinderInfo.default,
-                some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩))
+              ⟨BinderInfo.default⟩))
           (Expr.const ((Name.anonymous.str "PUnit").str "unit")
             [Level.param (Name.anonymous.str "u")])) =
         some (SetTheory.app M pt) := by
@@ -500,17 +477,16 @@ theorem punitRec_ruleOk {cval : ConstVal V}
               (Expr.const (Name.anonymous.str "PUnit")
                 [Level.param (Name.anonymous.str "u")])
               (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-              ⟨BinderInfo.default,
-                some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩))
+              ⟨BinderInfo.default⟩))
           (Expr.const ((Name.anonymous.str "PUnit").str "unit")
             [Level.param (Name.anonymous.str "u")])) := by
       simp only [AnnotOk]
-      exact ⟨trivial, trivial, M, pt, ψ' u1N + 1, unitSet,
+      exact ⟨trivial, trivial, M, pt, unitSet,
         (fun _ => univ (ψ' u1N)),
         (by simp [interpExpr, updV]),
         (by simp [interpExpr, hfindU', hvalU', punitUnitA,
           ConstantInfo.toConstantVal]),
-        hM, pt_mem_unitSet, fun _ _ => univ_mem_univ _⟩
+        hM, pt_mem_unitSet⟩
     refine TowerOk.cons (A := SetTheory.app M pt) hityU hityU hAtyU ?_
     intro m hm
     -- the bottom: the canonical lhs versus the opened rhs body
@@ -530,8 +506,7 @@ theorem punitRec_ruleOk {cval : ConstVal V}
             (Expr.const (Name.anonymous.str "PUnit")
               [Level.param (Name.anonymous.str "u")])
             (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-            ⟨BinderInfo.default,
-              some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩)) =
+            ⟨BinderInfo.default⟩)) =
         some M := by
       simp [interpExpr, updV]
     have hiunit : interpExpr V cval env ψ' 2 (updV V (updV V (rho0 V) 0 M) 1 m)
@@ -580,8 +555,7 @@ theorem punitRec_ruleOk {cval : ConstVal V}
               (Expr.const (Name.anonymous.str "PUnit")
                 [Level.param (Name.anonymous.str "u")])
               (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-              ⟨BinderInfo.default,
-                some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩))) =
+              ⟨BinderInfo.default⟩))) =
         some (SetTheory.app (punitRecVal V ψ') M) := by
       rw [interpExpr, hirec, hifv0]
     have hifv1 : interpExpr V cval env ψ' 2 (updV V (updV V (rho0 V) 0 M) 1 m)
@@ -592,8 +566,7 @@ theorem punitRec_ruleOk {cval : ConstVal V}
                 (Expr.const (Name.anonymous.str "PUnit")
                   [Level.param (Name.anonymous.str "u")])
                 (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-                ⟨BinderInfo.default,
-                  some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩))
+                ⟨BinderInfo.default⟩))
             (Expr.const ((Name.anonymous.str "PUnit").str "unit")
               [Level.param (Name.anonymous.str "u")]))) = some m := by
       simp [interpExpr, updV]
@@ -609,8 +582,7 @@ theorem punitRec_ruleOk {cval : ConstVal V}
                 (Expr.const (Name.anonymous.str "PUnit")
                   [Level.param (Name.anonymous.str "u")])
                 (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-                ⟨BinderInfo.default,
-                  some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩)))
+                ⟨BinderInfo.default⟩)))
           (Expr.fvar 1 (Name.anonymous.str "unit")
             (Expr.app
               (Expr.fvar 0 (Name.anonymous.str "motive")
@@ -618,9 +590,7 @@ theorem punitRec_ruleOk {cval : ConstVal V}
                   (Expr.const (Name.anonymous.str "PUnit")
                     [Level.param (Name.anonymous.str "u")])
                   (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-                  ⟨BinderInfo.default,
-                    some (Level.succ
-                      (Level.param (Name.anonymous.str "u_1")))⟩))
+                  ⟨BinderInfo.default⟩))
               (Expr.const ((Name.anonymous.str "PUnit").str "unit")
                 [Level.param (Name.anonymous.str "u")])))) =
         some (SetTheory.app (SetTheory.app (punitRecVal V ψ') M) m) := by
@@ -636,18 +606,15 @@ theorem punitRec_ruleOk {cval : ConstVal V}
     · -- the canonical lhs carries truthful annotations
       simp only [AnnotOk]
       refine ⟨⟨⟨trivial, trivial,
-          punitRecVal V ψ', M, _, _, _, hirec, hifv0, hmem, hM,
-          fun M' hM' => houter M' hM'⟩,
+          punitRecVal V ψ', M, _, _, hirec, hifv0, hmem, hM⟩,
         trivial,
         SetTheory.app (punitRecVal V ψ') M, m,
-          (if ψ' u1N = 0 then 0 else Nat.max (ψ' uN) (ψ' u1N)),
           SetTheory.app M pt,
           (fun _ => pi (ψ' u1N) unitSet fun t => SetTheory.app M t),
-          hipartial1, hifv1, hm1, hm, fun _ _ => hinner M hM⟩,
+          hipartial1, hifv1, hm1, hm⟩,
         trivial,
-        SetTheory.app (SetTheory.app (punitRecVal V ψ') M) m, pt, ψ' u1N,
+        SetTheory.app (SetTheory.app (punitRecVal V ψ') M) m, pt,
           unitSet, (fun t => SetTheory.app M t),
-          hipartial2, hiunit, hm2, pt_mem_unitSet,
-          fun t ht => app_mem hM ht (fun _ _ => univ_mem_univ _)⟩
+          hipartial2, hiunit, hm2, pt_mem_unitSet⟩
 
 end Setlec

@@ -76,7 +76,6 @@ theorem runEntryE_bridge {pick : CoreFnsI → Nat → EIdx → CheckIM EIdx}
     (h : runEntryE env pick d e = .ok v) :
     ∃ F, pf.val F = .ok v := by
   unfold runEntryE at h
-  rw [EStore.internExprFast_eq empty_wf] at h
   rcases hie : EStore.empty.internExpr e with ⟨i0, st0⟩
   rw [hie] at h
   obtain ⟨hwf0, -, hden0⟩ := internExpr_spec empty_wf e
@@ -108,13 +107,11 @@ theorem runEntryB_bridge {pf : FueledM Bool} {d : Nat} {a b : Expr}
     (h : runEntryB env d a b = .ok v) :
     ∃ F, pf.val F = .ok v := by
   unfold runEntryB at h
-  rw [EStore.internExprFast_eq empty_wf] at h
   rcases hia : EStore.empty.internExpr a with ⟨i0, st1⟩
   rw [hia] at h
   dsimp only at h
   obtain ⟨hwf1, -, hdena⟩ := internExpr_spec empty_wf a
   rw [hia] at hwf1 hdena
-  rw [EStore.internExprFast_eq hwf1] at h
   rcases hib : st1.internExpr b with ⟨j0, st2⟩
   rw [hib] at h
   obtain ⟨hwf2, hext2, hdenb⟩ := internExpr_spec hwf1 b
@@ -154,7 +151,6 @@ theorem runEntryS_bridge {pf : FueledM Level} {d : Nat} {e : Expr}
     (h : runEntryS env d e = .ok u) :
     ∃ F, pf.val F = .ok u := by
   unfold runEntryS at h
-  rw [EStore.internExprFast_eq empty_wf] at h
   rcases hie : EStore.empty.internExpr e with ⟨i0, st0⟩
   rw [hie] at h
   obtain ⟨hwf0, -, hden0⟩ := internExpr_spec empty_wf e

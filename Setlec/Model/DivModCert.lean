@@ -1,6 +1,6 @@
 import Setlec.Model.NatOps
 import Setlec.Model.NatLit
-import Setlec.Model.Annotate
+import Setlec.Model.TypeChecker
 import Setlec.Model.TypeChecker
 import Setlec.Model.Basis.Eq.Install
 import Setlec.Model.FvarsOkLemmas
@@ -113,41 +113,29 @@ theorem eqSide_eqApp (m : EnvModel V env)
         (univ (psiEq1 ψ uN))
         (fun X => pi (Nat.max (psiEq1 ψ uN) 1) X fun _ =>
           pi 1 X fun _ => (univ 0 : V)) := eqVal_mem (V := V) (ψ := psiEq1 ψ)
-  have hfib0 : ∀ X, X ∈ˢ univ (psiEq1 ψ uN) →
-      (pi (Nat.max (psiEq1 ψ uN) 1) X fun _ => pi 1 X fun _ => (univ 0 : V)) ∈ˢ
-        univ (Nat.max (psiEq1 ψ uN) (Nat.max (psiEq1 ψ uN) 1)) :=
-    fun X hX => eq_fibre_mem (ψ := psiEq1 ψ) hX
   have hm1 : SetTheory.app (eqVal V (psiEq1 ψ)) (m.val A ψ) ∈ˢ
       pi (Nat.max (psiEq1 ψ uN) 1) (m.val A ψ)
         (fun _ => pi 1 (m.val A ψ) fun _ => (univ 0 : V)) :=
     eqVal_app_mem (ψ := psiEq1 ψ) hAu'
-  have hfib1 : ∀ x, x ∈ˢ m.val A ψ →
-      (pi 1 (m.val A ψ) fun _ => (univ 0 : V)) ∈ˢ
-        univ (Nat.max (psiEq1 ψ uN) 1) := by
-    intro x hx
-    have h := pi_mem_univ (u := psiEq1 ψ uN) (v := 1)
-      (B := fun _ => univ 0) hAu' (fun _ _ => univ_mem_univ 0)
-    simpa using h
   have hm2 : SetTheory.app (SetTheory.app (eqVal V (psiEq1 ψ))
       (m.val A ψ)) vl ∈ˢ pi 1 (m.val A ψ) (fun _ => (univ 0 : V)) :=
     eqVal_app₂_mem (ψ := psiEq1 ψ) hAu' hlm
-  have hfib2 : ∀ x, x ∈ˢ m.val A ψ → univ 0 ∈ˢ (univ 1 : V) :=
-    fun _ _ => univ_mem_univ 0
   refine ⟨?_, eqv_mem_univ vl vr, ?_, ?_, ?_, ?_, ?_⟩
   · rw [interp_app1 (interp_app1 (interp_app1 hEqI hAi) hli) hri]
     rw [eqVal_app₃ (ψ := psiEq1 ψ) hAu' hlm hrm]
-  · -- AnnotOk of the application chain
+  · -- AnnotOk of the application chain (task #100 stage 6: the app
+    -- clause is the domain-relative slot, no fibre universes)
     simp only [AnnotOk]
     refine ⟨⟨⟨trivial, trivial,
-        eqVal V (psiEq1 ψ), m.val A ψ, _, univ (psiEq1 ψ uN), _,
-        hEqI, hAi, hm0, hAu', hfib0⟩,
+        eqVal V (psiEq1 ψ), m.val A ψ, univ (psiEq1 ψ uN), _,
+        hEqI, hAi, hm0, hAu'⟩,
       hlA,
-        SetTheory.app (eqVal V (psiEq1 ψ)) (m.val A ψ), vl, _,
-        m.val A ψ, _, interp_app1 hEqI hAi, hli, hm1, hlm, hfib1⟩,
+        SetTheory.app (eqVal V (psiEq1 ψ)) (m.val A ψ), vl,
+        m.val A ψ, _, interp_app1 hEqI hAi, hli, hm1, hlm⟩,
       hrA,
         SetTheory.app (SetTheory.app (eqVal V (psiEq1 ψ)) (m.val A ψ)) vl,
-        vr, 1, m.val A ψ, fun _ => univ 0,
-        interp_app1 (interp_app1 hEqI hAi) hli, hri, hm2, hrm, hfib2⟩
+        vr, m.val A ψ, fun _ => univ 0,
+        interp_app1 (interp_app1 hEqI hAi) hli, hri, hm2, hrm⟩
   · intro lf hlf
     simp only [Expr.fvarLeaves, List.mem_append, List.not_mem_nil,
       false_or, List.nil_append] at hlf
@@ -183,9 +171,6 @@ theorem divModCert_extract (m : EnvModel V env) (F : Nat)
     (hde : isDefEqCore env F 4 tp eqS = .ok true) :
     ∃ w, w ∈ˢ vE := by
   obtain ⟨hei, hem, heA, heF, heW, heB, heL⟩ := heq
-  -- the annotate run: truthful annotations for the applied proof
-  have hAappA : AnnotOk V m.val env ψ 4 ρ appliedA :=
-    annotate_sound m _ hann hW hB hLb ρ hFv
   have hsub := annotateCore_leaves_sub F _ hann hW hB
   have hFappA : FvarsOk V m.val env ψ 4 ρ appliedA :=
     FvarsOk.of_subset hsub hFv
@@ -195,8 +180,8 @@ theorem divModCert_extract (m : EnvModel V env) (F : Nat)
   have hLappA : Expr.LeavesBounded appliedA :=
     fun l hl => hLb l (hsub l hl)
   -- the inference run: the applied proof inhabits its inferred type
-  obtain ⟨⟨v, tv, hvi, htvi, hvm⟩, hWtp, hAtp⟩ :=
-    inferTypeCore_sound (φ := ψ) m F hinf hWappA hBappA hLappA hFappA hAappA
+  obtain ⟨-, ⟨v, tv, hvi, htvi, hvm⟩, hWtp, hAtp⟩ :=
+    inferTypeCore_sound (φ := ψ) m F hinf hWappA hBappA hLappA hFappA
   -- the defeq run: the inferred type is the pinned equation's value
   have hFtp : FvarsOk V m.val env ψ 4 ρ tp :=
     FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf F hinf hWappA) hFappA
@@ -232,7 +217,7 @@ theorem natOpTyPinned_boolFacts {ty : Expr}
     intro h; exact nomatch h
   intro h
   simp only [Bool.and_eq_true] at h
-  have hcod := h.1.1.2
+  have hcod := h.2
   unfold natOpCod at hcod
   rw [if_pos (by decide)] at hcod
   revert hcod

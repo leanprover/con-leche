@@ -27,7 +27,7 @@ def psigFrA : Expr :=
 def psigFrTyB : Expr :=
   .forallE (Name.anonymous.str "x") psigFrA
     (.sort (.param (Name.anonymous.str "v")))
-    ⟨.default, some (.succ (.param (Name.anonymous.str "v")))⟩
+    ⟨.default⟩
 
 /-- The `β` frame variable. -/
 def psigFrB : Expr := .fvar 1 (Name.anonymous.str "β") psigFrTyB
@@ -38,7 +38,7 @@ def psigFrTyM : Expr :=
     (.app (.app (.const (Name.anonymous.str "PSigma'")
       [.param (Name.anonymous.str "u"), .param (Name.anonymous.str "v")])
       psigFrA) psigFrB)
-    (.sort .zero) ⟨.default, some (.succ .zero)⟩
+    (.sort .zero) ⟨.default⟩
 
 /-- The motive frame variable. -/
 def psigFrM : Expr := .fvar 2 (Name.anonymous.str "motive") psigFrTyM
@@ -55,8 +55,8 @@ def psigFrTyMk : Expr :=
       (.app psigFrM
         (.app (.app (.app (.app psigFrMkC psigFrA) psigFrB) (.bvar 1))
           (.bvar 0)))
-      ⟨.default, some .zero⟩)
-    ⟨.default, some (.imax (.param (Name.anonymous.str "v")) .zero)⟩
+      ⟨.default⟩)
+    ⟨.default⟩
 
 /-- The minor-premise frame variable. -/
 def psigFrMk : Expr := .fvar 3 (Name.anonymous.str "mk") psigFrTyMk
@@ -182,12 +182,11 @@ theorem psigFr_interp_tyB {cval : ConstVal V} {A : V} :
 theorem psigFr_annotOk_tyB {cval : ConstVal V} {A : V} :
     AnnotOk V cval env ψ 1 (updV V (rho0 V) 0 A) psigFrTyB := by
   simp only [psigFrTyB, psigFrA, AnnotOk]
-  refine ⟨trivial, ψ vN + 1, ?_⟩
+  refine ⟨trivial, ?_⟩
   intro x Sx hSx hx
   refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-  refine ⟨univ (ψ vN), ?_, ?_⟩
-  · simp [interpExpr, Expr.instantiate1, updV, Level.eval, vN]
-  · exact univ_mem_univ (ψ vN)
+  refine ⟨univ (ψ vN), ?_⟩
+  simp [interpExpr, Expr.instantiate1, updV, Level.eval, vN]
 
 theorem psigFr_interp_tyM {cval : ConstVal V} {A B : V}
     (hfindS : env.find? psigmaName = some psigmaA)
@@ -217,32 +216,20 @@ theorem psigFr_annotOk_tyM {cval : ConstVal V} {A B : V}
   simp only [psigFrTyM, psigFrA, psigFrB, psigFrTyB, AnnotOk]
   refine ⟨⟨⟨trivial, trivial,
       psigmaVal V ψ, A,
-      Nat.max (Nat.max (ψ uN) (ψ vN + 1)) (Nat.max (ψ uN) (ψ vN) + 1),
-      univ (ψ uN),
+            univ (ψ uN),
       (fun X => pi (Nat.max (ψ uN) (ψ vN) + 1)
         (pi (ψ vN + 1) X fun _ => univ (ψ vN)) fun _ =>
           univ (Nat.max (ψ uN) (ψ vN))),
-      ?_, ?_, psigmaVal_mem, hA, ?_⟩,
+      ?_, ?_, psigmaVal_mem, hA⟩,
     trivial,
     SetTheory.app (psigmaVal V ψ) A, B,
-    Nat.max (ψ uN) (ψ vN) + 1,
-    pi (ψ vN + 1) A (fun _ => univ (ψ vN)),
+        pi (ψ vN + 1) A (fun _ => univ (ψ vN)),
     (fun _ => univ (Nat.max (ψ uN) (ψ vN))),
-    ?_, ?_, psigmaVal_app_mem hA, hB,
-    fun _ _ => univ_mem_univ (Nat.max (ψ uN) (ψ vN))⟩,
-    1, ?_⟩
+    ?_, ?_, psigmaVal_app_mem hA, hB⟩, ?_⟩
   · simp [interpExpr, Expr.instantiate1, updV, hfindS', hvalS', psigmaA,
       ConstantInfo.toConstantVal]
     try rfl
   · simp [interpExpr, Expr.instantiate1, updV]
-  · intro X hX
-    have hdom : (pi (ψ vN + 1) X fun _ => univ (ψ vN)) ∈ˢ
-        univ (Nat.max (ψ uN) (ψ vN + 1)) :=
-      pi_mem_univ (u := ψ uN) (v := ψ vN + 1) hX
-        (fun _ _ => univ_mem_univ (ψ vN))
-    exact pi_mem_univ (u := Nat.max (ψ uN) (ψ vN + 1))
-      (v := Nat.max (ψ uN) (ψ vN) + 1) hdom
-      (fun _ _ => univ_mem_univ (Nat.max (ψ uN) (ψ vN)))
   · rw [interpExpr]
     simp [interpExpr, Expr.instantiate1, updV, hfindS', hvalS', psigmaA,
       ConstantInfo.toConstantVal]
@@ -250,9 +237,8 @@ theorem psigFr_annotOk_tyM {cval : ConstVal V} {A B : V}
   · simp [interpExpr, Expr.instantiate1, updV]
   · intro t St hSt ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-    refine ⟨univ 0, ?_, ?_⟩
-    · simp [interpExpr, Expr.instantiate1, updV, Level.eval]
-    · exact univ_mem_univ 0
+    refine ⟨univ 0, ?_⟩
+    simp [interpExpr, Expr.instantiate1, updV, Level.eval]
 
 theorem psigFr_interp_tyMk {cval : ConstVal V} {A B M : V}
     (hfindS : env.find? psigmaName = some psigmaA)
@@ -312,7 +298,7 @@ theorem psigFr_annotOk_tyMk {cval : ConstVal V} {A B M : V}
     exact psigmaMkVal_app₄_mem hA hB ha hb
   simp only [psigFrTyMk, psigFrMkC, psigFrA, psigFrB, psigFrTyB, psigFrM,
     psigFrTyM, AnnotOk]
-  refine ⟨trivial, 0, ?_⟩
+  refine ⟨trivial, ?_⟩
   intro a Sa hSa ha
   have hSa' : Sa = A := by
     simp [interpExpr, Expr.instantiate1, updV] at hSa
@@ -322,9 +308,8 @@ theorem psigFr_annotOk_tyMk {cval : ConstVal V} {A B M : V}
   · -- opened `∀ (snd : β fst), motive (mk α β fst snd)`
     try simp only [Expr.instantiate1, reduceIte, AnnotOk]
     refine ⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
-      (by simp [Expr.instantiate1, AnnotOk]), B, a, ψ vN + 1, A,
-      (fun _ => univ (ψ vN)), ?_, ?_, hB, ha,
-      fun _ _ => univ_mem_univ (ψ vN)⟩, 0, ?_⟩
+      (by simp [Expr.instantiate1, AnnotOk]), B, a, A,
+      (fun _ => univ (ψ vN)), ?_, ?_, hB, ha⟩, ?_⟩
     · simp [interpExpr, Expr.instantiate1, updV]
     · simp [interpExpr, Expr.instantiate1, updV]
     intro b Sb hSb hb
@@ -339,8 +324,6 @@ theorem psigFr_annotOk_tyMk {cval : ConstVal V} {A B M : V}
       refine ⟨(by simp [Expr.instantiate1, AnnotOk]),
         ⟨⟨⟨⟨trivial, (by simp [Expr.instantiate1, AnnotOk]),
           psigmaMkVal V ψ, A,
-          (if Nat.max (ψ uN) (ψ vN) = 0 then 0
-            else Nat.max (ψ uN) (ψ vN + 1)),
           univ (ψ uN),
           (fun X => pi (Nat.max (ψ uN) (ψ vN))
             (pi (ψ vN + 1) X fun _ => univ (ψ vN)) fun B' =>
@@ -349,45 +332,37 @@ theorem psigFr_annotOk_tyMk {cval : ConstVal V} {A B M : V}
                   (SetTheory.app B' a') fun _ =>
                   sigmaSet (Nat.max (ψ uN) (ψ vN)) X fun x =>
                     SetTheory.app B' x),
-          ?_, ?_, psigmaMkVal_mem, hA,
-          fun X hX => psigmaMk_space1 hX⟩,
+          ?_, ?_, psigmaMkVal_mem, hA⟩,
         (by simp [Expr.instantiate1, AnnotOk]),
           SetTheory.app (psigmaMkVal V ψ) A, B,
-          Nat.max (ψ uN) (ψ vN),
           pi (ψ vN + 1) A (fun _ => univ (ψ vN)),
           (fun B' => pi (Nat.max (ψ uN) (ψ vN)) A fun a' =>
             pi (Nat.max (ψ uN) (ψ vN))
               (SetTheory.app B' a') fun _ =>
               sigmaSet (Nat.max (ψ uN) (ψ vN)) A fun x =>
                 SetTheory.app B' x),
-          ?_, ?_, psigmaMkVal_app_mem hA, hB,
-          fun B' hB' => psigmaMk_space2 hA hB'⟩,
+          ?_, ?_, psigmaMkVal_app_mem hA, hB⟩,
         (by simp [Expr.instantiate1, AnnotOk]),
           SetTheory.app (SetTheory.app (psigmaMkVal V ψ) A) B,
-          a, Nat.max (ψ uN) (ψ vN), A,
+          a, A,
           (fun a' => pi (Nat.max (ψ uN) (ψ vN))
             (SetTheory.app B a') fun _ =>
             sigmaSet (Nat.max (ψ uN) (ψ vN)) A fun x =>
               SetTheory.app B x),
-          ?_, ?_, psigmaMkVal_app₂_mem hA hB, ha,
-          fun a' ha' => psigmaMk_space3 hA hB ha'⟩,
+          ?_, ?_, psigmaMkVal_app₂_mem hA hB, ha⟩,
         (by simp [Expr.instantiate1, AnnotOk]),
           SetTheory.app (SetTheory.app (SetTheory.app
             (psigmaMkVal V ψ) A) B) a,
-          b, Nat.max (ψ uN) (ψ vN), SetTheory.app B a,
+          b, SetTheory.app B a,
           (fun _ => sigmaSet (Nat.max (ψ uN) (ψ vN)) A fun x =>
             SetTheory.app B x),
-          ?_, ?_, psigmaMkVal_app₃_mem hA hB ha, hb,
-          fun _ _ => sigma_mem_univ hA (fun x hx =>
-            app_mem hB hx fun _ _ => univ_mem_univ (ψ vN))⟩,
+          ?_, ?_, psigmaMkVal_app₃_mem hA hB ha, hb⟩,
         M,
         SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
           (psigmaMkVal V ψ) A) B) a) b,
-        1,
-        SetTheory.app (SetTheory.app (psigmaVal V ψ) A) B,
+                SetTheory.app (SetTheory.app (psigmaVal V ψ) A) B,
         (fun _ => univ 0),
-        ?_, ?_, hM, hmk4 a ha b hb,
-        fun _ _ => univ_mem_univ 0⟩
+        ?_, ?_, hM, hmk4 a ha b hb⟩
       · simp [interpExpr, Expr.instantiate1, updV, hfindM', hvalM',
           psigmaMkA, ConstantInfo.toConstantVal]
         try rfl
@@ -414,24 +389,18 @@ theorem psigFr_annotOk_tyMk {cval : ConstVal V} {A B M : V}
         try rfl
     · -- fibre-universe of `snd` (annotation `0`)
       refine ⟨SetTheory.app M (SetTheory.app (SetTheory.app (SetTheory.app
-        (SetTheory.app (psigmaMkVal V ψ) A) B) a) b), ?_, ?_⟩
-      · simp [interpExpr, Expr.instantiate1, updV, hfindM', hvalM',
-          psigmaMkA, ConstantInfo.toConstantVal]
-        try rfl
-      · exact happM _ (hmk4 a ha b hb)
+        (SetTheory.app (psigmaMkVal V ψ) A) B) a) b), ?_⟩
+      simp [interpExpr, Expr.instantiate1, updV, hfindM', hvalM',
+        psigmaMkA, ConstantInfo.toConstantVal]
+      try rfl
   · -- fibre-universe of `fst` (annotation `imax v 0`)
     refine ⟨pi 0 (SetTheory.app B a) (fun b =>
       SetTheory.app M (SetTheory.app (SetTheory.app (SetTheory.app
-        (SetTheory.app (psigmaMkVal V ψ) A) B) a) b)), ?_, ?_⟩
-    · simp [interpExpr, Expr.instantiate1, updV, hfindM', hvalM',
-        psigmaMkA, ConstantInfo.toConstantVal, Level.eval,
-        -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-      try rfl
-    · have hBa : SetTheory.app B a ∈ˢ univ (ψ vN) :=
-        app_mem hB ha fun _ _ => univ_mem_univ (ψ vN)
-      exact pi_mem_univ (u := ψ vN) (v := 0) hBa
-        (fun b hb => happM _ (hmk4 a ha b hb))
-
+        (SetTheory.app (psigmaMkVal V ψ) A) B) a) b)), ?_⟩
+    simp [interpExpr, Expr.instantiate1, updV, hfindM', hvalM',
+      psigmaMkA, ConstantInfo.toConstantVal, Level.eval,
+      -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+    try rfl
 /-! ## The `RecRulesOk` clause of the rule -/
 
 /-- The `RecRulesOk` clause of `PSigma'.rec`'s single rule. -/
@@ -472,32 +441,12 @@ theorem psigmaRec_ruleOk {cval : ConstVal V}
   have hparts : ruleLhsParts (psigmaName.str "rec") psigmaRecA.toConstantVal 4
       ((ConstantInfo.recRules psigmaRecA).getD 0 default)
       psigmaMkA.toConstantVal = some
-      ([(psigFrA, ⟨.implicit, some (.imax
-          (.imax (.param (Name.anonymous.str "u"))
-            (.succ (.param (Name.anonymous.str "v"))))
-          (.imax (.imax (.max (.param (Name.anonymous.str "u"))
-              (.param (Name.anonymous.str "v"))) (.succ .zero))
-            (.imax (.imax (.param (Name.anonymous.str "u"))
-                (.imax (.param (Name.anonymous.str "v")) .zero))
-              (.imax (.param (Name.anonymous.str "u"))
-                (.imax (.param (Name.anonymous.str "v")) .zero)))))⟩),
-        (psigFrB, ⟨.default, some (.imax
-          (.imax (.max (.param (Name.anonymous.str "u"))
-            (.param (Name.anonymous.str "v"))) (.succ .zero))
-          (.imax (.imax (.param (Name.anonymous.str "u"))
-              (.imax (.param (Name.anonymous.str "v")) .zero))
-            (.imax (.param (Name.anonymous.str "u"))
-              (.imax (.param (Name.anonymous.str "v")) .zero))))⟩),
-        (psigFrM, ⟨.default, some (.imax
-          (.imax (.param (Name.anonymous.str "u"))
-            (.imax (.param (Name.anonymous.str "v")) .zero))
-          (.imax (.param (Name.anonymous.str "u"))
-            (.imax (.param (Name.anonymous.str "v")) .zero)))⟩),
-        (psigFrMk, ⟨.default, some (.imax (.param (Name.anonymous.str "u"))
-          (.imax (.param (Name.anonymous.str "v")) .zero))⟩),
-        (psigFrFst, ⟨.default,
-          some (.imax (.param (Name.anonymous.str "v")) .zero)⟩),
-        (psigFrSnd, ⟨.default, some .zero⟩)],
+      ([(psigFrA, ⟨.implicit⟩),
+        (psigFrB, ⟨.default⟩),
+        (psigFrM, ⟨.default⟩),
+        (psigFrMk, ⟨.default⟩),
+        (psigFrFst, ⟨.default⟩),
+        (psigFrSnd, ⟨.default⟩)],
        .app (.app (.app (.app (.app psigFrRec psigFrA) psigFrB) psigFrM)
            psigFrMk)
          (.app (.app (.app (.app psigFrMkC psigFrA) psigFrB) psigFrFst)
@@ -566,10 +515,10 @@ theorem psigmaRec_ruleOk {cval : ConstVal V}
       simp [psigFrB, psigFrTyB, psigFrFst, psigFrA, interpExpr, updV]
     refine TowerOk.cons (A := SetTheory.app B a) hitySnd hitySnd
       (by simp only [psigFrB, psigFrTyB, psigFrFst, psigFrA, AnnotOk]
-          exact ⟨trivial, trivial, B, a, ψ' vN + 1, A,
+          exact ⟨trivial, trivial, B, a, A,
             (fun _ => univ (ψ' vN)),
             (by simp [interpExpr, updV]), (by simp [interpExpr, updV]),
-            hB, ha, fun _ _ => univ_mem_univ _⟩) ?_
+            hB, ha⟩) ?_
     intro b hb
     -- the bottom frame valuation
     have hmkpt : mk = pt :=
@@ -709,54 +658,46 @@ theorem psigmaRec_ruleOk {cval : ConstVal V}
     · simp only [AnnotOk, psigFrRec, psigFrMkC, psigFrA, psigFrB, psigFrTyB,
         psigFrM, psigFrTyM, psigFrMk, psigFrTyMk, psigFrFst, psigFrSnd]
       exact ⟨⟨⟨⟨⟨trivial, trivial,
-          psigmaRecVal V ψ', A, 0, univ (ψ' uN), _,
-          hirec, hifvA, hmem, hA, fun A' hA' => psigFr_S1 hA'⟩,
+          psigmaRecVal V ψ', A, univ (ψ' uN), _,
+          hirec, hifvA, hmem, hA⟩,
         trivial,
-        SetTheory.app (psigmaRecVal V ψ') A, B, 0,
+        SetTheory.app (psigmaRecVal V ψ') A, B,
           pi (ψ' vN + 1) A (fun _ => univ (ψ' vN)), _,
-          hip1, hifvB, hm1, hB, fun B' hB' => psigFr_S2 hA hB'⟩,
+          hip1, hifvB, hm1, hB⟩,
         trivial,
-        SetTheory.app (SetTheory.app (psigmaRecVal V ψ') A) B, M, 0,
+        SetTheory.app (SetTheory.app (psigmaRecVal V ψ') A) B, M,
           pi 1 (SetTheory.app (SetTheory.app (psigmaVal V ψ') A) B)
             (fun _ => univ 0), _,
-          hip2, hifvM, hm2, hM, fun M' hM' => psigFr_S3 hA hB hM'⟩,
+          hip2, hifvM, hm2, hM⟩,
         trivial,
         SetTheory.app (SetTheory.app (SetTheory.app (psigmaRecVal V ψ') A)
-          B) M, mk, 0,
+          B) M, mk,
           pi 0 A (fun a' => pi 0 (SetTheory.app B a') fun b' =>
             SetTheory.app M (SetTheory.app (SetTheory.app (SetTheory.app
               (SetTheory.app (psigmaMkVal V ψ') A) B) a') b')), _,
-          hip3, hifvMk, hm3, hmk, fun _ _ => psigFr_S4 hA hB hM⟩,
+          hip3, hifvMk, hm3, hmk⟩,
         ⟨⟨⟨⟨trivial, trivial,
             psigmaMkVal V ψ', A,
-            (if Nat.max (ψ' uN) (ψ' vN) = 0 then 0
-              else Nat.max (ψ' uN) (ψ' vN + 1)),
             univ (ψ' uN), _,
-            himkC, hifvA, psigmaMkVal_mem, hA,
-            fun X hX => psigmaMk_space1 hX⟩,
+            himkC, hifvA, psigmaMkVal_mem, hA⟩,
           trivial,
-          SetTheory.app (psigmaMkVal V ψ') A, B, Nat.max (ψ' uN) (ψ' vN),
+          SetTheory.app (psigmaMkVal V ψ') A, B,
             pi (ψ' vN + 1) A (fun _ => univ (ψ' vN)), _,
-            hiq1, hifvB, psigmaMkVal_app_mem hA, hB,
-            fun B' hB' => psigmaMk_space2 hA hB'⟩,
+            hiq1, hifvB, psigmaMkVal_app_mem hA, hB⟩,
           trivial,
           SetTheory.app (SetTheory.app (psigmaMkVal V ψ') A) B, a,
-            Nat.max (ψ' uN) (ψ' vN), A, _,
-            hiq2, hifvFst, psigmaMkVal_app₂_mem hA hB, ha,
-            fun a' ha' => psigmaMk_space3 hA hB ha'⟩,
+            A, _,
+            hiq2, hifvFst, psigmaMkVal_app₂_mem hA hB, ha⟩,
           trivial,
           SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkVal V ψ') A)
-            B) a, b, Nat.max (ψ' uN) (ψ' vN), SetTheory.app B a, _,
-            hiq3, hifvSnd, psigmaMkVal_app₃_mem hA hB ha, hb,
-            fun _ _ => sigma_mem_univ hA (fun x hx =>
-              app_mem hB hx fun _ _ => univ_mem_univ (ψ' vN))⟩,
+            B) a, b, SetTheory.app B a, _,
+            hiq3, hifvSnd, psigmaMkVal_app₃_mem hA hB ha, hb⟩,
         SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
           (psigmaRecVal V ψ') A) B) M) mk,
         SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
           (psigmaMkVal V ψ') A) B) a) b,
-        0, SetTheory.app (SetTheory.app (psigmaVal V ψ') A) B,
+        SetTheory.app (SetTheory.app (psigmaVal V ψ') A) B,
         (fun t => SetTheory.app M t),
-        hip4, hiq4, hm4, hqv,
-        fun t ht => app_mem hM ht (fun _ _ => univ_mem_univ 0)⟩
+        hip4, hiq4, hm4, hqv⟩
 
 end Setlec

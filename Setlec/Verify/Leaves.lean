@@ -446,7 +446,7 @@ theorem annotateCore_leaves_sub {env : Env} :
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     rw [annotateCore_succ] at h
     simp only [annotateBody, Bind.bind, Except.bind] at h
-    simp only [annotate_def, infer_def, ensureSort_def] at h
+    simp only [annotate_def] at h
     cases hty : annotateCore env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
@@ -456,15 +456,7 @@ theorem annotateCore_leaves_sub {env : Env} :
         (body.instantiate1 (.fvar d n ty')) with
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
-    rw [hbody] at h; dsimp only at h
-    cases hit : inferTypeCore env fuel (d + 1) body' with
-    | error e => rw [hit] at h; exact nomatch h
-    | ok bt =>
-    rw [hit] at h; dsimp only at h
-    cases hes : ensureSortCore env fuel (d + 1) bt with
-    | error e => rw [hes] at h; exact nomatch h
-    | ok v =>
-    rw [hes] at h; dsimp only at h
+    rw [hbody] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
     have hwbody' := annotateCore_WScoped fuel
@@ -492,7 +484,7 @@ theorem annotateCore_leaves_sub {env : Env} :
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     rw [annotateCore_succ] at h
     simp only [annotateBody, Bind.bind, Except.bind] at h
-    simp only [annotate_def, infer_def, ensureSort_def] at h
+    simp only [annotate_def] at h
     cases hty : annotateCore env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
@@ -502,19 +494,7 @@ theorem annotateCore_leaves_sub {env : Env} :
         (body.instantiate1 (.fvar d n ty')) with
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
-    rw [hbody] at h; dsimp only at h
-    cases hit : inferTypeCore env fuel (d + 1) body' with
-    | error e => rw [hit] at h; exact nomatch h
-    | ok bt =>
-    rw [hit] at h; dsimp only at h
-    cases hit2 : inferTypeCore env fuel (d + 1) bt with
-    | error e => rw [hit2] at h; exact nomatch h
-    | ok bt2 =>
-    rw [hit2] at h; dsimp only at h
-    cases hes : ensureSortCore env fuel (d + 1) bt2 with
-    | error e => rw [hes] at h; exact nomatch h
-    | ok v =>
-    rw [hes] at h; dsimp only at h
+    rw [hbody] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
     have hwbody' := annotateCore_WScoped fuel

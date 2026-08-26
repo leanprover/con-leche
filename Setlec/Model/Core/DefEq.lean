@@ -256,8 +256,8 @@ theorem defeq_claims (m : EnvModel V env)
     obtain ⟨hokty₁, hokbody₁⟩ := FvarsOk.of_forallE hoka'
     obtain ⟨hokty₂, hokbody₂⟩ := FvarsOk.of_forallE hokb'
     simp only [AnnotOk] at haa' hab'
-    obtain ⟨haty₁, _vE₁, hcond₁⟩ := haa'
-    obtain ⟨haty₂, _vE₂, hcond₂⟩ := hab'
+    obtain ⟨haty₁, hcond₁⟩ := haa'
+    obtain ⟨haty₂, hcond₂⟩ := hab'
     cases hd1 : isDefEqCore env fuel d ty₁ ty₂ with
     | error e => rw [hd1] at h; exact nomatch h
     | ok r₁ =>
@@ -295,8 +295,8 @@ theorem defeq_claims (m : EnvModel V env)
         haty₁ haty₂ hA1 hA2
     subst hAeq
     refine piC_congr fun x hx => ?_
-    obtain ⟨habody₁, w₁, hw₁, -⟩ := hcond₁ x A₁ hA1 hx
-    obtain ⟨habody₂, w₂, hw₂, -⟩ := hcond₂ x A₁ hA2 hx
+    obtain ⟨habody₁, w₁, hw₁⟩ := hcond₁ x A₁ hA1 hx
+    obtain ⟨habody₂, w₂, hw₂⟩ := hcond₂ x A₁ hA2 hx
     rw [hw₁, hw₂]
     have hLbo₁ : Expr.LeavesBounded (body₁.instantiate1 (.fvar d n₁ ty₁)) := by
       intro l hl
@@ -331,8 +331,8 @@ theorem defeq_claims (m : EnvModel V env)
     obtain ⟨hokty₁, hokbody₁⟩ := FvarsOk.of_lam hoka'
     obtain ⟨hokty₂, hokbody₂⟩ := FvarsOk.of_lam hokb'
     simp only [AnnotOk] at haa' hab'
-    obtain ⟨haty₁, _vE₁, hcond₁⟩ := haa'
-    obtain ⟨haty₂, _vE₂, hcond₂⟩ := hab'
+    obtain ⟨haty₁, hcond₁⟩ := haa'
+    obtain ⟨haty₂, hcond₂⟩ := hab'
     cases hd1 : isDefEqCore env fuel d ty₁ ty₂ with
     | error e => rw [hd1] at h; exact nomatch h
     | ok r₁ =>
@@ -368,8 +368,8 @@ theorem defeq_claims (m : EnvModel V env)
         haty₁ haty₂ hA1 hA2
     subst hAeq
     refine lamC_congr fun x hx => ?_
-    obtain ⟨habody₁, w₁, B₁, hw₁, -, -⟩ := hcond₁ x A₁ hA1 hx
-    obtain ⟨habody₂, w₂, B₂, hw₂, -, -⟩ := hcond₂ x A₁ hA2 hx
+    obtain ⟨habody₁, w₁, B₁, hw₁, -⟩ := hcond₁ x A₁ hA1 hx
+    obtain ⟨habody₂, w₂, B₂, hw₂, -⟩ := hcond₂ x A₁ hA2 hx
     rw [hw₁, hw₂]
     have hLbo₁ : Expr.LeavesBounded (body₁.instantiate1 (.fvar d n₁ ty₁)) := by
       intro l hl

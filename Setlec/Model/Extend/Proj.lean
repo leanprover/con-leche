@@ -1056,7 +1056,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     (fun lvls pins => by
       cases h : Expr.recRulePlain pty nP nP nP <;> simp [h])
     hctor rfl rfl
-    hann hrawf hrawb hrres hstripR rfl hC_strip hS_strip
+    hrres hstripR rfl hC_strip hS_strip
     hsdoms hcbody hclenP hsbody' hopenO hrhsTyC hthm htlps
     hopenP0 hcinstP0 hdeParsP0 hopenX0 hlinstP0 hdeLamP0 hrf hrb hity0
     hheadEtaP

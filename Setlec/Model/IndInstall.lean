@@ -1,5 +1,5 @@
 import Setlec.Model.TypeChecker
-import Setlec.Model.Annotate
+import Setlec.Model.TypeChecker
 import Setlec.Model.IotaWalk
 import Setlec.Model.RuleFold
 
@@ -207,7 +207,7 @@ theorem stage_pkg_lam {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
   -- unpack the head binder's facts
   have hAlm' := hAlm
   simp only [AnnotOk] at hAlm'
-  obtain ⟨hAld, cod, -⟩ := hAlm'
+  obtain ⟨hAld, -⟩ := hAlm'
   have hWld : WScoped D ld ∧ WScoped D bodyL := by
     simpa [WScoped] using hWlm
   have hbld : ld.looseBVarsBounded 0 = true ∧
@@ -441,7 +441,7 @@ theorem stage_pkg_pre {env₀ : Env} (m₀ : EnvModel V env₀)
   -- extract the stage annotation's package
   have hAmid' := hAmid
   simp only [AnnotOk] at hAmid'
-  obtain ⟨hAdom, cod, -⟩ := hAmid'
+  obtain ⟨hAdom, -⟩ := hAmid'
   have hWdom : WScoped (rP + cnF) (Expr.fvarTypeD fv) ∧
       WScoped (rP + cnF) bodyH := by
     simpa [WScoped] using hWmid
@@ -728,7 +728,7 @@ theorem stage_pkg_fld {env₀ : Env} (m₀ : EnvModel V env₀)
   -- extract the stage annotation's package
   have hAmidX' := hAmidX
   simp only [AnnotOk] at hAmidX'
-  obtain ⟨hAdom, cod, -⟩ := hAmidX'
+  obtain ⟨hAdom, -⟩ := hAmidX'
   have hWdom : WScoped (rP + cnF) (Expr.fvarTypeD fv) ∧
       WScoped (rP + cnF) bodyH := by
     simpa [WScoped] using hWmidX
@@ -1095,8 +1095,6 @@ theorem ctor_pkg_nested {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
     (hIty : ∃ T, interpClosed V m₀.val env₀ ψ tyA = some T)
     (hpinsW : ∀ p ∈ pins, p.hasFvar = false ∧
       p.looseBVarsBounded rP = true)
-    (hannP : AnnotListOk F env₀ (rP + cnF)
-      (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)))
     (hcinstN : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) cty =
       some (cdomsP, crestP))
@@ -1241,8 +1239,9 @@ theorem ctor_pkg_nested {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
       AnnotOk V m₀.val env₀ ψ (rP + cnF)
         (fun i => xs.getD i SetTheory.empty) a := by
     intro a ha
-    exact annotateCore_sound m₀ F a (hannP a ha) (hcargW a ha)
-      (hcargB a ha) (hcargL a ha) _ (hcargF a ha)
+    obtain ⟨ty, hty⟩ := TypedListOk.infer_of_mem htlP a ha
+    exact (inferTypeCore_sound m₀ F hty (hcargW a ha) (hcargB a ha)
+      (hcargL a ha) (hcargF a ha)).1
   -- walk the level-instantiated constructor type at the pins
   have hWct : WScoped (rP + cnF) cty := WScoped.of_not_hasFvar hCtw
   have hACt' : AnnotOk V m₀.val env₀ ψ (rP + cnF)
@@ -1944,14 +1943,14 @@ theorem modeled_bottom_plain
     rw [if_pos (by simp [eqA, ConstantInfo.toConstantVal])] at hveqi
     rw [← Option.some.inj hveqi, heqval]
     congr 2
-  obtain ⟨⟨vE₁, A₁, B₁, hpi₁, hmem₁, -⟩, hchainE'⟩ := hchainE
-  obtain ⟨⟨vE₂, A₂, B₂, hpi₂, hmem₂, -⟩, hchainE''⟩ := hchainE'
-  obtain ⟨⟨vE₃, A₃, B₃, hpi₃, hmem₃, -⟩, -⟩ := hchainE''
+  obtain ⟨⟨A₁, B₁, hpi₁, hmem₁⟩, hchainE'⟩ := hchainE
+  obtain ⟨⟨A₂, B₂, hpi₂, hmem₂⟩, hchainE''⟩ := hchainE'
+  obtain ⟨⟨A₃, B₃, hpi₃, hmem₃⟩, -⟩ := hchainE''
   rw [hveq] at hpi₁ hpi₂ hpi₃
   have hαu : vα ∈ˢ univ (Level.substFn ψ [uN] [ℓA] uN) := by
     have h1 := hpi₁
     simp only [eqVal] at h1
-    refine lam_dom_of_ne h1 ?_ vα hmem₁
+    refine lam_dom_of_ne (vE := 0) h1 ?_ vα hmem₁
     exact lamC_ne_pt_of_witness (unitSet_mem_univ _)
       (lamC_ne_pt_of_witness pt_mem_unitSet
         (lamC_ne_pt_of_witness pt_mem_unitSet (by unfold eqv; exact truthVal_ne_pt _)))
@@ -2017,9 +2016,8 @@ theorem modeled_bottom_plain
     fun l hl => hFtb2 l (hrsub2 l hl)
   have hvlmem : vl ∈ˢ vα := by
     obtain ⟨tl, htl, hdl⟩ := hlhsTyC
-    obtain ⟨⟨vl', tlv, hil', htlv, hmeml'⟩, hWtl, hAtl⟩ :=
+    obtain ⟨-, ⟨vl', tlv, hil', htlv, hmeml'⟩, hWtl, hAtl⟩ :=
       inferTypeCore_sound m₀ F htl hWl2 hbl2 hLl2 hFl2
-        (hcompsA lhsS (by simp))
     obtain rfl : vl' = vl := by
       rw [hil'] at hil
       exact Option.some.inj hil
@@ -2036,9 +2034,8 @@ theorem modeled_bottom_plain
     exact htlvα ▸ hmeml'
   have hvrmem : vr ∈ˢ vα := by
     obtain ⟨tr, htr, hdr⟩ := hrhsTyC
-    obtain ⟨⟨vr', trv, hir', htrv, hmemr'⟩, hWtr, hAtr⟩ :=
+    obtain ⟨-, ⟨vr', trv, hir', htrv, hmemr'⟩, hWtr, hAtr⟩ :=
       inferTypeCore_sound m₀ F htr hWr2 hbr2 hLr2 hFr2
-        (hcompsA rhsS (by simp))
     obtain rfl : vr' = vr := by
       rw [hir'] at hir
       exact Option.some.inj hir
@@ -3255,8 +3252,6 @@ theorem modeled_bottom_nested
     {crest2 : Expr} {ldoms : List Expr} {lrest : Expr}
     (hcrest2Len : crest2.getAppArgs.length = cnP + (mI - rP))
     (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
-    (hannP : AnnotListOk F env₀ (rP + cnF)
-      (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)))
     (hcinstN : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
@@ -3456,8 +3451,9 @@ theorem modeled_bottom_nested
       AnnotOk V m₀.val env₀ ψ (rP + cnF)
         (fun i => xs.getD i SetTheory.empty) a := by
     intro a ha
-    exact annotateCore_sound m₀ F a (hannP a ha) (hcargW a ha)
-      (hcargB a ha) (hcargL a ha) _ (hcargF a ha)
+    obtain ⟨ty, hty⟩ := TypedListOk.infer_of_mem htlP a ha
+    exact (inferTypeCore_sound m₀ F hty (hcargW a ha) (hcargB a ha)
+      (hcargL a ha) (hcargF a ha)).1
   -- walk the level-instantiated constructor type at the pins
   have hWct : WScoped (rP + cnF) cty := WScoped.of_not_hasFvar hCtw
   have hACt' : AnnotOk V m₀.val env₀ ψ (rP + cnF)
@@ -4113,14 +4109,14 @@ theorem modeled_bottom_nested
     rw [if_pos (by simp [eqA, ConstantInfo.toConstantVal])] at hveqi
     rw [← Option.some.inj hveqi, heqval]
     congr 2
-  obtain ⟨⟨vE₁, A₁, B₁, hpi₁, hmem₁, -⟩, hchainE'⟩ := hchainE
-  obtain ⟨⟨vE₂, A₂, B₂, hpi₂, hmem₂, -⟩, hchainE''⟩ := hchainE'
-  obtain ⟨⟨vE₃, A₃, B₃, hpi₃, hmem₃, -⟩, -⟩ := hchainE''
+  obtain ⟨⟨A₁, B₁, hpi₁, hmem₁⟩, hchainE'⟩ := hchainE
+  obtain ⟨⟨A₂, B₂, hpi₂, hmem₂⟩, hchainE''⟩ := hchainE'
+  obtain ⟨⟨A₃, B₃, hpi₃, hmem₃⟩, -⟩ := hchainE''
   rw [hveq] at hpi₁ hpi₂ hpi₃
   have hαu : vα ∈ˢ univ (Level.substFn ψ [uN] [ℓA] uN) := by
     have h1 := hpi₁
     simp only [eqVal] at h1
-    refine lam_dom_of_ne h1 ?_ vα hmem₁
+    refine lam_dom_of_ne (vE := 0) h1 ?_ vα hmem₁
     exact lamC_ne_pt_of_witness (unitSet_mem_univ _)
       (lamC_ne_pt_of_witness pt_mem_unitSet
         (lamC_ne_pt_of_witness pt_mem_unitSet (by unfold eqv; exact truthVal_ne_pt _)))
@@ -4186,9 +4182,8 @@ theorem modeled_bottom_nested
     fun l hl => hFtb2 l (hrsub2 l hl)
   have hvlmem : vl ∈ˢ vα := by
     obtain ⟨tl, htl, hdl⟩ := hlhsTyC
-    obtain ⟨⟨vl', tlv, hil', htlv, hmeml'⟩, hWtl, hAtl⟩ :=
+    obtain ⟨-, ⟨vl', tlv, hil', htlv, hmeml'⟩, hWtl, hAtl⟩ :=
       inferTypeCore_sound m₀ F htl hWl2 hbl2 hLl2 hFl2
-        (hcompsA lhsS (by simp))
     obtain rfl : vl' = vl := by
       rw [hil'] at hil
       exact Option.some.inj hil
@@ -4205,9 +4200,8 @@ theorem modeled_bottom_nested
     exact htlvα ▸ hmeml'
   have hvrmem : vr ∈ˢ vα := by
     obtain ⟨tr, htr, hdr⟩ := hrhsTyC
-    obtain ⟨⟨vr', trv, hir', htrv, hmemr'⟩, hWtr, hAtr⟩ :=
+    obtain ⟨-, ⟨vr', trv, hir', htrv, hmemr'⟩, hWtr, hAtr⟩ :=
       inferTypeCore_sound m₀ F htr hWr2 hbr2 hLr2 hFr2
-        (hcompsA rhsS (by simp))
     obtain rfl : vr' = vr := by
       rw [hir'] at hir
       exact Option.some.inj hir
@@ -5077,8 +5071,6 @@ theorem modeled_rule_eq_nested
     {crest2 : Expr} {ldoms : List Expr} {lrest : Expr}
     (hcrest2Len : crest2.getAppArgs.length = cnP + (mI - rP))
     (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
-    (hannP : AnnotListOk F env₀ (rP + cnF)
-      (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)))
     (hcinstN : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
@@ -5196,7 +5188,7 @@ theorem modeled_rule_eq_nested
     rw [interp_instLevels hcvp cvj.type 0 (rho0 V)]
     exact hT
   have hctorPkg := ctor_pkg_nested (xFvsP := xFvsP) m₀ F hopenP htyw
-    htyb (hAty ψ) (hIty ψ) hpinsW hannP hcinstN
+    htyb (hAty ψ) (hIty ψ) hpinsW hcinstN
     htlP hCtw hCtb hACt hICt
   have hstage := modeled_stage m₀ F hopenP htyw htyb (hAty ψ) (hIty ψ)
     hopenX hctorPkg hlinst hdeLam hrhsw hrhsb (hArhs ψ) (hIrhs ψ)
@@ -5204,7 +5196,7 @@ theorem modeled_rule_eq_nested
     hRmlps hfCm hCmlps hfC hClps heqfind heqval hthm_mem hthm_annot
     hSw hSb hrPmI htyStrip hpinsW hpinsLen hpinsRen2
     hopen hheadEq hargs3 hlhead hlarity hlpre hmaj hCresHead hCps
-    hcinst hclen hdeIdx hrinst hdePre hdeFld hcrest2Len hopenP hannP
+    hcinst hclen hdeIdx hrinst hdePre hdeFld hcrest2Len hopenP
     hcinstN htlP
     hopenX hlinst hdeLam hdeRhs hlhsTyC hrhsTyC
     hrhsw hrhsb (hArhs ψ) (hIrhs ψ) htyw

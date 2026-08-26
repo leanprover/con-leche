@@ -1076,14 +1076,14 @@ theorem proj_bottom
     rw [if_pos (by simp [eqA, ConstantInfo.toConstantVal])] at hveqi
     rw [← Option.some.inj hveqi, heqval₁]
     congr 2
-  obtain ⟨⟨vE₁, A₁, B₁, hpi₁, hmem₁, -⟩, hchainE'⟩ := hchainE
-  obtain ⟨⟨vE₂, A₂, B₂, hpi₂, hmem₂, -⟩, hchainE''⟩ := hchainE'
-  obtain ⟨⟨vE₃, A₃, B₃, hpi₃, hmem₃, -⟩, -⟩ := hchainE''
+  obtain ⟨⟨A₁, B₁, hpi₁, hmem₁⟩, hchainE'⟩ := hchainE
+  obtain ⟨⟨A₂, B₂, hpi₂, hmem₂⟩, hchainE''⟩ := hchainE'
+  obtain ⟨⟨A₃, B₃, hpi₃, hmem₃⟩, -⟩ := hchainE''
   rw [hveq] at hpi₁ hpi₂ hpi₃
   have hαu : vα ∈ˢ univ (Level.substFn ψ [uN] [ℓA] uN) := by
     have h1 := hpi₁
     simp only [eqVal] at h1
-    refine lam_dom_of_ne h1 ?_ vα hmem₁
+    refine lam_dom_of_ne (vE := 0) h1 ?_ vα hmem₁
     exact lamC_ne_pt_of_witness (unitSet_mem_univ _)
       (lamC_ne_pt_of_witness pt_mem_unitSet
         (lamC_ne_pt_of_witness pt_mem_unitSet
@@ -1234,9 +1234,8 @@ theorem proj_bottom
     fun l hl => hFsbO l (hrsubO l hl)
   -- the right side's certificate: the field value inhabits the
   -- equation type's value
-  obtain ⟨⟨vr', trv, hir', htrv, hmemr'⟩, hWtr, hAtr⟩ :=
+  obtain ⟨-, ⟨vr', trv, hir', htrv, hmemr'⟩, hWtr, hAtr⟩ :=
     inferTypeCore_sound m F htr hWrO hbrO hLrO hFrO
-      (hcompsO rhsO (by simp))
   have hvr' : vr' = vrO := by
     rw [hir'] at hirO
     exact Option.some.inj hirO
@@ -1292,7 +1291,7 @@ theorem proj_bottom
   have hvlmem : vl ∈ˢ vα := by
     have h2 := hpi₂
     rw [eqVal_app hαu] at h2
-    refine lam_dom_of_ne h2 ?_ vl hmem₂
+    refine lam_dom_of_ne (vE := 0) h2 ?_ vl hmem₂
     exact lamC_ne_pt_of_witness hvrmem
       (lamC_ne_pt_of_witness hvrmem
         (by unfold eqv; exact truthVal_ne_pt _))

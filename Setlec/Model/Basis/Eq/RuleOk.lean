@@ -36,8 +36,8 @@ def eqFrTyM : Expr :=
     (.forallE (Name.anonymous.str "t")
       (.app (.app (.app eqFrEqC eqFrA) eqFra) (.bvar 0))
       (.sort (.param (Name.anonymous.str "u_1")))
-      ⟨.default, some (.succ (.param (Name.anonymous.str "u_1")))⟩)
-    ⟨.default, some (.imax .zero (.succ (.param (Name.anonymous.str "u_1"))))⟩
+      ⟨.default⟩)
+    ⟨.default⟩
 
 /-- The motive frame variable. -/
 def eqFrM : Expr := .fvar 2 (Name.anonymous.str "motive") eqFrTyM
@@ -462,7 +462,7 @@ theorem eqFr_annotOk_tyM {cval : ConstVal V} {A a : V}
   have hvalE' : ∀ ψ' : Name → Nat,
       cval (Name.anonymous.str "Eq") ψ' = eqVal V ψ' := hvalE
   simp only [eqFrTyM, eqFrEqC, eqFrA, eqFra, AnnotOk]
-  refine ⟨trivial, ψ u1N + 1, ?_⟩
+  refine ⟨trivial, ?_⟩
   intro b Sb hSb hb
   have hSb' : Sb = A := by
     simp [interpExpr, updV] at hSb
@@ -472,20 +472,17 @@ theorem eqFr_annotOk_tyM {cval : ConstVal V} {A a : V}
   · -- the opened `∀ (t : Eq α a b), Sort u_1`
     try simp only [Expr.instantiate1, reduceIte, AnnotOk]
     refine ⟨⟨⟨⟨trivial, trivial,
-        eqVal V ψ, A, Nat.max (ψ uN) (Nat.max (ψ uN) 1), univ (ψ uN),
+        eqVal V ψ, A, univ (ψ uN),
         (fun X => pi (Nat.max (ψ uN) 1) X fun _ => pi 1 X fun _ => univ 0),
-        ?_, ?_, eqVal_mem, hA, fun X hX => eq_fibre_mem hX⟩,
+        ?_, ?_, eqVal_mem, hA⟩,
       trivial,
-      SetTheory.app (eqVal V ψ) A, a, Nat.max (ψ uN) 1, A,
+      SetTheory.app (eqVal V ψ) A, a, A,
         (fun _ => pi 1 A fun _ => univ 0),
-        ?_, ?_, eqVal_app_mem hA, ha,
-        fun _ _ => pi_mem_univ (u := ψ uN) (v := 1)
-          (B := fun _ => univ 0) hA (fun _ _ => univ_mem_univ 0)⟩,
+        ?_, ?_, eqVal_app_mem hA, ha⟩,
       trivial,
-      SetTheory.app (SetTheory.app (eqVal V ψ) A) a, b, 1, A,
+      SetTheory.app (SetTheory.app (eqVal V ψ) A) a, b, A,
         (fun _ => univ 0),
-        ?_, ?_, eqVal_app₂_mem hA ha, hb,
-        fun _ _ => univ_mem_univ 0⟩, ψ u1N + 1, ?_⟩
+        ?_, ?_, eqVal_app₂_mem hA ha, hb⟩, ?_⟩
     · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE', eqA,
         ConstantInfo.toConstantVal]
       try rfl
@@ -502,17 +499,15 @@ theorem eqFr_annotOk_tyM {cval : ConstVal V} {A a : V}
     · simp [interpExpr, Expr.instantiate1, updV]
     · intro t St hSt ht
       refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-      refine ⟨univ (ψ u1N), ?_, ?_⟩
-      · simp [interpExpr, Expr.instantiate1, updV, Level.eval, u1N]
-      · exact univ_mem_univ (ψ u1N)
+      refine ⟨univ (ψ u1N), ?_⟩
+      simp [interpExpr, Expr.instantiate1, updV, Level.eval, u1N]
   · refine ⟨pi (ψ u1N + 1)
       (SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ) A) a) b)
-      (fun _ => univ (ψ u1N)), ?_, ?_⟩
-    · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE', eqA,
-        ConstantInfo.toConstantVal, Level.eval, u1N,
-        -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-      try rfl
-    · exact eqFr_Mfib_mem hA ha hb
+      (fun _ => univ (ψ u1N)), ?_⟩
+    simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE', eqA,
+      ConstantInfo.toConstantVal, Level.eval, u1N,
+      -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+    try rfl
 
 theorem eqFr_interp_tyRefl {cval : ConstVal V} {A a M : V}
     (hfindRe : env.find? eqReflName = some eqReflA)
@@ -552,35 +547,31 @@ theorem eqFr_annotOk_tyRefl {cval : ConstVal V} {A a M : V}
   simp only [eqFrTyRefl, eqFrM, eqFrTyM, eqFrEqC, eqFrReflC, eqFrA, eqFra,
     AnnotOk]
   refine ⟨⟨trivial, trivial,
-      M, a, ψ u1N + 1, A,
+      M, a, A,
       (fun b => pi (ψ u1N + 1)
         (SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ) A) a) b)
         fun _ => univ (ψ u1N)),
       (by simp [interpExpr, updV]), (by simp [interpExpr, updV]),
-      hM, ha, fun b hb => eqFr_Mfib_mem hA ha hb⟩,
+      hM, ha⟩,
     ⟨⟨trivial, trivial,
-      eqReflVal V ψ, A, 0, univ (ψ uN), (fun X => pi 0 X fun x => eqv x x),
+      eqReflVal V ψ, A, univ (ψ uN), (fun X => pi 0 X fun x => eqv x x),
       (by simp [interpExpr, updV, hfindRe', hvalRe', eqReflA,
         ConstantInfo.toConstantVal]; try rfl),
       (by simp [interpExpr, updV]),
-      eqReflVal_mem, hA,
-      fun X hX => by
-        simpa using pi_mem_univ (u := ψ uN) (v := 0) hX
-          (fun x _ => eqv_mem_univ x x)⟩,
+      eqReflVal_mem, hA⟩,
     trivial,
-    SetTheory.app (eqReflVal V ψ) A, a, 0, A, (fun x => eqv x x),
+    SetTheory.app (eqReflVal V ψ) A, a, A, (fun x => eqv x x),
       (by rw [interpExpr]
           simp [interpExpr, updV, hfindRe', hvalRe', eqReflA,
             ConstantInfo.toConstantVal]
           try rfl),
       (by simp [interpExpr, updV]),
-      eqReflVal_app_mem hA, ha, fun x _ => eqv_mem_univ x x⟩,
+      eqReflVal_app_mem hA, ha⟩,
     SetTheory.app M a,
     SetTheory.app (SetTheory.app (eqReflVal V ψ) A) a,
-    ψ u1N + 1,
-    SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ) A) a) a,
+        SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ) A) a) a,
     (fun _ => univ (ψ u1N)),
-    ?_, ?_, hMa, ?_, fun _ _ => univ_mem_univ (ψ u1N)⟩
+    ?_, ?_, hMa, ?_⟩
   · rw [interpExpr]
     simp [interpExpr, updV]
   · rw [interpExpr]
@@ -629,20 +620,10 @@ theorem eqRec_ruleOk {cval : ConstVal V}
   have hparts : ruleLhsParts (eqName.str "rec") eqRecA.toConstantVal 4
       ((ConstantInfo.recRules eqRecA).getD 0 default)
       eqReflA.toConstantVal = some
-      ([(eqFrA, ⟨.implicit, some (.imax (.param (Name.anonymous.str "u"))
-          (.imax (.imax (.param (Name.anonymous.str "u"))
-            (.imax .zero (.succ (.param (Name.anonymous.str "u_1")))))
-            (.imax (.param (Name.anonymous.str "u_1"))
-              (.param (Name.anonymous.str "u_1")))))⟩),
-        (eqFra, ⟨.default, some (.imax
-          (.imax (.param (Name.anonymous.str "u"))
-            (.imax .zero (.succ (.param (Name.anonymous.str "u_1")))))
-          (.imax (.param (Name.anonymous.str "u_1"))
-            (.param (Name.anonymous.str "u_1"))))⟩),
-        (eqFrM, ⟨.default, some (.imax (.param (Name.anonymous.str "u_1"))
-          (.param (Name.anonymous.str "u_1")))⟩),
-        (eqFrRefl, ⟨.default,
-          some (.param (Name.anonymous.str "u_1"))⟩)],
+      ([(eqFrA, ⟨.implicit⟩),
+        (eqFra, ⟨.default⟩),
+        (eqFrM, ⟨.default⟩),
+        (eqFrRefl, ⟨.default⟩)],
        .app (.app (.app (.app (.app (.app eqFrRec eqFrA) eqFra) eqFrM)
            eqFrRefl) eqFra)
          (.app (.app eqFrReflC eqFrA) eqFra)) := by rfl
@@ -797,46 +778,39 @@ theorem eqRec_ruleOk {cval : ConstVal V}
     · simp only [AnnotOk, eqFrRec, eqFrReflC, eqFrA, eqFra, eqFrM, eqFrTyM,
         eqFrEqC, eqFrRefl, eqFrTyRefl]
       exact ⟨⟨⟨⟨⟨⟨trivial, trivial,
-          eqRecVal V ψ', A, erAl (ψ' uN) (ψ' u1N), univ (ψ' uN), _,
-          hirec, hifvA, hmem, hA, fun A' hA' => eqFr_E1 hA'⟩,
+          eqRecVal V ψ', A, univ (ψ' uN), _,
+          hirec, hifvA, hmem, hA⟩,
         trivial,
-        SetTheory.app (eqRecVal V ψ') A, a, erA (ψ' uN) (ψ' u1N), A, _,
-          hip1, hifva, hm1, ha, fun a' ha' => eqFr_E2 hA ha'⟩,
+        SetTheory.app (eqRecVal V ψ') A, a, A, _,
+          hip1, hifva, hm1, ha⟩,
         trivial,
         SetTheory.app (SetTheory.app (eqRecVal V ψ') A) a, M,
-          erM (ψ' uN) (ψ' u1N),
           (pi (ψ' u1N + 1) A fun b => pi (ψ' u1N + 1)
             (SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ') A) a)
               b) fun _ => univ (ψ' u1N)), _,
-          hip2, hifvM, hm2, hM, fun M' hM' => eqFr_E3 hA ha hM'⟩,
+          hip2, hifvM, hm2, hM⟩,
         trivial,
         SetTheory.app (SetTheory.app (SetTheory.app (eqRecVal V ψ') A) a) M,
-          r, erRefl (ψ' uN) (ψ' u1N),
+          r,
           (SetTheory.app (SetTheory.app M a)
             (SetTheory.app (SetTheory.app (eqReflVal V ψ') A) a)), _,
-          hip3, hifvRefl, hm3, hr, fun _ _ => eqFr_E4 hA ha hM⟩,
+          hip3, hifvRefl, hm3, hr⟩,
         trivial,
         SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
-          (eqRecVal V ψ') A) a) M) r, a, erB (ψ' u1N), A, _,
-          hip4, hifva, hm4, ha, fun b hb => eqFr_E5 hA ha hb hM⟩,
+          (eqRecVal V ψ') A) a) M) r, a, A, _,
+          hip4, hifva, hm4, ha⟩,
         ⟨⟨trivial, trivial,
-          eqReflVal V ψ', A, 0, univ (ψ' uN),
+          eqReflVal V ψ', A, univ (ψ' uN),
           (fun X => pi 0 X fun x => eqv x x),
-          hireflC, hifvA, eqReflVal_mem, hA,
-          fun X hX => by
-            simpa using pi_mem_univ (u := ψ' uN) (v := 0) hX
-              (fun x _ => eqv_mem_univ x x)⟩,
+          hireflC, hifvA, eqReflVal_mem, hA⟩,
         trivial,
-        SetTheory.app (eqReflVal V ψ') A, a, 0, A, (fun x => eqv x x),
-          hir1, hifva, eqReflVal_app_mem hA, ha,
-          fun x _ => eqv_mem_univ x x⟩,
+        SetTheory.app (eqReflVal V ψ') A, a, A, (fun x => eqv x x),
+          hir1, hifva, eqReflVal_app_mem hA, ha⟩,
         SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
           (SetTheory.app (eqRecVal V ψ') A) a) M) r) a,
         SetTheory.app (SetTheory.app (eqReflVal V ψ') A) a,
-        ψ' u1N,
-        SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ') A) a) a,
+                SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ') A) a) a,
         (fun h => SetTheory.app (SetTheory.app M a) h),
-        hip5, hir2, hm5, hreflv,
-        fun h hh => eqFr_E6 hA ha ha hM h hh⟩
+        hip5, hir2, hm5, hreflv⟩
 
 end Setlec

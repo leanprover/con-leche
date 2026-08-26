@@ -127,9 +127,14 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
       AnnotOk V m.val env' ψ 0 (rho0 V) cvA.type := by
     intro ψ
     rw [htypeA]
-    exact annotate_sound m _ hann (WScoped.of_not_hasFvar hfv) hlb
-      (Expr.LeavesBounded.of_not_hasFvar hfv) (rho0 V)
-      (FvarsOk.of_not_hasFvar hfv)
+    have htyf' : tyA.hasFvar = false :=
+      not_hasFvar_of_fvarsBelow_zero
+        ((annotateCore_WScoped F _ hann
+          (WScoped.of_not_hasFvar hfv)).fvarsBelow)
+    exact (inferTypeCore_sound m F hst (WScoped.of_not_hasFvar htyf')
+      (annotateCore_looseBVars F _ hann hlb)
+      (Expr.LeavesBounded.of_not_hasFvar htyf')
+      (FvarsOk.of_not_hasFvar htyf')).1
   rcases hkind with ⟨⟨cv, caps', rfl⟩, rfl⟩ | ⟨cv, nP, nF, rfl, rfl⟩
   · -- inductive type former
     have hwf : ConstWF ⟨.indInfo cvA caps :: env'.consts⟩

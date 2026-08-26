@@ -56,8 +56,8 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
     rw [hψ', hclps]
     exact Level.substFn_congr (Level.isEquivList_sound hlev φ)
   -- b's type reduces to the structure type; extract the spine facts
-  obtain ⟨⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ :=
-    ihi htb hwb hbb hLbb hokb hab
+  obtain ⟨-, ⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ :=
+    ihi htb hwb hbb hLbb hokb
   obtain rfl : vb = vb' := by
     rw [hvb] at hbi
     exact Option.some.inj hbi
@@ -452,8 +452,6 @@ theorem structUnit_sound {m : EnvModel V env} {fuel : Nat}
     (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
     (hoka : FvarsOk V m.val env φ d ρ a)
     (hokb : FvarsOk V m.val env φ d ρ b)
-    (haa : AnnotOk V m.val env φ d ρ a)
-    (hab : AnnotOk V m.val env φ d ρ b)
     (hva : interpExpr V m.val env φ d ρ a = some va)
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
@@ -463,8 +461,8 @@ theorem structUnit_sound {m : EnvModel V env} {fuel : Nat}
   obtain ⟨ψ', hψ'⟩ : ∃ x, x = Level.substFn φ cvT.levelParams us' :=
     ⟨_, rfl⟩
   -- a's type facts
-  obtain ⟨⟨va', vta, hai, htai, hmema⟩, hAta⟩ :=
-    ihi hta hwa hba hLba hoka haa
+  obtain ⟨-, ⟨va', vta, hai, htai, hmema⟩, hAta⟩ :=
+    ihi hta hwa hba hLba hoka
   obtain rfl : va = va' := by
     rw [hva] at hai
     exact Option.some.inj hai
@@ -485,8 +483,8 @@ theorem structUnit_sound {m : EnvModel V env} {fuel : Nat}
   have hokwta : FvarsOk V m.val env φ d ρ wta :=
     FvarsOk.of_subset (whnf_fvarLeaves m.wf fuel hwta) hokta
   -- b's type facts
-  obtain ⟨⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ :=
-    ihi htb hwb hbb hLbb hokb hab
+  obtain ⟨-, ⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ :=
+    ihi htb hwb hbb hLbb hokb
   obtain rfl : vb = vb' := by
     rw [hvb] at hbi
     exact Option.some.inj hbi

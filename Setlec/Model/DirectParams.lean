@@ -43,7 +43,7 @@ theorem openPisAtFvars_allLevelParamsDefined {ps : List Name} :
         simp only [Option.some.injEq, Prod.mk.injEq] at h
         simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at he
         have hq := ih (body.instantiate1 (.fvar i n dom)) (i + 1) q.1 q.2 hop
-          (allLevelParamsDefined_instantiate1 he.1.1 0 he.1.2)
+          (allLevelParamsDefined_instantiate1 he.1 0 he.2)
         rw [← h.2]
         exact hq
     | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
@@ -93,9 +93,9 @@ theorem openPisAtFvars_fvar_allLevelParamsDefined {ps : List Name} :
         simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at he
         rw [← h.1] at ha
         rcases List.mem_cons.mp ha with rfl | ha
-        · exact he.1.1
+        · exact he.1
         · exact ih _ (i + 1) q.1 q.2 hop
-            (allLevelParamsDefined_instantiate1 he.1.1 0 he.1.2) a ha
+            (allLevelParamsDefined_instantiate1 he.1 0 he.2) a ha
     | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
     | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
       exact nomatch h
@@ -125,7 +125,7 @@ theorem instPisAt_allLevelParamsDefined {ps : List Name} :
       rw [← hqe.2]
       exact ih _ q.1 q.2 hq
         (allLevelParamsDefined_instantiate1_gen (ha a List.mem_cons_self) 0
-          he.1.2)
+          he.2)
         (fun b hb => ha b (List.mem_cons_of_mem _ hb))
     | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
     | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
@@ -147,10 +147,10 @@ theorem sigmaTowerV_params (hcp : ConstValParams cval env) {ps : List Name}
     | .forallE n dom body m =>
       simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hty
       rw [sigmaTowerV_forallE, sigmaTowerV_forallE,
-        interp_params_ext hcp hφ dom d ρ hty.1.1]
+        interp_params_ext hcp hφ dom d ρ hty.1]
       refine congrArg _ (funext fun x => ?_)
       exact ih (d + 1) (updV V ρ d x) _
-        (allLevelParamsDefined_instantiate1 hty.1.1 0 hty.1.2)
+        (allLevelParamsDefined_instantiate1 hty.1 0 hty.2)
     | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
     | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ => rfl
 
@@ -172,19 +172,11 @@ theorem teleLamV_params (hcp : ConstValParams cval env) {ps : List Name}
     match ty with
     | .forallE n dom body m =>
       simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hty
-      have hcod : (m.cod.getD Level.zero).eval φ₁ =
-          (m.cod.getD Level.zero).eval φ₂ := by
-        cases hm : m.cod with
-        | none => rfl
-        | some v =>
-          have : v.allParamsDefined ps = true := by
-            rw [hm] at hty; exact hty.2
-          simpa [hm] using Level.eval_ext this hφ
-      rw [teleLamV_forallE, teleLamV_forallE, hcod,
-        interp_params_ext hcp hφ dom d ρ hty.1.1]
+      rw [teleLamV_forallE, teleLamV_forallE,
+        interp_params_ext hcp hφ dom d ρ hty.1]
       refine congrArg _ (funext fun x => ?_)
       exact ih (d + 1) (updV V ρ d x) _ _ _
-        (allLevelParamsDefined_instantiate1 hty.1.1 0 hty.1.2)
+        (allLevelParamsDefined_instantiate1 hty.1 0 hty.2)
         (fun d' ρ' xs => hS d' ρ' (x :: xs))
     | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
     | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ => rfl

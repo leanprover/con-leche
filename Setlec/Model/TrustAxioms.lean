@@ -406,11 +406,8 @@ theorem reduceCert_sound (m : EnvModel V env) {c : Name} {F : Nat}
   have hAapp : AnnotOk V m.val env ψ 1 ρ
       (.app value' (reduceCertVar c)) := by
     simp only [AnnotOk]
-    refine ⟨hAv, hAx, v, x, 1, m.val (reduceElemName c) ψ,
-      fun _ => m.val (reduceElemName c) ψ, hiv, hix, hmemT, ?_, ?_⟩
-    · exact hx
-    · intro y hy
-      exact helU
+    refine ⟨hAv, hAx, v, x, m.val (reduceElemName c) ψ,
+      fun _ => m.val (reduceElemName c) ψ, hiv, hix, hmemT, hx⟩
   have hres := isDefEqCore_sound (φ := ψ) m F hde
     happW hxW
     (by simp [Expr.looseBVarsBounded, hvb, hxB]) hxB

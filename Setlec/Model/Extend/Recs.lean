@@ -200,9 +200,12 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
         AnnotOk V m.val envAcc ψ 0 (rho0 V) cvA.type := by
       intro ψ
       rw [hcvA]
-      exact annotate_sound m _ hann (WScoped.of_not_hasFvar hfv) hlb
-        (Expr.LeavesBounded.of_not_hasFvar hfv) (rho0 V)
-        (FvarsOk.of_not_hasFvar hfv)
+      have htyf' : tyA.hasFvar = false := by
+        have := htyf; rw [hcvA] at this; exact this
+      exact (inferTypeCore_sound m F hst (WScoped.of_not_hasFvar htyf')
+        (annotateCore_looseBVars F _ hann hlb)
+        (Expr.LeavesBounded.of_not_hasFvar htyf')
+        (FvarsOk.of_not_hasFvar htyf')).1
     have hwf₀ : ConstWF ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩
         (.recInfo cvA mI rP []) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_, ?_⟩
@@ -541,9 +544,10 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
   have hArhsS : ∀ ψ : Name → Nat,
       AnnotOk V mS.val envS ψ 0 (rho0 V) (RecRule.rhs r) := by
     intro ψ
-    exact annotate_sound mS raw hann (WScoped.of_not_hasFvar hrawf)
-      hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
-      (FvarsOk.of_not_hasFvar hrawf)
+    exact (inferTypeCore_sound (φ := ψ) mS F hity
+      (WScoped.of_not_hasFvar hrhsf) hrhsb
+      (Expr.LeavesBounded.of_not_hasFvar hrhsf)
+      (FvarsOk.of_not_hasFvar hrhsf)).1
   refine ⟨fun ψ => AnnotOk.env_ext henvLev hnat hstr _ 0 (rho0 V)
     (hArhsS ψ), ?_, ?_, ?_, ?_⟩
   · intro hpt
@@ -721,11 +725,11 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     have hIrhs : ∀ ψ'' : Name → Nat, ∃ L,
         interpClosed V mS.val envS ψ'' (RecRule.rhs r) = some L := by
       intro ψ''
-      obtain ⟨⟨v, tv', hiv, -, -⟩, -, -⟩ :=
+      obtain ⟨-, ⟨v, tv', hiv, -, -⟩, -, -⟩ :=
         inferTypeCore_sound (φ := ψ'') mS F hity
           (WScoped.of_not_hasFvar hrhsf) hrhsb
           (Expr.LeavesBounded.of_not_hasFvar hrhsf)
-          (FvarsOk.of_not_hasFvar hrhsf) (hArhsS ψ'')
+          (FvarsOk.of_not_hasFvar hrhsf)
       exact ⟨v, hiv⟩
     -- the full clause at the provisional environment
     have hout := modeled_rule_eq_nested (R := cvA.name)
@@ -738,7 +742,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
       hpinsRes
       hopen hheadEq hargs3 hlhead hlarity hlpre hmaj hCresHead hCps
       hcinst hclen hdeIdx hrinst hdePre hdeFld
-      hcrest2Len hopenP hannP0 hcinstN0 htlP0 hopenX hlinst hdeLam
+      hcrest2Len hopenP hcinstN0 htlP0 hopenX hlinst hdeLam
       hdeRhs hlhsTyC hrhsTyC
       hrhsf hrhsb hArhsS hIrhs htyw htyb hAty hIty hCw hCb hACty
       hICty htyres hCres
@@ -846,11 +850,11 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
   have hIrhs : ∀ ψ'' : Name → Nat, ∃ L,
       interpClosed V mS.val envS ψ'' (RecRule.rhs r) = some L := by
     intro ψ''
-    obtain ⟨⟨v, tv', hiv, -, -⟩, -, -⟩ :=
+    obtain ⟨-, ⟨v, tv', hiv, -, -⟩, -, -⟩ :=
       inferTypeCore_sound (φ := ψ'') mS F hity
         (WScoped.of_not_hasFvar hrhsf) hrhsb
         (Expr.LeavesBounded.of_not_hasFvar hrhsf)
-        (FvarsOk.of_not_hasFvar hrhsf) (hArhsS ψ'')
+        (FvarsOk.of_not_hasFvar hrhsf)
     exact ⟨v, hiv⟩
   -- the full clause at the provisional environment
   have hout := modeled_rule_eq_plain (R := cvA.name)

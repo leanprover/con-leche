@@ -44,10 +44,6 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (hctor : env.find? (RecRule.ctor rule) = some (.ctorInfo cvj nP nF))
     (_hnf : rule.nfields = nF)
     (hcp : rule.ctorParams = nP)
-    {raw : Expr}
-    (hann : annotateCore env F 0 raw = .ok (RecRule.rhs rule))
-    (hrawf : raw.hasFvar = false)
-    (hrawb : raw.looseBVarsBounded 0 = true)
     (hrhsres : (RecRule.rhs rule).constsResolve env = true)
     {rbinders cbinders sbinders : List (Name × Expr × BinderMeta)}
     {rbody cbody sbody tySlot : Expr} {ℓA : Level}
@@ -213,9 +209,10 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
             (rho0 V) (RecRule.rhs rule) := by
         intro ψ
         exact hAtransM _ hrhsres ψ
-          (annotate_sound m raw hann (WScoped.of_not_hasFvar hrawf)
-            hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
-            (FvarsOk.of_not_hasFvar hrawf))
+          ((inferTypeCore_sound (φ := ψ) m F hity
+            (WScoped.of_not_hasFvar hrhsw) hrhsb
+            (Expr.LeavesBounded.of_not_hasFvar hrhsw)
+            (FvarsOk.of_not_hasFvar hrhsw)).1)
       refine ⟨hArhs₁, fun _ => Nat.le_refl _, fun _ => Nat.le_of_eq hcp,
         fun lvls pins hn => absurd hn (hfire lvls pins), ?_⟩
       intro cvj' cnP' cnF' hfj hnotinert
@@ -337,18 +334,18 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
         exact h0
       have hArhsL : ∀ ψ'' : Name → Nat,
           AnnotOk V m.val env ψ'' 0 (rho0 V) (RecRule.rhs rule) :=
-        fun ψ'' => annotate_sound m raw hann
-          (WScoped.of_not_hasFvar hrawf) hrawb
-          (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
-          (FvarsOk.of_not_hasFvar hrawf)
+        fun ψ'' => (inferTypeCore_sound (φ := ψ'') m F hity
+          (WScoped.of_not_hasFvar hrhsw) hrhsb
+          (Expr.LeavesBounded.of_not_hasFvar hrhsw)
+          (FvarsOk.of_not_hasFvar hrhsw)).1
       have hIrhsL : ∀ ψ'' : Name → Nat, ∃ L,
           interpClosed V m.val env ψ'' (RecRule.rhs rule) = some L := by
         intro ψ''
-        obtain ⟨⟨v, tv', hiv, -, -⟩, -, -⟩ :=
+        obtain ⟨-, ⟨v, tv', hiv, -, -⟩, -, -⟩ :=
           inferTypeCore_sound (φ := ψ'') m F hity
             (WScoped.of_not_hasFvar hrhsw) hrhsb
             (Expr.LeavesBounded.of_not_hasFvar hrhsw)
-            (FvarsOk.of_not_hasFvar hrhsw) (hArhsL ψ'')
+            (FvarsOk.of_not_hasFvar hrhsw)
         exact ⟨v, hiv⟩
       have hfPmE : env.find? (f cvA.name) =
           some (.defnInfo cvm mval hmcvm) := by

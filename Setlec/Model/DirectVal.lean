@@ -82,8 +82,8 @@ noncomputable def teleLamV (V : Type u) [SetTheory V] (cval : ConstVal V)
     (env : Env) (φ : Name → Nat) :
     Nat → Nat → (Nat → V) → Expr → (Nat → (Nat → V) → List V → V) → V
   | 0, d, ρ, _, S => S d ρ []
-  | k + 1, d, ρ, .forallE n ty body m, S =>
-    SetTheory.lam ((m.cod.getD Level.zero).eval φ)
+  | k + 1, d, ρ, .forallE n ty body _m, S =>
+    SetTheory.lamC
       ((interpExpr V cval env φ d ρ ty).getD SetTheory.empty)
       (fun x => teleLamV V cval env φ k (d + 1) (updV V ρ d x)
         (body.instantiate1 (.fvar d n ty))
@@ -98,7 +98,7 @@ theorem teleLamV_forallE (k d : Nat) (ρ : Nat → V) (n : Name)
     (ty body : Expr) (m : BinderMeta)
     (S : Nat → (Nat → V) → List V → V) :
     teleLamV V cval env φ (k + 1) d ρ (.forallE n ty body m) S =
-      SetTheory.lam ((m.cod.getD Level.zero).eval φ)
+      SetTheory.lamC
         ((interpExpr V cval env φ d ρ ty).getD SetTheory.empty)
         (fun x => teleLamV V cval env φ k (d + 1) (updV V ρ d x)
           (body.instantiate1 (.fvar d n ty))
@@ -141,7 +141,7 @@ theorem teleLamV_mem :
         obtain rfl := Option.some.inj hi
         rw [teleLamV_forallE, hdom]
         dsimp only [Option.getD]
-        refine lam_mem (V := V) ?_
+        refine lamC_mem ?_
         intro x hx
         obtain ⟨hAb, hwfact⟩ := hcond x A hdom hx
         obtain ⟨w, hwi⟩ := hwfact

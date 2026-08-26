@@ -539,19 +539,18 @@ theorem annotOk_eqRec_type {cval : ConstVal V}
           · -- AnnotOk of `Eq α a b` (three app clauses)
             try simp only [Expr.instantiate1, reduceIte, AnnotOk]
             refine ⟨⟨⟨trivial, (by simp [Expr.instantiate1, AnnotOk]),
-                eqVal V ψ, A, Nat.max (ψ uN) (Nat.max (ψ uN) 1), univ (ψ uN),
+                eqVal V ψ, A, univ (ψ uN),
                 (fun X => pi (Nat.max (ψ uN) 1) X fun _ =>
                   pi 1 X fun _ => univ 0),
-                ?_, ?_, eqVal_mem, hAmem, fun X hX => eq_fibre_mem hX⟩,
+                ?_, ?_, eqVal_mem, hAmem⟩,
               (by simp [Expr.instantiate1, AnnotOk]),
-                SetTheory.app (eqVal V ψ) A, a, Nat.max (ψ uN) 1, A,
+                SetTheory.app (eqVal V ψ) A, a, A,
                 (fun _ => pi 1 A fun _ => univ 0),
-                ?_, ?_, eqVal_app_mem hAmem, hamem, fun y _ => ?_⟩,
+                ?_, ?_, eqVal_app_mem hAmem, hamem⟩,
               (by simp [Expr.instantiate1, AnnotOk]),
-                SetTheory.app (SetTheory.app (eqVal V ψ) A) a, b, 1, A,
+                SetTheory.app (SetTheory.app (eqVal V ψ) A) a, b, A,
                 (fun _ => univ 0),
-                ?_, ?_, eqVal_app₂_mem hAmem hamem, hbmem,
-                fun y _ => univ_mem_univ 0⟩
+                ?_, ?_, eqVal_app₂_mem hAmem hamem, hbmem⟩
             · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
                 eqA, ConstantInfo.toConstantVal]
               try rfl
@@ -560,8 +559,6 @@ theorem annotOk_eqRec_type {cval : ConstVal V}
                 eqA, ConstantInfo.toConstantVal]
               try rfl
             · simp [interpExpr, Expr.instantiate1, updV]
-            · exact pi_mem_univ (u := ψ uN) (v := 1) (B := fun _ => univ 0)
-                hAmem (fun _ _ => univ_mem_univ 0)
             · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
                 eqA, ConstantInfo.toConstantVal]
               try rfl
@@ -573,15 +570,11 @@ theorem annotOk_eqRec_type {cval : ConstVal V}
         · -- fibre-universe of the motive space's `b` binder
           refine ⟨pi (ψ u1N + 1)
             (SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ) A) a) b)
-            (fun _ => univ (ψ u1N)), ?_, ?_⟩
-          · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
-              eqA, ConstantInfo.toConstantVal, Level.eval,
-              -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-            try rfl
-          · rw [eqVal_app₃ hAmem hamem hbmem]
-            exact pi_mem_univ (u := 0) (v := ψ u1N + 1)
-              (B := fun _ => univ (ψ u1N)) (eqv_mem_univ a b)
-              (fun _ _ => univ_mem_univ (ψ u1N))
+            (fun _ => univ (ψ u1N)), ?_⟩
+          simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
+            eqA, ConstantInfo.toConstantVal, Level.eval,
+            -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+          try rfl
       · intro M SM hSM hMmem
         simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
           eqA, ConstantInfo.toConstantVal, Level.eval,
@@ -709,30 +702,27 @@ theorem annotOk_eqRec_type {cval : ConstVal V}
                     · -- app M b at pi-level u1 (weakened annotation)
                       exact happM a hamem M hMmem' b hbmem
                   · -- fibre-universe of the `t` binder
-                    refine ⟨SetTheory.app (SetTheory.app M b) h, ?_, ?_⟩
-                    · simp [interpExpr, Expr.instantiate1, updV]
-                    · exact happ2M a hamem M hMmem' b hbmem h hheqv
+                    refine ⟨SetTheory.app (SetTheory.app M b) h, ?_⟩
+                    simp [interpExpr, Expr.instantiate1, updV]
               · -- fibre-universe of the `b` binder
                 refine ⟨pi (ψ u1N)
                   (SetTheory.app (SetTheory.app
                     (SetTheory.app (eqVal V ψ) A) a) b)
-                  (fun h' => SetTheory.app (SetTheory.app M b) h'), ?_, ?_⟩
-                · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
-                    eqA, ConstantInfo.toConstantVal, Level.eval,
-                    -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-                  try rfl
-                · exact hT5 a hamem M hMmem' b hbmem
+                  (fun h' => SetTheory.app (SetTheory.app M b) h'), ?_⟩
+                simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
+                  eqA, ConstantInfo.toConstantVal, Level.eval,
+                  -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+                try rfl
             · -- fibre-universe of the `refl` binder
               refine ⟨pi (erB (ψ u1N)) A (fun b' =>
                 pi (ψ u1N)
                   (SetTheory.app (SetTheory.app
                     (SetTheory.app (eqVal V ψ) A) a) b')
-                  (fun h' => SetTheory.app (SetTheory.app M b') h')), ?_, ?_⟩
-              · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
-                  eqA, ConstantInfo.toConstantVal, Level.eval,
-                  -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-                try rfl
-              · exact hT4 a hamem M hMmem'
+                  (fun h' => SetTheory.app (SetTheory.app M b') h')), ?_⟩
+              simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
+                eqA, ConstantInfo.toConstantVal, Level.eval,
+                -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+              try rfl
         · -- fibre-universe of the `motive` binder
           refine ⟨pi (erRefl (ψ uN) (ψ u1N))
             (SetTheory.app (SetTheory.app M a)
@@ -741,13 +731,12 @@ theorem annotOk_eqRec_type {cval : ConstVal V}
               pi (ψ u1N)
                 (SetTheory.app (SetTheory.app
                   (SetTheory.app (eqVal V ψ) A) a) b')
-                fun h' => SetTheory.app (SetTheory.app M b') h'), ?_, ?_⟩
-          · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
-              hfindR', hvalR', eqA, eqReflA, ConstantInfo.toConstantVal,
-              Level.eval,
-              -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-            try rfl
-          · exact hT3 a hamem M hMmem'
+                fun h' => SetTheory.app (SetTheory.app M b') h'), ?_⟩
+          simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
+            hfindR', hvalR', eqA, eqReflA, ConstantInfo.toConstantVal,
+            Level.eval,
+            -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+          try rfl
     · -- fibre-universe of the `a` binder
       refine ⟨pi (erM (ψ uN) (ψ u1N))
         (pi (ψ u1N + 1) A fun b => pi (ψ u1N + 1)
@@ -760,13 +749,12 @@ theorem annotOk_eqRec_type {cval : ConstVal V}
             pi (ψ u1N)
               (SetTheory.app (SetTheory.app
                 (SetTheory.app (eqVal V ψ) A) a) b')
-              fun h' => SetTheory.app (SetTheory.app M' b') h')), ?_, ?_⟩
-      · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
-          hfindR', hvalR', eqA, eqReflA, ConstantInfo.toConstantVal,
-          Level.eval,
-          -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-        try rfl
-      · exact hT2 a hamem
+              fun h' => SetTheory.app (SetTheory.app M' b') h')), ?_⟩
+      simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
+        hfindR', hvalR', eqA, eqReflA, ConstantInfo.toConstantVal,
+        Level.eval,
+        -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+      try rfl
   · -- fibre-universe of the `α` binder
     refine ⟨pi (erA (ψ uN) (ψ u1N)) A (fun a =>
       pi (erM (ψ uN) (ψ u1N))
@@ -780,15 +768,11 @@ theorem annotOk_eqRec_type {cval : ConstVal V}
             pi (ψ u1N)
               (SetTheory.app (SetTheory.app
                 (SetTheory.app (eqVal V ψ) A) a) b')
-              fun h' => SetTheory.app (SetTheory.app M' b') h'))), ?_, ?_⟩
-    · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
-        hfindR', hvalR', eqA, eqReflA, ConstantInfo.toConstantVal,
-        Level.eval,
-        -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-      try rfl
-    · refine pi_mem_univ (u := ψ uN) (v := erA (ψ uN) (ψ u1N)) hAmem
-        (fun a ha => ?_)
-      rw [← erA₀_eq_erA]
-      exact hT2 a ha
+              fun h' => SetTheory.app (SetTheory.app M' b') h'))), ?_⟩
+    simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE',
+      hfindR', hvalR', eqA, eqReflA, ConstantInfo.toConstantVal,
+      Level.eval,
+      -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+    try rfl
 
 end Setlec

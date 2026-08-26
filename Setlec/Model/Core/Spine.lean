@@ -150,9 +150,9 @@ theorem annotOk_spine_inv {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   | [], _, hne, _ => absurd rfl hne
   | [x], f, _, ha => by
     simp only [Expr.mkAppN, AnnotOk] at ha ⊢
-    obtain ⟨hf, hx, vf, vx, vE, A, B, hif, hix, hp, hm, hfib⟩ := ha
+    obtain ⟨hf, hx, vf, vx, A, B, hif, hix, hp, hm⟩ := ha
     refine ⟨hf, by simpa using hx, vf, [vx], hif, ⟨hix, trivial⟩,
-      ⟨⟨vE, A, B, hp, hm, hfib⟩, trivial⟩, ?_⟩
+      ⟨⟨A, B, hp, hm⟩, trivial⟩, ?_⟩
     rw [interpExpr, hif, hix]
     rfl
   | x :: y :: xs, f, _, ha => by
@@ -162,14 +162,14 @@ theorem annotOk_spine_inv {cval : ConstVal V} {env : Env} {φ : Name → Nat}
     obtain ⟨hfx, hrest, vfx, vs, hifx, hisp, hchain, hifold⟩ :=
       annotOk_spine_inv (y :: xs) (Expr.app f x) (by simp) ha
     simp only [AnnotOk] at hfx
-    obtain ⟨hf, hx, vf, vx, vE, A, B, hif, hix, hp, hm, hfib⟩ := hfx
+    obtain ⟨hf, hx, vf, vx, A, B, hif, hix, hp, hm⟩ := hfx
     have happ : interpExpr V cval env φ d ρ (Expr.app f x) =
         some (SetTheory.app vf vx) := by
       rw [interpExpr, hif, hix]
     rw [happ] at hifx
     obtain rfl := Option.some.inj hifx
     refine ⟨hf, ?_, vf, vx :: vs, hif, ⟨hix, hisp⟩,
-      ⟨⟨vE, A, B, hp, hm, hfib⟩, hchain⟩, ?_⟩
+      ⟨⟨A, B, hp, hm⟩, hchain⟩, ?_⟩
     · intro z hz
       rcases List.mem_cons.mp hz with rfl | hz
       · exact hx
@@ -217,14 +217,14 @@ theorem annotOk_spine {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   | x :: xs, f, vf, v :: vs, hf, hif, hxs, hsp, hchain => by
     obtain ⟨hix, hsp'⟩ := hsp
     obtain ⟨hslot, hchain'⟩ := hchain
-    obtain ⟨vE, A, B, hp, hm, hfib⟩ := hslot
+    obtain ⟨A, B, hp, hm⟩ := hslot
     have happ : interpExpr V cval env φ d ρ (Expr.app f x) =
         some (SetTheory.app vf v) := by
       rw [interpExpr, hif, hix]
     have hafx : AnnotOk V cval env φ d ρ (Expr.app f x) := by
       simp only [AnnotOk]
-      exact ⟨hf, hxs x List.mem_cons_self, vf, v, vE, A, B, hif, hix,
-        hp, hm, hfib⟩
+      exact ⟨hf, hxs x List.mem_cons_self, vf, v, A, B, hif, hix,
+        hp, hm⟩
     exact annotOk_spine xs (Expr.app f x) (vf := SetTheory.app vf v)
       (vs := vs) hafx happ
       (fun z hz => hxs z (List.mem_cons_of_mem _ hz)) hsp' hchain'

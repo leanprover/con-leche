@@ -1565,7 +1565,7 @@ theorem TeleFitI.params_ext {ps : List Name} {φ₁ φ₂ : Name → Nat}
     have hps' : dom.allLevelParamsDefined ps = true ∧
         body.allLevelParamsDefined ps = true := by
       simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hps
-      exact ⟨hps.1.1, hps.1.2⟩
+      exact ⟨hps.1, hps.2⟩
     obtain ⟨i₀, n₀, rfl⟩ := hshape arg List.mem_cons_self
     cases hfit with
     | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg

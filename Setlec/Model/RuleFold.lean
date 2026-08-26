@@ -337,8 +337,8 @@ theorem allLevelParamsDefined_stripPis_doms {ps : List Name} :
         simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hps
         intro bb hbb
         rcases List.mem_cons.mp hbb with rfl | hbb
-        · exact hps.1.1
-        · exact ih hs hps.1.2 bb hbb
+        · exact hps.1
+        · exact ih hs hps.2 bb hbb
 
 omit [SetTheory V] in
 /-- The canonical frame over a prefix of the values agrees with the
@@ -1440,8 +1440,8 @@ theorem AnnotOk.erasedEq :
     | .forallE n ty body m, he =>
       obtain ⟨rfl, hty, hbody⟩ := he
       simp only [AnnotOk] at ha ⊢
-      obtain ⟨haty, vE, hcond⟩ := ha
-      refine ⟨AnnotOk.erasedEq ty' hty d ρ haty, vE, ?_⟩
+      obtain ⟨haty, hcond⟩ := ha
+      refine ⟨AnnotOk.erasedEq ty' hty d ρ haty, ?_⟩
       intro x A hA hx
       rw [← interp_erasedEq hty d ρ] at hA
       obtain ⟨hbodyA, hwfact⟩ := hcond x A hA hx
@@ -1449,8 +1449,8 @@ theorem AnnotOk.erasedEq :
           (body'.instantiate1 (.fvar d n' ty')) :=
         Expr.ErasedEq.instantiate1 hbody (by exact rfl)
       refine ⟨AnnotOk.erasedEq _ hEE (d + 1) (updV V ρ d x) hbodyA, ?_⟩
-      obtain ⟨w, hwi, hmem⟩ := hwfact
-      refine ⟨w, ?_, hmem⟩
+      obtain ⟨w, hwi⟩ := hwfact
+      refine ⟨w, ?_⟩
       rw [← interp_erasedEq hEE (d + 1) (updV V ρ d x)]
       exact hwi
   | .lam n' ty' body' m', e₁, he, d, ρ, ha => by
@@ -1458,8 +1458,8 @@ theorem AnnotOk.erasedEq :
     | .lam n ty body m, he =>
       obtain ⟨rfl, hty, hbody⟩ := he
       simp only [AnnotOk] at ha ⊢
-      obtain ⟨haty, hcod, hcond⟩ := ha
-      refine ⟨AnnotOk.erasedEq ty' hty d ρ haty, hcod, ?_⟩
+      obtain ⟨haty, hcond⟩ := ha
+      refine ⟨AnnotOk.erasedEq ty' hty d ρ haty, ?_⟩
       intro x A hA hx
       rw [← interp_erasedEq hty d ρ] at hA
       obtain ⟨hbodyA, hwfact⟩ := hcond x A hA hx
@@ -1467,8 +1467,8 @@ theorem AnnotOk.erasedEq :
           (body'.instantiate1 (.fvar d n' ty')) :=
         Expr.ErasedEq.instantiate1 hbody (by exact rfl)
       refine ⟨AnnotOk.erasedEq _ hEE (d + 1) (updV V ρ d x) hbodyA, ?_⟩
-      obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact
-      refine ⟨w, B, ?_, hwB, hBu⟩
+      obtain ⟨w, B, hwi, hwB⟩ := hwfact
+      refine ⟨w, B, ?_, hwB⟩
       rw [← interp_erasedEq hEE (d + 1) (updV V ρ d x)]
       exact hwi
   | .app f' a', e₁, he, d, ρ, ha => by
@@ -1476,10 +1476,10 @@ theorem AnnotOk.erasedEq :
     | .app f a, he =>
       obtain ⟨hf, ha'⟩ := he
       simp only [AnnotOk] at ha ⊢
-      obtain ⟨hAf, hAa, vf, va, vE, A, B, hif, hia, hpi, hmem, hfib⟩ := ha
+      obtain ⟨hAf, hAa, vf, va, A, B, hif, hia, hpi, hmem⟩ := ha
       refine ⟨AnnotOk.erasedEq f' hf d ρ hAf,
         AnnotOk.erasedEq a' ha' d ρ hAa,
-        vf, va, vE, A, B, ?_, ?_, hpi, hmem, hfib⟩
+        vf, va, A, B, ?_, ?_, hpi, hmem⟩
       · rw [← interp_erasedEq hf d ρ]
         exact hif
       · rw [← interp_erasedEq ha' d ρ]

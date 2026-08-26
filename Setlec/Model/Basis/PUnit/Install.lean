@@ -118,7 +118,7 @@ theorem annotOk_punitRec_type {cval : ConstVal V}
           (Expr.forallE (Name.anonymous.str "t")
             (Expr.const (Name.anonymous.str "PUnit") [Level.param (Name.anonymous.str "u")])
             (Expr.sort (Level.param (Name.anonymous.str "u_1")))
-            ⟨BinderInfo.default, some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩) =
+            ⟨BinderInfo.default⟩) =
           some (pi (ψ u1N + 1) unitSet fun _ => univ (ψ u1N)) := by
         simp only [interpExpr, hfindP', hvalP', punitA, ConstantInfo.toConstantVal,
           List.length_cons, List.length_nil, reduceIte, Level.eval, Level.substFn]

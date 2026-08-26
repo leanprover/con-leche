@@ -162,7 +162,7 @@ theorem whnfCore_claims (m : EnvModel V env)
     have hLba : Expr.LeavesBounded a := fun l hl => hLb l (by simp [fvarLeaves, hl])
     obtain ⟨hokf, hoka⟩ := FvarsOk.of_app hok
     simp only [AnnotOk] at ha
-    obtain ⟨haf, haa, vf, va, vE, A, B, hfi, hai, hpi, hvA, hfib⟩ := ha
+    obtain ⟨haf, haa, vf, va, A, B, hfi, hai, hpi, hvA⟩ := ha
     obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
     obtain ⟨hif, haf'⟩ := ihwc hwf hw.1 hb.1 hLbf hokf haf
     rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, ta, hta, hde⟩ |
@@ -177,7 +177,7 @@ theorem whnfCore_claims (m : EnvModel V env)
       simp only [WScoped] at hwlam
       simp only [looseBVarsBounded, Bool.and_eq_true] at hblam
       simp only [AnnotOk] at haf'
-      obtain ⟨haty, vE', hcond⟩ := haf'
+      obtain ⟨haty, hcond⟩ := haf'
       have hfi' : interpExpr V m.val env φ d ρ (.lam n ty body mm) = some vf := by
         rw [hif]; exact hfi
       rw [interpExpr] at hfi'
@@ -189,8 +189,8 @@ theorem whnfCore_claims (m : EnvModel V env)
       -- the argument is in the λ's domain: the (unconditional)
       -- certificate hands the fact directly
       have hdom : va ∈ˢ Aty := by
-        obtain ⟨⟨va₂, vta, hai₂, htai, hmema⟩, hAta⟩ :=
-          ihi hta hw.2 hb.2 hLba hoka haa
+        obtain ⟨-, ⟨va₂, vta, hai₂, htai, hmema⟩, hAta⟩ :=
+          ihi hta hw.2 hb.2 hLba hoka
         have hva₂ : va₂ = va := by
           rw [hai] at hai₂
           exact (Option.some.inj hai₂).symm
@@ -209,7 +209,7 @@ theorem whnfCore_claims (m : EnvModel V env)
             hAta haty htai hty
         exact heqA ▸ hmema
       obtain ⟨hbodyA, hwfact⟩ := hcond va Aty hty hdom
-      obtain ⟨w, Bl, hwi, hwB, hBu⟩ := hwfact
+      obtain ⟨w, Bl, hwi, hwB⟩ := hwfact
       have hfb : fvarsBelow d body := hwlam.2.fvarsBelow
       have hred_w : WScoped d (body.instantiate1 a) :=
         WScoped.instantiate1_gen hw.2 0 hwlam.2
@@ -231,21 +231,12 @@ theorem whnfCore_claims (m : EnvModel V env)
         AnnotOk_beta hfb hw.2 hb.2 hai haa 0 hbodyA
       obtain ⟨hi2, ha2⟩ := ihwc hbeta hred_w hred_b hred_Lb hred_ok hred_A
       refine ⟨?_, ha2⟩
-      have hfibres : ∀ x, x ∈ˢ Aty →
-          ∃ B', ((interpExpr V m.val env φ (d + 1) (updV V ρ d x)
-            (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty) ∈ˢ B' ∧
-            B' ∈ˢ univ vE' := by
-        intro x hx
-        obtain ⟨-, hwfact_x⟩ := hcond x Aty hty hx
-        obtain ⟨w_x, B_x, hwi_x, hwB_x, hBu_x⟩ := hwfact_x
-        exact ⟨B_x, by rw [hwi_x]; exact hwB_x, hBu_x⟩
-      obtain ⟨Bf, hBf1, hBf2⟩ := choose_fibres (V := V) hfibres
       have happi : interpExpr V m.val env φ d ρ (.app f a) =
           some (SetTheory.app vf va) := by
         rw [interpExpr, hfi, hai]
       rw [hi2, hbeta_eq, hwi, happi]
       simp only [Option.some.injEq]
-      rw [← hfi', app_lam hdom hBf1 hBf2]
+      rw [← hfi', app_lamC hdom]
       simp [hwi]
     · -- iota step
       have hw' : WScoped d (Expr.app f' a) := by
@@ -268,8 +259,7 @@ theorem whnfCore_claims (m : EnvModel V env)
         · exact hoka l hl
       have ha' : AnnotOk V m.val env φ d ρ (Expr.app f' a) := by
         simp only [AnnotOk]
-        exact ⟨haf', haa, vf, va, vE, A, B, hif.trans hfi, hai, hpi, hvA,
-          hfib⟩
+        exact ⟨haf', haa, vf, va, A, B, hif.trans hfi, hai, hpi, hvA⟩
       obtain ⟨⟨hie, hae''⟩, hwE, hbE, hLbE, hokE⟩ :=
         iota_sound ihw ihd ihi hio hw' hb' hLb' hok' ha'
       obtain ⟨hi2, ha2⟩ := ihwc hwe'' hwE hbE hLbE hokE hae''
@@ -282,7 +272,7 @@ theorem whnfCore_claims (m : EnvModel V env)
       · simp only [interpExpr]
         rw [hif]
       · simp only [AnnotOk]
-        refine ⟨haf', haa, vf, va, vE, A, B, ?_, hai, hpi, hvA, hfib⟩
+        refine ⟨haf', haa, vf, va, A, B, ?_, hai, hpi, hvA⟩
         rw [hif]; exact hfi
   | proj sn i e =>
     simp only [WScoped] at hw
@@ -400,13 +390,13 @@ theorem whnfCore_claims (m : EnvModel V env)
         exact Or.inr hl)
       -- decompose the spine's clauses
       try simp only [AnnotOk] at hae₂
-      obtain ⟨ha3, hab, vf₃, vb, vE₃, A₃, B₃, hf₃i, hbi, hpi₃, hvb₃, hfib₃⟩ := hae₂
+      obtain ⟨ha3, hab, vf₃, vb, A₃, B₃, hf₃i, hbi, hpi₃, hvb₃⟩ := hae₂
       try simp only [AnnotOk] at ha3
-      obtain ⟨ha2, haa, vf₂, va, vE₂, A₂, B₂, hf₂i, hai, hpi₂, hva₂, hfib₂⟩ := ha3
+      obtain ⟨ha2, haa, vf₂, va, A₂, B₂, hf₂i, hai, hpi₂, hva₂⟩ := ha3
       try simp only [AnnotOk] at ha2
-      obtain ⟨ha1, haβ, vf₁, vβ, vE₁, A₁, B₁, hf₁i, hβi, hpi₁, hvβ₁, hfib₁⟩ := ha2
+      obtain ⟨ha1, haβ, vf₁, vβ, A₁, B₁, hf₁i, hβi, hpi₁, hvβ₁⟩ := ha2
       try simp only [AnnotOk] at ha1
-      obtain ⟨hac, haα, vf₀, vα, vE₀, A₀, B₀, hci, hαi, hpi₀, hvα₀, hfib₀⟩ := ha1
+      obtain ⟨hac, haα, vf₀, vα, A₀, B₀, hci, hαi, hpi₀, hvα₀⟩ := ha1
       -- the head constant's value
       rw [interpExpr, hfMk] at hci
       dsimp only [ConstantInfo.toConstantVal] at hci
@@ -468,7 +458,7 @@ theorem whnfCore_claims (m : EnvModel V env)
           rw [← hψu, ← hψv]
           exact hw0
         have hept : interpExpr V m.val env φ d ρ e₂ = some pt :=
-          sortCert_pt ihw ihi hte hste hwte hwT0 hwC hbC hLbC hokC haC
+          sortCert_pt ihw ihi hte hste hwte hwT0 hwC hbC hLbC hokC
         have hveCpt : veC = pt := by
           have : some veC = some pt := by
             rw [← hveiC, ← hie, hept]
@@ -494,7 +484,7 @@ theorem whnfCore_claims (m : EnvModel V env)
         · rw [if_pos rfl] at hargd
           rw [hargd] at hred
           have hapt : interpExpr V m.val env φ d ρ a = some pt :=
-            sortCert_pt ihw ihi hta hsta hwta huT0 hwa hba hLba hoka haa
+            sortCert_pt ihw ihi hta hsta hwta huT0 hwa hba hLba hoka
           obtain ⟨hired, hared⟩ := ihwc hred hwa hba hLba hoka haa
           refine ⟨?_, hared⟩
           rw [hired, hapt]
@@ -504,7 +494,7 @@ theorem whnfCore_claims (m : EnvModel V env)
         · rw [if_neg (by omega)] at hargd
           rw [hargd] at hred
           have hbpt : interpExpr V m.val env φ d ρ b = some pt :=
-            sortCert_pt ihw ihi hta hsta hwta huT0 hwb hbb hLbb hokb hab
+            sortCert_pt ihw ihi hta hsta hwta huT0 hwb hbb hLbb hokb
           obtain ⟨hired, hared⟩ := ihwc hred hwb hbb hLbb hokb hab
           refine ⟨?_, hared⟩
           rw [hired, hbpt]
@@ -560,17 +550,16 @@ theorem whnfCore_claims (m : EnvModel V env)
             Expr.forallE (Name.anonymous.str "α") (.sort l0)
               (Expr.forallE (Name.anonymous.str "β")
                 (Expr.forallE (Name.anonymous.str "x") (.bvar 0) (.sort l1)
-                  ⟨.default, some (.succ l1)⟩)
+                  ⟨.default⟩)
                 (Expr.forallE (Name.anonymous.str "fst") (.bvar 1)
                   (Expr.forallE (Name.anonymous.str "snd")
                     (.app (.bvar 1) (.bvar 0))
                     (.app (.app (.const psigmaName [l0, l1]) (.bvar 3))
                       (.bvar 2))
-                    ⟨.default, some (.max l0 l1)⟩)
-                  ⟨.default, some (.imax l1 (.max l0 l1))⟩)
-                ⟨.implicit, some (.imax l0 (.imax l1 (.max l0 l1)))⟩)
-              ⟨.implicit, some (.imax (.imax l0 (.succ l1))
-                (.imax l0 (.imax l1 (.max l0 l1))))⟩ := by
+                    ⟨.default⟩)
+                  ⟨.default⟩)
+                ⟨.implicit⟩)
+              ⟨.implicit⟩ := by
           rw [htf₀eq]
           rfl
         obtain ⟨hn₀, hty₀, hbody₀, -⟩ :=
@@ -578,14 +567,14 @@ theorem whnfCore_claims (m : EnvModel V env)
         have htf₁c : tf₁ =
             Expr.forallE (Name.anonymous.str "β")
               (Expr.forallE (Name.anonymous.str "x") α (.sort l1)
-                ⟨.default, some (.succ l1)⟩)
+                ⟨.default⟩)
               (Expr.forallE (Name.anonymous.str "fst") α
                 (Expr.forallE (Name.anonymous.str "snd")
                   (.app (.bvar 1) (.bvar 0))
                   (.app (.app (.const psigmaName [l0, l1]) α) (.bvar 2))
-                  ⟨.default, some (.max l0 l1)⟩)
-                ⟨.default, some (.imax l1 (.max l0 l1))⟩)
-              ⟨.implicit, some (.imax l0 (.imax l1 (.max l0 l1)))⟩ := by
+                  ⟨.default⟩)
+                ⟨.default⟩)
+              ⟨.implicit⟩ := by
           rw [htf₁eq, hbody₀]
           simp [Expr.instantiate1]
         obtain ⟨hn₁, hty₁, hbody₁, -⟩ :=
@@ -595,8 +584,8 @@ theorem whnfCore_claims (m : EnvModel V env)
               (Expr.forallE (Name.anonymous.str "snd")
                 (.app β (.bvar 0))
                 (.app (.app (.const psigmaName [l0, l1]) α) β)
-                ⟨.default, some (.max l0 l1)⟩)
-              ⟨.default, some (.imax l1 (.max l0 l1))⟩ := by
+                ⟨.default⟩)
+              ⟨.default⟩ := by
           rw [htf₂eq, hbody₁]
           simp [Expr.instantiate1, instantiate1_eq_self hbα,
             instantiate1_eq_self
@@ -606,7 +595,7 @@ theorem whnfCore_claims (m : EnvModel V env)
         have htf₃c : tf₃ =
             Expr.forallE (Name.anonymous.str "snd") (.app β a)
               (.app (.app (.const psigmaName [l0, l1]) α) β)
-              ⟨.default, some (.max l0 l1)⟩ := by
+              ⟨.default⟩ := by
           rw [htf₃eq, hbody₂]
           simp [Expr.instantiate1, instantiate1_eq_self hbα,
             instantiate1_eq_self hbβ,
@@ -660,8 +649,8 @@ theorem whnfCore_claims (m : EnvModel V env)
         have hoktα : FvarsOk V m.val env φ d ρ tα :=
           FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hitα hwα)
             hokα
-        obtain ⟨⟨vα', vtα, hiα', htαi, hmemα⟩, hAtα⟩ :=
-          ihi hitα hwα hbα hLbα hokα haα
+        obtain ⟨-, ⟨vα', vtα, hiα', htαi, hmemα⟩, hAtα⟩ :=
+          ihi hitα hwα hbα hLbα hokα
         have hvαeq : vα' = vα := by
           rw [hαi] at hiα'
           exact (Option.some.inj hiα').symm
@@ -691,10 +680,10 @@ theorem whnfCore_claims (m : EnvModel V env)
         have haty₁ : AnnotOk V m.val env φ d ρ ty₁' := by
           rw [hty₁]
           simp only [AnnotOk]
-          refine ⟨haα, ψ' vN + 1, ?_⟩
+          refine ⟨haα, ?_⟩
           intro x Ax hAx hx
           refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
-          refine ⟨univ (ψ' vN), ?_, univ_mem_univ (ψ' vN)⟩
+          refine ⟨univ (ψ' vN), ?_⟩
           simp only [Expr.instantiate1, interpExpr, Option.some.injEq]
           rw [hψv]
         have hwtβ := inferTypeCore_WScoped m.wf fuel hitβ hwβ
@@ -704,8 +693,8 @@ theorem whnfCore_claims (m : EnvModel V env)
         have hoktβ : FvarsOk V m.val env φ d ρ tβ :=
           FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hitβ hwβ)
             hokβ
-        obtain ⟨⟨vβ', vtβ, hiβ', htβi, hmemβ⟩, hAtβ⟩ :=
-          ihi hitβ hwβ hbβ hLbβ hokβ haβ
+        obtain ⟨-, ⟨vβ', vtβ, hiβ', htβi, hmemβ⟩, hAtβ⟩ :=
+          ihi hitβ hwβ hbβ hLbβ hokβ
         have hvβeq : vβ' = vβ := by
           rw [hβi] at hiβ'
           exact (Option.some.inj hiβ').symm
@@ -722,8 +711,8 @@ theorem whnfCore_claims (m : EnvModel V env)
         have hokta' : FvarsOk V m.val env φ d ρ ta' :=
           FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hita hwa)
             hoka
-        obtain ⟨⟨va', vta, hia', htai', hmema⟩, hAta'⟩ :=
-          ihi hita hwa hba hLba hoka haa
+        obtain ⟨-, ⟨va', vta, hia', htai', hmema⟩, hAta'⟩ :=
+          ihi hita hwa hba hLba hoka
         have hvaeq' : va' = va := by
           rw [hai] at hia'
           exact (Option.some.inj hia').symm
@@ -748,8 +737,8 @@ theorem whnfCore_claims (m : EnvModel V env)
         have hoktb' : FvarsOk V m.val env φ d ρ tb' :=
           FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hitb hwb)
             hokb
-        obtain ⟨⟨vb', vtb, hib', htbi', hmemb⟩, hAtb'⟩ :=
-          ihi hitb hwb hbb hLbb hokb hab
+        obtain ⟨-, ⟨vb', vtb, hib', htbi', hmemb⟩, hAtb'⟩ :=
+          ihi hitb hwb hbb hLbb hokb
         have hvbeq' : vb' = vb := by
           rw [hbi] at hib'
           exact (Option.some.inj hib').symm
@@ -778,8 +767,8 @@ theorem whnfCore_claims (m : EnvModel V env)
         have haty₃ : AnnotOk V m.val env φ d ρ ty₃ := by
           rw [hty₃]
           simp only [AnnotOk]
-          exact ⟨haβ, haa, vβ, va, ψ' vN + 1, vα, (fun _ => univ (ψ' vN)),
-            hβi, hai, hβmem, hamem, fun _ _ => univ_mem_univ (ψ' vN)⟩
+          exact ⟨haβ, haa, vβ, va, vα, (fun _ => univ (ψ' vN)),
+            hβi, hai, hβmem, hamem⟩
         have hbmem : vb ∈ˢ app vβ va := by
           have hveq := ihd hdeb hwtb' hwty₃ hbtb' hbty₃ hLbtb' hLbty₃
             hoktb' hokty₃ hAtb' haty₃ htbi' hity₃

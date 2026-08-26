@@ -24,7 +24,7 @@ open SetTheory Expr
 def natFrTyM : Expr :=
   .forallE (Name.anonymous.str "t") (.const (Name.anonymous.str "Nat") [])
     (.sort (.param (Name.anonymous.str "u")))
-    ⟨.default, some (.succ (.param (Name.anonymous.str "u")))⟩
+    ⟨.default⟩
 
 /-- The motive frame variable. -/
 def natFrM : Expr := .fvar 0 (Name.anonymous.str "motive") natFrTyM
@@ -42,9 +42,8 @@ def natFrTyS : Expr :=
     (.forallE (Name.anonymous.str "n_ih") (.app natFrM (.bvar 0))
       (.app natFrM (.app (.const ((Name.anonymous.str "Nat").str "succ") [])
         (.bvar 1)))
-      ⟨.default, some (.param (Name.anonymous.str "u"))⟩)
-    ⟨.default, some (.imax (.param (Name.anonymous.str "u"))
-      (.param (Name.anonymous.str "u")))⟩
+      ⟨.default⟩)
+    ⟨.default⟩
 
 /-- The successor minor-premise frame variable. -/
 def natFrS : Expr := .fvar 2 (Name.anonymous.str "succ") natFrTyS
@@ -156,12 +155,11 @@ theorem natFr_interp_tyM {cval : ConstVal V}
 theorem natFr_annotOk_tyM {cval : ConstVal V} :
     AnnotOk V cval env ψ 0 (rho0 V) natFrTyM := by
   simp only [natFrTyM, AnnotOk]
-  refine ⟨trivial, ψ uN + 1, ?_⟩
+  refine ⟨trivial, ?_⟩
   intro t A hA ht
   refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-  refine ⟨univ (ψ uN), ?_, ?_⟩
-  · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
-  · exact univ_mem_univ (ψ uN)
+  refine ⟨univ (ψ uN), ?_⟩
+  simp [Expr.instantiate1, interpExpr, Level.eval, uN]
 
 theorem natFr_interp_tyZ {cval : ConstVal V} {M : V}
     (hfindZ : env.find? natZeroName = some natZeroA)
@@ -185,12 +183,12 @@ theorem natFr_annotOk_tyZ {cval : ConstVal V} {M : V}
   have hvalZ' : ∀ ψ' : Name → Nat,
       cval ((Name.anonymous.str "Nat").str "zero") ψ' = natzero := hvalZ
   simp only [natFrTyZ, natFrM, AnnotOk]
-  exact ⟨trivial, trivial, M, natzero, ψ uN + 1, omega,
+  exact ⟨trivial, trivial, M, natzero, omega,
     (fun _ => univ (ψ uN)),
     (by simp [interpExpr, updV]),
     (by simp [interpExpr, hfindZ', hvalZ', natZeroA,
       ConstantInfo.toConstantVal]),
-    hM, natzero_mem, fun _ _ => univ_mem_univ _⟩
+    hM, natzero_mem⟩
 
 theorem natFr_interp_tyS {cval : ConstVal V} {M z : V}
     (hfindN : env.find? natName = some natA)
@@ -235,8 +233,7 @@ theorem natFr_annotOk_tyS {cval : ConstVal V} {M z : V}
   have hMfib : ∀ k, k ∈ˢ omega → SetTheory.app M k ∈ˢ univ (ψ uN) :=
     fun k hk => app_mem hM hk (fun _ _ => univ_mem_univ (ψ uN))
   simp only [natFrTyS, natFrM, natFrTyM, AnnotOk]
-  refine ⟨trivial,
-    (if ψ uN = 0 then 0 else Nat.max (ψ uN) (ψ uN)), ?_⟩
+  refine ⟨trivial, ?_⟩
   intro n An hAn hn
   have hAn' : An = omega := by
     simp only [interpExpr, hfindN', hvalN', natA, ConstantInfo.toConstantVal,
@@ -246,52 +243,39 @@ theorem natFr_annotOk_tyS {cval : ConstVal V} {M z : V}
   refine ⟨?_, ?_⟩
   · -- the opened `∀ (n_ih : motive n), motive (Nat.succ n)`
     simp only [Expr.instantiate1, reduceIte, AnnotOk]
-    refine ⟨⟨trivial, trivial, M, n, ψ uN + 1, omega,
+    refine ⟨⟨trivial, trivial, M, n, omega,
       (fun _ => univ (ψ uN)),
       (by simp [interpExpr, updV]), (by simp [interpExpr, updV]),
-      hM, hn, fun _ _ => univ_mem_univ _⟩, ψ uN, ?_⟩
+      hM, hn⟩, ?_⟩
     intro ih Aih hAih hih
     refine ⟨?_, ?_⟩
     · -- the body `motive (Nat.succ n)`: nested app clauses
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
       refine ⟨trivial,
-        ⟨trivial, trivial, natSuccVal V ψ, n, 1, omega, (fun _ => omega),
+        ⟨trivial, trivial, natSuccVal V ψ, n, omega, (fun _ => omega),
           (by simp [interpExpr, hfindSc', hvalSc', natSuccA,
             ConstantInfo.toConstantVal, Level.substFn_nil]),
           (by simp [interpExpr, updV]),
-          natSuccVal_mem, hn, fun _ _ => omega_mem_univ⟩,
-        M, SetTheory.app (natSuccVal V ψ) n, ψ uN + 1, omega,
+          natSuccVal_mem, hn⟩,
+        M, SetTheory.app (natSuccVal V ψ) n, omega,
         (fun _ => univ (ψ uN)),
         (by simp [interpExpr, updV]),
-        ?_, hM, ?_, fun _ _ => univ_mem_univ _⟩
+        ?_, hM, ?_⟩
       · rw [interpExpr]
         simp [interpExpr, updV, hfindSc', hvalSc', natSuccA,
           ConstantInfo.toConstantVal, Level.substFn_nil]
       · rw [natSuccVal_app hn]
         exact natsucc_mem hn
-    · refine ⟨SetTheory.app M (SetTheory.app (natSuccVal V ψ) n), ?_, ?_⟩
-      · rw [interpExpr]
-        simp [interpExpr, updV, hfindSc', hvalSc', natSuccA,
-          ConstantInfo.toConstantVal, Level.substFn_nil]
-      · rw [natSuccVal_app hn]
-        exact hMfib (natsucc n) (natsucc_mem hn)
+    · refine ⟨SetTheory.app M (SetTheory.app (natSuccVal V ψ) n), ?_⟩
+      rw [interpExpr]
+      simp [interpExpr, updV, hfindSc', hvalSc', natSuccA,
+        ConstantInfo.toConstantVal, Level.substFn_nil]
   · refine ⟨pi (ψ uN) (SetTheory.app M n)
-      (fun _ => SetTheory.app M (SetTheory.app (natSuccVal V ψ) n)), ?_, ?_⟩
-    · simp [interpExpr, Expr.instantiate1, updV, hfindSc', hvalSc', natSuccA,
-        ConstantInfo.toConstantVal, Level.eval, uN, Level.substFn_nil,
-        -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-      try rfl
-    · have heq : (pi (ψ uN) (SetTheory.app M n)
-          fun _ => SetTheory.app M (SetTheory.app (natSuccVal V ψ) n)) =
-          (pi (ψ uN) (SetTheory.app M n)
-            fun _ => SetTheory.app M (natsucc n)) :=
-        pi_congr fun _ _ => by rw [natSuccVal_app hn]
-      rw [heq]
-      have h := natFr_sfib hM n hn
-      by_cases hu : ψ uN = 0
-      · simpa [hu] using h
-      · simpa [hu] using h
-
+      (fun _ => SetTheory.app M (SetTheory.app (natSuccVal V ψ) n)), ?_⟩
+    simp [interpExpr, Expr.instantiate1, updV, hfindSc', hvalSc', natSuccA,
+      ConstantInfo.toConstantVal, Level.eval, uN, Level.substFn_nil,
+      -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+    try rfl
 /-! ## The `RecRulesOk` clauses of the two rules -/
 
 /-- The `RecRulesOk` clause of `Nat.rec`'s zero rule. -/
@@ -337,16 +321,9 @@ theorem natRecZero_ruleOk {cval : ConstVal V}
   have hparts : ruleLhsParts (natName.str "rec") natRecA.toConstantVal 3
       ((ConstantInfo.recRules natRecA).getD 0 default)
       natZeroA.toConstantVal = some
-      ([(natFrM, ⟨.default, some (.imax (.param (Name.anonymous.str "u"))
-          (.imax (.imax (.succ .zero)
-            (.imax (.param (Name.anonymous.str "u"))
-              (.param (Name.anonymous.str "u"))))
-            (.param (Name.anonymous.str "u"))))⟩),
-        (natFrZ, ⟨.default, some (.imax (.imax (.succ .zero)
-          (.imax (.param (Name.anonymous.str "u"))
-            (.param (Name.anonymous.str "u"))))
-          (.param (Name.anonymous.str "u")))⟩),
-        (natFrS, ⟨.default, some (.param (Name.anonymous.str "u"))⟩)],
+      ([(natFrM, ⟨.default⟩),
+        (natFrZ, ⟨.default⟩),
+        (natFrS, ⟨.default⟩)],
        .app (.app (.app (.app natFrRec natFrM) natFrZ) natFrS)
          (.const ((Name.anonymous.str "Nat").str "zero") [])) := by rfl
   obtain ⟨hwf, hlen⟩ := ruleLhsParts_frameWf hparts rfl rfl rfl rfl
@@ -451,23 +428,23 @@ theorem natRecZero_ruleOk {cval : ConstVal V}
     · simp [Expr.instantiate1, interpExpr, updV]
     · simp only [AnnotOk, natFrRec, natFrM, natFrZ, natFrS]
       exact ⟨⟨⟨⟨trivial, trivial,
-          natRecVal V ψ', M, enM (ψ' uN),
+          natRecVal V ψ', M,
           pi (ψ' uN + 1) omega (fun _ => univ (ψ' uN)), _,
-          hirec, hifvM, hmem, hM, fun M' hM' => natFr_T2_mem hM'⟩,
+          hirec, hifvM, hmem, hM⟩,
         trivial,
-        SetTheory.app (natRecVal V ψ') M, z, enZ (ψ' uN),
+        SetTheory.app (natRecVal V ψ') M, z,
           SetTheory.app M natzero, _,
-          hip1, hifvZ, hm1, hz, fun _ _ => natFr_T3_mem hM⟩,
+          hip1, hifvZ, hm1, hz⟩,
         trivial,
-        SetTheory.app (SetTheory.app (natRecVal V ψ') M) z, s, en1U (ψ' uN),
+        SetTheory.app (SetTheory.app (natRecVal V ψ') M) z, s,
           (pi (enUU (ψ' uN)) omega fun n =>
             pi (ψ' uN) (SetTheory.app M n) fun _ =>
               SetTheory.app M (SetTheory.app (natSuccVal V ψ') n)), _,
-          hip2, hifvS, hm2, hs, fun _ _ => natFr_T4_mem hM⟩,
+          hip2, hifvS, hm2, hs⟩,
         trivial,
         SetTheory.app (SetTheory.app (SetTheory.app (natRecVal V ψ') M) z) s,
-          natzero, ψ' uN, omega, (fun t => SetTheory.app M t),
-          hip3, hizeroC, hm3, natzero_mem, fun t ht => hMfib t ht⟩
+          natzero, omega, (fun t => SetTheory.app M t),
+          hip3, hizeroC, hm3, natzero_mem⟩
 
 /-- The `RecRulesOk` clause of `Nat.rec`'s successor rule. -/
 theorem natRecSucc_ruleOk {cval : ConstVal V}
@@ -512,18 +489,10 @@ theorem natRecSucc_ruleOk {cval : ConstVal V}
   have hparts : ruleLhsParts (natName.str "rec") natRecA.toConstantVal 3
       ((ConstantInfo.recRules natRecA).getD 1 default)
       natSuccA.toConstantVal = some
-      ([(natFrM, ⟨.default, some (.imax (.param (Name.anonymous.str "u"))
-          (.imax (.imax (.succ .zero)
-            (.imax (.param (Name.anonymous.str "u"))
-              (.param (Name.anonymous.str "u"))))
-            (.imax (.succ .zero) (.param (Name.anonymous.str "u")))))⟩),
-        (natFrZ, ⟨.default, some (.imax (.imax (.succ .zero)
-          (.imax (.param (Name.anonymous.str "u"))
-            (.param (Name.anonymous.str "u"))))
-          (.imax (.succ .zero) (.param (Name.anonymous.str "u"))))⟩),
-        (natFrS, ⟨.default, some (.imax (.succ .zero)
-          (.param (Name.anonymous.str "u")))⟩),
-        (natFrN, ⟨.default, some (.param (Name.anonymous.str "u"))⟩)],
+      ([(natFrM, ⟨.default⟩),
+        (natFrZ, ⟨.default⟩),
+        (natFrS, ⟨.default⟩),
+        (natFrN, ⟨.default⟩)],
        .app (.app (.app (.app natFrRec natFrM) natFrZ) natFrS)
          (.app (.const ((Name.anonymous.str "Nat").str "succ") [])
            natFrN)) := by rfl
@@ -672,25 +641,25 @@ theorem natRecSucc_ruleOk {cval : ConstVal V}
       rw [natRecVal_fold hM hz hs' hn]
     · simp only [AnnotOk, natFrRec, natFrM, natFrZ, natFrS, natFrN]
       exact ⟨⟨⟨⟨trivial, trivial,
-          natRecVal V ψ', M, enM (ψ' uN),
+          natRecVal V ψ', M,
           pi (ψ' uN + 1) omega (fun _ => univ (ψ' uN)), _,
-          hirec, hifvM, hmem, hM, fun M' hM' => natFr_T2_mem hM'⟩,
+          hirec, hifvM, hmem, hM⟩,
         trivial,
-        SetTheory.app (natRecVal V ψ') M, z, enZ (ψ' uN),
+        SetTheory.app (natRecVal V ψ') M, z,
           SetTheory.app M natzero, _,
-          hip1, hifvZ, hm1, hz, fun _ _ => natFr_T3_mem hM⟩,
+          hip1, hifvZ, hm1, hz⟩,
         trivial,
-        SetTheory.app (SetTheory.app (natRecVal V ψ') M) z, s, en1U (ψ' uN),
+        SetTheory.app (SetTheory.app (natRecVal V ψ') M) z, s,
           (pi (enUU (ψ' uN)) omega fun n' =>
             pi (ψ' uN) (SetTheory.app M n') fun _ =>
               SetTheory.app M (SetTheory.app (natSuccVal V ψ') n')), _,
-          hip2, hifvS, hm2, hs, fun _ _ => natFr_T4_mem hM⟩,
+          hip2, hifvS, hm2, hs⟩,
         ⟨trivial, trivial,
-          natSuccVal V ψ', n, 1, omega, (fun _ => omega),
-          hisuccC, hifvN, natSuccVal_mem, hn, fun _ _ => omega_mem_univ⟩,
+          natSuccVal V ψ', n, omega, (fun _ => omega),
+          hisuccC, hifvN, natSuccVal_mem, hn⟩,
         SetTheory.app (SetTheory.app (SetTheory.app (natRecVal V ψ') M) z) s,
-          SetTheory.app (natSuccVal V ψ') n, ψ' uN, omega,
+          SetTheory.app (natSuccVal V ψ') n, omega,
           (fun t => SetTheory.app M t),
-          hip3, hisuccN, hm3, hsuccN_mem, fun t ht => hMfib t ht⟩
+          hip3, hisuccN, hm3, hsuccN_mem⟩
 
 end Setlec

@@ -527,9 +527,9 @@ theorem eta_rule_fold
     rw [if_pos (by simp [eqA, ConstantInfo.toConstantVal])] at hveqi
     rw [← Option.some.inj hveqi, heqval]
     congr 2
-  obtain ⟨⟨vE₁, A₁, B₁, hpi₁, hmem₁, -⟩, hchainE'⟩ := hchainE
-  obtain ⟨⟨vE₂, A₂, B₂, hpi₂, hmem₂, -⟩, hchainE''⟩ := hchainE'
-  obtain ⟨⟨vE₃, A₃, B₃, hpi₃, hmem₃, -⟩, -⟩ := hchainE''
+  obtain ⟨⟨A₁, B₁, hpi₁, hmem₁⟩, hchainE'⟩ := hchainE
+  obtain ⟨⟨A₂, B₂, hpi₂, hmem₂⟩, hchainE''⟩ := hchainE'
+  obtain ⟨⟨A₃, B₃, hpi₃, hmem₃⟩, -⟩ := hchainE''
   rw [hveq] at hpi₁ hpi₂ hpi₃
   have hvα : vα = SpineFold V (val' (T.str "_model")
       (Level.substFn φ' lps us)) ps := by
@@ -542,7 +542,7 @@ theorem eta_rule_fold
       [ℓA] uN) := by
     have h1 := hpi₁
     simp only [eqVal] at h1
-    refine lam_dom_of_ne h1 ?_ vα hmem₁
+    refine lam_dom_of_ne (vE := 0) h1 ?_ vα hmem₁
     exact lamC_ne_pt_of_witness (unitSet_mem_univ _)
       (lamC_ne_pt_of_witness pt_mem_unitSet
         (lamC_ne_pt_of_witness pt_mem_unitSet
@@ -553,7 +553,7 @@ theorem eta_rule_fold
   have hvrmem : vr ∈ˢ vα := by
     have h3 := hpi₃
     rw [eqVal_app₂ hαu hvlmem] at h3
-    refine lam_dom_of_ne h3 ?_ vr hmem₃
+    refine lam_dom_of_ne (vE := 0) h3 ?_ vr hmem₃
     exact lamC_ne_pt_of_witness hxα
       (by unfold eqv; exact truthVal_ne_pt _)
   have hQeqv : Q = eqv vl vr := by
@@ -1039,9 +1039,9 @@ theorem unit_rule_fold
     rw [if_pos (by simp [eqA, ConstantInfo.toConstantVal])] at hveqi
     rw [← Option.some.inj hveqi, heqval]
     congr 2
-  obtain ⟨⟨vE₁, A₁, B₁, hpi₁, hmem₁, -⟩, hchainE'⟩ := hchainE
-  obtain ⟨⟨vE₂, A₂, B₂, hpi₂, hmem₂, -⟩, hchainE''⟩ := hchainE'
-  obtain ⟨⟨vE₃, A₃, B₃, hpi₃, hmem₃, -⟩, -⟩ := hchainE''
+  obtain ⟨⟨A₁, B₁, hpi₁, hmem₁⟩, hchainE'⟩ := hchainE
+  obtain ⟨⟨A₂, B₂, hpi₂, hmem₂⟩, hchainE''⟩ := hchainE'
+  obtain ⟨⟨A₃, B₃, hpi₃, hmem₃⟩, -⟩ := hchainE''
   rw [hveq] at hpi₁ hpi₂ hpi₃
   have hvα : vα = SpineFold V (val' (T.str "_model")
       (Level.substFn φ' lps us)) ps := by
@@ -1057,7 +1057,7 @@ theorem unit_rule_fold
       [ℓA] uN) := by
     have h1 := hpi₁
     simp only [eqVal] at h1
-    refine lam_dom_of_ne h1 ?_ vα hmem₁
+    refine lam_dom_of_ne (vE := 0) h1 ?_ vα hmem₁
     exact lamC_ne_pt_of_witness (unitSet_mem_univ _)
       (lamC_ne_pt_of_witness pt_mem_unitSet
         (lamC_ne_pt_of_witness pt_mem_unitSet

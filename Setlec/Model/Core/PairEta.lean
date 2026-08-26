@@ -76,7 +76,7 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     exact hr
   subst hcn
   -- b's type reduces to the pair type; extract the sigma facts
-  obtain ⟨⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ := ihi htb hwb hbb hLbb hokb hab
+  obtain ⟨-, ⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ := ihi htb hwb hbb hLbb hokb
   have hvbeq : vb' = vb := by
     rw [hvb] at hbi
     exact (Option.some.inj hbi).symm
@@ -92,9 +92,9 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
       (.app (.app (.const psigmaName us') A) B) = some vtb := by
     rw [hiw]; exact htbi
   try simp only [AnnotOk] at haPi
-  obtain ⟨haCA, haB, vf₁, vB, vE₁, A₁, B₁, hf₁i, hBi, hpi₁, hvB₁, hfib₁⟩ := haPi
+  obtain ⟨haCA, haB, vf₁, vB, A₁, B₁, hf₁i, hBi, hpi₁, hvB₁⟩ := haPi
   try simp only [AnnotOk] at haCA
-  obtain ⟨hac, haA, vf₀, vA, vE₀, A₀, B₀, hci, hAi, hpi₀, hvA₀, hfib₀⟩ := haCA
+  obtain ⟨hac, haA, vf₀, vA, A₀, B₀, hci, hAi, hpi₀, hvA₀⟩ := haCA
   obtain ⟨hlpI, htyf⟩ := m.ind_ok.1 cvi capsi hfindI
   obtain ⟨ψt, hψt⟩ : ∃ ψt, ψt = Level.substFn φ cvi.levelParams us' := ⟨_, rfl⟩
   have hci' := hci
@@ -112,13 +112,13 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     simp only [halI, if_true]
   have hvf₀ : vf₀ = m.val psigmaName ψt := (Option.some.inj hci').symm
   have hfacts := htyf ψt
-  have hAmem : vA ∈ˢ univ (ψt uN) := hfacts.dom₀ (hvf₀ ▸ hpi₀) hvA₀
+  have hAmem : vA ∈ˢ univ (ψt uN) := hfacts.dom₀ (vE := 0) (hvf₀ ▸ hpi₀) hvA₀
   have hf₁ : vf₁ = app (m.val psigmaName ψt) vA := by
     rw [interpExpr, hvalI, hAi] at hf₁i
     dsimp only at hf₁i
     exact (Option.some.inj hf₁i).symm
   have hBmem : vB ∈ˢ pi (ψt vN + 1) vA (fun _ => univ (ψt vN)) :=
-    hfacts.dom₁ hAmem (hf₁ ▸ hpi₁) hvB₁
+    hfacts.dom₁ (vE := 0) hAmem (hf₁ ▸ hpi₁) hvB₁
   have hfold : vtb = sigmaSet (Nat.max (ψt uN) (ψt vN)) vA
       (fun x => app vB x) := by
     rw [interpExpr, hf₁i, hBi] at hPii
@@ -133,13 +133,13 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     app_mem hBmem hx fun _ _ => univ_mem_univ _
   -- decompose the constructor application's annotations
   simp only [AnnotOk] at haa
-  obtain ⟨haa3, has₂, vf₃, vs₂, vE₃, A₃, B₃, hf₃i, hs₂i, hpi₃, hvs₂, hfib₃⟩ := haa
+  obtain ⟨haa3, has₂, vf₃, vs₂, A₃, B₃, hf₃i, hs₂i, hpi₃, hvs₂⟩ := haa
   try simp only [AnnotOk] at haa3
-  obtain ⟨haa2, has₁, vf₂, vs₁, vE₂, A₂, B₂, hf₂i, hs₁i, hpi₂, hvs₁, hfib₂⟩ := haa3
+  obtain ⟨haa2, has₁, vf₂, vs₁, A₂, B₂, hf₂i, hs₁i, hpi₂, hvs₁⟩ := haa3
   try simp only [AnnotOk] at haa2
-  obtain ⟨haa1, hapβ, vf₁m, vpβ, vE₁m, A₁m, B₁m, hf₁mi, hpβi, hpi₁m, hvpβ, hfib₁m⟩ := haa2
+  obtain ⟨haa1, hapβ, vf₁m, vpβ, A₁m, B₁m, hf₁mi, hpβi, hpi₁m, hvpβ⟩ := haa2
   try simp only [AnnotOk] at haa1
-  obtain ⟨hacm, hapα, vf₀m, vpα, vE₀m, A₀m, B₀m, hcmi, hpαi, hpi₀m, hvpα, hfib₀m⟩ := haa1
+  obtain ⟨hacm, hapα, vf₀m, vpα, A₀m, B₀m, hcmi, hpαi, hpi₀m, hvpα⟩ := haa1
   obtain ⟨hnP2, hnF2, hlpM, hmkfAll⟩ := m.ind_ok.right.left cvm 2 2 hfindM
   obtain ⟨ψk, hψk⟩ : ∃ ψk, ψk = Level.substFn φ cvm.levelParams us := ⟨_, rfl⟩
   have hcmi' := hcmi

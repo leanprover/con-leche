@@ -296,7 +296,7 @@ theorem allLevelParamsDefined_stripPis_body {ps : List Name} :
       obtain ⟨-, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body := by
         simpa using heq
       simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hp
-      exact ih hb hp.1.2
+      exact ih hb hp.2
 
 /-- Application-spine members keep their level parameters defined. -/
 theorem allLevelParamsDefined_getAppArgs {ps : List Name} :
@@ -406,21 +406,11 @@ theorem instantiateLevelParams_instantiateLevelParams
   | lam n ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [instantiateLevelParams, ihty h.1.1, ihbody h.1.2]
-    cases hc : m.cod with
-    | none => simp
-    | some v =>
-      simp only [hc, Option.map_some]
-      rw [Level.subst_subst hl (by simpa [hc] using h.2)]
+    simp only [instantiateLevelParams, ihty h.1, ihbody h.2]
   | forallE n ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [instantiateLevelParams, ihty h.1.1, ihbody h.1.2]
-    cases hc : m.cod with
-    | none => simp
-    | some v =>
-      simp only [hc, Option.map_some]
-      rw [Level.subst_subst hl (by simpa [hc] using h.2)]
+    simp only [instantiateLevelParams, ihty h.1, ihbody h.2]
   | _ =>
     intro h
     simp_all [instantiateLevelParams, allLevelParamsDefined]
@@ -438,23 +428,13 @@ theorem allLevelParamsDefined_instantiateLevelParams
   | lam n ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [instantiateLevelParams, allLevelParamsDefined, ihty h.1.1, ihbody h.1.2,
+    simp only [instantiateLevelParams, allLevelParamsDefined, ihty h.1, ihbody h.2,
       Bool.and_eq_true, Bool.true_and]
-    cases hc : m.cod with
-    | none => simp
-    | some v =>
-      simp only [Option.map_some]
-      exact Level.allParamsDefined_subst hl hus (by simpa [hc] using h.2)
   | forallE n ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [instantiateLevelParams, allLevelParamsDefined, ihty h.1.1, ihbody h.1.2,
+    simp only [instantiateLevelParams, allLevelParamsDefined, ihty h.1, ihbody h.2,
       Bool.and_eq_true, Bool.true_and]
-    cases hc : m.cod with
-    | none => simp
-    | some v =>
-      simp only [Option.map_some]
-      exact Level.allParamsDefined_subst hl hus (by simpa [hc] using h.2)
   | sort u =>
     intro h
     simp only [instantiateLevelParams, allLevelParamsDefined] at h ⊢

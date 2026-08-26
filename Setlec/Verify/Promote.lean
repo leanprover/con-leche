@@ -67,11 +67,8 @@ theorem PromoteSt.levels_lt {h : Harvest} {lbase : Nat} :
     rw [hrec, PromoteSt.level_lt (hus u (by simp))]
 
 theorem PromoteSt.bm_lt {p : PromoteSt} {h : Harvest} {lbase : Nat}
-    {m : IBinderMeta} (hm : ∀ u ∈ m.cod.toList, u < lbase) :
-    p.bm h lbase m = (m, p) := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · rfl
-  · simp [PromoteSt.bm, PromoteSt.level_lt (hm u (by simp))]
+    {m : IBinderMeta} :
+    p.bm h lbase m = (m, p) := rfl
 
 /-! ## Denotation-transport helpers
 
@@ -95,14 +92,9 @@ theorem denoteLList_transport {d₁ d₂ : LIdx → Option Level}
     exact ⟨l, h u l hl, ls', ih hls', rfl⟩
 
 theorem denoteBM_transport {d₁ d₂ : LIdx → Option Level}
-    (h : ∀ u l, d₁ u = some l → d₂ u = some l) {m : IBinderMeta}
+    (_h : ∀ u l, d₁ u = some l → d₂ u = some l) {m : IBinderMeta}
     {bm : BinderMeta} (hm : denoteBM d₁ m = some bm) :
-    denoteBM d₂ m = some bm := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · exact hm
-  · simp only [denoteBM, Option.map_eq_some_iff] at hm ⊢
-    obtain ⟨l, hl, rfl⟩ := hm
-    exact ⟨l, h u l hl, rfl⟩
+    denoteBM d₂ m = some bm := hm
 
 /-! ## Level/name reference bounds from a successful denotation
 
@@ -126,13 +118,9 @@ theorem denoteLList_lt_size {st : EStore} :
     · exact ih hls' u hu'
 
 theorem denoteBM_lt_size {st : EStore} {m : IBinderMeta}
-    {bm : BinderMeta} (h : denoteBM st.denoteL m = some bm) :
-    ∀ u ∈ m.cod.toList, u < st.lnodes.size := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · simp
-  · simp only [denoteBM, Option.map_eq_some_iff] at h
-    obtain ⟨l, hl, -⟩ := h
-    simpa using denoteL_lt_size hl
+    {bm : BinderMeta} (_h : denoteBM st.denoteL m = some bm) :
+    ∀ u ∈ ([] : List LIdx), u < st.lnodes.size := by
+  simp
 
 /-- A denoted node's level references are in range. -/
 theorem denoteNode_levels_lt {st : EStore} {den : EIdx → Option Expr}
@@ -152,13 +140,13 @@ theorem denoteNode_levels_lt {st : EStore} {den : EIdx → Option Expr}
   | lam nm t b m =>
     simp only [denoteNode, Option.bind_eq_some_iff,
       Option.map_eq_some_iff] at h
-    obtain ⟨xt, -, xb, -, bm, hbm, -⟩ := h
-    simpa [ENode.levels] using denoteBM_lt_size hbm
+    obtain ⟨xt, -, xb, -, bm, -, -⟩ := h
+    simp [ENode.levels]
   | forallE nm t b m =>
     simp only [denoteNode, Option.bind_eq_some_iff,
       Option.map_eq_some_iff] at h
-    obtain ⟨xt, -, xb, -, bm, hbm, -⟩ := h
-    simpa [ENode.levels] using denoteBM_lt_size hbm
+    obtain ⟨xt, -, xb, -, bm, -, -⟩ := h
+    simp [ENode.levels]
   | bvar i => simp [ENode.levels]
   | fvar idx nm t => simp [ENode.levels]
   | app f a' => simp [ENode.levels]
@@ -577,9 +565,7 @@ theorem promoteEGo_spec {stP st0 : EStore} (hpre : stP.TWF)
           (hchild t (by simp [ENode.children])) hxt
         obtain ⟨hp₂, hext₂, hden₂⟩ := promoteSub_spec hpre hden1 ih hp₁
           (hchild b (by simp [ENode.children])) hxb
-        rw [PromoteSt.bm_lt
-          (fun u hu => Nat.lt_of_lt_of_le
-            (hlvl u (by simpa [ENode.levels] using hu)) hlb),
+        rw [PromoteSt.bm_lt,
           PromoteSt.name_lt
             (Nat.lt_of_lt_of_le (hnms nm (by simp [ENode.names])) hnb)]
         have hdf := denote_mono hext₂ hden₁
@@ -599,9 +585,7 @@ theorem promoteEGo_spec {stP st0 : EStore} (hpre : stP.TWF)
           (hchild t (by simp [ENode.children])) hxt
         obtain ⟨hp₂, hext₂, hden₂⟩ := promoteSub_spec hpre hden1 ih hp₁
           (hchild b (by simp [ENode.children])) hxb
-        rw [PromoteSt.bm_lt
-          (fun u hu => Nat.lt_of_lt_of_le
-            (hlvl u (by simpa [ENode.levels] using hu)) hlb),
+        rw [PromoteSt.bm_lt,
           PromoteSt.name_lt
             (Nat.lt_of_lt_of_le (hnms nm (by simp [ENode.names])) hnb)]
         have hdf := denote_mono hext₂ hden₁

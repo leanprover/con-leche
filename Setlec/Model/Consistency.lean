@@ -52,14 +52,18 @@ private theorem value_facts {env : Env} (m : EnvModel V env)
     not_hasFvar_of_fvarsBelow_zero
       ((annotateCore_WScoped F value hannv hwv).fvarsBelow)
   have hbv' : value'.looseBVarsBounded 0 = true := annotateCore_looseBVars F value hannv hlbv
+  -- task #100 stage 6: the inference run itself establishes the
+  -- subject's annotation truthfulness (the annotation pass is gone)
   have hAv : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) value' := fun ψ =>
-    annotate_sound m value hannv hwv hlbv (Expr.LeavesBounded.of_not_hasFvar hivf)
-      (rho0 V) (FvarsOk.of_not_hasFvar hivf)
+    (inferTypeCore_sound (φ := ψ) (ρ := rho0 V) m F hvt
+      (WScoped.of_not_hasFvar hvf') hbv'
+      (Expr.LeavesBounded.of_not_hasFvar hvf')
+      (FvarsOk.of_not_hasFvar hvf')).1
   refine ⟨hvf', hAv, fun ψ => ?_⟩
-  obtain ⟨⟨v, tv, hv, htv, hmem⟩, hwvt, hAvt⟩ :=
+  obtain ⟨-, ⟨v, tv, hv, htv, hmem⟩, hwvt, hAvt⟩ :=
     inferTypeCore_sound (φ := ψ) m F hvt (WScoped.of_not_hasFvar hvf') hbv'
       (Expr.LeavesBounded.of_not_hasFvar hvf')
-      (FvarsOk.of_not_hasFvar hvf') (hAv ψ)
+      (FvarsOk.of_not_hasFvar hvf')
   obtain ⟨T, hT⟩ := hkeyT ψ
   have hbvt : vtype.looseBVarsBounded 0 = true :=
     inferTypeCore_looseBVars m.wf F hvt (WScoped.of_not_hasFvar hvf') hbv'
@@ -503,9 +507,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       annotateCore_looseBVars F cv.type hann hlbt
     have hAty : ∀ ψ : Name → Nat,
         AnnotOk V m.val env ψ 0 (rho0 V) type := fun ψ =>
-      annotate_sound m cv.type hann hwt hlbt
-        (Expr.LeavesBounded.of_not_hasFvar hitf) (rho0 V)
-        (FvarsOk.of_not_hasFvar hitf)
+      (inferTypeCore_sound (φ := ψ) (ρ := rho0 V) m F hst
+        (WScoped.of_not_hasFvar htf) hbt'
+        (Expr.LeavesBounded.of_not_hasFvar htf)
+        (FvarsOk.of_not_hasFvar htf)).1
     by_cases hok : stdAxiomOk env { cv with type := type } = true
     case neg =>
       -- non-pinned standard axiom: the compiler-trust family installs
@@ -1976,14 +1981,16 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         ((annotateCore_WScoped F cv.type hann hwt).fvarsBelow)
     have hbt' : type.looseBVarsBounded 0 = true := annotateCore_looseBVars F cv.type hann hlbt
     have hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) type := fun ψ =>
-      annotate_sound m cv.type hann hwt hlbt (Expr.LeavesBounded.of_not_hasFvar hitf)
-        (rho0 V) (FvarsOk.of_not_hasFvar hitf)
+      (inferTypeCore_sound (φ := ψ) (ρ := rho0 V) m F hst
+        (WScoped.of_not_hasFvar htf) hbt'
+        (Expr.LeavesBounded.of_not_hasFvar htf)
+        (FvarsOk.of_not_hasFvar htf)).1
     have hkeyT : ∀ ψ : Name → Nat, ∃ T, interpClosed V m.val env ψ type = some T := by
       intro ψ
-      obtain ⟨⟨T, sT, hT, -, -⟩, -, -⟩ :=
+      obtain ⟨-, ⟨T, sT, hT, -, -⟩, -, -⟩ :=
         inferTypeCore_sound (φ := ψ) m F hst (WScoped.of_not_hasFvar htf) hbt'
           (Expr.LeavesBounded.of_not_hasFvar htf)
-          (FvarsOk.of_not_hasFvar htf) (hAty ψ)
+          (FvarsOk.of_not_hasFvar htf)
       exact ⟨T, hT⟩
     obtain ⟨hvf', hAval, hkey⟩ :=
       value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hbt' hAty hkeyT
@@ -2300,14 +2307,16 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         ((annotateCore_WScoped F cv.type hann hwt).fvarsBelow)
     have hbt' : type.looseBVarsBounded 0 = true := annotateCore_looseBVars F cv.type hann hlbt
     have hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) type := fun ψ =>
-      annotate_sound m cv.type hann hwt hlbt (Expr.LeavesBounded.of_not_hasFvar hitf)
-        (rho0 V) (FvarsOk.of_not_hasFvar hitf)
+      (inferTypeCore_sound (φ := ψ) (ρ := rho0 V) m F hst
+        (WScoped.of_not_hasFvar htf) hbt'
+        (Expr.LeavesBounded.of_not_hasFvar htf)
+        (FvarsOk.of_not_hasFvar htf)).1
     have hkeyT : ∀ ψ : Name → Nat, ∃ T, interpClosed V m.val env ψ type = some T := by
       intro ψ
-      obtain ⟨⟨T, sT, hT, -, -⟩, -, -⟩ :=
+      obtain ⟨-, ⟨T, sT, hT, -, -⟩, -, -⟩ :=
         inferTypeCore_sound (φ := ψ) m F hst (WScoped.of_not_hasFvar htf) hbt'
           (Expr.LeavesBounded.of_not_hasFvar htf)
-          (FvarsOk.of_not_hasFvar htf) (hAty ψ)
+          (FvarsOk.of_not_hasFvar htf)
       exact ⟨T, hT⟩
     obtain ⟨hvf', hAval, hkey⟩ :=
       value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hbt' hAty hkeyT
@@ -2373,14 +2382,16 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         ((annotateCore_WScoped F cv.type hann hwt).fvarsBelow)
     have hbt' : type.looseBVarsBounded 0 = true := annotateCore_looseBVars F cv.type hann hlbt
     have hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) type := fun ψ =>
-      annotate_sound m cv.type hann hwt hlbt (Expr.LeavesBounded.of_not_hasFvar hitf)
-        (rho0 V) (FvarsOk.of_not_hasFvar hitf)
+      (inferTypeCore_sound (φ := ψ) (ρ := rho0 V) m F hst
+        (WScoped.of_not_hasFvar htf) hbt'
+        (Expr.LeavesBounded.of_not_hasFvar htf)
+        (FvarsOk.of_not_hasFvar htf)).1
     have hkeyT : ∀ ψ : Name → Nat, ∃ T, interpClosed V m.val env ψ type = some T := by
       intro ψ
-      obtain ⟨⟨T, sT, hT, -, -⟩, -, -⟩ :=
+      obtain ⟨-, ⟨T, sT, hT, -, -⟩, -, -⟩ :=
         inferTypeCore_sound (φ := ψ) m F hst (WScoped.of_not_hasFvar htf) hbt'
           (Expr.LeavesBounded.of_not_hasFvar htf)
-          (FvarsOk.of_not_hasFvar htf) (hAty ψ)
+          (FvarsOk.of_not_hasFvar htf)
       exact ⟨T, hT⟩
     obtain ⟨hvf', hAval, hkey⟩ :=
       value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hbt' hAty hkeyT

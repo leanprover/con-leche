@@ -1685,12 +1685,7 @@ theorem Expr.instantiateLevelParams_nil :
     simp_all [Expr.instantiateLevelParams, Level.subst_nil]
   case const n vs =>
     induction vs <;> simp_all [Level.subst_nil]
-  case lam n ty body m ihty ihbody =>
-    cases m with
-    | mk bi cod => cases cod <;> simp [Level.subst_nil]
-  case forallE n ty body m ihty ihbody =>
-    cases m with
-    | mk bi cod => cases cod <;> simp [Level.subst_nil]
+
 
 /-- One-sided variant of `interp_instSeq_swap₂`: the `ψ` side carries
 the raw expression. -/

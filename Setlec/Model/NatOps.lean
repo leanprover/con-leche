@@ -797,24 +797,13 @@ private theorem find?_ciname {n : Name} {ci : ConstantInfo}
   have := List.find?_some h
   simpa using this
 
-theorem natCod1_inv {mb : BinderMeta} (h : natCod1 mb = true) :
-    ∃ v, mb.cod = some v ∧ ∀ ψ : Name → Nat, v.eval ψ = 1 := by
-  unfold natCod1 at h
-  split at h
-  · next v heq =>
-    refine ⟨v, heq, fun ψ => ?_⟩
-    have := Level.isEquiv_sound (by simpa using h) ψ
-    simpa [Level.eval] using this
-  · exact nomatch h
-
-/-- The interpretation of a `∀`-type with a known codomain annotation
-and domain interpretation. -/
+/-- The interpretation of a `∀`-type with a known domain
+interpretation. -/
 theorem interp_forallE {cval : ConstVal V} {d : Nat} {ρ : Nat → V}
-    {nm : Name} {ty body : Expr} {mb : BinderMeta} {v : Level} {A : V}
-    (_hcod : mb.cod = some v)
+    {nm : Name} {ty body : Expr} {mb : BinderMeta} {A : V}
     (hty : interpExpr V cval env φ d ρ ty = some A) :
     interpExpr V cval env φ d ρ (.forallE nm ty body mb) =
-      some (pi (v.eval φ) A fun x =>
+      some (piC A fun x =>
         (interpExpr V cval env φ (d + 1) (updV V ρ d x)
           (body.instantiate1 (.fvar d nm ty))).getD SetTheory.empty) := by
   simp only [interpExpr, hty]
@@ -891,15 +880,14 @@ theorem natOpTyPinned_interp (m : EnvModel V env) {c : Name} {ty : Expr}
       intro hty; exact nomatch hty
     intro hty
     simp only [Bool.and_eq_true, beq_iff_eq] at hty
-    obtain ⟨⟨rfl, hcod⟩, hc1⟩ := hty
+    obtain ⟨rfl, hcod⟩ := hty
     have hbody : body = .const natName [] := by
       unfold natOpCod at hcod
       rw [if_neg (by rcases hcp with rfl | rfl <;> decide)] at hcod
       simpa using hcod
     subst hbody
-    obtain ⟨v, hv, hev⟩ := natCod1_inv hc1
     unfold interpClosed
-    rw [interp_forallE hv (interpExpr_const_nat hs), hev ψ]
+    rw [interp_forallE (interpExpr_const_nat hs)]
     congr 2
     funext x
     simp [Expr.instantiate1, interpExpr_const_nat hs]
@@ -920,17 +908,15 @@ theorem natOpTyPinned_interp (m : EnvModel V env) {c : Name} {ty : Expr}
       intro hty; exact nomatch hty
     intro hty
     simp only [Bool.and_eq_true, beq_iff_eq] at hty
-    obtain ⟨⟨⟨⟨rfl, rfl⟩, hcod⟩, hc1⟩, hc2⟩ := hty
-    obtain ⟨v, hv, hev⟩ := natCod1_inv hc1
-    obtain ⟨v2, hv2, hev2⟩ := natCod1_inv hc2
+    obtain ⟨⟨rfl, rfl⟩, hcod⟩ := hty
     obtain ⟨bn, C, rfl, hCi, hCu, hCid, hCbool⟩ := natOpCod_interp m hcod hs ψ
     refine ⟨C, ?_, hCu, hCid, hCbool⟩
     unfold interpClosed
-    rw [interp_forallE hv (interpExpr_const_nat hs), hev ψ]
+    rw [interp_forallE (interpExpr_const_nat hs)]
     congr 2
     funext x
     simp only [Expr.instantiate1]
-    rw [interp_forallE hv2 (interpExpr_const_nat hs), hev2 ψ]
+    rw [interp_forallE (interpExpr_const_nat hs)]
     simp only [Option.getD_some]
     congr 1
     funext x2

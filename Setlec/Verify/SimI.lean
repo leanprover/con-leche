@@ -519,8 +519,8 @@ private theorem internI_run (n : ENode) (s : IState) :
       { s with store := (s.store.intern n).2 }) := rfl
 
 private theorem internExprM_run (x : Expr) (s : IState) :
-    internExprM x s = .ok ((s.store.internExprFast x).1,
-      { s with store := (s.store.internExprFast x).2 }) := rfl
+    internExprM x s = .ok ((s.store.internExpr x).1,
+      { s with store := (s.store.internExpr x).2 }) := rfl
 
 private theorem inst1M_run (e v : EIdx) (d : Nat) (s : IState) :
     inst1M e v d s = .ok
@@ -572,7 +572,6 @@ theorem internExprM_eff (hs : ISOK env s₀) (x : Expr) :
     IEff env s₀ (fun s i => s.store.denoteT i = some x) (internExprM x) := by
   intro v' s' hr
   rw [internExprM_run] at hr
-  rw [EStore.internExprFast_eqT hs.wf] at hr
   obtain ⟨hwf', hext, hden⟩ := internExpr_specT hs.wf x
   injection hr with h1
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1

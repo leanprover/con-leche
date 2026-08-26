@@ -470,7 +470,7 @@ theorem interp_params_ext (hcp : ConstValParams cval env)
       · rw [if_neg hal, if_neg hal]
   | .forallE n ty body m, d, ρ, hp => by
     simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
-    obtain ⟨⟨hpty, hpbody⟩, -⟩ := hp
+    obtain ⟨hpty, hpbody⟩ := hp
     simp only [interpExpr]
     rw [interp_params_ext hcp hφ ty d ρ hpty]
     cases hty : interpExpr V cval env φ₂ d ρ ty with
@@ -483,7 +483,7 @@ theorem interp_params_ext (hcp : ConstValParams cval env)
         (updV V ρ d x) (allLevelParamsDefined_instantiate1 hpty 0 hpbody)]
   | .lam n ty body m, d, ρ, hp => by
     simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
-    obtain ⟨⟨hpty, hpbody⟩, -⟩ := hp
+    obtain ⟨hpty, hpbody⟩ := hp
     simp only [interpExpr]
     rw [interp_params_ext hcp hφ ty d ρ hpty]
     cases hty : interpExpr V cval env φ₂ d ρ ty with

@@ -180,7 +180,6 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : NIdx}
     (hty : s₀.store.denoteT ty₁ = some ty₁x)
     (hbody : s₀.store.denoteT body₁ = some body₁x)
     (hb : s₀.store.denoteT b = some bx)
-    (hm₁ : denoteBM s₀.store.denoteL m₁ = some bm₁)
     (hwty : WScoped d ty₁x) (hwbody : WScoped d body₁x)
     (hwb : WScoped d bx) :
     SimAt env s₀ RelV

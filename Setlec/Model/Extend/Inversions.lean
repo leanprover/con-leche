@@ -1,5 +1,5 @@
 import Setlec.Kernel.Checker
-import Setlec.Model.Annotate
+import Setlec.Model.TypeChecker
 import Setlec.Model.BasisInstall
 import Setlec.Model.IndInstall
 import Setlec.Model.ProjInstall

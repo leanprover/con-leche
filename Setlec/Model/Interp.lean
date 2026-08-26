@@ -832,8 +832,7 @@ theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
       env.find? natSuccName = some (.ctorInfo cv1 i1 j1) ∧
       cv.levelParams = [] ∧ cv0.levelParams = [] ∧ cv1.levelParams = [] ∧
       cv.type = .sort (.succ .zero) ∧ cv0.type = .const natName [] ∧
-      ∃ nm mb, cv1.type = .forallE nm (.const natName []) (.const natName []) mb ∧
-        mb.cod = some (.succ .zero) := by
+      ∃ nm mb, cv1.type = .forallE nm (.const natName []) (.const natName []) mb := by
   unfold natLitSupported at hs
   simp only [Bool.and_eq_true] at hs
   obtain ⟨⟨hi, hz⟩, hsc⟩ := hs
@@ -859,7 +858,7 @@ theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
         next nm c1 c2 mb heq =>
           intro h
           simp only [Bool.and_eq_true, beq_iff_eq] at h
-          exact ⟨nm, mb, by rw [heq, h.1.1, h.1.2], h.2⟩
+          exact ⟨nm, mb, by rw [heq, h.1, h.2]⟩
 
 /-- The literal guard ignores a stored recursor's rule list (the slot
 checks only ever accept inductive/constructor kinds). -/
@@ -915,26 +914,19 @@ theorem strLitSupported_inv {env : Env} (hs : strLitSupported env = true) :
       ciH.toConstantVal.type = .sort (.succ .zero) ∧
       (∃ nm mb, ciO.toConstantVal.type =
         .forallE nm (.app (.const listName [.zero]) (.const charName []))
-          (.const stringName []) mb ∧ mb.cod = some (.succ .zero)) ∧
+          (.const stringName []) mb) ∧
       (∃ nm mb, ciL.toConstantVal.type =
-        .forallE nm (.sort (.succ (.param pL))) (.sort (.succ (.param pL))) mb ∧
-        mb.cod = some (.succ (.succ (.param pL)))) ∧
+        .forallE nm (.sort (.succ (.param pL))) (.sort (.succ (.param pL))) mb) ∧
       (∃ nm mb, ciN.toConstantVal.type =
         .forallE nm (.sort (.succ (.param pN)))
-          (.app (.const listName [.param pN]) (.bvar 0)) mb ∧
-        mb.cod = some (.succ (.param pN))) ∧
+          (.app (.const listName [.param pN]) (.bvar 0)) mb) ∧
       (∃ nm1 nm2 nm3 mb1 mb2 mb3, ciC.toConstantVal.type =
         .forallE nm1 (.sort (.succ (.param pC)))
           (.forallE nm2 (.bvar 0)
             (.forallE nm3 (.app (.const listName [.param pC]) (.bvar 1))
-              (.app (.const listName [.param pC]) (.bvar 2)) mb3) mb2) mb1 ∧
-        mb3.cod = some (.succ (.param pC)) ∧
-        mb2.cod = some (.imax (.succ (.param pC)) (.succ (.param pC))) ∧
-        mb1.cod = some (.imax (.succ (.param pC))
-          (.imax (.succ (.param pC)) (.succ (.param pC))))) ∧
+              (.app (.const listName [.param pC]) (.bvar 2)) mb3) mb2) mb1) ∧
       (∃ nm mb, ciF.toConstantVal.type =
-        .forallE nm (.const natName []) (.const charName []) mb ∧
-        mb.cod = some (.succ .zero)) := by
+        .forallE nm (.const natName []) (.const charName []) mb) := by
   unfold strLitSupported at hs
   simp only [Bool.and_eq_true] at hs
   obtain ⟨⟨⟨⟨⟨⟨⟨hnat, hS⟩, hO⟩, hL⟩, hN⟩, hC⟩, hH⟩, hF⟩ := hs
@@ -1011,14 +1003,12 @@ theorem strLitSupported_inv {env : Env} (hs : strLitSupported env = true) :
     heqS, heqO, heqL, heqN, heqC, heqH, heqF,
     hS.1, hO1, heqPL, heqPN, heqPC, hH.1, hF1, hS.2, hH.2, ?_, ?_, ?_, ?_, ?_⟩
   · exact ⟨nmO, mbO, by
-      rw [heqTO, hO2.1.1.1.1, hO2.1.1.1.2, hO2.1.1.2, hO2.1.2], hO2.2⟩
-  · exact ⟨nmL, mbL, by rw [heqTL, hL.1.1, hL.1.2], hL.2⟩
-  · exact ⟨nmN, mbN, by rw [heqTN, hN.1.1.1, hN.1.1.2, hN.1.2], hN.2⟩
+      rw [heqTO, hO2.1.1.1, hO2.1.1.2, hO2.1.2, hO2.2]⟩
+  · exact ⟨nmL, mbL, by rw [heqTL, hL.1, hL.2]⟩
+  · exact ⟨nmN, mbN, by rw [heqTN, hN.1.1, hN.1.2, hN.2]⟩
   · exact ⟨nmC1, nmC2, nmC3, mb1C, mb2C, mb3C, by
-      rw [heqTC, hC.1.1.1.1.1.1.1, hC.1.1.1.1.1.1.2, hC.1.1.1.1.1.2,
-        hC.1.1.1.1.2, hC.1.1.1.2],
-      hC.1.1.2, hC.1.2, hC.2⟩
-  · exact ⟨nmF, mbF, by rw [heqTF, hF2.1.1, hF2.1.2], hF2.2⟩
+      rw [heqTC, hC.1.1.1.1, hC.1.1.1.2, hC.1.1.2, hC.1.2, hC.2]⟩
+  · exact ⟨nmF, mbF, by rw [heqTF, hF2.1, hF2.2]⟩
 
 /-- The string-support shape checks read a stored constant only through
 its `toConstantVal`. -/

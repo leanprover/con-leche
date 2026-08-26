@@ -93,7 +93,7 @@ theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
   cases r₅ with
   | true =>
     exact structUnit_sound ihw ihd ihi hu1 hwa hwb hba hbb hLba hLbb
-      hoka hokb haa hab hva hvb
+      hoka hokb hva hvb
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
   obtain ⟨hpa, hpb⟩ := proofIrrel_pt ihw ihi h hwa hwb hba hbb

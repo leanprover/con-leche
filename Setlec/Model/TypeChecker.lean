@@ -6,7 +6,7 @@ import Setlec.Model.Core.Infer
 All statements are relative to a model `m : EnvModel V env` of the current
 environment and interpret with `m.val`.  Reduction, definitional equality
 and inference are mutually recursive on a shared fuel (the beta rule
-certifies possibly-Prop redexes by inference + defeq), so their soundness
+certifies redexes by inference + defeq), so their soundness
 is one mutual fuel induction, `check_sound`:
 
 * whnf claims: reduction preserves the interpretation and annotation
@@ -15,9 +15,11 @@ is one mutual fuel induction, `check_sound`:
   axioms; the certified path gets `⟦a⟧ ∈ ⟦ty⟧` from the runtime check).
 * defeq claims: a positive verdict means the interpretations agree
   whenever both are defined.
-* infer claims: a successful inference means expression and type are
-  interpreted and `⟦e⟧ ∈ ⟦t⟧`, and the inferred type carries truthful
-  annotations.
+* infer claims: a successful inference *establishes* the subject's
+  annotation truthfulness (task #100 stage 6 — this is what replaces
+  the deleted annotation pass's `annotate_sound`), and means expression
+  and type are interpreted with `⟦e⟧ ∈ ⟦t⟧`, the inferred type
+  truthful.
 
 The `*_sound` wrappers at the end instantiate the fuel.
 -/
@@ -98,18 +100,21 @@ theorem isDefEqCore_sound (m : EnvModel V env) (fuel : Nat) {d : Nat}
     hva hvb
 
 /-- Successful inference is sound (bundled with syntactic
-well-scopedness of the output). -/
+well-scopedness of the output; task #100 stage 6: the run also
+*establishes* the subject's annotation truthfulness, which is the
+model-side replacement of the deleted annotation pass). -/
 theorem inferTypeCore_sound (m : EnvModel V env) (fuel : Nat) {d : Nat}
     {e t : Expr} {ρ : Nat → V}
     (h : inferTypeCore env fuel d e = .ok t)
     (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e)
-    (hok : FvarsOk V m.val env φ d ρ e) (ha : AnnotOk V m.val env φ d ρ e) :
+    (hok : FvarsOk V m.val env φ d ρ e) :
+    AnnotOk V m.val env φ d ρ e ∧
     (∃ v tv, interpExpr V m.val env φ d ρ e = some v ∧
       interpExpr V m.val env φ d ρ t = some tv ∧ v ∈ˢ tv) ∧
     WScoped d t ∧ AnnotOk V m.val env φ d ρ t :=
-  have := (check_sound m fuel).2.2.2 h hw hb hLb hok ha
-  ⟨this.1, inferTypeCore_WScoped m.wf fuel h hw, this.2⟩
+  have := (check_sound m fuel).2.2.2 h hw hb hLb hok
+  ⟨this.1, this.2.1, inferTypeCore_WScoped m.wf fuel h hw, this.2.2⟩
 
 /-- A successful `ensureSortCore` identifies the interpretation of the
 type with a universe. -/

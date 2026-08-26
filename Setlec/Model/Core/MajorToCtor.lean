@@ -61,7 +61,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
   have hLbM : Expr.LeavesBounded major := fun l hl => hLb l (hsubL l hl)
   have hokM : FvarsOk V m.val env φ d ρ major := FvarsOk.of_subset hsubL hok
   -- the stuck major's type chain
-  obtain ⟨⟨vM, TM, hMi, hTMi, hmemM⟩, hAtm₀⟩ := ihi hti hw hb hLb hok hA
+  obtain ⟨-, ⟨vM, TM, hMi, hTMi, hmemM⟩, hAtm₀⟩ := ihi hti hw hb hLb hok
   have htm0w := inferTypeCore_WScoped m.wf fuel hti hw
   have htm0b := inferTypeCore_looseBVars m.wf fuel hti hw hb hLb
   have htm0L : Expr.LeavesBounded tmaj₀ := fun l hl =>

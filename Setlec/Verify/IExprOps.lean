@@ -302,11 +302,9 @@ theorem denoteLList_some_mem {denL : LIdx → Option Level} :
 /-- `denoteBM` preserves the binder info. -/
 theorem denoteBM_bi {denL : LIdx → Option Level} {m : IBinderMeta}
     {bm : BinderMeta} (h : denoteBM denL m = some bm) : bm.bi = m.bi := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · simp only [denoteBM, Option.some.injEq] at h
-    subst h; rfl
-  · simp only [denoteBM, Option.map_eq_some_iff] at h
-    obtain ⟨l, -, rfl⟩ := h; rfl
+  obtain ⟨bi⟩ := m
+  simp only [denoteBM, Option.some.injEq] at h
+  subst h; rfl
 
 /-- Level-index lists and their denotations have equal length. -/
 theorem denoteLList_length {denL : LIdx → Option Level} :
@@ -321,29 +319,6 @@ theorem denoteLList_length {denL : LIdx → Option Level} :
       Option.map_eq_some_iff] at h
     obtain ⟨l, -, ls', hls', rfl⟩ := h
     simp [ih hls']
-
-/-- `denoteBM` codomain inversion: `none` maps to `none`. -/
-theorem denoteBM_none_iff {denL : LIdx → Option Level} {m : IBinderMeta}
-    {bm : BinderMeta} (h : denoteBM denL m = some bm) :
-    m.cod = none ↔ bm.cod = none := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · simp only [denoteBM, Option.some.injEq] at h
-    subst h
-    simp
-  · simp only [denoteBM, Option.map_eq_some_iff] at h
-    obtain ⟨l, -, rfl⟩ := h
-    simp
-
-/-- `denoteBM` codomain inversion: a `some` codomain denotes. -/
-theorem denoteBM_some {denL : LIdx → Option Level} {m : IBinderMeta}
-    {bm : BinderMeta} {u : LIdx} (h : denoteBM denL m = some bm)
-    (hc : m.cod = some u) : ∃ l, denL u = some l ∧ bm.cod = some l := by
-  obtain ⟨bi, (_ | v)⟩ := m
-  · cases hc
-  · cases hc
-    simp only [denoteBM, Option.map_eq_some_iff] at h
-    obtain ⟨l, hl, rfl⟩ := h
-    exact ⟨l, hl, rfl⟩
 
 /-- Level-index lists and their denotations are `nil` together. -/
 theorem denoteLList_nil_iff {denL : LIdx → Option Level}
@@ -398,33 +373,11 @@ theorem denoteNode_levels_some {den : EIdx → Option Expr}
     obtain ⟨ls, hls, -, -, rfl⟩ := h
     simpa [ENode.levels] using denoteLList_some_mem hls
   | lam nm t b m =>
-    simp only [denoteNode, Option.bind_eq_some_iff,
-      Option.map_eq_some_iff] at h
-    obtain ⟨et, -, eb, -, bm, hbm, -, -, rfl⟩ := h
     intro u hu
-    simp only [ENode.levels] at hu
-    obtain ⟨bi, (_ | v)⟩ := m
-    · simp at hu
-    · simp only [Option.toList] at hu
-      simp only [List.mem_singleton] at hu
-      subst hu
-      simp only [denoteBM, Option.map_eq_some_iff] at hbm
-      obtain ⟨l, hl, -⟩ := hbm
-      exact ⟨l, hl⟩
+    simp [ENode.levels] at hu
   | forallE nm t b m =>
-    simp only [denoteNode, Option.bind_eq_some_iff,
-      Option.map_eq_some_iff] at h
-    obtain ⟨et, -, eb, -, bm, hbm, -, -, rfl⟩ := h
     intro u hu
-    simp only [ENode.levels] at hu
-    obtain ⟨bi, (_ | v)⟩ := m
-    · simp at hu
-    · simp only [Option.toList] at hu
-      simp only [List.mem_singleton] at hu
-      subst hu
-      simp only [denoteBM, Option.map_eq_some_iff] at hbm
-      obtain ⟨l, hl, -⟩ := hbm
-      exact ⟨l, hl⟩
+    simp [ENode.levels] at hu
   | bvar i => simp [ENode.levels]
   | lit l => simp [ENode.levels]
   | fvar idx nm t => simp [ENode.levels]
@@ -788,8 +741,6 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr} :
               obtain ⟨xb, hb⟩ := hwf.denoteT_total body
                 (hcv body (by simp [ENode.children]))
               obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-                (fun u hu => hwf.getNode_levels_lt hn u
-                  (by simpa [ENode.levels] using hu))
               have hnms := hwf.getNode_names_lt hn
               obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
                 (hnms nm (by simp [ENode.names]))
@@ -813,7 +764,7 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr} :
               have hlvI : ∀ u ∈ (ENode.lam nm ty' body' m).levels,
                   u < st₂.lnodes.size := fun u hu =>
                 Nat.lt_of_lt_of_le
-                  (hwf.getNode_levels_lt hn u (by simpa [ENode.levels] using hu))
+                  (hwf.getNode_levels_lt hn u (by simp [ENode.levels] at hu))
                   (hext₁.trans hext₂).lsize_le
               have hwf₃ : (st₂.intern (.lam nm ty' body' m)).2.TWF :=
                 intern_twf hwf₂ hcI hlvI (fun p hp =>
@@ -861,8 +812,6 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr} :
               obtain ⟨xb, hb⟩ := hwf.denoteT_total body
                 (hcv body (by simp [ENode.children]))
               obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-                (fun u hu => hwf.getNode_levels_lt hn u
-                  (by simpa [ENode.levels] using hu))
               have hnms := hwf.getNode_names_lt hn
               obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
                 (hnms nm (by simp [ENode.names]))
@@ -886,7 +835,7 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr} :
               have hlvI : ∀ u ∈ (ENode.forallE nm ty' body' m).levels,
                   u < st₂.lnodes.size := fun u hu =>
                 Nat.lt_of_lt_of_le
-                  (hwf.getNode_levels_lt hn u (by simpa [ENode.levels] using hu))
+                  (hwf.getNode_levels_lt hn u (by simp [ENode.levels] at hu))
                   (hext₁.trans hext₂).lsize_le
               have hwf₃ : (st₂.intern (.forallE nm ty' body' m)).2.TWF :=
                 intern_twf hwf₂ hcI hlvI (fun p hp =>
@@ -1478,14 +1427,14 @@ theorem pisToLamsI_spec :
       obtain ⟨bm, hbm', hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      obtain ⟨bi', cod'⟩ := bm
+      obtain ⟨bi'⟩ := bm
       have hbi : bi' = m.bi := by simpa using denoteBM_bi hbm'
       subst hbi
       obtain ⟨hwf₁, hext₁, hres₁⟩ :=
         pisToLamsI_spec (k := k) hwf hbb hb (e := b) (body := body)
       rw [pisToLamsI, hn]
       dsimp only
-      rw [show Expr.pisToLams (k + 1) (.forallE _nmv et eb ⟨m.bi, cod'⟩) xb =
+      rw [show Expr.pisToLams (k + 1) (.forallE _nmv et eb ⟨m.bi⟩) xb =
         (Expr.pisToLams k eb xb).map (fun bx => .lam _nmv et bx ⟨m.bi⟩)
         from rfl]
       rcases hgo : st.pisToLamsI k b body with ⟨o, st₁⟩
@@ -1816,19 +1765,11 @@ theorem readbackBM_spec {st : EStore} {m : IBinderMeta} {bm : BinderMeta}
     (hbm : denoteBM st.denoteL m = some bm) (hinv : RLInv st memo)
     (hgo : readbackBM st memo m = (r, memo')) :
     r = some bm ∧ RLInv st memo' := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · simp only [denoteBM, Option.some.injEq] at hbm
-    subst hbm
-    cases hgo
-    exact ⟨rfl, hinv⟩
-  · simp only [denoteBM, Option.map_eq_some_iff] at hbm
-    obtain ⟨l, hl, rfl⟩ := hbm
-    dsimp only [readbackBM] at hgo
-    rcases hg : readbackLGo st memo u with ⟨r₁, memo₁⟩
-    rw [hg] at hgo
-    obtain ⟨rfl, hinv₁⟩ := readbackLGo_spec u hl hinv hg
-    cases hgo
-    exact ⟨rfl, hinv₁⟩
+  obtain ⟨bi⟩ := m
+  simp only [denoteBM, Option.some.injEq] at hbm
+  subst hbm
+  cases hgo
+  exact ⟨rfl, hinv⟩
 
 theorem readbackGo_spec {st : EStore} (hwf : st.TWF) :
     ∀ (e : EIdx) {x : Expr} {memo : Std.HashMap EIdx Expr}
@@ -2946,8 +2887,6 @@ private theorem leavesSubIGo_spec {st : EStore} (hwf : st.TWF)
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             obtain ⟨nmv, hnmv⟩ := denoteN_total hwf nm
               (hwf.getNode_names_lt hn nm (by simp [ENode.names]))
             rcases h₁ : EStore.leavesSubIGo st B memo ty with ⟨rt, memo₁⟩
@@ -3001,8 +2940,6 @@ private theorem leavesSubIGo_spec {st : EStore} (hwf : st.TWF)
             obtain ⟨xt, ht⟩ := hwf.denoteT_total ty (hcv ty (by simp [ENode.children]))
             obtain ⟨xb, hb⟩ := hwf.denoteT_total body (hcv body (by simp [ENode.children]))
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
-              (fun u hu => hwf.getNode_levels_lt hn u
-                (by simpa [ENode.levels] using hu))
             obtain ⟨nmv, hnmv⟩ := denoteN_total hwf nm
               (hwf.getNode_names_lt hn nm (by simp [ENode.names]))
             rcases h₁ : EStore.leavesSubIGo st B memo ty with ⟨rt, memo₁⟩

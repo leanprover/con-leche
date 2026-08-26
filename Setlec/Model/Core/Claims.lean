@@ -72,12 +72,17 @@ def DefEqClaims (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
     ∀ {va vb : V}, interpExpr V m.val env φ d ρ a = some va →
       interpExpr V m.val env φ d ρ b = some vb → va = vb
 
-/-- The inference part of the mutual soundness claims. -/
+/-- The inference part of the mutual soundness claims (task #100
+stage 6: successful inference *establishes* the subject's annotation
+truthfulness — `AnnotOk` moved from hypothesis to conclusion, which is
+what replaces the deleted annotation pass's `annotate_sound` as the
+source of `AnnotOk` for stored trees). -/
 def InferClaims (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {ρ : Nat → V},
     inferTypeCore env fuel d e = .ok t →
     WScoped d e → e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
-    FvarsOk V m.val env φ d ρ e → AnnotOk V m.val env φ d ρ e →
+    FvarsOk V m.val env φ d ρ e →
+    AnnotOk V m.val env φ d ρ e ∧
     (∃ v tv, interpExpr V m.val env φ d ρ e = some v ∧
       interpExpr V m.val env φ d ρ t = some tv ∧ v ∈ˢ tv) ∧
     AnnotOk V m.val env φ d ρ t
@@ -224,16 +229,16 @@ theorem sortCert_pt {m : EnvModel V env} {fuel : Nat}
     (hu0 : Level.eval φ uT = 0)
     (hw : WScoped d x) (hb : x.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded x)
-    (hok : FvarsOk V m.val env φ d ρ x) (ha : AnnotOk V m.val env φ d ρ x) :
+    (hok : FvarsOk V m.val env φ d ρ x) :
     interpExpr V m.val env φ d ρ x = some pt := by
-  obtain ⟨⟨vx, vtx, hxi, htxi, hmemx⟩, hAtx⟩ := ihi hti hw hb hLb hok ha
+  obtain ⟨-, ⟨vx, vtx, hxi, htxi, hmemx⟩, hAtx⟩ := ihi hti hw hb hLb hok
   have hwtx := inferTypeCore_WScoped m.wf fuel hti hw
   have hbtx := inferTypeCore_looseBVars m.wf fuel hti hw hb hLb
   have hLbtx : Expr.LeavesBounded tx := fun l hl =>
     hLb l (inferTypeCore_fvarLeaves m.wf fuel hti hw l hl)
   have hoktx : FvarsOk V m.val env φ d ρ tx :=
     FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hti hw) hok
-  obtain ⟨⟨vtx₂, vstx, htxi₂, hstxi, hmemtx⟩, hAstx⟩ := ihi hsti hwtx hbtx hLbtx hoktx hAtx
+  obtain ⟨-, ⟨vtx₂, vstx, htxi₂, hstxi, hmemtx⟩, hAstx⟩ := ihi hsti hwtx hbtx hLbtx hoktx
   have hvtx : vtx₂ = vtx := by
     rw [htxi] at htxi₂
     exact (Option.some.inj htxi₂).symm
@@ -264,7 +269,7 @@ theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
     (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
     (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
     (hoka : FvarsOk V m.val env φ d ρ a) (hokb : FvarsOk V m.val env φ d ρ b)
-    (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b) :
+    (_haa : AnnotOk V m.val env φ d ρ a) (_hab : AnnotOk V m.val env φ d ρ b) :
     interpExpr V m.val env φ d ρ a = some pt ∧
     interpExpr V m.val env φ d ρ b = some pt := by
   obtain ⟨ta, wta0, hta, hwta0, hcase⟩ := proofIrrel_inv h
@@ -276,10 +281,10 @@ theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
         whnf env fuel d tx = .ok wtx →
         isUnitLikeTy env wtx = true →
         WScoped d x → x.looseBVarsBounded 0 = true → Expr.LeavesBounded x →
-        FvarsOk V m.val env φ d ρ x → AnnotOk V m.val env φ d ρ x →
+        FvarsOk V m.val env φ d ρ x →
         interpExpr V m.val env φ d ρ x = some pt := by
-      intro x tx wtx htx hwtx hux hwx hbx hLbx hokx hax
-      obtain ⟨⟨vx, Tx, hxi, hTxi, hmemx⟩, hATx⟩ := ihi htx hwx hbx hLbx hokx hax
+      intro x tx wtx htx hwtx hux hwx hbx hLbx hokx
+      obtain ⟨-, ⟨vx, Tx, hxi, hTxi, hmemx⟩, hATx⟩ := ihi htx hwx hbx hLbx hokx
       have hwtxW := inferTypeCore_WScoped m.wf fuel htx hwx
       have hbtx := inferTypeCore_looseBVars m.wf fuel htx hwx hbx hLbx
       have hLbtx : Expr.LeavesBounded tx := fun l hl =>
@@ -333,8 +338,8 @@ theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
         rw [hpt]
       · rw [if_neg hlen] at hiw
         exact nomatch hiw
-    exact ⟨unitSide a ta wta0 hta hwta0 hu hwa hba hLba hoka haa,
-      unitSide b tb wtb htb hwtb hub hwb hbb hLbb hokb hab⟩
+    exact ⟨unitSide a ta wta0 hta hwta0 hu hwa hba hLba hoka,
+      unitSide b tb wtb htb hwtb hub hwb hbb hLbb hokb⟩
   · -- Prop branch: both sides collapse to the proof point
     have hu0 : Level.eval φ uT = 0 := by
       have := Level.isEquiv_sound hequ φ
@@ -342,8 +347,8 @@ theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
     have hv0 : Level.eval φ vT = 0 := by
       have := Level.isEquiv_sound heqv φ
       simpa [Level.eval] using this
-    exact ⟨sortCert_pt ihw ihi hta hsta hwta hu0 hwa hba hLba hoka haa,
-      sortCert_pt ihw ihi htb hstb hwtb hv0 hwb hbb hLbb hokb hab⟩
+    exact ⟨sortCert_pt ihw ihi hta hsta hwta hu0 hwa hba hLba hoka,
+      sortCert_pt ihw ihi htb hstb hwtb hv0 hwb hbb hLbb hokb⟩
 
 
 end Claims

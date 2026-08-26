@@ -51,9 +51,9 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
   have hLbty₁ : Expr.LeavesBounded ty₁ := fun l hl => hLba l (by simp [fvarLeaves, hl])
   obtain ⟨hokty₁, hokbody₁⟩ := FvarsOk.of_lam hoka
   simp only [AnnotOk] at haa
-  obtain ⟨haty₁, _vE₁, hconds⟩ := haa
+  obtain ⟨haty₁, hconds⟩ := haa
   -- b's inferred type
-  obtain ⟨⟨vb', Tb, hvb', hTbi, hmemb⟩, hATb⟩ := ihi htb hwb hbb hLbb hokb hab
+  obtain ⟨-, ⟨vb', Tb, hvb', hTbi, hmemb⟩, hATb⟩ := ihi htb hwb hbb hLbb hokb
   have hvbeq : vb' = vb := by
     rw [hvb] at hvb'
     exact (Option.some.inj hvb').symm
@@ -79,7 +79,7 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
   have hLbty₂ : Expr.LeavesBounded ty₂ := fun l hl => hwLb l (by simp [fvarLeaves, hl])
   obtain ⟨hokty₂, hokfb⟩ := FvarsOk.of_forallE hwOk
   simp only [AnnotOk] at hAwtb
-  obtain ⟨haty₂, vE₂, hcondf⟩ := hAwtb
+  obtain ⟨haty₂, hcondf⟩ := hAwtb
   -- the whnf'd type interprets to `Tb`
   have hTfi : interpExpr V m.val env φ d ρ (Expr.forallE n₂ ty₂ fb m₂) = some Tb := by
     rw [hiwtb, hTbi]
@@ -115,7 +115,7 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
       SetTheory.app vb x := by
     intro x hx
     obtain ⟨habody₁, hwfact₁⟩ := hconds x A₂ hA1 hx
-    obtain ⟨w₁, B₁, hw₁, -, -⟩ := hwfact₁
+    obtain ⟨w₁, B₁, hw₁, -⟩ := hwfact₁
     have happI : interpExpr V m.val env φ (d + 1) (updV V ρ d x)
         (Expr.app b (.fvar d n₁ ty₁)) = some (SetTheory.app vb x) := by
       simp only [interpExpr]
@@ -146,19 +146,13 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
         (Expr.app b (.fvar d n₁ ty₁)) := by
       simp only [AnnotOk]
       refine ⟨AnnotOk.weaken_top hwb hab, trivial, vb, x,
-        vE₂, A₂,
+        A₂,
         (fun y => (interpExpr V m.val env φ (d + 1) (updV V ρ d y)
           (fb.instantiate1 (.fvar d n₂ ty₂))).getD SetTheory.empty),
-        ?_, ?_, hmem', hx, ?_⟩
+        ?_, ?_, hmem', hx⟩
       · rw [interp_weaken_top hwb]
         exact hvb
       · simp [interpExpr, updV]
-      · intro y hy
-        obtain ⟨-, hwf⟩ := hcondf y A₂ hA2 hy
-        obtain ⟨w, hwi, hwu⟩ := hwf
-        dsimp only
-        rw [hwi]
-        exact hwu
     have hLbo₁ : Expr.LeavesBounded (body₁.instantiate1 (.fvar d n₁ ty₁)) := by
       intro l hl
       rcases fvarLeaves_instantiate1 body₁ 0 hl with hl' | hl'
