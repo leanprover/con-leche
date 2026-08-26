@@ -602,4 +602,68 @@ theorem whnf_claimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   rw [whnf_succ, whnfBody] at h
   exact whnfLoop_claim m φ hcl ihwc hnat whnfLoopFuel h hws hb hLb hC hv
 
+/-- A reduction step's contract, as every link of the chain states it:
+the reduct denotes `Deq`-equally and carries its own frame conditions. -/
+def ReductOk {env : Env} (m : EnvTT env) (φ : Name → Nat) (d : Nat)
+    (Δ : List VExpr) (e' : Expr) (v : VExpr) : Prop :=
+  ∃ w, denote m.cval env φ d e' = some w ∧ Deq Δ v w ∧
+    Expr.WScoped d e' ∧ e'.looseBVarsBounded 0 = true ∧
+    Expr.LeavesBounded e' ∧ CtxOk m.cval env φ d Δ e'
+
+/-! ## The reduction-step contract, and `whnf`'s instance of it
+
+`whnf` is the one link already proved, so it is stated in the same
+`ReductOk` shape as the other two — three links, one contract. -/
+
+/-- The `whnf` link. -/
+theorem whnf_reductOk {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel d : Nat} {Δ : List VExpr} {e e' : Expr} {v : VExpr}
+    (ihw : WhnfClaimsTT m φ fuel) (hw : whnf env fuel d e = .ok e')
+    (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e) (hC : CtxOk m.cval env φ d Δ e)
+    (hv : denote m.cval env φ d e = some v) : ReductOk m φ d Δ e' v := by
+  obtain ⟨w, hw', hD⟩ := ihw hw hws hb hLb hC hv
+  exact ⟨w, hw', hD, whnf_WScoped m.wf fuel hw hws,
+    whnf_looseBVars m.wf fuel hw hb,
+    fun l hl => hLb l (whnf_fvarLeaves m.wf fuel hw l hl),
+    CtxOk.of_subset (whnf_fvarLeaves m.wf fuel hw) hC⟩
+
+
+/-- **A stored constant's type denotes, at any level instantiation and
+any depth.**  The iota clause needs it for the recursor's and the
+constructor's telescopes; the same three lemmas the `.const` inference
+clause and the delta step used, in the same order.
+
+Worth naming rather than inlining twice: "the stored type denotes" is
+the fact, and it is about the environment invariant, not about
+recursors. -/
+theorem denote_storedTy {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ)) {n : Name} {ci : ConstantInfo}
+    (hf : env.find? n = some ci) (us : List Level) (d : Nat) :
+    ∃ T, denote m.cval env φ d
+      (ci.toConstantVal.type.instantiateLevelParams
+        ci.toConstantVal.levelParams us) = some T := by
+  obtain ⟨t, ht, -⟩ :=
+    m.has_type ci (find?_mem hf)
+      (Level.substFn φ ci.toConstantVal.levelParams us)
+  obtain ⟨hnf, -, -, hbd, -⟩ := m.wf ci (find?_mem hf)
+  refine ⟨t, ?_⟩
+  rw [denote_instLevels m.val_params,
+    denote_lift hcl (Expr.WScoped.of_not_hasFvar hnf).fvarsBelow d
+      (Nat.zero_le d)]
+  rw [denoteClosed] at ht
+  rw [ht]
+  simp only [Option.map_some, Nat.sub_zero,
+    VExpr.liftN_eq_self_of_closed (denote_closed hcl hnf hbd (by
+      rw [denoteClosed]; exact ht))]
+
+/-- A spine application splits at its last argument. -/
+theorem VExpr_mkAppN_snoc (f : VExpr) : ∀ (xs : List VExpr) (x : VExpr),
+    VExpr.mkAppN f (xs ++ [x]) = .app (VExpr.mkAppN f xs) x := by
+  intro xs
+  induction xs generalizing f with
+  | nil => intro x; rfl
+  | cons y ys ih => intro x; exact ih (.app f y) x
+
+
 end Setlec.TTVerify

@@ -266,4 +266,170 @@ theorem infer_claimsTT_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
   infer_claimsTT m φ hcl (infer_strLit_step m φ)
     (infer_proj_step m φ hcl ihw ihd ihi) ihw ihd ihi
 
+/-! ## The `whnfCore` projection clause
+
+`ProjStepTT` (`Setlec/TTVerify/WhnfCoreStep.lean`).  Its chain is
+shorter than iota's — `whnf` the scrutinee, expand a string literal,
+then either reduce or stay stuck — and the reduction half's content is
+already proved (`proj_tele_typed`, `psigmaMk_tele_premises`,
+`proj_reduction_step`).  One link is a checker function without a
+proof, so it gets the obligation. -/
+
+/-- **The string-literal scrutinee expansion.**  `projLitToCtor`
+replaces a `String` literal by its constructor form and is the identity
+otherwise. -/
+def ProjLitToCtorStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δ : List VExpr} {e e' : Expr} {v : VExpr},
+    projLitToCtorP env fuel d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e → CtxOk m.cval env φ d Δ e →
+    denote m.cval env φ d e = some v → ReductOk m φ d Δ e' v
+
+/-- **`ProjStepTT`**, modulo the literal-expansion link. -/
+theorem proj_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    (ihwc : WhnfCoreClaimsTT m φ fuel) (ihw : WhnfClaimsTT m φ fuel)
+    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (hlitp : ProjLitToCtorStepTT m φ fuel) : ProjStepTT m φ fuel := by
+  intro d Δ sn i pe e' v h hws hb hLb hC hv
+  obtain ⟨e₂, e₃, hwpe, hlit, hcase⟩ := whnf_proj_inv h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded] at hb
+  have hLpe : Expr.LeavesBounded pe := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hCpe : CtxOk m.cval env φ d Δ pe :=
+    CtxOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hC
+  rw [denote_proj] at hv
+  cases hP : denote m.cval env φ d pe with
+  | none => rw [hP] at hv; exact nomatch hv
+  | some P =>
+    rw [hP] at hv
+    by_cases hlt : i < 2
+    · simp only [if_pos hlt, Option.some.injEq] at hv
+      obtain rfl : v = .proj i P := hv.symm
+      -- the two links of the scrutinee's chain
+      obtain ⟨P₂, hP₂, hD₂, hw₂, hb₂, hL₂, hC₂⟩ :=
+        whnf_reductOk m φ ihw hwpe hws hb hLpe hCpe hP
+      obtain ⟨P₃, hP₃, hD₃, hw₃, hb₃, hL₃, hC₃⟩ :=
+        hlitp hlit hw₂ hb₂ hL₂ hC₂ hP₂
+      rcases hcase with rfl | ⟨us, entry, hfn, hfp, hnat, hilt, hlenA,
+        husl, hwarg, hcert, htele⟩
+      · -- stuck: the projection is rebuilt on the reduced scrutinee
+        exact ⟨.proj i P₃, by rw [denote_proj, hP₃]; exact if_pos hlt,
+          Deq.proj i (hD₂.trans hD₃)⟩
+      · -- the reduction: the scrutinee is a pair constructor
+        obtain ⟨hpin, hpsig, hpsigMk⟩ :=
+          m.proj_ok _ _ (Env.findProj?_some hfp) hnat
+        have hctor : entry.ctor = psigmaMkName := by
+          rcases hpin with rfl | rfl <;> rfl
+        have hnP : entry.numParams = 2 := by
+          rcases hpin with rfl | rfl <;> rfl
+        have hnF : entry.numFields = 2 := by
+          rcases hpin with rfl | rfl <;> rfl
+        -- the constructor spine, certified by task #126
+        have hargs : ∀ x ∈ e₃.getAppArgs, Expr.WScoped d x ∧
+            x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+            CtxOk m.cval env φ d Δ x := by
+          intro x hx
+          exact ⟨hw₃.getAppArgs x hx, looseBVarsBounded_getAppArgs hb₃ x hx,
+            fun l hl => hL₃ l (fvarLeaves_getAppArgs hx l hl),
+            CtxOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl) hC₃⟩
+        obtain ⟨TC, hTC⟩ := denote_storedTy m φ hcl hpsigMk us d
+        simp only [ConstantInfo.toConstantVal] at hTC
+        obtain ⟨hnfC, -, -, hbdC, -⟩ := m.wf _ (find?_mem hpsigMk)
+        simp only [ConstantInfo.toConstantVal] at hnfC hbdC
+        obtain ⟨xs, rest, hfit⟩ :=
+          proj_tele_typed m φ hcl ihd ihi (hctor ▸ htele) hpsigMk
+            (Expr.WScoped.of_not_hasFvar (by
+              rw [Expr.hasFvar_instantiateLevelParams]; exact hnfC))
+            (by rw [Expr.looseBVarsBounded_instantiateLevelParams]
+                exact hbdC)
+            (Expr.LeavesBounded.of_not_hasFvar (by
+              rw [Expr.hasFvar_instantiateLevelParams]; exact hnfC))
+            (⟨hC.1, fun l hl => by
+              rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar (by
+                rw [Expr.hasFvar_instantiateLevelParams]; exact hnfC)] at hl
+              exact nomatch hl⟩)
+            hTC hargs
+        -- the spine has exactly four entries
+        obtain ⟨A, B, a, b, hargs4⟩ :
+            ∃ A B a b, e₃.getAppArgs = [A, B, a, b] := by
+          rw [hnP, hnF] at hlenA
+          match hq : e₃.getAppArgs, hlenA with
+          | [A, B, a, b], _ => exact ⟨A, B, a, b, rfl⟩
+        rw [hargs4] at hfit
+        obtain ⟨VA, VB, Va, Vb, hVA, hVB, hVa, hVb, hAs, hBs, has, hbs⟩ :=
+          psigmaMk_tele_premises hfit
+        -- the scrutinee's denotation is a pair constructor application
+        have he₃ : e₃ = Expr.mkAppN (.const psigmaMkName us) [A, B, a, b] := by
+          rw [← hargs4, ← hctor, ← hfn, Expr.mkAppN_getApp]
+        have hpp : m.cval psigmaMkName
+            (Level.substFn φ psigmaMkA.toConstantVal.levelParams us) =
+            .const .psigmaMk
+              [Level.substFn φ psigmaMkA.toConstantVal.levelParams us uNT,
+               Level.substFn φ psigmaMkA.toConstantVal.levelParams us vNT] :=
+          cval_pinned m (n := psigmaMkName) (by decide)
+            (by rw [hpsigMk]; rfl) _ (by simp +decide [pinnedDirectT])
+        have hP₃' : P₃ = psigmaMkT
+            (Level.substFn φ psigmaMkA.toConstantVal.levelParams us uNT)
+            (Level.substFn φ psigmaMkA.toConstantVal.levelParams us vNT)
+            VA VB Va Vb := by
+          rw [he₃] at hP₃
+          rw [denote_mkAppN (vf := m.cval psigmaMkName
+              (Level.substFn φ psigmaMkA.toConstantVal.levelParams us))
+            (DenoteSpine.cons hVA (DenoteSpine.cons hVB
+              (DenoteSpine.cons hVa (DenoteSpine.cons hVb .nil))))
+            (by rw [denote_const, hpsigMk]
+                simp [psigmaMkA, ConstantInfo.toConstantVal,
+                  show us.length = 2 from by
+                    rw [husl]
+                    rcases hpin with rfl | rfl <;> rfl])] at hP₃
+          rw [← Option.some.inj hP₃, psigmaMkT, hpp]
+        -- the level identification, then the reduction rule
+        have hlev : ∀ nm : Name, (Level.subst
+            psigmaMkA.toConstantVal.levelParams us (.param nm)).eval φ =
+            Level.substFn φ psigmaMkA.toConstantVal.levelParams us nm := by
+          intro nm
+          rw [Level.eval_subst]
+          rfl
+        rw [hlev uNT] at hAs
+        rw [hlev vNT] at hBs
+        obtain ⟨hred0, hred1⟩ := proj_reduction_step hAs hBs has hbs
+        -- the selected field, and the recursive call on it
+        have hidx : entry.idx = i := by
+          have h1 := List.find?_some (Env.findProj?_some hfp)
+          have h2 : (ConstantInfo.projInfo entry).name = projFnName sn i :=
+            eq_of_beq (by simpa using h1)
+          simp only [ConstantInfo.name, ConstantInfo.toConstantVal] at h2
+          exact (projFnName_inj h2).2
+        have hsel : e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0) =
+            if i = 0 then a else b := by
+          rw [hargs4, hnP]
+          rcases hpin with rfl | rfl
+          · have hi : i = 0 := hidx.symm
+            subst hi; rfl
+          · have hi : i = 1 := hidx.symm
+            subst hi; rfl
+        rw [hsel] at hwarg
+        by_cases hi0 : i = 0
+        · subst hi0
+          obtain ⟨w, hw, hDw⟩ :=
+            ihwc hwarg (hargs a (by rw [hargs4]; simp)).1
+              (hargs a (by rw [hargs4]; simp)).2.1
+              (hargs a (by rw [hargs4]; simp)).2.2.1
+              (hargs a (by rw [hargs4]; simp)).2.2.2 hVa
+          exact ⟨w, hw, ((Deq.proj 0 (hD₂.trans hD₃)).trans
+            (hP₃' ▸ hred0)).trans hDw⟩
+        · obtain rfl : i = 1 := by omega
+          rw [if_neg hi0] at hwarg
+          obtain ⟨w, hw, hDw⟩ :=
+            ihwc hwarg (hargs b (by rw [hargs4]; simp)).1
+              (hargs b (by rw [hargs4]; simp)).2.1
+              (hargs b (by rw [hargs4]; simp)).2.2.1
+              (hargs b (by rw [hargs4]; simp)).2.2.2 hVb
+          exact ⟨w, hw, ((Deq.proj 1 (hD₂.trans hD₃)).trans
+            (hP₃' ▸ hred1)).trans hDw⟩
+    · simp [hlt] at hv
+
 end Setlec.TTVerify

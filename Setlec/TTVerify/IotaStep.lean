@@ -34,14 +34,6 @@ namespace Setlec.TTVerify
 
 open Setlec.TT
 
-/-- A reduction step's contract, as every link of the chain states it:
-the reduct denotes `Deq`-equally and carries its own frame conditions. -/
-def ReductOk {env : Env} (m : EnvTT env) (φ : Name → Nat) (d : Nat)
-    (Δ : List VExpr) (e' : Expr) (v : VExpr) : Prop :=
-  ∃ w, denote m.cval env φ d e' = some w ∧ Deq Δ v w ∧
-    Expr.WScoped d e' ∧ e'.looseBVarsBounded 0 = true ∧
-    Expr.LeavesBounded e' ∧ CtxOk m.cval env φ d Δ e'
-
 /-- **The string-literal major expansion.**  `litMajorToCtor` replaces
 a `String` literal major by its constructor form and is the identity
 otherwise. -/
@@ -67,23 +59,7 @@ def MajorToCtorStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     Expr.LeavesBounded e → CtxOk m.cval env φ d Δ e →
     denote m.cval env φ d e = some v → ReductOk m φ d Δ e' v
 
-/-! ## The chain's first link, and a list fact
-
-`whnf` is the one link already proved, so it is stated in the same
-`ReductOk` shape as the other two — three links, one contract. -/
-
-/-- The `whnf` link. -/
-theorem whnf_reductOk {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel d : Nat} {Δ : List VExpr} {e e' : Expr} {v : VExpr}
-    (ihw : WhnfClaimsTT m φ fuel) (hw : whnf env fuel d e = .ok e')
-    (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded e) (hC : CtxOk m.cval env φ d Δ e)
-    (hv : denote m.cval env φ d e = some v) : ReductOk m φ d Δ e' v := by
-  obtain ⟨w, hw', hD⟩ := ihw hw hws hb hLb hC hv
-  exact ⟨w, hw', hD, whnf_WScoped m.wf fuel hw hws,
-    whnf_looseBVars m.wf fuel hw hb,
-    fun l hl => hLb l (whnf_fvarLeaves m.wf fuel hw l hl),
-    CtxOk.of_subset (whnf_fvarLeaves m.wf fuel hw) hC⟩
+/-! ## A list fact -/
 
 /-- A spine of length `n + 1` splits at its last entry, which is what
 `getD n` selects.  The recursor's major premise is exactly that
@@ -103,42 +79,6 @@ theorem list_snoc_of_length {α : Type} : ∀ {xs : List α} {n : Nat},
       refine ⟨x :: ys, y, by rw [List.cons_append, ← heq], by simpa using hlen,
         fun dflt => ?_⟩
       simpa [List.getD, List.getElem?_cons_succ] using hgd dflt
-
-/-- **A stored constant's type denotes, at any level instantiation and
-any depth.**  The iota clause needs it for the recursor's and the
-constructor's telescopes; the same three lemmas the `.const` inference
-clause and the delta step used, in the same order.
-
-Worth naming rather than inlining twice: "the stored type denotes" is
-the fact, and it is about the environment invariant, not about
-recursors. -/
-theorem denote_storedTy {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ)) {n : Name} {ci : ConstantInfo}
-    (hf : env.find? n = some ci) (us : List Level) (d : Nat) :
-    ∃ T, denote m.cval env φ d
-      (ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us) = some T := by
-  obtain ⟨t, ht, -⟩ :=
-    m.has_type ci (find?_mem hf)
-      (Level.substFn φ ci.toConstantVal.levelParams us)
-  obtain ⟨hnf, -, -, hbd, -⟩ := m.wf ci (find?_mem hf)
-  refine ⟨t, ?_⟩
-  rw [denote_instLevels m.val_params,
-    denote_lift hcl (Expr.WScoped.of_not_hasFvar hnf).fvarsBelow d
-      (Nat.zero_le d)]
-  rw [denoteClosed] at ht
-  rw [ht]
-  simp only [Option.map_some, Nat.sub_zero,
-    VExpr.liftN_eq_self_of_closed (denote_closed hcl hnf hbd (by
-      rw [denoteClosed]; exact ht))]
-
-/-- A spine application splits at its last argument. -/
-theorem VExpr_mkAppN_snoc (f : VExpr) : ∀ (xs : List VExpr) (x : VExpr),
-    VExpr.mkAppN f (xs ++ [x]) = .app (VExpr.mkAppN f xs) x := by
-  intro xs
-  induction xs generalizing f with
-  | nil => intro x; rfl
-  | cons y ys ih => intro x; exact ih (.app f y) x
 
 /-! ## The assembly
 
@@ -323,17 +263,18 @@ theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     · simp [hlenJ] at hvfj
   · simp [hlenR] at hvf
 
-/-- `WhnfCoreClaimsTT` at `fuel + 1` with the iota clause discharged;
-only the projection clause remains. -/
+/-- **`WhnfCoreClaimsTT` at `fuel + 1`**, with both clauses discharged:
+three obligations remain, all at checker functions the chains pass
+through. -/
 theorem whnfCore_claimsTT_iota {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (hlitm : LitMajorToCtorStepTT m φ fuel)
     (hmajc : MajorToCtorStepTT m φ fuel)
-    (hproj : ProjStepTT m φ fuel)
+    (hlitp : ProjLitToCtorStepTT m φ fuel)
     (ihwc : WhnfCoreClaimsTT m φ fuel) (ihw : WhnfClaimsTT m φ fuel)
     (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel) :
     WhnfCoreClaimsTT m φ (fuel + 1) :=
   whnfCore_claimsTT m φ hcl (iota_stepTT m φ hcl ihd ihi ihw hlitm hmajc)
-    hproj ihwc ihw ihd ihi
+    (proj_stepTT m φ hcl ihwc ihw ihd ihi hlitp) ihwc ihw ihd ihi
 
 end Setlec.TTVerify
