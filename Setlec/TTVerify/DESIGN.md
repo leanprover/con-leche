@@ -445,7 +445,7 @@ motivated.
 | beta re-check | yes | **no** | *established* (`propext` refutes the alternative) |
 | iota telescope certifications (`iotaCerts`) | yes | **no** | **prediction** |
 | structure-eta / unit-like telescope certifications | yes | **no** | **prediction** (pre-registered below) |
-| `projCert` | yes — measured free anyway | **no**, *partly* | **prediction, split** (pre-registered below) |
+| `projCert` | yes — measured free anyway | **no**, *partly* | **prediction, split, four branches** (pre-registered below) |
 | plain-rule parameter comparison | no — cheap, short-circuits reduction | no | needed by both, for *different* reasons |
 | canonical-index `defEqList` | no — ditto | no | needed by both, for *different* reasons |
 
@@ -543,18 +543,53 @@ argument typings: the field's type whnfs to `.sort uT` with
   at the pinned one.
 
 So the pre-registered outcome for `projCert` is a **split**: sorting
-premises yes, argument-typing premises unaccounted for.  If that is
-right, the finding is not about the bridge but about the *checker* —
-the `.proj` clause would be certifying less than its rule needs, and
-the missing certificate would be a real gap rather than a modelling
-artefact.  If instead the premises turn out to be available, the
-headline fact is wrong in the `.proj` case and that is the larger
-result.
+premises yes, argument-typing premises from somewhere else.  *Where*
+else has three possible answers, enumerated here before the proof so
+that whichever holds, the record shows it was considered.
 
-Recorded now, with no preference between the outcomes, and noting the
-prior: `projCert` measured **free** in the isolation (mask 8, 189 s
-against a 186 s baseline), which is at least consistent with the
-checker not needing it.
+**Branch A — a gap in the checker.**  The `.proj` clause certifies less
+than its rule needs, and the missing certificate is real.
+
+**Branch B — §6's fact is wrong here.**  The premises turn out to be
+recoverable from ambient facts after all, in which case the headline
+fact fails in the `.proj` case, which is the larger result.
+
+**Branch C — the premises come from the subject's own derivation,
+and no certificate is needed by either side.**  This is the one to
+check *first*, and two pieces of evidence already point at it.
+
+* *The set model proves this clause today*, so the facts are
+  obtainable there — and **not from `projCert`**: its `projCert_inv`
+  feeds the *collapse guard* (`Nat.max (ψ' uN) (ψ' vN) = 0` ⇒
+  everything is the proof point), i.e. level facts, exactly as
+  predicted for the sorting premises here.  The membership facts come
+  from `AnnotOk`'s own `.proj` clause — which demands
+  `ve ∈ˢ sigmaSet …` and which, post-#100, *inference establishes*.
+* The Fable review of the `proj` former said the same thing from the
+  other side: the former "hands soundness the `⟦p⟧ ∈ˢ sigmaSet …`
+  package that the set model's `AnnotOk` proj clause carries by hand".
+
+If C holds, **the `.proj` row is a different shape from every other
+row**: a certificate needed by neither checker nor bridge, with the
+rule's premises supplied by the subject's derivation.  §6's fact is
+*not* refuted — the premise is still supplied where the rule fires,
+just by the derivation rather than by a certificate.  And it fits the
+measurement (`projCert` free at mask 8) better than A or B do.
+
+**If C holds, the branch-A framing must not survive into this
+document**: a reader who finds "gap in the checker" recorded here will
+go looking for a bug that is not there.
+
+*One thing C forces me to check about my own claims.*  The set model's
+`WhnfCoreClaims` takes `AnnotOk … e` as a **hypothesis**, and that is
+where its `.proj` case gets the `sigmaSet` membership.  My
+certificate-only `WhnfCoreClaimsTT` carries no typing hypothesis at
+all — I dropped `AnnotOk` because a derivation supplies its facts, and
+then withdrew the typing hypothesis for §6's reasons.  So under C the
+question becomes: does the `.proj` clause need a typing *hypothesis*
+(not conclusion) restored to the claim?  That would be a finding about
+**my claim shape**, not about the checker and not about §6 — a fourth
+outcome, and the one I now think most likely.  Recorded as such.
 
 **These are predictions, not re-verdicts.**  I have not reached those
 clauses.  They carry the same falsifiable status as the `iotaCerts`
