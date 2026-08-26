@@ -1213,6 +1213,10 @@ theorem RecRulesTT.cons {env : Env} {cval cval' : TConstVal}
             xs.length = mI →
             ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
             usj.length = cvj.levelParams.length →
+            Level.substFn φ cvj.levelParams usj
+              = Level.substFn φ cvj.levelParams
+                  (recFireComparands rl cv.levelParams us cvj.levelParams
+                    [] rP).1 →
             denote cval' ⟨c₀ :: env.consts⟩ φ d
               (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
             denote cval' ⟨c₀ :: env.consts⟩ φ d
@@ -1251,7 +1255,7 @@ theorem RecRulesTT.cons {env : Env} {cval cval' : TConstVal}
     rw [Env.find?_cons, if_neg hnc] at hctor
     obtain ⟨-, -, hres1, -, -, -, -⟩ := hwfe _ (find?_mem hf)
     obtain ⟨-, -, hres2, -⟩ := hwfe _ (find?_mem hctor)
-    intro Δ usj xs ys TV TVj restR restC hlenX hlenY hlenJ hTV hTVj
+    intro Δ usj xs ys TV TVj restR restC hlenX hlenY hlenJ hlev hTV hTVj
       hfitR hfitC
     have hTV' := hi.denoteDown
       (by rw [Expr.constsResolve_instantiateLevelParams cv.levelParams us]
@@ -1262,7 +1266,7 @@ theorem RecRulesTT.cons {env : Env} {cval cval' : TConstVal}
     rw [← hi.ag _ (Ne.symm hnc)] at hfitR
     rw [← hi.ag n (fun hh => hn hh.symm), ← hi.ag _ (Ne.symm hnc)]
     exact hlaw cvj cnP cnF hctor Δ usj xs ys TV TVj restR restC hlenX hlenY
-      hlenJ hTV' hTVj' hfitR hfitC
+      hlenJ hlev hTV' hTVj' hfitR hfitC
 
 /-! ### The WF-recursive clauses
 
@@ -1425,6 +1429,10 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
             xs.length = mI →
             ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
             usj.length = cvj.levelParams.length →
+            Level.substFn φ cvj.levelParams usj
+              = Level.substFn φ cvj.levelParams
+                  (recFireComparands rl cv.levelParams us cvj.levelParams
+                    [] rP).1 →
             denote cval' ⟨c₀ :: env.consts⟩ φ d
               (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
             denote cval' ⟨c₀ :: env.consts⟩ φ d

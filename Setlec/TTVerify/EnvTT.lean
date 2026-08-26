@@ -125,6 +125,17 @@ def RecRulesTT (env : Env) (cval : TConstVal) : Prop :=
           xs.length = mI →
           ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
           usj.length = cvj.levelParams.length →
+          -- **the fire site's own level test.**  `iotaRec` fires only
+          -- `if Level.isEquivList usj (recFireComparands …).1`, i.e. at
+          -- the constructor levels *derived from the recursor's*; this is
+          -- that guard in the form `denote` consumes it.  Without it the
+          -- law quantifies over levels no fire site ever supplies —
+          -- §8.2's fourth instance, and the one caught before the blocks
+          -- that would have paid for it were written.
+          Level.substFn φ cvj.levelParams usj
+            = Level.substFn φ cvj.levelParams
+                (recFireComparands rl cv.levelParams us cvj.levelParams
+                  [] rP).1 →
           -- the two stored types, denoted (`denote_env_shrink` moves
           -- these; `denote_storedTy` produces them at a fire site)
           denote cval env φ d

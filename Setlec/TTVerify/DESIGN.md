@@ -2378,6 +2378,27 @@ first of the second, and they are different evidence:
   evidence is about the *author*: someone predicted a shape and got it
   right.
 
+Two more from the basis blocks, one of each kind:
+
+* **`Nat`'s constructor levels — undesigned.**  `Nat.zero` and
+  `Nat.succ` bind no level parameters, so a fired rule's `usj` is
+  forced to `[]` and the level mismatch that `PUnit` needed `punitEta`
+  for is *unrepresentable*.  Nobody made `Nat` level-monomorphic to
+  help this proof; Lean's `Nat` simply has no universe parameter.
+* **`Eq`'s closure — a forward provision with unusual provenance.**
+  `HasType.proofIrrel`'s two sides need not inhabit the *same* `Prop`.
+  That relaxation (#127) was adopted on doctrinal grounds — soundness
+  reads `mem_univ_zero` of each side independently, and §2.4 forbids a
+  premise soundness never consumes — and it absorbs a level mismatch
+  **nobody had in view when it was made**.
+
+  That last one is the doctrine's strongest possible defence: §2.4 is
+  not aesthetics, it is *preemptive generality*.  A rule weakened
+  because a premise could not be justified paid out on a problem
+  discovered afterwards, which is precisely the return a "no unused
+  premises" rule is supposed to earn and almost never gets to
+  demonstrate.
+
 Both are worth having and neither substitutes for the other.  A run of
 coincidences says the design is coherent; a forward provision that
 fits says a specific prediction held.  Conflating them would let a
@@ -3638,12 +3659,49 @@ time the cost of the defect is visible in advance, because with the
 premise added, `PUnit`'s `punitEta` step, `PSigma`'s two-step eta and
 `Quot`'s open question **all disappear at once**.
 
-**Not fixed unilaterally.**  Narrowing `hheadRec` weakens what
-producers must prove and strengthens what its consumer
-(`Setlec/TTVerify/IotaStep.lean`, landed) must supply.  The consumer is
-the transpose of the very code that performs the guard, so it should
-have the premise in hand — but that is a change to a landed invariant
-with a live consumer, and it is reported rather than made.
+> **The mismatch is denotationally invisible.**  `isEquivList` means
+> agreement after `Level.eval`, and `Level.eval` is exactly what
+> `denote` applies.  The checker's guard and the denotation's
+> evaluation are the *same comparison* — the two-artifacts-one-object
+> pattern again, and this time it dissolves an entire rescue
+> apparatus.
+
+**NARROWED (landed).**  `RecRulesTT`, `RecRulesTT.cons`,
+`EnvTT.cons`'s `hheadRec` and `rec_rules_fire` now carry
+
+```
+Level.substFn φ cvj.levelParams usj
+  = Level.substFn φ cvj.levelParams
+      (recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1
+```
+
+— the fire site's own test, in the form `denote` consumes it.  Three
+things about how it went are worth keeping.
+
+* **The inversion already had the fact.**  `iotaRec_inv`
+  (`Setlec/Verify/InferLemmas.lean:711`) exposes the `isEquivList`
+  conjunct; the sole consumer, `IotaStep.lean`, was discarding it with
+  a `-`.  So the narrowing cost one named hypothesis and two lines at
+  the fire site: `Level.substFn_congr (Level.isEquivList_sound hlev φ)`,
+  which is *the same step the set model already takes*
+  (`Setlec/Model/Core/Iota.lean:455`).  The bridge had simply
+  transposed a stronger statement than the model's.
+* **The argument list had to come out.**  `recFireComparands` takes the
+  recursor's arguments, but **neither branch's level component reads
+  them** — so the law quotes it at `[]` and
+  `recFireComparands_levels` bridges the fire site's own list.  Stating
+  it otherwise would have made the premise unquotable at the install,
+  where no arguments exist.
+* **It is the transport rule's own test.**  A hypothesis is legitimate
+  exactly when the actual caller can discharge it; the caller here is
+  the transpose of the code performing the guard, so the narrow form
+  was always the provable one.
+
+**And the payoff was immediate**: `PUnit`'s `punitEta` step came out of
+`extendPUnitRecTT` the same hour, because the constructor's valuation
+is now at the recursor's own level rather than an unrelated one.
+`PSigma`'s two-step eta and `Quot`'s open question never had to be
+written.
 
 **The computation needed a per-constructor `instantiate1` kit.**
 `denote` opens every binder with `instantiate1` at cut `0`, so a basis

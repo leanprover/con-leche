@@ -24,6 +24,17 @@ namespace Setlec.TTVerify
 
 open Setlec.TT
 
+/-- The comparand level list does not read the recursor's arguments —
+both branches of `recFireComparands` compute it from the levels alone,
+so a law may quote it at any argument list. -/
+theorem recFireComparands_levels (rl : RecRule) (lps : List Name)
+    (us : List Level) (cvjLps : List Name) (args args' : List Expr)
+    (rP rP' : Nat) :
+    (recFireComparands rl lps us cvjLps args rP).1
+      = (recFireComparands rl lps us cvjLps args' rP').1 := by
+  unfold recFireComparands
+  split <;> rfl
+
 /-- **The fired instance.**  Given the two `iotaCertsP` runs that
 `iotaRec` performs before reducing — one against the recursor's
 telescope at the full spine, one against the constructor's at its own —
@@ -47,6 +58,10 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hlenM : margs.length = RecRule.ctorParams rl + RecRule.nfields rl)
     (hlenR : us.length = cv.levelParams.length)
     (hlenJ : usj.length = cvj.levelParams.length)
+    -- the fire site's level test, in the form the law consumes
+    (hlev : Level.substFn φ cvj.levelParams usj
+      = Level.substFn φ cvj.levelParams
+          (recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1)
     -- the recursor's telescope, certified at the full spine
     {TR : VExpr}
     (hcertR : iotaCertsP env fuel d
@@ -132,7 +147,7 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     rw [denote_mkAppN (DenoteSpine.append (hspR.take rP)
       (hspC.drop (RecRule.ctorParams rl))) hRH] at hR
     exact (Option.some.inj hR).symm
-  refine hlaw cvj cnP cnF hctor Δ usj xs ys TR TC RVR RVC ?_ ?_ hlenJ
+  refine hlaw cvj cnP cnF hctor Δ usj xs ys TR TC RVR RVC ?_ ?_ hlenJ hlev
     hiR hiC hvR hvC
   · have := hspR.length
     omega

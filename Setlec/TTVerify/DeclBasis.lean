@@ -165,6 +165,10 @@ theorem extendBasisTT {env : Env} (m : EnvTT env) {ci : ConstantInfo}
             xs.length = mI →
             ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
             usj.length = cvj.levelParams.length →
+            Level.substFn φ cvj.levelParams usj
+              = Level.substFn φ cvj.levelParams
+                  (recFireComparands rl cv.levelParams us cvj.levelParams
+                    [] rP).1 →
             denote (cvalSet m.cval ci.name val) ⟨ci :: env.consts⟩ φ d
               (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
             denote (cvalSet m.cval ci.name val) ⟨ci :: env.consts⟩ φ d
@@ -604,7 +608,7 @@ theorem extendPUnitRecTT {env : Env} (m : EnvTT env)
           Expr.instantiate1_lam, reduceIte, hPc', hUc', denote_fvar]
         simp
       · intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj
-          hTV hTVj hR hC
+          hlev hTV hTVj hR hC
         -- the rule's constructor is the stored `PUnit.unit`
         have hU' := hU
         simp only [punitUnitName, punitName] at hU'
@@ -634,12 +638,15 @@ theorem extendPUnitRecTT {env : Env} (m : EnvTT env)
         simp only [VExpr.inst_pi, VExpr.inst_app, VExpr.inst_bvar,
           VExpr.liftN_zero, punitT, punitUnitT, VExpr.inst_const,
           reduceIte] at hm hct
+        -- **the fire site's level test does the work the eta law used
+        -- to do**: the constructor's valuation is at the recursor's own
+        -- level, not at an unrelated one
         have hctorV : cvalSet m.cval punitRecA.name
             (fun ψ => VExpr.const .punitRec [ψ uNT, ψ u1NT])
             ((Name.anonymous.str "PUnit").str "unit")
             (Level.substFn φ punitUnitA.toConstantVal.levelParams [l0])
-            = punitUnitT (l0.eval φ) := by
-          rw [cvalSet_ne (by decide)]
+            = punitUnitT (w2.eval φ) := by
+          rw [cvalSet_ne (by decide), hlev]
           refine cval_pinned m (by decide) (by rw [hU']; rfl) _ ?_
           simp +decide [pinnedDirectT]
           rfl
@@ -660,10 +667,6 @@ theorem extendPUnitRecTT {env : Env} (m : EnvTT env)
             (Level.substFn φ punitUnitA.toConstantVal.levelParams [l0])
           from rfl, hctorV] at hct ⊢
         rw [hrecV]
-        -- the guard's level is irrelevant
-        have hEta : Deq Δ (punitUnitT (l0.eval φ))
-            (punitUnitT (w2.eval φ)) :=
-          Deq.intro (HasType.punitEta hct HasType.const)
         -- the iota rule of the layer
         have hRec : Deq Δ (punitRecT (w2.eval φ) (w1.eval φ) M mm
             (punitUnitT (w2.eval φ))) mm :=
@@ -687,8 +690,7 @@ theorem extendPUnitRecTT {env : Env} (m : EnvTT env)
           simp only [VExpr.inst, VExpr.inst_bvar, VExpr.liftN_zero,
             reduceIte] at this
           exact Deq.intro this
-        exact Deq.trans (Deq.trans (Deq.appArg hEta) hRec)
-          (Deq.symm (Deq.trans (Deq.appFun hb1) hb2))
+        exact Deq.trans hRec (Deq.symm (Deq.trans (Deq.appFun hb1) hb2))
     · exact nomatch hr'
 
 

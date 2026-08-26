@@ -99,7 +99,7 @@ theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj,
     cnP, cnF, r, cbinders, cbody, residual, cr, usr,
     hfn, hfc, hlenA, hw0, hl0, hm0, hmfn, hfj, hrule, hlenM,
-    -, -, hfire, -, -, hcerts, hmcerts, -, -, -, -, rfl⟩ := iotaRec_inv h
+    -, -, hfire, hlev, -, hcerts, hmcerts, -, -, -, -, rfl⟩ := iotaRec_inv h
   obtain ⟨args, maj, hsplit, hlenA', hgetd⟩ := list_snoc_of_length hlenA
   have heq : e = Expr.mkAppN (.const c us) (args ++ [maj]) := by
     rw [← hsplit, ← hfn, Expr.mkAppN_getApp]
@@ -204,6 +204,11 @@ theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
       -- fire
       have hfired := rec_rules_fire m φ hcl ihd ihi hfc hrl hfire
         (hrc ▸ hfj) hlenA' hlenM hlenR hlenJ
+        (by
+          rw [Level.substFn_congr (ks := cvj.levelParams)
+              (Level.isEquivList_sound hlev φ),
+            recFireComparands_levels r cv.levelParams us cvj.levelParams
+              e.getAppArgs [] rP rP])
         (by rw [htake] at hcerts; rw [hmajEq']; exact hcerts)
         (Expr.WScoped.of_not_hasFvar (by
           rw [Expr.hasFvar_instantiateLevelParams]; exact hnfR))
