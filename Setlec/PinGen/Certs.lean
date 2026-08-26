@@ -186,29 +186,95 @@ theorem divBaseZeroCert : ∀ (x y : Nat),
     Bool.noConfusion ((Nat.ble_eq_true_of_le h).symm.trans hf)
   rw [divUnfold, dif_neg hny]
 
+/-! ## `funext`-free unfolding of `WellFounded.Nat.fix`
+
+The WF-recursive operations (`gcd`, the bit operations) compile to
+`WellFounded.Nat.fix`, a *fuel*-structural recursor (`fix.go` recurses
+on `Nat` fuel and calls `F x (fun y hy => go f y …)`).  The stock
+unfolding `WellFounded.Nat.fix_eq` equates `F x g₁ = F x g₂` for an
+*opaque* `F` and therefore needs `funext` — whose proof drags in the
+`Quot` primitives, which a dependency-sliced stream need not declare
+before the operation (task #113: cert residuals must lie in the
+operation's own dependency cone).  For each *concrete* body the
+recursive occurrences are first-order applications, so a pointwise
+congruence hypothesis (`hF`) replaces `funext`: the per-op `hF` proofs
+go through the `Decidable` case split of the body's `dite`s
+(`dcongr`), never through function extensionality. -/
+
+private theorem dcongr {c : Prop} [inst : Decidable c] {γ : Sort u}
+    {t1 t2 : c → γ} {e1 e2 : ¬c → γ}
+    (ht : ∀ h, t1 h = t2 h) (he : ∀ h, e1 h = e2 h) :
+    dite c t1 e1 = dite c t2 e2 := by
+  cases inst with
+  | isTrue h => exact ht h
+  | isFalse h => exact he h
+
+private theorem natFixGoCongr {α : Sort u} {motive : α → Sort v}
+    (h : α → Nat)
+    (F : (x : α) → ((y : α) → InvImage Nat.lt h y x → motive y) → motive x)
+    (hF : ∀ (x : α) (g1 g2 : (y : α) → InvImage Nat.lt h y x → motive y),
+      (∀ y p, g1 y p = g2 y p) → F x g1 = F x g2) :
+    ∀ (f1 : Nat) (x : α) (h1 : h x < f1) (f2 : Nat) (h2 : h x < f2),
+      WellFounded.Nat.fix.go h F f1 x h1 =
+        WellFounded.Nat.fix.go h F f2 x h2 := by
+  intro f1
+  induction f1 with
+  | zero => intro x h1 f2 h2; exact absurd h1 (Nat.not_succ_le_zero (h x))
+  | succ f1 ih =>
+    intro x h1 f2 h2
+    cases f2 with
+    | zero => exact absurd h2 (Nat.not_succ_le_zero (h x))
+    | succ f2 => exact hF x _ _ (fun y p => ih y _ f2 _)
+
+private theorem natFixUnfold {α : Sort u} {motive : α → Sort v}
+    (h : α → Nat)
+    (F : (x : α) → ((y : α) → InvImage Nat.lt h y x → motive y) → motive x)
+    (hF : ∀ (x : α) (g1 g2 : (y : α) → InvImage Nat.lt h y x → motive y),
+      (∀ y p, g1 y p = g2 y p) → F x g1 = F x g2) (x : α) :
+    WellFounded.Nat.fix h F x = F x (fun y _ => WellFounded.Nat.fix h F y) := by
+  show WellFounded.Nat.fix.go h F (WellFounded.Nat.eager (h x + 1)) x _ = _
+  refine Eq.trans
+    (natFixGoCongr h F hF _ x _ (Nat.succ (h x)) (Nat.lt_succ_self _)) ?_
+  exact hF x _ _ (fun y p => natFixGoCongr h F hF (h x) y _ _ _)
+
+private theorem bleOneFalse {x : Nat}
+    (h : Nat.ble (Nat.succ Nat.zero) x = Bool.false) : x = 0 := by
+  cases x with
+  | zero => rfl
+  | succ n => exact Bool.noConfusion h
+
+private theorem bleOneTrue {x : Nat}
+    (h : Nat.ble (Nat.succ Nat.zero) x = Bool.true) : x ≠ 0 :=
+  fun hz => by rw [hz] at h; exact Bool.noConfusion h
+
 /-! ## The `Nat.gcd` certificate theorems
 
-The later pin-certified operations (`gcd`, the bit operations, the
-shifts, `log2`) sit far enough into the stream that `Iff`, `And`,
-`propext`, `Int` … are all prefix-present; their certificate proofs are
-free to use the full tactic vocabulary (non-prefix *theorems* are
-inlined by the generator). -/
+`Nat.gcd` compiles to `WellFounded.Nat.fix` over the packed `PSigma`
+argument; its one-step unfolding comes from `natFixUnfold` (the stock
+`Nat.gcd_succ`/`Nat.gcd_zero_left` go through the auto-generated
+`gcd.eq_def`, whose proof mentions `funext`). -/
+
+private theorem gcdUnfold (x y : Nat) :
+    Nat.gcd x y = if x = 0 then y else Nat.gcd (Nat.mod y x) x := by
+  delta Nat.gcd Nat.gcd._unary
+  refine Eq.trans (natFixUnfold _ _ ?hF (PSigma.mk (β := fun _ : Nat => Nat) x y)) ?_
+  case hF =>
+    intro z g1 g2 hg
+    cases z with
+    | mk n m => exact dcongr (fun _ => rfl) (fun _ => by rw [hg])
+  exact rfl
 
 theorem gcdRecCert : ∀ (x y : Nat),
     Nat.ble (Nat.succ Nat.zero) x = Bool.true →
     Nat.gcd x y = Nat.gcd (Nat.mod y x) x := by
   intro x y h1x
-  cases x with
-  | zero => exact Bool.noConfusion h1x
-  | succ n => exact Nat.gcd_succ n y
+  rw [gcdUnfold, if_neg (bleOneTrue h1x)]
 
 theorem gcdBaseCert : ∀ (x y : Nat),
     Nat.ble (Nat.succ Nat.zero) x = Bool.false →
     Nat.gcd x y = y := by
   intro x y h1x
-  cases x with
-  | zero => exact Nat.gcd_zero_left y
-  | succ n => exact Bool.noConfusion h1x
+  rw [gcdUnfold, if_pos (bleOneFalse h1x)]
 
 /-! ## The `Nat.shiftLeft`/`Nat.shiftRight` certificate theorems
 
@@ -255,23 +321,138 @@ theorem shiftRightBaseCert : ∀ (x y : Nat),
 
 `log2` is unary; the pinned statements still quantify over the frame's
 two variables (`y` is unused), so the certificate check stays uniform
-across the operation family. -/
+across the operation family.
+
+The toolchain's `Nat.log2` is *fuel*-structural (`Nat.rec` on the
+argument itself as fuel, `Bool.rec` on the `Nat.ble 2 n` guard) — no
+WF machinery at all.  The proofs work from a `log2Go` mirror of that
+value (the mirror is a plain definition, inlined by the generator) and
+a fuel-congruence, avoiding `Nat.log2_def` (whose proof mentions
+`ite_congr`/`Or` and `Nat.log2_terminates`, both outside `log2`'s
+dependency cone). -/
+
+/-- Mirror of the compiled value of `Nat.log2` with the fuel split
+out; `Nat.log2 n = log2Go n n` holds by `rfl`. -/
+private noncomputable def log2Go (f n : Nat) : Nat :=
+  Nat.rec (motive := fun _ => Nat → Nat) (fun _ => 0)
+    (fun _ ih n => Bool.rec 0 (Nat.succ (ih (Nat.div n 2))) (Nat.ble 2 n))
+    f n
+
+private theorem log2Eq (n : Nat) : Nat.log2 n = log2Go n n := rfl
+
+private theorem log2GoZero : ∀ f, log2Go f 0 = 0
+  | 0 => rfl
+  | _ + 1 => rfl
+
+/-- `n / 2 ≤ n`, by course-of-values induction over a `ble`-witnessed
+bound (`Nat.div_lt_self`'s stock proof mentions `Or`/`Exists`/
+`propext`/the `Acc` machinery, all outside `log2`'s dependency cone;
+this derivation rides the file's own `div` certificates and elementary
+`Nat.le` lemmas instead). -/
+private theorem divHalfLeAux :
+    ∀ (b k : Nat), Nat.ble k b = Bool.true →
+      Nat.ble (Nat.div k 2) k = Bool.true := by
+  intro b
+  induction b with
+  | zero =>
+    intro k hk
+    cases k with
+    | zero => rw [divBaseGtCert 0 2 rfl]; exact rfl
+    | succ j => exact Bool.noConfusion hk
+  | succ b ih =>
+    intro k hk
+    cases k with
+    | zero => rw [divBaseGtCert 0 2 rfl]; exact rfl
+    | succ j =>
+      cases j with
+      | zero => rw [divBaseGtCert 1 2 rfl]; exact rfl
+      | succ m =>
+        rw [divRecCert (Nat.succ (Nat.succ m)) 2 rfl rfl]
+        show Nat.ble (Nat.succ (Nat.div m 2)) (Nat.succ (Nat.succ m)) =
+          Bool.true
+        have hmb : Nat.ble m b = Bool.true :=
+          Nat.ble_eq_true_of_le (Nat.le_of_succ_le_succ
+            (Nat.le_of_succ_le (Nat.le_of_ble_eq_true hk)))
+        exact Nat.ble_eq_true_of_le (Nat.succ_le_succ
+          (Nat.le_succ_of_le (Nat.le_of_ble_eq_true (ih m hmb))))
+
+/-- Fuel bound for the recursive call: `2 ≤ n → n ≤ f + 1 → n / 2 ≤ f`
+(in `ble` form). -/
+private theorem log2Bound {n f : Nat} (h2 : Nat.ble 2 n = Bool.true)
+    (hf : Nat.ble n (Nat.succ f) = Bool.true) :
+    Nat.ble (Nat.div n 2) f = Bool.true := by
+  cases n with
+  | zero => exact Bool.noConfusion h2
+  | succ j =>
+    cases j with
+    | zero => exact Bool.noConfusion h2
+    | succ m =>
+      rw [divRecCert (Nat.succ (Nat.succ m)) 2 h2 rfl]
+      show Nat.ble (Nat.succ (Nat.div m 2)) f = Bool.true
+      exact Nat.ble_eq_true_of_le (Nat.le_trans
+        (Nat.succ_le_succ (Nat.le_of_ble_eq_true
+          (divHalfLeAux m m (Nat.ble_eq_true_of_le (Nat.le_refl m)))))
+        (Nat.le_of_succ_le_succ (Nat.le_of_ble_eq_true hf)))
+
+private theorem log2GoCongr :
+    ∀ (f1 n : Nat), Nat.ble n f1 = Bool.true →
+    ∀ (f2 : Nat), Nat.ble n f2 = Bool.true →
+      log2Go f1 n = log2Go f2 n := by
+  intro f1
+  induction f1 with
+  | zero =>
+    intro n h1 f2 _
+    cases n with
+    | zero => rw [log2GoZero, log2GoZero]
+    | succ m => exact Bool.noConfusion h1
+  | succ f1 ih =>
+    intro n h1 f2 h2
+    cases f2 with
+    | zero =>
+      cases n with
+      | zero => rw [log2GoZero, log2GoZero]
+      | succ m => exact Bool.noConfusion h2
+    | succ f2 =>
+      show Bool.rec (motive := fun _ => Nat) 0 (Nat.succ (log2Go f1 (Nat.div n 2))) (Nat.ble 2 n) =
+        Bool.rec (motive := fun _ => Nat) 0 (Nat.succ (log2Go f2 (Nat.div n 2))) (Nat.ble 2 n)
+      cases hb : Nat.ble 2 n with
+      | false => rfl
+      | true =>
+        exact congrArg Nat.succ
+          (ih (Nat.div n 2) (log2Bound hb h1) f2 (log2Bound hb h2))
+
+private theorem bleSelf : ∀ n : Nat, Nat.ble n n = Bool.true :=
+  fun n => Nat.ble_eq_true_of_le (Nat.le_refl n)
 
 theorem log2RecCert : ∀ (x _y : Nat),
     Nat.ble (Nat.succ (Nat.succ Nat.zero)) x = Bool.true →
     Nat.log2 x =
       Nat.succ (Nat.log2 (Nat.div x (Nat.succ (Nat.succ Nat.zero)))) := by
   intro x _y h2x
-  rw [Nat.log2_def, if_pos (Nat.le_of_ble_eq_true h2x)]
-  rfl
+  cases x with
+  | zero => exact Bool.noConfusion h2x
+  | succ m =>
+    rw [log2Eq, log2Eq]
+    show Bool.rec (motive := fun _ => Nat) 0
+      (Nat.succ (log2Go m (Nat.div (Nat.succ m) 2)))
+      (Nat.ble 2 (Nat.succ m)) = _
+    rw [h2x]
+    exact congrArg Nat.succ
+      (log2GoCongr m (Nat.div (Nat.succ m) 2) (log2Bound h2x (bleSelf _))
+        (Nat.div (Nat.succ m) 2) (bleSelf _))
 
 theorem log2BaseCert : ∀ (x _y : Nat),
     Nat.ble (Nat.succ (Nat.succ Nat.zero)) x = Bool.false →
     Nat.log2 x = Nat.zero := by
   intro x _y h2x
-  have hnle : ¬ (2 ≤ x) := fun hh =>
-    Bool.noConfusion ((Nat.ble_eq_true_of_le hh).symm.trans h2x)
-  rw [Nat.log2_def, if_neg hnle]
+  cases x with
+  | zero => exact rfl
+  | succ m =>
+    rw [log2Eq]
+    show Bool.rec (motive := fun _ => Nat) 0
+      (Nat.succ (log2Go m (Nat.div (Nat.succ m) 2)))
+      (Nat.ble 2 (Nat.succ m)) = _
+    rw [h2x]
 
 /-! ## The `Nat.land`/`Nat.lor`/`Nat.xor` certificate theorems
 
@@ -290,11 +471,12 @@ everything `omega`/`calc`/the public bitwise API would drag in) — so
 the proofs work from `Nat.bitwise.eq_def` and elementary `Nat`
 arithmetic only. -/
 
-/-- The one-step unfolding of `Nat.bitwise`, from `WellFounded.Nat.fix_eq`
-directly (the auto-generated `Nat.bitwise.eq_def`'s proof mentions
-`Subsingleton`, which does not exist in the stream at the bit
-operations' `Init.Prelude`-region install points; `delta` bypasses the
-equation compiler). -/
+/-- The one-step unfolding of `Nat.bitwise`, via the `funext`-free
+`natFixUnfold` (the auto-generated `Nat.bitwise.eq_def`'s proof
+mentions `Subsingleton`, which does not exist in the stream at the bit
+operations' `Init.Prelude`-region install points, and
+`WellFounded.Nat.fix_eq` mentions `funext`, which a dependency-sliced
+stream need not declare; `delta` bypasses the equation compiler). -/
 private theorem bitwiseUnfold (f : Bool → Bool → Bool) (x y : Nat) :
     Nat.bitwise f x y =
       if x = 0 then (if f false true = true then y else 0)
@@ -304,7 +486,17 @@ private theorem bitwiseUnfold (f : Bool → Bool → Bool) (x y : Nat) :
         then Nat.bitwise f (x / 2) (y / 2) + Nat.bitwise f (x / 2) (y / 2) + 1
         else Nat.bitwise f (x / 2) (y / 2) + Nat.bitwise f (x / 2) (y / 2) := by
   delta Nat.bitwise Nat.bitwise._unary
-  refine Eq.trans (WellFounded.Nat.fix_eq _ _ _) ?_
+  refine Eq.trans (natFixUnfold _ _ ?hF (PSigma.mk (β := fun _ : Nat => Nat) x y)) ?_
+  case hF =>
+    intro z g1 g2 hg
+    cases z with
+    | mk n m =>
+      refine dcongr (fun _ => rfl) (fun _ => ?_)
+      refine dcongr (fun _ => rfl) (fun _ => ?_)
+      exact congrArg
+        (fun r => if f (decide (n % 2 = 1)) (decide (m % 2 = 1)) = true
+          then r + r + 1 else r + r)
+        (hg ⟨n / 2, m / 2⟩ _)
   exact rfl
 
 private theorem bitwiseStep (f : Bool → Bool → Bool) (x y : Nat)
@@ -323,16 +515,6 @@ private theorem bitwiseZeroRight (f : Bool → Bool → Bool) (x : Nat)
     (hx : x ≠ 0) :
     Nat.bitwise f x 0 = if f true false = true then x else 0 := by
   rw [bitwiseUnfold, if_neg hx, if_pos rfl]
-
-private theorem bleOneFalse {x : Nat}
-    (h : Nat.ble (Nat.succ Nat.zero) x = Bool.false) : x = 0 := by
-  cases x with
-  | zero => rfl
-  | succ n => exact Bool.noConfusion h
-
-private theorem bleOneTrue {x : Nat}
-    (h : Nat.ble (Nat.succ Nat.zero) x = Bool.true) : x ≠ 0 :=
-  fun hz => by rw [hz] at h; exact Bool.noConfusion h
 
 /-- `v + v = 2 * v` at prefix level. -/
 private theorem twoMul (v : Nat) : v + v = 2 * v :=

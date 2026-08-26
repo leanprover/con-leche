@@ -1,0 +1,2 @@
+{"Nat.land": ["Nat.add", "Nat.mul", "Nat.ble", "Nat.div", "Nat.mod", "Bool"],
+ "Nat.log2": ["Nat.ble", "Nat.div", "Bool"]}

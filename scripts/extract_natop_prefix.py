@@ -2,9 +2,11 @@
 """Extract, from lean4export 3.x ndjson streams, the set of constant
 names declared *before* each pin-certified Nat operation — the
 allowlists the elab-time pin generator (Setlec/PinGen.lean) checks the
-pinned expressions and certificate proofs against (a pin may only
-mention constants that exist in the stream when the pinned operation is
-installed).
+pinned expressions against (a pin may only mention constants that
+exist in the stream when the pinned operation is installed).  Since
+task #113 the allowlists apply to the *pins* only: the certificate
+proofs are closed over the operation's own dependency cone instead
+(self-contained, valid for dependency-sliced streams too).
 
 Multiple streams may be given; for an operation occurring in several
 streams the prefixes are intersected (the allowlist must be valid for

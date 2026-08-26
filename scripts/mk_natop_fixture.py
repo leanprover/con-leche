@@ -16,6 +16,14 @@ json produced from the generated pins), plus
 Usage:
   mk_natop_fixture.py <stream> <roots.json> <op> <out.ndjson> a [b] r
   mk_natop_fixture.py <stream> <roots.json> <op> <out.ndjson> --perturb
+
+Since task #113 the certificate proofs are self-contained (closed over
+the op's own dependency cone), so the roots json only needs the
+guard-required ground operations per op (`natOpDeps` + `Bool`):
+`scripts/natop_cone_roots.json` builds the pure-cone acceptance
+fixtures `tests/e2e/nat_land_cone.ndjson` / `nat_log2_cone.ndjson`,
+which deliberately exclude the historical cert-proof extras
+(funext, Eq.subst, of_decide_eq_true, Nat.log2_terminates, ...).
 """
 import json
 import sys

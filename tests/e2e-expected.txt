@@ -102,7 +102,15 @@
 # declined at install (the certification pins level-monomorphy).
 2 nat_add_levelpoly.ndjson
 
-2 nat_div_declined.ndjson
+# nat_div_declined predates the pinned-declaration fast path (#47): a
+# valid Init slice with a literal `Nat.div` use, originally declining
+# via the natOpWfNames reduction safety net, then via "pin ground
+# constants absent" (the slice stops short of the old cert-proof
+# auxiliaries).  With the self-contained certificates (task #113) the
+# slice carries everything the install needs, so the operation
+# certifies and the literal reduces on the fast path: accepted.  The
+# install-decline path stays covered by the nat_*_perturbed fixtures.
+0 nat_div_declined.ndjson
 # nat_divmod_ok.ndjson: the init-prelude prefix through Nat.div; the
 # stored div/mod match the vendored toolchain pins, the ble-guarded
 # characterization certificates check, and rfl-proofs of
@@ -199,6 +207,15 @@
 2 nat_shiftright_perturbed.ndjson
 0 nat_log2_ok.ndjson
 2 nat_log2_perturbed.ndjson
+# Self-contained certificate blobs (task #113): *pure-cone* slices —
+# the operation's dependency closure plus only the guard-required
+# ground operations (scripts/natop_cone_roots.json), with the cert
+# proofs' historical auxiliary constants (funext, Eq.subst,
+# of_decide_eq_true, Nat.log2_terminates, …) positively absent from
+# the stream — must accept: the generated proofs may only reference
+# the op's own cone (which every stream declaring the op provides).
+0 nat_land_cone.ndjson
+0 nat_log2_cone.ndjson
 # subject_reduction_redex (arena good/undecidability/subject-reduction-redex):
 # `x2 x4` needs `f 1 (proof_2 x0) ≡ f 0 (proof_1 x0)` where the proofs
 # are *theorems* whose values must delta-unfold for the Acc iota step
@@ -261,3 +278,21 @@
 # as its `raw` line.
 2 std_axioms.ndjson pre
 0 direct_struct_raw.ndjson pre
+
+# Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
+# A *raw* export (`PSigma'` and the theorem are kernel-added by the
+# fixture source, exactly as the lean-inductive-models preprocessor
+# splices the tight pair, so the block matches setlec's pin -- a
+# non-matching block would be rejected as a reserved basis name).
+# `Eq.refl (motive t) (minor t.1 t.2)` at a *neutral* `t` forces both
+# eta sides: `motive (PSigma'.mk a b t.1 t.2) == motive t` (defeq-side
+# pair eta, `pairEtaCert`) and `PSigma'.rec a b motive minor t ==
+# minor t.1 t.2` (the stuck-major rescue `to_cnstr_when_structure`).
+# The rescue's eta branch is *inert* for `PSigma'` (the generic
+# `structEtaCertWith` excludes reserved basis names; the 0-field
+# `PUnit` fallback needs `etaFields = 0`), yet the verdict matches the
+# official kernel's: `PSigma'.rec` is Prop-eliminating only, so every
+# term the rescue could produce is a proof and proof irrelevance
+# identifies the two sides.  The fixture pins that agreement -- it must
+# stay 0 whether or not the rescue is ever made to fire here.
+0 psigma_rec_eta.ndjson raw
