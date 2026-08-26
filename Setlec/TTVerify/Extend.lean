@@ -137,19 +137,21 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     split at h
     · next vf va h1 h2 => exact (hbad vf va h1 h2).elim
     · exact nomatch h
-  | case14 d n ty val body h1 ihval =>
+  | case14 d n ty val body vf va h1 h2 h3 ihty ihval ihbody =>
     intro v h
-    rw [denote_letE, h1] at h
+    simp only [denote_letE, h1, h2, h3] at h
     exact nomatch h
-  | case15 d n ty val body B h1 h2 ihval ihbody =>
+  | case15 d n ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
     intro v h
-    rw [denote_letE, h1, h2] at h
-    exact nomatch h
-  | case16 d n ty val body B h1 B' h2 ihval ihbody =>
-    intro v h
-    rw [denote_letE, h1, h2] at h
-    rw [denote_letE, ihval h1, ihbody h2]
+    simp only [denote_letE, h1, h2, h3] at h
+    simp only [denote_letE, ihty h2, ihval h1, ihbody h3]
     exact h
+  | case16 d n ty val body hbad ihty ihval =>
+    intro v h
+    rw [denote_letE] at h
+    split at h
+    · next vf va h1 h2 => exact (hbad vf va h1 h2).elim
+    · exact nomatch h
   | case17 d sn i e h1 ihe =>
     intro v h
     rw [denote_proj, h1] at h

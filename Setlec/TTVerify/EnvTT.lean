@@ -1,4 +1,5 @@
 import Setlec.TTVerify.Denote
+import Setlec.TTVerify.VClosed
 import Setlec.TT.Semantics.Consistency
 
 /-!
@@ -10,6 +11,7 @@ set-theoretic universe replaced by the declarative type theory:
 | `EnvModel` | `EnvTT` |
 |---|---|
 | `val : ConstVal V` | `cval : TConstVal` |
+| — | `cval_closed` (**new**; see the field) |
 | `wf : EnvWF env` | *the same* |
 | `val_params` | *the same* |
 | `mem_type`: `val c φ ∈ˢ ⟦c.type⟧` | `has_type`: `⊢ cval c φ : ⟦c.type⟧` |
@@ -88,6 +90,19 @@ row-by-row correspondence and for the fields still to come. -/
 structure EnvTT (env : Env) where
   /-- The type-theory term of each constant. -/
   cval : TConstVal
+  /-- **Every constant denotes to a closed term.**  This field has *no
+  counterpart in `EnvModel`*, and the asymmetry is exactly the price of
+  the saving recorded in `Setlec/TTVerify/Denote.lean`: `denote` needs
+  no free-variable valuation because the opened binder *is* a variable,
+  and in exchange a constant's denotation is a term that must have no
+  loose variables for lifting and instantiation to pass through it.
+  `interpExpr` owes nothing here because `val n ψ : V` is a set with
+  nothing in it to lift.
+
+  It is the syntactic shadow of `val_params` below — a constant's
+  meaning does not depend on the local context — and every install site
+  discharges it the same way it discharges `val_params`. -/
+  cval_closed : ∀ (n : Name) (ψ : Name → Nat), VExpr.Closed (cval n ψ)
   /-- Stored declarations are syntactically well-formed. -/
   wf : EnvWF env
   /-- A constant's term only depends on its own level parameters. -/
@@ -123,6 +138,7 @@ structure EnvTT (env : Env) where
 /-- The empty environment has a (trivial) derivation model. -/
 def EnvTT.empty : EnvTT Env.empty where
   cval := fun _ _ => emptyT 0
+  cval_closed := fun _ _ => trivial
   wf := by intro c hc; cases hc
   val_params := by
     intro n ci h

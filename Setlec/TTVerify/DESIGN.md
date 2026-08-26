@@ -414,70 +414,91 @@ is comfortable to leave open: performance is unaffected either way
 (beta is free once the app-argument certificate goes).  Only "validate
 `--yolo` literally" turns on it.
 
-## 7. The next increment: the substitution stack
+## 7. The substitution stack
 
-`CheckStepTT` is the clause-by-clause work, and it has a single
-bottleneck that every interesting clause runs through — `app`, `beta`,
-`zeta` and every iota rule.  Naming it here rather than discovering it
-again next session.
-
-### What the clauses need
-
-The checker's `infer` on `.app f a` returns the `Expr` `B.instantiate1
-a`.  The layer's `HasType.app` concludes at `(⟦B⟧).inst ⟦a⟧`.  Those
-have to be the same `VExpr`, which is
+`CheckStepTT` has a single bottleneck that every interesting clause
+runs through — `app`, `beta`, `zeta`, every iota rule:
 
 > **`denote` commutes with instantiation.**  If
 > `denote (d+1) (body.instantiate1 (.fvar d n ty)) = some B` and
 > `denote d a = some x`, then
 > `denote d (body.instantiate1 a) = some (B.inst x)`.
 
-The set model's counterpart is `interp_beta`
-(`Setlec/Model/Subst.lean`), reached through `interp_substFvarAt`, and
-the `Expr`-side machinery both lean on — `substFvarAt`,
-`substFvarAt_instantiate1{,_self}`, `fvarsBelow_instantiate1_gen`,
-`shiftFrom` and its lemmas — is in `Setlec/Verify/{Shift,Subst}.lean`,
-which this hierarchy may import.  So the mirror has its scaffolding
-already.
+The checker's `infer` on `.app f a` returns the `Expr` `B.instantiate1
+a`; `HasType.app` concludes at `(⟦B⟧).inst ⟦a⟧`; those must be the same
+`VExpr`.  The model's counterparts are `interp_beta` and
+`interp_substFvarAt` (`Setlec/Model/Subst.lean`), and the `Expr`-side
+machinery both lean on — `substFvarAt`, `shiftFrom`,
+`fvarsBelow_instantiate1` and friends — is in
+`Setlec/Verify/{Shift,Subst}.lean`, which this hierarchy may import.
 
-### Where the transposition is *nicer* than the original
+### Landed: the shift lemma (`Setlec/TTVerify/Shift.lean`)
 
-`interp_substFvarAt` contracts the *valuation* at `p` (`delV`).  There
-is no valuation here, so the contraction becomes a de Bruijn
-substitution — and the index arithmetic comes out exactly right,
-which is worth recording because it is not obvious in advance:
+Its prerequisite is done: `denote_lift`, the transpose of
+`interp_lift`, with `denote_shiftFrom` as the generalization and
+`denote_weaken_top` as the induction step.  Three things came out of
+it that were not visible from the analysis.
 
-* at depth `D+1` the variable `fvar p` denotes `.bvar (D - p)`, so the
-  substitution happens at cut `k = D - p`;
-* an outer `fvar j` (`j < p`) denotes `.bvar (p-1-j)` at depth `p` and
-  `.bvar (D-1-j)` at depth `D`, and `D-1-j = (p-1-j) + (D-p)` — i.e.
-  the denotation at the deeper level is the shallower one lifted by
-  exactly `D - p`;
-* `VExpr.inst e a k` already substitutes `liftN k a`.
+**1. The statement deviates, and had to.**  `interp_lift` concludes a
+literal *equation* — `interpExpr D ρ' e = interpExpr p ρ e` — because
+`interpExpr` reads a free variable through `ρ` and never through the
+depth, so the valuation absorbs it.  `denote` reads
+`.bvar (d - 1 - i)`, which is depth-relative, so the transpose is
 
-So `k = D - p` makes `VExpr.inst`'s built-in lift *be* the depth shift.
-No auxiliary shifting appears in the statement at all:
+```
+Expr.fvarsBelow p e → p ≤ D →
+  denote D e = (denote p e).map (·.liftN (D - p))
+```
 
-> `denote D (substFvarAt p a e) = (denote (D+1) e).map (·.inst x (D - p))`
-> where `denote p a = some x`.
+Deliberate deviation, recorded in the module header so a reader
+checking the transposition line by line does not stop there and wonder
+what broke.
 
-### The prerequisite, and why it is the real cost
+**2. The generalization closed exactly as predicted.**  The cut `d - p`
+is incremented by the binder clause to `(d - p) + 1`, which is what
+`VExpr.liftN` does to its own cut — so the two sides stay in step.  The
+fact that makes it work is the one already noted: the freshly opened
+variable denotes `.bvar 0` at *every* level, so only outer variables
+move, and by exactly one.  One hypothesis had to be added that the
+analysis missed — `Expr.fvarsBelow d e`, without which the `fvar` case
+is false at `p = d` — but that is a hypothesis the model's version
+carries too.
 
-That `.fvar p` case needs
+**3. Two findings that were not in the analysis at all.**
 
-> **the shift lemma**: for `e` scoped below `p` and `p ≤ D`,
-> `denote D e = (denote p e).map (·.liftN (D - p))`,
+*`EnvTT` needs a field `EnvModel` does not: `cval_closed`.*  The
+`.const` clause of the shift lemma needs a constant's denotation to be
+invariant under lifting, i.e. **closed**.  `interpExpr` owes nothing
+here because `val n ψ : V` is a set with nothing in it to lift.  This
+is the exact mirror image of the saving in §2: `denote` needs no
+free-variable valuation because the opened binder *is* a variable, and
+the price is that a constant's denotation is a *term* with no loose
+variables.  It is the syntactic shadow of `val_params`, and it is
+recorded as such on the field.  Supporting facts:
+`Setlec/TTVerify/VClosed.lean`.
 
-which is also what a binder-opening site needs to re-establish `CtxOk`
-(at `D = d+1`, lift by `1`).  It is the one place the de Bruijn
-convention charges rent, and it is not a `denote.induct` proof: the
-binder clause compares `denote (D+1) (body.instantiate1 (.fvar D …))`
-with `denote (p+1) (body.instantiate1 (.fvar p …))`, two *different*
-expressions related by `Expr.shiftFrom`.  So it wants a generalization
-over the lift cut, with `shiftFrom` on the `Expr` side — the tools are
-in `Setlec/Verify/Shift.lean` and the model's `interp_lift` is the
-shape to mirror.
+*`denote` is now structural at `let`, and the earlier choice is
+withdrawn.*  §2 said a `let` denotes to its zeta reduct, mirroring
+`interpExpr`.  That forced `denote` to *perform a substitution*, and
+the shift lemma's `letE` case then needed lifting-commutes-with-
+instantiation, which needs lifting-commutes-with-lifting — i.e. the
+syntactic-substitution swamp `Setlec/TT/DESIGN.md` §6 is proud of
+avoiding, reappearing one layer down in the bridge.  So `denote` now
+emits `VExpr.letE` and every clause maps a constructor to a
+constructor; the shift lemma's `letE` case is structural and needs no
+commutation lemma at all.  A consumer wanting the reduct uses
+`HasType.zeta`, which is premise-free and exists for exactly this.
 
-Note the one thing that does *not* need shifting: the freshly opened
-variable itself.  `fvar D` at depth `D+1` and `fvar p` at depth `p+1`
-both denote `.bvar 0`.  That is what makes the cut behave.
+The general principle, worth keeping: **a structural `denote` is what
+keeps the bridge's substitution metatheory small.**  Whenever a clause
+is tempted to compute, the cost lands here.
+
+### Next
+
+`denote` commutes with instantiation, mirroring `interp_substFvarAt`
+and `interp_beta`, then the clauses of `CheckStepTT` against the
+threaded claims of §6.  With `denote` structural, that proof's binder
+cases are structural too, and its one interesting case — a free
+variable at the substitution point — is discharged by `denote_lift`,
+because `VExpr.inst`'s built-in `liftN k` on the substituend is exactly
+the depth shift (§7's arithmetic note above).

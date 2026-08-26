@@ -1,4 +1,6 @@
+import Setlec.TTVerify.VClosed
 import Setlec.TTVerify.Denote
+import Setlec.TTVerify.Shift
 import Setlec.TTVerify.Inversion
 import Setlec.TTVerify.EnvTT
 import Setlec.TTVerify.Claims
