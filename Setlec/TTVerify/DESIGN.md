@@ -413,13 +413,27 @@ inductions on the set-model side too.
 | `WhnfClaimsTT` | **closed** |
 | `InferClaimsTT` | **closed** |
 | `WhnfCoreClaimsTT` | closed modulo three chain links (`litMajorToCtor`, `majorToCtor`, `projLitToCtor`) |
-| `DefEqClaimsTT` | closed modulo `StructEtaCertStepTT` (mechanical) and `PairEtaCertStepTT` (**blocked, §13**) |
+| `DefEqClaimsTT` | closed modulo `PairEtaCertStepTT` alone (**blocked on task #130, §13**) |
 
 Discharged inside `DefEqClaimsTT`: `defeqStep_claim`, `defeqLoop_claim`,
 `ProofIrrelStepTT`, `DefEqSpineStepTT`, `DefEqStuckStepTT` (all
 seventeen clauses of the stuck block), `EtaCertStepTT`,
-`StructUnitCertStepTT`, and `StuckIrrelStepTT` modulo the two eta
-certificates.
+`StructUnitCertStepTT`, `StructEtaCertStepTT`, and `StuckIrrelStepTT`
+modulo `PairEtaCertStepTT`.  The assembly is
+`defeq_claimsTT_pairEta`, whose only hypothesis beyond the four
+induction hypotheses is that one certificate.
+
+`StructEtaCertStepTT` is worth one line as *confirmation* rather than
+as work: it is `eta_rescue` — written for `majorToCtor`'s stuck-major
+branch, against the shape `structEtaCertWith` produces — plus a spine
+congruence, and the only new lemma it needed was `defEqList_append`
+(the certificate splits its argument list at the parameter count and
+the fabrication does not).  That the *same* law-consumer serves both
+call sites is §6's prediction paying off a second time, and it is also
+the sharpest available contrast with §13: `structEtaCertWith` certifies
+its telescope, so its bridge lemma is two hundred lines of plumbing
+around an existing law; `pairEtaCert` does not, so its bridge lemma
+does not exist.
 
 Two definitions changed while closing the stuck block, both §12.10
 again and both recorded at their definition:
