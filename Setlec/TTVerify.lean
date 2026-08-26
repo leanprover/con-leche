@@ -1,4 +1,5 @@
 import Setlec.TTVerify.VClosed
+import Setlec.TTVerify.InstSimp
 import Setlec.TTVerify.Weaken
 import Setlec.TTVerify.Denote
 import Setlec.TTVerify.Shift

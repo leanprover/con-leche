@@ -1,4 +1,5 @@
 import Setlec.TTVerify.Claims
+import Setlec.TTVerify.InstSimp
 import Setlec.TTVerify.Inst
 import Setlec.TTVerify.Certs
 import Setlec.Verify.InferLemmas
@@ -177,18 +178,67 @@ theorem proj_tele_typed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     exact (ConstantInfo.ctorInfo.inj (Option.some.inj hfind)).1
   exact certs_typed m φ hcl ihd ihi _ _ T hcerts hw hb hC hi hargs
 
+/-- The pinned pair constructor's telescope, **unpacked**: a
+`TeleTyped` walk over `PSigma'.mk`'s stored type at a four-argument
+spine yields exactly `projFstMk`/`projSndMk`'s four premises.
+
+That it comes out exactly is not luck — the instantiated pinned type is
+`∀ (α : Sort u) (β : α → Sort v) (fst : α) (snd : β fst), PSigma' α β`
+(computed, not read off the source), whose four telescope domains *are*
+the rule's four premises.  The observation that motivated task #126
+(§10.1) was this alignment, read in the other direction. -/
+theorem psigmaMk_tele_premises {cval : TConstVal} {env : Env}
+    {φ : Name → Nat} {d : Nat} {Δ : List VExpr} {us : List Level}
+    {A B a b : Expr} {xs : List VExpr} {rest : Expr}
+    (h : TeleTyped cval env φ d Δ
+      (psigmaMkA.toConstantVal.type.instantiateLevelParams
+        psigmaMkA.toConstantVal.levelParams us) [A, B, a, b] xs rest) :
+    ∃ VA VB Va Vb,
+      denote cval env φ d A = some VA ∧
+      denote cval env φ d B = some VB ∧
+      denote cval env φ d a = some Va ∧
+      denote cval env φ d b = some Vb ∧
+      HasType Δ VA (.sort ((Level.subst psigmaMkA.toConstantVal.levelParams us
+        (.param uNT)).eval φ)) ∧
+      HasType Δ VB (arrow VA (.sort ((Level.subst
+        psigmaMkA.toConstantVal.levelParams us (.param vNT)).eval φ))) ∧
+      HasType Δ Va VA ∧
+      HasType Δ Vb (.app VB Va) := by
+  simp only [psigmaMkA, ConstantInfo.toConstantVal, uNT, vNT,
+    Expr.instantiateLevelParams] at h ⊢
+  -- α : Sort u
+  cases h with | cons hty1 harg1 hx1 _ _ hbA h => ?_
+  rw [denote_sort] at hty1
+  obtain rfl := Option.some.inj hty1
+  -- β : α → Sort v
+  inst_simp at h
+  cases h with | cons hty2 harg2 hx2 _ _ hbB h => ?_
+  rw [denote_forallE, harg1] at hty2
+  simp only [Expr.instantiate1, denote_sort] at hty2
+  obtain rfl := Option.some.inj hty2
+  -- fst : α
+  inst_simp at h
+  cases h with | cons hty3 harg3 hx3 _ _ hba h => ?_
+  -- the third domain is `A` itself: `A` is scoped (a spine argument),
+  -- so the outer instantiation passed through it untouched
+  rw [Expr.instantiate1_eq_self hbA] at hty3
+  obtain rfl : _ = _ := Option.some.inj (hty3.symm.trans harg1)
+  -- snd : β fst
+  inst_simp at h
+  cases h with | cons hty4 harg4 hx4 _ _ _ h => ?_
+  -- likewise the fourth domain `B a`: `B` is scoped
+  rw [denote_app, Expr.instantiate1_eq_self hbB, harg2, harg3] at hty4
+  obtain rfl := Option.some.inj hty4
+  exact ⟨_, _, _, _, harg1, harg2, harg3, harg4, hx1, hx2, hx3, hx4⟩
+
 /-- **The projection reduction step.**  Given the pinned pair's four
 telescope premises, a projection of a constructor application is
 `Deq`-equal to the selected field.
 
-The premises are stated rather than extracted because that is where
-they *come from*: task #126's certification, through
-`projTeleCert_inv` and `certs_typed`, produces exactly this list as a
-`TeleTyped` over `PSigma'.mk`'s stored type
-(`∀ (α : Sort u) (β : α → Sort v) (fst : α) (snd : β fst), …`), whose
-four telescope domains **are** these four premises.  Unpacking that
-walk into them is mechanical; it is the clause's remaining plumbing,
-not a further obligation. -/
+The premises come from task #126's certification, through
+`projTeleCert_inv`, `certs_typed` and `psigmaMk_tele_premises` above —
+the last of which unpacks the `TeleTyped` walk into exactly this
+list. -/
 theorem proj_reduction_step {Δ : List VExpr} {u v : Nat}
     {VA VB Va Vb : VExpr}
     (hA : HasType Δ VA (.sort u))
