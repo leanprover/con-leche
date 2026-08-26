@@ -145,10 +145,20 @@ inductive VExpr where
   | pi (ty body : VExpr)
   /-- `let _ : ty := value; body` -/
   | letE (ty value body : VExpr)
-  /-- `@Eq ty lhs rhs`.  `ty` is carried for readability and for the
-  denotation to be syntax-directed; it is *semantically inert* (see
-  `Setlec/TT/Semantics/Interp.lean`), which is what lets the equational
-  rules omit all type-formation premises. -/
+  /-- `@Eq ty lhs rhs`.
+
+  **`ty` is never checked.**  It is carried so that the eventual
+  denotation of `@Eq A a b` is transparently `eqE A a b`, but the
+  interpretation reads only `lhs` and `rhs`
+  (`⟦eqE T a b⟧ = eqv ⟦a⟧ ⟦b⟧`, `Setlec/TT/Semantics/Interp.lean`), so
+  soundness never constrains it.  That is exactly what lets the
+  equational rules of `Setlec/TT/Judgment.lean` omit all
+  type-formation premises — and it is a trap if you assume otherwise:
+  when adding a rule, do **not** expect `ty` to relate the two sides,
+  and do not add a premise merely to make it look well-formed.  Every
+  equational rule accordingly leaves its `T` slots unconstrained, which
+  hand-written derivations must annotate (see
+  `Setlec/TT/Examples.lean`). -/
   | eqE (ty lhs rhs : VExpr)
   /-- the canonical (irrelevant) proof of a derivable equation -/
   | prf

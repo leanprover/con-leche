@@ -164,13 +164,20 @@ Proofs of equations have no structure: the single constant `VExpr.prf`
 inhabits every derivable equation, which is harmless because `eqE _ _ _`
 is always a `Prop` and proof irrelevance is a rule.
 
-**Observation for a future simplification.**  The type slot `T` of
+**Ruling (2026-08-26): the type slot stays.**  The type slot `T` of
 `eqE` is *semantically inert* — soundness never reads it — so the
 equational rules leave it unconstrained, and hand-written derivations
 must annotate it.  Dropping the slot entirely (making the layer's
 equality heterogeneous) would be sound and would make the bridge
-obligation slightly weaker.  It was kept so that the bridge's
-denotation of `@Eq A a b` is transparently `eqE A a b`.
+obligation marginally weaker; it was considered and **rejected**.  The
+bridge's denotation of `@Eq A a b` being transparently `eqE A a b` is
+worth more than the annotation burden, which is paid in hand-written
+derivations rather than in the bridge.
+
+The inertness is recorded in the constructor's own doc comment, because
+a field that looks constraining but is not is a trap for whoever next
+writes a rule: **do not** expect `ty` to relate the two sides, and do
+not add a premise merely to make it look well-formed.
 
 ### 2.4 Rules carry exactly the premises soundness consumes
 
@@ -230,6 +237,40 @@ Dropping them removes the two most index-heavy dependent types from
 equality proof along an equation between its own sides, and `Eq.rec`
 would not be derivable.  This is the kind of gap the design stage is
 for.
+
+### 3.1 The two standard axioms, in primitive form
+
+`propext` and `choice` are stated **without the modeled inductives that
+Lean's versions mention** — no `Iff`, no `Nonempty`:
+
+```
+propext    : ∀ (A B : Prop), (A → B) → (B → A) → A = B
+choice.{u} : ∀ (A : Sort u), ¬¬A → A
+```
+
+**Ruling (2026-08-26): this is the right form.**  Mirroring Lean's
+statements would bake modeled-inductive shapes into a layer whose whole
+premise is that such things unfold (§2.1).  The obligation this pushes
+onto the bridge is the *easy* direction in both cases.
+
+* `Iff` unfolds to a structure; its two projections give the two
+  implications, so the stream's `propext` follows from the primitive.
+* `choice` is the one worth writing out, because
+  `∀ (A : Sort u), ¬¬A → A` is **not** literally
+  `Classical.choice : Nonempty α → α` and a reader will rightly worry
+  that the difference is a coverage hole.  It is not.  The bridge needs
+  `Nonempty A → A`, and it gets there by deriving `Nonempty A → ¬¬A`:
+  `Nonempty` is `Prop`-valued, so after unfolding, its recursor
+  eliminates into `False`, and the implication is **constructive**.
+  Composing with the primitive gives `Nonempty A → A`.  Note the
+  asymmetry: this is the easy direction — recovering the primitive
+  *from* `Nonempty A → A` would need classical reasoning — so the
+  layer's form is if anything slightly *stronger* than Lean's, which is
+  exactly what the upper-bound principle of §2.1 permits.
+
+  (Semantically, `⟦¬¬A⟧` is inhabited iff `⟦A⟧ ≠ ∅`: if `⟦A⟧ = ∅` then
+  `⟦¬A⟧ = piC ∅ _ = {pt}` is inhabited and applying the proof lands in
+  `∅`.  That is `exists_mem_of_dneg`, and it is what feeds `schoice`.)
 
 `Empty` is deliberately **level-polymorphic** (`Empty.{u} : Sort u`,
 interpreted as `∅` at every level, which `empty_mem_univ` supports), so
@@ -483,11 +524,25 @@ of the layer as it stands.
 
 ## 8. Where the work relocates (bridge obligations, not done here)
 
-The layer does not shrink the total verification effort; it changes its
-*shape*, from model reasoning to rule application, with a bridge in
-between.  Say that plainly rather than overselling it.  Both paths
-coexist until the bridge is complete, and **no existing model proof
-should be deleted** on the strength of this layer.
+**The honest headline: the win so far is real but narrow.**  Real:
+
+* `AnnotOk` has **no counterpart** in the layer, because the
+  interpretation is total (§6) — the checker's truthfulness predicate
+  exists only to reconstruct, at every binder, facts that a typing
+  derivation supplies for free;
+* the substitution metatheory is **two semantic lemmas**
+  (`interp_liftN`, `interp_inst`) rather than lean4lean's **123
+  syntactic ones**, about a third of its declarative layer;
+* the `app` rule hands soundness the `⟦a⟧ ∈ ⟦A⟧` fact that every
+  reduction proof in the checker currently has to re-establish and
+  re-consume, because the collapsed `app` is non-invertible.
+
+Narrow: the layer does not shrink the total verification effort; it
+changes its *shape*, from model reasoning to rule application, with a
+bridge in between — and **the bridge now carries the whole burden**.
+Say that plainly rather than overselling it.  Both paths coexist until
+the bridge is complete, and **no existing model proof may be deleted**
+on the strength of this layer.
 
 The denotation function from a real `Env` + `Expr` into `VExpr` now
 carries the whole burden:

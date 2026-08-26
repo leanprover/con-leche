@@ -10,6 +10,13 @@ even the official kernel, together with a machine-checked consistency proof:
 This document records the design decisions. It was distilled from the initial
 project prompt and is updated as decisions evolve.
 
+**See also** `Setlec/TT/DESIGN.md` — the declarative type-theory layer
+(task #74). It is a *separate module hierarchy* with its own design record:
+`Setlec/TT/{Syntax,Subst,Const,Judgment}` import nothing from the checker, and
+`Setlec/TT/Semantics/*` import only `Setlec/SetTheory/*`. Nothing here imports
+it yet; it is the intended future target of the checker's verification, with a
+bridge (denotation of a real `Env`+`Expr` into `VExpr`) still to be built.
+
 **Project goal** (set 2026-08-19): the lean kernel arena *tutorial* tests
 (except those involving custom axioms) are accepted by the checker, and the
 checker is verified to be consistent.
