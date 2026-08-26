@@ -500,27 +500,171 @@ premise.  Correspondingly the β case of soundness is three tactic
 lines: `app_lamC` fires on domain membership alone under the collapse,
 and the membership is the IH.
 
-## 7. Deferred: literal computation (a known future obligation)
-
-**Not built in this pass, by direction, and named here so that it is not
-discovered after the soundness proof.**
+## 7. Literal computation: derived, not built in
 
 The checker accepts `Nat.add 12345 67890 = 80235` through certified GMP
-fast paths (`reduceNat`, and the pinned `add/sub/mul/pow/beq/ble` plus
-the WF family `div/mod/gcd/land/lor/xor/shiftLeft/shiftRight/log2`), and
-it expands `String` literals to their constructor form at three sites.
-Deriving those from `Nat`'s ι rules alone would be astronomically large
-derivations, so the layer will eventually need **built-in literal
-rules**: a `lit` constructor in `VExpr`, built-in constants for the
-pinned operations, and computation rules `natAdd (lit a) (lit b) ≐
-lit (a+b)` with the arithmetic done in the metalanguage's own `Nat`.
-They are justified in the model by exactly the certificates the checker
-already carries (`NatOpsOk`, `DivModOk`), so the work is bounded and
-known; it simply is not this pass.
+fast paths (`reduceNat`, the pinned structural family
+`pred/add/sub/mul/pow/beq/ble` and the pin-certified WF family
+`div/mod/gcd/land/lor/xor/shiftLeft/shiftRight/log2`), and it expands
+`String` literals to their constructor form at three sites.  An earlier
+draft of this section proposed handling that with **built-in literal
+rules** — a `lit` constructor in `VExpr`, built-in constants for the
+pinned operations, and rules `natAdd (lit a) (lit b) ≐ lit (a+b)`.
 
-Until then the bridge cannot denote a declaration whose acceptance went
-through a literal fast path.  This is the single largest coverage gap
-of the layer as it stands.
+**Ruling (2026-08-26): superseded.  No literal syntax, no literal
+constants, no literal rules.**  The layer gets the fast paths the same
+way the set model already gets them: prove the correspondence between
+the metalanguage's `Nat` and the object language's numerals, and then
+show — by *meta*-induction on the Lean-level `Nat` — that anything
+satisfying an operation's certified recurrences computes that operation
+on numerals.  `Setlec/TT/Nat/*` does this; `BConst`, `VExpr` and the
+rule set are untouched.
+
+### 7.1 Numerals, and why the derivations are not astronomically large
+
+`numeral : Nat → VExpr` is the unary constructor form, `Nat.succ`
+applied `n` times to `Nat.zero`.  Two disciplines make it usable:
+
+* it is a **definition to reason about, never to evaluate** — nothing
+  `decide`s it, `#eval`s it, or `simp`s with an equation that unfolds
+  it at a literal, and `numeral_zero`/`numeral_succ` are deliberately
+  not `@[simp]`;
+* `HasType` is a **`Prop`**, so every statement asserts the *existence*
+  of a derivation.  Instantiating a lemma at `12345` costs one
+  application, not 12345 constructor steps.  The 12345-step derivation
+  exists; it is never built.
+
+The typing correspondence is `hasType_numeral : Γ ⊢ numeral n : Nat`,
+a two-case meta-induction — the layer's counterpart of the model's
+`natLitVal_mem_nat`.
+
+### 7.2 The equations are `Deq`, and the slot is free
+
+`Deq Γ a b := ∃ T, Γ ⊢ prf : eqE T a b`.  The `eqE` type slot is
+semantically inert (§2.3), so threading an arbitrary slot through
+fifteen lemmas would be noise; `Deq.toHasType` re-slots at *any* type
+by applying `symm` twice, and `Deq.intro` goes the other way.  `Deq` is
+an equivalence relation with application congruence (`Deq.app`,
+`Deq.appFun`, `Deq.appArg`, `Deq.ap2`) and supports equality reflection
+directly (`Deq.conv`).
+
+**Strengthening of the §2.3 ruling: the slot is inert *derivationally*,
+not merely semantically.**  `Deq.toHasType` is the proof: from a
+derivation at one slot it produces a derivation at an arbitrary slot,
+because `symm` leaves its output slot unconstrained and two `symm`s
+return the equation's orientation.  So an equation derivable at one
+type slot is derivable at *every* type slot — a purely syntactic fact
+about the rule set, independent of the interpretation never reading
+`ty`.  This is what a future rule-writer needs to know, and it is
+sharper than "soundness never reads it": constraining a `T` slot in a
+new equational rule would constrain **nothing**, since the constraint
+is immediately discharged by re-slotting.  The existential in `Deq`
+therefore loses no information at all.
+
+### 7.3 The lemma shape: hypothetical over an arbitrary term
+
+**No lemma names an operation.**  Each is of the form "for every term
+`f` satisfying *these* equations, `f` computes *this* operation on
+numerals", e.g.
+
+```
+numeral_add :
+  (∀ a,   Γ ⊢ f (numeral a) 0            ≡ numeral a) →
+  (∀ a b, Γ ⊢ f (numeral a) (succ (numeral b))
+                                          ≡ succ (f (numeral a) (numeral b))) →
+  ∀ a b,  Γ ⊢ f (numeral a) (numeral b)   ≡ numeral (a + b)
+```
+
+This is what makes §7 independent of the question the rest of this
+document would otherwise force: *are the `Nat` operations built-in
+constants or unfolded stream definitions?*  It does not matter — the
+layer never mentions a particular one, so `Setlec/TT/Nat/*` imports
+only `Setlec/TT/*` and stays checker-free.
+
+Two shape decisions, both about pushing work away from the bridge:
+
+* **the hypotheses mirror the certified recurrences.**  They are
+  `Setlec/Kernel/Core.lean`'s `natOpEquations` and
+  `Setlec/Model/Interp.lean`'s `DivModClauses` — the very equations the
+  checker certifies at install (`certifyNatEqs`, and the pinned
+  certificates of `Setlec/PinGen/Certs.lean`) — so denoting a
+  certificate into the layer discharges a hypothesis almost verbatim.
+  Inventing a different-but-equivalent axiomatization would have been
+  gratuitous bridge work;
+* **the hypotheses are instantiated at numerals only.**  The model
+  states its recurrences for all members of the `Nat` value; the
+  induction only ever uses them at numerals, so that is all they
+  require.  Not even a `HasType` premise survives.
+
+The guarded families additionally take the guard's `Bool` values
+`tv`/`fv` as opaque terms and **never require them to be distinct**:
+each branch proves the guard equation it needs (via `numeral_ble` at
+`1`, `2` or the two arguments) and applies the matching clause.  That
+mirrors the model exactly, and it means no `Bool` machinery enters the
+layer.
+
+### 7.4 The proofs follow the set model
+
+The induction skeletons are `Setlec/Model/NatOps.lean` transposed from
+value equality to `Deq`: `natLit_add`/`natLit_sub`/… become
+`numeral_add`/`numeral_sub`/… (structural recursion), and
+`natOpVal_divmod`/`natOpVal_gcd`/… become `numeral_div`/`numeral_gcd`/…
+(meta-level strong induction, guard computed first).  The case splits
+and auxiliary bounds are the model's, lemma for lemma.
+
+One thing is re-proved rather than reused: the meta-level recurrences
+for Lean's own `Nat.land`/`Nat.lor`/`Nat.xor`.  `Setlec/PinGen/Certs.lean`
+proves the same three facts, so importing them was the obvious move and
+it was **deliberately rejected**, for two independent reasons.  First,
+the layer's whole premise is that it is checker-free (§1): a dependency
+on `SetlecPinCerts` would tie `Setlec/TT/*` to the checker's build
+graph — and to a Lake target that exists only because the pin generator
+needs a non-`module` library — for the sake of three arithmetic facts
+about the *metalanguage's* `Nat`, which have nothing to do with the
+checker at all.  Second, those proofs are written under a self-imposed
+austerity (no `simp`, no `decide`, only stream-prefix lemmas) that
+exists because they are elaborated against an early `Init.Prelude`
+region where `HAnd`/`testBit`/`Subsingleton` do not yet exist.  None of
+that constrains this layer, so inheriting it would import a
+justification that does not apply here.
+`Setlec/TT/Nat/WfOps.lean` derives them in three lines each from the
+public `Nat.bitwise_div_two_pow`/`bitwise_mod_two_pow`.
+
+**Rule, stated generally:** the layer re-proves metalanguage facts
+rather than importing them from anywhere in the checker's tree, however
+small the duplication.  A single import in the other direction would
+undo the separation the layer exists to create.
+
+### 7.5 What is exposed, and what remains
+
+`Setlec/TT/Nat/Numeral.lean`: `Deq` and its calculus, `ap2`, `numeral`,
+`hasType_numeral`.
+`Setlec/TT/Nat/Ops.lean`: `numeral_pred`, `numeral_add`, `numeral_sub`,
+`numeral_mul`, `numeral_pow`, `numeral_beq`, `numeral_ble`.
+`Setlec/TT/Nat/WfOps.lean`: `numeral_div`, `numeral_mod`, `numeral_gcd`,
+`numeral_shiftLeft`, `numeral_shiftRight`, `numeral_log2`,
+`numeral_land`, `numeral_lor`, `numeral_xor`.
+`Setlec/TT/Nat/Examples.lean`: the instantiations, including
+`f 12345 67890 ≡ 80235`.
+
+**Remaining, for the bridge (§8.4), not for this layer:**
+
+* discharging the hypotheses — denote each stored operation's certified
+  recurrence into the layer.  This is the whole of the remaining work
+  for `Nat`, and it is the direction the certificates already point;
+* `Nat.beq`/`Nat.ble`'s `tv`/`fv` must be denoted to whatever the
+  unfolded `Bool` constructors are; the layer is agnostic;
+* **`String` literals need nothing here.**  `strLitToConstructor`
+  expands a string literal to `String.ofList [Char.ofNat n₁, …]` over
+  stored (modeled) constants, and those unfold in the layer (§2.1), so
+  the denotation of a string literal simply *is* the denotation of its
+  expansion — with the embedded `Nat` literals denoting to `numeral`.
+  There is no induction to do, because the expansion is finite and
+  explicit and no recursive operation on strings has a certified fast
+  path.
+
+The layer's largest coverage gap is therefore no longer literal
+computation.
 
 ## 8. Where the work relocates (bridge obligations, not done here)
 
