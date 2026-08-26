@@ -3756,6 +3756,28 @@ Two structural facts about this block, both consequences of the layer
   it does the same; so where `PUnit` needed `punitRecUnit`, `Eq` needs
   only the β-chain it already has.
 
+  **That is a long-range payoff, and worth the cross-reference before
+  it is lost.**  `Eq.rec` is absent from `BConst` because it is
+  *derivable* — `eqRec_derivable` in `Setlec/TT/Examples.lean`,
+  established in the layer's first week (`Setlec/TT/DESIGN.md`, "Four
+  constants of the checker's basis are absent because they are
+  derivable"), on the argument that transport is the identity and
+  `congrEq` retypes the canonical proof.  That decision was made to
+  *shrink `BConst`* and remove the most index-heavy dependent types
+  from `BConst.type`.  Its bill comes due here, months later, in a
+  currency nobody was pricing at the time: **the block whose eliminator
+  the layer declined to carry is the block whose install has no
+  computation obligation.**  Cheap `BConst` then, cheap basis install
+  now.
+
+`Eq.refl` lands with it: `λ α a. prf`, typed by `HasType.refl` and
+`conv`'d along `eqValT_law` **backwards** — the law is used in both
+directions within the same block, which is the sense in which stating
+it as a law rather than as a valuation equation (§11's ruling) was the
+load-bearing choice.  `substFn_param_self` is the small fact every
+basis type needs: a declaration read at its *own* level parameters is
+read at the ambient assignment.
+
 **The computation needed a per-constructor `instantiate1` kit.**
 `denote` opens every binder with `instantiate1` at cut `0`, so a basis
 type's computation walks it once per node — and unfolding the

@@ -889,5 +889,80 @@ theorem extendEqTT {env : Env} (m : EnvTT env)
     exact eqValT_law hA ha hb
 
 
+/-- A declaration read at its *own* level parameters is read at the
+ambient assignment.  Every basis constant's type mentions its siblings
+this way. -/
+theorem substFn_param_self (φ : Name → Nat) :
+    ∀ (ks : List Name), Level.substFn φ ks (ks.map Level.param) = φ := by
+  intro ks
+  induction ks with
+  | nil => funext n; rfl
+  | cons k ks ih =>
+    funext n
+    by_cases h : k = n
+    · subst h; simp [Level.substFn, Level.eval]
+    · simp only [List.map_cons, Level.substFn, if_neg h]
+      exact congrFun ih n
+
+/-- `Eq.refl`, installed. -/
+theorem extendEqReflTT {env : Env} (m : EnvTT env)
+    (hE : env.find? eqName = some eqA)
+    (hEv : ∀ ψ : Name → Nat, m.cval eqName ψ = eqValT ψ)
+    (hfresh : env.find? eqReflName = none)
+    (hwf : EnvWF ⟨eqReflA :: env.consts⟩) :
+    Nonempty (EnvTT ⟨eqReflA :: env.consts⟩) := by
+  have hEc : ∀ (d : Nat) (φ : Name → Nat),
+      denote (cvalSet m.cval eqReflA.name eqReflValT)
+        ⟨eqReflA :: env.consts⟩ φ d (.const eqName [.param uNT])
+        = some (eqValT φ) := by
+    intro d φ
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hE]
+    simp only [show ([Level.param uNT] : List Level).length
+      = eqA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalSet_ne (by decide),
+      show Level.substFn φ eqA.toConstantVal.levelParams [Level.param uNT]
+        = φ from substFn_param_self φ [uNT], hEv]
+  refine extendBasisTT m (val := eqReflValT) (by decide) (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name eqReflA = eqReflName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp)
+    hfresh hwf (fun _ => by
+      simp only [eqReflValT, VExpr.Closed, VExpr.bvarsBelow]
+      exact ⟨trivial, by omega, trivial⟩) ?_ ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [eqReflValT, eqReflValT,
+      hp uNT (by show uNT ∈ [uNT]; exact List.mem_cons_self)]
+  · intro φ
+    refine ⟨.pi (.sort (φ uNT)) (.pi (.bvar 0)
+      (VExpr.mkAppN (eqValT φ) [.bvar 1, .bvar 0, .bvar 0])), ?_, ?_⟩
+    · rw [denoteClosed,
+        show eqReflA.toConstantVal.type
+          = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+              (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+                (.app (.app (.app (.const eqName [.param uNT]) (.bvar 1))
+                  (.bvar 0)) (.bvar 0)) { bi := .default })
+              { bi := .implicit } from rfl]
+      simp [denote_forallE, denote_sort, denote_app, denote_fvar, Level.eval,
+        hEc, VExpr.mkAppN]
+    · refine .lam (.lam ?_)
+      have hα : HasType [VExpr.bvar 0, VExpr.sort (φ uNT)] (.bvar 1)
+          (.sort (φ uNT)) := by
+        have := HasType.bvar (Γ := [VExpr.bvar 0, VExpr.sort (φ uNT)])
+          (i := 1) (A := .sort (φ uNT)) (by simp)
+        simpa using this
+      have ha : HasType [VExpr.bvar 0, VExpr.sort (φ uNT)] (.bvar 0)
+          (.bvar 1) := by
+        have := HasType.bvar (Γ := [VExpr.bvar 0, VExpr.sort (φ uNT)])
+          (i := 0) (A := VExpr.bvar 0) (by simp)
+        simpa [VExpr.liftN] using this
+      exact HasType.conv (HasType.refl (T := VExpr.bvar 1))
+        ((eqValT_law hα ha ha).symm.toHasType (VExpr.bvar 1))
+
+
 end Setlec.TTVerify
 
