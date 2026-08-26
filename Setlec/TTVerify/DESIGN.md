@@ -3648,6 +3648,32 @@ So: **Empty as the pilot** (it validates the driver and nothing else),
 **PUnit as the first real block** (§14.5's item 2, now confirmed by
 measurement rather than by guess), Quot last and priced on its own.
 
+#### FLAG: four vacuous discharges are not four confirmations
+
+`extendBasisTT`'s `hheadProj` and `hheadProjPair` have been discharged
+by **constructor disjointness** in every block so far — `Empty`,
+`PUnit`, `Eq` and `Nat` install no `projInfo`, so `ci = .projInfo entry`
+is impossible and the obligations cost a `nomatch`.
+
+By this document's own house rule that is **not evidence they are
+stated correctly**: an obligation discharged vacuously has never been
+*consumed*, so its shape is still a conjecture — the same status the
+four derived λ-towers had before `Eq` elaborated them.  `PSigma'` is
+the only block that installs `projInfo`s (`pairFst`, `pairSnd`), so it
+is the first and only test of both clauses.
+
+Flagged before writing it, on the same discipline as the constructor
+level question (§14.4) and `Nat.rec`'s recursive occurrence: **if the
+clauses are shaped wrong, `PSigma'` is where it shows**, and a
+non-event there is only informative because it was predicted here.
+
+One thing already known from reading the declarations, which the
+clauses will have to fit: a `projInfo`'s `toConstantVal` is
+`⟨projFnName e.structName e.idx, e.levelParams, e.ty⟩` — the entry
+carries *its own* type, rather than borrowing the parent's, so the
+`htype` obligation reads `e.ty` and the two pinned entries are
+`native := true`.
+
 **Four of six landed** — `Empty`, `PUnit`, `Eq`, `Nat` — at ~2 230
 lines of `DeclBasis.lean` against the model's ~5 950 for the same four
 blocks.  The ratio holds at the 2.8× `PUnit` measured, and the shared
