@@ -172,6 +172,10 @@ termination obligation to discharge.
 
 ### The rest of the transposition
 
+**Every semantic-law field of `EnvModel` now has a transpose.**  What
+remains of the correspondence is `ind_ok`'s pair/`PUnit` facts, whose
+four λ-tower denotations land with their consumers (§11).
+
 `EnvTT env` is `EnvModel env` field for field, **with one documented
 exception** — `cval_closed`, which has no counterpart at all and is not
 an incidental well-formedness condition; see the row and §7:
@@ -190,7 +194,8 @@ an incidental well-formedness condition; see the row and §7:
 | `caps_ok : CapsOk` | `caps_ok : CapsOkTT` — **done**, fired form, same argument |
 | `proj_ok : ProjOk` | `proj_ok : ProjOkT` — **done**, *verbatim* (the clause is syntactic) |
 | `ind_ok`'s pinned-valuation clause | `basis_pinned : BasisPinnedTT` — **done** for the constants the layer carries; the four it derives are fired laws landing with their consumers |
-| `ind_ok`'s remaining clauses, `nat_ops`, `div_mod`, `reduce_ops` | stage 2; recipe in `EnvTT.lean` |
+| `nat_ops`, `div_mod`, `reduce_ops` | **done**, all three in the fired form |
+| `ind_ok`'s pair/`PUnit` facts | stage 2; the four λ-tower denotations land with their consumers (§11) |
 
 Two rows carry the whole idea.  `mem_type` becomes a typing judgment —
 that is the only change of substance.  And `AnnotOk` **disappears**:

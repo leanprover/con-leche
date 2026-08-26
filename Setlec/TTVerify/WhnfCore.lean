@@ -219,8 +219,13 @@ theorem psigmaMk_tele_premises {cval : TConstVal} {env : Env}
   -- fst : α
   inst_simp at h
   cases h with | cons hty3 harg3 hx3 _ _ hba h => ?_
-  -- the third domain is `A` itself: `A` is scoped (a spine argument),
-  -- so the outer instantiation passed through it untouched
+  -- The third domain is `A` itself: `A` is scoped (a spine argument),
+  -- so the outer instantiation passes through it untouched.  Note the
+  -- shape — the side condition is discharged by a hypothesis
+  -- `TeleTyped.cons` already carries.  That is what a *correct* design
+  -- looks like when a side condition surfaces, and is how the next one
+  -- should be read: not an obstacle, the walk's own premises doing
+  -- their job.
   rw [Expr.instantiate1_eq_self hbA] at hty3
   obtain rfl : _ = _ := Option.some.inj (hty3.symm.trans harg1)
   -- snd : β fst

@@ -57,13 +57,10 @@ the corresponding clause of the fuel induction is proved:
   rather than the tower one;
 * ~~`proj_ok`~~ — **done**, as `ProjOkT` above, verbatim;
 * ~~`caps_ok`~~ — **done**, as `CapsOkTT` above, in the fired form;
-* `nat_ops : NatOpsOk` and `div_mod : DivModOk` — the certified
-  recurrences, whose TT form is exactly the hypothesis shape of
-  `Setlec/TT/Nat/*` (`Deq` equations at numerals): the bridge denotes
-  the checker's own certificate and hands it to `numeral_add` and
-  friends, which are hypothetical over an arbitrary `f : VExpr` and
-  therefore need no constant of their own in the layer;
-* `reduce_ops : ReduceOpsOk` — the compiler-trust identity, likewise.
+* ~~`nat_ops`~~ and ~~`reduce_ops`~~ — **done**, as `NatOpsTT` and
+  `ReduceOpsTT` above, in the fired form;
+* ~~`div_mod`~~ — **done**, as `DivModTT` above.  With it, every
+  semantic-law field of `EnvModel` has a transpose.
 
 They are listed here rather than left implicit because an invariant
 that is quietly missing a clause is the classic way for a bridge like
@@ -335,6 +332,145 @@ theorem BasisPinnedTT.empty (cval : TConstVal) :
   intro n ci t h
   simp [Env.find?, Env.empty] at h
 
+/-- **The compiler-trust opaques are the identity**, fired.  Transpose
+of `ReduceOpsOk`: where the model says
+`app (val c ψ) x = x` for every member `x` of the element type, the
+bridge says the application is `Deq` to its argument, for every
+argument *derivably* of that type.
+
+Consumed at the `ofReduce*` axioms' install, which is what makes their
+types inhabited (task #95). -/
+def ReduceOpsTT (env : Env) (cval : TConstVal) : Prop :=
+  ∀ c ∈ reduceOpNames, ∀ cv, env.find? c = some (.axiomInfo cv) →
+    ConstantVal.matchesPin cv (reduceOpCvA c) = true →
+    (env.find? (reduceElemName c)).isSome = true ∧
+    ∀ (φ : Name → Nat) (Δ : List VExpr) (X : VExpr),
+      HasType Δ X (cval (reduceElemName c) φ) →
+      Deq Δ (.app (cval c φ) X) X
+
+theorem ReduceOpsTT.empty (cval : TConstVal) : ReduceOpsTT Env.empty cval := by
+  intro c hc cv h
+  simp [Env.find?, Env.empty] at h
+
+/-- **The structural-`Nat` operations satisfy their recurrences**,
+fired.  Transpose of `NatOpsOk`.
+
+`natOpEquations 0 c` is stated over two `fvar`s at indices `0` and `1`,
+both of type `Nat`, so its transpose is a `Deq` at **depth 2** in the
+context `[Nat, Nat]` — an *open* equation, exactly as the model's is
+open over two valuations.
+
+**Consumers close it object-level, not with the substitution
+algebra** (`Setlec/TTVerify/DESIGN.md` §5): `lam` twice — it carries no
+domain premise, so this is free — then `app` twice at the numerals, so
+the rule's own `B.inst a` performs the instantiation *in the type*,
+then two `symm`s to restore the `prf` subject.  That is what hands
+`Setlec/TT/Nat/*` its hypotheses at numerals without any lifting
+lemma. -/
+def NatOpsTT (env : Env) (cval : TConstVal) : Prop :=
+  ∀ c ∈ natOpNames, ∀ cv v hint, env.find? c = some (.defnInfo cv v hint) →
+    natOpGuard env c = true ∧
+    ∀ eq ∈ natOpEquations 0 c, ∀ (φ : Name → Nat) (L R : VExpr),
+      denote cval env φ 2 eq.1 = some L →
+      denote cval env φ 2 eq.2 = some R →
+      Deq [cval natName φ, cval natName φ] L R
+
+theorem NatOpsTT.empty (cval : TConstVal) : NatOpsTT Env.empty cval := by
+  intro c hc cv v hint h
+  simp [Env.find?, Env.empty] at h
+
+/-- The derivable clauses of a pin-certified WF-recursive operation,
+mirroring `DivModClauses` (`Setlec/Model/Interp.lean`) clause for
+clause with `=` between values replaced by `Deq` between terms.
+
+Purely term-level — no denotation of an expression appears — so, like
+the original, environment transports touch only the guard and lookup
+side of `DivModTT`. -/
+def DivModClausesTT (cval : TConstVal) (c : Name) (φ : Name → Nat)
+    (Δ : List VExpr) (x y : VExpr) : Prop :=
+  let vT := cval boolTrueName φ
+  let vF := cval boolFalseName φ
+  let one : VExpr := .app (cval natSuccName φ) (cval natZeroName φ)
+  let two : VExpr := .app (cval natSuccName φ) one
+  let ble2 : VExpr → VExpr → VExpr :=
+    fun a b => .app (.app (cval natBleName φ) a) b
+  let op2 : VExpr → VExpr → VExpr := fun a b => .app (.app (cval c φ) a) b
+  let sub2 : VExpr → VExpr → VExpr :=
+    fun a b => .app (.app (cval natSubName φ) a) b
+  let add2 : VExpr → VExpr → VExpr :=
+    fun a b => .app (.app (cval natAddName φ) a) b
+  let mul2 : VExpr → VExpr → VExpr :=
+    fun a b => .app (.app (cval natMulName φ) a) b
+  let div2 : VExpr → VExpr → VExpr :=
+    fun a b => .app (.app (cval natDivName φ) a) b
+  let mod2 : VExpr → VExpr → VExpr :=
+    fun a b => .app (.app (cval natModName φ) a) b
+  if c = natGcdName then
+    (Deq Δ (ble2 one x) vT → Deq Δ (op2 x y) (op2 (mod2 y x) x)) ∧
+    (Deq Δ (ble2 one x) vF → Deq Δ (op2 x y) y)
+  else if c = natShiftLeftName then
+    (Deq Δ (ble2 one y) vT → Deq Δ (op2 x y) (op2 (mul2 two x) (sub2 y one))) ∧
+    (Deq Δ (ble2 one y) vF → Deq Δ (op2 x y) x)
+  else if c = natShiftRightName then
+    (Deq Δ (ble2 one y) vT →
+      Deq Δ (op2 x y) (div2 (op2 x (sub2 y one)) two)) ∧
+    (Deq Δ (ble2 one y) vF → Deq Δ (op2 x y) x)
+  else if c = natLog2Name then
+    (Deq Δ (ble2 two x) vT →
+      Deq Δ (.app (cval c φ) x)
+        (.app (cval natSuccName φ) (.app (cval c φ) (div2 x two)))) ∧
+    (Deq Δ (ble2 two x) vF →
+      Deq Δ (.app (cval c φ) x) (cval natZeroName φ))
+  else if c = natLandName then
+    (Deq Δ (ble2 one x) vT →
+      Deq Δ (op2 x y) (add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (mul2 (mod2 x two) (mod2 y two)))) ∧
+    (Deq Δ (ble2 one x) vF → Deq Δ (op2 x y) (cval natZeroName φ))
+  else if c = natLorName then
+    (Deq Δ (ble2 one x) vT →
+      Deq Δ (op2 x y) (add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (sub2 (add2 (mod2 x two) (mod2 y two))
+          (mul2 (mod2 x two) (mod2 y two))))) ∧
+    (Deq Δ (ble2 one x) vF → Deq Δ (op2 x y) y)
+  else if c = natXorName then
+    (Deq Δ (ble2 one x) vT →
+      Deq Δ (op2 x y) (add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (mod2 (add2 (mod2 x two) (mod2 y two)) two))) ∧
+    (Deq Δ (ble2 one x) vF → Deq Δ (op2 x y) y)
+  else
+    -- `Nat.div` / `Nat.mod`
+    (Deq Δ (ble2 y x) vT → Deq Δ (ble2 one y) vT →
+      Deq Δ (op2 x y)
+        (if c = natDivName then .app (cval natSuccName φ) (op2 (sub2 x y) y)
+         else op2 (sub2 x y) y)) ∧
+    (Deq Δ (ble2 y x) vF →
+      Deq Δ (op2 x y)
+        (if c = natDivName then cval natZeroName φ else x)) ∧
+    (Deq Δ (ble2 one y) vF →
+      Deq Δ (op2 x y)
+        (if c = natDivName then cval natZeroName φ else x))
+
+/-- **The pin-certified WF-recursive operations satisfy their guarded
+recurrences**, fired.  Transpose of `DivModOk`; the last of the
+semantic-law fields.
+
+Where the model quantifies over *members of the `Nat` value*, the
+bridge quantifies over terms *derivably of `Nat`* — the same move as
+every other fired field.  `reduceNat`'s soundness consumes these by
+meta-level strong induction on the literal, which is what
+`Setlec/TT/Nat/WfOps.lean` is written against. -/
+def DivModTT (env : Env) (cval : TConstVal) : Prop :=
+  ∀ c ∈ natDivModNames, ∀ cv v hint,
+    env.find? c = some (.defnInfo cv v hint) →
+    natOpGuard env c = true ∧
+    ∀ (φ : Name → Nat) (Δ : List VExpr) (x y : VExpr),
+      HasType Δ x (cval natName φ) → HasType Δ y (cval natName φ) →
+      DivModClausesTT cval c φ Δ x y
+
+theorem DivModTT.empty (cval : TConstVal) : DivModTT Env.empty cval := by
+  intro c hc cv v hint h
+  simp [Env.find?, Env.empty] at h
+
 /-- A *derivation model* of an environment: a type-theory term for
 every constant (a function of the level-parameter assignment), such
 that the environment is well-formed, each valuation reads only its own
@@ -423,6 +559,17 @@ structure EnvTT (env : Env) where
   layer-derived constants are covered by fired laws instead, and land
   with their consumers (§11). -/
   basis_pinned : BasisPinnedTT env cval
+  /-- Every stored structural-`Nat` operation satisfies its recurrence
+  equations derivably (`NatOpsTT`).  Transpose of
+  `EnvModel.nat_ops`. -/
+  nat_ops : NatOpsTT env cval
+  /-- Every stored pin-certified WF-recursive operation satisfies its
+  `ble`-guarded recurrences derivably (`DivModTT`).  Transpose of
+  `EnvModel.div_mod`. -/
+  div_mod : DivModTT env cval
+  /-- Every stored compiler-trust opaque is the identity on its element
+  type (`ReduceOpsTT`).  Transpose of `EnvModel.reduce_ops`. -/
+  reduce_ops : ReduceOpsTT env cval
 
 /-- The empty environment has a (trivial) derivation model. -/
 def EnvTT.empty : EnvTT Env.empty where
@@ -440,6 +587,9 @@ def EnvTT.empty : EnvTT Env.empty where
   caps_ok := CapsOkTT.empty _
   proj_ok := ProjOkT.empty
   basis_pinned := BasisPinnedTT.empty _
+  nat_ops := NatOpsTT.empty _
+  div_mod := DivModTT.empty _
+  reduce_ops := ReduceOpsTT.empty _
 
 /-! ## What the invariant delivers per declaration
 
