@@ -1305,4 +1305,87 @@ theorem denote_app1_inv {cval : TConstVal} {env : Env} {φ : Name → Nat}
       · exact nomatch hf
   · exact nomatch h
 
+/-- A binary application's denotation, split. -/
+theorem denote_app2_inv {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d : Nat} {c : Name} {a b : Expr} {v : VExpr}
+    (h : denote cval env φ d (.app (.app (.const c []) a) b) = some v) :
+    ∃ ci va vb, env.find? c = some ci ∧
+      ci.toConstantVal.levelParams = [] ∧
+      denote cval env φ d a = some va ∧
+      denote cval env φ d b = some vb ∧ v = ap2 (cval c φ) va vb := by
+  rw [denote_app] at h
+  split at h
+  · next vf vb hf hb =>
+    obtain ⟨ci, va, hfc, hlp, ha, rfl⟩ := denote_app1_inv hf
+    exact ⟨ci, va, vb, hfc, hlp, ha, hb, by rw [← Option.some.inj h]; rfl⟩
+  · exact nomatch h
+
+/-! ### The unary clause
+
+`Nat.succ` folding, `Nat.pred` and `Nat.log2`.  The fourth branch —
+a capless `log2` on a literal — throws, so it cannot reach here. -/
+
+/-- The `Nat.succ` fold. -/
+theorem reduceNat_succ_eq {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel d : Nat} {Δ : List VExpr} {a a0 : Expr} {n : Nat} {v : VExpr}
+    (ihw : WhnfClaimsTT m φ fuel) (hnat : natLitSupported env = true)
+    (hwa : whnf env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
+    (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded a) (hC : CtxOk m.cval env φ d Δ a)
+    (hv : denote m.cval env φ d (.app (.const natSuccName []) a)
+      = some v) :
+    ∃ w, denote m.cval env φ d (.lit (.natVal (n + 1))) = some w ∧
+      Deq Δ v w := by
+  obtain ⟨ci, va, hfc, hlp, ha, rfl⟩ := denote_app1_inv hv
+  refine ⟨numeral (n + 1), denote_natLit_numeral m φ hnat d (n + 1), ?_⟩
+  rw [cval_natSuccT m φ hnat, numeral_succ, natSuccT]
+  exact Deq.appArg (arg_numeral m φ ihw hnat hwa hraw hws hb hLb hC ha)
+
+/-- A guarded operation is stored as a definition. -/
+theorem natOp_stored {env : Env} {c : Name} (hg : natOpGuard env c = true)
+    (hc : c ∈ natOpDeps c) :
+    ∃ cv v hh, env.find? c = some (.defnInfo cv v hh) := by
+  obtain ⟨-, hdeps⟩ := natOpGuard_deps hg
+  obtain ⟨cv, v, hh, hf, -⟩ := hdeps c hc
+  exact ⟨cv, v, hh, hf⟩
+
+/-- The `Nat.pred` fast path. -/
+theorem reduceNat_pred_eq {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel d : Nat} {Δ : List VExpr} {a a0 : Expr} {n : Nat} {v : VExpr}
+    (ihw : WhnfClaimsTT m φ fuel) (hg : natOpGuard env natPredName = true)
+    (hwa : whnf env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
+    (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded a) (hC : CtxOk m.cval env φ d Δ a)
+    (hv : denote m.cval env φ d (.app (.const natPredName []) a)
+      = some v) :
+    ∃ w, denote m.cval env φ d (.lit (.natVal (n - 1))) = some w ∧
+      Deq Δ v w := by
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvP, vP, hhP, hfP⟩ := natOp_stored hg (by decide)
+  obtain ⟨ci, va, hfc, hlp, ha, rfl⟩ := denote_app1_inv hv
+  refine ⟨numeral (n - 1), denote_natLit_numeral m φ hnat d (n - 1), ?_⟩
+  refine Deq.trans (Deq.appArg
+    (arg_numeral m φ ihw hnat hwa hraw hws hb hLb hC ha)) ?_
+  exact natOps_pred_closed m φ hfP n
+
+/-- The `Nat.log2` fast path. -/
+theorem reduceNat_log2_eq {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel d : Nat} {Δ : List VExpr} {a a0 : Expr} {n : Nat} {v : VExpr}
+    (ihw : WhnfClaimsTT m φ fuel) (hg : natOpGuard env natLog2Name = true)
+    (hwa : whnf env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
+    (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded a) (hC : CtxOk m.cval env φ d Δ a)
+    (hv : denote m.cval env φ d (.app (.const natLog2Name []) a)
+      = some v) :
+    ∃ w, denote m.cval env φ d (.lit (.natVal (Nat.log2 n))) = some w ∧
+      Deq Δ v w := by
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvL, vL, hhL, hfL⟩ := natOp_stored hg (by decide)
+  obtain ⟨ci, va, hfc, hlp, ha, rfl⟩ := denote_app1_inv hv
+  refine ⟨numeral (Nat.log2 n),
+    denote_natLit_numeral m φ hnat d (Nat.log2 n), ?_⟩
+  refine Deq.trans (Deq.appArg
+    (arg_numeral m φ ihw hnat hwa hraw hws hb hLb hC ha)) ?_
+  exact natOps_log2_closed m φ hfL n
+
 end Setlec.TTVerify
