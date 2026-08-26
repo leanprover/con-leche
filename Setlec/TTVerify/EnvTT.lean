@@ -264,15 +264,16 @@ Another deliberate duplicate of a `V`-free definition stranded in
 `Setlec/Model/Interp.lean`; see `EtaFamilyStoredT` for the relocation
 note and for why importing `Setlec/Model/*` here is the wrong fix. -/
 def ProjOkT (env : Env) : Prop :=
-  ∀ n entry, env.find? n = some (.projInfo entry) →
+  (∀ n entry, env.find? n = some (.projInfo entry) →
     entry.native = true →
     (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
     env.find? psigmaName = some psigmaA ∧
-    env.find? psigmaMkName = some psigmaMkA
+    env.find? psigmaMkName = some psigmaMkA) ∧
+  ∀ i entry, env.find? (projFnName psigmaName i) = some (.projInfo entry) →
+    entry.native = true
 
 theorem ProjOkT.empty : ProjOkT Env.empty := by
-  intro n entry h
-  simp [Env.find?, Env.empty] at h
+  refine ⟨?_, ?_⟩ <;> (intro n entry h; simp [Env.find?, Env.empty] at h)
 
 /-- Every stored recursor rule's constructor is itself stored.  A
 seventh `V`-free duplicate (`Setlec/Model/IndModel.lean`); see

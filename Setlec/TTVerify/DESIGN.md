@@ -413,14 +413,13 @@ inductions on the set-model side too.
 | `WhnfClaimsTT` | **closed** |
 | `InferClaimsTT` | **closed** |
 | `WhnfCoreClaimsTT` | **closed** |
-| `DefEqClaimsTT` | closed modulo `PairEtaCertStepTT` alone (**blocked on task #130, §13**) |
+| `DefEqClaimsTT` | **closed** |
 
-**`CheckStepTT` is therefore one hypothesis away from proved**, and the
-hypothesis is a single named certificate: `checkStepTT_pairEta`
-(`Setlec/TTVerify/MajorStep.lean`) takes `PairEtaCertStepTT` at every
-fuel level and returns `CheckStepTT`.  When #130 lands, the edit is to
-replace that argument with the discharged lemma and delete the
-parameter; nothing else in the hierarchy moves.
+**`CheckStepTT` is proved** (`checkStepTT`, `Setlec/TTVerify/MajorStep.lean`),
+with no outstanding hypothesis, and `checkClaimsTT` gives the four claim
+families at every fuel.  Task #130 closed the last one; the edit was
+exactly the predicted one — replace the parameter with
+`pairEtaCert_stepTT` and delete it.
 
 The three `WhnfCoreClaimsTT` chain links closed with no surprises, and
 two of them are §2's identity a third time: `litMajorToCtor` and
@@ -435,6 +434,33 @@ the three Booleans of the scope guard `majorToCtor` already runs
 fabrication's *denotation* is exactly what the synthetic-spine
 `iotaCerts` of task #71 produces once `certs_typed` transposes it.
 Neither guard was added for the bridge.
+
+### `CheckDeclTT`, in progress
+
+The dispatch is proved (`checkDeclTT_of`, `Setlec/TTVerify/DeclStep.lean`):
+six obligations, one per constructor of `Declaration`, each stated as
+`checkDecl` restricted to that shape — §8.6's permitted *input-space*
+restriction, not a body slice.  `DeclThmTT` is discharged
+(`Setlec/TTVerify/DeclThm.lean`) through the shared value-carrying
+install `extendValueTT`, which `DeclDefnTT` and `DeclOpaqueTT` will
+reuse.
+
+Two more §12.10 clauses came back while writing it, and both were
+*over-strong hypotheses* rather than missing facts:
+
+* **`LitAgree` and `Installs`' two level-parameter clauses are now
+  conditional on the guard.**  The unconditional form was not merely
+  inconvenient, it was **false**: nothing in `checkConstantVal` forbids
+  a `def` named `List.nil`, and the string-support names are pinned,
+  not reserved.  Under the guard every one of the seven is *stored*,
+  hence not the fresh name — so `Installs.of_fresh` now costs a caller
+  exactly one hypothesis, which is what an install lemma should cost.
+* **`EnvTT` gained `rec_ctors`.**  `RecCtorsStoredT` was dropped as
+  "syntactic, no consumer", and `EnvTT.cons` promptly took it as a
+  *hypothesis* — a consumer found and then billed to the caller rather
+  than to the invariant.  A `theorem` install has no recursors of its
+  own and cannot prove anything about the ones already stored, so the
+  fact belongs to the environment.
 
 Discharged inside `WhnfCoreClaimsTT`: `LitMajorToCtorStepTT`,
 `ProjLitToCtorStepTT`, `MajorToCtorStepTT` — hence `IotaStepTT` and
@@ -2780,12 +2806,14 @@ dropped on a policy argument was eventually needed.**  The rule still
 discriminates — it just discriminates by making you write the consumer,
 and the consumer for this one was two hundred lemmas downstream.
 
-## 13. BLOCKED: `pairEtaCert` does not certify its own type arguments
+## 13. CLOSED (task #130): `pairEtaCert` certifies its own type arguments
 
-The one obligation of `CheckStepTT` that cannot be discharged as the
-checker and the layer now stand.  Everything below is the full stack,
-because the conclusion is a request for a decision, not a report of a
-missing lemma.
+**Resolved.**  Requested here, granted, implemented as task #130
+(`DESIGN.md`, "`pairEtaCert` certifies its own type arguments"), and
+discharged by `pairEtaCert_stepTT` (`Setlec/TTVerify/PairEtaStep.lean`).
+The analysis is kept in full because it is the record of *why* a
+checker change was the right repair, and because §13.5 below
+generalises one of the implementer's decisions into a standing rule.
 
 ### The obligation
 
@@ -2903,3 +2931,72 @@ Recommendation: **(A)**, with the `projParamCert` spelling rather than
 a fresh `iotaCerts` call, because the conversion lemma already exists
 and because it makes the pair's two certificates (projection and η)
 consume the same evidence.
+
+### 13.4 What landed, and the one thing that surprised the bridge
+
+(A), verbatim: `pairEtaCert` now ends with
+`projParamCert entry us' [A, B]`, and `pairEtaCert_inv` gained the two
+conjuncts `env.findProj? c' 0 = some entry` and the certificate's
+verdict.  The bridge side is the shape the *other three* certificates
+in `stuckIrrel` already had, and `projEntry_tele_premises` — written
+for #129's `.proj` clause — was reused **unchanged**.
+
+Two implementer decisions were better than what the request asked for:
+
+* **The certificate runs at `us'`, the type's levels, not `us`, the
+  constructor's.**  `A` and `B` are `PSigma'.{us'}`'s arguments and
+  `psigmaEta` names its premises at the levels of `p`'s type, so
+  instantiating the entry at `us'` lands them where the rule wants
+  them.  The bridge therefore needs **no `isEquiv` transport** on the
+  premises — the `isEquivList us us'` verdict is used only for the
+  constructor *head*, where it was already needed.  A request that had
+  specified `us` would have cost a level-transport lemma for nothing.
+* **Failure is `pure false` and the call sits last.**  Generalised
+  below.
+
+**One thing the request did not anticipate.**  `ProjOkT` identifies a
+stored entry as one of the two pinned ones only when
+`entry.native = true`, and `pairEtaCert` — unlike `inferBody`'s `.proj`
+clause — never reads `native`.  So the bridge could not get
+`entry = pairFstEntry ∨ entry = pairSndEntry` from the invariant as it
+stood.  The fix was on the bridge side and is §12.10 yet again:
+`ProjOkT` gained a second clause, *the projection-table entries at the
+pinned pair are native*, which is true because `psigmaName` is reserved
+so no modeled block can install a template entry under it.  Recorded
+because it is the same lesson in a new place: **an invariant guarded by
+a condition the consumer does not check is not available to that
+consumer**, and the guard has to be discharged by the environment, not
+by the call site.
+
+### 13.5 STANDING RULE: a certificate's failure mode follows its position
+
+The implementer's second deviation, hoisted out of #130 because a
+future certificate author will not find it there.
+
+> **A certificate on a *checking* path throws; a certificate in a
+> *rescue cascade* returns `false`.**
+
+`inferBody`'s `.proj` clause (#129) is on a checking path: reaching it
+means the input claims to be a projection, and a failed parameter
+certificate means the input is bad, so `.invalid` is right and the
+error message is informative.  `pairEtaCert` is one attempt in
+`stuckIrrel`'s cascade — tried in *both* argument orders, then four
+more certificates, then proof irrelevance.  Throwing there would reject
+inputs that the reverse direction or a later certificate still accepts:
+the failure is not the input's, it is this attempt's.
+
+Two corollaries, both used in #130:
+
+* **Position follows the same rule.**  A soft-failing certificate added
+  to a cascade should go **last**, after the checks that were already
+  there.  The verdict is identical either way, but running it last
+  means it only fires on rescues that would otherwise have succeeded,
+  and it leaves every existing call's error behaviour untouched — so
+  the change cannot turn an accept into a *crash*, only into a
+  rejection that the cascade then tries to rescue elsewhere.
+* **The bridge cannot tell the difference and must not try.**  Both
+  spellings give the bridge the same hypothesis (`… = .ok true`), so
+  this rule is entirely about the checker's verdict behaviour on
+  *inputs the bridge never sees*.  That is precisely why it belongs in
+  a written rule rather than in a proof: nothing in the verification
+  would have caught the wrong choice.

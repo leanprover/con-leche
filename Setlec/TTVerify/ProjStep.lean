@@ -120,7 +120,7 @@ theorem infer_proj_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
   obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hf, hnat, hlen, husl,
     hcert, hres⟩ := inferTypeCore_proj_inv h
   obtain ⟨hpin, hpsig, hpsigMk⟩ :=
-    m.proj_ok _ _ (Env.findProj?_some hf) hnat
+    m.proj_ok.1 _ _ (Env.findProj?_some hf) hnat
   -- the entry's stored name pins the head and the index
   have hidx : entry.idx = i ∧ entry.structName = T := by
     have h1 := List.find?_some (Env.findProj?_some hf)
@@ -320,7 +320,7 @@ theorem proj_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
           Deq.proj i (hD₂.trans hD₃)⟩
       · -- the reduction: the scrutinee is a pair constructor
         obtain ⟨hpin, hpsig, hpsigMk⟩ :=
-          m.proj_ok _ _ (Env.findProj?_some hfp) hnat
+          m.proj_ok.1 _ _ (Env.findProj?_some hfp) hnat
         have hctor : entry.ctor = psigmaMkName := by
           rcases hpin with rfl | rfl <;> rfl
         have hnP : entry.numParams = 2 := by

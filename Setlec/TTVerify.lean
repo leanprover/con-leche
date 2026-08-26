@@ -24,6 +24,7 @@ import Setlec.TTVerify.StuckStep
 import Setlec.TTVerify.EtaCertStep
 import Setlec.TTVerify.StuckIrrelStep
 import Setlec.TTVerify.StructEtaCertStep
+import Setlec.TTVerify.PairEtaStep
 import Setlec.TTVerify.LitCtorStep
 import Setlec.TTVerify.MajorStep
 import Setlec.TTVerify.Extend
@@ -31,6 +32,7 @@ import Setlec.TTVerify.Consistency
 import Setlec.TTVerify.HasTypeSubst
 import Setlec.TTVerify.DeclStep
 import Setlec.TTVerify.DeclValue
+import Setlec.TTVerify.DeclThm
 
 /-!
 # The TTVerify bridge (task #119)

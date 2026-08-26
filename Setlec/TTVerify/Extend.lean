@@ -1098,7 +1098,9 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
     (hhead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
       (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
       env.find? psigmaName = some psigmaA ∧
-      env.find? psigmaMkName = some psigmaMkA) :
+      env.find? psigmaMkName = some psigmaMkA)
+    (hheadPair : ∀ i entry, c₀ = .projInfo entry →
+      c₀.name = projFnName psigmaName i → entry.native = true) :
     ProjOkT ⟨c₀ :: env.consts⟩ := by
   have step : ∀ entry,
       ((entry = pairFstEntry ∨ entry = pairSndEntry) ∧
@@ -1111,13 +1113,20 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
     refine ⟨h1, ?_, ?_⟩
     · rw [Env.find?_cons_of_isSome hfresh (by rw [h2]; rfl)]; exact h2
     · rw [Env.find?_cons_of_isSome hfresh (by rw [h3]; rfl)]; exact h3
-  intro n entry hf hnat
-  by_cases hn : c₀.name = n
-  · subst hn
-    rw [Env.find?_cons, if_pos rfl] at hf
-    exact step entry (hhead entry (Option.some.inj hf) hnat)
-  · rw [Env.find?_cons, if_neg hn] at hf
-    exact step entry (h n entry hf hnat)
+  refine ⟨?_, ?_⟩
+  · intro n entry hf hnat
+    by_cases hn : c₀.name = n
+    · subst hn
+      rw [Env.find?_cons, if_pos rfl] at hf
+      exact step entry (hhead entry (Option.some.inj hf) hnat)
+    · rw [Env.find?_cons, if_neg hn] at hf
+      exact step entry (h.1 n entry hf hnat)
+  · intro i entry hf
+    by_cases hn : c₀.name = projFnName psigmaName i
+    · rw [Env.find?_cons, if_pos hn] at hf
+      exact hheadPair i entry (Option.some.inj hf) hn
+    · rw [Env.find?_cons, if_neg hn] at hf
+      exact h.2 i entry hf
 
 /-- The compiler-trust identities survive an install. -/
 theorem ReduceOpsTT.cons {env : Env} {cval cval' : TConstVal}
@@ -1446,6 +1455,8 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
       env.find? psigmaName = some psigmaA ∧
       env.find? psigmaMkName = some psigmaMkA)
+    (hheadProjPair : ∀ i entry, c₀ = .projInfo entry →
+      c₀.name = projFnName psigmaName i → entry.native = true)
     (hheadBasis : reservedBasisNames.contains c₀.name = true →
       (isBasisKind c₀ = true → c₀ = pinnedInfoT c₀.name) ∧
       ∀ (ψ : Name → Nat) (t : VExpr),
@@ -1483,7 +1494,7 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       rec_rules := RecRulesTT.cons m.rec_rules m.wf hi m.rec_ctors hheadRec
       caps_ok := CapsOkTT.cons m.caps_ok m.wf hi.fresh hi.ag hi.lit
         hheadEta hheadUnit
-      proj_ok := ProjOkT.cons m.proj_ok hi.fresh hheadProj
+      proj_ok := ProjOkT.cons m.proj_ok hi.fresh hheadProj hheadProjPair
       rec_ctors := RecCtorsStoredT.cons m.rec_ctors hi.fresh hheadCtors
       basis_pinned := BasisPinnedTT.cons m.basis_pinned hi hheadBasis
       nat_ops := NatOpsTT.cons m.nat_ops hi hheadNat

@@ -144,19 +144,19 @@ theorem majorToCtor_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     · exact (proofIrrel_stepTT m φ ihw ihi hpi hwsF hbf hLbF hws hb hLb hCF
         hC hw hv).symm
 
-/-! ## `CheckStepTT`, assembled
+/-! ## `CheckStepTT`, assembled — with no outstanding obligation
 
-All four quarters, with every obligation discharged except the one
-blocked certificate (`Setlec/TTVerify/DESIGN.md` §13, task #130).  The
-hypothesis below is stated **per fuel level**, which is where the fuel
-induction needs it: `checkSoundTT` threads it unchanged, so when #130
-lands the only edit is to replace the argument by
-`pairEtaCert_stepTT` and delete the parameter. -/
+All four quarters.  The last hypothesis, `PairEtaCertStepTT`, was
+carried as a parameter while task #130 was in flight
+(`Setlec/TTVerify/DESIGN.md` §13); #130 landed, `pairEtaCert_stepTT`
+discharges it, and the parameter is gone.
 
-/-- **`CheckStepTT`, modulo `PairEtaCertStepTT`.** -/
-theorem checkStepTT_pairEta
-    (hpe : ∀ (env : Env) (m : EnvTT env) (φ : Name → Nat) (fuel : Nat),
-      PairEtaCertStepTT m φ fuel) : CheckStepTT := by
+`CheckStepTT` is the `succ` case of the fuel induction, so with
+`checkSoundTT`'s `zero` case already proved this closes the four claim
+families at every fuel — the whole of stage 2's per-expression half. -/
+
+/-- **`CheckStepTT`, proved.** -/
+theorem checkStepTT : CheckStepTT := by
   intro env m φ fuel ihwc ihw ihd ihi
   have hc : ∀ n ψ, VExpr.Closed (m.cval n ψ) := m.cval_closed
   refine ⟨?_, ?_, ?_, ?_⟩
@@ -164,7 +164,14 @@ theorem checkStepTT_pairEta
       (majorToCtor_stepTT m φ hc ihw ihd ihi)
       (projLitToCtor_stepTT m φ ihw) ihwc ihw ihd ihi
   · exact whnf_claimsTT_closed m φ hc ihwc ihw
-  · exact defeq_claimsTT_pairEta m φ hc ihwc ihw ihd ihi (hpe env m φ fuel)
+  · exact defeq_claimsTT_pairEta m φ hc ihwc ihw ihd ihi
+      (pairEtaCert_stepTT m φ hc ihw ihd ihi)
   · exact infer_claimsTT_closed m φ hc ihw ihd ihi
+
+/-- **The four claim families, at every fuel.** -/
+theorem checkClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat) :
+    ∀ fuel : Nat, WhnfCoreClaimsTT m φ fuel ∧ WhnfClaimsTT m φ fuel ∧
+      DefEqClaimsTT m φ fuel ∧ InferClaimsTT m φ fuel :=
+  checkSoundTT checkStepTT m φ
 
 end Setlec.TTVerify

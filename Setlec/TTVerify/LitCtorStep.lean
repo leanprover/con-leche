@@ -1,4 +1,4 @@
-import Setlec.TTVerify.StructEtaCertStep
+import Setlec.TTVerify.PairEtaStep
 import Setlec.TTVerify.IotaStep
 
 /-!

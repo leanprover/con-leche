@@ -208,7 +208,8 @@ theorem extendValueTT {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       rw [hc₀name] at hn; exact (cvalAt_ne hn).symm)
   refine ⟨EnvTT.cons m hi hwf ?_ ?_ ?_ ?_ ?_ ?_
     (fun cv2 mI rP rules heq => absurd heq (hc₀nrec cv2 mI rP rules))
-    ?_ hheadEta ?_ ?_ ?_ hheadNat hheadDivMod hheadReduce⟩
+    ?_ hheadEta ?_ ?_ (fun _ entry heq _ => absurd heq (hc₀nproj entry)) ?_
+    hheadNat hheadDivMod hheadReduce⟩
   · -- the new valuation is closed
     intro ψ
     obtain ⟨v, t, hv, -, -⟩ := hkey ψ
