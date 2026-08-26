@@ -1,5 +1,5 @@
 name = "setlec"
-defaultTargets = ["Setlec", "SetlecTT", "setlec"]
+defaultTargets = ["Setlec", "SetlecTT", "SetlecTTV", "setlec"]
 testDriver = "SetlecTests"
 
 # The pin-generator's certificate theorems (Setlec/PinGen/Certs.lean) are
@@ -24,6 +24,14 @@ extraDepTargets = ["SetlecPinCerts"]
 [[lean_lib]]
 name = "SetlecTT"
 roots = ["Setlec.TT"]
+
+# The TTVerify bridge (task #119): the denotation of a real `Env`+`Expr`
+# into the declarative layer, the transposed environment invariant, and
+# the acceptance theorem.  Imports `Setlec` and `SetlecTT`; nothing in
+# the checker imports it back.
+[[lean_lib]]
+name = "SetlecTTV"
+roots = ["Setlec.TTVerify"]
 
 [[lean_lib]]
 name = "SetlecTests"
