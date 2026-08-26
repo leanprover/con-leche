@@ -1433,6 +1433,25 @@ is pinned by `natOpGuard` — which is what the dependency list is *for*.
 The nine branches are written out because the dependency lists differ
 per operation; nothing else about them differs.
 
+`denote_params_ext` completes the family of "what the denotation
+reads" lemmas — `denote_mono` (environment grows), `denote_env_shrink`
+(environment shrinks, for stored terms), `denote_cval_congr`
+(valuation changes), and now the level assignment.  It is the fact an
+install needs to store `⟦value⟧` as the new constant's valuation and
+still satisfy `val_params`, so it is a prerequisite of every case, not
+just of the definition cases.
+
+Its literal clauses want to know that the literal-support constants
+carry no level parameters, and they take that from the **branch
+condition** rather than from an inversion lemma: `denote` only builds
+`natLitT` when `natLitSupported` holds, and the guard's own shape
+checks say `levelParams.isEmpty`.  `List.nil`/`List.cons` are the two
+slots that do have a parameter, and there the substituted level is
+`Level.zero`, which no assignment can see.  That is the third time the
+guard has turned out to carry what a proof needed (after the guard
+congruences and the `DivMod` names), and it is not a coincidence: the
+guards exist to pin exactly the constants the denotation reads.
+
 A gotcha worth one line, because it cost time and gives no useful
 error: in `rcases hc with _ | ⟨-, hc⟩` on a `List.Mem`, the `-` clears
 the *head element* of the list — here `c₀` — and with it every
