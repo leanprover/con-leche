@@ -1550,6 +1550,28 @@ where it leaves the fewest unproved steps outside it.** An obligation
 is a promise about what remains; a promise that leaves debris around it
 is worse than a larger promise that does not.
 
+**Where a checker body may be factored at all** (learned by producing a
+non-composable lemma and withdrawing it within the hour):
+
+> **A checker body factors into lemmas exactly where the *checker*
+> factors into functions.**
+
+`whnfLoop`/`whnfStep` and `defeqLoop`/`defeqStep` factor, so the loop
+lemmas do — one budget induction each, with the continuation
+abstracted, because the checker abstracted it first.  The moves
+*inside* `defeqStep` do not factor: they are sequential, each
+consuming the residual hypothesis the previous `split` left, and that
+residual is a tail of an anonymous `do` block with nothing to name it
+with.  A lemma ending after two moves can return the facts it derived
+but not the residual, so the next move cannot start where it stopped.
+
+The practical consequence: `stuckIrrel` is a named function, so that is
+where the obligation sits; the four moves before it are not, so
+`defeqStep`'s claim is one proof.  Trying to slice it finer produces
+lemmas that are true, compile, and have no possible consumer — the
+"shim at a use site" tell (§0) reaching its limit case, where there is
+no use site at all.
+
 **The same question from the estimation side** (learned the hard way in
 §12.7, and recorded here because it belongs with the boundary rule):
 **estimate an obligation from the checker function it inverts, not from

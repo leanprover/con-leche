@@ -164,58 +164,32 @@ theorem whnfCore_package {env : Env} (m : EnvTT env) (φ : Name → Nat)
     fun l hl => hLb l (whnfCore_fvarLeaves m.wf fuel hw l hl),
     CtxOk.of_subset (whnfCore_fvarLeaves m.wf fuel hw) hC⟩
 
-/-- **`defeqStep`'s opening**: either the syntactic short-circuit
-settles it outright, or both sides reduce and the rest of the step
-runs on the reducts.
+/-! ### A lemma withdrawn, and why
 
-Stated as a disjunction rather than threaded, because that is what the
-checker does — the `a == b` test is a *verdict*, not a reduction — and
-because the second disjunct is exactly the package every later move
-consumes.  Note the signature reads only `ihwc`: the later moves' own
-hypotheses belong to the later moves. -/
-theorem defeqStep_reduce {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (ihwc : WhnfCoreClaimsTT m φ fuel)
-    {d : Nat} {k : Expr → Expr → CheckM Bool}
-    {Δ : List VExpr} {a b : Expr}
-    (h : defeqStep (pureFns env fuel) env d k a b = .ok true)
-    (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
-    (hLa : Expr.LeavesBounded a)
-    (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded b)
-    (hCa : CtxOk m.cval env φ d Δ a) (hCb : CtxOk m.cval env φ d Δ b)
-    {va vb : VExpr} (hva : denote m.cval env φ d a = some va)
-    (hvb : denote m.cval env φ d b = some vb) :
-    Deq Δ va vb ∨ ∃ a' b' va' vb',
-      whnfCore env fuel d a = .ok a' ∧ whnfCore env fuel d b = .ok b' ∧
-      denote m.cval env φ d a' = some va' ∧
-      denote m.cval env φ d b' = some vb' ∧
-      Deq Δ va va' ∧ Deq Δ vb vb' ∧
-      Expr.WScoped d a' ∧ a'.looseBVarsBounded 0 = true ∧
-      Expr.LeavesBounded a' ∧ CtxOk m.cval env φ d Δ a' ∧
-      Expr.WScoped d b' ∧ b'.looseBVarsBounded 0 = true ∧
-      Expr.LeavesBounded b' ∧ CtxOk m.cval env φ d Δ b' := by
-  simp only [defeqStep, Bind.bind, Except.bind, whnfCore_def] at h
-  split at h
-  · next hab =>
-    refine Or.inl ?_
-    obtain rfl : a = b := eq_of_beq hab
-    obtain rfl : va = vb := by rw [hva] at hvb; exact Option.some.inj hvb
-    exact Deq.refl
-  · cases hwca : whnfCore env fuel d a with
-    | error err => rw [hwca] at h; exact nomatch h
-    | ok a' =>
-    rw [hwca] at h
-    dsimp only at h
-    cases hwcb : whnfCore env fuel d b with
-    | error err => rw [hwcb] at h; exact nomatch h
-    | ok b' =>
-    rw [hwcb] at h
-    dsimp only at h
-    obtain ⟨va', hva', hDa, hwa', hba', hLa', hCa'⟩ :=
-      whnfCore_package m φ ihwc hwca hwa hba hLa hCa hva
-    obtain ⟨vb', hvb', hDb, hwb', hbb', hLb', hCb'⟩ :=
-      whnfCore_package m φ ihwc hwcb hwb hbb hLb hCb hvb
-    exact Or.inr ⟨a', b', va', vb', rfl, rfl, hva', hvb', hDa, hDb,
-      hwa', hba', hLa', hCa', hwb', hbb', hLb', hCb'⟩
+A `defeqStep_reduce` briefly lived here: "either the syntactic
+short-circuit settles it, or both sides reduce and here is the
+package".  It was true, it compiled, and it is **not composable** — so
+it is gone rather than left as scaffolding.
+
+The reason is worth a line because it will recur wherever a checker
+body is a `do` block.  `defeqStep`'s moves are *sequential*: each one
+consumes the residual hypothesis left by the previous `split`.  A lemma
+that ends after two moves can hand back the facts it derived, but it
+cannot hand back **the residual**, because the residual is a tail of an
+anonymous `do` block and there is nothing to name it with.  So the next
+move cannot start where it stopped.
+
+> **A checker body factors into lemmas exactly where the *checker*
+> factors into functions.**  `whnfLoop`/`whnfStep` and
+> `defeqLoop`/`defeqStep` factor, so the loop lemmas do.  The moves
+> *inside* `defeqStep` do not, so they cannot.
+
+That is the same fact as §8.6's boundary rule, seen from the inside of
+a body rather than at an obligation: `stuckIrrel` is nameable and so it
+is where the obligation sits; the four moves before it are not, so
+`defeqStep`'s claim is one proof.
+
+`whnfCore_package` survives the withdrawal because it is not a *stage*
+of the step but a *fact about a reduct*, and every move wants it. -/
 
 end Setlec.TTVerify
