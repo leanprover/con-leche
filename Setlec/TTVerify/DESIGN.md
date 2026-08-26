@@ -2654,3 +2654,34 @@ only when the fire site can prove what it assumes.
 The change itself (field, transport, fire site) lands as one commit;
 the transport gets *easier*, since a produced denotation moves forward
 with `Installs.denoteUp` where a hypothesised one needed `denoteDown`.
+
+### 12.10 The iota assembly, and a second clause the field was missing
+
+`IotaStepTT` is proved (`Setlec/TTVerify/IotaStep.lean`), modulo the
+chain's two links.  The assembly is `iotaRec_inv` → split the spine at
+the major → run the three-link chain → `rec_rules_fire` → reassemble,
+and the only step that is not bookkeeping is the last `Deq`: the redex
+as written and the redex with its major in constructor form differ in
+**one spine position**, so `VExpr_mkAppN_snoc` and `Deq.appArg` bridge
+them.
+
+Writing it surfaced a second missing clause, by the same route as
+§12.9's: the reduct is `rhs` applied to `e.getAppArgs.take rP ++ …`,
+and identifying that prefix with the certified spine needs `rP ≤ mI`.
+`EnvWF` has it **only for nested rules**; `RecRulesOk` has it for every
+fireable one.  So `RecRulesTT` gained it, and the pattern is worth
+naming because it is now three for three:
+
+> **When a clause is missing, the model's corresponding field already
+> has it.**
+
+`RecRulesOk` has four clauses the bridge's transposition initially
+dropped as "not needed by the fire site" — the `AnnotOk` one genuinely
+is not (no counterpart), but the other three were needed and had to be
+put back one at a time, each discovered by an assembly that could not
+close.  The lesson is not "copy the model", which §0 already says; it
+is sharper: **a field's clause list is a claim about what installs
+must prove, and dropping one is a claim that no consumer needs it —
+which is only checkable by writing the consumer.**  Transposing a
+field is therefore not finished when it typechecks; it is finished when
+its consumers do.

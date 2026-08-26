@@ -1112,6 +1112,7 @@ theorem RecRulesTT.cons {env : Env} {cval cval' : TConstVal}
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hhead : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
+      rP ≤ mI ∧
       ∀ (φ : Name → Nat) (d : Nat) (us : List Level),
         us.length = cv.levelParams.length →
         ∃ R, denote cval' ⟨c₀ :: env.consts⟩ φ d
@@ -1142,17 +1143,20 @@ theorem RecRulesTT.cons {env : Env} {cval cval' : TConstVal}
               (VExpr.mkAppN R
                 (xs.take rP ++ ys.drop (RecRule.ctorParams rl)))) :
     RecRulesTT ⟨c₀ :: env.consts⟩ cval' := by
-  intro n cv mI rP rules hf rl hrl hfire φ d us hlenU
+  intro n cv mI rP rules hf rl hrl hfire
   by_cases hn : c₀.name = n
   · subst hn
     rw [Env.find?_cons, if_pos rfl] at hf
-    exact hhead cv mI rP rules (Option.some.inj hf) rl hrl hfire φ d us hlenU
+    exact hhead cv mI rP rules (Option.some.inj hf) rl hrl hfire
   · rw [Env.find?_cons, if_neg hn] at hf
     -- the rule's constructor is stored already, so it is not `c₀`
     obtain ⟨cvj2, cnP2, cnF2, hfc2⟩ := hctors n cv mI rP rules hf rl hrl
     have hnc : c₀.name ≠ RecRule.ctor rl :=
       ne_of_isSome_fresh hi.fresh (by rw [hfc2]; rfl)
-    obtain ⟨R, hR, hlaw⟩ := h n cv mI rP rules hf rl hrl hfire φ d us hlenU
+    obtain ⟨hple, hbody⟩ := h n cv mI rP rules hf rl hrl hfire
+    refine ⟨hple, ?_⟩
+    intro φ d us hlenU
+    obtain ⟨R, hR, hlaw⟩ := hbody φ d us hlenU
     -- the right-hand side's denotation moves **forward**, which is what
     -- makes the produced form the easier one (§12.9)
     refine ⟨R, hi.denoteUp hR, ?_⟩
@@ -1321,6 +1325,7 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hheadRec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
+      rP ≤ mI ∧
       ∀ (φ : Name → Nat) (d : Nat) (us : List Level),
         us.length = cv.levelParams.length →
         ∃ R, denote cval' ⟨c₀ :: env.consts⟩ φ d

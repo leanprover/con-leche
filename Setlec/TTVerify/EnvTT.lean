@@ -107,6 +107,9 @@ def RecRulesTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     env.find? n = some (.recInfo cv mI rP rules) →
     ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
+    -- a fireable rule's prefix fits under the major's position
+    -- (`RecRulesOk`'s clause; `EnvWF` gives it only for nested rules)
+    rP ≤ mI ∧
     ∀ (φ : Name → Nat) (d : Nat) (us : List Level),
       us.length = cv.levelParams.length →
       -- **the rule's right-hand side denotes**, and this is a

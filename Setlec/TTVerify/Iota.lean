@@ -126,7 +126,7 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     exact (Option.some.inj hL).symm
   -- the field *produces* the right-hand side's denotation (§12.9)
   obtain ⟨RH, hRH, hlaw⟩ :=
-    m.rec_rules n cv mI rP rules hrec rl hrl hfire φ d us hlenR
+    (m.rec_rules n cv mI rP rules hrec rl hrl hfire).2 φ d us hlenR
   obtain rfl : R = VExpr.mkAppN RH
       (xs.take rP ++ ys.drop (RecRule.ctorParams rl)) := by
     rw [denote_mkAppN (DenoteSpine.append (hspR.take rP)
