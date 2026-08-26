@@ -183,14 +183,54 @@ no new termination argument, and it is exactly the sense in which
 "there is no separate ordering concept" — the incremental extension of
 the invariant *is* the stream-ordering fact.
 
-**Delta is not a rule of the type theory, and it is not a `refl`
-either: it is an equation between denotations that the invariant
-already carries.**  This supersedes the "a delta step becomes `refl` on
-the TT side, because `D` already unfolded" formulation of the original
-sketch.  The payoff is the same one — the reduction strategy drops out
-of the consistency argument — reached with less machinery: no
-unfolding, no well-founded recursion on the environment, and no
-termination obligation to discharge.
+### The design goal, and how delta realises it
+
+The motivation for this whole line of work was that **the checker's
+definitional-equality *unfolding strategy* should be irrelevant to the
+consistency argument** — that whether the kernel unfolds eagerly,
+lazily, by height, or not at all should not be visible to the proof
+that an accepted stream is consistent.  Delta is where that claim is
+cashed, so it is worth stating precisely what was reached.
+
+The original sketch predicted a delta step would become `refl` on the
+TT side, because the denotation had already unfolded.  **What is
+proved is stronger: delta is not a step at all.**
+`denote_delta_step` (`Setlec/TTVerify/WhnfCoreStep.lean`) concludes
+
+```
+denote cval env φ d e' = some v      -- the same `v`, not a `Deq`-equal one
+```
+
+for `e'` the unfolding of `e`.  Not "the two sides are provably equal",
+but "there are not two sides": `EnvTT.defn_eq` says a definition's
+valuation **is** its value's denotation, so `cval` performed the
+unfolding once, at install, and every later unfolding is invisible to
+the denotation.  Unfolding is therefore not *justified* by the layer;
+it is not *seen* by it.
+
+The difference matters for what the layer can be judged on.  A `refl`
+would mean the type theory has a delta rule whose proof happens to be
+trivial — and a reader would be entitled to ask what that rule costs,
+whether it is confluent with the others, what happens at a
+`thmInfo`.  There is no delta rule in `Setlec/TT/Judgment.lean` at all.
+Every other reduction clause of the bridge produces a `Deq` because the
+layer has a corresponding rule (β, ζ, ι, projection, η); delta produces
+none because the layer has no constants to unfold.
+
+That is the same trade as everywhere else in this section — the
+denotation absorbs what the layer does not model — and it is why the
+payoff arrives with *less* machinery than the sketch assumed: no
+unfolding recursion, no well-founded recursion on the environment, and
+no termination obligation to discharge.
+
+**The scope of the claim, stated honestly.**  What drops out is the
+*unfolding* strategy: which constants the checker chooses to unfold,
+when, and in what order, cannot affect the consistency argument,
+because no unfolding decision changes any denotation.  What does *not*
+drop out is the rest of `isDefEq` — its β/η/ι/projection steps each
+still have to produce a `Deq`, and those are the clauses of
+`DefEqClaimsTT`.  The claim is about delta, and delta is the part the
+reference kernels spend their heuristics on.
 
 ### The rest of the transposition
 
@@ -1469,10 +1509,19 @@ helpers).  There is no `iotaRec_looseBVars` and no
 That is not an oversight in `Setlec/Verify/*`: the set model does not
 use standalone lemmas either.  Its `iota_sound`
 (`Setlec/Model/Core/Iota.lean`) *returns* all four frame conditions
-alongside the equation, as part of one conclusion — which is exactly
-the shape `IotaStepTT` was given, before that correspondence was
-noticed.  So the bridge's obligation is the right size; it is simply
-the same size as the model's, and the model spends 1300 lines on it.
+alongside the equation, as part of one conclusion.
+
+**`IotaStepTT` was given that shape before the correspondence was
+noticed**, and that is the point worth recording rather than the
+visibility change that led to it.  The obligation was sized by asking
+what the recursive `whnfCore` call needs; the model was sized by the
+same question years earlier; the two arrived at the same
+all-four-in-one-conclusion shape independently.  **Independent arrival
+at the same shape is the best evidence available that an obligation is
+right-sized** — better than either derivation alone, because neither
+was fitted to the other.  So the bridge's obligation is not oversized:
+it is the same size as the model's, and the model spends 1326 lines on
+it.
 
 One incidental catch: `denote_beta_step_certified` first carried an
 unused `{mb : BinderMeta}` implicit, copied from the λ's binder.  Lean
@@ -1627,6 +1676,16 @@ This is not three conveniences.  It is the checker and the denotation
 exactly the constants the corresponding denotation clause reads, so
 whenever a clause fires, its guard has already established everything
 that clause's meaning depends on.
+
+**Confirmed prospectively, which is what makes it a tool.**  The rule
+was written down after three retrospective sightings.  Its fourth use
+was the first *prospective* one: `denote_instLevels`'s literal clauses
+were expected to need `natLitSupported_inv`, the rule said to look at
+the guard instead, and the guard's own shape checks supplied
+`levelParams.isEmpty` directly — the `cval_of_isEmpty` helper built for
+`denote_params_ext` applied unchanged.  An observation that is checked
+after the fact is a pattern; one that is applied before the work and
+holds is a tool, and the difference is worth marking.
 
 **What it predicts**, which is the reason to write it down rather than
 note "we used the guard" three times: *for any future obligation about
