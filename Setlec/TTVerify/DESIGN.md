@@ -87,6 +87,19 @@ definition has the wrong *shape*; **repeated bookkeeping** at use sites
 says it is missing a *hypothesis*.  Both are read off the consumers,
 which is why the consumers are worth reading first.
 
+**And the practice has a final form, from the two ways it has been
+violated.**  §12.10's instances are clauses this bridge *dropped*
+against the set model's field, judging them consumerless; §14.4's
+`hheadRec` is quantification this bridge *added* against the same
+field, generalising where the model states a closed equality and does
+the level bookkeeping at the fire site.  The model's field was right
+in both directions.  So:
+
+> **Transpose the model's statement, not your reading of it.**  Where
+> the transpose deviates — a clause dropped, a quantifier widened —
+> that is a claim about the original, and it needs the same evidence
+> any other claim does.
+
 **The family, closed.**  A third member appeared later (§8.6's
 factoring rule) and completes it, because it is the limit case of the
 first: a lemma with **no possible consumer**.
@@ -95,12 +108,22 @@ first: a lemma with **no possible consumer**.
 |---|---|
 | a shim | the definition has the wrong **shape** |
 | the same bookkeeping repeated | it is missing a **hypothesis** |
+| a conjunct destructured to `-` | it was **offered** a hypothesis and declined it |
 | no use site can exist | it was **sliced where the code does not slice** |
 
-The third is the sharpest because it is not a matter of degree: a lemma
-that is true, compiles, and can never be applied is one that cut a
-sequential body at a point the body does not expose.  All three are
-read off the consumers — including, in the third case, off their
+The third is the second's mirror image and was found the same way
+(§14.4, the `hheadRec` narrowing): the inversion `iotaRec_inv` handed
+back the fire site's `isEquivList` guard as a conjunct, and the sole
+consumer was throwing it away with a `-` — while the invariant it fed
+quantified over exactly the levels that conjunct excludes.  Repeated
+bookkeeping says the abstraction is *missing* a hypothesis; a
+discarded conjunct at the only use site says one was *available* and
+the abstraction was stated without it.
+
+The fourth is the sharpest because it is not a matter of degree: a
+lemma that is true, compiles, and can never be applied is one that cut
+a sequential body at a point the body does not expose.  All four are
+read off the consumers — including, in the last case, off their
 absence.
 
 ### The second practice: measure rare shapes; the suite does not cover them
