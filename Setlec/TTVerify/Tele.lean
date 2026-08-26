@@ -10,9 +10,16 @@ corresponding (progressively instantiated) domain.
 
 This is the hypothesis of the fired modeled-iota contract
 (`Setlec/TTVerify/DESIGN.md` §8), and it is what the checker's
-`iotaCerts` discharges at the fire site.  It is also the shape the
-headline fact of §6 predicts is needed: one typing premise per
-argument, established where the rule fires.
+`iotaCerts` discharges at the fire site — **checked, before this
+predicate was built on**: `iotaCerts` walks the same telescope in the
+same order, instantiating `body.instantiate1 arg` as it goes, and per
+argument yields `infer` + `defeq`, which is `HasType Δ ⟦arg⟧ ⟦ty⟧` at
+that domain.  Exact, not a superset.  The set model's `certs_fit`
+(`Setlec/Model/Core/Certs.lean`) already performs this induction for
+`TeleFitI`, and `TeleTyped` demands strictly less than `TeleFitI` does.
+
+It is also the shape the headline fact of §6 predicts is needed: one
+typing premise per argument, established where the rule fires.
 
 Two things to notice against the original.
 

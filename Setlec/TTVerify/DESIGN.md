@@ -403,6 +403,13 @@ They are different properties and they come apart.  The app-argument
 re-check is the demonstration: skippable by the checker (the reference
 kernels skip it), and **permanent** for the bridge.
 
+**Note that the third column does not read "no" everywhere**, and that
+is the point: the last two rows come out differently.  A pattern that
+made every certificate permanent would be suspiciously convenient and
+worth less — a theory that explains every row explains none of them.
+The split below is what makes the five "no"s worth reading rather than
+motivated.
+
 | certificate | checker can skip | bridge can do without | status |
 |---|---|---|---|
 | app-argument re-check (`inferSpineI`) | yes — the 98.6 % | **no** | *established* (four routes closed) |
@@ -429,6 +436,41 @@ part:
 contract's telescope hypothesis wants one per argument.  All three are
 the same shape as `beta`'s premise, so the headline fact applies to
 all three.
+
+#### The `iotaCerts` prediction: tested early, and it holds
+
+Tested by *reading* rather than by proving, before the field statement
+was written — the asymmetry favoured it, since a failure would have
+invalidated a contract shape built on top of it.
+
+`iotaCerts` (`Setlec/Kernel/Core.lean`) walks a telescope one argument
+at a time, instantiating `body.instantiate1 arg` as it goes, and per
+argument produces exactly `infer arg = .ok ta` and
+`defeq ta ty = .ok true`.  Through `InferClaimsTT`, `DefEqClaimsTT` and
+`Deq.conv` that is `HasType Δ ⟦arg⟧ ⟦ty⟧` — precisely
+`TeleTyped.cons`'s typing premise, at precisely its domain.  **Same
+walk, same order, same arrangement: exact, not a superset and not
+adjacent.**
+
+The decisive corroboration is that **the set model already has this
+lemma**: `certs_fit` (`Setlec/Model/Core/Certs.lean`) builds `TeleFitI`
+from `iotaCertsP` by exactly this induction, via `iotaCerts_step_inv`.
+`TeleTyped` is `TeleFitI` with membership replaced by typing and **one
+premise fewer** (`AnnotOk` dropped), so it demands strictly less than
+what `iotaCerts` is already known to supply.
+
+*What this does and does not establish.*  It confirms the **positive**
+half — the checker computes exactly the facts the contract needs.  The
+**negative** half — that nothing else could supply them — still rests
+on the headline fact's argument, not on a mechanized proof, and the
+falsification test as set ("a clause discharges its rule's premises
+without the certificate") is only run when the clause is proved.  The
+other two rows are untested.
+
+*For the next increment*: `iotaCertsP` and `iotaCerts_step_inv` both
+live in `Setlec/Verify/*`, so they are importable from here.  The
+transposed `certs_typed` needs no re-derivation of the inversion — only
+the two substitutions (membership → typing, `AnnotOk` → nothing).
 
 **These are predictions, not re-verdicts.**  I have not reached those
 clauses.  They carry the same falsifiable status as the `iotaCerts`
