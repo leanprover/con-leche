@@ -519,9 +519,12 @@ binary is a category error.
   > A `Deq` in context `[A, A]` holds at any two terms of `A`, in any
   > context.
 
-  Nothing about `Nat` enters the proof, which is the evidence that the
-  recipe was the right abstraction rather than a `Nat` trick: the
-  statement did not have to be specialized to get it through.  Step 3
+  Nothing about `Nat` enters the proof.  That is the evidence the recipe
+  was an abstraction rather than a `Nat` trick, and the distinction is
+  worth stating precisely because the weaker version sounds the same:
+  not "we generalised it and it still worked", but **the general
+  statement is what the proof actually proves** — no specialization was
+  ever needed to get it through, and none could be removed afterwards.  Step 3
   of the recipe above is also simpler than written — `Deq.intro`
   accepts any proof term, so the two `symm`s the original sketch called
   for are unnecessary; the `eqE` slot being inert does the work
@@ -1840,10 +1843,30 @@ does not.  Spend the vigilance here.
 
 **The default when writing a hypothesis: ask what the proof actually
 reads, not what would obviously suffice.**  "Obviously suffices" is how
-all three arose. The three tells, in the order they are cheap to check:
-a hypothesis quantified more broadly than the conclusion needs; a
-hypothesis that subsumes the conclusion; and a clause duplicating one
-an adjacent field already carries.
+all three arose.
+
+**The three tells, sorted by whether a tool covers them** — which is
+the practical question, because it says where reading is the only
+option:
+
+| tell | caught mechanically? |
+|---|---|
+| quantified more broadly than the conclusion needs | **sometimes** — only if the excess makes the binder *unused*, which the unused-variable linter flags every time and for free |
+| subsumes the conclusion | **never** — the hypothesis is genuinely consumed, so nothing complains |
+| duplicates a clause an adjacent field carries | **never** — likewise consumed |
+
+The instance that produced this table: `Deq.close1` carried a
+closedness hypothesis copied from `Deq.close2` and never used it; the
+linter flagged it on the first build.  The instance that shows the
+limit: `denote_cval_congr`'s "the valuations agree everywhere" was
+*used* by its proof, so no linter would ever have flagged it — it took
+noticing that the proof compiled first try.
+
+This sharpens §8.5's asymmetry rather than replacing it.  Over-strong
+is the dangerous class *because* it is silent — but one corner of it is
+not silent, and knowing which corner is where the attention should go.
+**Run the linter and read the hypotheses; neither substitutes for the
+other.**
 
 ### `HasType.letE`'s first two premises are not consumed by soundness
 
