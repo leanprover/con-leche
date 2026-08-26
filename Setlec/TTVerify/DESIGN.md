@@ -65,6 +65,36 @@ So a shim at a use site is a hint that the definition was written to
 the wrong shape and adjusted to fit, and is worth re-deriving from the
 consumer's needs rather than patching.
 
+### The second practice: measure rare shapes; the suite does not cover them
+
+> **A fixture suite being green says nothing about argument shapes it
+> never contains.**  Before assuming a shape "never occurs", count it
+> in the real stream.
+
+The `Eq` decision (§11) is the instance, and the number is the lesson:
+`Eq` is partially applied **once** in ~2000 occurrences in
+init-prelude, and **zero** times across all 36 e2e fixtures that
+mention it.  A design that special-cased the full spine would have gone
+green on the entire suite and failed only on the real input.
+
+*The valuable part is not that the answer was surprising — it is that
+the test suite would not have caught it.*  "Fixtures 100 % green, real
+stream fails" is the most expensive failure mode this project has,
+because it sends you looking at your change rather than at your
+coverage.
+
+**And note what made it hard: arity is not greppable.**  The export is
+a hash-consed index graph, so answering "is this constant ever applied
+to fewer than three arguments" took a walk over the expression table,
+not a `grep`.  **A property nobody can check casually is one nobody
+will check** — which is an argument for turning it into a *fixture*
+rather than a note, so the next person inherits the check instead of
+the reasoning.
+
+Open, and worth a sweep: which other constants does the layer treat as
+formers, or does reduction special-case by arity?  Each is the same
+shape of hole.
+
 **And the failure mode one level up: follow your own asides.**  The
 `.proj` resolution (§6) was blocked for a turn by an analysis that
 concluded "F1 again" — while the sentence that refuted it was already
@@ -1408,8 +1438,14 @@ Three independent reasons, of which the first alone is decisive:
 *Cost, and where it is paid.*  Converting a spine to the former takes
 three `beta` steps, each wanting `⊢ arg : dom`.  Those come from the
 **app-argument certificate**, which §6 has already established is
-permanent — so this is a third consumer of that certificate rather than
-a new obligation.
+permanent.
+
+**So read this as no cost at all.**  "Three `beta` steps" sounds like a
+price until you notice the supplier was already paid for: this is a
+*third consumer* of a certificate the checker runs regardless and that
+the bridge cannot do without.  A cost that reuses an existing,
+unavoidable obligation adds nothing to the total — and the same reading
+applies to any future clause whose premises land on that certificate.
 
 ### The block's other constants
 

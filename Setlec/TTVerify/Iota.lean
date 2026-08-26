@@ -103,8 +103,9 @@ certificate (`proofIrrel fab major`) identifies inhabitants of two
 different *levels*, `isUnitLikeTy` matching `.const c _` — while
 `HasType.proofIrrel` and `HasType.punitEta` each demand one type for
 both subjects.  Both rules are over-constrained relative to their own
-soundness proofs (`Setlec/TTVerify/DESIGN.md` §10.2).  Left blocked
-rather than worked around, as `.proj` is.
+soundness proofs (`Setlec/TTVerify/DESIGN.md` §10.2).  **Unblocked**: the layer change
+landed, both rules now read per side, and `proof_irrel_step` below is
+the branch's content.
 
 ## The stuck-major eta rescue
 
@@ -149,5 +150,63 @@ theorem eta_rescue {env : Env} (m : EnvTT env) (φ : Name → Nat)
     Deq Δ B F :=
   m.caps_ok.1 T cvT caps hT heta hres hfam φ d Δ ust targs major xs rest
     B F hlen hfit hB hBt hF
+
+/-! ## The stuck-major K rescue
+
+`majorToCtor`'s K branch fabricates the parameters-only constructor
+application and certifies it with `proofIrrel fab major`, which checks
+that **each side's inferred type is a `Prop`** — never that the two
+agree.
+
+This is the branch that motivated the layer change of
+`Setlec/TTVerify/DESIGN.md` §10.2.  Before it, `HasType.proofIrrel`
+demanded one `P` for both sides and this lemma could not be stated;
+after it, the rule reads per side and the lemma is the certificate's
+own facts handed straight to it.  Note that the proof below uses
+`hTA` and `hTB` at *different* types — that is exactly the freedom the
+generalization bought, and the reason the workaround (deriving through
+`propext`, which needs binder weakening) was not worth paying for. -/
+
+/-- **The K rescue's equation.**  Two expressions whose inferred types
+are both `Prop`s denote to `Deq`-equal terms. -/
+theorem proof_irrel_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} {d : Nat} {Δ : List VExpr}
+    (ihw : WhnfClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    {a b ta tb sta stb : Expr} {uT vT : Level}
+    (hta : inferTypeCore env fuel d a = .ok ta)
+    (hsta : inferTypeCore env fuel d ta = .ok sta)
+    (hwa : whnf env fuel d sta = .ok (.sort uT)) (huT : uT.eval φ = 0)
+    (htb : inferTypeCore env fuel d b = .ok tb)
+    (hstb : inferTypeCore env fuel d tb = .ok stb)
+    (hwb : whnf env fuel d stb = .ok (.sort vT)) (hvT : vT.eval φ = 0)
+    (hCa : CtxOk m.cval env φ d Δ a) (hCb : CtxOk m.cval env φ d Δ b)
+    (hwsa : Expr.WScoped d a) (hwsb : Expr.WScoped d b) :
+    ∃ A B, denote m.cval env φ d a = some A ∧
+      denote m.cval env φ d b = some B ∧ Deq Δ A B := by
+  -- each side: its type is derivable, and that type is a `Prop`
+  have side : ∀ {e t st : Expr} {u : Level},
+      inferTypeCore env fuel d e = .ok t →
+      inferTypeCore env fuel d t = .ok st →
+      whnf env fuel d st = .ok (.sort u) → u.eval φ = 0 →
+      CtxOk m.cval env φ d Δ e → Expr.WScoped d e →
+      ∃ E T, denote m.cval env φ d e = some E ∧
+        HasType Δ E T ∧ HasType Δ T (.sort 0) := by
+    intro e t st u he ht hw hu hC hws
+    obtain ⟨E, T, hE, hT, hEt⟩ := ihi he hC
+    have hCt : CtxOk m.cval env φ d Δ t :=
+      CtxOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel he hws) hC
+    obtain ⟨T', S, hT', hS, hTs⟩ := ihi ht hCt
+    obtain rfl : T' = T := by rw [hT'] at hT; exact Option.some.inj hT
+    have hwst : Expr.WScoped d t := inferTypeCore_WScoped m.wf fuel he hws
+    have hCs : CtxOk m.cval env φ d Δ st :=
+      CtxOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel ht hwst) hCt
+    obtain ⟨S', hS', hDeq⟩ := ihw hw hCs hS
+    rw [denote_sort, hu] at hS'
+    obtain rfl : S' = .sort 0 := (Option.some.inj hS').symm
+    exact ⟨E, T', hE, hEt, Deq.conv hTs hDeq⟩
+  obtain ⟨A, TA, hA, hAt, hTA⟩ := side hta hsta hwa huT hCa hwsa
+  obtain ⟨B, TB, hB, hBt, hTB⟩ := side htb hstb hwb hvT hCb hwsb
+  -- the two sides sit at *different* types; this is the relaxed rule
+  exact ⟨A, B, hA, hB, ⟨TA, HasType.proofIrrel hTA hTB hAt hBt⟩⟩
 
 end Setlec.TTVerify
