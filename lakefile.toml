@@ -46,3 +46,8 @@ extraDepTargets = ["SetlecPinCerts"]
 name = "annotate-basis"
 root = "AnnotateBasis"
 extraDepTargets = ["SetlecPinCerts"]
+
+# METATHEORY SPIKE (throwaway branch): infer_only verdict mechanizations.
+[[lean_lib]]
+name = "SetlecTTSpike"
+roots = ["Setlec.TTSpike"]
