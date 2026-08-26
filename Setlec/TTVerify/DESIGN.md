@@ -2493,7 +2493,30 @@ measurement (verdicts, NC rate, byte-identity) and is not mine to
 decide.  The measurement to run, if it is granted, is the one #126
 used: certified fraction, NC rate, and init-prelude byte-identity.
 
-**Until it is decided**, `InferProjStepTT` stays a named obligation and
-`InferClaimsTT` is closed modulo it alone.  Nothing else in the bridge
-depends on the outcome — the `whnfCore` projection path is separate and
-already has its certificates.
+**GRANTED and landed as task #129** (+0.102% certified, 0.00% NC,
+byte-identical both modes).  `InferProjStepTT` is discharged and
+`InferClaimsTT` is closed.
+
+**The implementer's shape is better than the one I asked for**, and the
+correction is worth recording because it is §10.1's own law applied
+against my request.  I asked for two `ensureSort`s.  What landed is
+**one `iotaCerts` telescope walk on the entry's stored type**, because:
+
+* `⊢ B : A → Sort v` is not a sort judgement at all, so `ensureSort`
+  cannot express it;
+* an `ensureSort` on `A` would land at the level the checker
+  *infers*, while `projFst` names the level the entry *pins* — the
+  premise would arrive at the wrong domain.
+
+The telescope walk delivers both premises at the domains the rule
+names, because the first two binders of `pairFstTyA` are literally
+`Sort u` and `α → Sort v`.  So the clause is the same shape as
+`proj_tele_typed` one level up: `projParamCert_inv` → `certs_typed` →
+destructure the walk → apply the rule.
+
+**The lesson for future requests**: I priced the workaround and named
+the gap correctly, but specified the *mechanism* from the shape of the
+premises rather than from the shape of the rule's domains.  §6's
+headline fact says where premises must be supplied; it also says what
+they must be supplied *at*, and a request should name the domain, not
+the tactic.
