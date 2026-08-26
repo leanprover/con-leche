@@ -40,11 +40,6 @@ instantiated at `sharedOps` — only the phase structure is mirrored.
 
 namespace Setlec
 
-/-- The index of the cons-extended environment (`mkFEnv_push`:
-`FEnv.push (mkFEnv env) ci = mkFEnv ⟨ci :: env.consts⟩`, definitionally). -/
-def FEnv.push (fe : FEnv) (ci : ConstantInfo) : FEnv :=
-  ⟨⟨ci :: fe.env.consts⟩, fe.idx.insert ci.name ci⟩
-
 /-- Indexed `Env.findCV?`. -/
 def FEnv.findCV? (fe : FEnv) (n : Name) : Option ConstantVal :=
   (fe.find? n).map (·.toConstantVal)
