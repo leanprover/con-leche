@@ -6394,6 +6394,9 @@ interleaved driver both are the check phase filtered to a range
 `SETLEC_NO_PROOF_CERTS` style.  They need either a driver variant
 with the check calls skipped or the counter-field machinery above;
 neither falls out of the flat bodies naturally today.
+*(Landed 2026-08-26 as task #108, on the counter-field machinery —
+see "Install/check separation and selective checking" at the end of
+this file.)*
 
 **Handoff to the tier wiring** (when the structure-internal
 `enableTierTwo`/`truncate` land): open the bracket at each
@@ -7559,3 +7562,140 @@ against a pre-merge baseline; the interim master perf work also
 removed most of the bracket's re-walk overhead).  Peak RSS on the
 log2 Mathlib prefix (`time -v`): 2.63 GB bracketed vs 6.31 GB
 unbracketed — **−58.4 %**, the mode-4 profile as measured.
+
+## Install/check separation and selective checking (2026-08-26, task #108)
+
+The parked riders of task #64 (`--install-only`, `--check-range`) land,
+on the counter mechanism the user settled there: **entries carry their
+installation counter, and visibility is a bound consulted inside
+`find?`** — not a filtered view, not a second `FEnv` value, not a
+rebuilt environment.
+
+**The structure** (`Setlec/Kernel/CoreI.lean`).  `FEnv.idx` maps a name
+to `(counter, ConstantInfo)`, where the counter is the number of
+constants installed before it — its position counted from the bottom of
+`env.consts`.  `FEnv` gains `visibleBelow : Nat`, and `find?` returns
+`none` for an entry whose counter is at or above it.  `visibleBelow`
+doubles as *the next counter to hand out*, so `FEnv.push` is still one
+`HashMap.insert` plus a field bump and the ordinary install-and-check
+path keeps `visibleBelow = env.consts.length` — nothing is ever hidden
+there, and `mkFEnv_push` is still `rfl`.  Restricting is
+`FEnv.restrictTo k`, an `O(1)` field update on the single linearly
+threaded index.  Blast radius: `.idx` is touched in exactly two places
+(`find?`, `push`); every other consumer goes through `mkFEnv_find?` /
+`mkFEnv_push`, so `Setlec/Verify/*` and `Setlec/Model/*` compiled
+untouched.
+
+**The meaning of the bound** (`Setlec/Verify/EnvBound.lean`, spec-side
+only).  `idxSpec` is what the index holds; `Env.prefixTo k` is the
+environment truncated to its first `k` installed constants (`consts` is
+newest-first, so the prefix is the *tail*).  Three theorems:
+
+* `mkFEnv_find?` — with nothing hidden the index *is* `Env.find?`
+  (the pre-#108 statement, re-proved through the counters);
+* `mkFEnv_find?_visibleBelow_some` — **unconditional soundness**:
+  anything a bounded lookup returns is exactly what `Env.prefixTo k`
+  returns.  A bounded lookup therefore *cannot* reach a constant
+  installed at or after the bound.  This is the no-circularity fact:
+  no declaration can be justified by one installed later.
+* `mkFEnv_find?_visibleBelow` — the full equivalence
+  `bounded find? = find? in the truncated environment`, under name
+  uniqueness.  The hypothesis is exactly right and not a weakening:
+  without it the only thing a bounded lookup can miss is an *older*
+  constant shadowed by a same-named newer one — i.e. it returns
+  *less*, the safe direction — and the checker rejects duplicate names
+  at insertion (`checkConstantValP`), so the situation never arises on
+  a stream it accepted.  (Invariant established at insertion, not a
+  per-call gate; threading a `Nodup` invariant through the whole
+  checker is a separate task and buys nothing the soundness direction
+  does not already give.)
+
+Plus `restrictTo_push_find?`: pushing the constant installed at counter
+`k` onto the view at bound `k` is the same as raising the bound to
+`k+1`.  That is what lets a re-check walk a declaration's *provisional*
+environments (the two views `fe`/`fe2` the pinned-certificate branches
+use) without pushing anything at all.
+
+**The driver** (`Setlec/Kernel/Split.lean`, unverified debug path; the
+default binary path is untouched and byte-identical).  Phase one
+installs every declaration — syntactic guards, annotation, the
+`IState.ienv` recording, the push — skipping every
+`infer`/`defeq`/`ensureSort` call, and records for each declaration the
+number of constants installed before it.  Phase two replays the check
+phase of the selected declarations against the **final** environment
+restricted to each declaration's own recorded bound, reusing the
+annotated type/value indices phase one recorded (nothing is
+re-annotated except an opaque's discarded witness).  The pinned
+certificate branches (structural `Nat` ops, div/mod, `reduce*`
+opaques) are check phase too and are replayed at the same two views the
+interleaved driver used, `restrictTo k` and `restrictTo (k+1)`.
+`flushS` runs at every step of both phases, so no memo entry ever
+crosses a bound change.
+
+*Not separable, by construction*: inductive blocks, basis blocks and
+axioms validate their conditions as they are installed (positivity, the
+provisional-environment walks, the standard-axiom pins), so phase one
+runs the ordinary driver on them and phase two has nothing to re-check.
+`--check-range` covering an inductive block therefore checks nothing
+extra there.
+
+**Env-extent audit** (the security argument).  Every environment
+consultation the check phase performs is bounded, because on the
+shared-state path there is exactly one environment value in scope:
+
+1. *All lookups go through `FEnv.find?`.*  Every raw-`Env` guard family
+   (`Setlec/Kernel/Core.lean`, `Checker.lean`, `StdAxioms.lean`,
+   `TrustAxioms.lean`, `Direct.lean`, `Modeled.lean`) has an `F`/`S`
+   mirror taking `fe` — `constsResolveFI`, `natOpGuardF`,
+   `stdAxiomOkF`, `divMod*GuardF`, `reduce*OkF`, `directNonRecF`,
+   `installProjTemplateS`, … — and only the mirrors are called from
+   `checkDeclSP`/`recheckDeclSP`.  `findCV?` and `findProj?` are
+   defined *in terms of* `find?`, so they inherit the bound.
+2. *The `Env` arguments threaded to `CheckerOps` methods are inert.*
+   `sharedOps fe` ignores its per-call environment argument and always
+   uses the `fe` it was built with, so `ops.inferType fe.env …`,
+   `checkDefEqList ops feSelf.env …`, `certifyNatEqs ops fe.env …`
+   (the helpers pass `env` only to `ops` methods) all run at the
+   bounded index.  `fe.env` is never *read* on this path except by
+   `FEnv.push` and the final `pure fe.env`.
+3. *`IState.ienv` is not an environment.*  It is name-keyed and
+   contains every installed constant, but it is only ever reached
+   *after* a successful `fe.find?` returned the constant, and the entry
+   is then pointer-validated against the very object that lookup
+   returned (`storedTyIdxM`/`storedValIdxM`); a mismatch falls back to
+   a fresh interning.  It can therefore never introduce a constant the
+   bounded lookup did not already yield.
+4. *No memo entry crosses a bound.*  The environment-dependent caches
+   (`constTyAt`, `constValAt`, `ruleRhsAt`, `whnfCoreC`, `whnfC`,
+   `inferC`, `defeqC`, `annotC`) do not mention the environment in
+   their keys and are flushed at every declaration step of both phases,
+   exactly as in the interleaved driver.
+
+The audit's empirical counterpart: the split driver at full range
+agrees with the interleaved driver on **all 67 e2e fixtures** (modulo
+`0 ↦ 2`, below) and reproduces every rejection and decline, including
+the ones that turn on the pre-push/post-push distinction.  A wrongly
+hidden constant would have shown up immediately as a spurious "unknown
+constant".
+
+**Exit-code discipline.**  Exit 0 means *everything in this stream was
+checked and accepted*, so a split run never returns 0 — even at
+`--check-range 0:` (the split driver is not the verified one).  A run
+that checked less than the whole stream also never returns 1: a
+skipped check might have *declined* first, which is the checker's
+honest verdict, so a partial run downgrades `invalid` to a decline and
+lets the message name the declaration.  `notImplemented` stays 2 and
+`internal` stays 3 throughout.  `--yolo` cannot be combined with the
+split flags.
+
+Residual, documented divergence: at full range the split driver can
+report an install-phase error of a declaration *after* the one the
+interleaved driver stopped at (installation no longer stops at the
+first failed check).  No e2e or arena fixture exhibits it.
+
+**What it buys.**  `--check-range 484:485` on a 562-declaration stream
+checks *one* declaration — `Nat.mod`, pinned certificate and all — and
+reports its failure, after an install pass that costs a fraction of a
+full check (init-prelude: 0.84 s install-only vs 3.1 s full).  That is
+the frontier-investigation tool: reaching declaration N no longer
+means re-checking the N−1 before it.

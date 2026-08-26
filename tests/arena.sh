@@ -97,4 +97,55 @@ if [ -f "$E2E_EXPECTED" ]; then
   done < "$E2E_EXPECTED"
   echo "e2e: $e2e_ok/$e2e_total as expected"
 fi
+
+# Split install/check driver (task #108): --install-only and
+# --check-range.  Two properties are pinned here.
+#  (a) Honesty: a run that checked less than the whole stream never
+#      accepts (exit 0 is reserved for "everything was checked and
+#      accepted" by the verified interleaved driver), and never
+#      pronounces a stream invalid either — a skipped check might have
+#      declined first, so a partial run downgrades `invalid` to a
+#      decline.  Only exit 3 (usage/internal) is unconditional.
+#  (b) Selectivity: a range that excludes a bad declaration must not
+#      trip over it, while a range containing just that declaration
+#      must find it — the whole point of the mode.
+# Fixtures are the committed e2e ones: indexed_vec accepts, and
+# nat_add_wrong has its type mismatch at declaration index 46
+# (theorem addOk), well past the prefix its check needs.
+SPLIT_GOOD=tests/e2e/indexed_vec.ndjson
+SPLIT_BAD=tests/e2e/nat_add_wrong.ndjson
+split_ok=0
+split_total=0
+split_case() {
+  want=$1; shift
+  split_total=$((split_total+1))
+  timeout 120 "$BIN" "$@" >/dev/null 2>&1
+  got=$?
+  if [ "$got" != "$want" ]; then
+    echo "SPLIT FAIL ($*): expected exit $want, got $got"; fail=1
+  else
+    split_ok=$((split_ok+1))
+  fi
+}
+split_case 0 "$SPLIT_GOOD"                       # verified driver: accept
+split_case 2 --install-only "$SPLIT_GOOD"        # installed, nothing checked
+split_case 2 --check-range 0:2 "$SPLIT_GOOD"     # a subrange
+split_case 2 --check-range 0: "$SPLIT_GOOD"      # all of it, but split driver
+split_case 1 --check-range 0: "$SPLIT_BAD"       # full range finds the bad one
+split_case 2 --check-range 46:47 "$SPLIT_BAD"    # just the bad one: reported…
+split_case 2 --check-range 0:1 "$SPLIT_BAD"      # …excluded: not tripped over
+split_case 2 --install-only "$SPLIT_BAD"         # nor installed into a reject
+split_case 3 --check-range bogus "$SPLIT_GOOD"   # malformed range spec
+split_case 3 --yolo --install-only "$SPLIT_GOOD" # unverified stack + split
+# selectivity, positively: checking *only* declaration 46 must actually
+# report that declaration's failure
+split_total=$((split_total+1))
+if timeout 120 "$BIN" --check-range 46:47 "$SPLIT_BAD" 2>&1 |
+    grep -q "type mismatch in addOk"; then
+  split_ok=$((split_ok+1))
+else
+  echo "SPLIT FAIL: --check-range 46:47 did not report addOk"; fail=1
+fi
+echo "split driver: $split_ok/$split_total as expected"
+
 exit $fail
