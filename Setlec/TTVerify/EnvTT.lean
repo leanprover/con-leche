@@ -56,8 +56,7 @@ the corresponding clause of the fuel induction is proved:
 * ~~`rec_rules`~~ — **done**, as `RecRulesTT` above, in the fired form
   rather than the tower one;
 * `proj_ok : ProjOk env` — syntactic, transposes verbatim;
-* `caps_ok : CapsOk` — the eta and unit-like laws, likewise from
-  checked `_model` theorems;
+* ~~`caps_ok`~~ — **done**, as `CapsOkTT` above, in the fired form;
 * `nat_ops : NatOpsOk` and `div_mod : DivModOk` — the certified
   recurrences, whose TT form is exactly the hypothesis shape of
   `Setlec/TT/Nat/*` (`Deq` equations at numerals): the bridge denotes
@@ -141,6 +140,91 @@ theorem RecRulesTT.empty (cval : TConstVal) : RecRulesTT Env.empty cval := by
   intro n cv mI rP rules h
   simp [Env.find?, Env.empty] at h
 
+/-- The eta family of an eta-capable stored structure is complete:
+the capability record's constructor is stored at exactly its arities,
+and every documented projection function is stored.  Restated from
+`Setlec/Model/Interp.lean`'s `EtaFamilyStored` — which is `V`-free and
+would be importable if it lived in `Setlec/Verify/*` (see §0's note on
+missing counterparts).
+
+It is the *premise* under which the eta law is owed: mid-block the
+former is stored before its constructor, so the premise fails and the
+law is not yet owed; the family-completing install discharges it. -/
+def EtaFamilyStoredT (env : Env) (T : Name) (caps : IndCaps) : Prop :=
+  reservedBasisNames.contains caps.etaCtor = false ∧
+  (∃ cvC, env.find? caps.etaCtor =
+    some (.ctorInfo cvC caps.etaParams caps.etaFields)) ∧
+  ∀ j, j < caps.etaFields → ∃ cv mI rP rules,
+    env.find? (projFnName T j) = some (.recInfo cv mI rP rules)
+
+/-- **The structural-eta law, fired.**  Transpose of `EnvModel`'s
+`EtaLaw`, in the same *fired* form as `RecRulesTT` and for the same
+reason (§8): the premises the layer's rules want are supplied at the
+site, so quantifying over them makes them hypotheses of the contract
+rather than obligations of the install.
+
+Consumed by `majorToCtor`'s eta-rescue branch, whose
+`structEtaCertWith` call supplies **both** hypotheses — the
+`TeleTyped` from its own `iotaCerts` on `T`'s parameter telescope, and
+the subject's typing from the `infer major` that produced `tmaj`.
+That correspondence was pre-registered before this definition was
+written and confirmed verbatim (`Setlec/TTVerify/DESIGN.md` §6). -/
+def EtaLawTT (env : Env) (cval : TConstVal) (T : Name) (cvT : ConstantVal)
+    (caps : IndCaps) : Prop :=
+  ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr) (us : List Level)
+    (ps : List Expr) (b : Expr) (xs : List VExpr) (rest : Expr)
+    (B F : VExpr),
+    ps.length = caps.etaParams →
+    TeleTyped cval env φ d Δ
+      (cvT.type.instantiateLevelParams cvT.levelParams us) ps xs rest →
+    denote cval env φ d b = some B →
+    HasType Δ B
+      (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us)) xs) →
+    denote cval env φ d
+      (Expr.mkAppN (.const caps.etaCtor us)
+        (ps ++ (List.range caps.etaFields).map fun j =>
+          Expr.mkAppN (.const (projFnName T j) us) (ps ++ [b]))) = some F →
+    Deq Δ B F
+
+/-- **The unit-like law, fired.**  Transpose of `EnvModel`'s
+`UnitLaw`: any two inhabitants of a unit-like family's type are
+equal.  Consumed by the proof-irrelevance path and by
+`majorToCtor`'s zero-field rescue. -/
+def UnitLawTT (env : Env) (cval : TConstVal) (T : Name) (cvT : ConstantVal)
+    (caps : IndCaps) : Prop :=
+  ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr) (us : List Level)
+    (ps : List Expr) (b b' : Expr) (xs : List VExpr) (rest : Expr)
+    (B B' : VExpr),
+    ps.length = caps.unitParams →
+    TeleTyped cval env φ d Δ
+      (cvT.type.instantiateLevelParams cvT.levelParams us) ps xs rest →
+    denote cval env φ d b = some B →
+    denote cval env φ d b' = some B' →
+    HasType Δ B
+      (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us)) xs) →
+    HasType Δ B'
+      (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us)) xs) →
+    Deq Δ B B'
+
+/-- The stored inductive families' capability laws.  Transpose of
+`CapsOk`, and **provenance-abstract** for the same reason: the
+environment remembers nothing about how a family was installed, so the
+laws are stated over public names and say only what the reduction
+rules consume.  Basis families are exempt (`reservedBasisNames`) —
+their eta and unit facts ride the pinned clauses. -/
+def CapsOkTT (env : Env) (cval : TConstVal) : Prop :=
+  (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T = some (.indInfo cvT caps) → caps.eta = true →
+    reservedBasisNames.contains T = false →
+    EtaFamilyStoredT env T caps → EtaLawTT env cval T cvT caps) ∧
+  (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T = some (.indInfo cvT caps) → caps.unitlike = true →
+    reservedBasisNames.contains T = false →
+    UnitLawTT env cval T cvT caps)
+
+theorem CapsOkTT.empty (cval : TConstVal) : CapsOkTT Env.empty cval := by
+  refine ⟨?_, ?_⟩ <;> (intro T cvT caps h; simp [Env.find?, Env.empty] at h)
+
 /-- A *derivation model* of an environment: a type-theory term for
 every constant (a function of the level-parameter assignment), such
 that the environment is well-formed, each valuation reads only its own
@@ -216,6 +300,10 @@ structure EnvTT (env : Env) where
   `EnvModel.rec_rules`, in the **fired** form rather than the set
   model's tower λ-equality — see `RecRulesTT` for why. -/
   rec_rules : RecRulesTT env cval
+  /-- The stored inductive families' capability laws (eta, unit-like),
+  in the fired form.  Transpose of `EnvModel.caps_ok`; consumed by
+  `majorToCtor`'s rescue branches. -/
+  caps_ok : CapsOkTT env cval
 
 /-- The empty environment has a (trivial) derivation model. -/
 def EnvTT.empty : EnvTT Env.empty where
@@ -230,6 +318,7 @@ def EnvTT.empty : EnvTT Env.empty where
   thm_ok := by intro cv value h; cases h
   empty_pinned := fun _ => ⟨0, rfl⟩
   rec_rules := RecRulesTT.empty _
+  caps_ok := CapsOkTT.empty _
 
 /-! ## What the invariant delivers per declaration
 

@@ -146,7 +146,8 @@ an incidental well-formedness condition; see the row and §7:
 | `annot_ok` | **no counterpart** |
 | `ind_ok`'s `Empty` clause | `empty_pinned` |
 | `rec_rules : RecRulesOk` (tower λ-equality) | `rec_rules : RecRulesTT` — **done**, in the *fired* form (§8) |
-| `ind_ok`'s other clauses, `proj_ok`, `caps_ok`, `nat_ops`, `div_mod`, `reduce_ops` | stage 2; recipe in `EnvTT.lean` |
+| `caps_ok : CapsOk` | `caps_ok : CapsOkTT` — **done**, fired form, same argument |
+| `ind_ok`'s other clauses, `proj_ok`, `nat_ops`, `div_mod`, `reduce_ops` | stage 2; recipe in `EnvTT.lean` |
 
 Two rows carry the whole idea.  `mem_type` becomes a typing judgment —
 that is the only change of substance.  And `AnnotOk` **disappears**:
@@ -414,6 +415,39 @@ Three consequences, each of which looked like an independent question:
 A fourth consequence, if the reading under "Domain pinning" survives:
 the certificate is doing the one thing nothing else can do, which is
 why it is the one call that costs.
+
+#### How well confirmed is it, and by what kind of evidence
+
+Three certificates have been checked against it, and **the evidence is
+stronger than "three for three" because it is not three of the same
+kind**:
+
+* `iotaCerts` — predicted **present**, found present, then *proved*
+  (`certs_typed`);
+* `structEtaCert` — predicted **present**, found present **verbatim**
+  (the predicted call, telescope and arguments);
+* `projCert` — predicted to supply the rule's premises, found to supply
+  **none of them**, which confirms the fact in the **opposite
+  direction**: the rule is unjustifiable exactly where the certificate
+  is missing (§10).
+
+**The method discriminates, and that is the load-bearing part.**  The
+same reading — take the rule's premises, ask which call establishes
+each at the rule's own domain — found the certificate *absent* in one
+case and *present word-for-word* in another.  A method that answered
+"present" every time would be worthless, and a fact that only ever
+predicted presence would be unfalsifiable.  This one predicted an
+absence and an implication of that absence (a checker change), which is
+why the second column of the verdict table should be read as a finding
+rather than as a preference.
+
+*Recording the margin.*  The `structEtaCert` prediction **undershot**:
+the eta branch supplies a second `iotaCerts` beyond the one predicted
+(task #71's synthetic-spine certification, which types the fabricated
+constructor application itself).  Noted as an overshoot rather than
+folded into the confirmation — a prediction that undershoots was still
+right, and the margin tells the next reader how tight the reasoning
+was.  It was not tight: the branch has more than the contract needs.
 
 The measurements below are **recorded here because the investigation
 that produced them ran on `diag/cert-tax`, a throwaway branch, and
