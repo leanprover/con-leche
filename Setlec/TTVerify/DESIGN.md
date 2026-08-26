@@ -1401,6 +1401,45 @@ preventing one.  Both are wins; only the second is comfortable, and a
 practice that only ever caught errors in advance would be one nobody
 had tested.
 
+### 8.6 The `whnfCore` step, and obligation granularity
+
+The first quarter of `CheckStepTT` is proved
+(`Setlec/TTVerify/WhnfCoreStep.lean`), modulo two named obligations.
+Seven of nine clauses are complete: the six leaves, `bvar` (outside the
+fragment — and note the bridge refutes it from the *denotation*,
+`.bvar` denoting to `none`, where the model refutes it from the
+checker's `throw`), zeta, and the whole application clause including
+its β sub-case.
+
+**The β clause is §6's headline fact at its most visible.**
+`whnf_app_inv` hands back the two certificate runs; the inference claim
+turns one into `⊢ ⟦a⟧ : ⟦ta⟧`, the equality claim turns the other into
+`⟦ta⟧ ≡ ⟦ty⟧`, and `Deq.conv` combines them into the argument typed at
+**the domain the redex names** — exactly `HasType.beta`'s single
+premise. Nothing carried from above would supply it.
+
+**The two obligations are stated at different granularities, on
+purpose.**  `IotaStepTT` is at *reduct* granularity: `whnf_app_inv`
+hands the ι case its reduct directly, so the obligation isolates to
+"this reduct denotes `Deq`-equally and is well-scoped" and the rest of
+the application clause is proved around it.  `ProjStepTT` is at
+*clause* granularity, because the projection clause reduces its
+scrutinee with `whnf` and expands string literals with
+`projLitToCtor` before the table is consulted — isolating its reduct
+would leave two unproved steps *outside* the obligation instead of one
+*inside* it.
+
+The rule that produced that choice, worth keeping: **put the boundary
+where it leaves the fewest unproved steps outside it.** An obligation
+is a promise about what remains; a promise that leaves debris around it
+is worse than a larger promise that does not.
+
+One incidental catch: `denote_beta_step_certified` first carried an
+unused `{mb : BinderMeta}` implicit, copied from the λ's binder.  Lean
+refused to synthesize it — an unused implicit that appears in no
+hypothesis cannot be inferred — which is the one variety of §8.2's
+defect the elaborator catches for you.
+
 ### 8.5 The claims were *under*-hypothesised — the dual of §8.2
 
 Found on the first clause of `CheckStepTT`, before writing any proof:
