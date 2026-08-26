@@ -3726,6 +3726,36 @@ is now at the recursor's own level rather than an unrelated one.
 `PSigma`'s two-step eta and `Quot`'s open question never had to be
 written.
 
+#### `Eq`: the deferred towers, elaborated
+
+§11 deferred four valuations — `Eq`, `Eq.refl`, `Eq.rec`, `PSigma'.rec`
+— on the house rule that *a definition is a conjecture until a
+consumer elaborates it*, and refused to write them until an install
+needed them.  This is that install, and the first tower is landed:
+
+```
+eqValT ψ = λ (α : Sort u) (a : α) (b : α). eqE α a b
+```
+
+**§11's law is now a theorem about the tower, not an assumption.**
+`EqLawTT` at the installed valuation is `eqValT_law`: three β-steps and
+the lift absorptions they leave.  What the deferral bought is visible
+in the proof — the tower was written *knowing* which three typings its
+consumers had (§11 predicted the app-argument certificate would supply
+exactly them), so the law's premises are the β-rule's premises and
+nothing more.
+
+Two structural facts about this block, both consequences of the layer
+*deriving* the equality rather than carrying it:
+
+* **`HasType.eqType` is premise-free** (`HasType Γ (.eqE T a b)
+  (.sort 0)` with no side conditions), so `Eq`'s own typing is three
+  `lam`s over one axiom — the cheapest `htype` in any block.
+* **The block's iota will be β, not a computation rule.**  `Eq.rec`'s
+  stored rule returns its minor premise, and the valuation that types
+  it does the same; so where `PUnit` needed `punitRecUnit`, `Eq` needs
+  only the β-chain it already has.
+
 **The computation needed a per-constructor `instantiate1` kit.**
 `denote` opens every binder with `instantiate1` at cut `0`, so a basis
 type's computation walks it once per node — and unfolding the

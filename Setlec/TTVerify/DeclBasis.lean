@@ -788,5 +788,106 @@ theorem declBasisTT_punitK {env env₁ : Env} (m : EnvTT env)
   exact extendPUnitRecTT m2 hP2 hU2 h3 hwf3
 
 
+/-! ## `Eq`
+
+The block whose valuations were **deferred** (§11, and the house rule:
+a definition is a conjecture until a consumer elaborates).  Three of the
+layer's four derived constants live here, and this is the install that
+elaborates them.
+
+`Eq` is the layer's `eqE` former eta-expanded; `Eq.refl` is `.prf`
+under two binders; `Eq.rec` returns its minor premise, retyped by
+`conv`.  **None of the three needs a computation rule of the layer** —
+the block's iota is β, because the layer *derives* the eliminator
+rather than carrying it. -/
+
+/-- `Eq`'s valuation: the former, eta-expanded. -/
+def eqValT (ψ : Name → Nat) : VExpr :=
+  .lam (.sort (ψ uNT)) (.lam (.bvar 0) (.lam (.bvar 1)
+    (.eqE (.bvar 2) (.bvar 1) (.bvar 0))))
+
+/-- `Eq.refl`'s valuation. -/
+def eqReflValT (ψ : Name → Nat) : VExpr :=
+  .lam (.sort (ψ uNT)) (.lam (.bvar 0) .prf)
+
+/-- **The `Eq` law, from the tower.**  Three β-steps and the lift
+absorptions they leave. -/
+theorem eqValT_law {ψ : Name → Nat} {Δ : List VExpr} {A a b : VExpr}
+    (hA : HasType Δ A (.sort (ψ uNT))) (ha : HasType Δ a A)
+    (hb : HasType Δ b A) :
+    Deq Δ (VExpr.mkAppN (eqValT ψ) [A, a, b]) (.eqE A a b) := by
+  have h1 : Deq Δ (.app (eqValT ψ) A)
+      (.lam A (.lam (VExpr.liftN 1 A 0)
+        (.eqE (VExpr.liftN 2 A 0) (.bvar 1) (.bvar 0)))) := by
+    have := HasType.beta (T := A) (Γ := Δ) (a := A)
+      (b := VExpr.lam (.bvar 0) (.lam (.bvar 1)
+        (.eqE (.bvar 2) (.bvar 1) (.bvar 0)))) hA
+    simp [VExpr.liftN_zero] at this
+    exact Deq.intro this
+  have h2 : Deq Δ (.app (.lam A (.lam (VExpr.liftN 1 A 0)
+        (.eqE (VExpr.liftN 2 A 0) (.bvar 1) (.bvar 0)))) a)
+      (.lam A (.eqE (VExpr.liftN 1 A 0) (VExpr.liftN 1 a 0) (.bvar 0))) := by
+    have := HasType.beta (T := a) (Γ := Δ) (a := a)
+      (b := VExpr.lam (VExpr.liftN 1 A 0)
+        (.eqE (VExpr.liftN 2 A 0) (.bvar 1) (.bvar 0))) ha
+    rw [VExpr.inst_lam, VExpr.inst_eqE,
+      VExpr.inst_liftN_absorb A (Nat.zero_le _) (Nat.le_refl 0) a,
+      VExpr.liftN_zero,
+      VExpr.inst_liftN_absorb A (Nat.zero_le _) (by omega) a] at this
+    simp [VExpr.liftN_zero] at this
+    exact Deq.intro this
+  have h3 : Deq Δ (.app (VExpr.lam A
+        (.eqE (VExpr.liftN 1 A 0) (VExpr.liftN 1 a 0) (.bvar 0))) b)
+      (.eqE A a b) := by
+    have := HasType.beta (T := b) (Γ := Δ) (a := b)
+      (b := VExpr.eqE (VExpr.liftN 1 A 0) (VExpr.liftN 1 a 0) (.bvar 0)) hb
+    rw [VExpr.inst_eqE,
+      VExpr.inst_liftN_absorb A (Nat.zero_le _) (Nat.le_refl 0) b,
+      VExpr.inst_liftN_absorb a (Nat.zero_le _) (Nat.le_refl 0) b,
+      VExpr.liftN_zero, VExpr.liftN_zero] at this
+    simp [VExpr.liftN_zero] at this
+    exact Deq.intro this
+  exact Deq.trans (Deq.appFun (Deq.trans (Deq.appFun h1) h2)) h3
+
+
+/-- **`Eq`, installed** — and with it §11's law, discharged from the
+tower rather than assumed. -/
+theorem extendEqTT {env : Env} (m : EnvTT env)
+    (hfresh : env.find? eqName = none)
+    (hwf : EnvWF ⟨eqA :: env.consts⟩) :
+    Nonempty (EnvTT ⟨eqA :: env.consts⟩) := by
+  refine extendBasisTT m (val := eqValT) (by decide) (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name eqA = eqName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp)
+    hfresh hwf (fun _ => by
+      simp only [eqValT, VExpr.Closed, VExpr.bvarsBelow]
+      exact ⟨trivial, by omega, by omega, by omega, by omega, by omega⟩) ?_ ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq) ?_
+  · intro φ₁ φ₂ hp
+    rw [eqValT, eqValT,
+      hp uNT (by show uNT ∈ [uNT]; exact List.mem_cons_self)]
+  · intro φ
+    refine ⟨.pi (.sort (φ uNT)) (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0))), ?_,
+      ?_⟩
+    · rw [denoteClosed,
+        show eqA.toConstantVal.type
+          = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+              (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+                (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
+                  (.sort .zero) { bi := .default }) { bi := .default })
+              { bi := .implicit } from rfl]
+      simp [denote_forallE, denote_sort, denote_fvar, Level.eval]
+    · exact .lam (.lam (.lam HasType.eqType))
+  · -- **§11's law**: three β-steps on the tower
+    intro _ _ ψ Δ A a b hA ha hb
+    rw [show cvalSet m.cval eqA.name eqValT eqName = eqValT from
+      cvalSet_self (n := eqA.name)]
+    exact eqValT_law hA ha hb
+
+
 end Setlec.TTVerify
 
