@@ -1974,8 +1974,9 @@ until now it existed only in this task's working notes.
 
 A different *kind* of output than the rest of this document: not
 verification results but design requests, each needing its own branch,
-gates and measurement.  Two so far — one to the checker, one to the
-layer.
+gates and measurement.  Three so far — two to the checker, one to the
+layer.  The third (§10.3) is **open**: it is a request, not a decision
+I may take.
 
 **This is a steady product of the work, not two incidents.**  Both came
 out of the same operation — *take a rule's premises; ask which call
@@ -2442,3 +2443,57 @@ the one that does not.  It is what lets the `.const` clause move
 `EnvTT.has_type` from the empty context at depth 0 to `Δ` at depth `d`,
 using the same `denote_instLevels` and `denote_lift` the delta step
 needed — the same fact about `cval`, read in two directions.
+
+### 10.3 OPEN REQUEST: `inferBody`'s `.proj` clause needs the parameters' sorts
+
+**The gap.**  `HasType.projFst` and `HasType.projSnd`
+(`Setlec/TT/Judgment.lean`) each carry three premises:
+
+```
+⊢ A : Sort u      ⊢ B : A → Sort v      ⊢ p : PSigma' u v A B
+```
+
+`inferBody`'s `.proj` clause supplies only the third.  It computes
+`te ← whnf (infer pe)`, checks `te.getAppFn` is a stored constant with
+a native projection entry, checks the parameter count and the level
+count, and reads the residual off the entry's pinned type.  It never
+infers a sort for either parameter.  So the bridge can produce
+`⊢ ⟦pe⟧ : psigmaT u v ⟦A⟧ ⟦B⟧` and **cannot** produce the other two.
+
+**The rule is not over-constrained.**  This is *not* the
+`proofIrrel`/`punitEta` situation of §10.2, and I checked before
+concluding: `Setlec/TT/Semantics/Soundness.lean`'s `projFst` case
+consumes both — `psigmaV_app V hAm hBm` needs them to unfold the
+psigma set and `sfst_mem V hAm hpm` needs the first again.  The layer's
+§2.4 doctrine is satisfied; the premises are real.
+
+**The workaround was priced first (§10's own rule) and does not
+exist.**  What is available is an *inhabitant* of `psigmaT u v A B`.
+Recovering the parameters' typings from it means inverting the type
+former's application — the same shape as Π-domain-injectivity, which
+§6 records as inadmissible.  `Typable` does not help either: it is
+inversion on the **subject**, and here the subject is `pe`, whose
+subterms tell us nothing about `A` and `B`.  There is no field of
+`EnvTT` that could carry it: `A` and `B` are arbitrary terms appearing
+in an inferred type, not stored data.
+
+**The request.**  `inferBody`'s `.proj` clause should certify the two
+parameters' sorts, in the same style as the β certificate and as task
+#126's `projTeleCert`: infer each parameter's type and `ensureSort` it,
+at the levels the entry pins.  That is two extra `infer` calls and two
+`ensureSort`s per projection *inference* (not per reduction — the
+reduction path already has `projCert` and `projTeleCert`).
+
+**Why I am asking rather than taking it.**  §10 records the asymmetry
+deliberately: a request against the *layer* may be taken when it brings
+the layer into line with its own doctrine, because the layer is an
+upper bound and a relaxation cannot make the bridge claim more.  A
+request against the *checker* changes what is accepted, so it needs
+measurement (verdicts, NC rate, byte-identity) and is not mine to
+decide.  The measurement to run, if it is granted, is the one #126
+used: certified fraction, NC rate, and init-prelude byte-identity.
+
+**Until it is decided**, `InferProjStepTT` stays a named obligation and
+`InferClaimsTT` is closed modulo it alone.  Nothing else in the bridge
+depends on the outcome — the `whnfCore` projection path is separate and
+already has its certificates.
