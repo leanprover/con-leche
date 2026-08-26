@@ -3,6 +3,7 @@ import Setlec.TT.Subst
 import Setlec.TT.Const
 import Setlec.TT.Judgment
 import Setlec.TT.Examples
+import Setlec.TT.Nat
 import Setlec.TT.Semantics.Value
 import Setlec.TT.Semantics.Interp
 import Setlec.TT.Semantics.ConstOk
