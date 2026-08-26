@@ -8353,3 +8353,55 @@ modes against a binary built from pre-change master, arena 90/92, e2e
 `psigma_rec_eta` fixture exists precisely to force a defeq-side pair-η
 rescue at a neutral major, and it still accepts, so the new
 certificate *succeeds* on a real firing rather than never running.
+
+## The `V`-free checker-inversion tier moves to `Setlec/Verify` (2026-08-26, task #123)
+
+`Setlec/Model/Extend/*` was written where its consumers were, not where
+its statements belong.  Task #119's scout measured the consequence
+(`Setlec/TTVerify/DESIGN.md` §14.1): the tier is checker *inversion* —
+every `check*_inv` and every spec `Prop` is over `Env`/`Expr`, with no
+valuation anywhere — and the declarative bridge, which may not import
+`Setlec/Model/*`, would otherwise have to duplicate it.  This task
+relocated that content, verbatim, to `Setlec/Verify/`.
+
+**The criterion is the statement, not the proof.**  A declaration moves
+iff its type *and* its proof's constant cone reach neither the
+`SetTheory` class nor `ConstVal V`.  That second root matters: a handful
+of predicates (`BlockInstalled`, `ProjPhaseInv`,
+`ConstValParams.recRules_swap`) are `SetTheory`-free but still range
+over a valuation `ConstVal V`, and "`V`-free" is the layering rule, not
+"`SetTheory`-free".  They stay in `Model`.  The set was computed
+mechanically (least fixed point over `Environment` constant
+dependencies), not by reading.
+
+**What the move is allowed to change: nothing but the file.**  The
+enclosing `variable {V} [SetTheory V]` disappears in the target module,
+so the `omit [SetTheory V] in` lines that decorated most of these
+lemmas are dropped — a scope directive, not part of a statement.  The
+purity claim was *checked*, not asserted: a structural dump of every
+constant's `levelParams` and type, before and after, differs on eight
+constants and only in hygienic binder names (`inst._@.…_hygCtx…`) —
+i.e. nowhere modulo α.  No constant is added or removed apart from
+renumbered `match_` auxiliaries.
+
+**Shape.**  `Setlec/Verify/Extend/{Inversions,Iota}.lean` are whole-file
+relocations (both modules were 100 % inversion); `Decl`, `Ind`,
+`Modeled`, `Proj`, `Recs`, `Sibs`, `Transport` split, the `Model` file
+keeping the valuation-carrying half and importing the `Verify` one.
+Three enabling modules came out of files outside `Extend/`, because the
+inversions depend on them: `Setlec/Verify/IotaWalkInv.lean`
+(`DefEqListOk`/`TypedListOk`/`AnnotListOk` and their inversions, from
+`Model/IotaWalk.lean` — without them 800 lines of `Extend/Iota.lean`
+could not move), `Setlec/Verify/EnvPreds.lean` (`BasisBlocks`,
+`RecCtorsStored`, `ProjOk`, `uN`/`vN`/`u1N`, `ConstantInfo.isBasis`) and
+`Setlec/Verify/EnvGuards.lean` (`natLitSupported_inv`/`_congr`, the
+`strLit` pair, `EtaFamilyStored`).
+
+`Model/Extend/{Inversions,Iota}.lean` survive as import shims: their
+siblings inherit `Model.*Install` and `Model.IotaWalk` through them, and
+deleting them would push those imports around for no gain.
+
+4 259 lines left `Setlec/Model/*`; the `annotOk_*` tier and every `*_sound` are
+untouched, as they must be.  No `Setlec/Verify/*` module imports
+`Setlec/Model/*` or `Setlec/SetTheory/*` (checked by grep), and no
+checker source changed at all, so verdicts cannot have moved.
