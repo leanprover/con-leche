@@ -433,6 +433,32 @@ i.e. subject reduction — the opposite of §2.4.  That is a real trade
 becomes a bridge obligation), and it should be entered deliberately if
 ever, not drifted into.
 
+#### The trade, stated so the layer is not blamed for it later
+
+**The same property that forecloses infer-only is the one that buys
+the layer its advantages.**  Typing here is a *derivation about
+syntax*, so an equation transports none of it — which is the whole
+obstruction above.  Typing in the set model is `⟦e⟧ ∈ˢ ⟦T⟧`, a property
+of the *value*, so it transports along interpretation-equality for
+nothing; correspondingly `WhnfClaims` concludes `AnnotOk e'` from
+`AnnotOk e` and semantic subject reduction is free there.  That same
+intensionality is what makes the layer's substitution metatheory two
+lemmas instead of 123 (`Setlec/TT/DESIGN.md` §6) and what makes
+`AnnotOk` disappear from this bridge entirely (§2).  Genuine trade, not
+a defect.
+
+So **route 4 is available in form on the set-model side and not here**,
+and that is worth knowing: it would make the set model the stronger
+framework in exactly one place.  Whether it is available in *substance*
+is a separate question this note does not settle, and one caveat should
+be checked before anyone counts on it: `AnnotOk`'s app clause supplies
+the argument in `∃ A B`, i.e. in *some* domain, and pinning that to the
+checker's inferred domain needs the function's value to determine its
+domain — which the domain-relative collapse defeats at `Prop`, where
+`lamC A f = pt` erases it.  That is the same shape as the task #100
+countermodel, so the obstruction may be different and weaker there
+rather than absent.  Recorded as a lead, not a result.
+
 ### The beta clause: the certificate is needed under the current rule set
 
 The investigation left the beta re-check as its one **unclear** verdict,

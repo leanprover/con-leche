@@ -6,6 +6,7 @@ import Setlec.TTVerify.Inst
 import Setlec.TTVerify.Inversion
 import Setlec.TTVerify.EnvTT
 import Setlec.TTVerify.Claims
+import Setlec.TTVerify.WhnfCore
 import Setlec.TTVerify.Extend
 import Setlec.TTVerify.Consistency
 
