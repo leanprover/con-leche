@@ -177,4 +177,27 @@ theorem proj_tele_typed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     exact (ConstantInfo.ctorInfo.inj (Option.some.inj hfind)).1
   exact certs_typed m φ hcl ihd ihi _ _ T hcerts hw hb hC hi hargs
 
+/-- **The projection reduction step.**  Given the pinned pair's four
+telescope premises, a projection of a constructor application is
+`Deq`-equal to the selected field.
+
+The premises are stated rather than extracted because that is where
+they *come from*: task #126's certification, through
+`projTeleCert_inv` and `certs_typed`, produces exactly this list as a
+`TeleTyped` over `PSigma'.mk`'s stored type
+(`∀ (α : Sort u) (β : α → Sort v) (fst : α) (snd : β fst), …`), whose
+four telescope domains **are** these four premises.  Unpacking that
+walk into them is mechanical; it is the clause's remaining plumbing,
+not a further obligation. -/
+theorem proj_reduction_step {Δ : List VExpr} {u v : Nat}
+    {VA VB Va Vb : VExpr}
+    (hA : HasType Δ VA (.sort u))
+    (hB : HasType Δ VB (arrow VA (.sort v)))
+    (ha : HasType Δ Va VA)
+    (hb : HasType Δ Vb (.app VB Va)) :
+    Deq Δ (VExpr.proj 0 (psigmaMkT u v VA VB Va Vb)) Va ∧
+    Deq Δ (VExpr.proj 1 (psigmaMkT u v VA VB Va Vb)) Vb :=
+  ⟨⟨.sort 0, HasType.projFstMk (T := .sort 0) hA hB ha hb⟩,
+   ⟨.sort 0, HasType.projSndMk (T := .sort 0) hA hB ha hb⟩⟩
+
 end Setlec.TTVerify

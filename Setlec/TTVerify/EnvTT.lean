@@ -149,6 +149,12 @@ with `natLitSupported_congr` / `natLitSupported_inv`, which the bridge
 duplicates for the same reason.  Deferred because `Model/Interp.lean`
 is heavily trafficked and moving it mid-flight would collide.
 
+**The diagnostic, for finding the rest of this class:** if transposing
+a definition to the bridge changes *nothing* — same statement, same
+proof obligations, no `V` anywhere — it was misfiled.  `ProjOkT` is the
+clearest case: it transposed verbatim, which is exactly the signature
+of a clause that was never about the model.
+
 **Do not "fix" the duplication by importing `Setlec/Model/*` from
 here.**  That is the wrong direction: the bridge must not depend on the
 set-model path (both verification routes are meant to stand alone), and
