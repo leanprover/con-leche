@@ -296,13 +296,73 @@ derivable*, and all four derivations are mechanized in
   evidence that the former is a primitive rather than an addition.
 
 Dropping them removes the most index-heavy dependent types from
-`BConst.type`.  Note that `congrEq` was **discovered by attempting the
-`Eq.rec` derivation** — without it the layer could not retype an
-equality proof along an equation between its own sides, and `Eq.rec`
-would not be derivable.  This is the kind of gap the design stage is
-for.
+`BConst.type`.
 
-### 3.1 The two standard axioms, in primitive form
+### 3.1 House rule: mechanize a consumer, or you are not finished
+
+**Definitions in this codebase cannot be got right by inspection.
+Three for three says so**, and the third is what fixes the rule's
+scope.
+
+* `congrEq` was discovered by *attempting the `Eq.rec` derivation*.
+  Without it the layer cannot retype an equality proof along an
+  equation between its own sides, and `Eq.rec` is not derivable.  It
+  looks like a rule nobody would need until you need it.
+* `congrProj` was discovered by *attempting the projection former*
+  (task #119).  `proj` is not an application, so `congrApp` does not
+  reach it, and the only elimination over an equation is `conv`, which
+  changes types rather than terms — so "equal subjects have equal
+  fields" is not derivable, though every reader's first instinct says
+  it must be.
+* `CtxOk` — the bridge's context correspondence
+  (`Setlec/TTVerify/Claims.lean`) — was discovered to be incomplete by
+  *attempting `CtxOk.open`*, the lemma that opens a binder.
+  `Expr.fvarLeaves` is **hereditary**: an `fvar`'s type annotation
+  contributes its own leaves.  So a freshly opened variable brings
+  leaves the definition could not place, because it constrained each
+  leaf's index and denotation but said nothing about its annotation's
+  scoping.
+
+All three were invisible in the artefact itself and all three surfaced
+the moment something was mechanized against it.  None was subtle; each
+*read* as complete.
+
+**What the third one changes.**  The first two were missing rules in a
+rule table, and the rule was phrased for that: "mechanize a
+representative elimination".  `CtxOk` is not a rule — it is an
+*invariant*, in a different module hierarchy — so the phrasing was too
+narrow.  The general form, which is what to apply next time (and on
+this record the next case will not be a rule either):
+
+> **Mechanize a consumer of any new definition — rule, former,
+> constant, invariant, predicate — before believing it is complete.**
+> Write the proof that actually uses it, in
+> `Setlec/TT/Examples.lean` for the layer or in the first lemma that
+> needs it elsewhere.  Until a consumer elaborates, "obviously
+> sufficient" is a conjecture, not a claim.
+
+The corollary for reviewers: a change that adds a definition but no
+consumer of it has demonstrated nothing, however plausible it reads.
+
+**A distinction worth keeping when the gap is found.**  `CtxOk`'s fix
+strengthened the invariant with `Expr.fvarsBelow l.1 l.2.2` — exactly
+`WScoped`'s own condition on an `fvar` leaf, hence something the
+checker's scope guards *already establish*.  A strengthening the
+callers already have is **free**: no call site changes, and nothing new
+is owed.  A strengthening the callers do **not** have would have been a
+finding of a different and worse kind — a real new obligation, possibly
+one the checker cannot discharge.  When mechanization exposes a gap,
+say which of the two it was; the two carry very different news.
+
+And the corollary for *design*: when a new thing is added as a former
+rather than as constants, check the derivability direction both ways.
+The projection case is the template — the former derives the
+constants, and no set of constants derives the former, because only
+the former can be typed without its type arguments appearing in the
+term.  A former that shrinks `BConst` is a primitive; one that only
+grows it is an addition, and should be justified as such.
+
+### 3.2 The two standard axioms, in primitive form
 
 `propext` and `choice` are stated **without the modeled inductives that
 Lean's versions mention** — no `Iff`, no `Nonempty`:

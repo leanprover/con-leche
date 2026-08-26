@@ -1269,8 +1269,15 @@ private theorem majorToCtor_shift (henv : EnvWF env)
             exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
 
 /-- The scoping of an iota reduct (the `iotaRec` slice of the
-`whnfPres_WScoped` proof, factored for the bisimulation). -/
-private theorem iotaRec_WScoped (henv : EnvWF env)
+`whnfPres_WScoped` proof, factored for the bisimulation).
+
+**Public, not `private` like this file's other helpers**, because the
+TTVerify bridge (`Setlec/TTVerify/WhnfCoreStep.lean`) needs an iota
+reduct's frame conditions from outside this file: its `IotaStepTT`
+obligation has to hand the recursive `whnfCore` call a well-scoped
+subject, exactly as the set model's `iota_sound` does.  Nothing else
+about the lemma changes. -/
+theorem iotaRec_WScoped (henv : EnvWF env)
     {d : Nat} {e e'' : Expr}
     (h : iotaRec (pureFns env fuel) env d e = .ok (some e''))
     (hw : WScoped d e) : WScoped d e'' := by

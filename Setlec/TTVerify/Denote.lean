@@ -23,6 +23,7 @@ replaced by the corresponding term formers.
 | `SetTheory.app vf va` | `.app ⟦f⟧ ⟦a⟧` |
 | `sfst ve`/`ssnd ve` | `.proj i ⟦e⟧` (the former, task #119) |
 | `natLitVal zv sv n` | `natLitT ⟦zero⟧ ⟦succ⟧ n` |
+| `letE` ↦ its zeta reduct | `.letE ⟦ty⟧ ⟦val⟧ ⟦body⟧` (**structural**) |
 
 Three points where the transpose is worth stating rather than reading
 off the table.
@@ -59,15 +60,44 @@ construction of the valuation* as declarations install, which is
 exactly `EnvModel`'s existing induction and needs no new termination
 argument.  Task #119 follows the set model here, by direction.)
 
-## `let` denotes to its zeta reduct
+## Why `denote` is structural, including at `let`
 
-`interpExpr`'s `letE` clause interprets the body opened at the value's
-interpretation, i.e. the zeta reduct; `denote` does the same, by
-substituting `⟦value⟧` for the opened binder.  `VExpr.letE` and its
-`HasType.letE` rule are therefore *not* used by this bridge — they
-become relevant only when the checker stops zeta-expanding at
-annotation time (task #117), and the two are interderivable through
-`HasType.zeta` in any case.
+**Every clause maps a constructor to a constructor.**  That is not
+cosmetic, and the `letE` clause is where it was decided.  The principle
+to preserve, if any clause is ever tempted to compute:
+
+> **A structural `denote` is what keeps the bridge's substitution
+> metatheory small.**
+
+`Setlec/TTVerify/DESIGN.md` §7 does the accounting: four lemmas, where
+a computing `denote` needs lifting to commute with instantiation and
+with itself, and four becomes six and keeps going.
+
+`interpExpr`'s `letE` clause interprets the *zeta reduct* — the body
+opened at the value's interpretation — and the obvious transpose was to
+substitute `⟦value⟧` into the denoted body, i.e. emit `b.inst xv`.
+That was the original choice here and it is **withdrawn**: a `denote`
+that performs a substitution forces the bridge's own metatheory to
+prove that lifting commutes with instantiation, and then that lifting
+commutes with lifting, and the swamp `Setlec/TT/DESIGN.md` §6 is proud
+of avoiding (lean4lean's 123 syntactic lemmas) reappears one layer
+down.  The shift lemma (`Setlec/TTVerify/Shift.lean`) is where this
+showed up concretely: with `b.inst xv` its `letE` case needs two
+commutation lemmas; with `.letE A xv b` it is structural and needs
+none.
+
+So a `let` denotes to the layer's own `VExpr.letE`, `HasType.letE`
+types it, and a consumer that wants the reduct gets it from
+`HasType.zeta`, which is premise-free and exists for exactly this.  The
+cost is one rule application at the zeta clause of `whnfCore`; the
+saving is that the bridge keeps the property the layer advertises —
+its substitution metatheory stays small.
+
+(The clause also denotes the type annotation, which `interpExpr` does
+not read.  `HasType.letE` needs it, and stored terms carry no `letE`
+today — the checker zeta-expands at annotation time — so nothing is
+lost until task #117 lands, at which point the checker's own `letE`
+rule supplies exactly this premise.)
 
 ## Projections, and why the layer grew a former for them
 
@@ -184,15 +214,14 @@ def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
     | some vf, some va => some (.app vf va)
     | _, _ => none
   | d, .letE n ty val body =>
-    -- a `let` is its body at the value: open the binder at index `d`
-    -- (exactly as the binder clauses do) and substitute the value's
-    -- denotation for it, which is the zeta reduct `body[val]`
-    match denote cval env φ d val with
-    | none => none
-    | some xv =>
+    -- structural: a `let` denotes to the layer's own `letE`, *not* to
+    -- its zeta reduct.  See "Why `denote` is structural" above.
+    match denote cval env φ d ty, denote cval env φ d val with
+    | some A, some xv =>
       match denote cval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
       | none => none
-      | some b => some (b.inst xv)
+      | some b => some (.letE A xv b)
+    | _, _ => none
   | d, .proj _ i e =>
     -- the transpose of `interpExpr`'s clause, `i < 2` guard included:
     -- the former carries only the index and the subject, and its
@@ -282,12 +311,12 @@ theorem denote_lam (cval : TConstVal) (env : Env) (φ : Name → Nat)
 theorem denote_letE (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (d : Nat) (n : Name) (ty val body : Expr) :
     denote cval env φ d (.letE n ty val body) =
-      match denote cval env φ d val with
-      | none => none
-      | some xv =>
+      match denote cval env φ d ty, denote cval env φ d val with
+      | some A, some xv =>
         match denote cval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
         | none => none
-        | some b => some (b.inst xv) := by
+        | some b => some (.letE A xv b)
+      | _, _ => none := by
   rw [denote]
 
 theorem denote_proj (cval : TConstVal) (env : Env) (φ : Name → Nat)
