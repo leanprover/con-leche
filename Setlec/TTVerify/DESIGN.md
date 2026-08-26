@@ -2804,6 +2804,16 @@ the reverse direction costs nothing.  **Bidirectionality is the reason
 to prefer laws over equations**, and it was discovered at the first
 consumer that needed the reverse, not at the ruling.
 
+**Which came first matters, so record it.**  The ruling was made *by
+analogy* — "matching `rec_rules` and `caps_ok`" — and the analogy is
+not an argument: it would not have survived a challenge before the
+install existed, because nothing then distinguished a law from an
+equation at the sites that were written.  So this is a decision that
+was **right before it was justified**, and the justification arrived
+from a direction nobody was looking in.  Analogy is a decent prior and
+a bad defence; the honest form of the record is to say the prior held
+and to name the reason that replaced it.
+
 ## 12. The governing design directive, and what it changes
 
 A user directive arrived before `DefEqClaimsTT` and `InferClaimsTT`
