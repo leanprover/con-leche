@@ -23,6 +23,12 @@ under #123's criterion rather than something to re-derive
 (`DESIGN.md` §14.4).
 -/
 
+-- The basis blocks' type computations run one fixed simp set per
+-- constant; which of its members fire depends on the constant's shape,
+-- so some are unused in some of them.  Same practice as the set model's
+-- own basis installs.
+set_option linter.unusedSimpArgs false
+
 namespace Setlec.TTVerify
 
 open Setlec.TT
@@ -223,6 +229,56 @@ theorem extendBasisTT {env : Env} (m : EnvTT env) {ci : ConstantInfo}
   · exact fun cv v h heq => absurd heq (hnodefn cv v h)
   · exact fun cv heq => absurd heq (hnoax cv)
 
+
+/-- **An earlier constant of the block, denoted.**  Every `htype`
+computation in a basis block needs the same step: a constant already
+installed by this block resolves in the extended environment, its level
+list has the declared length, and its valuation is its pin. -/
+theorem denote_const_pin {env : Env} (m : EnvTT env) {ci₀ ci : ConstantInfo}
+    {n : Name} {us : List Level} {t : VExpr} {φ : Name → Nat}
+    {val : (Name → Nat) → VExpr}
+    (hne : ci₀.name ≠ n)
+    (hf : env.find? n = some ci)
+    (hlen : us.length = ci.toConstantVal.levelParams.length)
+    (hres : reservedBasisNames.contains n = true)
+    (hpin : pinnedDirectT n (Level.substFn φ ci.toConstantVal.levelParams us)
+      = some t) (d : Nat) :
+    denote (cvalSet m.cval ci₀.name val) ⟨ci₀ :: env.consts⟩ φ d (.const n us)
+      = some t := by
+  rw [denote_const, Env.find?_cons, if_neg hne, hf]
+  simp only [if_pos hlen]
+  rw [cvalSet_ne (Ne.symm hne)]
+  exact congrArg some (cval_pinned m hres (by rw [hf]; rfl) _ hpin)
+
+/-! ### `instantiate1`, constructor by constructor
+
+`denote` opens every binder with `instantiate1` at cut `0`, so a basis
+type's computation walks it once per node.  Unfolding the definition
+leaves a decidable `if` at each `bvar`; these equations let `simp` take
+the step without ever producing one. -/
+
+@[simp] theorem Expr.instantiate1_bvar (i : Nat) (v : Expr) (d : Nat) :
+    (Expr.bvar i).instantiate1 v d =
+      if i = d then v else if i > d then .bvar (i - 1) else .bvar i := rfl
+@[simp] theorem Expr.instantiate1_const (n : Name) (us : List Level)
+    (v : Expr) (d : Nat) : (Expr.const n us).instantiate1 v d = .const n us :=
+  rfl
+@[simp] theorem Expr.instantiate1_sort (u : Level) (v : Expr) (d : Nat) :
+    (Expr.sort u).instantiate1 v d = .sort u := rfl
+@[simp] theorem Expr.instantiate1_fvar (i : Nat) (n : Name) (ty v : Expr)
+    (d : Nat) : (Expr.fvar i n ty).instantiate1 v d = .fvar i n ty := rfl
+@[simp] theorem Expr.instantiate1_app (f a v : Expr) (d : Nat) :
+    (Expr.app f a).instantiate1 v d
+      = .app (f.instantiate1 v d) (a.instantiate1 v d) := rfl
+@[simp] theorem Expr.instantiate1_forallE (n : Name) (ty body v : Expr)
+    (bi : BinderMeta) (d : Nat) :
+    (Expr.forallE n ty body bi).instantiate1 v d
+      = .forallE n (ty.instantiate1 v d) (body.instantiate1 v (d + 1)) bi := rfl
+@[simp] theorem Expr.instantiate1_lam (n : Name) (ty body v : Expr)
+    (bi : BinderMeta) (d : Nat) :
+    (Expr.lam n ty body bi).instantiate1 v d
+      = .lam n (ty.instantiate1 v d) (body.instantiate1 v (d + 1)) bi := rfl
+
 /-! ## `Empty`
 
 The pilot block: two constants, and `Empty.rec`'s rule list is `[]`, so
@@ -372,6 +428,362 @@ theorem declBasisTT_emptyK {env env₁ : Env} (m : EnvTT env)
     rw [hf]
     simp
   exact extendEmptyRecTT m1 hE h2 hwf2
+
+
+/-! ## `PUnit`
+
+The first block with a rule, and the smallest one that exercises the
+whole of `hheadRec`.  Two things about it generalise.
+
+**The recursor's level list is the reason `pinnedDirectT` had to be
+fixed**: `PUnit.rec` binds `u_1, u` with the *motive* first, and the
+layer's `punitRec` takes the *type*'s level first.
+
+**The rule's constructor spine carries an arbitrary level.**  Nothing
+in `hheadRec` ties the `usj` the major premise is built at to the `us`
+the recursor is read at — the telescope only says the spine *inhabits*
+the major domain.  For `PUnit` the gap closes with `punitEta`, which
+equates any two `PUnit` elements at any two levels; a block without a
+unit-like law would have to close it another way, and that is worth
+knowing before `Nat` and `PSigma`. -/
+
+/-- `PUnit`, installed. -/
+theorem extendPUnitTT {env : Env} (m : EnvTT env)
+    (hfresh : env.find? punitName = none)
+    (hwf : EnvWF ⟨punitA :: env.consts⟩) :
+    Nonempty (EnvTT ⟨punitA :: env.consts⟩) := by
+  refine extendBasisTT m (val := fun ψ => punitT (ψ uNT)) (by decide)
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name punitA = punitName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uNT (by show uNT ∈ [uNT]; exact List.mem_cons_self)]
+  · intro φ
+    refine ⟨.sort (φ uNT), ?_, HasType.const⟩
+    rw [denoteClosed, show punitA.toConstantVal.type = Expr.sort (.param uNT)
+      from rfl, denote_sort]
+    rfl
+
+/-- `PUnit.unit`, installed. -/
+theorem extendPUnitUnitTT {env : Env} (m : EnvTT env)
+    (hP : env.find? punitName = some punitA)
+    (hfresh : env.find? punitUnitName = none)
+    (hwf : EnvWF ⟨punitUnitA :: env.consts⟩) :
+    Nonempty (EnvTT ⟨punitUnitA :: env.consts⟩) := by
+  refine extendBasisTT m (val := fun ψ => punitUnitT (ψ uNT)) (by decide)
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name punitUnitA = punitUnitName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uNT (by show uNT ∈ [uNT]; exact List.mem_cons_self)]
+  · intro φ
+    refine ⟨punitT (φ uNT), ?_, HasType.const⟩
+    rw [denoteClosed, show punitUnitA.toConstantVal.type
+      = Expr.const punitName [.param uNT] from rfl]
+    refine denote_const_pin m (by decide) hP rfl (by decide) ?_ 0
+    simp +decide [pinnedDirectT]
+    rfl
+
+
+/-- `PUnit.rec`, installed — the block's whole content. -/
+theorem extendPUnitRecTT {env : Env} (m : EnvTT env)
+    (hP : env.find? punitName = some punitA)
+    (hU : env.find? punitUnitName = some punitUnitA)
+    (hfresh : env.find? (punitName.str "rec") = none)
+    (hwf : EnvWF ⟨punitRecA :: env.consts⟩) :
+    Nonempty (EnvTT ⟨punitRecA :: env.consts⟩) := by
+  have hPc : ∀ (d : Nat) (φ : Name → Nat) (l : Level),
+      denote (cvalSet m.cval punitRecA.name
+          (fun ψ => VExpr.const .punitRec [ψ uNT, ψ u1NT]))
+        ⟨punitRecA :: env.consts⟩ φ d (.const punitName [l])
+        = some (punitT (l.eval φ)) := by
+    intro d φ l
+    refine denote_const_pin m (by decide) hP rfl (by decide) ?_ d
+    simp +decide [pinnedDirectT]
+    rfl
+  have hUc : ∀ (d : Nat) (φ : Name → Nat) (l : Level),
+      denote (cvalSet m.cval punitRecA.name
+          (fun ψ => VExpr.const .punitRec [ψ uNT, ψ u1NT]))
+        ⟨punitRecA :: env.consts⟩ φ d (.const punitUnitName [l])
+        = some (punitUnitT (l.eval φ)) := by
+    intro d φ l
+    refine denote_const_pin m (by decide) hU rfl (by decide) ?_ d
+    simp +decide [pinnedDirectT]
+    rfl
+  refine extendBasisTT m
+    (val := fun ψ => VExpr.const .punitRec [ψ uNT, ψ u1NT]) (by decide)
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name punitRecA = punitName.str "rec" from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · -- the valuation reads only `u` and `u_1`
+    intro φ₁ φ₂ hp
+    rw [hp uNT (by
+        show uNT ∈ [u1NT, uNT]
+        exact List.mem_cons_of_mem _ List.mem_cons_self),
+      hp u1NT (by show u1NT ∈ [u1NT, uNT]; exact List.mem_cons_self)]
+  · -- the pinned type, denoted
+    intro φ
+    refine ⟨_, ?_, HasType.const⟩
+    rw [denoteClosed,
+      show punitRecA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "motive")
+            (Expr.forallE (Name.anonymous.str "t")
+              (.const punitName [.param uNT]) (.sort (.param u1NT))
+              { bi := .default })
+            (Expr.forallE (Name.anonymous.str "unit")
+              (.app (.bvar 0) (.const punitUnitName [.param uNT]))
+              (Expr.forallE (Name.anonymous.str "t")
+                (.const punitName [.param uNT])
+                (.app (.bvar 2) (.bvar 0)) { bi := .default })
+              { bi := .default })
+            { bi := .implicit } from rfl]
+    simp [denote_forallE, denote_sort, denote_app, denote_fvar,
+      Expr.instantiate1, Level.eval, hPc, hUc, BConst.type, arrow, punitT,
+      punitUnitT]
+    exact ⟨⟨rfl, rfl⟩, rfl⟩
+  · -- the rule's constructor is stored
+    intro cv mI rP rules heq
+    injection heq with _ _ _ h4
+    subst h4
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · exact ⟨punitUnitA.toConstantVal, 0, 0, hU⟩
+    · exact nomatch hr'
+  · -- the iota rule
+    intro cv mI rP rules heq
+    injection heq with h1 h2 h3 h4
+    subst h1; subst h2; subst h3; subst h4
+    intro rl hrl _
+    rcases List.mem_cons.mp hrl with rfl | hr'
+    · refine ⟨Nat.le_refl 2, ?_⟩
+      intro φ d us hus
+      obtain ⟨w1, w2, rfl⟩ : ∃ a b, us = [a, b] := by
+        match us, hus with
+        | [a, b], _ => exact ⟨a, b, rfl⟩
+      have hsu : Level.subst [Name.anonymous.str "u_1", Name.anonymous.str "u"]
+          [w1, w2] (.param (Name.anonymous.str "u")) = w2 := by
+        simp [Level.subst, Level.subst.go]
+      have hsu1 : Level.subst [Name.anonymous.str "u_1", Name.anonymous.str "u"]
+          [w1, w2] (.param (Name.anonymous.str "u_1")) = w1 := by
+        simp [Level.subst, Level.subst.go]
+      have hPc' := fun (d : Nat) (φ : Name → Nat) (l : Level) =>
+        hPc d φ l
+      have hUc' := fun (d : Nat) (φ : Name → Nat) (l : Level) =>
+        hUc d φ l
+      simp only [punitName, punitUnitName] at hPc' hUc'
+      refine ⟨.lam (.pi (punitT (w2.eval φ)) (.sort (w1.eval φ)))
+        (.lam (.app (.bvar 0) (punitUnitT (w2.eval φ))) (.bvar 0)), ?_, ?_⟩
+      · simp only [Expr.instantiateLevelParams, List.map_cons, List.map_nil,
+          hsu, hsu1, denote_lam, denote_forallE, denote_sort, denote_app,
+          Expr.instantiate1_bvar, Expr.instantiate1_const,
+          Expr.instantiate1_sort, Expr.instantiate1_fvar,
+          Expr.instantiate1_app, Expr.instantiate1_forallE,
+          Expr.instantiate1_lam, reduceIte, hPc', hUc', denote_fvar]
+        simp
+      · intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj
+          hTV hTVj hR hC
+        -- the rule's constructor is the stored `PUnit.unit`
+        have hU' := hU
+        simp only [punitUnitName, punitName] at hU'
+        rw [Env.find?_cons, if_neg (by decide), hU'] at hfj
+        obtain ⟨rfl, rfl, rfl⟩ :
+            cvj = punitUnitA.toConstantVal ∧ cnP = 0 ∧ cnF = 0 := by
+          injection Option.some.inj hfj with h1 h2 h3
+          exact ⟨h1.symm, h2.symm, h3.symm⟩
+        obtain rfl : ys = [] := List.eq_nil_of_length_eq_zero hys
+        obtain ⟨M, mm, rfl⟩ : ∃ a b, xs = [a, b] := by
+          match xs, hxs with
+          | [a, b], _ => exact ⟨a, b, rfl⟩
+        -- the recursor's type, denoted
+        obtain rfl : TV = .pi (.pi (punitT (w2.eval φ)) (.sort (w1.eval φ)))
+            (.pi (.app (.bvar 0) (punitUnitT (w2.eval φ)))
+              (.pi (punitT (w2.eval φ)) (.app (.bvar 2) (.bvar 0)))) := by
+          simp [Expr.instantiateLevelParams, hsu, hsu1, denote_forallE,
+            denote_sort, denote_app, denote_fvar, hPc', hUc'] at hTV
+          exact hTV.symm
+        -- the telescope's three premises
+        cases hR with | cons hM hR =>
+        cases hR with | cons hm hR =>
+        cases hR with | cons hct hR =>
+        obtain ⟨l0, rfl⟩ : ∃ a, usj = [a] := by
+          match usj, husj with
+          | [a], _ => exact ⟨a, rfl⟩
+        simp only [VExpr.inst_pi, VExpr.inst_app, VExpr.inst_bvar,
+          VExpr.liftN_zero, punitT, punitUnitT, VExpr.inst_const,
+          reduceIte] at hm hct
+        have hctorV : cvalSet m.cval punitRecA.name
+            (fun ψ => VExpr.const .punitRec [ψ uNT, ψ u1NT])
+            ((Name.anonymous.str "PUnit").str "unit")
+            (Level.substFn φ punitUnitA.toConstantVal.levelParams [l0])
+            = punitUnitT (l0.eval φ) := by
+          rw [cvalSet_ne (by decide)]
+          refine cval_pinned m (by decide) (by rw [hU']; rfl) _ ?_
+          simp +decide [pinnedDirectT]
+          rfl
+        have hrecV : cvalSet m.cval punitRecA.name
+            (fun ψ => VExpr.const .punitRec [ψ uNT, ψ u1NT]) punitRecA.name
+            (Level.substFn φ [Name.anonymous.str "u_1", Name.anonymous.str "u"]
+              [w1, w2])
+            = VExpr.const .punitRec [w2.eval φ, w1.eval φ] := by
+          rw [cvalSet_self]
+          simp [Level.substFn, uNT, u1NT]
+        rw [show VExpr.mkAppN (cvalSet m.cval punitRecA.name
+            (fun ψ => VExpr.const .punitRec [ψ uNT, ψ u1NT])
+            ((Name.anonymous.str "PUnit").str "unit")
+            (Level.substFn φ punitUnitA.toConstantVal.levelParams [l0])) []
+          = cvalSet m.cval punitRecA.name
+            (fun ψ => VExpr.const .punitRec [ψ uNT, ψ u1NT])
+            ((Name.anonymous.str "PUnit").str "unit")
+            (Level.substFn φ punitUnitA.toConstantVal.levelParams [l0])
+          from rfl, hctorV] at hct ⊢
+        rw [hrecV]
+        -- the guard's level is irrelevant
+        have hEta : Deq Δ (punitUnitT (l0.eval φ))
+            (punitUnitT (w2.eval φ)) :=
+          Deq.intro (HasType.punitEta hct HasType.const)
+        -- the iota rule of the layer
+        have hRec : Deq Δ (punitRecT (w2.eval φ) (w1.eval φ) M mm
+            (punitUnitT (w2.eval φ))) mm :=
+          Deq.intro (HasType.punitRecUnit (T := mm) hM hm)
+        -- and the right-hand side beta-reduces to the minor premise
+        have hb1 : Deq Δ
+            (.app (VExpr.lam (.pi (punitT (w2.eval φ)) (.sort (w1.eval φ)))
+              (.lam (.app (.bvar 0) (punitUnitT (w2.eval φ))) (.bvar 0))) M)
+            (.lam (.app M (punitUnitT (w2.eval φ))) (.bvar 0)) := by
+          have := HasType.beta (T := M) (Γ := Δ) (A := _) (a := M)
+            (b := VExpr.lam (.app (.bvar 0) (punitUnitT (w2.eval φ)))
+              (.bvar 0)) hM
+          simp only [VExpr.inst, VExpr.inst_app, VExpr.inst_bvar,
+            VExpr.liftN_zero, reduceIte] at this
+          exact Deq.intro this
+        have hb2 : Deq Δ
+            (.app (VExpr.lam (.app M (punitUnitT (w2.eval φ))) (.bvar 0)) mm)
+            mm := by
+          have := HasType.beta (T := mm) (Γ := Δ) (a := mm) (b := VExpr.bvar 0)
+            hm
+          simp only [VExpr.inst, VExpr.inst_bvar, VExpr.liftN_zero,
+            reduceIte] at this
+          exact Deq.intro this
+        exact Deq.trans (Deq.trans (Deq.appArg hEta) hRec)
+          (Deq.symm (Deq.trans (Deq.appFun hb1) hb2))
+    · exact nomatch hr'
+
+
+/-- **The `PUnit` block, installed.** -/
+theorem declBasisTT_punitK {env env₁ : Env} (m : EnvTT env)
+    (h : BasisChain env BasisKind.punitK.declsA env₁) :
+    Nonempty (EnvTT env₁) := by
+  rw [show BasisKind.punitK.declsA = [punitA, punitUnitA, punitRecA] from rfl]
+    at h
+  cases h with
+  | cons h1 h =>
+  cases h with
+  | cons h2 h =>
+  cases h with
+  | cons h3 h =>
+  cases h with
+  | nil =>
+  have hwf1 : EnvWF ⟨punitA :: env.consts⟩ :=
+    EnvWF.cons m.wf ⟨rfl, rfl, rfl, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  obtain ⟨m1⟩ := extendPUnitTT m h1 hwf1
+  have hP1 : (⟨punitA :: env.consts⟩ : Env).find? punitName = some punitA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hwf2 : EnvWF ⟨punitUnitA :: punitA :: env.consts⟩ :=
+    EnvWF.cons hwf1 ⟨rfl, rfl, ?res2, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res2 =>
+    show Expr.constsResolve _ punitUnitA.toConstantVal.type = true
+    have hf : (⟨punitUnitA :: punitA :: env.consts⟩ : Env).find? punitName
+        = some punitA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP1
+    simp only [show punitUnitA.toConstantVal.type
+        = Expr.const punitName [.param uNT] from rfl, Expr.constsResolve, hf]
+    rfl
+  obtain ⟨m2⟩ := extendPUnitUnitTT m1 hP1 h2 hwf2
+  have hP2 : (⟨punitUnitA :: punitA :: env.consts⟩ : Env).find? punitName
+      = some punitA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hP1
+  have hU2 : (⟨punitUnitA :: punitA :: env.consts⟩ : Env).find? punitUnitName
+      = some punitUnitA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hwf3 : EnvWF ⟨punitRecA :: punitUnitA :: punitA :: env.consts⟩ :=
+    EnvWF.cons hwf2 ⟨rfl, rfl, ?res3, rfl,
+      (fun _ _ _ heq => nomatch heq), ?rec3,
+      (fun _ _ heq => nomatch heq)⟩
+  case res3 =>
+    show Expr.constsResolve _ punitRecA.toConstantVal.type = true
+    have hfP : (⟨punitRecA :: punitUnitA :: punitA :: env.consts⟩ : Env).find?
+        punitName = some punitA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP2
+    have hfU : (⟨punitRecA :: punitUnitA :: punitA :: env.consts⟩ : Env).find?
+        punitUnitName = some punitUnitA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hU2
+    rw [show punitRecA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "motive")
+            (Expr.forallE (Name.anonymous.str "t")
+              (.const punitName [.param uNT]) (.sort (.param u1NT))
+              { bi := .default })
+            (Expr.forallE (Name.anonymous.str "unit")
+              (.app (.bvar 0) (.const punitUnitName [.param uNT]))
+              (Expr.forallE (Name.anonymous.str "t")
+                (.const punitName [.param uNT])
+                (.app (.bvar 2) (.bvar 0)) { bi := .default })
+              { bi := .default })
+            { bi := .implicit } from rfl]
+    simp only [Expr.constsResolve, hfP, hfU, Option.isSome_some,
+      Bool.and_self, Bool.and_true]
+  case rec3 =>
+    intro cv mI rP rules heq
+    injection heq with h1' h2' h3' h4'
+    subst h4'
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · refine ⟨rfl, ?_, ?_, rfl, fun lvls pins heqf => nomatch heqf⟩
+      · subst h1'; rfl
+      · have hfP : (⟨punitRecA :: punitUnitA :: punitA :: env.consts⟩ :
+            Env).find? punitName = some punitA := by
+          rw [Env.find?_cons, if_neg (by decide)]; exact hP2
+        have hfU : (⟨punitRecA :: punitUnitA :: punitA :: env.consts⟩ :
+            Env).find? punitUnitName = some punitUnitA := by
+          rw [Env.find?_cons, if_neg (by decide)]; exact hU2
+        show Expr.constsResolve _ (Expr.lam (Name.anonymous.str "motive")
+            (Expr.forallE (Name.anonymous.str "t")
+              (.const punitName [.param uNT]) (.sort (.param u1NT))
+              { bi := .default })
+            (Expr.lam (Name.anonymous.str "unit")
+              (.app (.bvar 0) (.const punitUnitName [.param uNT]))
+              (.bvar 0) { bi := .default })
+            { bi := .default }) = true
+        simp only [Expr.constsResolve, hfP, hfU, Option.isSome_some,
+          Bool.and_self, Bool.and_true]
+    · exact nomatch hr'
+  exact extendPUnitRecTT m2 hP2 hU2 h3 hwf3
 
 
 end Setlec.TTVerify

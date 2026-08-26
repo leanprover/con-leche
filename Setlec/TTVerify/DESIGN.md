@@ -2360,6 +2360,31 @@ law's shape actually coincide — if they only *nearly* coincided, the
 per-operation work would be where the discrepancies surfaced, and it
 is exactly where they did not.
 
+**Two kinds of instance, and a reader should be told which.**  Every
+instance above is of the *first* kind; the basis install produced the
+first of the second, and they are different evidence:
+
+* **Undesigned coincidence** — two artifacts, each faithful to the same
+  object, agreeing without either author knowing about the other.
+  `natOpDeps`, the guard congruences, `strLitSupported`'s pinned types,
+  #129's projection entry.  The evidence is about the *object*: the
+  agreement is forced because both sides are reading the same thing.
+* **Deliberate forward provision** — a clause written for a consumer
+  that did not exist yet, which turns out to be correctly sized when
+  the consumer arrives.  `EtaFamilyStored`'s first conjunct
+  (`Setlec/Verify/EnvGuards.lean`) is documented as existing "to keep
+  the basis installs' head obligations vacuous by computation", and
+  `extendBasisTT` is the install that finally collected on it.  The
+  evidence is about the *author*: someone predicted a shape and got it
+  right.
+
+Both are worth having and neither substitutes for the other.  A run of
+coincidences says the design is coherent; a forward provision that
+fits says a specific prediction held.  Conflating them would let a
+lucky guess borrow the authority of a structural fact — so each
+instance in the list above is of the first kind unless it says
+otherwise.
+
 A pin is a commitment that a declaration has an exact form.  The
 checker uses it to decide acceptance without inspecting a value; the
 bridge uses it to denote without inspecting one either.  Neither use
@@ -3505,7 +3530,8 @@ So: **Empty as the pilot** (it validates the driver and nothing else),
 **PUnit as the first real block** (§14.5's item 2, now confirmed by
 measurement rather than by guess), Quot last and priced on its own.
 
-**Landed: the driver and the pilot** (`Setlec/TTVerify/DeclBasis.lean`).
+**Landed: the driver, the pilot, and `PUnit`**
+(`Setlec/TTVerify/DeclBasis.lean`).
 `BasisChain` + `foldlM_installBasisDecl_inv` replace the model's six
 inline copies; `extendBasisTT` is `EnvTT.cons` at a pinned constant with
 **six head obligations discharged by computation on the reserved-name
@@ -3527,8 +3553,41 @@ reason about eta at all:
 The `Empty` block is then two `extendBasisTT` calls, ~120 lines total.
 Its whole content is one `htype` computation per constant, because
 `Empty.rec`'s rule list is `[]` — so it validates the driver, the
-`hEc`-style "the block's earlier constants denote to their pins" step,
-and nothing else, exactly as intended for a pilot.
+`hEc`-style "the block's earlier constants denote to their pins" step
+(now factored as `denote_const_pin`), and nothing else, exactly as
+intended for a pilot.
+
+#### `PUnit`: the first `hheadRec`, and what it cost
+
+**~290 lines against the model's 812** — a 2.8× ratio, which is the
+first real measurement of the per-block estimate and the number
+Eq/Nat/PSigma should be priced against.  The saving is where §14.4 said
+it would be: no `annotOk` family, and `<c>_key` collapsing to
+`HasType.const` plus a denotation computation.
+
+Two findings from it that the remaining blocks inherit.
+
+> **The rule's constructor spine carries an arbitrary level.**  Nothing
+> in `hheadRec` ties the `usj` the major premise is built at to the `us`
+> the recursor is read at — the telescope says only that the spine
+> *inhabits* the major domain.
+
+For `PUnit` the gap closes with `punitEta`, which equates any two
+`PUnit` elements at any two levels, so the iota rule fires after one
+congruence step.  **`Nat` and `PSigma` have no such law**, and this is
+the shape to look at first when they are written: either their
+telescope premise pins the level after all, or the fired rule has to be
+stated to tolerate the mismatch.  Better to know it now than to
+discover it at `Nat.rec`.
+
+**The computation needed a per-constructor `instantiate1` kit.**
+`denote` opens every binder with `instantiate1` at cut `0`, so a basis
+type's computation walks it once per node — and unfolding the
+definition leaves a decidable `if` at each `bvar` that `simp` will not
+take without help.  Seven `rfl` equations
+(`Expr.instantiate1_bvar` … `_lam`) remove the problem for every block,
+which is why `PUnit` paid for them and `Eq`/`Nat`/`PSigma`/`Quot`
+will not.
 
 **A finding for the model side, not this one.**  Five `<c>_iota`
 theorems — `natZero_iota`, `natSucc_iota`, `eqRec_iota`,
