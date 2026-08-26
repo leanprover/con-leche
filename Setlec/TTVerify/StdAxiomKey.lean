@@ -631,4 +631,466 @@ theorem propextKeyTT : PropextKeyTT := by
     · exact HasType.lam (HasType.lam (HasType.lam
         (propext_body m hfI hlpI hfIi hlpIi hfIr hlpIr htyIr htyIi hEq ψ)))
 
+/-! ## `Classical.choice`
+
+The same three moves at a *one*-field family, and it is cheaper for one
+structural reason worth naming: **`Nonempty.rec`'s motive sort is
+pinned to `Prop`, not carried as a level parameter.**  `Iff.rec.{u_1,u}`
+needed its `u_1` driven to `0` by a bespoke level assignment
+(`atZero`); `Nonempty.rec.{u}` has `Prop` written into the pin, so the
+recursor is read at the axiom's *own* assignment and no level
+gymnastics appear at all. -/
+
+/-- The three `Nonempty` constants `stdAxiomOk` pins. -/
+theorem nonempty_shapes {env : Env} {cvA : ConstantVal}
+    (h : stdAxiomOk env cvA = true) (hc : cvA.name = choiceName) :
+    (∃ cvN caps, env.find? nonemptyName = some (.indInfo cvN caps) ∧
+      cvN.levelParams = nonemptyA.toConstantVal.levelParams) ∧
+    (∃ cvNi, env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1) ∧
+      cvNi.levelParams = nonemptyIntroA.toConstantVal.levelParams ∧
+      cvNi.type.eraseNames = nonemptyIntroA.toConstantVal.type.eraseNames) ∧
+    (∃ cvNr mI rP rules,
+      env.find? nonemptyRecName = some (.recInfo cvNr mI rP rules) ∧
+      cvNr.levelParams = nonemptyRecA.toConstantVal.levelParams ∧
+      cvNr.type.eraseNames = nonemptyRecA.toConstantVal.type.eraseNames) ∧
+    ConstantVal.matchesPin cvA choiceA = true := by
+  rw [stdAxiomOk, if_neg (by rw [hc]; decide), if_pos hc] at h
+  simp only [Bool.and_eq_true] at h
+  obtain ⟨⟨⟨hN, hNi⟩, hNr⟩, hA⟩ := h
+  refine ⟨?_, ?_, ?_, hA⟩
+  · cases hf : env.find? nonemptyName with
+    | none => rw [hf] at hN; exact nomatch hN
+    | some ci =>
+      rw [hf] at hN
+      cases ci with
+      | indInfo cvN caps => exact ⟨cvN, caps, rfl, (matchesPin_invT hN).2⟩
+      | _ => exact nomatch hN
+  · cases hf : env.find? nonemptyIntroName with
+    | none => rw [hf] at hNi; exact nomatch hNi
+    | some ci =>
+      rw [hf] at hNi
+      cases ci with
+      | ctorInfo cvNi nP nF =>
+        match nP, nF, hNi with
+        | 1, 1, hNi =>
+          refine ⟨cvNi, rfl, (matchesPin_invT hNi).2, ?_⟩
+          simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+            beq_iff_eq] at hNi
+          exact hNi.2
+      | _ => exact nomatch hNi
+  · cases hf : env.find? nonemptyRecName with
+    | none => rw [hf] at hNr; exact nomatch hNr
+    | some ci =>
+      rw [hf] at hNr
+      cases ci with
+      | recInfo cvNr mI rP rules =>
+        match mI, rP, hNr with
+        | 3, 3, hNr =>
+          refine ⟨cvNr, 3, 3, rules, rfl, (matchesPin_invT hNr).2, ?_⟩
+          simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+            beq_iff_eq] at hNr
+          exact hNr.2
+      | _ => exact nomatch hNr
+
+/-- The `Nonempty` former's valuation, at the axiom's own assignment. -/
+theorem cval_nonempty_at {env : Env} (m : EnvTT env) {cvN : ConstantVal}
+    {caps : IndCaps}
+    (hfN : env.find? nonemptyName = some (.indInfo cvN caps))
+    (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
+    (ψ : Name → Nat) :
+    m.cval nonemptyName
+        (Level.substFn ψ cvN.levelParams [.param uNT])
+      = m.cval nonemptyName ψ := by
+  refine m.val_params _ _ hfN _ _ ?_
+  intro p hp
+  show Level.substFn ψ cvN.levelParams [.param uNT] p = ψ p
+  replace hp : p ∈ cvN.levelParams := hp
+  rw [hlpN] at hp ⊢
+  obtain rfl : p = uNT := by
+    simpa [nonemptyA, ConstantInfo.toConstantVal, uNT] using hp
+  rfl
+
+/-- `Classical.choice`'s pinned type, denoted. -/
+theorem denote_choice_type {env : Env} (m : EnvTT env) {cvN : ConstantVal}
+    {caps : IndCaps}
+    (hfN : env.find? nonemptyName = some (.indInfo cvN caps))
+    (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
+    (ψ : Name → Nat) :
+    denote m.cval env ψ 0 choiceA.type =
+      some (.pi (.sort (ψ uNT))
+        (.pi (.app (m.cval nonemptyName ψ) (.bvar 0)) (.bvar 1))) := by
+  have hN : ∀ d, denote m.cval env ψ d
+      (.const nonemptyName [.param uNT])
+      = some (m.cval nonemptyName ψ) := by
+    intro d
+    rw [denote_const, hfN]
+    dsimp only
+    rw [if_pos (show [Level.param uNT].length
+      = (ConstantInfo.indInfo cvN caps).toConstantVal.levelParams.length
+      from by show _ = cvN.levelParams.length
+              rw [hlpN]; rfl)]
+    show some (m.cval nonemptyName
+      (Level.substFn ψ cvN.levelParams [.param uNT])) = _
+    rw [cval_nonempty_at m hfN hlpN ψ]
+  simp only [nonemptyName, uNT] at hN
+  simp [choiceA, denote_forallE, denote_sort, Expr.instantiate1,
+    denote_app, denote_fvar, hN, Level.eval, uNT, nonemptyName]
+
+/-- `Nonempty.intro`'s pinned type, denoted. -/
+theorem denote_nonemptyIntro_type {env : Env} (m : EnvTT env)
+    {cvN : ConstantVal} {caps : IndCaps}
+    (hfN : env.find? nonemptyName = some (.indInfo cvN caps))
+    (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
+    (ψ : Name → Nat) :
+    denote m.cval env ψ 0 nonemptyIntroA.toConstantVal.type =
+      some (.pi (.sort (ψ uNT))
+        (.pi (.bvar 0) (.app (m.cval nonemptyName ψ) (.bvar 1)))) := by
+  have hN : ∀ d, denote m.cval env ψ d
+      (.const nonemptyName [.param uNT])
+      = some (m.cval nonemptyName ψ) := by
+    intro d
+    rw [denote_const, hfN]
+    dsimp only
+    rw [if_pos (show [Level.param uNT].length
+      = (ConstantInfo.indInfo cvN caps).toConstantVal.levelParams.length
+      from by show _ = cvN.levelParams.length
+              rw [hlpN]; rfl)]
+    show some (m.cval nonemptyName
+      (Level.substFn ψ cvN.levelParams [.param uNT])) = _
+    rw [cval_nonempty_at m hfN hlpN ψ]
+  simp only [nonemptyName, uNT] at hN
+  simp [nonemptyIntroA, ConstantInfo.toConstantVal, denote_forallE,
+    denote_sort, Expr.instantiate1, denote_app, denote_fvar, hN,
+    Level.eval, uNT, nonemptyName]
+
+/-- `Nonempty.rec`'s pinned type, denoted.  Note the motive's codomain:
+`.sort 0`, straight from the pin — no level assignment is contrived. -/
+theorem denote_nonemptyRec_type {env : Env} (m : EnvTT env)
+    {cvN cvNi : ConstantVal} {caps : IndCaps}
+    (hfN : env.find? nonemptyName = some (.indInfo cvN caps))
+    (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
+    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
+    (hlpNi : cvNi.levelParams = nonemptyIntroA.toConstantVal.levelParams)
+    (ψ : Name → Nat) :
+    denote m.cval env ψ 0 nonemptyRecA.toConstantVal.type =
+      some (.pi (.sort (ψ uNT))
+        (.pi (.pi (.app (m.cval nonemptyName ψ) (.bvar 0)) (.sort 0))
+          (.pi (.pi (.bvar 1)
+              (.app (.bvar 1) (.app (.app (m.cval nonemptyIntroName ψ)
+                (.bvar 2)) (.bvar 0))))
+            (.pi (.app (m.cval nonemptyName ψ) (.bvar 2))
+              (.app (.bvar 2) (.bvar 0)))))) := by
+  have hN : ∀ d, denote m.cval env ψ d
+      (.const nonemptyName [.param uNT])
+      = some (m.cval nonemptyName ψ) := by
+    intro d
+    rw [denote_const, hfN]
+    dsimp only
+    rw [if_pos (show [Level.param uNT].length
+      = (ConstantInfo.indInfo cvN caps).toConstantVal.levelParams.length
+      from by show _ = cvN.levelParams.length
+              rw [hlpN]; rfl)]
+    show some (m.cval nonemptyName
+      (Level.substFn ψ cvN.levelParams [.param uNT])) = _
+    rw [cval_nonempty_at m hfN hlpN ψ]
+  have hNi : ∀ d, denote m.cval env ψ d
+      (.const nonemptyIntroName [.param uNT])
+      = some (m.cval nonemptyIntroName ψ) := by
+    intro d
+    rw [denote_const, hfNi]
+    dsimp only
+    rw [if_pos (show [Level.param uNT].length
+      = (ConstantInfo.ctorInfo cvNi 1 1).toConstantVal.levelParams.length
+      from by show _ = cvNi.levelParams.length
+              rw [hlpNi]; rfl)]
+    show some (m.cval nonemptyIntroName
+      (Level.substFn ψ cvNi.levelParams [.param uNT])) = _
+    refine congrArg _ (m.val_params _ _ hfNi _ _ ?_)
+    intro q hq
+    show Level.substFn ψ cvNi.levelParams [.param uNT] q = ψ q
+    replace hq : q ∈ cvNi.levelParams := hq
+    rw [hlpNi] at hq ⊢
+    obtain rfl : q = uNT := by
+      simpa [nonemptyIntroA, ConstantInfo.toConstantVal, uNT] using hq
+    rfl
+  simp only [nonemptyName, nonemptyIntroName, uNT] at hN hNi
+  simp [nonemptyRecA, ConstantInfo.toConstantVal, denote_forallE,
+    denote_sort, Expr.instantiate1, denote_app, denote_fvar, hN, hNi,
+    Level.eval, uNT, nonemptyName, nonemptyIntroName]
+
+/-- `Nonempty.intro A val : Nonempty A`, as a term. -/
+theorem hasType_nonemptyIntro {env : Env} (m : EnvTT env)
+    {cvN cvNi : ConstantVal} {caps : IndCaps}
+    (hfN : env.find? nonemptyName = some (.indInfo cvN caps))
+    (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
+    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
+    (htyNi : cvNi.type.eraseNames
+      = nonemptyIntroA.toConstantVal.type.eraseNames)
+    (ψ : Name → Nat) {Δ : List VExpr} {A val : VExpr}
+    (hA : HasType Δ A (.sort (ψ uNT))) (hval : HasType Δ val A) :
+    HasType Δ (.app (.app (m.cval nonemptyIntroName ψ) A) val)
+      (.app (m.cval nonemptyName ψ) A) := by
+  have hIt := cval_hasType m hfNi ψ (Δ := Δ)
+    (t := .pi (.sort (ψ uNT))
+      (.pi (.bvar 0) (.app (m.cval nonemptyName ψ) (.bvar 1))))
+    (by show denoteClosed m.cval env ψ cvNi.type = _
+        rw [denoteClosed,
+          denote_erasedEq (erasedEq_of_eraseNames htyNi) 0]
+        exact denote_nonemptyIntro_type m hfN hlpN ψ)
+  have h1 := HasType.app hIt hA
+  simp [VExpr.inst, VExpr.liftN_zero,
+    VExpr.inst_eq_self_of_closed (m.cval_closed nonemptyName ψ)] at h1
+  have h2 := HasType.app h1 hval
+  simpa [VExpr.inst, inst_lift1,
+    VExpr.inst_eq_self_of_closed (m.cval_closed nonemptyName ψ)] using h2
+
+/-- The layer's `Classical.choice`, applied. -/
+theorem hasType_choiceApp {Δ : List VExpr} {u : Nat} {A k : VExpr}
+    (hA : HasType Δ A (.sort u)) (hk : HasType Δ k (negT (negT A))) :
+    HasType Δ (.app (.app (.const .choice [u]) A) k) A := by
+  have h0 : HasType Δ (VExpr.const .choice [u])
+      (BConst.type .choice [u]) := HasType.const
+  simp only [BConst.type, lv] at h0
+  have h1 := HasType.app h0 hA
+  simp [VExpr.inst, VExpr.liftN_zero, negT, arrow, emptyT] at h1
+  have h2 := HasType.app h1
+    (by simpa [negT, arrow, emptyT, VExpr.liftN_zero] using hk)
+  simpa [VExpr.inst, inst_lift1] using h2
+
+/-- **The `Nonempty` elimination, typed.**  One field, and the motive
+sort comes from the pin — so this is the same proof as `propext_body`
+with a shorter telescope and no level assignment. -/
+theorem choice_body {env : Env} (m : EnvTT env)
+    {cvN cvNi cvNr : ConstantVal} {caps : IndCaps} {mI rP : Nat}
+    {rules : List RecRule}
+    (hfN : env.find? nonemptyName = some (.indInfo cvN caps))
+    (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
+    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
+    (hlpNi : cvNi.levelParams = nonemptyIntroA.toConstantVal.levelParams)
+    (htyNi : cvNi.type.eraseNames
+      = nonemptyIntroA.toConstantVal.type.eraseNames)
+    (hfNr : env.find? nonemptyRecName = some (.recInfo cvNr mI rP rules))
+    (htyNr : cvNr.type.eraseNames
+      = nonemptyRecA.toConstantVal.type.eraseNames)
+    (ψ : Name → Nat) :
+    HasType [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+       VExpr.sort (ψ uNT)]
+      (VExpr.mkAppN (m.cval nonemptyRecName ψ)
+        [.bvar 1,
+         .lam (.app (m.cval nonemptyName ψ) (.bvar 1))
+           (negT (negT (.bvar 2))),
+         .lam (.bvar 1) (.lam (negT (.bvar 2)) (.app (.bvar 0) (.bvar 1))),
+         .bvar 0])
+      (negT (negT (.bvar 1))) := by
+  have hEmpty : ∀ (Γ : List VExpr),
+      HasType Γ (VExpr.const .empty [0]) (.sort 0) := fun _ => HasType.const
+  have hNecl := m.cval_closed nonemptyName ψ
+  have hNicl := m.cval_closed nonemptyIntroName ψ
+  have hRec := cval_hasType m hfNr ψ (Δ := [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+       VExpr.sort (ψ uNT)])
+    (t := .pi (.sort (ψ uNT))
+      (.pi (.pi (.app (m.cval nonemptyName ψ) (.bvar 0)) (.sort 0))
+        (.pi (.pi (.bvar 1)
+            (.app (.bvar 1) (.app (.app (m.cval nonemptyIntroName ψ)
+              (.bvar 2)) (.bvar 0))))
+          (.pi (.app (m.cval nonemptyName ψ) (.bvar 2))
+            (.app (.bvar 2) (.bvar 0))))))
+    (by show denoteClosed m.cval env ψ cvNr.type = _
+        rw [denoteClosed,
+          denote_erasedEq (erasedEq_of_eraseNames htyNr) 0]
+        exact denote_nonemptyRec_type m hfN hlpN hfNi hlpNi ψ)
+  have hα : HasType [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+       VExpr.sort (ψ uNT)] (.bvar 1) (.sort (ψ uNT)) := by
+    have := HasType.bvar (Γ := [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+       VExpr.sort (ψ uNT)]) (i := 1)
+      (A := VExpr.sort (ψ uNT)) (by simp)
+    simpa using this
+  have h1 := HasType.app hRec hα
+  simp [VExpr.inst, VExpr.liftN_zero,
+    VExpr.inst_eq_self_of_closed hNecl,
+    VExpr.inst_eq_self_of_closed hNicl] at h1
+  have hneg : ∀ (Γ : List VExpr) (X : VExpr) (u : Nat),
+      HasType Γ X (.sort u) → HasType Γ (negT X) (.sort 0) := by
+    intro Γ X u hX
+    have := HasType.pi hX (hEmpty (X :: Γ))
+    simpa [negT, arrow, emptyT, imax] using this
+  have hmot : HasType [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+       VExpr.sort (ψ uNT)]
+      (.lam (.app (m.cval nonemptyName ψ) (.bvar 1))
+        (negT (negT (.bvar 2))))
+      (.pi (.app (m.cval nonemptyName ψ) (.bvar 1)) (.sort 0)) := by
+    refine HasType.lam ?_
+    have hα3 : HasType
+        (VExpr.app (m.cval nonemptyName ψ) (.bvar 1) ::
+          [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+           VExpr.sort (ψ uNT)]) (.bvar 2) (.sort (ψ uNT)) := by
+      have := HasType.bvar
+        (Γ := VExpr.app (m.cval nonemptyName ψ) (.bvar 1) ::
+          [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+           VExpr.sort (ψ uNT)]) (i := 2)
+        (A := VExpr.sort (ψ uNT)) (by simp)
+      simpa using this
+    exact hneg _ _ 0 (hneg _ _ (ψ uNT) hα3)
+  have h2 := HasType.app h1 hmot
+  simp [VExpr.inst, VExpr.liftN_zero, negT, arrow, emptyT,
+    VExpr.inst_eq_self_of_closed hNecl,
+    VExpr.inst_eq_self_of_closed hNicl,
+    VExpr.liftN_eq_self_of_closed hNecl,
+    VExpr.liftN_eq_self_of_closed hNicl] at h2
+  have hmin : HasType [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+       VExpr.sort (ψ uNT)]
+      (.lam (.bvar 1) (.lam (negT (.bvar 2)) (.app (.bvar 0) (.bvar 1))))
+      (.pi (.bvar 1)
+        (.app (VExpr.lam (.app (m.cval nonemptyName ψ) (.bvar 2))
+            (negT (negT (.bvar 3))))
+          (.app (.app (m.cval nonemptyIntroName ψ) (.bvar 2))
+            (.bvar 0)))) := by
+    refine HasType.lam ?_
+    have hval : HasType (VExpr.bvar 1 ::
+        [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+         VExpr.sort (ψ uNT)]) (.bvar 0) (.bvar 2) := by
+      have := HasType.bvar (Γ := VExpr.bvar 1 ::
+        [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+         VExpr.sort (ψ uNT)]) (i := 0)
+        (A := VExpr.bvar 1) (by simp)
+      simpa [VExpr.liftN] using this
+    have hα3 : HasType (VExpr.bvar 1 ::
+        [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+         VExpr.sort (ψ uNT)]) (.bvar 2) (.sort (ψ uNT)) := by
+      have := HasType.bvar (Γ := VExpr.bvar 1 ::
+        [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+         VExpr.sort (ψ uNT)]) (i := 2)
+        (A := VExpr.sort (ψ uNT)) (by simp)
+      simpa using this
+    have hIntro := hasType_nonemptyIntro m hfN hlpN hfNi htyNi ψ hα3 hval
+    have hbody : HasType (VExpr.bvar 1 ::
+        [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+         VExpr.sort (ψ uNT)])
+        (.lam (negT (.bvar 2)) (.app (.bvar 0) (.bvar 1)))
+        (negT (negT (.bvar 2))) := by
+      refine HasType.lam ?_
+      have hk : HasType (negT (VExpr.bvar 2) :: VExpr.bvar 1 ::
+          [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+           VExpr.sort (ψ uNT)]) (.bvar 0) (negT (.bvar 3)) := by
+        have := HasType.bvar (Γ := negT (VExpr.bvar 2) :: VExpr.bvar 1 ::
+          [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+           VExpr.sort (ψ uNT)]) (i := 0)
+          (A := negT (VExpr.bvar 2)) (by simp)
+        simpa [negT, arrow, emptyT, VExpr.liftN] using this
+      have hv : HasType (negT (VExpr.bvar 2) :: VExpr.bvar 1 ::
+          [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+           VExpr.sort (ψ uNT)]) (.bvar 1) (.bvar 3) := by
+        have := HasType.bvar (Γ := negT (VExpr.bvar 2) :: VExpr.bvar 1 ::
+          [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+           VExpr.sort (ψ uNT)]) (i := 1)
+          (A := VExpr.bvar 1) (by simp)
+        simpa [VExpr.liftN] using this
+      have := HasType.app (by simpa [negT, arrow, emptyT] using hk) hv
+      simpa [VExpr.inst, negT, arrow, emptyT] using this
+    refine Deq.conv hbody (Deq.symm ⟨VExpr.sort 0, ?_⟩)
+    have hb0 := HasType.beta (T := VExpr.sort 0)
+      (b := negT (negT (VExpr.bvar 3))) hIntro
+    simpa [VExpr.inst, negT, arrow, emptyT] using hb0
+  have h3 := HasType.app h2 hmin
+  simp [VExpr.inst, VExpr.liftN_zero, negT, arrow, emptyT,
+    VExpr.inst_eq_self_of_closed hNecl,
+    VExpr.inst_eq_self_of_closed hNicl,
+    VExpr.liftN_eq_self_of_closed hNecl,
+    VExpr.liftN_eq_self_of_closed hNicl] at h3
+  have ht : HasType [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+       VExpr.sort (ψ uNT)] (.bvar 0)
+      (.app (m.cval nonemptyName ψ) (.bvar 1)) := by
+    have := HasType.bvar (Γ := [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+       VExpr.sort (ψ uNT)]) (i := 0)
+      (A := VExpr.app (m.cval nonemptyName ψ) (.bvar 0)) (by simp)
+    simpa [VExpr.liftN, VExpr.liftN_eq_self_of_closed hNecl] using this
+  have h4 := HasType.app h3 ht
+  simp [VExpr.inst, VExpr.liftN_zero, negT, arrow, emptyT,
+    VExpr.inst_eq_self_of_closed hNecl,
+    VExpr.inst_eq_self_of_closed hNicl,
+    VExpr.liftN_eq_self_of_closed hNecl,
+    VExpr.liftN_eq_self_of_closed hNicl] at h4
+  have hbeta : Deq [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+       VExpr.sort (ψ uNT)]
+      (.app (.lam (.app (m.cval nonemptyName ψ) (.bvar 1))
+          (negT (negT (.bvar 2)))) (.bvar 0))
+        (negT (negT (.bvar 1))) := by
+    refine ⟨VExpr.sort 0, ?_⟩
+    have hb0 := HasType.beta (T := VExpr.sort 0)
+      (b := negT (negT (VExpr.bvar 2))) ht
+    simpa [VExpr.inst, negT, arrow, emptyT] using hb0
+  simpa [VExpr.mkAppN, negT, arrow, emptyT] using Deq.conv h4 hbeta
+
+/-- **`ChoiceKeyTT`, discharged.** -/
+theorem choiceKeyTT : ChoiceKeyTT := by
+  intro env m cvA hok hc hfresh
+  obtain ⟨⟨cvN, caps, hfN, hlpN⟩, ⟨cvNi, hfNi, hlpNi, htyNi⟩,
+    ⟨cvNr, mI, rP, rules, hfNr, hlpNr, htyNr⟩, hmpA⟩ :=
+    nonempty_shapes hok hc
+  have hlpA : cvA.levelParams = choiceA.levelParams :=
+    (matchesPin_invT hmpA).2
+  have hsame : ∀ (c : Name) (ci : ConstantInfo), env.find? c = some ci →
+      ci.toConstantVal.levelParams = [uNT] →
+      ∀ φ₁ φ₂ : Name → Nat, φ₁ uNT = φ₂ uNT →
+        m.cval c φ₁ = m.cval c φ₂ := by
+    intro c ci hf hlp φ₁ φ₂ hu
+    refine m.val_params c ci hf _ _ ?_
+    intro q hq
+    rw [hlp] at hq
+    obtain rfl : q = uNT := by simpa using hq
+    exact hu
+  refine ⟨fun ψ => .lam (.sort (ψ uNT))
+    (.lam (.app (m.cval nonemptyName ψ) (.bvar 0))
+      (.app (.app (.const .choice [ψ uNT]) (.bvar 1))
+        (VExpr.mkAppN (m.cval nonemptyRecName ψ)
+          [.bvar 1,
+           .lam (.app (m.cval nonemptyName ψ) (.bvar 1))
+             (negT (negT (.bvar 2))),
+           .lam (.bvar 1)
+             (.lam (negT (.bvar 2)) (.app (.bvar 0) (.bvar 1))),
+           .bvar 0]))), ?_, ?_, ?_⟩
+  · intro ψ
+    have h1 := m.cval_closed nonemptyName ψ
+    have h2 := m.cval_closed nonemptyRecName ψ
+    simp only [VExpr.Closed, VExpr.bvarsBelow, VExpr.mkAppN, negT, arrow,
+      emptyT] at *
+    repeat' apply And.intro
+    all_goals first
+      | exact VExpr.bvarsBelow.mono (by omega) h1
+      | exact VExpr.bvarsBelow.mono (by omega) h2
+      | omega
+      | trivial
+  · intro φ₁ φ₂ hp
+    have hu : φ₁ uNT = φ₂ uNT := by
+      refine hp uNT ?_
+      rw [hlpA]
+      simp [choiceA, uNT]
+    dsimp only
+    rw [hu, hsame nonemptyName _ hfN
+        (by show cvN.levelParams = _; rw [hlpN]; rfl) _ _ hu,
+      hsame nonemptyRecName _ hfNr
+        (by show cvNr.levelParams = _; rw [hlpNr]; rfl) _ _ hu]
+  · intro ψ
+    refine ⟨.pi (.sort (ψ uNT))
+      (.pi (.app (m.cval nonemptyName ψ) (.bvar 0)) (.bvar 1)), ?_, ?_⟩
+    · rw [denoteClosed, denote_matchesPin hmpA 0]
+      exact denote_choice_type m hfN hlpN ψ
+    · refine HasType.lam (HasType.lam ?_)
+      have hα : HasType [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+       VExpr.sort (ψ uNT)] (.bvar 1) (.sort (ψ uNT)) := by
+        have := HasType.bvar (Γ := [VExpr.app (m.cval nonemptyName ψ) (.bvar 0),
+       VExpr.sort (ψ uNT)]) (i := 1)
+          (A := VExpr.sort (ψ uNT)) (by simp)
+        simpa using this
+      exact hasType_choiceApp hα
+        (choice_body m hfN hlpN hfNi hlpNi htyNi hfNr htyNr ψ)
+
+/-- **`StdAxiomKeyTT`, discharged**, and with it `DeclAxiomTT`. -/
+theorem stdAxiomKeyTT : StdAxiomKeyTT :=
+  stdAxiomKeyTT_of propextKeyTT choiceKeyTT
+
+/-- **`DeclAxiomTT`, with no outstanding obligation.** -/
+theorem declAxiomTT_closed {F : Nat} : DeclAxiomTT F :=
+  declAxiomTT_ofReduce stdAxiomKeyTT
+
 end Setlec.TTVerify

@@ -363,7 +363,24 @@ def choiceA : ConstantVal :=
 /-- Is this checked axiom one of the two recognized standard axioms,
 over standardly-shaped stored `Iff` / `Nonempty` families (and the
 pinned `Eq` basis)?  A pure predicate so the checker's `axiomDecl`
-arm stays a single conditional. -/
+arm stays a single conditional.
+
+**Why all three of the family's constants are pinned, not just the
+type.**  The verification has to *realize* the axiom, and the two
+spellings differ: the checker's `propext` takes `Iff a b`, while the
+declarative layer's takes the two implications separately
+(`Setlec/TT/Const.lean`).  Bridging them needs the implications
+extracted from the `Iff` — and **nothing in the layer turns an
+inhabitant of an opaque family into its fields except that family's own
+recursor**, since a modeled inductive is opaque to the interpretation
+by design.  So `Iff.rec` (resp. `Nonempty.rec`) has to be pinned
+alongside the type, and `Iff.intro` (resp. `Nonempty.intro`) with it,
+because the recursor's minor premise is stated at the constructor.
+Only the recursors' *types* are used — never their reduction rules
+(`Setlec/TTVerify/StdAxiomKey.lean`, and `Setlec/TTVerify/DESIGN.md`
+§8.4 for why that distinction carries a scheduling consequence).  The
+pins predate that argument; it is recorded here because it is the
+reason they are right. -/
 def stdAxiomOk (env : Env) (cvA : ConstantVal) : Bool :=
   if cvA.name = propextName then
     decide (env.find? eqName = some eqA) &&

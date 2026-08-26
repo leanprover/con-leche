@@ -450,7 +450,7 @@ install:
 | `DeclThmTT` | **proved** |
 | `DeclOpaqueTT` | **proved** (`declOpaqueTT_closed`) |
 | `DeclDefnTT` | proved modulo `NatOpPinTT`, `DivModPinTT` |
-| `DeclAxiomTT` | proved modulo `ChoiceKeyTT` alone |
+| `DeclAxiomTT` | **proved** (`declAxiomTT_closed`) |
 | `DeclBasisTT`, `DeclIndTT` | open — **decomposed in §14** |
 
 **§11's `Eq` law landed** (`EnvTT.eq_law`), released by its consumers
@@ -521,8 +521,17 @@ per §8.6.  Two things about that case are worth keeping:
   That half is not cosmetic.  Had the iota rule been needed, the axiom
   case would depend on `EnvTT.rec_rules` **at a modeled family**, which
   is established by the still-open `DeclIndTT` — and `DeclAxiomTT`
-  could not have been closed before the inductive install.  The
-  prediction therefore bought an ordering, not just a shape.
+  could not have been closed before the inductive install.
+
+  > **The prediction bought an ordering, not just a shape.**
+
+  That is the strongest form a prediction can take here, and it is why
+  the ceremony is worth keeping: an ordering constraint that does *not*
+  exist is invisible until something depends on it, and a shape
+  prediction that happens to carry scheduling information tells you the
+  dependency is absent *before* you schedule around it.  `DeclAxiomTT`
+  closed while `DeclIndTT` had not been started, which is the
+  observable consequence.
 
   The elimination is *unavoidable*, and it is worth saying why in one
   line, because it is the first key where reconciliation alone did not
@@ -531,6 +540,16 @@ per §8.6.  Two things about that case are worth keeping:
   family into its fields except that family's own recursor.**  Which is
   precisely why `stdAxiomOk` pins `Iff`, `Iff.intro` *and* `Iff.rec`
   rather than `Iff` alone — §8.4 again, at the last place it can apply.
+
+  **`ChoiceKeyTT` is discharged too, and it was the cheapest key** — as
+  predicted, and for a reason worth recording because it is a property
+  of the *pin* rather than of the proof: `Nonempty.rec`'s motive sort is
+  written into the pin as `Prop`, where `Iff.rec.{u_1,u}` carries it as
+  a level parameter that has to be driven to `0` by a bespoke
+  assignment (`atZero`).  One field instead of two is the small saving;
+  **no level gymnastics at all** is the real one.  A pin that fixes a
+  level is easier to consume than a pin that quantifies one, even when
+  the quantified pin is more general.
 
   So the inhabitation-key story is complete in three shapes:
   `trustCompiler`, where the pin fixes the type on the nose;
