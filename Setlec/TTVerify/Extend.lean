@@ -1003,16 +1003,20 @@ theorem BasisPinnedTT.cons {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (h : BasisPinnedTT env cval)
     (hi : Installs env cval cval' c₀)
     (hhead : reservedBasisNames.contains c₀.name = true →
+      (isBasisKind c₀ = true → c₀ = pinnedInfoT c₀.name) ∧
       ∀ (ψ : Name → Nat) (t : VExpr),
         pinnedDirectT c₀.name ψ = some t → cval' c₀.name ψ = t) :
     BasisPinnedTT ⟨c₀ :: env.consts⟩ cval' := by
-  intro n ci t hf hres ψ hp
+  intro n ci hf hres
   by_cases hn : c₀.name = n
   · subst hn
-    exact hhead hres ψ t hp
+    rw [Env.find?_cons, if_pos rfl] at hf
+    obtain rfl : ci = c₀ := (Option.some.inj hf).symm
+    exact ⟨(hhead hres).1, fun t ψ hp => (hhead hres).2 ψ t hp⟩
   · rw [Env.find?_cons, if_neg hn] at hf
+    refine ⟨(h n ci hf hres).1, fun t ψ hp => ?_⟩
     rw [← hi.ag n (fun hh => hn hh.symm)]
-    exact h n ci t hf hres ψ hp
+    exact (h n ci hf hres).2 t ψ hp
 
 /-- The native projection table survives an install. -/
 theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
@@ -1370,6 +1374,7 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       env.find? psigmaName = some psigmaA ∧
       env.find? psigmaMkName = some psigmaMkA)
     (hheadBasis : reservedBasisNames.contains c₀.name = true →
+      (isBasisKind c₀ = true → c₀ = pinnedInfoT c₀.name) ∧
       ∀ (ψ : Name → Nat) (t : VExpr),
         pinnedDirectT c₀.name ψ = some t → cval' c₀.name ψ = t)
     (hheadNat : ∀ cv v hint, c₀ = .defnInfo cv v hint →

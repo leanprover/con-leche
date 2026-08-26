@@ -327,23 +327,70 @@ def pinnedDirectT (n : Name) (ψ : Name → Nat) : Option VExpr :=
   else if n = quotSoundName then some (.const .quotSound [ψ uNT])
   else none
 
-/-- Every stored reserved-basis constant with a direct pin is valued by
-it.  Transpose of `IndOk`'s pinned-valuation conjunct, restricted to
-the constants the layer still carries.
+/-- Is this constant-info one of the basis kinds?  A fifth `V`-free
+definition stranded in `Setlec/Model/BasisVal.lean`
+(`ConstantInfo.isBasis`); see `EtaFamilyStoredT` for the relocation
+note.  Renamed rather than shadowed so that dot notation stays
+unambiguous when both verification paths are imported together. -/
+def isBasisKind : ConstantInfo → Bool
+  | .indInfo _ _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ => true
+  | _ => false
+
+/-- The pinned declaration stored at each reserved basis name.  A sixth
+`V`-free duplicate (`Setlec/Model/BasisVal.lean`'s `pinnedInfo`); the
+`*A` declarations themselves live in `Setlec/Kernel/Basis/*` and are
+shared. -/
+def pinnedInfoT (n : Name) : ConstantInfo :=
+  if n = eqName then eqA
+  else if n = eqReflName then eqReflA
+  else if n = eqName.str "rec" then eqRecA
+  else if n = natName then natA
+  else if n = natZeroName then natZeroA
+  else if n = natSuccName then natSuccA
+  else if n = natName.str "rec" then natRecA
+  else if n = psigmaName then psigmaA
+  else if n = psigmaMkName then psigmaMkA
+  else if n = psigmaName.str "rec" then psigmaRecA
+  else if n = punitName then punitA
+  else if n = punitUnitName then punitUnitA
+  else if n = punitName.str "rec" then punitRecA
+  else if n = emptyName then emptyA
+  else if n = emptyName.str "rec" then emptyRecA
+  else if n = quotName then quotA
+  else if n = quotMkName then quotMkA
+  else if n = quotLiftName then quotLiftA
+  else if n = quotIndName then quotIndA
+  else if n = quotSoundName then quotSoundA
+  else .axiomInfo ⟨n, [], .sort .zero⟩
+
+/-- Every stored reserved-basis constant is the pinned *declaration*,
+and — where the layer still carries it — is valued by its direct pin.
+Transpose of `IndOk`'s fourth conjunct.
 
 This is what makes a reduction's *syntactic* match usable: the `.proj`
-clause matches a constructor head against `entry.ctor`, and only this
-clause turns that into `⟦e'⟧ = psigmaMkT u v A B a b`, which is the
-shape `projFstMk` is stated at. -/
+clause matches a constructor head against `entry.ctor`, and only the
+valuation clause turns that into `⟦e'⟧ = psigmaMkT u v A B a b`, which
+is the shape `projFstMk` is stated at.
+
+**The declaration clause came back** (`Setlec/TTVerify/DESIGN.md` §12.10).
+It was dropped on the first transposition as "syntactic, no consumer",
+and `ProofIrrelStepTT`'s unit-like branch is the consumer: `isUnitLikeTy`
+accepts a `.const c _` whose `c.str "rec"` is *reserved*, so identifying
+`c` as `PUnit` — which is what `HasType.punitEta` is stated at — is
+exactly reading the four other reserved recursors' pinned shapes and
+finding that none of them is single-rule, zero-field and index-free.
+Without the clause the branch is unprovable; with it, it is a `decide`. -/
 def BasisPinnedTT (env : Env) (cval : TConstVal) : Prop :=
-  ∀ (n : Name) (ci : ConstantInfo) (t : VExpr),
+  ∀ (n : Name) (ci : ConstantInfo),
     env.find? n = some ci →
     reservedBasisNames.contains n = true →
-    ∀ ψ : Name → Nat, pinnedDirectT n ψ = some t → cval n ψ = t
+    (isBasisKind ci = true → ci = pinnedInfoT n) ∧
+    ∀ (t : VExpr) (ψ : Name → Nat), pinnedDirectT n ψ = some t →
+      cval n ψ = t
 
 theorem BasisPinnedTT.empty (cval : TConstVal) :
     BasisPinnedTT Env.empty cval := by
-  intro n ci t h
+  intro n ci h
   simp [Env.find?, Env.empty] at h
 
 /-- **The compiler-trust opaques are the identity**, fired.  Transpose

@@ -432,7 +432,7 @@ theorem cval_pinned {env : Env} (m : EnvTT env) {n : Name}
     (hpin : pinnedDirectT n ψ = some t) : m.cval n ψ = t := by
   cases hf : env.find? n with
   | none => rw [hf] at hst; exact nomatch hst
-  | some ci => exact m.basis_pinned n ci t hf hres ψ hpin
+  | some ci => exact (m.basis_pinned n ci hf hres).2 t ψ hpin
 
 /-- **A `Nat` literal's term is the layer's numeral.** -/
 theorem natLitT_eq_numeral {env : Env} (m : EnvTT env)
