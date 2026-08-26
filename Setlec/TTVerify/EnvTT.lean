@@ -107,7 +107,6 @@ def RecRulesTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     env.find? n = some (.recInfo cv mI rP rules) →
     ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
-    (RecRule.rhs rl).constsResolve env = true ∧
     ∀ (cvj : ConstantVal) (cnP cnF : Nat),
       env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
     ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr)
@@ -373,8 +372,6 @@ lemma. -/
 def NatOpsTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ c ∈ natOpNames, ∀ cv v hint, env.find? c = some (.defnInfo cv v hint) →
     natOpGuard env c = true ∧
-    (∀ eq ∈ natOpEquations 0 c,
-      eq.1.constsResolve env = true ∧ eq.2.constsResolve env = true) ∧
     ∀ eq ∈ natOpEquations 0 c, ∀ (φ : Name → Nat) (L R : VExpr),
       denote cval env φ 2 eq.1 = some L →
       denote cval env φ 2 eq.2 = some R →

@@ -1,6 +1,7 @@
 import Setlec.TTVerify.Denote
 import Setlec.TTVerify.EnvTT
 import Setlec.Verify.EnvWF
+import Setlec.Verify.InferLemmas
 
 /-!
 # Denotations survive environment extension
@@ -713,5 +714,117 @@ theorem thm_ok_cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
   have := denote_install hfresh hag hlit hguardN hguardS hlpNil hlpCons
     (m.thm_ok cv value hmem φ)
   rwa [hag cv.name (hne _ hmem)] at this
+
+/-! ## The capability laws across an install
+
+The transport that the §8.1 correction exists for, and the direct test
+that it worked: `CapsOkTT` is the field whose laws quantify over
+spines, so if the restatement had not fixed the shape, this is where it
+would fail.  It is the transpose of `CapsOk.cons`
+(`Setlec/Model/Extend/Sibs.lean`) step for step — the head cases are
+handed over, and the non-head case runs the stored type's denotation
+*down* to the smaller environment before applying the old law.
+
+The two `denote` moves compose in one order only: `denote_env_shrink`
+first (the expression resolves in the small environment, so it may
+descend), then `denote_cval_congr` (the valuations agree on everything
+stored *there*, but not on the new constant).  Doing it the other way
+would need agreement at `c₀.name`, which is exactly what an install
+does not have. -/
+
+/-- The capability laws survive a fresh install, given the head
+obligations.  Transpose of `CapsOk.cons`. -/
+theorem CapsOkTT.cons {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo}
+    (h : CapsOkTT env cval) (hwfe : EnvWF env)
+    (hfresh : env.find? c₀.name = none)
+    (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
+    (hlit : LitAgree cval cval')
+    (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+      (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      caps.eta = true → reservedBasisNames.contains T = false →
+      EtaFamilyStoredT ⟨c₀ :: env.consts⟩ T caps →
+      (T = c₀.name ∨ caps.etaCtor = c₀.name ∨
+        ∃ j, j < caps.etaFields ∧ projFnName T j = c₀.name) →
+      EtaLawTT ⟨c₀ :: env.consts⟩ cval' T cvT caps)
+    (hheadUnit : ∀ cv caps, c₀ = .indInfo cv caps → caps.unitlike = true →
+      reservedBasisNames.contains c₀.name = false →
+      UnitLawTT ⟨c₀ :: env.consts⟩ cval' c₀.name cv caps) :
+    CapsOkTT ⟨c₀ :: env.consts⟩ cval' := by
+  have hfind : ∀ n, n ≠ c₀.name →
+      (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
+    intro n hn
+    rw [Env.find?_cons, if_neg (fun hh => hn hh.symm)]
+  have hagE : ∀ n ci, env.find? n = some ci → cval n = cval' n := by
+    intro n ci hf
+    refine hag n ?_
+    intro hh
+    rw [hh, hfresh] at hf
+    exact nomatch hf
+  -- the stored type descends, then the valuation changes
+  have hdown : ∀ (φ : Name → Nat) (d : Nat) (e : Expr) (v : VExpr),
+      e.constsResolve env = true →
+      denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v →
+      denote cval env φ d e = some v := by
+    intro φ d e v hres hv
+    rw [denote_env_shrink hfresh d e hres] at hv
+    rwa [denote_cval_congr hagE hlit.nat hlit.succ hlit.sol hlit.nil
+      hlit.cons hlit.char hlit.ofn d e]
+  refine ⟨?_, ?_⟩
+  · intro T cvT caps hf hcape hres hfam
+    by_cases hpart : T = c₀.name ∨ caps.etaCtor = c₀.name ∨
+        ∃ j, j < caps.etaFields ∧ projFnName T j = c₀.name
+    · exact hheadEta T cvT caps hf hcape hres hfam hpart
+    · have hnT : T ≠ c₀.name := fun hh => hpart (Or.inl hh)
+      have hnC : caps.etaCtor ≠ c₀.name := fun hh => hpart (Or.inr (Or.inl hh))
+      have hnP : ∀ j, j < caps.etaFields → projFnName T j ≠ c₀.name :=
+        fun j hj hh => hpart (Or.inr (Or.inr ⟨j, hj, hh⟩))
+      rw [hfind _ hnT] at hf
+      obtain ⟨hCres, ⟨cvC, hfC⟩, hfP⟩ := hfam
+      rw [hfind _ hnC] at hfC
+      have hfam₀ : EtaFamilyStoredT env T caps := by
+        refine ⟨hCres, ⟨cvC, hfC⟩, ?_⟩
+        intro j hj
+        obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfP j hj
+        rw [hfind _ (hnP j hj)] at hf2
+        exact ⟨cv2, mI2, rP2, rules2, hf2⟩
+      have hlaw := h.1 T cvT caps hf hcape hres hfam₀
+      have hTres : cvT.type.constsResolve env = true := by
+        obtain ⟨-, -, h3, -⟩ := hwfe _ (find?_mem hf)
+        simpa [ConstantInfo.toConstantVal] using h3
+      intro φ d Δ us xs TV rest B hlen hTV hfit hBt
+      have hTV' := hdown φ d _ TV
+        (by rw [Expr.constsResolve_instantiateLevelParams]; exact hTres) hTV
+      rw [← hag T hnT] at hBt
+      have hproj : ∀ j ∈ List.range caps.etaFields,
+          VExpr.mkAppN (cval' (projFnName T j)
+            (Level.substFn φ
+              (levelParamsAt ⟨c₀ :: env.consts⟩ (projFnName T j)) us))
+            (xs ++ [B])
+          = VExpr.mkAppN (cval (projFnName T j)
+            (Level.substFn φ (levelParamsAt env (projFnName T j)) us))
+            (xs ++ [B]) := by
+        intro j hj
+        rw [← hag _ (hnP j (List.mem_range.mp hj)),
+          levelParamsAt_cons_of_ne
+            (fun hh => (hnP j (List.mem_range.mp hj)) hh.symm)]
+      rw [List.map_congr_left hproj, ← hag _ hnC,
+        levelParamsAt_cons_of_ne (fun hh => hnC hh.symm)]
+      exact hlaw φ d Δ us xs TV rest B hlen hTV' hfit hBt
+  · intro T cvT caps hf hcapu hres
+    by_cases hn : T = c₀.name
+    · subst hn
+      rw [Env.find?_cons, if_pos rfl] at hf
+      exact hheadUnit cvT caps (Option.some.inj hf) hcapu hres
+    · rw [hfind _ hn] at hf
+      have hlaw := h.2 T cvT caps hf hcapu hres
+      have hTres : cvT.type.constsResolve env = true := by
+        obtain ⟨-, -, h3, -⟩ := hwfe _ (find?_mem hf)
+        simpa [ConstantInfo.toConstantVal] using h3
+      intro φ d Δ us xs TV rest B B' hlen hTV hfit hBt hBt'
+      have hTV' := hdown φ d _ TV
+        (by rw [Expr.constsResolve_instantiateLevelParams]; exact hTres) hTV
+      rw [← hag T hn] at hBt hBt'
+      exact hlaw φ d Δ us xs TV rest B B' hlen hTV' hfit hBt hBt'
 
 end Setlec.TTVerify

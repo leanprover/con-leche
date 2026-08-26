@@ -123,7 +123,7 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     rw [denote_mkAppN (DenoteSpine.append (hspR.take rP)
       (hspC.drop (RecRule.ctorParams rl))) hRH] at hR
     exact (Option.some.inj hR).symm
-  refine (m.rec_rules n cv mI rP rules hrec rl hrl hfire).2
+  refine m.rec_rules n cv mI rP rules hrec rl hrl hfire
     cvj cnP cnF hctor φ d Δ us usj xs ys TR TC RVR RVC RH ?_ ?_ hlenR hlenJ
     hiR hiC hRH hvR hvC
   · have := hspR.length
