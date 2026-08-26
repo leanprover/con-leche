@@ -1,4 +1,5 @@
 import Setlec.TTVerify.Denote
+import Setlec.TTVerify.Inversion
 import Setlec.TTVerify.EnvTT
 import Setlec.TTVerify.Claims
 import Setlec.TTVerify.Extend

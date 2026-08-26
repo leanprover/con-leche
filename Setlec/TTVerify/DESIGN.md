@@ -167,6 +167,8 @@ stage 2 are proved, `sorry`-free and on
   consistency corollary, through `Setlec.TT.no_proof_of_empty`;
 * `checkSoundTT` — the mutual fuel induction, with its **fuel-zero**
   case proved outright and its step named (`Setlec/TTVerify/Claims.lean`);
+* `hasType_app_inv` / `hasType_proj_inv` — the two inversions the
+  threaded claims need to feed their own recursion (§6);
 * `denote_mono` — **denotations survive environment extension**
   (`Setlec/TTVerify/Extend.lean`).  This is the workhorse every install
   step needs, in the same place the set model needs its
@@ -192,23 +194,23 @@ needed only at `no_constant_of_Empty_TT`, where the layer's own
 consistency theorem turns the pinned valuation of `Empty` into
 uninhabitation.
 
-### A candidate for the invariant-carrying shape (noted, not acted on)
+### The traversal invariants (one acted on, one still a candidate)
 
-Every claim in `Setlec/TTVerify/Claims.lean` takes `CtxOk` as a
-*hypothesis* and every recursive clause will have to re-establish it
-for its subterms — which is a faithful mirror of what the checker does,
-and so is what stage 2 builds.
+Two facts in `Setlec/TTVerify/Claims.lean` are properties of the
+*traversal* rather than things each node earns, and the difference
+between them is worth keeping straight.
 
-But it is the obvious candidate for a formulation that *carries*
-well-typedness instead: `CtxOk` is an invariant of the traversal, not
-something each node earns, and subject reduction is free in this layer
-(conversion is equality reflection, so a `Deq` never disturbs a
-derivation).  Recorded here because a separate investigation is asking
-whether a TT-based proof could carry well-typedness through reduction
-rather than re-derive it at each node — the discipline behind the
-official kernel's `infer_only` mode.  **Not actionable**: it would
-require the checker to gain an infer-only mode, which `Core.lean`
-currently defers, and stage 2 must mirror what the checker does today.
+* **Well-typedness: threaded, as of §6.**  The reduction and defeq
+  claims take `HasType Δ ⟦e⟧ A` as a hypothesis and hand the reduct's
+  typing back as a conclusion.  See §6 for the measurement that forced
+  this and for the evidence that the recursion can actually feed
+  itself.
+* **`CtxOk`: still a hypothesis at every node.**  It is likewise an
+  invariant — the context correspondence does not change as the
+  traversal descends into a subterm at the same depth — but nothing
+  measured says it costs anything, and unlike well-typedness it is not
+  a fact the checker computes at run time.  Left as it is; noted so
+  that a future reader sees it was considered.
 
 ### The direct-install hypothesis, and what it costs
 
@@ -264,3 +266,106 @@ binary is a category error.
   `trans`.  A propositional equality suffices because conversion in
   this layer is equality reflection.  K needs nothing at all — its
   guard makes it proof irrelevance (the #74 finding).
+
+## 6. The certificate tax, and why the claims thread typing
+
+**Recorded here because the investigation that produced it ran on
+`diag/cert-tax`, a throwaway branch, and these numbers exist nowhere
+else in the repository.**  They are also the reason stage 2 deviates
+from a plain mirror of the set-model proof, so they belong to this
+argument rather than to a performance appendix.
+
+### The tax is one call
+
+Measured by an isolating mask over the whole `Init` cone:
+
+| | cost |
+|---|---|
+| per-argument re-check in `inferSpineI` | **288 s** |
+| every other certificate family, summed | 4 s |
+| total tax | 292 s |
+
+That one call is **98.6 %** of it.  The site is
+`Setlec/Kernel/CoreI.lean:1534` (the certificate at 1545–1547 and its
+post-whnf twin at 1554–1556); the spec-side twin is the `.app` clause
+of `inferBody`, `Setlec/Kernel/Core.lean:1495`.  `--yolo` is a literal
+alias for `SETLEC_NO_PROOF_CERTS`, so the whole ~39× certified/yolo gap
+is certificates and nothing else.
+
+**What that call establishes is `⟦a⟧ ∈ˢ ⟦A⟧` at every application
+node** — precisely `AnnotOk`'s app clause — and it exists *only*
+because `AnnotOk` is a **conclusion** of the inference claim rather
+than a hypothesis carried along.  The information is already present at
+the call site; the set-model architecture has no channel to carry it.
+A typing judgment is that channel, which is the same observation
+`HasType.app`'s docstring makes from the other side.
+
+**The reference kernels perform this check too — once per
+declaration, never inside reduction.**  The official kernel's
+`m_infer_type[infer_only]` is a two-element cache array; lean4lean's
+`isDefEqCore` docstring states the justification outright.  Doing it on
+every reduct is our artifact, not a fidelity requirement.
+
+### Per-call verdicts
+
+| certificate | verdict | note |
+|---|---|---|
+| app-argument re-check (`inferSpineI`) | **replaceable**, high confidence | the 98.6 % |
+| iota telescope certifications | replaceable | |
+| structure-eta, `projCert` | replaceable | and measured free anyway |
+| plain-rule parameter comparison | **needed**, cheap | |
+| canonical-index `defEqList` | **needed**, cheap | |
+| beta re-check | see below | |
+
+The last two are worth their keep for a reason that inverts the usual
+intuition: removing them made the run *slower*, because they
+short-circuit reduction.
+
+### What this changes here
+
+The claims of `Setlec/TTVerify/Claims.lean` **thread the typing
+hypothesis from the start** rather than re-deriving membership at each
+node.  The shape is: `⊢ ⟦e⟧ : A` and `whnf e = e'` give
+`⊢ prf : eqE _ ⟦e⟧ ⟦e'⟧`, and `⊢ ⟦e'⟧ : A` follows by `conv` — subject
+reduction is free in a layer whose conversion is equality reflection,
+which is the entire point.
+
+Stating it this way now is the cheap move: an extra hypothesis makes
+each claim *weaker*, so nothing gets harder to prove, and when the
+checker eventually gains an infer-only mode and drops the app-argument
+check, that is a change to the checker rather than a retrofit of this
+induction.  Retrofitting later is the expensive direction.
+
+**The threading is not assumed to work — it is de-risked.**  A
+recursion that carries a typing must hand each subterm a typing of its
+own, and the layer has no inversion principle.  So
+`Setlec/TTVerify/Inversion.lean` proves exactly the two the checker's
+own recursion needs — the head and argument of an application, the
+subject of a projection — each one induction with two interesting cases
+(`app`/`proj*`, and `conv`, which does not change the subject) and a
+catch-all closed by constructor disjointness.  That is a bounded,
+named departure from the layer's "no syntactic metatheory" discipline,
+and it is in `Setlec/TTVerify/*` rather than `Setlec/TT/*` to keep it
+marked as a bridge need.
+
+### The beta clause: the certificate is load-bearing, and here is why
+
+The investigation left the beta re-check as its one **unclear** verdict,
+leaning needed.  The bridge sharpens that to **needed**, for a
+proof-level reason rather than a measurement:
+
+`HasType.beta`'s premise is `Γ ⊢ a : A` at *the λ's own annotation*.
+Inverting a typed redex `⊢ (λA.b) a : C` yields
+`⊢ λA.b : Π A₀ B₀` and `⊢ a : A₀` — the ambient domain, not the
+annotation.  Closing that gap needs Π-injectivity, and **Π-injectivity
+is semantically false under the domain-relative collapse**, so the
+layer must not grow it.  The premise `Γ ⊢ a : A` is not decoration:
+soundness consumes it as the domain membership that fires `app_lamC`.
+
+What does close the gap is the checker's own beta certificate — infer
+the argument's type, compare it definitionally with the annotation —
+which the inference and defeq claims turn into `⊢ ⟦a⟧ : ⟦ta⟧` and
+`Deq Δ ⟦ta⟧ ⟦A⟧`, hence `⊢ ⟦a⟧ : ⟦A⟧` by `conv`.  So this certificate
+is load-bearing *for the bridge*, not merely plausible-looking.  No
+performance cost attaches to keeping it: it is free once the
+app-argument check is gone.
