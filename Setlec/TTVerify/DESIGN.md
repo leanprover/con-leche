@@ -11,6 +11,54 @@ while the work is on its own branch (the same reason
 `Setlec/TT/DESIGN.md` does), and folds into the top-level `DESIGN.md`
 when the branch merges.
 
+## 0. The practice, first — because it produced most of this document
+
+The user's directive for this task was "follow the set model".  Its
+operational form is not "copy the proof", and it has turned out to be
+the single most productive rule in the work, so it goes first rather
+than in a methodology footnote.
+
+> **Before designing a bridge lemma, look for its set-model
+> counterpart — not to reuse the proof, but because the counterpart's
+> *existence*, *size*, or *absence* usually settles whether the
+> statement is right.**
+
+Four instances, none of which were the reason the rule was written
+down:
+
+1. **`denote_mono`** replaced the entire `Setlec/Model/Extend/Transport`
+   family with one lemma.  The family's *size* was the signal: most of
+   it was `AnnotOk` plumbing with no counterpart here.
+2. **`certs_typed`** turned out to be `certs_fit`, already proved on
+   the other side.  Since `TeleTyped` demands strictly less than
+   `TeleFitI`, the counterpart's *existence* settled the `iotaCerts`
+   prediction's positive half before a line was written.
+3. **The `iotaCerts` pre-registration** got sharp by reading what the
+   checker computes, and was then confirmed against `certs_fit`.
+4. **The `projCert` branch enumeration** (§6) got its decisive evidence
+   from reading the model's own `.proj` case — which showed
+   `projCert_inv` feeding a *collapse guard* rather than supplying
+   memberships, and led to branch D by exposing that
+   `WhnfCoreClaims` takes `AnnotOk` as a hypothesis where
+   `WhnfCoreClaimsTT` takes nothing.
+
+**What it guards against.**  Designing a bridge statement that is
+subtly wrong in a way only a proof attempt reveals — which, at this
+codebase's measured base rate (`Setlec/TT/DESIGN.md` §3.1: three for
+three), is the *expected* outcome, not the unlucky one.
+
+**A missing counterpart is informative too**, and is not permission to
+proceed: it means either a genuine saving (as with `AnnotOk`) or a
+statement that owes its own justification.  Both `cval_closed` and the
+`proj` former were found this way — the first as a cost with no
+counterpart, the second as a counterpart that could not be
+transposed.
+
+The rule composes with `Setlec/TT/DESIGN.md` §3.1's house rule
+("mechanize a consumer"): §3.1 says do not believe a definition until
+something uses it; this says do not *write* the definition until you
+have looked at how the other side stated it.
+
 ## 1. What the bridge is
 
 A second verification path for the checker: instead of interpreting a
@@ -66,34 +114,6 @@ sketch.  The payoff is the same one — the reduction strategy drops out
 of the consistency argument — reached with less machinery: no
 unfolding, no well-founded recursion on the environment, and no
 termination obligation to discharge.
-
-### Operational rule: look for the set-model counterpart first
-
-The user's "follow the set model" directive has an operational form
-that keeps paying, and it is not "copy the proof":
-
-> **Before designing a bridge lemma, look for its set-model
-> counterpart — not to reuse the proof, but because the counterpart's
-> *existence* usually settles whether the statement is right.**
-
-Twice now it has decided an increment outright.
-
-* `denote_mono` (`Setlec/TTVerify/Extend.lean`) replaced the entire
-  `Setlec/Model/Extend/Transport` family with one lemma — the family's
-  size was itself the signal that most of it was `AnnotOk` plumbing
-  with no counterpart here.
-* `certs_fit` (`Setlec/Model/Core/Certs.lean`) turned out to be exactly
-  the induction §6's `iotaCerts` prediction was about to argue for,
-  and since `TeleTyped` demands strictly less than `TeleFitI`, its
-  existence *settled* the prediction's positive half without a line of
-  proof.
-
-The failure mode it guards against is designing a bridge statement that
-is subtly wrong in a way only a proof attempt reveals — which, given
-this codebase's base rate (`Setlec/TT/DESIGN.md` §3.1, three for
-three), is the expected outcome rather than the unlucky one.  A missing
-counterpart is informative too: it means either a genuine saving (as
-with `AnnotOk`) or a statement that needs its own justification.
 
 ### The rest of the transposition
 
@@ -555,41 +575,56 @@ recoverable from ambient facts after all, in which case the headline
 fact fails in the `.proj` case, which is the larger result.
 
 **Branch C — the premises come from the subject's own derivation,
-and no certificate is needed by either side.**  This is the one to
-check *first*, and two pieces of evidence already point at it.
+and no certificate is needed by either side.**  The evidence: the set
+model proves this clause today, and **not from `projCert`** — its
+`projCert_inv` feeds the *collapse guard* (`Nat.max … = 0` ⇒ everything
+is the proof point), i.e. level facts, exactly as predicted for the
+sorting premises.  Its membership facts come from `AnnotOk`'s own
+`.proj` clause, which post-#100 *inference* establishes.
 
-* *The set model proves this clause today*, so the facts are
-  obtainable there — and **not from `projCert`**: its `projCert_inv`
-  feeds the *collapse guard* (`Nat.max (ψ' uN) (ψ' vN) = 0` ⇒
-  everything is the proof point), i.e. level facts, exactly as
-  predicted for the sorting premises here.  The membership facts come
-  from `AnnotOk`'s own `.proj` clause — which demands
-  `ve ∈ˢ sigmaSet …` and which, post-#100, *inference establishes*.
-* The Fable review of the `proj` former said the same thing from the
-  other side: the former "hands soundness the `⟦p⟧ ∈ˢ sigmaSet …`
-  package that the set model's `AnnotOk` proj clause carries by hand".
+*One concrete mechanism for C was proposed and has been **checked and
+refuted***: that `whnfCoreBody`'s `.proj` clause must infer the subject
+in order to find the structure entry, which would hand the bridge
+`HasType Δ ⟦p⟧ ⟦tp⟧` for free.  **It does not infer the subject.**  It
+reads the structure name off the *node* — `env.findProj? sn i` where
+`sn` comes from `.proj sn i pe` — and matches `e'.getAppFn` against
+`entry.ctor`.  No inference of the subject happens in the clause
+itself.
 
-If C holds, **the `.proj` row is a different shape from every other
-row**: a certificate needed by neither checker nor bridge, with the
-rule's premises supplied by the subject's derivation.  §6's fact is
-*not* refuted — the premise is still supplied where the rule fires,
-just by the derivation rather than by a certificate.  And it fits the
-measurement (`projCert` free at mask 8) better than A or B do.
+A weaker version does hold and should be weighed: **`projCert` infers
+both** the field (`ta`) and the subject (`te`), and merely compares
+their *sorts* to the entry's pinned levels.  So `InferClaimsTT` does
+yield `HasType Δ ⟦arg⟧ ⟦ta⟧` and `HasType Δ ⟦e₂⟧ ⟦te⟧` — but at the
+*inferred* types, and reaching the entry's *pinned* domains from there
+is §6's question again, which says it does not go through.
+
+**D — a finding about my own claim shape, and the reading above makes
+it likeliest.**  The check turned up *where* the missing fact actually
+lives: `whnfCoreBody`'s `.proj` clause relies on an invariant
+established by the **annotate** pass, whose own `.proj` clause *does*
+infer the subject, whnf its type, and normalise the node's `sn` to that
+type's head.  The set model carries exactly that invariant into
+reduction — `WhnfCoreClaims` takes `AnnotOk … e` as a **hypothesis**,
+and its `.proj` conjunct is the `sigmaSet` membership.
+
+`WhnfCoreClaimsTT` carries nothing: `AnnotOk` was dropped because a
+derivation supplies its facts, and the typing hypothesis was then
+withdrawn for §6's reasons.  Each move was justified on its own; the
+`.proj` clause may be where their conjunction bites.  So what D needs
+is not "a typing hypothesis" in the abstract but **the analogue of
+*the annotation is truthful*** — which is precisely what `AnnotOk` is,
+and precisely what this bridge claims to do without.
+
+Note carefully what D is **not**: it is not the threading withdrawn in
+`Setlec/TTVerify/Claims.lean`.  That withdrawal was about the
+*conclusion* being unattainable (a reduct's typing at the subject's
+type).  A hypothesis without a conclusion is a different object, and
+whether it is usable turns on whether each clause's re-entry can obtain
+typing from its own certificates.  The two must not be collapsed.
 
 **If C holds, the branch-A framing must not survive into this
 document**: a reader who finds "gap in the checker" recorded here will
 go looking for a bug that is not there.
-
-*One thing C forces me to check about my own claims.*  The set model's
-`WhnfCoreClaims` takes `AnnotOk … e` as a **hypothesis**, and that is
-where its `.proj` case gets the `sigmaSet` membership.  My
-certificate-only `WhnfCoreClaimsTT` carries no typing hypothesis at
-all — I dropped `AnnotOk` because a derivation supplies its facts, and
-then withdrew the typing hypothesis for §6's reasons.  So under C the
-question becomes: does the `.proj` clause need a typing *hypothesis*
-(not conclusion) restored to the claim?  That would be a finding about
-**my claim shape**, not about the checker and not about §6 — a fourth
-outcome, and the one I now think most likely.  Recorded as such.
 
 **These are predictions, not re-verdicts.**  I have not reached those
 clauses.  They carry the same falsifiable status as the `iotaCerts`
@@ -914,8 +949,8 @@ should check this count before and after.
 
 ### The iota clause, decomposed
 
-Scouted before starting it, per the operational rule of §2 — and the
-scouting changed the estimate.
+Scouted before starting it, per §0 — and the scouting changed the
+estimate.
 
 `iotaRec_inv` (`Setlec/Verify/InferLemmas.lean`) is **importable** and
 inverts the whole guard cascade in one step, handing over: the stored
