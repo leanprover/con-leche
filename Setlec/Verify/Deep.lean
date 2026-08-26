@@ -1061,6 +1061,28 @@ private theorem projCert_shift (henv : EnvWF env)
   cases w₂ <;> try rfl
   case fvar => rw [shiftFrom_fvar]
 
+private theorem projTeleCert_shift (henv : EnvWF env)
+    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) (c : Name)
+    (us : List Level) {args : List Expr}
+    (hwargs : ∀ x ∈ args, WScoped d x) :
+    projTeleCert (pureFns env fuel) env (d + 1) c us
+        (args.map (shiftFrom p)) =
+      projTeleCert (pureFns env fuel) env d c us args := by
+  simp only [projTeleCert]
+  cases hf : env.find? c with
+  | none => rfl
+  | some ci =>
+    cases ci <;> try rfl
+    case ctorInfo cvj cnP cnF =>
+    have htel : (cvj.type.instantiateLevelParams cvj.levelParams
+        us).hasFvar = false := by
+      rw [hasFvar_instantiateLevelParams]
+      exact (henv _ (find?_mem hf)).1
+    have h := iotaCerts_shift henv ih hpd
+      (ty := cvj.type.instantiateLevelParams cvj.levelParams us)
+      (WScoped.of_not_hasFvar htel) (args := args) hwargs
+    rwa [shiftFrom_eq_self_of_not_hasFvar htel] at h
+
 private theorem majorToCtor_shift (henv : EnvWF env)
     (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
     (rules : List RecRule) {major : Expr} (hwmaj : WScoped d major) :
@@ -1934,6 +1956,11 @@ private theorem whnfCore_step (henv : EnvWF env)
         (Level.subst entry.levelParams us₂ entry.structSort)
         entry.numParams) ?_
       intro bb _
+      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+      refine bind_rel_eq _ (projTeleCert_shift henv ih hpd c us₂
+        (args := e₃.getAppArgs)
+        (fun x hx => hwe₃.getAppArgs x hx)) ?_
+      intro bb₂ _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       exact ih.whnfCore hpd hwarg
 

@@ -411,6 +411,49 @@ theorem projCertI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e₂ : Expr}
 
   | proj s'ᵢ j' e' => invert_node hd; exact SimAt.pure hs₄ rfl
 
+/-- Twin walk for the constructor-telescope certification at a
+projection redex (task #126). -/
+theorem projTeleCertI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
+    {cI : NIdx} {c : Name} {us : List LIdx} {lus : List Level}
+    {args : List EIdx} {xs : List Expr} {s₀ : IState} (hs : ISOK env s₀)
+    (hcI : s₀.store.denoteN cI = some c)
+    (hus : denoteLList s₀.store.denoteL us = some lus)
+    (hargs : DenL s₀.store args xs) (hwargs : ∀ x ∈ xs, WScoped d x) :
+    SimAt env s₀ RelV
+      (projTeleCertI (coreKnotI (mkFEnv env) f) (mkFEnv env) d cI c us args)
+      (projTeleCert (fueledFns env) env d c lus xs) := by
+  show SimAt env s₀ RelV
+    (match (mkFEnv env).find? c with
+      | some (.ctorInfo _ _ _) =>
+        constTyAtM (mkFEnv env) cI c us >>= fun tyCtor =>
+        iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyCtor args
+      | _ => pure false)
+    (match env.find? c with
+      | some (.ctorInfo cvj _ _) =>
+        iotaCerts (fueledFns env) env d
+          (cvj.type.instantiateLevelParams cvj.levelParams lus) xs
+      | _ => pure false)
+  rw [mkFEnv_find?]
+  cases hf : env.find? c with
+  | none => exact SimAt.pure hs rfl
+  | some ci =>
+    cases ci with
+    | ctorInfo cvj cnP cnF =>
+      dsimp only
+      refine SimAt.bind_left (constTyAtM_eff hs hcI hus hf)
+        (fun s₁ tyCtor hs₁ hext₁ hQty => ?_)
+      have htyw : WScoped d
+          (cvj.type.instantiateLevelParams cvj.levelParams lus) := by
+        obtain ⟨htf, -⟩ := henv _ (find?_mem hf)
+        exact wscoped_instLevels_of_not_hasFvar htf _ _
+      exact iotaCertsI_sim ih hs₁ hQty htyw (hargs.mono hext₁) hwargs
+    | axiomInfo cv => exact SimAt.pure hs rfl
+    | projInfo e => exact SimAt.pure hs rfl
+    | defnInfo cv v h => exact SimAt.pure hs rfl
+    | thmInfo cv v => exact SimAt.pure hs rfl
+    | indInfo cv caps => exact SimAt.pure hs rfl
+    | recInfo cv mI rP rules => exact SimAt.pure hs rfl
+
 theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
     {d : Nat} {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
     (hdena : s₀.store.denoteT i = some a)

@@ -150,6 +150,10 @@ abbrev projLitToCtorP (env : Env) (fuel : Nat) : Nat → Expr →
 abbrev projCertP (env : Env) (fuel : Nat) : Nat → Expr → Nat →
     Level → Level → Nat → CheckM Bool := projCert (pureFns env fuel) env
 
+abbrev projTeleCertP (env : Env) (fuel : Nat) : Nat → Name →
+    List Level → List Expr → CheckM Bool :=
+  projTeleCert (pureFns env fuel) env
+
 abbrev isPropTypeP (env : Env) (fuel : Nat) : Nat → Expr → CheckM Bool :=
   isPropType (pureFns env fuel) env
 
@@ -205,6 +209,8 @@ theorem projLitToCtor_fold (env : Env) (fuel : Nat) :
     projLitToCtor (pureFns env fuel) env = projLitToCtorP env fuel := rfl
 theorem projCert_fold (env : Env) (fuel : Nat) :
     projCert (pureFns env fuel) env = projCertP env fuel := rfl
+theorem projTeleCert_fold (env : Env) (fuel : Nat) :
+    projTeleCert (pureFns env fuel) env = projTeleCertP env fuel := rfl
 theorem annotateProjElim_fold (env : Env) (fuel : Nat) :
     annotateProjElim (pureFns env fuel) env =
       annotateProjElimP env fuel := rfl

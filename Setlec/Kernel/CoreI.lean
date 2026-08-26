@@ -1384,6 +1384,16 @@ def projCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
     | _ => pure false
   | _ => pure false
 
+/-- Twin of `projTeleCert` (task #126). -/
+def projTeleCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (cI : NIdx) (c : Name) (us : List LIdx) (args : List EIdx) :
+    CheckIM Bool := do
+  match fe.find? c with
+  | some (.ctorInfo _ _ _) => do
+    let tyCtor ← constTyAtM fe cI c us
+    iotaCertsI r fe depth tyCtor args
+  | _ => pure false
+
 mutual
 
 /-- Bulk-beta argument loop (task #50): consume the whole application
@@ -1498,7 +1508,10 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
             if ← projCertI r fe depth e' i fl
                 mx entry.numParams then
-              k arg
+              -- task #126: the constructor-telescope certification
+              if ← projTeleCertI r fe depth c entry.ctor us args then
+                k arg
+              else internI (.proj sn i e')
             else internI (.proj sn i e')
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')

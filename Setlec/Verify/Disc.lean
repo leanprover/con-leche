@@ -534,6 +534,21 @@ theorem projCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
       refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okW _ => ?_)
       exact DiscV.pure trivial
 
+theorem projTeleCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {c : Name} {us : List Level} {args : List Expr}
+    (hwargs : ∀ x ∈ args, WScoped d x) :
+    DiscV env (fun _ => True) (projTeleCert C env d c us args)
+      (projTeleCert G env d c us args) := by
+  unfold projTeleCert
+  cases hf : env.find? c with
+  | none => exact DiscV.pure trivial
+  | some ci =>
+    cases ci <;> try exact DiscV.pure trivial
+    case ctorInfo cvj cnP cnF =>
+    obtain ⟨htf, -⟩ := henv _ (find?_mem hf)
+    exact iotaCerts_disc ih henv
+      (wscoped_instLevels_of_not_hasFvar htf _ _) hwargs
+
 theorem stuckIrrel_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
     DiscV env (fun _ => True) (stuckIrrel C env d a b)
@@ -967,8 +982,11 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
                 (Level.subst entry.levelParams us entry.structSort)
                 entry.numParams >>= fun b =>
               if b then
-                (C : CoreFns CheckSM).whnfCore d
-                  (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
+                projTeleCert C env d c us e'.getAppArgs >>= fun b₂ =>
+                if b₂ then
+                  (C : CoreFns CheckSM).whnfCore d
+                    (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
+                else pure (.proj sn i e')
               else pure (.proj sn i e')
             else pure (.proj sn i e')
           | _ => pure (.proj sn i e')
@@ -987,8 +1005,11 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
                 (Level.subst entry.levelParams us entry.structSort)
                 entry.numParams >>= fun b =>
               if b then
-                (G : CoreFns CheckSM).whnfCore d
-                  (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
+                projTeleCert G env d c us e'.getAppArgs >>= fun b₂ =>
+                if b₂ then
+                  (G : CoreFns CheckSM).whnfCore d
+                    (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
+                else pure (.proj sn i e')
               else pure (.proj sn i e')
             else pure (.proj sn i e')
           | _ => pure (.proj sn i e')
@@ -1005,7 +1026,11 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     split <;> try exact DiscV.pure hwproj
     refine DiscV.bind (projCert_disc ih henv he') (fun b _ => ?_)
     split
-    · exact ih.site_whnfCore henv (hwarg _)
+    · refine DiscV.bind (projTeleCert_disc ih henv
+        (args := e'.getAppArgs) he'.getAppArgs) (fun b₂ _ => ?_)
+      split
+      · exact ih.site_whnfCore henv (hwarg _)
+      · exact DiscV.pure hwproj
     · exact DiscV.pure hwproj
 
 /-- One iteration of the reduction loop, with the continuation
