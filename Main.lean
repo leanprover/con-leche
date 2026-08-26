@@ -1,5 +1,6 @@
 import Setlec.Kernel.CheckerS
 import Setlec.Kernel.CheckerNC
+import Setlec.Kernel.Split
 import Setlec.Frontend.Export
 
 /-!
@@ -168,11 +169,55 @@ partial def diagLoop
     | .error _ => s!" [at {declPName d}]"
   else ""
 
+/-- Install-phase loop of the split driver (task #108).  Explicit
+recursion with plain accumulators, exactly as `progressLoop` and for the
+same reason.  `bounds[i]` is the number of constants installed *before*
+declaration `i` — the visibility bound its check phase runs under. -/
+partial def installLoop (progress : Bool) (n0 : Nat)
+    (decls : Array Setlec.DeclP) (i : Nat) (fe : Setlec.FEnv)
+    (bounds : Array Nat) (s : Setlec.IState) :
+    IO (Except Setlec.CheckError
+      (Setlec.FEnv × Array Nat × Setlec.IState)) := do
+  if h : i < decls.size then
+    let d := decls[i]
+    if progress then
+      IO.println s!"INSTALL {i}: {declPName d}"
+      (← IO.getStdout).flush
+    let bounds := bounds.push fe.visibleBelow
+    match Setlec.installDeclSPStep n0 fe d s with
+    | .error e =>
+      IO.eprintln s!"setlec: {e} [installing {declPName d}]"
+      pure (.error e)
+    | .ok (fe, s) => installLoop progress n0 decls (i + 1) fe bounds s
+  else pure (.ok (fe, bounds, s))
+
+/-- Check-phase loop of the split driver: declarations `[i, hi)` of the
+stream, each against the *final* environment restricted to its own
+install-time prefix. -/
+partial def recheckLoop (progress : Bool) (decls : Array Setlec.DeclP)
+    (bounds : Array Nat) (i hi : Nat) (fe : Setlec.FEnv)
+    (s : Setlec.IState) : IO (Except Setlec.CheckError Unit) := do
+  if h : i < hi ∧ i < decls.size then
+    let d := decls[i]'h.2
+    if progress then
+      IO.println s!"CHECK {i}: {declPName d}"
+      (← IO.getStdout).flush
+    match Setlec.recheckDeclSPStep fe (bounds[i]?.getD 0) d s with
+    | .error e =>
+      IO.eprintln s!"setlec: {e} [checking {declPName d}]"
+      pure (.error e)
+    | .ok (_, s) => recheckLoop progress decls bounds (i + 1) hi fe s
+  else pure (.ok ())
+
 /-- The real driver (run in the supervised child process).  `yolo`
 selects the unverified cert-skipping stack (same as
 `SETLEC_NO_PROOF_CERTS=1`); `pre` asserts the input is already
-preprocessed (`--pre`), skipping preprocessor detection and spawn. -/
-def checkMain (file : String) (yolo : Bool) (pre : Bool) : IO UInt32 := do
+preprocessed (`--pre`), skipping preprocessor detection and spawn;
+`split?` selects the unverified install/check-split driver
+(`--install-only` / `--check-range`, task #108) with the requested
+half-open check range. -/
+def checkMain (file : String) (yolo : Bool) (pre : Bool)
+    (split? : Option (Nat × Option Nat)) : IO UInt32 := do
     -- Measurement mode (task #76): SETLEC_NO_PROOF_CERTS=1 (or the
     -- `--yolo` flag) selects the cert-skipping knot
     -- (Setlec/Kernel/CheckerNC.lean) — the proof-feeding infer/defeq
@@ -218,6 +263,36 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool) : IO UInt32 := do
         -- threaded exactly as in checkDeclsSP).
         -- task #64 low-bit: the in-range bound is the encoded index bound
         let n0 := store.raw.nodes.size + store.raw.nodes.size
+        -- Task #108: the unverified install/check-split driver.  A run
+        -- that checks a subrange (or nothing at all) never accepts —
+        -- exit 0 means "every declaration in this stream was checked".
+        if let some (lo, hi?) := split? then
+          let progress := (← IO.getEnv "SETLEC_PROGRESS").isSome
+          let hi := min (hi?.getD decls.size) decls.size
+          -- A run that skipped checks cannot make a *positive* claim
+          -- about the stream in either direction: a skipped check might
+          -- have declined (the checker's honest verdict) before the
+          -- failure this run reports.  So a partial run downgrades
+          -- `invalid` to a decline; the message still names the
+          -- offending declaration, which is the point of the mode.
+          let full := lo == 0 && hi == decls.size
+          let verdict : Setlec.CheckError → UInt32 := fun e =>
+            match e with
+            | .invalid _ => if full then 1 else 2
+            | _ => e.exitCode
+          match ← installLoop progress n0 decls 0
+              (Setlec.mkFEnv Setlec.Env.empty) #[] { store := store.raw } with
+          | .error e => return ← finish (verdict e)
+          | .ok (fe, bounds, s) =>
+            match ← recheckLoop progress decls bounds lo hi fe s with
+            | .error e => return ← finish (verdict e)
+            | .ok () =>
+              IO.println s!"setlec: installed {fe.env.consts.length} constants \
+                from {decls.size} declarations"
+              IO.println s!"setlec: checked declarations [{lo}, {hi})"
+              IO.eprintln s!"setlec: declined: partial check \
+                ({hi - min lo hi} of {decls.size} declarations checked)"
+              return 2
         if (← IO.getEnv "SETLEC_PROGRESS").isSome then
           -- the parse arena is well-formed by construction (task #103);
           -- no validation sweep before checking
@@ -258,13 +333,75 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool) : IO UInt32 := do
         try IO.FS.removeFile path catch _ => pure ()
 
 def usage : String := String.intercalate "\n" [
-  "usage: setlec [--yolo] [--pre] FILE.ndjson",
+  "usage: setlec [--yolo] [--pre] [--install-only] [--check-range A:B]",
+  "              FILE.ndjson",
   "",
-  "  --yolo  skip the proof-feeding certification calls (unverified",
-  "          measurement mode; same as SETLEC_NO_PROOF_CERTS=1)",
-  "  --pre   assert FILE is already preprocessed output of",
-  "          lean-inductive-models: skip the preprocessor detection",
-  "          scan and spawn entirely"]
+  "  --yolo            skip the proof-feeding certification calls",
+  "                    (unverified measurement mode; same as",
+  "                    SETLEC_NO_PROOF_CERTS=1)",
+  "  --pre             assert FILE is already preprocessed output of",
+  "                    lean-inductive-models: skip the preprocessor",
+  "                    detection scan and spawn entirely",
+  "  --install-only    install the whole stream without checking any",
+  "                    declaration (task #108)",
+  "  --check-range A:B check only declarations [A, B) of the stream,",
+  "                    after installing all of it; `A:` runs to the end",
+  "",
+  "--install-only and --check-range select the unverified split",
+  "install/check driver; since less than the whole stream is checked,",
+  "a successful run reports a decline (exit 2), never an acceptance."]
+
+/-- `A:B`, `A:` or `:B` — a half-open declaration-index range. -/
+def parseRangeSpec (s : String) : Option (Nat × Option Nat) :=
+  match s.splitOn ":" with
+  | [a, b] =>
+    match (if a.isEmpty then some 0 else a.toNat?) with
+    | none => none
+    | some lo =>
+      if b.isEmpty then some (lo, none)
+      else match b.toNat? with
+        | none => none
+        | some hi => some (lo, some hi)
+  | _ => none
+
+structure Args where
+  yolo : Bool := false
+  pre : Bool := false
+  /-- the split driver's check range (`some (0, some 0)` for
+  `--install-only`) -/
+  split? : Option (Nat × Option Nat) := none
+  files : Array String := #[]
+  bad : Option String := none
+
+def parseArgs : List String → Args → Args
+  | [], a => a
+  | "--yolo" :: rest, a => parseArgs rest { a with yolo := true }
+  | "--pre" :: rest, a => parseArgs rest { a with pre := true }
+  | "--install-only" :: rest, a =>
+    parseArgs rest { a with split? := some (0, some 0) }
+  | "--check-range" :: spec :: rest, a =>
+    match parseRangeSpec spec with
+    | some r => parseArgs rest { a with split? := some r }
+    | none => { a with bad := some s!"malformed --check-range {spec}" }
+  | s :: rest, a =>
+    if s.startsWith "--check-range=" then
+      match parseRangeSpec ((s.drop "--check-range=".length).toString) with
+      | some r => parseArgs rest { a with split? := some r }
+      | none => { a with bad := some s!"malformed {s}" }
+    else if s.startsWith "-" then
+      { a with bad := some s!"unknown option {s}" }
+    else parseArgs rest { a with files := a.files.push s }
+
+/-- The child's argument vector, reassembled from the parsed options. -/
+def childArgs (a : Args) (file : String) : Array String :=
+  #[file]
+    ++ (if a.yolo then #["--yolo"] else #[])
+    ++ (if a.pre then #["--pre"] else #[])
+    ++ (match a.split? with
+        | some (0, some 0) => #["--install-only"]
+        | some (lo, some hi) => #["--check-range", s!"{lo}:{hi}"]
+        | some (lo, none) => #["--check-range", s!"{lo}:"]
+        | none => #[])
 
 def main (args : List String) : IO UInt32 := do
   if args.contains "--help" then
@@ -276,10 +413,18 @@ def main (args : List String) : IO UInt32 := do
   -- output (explicit user assertion — the checker never sniffs input
   -- content for it); skips the `needsPreprocess` scan and the
   -- preprocessor spawn.
-  let yolo := args.contains "--yolo"
-  let pre := args.contains "--pre"
-  let args := args.filter (fun a => a != "--yolo" && a != "--pre")
-  match args with
+  -- `--install-only` / `--check-range`: the split driver (task #108).
+  let a := parseArgs args {}
+  if let some msg := a.bad then
+    IO.eprintln s!"setlec: {msg}"
+    IO.eprintln usage
+    return 3
+  let yolo := a.yolo
+  let pre := a.pre
+  if a.yolo && a.split?.isSome then
+    IO.eprintln "setlec: --yolo cannot be combined with --install-only/--check-range"
+    return 3
+  match a.files.toList with
   | [file] =>
     -- OOM supervision: the Lean runtime's out-of-memory handler
     -- (`lean_internal_panic_out_of_memory`) prints "INTERNAL PANIC:
@@ -291,12 +436,11 @@ def main (args : List String) : IO UInt32 := do
     -- input proof".  Progress output streams through (stdout is
     -- inherited); stderr is buffered for inspection and re-printed.
     if (← IO.getEnv "SETLEC_SUPERVISED").isSome then
-      checkMain file yolo pre
+      checkMain file yolo pre a.split?
     else
       let child ← IO.Process.spawn {
         cmd := (← IO.appPath).toString
-        args := #[file] ++ (if yolo then #["--yolo"] else #[])
-          ++ (if pre then #["--pre"] else #[])
+        args := childArgs a file
         env := #[("SETLEC_SUPERVISED", some "1")]
         stdout := .inherit
         stderr := .piped }
