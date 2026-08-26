@@ -3922,6 +3922,24 @@ it, but `PUnit`'s rule has one binder and proves nothing.  Confirm at
 `Nat` (two rules, one with a field) and `PSigma` (two fields) before
 adding it.
 
+**The two candidates are not independent, and that is worth recording
+before the test rather than after.**  If the stored rules were *not*
+telescope re-abstractions, their right-hand sides would not abstract the
+type's prefix, `BetaSpine`'s `cons` would not receive `VTeleTyped`'s
+`cons`, and an adapter would be needed — which withdraws the
+telescope-decomposition candidate too.  So:
+
+* **joint confirmation** is strong evidence, because it is *one*
+  underlying fact (the checker is telescope-shaped throughout) showing
+  up in two places;
+* **joint failure** is diagnostic rather than confusing — it localises
+  the error to the rule format, not to the walk abstraction;
+* **split outcomes** would be the surprising case, and would mean one of
+  the two was misstated.
+
+`Nat` and `PSigma` therefore test both at once, and a single adapter
+withdraws both.
+
 #### CANDIDATE for the final summary: everything here is telescope-shaped
 
 > **Every telescope-shaped obligation in this bridge decomposes against
