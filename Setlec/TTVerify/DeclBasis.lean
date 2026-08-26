@@ -2225,5 +2225,106 @@ theorem declBasisTT_natK {env env₁ : Env} (m : EnvTT env)
   exact ⟨m4⟩
 
 
+/-! ## `PSigma'`
+
+Five constants: the type and its constructor (pinned), the recursor
+(the fourth of the layer's *derived* four), and two `projInfo`
+entries — the only block that installs any. -/
+
+/-- `PSigma'`, installed. -/
+theorem extendPSigmaTT {env : Env} (m : EnvTT env)
+    (hfresh : env.find? psigmaName = none)
+    (hwf : EnvWF ⟨psigmaA :: env.consts⟩) :
+    ∃ m' : EnvTT ⟨psigmaA :: env.consts⟩,
+      m'.cval = cvalSet m.cval psigmaA.name
+        (fun ψ => VExpr.const .psigma [ψ uNT, ψ vNT]) := by
+  refine extendBasisTT m (val := fun ψ => VExpr.const .psigma [ψ uNT, ψ vNT])
+    (by decide) (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name psigmaA = psigmaName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uNT (by show uNT ∈ [uNT, vNT]; exact List.mem_cons_self),
+      hp vNT (by
+        show vNT ∈ [uNT, vNT]
+        exact List.mem_cons_of_mem _ List.mem_cons_self)]
+  · intro φ
+    refine ⟨_, ?_, HasType.const⟩
+    rw [denoteClosed, show psigmaA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+          (Expr.forallE (Name.anonymous.str "β")
+            (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+              (.sort (.param vNT)) { bi := .default })
+            (.sort (.max (.param uNT) (.param vNT))) { bi := .default })
+          { bi := .implicit } from rfl]
+    simp [denote_forallE, denote_sort, denote_fvar, Level.eval]
+    rfl
+
+/-- `PSigma'.mk`, installed. -/
+theorem extendPSigmaMkTT {env : Env} (m : EnvTT env)
+    (hP : env.find? psigmaName = some psigmaA)
+    (hfresh : env.find? psigmaMkName = none)
+    (hwf : EnvWF ⟨psigmaMkA :: env.consts⟩) :
+    ∃ m' : EnvTT ⟨psigmaMkA :: env.consts⟩,
+      m'.cval = cvalSet m.cval psigmaMkA.name
+        (fun ψ => VExpr.const .psigmaMk [ψ uNT, ψ vNT]) := by
+  have hPc : ∀ (d : Nat) (φ : Name → Nat),
+      denote (cvalSet m.cval psigmaMkA.name
+        (fun ψ => VExpr.const .psigmaMk [ψ uNT, ψ vNT]))
+        ⟨psigmaMkA :: env.consts⟩ φ d
+        (.const psigmaName [.param uNT, .param vNT])
+        = some (VExpr.const .psigma [φ uNT, φ vNT]) := by
+    intro d φ
+    refine denote_const_pin m (by decide) hP rfl (by decide) ?_ d
+    rw [show Level.substFn φ psigmaA.toConstantVal.levelParams
+        [Level.param uNT, Level.param vNT] = φ from
+      substFn_param_self φ [uNT, vNT]]
+    simp +decide [pinnedDirectT]
+  refine extendBasisTT m
+    (val := fun ψ => VExpr.const .psigmaMk [ψ uNT, ψ vNT])
+    (by decide) (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name psigmaMkA = psigmaMkName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uNT (by show uNT ∈ [uNT, vNT]; exact List.mem_cons_self),
+      hp vNT (by
+        show vNT ∈ [uNT, vNT]
+        exact List.mem_cons_of_mem _ List.mem_cons_self)]
+  · intro φ
+    refine ⟨_, ?_, HasType.const⟩
+    rw [denoteClosed, show psigmaMkA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+          (Expr.forallE (Name.anonymous.str "β")
+            (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+              (.sort (.param vNT)) { bi := .default })
+            (Expr.forallE (Name.anonymous.str "fst") (.bvar 1)
+              (Expr.forallE (Name.anonymous.str "snd")
+                (.app (.bvar 1) (.bvar 0))
+                (.app (.app (.const psigmaName
+                    [.param uNT, .param vNT]) (.bvar 3)) (.bvar 2))
+                { bi := .default })
+              { bi := .default })
+            { bi := .implicit })
+          { bi := .implicit } from rfl]
+    simp [denote_forallE, denote_sort, denote_app, denote_fvar, Level.eval,
+      hPc]
+    rfl
+
+
 end Setlec.TTVerify
 
