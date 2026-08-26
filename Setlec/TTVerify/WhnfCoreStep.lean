@@ -1,5 +1,6 @@
 import Setlec.TTVerify.Iota
 import Setlec.TTVerify.WhnfCore
+import Setlec.TTVerify.Extend
 
 /-!
 # The `whnfCore` step of `CheckStepTT`
@@ -307,5 +308,100 @@ theorem whnfCore_claimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   | .app f a =>
     exact whnfCore_app_claim m φ hcl hiota ihwc ihd ihi h hws hb hLb hC hv
   | .proj sn i pe => exact hproj h hws hb hLb hC hv
+
+/-! ## The delta step
+
+`whnfStep`'s third move: unfold one stored definition.  It is the
+cheapest clause in the whole bridge, and the reason is worth a line —
+**the reduct denotes to the *same* term, not merely to a `Deq`-equal
+one.**  `EnvTT.defn_eq` says a definition's valuation *is* its value's
+denotation, so unfolding is invisible to the denotation and the
+equation is `rfl`.
+
+Where the model's delta case needs its `val` to agree with the value's
+interpretation and then rewrites, the bridge's says the same thing;
+what makes it short here is that the two pieces the rewrite needs —
+level instantiation composing the assignment (`denote_instLevels`) and
+a closed value being depth-independent (`denote_lift` at a closed
+valuation) — are both already available. -/
+
+/-- The shared core of the two unfolding branches (`defnInfo` and
+`thmInfo`): they differ only in which `EnvTT` field supplies the
+value's equation. -/
+private theorem delta_core {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {d : Nat} {e : Expr} {n : Name} {us : List Level} {cv : ConstantVal}
+    {value : Expr} {v : VExpr} {ci : ConstantInfo}
+    (hfn : e.getAppFn = .const n us)
+    (hfind : env.find? n = some ci)
+    (hcvt : ci.toConstantVal = cv)
+    (hlen : us.length = cv.levelParams.length)
+    (hnofv : value.hasFvar = false)
+    (hval : ∀ ψ : Name → Nat,
+      denoteClosed m.cval env ψ value = some (m.cval ci.name ψ))
+    (hv : denote m.cval env φ d e = some v) :
+    denote m.cval env φ d
+      (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+        e.getAppArgs) = some v := by
+  have he : Expr.mkAppN e.getAppFn e.getAppArgs = e := Expr.mkAppN_getApp e
+  rw [← he] at hv
+  obtain ⟨vf, vs, hf, hsp, rfl⟩ := denote_mkAppN_inv hv
+  rw [hfn, denote_const, hfind] at hf
+  simp only [hcvt] at hf
+  rw [if_pos hlen] at hf
+  obtain rfl : vf = m.cval n (Level.substFn φ cv.levelParams us) :=
+    (Option.some.inj hf).symm
+  -- `find?` matches on the name, so the stored constant is this one
+  obtain rfl : ci.name = n := by
+    rw [Env.find?] at hfind
+    have := List.find?_some hfind
+    simpa using this
+  refine denote_mkAppN hsp ?_
+  rw [denote_instLevels m.val_params]
+  have hfb : Expr.fvarsBelow 0 value :=
+    (Expr.WScoped.of_not_hasFvar hnofv).fvarsBelow
+  rw [denote_lift hcl hfb d (Nat.zero_le d)]
+  have hv0 := hval (Level.substFn φ cv.levelParams us)
+  rw [denoteClosed] at hv0
+  rw [hv0]
+  simp only [Option.map_some, Nat.sub_zero]
+  rw [VExpr.liftN_eq_self_of_closed (hcl _ _)]
+
+/-- **The delta step.**  A definition's unfolding denotes identically. -/
+theorem denote_delta_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {d : Nat} {e e' : Expr} {v : VExpr}
+    (h : unfoldDefinition env e = some e')
+    (hv : denote m.cval env φ d e = some v) :
+    denote m.cval env φ d e' = some v := by
+  -- read the unfolding apart
+  rw [unfoldDefinition] at h
+  split at h
+  · next n us hfn =>
+    split at h
+    · next cv value hint hfind =>
+      split at h
+      · next hlen =>
+        obtain rfl : e' = Expr.mkAppN
+            (value.instantiateLevelParams cv.levelParams us)
+            e.getAppArgs := (Option.some.inj h).symm
+        exact delta_core m φ hcl hfn hfind rfl hlen
+          (by obtain ⟨-, -, -, -, hd, -⟩ := m.wf _ (find?_mem hfind)
+              exact (hd cv value hint rfl).1)
+          (fun ψ => m.defn_eq cv value hint (find?_mem hfind) ψ) hv
+      · exact nomatch h
+    · next cv value hfind =>
+      split at h
+      · next hlen =>
+        obtain rfl : e' = Expr.mkAppN
+            (value.instantiateLevelParams cv.levelParams us)
+            e.getAppArgs := (Option.some.inj h).symm
+        exact delta_core m φ hcl hfn hfind rfl hlen
+          (by obtain ⟨-, -, -, -, -, -, ht⟩ := m.wf _ (find?_mem hfind)
+              exact (ht cv value rfl).1)
+          (fun ψ => m.thm_ok cv value (find?_mem hfind) ψ) hv
+      · exact nomatch h
+    · exact nomatch h
+  · exact nomatch h
 
 end Setlec.TTVerify

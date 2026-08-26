@@ -1480,6 +1480,41 @@ refused to synthesize it — an unused implicit that appears in no
 hypothesis cannot be inferred — which is the one variety of §8.2's
 defect the elaborator catches for you.
 
+### 8.7 The delta step is an identity, not an equation
+
+`whnfStep`'s third move — unfold one stored definition — turned out to
+be the cheapest clause in the bridge, and for a reason worth recording
+because it will not recur: **the reduct denotes to the *same* term, not
+merely to a `Deq`-equal one.**  `EnvTT.defn_eq` says a definition's
+valuation *is* its value's denotation, so unfolding is invisible to the
+denotation and the clause's equation is `rfl`.
+
+Every other reduction clause produces a `Deq` because the layer's rule
+does (β, ζ, ι, projection).  Delta produces none because there is no
+delta *rule* in the layer at all — the layer has no constants to
+unfold; the bridge's `cval` has already done the unfolding, once, at
+install.  That is the same trade as everywhere else in §2: the
+denotation absorbs what the layer does not model.
+
+Two pieces it needed, both now landed and both wanted elsewhere:
+
+* `denote_instLevels` — level instantiation composes the assignment,
+  the transpose of `interp_instLevels`.  `unfoldDefinition`
+  substitutes levels *into* the stored value while `defn_eq` speaks
+  about the value under a substituted *assignment*; this is the bridge
+  between the two.  Its literal clauses cost nothing, because §8.4's
+  guards carry them.
+* `denote_mkAppN_inv` — the converse of `denote_mkAppN`, to read a
+  redex apart.  The forward direction had existed since the eta
+  rescue; the converse is what a *reduction* clause needs, and every
+  remaining spine clause will want it.
+
+Note what did *not* need adding: the "closed values are
+depth-independent" step is `denote_lift` at `p = 0` composed with
+`cval_closed`, both already present.  The model needs a dedicated
+`interp_closed_invariant` for the same step because its valuation
+carries the depth; the bridge's lift is enough.
+
 ### 8.5 The claims were *under*-hypothesised — the dual of §8.2
 
 Found on the first clause of `CheckStepTT`, before writing any proof:

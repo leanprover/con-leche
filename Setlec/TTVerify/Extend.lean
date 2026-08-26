@@ -1726,4 +1726,98 @@ theorem denote_params_ext {env : Env} {cval : TConstVal}
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim
 
+/-- **Level instantiation composes the level assignment.**  Transpose
+of `interp_instLevels` (`Setlec/Model/InterpLemmas.lean`).  The delta
+step needs it: `unfoldDefinition` substitutes the levels *into* the
+stored value, while `defn_eq` speaks about the stored value under a
+substituted *assignment*, and this is the bridge between the two.
+
+Its literal clauses are `natLitT_params` and `strLitT_params` applied
+at the two assignments — the guards carry them (§8.4), so no inversion
+lemma is needed here either. -/
+theorem denote_instLevels {env : Env} {cval : TConstVal}
+    (hp : ValParams env cval) {ks : List Name} {us : List Level}
+    (φ : Name → Nat) :
+    ∀ (d : Nat) (e : Expr),
+      denote cval env φ d (e.instantiateLevelParams ks us) =
+        denote cval env (Level.substFn φ ks us) d e := by
+  intro d e
+  induction d, e using denote.induct
+    (cval := cval) (env := env) (φ := Level.substFn φ ks us) with
+  | case1 d u =>
+    simp only [Expr.instantiateLevelParams, denote_sort, Level.eval_subst]
+  | case2 d idx nm ty =>
+    simp only [Expr.instantiateLevelParams, denote_fvar]
+  | case3 d n ws ci h1 h2 =>
+    simp only [Expr.instantiateLevelParams, denote_const, h1]
+    have hlen : (ws.map (Level.subst ks us)).length = ws.length := by simp
+    rw [if_pos (by rw [hlen]; exact h2), if_pos h2]
+    refine congrArg _ (hp n ci h1 _ _ fun q hq => ?_)
+    exact Level.substFn_map_subst h2 hq
+  | case4 d n ws ci h1 h2 =>
+    simp only [Expr.instantiateLevelParams, denote_const, h1]
+    have hlen : (ws.map (Level.subst ks us)).length = ws.length := by simp
+    rw [if_neg (by rw [hlen]; exact h2), if_neg h2]
+  | case5 d n ws h1 =>
+    simp only [Expr.instantiateLevelParams, denote_const, h1]
+  | case6 d n ty body mb h1 ihty =>
+    simp only [Expr.instantiateLevelParams, denote_forallE, ihty, h1]
+  | case7 d n ty body mb B h1 h2 ihty ihbody =>
+    simp only [Expr.instantiateLevelParams, denote_forallE, ihty, h1]
+    rw [← Expr.instantiateLevelParams_instantiate1, ihbody, h2]
+  | case8 d n ty body mb B h1 B' h2 ihty ihbody =>
+    simp only [Expr.instantiateLevelParams, denote_forallE, ihty, h1]
+    rw [← Expr.instantiateLevelParams_instantiate1, ihbody, h2]
+  | case9 d n ty body mb h1 ihty =>
+    simp only [Expr.instantiateLevelParams, denote_lam, ihty, h1]
+  | case10 d n ty body mb B h1 h2 ihty ihbody =>
+    simp only [Expr.instantiateLevelParams, denote_lam, ihty, h1]
+    rw [← Expr.instantiateLevelParams_instantiate1, ihbody, h2]
+  | case11 d n ty body mb B h1 B' h2 ihty ihbody =>
+    simp only [Expr.instantiateLevelParams, denote_lam, ihty, h1]
+    rw [← Expr.instantiateLevelParams_instantiate1, ihbody, h2]
+  | case12 d f a vf va h1 h2 ihf iha =>
+    simp only [Expr.instantiateLevelParams, denote_app, ihf, iha]
+  | case13 d f a hbad ihf iha =>
+    simp only [Expr.instantiateLevelParams, denote_app, ihf, iha]
+  | case14 d n ty val body vf va h1 h2 h3 ihty ihval ihbody =>
+    simp only [Expr.instantiateLevelParams, denote_letE, ihty, ihval]
+    rw [← Expr.instantiateLevelParams_instantiate1, ihbody]
+  | case15 d n ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
+    simp only [Expr.instantiateLevelParams, denote_letE, ihty, ihval]
+    rw [← Expr.instantiateLevelParams_instantiate1, ihbody]
+  | case16 d n ty val body hbad ihty ihval =>
+    simp only [Expr.instantiateLevelParams, denote_letE, ihty, ihval]
+  | case17 d sn i e h1 ihe =>
+    simp only [Expr.instantiateLevelParams, denote_proj, ihe]
+  | case18 d sn i e B h1 h2 ihe =>
+    simp only [Expr.instantiateLevelParams, denote_proj, ihe]
+  | case19 d sn i e B h1 h2 ihe =>
+    simp only [Expr.instantiateLevelParams, denote_proj, ihe]
+  | case20 d n hg =>
+    simp only [Expr.instantiateLevelParams, denote_natLit]
+    rw [if_pos hg, if_pos hg, natLitT_params hp hg φ (Level.substFn φ ks us)]
+  | case21 d n hg =>
+    simp only [Expr.instantiateLevelParams, denote_natLit]
+    rw [if_neg hg, if_neg hg]
+  | case22 d t hg =>
+    simp only [Expr.instantiateLevelParams, denote_strLit]
+    rw [if_pos hg, if_pos hg, strLitT_params hp hg φ (Level.substFn φ ks us)]
+  | case23 d t hg =>
+    simp only [Expr.instantiateLevelParams, denote_strLit]
+    rw [if_neg hg, if_neg hg]
+  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+    match x with
+    | .bvar i => simp only [Expr.instantiateLevelParams, denote_bvar]
+    | .sort u => exact (k1 u rfl).elim
+    | .fvar a b c => exact (k2 a b c rfl).elim
+    | .const a b => exact (k3 a b rfl).elim
+    | .forallE a b c dd => exact (k4 a b c dd rfl).elim
+    | .lam a b c dd => exact (k5 a b c dd rfl).elim
+    | .app a b => exact (k6 a b rfl).elim
+    | .letE a b c dd => exact (k7 a b c dd rfl).elim
+    | .proj a b c => exact (k8 a b c rfl).elim
+    | .lit (.natVal n) => exact (k9 n rfl).elim
+    | .lit (.strVal t) => exact (k10 t rfl).elim
+
 end Setlec.TTVerify

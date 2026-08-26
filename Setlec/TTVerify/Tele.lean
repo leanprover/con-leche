@@ -247,6 +247,28 @@ theorem DenoteSpine.snoc_inv {cval : TConstVal} {env : Env} {φ : Name → Nat}
       obtain ⟨xs, y, rfl, hxs, hy⟩ := ih hn
       exact ⟨_ :: xs, y, rfl, .cons hb hxs, hy⟩
 
+/-- Denotation of an application spine, inverted: the head and every
+argument denote, and the value is their `VExpr` application.  The
+converse of `denote_mkAppN`, and what the delta step needs to read a
+redex apart. -/
+theorem denote_mkAppN_inv {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d : Nat} : ∀ {as : List Expr} {f : Expr} {v : VExpr},
+    denote cval env φ d (Expr.mkAppN f as) = some v →
+    ∃ vf vs, denote cval env φ d f = some vf ∧
+      DenoteSpine cval env φ d as vs ∧ v = VExpr.mkAppN vf vs := by
+  intro as
+  induction as with
+  | nil => intro f v h; exact ⟨v, [], h, .nil, rfl⟩
+  | cons a as ih =>
+    intro f v h
+    obtain ⟨vfa, vs, hfa, hsp, rfl⟩ := ih h
+    rw [denote_app] at hfa
+    split at hfa
+    · next vf va hf ha =>
+      exact ⟨vf, va :: vs, hf, .cons ha hsp, by
+        rw [← Option.some.inj hfa]; rfl⟩
+    · exact nomatch hfa
+
 /-- A typed telescope walk exposes its spine's denotations — the form
 `denote_mkAppN` consumes, so a `TeleTyped` hypothesis doubles as the
 reassembly fact. -/
