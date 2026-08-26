@@ -49,6 +49,11 @@ theorem denote_natOp_y {cval : TConstVal} {env : Env} {φ : Name → Nat}
     denote cval env φ 2 (.fvar 1 n ty) = some (.bvar 0) := by
   rw [denote_fvar]
 
+/-- The empty level substitution is the identity assignment. -/
+theorem substFn_nil (φ : Name → Nat) : Level.substFn φ [] [] = φ := by
+  funext q
+  rfl
+
 /-- A stored constant with no level parameters denotes to its valuation
 at the ambient assignment. -/
 theorem denote_const_nolevels {env : Env} (m : EnvTT env) (φ : Name → Nat)
@@ -56,10 +61,7 @@ theorem denote_const_nolevels {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hlp : ci.toConstantVal.levelParams = []) (d : Nat) :
     denote m.cval env φ d (.const c []) = some (m.cval c φ) := by
   rw [denote_const, hf]
-  simp only [hlp, List.length_nil, if_true]
-  refine congrArg _ (congrArg _ ?_)
-  funext q
-  rfl
+  simp only [hlp, List.length_nil, if_true, substFn_nil]
 
 /-- The valuation of `Nat.zero` is the layer's. -/
 theorem cval_natZeroT {env : Env} (m : EnvTT env) (φ : Name → Nat)
@@ -1201,5 +1203,106 @@ theorem natOps_log2_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     have h := (hcl a).2
     simp only [hone, htwo] at h
     simpa [ap2, natZeroT, hzero] using h h1
+
+/-! ## Wiring `reduceNat`
+
+The sixteen closed forms above are the content; what remains is the
+case split.  `reduceNat` reads a literal out of each argument's whnf
+(`rawNatLit?`), which is a literal or the `Nat.zero` constant — both
+denote to a numeral — and replaces the application by `natOpResult`,
+whose every branch is the numeral of the corresponding meta-level
+operation.  So each clause is: recognise the operation, denote its
+arguments as numerals, and cite the matching closed form. -/
+
+/-- Whatever `rawNatLit?` accepts denotes to the numeral it reports. -/
+theorem denote_rawNatLit {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hnat : natLitSupported env = true) {d : Nat} {a0 : Expr} {n : Nat}
+    (h : rawNatLit? a0 = some n) :
+    denote m.cval env φ d a0 = some (numeral n) := by
+  match a0, h with
+  | .lit (.natVal k), h =>
+    obtain rfl : k = n := Option.some.inj h
+    exact denote_natLit_numeral m φ hnat d k
+  | .const c [], h =>
+    simp only [rawNatLit?] at h
+    split at h
+    · next hc =>
+      subst hc
+      obtain rfl : (0 : Nat) = n := Option.some.inj h
+      exact denote_natZeroT m φ hnat d
+    · exact nomatch h
+
+/-- The result of a certified fold denotes to the numeral of the
+meta-level operation — for the fourteen arithmetic branches. -/
+theorem denote_natOpResult {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hnat : natLitSupported env = true) {d : Nat} {c : Name} {a b : Nat}
+    {e₂ : Expr} {k : Nat} (hres : natOpResult c a b = some e₂)
+    (hk : e₂ = .lit (.natVal k)) :
+    denote m.cval env φ d e₂ = some (numeral k) := by
+  subst hk
+  exact denote_natLit_numeral m φ hnat d k
+
+/-- The frame conditions of a `reduceNat` reduct are free: it is a
+literal or a `Bool` constructor, so it has no free variables and no
+loose bound ones.  `reduceNat_inv` is exactly this observation, and
+this is the one place the bridge needs it. -/
+theorem reduceNat_frame {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel d : Nat} {Δ : List VExpr} {e e₂ : Expr}
+    (h : reduceNatP env fuel d e = .ok (some e₂))
+    (hC : CtxOk m.cval env φ d Δ e) :
+    Expr.WScoped d e₂ ∧ e₂.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded e₂ ∧ CtxOk m.cval env φ d Δ e₂ := by
+  have hnf : e₂.hasFvar = false := by
+    rcases reduceNat_inv h with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;> rfl
+  have hleaf : e₂.fvarLeaves = [] := by
+    rcases reduceNat_inv h with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
+      simp [Expr.fvarLeaves]
+  refine ⟨Expr.WScoped.of_not_hasFvar hnf, ?_,
+    Expr.LeavesBounded.of_not_hasFvar hnf, ⟨hC.1, ?_⟩⟩
+  · rcases reduceNat_inv h with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;> rfl
+  · intro l hl
+    rw [hleaf] at hl
+    exact nomatch hl
+
+/-- An argument whose reduct `reduceNat` reads as a literal denotes
+`Deq`-equally to that numeral. -/
+theorem arg_numeral {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel d : Nat} {Δ : List VExpr} {a a0 : Expr} {n : Nat} {va : VExpr}
+    (ihw : WhnfClaimsTT m φ fuel) (hnat : natLitSupported env = true)
+    (hwa : whnf env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
+    (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded a) (hC : CtxOk m.cval env φ d Δ a)
+    (hva : denote m.cval env φ d a = some va) :
+    Deq Δ va (numeral n) := by
+  obtain ⟨v', hv', hD⟩ := ihw hwa hws hb hLb hC hva
+  rw [denote_rawNatLit m φ hnat hraw] at hv'
+  obtain rfl : v' = numeral n := (Option.some.inj hv').symm
+  exact hD
+
+/-- A unary application's denotation, split. -/
+theorem denote_app1_inv {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d : Nat} {c : Name} {a : Expr} {v : VExpr}
+    (h : denote cval env φ d (.app (.const c []) a) = some v) :
+    ∃ ci va, env.find? c = some ci ∧ ci.toConstantVal.levelParams = [] ∧
+      denote cval env φ d a = some va ∧ v = .app (cval c φ) va := by
+  rw [denote_app] at h
+  split at h
+  · next vf va hf ha =>
+    rw [denote_const] at hf
+    cases hfc : env.find? c with
+    | none => rw [hfc] at hf; exact nomatch hf
+    | some ci =>
+      rw [hfc] at hf
+      dsimp only at hf
+      split at hf
+      · next hlen =>
+        have hlp : ci.toConstantVal.levelParams = [] := by
+          cases hx : ci.toConstantVal.levelParams with
+          | nil => rfl
+          | cons p ps => rw [hx] at hlen; exact nomatch hlen
+        refine ⟨ci, va, rfl, hlp, ha, ?_⟩
+        rw [← Option.some.inj h, ← Option.some.inj hf, hlp, substFn_nil]
+      · exact nomatch hf
+  · exact nomatch h
 
 end Setlec.TTVerify
