@@ -36,9 +36,12 @@ obligation `checkReducePin` leaves behind. -/
 def ReducePinTT (F : Nat) : Prop :=
   ∀ {env : Env} (m : EnvTT env) {cv : ConstantVal} {value value' : Expr},
     cv.name ∈ reduceOpNames →
+    env.find? cv.name = none →
     checkReducePin (fueledOps F) env
       ⟨ConstantInfo.axiomInfo cv :: env.consts⟩ cv.name value = .ok () →
     annotateCore env F 0 value = .ok value' →
+    value'.hasFvar = false → value'.looseBVarsBounded 0 = true →
+    (∀ ψ : Name → Nat, ∃ v, denoteClosed m.cval env ψ value' = some v) →
     ConstantVal.matchesPin cv (reduceOpCvA cv.name) = true →
     ((⟨ConstantInfo.axiomInfo cv :: env.consts⟩ : Env).find?
         (reduceElemName cv.name)).isSome = true ∧
@@ -158,7 +161,10 @@ theorem declOpaqueTT (hrp : ReducePinTT F) : DeclOpaqueTT F := by
       refine hinstall (fun cv2 heq hmem hmp => ?_)
       obtain rfl : cv2 = { cv with type := type } := by
         injection heq with h1; exact h1.symm
-      exact hrp m (List.contains_iff_mem.mp hro) hpin hannv hmp
+      exact hrp m (List.contains_iff_mem.mp hro) hfind' hpin hannv hvf'
+        hbv' (fun ψ => by
+          obtain ⟨v, -, hv, -, -⟩ := hkey ψ
+          exact ⟨v, hv⟩) hmp
   · rw [if_neg hro] at h
     simp only [Except.ok.injEq] at h
     subst h

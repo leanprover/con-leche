@@ -35,6 +35,7 @@ import Setlec.TTVerify.DeclValue
 import Setlec.TTVerify.DeclThm
 import Setlec.TTVerify.DeclOpaque
 import Setlec.TTVerify.DeclDefn
+import Setlec.TTVerify.ReducePin
 
 /-!
 # The TTVerify bridge (task #119)

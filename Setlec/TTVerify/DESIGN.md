@@ -448,7 +448,7 @@ install:
 | case | status |
 | --- | --- |
 | `DeclThmTT` | **proved** |
-| `DeclOpaqueTT` | proved modulo `ReducePinTT` |
+| `DeclOpaqueTT` | **proved** (`declOpaqueTT_closed`) |
 | `DeclDefnTT` | proved modulo `NatOpPinTT`, `DivModPinTT` |
 | `DeclAxiomTT`, `DeclBasisTT`, `DeclIndTT` | open |
 
@@ -460,11 +460,34 @@ is the whole content: `InferClaimsTT` at the checked value, then
 per-declaration step is the per-expression claims applied once each**,
 which is why it could be left until stage 2's end.
 
-The three remaining obligations sit at named checker functions
-(`certifyNatEqs`, `checkDivModPin`, `checkReducePin`), per §8.6.  Note
-that all three are *pin* checks: they change no environment and exist
-only to record facts the reduction rules will consume, so their
-transposes are pure content with no install bookkeeping.
+The remaining obligations sit at named checker functions
+(`certifyNatEqs`, `checkDivModPin`), per §8.6.  Note that both are
+*pin* checks: they change no environment and exist only to record facts
+the reduction rules will consume, so their transposes are pure content
+with no install bookkeeping.
+
+**`ReducePinTT` is discharged** (`Setlec/TTVerify/ReducePin.lean`), and
+it is worth a sentence because of *how cheap it turned out to be*.  The
+checker certifies the compiler-trust identity as an **open** equation at
+depth `1` — `isDefEq env 1 (valA x) x` with `x` the single opened
+variable at index `0` — while `ReduceOpsTT` wants it closed, at an
+arbitrary context and an arbitrary derivably-typed argument.  That
+transport is two moves and no lifting algebra:
+
+| move | lemma |
+| --- | --- |
+| `[E]` becomes `E :: Δ` | `HasType.weakenTail` — because `[E] ++ Δ` *is* `E :: Δ` |
+| the opened variable becomes the argument | `HasType.instantiate` |
+
+> **A certificate stated at depth `d` with its variable at index `0` is
+> exactly the shape the substitution lemma consumes.**
+
+A certificate written instead over a fresh *constant*, or at depth `2`
+with the variable buried, would have cost a context-surgery lemma.
+Nothing in the checker was arranged for this — the depth-`1` spelling is
+just the natural way to write an open certificate — but it is another
+instance of the §8.4 pattern, and worth naming so that the next
+certificate is written the same way on purpose.
 
 One mechanical note worth recording, because it will recur: **a `match`
 written in a lemma's *statement* is a different auxiliary constant from
