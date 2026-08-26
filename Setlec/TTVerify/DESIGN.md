@@ -65,6 +65,28 @@ So a shim at a use site is a hint that the definition was written to
 the wrong shape and adjusted to fit, and is worth re-deriving from the
 consumer's needs rather than patching.
 
+### The call-site tell: a fact threaded around an abstraction
+
+> **If several consumers each carry the same fact by hand, the
+> abstraction they consume is missing it.**
+
+The most transferable thing this document has produced, and it costs
+nothing to check: look at what the *call sites* carry, not only at what
+the definition says.
+
+The incident (§8.5): `certs_typed`, `rec_rules_fire` and
+`proj_tele_typed` each took `WScoped` and `looseBVarsBounded` in their
+own signatures, per argument, and threaded them by hand — because the
+claims they consumed did not carry them.  Three consumers doing
+identical bookkeeping *around* an abstraction is the abstraction
+telling you what it is missing.  The defect was legible in the call
+sites long before anyone tried to prove the clause that needed it.
+
+The dual of the practice above it: a **shim** at a use site says the
+definition has the wrong *shape*; **repeated bookkeeping** at use sites
+says it is missing a *hypothesis*.  Both are read off the consumers,
+which is why the consumers are worth reading first.
+
 ### The second practice: measure rare shapes; the suite does not cover them
 
 > **A fixture suite being green says nothing about argument shapes it
@@ -1434,6 +1456,24 @@ where it leaves the fewest unproved steps outside it.** An obligation
 is a promise about what remains; a promise that leaves debris around it
 is worse than a larger promise that does not.
 
+**What the two obligations still need is frame conditions, not
+equations.**  Their equational content exists (`rec_rules_fire`,
+`proj_reduction_step`, `proj_tele_typed`).  What is missing is that the
+reduct must be handed to the recursive `whnfCore` call already
+well-scoped, and the checker side supplies only one of the four facts
+needed: `iotaRec_WScoped` (`Setlec/Verify/Deep.lean`, made public for
+this — it was `private` only as that file's blanket style for local
+helpers).  There is no `iotaRec_looseBVars` and no
+`iotaRec_fvarLeaves` at all.
+
+That is not an oversight in `Setlec/Verify/*`: the set model does not
+use standalone lemmas either.  Its `iota_sound`
+(`Setlec/Model/Core/Iota.lean`) *returns* all four frame conditions
+alongside the equation, as part of one conclusion — which is exactly
+the shape `IotaStepTT` was given, before that correspondence was
+noticed.  So the bridge's obligation is the right size; it is simply
+the same size as the model's, and the model spends 1300 lines on it.
+
 One incidental catch: `denote_beta_step_certified` first carried an
 unused `{mb : BinderMeta}` implicit, copied from the λ's binder.  Lean
 refused to synthesize it — an unused implicit that appears in no
@@ -1471,7 +1511,10 @@ hypothesis is found by *reading* — nothing breaks, so nothing prompts
 you.  An under-strong one is found by *using* — the first consumer that
 needs the missing fact cannot be written.  The under-strong kind is
 therefore self-correcting and the over-strong kind is not, which is why
-§8.2's tells matter more than this one's.
+§8.2's tells matter more than this one's, and why the two sections are
+**not** a matched pair deserving equal vigilance.  §8.2 states the same
+asymmetry from its side; if you are budgeting attention, spend it
+there.
 
 **Open redundancy, recorded so it is not forgotten.**
 `Expr.LeavesBounded e` may be implied by `CtxOk`: the leaf clause
@@ -1593,6 +1636,20 @@ None of these is a soundness hole — an over-strong hypothesis makes a
 lemma *harder* to apply, not wrong — which is exactly why they survive
 review: nothing breaks. They surface later as transports that will not
 go through, or as fields nobody can discharge.
+
+**These tells matter more than §8.5's, and the reason is an asymmetry
+worth stating explicitly** — see §8.5, and do not read the two sections
+as a matched pair:
+
+> An **over-strong** hypothesis is found by *reading*.  Nothing breaks,
+> so nothing prompts you; it is silent forever, and only deliberate
+> vigilance finds it.
+> An **under-strong** hypothesis is found by *using*.  The first
+> consumer that needs the missing fact cannot be written, so it
+> announces itself.
+
+The under-strong kind self-corrects on contact.  The over-strong kind
+does not.  Spend the vigilance here.
 
 **The default when writing a hypothesis: ask what the proof actually
 reads, not what would obviously suffice.**  "Obviously suffices" is how
