@@ -37,6 +37,35 @@ theorem closed0_frames {cval : TConstVal} {env : Env} {φ : Name → Nat}
     Expr.LeavesBounded.of_not_hasFvar hnf,
     CtxOk.nil (Expr.fvarLeaves_eq_nil_of_not_hasFvar hnf)⟩
 
+/-- **The key package**, shared by all three value-carrying kinds: the
+checked value is derivably of the declared type.  `InferClaimsTT` at
+the value, `DefEqClaimsTT` at the checker's `vtype ≡ type` verdict. -/
+theorem value_key {env : Env} (m : EnvTT env) {type value' stype vtype : Expr}
+    (htf : type.hasFvar = false) (hbt' : type.looseBVarsBounded 0 = true)
+    (hvf' : value'.hasFvar = false)
+    (hbv' : value'.looseBVarsBounded 0 = true)
+    (hst : inferTypeCore env F 0 type = .ok stype)
+    (hvt : inferTypeCore env F 0 value' = .ok vtype)
+    (hde : isDefEqCore env F 0 vtype type = .ok true) :
+    ∀ ψ : Name → Nat, ∃ v t,
+      denoteClosed m.cval env ψ value' = some v ∧
+      denoteClosed m.cval env ψ type = some t ∧ HasType [] v t := by
+  intro ψ
+  obtain ⟨-, -, ihd, ihi⟩ := checkClaimsTT m ψ F
+  obtain ⟨hwv, hbv, hLv, hCv⟩ :=
+    closed0_frames (cval := m.cval) (env := env) (φ := ψ) hvf' hbv'
+  obtain ⟨hwt, hbt, hLt, hCt⟩ :=
+    closed0_frames (cval := m.cval) (env := env) (φ := ψ) htf hbt'
+  obtain ⟨v, vt, hv, hvt', hvT⟩ := ihi hvt hwv hbv hLv hCv
+  obtain ⟨t, st, ht, -, -⟩ := ihi hst hwt hbt hLt hCt
+  obtain ⟨hwvt, hbvt, hLvt, hCvt⟩ := closed0_frames (cval := m.cval)
+    (env := env) (φ := ψ)
+    (Expr.not_hasFvar_of_fvarsBelow_zero
+      (inferTypeCore_WScoped m.wf F hvt hwv).fvarsBelow)
+    (inferTypeCore_looseBVars m.wf F hvt hwv hbv hLv)
+  exact ⟨v, t, hv, ht,
+    Deq.conv hvT (ihd hde hwvt hbvt hLvt hwt hbt hLt hCvt hCt hvt' ht)⟩
+
 /-- **`DeclThmTT`, discharged.** -/
 theorem declThmTT : DeclThmTT F := by
   intro env env₁ cv value h m
@@ -117,24 +146,7 @@ theorem declThmTT : DeclThmTT F := by
   have hbv' : value'.looseBVarsBounded 0 = true :=
     annotateCore_looseBVars F value hannv hlbv
   -- the key package: the value is derivably of the declared type
-  have hkey : ∀ ψ : Name → Nat, ∃ v t,
-      denoteClosed m.cval env ψ value' = some v ∧
-      denoteClosed m.cval env ψ type = some t ∧ HasType [] v t := by
-    intro ψ
-    obtain ⟨-, -, ihd, ihi⟩ := checkClaimsTT m ψ F
-    obtain ⟨hwv, hbv, hLv, hCv⟩ :=
-      closed0_frames (cval := m.cval) (env := env) (φ := ψ) hvf' hbv'
-    obtain ⟨hwt, hbt, hLt, hCt⟩ :=
-      closed0_frames (cval := m.cval) (env := env) (φ := ψ) htf hbt'
-    obtain ⟨v, vt, hv, hvt', hvT⟩ := ihi hvt hwv hbv hLv hCv
-    obtain ⟨t, st, ht, -, -⟩ := ihi hst hwt hbt hLt hCt
-    obtain ⟨hwvt, hbvt, hLvt, hCvt⟩ := closed0_frames (cval := m.cval)
-      (env := env) (φ := ψ)
-      (Expr.not_hasFvar_of_fvarsBelow_zero
-        (inferTypeCore_WScoped m.wf F hvt hwv).fvarsBelow)
-      (inferTypeCore_looseBVars m.wf F hvt hwv hbv hLv)
-    exact ⟨v, t, hv, ht,
-      Deq.conv hvT (ihd hde hwvt hbvt hLvt hwt hbt hLt hCvt hCt hvt' ht)⟩
+  have hkey := value_key m htf hbt' hvf' hbv' hst hvt hde
   -- and the install
   refine extendValueTT m (c₀ := .thmInfo { cv with type := type } value')
     rfl rfl hfind' ?_ hvf' hbv' hkey ?_ (fun _ _ _ heq => nomatch heq)
