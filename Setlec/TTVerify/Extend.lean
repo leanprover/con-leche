@@ -199,4 +199,97 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim
 
+/-! ## Changing the valuation at a fresh name
+
+The companion to `denote_mono`, and the other half of what every
+install case needs.  `denote_mono` moves a denotation to a **larger
+environment**; this moves it to a **changed valuation** — which is what
+happens when a declaration installs, since the new constant's value has
+to be added to `cval`.
+
+Together they say the obvious thing precisely: *installing a fresh
+constant disturbs no existing denotation.*  The freshness is what makes
+the hypothesis dischargeable — an old term's constants all resolve in
+the old environment, and the new name is not among them.
+
+The literal-support agreements are named **one by one** — the seven
+names `natLitT` and `strLitT` actually read — rather than as a blanket
+"the valuations agree".  A blanket hypothesis would make the lemma
+*trivially true and useless*, which is a failure mode worth naming: a
+statement can typecheck, prove, and be worth nothing because one of its
+hypotheses subsumes its conclusion.  Check the hypotheses of a lemma
+that proved suspiciously easily.
+
+They are hypotheses for the same reason they are in `denote_mono`: deriving them from the guards needs
+`natLitSupported_inv`, a `V`-free fact stranded in
+`Setlec/Model/Interp.lean` (the fifth such; see `EnvTT.lean`'s
+relocation note).  Install sites discharge them from freshness. -/
+
+/-- Denotation reads the valuation only at names the environment
+resolves, so valuations agreeing there give equal denotations. -/
+theorem denote_cval_congr {cval₁ cval₂ : TConstVal} {env : Env}
+    {φ : Name → Nat}
+    (hag : ∀ n ci, env.find? n = some ci → cval₁ n = cval₂ n)
+    (hnat : cval₁ natZeroName = cval₂ natZeroName)
+    (hsucc : cval₁ natSuccName = cval₂ natSuccName)
+    (hsol : cval₁ stringOfListName = cval₂ stringOfListName)
+    (hnil : cval₁ listNilName = cval₂ listNilName)
+    (hcons : cval₁ listConsName = cval₂ listConsName)
+    (hchar : cval₁ charName = cval₂ charName)
+    (hofn : cval₁ charOfNatName = cval₂ charOfNatName) :
+    ∀ (d : Nat) (e : Expr),
+      denote cval₁ env φ d e = denote cval₂ env φ d e := by
+  intro d e
+  induction d, e using denote.induct (cval := cval₁) (env := env) (φ := φ) with
+  | case1 d u => simp only [denote_sort]
+  | case2 d idx nm ty => simp only [denote_fvar]
+  | case3 d n us ci h1 h2 =>
+    simp only [denote_const, h1, if_pos h2, hag n ci h1]
+  | case4 d n us ci h1 h2 => simp only [denote_const, h1, if_neg h2]
+  | case5 d n us h1 => simp only [denote_const, h1]
+  | case6 d n ty body mb h1 ihty =>
+    simp only [denote_forallE, h1, ← ihty]
+  | case7 d n ty body mb B h1 h2 ihty ihbody =>
+    simp only [denote_forallE, h1, h2, ← ihty, ← ihbody]
+  | case8 d n ty body mb B h1 B' h2 ihty ihbody =>
+    simp only [denote_forallE, h1, h2, ← ihty, ← ihbody]
+  | case9 d n ty body mb h1 ihty => simp only [denote_lam, h1, ← ihty]
+  | case10 d n ty body mb B h1 h2 ihty ihbody =>
+    simp only [denote_lam, h1, h2, ← ihty, ← ihbody]
+  | case11 d n ty body mb B h1 B' h2 ihty ihbody =>
+    simp only [denote_lam, h1, h2, ← ihty, ← ihbody]
+  | case12 d f a vf va h1 h2 ihf iha =>
+    simp only [denote_app, h1, h2, ← ihf, ← iha]
+  | case13 d f a hbad ihf iha => simp only [denote_app, ← ihf, ← iha]
+  | case14 d n ty val body vf va h1 h2 h3 ihty ihval ihbody =>
+    simp only [denote_letE, h1, h2, h3, ← ihty, ← ihval, ← ihbody]
+  | case15 d n ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
+    simp only [denote_letE, h1, h2, h3, ← ihty, ← ihval, ← ihbody]
+  | case16 d n ty val body hbad ihty ihval =>
+    simp only [denote_letE, ← ihty, ← ihval]
+  | case17 d sn i e h1 ihe => simp only [denote_proj, h1, ← ihe]
+  | case18 d sn i e B h1 h2 ihe => simp only [denote_proj, h1, ← ihe]
+  | case19 d sn i e B h1 h2 ihe => simp only [denote_proj, h1, ← ihe]
+  | case20 d n hg => simp only [denote_natLit, hnat, hsucc]
+  | case21 d n hg => simp only [denote_natLit, hnat, hsucc]
+  | case22 d s hg =>
+    simp only [denote_strLit, strLitT, hnat, hsucc, hsol, hnil, hcons,
+      hchar, hofn]
+  | case23 d s hg =>
+    simp only [denote_strLit, strLitT, hnat, hsucc, hsol, hnil, hcons,
+      hchar, hofn]
+  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+    match x with
+    | .bvar i => simp only [denote_bvar]
+    | .sort u => exact (k1 u rfl).elim
+    | .fvar a b c => exact (k2 a b c rfl).elim
+    | .const a b => exact (k3 a b rfl).elim
+    | .forallE a b c dd => exact (k4 a b c dd rfl).elim
+    | .lam a b c dd => exact (k5 a b c dd rfl).elim
+    | .app a b => exact (k6 a b rfl).elim
+    | .letE a b c dd => exact (k7 a b c dd rfl).elim
+    | .proj a b c => exact (k8 a b c rfl).elim
+    | .lit (.natVal n) => exact (k9 n rfl).elim
+    | .lit (.strVal t) => exact (k10 t rfl).elim
+
 end Setlec.TTVerify

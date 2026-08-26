@@ -1281,6 +1281,21 @@ statement.  What it buys is that the *install* only has to denote the
 `_model.iota_j` theorem and instantiate it, and the *fire site* has the
 premises it needs anyway.  Long statement, short proofs, on both ends.
 
+#### The decision, closed: five fields, one shape
+
+The fired form was argued for once, at `rec_rules`.  It is now the
+shape of **every** semantic-law field: `rec_rules`, `caps_ok`,
+`nat_ops`, `div_mod`, `reduce_ops`.  Each quantifies over the syntax
+the checker matched on, takes the denotations as given, adds typing
+hypotheses at the rule's own domains, and concludes a `Deq`.
+
+That is worth stating because of what it changes for a reader:
+*"we chose the fired form"* has to be taken on trust, while **"five
+fields, one shape"** can be checked by looking.  A uniform structure is
+also a thing to notice being broken — if a sixth field arrives in a
+different shape, either it has a reason or it is a mistake, and both
+are easier to see against four precedents than against one.
+
 *And the set model's reason does not transpose*, as suspected.  The
 "never resurrect fits-in-clause" ruling was forced by junk-agreement
 (two dependent-function graphs agreeing off-domain) and by the `Prop`
