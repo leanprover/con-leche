@@ -39,7 +39,7 @@ theorem ISOK.insertIEnv {s : IState} (hs : ISOK env s) {n : Name}
       s.store.denote vi = some vE) :
     ISOK env { s with ienv := s.ienv.insert n ent } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC,
-    hs.whnfC, hs.inferC, hs.annotC, hs.defeqC, hs.codOfC, hs.lsimp,
+    hs.whnfC, hs.inferC, hs.annotC, hs.defeqC, hs.lsimp,
     hs.lnz, hs.eqv, ?_⟩
   intro nm ent' hl
   simp only at hl

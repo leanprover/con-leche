@@ -114,7 +114,7 @@ theorem ISOK.enable {s : IState} (hs : ISOK env s) :
       = denoteLList s.store.denoteL us :=
     fun us => denoteLList_congr (fun u _ => hL u)
   refine ⟨enableTierTwo_twf hs.wf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-    ?_, ?_, ?_, ?_⟩
+    ?_, ?_, ?_⟩
   · intro n us i hl
     obtain ⟨nm, lus, ci, hnm, h0, hfind, h2⟩ := hs.constTy n us i hl
     exact ⟨nm, lus, ci, (hN n).trans hnm, (hLL us).trans h0, hfind,
@@ -143,9 +143,6 @@ theorem ISOK.enable {s : IState} (hs : ISOK env s) :
   · intro i j r hl
     obtain ⟨a, b, h1', h2, h3⟩ := hs.defeqC i j r hl
     exact ⟨a, b, (hT i).trans h1', (hT j).trans h2, h3⟩
-  · intro i u hl
-    obtain ⟨a, l, h1', h2, h3⟩ := hs.codOfC i u hl
-    exact ⟨a, l, (hT i).trans h1', (hL u).trans h2, h3⟩
   · intro u r hl
     obtain ⟨h1', h2⟩ := hs.lsimp u r hl
     exact ⟨h1', fun x hx => (hL r).trans (h2 x ((hL u).symm.trans hx))⟩
@@ -171,7 +168,7 @@ theorem ISOK.truncFlush {s : IState} (hs : ISOK env s) :
   have hL : ∀ u, s.store.truncateTierTwo.denoteL u = s.store.denoteL u :=
     truncateTierTwo_denoteL s.store
   refine ⟨(truncateTierTwo_wf hs.wf).toTWF, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-    ?_, ?_, ?_, ?_, ?_, ?_⟩
+    ?_, ?_, ?_, ?_, ?_⟩
   all_goals try (intros; simp_all [IState.flushed]; done)
   · intro u r hl
     obtain ⟨h1', h2⟩ := hs.lsimp u r hl

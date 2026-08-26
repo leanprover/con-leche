@@ -298,7 +298,7 @@ def IState.flushed (s : IState) : IState :=
   { s with
       constTyAt := {}, constValAt := {}, ruleRhsAt := {},
       whnfCoreC := {}, whnfC := {}, inferC := {}, defeqC := {},
-      annotC := {}, codOfC := {} }
+      annotC := {} }
 
 def flushS : CheckIM Unit :=
   modify (·.flushed)

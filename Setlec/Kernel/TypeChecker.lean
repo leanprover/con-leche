@@ -41,13 +41,4 @@ def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
 def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
   ensureSort (pureFns env fuel) env depth e
 
-/-- The **codomain sort** of a term: the sort of its inferred type,
-`ensureSort ∘ inferType` (fueled).  This is exactly the level the
-annotation pass computes for a binder — `annotateCore`'s `∀`-clause
-runs it on the opened body, its `λ`-clause on the body's inferred type
-— and hence the certificate a raw-storage decoration pass reads
-(task #100).  Its interned, memoized twin is `codOfI`. -/
-def codOfCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level := do
-  ensureSortCore env fuel depth (← inferTypeCore env fuel depth e)
-
 end Setlec

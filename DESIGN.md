@@ -7182,7 +7182,8 @@ practice, because the false-surface deletion (stage 3's `lam_zero`/
   `checkIotaThm(N)`/`checkProjIota` run `checkIotaSidesTy`,
   eta/unit pin their type slots syntactically.
 
-**What remains — stage 6 (kernel-side erasure), in one piece:**
+**What remains — stage 6 (kernel-side erasure), in one piece** (this
+plan; see *Stage 6 landed* below for what actually happened):
 
 1. Delete the annotate pass (`annotateCore` + `ops.annotate`
    surface), `BinderMeta.cod` storage, the cod memos, and the
@@ -7207,6 +7208,92 @@ practice, because the false-surface deletion (stage 3's `lam_zero`/
    erasure finally recovers the de-gating's +55 % init-full
    certified cost by deleting the per-declaration inference sweep —
    re-measure then.
+
+### Stage 6 landed: the annotations are gone (2026-08-26, task #100)
+
+**Landed** (branch `feat/100-stage6`; gates: `lake build` warning-free,
+`lake test`, arena 90/92, e2e 67/67, axioms exactly `[propext,
+Classical.choice, Quot.sound]`, no `sorry`s, init-prelude
+byte-identical — stdout, stderr and exit code — to master@3c883f3 in
+**both** modes, 3653 declarations accepted).
+
+**What is gone.**
+
+* `BinderMeta.cod` / `IBinderMeta.cod` are **deleted fields**, not
+  stored-as-`none`: both structures are now single-field records
+  carrying only the display `BinderInfo`, and `denoteBM` is the
+  identity on them (`ArenaWF.lean`).  `ENode`'s binder constructors
+  carry the same erased meta, so the arena stores no annotation and
+  the codomain-chain fast path (`internExprFast`/`internBMFast`) is
+  deleted with it — `internExpr` everywhere.  Storage is uniformly
+  raw on **every** install path: nothing rebuilds, decorates or
+  re-annotates a binder, because there is nothing to put there.
+* The **cod memos** are deleted: `codOfCore` (spec), `codOfBodyI` /
+  `codOfI` and the `IState.codOfC` table (interned), `memoLI`, the
+  fueled family `codOfF` and its depth-invariance/monotonicity
+  lemmas, `ISOK`'s `codOfC` clause and `ISOK.insertCodOfC`, and the
+  `codOfI_sim` walk.  Architecture 4 needs no `codOf` oracle, so the
+  whole certificate apparatus for a decoration pass goes with the
+  pass it would have fed.
+* The two annotation *loads* die as planned: the λ-annotation
+  re-check is gone (`inferBody`'s lam clause is the official-kernel
+  `infer_lambda` shape — domain sort-checked, body inferred, ∀ rebuilt)
+  and the ∀-imax cod read is gone (the ∀-clause **infers** its
+  codomain sort; on the interned side that is the new `inferPisI`
+  telescope loop, mirrored and verified like the λ one).  `etaCert`'s
+  cod-agreement comparison and the defeq binder cod comparison are
+  both gone.
+* Model side: `annotate_sound` is **deleted**.  Its role is taken by
+  `inferTypeCore_sound`, which no longer *consumes* an `AnnotOk` for
+  its subject but *establishes* it — the inference run is the
+  truthfulness witness.  `AnnotOk`'s binder clauses carry no level
+  witnesses and no fibre-universe facts; its app clause is the
+  domain-relative slot `∃ vf va A B, … ∧ vf ∈ˢ piC A B ∧ va ∈ˢ A`.
+  Dead annotation hypotheses were deleted from `structUnit_sound`,
+  `extend_proj_fn`, `ctor_pkg_nested`, `modeled_bottom_nested` and
+  `modeled_rule_eq_nested` rather than underscored.
+
+**What survives, and why (a finding).**  `annotate` is *not* deleted
+as a pass, and cannot be: with the annotations erased its remaining
+clauses are the ones that change the **skeleton**, plus the leaf
+checks that only it is positioned to make.  Post-stage-6 the pass is a
+pure normalizer:
+
+* the **projection rewrite** (`annotateProjElim` / `annotateProjRec`)
+  — permanent per the #107 audit: modeled structures can never get a
+  first-class `.proj`, and the Prop template tail is kernel-parity;
+* **zeta at annotate** (`letE` bodies are annotated as their zeta
+  reducts) — opened opaque let-variables reject real streams;
+* the literal-support guards and the `fvar`-scope leaf check, which
+  is the entry point raw input passes through.
+
+Everything else in the pass is now structural recursion: the binder
+clauses rebuild, the app clause annotates its two children (the
+`annotateSpine`/`annotateSpineI` telescope walk is **deleted** — the
+application rule's checks live in the driver's inference sweep, which
+re-checks every argument unconditionally since the de-gating), and the
+`letE` clause's own type/value checks moved to `inferBody`'s `letE`
+clause (official `infer_let` order).  So the honest statement of the
+end state is: **no annotation is computed or stored anywhere; every
+sort the kernel needs is computed on demand by `infer` at the consumer
+site; the pass that used to compute them survives only as the
+skeleton normalizer named `annotate`.**  Renaming it (`normalize`?) is
+cosmetic and was not done.
+
+**Remaining cosmetic vestige.**  The level-erased abbrevs
+`pi (_v) A B := piC A B` and `lam (_v) A F := lamC A F`
+(`Derive/Pi.lean`) still stand at their ~2000 model-side call sites.
+They are `noncomputable abbrev`s — reducible, so goals already display
+`piC`/`lamC` and no proof depends on the discarded level.  Deleting
+them is a pure rename across the model layer with no verdict, proof or
+performance consequence; it is deliberately **not** part of this
+stage.
+
+**Not re-measured here.**  The stage's cost claim (the erasure
+recovers the de-gating's +55 % init-full certified cost by deleting
+the per-declaration inference sweep) is a measurement, and
+measurements trail merges: init-full and `perf stat` runs were not in
+this gate loop.
 
 ### Stage 3 finding: the λ-cod re-check is NOT flip-deletable; `AnnotOk` keeps a subset-form cod tie at ∀ (2026-08-25, task #100)
 

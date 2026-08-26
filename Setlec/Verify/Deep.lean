@@ -2797,26 +2797,6 @@ theorem ensureSortCore_depth_inv (henv : EnvWF env) (fuel : Nat)
   rw [whnf_depth_inv henv fuel h₁ h₂]
   rfl
 
-/-- **Depth invariance of the codomain sort** (task #100): the memo key
-carries no depth, exactly as for the entry-point memos. -/
-theorem codOfCore_depth_inv (henv : EnvWF env) (fuel : Nat)
-    {d₁ d₂ : Nat} {e : Expr} (h₁ : e.wscopedB d₁ = true)
-    (h₂ : e.wscopedB d₂ = true) :
-    codOfCore env fuel d₁ e = codOfCore env fuel d₂ e := by
-  show (inferTypeCore env fuel d₁ e >>= fun t => ensureSortCore env fuel d₁ t)
-    = (inferTypeCore env fuel d₂ e >>= fun t => ensureSortCore env fuel d₂ t)
-  have hinf := inferTypeCore_depth_inv henv fuel h₁ h₂
-  rw [hinf]
-  cases ht : inferTypeCore env fuel d₂ e with
-  | error er => rfl
-  | ok t =>
-    have hw₁ : WScoped d₁ t :=
-      inferTypeCore_WScoped henv fuel (hinf.trans ht) (WScoped.of_wscopedB h₁)
-    have hw₂ : WScoped d₂ t :=
-      inferTypeCore_WScoped henv fuel ht (WScoped.of_wscopedB h₂)
-    show ensureSortCore env fuel d₁ t = ensureSortCore env fuel d₂ t
-    exact ensureSortCore_depth_inv henv fuel hw₁.to_wscopedB hw₂.to_wscopedB
-
 end DepthInv
 
 end Setlec
