@@ -1447,10 +1447,41 @@ condition** rather than from an inversion lemma: `denote` only builds
 `natLitT` when `natLitSupported` holds, and the guard's own shape
 checks say `levelParams.isEmpty`.  `List.nil`/`List.cons` are the two
 slots that do have a parameter, and there the substituted level is
-`Level.zero`, which no assignment can see.  That is the third time the
-guard has turned out to carry what a proof needed (after the guard
-congruences and the `DivMod` names), and it is not a coincidence: the
-guards exist to pin exactly the constants the denotation reads.
+`Level.zero`, which no assignment can see.
+
+### 8.4 The guards carry what the denotation needs
+
+Three proofs now discharge an environment fact from a **branch
+condition** instead of an inversion lemma:
+
+1. the guard congruences and their monotone forms — a guard that holds
+   has found every slot it reads;
+2. `DivModTT`'s transport — every name `DivModClausesTT` reads is in
+   `natOpDeps c`;
+3. `denote_params_ext`'s literal clauses — the support constants'
+   `levelParams.isEmpty` comes from `natLitSupported`'s shape checks.
+
+This is not three conveniences.  It is the checker and the denotation
+**agreeing about which constants matter**: a guard exists to pin
+exactly the constants the corresponding denotation clause reads, so
+whenever a clause fires, its guard has already established everything
+that clause's meaning depends on.
+
+**What it predicts**, which is the reason to write it down rather than
+note "we used the guard" three times: *for any future obligation about
+a constant that a `denote` clause reads, look first at the guard that
+gates that clause, not at an inversion of the environment.*  The
+inversion lemmas (`natLitSupported_inv`, `natOpGuard_inv`) recover a
+guard's consequences from the guard; the guard itself is the cheaper
+thing to want, and so far it has always sufficed.  Concretely: the
+`indDecl` case will need facts about a modeled family's stored
+artifacts, and the first place to look is the install-time check that
+gated storing them.
+
+A corollary worth stating because it cuts the other way: the bridge has
+so far needed **none** of the four `V`-free inversion lemmas stranded
+in `Setlec/Model/*`.  If that holds to the end, the relocation task
+shrinks from "move them" to "they were only ever needed by the model".
 
 A gotcha worth one line, because it cost time and gives no useful
 error: in `rcases hc with _ | ⟨-, hc⟩` on a `List.Mem`, the `-` clears
