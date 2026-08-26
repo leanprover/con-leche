@@ -3580,6 +3580,71 @@ telescope premise pins the level after all, or the fired rule has to be
 stated to tolerate the mismatch.  Better to know it now than to
 discover it at `Nat.rec`.
 
+#### The constructor-level question, answered before `Nat`
+
+Asked at `PUnit` and answered by reading the pins and the firing code
+rather than by building machinery.  **The distribution is the design
+datum**, so here it is in full:
+
+| block | constructor `levelParams` | freedom? | closure |
+| --- | --- | --- | --- |
+| `Empty` | — (no rules) | question does not arise | — |
+| **`Nat`** | `Nat.zero`, `Nat.succ`: **`[]`** | **none** | unrepresentable |
+| `PUnit` | `PUnit.unit`: `[u]` | yes | `punitEta` |
+| `Eq` | `Eq.refl`: `[u]` | yes | `proofIrrel` |
+| `PSigma` | `PSigma'.mk`: `[u, v]` | yes | `psigmaEta` then `projFstMk`/`projSndMk` |
+| `Quot` | `Quot.mk`: `[u]` | yes | none of the above |
+
+**`Nat` needs nothing.**  Its constructors bind no levels, so
+`usj.length = cvj.levelParams.length` forces `usj = []`, the
+substitution is the identity, and the constructor spine is a single
+term.  The mismatch is *unrepresentable* exactly where the eta rescue
+is unavailable — the pin's monomorphism doing for `Nat` what
+`punitEta` does for `PUnit`.  By §8.4's taxonomy this is an
+**undesigned coincidence**, not a forward provision: nobody made `Nat`
+level-monomorphic to help this proof; Lean's `Nat` simply has no
+universe parameter.
+
+**`Eq` is cheaper still, and for a reason worth naming.**
+`HasType.proofIrrel`'s two sides *need not inhabit the same* `Prop` —
+a weakening adopted because soundness reads `mem_univ_zero` of each
+side independently and §2.4 forbids a premise soundness never consumes.
+That weakening, made for an unrelated reason, absorbs the level
+mismatch for free.  A **second forward provision**, and one whose
+author was solving a different problem.
+
+**`PSigma` costs two steps rather than one**: `psigmaEta` rewrites the
+major at the *recursor's* levels, then `projFstMk`/`projSndMk` recover
+the fields at the *constructor's*.
+
+> **FINDING — and `Quot` is the reason to look, not the reason to
+> build.**  `Quot` has no eta law and is not a `Prop`, so it lands in
+> none of the rows above.  Applying the fallback ladder to it turned up
+> something about *all* of them: the checker's iota step **already
+> guards on the level relation**.  `Setlec/Kernel/Core.lean:1281` fires
+> only `if Level.isEquivList usj (recFireComparands …).1`, where the
+> comparand list is `cvjLps.map (Level.subst lps us ∘ .param)` — the
+> constructor's levels *derived from the recursor's*.
+
+So `usj` is not free at all: the checker never fires at an unrelated
+one, and `isEquivList` means the two lists agree **after `Level.eval`**
+— the very thing `denote` applies.  The mismatch is therefore not
+merely closable, it is *denotationally invisible*.
+
+Which makes `EnvTT.cons`'s `hheadRec` **over-strong**: it quantifies
+over every `usj` of the right length where the checker supplies only
+the comparand one.  §8.2's recurring defect, fourth instance — and this
+time the cost of the defect is visible in advance, because with the
+premise added, `PUnit`'s `punitEta` step, `PSigma`'s two-step eta and
+`Quot`'s open question **all disappear at once**.
+
+**Not fixed unilaterally.**  Narrowing `hheadRec` weakens what
+producers must prove and strengthens what its consumer
+(`Setlec/TTVerify/IotaStep.lean`, landed) must supply.  The consumer is
+the transpose of the very code that performs the guard, so it should
+have the premise in hand — but that is a change to a landed invariant
+with a live consumer, and it is reported rather than made.
+
 **The computation needed a per-constructor `instantiate1` kit.**
 `denote` opens every binder with `instantiate1` at cut `0`, so a basis
 type's computation walks it once per node — and unfolding the
