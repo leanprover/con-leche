@@ -2615,3 +2615,42 @@ premises rather than from the shape of the rule's domains.  §6's
 headline fact says where premises must be supplied; it also says what
 they must be supplied *at*, and a request should name the domain, not
 the tactic.
+
+### 12.9 §8.1's rule, read in the other direction
+
+Found while assembling `IotaStepTT`, and it is a correction to how I
+had been applying §8.1 rather than to §8.1 itself.
+
+The rule says: *facts about arbitrary expressions may appear only in a
+law's conclusion; facts about **stored** expressions may be
+hypotheses, because they transport.*  That is a statement about what is
+**permitted**, and I had been reading it as a statement about what is
+**preferred** — putting stored-expression facts in the premise wherever
+the rule allowed it.
+
+`RecRulesTT` is where that bites.  Its rule right-hand side's
+denotation is a fact about a stored expression, so §8.1 permits it as a
+hypothesis, and that is how the restatement left it.  But **no caller
+can discharge it**: a stored `Expr` being closed and
+`constsResolve`-clean does not make its denotation `some` — a `.const`
+at the wrong level arity denotes to `none`, and nothing in `EnvWF`
+rules that out.  The fact is establishable only at *install*, which is
+exactly where an invariant's conclusions are established.
+
+The set model, facing the same choice, made it the other way:
+`RecRulesOk` concludes `∃ Rv, interpClosed … = some Rv ∧ …`.  That is
+the third time reading the model's shape has corrected the bridge's,
+and the pattern in all three is the same — the model's field is the
+answer to "what must the install prove?", and the bridge's is the
+answer to "what may the fire site assume?", which are the same question
+only when the fire site can prove what it assumes.
+
+**The rule as it should be quoted**, then:
+
+> Facts about arbitrary expressions must be conclusions.  Facts about
+> stored expressions may be hypotheses **if some caller can establish
+> them** — and if none can, they belong in the conclusion too.
+
+The change itself (field, transport, fire site) lands as one commit;
+the transport gets *easier*, since a produced denotation moves forward
+with `Installs.denoteUp` where a hypothesised one needed `denoteDown`.

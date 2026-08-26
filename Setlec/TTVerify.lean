@@ -18,6 +18,7 @@ import Setlec.TTVerify.InferStep
 import Setlec.TTVerify.StrLitStep
 import Setlec.TTVerify.ProjStep
 import Setlec.TTVerify.DefEqStep
+import Setlec.TTVerify.IotaStep
 import Setlec.TTVerify.Extend
 import Setlec.TTVerify.Consistency
 import Setlec.TTVerify.HasTypeSubst
