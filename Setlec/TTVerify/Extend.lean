@@ -250,7 +250,8 @@ hypothesis quantified more broadly than the conclusion needs**: here,
 "the valuations agree *everywhere*" where exactly seven names are read.
 Listing the seven is the fix.
 
-They are hypotheses for the same reason they are in `denote_mono`: deriving them from the guards needs
+They are hypotheses for the same reason they are in `denote_mono`:
+deriving them from the guards needs
 `natLitSupported_inv`, a `V`-free fact stranded in
 `Setlec/Model/Interp.lean` (the fifth such; see `EnvTT.lean`'s
 relocation note).  Install sites discharge them from freshness. -/
@@ -636,7 +637,7 @@ environment, changed valuation.  The shared core of every field's
 transport — `has_type_cons` above is this plus a valuation rewrite, and
 `defn_eq_cons` / `thm_ok_cons` below are the same again. -/
 theorem denote_install {cval cval' : TConstVal} {env : Env} {φ : Name → Nat}
-    {c₀ : ConstantInfo} {e : Expr} {v : VExpr}
+    {c₀ : ConstantInfo} {d : Nat} {e : Expr} {v : VExpr}
     (hfresh : env.find? c₀.name = none)
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
     (hlit : LitAgree cval cval')
@@ -648,20 +649,18 @@ theorem denote_install {cval cval' : TConstVal} {env : Env} {φ : Name → Nat}
       = levelParamsAt env listNilName)
     (hlpCons : levelParamsAt ⟨c₀ :: env.consts⟩ listConsName
       = levelParamsAt env listConsName)
-    (h : denoteClosed cval env φ e = some v) :
-    denoteClosed cval' ⟨c₀ :: env.consts⟩ φ e = some v := by
+    (h : denote cval env φ d e = some v) :
+    denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v := by
   have hagE : ∀ n ci, env.find? n = some ci → cval n = cval' n := by
     intro n ci hfind
     refine hag n ?_
     intro hh
     rw [hh, hfresh] at hfind
     exact nomatch hfind
-  rw [denoteClosed] at h ⊢
   rw [denote_cval_congr hagE hlit.nat hlit.succ hlit.sol hlit.nil
-    hlit.cons hlit.char hlit.ofn 0 _] at h
-  exact denote_mono (EnvExtends.cons hfresh) hguardN hguardS hlpNil hlpCons 0 _ h
+    hlit.cons hlit.char hlit.ofn d _] at h
+  exact denote_mono (EnvExtends.cons hfresh) hguardN hguardS hlpNil hlpCons d _ h
 
-/-- Definitions keep their denotation equations across an install. -/
 theorem defn_eq_cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
     {cval' : TConstVal}
     (hfresh : env.find? c₀.name = none)
@@ -677,7 +676,8 @@ theorem defn_eq_cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       = levelParamsAt env listConsName) :
     ∀ cv value hint, ConstantInfo.defnInfo cv value hint ∈ env.consts →
       ∀ φ : Name → Nat,
-        denoteClosed cval' ⟨c₀ :: env.consts⟩ φ value = some (cval' cv.name φ) := by
+        denoteClosed cval' ⟨c₀ :: env.consts⟩ φ value
+          = some (cval' cv.name φ) := by
   have hne : ∀ c ∈ env.consts, c.name ≠ c₀.name := by
     have h0 := hfresh
     rw [Env.find?, List.find?_eq_none] at h0
@@ -704,7 +704,8 @@ theorem thm_ok_cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       = levelParamsAt env listConsName) :
     ∀ cv value, ConstantInfo.thmInfo cv value ∈ env.consts →
       ∀ φ : Name → Nat,
-        denoteClosed cval' ⟨c₀ :: env.consts⟩ φ value = some (cval' cv.name φ) := by
+        denoteClosed cval' ⟨c₀ :: env.consts⟩ φ value
+          = some (cval' cv.name φ) := by
   have hne : ∀ c ∈ env.consts, c.name ≠ c₀.name := by
     have h0 := hfresh
     rw [Env.find?, List.find?_eq_none] at h0
@@ -794,7 +795,8 @@ theorem CapsOkTT.cons {env : Env} {cval cval' : TConstVal}
         simpa [ConstantInfo.toConstantVal] using h3
       intro φ d Δ us xs TV rest B hlen hTV hfit hBt
       have hTV' := hdown φ d _ TV
-        (by rw [Expr.constsResolve_instantiateLevelParams]; exact hTres) hTV
+        (by rw [Expr.constsResolve_instantiateLevelParams cvT.levelParams us]
+            exact hTres) hTV
       rw [← hag T hnT] at hBt
       have hproj : ∀ j ∈ List.range caps.etaFields,
           VExpr.mkAppN (cval' (projFnName T j)
@@ -823,8 +825,616 @@ theorem CapsOkTT.cons {env : Env} {cval cval' : TConstVal}
         simpa [ConstantInfo.toConstantVal] using h3
       intro φ d Δ us xs TV rest B B' hlen hTV hfit hBt hBt'
       have hTV' := hdown φ d _ TV
-        (by rw [Expr.constsResolve_instantiateLevelParams]; exact hTres) hTV
+        (by rw [Expr.constsResolve_instantiateLevelParams cvT.levelParams us]
+            exact hTres) hTV
       rw [← hag T hn] at hBt hBt'
       exact hlaw φ d Δ us xs TV rest B B' hlen hTV' hfit hBt hBt'
+
+/-! ## The guards are monotone, not merely congruent
+
+`natLitSupported_cons_of_ne` and its siblings above need the new
+constant's name to differ from each slot's.  At an install those
+distinctness facts have to come from somewhere, and there is a cheaper
+source than freshness plus a case analysis: **the guard itself**.  A
+guard that holds has already found every slot it reads, so each slot is
+`isSome` in the *small* environment, and freshness then supplies the
+distinctness for free.
+
+The resulting monotonicity lemmas take a single hypothesis and
+discharge the `hguardN`/`hguardS` obligations of `denote_mono`,
+`denote_install` and `has_type_cons` at every ordinary install. -/
+
+/-- The `Nat`-literal guard is monotone under a fresh install. -/
+theorem natLitSupported_cons {env : Env} {c₀ : ConstantInfo}
+    (hfresh : env.find? c₀.name = none) (h : natLitSupported env = true) :
+    natLitSupported ⟨c₀ :: env.consts⟩ = true := by
+  simp only [natLitSupported, Bool.and_eq_true] at h ⊢
+  obtain ⟨⟨h1, h2⟩, h3⟩ := h
+  have i1 : (env.find? natName).isSome = true := by
+    revert h1; cases env.find? natName <;> simp [natIndOk]
+  have i2 : (env.find? natZeroName).isSome = true := by
+    revert h2; cases env.find? natZeroName <;> simp [natZeroOk]
+  have i3 : (env.find? natSuccName).isSome = true := by
+    revert h3; cases env.find? natSuccName <;> simp [natSuccOk]
+  rw [Env.find?_cons_of_isSome hfresh i1, Env.find?_cons_of_isSome hfresh i2,
+    Env.find?_cons_of_isSome hfresh i3]
+  exact ⟨⟨h1, h2⟩, h3⟩
+
+/-- The `String`-literal guard is monotone under a fresh install. -/
+theorem strLitSupported_cons {env : Env} {c₀ : ConstantInfo}
+    (hfresh : env.find? c₀.name = none) (h : strLitSupported env = true) :
+    strLitSupported ⟨c₀ :: env.consts⟩ = true := by
+  simp only [strLitSupported, Bool.and_eq_true] at h ⊢
+  obtain ⟨⟨⟨⟨⟨⟨⟨h0, h1⟩, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩ := h
+  have i1 : (env.find? stringName).isSome = true := by
+    revert h1; cases env.find? stringName <;> simp [stringTyOk]
+  have i2 : (env.find? stringOfListName).isSome = true := by
+    revert h2; cases env.find? stringOfListName <;> simp [stringOfListTyOk]
+  have i3 : (env.find? listName).isSome = true := by
+    revert h3; cases env.find? listName <;> simp [listTyOk]
+  have i4 : (env.find? listNilName).isSome = true := by
+    revert h4; cases env.find? listNilName <;> simp [listNilTyOk]
+  have i5 : (env.find? listConsName).isSome = true := by
+    revert h5; cases env.find? listConsName <;> simp [listConsTyOk]
+  have i6 : (env.find? charName).isSome = true := by
+    revert h6; cases env.find? charName <;> simp [charTyOk]
+  have i7 : (env.find? charOfNatName).isSome = true := by
+    revert h7; cases env.find? charOfNatName <;> simp [charOfNatTyOk]
+  rw [Env.find?_cons_of_isSome hfresh i1, Env.find?_cons_of_isSome hfresh i2,
+    Env.find?_cons_of_isSome hfresh i3, Env.find?_cons_of_isSome hfresh i4,
+    Env.find?_cons_of_isSome hfresh i5, Env.find?_cons_of_isSome hfresh i6,
+    Env.find?_cons_of_isSome hfresh i7]
+  exact ⟨⟨⟨⟨⟨⟨⟨natLitSupported_cons hfresh h0, h1⟩, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩
+
+/-- The `Nat`-operation guard is monotone under a fresh install. -/
+theorem natOpGuard_cons {env : Env} {c₀ : ConstantInfo} {c : Name}
+    (hfresh : env.find? c₀.name = none) (h : natOpGuard env c = true) :
+    natOpGuard ⟨c₀ :: env.consts⟩ c = true := by
+  simp only [natOpGuard, Bool.and_eq_true] at h ⊢
+  obtain ⟨⟨h0, hdeps⟩, hbool⟩ := h
+  refine ⟨⟨natLitSupported_cons hfresh h0, ?_⟩, ?_⟩
+  · rw [List.all_eq_true] at hdeps ⊢
+    intro n hn
+    have hn' := hdeps n hn
+    have i : (env.find? n).isSome = true := by
+      revert hn'; cases env.find? n <;> simp
+    rw [Env.find?_cons_of_isSome hfresh i]
+    exact hn'
+  · split at hbool
+    · next hc =>
+      rw [if_pos hc]
+      simp only [Bool.and_eq_true] at hbool ⊢
+      obtain ⟨hT, hF⟩ := hbool
+      have iT : (env.find? boolTrueName).isSome = true := by
+        revert hT; cases env.find? boolTrueName <;> simp
+      have iF : (env.find? boolFalseName).isSome = true := by
+        revert hF; cases env.find? boolFalseName <;> simp
+      rw [Env.find?_cons_of_isSome hfresh iT,
+        Env.find?_cons_of_isSome hfresh iF]
+      exact ⟨hT, hF⟩
+    · next hc => rw [if_neg hc]
+
+/-! ## The install context
+
+Every field transport wants the same five facts, and passing them one
+at a time was becoming the bulk of each statement.  `Installs` bundles
+them.  It describes an **ordinary** install: the new constant is fresh,
+the valuation changes only at it, and the literal-support constants and
+their level parameters are untouched.  A *basis* install is precisely
+the case that violates the last three, and is handled separately —
+which is the honest division, because a basis install is the one thing
+that can change what a literal denotes. -/
+
+/-- The context of an ordinary install: `c₀` is fresh, the valuation
+moves only at `c₀.name`, and nothing a literal reads changes. -/
+structure Installs (env : Env) (cval cval' : TConstVal)
+    (c₀ : ConstantInfo) : Prop where
+  /-- The installed name is not already stored. -/
+  fresh : env.find? c₀.name = none
+  /-- The valuation changes only at the installed name. -/
+  ag : ∀ n, n ≠ c₀.name → cval n = cval' n
+  /-- Literal support is valued the same on both sides. -/
+  lit : LitAgree cval cval'
+  /-- `List.nil`'s stored level parameters do not move. -/
+  lpNil : levelParamsAt ⟨c₀ :: env.consts⟩ listNilName
+    = levelParamsAt env listNilName
+  /-- `List.cons`'s stored level parameters do not move. -/
+  lpCons : levelParamsAt ⟨c₀ :: env.consts⟩ listConsName
+    = levelParamsAt env listConsName
+
+/-- A denotation survives an ordinary install.  The guard hypotheses of
+`denote_install` are discharged by monotonicity, so this form takes
+none. -/
+theorem Installs.denoteUp {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀)
+    {φ : Name → Nat} {d : Nat} {e : Expr} {v : VExpr}
+    (h : denote cval env φ d e = some v) :
+    denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v :=
+  denote_install hi.fresh hi.ag hi.lit (natLitSupported_cons hi.fresh)
+    (strLitSupported_cons hi.fresh) hi.lpNil hi.lpCons h
+
+/-- A stored name is valued the same after an ordinary install. -/
+theorem Installs.agree {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀) {n : Name}
+    (h : (env.find? n).isSome = true) : cval n = cval' n :=
+  hi.ag n (Ne.symm (ne_of_isSome_fresh hi.fresh h))
+
+/-- A denotation of a *stored* expression runs back down to the smaller
+environment.  The two moves compose in one order only: shrink first
+(the expression resolves there), then change the valuation (the two
+agree on everything stored there, but not at the new constant). -/
+theorem Installs.denoteDown {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀)
+    {φ : Name → Nat} {d : Nat} {e : Expr} {v : VExpr}
+    (hres : e.constsResolve env = true)
+    (h : denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v) :
+    denote cval env φ d e = some v := by
+  have hagE : ∀ n ci, env.find? n = some ci → cval n = cval' n := by
+    intro n ci hf
+    refine hi.ag n ?_
+    intro hh
+    rw [hh, hi.fresh] at hf
+    exact nomatch hf
+  rw [denote_env_shrink hi.fresh d e hres] at h
+  rwa [denote_cval_congr hagE hi.lit.nat hi.lit.succ hi.lit.sol hi.lit.nil
+    hi.lit.cons hi.lit.char hi.lit.ofn d e]
+
+/-- Lookups of stored names are unchanged by an ordinary install. -/
+theorem Installs.find {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀) {n : Name}
+    (h : (env.find? n).isSome = true) :
+    Env.find? ⟨c₀ :: env.consts⟩ n = env.find? n :=
+  Env.find?_cons_of_isSome hi.fresh h
+
+/-! ## The remaining field transports
+
+One `.cons` per `EnvTT` field, each in the same shape: the head case is
+a hypothesis (the install must establish its own constant's law), and
+everything else transports.  The `Installs` context supplies the three
+moves they share — a denotation goes up, a stored name's valuation is
+unchanged, a stored name's lookup is unchanged. -/
+
+/-- The pinned basis valuations survive an install at another name. -/
+theorem BasisPinnedTT.cons {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo} (h : BasisPinnedTT env cval)
+    (hi : Installs env cval cval' c₀)
+    (hhead : reservedBasisNames.contains c₀.name = true →
+      ∀ (ψ : Name → Nat) (t : VExpr),
+        pinnedDirectT c₀.name ψ = some t → cval' c₀.name ψ = t) :
+    BasisPinnedTT ⟨c₀ :: env.consts⟩ cval' := by
+  intro n ci t hf hres ψ hp
+  by_cases hn : c₀.name = n
+  · subst hn
+    exact hhead hres ψ t hp
+  · rw [Env.find?_cons, if_neg hn] at hf
+    rw [← hi.ag n (fun hh => hn hh.symm)]
+    exact h n ci t hf hres ψ hp
+
+/-- The native projection table survives an install. -/
+theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
+    (hfresh : env.find? c₀.name = none)
+    (hhead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
+      (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
+      env.find? psigmaName = some psigmaA ∧
+      env.find? psigmaMkName = some psigmaMkA) :
+    ProjOkT ⟨c₀ :: env.consts⟩ := by
+  have step : ∀ entry,
+      ((entry = pairFstEntry ∨ entry = pairSndEntry) ∧
+        env.find? psigmaName = some psigmaA ∧
+        env.find? psigmaMkName = some psigmaMkA) →
+      (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
+        (⟨c₀ :: env.consts⟩ : Env).find? psigmaName = some psigmaA ∧
+        (⟨c₀ :: env.consts⟩ : Env).find? psigmaMkName = some psigmaMkA := by
+    intro entry ⟨h1, h2, h3⟩
+    refine ⟨h1, ?_, ?_⟩
+    · rw [Env.find?_cons_of_isSome hfresh (by rw [h2]; rfl)]; exact h2
+    · rw [Env.find?_cons_of_isSome hfresh (by rw [h3]; rfl)]; exact h3
+  intro n entry hf hnat
+  by_cases hn : c₀.name = n
+  · subst hn
+    rw [Env.find?_cons, if_pos rfl] at hf
+    exact step entry (hhead entry (Option.some.inj hf) hnat)
+  · rw [Env.find?_cons, if_neg hn] at hf
+    exact step entry (h n entry hf hnat)
+
+/-- The compiler-trust identities survive an install. -/
+theorem ReduceOpsTT.cons {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo} (h : ReduceOpsTT env cval)
+    (hi : Installs env cval cval' c₀)
+    (hhead : ∀ cv, c₀ = .axiomInfo cv → c₀.name ∈ reduceOpNames →
+      ConstantVal.matchesPin cv (reduceOpCvA c₀.name) = true →
+      ((⟨c₀ :: env.consts⟩ : Env).find? (reduceElemName c₀.name)).isSome
+          = true ∧
+        ∀ (φ : Name → Nat) (Δ : List VExpr) (X : VExpr),
+          HasType Δ X (cval' (reduceElemName c₀.name) φ) →
+          Deq Δ (.app (cval' c₀.name φ) X) X) :
+    ReduceOpsTT ⟨c₀ :: env.consts⟩ cval' := by
+  intro c hc cv hf hpin
+  by_cases hn : c₀.name = c
+  · subst hn
+    rw [Env.find?_cons, if_pos rfl] at hf
+    exact hhead cv (Option.some.inj hf) hc hpin
+  · rw [Env.find?_cons, if_neg hn] at hf
+    obtain ⟨hs, hlaw⟩ := h c hc cv hf hpin
+    refine ⟨by rw [hi.find hs]; exact hs, ?_⟩
+    intro φ Δ X hX
+    rw [← hi.agree hs] at hX
+    rw [← hi.ag c (fun hh => hn hh.symm)]
+    exact hlaw φ Δ X hX
+
+/-- The structural `Nat` recurrences survive an install. -/
+theorem NatOpsTT.cons {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo} (h : NatOpsTT env cval)
+    (hi : Installs env cval cval' c₀)
+    (hhead : ∀ cv v hint, c₀ = .defnInfo cv v hint → c₀.name ∈ natOpNames →
+      natOpGuard ⟨c₀ :: env.consts⟩ c₀.name = true ∧
+      ∀ eq ∈ natOpEquations 0 c₀.name, ∀ φ : Name → Nat, ∃ L R,
+        denote cval' ⟨c₀ :: env.consts⟩ φ 2 eq.1 = some L ∧
+        denote cval' ⟨c₀ :: env.consts⟩ φ 2 eq.2 = some R ∧
+        Deq [cval' natName φ, cval' natName φ] L R) :
+    NatOpsTT ⟨c₀ :: env.consts⟩ cval' := by
+  intro c hc cv v hint hf
+  by_cases hn : c₀.name = c
+  · subst hn
+    rw [Env.find?_cons, if_pos rfl] at hf
+    exact hhead cv v hint (Option.some.inj hf) hc
+  · rw [Env.find?_cons, if_neg hn] at hf
+    obtain ⟨hg, hlaw⟩ := h c hc cv v hint hf
+    -- the guard pins `Nat`, so the valuation there is unchanged
+    have hnat : cval natName = cval' natName := by
+      refine hi.agree ?_
+      have h0 : natLitSupported env = true := by
+        simp only [natOpGuard, Bool.and_eq_true] at hg
+        exact hg.1.1
+      simp only [natLitSupported, Bool.and_eq_true] at h0
+      revert h0
+      cases env.find? natName <;> simp [natIndOk]
+    refine ⟨natOpGuard_cons hi.fresh hg, ?_⟩
+    intro eq heq φ
+    obtain ⟨L, R, hL, hR, hD⟩ := hlaw eq heq φ
+    exact ⟨L, R, hi.denoteUp hL, hi.denoteUp hR, by rw [← hnat]; exact hD⟩
+
+/-- The recursor rules survive an install.  The "the rule's own
+constructor is the constant being installed" case is *refuted*, not
+handled: a stored recursor's rules name constructors that are already
+stored, which is `hctors` — the same discharge the set model's
+`RecRulesOk.cons` makes from `ind_ok`. -/
+theorem RecRulesTT.cons {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo} (h : RecRulesTT env cval) (hwfe : EnvWF env)
+    (hi : Installs env cval cval' c₀)
+    (hctors : ∀ n cv mI rP rules,
+      env.find? n = some (.recInfo cv mI rP rules) →
+      ∀ r ∈ rules, ∃ cvj cnP cnF,
+        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
+    (hhead : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
+      ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
+      ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+        (⟨c₀ :: env.consts⟩ : Env).find? (RecRule.ctor rl)
+          = some (.ctorInfo cvj cnP cnF) →
+      ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr)
+        (us usj : List Level) (xs ys : List VExpr)
+        (TV TVj restR restC R : VExpr),
+        xs.length = mI →
+        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+        us.length = cv.levelParams.length →
+        usj.length = cvj.levelParams.length →
+        denote cval' ⟨c₀ :: env.consts⟩ φ d
+          (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
+        denote cval' ⟨c₀ :: env.consts⟩ φ d
+          (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVj →
+        denote cval' ⟨c₀ :: env.consts⟩ φ d
+          ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
+            = some R →
+        VTeleTyped Δ TV
+          (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
+            (Level.substFn φ cvj.levelParams usj)) ys]) restR →
+        VTeleTyped Δ TVj ys restC →
+        Deq Δ
+          (VExpr.mkAppN (cval' c₀.name (Level.substFn φ cv.levelParams us))
+            (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
+              (Level.substFn φ cvj.levelParams usj)) ys]))
+          (VExpr.mkAppN R
+            (xs.take rP ++ ys.drop (RecRule.ctorParams rl)))) :
+    RecRulesTT ⟨c₀ :: env.consts⟩ cval' := by
+  intro n cv mI rP rules hf rl hrl hfire cvj cnP cnF hctor
+  by_cases hn : c₀.name = n
+  · subst hn
+    rw [Env.find?_cons, if_pos rfl] at hf
+    exact hhead cv mI rP rules (Option.some.inj hf) rl hrl hfire cvj cnP cnF
+      hctor
+  · rw [Env.find?_cons, if_neg hn] at hf
+    -- the rule's constructor is stored already, so it is not `c₀`
+    obtain ⟨cvj2, cnP2, cnF2, hfc2⟩ := hctors n cv mI rP rules hf rl hrl
+    have hnc : c₀.name ≠ RecRule.ctor rl :=
+      ne_of_isSome_fresh hi.fresh (by rw [hfc2]; rfl)
+    rw [Env.find?_cons, if_neg hnc] at hctor
+    have hlaw := h n cv mI rP rules hf rl hrl hfire cvj cnP cnF hctor
+    -- the three stored expressions descend
+    obtain ⟨-, -, hres1, -, -, hrules, -⟩ := hwfe _ (find?_mem hf)
+    obtain ⟨-, -, hres3, -⟩ := hrules cv mI rP rules rfl rl hrl
+    obtain ⟨-, -, hres2, -⟩ := hwfe _ (find?_mem hctor)
+    intro φ d Δ us usj xs ys TV TVj restR restC R hlenX hlenY hlenU hlenJ
+      hTV hTVj hR hfitR hfitC
+    have hTV' := hi.denoteDown
+      (by rw [Expr.constsResolve_instantiateLevelParams cv.levelParams us]
+          simpa [ConstantInfo.toConstantVal] using hres1) hTV
+    have hTVj' := hi.denoteDown
+      (by rw [Expr.constsResolve_instantiateLevelParams cvj.levelParams usj]
+          simpa [ConstantInfo.toConstantVal] using hres2) hTVj
+    have hR' := hi.denoteDown
+      (by rw [Expr.constsResolve_instantiateLevelParams cv.levelParams us]
+          exact hres3) hR
+    rw [← hi.ag _ (Ne.symm hnc)] at hfitR
+    rw [← hi.ag n (fun hh => hn hh.symm), ← hi.ag _ (Ne.symm hnc)]
+    exact hlaw φ d Δ us usj xs ys TV TVj restR restC R hlenX hlenY hlenU
+      hlenJ hTV' hTVj' hR' hfitR hfitC
+
+/-! ### The WF-recursive clauses
+
+`DivModClausesTT` reads the valuation at a dozen names, and every one
+of them is pinned by `natOpGuard` — that is what the dependency list is
+*for*.  So the transport needs no new hypothesis, only the observation
+that a pinned name is stored and therefore not the one being
+installed. -/
+
+/-- Every name a clause set reads is valued the same after an install
+at a different name. -/
+theorem divModNames_agree {env : Env} {cval cval' : TConstVal} {c : Name}
+    (hag : ∀ n, (env.find? n).isSome = true → cval n = cval' n)
+    (hg : natOpGuard env c = true) :
+    (∀ n ∈ natOpDeps c, cval n = cval' n) ∧
+      cval natZeroName = cval' natZeroName ∧
+      cval natSuccName = cval' natSuccName ∧
+      (natDivModNames.contains c = true →
+        cval boolTrueName = cval' boolTrueName ∧
+        cval boolFalseName = cval' boolFalseName) := by
+  simp only [natOpGuard, Bool.and_eq_true] at hg
+  obtain ⟨⟨h0, hdeps⟩, hbool⟩ := hg
+  simp only [natLitSupported, Bool.and_eq_true] at h0
+  obtain ⟨⟨-, h2⟩, h3⟩ := h0
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro n hn
+    rw [List.all_eq_true] at hdeps
+    have hn' := hdeps n (by simpa using hn)
+    exact hag n (by revert hn'; cases env.find? n <;> simp)
+  · exact hag _ (by revert h2; cases env.find? natZeroName <;> simp [natZeroOk])
+  · exact hag _ (by revert h3; cases env.find? natSuccName <;> simp [natSuccOk])
+  · intro hc
+    rw [show (decide (c = natBeqName) || decide (c = natBleName) ||
+        natDivModNames.contains c) = true from by
+          simp only [hc, Bool.or_true]] at hbool
+    simp only [if_true] at hbool
+    simp only [Bool.and_eq_true] at hbool
+    obtain ⟨hT, hF⟩ := hbool
+    exact ⟨hag _ (by revert hT; cases env.find? boolTrueName <;> simp),
+      hag _ (by revert hF; cases env.find? boolFalseName <;> simp)⟩
+
+/-- The guarded recurrences survive an install. -/
+theorem DivModTT.cons {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo} (h : DivModTT env cval)
+    (hi : Installs env cval cval' c₀)
+    (hhead : ∀ cv v hint, c₀ = .defnInfo cv v hint →
+      c₀.name ∈ natDivModNames →
+      natOpGuard ⟨c₀ :: env.consts⟩ c₀.name = true ∧
+      ∀ (φ : Name → Nat) (Δ : List VExpr) (x y : VExpr),
+        HasType Δ x (cval' natName φ) → HasType Δ y (cval' natName φ) →
+        DivModClausesTT cval' c₀.name φ Δ x y) :
+    DivModTT ⟨c₀ :: env.consts⟩ cval' := by
+  intro c hc cv v hint hf
+  by_cases hn : c₀.name = c
+  · subst hn
+    rw [Env.find?_cons, if_pos rfl] at hf
+    exact hhead cv v hint (Option.some.inj hf) hc
+  · rw [Env.find?_cons, if_neg hn] at hf
+    obtain ⟨hg, hlaw⟩ := h c hc cv v hint hf
+    have hagS : ∀ n, (env.find? n).isSome = true → cval n = cval' n :=
+      fun n hn' => hi.agree hn'
+    obtain ⟨hdep, hz, hs, hbool⟩ := divModNames_agree hagS hg
+    obtain ⟨hT, hF⟩ := hbool (by simpa using hc)
+    have hnat : cval natName = cval' natName := by
+      simp only [natOpGuard, Bool.and_eq_true] at hg
+      have h0 := hg.1.1
+      simp only [natLitSupported, Bool.and_eq_true] at h0
+      exact hagS _ (by revert h0; cases env.find? natName <;> simp [natIndOk])
+    refine ⟨natOpGuard_cons hi.fresh hg, ?_⟩
+    intro φ Δ x y hx hy
+    rw [← hnat] at hx hy
+    have := hlaw φ Δ x y hx hy
+    have hc' : cval c = cval' c := hi.ag c (fun hh => hn hh.symm)
+    clear hc'
+    simp only [natDivModNames, List.mem_cons, List.not_mem_nil, or_false] at hc
+    rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    · simp only [DivModClausesTT, hz, hs, hT, hF, hdep natSubName (by decide),
+        hdep natBleName (by decide), hdep natDivName (by decide)] at this ⊢
+      exact this
+    · simp only [DivModClausesTT, hz, hs, hT, hF, hdep natSubName (by decide),
+        hdep natBleName (by decide), hdep natModName (by decide)] at this ⊢
+      exact this
+    · simp only [DivModClausesTT, hz, hs, hT, hF, hdep natBleName (by decide),
+        hdep natModName (by decide), hdep natGcdName (by decide)] at this ⊢
+      exact this
+    · simp only [DivModClausesTT, hz, hs, hT, hF, hdep natAddName (by decide),
+        hdep natMulName (by decide), hdep natBleName (by decide),
+        hdep natDivName (by decide), hdep natModName (by decide),
+        hdep natLandName (by decide)] at this ⊢
+      exact this
+    · simp only [DivModClausesTT, hz, hs, hT, hF, hdep natAddName (by decide),
+        hdep natSubName (by decide), hdep natMulName (by decide),
+        hdep natBleName (by decide), hdep natDivName (by decide),
+        hdep natModName (by decide), hdep natLorName (by decide)] at this ⊢
+      exact this
+    · simp only [DivModClausesTT, hz, hs, hT, hF, hdep natAddName (by decide),
+        hdep natMulName (by decide), hdep natBleName (by decide),
+        hdep natDivName (by decide), hdep natModName (by decide),
+        hdep natXorName (by decide)] at this ⊢
+      exact this
+    · simp only [DivModClausesTT, hz, hs, hT, hF, hdep natSubName (by decide),
+        hdep natMulName (by decide), hdep natBleName (by decide),
+        hdep natShiftLeftName (by decide)] at this ⊢
+      exact this
+    · simp only [DivModClausesTT, hz, hs, hT, hF, hdep natSubName (by decide),
+        hdep natBleName (by decide), hdep natDivName (by decide),
+        hdep natShiftRightName (by decide)] at this ⊢
+      exact this
+    · simp only [DivModClausesTT, hz, hs, hT, hF, hdep natBleName (by decide),
+        hdep natDivName (by decide), hdep natLog2Name (by decide)] at this ⊢
+      exact this
+
+/-! ## Assembling an install
+
+`EnvTT.cons` is the one theorem the six `checkDecl` cases share: it
+takes the head obligations for the constant being installed and returns
+the invariant for the extended environment.  Everything else is the
+transports above.
+
+The shape mirrors `Setlec/Model/Extend/Transport.lean`'s: obligations
+are stated *only* for the new constant, and every clause about an
+already-stored constant is discharged here once rather than nine times
+in the case analysis. -/
+
+/-- The environment invariant survives an ordinary install, given the
+new constant's own obligations. -/
+def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
+    {cval' : TConstVal} (hi : Installs env m.cval cval' c₀)
+    (hwf : EnvWF ⟨c₀ :: env.consts⟩)
+    (hclosed : ∀ ψ : Name → Nat, VExpr.Closed (cval' c₀.name ψ))
+    (hparams : ∀ φ₁ φ₂ : Name → Nat,
+      (∀ p ∈ c₀.toConstantVal.levelParams, φ₁ p = φ₂ p) →
+      cval' c₀.name φ₁ = cval' c₀.name φ₂)
+    (htype : ∀ φ : Name → Nat, ∃ t,
+      denoteClosed cval' ⟨c₀ :: env.consts⟩ φ c₀.toConstantVal.type = some t ∧
+        HasType [] (cval' c₀.name φ) t)
+    (hdefn : ∀ cv value hint, c₀ = .defnInfo cv value hint →
+      ∀ φ : Name → Nat,
+        denoteClosed cval' ⟨c₀ :: env.consts⟩ φ value = some (cval' cv.name φ))
+    (hthm : ∀ cv value, c₀ = .thmInfo cv value → ∀ φ : Name → Nat,
+      denoteClosed cval' ⟨c₀ :: env.consts⟩ φ value = some (cval' cv.name φ))
+    (hempty : c₀.name = emptyName →
+      ∀ ψ : Name → Nat, ∃ u, cval' emptyName ψ = emptyT u)
+    (hctors : ∀ n cv mI rP rules,
+      env.find? n = some (.recInfo cv mI rP rules) →
+      ∀ r ∈ rules, ∃ cvj cnP cnF,
+        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
+    (hheadRec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
+      ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
+      ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+        (⟨c₀ :: env.consts⟩ : Env).find? (RecRule.ctor rl)
+          = some (.ctorInfo cvj cnP cnF) →
+      ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr)
+        (us usj : List Level) (xs ys : List VExpr)
+        (TV TVj restR restC R : VExpr),
+        xs.length = mI →
+        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+        us.length = cv.levelParams.length →
+        usj.length = cvj.levelParams.length →
+        denote cval' ⟨c₀ :: env.consts⟩ φ d
+          (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
+        denote cval' ⟨c₀ :: env.consts⟩ φ d
+          (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVj →
+        denote cval' ⟨c₀ :: env.consts⟩ φ d
+          ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
+            = some R →
+        VTeleTyped Δ TV
+          (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
+            (Level.substFn φ cvj.levelParams usj)) ys]) restR →
+        VTeleTyped Δ TVj ys restC →
+        Deq Δ
+          (VExpr.mkAppN (cval' c₀.name (Level.substFn φ cv.levelParams us))
+            (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
+              (Level.substFn φ cvj.levelParams usj)) ys]))
+          (VExpr.mkAppN R
+            (xs.take rP ++ ys.drop (RecRule.ctorParams rl))))
+    (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+      (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      caps.eta = true → reservedBasisNames.contains T = false →
+      EtaFamilyStoredT ⟨c₀ :: env.consts⟩ T caps →
+      (T = c₀.name ∨ caps.etaCtor = c₀.name ∨
+        ∃ j, j < caps.etaFields ∧ projFnName T j = c₀.name) →
+      EtaLawTT ⟨c₀ :: env.consts⟩ cval' T cvT caps)
+    (hheadUnit : ∀ cv caps, c₀ = .indInfo cv caps → caps.unitlike = true →
+      reservedBasisNames.contains c₀.name = false →
+      UnitLawTT ⟨c₀ :: env.consts⟩ cval' c₀.name cv caps)
+    (hheadProj : ∀ entry, c₀ = .projInfo entry → entry.native = true →
+      (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
+      env.find? psigmaName = some psigmaA ∧
+      env.find? psigmaMkName = some psigmaMkA)
+    (hheadBasis : reservedBasisNames.contains c₀.name = true →
+      ∀ (ψ : Name → Nat) (t : VExpr),
+        pinnedDirectT c₀.name ψ = some t → cval' c₀.name ψ = t)
+    (hheadNat : ∀ cv v hint, c₀ = .defnInfo cv v hint →
+      c₀.name ∈ natOpNames →
+      natOpGuard ⟨c₀ :: env.consts⟩ c₀.name = true ∧
+      ∀ eq ∈ natOpEquations 0 c₀.name, ∀ φ : Name → Nat, ∃ L R,
+        denote cval' ⟨c₀ :: env.consts⟩ φ 2 eq.1 = some L ∧
+        denote cval' ⟨c₀ :: env.consts⟩ φ 2 eq.2 = some R ∧
+        Deq [cval' natName φ, cval' natName φ] L R)
+    (hheadDivMod : ∀ cv v hint, c₀ = .defnInfo cv v hint →
+      c₀.name ∈ natDivModNames →
+      natOpGuard ⟨c₀ :: env.consts⟩ c₀.name = true ∧
+      ∀ (φ : Name → Nat) (Δ : List VExpr) (x y : VExpr),
+        HasType Δ x (cval' natName φ) → HasType Δ y (cval' natName φ) →
+        DivModClausesTT cval' c₀.name φ Δ x y)
+    (hheadReduce : ∀ cv, c₀ = .axiomInfo cv → c₀.name ∈ reduceOpNames →
+      ConstantVal.matchesPin cv (reduceOpCvA c₀.name) = true →
+      ((⟨c₀ :: env.consts⟩ : Env).find? (reduceElemName c₀.name)).isSome
+          = true ∧
+        ∀ (φ : Name → Nat) (Δ : List VExpr) (X : VExpr),
+          HasType Δ X (cval' (reduceElemName c₀.name) φ) →
+          Deq Δ (.app (cval' c₀.name φ) X) X) :
+    EnvTT ⟨c₀ :: env.consts⟩ := by
+  refine
+    { cval := cval'
+      cval_closed := ?_
+      wf := hwf
+      val_params := ?_
+      has_type := ?_
+      defn_eq := ?_
+      thm_ok := ?_
+      empty_pinned := ?_
+      rec_rules := RecRulesTT.cons m.rec_rules m.wf hi hctors hheadRec
+      caps_ok := CapsOkTT.cons m.caps_ok m.wf hi.fresh hi.ag hi.lit
+        hheadEta hheadUnit
+      proj_ok := ProjOkT.cons m.proj_ok hi.fresh hheadProj
+      basis_pinned := BasisPinnedTT.cons m.basis_pinned hi hheadBasis
+      nat_ops := NatOpsTT.cons m.nat_ops hi hheadNat
+      div_mod := DivModTT.cons m.div_mod hi hheadDivMod
+      reduce_ops := ReduceOpsTT.cons m.reduce_ops hi hheadReduce }
+  · intro n ψ
+    by_cases hn : n = c₀.name
+    · subst hn; exact hclosed ψ
+    · rw [← hi.ag n hn]; exact m.cval_closed n ψ
+  · intro n ci hf φ₁ φ₂ hp
+    by_cases hn : c₀.name = n
+    · subst hn
+      rw [Env.find?_cons, if_pos rfl] at hf
+      rw [← Option.some.inj hf] at hp
+      exact hparams φ₁ φ₂ hp
+    · rw [Env.find?_cons, if_neg hn] at hf
+      rw [← hi.ag n (fun hh => hn hh.symm)]
+      exact m.val_params n ci hf φ₁ φ₂ hp
+  · intro c hc φ
+    rcases hc with _ | ⟨_, hc⟩
+    · exact htype φ
+    · exact has_type_cons m hi.fresh hi.ag hi.lit.nat hi.lit.succ hi.lit.sol
+        hi.lit.nil hi.lit.cons hi.lit.char hi.lit.ofn
+        (natLitSupported_cons hi.fresh) (strLitSupported_cons hi.fresh)
+        hi.lpNil hi.lpCons c hc φ
+  · intro cv value hint hmem φ
+    rcases hmem with _ | ⟨_, hmem⟩
+    · exact hdefn cv value hint rfl φ
+    · exact defn_eq_cons m hi.fresh hi.ag hi.lit
+        (natLitSupported_cons hi.fresh) (strLitSupported_cons hi.fresh)
+        hi.lpNil hi.lpCons cv value hint hmem φ
+  · intro cv value hmem φ
+    rcases hmem with _ | ⟨_, hmem⟩
+    · exact hthm cv value rfl φ
+    · exact thm_ok_cons m hi.fresh hi.ag hi.lit
+        (natLitSupported_cons hi.fresh) (strLitSupported_cons hi.fresh)
+        hi.lpNil hi.lpCons cv value hmem φ
+  · intro ψ
+    by_cases hn : c₀.name = emptyName
+    · exact hempty hn ψ
+    · rw [← hi.ag emptyName (fun hh => hn hh.symm)]
+      exact m.empty_pinned ψ
 
 end Setlec.TTVerify

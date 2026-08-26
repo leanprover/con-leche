@@ -142,7 +142,8 @@ theorem RecRulesTT.empty (cval : TConstVal) : RecRulesTT Env.empty cval := by
 
 /-- The eta family of an eta-capable stored structure is complete:
 the capability record's constructor is stored at exactly its arities,
-and every documented projection function is stored.  **A deliberate duplicate, awaiting relocation.**  This restates
+and every documented projection function is stored.  **A deliberate
+duplicate, awaiting relocation.**  This restates
 `Setlec/Model/Interp.lean`'s `EtaFamilyStored`, which is `V`-free and
 belongs in `Setlec/Verify/*`; a relocation task tracks it, together
 with `natLitSupported_congr` / `natLitSupported_inv`, which the bridge
@@ -372,9 +373,9 @@ lemma. -/
 def NatOpsTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ c ∈ natOpNames, ∀ cv v hint, env.find? c = some (.defnInfo cv v hint) →
     natOpGuard env c = true ∧
-    ∀ eq ∈ natOpEquations 0 c, ∀ (φ : Name → Nat) (L R : VExpr),
-      denote cval env φ 2 eq.1 = some L →
-      denote cval env φ 2 eq.2 = some R →
+    ∀ eq ∈ natOpEquations 0 c, ∀ φ : Name → Nat, ∃ L R,
+      denote cval env φ 2 eq.1 = some L ∧
+      denote cval env φ 2 eq.2 = some R ∧
       Deq [cval natName φ, cval natName φ] L R
 
 theorem NatOpsTT.empty (cval : TConstVal) : NatOpsTT Env.empty cval := by
