@@ -111,6 +111,107 @@ noncomputable def choiceV (u : Nat) : V :=
   lamC (univ u) fun A =>
     lamC (piC (piC A fun _ => empty) fun _ => empty) fun _ => schoice A
 
+/-! ## Application laws
+
+The collapsed `app_lamC` fires on domain membership alone, so each
+constant's value computes as soon as its arguments are typed — which is
+exactly what the premises of the corresponding rule supply. -/
+
+theorem natRecV_app {u : Nat} {M z s n : V}
+    (hM : M ∈ˢ piC (omega : V) fun _ => univ u)
+    (hz : z ∈ˢ app M natzero) (hs : s ∈ˢ natStepSpace V M)
+    (hn : n ∈ˢ (omega : V)) :
+    app (app (app (app (natRecV V u) M) z) s) n = natrec z s n := by
+  rw [natRecV, app_lamC hM, app_lamC hz, app_lamC hs, app_lamC hn]
+
+theorem natRecV_mem_fibre {M z s n : V}
+    (hz : z ∈ˢ app M natzero) (hs : s ∈ˢ natStepSpace V M)
+    (hn : n ∈ˢ (omega : V)) : natrec z s n ∈ˢ app M n :=
+  natrec_mem hz (fun _ hk _ hih => app_mem_piC (app_mem_piC hs hk) hih) hn
+
+theorem punitRecV_app {v : Nat} {M m t : V}
+    (hM : M ∈ˢ piC (unitSet : V) fun _ => univ v)
+    (hm : m ∈ˢ app M pt) (ht : t ∈ˢ (unitSet : V)) :
+    app (app (app (punitRecV V v) M) m) t = m := by
+  rw [punitRecV, app_lamC hM, app_lamC hm, app_lamC ht]
+
+theorem psigmaV_app {u v : Nat} {A B : V} (hA : A ∈ˢ (univ u : V))
+    (hB : B ∈ˢ piC A fun _ => univ v) :
+    app (app (psigmaV V u v) A) B = sigmaSet (Nat.max u v) A fun x => app B x := by
+  rw [psigmaV, app_lamC hA, app_lamC hB]
+
+theorem psigmaMkV_app {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
+    (hB : B ∈ˢ piC A fun _ => univ v) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
+    app (app (app (app (psigmaMkV V u v) A) B) a) b =
+      if Nat.max u v = 0 then pt else spair a b := by
+  rw [psigmaMkV, app_lamC hA, app_lamC hB, app_lamC ha, app_lamC hb]
+
+theorem psigmaFstV_app {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
+    (hB : B ∈ˢ piC A fun _ => univ v)
+    (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
+    app (app (app (psigmaFstV V u v) A) B) p = sfst p := by
+  rw [psigmaFstV, app_lamC hA, app_lamC hB, app_lamC hp]
+
+theorem psigmaSndV_app {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
+    (hB : B ∈ˢ piC A fun _ => univ v)
+    (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
+    app (app (app (psigmaSndV V u v) A) B) p = ssnd p := by
+  rw [psigmaSndV, app_lamC hA, app_lamC hB, app_lamC hp]
+
+theorem quotV_app {u : Nat} {A R : V} (hA : A ∈ˢ (univ u : V))
+    (hR : R ∈ˢ relSpace V A) :
+    app (app (quotV V u) A) R = quotSet u A R := by
+  rw [quotV, app_lamC hA, app_lamC hR]
+
+theorem quotMkV_app {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
+    (hR : R ∈ˢ relSpace V A) (ha : a ∈ˢ A) :
+    app (app (app (quotMkV V u) A) R) a = quotClass u A R a := by
+  rw [quotMkV, app_lamC hA, app_lamC hR, app_lamC ha]
+
+theorem quotLiftV_app {u v : Nat} {A R B f h : V} (hA : A ∈ˢ (univ u : V))
+    (hR : R ∈ˢ relSpace V A) (hB : B ∈ˢ (univ v : V))
+    (hf : f ∈ˢ piC A fun _ => B) (hh : h ∈ˢ quotInvSpace V A R f) :
+    app (app (app (app (app (quotLiftV V u v) A) R) B) f) h =
+      SetTheory.quotLift u v A R f := by
+  rw [quotLiftV, app_lamC hA, app_lamC hR, app_lamC hB, app_lamC hf, app_lamC hh]
+
+/-- The invariance premise, read off the membership of a proof in the
+invariance space. -/
+theorem quotInv_of_mem {A R f h : V} (hh : h ∈ˢ quotInvSpace V A R f) :
+    ∀ a b, a ∈ˢ A → b ∈ˢ A → (∃ w, w ∈ˢ app (app R a) b) →
+      app f a = app f b := by
+  intro a b ha hb hw
+  obtain ⟨wv, hwv⟩ := hw
+  rw [quotInvSpace] at hh
+  have h1 : app h a ∈ˢ
+      piC A fun b => piC (app (app R a) b) fun _ => eqv (app f a) (app f b) :=
+    app_mem_piC hh ha
+  have h2 : app (app h a) b ∈ˢ
+      piC (app (app R a) b) fun _ => eqv (app f a) (app f b) :=
+    app_mem_piC h1 hb
+  have h3 : app (app (app h a) b) wv ∈ˢ eqv (app f a) (app f b) :=
+    app_mem_piC h2 hwv
+  exact mem_eqv h3
+
+/-- A `¬¬A` inhabitant witnesses that `A` is inhabited: if `A` were
+empty, `¬A` would be `{pt}` and applying the proof would land in `∅`. -/
+theorem exists_mem_of_dneg {A h : V}
+    (hh : h ∈ˢ piC (piC A fun _ => (empty : V)) fun _ => empty) :
+    ∃ x, x ∈ˢ A := by
+  rcases Classical.em (∃ x, x ∈ˢ A) with hex | hne
+  · exact hex
+  · exfalso
+    have hA : A = empty := eq_empty fun z hz => hne ⟨z, hz⟩
+    subst hA
+    have hpt : (pt : V) ∈ˢ piC (empty : V) fun _ => (empty : V) := by
+      rw [piC_empty]; exact pt_mem_unitSet
+    exact not_mem_empty _ (app_mem_piC hh hpt)
+
+theorem choiceV_app {u : Nat} {A h : V} (hA : A ∈ˢ (univ u : V))
+    (hh : h ∈ˢ piC (piC A fun _ => (empty : V)) fun _ => empty) :
+    app (app (choiceV V u) A) h = schoice A := by
+  rw [choiceV, app_lamC hA, app_lamC hh]
+
 /-- The value of each built-in constant at a concrete level
 instantiation. -/
 noncomputable def bval : BConst → List Nat → V

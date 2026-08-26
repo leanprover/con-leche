@@ -158,7 +158,7 @@ def BConst.type : BConst → List Nat → VExpr
     .pi (relT (.bvar 0)) <|
     .pi (.bvar 1) <|
     .pi (.bvar 2) <|
-    .pi (mkAppN (.bvar 3) [.bvar 1, .bvar 0]) <|
+    .pi (mkAppN (.bvar 2) [.bvar 1, .bvar 0]) <|
     .eqE (quotT u (.bvar 4) (.bvar 3))
       (quotMkT u (.bvar 4) (.bvar 3) (.bvar 2))
       (quotMkT u (.bvar 4) (.bvar 3) (.bvar 1))

@@ -4,6 +4,7 @@ import Setlec.TT.Const
 import Setlec.TT.Judgment
 import Setlec.TT.Semantics.Value
 import Setlec.TT.Semantics.Interp
+import Setlec.TT.Semantics.ConstOk
 
 /-!
 # The declarative type-theory layer (task #74)
