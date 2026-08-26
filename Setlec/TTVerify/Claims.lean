@@ -66,9 +66,13 @@ That the threading is viable is not assumed: the recursion has to hand
 each subterm a typing of its own, and `Setlec/TTVerify/Inversion.lean`
 supplies exactly the two inversions (`app` head/argument, `proj`
 subject) the checker's own recursion needs.  **`beta` is the one clause
-this does not settle** — see the DESIGN section — and the layer must
-not grow a Pi-injectivity lemma to settle it, that principle being
-semantically false under the collapse.
+this does not settle**: inversion yields the argument at the ambient
+domain, while the rule asks for it at the λ's annotation, so the
+checker's beta certificate supplies the premise.  Whether a *derivable*
+Pi-injectivity lemma could weaken the rule instead is an open
+metatheory question, tracked separately — see the DESIGN section, and
+note that the semantic principle's falsity under the collapse is not
+evidence either way.
 
 ## Status (task #119 stage 2)
 

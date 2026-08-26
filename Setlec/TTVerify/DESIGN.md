@@ -322,7 +322,7 @@ every reduct is our artifact, not a fidelity requirement.
 | structure-eta, `projCert` | replaceable | and measured free anyway |
 | plain-rule parameter comparison | **needed**, cheap | |
 | canonical-index `defEqList` | **needed**, cheap | |
-| beta re-check | see below | |
+| beta re-check | **needed** *under the current rule set* | the qualifier is load-bearing; see below |
 
 The last two are worth their keep for a reason that inverts the usual
 intuition: removing them made the run *slower*, because they
@@ -355,24 +355,61 @@ named departure from the layer's "no syntactic metatheory" discipline,
 and it is in `Setlec/TTVerify/*` rather than `Setlec/TT/*` to keep it
 marked as a bridge need.
 
-### The beta clause: the certificate is load-bearing, and here is why
+### The beta clause: the certificate is needed under the current rule set
 
 The investigation left the beta re-check as its one **unclear** verdict,
-leaning needed.  The bridge sharpens that to **needed**, for a
-proof-level reason rather than a measurement:
+leaning needed.  The bridge sharpens that to **needed under the current
+rule set**, for a proof-level reason rather than a measurement — and
+the qualifier is not hedging, it is the whole content of the next
+paragraph but one.
 
 `HasType.beta`'s premise is `Γ ⊢ a : A` at *the λ's own annotation*.
 Inverting a typed redex `⊢ (λA.b) a : C` yields
 `⊢ λA.b : Π A₀ B₀` and `⊢ a : A₀` — the ambient domain, not the
-annotation.  Closing that gap needs Π-injectivity, and **Π-injectivity
-is semantically false under the domain-relative collapse**, so the
-layer must not grow it.  The premise `Γ ⊢ a : A` is not decoration:
-soundness consumes it as the domain membership that fires `app_lamC`.
+annotation (`Setlec/TTVerify/Inversion.lean`).  The premise is not
+decoration: soundness consumes it as the domain membership that fires
+`app_lamC`.
 
-What does close the gap is the checker's own beta certificate — infer
+What closes the gap today is the checker's own beta certificate — infer
 the argument's type, compare it definitionally with the annotation —
 which the inference and defeq claims turn into `⊢ ⟦a⟧ : ⟦ta⟧` and
 `Deq Δ ⟦ta⟧ ⟦A⟧`, hence `⊢ ⟦a⟧ : ⟦A⟧` by `conv`.  So this certificate
 is load-bearing *for the bridge*, not merely plausible-looking.  No
 performance cost attaches to keeping it: it is free once the
 app-argument check is gone.
+
+#### OPEN: derivable Π-injectivity (tracked separately — do not close this)
+
+Whether the premise could be weakened instead, by a lemma
+
+> for every derivation of `Deq Δ (Π A B') (Π A₀ B₀)`, a derivation of
+> `Deq Δ A A₀` exists,
+
+is an **open metatheory question about this layer**, and a task is open
+for it.  Nothing above answers it.  The verdict recorded here is
+"needed *under the current rule set*" precisely so that the question
+stays open; a reader who takes it as settled will drop the task, and it
+is the question that decides whether a cert-skipping run can ever be
+the *verified* mode.
+
+**In particular, semantic Π-injectivity being false under the
+domain-relative collapse is not evidence either way.**  That is a
+statement about what *holds in the model*; the lemma above is a
+statement about what *the rules generate*.  Derivable equations are a
+strict subset of true ones, and that asymmetry is the entire reason
+this layer is an upper bound in one direction and not the other
+(`Setlec/TT/DESIGN.md` §2.1) — a false-in-the-model principle can still
+be underivable, which is what would need proving, and a true-in-the-
+model one can still be underivable too.  The same distinction is what
+made the task #100 countermodel irrelevant to derivability: that
+countermodel needs `⊢ Prop : ∀ p : Prop, p`, and no such derivation
+exists.
+
+An earlier revision of this section asserted that semantic falsity
+settled it.  It does not, and the error is recorded rather than quietly
+fixed because it is an easy one to make twice.
+
+The practical upshot does not depend on the answer, which is why this
+is comfortable to leave open: performance is unaffected either way
+(beta is free once the app-argument certificate goes).  Only "validate
+`--yolo` literally" turns on it.

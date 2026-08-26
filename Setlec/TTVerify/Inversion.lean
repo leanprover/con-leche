@@ -27,10 +27,19 @@ determines which rules could have concluded it**, up to `conv`, which
 does not change the subject.  So each inversion is one induction with
 two interesting cases (the rule itself, and `conv`) and a catch-all
 that is closed by constructor disjointness.  Nothing here resembles
-Church–Rosser, unique typing, or weakening; in particular note that
-**Π-injectivity is *not* among these and must not be added** — it is
-semantically false under the domain-relative collapse
-(`Setlec/TTVerify/DESIGN.md` §6, the beta clause).
+Church–Rosser, unique typing, or weakening.
+
+**Π-injectivity is deliberately *not* among these, and its status is
+open, not refuted.**  The bridge would want it to weaken
+`HasType.beta`'s premise (`Setlec/TTVerify/DESIGN.md` §6): inverting a
+typed redex yields the argument at the *ambient* domain `A₀`, while
+`beta` asks for it at the λ's annotation `A`.  Whether
+`Deq Δ (Π A B') (Π A₀ B₀) → Deq Δ A A₀` is *derivable* is an open
+metatheory question with a task of its own.  Note that the *semantic*
+principle being false under the domain-relative collapse says nothing
+about it: derivable equations are a strict subset of true ones.  Until
+that question is answered, the checker's beta certificate supplies the
+premise and the layer grows no injectivity lemma.
 -/
 
 namespace Setlec.TTVerify
