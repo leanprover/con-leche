@@ -364,4 +364,63 @@ theorem infer_forallE_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
   · rw [denote_sort]
     rfl
 
+/-! ## The constant clause
+
+The one clause whose rule is not in `Setlec/TT/Judgment.lean` but in
+the **environment invariant**: `EnvTT.has_type` is precisely "every
+stored constant's valuation is derivably of its stored type", so the
+clause is that field plus the two moves that get it from the empty
+context at depth 0 to `Δ` at depth `d`.
+
+Both moves are already built and neither is about constants:
+`denote_instLevels` (level instantiation composes the assignment,
+§8.7) and `denote_lift` at a closed denotation (`denote_closed`).
+That the delta step and the constant clause need the same two lemmas
+is not a coincidence — they are the same fact about `cval` read in two
+directions. -/
+
+/-- `.const` infers by `EnvTT.has_type`. -/
+theorem infer_const_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {d : Nat} {Δ : List VExpr} {n : Name} {us : List Level} {t : Expr}
+    (h : inferTypeCore env (fuel + 1) d (.const n us) = .ok t) :
+    ∃ v tv, denote m.cval env φ d (.const n us) = some v ∧
+      denote m.cval env φ d t = some tv ∧ HasType Δ v tv := by
+  rw [inferTypeCore_succ] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
+    Except.bind] at h
+  cases hf : env.find? n with
+  | none => rw [hf] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
+  | some ci =>
+    rw [hf] at h
+    dsimp only at h
+    split at h
+    · next hlen =>
+      simp only [Except.ok.injEq] at h
+      subst h
+      -- the stored name is this one, and the environment types it
+      obtain rfl : ci.name = n := by
+        rw [Env.find?] at hf
+        have := List.find?_some hf
+        simpa using this
+      obtain ⟨tv0, htv0, hct⟩ :=
+        m.has_type ci (find?_mem hf)
+          (Level.substFn φ ci.toConstantVal.levelParams us)
+      -- the stored type is closed, so its denotation is
+      obtain ⟨hnf, -, -, hbd, -⟩ := m.wf ci (find?_mem hf)
+      have hcls : VExpr.Closed tv0 := denote_closed hcl hnf hbd htv0
+      refine ⟨m.cval ci.name
+        (Level.substFn φ ci.toConstantVal.levelParams us), tv0, ?_, ?_, ?_⟩
+      · rw [denote_const, hf]
+        exact if_pos hlen
+      · rw [denote_instLevels m.val_params,
+          denote_lift hcl
+            (Expr.WScoped.of_not_hasFvar hnf).fvarsBelow d (Nat.zero_le d)]
+        rw [denoteClosed] at htv0
+        rw [htv0]
+        simp only [Option.map_some, Nat.sub_zero,
+          VExpr.liftN_eq_self_of_closed hcls]
+      · exact HasType.weakenNil hct Δ
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+
 end Setlec.TTVerify
