@@ -3841,6 +3841,26 @@ the instantiated domain.  Written for `Eq`, it costs `Nat`, `PSigma`
 and `Quot` nothing — the same pilot-then-blocks economy the
 `instantiate1` kit had.
 
+#### CANDIDATE for the final summary: everything here is telescope-shaped
+
+> **Every telescope-shaped obligation in this bridge decomposes against
+> the same walk.**  `TeleTyped` (the `Expr` side), `VTeleTyped` (the
+> term side) and now `BetaSpine` (the reduction side) are three
+> inductives with the same `cons`, and they compose without glue
+> because all three are walking the checker's own telescope.
+
+Stated as a candidate, not a conclusion, because two of the three
+arrived together and the third is one block old.  **The test is
+`Nat`, `PSigma` and `Quot`**: if their iota obligations decompose
+against the same walk with no new relation and no adapter, the property
+is real and belongs in §0's practice list — *the checker is
+telescope-shaped throughout, so one walk abstraction serves all of it,
+and a bridge obligation that does not decompose against it is a signal
+the obligation is stated wrong.*  If any of the three needs an adapter,
+the honest reading is that the coincidence was three instances of a
+shape the `Eq`/`PUnit` blocks happen to share, and the candidate is
+withdrawn.
+
 **The computation needed a per-constructor `instantiate1` kit.**
 `denote` opens every binder with `instantiate1` at cut `0`, so a basis
 type's computation walks it once per node — and unfolding the
