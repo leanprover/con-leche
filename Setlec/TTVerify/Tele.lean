@@ -101,4 +101,46 @@ theorem TeleTyped.appN {cval : TConstVal} {env : Env} {φ : Name → Nat}
       rw [denote_beta (n := n) (ty := ty) hcl hfb hwa hba harg 0, hB]
       rfl
 
+/-! ## Spines
+
+`Expr.mkAppN` and `VExpr.mkAppN` have the same shape, so a denoted
+spine transports through an application chain.  Needed wherever a
+clause matches on `getAppFn`/`getAppArgs` and the bridge has to
+reassemble the denotation — `majorToCtor`'s rescues, and the iota
+clause's redex. -/
+
+/-- Each expression of a spine denotes to the corresponding term. -/
+inductive DenoteSpine (cval : TConstVal) (env : Env) (φ : Name → Nat)
+    (d : Nat) : List Expr → List VExpr → Prop
+  | nil : DenoteSpine cval env φ d [] []
+  | cons {a : Expr} {v : VExpr} {as : List Expr} {vs : List VExpr} :
+      denote cval env φ d a = some v →
+      DenoteSpine cval env φ d as vs →
+      DenoteSpine cval env φ d (a :: as) (v :: vs)
+
+/-- Denotation commutes with application spines. -/
+theorem denote_mkAppN {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d : Nat} {as : List Expr} {vs : List VExpr}
+    (h : DenoteSpine cval env φ d as vs) :
+    ∀ {f : Expr} {vf : VExpr}, denote cval env φ d f = some vf →
+      denote cval env φ d (Expr.mkAppN f as) = some (VExpr.mkAppN vf vs) := by
+  induction h with
+  | nil => intro f vf hf; exact hf
+  | cons ha _ ih =>
+    intro f vf hf
+    refine ih ?_
+    rw [denote_app, hf, ha]
+
+/-- A typed telescope walk exposes its spine's denotations — the form
+`denote_mkAppN` consumes, so a `TeleTyped` hypothesis doubles as the
+reassembly fact. -/
+theorem TeleTyped.spine {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d : Nat} {Δ : List VExpr} {T : Expr} {args : List Expr}
+    {xs : List VExpr} {rest : Expr}
+    (h : TeleTyped cval env φ d Δ T args xs rest) :
+    DenoteSpine cval env φ d args xs := by
+  induction h with
+  | nil => exact .nil
+  | cons _ harg _ _ _ _ _ ih => exact .cons harg ih
+
 end Setlec.TTVerify

@@ -142,10 +142,18 @@ theorem RecRulesTT.empty (cval : TConstVal) : RecRulesTT Env.empty cval := by
 
 /-- The eta family of an eta-capable stored structure is complete:
 the capability record's constructor is stored at exactly its arities,
-and every documented projection function is stored.  Restated from
-`Setlec/Model/Interp.lean`'s `EtaFamilyStored` — which is `V`-free and
-would be importable if it lived in `Setlec/Verify/*` (see §0's note on
-missing counterparts).
+and every documented projection function is stored.  **A deliberate duplicate, awaiting relocation.**  This restates
+`Setlec/Model/Interp.lean`'s `EtaFamilyStored`, which is `V`-free and
+belongs in `Setlec/Verify/*`; a relocation task tracks it, together
+with `natLitSupported_congr` / `natLitSupported_inv`, which the bridge
+duplicates for the same reason.  Deferred because `Model/Interp.lean`
+is heavily trafficked and moving it mid-flight would collide.
+
+**Do not "fix" the duplication by importing `Setlec/Model/*` from
+here.**  That is the wrong direction: the bridge must not depend on the
+set-model path (both verification routes are meant to stand alone), and
+an import would couple them permanently to save a ten-line
+restatement.  The fix is the relocation, when it is safe to make.
 
 It is the *premise* under which the eta law is owed: mid-block the
 former is stored before its constructor, so the premise fails and the

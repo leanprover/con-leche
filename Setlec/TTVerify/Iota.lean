@@ -94,4 +94,48 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     φ d Δ us usj args margs xs ys restR restC L R hlenA hlenM hfitR hfitC
     hL hR
 
+/-! ## The stuck-major eta rescue
+
+`majorToCtor`'s eta branch (`Setlec/Kernel/Core.lean`) replaces a major
+that will not whnf to a constructor by the *fabrication*
+`C p⃗ (proj₀ p⃗ b) … (proj_{n-1} p⃗ b)`, certified by
+`structEtaCertWith`.  On the bridge side that replacement is
+`EnvTT.caps_ok`'s eta law, and the lemma below is the consumer that
+shows the field is shaped for it (house rule,
+`Setlec/TT/DESIGN.md` §3.1).
+
+**The two hypotheses are exactly the pre-registered ones.**
+`structEtaCertWith` runs `iotaCerts` on `T`'s parameter telescope at
+`wtb.getAppArgs`, which `certs_typed` turns into the `TeleTyped` below;
+and `majorToCtor` computes `tmaj ← whnf (infer major)`, which the
+inference and whnf claims turn into the subject's typing at `T p⃗`.
+Recorded in `Setlec/TTVerify/DESIGN.md` §6 as a prediction *before*
+`EtaLawTT` was written, and confirmed verbatim — so the field's shape
+was fixed by the prediction rather than fitted to the code
+afterwards. -/
+
+/-- **The eta rescue.**  A stuck major and its fabricated constructor
+form denote to `Deq`-equal terms. -/
+theorem eta_rescue {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {d : Nat} {Δ : List VExpr}
+    {T : Name} {cvT : ConstantVal} {caps : IndCaps} {ust : List Level}
+    {major : Expr} {targs : List Expr} {xs : List VExpr} {rest : Expr}
+    {B F : VExpr}
+    (hT : env.find? T = some (.indInfo cvT caps))
+    (heta : caps.eta = true)
+    (hres : reservedBasisNames.contains T = false)
+    (hfam : EtaFamilyStoredT env T caps)
+    (hlen : targs.length = caps.etaParams)
+    (hfit : TeleTyped m.cval env φ d Δ
+      (cvT.type.instantiateLevelParams cvT.levelParams ust) targs xs rest)
+    (hB : denote m.cval env φ d major = some B)
+    (hBt : HasType Δ B
+      (VExpr.mkAppN (m.cval T (Level.substFn φ cvT.levelParams ust)) xs))
+    (hF : denote m.cval env φ d
+      (Expr.mkAppN (.const caps.etaCtor ust)
+        (etaFabArgs T ust targs major caps.etaFields)) = some F) :
+    Deq Δ B F :=
+  m.caps_ok.1 T cvT caps hT heta hres hfam φ d Δ ust targs major xs rest
+    B F hlen hfit hB hBt hF
+
 end Setlec.TTVerify

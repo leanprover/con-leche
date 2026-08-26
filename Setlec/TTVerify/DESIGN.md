@@ -1095,8 +1095,12 @@ recursor and constructor, the rule, the level and argument spines,
    discharged by the clause from `EnvTT.wf` and the reduction's
    invariants, exactly as the set model's iota case discharges its
    own.
-2. **`majorToCtor` soundness — the real remaining work**, and its
-   prediction is now settled (`structEtaCert` confirmed, §6).  The contract
+2. **`majorToCtor` soundness** — its prediction settled
+   (`structEtaCert` confirmed, §6), and its **eta branch done**
+   (`eta_rescue`, `Setlec/TTVerify/Iota.lean`), which is the branch the
+   prediction was about.  What remains is the **K branch**, whose route
+   is `proofIrrel` — the certificate's own soundness, and the collapse
+   case where both sides are the proof point.  The contract
    speaks about a redex whose major is already in constructor form,
    while the clause sees the major as written.  Bridging them is the
    whnf claim on the major, `litMajorToCtor`, and `majorToCtor` — the
