@@ -8,6 +8,7 @@ import Setlec.TTVerify.Tele
 import Setlec.TTVerify.Certs
 import Setlec.TTVerify.Iota
 import Setlec.TTVerify.Inversion
+import Setlec.TTVerify.Typable
 import Setlec.TTVerify.EnvTT
 import Setlec.TTVerify.Claims
 import Setlec.TTVerify.WhnfCore

@@ -2162,3 +2162,146 @@ applies to any future clause whose premises land on that certificate.
   (`prf` at an `eqE`), by the same argument.
 * `Eq.rec` — **nothing new needed**: `eqRec_derivable`
   (`Setlec/TT/Examples.lean`) already exists, from the `congrEq` work.
+
+## 12. The governing design directive, and what it changes
+
+A user directive arrived before `DefEqClaimsTT` and `InferClaimsTT`
+were proved (they were already *stated*).  Most of it codifies where
+this bridge had already converged; two parts change the plan, and one
+part I have to report a conflict about rather than silently resolve.
+
+**The directive, in the terms that bear on this file.**  Verification
+is factored through the TT layer: every step of the pure checker is
+justified by a direct correspondence to a TT rule.  The bridge's only
+jobs are translating imperative code to an inductive relation, moving
+irrelevant decisions out of view, and removing features by
+interpretation.  The checker and the rules should be close enough that
+the bridge does nothing clever — thread an induction with a suitable
+invariant, case split, apply the right rule.  **Rules need not be
+premise-free**: premises may follow from guards/branches in the
+checker, or from *preconditions*.  `infer` gets no precondition (it is
+the establisher); `whnf` and `isDefEq` are **welcome to** assume their
+input well-typed.
+
+### 12.1 §2.4 is scoped, not retracted
+
+The premise-free discipline in `Setlec/TT/DESIGN.md` §2.4 governs the
+**layer's equational rules**, and it stands — it is why the
+substitution metatheory is two semantic lemmas rather than 123
+syntactic ones.  The amendment is one level up: **the bridge's claims
+may carry preconditions**, supplied by the checker's guards or by
+callers.  Two different objects, two different disciplines; conflating
+them would have made the directive look like a reversal, and it is not.
+
+### 12.2 The `defeq` call-site map
+
+Every `defeq` call in `Setlec/Kernel/Core.lean`, by what the caller
+holds and what it needs.  Two roles:
+
+**(A) Certificate calls** — the caller has just *inferred* one side and
+holds an annotation for the other; it needs the argument typed at the
+annotation.
+
+| site | shape | needs |
+|---|---|---|
+| `iotaCerts` (733) | `ta ← infer arg`, `defeq ta ty` | `⟦arg⟧ : ⟦ty⟧` |
+| `whnfCore` β (1346) | `ta ← infer a`, `defeq ta ty` | `⟦a⟧ : ⟦ty⟧` |
+| `inferBody` app (1529) | ditto | ditto |
+| `inferBody` let (1563) | `tv ← infer v`, `defeq tv ty` | `⟦v⟧ : ⟦ty⟧` |
+| `majorToCtor` K (1047) | `defeq tmaj (infer fab)` | both sides `Prop` |
+
+All five want the same thing: a `Deq` between **types**, consumed by
+`conv`.  None of them needs the two sides *typed*; they need the
+equation.
+
+**(B) Internal recursion** — `defeqStep`'s own descent: pi congruence
+(1757), spine congruence (1784), projection congruence (1794),
+`defEqList` (751), literal folds (1719/1736), the eta rescue (956),
+the unit-like rescue (935), pair eta (819), lazy delta, `stuckIrrel`.
+These are where a contract has to be *maintained*, so they decide it.
+
+### 12.3 The three contracts: (1) and (2) are refuted
+
+> (1) `isDefEq a b → ∃ T, [a] : T ∧ [b] : T ∧ eq(T,[a],[b])`
+> (2) `isDefEq a b → ∀ T, [a] : T → [b] : T ∧ eq(T,[a],[b])`
+> (3) `isDefEq a b → ∀ T, [a] : T → [b] : T → eq(T,[a],[b])`
+
+**Contract (1) is refuted by the checker's own de-gating.**
+`defeqStep`'s `forallE` clause compares the domains and the opened
+bodies and **nothing else** — task #100 stage 3 deliberately removed
+the binder-annotation comparison, because the collapse model's
+`piC_congr` needs only the domain and fibre agreements.  So the checker
+accepts `∀x:A₁.B₁ ≡ ∀x:A₂.B₂` with `A₁ : Sort u`, `A₂ : Sort v` and
+`u ≠ v`; the two pis then live at `Sort (imax u v₁)` and
+`Sort (imax v v₂)`, and contract (1) demands a **common** `T` for them.
+Nothing establishes it, and the layer has no unique typing to recover
+it from.  Not provable — and, on the same witness, plausibly false.
+
+Worth naming: this is the *second* time a checker simplification has
+constrained the bridge's statements (the first was the beta certificate
+becoming unconditional).  A de-gating removes work from the checker and
+moves an obligation to whoever wants a stronger contract from it.
+
+**Contract (2) is refuted by F1.**  Deriving `[b] : T` from `[a] : T`
+across `a ≡ b` is *subject* conversion.  `HasType.conv` moves the type,
+never the subject, and no other rule concludes a typing whose subject
+was moved.  That is F1 exactly (§6), and the same refutation that
+killed the threaded claim shape kills contract (2).
+
+**Contract (3) is adopted — and the bridge proves something
+stronger.**  `DefEqClaimsTT` concludes `Deq Δ va vb` with **no typing
+hypotheses at all**, which implies (3): `Deq.toHasType` re-slots an
+equation at any type, because `eqE`'s type argument is inert (it is
+carried for the denotation and never checked — `Setlec/TT/Syntax.lean`).
+
+That inertness is the reason the choice is cheap rather than
+consequential: **the equation carries no typing**, so the three
+contracts differ only in where the *typings* sit, and the bridge's
+answer is "nowhere — they are not needed".
+
+### 12.4 The conflict I am reporting rather than resolving
+
+The directive permits `whnf` and `isDefEq` to assume well-typed input.
+**On the evidence of the call-site map, neither needs it.**  Every rule
+premise either of them must discharge is already supplied at the site:
+
+* `HasType.beta`'s premise — the β certificate (1346), proved;
+* `HasType.eta`'s premise — the guard `tb ← infer b; whnf tb = ∀…`;
+* `UnitLawTT` / `EtaLawTT` premises — the guards at 935/956;
+* proof irrelevance — the two sort guards, proved (`proof_irrel_step`);
+* pi / app / proj congruence — `Deq`'s congruence lemmas are
+  premise-free;
+* delta — no premise, because it is an identity (§2);
+* the literal folds — the `natOpGuard` guards (§8.4).
+
+That is §6's headline fact reasserting itself from the other side: *the
+certificates are the reason a precondition is unnecessary.*  A checker
+without them would need one.
+
+So I have **not** added `Typable` preconditions to `WhnfCoreClaimsTT`,
+`WhnfClaimsTT` or `DefEqClaimsTT`.  Adding a hypothesis no clause reads
+is precisely §8.2's over-strong defect, and I would be committing it in
+the increment that records §8.2.  If a clause turns out to need one,
+the directive sanctions adding it and `Setlec/TTVerify/Typable.lean` is
+ready; the statement change is local.
+
+**`InferClaimsTT` is already in the sanctioned form**: no precondition,
+and its conclusion *is* "successful inference establishes typing".
+
+### 12.5 What was built anyway, and why it is not wasted
+
+`Setlec/TTVerify/Typable.lean`: the predicate and the inversion family
+(`appFn`, `appArg`, `projSubj`, `lamBody`, `piDom`, `piCod`, `letVal`,
+`letBody`).  It is on the critical path for the *next* thing the
+directive names — the `InferOnly` relation, where the precondition is
+essential rather than optional, because `infer_only` skips the argument
+check and `Typable e → InferOnly e t → e : t` is the only way to get it
+back.  The count-to-four alarm (`Setlec/TT/DESIGN.md` §3.1) is
+**superseded for this family and this family only**: one member per
+former is the plan, not erosion.
+
+Three gaps in the family are structural and are recorded at the module:
+`lam` yields the body but not the domain (the rule has no domain
+premise); `eqE` yields nothing (`eqType` is premise-free); `letE`
+yields the **substituted** body (matching its rule — the layer never
+types the open one).
