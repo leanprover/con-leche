@@ -1,4 +1,5 @@
 import Setlec.TTVerify.DeclStep
+import Setlec.Verify.Extend.Inversions
 
 /-!
 # The value-carrying installs
@@ -35,21 +36,14 @@ open Setlec.TT
 
 variable {F : Nat}
 
-/-! ## The record's projection equations -/
+/-! ## The inversions, now shared
 
-theorem fueledOps_annotate (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).annotate env d e = annotateCore env F d e := rfl
-theorem fueledOps_inferType (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).inferType env d e = inferTypeCore env F d e := rfl
-theorem fueledOps_isDefEq (F : Nat) (env : Env) (d : Nat) (a b : Expr) :
-    (fueledOps F).isDefEq env d a b = isDefEqCore env F d a b := rfl
-theorem fueledOps_ensureSort (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).ensureSort env d e = ensureSortCore env F d e := rfl
-theorem fueledOps_whnf (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).whnf env d e = Setlec.whnf env F d e := rfl
+`checkConstantVal_inv` and the `fueledOps` projection equations were
+duplicated here while they lived in `Setlec/Model/Extend/*`.  Task #123
+relocated that whole tier to `Setlec/Verify/*` — the file's own
+docstring now says both paths may import it — so the duplicates are
+gone and this is an alias for the call sites' benefit. -/
 
-/-- Inversion for `checkConstantVal`.  A duplicate; see the module
-docstring. -/
 theorem checkConstantVal_invT {env : Env} {cv cv' : ConstantVal}
     (h : checkConstantVal (fueledOps F) env cv = .ok cv') :
     env.find? cv.name = none ∧
@@ -64,57 +58,8 @@ theorem checkConstantVal_invT {env : Env} {cv cv' : ConstantVal}
       type.constsResolve env = true ∧
       inferTypeCore env F 0 type = .ok stype ∧
       ensureSortCore env F 0 stype = .ok u ∧
-      cv' = { cv with type := type } := by
-  simp only [checkConstantVal, fueledOps_annotate, fueledOps_inferType,
-    fueledOps_ensureSort, Bind.bind, Except.bind, Pure.pure,
-    Except.pure] at h
-  by_cases hfind : (env.find? cv.name).isSome = true
-  case pos => simp [hfind] at h
-  simp only [hfind] at h
-  by_cases hres : reservedBasisNames.contains cv.name = true
-  case pos => rw [if_pos hres] at h; exact nomatch h
-  simp only [hres] at h
-  by_cases hpshape : cv.name.isProjFnShape = true
-  case pos => rw [if_pos hpshape] at h; exact nomatch h
-  rw [if_neg hpshape] at h
-  have hpshapeF : cv.name.isProjFnShape = false := by
-    revert hpshape; cases cv.name.isProjFnShape <;> simp
-  by_cases hnd : Name.nodup cv.levelParams = true
-  case neg => simp [hnd] at h
-  simp only [hnd] at h
-  by_cases hlb : cv.type.looseBVarsBounded 0 = true
-  case neg => simp [hlb] at h
-  simp only [hlb] at h
-  by_cases hif : cv.type.hasFvar = true
-  case pos => simp [hif] at h
-  simp only [hif] at h
-  cases hann : annotateCore env F 0 cv.type with
-  | error e => rw [hann] at h; exact nomatch h
-  | ok type =>
-  rw [hann] at h
-  try dsimp only at h
-  by_cases htp : type.allLevelParamsDefined cv.levelParams = true
-  case neg => simp [htp] at h
-  simp only [htp] at h
-  by_cases htr : type.constsResolve env = true
-  case neg => simp [htr] at h
-  simp only [htr] at h
-  cases hst : inferTypeCore env F 0 type with
-  | error e => rw [hst] at h; exact nomatch h
-  | ok stype =>
-  rw [hst] at h
-  try dsimp only at h
-  cases hsort : ensureSortCore env F 0 stype with
-  | error e => rw [hsort] at h; exact nomatch h
-  | ok u =>
-  rw [hsort] at h
-  simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
-  have hfind0 : env.find? cv.name = none := by
-    revert hfind
-    cases env.find? cv.name <;> simp
-  exact ⟨hfind0, by simpa using hres, hpshapeF, hnd, hlb,
-    by simpa using hif,
-    type, stype, u, rfl, htp, htr, hst, hsort, h.symm⟩
+      cv' = { cv with type := type } :=
+  checkConstantVal_inv h
 
 /-! ## The valuation an install chooses
 
