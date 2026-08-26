@@ -2334,15 +2334,31 @@ exactly the constants the corresponding denotation clause reads, so
 whenever a clause fires, its guard has already established everything
 that clause's meaning depends on.
 
-**Why the count keeps rising** (six instances at the time of writing —
-the guard congruences, `DivModTT`'s transport, `denote_params_ext`'s
+**Why the count keeps rising** (eight instances at the time of writing
+— the guard congruences, `DivModTT`'s transport, `denote_params_ext`'s
 literals, `denote_instLevels`'s literals, `strLitSupported`'s ten
-pinned types, and #129's projection entry).  It has stopped being a
-pattern and become a property of the design, and the property is one
-sentence:
+pinned types, #129's projection entry, `natOpDeps` at the recurrence
+pin, and `divModEnvGuard`'s list at the div/mod pin).  It has stopped
+being a pattern and become a property of the design, and the property
+is one sentence:
 
 > **The pins exist so the *checker* can compare against known shapes,
 > and the same pins are why the *bridge* can compute against them.**
+
+**The alignment is now measurable, not just anecdotal.**  The div/mod
+pin's nine per-operation assemblies were written against one shared
+pair of drivers, from the guard's own dependency lists — and **seven of
+the nine compiled on first write**.  The two that did not (`Nat.div`,
+`Nat.mod`) failed for a reason unrelated to the alignment:
+`DivModClausesTT`'s own internal `if c = natDivName` survives into the
+goal and has to be reduced.
+
+That number is a better metric of design coherence than any single
+alignment anecdote.  A first-write success rate under a shared driver
+measures whether the guard's list, the denotation's needs and the
+law's shape actually coincide — if they only *nearly* coincided, the
+per-operation work would be where the discrepancies surfaced, and it
+is exactly where they did not.
 
 A pin is a commitment that a declaration has an exact form.  The
 checker uses it to decide acceptance without inspecting a value; the

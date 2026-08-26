@@ -168,7 +168,11 @@ fixes the context length to the depth — so a one-hypothesis frame is
 still a four-entry context with one entry no leaf mentions.  Give that
 entry the type of the hypothesis that *is* used and inhabit it with the
 same proof: the unused binder costs a duplicated argument, not a
-lemma. -/
+lemma.
+
+The reason is recorded rather than the absence: a missing lemma with a
+reason is documentation, a missing lemma without one is a gap someone
+will fill. -/
 theorem Deq.close4 {A H1 H2 T L R : VExpr} (hA : VExpr.Closed A)
     (h : HasType [VExpr.liftN 1 H2 0, H1, A, A] .prf
       (VExpr.liftN 2 (.eqE T L R) 0))
