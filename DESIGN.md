@@ -4522,6 +4522,36 @@ So the configuration the bridge reasons about is **not** the shipped
 one, and that gap is the bridge's to state plainly rather than the
 switch's to paper over.
 
+**Both configurations are tested (2026-08-26).**  The five moving
+expectations are pinned, not merely written down: an expectation in
+`tests/arena-expected.txt` / `tests/e2e-expected.txt` is either a single
+exit code, as for every other fixture, or a **pair** `<on>|<off>`, and
+`tests/arena.sh --direct-off` runs the whole suite (arena, e2e, split
+driver) against a switched-off binary, applying the right-hand codes.
+The common case does not grow — 5 of 205 expectation lines carry a pair
+— and the default invocation is untouched in command, output shape and
+cost: the off run is opt-in and builds nothing unless asked.
+
+Since the switch is a compile-time constant, the off run needs a second
+binary; `tests/build-direct-off.sh` produces one **without editing the
+source tree**.  It mirrors the tracked sources (minus `tests/`) into
+`_tmp/direct-off/` (gitignored), rewrites the one flag line there,
+seeds `.lake` from the main tree's build once and runs `lake build
+setlec` — 74 jobs, ~12 s warm, i.e. only `Direct.lean`'s cone.  It
+insists on finding exactly one pristine `:= true` line, so a reworded
+or already-flipped definition fails loudly instead of quietly testing
+the shipped configuration twice.  Result: arena 90/92, e2e 67/67, split
+11/11 in *both* configurations, against their respective expectations.
+
+The five moves are expected, not regressions, and split into two kinds.
+The two `direct_struct_raw` lines explicitly test the direct route and
+deliberately bypass generating a `_model` fallback, so of course they
+decline when the route is off — the fixture's subject is gone.  The
+three duplicate-declaration fixtures only change *reject → decline*,
+which is the harmless direction in exit-code terms: 1 (invalid input
+proof) becoming 2 (unsupported feature detected) never accepts anything
+it should not, so what is lost is rejection sharpness, not soundness.
+
 *No command-line flag.*  Making the switch settable at run time means
 threading a `Bool` from `main` to `directParts?`, and the two routes
 there are both expensive: through `CheckerOps` reaches only the pure

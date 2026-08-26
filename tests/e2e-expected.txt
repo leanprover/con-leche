@@ -1,3 +1,11 @@
+# Expected exit codes for setlec's own end-to-end fixtures, read by
+# tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).  Line format:
+# "<expectation> <fixture> [mode]", mode ∈ {raw, pre}.
+#
+# An expectation is a single exit code, or a pair "<on>|<off>" for the
+# fixtures whose verdict depends on the direct simple-structure master
+# switch (`Setlec.directStructsEnabled`, task #119): left = shipped
+# configuration, right = `tests/arena.sh --direct-off`.
 0 indexed_vec.ndjson
 0 std_axioms.ndjson
 0 prop_proj.ndjson
@@ -245,13 +253,20 @@
 # (the same enable turns the three arena bad/tutorial/13{3,4,7}
 # duplicate-declaration fixtures from 2 into 1: reject is the
 # reference-correct verdict for a duplicate name).
+# This fixture — on both its `raw` and its `pre` line — is one of the
+# five whose expectation depends on the master switch
+# `directStructsEnabled` (task #119), hence the paired "0|2": it
+# explicitly tests the direct route and deliberately bypasses generating
+# a `_model` fallback, so with the route switched off there is nothing
+# to install from and it declines.  Kept as a pair rather than relaxed,
+# because the shipped verdict is still what the fixture is for.
 # the model-family guard is keyed on the environment invariant's
 # linkage clauses and nothing wider: a plain `def Foo` followed by a
 # plain `def Foo._model` is an ordinary stream and stays accepted
 # (`_model` names are not special).  Rejected (exit 1) by a blanket
 # suffix reservation - which is exactly what this pins.
 0 model_name_plain.ndjson raw
-0 direct_struct_raw.ndjson raw
+0|2 direct_struct_raw.ndjson raw
 0 direct_nested_dep.ndjson
 1 direct_nested_dep_broken.ndjson raw
 # malformed_midstream.ndjson: a truncated JSON record after valid
@@ -275,9 +290,9 @@
 # whose `Iff` block then has no `_model` family — the decline (vs 0
 # on its plain line) proves the spawn really was skipped.
 # direct_struct_raw takes the direct-install path to the same verdict
-# as its `raw` line.
+# as its `raw` line — including the switch dependence (see there).
 2 std_axioms.ndjson pre
-0 direct_struct_raw.ndjson pre
+0|2 direct_struct_raw.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
