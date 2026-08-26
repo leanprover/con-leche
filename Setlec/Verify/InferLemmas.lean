@@ -1586,10 +1586,13 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     exact Or.inr ⟨sta, uT, tb, stb, vT, rfl, hwta, heq1, rfl, hstb, hwtb, heq2⟩
 
 
-/-- Inversion of a successful pair-eta certification. -/
+/-- Inversion of a successful pair-eta certification.  The last two
+conjuncts are task #130's: the pair type's own parameters `A` and `B`
+were certified against the projection entry's telescope, which is what
+`psigmaEta`'s first two premises ask for. -/
 theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : pairEtaCertP env fuel d a b = .ok true) :
-    ∃ c us pα pβ s₁ s₂ cvm tb c' us' A B cvi capsi cvr mI rP rr,
+    ∃ c us pα pβ s₁ s₂ cvm tb c' us' A B cvi capsi cvr mI rP rr entry,
       a = .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ ∧
       env.find? c = some (.ctorInfo cvm 2 2) ∧
       inferTypeCore env fuel d b = .ok tb ∧
@@ -1602,10 +1605,12 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       isDefEqCore env fuel d pα A = .ok true ∧
       isDefEqCore env fuel d pβ B = .ok true ∧
       isDefEqCore env fuel d s₁ (.proj c' 0 b) = .ok true ∧
-      isDefEqCore env fuel d s₂ (.proj c' 1 b) = .ok true := by
+      isDefEqCore env fuel d s₂ (.proj c' 1 b) = .ok true ∧
+      env.findProj? c' 0 = some entry ∧
+      projParamCertP env fuel d entry us' [A, B] = .ok true := by
   dsimp only [pairEtaCertP] at h
   simp only [pairEtaCert, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def, defeq_def] at h
+  simp only [infer_def, whnf_def, defeq_def, projParamCert_fold] at h
   revert h
   match a with
   | .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ => ?_
@@ -1805,9 +1810,24 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | false => simp [pure, Except.pure] at h
   | true =>
   simp only [↓reduceIte] at h
+  try simp only [Bind.bind, Except.bind] at h
+  cases hd2 : isDefEqCore env fuel d s₂ (.proj c' 1 b) with
+  | error err => rw [hd2] at h; exact nomatch h
+  | ok b2 =>
+  rw [hd2] at h
+  dsimp only at h
+  cases b2 with
+  | false => simp [pure, Except.pure] at h
+  | true =>
+  simp only [↓reduceIte] at h
+  revert h
+  match hpe : env.findProj? c' 0 with
+  | none => intro h; simp [pure, Except.pure] at h
+  | some entry => ?_
+  intro h
   exact ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
-    mI, rP, rr, rfl, hfc, rfl, hwtb, hfi, hfr, hrc, hrf, hmirp, hres, hlev,
-    hdA, hdB, hd1, h⟩
+    mI, rP, rr, entry, rfl, hfc, rfl, hwtb, hfi, hfr, hrc, hrf, hmirp, hres,
+    hlev, hdA, hdB, hd1, hd2, hpe, h⟩
 
 
 /-- Invert the per-projection telescope certificates. -/

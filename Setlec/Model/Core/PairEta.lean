@@ -39,8 +39,8 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
   obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
-    mIr, rPr, r, rfl, hfindM, htb, hwtb, hfindI, hfr, hrc, hrf, hmirp,
-    hgres, hlev, hdA, hdB, hd1, hd2⟩ := pairEtaCert_inv h
+    mIr, rPr, r, -, rfl, hfindM, htb, hwtb, hfindI, hfr, hrc, hrf, hmirp,
+    hgres, hlev, hdA, hdB, hd1, hd2, -, -⟩ := pairEtaCert_inv h
   -- identify the structure through the pinned recursor, then the
   -- constructor through the recursor's rule
   obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl hgres

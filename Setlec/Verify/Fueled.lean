@@ -240,7 +240,7 @@ theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
 theorem pairEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
     (pairEtaCert (fueledFns env) env d a b).val F =
       pairEtaCert (pureFns env F) env d a b := by
-  unfold pairEtaCert
+  unfold pairEtaCert projParamCert
   atF_tac
 
 theorem structEtaCertWith_atF (d : Nat) (a b wtb : Expr) (F : Nat) :

@@ -759,9 +759,31 @@ private theorem pairEtaCert_shift (henv : EnvWF env)
               simpa only [WScoped] using hwb)) ?_
         intro bb _
         refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-        exact ih.defeq hpd hws₂
-          (show WScoped d (Expr.proj c' 1 b) by
-            simpa only [WScoped] using hwb)
+        refine bind_congr_eq
+          (ih.defeq hpd hws₂
+            (show WScoped d (Expr.proj c' 1 b) by
+              simpa only [WScoped] using hwb)) ?_
+        intro bb₂ _
+        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
+        -- task #130: the parameter-telescope certification, shift-invariant
+        -- by `iotaCerts_shift` at the entry's (closed) stored type
+        cases hfp : env.findProj? c' 0 with
+        | none => rfl
+        | some entry =>
+          have hclosed : (entry.ty.instantiateLevelParams entry.levelParams
+              us').hasFvar = false := by
+            rw [hasFvar_instantiateLevelParams]
+            exact (henv _ (find?_mem (Env.findProj?_some hfp))).1
+          have hpc := iotaCerts_shift henv ih hpd
+            (ty := entry.ty.instantiateLevelParams entry.levelParams us')
+            (WScoped.of_not_hasFvar hclosed) (args := [A, B])
+            (fun x hx => by
+              rcases List.mem_cons.mp hx with rfl | hx
+              · exact hwAB.1
+              · rw [List.mem_singleton.mp hx]; exact hwAB.2)
+          rw [shiftFrom_eq_self_of_not_hasFvar hclosed] at hpc
+          simp only [List.map] at hpc
+          exact hpc
 
 private theorem structEtaProjCerts_shift (henv : EnvWF env)
     (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) (T : Name)

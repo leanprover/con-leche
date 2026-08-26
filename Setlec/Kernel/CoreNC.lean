@@ -90,11 +90,25 @@ Skipped here (each site cites why it is proof-only):
   out — and, as at `projTeleCertI`, a mode that skips every other
   member of the family and keeps this one reports a meaningless
   number.
+* `pairEtaCertNC` (vs `pairEtaCertI`): the projection-entry parameter
+  telescope certification `projParamCertI` (task #130) — the third
+  member of the same `iotaCertsI` family, added so that `psigmaEta`'s
+  first two premises (`⊢ A : Sort u`, `⊢ B : arrow A (Sort v)`) can be
+  read off what the checker recorded.  Evidence, read rather than
+  inherited: both references' struct-η
+  (lean4lean `tryEtaStructCore`, official kernel
+  `type_checker::try_eta_struct_core`) run *one* `isDefEq (inferType t)
+  (inferType s)` plus a per-field `isDefEq` against the projections;
+  neither ever infers or compares the structure type's **parameters**
+  on their own, let alone against a telescope.  Our parameter
+  comparisons `defeq pα A`/`defeq pβ B` stay — they are the interned
+  spelling of that single type-level `isDefEq` and are kept — but the
+  telescope walk is proof-only in exactly the task-#76 sense.  Until
+  task #130 this mode reused `pairEtaCertI` outright.
 
 Not skipped (also proof-only, but outside the task-#76 site list —
 reported as residue): `projCertI`, the possibly-Prop projection
-reduction certificate in the `whnfCoreBody` proj clause; `pairEtaCertI`
-performs no work the references' `tryEtaStructCore` would not.
+reduction certificate in the `whnfCoreBody` proj clause.
 -/
 
 namespace Setlec
@@ -190,12 +204,75 @@ def structUnitCertNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     | _ => pure false
   | _ => pure false
 
-/-- Cert-skipping twin of `stuckIrrelI` (`pairEtaCertI` and
-`proofIrrelI` do no proof-only work and are reused). -/
+/-- Cert-skipping twin of `pairEtaCertI`: keeps the constructor and
+type-head guards, the level comparison, the two parameter comparisons
+and the two field defeqs against the projections (all of which the
+references' `tryEtaStructCore` performs, the parameter comparisons as
+part of its `isDefEq (inferType t) (inferType s)`); skips the
+projection-entry parameter telescope certification `projParamCertI`
+(task #130). -/
+def pairEtaCertNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
+    CheckIM Bool := do
+  match ← viewI a with
+  | some (.app f₄ s₂) =>
+    match ← viewI f₄ with
+    | some (.app f₃ s₁) =>
+      match ← viewI f₃ with
+      | some (.app f₂ pβ) =>
+        match ← viewI f₂ with
+        | some (.app f₁ pα) =>
+          match ← viewI f₁ with
+          | some (.const c us) => do
+            let cn ← readbackNM c
+            match fe.find? cn with
+            | some (.ctorInfo _cvm 2 2) => do
+              let tb ← r.infer depth b
+              let wtb ← r.whnf depth tb
+              match ← viewI wtb with
+              | some (.app g₂ B) =>
+                match ← viewI g₂ with
+                | some (.app g₁ A) =>
+                  match ← viewI g₁ with
+                  | some (.const c' us') => do
+                    let c'n ← readbackNM c'
+                    match fe.find? c'n with
+                    | some (.indInfo _ _) =>
+                      match fe.find? (c'n.str "rec") with
+                      | some (.recInfo _ mI rP [rr]) =>
+                        if rr.ctor = cn ∧ rr.nfields = 2 ∧ mI = rP ∧
+                            reservedBasisNames.contains (c'n.str "rec")
+                              = true then do
+                          if ← liftFueled "level comparison"
+                              (← isEquivListLM us us') then do
+                            if ← r.defeq depth pα A then do
+                              if ← r.defeq depth pβ B then do
+                                let p₀ ← internI (.proj c' 0 b)
+                                if ← r.defeq depth s₁ p₀ then do
+                                  let p₁ ← internI (.proj c' 1 b)
+                                  r.defeq depth s₂ p₁
+                                else pure false
+                              else pure false
+                            else pure false
+                          else pure false
+                        else pure false
+                      | _ => pure false
+                    | _ => pure false
+                  | _ => pure false
+                | _ => pure false
+              | _ => pure false
+            | _ => pure false
+          | _ => pure false
+        | _ => pure false
+      | _ => pure false
+    | _ => pure false
+  | _ => pure false
+
+/-- Cert-skipping twin of `stuckIrrelI` (`proofIrrelI` does no
+proof-only work and is reused). -/
 def stuckIrrelNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     CheckIM Bool := do
-  if ← pairEtaCertI r fe depth a b then pure true
-  else if ← pairEtaCertI r fe depth b a then pure true
+  if ← pairEtaCertNC r fe depth a b then pure true
+  else if ← pairEtaCertNC r fe depth b a then pure true
   else if ← structEtaCertNC r fe depth a b then pure true
   else if ← structEtaCertNC r fe depth b a then pure true
   else if ← structUnitCertNC r fe depth a b then pure true

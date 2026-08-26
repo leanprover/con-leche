@@ -8238,3 +8238,118 @@ modes against a binary built from pre-change master, arena 90/92, e2e
 *failed* on real input would have surfaced here as a rejection — it
 does not, which is the evidence that the checker was always in a
 position to write these two premises down.
+
+## `pairEtaCert` certifies its own type arguments (2026-08-26, task #130)
+
+**The bridge's third request of the checker, and the last of the
+`iotaCerts`-family gaps.**  Read the task-#126 and task-#129 sections
+first: the framing, the phrasing and the NC judgement all carry over.
+
+`pairEtaCert` rescues a definitional equality between a fully applied
+pinned pair constructor `a = PSigma'.mk pα pβ s₁ s₂` and a stuck `b`.
+It ran four `defeq`s — `pα ~ A`, `pβ ~ B`, `s₁ ~ b.1`, `s₂ ~ b.2`,
+where `PSigma'.{us'} A B` is the whnf of `b`'s inferred type — and
+nothing else.  The rule those four justify is the layer's structure-η
+
+```
+psigmaEta : ⊢ A : .sort u → ⊢ B : arrow A (.sort v) →
+            ⊢ p : psigmaT u v A B →
+            ⊢ prf : eqE (psigmaT u v A B) p (psigmaMkT u v A B p.1 p.2)
+```
+
+whose third premise the inference of `b`'s type supplies, and whose
+first two nothing supplied.  The certificate **certified less than its
+rule needs**.  Not a soundness bug — nothing says the rescue is wrong,
+only that a typing derivation could not be rebuilt from what the
+checker recorded.  The set model is unaffected: `pairEta_sound`
+(`Model/Core/PairEta.lean`) takes the two memberships from `AnnotOk`'s
+*application* clause on `PSigma'.{us'} A B`, and takes the new
+conjuncts as `-`.  Requested by the TT bridge, task #119,
+`Setlec/TTVerify/DESIGN.md` §13; the premises are consumed twice over
+by `psigmaEta_law`, so they are not droppable decoration.
+
+**Why the bridge cannot reconstruct them.**  `HasType.app` fixes an
+argument's type to the domain of the function type *used in that
+application*, and a derivation of the whole application existentially
+quantifies that domain away — so the layer will not let the bridge
+descend into `PSigma' A B`'s derivation to recover `⊢ A : Sort u`.
+Facts about arguments have to be certified where they are used.  The
+set model's `AnnotOk` is exactly the annotation-truthfulness the bridge
+dropped; re-importing it would be a large change buying one clause.
+
+**The repair is task #129's certificate, verbatim.**  The pair type
+*is* the native projection entry, so `projParamCert entry us' [A, B]`
+— one `iotaCerts` walk on
+`entry.ty.instantiateLevelParams entry.levelParams us'` — delivers both
+premises at the domains the rule names.  The bridge-side conversion
+already exists (`projEntry_tele_premises`, `Setlec/TTVerify/ProjStep.lean`),
+so the pair's projection certificate and its η certificate now consume
+the same evidence.  `projParamCert`/`projParamCertI` moved up in
+`Core.lean`/`CoreI.lean` to sit above their new first caller; the
+definitions are unchanged.
+
+**Two deliberate deviations from the request's wording.**
+
+* **The levels are `us'`, the *type*'s, not `us`, the constructor's.**
+  `A` and `B` are the arguments of `PSigma'.{us'}`, and `psigmaEta`
+  names its premises at the levels of `p`'s type; instantiating the
+  entry at `us'` lands them there with no transport.  The two lists are
+  `Level.isEquiv`-compared one line earlier, so this is a choice of
+  spelling, not of strength.
+* **Failure is `pure false`, not `.invalid`.**  Unlike #129's
+  `inferBody` clause, `pairEtaCert` is a *rescue attempt*: `stuckIrrel`
+  tries it in both argument orders and then four more certificates.
+  Throwing would reject inputs that the reverse direction or a later
+  rule still accepts.  For the same reason the call sits **last**,
+  after the four `defeq`s: the verdict is unchanged either way, but
+  running it last means it only fires on rescues that would otherwise
+  have succeeded, and leaves the existing calls' error behavior exactly
+  as it was.
+
+**Mirrors.**  Spec (`Core.lean`) and interned (`CoreI.lean`, which
+recovers the entry's type with the same `projFnIdxM`/`constTyAtM` pair
+`inferBodyI` uses) run it.  `CoreNC.lean` **skips** it, and this mode
+needed a new twin `pairEtaCertNC` — until now NC reused `pairEtaCertI`
+outright, on the recorded grounds that it "performs no work the
+references' `tryEtaStructCore` would not".  That claim was checked
+again and is still true of the four `defeq`s and false of the new call:
+lean4lean's `tryEtaStructCore` and the official kernel's
+`type_checker::try_eta_struct_core` run one
+`isDefEq (inferType t) (inferType s)` plus a per-field `isDefEq`
+against the projections, and **never infer or compare the structure
+type's parameters on their own**, let alone against a telescope.  The
+parameter comparisons stay in NC (they are the interned spelling of
+that single type-level `isDefEq`); the telescope walk goes, like every
+other `iotaCertsI` in that mode.  Rationale recorded in `CoreNC.lean`'s
+header.
+
+**Verification.**  `pairEtaCert_fst_proj`/`_snd_proj` (`PairM.lean`)
+and `pairEtaCert_atF` (`Fueled.lean`) unfold `projParamCert` so the
+existing `iotaCerts` cascade steps apply; `pairEtaCert_shift`
+(`Deep.lean`) gains an `iotaCerts_shift` step at the entry's closed
+stored type; `pairEtaCert_disc` (`Disc.lean`) gains a
+`projParamCert_disc` step (that lemma moved above its new first
+caller); `pairEtaCertI_sim` (`DiscI2.lean`) gains the
+`projFnIdxM_eff`/`constTyAtM_eff`/`projParamCertI_sim` walk and now
+takes `EnvWF` (both call sites in `stuckIrrelI_sim` already had it).
+`pairEtaCert_inv` (`InferLemmas.lean`) grew two conjuncts — the entry
+lookup and the certificate — and `projParamCert_inv` converts the
+second for the bridge with no new entry point.
+
+**Measured** (init-prelude probe, `perf stat -e instructions:u`, median
+of 3):
+
+| mode | before | after | delta |
+|---|---|---|---|
+| certified | 37.682 G | 37.696 G | **+0.037 %** |
+| `SETLEC_NO_PROOF_CERTS=1` | 15.221 G | 15.222 G | 0.00 % (noise; skipped) |
+
+Cheaper than #129 (+0.102 %), as expected: pair-η rescues are rarer
+than projection inferences, and the walk is two domains long.
+
+Verdicts unmoved: init-prelude stdout/stderr byte-identical in both
+modes against a binary built from pre-change master, arena 90/92, e2e
+67/67, split driver 11/11.  The evidence is not vacuous — `e2e`'s
+`psigma_rec_eta` fixture exists precisely to force a defeq-side pair-η
+rescue at a neutral major, and it still accepts, so the new
+certificate *succeeds* on a real firing rather than never running.
