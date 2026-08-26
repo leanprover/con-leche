@@ -81,7 +81,8 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     (hext : EnvExtends env₁ env₂)
     (hnat : natLitSupported env₁ = true → natLitSupported env₂ = true)
     (hstr : strLitSupported env₁ = true → strLitSupported env₂ = true)
-    (hlp : ∀ n, levelParamsAt env₂ n = levelParamsAt env₁ n) :
+    (hlpNil : levelParamsAt env₂ listNilName = levelParamsAt env₁ listNilName)
+    (hlpCons : levelParamsAt env₂ listConsName = levelParamsAt env₁ listConsName) :
     ∀ (d : Nat) (e : Expr) {v : VExpr},
       denote cval env₁ φ d e = some v → denote cval env₂ φ d e = some v := by
   intro d e
@@ -179,7 +180,7 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
   | case22 d s hg =>
     intro v h
     rw [denote_strLit, if_pos hg] at h
-    rw [denote_strLit, if_pos (hstr hg), strLitT, hlp listNilName, hlp listConsName]
+    rw [denote_strLit, if_pos (hstr hg), strLitT, hlpNil, hlpCons]
     exact h
   | case23 d s hg =>
     intro v h
@@ -355,7 +356,10 @@ theorem has_type_cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       natLitSupported ⟨c₀ :: env.consts⟩ = true)
     (hguardS : strLitSupported env = true →
       strLitSupported ⟨c₀ :: env.consts⟩ = true)
-    (hlp : ∀ n, levelParamsAt ⟨c₀ :: env.consts⟩ n = levelParamsAt env n) :
+    (hlpNil : levelParamsAt ⟨c₀ :: env.consts⟩ listNilName
+      = levelParamsAt env listNilName)
+    (hlpCons : levelParamsAt ⟨c₀ :: env.consts⟩ listConsName
+      = levelParamsAt env listConsName) :
     ∀ c ∈ env.consts, ∀ φ : Name → Nat,
       ∃ t, denoteClosed cval' ⟨c₀ :: env.consts⟩ φ c.toConstantVal.type
           = some t ∧ HasType [] (cval' c.name φ) t := by
@@ -377,8 +381,161 @@ theorem has_type_cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
   refine ⟨t, ?_, ?_⟩
   · rw [denoteClosed] at ht ⊢
     rw [denote_cval_congr hagE hnat hsucc hsol hnil hcons hchar hofn 0 _] at ht
-    exact denote_mono (EnvExtends.cons hfresh) hguardN hguardS hlp 0 _ ht
+    exact denote_mono (EnvExtends.cons hfresh) hguardN hguardS hlpNil hlpCons 0 _ ht
   · rw [← hag c.name (hne c hc)]
     exact hd
+
+/-! ## The literal guards under a fresh install
+
+Both guards read the environment only at fixed names, so an install
+under a *different* name leaves them alone.  Proving the congruence
+directly avoids needing `natLitSupported_inv`
+(`Setlec/Model/Interp.lean`) at all — a fact the bridge would otherwise
+have to restate, and the fifth stranded one.  **The inversion is only
+needed to derive the guard from its consequences; the congruence needs
+just the lookups**, which is a cheaper thing to want. -/
+
+/-- The `Nat`-literal guard reads three slots. -/
+theorem natLitSupported_cons_of_ne {env : Env} {c₀ : ConstantInfo}
+    (h1 : c₀.name ≠ natName) (h2 : c₀.name ≠ natZeroName)
+    (h3 : c₀.name ≠ natSuccName) :
+    natLitSupported ⟨c₀ :: env.consts⟩ = natLitSupported env := by
+  unfold natLitSupported
+  rw [Env.find?_cons, Env.find?_cons, Env.find?_cons,
+    if_neg h1, if_neg h2, if_neg h3]
+
+/-- The `String`-literal guard reads the `Nat` slots and seven more. -/
+theorem strLitSupported_cons_of_ne {env : Env} {c₀ : ConstantInfo}
+    (h1 : c₀.name ≠ natName) (h2 : c₀.name ≠ natZeroName)
+    (h3 : c₀.name ≠ natSuccName) (h4 : c₀.name ≠ stringName)
+    (h5 : c₀.name ≠ stringOfListName) (h6 : c₀.name ≠ listName)
+    (h7 : c₀.name ≠ listNilName) (h8 : c₀.name ≠ listConsName)
+    (h9 : c₀.name ≠ charName) (h10 : c₀.name ≠ charOfNatName) :
+    strLitSupported ⟨c₀ :: env.consts⟩ = strLitSupported env := by
+  unfold strLitSupported
+  rw [natLitSupported_cons_of_ne h1 h2 h3]
+  rw [Env.find?_cons, Env.find?_cons, Env.find?_cons, Env.find?_cons,
+    Env.find?_cons, Env.find?_cons, Env.find?_cons,
+    if_neg h4, if_neg h5, if_neg h6, if_neg h7, if_neg h8, if_neg h9,
+    if_neg h10]
+
+/-- The stored level parameters of a name other than the new one. -/
+theorem levelParamsAt_cons_of_ne {env : Env} {c₀ : ConstantInfo} {n : Name}
+    (h : c₀.name ≠ n) :
+    levelParamsAt ⟨c₀ :: env.consts⟩ n = levelParamsAt env n := by
+  unfold levelParamsAt
+  rw [Env.find?_cons, if_neg h]
+
+/-- The literal-support agreements, bundled.  Every install transport
+needs the same seven, so they travel together rather than as seven
+arguments each time.
+
+Kept as a *structure of equations* rather than folded into the
+"agrees away from the new name" hypothesis, because a basis install
+changes exactly these valuations — see `has_type_cons`. -/
+structure LitAgree (cval cval' : TConstVal) : Prop where
+  nat : cval natZeroName = cval' natZeroName
+  succ : cval natSuccName = cval' natSuccName
+  sol : cval stringOfListName = cval' stringOfListName
+  nil : cval listNilName = cval' listNilName
+  cons : cval listConsName = cval' listConsName
+  char : cval charName = cval' charName
+  ofn : cval charOfNatName = cval' charOfNatName
+
+/-- An ordinary (non-basis) install gets all seven from freshness: the
+new name is none of them. -/
+theorem LitAgree.of_fresh {cval cval' : TConstVal} {c₀ : Name}
+    (hag : ∀ n, n ≠ c₀ → cval n = cval' n)
+    (h1 : c₀ ≠ natZeroName) (h2 : c₀ ≠ natSuccName)
+    (h3 : c₀ ≠ stringOfListName) (h4 : c₀ ≠ listNilName)
+    (h5 : c₀ ≠ listConsName) (h6 : c₀ ≠ charName)
+    (h7 : c₀ ≠ charOfNatName) : LitAgree cval cval' :=
+  ⟨hag _ (Ne.symm h1), hag _ (Ne.symm h2), hag _ (Ne.symm h3),
+   hag _ (Ne.symm h4), hag _ (Ne.symm h5), hag _ (Ne.symm h6),
+   hag _ (Ne.symm h7)⟩
+
+/-- Denotations of *old* terms survive an install: same value, larger
+environment, changed valuation.  The shared core of every field's
+transport — `has_type_cons` above is this plus a valuation rewrite, and
+`defn_eq_cons` / `thm_ok_cons` below are the same again. -/
+theorem denote_install {cval cval' : TConstVal} {env : Env} {φ : Name → Nat}
+    {c₀ : ConstantInfo} {e : Expr} {v : VExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
+    (hlit : LitAgree cval cval')
+    (hguardN : natLitSupported env = true →
+      natLitSupported ⟨c₀ :: env.consts⟩ = true)
+    (hguardS : strLitSupported env = true →
+      strLitSupported ⟨c₀ :: env.consts⟩ = true)
+    (hlpNil : levelParamsAt ⟨c₀ :: env.consts⟩ listNilName
+      = levelParamsAt env listNilName)
+    (hlpCons : levelParamsAt ⟨c₀ :: env.consts⟩ listConsName
+      = levelParamsAt env listConsName)
+    (h : denoteClosed cval env φ e = some v) :
+    denoteClosed cval' ⟨c₀ :: env.consts⟩ φ e = some v := by
+  have hagE : ∀ n ci, env.find? n = some ci → cval n = cval' n := by
+    intro n ci hfind
+    refine hag n ?_
+    intro hh
+    rw [hh, hfresh] at hfind
+    exact nomatch hfind
+  rw [denoteClosed] at h ⊢
+  rw [denote_cval_congr hagE hlit.nat hlit.succ hlit.sol hlit.nil
+    hlit.cons hlit.char hlit.ofn 0 _] at h
+  exact denote_mono (EnvExtends.cons hfresh) hguardN hguardS hlpNil hlpCons 0 _ h
+
+/-- Definitions keep their denotation equations across an install. -/
+theorem defn_eq_cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
+    {cval' : TConstVal}
+    (hfresh : env.find? c₀.name = none)
+    (hag : ∀ n, n ≠ c₀.name → m.cval n = cval' n)
+    (hlit : LitAgree m.cval cval')
+    (hguardN : natLitSupported env = true →
+      natLitSupported ⟨c₀ :: env.consts⟩ = true)
+    (hguardS : strLitSupported env = true →
+      strLitSupported ⟨c₀ :: env.consts⟩ = true)
+    (hlpNil : levelParamsAt ⟨c₀ :: env.consts⟩ listNilName
+      = levelParamsAt env listNilName)
+    (hlpCons : levelParamsAt ⟨c₀ :: env.consts⟩ listConsName
+      = levelParamsAt env listConsName) :
+    ∀ cv value hint, ConstantInfo.defnInfo cv value hint ∈ env.consts →
+      ∀ φ : Name → Nat,
+        denoteClosed cval' ⟨c₀ :: env.consts⟩ φ value = some (cval' cv.name φ) := by
+  have hne : ∀ c ∈ env.consts, c.name ≠ c₀.name := by
+    have h0 := hfresh
+    rw [Env.find?, List.find?_eq_none] at h0
+    intro c hc h
+    exact h0 c hc (by simp [h])
+  intro cv value hint hmem φ
+  have := denote_install hfresh hag hlit hguardN hguardS hlpNil hlpCons
+    (m.defn_eq cv value hint hmem φ)
+  rwa [hag cv.name (hne _ hmem)] at this
+
+/-- Theorems likewise. -/
+theorem thm_ok_cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
+    {cval' : TConstVal}
+    (hfresh : env.find? c₀.name = none)
+    (hag : ∀ n, n ≠ c₀.name → m.cval n = cval' n)
+    (hlit : LitAgree m.cval cval')
+    (hguardN : natLitSupported env = true →
+      natLitSupported ⟨c₀ :: env.consts⟩ = true)
+    (hguardS : strLitSupported env = true →
+      strLitSupported ⟨c₀ :: env.consts⟩ = true)
+    (hlpNil : levelParamsAt ⟨c₀ :: env.consts⟩ listNilName
+      = levelParamsAt env listNilName)
+    (hlpCons : levelParamsAt ⟨c₀ :: env.consts⟩ listConsName
+      = levelParamsAt env listConsName) :
+    ∀ cv value, ConstantInfo.thmInfo cv value ∈ env.consts →
+      ∀ φ : Name → Nat,
+        denoteClosed cval' ⟨c₀ :: env.consts⟩ φ value = some (cval' cv.name φ) := by
+  have hne : ∀ c ∈ env.consts, c.name ≠ c₀.name := by
+    have h0 := hfresh
+    rw [Env.find?, List.find?_eq_none] at h0
+    intro c hc h
+    exact h0 c hc (by simp [h])
+  intro cv value hmem φ
+  have := denote_install hfresh hag hlit hguardN hguardS hlpNil hlpCons
+    (m.thm_ok cv value hmem φ)
+  rwa [hag cv.name (hne _ hmem)] at this
 
 end Setlec.TTVerify
