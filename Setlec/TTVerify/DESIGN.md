@@ -549,7 +549,32 @@ itself, and four becomes six and then keeps going.  Anyone changing a
 `denote` clause to compute something should expect to pay here, and
 should check this count before and after.
 
-### Next
+### Landed: the pieces every clause needs
 
-The clauses of `CheckStepTT`, against the threaded claims of §6.  The
-substitution stack is no longer in the way of any of them.
+* `CtxOk.open` (`Setlec/TTVerify/Claims.lean`) — opening a binder
+  extends the context correspondence, which every binder clause needs.
+* `denote_beta_step` (`Setlec/TTVerify/Inst.lean`) — the beta
+  reduction, assembled.  This is §6's argument in mechanized form: the
+  premise `HasType Δ x A` has exactly one supplier, the checker's beta
+  certificate, and is *not* obtainable from the redex's ambient typing
+  (inversion gives the argument at the ambient domain `A₀`, and
+  bridging `A₀` to `A` is the open question of §6).
+
+### Next: the remaining `whnfCore` clauses
+
+`whnfCoreBody` (`Setlec/Kernel/Core.lean`) has, beyond the leaf cases
+(which are `Deq.refl`) and beta (done):
+
+* **iota** — `iotaRec`, whose set-model counterpart
+  `Setlec/Model/Core/Iota.lean` is 1326 lines, plus `NestedFire` and
+  `MajorToCtor`.  This is the bulk of the remaining stage-2 work and it
+  is where `EnvTT`'s `rec_rules` field gets consumed;
+* **projection** — the structural rule plus `projCert` and
+  `projLitToCtor`;
+* **zeta** — `HasType.zeta`, premise-free, now that `denote` is
+  structural at `let`.
+
+Then `whnf` (the delta loop, consuming `defn_eq`), `defeq`, and
+`CheckDeclTT` through them.  Scale check against the mirror: the set
+model spends ~7500 lines on `Setlec/Model/Core/*` for what
+`CheckStepTT` bundles, so this is not one increment.

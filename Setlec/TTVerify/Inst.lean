@@ -1,4 +1,5 @@
 import Setlec.TTVerify.Shift
+import Setlec.TT.Deq
 import Setlec.Verify.Subst
 
 /-!
@@ -195,5 +196,54 @@ theorem denote_beta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (Expr.fvarsBelow_instantiate1 k hfb)
   rw [Expr.substFvarAt_instantiate1_self body k hfb, Nat.sub_self] at h
   exact h
+
+/-! ## The beta step
+
+The reduction the certificate-tax story is about
+(`Setlec/TTVerify/DESIGN.md` §6), assembled: the checker's `whnfCore`
+fires a redex `(fun (_ : ty) => body) a` to `body.instantiate1 a`, and
+this is that step's whole content on the bridge side.
+
+Note where each premise comes from, because it is the argument of §6 in
+mechanized form:
+
+* `ha` and `hlam` are definedness, from the inference claim;
+* **`hx : HasType Δ x A` is the beta certificate.**  The checker infers
+  the argument's type and compares it definitionally with the λ's
+  annotation; the inference and defeq claims turn that into
+  `⊢ x : ⟦ta⟧` and `Deq Δ ⟦ta⟧ A`, and `Deq.conv` closes it.  It is
+  *not* obtainable from the ambient typing of the redex — inversion
+  gives the argument at the ambient domain `A₀`, and bridging `A₀` to
+  `A` is the open derivable-Pi-injectivity question of §6.
+
+So this lemma is where "the beta certificate is load-bearing for the
+bridge" stops being a claim and becomes a hypothesis with exactly one
+supplier. -/
+
+/-- **The beta step.**  Firing a certified redex preserves the
+denotation up to a derivable equation, and the reduct denotes. -/
+theorem denote_beta_step (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    {d : Nat} {Δ : List VExpr} {n : Name} {ty body a : Expr}
+    {m : BinderMeta} {A B x : VExpr}
+    (hfb : Expr.fvarsBelow d body) (hwa : Expr.WScoped d a)
+    (hba : a.looseBVarsBounded 0 = true)
+    (hlam : denote cval env φ d (.lam n ty body m) = some (.lam A B))
+    (ha : denote cval env φ d a = some x)
+    (hx : HasType Δ x A) :
+    denote cval env φ d (body.instantiate1 a) = some (B.inst x) ∧
+      Deq Δ (.app (.lam A B) x) (B.inst x) := by
+  rw [denote_lam] at hlam
+  split at hlam
+  · exact nomatch hlam
+  · next A' hA =>
+    split at hlam
+    · exact nomatch hlam
+    · next B' hB =>
+      obtain ⟨rfl, rfl⟩ : A' = A ∧ B' = B := by
+        simpa [VExpr.lam.injEq] using hlam
+      -- the `eqE` type slot is inert, so any annotation will do
+      refine ⟨?_, ⟨.sort 0, HasType.beta (T := .sort 0) hx⟩⟩
+      rw [denote_beta (n := n) (ty := ty) hcl hfb hwa hba ha 0, hB]
+      rfl
 
 end Setlec.TTVerify
