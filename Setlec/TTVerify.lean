@@ -13,6 +13,7 @@ import Setlec.TTVerify.Claims
 import Setlec.TTVerify.WhnfCore
 import Setlec.TTVerify.Extend
 import Setlec.TTVerify.Consistency
+import Setlec.TTVerify.HasTypeSubst
 
 /-!
 # The TTVerify bridge (task #119)
