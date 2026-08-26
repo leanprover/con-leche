@@ -450,7 +450,8 @@ install:
 | `DeclThmTT` | **proved** |
 | `DeclOpaqueTT` | **proved** (`declOpaqueTT_closed`) |
 | `DeclDefnTT` | proved modulo `NatOpPinTT`, `DivModPinTT` |
-| `DeclAxiomTT`, `DeclBasisTT`, `DeclIndTT` | open |
+| `DeclAxiomTT` | proved modulo three inhabitation keys |
+| `DeclBasisTT`, `DeclIndTT` | open |
 
 `extendValueTT` is the transpose of the set model's `extend_model`, and
 the three kinds differ only in which `ConstantInfo` they hand it — which
@@ -465,6 +466,29 @@ The remaining obligations sit at named checker functions
 *pin* checks: they change no environment and exist only to record facts
 the reduction rules will consume, so their transposes are pure content
 with no install bookkeeping.
+
+**`DeclAxiomTT`'s guard chain is proved** (`Setlec/TTVerify/DeclAxiom.lean`),
+modulo one inhabitation key per accepting guard — `StdAxiomKeyTT`,
+`TrustCompilerKeyTT`, `OfReduceKeyTT`, each at a named guard function
+per §8.6.  Two things about that case are worth keeping:
+
+* **The tolerated-axiom branch is one line.**  A skipped axiom installs
+  nothing, so the environment the invariant talks about never moves and
+  the model we started with is the model we return.  The
+  skip-and-continue design (`sorryAx`, user ruling) therefore pays a
+  *zero* verification tax — a design chosen for stream-sharing reasons
+  turns out to cost the bridge nothing at all.
+* **`propext` and `Classical.choice` need no inhabitation argument.**
+  Both are already `BConst`s with `bval` and soundness
+  (`Setlec/TT/Const.lean`, `Setlec/TT/Semantics/ConstOk.lean`), so
+  `HasType.const` types them.  What the keys owe is a **shape
+  reconciliation** — the layer's `∀ A B : Prop, (A → B) → (B → A) → A = B`
+  against the checker's pinned `∀ a b : Prop, Iff a b → Eq Prop a b`,
+  with `Iff` an opaque modeled inductive.  And that is precisely what
+  `stdAxiomOk` pins `Iff`/`Iff.intro`/`Iff.rec` for: the witness is the
+  layer's constant under an `Iff.rec` elimination, needing only the
+  recursor's *typing*, never its iota rule.  §8.4 at the last place it
+  can apply.
 
 **`ReducePinTT` is discharged** (`Setlec/TTVerify/ReducePin.lean`), and
 it is worth a sentence because of *how cheap it turned out to be*.  The
