@@ -158,6 +158,17 @@ this bridge proves nothing new about the arena or the caches.
 
 ## 2. The decision that shapes everything: mirror `EnvModel`
 
+> **The claim this section establishes, in the form it should be
+> quoted.**  The checker's definitional-equality *unfolding strategy*
+> — which constants it unfolds, when, and in what order — is
+> irrelevant to the consistency argument, because no unfolding
+> decision changes any denotation (`denote_delta_step` is an identity,
+> not an equation; §2's "design goal" below).  **That is the whole of
+> the claim.**  The rest of `isDefEq` is *not* covered: its β, η, ι and
+> projection steps each still owe a `Deq`, and discharging those is
+> `DefEqClaimsTT`.  The unbounded version of this sentence would be an
+> overstatement that discredits the true part.
+
 `Setlec/TT/DESIGN.md` §2.1 describes the denotation as *unfolding*
 constants — definitions to their values, modeled inductives to their
 `_model` artifacts — by well-founded recursion on the environment.
@@ -448,7 +459,32 @@ binary is a category error.
 
 ## 5. Interfaces this bridge consumes
 
-* **Nat literals** (`Setlec/TT/Nat/*`, task #119's other half).  The
+* **Nat literals** (`Setlec/TT/Nat/*`, task #119's other half).
+
+  **LANDED — the correspondence between meta-level `Nat` and the
+  layer's `Nat`.**  This was a standing instruction ("prove the
+  correspondence") and its cash-out is one lemma, so the decision and
+  its realisation are recorded together here rather than left in the
+  commit log.  `natLitT_eq_numeral`
+  (`Setlec/TTVerify/WhnfCoreStep.lean`):
+
+  > A `Nat` literal's denotation **is** the layer's numeral.
+
+  The two are built identically — `Nat.succ` applied `n` times to
+  `Nat.zero` — but over **different constants**, and the reason is
+  structural rather than incidental: `natLitT` reads the *valuation*,
+  because a denotation cannot know what a stored constant means, while
+  `numeral` reads the *basis constants*, because the layer has no
+  environment.  `EnvTT.basis_pinned` closes the gap: `Nat`, `Nat.zero`
+  and `Nat.succ` are reserved basis names, so a stored declaration
+  under one of them is valued by its pin and by nothing else.
+
+  That single lemma is what makes "lemma families, not built-in rules"
+  work.  Once a literal *is* a numeral, the meta-induction lemmas below
+  apply directly and no 12345-step derivation is ever constructed.  See
+  §8.8 for where it sits in the reduction loop.
+
+  The
   lemma families are hypothetical over an arbitrary `f : VExpr` and
   take their recurrences at numerals only, so the layer needs no
   constant for `Nat.add`.  The bridge's obligation at a certified fast
