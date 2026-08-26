@@ -2305,3 +2305,30 @@ Three gaps in the family are structural and are recorded at the module:
 premise); `eqE` yields nothing (`eqType` is premise-free); `letE`
 yields the **substituted** body (matching its rule — the layer never
 types the open one).
+
+### 12.6 Re-examining the three obligations: the answer is "no shrink"
+
+The directive asks whether a `Typable` precondition discharges frame
+conditions the obligations were about to prove by hand.  **It does
+not, and the reason is a type error rather than a judgement call:**
+the frame conditions (`WScoped`, `looseBVarsBounded`, `LeavesBounded`)
+are facts about the **`Expr`**; `Typable Δ ⟦e⟧` is a fact about the
+**`VExpr`** it denotes to.  A denotation forgets exactly the syntax the
+frame conditions constrain — `.fvar idx n ty` denotes to `.bvar _`
+whatever `idx` and `ty` are — so no amount of typing on the far side
+says anything about scoping on the near side.
+
+That is worth stating positively rather than as a disappointment: it is
+the same separation that makes the bridge work at all.  The syntactic
+conditions travel with the checker's own preservation lemmas
+(`whnfCore_WScoped` and friends, all in `Setlec/Verify/*`), and the
+semantic ones travel with the certificates.  Neither can substitute for
+the other, and a design where they could would be one where the
+denotation leaked syntax.
+
+**`ReduceNatStepTT` is discharged** (`Setlec/TTVerify/NatOpsStep.lean`),
+and it is the case that shows the separation cleanly: its frame half
+was free — the reduct is a literal or a `Bool` constructor, so
+`reduceNat_inv` gives it in three lines — while its equation half took
+sixteen closed forms.  Two of three obligations remain, both frame
+bookkeeping around equations that are already proved.

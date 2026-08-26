@@ -958,7 +958,8 @@ theorem natOps_shiftLeft_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {Γ : List VExpr} : ∀ a b : Nat,
       Deq Γ (ap2 (m.cval natShiftLeftName φ) (numeral a) (numeral b))
         (numeral (a <<< b)) := by
-  obtain ⟨hg, hclauses⟩ := m.div_mod natShiftLeftName (by decide) cv value hint hf
+  obtain ⟨hg, hclauses⟩ := m.div_mod natShiftLeftName (by decide) cv value
+    hint hf
   have hnat := (natOpGuard_deps hg).1
   obtain ⟨cvB, vB, hhB, hfB, -⟩ :=
     (natOpGuard_deps hg).2 natBleName (by decide)
@@ -997,7 +998,8 @@ theorem natOps_shiftRight_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {Γ : List VExpr} : ∀ a b : Nat,
       Deq Γ (ap2 (m.cval natShiftRightName φ) (numeral a) (numeral b))
         (numeral (a >>> b)) := by
-  obtain ⟨hg, hclauses⟩ := m.div_mod natShiftRightName (by decide) cv value hint hf
+  obtain ⟨hg, hclauses⟩ := m.div_mod natShiftRightName (by decide) cv value
+    hint hf
   have hnat := (natOpGuard_deps hg).1
   obtain ⟨cvB, vB, hhB, hfB, -⟩ :=
     (natOpGuard_deps hg).2 natBleName (by decide)
@@ -1387,5 +1389,501 @@ theorem reduceNat_log2_eq {env : Env} (m : EnvTT env) (φ : Name → Nat)
   refine Deq.trans (Deq.appArg
     (arg_numeral m φ ihw hnat hwa hraw hws hb hLb hC ha)) ?_
   exact natOps_log2_closed m φ hfL n
+
+/-! ### The binary clause
+
+Fourteen operations, one argument.  Everything except *which* closed
+form to cite is shared, so it is factored: turn each argument's whnf
+literal into a `Deq` to its numeral, congruence the pair, cite the
+closed form.  The twelve arithmetic operations land on a literal; `beq`
+and `ble` land on a `Bool` constructor and get their own version. -/
+
+/-- The twelve arithmetic binary fast paths. -/
+theorem reduceNat_bin_arith {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel d : Nat} {Δ : List VExpr} {c : Name} {a b a0 b0 : Expr}
+    {n₁ n₂ : Nat} {v : VExpr} {f : Nat → Nat → Nat}
+    (ihw : WhnfClaimsTT m φ fuel) (hnat : natLitSupported env = true)
+    (hwa : whnf env fuel d a = .ok a0) (hra : rawNatLit? a0 = some n₁)
+    (hwb : whnf env fuel d b = .ok b0) (hrb : rawNatLit? b0 = some n₂)
+    (hwsa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a) (hCa : CtxOk m.cval env φ d Δ a)
+    (hwsb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded b) (hCb : CtxOk m.cval env φ d Δ b)
+    (hclosed : ∀ x y : Nat,
+      Deq Δ (ap2 (m.cval c φ) (numeral x) (numeral y)) (numeral (f x y)))
+    (hv : denote m.cval env φ d (.app (.app (.const c []) a) b) = some v) :
+    ∃ w, denote m.cval env φ d (.lit (.natVal (f n₁ n₂))) = some w ∧
+      Deq Δ v w := by
+  obtain ⟨ci, va, vb, hfc, hlp, ha, hb, rfl⟩ := denote_app2_inv hv
+  refine ⟨numeral (f n₁ n₂),
+    denote_natLit_numeral m φ hnat d (f n₁ n₂), ?_⟩
+  refine Deq.trans (Deq.ap2
+    (arg_numeral m φ ihw hnat hwa hra hwsa hba hLa hCa ha)
+    (arg_numeral m φ ihw hnat hwb hrb hwsb hbb hLb hCb hb)) ?_
+  exact hclosed n₁ n₂
+
+/-- The two comparison fast paths, whose result is a `Bool`
+constructor rather than a literal. -/
+theorem reduceNat_bin_bool {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel d : Nat} {Δ : List VExpr} {c : Name} {a b a0 b0 : Expr}
+    {n₁ n₂ : Nat} {v : VExpr} {p : Nat → Nat → Prop}
+    [inst : ∀ x y, Decidable (p x y)]
+    (ihw : WhnfClaimsTT m φ fuel) (hnat : natLitSupported env = true)
+    (hbools : (∃ ciT, env.find? boolTrueName = some ciT ∧
+        ciT.toConstantVal.levelParams = []) ∧
+      (∃ ciF, env.find? boolFalseName = some ciF ∧
+        ciF.toConstantVal.levelParams = []))
+    (hwa : whnf env fuel d a = .ok a0) (hra : rawNatLit? a0 = some n₁)
+    (hwb : whnf env fuel d b = .ok b0) (hrb : rawNatLit? b0 = some n₂)
+    (hwsa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a) (hCa : CtxOk m.cval env φ d Δ a)
+    (hwsb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded b) (hCb : CtxOk m.cval env φ d Δ b)
+    (hclosed : ∀ x y : Nat,
+      Deq Δ (ap2 (m.cval c φ) (numeral x) (numeral y))
+        (if p x y then m.cval boolTrueName φ else m.cval boolFalseName φ))
+    (hv : denote m.cval env φ d (.app (.app (.const c []) a) b) = some v) :
+    ∃ w, denote m.cval env φ d
+        (.const (if p n₁ n₂ then boolTrueName else boolFalseName) []) =
+      some w ∧ Deq Δ v w := by
+  obtain ⟨ciT, hfT, hlpT⟩ := hbools.1
+  obtain ⟨ciF, hfF, hlpF⟩ := hbools.2
+  obtain ⟨ci, va, vb, hfc, hlp, ha, hb, rfl⟩ := denote_app2_inv hv
+  have hstep : Deq Δ (ap2 (m.cval c φ) va vb)
+      (ap2 (m.cval c φ) (numeral n₁) (numeral n₂)) :=
+    Deq.ap2 (arg_numeral m φ ihw hnat hwa hra hwsa hba hLa hCa ha)
+      (arg_numeral m φ ihw hnat hwb hrb hwsb hbb hLb hCb hb)
+  have h := hclosed n₁ n₂
+  by_cases hp : p n₁ n₂
+  · rw [if_pos hp] at h ⊢
+    exact ⟨_, denote_const_nolevels m φ hfT hlpT d, hstep.trans h⟩
+  · rw [if_neg hp] at h ⊢
+    exact ⟨_, denote_const_nolevels m φ hfF hlpF d, hstep.trans h⟩
+
+/-! ### The frame conditions of an argument
+
+An application's arguments inherit the frame conditions of the
+application, and both `reduceNat` shapes need them for one or two
+arguments.  Bundled so the dispatch reads as a dispatch. -/
+
+/-- The frame conditions of a unary application's argument. -/
+theorem frame_app1 {env : Env} {cval : TConstVal} {φ : Name → Nat}
+    {d : Nat} {Δ : List VExpr} {c : Name} {a : Expr}
+    (hws : Expr.WScoped d (.app (.const c []) a))
+    (hb : (Expr.app (.const c []) a).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.app (.const c []) a))
+    (hC : CtxOk cval env φ d Δ (.app (.const c []) a)) :
+    Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded a ∧ CtxOk cval env φ d Δ a := by
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  exact ⟨hws.2, hb.2, fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]),
+    CtxOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hC⟩
+
+/-- The frame conditions of a binary application's two arguments. -/
+theorem frame_app2 {env : Env} {cval : TConstVal} {φ : Name → Nat}
+    {d : Nat} {Δ : List VExpr} {c : Name} {a b : Expr}
+    (hws : Expr.WScoped d (.app (.app (.const c []) a) b))
+    (hb : (Expr.app (.app (.const c []) a) b).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.app (.app (.const c []) a) b))
+    (hC : CtxOk cval env φ d Δ (.app (.app (.const c []) a) b)) :
+    (Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded a ∧ CtxOk cval env φ d Δ a) ∧
+      (Expr.WScoped d b ∧ b.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded b ∧ CtxOk cval env φ d Δ b) := by
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  refine ⟨⟨hws.1.2, hb.1.2, fun l hl => hLb l ?_,
+      CtxOk.of_subset (fun l hl => ?_) hC⟩,
+    hws.2, hb.2, fun l hl => hLb l ?_,
+      CtxOk.of_subset (fun l hl => ?_) hC⟩ <;>
+    simp [Expr.fvarLeaves, hl]
+
+/-! ### The unary dispatch
+
+`natOpResult`'s branch for each concrete operation is a closed
+computation on the *names*, so one `decide`-driven `simp` reduces it;
+these are stated once so the dispatch below does not carry the
+fifteen-way chain at every use. -/
+
+theorem natOpResult_pred (a b : Nat) :
+    natOpResult natPredName a b = some (.lit (.natVal (a - 1))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_log2 (a b : Nat) :
+    natOpResult natLog2Name a b = some (.lit (.natVal (Nat.log2 a))) := by
+  simp +decide [natOpResult]
+
+
+
+/-- The `.app (.const c []) a` clause of `ReduceNatStepTT`. -/
+theorem reduceNat_eq_unary {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (ihw : WhnfClaimsTT m φ fuel)
+    {d : Nat} {Δ : List VExpr} {c : Name} {a e₂ : Expr} {v : VExpr}
+    (h : reduceNatP env fuel d (.app (.const c []) a) = .ok (some e₂))
+    (hws : Expr.WScoped d (.app (.const c []) a))
+    (hb : (Expr.app (.const c []) a).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.app (.const c []) a))
+    (hC : CtxOk m.cval env φ d Δ (.app (.const c []) a))
+    (hv : denote m.cval env φ d (.app (.const c []) a) = some v) :
+    ∃ w, denote m.cval env φ d e₂ = some w ∧ Deq Δ v w := by
+  obtain ⟨hwsa, hba, hLa, hCa⟩ := frame_app1 hws hb hLb hC
+  simp only [reduceNatP, reduceNat, Bind.bind, Except.bind, whnf_def] at h
+  split at h
+  · -- `Nat.succ` folding
+    next hcond =>
+    obtain ⟨rfl, hnat⟩ := hcond
+    cases hwa : whnf env fuel d a with
+    | error err => rw [hwa] at h; exact nomatch h
+    | ok a0 =>
+    rw [hwa] at h
+    dsimp only at h
+    cases hra : rawNatLit? a0 with
+    | none => rw [hra] at h; simp [pure, Except.pure] at h
+    | some n =>
+    rw [hra] at h
+    obtain rfl : e₂ = .lit (.natVal (n + 1)) := by
+      have := h
+      simpa [pure, Except.pure, eq_comm] using this
+    exact reduceNat_succ_eq m φ ihw hnat hwa hra hwsa hba hLa hCa hv
+  · split at h
+    · -- `Nat.pred`
+      next hcond =>
+      obtain ⟨rfl, hg⟩ := hcond
+      cases hwa : whnf env fuel d a with
+      | error err => rw [hwa] at h; exact nomatch h
+      | ok a0 =>
+      rw [hwa] at h
+      dsimp only at h
+      cases hra : rawNatLit? a0 with
+      | none => rw [hra] at h; simp [pure, Except.pure] at h
+      | some n =>
+      rw [hra] at h
+      obtain rfl : e₂ = .lit (.natVal (n - 1)) := by
+        simp only [natOpResult_pred] at h
+        simpa [pure, Except.pure, eq_comm] using h
+      exact reduceNat_pred_eq m φ ihw hg hwa hra hwsa hba hLa hCa hv
+    · split at h
+      · -- `Nat.log2`, capped
+        next hcond =>
+        obtain ⟨rfl, hg⟩ := hcond
+        cases hwa : whnf env fuel d a with
+        | error err => rw [hwa] at h; exact nomatch h
+        | ok a0 =>
+        rw [hwa] at h
+        dsimp only at h
+        cases hra : rawNatLit? a0 with
+        | none => rw [hra] at h; simp [pure, Except.pure] at h
+        | some n =>
+        rw [hra] at h
+        obtain rfl : e₂ = .lit (.natVal (Nat.log2 n)) := by
+          simp only [natOpResult_log2] at h
+          simpa [pure, Except.pure, eq_comm] using h
+        exact reduceNat_log2_eq m φ ihw hg hwa hra hwsa hba hLa hCa hv
+      · -- the capless `log2` branch throws, and the fall-through is
+        -- `none`, so neither reaches here
+        split at h
+        · cases hwa : whnf env fuel d a with
+          | error err => rw [hwa] at h; exact nomatch h
+          | ok a0 =>
+          rw [hwa] at h
+          dsimp only at h
+          cases hra : rawNatLit? a0 with
+          | none => rw [hra] at h; simp [pure, Except.pure] at h
+          | some n =>
+            rw [hra] at h
+            simp [throw, throwThe, MonadExceptOf.throw] at h
+        · simp [pure, Except.pure] at h
+
+/-! ### `natOpResult`, per operation -/
+
+theorem natOpResult_add (a b : Nat) :
+    natOpResult natAddName a b = some (.lit (.natVal (a + b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_sub (a b : Nat) :
+    natOpResult natSubName a b = some (.lit (.natVal (a - b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_mul (a b : Nat) :
+    natOpResult natMulName a b = some (.lit (.natVal (a * b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_pow (a b : Nat) :
+    natOpResult natPowName a b = some (.lit (.natVal (a ^ b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_div (a b : Nat) :
+    natOpResult natDivName a b = some (.lit (.natVal (a / b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_mod (a b : Nat) :
+    natOpResult natModName a b = some (.lit (.natVal (a % b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_gcd (a b : Nat) :
+    natOpResult natGcdName a b = some (.lit (.natVal (Nat.gcd a b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_land (a b : Nat) :
+    natOpResult natLandName a b = some (.lit (.natVal (Nat.land a b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_lor (a b : Nat) :
+    natOpResult natLorName a b = some (.lit (.natVal (Nat.lor a b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_xor (a b : Nat) :
+    natOpResult natXorName a b = some (.lit (.natVal (Nat.xor a b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_shiftLeft (a b : Nat) :
+    natOpResult natShiftLeftName a b = some (.lit (.natVal (Nat.shiftLeft a
+      b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_shiftRight (a b : Nat) :
+    natOpResult natShiftRightName a b = some (.lit (.natVal (Nat.shiftRight a
+      b))) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_beq (a b : Nat) :
+    natOpResult natBeqName a b =
+      some (.const (if a = b then boolTrueName else boolFalseName) []) := by
+  simp +decide [natOpResult]
+
+theorem natOpResult_ble (a b : Nat) :
+    natOpResult natBleName a b =
+      some (.const (if a ≤ b then boolTrueName else boolFalseName) []) := by
+  simp +decide [natOpResult]
+
+/-! ### The binary dispatch -/
+
+/-- The `.app (.app (.const c []) a) b` clause of `ReduceNatStepTT`. -/
+theorem reduceNat_eq_binary {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (ihw : WhnfClaimsTT m φ fuel)
+    {d : Nat} {Δ : List VExpr} {c : Name} {a b e₂ : Expr} {v : VExpr}
+    (h : reduceNatP env fuel d (.app (.app (.const c []) a) b)
+      = .ok (some e₂))
+    (hws : Expr.WScoped d (.app (.app (.const c []) a) b))
+    (hb : (Expr.app (.app (.const c []) a) b).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.app (.app (.const c []) a) b))
+    (hC : CtxOk m.cval env φ d Δ (.app (.app (.const c []) a) b))
+    (hv : denote m.cval env φ d (.app (.app (.const c []) a) b) = some v) :
+    ∃ w, denote m.cval env φ d e₂ = some w ∧ Deq Δ v w := by
+  obtain ⟨⟨hwsa, hba, hLa, hCa⟩, hwsb, hbb, hLb', hCb⟩ :=
+    frame_app2 hws hb hLb hC
+  simp only [reduceNatP, reduceNat, Bind.bind, Except.bind, whnf_def] at h
+  split at h
+  · next hcond =>
+    obtain ⟨hnames, hg⟩ := hcond
+    cases hwa : whnf env fuel d a with
+    | error err => rw [hwa] at h; exact nomatch h
+    | ok a0 =>
+    rw [hwa] at h
+    dsimp only at h
+    cases hwb : whnf env fuel d b with
+    | error err => rw [hwb] at h; exact nomatch h
+    | ok b0 =>
+    rw [hwb] at h
+    dsimp only at h
+    cases hra : rawNatLit? a0 with
+    | none => rw [hra] at h; simp [pure, Except.pure] at h
+    | some n₁ =>
+    cases hrb : rawNatLit? b0 with
+    | none => rw [hra, hrb] at h; simp [pure, Except.pure] at h
+    | some n₂ =>
+    rw [hra, hrb] at h
+    dsimp only at h
+    have hnat := (natOpGuard_deps hg).1
+    rcases hnames with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+      rfl | rfl | rfl | rfl | rfl | rfl
+    · simp only [natOpResult_add] at h
+      obtain rfl : e₂ = .lit (.natVal (n₁ + n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_add_closed m φ hfO) hv
+    · simp only [natOpResult_sub] at h
+      obtain rfl : e₂ = .lit (.natVal (n₁ - n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_sub_closed m φ hfO) hv
+    · simp only [natOpResult_mul] at h
+      obtain rfl : e₂ = .lit (.natVal (n₁ * n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_mul_closed m φ hfO) hv
+    · simp only [natOpResult_pow] at h
+      obtain rfl : e₂ = .lit (.natVal (n₁ ^ n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_pow_closed m φ hfO) hv
+    · simp only [natOpResult_beq] at h
+      obtain rfl : e₂ = .const
+          (if n₁ = n₂ then boolTrueName else boolFalseName) [] := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_bool m φ ihw hnat
+        (natOpGuard_bools hg (Or.inl rfl)) hwa hra hwb hrb hwsa hba hLa hCa
+          hwsb hbb hLb' hCb
+        (natOps_beq_closed m φ hfO) hv
+    · simp only [natOpResult_ble] at h
+      obtain rfl : e₂ = .const
+          (if n₁ ≤ n₂ then boolTrueName else boolFalseName) [] := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_bool m φ ihw hnat
+        (natOpGuard_bools hg (Or.inr (Or.inl rfl))) hwa hra hwb hrb hwsa hba
+          hLa hCa hwsb hbb hLb' hCb
+        (natOps_ble_closed m φ hfO) hv
+    · simp only [natOpResult_div] at h
+      obtain rfl : e₂ = .lit (.natVal (n₁ / n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_div_closed m φ hfO) hv
+    · simp only [natOpResult_mod] at h
+      obtain rfl : e₂ = .lit (.natVal (n₁ % n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_mod_closed m φ hfO) hv
+    · simp only [natOpResult_gcd] at h
+      obtain rfl : e₂ = .lit (.natVal (Nat.gcd n₁ n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_gcd_closed m φ hfO) hv
+    · simp only [natOpResult_land] at h
+      obtain rfl : e₂ = .lit (.natVal (Nat.land n₁ n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_land_closed m φ hfO) hv
+    · simp only [natOpResult_lor] at h
+      obtain rfl : e₂ = .lit (.natVal (Nat.lor n₁ n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_lor_closed m φ hfO) hv
+    · simp only [natOpResult_xor] at h
+      obtain rfl : e₂ = .lit (.natVal (Nat.xor n₁ n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_xor_closed m φ hfO) hv
+    · simp only [natOpResult_shiftLeft] at h
+      obtain rfl : e₂ = .lit (.natVal (Nat.shiftLeft n₁ n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_shiftLeft_closed m φ hfO) hv
+    · simp only [natOpResult_shiftRight] at h
+      obtain rfl : e₂ = .lit (.natVal (Nat.shiftRight n₁ n₂)) := by
+        simpa [pure, Except.pure, eq_comm] using h
+      obtain ⟨cvO, vO, hhO, hfO⟩ := natOp_stored hg (by decide)
+      exact reduceNat_bin_arith m φ ihw hnat hwa hra hwb hrb hwsa hba hLa hCa
+        hwsb hbb hLb' hCb
+        (natOps_shiftRight_closed m φ hfO) hv
+  · -- the WF-name safety net throws; the fall-through returns `none`
+    split at h
+    · cases hwa : whnf env fuel d a with
+      | error err => rw [hwa] at h; exact nomatch h
+      | ok a0 =>
+      rw [hwa] at h
+      dsimp only at h
+      cases hwb : whnf env fuel d b with
+      | error err => rw [hwb] at h; exact nomatch h
+      | ok b0 =>
+      rw [hwb] at h
+      dsimp only at h
+      cases hra : rawNatLit? a0 with
+      | none => rw [hra] at h; simp [pure, Except.pure] at h
+      | some n₁ =>
+      cases hrb : rawNatLit? b0 with
+      | none => rw [hra, hrb] at h; simp [pure, Except.pure] at h
+      | some n₂ =>
+        rw [hra, hrb] at h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+    · simp [pure, Except.pure] at h
+
+/-! ## `ReduceNatStepTT`, discharged
+
+The obligation `whnfLoop_claim` was stated against.  Everything is in
+place: the frame conditions are free (`reduceNat_frame`), the equation
+is the two dispatches, and the dispatches cite the sixteen closed
+forms. -/
+
+/-- **The literal-acceleration obligation, proved.** -/
+theorem reduceNat_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (ihw : WhnfClaimsTT m φ fuel) :
+    ReduceNatStepTT m φ fuel := by
+  intro d Δ e e₂ v h hws hb hLb hC hv
+  obtain ⟨h1, h2, h3, h4⟩ := reduceNat_frame m φ h hC
+  suffices heq : ∃ w, denote m.cval env φ d e₂ = some w ∧ Deq Δ v w by
+    obtain ⟨w, hw, hD⟩ := heq
+    exact ⟨w, hw, hD, h1, h2, h3, h4⟩
+  match e, h, hws, hb, hLb, hC, hv with
+  | .app (.const c []) a, h, hws, hb, hLb, hC, hv =>
+    exact reduceNat_eq_unary m φ ihw h hws hb hLb hC hv
+  | .app (.app (.const c []) a) b, h, hws, hb, hLb, hC, hv =>
+    exact reduceNat_eq_binary m φ ihw h hws hb hLb hC hv
+  | .bvar _, h, _, _, _, _, _ | .fvar _ _ _, h, _, _, _, _, _
+  | .sort _, h, _, _, _, _, _ | .lam _ _ _ _, h, _, _, _, _, _
+  | .forallE _ _ _ _, h, _, _, _, _, _ | .letE _ _ _ _, h, _, _, _, _, _
+  | .lit _, h, _, _, _, _, _ | .proj _ _ _, h, _, _, _, _, _
+  | .const _ _, h, _, _, _, _, _ =>
+    simp [reduceNatP, reduceNat, pure, Except.pure] at h
+  | .app (.bvar _) _, h, _, _, _, _, _
+  | .app (.fvar _ _ _) _, h, _, _, _, _, _
+  | .app (.sort _) _, h, _, _, _, _, _
+  | .app (.lam _ _ _ _) _, h, _, _, _, _, _
+  | .app (.forallE _ _ _ _) _, h, _, _, _, _, _
+  | .app (.letE _ _ _ _) _, h, _, _, _, _, _
+  | .app (.lit _) _, h, _, _, _, _, _
+  | .app (.proj _ _ _) _, h, _, _, _, _, _ =>
+    simp [reduceNatP, reduceNat, pure, Except.pure] at h
+  | .app (.const c (_ :: _)) _, h, _, _, _, _, _ =>
+    simp [reduceNatP, reduceNat, pure, Except.pure] at h
+  | .app (.app (.bvar _) _) _, h, _, _, _, _, _
+  | .app (.app (.fvar _ _ _) _) _, h, _, _, _, _, _
+  | .app (.app (.sort _) _) _, h, _, _, _, _, _
+  | .app (.app (.app _ _) _) _, h, _, _, _, _, _
+  | .app (.app (.lam _ _ _ _) _) _, h, _, _, _, _, _
+  | .app (.app (.forallE _ _ _ _) _) _, h, _, _, _, _, _
+  | .app (.app (.letE _ _ _ _) _) _, h, _, _, _, _, _
+  | .app (.app (.lit _) _) _, h, _, _, _, _, _
+  | .app (.app (.proj _ _ _) _) _, h, _, _, _, _, _ =>
+    simp [reduceNatP, reduceNat, pure, Except.pure] at h
+  | .app (.app (.const c (_ :: _)) _) _, h, _, _, _, _, _ =>
+    simp [reduceNatP, reduceNat, pure, Except.pure] at h
+
+/-- **`WhnfClaimsTT` at `fuel + 1`, with no outstanding obligation.**
+The second quarter of `CheckStepTT` is closed.
+
+`whnf_claimsTT` (`Setlec/TTVerify/WhnfCoreStep.lean`) is the general
+form, parameterised by the literal-acceleration obligation; this is it
+with the obligation discharged, which is possible here and not there
+only because the `Nat` closed forms live downstream. -/
+theorem whnf_claimsTT_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    (ihwc : WhnfCoreClaimsTT m φ fuel) (ihw : WhnfClaimsTT m φ fuel) :
+    WhnfClaimsTT m φ (fuel + 1) :=
+  whnf_claimsTT m φ hcl ihwc (reduceNat_stepTT m φ ihw)
 
 end Setlec.TTVerify
