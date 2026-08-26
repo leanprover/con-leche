@@ -34,6 +34,7 @@ import Setlec.TTVerify.DeclStep
 import Setlec.TTVerify.DeclValue
 import Setlec.TTVerify.DeclThm
 import Setlec.TTVerify.DeclOpaque
+import Setlec.TTVerify.DeclDefn
 
 /-!
 # The TTVerify bridge (task #119)

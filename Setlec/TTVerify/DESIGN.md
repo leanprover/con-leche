@@ -440,10 +440,39 @@ Neither guard was added for the bridge.
 The dispatch is proved (`checkDeclTT_of`, `Setlec/TTVerify/DeclStep.lean`):
 six obligations, one per constructor of `Declaration`, each stated as
 `checkDecl` restricted to that shape — §8.6's permitted *input-space*
-restriction, not a body slice.  `DeclThmTT` is discharged
-(`Setlec/TTVerify/DeclThm.lean`) through the shared value-carrying
-install `extendValueTT`, which `DeclDefnTT` and `DeclOpaqueTT` will
-reuse.
+restriction, not a body slice.
+
+**The three value-carrying kinds are done**, all through one shared
+install:
+
+| case | status |
+| --- | --- |
+| `DeclThmTT` | **proved** |
+| `DeclOpaqueTT` | proved modulo `ReducePinTT` |
+| `DeclDefnTT` | proved modulo `NatOpPinTT`, `DivModPinTT` |
+| `DeclAxiomTT`, `DeclBasisTT`, `DeclIndTT` | open |
+
+`extendValueTT` is the transpose of the set model's `extend_model`, and
+the three kinds differ only in which `ConstantInfo` they hand it — which
+is also which of `defn_eq` / `thm_ok` is the non-vacuous field.  `value_key`
+is the whole content: `InferClaimsTT` at the checked value, then
+`DefEqClaimsTT` at the checker's own `vtype ≡ type` verdict.  **The
+per-declaration step is the per-expression claims applied once each**,
+which is why it could be left until stage 2's end.
+
+The three remaining obligations sit at named checker functions
+(`certifyNatEqs`, `checkDivModPin`, `checkReducePin`), per §8.6.  Note
+that all three are *pin* checks: they change no environment and exist
+only to record facts the reduction rules will consume, so their
+transposes are pure content with no install bookkeeping.
+
+One mechanical note worth recording, because it will recur: **a `match`
+written in a lemma's *statement* is a different auxiliary constant from
+the one in the checker's body**, so a tail cannot be factored out by
+restating its `do`-block shape.  The divergence is invisible (the two
+print identically up to a binder name) and the error reads as a type
+mismatch between two syntactically equal expressions.  Factor at a
+`cases` boundary instead, or duplicate the walk.
 
 Two more §12.10 clauses came back while writing it, and both were
 *over-strong hypotheses* rather than missing facts:
