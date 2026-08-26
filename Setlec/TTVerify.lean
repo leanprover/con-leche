@@ -3,6 +3,7 @@ import Setlec.TTVerify.Weaken
 import Setlec.TTVerify.Denote
 import Setlec.TTVerify.Shift
 import Setlec.TTVerify.Inst
+import Setlec.TTVerify.Tele
 import Setlec.TTVerify.Inversion
 import Setlec.TTVerify.EnvTT
 import Setlec.TTVerify.Claims

@@ -387,36 +387,56 @@ declaration, never inside reduction.**  The official kernel's
 `isDefEqCore` docstring states the justification outright.  Doing it on
 every reduct is our artifact, not a fidelity requirement.
 
-### Per-call verdicts
+### Per-call verdicts — two columns, not one
 
-| certificate | verdict | note |
-|---|---|---|
-| app-argument re-check (`inferSpineI`) | **replaceable**, high confidence | the 98.6 % |
-| iota telescope certifications | replaceable | |
-| structure-eta, `projCert` | replaceable | and measured free anyway |
-| plain-rule parameter comparison | **needed**, cheap | |
-| canonical-index `defEqList` | **needed**, cheap | |
-| beta re-check | **needed, permanently** | the alternative is *unsound*; see below |
+**The cert-tax investigation's verdicts answer one question; this
+bridge asks a different one, and the two were being conflated
+(including by me, until the `iotaCerts` case forced the distinction).**
 
-The last two are worth their keep for a reason that inverts the usual
-intuition: removing them made the run *slower*, because they
-short-circuit reduction.
+* *Checker can skip* — the empirical verdict: masked out, the checker
+  still reaches the same verdicts.  Evidence: measurement.
+* *Bridge can do without* — whether the **proof** can obtain the fact
+  another way.  Evidence: the headline fact, plus a clause that
+  actually goes through.
 
-**Read those verdicts carefully: they are about the *checker*, not
-about the bridge.**  "Replaceable" there means the checker still
-reaches the same verdicts without the call.  Whether the *proof* can do
-without it is a different question, and the headline fact answers it:
-any certificate that establishes an argument's typing at a rule's
-domain is **permanent for the bridge**, because that is precisely what
-no ambient fact can supply.
+They are different properties and they come apart.  The app-argument
+re-check is the demonstration: skippable by the checker (the reference
+kernels skip it), and **permanent** for the bridge.
 
-That makes a testable prediction, recorded before the clause that will
-test it: the **iota telescope certifications** (`iotaCerts`), listed
-above as replaceable, are permanent in the same sense as the
-app-argument and beta ones — they are what will discharge the fired
-contract's typing hypotheses at the fire site (§8).  If the iota clause
-turns out not to need them, the headline fact is wrong and that matters
-more than the clause.
+| certificate | checker can skip | bridge can do without | status |
+|---|---|---|---|
+| app-argument re-check (`inferSpineI`) | yes — the 98.6 % | **no** | *established* (four routes closed) |
+| beta re-check | yes | **no** | *established* (`propext` refutes the alternative) |
+| iota telescope certifications (`iotaCerts`) | yes | **no** | **prediction** |
+| structure-eta / unit-like telescope certifications | yes | **no** | **prediction** |
+| `projCert` | yes — measured free anyway | **no** | **prediction** |
+| plain-rule parameter comparison | no — cheap, short-circuits reduction | no | needed by both, for *different* reasons |
+| canonical-index `defEqList` | no — ditto | no | needed by both, for *different* reasons |
+
+The pattern behind the third column, which is itself the falsifiable
+part:
+
+> Certificates come in two kinds.  Those that establish **an argument's
+> typing at a rule's domain** are permanent for the bridge — that is
+> exactly the fact nothing ambient can supply.  Those that perform
+> **syntactic matching** (which rule fires, whether the indices agree)
+> are needed by checker and bridge alike, but for unrelated reasons:
+> the checker to reduce, the bridge to know which contract instance it
+> is discharging.
+
+`HasType.psigmaEta` wants `⊢ A : sort u`, `⊢ B : A → sort v`,
+`⊢ p : PSigma' A B`; `projFstMk` wants four of the same kind; the iota
+contract's telescope hypothesis wants one per argument.  All three are
+the same shape as `beta`'s premise, so the headline fact applies to
+all three.
+
+**These are predictions, not re-verdicts.**  I have not reached those
+clauses.  They carry the same falsifiable status as the `iotaCerts`
+one: **if a clause discharges its rule's premises without the
+corresponding certificate, the headline fact is wrong**, and that is a
+larger event than an easier clause — it would unseat three consequences
+and a contract decision.  Report it as a finding before working around
+it.
 
 ### What this changes here — and what it does not
 
@@ -792,10 +812,17 @@ non-inert `rl`, its stored constructor, and then over `φ, d, Δ, us,
 usj, args, margs`; it takes the two denotations as given (`some L`,
 `some R`) plus a **telescope-typing hypothesis** — each argument
 denotes and is typed at its domain in the instantiated telescope — and
-concludes `Deq Δ L R`.  The telescope-typing predicate is the one piece
-still to design; it is the transpose of `TeleFitI`
-(`Setlec/Model/Interp.lean`) with membership replaced by `HasType`, and
-it is what `iotaCerts` discharges at the fire site.
+concludes `Deq Δ L R`.  The telescope-typing predicate is `TeleTyped`
+(`Setlec/TTVerify/Tele.lean`): the transpose of `TeleFitI`
+(`Setlec/Model/Interp.lean`) with membership replaced by `HasType`, one
+premise shorter because `AnnotOk` has nothing to carry.  Its consumer
+`TeleTyped.appN` — instantiating a `∀`-telescope typing along a fitting
+spine — is proved, which is where the headline fact appears as an
+obligation rather than as prose: `HasType.app` fires once per argument
+and wants `⊢ x : A` at *that* domain each time, `TeleTyped` supplies
+exactly one such premise per argument, and there is nowhere else for
+them to come from.  The `iotaCerts` prediction is the claim that the
+checker already computes precisely this list.
 
 Note what the fired form costs, stated honestly: the *field* is longer
 than the set model's, because the firing conditions move into its
