@@ -3841,6 +3841,29 @@ the instantiated domain.  Written for `Eq`, it costs `Nat`, `PSigma`
 and `Quot` nothing — the same pilot-then-blocks economy the
 `instantiate1` kit had.
 
+#### Three shared pieces, found the same way
+
+`BetaSpine`, the `instantiate1` kit and the depth-and-levels form of the
+type computations were each found by the same move: **hit it in one
+block, recognise that every block needs it, hoist it before writing the
+second.**  The third is worth spelling out because it is the least
+obvious.
+
+A block's `htype` wants its pinned type denoted at depth `0` and at the
+declaration's *own* level parameters; its `hheadRec` wants the same type
+denoted at the fire site's depth `d` and at the recursor's `us`.  Those
+look like two lemmas and are one: `denote_eqRec_type` is stated at
+arbitrary `d` and arbitrary `[w1, w2]`, and the install's case is the
+specialisation at `0` and `[param u_1, param u]`, where
+`substFn_param_self` collapses the assignment back to `φ`.  Writing the
+depth-`0` case first — as `PUnit` did — means writing the general one
+afterwards anyway, and the general one is no harder.
+
+The towers need a matching triviality (`eqValT_congr`): a valuation
+reads the assignment only at its own level names, so the tower the
+*type* mentions and the tower the *recursor* is read at are the same
+term even though the two assignments differ elsewhere.
+
 #### CANDIDATE for the final summary: everything here is telescope-shaped
 
 > **Every telescope-shaped obligation in this bridge decomposes against

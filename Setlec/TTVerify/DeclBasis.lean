@@ -1053,46 +1053,67 @@ theorem eqRecValT_closed (ψ : Name → Nat) : VExpr.Closed (eqRecValT ψ) := by
   all_goals first | trivial | omega
 
 
-/-- **`Eq.rec`'s pinned type, denoted.**  The six-binder walk, with the
-block's two earlier constants read at their pins. -/
+/-- The towers read the assignment only at their own level names. -/
+theorem eqValT_congr {ψ₁ ψ₂ : Name → Nat} (h : ψ₁ uNT = ψ₂ uNT) :
+    eqValT ψ₁ = eqValT ψ₂ := by rw [eqValT, eqValT, h]
+
+theorem eqReflValT_congr {ψ₁ ψ₂ : Name → Nat} (h : ψ₁ uNT = ψ₂ uNT) :
+    eqReflValT ψ₁ = eqReflValT ψ₂ := by rw [eqReflValT, eqReflValT, h]
+
+/-- **`Eq.rec`'s pinned type, denoted at any depth and any levels.**
+
+The general form is the one `hheadRec` supplies at a fire site — depth
+`d`, the recursor's own `us` — and the install's own `htype` is its
+special case at depth `0` and the declaration's own parameters
+(`substFn_param_self`).  Written once for the same reason `BetaSpine`
+and the `instantiate1` kit were: every block needs exactly this
+shape. -/
 theorem denote_eqRec_type {env : Env} (m : EnvTT env)
-    {val : (Name → Nat) → VExpr} (φ : Name → Nat)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat)
+    (w1 w2 : Level)
     (hE : env.find? eqName = some eqA)
     (hR : env.find? eqReflName = some eqReflA)
     (hEv : ∀ ψ : Name → Nat, m.cval eqName ψ = eqValT ψ)
     (hRv : ∀ ψ : Name → Nat, m.cval eqReflName ψ = eqReflValT ψ) :
-    denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ 0
-        eqRecA.toConstantVal.type
-      = some (.pi (.sort (φ uNT))
+    denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ d
+        (eqRecA.toConstantVal.type.instantiateLevelParams
+          eqRecA.toConstantVal.levelParams [w1, w2])
+      = some (.pi (.sort (w2.eval φ))
         (.pi (.bvar 0)
           (.pi (.pi (.bvar 1)
-              (.pi (VExpr.mkAppN (eqValT φ) [.bvar 2, .bvar 1, .bvar 0])
-                (.sort (φ u1NT))))
+              (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uNT] [w2]))
+                  [.bvar 2, .bvar 1, .bvar 0])
+                (.sort (w1.eval φ))))
             (.pi (.app (.app (.bvar 0) (.bvar 1))
-                (VExpr.mkAppN (eqReflValT φ) [.bvar 2, .bvar 1]))
+                (VExpr.mkAppN (eqReflValT (Level.substFn φ [uNT] [w2]))
+                  [.bvar 2, .bvar 1]))
               (.pi (.bvar 3)
-                (.pi (VExpr.mkAppN (eqValT φ) [.bvar 4, .bvar 3, .bvar 0])
+                (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uNT] [w2]))
+                    [.bvar 4, .bvar 3, .bvar 0])
                   (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))))))) := by
-  have hEc : ∀ d : Nat,
-      denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ d
-        (.const eqName [.param uNT]) = some (eqValT φ) := by
-    intro d
+  have hsu : Level.subst [u1NT, uNT] [w1, w2] (.param uNT) = w2 := by
+    simp [Level.subst, Level.subst.go, uNT, u1NT]
+  have hsu1 : Level.subst [u1NT, uNT] [w1, w2] (.param u1NT) = w1 := by
+    simp [Level.subst, Level.subst.go, u1NT]
+  have hEc : ∀ e : Nat,
+      denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
+        (.const eqName [w2]) = some (eqValT (Level.substFn φ [uNT] [w2])) := by
+    intro e
     rw [denote_const, Env.find?_cons, if_neg (by decide), hE]
-    simp only [show ([Level.param uNT] : List Level).length
+    simp only [show ([w2] : List Level).length
       = eqA.toConstantVal.levelParams.length from rfl, if_true]
-    rw [cvalSet_ne (by decide),
-      show Level.substFn φ eqA.toConstantVal.levelParams [Level.param uNT]
-        = φ from substFn_param_self φ [uNT], hEv]
-  have hRc : ∀ d : Nat,
-      denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ d
-        (.const eqReflName [.param uNT]) = some (eqReflValT φ) := by
-    intro d
+    rw [cvalSet_ne (by decide), hEv]
+    rfl
+  have hRc : ∀ e : Nat,
+      denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
+        (.const eqReflName [w2])
+        = some (eqReflValT (Level.substFn φ [uNT] [w2])) := by
+    intro e
     rw [denote_const, Env.find?_cons, if_neg (by decide), hR]
-    simp only [show ([Level.param uNT] : List Level).length
+    simp only [show ([w2] : List Level).length
       = eqReflA.toConstantVal.levelParams.length from rfl, if_true]
-    rw [cvalSet_ne (by decide),
-      show Level.substFn φ eqReflA.toConstantVal.levelParams
-        [Level.param uNT] = φ from substFn_param_self φ [uNT], hRv]
+    rw [cvalSet_ne (by decide), hRv]
+    rfl
   rw [show eqRecA.toConstantVal.type
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
           (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
@@ -1117,9 +1138,10 @@ theorem denote_eqRec_type {env : Env} (m : EnvTT env)
                 { bi := .default })
               { bi := .implicit })
             { bi := .implicit })
-          { bi := .implicit } from rfl]
-  simp [denote_forallE, denote_sort, denote_app, denote_fvar, Level.eval,
-    hEc, hRc, VExpr.mkAppN]
+          { bi := .implicit } from rfl,
+    show eqRecA.toConstantVal.levelParams = [u1NT, uNT] from rfl]
+  simp [Expr.instantiateLevelParams, hsu, hsu1, denote_forallE, denote_sort,
+    denote_app, denote_fvar, hEc, hRc, VExpr.mkAppN]
 
 
 /-- **`Eq`, installed** — and with it §11's law, discharged from the
