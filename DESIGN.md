@@ -7632,12 +7632,29 @@ interleaved driver used, `restrictTo k` and `restrictTo (k+1)`.
 `flushS` runs at every step of both phases, so no memo entry ever
 crosses a bound change.
 
-*Not separable, by construction*: inductive blocks, basis blocks and
-axioms validate their conditions as they are installed (positivity, the
-provisional-environment walks, the standard-axiom pins), so phase one
-runs the ordinary driver on them and phase two has nothing to re-check.
-`--check-range` covering an inductive block therefore checks nothing
-extra there.
+*Rejected: hoisting the pinned branches into the install phase.*  The
+first cut ran them wholesale at install, because `nat_add_levelpoly`
+diverged — the interleaved driver *declines* at `natOpGuardF`, while a
+split driver that installed `Nat.add` unguarded then reported a later
+theorem as *invalid*.  Hoisting hides the divergence at the cost of a
+silent coverage hole in exactly the feature whose purpose is selective
+checking: `--install-only` would not actually be install-only, and
+`--check-range` would leave those declarations permanently unchecked.
+Replaying the branch at the two bounded views fixes it at the root
+instead — `Nat.add`'s own check-phase guard now fires first, so the
+stream declines as it should.  Evidence that the certificates really
+run from the bounded view, not vacuously: `--check-range 484:485` on
+the 562-declaration `nat_mod_perturbed` fixture reports
+`unsupported Nat.div/mod spelling (Nat.mod)`.
+
+*Not separable, by construction* (caveat 1): inductive blocks, basis
+blocks and axioms validate their conditions as they are installed
+(positivity, the provisional-environment walks, the standard-axiom
+pins), so phase one runs the ordinary driver on them and phase two has
+nothing to re-check.  `--check-range` covering an inductive block
+therefore checks nothing extra there.  **Diagnostic-only**: a split run
+never returns 0 and the interleaved path is byte-identical, so this
+costs coverage of a *diagnostic* mode, never of a verdict.
 
 **Env-extent audit** (the security argument).  Every environment
 consultation the check phase performs is bounded, because on the
@@ -7688,10 +7705,15 @@ lets the message name the declaration.  `notImplemented` stays 2 and
 `internal` stays 3 throughout.  `--yolo` cannot be combined with the
 split flags.
 
-Residual, documented divergence: at full range the split driver can
-report an install-phase error of a declaration *after* the one the
-interleaved driver stopped at (installation no longer stops at the
-first failed check).  No e2e or arena fixture exhibits it.
+Residual, documented divergence (caveat 2): at full range the split
+driver can surface an install-phase error of a declaration *later* in
+the stream than the one the interleaved driver stopped at (installation
+no longer stops at the first failed check).  No e2e or arena fixture
+exhibits it.  **Diagnostic-only**, for the same two reasons: a split
+run never returns 0, and the interleaved path — the one whose verdict
+the consistency chain covers — is byte-identical to master.  Both
+caveats are therefore accepted as costs of a diagnostic mode, not of a
+verdict.
 
 **What it buys.**  `--check-range 484:485` on a 562-declaration stream
 checks *one* declaration — `Nat.mod`, pinned certificate and all — and
