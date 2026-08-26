@@ -451,7 +451,23 @@ install:
 | `DeclOpaqueTT` | **proved** (`declOpaqueTT_closed`) |
 | `DeclDefnTT` | proved modulo `NatOpPinTT`, `DivModPinTT` |
 | `DeclAxiomTT` | proved modulo `StdAxiomKeyTT`, `OfReduceKeyTT` |
-| `DeclBasisTT`, `DeclIndTT` | open |
+| `DeclBasisTT`, `DeclIndTT` | open — **decomposed in §14** |
+
+**§11's `Eq` law landed** (`EnvTT.eq_law`), released by its consumers
+exactly as §11 said it would be: all three standard-axiom keys have to
+turn a spine over the stored `Eq` into the layer's `eqE` former, so the
+law's first three consumers arrived together.  With it came the
+infrastructure they share — `denote_erasedEq` and `denote_matchesPin`
+(`Setlec/TTVerify/Inst.lean`), the transpose of `interp_erasedEq`.
+
+That pair is worth its own §8.4 line.  `ConstantVal.matchesPin`
+compares a stored type to a pinned one **up to binder names**, and
+`denote` reads a binder's name only to build the `fvar` it opens with —
+whose denotation is a de Bruijn index.  **The pin's tolerance and the
+denotation's blindness are the same set of syntax.**  Nobody arranged
+that; it is why a `matchesPin` hit is usable by the bridge at all, and
+it is why every inhabitation key gets to compute on the *pin* rather
+than on whatever the stream happened to send.
 
 `extendValueTT` is the transpose of the set model's `extend_model`, and
 the three kinds differ only in which `ConstantInfo` they hand it — which
@@ -3086,3 +3102,121 @@ Two corollaries, both used in #130:
   *inputs the bridge never sees*.  That is precisely why it belongs in
   a written rule rather than in a proof: nothing in the verification
   would have caught the wrong choice.
+
+## 14. SCOUTED: the two block installs, decomposed before grinding
+
+`DeclIndTT` is the tentpole of `CheckDeclTT` — the set model spends
+~8 400 lines on the semantic core and ~9 300 more on plumbing — so it
+was scouted before any of it was attempted, on the iota precedent
+(§0: measure the *function you invert*, not the statement you
+conclude).  What the scout found changes the estimate by a lot, in
+both directions.
+
+### 14.1 The model's three tiers, and which of them the bridge inherits
+
+| tier | model files | lines | character |
+| --- | --- | --- | --- |
+| A. checker inversion + environment plumbing | `Model/Extend/*` | 9 311 | **~5 % semantic** |
+| B. the fold-fact engines | `IndInstall`, `ProjInstall`, `EtaInstall` | 8 414 | model-theoretic core |
+| C. the pinned basis, computed | `Model/Basis/**` | 13 485 | maximally set-specific |
+
+Tier A is startlingly model-free: `Extend/Decl.lean` has **6 semantic
+lines out of 1 024**, `Extend/Iota.lean` **2 out of 1 394**.  Every
+`check*_inv` and every spec `Prop` (`PlainChecked`, `NestedChecked`,
+`RuleChecked`, `EtaPins`, `ProjPhaseInv`) is over `Env`/`Expr` with no
+`V` at all.
+
+> **The single most useful number in the scout's report is 2/1394.**
+> It says the install's *bookkeeping* is not model-theoretic and was
+> never model-theoretic — it is the seventh and largest member of the
+> misfiled class named at `EtaFamilyStoredT`, and it is the class's
+> strongest case for relocation to `Setlec/Verify/*`.
+
+The bridge cannot import `Setlec/Model/*` (both paths must stand
+alone), so today those inversions would have to be duplicated —
+9 300 lines of duplication is not a "ten-line restatement" and would be
+absurd.  **This is the point at which the relocation stops being
+deferrable**, and it is recorded here as the trigger rather than as a
+preference: `DeclIndTT` should not begin until the tier-A inversions
+live somewhere both paths can import.
+
+### 14.2 Which fields each engine is actually for
+
+The scout's table, condensed to what the bridge owes:
+
+| model install | `EnvModel` field | bridge counterpart |
+| --- | --- | --- |
+| `IndInstall.lean` (5 290) | `rec_rules` **only** | `RecRulesTT` head clause |
+| `ProjInstall.lean` (2 038) | `rec_rules` **only** (projection fns are stored as degenerate recursors) | `RecRulesTT` head clause |
+| `EtaInstall.lean` (1 086) | `caps_ok` **only** | `EtaLawTT` / `UnitLawTT` head clauses |
+| `Basis/*/Install.lean` | `mem_type`, `annot_ok`, `val`, `ind_ok` | `has_type`, **—**, `cval`, `basis_pinned` |
+| `Basis/*/{Iota,RuleOk}.lean` | `rec_rules` | `RecRulesTT` |
+
+Two entries in that last column are the whole planning story.
+
+* **`annot_ok` has no bridge counterpart at all.**  Roughly a third of
+  tier C is `annotOk_<c>_type` / `annotOk_<r>_rhs` families, and the
+  bridge dropped `AnnotOk` from every claim.  §13 established that the
+  drop was not free — but it costs the bridge *one* clause
+  (`pairEtaCert`, now repaired in the checker), against ~4 000 lines it
+  does not have to write here.  **That is the trade finally priced.**
+* **`proj_ok` is vacuous on the `.indDecl` path.**  Modeled blocks
+  install only `native = false` template entries, and `checkProjFn`
+  installs a *degenerate recursor*, not a `projInfo` — so the whole
+  projection-table story lands in `rec_rules`, not `proj_ok`.  The
+  bridge's `ProjOkT` is therefore untouched by `DeclIndTT`.
+
+### 14.3 The five semantic obligations, named in advance
+
+Tier B reduces to five, and they are already isolated in the model
+behind `_of_bottom` interfaces:
+
+| obligation | model size | what it establishes |
+| --- | --- | --- |
+| `IndBottomPlainTT` | 1 518 | a plain rule's canonical iota LHS and its rhs agree |
+| `IndBottomNestedTT` | 1 811 | ditto at stored level/parameter pins |
+| `ProjBottomTT` | 960 | ditto for a projection function, at the fresh extension |
+| `EtaFoldTT` | 553 | the checked `_model.eta` theorem becomes the fired eta law |
+| `UnitFoldTT` | 510 | the checked `_model.unitlike` theorem becomes the unit law |
+
+`modeled_bottom_plain` + `modeled_bottom_nested` alone are **63 % of
+`IndInstall.lean`**, and they are near-duplicates differing only in how
+the constructor spine is formed.  So the honest estimate is *five*
+named `Prop`s, two of which dominate — and the split across sessions is
+along those five, not along the files.
+
+**The `_of_bottom` tails are already provenance-free and already shared
+with the direct-struct path**, which is the same "written once, used by
+two consumers" shape `eta_rescue` had (§6).  If the bridge keeps
+`ruleLhsParts`/`TeleTyped` signatures — it does — those tails
+transpose rather than being re-derived.
+
+### 14.4 `DeclBasisTT` should be markedly cheaper than the model's
+
+Tier C is 13 485 lines, but the bridge's version drops two of the three
+theorem families per constant:
+
+| model family | bridge |
+| --- | --- |
+| `interp_<c>_type` | `denote` of the pinned type — computation, but against `BConst.type`, which the layer already fixes |
+| `<c>_key` | `HasType.const` for the six pinned formers that survive in `BConst`; a fired law for the four the layer derives (§11) |
+| `annotOk_<c>_type` | **gone** |
+
+And the `.basisDecl` case is `installBasisDecl` folded over `kind.declsA`
+— a three-line duplicate check with **no inversion lemma in the model
+either** (it is inverted inline).  So `DeclBasisTT` is a fold plus one
+`extendBasisTT` per constant, which is the shape `extendValueTT` and
+`extendAxiomTT` already have.
+
+### 14.5 What this buys, stated as a plan
+
+1. **Relocate tier A** (or the ~1 500 lines of it the bridge needs) out
+   of `Setlec/Model/Extend/*`.  Blocking; see §14.1.
+2. `DeclBasisTT` **before** `DeclIndTT`: it is smaller than its model
+   counterpart suggests, it exercises `extendBasisTT` and the §11 `Eq`
+   law, and the pinned recursors' fired rules are the smallest instance
+   of the same `RecRulesTT` head clause the big install needs.
+3. `DeclIndTT` last, split along the five obligations of §14.3, with
+   `EtaFoldTT`/`UnitFoldTT` first (they are the smallest and they close
+   `CapsOkTT`, which `majorToCtor`'s rescues already consume).
+

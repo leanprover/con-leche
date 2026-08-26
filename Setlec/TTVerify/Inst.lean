@@ -248,4 +248,152 @@ theorem denote_beta_step (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       rw [denote_beta (n := n) (ty := ty) hcl hfb hwa hba ha 0, hB]
       rfl
 
+/-! ## Name insensitivity
+
+The standard-axiom pins compare stored types to pinned ones **up to
+binder names** (`ConstantVal.matchesPin` uses `Expr.eraseNames`), so
+every inhabitation key needs the denotation to ignore exactly what the
+pin ignores.  It does — `denote` reads a binder's name only to build the
+`fvar` it opens with, and an `fvar` denotes to its de Bruijn index.
+
+Transpose of `interp_erasedEq` (`Setlec/Model/InterpLemmas.lean`), and
+another §8.4 reading: **the pin's tolerance and the denotation's
+blindness are the same set of syntax**, which is why a `matchesPin` hit
+is usable at all. -/
+
+/-- Erasure-equal expressions denote equally. -/
+theorem denote_erasedEq {cval : TConstVal} {env : Env} {φ : Name → Nat} :
+    ∀ {e₁ e₂ : Expr}, Expr.ErasedEq e₁ e₂ →
+      ∀ d : Nat, denote cval env φ d e₁ = denote cval env φ d e₂
+  | .bvar i, e₂, he, d => by
+    match e₂, he with
+    | .bvar j, he => obtain rfl : i = j := he; rfl
+  | .fvar i n ty, e₂, he, d => by
+    match e₂, he with
+    | .fvar j n' ty', he =>
+      obtain rfl : i = j := he
+      simp [denote_fvar]
+  | .sort u, e₂, he, d => by
+    match e₂, he with
+    | .sort u', he => obtain rfl : u = u' := he; rfl
+  | .const n us, e₂, he, d => by
+    match e₂, he with
+    | .const n' us', he =>
+      obtain ⟨rfl, rfl⟩ : n = n' ∧ us = us' := he
+      rfl
+  | .app f a, e₂, he, d => by
+    match e₂, he with
+    | .app g b, he =>
+      obtain ⟨h1, h2⟩ : Expr.ErasedEq f g ∧ Expr.ErasedEq a b := he
+      simp only [denote_app, denote_erasedEq h1 d, denote_erasedEq h2 d]
+  | .forallE n ty body m, e₂, he, d => by
+    match e₂, he with
+    | .forallE n' ty' body' m', he =>
+      obtain ⟨rfl, h1, h2⟩ :
+          m = m' ∧ Expr.ErasedEq ty ty' ∧ Expr.ErasedEq body body' := he
+      simp only [denote_forallE, denote_erasedEq h1 d,
+        denote_erasedEq (Expr.ErasedEq.instantiate1 h2
+          (show Expr.ErasedEq (.fvar d n ty) (.fvar d n' ty') from rfl))
+          (d + 1)]
+  | .lam n ty body m, e₂, he, d => by
+    match e₂, he with
+    | .lam n' ty' body' m', he =>
+      obtain ⟨rfl, h1, h2⟩ :
+          m = m' ∧ Expr.ErasedEq ty ty' ∧ Expr.ErasedEq body body' := he
+      simp only [denote_lam, denote_erasedEq h1 d,
+        denote_erasedEq (Expr.ErasedEq.instantiate1 h2
+          (show Expr.ErasedEq (.fvar d n ty) (.fvar d n' ty') from rfl))
+          (d + 1)]
+  | .letE n ty vl body, e₂, he, d => by
+    match e₂, he with
+    | .letE n' ty' vl' body', he =>
+      obtain ⟨h1, h2, h3⟩ : Expr.ErasedEq ty ty' ∧ Expr.ErasedEq vl vl' ∧
+        Expr.ErasedEq body body' := he
+      simp only [denote_letE, denote_erasedEq h1 d, denote_erasedEq h2 d,
+        denote_erasedEq (Expr.ErasedEq.instantiate1 h3
+          (show Expr.ErasedEq (.fvar d n ty) (.fvar d n' ty') from rfl))
+          (d + 1)]
+  | .lit l, e₂, he, d => by
+    match e₂, he with
+    | .lit l', he => obtain rfl : l = l' := he; rfl
+  | .proj sn i pe, e₂, he, d => by
+    match e₂, he with
+    | .proj sn' i' pe', he =>
+      obtain ⟨rfl, rfl, h⟩ :
+          sn = sn' ∧ i = i' ∧ Expr.ErasedEq pe pe' := he
+      simp only [denote_proj, denote_erasedEq h d]
+termination_by e₁ => e₁.sizeB
+decreasing_by
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
+
+/-- Name erasure only changes what `ErasedEq` ignores.  A duplicate of
+`Setlec/Model/StdAxioms.lean`'s lemma of the same name; `V`-free, and
+one more member of the misfiled class named at `EtaFamilyStoredT`. -/
+theorem erasedEq_of_eraseNames :
+    ∀ {a b : Expr}, a.eraseNames = b.eraseNames → Expr.ErasedEq a b
+  | .bvar _, b, h => by
+    match b, h with
+    | .bvar _, h =>
+      simp only [Expr.eraseNames, Expr.bvar.injEq] at h
+      exact h
+  | .fvar _ _ tya, b, h => by
+    match b, h with
+    | .fvar _ _ tyb, h =>
+      simp only [Expr.eraseNames, Expr.fvar.injEq] at h
+      exact h.1
+  | .sort _, b, h => by
+    match b, h with
+    | .sort _, h =>
+      simp only [Expr.eraseNames, Expr.sort.injEq] at h
+      exact h
+  | .const _ _, b, h => by
+    match b, h with
+    | .const _ _, h =>
+      simp only [Expr.eraseNames, Expr.const.injEq] at h
+      exact h
+  | .app fa aa, b, h => by
+    match b, h with
+    | .app fb ab, h =>
+      simp only [Expr.eraseNames, Expr.app.injEq] at h
+      exact ⟨erasedEq_of_eraseNames h.1, erasedEq_of_eraseNames h.2⟩
+  | .lam _ tya ba ma, b, h => by
+    match b, h with
+    | .lam _ tyb bb mb, h =>
+      simp only [Expr.eraseNames, Expr.lam.injEq] at h
+      exact ⟨h.2.2.2, erasedEq_of_eraseNames h.2.1,
+        erasedEq_of_eraseNames h.2.2.1⟩
+  | .forallE _ tya ba ma, b, h => by
+    match b, h with
+    | .forallE _ tyb bb mb, h =>
+      simp only [Expr.eraseNames, Expr.forallE.injEq] at h
+      exact ⟨h.2.2.2, erasedEq_of_eraseNames h.2.1,
+        erasedEq_of_eraseNames h.2.2.1⟩
+  | .letE _ tya va ba, b, h => by
+    match b, h with
+    | .letE _ tyb vb bb, h =>
+      simp only [Expr.eraseNames, Expr.letE.injEq] at h
+      exact ⟨erasedEq_of_eraseNames h.2.1, erasedEq_of_eraseNames h.2.2.1,
+        erasedEq_of_eraseNames h.2.2.2⟩
+  | .lit _, b, h => by
+    match b, h with
+    | .lit _, h =>
+      simp only [Expr.eraseNames, Expr.lit.injEq] at h
+      exact h
+  | .proj _ _ ea, b, h => by
+    match b, h with
+    | .proj _ _ eb, h =>
+      simp only [Expr.eraseNames, Expr.proj.injEq] at h
+      exact ⟨h.1, h.2.1, erasedEq_of_eraseNames h.2.2⟩
+
+/-- A `matchesPin` hit lets a stored type be denoted on the pin. -/
+theorem denote_matchesPin {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {cv pin : ConstantVal} (h : ConstantVal.matchesPin cv pin = true)
+    (d : Nat) :
+    denote cval env φ d cv.type = denote cval env φ d pin.type := by
+  simp only [ConstantVal.matchesPin, Bool.and_eq_true, beq_iff_eq] at h
+  exact denote_erasedEq (erasedEq_of_eraseNames h.2) d
+
 end Setlec.TTVerify

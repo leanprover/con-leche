@@ -387,7 +387,6 @@ install neither stores it nor changes its valuation, and the law is
 the old one read at the new environment. -/
 theorem EqLawTT.cons {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (h : EqLawTT env cval)
-    (hfresh : env.find? c₀.name = none)
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
     (hhead : c₀.name = eqName → EqLawTT ⟨c₀ :: env.consts⟩ cval') :
     EqLawTT ⟨c₀ :: env.consts⟩ cval' := by

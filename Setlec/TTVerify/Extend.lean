@@ -1497,7 +1497,7 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
         hheadEta hheadUnit
       proj_ok := ProjOkT.cons m.proj_ok hi.fresh hheadProj hheadProjPair
       rec_ctors := RecCtorsStoredT.cons m.rec_ctors hi.fresh hheadCtors
-      eq_law := EqLawTT.cons m.eq_law hi.fresh hi.ag hheadEq
+      eq_law := EqLawTT.cons m.eq_law hi.ag hheadEq
       basis_pinned := BasisPinnedTT.cons m.basis_pinned hi hheadBasis
       nat_ops := NatOpsTT.cons m.nat_ops hi hheadNat
       div_mod := DivModTT.cons m.div_mod hi hheadDivMod
