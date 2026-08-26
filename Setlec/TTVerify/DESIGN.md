@@ -3706,6 +3706,16 @@ convenience, it is a misdescription**, and `projFnName_ne_reserved` —
 proved in the same file for another purpose — is the fact that refutes
 it.
 
+> **A fix that shrinks in the hand is confirming the diagnosis; one
+> that grows is suspect.**  This is the third instance: narrowing
+> `RecRulesTT` made the transport *easier* and deleted three rescues;
+> strengthening `CtxOk` cost its callers nothing; and this re-signing
+> came out smaller than the finding suggested, because `hpin`/`hdirect`
+> turned out to need no gating at all — both are vacuous on an
+> unreserved constant anyway.  When the implementation keeps finding
+> that less is needed than the diagnosis predicted, the diagnosis was
+> about the right thing.
+
 **Sharper than the flag predicted, and worth the rule.**  The flag said
 "an obligation discharged vacuously has never been consumed, so its
 shape is conjecture".  True, but incomplete: *the hypotheses a vacuous
