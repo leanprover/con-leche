@@ -627,12 +627,14 @@ public `Nat.bitwise_div_two_pow`/`bitwise_mod_two_pow`.
   for `Nat`, and it is the direction the certificates already point;
 * `Nat.beq`/`Nat.ble`'s `tv`/`fv` must be denoted to whatever the
   unfolded `Bool` constructors are; the layer is agnostic;
-* **`String` literals need nothing here.**  The checker expands a
-  string literal to its constructor form over stored (modeled)
-  constants, and those unfold in the layer (§2.1), so the denotation of
-  a string literal simply *is* the denotation of its expansion.  There
-  is no numeral-style induction to do, because there is no recursive
-  operation on strings with a certified fast path.
+* **`String` literals need nothing here.**  `strLitToConstructor`
+  expands a string literal to `String.ofList [Char.ofNat n₁, …]` over
+  stored (modeled) constants, and those unfold in the layer (§2.1), so
+  the denotation of a string literal simply *is* the denotation of its
+  expansion — with the embedded `Nat` literals denoting to `numeral`.
+  There is no induction to do, because the expansion is finite and
+  explicit and no recursive operation on strings has a certified fast
+  path.
 
 The layer's largest coverage gap is therefore no longer literal
 computation.
