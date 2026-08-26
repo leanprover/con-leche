@@ -7253,19 +7253,33 @@ byte-identical — stdout, stderr and exit code — to master@3c883f3 in
   `extend_proj_fn`, `ctor_pkg_nested`, `modeled_bottom_nested` and
   `modeled_rule_eq_nested` rather than underscored.
 
-**What survives, and why (a finding).**  `annotate` is *not* deleted
-as a pass, and cannot be: with the annotations erased its remaining
-clauses are the ones that change the **skeleton**, plus the leaf
-checks that only it is positioned to make.  Post-stage-6 the pass is a
-pure normalizer:
+**What survives, and why (a finding) — and the name is now a
+misnomer.**  Read this before reading any code that mentions
+`annotate`: **`annotateCore` / `ops.annotate` / `annotateBodyI` compute
+no annotation and store no annotation.  There is no annotation.  The
+name is a leftover and is scheduled for a rename** (`normalizeCore` /
+`ops.normalize` / `normalizeBodyI` — filed as its own mechanical task;
+it did not ride along with this tentpole).  Do not infer from the
+identifier that binder annotations still exist anywhere: they do not,
+`BinderMeta` has one field, and every sort is inferred on demand.
 
-* the **projection rewrite** (`annotateProjElim` / `annotateProjRec`)
-  — permanent per the #107 audit: modeled structures can never get a
-  first-class `.proj`, and the Prop template tail is kernel-parity;
-* **zeta at annotate** (`letE` bodies are annotated as their zeta
-  reducts) — opened opaque let-variables reject real streams;
-* the literal-support guards and the `fvar`-scope leaf check, which
-  is the entry point raw input passes through.
+The pass itself is not deleted, and cannot be: with the annotations
+erased, its remaining clauses are the ones that change the
+**skeleton** of the input, plus the leaf checks that only it is
+positioned to make.  All four are **input normalization**, and the
+first is permanent by the user's own goal statement:
+
+1. the **projection rewrite** (`annotateProjElim` /
+   `annotateProjRec`) — permanent per the #107 audit: modeled
+   structures can never get a first-class `.proj`, and the Prop
+   template tail is kernel-parity;
+2. **zeta** — `letE` bodies are normalized to their zeta reducts;
+   opened opaque let-variables reject real streams;
+3. the **literal-support guards** (`Nat`/`String` literals are
+   well-formed exactly when their basis declarations are stored);
+4. the **`fvar` leaf scope check** — this pass is the entry point raw
+   input passes through, so a dangling free variable in the input is
+   rejected here.
 
 Everything else in the pass is now structural recursion: the binder
 clauses rebuild, the app clause annotates its two children (the
@@ -7276,9 +7290,8 @@ re-checks every argument unconditionally since the de-gating), and the
 clause (official `infer_let` order).  So the honest statement of the
 end state is: **no annotation is computed or stored anywhere; every
 sort the kernel needs is computed on demand by `infer` at the consumer
-site; the pass that used to compute them survives only as the
-skeleton normalizer named `annotate`.**  Renaming it (`normalize`?) is
-cosmetic and was not done.
+site; what used to compute them survives only as an input normalizer
+that still, misleadingly, carries the name `annotate`.**
 
 **Remaining cosmetic vestige.**  The level-erased abbrevs
 `pi (_v) A B := piC A B` and `lam (_v) A F := lamC A F`
@@ -7287,7 +7300,7 @@ They are `noncomputable abbrev`s — reducible, so goals already display
 `piC`/`lamC` and no proof depends on the discarded level.  Deleting
 them is a pure rename across the model layer with no verdict, proof or
 performance consequence; it is deliberately **not** part of this
-stage.
+stage and is filed as its own mechanical task.
 
 **Not re-measured here.**  The stage's cost claim (the erasure
 recovers the de-gating's +55 % init-full certified cost by deleting
