@@ -7787,6 +7787,15 @@ means re-checking the N−1 before it.
 
 ## Step-budget reduction loops: fuel stops being depth (2026-08-26, task #106)
 
+**Scope, stated up front: this task did NOT clear the `Std.Time`
+frontier.**  The two engine defects below are fixed and verified, and
+the measurement stands, but at the default `checkFuel` the declaration
+`Std.Time.Second.Offset.toDays._proof_1` still exits 3.  The *cause*
+has been reclassified: it is not fuel accounting but the
+**certified-mode tax** (task #90, ~42x by the table below), and the
+frontier is reassigned there.  #106 is "engine work done, frontier
+reassigned" — nothing in this section should be read as clearing it.
+
 `checkFuel` is the knot's structural fuel: every call through the
 `CoreFns` record costs one unit.  Before this task the *reduction
 chains* went through the record too — `whnfCore`'s beta/iota/zeta/proj
@@ -7824,6 +7833,38 @@ budget.  The budgets are `@[irreducible]`: the `Verify/Knot.lean` `rfl`
 equations must not try to evaluate them, and proofs that need to peel
 one iteration use the `*_succ` positivity witnesses instead.
 
+### The idiom, named: open recursion one level down
+
+This factoring is **the pattern for introducing any future loop into
+the core**, not a one-off for this task.  The module's whole discipline
+is that a body never calls itself — recursion is routed through the
+`CoreFns` record `r`, and fuel lives only in the knot that ties it.  A
+loop is the same situation one level down: the loop body must not call
+*itself* either.  So abstract the loop's continuation as `k`, exactly
+as `r` abstracts the knot's, and let a separate two-line `Loop`
+function tie `k` to the budget.
+
+The payoff is that `k` behaves like `r` in every proof battery.  Each
+existing per-body lemma survives with **one extra hypothesis about
+`k`** — a projection equation for `PairM`, an `atF` equation for
+`Fueled`, a `SimAt` for the interned walks — and the loop lemma is then
+a plain induction on the budget with that hypothesis discharged by the
+induction hypothesis.  Concretely, `PairM`'s `fst_step4`/`snd_step4`
+and `Fueled`'s `atF_step4` were re-expressed as `*_core4`, a macro
+taking one extra tactic alternative, so `*_step4` is
+`*_core4 (fail)` and `*_step4k hk` is `*_core4 (rw [hk])`: the
+rewrite lists are not duplicated, and the cascades stay the same
+cascades.  **That the batteries needed a parameter rather than a fork
+is the evidence the factoring is right**; if a future loop cannot be
+expressed this way, that is a signal to re-examine the loop, not to
+duplicate the batteries.
+
+Threading the *budget* through the loop bodies instead (the first
+attempt) forces a lexicographic termination measure on the mutual
+block and makes every battery induct on two things at once.  The
+continuation form keeps `whnfAppI`/`betaPeelI` at task #50's plain
+`(args.length, phase)` measure.
+
 **`whnfCore` is looped on the interned side only.**  Its specification
 body stays chained, because the refinement bridge is existential in the
 knot fuel: `Verify/BetaSpine.lean` mirrors the loop at `Expr` level
@@ -7834,6 +7875,30 @@ bulk beta, now also absorbing the loop steps.  `whnfApp_ksound` /
 `betaPeel_ksound` are the new piece: they turn a run whose continuation
 is merely *sound* into a run whose continuation **is** `whnfCore`, so
 the existing `snoc`/`sound` machinery is unchanged.
+
+**The obvious alternative is false — do not re-attempt it.**  The
+tempting move is to thread *two* continuations through
+`whnfApp_snoc`/`betaPeel_snoc` (the hypothesis run at `k`, the
+conclusion's prefix run at a refined `k'`).  It does not work at budget
+0: `betaPeel_snoc`'s `[]`-with-lambda-head case must produce a `w` with
+`betaPeel … t acc [] = .ok w`, and that is `k' ((lam …).instantiateList
+acc)` — so the conclusion needs the continuation to be **identity on
+lambdas**, which the budget-0 continuation (a `throw`) is not.  Worse,
+the hypothesis can hold *without ever calling the continuation* (the
+beta certificate fails and the clause returns a stuck application), so
+the lemma is genuinely false there rather than vacuous.  Every repair
+along that line — budget monotonicity, continuation refinement,
+reindexing the induction to keep the budget ≥ 1 — ends up needing the
+soundness of the *same* budget it is proving.  Converting the run to
+the `whnfCore` continuation up front sidesteps all of it, because
+`whnfCore` **is** identity on lambdas (`whnfCore_lam`) and its
+soundness is trivial.
+
+Resisting the symmetry is the general lesson here: the specification
+side is not looped because the bridge does not need it to be, and
+making it symmetric would replace an existential over knot fuel with a
+bounded budget that cannot absorb the interned side's different step
+count (bulk beta counts *groups*, the chained spec counts *binders*).
 
 ### Eagerness the reference kernels do not have (Defect B)
 
@@ -7888,7 +7953,24 @@ exactly those and checks the same stream in 5.4 s versus 3 m 51 s: a
 **~42× certified-mode tax**, on the same engine and the same stream.
 That is the sharpest evidence yet for task #90 (*certified-mode tax —
 reuse reductions between check and cert paths*), and it is where the
-frontier actually lives.
+frontier actually lives.  It is also the measurement that makes a
+further question worth asking, now under separate investigation:
+whether a **TT-based soundness proof** could carry a well-typedness
+invariant *through* reduction instead of re-deriving it at each node —
+which would potentially validate a `--yolo` run outright, i.e. collapse
+the 3 m 51 s column into the 5.4 s one rather than merely narrowing it.
+See `Setlec/TT/DESIGN.md`.
+
+**A failing stream now takes longer — this is not a regression.**  The
+default-fuel run over `pre2.ndjson` went from 50 s (master) to 2 m 44 s
+(here) *while still exiting 3*.  That is the intended consequence of
+the loops: the same declaration now reduces far deeper before the
+**nesting** budget runs out, so the checker does much more real work
+before erroring.  Accepting runs are unaffected — init-prelude is
+byte-identical in both modes and unchanged in wall time, and the arena
+and e2e suites are unchanged.  A future reader benchmarking a *failing*
+stream and finding it slower is measuring how much further the engine
+got, not a slowdown.
 
 `checkFuel` is therefore deliberately left at **100 000**.  Raising it
 is a band-aid that will break: the required depth is proportional to a
