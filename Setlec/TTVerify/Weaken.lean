@@ -1,6 +1,7 @@
 import Setlec.TT.Judgment
 import Setlec.TT.Deq
 import Setlec.TTVerify.VClosed
+import Setlec.TTVerify.SubstAlgebra
 
 /-!
 # Context weakening
@@ -131,6 +132,74 @@ theorem Deq.close2 {A T L R : VExpr} (hA : VExpr.Closed A)
   have h3 := HasType.app h2 hb
   rw [VExpr.inst_eqE] at h3
   exact Deq.intro h3
+
+/-- **Closing a two-variable equation under proof binders.**  The
+div/mod certificate frame: two `Nat` variables and one binder per
+`ble`-guard hypothesis, the guards being propositions the equation
+itself never mentions.
+
+The two extra binders cost nothing.  Each hypothesis type and the
+equation are *lifted* over the binders below them, so every
+instantiation the `app` rule performs at a proof binder meets a lift
+and is absorbed — `inst_liftN_comm` / `inst_liftN_absorb` do the whole
+of it, and the conclusion is `close2`'s, unchanged.  Which is the
+point: **a certificate checked under extra hypotheses closes at the
+same instantiation as one checked without them.**
+
+There is deliberately no three-binder variant.  The checker runs every
+certificate at depth `4` whatever its hypothesis count, and `CtxOk`
+fixes the context length to the depth — so a one-hypothesis frame is
+still a four-entry context with one entry no leaf mentions.  Give that
+entry the type of the hypothesis that *is* used and inhabit it with the
+same proof: the unused binder costs a duplicated argument, not a
+lemma. -/
+theorem Deq.close4 {A H1 H2 T L R : VExpr} (hA : VExpr.Closed A)
+    (h : HasType [VExpr.liftN 1 H2 0, H1, A, A] .prf
+      (VExpr.liftN 2 (.eqE T L R) 0))
+    {Γ : List VExpr} {a b : VExpr}
+    (ha : HasType Γ a A) (hb : HasType Γ b A)
+    (hp1 : HasType Γ .prf ((H1.inst a 1).inst b))
+    (hp2 : HasType Γ .prf ((H2.inst a 1).inst b)) :
+    Deq Γ ((L.inst a 1).inst b) ((R.inst a 1).inst b) := by
+  have hab : ∀ e : VExpr, ∀ n : Nat,
+      ((VExpr.liftN n e 0).inst a (n + 1)).inst b n
+        = VExpr.liftN n ((e.inst a 1).inst b) 0 := by
+    intro e n
+    rw [VExpr.inst_liftN_comm e (show 0 + n ≤ n + 1 by omega) a,
+      show n + 1 - n = 1 by omega,
+      VExpr.inst_liftN_comm (e.inst a 1) (show 0 + n ≤ n by omega) b,
+      Nat.sub_self]
+  have h1 : HasType Γ
+      (.lam A (.lam A (.lam H1 (.lam (VExpr.liftN 1 H2 0) .prf))))
+      (.pi A (.pi A (.pi H1 (.pi (VExpr.liftN 1 H2 0)
+        (VExpr.liftN 2 (.eqE T L R) 0))))) :=
+    HasType.weakenNil (HasType.lam (HasType.lam (HasType.lam
+      (HasType.lam h)))) Γ
+  have h3 : HasType Γ
+      (.app (.app (.lam A (.lam A (.lam H1 (.lam (VExpr.liftN 1 H2 0) .prf))))
+        a) b)
+      (.pi ((H1.inst a 1).inst b)
+        (.pi (VExpr.liftN 1 ((H2.inst a 1).inst b) 0)
+          (VExpr.liftN 2 (((VExpr.eqE T L R).inst a 1).inst b) 0))) := by
+    have h2 := HasType.app h1 ha
+    rw [VExpr.inst_pi, VExpr.inst_pi, VExpr.inst_pi,
+      VExpr.inst_eq_self_of_closed hA] at h2
+    have h3 := HasType.app h2 hb
+    rw [VExpr.inst_pi, VExpr.inst_pi] at h3
+    rw [hab H2 1, hab (.eqE T L R) 2] at h3
+    exact h3
+  have h4 := HasType.app h3 hp1
+  rw [VExpr.inst_pi,
+    VExpr.inst_liftN_absorb ((H2.inst a 1).inst b) (Nat.zero_le _)
+      (Nat.le_refl 0) VExpr.prf,
+    VExpr.liftN_zero,
+    VExpr.inst_liftN_absorb (((VExpr.eqE T L R).inst a 1).inst b)
+      (Nat.zero_le _) (show 1 ≤ 0 + 1 by omega) VExpr.prf] at h4
+  have h5 := HasType.app h4 hp2
+  rw [VExpr.inst_liftN_absorb (((VExpr.eqE T L R).inst a 1).inst b)
+      (Nat.zero_le _) (Nat.le_refl 0) VExpr.prf, VExpr.liftN_zero,
+    VExpr.inst_eqE, VExpr.inst_eqE] at h5
+  exact Deq.intro h5
 
 /-- **Closing a one-variable equation.**  The `Nat.pred` shape.
 
