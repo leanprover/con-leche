@@ -1660,6 +1660,50 @@ outstanding is three named obligations (`IotaStepTT`, `ProjStepTT`,
 `ReduceNatStepTT`) and two whole quarters (`DefEqClaimsTT`,
 `InferClaimsTT`).
 
+### 8.9 The `Nat` fast path, end to end at one operation
+
+`Setlec/TTVerify/NatOpsStep.lean` closes the chain for `Nat.add`, and
+the point of doing one operation in full before the other six is that
+the chain is what needed validating, not the arithmetic:
+
+```
+EnvTT.nat_ops                    -- the stored recurrences, open at [Nat, Nat]
+  → Deq.close2                   -- §5's recipe: closed at two numerals
+  → numeral_add                  -- the layer's meta-induction
+  = Deq Γ (add ⌜a⌝ ⌜b⌝) ⌜a + b⌝
+```
+
+`natOps_add_closed` is three lines and **no derivation proportional to
+the literals is constructed anywhere**: `numeral_add`'s recursion is at
+the *meta* level, over Lean's own `Nat`, and the `Deq` it produces has
+`prf` as its proof term whatever the literals were.  That was the
+requirement the whole "lemma families, not built-in rules" design was
+chosen to meet, and this is where it is checkable.
+
+**What each remaining operation costs.**  Only *shape* work: read the
+denotation of that operation's equation sides into the form its
+meta-induction lemma states its hypotheses at.  The pieces are all
+shared —
+
+* `denote_natOp_x` / `denote_natOp_y` — the two free variables at
+  indices 1 and 0;
+* `denote_const_nolevels`, `denote_natZeroT`, `denote_natSuccT` — the
+  three primitives, each discharging its side condition from the guard
+  (§8.4 again);
+* `cval_natT`, `numeral_closed` — what `Deq.close2` needs to fire.
+
+— so a clause is a `rw` chain and a `simpa`, and nothing in
+`natOps_add`'s argument is `add`-specific.  The six structural
+siblings differ only in which primitives appear on the right; the nine
+WF operations go through `EnvTT.div_mod` and
+`Setlec/TT/Nat/WfOps.lean` instead, with the same shape.
+
+One thing worth noting for whoever writes the rest: the equation sides
+are extracted with `by decide` on `(natOpEquations 0 c)[i]!`, which
+works because the equation list is a closed computation.  That is
+cheaper than destructuring `natOpEquations`' `if`-chain, and it keeps
+each clause independent of the others' positions.
+
 ### 8.5 The claims were *under*-hypothesised — the dual of §8.2
 
 Found on the first clause of `CheckStepTT`, before writing any proof:
