@@ -94,7 +94,19 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     φ d Δ us usj args margs xs ys restR restC L R hlenA hlenM hfitR hfitC
     hL hR
 
-/-! ## The stuck-major eta rescue
+/-! ## The stuck-major rescues
+
+`majorToCtor` has two.  The **eta** rescue is below and proved.  The
+**K** rescue is *blocked on a layer change*, not merely unwritten: its
+certificate (`proofIrrel fab major`) identifies inhabitants of two
+*different* `Prop`s — and in its unit-like branch, of `PUnit` at two
+different *levels*, `isUnitLikeTy` matching `.const c _` — while
+`HasType.proofIrrel` and `HasType.punitEta` each demand one type for
+both subjects.  Both rules are over-constrained relative to their own
+soundness proofs (`Setlec/TTVerify/DESIGN.md` §10.2).  Left blocked
+rather than worked around, as `.proj` is.
+
+## The stuck-major eta rescue
 
 `majorToCtor`'s eta branch (`Setlec/Kernel/Core.lean`) replaces a major
 that will not whnf to a constructor by the *fabrication*

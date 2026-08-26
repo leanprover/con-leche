@@ -54,6 +54,17 @@ statement that owes its own justification.  Both `cval_closed` and the
 counterpart, the second as a counterpart that could not be
 transposed.
 
+**The observable signal, so this is checkable in existing code and not
+only in new work.**  When a correspondence is *predicted before* the
+definition is written, its consumer applies **without adaptation** —
+`eta_rescue` is `m.caps_ok.1` applied to its arguments and nothing
+else, and `rec_rules_fire` is two `certs_typed`s and `m.rec_rules`.
+When a correspondence is *fitted afterwards*, the consumer needs a
+shim: a reassociation, a side lemma, an argument massaged into shape.
+So a shim at a use site is a hint that the definition was written to
+the wrong shape and adjusted to fit, and is worth re-deriving from the
+consumer's needs rather than patching.
+
 **And the failure mode one level up: follow your own asides.**  The
 `.proj` resolution (§6) was blocked for a turn by an analysis that
 concluded "F1 again" — while the sentence that refuted it was already
@@ -1098,9 +1109,12 @@ recursor and constructor, the rule, the level and argument spines,
 2. **`majorToCtor` soundness** — its prediction settled
    (`structEtaCert` confirmed, §6), and its **eta branch done**
    (`eta_rescue`, `Setlec/TTVerify/Iota.lean`), which is the branch the
-   prediction was about.  What remains is the **K branch**, whose route
-   is `proofIrrel` — the certificate's own soundness, and the collapse
-   case where both sides are the proof point.  The contract
+   prediction was about.  The **K branch** is *blocked*, not merely
+   pending: its certificate identifies inhabitants of two *different*
+   `Prop`s (and, in the unit-like branch, of `PUnit` at two different
+   levels), while the layer's `proofIrrel`/`punitEta` demand one type
+   for both.  Both rules are over-constrained relative to their own
+   soundness proofs; see §10.2.  The contract
    speaks about a redex whose major is already in constructor form,
    while the clause sees the major as written.  Bridging them is the
    whnf claim on the major, `litMajorToCtor`, and `majorToCtor` — the
@@ -1251,12 +1265,14 @@ Recorded as a constraint on the design, not as an observation about
 today's clause: whoever picks up #117 needs it *before* designing, and
 until now it existed only in this task's working notes.
 
-## 10. One change this bridge asks of the checker
+## 10. Changes this bridge asks for
 
-Collected here because it is the only one so far, and because it is a
-different *kind* of output than the rest of this document: not a
-verification result but a design request, with its own task, gates and
-byte-identity story to come.
+A different *kind* of output than the rest of this document: not
+verification results but design requests, each needing its own branch,
+gates and measurement.  Two so far — one to the checker, one to the
+layer.
+
+### 10.1 To the checker: certify the projection's constructor spine
 
 **The `.proj` clause of `whnfCoreBody` should certify the
 constructor's spine against the constructor's telescope**, exactly as
@@ -1276,6 +1292,56 @@ to reconstruct a derivation.  Expected cost is one call on a path that
 already runs `projCert`, and `iotaCerts` on a four-element spine is
 small; but it is a kernel change and must be measured, not assumed.
 
-*Status.*  Not implemented on this branch, deliberately.  Until it
-lands, `Setlec/TTVerify/WhnfCore.lean`'s `.proj` clause stays unproved,
-and that is the honest state rather than a gap to work around.
+*Status.*  Task #126, dispatched.  Not implemented on this branch,
+deliberately.  Until it lands, `Setlec/TTVerify/WhnfCore.lean`'s
+`.proj` clause stays unproved, and that is the honest state rather than
+a gap to work around.
+
+### 10.2 To the layer: the irrelevance rules are over-constrained
+
+Found while proving `majorToCtor`'s **K branch**, and it is the same
+defect twice.
+
+`majorToCtor`'s K rescue certifies its fabrication with
+`proofIrrel r env depth fab major`, which checks that **each side's
+type is a `Prop`** — `whnf (infer ta)` and `whnf (infer tb)` are both
+`.sort ≡ 0` — and *not* that the two types are the same.  The layer's
+`HasType.proofIrrel` demands one `P` for both:
+
+```
+Γ ⊢ P : Sort 0 → Γ ⊢ h : P → Γ ⊢ h' : P → Γ ⊢ prf : eqE P h h'
+```
+
+The unit-like branch has the identical shape: `proofIrrel`'s first
+branch accepts when `isUnitLikeTy` holds of each side's whnf'd type
+*separately*, and `isUnitLikeTy` matches `.const c _` — **ignoring the
+levels** — so `a : PUnit.{3}` and `b : PUnit.{5}` both pass.  The
+layer's `punitEta` requires both subjects at `punitT u` for the *same*
+`u`.
+
+**Both rules are over-constrained relative to their own soundness
+proofs**, which is a §2.4 violation in the harder-to-spot direction:
+not a premise soundness ignores, but a *coincidence* — "the same
+type" — that soundness never uses.  `proofIrrel`'s soundness applies
+`mem_univ_zero` to each side independently; `punitEta`'s reads
+`mem_unitSet` of each side, and `bval .punit us = unitSet` ignores
+`us` entirely.  So both generalize soundly:
+
+```
+proofIrrel : Γ ⊢ P : Sort 0 → Γ ⊢ Q : Sort 0 → Γ ⊢ h : P → Γ ⊢ h' : Q → …
+punitEta   : Γ ⊢ x : PUnit.{u} → Γ ⊢ y : PUnit.{v} → …
+```
+
+*Why not derive it instead.*  Across two different **inhabited**
+`Prop`s the equation *is* derivable — `propext` gives `Deq [] P Q`,
+`conv` retypes `h'`, and `proofIrrel` then applies at one `P`.  But
+building `propext`'s two implications needs
+`Γ ⊢ e : A → (B :: Γ) ⊢ e↑ : A↑`, i.e. **binder weakening**, whose
+`app` case needs lifting to commute with instantiation — the
+substitution algebra §7 was built to avoid.  Paying that to work around
+an over-constrained rule would be the wrong trade twice over, and its
+cost is itself the argument for the generalization.
+
+*Status.*  Not implemented here.  A layer change belongs on its own
+branch with the layer's own gate (the axiom check on
+`Setlec.TT.*`), as the projection former did.
