@@ -478,7 +478,7 @@ motivated.
 | app-argument re-check (`inferSpineI`) | yes — the 98.6 % | **no** | *established* (four routes closed) |
 | beta re-check | yes | **no** | *established* (`propext` refutes the alternative) |
 | iota telescope certifications (`iotaCerts`) | yes | **no** | **prediction** |
-| structure-eta / unit-like telescope certifications | yes | **no** | **prediction** (pre-registered below) |
+| structure-eta / unit-like telescope certifications | yes | **no** | **confirmed, verbatim** (below) |
 | `projCert` | yes — measured free anyway | **no** — and it supplies *none* of the rule's premises | **resolved: branch A** (below) |
 | plain-rule parameter comparison | no — cheap, short-circuits reduction | no | needed by both, for *different* reasons |
 | canonical-index `defEqList` | no — ditto | no | needed by both, for *different* reasons |
@@ -547,8 +547,8 @@ prediction recorded afterwards is not a prediction.  Naming the rule,
 the premise and the domain in each case, so the check is a comparison
 and not a vibe — the form that paid twice for `iotaCerts`.
 
-**`structEtaCert` — expected to confirm, and for a concrete reason: it
-calls `iotaCerts` itself.**  At the ι-time eta rescue the bridge must
+**`structEtaCert` — CONFIRMED, verbatim, on both counts.**  The
+pre-registration is reproduced unchanged below; the result follows it.  At the ι-time eta rescue the bridge must
 produce `Deq Δ ⟦b⟧ ⟦C p⃗ (proj₀ p⃗ b) … ⟧`, which will come from the
 `EtaLaw` transpose in `caps_ok`.  In the fired form (matching §8's iota
 decision) that law is hypothesised on exactly two things, and I expect
@@ -560,6 +560,30 @@ decision) that law is hypothesised on exactly two things, and I expect
   already extracts, at `T`'s parameter domains;
 * `HasType Δ ⟦b⟧ ⟦T p⃗⟧` — from `structEtaCert`'s `infer b` plus the
   whnf claim on its type, at the domain `T p⃗`.
+
+*Result.*  `majorToCtor`'s eta branch computes
+`tmaj ← r.whnf depth (← r.infer depth major)` and calls
+`structEtaCertWith … fab major tmaj`, whose body runs
+
+```
+iotaCerts r env depth
+  (cvT.type.instantiateLevelParams cvT.levelParams us') wtb.getAppArgs
+```
+
+— **the predicted call, at the predicted telescope, on the predicted
+arguments**, with `wtb = tmaj`.  And the subject's typing comes from
+the `infer major` that produced `tmaj`, at the domain `T p⃗`, as
+predicted.  The branch supplies *more* than was predicted: a second
+`iotaCerts` (task #71's synthetic-spine certification) certifies the
+fabricated constructor spine against the **constructor's** telescope,
+which is what types `fab` itself.
+
+*Why this result matters beyond the row.*  The same reading method,
+applied to `projCert`, found the certificate **absent** (branch A);
+applied here it finds it **present and verbatim**.  A method that
+returned "present" both times would be worthless.  This one
+discriminates, which is the evidence that the second column of the
+table is a finding rather than a preference.
 
 **`projCert` — expected to confirm only *partly*, and this is the row I
 expect to fail if any does.**  `projCert` checks **sorts**, not
@@ -1037,19 +1061,26 @@ recursor and constructor, the rule, the level and argument spines,
    discharged by the clause from `EnvTT.wf` and the reduction's
    invariants, exactly as the set model's iota case discharges its
    own.
-2. **`majorToCtor` soundness — the real remaining work.**  The contract
+2. **`majorToCtor` soundness — the real remaining work**, and its
+   prediction is now settled (`structEtaCert` confirmed, §6).  The contract
    speaks about a redex whose major is already in constructor form,
    while the clause sees the major as written.  Bridging them is the
    whnf claim on the major, `litMajorToCtor`, and `majorToCtor` — the
    last being the ι-time structure-eta *rescue*, whose set-model
    counterpart (`Setlec/Model/Core/MajorToCtor.lean`) is 550 lines.
 
-**Note what item 2 is**: `majorToCtor` is where `structEtaCert` and
-`projCert` are consumed.  So the iota clause is also **where two of
-§6's three open predictions get tested** — the structure-eta and
-`projCert` rows.  That is worth knowing before starting: the clause is
-not only the largest remaining piece, it is the one carrying the
-falsification test.
+**Both predictions it carried have now been tested by reading**, before
+the proof: `structEtaCert` **confirmed verbatim**, `projCert`
+**resolved as branch A** (the certificate is absent and the checker
+needs one, §10).  So the remaining work in item 2 is proof, not
+discovery: the eta branch's facts are known to be there, and the K
+branch's `proofIrrel` route is the pinned-`PUnit`/`Prop` case where
+both sides collapse.
+
+Three for three on §6's fact, counting `iotaCerts`, `structEtaCert`,
+and `projCert` — the last confirming it in the *opposite* direction,
+by the rule being unjustifiable exactly where the certificate is
+missing.
 
 ### Next: the remaining `whnfCore` clauses
 
