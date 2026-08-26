@@ -2093,5 +2093,137 @@ theorem extendNatRecTT {env : Env} (m : EnvTT env)
       · exact nomatch hr''
 
 
+/-- **The `Nat` block, installed.** -/
+theorem declBasisTT_natK {env env₁ : Env} (m : EnvTT env)
+    (h : BasisChain env BasisKind.natK.declsA env₁) :
+    Nonempty (EnvTT env₁) := by
+  rw [show BasisKind.natK.declsA = [natA, natZeroA, natSuccA, natRecA]
+    from rfl] at h
+  cases h with
+  | cons h1 h =>
+  cases h with
+  | cons h2 h =>
+  cases h with
+  | cons h3 h =>
+  cases h with
+  | cons h4 h =>
+  cases h with
+  | nil =>
+  have hwf1 : EnvWF ⟨natA :: env.consts⟩ :=
+    EnvWF.cons m.wf ⟨rfl, rfl, rfl, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  obtain ⟨m1, -⟩ := extendNatTT m h1 hwf1
+  have hN1 : (⟨natA :: env.consts⟩ : Env).find? natName = some natA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hwf2 : EnvWF ⟨natZeroA :: natA :: env.consts⟩ :=
+    EnvWF.cons hwf1 ⟨rfl, rfl, ?res2, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res2 =>
+    show Expr.constsResolve _ natZeroA.toConstantVal.type = true
+    have hf : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natName
+        = some natA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hN1
+    rw [show natZeroA.toConstantVal.type = Expr.const natName [] from rfl]
+    simp [Expr.constsResolve, hf]
+  obtain ⟨m2, -⟩ := extendNatZeroTT m1 hN1 h2 hwf2
+  have hN2 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natName
+      = some natA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hN1
+  have hZ2 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natZeroName
+      = some natZeroA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hwf3 : EnvWF ⟨natSuccA :: natZeroA :: natA :: env.consts⟩ :=
+    EnvWF.cons hwf2 ⟨rfl, rfl, ?res3, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res3 =>
+    show Expr.constsResolve _ natSuccA.toConstantVal.type = true
+    have hf : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩ : Env).find?
+        natName = some natA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hN2
+    rw [show natSuccA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "n") (.const natName [])
+        (.const natName []) { bi := .default } from rfl]
+    simp [Expr.constsResolve, hf]
+  obtain ⟨m3, -⟩ := extendNatSuccTT m2 hN2 h3 hwf3
+  have hN3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩ : Env).find?
+      natName = some natA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hN2
+  have hZ3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩ : Env).find?
+      natZeroName = some natZeroA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hZ2
+  have hS3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩ : Env).find?
+      natSuccName = some natSuccA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hwf4 : EnvWF ⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩ :=
+    EnvWF.cons hwf3 ⟨rfl, rfl, ?res4, rfl,
+      (fun _ _ _ heq => nomatch heq), ?rec4,
+      (fun _ _ heq => nomatch heq)⟩
+  case res4 =>
+    show Expr.constsResolve _ natRecA.toConstantVal.type = true
+    have hfN : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩ :
+        Env).find? natName = some natA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hN3
+    have hfZ : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩ :
+        Env).find? natZeroName = some natZeroA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hZ3
+    have hfS : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩ :
+        Env).find? natSuccName = some natSuccA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hS3
+    rw [show natRecA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "motive")
+            (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+              (.sort (.param uNT)) { bi := .default })
+            (Expr.forallE (Name.anonymous.str "zero")
+              (.app (.bvar 0) (.const natZeroName []))
+              (Expr.forallE (Name.anonymous.str "succ")
+                (Expr.forallE (Name.anonymous.str "n") (.const natName [])
+                  (Expr.forallE (Name.anonymous.str "n_ih")
+                    (.app (.bvar 2) (.bvar 0))
+                    (.app (.bvar 3)
+                      (.app (.const natSuccName []) (.bvar 1)))
+                    { bi := .default })
+                  { bi := .default })
+                (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+                  (.app (.bvar 3) (.bvar 0)) { bi := .default })
+                { bi := .default })
+              { bi := .default })
+            { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hfN, hfZ, hfS]
+  case rec4 =>
+    intro cv mI rP rules heq
+    injection heq with h1' h2' h3' h4'
+    subst h4'
+    have hfN : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩ :
+        Env).find? natName = some natA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hN3
+    have hfZ : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩ :
+        Env).find? natZeroName = some natZeroA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hZ3
+    have hfS : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩ :
+        Env).find? natSuccName = some natSuccA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hS3
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · refine ⟨rfl, ?_, ?_, rfl, fun lvls pins heqf => nomatch heqf⟩
+      · subst h1'; rfl
+      · show Expr.constsResolve _ (RecRule.rhs natRecZeroRule) = true
+        simp [Expr.constsResolve, natRecZeroRule, hfN, hfZ, hfS]
+    · rcases List.mem_cons.mp hr' with rfl | hr''
+      · refine ⟨rfl, ?_, ?_, rfl, fun lvls pins heqf => nomatch heqf⟩
+        · subst h1'; rfl
+        · show Expr.constsResolve _ (RecRule.rhs natRecSuccRule) = true
+          have hfR : (⟨natRecA :: natSuccA :: natZeroA :: natA ::
+              env.consts⟩ : Env).find? (natName.str "rec")
+              = some natRecA := by
+            rw [Env.find?_cons]; exact if_pos rfl
+          simp [Expr.constsResolve, natRecSuccRule, hfN, hfZ, hfS, hfR]
+      · exact nomatch hr''
+  obtain ⟨m4, -⟩ := extendNatRecTT m3 hN3 hZ3 hS3 h4 hwf4
+  exact ⟨m4⟩
+
+
 end Setlec.TTVerify
 

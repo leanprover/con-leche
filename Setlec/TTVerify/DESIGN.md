@@ -3648,6 +3648,16 @@ So: **Empty as the pilot** (it validates the driver and nothing else),
 **PUnit as the first real block** (§14.5's item 2, now confirmed by
 measurement rather than by guess), Quot last and priced on its own.
 
+**Four of six landed** — `Empty`, `PUnit`, `Eq`, `Nat` — at ~2 230
+lines of `DeclBasis.lean` against the model's ~5 950 for the same four
+blocks.  The ratio holds at the 2.8× `PUnit` measured, and the shared
+kit is why: `BetaSpine`, the `instantiate1` equations,
+`denote_const_pin`, `substFn_param_self`,
+`instantiateLevelParams_self`, and the depth-and-levels form of the
+type computations were each written once and used by every block after
+the one that motivated them.  `Nat`'s block lemma compiled on first
+write, which is the kit's clearest single measurement.
+
 **Landed: the driver, the pilot, and `PUnit`**
 (`Setlec/TTVerify/DeclBasis.lean`).
 `BasisChain` + `foldlM_installBasisDecl_inv` replace the model's six
