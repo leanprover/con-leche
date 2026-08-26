@@ -1873,5 +1873,225 @@ theorem denote_natRec_succRhs {env : Env} (m : EnvTT env)
     VExpr.mkAppN]
 
 
+/-- **`Nat.rec`, installed.**  Two rules, and the `succ` one is the
+first obligation in any block whose constructor spine has a *field* —
+so it is where `VTeleTyped`'s `cons` must hand `BetaSpine`'s `cons`
+something the recursor's own telescope does not supply. -/
+theorem extendNatRecTT {env : Env} (m : EnvTT env)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA)
+    (hfresh : env.find? (natName.str "rec") = none)
+    (hwf : EnvWF ⟨natRecA :: env.consts⟩) :
+    ∃ m' : EnvTT ⟨natRecA :: env.consts⟩,
+      m'.cval = cvalSet m.cval natRecA.name
+        (fun ψ => VExpr.const .natRec [ψ uNT]) := by
+  refine extendBasisTT m (val := fun ψ => VExpr.const .natRec [ψ uNT])
+    (by decide) (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name natRecA = natName.str "rec" from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uNT (by show uNT ∈ [uNT]; exact List.mem_cons_self)]
+  · intro φ
+    refine ⟨_, ?_, HasType.const⟩
+    rw [denoteClosed, ← Expr.instantiateLevelParams_self
+        natRecA.toConstantVal.levelParams natRecA.toConstantVal.type,
+      show natRecA.toConstantVal.levelParams.map Level.param
+        = [Level.param uNT] from rfl,
+      denote_natRec_type m (val := fun ψ => VExpr.const .natRec [ψ uNT])
+        φ 0 (.param uNT) hN hZ hS]
+    rfl
+  · -- both rules' constructors are stored
+    intro cv mI rP rules heq
+    injection heq with _ _ _ h4
+    subst h4
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · exact ⟨natZeroA.toConstantVal, 0, 0, hZ⟩
+    · rcases List.mem_cons.mp hr' with rfl | hr''
+      · exact ⟨natSuccA.toConstantVal, 0, 1, hS⟩
+      · exact nomatch hr''
+  · -- the two iota rules
+    intro cv mI rP rules heq
+    injection heq with h1' h2' h3' h4'
+    subst h1'; subst h2'; subst h3'; subst h4'
+    intro rl hrl _
+    refine ⟨by omega, ?_⟩
+    intro φ d us hus
+    obtain ⟨w, rfl⟩ : ∃ a, us = [a] := by
+      match us, hus with
+      | [a], _ => exact ⟨a, rfl⟩
+    rcases List.mem_cons.mp hrl with rfl | hr'
+    · -- `Nat.rec … Nat.zero ↦ zero`
+      refine ⟨_, denote_natRec_zeroRhs m
+        (val := fun ψ => VExpr.const .natRec [ψ uNT]) φ d w hN hZ hS, ?_⟩
+      intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj hlev
+        hdTV hdTVj hfitR hfitC
+      have hZu := hZ
+      simp only [natZeroName, natName] at hZu
+      rw [Env.find?_cons, if_neg (by decide), hZu] at hfj
+      obtain ⟨rfl, rfl, rfl⟩ :
+          cvj = natZeroA.toConstantVal ∧ cnP = 0 ∧ cnF = 0 := by
+        injection Option.some.inj hfj with a1 a2 a3
+        exact ⟨a1.symm, a2.symm, a3.symm⟩
+      obtain rfl : ys = [] := List.eq_nil_of_length_eq_zero hys
+      obtain ⟨xM, xz, xs', rfl⟩ : ∃ a b c, xs = [a, b, c] := by
+        match xs, hxs with
+        | [a, b, c], _ => exact ⟨a, b, c, rfl⟩
+      obtain rfl : TV = _ :=
+        (Option.some.inj ((denote_natRec_type m
+          (val := fun ψ => VExpr.const .natRec [ψ uNT]) φ d w hN hZ
+          hS).symm.trans hdTV)).symm
+      have hctor : cvalSet m.cval natRecA.name
+          (fun ψ => VExpr.const .natRec [ψ uNT])
+          ((Name.anonymous.str "Nat").str "zero")
+          (Level.substFn φ natZeroA.toConstantVal.levelParams usj)
+          = natZeroT := by
+        rw [cvalSet_ne (by decide)]
+        exact cval_pinned m (by decide) (by rw [hZu]; rfl) _
+          (by simp +decide [pinnedDirectT]; rfl)
+      rw [hctor] at hfitR
+      rw [cvalSet_self, hctor]
+      cases hfitR with | cons t1 hfitR =>
+      cases hfitR with | cons t2 hfitR =>
+      cases hfitR with | cons t3 hfitR =>
+      cases hfitR with | cons t4 hfitR =>
+      have hbeta : Deq Δ (VExpr.mkAppN
+          (VExpr.lam (.pi natT (.sort (w.eval φ)))
+            (.lam (.app (.bvar 0) natZeroT)
+              (.lam (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+                  (.app (.bvar 3)
+                    (.app (VExpr.const .natSucc []) (.bvar 1)))))
+                (.bvar 1)))) [xM, xz, xs']) xz := by
+        have h := Deq.ofBetaSpine (Γ := Δ)
+          (f := VExpr.lam (.pi natT (.sort (w.eval φ)))
+            (.lam (.app (.bvar 0) natZeroT)
+              (.lam (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+                  (.app (.bvar 3)
+                    (.app (VExpr.const .natSucc []) (.bvar 1)))))
+                (.bvar 1))))
+          (.cons t1 (.cons t2 (.cons t3 .nil)))
+        rw [show ((VExpr.bvar 1).inst xM 2).inst xz 1 = VExpr.liftN 1 xz 0
+            from rfl] at h
+        rw [VExpr.inst_liftN_absorb xz (Nat.zero_le _) (Nat.le_refl 0) xs',
+          VExpr.liftN_zero] at h
+        exact h
+      refine Deq.trans (Deq.intro (HasType.natRecZero (T := xz) t1 ?_ ?_))
+        hbeta.symm
+      · simpa [VExpr.liftN_zero] using t2
+      · rw [natStepT]
+        simp only [VExpr.inst, Nat.zero_add, Nat.reduceAdd] at t3
+        rw [if_neg (show ¬ ((2:Nat) < 2) by omega),
+          if_pos (show (0:Nat) < 2 by omega),
+          if_neg (show ¬ ((3:Nat) < 3) by omega), if_true, if_true] at t3
+        rw [VExpr.inst_liftN_absorb xM (Nat.zero_le _) (Nat.le_refl 1) xz,
+          VExpr.inst_liftN_absorb xM (Nat.zero_le _)
+            (show (2:Nat) ≤ 0 + 2 by omega) xz] at t3
+        exact t3
+    · rcases List.mem_cons.mp hr' with rfl | hr''
+      · -- `Nat.rec … (Nat.succ n) ↦ succ n (Nat.rec … n)`
+        refine ⟨_, denote_natRec_succRhs m
+          (val := fun ψ => VExpr.const .natRec [ψ uNT]) φ d w hN hZ hS, ?_⟩
+        intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj
+          hlev hdTV hdTVj hfitR hfitC
+        have hSu := hS
+        simp only [natSuccName, natName] at hSu
+        rw [Env.find?_cons, if_neg (by decide), hSu] at hfj
+        obtain ⟨rfl, rfl, rfl⟩ :
+            cvj = natSuccA.toConstantVal ∧ cnP = 0 ∧ cnF = 1 := by
+          injection Option.some.inj hfj with a1 a2 a3
+          exact ⟨a1.symm, a2.symm, a3.symm⟩
+        obtain ⟨xn, rfl⟩ : ∃ a, ys = [a] := by
+          match ys, hys with
+          | [a], _ => exact ⟨a, rfl⟩
+        obtain ⟨xM, xz, xs', rfl⟩ : ∃ a b c, xs = [a, b, c] := by
+          match xs, hxs with
+          | [a, b, c], _ => exact ⟨a, b, c, rfl⟩
+        obtain rfl : TV = _ :=
+          (Option.some.inj ((denote_natRec_type m
+            (val := fun ψ => VExpr.const .natRec [ψ uNT]) φ d w hN hZ
+            hS).symm.trans hdTV)).symm
+        have hctor : cvalSet m.cval natRecA.name
+            (fun ψ => VExpr.const .natRec [ψ uNT])
+            ((Name.anonymous.str "Nat").str "succ")
+            (Level.substFn φ natSuccA.toConstantVal.levelParams usj)
+            = VExpr.const .natSucc [] := by
+          rw [cvalSet_ne (by decide)]
+          exact cval_pinned m (by decide) (by rw [hSu]; rfl) _
+            (by simp +decide [pinnedDirectT])
+        -- the field's typing, from the *constructor's* telescope
+        obtain ⟨hNc, hZc, hSc⟩ := denote_natRec_consts m
+          (val := fun ψ => VExpr.const .natRec [ψ uNT]) φ hN hZ hS
+        obtain rfl : TVj = VExpr.pi natT natT := by
+          rw [show natSuccA.toConstantVal.type.instantiateLevelParams
+              natSuccA.toConstantVal.levelParams usj
+              = Expr.forallE (Name.anonymous.str "n") (.const natName [])
+                (.const natName []) { bi := .default } from rfl] at hdTVj
+          simp [denote_forallE, Expr.instantiate1, hNc] at hdTVj
+          exact hdTVj.symm
+        rw [hctor] at hfitR
+        rw [cvalSet_self, hctor]
+        cases hfitR with | cons t1 hfitR =>
+        cases hfitR with | cons t2 hfitR =>
+        cases hfitR with | cons t3 hfitR =>
+        cases hfitR with | cons t4 hfitR =>
+        cases hfitC with | cons tn hfitC =>
+        have hz : HasType Δ xz (.app xM natZeroT) := by
+          simpa [VExpr.liftN_zero] using t2
+        have hs : HasType Δ xs' (natStepT xM) := by
+          rw [natStepT]
+          simp only [VExpr.inst, Nat.zero_add, Nat.reduceAdd] at t3
+          rw [if_neg (show ¬ ((2:Nat) < 2) by omega),
+            if_pos (show (0:Nat) < 2 by omega),
+            if_neg (show ¬ ((3:Nat) < 3) by omega), if_true, if_true] at t3
+          rw [VExpr.inst_liftN_absorb xM (Nat.zero_le _) (Nat.le_refl 1) xz,
+            VExpr.inst_liftN_absorb xM (Nat.zero_le _)
+              (show (2:Nat) ≤ 0 + 2 by omega) xz] at t3
+          exact t3
+        have hn : HasType Δ xn natT := by simpa [VExpr.liftN_zero] using tn
+        refine Deq.trans
+          (Deq.intro (HasType.natRecSucc (T := xz) t1 hz hs hn)) ?_
+        have hb := (Deq.ofBetaSpine (Γ := Δ)
+          (f := VExpr.lam (.pi natT (.sort (w.eval φ)))
+            (.lam (.app (.bvar 0) natZeroT)
+              (.lam (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+                  (.app (.bvar 3)
+                    (.app (VExpr.const .natSucc []) (.bvar 1)))))
+                (.lam natT
+                  (.app (.app (.bvar 1) (.bvar 0))
+                    (VExpr.mkAppN (VExpr.const .natRec
+                        [Level.substFn φ [uNT] [w] uNT])
+                      [.bvar 3, .bvar 2, .bvar 1, .bvar 0]))))))
+          (.cons t1 (.cons t2 (.cons t3 (.cons tn .nil)))))
+        have a1 : (VExpr.liftN 3 xM 0).inst xz 2 = VExpr.liftN 2 xM 0 :=
+          VExpr.inst_liftN_absorb (m := 2) xM (Nat.zero_le _) (by omega) xz
+        have a2 : (VExpr.liftN 2 xM 0).inst xs' 1 = VExpr.liftN 1 xM 0 :=
+          VExpr.inst_liftN_absorb (m := 1) xM (Nat.zero_le _) (by omega) xs'
+        have a3 : (VExpr.liftN 1 xM 0).inst xn 0 = xM := by
+          rw [VExpr.inst_liftN_absorb (m := 0) xM (Nat.zero_le _) (by omega)
+            xn, VExpr.liftN_zero]
+        have b1 : (VExpr.liftN 2 xz 0).inst xs' 1 = VExpr.liftN 1 xz 0 :=
+          VExpr.inst_liftN_absorb (m := 1) xz (Nat.zero_le _) (by omega) xs'
+        have b2 : (VExpr.liftN 1 xz 0).inst xn 0 = xz := by
+          rw [VExpr.inst_liftN_absorb (m := 0) xz (Nat.zero_le _) (by omega)
+            xn, VExpr.liftN_zero]
+        have c1 : (VExpr.liftN 1 xs' 0).inst xn 0 = xs' := by
+          rw [VExpr.inst_liftN_absorb (m := 0) xs' (Nat.zero_le _) (by omega)
+            xn, VExpr.liftN_zero]
+        have d1 : VExpr.liftN 0 xn 0 = xn := VExpr.liftN_zero xn 0
+        simp +decide only [VExpr.mkAppN, VExpr.inst, Nat.zero_add,
+          Nat.reduceAdd, if_true, if_false, a1, a2, a3, b1, b2, c1,
+          d1] at hb
+        exact hb.symm
+      · exact nomatch hr''
+
+
 end Setlec.TTVerify
 
