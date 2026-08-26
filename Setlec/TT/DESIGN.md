@@ -215,7 +215,22 @@ Differences from `Setlec.Expr`, each deliberate:
   `psigmaSnd`, or, for modeled and directly-installed structures, to
   the projection functions of the unfolded model.  This is exactly what
   `annotateProjElim` / `annotateProjRec` already do inside the checker.
-* **no `lit`** — deferred, see §7.
+
+  **Superseded by a task #119 finding** (`Setlec/TTVerify/DESIGN.md`
+  §3): that is right for a *modeled* structure, whose `.proj` node the
+  checker rewrites away at annotation time, and wrong for the **pinned
+  pair**, whose node is first-class by design (`ProjEntry.native`) and
+  survives into stored terms.  `psigmaFst`/`psigmaSnd` are constants
+  applied to the pair's type arguments; a `.proj` node does not carry
+  them, and a denotation that is a function of the expression alone
+  cannot recover them.  The fix is a projection former here whose type
+  arguments come from its typing premise rather than from the term —
+  the shape the checker's own rule has, and the shape that gives this
+  layer the same premise-supplies-the-facts payoff the `app` rule
+  already has.
+* **no `lit`** — see §7: literal computation is *derived*, by proving
+  that any term satisfying an operation's certified recurrences
+  computes it on numerals.
 * **no named constants and no environment** — see §2.1.
 
 Two constants of the checker's basis are *absent because they are
@@ -368,7 +383,7 @@ exactly what the collapsed `app_lamC` needs to fire — see §6.)
 | `propext` | the `propext` constant, in primitive (`Iff`-free) form |
 | `Classical.choice` | the `choice` constant, in primitive (`Nonempty`-free) form |
 | `Quot.sound` | the `quotSound` constant |
-| Nat literal ↔ constructor, `reduceNat` (12 GMP ops), String-literal expansion | **DEFERRED**, see §7 |
+| Nat literal ↔ constructor, `reduceNat` (12 GMP ops), String-literal expansion | **derived** — the certified recurrences are discharged into the numeral families of `Setlec/TT/Nat/*`; see §7 |
 
 Things the checker positively *declines* (custom axioms, unsupported
 literal ops without their pins, nested-aux `.inert` rules) need no rule:
@@ -706,7 +721,12 @@ carries the whole burden:
    `T._model.eta` theorem, `caps.unitlike` from `T._model.unitlike`;
    after unfolding, each becomes an equation the layer must derive from
    `psigmaEta`/`punitEta`/`proofIrrel`.
-4. Literal fast paths — §7.
+4. Literal fast paths: **derived, not built in** — denote the
+   checker's own certificate for the operation (`NatOpsOk` /
+   `DivModOk`, which the environment invariant carries by the same
+   mechanism as the `_model` iota theorems), instantiate it at
+   numerals, and hand the resulting `Deq` equations to the families of
+   `Setlec/TT/Nat/*`.  §7.
 5. Level comparison: trivial, as noted in §2.2.
 
 ## 9. Status
