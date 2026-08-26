@@ -478,7 +478,24 @@ per-declaration step is the per-expression claims applied once each**,
 which is why it could be left until stage 2's end.
 
 The remaining obligations sit at named checker functions
-(`certifyNatEqs`, `checkDivModPin`), per §8.6.  Note that both are
+(`certifyNatEqs`, `checkDivModPin`), per §8.6, and their shared content
+is landed: `denote_substConst0` (`Setlec/TTVerify/SubstConst.lean`).
+
+Both pins certify in the **pre-insertion** environment with the
+operation's self-references replaced by its stored value — because
+certifying after insertion would let the operation's own literal fast
+path discharge its all-literal equations vacuously.  So the bridge has
+to move a `Deq` across `Expr.substConst0`, and it does so for free:
+`cvalAt` sends the installed name to the *value's denotation*, which is
+exactly what `substConst0` writes in its place.  **The install's choice
+of valuation and the checker's choice of substitution are the same
+choice**, made for unrelated reasons — one to satisfy `defn_eq`, one to
+defeat a vacuous fast path.
+
+The lemma is restricted to the fragment `substConst0` is faithful on
+(`sort`, `const`, `fvar`, `app`), which is not a limitation dodged:
+`substConst0` is *shallow* by design and `natOpEquations` are spines
+over constants and two free variables with no binder anywhere.  Note that both are
 *pin* checks: they change no environment and exist only to record facts
 the reduction rules will consume, so their transposes are pure content
 with no install bookkeeping.

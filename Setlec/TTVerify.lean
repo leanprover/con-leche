@@ -38,6 +38,7 @@ import Setlec.TTVerify.DeclDefn
 import Setlec.TTVerify.ReducePin
 import Setlec.TTVerify.DeclAxiom
 import Setlec.TTVerify.OfReduceKey
+import Setlec.TTVerify.SubstConst
 
 /-!
 # The TTVerify bridge (task #119)
