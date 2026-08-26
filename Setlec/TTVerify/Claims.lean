@@ -1,5 +1,7 @@
 import Setlec.TTVerify.EnvTT
 import Setlec.TTVerify.Inversion
+import Setlec.TTVerify.Inst
+import Setlec.Verify.Leaves
 import Setlec.TT.Deq
 import Setlec.Verify.Knot
 
@@ -106,7 +108,7 @@ which is what the clause below demands of the leaf's annotation. -/
 def CtxOk (cval : TConstVal) (env : Env) (φ : Name → Nat) (d : Nat)
     (Δ : List VExpr) (e : Expr) : Prop :=
   Δ.length = d ∧
-  ∀ l ∈ e.fvarLeaves, l.1 < d ∧
+  ∀ l ∈ e.fvarLeaves, l.1 < d ∧ Expr.fvarsBelow l.1 l.2.2 ∧
     ∃ A, Δ[d - 1 - l.1]? = some A ∧
       denote cval env φ d l.2.2 = some (A.liftN (d - l.1))
 
@@ -118,6 +120,59 @@ theorem CtxOk.nil {cval : TConstVal} {env : Env} {φ : Name → Nat}
   intro l hl
   rw [h] at hl
   exact nomatch hl
+
+/-- **Opening a binder extends the context correspondence.**  Every
+binder clause of `CheckStepTT` needs exactly this, and it is where
+`denote_lift` earns its keep: an old leaf's annotation, denoted one
+level deeper, is its old denotation lifted by one
+(`denote_weaken_top`), which is precisely the extra `liftN` that
+`Δ`'s new entry shifts every old index by.  The freshly opened
+variable is the new head of `Δ`, at index `0`.
+
+Note that `denote_weaken_top` is applied to the *annotations*, which is
+why `CtxOk` demands them scoped below their own variable's index —
+`WScoped`'s own condition on an `fvar` leaf, and what the checker's
+scope guards establish. -/
+theorem CtxOk.open {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    {d : Nat} {Δ : List VExpr} {body ty : Expr} {n : Name} {A : VExpr}
+    (hb : CtxOk cval env φ d Δ body) (ht : CtxOk cval env φ d Δ ty)
+    (hty : denote cval env φ d ty = some A)
+    (htyb : Expr.fvarsBelow d ty) :
+    CtxOk cval env φ (d + 1) (A :: Δ) (body.instantiate1 (.fvar d n ty)) := by
+  -- an already-present leaf: index unchanged, slot shifted by `Δ`'s new
+  -- head, annotation one lift deeper
+  have shift : ∀ l : Nat × Name × Expr, l.1 < d → Expr.fvarsBelow l.1 l.2.2 →
+      ∀ B, Δ[d - 1 - l.1]? = some B →
+        denote cval env φ d l.2.2 = some (B.liftN (d - l.1)) →
+        l.1 < d + 1 ∧ Expr.fvarsBelow l.1 l.2.2 ∧
+          ∃ C, (A :: Δ)[d + 1 - 1 - l.1]? = some C ∧
+            denote cval env φ (d + 1) l.2.2 = some (C.liftN (d + 1 - l.1)) := by
+    intro l hlt hfb B hΔl hden
+    refine ⟨by omega, hfb, B, ?_, ?_⟩
+    · rw [show d + 1 - 1 - l.1 = (d - 1 - l.1) + 1 from by omega]
+      simpa using hΔl
+    · rw [denote_weaken_top hcl (Expr.fvarsBelow_mono (by omega) hfb), hden]
+      simp only [Option.map_some, liftN_liftN]
+      congr 2
+      omega
+  refine ⟨by simp [hb.1], ?_⟩
+  intro l hl
+  rcases Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+  · obtain ⟨hlt, hfb, B, hΔl, hden⟩ := hb.2 l hl'
+    exact shift l hlt hfb B hΔl hden
+  · -- a leaf of the opened variable: either the variable itself (the
+    -- new head of `Δ`, at index `0`) or one of its annotation's own
+    -- leaves, which is an already-present leaf
+    rw [Expr.fvarLeaves] at hl'
+    rcases List.mem_cons.mp hl' with rfl | hl''
+    · refine ⟨by omega, htyb, A, by simp, ?_⟩
+      rw [denote_weaken_top hcl htyb, hty]
+      simp only [Option.map_some]
+      congr 2
+      omega
+    · obtain ⟨hlt, hfb, B, hΔl, hden⟩ := ht.2 l hl''
+      exact shift l hlt hfb B hΔl hden
 
 /-! ## The four claims -/
 

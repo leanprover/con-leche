@@ -69,11 +69,14 @@ termination obligation to discharge.
 
 ### The rest of the transposition
 
-`EnvTT env` is `EnvModel env` field for field:
+`EnvTT env` is `EnvModel env` field for field, **with one documented
+exception** — `cval_closed`, which has no counterpart at all and is not
+an incidental well-formedness condition; see the row and §7:
 
 | `EnvModel` | `EnvTT` |
 |---|---|
 | `val : ConstVal V` | `cval : TConstVal` |
+| — | `cval_closed` — **the one addition**; the price of the row below it |
 | `wf`, `val_params` | *the same* |
 | `mem_type`: `val c φ ∈ˢ ⟦c.type⟧` | `has_type`: `⊢ cval c φ : ⟦c.type⟧` |
 | `defn_eq` | *the same*, at `VExpr` |
@@ -98,10 +101,24 @@ denoting into syntax rather than into sets:
   `.bvar (d' - 1 - d)`).  So `updV` has no counterpart, and `FvarsOk`
   (which constrains `ρ`) transposes to a context correspondence
   (which constrains `Δ`).
-* **`let` denotes to its zeta reduct**, mirroring `interpExpr`'s
-  `letE` clause.  `VExpr.letE` and `HasType.letE` are therefore unused
-  by this bridge; they become relevant at task #117, and the two forms
-  are interderivable through `HasType.zeta` regardless.
+* **`denote` is structural — every clause maps a constructor to a
+  constructor**, including at `let`.  This is a *principle*, not a
+  convenience, and it is the one to preserve if any clause is ever
+  tempted to compute:
+
+  > **A structural `denote` is what keeps the bridge's substitution
+  > metatheory small.**
+
+  The `letE` clause is where it was decided, and by withdrawing the
+  opposite choice.  This document originally said a `let` denotes to
+  its zeta reduct, mirroring `interpExpr`; that made `denote` *perform
+  a substitution*, and §7's shift lemma then needed lifting to commute
+  with instantiation, which needs lifting to commute with itself — the
+  syntactic-substitution swamp `Setlec/TT/DESIGN.md` §6 is proud of
+  avoiding, reappearing one layer down in the bridge.  A `let` now
+  denotes to `VExpr.letE`, and a consumer wanting the reduct gets it
+  from `HasType.zeta`, which is premise-free and exists for exactly
+  this.  See §7 for what that bought, in lemmas.
 * **level comparison is trivial**, as `Setlec/TT/DESIGN.md` §2.2
   predicted: `.sort u ↦ .sort (u.eval φ)`, and two levels the checker
   calls equal are equal naturals at every `φ`.
@@ -512,11 +529,25 @@ analysis held:
   metatheory is `liftN_liftN`, `liftN_zero` and the two closedness
   facts.
 
-For contrast, that is the same accounting `Setlec/TT/DESIGN.md` §6
-makes for the layer: lean4lean needs ~123 syntactic lemmas where the
-semantic route needs two.  The bridge does have de Bruijn bookkeeping
-and so cannot get to two — but it gets to four, and only because
-`denote` was kept structural.
+### The accounting: four, not 123 — and why it is four
+
+`Setlec/TT/DESIGN.md` §6 makes this accounting for the *layer*:
+lean4lean's syntactic metatheory is ~123 substitution lemmas, where the
+semantic route needs **two** (`interp_liftN`, `interp_inst`), because
+soundness goes straight to the model and no syntactic commutation is
+ever needed.
+
+The bridge cannot get to two: it has real de Bruijn bookkeeping, since
+`denote` must turn `fvar` levels into indices.  It gets to **four** —
+`liftN_liftN`, `liftN_zero`, and the two closedness facts of
+`Setlec/TTVerify/VClosed.lean`.
+
+**The number is small for a reason, and the reason matters more than
+the number**: `denote` is structural (§2).  A `denote` that performs a
+substitution needs lifting to commute with instantiation and with
+itself, and four becomes six and then keeps going.  Anyone changing a
+`denote` clause to compute something should expect to pay here, and
+should check this count before and after.
 
 ### Next
 

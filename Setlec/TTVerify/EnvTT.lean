@@ -90,18 +90,33 @@ row-by-row correspondence and for the fields still to come. -/
 structure EnvTT (env : Env) where
   /-- The type-theory term of each constant. -/
   cval : TConstVal
-  /-- **Every constant denotes to a closed term.**  This field has *no
-  counterpart in `EnvModel`*, and the asymmetry is exactly the price of
-  the saving recorded in `Setlec/TTVerify/Denote.lean`: `denote` needs
-  no free-variable valuation because the opened binder *is* a variable,
-  and in exchange a constant's denotation is a term that must have no
-  loose variables for lifting and instantiation to pass through it.
-  `interpExpr` owes nothing here because `val n ψ : V` is a set with
-  nothing in it to lift.
+  /-- **Every constant denotes to a closed term.**
 
-  It is the syntactic shadow of `val_params` below — a constant's
-  meaning does not depend on the local context — and every install site
-  discharges it the same way it discharges `val_params`. -/
+  **This is the one field with no counterpart in `EnvModel`**, so read
+  it as a *trade* rather than as an incidental well-formedness
+  condition — that reading is what tells you what shape a future
+  `EnvTT` field should have.
+
+  The trade is exactly this.  `denote` needs **no free-variable
+  valuation**, where `interpExpr` needs `ρ : Nat → V`, because the
+  opened binder *is* a variable: `fvar d` read at depth `d'` is
+  `.bvar (d' - 1 - d)`, computed rather than looked up
+  (`Setlec/TTVerify/Denote.lean`).  We pay for that here: a constant's
+  denotation is a **term**, and lifting and instantiation have to pass
+  through it untouched, which they do only if it has no loose
+  variables.  `interpExpr` owes nothing in return because `val n ψ : V`
+  is a set, with nothing in it to lift.
+
+  So this is the **syntactic shadow of `val_params`** below: that field
+  says a constant's value does not depend on the ambient level
+  assignment beyond its own parameters; this one says its denotation
+  does not depend on the ambient *local context* at all.  Both are the
+  same statement — a constant means what it means, wherever it is used —
+  and every install site discharges this one the way it discharges
+  `val_params`.
+
+  Consumed by `Setlec/TTVerify/{Shift,Inst}.lean` at the `.const` and
+  literal clauses; supporting facts in `Setlec/TTVerify/VClosed.lean`. -/
   cval_closed : ∀ (n : Name) (ψ : Name → Nat), VExpr.Closed (cval n ψ)
   /-- Stored declarations are syntactically well-formed. -/
   wf : EnvWF env

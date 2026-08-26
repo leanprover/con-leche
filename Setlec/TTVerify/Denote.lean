@@ -63,7 +63,15 @@ argument.  Task #119 follows the set model here, by direction.)
 ## Why `denote` is structural, including at `let`
 
 **Every clause maps a constructor to a constructor.**  That is not
-cosmetic, and the `letE` clause is where it was decided.
+cosmetic, and the `letE` clause is where it was decided.  The principle
+to preserve, if any clause is ever tempted to compute:
+
+> **A structural `denote` is what keeps the bridge's substitution
+> metatheory small.**
+
+`Setlec/TTVerify/DESIGN.md` §7 does the accounting: four lemmas, where
+a computing `denote` needs lifting to commute with instantiation and
+with itself, and four becomes six and keeps going.
 
 `interpExpr`'s `letE` clause interprets the *zeta reduct* — the body
 opened at the value's interpretation — and the obvious transpose was to
