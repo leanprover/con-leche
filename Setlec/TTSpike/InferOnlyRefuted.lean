@@ -137,6 +137,16 @@ theorem infer_only_target_refuted (V : Type w) [SetTheory V] :
   intro h
   exact no_proof_of_empty V (h [] w (emptyT 0) w_typable w_inferOnly_false)
 
+/-- **Q2 sharpening**: at `Prop` the infer-only answer is not even
+`Deq` to the subject's actual type — `w : 0 = 0` while infer-only says
+`False`, and `Deq [] (0 = 0) False` would reflect into a closed proof
+of `False`.  So no propext/Prop-collapse escape exists: the io-answer
+`t` need not be inhabited even when the subject is typable, and
+`Deq C t` fails for the actual type `C`. -/
+theorem w_io_type_not_deq_actual (V : Type w) [SetTheory V] :
+    ¬ Deq [] trueP (emptyT 0) := fun hd =>
+  no_proof_of_empty V (hd.conv (.refl (T := natT) (a := natZeroT)))
+
 /-- Every proper subterm of the witness is typable too, so no
 "all subterms typable" strengthening of the hypothesis rescues the
 statement. -/
