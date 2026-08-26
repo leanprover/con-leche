@@ -159,11 +159,13 @@ theorem HasType.sound {Γ : List VExpr} {e A : VExpr} (h : HasType Γ e A) :
       exact mem_eqv hx'
     rw [eq_of_mem_piC_app_eq (ihf ρ hρ) (ihg ρ hρ) hpt]
     exact pt_mem_eqv_self _
-  | proofIrrel _ _ _ ihP ihh ihh' =>
+  | proofIrrel _ _ _ _ ihP ihQ ihh ihh' =>
+    -- read per side: every inhabitant of a `Prop` is the proof point,
+    -- and which `Prop` it is never enters
     intro ρ hρ
     simp only [interp_prf, interp_eqE]
     rw [mem_univ_zero (ihP ρ hρ) (ihh ρ hρ),
-      mem_univ_zero (ihP ρ hρ) (ihh' ρ hρ)]
+      mem_univ_zero (ihQ ρ hρ) (ihh' ρ hρ)]
     exact pt_mem_eqv_self _
   | natRecZero _ _ _ ihM ihz ihs =>
     intro ρ hρ
