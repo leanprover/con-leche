@@ -450,7 +450,7 @@ install:
 | `DeclThmTT` | **proved** |
 | `DeclOpaqueTT` | **proved** (`declOpaqueTT_closed`) |
 | `DeclDefnTT` | proved modulo `NatOpPinTT`, `DivModPinTT` |
-| `DeclAxiomTT` | proved modulo `StdAxiomKeyTT` alone |
+| `DeclAxiomTT` | proved modulo `ChoiceKeyTT` alone |
 | `DeclBasisTT`, `DeclIndTT` | open — **decomposed in §14** |
 
 **§11's `Eq` law landed** (`EnvTT.eq_law`), released by its consumers
@@ -511,6 +511,32 @@ per §8.6.  Two things about that case are worth keeping:
   skip-and-continue design (`sorryAx`, user ruling) therefore pays a
   *zero* verification tax — a design chosen for stream-sharing reasons
   turns out to cost the bridge nothing at all.
+* **`PropextKeyTT` is discharged, and §8.4's prediction is
+  CONFIRMED.**  The prediction, made before any of the keys were
+  written, was: *the witness is the layer's constant under an `Iff.rec`
+  elimination, needing the recursor's **typing** and never its iota
+  rule.*  Both halves hold, and the second is checkable by inspection —
+  `Setlec/TTVerify/StdAxiomKey.lean` never mentions `rec_rules`.
+
+  That half is not cosmetic.  Had the iota rule been needed, the axiom
+  case would depend on `EnvTT.rec_rules` **at a modeled family**, which
+  is established by the still-open `DeclIndTT` — and `DeclAxiomTT`
+  could not have been closed before the inductive install.  The
+  prediction therefore bought an ordering, not just a shape.
+
+  The elimination is *unavoidable*, and it is worth saying why in one
+  line, because it is the first key where reconciliation alone did not
+  suffice: `Iff a b` is an ordinary modeled inductive, opaque to the
+  bridge, and **nothing in the layer turns an inhabitant of an opaque
+  family into its fields except that family's own recursor.**  Which is
+  precisely why `stdAxiomOk` pins `Iff`, `Iff.intro` *and* `Iff.rec`
+  rather than `Iff` alone — §8.4 again, at the last place it can apply.
+
+  So the inhabitation-key story is complete in three shapes:
+  `trustCompiler`, where the pin fixes the type on the nose;
+  `ofReduce*`, where a certificate already proved the equation; and
+  `propext`, where an elimination is required.  Only the third needed
+  anything the first two did not, and what it needed was a *typing*.
 * **`OfReduceKeyTT` is discharged** (`Setlec/TTVerify/OfReduceKey.lean`),
   and it is the reconciliation shape at its purest: **no layer constant
   is used at all**.  The witness is `λ a b h. prf` — three lambdas and
