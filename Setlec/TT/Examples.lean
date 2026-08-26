@@ -56,7 +56,9 @@ example :
 equation are equal. -/
 example :
     HasType [] .prf (.eqE (.eqE natT natZeroT natZeroT) .prf .prf) :=
-  .proofIrrel .eqType .refl .refl
+  -- `Q` is free in the generalized rule (it occurs only in the
+  -- premises), so it is annotated, like the inert `eqE` slots above
+  .proofIrrel (Q := .eqE natT natZeroT natZeroT) .eqType .eqType .refl .refl
 
 /-- Conversion by an object-level equation: `0` also has type
 `(fun _ : Nat => Nat) 0`, after converting along β. -/
@@ -175,7 +177,7 @@ theorem eqRec_derivable {Γ : List VExpr} {A a b M m h : VExpr}
         (a := a) (a' := a) (b := a) (b' := b) (.refl (T := A)) hh)
   -- …hence indistinguishable from `h`
   have hirr : HasType Γ .prf (.eqE (.eqE A a b) .prf h) :=
-    .proofIrrel .eqType hprf hh
+    .proofIrrel .eqType .eqType hprf hh
   -- move the motive along both arguments
   exact .conv (T := .sort 0) hm
     (.congrApp (T := .sort 0) (T' := .eqE A a b) (T'' := .sort 0)

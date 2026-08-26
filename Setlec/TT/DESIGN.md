@@ -188,6 +188,38 @@ does not require the body to be typed, and the `eqE` type slot is never
 constrained.  This is a deliberate discipline, not laziness: a rule
 that is easier to *apply* is a bridge that is easier to *build*.
 
+**The discipline has a second form, and it is the harder one to
+check.**  The obvious violation is a *premise* soundness never reads —
+findable by reading the soundness case and seeing which hypotheses go
+unused.  The other is an **identification** soundness never needs: two
+premises forced to mention the same object where the proof handles each
+independently.  Nothing goes unused, so reading the case will not
+reveal it; what reveals it is a *consumer that cannot supply the
+coincidence*.
+
+Both irrelevance rules had it, found while bridging `majorToCtor`
+(task #119, `Setlec/TTVerify/DESIGN.md` §10.2):
+
+* `proofIrrel` required both sides at one `P`, while its soundness
+  applies `mem_univ_zero` to each side separately — and the checker's
+  own `proofIrrel` certificate only ever checks that *each* side's type
+  is a `Prop`;
+* `punitEta` required both sides at `PUnit.{u}` for one `u`, while
+  `⟦PUnit.{u}⟧ = unitSet` at every level — and `isUnitLikeTy` matches
+  `.const c _`, ignoring the levels, so the checker accepts
+  `PUnit.{3}` against `PUnit.{5}`.
+
+Both are now stated per side.  Note the direction of safety: the layer
+is an **upper bound** (§2.1), so relaxing a premise is a *weaker
+obligation on the bridge*, never a stronger claim about the checker;
+and the relaxation is sound precisely because soundness was already
+pointwise.  The gate is the layer's own axiom check, which is unmoved.
+
+The cost is the usual one for a more general rule: a variable that
+occurs only in the premises must sometimes be annotated at a use site
+(`Q` in `Setlec/TT/Examples.lean`), the same trade the inert `eqE`
+slot already makes.
+
 ## 3. The syntax
 
 ```
@@ -348,7 +380,7 @@ Core computation:
 | `zeta` | ⇒ `eqE T (let ty := val; body) (body[val])` |
 | `eta` | `Γ ⊢ f : ΠA.B` ⇒ `eqE T (λA. f↑ #0) f` |
 | `funext` | `Γ ⊢ f : ΠA.B`, `Γ ⊢ g : ΠA.B'`, `A::Γ ⊢ p : eqE T (f↑ #0) (g↑ #0)` ⇒ `eqE T' f g` |
-| `proofIrrel` | `Γ ⊢ P : Sort 0`, `Γ ⊢ h : P`, `Γ ⊢ h' : P` ⇒ `eqE P h h'` |
+| `proofIrrel` | `Γ ⊢ P, Q : Sort 0`, `Γ ⊢ h : P`, `Γ ⊢ h' : Q` ⇒ `eqE P h h'` (per side; §2.4) |
 
 Basis computation:
 
@@ -357,7 +389,7 @@ Basis computation:
 | `natRecZero` | ⇒ `eqE T (Nat.rec M z s 0) z` |
 | `natRecSucc` | ⇒ `eqE T (Nat.rec M z s (succ n)) (s n (Nat.rec M z s n))` |
 | `punitRecUnit` | ⇒ `eqE T (PUnit.rec M m unit) m` |
-| `punitEta` | `Γ ⊢ x, y : PUnit.{u}` ⇒ `eqE (PUnit.{u}) x y` |
+| `punitEta` | `Γ ⊢ x : PUnit.{u}`, `Γ ⊢ y : PUnit.{v}` ⇒ `eqE (PUnit.{u}) x y` (per side; §2.4) |
 | `projFst` | `Γ ⊢ A : Sort u`, `Γ ⊢ B : A → Sort v`, `Γ ⊢ p : PSigma' A B` ⇒ `Γ ⊢ p.1 : A` |
 | `projSnd` | ditto ⇒ `Γ ⊢ p.2 : B p.1` |
 | `projFstMk` | ⇒ `eqE T ((mk a b).1) a` |
