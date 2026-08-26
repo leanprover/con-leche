@@ -164,19 +164,21 @@ theorem proj_tele_typed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hw : Expr.WScoped d (cvj.type.instantiateLevelParams cvj.levelParams us))
     (hb : (cvj.type.instantiateLevelParams cvj.levelParams us).looseBVarsBounded 0
       = true)
+    (hLb : Expr.LeavesBounded
+      (cvj.type.instantiateLevelParams cvj.levelParams us))
     (hC : CtxOk m.cval env φ d Δ
       (cvj.type.instantiateLevelParams cvj.levelParams us))
     (hi : denote m.cval env φ d
       (cvj.type.instantiateLevelParams cvj.levelParams us) = some T)
     (hargs : ∀ x ∈ args, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
-      CtxOk m.cval env φ d Δ x) :
+      Expr.LeavesBounded x ∧ CtxOk m.cval env φ d Δ x) :
     ∃ xs rest, TeleTyped m.cval env φ d Δ
       (cvj.type.instantiateLevelParams cvj.levelParams us) args xs rest := by
   obtain ⟨cvj', nP', nF', hfind', hcerts⟩ := projTeleCert_inv hcert
   obtain rfl : cvj' = cvj := by
     rw [hfind'] at hfind
     exact (ConstantInfo.ctorInfo.inj (Option.some.inj hfind)).1
-  exact certs_typed m φ hcl ihd ihi _ _ T hcerts hw hb hC hi hargs
+  exact certs_typed m φ hcl ihd ihi _ _ T hcerts hw hb hLb hC hi hargs
 
 /-- The pinned pair constructor's telescope, **unpacked**: a
 `TeleTyped` walk over `PSigma'.mk`'s stored type at a four-argument

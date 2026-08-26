@@ -51,16 +51,17 @@ theorem certs_typed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     ∀ {d : Nat} {Δ : List VExpr} (ty : Expr) (args : List Expr) (T : VExpr),
       iotaCertsP env fuel d ty args = .ok true →
       Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded ty →
       CtxOk m.cval env φ d Δ ty →
       denote m.cval env φ d ty = some T →
       (∀ x ∈ args, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
-        CtxOk m.cval env φ d Δ x) →
+        Expr.LeavesBounded x ∧ CtxOk m.cval env φ d Δ x) →
       ∃ xs rest, TeleTyped m.cval env φ d Δ ty args xs rest := by
   intro d Δ ty args
   induction args generalizing ty with
-  | nil => intro T _ _ _ _ _ _; exact ⟨[], ty, TeleTyped.nil⟩
+  | nil => intro T _ _ _ _ _ _ _; exact ⟨[], ty, TeleTyped.nil⟩
   | cons a as ih =>
-    intro T hc hwty hbty hCty hity hargs
+    intro T hc hwty hbty hLbty hCty hity hargs
     match ty, hc with
     | .bvar _, hc => exact nomatch hc
     | .fvar _ _ _, hc => exact nomatch hc
@@ -73,7 +74,7 @@ theorem certs_typed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     | .proj _ _ _, hc => exact nomatch hc
     | .forallE n dom body mt, hc =>
     obtain ⟨ta, hta, hde, hrest⟩ := iotaCerts_step_inv hc
-    obtain ⟨haw, hab, haC⟩ := hargs a List.mem_cons_self
+    obtain ⟨haw, hab, haLb, haC⟩ := hargs a List.mem_cons_self
     -- the telescope's own scoping, split
     obtain ⟨hdomw, hbodyw⟩ : Expr.WScoped d dom ∧ Expr.WScoped d body := by
       simpa [Expr.WScoped] using hwty
@@ -92,11 +93,20 @@ theorem certs_typed {env : Env} (m : EnvTT env) (φ : Name → Nat)
       · exact nomatch hity
       · next B hibody =>
         -- the argument's inferred type denotes, and is `Deq` to the domain
-        obtain ⟨x, tv, hix, hita, hxt⟩ := ihi hta haC
+        obtain ⟨x, tv, hix, hita, hxt⟩ := ihi hta haw hab haLb haC
         have hCta : CtxOk m.cval env φ d Δ ta :=
           CtxOk.of_subset
             (inferTypeCore_fvarLeaves m.wf fuel hta haw) haC
-        have hDeq : Deq Δ tv A := ihd hde hCta hCdom hita hidom
+        have hwta : Expr.WScoped d ta :=
+          inferTypeCore_WScoped m.wf fuel hta haw
+        have hLbta : Expr.LeavesBounded ta := fun l hl =>
+          haLb l (inferTypeCore_fvarLeaves m.wf fuel hta haw l hl)
+        have hbta : ta.looseBVarsBounded 0 = true :=
+          inferTypeCore_looseBVars m.wf fuel hta haw hab haLb
+        have hLbdom : Expr.LeavesBounded dom := fun l hl =>
+          hLbty l (by simp [Expr.fvarLeaves, hl])
+        have hDeq : Deq Δ tv A :=
+          ihd hde hwta hbta hLbta hdomw hdomb hLbdom hCta hCdom hita hidom
         -- …so the argument is typed at the domain: one premise, at the
         -- domain the rule fires at
         have hxA : HasType Δ x A := Deq.conv hxt hDeq
@@ -111,6 +121,11 @@ theorem certs_typed {env : Env} (m : EnvTT env) (φ : Name → Nat)
           Expr.WScoped.instantiate1_gen haw 0 hbodyw
         have hbbody : (body.instantiate1 a).looseBVarsBounded 0 = true :=
           Expr.looseBVarsBounded_instantiate1_gen hab hbodyb
+        have hLbbody : Expr.LeavesBounded (body.instantiate1 a) := by
+          intro l hl
+          rcases Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+          · exact hLbty l (by simp [Expr.fvarLeaves, hl'])
+          · exact haLb l hl'
         have hCbody : CtxOk m.cval env φ d Δ (body.instantiate1 a) := by
           refine ⟨hCty.1, fun l hl => ?_⟩
           rcases Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
@@ -118,7 +133,8 @@ theorem certs_typed {env : Env} (m : EnvTT env) (φ : Name → Nat)
           · exact haC.2 l hl'
         obtain ⟨xs, rest, hfit⟩ :=
           ih (body.instantiate1 a) (VExpr.inst B x) hrest hwbody hbbody
-            hCbody hibody' (fun y hy => hargs y (List.mem_cons_of_mem a hy))
+            hLbbody hCbody hibody'
+            (fun y hy => hargs y (List.mem_cons_of_mem a hy))
         exact ⟨x :: xs, rest,
           TeleTyped.cons hidom hix hxA hfb haw hab hfit⟩
 

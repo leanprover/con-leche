@@ -1401,6 +1401,50 @@ preventing one.  Both are wins; only the second is comfortable, and a
 practice that only ever caught errors in advance would be one nobody
 had tested.
 
+### 8.5 The claims were *under*-hypothesised — the dual of §8.2
+
+Found on the first clause of `CheckStepTT`, before writing any proof:
+the `whnfCore` zeta clause needs `fvarsBelow d b`, `WScoped d v` and
+`v.looseBVarsBounded 0` to apply `denote_beta`, and
+`WhnfCoreClaimsTT` supplied none of them.
+
+The set model's claims carry **three** syntactic frame conditions —
+`WScoped d e`, `e.looseBVarsBounded 0 = true`, `Expr.LeavesBounded e` —
+alongside the two semantic ones (`FvarsOk`, `AnnotOk`).  When the
+claims were transposed, `AnnotOk` was dropped for the right reason (it
+has no counterpart) and `FvarsOk` was absorbed into `CtxOk` for the
+right reason (the context replaces the valuation) — but the three
+syntactic conditions were dropped *along with them*, which was wrong:
+they are facts about `Expr`, they transpose verbatim, and both sides
+need them for the same reason.
+
+**The tell was already in the source.** `certs_typed`, `rec_rules_fire`
+and `proj_tele_typed` each carried `WScoped`/`looseBVarsBounded`
+explicitly, per argument, in their own signatures — because the claims
+they consumed did not.  A fact being threaded by hand *around* an
+abstraction is evidence the abstraction is missing it.  That is the
+under-strong counterpart of §8.2's tells, and it has the same remedy:
+read what the proof actually needs, not what the statement happens to
+offer.
+
+Note the asymmetry in how the two defects surface.  An over-strong
+hypothesis is found by *reading* — nothing breaks, so nothing prompts
+you.  An under-strong one is found by *using* — the first consumer that
+needs the missing fact cannot be written.  The under-strong kind is
+therefore self-correcting and the over-strong kind is not, which is why
+§8.2's tells matter more than this one's.
+
+**Open redundancy, recorded so it is not forgotten.**
+`Expr.LeavesBounded e` may be implied by `CtxOk`: the leaf clause
+already gives `denote … l.2.2 = some …` for every leaf, and if
+denotation success implies `looseBVarsBounded 0` then `LeavesBounded`
+is free.  That implication looks true — `denote` sends `.bvar` to
+`none` and opens binders with `fvar`s — but proving it needs a converse
+of `looseBVarsBounded_instantiate1`, which does not exist yet.  Two
+lemmas to remove one hypothesis; deferred, not dismissed.  It is a
+redundancy question, not an over-strength one: the proofs do read
+`LeavesBounded`.
+
 ### 8.3 The extension layer is complete
 
 Every `EnvTT` field now has its `.cons`, and `EnvTT.cons` assembles

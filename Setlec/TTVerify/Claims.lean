@@ -2,6 +2,7 @@ import Setlec.TTVerify.EnvTT
 import Setlec.TTVerify.Inversion
 import Setlec.TTVerify.Inst
 import Setlec.Verify.Leaves
+import Setlec.Verify.InferLeaves
 import Setlec.TT.Deq
 import Setlec.Verify.Knot
 
@@ -192,6 +193,8 @@ def WhnfCoreClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δ : List VExpr},
     whnfCore env fuel d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
     CtxOk m.cval env φ d Δ e →
     ∀ {v : VExpr}, denote m.cval env φ d e = some v →
       ∃ v', denote m.cval env φ d e' = some v' ∧ Deq Δ v v'
@@ -201,6 +204,8 @@ def WhnfClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δ : List VExpr},
     whnf env fuel d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
     CtxOk m.cval env φ d Δ e →
     ∀ {v : VExpr}, denote m.cval env φ d e = some v →
       ∃ v', denote m.cval env φ d e' = some v' ∧ Deq Δ v v'
@@ -211,6 +216,10 @@ def DefEqClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δ : List VExpr},
     isDefEqCore env fuel d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
     CtxOk m.cval env φ d Δ a → CtxOk m.cval env φ d Δ b →
     ∀ {va vb : VExpr}, denote m.cval env φ d a = some va →
       denote m.cval env φ d b = some vb → Deq Δ va vb
@@ -222,6 +231,8 @@ def InferClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δ : List VExpr},
     inferTypeCore env fuel d e = .ok t →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
     CtxOk m.cval env φ d Δ e →
     ∃ v tv, denote m.cval env φ d e = some v ∧
       denote m.cval env φ d t = some tv ∧ HasType Δ v tv
@@ -280,20 +291,26 @@ type denotes, and the first has a derivation of the second. -/
 theorem inferTypeCore_soundTT {env : Env} (hstep : CheckStepTT)
     (m : EnvTT env) (φ : Name → Nat) (fuel : Nat) {d : Nat} {e t : Expr}
     {Δ : List VExpr} (h : inferTypeCore env fuel d e = .ok t)
-    (hΔ : CtxOk m.cval env φ d Δ e) :
+    (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e) (hΔ : CtxOk m.cval env φ d Δ e) :
     ∃ v tv, denote m.cval env φ d e = some v ∧
       denote m.cval env φ d t = some tv ∧ HasType Δ v tv :=
-  (checkSoundTT hstep m φ fuel).2.2.2 h hΔ
+  (checkSoundTT hstep m φ fuel).2.2.2 h hws hb hLb hΔ
 
 /-- A positive definitional-equality verdict identifies denotations up
 to a derivable equation. -/
 theorem isDefEqCore_soundTT {env : Env} (hstep : CheckStepTT)
     (m : EnvTT env) (φ : Name → Nat) (fuel : Nat) {d : Nat} {a b : Expr}
     {Δ : List VExpr} (h : isDefEqCore env fuel d a b = .ok true)
+    (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a)
+    (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded b)
     (hΔa : CtxOk m.cval env φ d Δ a) (hΔb : CtxOk m.cval env φ d Δ b)
     {va vb : VExpr} (hva : denote m.cval env φ d a = some va)
     (hvb : denote m.cval env φ d b = some vb) : Deq Δ va vb :=
-  (checkSoundTT hstep m φ fuel).2.2.1 h hΔa hΔb hva hvb
+  (checkSoundTT hstep m φ fuel).2.2.1 h hwa hba hLa hwb hbb hLb hΔa hΔb
+    hva hvb
 
 /-- Reduction preserves the denotation up to a derivable equation.
 
@@ -304,9 +321,10 @@ premise anyway. -/
 theorem whnf_factsTT {env : Env} (hstep : CheckStepTT) (m : EnvTT env)
     (φ : Name → Nat) (fuel : Nat) {d : Nat} {e e' : Expr}
     {Δ : List VExpr} (h : whnf env fuel d e = .ok e')
-    (hΔ : CtxOk m.cval env φ d Δ e) {v : VExpr}
-    (hv : denote m.cval env φ d e = some v) :
+    (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e) (hΔ : CtxOk m.cval env φ d Δ e)
+    {v : VExpr} (hv : denote m.cval env φ d e = some v) :
     ∃ v', denote m.cval env φ d e' = some v' ∧ Deq Δ v v' :=
-  (checkSoundTT hstep m φ fuel).2.1 h hΔ hv
+  (checkSoundTT hstep m φ fuel).2.1 h hws hb hLb hΔ hv
 
 end Setlec.TTVerify

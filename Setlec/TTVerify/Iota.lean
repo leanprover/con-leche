@@ -55,13 +55,15 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hwR : Expr.WScoped d (cv.type.instantiateLevelParams cv.levelParams us))
     (hbR : (cv.type.instantiateLevelParams cv.levelParams us).looseBVarsBounded 0
       = true)
+    (hLR : Expr.LeavesBounded
+      (cv.type.instantiateLevelParams cv.levelParams us))
     (hCR : CtxOk m.cval env φ d Δ
       (cv.type.instantiateLevelParams cv.levelParams us))
     (hiR : denote m.cval env φ d
       (cv.type.instantiateLevelParams cv.levelParams us) = some TR)
     (hargsR : ∀ x ∈ args ++ [Expr.mkAppN (.const (RecRule.ctor rl) usj) margs],
       Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
-        CtxOk m.cval env φ d Δ x)
+        Expr.LeavesBounded x ∧ CtxOk m.cval env φ d Δ x)
     -- the constructor's telescope, certified at its own spine
     {TC : VExpr}
     (hcertC : iotaCertsP env fuel d
@@ -69,12 +71,14 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hwC : Expr.WScoped d (cvj.type.instantiateLevelParams cvj.levelParams usj))
     (hbC : (cvj.type.instantiateLevelParams cvj.levelParams usj).looseBVarsBounded 0
       = true)
+    (hLC : Expr.LeavesBounded
+      (cvj.type.instantiateLevelParams cvj.levelParams usj))
     (hCC : CtxOk m.cval env φ d Δ
       (cvj.type.instantiateLevelParams cvj.levelParams usj))
     (hiC : denote m.cval env φ d
       (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TC)
     (hargsC : ∀ x ∈ margs, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
-      CtxOk m.cval env φ d Δ x)
+      Expr.LeavesBounded x ∧ CtxOk m.cval env φ d Δ x)
     -- the two sides denote
     {L R RH : VExpr}
     (hRH : denote m.cval env φ d
@@ -91,9 +95,9 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
   -- telescope-typing hypotheses; this is `certs_typed`, i.e. the
   -- `iotaCerts` prediction of DESIGN §6 in use
   obtain ⟨zs, restR, hfitR⟩ :=
-    certs_typed m φ hcl ihd ihi _ _ TR hcertR hwR hbR hCR hiR hargsR
+    certs_typed m φ hcl ihd ihi _ _ TR hcertR hwR hbR hLR hCR hiR hargsR
   obtain ⟨ys, restC, hfitC⟩ :=
-    certs_typed m φ hcl ihd ihi _ _ TC hcertC hwC hbC hCC hiC hargsC
+    certs_typed m φ hcl ihd ihi _ _ TC hcertC hwC hbC hLC hCC hiC hargsC
   -- the constructor's spine denotes elementwise, so the major premise's
   -- own denotation is its `VExpr` application
   have hspC : DenoteSpine m.cval env φ d margs ys := hfitC.spine
@@ -251,7 +255,9 @@ theorem proof_irrel_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hstb : inferTypeCore env fuel d tb = .ok stb)
     (hwb : whnf env fuel d stb = .ok (.sort vT)) (hvT : vT.eval φ = 0)
     (hCa : CtxOk m.cval env φ d Δ a) (hCb : CtxOk m.cval env φ d Δ b)
-    (hwsa : Expr.WScoped d a) (hwsb : Expr.WScoped d b) :
+    (hwsa : Expr.WScoped d a) (hwsb : Expr.WScoped d b)
+    (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a) (hLb : Expr.LeavesBounded b) :
     ∃ A B, denote m.cval env φ d a = some A ∧
       denote m.cval env φ d b = some B ∧ Deq Δ A B := by
   -- each side: its type is derivable, and that type is a `Prop`
@@ -260,23 +266,33 @@ theorem proof_irrel_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
       inferTypeCore env fuel d t = .ok st →
       whnf env fuel d st = .ok (.sort u) → u.eval φ = 0 →
       CtxOk m.cval env φ d Δ e → Expr.WScoped d e →
+      e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
       ∃ E T, denote m.cval env φ d e = some E ∧
         HasType Δ E T ∧ HasType Δ T (.sort 0) := by
-    intro e t st u he ht hw hu hC hws
-    obtain ⟨E, T, hE, hT, hEt⟩ := ihi he hC
+    intro e t st u he ht hw hu hC hws hbe hLe
+    obtain ⟨E, T, hE, hT, hEt⟩ := ihi he hws hbe hLe hC
     have hCt : CtxOk m.cval env φ d Δ t :=
       CtxOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel he hws) hC
-    obtain ⟨T', S, hT', hS, hTs⟩ := ihi ht hCt
-    obtain rfl : T' = T := by rw [hT'] at hT; exact Option.some.inj hT
     have hwst : Expr.WScoped d t := inferTypeCore_WScoped m.wf fuel he hws
+    have hbt : t.looseBVarsBounded 0 = true :=
+      inferTypeCore_looseBVars m.wf fuel he hws hbe hLe
+    have hLt : Expr.LeavesBounded t := fun l hl =>
+      hLe l (inferTypeCore_fvarLeaves m.wf fuel he hws l hl)
+    obtain ⟨T', S, hT', hS, hTs⟩ := ihi ht hwst hbt hLt hCt
+    obtain rfl : T' = T := by rw [hT'] at hT; exact Option.some.inj hT
     have hCs : CtxOk m.cval env φ d Δ st :=
       CtxOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel ht hwst) hCt
-    obtain ⟨S', hS', hDeq⟩ := ihw hw hCs hS
+    have hwss : Expr.WScoped d st := inferTypeCore_WScoped m.wf fuel ht hwst
+    have hbst : st.looseBVarsBounded 0 = true :=
+      inferTypeCore_looseBVars m.wf fuel ht hwst hbt hLt
+    have hLst : Expr.LeavesBounded st := fun l hl =>
+      hLt l (inferTypeCore_fvarLeaves m.wf fuel ht hwst l hl)
+    obtain ⟨S', hS', hDeq⟩ := ihw hw hwss hbst hLst hCs hS
     rw [denote_sort, hu] at hS'
     obtain rfl : S' = .sort 0 := (Option.some.inj hS').symm
     exact ⟨E, T', hE, hEt, Deq.conv hTs hDeq⟩
-  obtain ⟨A, TA, hA, hAt, hTA⟩ := side hta hsta hwa huT hCa hwsa
-  obtain ⟨B, TB, hB, hBt, hTB⟩ := side htb hstb hwb hvT hCb hwsb
+  obtain ⟨A, TA, hA, hAt, hTA⟩ := side hta hsta hwa huT hCa hwsa hba hLa
+  obtain ⟨B, TB, hB, hBt, hTB⟩ := side htb hstb hwb hvT hCb hwsb hbb hLb
   -- the two sides sit at *different* types; this is the relaxed rule
   exact ⟨A, B, hA, hB, ⟨TA, HasType.proofIrrel hTA hTB hAt hBt⟩⟩
 
