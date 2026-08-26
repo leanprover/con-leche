@@ -1550,6 +1550,20 @@ where it leaves the fewest unproved steps outside it.** An obligation
 is a promise about what remains; a promise that leaves debris around it
 is worse than a larger promise that does not.
 
+**The same question from the estimation side** (learned the hard way in
+§12.7, and recorded here because it belongs with the boundary rule):
+**estimate an obligation from the checker function it inverts, not from
+the shape of its conclusion.**  A statement naming two terms can hide a
+four-step chain between them — `IotaStepTT` names a redex and a reduct
+and `iotaRec_inv` puts `whnf`, `litMajorToCtor` and `majorToCtor`
+between them.  Reading the statement gives the wrong number; reading
+the inversion gives the right one.
+
+The two halves compose: estimate from the inversion, then place the
+boundary so the debris is minimal.  Applying both to `IotaStepTT`
+splits `MajorToCtorStepTT` out of it — which is the boundary rule
+applied to its own earlier output.
+
 **What the two obligations still need is frame conditions, not
 equations.**  Their equational content exists (`rec_rules_fire`,
 `proj_reduction_step`, `proj_tele_typed`).  What is missing is that the
