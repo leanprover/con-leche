@@ -256,13 +256,50 @@ def directNoModel (env : Env) (p : DirectParts) : Bool :=
   (List.range p.nF).all fun j =>
     (env.find? (projModelName p.cvT.name j)).isNone
 
+/-- **The direct-install master switch** (task #119).
+
+`false` routes *every* inductive block through the ordinary modeled
+install path (`checkIndDecl`), exactly as if recognition had failed.
+This is a plain **fall-through**, not a new decline: the direct path is
+an alternative route for artifact-free blocks (this module's header),
+so switching it off costs nothing but the route — a block that carries
+no `_model` companions then declines for the modeled path's own reason,
+with the modeled path's own message, and no error or decline message is
+invented for the switch itself.
+
+The switch exists because the TTVerify bridge (task #119) denotes a
+stored inductive through its checked `_model` artifacts, of which a
+directly installed structure has none; the bridge's theorems are stated
+for the switched-off configuration.  Nothing about the direct path is
+deleted — its recognition layer, its install (`Setlec/Kernel/Checker.lean`)
+and its set-theoretic model (`Setlec/Model/Direct*.lean`) all stay
+proved either way.
+
+**Default `true`, because switching it off is measurably not
+verdict-neutral** (measured 2026-08-26): five expectations move, all of
+them losses — `tests/e2e/direct_struct_raw.ndjson` (both its `raw` and
+its `pre` line) goes `0 → 2`, since with no `_model` companion in the
+stream the modeled path has nothing to check against, and the arena
+duplicate-declaration fixtures `bad/tutorial/13{3,4,7}` go `1 → 2`,
+giving up the reference-correct *reject* for a decline.  So the
+switched-off configuration the bridge reasons about is not the shipped
+one; that gap is the bridge's to state, not this switch's to hide.
+
+Read by `directParts?` (and its indexed twin `directPartsF?`), so the
+pure knot, the shared knot and the cert-skipping knot are switched
+together and their bridges are unaffected. -/
+def directStructsEnabled : Bool := true
+
 /-- Recognise a direct simple-structure block against an environment
-(`directPartsCore?`, non-recursiveness, and artifact absence). -/
+(`directPartsCore?`, non-recursiveness, and artifact absence), subject
+to the master switch `directStructsEnabled`. -/
 def directParts? (env : Env) (block : List ConstantInfo) :
     Option DirectParts :=
   match directPartsCore? block with
   | some p =>
-    if directNonRec env p && directNoModel env p then some p else none
+    if directStructsEnabled && directNonRec env p && directNoModel env p then
+      some p
+    else none
   | none => none
 
 end Setlec

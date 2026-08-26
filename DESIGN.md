@@ -4476,6 +4476,62 @@ two frame-relative capabilities"); that is the remaining work before
 `lean-inductive-models` can stop generating artifacts for this class
 and the direct path takes over by absence.
 
+### The master switch, and why it defaults on (2026-08-26, task #119)
+
+`Setlec.directStructsEnabled` (`Setlec/Kernel/Direct.lean`) gates the
+whole route in one place: `directParts?` and its indexed twin
+`directPartsF?` conjoin it into their recognition test, so the pure
+knot, the shared knot and the cert-skipping knot switch together and
+every bridge between them is untouched — the switch cost **no proof
+churn at all**, which is the point of gating recognition rather than
+dispatch.
+
+Switching it off is a plain **fall-through, never a decline**: a block
+that would have been recognised simply takes the ordinary modeled
+clause, and if it carries no `_model` companions it declines there, for
+the modeled path's own reason and with the modeled path's own message.
+No error or decline message is invented for the switch itself.  This is
+what makes the off configuration meaningful — it is not "the direct
+class is unsupported", it is "the modeled path, always".
+
+The switch exists for the TTVerify bridge (task #119), whose denotation
+reads a stored inductive through its checked `_model` artifacts and so
+has nothing to read for a directly installed structure; the bridge's
+theorems are stated for the off configuration.
+
+**It defaults on, because off is measurably not verdict-neutral**
+(measured 2026-08-26, arena + e2e + split + both init-prelude modes).
+Five expectations move, all of them losses:
+
+| fixture | on | off |
+|---|---|---|
+| `tests/e2e/direct_struct_raw.ndjson` (`raw` line) | 0 | 2 |
+| `tests/e2e/direct_struct_raw.ndjson` (`pre` line) | 0 | 2 |
+| `bad/tutorial/133_dup_ctor_def.ndjson` | 1 | 2 |
+| `bad/tutorial/134_dup_rec_def.ndjson` | 1 | 2 |
+| `bad/tutorial/137_dup_ctor_rec.ndjson` | 1 | 2 |
+
+These are exactly the four expectation flips item 7 above bought,
+read backwards.  Everything else is untouched: arena 90/92, the other
+65 e2e lines, split 11/11, and both init-prelude probes still accept
+3653 declarations — with the switch on the recognition test is
+`true && …`, i.e. definitionally what it was before, so the shipped
+behaviour is unchanged by construction.
+
+So the configuration the bridge reasons about is **not** the shipped
+one, and that gap is the bridge's to state plainly rather than the
+switch's to paper over.
+
+*No command-line flag.*  Making the switch settable at run time means
+threading a `Bool` from `main` to `directParts?`, and the two routes
+there are both expensive: through `CheckerOps` reaches only the pure
+`checkDecl`, while the shared and cert-skipping drivers reach
+`directPartsF?` through `FEnv` (660 `mkFEnv` references) or `IState`
+plus a matching hypothesis on every `Bridge*` correspondence.  That is
+a large, bridge-perturbing change to expose a switch whose only current
+consumer is a proof; the compile-time constant is the whole feature
+until something needs more.
+
 ## Level `leqCore` was not short-circuiting: the 2x stupidity (2026-08-23)
 
 Profiling the init-prelude probe put ~40 % of the whole run inside the

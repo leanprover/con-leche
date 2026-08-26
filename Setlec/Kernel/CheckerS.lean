@@ -861,7 +861,9 @@ def directPartsF? (fe : FEnv) (block : List ConstantInfo) :
     Option DirectParts :=
   match directPartsCore? block with
   | some p =>
-    if directNonRecF fe p && directNoModelF fe p then some p else none
+    if directStructsEnabled && directNonRecF fe p && directNoModelF fe p then
+      some p
+    else none
   | none => none
 
 /-- `checkDirectFieldUniv` through the index. -/
