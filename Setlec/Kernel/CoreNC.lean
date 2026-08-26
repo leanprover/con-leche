@@ -244,9 +244,7 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   if ← structEtaCertWithNC r fe depth fab major tmaj then
                     pure fab
                   else if caps.etaFields = 0 ∧
-                      cvj.levelParams.length = ust.length ∧
-                      piResultNeverZero cvT.levelParams ustL cvT.type
-                        = true then
+                      cvj.levelParams.length = ust.length then
                     if ← proofIrrelI r fe depth fab major then pure fab
                     else pure major
                   else pure major
@@ -515,10 +513,8 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
 
 /-- Cert-skipping twin of `defeqBodyI` (only the stuck-term fallback
 differs, through `stuckIrrelNC`). -/
-def defeqLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    Nat → EIdx → EIdx → CheckIM Bool
-  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
-  | fl + 1, a, b => do
+def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : EIdx → EIdx → CheckIM Bool) (a b : EIdx) : CheckIM Bool := do
     if a == b then pure true else
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
@@ -529,43 +525,43 @@ def defeqLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     -- `TypeChecker.lean:782`)
     let fold ← withStore fun st => !st.hasFvarI a' && !st.hasFvarI b'
     match ← (if fold then reduceNatI r fe depth a' else pure none) with
-    | some a₂ => defeqLoopNC r fe depth fl a₂ b'
+    | some a₂ => k a₂ b'
     | none =>
     match ← (if fold then reduceNatI r fe depth b' else pure none) with
-    | some b₂ => defeqLoopNC r fe depth fl a' b₂
+    | some b₂ => k a' b₂
     | none =>
     -- lazy delta, decision before materialization; see `defeqBody`
     match ← withStore (fun st => unfoldableHeadI fe st a'),
         ← withStore (fun st => unfoldableHeadI fe st b') with
     | true, false =>
       match ← unfoldDefinitionI fe a' with
-      | some a₂ => defeqLoopNC r fe depth fl a₂ b'
+      | some a₂ => k a₂ b'
       | none => pure false
     | false, true =>
       match ← unfoldDefinitionI fe b' with
-      | some b₂ => defeqLoopNC r fe depth fl a' b₂
+      | some b₂ => k a' b₂
       | none => pure false
     | true, true => do
       let ha ← withStore (fun st => headHintI fe st a')
       let hb ← withStore (fun st => headHintI fe st b')
       if ReducibilityHint.lt hb ha then
         match ← unfoldDefinitionI fe a' with
-        | some a₂ => defeqLoopNC r fe depth fl a₂ b'
+        | some a₂ => k a₂ b'
         | none => pure false
       else if ReducibilityHint.lt ha hb then
         match ← unfoldDefinitionI fe b' with
-        | some b₂ => defeqLoopNC r fe depth fl a' b₂
+        | some b₂ => k a' b₂
         | none => pure false
       else if ReducibilityHint.sameRegular ha hb &&
           (← withStore (sameConstHeadsI · a' b')) then do
         if ← defeqSpineI r fe depth a' b' then pure true
         else
           match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
-          | some a₂, some b₂ => defeqLoopNC r fe depth fl a₂ b₂
+          | some a₂, some b₂ => k a₂ b₂
           | _, _ => pure false
       else
         match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
-        | some a₂, some b₂ => defeqLoopNC r fe depth fl a₂ b₂
+        | some a₂, some b₂ => k a₂ b₂
         | _, _ => pure false
     | false, false =>
     match ← viewI a', ← viewI b' with
@@ -659,6 +655,12 @@ def defeqLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       else stuckIrrelNC r fe depth a' b'
     | some _, some _ => stuckIrrelNC r fe depth a' b'
     | _, _ => throw (.internal "interned node missing")
+
+/-- Cert-skipping twin of `defeqLoopI`. -/
+def defeqLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    Nat → EIdx → EIdx → CheckIM Bool
+  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
+  | fl + 1, a, b => defeqStepNC r fe depth (defeqLoopNC r fe depth fl) a b
 
 /-- Cert-skipping twin of `defeqBodyI`. -/
 def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bool :=

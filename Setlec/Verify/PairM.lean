@@ -587,7 +587,7 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
       fst_tac2
     rw [if_neg hK, if_neg hK]
     by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-        Name.isProjFnShape c = false ∧ piResultIsProp cvT.type = false
+        Name.isProjFnShape c = false
     · rw [if_pos hE, if_pos hE]
       fst_tac2
     rw [if_neg hE, if_neg hE]
@@ -624,7 +624,7 @@ theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
       snd_tac2
     rw [if_neg hK, if_neg hK]
     by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-        Name.isProjFnShape c = false ∧ piResultIsProp cvT.type = false
+        Name.isProjFnShape c = false
     · rw [if_pos hE, if_pos hE]
       snd_tac2
     rw [if_neg hE, if_neg hE]
@@ -842,9 +842,13 @@ theorem iotaRec_snd_proj (d : Nat) (e : Expr) :
   unfold iotaRec
   snd_tac3
 
-macro "fst_step4" : tactic =>
+/-- The level-4 cascade, parameterized over one extra alternative so
+that loop-body lemmas can feed in their continuation hypothesis
+(`fst_step4k`) without duplicating the rewrite list. -/
+macro "fst_core4" x:tactic : tactic =>
   `(tactic| repeat (first
     | rfl
+    | $x:tactic
     | (rw [liftFueled_fst_proj])
     | (rw [iotaCerts_fst])
     | (rw [defEqList_fst])
@@ -868,15 +872,31 @@ macro "fst_step4" : tactic =>
     | (dsimp only [])
     | split))
 
+macro "fst_step4" : tactic => `(tactic| fst_core4 (fail))
+
+macro "fst_step4k" hk:ident : tactic =>
+  `(tactic| fst_core4 (rw [$hk:ident]))
+
+macro "fst_tac4k" hk:ident : tactic =>
+  `(tactic| fst_step4k $hk <;> fst_step4k $hk <;> fst_step4k $hk <;>
+    fst_step4k $hk <;> fst_step4k $hk <;> fst_step4k $hk <;>
+    fst_step4k $hk <;> fst_step4k $hk <;> fst_step4k $hk <;>
+    fst_step4k $hk <;> fst_step4k $hk <;> fst_step4k $hk <;>
+    fst_step4k $hk <;> fst_step4k $hk <;> fst_step4k $hk)
+
 macro "fst_tac4" : tactic =>
   `(tactic| fst_step4 <;> fst_step4 <;> fst_step4 <;> fst_step4 <;>
     fst_step4 <;> fst_step4 <;> fst_step4 <;> fst_step4 <;>
     fst_step4 <;> fst_step4 <;> fst_step4 <;> fst_step4 <;>
     fst_step4 <;> fst_step4 <;> fst_step4)
 
-macro "snd_step4" : tactic =>
+/-- The level-4 cascade, parameterized over one extra alternative so
+that loop-body lemmas can feed in their continuation hypothesis
+(`snd_step4k`) without duplicating the rewrite list. -/
+macro "snd_core4" x:tactic : tactic =>
   `(tactic| repeat (first
     | rfl
+    | $x:tactic
     | (rw [liftFueled_snd_proj])
     | (rw [iotaCerts_snd])
     | (rw [defEqList_snd])
@@ -900,6 +920,18 @@ macro "snd_step4" : tactic =>
     | (dsimp only [])
     | split))
 
+macro "snd_step4" : tactic => `(tactic| snd_core4 (fail))
+
+macro "snd_step4k" hk:ident : tactic =>
+  `(tactic| snd_core4 (rw [$hk:ident]))
+
+macro "snd_tac4k" hk:ident : tactic =>
+  `(tactic| snd_step4k $hk <;> snd_step4k $hk <;> snd_step4k $hk <;>
+    snd_step4k $hk <;> snd_step4k $hk <;> snd_step4k $hk <;>
+    snd_step4k $hk <;> snd_step4k $hk <;> snd_step4k $hk <;>
+    snd_step4k $hk <;> snd_step4k $hk <;> snd_step4k $hk <;>
+    snd_step4k $hk <;> snd_step4k $hk <;> snd_step4k $hk)
+
 macro "snd_tac4" : tactic =>
   `(tactic| snd_step4 <;> snd_step4 <;> snd_step4 <;> snd_step4 <;>
     snd_step4 <;> snd_step4 <;> snd_step4 <;> snd_step4 <;>
@@ -918,17 +950,48 @@ theorem whnfCoreBody_snd_proj (d : Nat) (e : Expr) :
   unfold whnfCoreBody
   snd_tac4
 
+/-! The reduction-loop and lazy-delta-loop bodies (task #106) are
+parameterized over their continuation exactly as over the record, so
+each gets one projection lemma with a continuation hypothesis and the
+loop lemma is a plain induction on the step budget. -/
+
+theorem whnfStep_fst_proj (d : Nat) (k : Expr → PairM rel Expr)
+    (k₁ : Expr → M₁ Expr) (hk : ∀ e, (k e).val.1 = k₁ e) (e : Expr) :
+    (whnfStep (pairFns r₁ r₂ h) env d k e).val.1 =
+      whnfStep r₁ env d k₁ e := by
+  unfold whnfStep
+  fst_tac4k hk
+
+theorem whnfStep_snd_proj (d : Nat) (k : Expr → PairM rel Expr)
+    (k₂ : Expr → M₂ Expr) (hk : ∀ e, (k e).val.2 = k₂ e) (e : Expr) :
+    (whnfStep (pairFns r₁ r₂ h) env d k e).val.2 =
+      whnfStep r₂ env d k₂ e := by
+  unfold whnfStep
+  snd_tac4k hk
+
+theorem whnfLoop_fst_proj (d : Nat) :
+    ∀ (n : Nat) (e : Expr),
+      (whnfLoop (pairFns r₁ r₂ h) env d n e).val.1 = whnfLoop r₁ env d n e
+  | 0, _ => rfl
+  | n + 1, e =>
+    whnfStep_fst_proj d _ _ (fun e' => whnfLoop_fst_proj d n e') e
+
+theorem whnfLoop_snd_proj (d : Nat) :
+    ∀ (n : Nat) (e : Expr),
+      (whnfLoop (pairFns r₁ r₂ h) env d n e).val.2 = whnfLoop r₂ env d n e
+  | 0, _ => rfl
+  | n + 1, e =>
+    whnfStep_snd_proj d _ _ (fun e' => whnfLoop_snd_proj d n e') e
+
 theorem whnfBody_fst_proj (d : Nat) (e : Expr) :
     (whnfBody (pairFns r₁ r₂ h) env d e).val.1 =
-      whnfBody r₁ env d e := by
-  unfold whnfBody
-  fst_tac4
+      whnfBody r₁ env d e :=
+  whnfLoop_fst_proj d whnfLoopFuel e
 
 theorem whnfBody_snd_proj (d : Nat) (e : Expr) :
     (whnfBody (pairFns r₁ r₂ h) env d e).val.2 =
-      whnfBody r₂ env d e := by
-  unfold whnfBody
-  snd_tac4
+      whnfBody r₂ env d e :=
+  whnfLoop_snd_proj d whnfLoopFuel e
 
 theorem inferBody_fst_proj (d : Nat) (e : Expr) :
     (inferBody (pairFns r₁ r₂ h) env d e).val.1 =
@@ -942,17 +1005,47 @@ theorem inferBody_snd_proj (d : Nat) (e : Expr) :
   unfold inferBody
   snd_tac4
 
+theorem defeqStep_fst_proj (d : Nat) (k : Expr → Expr → PairM rel Bool)
+    (k₁ : Expr → Expr → M₁ Bool) (hk : ∀ a b, (k a b).val.1 = k₁ a b)
+    (a b : Expr) :
+    (defeqStep (pairFns r₁ r₂ h) env d k a b).val.1 =
+      defeqStep r₁ env d k₁ a b := by
+  unfold defeqStep
+  fst_tac4k hk
+
+theorem defeqStep_snd_proj (d : Nat) (k : Expr → Expr → PairM rel Bool)
+    (k₂ : Expr → Expr → M₂ Bool) (hk : ∀ a b, (k a b).val.2 = k₂ a b)
+    (a b : Expr) :
+    (defeqStep (pairFns r₁ r₂ h) env d k a b).val.2 =
+      defeqStep r₂ env d k₂ a b := by
+  unfold defeqStep
+  snd_tac4k hk
+
+theorem defeqLoop_fst_proj (d : Nat) :
+    ∀ (n : Nat) (a b : Expr),
+      (defeqLoop (pairFns r₁ r₂ h) env d n a b).val.1 =
+        defeqLoop r₁ env d n a b
+  | 0, _, _ => rfl
+  | n + 1, a, b =>
+    defeqStep_fst_proj d _ _ (fun x y => defeqLoop_fst_proj d n x y) a b
+
+theorem defeqLoop_snd_proj (d : Nat) :
+    ∀ (n : Nat) (a b : Expr),
+      (defeqLoop (pairFns r₁ r₂ h) env d n a b).val.2 =
+        defeqLoop r₂ env d n a b
+  | 0, _, _ => rfl
+  | n + 1, a, b =>
+    defeqStep_snd_proj d _ _ (fun x y => defeqLoop_snd_proj d n x y) a b
+
 theorem defeqBody_fst_proj (d : Nat) (a b : Expr) :
     (defeqBody (pairFns r₁ r₂ h) env d a b).val.1 =
-      defeqBody r₁ env d a b := by
-  unfold defeqBody
-  fst_tac4
+      defeqBody r₁ env d a b :=
+  defeqLoop_fst_proj d defeqLoopFuel a b
 
 theorem defeqBody_snd_proj (d : Nat) (a b : Expr) :
     (defeqBody (pairFns r₁ r₂ h) env d a b).val.2 =
-      defeqBody r₂ env d a b := by
-  unfold defeqBody
-  snd_tac4
+      defeqBody r₂ env d a b :=
+  defeqLoop_snd_proj d defeqLoopFuel a b
 
 theorem annotateBody_fst_proj (d : Nat) (e : Expr) :
     (annotateBody (pairFns r₁ r₂ h) env d e).val.1 =

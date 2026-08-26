@@ -1008,19 +1008,36 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact ih.site_whnfCore henv (hwarg _)
     · exact DiscV.pure hwproj
 
-theorem whnfBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
-    {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV env (WScoped d) (whnfBody C env d e)
-      (whnfBody G env d e) := by
-  unfold whnfBody
+/-- One iteration of the reduction loop, with the continuation
+abstracted (task #106). -/
+theorem whnfStep_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} {kC kG : Expr → _}
+    (hk : ∀ {x : Expr}, WScoped d x → DiscV env (WScoped d) (kC x) (kG x))
+    (hw : WScoped d e) :
+    DiscV env (WScoped d) (whnfStep C env d kC e)
+      (whnfStep G env d kG e) := by
+  unfold whnfStep
   refine DiscV.bind (ih.site_whnfCore henv hw) (fun e₁ he₁ => ?_)
   refine DiscV.bind (reduceNat_disc ih henv he₁) (fun o ho => ?_)
   split
-  · exact ih.site_whnf henv (ho _ rfl)
+  · exact hk (ho _ rfl)
   · split
     · rename_i e₂ hunf
-      exact ih.site_whnf henv (unfoldDefinition_WScoped henv hunf he₁)
+      exact hk (unfoldDefinition_WScoped henv hunf he₁)
     · exact DiscV.pure he₁
+
+theorem whnfLoop_disc (ih : ScopedSim env f) (henv : EnvWF env) :
+    ∀ (n : Nat) {d : Nat} {e : Expr}, WScoped d e →
+      DiscV env (WScoped d) (whnfLoop C env d n e) (whnfLoop G env d n e)
+  | 0, _, _, _ => DiscV.throw _
+  | n + 1, _, _, hw =>
+    whnfStep_disc ih henv (fun hx => whnfLoop_disc ih henv n hx) hw
+
+theorem whnfBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV env (WScoped d) (whnfBody C env d e)
+      (whnfBody G env d e) :=
+  whnfLoop_disc ih henv whnfLoopFuel hw
 
 set_option maxHeartbeats 1600000 in
 theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
@@ -1325,11 +1342,14 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact DiscV.throw _
 
 set_option maxHeartbeats 1600000 in
-theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
-    {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV env (fun _ => True) (defeqBody C env d a b)
-      (defeqBody G env d a b) := by
-  unfold defeqBody
+theorem defeqStep_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {a b : Expr} {kC kG : Expr → Expr → _}
+    (hk : ∀ {x y : Expr}, WScoped d x → WScoped d y →
+      DiscV env (fun _ => True) (kC x y) (kG x y))
+    (hwa : WScoped d a) (hwb : WScoped d b) :
+    DiscV env (fun _ => True) (defeqStep C env d kC a b)
+      (defeqStep G env d kG a b) := by
+  unfold defeqStep
   split
   · exact DiscV.pure trivial
   refine DiscV.bind (ih.site_whnfCore henv hwa) (fun a' ha' => ?_)
@@ -1341,32 +1361,53 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   · exact DiscV.pure trivial
   refine DiscV.bind (reduceNatIf_disc ih henv ha' _) (fun o₁ ho₁ => ?_)
   split
-  · exact ih.site_defeq (ho₁ _ rfl) hb'
+  · exact hk (ho₁ _ rfl) hb'
   refine DiscV.bind (reduceNatIf_disc ih henv hb' _) (fun o₂ ho₂ => ?_)
   split
-  · exact ih.site_defeq ha' (ho₂ _ rfl)
+  · exact hk ha' (ho₂ _ rfl)
+  -- lazy delta: the decision first, each unfolding materialized only
+  -- inside the branch that consumes it (task #106)
   split
   case h_1 =>
-    rename_i a₂ hua hub
-    exact ih.site_defeq (unfoldDefinition_WScoped henv hua ha') hb'
+    split
+    · rename_i a₂ hua
+      exact hk (unfoldDefinition_WScoped henv hua ha') hb'
+    · exact DiscV.pure trivial
   case h_2 =>
-    rename_i b₂ hua hub
-    exact ih.site_defeq ha' (unfoldDefinition_WScoped henv hub hb')
+    split
+    · rename_i b₂ hub
+      exact hk ha' (unfoldDefinition_WScoped henv hub hb')
+    · exact DiscV.pure trivial
   case h_3 =>
-    rename_i a₂ b₂ hua hub
-    have hwa₂ := unfoldDefinition_WScoped henv hua ha'
-    have hwb₂ := unfoldDefinition_WScoped henv hub hb'
+    have hboth : DiscV env (fun _ => True)
+        (match unfoldDefinition env a', unfoldDefinition env b' with
+          | some a₂, some b₂ => kC a₂ b₂
+          | _, _ => pure false)
+        (match unfoldDefinition env a', unfoldDefinition env b' with
+          | some a₂, some b₂ => kG a₂ b₂
+          | _, _ => pure false) := by
+      split
+      · rename_i a₂ b₂ hua hub
+        exact hk (unfoldDefinition_WScoped henv hua ha')
+          (unfoldDefinition_WScoped henv hub hb')
+      · exact DiscV.pure trivial
     dsimp only []
     split
-    · exact ih.site_defeq hwa₂ hb'
+    · split
+      · rename_i a₂ hua
+        exact hk (unfoldDefinition_WScoped henv hua ha') hb'
+      · exact DiscV.pure trivial
     split
-    · exact ih.site_defeq ha' hwb₂
+    · split
+      · rename_i b₂ hub
+        exact hk ha' (unfoldDefinition_WScoped henv hub hb')
+      · exact DiscV.pure trivial
     split
     · refine DiscV.bind (defeqSpine_disc ih ha' hb') (fun sp _ => ?_)
       split
       · exact DiscV.pure trivial
-      · exact ih.site_defeq hwa₂ hwb₂
-    · exact ih.site_defeq hwa₂ hwb₂
+      · exact hboth
+    · exact hboth
   case h_4 =>
     rename_i hua hub
     split
@@ -1446,16 +1487,20 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
           (WScoped.instantiate1 h2.1 0 h2.2)
       · exact DiscV.pure trivial
     case h_13 =>
+      -- spine-wise congruence (task #106)
       rename_i f₁ a₁ f₂ a₂ hne
-      have h1 : WScoped d f₁ ∧ WScoped d a₁ := by
-        simpa only [WScoped] using ha'
-      have h2 : WScoped d f₂ ∧ WScoped d a₂ := by
-        simpa only [WScoped] using hb'
-      refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
+      have hwa' : WScoped d (Expr.app f₁ a₁) := ha'
+      have hwb' : WScoped d (Expr.app f₂ a₂) := hb'
       split
-      · refine DiscV.bind (ih.site_defeq h1.2 h2.2) (fun r₂ _ => ?_)
+      · refine DiscV.bind (ih.site_defeq hwa'.getAppFn hwb'.getAppFn)
+          (fun r₁ _ => ?_)
         split
-        · exact DiscV.pure trivial
+        · refine DiscV.bind
+            (defEqList_disc ih hwa'.getAppArgs hwb'.getAppArgs)
+            (fun r₂ _ => ?_)
+          split
+          · exact DiscV.pure trivial
+          · exact stuckIrrel_disc ih henv ha' hb'
         · exact stuckIrrel_disc ih henv ha' hb'
       · exact stuckIrrel_disc ih henv ha' hb'
     case h_14 =>
@@ -1487,6 +1532,21 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       · exact DiscV.pure trivial
       · exact stuckIrrel_disc ih henv ha' hb'
     case h_17 => exact stuckIrrel_disc ih henv ha' hb'
+
+theorem defeqLoop_disc (ih : ScopedSim env f) (henv : EnvWF env) :
+    ∀ (n : Nat) {d : Nat} {a b : Expr}, WScoped d a → WScoped d b →
+      DiscV env (fun _ => True) (defeqLoop C env d n a b)
+        (defeqLoop G env d n a b)
+  | 0, _, _, _, _, _ => DiscV.throw _
+  | n + 1, _, _, _, hwa, hwb =>
+    defeqStep_disc ih henv
+      (fun hx hy => defeqLoop_disc ih henv n hx hy) hwa hwb
+
+theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
+    DiscV env (fun _ => True) (defeqBody C env d a b)
+      (defeqBody G env d a b) :=
+  defeqLoop_disc ih henv defeqLoopFuel hwa hwb
 
 end Walks
 

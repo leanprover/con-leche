@@ -285,6 +285,16 @@ private theorem headHint_shiftFrom {env : Env} (p : Nat) (e : Expr) :
   cases f <;> try rfl
   case fvar => rw [shiftFrom_fvar]
 
+/-- The lazy-delta *decision* only reads the head constant and its
+level count, which shifting preserves (task #106). -/
+private theorem unfoldableHead_shiftFrom {env : Env} (p : Nat) (e : Expr) :
+    unfoldableHead env (shiftFrom p e) = unfoldableHead env e := by
+  unfold unfoldableHead
+  rw [getAppFn_shiftFrom]
+  generalize e.getAppFn = f
+  cases f <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
+
 /-- The same-head test only reads app shapes and head constants, which
 shifting preserves. -/
 private theorem sameConstHeads_shiftFrom (p : Nat) (a b : Expr) :
@@ -1927,11 +1937,20 @@ private theorem whnfCore_step (henv : EnvWF env)
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       exact ih.whnfCore hpd hwarg
 
-private theorem whnf_step (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) : WhnfShift env (fuel + 1) := by
+/-- The reduction *loop* commutes with the shift, by induction on its
+own step budget (task #106); the per-step head normalization comes
+from the knot hypothesis `ih`. -/
+private theorem whnfLoop_shift (henv : EnvWF env)
+    (ih : ShiftClaims env fuel) :
+    ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
+      whnfLoop (pureFns env fuel) env (d + 1) n (shiftFrom p e) =
+        (whnfLoop (pureFns env fuel) env d n e).map (shiftFrom p) := by
+  intro n
+  induction n with
+  | zero => intro p d hpd e hw; rfl
+  | succ n ihN =>
   intro p d hpd e hw
-  rw [whnf_succ, whnf_succ]
-  simp only [whnfBody]
+  simp only [whnfLoop, whnfStep]
   refine bind_rel _ _ (ih.whnfCore hpd hw) ?_
   intro e₁ he₁
   have hwe₁ : WScoped d e₁ := whnfCore_WScoped henv fuel he₁ hw
@@ -1941,16 +1960,22 @@ private theorem whnf_step (henv : EnvWF env)
   | some e₂ =>
     simp only [Option.map_some]
     have hwe₂ : WScoped d e₂ := by
-      rcases reduceNat_inv ho with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
+      rcases reduceNat_inv ho with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
         simp [WScoped]
-    exact ih.whnf hpd hwe₂
+    exact ihN hpd hwe₂
   | none =>
     rw [unfoldDefinition_shiftFrom henv]
     cases hu : unfoldDefinition env e₁ with
     | none => rfl
     | some e₂ =>
       simp only [Option.map_some]
-      exact ih.whnf hpd (unfoldDefinition_WScoped henv hu hwe₁)
+      exact ihN hpd (unfoldDefinition_WScoped henv hu hwe₁)
+
+private theorem whnf_step (henv : EnvWF env)
+    (ih : ShiftClaims env fuel) : WhnfShift env (fuel + 1) := by
+  intro p d hpd e hw
+  rw [whnf_succ, whnf_succ]
+  exact whnfLoop_shift henv ih whnfLoopFuel hpd hw
 
 private theorem infer_step (henv : EnvWF env)
     (ih : ShiftClaims env fuel) : InferShift env (fuel + 1) := by
@@ -2127,11 +2152,22 @@ private theorem infer_step (henv : EnvWF env)
           (entry.ty.instantiateLevelParams entry.levelParams us₂)
           (w.getAppArgs ++ [pe]) <;> rfl
 
-private theorem defeq_step (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) : DefEqShift env (fuel + 1) := by
+/-- The lazy-delta *loop* is shift-invariant, by induction on its own
+step budget (task #106); the per-step `whnfCore`, proof irrelevance
+and the structural congruences come from the knot hypothesis `ih`. -/
+private theorem defeqLoop_shift (henv : EnvWF env)
+    (ih : ShiftClaims env fuel) :
+    ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ {a b : Expr},
+      WScoped d a → WScoped d b →
+      defeqLoop (pureFns env fuel) env (d + 1) n (shiftFrom p a)
+          (shiftFrom p b) =
+        defeqLoop (pureFns env fuel) env d n a b := by
+  intro n
+  induction n with
+  | zero => intro p d _ a b _ _; rfl
+  | succ n ihN =>
   intro p d hpd a b hwa hwb
-  rw [isDefEqCore_succ, isDefEqCore_succ]
-  simp only [defeqBody]
+  simp only [defeqLoop, defeqStep]
   rw [shiftFrom_beq]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   refine bind_congr _ (ih.whnfCore hpd hwa) ?_
@@ -2155,9 +2191,9 @@ private theorem defeq_step (henv : EnvWF env)
   cases oa with
   | some a₂ =>
     have hwa₂ : WScoped d a₂ := by
-      rcases reduceNat_inv (reduceNatIf_some hoa) with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
+      rcases reduceNat_inv (reduceNatIf_some hoa) with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
         simp [WScoped]
-    exact ih.defeq hpd hwa₂ hwwb
+    exact ihN hpd hwa₂ hwwb
   | none =>
   refine bind_congr (Option.map (shiftFrom p))
     (reduceNatIf_shift henv ih hpd hwwb _) ?_
@@ -2165,42 +2201,82 @@ private theorem defeq_step (henv : EnvWF env)
   cases ob with
   | some b₂ =>
     have hwb₂ : WScoped d b₂ := by
-      rcases reduceNat_inv (reduceNatIf_some hob) with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
+      rcases reduceNat_inv (reduceNatIf_some hob) with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
         simp [WScoped]
-    exact ih.defeq hpd hwwa hwb₂
+    exact ihN hpd hwwa hwb₂
   | none =>
-  -- the lazy delta unfolding decision
-  rw [unfoldDefinition_shiftFrom henv, unfoldDefinition_shiftFrom henv]
-  cases hua : unfoldDefinition env wa with
-  | some a₂ =>
-    have hwa₂ : WScoped d a₂ := unfoldDefinition_WScoped henv hua hwwa
-    cases hub : unfoldDefinition env wb with
-    | none =>
-      simp only [Option.map_some, Option.map_none]
-      exact ih.defeq hpd hwa₂ hwwb
-    | some b₂ =>
-      have hwb₂ : WScoped d b₂ := unfoldDefinition_WScoped henv hub hwwb
+  simp only [Option.map_none]
+  -- The lazy delta *decision* is taken before any unfolding is
+  -- materialized (task #106); the decision, the hints and each
+  -- unfolding are separately shift-invariant.
+  have hunfL : ∀ {x y : Expr}, WScoped d x → WScoped d y →
+      (match unfoldDefinition env (shiftFrom p x) with
+        | some a₂ =>
+          defeqLoop (pureFns env fuel) env (d + 1) n a₂ (shiftFrom p y)
+        | none => pure false) =
+      (match unfoldDefinition env x with
+        | some a₂ => defeqLoop (pureFns env fuel) env d n a₂ y
+        | none => pure false) := by
+    intro x y hx hy
+    rw [unfoldDefinition_shiftFrom henv]
+    cases hu : unfoldDefinition env x with
+    | none => rfl
+    | some a₂ =>
       simp only [Option.map_some]
+      exact ihN hpd (unfoldDefinition_WScoped henv hu hx) hy
+  have hunfR : ∀ {x y : Expr}, WScoped d x → WScoped d y →
+      (match unfoldDefinition env (shiftFrom p y) with
+        | some b₂ =>
+          defeqLoop (pureFns env fuel) env (d + 1) n (shiftFrom p x) b₂
+        | none => pure false) =
+      (match unfoldDefinition env y with
+        | some b₂ => defeqLoop (pureFns env fuel) env d n x b₂
+        | none => pure false) := by
+    intro x y hx hy
+    rw [unfoldDefinition_shiftFrom henv]
+    cases hv : unfoldDefinition env y with
+    | none => rfl
+    | some b₂ =>
+      simp only [Option.map_some]
+      exact ihN hpd hx (unfoldDefinition_WScoped henv hv hy)
+  have hunfB : ∀ {x y : Expr}, WScoped d x → WScoped d y →
+      (match unfoldDefinition env (shiftFrom p x),
+          unfoldDefinition env (shiftFrom p y) with
+        | some a₂, some b₂ => defeqLoop (pureFns env fuel) env (d + 1) n a₂ b₂
+        | _, _ => pure false) =
+      (match unfoldDefinition env x, unfoldDefinition env y with
+        | some a₂, some b₂ => defeqLoop (pureFns env fuel) env d n a₂ b₂
+        | _, _ => pure false) := by
+    intro x y hx hy
+    rw [unfoldDefinition_shiftFrom henv, unfoldDefinition_shiftFrom henv]
+    cases hu : unfoldDefinition env x <;> cases hv : unfoldDefinition env y <;>
+      simp only [Option.map_some, Option.map_none] <;> try rfl
+    exact ihN hpd (unfoldDefinition_WScoped henv hu hx)
+      (unfoldDefinition_WScoped henv hv hy)
+  rw [unfoldableHead_shiftFrom, unfoldableHead_shiftFrom]
+  cases hda : unfoldableHead env wa with
+  | true =>
+    cases hdb : unfoldableHead env wb with
+    | false => dsimp only; exact hunfL hwwa hwwb
+    | true =>
+      dsimp only
       rw [headHint_shiftFrom, headHint_shiftFrom]
       refine ite_congr' (fun _ => ?_) (fun _ => ?_)
-      · exact ih.defeq hpd hwa₂ hwwb
+      · exact hunfL hwwa hwwb
       refine ite_congr' (fun _ => ?_) (fun _ => ?_)
-      · exact ih.defeq hpd hwwa hwb₂
+      · exact hunfR hwwa hwwb
       rw [sameConstHeads_shiftFrom]
       refine ite_congr' (fun _ => ?_) (fun _ => ?_)
       · refine bind_congr_eq (defeqSpine_shift henv ih hpd hwwa hwwb) ?_
         intro bb _
         refine ite_congr' (fun _ => rfl) (fun _ => ?_)
-        exact ih.defeq hpd hwa₂ hwb₂
-      · exact ih.defeq hpd hwa₂ hwb₂
-  | none =>
-  cases hub : unfoldDefinition env wb with
-  | some b₂ =>
-    have hwb₂ : WScoped d b₂ := unfoldDefinition_WScoped henv hub hwwb
-    simp only [Option.map_some, Option.map_none]
-    exact ih.defeq hpd hwwa hwb₂
-  | none =>
-  simp only [Option.map_none]
+        exact hunfB hwwa hwwb
+      · exact hunfB hwwa hwwb
+  | false =>
+  cases hdb : unfoldableHead env wb with
+  | true => dsimp only; exact hunfR hwwa hwwb
+  | false =>
+  dsimp only
   have hstuck : stuckIrrel (pureFns env fuel) env (d + 1) (shiftFrom p wa)
       (shiftFrom p wb) = stuckIrrel (pureFns env fuel) env d wa wb :=
     stuckIrrel_shift henv ih hpd hwwa hwwb
@@ -2320,11 +2396,30 @@ private theorem defeq_step (henv : EnvWF env)
     rw [shiftFrom_instantiate1 hpd, shiftFrom_instantiate1 hpd] at hb
     exact hb
   case app.app f₁ a₁ f₂ a₂ hne =>
-    simp only [WScoped] at hwwa hwwb
-    refine bind_congr_eq (ih.defeq hpd hwwa.1 hwwb.1) ?_
+    -- spine-wise congruence (task #106): one head comparison and the
+    -- argument lists pairwise, all shift-invariant
+    have hwa' : WScoped d (Expr.app f₁ a₁) := hwwa
+    have hwb' : WScoped d (Expr.app f₂ a₂) := hwwb
+    simp only [shiftFrom_app] at hstuck ⊢
+    have hargs₁ : (Expr.app (shiftFrom p f₁) (shiftFrom p a₁)).getAppArgs
+        = (Expr.app f₁ a₁).getAppArgs.map (shiftFrom p) :=
+      getAppArgs_shiftFrom (.app f₁ a₁)
+    have hargs₂ : (Expr.app (shiftFrom p f₂) (shiftFrom p a₂)).getAppArgs
+        = (Expr.app f₂ a₂).getAppArgs.map (shiftFrom p) :=
+      getAppArgs_shiftFrom (.app f₂ a₂)
+    have hfn₁ : (Expr.app (shiftFrom p f₁) (shiftFrom p a₁)).getAppFn
+        = shiftFrom p (Expr.app f₁ a₁).getAppFn :=
+      getAppFn_shiftFrom (.app f₁ a₁)
+    have hfn₂ : (Expr.app (shiftFrom p f₂) (shiftFrom p a₂)).getAppFn
+        = shiftFrom p (Expr.app f₂ a₂).getAppFn :=
+      getAppFn_shiftFrom (.app f₂ a₂)
+    rw [hargs₁, hargs₂, List.length_map, List.length_map, hfn₁, hfn₂]
+    refine ite_congr' (fun _ => ?_) (fun _ => hstuck)
+    refine bind_congr_eq (ih.defeq hpd hwa'.getAppFn hwb'.getAppFn) ?_
     intro b₁ _
     refine ite_congr' (fun _ => ?_) (fun _ => hstuck)
-    refine bind_congr_eq (ih.defeq hpd hwwa.2 hwwb.2) ?_
+    refine bind_congr_eq
+      (defEqList_shift henv ih hpd hwa'.getAppArgs hwb'.getAppArgs) ?_
     intro b₂ _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
   case proj.proj s₁ i₁ e₁ s₂ i₂ e₂ hne =>
@@ -2463,6 +2558,12 @@ private theorem defeq_step (henv : EnvWF env)
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
+
+private theorem defeq_step (henv : EnvWF env)
+    (ih : ShiftClaims env fuel) : DefEqShift env (fuel + 1) := by
+  intro p d hpd a b hwa hwb
+  rw [isDefEqCore_succ, isDefEqCore_succ]
+  exact defeqLoop_shift henv ih defeqLoopFuel hpd hwa hwb
 
 private theorem annotate_step (henv : EnvWF env)
     (ih : ShiftClaims env fuel) : AnnotShift env (fuel + 1) := by

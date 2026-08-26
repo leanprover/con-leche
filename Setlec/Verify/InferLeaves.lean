@@ -206,6 +206,16 @@ theorem Expr.LeavesBounded.of_not_hasFvar {e : Expr} (h : e.hasFvar = false) :
   rw [fvarLeaves_eq_nil_of_not_hasFvar h] at hl
   cases hl
 
+theorem fvarLeaves_getAppFn :
+    ∀ {e : Expr}, ∀ l ∈ e.getAppFn.fvarLeaves, l ∈ e.fvarLeaves := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro l hl
+    simp only [fvarLeaves, List.mem_append]
+    exact Or.inl (ihf l hl)
+  | _ => intro l hl; exact hl
+
 theorem fvarLeaves_getAppArgs :
     ∀ {e x : Expr}, x ∈ e.getAppArgs → ∀ l ∈ x.fvarLeaves, l ∈ e.fvarLeaves := by
   intro e
@@ -533,16 +543,25 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
         · have hl2 := ihCore hred l hl
           exact ihLoop he l (hsub₃ l
             (fvarLeaves_getAppArgs (getD_mem (by omega)) l hl2))
-    · -- whnf loop
+    · -- whnf loop: induction on the loop's own step budget (task #106)
+      have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
+          whnfLoop (pureFns env fuel) env d n e = .ok e' →
+          ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves := by
+        intro n
+        induction n with
+        | zero => intro _ _ _ h _ _; exact nomatch h
+        | succ n ihN =>
+          intro d e e' h l hl
+          obtain ⟨e₁, hwc, hcase⟩ := whnfStep_inv h
+          rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
+          · rcases reduceNat_inv hrn with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
+            · have := ihN hcont l hl
+              simp [Expr.fvarLeaves] at this
+          · exact ihCore hwc l
+              (unfoldDefinition_fvarLeaves henv hu l (ihN hcont l hl))
+          · exact ihCore hwc l hl
       intro d e e' h l hl
-      obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h
-      rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
-      · rcases reduceNat_inv hrn with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
-        · have := ihLoop hcont l hl
-          simp [Expr.fvarLeaves] at this
-      · exact ihCore hwc l
-          (unfoldDefinition_fvarLeaves henv hu l (ihLoop hcont l hl))
-      · exact ihCore hwc l hl
+      exact hloop whnfLoopFuel h l hl
 
 set_option maxRecDepth 2048 in
 set_option maxHeartbeats 1600000 in
@@ -651,15 +670,24 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
         · simpa [looseBVarsBounded] using hbe₃
         · exact ihCore hred
             (looseBVarsBounded_getAppArgs hbe₃ _ (getD_mem (by omega)))
-    · -- whnf loop
+    · -- whnf loop: induction on the loop's own step budget (task #106)
+      have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
+          whnfLoop (pureFns env fuel) env d n e = .ok e' →
+          e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true := by
+        intro n
+        induction n with
+        | zero => intro _ _ _ h _; exact nomatch h
+        | succ n ihN =>
+          intro d e e' h hb
+          obtain ⟨e₁, hwc, hcase⟩ := whnfStep_inv h
+          have hbe₁ := ihCore hwc hb
+          rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
+          · rcases reduceNat_inv hrn with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
+              exact ihN hcont (by simp [looseBVarsBounded])
+          · exact ihN hcont (unfoldDefinition_looseBVars henv hu hbe₁)
+          · exact hbe₁
       intro d e e' h hb
-      obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h
-      have hbe₁ := ihCore hwc hb
-      rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
-      · rcases reduceNat_inv hrn with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
-          exact ihLoop hcont (by simp [looseBVarsBounded])
-      · exact ihLoop hcont (unfoldDefinition_looseBVars henv hu hbe₁)
-      · exact hbe₁
+      exact hloop whnfLoopFuel h hb
 
 /-- Head normalization only shrinks the leaf closure. -/
 theorem whnfCore_fvarLeaves {env : Env} (henv : EnvWF env)

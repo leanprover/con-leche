@@ -1101,10 +1101,10 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                       -- official rescue additionally requires the
                       -- instantiated result sort to be provably
                       -- nonzero
+                      -- 0-field rescue: the instantiated non-Prop
+                      -- test is already in the branch guard above
                       else if caps.etaFields = 0 ∧
-                          cvj.levelParams.length = ust.length ∧
-                          piResultNeverZero cvT.levelParams ust
-                            cvT.type = true then
+                          cvj.levelParams.length = ust.length then
                         if ← proofIrrel r env depth fab major then
                           pure fab
                         else pure major
@@ -1395,21 +1395,29 @@ the shared *recursion depth* budget (and to the native stack), so a
 long-but-perfectly-ordinary unfolding chain exhausted `checkFuel`. -/
 @[irreducible] def whnfLoopFuel : Nat := 100000
 
-/-- The reduction loop (the official kernel's `whnf`, lean4lean's
-`whnf'`): head-normalize, try literal acceleration, unfold one
-definition, repeat — on its own step budget, so the loop costs one
-knot level however many steps it takes. -/
+/-- One iteration of the reduction loop (the official kernel's `whnf`
+body, lean4lean's `whnf'` loop body): head-normalize, try literal
+acceleration, unfold one definition — and hand the reduct to the
+loop's continuation `k`.  As everywhere in this module, the body never
+calls itself: the continuation is abstracted exactly like the record
+`r`, so every lemma about the body is proven once, with a hypothesis
+about `k`, and the loop lemma is one induction on the budget. -/
+def whnfStep (r : CoreFns m) (env : Env) (depth : Nat)
+    (k : Expr → m Expr) (e : Expr) : m Expr := do
+  let e₁ ← r.whnfCore depth e
+  match ← reduceNat r env depth e₁ with
+  | some e₂ => k e₂
+  | none =>
+    match unfoldDefinition env e₁ with
+    | some e₂ => k e₂
+    | none => pure e₁
+
+/-- The reduction loop: iterate `whnfStep` on its own step budget, so
+the whole chain costs one knot level however many steps it takes. -/
 def whnfLoop (r : CoreFns m) (env : Env) (depth : Nat) :
     Nat → Expr → m Expr
   | 0, _ => throw (.internal "fuel exhausted: whnf loop")
-  | n + 1, e => do
-    let e₁ ← r.whnfCore depth e
-    match ← reduceNat r env depth e₁ with
-    | some e₂ => whnfLoop r env depth n e₂
-    | none =>
-      match unfoldDefinition env e₁ with
-      | some e₂ => whnfLoop r env depth n e₂
-      | none => pure e₁
+  | n + 1, e => whnfStep r env depth (whnfLoop r env depth n) e
 
 /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
 def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
@@ -1574,10 +1582,8 @@ structural congruence with the stuck fallbacks decide.  The hints
 steer *order only*: every branch below is an independently sound
 reduction or comparison, so the verdict never depends on the hint
 values. -/
-def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
-    Nat → Expr → Expr → m Bool
-  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
-  | fl + 1, a, b => do
+def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
+    (k : Expr → Expr → m Bool) (a b : Expr) : m Bool := do
     -- syntactic fast path (the references' most-hit branch)
     if a == b then pure true else
     let a' ← r.whnfCore depth a
@@ -1609,11 +1615,11 @@ def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
     -- eager per-node fvar range instead).
     match ← (if !a'.hasFvar && !b'.hasFvar then
         reduceNat r env depth a' else pure none) with
-    | some a₂ => defeqLoop r env depth fl a₂ b'
+    | some a₂ => k a₂ b'
     | none =>
     match ← (if !a'.hasFvar && !b'.hasFvar then
         reduceNat r env depth b' else pure none) with
-    | some b₂ => defeqLoop r env depth fl a' b₂
+    | some b₂ => k a' b₂
     | none =>
     -- Lazy delta, **decision before materialization** (the official
     -- kernel's `lazy_delta_reduction_step` reads a `delta_step` off
@@ -1630,22 +1636,22 @@ def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
     match unfoldableHead env a', unfoldableHead env b' with
     | true, false =>
       match unfoldDefinition env a' with
-      | some a₂ => defeqLoop r env depth fl a₂ b'
+      | some a₂ => k a₂ b'
       | none => pure false
     | false, true =>
       match unfoldDefinition env b' with
-      | some b₂ => defeqLoop r env depth fl a' b₂
+      | some b₂ => k a' b₂
       | none => pure false
     | true, true =>
       let ha := headHint env a'
       let hb := headHint env b'
       if ReducibilityHint.lt hb ha then
         match unfoldDefinition env a' with
-        | some a₂ => defeqLoop r env depth fl a₂ b'
+        | some a₂ => k a₂ b'
         | none => pure false
       else if ReducibilityHint.lt ha hb then
         match unfoldDefinition env b' with
-        | some b₂ => defeqLoop r env depth fl a' b₂
+        | some b₂ => k a' b₂
         | none => pure false
       else if ReducibilityHint.sameRegular ha hb && sameConstHeads a' b' then
         -- Same constant at equal *regular* hints: cheap congruence
@@ -1663,11 +1669,11 @@ def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
         if ← defeqSpine r env depth a' b' then pure true
         else
           match unfoldDefinition env a', unfoldDefinition env b' with
-          | some a₂, some b₂ => defeqLoop r env depth fl a₂ b₂
+          | some a₂, some b₂ => k a₂ b₂
           | _, _ => pure false
       else
         match unfoldDefinition env a', unfoldDefinition env b' with
-        | some a₂, some b₂ => defeqLoop r env depth fl a₂ b₂
+        | some a₂, some b₂ => k a₂ b₂
         | _, _ => pure false
     | false, false =>
     match a', b' with
@@ -1748,16 +1754,15 @@ def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
       -- top of this body, as in the official kernel; the fallback
       -- copy here fires when a reduction step rewrote a side after
       -- the hoist ran).
-      let e₁ : Expr := .app f₁ a₁
-      let e₂ : Expr := .app f₂ a₂
-      let as₁ := e₁.getAppArgs
-      let as₂ := e₂.getAppArgs
-      if as₁.length = as₂.length then
-        if ← r.defeq depth e₁.getAppFn e₂.getAppFn then
-          if ← defEqList r env depth as₁ as₂ then pure true
-          else stuckIrrel r env depth e₁ e₂
-        else stuckIrrel r env depth e₁ e₂
-      else stuckIrrel r env depth e₁ e₂
+      if (Expr.app f₁ a₁).getAppArgs.length =
+          (Expr.app f₂ a₂).getAppArgs.length then
+        if ← r.defeq depth (Expr.app f₁ a₁).getAppFn
+            (Expr.app f₂ a₂).getAppFn then
+          if ← defEqList r env depth (Expr.app f₁ a₁).getAppArgs
+              (Expr.app f₂ a₂).getAppArgs then pure true
+          else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
+        else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
+      else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
     | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ => do
       -- Stuck projections: congruence, else the stuck fallbacks.
       if i₁ == i₂ then
@@ -1776,6 +1781,12 @@ def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
     -- thrown on unsupported heads, so no unimplemented case can hide
     -- here.
     | e₁, e₂ => stuckIrrel r env depth e₁ e₂
+
+/-- The lazy-delta loop: iterate `defeqStep` on its own step budget. -/
+def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
+    Nat → Expr → Expr → m Bool
+  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
+  | fl + 1, a, b => defeqStep r env depth (defeqLoop r env depth fl) a b
 
 /-- Step budget of the lazy-delta loop (lean4lean's
 `FuelConfig.lazyDelta`, generously sized here because this loop also

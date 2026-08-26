@@ -1226,9 +1226,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                           tmaj then
                         pure fab
                       else if caps.etaFields = 0 ∧
-                          cvj.levelParams.length = ust.length ∧
-                          piResultNeverZero cvT.levelParams ustL
-                            cvT.type = true then
+                          cvj.levelParams.length = ust.length then
                         if ← proofIrrelI r fe depth fab major then
                           pure fab
                         else pure major
@@ -1388,17 +1386,85 @@ def projCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
 
 mutual
 
-/-- Twin of `whnfCoreLoop`: the head-normalization *loop* on its own
-step budget (task #106).  Beta, iota, zeta and projection steps are
-iteration — chaining them through the knot charged a reduction chain
-to the shared recursion depth budget one unit per step, which is what
-made the `Nat.brecOn` grind of `Std.Time…toDays._proof_1` exhaust
-`checkFuel`.  Only the spine head's normalization stays a knot call
-(genuine nesting, bounded by the term's depth). -/
-def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    Nat → EIdx → CheckIM EIdx
-  | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
-  | n + 1, e => do
+/-- Bulk-beta argument loop (task #50): consume the whole application
+spine against the whnf'd head `v`.  A lambda head enters the peel loop
+(first binder inline, which keeps the argument count decreasing);
+other heads try iota with one more argument and otherwise accumulate a
+stuck application — exactly the per-level `whnfCoreBody` app clauses,
+but with the chained per-argument `instantiate1` of the beta path
+replaced by one bulk substitution per peeled group
+(`Setlec/Verify/BetaSpine.lean` proves the identification).  The
+head-normalization loop's continuation `k` is threaded through
+(task #106). -/
+def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : EIdx → CheckIM EIdx) :
+    EIdx → List EIdx → CheckIM EIdx
+  | v, [] => pure v
+  | v, a :: rest => do
+    match ← viewI v with
+    | some (.lam _ ty body _mb) => do
+        let ta ← r.infer depth a
+        if ← r.defeq depth ta ty then betaPeelI r fe depth k body [a] rest
+        else do
+          let fa ← internI (.app v a)
+          mkAppNM fa rest
+    | _ => do
+      let fa ← internI (.app v a)
+      match ← iotaRecI r fe depth fa with
+      | some e'' => do
+        let v' ← k e''
+        whnfAppI r fe depth k v' rest
+      | none => whnfAppI r fe depth k fa rest
+termination_by _ args => (args.length, 0)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; simp; done)
+    | (apply Prod.Lex.right' <;> simp)
+
+/-- Peel loop of `whnfAppI`: `t` is the raw (unsubstituted) lambda body
+after the binders consumed so far, `acc` their arguments (innermost
+first).  Each binder's argument certificate (unconditional since the
+task-#100 de-gating) substitutes only the *domain*; the body is
+substituted once, when peeling stops. -/
+def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : EIdx → CheckIM EIdx) :
+    EIdx → List EIdx → List EIdx → CheckIM EIdx
+  | t, acc, [] => do
+    let e' ← instListM t acc
+    k e'
+  | t, acc, a :: rest => do
+    match ← viewI t with
+    | some (.lam _ ty body _mb) => do
+        let ty' ← instListM ty acc
+        let ta ← r.infer depth a
+        if ← r.defeq depth ta ty' then
+          betaPeelI r fe depth k body (a :: acc) rest
+        else do
+          let f' ← instListM t acc
+          let fa ← internI (.app f' a)
+          mkAppNM fa rest
+    | _ => do
+      let e' ← instListM t acc
+      let v ← k e'
+      whnfAppI r fe depth k v (a :: rest)
+termination_by _ _acc args => (args.length, 1)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; simp; done)
+    | (apply Prod.Lex.right' <;> simp)
+
+end
+
+/-- Twin of `whnfCoreStep`: one head-normalization step (beta, iota,
+zeta, projection) with the loop's continuation `k` abstracted, in the
+open-recursion style of the whole module.  Only the spine head's
+normalization stays a knot call (genuine nesting, bounded by the
+term's depth); every *reduction* step is iteration, so a chain no
+longer charges the shared recursion-depth budget one unit per step
+(task #106 — that is what made the `Nat.brecOn` grind of
+`Std.Time…toDays._proof_1` exhaust `checkFuel`). -/
+def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : EIdx → CheckIM EIdx) (e : EIdx) : CheckIM EIdx := do
     match ← viewI e with
     | some (.sort _) | some (.fvar ..) | some (.forallE ..)
     | some (.lam ..) | some (.const ..) | some (.lit _) => pure e
@@ -1409,7 +1475,7 @@ def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let v ← r.whnfCore depth h
-      whnfAppI r fe depth n v args
+      whnfAppI r fe depth k v args
     | some (.proj sn i pe) => do
       let e' ← r.whnf depth pe
       let e' ← projLitToCtorI r fe depth e'
@@ -1432,7 +1498,7 @@ def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
             let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
             if ← projCertI r fe depth e' i fl
                 mx entry.numParams then
-              whnfCoreLoopI r fe depth n arg
+              k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
@@ -1441,81 +1507,17 @@ def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       -- zeta on demand (official `whnf_core` Let case); `inst1M` is the
       -- sharing-preserving arena substitution
       let e' ← inst1M b v
-      whnfCoreLoopI r fe depth n e'
+      k e'
     | some (.bvar _) =>
       throw (.notImplemented "whnf beyond the supported fragment")
     | none => throw (.internal "interned node missing")
-termination_by n _ => (n, 0)
-decreasing_by
-  all_goals first
-    | (apply Prod.Lex.left; omega)
-    | (apply Prod.Lex.right' <;> simp <;> omega)
 
-/-- Bulk-beta argument loop (task #50): consume the whole application
-spine against the whnf'd head `v`.  A lambda head enters the peel loop
-(first binder inline, which keeps the argument count decreasing);
-other heads try iota with one more argument and otherwise accumulate a
-stuck application — exactly the per-level `whnfCoreBody` app clauses,
-but with the chained per-argument `instantiate1` of the beta path
-replaced by one bulk substitution per peeled group
-(`Setlec/Verify/BetaSpine.lean` proves the identification).  The
-`whnfCoreLoopI` step budget `n` is threaded through (task #106). -/
-def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    Nat → EIdx → List EIdx → CheckIM EIdx
-  | _, v, [] => pure v
-  | n, v, a :: rest => do
-    match ← viewI v with
-    | some (.lam _ ty body _mb) => do
-        let ta ← r.infer depth a
-        if ← r.defeq depth ta ty then betaPeelI r fe depth n body [a] rest
-        else do
-          let fa ← internI (.app v a)
-          mkAppNM fa rest
-    | _ => do
-      let fa ← internI (.app v a)
-      match ← iotaRecI r fe depth fa with
-      | some e'' => do
-        let v' ← whnfCoreLoopI r fe depth n e''
-        whnfAppI r fe depth n v' rest
-      | none => whnfAppI r fe depth n fa rest
-termination_by n _ args => (n, 2 * args.length)
-decreasing_by
-  all_goals first
-    | (apply Prod.Lex.left; omega)
-    | (apply Prod.Lex.right' <;> simp <;> omega)
-
-/-- Peel loop of `whnfAppI`: `t` is the raw (unsubstituted) lambda body
-after the binders consumed so far, `acc` their arguments (innermost
-first).  Each binder's argument certificate (unconditional since the
-task-#100 de-gating) substitutes only the *domain*; the body is
-substituted once, when peeling stops. -/
-def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    Nat → EIdx → List EIdx → List EIdx → CheckIM EIdx
-  | n, t, acc, [] => do
-    let e' ← instListM t acc
-    whnfCoreLoopI r fe depth n e'
-  | n, t, acc, a :: rest => do
-    match ← viewI t with
-    | some (.lam _ ty body _mb) => do
-        let ty' ← instListM ty acc
-        let ta ← r.infer depth a
-        if ← r.defeq depth ta ty' then
-          betaPeelI r fe depth n body (a :: acc) rest
-        else do
-          let f' ← instListM t acc
-          let fa ← internI (.app f' a)
-          mkAppNM fa rest
-    | _ => do
-      let e' ← instListM t acc
-      let v ← whnfCoreLoopI r fe depth n e'
-      whnfAppI r fe depth n v (a :: rest)
-termination_by n _ _acc args => (n, 2 * args.length + 1)
-decreasing_by
-  all_goals first
-    | (apply Prod.Lex.left; omega)
-    | (apply Prod.Lex.right' <;> simp <;> omega)
-
-end
+/-- Twin of `whnfCoreLoop`: iterate `whnfCoreStepI` on its own step
+budget. -/
+def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    Nat → EIdx → CheckIM EIdx
+  | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
+  | n + 1, e => whnfCoreStepI r fe depth (whnfCoreLoopI r fe depth n) e
 
 /-- Twin of `whnfCoreBody`: the head-normalization loop at its own step
 budget. -/
@@ -1555,18 +1557,22 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
         inferSpineI r fe depth body #[a] rest
       | _ => throw (.invalid "function expected")
 
+/-- Twin of `whnfStep`. -/
+def whnfStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : EIdx → CheckIM EIdx) (e : EIdx) : CheckIM EIdx := do
+  let e₁ ← r.whnfCore depth e
+  match ← reduceNatI r fe depth e₁ with
+  | some e₂ => k e₂
+  | none =>
+    match ← unfoldDefinitionI fe e₁ with
+    | some e₂ => k e₂
+    | none => pure e₁
+
 /-- Twin of `whnfLoop`. -/
 def whnfLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → EIdx → CheckIM EIdx
   | 0, _ => throw (.internal "fuel exhausted: whnf loop")
-  | n + 1, e => do
-    let e₁ ← r.whnfCore depth e
-    match ← reduceNatI r fe depth e₁ with
-    | some e₂ => whnfLoopI r fe depth n e₂
-    | none =>
-      match ← unfoldDefinitionI fe e₁ with
-      | some e₂ => whnfLoopI r fe depth n e₂
-      | none => pure e₁
+  | n + 1, e => whnfStepI r fe depth (whnfLoopI r fe depth n) e
 
 /-- Twin of `whnfBody`. -/
 def whnfBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
@@ -1784,11 +1790,9 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       throw (.notImplemented "inferType beyond the supported fragment")
     | none => throw (.internal "interned node missing")
 
-/-- Twin of `defeqLoop`. -/
-def defeqLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    Nat → EIdx → EIdx → CheckIM Bool
-  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
-  | fl + 1, a, b => do
+/-- Twin of `defeqStep`. -/
+def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : EIdx → EIdx → CheckIM Bool) (a b : EIdx) : CheckIM Bool := do
     if a == b then pure true else
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
@@ -1803,43 +1807,43 @@ def defeqLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     -- per-node fvar-range array.
     let fold ← withStore fun st => !st.hasFvarI a' && !st.hasFvarI b'
     match ← (if fold then reduceNatI r fe depth a' else pure none) with
-    | some a₂ => defeqLoopI r fe depth fl a₂ b'
+    | some a₂ => k a₂ b'
     | none =>
     match ← (if fold then reduceNatI r fe depth b' else pure none) with
-    | some b₂ => defeqLoopI r fe depth fl a' b₂
+    | some b₂ => k a' b₂
     | none =>
     -- lazy delta, decision before materialization; see `defeqBody`
     match ← withStore (fun st => unfoldableHeadI fe st a'),
         ← withStore (fun st => unfoldableHeadI fe st b') with
     | true, false =>
       match ← unfoldDefinitionI fe a' with
-      | some a₂ => defeqLoopI r fe depth fl a₂ b'
+      | some a₂ => k a₂ b'
       | none => pure false
     | false, true =>
       match ← unfoldDefinitionI fe b' with
-      | some b₂ => defeqLoopI r fe depth fl a' b₂
+      | some b₂ => k a' b₂
       | none => pure false
     | true, true => do
       let ha ← withStore (fun st => headHintI fe st a')
       let hb ← withStore (fun st => headHintI fe st b')
       if ReducibilityHint.lt hb ha then
         match ← unfoldDefinitionI fe a' with
-        | some a₂ => defeqLoopI r fe depth fl a₂ b'
+        | some a₂ => k a₂ b'
         | none => pure false
       else if ReducibilityHint.lt ha hb then
         match ← unfoldDefinitionI fe b' with
-        | some b₂ => defeqLoopI r fe depth fl a' b₂
+        | some b₂ => k a' b₂
         | none => pure false
       else if ReducibilityHint.sameRegular ha hb &&
           (← withStore (sameConstHeadsI · a' b')) then do
         if ← defeqSpineI r fe depth a' b' then pure true
         else
           match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
-          | some a₂, some b₂ => defeqLoopI r fe depth fl a₂ b₂
+          | some a₂, some b₂ => k a₂ b₂
           | _, _ => pure false
       else
         match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
-        | some a₂, some b₂ => defeqLoopI r fe depth fl a₂ b₂
+        | some a₂, some b₂ => k a₂ b₂
         | _, _ => pure false
     | false, false =>
     match ← viewI a', ← viewI b' with
@@ -1934,6 +1938,12 @@ def defeqLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       else stuckIrrelI r fe depth a' b'
     | some _, some _ => stuckIrrelI r fe depth a' b'
     | _, _ => throw (.internal "interned node missing")
+
+/-- Twin of `defeqLoop`. -/
+def defeqLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    Nat → EIdx → EIdx → CheckIM Bool
+  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
+  | fl + 1, a, b => defeqStepI r fe depth (defeqLoopI r fe depth fl) a b
 
 /-- Twin of `defeqBody`. -/
 def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bool :=

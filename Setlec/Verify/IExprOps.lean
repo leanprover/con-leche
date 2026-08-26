@@ -2196,6 +2196,87 @@ theorem isCtorAppI_spec {st : EStore} {env : Env} {e : EIdx} {x : Expr}
     obtain ⟨_nmv, _hnmv, hd⟩ := hd
     rw [← hd]
 
+theorem unfoldableHeadI_spec {st : EStore} {env : Env} {e : EIdx}
+    {x : Expr} (hwf : st.TWF) (hx : st.denoteT e = some x) :
+    unfoldableHeadI (mkFEnv env) st e = unfoldableHead env x := by
+  obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv (getAppFnI_spec hwf hx)
+  rw [unfoldableHeadI, hn, unfoldableHead]
+  cases n with
+  | const nm us =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨lus, hlus, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨_nmv, _hnmv, hd⟩ := hd
+    rw [← hd]
+    dsimp only
+    rw [hwf.readbackN_eq_denoteN, _hnmv]
+    dsimp only
+    rw [mkFEnv_find?]
+    cases env.find? _nmv <;> try rfl
+    rename_i ci
+    cases ci <;> dsimp only <;>
+      rw [denoteLList_length hlus]
+  | bvar i =>
+    rw [denoteNode] at hd
+    have h := Option.some.inj hd
+    rw [← h]
+  | sort u =>
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lu, _, hd⟩ := hd
+    rw [← hd]
+  | lit l =>
+    rw [denoteNode] at hd
+    have h := Option.some.inj hd
+    rw [← h]
+  | fvar idx nm t =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨t', _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨_nmv, _hnmv, hd⟩ := hd
+    rw [← hd]
+  | app f a =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨ef, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨ea, _, hd⟩ := hd
+    rw [← hd]
+  | lam nm t b m =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨et, _, hd⟩ := hd
+    rw [Option.bind_eq_some_iff] at hd
+    obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.bind_eq_some_iff] at hd
+    obtain ⟨bm, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨_nmv, _hnmv, hd⟩ := hd
+    rw [← hd]
+  | forallE nm t b m =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨et, _, hd⟩ := hd
+    rw [Option.bind_eq_some_iff] at hd
+    obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.bind_eq_some_iff] at hd
+    obtain ⟨bm, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨_nmv, _hnmv, hd⟩ := hd
+    rw [← hd]
+  | letE nm t v b =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨et, _, hd⟩ := hd
+    rw [Option.bind_eq_some_iff] at hd
+    obtain ⟨ev, _, hd⟩ := hd
+    rw [Option.bind_eq_some_iff] at hd
+    obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨_nmv, _hnmv, hd⟩ := hd
+    rw [← hd]
+  | proj s j e' =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨ee, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨_nmv, _hnmv, hd⟩ := hd
+    rw [← hd]
+
 theorem headHintI_spec {st : EStore} {env : Env} {e : EIdx} {x : Expr}
     (hwf : st.TWF) (hx : st.denoteT e = some x) :
     headHintI (mkFEnv env) st e = headHint env x := by

@@ -181,6 +181,76 @@ theorem defeqSpine_values {m : EnvModel V env} {fuel : Nat}
     have hfg : vf = vg := hconst hif hig
     rw [hva', hvb', hvs, hfg]
 
+/-- **Spine-wise congruence** (task #106; the official kernel's
+`is_def_eq_app`, lean4lean's `isDefEqApp`): two stuck applications
+with equal spine lengths, definitionally equal *heads* and pointwise
+definitionally equal arguments have equal interpretations — both are
+the set-application fold of the head value over the argument values
+(`annotOk_spine_inv`), and the folds agree componentwise.  Replaces
+the former per-position recursion of `defeqBody`'s app clause. -/
+theorem defeqApp_values {m : EnvModel V env} {fuel : Nat}
+    (ihd : DefEqClaims m φ fuel) {d : Nat} {a b : Expr} {ρ : Nat → V}
+    (hlen : a.getAppArgs.length = b.getAppArgs.length)
+    (hhd : isDefEqCore env fuel d a.getAppFn b.getAppFn = .ok true)
+    (hlist : defEqListP env fuel d a.getAppArgs b.getAppArgs = .ok true)
+    (hane : a.getAppArgs ≠ [])
+    (hwa : WScoped d a) (hwb : WScoped d b)
+    (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
+    (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
+    (hoka : FvarsOk V m.val env φ d ρ a) (hokb : FvarsOk V m.val env φ d ρ b)
+    (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b)
+    {va vb : V} (hva : interpExpr V m.val env φ d ρ a = some va)
+    (hvb : interpExpr V m.val env φ d ρ b = some vb) : va = vb := by
+  have hbne : b.getAppArgs ≠ [] := by
+    intro hnil
+    rw [hnil] at hlen
+    exact hane (List.eq_nil_of_length_eq_zero hlen)
+  have hspa : a = Expr.mkAppN a.getAppFn a.getAppArgs :=
+    (Expr.mkAppN_getApp a).symm
+  have hspb : b = Expr.mkAppN b.getAppFn b.getAppArgs :=
+    (Expr.mkAppN_getApp b).symm
+  have haa' : AnnotOk V m.val env φ d ρ
+      (Expr.mkAppN a.getAppFn a.getAppArgs) := hspa ▸ haa
+  have hab' : AnnotOk V m.val env φ d ρ
+      (Expr.mkAppN b.getAppFn b.getAppArgs) := hspb ▸ hab
+  obtain ⟨hfA, hxsA, vf, vs, hif, hisp, -, hifold⟩ :=
+    annotOk_spine_inv _ _ hane haa'
+  obtain ⟨hfB, hxsB, vg, ws, hig, hispb, -, higold⟩ :=
+    annotOk_spine_inv _ _ hbne hab'
+  have hva' : va = SpineFold V vf vs := by
+    rw [hspa, hifold] at hva
+    exact (Option.some.inj hva).symm
+  have hvb' : vb = SpineFold V vg ws := by
+    rw [hspb, higold] at hvb
+    exact (Option.some.inj hvb).symm
+  have hfacts_a : ∀ x ∈ a.getAppArgs, WScoped d x ∧
+      x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+      FvarsOk V m.val env φ d ρ x ∧ AnnotOk V m.val env φ d ρ x :=
+    fun x hx =>
+      ⟨hwa.getAppArgs x hx, looseBVarsBounded_getAppArgs hba x hx,
+       (fun l hl => hLba l (fvarLeaves_getAppArgs hx l hl)),
+       FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl) hoka,
+       hxsA x hx⟩
+  have hfacts_b : ∀ x ∈ b.getAppArgs, WScoped d x ∧
+      x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+      FvarsOk V m.val env φ d ρ x ∧ AnnotOk V m.val env φ d ρ x :=
+    fun x hx =>
+      ⟨hwb.getAppArgs x hx, looseBVarsBounded_getAppArgs hbb x hx,
+       (fun l hl => hLbb l (fvarLeaves_getAppArgs hx l hl)),
+       FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl) hokb,
+       hxsB x hx⟩
+  have hvs : vs = ws :=
+    defEqList_values ihd _ _ _ _ hlist hfacts_a hfacts_b hisp hispb
+  have hfg : vf = vg :=
+    ihd hhd hwa.getAppFn hwb.getAppFn
+      (looseBVarsBounded_getAppFn hba) (looseBVarsBounded_getAppFn hbb)
+      (fun l hl => hLba l (fvarLeaves_getAppFn l hl))
+      (fun l hl => hLbb l (fvarLeaves_getAppFn l hl))
+      (FvarsOk.of_subset (fun l hl => fvarLeaves_getAppFn l hl) hoka)
+      (FvarsOk.of_subset (fun l hl => fvarLeaves_getAppFn l hl) hokb)
+      hfA hfB hif hig
+  rw [hva', hvb', hvs, hfg]
+
 /-- The iota certificates build an expression-spine telescope fit:
 each certified argument's inferred type is definitionally equal to the
 corresponding (progressively instantiated) domain, so its interpreted

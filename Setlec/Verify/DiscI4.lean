@@ -20,8 +20,9 @@ section Walks
 
 variable {env : Env} {f : Nat}
 
-private theorem whnfCoreBody_unfold (env : Env) (d : Nat) (e : Expr) :
-    whnfCoreBody (fueledFns env) env d e =
+private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
+    (kM : Expr → FueledM Expr) (e : Expr) :
+    whnfCoreStepM (fueledFns env) env d kM e =
     (match e with
     | .sort u => pure (.sort u)
     | .fvar idx n ty => pure (.fvar idx n ty)
@@ -30,19 +31,8 @@ private theorem whnfCoreBody_unfold (env : Env) (d : Nat) (e : Expr) :
     | .const n us => pure (.const n us)
     | .lit l => pure (.lit l)
     | .app g' a =>
-      (fueledFns env).whnfCore d g' >>= fun f' =>
-      match f' with
-      | .lam n ty body mb =>
-        (fueledFns env).infer d a >>= fun ta =>
-        (fueledFns env).defeq d ta ty >>= fun b =>
-        if b then
-          (fueledFns env).whnfCore d (body.instantiate1 a)
-        else pure (.app (.lam n ty body mb) a)
-      | f' =>
-        iotaRec (fueledFns env) env d (.app f' a) >>= fun o =>
-        match o with
-        | some e'' => (fueledFns env).whnfCore d e''
-        | none => pure (.app f' a)
+      (fueledFns env).whnfCore d (Expr.app g' a).getAppFn >>= fun v =>
+        whnfApp (fueledFns env) env d kM v (Expr.app g' a).getAppArgs
     | .proj sn i pe =>
       (fueledFns env).whnf d pe >>= fun e' =>
       projLitToCtor (fueledFns env) env d e' >>= fun e' =>
@@ -58,14 +48,12 @@ private theorem whnfCoreBody_unfold (env : Env) (d : Nat) (e : Expr) :
               (Level.subst entry.levelParams us entry.structSort)
               entry.numParams >>= fun b =>
             if b then
-              (fueledFns env).whnfCore d
-                (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
+              kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
             else pure (.proj sn i e')
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
       | none => pure (.proj sn i e')
-    | .letE _ _ v b =>
-      (fueledFns env).whnfCore d (b.instantiate1 v)
+    | .letE _ _ v b => kM (b.instantiate1 v)
     | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")) := by
   cases e <;> rfl
@@ -112,14 +100,18 @@ private theorem whnfCoreI_iota_tail (ih : SSimI env f) (henv : EnvWF env)
 mutual
 
 /-- The bulk-beta argument loop simulates its pure mirror. -/
-theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
+theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
+    {kI : EIdx → CheckIM EIdx} {kM : Expr → FueledM Expr}
+    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK env s →
+      s.store.denoteT i = some ex → WScoped d ex →
+      SimAt env s (RelE d) (kI i) (kM ex)) :
     ∀ {args : List EIdx} {xs : List Expr} {v : EIdx} {vx : Expr}
       {s₀ : IState}, ISOK env s₀ →
       s₀.store.denoteT v = some vx → WScoped d vx →
       DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
       SimAt env s₀ (RelE d)
-        (whnfAppI (coreKnotI (mkFEnv env) f) (mkFEnv env) d v args)
-        (whnfApp (fueledFns env) env d vx xs)
+        (whnfAppI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI v args)
+        (whnfApp (fueledFns env) env d kM vx xs)
   | [], xs, v, vx, s₀, hs, hv, hwv, hargs, hwargs => by
     match xs, hargs with
     | [], _ =>
@@ -167,7 +159,7 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         cases b with
         | true =>
           simp only [↓reduceIte]
-          exact betaPeelI_sim ih henv hs₂
+          exact betaPeelI_sim ih henv hk hs₂
             (denoteT_mono (hext₁.trans hext₂) hbody)
             ⟨denoteT_mono (hext₁.trans hext₂) hax, DenL.nil⟩
             hwsub (hrest.mono (hext₁.trans hext₂)) hwrest
@@ -193,16 +185,16 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.bvar k : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [whnfApp_ne_lam _ _ _ hnl]
-        exact whnfAppIotaI_sim ih henv hs hv hwv hax hwxa hrest hwrest
+        rw [whnfApp_ne_lam _ _ _ _ hnl]
+        exact whnfAppIotaI_sim ih henv hk hs hv hwv hax hwxa hrest hwrest
       | sort u =>
         rw [denoteNode, Option.map_eq_some_iff] at hd
         obtain ⟨lu, _, rfl⟩ := hd
         have hnl : ∀ n' ty' body' mb',
             (.sort lu : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [whnfApp_ne_lam _ _ _ hnl]
-        exact whnfAppIotaI_sim ih henv hs hv hwv hax hwxa hrest hwrest
+        rw [whnfApp_ne_lam _ _ _ _ hnl]
+        exact whnfAppIotaI_sim ih henv hk hs hv hwv hax hwxa hrest hwrest
       | const nmᵢ us =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
         obtain ⟨lus, _, hd⟩ := hd
@@ -211,15 +203,15 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.const nm lus : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [whnfApp_ne_lam _ _ _ hnl]
-        exact whnfAppIotaI_sim ih henv hs hv hwv hax hwxa hrest hwrest
+        rw [whnfApp_ne_lam _ _ _ _ hnl]
+        exact whnfAppIotaI_sim ih henv hk hs hv hwv hax hwxa hrest hwrest
       | lit l =>
         cases hd
         have hnl : ∀ n' ty' body' mb',
             (.lit l : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [whnfApp_ne_lam _ _ _ hnl]
-        exact whnfAppIotaI_sim ih henv hs hv hwv hax hwxa hrest hwrest
+        rw [whnfApp_ne_lam _ _ _ _ hnl]
+        exact whnfAppIotaI_sim ih henv hk hs hv hwv hax hwxa hrest hwrest
       | fvar idx nmᵢ t =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
         obtain ⟨t', ht', hd⟩ := hd
@@ -229,8 +221,8 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.fvar idx nm t' : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [whnfApp_ne_lam _ _ _ hnl]
-        exact whnfAppIotaI_sim ih henv hs hv hwv hax hwxa hrest hwrest
+        rw [whnfApp_ne_lam _ _ _ _ hnl]
+        exact whnfAppIotaI_sim ih henv hk hs hv hwv hax hwxa hrest hwrest
       | app f₂ a₂ =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
         obtain ⟨ef, hef, hd⟩ := hd
@@ -240,8 +232,8 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.app ef ea : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [whnfApp_ne_lam _ _ _ hnl]
-        exact whnfAppIotaI_sim ih henv hs hv hwv hax hwxa hrest hwrest
+        rw [whnfApp_ne_lam _ _ _ _ hnl]
+        exact whnfAppIotaI_sim ih henv hk hs hv hwv hax hwxa hrest hwrest
       | forallE nmᵢ t b mm =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
         obtain ⟨et, het, hd⟩ := hd
@@ -255,8 +247,8 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.forallE nm et eb bm : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [whnfApp_ne_lam _ _ _ hnl]
-        exact whnfAppIotaI_sim ih henv hs hv hwv hax hwxa hrest hwrest
+        rw [whnfApp_ne_lam _ _ _ _ hnl]
+        exact whnfAppIotaI_sim ih henv hk hs hv hwv hax hwxa hrest hwrest
       | letE nmᵢ t vv b =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
         obtain ⟨et, het, hd⟩ := hd
@@ -270,8 +262,8 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.letE nm et ev eb : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [whnfApp_ne_lam _ _ _ hnl]
-        exact whnfAppIotaI_sim ih henv hs hv hwv hax hwxa hrest hwrest
+        rw [whnfApp_ne_lam _ _ _ _ hnl]
+        exact whnfAppIotaI_sim ih henv hk hs hv hwv hax hwxa hrest hwrest
       | proj snᵢ i pe =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
         obtain ⟨ee, hee, hd⟩ := hd
@@ -281,12 +273,16 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.proj sn i ee : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [whnfApp_ne_lam _ _ _ hnl]
-        exact whnfAppIotaI_sim ih henv hs hv hwv hax hwxa hrest hwrest
+        rw [whnfApp_ne_lam _ _ _ _ hnl]
+        exact whnfAppIotaI_sim ih henv hk hs hv hwv hax hwxa hrest hwrest
   termination_by args _ => (args.length, 0)
 
 /-- The iota arm of the loop simulates its mirror. -/
 theorem whnfAppIotaI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
+    {kI : EIdx → CheckIM EIdx} {kM : Expr → FueledM Expr}
+    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK env s →
+      s.store.denoteT i = some ex → WScoped d ex →
+      SimAt env s (RelE d) (kI i) (kM ex))
     {v a : EIdx} {vx xa : Expr} {rest : List EIdx} {xs : List Expr}
     {s₀ : IState} (hs : ISOK env s₀)
     (hv : s₀.store.denoteT v = some vx) (hwv : WScoped d vx)
@@ -297,10 +293,11 @@ theorem whnfAppIotaI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
         iotaRecI (coreKnotI (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
         match o with
         | some e'' =>
-          (coreKnotI (mkFEnv env) f).whnfCore d e'' >>= fun v' =>
-            whnfAppI (coreKnotI (mkFEnv env) f) (mkFEnv env) d v' rest
-        | none => whnfAppI (coreKnotI (mkFEnv env) f) (mkFEnv env) d fa rest)
-      (whnfAppIota (fueledFns env) env d vx xa xs) := by
+          kI e'' >>= fun v' =>
+            whnfAppI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI v' rest
+        | none =>
+          whnfAppI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI fa rest)
+      (whnfAppIota (fueledFns env) env d kM vx xa xs) := by
     unfold whnfAppIota
     have hwapp : WScoped d (.app vx xa) := by
       simp only [WScoped]
@@ -318,29 +315,33 @@ theorem whnfAppIotaI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
       | none => exact absurd hPo (by simp [RelO])
       | some e''x =>
         obtain ⟨hred, hwred⟩ := hPo
-        refine SimAt.bind (ih.whnfCore hs₂ hred hwred)
+        refine SimAt.bind (hk hs₂ hred hwred)
           (fun s₃ v' v'x hs₃ hext₃ hP => ?_)
         obtain ⟨hv'd, hwv'⟩ := hP
-        exact whnfAppI_sim ih henv hs₃ hv'd hwv'
+        exact whnfAppI_sim ih henv hk hs₃ hv'd hwv'
           (hrest.mono ((hext₁.trans hext₂).trans hext₃)) hwrest
     | none =>
       cases ox with
       | some e''x => exact absurd hPo (by simp [RelO])
       | none =>
-        exact whnfAppI_sim ih henv hs₂ (denoteT_mono hext₂ hQfa) hwapp
+        exact whnfAppI_sim ih henv hk hs₂ (denoteT_mono hext₂ hQfa) hwapp
           (hrest.mono (hext₁.trans hext₂)) hwrest
   termination_by (rest.length, 1)
 
 /-- The peel loop simulates its pure mirror. -/
-theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
+theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
+    {kI : EIdx → CheckIM EIdx} {kM : Expr → FueledM Expr}
+    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK env s →
+      s.store.denoteT i = some ex → WScoped d ex →
+      SimAt env s (RelE d) (kI i) (kM ex)) :
     ∀ {args : List EIdx} {xs : List Expr} {t : EIdx} {tx : Expr}
       {acc : List EIdx} {ws : List Expr} {s₀ : IState}, ISOK env s₀ →
       s₀.store.denoteT t = some tx → DenL s₀.store acc ws →
       WScoped d (tx.instantiateList ws) →
       DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
       SimAt env s₀ (RelE d)
-        (betaPeelI (coreKnotI (mkFEnv env) f) (mkFEnv env) d t acc args)
-        (betaPeel (fueledFns env) env d tx ws xs)
+        (betaPeelI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI t acc args)
+        (betaPeel (fueledFns env) env d kM tx ws xs)
   | [], xs, t, tx, acc, ws, s₀, hs, ht, hacc, hwty, hargs, hwargs => by
     match xs, hargs with
     | [], _ =>
@@ -349,7 +350,7 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
       rw [betaPeel_nil]
       refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
         (fun s₁ e' hs₁ hext₁ hQ => ?_)
-      exact ih.whnfCore hs₁ hQ hwty
+      exact hk hs₁ hQ hwty
   | a :: rest, xs, t, tx, acc, ws, s₀, hs, ht, hacc, hwty, hargs, hwargs => by
     match xs, hargs with
     | xa :: xs, ⟨hax, hrest⟩ =>
@@ -395,7 +396,7 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         cases b with
         | true =>
           simp only [↓reduceIte]
-          exact betaPeelI_sim ih henv hs₃
+          exact betaPeelI_sim ih henv hk hs₃
             (denoteT_mono hextAll hbody)
             ⟨denoteT_mono hextAll hax, hacc.mono hextAll⟩
             hwsub (hrest.mono hextAll) hwrest
@@ -423,13 +424,13 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.bvar k : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [betaPeel_ne_lam _ _ _ hnl]
+        rw [betaPeel_ne_lam _ _ _ _ hnl]
         refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
           (fun s₁ e' hs₁ hext₁ hQ => ?_)
-        refine SimAt.bind (ih.whnfCore hs₁ hQ hwty)
+        refine SimAt.bind (hk hs₁ hQ hwty)
           (fun s₂ vv vvx hs₂ hext₂ hP => ?_)
         obtain ⟨hvd, hwv'⟩ := hP
-        exact whnfAppI_sim ih henv hs₂ hvd hwv'
+        exact whnfAppI_sim ih henv hk hs₂ hvd hwv'
           ⟨denoteT_mono (hext₁.trans hext₂) hax,
             hrest.mono (hext₁.trans hext₂)⟩ hwargs
       | sort u =>
@@ -438,13 +439,13 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.sort lu : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [betaPeel_ne_lam _ _ _ hnl]
+        rw [betaPeel_ne_lam _ _ _ _ hnl]
         refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
           (fun s₁ e' hs₁ hext₁ hQ => ?_)
-        refine SimAt.bind (ih.whnfCore hs₁ hQ hwty)
+        refine SimAt.bind (hk hs₁ hQ hwty)
           (fun s₂ vv vvx hs₂ hext₂ hP => ?_)
         obtain ⟨hvd, hwv'⟩ := hP
-        exact whnfAppI_sim ih henv hs₂ hvd hwv'
+        exact whnfAppI_sim ih henv hk hs₂ hvd hwv'
           ⟨denoteT_mono (hext₁.trans hext₂) hax,
             hrest.mono (hext₁.trans hext₂)⟩ hwargs
       | const nmᵢ us =>
@@ -455,13 +456,13 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.const nm lus : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [betaPeel_ne_lam _ _ _ hnl]
+        rw [betaPeel_ne_lam _ _ _ _ hnl]
         refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
           (fun s₁ e' hs₁ hext₁ hQ => ?_)
-        refine SimAt.bind (ih.whnfCore hs₁ hQ hwty)
+        refine SimAt.bind (hk hs₁ hQ hwty)
           (fun s₂ vv vvx hs₂ hext₂ hP => ?_)
         obtain ⟨hvd, hwv'⟩ := hP
-        exact whnfAppI_sim ih henv hs₂ hvd hwv'
+        exact whnfAppI_sim ih henv hk hs₂ hvd hwv'
           ⟨denoteT_mono (hext₁.trans hext₂) hax,
             hrest.mono (hext₁.trans hext₂)⟩ hwargs
       | lit l =>
@@ -469,13 +470,13 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.lit l : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [betaPeel_ne_lam _ _ _ hnl]
+        rw [betaPeel_ne_lam _ _ _ _ hnl]
         refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
           (fun s₁ e' hs₁ hext₁ hQ => ?_)
-        refine SimAt.bind (ih.whnfCore hs₁ hQ hwty)
+        refine SimAt.bind (hk hs₁ hQ hwty)
           (fun s₂ vv vvx hs₂ hext₂ hP => ?_)
         obtain ⟨hvd, hwv'⟩ := hP
-        exact whnfAppI_sim ih henv hs₂ hvd hwv'
+        exact whnfAppI_sim ih henv hk hs₂ hvd hwv'
           ⟨denoteT_mono (hext₁.trans hext₂) hax,
             hrest.mono (hext₁.trans hext₂)⟩ hwargs
       | fvar idx nmᵢ tt =>
@@ -487,13 +488,13 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.fvar idx nm t' : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [betaPeel_ne_lam _ _ _ hnl]
+        rw [betaPeel_ne_lam _ _ _ _ hnl]
         refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
           (fun s₁ e' hs₁ hext₁ hQ => ?_)
-        refine SimAt.bind (ih.whnfCore hs₁ hQ hwty)
+        refine SimAt.bind (hk hs₁ hQ hwty)
           (fun s₂ vv vvx hs₂ hext₂ hP => ?_)
         obtain ⟨hvd, hwv'⟩ := hP
-        exact whnfAppI_sim ih henv hs₂ hvd hwv'
+        exact whnfAppI_sim ih henv hk hs₂ hvd hwv'
           ⟨denoteT_mono (hext₁.trans hext₂) hax,
             hrest.mono (hext₁.trans hext₂)⟩ hwargs
       | app f₂ a₂ =>
@@ -505,13 +506,13 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.app ef ea : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [betaPeel_ne_lam _ _ _ hnl]
+        rw [betaPeel_ne_lam _ _ _ _ hnl]
         refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
           (fun s₁ e' hs₁ hext₁ hQ => ?_)
-        refine SimAt.bind (ih.whnfCore hs₁ hQ hwty)
+        refine SimAt.bind (hk hs₁ hQ hwty)
           (fun s₂ vv vvx hs₂ hext₂ hP => ?_)
         obtain ⟨hvd, hwv'⟩ := hP
-        exact whnfAppI_sim ih henv hs₂ hvd hwv'
+        exact whnfAppI_sim ih henv hk hs₂ hvd hwv'
           ⟨denoteT_mono (hext₁.trans hext₂) hax,
             hrest.mono (hext₁.trans hext₂)⟩ hwargs
       | forallE nmᵢ tt b mm =>
@@ -527,13 +528,13 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.forallE nm et eb bm : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [betaPeel_ne_lam _ _ _ hnl]
+        rw [betaPeel_ne_lam _ _ _ _ hnl]
         refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
           (fun s₁ e' hs₁ hext₁ hQ => ?_)
-        refine SimAt.bind (ih.whnfCore hs₁ hQ hwty)
+        refine SimAt.bind (hk hs₁ hQ hwty)
           (fun s₂ vv vvx hs₂ hext₂ hP => ?_)
         obtain ⟨hvd, hwv'⟩ := hP
-        exact whnfAppI_sim ih henv hs₂ hvd hwv'
+        exact whnfAppI_sim ih henv hk hs₂ hvd hwv'
           ⟨denoteT_mono (hext₁.trans hext₂) hax,
             hrest.mono (hext₁.trans hext₂)⟩ hwargs
       | letE nmᵢ tt vv b =>
@@ -549,13 +550,13 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.letE nm et ev eb : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [betaPeel_ne_lam _ _ _ hnl]
+        rw [betaPeel_ne_lam _ _ _ _ hnl]
         refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
           (fun s₁ e' hs₁ hext₁ hQ => ?_)
-        refine SimAt.bind (ih.whnfCore hs₁ hQ hwty)
+        refine SimAt.bind (hk hs₁ hQ hwty)
           (fun s₂ vv vvx hs₂ hext₂ hP => ?_)
         obtain ⟨hvd, hwv'⟩ := hP
-        exact whnfAppI_sim ih henv hs₂ hvd hwv'
+        exact whnfAppI_sim ih henv hk hs₂ hvd hwv'
           ⟨denoteT_mono (hext₁.trans hext₂) hax,
             hrest.mono (hext₁.trans hext₂)⟩ hwargs
       | proj snᵢ i pe =>
@@ -567,27 +568,31 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hnl : ∀ n' ty' body' mb',
             (.proj sn i ee : Expr) ≠ Expr.lam n' ty' body' mb' :=
           fun _ _ _ _ h => nomatch h
-        rw [betaPeel_ne_lam _ _ _ hnl]
+        rw [betaPeel_ne_lam _ _ _ _ hnl]
         refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
           (fun s₁ e' hs₁ hext₁ hQ => ?_)
-        refine SimAt.bind (ih.whnfCore hs₁ hQ hwty)
+        refine SimAt.bind (hk hs₁ hQ hwty)
           (fun s₂ vv vvx hs₂ hext₂ hP => ?_)
         obtain ⟨hvd, hwv'⟩ := hP
-        exact whnfAppI_sim ih henv hs₂ hvd hwv'
+        exact whnfAppI_sim ih henv hk hs₂ hvd hwv'
           ⟨denoteT_mono (hext₁.trans hext₂) hax,
             hrest.mono (hext₁.trans hext₂)⟩ hwargs
   termination_by args _ => (args.length, 1)
 
 end
 
-theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
-    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem whnfCoreStepI_sim (ih : SSimI env f) (henv : EnvWF env)
+    {d : Nat} {kI : EIdx → CheckIM EIdx} {kM : Expr → FueledM Expr}
+    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK env s →
+      s.store.denoteT i = some ex → WScoped d ex →
+      SimAt env s (RelE d) (kI i) (kM ex))
+    {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
     (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
     SimAt env s₀ (RelE d)
-      (whnfCoreBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-      (whnfCoreBody (fueledFns env) env d ex) := by
-  unfold whnfCoreBodyI
-  rw [whnfCoreBody_unfold]
+      (whnfCoreStepI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI i)
+      (whnfCoreStepM (fueledFns env) env d kM ex) := by
+  unfold whnfCoreStepI
+  rw [whnfCoreStepM_unfold]
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv hden
   rw [hn]
@@ -623,7 +628,7 @@ theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     simp only [WScoped] at hw
     refine SimAt.bind_left (inst1M_eff hs heb hev)
       (fun s₁ e' hs₁ hext₁ hQ => ?_)
-    exact ih.whnfCore hs₁ hQ (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+    exact hk hs₁ hQ (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
   | app g' a =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨xg, hg, hd⟩ := hd
@@ -631,16 +636,14 @@ theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     obtain ⟨xa, ha, hd⟩ := hd
     subst hd
     -- Bulk beta (task #50): the twin normalizes the spine head once and
-    -- runs the argument loop; `whnfApp_sound_body` reproduces the loop's
-    -- verdict in the chained body.
-    refine SimAt.wr ?_ (fun v F hF => whnfApp_sound_body d xg xa v F hF)
+    -- runs the argument loop against its mirror.
     refine SimAt.withStore ?_
     refine SimAt.withStore ?_
     have hhead := getAppFnI_spec hs.wf hden
     have hargs := getAppArgsI_spec hs.wf hden
     refine SimAt.bind (ih.whnfCore hs hhead hw.getAppFn)
       (fun s₁ v vh hs₁ hext₁ hP => ?_)
-    exact whnfAppI_sim ih henv hs₁ hP.1 hP.2 (hargs.mono hext₁)
+    exact whnfAppI_sim ih henv hk hs₁ hP.1 hP.2 (hargs.mono hext₁)
       (hw.getAppArgs)
   | proj snᵢ ip pe =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -721,7 +724,7 @@ theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
           cases b with
           | true =>
             simp only [↓reduceIte]
-            exact ih.whnfCore hs₃
+            exact hk hs₃
               (DenL.getD (denoteT_mono (hext₂f.trans hext₃) hQ0)
                 (entry.numParams + ip)
                 (hargs.mono (((hext₁m.trans hext₂).trans
@@ -787,31 +790,66 @@ theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
           (x := .proj sn ip e'x) ?_) _ (fun s pr hQ => ⟨hQ, hwproj⟩)
         rw [denoteNode, he'd, hsnDen]; rfl
 
+/-- The head-normalization *loop* simulates its mirror, by induction on
+the shared step budget (task #106). -/
+theorem whnfCoreLoopI_sim (ih : SSimI env f) (henv : EnvWF env)
+    {d : Nat} :
+    ∀ (n : Nat) {i : EIdx} {ex : Expr} {s₀ : IState}, ISOK env s₀ →
+      s₀.store.denoteT i = some ex → WScoped d ex →
+      SimAt env s₀ (RelE d)
+        (whnfCoreLoopI (coreKnotI (mkFEnv env) f) (mkFEnv env) d n i)
+        (whnfCoreLoopM (fueledFns env) env d n ex)
+  | 0, _, _, _, _, _, _ => SimAt.throw
+  | n + 1, _, _, _, hs, hden, hw => by
+    simp only [whnfCoreLoopI, whnfCoreLoopM]
+    exact whnfCoreStepI_sim ih henv
+      (fun h1 h2 h3 => whnfCoreLoopI_sim ih henv n h1 h2 h3) hs hden hw
+
+/-- The interned head-normalization body simulates the chained
+specification body: the loop run is reproduced by `whnfCoreBody` at
+some knot fuel (`whnfCoreLoop_sound_body`). -/
+theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
+    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
+    (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
+    SimAt env s₀ (RelE d)
+      (whnfCoreBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfCoreBody (fueledFns env) env d ex) := by
+  unfold whnfCoreBodyI
+  exact SimAt.wr (whnfCoreLoopI_sim ih henv whnfCoreLoopFuel hs hden hw)
+    (fun v F hF => whnfCoreLoop_sound_body d ex v whnfCoreLoopFuel F hF)
+
 end Walks
 
 section Walks2
 
 variable {env : Env} {f : Nat}
 
-private theorem whnfBody_unfold (env : Env) (d : Nat) (e : Expr) :
-    whnfBody (fueledFns env) env d e =
+private theorem whnfStep_unfold (env : Env) (d : Nat)
+    (kM : Expr → FueledM Expr) (e : Expr) :
+    whnfStep (fueledFns env) env d kM e =
     ((fueledFns env).whnfCore d e >>= fun e₁ =>
       reduceNat (fueledFns env) env d e₁ >>= fun o =>
       match o with
-      | some e₂ => (fueledFns env).whnf d e₂
+      | some e₂ => kM e₂
       | none =>
         match unfoldDefinition env e₁ with
-        | some e₂ => (fueledFns env).whnf d e₂
+        | some e₂ => kM e₂
         | none => pure e₁) := rfl
 
-theorem whnfBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
-    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
+/-- One iteration of the reduction loop simulates its specification
+(task #106; the continuation is abstract, as in the body). -/
+theorem whnfStepI_sim (ih : SSimI env f) (henv : EnvWF env)
+    {d : Nat} {kI : EIdx → CheckIM EIdx} {kM : Expr → FueledM Expr}
+    (hk : ∀ {s : IState} {j : EIdx} {ey : Expr}, ISOK env s →
+      s.store.denoteT j = some ey → WScoped d ey →
+      SimAt env s (RelE d) (kI j) (kM ey))
+    {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
     (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
     SimAt env s₀ (RelE d)
-      (whnfBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-      (whnfBody (fueledFns env) env d ex) := by
-  unfold whnfBodyI
-  rw [whnfBody_unfold]
+      (whnfStepI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI i)
+      (whnfStep (fueledFns env) env d kM ex) := by
+  unfold whnfStepI
+  rw [whnfStep_unfold]
   refine SimAt.bind (ih.whnfCore hs hden hw)
     (fun s₁ e₁ e₁x hs₁ hext₁ hP => ?_)
   obtain ⟨he₁d, hwe₁⟩ := hP
@@ -823,7 +861,7 @@ theorem whnfBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     | none => exact absurd hPo (by simp [RelO])
     | some e₂x =>
       obtain ⟨he₂d, hwe₂⟩ := hPo
-      exact ih.whnf hs₂ he₂d hwe₂
+      exact hk hs₂ he₂d hwe₂
   | none =>
     cases ox with
     | some e₂x => exact absurd hPo (by simp [RelO])
@@ -836,7 +874,7 @@ theorem whnfBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
         cases o₂ with
         | none => exact absurd hQ (by simp [OptDen])
         | some e₂ =>
-          exact ih.whnf hs₃ hQ (unfoldDefinition_WScoped henv hu hwe₁)
+          exact hk hs₃ hQ (unfoldDefinition_WScoped henv hu hwe₁)
       | none =>
         rw [hu] at hQ
         cases o₂ with
@@ -844,6 +882,28 @@ theorem whnfBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
         | none =>
           exact SimAt.pure hs₃
             ⟨denoteT_mono (hext₂.trans hext₃) he₁d, hwe₁⟩
+
+/-- The reduction loop simulates its specification, by induction on the
+shared step budget (task #106). -/
+theorem whnfLoopI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
+    ∀ (n : Nat) {i : EIdx} {ex : Expr} {s₀ : IState}, ISOK env s₀ →
+      s₀.store.denoteT i = some ex → WScoped d ex →
+      SimAt env s₀ (RelE d)
+        (whnfLoopI (coreKnotI (mkFEnv env) f) (mkFEnv env) d n i)
+        (whnfLoop (fueledFns env) env d n ex)
+  | 0, _, _, _, _, _, _ => SimAt.throw
+  | n + 1, _, _, _, hs, hden, hw => by
+    simp only [whnfLoopI, whnfLoop]
+    exact whnfStepI_sim ih henv
+      (fun h1 h2 h3 => whnfLoopI_sim ih henv n h1 h2 h3) hs hden hw
+
+theorem whnfBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
+    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
+    (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
+    SimAt env s₀ (RelE d)
+      (whnfBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfBody (fueledFns env) env d ex) :=
+  whnfLoopI_sim ih henv whnfLoopFuel hs hden hw
 
 end Walks2
 

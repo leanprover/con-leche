@@ -28,7 +28,14 @@ private theorem whnf_forallE_eq {env : Env} {fuel d : Nat} {n : Name}
     e' = .forallE n t b mb := by
   have h1 := whnf_mono (Nat.le_add_right fuel 2) h
   have h2 : whnf env (fuel + 2) d (.forallE n t b mb) =
-      .ok (.forallE n t b mb) := rfl
+      .ok (.forallE n t b mb) := by
+    -- one iteration of the reduction loop suffices (task #106: the
+    -- budget is `irreducible`, so peel it with its positivity witness)
+    obtain ⟨k, hk⟩ := whnfLoopFuel_succ
+    rw [whnf_succ]
+    show whnfLoop (pureFns env (fuel + 1)) env d whnfLoopFuel _ = _
+    rw [hk]
+    rfl
   rw [h1] at h2
   exact Except.ok.inj h2
 
@@ -1452,8 +1459,24 @@ delta unfolding, then the loop again. -/
 theorem whnfLoop_claims (m : EnvModel V env)
     (ihwc : WhnfCoreClaims m φ fuel) (ihw : WhnfClaims m φ fuel) :
     WhnfClaims m φ (fuel + 1) := by
+  -- Task #106: the delta/literal chain is iteration on the loop's own
+  -- step budget, so the claim is an induction on that budget at the
+  -- *same* knot fuel; `ihwc` covers each step's head normalization and
+  -- `ihw` the `whnf` calls inside `reduceNat`.
+  suffices hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr} {ρ : Nat → V},
+      whnfLoop (pureFns env fuel) env d n e = .ok e' →
+      WScoped d e → e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
+      FvarsOk V m.val env φ d ρ e → AnnotOk V m.val env φ d ρ e →
+      interpExpr V m.val env φ d ρ e' = interpExpr V m.val env φ d ρ e ∧
+      AnnotOk V m.val env φ d ρ e' by
+    intro d e e' ρ h hw hb hLb hok ha
+    exact hloop whnfLoopFuel h hw hb hLb hok ha
+  intro n
+  induction n with
+  | zero => intro _ _ _ _ h _ _ _ _ _; exact nomatch h
+  | succ n ihN =>
   intro d e e' ρ h hw hb hLb hok ha
-  obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h
+  obtain ⟨e₁, hwc, hcase⟩ := whnfStep_inv h
   obtain ⟨hi1, ha1⟩ := ihwc hwc hw hb hLb hok ha
   have hw1 := whnfCore_WScoped m.wf fuel hwc hw
   have hb1 := whnfCore_looseBVars m.wf fuel hwc hb
@@ -1463,11 +1486,11 @@ theorem whnfLoop_claims (m : EnvModel V env)
   rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
   · obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
       reduceNat_sound m ihw hrn hw1 hb1 hLb1 hok1 ha1
-    obtain ⟨hi3, ha3⟩ := ihw hcont hw2 hb2 hLb2 hok2 ha2
+    obtain ⟨hi3, ha3⟩ := ihN hcont hw2 hb2 hLb2 hok2 ha2
     exact ⟨by rw [hi3, hi2, hi1], ha3⟩
   · obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
       unfoldDefinition_sound m hu hw1 hb1 hLb1 hok1 ha1
-    obtain ⟨hi3, ha3⟩ := ihw hcont hw2 hb2 hLb2 hok2 ha2
+    obtain ⟨hi3, ha3⟩ := ihN hcont hw2 hb2 hLb2 hok2 ha2
     exact ⟨by rw [hi3, hi2, hi1], ha3⟩
   · exact ⟨hi1, ha1⟩
 
