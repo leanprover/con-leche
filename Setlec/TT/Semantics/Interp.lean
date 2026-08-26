@@ -124,6 +124,7 @@ noncomputable def interp : (Nat → V) → VExpr → V
   | ρ, .pi A B => piC (interp ρ A) fun x => interp (cons V x ρ) B
   | ρ, .letE _ v b => interp (cons V (interp ρ v) ρ) b
   | ρ, .eqE _ a b => eqv (interp ρ a) (interp ρ b)
+  | ρ, .proj i e => if i = 0 then sfst (interp ρ e) else ssnd (interp ρ e)
   | _, .prf => pt
 
 @[simp] theorem interp_bvar (ρ : Nat → V) (i : Nat) :
@@ -144,6 +145,13 @@ noncomputable def interp : (Nat → V) → VExpr → V
     interp V ρ (.letE T v b) = interp V (cons V (interp V ρ v) ρ) b := rfl
 @[simp] theorem interp_eqE (ρ : Nat → V) (T a b : VExpr) :
     interp V ρ (.eqE T a b) = eqv (interp V ρ a) (interp V ρ b) := rfl
+@[simp] theorem interp_proj (ρ : Nat → V) (i : Nat) (e : VExpr) :
+    interp V ρ (.proj i e) =
+      (if i = 0 then sfst (interp V ρ e) else ssnd (interp V ρ e)) := rfl
+@[simp] theorem interp_pfstT (ρ : Nat → V) (p : VExpr) :
+    interp V ρ (pfstT p) = sfst (interp V ρ p) := rfl
+@[simp] theorem interp_psndT (ρ : Nat → V) (p : VExpr) :
+    interp V ρ (psndT p) = ssnd (interp V ρ p) := rfl
 @[simp] theorem interp_prf (ρ : Nat → V) : interp V ρ .prf = pt := rfl
 
 /-! ## The substitution lemmas
@@ -182,6 +190,8 @@ theorem interp_liftN (n : Nat) :
     simp only [VExpr.liftN_letE, interp_letE, ihv, ihb, cons_shiftE]
   | eqE T a b ihT iha ihb =>
     intro k ρ; simp only [VExpr.liftN_eqE, interp_eqE, iha, ihb]
+  | proj i e ihe =>
+    intro k ρ; simp only [VExpr.liftN_proj, interp_proj, ihe]
   | prf => intro k ρ; rfl
 
 theorem interp_lift (e : VExpr) (ρ : Nat → V) :
@@ -232,6 +242,8 @@ theorem interp_inst :
       cons_instE]
   | eqE T b c ihT ihb ihc =>
     intro a k ρ; simp only [VExpr.inst_eqE, interp_eqE, ihb, ihc]
+  | proj i e ihe =>
+    intro a k ρ; simp only [VExpr.inst_proj, interp_proj, ihe]
   | prf => intro a k ρ; rfl
 
 /-- Substitution at the outermost binder — the form every rule uses. -/
@@ -298,16 +310,6 @@ theorem interp_psigmaMkT (ρ : Nat → V) (u v : Nat) (A B a b : VExpr) :
       SetTheory.app (SetTheory.app (SetTheory.app
         (SetTheory.app (psigmaMkV V u v) (interp V ρ A)) (interp V ρ B))
         (interp V ρ a)) (interp V ρ b) := rfl
-
-theorem interp_psigmaFstT (ρ : Nat → V) (u v : Nat) (A B p : VExpr) :
-    interp V ρ (psigmaFstT u v A B p) =
-      SetTheory.app (SetTheory.app (SetTheory.app
-        (psigmaFstV V u v) (interp V ρ A)) (interp V ρ B)) (interp V ρ p) := rfl
-
-theorem interp_psigmaSndT (ρ : Nat → V) (u v : Nat) (A B p : VExpr) :
-    interp V ρ (psigmaSndT u v A B p) =
-      SetTheory.app (SetTheory.app (SetTheory.app
-        (psigmaSndV V u v) (interp V ρ A)) (interp V ρ B)) (interp V ρ p) := rfl
 
 theorem interp_quotT (ρ : Nat → V) (u : Nat) (A r : VExpr) :
     interp V ρ (quotT u A r) =
