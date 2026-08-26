@@ -58,8 +58,14 @@ no new termination argument, and it is exactly the sense in which
 "there is no separate ordering concept" — the incremental extension of
 the invariant *is* the stream-ordering fact.
 
-Delta is not a rule of the type theory and is not a `refl` either: it
-is an equation between denotations that the invariant already carries.
+**Delta is not a rule of the type theory, and it is not a `refl`
+either: it is an equation between denotations that the invariant
+already carries.**  This supersedes the "a delta step becomes `refl` on
+the TT side, because `D` already unfolded" formulation of the original
+sketch.  The payoff is the same one — the reduction strategy drops out
+of the consistency argument — reached with less machinery: no
+unfolding, no well-founded recursion on the environment, and no
+termination obligation to discharge.
 
 ### The rest of the transposition
 
@@ -183,17 +189,41 @@ needed only at `no_constant_of_Empty_TT`, where the layer's own
 consistency theorem turns the pinned valuation of `Empty` into
 uninhabitation.
 
-### The direct-install hypothesis
+### The direct-install hypothesis, and what it costs
 
 Stage 2's step is stated for `directStructsEnabled = false`
 (`Setlec/Kernel/Direct.lean`, and the top-level `DESIGN.md` section
 "The master switch, and why it defaults on").  A directly installed
 structure has no `_model` artifact and the denotation of a stored
-inductive goes through exactly those artifacts.  **The switch defaults
-on**, because turning it off costs five verdicts, so this is a real
-restriction on the configuration the bridge covers and it is stated
-rather than hidden.  The set model covers both settings and continues
-to.
+inductive goes through exactly those artifacts.
+
+**The switch defaults on.  So say the consequence plainly: the TT
+consistency result is vacuous for the configuration we actually
+ship.**  A reader who finds a conditional theorem here must not
+conclude that it covers the binary — it does not, and no amount of
+gate-green reporting changes that.
+
+This is acceptable, for exactly two reasons and no others.
+
+1. It is **explicitly staged**.  The hypothesis is a named `Prop`
+   argument of every theorem that depends on it, not a hidden side
+   condition, so the restriction is visible at each use site.
+2. The **set model still covers the full shipped configuration**,
+   direct install included — task #82 landed with `checkDecl_sound`
+   covering the direct clause, and nothing in task #119 weakens,
+   replaces or deletes any of it.  So we lose nothing today: the set
+   model remains the shipped guarantee while the TT route is built up
+   over a sub-configuration.
+
+**Exit condition.**  The TT route covers the shipped default only once
+one of two things happens: the layer supports directly installed
+structures (their tower encoding denotes, as
+`Setlec/Model/DirectTower.lean` already interprets it), or direct
+install is retired — which is the standing plan the moment the class
+earns `eta`/`unitlike` and `lean-inductive-models` stops emitting
+artifacts for it (top-level `DESIGN.md`, "Task #82 is complete").
+Until then, quoting a TT consistency theorem as a statement about the
+binary is a category error.
 
 ## 5. Interfaces this bridge consumes
 
