@@ -312,6 +312,7 @@ exactly what the collapsed `app_lamC` needs to fire — see §6.)
 | function η (`etaCert`) | `eta` |
 | structure η (`structEtaCert`, modeled) | `psigmaEta` after unfolding; bridge obligation |
 | pair η (`pairEtaCert`, pinned `PSigma'`) | `psigmaEta` |
+| ι-time structure-η rescue (`majorToCtor`) | `psigmaEta` + `conv`; for `PSigma'` the checker reaches the verdict by `proofIrrel` instead (task #61) |
 | unit-like η (`structUnitCert`, modeled) | `punitEta` / `proofIrrel` after unfolding; bridge obligation |
 | unit-like (`isUnitLikeTy`, pinned `PUnit`) | `punitEta` |
 | **rule K** (`majorToCtor`) | `proofIrrel` — K's guard is `nF == 0 && piResultIsProp`, so both sides are proofs of a `Prop`.  **No K rule is needed.** |
@@ -340,10 +341,13 @@ places, all of them harmless:
 * `funext` — the checker has no such rule at all; the layer needs it to
   prove an equation at a `Π` type from pointwise equality (and the
   model supports it, `eq_of_mem_piC_app_eq`).
-* structure η on the pinned `PSigma'` — the checker's `PSigma'` is
-  deliberately η-*inert* (task #61); the layer's `psigmaEta` is
-  unrestricted, which is what makes every modeled structure's η law
-  derivable after unfolding.
+* structure η on the pinned `PSigma'` — the checker has it on the
+  *defeq* side (`pairEtaCert`), but its ι-time structure-η **rescue**
+  is deliberately inert for `PSigma'` (task #61: `PSigma'.rec` is
+  Prop-eliminating, so proof irrelevance reaches the same verdict, and
+  no preprocessed stream applies `PSigma'.rec` anyway).  The layer's
+  `psigmaEta` is unrestricted and ungated, which is what makes every
+  modeled structure's η law derivable after unfolding.
 * `Empty` at every universe level.
 * unfolding of modeled inductives, `opaque`s and the trust family
   (§2.1).
