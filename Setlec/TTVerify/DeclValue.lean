@@ -169,10 +169,6 @@ theorem extendValueTT {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
     (hc₀nind : ∀ cv2 caps, c₀ ≠ .indInfo cv2 caps)
     (hc₀nproj : ∀ entry, c₀ ≠ .projInfo entry)
     (hnres : reservedBasisNames.contains name = false)
-    (hctors : ∀ n cv mI rP rules,
-      env.find? n = some (.recInfo cv mI rP rules) →
-      ∀ r ∈ rules, ∃ cvj cnP cnF,
-        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true → reservedBasisNames.contains T = false →
@@ -210,8 +206,9 @@ theorem extendValueTT {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
   have hi : Installs env m.cval (cvalAt m.cval env name value) c₀ :=
     Installs.of_fresh hfresh' (fun n hn => by
       rw [hc₀name] at hn; exact (cvalAt_ne hn).symm)
-  refine ⟨EnvTT.cons m hi hwf ?_ ?_ ?_ ?_ ?_ ?_ hctors ?_ hheadEta ?_ ?_
-    ?_ hheadNat hheadDivMod hheadReduce⟩
+  refine ⟨EnvTT.cons m hi hwf ?_ ?_ ?_ ?_ ?_ ?_
+    (fun cv2 mI rP rules heq => absurd heq (hc₀nrec cv2 mI rP rules))
+    ?_ hheadEta ?_ ?_ ?_ hheadNat hheadDivMod hheadReduce⟩
   · -- the new valuation is closed
     intro ψ
     obtain ⟨v, t, hv, -, -⟩ := hkey ψ

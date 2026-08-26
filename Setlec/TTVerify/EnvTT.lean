@@ -274,6 +274,52 @@ theorem ProjOkT.empty : ProjOkT Env.empty := by
   intro n entry h
   simp [Env.find?, Env.empty] at h
 
+/-- Every stored recursor rule's constructor is itself stored.  A
+seventh `V`-free duplicate (`Setlec/Model/IndModel.lean`); see
+`EtaFamilyStoredT` for the relocation note.
+
+**A fifth returning clause** (`Setlec/TTVerify/DESIGN.md` §12.10).  It
+was dropped from the first transposition as "syntactic, no consumer",
+and `EnvTT.cons` promptly took it as a *hypothesis* — which reads as a
+consumer having been found and then charged to the caller instead of to
+the invariant.  `CheckDeclTT` is where the bill arrives: a `theorem`
+install has no recursors of its own to reason about and cannot possibly
+prove a fact about the recursors already stored.  The fact belongs to
+the environment, so it is a field. -/
+def RecCtorsStoredT (env : Env) : Prop :=
+  ∀ n cv mI rP rules,
+    env.find? n = some (.recInfo cv mI rP rules) →
+    ∀ r ∈ rules, ∃ cvj cnP cnF,
+      env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)
+
+theorem RecCtorsStoredT.empty : RecCtorsStoredT Env.empty := by
+  intro n cv mI rP rules h
+  simp [Env.find?, Env.empty] at h
+
+/-- The clause survives an install: old recursors keep their stored
+constructors, and a newly installed recursor supplies its own. -/
+theorem RecCtorsStoredT.cons {env : Env} {c₀ : ConstantInfo}
+    (h : RecCtorsStoredT env) (hfresh : env.find? c₀.name = none)
+    (hhead : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
+      ∀ r ∈ rules, ∃ cvj cnP cnF,
+        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) :
+    RecCtorsStoredT ⟨c₀ :: env.consts⟩ := by
+  have lift : ∀ {c : Name} {cvj : ConstantVal} {cnP cnF : Nat},
+      env.find? c = some (.ctorInfo cvj cnP cnF) →
+      (⟨c₀ :: env.consts⟩ : Env).find? c = some (.ctorInfo cvj cnP cnF) :=
+    fun hc => by
+      rw [Env.find?_cons_of_isSome hfresh (by rw [hc]; rfl)]; exact hc
+  intro n cv mI rP rules hf r hr
+  by_cases hn : c₀.name = n
+  · subst hn
+    rw [Env.find?_cons, if_pos rfl] at hf
+    obtain ⟨cvj, cnP, cnF, hc⟩ :=
+      hhead cv mI rP rules (Option.some.inj hf) r hr
+    exact ⟨cvj, cnP, cnF, lift hc⟩
+  · rw [Env.find?_cons, if_neg hn] at hf
+    obtain ⟨cvj, cnP, cnF, hc⟩ := h n cv mI rP rules hf r hr
+    exact ⟨cvj, cnP, cnF, lift hc⟩
+
 /-! ## The pinned basis
 
 The transpose of `IndOk`'s pinned-valuation clause: what the reserved
@@ -615,6 +661,10 @@ structure EnvTT (env : Env) where
   entry with its block stored (`ProjOkT`).  Transpose of
   `EnvModel.proj_ok`, verbatim — the clause is syntactic. -/
   proj_ok : ProjOkT env
+  /-- Every stored recursor rule's constructor is stored
+  (`RecCtorsStoredT`).  Part of the transpose of `IndOk`; consumed by
+  `RecRulesTT.cons` at every install. -/
+  rec_ctors : RecCtorsStoredT env
   /-- The reserved basis constants denote to their pinned built-ins
   (`BasisPinnedTT`).  Part of the transpose of `IndOk`; the four
   layer-derived constants are covered by fired laws instead, and land
@@ -647,6 +697,7 @@ def EnvTT.empty : EnvTT Env.empty where
   rec_rules := RecRulesTT.empty _
   caps_ok := CapsOkTT.empty _
   proj_ok := ProjOkT.empty
+  rec_ctors := RecCtorsStoredT.empty
   basis_pinned := BasisPinnedTT.empty _
   nat_ops := NatOpsTT.empty _
   div_mod := DivModTT.empty _

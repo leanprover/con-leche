@@ -1397,8 +1397,7 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       denoteClosed cval' ⟨c₀ :: env.consts⟩ φ value = some (cval' cv.name φ))
     (hempty : c₀.name = emptyName →
       ∀ ψ : Name → Nat, ∃ u, cval' emptyName ψ = emptyT u)
-    (hctors : ∀ n cv mI rP rules,
-      env.find? n = some (.recInfo cv mI rP rules) →
+    (hheadCtors : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hheadRec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
@@ -1481,10 +1480,11 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       defn_eq := ?_
       thm_ok := ?_
       empty_pinned := ?_
-      rec_rules := RecRulesTT.cons m.rec_rules m.wf hi hctors hheadRec
+      rec_rules := RecRulesTT.cons m.rec_rules m.wf hi m.rec_ctors hheadRec
       caps_ok := CapsOkTT.cons m.caps_ok m.wf hi.fresh hi.ag hi.lit
         hheadEta hheadUnit
       proj_ok := ProjOkT.cons m.proj_ok hi.fresh hheadProj
+      rec_ctors := RecCtorsStoredT.cons m.rec_ctors hi.fresh hheadCtors
       basis_pinned := BasisPinnedTT.cons m.basis_pinned hi hheadBasis
       nat_ops := NatOpsTT.cons m.nat_ops hi hheadNat
       div_mod := DivModTT.cons m.div_mod hi hheadDivMod
