@@ -61,6 +61,31 @@ theorem denote_const_nolevels {env : Env} (m : EnvTT env) (φ : Name → Nat)
   funext q
   rfl
 
+/-- The valuation of `Nat.zero` is the layer's. -/
+theorem cval_natZeroT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hg : natLitSupported env = true) :
+    m.cval natZeroName φ = natZeroT := by
+  simp only [natLitSupported, Bool.and_eq_true] at hg
+  obtain ⟨⟨-, h2⟩, -⟩ := hg
+  refine cval_pinned m (by decide)
+    (by revert h2; cases env.find? natZeroName <;> simp [natZeroOk]) φ ?_
+  simp only [pinnedDirectT]
+  rw [if_neg (by decide : ¬ (natZeroName = natName))]
+  simp [natZeroT]
+
+/-- The valuation of `Nat.succ` is the layer's. -/
+theorem cval_natSuccT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hg : natLitSupported env = true) :
+    m.cval natSuccName φ = .const .natSucc [] := by
+  simp only [natLitSupported, Bool.and_eq_true] at hg
+  obtain ⟨⟨-, -⟩, h3⟩ := hg
+  refine cval_pinned m (by decide)
+    (by revert h3; cases env.find? natSuccName <;> simp [natSuccOk]) φ ?_
+  simp only [pinnedDirectT]
+  rw [if_neg (by decide : ¬ (natSuccName = natName)),
+    if_neg (by decide : ¬ (natSuccName = natZeroName))]
+  simp
+
 /-- `Nat.zero` denotes to the layer's `Nat.zero`. -/
 theorem denote_natZeroT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hg : natLitSupported env = true) (d : Nat) :
@@ -789,5 +814,392 @@ theorem natOps_ble_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
       VExpr.inst_eq_self_of_closed (numeral_closed a),
       VExpr.inst_eq_self_of_closed (numeral_closed b),
       VExpr.inst_eq_self_of_closed (m.cval_closed natBleName φ)] using h
+
+/-! ## The WF-recursive operations
+
+Much lighter than the structural ones, and for a reason worth noting:
+`DivModClausesTT` is already stated in pure `VExpr` over the valuation
+(§8.1's restatement), so there is **no denotation to compute** — the
+clauses arrive in the shape `Setlec/TT/Nat/WfOps.lean` wants them.
+What each operation needs is only the pins that turn the valuation's
+`Nat.succ`/`Nat.zero` into the layer's numerals, plus `ble` and `sub`
+closed at numerals, which the structural half already provides. -/
+
+/-- The literal `1` and `2` as the clauses build them. -/
+theorem divMod_one_two {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hnat : natLitSupported env = true) :
+    .app (m.cval natSuccName φ) (m.cval natZeroName φ) = numeral 1 ∧
+      .app (m.cval natSuccName φ) (numeral 1) = numeral 2 := by
+  have hz := cval_natZeroT m φ hnat
+  have hs := cval_natSuccT m φ hnat
+  refine ⟨?_, ?_⟩ <;> simp [hz, hs, numeral, natSuccT, natZeroT]
+
+/-- `Nat.div`, closed at numerals.  The template for the other eight
+WF-recursive operations. -/
+theorem natOps_div_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natDivName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natDivName φ) (numeral a) (numeral b))
+        (numeral (a / b)) := by
+  obtain ⟨hg, hclauses⟩ := m.div_mod natDivName (by decide) cv value hint hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvB, vB, hhB, hfB, -⟩ :=
+    (natOpGuard_deps hg).2 natBleName (by decide)
+  obtain ⟨cvS, vS, hhS, hfS, -⟩ :=
+    (natOpGuard_deps hg).2 natSubName (by decide)
+  obtain ⟨hone, -⟩ := divMod_one_two m φ hnat
+  have hsucc := cval_natSuccT m φ hnat
+  have hzero := cval_natZeroT m φ hnat
+  have hty : ∀ n : Nat, HasType Γ (numeral n) (m.cval natName φ) := by
+    intro n
+    rw [cval_natT m φ hnat]
+    exact hasType_numeral n
+  have hcl : ∀ a b : Nat,
+      DivModClausesTT m.cval natDivName φ Γ (numeral a) (numeral b) :=
+    fun a b => hclauses φ Γ (numeral a) (numeral b) (hty a) (hty b)
+  refine numeral_div (bl := m.cval natBleName φ)
+    (tv := m.cval boolTrueName φ) (fv := m.cval boolFalseName φ)
+    (sb := m.cval natSubName φ) (dv := m.cval natDivName φ)
+    (natOps_ble_closed m φ hfB) (natOps_sub_closed m φ hfS) ?_ ?_ ?_
+  · intro a b h1 h2
+    have h := (hcl a b).1
+    rw [hone] at h
+    simpa [ap2, natSuccT, hsucc] using h h1 h2
+  · intro a b h1
+    have h := (hcl a b).2.1
+    simpa [ap2, natZeroT, hzero] using h h1
+  · intro a b h1
+    have h := (hcl a b).2.2
+    rw [hone] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+
+/-- `Nat.mod`, closed at numerals. -/
+theorem natOps_mod_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natModName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natModName φ) (numeral a) (numeral b))
+        (numeral (a % b)) := by
+  obtain ⟨hg, hclauses⟩ := m.div_mod natModName (by decide) cv value hint hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvB, vB, hhB, hfB, -⟩ :=
+    (natOpGuard_deps hg).2 natBleName (by decide)
+  obtain ⟨cvS, vS, hhS, hfS, -⟩ :=
+    (natOpGuard_deps hg).2 natSubName (by decide)
+  obtain ⟨hone, -⟩ := divMod_one_two m φ hnat
+  have hty : ∀ n : Nat, HasType Γ (numeral n) (m.cval natName φ) := by
+    intro n
+    rw [cval_natT m φ hnat]
+    exact hasType_numeral n
+  have hcl : ∀ a b : Nat,
+      DivModClausesTT m.cval natModName φ Γ (numeral a) (numeral b) :=
+    fun a b => hclauses φ Γ (numeral a) (numeral b) (hty a) (hty b)
+  refine numeral_mod (bl := m.cval natBleName φ)
+    (tv := m.cval boolTrueName φ) (fv := m.cval boolFalseName φ)
+    (sb := m.cval natSubName φ) (md := m.cval natModName φ)
+    (natOps_ble_closed m φ hfB) (natOps_sub_closed m φ hfS) ?_ ?_ ?_
+  · intro a b h1 h2
+    have h := (hcl a b).1
+    rw [hone] at h
+    rw [if_neg (by decide : ¬ (natModName = natDivName))] at h
+    simpa [ap2] using h h1 h2
+  · intro a b h1
+    have h := (hcl a b).2.1
+    rw [if_neg (by decide : ¬ (natModName = natDivName))] at h
+    simpa [ap2] using h h1
+  · intro a b h1
+    have h := (hcl a b).2.2
+    rw [hone] at h
+    rw [if_neg (by decide : ¬ (natModName = natDivName))] at h
+    simpa [ap2] using h h1
+
+/-- `Nat.gcd`, closed at numerals. -/
+theorem natOps_gcd_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natGcdName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natGcdName φ) (numeral a) (numeral b))
+        (numeral (Nat.gcd a b)) := by
+  obtain ⟨hg, hclauses⟩ := m.div_mod natGcdName (by decide) cv value hint hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvB, vB, hhB, hfB, -⟩ :=
+    (natOpGuard_deps hg).2 natBleName (by decide)
+  obtain ⟨cvM, vM, hhM, hfM, -⟩ :=
+    (natOpGuard_deps hg).2 natModName (by decide)
+  obtain ⟨hone, htwo⟩ := divMod_one_two m φ hnat
+  have hzero := cval_natZeroT m φ hnat
+  have hty : ∀ n : Nat, HasType Γ (numeral n) (m.cval natName φ) := by
+    intro n
+    rw [cval_natT m φ hnat]
+    exact hasType_numeral n
+  have hcl : ∀ a b : Nat,
+      DivModClausesTT m.cval natGcdName φ Γ (numeral a) (numeral b) :=
+    fun a b => hclauses φ Γ (numeral a) (numeral b) (hty a) (hty b)
+  refine numeral_gcd (bl := m.cval natBleName φ)
+    (tv := m.cval boolTrueName φ) (fv := m.cval boolFalseName φ)
+    (gc := m.cval natGcdName φ) (md := m.cval natModName φ)
+    (natOps_ble_closed m φ hfB) (natOps_mod_closed m φ hfM) ?_ ?_
+  · intro a b h1
+    have h := (hcl a b).1
+    rw [hone] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+  · intro a b h1
+    have h := (hcl a b).2
+    rw [hone] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+
+/-- `Nat.shiftLeft`, closed at numerals. -/
+theorem natOps_shiftLeft_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natShiftLeftName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natShiftLeftName φ) (numeral a) (numeral b))
+        (numeral (a <<< b)) := by
+  obtain ⟨hg, hclauses⟩ := m.div_mod natShiftLeftName (by decide) cv value hint hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvB, vB, hhB, hfB, -⟩ :=
+    (natOpGuard_deps hg).2 natBleName (by decide)
+  obtain ⟨cvU, vU, hhU, hfU, -⟩ :=
+    (natOpGuard_deps hg).2 natMulName (by decide)
+  obtain ⟨cvS, vS, hhS, hfS, -⟩ :=
+    (natOpGuard_deps hg).2 natSubName (by decide)
+  obtain ⟨hone, htwo⟩ := divMod_one_two m φ hnat
+  have hzero := cval_natZeroT m φ hnat
+  have hty : ∀ n : Nat, HasType Γ (numeral n) (m.cval natName φ) := by
+    intro n
+    rw [cval_natT m φ hnat]
+    exact hasType_numeral n
+  have hcl : ∀ a b : Nat,
+      DivModClausesTT m.cval natShiftLeftName φ Γ (numeral a) (numeral b) :=
+    fun a b => hclauses φ Γ (numeral a) (numeral b) (hty a) (hty b)
+  refine numeral_shiftLeft (bl := m.cval natBleName φ)
+    (tv := m.cval boolTrueName φ) (fv := m.cval boolFalseName φ)
+    (sl := m.cval natShiftLeftName φ) (mu := m.cval natMulName φ)
+    (sb := m.cval natSubName φ)
+    (natOps_ble_closed m φ hfB) (natOps_mul_closed m φ hfU)
+    (natOps_sub_closed m φ hfS) ?_ ?_
+  · intro a b h1
+    have h := (hcl a b).1
+    simp only [hone, htwo] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+  · intro a b h1
+    have h := (hcl a b).2
+    simp only [hone] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+
+/-- `Nat.shiftRight`, closed at numerals. -/
+theorem natOps_shiftRight_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natShiftRightName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natShiftRightName φ) (numeral a) (numeral b))
+        (numeral (a >>> b)) := by
+  obtain ⟨hg, hclauses⟩ := m.div_mod natShiftRightName (by decide) cv value hint hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvB, vB, hhB, hfB, -⟩ :=
+    (natOpGuard_deps hg).2 natBleName (by decide)
+  obtain ⟨cvD, vD, hhD, hfD, -⟩ :=
+    (natOpGuard_deps hg).2 natDivName (by decide)
+  obtain ⟨cvS, vS, hhS, hfS, -⟩ :=
+    (natOpGuard_deps hg).2 natSubName (by decide)
+  obtain ⟨hone, htwo⟩ := divMod_one_two m φ hnat
+  have hzero := cval_natZeroT m φ hnat
+  have hty : ∀ n : Nat, HasType Γ (numeral n) (m.cval natName φ) := by
+    intro n
+    rw [cval_natT m φ hnat]
+    exact hasType_numeral n
+  have hcl : ∀ a b : Nat,
+      DivModClausesTT m.cval natShiftRightName φ Γ (numeral a) (numeral b) :=
+    fun a b => hclauses φ Γ (numeral a) (numeral b) (hty a) (hty b)
+  refine numeral_shiftRight (bl := m.cval natBleName φ)
+    (tv := m.cval boolTrueName φ) (fv := m.cval boolFalseName φ)
+    (sr := m.cval natShiftRightName φ) (dv := m.cval natDivName φ)
+    (sb := m.cval natSubName φ)
+    (natOps_ble_closed m φ hfB) (natOps_div_closed m φ hfD)
+    (natOps_sub_closed m φ hfS) ?_ ?_
+  · intro a b h1
+    have h := (hcl a b).1
+    simp only [hone, htwo] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+  · intro a b h1
+    have h := (hcl a b).2
+    simp only [hone] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+
+/-- `Nat.land`, closed at numerals. -/
+theorem natOps_land_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natLandName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natLandName φ) (numeral a) (numeral b))
+        (numeral (Nat.land a b)) := by
+  obtain ⟨hg, hclauses⟩ := m.div_mod natLandName (by decide) cv value hint hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvB, vB, hhB, hfB, -⟩ :=
+    (natOpGuard_deps hg).2 natBleName (by decide)
+  obtain ⟨cvA, vA, hhA, hfA, -⟩ :=
+    (natOpGuard_deps hg).2 natAddName (by decide)
+  obtain ⟨cvU, vU, hhU, hfU, -⟩ :=
+    (natOpGuard_deps hg).2 natMulName (by decide)
+  obtain ⟨cvD, vD, hhD, hfD, -⟩ :=
+    (natOpGuard_deps hg).2 natDivName (by decide)
+  obtain ⟨cvM, vM, hhM, hfM, -⟩ :=
+    (natOpGuard_deps hg).2 natModName (by decide)
+  obtain ⟨hone, htwo⟩ := divMod_one_two m φ hnat
+  have hzero := cval_natZeroT m φ hnat
+  have hty : ∀ n : Nat, HasType Γ (numeral n) (m.cval natName φ) := by
+    intro n
+    rw [cval_natT m φ hnat]
+    exact hasType_numeral n
+  have hcl : ∀ a b : Nat,
+      DivModClausesTT m.cval natLandName φ Γ (numeral a) (numeral b) :=
+    fun a b => hclauses φ Γ (numeral a) (numeral b) (hty a) (hty b)
+  refine numeral_land (bl := m.cval natBleName φ)
+    (tv := m.cval boolTrueName φ) (fv := m.cval boolFalseName φ)
+    (la := m.cval natLandName φ) (ad := m.cval natAddName φ)
+    (mu := m.cval natMulName φ) (dv := m.cval natDivName φ)
+    (md := m.cval natModName φ)
+    (natOps_ble_closed m φ hfB) (natOps_add_closed m φ hfA)
+    (natOps_mul_closed m φ hfU) (natOps_div_closed m φ hfD)
+    (natOps_mod_closed m φ hfM) ?_ ?_
+  · intro a b h1
+    have h := (hcl a b).1
+    simp only [hone, htwo] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+  · intro a b h1
+    have h := (hcl a b).2
+    simp only [hone] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+
+/-- `Nat.lor`, closed at numerals. -/
+theorem natOps_lor_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natLorName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natLorName φ) (numeral a) (numeral b))
+        (numeral (Nat.lor a b)) := by
+  obtain ⟨hg, hclauses⟩ := m.div_mod natLorName (by decide) cv value hint hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvB, vB, hhB, hfB, -⟩ :=
+    (natOpGuard_deps hg).2 natBleName (by decide)
+  obtain ⟨cvA, vA, hhA, hfA, -⟩ :=
+    (natOpGuard_deps hg).2 natAddName (by decide)
+  obtain ⟨cvS, vS, hhS, hfS, -⟩ :=
+    (natOpGuard_deps hg).2 natSubName (by decide)
+  obtain ⟨cvU, vU, hhU, hfU, -⟩ :=
+    (natOpGuard_deps hg).2 natMulName (by decide)
+  obtain ⟨cvD, vD, hhD, hfD, -⟩ :=
+    (natOpGuard_deps hg).2 natDivName (by decide)
+  obtain ⟨cvM, vM, hhM, hfM, -⟩ :=
+    (natOpGuard_deps hg).2 natModName (by decide)
+  obtain ⟨hone, htwo⟩ := divMod_one_two m φ hnat
+  have hzero := cval_natZeroT m φ hnat
+  have hty : ∀ n : Nat, HasType Γ (numeral n) (m.cval natName φ) := by
+    intro n
+    rw [cval_natT m φ hnat]
+    exact hasType_numeral n
+  have hcl : ∀ a b : Nat,
+      DivModClausesTT m.cval natLorName φ Γ (numeral a) (numeral b) :=
+    fun a b => hclauses φ Γ (numeral a) (numeral b) (hty a) (hty b)
+  refine numeral_lor (bl := m.cval natBleName φ)
+    (tv := m.cval boolTrueName φ) (fv := m.cval boolFalseName φ)
+    (lo := m.cval natLorName φ) (ad := m.cval natAddName φ)
+    (sb := m.cval natSubName φ) (mu := m.cval natMulName φ)
+    (dv := m.cval natDivName φ) (md := m.cval natModName φ)
+    (natOps_ble_closed m φ hfB) (natOps_add_closed m φ hfA)
+    (natOps_sub_closed m φ hfS) (natOps_mul_closed m φ hfU)
+    (natOps_div_closed m φ hfD) (natOps_mod_closed m φ hfM) ?_ ?_
+  · intro a b h1
+    have h := (hcl a b).1
+    simp only [hone, htwo] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+  · intro a b h1
+    have h := (hcl a b).2
+    simp only [hone] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+
+/-- `Nat.xor`, closed at numerals. -/
+theorem natOps_xor_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natXorName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natXorName φ) (numeral a) (numeral b))
+        (numeral (Nat.xor a b)) := by
+  obtain ⟨hg, hclauses⟩ := m.div_mod natXorName (by decide) cv value hint hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvB, vB, hhB, hfB, -⟩ :=
+    (natOpGuard_deps hg).2 natBleName (by decide)
+  obtain ⟨cvA, vA, hhA, hfA, -⟩ :=
+    (natOpGuard_deps hg).2 natAddName (by decide)
+  obtain ⟨cvU, vU, hhU, hfU, -⟩ :=
+    (natOpGuard_deps hg).2 natMulName (by decide)
+  obtain ⟨cvD, vD, hhD, hfD, -⟩ :=
+    (natOpGuard_deps hg).2 natDivName (by decide)
+  obtain ⟨cvM, vM, hhM, hfM, -⟩ :=
+    (natOpGuard_deps hg).2 natModName (by decide)
+  obtain ⟨hone, htwo⟩ := divMod_one_two m φ hnat
+  have hzero := cval_natZeroT m φ hnat
+  have hty : ∀ n : Nat, HasType Γ (numeral n) (m.cval natName φ) := by
+    intro n
+    rw [cval_natT m φ hnat]
+    exact hasType_numeral n
+  have hcl : ∀ a b : Nat,
+      DivModClausesTT m.cval natXorName φ Γ (numeral a) (numeral b) :=
+    fun a b => hclauses φ Γ (numeral a) (numeral b) (hty a) (hty b)
+  refine numeral_xor (bl := m.cval natBleName φ)
+    (tv := m.cval boolTrueName φ) (fv := m.cval boolFalseName φ)
+    (xo := m.cval natXorName φ) (ad := m.cval natAddName φ)
+    (mu := m.cval natMulName φ) (dv := m.cval natDivName φ)
+    (md := m.cval natModName φ)
+    (natOps_ble_closed m φ hfB) (natOps_add_closed m φ hfA)
+    (natOps_mul_closed m φ hfU) (natOps_div_closed m φ hfD)
+    (natOps_mod_closed m φ hfM) ?_ ?_
+  · intro a b h1
+    have h := (hcl a b).1
+    simp only [hone, htwo] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+  · intro a b h1
+    have h := (hcl a b).2
+    simp only [hone] at h
+    simpa [ap2, natZeroT, hzero] using h h1
+
+/-- `Nat.log2`, closed at numerals.  The one unary WF operation; its
+clauses ignore the second argument, so the second numeral is arbitrary
+(`0` below). -/
+theorem natOps_log2_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natLog2Name = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a : Nat,
+      Deq Γ (.app (m.cval natLog2Name φ) (numeral a))
+        (numeral (Nat.log2 a)) := by
+  obtain ⟨hg, hclauses⟩ := m.div_mod natLog2Name (by decide) cv value hint hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvB, vB, hhB, hfB, -⟩ :=
+    (natOpGuard_deps hg).2 natBleName (by decide)
+  obtain ⟨cvD, vD, hhD, hfD, -⟩ :=
+    (natOpGuard_deps hg).2 natDivName (by decide)
+  obtain ⟨hone, htwo⟩ := divMod_one_two m φ hnat
+  have hzero := cval_natZeroT m φ hnat
+  have hsucc := cval_natSuccT m φ hnat
+  have hty : ∀ n : Nat, HasType Γ (numeral n) (m.cval natName φ) := by
+    intro n
+    rw [cval_natT m φ hnat]
+    exact hasType_numeral n
+  have hcl : ∀ a : Nat,
+      DivModClausesTT m.cval natLog2Name φ Γ (numeral a) (numeral 0) :=
+    fun a => hclauses φ Γ (numeral a) (numeral 0) (hty a) (hty 0)
+  refine numeral_log2 (bl := m.cval natBleName φ)
+    (tv := m.cval boolTrueName φ) (fv := m.cval boolFalseName φ)
+    (lg := m.cval natLog2Name φ) (dv := m.cval natDivName φ)
+    (natOps_ble_closed m φ hfB) (natOps_div_closed m φ hfD) ?_ ?_
+  · intro a h1
+    have h := (hcl a).1
+    simp only [hone, htwo] at h
+    simpa [ap2, natSuccT, hsucc] using h h1
+  · intro a h1
+    have h := (hcl a).2
+    simp only [hone, htwo] at h
+    simpa [ap2, natZeroT, hzero] using h h1
 
 end Setlec.TTVerify
