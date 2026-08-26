@@ -33,23 +33,29 @@ namespace Setlec.TTVerify
 
 open Setlec.TT
 
-/-- The syntactic fragment the recurrence equations live in: spines
-over constants stored at empty level parameters, and free variables
-below `d` annotated by `Nat`. -/
-def natFragOk (env : Env) (c : Name) (d : Nat) : Expr → Bool
+/-- The syntactic fragment the pinned `Nat` equations live in: spines
+over resolving constants (the operation `c` itself, level-free, or any
+stored constant applied to as many levels as it declares) and the two
+frame variables `x`, `y`, annotated by `Nat`.
+
+Shared with the div/mod certificates (`Setlec/TTVerify/DivModPin.lean`),
+whose statements are the same shape but mention `Eq.{1}` — which is why
+the constant clause counts levels instead of demanding none. -/
+def natFragOk (env : Env) (c : Name) : Expr → Bool
   | .sort _ => true
-  | .fvar i _ ty => decide (i < d) && (ty == .const natName [])
-  | .const n us => us.isEmpty && ((n == c) ||
+  | .fvar i _ ty =>
+    (decide (i = 0) || decide (i = 1)) && (ty == .const natName [])
+  | .const n us => (decide (n = c) && us.isEmpty) ||
       (match env.find? n with
-       | some ci => ci.toConstantVal.levelParams.isEmpty
-       | none => false))
-  | .app f a => natFragOk env c d f && natFragOk env c d a
+       | some ci => us.length == ci.toConstantVal.levelParams.length
+       | none => false)
+  | .app f a => natFragOk env c f && natFragOk env c a
   | _ => false
 
 /-- A fragment expression is shallow, so `substConst0` is faithful on
 it. -/
-theorem shallowE_of_natFragOk {env : Env} {c : Name} {d : Nat} :
-    ∀ {e : Expr}, natFragOk env c d e = true → shallowE e = true
+theorem shallowE_of_natFragOk {env : Env} {c : Name} :
+    ∀ {e : Expr}, natFragOk env c e = true → shallowE e = true
   | .sort _, _ => rfl
   | .fvar _ _ _, _ => rfl
   | .const _ _, _ => rfl
@@ -68,15 +74,17 @@ theorem natFrag_subst_facts {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {c : Name} {v : Expr} {V : VExpr}
     (hvf : v.hasFvar = false) (hvb : v.looseBVarsBounded 0 = true)
     (hv : denoteClosed m.cval env φ v = some V)
+    {d : Nat} {Δ : List VExpr} (hd : 2 ≤ d) (hlen : Δ.length = d)
+    (hx : HasType Δ (.bvar (d - 1 - 0)) (m.cval natName φ))
+    (hy : HasType Δ (.bvar (d - 1 - 1)) (m.cval natName φ))
     {ciN : ConstantInfo} (hfN : env.find? natName = some ciN)
     (hlpN : ciN.toConstantVal.levelParams = []) :
-    ∀ e : Expr, natFragOk env c 2 e = true →
-      Expr.WScoped 2 (Expr.substConst0 c v e) ∧
+    ∀ e : Expr, natFragOk env c e = true →
+      Expr.WScoped d (Expr.substConst0 c v e) ∧
       (Expr.substConst0 c v e).looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded (Expr.substConst0 c v e) ∧
-      CtxOk m.cval env φ 2 [m.cval natName φ, m.cval natName φ]
-        (Expr.substConst0 c v e) ∧
-      ∃ w, denote m.cval env φ 2 (Expr.substConst0 c v e) = some w := by
+      CtxOk m.cval env φ d Δ (Expr.substConst0 c v e) ∧
+      ∃ w, denote m.cval env φ d (Expr.substConst0 c v e) = some w := by
   intro e
   induction e with
   | sort u =>
@@ -84,17 +92,18 @@ theorem natFrag_subst_facts {env : Env} (m : EnvTT env) (φ : Name → Nat)
     rw [show Expr.substConst0 c v (.sort u) = .sort u from rfl]
     exact ⟨by simp [Expr.WScoped], rfl,
       fun l hl => by simp [Expr.fvarLeaves] at hl,
-      ⟨rfl, fun l hl => by simp [Expr.fvarLeaves] at hl⟩,
+      ⟨hlen, fun l hl => by simp [Expr.fvarLeaves] at hl⟩,
       _, by rw [denote_sort]⟩
   | fvar i n ty =>
     intro h
-    simp only [natFragOk, Bool.and_eq_true, decide_eq_true_eq,
-      beq_iff_eq] at h
-    obtain ⟨hlt, rfl⟩ := h
+    simp only [natFragOk, Bool.and_eq_true, Bool.or_eq_true,
+      decide_eq_true_eq, beq_iff_eq] at h
+    obtain ⟨hi01, rfl⟩ := h
+    have hlt : i < d := by rcases hi01 with rfl | rfl <;> omega
     rw [show Expr.substConst0 c v (.fvar i n (.const natName []))
       = .fvar i n (.const natName []) from rfl]
     refine ⟨by simp only [Expr.WScoped]; exact ⟨hlt, trivial⟩, rfl, ?_,
-      ⟨rfl, ?_⟩, _, by rw [denote_fvar]⟩
+      ⟨hlen, ?_⟩, VExpr.bvar (d - 1 - i), by rw [denote_fvar]⟩
     · intro l hl
       rw [Expr.fvarLeaves] at hl
       rcases List.mem_cons.mp hl with rfl | hl'
@@ -104,46 +113,44 @@ theorem natFrag_subst_facts {env : Env} (m : EnvTT env) (φ : Name → Nat)
       rw [Expr.fvarLeaves] at hl
       rcases List.mem_cons.mp hl with rfl | hl'
       · refine ⟨hlt, by simp [Expr.fvarsBelow], m.cval natName φ, ?_, ?_⟩
-        · exact denote_const_nolevels m φ hfN hlpN 2
-        · have := HasType.bvar (Γ := [m.cval natName φ, m.cval natName φ])
-            (i := 2 - 1 - i) (A := m.cval natName φ) (by
-              have hi : i = 0 ∨ i = 1 := by omega
-              rcases hi with rfl | rfl <;> simp)
-          rwa [VExpr.liftN_eq_self_of_closed (m.cval_closed natName φ)
-            _ 0] at this
+        · exact denote_const_nolevels m φ hfN hlpN d
+        · rcases hi01 with rfl | rfl
+          · exact hx
+          · exact hy
       · simp [Expr.fvarLeaves] at hl'
   | const n us =>
     intro h
     simp only [natFragOk, Bool.and_eq_true, List.isEmpty_iff,
-      Bool.or_eq_true, beq_iff_eq] at h
-    obtain ⟨rfl, h2⟩ := h
-    by_cases hn : n = c
-    · subst hn
+      Bool.or_eq_true, decide_eq_true_eq] at h
+    by_cases hn : n = c ∧ us = []
+    · obtain ⟨rfl, rfl⟩ := hn
       rw [show Expr.substConst0 n v (.const n []) = v from by
         rw [Expr.substConst0, if_pos ⟨rfl, rfl⟩]]
       exact ⟨Expr.WScoped.of_not_hasFvar hvf, hvb,
         Expr.LeavesBounded.of_not_hasFvar hvf,
-        ⟨rfl, fun l hl => by
+        ⟨hlen, fun l hl => by
           rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hvf] at hl
           exact nomatch hl⟩,
-        V, by rw [denote_depth_closed m.cval_closed hvf hvb 2]; exact hv⟩
-    · rw [show Expr.substConst0 c v (.const n []) = .const n [] from by
-        rw [Expr.substConst0, if_neg (fun hh => hn hh.1)]]
+        V, by rw [denote_depth_closed m.cval_closed hvf hvb d]; exact hv⟩
+    · rw [show Expr.substConst0 c v (.const n us) = .const n us from by
+        rw [Expr.substConst0, if_neg (fun hh => hn ⟨hh.1, hh.2⟩)]]
       refine ⟨by simp [Expr.WScoped], rfl,
         fun l hl => by simp [Expr.fvarLeaves] at hl,
-        ⟨rfl, fun l hl => by simp [Expr.fvarLeaves] at hl⟩, ?_⟩
+        ⟨hlen, fun l hl => by simp [Expr.fvarLeaves] at hl⟩, ?_⟩
       replace h2 : (match env.find? n with
-          | some ci => ci.toConstantVal.levelParams.isEmpty
+          | some ci => us.length == ci.toConstantVal.levelParams.length
           | none => false) = true := by
-        rcases h2 with h2 | h2
+        rcases h with h2 | h2
         · exact absurd h2 hn
         · exact h2
       cases hf : env.find? n with
       | none => rw [hf] at h2; exact nomatch h2
       | some ci =>
         rw [hf] at h2
-        exact ⟨_, denote_const_nolevels m φ hf
-          (by simpa [List.isEmpty_iff] using h2) 2⟩
+        refine ⟨m.cval n (Level.substFn φ ci.toConstantVal.levelParams us),
+          ?_⟩
+        rw [denote_const, hf]
+        exact if_pos (by simpa using h2)
   | app f a ihf iha =>
     intro h
     simp only [natFragOk, Bool.and_eq_true] at h
@@ -177,12 +184,20 @@ def storedNoLevels (env : Env) (n : Name) : Prop :=
    | none => false) = true
 
 theorem natFragOk_const {env : Env} {c n : Name}
-    (h : storedNoLevels env n) : natFragOk env c 2 (.const n []) = true := by
-  simp only [natFragOk, List.isEmpty_nil, Bool.true_and, Bool.or_eq_true]
-  exact Or.inr h
+    (h : storedNoLevels env n) : natFragOk env c (.const n []) = true := by
+  simp only [natFragOk, Bool.or_eq_true]
+  refine Or.inr ?_
+  unfold storedNoLevels at h
+  revert h
+  cases env.find? n with
+  | none => intro h; exact nomatch h
+  | some ci =>
+    intro h
+    rw [List.isEmpty_iff] at h
+    simp [h]
 
 theorem natFragOk_self {env : Env} {c : Name} :
-    natFragOk env c 2 (.const c []) = true := by
+    natFragOk env c (.const c []) = true := by
   simp [natFragOk]
 
 /-- Both sides of every recurrence lie in the fragment. -/
@@ -194,19 +209,19 @@ theorem natOpEquations_frag {env : Env} {c : Name}
     (hbF : c = natBeqName ∨ c = natBleName →
       storedNoLevels env boolFalseName) :
     ∀ eq ∈ natOpEquations 0 c,
-      natFragOk env c 2 eq.1 = true ∧ natFragOk env c 2 eq.2 = true := by
-  have hx : natFragOk env c 2
+      natFragOk env c eq.1 = true ∧ natFragOk env c eq.2 = true := by
+  have hx : natFragOk env c
       (.fvar 0 (.str .anonymous "x") (.const natName [])) = true := by
     simp [natFragOk]
-  have hy : natFragOk env c 2
+  have hy : natFragOk env c
       (.fvar 1 (.str .anonymous "y") (.const natName [])) = true := by
     simp [natFragOk]
-  have happ : ∀ f a, natFragOk env c 2 f = true → natFragOk env c 2 a = true →
-      natFragOk env c 2 (.app f a) = true := by
+  have happ : ∀ f a, natFragOk env c f = true → natFragOk env c a = true →
+      natFragOk env c (.app f a) = true := by
     intro f a h1 h2; simp [natFragOk, h1, h2]
   have hzc := natFragOk_const (c := c) hz
   have hsc := natFragOk_const (c := c) hs
-  have hself : natFragOk env c 2 (.const c []) = true := natFragOk_self
+  have hself : natFragOk env c (.const c []) = true := natFragOk_self
   unfold natOpEquations
   split
   · next hc =>
@@ -404,10 +419,22 @@ theorem natOpPinTT : NatOpPinTT F := by
     (tr hnz hz') (tr hns hs') (fun n hn hne => tr hne (hdeps' n hn))
     (fun hc => tr hnT (hbool' hc).1)
     (fun hc => tr hnF (hbool' hc).2) eq hq
+  have hxT : HasType [m.cval natName φ, m.cval natName φ]
+      (.bvar (2 - 1 - 0)) (m.cval natName φ) := by
+    have := HasType.bvar (Γ := [m.cval natName φ, m.cval natName φ])
+      (i := 1) (A := m.cval natName φ) (by simp)
+    rwa [VExpr.liftN_eq_self_of_closed (m.cval_closed natName φ) _ 0] at this
+  have hyT : HasType [m.cval natName φ, m.cval natName φ]
+      (.bvar (2 - 1 - 1)) (m.cval natName φ) := by
+    have := HasType.bvar (Γ := [m.cval natName φ, m.cval natName φ])
+      (i := 0) (A := m.cval natName φ) (by simp)
+    rwa [VExpr.liftN_eq_self_of_closed (m.cval_closed natName φ) _ 0] at this
   obtain ⟨hw1, hb1, hL1, hC1, w1, hd1⟩ :=
-    natFrag_subst_facts m φ hvf hbv hV hfN hlpN _ hf1
+    natFrag_subst_facts m φ hvf hbv hV (Nat.le_refl 2) rfl hxT hyT hfN hlpN
+      _ hf1
   obtain ⟨hw2, hb2, hL2, hC2, w2, hd2⟩ :=
-    natFrag_subst_facts m φ hvf hbv hV hfN hlpN _ hf2
+    natFrag_subst_facts m φ hvf hbv hV (Nat.le_refl 2) rfl hxT hyT hfN hlpN
+      _ hf2
   -- the certificate, transported by `checkClaimsTT`
   obtain ⟨-, -, ihd, -⟩ := checkClaimsTT m φ F
   have hdeq := ihd (hcerts _ (List.mem_map.mpr ⟨eq, hq, rfl⟩))
