@@ -214,7 +214,9 @@ mechanized form:
   `⊢ x : ⟦ta⟧` and `Deq Δ ⟦ta⟧ A`, and `Deq.conv` closes it.  It is
   *not* obtainable from the ambient typing of the redex — inversion
   gives the argument at the ambient domain `A₀`, and bridging `A₀` to
-  `A` is the open derivable-Pi-injectivity question of §6.
+  `A` needs Pi-domain-injectivity, which `propext` **refutes** — so the
+  certificate is not merely the current supplier, it is the only one
+  any sound rule set can have (§6).
 
 So this lemma is where "the beta certificate is load-bearing for the
 bridge" stops being a claim and becomes a hypothesis with exactly one

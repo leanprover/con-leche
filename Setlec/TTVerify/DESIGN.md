@@ -277,12 +277,33 @@ binary is a category error.
 * **Nat literals** (`Setlec/TT/Nat/*`, task #119's other half).  The
   lemma families are hypothetical over an arbitrary `f : VExpr` and
   take their recurrences at numerals only, so the layer needs no
-  constant for `Nat.add` and the bridge's obligation at a certified
-  fast path is: denote the checker's own certificate for that
-  operation (which `EnvTT` carries, by the same mechanism that carries
-  the `_model` iota theorems), instantiate it at numerals, and hand the
-  resulting `Deq` equations to `numeral_add` and friends.  `String`
-  literals need nothing: `strLitToConstructor` is finite and explicit.
+  constant for `Nat.add`.  The bridge's obligation at a certified fast
+  path is: denote the checker's own certificate for that operation
+  (which `EnvTT` carries, by the same mechanism that carries the
+  `_model` iota theorems), instantiate it at numerals, and hand the
+  resulting `Deq` equations to `numeral_add` and friends.
+
+  **The instantiation is done by the theory, not by a substitution
+  lemma** — write it this way and do not reach for `HasType`
+  substitution here.  `NatOpsOk` quantifies over two free-variable
+  *values*, so its transpose is a `Deq` in context `[natT, natT]`,
+  while `Setlec/TT/Nat/*` wants it closed at numerals.  The recipe:
+
+  1. apply `lam` twice — it carries **no domain premise**, so this
+     costs nothing — abstracting the equation into a closed
+     λ-λ-equation;
+  2. apply the `app` rule twice, at `numeral a` and `numeral b`.  The
+     rule's own `B.inst a` performs the instantiation **object-level,
+     in the type**;
+  3. two `symm`s restore the `prf` subject, the `eqE` slot being inert.
+
+  The theory internalizes its own substitution through abstraction,
+  application and the inert slot.  This is worth knowing beyond the
+  `Nat` case: whenever a `Deq` has to move from an open context to a
+  closed instance, prefer this route.
+
+  `String` literals need nothing: `strLitToConstructor` is finite and
+  explicit.
 * **Modeled iota, eta, unit-like, K.**  Not a risk: the `_model`
   theorems are stream declarations the checker *accepted*, so
   `EnvTT.has_type` already supplies a derivation of each by the time
@@ -339,7 +360,7 @@ every reduct is our artifact, not a fidelity requirement.
 | structure-eta, `projCert` | replaceable | and measured free anyway |
 | plain-rule parameter comparison | **needed**, cheap | |
 | canonical-index `defEqList` | **needed**, cheap | |
-| beta re-check | **needed** *under the current rule set* | the qualifier is load-bearing; see below |
+| beta re-check | **needed, permanently** | the alternative is *unsound*; see below |
 
 The last two are worth their keep for a reason that inverts the usual
 intuition: removing them made the run *slower*, because they
@@ -349,10 +370,38 @@ short-circuit reduction.
 
 The claims of `Setlec/TTVerify/Claims.lean` **thread the typing
 hypothesis from the start** rather than re-deriving membership at each
-node.  The shape is: `⊢ ⟦e⟧ : A` and `whnf e = e'` give
-`⊢ prf : eqE _ ⟦e⟧ ⟦e'⟧`, and `⊢ ⟦e'⟧ : A` follows by `conv` — subject
-reduction is free in a layer whose conversion is equality reflection,
-which is the entire point.
+node: `Typeable Δ ⟦e⟧` in, `Deq Δ ⟦e⟧ ⟦e'⟧` and `Typeable Δ ⟦e'⟧` out.
+
+**RETRACTION.**  This section previously justified that shape with
+"subject reduction is free, since conversion is equality reflection",
+and the reduction claims returned the reduct's typing *at the same
+type*, "free by `conv`".  **Both were false**, and the second is
+refutable, not merely underivable:
+
+> `conv` changes the *type* of a fixed subject; **no rule changes the
+> subject of a fixed typing**.  With
+> `G := .app (.sort 0) (.sort 0)`, `t := natZeroT` and
+> `t' := .letE G natZeroT (.bvar 0)`: `[] ⊢ t : natT` by `const`;
+> `Deq [] t t'` by premise-free `zeta` and `symm` (the reduct is `t`
+> definitionally); and `t'` has **no type at all**, since any
+> `.letE`-subject derivation bottoms out at `letE`, which demands
+> `⊢ G : sort u`, needing a derivable chain from `sort 1` to a
+> syntactic `pi` — refuted by soundness in every model
+> (`∅ ∈ˢ univ 1` but `∅ ∉ piC X F`).
+
+The culprit is the premise-free equational discipline of
+`Setlec/TT/DESIGN.md` §2.4: `zeta`, and `beta`'s unconstrained body,
+**equate typed terms with untypeable ones by design**.  An equation in
+this layer carries no typing information at all.  The discipline is
+still right — it minimizes bridge obligations — but "equality
+reflection makes subject reduction free" is exactly the wrong
+intuition to carry away from it.
+
+So a reduct's typing is **built**, not transported: invert, use the
+step's own certificate, apply `HasType` substitution.  That lands at
+the *reduct's* type, not the subject's, and bridging the two would need
+Π-codomain-injectivity — refuted below along with the domain case.
+Hence `Typeable`, existentially.  It is also all the `whnf` loop needs.
 
 Stating it this way now is the cheap move: an extra hypothesis makes
 each claim *weaker*, so nothing gets harder to prove, and when the
@@ -395,36 +444,40 @@ is load-bearing *for the bridge*, not merely plausible-looking.  No
 performance cost attaches to keeping it: it is free once the
 app-argument check is gone.
 
-#### OPEN: derivable Π-injectivity (tracked separately — do not close this)
+#### CLOSED, NEGATIVELY: derivable Π-injectivity is inadmissible
 
-Whether the premise could be weakened instead, by a lemma
+The previous revision recorded this as an **open** question and told
+the reader not to close it.  It is now closed, in the direction that
+makes the certificate permanent: **derivable Π-domain-injectivity is
+refuted, and adding it as a rule would be unsound.**
 
-> for every derivation of `Deq Δ (Π A B') (Π A₀ B₀)`, a derivation of
-> `Deq Δ A A₀` exists,
+The witness is `propext` — precisely the case the earlier revision was
+warned to check, and did not:
 
-is an **open metatheory question about this layer**, and a task is open
-for it.  Nothing above answers it.  The verdict recorded here is
-"needed *under the current rule set*" precisely so that the question
-stays open; a reader who takes it as settled will drop the task, and it
-is the question that decides whether a cert-skipping run can ever be
-the *verified* mode.
+* `P₁ := False → False` and `P₂ := Nat → PUnit.{0}` are both `Prop`s,
+  since `imax _ 0 = 0`;
+* both are derivably inhabited (the identity; the constant function),
+  so each implies the other, and four applications of `propext` give
+  `Deq [] P₁ P₂`;
+* domain-injectivity would then give `Deq [] Empty Nat`, and soundness
+  forces `∅ = ω`.
 
-**In particular, semantic Π-injectivity being false under the
-domain-relative collapse is not evidence either way.**  That is a
-statement about what *holds in the model*; the lemma above is a
-statement about what *the rules generate*.  Derivable equations are a
-strict subset of true ones, and that asymmetry is the entire reason
-this layer is an upper bound in one direction and not the other
-(`Setlec/TT/DESIGN.md` §2.1) — a false-in-the-model principle can still
-be underivable, which is what would need proving, and a true-in-the-
-model one can still be underivable too.  The same distinction is what
-made the task #100 countermodel irrelevant to derivability: that
-countermodel needs `⊢ Prop : ∀ p : Prop, p`, and no such derivation
-exists.
+Note the same witness kills **codomain**-injectivity: `P₁` and `P₂`
+differ in both positions.  That is what makes the reduction claims'
+conclusion existential (above).
 
-An earlier revision of this section asserted that semantic falsity
-settled it.  It does not, and the error is recorded rather than quietly
-fixed because it is an easy one to make twice.
+So the earlier caution stands vindicated in form and reversed in
+substance: semantic falsity was indeed no evidence, and the actual
+argument had to come from *inside* the rule set — from `propext`, a
+rule the layer has.  A level-guarded variant of injectivity is not
+refuted by this, but the layer cannot state the guard and no consumer
+needs it.
+
+**Therefore the verdict strengthens** from "needed under the current
+rule set" to **needed under every sound rule set**: the only
+inversion-based route to the argument's typing at the λ's annotation
+runs through domain-injectivity, and no sound extension of this layer
+can provide it.  The beta certificate is permanent.
 
 The practical upshot does not depend on the answer, which is why this
 is comfortable to leave open: performance is unaffected either way
@@ -578,3 +631,41 @@ Then `whnf` (the delta loop, consuming `defn_eq`), `defeq`, and
 `CheckDeclTT` through them.  Scale check against the mirror: the set
 model spends ~7500 lines on `Setlec/Model/Core/*` for what
 `CheckStepTT` bundles, so this is not one increment.
+
+## 8. Two decisions deliberately left standing
+
+Recorded so they are made rather than inherited.
+
+### The modeled-iota contract is not yet chosen
+
+Before the modeled-inductive iota install is transposed, choose between
+
+* the **fired form** — meta-quantified over typed argument terms,
+  concluding `Deq []` at applications; and
+* transposing the set model's **tower λ-equality** (`RecRulesOk`,
+  task #58).
+
+**Do not inherit the set model's "never resurrect fits-in-clause"
+ruling by reflex.**  That ruling was forced by set-semantic
+junk-agreement — two dependent-function graphs agreeing off-domain —
+and by `Prop`-collapse concerns.  Neither transposes: typing premises
+replace domain-membership side conditions, and there is no off-domain
+in a syntactic layer at all.  The decision is genuinely open on this
+side and should be argued afresh.
+
+### `HasType.letE`'s first two premises are not consumed by soundness
+
+`Setlec/TT/Semantics/Soundness.lean`'s `letE` case uses only the third
+premise (`ihbody`); the `⊢ ty : sort u` and `⊢ val : ty` premises are
+inert there.  That is a quiet violation of the layer's own doctrine —
+"rules carry exactly the premises soundness consumes"
+(`Setlec/TT/DESIGN.md` §2.4).
+
+They are dischargeable wherever the rule is used, so this is a
+doctrinal footnote rather than a bridge obligation, and the bridge
+never fires the rule today (stored terms carry no `letE` until task
+#117).  Two honest options: trim them, or annotate the rule saying why
+they stay — for instance that task #117's `letE` typing will want the
+type premise anyway.  Either is fine; leaving it unremarked is not,
+because the doctrine is load-bearing elsewhere and an unexplained
+exception erodes it.

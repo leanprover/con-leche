@@ -29,17 +29,20 @@ two interesting cases (the rule itself, and `conv`) and a catch-all
 that is closed by constructor disjointness.  Nothing here resembles
 Church–Rosser, unique typing, or weakening.
 
-**Π-injectivity is deliberately *not* among these, and its status is
-open, not refuted.**  The bridge would want it to weaken
-`HasType.beta`'s premise (`Setlec/TTVerify/DESIGN.md` §6): inverting a
-typed redex yields the argument at the *ambient* domain `A₀`, while
-`beta` asks for it at the λ's annotation `A`.  Whether
-`Deq Δ (Π A B') (Π A₀ B₀) → Deq Δ A A₀` is *derivable* is an open
-metatheory question with a task of its own.  Note that the *semantic*
-principle being false under the domain-relative collapse says nothing
-about it: derivable equations are a strict subset of true ones.  Until
-that question is answered, the checker's beta certificate supplies the
-premise and the layer grows no injectivity lemma.
+**Π-injectivity is not among these, and it never can be: it is
+inadmissible.**  The bridge would want it to weaken `HasType.beta`'s
+premise (`Setlec/TTVerify/DESIGN.md` §6) — inverting a typed redex
+yields the argument at the *ambient* domain `A₀`, while `beta` asks for
+it at the λ's annotation `A`.  But `Deq Δ (Π A B') (Π A₀ B₀) →
+Deq Δ A A₀` is **refuted by `propext`**: `False → False` and
+`Nat → PUnit.{0}` are interderivable `Prop`s, so injectivity would give
+`Deq [] Empty Nat` and soundness would force `∅ = ω`.  The same witness
+kills codomain-injectivity.  Adding either as a rule would be unsound,
+so the checker's beta certificate supplies the premise permanently.
+
+(An earlier revision recorded this as an open question.  It was closed
+negatively; the argument had to come from inside the rule set, from a
+rule the layer has, not from the model.)
 -/
 
 namespace Setlec.TTVerify

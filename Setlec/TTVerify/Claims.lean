@@ -44,38 +44,72 @@ denotes, the output denotes and the two are `Deq`" — which is the
 partial-function form of `interpExpr e' = interpExpr e`.  The infer
 claim, being the one that establishes definedness, asserts it outright.
 
-## The typing hypothesis is threaded, not re-derived
+## The typing hypothesis is threaded — but the conclusion is
+## *typeability*, not typing at the same type
 
-The reduction and defeq claims below take **`HasType Δ ⟦e⟧ A` as a
-hypothesis**, and the reduction claims return the reduct's typing as a
-conclusion — free, by `conv` along the equation they already produce,
-because conversion in this layer is equality reflection and so subject
-reduction costs nothing.
+The reduction and defeq claims below take **`Typeable Δ ⟦e⟧`** as a
+hypothesis, and the reduction claims return `Typeable Δ ⟦e'⟧` — "the
+reduct is typeable at *some* type", not "at the same type".  Both the
+threading and the existential form need their reasons on the record,
+because an earlier revision of this file got the second one wrong.
 
-This is a deliberate deviation from the set-model mirror, and the
-reason is measured rather than aesthetic; see
-`Setlec/TTVerify/DESIGN.md` §6.  In one line: the checker's whole
-certificate tax is **one** call, the per-argument re-check in
-`inferSpineI`, which establishes exactly `⟦a⟧ ∈ˢ ⟦A⟧` at every
-application node — `AnnotOk`'s app clause — and exists only because
-`AnnotOk` is a *conclusion* of the inference claim rather than a
-hypothesis carried along.  A typing judgment is the channel that fact
-was missing.  Stating the claims this way now is what makes the
-eventual removal of that check a change to the *checker* rather than a
-retrofit of this induction.
+### Why thread at all (unchanged, and measured)
 
-That the threading is viable is not assumed: the recursion has to hand
-each subterm a typing of its own, and `Setlec/TTVerify/Inversion.lean`
-supplies exactly the two inversions (`app` head/argument, `proj`
-subject) the checker's own recursion needs.  **`beta` is the one clause
-this does not settle**: inversion yields the argument at the ambient
-domain, while the rule asks for it at the λ's annotation, so the
-checker's beta certificate supplies the premise.  Whether a *derivable*
-Pi-injectivity lemma could weaken the rule instead is an open
-metatheory question, tracked separately — see the DESIGN section, and
-note that the semantic principle's falsity under the collapse is not
-evidence either way.
+The checker's whole certificate tax is **one** call, the per-argument
+re-check in `inferSpineI`, which establishes exactly `⟦a⟧ ∈ˢ ⟦A⟧` at
+every application node — `AnnotOk`'s app clause — and exists only
+because `AnnotOk` is a *conclusion* of the inference claim rather than
+a hypothesis carried along.  A typing judgment is the channel that fact
+was missing.  See `Setlec/TTVerify/DESIGN.md` §6.
 
+### RETRACTED: "subject reduction is free, since conversion is
+### equality reflection"
+
+**That claim was written here as fact and it is false.**  `conv`
+(`Setlec/TT/Judgment.lean`) changes the *type* of a fixed subject; **no
+rule changes the subject of a fixed typing**.  So the schema
+
+> `Γ ⊢ t : A` and `Deq Γ t t'` imply `Γ ⊢ t' : A`
+
+is not merely underivable — it is **refutable**.  Take
+`G := .app (.sort 0) (.sort 0)`, `t := natZeroT`,
+`t' := .letE G natZeroT (.bvar 0)`:
+
+1. `[] ⊢ natZeroT : natT` by `const`;
+2. `(.bvar 0).inst natZeroT = natZeroT` definitionally, so the
+   premise-free `zeta` and `symm` give `Deq [] natZeroT t'`;
+3. `t'` has **no type at all**: only `letE` and `conv` have
+   `.letE`-shaped conclusions and `conv` preserves the subject, so any
+   derivation bottoms out at `letE`, which demands `⊢ G : sort u` —
+   requiring a derivable chain from `sort 1` to a syntactic `pi`, which
+   soundness refutes in every model (`∅ ∈ˢ univ 1` but `∅ ∉ piC X F`),
+   unconditionally, the Aczel instance being `sorry`-free.
+
+The culprit is the premise-free equational discipline of
+`Setlec/TT/DESIGN.md` §2.4: `zeta`, and `beta`'s unconstrained body,
+**equate typed terms with untypeable ones by design**.  That discipline
+is right — it keeps bridge obligations minimal — but it means an
+equation carries no typing information whatsoever.
+
+### Why the conclusion is existential
+
+Given the retraction, a reduct's typing has to be *built*, not
+transported.  For beta that is: invert the λ, use the beta certificate
+for the argument, and apply a `HasType` substitution lemma.  That
+yields `Δ ⊢ b.inst x : B'.inst x` — a typing at the *substituted body
+type*, which is **not** the redex's ambient type `A`.
+
+Bridging the two would need `Deq Δ (B'.inst x) A`, and the only route
+from what inversion supplies runs through **Π-codomain-injectivity** —
+refuted by the same `propext` witness that refutes domain-injectivity
+(`Setlec/TTVerify/DESIGN.md` §6): `False → False` and
+`Nat → PUnit.{0}` are interderivable `Prop`s whose domains *and*
+codomains differ.  (Whether some other route exists is open; the
+existential form makes the question unnecessary, so it is not pursued.)
+
+`Typeable` is what the loop actually needs anyway: `whnf` re-enters
+`whnfCore` on the reduct, and all it must know is that the reduct *has*
+a type — which is what feeds the next step's inversions.
 ## Status (task #119 stage 2)
 
 This module states the claims, proves the **fuel-zero** case of the
@@ -174,6 +208,13 @@ theorem CtxOk.open {cval : TConstVal} {env : Env} {φ : Name → Nat}
     · obtain ⟨hlt, hfb, B, hΔl, hden⟩ := ht.2 l hl''
       exact shift l hlt hfb B hΔl hden
 
+/-- `v` has a type in `Δ`.  The reduction claims' hypothesis and
+conclusion, deliberately existential — see the module docstring, and in
+particular the retraction: a reduct's typing at the *same* type is not
+transportable along an equation, and is not reachable from what
+inversion supplies either. -/
+def Typeable (Δ : List VExpr) (v : VExpr) : Prop := ∃ A, HasType Δ v A
+
 /-! ## The four claims -/
 
 variable (m : EnvTT env) (φ : Name → Nat)
@@ -185,9 +226,9 @@ def WhnfCoreClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   ∀ {d : Nat} {e e' : Expr} {Δ : List VExpr},
     whnfCore env fuel d e = .ok e' →
     CtxOk m.cval env φ d Δ e →
-    ∀ {v A : VExpr}, denote m.cval env φ d e = some v → HasType Δ v A →
+    ∀ {v : VExpr}, denote m.cval env φ d e = some v → Typeable Δ v →
       ∃ v', denote m.cval env φ d e' = some v' ∧ Deq Δ v v' ∧
-        HasType Δ v' A
+        Typeable Δ v'
 
 /-- The reduction loop, ditto.  Transpose of `WhnfClaims`. -/
 def WhnfClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
@@ -195,9 +236,9 @@ def WhnfClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   ∀ {d : Nat} {e e' : Expr} {Δ : List VExpr},
     whnf env fuel d e = .ok e' →
     CtxOk m.cval env φ d Δ e →
-    ∀ {v A : VExpr}, denote m.cval env φ d e = some v → HasType Δ v A →
+    ∀ {v : VExpr}, denote m.cval env φ d e = some v → Typeable Δ v →
       ∃ v', denote m.cval env φ d e' = some v' ∧ Deq Δ v v' ∧
-        HasType Δ v' A
+        Typeable Δ v'
 
 /-- A positive definitional-equality verdict yields a derivable
 equation.  Transpose of `DefEqClaims`. -/
@@ -206,9 +247,9 @@ def DefEqClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   ∀ {d : Nat} {a b : Expr} {Δ : List VExpr},
     isDefEqCore env fuel d a b = .ok true →
     CtxOk m.cval env φ d Δ a → CtxOk m.cval env φ d Δ b →
-    ∀ {va vb A B : VExpr}, denote m.cval env φ d a = some va →
+    ∀ {va vb : VExpr}, denote m.cval env φ d a = some va →
       denote m.cval env φ d b = some vb →
-      HasType Δ va A → HasType Δ vb B → Deq Δ va vb
+      Typeable Δ va → Typeable Δ vb → Deq Δ va vb
 
 /-- Successful inference yields a typing derivation.  Transpose of
 `InferClaims` — note that the set-model version's `AnnotOk` conjuncts
@@ -286,23 +327,28 @@ theorem isDefEqCore_soundTT {env : Env} (hstep : CheckStepTT)
     (m : EnvTT env) (φ : Name → Nat) (fuel : Nat) {d : Nat} {a b : Expr}
     {Δ : List VExpr} (h : isDefEqCore env fuel d a b = .ok true)
     (hΔa : CtxOk m.cval env φ d Δ a) (hΔb : CtxOk m.cval env φ d Δ b)
-    {va vb A B : VExpr} (hva : denote m.cval env φ d a = some va)
+    {va vb : VExpr} (hva : denote m.cval env φ d a = some va)
     (hvb : denote m.cval env φ d b = some vb)
-    (hta : HasType Δ va A) (htb : HasType Δ vb B) : Deq Δ va vb :=
+    (hta : Typeable Δ va) (htb : Typeable Δ vb) : Deq Δ va vb :=
   (checkSoundTT hstep m φ fuel).2.2.1 h hΔa hΔb hva hvb hta htb
 
-/-- Reduction preserves the denotation up to a derivable equation, and
-**carries the typing across** — that second conjunct is the whole point
-of the threaded shape, and it is free: `conv` along the equation the
-first conjunct already provides.  Subject reduction costs nothing in a
-layer whose conversion is equality reflection. -/
+/-- Reduction preserves the denotation up to a derivable equation and
+keeps the reduct **typeable**.
+
+That third conjunct is what lets the `whnf` loop re-enter on the
+reduct without re-deriving anything.  It is *not* free — see the
+retraction in this module's docstring: an equation transports no
+typing, so the reduct's typing is built (inversion, the step's own
+certificate, and `HasType` substitution), and it lands at the reduct's
+own type rather than the subject's, which is why the conjunct is
+existential. -/
 theorem whnf_factsTT {env : Env} (hstep : CheckStepTT) (m : EnvTT env)
     (φ : Name → Nat) (fuel : Nat) {d : Nat} {e e' : Expr}
     {Δ : List VExpr} (h : whnf env fuel d e = .ok e')
-    (hΔ : CtxOk m.cval env φ d Δ e) {v A : VExpr}
-    (hv : denote m.cval env φ d e = some v) (ht : HasType Δ v A) :
+    (hΔ : CtxOk m.cval env φ d Δ e) {v : VExpr}
+    (hv : denote m.cval env φ d e = some v) (ht : Typeable Δ v) :
     ∃ v', denote m.cval env φ d e' = some v' ∧ Deq Δ v v' ∧
-      HasType Δ v' A :=
+      Typeable Δ v' :=
   (checkSoundTT hstep m φ fuel).2.1 h hΔ hv ht
 
 end Setlec.TTVerify
