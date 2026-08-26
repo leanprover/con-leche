@@ -221,16 +221,17 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               else pure major
             | _ => pure major
           else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-              Name.isProjFnShape recName = false ∧
-              piResultIsProp cvT.type = false then do
+              Name.isProjFnShape recName = false then do
             let tmaj₀ ← r.infer depth major
             let tmaj ← r.whnf depth tmaj₀
             match ← withStore (fun st => st.getNode (st.getAppFnI tmaj)) with
             | some (.const T' ust) => do
               let margs ← withStore (·.getAppArgsI tmaj)
               let ustL ← readbackLevelsM ust
+              -- instantiated non-Prop guard, as in `majorToCtor`
               if (← beqNameM T' T) ∧ margs.length = caps.etaParams ∧
-                  ust.length = cvT.levelParams.length then do
+                  ust.length = cvT.levelParams.length ∧
+                  piResultNeverZero cvT.levelParams ustL cvT.type = true then do
                 let TI ← internNameM T
                 let projs ← projAppsI TI ust margs major
                   (List.range caps.etaFields)
@@ -243,9 +244,7 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   if ← structEtaCertWithNC r fe depth fab major tmaj then
                     pure fab
                   else if caps.etaFields = 0 ∧
-                      cvj.levelParams.length = ust.length ∧
-                      piResultNeverZero cvT.levelParams ustL cvT.type
-                        = true then
+                      cvj.levelParams.length = ust.length then
                     if ← proofIrrelI r fe depth fab major then pure fab
                     else pure major
                   else pure major
@@ -514,8 +513,8 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
 
 /-- Cert-skipping twin of `defeqBodyI` (only the stuck-term fallback
 differs, through `stuckIrrelNC`). -/
-def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bool :=
-  fun depth a b => do
+def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : EIdx → EIdx → CheckIM Bool) (a b : EIdx) : CheckIM Bool := do
     if a == b then pure true else
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
@@ -526,25 +525,45 @@ def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM B
     -- `TypeChecker.lean:782`)
     let fold ← withStore fun st => !st.hasFvarI a' && !st.hasFvarI b'
     match ← (if fold then reduceNatI r fe depth a' else pure none) with
-    | some a₂ => r.defeq depth a₂ b'
+    | some a₂ => k a₂ b'
     | none =>
     match ← (if fold then reduceNatI r fe depth b' else pure none) with
-    | some b₂ => r.defeq depth a' b₂
+    | some b₂ => k a' b₂
     | none =>
-    match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
-    | some a₂, none => r.defeq depth a₂ b'
-    | none, some b₂ => r.defeq depth a' b₂
-    | some a₂, some b₂ => do
+    -- lazy delta, decision before materialization; see `defeqBody`
+    match ← withStore (fun st => unfoldableHeadI fe st a'),
+        ← withStore (fun st => unfoldableHeadI fe st b') with
+    | true, false =>
+      match ← unfoldDefinitionI fe a' with
+      | some a₂ => k a₂ b'
+      | none => pure false
+    | false, true =>
+      match ← unfoldDefinitionI fe b' with
+      | some b₂ => k a' b₂
+      | none => pure false
+    | true, true => do
       let ha ← withStore (fun st => headHintI fe st a')
       let hb ← withStore (fun st => headHintI fe st b')
-      if ReducibilityHint.lt hb ha then r.defeq depth a₂ b'
-      else if ReducibilityHint.lt ha hb then r.defeq depth a' b₂
+      if ReducibilityHint.lt hb ha then
+        match ← unfoldDefinitionI fe a' with
+        | some a₂ => k a₂ b'
+        | none => pure false
+      else if ReducibilityHint.lt ha hb then
+        match ← unfoldDefinitionI fe b' with
+        | some b₂ => k a' b₂
+        | none => pure false
       else if ReducibilityHint.sameRegular ha hb &&
           (← withStore (sameConstHeadsI · a' b')) then do
         if ← defeqSpineI r fe depth a' b' then pure true
-        else r.defeq depth a₂ b₂
-      else r.defeq depth a₂ b₂
-    | none, none =>
+        else
+          match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
+          | some a₂, some b₂ => k a₂ b₂
+          | _, _ => pure false
+      else
+        match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
+        | some a₂, some b₂ => k a₂ b₂
+        | _, _ => pure false
+    | false, false =>
     match ← viewI a', ← viewI b' with
     | some (.sort u), some (.sort v) => do
       liftFueled "level comparison" (← isEquivLM u v)
@@ -611,10 +630,16 @@ def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM B
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
       r.defeq (depth + 1) b₁ b₂
-    | some (.app f₁ a₁), some (.app f₂ a₂) => do
-      if ← r.defeq depth f₁ f₂ then do
-        if ← r.defeq depth a₁ a₂ then
-          pure true
+    | some (.app _f₁ _a₁), some (.app _f₂ _a₂) => do
+      -- spine-wise congruence, as in the spec body `defeqBody`
+      let as₁ ← withStore (·.getAppArgsI a')
+      let as₂ ← withStore (·.getAppArgsI b')
+      if as₁.length = as₂.length then do
+        let h₁ ← withStore (fun st => st.getAppFnI a')
+        let h₂ ← withStore (fun st => st.getAppFnI b')
+        if ← r.defeq depth h₁ h₂ then do
+          if ← defEqListI r fe depth as₁ as₂ then pure true
+          else stuckIrrelNC r fe depth a' b'
         else stuckIrrelNC r fe depth a' b'
       else stuckIrrelNC r fe depth a' b'
     | some (.proj _s₁ i₁ e₁), some (.proj _s₂ i₂ e₂) => do
@@ -630,6 +655,16 @@ def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM B
       else stuckIrrelNC r fe depth a' b'
     | some _, some _ => stuckIrrelNC r fe depth a' b'
     | _, _ => throw (.internal "interned node missing")
+
+/-- Cert-skipping twin of `defeqLoopI`. -/
+def defeqLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    Nat → EIdx → EIdx → CheckIM Bool
+  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
+  | fl + 1, a, b => defeqStepNC r fe depth (defeqLoopNC r fe depth fl) a b
+
+/-- Cert-skipping twin of `defeqBodyI`. -/
+def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bool :=
+  fun depth a b => defeqLoopNC r fe depth defeqLoopFuel a b
 
 /-- Tie the cert-skipping bodies at the memoizing state monad (the
 `whnf` and `annotate` bodies are the certified ones — their behavior

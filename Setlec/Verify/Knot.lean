@@ -13,6 +13,23 @@ fueled statements the higher layers consume.
 
 namespace Setlec
 
+/-! ## Loop step budgets
+
+The reduction and lazy-delta loops (task #106) run on their own step
+budgets, kept `irreducible` so that the `rfl` knot equations above do
+not try to evaluate them.  Proofs that need to peel one iteration use
+these positivity witnesses instead. -/
+
+theorem whnfCoreLoopFuel_succ : ∃ n, whnfCoreLoopFuel = n + 1 :=
+  ⟨999999, by unfold whnfCoreLoopFuel; rfl⟩
+
+theorem whnfLoopFuel_succ : ∃ n, whnfLoopFuel = n + 1 :=
+  ⟨99999, by unfold whnfLoopFuel; rfl⟩
+
+theorem defeqLoopFuel_succ : ∃ n, defeqLoopFuel = n + 1 :=
+  ⟨99999, by unfold defeqLoopFuel; rfl⟩
+
+
 @[simp] theorem pureFns_whnfCore (env : Env) (f d : Nat) (e : Expr) :
     (pureFns env (f + 1)).whnfCore d e =
       whnfCoreBody (pureFns env f) env d e := rfl

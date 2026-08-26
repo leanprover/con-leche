@@ -372,7 +372,14 @@ theorem okB_bind {α β : Type} (a : α)
 
 /-- `whnf` is the identity on sorts (two fuel steps in). -/
 theorem whnf_sort (env : Env) (F d : Nat) (u : Level) :
-    whnf env (F + 2) d (.sort u) = .ok (.sort u) := rfl
+    whnf env (F + 2) d (.sort u) = .ok (.sort u) := by
+  -- one iteration of the reduction loop suffices (task #106: the step
+  -- budget is `irreducible`, so peel it with its positivity witness)
+  obtain ⟨k, hk⟩ := whnfLoopFuel_succ
+  rw [whnf_succ]
+  show whnfLoop (pureFns env (F + 1)) env d whnfLoopFuel _ = _
+  rw [hk]
+  rfl
 
 end Unfold
 

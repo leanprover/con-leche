@@ -62,14 +62,14 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                 else pure major
               | _ => pure major
             else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-                Name.isProjFnShape recName = false ∧
-                piResultIsProp cvT.type = false then
+                Name.isProjFnShape recName = false then
               (fueledFns env).infer d major >>= fun tm =>
               (fueledFns env).whnf d tm >>= fun tmaj =>
               match tmaj.getAppFn with
               | .const T' ust =>
                 if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
-                    ust.length = cvT.levelParams.length then
+                    ust.length = cvT.levelParams.length ∧
+                    piResultNeverZero cvT.levelParams ust cvT.type = true then
                   if cvj.levelParams.length = ust.length ∧
                       (cvj.type.stripPis
                         (caps.etaParams + caps.etaFields)).isSome
@@ -95,9 +95,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                             tmaj >>= fun r =>
                         if r then pure fab
                         else if caps.etaFields = 0 ∧
-                            cvj.levelParams.length = ust.length ∧
-                            piResultNeverZero cvT.levelParams ust cvT.type
-                              = true then
+                            cvj.levelParams.length = ust.length then
                           proofIrrel (fueledFns env) env d fab major >>=
                             fun r' =>
                           if r' then pure fab
@@ -175,8 +173,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                   else pure i
                 | _ => pure i
               else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-                  Name.isProjFnShape recName = false ∧
-                  piResultIsProp cvT.type = false then
+                  Name.isProjFnShape recName = false then
                 (coreKnotI (mkFEnv env) f).infer d i >>= fun tm =>
                 (coreKnotI (mkFEnv env) f).whnf d tm >>= fun tmaj =>
                 Setlec.withStore
@@ -187,7 +184,9 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                   readbackLevelsM ust >>= fun ustL =>
                   beqNameM T' T >>= fun bq =>
                   if bq ∧ margs.length = caps.etaParams ∧
-                      ust.length = cvT.levelParams.length then
+                      ust.length = cvT.levelParams.length ∧
+                      piResultNeverZero cvT.levelParams ustL cvT.type
+                        = true then
                     if cvj.levelParams.length = ust.length ∧
                         (cvj.type.stripPis
                           (caps.etaParams + caps.etaFields)).isSome
@@ -212,9 +211,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                               (mkFEnv env) d fab i tmaj >>= fun r =>
                           if r then pure fab
                           else if caps.etaFields = 0 ∧
-                              cvj.levelParams.length = ust.length ∧
-                              piResultNeverZero cvT.levelParams ustL
-                                cvT.type = true then
+                              cvj.levelParams.length = ust.length then
                             proofIrrelI (coreKnotI (mkFEnv env) f)
                                 (mkFEnv env) d fab i >>= fun r' =>
                             if r' then pure fab
@@ -437,8 +434,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                 · rw [if_neg hK, if_neg hK]
                   by_cases hEta : caps.eta = true ∧
                       rl.ctor = caps.etaCtor ∧
-                      Name.isProjFnShape recName = false ∧
-                      piResultIsProp cvT.type = false
+                      Name.isProjFnShape recName = false
                   · rw [if_pos hEta, if_pos hEta]
                     refine SimAt.bind (ih.infer hs hden hmaj)
                       (fun s₁ tm tmx hs₁ hext₁ hP => ?_)

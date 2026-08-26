@@ -332,7 +332,7 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (
       atF_tac2
     rw [if_neg hK, if_neg hK]
     by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-        Name.isProjFnShape c = false ∧ piResultIsProp cvT.type = false
+        Name.isProjFnShape c = false
     · rw [if_pos hE, if_pos hE]
       atF_tac2
     rw [if_neg hE, if_neg hE]
@@ -443,9 +443,13 @@ theorem iotaRec_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold iotaRec
   atF_tac3
 
-macro "atF_step4" : tactic =>
+/-- The level-4 cascade, parameterized over one extra alternative so
+that the loop-body lemmas can feed in their continuation hypothesis
+(`atF_step4k`) without duplicating the rewrite list. -/
+macro "atF_core4" x:tactic : tactic =>
   `(tactic| repeat (first
     | rfl
+    | $x:tactic
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
     | (rw [defEqList_atF])
@@ -469,6 +473,18 @@ macro "atF_step4" : tactic =>
     | (dsimp only [])
     | split))
 
+macro "atF_step4" : tactic => `(tactic| atF_core4 (fail))
+
+macro "atF_step4k" hk:ident : tactic =>
+  `(tactic| atF_core4 (rw [$hk:ident]))
+
+macro "atF_tac4k" hk:ident : tactic =>
+  `(tactic| atF_step4k $hk <;> atF_step4k $hk <;> atF_step4k $hk <;>
+    atF_step4k $hk <;> atF_step4k $hk <;> atF_step4k $hk <;>
+    atF_step4k $hk <;> atF_step4k $hk <;> atF_step4k $hk <;>
+    atF_step4k $hk <;> atF_step4k $hk <;> atF_step4k $hk <;>
+    atF_step4k $hk <;> atF_step4k $hk <;> atF_step4k $hk)
+
 macro "atF_tac4" : tactic =>
   `(tactic| atF_step4 <;> atF_step4 <;> atF_step4 <;> atF_step4 <;>
     atF_step4 <;> atF_step4 <;> atF_step4 <;> atF_step4 <;>
@@ -481,11 +497,24 @@ theorem whnfCoreBody_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold whnfCoreBody
   atF_tac4
 
+theorem whnfStep_atF (d : Nat) (k : Expr → FueledM Expr)
+    (kF : Expr → CheckM Expr) (hk : ∀ e, (k e).val F = kF e) (e : Expr) :
+    (whnfStep (fueledFns env) env d k e).val F =
+      whnfStep (pureFns env F) env d kF e := by
+  unfold whnfStep
+  atF_tac4k hk
+
+theorem whnfLoop_atF (d : Nat) (F : Nat) :
+    ∀ (n : Nat) (e : Expr),
+      (whnfLoop (fueledFns env) env d n e).val F =
+        whnfLoop (pureFns env F) env d n e
+  | 0, _ => rfl
+  | n + 1, e => whnfStep_atF d _ _ (fun e' => whnfLoop_atF d F n e') e
+
 theorem whnfBody_atF (d : Nat) (e : Expr) (F : Nat) :
     (whnfBody (fueledFns env) env d e).val F =
-      whnfBody (pureFns env F) env d e := by
-  unfold whnfBody
-  atF_tac4
+      whnfBody (pureFns env F) env d e :=
+  whnfLoop_atF d F whnfLoopFuel e
 
 theorem inferBody_atF (d : Nat) (e : Expr) (F : Nat) :
     (inferBody (fueledFns env) env d e).val F =
@@ -493,11 +522,26 @@ theorem inferBody_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold inferBody
   atF_tac4
 
+theorem defeqStep_atF (d : Nat) (k : Expr → Expr → FueledM Bool)
+    (kF : Expr → Expr → CheckM Bool)
+    (hk : ∀ a b, (k a b).val F = kF a b) (a b : Expr) :
+    (defeqStep (fueledFns env) env d k a b).val F =
+      defeqStep (pureFns env F) env d kF a b := by
+  unfold defeqStep
+  atF_tac4k hk
+
+theorem defeqLoop_atF (d : Nat) (F : Nat) :
+    ∀ (n : Nat) (a b : Expr),
+      (defeqLoop (fueledFns env) env d n a b).val F =
+        defeqLoop (pureFns env F) env d n a b
+  | 0, _, _ => rfl
+  | n + 1, a, b =>
+    defeqStep_atF d _ _ (fun x y => defeqLoop_atF d F n x y) a b
+
 theorem defeqBody_atF (d : Nat) (a b : Expr) (F : Nat) :
     (defeqBody (fueledFns env) env d a b).val F =
-      defeqBody (pureFns env F) env d a b := by
-  unfold defeqBody
-  atF_tac4
+      defeqBody (pureFns env F) env d a b :=
+  defeqLoop_atF d F defeqLoopFuel a b
 
 theorem annotateBody_atF (d : Nat) (e : Expr) (F : Nat) :
     (annotateBody (fueledFns env) env d e).val F =

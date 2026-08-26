@@ -95,22 +95,27 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
         simp only [pure, Except.pure, Except.ok.injEq] at h
         exact Or.inr (Or.inr h.symm)
 
-/-- Inversion for the reduction loop (`whnf`): head-normalize, then
-either the literal acceleration or one definition unfolding continued
-the loop, or the head normal form is final. -/
-theorem whnf_loop_inv {env : Env} {fuel d : Nat} {e e' : Expr}
-    (h : whnf env (fuel + 1) d e = .ok e') :
+/-- Inversion for one iteration of the reduction loop
+(`whnfStep`): head-normalize, then either the literal acceleration or
+one definition unfolding hands the reduct to the loop's continuation
+`k`, or the head normal form is final.  Task #106: the loop steps are
+iteration on `whnfLoop`'s own budget, so this is stated about the
+continuation-parameterized body; `whnfLoop … (n+1)` *is*
+`whnfStep … (whnfLoop … n)`, so consumers apply it after `cases` on
+the budget and use the budget induction hypothesis for `k`. -/
+theorem whnfStep_inv {env : Env} {fuel d : Nat} {k : Expr → CheckM Expr}
+    {e e' : Expr}
+    (h : whnfStep (pureFns env fuel) env d k e = .ok e') :
     ∃ e₁, whnfCore env fuel d e = .ok e₁ ∧
       ((∃ e₂, reduceNatP env fuel d e₁ = .ok (some e₂) ∧
-          whnf env fuel d e₂ = .ok e') ∨
+          k e₂ = .ok e') ∨
        (reduceNatP env fuel d e₁ = .ok none ∧
         ∃ e₂, unfoldDefinition env e₁ = some e₂ ∧
-          whnf env fuel d e₂ = .ok e') ∨
+          k e₂ = .ok e') ∨
        (reduceNatP env fuel d e₁ = .ok none ∧
         unfoldDefinition env e₁ = none ∧ e' = e₁)) := by
-  rw [whnf_succ] at h
-  simp only [whnfBody, Bind.bind, Except.bind] at h
-  simp only [whnfCore_def, whnf_def] at h
+  simp only [whnfStep, Bind.bind, Except.bind] at h
+  simp only [whnfCore_def] at h
   cases hwc : whnfCore env fuel d e with
   | error err => rw [hwc] at h; exact nomatch h
   | ok e₁ =>
@@ -295,6 +300,18 @@ theorem ensureSortCore_inv {env : Env} {fuel d : Nat} {t : Expr} {u : Level}
   simp only [pure, Except.pure, Except.ok.injEq] at h
   rw [h]
 
+/-- The spine head of a well-scoped expression is well-scoped. -/
+theorem Expr.WScoped.getAppFn {d : Nat} :
+    ∀ {e : Expr}, WScoped d e → WScoped d e.getAppFn := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro h
+    have hfa : WScoped d f ∧ WScoped d a := by
+      simpa only [WScoped] using h
+    exact ihf hfa.1
+  | _ => intro h; exact h
+
 /-- Inversion for the let-rule of `inferTypeCore` (task #100 stage 6:
 the official kernel's `infer_let` checks moved here from the deleted
 annotation pass). -/
@@ -371,6 +388,17 @@ theorem Expr.WScoped.mkAppN {d : Nat} : ∀ {xs : List Expr} {f : Expr},
     refine ih ?_ (fun y hy => hxs y (List.mem_cons_of_mem _ hy))
     simp only [WScoped]
     exact ⟨hf, hxs x List.mem_cons_self⟩
+
+theorem looseBVarsBounded_getAppFn {k : Nat} :
+    ∀ {e : Expr}, e.looseBVarsBounded k = true →
+      e.getAppFn.looseBVarsBounded k = true := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro hb
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    exact ihf hb.1
+  | _ => intro hb; exact hb
 
 theorem looseBVarsBounded_getAppArgs {k : Nat} :
     ∀ {e : Expr}, e.looseBVarsBounded k = true →
@@ -866,7 +894,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
          proofIrrelP env fuel d major' major = .ok true) ∨
         (caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
          Name.isProjFnShape recName = false ∧
-         piResultIsProp cvT.type = false ∧
+         piResultNeverZero cvT.levelParams ust cvT.type = true ∧
          tmaj.getAppArgs.length = caps.etaParams ∧
          ust.length = cvT.levelParams.length ∧
          cvj.levelParams.length = ust.length ∧
@@ -1088,8 +1116,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
         ⟨tfab, htf, hdeq⟩, hpi⟩⟩
   · rw [if_neg hK] at h
     by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-        Name.isProjFnShape recName = false ∧
-        piResultIsProp cvT.type = false
+        Name.isProjFnShape recName = false
     case neg =>
       rw [if_neg hE] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -1148,13 +1175,14 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     intro h
     dsimp only at h
     by_cases hTl : T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
-        ust.length = cvT.levelParams.length
+        ust.length = cvT.levelParams.length ∧
+        piResultNeverZero cvT.levelParams ust cvT.type = true
     case neg =>
       rw [if_neg hTl] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inl h.symm
-    obtain ⟨rfl, hplen, hlvl⟩ := hTl
-    rw [if_pos ⟨rfl, hplen, hlvl⟩] at h
+    obtain ⟨rfl, hplen, hlvl, hnz⟩ := hTl
+    rw [if_pos ⟨rfl, hplen, hlvl, hnz⟩] at h
     by_cases harE : cvj.levelParams.length = ust.length ∧
         (cvj.type.stripPis
           (caps.etaParams + caps.etaFields)).isSome = true
@@ -1210,8 +1238,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     | false =>
       simp only [Bool.false_eq_true, ↓reduceIte] at h
       by_cases hZ : caps.etaFields = 0 ∧
-          cvj.levelParams.length = ust.length ∧
-          piResultNeverZero cvT.levelParams ust cvT.type = true
+          cvj.levelParams.length = ust.length
       case neg =>
         rw [if_neg hZ] at h
         simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -1238,9 +1265,9 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
       exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
         rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
         rfl, hfj, hpr, hfT, rfl, htw, hth,
-        Or.inr ⟨hE.1, hE.2.1, hE.2.2.1, hE.2.2.2, hplen, hlvl,
+        Or.inr ⟨hE.1, hE.2.1, hE.2.2, hnz, hplen, hlvl,
           harE1, harE2, rfl, hcertE,
-          Or.inr ⟨hZ.1, hZ.2.1, hpi⟩⟩⟩
+          Or.inr ⟨hZ.1, hZ.2, hpi⟩⟩⟩
     | true =>
     simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -1248,7 +1275,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inr ⟨hE.1, hE.2.1, hE.2.2.1, hE.2.2.2, hplen, hlvl,
+      Or.inr ⟨hE.1, hE.2.1, hE.2.2, hnz, hplen, hlvl,
         harE1, harE2, rfl, hcertE,
         Or.inl hse⟩⟩
 
@@ -2621,15 +2648,27 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
         · simpa [WScoped] using hwe₃
         · exact ihCore hred (hwe₃.getAppArgs _ (getD_mem (by omega)))
-    · -- whnf loop
+    · -- whnf loop: the reduction chain is iteration on the loop's own
+      -- step budget (task #106), so this is an induction on that
+      -- budget at the *same* knot fuel; `ihCore` covers the per-step
+      -- head normalization.
+      have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
+          whnfLoop (pureFns env fuel) env d n e = .ok e' →
+          WScoped d e → WScoped d e' := by
+        intro n
+        induction n with
+        | zero => intro _ _ _ h _; exact nomatch h
+        | succ n ihN =>
+          intro d e e' h hw
+          obtain ⟨e₁, hwc, hcase⟩ := whnfStep_inv h
+          have hwe₁ : WScoped d e₁ := ihCore hwc hw
+          rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
+          · rcases reduceNat_inv hrn with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
+              exact ihN hcont (by simp [WScoped])
+          · exact ihN hcont (unfoldDefinition_WScoped henv hu hwe₁)
+          · exact hwe₁
       intro d e e' h hw
-      obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h
-      have hwe₁ : WScoped d e₁ := ihCore hwc hw
-      rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
-      · rcases reduceNat_inv hrn with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
-          exact ihLoop hcont (by simp [WScoped])
-      · exact ihLoop hcont (unfoldDefinition_WScoped henv hu hwe₁)
-      · exact hwe₁
+      exact hloop whnfLoopFuel h hw
 
 /-- Head normalization preserves well-scopedness. -/
 theorem whnfCore_WScoped {env : Env} (henv : EnvWF env)
