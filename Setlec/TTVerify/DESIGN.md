@@ -3658,6 +3658,23 @@ type computations were each written once and used by every block after
 the one that motivated them.  `Nat`'s block lemma compiled on first
 write, which is the kit's clearest single measurement.
 
+**Two figures for the final accounting**, both of which have now
+survived enough instances to be rates rather than anecdotes:
+
+* **the 2.8× ratio**, holding across four blocks of *very different
+  character* — a pilot with no rules, a block with one rule and an eta
+  law, a block of three derived λ-towers, and a block with two rules and
+  a field.  A single-block measurement becoming stable across that
+  spread is what turns "the bridge is cheaper" into a number one can
+  price the remaining work with;
+* **first-write success under an accumulated kit** — §8.4's own
+  metric, introduced at the div/mod assemblies (seven of nine) and
+  still discriminating: `Nat`'s block lemma needed no iteration
+  because every piece it wanted had been hoisted when an earlier block
+  forced it.  It discriminates because it *fails* when the kit is
+  incomplete, which is how `Eq.rec` was diagnosed as needing the
+  depth-and-levels generalisation.
+
 **Landed: the driver, the pilot, and `PUnit`**
 (`Setlec/TTVerify/DeclBasis.lean`).
 `BasisChain` + `foldlM_installBasisDecl_inv` replace the model's six
