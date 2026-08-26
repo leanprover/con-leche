@@ -268,6 +268,23 @@ theorem projCert_atF (d : Nat) (e₂ : Expr) (i : Nat)
   unfold projCert
   atF_tac
 
+theorem projTeleCert_atF (d : Nat) (c : Name) (us : List Level)
+    (args : List Expr) (F : Nat) :
+    (projTeleCert (fueledFns env) env d c us args).val F =
+      projTeleCert (pureFns env F) env d c us args := by
+  unfold projTeleCert
+  cases hf : env.find? c with
+  | none => rfl
+  | some ci =>
+    cases ci with
+    | ctorInfo cvj nP nF => exact iotaCerts_atF d F _ args
+    | axiomInfo cv => rfl
+    | projInfo _ => rfl
+    | defnInfo cv value => rfl
+    | thmInfo cv value => rfl
+    | indInfo cv caps => rfl
+    | recInfo cv mI rP rules => rfl
+
 macro "atF_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
@@ -462,6 +479,7 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [structUnitCert_atF])
     | (rw [etaCert_atF])
     | (rw [projCert_atF])
+    | (rw [projTeleCert_atF])
     | (rw [structEtaCert_atF])
     | (rw [majorToCtor_atF])
     | (rw [annotateProjElim_atF])

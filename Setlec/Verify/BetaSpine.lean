@@ -250,7 +250,9 @@ def whnfCoreStepM (r : CoreFns m) (env : Env) (depth : Nat)
           if ← projCert r env depth e' i
               (Level.subst entry.levelParams us entry.fieldSort)
               mx entry.numParams then
-            k arg
+            if ← projTeleCert r env depth c us args then
+              k arg
+            else pure (.proj sn i e')
           else pure (.proj sn i e')
         else pure (.proj sn i e')
       | _ => pure (.proj sn i e')
@@ -433,6 +435,13 @@ theorem projCert_mono {d : Nat} {e : Expr} {i : Nat} {fl sl : Level}
     projCert (pureFns env F') env d e i fl sl nP = .ok b := by
   rw [← projCert_atF] at h ⊢
   exact (projCert (fueledFns env) env d e i fl sl nP).property hle h
+
+theorem projTeleCert_mono {d : Nat} {c : Name} {us : List Level}
+    {args : List Expr} {F F' : Nat} (hle : F ≤ F') {b : Bool}
+    (h : projTeleCert (pureFns env F) env d c us args = .ok b) :
+    projTeleCert (pureFns env F') env d c us args = .ok b := by
+  rw [← projTeleCert_atF] at h ⊢
+  exact (projTeleCert (fueledFns env) env d c us args).property hle h
 
 theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {o : Option Expr}
@@ -1067,18 +1076,33 @@ theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
           simpa only [Bool.false_eq_true, ↓reduceIte] using H
         | true =>
           simp only [↓reduceIte] at H
-          obtain ⟨M, hM⟩ := hks F _ _ H
-          refine ⟨max F M, ?_⟩
-          simp only [whnfCoreBody]
-          rw [whnf_def, whnf_mono (Nat.le_max_left F M) hw, ok_bind,
-            projLitToCtor_mono (Nat.le_max_left F M) hw', ok_bind,
-            hfp, hfn]
-          dsimp only
-          rw [if_pos hcond,
-            projCert_mono (Nat.le_max_left F M) hb, ok_bind]
-          simp only [↓reduceIte]
-          rw [whnfCore_def]
-          exact whnfCore_mono (Nat.le_max_right F M) hM
+          obtain ⟨b₂, hb₂, H⟩ := bind_ok H
+          cases b₂ with
+          | false =>
+            refine ⟨F, ?_⟩
+            simp only [whnfCoreBody]
+            rw [hw, ok_bind, hw', ok_bind, hfp, hfn]
+            dsimp only
+            rw [if_pos hcond, hb, ok_bind]
+            simp only [↓reduceIte]
+            rw [hb₂, ok_bind]
+            simpa only [Bool.false_eq_true, ↓reduceIte] using H
+          | true =>
+            simp only [↓reduceIte] at H
+            obtain ⟨M, hM⟩ := hks F _ _ H
+            refine ⟨max F M, ?_⟩
+            simp only [whnfCoreBody]
+            rw [whnf_def, whnf_mono (Nat.le_max_left F M) hw, ok_bind,
+              projLitToCtor_mono (Nat.le_max_left F M) hw', ok_bind,
+              hfp, hfn]
+            dsimp only
+            rw [if_pos hcond,
+              projCert_mono (Nat.le_max_left F M) hb, ok_bind]
+            simp only [↓reduceIte]
+            rw [projTeleCert_mono (Nat.le_max_left F M) hb₂, ok_bind]
+            simp only [↓reduceIte]
+            rw [whnfCore_def]
+            exact whnfCore_mono (Nat.le_max_right F M) hM
       · rename_i hcond
         intro H
         refine ⟨F, ?_⟩

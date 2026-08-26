@@ -490,10 +490,13 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
           projCertP env fuel d e₃ i
             (Level.subst entry.levelParams us entry.fieldSort)
             (Level.subst entry.levelParams us entry.structSort)
-            entry.numParams = .ok true) := by
+            entry.numParams = .ok true ∧
+          projTeleCertP env fuel d entry.ctor us e₃.getAppArgs =
+            .ok true) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
-  simp only [whnfCore_def, whnf_def, projCert_fold, projLitToCtor_fold] at h
+  simp only [whnfCore_def, whnf_def, projCert_fold, projTeleCert_fold,
+    projLitToCtor_fold] at h
   cases he : whnf env fuel d e with
   | error err => rw [he] at h; exact nomatch h
   | ok e₂ =>
@@ -530,7 +533,19 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       | true =>
         simp only [if_true] at h
         try dsimp only at h
-        exact Or.inr ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, h, hcert⟩
+        cases hcert₂ : projTeleCertP env fuel d entry.ctor us e₃.getAppArgs with
+        | error err => rw [hcert₂] at h; exact nomatch h
+        | ok b₂ =>
+        rw [hcert₂] at h
+        cases b₂ with
+        | true =>
+          simp only [if_true] at h
+          try dsimp only at h
+          exact Or.inr
+            ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, h, hcert, hcert₂⟩
+        | false =>
+          simp only [Bool.false_eq_true, if_false] at h
+          exact Or.inl (Except.ok.inj h).symm
       | false =>
         simp only [Bool.false_eq_true, if_false] at h
         exact Or.inl (Except.ok.inj h).symm
@@ -545,6 +560,34 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
   | letE n2 t2 v2 b2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | lit l2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | proj s2 i2 e3 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+
+/-- Inversion for a successful constructor-telescope certification at a
+projection redex (task #126): the head is a stored constructor, and its
+level-instantiated telescope certified the whole spine.  This is what
+turns the checker's record into the projection rules' four premises —
+one `infer`+`defeq` pair per telescope domain, through `certs_fit` on
+the model side and `certs_typed` on the derivation side. -/
+theorem projTeleCert_inv {env : Env} {fuel d : Nat} {c : Name}
+    {us : List Level} {args : List Expr}
+    (h : projTeleCertP env fuel d c us args = .ok true) :
+    ∃ cvj nP nF, env.find? c = some (.ctorInfo cvj nP nF) ∧
+      iotaCertsP env fuel d
+        (cvj.type.instantiateLevelParams cvj.levelParams us) args
+        = .ok true := by
+  dsimp only [projTeleCertP] at h
+  simp only [projTeleCert, iotaCerts_fold] at h
+  cases hf : env.find? c with
+  | none => rw [hf] at h; exact nomatch h
+  | some ci =>
+    rw [hf] at h
+    cases ci with
+    | ctorInfo cvj nP nF => exact ⟨cvj, nP, nF, rfl, h⟩
+    | axiomInfo cv => exact nomatch h
+    | projInfo _ => exact nomatch h
+    | defnInfo cv value => exact nomatch h
+    | thmInfo cv value => exact nomatch h
+    | indInfo cv caps => exact nomatch h
+    | recInfo cv mI rP rules => exact nomatch h
 
 /-- Inversion for a successful projection certification. -/
 theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
@@ -2645,7 +2688,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           · exact hwe₂
           · exact ihLoop hred (strLitToConstructor_WScoped s d)
         rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
+          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -, -⟩
         · simpa [WScoped] using hwe₃
         · exact ihCore hred (hwe₃.getAppArgs _ (getD_mem (by omega)))
     · -- whnf loop: the reduction chain is iteration on the loop's own

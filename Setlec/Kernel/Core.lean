@@ -1299,6 +1299,24 @@ def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
     | _ => pure false
   | _ => pure false
 
+/-- Certify the reduct's constructor spine against the constructor's
+own stored telescope (task #126): each spine argument's inferred type
+is defeq to the corresponding instantiated domain.  This is the same
+call `iotaRec` makes for its constructor telescope, and it is what
+records the four premises the projection rules name — the sorts of the
+parameters and the typings of the fields, each at the domain the rule
+fires at.  Without it the clause *certifies less than its rule needs*
+(nothing here says the reduction is wrong; the checker simply did not
+write down enough for a typing derivation to be rebuilt from it — see
+`Setlec/TTVerify/DESIGN.md` §10). -/
+def projTeleCert (r : CoreFns m) (env : Env) (depth : Nat)
+    (c : Name) (us : List Level) (args : List Expr) : m Bool := do
+  match env.find? c with
+  | some (.ctorInfo cvj _ _) =>
+    iotaCerts r env depth
+      (cvj.type.instantiateLevelParams cvj.levelParams us) args
+  | _ => pure false
+
 /-- The head-normalization body: beta (with the per-redex argument
 certificate, unconditional since the task-#100 de-gating), iota (with
 the stuck-major machinery) and the native basis pair projection — but
@@ -1362,7 +1380,14 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             if ← projCert r env depth e' i
                 (Level.subst entry.levelParams us entry.fieldSort)
                 mx entry.numParams then
-              r.whnfCore depth arg
+              -- Task #126: also certify the spine against the
+              -- constructor's stored telescope, so the reduction's
+              -- typing premises (the parameters' sorts and the fields'
+              -- typings, at the domains the rule names) are recorded
+              -- where the rule fires.
+              if ← projTeleCert r env depth c us args then
+                r.whnfCore depth arg
+              else pure (.proj sn i e')
             else pure (.proj sn i e')
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')

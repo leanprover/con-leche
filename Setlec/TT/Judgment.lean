@@ -154,9 +154,17 @@ inductive HasType : List VExpr → VExpr → VExpr → Prop where
       HasType Γ .prf (.eqE T' f g)
   /-- Proof irrelevance (definitional in Lean; an equation here).
   This is also what makes rule K and the Prop cases of unit-like η
-  derivable rather than primitive. -/
-  | proofIrrel {Γ P h h'} : HasType Γ P (.sort 0) → HasType Γ h P →
-      HasType Γ h' P → HasType Γ .prf (.eqE P h h')
+  derivable rather than primitive.
+
+  **The two sides need not inhabit the *same* `Prop`.**  Soundness
+  reads `mem_univ_zero` of each side independently — every inhabitant
+  of a `Prop` is the proof point, whichever `Prop` it is — so requiring
+  one `P` for both would be a premise soundness never consumes, which
+  §2.4 forbids.  It is also what the checker certifies:
+  `Setlec/Kernel/Core.lean`'s `proofIrrel` checks that *each* side's
+  inferred type is a `Prop`, never that the two agree. -/
+  | proofIrrel {Γ P Q h h'} : HasType Γ P (.sort 0) → HasType Γ Q (.sort 0) →
+      HasType Γ h P → HasType Γ h' Q → HasType Γ .prf (.eqE P h h')
 
   -- ## Basis computation rules
 
@@ -179,9 +187,16 @@ inductive HasType : List VExpr → VExpr → VExpr → Prop where
       HasType Γ M (arrow (punitT u) (.sort v)) →
       HasType Γ m (.app M (punitUnitT u)) →
       HasType Γ .prf (.eqE T (punitRecT u v M m (punitUnitT u)) m)
-  /-- Unit-like η for the basis unit. -/
-  | punitEta {Γ u x y} :
-      HasType Γ x (punitT u) → HasType Γ y (punitT u) →
+  /-- Unit-like η for the basis unit.
+
+  **The two sides need not be at the same universe level.**
+  `⟦PUnit.{u}⟧` is `unitSet` at *every* `u` (`bval` ignores the level
+  list), so soundness reads `mem_unitSet` of each side independently
+  and never compares the levels.  It is also what the checker
+  certifies: `isUnitLikeTy` matches `.const c _`, so `PUnit.{3}` and
+  `PUnit.{5}` both pass its test. -/
+  | punitEta {Γ u v x y} :
+      HasType Γ x (punitT u) → HasType Γ y (punitT v) →
       HasType Γ .prf (.eqE (punitT u) x y)
   /-- **Projection typing, first field.**  Note what the premises do:
   `proj` carries only the index and the subject — exactly what the
