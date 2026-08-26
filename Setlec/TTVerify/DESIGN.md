@@ -3864,6 +3864,29 @@ reads the assignment only at its own level names, so the tower the
 *type* mentions and the tower the *recursor* is read at are the same
 term even though the two assignments differ elsewhere.
 
+**A tally, because level erasure keeps paying and the entries are
+scattered.**  `Setlec/TT/DESIGN.md` §2.2 makes universe levels ground
+`Nat`s — no `VLevel`, no level substitution, no level-equality
+judgment — on the argument that everything is denoted at a fixed
+assignment.  What that has bought this bridge, so far:
+
+1. **Level comparison is `Nat` equality.**  The checker's level defeq
+   decides equality under *all* assignments, so at a fixed assignment
+   the two ground levels are literally equal — the bridge obligation is
+   `rfl`, not a lemma.
+2. **The `hheadRec` mismatch is denotationally invisible** (§14.4).
+   `isEquivList` is agreement after `Level.eval`, and `Level.eval` is
+   what `denote` applies — the checker's guard and the denotation's
+   evaluation are the same comparison *because* the target has no
+   symbolic levels to disagree about.
+3. **`eqValT_congr` is a `rw`.**  Two assignments agreeing at a
+   constant's own level names give the *same term*, not merely
+   equivalent ones, so no congruence lemma travels with the towers.
+
+Three payouts from one erasure, and none of them was the reason for it
+— §2.2's stated reason was avoiding a vestigial `φ` on the whole
+semantics.
+
 #### CANDIDATE for the final summary: everything here is telescope-shaped
 
 > **Every telescope-shaped obligation in this bridge decomposes against
