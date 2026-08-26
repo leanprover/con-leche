@@ -107,34 +107,42 @@ def RecRulesTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     env.find? n = some (.recInfo cv mI rP rules) →
     ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
-    ∀ (cvj : ConstantVal) (cnP cnF : Nat),
-      env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
-    ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr)
-      (us usj : List Level) (xs ys : List VExpr)
-      (TV TVj restR restC R : VExpr),
-      xs.length = mI →
-      ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+    ∀ (φ : Name → Nat) (d : Nat) (us : List Level),
       us.length = cv.levelParams.length →
-      usj.length = cvj.levelParams.length →
-      -- the two stored types, denoted (`denote_env_shrink` moves these)
-      denote cval env φ d
-        (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
-      denote cval env φ d
-        (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVj →
-      denote cval env φ d
-        ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us) = some R →
-      -- the recursor's spine, typed against its telescope
-      VTeleTyped Δ TV
-        (xs ++ [VExpr.mkAppN
-          (cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys])
-        restR →
-      -- the constructor's spine, typed against its own
-      VTeleTyped Δ TVj ys restC →
-      Deq Δ
-        (VExpr.mkAppN (cval n (Level.substFn φ cv.levelParams us))
-          (xs ++ [VExpr.mkAppN
-            (cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys]))
-        (VExpr.mkAppN R (xs.take rP ++ ys.drop (RecRule.ctorParams rl)))
+      -- **the rule's right-hand side denotes**, and this is a
+      -- *conclusion*: no fire site can establish it (§12.9), and the
+      -- install can.  Transposes `RecRulesOk`'s `∃ Rv, interpClosed …`.
+      ∃ R, denote cval env φ d
+          ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
+          = some R ∧
+        ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+          env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+        ∀ (Δ : List VExpr) (usj : List Level) (xs ys : List VExpr)
+          (TV TVj restR restC : VExpr),
+          xs.length = mI →
+          ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+          usj.length = cvj.levelParams.length →
+          -- the two stored types, denoted (`denote_env_shrink` moves
+          -- these; `denote_storedTy` produces them at a fire site)
+          denote cval env φ d
+            (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
+          denote cval env φ d
+            (cvj.type.instantiateLevelParams cvj.levelParams usj)
+            = some TVj →
+          -- the recursor's spine, typed against its telescope
+          VTeleTyped Δ TV
+            (xs ++ [VExpr.mkAppN
+              (cval (RecRule.ctor rl)
+                (Level.substFn φ cvj.levelParams usj)) ys])
+            restR →
+          -- the constructor's spine, typed against its own
+          VTeleTyped Δ TVj ys restC →
+          Deq Δ
+            (VExpr.mkAppN (cval n (Level.substFn φ cv.levelParams us))
+              (xs ++ [VExpr.mkAppN
+                (cval (RecRule.ctor rl)
+                  (Level.substFn φ cvj.levelParams usj)) ys]))
+            (VExpr.mkAppN R (xs.take rP ++ ys.drop (RecRule.ctorParams rl)))
 
 theorem RecRulesTT.empty (cval : TConstVal) : RecRulesTT Env.empty cval := by
   intro n cv mI rP rules h

@@ -53,7 +53,8 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
       (cv.type.instantiateLevelParams cv.levelParams us)
       (args ++ [Expr.mkAppN (.const (RecRule.ctor rl) usj) margs]) = .ok true)
     (hwR : Expr.WScoped d (cv.type.instantiateLevelParams cv.levelParams us))
-    (hbR : (cv.type.instantiateLevelParams cv.levelParams us).looseBVarsBounded 0
+    (hbR : (cv.type.instantiateLevelParams cv.levelParams
+      us).looseBVarsBounded 0
       = true)
     (hLR : Expr.LeavesBounded
       (cv.type.instantiateLevelParams cv.levelParams us))
@@ -69,7 +70,8 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hcertC : iotaCertsP env fuel d
       (cvj.type.instantiateLevelParams cvj.levelParams usj) margs = .ok true)
     (hwC : Expr.WScoped d (cvj.type.instantiateLevelParams cvj.levelParams usj))
-    (hbC : (cvj.type.instantiateLevelParams cvj.levelParams usj).looseBVarsBounded 0
+    (hbC : (cvj.type.instantiateLevelParams cvj.levelParams
+      usj).looseBVarsBounded 0
       = true)
     (hLC : Expr.LeavesBounded
       (cvj.type.instantiateLevelParams cvj.levelParams usj))
@@ -80,9 +82,7 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hargsC : ∀ x ∈ margs, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded x ∧ CtxOk m.cval env φ d Δ x)
     -- the two sides denote
-    {L R RH : VExpr}
-    (hRH : denote m.cval env φ d
-      ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us) = some RH)
+    {L R : VExpr}
     (hL : denote m.cval env φ d
       (Expr.mkAppN (.const n us)
         (args ++ [Expr.mkAppN (.const (RecRule.ctor rl) usj) margs])) = some L)
@@ -104,7 +104,8 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
   have hmaj : denote m.cval env φ d
       (Expr.mkAppN (.const (RecRule.ctor rl) usj) margs) =
       some (VExpr.mkAppN
-        (m.cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) := by
+        (m.cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj))
+          ys) := by
     refine denote_mkAppN hspC ?_
     simp [denote_const, hctor, ConstantInfo.toConstantVal, hlenJ]
   -- split the recursor's spine at its last entry, the major premise
@@ -117,19 +118,22 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
   obtain ⟨RVC, hvC, -⟩ := hfitC.toV hcl hiC
   obtain rfl : L = VExpr.mkAppN (m.cval n (Level.substFn φ cv.levelParams us))
       (xs ++ [VExpr.mkAppN
-        (m.cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys]) := by
+        (m.cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj))
+          ys]) := by
     rw [denote_mkAppN (vf := m.cval n (Level.substFn φ cv.levelParams us))
       (DenoteSpine.append hspR (.cons hy .nil))
       (by simp [denote_const, hrec, ConstantInfo.toConstantVal, hlenR])] at hL
     exact (Option.some.inj hL).symm
+  -- the field *produces* the right-hand side's denotation (§12.9)
+  obtain ⟨RH, hRH, hlaw⟩ :=
+    m.rec_rules n cv mI rP rules hrec rl hrl hfire φ d us hlenR
   obtain rfl : R = VExpr.mkAppN RH
       (xs.take rP ++ ys.drop (RecRule.ctorParams rl)) := by
     rw [denote_mkAppN (DenoteSpine.append (hspR.take rP)
       (hspC.drop (RecRule.ctorParams rl))) hRH] at hR
     exact (Option.some.inj hR).symm
-  refine m.rec_rules n cv mI rP rules hrec rl hrl hfire
-    cvj cnP cnF hctor φ d Δ us usj xs ys TR TC RVR RVC RH ?_ ?_ hlenR hlenJ
-    hiR hiC hRH hvR hvC
+  refine hlaw cvj cnP cnF hctor Δ usj xs ys TR TC RVR RVC ?_ ?_ hlenJ
+    hiR hiC hvR hvC
   · have := hspR.length
     omega
   · have := hspC.length
@@ -144,7 +148,8 @@ certificate (`proofIrrel fab major`) identifies inhabitants of two
 different *levels*, `isUnitLikeTy` matching `.const c _` — while
 `HasType.proofIrrel` and `HasType.punitEta` each demand one type for
 both subjects.  Both rules are over-constrained relative to their own
-soundness proofs (`Setlec/TTVerify/DESIGN.md` §10.2).  **Unblocked**: the layer change
+soundness proofs (`Setlec/TTVerify/DESIGN.md` §10.2).  **Unblocked**: the
+  layer change
 landed, both rules now read per side, and `proof_irrel_step` below is
 the branch's content.
 

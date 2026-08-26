@@ -85,7 +85,8 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     (hnat : natLitSupported env₁ = true → natLitSupported env₂ = true)
     (hstr : strLitSupported env₁ = true → strLitSupported env₂ = true)
     (hlpNil : levelParamsAt env₂ listNilName = levelParamsAt env₁ listNilName)
-    (hlpCons : levelParamsAt env₂ listConsName = levelParamsAt env₁ listConsName) :
+    (hlpCons : levelParamsAt env₂ listConsName = levelParamsAt env₁
+      listConsName) :
     ∀ (d : Nat) (e : Expr) {v : VExpr},
       denote cval env₁ φ d e = some v → denote cval env₂ φ d e = some v := by
   intro d e
@@ -385,7 +386,8 @@ theorem has_type_cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
   refine ⟨t, ?_, ?_⟩
   · rw [denoteClosed] at ht ⊢
     rw [denote_cval_congr hagE hnat hsucc hsol hnil hcons hchar hofn 0 _] at ht
-    exact denote_mono (EnvExtends.cons hfresh) hguardN hguardS hlpNil hlpCons 0 _ ht
+    exact denote_mono (EnvExtends.cons hfresh) hguardN hguardS hlpNil
+      hlpCons 0 _ ht
   · rw [← hag c.name (hne c hc)]
     exact hd
 
@@ -660,7 +662,8 @@ theorem denote_install {cval cval' : TConstVal} {env : Env} {φ : Name → Nat}
     exact nomatch hfind
   rw [denote_cval_congr hagE hlit.nat hlit.succ hlit.sol hlit.nil
     hlit.cons hlit.char hlit.ofn d _] at h
-  exact denote_mono (EnvExtends.cons hfresh) hguardN hguardS hlpNil hlpCons d _ h
+  exact denote_mono (EnvExtends.cons hfresh) hguardN hguardS hlpNil hlpCons
+    d _ h
 
 theorem defn_eq_cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
     {cval' : TConstVal}
@@ -1109,66 +1112,66 @@ theorem RecRulesTT.cons {env : Env} {cval cval' : TConstVal}
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hhead : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
-      ∀ (cvj : ConstantVal) (cnP cnF : Nat),
-        (⟨c₀ :: env.consts⟩ : Env).find? (RecRule.ctor rl)
-          = some (.ctorInfo cvj cnP cnF) →
-      ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr)
-        (us usj : List Level) (xs ys : List VExpr)
-        (TV TVj restR restC R : VExpr),
-        xs.length = mI →
-        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+      ∀ (φ : Name → Nat) (d : Nat) (us : List Level),
         us.length = cv.levelParams.length →
-        usj.length = cvj.levelParams.length →
-        denote cval' ⟨c₀ :: env.consts⟩ φ d
-          (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
-        denote cval' ⟨c₀ :: env.consts⟩ φ d
-          (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVj →
-        denote cval' ⟨c₀ :: env.consts⟩ φ d
-          ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
-            = some R →
-        VTeleTyped Δ TV
-          (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
-            (Level.substFn φ cvj.levelParams usj)) ys]) restR →
-        VTeleTyped Δ TVj ys restC →
-        Deq Δ
-          (VExpr.mkAppN (cval' c₀.name (Level.substFn φ cv.levelParams us))
-            (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
-              (Level.substFn φ cvj.levelParams usj)) ys]))
-          (VExpr.mkAppN R
-            (xs.take rP ++ ys.drop (RecRule.ctorParams rl)))) :
+        ∃ R, denote cval' ⟨c₀ :: env.consts⟩ φ d
+            ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
+            = some R ∧
+          ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+            (⟨c₀ :: env.consts⟩ : Env).find? (RecRule.ctor rl)
+              = some (.ctorInfo cvj cnP cnF) →
+          ∀ (Δ : List VExpr) (usj : List Level) (xs ys : List VExpr)
+            (TV TVj restR restC : VExpr),
+            xs.length = mI →
+            ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+            usj.length = cvj.levelParams.length →
+            denote cval' ⟨c₀ :: env.consts⟩ φ d
+              (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
+            denote cval' ⟨c₀ :: env.consts⟩ φ d
+              (cvj.type.instantiateLevelParams cvj.levelParams usj)
+              = some TVj →
+            VTeleTyped Δ TV
+              (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
+                (Level.substFn φ cvj.levelParams usj)) ys]) restR →
+            VTeleTyped Δ TVj ys restC →
+            Deq Δ
+              (VExpr.mkAppN
+                (cval' c₀.name (Level.substFn φ cv.levelParams us))
+                (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
+                  (Level.substFn φ cvj.levelParams usj)) ys]))
+              (VExpr.mkAppN R
+                (xs.take rP ++ ys.drop (RecRule.ctorParams rl)))) :
     RecRulesTT ⟨c₀ :: env.consts⟩ cval' := by
-  intro n cv mI rP rules hf rl hrl hfire cvj cnP cnF hctor
+  intro n cv mI rP rules hf rl hrl hfire φ d us hlenU
   by_cases hn : c₀.name = n
   · subst hn
     rw [Env.find?_cons, if_pos rfl] at hf
-    exact hhead cv mI rP rules (Option.some.inj hf) rl hrl hfire cvj cnP cnF
-      hctor
+    exact hhead cv mI rP rules (Option.some.inj hf) rl hrl hfire φ d us hlenU
   · rw [Env.find?_cons, if_neg hn] at hf
     -- the rule's constructor is stored already, so it is not `c₀`
     obtain ⟨cvj2, cnP2, cnF2, hfc2⟩ := hctors n cv mI rP rules hf rl hrl
     have hnc : c₀.name ≠ RecRule.ctor rl :=
       ne_of_isSome_fresh hi.fresh (by rw [hfc2]; rfl)
+    obtain ⟨R, hR, hlaw⟩ := h n cv mI rP rules hf rl hrl hfire φ d us hlenU
+    -- the right-hand side's denotation moves **forward**, which is what
+    -- makes the produced form the easier one (§12.9)
+    refine ⟨R, hi.denoteUp hR, ?_⟩
+    intro cvj cnP cnF hctor
     rw [Env.find?_cons, if_neg hnc] at hctor
-    have hlaw := h n cv mI rP rules hf rl hrl hfire cvj cnP cnF hctor
-    -- the three stored expressions descend
-    obtain ⟨-, -, hres1, -, -, hrules, -⟩ := hwfe _ (find?_mem hf)
-    obtain ⟨-, -, hres3, -⟩ := hrules cv mI rP rules rfl rl hrl
+    obtain ⟨-, -, hres1, -, -, -, -⟩ := hwfe _ (find?_mem hf)
     obtain ⟨-, -, hres2, -⟩ := hwfe _ (find?_mem hctor)
-    intro φ d Δ us usj xs ys TV TVj restR restC R hlenX hlenY hlenU hlenJ
-      hTV hTVj hR hfitR hfitC
+    intro Δ usj xs ys TV TVj restR restC hlenX hlenY hlenJ hTV hTVj
+      hfitR hfitC
     have hTV' := hi.denoteDown
       (by rw [Expr.constsResolve_instantiateLevelParams cv.levelParams us]
           simpa [ConstantInfo.toConstantVal] using hres1) hTV
     have hTVj' := hi.denoteDown
       (by rw [Expr.constsResolve_instantiateLevelParams cvj.levelParams usj]
           simpa [ConstantInfo.toConstantVal] using hres2) hTVj
-    have hR' := hi.denoteDown
-      (by rw [Expr.constsResolve_instantiateLevelParams cv.levelParams us]
-          exact hres3) hR
     rw [← hi.ag _ (Ne.symm hnc)] at hfitR
     rw [← hi.ag n (fun hh => hn hh.symm), ← hi.ag _ (Ne.symm hnc)]
-    exact hlaw φ d Δ us usj xs ys TV TVj restR restC R hlenX hlenY hlenU
-      hlenJ hTV' hTVj' hR' hfitR hfitC
+    exact hlaw cvj cnP cnF hctor Δ usj xs ys TV TVj restR restC hlenX hlenY
+      hlenJ hTV' hTVj' hfitR hfitC
 
 /-! ### The WF-recursive clauses
 
@@ -1318,33 +1321,35 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hheadRec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
-      ∀ (cvj : ConstantVal) (cnP cnF : Nat),
-        (⟨c₀ :: env.consts⟩ : Env).find? (RecRule.ctor rl)
-          = some (.ctorInfo cvj cnP cnF) →
-      ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr)
-        (us usj : List Level) (xs ys : List VExpr)
-        (TV TVj restR restC R : VExpr),
-        xs.length = mI →
-        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+      ∀ (φ : Name → Nat) (d : Nat) (us : List Level),
         us.length = cv.levelParams.length →
-        usj.length = cvj.levelParams.length →
-        denote cval' ⟨c₀ :: env.consts⟩ φ d
-          (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
-        denote cval' ⟨c₀ :: env.consts⟩ φ d
-          (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVj →
-        denote cval' ⟨c₀ :: env.consts⟩ φ d
-          ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
-            = some R →
-        VTeleTyped Δ TV
-          (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
-            (Level.substFn φ cvj.levelParams usj)) ys]) restR →
-        VTeleTyped Δ TVj ys restC →
-        Deq Δ
-          (VExpr.mkAppN (cval' c₀.name (Level.substFn φ cv.levelParams us))
-            (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
-              (Level.substFn φ cvj.levelParams usj)) ys]))
-          (VExpr.mkAppN R
-            (xs.take rP ++ ys.drop (RecRule.ctorParams rl))))
+        ∃ R, denote cval' ⟨c₀ :: env.consts⟩ φ d
+            ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
+            = some R ∧
+          ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+            (⟨c₀ :: env.consts⟩ : Env).find? (RecRule.ctor rl)
+              = some (.ctorInfo cvj cnP cnF) →
+          ∀ (Δ : List VExpr) (usj : List Level) (xs ys : List VExpr)
+            (TV TVj restR restC : VExpr),
+            xs.length = mI →
+            ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+            usj.length = cvj.levelParams.length →
+            denote cval' ⟨c₀ :: env.consts⟩ φ d
+              (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
+            denote cval' ⟨c₀ :: env.consts⟩ φ d
+              (cvj.type.instantiateLevelParams cvj.levelParams usj)
+              = some TVj →
+            VTeleTyped Δ TV
+              (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
+                (Level.substFn φ cvj.levelParams usj)) ys]) restR →
+            VTeleTyped Δ TVj ys restC →
+            Deq Δ
+              (VExpr.mkAppN
+                (cval' c₀.name (Level.substFn φ cv.levelParams us))
+                (xs ++ [VExpr.mkAppN (cval' (RecRule.ctor rl)
+                  (Level.substFn φ cvj.levelParams usj)) ys]))
+              (VExpr.mkAppN R
+                (xs.take rP ++ ys.drop (RecRule.ctorParams rl))))
     (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true → reservedBasisNames.contains T = false →
