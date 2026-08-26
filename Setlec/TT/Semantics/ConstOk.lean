@@ -132,13 +132,6 @@ theorem bval_mem_psigmaMk (us : List Nat) (ρ : Nat → V) :
   · next h => rw [h]; exact pt_mem_sigma ha hb
   · next h => exact spair_mem h ha hb
 
-/-- At a `Prop`-level pair the joint level is `0`, hence both component
-levels are, and the collapse identifies every component with the proof
-point. -/
-theorem psigma_zero_levels {u v : Nat} (h : Nat.max u v = 0) : u = 0 ∧ v = 0 :=
-  ⟨Nat.le_zero.mp (h ▸ Nat.le_max_left u v),
-   Nat.le_zero.mp (h ▸ Nat.le_max_right u v)⟩
-
 theorem bval_mem_psigmaFst (us : List Nat) (ρ : Nat → V) :
     bval V .psigmaFst us ∈ˢ interp V ρ (BConst.type .psigmaFst us) := by
   show psigmaFstV V (lv us 0) (lv us 1) ∈ˢ

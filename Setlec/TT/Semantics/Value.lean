@@ -146,6 +146,22 @@ theorem psigmaMkV_app {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
       if Nat.max u v = 0 then pt else spair a b := by
   rw [psigmaMkV, app_lamC hA, app_lamC hB, app_lamC ha, app_lamC hb]
 
+/-- At a `Prop`-level pair the joint level is `0`, hence both component
+levels are, and the collapse identifies every component with the proof
+point. -/
+theorem psigma_zero_levels {u v : Nat} (h : Nat.max u v = 0) : u = 0 ∧ v = 0 :=
+  ⟨Nat.le_zero.mp (h ▸ Nat.le_max_left u v),
+   Nat.le_zero.mp (h ▸ Nat.le_max_right u v)⟩
+
+theorem psigmaMkV_mem {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
+    (hB : B ∈ˢ piC A fun _ => univ v) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
+    app (app (app (app (psigmaMkV V u v) A) B) a) b ∈ˢ
+      sigmaSet (Nat.max u v) A fun x => app B x := by
+  rw [psigmaMkV_app V hA hB ha hb]
+  split
+  · next h => rw [h]; exact pt_mem_sigma ha hb
+  · next h => exact spair_mem h ha hb
+
 theorem psigmaFstV_app {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
     (hB : B ∈ˢ piC A fun _ => univ v)
     (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
@@ -157,6 +173,54 @@ theorem psigmaSndV_app {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
     (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
     app (app (app (psigmaSndV V u v) A) B) p = ssnd p := by
   rw [psigmaSndV, app_lamC hA, app_lamC hB, app_lamC hp]
+
+/-! ### The `PSigma'` computation laws -/
+
+theorem psigmaFst_mk {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
+    (hB : B ∈ˢ piC A fun _ => univ v) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
+    app (app (app (psigmaFstV V u v) A) B)
+      (app (app (app (app (psigmaMkV V u v) A) B) a) b) = a := by
+  rw [psigmaFstV_app V hA hB (psigmaMkV_mem V hA hB ha hb),
+    psigmaMkV_app V hA hB ha hb]
+  split
+  · next h =>
+    rw [sfst_pt]
+    exact (mem_univ_zero ((psigma_zero_levels h).1 ▸ hA) ha).symm
+  · next _ => exact sfst_spair a b
+
+theorem psigmaSnd_mk {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
+    (hB : B ∈ˢ piC A fun _ => univ v) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
+    app (app (app (psigmaSndV V u v) A) B)
+      (app (app (app (app (psigmaMkV V u v) A) B) a) b) = b := by
+  rw [psigmaSndV_app V hA hB (psigmaMkV_mem V hA hB ha hb),
+    psigmaMkV_app V hA hB ha hb]
+  split
+  · next h =>
+    rw [ssnd_pt]
+    obtain ⟨_, hv⟩ := psigma_zero_levels h
+    have hBa : app B a ∈ˢ (univ 0 : V) := hv ▸ app_mem_piC hB ha
+    exact (mem_univ_zero hBa hb).symm
+  · next _ => exact ssnd_spair a b
+
+/-- **Structure η** for the basis pair.  At a `Prop`-level pair both the
+subject and the reassembled pair collapse to the proof point; above it
+the Kuratowski pair is literally rebuilt. -/
+theorem psigmaEta_law {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
+    (hB : B ∈ˢ piC A fun _ => univ v)
+    (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
+    app (app (app (app (psigmaMkV V u v) A) B) (sfst p)) (ssnd p) = p := by
+  obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
+  by_cases hw : Nat.max u v = 0
+  · obtain ⟨hu, hv⟩ := psigma_zero_levels hw
+    have hapt : a = pt := mem_univ_zero (hu ▸ hA) ha
+    have hBa : app B a ∈ˢ (univ 0 : V) := hv ▸ app_mem_piC hB ha
+    have hbpt : b = pt := mem_univ_zero hBa hb
+    have hpa : (pt : V) ∈ˢ A := hapt ▸ ha
+    have hpb : (pt : V) ∈ˢ app B pt := by
+      have h1 : (pt : V) ∈ˢ app B a := hbpt ▸ hb
+      rwa [hapt] at h1
+    rw [h0 hw, sfst_pt, ssnd_pt, psigmaMkV_app V hA hB hpa hpb, if_pos hw]
+  · rw [hne hw, sfst_spair, ssnd_spair, psigmaMkV_app V hA hB ha hb, if_neg hw]
 
 theorem quotV_app {u : Nat} {A R : V} (hA : A ∈ˢ (univ u : V))
     (hR : R ∈ˢ relSpace V A) :
