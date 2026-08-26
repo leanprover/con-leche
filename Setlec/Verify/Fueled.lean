@@ -285,6 +285,12 @@ theorem projTeleCert_atF (d : Nat) (c : Name) (us : List Level)
     | indInfo cv caps => rfl
     | recInfo cv mI rP rules => rfl
 
+theorem projParamCert_atF (d : Nat) (entry : ProjEntry) (us : List Level)
+    (params : List Expr) (F : Nat) :
+    (projParamCert (fueledFns env) env d entry us params).val F =
+      projParamCert (pureFns env F) env d entry us params :=
+  iotaCerts_atF d F _ params
+
 macro "atF_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
@@ -480,6 +486,7 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [etaCert_atF])
     | (rw [projCert_atF])
     | (rw [projTeleCert_atF])
+    | (rw [projParamCert_atF])
     | (rw [structEtaCert_atF])
     | (rw [majorToCtor_atF])
     | (rw [annotateProjElim_atF])

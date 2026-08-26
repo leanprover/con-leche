@@ -454,6 +454,24 @@ theorem projTeleCertI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
     | indInfo cv caps => exact SimAt.pure hs rfl
     | recInfo cv mI rP rules => exact SimAt.pure hs rfl
 
+/-- Twin walk for the parameter-telescope certification at a projection
+*inference* (task #129).  Both sides are the telescope walk at the
+entry's stored type — the interned side already holds it (`pty`, the
+expression `piResidualM` then peels), so this is `iotaCertsI_sim` with
+no lookup of its own. -/
+theorem projParamCertI_sim (ih : SSimI env f) {d : Nat}
+    {entry : ProjEntry} {pty : EIdx} {lus : List Level}
+    {params : List EIdx} {xs : List Expr} {s₀ : IState} (hs : ISOK env s₀)
+    (hty : s₀.store.denoteT pty =
+      some (entry.ty.instantiateLevelParams entry.levelParams lus))
+    (hwty : WScoped d
+      (entry.ty.instantiateLevelParams entry.levelParams lus))
+    (hargs : DenL s₀.store params xs) (hwargs : ∀ x ∈ xs, WScoped d x) :
+    SimAt env s₀ RelV
+      (projParamCertI (coreKnotI (mkFEnv env) f) (mkFEnv env) d pty params)
+      (projParamCert (fueledFns env) env d entry lus xs) :=
+  iotaCertsI_sim ih hs hty hwty hargs hwargs
+
 theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
     {d : Nat} {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
     (hdena : s₀.store.denoteT i = some a)

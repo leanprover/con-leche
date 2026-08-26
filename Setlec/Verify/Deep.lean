@@ -2177,6 +2177,18 @@ private theorem infer_step (henv : EnvWF env)
           us₂).hasFvar = false := by
         rw [hasFvar_instantiateLevelParams]
         exact (henv _ (find?_mem (Env.findProj?_some hfp))).1
+      -- task #129: the parameter-telescope certification, shift-invariant
+      -- by `iotaCerts_shift` at the entry's (closed) stored type
+      have hww' : WScoped d w :=
+        whnf_WScoped henv fuel hww (inferTypeCore_WScoped henv fuel hte hw)
+      have hpc := iotaCerts_shift henv ih hpd
+        (ty := entry.ty.instantiateLevelParams entry.levelParams us₂)
+        (WScoped.of_not_hasFvar hclosed) (args := w.getAppArgs)
+        (fun x hx => hww'.getAppArgs x hx)
+      rw [shiftFrom_eq_self_of_not_hasFvar hclosed] at hpc
+      refine bind_rel_eq _ hpc ?_
+      intro bb _
+      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       have hres := piResidual_shiftFrom (p := p) (w.getAppArgs ++ [pe])
         (entry.ty.instantiateLevelParams entry.levelParams us₂)
       rw [shiftFrom_eq_self_of_not_hasFvar hclosed, List.map_append] at hres

@@ -524,6 +524,18 @@ theorem projTeleCert_snd_proj (d : Nat) (c : Name) (us : List Level)
     | indInfo cv caps => rfl
     | recInfo cv mI rP rules => rfl
 
+theorem projParamCert_fst_proj (d : Nat) (entry : ProjEntry)
+    (us : List Level) (params : List Expr) :
+    (projParamCert (pairFns r₁ r₂ h) env d entry us params).val.1 =
+      projParamCert r₁ env d entry us params :=
+  iotaCerts_fst d _ params
+
+theorem projParamCert_snd_proj (d : Nat) (entry : ProjEntry)
+    (us : List Level) (params : List Expr) :
+    (projParamCert (pairFns r₁ r₂ h) env d entry us params).val.2 =
+      projParamCert r₂ env d entry us params :=
+  iotaCerts_snd d _ params
+
 macro "fst_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
@@ -896,6 +908,7 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [etaCert_fst_proj])
     | (rw [projCert_fst_proj])
     | (rw [projTeleCert_fst_proj])
+    | (rw [projParamCert_fst_proj])
     | (rw [structEtaCert_fst_proj])
     | (rw [majorToCtor_fst_proj])
     | (rw [annotateProjElim_fst_proj])
@@ -945,6 +958,7 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [etaCert_snd_proj])
     | (rw [projCert_snd_proj])
     | (rw [projTeleCert_snd_proj])
+    | (rw [projParamCert_snd_proj])
     | (rw [structEtaCert_snd_proj])
     | (rw [majorToCtor_snd_proj])
     | (rw [annotateProjElim_snd_proj])

@@ -1955,10 +1955,26 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
             (fun s₃ pty hs₃ hext₃' hQty => ?_)
           have hext₃ := hextp.trans hext₃'
           simp only [ConstantInfo.toConstantVal] at hQty
-          refine SimAt.bind_left (piResidualM_eff hs₃ hQty
-            ((htargs.mono hext₃).append (DenL.cons
-              (denoteT_mono hext₃ hpe)
-              DenL.nil))) (fun s₄ ores hs₄ hext₄ hQres => ?_)
+          -- task #129: the parameter-telescope certification, at the
+          -- same stored type `piResidualM` then peels
+          have hwty : WScoped d
+              (entry.ty.instantiateLevelParams entry.levelParams lus) :=
+            wscoped_instLevels_of_not_hasFvar
+              (henv _ (find?_mem (Env.findProj?_some hfp))).1 _ _
+          refine SimAt.bind (projParamCertI_sim ih hs₃ hQty hwty
+            (htargs.mono hext₃) hwte.getAppArgs)
+            (fun s₃c bp bp' hs₃c hext₃c hPbp => ?_)
+          obtain rfl : bp = bp' := hPbp
+          cases bp with
+          | false => exact SimAt.throw
+          | true =>
+          simp only [↓reduceIte]
+          replace hQty := denoteT_mono hext₃c hQty
+          replace htargs := htargs.mono (hext₃.trans hext₃c)
+          replace hpe := denoteT_mono (hext₃.trans hext₃c) hpe
+          refine SimAt.bind_left (piResidualM_eff hs₃c hQty
+            (htargs.append (DenL.cons hpe DenL.nil)))
+            (fun s₄ ores hs₄ hext₄ hQres => ?_)
           cases hres : piResidual
               (entry.ty.instantiateLevelParams entry.levelParams lus)
               (tex.getAppArgs ++ [pex]) with

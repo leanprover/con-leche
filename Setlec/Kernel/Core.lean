@@ -1317,6 +1317,31 @@ def projTeleCert (r : CoreFns m) (env : Env) (depth : Nat)
       (cvj.type.instantiateLevelParams cvj.levelParams us) args
   | _ => pure false
 
+/-- Certify the subject type's *parameters* against the projection
+entry's own pinned telescope (task #129) — the inference-path sibling
+of `projTeleCert`.
+
+The projection typing rules carry three premises: `⊢ A : Sort u`,
+`⊢ B : A → Sort v` and `⊢ p : PSigma' u v A B`.  The `.proj` clause of
+`inferBody` establishes the third (it whnfs the subject's inferred type
+and matches the head against the table) and, before this call, none of
+the first two — it *certified less than its rule needs*.  Nothing here
+says the inference is wrong; the checker simply did not write down
+enough for a typing derivation to be rebuilt from it (see
+`Setlec/TTVerify/DESIGN.md` §10.3).
+
+The two missing premises are exactly the first `numParams` telescope
+domains of the entry's stored type `entry.ty` — for the pinned pair,
+`∀ (α : Sort u) (β : α → Sort v), PSigma' α β → …` — so the same
+`iotaCerts` call `projTeleCert` makes for the constructor's telescope
+supplies both, at the domains the rule names rather than at some
+inferred sort. -/
+def projParamCert (r : CoreFns m) (env : Env) (depth : Nat)
+    (entry : ProjEntry) (us : List Level) (params : List Expr) :
+    m Bool :=
+  iotaCerts r env depth
+    (entry.ty.instantiateLevelParams entry.levelParams us) params
+
 /-- The head-normalization body: beta (with the per-redex argument
 certificate, unconditional since the task-#100 de-gating), iota (with
 the stuck-major machinery) and the native basis pair projection — but
@@ -1542,7 +1567,13 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         match env.findProj? T i with
         | some entry =>
           if entry.native ∧ te.getAppArgs.length = entry.numParams ∧
-              us.length = entry.levelParams.length then
+              us.length = entry.levelParams.length then do
+            -- Task #129: certify the type former's parameters against
+            -- the entry's own telescope, so the two premises the
+            -- projection rules name about them (`⊢ A : Sort u` and
+            -- `⊢ B : A → Sort v`) are recorded where the rule fires.
+            unless ← projParamCert r env depth entry us te.getAppArgs do
+              throw (.invalid "projection parameter type mismatch")
             match piResidual
                 (entry.ty.instantiateLevelParams entry.levelParams us)
                 (te.getAppArgs ++ [pe]) with

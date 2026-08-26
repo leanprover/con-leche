@@ -8140,3 +8140,101 @@ modes, arena 90/92, e2e 67/67, split driver 11/11.  A telescope
 certification that *failed* on real input would have shown up as a
 decline here — it does not, which is the evidence that the checker was
 always in a position to write these facts down.
+
+## The `.proj` clause certifies the parameters' sorts (2026-08-26, task #129)
+
+**The bridge's second request of the checker, and the sibling of task
+#126 on the *inference* path.**  Read that section first: everything
+about the framing carries over, including the phrasing that matters.
+
+`inferBody`'s `.proj` clause types a projection node from its
+projection-table entry: it whnfs the subject's inferred type, matches
+the head against the table, checks the parameter and level counts, and
+reads the field's residual off `entry.ty` with `piResidual`.  The
+layer's rules for the same node (`projFst`/`projSnd`,
+`Setlec/TT/Judgment.lean`) carry three premises:
+
+```
+⊢ A : .sort u      ⊢ B : arrow A (.sort v)      ⊢ p : psigmaT u v A B
+```
+
+The clause established the **third** — the head match *is* that fact —
+and neither of the first two: it never inferred anything about `A` and
+`B`.  Again this is not a soundness bug; the clause **certified less
+than its rule needs**, so a typing derivation could not be rebuilt from
+what it recorded.  The set model is unaffected (it takes these facts
+from `AnnotOk`, and `Setlec/Model/Core/Infer.lean` takes the new
+conjunct as `-`).
+
+**The repair is one `iotaCerts` call, and it lands on `entry.ty`.**
+The pinned first-projection type is
+
+```
+∀ {α : Sort u} {β : α → Sort v}, PSigma' α β → α
+```
+
+whose first `numParams` telescope domains are `Sort u` and
+`α → Sort v` — *exactly* the two missing premises.  So the same
+telescope walk `projTeleCert` makes at the redex, run here at
+`entry.ty.instantiateLevelParams entry.levelParams us` against
+`te.getAppArgs`, supplies both.  That is `projParamCert` (spec),
+`projParamCertI` (interned), run after the count checks and before
+`piResidual`, and it throws `.invalid` on failure like the application
+rule's per-argument re-check.
+
+**Why `iotaCerts` and not two `ensureSort`s** (the request's own
+wording, `Setlec/TTVerify/DESIGN.md` §10.3): an `ensureSort` on `B`'s
+inferred type cannot even be *stated* — `⊢ B : arrow A (.sort v)` is
+not a sort judgement — and on `A` it would yield `⊢ A : .sort u'` at
+the *inferred* level, which §10.1's rule ("premises are supplied where
+the rule fires") forbids moving to the pinned `u`.  The telescope walk
+gives each parameter its typing at the domain the rule names, and it
+lands in currency the bridge already consumes: `iotaCertsP` →
+`certs_typed` → `TeleTyped`, the same chain task #126 opened.
+
+**Do not "simplify" this back to two `ensureSort`s.**  It looks like the
+cheaper spelling of the same check and is not: it reintroduces the level
+gap above, which no lemma in the bridge can close.  The two calls the
+clause makes are an `infer`+`defeq` pair per parameter either way, so
+there is nothing to win.
+
+**Mirrors.**  Spec (`Setlec/Kernel/Core.lean`) and interned
+(`Setlec/Kernel/CoreI.lean`) run it; the interned side reuses the `pty`
+it already computed for `piResidualM`, so it costs a walk and no
+lookup.  There is no `whnfCoreStepM`-style third mirror on this path.
+`CoreNC.lean` **skips** it, and the judgement was made rather than
+inherited: both references (`Lean4Lean`'s `inferProj`, the official
+kernel's `infer_proj`) peel the telescope with
+`r := binding_body(r).instantiate1 args[i]` per parameter, with no
+`infer` and no `isDefEq` on `args[i]` — the parameters are substituted,
+never typed.  The rationale is recorded in `CoreNC.lean`'s header
+beside the task-#126 entry.
+
+**The reduction path is untouched**: `whnfCoreBody`'s `.proj` clause
+already has `projCert` and `projTeleCert`.
+
+**Verification.**  `projParamCertP` + fold (`Verify/Knot.lean`),
+`projParamCert_atF` (`Fueled.lean`), `_fst_proj`/`_snd_proj`
+(`PairM.lean`, both cascades), the shift step inside `inferBody_shift`
+(`Deep.lean`, via `iotaCerts_shift` at the entry's closed type),
+`projParamCert_disc` (`Disc.lean`) and `projParamCertI_sim`
+(`DiscI2.lean`, consumed by `DiscI4.lean`'s interned inference walk).
+`inferTypeCore_proj_inv` grew one conjunct — existing consumers take it
+as `-` — and `projParamCert_inv` (`InferLemmas.lean`) is the bridge's
+direct entry point, turning a successful run into the `iotaCertsP`
+fact.
+
+**Measured** (init-prelude probe, `perf stat -e instructions:u`, median
+of 3; 188 `proj` records in the stream):
+
+| mode | before | after | delta |
+|---|---|---|---|
+| certified | 33.931 G | 33.966 G | **+0.102 %** |
+| `SETLEC_NO_PROOF_CERTS=1` | 11.501 G | 11.501 G | 0.00 % (skipped) |
+
+Verdicts unmoved: init-prelude stdout/stderr byte-identical in both
+modes against a binary built from pre-change master, arena 90/92, e2e
+67/67, split driver 11/11.  As at #126, a parameter certification that
+*failed* on real input would have surfaced here as a rejection — it
+does not, which is the evidence that the checker was always in a
+position to write these two premises down.

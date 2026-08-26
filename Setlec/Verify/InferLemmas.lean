@@ -589,6 +589,20 @@ theorem projTeleCert_inv {env : Env} {fuel d : Nat} {c : Name}
     | indInfo cv caps => exact nomatch h
     | recInfo cv mI rP rules => exact nomatch h
 
+/-- Inversion for a successful parameter-telescope certification at a
+projection *inference* (task #129): the entry's level-instantiated
+pinned type certified the subject type's parameter spine.  The direct
+entry point for the bridge — the first `numParams` domains of
+`entry.ty` are the projection rules' first two premises (`⊢ A : Sort u`
+and `⊢ B : A → Sort v` at the pinned pair), so `certs_typed` turns this
+into them without replicating the call. -/
+theorem projParamCert_inv {env : Env} {fuel d : Nat} {entry : ProjEntry}
+    {us : List Level} {params : List Expr}
+    (h : projParamCertP env fuel d entry us params = .ok true) :
+    iotaCertsP env fuel d
+      (entry.ty.instantiateLevelParams entry.levelParams us) params
+      = .ok true := h
+
 /-- Inversion for a successful projection certification. -/
 theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
     {fieldLvl structLvl : Level} {nP : Nat}
@@ -2169,11 +2183,12 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       env.findProj? T i = some entry ∧ entry.native = true ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
+      projParamCertP env fuel d entry us te.getAppArgs = .ok true ∧
       piResidual (entry.ty.instantiateLevelParams entry.levelParams us)
         (te.getAppArgs ++ [e]) = some t := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def] at h
+  simp only [infer_def, whnf_def, projParamCert_fold] at h
   cases hte : inferTypeCore env fuel d e with
   | error err => rw [hte] at h; exact nomatch h
   | ok tpe =>
@@ -2209,16 +2224,23 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
   case isTrue hcond =>
     obtain ⟨hnat, hlen, hus⟩ := hcond
     revert h
+    cases hpc : projParamCertP env fuel d entry us te.getAppArgs with
+    | error err => intro h; exact nomatch h
+    | ok b =>
+    cases b with
+    | false => intro h; exact nomatch h
+    | true =>
+    dsimp only
     cases hres : piResidual
         (entry.ty.instantiateLevelParams entry.levelParams us)
         (te.getAppArgs ++ [e]) with
     | none => intro h; exact nomatch h
     | some resTy =>
       intro h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
+      simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
       subst h
       exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-        hres⟩
+        hpc, hres⟩
 
 /-! ## Well-scopedness preservation through reduction -/
 
