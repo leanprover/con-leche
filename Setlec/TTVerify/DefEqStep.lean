@@ -139,4 +139,83 @@ theorem defeq_claimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   exact defeqLoop_claim m φ hstep defeqLoopFuel h hwa hba hLa hwb hbb hLb
     hCa hCb hva hvb
 
+/-! ## The step's opening moves
+
+The first four are the reduction machinery already proved, applied in
+the order the checker applies them.  Each ends either in a verdict
+(and a `Deq` chain through the two `whnfCore` equations) or in a
+handoff to the continuation. -/
+
+/-- The frame conditions and denotation of a `whnfCore` reduct, bundled
+— both sides of every move need exactly this package. -/
+theorem whnfCore_package {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel d : Nat} {Δ : List VExpr} {a a' : Expr} {va : VExpr}
+    (ihwc : WhnfCoreClaimsTT m φ fuel)
+    (hw : whnfCore env fuel d a = .ok a')
+    (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded a) (hC : CtxOk m.cval env φ d Δ a)
+    (hva : denote m.cval env φ d a = some va) :
+    ∃ va', denote m.cval env φ d a' = some va' ∧ Deq Δ va va' ∧
+      Expr.WScoped d a' ∧ a'.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded a' ∧ CtxOk m.cval env φ d Δ a' := by
+  obtain ⟨va', hva', hD⟩ := ihwc hw hws hb hLb hC hva
+  exact ⟨va', hva', hD, whnfCore_WScoped m.wf fuel hw hws,
+    whnfCore_looseBVars m.wf fuel hw hb,
+    fun l hl => hLb l (whnfCore_fvarLeaves m.wf fuel hw l hl),
+    CtxOk.of_subset (whnfCore_fvarLeaves m.wf fuel hw) hC⟩
+
+/-- **`defeqStep`'s opening**: either the syntactic short-circuit
+settles it outright, or both sides reduce and the rest of the step
+runs on the reducts.
+
+Stated as a disjunction rather than threaded, because that is what the
+checker does — the `a == b` test is a *verdict*, not a reduction — and
+because the second disjunct is exactly the package every later move
+consumes.  Note the signature reads only `ihwc`: the later moves' own
+hypotheses belong to the later moves. -/
+theorem defeqStep_reduce {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (ihwc : WhnfCoreClaimsTT m φ fuel)
+    {d : Nat} {k : Expr → Expr → CheckM Bool}
+    {Δ : List VExpr} {a b : Expr}
+    (h : defeqStep (pureFns env fuel) env d k a b = .ok true)
+    (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a)
+    (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded b)
+    (hCa : CtxOk m.cval env φ d Δ a) (hCb : CtxOk m.cval env φ d Δ b)
+    {va vb : VExpr} (hva : denote m.cval env φ d a = some va)
+    (hvb : denote m.cval env φ d b = some vb) :
+    Deq Δ va vb ∨ ∃ a' b' va' vb',
+      whnfCore env fuel d a = .ok a' ∧ whnfCore env fuel d b = .ok b' ∧
+      denote m.cval env φ d a' = some va' ∧
+      denote m.cval env φ d b' = some vb' ∧
+      Deq Δ va va' ∧ Deq Δ vb vb' ∧
+      Expr.WScoped d a' ∧ a'.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded a' ∧ CtxOk m.cval env φ d Δ a' ∧
+      Expr.WScoped d b' ∧ b'.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded b' ∧ CtxOk m.cval env φ d Δ b' := by
+  simp only [defeqStep, Bind.bind, Except.bind, whnfCore_def] at h
+  split at h
+  · next hab =>
+    refine Or.inl ?_
+    obtain rfl : a = b := eq_of_beq hab
+    obtain rfl : va = vb := by rw [hva] at hvb; exact Option.some.inj hvb
+    exact Deq.refl
+  · cases hwca : whnfCore env fuel d a with
+    | error err => rw [hwca] at h; exact nomatch h
+    | ok a' =>
+    rw [hwca] at h
+    dsimp only at h
+    cases hwcb : whnfCore env fuel d b with
+    | error err => rw [hwcb] at h; exact nomatch h
+    | ok b' =>
+    rw [hwcb] at h
+    dsimp only at h
+    obtain ⟨va', hva', hDa, hwa', hba', hLa', hCa'⟩ :=
+      whnfCore_package m φ ihwc hwca hwa hba hLa hCa hva
+    obtain ⟨vb', hvb', hDb, hwb', hbb', hLb', hCb'⟩ :=
+      whnfCore_package m φ ihwc hwcb hwb hbb hLb hCb hvb
+    exact Or.inr ⟨a', b', va', vb', rfl, rfl, hva', hvb', hDa, hDb,
+      hwa', hba', hLa', hCa', hwb', hbb', hLb', hCb'⟩
+
 end Setlec.TTVerify
