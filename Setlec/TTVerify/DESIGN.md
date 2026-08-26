@@ -3911,6 +3911,17 @@ domains line up by construction: the tower's are the type's, because
 that is what `htype` says, and the telescope's `cons` peels exactly
 those.
 
+**A second candidate, filed unproved.**  The reason `denote_eqRec_rhs`
+lands at *the same four domains the type has* is that **the stored rule
+is the eliminator's own telescope re-abstracted**, so its binders are
+the type's prefix.  If that holds for the other blocks' rules too — and
+it should, since the preprocessor generates them the same way — it is a
+fact about the *checker's rule format* doing bridge work, and belongs
+in §8.4's list under the first kind.  `PUnit`'s rule is consistent with
+it, but `PUnit`'s rule has one binder and proves nothing.  Confirm at
+`Nat` (two rules, one with a field) and `PSigma` (two fields) before
+adding it.
+
 #### CANDIDATE for the final summary: everything here is telescope-shaped
 
 > **Every telescope-shaped obligation in this bridge decomposes against
