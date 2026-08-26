@@ -2332,3 +2332,43 @@ was free — the reduct is a literal or a `Bool` constructor, so
 `reduceNat_inv` gives it in three lines — while its equation half took
 sixteen closed forms.  Two of three obligations remain, both frame
 bookkeeping around equations that are already proved.
+
+### 12.7 Correction: "frame bookkeeping" understated `IotaStepTT`
+
+I described the two remaining `whnfCore` obligations as "frame
+bookkeeping around equations that are already proved".  That is right
+for `ProjStepTT` and **wrong for `IotaStepTT`**, and since it was
+repeated back to me in planning it needs correcting rather than
+quietly fixing.
+
+What `iotaRec_inv` actually hands back is a chain, not a redex:
+
+```
+e's major  --whnf-->  major₀  --litMajorToCtor-->  major₁
+           --majorToCtor-->  major (in constructor form)
+```
+
+and only then does the stored rule fire.  `rec_rules_fire` is proved
+**at the fired form** — it takes the constructor-form major as given.
+So `IotaStepTT` additionally owes the soundness of that chain: that
+each step preserves the denotation up to `Deq`.  Its rescues are proved
+(`eta_rescue`, `proof_irrel_step`), but the *assembly* — the plain
+case, the literal case, and the dispatch between them — is not.  The
+set model spends `Setlec/Model/Core/MajorToCtor.lean` (550 lines) plus
+`NestedFire.lean` (511) on exactly this.
+
+**What I got wrong and why**: I inferred the size from what the
+obligation's *statement* mentions (a reduct and its frame conditions)
+rather than from what its *proof* must traverse.  A statement that
+names two terms can still hide a four-step chain between them, and
+`iotaRecP` is one call in the inversion's premise.  The general form:
+**estimate an obligation from the checker function it inverts, not from
+the shape of its conclusion.**
+
+Revised decomposition, which also improves the promise boundary per
+§8.6 (fewer unproved steps outside the obligation):
+
+* `MajorToCtorStepTT` — the chain's soundness, a new named obligation;
+* `IotaStepTT` — provable from it plus `rec_rules_fire`, plus frame
+  conditions of which `iotaRec_WScoped` supplies one of three;
+* `ProjStepTT` — unchanged, and genuinely the smaller of the two.
