@@ -453,4 +453,25 @@ theorem denote_closed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h : denoteClosed cval env φ e = some v) : VExpr.Closed v :=
   denote_bvarsBelow hcl 0 e (Expr.WScoped.of_not_hasFvar hnf) hb h
 
+/-- **A closed expression denotes the same at every depth.**  The
+binder depth only enters `denote` through `fvar` leaves and there are
+none, so the whole `denote_weaken_top` chain collapses.  Consumed
+wherever a *stored declaration's* type has to be denoted in an open
+context — the environment states its typing at depth `0`. -/
+theorem denote_depth_closed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    {e : Expr} (hnf : e.hasFvar = false)
+    (hb : e.looseBVarsBounded 0 = true) :
+    ∀ d : Nat, denote cval env φ d e = denoteClosed cval env φ e := by
+  intro d
+  induction d with
+  | zero => rfl
+  | succ d ih =>
+    rw [denote_weaken_top hcl (Expr.WScoped.of_not_hasFvar (d := d)
+      hnf).fvarsBelow, ih]
+    cases hv : denoteClosed cval env φ e with
+    | none => rfl
+    | some v =>
+      simp only [Option.map_some]
+      rw [VExpr.liftN_eq_self_of_closed (denote_closed hcl hnf hb hv)]
+
 end Setlec.TTVerify
