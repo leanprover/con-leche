@@ -4122,6 +4122,40 @@ RecRule.fire rl = .plain →
   check; its transpose is `Deq`, and `Deq.conv` is exactly what the
   install needs to retype a field at the recursor's parameter.
 
+**It is the family's first *fatal* instance, and the mechanism is the
+project's oldest theme.**  The other four were wasteful — a premise
+arrived and rescue apparatus became deletable.  This one made two
+obligations *unprovable*: a field typed at the constructor's
+parameters, needed at the recursor's, with no type uniqueness to
+bridge them.  That is **domain pinning** in new clothing — the same
+shape as the model's junk-agreement problem, as `annotate`'s
+value-transparency requirement, as the `AnnotOk` proj clause — and as
+always the only thing that pins the domain is *the checker's own
+comparison*.  The bridge cannot invent the pin; it can only stop
+throwing it away.
+
+> **The sweep this earns.**  The sibling rule (a discarded conjunct
+> puts its *neighbours* on probation) is the fourth-row tell sharpened
+> into a search pattern, so it was run over the whole bridge: every
+> `obtain ⟨…⟩ := …_inv …` whose pattern contains a `-`.  **Seven sites,
+> and `iotaRec_inv` is six of the discarded conjuncts on its own.**
+> Of the rest, four are shape facts (`stripPis … |>.isSome`,
+> `piResidual … = some _`, `cbody.getAppFn = .const _ _`) — statements
+> that the stored types have enough binders, not guards a law could
+> quantify past.
+>
+> **One is a comparison, and it is the same shape one level up.**
+> `iotaRec` runs a *third* check: `defEqList (residual.getAppArgs.drop
+> ctorParams) ((args.take mI).drop rP)` — the recursor's **index**
+> arguments against the constructor's canonical index tuple.  Every
+> basis block has `rP = mI`, so the right-hand list is empty and the
+> check is vacuous; that is exactly why five blocks could be written
+> without it.  **Indexed modeled inductives are not vacuous**, and
+> `DeclIndTT`'s five obligations are where they land.  Expect the
+> parameter finding to repeat there verbatim, with *indices* in place
+> of parameters — and expect it to be fatal again for the same reason.
+> Check it before writing the five, not after.
+
 **Confirmed in use at `Quot.ind`.**  Its iota is one line of the new
 premise and then *proof irrelevance*: the stored motive's codomain is
 `Sort 0`, the layer carries no `quotIndMk` rule, and both sides are
