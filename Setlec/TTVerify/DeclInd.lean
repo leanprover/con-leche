@@ -524,7 +524,7 @@ three times (the `x` domain at `c = 0`, the `y` domain at `c = 1`, the
 equation's type slot at `c = 2`) and the eta statement uses it again. -/
 
 /-- Indexing a list by its own `range` is mapping it. -/
-private theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)
+theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)
     (g : α → β) :
     (List.range xs.length).map (fun l => g (xs.getD l default)) = xs.map g := by
   refine List.ext_getElem? ?_

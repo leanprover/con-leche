@@ -1449,3 +1449,144 @@ theorem instPisAt_fvar_residual_arity :
       have h5 := ih h1 (fun x hx => hsp x (List.mem_cons_of_mem _ hx)) h4
       rw [h5, hbody', Nat.zero_add,
         Expr.getAppArgs_length_instantiate1_fvar]
+
+/-- Renaming constants never changes loose-bvar levels. -/
+theorem Expr.looseBVarsBounded_renameConsts (f : Name → Name) :
+    ∀ (e : Expr) (k : Nat),
+      Expr.looseBVarsBounded k (e.renameConsts f) =
+        Expr.looseBVarsBounded k e := by
+  intro e
+  induction e <;> intro k <;>
+    simp_all [Expr.renameConsts, Expr.looseBVarsBounded]
+
+/-- One domain per argument. -/
+theorem instPisAt_length :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instPisAt sp ty = some (ds, rs) → ds.length = sp.length := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro ty ds rs h
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1]
+  | cons a sp ih =>
+    intro ty ds rs h
+    match ty, h with
+    | .forallE nm dom body mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p => ?_
+      rw [h1] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp [ih h1]
+
+/-- An `instPisAt` run at frame variables of a denoting subject has a
+denoting residual — the definedness half of
+`instPisAt_denote_cross`. -/
+theorem instPisAt_fvar_denote_defined {cval : TConstVal} {env : Env}
+    {ψ : Name → Nat} (hcl : ∀ n ψ', VExpr.Closed (cval n ψ')) :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instPisAt sp ty = some (ds, rs) →
+      ∀ {D : Nat},
+      (∀ (j : Nat) (x : Expr), sp[j]? = some x →
+        (∃ i nm t, x = Expr.fvar i nm t) ∧ Expr.WScoped D x ∧
+          x.looseBVarsBounded 0 = true) →
+      Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
+      ∀ {T : VExpr}, denote cval env ψ D ty = some T →
+      ∃ vRs, denote cval env ψ D rs = some vRs := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro ty ds rs h D _ _ _ T hT
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨T, hT⟩
+  | cons a sp ih =>
+    intro ty ds rs h D hsp hfb hb T hT
+    obtain ⟨⟨i, nm, t, rfl⟩, hwsa, hba⟩ := hsp 0 a rfl
+    match ty, h with
+    | .forallE nmT dom body mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt sp
+          (body.instantiate1 (.fvar i nm t)) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p => ?_
+      rw [h1] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      have hfb' : Expr.fvarsBelow D dom ∧ Expr.fvarsBelow D body := hfb
+      have hb' : dom.looseBVarsBounded 0 = true ∧
+          body.looseBVarsBounded 1 = true := by
+        revert hb
+        simp [Expr.looseBVarsBounded]
+      rw [denote_forallE] at hT
+      cases hA : denote cval env ψ D dom with
+      | none => rw [hA] at hT; exact nomatch hT
+      | some A => ?_
+      rw [hA] at hT
+      cases hB : denote cval env ψ (D + 1)
+          (body.instantiate1 (.fvar D nmT dom)) with
+      | none => rw [hB] at hT; exact nomatch hT
+      | some B => ?_
+      have hfvden : denote cval env ψ D (.fvar i nm t) =
+          some (VExpr.bvar (D - 1 - i)) := by rw [denote_fvar]
+      have hTI : denote cval env ψ D (body.instantiate1 (.fvar i nm t))
+          = some (B.inst (.bvar (D - 1 - i)) 0) := by
+        rw [denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+          hfvden 0, hB]
+        rfl
+      exact ih h1
+        (fun j x hx => hsp (j + 1) x (by simpa using hx))
+        (Expr.fvarsBelow_instantiate1_gen
+          (by
+            have hiD : i < D := by
+              simp only [Expr.WScoped] at hwsa
+              exact hwsa.1
+            simpa [Expr.fvarsBelow] using hiD) 0 hfb'.2)
+        (Expr.looseBVarsBounded_instantiate1_gen hba hb'.2) hTI
+
+/-- A nonempty tower's head domain is its context's outermost entry. -/
+theorem PiTele.head : ∀ {k : Nat} {T : VExpr} {Γ : List VExpr} {R : VExpr},
+    PiTele (k + 1) T Γ R →
+    ∃ B, T = .pi (Γ.getD k default) B ∧ PiTele k B (Γ.take k) R := by
+  intro k T Γ R h
+  cases h with
+  | @cons _ A B _ Γ' hp =>
+    have hlen : Γ'.length = k := hp.length
+    refine ⟨B, ?_, ?_⟩
+    · have hget : (Γ' ++ [A]).getD k default = A := by
+        simp only [List.getD]
+        rw [List.getElem?_append_right (by omega), hlen, Nat.sub_self]
+        rfl
+      rw [hget]
+    · rw [List.take_append_of_le_length (by omega),
+        List.take_of_length_le (by omega)]
+      exact hp
+
+/-- A denoted spine, built pointwise. -/
+theorem DenoteSpine.of_getElem {cval : TConstVal} {env : Env}
+    {φ : Name → Nat} {d : Nat} :
+    ∀ {as : List Expr} {vs : List VExpr}, as.length = vs.length →
+      (∀ (q : Nat), q < as.length →
+        denote cval env φ d (as.getD q default) =
+          some (vs.getD q default)) →
+      DenoteSpine cval env φ d as vs := by
+  intro as
+  induction as with
+  | nil =>
+    intro vs hlen _
+    obtain rfl : vs = [] := List.eq_nil_of_length_eq_zero hlen.symm
+    exact .nil
+  | cons a as ih =>
+    intro vs hlen hget
+    cases vs with
+    | nil => exact nomatch hlen
+    | cons v vs =>
+      refine DenoteSpine.cons ?_ (ih (by simpa using hlen) ?_)
+      · have h0 := hget 0 (by simp)
+        simpa using h0
+      · intro q hq
+        have h1 := hget (q + 1) (by simpa using hq)
+        simpa using h1
