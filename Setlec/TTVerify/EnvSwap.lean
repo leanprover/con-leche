@@ -630,16 +630,16 @@ but the model's per-rule lemma (`proj_rule_eq`) bridges the base and
 extended environments internally instead. -/
 
 /-- Overwrite a valuation at one name. -/
-def cvalSet (cval : TConstVal) (n₀ : Name) (v : VExpr) : TConstVal :=
+def cvalSetC (cval : TConstVal) (n₀ : Name) (v : VExpr) : TConstVal :=
   fun c ψ => if c = n₀ then v else cval c ψ
 
-theorem cvalSet_ne {cval : TConstVal} {n₀ : Name} {v : VExpr} {c : Name}
-    (h : c ≠ n₀) : cvalSet cval n₀ v c = cval c := by
-  funext ψ; simp [cvalSet, h]
+theorem cvalSetC_ne {cval : TConstVal} {n₀ : Name} {v : VExpr} {c : Name}
+    (h : c ≠ n₀) : cvalSetC cval n₀ v c = cval c := by
+  funext ψ; simp [cvalSetC, h]
 
-theorem cvalSet_self {cval : TConstVal} {n₀ : Name} {v : VExpr}
-    {ψ : Name → Nat} : cvalSet cval n₀ v n₀ ψ = v := by
-  simp [cvalSet]
+theorem cvalSetC_self {cval : TConstVal} {n₀ : Name} {v : VExpr}
+    {ψ : Name → Nat} : cvalSetC cval n₀ v n₀ ψ = v := by
+  simp [cvalSetC]
 
 set_option maxHeartbeats 3200000 in
 /-- Revalue one fresh, unreserved name by an arbitrary closed value:
@@ -649,26 +649,26 @@ def EnvTT.revalue {env : Env} (m : EnvTT env) (n₀ : Name) (v : VExpr)
     (hnres : reservedBasisNames.contains n₀ = false)
     (hvc : VExpr.Closed v) :
     EnvTT env := by
-  have hag : ∀ c, c ≠ n₀ → cvalSet m.cval n₀ v c = m.cval c :=
-    fun c hc => cvalSet_ne hc
+  have hag : ∀ c, c ≠ n₀ → cvalSetC m.cval n₀ v c = m.cval c :=
+    fun c hc => cvalSetC_ne hc
   have hagE : ∀ nn (ci : ConstantInfo), env.find? nn = some ci →
-      m.cval nn = cvalSet m.cval n₀ v nn := by
+      m.cval nn = cvalSetC m.cval n₀ v nn := by
     intro nn ci hf
     refine (hag nn ?_).symm
     intro he
     rw [he, hfresh] at hf
     exact nomatch hf
   have hagS : ∀ nn, (env.find? nn).isSome = true →
-      m.cval nn = cvalSet m.cval n₀ v nn := by
+      m.cval nn = cvalSetC m.cval n₀ v nn := by
     intro nn hnn
     cases hf : env.find? nn with
     | none => rw [hf] at hnn; exact nomatch hnn
     | some ci => exact hagE nn ci hf
-  have hlit : LitAgree env m.cval (cvalSet m.cval n₀ v) :=
+  have hlit : LitAgree env m.cval (cvalSetC m.cval n₀ v) :=
     LitAgree.of_fresh (c₀ := .axiomInfo ⟨n₀, [], .sort .zero⟩) hfresh
       (fun n hn => (hag n hn).symm)
   have hdc : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
-      denote (cvalSet m.cval n₀ v) env φ d e = denote m.cval env φ d e :=
+      denote (cvalSetC m.cval n₀ v) env φ d e = denote m.cval env φ d e :=
     fun φ d e => (denote_cval_congr hagE hlit.nat hlit.succ hlit.sol
       hlit.nil hlit.cons hlit.char hlit.ofn d e).symm
   have hne : ∀ c ∈ env.consts, c.name ≠ n₀ := by
@@ -677,7 +677,7 @@ def EnvTT.revalue {env : Env} (m : EnvTT env) (n₀ : Name) (v : VExpr)
     intro c hc h
     exact h0 c hc (by simp [h])
   refine
-    { cval := cvalSet m.cval n₀ v
+    { cval := cvalSetC m.cval n₀ v
       cval_closed := ?_
       wf := m.wf
       val_params := ?_
@@ -699,9 +699,9 @@ def EnvTT.revalue {env : Env} (m : EnvTT env) (n₀ : Name) (v : VExpr)
     intro n ψ
     by_cases hn : n = n₀
     · subst hn
-      rw [cvalSet_self]
+      rw [cvalSetC_self]
       exact hvc
-    · rw [show cvalSet m.cval n₀ v n = m.cval n from hag n hn]
+    · rw [show cvalSetC m.cval n₀ v n = m.cval n from hag n hn]
       exact m.cval_closed n ψ
   · -- val_params
     intro n ci hf φ₁ φ₂ hψ
@@ -711,30 +711,30 @@ def EnvTT.revalue {env : Env} (m : EnvTT env) (n₀ : Name) (v : VExpr)
     intro c hc φ
     obtain ⟨t, ht, hd⟩ := m.has_type c hc φ
     refine ⟨t, ?_, ?_⟩
-    · show denote (cvalSet m.cval n₀ v) env φ 0 c.toConstantVal.type
+    · show denote (cvalSetC m.cval n₀ v) env φ 0 c.toConstantVal.type
         = some t
       rw [hdc]
       exact ht
-    · rw [show cvalSet m.cval n₀ v c.name = m.cval c.name from
+    · rw [show cvalSetC m.cval n₀ v c.name = m.cval c.name from
         hag c.name (hne c hc)]
       exact hd
   · -- defn_eq
     intro cv value hint hmem φ
-    show denote (cvalSet m.cval n₀ v) env φ 0 value = some _
+    show denote (cvalSetC m.cval n₀ v) env φ 0 value = some _
     rw [hdc,
-      show cvalSet m.cval n₀ v cv.name = m.cval cv.name from
+      show cvalSetC m.cval n₀ v cv.name = m.cval cv.name from
         hag cv.name (hne _ hmem)]
     exact m.defn_eq cv value hint hmem φ
   · -- thm_ok
     intro cv value hmem φ
-    show denote (cvalSet m.cval n₀ v) env φ 0 value = some _
+    show denote (cvalSetC m.cval n₀ v) env φ 0 value = some _
     rw [hdc,
-      show cvalSet m.cval n₀ v cv.name = m.cval cv.name from
+      show cvalSetC m.cval n₀ v cv.name = m.cval cv.name from
         hag cv.name (hne _ hmem)]
     exact m.thm_ok cv value hmem φ
   · -- empty_pinned
     intro ψ
-    rw [show cvalSet m.cval n₀ v emptyName = m.cval emptyName from
+    rw [show cvalSetC m.cval n₀ v emptyName = m.cval emptyName from
       hag emptyName (fun he => by
         rw [← he] at hnres
         exact absurd hnres (by decide))]
@@ -764,7 +764,7 @@ def EnvTT.revalue {env : Env} (m : EnvTT env) (n₀ : Name) (v : VExpr)
       obtain ⟨hCres, ⟨cvC, hfC⟩, hfP⟩ := hfam
       intro φ d Δ us xs TV rest B hlen hTV hfit hBt hfabT
       have hproj : ∀ j ∈ List.range caps.etaFields,
-          VExpr.mkAppN (cvalSet m.cval n₀ v (projFnName T j)
+          VExpr.mkAppN (cvalSetC m.cval n₀ v (projFnName T j)
             (Level.substFn φ (levelParamsAt env (projFnName T j)) us))
             (xs ++ [B])
           = VExpr.mkAppN (m.cval (projFnName T j)
@@ -800,7 +800,7 @@ def EnvTT.revalue {env : Env} (m : EnvTT env) (n₀ : Name) (v : VExpr)
   · -- nat_ops
     intro c hc cv vl hint hf
     obtain ⟨hg, heqs⟩ := m.nat_ops c hc cv vl hint hf
-    have hnat : m.cval natName = cvalSet m.cval n₀ v natName := by
+    have hnat : m.cval natName = cvalSetC m.cval n₀ v natName := by
       refine hagS natName ?_
       simp only [natOpGuard, Bool.and_eq_true] at hg
       have h0 := hg.1.1
@@ -818,10 +818,10 @@ def EnvTT.revalue {env : Env} (m : EnvTT env) (n₀ : Name) (v : VExpr)
     intro c hc cv vl hint hf
     obtain ⟨hg, heqs⟩ := m.div_mod c hc cv vl hint hf
     have hagS' : ∀ nn, (env.find? nn).isSome = true →
-        m.cval nn = cvalSet m.cval n₀ v nn := hagS
+        m.cval nn = cvalSetC m.cval n₀ v nn := hagS
     obtain ⟨hdep, hz, hs, hbool⟩ := divModNames_agree hagS' hg
     obtain ⟨hT, hF⟩ := hbool (by simpa using hc)
-    have hnat : m.cval natName = cvalSet m.cval n₀ v natName := by
+    have hnat : m.cval natName = cvalSetC m.cval n₀ v natName := by
       simp only [natOpGuard, Bool.and_eq_true] at hg
       have h0 := hg.1.1
       simp only [natLitSupported, Bool.and_eq_true] at h0
@@ -894,6 +894,6 @@ theorem EnvTT.revalue_cval {env : Env} (m : EnvTT env) (n₀ : Name)
     (v : VExpr) (hfresh : env.find? n₀ = none)
     (hnres : reservedBasisNames.contains n₀ = false)
     (hvc : VExpr.Closed v) :
-    (m.revalue n₀ v hfresh hnres hvc).cval = cvalSet m.cval n₀ v := rfl
+    (m.revalue n₀ v hfresh hnres hvc).cval = cvalSetC m.cval n₀ v := rfl
 
 end Setlec.TTVerify
