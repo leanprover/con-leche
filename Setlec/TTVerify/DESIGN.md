@@ -4999,18 +4999,27 @@ What the retraction does **not** touch: `denote_renameConsts` really
 has no counterpart on this side, and `RenEqT`/`PiDomsRenEqT` really are
 stranded in `Model/TeleElim.lean`.
 
-#### 14.7.4 GRANTED (task #135, form 1): the equation's type slot needs its sort
+#### 14.7.4 GRANTED (#135, form 1): the equation's type slot needs its sort
 
-**Landed 2026-08-27.**  Form (1) below is in the checker: `checkEtaThmF`
-/ `checkUnitThmF` (and their `Env` mirrors) now require
-`tbodyM == Expr.sort ℓA`, `EtaPins` carries `tbodyM = Expr.sort ℓA` as
+**Form (1) landed 2026-08-27.**  `checkEtaThmF` / `checkUnitThmF` (and
+their `Env` mirrors in `Modeled.lean`) now require
+`tbodyM == Expr.sort ℓA`; `EtaPins` carries `tbodyM = Expr.sort ℓA` as
 the last conjunct of each half, and `checkEtaThm_inv` /
-`checkUnitThm_inv` forward it — so `UnitFoldTT`'s `hTmSort` hypothesis
-has a supplier and `DeclIndTT` can discharge it.  Form (2), the
-semantic `checkIotaSidesTy` check, was **not** requested as part of
-#135 and is still open.  See DESIGN.md, "The capability checks pin the
-model type's sort".  The rest of this section is the original request,
-kept for the reasoning.
+`checkUnitThm_inv` forward it.  That is the supplier for every
+`StatementSortPin` site — `UnitFoldTT`'s and `EtaFoldTT`'s — and
+`tbody = Expr.sort l` is the definition verbatim, so the swap is
+`exact` at the site.  See DESIGN.md, "The capability checks pin the
+model type's sort".
+
+**Still open, and deliberately out of #135's landing scope** (the grant
+was form (1) only): form (2), the semantic `checkIotaSidesTy` check,
+which is what the `IndBottom*TT` / `ProjBottomTT` obligations need for
+*their* sort premise; and §14.7.7's second eta premise, the fabricated
+right-hand side's typing.  §14.7.7's closing sentence stands — form
+(1) is unaffected by the resizing.
+
+The rest of this section is the original request, kept for the
+reasoning.
 
 **The obligation.**  Every one of `DeclIndTT`'s five obligations ends
 at `Deq.ofEqThm`, which calls `EnvTT.eq_law`, which fires `eqValT`'s

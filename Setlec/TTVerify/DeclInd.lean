@@ -436,14 +436,15 @@ inversion can recover it because Π-injectivity is refuted.
 Measured before being asked for: 1 069 sites across the whole fixture
 corpus, zero counterexamples. -/
 
-/-- **Task #135's pending conjunct.**  A modeled former's telescope
+/-- **Task #135's conjunct — landed.**  A modeled former's telescope
 residual is the sort the capability statement's `Eq.{ℓ}` names.
 
-`checkEtaThmF`/`checkUnitThmF` already compute both sides and compare
-neither; #135 adds the comparison and `EtaPins` will carry it.  Until
-then this is a hypothesis, and it is a *definition* rather than an
-inlined equation precisely so that `grep StatementSortPin` is the list
-of sites the landing has to serve. -/
+`checkEtaThmF`/`checkUnitThmF` computed both sides and compared
+neither; #135 added the comparison, and `EtaPins`' last conjunct in
+each half is `tbodyM = Expr.sort ℓA` — this definition verbatim, so
+`checkEtaThm_inv`/`checkUnitThm_inv` discharge these hypotheses by
+`exact`.  Kept as a *definition* rather than an inlined equation so
+that `grep StatementSortPin` stays the list of sites it serves. -/
 def StatementSortPin (tbody : Expr) (l : Level) : Prop :=
   tbody = Expr.sort l
 
@@ -1005,21 +1006,22 @@ fact was written in from `unit_rule_fold`, which needs it for
 nothing.  Dropped rather than `_`-prefixed, per §8.2 — a hypothesis a
 proof does not read is a claim about the contract that is not true.
 
-**`hTmSort` is a pin the checker does not yet make.**  `EqLawTT` fires
-`eqValT`'s first β-step, whose premise is `⊢ Â : Sort (ψ uNT)` with
-`ψ uNT = ⟦ℓA⟧` — the level the *statement's* `Eq.{ℓA}` carries.  The
+**`hTmSort` is a pin the checker makes** (task #135, landed).
+`EqLawTT` fires `eqValT`'s first β-step, whose premise is
+`⊢ Â : Sort (ψ uNT)` with `ψ uNT = ⟦ℓA⟧` — the level the
+*statement's* `Eq.{ℓA}` carries.  The
 set model gets that membership from `AnnotOk`, which this bridge drops;
 inversion cannot recover it, because reading the sort back out of the
 `Eq` spine needs Π-injectivity, and Π-injectivity is refuted
 (`Setlec/TTVerify/Inversion.lean`).  So it has to be *supplied*, and
 the cheapest supplier is a syntactic pin the checker already computes
-and discards: `checkUnitThm` binds the model type's residual (`_`) and
-the equation's level (`_ℓ`) and compares neither.  With
-`tbodyM = .sort ℓA` in hand the fact is derived here, from
-`EnvTT.has_type` at `T._model` and a *second* use of
-`teleAlign_of_stripPis` — which is why the hypothesis is isolated to
-one line rather than threaded.  Recorded in `DESIGN.md`; until the pin
-lands, `DeclIndTT` cannot discharge it. -/
+and discarded: `checkUnitThm` bound the model type's residual and the
+equation's level and compared neither.  Task #135 added the comparison,
+so `EtaPins`' last conjunct is `tbodyM = .sort ℓA`; with it in hand the
+fact is derived here, from `EnvTT.has_type` at `T._model` and a
+*second* use of `teleAlign_of_stripPis` — which is why the hypothesis
+is isolated to one line rather than threaded.  The supplier is
+`checkUnitThm_inv`'s last conjunct; making the swap is `DeclIndTT`'s. -/
 
 set_option maxHeartbeats 1600000 in
 /-- **The unit-like law, from the checked `T._model.unitlike`
@@ -1174,7 +1176,7 @@ theorem UnitFoldTT {env : Env} {cval : TConstVal}
     teleAlign_of_stripPis hro caps.unitParams hT_strip hstrip0 hpiS hTV hTstmt
       hlen
   obtain ⟨-, hfitS⟩ := hfit.retarget' halignS
-  -- (7) the type slot's sort, off the pending pin (task #135)
+  -- (7) the type slot's sort, off the checker's pin (task #135)
   have hAsort := eqSlotSort_of_sortPin hro hT_strip hTm_strip hTmSort hpiM
     hTV hTmod hTmodv hfit hlen
   -- (8) the residual, computed and fitted
@@ -1245,9 +1247,10 @@ The second obligation.  Same skeleton as `UnitFoldTT`: one binder
 fewer in the statement's telescope, and the equation's right-hand side
 is the *fabricated constructor spine* instead of a second subject.
 
-**It owes two pending premises, not one** (`DESIGN.md` §14.7.7).
-`StatementSortPin` is #135's; `EtaRhsTyped` is the one the fabricated
-spine needs, which has no syntactic supplier and is filed as a separate
+**It takes two named premises, not one** (`DESIGN.md` §14.7.7).
+`StatementSortPin` is #135's, and its supplier has landed
+(`checkEtaThm_inv`); `EtaRhsTyped` is the one the fabricated spine
+needs, which has no syntactic supplier and is filed as a separate
 request.  Both are named, so each is one supplier and one swap. -/
 
 /-- **The second pending premise** (`DESIGN.md` §14.7.7): the eta
