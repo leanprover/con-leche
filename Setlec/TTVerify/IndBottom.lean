@@ -655,11 +655,15 @@ theorem VTeleTyped.steps {Δ : List VExpr} :
 instantiated context entries fits the tower, and lands at the
 instantiated body.  This is how a fired spine is fitted into the
 checked statement's telescope, whose domains only the per-position
-facts reach. -/
+facts reach — and each position's obligation receives the *prefix
+fit already built*, which is what lets a step instantiate an open
+install fact along the values before it (the sequential structure the
+padding trick needs). -/
 theorem VTeleTyped.ofPiTele {Δ : List VExpr} :
     ∀ {zs : List VExpr} {T : VExpr} {Γ : List VExpr} {R : VExpr},
       PiTele zs.length T Γ R →
       (∀ n, n < zs.length →
+        (∃ mid, VTeleTyped Δ T (zs.take n) mid) →
         HasType Δ (zs.getD n default)
           (VExpr.instSeq (zs.take n) (n - 1)
             (Γ.getD (zs.length - 1 - n) default))) →
@@ -676,7 +680,7 @@ theorem VTeleTyped.ofPiTele {Δ : List VExpr} :
     | @cons _ A B _ Γ' hp' =>
       have hΓlen : Γ'.length = zs.length := hp'.length
       have hz : HasType Δ z A := by
-        have h0 := hstep 0 (by simp)
+        have h0 := hstep 0 (by simp) ⟨_, VTeleTyped.nil⟩
         simp only [List.take_zero, VExpr.instSeq_nil, List.getD_cons_zero,
           List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at h0
         rwa [show (Γ' ++ [A]).getD zs.length default = A from by
@@ -692,8 +696,10 @@ theorem VTeleTyped.ofPiTele {Δ : List VExpr} :
           simp
         rw [h2]
         exact hrec
-      · intro n hn
+      · intro n hn hpref
+        obtain ⟨mid, hmid⟩ := hpref
         have h1 := hstep (n + 1) (by simpa using hn)
+          ⟨mid, VTeleTyped.cons hz hmid⟩
         rw [show (z :: zs).getD (n + 1) default = zs.getD n default from rfl,
           show (z :: zs).length - 1 - (n + 1) = zs.length - 1 - n from by
             simp only [List.length_cons]; omega,
@@ -1328,3 +1334,118 @@ theorem instPisAt_denote_cross {cval : TConstVal} {env : Env}
             (by omega), show D - 1 + 1 = D from by omega, ← hw]
         rw [hID]
         exact hp2
+
+/-! ## Reading equal spines apart
+
+`Deq` has no application injectivity — semantically it must not — so a
+componentwise fact can only come from a *syntactic* spine equality at a
+*known* arity.  The arity is what `IotaIndexPin`'s length disjunct
+pins, and what the opener-invariance lemmas below compute for the kit's
+runs: opening at variables never changes an application's arity, so
+every reading of the constructor's residual has the raw telescope's. -/
+
+/-- Equal applications of equal arity have equal heads and spines. -/
+theorem VExpr.mkAppN_inj :
+    ∀ {as bs : List VExpr} {f g : VExpr},
+      VExpr.mkAppN f as = VExpr.mkAppN g bs → as.length = bs.length →
+      f = g ∧ as = bs := by
+  intro as
+  induction as with
+  | nil =>
+    intro bs f g h hlen
+    obtain rfl : bs = [] :=
+      List.eq_nil_of_length_eq_zero hlen.symm
+    exact ⟨h, rfl⟩
+  | cons a as ih =>
+    intro bs f g h hlen
+    cases bs with
+    | nil => exact nomatch hlen
+    | cons b bs =>
+      rw [VExpr.mkAppN_cons, VExpr.mkAppN_cons] at h
+      obtain ⟨h1, rfl⟩ := ih h (by simpa using hlen)
+      injection h1 with h2 h3
+      exact ⟨h2, by rw [h3]⟩
+
+/-- Substituting a *variable* never changes an application's arity: the
+inserted value is atomic, so no application node is created or
+absorbed. -/
+theorem Expr.getAppArgs_length_instantiate1_fvar {i : Nat} {nm : Name}
+    {t : Expr} :
+    ∀ (e : Expr) (k : Nat),
+      ((e.instantiate1 (.fvar i nm t) k).getAppArgs).length =
+        e.getAppArgs.length := by
+  intro e
+  induction e with
+  | app g a ihg iha =>
+    intro k
+    simp only [Expr.instantiate1, Expr.getAppArgs, List.length_append]
+    rw [ihg k]
+    rfl
+  | bvar j =>
+    intro k
+    simp only [Expr.instantiate1]
+    split
+    · rfl
+    · split <;> rfl
+  | _ => intro k; first | rfl | (simp only [Expr.instantiate1]; rfl)
+
+/-- Renaming constants never changes an application's arity. -/
+theorem Expr.getAppArgs_length_renameConsts (f : Name → Name) :
+    ∀ (e : Expr),
+      ((e.renameConsts f).getAppArgs).length = e.getAppArgs.length := by
+  intro e
+  induction e with
+  | app g a ihg iha =>
+    simp only [Expr.renameConsts, Expr.getAppArgs, List.length_append]
+    rw [ihg]
+    rfl
+  | _ => first | rfl | (simp only [Expr.renameConsts]; rfl)
+
+/-- An `instPisAt` run at variables lands at the raw telescope
+residual's arity. -/
+theorem instPisAt_fvar_residual_arity :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instPisAt sp ty = some (ds, rs) →
+      (∀ x ∈ sp, ∃ i nm t, x = Expr.fvar i nm t) →
+      ∀ {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+        ty.stripPis sp.length = some (bs, body) →
+        rs.getAppArgs.length = body.getAppArgs.length := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro ty ds rs h _ bs body hstrip
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    have hstrip' : (some ([], ty) :
+        Option (List (Name × Expr × BinderMeta) × Expr)) = some (bs, body) :=
+      hstrip
+    simp only [Option.some.injEq, Prod.mk.injEq] at hstrip'
+    rw [hstrip'.2]
+  | cons a sp ih =>
+    intro ty ds rs h hsp bs body hstrip
+    obtain ⟨i, nm, t, rfl⟩ := hsp a List.mem_cons_self
+    match ty, h with
+    | .forallE nmT dom bodyE mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt sp (bodyE.instantiate1 (.fvar i nm t)) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p => ?_
+      rw [h1] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [List.length_cons, Expr.stripPis] at hstrip
+      cases h2 : bodyE.stripPis sp.length with
+      | none => rw [h2] at hstrip; exact nomatch hstrip
+      | some q => ?_
+      rw [h2] at hstrip
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hstrip
+      obtain ⟨-, rfl⟩ := hstrip
+      -- the instantiated body strips to the instantiated residual
+      have h3 : ((bodyE.instantiate1
+          (.fvar i nm t)).stripPis sp.length).isSome = true :=
+        Expr.stripPis_instantiate1_isSome sp.length 0 (by rw [h2]; rfl)
+      obtain ⟨⟨bs', body'⟩, h4⟩ := Option.isSome_iff_exists.mp h3
+      obtain ⟨hbody', -⟩ := Expr.stripPis_instantiate1_eq sp.length 0 h2 h4
+      have h5 := ih h1 (fun x hx => hsp x (List.mem_cons_of_mem _ hx)) h4
+      rw [h5, hbody', Nat.zero_add,
+        Expr.getAppArgs_length_instantiate1_fvar]
