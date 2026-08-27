@@ -2494,7 +2494,13 @@ law's shape actually coincide — if they only *nearly* coincided, the
 per-operation work would be where the discrepancies surfaced, and it
 is exactly where they did not.
 
-**Two kinds of instance, and a reader should be told which.**  Every
+**Two kinds of instance, and a reader should be told which.**  (The
+first kind's list keeps growing, and at this count the growth is no
+longer the interesting part: **both artifacts answer to the same
+object**, so agreement is what should be expected and a *dis*agreement
+would be the finding.  The entries are kept because each one names
+*which* piece of the object forced it, not because another coincidence
+is surprising.)  Every
 instance above is of the *first* kind; the basis install produced the
 first of the second, and they are different evidence:
 
@@ -2528,6 +2534,14 @@ Three more from the basis blocks:
 
   That last one is the doctrine's strongest possible defence: §2.4 is
   not aesthetics, it is *preemptive generality*.
+* **The projection entry's type — undesigned, at `PSigma'`.**  A pinned
+  projection's stored type and the layer's projection *rule* agree
+  binder for binder: `pairSndTyA`'s body is literally `β (t.0)`, which
+  is `HasType.projSnd`'s conclusion `.app B (pfstT p)` at the frame's
+  own variables.  So `pairProjValT_typed` is the rule applied once,
+  under three `lam`s, for both projections.  The preprocessor writes
+  the type; the layer states the rule; neither was written with the
+  other in view.
 * **The stored rule format — undesigned, CONFIRMED at `Nat`.**  A
   recursor's stored rule right-hand side is **the eliminator's own
   telescope re-abstracted**, so its binders are the type's prefix
