@@ -3138,5 +3138,194 @@ theorem extendPSigmaRecTT {env : Env} (m : EnvTT env)
     · exact nomatch hr'
 
 
+/-- **The `PSigma'` block, installed.**  Five constants — the block that
+installs the only `projInfo` constants any block installs, and the only
+one whose iota needs more than β. -/
+theorem declBasisTT_psigmaK {env env₁ : Env} (m : EnvTT env)
+    (h : BasisChain env BasisKind.psigmaK.declsA env₁) :
+    Nonempty (EnvTT env₁) := by
+  rw [show BasisKind.psigmaK.declsA
+    = [psigmaA, psigmaMkA, psigmaRecA, pairFstA, pairSndA] from rfl] at h
+  cases h with
+  | cons h1 h =>
+  cases h with
+  | cons h2 h =>
+  cases h with
+  | cons h3 h =>
+  cases h with
+  | cons h4 h =>
+  cases h with
+  | cons h5 h =>
+  cases h with
+  | nil =>
+  have hwf1 : EnvWF ⟨psigmaA :: env.consts⟩ :=
+    EnvWF.cons m.wf ⟨rfl, rfl, rfl, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  obtain ⟨m1, -⟩ := extendPSigmaTT m h1 hwf1
+  have hP1 : (⟨psigmaA :: env.consts⟩ : Env).find? psigmaName
+      = some psigmaA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hwf2 : EnvWF ⟨psigmaMkA :: psigmaA :: env.consts⟩ :=
+    EnvWF.cons hwf1 ⟨rfl, rfl, ?res2, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res2 =>
+    show Expr.constsResolve _ psigmaMkA.toConstantVal.type = true
+    have hf : (⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env).find? psigmaName
+        = some psigmaA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP1
+    rw [show psigmaMkA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+          (Expr.forallE (Name.anonymous.str "β")
+            (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+              (.sort (.param vNT)) { bi := .default })
+            (Expr.forallE (Name.anonymous.str "fst") (.bvar 1)
+              (Expr.forallE (Name.anonymous.str "snd")
+                (.app (.bvar 1) (.bvar 0))
+                (.app (.app (.const psigmaName
+                    [.param uNT, .param vNT]) (.bvar 3)) (.bvar 2))
+                { bi := .default })
+              { bi := .default })
+            { bi := .implicit })
+          { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hf]
+  obtain ⟨m2, -⟩ := extendPSigmaMkTT m1 hP1 h2 hwf2
+  have hP2 : (⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env).find? psigmaName
+      = some psigmaA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hP1
+  have hM2 : (⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env).find? psigmaMkName
+      = some psigmaMkA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  -- the two valuations the recursor's install needs are the invariant's,
+  -- not the chain's: both constants are pinned
+  have hPv2 : ∀ ψ : Name → Nat,
+      m2.cval psigmaName ψ = VExpr.const .psigma [ψ uNT, ψ vNT] := fun ψ =>
+    cval_pinned m2 (by decide) (by rw [hP2]; rfl) ψ
+      (by simp +decide [pinnedDirectT])
+  have hMv2 : ∀ ψ : Name → Nat,
+      m2.cval psigmaMkName ψ = VExpr.const .psigmaMk [ψ uNT, ψ vNT] :=
+    fun ψ => cval_pinned m2 (by decide) (by rw [hM2]; rfl) ψ
+      (by simp +decide [pinnedDirectT])
+  have hwf3 : EnvWF ⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :=
+    EnvWF.cons hwf2 ⟨rfl, rfl, ?res3, rfl,
+      (fun _ _ _ heq => nomatch heq), ?rec3,
+      (fun _ _ heq => nomatch heq)⟩
+  case res3 =>
+    show Expr.constsResolve _ psigmaRecA.toConstantVal.type = true
+    have hfP : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+        Env).find? psigmaName = some psigmaA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP2
+    have hfM : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+        Env).find? psigmaMkName = some psigmaMkA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hM2
+    rw [show psigmaRecA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+            (Expr.forallE (Name.anonymous.str "β")
+              (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+                (.sort (.param vNT)) { bi := .default })
+              (Expr.forallE (Name.anonymous.str "motive")
+                (Expr.forallE (Name.anonymous.str "t")
+                  (.app (.app (.const psigmaName [.param uNT, .param vNT])
+                    (.bvar 1)) (.bvar 0))
+                  (.sort .zero) { bi := .default })
+                (Expr.forallE (Name.anonymous.str "mk")
+                  (Expr.forallE (Name.anonymous.str "fst") (.bvar 2)
+                    (Expr.forallE (Name.anonymous.str "snd")
+                      (.app (.bvar 2) (.bvar 0))
+                      (.app (.bvar 2)
+                        (.app (.app (.app (.app (.const psigmaMkName
+                          [.param uNT, .param vNT]) (.bvar 4)) (.bvar 3))
+                          (.bvar 1)) (.bvar 0)))
+                      { bi := .default })
+                    { bi := .default })
+                  (Expr.forallE (Name.anonymous.str "t")
+                    (.app (.app (.const psigmaName [.param uNT, .param vNT])
+                      (.bvar 3)) (.bvar 2))
+                    (.app (.bvar 2) (.bvar 0)) { bi := .default })
+                  { bi := .default })
+                { bi := .implicit })
+              { bi := .implicit })
+            { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hfP, hfM]
+  case rec3 =>
+    intro cv mI rP rules heq
+    injection heq with h1' _ _ h4'
+    subst h1'; subst h4'
+    have hfP : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+        Env).find? psigmaName = some psigmaA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP2
+    have hfM : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+        Env).find? psigmaMkName = some psigmaMkA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hM2
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · exact ⟨rfl, rfl, by
+        show Expr.constsResolve _ (RecRule.rhs psigmaRecRule) = true
+        simp [Expr.constsResolve, psigmaRecRule, hfP, hfM], rfl,
+        fun lvls pins heqf => nomatch heqf⟩
+    · exact nomatch hr'
+  obtain ⟨m3, -⟩ := extendPSigmaRecTT m2 hP2 hM2 hPv2 hMv2 h3 hwf3
+  have hP3 : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+      Env).find? psigmaName = some psigmaA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hP2
+  have hM3 : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+      Env).find? psigmaMkName = some psigmaMkA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hM2
+  have hwf4 : EnvWF ⟨pairFstA :: psigmaRecA :: psigmaMkA :: psigmaA ::
+      env.consts⟩ :=
+    EnvWF.cons hwf3 ⟨rfl, rfl, ?res4, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res4 =>
+    show Expr.constsResolve _ pairFstA.toConstantVal.type = true
+    have hfP : (⟨pairFstA :: psigmaRecA :: psigmaMkA :: psigmaA ::
+        env.consts⟩ : Env).find? psigmaName = some psigmaA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP3
+    rw [show pairFstA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+            (Expr.forallE (Name.anonymous.str "β")
+              (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+                (.sort (.param vNT)) { bi := .default })
+              (Expr.forallE (Name.anonymous.str "t")
+                (.app (.app (.const psigmaName [.param uNT, .param vNT])
+                  (.bvar 1)) (.bvar 0))
+                (.bvar 2) { bi := .default })
+              { bi := .implicit })
+            { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hfP]
+  obtain ⟨m4, -⟩ := extendPairFstTT m3 hP3 hM3 h4 hwf4
+  have hP4 : (⟨pairFstA :: psigmaRecA :: psigmaMkA :: psigmaA ::
+      env.consts⟩ : Env).find? psigmaName = some psigmaA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hP3
+  have hM4 : (⟨pairFstA :: psigmaRecA :: psigmaMkA :: psigmaA ::
+      env.consts⟩ : Env).find? psigmaMkName = some psigmaMkA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hM3
+  have hwf5 : EnvWF ⟨pairSndA :: pairFstA :: psigmaRecA :: psigmaMkA ::
+      psigmaA :: env.consts⟩ :=
+    EnvWF.cons hwf4 ⟨rfl, rfl, ?res5, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res5 =>
+    show Expr.constsResolve _ pairSndA.toConstantVal.type = true
+    have hfP : (⟨pairSndA :: pairFstA :: psigmaRecA :: psigmaMkA ::
+        psigmaA :: env.consts⟩ : Env).find? psigmaName = some psigmaA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP4
+    rw [show pairSndA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+            (Expr.forallE (Name.anonymous.str "β")
+              (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+                (.sort (.param vNT)) { bi := .default })
+              (Expr.forallE (Name.anonymous.str "t")
+                (.app (.app (.const psigmaName [.param uNT, .param vNT])
+                  (.bvar 1)) (.bvar 0))
+                (.app (.bvar 1) (.proj psigmaName 0 (.bvar 0))) { bi := .default })
+              { bi := .implicit })
+            { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hfP]
+  obtain ⟨m5, -⟩ := extendPairSndTT m4 hP4 hM4 h5 hwf5
+  exact ⟨m5⟩
+
+
 end Setlec.TTVerify
 
