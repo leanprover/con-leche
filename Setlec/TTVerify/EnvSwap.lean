@@ -616,4 +616,284 @@ theorem EnvTT.swap_cval {env₀ env₃ : Env} (m₀ : EnvTT env₀)
     (hsw : SwapListT env₃ m₀.cval env₀.consts env₃.consts) :
     (m₀.swap hsw).cval = m₀.cval := rfl
 
+/-! ## Revaluing a fresh name
+
+The denotation reads the valuation only at *stored* constants, so a
+model's valuation may be changed at an unstored name freely.  The
+projection install needs this (§24's `Proj.lean` row): the
+`proj_i.iota` kit's checker runs happened at the *base* environment,
+before the projection function was stored, while the bottom's `hro`
+identifies `cval (projFnName T i)` with the model's — so the bottom
+must run at the base environment under the *aliased* valuation.  No
+set-model counterpart is missing: `interpExpr` has the same blindness,
+but the model's per-rule lemma (`proj_rule_eq`) bridges the base and
+extended environments internally instead. -/
+
+/-- Overwrite a valuation at one name. -/
+def cvalSet (cval : TConstVal) (n₀ : Name) (v : VExpr) : TConstVal :=
+  fun c ψ => if c = n₀ then v else cval c ψ
+
+theorem cvalSet_ne {cval : TConstVal} {n₀ : Name} {v : VExpr} {c : Name}
+    (h : c ≠ n₀) : cvalSet cval n₀ v c = cval c := by
+  funext ψ; simp [cvalSet, h]
+
+theorem cvalSet_self {cval : TConstVal} {n₀ : Name} {v : VExpr}
+    {ψ : Name → Nat} : cvalSet cval n₀ v n₀ ψ = v := by
+  simp [cvalSet]
+
+set_option maxHeartbeats 3200000 in
+/-- Revalue one fresh, unreserved name by an arbitrary closed value:
+the invariant is untouched, because nothing stored reads it. -/
+def EnvTT.revalue {env : Env} (m : EnvTT env) (n₀ : Name) (v : VExpr)
+    (hfresh : env.find? n₀ = none)
+    (hnres : reservedBasisNames.contains n₀ = false)
+    (hvc : VExpr.Closed v) :
+    EnvTT env := by
+  have hag : ∀ c, c ≠ n₀ → cvalSet m.cval n₀ v c = m.cval c :=
+    fun c hc => cvalSet_ne hc
+  have hagE : ∀ nn (ci : ConstantInfo), env.find? nn = some ci →
+      m.cval nn = cvalSet m.cval n₀ v nn := by
+    intro nn ci hf
+    refine (hag nn ?_).symm
+    intro he
+    rw [he, hfresh] at hf
+    exact nomatch hf
+  have hagS : ∀ nn, (env.find? nn).isSome = true →
+      m.cval nn = cvalSet m.cval n₀ v nn := by
+    intro nn hnn
+    cases hf : env.find? nn with
+    | none => rw [hf] at hnn; exact nomatch hnn
+    | some ci => exact hagE nn ci hf
+  have hlit : LitAgree env m.cval (cvalSet m.cval n₀ v) :=
+    LitAgree.of_fresh (c₀ := .axiomInfo ⟨n₀, [], .sort .zero⟩) hfresh
+      (fun n hn => (hag n hn).symm)
+  have hdc : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
+      denote (cvalSet m.cval n₀ v) env φ d e = denote m.cval env φ d e :=
+    fun φ d e => (denote_cval_congr hagE hlit.nat hlit.succ hlit.sol
+      hlit.nil hlit.cons hlit.char hlit.ofn d e).symm
+  have hne : ∀ c ∈ env.consts, c.name ≠ n₀ := by
+    have h0 := hfresh
+    rw [Env.find?, List.find?_eq_none] at h0
+    intro c hc h
+    exact h0 c hc (by simp [h])
+  refine
+    { cval := cvalSet m.cval n₀ v
+      cval_closed := ?_
+      wf := m.wf
+      val_params := ?_
+      has_type := ?_
+      defn_eq := ?_
+      thm_ok := ?_
+      empty_pinned := ?_
+      rec_rules := ?_
+      caps_ok := ?_
+      ctor_residual := m.ctor_residual
+      proj_ok := m.proj_ok
+      rec_ctors := m.rec_ctors
+      eq_law := ?_
+      basis_pinned := ?_
+      nat_ops := ?_
+      div_mod := ?_
+      reduce_ops := ?_ }
+  · -- cval_closed
+    intro n ψ
+    by_cases hn : n = n₀
+    · subst hn
+      rw [cvalSet_self]
+      exact hvc
+    · rw [show cvalSet m.cval n₀ v n = m.cval n from hag n hn]
+      exact m.cval_closed n ψ
+  · -- val_params
+    intro n ci hf φ₁ φ₂ hψ
+    rw [← hagE n ci hf]
+    exact m.val_params n ci hf φ₁ φ₂ hψ
+  · -- has_type
+    intro c hc φ
+    obtain ⟨t, ht, hd⟩ := m.has_type c hc φ
+    refine ⟨t, ?_, ?_⟩
+    · show denote (cvalSet m.cval n₀ v) env φ 0 c.toConstantVal.type
+        = some t
+      rw [hdc]
+      exact ht
+    · rw [show cvalSet m.cval n₀ v c.name = m.cval c.name from
+        hag c.name (hne c hc)]
+      exact hd
+  · -- defn_eq
+    intro cv value hint hmem φ
+    show denote (cvalSet m.cval n₀ v) env φ 0 value = some _
+    rw [hdc,
+      show cvalSet m.cval n₀ v cv.name = m.cval cv.name from
+        hag cv.name (hne _ hmem)]
+    exact m.defn_eq cv value hint hmem φ
+  · -- thm_ok
+    intro cv value hmem φ
+    show denote (cvalSet m.cval n₀ v) env φ 0 value = some _
+    rw [hdc,
+      show cvalSet m.cval n₀ v cv.name = m.cval cv.name from
+        hag cv.name (hne _ hmem)]
+    exact m.thm_ok cv value hmem φ
+  · -- empty_pinned
+    intro ψ
+    rw [show cvalSet m.cval n₀ v emptyName = m.cval emptyName from
+      hag emptyName (fun he => by
+        rw [← he] at hnres
+        exact absurd hnres (by decide))]
+    exact m.empty_pinned ψ
+  · -- rec_rules
+    intro n cv mI rP rules hf rl hrl hfire
+    obtain ⟨hple, hbody⟩ := m.rec_rules n cv mI rP rules hf rl hrl hfire
+    refine ⟨hple, ?_⟩
+    intro φ d us hlenU
+    obtain ⟨R, hR, hlaw⟩ := hbody φ d us hlenU
+    refine ⟨R, by rw [hdc]; exact hR, ?_⟩
+    intro cvj cnP cnF hctor
+    intro Δ usj xs ys TV TVj restR restC hlenX hlenY hlenJ hlev hpar
+      hparN hidx hTV hTVj hfitR hfitC
+    rw [← hagE n _ hf, ← hagE _ _ hctor] at *
+    exact hlaw cvj cnP cnF hctor Δ usj xs ys TV TVj restR restC hlenX
+      hlenY hlenJ hlev hpar
+      (fun lvls pins hn' i hi vp hvp =>
+        hparN lvls pins hn' i hi vp (by rw [hdc]; exact hvp))
+      hidx (by rw [← hdc]; exact hTV) (by rw [← hdc]; exact hTVj)
+      hfitR hfitC
+  · -- caps_ok
+    obtain ⟨mo1, mo2⟩ := m.caps_ok
+    refine ⟨?_, ?_⟩
+    · intro T cvT caps hf hcape hres hfam
+      have hlaw := mo1 T cvT caps hf hcape hres hfam
+      obtain ⟨hCres, ⟨cvC, hfC⟩, hfP⟩ := hfam
+      intro φ d Δ us xs TV rest B hlen hTV hfit hBt hfabT
+      have hproj : ∀ j ∈ List.range caps.etaFields,
+          VExpr.mkAppN (cvalSet m.cval n₀ v (projFnName T j)
+            (Level.substFn φ (levelParamsAt env (projFnName T j)) us))
+            (xs ++ [B])
+          = VExpr.mkAppN (m.cval (projFnName T j)
+            (Level.substFn φ (levelParamsAt env (projFnName T j)) us))
+            (xs ++ [B]) := by
+        intro j hj
+        obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ :=
+          hfP j (List.mem_range.mp hj)
+        rw [← hagE _ _ hf2]
+      rw [← hagE T _ hf] at hBt hfabT
+      rw [← hagE _ _ hfC] at hfabT ⊢
+      rw [List.map_congr_left hproj] at hfabT ⊢
+      exact hlaw φ d Δ us xs TV rest B hlen (by rw [← hdc]; exact hTV)
+        hfit hBt hfabT
+    · intro T cvT caps hf hcapu hres
+      have hlaw := mo2 T cvT caps hf hcapu hres
+      intro φ d Δ us xs TV rest B B' hlen hTV hfit hBt hBt'
+      rw [← hagE T _ hf] at hBt hBt'
+      exact hlaw φ d Δ us xs TV rest B B' hlen (by rw [← hdc]; exact hTV)
+        hfit hBt hBt'
+  · -- eq_law
+    intro hf
+    have hlaw := m.eq_law hf
+    intro ψ Δ A a b hA ha hb
+    rw [← hagE eqName _ hf]
+    exact hlaw ψ Δ A a b hA ha hb
+  · -- basis_pinned
+    intro n ci hf hres
+    refine ⟨(m.basis_pinned n ci hf hres).1, ?_⟩
+    intro t ψ hpin
+    rw [← hagE n ci hf]
+    exact (m.basis_pinned n ci hf hres).2 t ψ hpin
+  · -- nat_ops
+    intro c hc cv vl hint hf
+    obtain ⟨hg, heqs⟩ := m.nat_ops c hc cv vl hint hf
+    have hnat : m.cval natName = cvalSet m.cval n₀ v natName := by
+      refine hagS natName ?_
+      simp only [natOpGuard, Bool.and_eq_true] at hg
+      have h0 := hg.1.1
+      simp only [natLitSupported, Bool.and_eq_true] at h0
+      have h1 := h0.1.1
+      revert h1
+      cases env.find? natName <;> simp [natIndOk]
+    refine ⟨hg, ?_⟩
+    intro eq heq φ
+    obtain ⟨L, R, hL, hR, hD⟩ := heqs eq heq φ
+    refine ⟨L, R, by rw [hdc]; exact hL, by rw [hdc]; exact hR, ?_⟩
+    rw [← hnat]
+    exact hD
+  · -- div_mod
+    intro c hc cv vl hint hf
+    obtain ⟨hg, heqs⟩ := m.div_mod c hc cv vl hint hf
+    have hagS' : ∀ nn, (env.find? nn).isSome = true →
+        m.cval nn = cvalSet m.cval n₀ v nn := hagS
+    obtain ⟨hdep, hz, hs, hbool⟩ := divModNames_agree hagS' hg
+    obtain ⟨hT, hF⟩ := hbool (by simpa using hc)
+    have hnat : m.cval natName = cvalSet m.cval n₀ v natName := by
+      simp only [natOpGuard, Bool.and_eq_true] at hg
+      have h0 := hg.1.1
+      simp only [natLitSupported, Bool.and_eq_true] at h0
+      refine hagS natName ?_
+      have h1 := h0.1.1
+      revert h1
+      cases env.find? natName <;> simp [natIndOk]
+    refine ⟨hg, ?_⟩
+    intro φ Δ x y hx hy
+    rw [← hnat] at hx hy
+    have hcl := heqs φ Δ x y hx hy
+    simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+      or_false] at hc
+    rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    · simp only [DivModClausesTT, hz, hs, hT, hF,
+        hdep natSubName (by decide), hdep natBleName (by decide),
+        hdep natDivName (by decide)] at hcl ⊢
+      exact hcl
+    · simp only [DivModClausesTT, hz, hs, hT, hF,
+        hdep natSubName (by decide), hdep natBleName (by decide),
+        hdep natModName (by decide)] at hcl ⊢
+      exact hcl
+    · simp only [DivModClausesTT, hz, hs, hT, hF,
+        hdep natBleName (by decide), hdep natModName (by decide),
+        hdep natGcdName (by decide)] at hcl ⊢
+      exact hcl
+    · simp only [DivModClausesTT, hz, hs, hT, hF,
+        hdep natAddName (by decide), hdep natMulName (by decide),
+        hdep natBleName (by decide), hdep natDivName (by decide),
+        hdep natModName (by decide), hdep natLandName (by decide)]
+        at hcl ⊢
+      exact hcl
+    · simp only [DivModClausesTT, hz, hs, hT, hF,
+        hdep natAddName (by decide), hdep natSubName (by decide),
+        hdep natMulName (by decide), hdep natBleName (by decide),
+        hdep natDivName (by decide), hdep natModName (by decide),
+        hdep natLorName (by decide)] at hcl ⊢
+      exact hcl
+    · simp only [DivModClausesTT, hz, hs, hT, hF,
+        hdep natAddName (by decide), hdep natMulName (by decide),
+        hdep natBleName (by decide), hdep natDivName (by decide),
+        hdep natModName (by decide), hdep natXorName (by decide)]
+        at hcl ⊢
+      exact hcl
+    · simp only [DivModClausesTT, hz, hs, hT, hF,
+        hdep natSubName (by decide), hdep natMulName (by decide),
+        hdep natBleName (by decide), hdep natShiftLeftName (by decide)]
+        at hcl ⊢
+      exact hcl
+    · simp only [DivModClausesTT, hz, hs, hT, hF,
+        hdep natSubName (by decide), hdep natBleName (by decide),
+        hdep natDivName (by decide), hdep natShiftRightName (by decide)]
+        at hcl ⊢
+      exact hcl
+    · simp only [DivModClausesTT, hz, hs, hT, hF,
+        hdep natBleName (by decide), hdep natDivName (by decide),
+        hdep natLog2Name (by decide)] at hcl ⊢
+      exact hcl
+  · -- reduce_ops
+    intro c hc cv hf hpin
+    obtain ⟨hsome, hid⟩ := m.reduce_ops c hc cv hf hpin
+    refine ⟨hsome, ?_⟩
+    intro φ Δ X hX
+    rw [← hagS _ hsome] at hX
+    rw [← hagE c _ hf]
+    exact hid φ Δ X hX
+
+/-- The revalued model's valuation, by construction. -/
+theorem EnvTT.revalue_cval {env : Env} (m : EnvTT env) (n₀ : Name)
+    (v : VExpr) (hfresh : env.find? n₀ = none)
+    (hnres : reservedBasisNames.contains n₀ = false)
+    (hvc : VExpr.Closed v) :
+    (m.revalue n₀ v hfresh hnres hvc).cval = cvalSet m.cval n₀ v := rfl
+
 end Setlec.TTVerify

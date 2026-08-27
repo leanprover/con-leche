@@ -161,6 +161,18 @@ theorem cvalAlias_self {cval : TConstVal} {n mn : Name} :
     cvalAlias cval n mn n = cval mn := by
   funext ψ; simp [cvalAlias]
 
+/-- An alias of a closed valuation is closed. -/
+theorem cvalAlias_closed {cval : TConstVal} {n mn : Name}
+    (hcl : ∀ c ψ, VExpr.Closed (cval c ψ)) :
+    ∀ c ψ, VExpr.Closed (cvalAlias cval n mn c ψ) := by
+  intro c ψ
+  by_cases hc : c = n
+  · subst hc
+    rw [cvalAlias_self]
+    exact hcl mn ψ
+  · rw [cvalAlias_ne hc]
+    exact hcl c ψ
+
 /-- `ValParams` of an extended valuation whose block members are valued
 by their `_model` companions.  Transpose of
 `ConstValParams.extend_head`. -/
@@ -404,15 +416,16 @@ from the pins and the block identification, through the landed folds
 section Laws
 
 variable {env : Env} (m : EnvTT env)
-  {ci : ConstantInfo} {blockNames : List Name}
+  {ci : ConstantInfo} {blockNames : List Name} {cval₁ : TConstVal}
   (hfresh : env.find? ci.name = none)
   (hcinres : reservedBasisNames.contains ci.name = false)
   (hkind : (∃ cv caps, ci = .indInfo cv caps) ∨
     (∃ cv nP nF, ci = .ctorInfo cv nP nF) ∨
     (∃ cv mI rP rules, ci = .recInfo cv mI rP rules))
-  (hciblock : blockNames.contains ci.name = true)
-  (hI₁ : BlockInstalledTT blockNames (⟨ci :: env.consts⟩ : Env)
-    (cvalAlias m.cval ci.name (ci.name.str "_model")))
+  (hagree : ∀ n, n ≠ ci.name → cval₁ n = m.cval n)
+  (hcl : ∀ n ψ, VExpr.Closed (cval₁ n ψ))
+  (hvp : ValParams (⟨ci :: env.consts⟩ : Env) cval₁)
+  (hI₁ : BlockInstalledTT blockNames (⟨ci :: env.consts⟩ : Env) cval₁)
 
 /-- The head is the modeled member, so a stored thm/defn lookup at the
 extended environment lands below it. -/
@@ -436,35 +449,23 @@ private theorem member_below
     · exact absurd rfl (hnR _ _ _ _)
   · exact hf
 
-/-- Every shared hypothesis of the two fold applications, packaged:
-the extended valuation is closed, reads only stored parameters, and
-carries the `Eq` law. -/
-private theorem member_cval_closed :
-    ∀ n ψ, VExpr.Closed (cvalAlias m.cval ci.name (ci.name.str "_model") n ψ) := by
-  intro n ψ
-  by_cases hn : n = ci.name
-  · subst hn
-    rw [cvalAlias_self]
-    exact m.cval_closed _ ψ
-  · rw [cvalAlias_ne hn]
-    exact m.cval_closed n ψ
-
-include hcinres in
+include hcinres hagree in
 private theorem member_eq_law :
-    EqLawTT (⟨ci :: env.consts⟩ : Env)
-      (cvalAlias m.cval ci.name (ci.name.str "_model")) := by
+    EqLawTT (⟨ci :: env.consts⟩ : Env) cval₁ := by
   refine EqLawTT.cons m.eq_law
-    (fun n hn => (cvalAlias_ne hn).symm) ?_
+    (fun n hn => (hagree n hn).symm) ?_
   intro hE
   exfalso
   rw [hE] at hcinres
   exact absurd hcinres (by decide)
 
 set_option maxHeartbeats 3200000 in
-include m hfresh hcinres hkind hciblock hI₁ in
+include m hfresh hcinres hkind hagree hcl hvp hI₁ in
 /-- The unit-like law of a stored unit-capable modeled former, at the
 extension by one fresh block member.  Transpose of
-`modeled_caps_unit`, through `UnitFoldTT`. -/
+`modeled_caps_unit`, through `UnitFoldTT`; the valuation is abstract,
+because the member phase aliases `n._model` while the projection
+phase aliases `T._model.proj_i`. -/
 theorem modeledCapsUnitTT
     {T : Name} {cvTa : ConstantVal} {capsT : IndCaps}
     (hcapu : capsT.unitlike = true)
@@ -477,20 +478,15 @@ theorem modeledCapsUnitTT
         cvmT.type = true)
     (htres₁ : cvTa.type.constsResolve (⟨ci :: env.consts⟩ : Env) = true)
     (hvT : ∀ ψ : Name → Nat,
-      cvalAlias m.cval ci.name (ci.name.str "_model") T ψ =
-      cvalAlias m.cval ci.name (ci.name.str "_model") (T.str "_model") ψ) :
-    UnitLawTT (⟨ci :: env.consts⟩ : Env)
-      (cvalAlias m.cval ci.name (ci.name.str "_model")) T cvTa capsT := by
+      cval₁ T ψ = cval₁ (T.str "_model") ψ) :
+    UnitLawTT (⟨ci :: env.consts⟩ : Env) cval₁ T cvTa capsT := by
   obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
     tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE, heqfE,
     hS_stripE, hTm_stripE, hsdomsE, hxdomE, hydomE, hsbodyE,
     htySlotE, hsortE⟩ := hpins.2 hcapu
-  have hag : ∀ n, n ≠ ci.name →
-      m.cval n = cvalAlias m.cval ci.name (ci.name.str "_model") n :=
-    fun n hn => (cvalAlias_ne hn).symm
-  have hi : Installs env m.cval
-      (cvalAlias m.cval ci.name (ci.name.str "_model")) ci :=
-    Installs.of_fresh hfresh hag
+  have hag : ∀ n, n ≠ ci.name → m.cval n = cval₁ n :=
+    fun n hn => (hagree n hn).symm
+  have hi : Installs env m.cval cval₁ ci := Installs.of_fresh hfresh hag
   -- the artifact theorem and the model former, below the head
   have hthmE₀ : env.find? ((T.str "_model").str "unitlike") =
       some (.thmInfo tcv tval) :=
@@ -515,44 +511,44 @@ theorem modeledCapsUnitTT
     exact hren cvmT mvalT hmT hTmE
   -- the two typings, transported up
   have hnameThm : tcv.name = (T.str "_model").str "unitlike" := by
-    simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using List.find?_some hthmE₀
+    simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using
+      List.find?_some hthmE₀
   have hthmty : ∀ psi : Name → Nat, ∃ t,
-      denoteClosed (cvalAlias m.cval ci.name (ci.name.str "_model"))
-        (⟨ci :: env.consts⟩ : Env) psi tcv.type = some t ∧
-      HasType [] (cvalAlias m.cval ci.name (ci.name.str "_model")
-        tcv.name psi) t := by
+      denoteClosed cval₁ (⟨ci :: env.consts⟩ : Env) psi tcv.type
+        = some t ∧
+      HasType [] (cval₁ tcv.name psi) t := by
     intro psi
     obtain ⟨t, ht, hd⟩ := m.has_type _ (find?_mem hthmE₀) psi
     refine ⟨t, hi.denoteUp ht, ?_⟩
-    rw [cvalAlias_ne (show tcv.name ≠ ci.name from by
+    rw [hagree _ (show tcv.name ≠ ci.name from by
       rw [hnameThm]
       exact Ne.symm (ne_of_isSome_fresh hfresh (by rw [hthmE₀]; rfl)))]
     exact hd
   have hTmty : ∀ psi : Name → Nat, ∃ t,
-      denoteClosed (cvalAlias m.cval ci.name (ci.name.str "_model"))
-        (⟨ci :: env.consts⟩ : Env) psi cvmT.type = some t ∧
-      HasType [] (cvalAlias m.cval ci.name (ci.name.str "_model")
-        (T.str "_model") psi) t := by
+      denoteClosed cval₁ (⟨ci :: env.consts⟩ : Env) psi cvmT.type
+        = some t ∧
+      HasType [] (cval₁ (T.str "_model") psi) t := by
     intro psi
     obtain ⟨t, ht, hd⟩ := m.has_type _ (find?_mem hTmE₀) psi
     have hnmT : cvmT.name = T.str "_model" := by
-      simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using List.find?_some hTmE₀
+      simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using
+        List.find?_some hTmE₀
     refine ⟨t, hi.denoteUp ht, ?_⟩
-    rw [cvalAlias_ne (show T.str "_model" ≠ ci.name from
+    rw [hagree _ (show T.str "_model" ≠ ci.name from
       Ne.symm (ne_of_isSome_fresh hfresh (by rw [hTmE₀]; rfl)))]
     rw [← hnmT]
     exact hd
-  exact UnitFoldTT (caps := capsT) (member_cval_closed m)
-    (ValParams.extend_head m (fun n hn => cvalAlias_ne hn) hI₁ hciblock)
-    (member_eq_law m hcinres) hroS hTmE hTmlpsE heqfE hS_stripE
+  exact UnitFoldTT (caps := capsT) hcl hvp
+    (member_eq_law m hcinres hagree) hroS hTmE hTmlpsE heqfE hS_stripE
     hTm_stripE hsdomsE hxdomE hydomE hsbodyE htySlotE hsortE hSw hSb
     hTmw hTmb hrenS hthmty hTmty hvT
 
 set_option maxHeartbeats 3200000 in
-include m hfresh hcinres hkind hciblock hI₁ in
+include m hfresh hcinres hkind hagree hcl hvp hI₁ in
 /-- The structural-eta law of a stored eta-capable modeled former, at
 the extension by one fresh block member.  Transpose of
-`modeled_caps_eta`, through `EtaFoldTT`. -/
+`modeled_caps_eta`, through `EtaFoldTT`; the valuation is abstract for
+the same reason as `modeledCapsUnitTT`'s. -/
 theorem modeledCapsEtaTT
     {T : Name} {cvTa : ConstantVal} {capsT : IndCaps}
     (hcape : capsT.eta = true)
@@ -565,34 +561,25 @@ theorem modeledCapsEtaTT
         cvmT.type = true)
     (htres₁ : cvTa.type.constsResolve (⟨ci :: env.consts⟩ : Env) = true)
     (hvT : ∀ ψ : Name → Nat,
-      cvalAlias m.cval ci.name (ci.name.str "_model") T ψ =
-      cvalAlias m.cval ci.name (ci.name.str "_model") (T.str "_model") ψ)
+      cval₁ T ψ = cval₁ (T.str "_model") ψ)
     (hvC : ∀ ψ : Name → Nat,
-      cvalAlias m.cval ci.name (ci.name.str "_model") capsT.etaCtor ψ =
-      cvalAlias m.cval ci.name (ci.name.str "_model")
-        (capsT.etaCtor.str "_model") ψ)
+      cval₁ capsT.etaCtor ψ = cval₁ (capsT.etaCtor.str "_model") ψ)
     (hvP : ∀ j, j < capsT.etaFields → ∀ ψ : Name → Nat,
-      cvalAlias m.cval ci.name (ci.name.str "_model") (projFnName T j) ψ =
-      cvalAlias m.cval ci.name (ci.name.str "_model")
-        (projModelName T j) ψ)
+      cval₁ (projFnName T j) ψ = cval₁ (projModelName T j) ψ)
     (hlpsC : levelParamsAt (⟨ci :: env.consts⟩ : Env) capsT.etaCtor =
       cvTa.levelParams)
     (hlpsP : ∀ j, j < capsT.etaFields →
       levelParamsAt (⟨ci :: env.consts⟩ : Env) (projFnName T j) =
       cvTa.levelParams) :
-    EtaLawTT (⟨ci :: env.consts⟩ : Env)
-      (cvalAlias m.cval ci.name (ci.name.str "_model")) T cvTa capsT := by
+    EtaLawTT (⟨ci :: env.consts⟩ : Env) cval₁ T cvTa capsT := by
   obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
     tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE,
     ⟨cvmC, mvalC, hmC, hCmE, hCmlpsE⟩, hPjE, heqfE, hS_stripE,
     hTm_stripE, hsdomsE, hxdomE, hsbodyE, htySlotE, hsortE⟩ :=
     hpins.1 hcape
-  have hag : ∀ n, n ≠ ci.name →
-      m.cval n = cvalAlias m.cval ci.name (ci.name.str "_model") n :=
-    fun n hn => (cvalAlias_ne hn).symm
-  have hi : Installs env m.cval
-      (cvalAlias m.cval ci.name (ci.name.str "_model")) ci :=
-    Installs.of_fresh hfresh hag
+  have hag : ∀ n, n ≠ ci.name → m.cval n = cval₁ n :=
+    fun n hn => (hagree n hn).symm
+  have hi : Installs env m.cval cval₁ ci := Installs.of_fresh hfresh hag
   have hthmE₀ : env.find? ((T.str "_model").str "eta") =
       some (.thmInfo tcv tval) :=
     member_below hkind hthmE (fun _ _ h => nomatch h)
@@ -613,36 +600,35 @@ theorem modeledCapsEtaTT
       (fun n hn => by simp only [hn, if_true]) _ htres₁]
     exact hren cvmT mvalT hmT hTmE
   have hnameThm : tcv.name = (T.str "_model").str "eta" := by
-    simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using List.find?_some hthmE₀
+    simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using
+      List.find?_some hthmE₀
   have hthmty : ∀ psi : Name → Nat, ∃ t,
-      denoteClosed (cvalAlias m.cval ci.name (ci.name.str "_model"))
-        (⟨ci :: env.consts⟩ : Env) psi tcv.type = some t ∧
-      HasType [] (cvalAlias m.cval ci.name (ci.name.str "_model")
-        tcv.name psi) t := by
+      denoteClosed cval₁ (⟨ci :: env.consts⟩ : Env) psi tcv.type
+        = some t ∧
+      HasType [] (cval₁ tcv.name psi) t := by
     intro psi
     obtain ⟨t, ht, hd⟩ := m.has_type _ (find?_mem hthmE₀) psi
     refine ⟨t, hi.denoteUp ht, ?_⟩
-    rw [cvalAlias_ne (show tcv.name ≠ ci.name from by
+    rw [hagree _ (show tcv.name ≠ ci.name from by
       rw [hnameThm]
       exact Ne.symm (ne_of_isSome_fresh hfresh (by rw [hthmE₀]; rfl)))]
     exact hd
   have hTmty : ∀ psi : Name → Nat, ∃ t,
-      denoteClosed (cvalAlias m.cval ci.name (ci.name.str "_model"))
-        (⟨ci :: env.consts⟩ : Env) psi cvmT.type = some t ∧
-      HasType [] (cvalAlias m.cval ci.name (ci.name.str "_model")
-        (T.str "_model") psi) t := by
+      denoteClosed cval₁ (⟨ci :: env.consts⟩ : Env) psi cvmT.type
+        = some t ∧
+      HasType [] (cval₁ (T.str "_model") psi) t := by
     intro psi
     obtain ⟨t, ht, hd⟩ := m.has_type _ (find?_mem hTmE₀) psi
     have hnmT : cvmT.name = T.str "_model" := by
-      simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using List.find?_some hTmE₀
+      simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using
+        List.find?_some hTmE₀
     refine ⟨t, hi.denoteUp ht, ?_⟩
-    rw [cvalAlias_ne (show T.str "_model" ≠ ci.name from
+    rw [hagree _ (show T.str "_model" ≠ ci.name from
       Ne.symm (ne_of_isSome_fresh hfresh (by rw [hTmE₀]; rfl)))]
     rw [← hnmT]
     exact hd
-  exact EtaFoldTT (caps := capsT) (member_cval_closed m)
-    (ValParams.extend_head m (fun n hn => cvalAlias_ne hn) hI₁ hciblock)
-    (member_eq_law m hcinres) hroS hTmE hTmlpsE hCmE hCmlpsE
+  exact EtaFoldTT (caps := capsT) hcl hvp
+    (member_eq_law m hcinres hagree) hroS hTmE hTmlpsE hCmE hCmlpsE
     hPjE heqfE hS_stripE hTm_stripE hsdomsE hxdomE hsbodyE htySlotE
     hsortE hSw hSb hTmw hTmb hrenS hthmty hTmty hvT hvC hvP hlpsC hlpsP
 
@@ -744,7 +730,10 @@ theorem blockMemberHeadEtaTT {env : Env} (m : EnvTT env)
         rw [← hlpsC2]
         exact hCmlpsE
       refine modeledCapsEtaTT (ci := ciH) m hfresh hcinres hkind
-        hciblock hI₁ hcape hpins₁ ?_
+        (fun n hn => cvalAlias_ne hn) (cvalAlias_closed m.cval_closed)
+        (ValParams.extend_head m (fun n hn => cvalAlias_ne hn) hI₁
+          hciblock)
+        hI₁ hcape hpins₁ ?_
         (Expr.constsResolve_mono htresT) hvT' hvC'
         (fun j hj ψ => by rw [hEF] at hj; exact absurd hj (by omega))
         hlpsC
@@ -904,7 +893,12 @@ theorem checkIndMemberTT {blockNames : List Name} {caps : IndCaps}
       have hpinsA : EtaPins env' cvA.name cvA.levelParams caps :=
         hpinsS cvA caps rfl
       refine modeledCapsUnitTT (ci := .indInfo cvA caps) m hfreshS
-        hnresS (Or.inl ⟨cvA, caps, rfl⟩) hbnS hI₁ hcapu
+        hnresS (Or.inl ⟨cvA, caps, rfl⟩)
+        (fun n hn => cvalAlias_ne (show n ≠ (ConstantInfo.indInfo cvA
+          caps).name from hn))
+        (cvalAlias_closed m.cval_closed)
+        (ValParams.extend_head m (fun n hn => cvalAlias_ne hn) hI₁ hbnS)
+        hI₁ hcapu
         (EtaPins.step hpinsA hfreshS) ?_
         (Expr.constsResolve_mono (show cvA.type.constsResolve env' = true
           from htres)) ?_
