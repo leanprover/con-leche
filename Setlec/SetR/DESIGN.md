@@ -478,3 +478,38 @@ in the campaign design's §2/§4 tables:
 * No planned consumer reads the `AnnotOkV` of a value's *inferred*
   type (`tv`/`tT` slots) anywhere in §2's supplier column; the
   conjunct is consumerless as dropped.  ✓
+
+### T4 amendment, second increment — R6 carries the constructor spine's telescope certificate
+
+Batch (e)'s audit found the one place where the relational abstraction
+loses a fact the checker's run contains: R6's `Infer Δ P te` premise.
+The model's proj-reduction soundness (`Model/Core/Whnf.lean:639-741`)
+recovers the constructor components' canonical memberships by
+*inverting the infer run* (`inferTypeCore_app_inv'` four deep — the
+run is syntax-directed, so the inversion is deterministic).  The
+relational counterpart — `cases` on the `Infer` premise — is **not**
+deterministic: `Infer.const`'s subject `cval n ψ` overlaps app-shaped
+terms, and in that alternative the component certificates are
+unreachable (and the value-level packages provably cannot substitute —
+the partial-collapse scenario of the #100 note).  So R6 now carries
+`denoteClosed` of the constructor's instantiated stored type (+ D1
+closedness) and a `Tele μ Δ TC vs restC` premise — the infer run's own
+per-argument re-checks, exposed, by the same premise-exactness
+argument as repair A.  Bridge cost: the inversion walk the model
+already performs, packaged as `Tele.cons` chains (the pinned
+constructor type is concrete, so the domain alignments are
+computations).  With it, R6's soundness is `TeleFitV_psigmaMk` (the
+four component memberships) + `psigmaMkV_app`'s fold, and the
+`Nat.max = 0` collapse branch closes from the field certificate's
+sort chain — no inversion, no AnnotOkV.
+
+### T4 batch (e) record — the proj rules land
+
+`Sound/Proj.lean`: `projEntry_pins` (the `ProjOkT` + stored-name
+identification), the three pinned-type denote computations
+(`denote_pairFstTy_eq`/`denote_pairSndTy_eq`/`denote_psigmaMkTy_eq`),
+the two concrete `piResidualV` walks, `TeleFitV_psigmaMk`, and the two
+cases: I9's sigma package and residual membership come from
+`mem_psigmaV_app` (rigidity — the #129-replacement, "membership
+self-certifies the domains") + `sfst_mem`/`ssnd_mem`; R6 as above.
+`EnvSHyp` gained `proj_ok : ProjOkT env`.

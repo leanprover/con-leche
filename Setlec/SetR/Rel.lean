@@ -148,8 +148,19 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
   `projCert` pack (`Core.lean:1363-1378`) — and **no `projTeleCert`**
   (#126 is tt-only).  `sn` is the node's struct-name slot, which the
   denotation does not carry; it is quantified, and soundness pins what
-  a native entry can be through `ProjOk`. -/
-  | projRed {Δ : List VExpr} {p P fv ta tta te tte : VExpr}
+  a native entry can be through `ProjOk`.
+
+  **The constructor spine's telescope certificate is a premise**
+  (the 2026-08-27 T4 amendment, second increment — record in
+  `Setlec/SetR/DESIGN.md`): the checker's `projCert` infers the
+  constructor form `P` as a whole, and that run's own per-argument
+  re-checks are what the model's soundness consumes
+  (`Model/Core/Whnf.lean:639-741`, via `inferTypeCore_app_inv'`).
+  The relational `Infer P te` premise alone under-determines them
+  (`Infer.const` overlaps app-shaped subjects), so the rule exposes
+  them as a `Tele` walk over the constructor's denoted stored type —
+  the same premise-exactness argument as repair A. -/
+  | projRed {Δ : List VExpr} {p P fv ta tta te tte TC restC : VExpr}
       {i : Nat} {sn : Name} {entry : ProjEntry} {ci : ConstantInfo}
       {us : List Level} {vs : List VExpr} :
       -- side conditions (V-free), read off the clause's guards
@@ -165,8 +176,16 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
         (cval entry.ctor
           (Level.substFn φ ci.toConstantVal.levelParams us)) vs →
       vs[entry.numParams + i]? = some fv →
+      -- the constructor's stored type, denoted (D1 closedness)
+      denoteClosed cval env φ
+        (ci.toConstantVal.type.instantiateLevelParams
+          ci.toConstantVal.levelParams us) = some TC →
+      VExpr.Closed TC →
       -- the subject reduces to constructor form
       Red μ env cval φ Δ p P →
+      -- the constructor spine's telescope certificate (the infer run's
+      -- own argument re-checks, exposed — see the docstring)
+      Tele μ env cval φ Δ TC vs restC →
       -- `projCert`: the projected field's type's sort is the entry's
       -- instantiated field sort …  (`DefEq`, not `Red`: the checker
       -- whnfs its own inferred type; the bridge's infer-claim is up to

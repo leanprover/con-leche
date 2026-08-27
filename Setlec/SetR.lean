@@ -5,6 +5,7 @@ import Setlec.SetR.Sound.Struct
 import Setlec.SetR.Sound.Irrel
 import Setlec.SetR.Sound.Rigidity
 import Setlec.SetR.Sound.Stuck
+import Setlec.SetR.Sound.Proj
 import Setlec.SetR.Weaken
 import Setlec.SetR.CtxOkR
 import Setlec.SetR.Decl

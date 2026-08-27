@@ -176,5 +176,9 @@ structure EnvSHyp (env : Env) (cval : TConstVal) (φ : Name → Nat) :
   /-- The stored families' fired capability laws (§2 `caps_ok`;
   supplier: the `_model.eta`/`_model.unitlike` front doors). -/
   caps_ok : CapsOkV V env cval
+  /-- Every stored native projection-table entry is a pinned pair
+  entry with its block stored (§2 `proj_ok`; the relocated `ProjOkT`,
+  verbatim — syntactic, install-supplied). -/
+  proj_ok : ProjOkT env
 
 end Setlec.SetR
