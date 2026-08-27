@@ -5338,6 +5338,26 @@ the task #71 certificate `MajorStep.lean` already inverts: that gives
 the fabrication at the *constructor's* residual, and the conjunct is
 what identifies that residual with `T p⃗`.
 
+**The spelling is committed in advance, for the implementer to grep.**
+`Setlec/TTVerify/DeclInd.lean` now carries
+
+```lean
+def CtorResidualPin (T : Name) (lps : List Name) (cvC : ConstantVal)
+    (nP nF : Nat) : Prop :=
+  ∃ bs, cvC.type.stripPis (nP + nF) = some (bs, directFam T lps nP nF)
+```
+
+next to `StatementSortPin`, and for the same reason: a conjunct stated
+in the shape the bridge consumes makes the swap `exact`, and one
+stated in any other shape makes it a shim (§0's first tell).  Three
+things are load-bearing in it — `stripPis` at the **full** telescope
+`nP + nF`, the binder list **unconstrained**, and `directFam`'s last
+argument `nF` (the field count, as in `checkDirectCtor`'s call, *not*
+the `0` a recursor's major premise uses).  It is stated over the
+**public** constructor's stored `ConstantVal` because the model side
+cannot serve it — a model's own residual is unpinned, which is what
+the reading above established.
+
 **And note what the measurement bought beyond a yes/no.**  The naive
 form of this check was *wrong* — 99 counterexamples — and the guard
 that fixes it is not something reading the code would have suggested,
