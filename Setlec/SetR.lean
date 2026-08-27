@@ -1,6 +1,7 @@
 import Setlec.SetR.Rel
 import Setlec.SetR.Weaken
 import Setlec.SetR.CtxOkR
+import Setlec.SetR.Decl
 import Setlec.SetR.Examples
 
 /-!
