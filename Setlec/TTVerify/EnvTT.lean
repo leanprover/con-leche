@@ -110,6 +110,15 @@ def IotaIndexPin (Δ : List VExpr) (restC : VExpr) (cnP mI rP : Nat)
     (xs : List VExpr) : Prop :=
   ∃ (H : VExpr) (cargs : List VExpr),
     restC = VExpr.mkAppN H cargs ∧
+    -- The decomposition's arity, pinned — without it the pin's `getD`
+    -- facts are about an unlocatable split and no consumer can align
+    -- them with its own reading of `restC` (§8.2's "found by using":
+    -- the bottom is the first consumer, and it could not be written).
+    -- Disjunctive because the supplier's fire-site guard determines the
+    -- arity only through the index comparison's length: when `mI = rP`
+    -- there are no indices, the facts below are vacuous, and no
+    -- consumer needs the split located.
+    (mI = rP ∨ cargs.length = cnP + (mI - rP)) ∧
     ∀ i, i < mI - rP →
       Deq Δ (cargs.getD (cnP + i) default) (xs.getD (rP + i) default)
 

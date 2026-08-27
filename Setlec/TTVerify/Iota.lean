@@ -204,7 +204,19 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
         (Expr.mkAppN restCE.getAppFn restCE.getAppArgs) = some RVC := by
       rw [Expr.mkAppN_getApp]; exact hdenC
     obtain ⟨vf, vs, -, hsp, hRVC⟩ := denote_mkAppN_inv hden'
-    refine ⟨vf, vs, hRVC, ?_⟩
+    refine ⟨vf, vs, hRVC, ?_, ?_⟩
+    · -- the decomposition's arity, from the index comparison's length
+      have hlenvs : vs.length = restCE.getAppArgs.length := hsp.length
+      have hlenD' : restCE.getAppArgs.length - RecRule.ctorParams rl
+          = mI - rP := by
+        rw [← List.length_drop]
+        exact hlenIdx
+      have hple : rP ≤ mI :=
+        (m.rec_rules n cv mI rP rules hrec rl hrl hfire).1
+      rcases Nat.lt_or_ge restCE.getAppArgs.length (RecRule.ctorParams rl)
+        with hlt | hge
+      · exact Or.inl (by omega)
+      · exact Or.inr (by omega)
     intro i hi
     have hlenDrop : restCE.getAppArgs.length - RecRule.ctorParams rl
         = mI - rP := by simpa using hlenIdx

@@ -655,11 +655,15 @@ theorem VTeleTyped.steps {Δ : List VExpr} :
 instantiated context entries fits the tower, and lands at the
 instantiated body.  This is how a fired spine is fitted into the
 checked statement's telescope, whose domains only the per-position
-facts reach. -/
+facts reach — and each position's obligation receives the *prefix
+fit already built*, which is what lets a step instantiate an open
+install fact along the values before it (the sequential structure the
+padding trick needs). -/
 theorem VTeleTyped.ofPiTele {Δ : List VExpr} :
     ∀ {zs : List VExpr} {T : VExpr} {Γ : List VExpr} {R : VExpr},
       PiTele zs.length T Γ R →
       (∀ n, n < zs.length →
+        (∃ mid, VTeleTyped Δ T (zs.take n) mid) →
         HasType Δ (zs.getD n default)
           (VExpr.instSeq (zs.take n) (n - 1)
             (Γ.getD (zs.length - 1 - n) default))) →
@@ -676,7 +680,7 @@ theorem VTeleTyped.ofPiTele {Δ : List VExpr} :
     | @cons _ A B _ Γ' hp' =>
       have hΓlen : Γ'.length = zs.length := hp'.length
       have hz : HasType Δ z A := by
-        have h0 := hstep 0 (by simp)
+        have h0 := hstep 0 (by simp) ⟨_, VTeleTyped.nil⟩
         simp only [List.take_zero, VExpr.instSeq_nil, List.getD_cons_zero,
           List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at h0
         rwa [show (Γ' ++ [A]).getD zs.length default = A from by
@@ -692,8 +696,10 @@ theorem VTeleTyped.ofPiTele {Δ : List VExpr} :
           simp
         rw [h2]
         exact hrec
-      · intro n hn
+      · intro n hn hpref
+        obtain ⟨mid, hmid⟩ := hpref
         have h1 := hstep (n + 1) (by simpa using hn)
+          ⟨mid, VTeleTyped.cons hz hmid⟩
         rw [show (z :: zs).getD (n + 1) default = zs.getD n default from rfl,
           show (z :: zs).length - 1 - (n + 1) = zs.length - 1 - n from by
             simp only [List.length_cons]; omega,
@@ -1012,3 +1018,434 @@ def IotaSlotSorted (F : Nat) (env₀ : Env) (k : Nat) (αS : Expr)
     (ℓA : Level) : Prop :=
   ∃ tα, inferTypeCore env₀ F k αS = .ok tα ∧
     isDefEqCore env₀ F k tα (Expr.sort ℓA) = .ok true
+
+/-! ## More opener bookkeeping -/
+
+/-- A telescope that strips opens — the checker's opener succeeds
+whenever `stripPis` does, because opening substitutes variables and
+variables preserve the `∀`-structure (`stripPis_instantiate1_isSome`,
+forward direction). -/
+theorem openPisAtFvars_isSome_of_stripPis :
+    ∀ (k : Nat) {e : Expr}, (e.stripPis k).isSome = true →
+      ∀ (d : Nat), (openPisAtFvars k e d).isSome = true := by
+  intro k
+  induction k with
+  | zero => intro e _ d; rfl
+  | succ k ih =>
+    intro e hs d
+    match e, hs with
+    | .forallE nm dom body mb, hs =>
+      have hs' : (body.stripPis k).isSome = true := by
+        simp only [Expr.stripPis, Option.isSome_map] at hs
+        exact hs
+      have h1 : ((body.instantiate1
+          (.fvar d nm dom)).stripPis k).isSome = true :=
+        Expr.stripPis_instantiate1_isSome k 0 hs'
+      have h2 := ih h1 (d + 1)
+      simp only [openPisAtFvars]
+      revert h2
+      cases openPisAtFvars k (body.instantiate1 (.fvar d nm dom))
+          (d + 1) with
+      | none => intro h; exact nomatch h
+      | some p => intro _; rfl
+
+/-- Opening keeps everything at loose-bvar level zero: the body and
+each opener's annotation. -/
+theorem openPisAtFvars_bounded :
+    ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr},
+      openPisAtFvars k e d = some (fvs, body) →
+      e.looseBVarsBounded 0 = true →
+      body.looseBVarsBounded 0 = true ∧
+        ∀ x ∈ fvs, (Expr.fvarTypeD x).looseBVarsBounded 0 = true := by
+  intro k
+  induction k with
+  | zero =>
+    intro e d fvs body h hb
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨hb, fun x hx => nomatch hx⟩
+  | succ k ih =>
+    intro e d fvs body h hb
+    match e, h with
+    | .forallE nm dom bodyE mb, h =>
+      simp only [openPisAtFvars] at h
+      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d nm dom))
+          (d + 1) with
+      | none => rw [hop] at h; exact nomatch h
+      | some p =>
+        rw [hop] at h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        have hb' : dom.looseBVarsBounded 0 = true ∧
+            bodyE.looseBVarsBounded 1 = true := by
+          revert hb
+          simp [Expr.looseBVarsBounded]
+        obtain ⟨hbody, hanns⟩ := ih hop
+          (looseBVarsBounded_instantiate1 bodyE 0 hb'.2)
+        refine ⟨hbody, ?_⟩
+        intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx'
+        · exact hb'.1
+        · exact hanns x hx'
+
+/-- `instPisAt`, truncated at a spine prefix: the first `n` domains and
+the telescope that remains. -/
+theorem instPisAt_take :
+    ∀ (sp : List Expr) (n : Nat) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instPisAt sp ty = some (ds, rs) →
+      ∃ mid, Expr.instPisAt (sp.take n) ty = some (ds.take n, mid) ∧
+        Expr.instPisAt (sp.drop n) mid = some (ds.drop n, rs) := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro n ty ds rs h
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨ty, by simp [Expr.instPisAt], by simp [Expr.instPisAt]⟩
+  | cons a sp ih =>
+    intro n ty ds rs h
+    match ty, h with
+    | .forallE nm dom body mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p =>
+        rw [h1] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        cases n with
+        | zero =>
+          refine ⟨.forallE nm dom body mb, by simp [Expr.instPisAt], ?_⟩
+          simp only [List.drop_zero, Expr.instPisAt, h1]
+          rfl
+        | succ n =>
+          obtain ⟨mid, h2, h3⟩ := ih n h1
+          refine ⟨mid, ?_, by simpa using h3⟩
+          simp only [List.take_succ_cons, Expr.instPisAt, h2]
+          rfl
+
+/-- `instPisAt` keeps everything at loose-bvar level zero. -/
+theorem instPisAt_bounded :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instPisAt sp ty = some (ds, rs) →
+      ty.looseBVarsBounded 0 = true →
+      (∀ a ∈ sp, a.looseBVarsBounded 0 = true) →
+      (∀ x ∈ ds, x.looseBVarsBounded 0 = true) ∧
+        rs.looseBVarsBounded 0 = true := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro ty ds rs h hb _
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨(fun x hx => nomatch hx), hb⟩
+  | cons a sp ih =>
+    intro ty ds rs h hb hsp
+    match ty, h with
+    | .forallE nm dom body mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p =>
+        rw [h1] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        have hb' : dom.looseBVarsBounded 0 = true ∧
+            body.looseBVarsBounded 1 = true := by
+          revert hb
+          simp [Expr.looseBVarsBounded]
+        obtain ⟨hds, hrs⟩ := ih h1
+          (Expr.looseBVarsBounded_instantiate1_gen
+            (hsp a List.mem_cons_self) hb'.2)
+          (fun b hb2 => hsp b (List.mem_cons_of_mem _ hb2))
+        refine ⟨?_, hrs⟩
+        intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx'
+        · exact hb'.1
+        · exact hds x hx'
+
+/-! ## The cross-frame instantiation
+
+The kit's `instPisAt` runs open the constructor's telescope at
+*scattered* statement-frame variables (parameters at `0..cnP-1`, fields
+at `rP..`), while the fire site walks the same telescope's *denoted
+tower* at its own values.  The two meet here: instantiating the run's
+residual (denoted at the frame) along the frame's value spine is
+walking the denoted tower at the values the openers map to.
+
+The whole content is one commutation (`instSeq_inst0`): substitution at
+the innermost binder passes under a value spine, transforming exactly
+as its `bvar` argument does — which is how a scattered opener's `bvar`
+becomes the right spine value. -/
+
+/-- Instantiation at cut `0` commutes with a value spine. -/
+theorem VExpr.instSeq_inst0 :
+    ∀ (as : List VExpr) (t : Nat) (X b : VExpr), as.length ≤ t + 1 →
+      VExpr.instSeq as t (X.inst b 0) =
+        (VExpr.instSeq as (t + 1) X).inst (VExpr.instSeq as t b) 0 := by
+  intro as
+  induction as with
+  | nil => intro t X b _; rfl
+  | cons w as ih =>
+    intro t X b hlen
+    simp only [List.length_cons] at hlen
+    rw [VExpr.instSeq_cons (e := X.inst b 0),
+      VExpr.inst_inst_comm X (Nat.zero_le t) w b, Nat.sub_zero]
+    cases as with
+    | nil => simp only [VExpr.instSeq_nil, VExpr.instSeq_cons]
+    | cons y ys =>
+      have hlen' : (y :: ys).length ≤ t - 1 + 1 := by
+        simp only [List.length_cons] at hlen ⊢
+        omega
+      have ht : 1 ≤ t := by
+        simp only [List.length_cons] at hlen
+        omega
+      have h2 := ih (t - 1) (X.inst w (t + 1)) (b.inst w t) hlen'
+      rw [show t - 1 + 1 = t from by omega] at h2
+      rw [h2, VExpr.instSeq_cons (e := X), VExpr.instSeq_cons (e := b),
+        show t + 1 - 1 = t from by omega]
+
+/-- **The cross-frame instantiation.**  An `instPisAt` run at scattered
+frame variables, denoted at the frame and instantiated along the
+frame's full value spine, is the walk of the (spine-instantiated)
+denoted tower at the values the openers map to.  The openers may sit at
+*any* indices below the frame — which is exactly how the kit's
+constructor runs mix parameter and field variables — and the subject
+may itself be open over the frame. -/
+theorem instPisAt_denote_cross {cval : TConstVal} {env : Env}
+    {ψ : Name → Nat} (hcl : ∀ n ψ', VExpr.Closed (cval n ψ')) :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instPisAt sp ty = some (ds, rs) →
+      ∀ {D : Nat} {vals : List VExpr}, vals.length = D →
+      (∀ (j : Nat) (x : Expr), sp[j]? = some x →
+        (∃ i nm t, x = .fvar i nm t) ∧ Expr.WScoped D x ∧
+          x.looseBVarsBounded 0 = true) →
+      Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
+      ∀ {T : VExpr}, denote cval env ψ D ty = some T →
+      ∀ {vRs : VExpr}, denote cval env ψ D rs = some vRs →
+      ∀ {ws : List VExpr}, ws.length = sp.length →
+      (∀ (j i : Nat) (nm : Name) (t : Expr), sp[j]? = some (.fvar i nm t) →
+        ws[j]? = some (VExpr.instSeq vals (D - 1) (.bvar (D - 1 - i)))) →
+      ∀ {Γ : List VExpr} {R : VExpr},
+        PiTele sp.length (VExpr.instSeq vals (D - 1) T) Γ R →
+        VExpr.instSeq vals (D - 1) vRs =
+          VExpr.instSeq ws (ws.length - 1) R := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro ty ds rs h D vals hvlen hsp hfb hb T hT vRs hRs ws hwlen hws Γ R hp
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    obtain rfl : T = vRs := by rw [hT] at hRs; exact Option.some.inj hRs
+    obtain rfl : ws = [] := List.eq_nil_of_length_eq_zero hwlen
+    cases hp
+    rfl
+  | cons a sp ih =>
+    intro ty ds rs h D vals hvlen hsp hfb hb T hT vRs hRs ws hwlen hws Γ R hp
+    obtain ⟨⟨i, nm, t, rfl⟩, hwsa, hba⟩ := hsp 0 a rfl
+    match ty, h with
+    | .forallE nmT dom body mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt sp
+          (body.instantiate1 (.fvar i nm t)) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p => ?_
+      rw [h1] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      -- the frame facts of the head
+      have hfb' : Expr.fvarsBelow D dom ∧ Expr.fvarsBelow D body := hfb
+      have hb' : dom.looseBVarsBounded 0 = true ∧
+          body.looseBVarsBounded 1 = true := by
+        revert hb
+        simp [Expr.looseBVarsBounded]
+      -- the head, denoted
+      rw [denote_forallE] at hT
+      cases hA : denote cval env ψ D dom with
+      | none => rw [hA] at hT; exact nomatch hT
+      | some A => ?_
+      rw [hA] at hT
+      cases hB : denote cval env ψ (D + 1)
+          (body.instantiate1 (.fvar D nmT dom)) with
+      | none => rw [hB] at hT; exact nomatch hT
+      | some B => ?_
+      rw [hB] at hT
+      obtain rfl : T = .pi A B := (Option.some.inj hT).symm
+      -- the instantiated body, denoted through the top opening
+      have hfvden : denote cval env ψ D (.fvar i nm t) =
+          some (VExpr.bvar (D - 1 - i)) := by rw [denote_fvar]
+      have hbeta := denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+        hfvden 0
+      -- the spine and its values
+      match ws, hwlen with
+      | w :: ws', hwlen => ?_
+      have hw : w = VExpr.instSeq vals (D - 1) (.bvar (D - 1 - i)) := by
+        have := hws 0 i nm t rfl
+        simpa using this
+      -- the tower, peeled
+      rw [show VExpr.instSeq vals (D - 1) (VExpr.pi A B) =
+          .pi (VExpr.instSeq vals (D - 1) A)
+            (VExpr.instSeq vals D B) from by
+        rw [VExpr.instSeq_pi _ _ _ _ (by omega)]
+        congr 1
+        rcases Nat.eq_zero_or_pos D with h0 | h0
+        · obtain rfl : vals = [] := by
+            rw [h0] at hvlen
+            exact List.eq_nil_of_length_eq_zero hvlen
+          rfl
+        · rw [show D - 1 + 1 = D from by omega]] at hp
+      cases hp with
+      | @cons _ _ _ _ Γ' hp' => ?_
+      -- the recursive frame
+      have hfbI : Expr.fvarsBelow D (body.instantiate1 (.fvar i nm t)) :=
+        Expr.fvarsBelow_instantiate1_gen
+          (by
+            have : i < D := by
+              simp only [Expr.WScoped] at hwsa
+              exact hwsa.1
+            simpa [Expr.fvarsBelow] using this) 0 hfb'.2
+      have hbI : (body.instantiate1
+          (.fvar i nm t)).looseBVarsBounded 0 = true :=
+        Expr.looseBVarsBounded_instantiate1_gen hba hb'.2
+      have hTI : denote cval env ψ D (body.instantiate1 (.fvar i nm t))
+          = some (B.inst (.bvar (D - 1 - i)) 0) := by
+        rw [hbeta, hB]
+        rfl
+      -- the instantiated tower for the recursion
+      have hp2 := hp'.inst w 0
+      rw [Nat.zero_add] at hp2
+      have hrec := ih h1 hvlen
+        (fun j x hx => hsp (j + 1) x (by simpa using hx))
+        hfbI hbI hTI hRs (by simpa using hwlen)
+        (fun j i' nm' t' hj => by
+          have := hws (j + 1) i' nm' t' (by simpa using hj)
+          simpa using this)
+        (Γ := ctxInstAt w 0 Γ') (R := R.inst w sp.length) ?_
+      · have hlen' : ws'.length = sp.length := by simpa using hwlen
+        rw [hrec, show (w :: ws').length - 1 = ws'.length from by simp,
+          VExpr.instSeq_cons, hlen']
+      · have hiD : i < D := by
+          simp only [Expr.WScoped] at hwsa
+          exact hwsa.1
+        have hID : VExpr.instSeq vals (D - 1)
+            (B.inst (.bvar (D - 1 - i)) 0) =
+            (VExpr.instSeq vals D B).inst w 0 := by
+          rw [VExpr.instSeq_inst0 vals (D - 1) B (.bvar (D - 1 - i))
+            (by omega), show D - 1 + 1 = D from by omega, ← hw]
+        rw [hID]
+        exact hp2
+
+/-! ## Reading equal spines apart
+
+`Deq` has no application injectivity — semantically it must not — so a
+componentwise fact can only come from a *syntactic* spine equality at a
+*known* arity.  The arity is what `IotaIndexPin`'s length disjunct
+pins, and what the opener-invariance lemmas below compute for the kit's
+runs: opening at variables never changes an application's arity, so
+every reading of the constructor's residual has the raw telescope's. -/
+
+/-- Equal applications of equal arity have equal heads and spines. -/
+theorem VExpr.mkAppN_inj :
+    ∀ {as bs : List VExpr} {f g : VExpr},
+      VExpr.mkAppN f as = VExpr.mkAppN g bs → as.length = bs.length →
+      f = g ∧ as = bs := by
+  intro as
+  induction as with
+  | nil =>
+    intro bs f g h hlen
+    obtain rfl : bs = [] :=
+      List.eq_nil_of_length_eq_zero hlen.symm
+    exact ⟨h, rfl⟩
+  | cons a as ih =>
+    intro bs f g h hlen
+    cases bs with
+    | nil => exact nomatch hlen
+    | cons b bs =>
+      rw [VExpr.mkAppN_cons, VExpr.mkAppN_cons] at h
+      obtain ⟨h1, rfl⟩ := ih h (by simpa using hlen)
+      injection h1 with h2 h3
+      exact ⟨h2, by rw [h3]⟩
+
+/-- Substituting a *variable* never changes an application's arity: the
+inserted value is atomic, so no application node is created or
+absorbed. -/
+theorem Expr.getAppArgs_length_instantiate1_fvar {i : Nat} {nm : Name}
+    {t : Expr} :
+    ∀ (e : Expr) (k : Nat),
+      ((e.instantiate1 (.fvar i nm t) k).getAppArgs).length =
+        e.getAppArgs.length := by
+  intro e
+  induction e with
+  | app g a ihg iha =>
+    intro k
+    simp only [Expr.instantiate1, Expr.getAppArgs, List.length_append]
+    rw [ihg k]
+    rfl
+  | bvar j =>
+    intro k
+    simp only [Expr.instantiate1]
+    split
+    · rfl
+    · split <;> rfl
+  | _ => intro k; first | rfl | (simp only [Expr.instantiate1]; rfl)
+
+/-- Renaming constants never changes an application's arity. -/
+theorem Expr.getAppArgs_length_renameConsts (f : Name → Name) :
+    ∀ (e : Expr),
+      ((e.renameConsts f).getAppArgs).length = e.getAppArgs.length := by
+  intro e
+  induction e with
+  | app g a ihg iha =>
+    simp only [Expr.renameConsts, Expr.getAppArgs, List.length_append]
+    rw [ihg]
+    rfl
+  | _ => first | rfl | (simp only [Expr.renameConsts]; rfl)
+
+/-- An `instPisAt` run at variables lands at the raw telescope
+residual's arity. -/
+theorem instPisAt_fvar_residual_arity :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instPisAt sp ty = some (ds, rs) →
+      (∀ x ∈ sp, ∃ i nm t, x = Expr.fvar i nm t) →
+      ∀ {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+        ty.stripPis sp.length = some (bs, body) →
+        rs.getAppArgs.length = body.getAppArgs.length := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro ty ds rs h _ bs body hstrip
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    have hstrip' : (some ([], ty) :
+        Option (List (Name × Expr × BinderMeta) × Expr)) = some (bs, body) :=
+      hstrip
+    simp only [Option.some.injEq, Prod.mk.injEq] at hstrip'
+    rw [hstrip'.2]
+  | cons a sp ih =>
+    intro ty ds rs h hsp bs body hstrip
+    obtain ⟨i, nm, t, rfl⟩ := hsp a List.mem_cons_self
+    match ty, h with
+    | .forallE nmT dom bodyE mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt sp (bodyE.instantiate1 (.fvar i nm t)) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p => ?_
+      rw [h1] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [List.length_cons, Expr.stripPis] at hstrip
+      cases h2 : bodyE.stripPis sp.length with
+      | none => rw [h2] at hstrip; exact nomatch hstrip
+      | some q => ?_
+      rw [h2] at hstrip
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hstrip
+      obtain ⟨-, rfl⟩ := hstrip
+      -- the instantiated body strips to the instantiated residual
+      have h3 : ((bodyE.instantiate1
+          (.fvar i nm t)).stripPis sp.length).isSome = true :=
+        Expr.stripPis_instantiate1_isSome sp.length 0 (by rw [h2]; rfl)
+      obtain ⟨⟨bs', body'⟩, h4⟩ := Option.isSome_iff_exists.mp h3
+      obtain ⟨hbody', -⟩ := Expr.stripPis_instantiate1_eq sp.length 0 h2 h4
+      have h5 := ih h1 (fun x hx => hsp x (List.mem_cons_of_mem _ hx)) h4
+      rw [h5, hbody', Nat.zero_add,
+        Expr.getAppArgs_length_instantiate1_fvar]
