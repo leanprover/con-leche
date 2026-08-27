@@ -1557,6 +1557,314 @@ budget. -/
 def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
   fun depth e => whnfCoreLoopI r fe depth whnfCoreLoopFuel e
 
+/-! ### DIAGNOSTIC (throwaway, task #124): the app-argument guard census
+
+Classifies each *executed* per-argument re-check of `inferSpineI` by
+the character of the (instantiated) domain, using only tests a real
+static guard could afford: node views, one hash lookup per head
+constant, and the level algebra already in `piResultNeverZero`.  No
+reduction, no inference, no defeq.
+
+Two verdicts per domain `t`:
+
+* **NP** (`npOf` below): `0` the domain's sort is statically non-`Prop`,
+  `1` statically `Prop`, `2` a *parametric* sort (`Sort u` with `u` a
+  level parameter — the case a `Prop` instantiation collapses), `3`
+  structurally unknown (no sort could be read off at all).
+* **NE1**: the domain is statically nonempty.  The test is deliberately
+  the cheapest sound one: a stored **inductive with no indices** having
+  **at least one constructor with no fields**, read off the stored
+  recursor (`majorIdx = rulePrefix` is "no indices"; a rule with
+  `nfields = 0` is a constructor `∀ params, c params`, which inhabits
+  `c` at *every* parameter instantiation).  Closed under `Sort _`
+  (always inhabited) and under `∀ _, B` (inhabited if `B` is).
+
+GUARD-CLEAR = NP = 0 ∧ NE1. -/
+
+/-- NE1 for a stored inductive head (two hash lookups and a scan of the
+stored rules). -/
+def neInd1I (fe : FEnv) (c : Name) : Bool :=
+  match fe.find? c with
+  | some (.indInfo _ _) =>
+    match fe.find? (c.str "rec") with
+    | some (.recInfo _ mI rP rules) =>
+      mI == rP && rules.any (fun r => r.nfields == 0)
+    | _ => false
+  | _ => false
+
+/-- NP from a stored constant's declared type at the given level
+arguments (the *instantiated* test, as in `majorToCtorI`). -/
+def npOfConstD (cv : ConstantVal) (usl : List Level) : Nat :=
+  if piResultNeverZero cv.levelParams usl cv.type then 0
+  else match cv.type.piResult with
+    | .sort u =>
+      if Level.isEquiv (Level.subst cv.levelParams usl u) .zero == some true
+      then 1 else 2
+    | _ => 3
+
+/-- Peel `k` syntactic `∀` binders. -/
+def peelPisDI : Nat → EIdx → CheckIM (Option EIdx)
+  | 0, e => pure (some e)
+  | k + 1, e => do
+    match ← viewI e with
+    | some (.forallE _ _ b _) => peelPisDI k b
+    | _ => pure none
+
+/-- NP read off a free variable's (or other leaf's) type: peel `k`
+binders for the `k` arguments it is applied to and expect a sort. -/
+def npOfSortHeadDI (fty : EIdx) (k : Nat) : CheckIM Nat := do
+  match ← peelPisDI k fty with
+  | some e =>
+    match ← viewI e with
+    | some (.sort u) => do
+      let ul ← readbackLevelM u
+      if ul.isNeverZero then pure 0
+      else if Level.isEquiv ul .zero == some true then pure 1
+      else pure 2
+    | _ => pure 3
+  | none => pure 3
+
+/-- The stored kind of a constant, as a tag prefix (lets the residual
+be re-bucketed offline: recursor-headed, definition-headed, …). -/
+def kindTagD : ConstantInfo → String
+  | .axiomInfo _ => "ax"
+  | .defnInfo _ _ _ => "def"
+  | .thmInfo _ _ => "thm"
+  | .indInfo _ _ => "ind"
+  | .ctorInfo _ _ _ => "ctor"
+  | .recInfo _ _ _ _ => "rec"
+  | .projInfo _ => "proj"
+
+/-- The `(NP, NE1, head tag)` of a constant-headed domain. -/
+def guardConstDI (fe : FEnv) (t : EIdx) : CheckIM (Nat × Bool × String) := do
+  let h ← withStore (fun st => st.getAppFnI t)
+  match ← viewI h with
+  | some (.const cI us) => do
+    let cn ← readbackNM cI
+    match fe.find? cn with
+    | some ci =>
+      let cv := ci.toConstantVal
+      let tag := kindTagD ci ++ ":" ++ toString cn
+      if us.length = cv.levelParams.length then do
+        let usl ← readbackLevelsM us
+        pure (npOfConstD cv usl, neInd1I fe cn, tag)
+      else pure (3, false, tag ++ "/badlevels")
+    | none => pure (3, false, "?unknown")
+  | _ => pure (3, false, "?nonconst")
+
+/-- Peel up to `k` `.lam` binders (G2's static beta-head peel). -/
+def peelLamsDI : Nat → EIdx → CheckIM EIdx
+  | 0, e => pure e
+  | k + 1, e => do
+    match ← viewI e with
+    | some (.lam _ _ b _) => peelLamsDI k b
+    | _ => pure e
+
+/-- Tagless twin of `guardConstDI`: the timed runs must not pay for
+building the census tag (a `Name` `toString` per site). -/
+def guardConstNTDI (fe : FEnv) (t : EIdx) : CheckIM (Nat × Bool) := do
+  let h ← withStore (fun st => st.getAppFnI t)
+  match ← viewI h with
+  | some (.const cI us) => do
+    let cn ← readbackNM cI
+    match fe.find? cn with
+    | some ci =>
+      let cv := ci.toConstantVal
+      if us.length = cv.levelParams.length then do
+        let usl ← readbackLevelsM us
+        pure (npOfConstD cv usl, neInd1I fe cn)
+      else pure (3, false)
+    | none => pure (3, false)
+  | _ => pure (3, false)
+
+/-- Tagless twin of `guardWalkDI` (the timed guard). -/
+def guardWalkNTDI (fe : FEnv) : Nat → EIdx → CheckIM (Nat × Bool)
+  | 0, _ => pure (3, false)
+  | n + 1, t => do
+    match ← viewI t with
+    | some (.sort _) => pure (0, true)
+    | some (.forallE _ _ body _) => guardWalkNTDI fe n body
+    | some (.const _ _) => guardConstNTDI fe t
+    | some (.app _ _) => do
+      let h ← withStore (fun st => st.getAppFnI t)
+      match ← viewI h with
+      | some (.const _ _) => guardConstNTDI fe t
+      | some (.fvar _ _ fty) => do
+        let nargs := (← withStore (·.getAppArgsI t)).length
+        let np ← npOfSortHeadDI fty nargs
+        pure (np, false)
+      | some (.lam ..) =>
+        if guardBeta then do
+          let nargs := (← withStore (·.getAppArgsI t)).length
+          let b ← peelLamsDI nargs h
+          guardWalkNTDI fe n b
+        else pure (3, false)
+      | _ => pure (3, false)
+    | some (.fvar _ _ fty) => do
+      let np ← npOfSortHeadDI fty 0
+      pure (np, false)
+    | _ => pure (3, false)
+
+/-- `(NP, NE1, head tag)` of a domain, by a bounded structural walk. -/
+def guardWalkDI (fe : FEnv) : Nat → EIdx → CheckIM (Nat × Bool × String)
+  | 0, _ => pure (3, false, "?deep")
+  | n + 1, t => do
+    match ← viewI t with
+    | some (.sort u) => do
+      let ul ← readbackLevelM u
+      -- `Sort 0` and `Sort (≥1)` are split in the tag: #109 clears
+      -- only the former (`pt ∈ univ` is forced for the latter).
+      let tag :=
+        if Level.isEquiv ul .zero == some true then "<sort0>"
+        else if ul.isNeverZero then "<sortpos>"
+        else "<sortparam>"
+      pure (0, true, tag)
+    | some (.forallE _ _ body _) => guardWalkDI fe n body
+    | some (.const _ _) => guardConstDI fe t
+    | some (.app _ _) => do
+      let h ← withStore (fun st => st.getAppFnI t)
+      match ← viewI h with
+      | some (.const _ _) => guardConstDI fe t
+      | some (.fvar _ _ fty) => do
+        let nargs := (← withStore (·.getAppArgsI t)).length
+        let np ← npOfSortHeadDI fty nargs
+        pure (np, false, "<fvar-app>")
+      | some (.lam ..) =>
+        if guardBeta then do
+          let nargs := (← withStore (·.getAppArgsI t)).length
+          let b ← peelLamsDI nargs h
+          guardWalkDI fe n b
+        else pure (3, false, "?apphead-lam")
+      | some (.proj ..) => pure (3, false, "?apphead-proj")
+      | some (.letE ..) => pure (3, false, "?apphead-let")
+      | some (.bvar _) => pure (3, false, "?apphead-bvar")
+      | some (.lit _) => pure (3, false, "?apphead-lit")
+      | some (.sort _) => pure (3, false, "?apphead-sort")
+      | some (.forallE ..) => pure (3, false, "?apphead-pi")
+      | some (.app _ _) => pure (3, false, "?apphead-app")
+      | none => pure (3, false, "?apphead-missing")
+    | some (.fvar _ _ fty) => do
+      let np ← npOfSortHeadDI fty 0
+      pure (np, false, "<fvar>")
+    | some (.proj ..) => pure (3, false, "<proj>")
+    | some (.letE ..) => pure (3, false, "<let>")
+    | some (.lam ..) => pure (3, false, "<lam>")
+    | some (.bvar _) => pure (3, false, "<bvar>")
+    | some (.lit _) => pure (3, false, "<lit>")
+    | none => pure (3, false, "?missing")
+
+/-! #### The task-#109 stage-1 clause list (`ptFreshTy`)
+
+GUARD-CLEAR is *not* "non-`Prop` and nonempty" here — it is the
+model-side *freshness* of the domain, established so far only for:
+pinned `Nat`; pinned `Empty` (empty, yet clear — freshness, not
+inhabitation); `PSigma`/`PSigma'` at `isNeverZero (max u v)`;
+`Sort 0` — the *sort* `Prop` as a domain, i.e. the argument is a
+proposition (**not** a `Prop`-*typed* domain, i.e. a proof argument,
+which is excluded); and `∀ x : A, B` with `B` clear and `A` NE. -/
+
+/-- Is the head constant one of the #109 clear families, at these
+level arguments? -/
+def clear109ConstDI (fe : FEnv) (t : EIdx) : CheckIM Bool := do
+  let h ← withStore (fun st => st.getAppFnI t)
+  match ← viewI h with
+  | some (.const cI us) => do
+    let cn ← readbackNM cI
+    match fe.find? cn with
+    | some (.indInfo _ _) =>
+      if cn == natName || cn == emptyName then pure true
+      else if cn == psigmaName || cn == Name.anonymous.str "PSigma" then do
+        match ← readbackLevelsM us with
+        | [u, v] => pure (Level.max u v).isNeverZero
+        | _ => pure false
+      else pure false
+    | _ => pure false
+  | _ => pure false
+
+/-- The #109 clear predicate on a domain (bounded walk; `∀` peels with
+the NE side condition on the binder domain). -/
+def clear109DI (fe : FEnv) : Nat → EIdx → CheckIM Bool
+  | 0, _ => pure false
+  | n + 1, t => do
+    match ← viewI t with
+    | some (.sort u) => do
+      let ul ← readbackLevelM u
+      pure (Level.isEquiv ul .zero == some true)
+    | some (.forallE _ dom body _) => do
+      if ← clear109DI fe n body then do
+        let (_, ne) ← guardWalkNTDI fe n dom
+        pure ne
+      else pure false
+    | some (.const _ _) => clear109ConstDI fe t
+    | some (.app _ _) => do
+      let h ← withStore (fun st => st.getAppFnI t)
+      match ← viewI h with
+      | some (.lam ..) =>
+        if guardBeta then do
+          let nargs := (← withStore (·.getAppArgsI t)).length
+          let b ← peelLamsDI nargs h
+          clear109DI fe n b
+        else pure false
+      | _ => clear109ConstDI fe t
+    | _ => pure false
+
+/-- Class of one re-check site: `0` GUARD-CLEAR, `1` kept/`Prop`,
+`2` kept/polymorphic sort, `3` kept/possibly-empty, `4` kept/other.
+Under `guard109` the clear class is the #109 clause list and the
+kept classes are the G1 walk's residual buckets (the tag carries the
+head kind and name, so the residual can be re-bucketed offline). -/
+def guardClassDI (fe : FEnv) (t : EIdx) : CheckIM (Nat × String) := do
+  let (np, ne, tag) ← guardWalkDI fe 32 t
+  if guard109 then do
+    if ← clear109DI fe 32 t then pure (0, tag)
+    else if np == 1 then pure (1, tag)
+    else if np == 2 then pure (2, tag)
+    else if np == 0 then pure (3, tag)
+    else pure (4, tag)
+  else
+    if np == 0 then pure (if ne then (0, tag) else (3, tag))
+    else if np == 1 then pure (1, tag)
+    else if np == 2 then pure (2, tag)
+    else pure (4, tag)
+
+/-- Census line for one executed re-check (stderr, one per call). -/
+def guardEmitDI (cls : Nat) (tag : String) : CheckIM Unit :=
+  let nm :=
+    if cls == 0 then "CLEAR"
+    else if cls == 1 then "KEPT_PROP"
+    else if cls == 2 then "KEPT_POLY"
+    else if cls == 3 then "KEPT_EMPTY"
+    else "KEPT_OTHER"
+  dbg_trace (nm ++ " " ++ tag); pure ()
+
+/-- DIAGNOSTIC: should the re-check at this site be skipped?  Runs the
+guard classification whenever the mode or the census needs it, so the
+mode-`1` timings *include* the guard's own cost. -/
+@[inline] def guardSkipDI (fe : FEnv) (dom : EIdx) : CheckIM Bool := do
+  if guardMode == 2 then pure true
+  else if guardCensus then do
+    -- census: full classification (clear predicate *and* the residual
+    -- bucket), one line per executed re-check
+    let (cls, tag) ← guardClassDI fe dom
+    guardEmitDI cls tag
+    pure ((guardMode == 1 && cls == 0) || (guardMode == 4 && cls != 0))
+  else if guardMode == 1 || guardMode == 4 || guardMode == 5 then do
+    -- timed: only the clear predicate of the active variant runs, so
+    -- the measured guard cost is the one a deployment would pay.
+    -- Mode `4` masks the *complement* (the guard-KEPT sites), which
+    -- splits the tax between the two classes.  Mode `5` runs the guard
+    -- and *ignores* it — the guard's own overhead, alone, measured in
+    -- the baseline execution (so `m5 - m0` is the guard tax and
+    -- `m5 - m1` the saving a free guard would deliver).
+    let cl ←
+      if guard109 then clear109DI fe 32 dom
+      else do
+        let (np, ne) ← guardWalkNTDI fe 32 dom
+        pure (np == 0 && ne)
+    pure (if guardMode == 1 then cl else if guardMode == 4 then !cl
+          else false)
+  else pure false
+
 /-- Application-inference spine loop (task #50): walk the raw
 Π-telescope against the arguments with deferred substitution — each
 argument's certificate substitutes only its *domain*; the codomain is
@@ -1575,18 +1883,20 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       -- domain-relative collapse; the certificate runs
       -- unconditionally, as in the spec body `inferBody`)
       let dom' ← instListRevM dom acc
-      let ta ← r.infer depth a
-      unless ← r.defeq depth ta dom' do
-        throw (.invalid "application type mismatch")
+      unless ← guardSkipDI fe dom' do
+        let ta ← r.infer depth a
+        unless ← r.defeq depth ta dom' do
+          throw (.invalid "application type mismatch")
       inferSpineI r fe depth body (acc.push a) rest
     | _ => do
       let ty' ← instListRevM ty acc
       let w ← r.whnf depth ty'
       match ← viewI w with
       | some (.forallE _ dom body _mt) => do
-        let ta ← r.infer depth a
-        unless ← r.defeq depth ta dom do
-          throw (.invalid "application type mismatch")
+        unless ← guardSkipDI fe dom do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta dom do
+            throw (.invalid "application type mismatch")
         inferSpineI r fe depth body #[a] rest
       | _ => throw (.invalid "function expected")
 

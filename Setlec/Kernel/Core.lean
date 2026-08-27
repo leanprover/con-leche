@@ -2114,9 +2114,55 @@ def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
         annotate := fun d e =>
           annotateBody (coreKnot env wrap fuel) env d e }
 
+/-! ## DIAGNOSTIC INSTRUMENTATION (throwaway branch `diag/124-guard-census`)
+
+Never merged.  Three environment knobs, all read once per process:
+
+* `GUARDMODE` — masking of the `inferSpineI` per-argument re-check.
+  `0` (default) certified baseline: every re-check runs.
+  `1` route (iii) simulation: the re-check is skipped exactly at the
+  sites the static guard clears (non-`Prop` *and* statically nonempty
+  domain); the guard's own classification cost is *kept*, as it would
+  be in a real deployment.
+  `2` full mask: every re-check is skipped (the known ceiling).
+* `GUARDCENSUS` — `1` emits one `CLASS head` line on stderr per
+  executed re-check, for counting.
+* `SETLEC_FUEL` — runtime override of `checkFuel` (the logical value
+  is untouched; only the compiled constant changes). -/
+
+unsafe def diagEnvNatUnsafe (k : String) (d : Nat) : Nat :=
+  match unsafeIO (do pure ((← IO.getEnv k).getD "")) with
+  | .ok s => s.toNat?.getD d
+  | .error _ => d
+
+@[implemented_by diagEnvNatUnsafe]
+def diagEnvNat (_k : String) (d : Nat) : Nat := d
+
+/-- DIAGNOSTIC: app-argument re-check masking mode (see above). -/
+def guardMode : Nat := diagEnvNat "GUARDMODE" 0
+
+/-- DIAGNOSTIC: emit one classification line per executed re-check. -/
+def guardCensus : Bool := diagEnvNat "GUARDCENSUS" 0 == 1
+
+/-- DIAGNOSTIC: which guard is simulated.
+`0` **G1** — the NP ∧ NE1 guard of the original census brief:
+   statically non-`Prop` sort *and* statically nonempty.
+`1` **G2** — G1 plus a static beta-head peel of redex domains.
+`2` **G3** — the task-#109 stage-1 clause list (`ptFreshTy`): pinned
+   `Nat`, pinned `Empty`, `PSigma` at `isNeverZero (max u v)`,
+   `Sort 0`, and `∀ x : A, B` with `B` clear and `A` NE.
+`3` **G3b** — G3 plus the static beta-head peel. -/
+def guardVar : Nat := diagEnvNat "GUARDVAR" 0
+
+/-- DIAGNOSTIC: static beta-head peel enabled (variants G2, G3b). -/
+def guardBeta : Bool := guardVar == 1 || guardVar == 3
+
+/-- DIAGNOSTIC: the #109 clause list is in force (variants G3, G3b). -/
+def guard109 : Bool := guardVar == 2 || guardVar == 3
+
 /-- The shared fuel for the checker core: bounds the recursion depth of
 reduction, inference and definitional equality.  Exhaustion is an
 internal error, never a verdict. -/
-def checkFuel : Nat := 100000
+def checkFuel : Nat := diagEnvNat "SETLEC_FUEL" 100000
 
 end Setlec
