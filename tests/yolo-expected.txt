@@ -1,0 +1,28 @@
+# Yolo-specific expected exit codes, read by tests/arena.sh's yolo
+# sweep (task #139).  Line format:
+#
+#   <exit-code> <suite> <fixture> [mode]
+#
+# with suite ∈ {arena, e2e}, and <fixture>/[mode] spelled exactly as in
+# tests/arena-expected.txt resp. tests/e2e-expected.txt.  A fixture with
+# no line here is expected to give, under SETLEC_NO_PROOF_CERTS=1, the
+# same exit code the certified stack gives.
+#
+# This file exists for ONE class of entry: the acknowledged class-B
+# divergence.  The measurement stack (Setlec/Kernel/CoreNC.lean, task
+# #76) skips the per-argument application check everywhere, so a stream
+# whose only defect is an application type mismatch can be *accepted*
+# under yolo while the certified stack rejects it.  A fixture like that
+# is not a bug; it gets a line here, with a comment naming the mismatch
+# it stops detecting.
+#
+# NOTHING ELSE belongs here.  Any other flip means the cert-skipping
+# twins have drifted from the certified ones — which is exactly what
+# happened between task #105 and task #139, when `iotaRecNC` kept
+# instantiating nested-rule pins in the `mI`-context after `iotaRecI`
+# had been lowered to the `rP`-context (indexed_nested_aux.ndjson:
+# certified 0, yolo 1).  Fix the twin, do not record the flip.
+#
+# As of the 2026-08-27 audit no fixture in either suite diverges: the
+# full arena (138 lines) and e2e (67 lines) suites give identical
+# verdicts in both modes, so this file is empty of entries.

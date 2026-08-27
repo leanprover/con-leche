@@ -10,7 +10,7 @@
 # The expectations file additionally pins the current accept/decline status
 # so that progress and regressions are both visible; update it consciously.
 #
-# Usage: tests/arena.sh [--direct-off] [--infer-only] [tests-dir]
+# Usage: tests/arena.sh [--direct-off] [--infer-only] [--no-yolo] [tests-dir]
 #
 # An <expectation> is either a single exit code, as for the overwhelming
 # majority of fixtures, or a pair "<on>|<off>" for the few fixtures whose
@@ -33,16 +33,43 @@
 # split-driver half is skipped (the two modes are mutually exclusive by
 # construction); one case pins that refusal instead.  Opt-in: the
 # default invocation is unchanged and unchanged in cost.
+#
+# THE YOLO SWEEP (task #139).  After the certified sections a *second*
+# pass over both expectation files runs with SETLEC_NO_PROOF_CERTS=1 —
+# the cert-skipping measurement stack (Setlec/Kernel/{CoreNC,CheckerNC}
+# .lean, task #76).  It runs by default, because the mode had silently
+# drifted: `iotaRecNC` kept instantiating the stored nested-rule pins in
+# the pre-#105 `mI`-context after the certified twin was lowered to the
+# `rP`-context, and nothing in the harness ever ran a suite under the
+# flag — the `<on>|<off>` pairs above are the --direct-off switch, not
+# this one.  Measured cost of the extra pass (2026-08-27): ~17s arena +
+# ~21s e2e on top of a ~48s certified run; `--no-yolo` skips it for a
+# tight edit loop, but a landing gate runs it.  `--direct-off` and
+# `--infer-only` skip it too — those are opt-in runs of a *different*
+# configuration and stay unchanged in cost.
+#
+# The two stacks are expected to agree on every verdict except one
+# acknowledged class-B divergence: yolo skips the per-argument
+# application check everywhere, so a stream whose *only* defect is an
+# application type mismatch can be accepted under yolo and rejected
+# under the certified stack.  Such a fixture gets a yolo-specific
+# expected exit code in tests/yolo-expected.txt (same idea as the
+# `<on>|<off>` pairs, but as an override file rather than a column:
+# as of 2026-08-27 no fixture in either suite diverges, so a column
+# would be 205 unused separators).  Any other flip is a bug in the NC
+# path — investigate, do not record it.
 set -u
 cd "$(dirname "$0")/.."
 
 DIRECT=on
 INFER_ONLY=off
+YOLO_SWEEP=on
 args=()
 for a in "$@"; do
   case "$a" in
     --direct-off) DIRECT=off;;
     --infer-only) INFER_ONLY=on;;
+    --no-yolo) YOLO_SWEEP=off;;
     *) args+=("$a");;
   esac
 done
@@ -51,6 +78,8 @@ set -- ${args+"${args[@]}"}
 TESTS_DIR="${1:-_tmp/arena-tests}"
 BIN=.lake/build/bin/setlec
 EXPECTED=tests/arena-expected.txt
+E2E_EXPECTED=tests/e2e-expected.txt
+YOLO_EXPECTED=tests/yolo-expected.txt
 
 # Select the applicable half of an expectation: "0|2" is (on|off), a bare
 # "0" applies to both configurations.
@@ -87,42 +116,87 @@ if [ "$INFER_ONLY" = on ]; then
   echo "infer-only mode: ON (task #134; expectations unchanged)"
 fi
 
+# The yolo overrides, keyed "<suite> <fixture> <mode>" (mode empty for
+# arena lines and for plain e2e lines).  See the header for when a line
+# belongs in here.
+declare -A YOLO_OVR=()
+if [ -f "$YOLO_EXPECTED" ]; then
+  while read -r yexp ysuite yrel ymode; do
+    case "$yexp" in ''|'#'*) continue;; esac
+    YOLO_OVR["$ysuite $yrel ${ymode:-}"]=$yexp
+  done < "$YOLO_EXPECTED"
+fi
+
+# SWEEP is `cert` for the certified pass and `yolo` for the second one;
+# it selects the override table and the failure wording.
+SWEEP=cert
+
+# Resolve $want for one fixture: the certified expectation, overridden
+# in the yolo sweep if tests/yolo-expected.txt records a divergence.
+resolve() { # <expectation-field> <suite> <fixture> <mode>
+  pick "$1"
+  want_src=certified
+  if [ "$SWEEP" = yolo ]; then
+    local o=${YOLO_OVR["$2 $3 ${4:-}"]:-}
+    if [ -n "$o" ]; then want=$o; want_src="tests/yolo-expected.txt"; fi
+  fi
+  return 0
+}
+
+# Report a verdict that is not the expected one.  In the yolo sweep a
+# mismatch is a *divergence from the certified stack* (the expectation
+# is the certified one unless overridden), so it is worded as such.
+mismatch() { # <prefix> <fixture> <want> <got>
+  if [ "$SWEEP" = yolo ]; then
+    echo "YOLO DIVERGENCE $2: $want_src expects exit $3, yolo got $4"
+  else
+    echo "$1 $2: expected exit $3, got $4"
+  fi
+  fail=1
+}
+
 fail=0
 accepted=0
 total_good=0
-while read -r exp rel; do
-  case "$exp" in ''|'#'*) continue;; esac
-  pick "$exp"
-  f="$TESTS_DIR/$rel"
-  timeout 60 "$BIN" "$f" >/dev/null 2>&1
-  got=$?
-  case "$rel" in
-    good/*) total_good=$((total_good+1))
-            [ "$got" = 0 ] && accepted=$((accepted+1))
-            if [ "$got" = 1 ] || [ "$got" = 3 ]; then
-              echo "FAIL $rel: good test got exit $got"; fail=1; continue
-            fi;;
-    bad/*)  if [ "$got" = 0 ]; then
-              echo "SOUNDNESS FAIL $rel: bad test accepted"; fail=1; continue
-            fi;;
-  esac
-  if [ "$got" != "$want" ]; then
-    echo "CHANGE $rel: expected exit $want, got $got"; fail=1
-  fi
-done < "$EXPECTED"
 
-echo "arena tutorial: $accepted/$total_good good tests accepted"
+# --- the arena half ------------------------------------------------
+arena_half() {
+  accepted=0
+  total_good=0
+  arena_checked=0
+  while read -r exp rel; do
+    case "$exp" in ''|'#'*) continue;; esac
+    resolve "$exp" arena "$rel" ""
+    arena_checked=$((arena_checked+1))
+    f="$TESTS_DIR/$rel"
+    timeout 60 "$BIN" "$f" >/dev/null 2>&1
+    got=$?
+    case "$rel" in
+      good/*) total_good=$((total_good+1))
+              [ "$got" = 0 ] && accepted=$((accepted+1))
+              if [ "$got" = 1 ] || [ "$got" = 3 ]; then
+                mismatch FAIL "$rel" "$want" "$got"; continue
+              fi;;
+      bad/*)  if [ "$got" = 0 ]; then
+                mismatch "SOUNDNESS FAIL" "$rel" "$want" "$got"; continue
+              fi;;
+    esac
+    if [ "$got" != "$want" ]; then
+      mismatch CHANGE "$rel" "$want" "$got"
+    fi
+  done < "$EXPECTED"
+}
 
+# --- the e2e half --------------------------------------------------
 # Own end-to-end tests (committed exports of tests/e2e/src/*.lean;
 # regenerate with lean-inductive-models' scripts/export-fixture.sh,
 # FIXTURE_DIR=tests/e2e/src OUT_DIR=tests/e2e FILTER=0).
-E2E_EXPECTED=tests/e2e-expected.txt
-if [ -f "$E2E_EXPECTED" ]; then
+e2e_half() {
   e2e_ok=0
   e2e_total=0
   while read -r exp rel mode; do
     case "$exp" in ''|'#'*) continue;; esac
-    pick "$exp"
+    resolve "$exp" e2e "$rel" "${mode:-}"
     e2e_total=$((e2e_total+1))
     src="tests/e2e/$rel"
     if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
@@ -148,11 +222,18 @@ if [ -f "$E2E_EXPECTED" ]; then
     fi
     got=$?
     if [ "$got" != "$want" ]; then
-      echo "E2E FAIL $rel: expected exit $want, got $got"; fail=1
+      mismatch "E2E FAIL" "$rel" "$want" "$got"
     else
       e2e_ok=$((e2e_ok+1))
     fi
   done < "$E2E_EXPECTED"
+}
+
+arena_half
+echo "arena tutorial: $accepted/$total_good good tests accepted"
+
+if [ -f "$E2E_EXPECTED" ]; then
+  e2e_half
   echo "e2e: $e2e_ok/$e2e_total as expected"
 fi
 
@@ -249,5 +330,26 @@ else
   fail=1
 fi
 echo "infer-only: $io_ok/$io_total as expected"
+
+# The yolo sweep (task #139): both suites again under
+# SETLEC_NO_PROOF_CERTS=1, against the certified expectations plus the
+# recorded class-B overrides.  See the header.
+if [ "$YOLO_SWEEP" = on ] && [ "$DIRECT" = on ]; then
+  SWEEP=yolo
+  export SETLEC_NO_PROOF_CERTS=1
+  yolo_fail_before=$fail
+  arena_half
+  yolo_arena=$arena_checked
+  e2e_half
+  unset SETLEC_NO_PROOF_CERTS
+  SWEEP=cert
+  if [ "$fail" = "$yolo_fail_before" ]; then
+    echo "yolo sweep: $yolo_arena arena + $e2e_total e2e agree with certified" \
+         "(${#YOLO_OVR[@]} recorded divergences)"
+  else
+    echo "yolo sweep: DIVERGED — see the lines above" \
+         "(tests/arena.sh header: what belongs in tests/yolo-expected.txt)"
+  fi
+fi
 
 exit $fail

@@ -2799,8 +2799,9 @@ proof-only):
    relocated telescope certification.
 
 **Measured** (init-prelude probe, `perf stat` instructions, 8 GB
-limit; verdicts identical in both modes — arena 90/92, e2e 48/48,
-probe exit 0 / 3653 accepted):
+limit; verdicts as expected in both modes — arena 90/92, e2e 48/48,
+probe exit 0 / 3653 accepted; on the sense of "as expected" see the
+verdict-agreement paragraph below):
 
 | configuration | instructions | wall |
 | --- | --- | --- |
@@ -2825,6 +2826,26 @@ half and half; the honest decomposition is in "The infer-only mode:
 SETLEC_INFER_ONLY (task #134)" below.  Everything else in this section
 stands, including the site list — only the label on the front-door
 share of the `inferSpine` bullet changes.
+
+**Verdict agreement, stated exactly (task #139, 2026-08-27).**  Older
+paragraphs in this document say the two modes' verdicts are
+"identical".  That was never quite the contract and is not what the
+suites check.  The accurate statement:
+
+> The certified and the `SETLEC_NO_PROOF_CERTS=1` stacks agree on every
+> verdict **except one acknowledged class-B divergence**: `inferSpineNC`
+> drops the per-argument application check *everywhere*, the front door
+> included (see the task-#134 amendment above), so a stream whose only
+> defect is an application type mismatch may be **accepted** under the
+> flag and rejected by the certified stack.  Every other flip is a bug
+> in an NC twin.
+
+Empirically the divergence is not exercised: as of the 2026-08-27
+audit the full arena suite (138 expectation lines) and the full e2e
+suite (67) give **identical** exit codes in both modes, so
+`tests/yolo-expected.txt` — the file that records a class-B divergence
+when one appears — has no entries.  The audit and the sweep that keeps
+the statement true are in "The yolo sweep" below.
 
 ## The infer-only mode: SETLEC_INFER_ONLY (task #134)
 
@@ -9180,3 +9201,97 @@ and correctly so: this is a hard install check, not a capability
 conjunct, so a violation *declines* rather than silently dropping eta
 and rejecting downstream.  Reverted; byte identity re-confirmed in all
 three modes.
+
+## The yolo sweep: a cert-skipping twin had drifted (2026-08-27, task #139)
+
+**What drifted.**  Task #105 lowered the indexed nested-auxiliary
+certification into the *prefix* context: a `.nested` rule's stored pins
+are instantiated against the recursor application's `rP` prefix
+arguments, not against its `mI` major-index prefix (the two coincide
+only for unindexed nestings, where `majorIdx = rulePrefix`).  Commit
+`b5788c6` moved the certified `iotaRecI` and the install side over —
+
+```
+-  pinArgsI cv.levelParams us (args.take mI) (mI - 1) pins
++  pinArgsI cv.levelParams us (args.take rP) (rP - 1) pins
+```
+
+— and did not move the cert-skipping twin `iotaRecNC`
+(`Setlec/Kernel/CoreNC.lean`).  Two tokens, three days, one wrong
+verdict: `SETLEC_NO_PROOF_CERTS=1` **rejected** (exit 1) the e2e
+fixture `indexed_nested_aux.ndjson` that the certified stack accepts.
+Fixed here by mirroring the same two tokens; nothing else in the NC
+path changed.
+
+The nested-rule comparand *values* are on the task-#76 "kept always"
+list precisely because they are verdict-relevant — the twin was
+supposed to track the original.  Nothing enforced that it did.
+
+**Why the sweep exists.**  The harness ran the suites certified, with
+`--direct-off`, and (since #134) with `--infer-only`; it never ran them
+under `SETLEC_NO_PROOF_CERTS=1`.  The `<on>|<off>` expectation pairs in
+`tests/arena-expected.txt` and `tests/e2e-expected.txt` look like a
+mode column but are the task-#120 direct-structs switch, not this
+flag.  So `tests/arena.sh` now closes the loop by default: after the
+certified sections it re-runs **both** suites with the flag exported,
+against the certified expectations plus `tests/yolo-expected.txt`.
+`--no-yolo` skips it for a tight edit loop; `--direct-off` and
+`--infer-only` skip it too, staying unchanged in cost.  Measured cost
+of the extra pass: ~17 s arena + ~21 s e2e on a ~48 s certified run
+(1 m 27 s total).  A mismatch prints `YOLO DIVERGENCE` and fails the
+run; re-introducing the `mI` spelling and rebuilding reproduces exactly
+one such line, at `indexed_nested_aux.ndjson`.
+
+**What may be recorded, and what may not.**  `tests/yolo-expected.txt`
+exists for one class of entry, the acknowledged **class-B** divergence:
+`inferSpineNC` drops the per-argument application check *everywhere*,
+the driver's front door included, so a stream whose only defect is an
+application type mismatch may be accepted under the flag.  That is a
+known property of the measurement mode (task #134's amendment to the
+verification-tax section), not a bug, and a fixture exhibiting it gets
+a line.  Every other flip is an NC twin that has drifted: fix the twin,
+do not record the flip.  The file's header says so.
+
+**The audit.**  With the fix in, the full arena suite (138 expectation
+lines, 92 good) and the full e2e suite (67 lines, at their declared
+`raw`/`pre` modes) give **identical** exit codes in both modes — zero
+divergences, zero recorded overrides.  The class-B behaviour is real
+but unexercised by any current fixture: none of the `bad/` streams has
+an application type mismatch as its *only* defect.  The stale
+"verdicts are identical in both modes" claim in the verification-tax
+section is amended in place to the exact statement.
+
+**How thin the coverage was** (instrumented `iotaRecNC`, one trace line
+per `.nested` comparand computation, whole corpus, reverted after the
+count):
+
+| fixture | rule | `mI` | `rP` | fires |
+|---|---|---|---|---|
+| `e2e/nested_rec.ndjson` | `Tree.rec_1` | 6 | 6 | 7 |
+| `e2e/nested_pin_names.ndjson` | `PTree.rec_1` | 6 | 6 | 7 |
+| `e2e/indexed_nested_aux.ndjson` | `TV.rec_1` | 7 | **6** | 5 |
+
+That is the *entire* corpus: the 138 arena streams never fire a
+`.nested` rule at all, and neither does init-prelude.  Of the three
+fixtures that do, only one is an indexed nesting — and `mI ≠ rP` is
+exactly the condition under which the two spellings differ.  So the
+drift was reachable through **one fixture out of 205**, which is both
+why it survived and why it was worth wiring the sweep in permanently
+rather than auditing by hand.
+
+### Gates
+
+Build warning-free (touched oleans force-deleted and recompiled),
+`lake test`, arena 90/92, e2e 67/67, split driver 11/11, infer-only
+5/5, the new yolo sweep green (138 arena + 67 e2e agreeing), axioms
+exactly `[propext, Classical.choice, Quot.sound]` on all thirteen
+consistency theorems (`no_proof_of_Empty{,_input}` and
+`checkDecl{,s}_sound` plus the `_S`, `_C` and `_SP` families), no
+sorries.  Init-prelude (`_tmp/perfcmp/
+init-prelude.preprocessed.ndjson`, `--pre`, 3653 declarations) is
+**byte-identical** — stdout, stderr, exit 0 — against a binary built
+from pre-change master in the certified, the `SETLEC_NO_PROOF_CERTS=1`
+and the `SETLEC_INFER_ONLY=1` modes.  The certified identity is the
+scope fence (only the NC path was touched); the *yolo* identity is
+expected for the reason the table above gives — init-prelude fires no
+`.nested` rule, so the changed line is never reached on that stream.
