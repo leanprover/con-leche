@@ -1,4 +1,5 @@
 import Setlec.TTVerify.StructEtaCertStep
+import Setlec.Verify.PinnedShapes
 
 /-!
 # The pair-eta certificate (task #130)
@@ -32,48 +33,6 @@ private abbrev mode : CheckMode := .ttModel
 
 open Setlec.TT
 
-/-- **Only `PSigma'` passes the pair-eta test**: a reserved recursor
-with one two-field rule and no indices.  The same refutation as
-`unitLike_eq_punit`, at a different rule shape. -/
-theorem pairLike_eq_psigma {env : Env} (m : EnvTT env) {c' : Name}
-    {cvr : ConstantVal} {mI rP : Nat} {rr : RecRule}
-    (hfr : env.find? (c'.str "rec") = some (.recInfo cvr mI rP [rr]))
-    (hnf : rr.nfields = 2) (hmi : mI = rP)
-    (hres : reservedBasisNames.contains (c'.str "rec") = true) :
-    c' = psigmaName ∧ rr.ctor = psigmaMkName := by
-  have hpin : pinnedInfo (c'.str "rec") = .recInfo cvr mI rP [rr] :=
-    ((m.basis_pinned _ _ hfr hres).1 rfl).symm
-  have hc : c' = psigmaName := by
-    rcases pinnedInfoT_recInfo_cases hpin with
-      he | he | he | he | he | he | he
-    · rw [he] at hpin
-      rw [show pinnedInfo (eqName.str "rec") = eqRecA from rfl] at hpin
-      simp only [eqRecA, ConstantInfo.recInfo.injEq] at hpin
-      omega
-    · rw [he] at hpin
-      rw [show pinnedInfo (natName.str "rec") = natRecA from rfl] at hpin
-      simp [natRecA] at hpin
-    · exact (Name.str.injEq ..  ▸ he).1
-    · rw [he] at hpin
-      rw [show pinnedInfo (punitName.str "rec") = punitRecA from rfl]
-        at hpin
-      simp only [punitRecA, ConstantInfo.recInfo.injEq,
-        List.cons.injEq] at hpin
-      have h2 : rr.nfields = 0 := by rw [← hpin.2.2.2.1]
-      omega
-    · rw [he] at hpin
-      rw [show pinnedInfo (emptyName.str "rec") = emptyRecA from rfl]
-        at hpin
-      simp [emptyRecA] at hpin
-    · exact absurd (Name.str.injEq .. ▸ he).2 (by decide)
-    · exact absurd (Name.str.injEq .. ▸ he).2 (by decide)
-  refine ⟨hc, ?_⟩
-  rw [hc] at hpin
-  rw [show pinnedInfo (psigmaName.str "rec") = psigmaRecA from rfl] at hpin
-  simp only [psigmaRecA, ConstantInfo.recInfo.injEq, List.cons.injEq] at hpin
-  rw [← hpin.2.2.2.1]
-  rfl
-
 /-- **`PairEtaCertStepTT`, discharged.** -/
 theorem pairEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
@@ -86,7 +45,7 @@ theorem pairEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   -- task #147: the TT lane runs at `.ttModel`, so the gated conjunct
   -- is delivered
   obtain ⟨entry, hfe, hcert⟩ := hfec rfl
-  obtain ⟨rfl, hctor⟩ := pairLike_eq_psigma m hfr hrf hmirp hgres
+  obtain ⟨rfl, hctor⟩ := pairLike_eq_psigma m.basis_pinned hfr hrf hmirp hgres
   obtain rfl : c = psigmaMkName := by rw [← hrc, hctor]
   -- the stuck side's type, reduced
   obtain ⟨vb', Tb, hvb', hTb, hbT⟩ := ihi htb hwb hbb hLb hCb

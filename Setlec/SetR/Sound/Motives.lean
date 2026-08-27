@@ -1,5 +1,7 @@
 import Setlec.SetR.Rel
 import Setlec.SetR.AnnotOkV
+import Setlec.Verify.Denote.Pinned
+import Setlec.Verify.EnvGuards
 
 /-!
 # The soundness motives and the environment-hypothesis bundle (task #148, T4)
@@ -73,6 +75,68 @@ def DeqLS (Δ : List VExpr) (as bs : List VExpr) : Prop :=
   ∀ ρ : Nat → V, Sat V Δ ρ →
     as.map (interp V ρ) = bs.map (interp V ρ)
 
+/-- The map/fold reading of a spine's interpretation — the form the
+spine-equality rewrites consume (`DeqLS` conclusions are map
+equalities). -/
+theorem interp_mkAppN_map (ρ : Nat → V) (f : VExpr) (as : List VExpr) :
+    interp V ρ (VExpr.mkAppN f as)
+      = (as.map (interp V ρ)).foldl SetTheory.app (interp V ρ f) := by
+  rw [interp_mkAppN, List.foldl_map]
+
+/-! ## The capability laws (the [set] `EtaLaw`/`UnitLaw` transposes)
+
+Statement shapes mirror `Setlec/Model/Interp.lean`'s `EtaLaw`/`UnitLaw`
+(the model's own fields, *not* the TT lane's re-signed `EtaLawTT` — no
+#135/#136/#137 content), with the value-spine fit stated through
+`TeleFitV` over the denoted former type, which is exactly what the
+`Tele` premises of D10/D11 supply.  T5 derives them from the checked
+`_model.eta`/`_model.unitlike` theorems' front doors. -/
+
+/-- The fired structural-eta law of an eta-capable stored family. -/
+def EtaLawV (env : Env) (cval : TConstVal) (T : Name)
+    (cvT : ConstantVal) (caps : IndCaps) : Prop :=
+  ∀ (φ' : Name → Nat) (us : List Level) (ρ : Nat → V)
+    (xs : List VExpr) (TV rest B : VExpr),
+    xs.length = caps.etaParams →
+    denoteClosed cval env φ'
+      (cvT.type.instantiateLevelParams cvT.levelParams us) = some TV →
+    TeleFitV V ρ TV xs rest →
+    interp V ρ B ∈ˢ interp V ρ
+      (VExpr.mkAppN (cval T (Level.substFn φ' cvT.levelParams us)) xs) →
+    interp V ρ B = interp V ρ
+      (VExpr.mkAppN
+        (cval caps.etaCtor (Level.substFn φ' cvT.levelParams us))
+        (etaFabArgsV cval T (Level.substFn φ' cvT.levelParams us) xs B
+          caps.etaFields))
+
+/-- The fired unit-like law of a unit-like stored family. -/
+def UnitLawV (env : Env) (cval : TConstVal) (T : Name)
+    (cvT : ConstantVal) (caps : IndCaps) : Prop :=
+  ∀ (φ' : Name → Nat) (us : List Level) (ρ : Nat → V)
+    (xs : List VExpr) (TV rest : VExpr) (x y : V),
+    xs.length = caps.unitParams →
+    denoteClosed cval env φ'
+      (cvT.type.instantiateLevelParams cvT.levelParams us) = some TV →
+    TeleFitV V ρ TV xs rest →
+    x ∈ˢ interp V ρ
+      (VExpr.mkAppN (cval T (Level.substFn φ' cvT.levelParams us)) xs) →
+    y ∈ˢ interp V ρ
+      (VExpr.mkAppN (cval T (Level.substFn φ' cvT.levelParams us)) xs) →
+    x = y
+
+/-- The stored families' capability laws (`CapsOk` transpose,
+provenance-abstract, basis families exempt). -/
+def CapsOkV (env : Env) (cval : TConstVal) : Prop :=
+  (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T = some (.indInfo cvT caps) → caps.eta = true →
+    reservedBasisNames.contains T = false →
+    EtaFamilyStored env T caps →
+    EtaLawV V env cval T cvT caps) ∧
+  (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T = some (.indInfo cvT caps) → caps.unitlike = true →
+    reservedBasisNames.contains T = false →
+    UnitLawV V env cval T cvT caps)
+
 /-! ## The environment-hypothesis bundle -/
 
 /-- The semantic environment facts the soundness cases consume, at the
@@ -104,5 +168,13 @@ structure EnvSHyp (env : Env) (cval : TConstVal) (φ : Name → Nat) :
             (cval n (Level.substFn φ ci.toConstantVal.levelParams us))
           ∈ˢ interp V ρ T ∧
         AnnotOkV V ρ T
+  /-- The reserved basis constants are the pinned declarations, valued
+  by their direct pins (§2 `basis_pinned`; the relocated
+  `BasisPinnedTT`, verbatim — supplier: the basis install, identical
+  in both lanes). -/
+  basis_pinned : BasisPinnedTT env cval
+  /-- The stored families' fired capability laws (§2 `caps_ok`;
+  supplier: the `_model.eta`/`_model.unitlike` front doors). -/
+  caps_ok : CapsOkV V env cval
 
 end Setlec.SetR

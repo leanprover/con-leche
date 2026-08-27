@@ -1,4 +1,5 @@
 import Setlec.TTVerify.DefEqStep
+import Setlec.Verify.PinnedShapes
 
 /-!
 # The proof-irrelevance obligation
@@ -49,129 +50,8 @@ private abbrev mode : CheckMode := .ttModel
 
 open Setlec.TT
 
-/-! ## The identification
-
-Two steps: the reserved name ending in `rec` is one of five, and four
-of the five have pinned shapes the unit-like test rejects. -/
-
-/-- Which reserved names carry recursor-shaped pinned declarations.
-The transpose of `Setlec/Model/BasisVal.lean`'s
-`pinnedInfo_ctorInfo_cases`, and proved the same way. -/
-theorem pinnedInfoT_recInfo_cases {n : Name} {cv : ConstantVal}
-    {mI rP : Nat} {rules : List RecRule}
-    (h : pinnedInfo n = .recInfo cv mI rP rules) :
-    n = eqName.str "rec" ∨ n = natName.str "rec" ∨
-    n = psigmaName.str "rec" ∨ n = punitName.str "rec" ∨
-    n = emptyName.str "rec" ∨ n = quotLiftName ∨ n = quotIndName := by
-  unfold pinnedInfo at h
-  by_cases h1 : n = eqName
-  · rw [if_pos h1] at h; exact nomatch h
-  rw [if_neg h1] at h
-  by_cases h2 : n = eqReflName
-  · rw [if_pos h2] at h; exact nomatch h
-  rw [if_neg h2] at h
-  by_cases h3 : n = eqName.str "rec"
-  · exact Or.inl h3
-  rw [if_neg h3] at h
-  by_cases h4 : n = natName
-  · rw [if_pos h4] at h; exact nomatch h
-  rw [if_neg h4] at h
-  by_cases h5 : n = natZeroName
-  · rw [if_pos h5] at h; exact nomatch h
-  rw [if_neg h5] at h
-  by_cases h6 : n = natSuccName
-  · rw [if_pos h6] at h; exact nomatch h
-  rw [if_neg h6] at h
-  by_cases h7 : n = natName.str "rec"
-  · exact Or.inr (Or.inl h7)
-  rw [if_neg h7] at h
-  by_cases h8 : n = psigmaName
-  · rw [if_pos h8] at h; exact nomatch h
-  rw [if_neg h8] at h
-  by_cases h9 : n = psigmaMkName
-  · rw [if_pos h9] at h; exact nomatch h
-  rw [if_neg h9] at h
-  by_cases h10 : n = psigmaName.str "rec"
-  · exact Or.inr (Or.inr (Or.inl h10))
-  rw [if_neg h10] at h
-  by_cases h11 : n = punitName
-  · rw [if_pos h11] at h; exact nomatch h
-  rw [if_neg h11] at h
-  by_cases h12 : n = punitUnitName
-  · rw [if_pos h12] at h; exact nomatch h
-  rw [if_neg h12] at h
-  by_cases h13 : n = punitName.str "rec"
-  · exact Or.inr (Or.inr (Or.inr (Or.inl h13)))
-  rw [if_neg h13] at h
-  by_cases h14 : n = emptyName
-  · rw [if_pos h14] at h; exact nomatch h
-  rw [if_neg h14] at h
-  by_cases h15 : n = emptyName.str "rec"
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h15))))
-  rw [if_neg h15] at h
-  by_cases h16 : n = quotName
-  · rw [if_pos h16] at h; exact nomatch h
-  rw [if_neg h16] at h
-  by_cases h17 : n = quotMkName
-  · rw [if_pos h17] at h; exact nomatch h
-  rw [if_neg h17] at h
-  by_cases h18 : n = quotLiftName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h18)))))
-  rw [if_neg h18] at h
-  by_cases h19 : n = quotIndName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (h19))))))
-  rw [if_neg h19] at h
-  by_cases h20 : n = quotSoundName
-  · rw [if_pos h20] at h; exact nomatch h
-  rw [if_neg h20] at h
-  exact nomatch h
-
-/-- **Only `PUnit` passes the unit-like test.**  Every other reserved
-recursor's pinned shape fails one of its three conditions. -/
-theorem unitLike_eq_punit {env : Env} (m : EnvTT env) {e : Expr}
-    (h : isUnitLikeTy env e = true) :
-    ∃ us, e = .const punitName us ∧
-      env.find? punitName = some punitA := by
-  obtain ⟨c, us, cvi, capsi, cvr, mI, rP, r, rfl, hfc, hfr, hmI, hnf,
-    hres⟩ := isUnitLikeTy_inv h
-  -- the recursor's stored declaration is the pinned one
-  have hpin : pinnedInfo (c.str "rec") = .recInfo cvr mI rP [r] :=
-    ((m.basis_pinned _ _ hfr hres).1 rfl).symm
-  -- and every pin but `PUnit.rec`'s is refuted by the test's own
-  -- three conditions, or by its name
-  have hc : c = punitName := by
-    rcases pinnedInfoT_recInfo_cases hpin with
-      he | he | he | he | he | he | he
-    · -- `Eq.rec` has an index: `mI = 5`, `rP = 4`
-      rw [he] at hpin
-      rw [show pinnedInfo (eqName.str "rec") = eqRecA from rfl] at hpin
-      simp only [eqRecA, ConstantInfo.recInfo.injEq] at hpin
-      omega
-    · -- `Nat.rec` has two rules
-      rw [he] at hpin
-      rw [show pinnedInfo (natName.str "rec") = natRecA from rfl] at hpin
-      simp [natRecA] at hpin
-    · -- `PSigma'.rec`'s single rule has two fields
-      rw [he] at hpin
-      rw [show pinnedInfo (psigmaName.str "rec") = psigmaRecA from rfl]
-        at hpin
-      simp only [psigmaRecA, ConstantInfo.recInfo.injEq,
-        List.cons.injEq] at hpin
-      have h2 : r.nfields = 2 := by rw [← hpin.2.2.2.1]
-      omega
-    · exact (Name.str.injEq .. ▸ he).1
-    · -- `Empty.rec` has no rules
-      rw [he] at hpin
-      rw [show pinnedInfo (emptyName.str "rec") = emptyRecA from rfl]
-        at hpin
-      simp [emptyRecA] at hpin
-    · exact absurd (Name.str.injEq .. ▸ he).2 (by decide)
-    · exact absurd (Name.str.injEq .. ▸ he).2 (by decide)
-  subst hc
-  have hp : ConstantInfo.indInfo cvi capsi = pinnedInfo punitName :=
-    (m.basis_pinned _ _ hfc (by decide)).1 rfl
-  rw [show pinnedInfo punitName = punitA from rfl] at hp
-  exact ⟨us, rfl, hp ▸ hfc⟩
+/- The identification (`unitLike_eq_punit`) lives in
+`Setlec/Verify/PinnedShapes.lean` since task #148 T4 (lane-shared). -/
 
 /-! ## The branch
 
@@ -205,7 +85,7 @@ theorem punit_side {env : Env} (m : EnvTT env) (φ : Name → Nat)
   have hLt : Expr.LeavesBounded t := fun l hl =>
     hL l (inferTypeCore_fvarLeaves m.wf fuel het hws l hl)
   obtain ⟨W, hW, hDeq⟩ := ihw hwt hwst hbt hLt hCt hT
-  obtain ⟨us, rfl, hfind⟩ := unitLike_eq_punit m hu
+  obtain ⟨us, rfl, hfind⟩ := unitLike_eq_punit m.basis_pinned hu
   -- the pin computes the whnf'd type: it is `PUnit` at the level the
   -- stored declaration's parameter is instantiated to
   rw [denote_const, hfind] at hW
