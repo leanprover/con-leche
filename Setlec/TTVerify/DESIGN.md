@@ -5117,11 +5117,93 @@ shape plus inhabitation, and nothing about which constant carries it.
 
 #### 14.7.6 Status
 
-* **Done**: the phase's shared machinery (§14.7.2) and `UnitFoldTT`.
-* **Blocked on §14.7.4**: `DeclIndTT`'s discharge of `hTmSort`.
-* **Next, and unblocked**: `EtaFoldTT` (same skeleton; the residual is
-  `denote_paramTuple` at the same three shifts plus the constructor
-  spine over `etaFields` projections), then the two bottoms, then
-  `ProjBottomTT`, then `CheckDeclTT`.  All four end at
-  `Deq.ofEqThm` and so all four meet §14.7.4 again.
+* **Done**: the phase's shared machinery (§14.7.2), `UnitFoldTT` and
+  `EtaFoldTT`.
+* **Blocked on §14.7.4** (task #135, in flight): both folds' discharge
+  of `StatementSortPin`.
+* **Blocked on §14.7.7** (filed, not granted): `EtaFoldTT`'s discharge
+  of `EtaRhsTyped`.
+* **Next**: the two bottoms, then `ProjBottomTT`, then `CheckDeclTT`.
+  Their type slots are motive applications rather than the model
+  former, so they meet §14.7.4 at a *different* `Â` and will want
+  form 2 (the `checkIotaSidesTy` route) rather than `StatementSortPin`;
+  their two sides are already certified.
+
+**The prediction of §14.7.2 cashed.**  `denote_paramTuple` /
+`instSeq_paramTuple` were factored out of `UnitFoldTT` on the argument
+that every pinned domain is the same tuple at a shift.  `EtaFoldTT`'s
+residual — which has a *nested* spine, the fabricated constructor over
+`etaFields` projection applications — is `denote_paramSpine` four times
+and `instSeq_paramList` three times, and `denote_etaResidual` went
+through on its first compile.  That is the payoff of the factoring
+stated as an outcome rather than as a plan.
+#### 14.7.7 The premise is one of *three*, and eta needs a second one
+
+Found while starting `EtaFoldTT`, on the grant to proceed.  **This is
+not a new gap; it is the same gap, correctly sized** — and it changes
+what task #135 should deliver, so it is recorded before the eta fold
+is written rather than after.
+
+**The root cause, restated.**  What the bridge lost with `AnnotOk` is
+not "a sort fact".  `annotOk_spine_inv` inverts the *whole* equation
+spine and `lam_dom_of_ne` reads back **all three** of its arguments'
+memberships — `vα ∈ˢ univ ⟦ℓ⟧`, `vl ∈ˢ vα`, `vr ∈ˢ vα`.  That is
+exactly what `EqLawTT` needs, because `eqValT` is a three-λ tower and
+`HasType.beta` reads each λ's own annotation:
+
+| obligation | `⊢ Â : Sort ⟦ℓ⟧` | `⊢ lhs : Â` | `⊢ rhs : Â` |
+|---|---|---|---|
+| `UnitFoldTT` | **missing** (#135) | law premise `hB` | law premise `hB'` |
+| `EtaFoldTT` | **missing** (#135) | law premise `hB` | **missing** — the *fabricated* constructor spine |
+| `IndBottom*TT`, `ProjBottomTT` | **missing** (#135) | `checkIotaSidesTy` ✓ | `checkIotaSidesTy` ✓ |
+
+So the four obligations owe between one and two of the same three
+facts, and which ones they owe is an accident of what each law happens
+to quantify over.
+
+**The precedent settles the shape of the ask.**  `checkIotaSidesTy`
+exists for *precisely* this reason — task #100 stage 3, and its
+docstring says so: "the collapse removed value-driven domain pinning,
+so the fold derivation reads these certificates".  The iota half of the
+job was done once already.  `checkEtaThm`/`checkUnitThm` never got the
+same treatment because on the model side `AnnotOk` was still covering
+them.  **#135 is the eta/unit half of a job the project has already
+done on the iota half**, and it should be scoped to the same facts, not
+to the sort alone.
+
+**Why eta's right-hand side is not derivable either.**  Same wall:
+recovering `⊢ rhs : Â` from `⊢ p : Eq.{ℓ} Â B rhs` means inverting the
+application chain down to `eqValT`'s λ and reading its domain back,
+which is Π-injectivity, refuted.  And it is worth naming why the fact
+*looks* free: `⊢ rhs : Â` is a **consequence** of the very `Deq` the
+fold is proving (`Deq Δ B rhs` plus `⊢ B : Â` gives it by `conv`).  It
+is equivalent to the goal, not weaker than it — which is exactly why no
+amount of rearranging the fold produces it.
+
+**Recommended supplier, and why it is a separate grant.**  Unlike
+#135's conjunct there is no syntactic pin that gives it: the
+fabrication's typing is semantic.  The cheapest faithful route is a
+*third premise on `EtaLawTT`*, supplied by the consumer:
+
+    HasType Δ (VExpr.mkAppN (cval caps.etaCtor ψC) (xs ++ projs))
+      (VExpr.mkAppN (cval T ψ) xs)
+
+The consumer can nearly supply it already.  At the rescue site
+`structEtaCertWithI` (`Setlec/Kernel/CoreI.lean:1063`) runs
+`iotaCertsI` on `T`'s parameter telescope at `targs`, and
+`structEtaProjCertsI` runs `iotaCertsI` on **each projection's**
+telescope at `targs ++ [b]` — so every field application is already
+certified at its own residual.  What is missing is one more
+`iotaCertsI`, on the **constructor's** telescope at `targs ++ projs`;
+with it, `TeleTyped.appN` gives the fabrication's typing directly.
+
+That is a landed-invariant re-signing (`EtaLawTT`, hence `CapsOkTT`,
+hence `eta_rescue`'s call) plus one checker call, so it is **not** in
+the standing grant and is filed here as a request rather than acted on.
+It is additive to #135: form 1's syntactic conjunct is exactly right
+and unaffected.
+
+**Until then**, `EtaFoldTT` will carry both premises as named
+hypotheses beside `StatementSortPin`, so that each has one supplier and
+one swap.
 

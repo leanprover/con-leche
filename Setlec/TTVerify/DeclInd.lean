@@ -424,6 +424,61 @@ theorem teleAlign_of_stripPis {cval : TConstVal} {env : Env} {φ : Name → Nat}
   exact ⟨R, R', hR, hR', htow.teleAlign k hlen⟩
 
 
+/-! ## The one premise no pin supplies (task #135)
+
+Named once, and consumed by every obligation of `DeclIndTT`, so that
+the checker-side landing is a **single supplier change** rather than
+one edit per obligation.  `DESIGN.md` §14.7.4 has the argument: the
+`Eq` law's first β-step wants the equation's type slot at the sort its
+`Eq.{ℓ}` names, the set model reads that off `AnnotOk`, and no
+inversion can recover it because Π-injectivity is refuted.
+
+Measured before being asked for: 1 069 sites across the whole fixture
+corpus, zero counterexamples. -/
+
+/-- **Task #135's pending conjunct.**  A modeled former's telescope
+residual is the sort the capability statement's `Eq.{ℓ}` names.
+
+`checkEtaThmF`/`checkUnitThmF` already compute both sides and compare
+neither; #135 adds the comparison and `EtaPins` will carry it.  Until
+then this is a hypothesis, and it is a *definition* rather than an
+inlined equation precisely so that `grep StatementSortPin` is the list
+of sites the landing has to serve. -/
+def StatementSortPin (tbody : Expr) (l : Level) : Prop :=
+  tbody = Expr.sort l
+
+/-- **The equation type slot's sort, derived from the pin.**  The
+spine lemma paying twice: a *second* alignment, this time between the
+public former's telescope and the model former's, carries the use
+site's fitting onto the model type — whose residual the pin says is a
+sort.  Shared verbatim by `UnitFoldTT` and `EtaFoldTT`, whose type
+slots are both the model former applied to the parameter spine. -/
+theorem eqSlotSort_of_sortPin {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {f : Name → Name} (hro : RenameOkT cval env f)
+    {nP : Nat} {tyPub tyMod : Expr}
+    {bsP bsM : List (Name × Expr × BinderMeta)} {bodyP bodyM : Expr}
+    {lA : Level} {vMod : VExpr} {d : Nat} {Δ : List VExpr}
+    {xs : List VExpr} {TV rest Tmod : VExpr}
+    (hP_strip : tyPub.stripPis nP = some (bsP, bodyP))
+    (hM_strip : tyMod.stripPis nP = some (bsM, bodyM))
+    (hpin : StatementSortPin bodyM lA)
+    (hpi : PiDomsRenEqT f nP tyPub tyMod)
+    (hTV : denote cval env φ d tyPub = some TV)
+    (hTmod : denote cval env φ d tyMod = some Tmod)
+    (hTmodv : HasType [] vMod Tmod)
+    (hfit : VTeleTyped Δ TV xs rest) (hlen : xs.length = nP) :
+    HasType Δ (VExpr.mkAppN vMod xs) (.sort (Level.eval φ lA)) := by
+  obtain ⟨R, RM, hR, hRM, halign⟩ :=
+    teleAlign_of_stripPis hro nP hP_strip hM_strip hpi hTV hTmod hlen
+  obtain ⟨-, hfitM⟩ := hfit.retarget' halign
+  obtain rfl : RM = VExpr.sort (Level.eval φ lA) := by
+    rw [show bodyM = Expr.sort lA from hpin,
+      Expr.instSeq_eq_self _ _ (by rfl), denote_sort] at hRM
+    exact (Option.some.inj hRM).symm
+  rw [VExpr.instSeq_sort] at hfitM
+  exact hfitM.appN (HasType.weakenNil hTmodv Δ)
+
+
 /-! ## The pinned parameter tuple
 
 Every pinned domain of a capability statement is the *same* thing: the
@@ -452,6 +507,29 @@ private theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)
 /-- **The parameter tuple, opened and denoted.**  The `k`-th pinned
 parameter variable is the `k`-th opening variable, whose denotation at
 depth `d + nP + c` is `bvar (c + nP - 1 - k)`. -/
+theorem denote_paramSpine {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d nP c dd : Nat} (hdd : dd = d + nP + c) :
+    DenoteSpine cval env φ dd
+      (((List.range nP).map fun l => Expr.bvar (nP - 1 - l)).map
+        (Expr.instSeq (openFvars d nP) (nP - 1)))
+      ((List.range nP).map fun l => VExpr.bvar (c + nP - 1 - l)) := by
+  subst hdd
+  rw [List.map_map]
+  refine DenoteSpine.map ?_
+  intro l hl
+  have hlt : l < nP := List.mem_range.mp hl
+  have hb := Expr.instSeq_bvar (openFvars d nP) (nP - 1) (nP - 1 - l)
+    (openFvars_bounded d nP) (by omega) (by simp; omega)
+  rw [show nP - 1 - (nP - 1 - l) = l from by omega,
+    openFvars_getElem? hlt] at hb
+  simp only [Function.comp_apply]
+  rw [← Option.some.inj hb, denote_fvar]
+  simp only [Option.some.injEq, VExpr.bvar.injEq]
+  omega
+
+/-- **The parameter tuple, opened and denoted.**  The `k`-th pinned
+parameter variable is the `k`-th opening variable, whose denotation at
+depth `d + nP + c` is `bvar (c + nP - 1 - k)`. -/
 theorem denote_paramTuple {cval : TConstVal} {env : Env} {φ : Name → Nat}
     {d nP c dd : Nat} {n : Name} {us : List Level} {vc : VExpr}
     (hdd : dd = d + nP + c)
@@ -462,39 +540,21 @@ theorem denote_paramTuple {cval : TConstVal} {env : Env} {φ : Name → Nat}
           ((List.range nP).map fun l => Expr.bvar (nP - 1 - l)))) =
       some (VExpr.mkAppN vc
         ((List.range nP).map fun l => VExpr.bvar (c + nP - 1 - l))) := by
-  subst hdd
   rw [Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ (by rfl)]
-  refine denote_mkAppN ?_ hc
-  rw [List.map_map]
-  refine DenoteSpine.map ?_
-  intro l hl
-  have hlt : l < nP := by simpa using List.mem_range.mp hl
-  have hb := Expr.instSeq_bvar (openFvars d nP) (nP - 1) (nP - 1 - l)
-    (openFvars_bounded d nP) (by omega) (by simp; omega)
-  rw [show nP - 1 - (nP - 1 - l) = l from by omega,
-    openFvars_getElem? hlt] at hb
-  simp only [Function.comp_apply]
-  rw [← Option.some.inj hb, denote_fvar]
-  simp only [Option.some.injEq, VExpr.bvar.injEq]
-  omega
+  exact denote_mkAppN (denote_paramSpine hdd) hc
 
 /-- **The parameter tuple, fitted.**  The same tuple with the use
 site's spine substituted, lifted past the `c` binders the residual sits
 under — lifts the consumer's own `inst` absorbs. -/
-theorem instSeq_paramTuple {vc : VExpr} (hvc : VExpr.Closed vc)
-    {nP c t : Nat} {xs : List VExpr} (ht : t = c + nP - 1)
-    (hlen : xs.length = nP) :
-    VExpr.instSeq xs t
-      (VExpr.mkAppN vc ((List.range nP).map fun l =>
-        VExpr.bvar (c + nP - 1 - l))) =
-      VExpr.mkAppN vc (xs.map (VExpr.liftN c · 0)) := by
+theorem instSeq_paramList {nP c t : Nat} {xs : List VExpr}
+    (ht : t = c + nP - 1) (hlen : xs.length = nP) :
+    ((List.range nP).map fun l => VExpr.bvar (c + nP - 1 - l)).map
+        (VExpr.instSeq xs t) = xs.map (VExpr.liftN c · 0) := by
   subst ht
-  rw [VExpr.instSeq_mkAppN, VExpr.instSeq_eq_self_of_closed hvc, List.map_map]
-  congr 1
-  rw [← hlen, ← map_range_getD xs (VExpr.liftN c · 0)]
+  rw [List.map_map, ← hlen, ← map_range_getD xs (VExpr.liftN c · 0)]
   refine List.map_congr_left ?_
   intro l hl
-  have hlt : l < xs.length := by simpa using List.mem_range.mp hl
+  have hlt : l < xs.length := List.mem_range.mp hl
   simp only [Function.comp_apply]
   rw [show c + xs.length - 1 - l = c + (xs.length - 1 - l) from by omega]
   rw [VExpr.instSeq_bvar_hit xs c (xs.length - 1 - l)
@@ -502,6 +562,17 @@ theorem instSeq_paramTuple {vc : VExpr} (hvc : VExpr.Closed vc)
     (by rw [show xs.length - 1 - (xs.length - 1 - l) = l from by omega]
         simp [List.getD, List.getElem?_eq_getElem hlt]) (by omega)]
 
+/-- The same, wrapped in the application the pins use. -/
+theorem instSeq_paramTuple {vc : VExpr} (hvc : VExpr.Closed vc)
+    {nP c t : Nat} {xs : List VExpr} (ht : t = c + nP - 1)
+    (hlen : xs.length = nP) :
+    VExpr.instSeq xs t
+      (VExpr.mkAppN vc ((List.range nP).map fun l =>
+        VExpr.bvar (c + nP - 1 - l))) =
+      VExpr.mkAppN vc (xs.map (VExpr.liftN c · 0)) := by
+  rw [VExpr.instSeq_mkAppN, VExpr.instSeq_eq_self_of_closed hvc]
+  congr 1
+  exact instSeq_paramList ht hlen
 
 /-- `instSeq` at `nP - 1 + 1` is `instSeq` at `nP` — trivially when
 `nP ≥ 1`, and vacuously when the argument list is empty. -/
@@ -524,8 +595,21 @@ private theorem instSeqV_len_succ {xs : List VExpr} {nP : Nat}
     rfl
   · rw [show nP - 1 + 1 = nP from by omega]
 
-/-- Instantiating a parameter tuple below its range: every index drops
-by one. -/
+/-- Instantiating a list of parameter variables below their range:
+every index drops by one. -/
+private theorem paramList_inst (nP c : Nat) (w : Expr) (g g' : Nat → Nat)
+    (hg : ∀ k, k < nP → c < g k ∧ g k - 1 = g' k) :
+    ((List.range nP).map fun k => Expr.bvar (g k)).map
+        (Expr.instantiate1 · w c) =
+      (List.range nP).map fun k => Expr.bvar (g' k) := by
+  rw [List.map_map]
+  refine List.map_congr_left ?_
+  intro k hk
+  obtain ⟨h1, h2⟩ := hg k (List.mem_range.mp hk)
+  simp only [Function.comp_apply, Expr.instantiate1]
+  rw [if_neg (by omega), if_pos (by omega), h2]
+
+/-- The same, wrapped in the constant application the pins use. -/
 private theorem paramTuple_inst (Tm : Name) (lvls : List Level) (nP c : Nat)
     (w : Expr) (g g' : Nat → Nat)
     (hg : ∀ k, k < nP → c < g k ∧ g k - 1 = g' k) :
@@ -535,12 +619,38 @@ private theorem paramTuple_inst (Tm : Name) (lvls : List Level) (nP c : Nat)
         ((List.range nP).map fun k => Expr.bvar (g' k)) := by
   rw [Expr.mkAppN_instantiate1]
   congr 1
-  rw [List.map_map]
+  exact paramList_inst nP c w g g' hg
+
+/-- **The eta statement's fabricated constructor spine, opened.**  The
+parameters drop an index and the subject variable becomes the opening
+variable — inside the projection applications too. -/
+private theorem etaCtor_inst (Cm : Name) (pm : Nat → Name)
+    (lvls : List Level) (nP nF : Nat) (w : Expr) :
+    (Expr.mkAppN (.const Cm lvls)
+        (((List.range nP).map (fun k => Expr.bvar (nP - k))) ++
+         (List.range nF).map (fun j => Expr.mkAppN (.const (pm j) lvls)
+           (((List.range nP).map (fun k => Expr.bvar (nP - k))) ++
+            [Expr.bvar 0])))).instantiate1 w 0 =
+      Expr.mkAppN (.const Cm lvls)
+        (((List.range nP).map (fun k => Expr.bvar (nP - 1 - k))) ++
+         (List.range nF).map (fun j => Expr.mkAppN (.const (pm j) lvls)
+           (((List.range nP).map (fun k => Expr.bvar (nP - 1 - k))) ++
+            [w]))) := by
+  rw [Expr.mkAppN_instantiate1]
+  congr 1
+  rw [List.map_append,
+    paramList_inst nP 0 w (fun k => nP - k) (fun k => nP - 1 - k)
+      (fun k hk => ⟨by omega, by omega⟩), List.map_map]
+  congr 1
   refine List.map_congr_left ?_
-  intro k hk
-  obtain ⟨h1, h2⟩ := hg k (List.mem_range.mp hk)
-  simp only [Function.comp_apply, Expr.instantiate1]
-  rw [if_neg (by omega), if_pos (by omega), h2]
+  intro j _
+  simp only [Function.comp_apply]
+  rw [Expr.mkAppN_instantiate1]
+  congr 1
+  rw [List.map_append, List.map_cons, List.map_nil,
+    paramList_inst nP 0 w (fun k => nP - k) (fun k => nP - 1 - k)
+      (fun k hk => ⟨by omega, by omega⟩)]
+  rfl
 
 /-- **The unit statement's residual, computed.**  Opening the `nP`
 parameter binders and denoting leaves the two subject domains and the
@@ -709,6 +819,177 @@ theorem instSeq_unitResidual {vT veq : VExpr} (hvT : VExpr.Closed vT)
     funext x; exact VExpr.liftN_zero x 0]
   exact List.map_id xs
 
+/-- **The eta statement's equation, opened at the subject binder.** -/
+private theorem etaBody_inst (Tm Cm : Name) (pm : Nat → Name)
+    (lvls : List Level) (lA : Level) (nP nF : Nat) (w : Expr) :
+    (Expr.mkAppN (.const eqName [lA])
+        [Expr.mkAppN (.const Tm lvls)
+           ((List.range nP).map (fun k => Expr.bvar (nP - k))),
+         Expr.bvar 0,
+         Expr.mkAppN (.const Cm lvls)
+           (((List.range nP).map (fun k => Expr.bvar (nP - k))) ++
+            (List.range nF).map (fun j => Expr.mkAppN (.const (pm j) lvls)
+              (((List.range nP).map (fun k => Expr.bvar (nP - k))) ++
+               [Expr.bvar 0])))]).instantiate1 w 0 =
+      Expr.mkAppN (.const eqName [lA])
+        [Expr.mkAppN (.const Tm lvls)
+           ((List.range nP).map (fun k => Expr.bvar (nP - 1 - k))),
+         w,
+         Expr.mkAppN (.const Cm lvls)
+           (((List.range nP).map (fun k => Expr.bvar (nP - 1 - k))) ++
+            (List.range nF).map (fun j => Expr.mkAppN (.const (pm j) lvls)
+              (((List.range nP).map (fun k => Expr.bvar (nP - 1 - k))) ++
+               [w])))] := by
+  rw [Expr.mkAppN_instantiate1]
+  simp only [List.map_cons, List.map_nil]
+  rw [paramTuple_inst Tm lvls nP 0 w (fun k => nP - k) (fun k => nP - 1 - k)
+    (fun k hk => ⟨by omega, by omega⟩), etaCtor_inst]
+  rfl
+
+/-- **The eta statement's residual, computed.**  One subject binder,
+then the equation whose right-hand side is the fabricated constructor
+spine — the same parameter tuple at shift `1` throughout, inside the
+projection applications too. -/
+theorem denote_etaResidual {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d nP nF : Nat} {nx : Name} {mx : BinderMeta} {Tm Cm : Name}
+    {pm : Nat → Name} {lvls : List Level} {lA : Level}
+    {vT vC veq : VExpr} {vP : Nat → VExpr}
+    (hcT : ∀ dd : Nat, denote cval env φ dd (.const Tm lvls) = some vT)
+    (hcC : ∀ dd : Nat, denote cval env φ dd (.const Cm lvls) = some vC)
+    (hcP : ∀ (j : Nat), j < nF → ∀ dd : Nat,
+      denote cval env φ dd (.const (pm j) lvls) = some (vP j))
+    (hcE : ∀ dd : Nat, denote cval env φ dd (.const eqName [lA]) = some veq) :
+    denote cval env φ (d + nP)
+      (Expr.instSeq (openFvars d nP) (nP - 1)
+        (.forallE nx
+          (Expr.mkAppN (.const Tm lvls)
+            ((List.range nP).map (fun k => Expr.bvar (nP - 1 - k))))
+          (Expr.mkAppN (.const eqName [lA])
+            [Expr.mkAppN (.const Tm lvls)
+               ((List.range nP).map (fun k => Expr.bvar (nP - k))),
+             Expr.bvar 0,
+             Expr.mkAppN (.const Cm lvls)
+               (((List.range nP).map (fun k => Expr.bvar (nP - k))) ++
+                (List.range nF).map (fun j => Expr.mkAppN (.const (pm j) lvls)
+                  (((List.range nP).map (fun k => Expr.bvar (nP - k))) ++
+                   [Expr.bvar 0])))]) mx)) =
+      some (.pi
+        (VExpr.mkAppN vT
+          ((List.range nP).map (fun l => VExpr.bvar (0 + nP - 1 - l))))
+        (VExpr.mkAppN veq
+          [VExpr.mkAppN vT
+             ((List.range nP).map (fun l => VExpr.bvar (1 + nP - 1 - l))),
+           VExpr.bvar 0,
+           VExpr.mkAppN vC
+             (((List.range nP).map (fun l => VExpr.bvar (1 + nP - 1 - l))) ++
+              (List.range nF).map (fun j => VExpr.mkAppN (vP j)
+                (((List.range nP).map
+                   (fun l => VExpr.bvar (1 + nP - 1 - l))) ++
+                 [VExpr.bvar 0])))])) := by
+  have hargsb := openFvars_bounded d nP
+  have hargslen := openFvars_length d nP
+  have hle : (openFvars d nP).length ≤ nP - 1 + 1 := by rw [hargslen]; omega
+  rw [Expr.instSeq_forallE _ _ _ _ _ _ hle, instSeq_len_succ hargslen,
+    denote_forallE,
+    denote_paramTuple (c := 0) (d := d) (nP := nP) (dd := d + nP) rfl
+      (hcT (d + nP))]
+  rw [instSeq_instantiate1_in (b := Expr.fvar (d + nP) nx
+      (Expr.instSeq (openFvars d nP) (nP - 1)
+        (Expr.mkAppN (.const Tm lvls)
+          ((List.range nP).map (fun k => Expr.bvar (nP - 1 - k)))))) rfl
+    _ nP hargsb (Nat.le_of_eq hargslen)]
+  rw [etaBody_inst Tm Cm pm lvls lA nP nF, Expr.instSeq_mkAppN,
+    Expr.instSeq_eq_self (e := Expr.const eqName [lA]) _ _ (by rfl)]
+  simp only [List.map_cons, List.map_nil]
+  rw [denote_mkAppN (vs :=
+      [VExpr.mkAppN vT
+         ((List.range nP).map (fun l => VExpr.bvar (1 + nP - 1 - l))),
+       VExpr.bvar 0,
+       VExpr.mkAppN vC
+         (((List.range nP).map (fun l => VExpr.bvar (1 + nP - 1 - l))) ++
+          (List.range nF).map (fun j => VExpr.mkAppN (vP j)
+            (((List.range nP).map (fun l => VExpr.bvar (1 + nP - 1 - l))) ++
+             [VExpr.bvar 0])))])
+    (.cons (denote_paramTuple (c := 1) (d := d) (nP := nP)
+        (dd := d + nP + 1) rfl (hcT (d + nP + 1)))
+      (.cons (by
+          rw [Expr.instSeq_eq_self _ _ (by rfl), denote_fvar]
+          simp only [Option.some.injEq, VExpr.bvar.injEq]
+          omega)
+        (.cons (by
+            rw [Expr.instSeq_mkAppN,
+              Expr.instSeq_eq_self (e := Expr.const Cm lvls) _ _ (by rfl),
+              List.map_append]
+            refine denote_mkAppN (DenoteSpine.append
+              (denote_paramSpine (c := 1) (d := d) (nP := nP) rfl) ?_)
+              (hcC (d + nP + 1))
+            rw [List.map_map]
+            refine DenoteSpine.map ?_
+            intro j hj
+            simp only [Function.comp_apply]
+            rw [Expr.instSeq_mkAppN,
+              Expr.instSeq_eq_self (e := Expr.const (pm j) lvls) _ _ (by rfl),
+              List.map_append, List.map_cons, List.map_nil]
+            refine denote_mkAppN (DenoteSpine.append
+              (denote_paramSpine (c := 1) (d := d) (nP := nP) rfl)
+              (.cons ?_ .nil)) (hcP j (List.mem_range.mp hj) (d + nP + 1))
+            rw [Expr.instSeq_eq_self _ _ (by rfl), denote_fvar]
+            simp only [Option.some.injEq, VExpr.bvar.injEq]
+            omega) .nil)))
+    (hcE (d + nP + 1))]
+
+/-- The eta residual, fitted with the use site's spine. -/
+theorem instSeq_etaResidual {vT vC veq : VExpr} {vP : Nat → VExpr}
+    (hvT : VExpr.Closed vT) (hvC : VExpr.Closed vC) (hveq : VExpr.Closed veq)
+    (hvP : ∀ j, VExpr.Closed (vP j)) {nP nF : Nat} {xs : List VExpr}
+    (hlen : xs.length = nP) :
+    VExpr.instSeq xs (nP - 1)
+      (.pi
+        (VExpr.mkAppN vT
+          ((List.range nP).map (fun l => VExpr.bvar (0 + nP - 1 - l))))
+        (VExpr.mkAppN veq
+          [VExpr.mkAppN vT
+             ((List.range nP).map (fun l => VExpr.bvar (1 + nP - 1 - l))),
+           VExpr.bvar 0,
+           VExpr.mkAppN vC
+             (((List.range nP).map (fun l => VExpr.bvar (1 + nP - 1 - l))) ++
+              (List.range nF).map (fun j => VExpr.mkAppN (vP j)
+                (((List.range nP).map
+                   (fun l => VExpr.bvar (1 + nP - 1 - l))) ++
+                 [VExpr.bvar 0])))])) =
+      .pi (VExpr.mkAppN vT xs)
+        (VExpr.mkAppN veq
+          [VExpr.mkAppN vT (xs.map (VExpr.liftN 1 · 0)),
+           VExpr.bvar 0,
+           VExpr.mkAppN vC ((xs.map (VExpr.liftN 1 · 0)) ++
+             (List.range nF).map (fun j => VExpr.mkAppN (vP j)
+               ((xs.map (VExpr.liftN 1 · 0)) ++ [VExpr.bvar 0])))]) := by
+  have hz : xs.map (VExpr.liftN 0 · 0) = xs := by
+    refine Eq.trans (List.map_congr_left ?_) (List.map_id xs)
+    intro x _
+    exact VExpr.liftN_zero x 0
+  have hproj : ((List.range nF).map (fun j => VExpr.mkAppN (vP j)
+        (((List.range nP).map (fun l => VExpr.bvar (1 + nP - 1 - l))) ++
+         [VExpr.bvar 0]))).map (VExpr.instSeq xs nP) =
+      (List.range nF).map (fun j => VExpr.mkAppN (vP j)
+        ((xs.map (VExpr.liftN 1 · 0)) ++ [VExpr.bvar 0])) := by
+    rw [List.map_map]
+    refine List.map_congr_left ?_
+    intro j _
+    simp only [Function.comp_apply]
+    rw [VExpr.instSeq_mkAppN, VExpr.instSeq_eq_self_of_closed (hvP j),
+      List.map_append, List.map_cons, List.map_nil,
+      instSeq_paramList (c := 1) (by omega) hlen,
+      VExpr.instSeq_bvar_lt xs nP 0 (by rw [hlen]; omega)]
+  rw [VExpr.instSeq_pi _ _ _ _ (by rw [hlen]; omega), instSeqV_len_succ hlen,
+    instSeq_paramTuple hvT (c := 0) (by omega) hlen, hz,
+    VExpr.instSeq_mkAppN, VExpr.instSeq_eq_self_of_closed hveq]
+  simp only [List.map_cons, List.map_nil]
+  rw [instSeq_paramTuple hvT (c := 1) (by omega) hlen,
+    VExpr.instSeq_bvar_lt xs nP 0 (by rw [hlen]; omega),
+    VExpr.instSeq_mkAppN, VExpr.instSeq_eq_self_of_closed hvC,
+    List.map_append, instSeq_paramList (c := 1) (by omega) hlen, hproj]
+
 /-! ## `UnitFoldTT`
 
 The first of §14.3's five obligations.  Hypotheses are the *unpacked*
@@ -776,7 +1057,7 @@ theorem UnitFoldTT {env : Env} {cval : TConstVal}
       (.const (T.str "_model") (cvT.levelParams.map .param))
       ((List.range caps.unitParams).map fun k =>
         Expr.bvar (caps.unitParams + 1 - k)))
-    (hTmSort : tbodyM = Expr.sort lA)
+    (hTmSort : StatementSortPin tbodyM lA)
     (hSw : tcv.type.hasFvar = false)
     (hSb : tcv.type.looseBVarsBounded 0 = true)
     (hTmw : cvmT.type.hasFvar = false)
@@ -793,7 +1074,7 @@ theorem UnitFoldTT {env : Env} {cval : TConstVal}
   intro φ d Δ us xs TV rest B B' hlen hTV hfit hB hB'
   obtain ⟨nx, mx, hxdom'⟩ := hxdom
   obtain ⟨ny, my, hydom'⟩ := hydom
-  subst hsbody htySlot hTmSort
+  subst hsbody htySlot
   -- the ambient level assignment
   have hcTm : ∀ dd : Nat,
       denote cval env (Level.substFn φ cvT.levelParams us) dd
@@ -892,23 +1173,10 @@ theorem UnitFoldTT {env : Env} {cval : TConstVal}
   obtain ⟨R, RS, hR, hRS, halignS⟩ :=
     teleAlign_of_stripPis hro caps.unitParams hT_strip hstrip0 hpiS hTV hTstmt
       hlen
-  obtain ⟨R', RM, hR', hRM, halignM⟩ :=
-    teleAlign_of_stripPis hro caps.unitParams hT_strip hTm_strip hpiM hTV hTmod
-      hlen
-  obtain rfl : R' = R := Option.some.inj (hR'.symm.trans hR)
   obtain ⟨-, hfitS⟩ := hfit.retarget' halignS
-  obtain ⟨-, hfitM⟩ := hfit.retarget' halignM
-  -- (7) the type slot's sort, off the pending pin
-  obtain rfl : RM = VExpr.sort (Level.eval (Level.substFn φ cvT.levelParams us)
-      lA) := by
-    rw [Expr.instSeq_eq_self _ _ (by rfl), denote_sort] at hRM
-    exact (Option.some.inj hRM).symm
-  rw [VExpr.instSeq_sort] at hfitM
-  have hAsort : HasType Δ
-      (VExpr.mkAppN (cval (T.str "_model")
-        (Level.substFn φ cvT.levelParams us)) xs)
-      (.sort (Level.eval (Level.substFn φ cvT.levelParams us) lA)) :=
-    hfitM.appN (HasType.weakenNil hTmodv Δ)
+  -- (7) the type slot's sort, off the pending pin (task #135)
+  have hAsort := eqSlotSort_of_sortPin hro hT_strip hTm_strip hTmSort hpiM
+    hTV hTmod hTmodv hfit hlen
   -- (8) the residual, computed and fitted
   rw [denote_unitResidual hcTm hcEq] at hRS
   obtain rfl := Option.some.inj hRS
@@ -970,5 +1238,318 @@ theorem UnitFoldTT {env : Env} {cval : TConstVal}
     simp only [Nat.zero_add]
     rw [hres _ _ (hcl _ _) (hcl _ _)]
     exact VTeleTyped.nil
+
+/-! ## `EtaFoldTT`
+
+The second obligation.  Same skeleton as `UnitFoldTT`: one binder
+fewer in the statement's telescope, and the equation's right-hand side
+is the *fabricated constructor spine* instead of a second subject.
+
+**It owes two pending premises, not one** (`DESIGN.md` §14.7.7).
+`StatementSortPin` is #135's; `EtaRhsTyped` is the one the fabricated
+spine needs, which has no syntactic supplier and is filed as a separate
+request.  Both are named, so each is one supplier and one swap. -/
+
+/-- **The second pending premise** (`DESIGN.md` §14.7.7): the eta
+statement's right-hand side is the fabricated constructor spine, and
+`EqLawTT`'s third β-step wants its typing.
+
+Stated as exactly the premise `EtaLawTT` would gain — same binders,
+same side conditions, the RHS typing in place of the conclusion — so
+that it is neither vacuous nor stronger than the law needs.  What the
+checker already certifies at the rescue site is every *field's* typing
+(`structEtaProjCertsI`) and `T`'s telescope (`iotaCertsI`); what is
+missing is the constructor telescope's fit, one `iotaCerts` call
+away. -/
+def EtaRhsTyped (env : Env) (cval : TConstVal) (T : Name)
+    (cvT : ConstantVal) (caps : IndCaps) : Prop :=
+  ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr) (us : List Level)
+    (xs : List VExpr) (TV rest B : VExpr),
+    xs.length = caps.etaParams →
+    denote cval env φ d
+      (cvT.type.instantiateLevelParams cvT.levelParams us) = some TV →
+    VTeleTyped Δ TV xs rest →
+    HasType Δ B
+      (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us)) xs) →
+    HasType Δ
+      (VExpr.mkAppN (cval caps.etaCtor
+          (Level.substFn φ (levelParamsAt env caps.etaCtor) us))
+        (xs ++ (List.range caps.etaFields).map fun j =>
+          VExpr.mkAppN (cval (projFnName T j)
+            (Level.substFn φ (levelParamsAt env (projFnName T j)) us))
+            (xs ++ [B])))
+      (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us)) xs)
+
+set_option maxHeartbeats 1600000 in
+/-- **The structural-eta law, from the checked `T._model.eta`
+theorem.**  Transpose of `eta_rule_fold`. -/
+theorem EtaFoldTT {env : Env} {cval : TConstVal}
+    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    (hvp : ValParams env cval)
+    (heqlaw : EqLawTT env cval)
+    {f : Name → Name} (hro : RenameOkT cval env f)
+    {T : Name} {cvT : ConstantVal} {caps : IndCaps}
+    {tcv cvmT cvmC : ConstantVal} {mvalT mvalC : Expr}
+    {hmT hmC : ReducibilityHint}
+    {sbinders tbindersM : List (Name × Expr × BinderMeta)}
+    {sbody tbodyM tySlot : Expr} {lA : Level}
+    (hTmE : env.find? (T.str "_model") = some (.defnInfo cvmT mvalT hmT))
+    (hTmlps : cvmT.levelParams = cvT.levelParams)
+    (hCmE : env.find? (caps.etaCtor.str "_model") =
+      some (.defnInfo cvmC mvalC hmC))
+    (hCmlps : cvmC.levelParams = cvT.levelParams)
+    (hPmE : ∀ j, j < caps.etaFields → ∃ cvmj mvalj hmj,
+      env.find? (projModelName T j) = some (.defnInfo cvmj mvalj hmj) ∧
+      cvmj.levelParams = cvT.levelParams)
+    (heqfE : env.find? eqName = some eqA)
+    (hS_strip : tcv.type.stripPis (caps.etaParams + 1) = some (sbinders, sbody))
+    (hTm_strip : cvmT.type.stripPis caps.etaParams = some (tbindersM, tbodyM))
+    (hsdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+      k < caps.etaParams → sbinders[k]? = some b → tbindersM[k]? = some b' →
+      b.2.1 = b'.2.1)
+    (hxdom : ∃ nx mx, sbinders[caps.etaParams]? = some (nx,
+      Expr.mkAppN (.const (T.str "_model") (cvT.levelParams.map .param))
+        ((List.range caps.etaParams).map fun k =>
+          Expr.bvar (caps.etaParams - 1 - k)), mx))
+    (hsbody : sbody = Expr.mkAppN (.const eqName [lA])
+      [tySlot, .bvar 0,
+       Expr.mkAppN (.const (caps.etaCtor.str "_model")
+           (cvT.levelParams.map .param))
+         (((List.range caps.etaParams).map
+             (fun k => Expr.bvar (caps.etaParams - k))) ++
+          (List.range caps.etaFields).map (fun j =>
+            Expr.mkAppN (.const (projModelName T j)
+              (cvT.levelParams.map .param))
+              (((List.range caps.etaParams).map
+                  (fun k => Expr.bvar (caps.etaParams - k))) ++
+               [Expr.bvar 0])))])
+    (htySlot : tySlot = Expr.mkAppN
+      (.const (T.str "_model") (cvT.levelParams.map .param))
+      ((List.range caps.etaParams).map fun k =>
+        Expr.bvar (caps.etaParams - k)))
+    (hTmSort : StatementSortPin tbodyM lA)
+    (hSw : tcv.type.hasFvar = false)
+    (hSb : tcv.type.looseBVarsBounded 0 = true)
+    (hTmw : cvmT.type.hasFvar = false)
+    (hTmb : cvmT.type.looseBVarsBounded 0 = true)
+    (hren : Expr.eqUpToNames (cvT.type.renameConsts f) cvmT.type = true)
+    (hthmty : ∀ psi : Name → Nat, ∃ t,
+      denoteClosed cval env psi tcv.type = some t ∧
+      HasType [] (cval tcv.name psi) t)
+    (hTmty : ∀ psi : Name → Nat, ∃ t,
+      denoteClosed cval env psi cvmT.type = some t ∧
+      HasType [] (cval (T.str "_model") psi) t)
+    (hvT : ∀ psi : Name → Nat, cval T psi = cval (T.str "_model") psi)
+    (hvC : ∀ psi : Name → Nat,
+      cval caps.etaCtor psi = cval (caps.etaCtor.str "_model") psi)
+    (hvP : ∀ j, j < caps.etaFields → ∀ psi : Name → Nat,
+      cval (projFnName T j) psi = cval (projModelName T j) psi)
+    (hlpsC : levelParamsAt env caps.etaCtor = cvT.levelParams)
+    (hlpsP : ∀ j, j < caps.etaFields →
+      levelParamsAt env (projFnName T j) = cvT.levelParams)
+    (hrhs : EtaRhsTyped env cval T cvT caps) :
+    EtaLawTT env cval T cvT caps := by
+  intro φ d Δ us xs TV rest B hlen hTV hfit hB
+  have hrhsT := hrhs φ d Δ us xs TV rest B hlen hTV hfit hB
+  obtain ⟨nx, mx, hxdom'⟩ := hxdom
+  subst hsbody htySlot
+  -- the public/model identifications, applied once to goal and premises
+  have hprojEq : ((List.range caps.etaFields).map fun j =>
+      VExpr.mkAppN (cval (projFnName T j)
+        (Level.substFn φ (levelParamsAt env (projFnName T j)) us))
+        (xs ++ [B])) =
+      ((List.range caps.etaFields).map fun j =>
+      VExpr.mkAppN (cval (projModelName T j)
+        (Level.substFn φ cvT.levelParams us)) (xs ++ [B])) := by
+    refine List.map_congr_left ?_
+    intro j hj
+    rw [hlpsP j (List.mem_range.mp hj), hvP j (List.mem_range.mp hj)]
+  rw [hlpsC, hvC, hprojEq] at hrhsT ⊢
+  simp only [hvT] at hB hrhsT ⊢
+  -- the constants' denotations
+  have hcTm : ∀ dd : Nat,
+      denote cval env (Level.substFn φ cvT.levelParams us) dd
+        (.const (T.str "_model") (cvT.levelParams.map .param)) =
+      some (cval (T.str "_model") (Level.substFn φ cvT.levelParams us)) := by
+    intro dd
+    rw [denote_const, hTmE]
+    dsimp only
+    rw [if_pos (by simp [ConstantInfo.toConstantVal, hTmlps])]
+    have hsub : Level.substFn (Level.substFn φ cvT.levelParams us)
+        (ConstantInfo.defnInfo cvmT mvalT hmT).toConstantVal.levelParams
+        (List.map Level.param cvT.levelParams) =
+        Level.substFn φ cvT.levelParams us := by
+      have hlp : (ConstantInfo.defnInfo cvmT mvalT hmT).toConstantVal.levelParams
+          = cvT.levelParams := by simp [ConstantInfo.toConstantVal, hTmlps]
+      rw [hlp]
+      funext p
+      exact Level.substFn_map_param
+    rw [hsub]
+  have hcCm : ∀ dd : Nat,
+      denote cval env (Level.substFn φ cvT.levelParams us) dd
+        (.const (caps.etaCtor.str "_model") (cvT.levelParams.map .param)) =
+      some (cval (caps.etaCtor.str "_model")
+        (Level.substFn φ cvT.levelParams us)) := by
+    intro dd
+    rw [denote_const, hCmE]
+    dsimp only
+    rw [if_pos (by simp [ConstantInfo.toConstantVal, hCmlps])]
+    have hsub : Level.substFn (Level.substFn φ cvT.levelParams us)
+        (ConstantInfo.defnInfo cvmC mvalC hmC).toConstantVal.levelParams
+        (List.map Level.param cvT.levelParams) =
+        Level.substFn φ cvT.levelParams us := by
+      have hlp : (ConstantInfo.defnInfo cvmC mvalC hmC).toConstantVal.levelParams
+          = cvT.levelParams := by simp [ConstantInfo.toConstantVal, hCmlps]
+      rw [hlp]
+      funext p
+      exact Level.substFn_map_param
+    rw [hsub]
+  have hcPm : ∀ (j : Nat), j < caps.etaFields → ∀ dd : Nat,
+      denote cval env (Level.substFn φ cvT.levelParams us) dd
+        (.const (projModelName T j) (cvT.levelParams.map .param)) =
+      some (cval (projModelName T j) (Level.substFn φ cvT.levelParams us)) := by
+    intro j hj dd
+    obtain ⟨cvmj, mvalj, hmj, hfj, hlpj⟩ := hPmE j hj
+    rw [denote_const, hfj]
+    dsimp only
+    rw [if_pos (by simp [ConstantInfo.toConstantVal, hlpj])]
+    have hsub : Level.substFn (Level.substFn φ cvT.levelParams us)
+        (ConstantInfo.defnInfo cvmj mvalj hmj).toConstantVal.levelParams
+        (List.map Level.param cvT.levelParams) =
+        Level.substFn φ cvT.levelParams us := by
+      have hlp : (ConstantInfo.defnInfo cvmj mvalj hmj).toConstantVal.levelParams
+          = cvT.levelParams := by simp [ConstantInfo.toConstantVal, hlpj]
+      rw [hlp]
+      funext p
+      exact Level.substFn_map_param
+    rw [hsub]
+  have hcEq : ∀ dd : Nat,
+      denote cval env (Level.substFn φ cvT.levelParams us) dd
+        (.const eqName [lA]) =
+      some (cval eqName (Level.substFn
+        (Level.substFn φ cvT.levelParams us) eqA.toConstantVal.levelParams
+        [lA])) := by
+    intro dd
+    rw [denote_const, heqfE]
+    dsimp only
+    rw [if_pos (by rfl)]
+  -- (1)-(5), as in `UnitFoldTT`
+  rw [denote_instLevels hvp (ks := cvT.levelParams) (us := us) φ d cvT.type]
+    at hTV
+  obtain ⟨bsR, bodyR, hstripR, hlenR, hdomsR, -⟩ :=
+    Expr.ErasedEq.stripPis_inv caps.etaParams
+      (Expr.ErasedEq.of_eqUpToNames hren) hTm_strip
+  obtain ⟨tbinders, tbody, hT_strip, hbsmap, -⟩ :=
+    Expr.stripPis_renameConsts_inv (f := f) caps.etaParams hstripR
+  have hdomsPub : ∀ (i : Nat) (b₁ b₂ : Name × Expr × BinderMeta),
+      tbinders[i]? = some b₁ → tbindersM[i]? = some b₂ →
+      RenEqT f b₁.2.1 b₂.2.1 := by
+    intro i b₁ b₂ hb₁ hb₂
+    have hbR : bsR[i]? = some (b₁.1, (b₁.2.1).renameConsts f, b₁.2.2) := by
+      rw [hbsmap, List.getElem?_map, hb₁]; rfl
+    exact (hdomsR i _ _ hbR hb₂).1
+  obtain ⟨nx', dx', mx', hxb, hstrip0⟩ :=
+    Expr.stripPis_snoc caps.etaParams hS_strip
+  have hdx : dx' = Expr.mkAppN
+      (.const (T.str "_model") (cvT.levelParams.map .param))
+      ((List.range caps.etaParams).map fun k =>
+        Expr.bvar (caps.etaParams - 1 - k)) :=
+    congrArg (fun t => t.2.1) (Option.some.inj (hxb.symm.trans hxdom'))
+  subst hdx
+  obtain ⟨Tstmt, hTstmtC, hthmv⟩ := hthmty (Level.substFn φ cvT.levelParams us)
+  have hTstmt : denote cval env (Level.substFn φ cvT.levelParams us) d
+      tcv.type = some Tstmt := by
+    rw [denote_depth_closed hcl hSw hSb d]; exact hTstmtC
+  obtain ⟨Tmod, hTmodC, hTmodv⟩ := hTmty (Level.substFn φ cvT.levelParams us)
+  have hTmod : denote cval env (Level.substFn φ cvT.levelParams us) d
+      cvmT.type = some Tmod := by
+    rw [denote_depth_closed hcl hTmw hTmb d]; exact hTmodC
+  have hpiM : PiDomsRenEqT f caps.etaParams cvT.type cvmT.type :=
+    PiDomsRenEqT.of_pointwise caps.etaParams hT_strip hTm_strip hdomsPub
+  have hpiS : PiDomsRenEqT f caps.etaParams cvT.type tcv.type := by
+    refine PiDomsRenEqT.of_pointwise caps.etaParams hT_strip hstrip0 ?_
+    intro i b₁ b₂ hb₁ hb₂
+    have hi : i < caps.etaParams := by
+      rcases Nat.lt_or_ge i caps.etaParams with h | h
+      · exact h
+      · rw [List.getElem?_eq_none
+          (by rw [Expr.stripPis_length caps.etaParams hT_strip]; omega)] at hb₁
+        exact nomatch hb₁
+    have hilt : i < tbindersM.length := by
+      rw [Expr.stripPis_length caps.etaParams hTm_strip]; exact hi
+    have hbM : tbindersM[i]? = some tbindersM[i] :=
+      List.getElem?_eq_getElem hilt
+    rw [List.getElem?_take_of_lt hi] at hb₂
+    rw [hsdoms i b₂ tbindersM[i] hi hb₂ hbM]
+    exact hdomsPub i b₁ tbindersM[i] hb₁ hbM
+  obtain ⟨R, RS, hR, hRS, halignS⟩ :=
+    teleAlign_of_stripPis hro caps.etaParams hT_strip hstrip0 hpiS hTV hTstmt
+      hlen
+  obtain ⟨-, hfitS⟩ := hfit.retarget' halignS
+  have hAsort := eqSlotSort_of_sortPin hro hT_strip hTm_strip hTmSort hpiM
+    hTV hTmod hTmodv hfit hlen
+  -- the residual, computed and fitted
+  rw [denote_etaResidual hcTm hcCm hcPm hcEq] at hRS
+  obtain rfl := Option.some.inj hRS
+  rw [instSeq_etaResidual (hcl _ _) (hcl _ _) (hcl _ _) (fun j => hcl _ _)
+    hlen] at hfitS
+  -- fire the theorem at the subject
+  have hpsi2 : Level.substFn (Level.substFn φ cvT.levelParams us)
+      eqA.toConstantVal.levelParams [lA] uNT =
+      Level.eval (Level.substFn φ cvT.levelParams us) lA := rfl
+  refine Deq.ofEqThmClosed heqlaw heqfE
+    (Level.substFn (Level.substFn φ cvT.levelParams us)
+      eqA.toConstantVal.levelParams [lA]) (args := xs ++ [B]) hthmv ?_
+    (by rw [hpsi2]; exact hAsort) hB hrhsT
+  refine hfitS.append (VTeleTyped.cons hB ?_)
+  have habs : (xs.map (VExpr.liftN 1 · 0)).map (VExpr.inst · B 0) = xs := by
+    rw [List.map_map]
+    refine Eq.trans (List.map_congr_left ?_) (List.map_id xs)
+    intro x _
+    show VExpr.inst (VExpr.liftN 1 x 0) B 0 = x
+    rw [VExpr.inst_liftN_absorb x (Nat.zero_le 0) (Nat.le_refl 0) B,
+      VExpr.liftN_zero]
+  have hres : ∀ VE VT VC : VExpr, VExpr.Closed VE → VExpr.Closed VT →
+      VExpr.Closed VC → (∀ j, VExpr.Closed
+        (cval (projModelName T j) (Level.substFn φ cvT.levelParams us))) →
+      (VExpr.mkAppN VE
+          [VExpr.mkAppN VT (xs.map (VExpr.liftN 1 · 0)), VExpr.bvar 0,
+           VExpr.mkAppN VC ((xs.map (VExpr.liftN 1 · 0)) ++
+             (List.range caps.etaFields).map (fun j => VExpr.mkAppN
+               (cval (projModelName T j)
+                 (Level.substFn φ cvT.levelParams us))
+               ((xs.map (VExpr.liftN 1 · 0)) ++
+                [VExpr.bvar 0])))]).inst B 0 =
+        VExpr.mkAppN VE
+          [VExpr.mkAppN VT xs, B,
+           VExpr.mkAppN VC (xs ++
+             (List.range caps.etaFields).map (fun j => VExpr.mkAppN
+               (cval (projModelName T j)
+                 (Level.substFn φ cvT.levelParams us)) (xs ++ [B])))] := by
+    intro VE VT VC hVE hVT hVC hVP
+    have hprojI : ((List.range caps.etaFields).map (fun j => VExpr.mkAppN
+          (cval (projModelName T j) (Level.substFn φ cvT.levelParams us))
+          ((xs.map (VExpr.liftN 1 · 0)) ++ [VExpr.bvar 0]))).map
+          (VExpr.inst · B 0) =
+        (List.range caps.etaFields).map (fun j => VExpr.mkAppN
+          (cval (projModelName T j) (Level.substFn φ cvT.levelParams us))
+          (xs ++ [B])) := by
+      rw [List.map_map]
+      refine List.map_congr_left ?_
+      intro j _
+      simp only [Function.comp_apply]
+      rw [VExpr.inst_mkAppN, VExpr.inst_eq_self_of_closed (hVP j),
+        List.map_append, List.map_cons, List.map_nil, habs]
+      simp only [VExpr.inst_bvar, Nat.lt_irrefl, if_false, if_true,
+        VExpr.liftN_zero]
+    rw [VExpr.inst_mkAppN, VExpr.inst_eq_self_of_closed hVE]
+    simp only [List.map_cons, List.map_nil]
+    rw [VExpr.inst_mkAppN, VExpr.inst_eq_self_of_closed hVT, habs]
+    rw [VExpr.inst_mkAppN, VExpr.inst_eq_self_of_closed hVC,
+      List.map_append, habs, hprojI]
+    simp only [VExpr.inst_bvar, Nat.lt_irrefl, if_false, if_true,
+      VExpr.liftN_zero]
+  rw [hres _ _ _ (hcl _ _) (hcl _ _) (hcl _ _) (fun j => hcl _ _)]
+  exact VTeleTyped.nil
 
 end Setlec.TTVerify
