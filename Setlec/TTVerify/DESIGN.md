@@ -4908,3 +4908,191 @@ unguarded form would have had to carry the major's slot and with it the
 `Deq` between the major as written and the major in constructor form.
 Nothing is lost: `ctorParams ≤ rP ≤ mI` at every real recursor, and
 `RecRulesOk` states the first half explicitly.
+
+### 14.7 The `DeclIndTT` phase: the spine lemma, and the premise nothing supplies
+
+Written after `UnitFoldTT` landed.  Two findings, one retraction and
+one **open request**; the request is the reason the phase cannot be
+finished without a ruling.
+
+#### 14.7.1 The spine lemma, and why it is two lemmas
+
+§14.6.1 designed `teleAlign_of_stripPis` as one induction from
+`stripPis` to `TeleAlign`, with the residual named
+`VExpr.instSeq xs (k-1) R`.  **That induction does not close**, and the
+obstruction is §0's fifth tell firing a *second time on the same
+relation*:
+
+> `TeleAlign S S' ys r r' → TeleAlign (S.inst x j) (S'.inst x j) ys
+> (r.inst x j) (r'.inst x j)` is **false**.
+
+`inst_inst_comm` puts the two orders apart by `x'.inst x j` on the
+*other* spine elements, and a spine fitted over an open `Δ` has some.
+The relation is telling you, for the third time, that **the spine is
+doing work**: the statement proved by induction must not mention it.
+
+The fix is to slice one step earlier.  `PiTower k S S' R R'` is
+`TeleAlign` with the spine deleted — two towers of `k` `.pi`s with
+pairwise equal domains over bodies `R`, `R'`.  Then:
+
+* `piTower_of_stripPis` is the syntactic induction, and it closes,
+  because *a substituted tower is a tower* (`PiTower.inst`);
+* `PiTower.teleAlign` fits the spine in one induction on `k`, where
+  `VExpr.instSeq`'s recursion lines up with `TeleAlign`'s peel by
+  construction — the outermost argument is substituted at cut `k-1` on
+  both sides.
+
+**The generalisable form.**  When a relation refuses to commute with
+substitution, do not weaken the relation; find the *sub*-relation that
+does, prove the induction there, and re-attach the part that does not
+commute afterwards.  Here the part that does not commute is exactly
+the part the consumer supplies.
+
+#### 14.7.2 The machinery the phase actually needed
+
+Named because §14.6.2 under-counted it, and the successor should
+budget from the real list:
+
+| piece | file | why |
+|---|---|---|
+| `denote_renameConsts` + `RenameOkT` | `Rename.lean` | the pins describe `T._model`; the laws are at the public former |
+| `RenEqT` / `PiDomsRenEqT` | `Rename.lean` | restated from `Model/TeleElim.lean` (blocked) |
+| `VExpr.instSeq` + 8 lemmas | `TeleOpen.lean` | the term-side half of the telescope walk |
+| `openFvars`, `instSeq_instantiate1_in` | `TeleOpen.lean` | opening, and the `Expr`-side dual that was missing |
+| `PiTower` + 3 lemmas, `VTeleTyped.retarget'`, `VTeleTyped.append` | `DeclInd.lean`, `Tele.lean` | §14.7.1 |
+| `denote_paramTuple` / `instSeq_paramTuple` | `DeclInd.lean` | **the reusable core** |
+| `denote_unitResidual` / `instSeq_unitResidual` | `DeclInd.lean` | the unit statement's residual |
+
+**`*_paramTuple` is the piece to reuse.**  Every pinned domain of a
+capability statement is the *same* thing — the model former applied to
+the statement's parameter variables — at a bvar shift `c`.  The unit
+statement uses `c = 0` (the `x` domain), `c = 1` (the `y` domain) and
+`c = 2` (the equation's type slot); `EtaFoldTT` and the bottoms use it
+again.  Doing it once at a shift is what made the residual computation
+three rewrites instead of three proofs.
+
+**Two mechanical traps, each of which cost a cycle.**
+* `VExpr.instSeq`/`Expr.instSeq` use *descending* cuts with `t - 1`, so
+  `nP - 1 + 1 = nP` fails at `nP = 0`.  `instSeq_len_succ` /
+  `instSeqV_len_succ` handle it (empty argument list, both sides are
+  the identity).  Do not case-split on `nP` at every site.
+* A lemma stated at depth `d + nP + c` will not `rw` against a goal at
+  depth `d + nP`, defeq or not.  Give such lemmas an explicit depth
+  parameter plus `(hdd : dd = d + nP + c)`; the same for `instSeq`'s
+  cut (`ht : t = c + nP - 1`).
+
+#### 14.7.3 Retraction: `denote_instLevels` already existed
+
+This run first wrote `denote_instLevels` and its two literal helpers
+into `Rename.lean`, transposed from `interp_instLevels`.  **All three
+already existed** in `Setlec/TTVerify/Extend.lean` (`ValParams`,
+`natLitT_params`, `strLitT_params`), where the delta step had needed
+them; `lake build`'s duplicate-name error is what caught it.
+
+§0's practice says: before designing a bridge lemma, look for its
+set-model counterpart.  The miss says the practice has a **second
+half**: *search this side too*.  The set-model counterpart's existence
+tells you the statement is right; it tells you nothing about whether
+the bridge already has it.
+
+What the retraction does **not** touch: `denote_renameConsts` really
+has no counterpart on this side, and `RenEqT`/`PiDomsRenEqT` really are
+stranded in `Model/TeleElim.lean`.
+
+#### 14.7.4 OPEN REQUEST: the equation's type slot needs its sort
+
+**The obligation.**  Every one of `DeclIndTT`'s five obligations ends
+at `Deq.ofEqThm`, which calls `EnvTT.eq_law`, which fires `eqValT`'s
+three β-steps.  `eqValT ψ = .lam (.sort (ψ uNT)) …`, so the *first*
+β-step's premise is
+
+    Δ ⊢ Â : Sort (ψ₂ uNT),   ψ₂ uNT = ⟦ℓA⟧
+
+where `Â` is the equation's type slot and `ℓA` is the level the
+statement's `Eq.{ℓA}` carries.  The other two premises are the two
+sides' typings, which the pins and the use site already give.
+
+**Why it is not derivable.**  The set model gets the corresponding
+membership from `AnnotOk` (`unit_rule_fold`'s `hαu`, via
+`lam_dom_of_ne`), and this bridge dropped `AnnotOk` by design (§2).
+Its natural replacement — inverting the theorem's own derivation —
+**cannot** work: recovering `Â : Sort ⟦ℓA⟧` from
+`⊢ h : Eq.{ℓA} Â a b` means inverting `HasType.app` down to
+`⊢ eqValT : Π (Sort ⟦ℓA⟧) …` and reading the domain back off, which is
+Π-injectivity, which `propext` **refutes**
+(`Setlec/TTVerify/Inversion.lean`).  A "stored types are types"
+invariant would not help either, for the same reason: it gives
+`Â : Sort u` at *some* `u`, and `u = ⟦ℓA⟧` is exactly the step
+injectivity would have to license.
+
+Nor is the level pinned anywhere: `checkUnitThm` binds the equation's
+level as `_ℓ` and the model type's telescope residual as `_`, and
+compares **neither** — §0's third tell (a conjunct the code computes
+and discards), read off the checker rather than off a proof.
+
+**What is being asked for.**  One additional check, in two forms:
+
+1. *Syntactic*, for `checkUnitThm` / `checkEtaThm` (both are `Bool`,
+   with no `ops` in scope): require the model former's telescope
+   residual to be the equation's sort — `tbodyM == Expr.sort ℓA`, or
+   more robustly `tbodyM` is `.sort ℓM` with `Level.isEquiv ℓM ℓA`,
+   using the checker's own level equivalence rather than syntactic
+   equality.  `EtaPins` gains the conjunct; `checkUnitThm_inv` /
+   `checkEtaThm_inv` forward it; the model path is unaffected (it
+   gains an unused fact).
+2. *Semantic*, for `checkIotaSidesTy`, which already has `ops` and
+   already certifies that both sides inhabit `alphaS`: additionally
+   infer `alphaS`'s type and `isDefEq` it against `.sort ℓ` at the
+   equation's level.  This is the same shape as the certificates task
+   #129 and #130 added, and for the same reason.
+
+**Why the recommendation is (1)+(2) rather than a workaround.**  With
+(1) the bridge derives the semantic fact in four lines, from
+`EnvTT.has_type` at `T._model` plus a *second* application of
+`teleAlign_of_stripPis` — the spine lemma paying twice, which is a good
+sign about the shape.  Without it there is no supplier at all: the
+premise is not weakenable (`HasType.beta` reads the λ's own
+annotation), `EqLawTT` is not restatable without it (there is no
+cumulativity rule), and choosing a different `ψ` is blocked by
+`val_params`.
+
+**The risk, and how to price it.**  Whether the real preprocessor emits
+`T._model : ∀ p⃗, Sort ℓ` with the *same* level expression the eta and
+unitlike theorems carry is an empirical question — the generator takes
+the theorem's level from `Meta.getLevel` on the carrier
+(`lean-inductive-models`, `Driver/Unitlike.lean`), which should agree,
+but level normalisation could differ.  It is cheap to settle: add the
+check, run `tests/arena.sh`, and see whether the accept counts move.
+The `isEquiv` form of (1) is immune to normalisation differences and
+is what should be tried if the `==` form regresses.
+
+**Until it is granted**, `UnitFoldTT` carries the fact as the
+hypothesis `hTmSort : tbodyM = Expr.sort ℓA`, isolated to one line
+precisely so that a different supplier can be swapped in without
+touching the proof, and `DeclIndTT` cannot discharge it.
+
+#### 14.7.5 A hypothesis dropped, and why that is the honest move
+
+`UnitFoldTT` does **not** take the unitlike theorem's `find?` fact.
+The proof never reads it: `unit_rule_fold` needs the lookup for
+`interpClosed_extend_fresh`, while the bridge's `denote_depth_closed`
+needs only `hasFvar = false` and `looseBVarsBounded 0`.  The linter
+found it (`Variable name 'hthmE' is not explicitly referenced`), and it
+was dropped rather than `_`-prefixed.
+
+This is §8.2's rule applied to a hypothesis *copied in from the model*
+rather than invented: transposing the model's statement is the default,
+but a premise the transposed proof does not read is a claim about the
+contract that is not true.  The fold's contract is the pinned type
+shape plus inhabitation, and nothing about which constant carries it.
+
+#### 14.7.6 Status
+
+* **Done**: the phase's shared machinery (§14.7.2) and `UnitFoldTT`.
+* **Blocked on §14.7.4**: `DeclIndTT`'s discharge of `hTmSort`.
+* **Next, and unblocked**: `EtaFoldTT` (same skeleton; the residual is
+  `denote_paramTuple` at the same three shifts plus the constructor
+  spine over `etaFields` projections), then the two bottoms, then
+  `ProjBottomTT`, then `CheckDeclTT`.  All four end at
+  `Deq.ofEqThm` and so all four meet §14.7.4 again.
+
