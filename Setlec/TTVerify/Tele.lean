@@ -299,6 +299,21 @@ theorem denote_mkAppN_inv {cval : TConstVal} {env : Env} {φ : Name → Nat}
         rw [← Option.some.inj hfa]; rfl⟩
     · exact nomatch hfa
 
+/-- **A typed walk's residual is the telescope's.**  `TeleTyped`
+instantiates one argument at a time and so does `piResidual`, so the
+two agree on the nose.  Needed where a checker guard is stated about
+`piResidual` (`iotaRec`'s canonical-index comparison) and the bridge
+holds the walk. -/
+theorem TeleTyped.rest_eq {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d : Nat} {Δ : List VExpr} :
+    ∀ {T : Expr} {args : List Expr} {xs : List VExpr} {rest : Expr},
+      TeleTyped cval env φ d Δ T args xs rest →
+      piResidual T args = some rest := by
+  intro T args xs rest h
+  induction h with
+  | nil => rfl
+  | cons _ _ _ _ _ _ _ ih => exact ih
+
 /-- A typed telescope walk exposes its spine's denotations — the form
 `denote_mkAppN` consumes, so a `TeleTyped` hypothesis doubles as the
 reassembly fact. -/
