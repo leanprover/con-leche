@@ -424,6 +424,61 @@ theorem teleAlign_of_stripPis {cval : TConstVal} {env : Env} {φ : Name → Nat}
   exact ⟨R, R', hR, hR', htow.teleAlign k hlen⟩
 
 
+/-! ## The one premise no pin supplies (task #135)
+
+Named once, and consumed by every obligation of `DeclIndTT`, so that
+the checker-side landing is a **single supplier change** rather than
+one edit per obligation.  `DESIGN.md` §14.7.4 has the argument: the
+`Eq` law's first β-step wants the equation's type slot at the sort its
+`Eq.{ℓ}` names, the set model reads that off `AnnotOk`, and no
+inversion can recover it because Π-injectivity is refuted.
+
+Measured before being asked for: 1 069 sites across the whole fixture
+corpus, zero counterexamples. -/
+
+/-- **Task #135's pending conjunct.**  A modeled former's telescope
+residual is the sort the capability statement's `Eq.{ℓ}` names.
+
+`checkEtaThmF`/`checkUnitThmF` already compute both sides and compare
+neither; #135 adds the comparison and `EtaPins` will carry it.  Until
+then this is a hypothesis, and it is a *definition* rather than an
+inlined equation precisely so that `grep StatementSortPin` is the list
+of sites the landing has to serve. -/
+def StatementSortPin (tbody : Expr) (l : Level) : Prop :=
+  tbody = Expr.sort l
+
+/-- **The equation type slot's sort, derived from the pin.**  The
+spine lemma paying twice: a *second* alignment, this time between the
+public former's telescope and the model former's, carries the use
+site's fitting onto the model type — whose residual the pin says is a
+sort.  Shared verbatim by `UnitFoldTT` and `EtaFoldTT`, whose type
+slots are both the model former applied to the parameter spine. -/
+theorem eqSlotSort_of_sortPin {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {f : Name → Name} (hro : RenameOkT cval env f)
+    {nP : Nat} {tyPub tyMod : Expr}
+    {bsP bsM : List (Name × Expr × BinderMeta)} {bodyP bodyM : Expr}
+    {lA : Level} {vMod : VExpr} {d : Nat} {Δ : List VExpr}
+    {xs : List VExpr} {TV rest Tmod : VExpr}
+    (hP_strip : tyPub.stripPis nP = some (bsP, bodyP))
+    (hM_strip : tyMod.stripPis nP = some (bsM, bodyM))
+    (hpin : StatementSortPin bodyM lA)
+    (hpi : PiDomsRenEqT f nP tyPub tyMod)
+    (hTV : denote cval env φ d tyPub = some TV)
+    (hTmod : denote cval env φ d tyMod = some Tmod)
+    (hTmodv : HasType [] vMod Tmod)
+    (hfit : VTeleTyped Δ TV xs rest) (hlen : xs.length = nP) :
+    HasType Δ (VExpr.mkAppN vMod xs) (.sort (Level.eval φ lA)) := by
+  obtain ⟨R, RM, hR, hRM, halign⟩ :=
+    teleAlign_of_stripPis hro nP hP_strip hM_strip hpi hTV hTmod hlen
+  obtain ⟨-, hfitM⟩ := hfit.retarget' halign
+  obtain rfl : RM = VExpr.sort (Level.eval φ lA) := by
+    rw [show bodyM = Expr.sort lA from hpin,
+      Expr.instSeq_eq_self _ _ (by rfl), denote_sort] at hRM
+    exact (Option.some.inj hRM).symm
+  rw [VExpr.instSeq_sort] at hfitM
+  exact hfitM.appN (HasType.weakenNil hTmodv Δ)
+
+
 /-! ## The pinned parameter tuple
 
 Every pinned domain of a capability statement is the *same* thing: the
@@ -776,7 +831,7 @@ theorem UnitFoldTT {env : Env} {cval : TConstVal}
       (.const (T.str "_model") (cvT.levelParams.map .param))
       ((List.range caps.unitParams).map fun k =>
         Expr.bvar (caps.unitParams + 1 - k)))
-    (hTmSort : tbodyM = Expr.sort lA)
+    (hTmSort : StatementSortPin tbodyM lA)
     (hSw : tcv.type.hasFvar = false)
     (hSb : tcv.type.looseBVarsBounded 0 = true)
     (hTmw : cvmT.type.hasFvar = false)
@@ -793,7 +848,7 @@ theorem UnitFoldTT {env : Env} {cval : TConstVal}
   intro φ d Δ us xs TV rest B B' hlen hTV hfit hB hB'
   obtain ⟨nx, mx, hxdom'⟩ := hxdom
   obtain ⟨ny, my, hydom'⟩ := hydom
-  subst hsbody htySlot hTmSort
+  subst hsbody htySlot
   -- the ambient level assignment
   have hcTm : ∀ dd : Nat,
       denote cval env (Level.substFn φ cvT.levelParams us) dd
@@ -892,23 +947,10 @@ theorem UnitFoldTT {env : Env} {cval : TConstVal}
   obtain ⟨R, RS, hR, hRS, halignS⟩ :=
     teleAlign_of_stripPis hro caps.unitParams hT_strip hstrip0 hpiS hTV hTstmt
       hlen
-  obtain ⟨R', RM, hR', hRM, halignM⟩ :=
-    teleAlign_of_stripPis hro caps.unitParams hT_strip hTm_strip hpiM hTV hTmod
-      hlen
-  obtain rfl : R' = R := Option.some.inj (hR'.symm.trans hR)
   obtain ⟨-, hfitS⟩ := hfit.retarget' halignS
-  obtain ⟨-, hfitM⟩ := hfit.retarget' halignM
-  -- (7) the type slot's sort, off the pending pin
-  obtain rfl : RM = VExpr.sort (Level.eval (Level.substFn φ cvT.levelParams us)
-      lA) := by
-    rw [Expr.instSeq_eq_self _ _ (by rfl), denote_sort] at hRM
-    exact (Option.some.inj hRM).symm
-  rw [VExpr.instSeq_sort] at hfitM
-  have hAsort : HasType Δ
-      (VExpr.mkAppN (cval (T.str "_model")
-        (Level.substFn φ cvT.levelParams us)) xs)
-      (.sort (Level.eval (Level.substFn φ cvT.levelParams us) lA)) :=
-    hfitM.appN (HasType.weakenNil hTmodv Δ)
+  -- (7) the type slot's sort, off the pending pin (task #135)
+  have hAsort := eqSlotSort_of_sortPin hro hT_strip hTm_strip hTmSort hpiM
+    hTV hTmod hTmodv hfit hlen
   -- (8) the residual, computed and fitted
   rw [denote_unitResidual hcTm hcEq] at hRS
   obtain rfl := Option.some.inj hRS
