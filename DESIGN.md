@@ -8788,3 +8788,86 @@ mode costs — it masks the front door too; the mode lands at 23.71 G.
 The difference between those two columns is the front-door share,
 which the reference kernels also pay: see "The infer-only mode:
 SETLEC_INFER_ONLY (task #134)".
+
+## The capability checks pin the model type's sort (2026-08-27, task #135)
+
+**The fourth change the TT bridge (task #119) asked of the checker,
+and the smallest — one `==` per check on values both checks already
+computed.**  Siblings: tasks #126, #129, #130.
+
+`checkEtaThmF` / `checkUnitThmF` (`Setlec/Kernel/CheckerS.lean`) pin
+the shape of the model-side `T._model.eta` / `T._model.unitlike`
+statement against the model former `T._model`.  Both stripped the
+former's parameter telescope and threw the **residual away**
+(`some (tbindersM, _)`), and both matched the statement's head as
+`.const c [_ℓ]` and threw the **level away**.  Two computed-and-
+discarded values, never compared — §0's third tell in
+`Setlec/TTVerify/DESIGN.md`, read off the checker rather than off a
+proof.
+
+The bridge needs the comparison.  Each of `DeclIndTT`'s obligations
+ends at a β-step whose premise is `Δ ⊢ Â : Sort ⟦ℓA⟧` — the equation's
+type slot at *the level the statement's own `Eq.{ℓA}` carries*.  The
+set model gets the corresponding membership from `AnnotOk`, which the
+bridge dropped by design; and the natural replacement — inverting the
+theorem's own derivation — is Π-injectivity, which `propext` refutes
+in that layer.  A "stored types are types" invariant gives `Â : Sort u`
+at *some* `u`; `u = ⟦ℓA⟧` is exactly the step nothing licenses.
+
+**The check.**  Inside the statement-body match, where both values are
+in scope:
+
+```
+tbodyM == Expr.sort ℓA
+```
+
+The type slot is already pinned (task #100) to `T._model p⃗`, so with
+the residual pinned to `Sort ℓA` the slot's sort *is* the statement's
+level, which is the fact the bridge consumes.  `EtaPins`
+(`Setlec/Verify/Extend/Iota.lean`) gains `tbodyM = Expr.sort ℓA` as
+the last conjunct of each half; `checkEtaThm_inv` / `checkUnitThm_inv`
+forward it; `Setlec/Model/ModeledCaps.lean` takes it as `-` (the set
+model never needed it and does not gain a proof obligation).
+
+**Plain `==`, not `Level.isEquiv`.**  The requester measured the risk
+before asking rather than arguing it: the two checks were instrumented
+and the whole fixture corpus run — `_tmp/arena-tests` (182 streams,
+including `init-prelude`) 347/347, `tests/e2e` 722/722, **1 069 calls,
+zero counterexamples**.  Syntactic equality is what the real
+preprocessor emits.  `Level.isEquiv` remains the fallback if a future
+generator normalises levels differently; it would cost nothing.
+
+**Mirrors — and there is no `CoreI`/`CoreNC` asymmetry to argue.**
+This is an install-time syntactic `Bool` check, not a certificate, so
+the cert-skipping mode is not a separate copy: `CheckerNC` calls the
+*same* `indBlockCapsF`.  The surface is two places, both updated:
+
+* `checkEtaThmF` / `checkUnitThmF` (`Setlec/Kernel/CheckerS.lean`) —
+  the versions that execute, on both the S and NC drivers;
+* `checkEtaThm` / `checkUnitThm` (`Setlec/Kernel/Modeled.lean`) — the
+  `Env` versions.  These are never reached at runtime, but they are
+  **not dead code to delete**: they are the domain of the two
+  inversion theorems, pinned to the live ones by `checkEtaThmF_eq` /
+  `checkUnitThmF_eq` (`Setlec/Verify/CheckerF.lean`).  Letting them
+  diverge would break that pin, which is the point of having it.
+
+`directCaps` (`Setlec/Kernel/Checker.lean`) needs nothing: the direct
+simple-structure path claims neither capability.
+
+**Gates.**  Build warning-free (touched oleans force-recompiled),
+`lake test`, arena 90/92, e2e 67/67, split driver 11/11, infer-only
+5/5 and the full `--infer-only` sweep, axioms exactly
+`[propext, Classical.choice, Quot.sound]`, no sorries, init-prelude
+byte-identical — stdout, stderr, exit — in the certified, the
+`SETLEC_NO_PROOF_CERTS=1` and the `SETLEC_INFER_ONLY=1` modes against
+a binary built from pre-change master.  Cost: 38.7993 G → 38.8037 G
+instructions:u on init-prelude, **+0.011 %** (median of three) — an
+`==` on two already-computed values, once per capability install.
+
+**A byte-identical gate does not by itself prove a new conjunct
+true**, only that no verdict moved — a capability silently dropped
+everywhere would also be invisible if nothing consumed it.  So the
+conjunct was negated and the binary rebuilt: init-prelude then
+*rejects* (exit 1, at `PProd.rec._model`) and e2e falls to 29/67.  The
+check is load-bearing and passes at the live sites; that is the
+positive half of the measurement the byte-identity gate cannot give.

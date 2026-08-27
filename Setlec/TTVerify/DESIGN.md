@@ -4999,7 +4999,18 @@ What the retraction does **not** touch: `denote_renameConsts` really
 has no counterpart on this side, and `RenEqT`/`PiDomsRenEqT` really are
 stranded in `Model/TeleElim.lean`.
 
-#### 14.7.4 OPEN REQUEST: the equation's type slot needs its sort
+#### 14.7.4 GRANTED (task #135, form 1): the equation's type slot needs its sort
+
+**Landed 2026-08-27.**  Form (1) below is in the checker: `checkEtaThmF`
+/ `checkUnitThmF` (and their `Env` mirrors) now require
+`tbodyM == Expr.sort ℓA`, `EtaPins` carries `tbodyM = Expr.sort ℓA` as
+the last conjunct of each half, and `checkEtaThm_inv` /
+`checkUnitThm_inv` forward it — so `UnitFoldTT`'s `hTmSort` hypothesis
+has a supplier and `DeclIndTT` can discharge it.  Form (2), the
+semantic `checkIotaSidesTy` check, was **not** requested as part of
+#135 and is still open.  See DESIGN.md, "The capability checks pin the
+model type's sort".  The rest of this section is the original request,
+kept for the reasoning.
 
 **The obligation.**  Every one of `DeclIndTT`'s five obligations ends
 at `Deq.ofEqThm`, which calls `EnvTT.eq_law`, which fires `eqValT`'s

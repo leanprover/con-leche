@@ -156,7 +156,7 @@ theorem modeled_caps_eta
   obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
     tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE,
     ⟨cvmC, mvalC, hmC, hCmE, hCmlpsE⟩, hPjE, heqfE, hS_stripE,
-    hTm_stripE, hsdomsE, hxdomE, hsbodyE, htySlotE⟩ := hpins.1 hcape
+    hTm_stripE, hsdomsE, hxdomE, hsbodyE, htySlotE, -⟩ := hpins.1 hcape
   have hagreeS : ∀ n, (env.find? n).isSome = true →
       ∀ ψ : Name → Nat, val₁ n ψ = m.val n ψ := by
     intro n hn ψ
@@ -311,7 +311,7 @@ theorem modeled_caps_unit
   obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
     tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE, heqfE,
     hS_stripE, hTm_stripE, hsdomsE, hxdomE, hydomE, hsbodyE,
-    htySlotE⟩ :=
+    htySlotE, -⟩ :=
     hpins.2 hcapu
   have hagreeS : ∀ n, (env.find? n).isSome = true →
       ∀ ψ : Name → Nat, val₁ n ψ = m.val n ψ := by

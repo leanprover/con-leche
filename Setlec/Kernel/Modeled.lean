@@ -567,8 +567,9 @@ Checked before install; a positive answer records the eta capability
 on the stored inductive.  (`Bool`-valued: an absent or differently
 shaped artifact just means no capability.)  The parameter telescope is
 pinned against the constructor *model*'s (both live on the model side
-and are annotated by the same pipeline), and the equality's type slot
-is not pinned (the collapse ignores it). -/
+and are annotated by the same pipeline); the equality's type slot is
+pinned to the family application (task #100) and its sort to the
+statement's own `Eq` level (task #135). -/
 def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
     (nP nF : Nat) : Bool :=
   match env'.find? ((T.str "_model").str "eta"),
@@ -584,7 +585,7 @@ def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
       | some (.defnInfo cvmj _ _) => cvmj.levelParams == lps
       | _ => false) &&
     (match tcv.type.stripPis (nP + 1), cvmT.type.stripPis nP with
-     | some (sbinders, sbody), some (tbindersM, _) =>
+     | some (sbinders, sbody), some (tbindersM, tbodyM) =>
        domsMatchAux (fun _ e => e) sbinders tbindersM 0 0 nP &&
        (match sbinders[nP]? with
         | some (_, xdom, _) =>
@@ -592,7 +593,7 @@ def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
             ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))
         | none => false) &&
        (match sbody with
-        | .app (.app (.app (.const c [_ℓ]) tySlot) lhsC) rhsC =>
+        | .app (.app (.app (.const c [ℓA]) tySlot) lhsC) rhsC =>
           c == eqName && lhsC == Expr.bvar 0 &&
           -- the equation's type slot is the family application (task
           -- #100 stage-3: the fold derivation reads the statement's
@@ -605,7 +606,13 @@ def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
              (List.range nF).map fun j => Expr.mkAppN
                (.const (projModelName T j) (lps.map .param))
                (((List.range nP).map fun k => Expr.bvar (nP - k)) ++
-                [Expr.bvar 0]))
+                [Expr.bvar 0])) &&
+          -- the model former's telescope residual is the equation's own
+          -- sort (task #135): the type slot above is `T._model p⃗`, so
+          -- this says the slot lives at `Sort ℓA` for the very `ℓA` the
+          -- statement's `Eq` carries — the premise `eqValT`'s first
+          -- β-step needs and Π-injectivity cannot recover
+          tbodyM == Expr.sort ℓA
         | _ => false)
      | _, _ => false)
   | _, _, _, _ => false
@@ -622,7 +629,7 @@ def checkUnitThm (env' : Env) (T : Name) (lps : List Name)
     eqStored == eqA && tcv.levelParams == lps &&
     cvmT.levelParams == lps &&
     (match tcv.type.stripPis (nP + 2), cvmT.type.stripPis nP with
-     | some (sbinders, sbody), some (tbindersM, _) =>
+     | some (sbinders, sbody), some (tbindersM, tbodyM) =>
        domsMatchAux (fun _ e => e) sbinders tbindersM 0 0 nP &&
        (match sbinders[nP]? with
         | some (_, xdom, _) =>
@@ -635,11 +642,14 @@ def checkUnitThm (env' : Env) (T : Name) (lps : List Name)
             ((List.range nP).map fun k => Expr.bvar (nP - k))
         | none => false) &&
        (match sbody with
-        | .app (.app (.app (.const c [_ℓ]) tySlot) lhsC) rhsC =>
+        | .app (.app (.app (.const c [ℓA]) tySlot) lhsC) rhsC =>
           c == eqName && lhsC == Expr.bvar 1 && rhsC == Expr.bvar 0 &&
           -- type-slot pin, as in `checkEtaThm` (task #100 stage 3)
           tySlot == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
-            ((List.range nP).map fun k => Expr.bvar (nP + 1 - k))
+            ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)) &&
+          -- and the slot's sort is the equation's own level (task
+          -- #135; see `checkEtaThm`)
+          tbodyM == Expr.sort ℓA
         | _ => false)
      | _, _ => false)
   | _, _, _ => false

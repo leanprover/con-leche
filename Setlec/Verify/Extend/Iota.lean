@@ -913,7 +913,11 @@ theorem checkIotaRules_inv {env' env₀ : Env} {f : Name → Name}
 set_option maxHeartbeats 1600000 in
 /-- The kernel-checked eta pins of a block's capability record,
 carried through the member fold: `find?`-facts (preserved by fresh
-installs) and plain syntax about the model-side statement. -/
+installs) and plain syntax about the model-side statement.  The last
+conjunct of each half is task #135's: the model former's telescope
+residual is `Sort ℓA` at the statement's own `Eq` level, which is what
+lets a consumer type the equation's type slot at the level the
+statement names (see `checkEtaThm`). -/
 def EtaPins (env' : Env) (T : Name) (lps : List Name)
     (caps : IndCaps) : Prop :=
   (caps.eta = true →
@@ -952,7 +956,8 @@ def EtaPins (env' : Env) (T : Name) (lps : List Name)
             [Expr.bvar 0]))] ∧
     tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
       ((List.range caps.etaParams).map fun k =>
-        Expr.bvar (caps.etaParams - k))) ∧
+        Expr.bvar (caps.etaParams - k)) ∧
+    tbodyM = Expr.sort ℓA) ∧
   (caps.unitlike = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
     (hmcvmT : ReducibilityHint)
@@ -981,7 +986,8 @@ def EtaPins (env' : Env) (T : Name) (lps : List Name)
     sbody = Expr.mkAppN (.const eqName [ℓA]) [tySlot, .bvar 1, .bvar 0] ∧
     tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
       ((List.range caps.unitParams).map fun k =>
-        Expr.bvar (caps.unitParams + 1 - k)))
+        Expr.bvar (caps.unitParams + 1 - k)) ∧
+    tbodyM = Expr.sort ℓA)
 
 set_option maxHeartbeats 3200000 in
 /-- Invert a positive unit-capability check into the stored pins. -/
@@ -1012,7 +1018,8 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
       sbody = Expr.mkAppN (.const eqName [ℓA])
         [tySlot, .bvar 1, .bvar 0] ∧
       tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
-        ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)) := by
+        ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)) ∧
+      tbodyM = Expr.sort ℓA := by
   rw [checkUnitThm] at h
   revert h
   match hthm : env'.find? ((T.str "_model").str "unitlike") with
@@ -1131,11 +1138,11 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   | [ℓA] => ?_
   intro hb
   simp only [Bool.and_eq_true] at hb
-  obtain ⟨⟨⟨hceq, hlhs⟩, hrhs⟩, hts⟩ := hb
+  obtain ⟨⟨⟨⟨hceq, hlhs⟩, hrhs⟩, hts⟩, hsortM⟩ := hb
   refine ⟨tcv, tval, cvmT, mvalT, hmcvmT, sbinders, tbindersM, _, tbodyM,
     tySlot, ℓA, rfl, eq_of_beq htlps, rfl, eq_of_beq hTlps,
     (by rw [eq_of_beq heqA]), hS_strip, hTm_strip, hdoms, hxdom, hydom,
-    ?_, eq_of_beq hts⟩
+    ?_, eq_of_beq hts, eq_of_beq hsortM⟩
   rw [eq_of_beq hceq, eq_of_beq hlhs, eq_of_beq hrhs]
   rfl
 
@@ -1176,7 +1183,8 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
              (((List.range nP).map fun k => Expr.bvar (nP - k)) ++
               [Expr.bvar 0]))] ∧
       tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
-        ((List.range nP).map fun k => Expr.bvar (nP - k)) := by
+        ((List.range nP).map fun k => Expr.bvar (nP - k)) ∧
+      tbodyM = Expr.sort ℓA := by
   rw [checkEtaThm] at h
   revert h
   match hthm : env'.find? ((T.str "_model").str "eta") with
@@ -1314,12 +1322,12 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   | [ℓA] => ?_
   intro hb
   simp only [Bool.and_eq_true] at hb
-  obtain ⟨⟨⟨hceq, hlhs⟩, hts⟩, hrhs⟩ := hb
+  obtain ⟨⟨⟨⟨hceq, hlhs⟩, hts⟩, hrhs⟩, hsortM⟩ := hb
   refine ⟨tcv, tval, cvmT, mvalT, hmcvmT, sbinders, tbindersM, _, tbodyM,
     tySlot, ℓA, rfl, eq_of_beq htlps, rfl, eq_of_beq hTlps,
     ⟨cvmC, mvalC, hmcvmC, rfl, eq_of_beq hClps⟩, hprojf,
     (by rw [eq_of_beq heqA]), hS_strip,
-    hTm_strip, hdoms, hxdom, ?_, eq_of_beq hts⟩
+    hTm_strip, hdoms, hxdom, ?_, eq_of_beq hts, eq_of_beq hsortM⟩
   rw [eq_of_beq hceq, eq_of_beq hlhs, eq_of_beq hrhs]
   rfl
 
@@ -1342,21 +1350,21 @@ theorem EtaPins.step {env' : Env} {c₁ : ConstantInfo} {T : Name}
   · intro hcape
     obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
       tySlot, ℓA, hthm, h2, hTm, h4, ⟨cvmC, mvalC, hmC, hCm, hClps⟩, hPj,
-      heqf, h8, h9, h10, h11, h12⟩ := h.1 hcape
+      heqf, h8, h9, h10, h11, h12, h13⟩ := h.1 hcape
     refine ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
       tySlot, ℓA, hkeep _ _ hthm, h2, hkeep _ _ hTm, h4,
       ⟨cvmC, mvalC, hmC, hkeep _ _ hCm, hClps⟩, ?_, hkeep _ _ heqf,
-      h8, h9, h10, h11, h12⟩
+      h8, h9, h10, h11, h12, h13⟩
     intro j hj
     obtain ⟨cvmj, mvalj, hmj, hfj, hjlps⟩ := hPj j hj
     exact ⟨cvmj, mvalj, hmj, hkeep _ _ hfj, hjlps⟩
   · intro hcapu
     obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
-      tySlot, ℓA, hthm, h2, hTm, h4, heqf, h6, h7, h8, h9, h10, h11⟩ :=
+      tySlot, ℓA, hthm, h2, hTm, h4, heqf, h6, h7, h8, h9, h10, h11, h12⟩ :=
       h.2 hcapu
     exact ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
       tySlot, ℓA, hkeep _ _ hthm, h2, hkeep _ _ hTm, h4,
-      hkeep _ _ heqf, h6, h7, h8, h9, h10, h11⟩
+      hkeep _ _ heqf, h6, h7, h8, h9, h10, h11, h12⟩
 
 
 /-- The pins transport along any lookup preservation covering the
@@ -1384,20 +1392,20 @@ theorem EtaPins.transport {env₁ env₂ : Env} {T : Name}
   · intro hcape
     obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
       tySlot, ℓA, hthm, h2, hTm, h4, ⟨cvmC, mvalC, hmC, hCm, hClps⟩, hPj,
-      heqf, h8, h9, h10, h11, h12⟩ := h.1 hcape
+      heqf, h8, h9, h10, h11, h12, h13⟩ := h.1 hcape
     refine ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
       tySlot, ℓA, hk _ _ _ hthm, h2, hkd _ _ _ _ hTm, h4,
       ⟨cvmC, mvalC, hmC, hkd _ _ _ _ hCm, hClps⟩, ?_, hke heqf,
-      h8, h9, h10, h11, h12⟩
+      h8, h9, h10, h11, h12, h13⟩
     intro j hj
     obtain ⟨cvmj, mvalj, hmj, hfj, hjlps⟩ := hPj j hj
     exact ⟨cvmj, mvalj, hmj, hkd _ _ _ _ hfj, hjlps⟩
   · intro hcapu
     obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
-      tySlot, ℓA, hthm, h2, hTm, h4, heqf, h6, h7, h8, h9, h10, h11⟩ :=
+      tySlot, ℓA, hthm, h2, hTm, h4, heqf, h6, h7, h8, h9, h10, h11, h12⟩ :=
       h.2 hcapu
     exact ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
       tySlot, ℓA, hk _ _ _ hthm, h2, hkd _ _ _ _ hTm, h4,
-      hke heqf, h6, h7, h8, h9, h10, h11⟩
+      hke heqf, h6, h7, h8, h9, h10, h11, h12⟩
 
 end Setlec
