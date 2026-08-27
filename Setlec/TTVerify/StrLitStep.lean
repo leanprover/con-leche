@@ -466,7 +466,7 @@ The stuck block compares a `String` literal against a unary
 `String.ofList` application by *expanding* the literal
 (`tryStringLitExpansion` in the reference kernels), so the bridge owes
 the expansion's denotation.  It is `strLitT` — which is how `strLitT`
-was defined in the first place (`Setlec/TTVerify/Denote.lean`), so the
+was defined in the first place (`Setlec/Verify/Denote.lean`), so the
 lemma is the definition read forwards, once per constant the guard
 pins. -/
 

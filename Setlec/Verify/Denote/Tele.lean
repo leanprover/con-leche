@@ -1,4 +1,4 @@
-import Setlec.TTVerify.Inst
+import Setlec.Verify.Denote.Inst
 
 /-!
 # Telescope typing

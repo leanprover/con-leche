@@ -1,6 +1,6 @@
 import Setlec.TTVerify.IndBottomStages
 import Setlec.TTVerify.IndBottomPlain
-import Setlec.TTVerify.OpenRevDenote
+import Setlec.Verify.Denote.OpenRevDenote
 
 /-!
 # `IndBottomProjTT`: the projection bottom

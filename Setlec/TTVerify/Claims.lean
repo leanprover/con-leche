@@ -1,7 +1,7 @@
 import Setlec.TTVerify.EnvTT
 import Setlec.TTVerify.Inversion
-import Setlec.TTVerify.Inst
-import Setlec.TTVerify.HasTypeSubst
+import Setlec.Verify.Denote.Inst
+import Setlec.Verify.Denote.HasTypeSubst
 import Setlec.Verify.Leaves
 import Setlec.Verify.InferLeaves
 import Setlec.TT.Deq
@@ -109,7 +109,7 @@ variable {V : Type u}
 
 The transpose of `FvarsOk`.  `FvarsOk` constrains the free-variable
 *valuation* `ρ`; there is no valuation here (see
-`Setlec/TTVerify/Denote.lean`), so what it constrains instead is the de
+`Setlec/Verify/Denote.lean`), so what it constrains instead is the de
 Bruijn context `Δ`.
 
 The index arithmetic is the whole content: an `fvar` opened at depth

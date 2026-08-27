@@ -1,6 +1,6 @@
 import Setlec.TTVerify.Claims
-import Setlec.TTVerify.InstSimp
-import Setlec.TTVerify.Inst
+import Setlec.Verify.Denote.InstSimp
+import Setlec.Verify.Denote.Inst
 import Setlec.TTVerify.Certs
 import Setlec.Verify.InferLemmas
 
@@ -15,7 +15,7 @@ certificate-only claims of `Setlec/TTVerify/Claims.lean`.
 | clause | bridge side |
 |---|---|
 | leaves (`sort`, `fvar`, `forallE`, `lam`, `const`, `lit`) | the reduct *is* the subject; `Deq.refl` |
-| `.app` with a λ head | `denote_beta_step` (`Setlec/TTVerify/Inst.lean`) |
+| `.app` with a λ head | `denote_beta_step` (`Setlec/Verify/Denote/Inst.lean`) |
 | `.app` otherwise | `iotaRec`, plus `congrApp` for the head's own reduction |
 | `.proj` | `projTeleCert_inv` → `certs_typed` → `projFstMk`/`projSndMk` |
 | `.letE` | `HasType.zeta`, premise-free |

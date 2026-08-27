@@ -1,5 +1,5 @@
 import Setlec.Verify.InstLevels
-import Setlec.TTVerify.Extend
+import Setlec.Verify.Denote.Inst
 
 /-!
 # Constant renaming and level instantiation, on the denotation side
@@ -58,7 +58,7 @@ def RenameOkT (cval : TConstVal) (env : Env) (f : Name → Name) : Prop :=
 /-- Renaming constants along a `RenameOkT` map preserves the
 denotation.  Transpose of `interp_renameConsts`, clause for clause;
 the `fvar`, `lit` and `proj` clauses are *cheaper* than the model's for
-the reason recorded in `Setlec/TTVerify/Denote.lean` — `denote` never
+the reason recorded in `Setlec/Verify/Denote.lean` — `denote` never
 reads an `fvar`'s annotation or a `proj`'s structure name. -/
 theorem denote_renameConsts {f : Name → Name} (hro : RenameOkT cval env f) :
     ∀ (e : Expr) (d : Nat),

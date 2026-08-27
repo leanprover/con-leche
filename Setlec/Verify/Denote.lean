@@ -81,7 +81,7 @@ that performs a substitution forces the bridge's own metatheory to
 prove that lifting commutes with instantiation, and then that lifting
 commutes with lifting, and the swamp `Setlec/TT/DESIGN.md` §6 is proud
 of avoiding (lean4lean's 123 syntactic lemmas) reappears one layer
-down.  The shift lemma (`Setlec/TTVerify/Shift.lean`) is where this
+down.  The shift lemma (`Setlec/Verify/Denote/Shift.lean`) is where this
 showed up concretely: with `b.inst xv` its `letE` case needs two
 commutation lemmas; with `.letE A xv b` it is structural and needs
 none.

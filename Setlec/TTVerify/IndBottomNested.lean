@@ -1,5 +1,5 @@
 import Setlec.TTVerify.IndBottomPlain
-import Setlec.TTVerify.OpenRevDenote
+import Setlec.Verify.Denote.OpenRevDenote
 import Setlec.TTVerify.IndBottomStages
 
 /-!

@@ -1,5 +1,5 @@
 import Setlec.TTVerify.WhnfCoreStep
-import Setlec.TTVerify.Weaken
+import Setlec.Verify.Denote.Weaken
 
 /-!
 # The `Nat` fast path's obligation

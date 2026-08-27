@@ -10,7 +10,7 @@ lifting and under instantiation *at that cut*.
 ## Why the bridge needs this and the set model does not
 
 This is the exact mirror image of the saving recorded in
-`Setlec/TTVerify/Denote.lean`.  There, the free-variable valuation `ρ`
+`Setlec/Verify/Denote.lean`.  There, the free-variable valuation `ρ`
 disappeared because the opened binder *is* a variable, so `denote`
 needs no valuation parameter where `interpExpr` needs one.  Here we pay
 for the same fact: `VExpr` has variables and `V` does not, so a

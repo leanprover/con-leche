@@ -1,5 +1,5 @@
-import Setlec.TTVerify.Tele
-import Setlec.TTVerify.OpenVars
+import Setlec.Verify.Denote.Tele
+import Setlec.Verify.Denote.OpenVars
 import Setlec.Verify.InstLevels
 
 /-!

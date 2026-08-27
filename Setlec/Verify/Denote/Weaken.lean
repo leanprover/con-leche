@@ -1,8 +1,8 @@
 import Setlec.TT.Judgment
 import Setlec.TT.Deq
-import Setlec.TTVerify.VClosed
-import Setlec.TTVerify.SubstAlgebra
-import Setlec.TTVerify.HasTypeSubst
+import Setlec.Verify.Denote.VClosed
+import Setlec.Verify.Denote.SubstAlgebra
+import Setlec.Verify.Denote.HasTypeSubst
 
 /-!
 # Context weakening
@@ -37,7 +37,7 @@ cases.  The cases have to name their own constructor.  (Also note that
 core, so they are unavailable in this project.)
 
 Like `Setlec/TTVerify/Inversion.lean` and
-`Setlec/TTVerify/VClosed.lean`, this lives on the bridge side so that
+`Setlec/Verify/Denote/VClosed.lean`, this lives on the bridge side so that
 it stays marked as a bridge need rather than becoming layer
 metatheory — see `Setlec/TT/DESIGN.md` §3.1 for the accounting of how
 much of that the bridge has taken on.

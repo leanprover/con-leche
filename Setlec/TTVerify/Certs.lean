@@ -1,4 +1,4 @@
-import Setlec.TTVerify.Tele
+import Setlec.Verify.Denote.Tele
 import Setlec.TTVerify.Claims
 import Setlec.Verify.InferLeaves
 

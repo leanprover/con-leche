@@ -1,10 +1,10 @@
-import Setlec.TTVerify.VClosed
-import Setlec.TTVerify.InstSimp
-import Setlec.TTVerify.Weaken
-import Setlec.TTVerify.Denote
-import Setlec.TTVerify.Shift
-import Setlec.TTVerify.Inst
-import Setlec.TTVerify.Tele
+import Setlec.Verify.Denote.VClosed
+import Setlec.Verify.Denote.InstSimp
+import Setlec.Verify.Denote.Weaken
+import Setlec.Verify.Denote
+import Setlec.Verify.Denote.Shift
+import Setlec.Verify.Denote.Inst
+import Setlec.Verify.Denote.Tele
 import Setlec.TTVerify.Certs
 import Setlec.TTVerify.Iota
 import Setlec.TTVerify.Inversion
@@ -29,7 +29,7 @@ import Setlec.TTVerify.LitCtorStep
 import Setlec.TTVerify.MajorStep
 import Setlec.TTVerify.Extend
 import Setlec.TTVerify.Consistency
-import Setlec.TTVerify.HasTypeSubst
+import Setlec.Verify.Denote.HasTypeSubst
 import Setlec.TTVerify.DeclStep
 import Setlec.TTVerify.DeclValue
 import Setlec.TTVerify.DeclThm
@@ -43,8 +43,8 @@ import Setlec.TTVerify.StdAxiomKey
 import Setlec.TTVerify.NatOpPin
 import Setlec.TTVerify.DivModPin
 import Setlec.TTVerify.DeclBasis
-import Setlec.TTVerify.Rename
-import Setlec.TTVerify.TeleOpen
+import Setlec.Verify.Denote.Rename
+import Setlec.Verify.Denote.TeleOpen
 import Setlec.TTVerify.DeclInd
 import Setlec.TTVerify.IndBottom
 import Setlec.TTVerify.IndBottomStages
@@ -64,7 +64,7 @@ import Setlec.TTVerify.Main
 
 Verification of the checker against the *declarative type theory* of
 `Setlec/TT/*` rather than directly against the set model: a denotation
-from a real `Env` + `Expr` into `VExpr` (`Setlec/TTVerify/Denote.lean`),
+from a real `Env` + `Expr` into `VExpr` (`Setlec/Verify/Denote.lean`),
 an environment invariant transposed from `EnvModel`
 (`Setlec/TTVerify/EnvTT.lean`), and the acceptance theorem
 (`Setlec/TTVerify/Consistency.lean`).

@@ -1,7 +1,7 @@
-import Setlec.TTVerify.Denote
-import Setlec.TTVerify.VClosed
-import Setlec.TTVerify.Tele
-import Setlec.TTVerify.OpenVars
+import Setlec.Verify.Denote
+import Setlec.Verify.Denote.VClosed
+import Setlec.Verify.Denote.Tele
+import Setlec.Verify.Denote.OpenVars
 import Setlec.TT.Semantics.Consistency
 
 /-!
@@ -897,7 +897,7 @@ structure EnvTT (env : Env) where
   valuation**, where `interpExpr` needs `ρ : Nat → V`, because the
   opened binder *is* a variable: `fvar d` read at depth `d'` is
   `.bvar (d' - 1 - d)`, computed rather than looked up
-  (`Setlec/TTVerify/Denote.lean`).  We pay for that here: a constant's
+  (`Setlec/Verify/Denote.lean`).  We pay for that here: a constant's
   denotation is a **term**, and lifting and instantiation have to pass
   through it untouched, which they do only if it has no loose
   variables.  `interpExpr` owes nothing in return because `val n ψ : V`
@@ -912,7 +912,7 @@ structure EnvTT (env : Env) where
   `val_params`.
 
   Consumed by `Setlec/TTVerify/{Shift,Inst}.lean` at the `.const` and
-  literal clauses; supporting facts in `Setlec/TTVerify/VClosed.lean`. -/
+  literal clauses; supporting facts in `Setlec/Verify/Denote/VClosed.lean`. -/
   cval_closed : ∀ (n : Name) (ψ : Name → Nat), VExpr.Closed (cval n ψ)
   /-- Stored declarations are syntactically well-formed. -/
   wf : EnvWF env

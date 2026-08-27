@@ -7,7 +7,7 @@ The commutation identities between `VExpr.liftN` and `VExpr.inst`
 (`Setlec/TT/Subst.lean`), plus their consequences for the types of the
 built-in constants and for the smart constructors that appear in the
 rules of `HasType`.  They exist to serve
-`Setlec/TTVerify/HasTypeSubst.lean`, which needs lifting and
+`Setlec/Verify/Denote/HasTypeSubst.lean`, which needs lifting and
 instantiation to commute in every rule whose conclusion mentions
 `inst` or an inner `liftN`.
 
@@ -16,7 +16,7 @@ layer deliberately has *no syntactic metatheory* —
 `Setlec/TT/Subst.lean` is definitions plus constructor-wise `rfl`
 equations, and advertises that (lean4lean's counterpart is ~123
 theorems).  These identities are a bridge need, exactly like
-`Setlec/TTVerify/Weaken.lean` and `Setlec/TTVerify/Inversion.lean`, so
+`Setlec/Verify/Denote/Weaken.lean` and `Setlec/TTVerify/Inversion.lean`, so
 they are filed with the bridge to keep the accounting honest.
 
 Every identity is proved by structural induction on the expression

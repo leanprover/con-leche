@@ -1,5 +1,5 @@
-import Setlec.TTVerify.Denote
-import Setlec.TTVerify.VClosed
+import Setlec.Verify.Denote
+import Setlec.Verify.Denote.VClosed
 import Setlec.Verify.Shift
 import Setlec.Verify.Abstract
 
@@ -24,7 +24,7 @@ WScoped p e → p ≤ D → (∀ i < p, ρ' i = ρ i) →
 variable through `ρ`, never through `d`.  The valuation absorbs the
 depth.
 
-`denote` has no valuation to absorb it (`Setlec/TTVerify/Denote.lean`):
+`denote` has no valuation to absorb it (`Setlec/Verify/Denote.lean`):
 a free variable at level `i` read at depth `d` is `.bvar (d - 1 - i)`,
 which is depth-*relative*.  So the transpose cannot be an equation, and
 is instead
@@ -35,7 +35,7 @@ WScoped p e → p ≤ D →
 ```
 
 This is the second half of the same trade as
-`Setlec/TTVerify/VClosed.lean`'s: we saved a valuation parameter on
+`Setlec/Verify/Denote/VClosed.lean`'s: we saved a valuation parameter on
 every clause of `denote`, and we pay for it here and in `cval_closed`.
 Recorded rather than smoothed over, because a reader checking the
 transposition line by line against `Setlec/Model/Subst.lean` will
@@ -145,7 +145,7 @@ denoting `e` and lifting at cut `d - p`.
 
 The `cval` closedness hypothesis is what lets the `.const` and literal
 clauses go through: a constant's term must not move when the context
-around it grows (`Setlec/TTVerify/VClosed.lean`). -/
+around it grows (`Setlec/Verify/Denote/VClosed.lean`). -/
 theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
     ∀ (e : Expr) (d : Nat), p ≤ d → Expr.fvarsBelow d e →
       denote cval env φ (d + 1) (e.shiftFrom p) =

@@ -1,4 +1,4 @@
-import Setlec.TTVerify.SubstAlgebra
+import Setlec.Verify.Denote.SubstAlgebra
 
 /-!
 # Weakening (with lifting) and substitution for `HasType`
@@ -21,7 +21,7 @@ exactly what the relations' `succ` constructors record.
 layer deliberately has *no syntactic metatheory* — that is a design
 property it advertises (`Setlec/TT/Subst.lean`), and the bridge's
 substitution burden is a handful of lemmas against lean4lean's ~123.
-Like `Setlec/TTVerify/Weaken.lean` and `Setlec/TTVerify/Inversion.lean`
+Like `Setlec/Verify/Denote/Weaken.lean` and `Setlec/TTVerify/Inversion.lean`
 these are bridge infrastructure, filed here so they stay marked as a
 bridge need rather than quietly becoming layer metatheory.
 
@@ -46,7 +46,7 @@ concludes that (`Setlec/TTVerify/DESIGN.md` §6, F1).  A policy with a
 measured record is a different thing from a policy.
 
 **Gotcha for `HasType` inductions** (recorded in
-`Setlec/TTVerify/Weaken.lean` and repeated because it bites): do not
+`Setlec/Verify/Denote/Weaken.lean` and repeated because it bites): do not
 use `constructor` — `conv`'s conclusion `HasType Γ t B` unifies with
 every goal, so it gets selected in all 32 cases.  Every case below
 names its constructor.

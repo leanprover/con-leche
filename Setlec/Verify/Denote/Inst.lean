@@ -1,4 +1,4 @@
-import Setlec.TTVerify.Shift
+import Setlec.Verify.Denote.Shift
 import Setlec.TT.Deq
 import Setlec.Verify.Subst
 
@@ -28,12 +28,12 @@ shifting, which is not obvious in advance:
 
 So `k = D - p` makes `VExpr.inst`'s built-in lift *be* the depth shift,
 and the substituted variable's case is discharged by `denote_lift`
-(`Setlec/TTVerify/Shift.lean`) with nothing left over.
+(`Setlec/Verify/Denote/Shift.lean`) with nothing left over.
 
 ## Where it is nicer for a second reason
 
 Every binder case below is structural, because `denote` is
-(`Setlec/TTVerify/Denote.lean`, "Why `denote` is structural").  Had a
+(`Setlec/Verify/Denote.lean`, "Why `denote` is structural").  Had a
 `let` denoted to its zeta reduct, this proof — like the shift lemma
 before it — would need lifting to commute with instantiation, and then
 with itself.  It needs neither.

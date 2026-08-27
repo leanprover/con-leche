@@ -1,4 +1,4 @@
-import Setlec.TTVerify.Denote
+import Setlec.Verify.Denote
 import Setlec.TTVerify.EnvTT
 import Setlec.Verify.EnvWF
 import Setlec.Verify.InferLemmas

@@ -1,6 +1,6 @@
 import Setlec.TTVerify.DeclBasis
 import Setlec.Verify.Extend.Iota
-import Setlec.TTVerify.TeleOpen
+import Setlec.Verify.Denote.TeleOpen
 
 /-!
 # `DeclIndTT`: the modeled-inductive install
@@ -137,7 +137,7 @@ theorem's* statement telescope, which the fold has to apply the
 theorem along.  The install's pins say the two agree binder for binder
 (`sbinders[k].2.1 = tbindersM[k].2.1`, and the public-vs-model half by
 `checkMemberVal_inv`'s `eqUpToNames`, which `denote_erasedEq`
-(`Setlec/TTVerify/Inst.lean:265`) turns into equal denotations).  What
+(`Setlec/Verify/Denote/Inst.lean:265`) turns into equal denotations).  What
 is missing is the step that *uses* that agreement: a spine that fits
 one telescope fits the other.
 

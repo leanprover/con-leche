@@ -1,5 +1,5 @@
 import Setlec.TTVerify.DefEqStep
-import Setlec.TTVerify.OpenRevDenote
+import Setlec.Verify.Denote.OpenRevDenote
 import Setlec.Verify.Deep
 
 /-!

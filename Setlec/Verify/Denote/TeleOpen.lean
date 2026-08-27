@@ -1,6 +1,6 @@
-import Setlec.TTVerify.Rename
-import Setlec.TTVerify.SubstAlgebra
-import Setlec.TTVerify.OpenVars
+import Setlec.Verify.Denote.Rename
+import Setlec.Verify.Denote.SubstAlgebra
+import Setlec.Verify.Denote.OpenVars
 
 /-!
 # Opening a telescope, and substituting a spine into what is left
@@ -242,7 +242,7 @@ folds built rather than re-deriving them against a second opener.
 
 `openPisAtFvars` opens with the binder's *own* name and domain and
 `openFvars` with canonical ones; `denote` reads neither
-(`Setlec/TTVerify/Denote.lean`), so the two bodies are `ErasedEq` and
+(`Setlec/Verify/Denote.lean`), so the two bodies are `ErasedEq` and
 that is exactly the tolerance `denote_erasedEq` consumes. -/
 
 /-- A telescope that opens at a free variable strips.  **The `fvar`

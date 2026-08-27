@@ -9,12 +9,12 @@ import Setlec.Verify.Subst
 `openFvars d k` — the `k` opening variables of a telescope at depth
 `d`, outermost first.  A leaf module: `Setlec/TTVerify/EnvTT.lean`
 states the nested iota rules' parameter premise over the *opened*
-stored pins, and cannot import `Setlec/TTVerify/TeleOpen.lean` (which
+stored pins, and cannot import `Setlec/Verify/Denote/TeleOpen.lean` (which
 sits far above it); the definition and its index bookkeeping live
 here, and `TeleOpen.lean` re-exports them.
 
 `denote` reads neither an opening variable's name nor its annotation
-(`Setlec/TTVerify/Denote.lean`), so canonical ones are as good as the
+(`Setlec/Verify/Denote.lean`), so canonical ones are as good as the
 binders' own — which is what lets a single opening stand for every
 telescope an alignment relates.
 -/
