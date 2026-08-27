@@ -179,6 +179,15 @@ def isEqHead : Expr → Bool
   | .const c [_ℓ] => c == eqName
   | _ => false
 
+/-- The level an equality head carries — the statement's own `Eq.{ℓ}`
+level, read off a head `isEqHead` has accepted (task #146: the iota
+statements' type slot is certified to inhabit *this* sort).  Off shape
+it is `.zero`, which `isEqHead` has already rejected wherever the
+result is used. -/
+def eqHeadLevel : Expr → Level
+  | .const _ [ℓ] => ℓ
+  | _ => .zero
+
 /-- Pairwise definitional-equality check of two spines (throws on any
 mismatch, including a length difference). -/
 def checkDefEqList (ops : CheckerOps m) (env : Env) (depth : Nat) :

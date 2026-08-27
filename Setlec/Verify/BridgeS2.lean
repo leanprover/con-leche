@@ -117,14 +117,14 @@ theorem checkAnnotListS_sim (henv : EnvWF env) {depth : Nat} :
 /-- The iota-sides type certificate at the shared operations (task
 #100 stage 3). -/
 theorem checkIotaSidesTyS_sim {depth : Nat} {alphaS lhsS rhsS : Expr}
-    {cvName : Name} (henv : EnvWF env)
+    {ℓA : Level} {cvName : Name} (henv : EnvWF env)
     (hα : WScoped depth alphaS) (hl : WScoped depth lhsS)
     (hr : WScoped depth rhsS) (hs : ISOK env s₀) :
     SimAt env s₀ RelV
       (checkIotaSidesTy (sharedOps (mkFEnv env)) env depth alphaS lhsS
-        rhsS cvName)
+        rhsS ℓA cvName)
       (checkIotaSidesTy fueledOpsM env depth alphaS lhsS rhsS
-        cvName) := by
+        ℓA cvName) := by
   unfold checkIotaSidesTy
   dsimp only [sharedOps]
   refine SimAt.bind (opE_infer_sim henv hs hl)
@@ -148,10 +148,23 @@ theorem checkIotaSidesTyS_sim {depth : Nat} {alphaS lhsS rhsS : Expr}
   cases cr with
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte]
+    exact SimAt.throw_bind
+  | true =>
+  simp only [↓reduceIte]
+  -- the type slot's own sort (task #146)
+  refine SimAt.bind (opE_infer_sim henv hs₄ hα)
+    (fun s₅ tα tα' hs₅ hext₅ hTα => ?_)
+  obtain ⟨rfl, htαW⟩ := hTα
+  refine SimAt.bind (opB_sim henv hs₅ htαW (by simp [WScoped]))
+    (fun s₆ cα cα' hs₆ hext₆ hCα => ?_)
+  obtain rfl : cα = cα' := hCα
+  cases cα with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
     exact SimAt.throw
   | true =>
     simp only [↓reduceIte]
-    exact SimAt.pure hs₄ rfl
+    exact SimAt.pure hs₆ rfl
 
 set_option maxHeartbeats 12800000 in
 /-- The iota-theorem check at the shared operations (the operation

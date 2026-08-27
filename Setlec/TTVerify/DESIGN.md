@@ -6161,7 +6161,19 @@ answer.**
   needed — the parameter bridge crosses recursor-prefix and
   constructor-parameter domains through the public frame.)
 
-### 17.3 REQUEST (form 2 of §14.7.4): `checkIotaSidesTy` certifies the slot's sort
+### 17.3 GRANTED (#146, form 2 of §14.7.4): `checkIotaSidesTy` certifies the slot's sort
+
+**Landed 2026-08-27** (task #146; DESIGN.md, "The iota certificate
+certifies the slot's sort").  `checkIotaSidesTy` now infers the slot's
+type and `isDefEq`s it against `.sort ℓA`, the level threaded from each
+of the six call sites' own `Eq`-head match (via the new `eqHeadLevel`
+accessor, `Setlec/Kernel/CheckerBase.lean`).  `PlainChecked`,
+`NestedChecked` (`Setlec/Verify/Extend/Iota.lean`) and
+`checkProjIota_inv` (`Setlec/Verify/Extend/Proj.lean`) carry
+`IotaSlotSorted`'s body verbatim as their last conjunct, so each
+bottom's `hslot` discharges by `exact` — that swap is still to be
+made; until it is, the hypothesis stays.  The rest of this section is
+the original request, kept for the reasoning.
 
 **The gap.**  Every bottom fires `EqLawTT`, whose first β-step wants
 `⊢ ⟦αS⟧ : Sort ⟦ℓA⟧` — the equation slot at the sort its own `Eq.{ℓA}`

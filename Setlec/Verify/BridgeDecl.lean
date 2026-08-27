@@ -424,19 +424,19 @@ theorem checkDefEqList_snd_dproj (env : Env) (depth : Nat) :
       checkDefEqList_snd_dproj env depth as bs]
 
 theorem checkIotaSidesTy_fst_dproj (envSelf : Env) (depth : Nat)
-    (alphaS lhsS rhsS : Expr) (cvName : Name) :
+    (alphaS lhsS rhsS : Expr) (ℓA : Level) (cvName : Name) :
     (checkIotaSidesTy (pairOps o₁ o₂ h) envSelf depth alphaS lhsS rhsS
-      cvName).val.1 =
-    checkIotaSidesTy o₁ envSelf depth alphaS lhsS rhsS cvName := by
+      ℓA cvName).val.1 =
+    checkIotaSidesTy o₁ envSelf depth alphaS lhsS rhsS ℓA cvName := by
   unfold checkIotaSidesTy
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, pairOps_isDefEq_fst, pairOps_inferType_fst]
 
 theorem checkIotaSidesTy_snd_dproj (envSelf : Env) (depth : Nat)
-    (alphaS lhsS rhsS : Expr) (cvName : Name) :
+    (alphaS lhsS rhsS : Expr) (ℓA : Level) (cvName : Name) :
     (checkIotaSidesTy (pairOps o₁ o₂ h) envSelf depth alphaS lhsS rhsS
-      cvName).val.2 =
-    checkIotaSidesTy o₂ envSelf depth alphaS lhsS rhsS cvName := by
+      ℓA cvName).val.2 =
+    checkIotaSidesTy o₂ envSelf depth alphaS lhsS rhsS ℓA cvName := by
   unfold checkIotaSidesTy
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, pairOps_isDefEq_snd, pairOps_inferType_snd]
@@ -1645,11 +1645,11 @@ theorem checkAnnotList_datF (env : Env) (depth F : Nat) :
       checkAnnotList_datF env depth F as]
 
 theorem checkIotaSidesTy_datF (envSelf : Env) (depth : Nat)
-    (alphaS lhsS rhsS : Expr) (cvName : Name) (F : Nat) :
+    (alphaS lhsS rhsS : Expr) (ℓA : Level) (cvName : Name) (F : Nat) :
     (checkIotaSidesTy fueledOpsM envSelf depth alphaS lhsS rhsS
-      cvName).val F =
+      ℓA cvName).val F =
     checkIotaSidesTy (fueledOps F) envSelf depth alphaS lhsS rhsS
-      cvName := by
+      ℓA cvName := by
   unfold checkIotaSidesTy
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF]

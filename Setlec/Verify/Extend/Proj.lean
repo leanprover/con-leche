@@ -267,7 +267,8 @@ theorem checkProjRule_inv {env' : Env} {pty : Expr} {cvj : ConstantVal}
 type slot carries no syntactic pin (hygienic binder names and
 dependent field types spelled through projections defeat any pin);
 instead both equation sides carry definitional type certificates at
-the opened telescope (task #100 stage 3). -/
+the opened telescope (task #100 stage 3), and the slot itself one
+against the sort its `Eq.{ℓA}` names (task #146). -/
 theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
     {lps : List Name} {cvj : ConstantVal} {nP nF i : Nat} {u : Unit}
     (h : checkProjIota (fueledOps F) env' env' T ctorName lps cvj nP
@@ -300,7 +301,10 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
         (∃ tr, inferTypeCore env' F (nP + nF)
             (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
           isDefEqCore env' F (nP + nF) tr
-            (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true)) := by
+            (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true) ∧
+        (∃ tα, inferTypeCore env' F (nP + nF)
+            (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok tα ∧
+          isDefEqCore env' F (nP + nF) tα (Expr.sort ℓA) = .ok true)) := by
   simp only [checkProjIota, checkIotaSidesTy, unwrapOr,
     fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind,
     pure, Except.pure] at h
@@ -448,9 +452,27 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   | false => intro h; simp at h
   | true => ?_
   intro h
+  dsimp only [Expr.getAppFn, eqHeadLevel] at h
+  try dsimp only at h
+  revert h
+  cases htα : inferTypeCore env' F (nP + nF)
+      (sbodyO.getAppArgs.getD 0 (.bvar 0)) with
+  | error e => intro h; exact nomatch h
+  | ok tα => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hdα : isDefEqCore env' F (nP + nF) tα (Expr.sort ℓA) with
+  | error e => intro h; exact nomatch h
+  | ok vα => ?_
+  cases vα with
+  | false => intro h; simp at h
+  | true => ?_
+  intro h
   exact ⟨tcv, tval, sbinders, cbindersR, cbody, tySlot, ℓA,
     rfl, htlps, rfl, hsdomsB, hS_strip,
-    ⟨fvsO, sbodyO, hopenO, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩⟩⟩
+    ⟨fvsO, sbodyO, hopenO, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩,
+      ⟨tα, htα, hdα⟩⟩⟩
 
 /-- Invert a successful `checkProjShape` run. -/
 theorem checkProjShape_inv {pty cty : Expr} {nP nF : Nat} {u : Unit}

@@ -800,14 +800,14 @@ set_option maxHeartbeats 6400000 in
 /-- The iota-sides type certificate, `wfOpsM` to pure (task #100
 stage 3). -/
 theorem checkIotaSidesTy_wfimp {envSelf : Env} (henvSelf : EnvWF envSelf)
-    {depth : Nat} {alphaS lhsS rhsS : Expr} {cvName : Name} {F : Nat}
-    {v : Unit}
+    {depth : Nat} {alphaS lhsS rhsS : Expr} {ℓA : Level} {cvName : Name}
+    {F : Nat} {v : Unit}
     (hα : WScoped depth alphaS) (hl : WScoped depth lhsS)
     (hr : WScoped depth rhsS)
     (h : (checkIotaSidesTy wfOpsM envSelf depth alphaS lhsS rhsS
-      cvName).val F = .ok v) :
+      ℓA cvName).val F = .ok v) :
     checkIotaSidesTy (fueledOps F) envSelf depth alphaS lhsS rhsS
-      cvName = .ok v := by
+      ℓA cvName = .ok v := by
   unfold checkIotaSidesTy at h ⊢
   rw [wfOpsM_inferType henvSelf hl.to_wscopedB] at h
   obtain ⟨tl, htl, h⟩ := atF_bind_ok h
@@ -844,6 +844,27 @@ theorem checkIotaSidesTy_wfimp {envSelf : Env} (henvSelf : EnvWF envSelf)
   rw [hdr']
   simp only [Bind.bind, Except.bind]
   cases cr with
+  | false =>
+    rw [if_neg (by simp)] at h
+    exact nomatch h
+  | true =>
+  rw [if_pos rfl] at h ⊢
+  -- the type slot's own sort (task #146)
+  rw [wfOpsM_inferType henvSelf hα.to_wscopedB] at h
+  obtain ⟨tα, htα, h⟩ := atF_bind_ok h
+  have htα' : inferTypeCore envSelf F depth alphaS = .ok tα := htα
+  show (inferTypeCore envSelf F depth alphaS >>= _) = _
+  rw [htα']
+  simp only [Bind.bind, Except.bind]
+  rw [wfOpsM_isDefEq henvSelf
+    (inferTypeCore_WScoped henvSelf F htα' hα).to_wscopedB
+    (by simp [Expr.wscopedB] : (Expr.sort ℓA).wscopedB depth = true)] at h
+  obtain ⟨cα, hdα, h⟩ := atF_bind_ok h
+  have hdα' : isDefEqCore envSelf F depth tα (Expr.sort ℓA) = .ok cα := hdα
+  show (isDefEqCore envSelf F depth tα (Expr.sort ℓA) >>= _) = _
+  rw [hdα']
+  simp only [Bind.bind, Except.bind]
+  cases cα with
   | false =>
     rw [if_neg (by simp)] at h
     exact nomatch h
@@ -1405,7 +1426,8 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
         (tbody.getAppArgs.getD 0 (.bvar 0)) := WScoped_getD' htargsW 0
     obtain ⟨u9, hcert, h⟩ := atF_bind_ok h
     have hcert' := checkIotaSidesTy_wfimp henvSelf hαSW hlhsW hrhsSW hcert
-    show (checkIotaSidesTy (fueledOps F) envSelf (rP + cnF) _ _ _ _ >>= _) = _
+    show (checkIotaSidesTy (fueledOps F) envSelf (rP + cnF) _ _ _ _ _ >>= _)
+      = _
     rw [hcert']
     simp only [Bind.bind, Except.bind]
     exact h

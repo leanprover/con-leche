@@ -9381,3 +9381,117 @@ do not agree, and the override count is printed so that a silently
 emptied `tests/yolo-expected.txt` shows up there.  The full
 `tests/arena.sh --infer-only` sweep is green as well (70/70 at the
 certified expectations).
+
+## The iota certificate certifies the slot's sort (2026-08-27, task #146)
+
+**#135's direct sibling — form (2) of the same request — and the
+seventh change the TT bridge (task #119) asked of the checker.**
+Siblings: tasks #126, #129, #130, #135, #136, #137.
+
+**The gap** (`Setlec/TTVerify/DESIGN.md` §17.3).  Every `IndBottom*TT`
+fires `EqLawTT`, whose first β-step wants `⊢ ⟦αS⟧ : Sort ⟦ℓA⟧` — the
+iota statement's equation type slot at the level the statement's own
+`Eq.{ℓA}` carries.  #135 closed the *capability* half of this with a
+syntactic pin (`tbodyM == Expr.sort ℓA`), but that pin is on the model
+former's telescope residual; here the slot is a **motive application**
+whose shape varies per rule, so no syntactic pin can serve it.
+Inverting the theorem's own derivation is Π-injectivity, which
+`propext` refutes (`Setlec/TTVerify/Inversion.lean`), and a "stored
+types are types" invariant gives `Sort u` at *some* `u` — `u = ⟦ℓA⟧` is
+exactly the missing step.
+
+**The check.**  `checkIotaSidesTy` (`Setlec/Kernel/Modeled.lean`,
+landed by task #100 stage 3) already holds `ops`, the depth, the slot
+and both sides, and already certifies the two *sides* against the
+slot.  It gains the slot itself, at the statement's own equation
+level:
+
+```
+  let tα ← ops.inferType envSelf depth alphaS
+  unless ← ops.isDefEq envSelf depth tα (.sort ℓA) do
+    throw (.notImplemented s!"iota statement type slot sort for {cvName}")
+```
+
+The level reaches the call from each call site's own `Eq`-head match,
+through the new total accessor `eqHeadLevel` (`Kernel/CheckerBase.lean`,
+`.const _ [ℓ] => ℓ`, `.zero` off shape).  On the two recursor paths the
+head has already passed `isEqHead`; on the projection path it has
+already passed the `.app (.app (.app (.const c [_ℓ]) …) …) …` match
+with `c = eqName`, and the level is read off *that* body
+(`eqHeadLevel sbody.getAppFn`) — the same `ℓA` the inversion already
+existentially binds, so the inversion needs no lemma relating the
+closed statement body to its opened form.
+
+**Semantic, not syntactic — because the request was form (2).**  §14.7.4
+offered two forms; #135 landed form (1) where both values were syntactic
+and `ops` was out of scope.  Here the certificate is a `defeq` against
+`Sort ℓA`, which is what `IotaSlotSorted`
+(`Setlec/TTVerify/IndBottom.lean`) was committed to in advance:
+
+```
+∃ tα, inferTypeCore env₀ F k αS = .ok tα ∧
+  isDefEqCore env₀ F k tα (Expr.sort ℓA) = .ok true
+```
+
+The three inversions deliver that shape verbatim as their last
+conjunct, so the bridge's swap is `exact`.
+
+**Mirror surface.**  The predicate is **single-sourced** — `CheckerS`
+and `CheckerNC` call the same `checkIotaSidesTy`, so unlike #136 there
+is no cert-skipping copy — but its *call sites* are six, and every one
+had to learn the level:
+
+| site | file | role |
+|---|---|---|
+| `checkIotaThm` / `checkIotaThmN` / `checkProjIota` | `Setlec/Kernel/Modeled.lean` | the `Env` versions; domain of the inversions |
+| `checkIotaThmF` / `checkIotaThmNF` / `checkProjIotaF` | `Setlec/Kernel/CheckerS.lean` | the versions that execute (S and NC drivers) |
+
+pinned pairwise by `checkIotaThmF_eq` / `checkIotaThmNF_eq` /
+`checkProjIotaF_eq` (`Setlec/Verify/CheckerF.lean`, all `simp <;> rfl`
+— they re-proved unchanged, which is what makes them worth having).
+
+**Verify-side threading.**  `PlainChecked` and `NestedChecked`
+(`Setlec/Verify/Extend/Iota.lean`) and `checkProjIota_inv`
+(`Setlec/Verify/Extend/Proj.lean`) gain the conjunct and their
+inversions forward it (one `cases` pair each, plus `rw [hheadEq]` to
+turn `eqHeadLevel tbody.getAppFn` into the bound `ℓA`).  The
+operation-family transports take one more step apiece —
+`checkIotaSidesTyS_sim` (`Verify/BridgeS2.lean`),
+`checkIotaSidesTy_wfimp` (`Verify/BridgeWfImp.lean`), the two
+`_dproj`s and `_datF` (`Verify/BridgeDecl.lean`); the new `isDefEq`
+argument is a `.sort`, so its well-scopedness is `True`.  The set model
+takes the conjunct as `-`: `Setlec/Model/Extend/Recs.lean` (both fire
+modes) and `Setlec/Model/Extend/Proj.lean` gain one `-` in their
+`obtain` patterns and no proof obligation — the model gets this
+membership from `AnnotOk`, which is the premise the *bridge* dropped by
+design.
+
+**The risk, priced before the ask.**  The requester instrumented the
+shared `checkIotaSidesTy` on both paths and ran the whole corpus
+(arena incl. `init-prelude` + e2e): **3 895 / 3 895 calls pass**, zero
+counterexamples (`Setlec/TTVerify/DESIGN.md` §17.3).  The landing
+confirms it end to end: no fixture's verdict moved.
+
+**Gates.**  Build warning-free with the ten touched modules' oleans
+force-deleted and recompiled, `lake test`, arena 90/92, e2e 70/70,
+split driver 11/11, infer-only 5/5 and the full `tests/arena.sh
+--infer-only` sweep, the yolo sweep green
+(`138 arena + 70 e2e as expected`), axioms exactly
+`[propext, Classical.choice, Quot.sound]` on the nine consistency
+theorems, no sorries, init-prelude byte-identical — stdout, stderr,
+exit — in the certified, the `SETLEC_NO_PROOF_CERTS=1` and the
+`SETLEC_INFER_ONLY=1` modes against a binary built from pre-change
+master.  Cost: 38.8089 G → 38.8253 G instructions:u on init-prelude,
+**+0.042 %** (median of three) — one `inferType` and one `isDefEq` per
+iota statement, and the most expensive of the seven bridge changes so
+far, as a semantic certificate should be next to six syntactic ones.
+
+**Negation probe.**  Byte identity does not prove a conjunct *true*.
+Negated (`unless !(← ops.isDefEq …)`) in the single source and
+rebuilt, init-prelude **declines** at the first modeled recursor
+(`not implemented yet: iota statement type slot sort for LT.rec [at
+inductive LT]`, exit 2), arena falls to **46/92**, e2e to **30/70**,
+split 8/11, infer-only 3/5.  The signature is #136's, not #135's, and
+correctly so: this is a hard certificate inside an install check, so a
+violation declines rather than silently dropping a capability.
+Reverted; byte identity re-confirmed in all three modes.

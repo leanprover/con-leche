@@ -471,7 +471,7 @@ def checkIotaThmF (ops : CheckerOps m) (fe' feSelf : FEnv)
     unless ← ops.isDefEq feSelf.env depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
     checkIotaSidesTy ops feSelf.env depth (targs.getD 0 (.bvar 0)) lhsS
-      rhsS cvName
+      rhsS (eqHeadLevel tbody.getAppFn) cvName
 
 /-- `nestedRuleShape` through the index. -/
 def nestedRuleShapeF (fe' feSelf : FEnv) (cvName : Name)
@@ -582,7 +582,7 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
     unless ← ops.isDefEq feSelf.env depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
     checkIotaSidesTy ops feSelf.env depth (targs.getD 0 (.bvar 0)) lhsS
-      rhsS cvName
+      rhsS (eqHeadLevel tbody.getAppFn) cvName
     pure (.nested lvls pins)
 
 /-- `checkIotaRule` through the index. -/
@@ -732,7 +732,7 @@ def checkProjIotaF (ops : CheckerOps m) (fe : FEnv)
   let targsO := sbodyO.getAppArgs
   checkIotaSidesTy ops fe.env depth (targsO.getD 0 (.bvar 0))
     (targsO.getD 1 (.bvar 0)) (targsO.getD 2 (.bvar 0))
-    (projModelName T i)
+    (eqHeadLevel sbody.getAppFn) (projModelName T i)
 
 /-- `checkDefnVal` through the index, returning the pushed index. -/
 def checkDefnValF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal)

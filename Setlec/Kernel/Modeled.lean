@@ -24,15 +24,23 @@ variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 /-- Certify that both sides of a modeled iota equation inhabit the
 equation's type (task #100 stage-3 finding: the collapse removed
 value-driven domain pinning, so the fold derivation reads these
-certificates). -/
+certificates), and that the equation's type slot itself inhabits the
+sort the statement's own `Eq.{ℓA}` names (task #146: the `IndBottom*`
+obligations fire the equality law, whose first β-step wants exactly
+that membership; the slot is a motive application, so no syntactic pin
+can serve it and inverting the theorem's derivation would need
+Π-injectivity, which `propext` refutes). -/
 def checkIotaSidesTy (ops : CheckerOps m) (envSelf : Env) (depth : Nat)
-    (alphaS lhsS rhsS : Expr) (cvName : Name) : m Unit := do
+    (alphaS lhsS rhsS : Expr) (ℓA : Level) (cvName : Name) : m Unit := do
   let tl ← ops.inferType envSelf depth lhsS
   unless ← ops.isDefEq envSelf depth tl alphaS do
     throw (.notImplemented s!"iota statement lhs type for {cvName}")
   let tr ← ops.inferType envSelf depth rhsS
   unless ← ops.isDefEq envSelf depth tr alphaS do
     throw (.notImplemented s!"iota statement rhs type for {cvName}")
+  let tα ← ops.inferType envSelf depth alphaS
+  unless ← ops.isDefEq envSelf depth tα (.sort ℓA) do
+    throw (.notImplemented s!"iota statement type slot sort for {cvName}")
 
 /-- Check a *canonical* recursor rule's `iota_j` theorem,
 *semantically*: the stored theorem's telescope is opened at free
@@ -128,7 +136,7 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     unless ← ops.isDefEq envSelf depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
     checkIotaSidesTy ops envSelf depth (targs.getD 0 (.bvar 0)) lhsS
-      rhsS cvName
+      rhsS (eqHeadLevel tbody.getAppFn) cvName
 
 /-- The nested-shape data of a non-canonical rule: the constructor's
 level and parameter instantiations, read off the recursor type's
@@ -295,7 +303,7 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     unless ← ops.isDefEq envSelf depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
     checkIotaSidesTy ops envSelf depth (targs.getD 0 (.bvar 0)) lhsS
-      rhsS cvName
+      rhsS (eqHeadLevel tbody.getAppFn) cvName
     pure (.nested lvls pins)
 
 /-- Check one modeled recursor rule: generic well-formedness of the
@@ -492,10 +500,11 @@ def checkProjTy (env' : Env) (T ctorName : Name) (lps : List Name)
 statement's telescope domains are the constructor's (renamed to the
 model side) and its body equates the projected constructor spine with
 field `i`.  Both equation sides are certified against the equality's
-type slot definitionally at the opened telescope (task #100 stage-3:
+type slot definitionally at the opened telescope, and the slot itself
+against the sort the statement's `Eq.{ℓA}` names (task #100 stage-3:
 the collapse removed value-driven domain pinning, and dependent field
 types are emitted through the projections, so a syntactic pin on the
-type slot would reject real streams). -/
+type slot would reject real streams; task #146 for the slot's sort). -/
 def checkProjIota (ops : CheckerOps m) (env' envSelf : Env)
     (T ctorName : Name) (lps : List Name)
     (cvj : ConstantVal) (nP nF i : Nat) : m Unit := do
@@ -530,13 +539,14 @@ def checkProjIota (ops : CheckerOps m) (env' envSelf : Env)
   | _ => throw (.notImplemented "projection iota body shape")
   -- certify both equation sides against the statement's type slot,
   -- definitionally at the opened telescope (the fold derivation
-  -- reads these certificates)
+  -- reads these certificates), and the slot itself against the sort
+  -- the statement's `Eq.{ℓA}` names (task #146)
   let (_, sbodyO) ← unwrapOr (openPisAtFvars depth tcv.type 0)
     (.notImplemented "projection iota telescope")
   let targsO := sbodyO.getAppArgs
   checkIotaSidesTy ops envSelf depth (targsO.getD 0 (.bvar 0))
     (targsO.getD 1 (.bvar 0)) (targsO.getD 2 (.bvar 0))
-    (projModelName T i)
+    (eqHeadLevel sbody.getAppFn) (projModelName T i)
 
 /-- Check and install the public projection function for field `i` of
 a modeled single-constructor structure, against the model's

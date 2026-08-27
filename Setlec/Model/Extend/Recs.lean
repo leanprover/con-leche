@@ -315,7 +315,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
       ldoms, lrest, hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, hlhead,
       hlarity, hlpre, hmaj, hCresHead, hcinst, hclen, hdeIdx, hdeFld,
       hrinst, hdePre, hopenP, hannP0, hcinstN0, htlP0, hopenX,
-      hcrest2Len, hlinst, hdeLam, hdeRhs, hlhsTyC, hrhsTyC⟩ := hnck
+      hcrest2Len, hlinst, hdeLam, hdeRhs, hlhsTyC, hrhsTyC, -⟩ := hnck
     -- the public prefix spine has exactly `rP` variables
     have hfvsPLen : fvsP.length = rP :=
       (openPisAtFvars_spec rP 0 hopenP).2.1
@@ -480,7 +480,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     ldoms, lrest, hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, hlhead,
     hlarity, hlpre, hmaj, hcstrip, hcinst, hclen, hdeIdx, hdeFld,
     hrinst, hdePre, hopenP, hcinstP, hdePars, hopenX, hlinst, hdeLam,
-    hdeRhs, hlhsTyC, hrhsTyC⟩ := hkit
+    hdeRhs, hlhsTyC, hrhsTyC, -⟩ := hkit
   -- the recursor's own stored facts
   have hselfMem := find?_mem hself
   obtain ⟨htyw, htyps, htyres, htyb, -, -⟩ := mS.wf _ hselfMem

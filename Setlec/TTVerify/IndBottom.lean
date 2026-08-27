@@ -994,23 +994,26 @@ theorem instPisAt_leaves :
       · exact push h2
       · exact Or.inr ⟨b, List.mem_cons_of_mem _ hb, hlb⟩
 
-/-! ## The premise nothing supplies (the expected exception item)
+/-! ## The carried premise (supplier landed, task #146)
 
 `DESIGN.md` §16.1 named it in advance: the bottoms owe the equation
 type slot's **sort**, and the slot here is a *motive application*, so
 `StatementSortPin` (a syntactic pin on the model former's residual)
-cannot serve it and no syntactic pin can.  The anticipated supplier is
-form (2) of §14.7.4: `checkIotaSidesTy` — which already holds `ops`,
-the depth and the slot, and already certifies both *sides* against it —
-additionally infers the slot's type and `isDefEq`s it against
-`.sort ℓA` at the statement's own equation level.
+cannot serve it and no syntactic pin can.  The supplier is form (2) of
+§14.7.4: `checkIotaSidesTy` — which already holds `ops`, the depth and
+the slot, and already certifies both *sides* against it — additionally
+infers the slot's type and `isDefEq`s it against `.sort ℓA` at the
+statement's own equation level.
 
 This definition is that check's inversion shape verbatim, fixed before
-the request is made (the `StatementSortPin`/`CtorResidualPin`
+the request was made (the `StatementSortPin`/`CtorResidualPin`
 discipline: a premise stated as the supplier will hand it over
-discharges by `exact`; any other spelling is a shim).  Until the
-checker change is granted and landed, `IndBottomPlainTT` carries it as
-one named hypothesis. -/
+discharges by `exact`; any other spelling is a shim).  **Landed in the
+checker as task #146**: `PlainChecked` / `NestedChecked`
+(`Setlec/Verify/Extend/Iota.lean`) and `checkProjIota_inv`
+(`Setlec/Verify/Extend/Proj.lean`) carry it as their last conjunct.
+The bottoms still take it as one named hypothesis each until the swap
+is made. -/
 
 /-- The iota statement's equation type slot inhabits the sort its
 `Eq.{ℓA}` names, checked at the opened statement frame. -/

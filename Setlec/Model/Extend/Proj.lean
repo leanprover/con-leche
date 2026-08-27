@@ -153,7 +153,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     rhsTy0, hity0⟩ := checkProjRule_inv hrule
   obtain ⟨tcv, tval, sbinders, cbindersR₂, cbody₂, tySlot, ℓA,
     hthm, htlps, hC_strip₂, hsdomsB, hS_strip,
-    fvsO, sbodyO, hopenO, hlhsTyC, hrhsTyC⟩ :=
+    fvsO, sbodyO, hopenO, hlhsTyC, hrhsTyC, -⟩ :=
     checkProjIota_inv hio
   obtain ⟨rfl, rfl⟩ : cbindersR = cbindersR₂ ∧ cbody = cbody₂ := by
     have hpair := Option.some.inj (hC_strip.symm.trans hC_strip₂)

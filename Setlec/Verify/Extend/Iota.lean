@@ -79,7 +79,9 @@ def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     (∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
       isDefEqCore env₀ F (rP + cnF) tl αS = .ok true) ∧
     (∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
-      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
+      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true) ∧
+    (∃ tα, inferTypeCore env₀ F (rP + cnF) αS = .ok tα ∧
+      isDefEqCore env₀ F (rP + cnF) tα (Expr.sort ℓA) = .ok true)
 
 /-- The kernel-checked data of a *nested-auxiliary* rule's `iota_j`
 theorem (`checkIotaThmN`): everything `modeled_rule_fold_nested`
@@ -151,7 +153,9 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     (∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
       isDefEqCore env₀ F (rP + cnF) tl αS = .ok true) ∧
     (∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
-      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
+      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true) ∧
+    (∃ tα, inferTypeCore env₀ F (rP + cnF) αS = .ok tα ∧
+      isDefEqCore env₀ F (rP + cnF) tα (Expr.sort ℓA) = .ok true)
 
 /-- Invert a successful `checkIotaThm` run (on the rule as returned,
 whose `rhs` is the annotated right-hand side). -/
@@ -349,6 +353,24 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   | false => intro h; simp at h
   | true =>
   intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  cases htα : inferTypeCore env₀ F (rP + cnF) αS with
+  | error e => intro h; exact nomatch h
+  | ok tα => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hdα : isDefEqCore env₀ F (rP + cnF) tα
+      (Expr.sort (eqHeadLevel tbody.getAppFn)) with
+  | error e => intro h; exact nomatch h
+  | ok vα =>
+  cases vα with
+  | false => intro h; simp at h
+  | true =>
+  rw [hheadEq] at hdα
+  intro h
   exact ⟨(cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
     tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
     restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
@@ -357,7 +379,8 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
     checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
     checkDefEqList_inv hdq3, hopenP, hcinstP,
     checkDefEqList_inv hdqP, hopenX, hlinst,
-    checkDefEqList_inv hdq4, hde, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩⟩
+    checkDefEqList_inv hdq4, hde, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩,
+    ⟨tα, htα, hdα⟩⟩
 
 /-- Invert a successful `nestedRuleShape` computation into the facts
 the stored rule's flag records: the prefix-major offset, the syntactic
@@ -689,6 +712,24 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   | false => intro h; simp at h
   | true =>
   intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  cases htα : inferTypeCore env₀ F (rP + cnF) αS with
+  | error e => intro h; exact nomatch h
+  | ok tα => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hdα : isDefEqCore env₀ F (rP + cnF) tα
+      (Expr.sort (eqHeadLevel tbody.getAppFn)) with
+  | error e => intro h; exact nomatch h
+  | ok vα =>
+  cases vα with
+  | false => intro h; simp at h
+  | true =>
+  rw [hheadEq] at hdα
+  intro h
   simp only [if_true, Except.ok.injEq] at h
   exact Or.inr ⟨lvls, pins, h.symm, rfl,
         (cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
@@ -702,7 +743,8 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         checkDefEqList_inv hdq3, hopenP, checkAnnotList_inv hannP,
         hcinstP,
         checkTypedList_inv hdtP, hopenX, eq_of_beq harX, hlinst,
-        checkDefEqList_inv hdq4, hde, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩⟩
+        checkDefEqList_inv hdq4, hde, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩,
+        ⟨tα, htα, hdα⟩⟩
 
 /-- The kernel-checked data of one modeled recursor rule: the
 hypothesis kit its fold obligation consumes.  `env` is the environment
