@@ -1,4 +1,7 @@
 import Setlec.SetR.Rel
+import Setlec.SetR.AnnotOkV
+import Setlec.SetR.Sound.Motives
+import Setlec.SetR.Sound.Struct
 import Setlec.SetR.Weaken
 import Setlec.SetR.CtxOkR
 import Setlec.SetR.Decl
