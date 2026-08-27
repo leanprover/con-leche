@@ -6254,3 +6254,56 @@ prerequisites — `openRev`, `instRevChain`, `denote_openRev`, the
 `ProjBottomTT`, `DeclIndTT`/`CheckDeclTT`.  The block-level discharge
 of `ctor_residual` at a modeled install belongs to `DeclIndTT`
 (§16.3's threading note stands).
+
+## §19 The nested bottom: state, and an elaboration-scale finding
+
+### 19.1 The finding (task #77-class defect, reported per the tripwire)
+
+**The monolithic bottom-theorem architecture is an elaboration hog.**
+Measured on this box: the *landed* `IndBottomPlainTT` (one ~1900-line
+theorem) peaks at **13.3 GB RSS** to elaborate; the in-flight nested
+mirror (~15% longer, heavier per-position machinery) was observed at
+15-28 GB and needed a heartbeat bump to 12.8M.  The cause is
+structural, not incidental: a single theorem accumulates hundreds of
+hypotheses with large types, and every tactic step re-traverses that
+context.  A principled fix — decomposing the bottoms into sealed
+per-stage lemmas (the openers bundle, the mixed fit, the zipper, the
+pointwise identification), each elaborating in a small context —
+applies to the *plain* bottom too and should be its own increment,
+with the split points chosen so the parameter lists stay sane
+(bundle the frame facts into one structure per frame).
+
+### 19.2 The nested adaptation's state
+
+`Setlec/TTVerify/IndBottomNested.lean` (untracked WIP, header-marked,
+not in the umbrella): statement complete, Stages A-F' elaborate.
+Landed prerequisites (all on master, gates green):
+
+* `RecRulesTT`'s nested parameter premise + `denote_openRev` /
+  `denote_openRev_base` (the §17.4 re-signing arc);
+* the chain algebra — `VExpr.instSeq_instRevChain` (hypothesis-free:
+  elements to the ambient cut, subject past the chain),
+  `instSeq_liftN0`, `instSeq_eq_self_of_bvarsBelow`;
+* `openRev_instantiateLevelParams`, `openRev_renameConsts`,
+  `Expr.fvarsBelow_of_fvarLeaves` (`OpenRevDenote.lean`);
+* the cross lemma and the denote-defined walk generalized from
+  fvar-shaped entries to denoted entries (the pins are expressions).
+
+**§16.2's "the delta re-applies the plain machinery verbatim" is
+half-true and half-refuted** — a restriction-finding in the
+house sense: the index premises and the frame bundles do flow through,
+but the parameter positions need genuinely new machinery (the
+canonical pin value `instRevChain (xs.take rP) wp` with
+`wp := denote ψ rP (openRev 0 rP pin)`, its two frame occurrences
+identified through `denote_openRev` + rename/level commutation, and
+the mixed fit's parameter steps typed from `TypedListOk` + the
+P-run's truncated cross rather than from `hdePars`'s bridge).
+
+What remains in the WIP: the zipper's field-position cross (adapt
+`hspIdx`/`hwsCond` to the split spine — pins below `cnP`, variables
+above; the ws-condition's pin entries close by `hchain` at
+`vals := zs.take n`), Stage J's major identification (pointwise:
+`hparN` at the parameter positions through `denote_erasedEq` for the
+`ErasedEq` major, fields unchanged), and re-audit of the level story
+at the redex head (`hlev`'s nested comparands).  Estimated ~300-500
+lines on top of the WIP — but do the §19.1 restructure first.

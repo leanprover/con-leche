@@ -1,5 +1,6 @@
 import Setlec.TTVerify.Tele
 import Setlec.TTVerify.OpenVars
+import Setlec.Verify.InstLevels
 
 /-!
 # Real-argument instantiation, read through the reverse opening
@@ -244,5 +245,74 @@ theorem denote_openRev (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
       rw [show VExpr.instRevChain (va :: vs') X =
         VExpr.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
         hsp'.length]
+
+/-- The reverse opening commutes with level instantiation: the opener
+annotations are `.sort .zero`, fixed points of the substitution. -/
+theorem openRev_instantiateLevelParams (ks : List Name)
+    (us : List Level) :
+    ∀ (d n : Nat) (e : Expr),
+      openRev d n (e.instantiateLevelParams ks us)
+        = (openRev d n e).instantiateLevelParams ks us := by
+  intro d n
+  induction n with
+  | zero => intro e; rfl
+  | succ n ih =>
+    intro e
+    show (openRev d n (e.instantiateLevelParams ks us)).instantiate1
+        (.fvar (d + n) Name.anonymous (.sort .zero)) 0 = _
+    rw [ih,
+      show (openRev d (n + 1) e).instantiateLevelParams ks us
+        = ((openRev d n e).instantiate1
+            (.fvar (d + n) Name.anonymous (.sort .zero))
+            0).instantiateLevelParams ks us from rfl,
+      Expr.instantiateLevelParams_instantiate1 ks us (openRev d n e) 0]
+    rfl
+
+/-- The reverse opening commutes with constant renaming (the opener
+annotations mention no constants). -/
+theorem openRev_renameConsts (f : Name → Name) :
+    ∀ (d n : Nat) (e : Expr),
+      openRev d n (e.renameConsts f)
+        = (openRev d n e).renameConsts f := by
+  intro d n
+  induction n with
+  | zero => intro e; rfl
+  | succ n ih =>
+    intro e
+    show (openRev d n (e.renameConsts f)).instantiate1
+        (.fvar (d + n) Name.anonymous (.sort .zero)) 0 = _
+    rw [ih,
+      show (openRev d (n + 1) e).renameConsts f
+        = ((openRev d n e).instantiate1
+            (.fvar (d + n) Name.anonymous (.sort .zero))
+            0).renameConsts f from rfl,
+      Expr.renameConsts_instantiate1 f (openRev d n e) 0]
+    rfl
+
+/-- A bound on every leaf index bounds the free variables. -/
+theorem Expr.fvarsBelow_of_fvarLeaves :
+    ∀ {e : Expr} {n : Nat},
+      (∀ l ∈ e.fvarLeaves, l.1 < n) → Expr.fvarsBelow n e := by
+  intro e
+  induction e <;> intro n h <;>
+    simp only [Expr.fvarsBelow, Expr.fvarLeaves] at h ⊢ <;>
+    try trivial
+  case fvar idx nm ty ih => exact h (idx, nm, ty) List.mem_cons_self
+  case app f a ihf iha =>
+    exact ⟨ihf fun l hl => h l (List.mem_append_left _ hl),
+      iha fun l hl => h l (List.mem_append_right _ hl)⟩
+  case lam nm ty b m ihty ihb =>
+    exact ⟨ihty fun l hl => h l (List.mem_append_left _ hl),
+      ihb fun l hl => h l (List.mem_append_right _ hl)⟩
+  case forallE nm ty b m ihty ihb =>
+    exact ⟨ihty fun l hl => h l (List.mem_append_left _ hl),
+      ihb fun l hl => h l (List.mem_append_right _ hl)⟩
+  case letE nm ty v b ihty ihv ihb =>
+    refine ⟨ihty fun l hl => h l ?_, ihv fun l hl => h l ?_,
+      ihb fun l hl => h l ?_⟩
+    · exact List.mem_append_left _ (List.mem_append_left _ hl)
+    · exact List.mem_append_left _ (List.mem_append_right _ hl)
+    · exact List.mem_append_right _ hl
+  case proj s i e ihe => exact ihe h
 
 end Setlec.TTVerify
