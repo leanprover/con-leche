@@ -365,6 +365,14 @@ def UnitLawTT (env : Env) (cval : TConstVal) (T : Name) (cvT : ConstantVal)
       (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us)) xs) →
     Deq Δ B B'
 
+/-- **The certified configuration** (one named `Prop`, per protocol):
+the flag assignments under which the bridge's claims hold.  Task #147
+will re-sign this with the mode flag (`ttModel = on`) next to the
+direct-structs switch; consumers take `CertifiedConfigTT` and never
+inline the conjuncts, so that re-signing is a single supplier
+change. -/
+def CertifiedConfigTT : Prop := directStructsEnabled = false
+
 /-- The stored inductive families' capability laws.  Transpose of
 `CapsOk`, and **provenance-abstract** for the same reason: the
 environment remembers nothing about how a family was installed, so the

@@ -22,7 +22,7 @@ is on the record and every consumer of it is visible.
 ## The direct-install hypothesis
 
 The step is stated for the configuration in which the direct
-simple-structure install path is off (`Setlec.directStructsEnabled =
+simple-structure install path is off (`CertifiedConfigTT`, currently `Setlec.directStructsEnabled =
 false`, `Setlec/Kernel/Direct.lean`).  A directly installed structure
 has no `_model` artifact, and the denotation of a stored inductive goes
 through exactly those artifacts, so the bridge has nothing to read for
@@ -49,13 +49,13 @@ and the only thing between `EnvTT.empty` and the acceptance theorem. -/
 def CheckDeclTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {d : Declaration},
     checkDecl (fueledOps F) env d = .ok env₁ →
-    directStructsEnabled = false →
+    CertifiedConfigTT →
     EnvTT env → Nonempty (EnvTT env₁)
 
 /-- The fold over the declaration stream.  Transpose of
 `foldlM_sound`. -/
 private theorem foldlM_TT (hstep : CheckDeclTT F)
-    (hdir : directStructsEnabled = false) :
+    (hdir : CertifiedConfigTT) :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       Nonempty (EnvTT env) →
       ds.foldlM (checkDecl (fueledOps F)) env = .ok env' →
@@ -77,7 +77,7 @@ derivation model, i.e. every constant it stores has a `HasType`
 derivation of its type's denotation.  Transpose of
 `checkDecls_sound`. -/
 theorem checkDecls_TT (hstep : CheckDeclTT F)
-    (hdir : directStructsEnabled = false)
+    (hdir : CertifiedConfigTT)
     {ds : List Declaration} {env' : Env}
     (h : checkDecls (fueledOps F) ds = .ok env') : Nonempty (EnvTT env') :=
   foldlM_TT hstep hdir ds Env.empty ⟨EnvTT.empty⟩ h
@@ -120,7 +120,7 @@ theorem no_constant_of_Empty_TT (V : Type u) [SetTheory V] {env : Env}
 type theory.  Transpose of `no_proof_of_Empty`; the set-model theorem of
 the same name is untouched and both paths coexist. -/
 theorem no_proof_of_Empty_TT (V : Type u) [SetTheory V]
-    (hstep : CheckDeclTT F) (hdir : directStructsEnabled = false)
+    (hstep : CheckDeclTT F) (hdir : CertifiedConfigTT)
     {ds : List Declaration} {env' : Env}
     (h : checkDecls (fueledOps F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)

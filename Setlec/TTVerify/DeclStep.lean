@@ -36,7 +36,7 @@ here because they install nothing; the rest are named.
 
 ## The direct-install hypothesis is consumed here
 
-`directStructsEnabled = false` is what lets the `indDecl` case ignore
+`CertifiedConfigTT` is what lets the `indDecl` case ignore
 `checkDirectStruct` — `directParts?` is gated on the switch, so with it
 off the dispatch always takes `checkIndDecl`.  That is the one place
 the hypothesis of `Setlec/TTVerify/Consistency.lean` is used, and it is
@@ -88,7 +88,7 @@ direct-install switch is off, so this is `checkIndDecl`. -/
 def DeclIndTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {block : List ConstantInfo},
     checkDecl (fueledOps F) env (.indDecl block) = .ok env₁ →
-    directStructsEnabled = false →
+    CertifiedConfigTT →
     EnvTT env → Nonempty (EnvTT env₁)
 
 /-! ## The dispatch

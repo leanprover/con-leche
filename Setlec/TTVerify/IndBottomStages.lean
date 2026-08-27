@@ -2849,4 +2849,303 @@ theorem DefEqListOk.of_eq {env : Env} {F d : Nat} :
   | nil => exact trivial
   | cons a as ih => exact ⟨isDefEqCore_rfl a, ih⟩
 
+
+/-- **The λ-tower, denoted** (`openPisAtFvars_denoteTele`'s mirror for
+`stripLams`): a denoting λ-tower is `lamCtx` of its domains' values,
+with the body and each raw domain denoted under the anonymous openers
+(`openFvars`) — annotations are denote-irrelevant, so any same-index
+opener family produces the same values. -/
+theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
+    {ψ : Name → Nat} :
+    ∀ (k : Nat) {e : Expr} {j : Nat}
+      {bs : List (Name × Expr × BinderMeta)} {body : Expr} {V : VExpr},
+      e.stripLams k = some (bs, body) →
+      denote cval env ψ j e = some V →
+      ∃ (Γ : List VExpr) (C : VExpr),
+        V = lamCtx Γ C ∧ Γ.length = k ∧
+        denote cval env ψ (j + k)
+          (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
+        ∀ (i0 : Nat) (b : Name × Expr × BinderMeta), bs[i0]? = some b →
+          denote cval env ψ (j + i0)
+            (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
+            some (Γ.getD (k - 1 - i0) default) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e j bs body V h hV
+    simp only [Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨[], V, rfl, rfl, hV, fun i0 b hb => nomatch hb⟩
+  | succ k ih =>
+    intro e j bs body V h hV
+    match e, h with
+    | .lam nm dom bodyE mb, h =>
+      simp only [Expr.stripLams] at h
+      cases hs : bodyE.stripLams k with
+      | none => rw [hs] at h; exact nomatch h
+      | some p => ?_
+      rw [hs] at h
+      simp only [Option.map_some, Option.some.injEq,
+        Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      rw [denote_lam] at hV
+      cases hA : denote cval env ψ j dom with
+      | none => rw [hA] at hV; exact nomatch hV
+      | some A => ?_
+      rw [hA] at hV
+      cases hB : denote cval env ψ (j + 1)
+          (bodyE.instantiate1 (.fvar j nm dom)) with
+      | none => rw [hB] at hV; exact nomatch hV
+      | some Bv => ?_
+      rw [hB] at hV
+      obtain rfl : V = .lam A Bv := (Option.some.inj hV).symm
+      -- re-open at the anonymous opener (denote-irrelevant)
+      have hB' : denote cval env ψ (j + 1)
+          (bodyE.instantiate1 (.fvar j Name.anonymous (.sort .zero)))
+          = some Bv := by
+        rw [denote_erasedEq (Expr.ErasedEq.instantiate1
+          (Expr.ErasedEq.rfl bodyE)
+          (show Expr.ErasedEq (.fvar j Name.anonymous (.sort .zero))
+            (.fvar j nm dom) from by constructor)) (j + 1)]
+        exact hB
+      have hsI : ((bodyE.instantiate1 (.fvar j Name.anonymous
+          (.sort .zero))).stripLams k).isSome :=
+        Expr.stripLams_instantiate1_isSome k 0 (by rw [hs]; rfl)
+      obtain ⟨bs', body', hsI2⟩ : ∃ bs' body',
+          (bodyE.instantiate1 (.fvar j Name.anonymous
+            (.sort .zero))).stripLams k = some (bs', body') := by
+        cases hq : (bodyE.instantiate1 (.fvar j Name.anonymous
+            (.sort .zero))).stripLams k with
+        | none => rw [hq] at hsI; exact nomatch hsI
+        | some q => exact ⟨q.1, q.2, rfl⟩
+      obtain ⟨hbody', hdoms'⟩ :=
+        Expr.stripLams_instantiate1_eq k 0 hs hsI2
+      obtain ⟨Γ', C, rfl, hΓlen, hbody, hdoms⟩ := ih hsI2 hB'
+      have hbslen : p.1.length = k := Expr.stripLams_length k hs
+      have hbslen' : bs'.length = k := Expr.stripLams_length k hsI2
+      refine ⟨Γ' ++ [A], C, ?_, ?_, ?_, ?_⟩
+      · rw [lamCtx_snoc]
+      · simp [hΓlen]
+      · show denote cval env ψ (j + (k + 1))
+          (Expr.instSeq (openFvars j (k + 1)) (k + 1 - 1) p.2)
+          = some C
+        rw [show openFvars j (k + 1) = .fvar j Name.anonymous
+            (.sort .zero) :: openFvars (j + 1) k from rfl,
+          show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
+              :: openFvars (j + 1) k) (k + 1 - 1) p.2 =
+            Expr.instSeq (openFvars (j + 1) k) (k - 1)
+              (p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+                k) from by
+            simp [Expr.instSeq],
+          show j + (k + 1) = j + 1 + k from by omega,
+          show p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+              k = body' from by
+            rw [hbody']
+            simp only [Nat.zero_add]]
+        exact hbody
+      · intro i0 b hb
+        cases i0 with
+        | zero =>
+          obtain rfl : (nm, dom, mb) = b := by simpa using hb
+          show denote cval env ψ (j + 0)
+            (Expr.instSeq (openFvars j 0) (0 - 1) dom) = _
+          rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
+            simp only [Nat.sub_zero, Nat.add_sub_cancel, List.getD]
+            rw [List.getElem?_append_right (by omega), hΓlen,
+              Nat.sub_self]
+            rfl]
+          exact hA
+        | succ i0 =>
+          rw [List.getElem?_cons_succ] at hb
+          have hik : i0 < k := by
+            rcases Nat.lt_or_ge i0 k with h' | h'
+            · exact h'
+            · rw [List.getElem?_eq_none (by omega)] at hb
+              exact nomatch hb
+          have hb' : bs'[i0]? = some (bs'[i0]'(by omega)) :=
+            List.getElem?_eq_getElem (by omega)
+          have hdomEq := hdoms' i0 b (bs'[i0]'(by omega)) hb hb'
+          have h1 := hdoms i0 _ hb'
+          rw [hdomEq] at h1
+          rw [show (Γ' ++ [A]).getD (k + 1 - 1 - (i0 + 1)) default =
+              Γ'.getD (k - 1 - i0) default from by
+            simp only [List.getD]
+            rw [show k + 1 - 1 - (i0 + 1) = k - 1 - i0 from by omega,
+              List.getElem?_append_left (by omega)]]
+          show denote cval env ψ (j + (i0 + 1))
+            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.2.1)
+            = _
+          rw [show openFvars j (i0 + 1) = .fvar j Name.anonymous
+              (.sort .zero) :: openFvars (j + 1) i0 from rfl,
+            show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
+                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.2.1 =
+              Expr.instSeq (openFvars (j + 1) i0) (i0 - 1)
+                (b.2.1.instantiate1 (.fvar j Name.anonymous
+                  (.sort .zero)) i0) from by
+              simp [Expr.instSeq],
+            show j + (i0 + 1) = j + 1 + i0 from by omega]
+          rw [show (0 : Nat) + i0 = i0 from by omega] at h1
+          exact h1
+
+
+/-- A `PiTele` is determined by its arity and tower. -/
+theorem PiTele.det : ∀ {k : Nat} {T : VExpr} {Γ Γ' : List VExpr}
+    {R R' : VExpr}, PiTele k T Γ R → PiTele k T Γ' R' →
+    Γ = Γ' ∧ R = R' := by
+  intro k
+  induction k with
+  | zero =>
+    intro T Γ Γ' R R' h h'
+    cases h
+    cases h'
+    exact ⟨rfl, rfl⟩
+  | succ k ih =>
+    intro T Γ Γ' R R' h h'
+    cases h with
+    | @cons _ A B _ Γ0 h0 =>
+      cases h' with
+      | @cons _ A' B' _ Γ0' h0' =>
+        obtain ⟨h1, h2⟩ := ih h0 h0'
+        exact ⟨by rw [h1], h2⟩
+
+/-- **The Π-tower, denoted canonically** (`stripLams_denoteTele`'s twin):
+a denoting Π-tower is `PiTele` at its domains' values,
+with the body and each raw domain denoted under the anonymous openers
+(`openFvars`) — annotations are denote-irrelevant, so any same-index
+opener family produces the same values. -/
+theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
+    {ψ : Name → Nat} :
+    ∀ (k : Nat) {e : Expr} {j : Nat}
+      {bs : List (Name × Expr × BinderMeta)} {body : Expr} {V : VExpr},
+      e.stripPis k = some (bs, body) →
+      denote cval env ψ j e = some V →
+      ∃ (Γ : List VExpr) (C : VExpr),
+        PiTele k V Γ C ∧ Γ.length = k ∧
+        denote cval env ψ (j + k)
+          (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
+        ∀ (i0 : Nat) (b : Name × Expr × BinderMeta), bs[i0]? = some b →
+          denote cval env ψ (j + i0)
+            (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
+            some (Γ.getD (k - 1 - i0) default) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e j bs body V h hV
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨[], V, .nil, rfl, hV, fun i0 b hb => nomatch hb⟩
+  | succ k ih =>
+    intro e j bs body V h hV
+    match e, h with
+    | .forallE nm dom bodyE mb, h =>
+      simp only [Expr.stripPis] at h
+      cases hs : bodyE.stripPis k with
+      | none => rw [hs] at h; exact nomatch h
+      | some p => ?_
+      rw [hs] at h
+      simp only [Option.map_some, Option.some.injEq,
+        Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      rw [denote_forallE] at hV
+      cases hA : denote cval env ψ j dom with
+      | none => rw [hA] at hV; exact nomatch hV
+      | some A => ?_
+      rw [hA] at hV
+      cases hB : denote cval env ψ (j + 1)
+          (bodyE.instantiate1 (.fvar j nm dom)) with
+      | none => rw [hB] at hV; exact nomatch hV
+      | some Bv => ?_
+      rw [hB] at hV
+      obtain rfl : V = .pi A Bv := (Option.some.inj hV).symm
+      -- re-open at the anonymous opener (denote-irrelevant)
+      have hB' : denote cval env ψ (j + 1)
+          (bodyE.instantiate1 (.fvar j Name.anonymous (.sort .zero)))
+          = some Bv := by
+        rw [denote_erasedEq (Expr.ErasedEq.instantiate1
+          (Expr.ErasedEq.rfl bodyE)
+          (show Expr.ErasedEq (.fvar j Name.anonymous (.sort .zero))
+            (.fvar j nm dom) from by constructor)) (j + 1)]
+        exact hB
+      have hsI : ((bodyE.instantiate1 (.fvar j Name.anonymous
+          (.sort .zero))).stripPis k).isSome :=
+        Expr.stripPis_instantiate1_isSome k 0 (by rw [hs]; rfl)
+      obtain ⟨bs', body', hsI2⟩ : ∃ bs' body',
+          (bodyE.instantiate1 (.fvar j Name.anonymous
+            (.sort .zero))).stripPis k = some (bs', body') := by
+        cases hq : (bodyE.instantiate1 (.fvar j Name.anonymous
+            (.sort .zero))).stripPis k with
+        | none => rw [hq] at hsI; exact nomatch hsI
+        | some q => exact ⟨q.1, q.2, rfl⟩
+      obtain ⟨hbody', hdoms'⟩ :=
+        Expr.stripPis_instantiate1_eq k 0 hs hsI2
+      obtain ⟨Γ', C, htele, hΓlen, hbody, hdoms⟩ := ih hsI2 hB'
+      have hbslen : p.1.length = k := by
+        have h0 := Expr.stripPis_length k hs
+        exact h0
+      have hbslen' : bs'.length = k := Expr.stripPis_length k hsI2
+      refine ⟨Γ' ++ [A], C, ?_, ?_, ?_, ?_⟩
+      · exact .cons htele
+      · simp [hΓlen]
+      · show denote cval env ψ (j + (k + 1))
+          (Expr.instSeq (openFvars j (k + 1)) (k + 1 - 1) p.2)
+          = some C
+        rw [show openFvars j (k + 1) = .fvar j Name.anonymous
+            (.sort .zero) :: openFvars (j + 1) k from rfl,
+          show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
+              :: openFvars (j + 1) k) (k + 1 - 1) p.2 =
+            Expr.instSeq (openFvars (j + 1) k) (k - 1)
+              (p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+                k) from by
+            simp [Expr.instSeq],
+          show j + (k + 1) = j + 1 + k from by omega,
+          show p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+              k = body' from by
+            rw [hbody']
+            simp only [Nat.zero_add]]
+        exact hbody
+      · intro i0 b hb
+        cases i0 with
+        | zero =>
+          obtain rfl : (nm, dom, mb) = b := by simpa using hb
+          show denote cval env ψ (j + 0)
+            (Expr.instSeq (openFvars j 0) (0 - 1) dom) = _
+          rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
+            simp only [Nat.sub_zero, Nat.add_sub_cancel, List.getD]
+            rw [List.getElem?_append_right (by omega), hΓlen,
+              Nat.sub_self]
+            rfl]
+          exact hA
+        | succ i0 =>
+          rw [List.getElem?_cons_succ] at hb
+          have hik : i0 < k := by
+            rcases Nat.lt_or_ge i0 k with h' | h'
+            · exact h'
+            · rw [List.getElem?_eq_none (by omega)] at hb
+              exact nomatch hb
+          have hb' : bs'[i0]? = some (bs'[i0]'(by omega)) :=
+            List.getElem?_eq_getElem (by omega)
+          have hdomEq := hdoms' i0 b (bs'[i0]'(by omega)) hb hb'
+          have h1 := hdoms i0 _ hb'
+          rw [hdomEq] at h1
+          rw [show (Γ' ++ [A]).getD (k + 1 - 1 - (i0 + 1)) default =
+              Γ'.getD (k - 1 - i0) default from by
+            simp only [List.getD]
+            rw [show k + 1 - 1 - (i0 + 1) = k - 1 - i0 from by omega,
+              List.getElem?_append_left (by omega)]]
+          show denote cval env ψ (j + (i0 + 1))
+            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.2.1)
+            = _
+          rw [show openFvars j (i0 + 1) = .fvar j Name.anonymous
+              (.sort .zero) :: openFvars (j + 1) i0 from rfl,
+            show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
+                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.2.1 =
+              Expr.instSeq (openFvars (j + 1) i0) (i0 - 1)
+                (b.2.1.instantiate1 (.fvar j Name.anonymous
+                  (.sort .zero)) i0) from by
+              simp [Expr.instSeq],
+            show j + (i0 + 1) = j + 1 + i0 from by omega]
+          rw [show (0 : Nat) + i0 = i0 from by omega] at h1
+          exact h1
+
+
 end Setlec.TTVerify
