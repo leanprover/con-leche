@@ -4577,3 +4577,24 @@ exists to carry, not what it fails at.
    `EtaFoldTT`/`UnitFoldTT` first (they are the smallest and they close
    `CapsOkTT`, which `majorToCtor`'s rescues already consume).
 
+#### Plan status (2026-08-27)
+
+1. **Done** — `Setlec/Verify/Extend/*`, 3 934 `V`-free lines; see the
+   gate note in §14.1.
+2. **Done** — `DeclBasisTT` is discharged.  All six blocks:
+   `Empty`, `PUnit`, `Eq`, `Nat`, `PSigma'`, `Quot`.  The prediction
+   held on both counts: the block lemmas are a fold plus one
+   `extendBasisTT` per constant, and the pinned recursors' fired rules
+   *were* the smallest instance of the `RecRulesTT` head clause — small
+   enough to be written five times, and the fifth (`Quot`) is what
+   exposed the missing parameter premise the big install would have hit
+   at full scale.  **That is the argument for step 2's ordering,
+   restated as an outcome**: doing the small instance first did not
+   merely warm up the machinery, it *audited* it.
+3. **Next** — `DeclIndTT`, five obligations, `EtaFoldTT`/`UnitFoldTT`
+   first.  `IndBottomPlainTT` carries the index premise (§8.2's sixth
+   instance), designed in place rather than threaded blind.
+
+`CheckDeclTT` now stands on five of its six obligations: `DeclDefnTT`,
+`DeclThmTT`, `DeclOpaqueTT`, `DeclAxiomTT`, `DeclBasisTT`.
+
