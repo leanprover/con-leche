@@ -1,5 +1,5 @@
 name = "setlec"
-defaultTargets = ["Setlec", "SetlecTT", "SetlecTTV", "setlec"]
+defaultTargets = ["Setlec", "SetlecTT", "SetlecTTV", "SetlecSetR", "setlec"]
 testDriver = "SetlecTests"
 
 # The pin-generator's certificate theorems (Setlec/PinGen/Certs.lean) are
@@ -32,6 +32,15 @@ roots = ["Setlec.TT"]
 [[lean_lib]]
 name = "SetlecTTV"
 roots = ["Setlec.TTVerify"]
+
+# The mode-indexed algorithmic relation family (task #148): the
+# `Red`/`Infer`/`DefEq`/`Tele`/`DefEqL` mutual family on the env-free TT
+# syntax, its weakening metatheory, and the `DeclR` per-kind relation
+# statements.  Imports `Setlec` (kernel + Verify) and `SetlecTT`; nothing
+# imports it back.
+[[lean_lib]]
+name = "SetlecSetR"
+roots = ["Setlec.SetR"]
 
 [[lean_lib]]
 name = "SetlecTests"
