@@ -5584,4 +5584,75 @@ inversion already returns.
 link between a checker guard stated about `piResidual` and a bridge
 that holds the walk.  It is what step 4 needs and nothing else
 supplied.
+#### 14.7.11 RULING on #136: the checked object is the *stored* type
+
+The #136 implementer refused the verify-side threading for cause and
+asked three questions.  Answering them exposed an error of mine, so
+that comes first.
+
+**My error, owned.**  §14.7.9 said "`indBlockCapsF` is where the data
+lives" and measured `cvC.type` there — the **raw, pre-install**
+constructor type.  `CtorResidualPin`'s docstring says the fact is about
+"the **public** constructor's *stored* `ConstantVal`".  Those are two
+different syntactic objects, and I did not notice I had measured one
+and specified the other.  It is the same family as §14.7.8's error:
+a fact is about an object, and naming the object loosely is how the
+wrong one gets checked.  **The measurement must be redone.**
+
+**(a) Which object.**  The **stored (annotated)** type, decisively, and
+not because the raw→stored bridge is hard but because the raw fact is
+*not the fact*:
+
+* the environment contains only the annotated constant
+  (`checkMemberVal` stores `checkConstantVal`'s output);
+* the fire-site certificate reads exactly that (`constTyAtM fe ctorI
+  rl.ctor ust`), and so does everything else the bridge has —
+  `EnvWF`, `has_type`, `denote_declType`;
+* the raw type is *never in the environment*, so no bridge lemma can
+  be avoided by choosing it — only added.
+
+The alternative (check raw, prove annotation preserves the `stripPis`
+residual as a `directFam` spine) buys nothing and costs a lemma over
+cod annotations, #85's pending `Level.simplify` and #117's four
+survivors — a real risk surface, standing between a check and a fact
+that could simply *be* the check.  Worse, it is a lemma that can
+silently rot when annotation changes.  **Check what the consumer
+reads.**
+
+`CtorResidualPin`'s *shape* is unaffected — `stripPis (nP + nF)` with
+residual `directFam T lps nP nF` — only its subject moves to the
+stored `ConstantVal`.
+
+**(b) The carrier: not `EtaPins`.**  The implementer's three failed
+spellings are the evidence, and they are diagnosing a category error
+rather than a plumbing difficulty: `EtaPins`' parameters reach only
+*model-side* constants, and this is a fact about the **public**
+constructor.  It does not belong there and should not be forced there
+at 37 sites.
+
+The carrier is the approved `EnvTT` field (§14.7.6's design), whose
+head obligation is discharged at the member install — where the
+annotated `cvA` is *created*, `caps` is in scope (so the capability
+guard is expressible as `ci.name == caps.etaCtor && caps.eta`), and
+`DeclIndTT` inverts the actual checker run inline.  That also dissolves
+the "no named caps inversion exists" objection: the field's obligation
+is discharged from the install's own inline inversion, which is exactly
+where both sites already invert `indBlockCaps`.
+
+So the check moves with its subject: from `indBlockCapsF` to the
+constructor's member install.
+
+**(c) Do not land `0ba1adb` as-is.**  Its conjunct pins a fact the
+bridge cannot consume, at a cost that would have to be paid twice.
+What carries over unchanged: the byte-identity harness, the negation
+probe, the +0.021% measurement, and the placement finding (middle eta
+conjunct, so both inline inversions keep `hcape.2`).
+
+**The re-measurement, and one thing to add to it.**  Same cross-tab as
+§14.7.9 — capability × property — at the new site.  And since
+instrumenting there has both types in hand, **report raw vs annotated
+side by side**.  If they never differ on this residual, that is free
+evidence about the annotate-shape question; if they do, it is the
+counterexample that proves the ruling was necessary.  Either way it
+costs one extra field in the trace line.
 
