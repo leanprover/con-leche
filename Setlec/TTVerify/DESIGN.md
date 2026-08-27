@@ -3607,6 +3607,18 @@ deferrable**, and it is recorded here as the trigger rather than as a
 preference: `DeclIndTT` should not begin until the tier-A inversions
 live somewhere both paths can import.
 
+> **GATE DISCHARGED (2026-08-27).**  The relocation has happened:
+> `Setlec/Verify/Extend/` holds `Decl`, `Ind`, `Inversions`, `Iota`,
+> `Modeled`, `Proj`, `Recs`, `Sibs` and `Transport` — **3 934 lines,
+> `V`-free** (two files mention `V` once each, in prose) — and the
+> bridge already imports from it (`Setlec/TTVerify/DeclValue.lean`
+> imports `Setlec.Verify.Extend.Inversions`).  `Setlec/Model/Extend/`
+> keeps the 5 591 lines that genuinely carry `V`.  So `EtaPins`
+> (`Setlec/Verify/Extend/Iota.lean:917`) and its siblings are
+> importable today and `DeclIndTT` is unblocked.  The trigger recorded
+> above fired and was acted on, which is the whole point of writing a
+> trigger down rather than a preference.
+
 ### 14.2 Which fields each engine is actually for
 
 The scout's table, condensed to what the bridge owes:
