@@ -46,6 +46,7 @@ import Setlec.TTVerify.DeclBasis
 import Setlec.TTVerify.Rename
 import Setlec.TTVerify.TeleOpen
 import Setlec.TTVerify.DeclInd
+import Setlec.TTVerify.IndBottom
 
 /-!
 # The TTVerify bridge (task #119)
