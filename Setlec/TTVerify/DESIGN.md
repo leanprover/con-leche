@@ -5283,4 +5283,66 @@ Before any request: check whether `checkMemberVal`'s `eqUpToNames`
 against the model constructor, or `EtaPins`' constructor-model
 conjuncts, already deliver it — and if a request is still warranted,
 price it with the same corpus measurement §14.7.4 used.
+#### 14.7.9 The remaining link, read and then measured
+
+§14.7.8 left one question open and told its author to read before
+requesting.  Read, then measured; here is the outcome.
+
+**The reading.**  `checkMemberVal` (`Setlec/Kernel/Modeled.lean:361`)
+checks, for *every* block member including constructors,
+`eqUpToNames (cvA.type.renameConsts f) cvm.type` — so the public
+constructor's type is tied to the model constructor's.  `EtaPins`'
+constructor-model conjunct gives only `find?` and `levelParams`, not a
+shape.  So the chain public → model terminates at the **model**
+constructor's residual, which nothing pins: models are stored opaque
+(`DESIGN.md`, "modeled inductives are stored opaque").  The
+`eqUpToNames` transport is real but has nothing to transport *from*.
+
+The fact is available on the **direct** path — `checkDirectCtor`
+(`Setlec/Kernel/Checker.lean:125`) requires the constructor's residual
+to be `directFam T lps nP nF`, and re-checks it opened at :143 — and
+has no counterpart on the modeled path.
+
+**The measurement, because §14.7.8's own rule applies to its author.**
+`indBlockCapsF` is where the data lives (`cvT`, `cvC`, `nP`, `nF` all
+in scope), so it was instrumented to report, per modeled block, both
+capability verdicts and whether the public constructor's residual is
+`directFam`.  Whole corpus, arena + e2e:
+
+| `eta` | `unitlike` | residual is `directFam` | blocks |
+|---|---|---|---|
+| true | false | **true** | 959 |
+| true | true | **true** | 19 |
+| false | true | **true** | 72 |
+| false | false | true | 228 |
+| false | false | **false** | 99 |
+
+**978 / 978 eta-capable blocks and 91 / 91 unit-capable blocks satisfy
+it; every one of the 99 failures is a block with neither capability.**
+The failures are exactly the *indexed* families — `Acc`, `HEq`,
+`Int.NonNeg`, `IndexedSingleton`, `SortElimProp`, … — whose
+constructor residual is `T p⃗ i⃗` and which never earn eta or unit.
+So an *unguarded* check would reject real streams (99 sites), and a
+check *guarded on the capability* rejects nothing.
+
+**The request, therefore, is one conjunct on `indBlockCapsF`'s `eta`
+field** — where `cvC` is already in scope, unlike `checkEtaThmF` —
+requiring the constructor's residual to be `directFam cvT.name
+cvT.levelParams nP nF`: literally the conjunct `checkDirectCtor`
+already makes, moved to the modeled path and guarded by the
+capability.  `unitlike` does not need it (its right-hand side is a law
+premise, not a fabrication).
+
+With it, `eta_rescue` discharges `EtaLawTT`'s new third premise from
+the task #71 certificate `MajorStep.lean` already inverts: that gives
+the fabrication at the *constructor's* residual, and the conjunct is
+what identifies that residual with `T p⃗`.
+
+**And note what the measurement bought beyond a yes/no.**  The naive
+form of this check was *wrong* — 99 counterexamples — and the guard
+that fixes it is not something reading the code would have suggested,
+because the code has no place where "eta-capable" and "constructor
+residual" are looked at together.  §0's second practice earning its
+keep: the suite would have gone green on a guarded check and red on an
+unguarded one, and only counting told which.
 
