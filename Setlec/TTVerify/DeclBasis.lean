@@ -2398,6 +2398,53 @@ theorem extendPSigmaMkTT {env : Env} (m : EnvTT env)
     rfl
 
 
+/-- The projections' towers are typed by the layer's own projection
+rules — `projFst` and `projSnd`, at the three binders the pinned type
+declares. -/
+theorem pairProjValT_typed (φ : Name → Nat) :
+    HasType [] (pairProjValT 0 φ)
+      (.pi (.sort (φ uNT))
+        (.pi (.pi (.bvar 0) (.sort (φ vNT)))
+          (.pi (VExpr.mkAppN (VExpr.const .psigma [φ uNT, φ vNT])
+              [.bvar 1, .bvar 0])
+            (.bvar 2)))) ∧
+    HasType [] (pairProjValT 1 φ)
+      (.pi (.sort (φ uNT))
+        (.pi (.pi (.bvar 0) (.sort (φ vNT)))
+          (.pi (VExpr.mkAppN (VExpr.const .psigma [φ uNT, φ vNT])
+              [.bvar 1, .bvar 0])
+            (.app (.bvar 1) (VExpr.proj 0 (.bvar 0)))))) := by
+  have hA : HasType [VExpr.mkAppN (VExpr.const .psigma [φ uNT, φ vNT])
+        [.bvar 1, .bvar 0], VExpr.pi (.bvar 0) (.sort (φ vNT)),
+      VExpr.sort (φ uNT)] (.bvar 2) (.sort (φ uNT)) := by
+    have := HasType.bvar (Γ := [VExpr.mkAppN (VExpr.const .psigma
+        [φ uNT, φ vNT]) [.bvar 1, .bvar 0],
+      VExpr.pi (.bvar 0) (.sort (φ vNT)), VExpr.sort (φ uNT)])
+      (i := 2) (A := VExpr.sort (φ uNT)) (by simp)
+    simpa using this
+  have hB : HasType [VExpr.mkAppN (VExpr.const .psigma [φ uNT, φ vNT])
+        [.bvar 1, .bvar 0], VExpr.pi (.bvar 0) (.sort (φ vNT)),
+      VExpr.sort (φ uNT)] (.bvar 1)
+      (arrow (.bvar 2) (.sort (φ vNT))) := by
+    have := HasType.bvar (Γ := [VExpr.mkAppN (VExpr.const .psigma
+        [φ uNT, φ vNT]) [.bvar 1, .bvar 0],
+      VExpr.pi (.bvar 0) (.sort (φ vNT)), VExpr.sort (φ uNT)])
+      (i := 1) (A := VExpr.pi (.bvar 0) (.sort (φ vNT))) (by simp)
+    simpa [arrow, VExpr.liftN] using this
+  have hp : HasType [VExpr.mkAppN (VExpr.const .psigma [φ uNT, φ vNT])
+        [.bvar 1, .bvar 0], VExpr.pi (.bvar 0) (.sort (φ vNT)),
+      VExpr.sort (φ uNT)] (.bvar 0)
+      (psigmaT (φ uNT) (φ vNT) (.bvar 2) (.bvar 1)) := by
+    have := HasType.bvar (Γ := [VExpr.mkAppN (VExpr.const .psigma
+        [φ uNT, φ vNT]) [.bvar 1, .bvar 0],
+      VExpr.pi (.bvar 0) (.sort (φ vNT)), VExpr.sort (φ uNT)])
+      (i := 0) (A := VExpr.mkAppN (VExpr.const .psigma [φ uNT, φ vNT])
+        [.bvar 1, .bvar 0]) (by simp)
+    simpa [psigmaT, VExpr.mkAppN, VExpr.liftN] using this
+  exact ⟨.lam (.lam (.lam (HasType.projFst hA hB hp))),
+    .lam (.lam (.lam (HasType.projSnd hA hB hp)))⟩
+
+
 /-- **The pinned pair's projections, installed.**  The only `projInfo`
 constants any block installs — and therefore the only test of
 `hheadProj`, `hheadProjPair`, and of `hheadEta` at a head that is *not*
