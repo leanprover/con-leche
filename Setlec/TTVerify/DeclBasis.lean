@@ -4663,5 +4663,37 @@ theorem declBasisTT_quotK {env env₁ : Env} (m : EnvTT env)
   exact ⟨m5⟩
 
 
+/-! ## The dispatch
+
+`checkDecl`'s `basisDecl` case is a guard and a fold; the transpose is
+the same guard and `foldlM_installBasisDecl_inv`, then one block lemma
+per kind.  Nothing else belongs here — which is why the six blocks
+above are each a *theorem* rather than a case of one long proof. -/
+
+/-- **`DeclBasisTT`, discharged.** -/
+theorem declBasisTT {F : Nat} : DeclBasisTT F := by
+  intro env env₁ kind h m
+  have hsplit : (kind = .quotK → env.find? eqName = some eqA) ∧
+      kind.declsA.foldlM (installBasisDecl (m := CheckM)) env = .ok env₁ := by
+    simp only [checkDecl, Bind.bind, Except.bind, pure, Except.pure] at h
+    by_cases hk : kind = .quotK
+    · subst hk
+      by_cases hEq : env.find? eqName = some eqA
+      · simp only [hEq, if_true, reduceIte] at h
+        exact ⟨fun _ => hEq, h⟩
+      · simp [hEq] at h
+    · simp only [if_neg hk] at h
+      exact ⟨fun hh => absurd hh hk, h⟩
+  obtain ⟨hEq, hfold⟩ := hsplit
+  have hchain := foldlM_installBasisDecl_inv _ hfold
+  cases kind with
+  | eqK => exact declBasisTT_eqK m hchain
+  | natK => exact declBasisTT_natK m hchain
+  | psigmaK => exact declBasisTT_psigmaK m hchain
+  | punitK => exact declBasisTT_punitK m hchain
+  | emptyK => exact declBasisTT_emptyK m hchain
+  | quotK => exact declBasisTT_quotK m (hEq rfl) hchain
+
+
 end Setlec.TTVerify
 
