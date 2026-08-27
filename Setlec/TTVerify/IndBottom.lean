@@ -994,23 +994,16 @@ theorem instPisAt_leaves :
       · exact push h2
       · exact Or.inr ⟨b, List.mem_cons_of_mem _ hb, hlb⟩
 
-/-! ## The premise nothing supplies (the expected exception item)
+/-! ## The slot-sort premise (supplied since task #146)
 
-`DESIGN.md` §16.1 named it in advance: the bottoms owe the equation
-type slot's **sort**, and the slot here is a *motive application*, so
-`StatementSortPin` (a syntactic pin on the model former's residual)
-cannot serve it and no syntactic pin can.  The anticipated supplier is
-form (2) of §14.7.4: `checkIotaSidesTy` — which already holds `ops`,
-the depth and the slot, and already certifies both *sides* against it —
-additionally infers the slot's type and `isDefEq`s it against
-`.sort ℓA` at the statement's own equation level.
-
-This definition is that check's inversion shape verbatim, fixed before
-the request is made (the `StatementSortPin`/`CtorResidualPin`
-discipline: a premise stated as the supplier will hand it over
-discharges by `exact`; any other spelling is a shim).  Until the
-checker change is granted and landed, `IndBottomPlainTT` carries it as
-one named hypothesis. -/
+`DESIGN.md` §16.1 named it in advance and task #146 landed the
+supplier: `checkIotaSidesTy` now additionally infers the equation
+type slot's type and `isDefEq`s it against `.sort ℓA` at the
+statement's own equation level, and this definition's ∃-shape arrives
+verbatim as the last conjunct of `PlainChecked`, `NestedChecked` and
+`checkProjIota_inv`.  The bottoms keep it as one named hypothesis
+(`hslot`); the assembly discharges it by `exact` from the
+inversions. -/
 
 /-- The iota statement's equation type slot inhabits the sort its
 `Eq.{ℓA}` names, checked at the opened statement frame. -/
@@ -1514,6 +1507,126 @@ theorem instPisAt_fvar_residual_arity :
       have h5 := ih h1 (fun x hx => hsp x (List.mem_cons_of_mem _ hx)) h4
       rw [h5, hbody', Nat.zero_add,
         Expr.getAppArgs_length_instantiate1_fvar]
+
+/-- Substituting under a constant-headed application never changes its
+arity (the head cannot be hit, so no application node is created or
+absorbed). -/
+theorem Expr.getAppArgs_length_instantiate1_const {c : Name}
+    {cus : List Level} {v : Expr} :
+    ∀ (e : Expr) (k : Nat), e.getAppFn = .const c cus →
+      ((e.instantiate1 v k).getAppArgs).length = e.getAppArgs.length ∧
+      (e.instantiate1 v k).getAppFn = .const c cus := by
+  intro e
+  induction e with
+  | app g a ihg iha =>
+    intro k hh
+    have hgh : g.getAppFn = .const c cus := by
+      simpa [Expr.getAppFn] using hh
+    obtain ⟨h1, h2⟩ := ihg k hgh
+    simp only [Expr.instantiate1, Expr.getAppArgs, List.length_append]
+    refine ⟨by rw [h1]; rfl, ?_⟩
+    simpa [Expr.getAppFn] using h2
+  | const n us =>
+    intro k hh
+    exact ⟨rfl, hh⟩
+  | bvar j =>
+    intro k hh
+    exact nomatch hh
+  | _ =>
+    intro k hh
+    first
+    | exact nomatch hh
+    | exact ⟨rfl, hh⟩
+
+/-- Level instantiation never changes an application's arity. -/
+theorem Expr.getAppArgs_length_instantiateLevelParams
+    (ks : List Name) (us : List Level) :
+    ∀ (e : Expr),
+      ((e.instantiateLevelParams ks us).getAppArgs).length =
+        e.getAppArgs.length := by
+  intro e
+  induction e with
+  | app g a ihg iha =>
+    simp only [Expr.instantiateLevelParams, Expr.getAppArgs,
+      List.length_append]
+    rw [ihg]
+    rfl
+  | _ => first | rfl | (simp only [Expr.instantiateLevelParams]; rfl)
+
+/-- An `instPisAt` run over any spine lands at the raw telescope
+residual's arity, provided the residual is constant-headed (the
+nested runs' spines hold pin instantiations, not variables). -/
+theorem instPisAt_residual_arity_const {c : Name} {cus : List Level} :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instPisAt sp ty = some (ds, rs) →
+      ∀ {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+        ty.stripPis sp.length = some (bs, body) →
+        body.getAppFn = .const c cus →
+        rs.getAppArgs.length = body.getAppArgs.length := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro ty ds rs h bs body hstrip hhead
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    have hstrip' : (some ([], ty) :
+        Option (List (Name × Expr × BinderMeta) × Expr)) = some (bs, body) :=
+      hstrip
+    simp only [Option.some.injEq, Prod.mk.injEq] at hstrip'
+    rw [hstrip'.2]
+  | cons a sp ih =>
+    intro ty ds rs h bs body hstrip hhead
+    match ty, h with
+    | .forallE nmT dom bodyE mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt sp (bodyE.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p => ?_
+      rw [h1] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [List.length_cons, Expr.stripPis] at hstrip
+      cases h2 : bodyE.stripPis sp.length with
+      | none => rw [h2] at hstrip; exact nomatch hstrip
+      | some q => ?_
+      rw [h2] at hstrip
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hstrip
+      obtain ⟨-, rfl⟩ := hstrip
+      have h3 : ((bodyE.instantiate1 a).stripPis sp.length).isSome
+          = true :=
+        Expr.stripPis_instantiate1_isSome sp.length 0 (by rw [h2]; rfl)
+      obtain ⟨⟨bs', body'⟩, h4⟩ := Option.isSome_iff_exists.mp h3
+      obtain ⟨hbody', -⟩ := Expr.stripPis_instantiate1_eq sp.length 0 h2 h4
+      have hhead' : body'.getAppFn = .const c cus := by
+        rw [hbody', Nat.zero_add]
+        exact (Expr.getAppArgs_length_instantiate1_const _ _ hhead).2
+      have h5 := ih h1 h4 hhead'
+      rw [h5, hbody', Nat.zero_add,
+        (Expr.getAppArgs_length_instantiate1_const _ _ hhead).1]
+
+/-- The application head under constant renaming. -/
+theorem Expr.getAppFn_renameConsts (f : Name → Name) :
+    ∀ (e : Expr),
+      (e.renameConsts f).getAppFn = (e.getAppFn).renameConsts f := by
+  intro e
+  induction e with
+  | app g a ihg iha =>
+    simp only [Expr.renameConsts, Expr.getAppFn]
+    exact ihg
+  | _ => rfl
+
+/-- The application head under level instantiation. -/
+theorem Expr.getAppFn_instantiateLevelParams (ks : List Name)
+    (us : List Level) :
+    ∀ (e : Expr),
+      (e.instantiateLevelParams ks us).getAppFn =
+        (e.getAppFn).instantiateLevelParams ks us := by
+  intro e
+  induction e with
+  | app g a ihg iha =>
+    simp only [Expr.instantiateLevelParams, Expr.getAppFn]
+    exact ihg
+  | _ => rfl
 
 /-- Renaming constants never changes loose-bvar levels. -/
 theorem Expr.looseBVarsBounded_renameConsts (f : Name → Name) :

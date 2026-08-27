@@ -6345,3 +6345,44 @@ beyond binding `hcl`/`hopenDeqG`/`hpadhit` in a preamble and adapting
 one `hleafS` disjunct shape at the call sites.  Frame-fact *structures*
 were not needed for this half; if the nested side's lemma frontiers
 get worse, introduce them there.
+
+## §21 `IndBottomNestedTT`, closed on the decomposed shape
+
+The nested bottom landed (`IndBottomNested.lean`, standard three
+axioms), built as §16.2 + §19.2 prescribed but on §20's sealed-stage
+shape — which is what made it land at **4.0 GB** peak (main proof
+~1350 lines) instead of the monolith's 15-28 GB.  The nested stage
+lemmas live beside the plain ones in `IndBottomStages.lean`:
+
+* `nestedChain` — a pin's frame value under any fired spine with the
+  prefix values is the canonical reverse chain;
+* `nestedMixedFit` — Stages D-E sealed: the pins' canonical values
+  (`∃ pinVs`, per-index `openRev`-denote + `instRevChain` form) and
+  the constructor tower fitted at `pinVs ++ ys.drop cnP`; the
+  parameter steps are typed from `TypedListOk` + the truncated P-run
+  cross, the field prefix converts through the law's nested premise;
+* `zipperStageN`, `pointStageN` — the zipper and pointwise loop with
+  the C-run opaque (`ctyN`, denote/closed facts as parameters), the
+  scattered spine split (pins below `cnP` with denote+image facts,
+  variables above), the major through `ErasedEq` + `denote_erasedEq`
+  and the nested head at the stored `lvls`.  Neither needs
+  `cnP ≤ rP`.
+
+Two kit additions against §16.2's list, found by proving: the
+statement carries `hCstripsHead` (the raw constructor strip's
+constant head — `NestedChecked`'s own conjunct) because the residual
+arities cross the *pin* substitutions only under a constant head
+(`instPisAt_residual_arity_const`, new, with the
+`getAppFn`/arity commutation lemmas for `instantiateLevelParams` and
+`renameConsts`); and `hlvlsLen` (`lvls.length = cvj.levelParams.length`)
+for the level-agreement and head-denote steps.  The assembly reads
+both off the install (`nestedRuleShape` / the kit inversion).
+
+#146 landed mid-increment; the bottoms keep `hslot` as the one named
+hypothesis and the assembly discharges it by `exact` from the
+inversions (`IotaSlotSorted`'s docstring de-staled with this commit,
+as agreed).
+
+Remaining: `ProjBottomTT` (§16.3's `cnF = 0` expectation, now against
+the sealed plain shape), then `DeclIndTT`/`CheckDeclTT` per §16.4 +
+the `ctor_residual` block discharge.
