@@ -5738,3 +5738,43 @@ handed over is the stronger stored-and-found form.  Details, gates and
 the negation probe (decline at `inductive LT`, arena 67/92, e2e 32/67)
 are in `DESIGN.md`, "The eta capability pins the constructor's
 residual".
+#### 14.7.13 #136 landed, and the sentence worth keeping
+
+Master `eef1991`.  With it, **all four named premises of the
+`DeclIndTT` phase have landed suppliers**: `StatementSortPin` (#135),
+`EtaRhsTyped` (#137), `CtorResidualPin` (#136), and `IotaIndexPin` —
+whose supplier was in the checker all along (§15).
+
+**The discharge shape, confirmed against the landed code.**
+`ctorResidualOk env' T ctorName lps nP nF eta` is `!eta ||` a
+`find?`-then-`stripPis` match whose body is `== directFam T lps nP nF`
+— i.e. exactly `CtorResidualPin T lps cvCA nP nF` on the *stored*
+`cvCA`, guarded on the capability, with the `find?` conjunct alongside.
+That is what §14.7.11's ruling asked for and what a block-install head
+obligation wants, so the `EnvTT` field's discharge is `exact` against
+the shape fixed in advance.  **Site**: once per single-constructor
+modeled block, between the recursor group and the projection-family
+freshness check, in all three drivers — *not* inside `checkIndMember`,
+where no family name is in scope (threading `T` would have been 46 call
+shapes).  Nothing in the fold needs it earlier, so the site stands.
+
+Re-measurement clean: 975/975 eta-capable blocks; the 91 failures are
+all capability-free indexed families; **raw vs stored disagreed zero
+times**, recorded as evidence and not as a licence — the ruling was
+about which object the consumer reads, and that argument does not
+depend on the two agreeing.
+
+**The sentence, which is §14.7.11 restated from the implementation
+side and belongs in the practices rather than in a task's postmortem:**
+
+> The first attempt passed every gate, byte-identity included, and was
+> still checking the wrong object.  **Gates prove a change is inert;
+> only naming the object precisely proves it is the right change.**
+
+That is the exact complement of §0's gate note.  The gate note says a
+check run against a cache measures the cache; this says a check run
+against the wrong object measures nothing at all — and no amount of
+green tells you which you have.  Both failures are invisible in the
+output and visible only in the *setup*, which is why the setup is what
+the record has to carry.
+
