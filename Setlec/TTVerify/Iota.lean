@@ -62,6 +62,16 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hlev : Level.substFn φ cvj.levelParams usj
       = Level.substFn φ cvj.levelParams
           (recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1)
+    -- the fire site's parameter test, in the form the law consumes:
+    -- `iotaRec` compares the constructor's parameters against the
+    -- recursor's leading arguments, and a plain rule's law is stated
+    -- only at spines where that comparison passed
+    (hpar : RecRule.fire rl = .plain →
+      ∀ i, i < RecRule.ctorParams rl → i < mI →
+        ∀ a b : VExpr,
+          denote m.cval env φ d (margs.getD i default) = some a →
+          denote m.cval env φ d (args.getD i default) = some b →
+          Deq Δ a b)
     -- the recursor's telescope, certified at the full spine
     {TR : VExpr}
     (hcertR : iotaCertsP env fuel d
@@ -148,11 +158,24 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
       (hspC.drop (RecRule.ctorParams rl))) hRH] at hR
     exact (Option.some.inj hR).symm
   refine hlaw cvj cnP cnF hctor Δ usj xs ys TR TC RVR RVC ?_ ?_ hlenJ hlev
-    hiR hiC hvR hvC
+    ?_ hiR hiC hvR hvC
   · have := hspR.length
     omega
   · have := hspC.length
     omega
+  · -- the parameter test, moved onto the denoted spines
+    intro hplain i hi hiM
+    have hlenXs : xs.length = args.length := hspR.length
+    have hlenYs : ys.length = margs.length := hspC.length
+    have hiA : i < args.length := by omega
+    have hiM' : i < margs.length := by omega
+    refine hpar hplain i hi hiM _ _ ?_ ?_
+    · rw [show margs.getD i default = margs[i] from
+        by simp [List.getD, List.getElem?_eq_getElem hiM']]
+      exact DenoteSpine.get hspC ⟨i, hiM'⟩
+    · rw [show args.getD i default = args[i] from
+        by simp [List.getD, List.getElem?_eq_getElem hiA]]
+      exact DenoteSpine.get hspR ⟨i, hiA⟩
 
 /-! ## The stuck-major rescues
 

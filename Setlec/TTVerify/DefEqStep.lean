@@ -536,22 +536,6 @@ theorem defEqList_inv {env : Env} {fuel d : Nat} :
           have := hall ⟨j, by simpa using hj⟩
           simpa using this
 
-/-- A denoted spine's entries, indexed. -/
-theorem DenoteSpine.get {cval : TConstVal} {env : Env} {φ : Name → Nat}
-    {d : Nat} {as : List Expr} {vs : List VExpr}
-    (h : DenoteSpine cval env φ d as vs) :
-    ∀ i : Fin as.length,
-      denote cval env φ d as[i] = some (vs.getD i default) := by
-  induction h with
-  | nil => intro i; exact nomatch i.2
-  | @cons a v as vs ha _ ih =>
-    intro i
-    match i with
-    | ⟨0, _⟩ => simpa using ha
-    | ⟨j + 1, hj⟩ =>
-      have := ih ⟨j, by simpa using hj⟩
-      simpa using this
-
 /-- Level lists with pointwise equal evaluations are indistinguishable
 to a substitution.  The checker compares levels with `Level.isEquiv`,
 which is sound for `eval` and nothing stronger, so this is exactly the

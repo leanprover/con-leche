@@ -4048,6 +4048,80 @@ is now at the recursor's own level rather than an unrelated one.
 `PSigma`'s two-step eta and `Quot`'s open question never had to be
 written.
 
+#### The same defect again, one line down — and this one was fatal
+
+`Quot`'s open question came back anyway, and from the *other* half of
+the same call.  `iotaRec` runs **two** comparisons before it fires:
+
+```
+if ← Level.isEquivList usj  (recFireComparands …).1 then
+if ← defEqList (margs.take rl.ctorParams) (recFireComparands …).2 then
+```
+
+The second one checks the fired constructor's **parameters** against
+the rule's comparands — for a plain rule, `args.take rl.ctorParams`,
+the recursor's own leading arguments.  `iotaRec_inv` exposes it as the
+conjunct immediately after the level one, and `IotaStep.lean` was
+discarding *both* with a `-`; the narrowing above took the first and
+left the second in place.  §8.2's fifth instance, one line below the
+fourth.
+
+**Why this one is different from the other four.**  The first four were
+*wasteful*: the law quantified over instantiations no fire site
+supplies, and the cost was rescue apparatus that could be deleted once
+the premise arrived.  This one is **fatal**.  A stored recursor's rule
+right-hand side reads the constructor's *fields* at the **recursor's**
+parameters — that is what `args.take rP ++ margs.drop ctorParams`
+means — so proving the law needs `⊢ field : recursor's parameter`
+while the constructor's telescope gives `⊢ field : constructor's
+parameter`.  The layer has **no type uniqueness**, so the two cannot be
+bridged from inside; the premise is not an optimisation, it is the only
+route.
+
+It went unnoticed for four blocks because each dodged it for its own
+reason: `Nat` and `PUnit` have no constructor parameters, `Eq`'s rule
+drops all of them (`ys.drop 2 = []`), and `PSigma'` was carried by a
+*congruence* — the right-hand side's two field slots were moved onto
+`p.1`/`p.2`, which the projection rules type at the recursor's
+parameters directly.  `Quot` has parameters, keeps a field, and has no
+projections.  It is the first block that cannot dodge, and the last
+one written.
+
+> **The rule.**  A vacuously-discharged obligation puts its signature
+> on probation (recorded above).  This adds the sibling: **a discarded
+> conjunct puts the neighbouring conjuncts on probation too.**  The
+> destructuring pattern that drops one fact usually drops the ones
+> beside it, and they are exactly the facts a proof will later find it
+> cannot do without.  The tell is a `-` next to a named binder in an
+> inversion, not the named binder itself.
+
+**NARROWED (landed).**  `RecRulesTT`, `RecRulesTT.cons`,
+`EnvTT.cons`'s / `extendBasisTT`'s `hheadRec` and `rec_rules_fire` now
+carry
+
+```
+RecRule.fire rl = .plain →
+  ∀ i, i < RecRule.ctorParams rl → i < mI →
+    Deq Δ (ys.getD i default) (xs.getD i default)
+```
+
+— the parameter test, denoted.  Three shape decisions, each forced:
+
+* **Guarded on `.plain`.**  A nested rule's comparands are its stored
+  pins, not the recursor's arguments; guarding keeps the premise
+  faithful and imposes nothing on the nested path.
+* **`i < mI` as well as `i < ctorParams`.**  The checker's comparand
+  list is the recursor's *whole* argument list including the major, so
+  a faithful unguarded statement would have had to carry the major's
+  slot and, with it, the `Deq` between the major as written and the
+  major in constructor form.  Restricting to indices below the major
+  keeps the premise inside `xs`, where both the fire site and every
+  install can read it.  Nothing is lost: `ctorParams ≤ mI` at every
+  real recursor.
+* **Stated `Deq`, not equality.**  `defEqList` is a *definitional*
+  check; its transpose is `Deq`, and `Deq.conv` is exactly what the
+  install needs to retype a field at the recursor's parameter.
+
 #### `Eq`: the deferred towers, elaborated
 
 §11 deferred four valuations — `Eq`, `Eq.refl`, `Eq.rec`, `PSigma'.rec`

@@ -226,6 +226,24 @@ theorem DenoteSpine.map {cval : TConstVal} {env : Env} {φ : Name → Nat}
     exact .cons (h a (List.mem_cons_self ..))
       (ih fun b hb => h b (List.mem_cons_of_mem _ hb))
 
+/-- A denoted spine's entries, indexed.  (Relocated from
+`Setlec/TTVerify/DefEqStep.lean`: `Iota.lean` needs it too, and
+`Tele.lean` is where `DenoteSpine` is declared.) -/
+theorem DenoteSpine.get {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d : Nat} {as : List Expr} {vs : List VExpr}
+    (h : DenoteSpine cval env φ d as vs) :
+    ∀ i : Fin as.length,
+      denote cval env φ d as[i] = some (vs.getD i default) := by
+  induction h with
+  | nil => intro i; exact nomatch i.2
+  | @cons a v as vs ha _ ih =>
+    intro i
+    match i with
+    | ⟨0, _⟩ => simpa using ha
+    | ⟨j + 1, hj⟩ =>
+      have := ih ⟨j, by simpa using hj⟩
+      simpa using this
+
 /-- Splitting a denoted spine at a final argument — the shape the
 recursor's telescope walk has at a fire site, where the major premise
 is the last entry. -/

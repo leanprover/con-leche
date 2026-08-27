@@ -99,7 +99,7 @@ theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj,
     cnP, cnF, r, cbinders, cbody, residual, cr, usr,
     hfn, hfc, hlenA, hw0, hl0, hm0, hmfn, hfj, hrule, hlenM,
-    -, -, hfire, hlev, -, hcerts, hmcerts, -, -, -, -, rfl⟩ := iotaRec_inv h
+    -, -, hfire, hlev, hdefl, hcerts, hmcerts, -, -, -, -, rfl⟩ := iotaRec_inv h
   obtain ⟨args, maj, hsplit, hlenA', hgetd⟩ := list_snoc_of_length hlenA
   have heq : e = Expr.mkAppN (.const c us) (args ++ [maj]) := by
     rw [← hsplit, ← hfn, Expr.mkAppN_getApp]
@@ -201,6 +201,51 @@ theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
             (xs.take rP ++ ys.drop (RecRule.ctorParams r))) :=
         denote_mkAppN (DenoteSpine.append (hspx.take rP)
           (hspy.drop (RecRule.ctorParams r))) hRH
+      -- **the fire site's parameter test.**  `iotaRec` compares the
+      -- constructor's parameters against the rule's comparands — for a
+      -- plain rule, the recursor's own leading arguments — and the law
+      -- is stated only where that comparison passed.  Discarding this
+      -- conjunct (as this proof did until `Quot`) makes the law
+      -- quantify over spines no fire site supplies, and `Quot`'s two
+      -- eliminators are then not provable at all.
+      have hparP : RecRule.fire r = .plain →
+          ∀ i, i < RecRule.ctorParams r → i < mI →
+            ∀ a b : VExpr,
+              denote m.cval env φ d (major.getAppArgs.getD i default)
+                = some a →
+              denote m.cval env φ d (args.getD i default) = some b →
+              Deq Δ a b := by
+        intro hplain i hi hiM a b ha hb
+        have hcmp : (recFireComparands r cv.levelParams us cvj.levelParams
+            e.getAppArgs rP).2
+            = e.getAppArgs.take (RecRule.ctorParams r) := by
+          simp [recFireComparands, hplain]
+        rw [hcmp] at hdefl
+        obtain ⟨hlenD, hall⟩ := defEqList_inv hdefl
+        have hiM' : i < major.getAppArgs.length := by omega
+        have hiA : i < args.length := by omega
+        have hiT : i < (major.getAppArgs.take
+            (RecRule.ctorParams r)).length := by
+          rw [List.length_take]; omega
+        have hde := hall ⟨i, hiT⟩
+        simp only [Fin.getElem_fin] at hde
+        rw [show (major.getAppArgs.take (RecRule.ctorParams r))[i]
+            = major.getAppArgs[i] from by simp [List.getElem_take],
+          show (e.getAppArgs.take (RecRule.ctorParams r)).getD i default
+            = args[i] from by
+            rw [hsplit]
+            simp [List.getD, hi,
+              List.getElem?_append_left hiA,
+              List.getElem?_eq_getElem hiA]] at hde
+        obtain ⟨hwC', hbC', hLC', hCC'⟩ := hargsC major.getAppArgs[i]
+          (List.getElem_mem hiM')
+        obtain ⟨hwA', hbA', hLA', hCA'⟩ := hframe args[i] (by
+          rw [hsplit]; exact List.mem_append_left _ (List.getElem_mem hiA))
+        rw [show major.getAppArgs.getD i default = major.getAppArgs[i] from
+          by simp [List.getD, List.getElem?_eq_getElem hiM']] at ha
+        rw [show args.getD i default = args[i] from
+          by simp [List.getD, List.getElem?_eq_getElem hiA]] at hb
+        exact ihd hde hwC' hbC' hLC' hwA' hbA' hLA' hCC' hCA' ha hb
       -- fire
       have hfired := rec_rules_fire m φ hcl ihd ihi hfc hrl hfire
         (hrc ▸ hfj) hlenA' hlenM hlenR hlenJ
@@ -209,6 +254,7 @@ theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
               (Level.isEquivList_sound hlev φ),
             recFireComparands_levels r cv.levelParams us cvj.levelParams
               e.getAppArgs [] rP rP])
+        hparP
         (by rw [htake] at hcerts; rw [hmajEq']; exact hcerts)
         (Expr.WScoped.of_not_hasFvar (by
           rw [Expr.hasFvar_instantiateLevelParams]; exact hnfR))

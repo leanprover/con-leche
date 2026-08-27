@@ -136,6 +136,21 @@ def RecRulesTT (env : Env) (cval : TConstVal) : Prop :=
             = Level.substFn φ cvj.levelParams
                 (recFireComparands rl cv.levelParams us cvj.levelParams
                   [] rP).1 →
+          -- **the fire site's own parameter check.**  `iotaRec` runs a
+          -- second comparison beside the level one:
+          -- `defEqList (margs.take ctorParams) (recFireComparands …).2`,
+          -- whose comparands for a plain rule are the recursor's own
+          -- leading arguments.  So a fired constructor's *parameters*
+          -- are never free — they are definitionally the recursor's.
+          -- §8.2's fifth instance, and the first one that was not
+          -- merely wasteful: `Quot`'s eliminators read a field at the
+          -- recursor's parameter, and without this premise their laws
+          -- are not provable at all (a field typed at the
+          -- constructor's parameter cannot be moved to the
+          -- recursor's — the layer has no type uniqueness).
+          (RecRule.fire rl = .plain →
+            ∀ i, i < RecRule.ctorParams rl → i < mI →
+              Deq Δ (ys.getD i default) (xs.getD i default)) →
           -- the two stored types, denoted (`denote_env_shrink` moves
           -- these; `denote_storedTy` produces them at a fire site)
           denote cval env φ d

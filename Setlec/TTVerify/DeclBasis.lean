@@ -153,7 +153,11 @@ theorem extendBasisTT {env : Env} (m : EnvTT env) {ci : ConstantInfo}
         ci.toConstantVal.type = some t ∧ HasType [] (val φ) t)
     (hnodefn : ∀ cv v h, ci ≠ .defnInfo cv v h)
     (hnothm : ∀ cv v, ci ≠ .thmInfo cv v)
-    (hnoax : ∀ cv, ci ≠ .axiomInfo cv)
+    -- **not** `ci ≠ .axiomInfo cv`: `Quot.sound` is a stored axiom, and
+    -- the only obligation an axiom carries is the reduce-op one, which
+    -- it discharges by not being a reduce op.  Every non-axiom call site
+    -- still passes `fun _ heq => nomatch heq`.
+    (hnoax : ∀ cv, ci = .axiomInfo cv → ci.name ∈ reduceOpNames → False)
     (hempty : ci.name = emptyName → ∀ ψ : Name → Nat, ∃ u, val ψ = emptyT u)
     (hheadCtors : ∀ cv mI rP rules, ci = .recInfo cv mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
@@ -178,6 +182,9 @@ theorem extendBasisTT {env : Env} (m : EnvTT env) {ci : ConstantInfo}
               = Level.substFn φ cvj.levelParams
                   (recFireComparands rl cv.levelParams us cvj.levelParams
                     [] rP).1 →
+            (RecRule.fire rl = .plain →
+              ∀ i, i < RecRule.ctorParams rl → i < mI →
+                Deq Δ (ys.getD i default) (xs.getD i default)) →
             denote (cvalSet m.cval ci.name val) ⟨ci :: env.consts⟩ φ d
               (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
             denote (cvalSet m.cval ci.name val) ⟨ci :: env.consts⟩ φ d
@@ -233,7 +240,7 @@ theorem extendBasisTT {env : Env} (m : EnvTT env) {ci : ConstantInfo}
     exact ⟨hpin, fun ψ t hp => by rw [cvalSet_self]; exact hdirect ψ t hp⟩
   · exact fun cv v h heq => absurd heq (hnodefn cv v h)
   · exact fun cv v h heq => absurd heq (hnodefn cv v h)
-  · exact fun cv heq => absurd heq (hnoax cv)
+  · exact fun cv heq hmem => absurd (hnoax cv heq hmem) not_false
 
 
 /-- **An earlier constant of the block, denoted.**  Every `htype`
@@ -684,7 +691,7 @@ theorem extendPUnitRecTT {env : Env} (m : EnvTT env)
           Expr.instantiate1_lam, reduceIte, hPc', hUc', denote_fvar]
         simp
       · intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj
-          hlev hTV hTVj hR hC
+          hlev _ hTV hTVj hR hC
         -- the rule's constructor is the stored `PUnit.unit`
         have hU' := hU
         simp only [punitUnitName, punitName] at hU'
@@ -1514,7 +1521,7 @@ theorem extendEqRecTT {env : Env} (m : EnvTT env)
       refine ⟨_, denote_eqRec_rhs m (val := eqRecValT) φ d w1 w2 hE hR hEv
         hRv, ?_⟩
       intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj hlev
-        hdTV hdTVj hfitR hfitC
+        _ hdTV hdTVj hfitR hfitC
       have hRu := hR
       simp only [eqReflName, eqName] at hRu
       rw [Env.find?_cons, if_neg (by decide), hRu] at hfj
@@ -2019,7 +2026,7 @@ theorem extendNatRecTT {env : Env} (m : EnvTT env)
       refine ⟨_, denote_natRec_zeroRhs m
         (val := fun ψ => VExpr.const .natRec [ψ uNT]) φ d w hN hZ hS, ?_⟩
       intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj hlev
-        hdTV hdTVj hfitR hfitC
+        _ hdTV hdTVj hfitR hfitC
       have hZu := hZ
       simp only [natZeroName, natName] at hZu
       rw [Env.find?_cons, if_neg (by decide), hZu] at hfj
@@ -2086,7 +2093,7 @@ theorem extendNatRecTT {env : Env} (m : EnvTT env)
         refine ⟨_, denote_natRec_succRhs m
           (val := fun ψ => VExpr.const .natRec [ψ uNT]) φ d w hN hZ hS, ?_⟩
         intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj
-          hlev hdTV hdTVj hfitR hfitC
+          hlev _ hdTV hdTVj hfitR hfitC
         have hSu := hS
         simp only [natSuccName, natName] at hSu
         rw [Env.find?_cons, if_neg (by decide), hSu] at hfj
@@ -3020,7 +3027,7 @@ theorem extendPSigmaRecTT {env : Env} (m : EnvTT env)
       refine ⟨_, denote_psigmaRec_rhs m (val := psigmaRecValT) φ d w1 w2
         hP hM hPv hMv, ?_⟩
       intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj hlev
-        hdTV hdTVj hfitR hfitC
+        _ hdTV hdTVj hfitR hfitC
       have hMu := hM
       simp only [psigmaMkName, psigmaName] at hMu
       rw [Env.find?_cons, if_neg (by decide), hMu] at hfj
@@ -3326,6 +3333,114 @@ theorem declBasisTT_psigmaK {env env₁ : Env} (m : EnvTT env)
   obtain ⟨m5, -⟩ := extendPairSndTT m4 hP4 hM4 h5 hwf5
   exact ⟨m5⟩
 
+
+/-! ## `Quot`
+
+Five constants: a stored inductive, its constructor, two stored
+recursors, and — uniquely — a stored **axiom**.  Both recursors' rules
+are `.inert`, so the block has no iota obligation at all: the checker's
+quotient reduction is not `iotaRec`'s, and `RecRulesTT` constrains only
+fireable rules.  What the block does have is the first *Eq-bridged*
+types: `Quot.lift`'s and `Quot.sound`'s stored types end in the pinned
+`Eq` applied to three arguments, where the layer's constants conclude
+at `.eqE`.  §11's law is exactly that gap, and `congrPi` carries it out
+through the telescope. -/
+
+/-- Congruence for the dependent product, in `Deq` form. -/
+theorem Deq.pi {Γ : List VExpr} {A A' B B' : VExpr}
+    (hA : Deq Γ A A') (hB : Deq (A :: Γ) B B') :
+    Deq Γ (.pi A B) (.pi A' B') :=
+  ⟨A, HasType.congrPi (T'' := A) (hA.toHasType A) (hB.toHasType B)⟩
+
+/-- The common case: only the codomain moves. -/
+theorem Deq.piCod {Γ : List VExpr} {A B B' : VExpr}
+    (hB : Deq (A :: Γ) B B') : Deq Γ (.pi A B) (.pi A B') :=
+  Deq.pi Deq.refl hB
+
+/-- `Quot`, installed. -/
+theorem extendQuotTT {env : Env} (m : EnvTT env)
+    (hfresh : env.find? quotName = none)
+    (hwf : EnvWF ⟨quotA :: env.consts⟩) :
+    ∃ m' : EnvTT ⟨quotA :: env.consts⟩,
+      m'.cval = cvalSet m.cval quotA.name
+        (fun ψ => VExpr.const .quot [ψ uNT]) := by
+  refine extendBasisTT m (val := fun ψ => VExpr.const .quot [ψ uNT])
+    (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name quotA = quotName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uNT (by show uNT ∈ [uNT]; exact List.mem_cons_self)]
+  · intro φ
+    refine ⟨_, ?_, HasType.const⟩
+    rw [denoteClosed, show quotA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+          (Expr.forallE (Name.anonymous.str "r")
+            (Expr.forallE Name.anonymous (.bvar 0)
+              (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
+                { bi := .default }) { bi := .default })
+            (.sort (.param uNT)) { bi := .default })
+          { bi := .implicit } from rfl]
+    simp [denote_forallE, denote_sort, denote_fvar, Level.eval]
+    rfl
+
+/-- `Quot.mk`, installed. -/
+theorem extendQuotMkTT {env : Env} (m : EnvTT env)
+    (hQ : env.find? quotName = some quotA)
+    (hfresh : env.find? quotMkName = none)
+    (hwf : EnvWF ⟨quotMkA :: env.consts⟩) :
+    ∃ m' : EnvTT ⟨quotMkA :: env.consts⟩,
+      m'.cval = cvalSet m.cval quotMkA.name
+        (fun ψ => VExpr.const .quotMk [ψ uNT]) := by
+  have hQc : ∀ (d : Nat) (φ : Name → Nat),
+      denote (cvalSet m.cval quotMkA.name
+        (fun ψ => VExpr.const .quotMk [ψ uNT]))
+        ⟨quotMkA :: env.consts⟩ φ d (.const quotName [.param uNT])
+        = some (VExpr.const .quot [φ uNT]) := by
+    intro d φ
+    refine denote_const_pin m (by decide) hQ rfl (by decide) ?_ d
+    rw [show Level.substFn φ quotA.toConstantVal.levelParams
+        [Level.param uNT] = φ from substFn_param_self φ [uNT]]
+    simp +decide [pinnedDirectT]
+  refine extendBasisTT m (val := fun ψ => VExpr.const .quotMk [ψ uNT])
+    (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name quotMkA = quotMkName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uNT (by show uNT ∈ [uNT]; exact List.mem_cons_self)]
+  · intro φ
+    refine ⟨_, ?_, HasType.const⟩
+    rw [denoteClosed, show quotMkA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+          (Expr.forallE (Name.anonymous.str "r")
+            (Expr.forallE Name.anonymous (.bvar 0)
+              (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
+                { bi := .default }) { bi := .default })
+            (Expr.forallE (Name.anonymous.str "a") (.bvar 1)
+              (.app (.app (.const quotName [.param uNT]) (.bvar 2))
+                (.bvar 1)) { bi := .default })
+            { bi := .default })
+          { bi := .implicit } from rfl]
+    simp [denote_forallE, denote_sort, denote_app, denote_fvar, Level.eval,
+      hQc]
+    rfl
 
 end Setlec.TTVerify
 
