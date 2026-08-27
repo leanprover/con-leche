@@ -113,7 +113,7 @@ holding *is* the checks having passed, and the two inversions do the
 rest.  Nine lines, and the only part of the install's syntactic layer
 the bridge has to write for itself. -/
 theorem etaPinsT_of_caps {env : Env} {cvT cvC : ConstantVal} {nP nF : Nat} :
-    EtaPins env cvT.name cvT.levelParams (indBlockCaps env cvT cvC nP nF) := by
+    EtaPins mode env cvT.name cvT.levelParams (indBlockCaps mode env cvT cvC nP nF) := by
   refine ⟨fun hcape => ?_, fun hcapu => ?_⟩
   · refine checkEtaThm_inv ?_
     simp only [indBlockCaps, Bool.and_eq_true] at hcape

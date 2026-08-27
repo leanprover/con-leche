@@ -22,13 +22,19 @@ symmetry once.
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- `pairEtaCert`'s verdict yields an equation. -/
 def PairEtaCertStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {a b : Expr},
-    pairEtaCertP env fuel d a b = .ok true →
+    pairEtaCertP mode env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -41,7 +47,7 @@ def PairEtaCertStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
 def StructEtaCertStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {a b : Expr},
-    structEtaCertP env fuel d a b = .ok true →
+    structEtaCertP mode env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -82,10 +88,10 @@ theorem denote_declType {env : Env} (m : EnvTT env) (φ : Name → Nat)
 /-- **`StructUnitCertStepTT`, discharged.** -/
 theorem structUnitCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) :
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel) :
     ∀ {d : Nat} {Δ : List VExpr} {a b : Expr},
-      structUnitCertP env fuel d a b = .ok true →
+      structUnitCertP mode env fuel d a b = .ok true →
       Expr.WScoped d a → a.looseBVarsBounded 0 = true →
       Expr.LeavesBounded a →
       Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -175,15 +181,15 @@ theorem structUnitCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
 /-- **`StuckIrrelStepTT`**, modulo the two remaining certificates. -/
 theorem stuckIrrel_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel)
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel)
     (hpe : PairEtaCertStepTT m φ fuel)
     (hse : StructEtaCertStepTT m φ fuel) : StuckIrrelStepTT m φ fuel := by
   intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   simp only [stuckIrrelP, stuckIrrel, Bind.bind, Except.bind,
     pairEtaCert_fold, structEtaCert_fold, structUnitCert_fold,
     proofIrrel_fold] at h
-  cases h1 : pairEtaCertP env fuel d a b with
+  cases h1 : pairEtaCertP mode env fuel d a b with
   | error err => rw [h1] at h; exact nomatch h
   | ok r1 =>
   rw [h1] at h
@@ -192,7 +198,7 @@ theorem stuckIrrel_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   | true => exact hpe h1 hwa hba hLa hwb hbb hLb hCa hCb hva hvb
   | false =>
   simp only [Bool.false_eq_true, if_false] at h
-  cases h2 : pairEtaCertP env fuel d b a with
+  cases h2 : pairEtaCertP mode env fuel d b a with
   | error err => rw [h2] at h; exact nomatch h
   | ok r2 =>
   rw [h2] at h
@@ -201,7 +207,7 @@ theorem stuckIrrel_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   | true => exact (hpe h2 hwb hbb hLb hwa hba hLa hCb hCa hvb hva).symm
   | false =>
   simp only [Bool.false_eq_true, if_false] at h
-  cases h3 : structEtaCertP env fuel d a b with
+  cases h3 : structEtaCertP mode env fuel d a b with
   | error err => rw [h3] at h; exact nomatch h
   | ok r3 =>
   rw [h3] at h
@@ -210,7 +216,7 @@ theorem stuckIrrel_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   | true => exact hse h3 hwa hba hLa hwb hbb hLb hCa hCb hva hvb
   | false =>
   simp only [Bool.false_eq_true, if_false] at h
-  cases h4 : structEtaCertP env fuel d b a with
+  cases h4 : structEtaCertP mode env fuel d b a with
   | error err => rw [h4] at h; exact nomatch h
   | ok r4 =>
   rw [h4] at h
@@ -219,7 +225,7 @@ theorem stuckIrrel_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   | true => exact (hse h4 hwb hbb hLb hwa hba hLa hCb hCa hvb hva).symm
   | false =>
   simp only [Bool.false_eq_true, if_false] at h
-  cases h5 : structUnitCertP env fuel d a b with
+  cases h5 : structUnitCertP mode env fuel d a b with
   | error err => rw [h5] at h; exact nomatch h
   | ok r5 =>
   rw [h5] at h

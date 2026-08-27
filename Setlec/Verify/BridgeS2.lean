@@ -5,7 +5,7 @@ import Setlec.Verify.BridgeS1
 
 The single-environment functions of the modeled-inductive install path
 (`checkMemberVal`, the iota-theorem checks, the projection stages), as
-`SimAt`s between the `sharedOps` and `fueledOpsM` instantiations.  The
+`SimAt`s between the `sharedOps` and `(fueledOpsM mode)` instantiations.  The
 per-site scoping facts mirror `Setlec/Verify/BridgeWfImp.lean`'s
 `_wfimp` walks; the operation environment is the `SimAt`'s `env` (for
 the iota checks that is `envSelf` — the pure model lookups run at the
@@ -16,6 +16,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 section Walks2
@@ -24,8 +26,8 @@ variable {env : Env} {s₀ : IState}
 
 /-- `unwrapOr` as a `SimAt`, remembering the unwrapped value. -/
 protected theorem SimAt.unwrapOr' {α : Type} {o : Option α}
-    {err : CheckError} (hs : ISOK env s₀) :
-    SimAt env s₀ (fun _ v w => v = w ∧ o = some v)
+    {err : CheckError} (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ (fun _ v w => v = w ∧ o = some v)
       (unwrapOr o err : CheckIM α) (unwrapOr o err : FueledM α) := by
   cases o with
   | none => exact SimAt.throw
@@ -35,10 +37,10 @@ protected theorem SimAt.unwrapOr' {α : Type} {o : Option α}
 theorem checkTypedListS_sim (henv : EnvWF env) {depth : Nat} :
     ∀ {as bs : List Expr},
       (∀ a ∈ as, WScoped depth a) → (∀ b ∈ bs, WScoped depth b) →
-      ∀ {s₀ : IState}, ISOK env s₀ →
-      SimAt env s₀ RelV
-        (checkTypedList (sharedOps (mkFEnv env)) env depth as bs)
-        (checkTypedList fueledOpsM env depth as bs)
+      ∀ {s₀ : IState}, ISOK mode env s₀ →
+      SimAt mode env s₀ RelV
+        (checkTypedList (sharedOps mode (mkFEnv env)) env depth as bs)
+        (checkTypedList (fueledOpsM mode) env depth as bs)
   | [], [], _, _, s₀, hs => SimAt.pure hs rfl
   | [], _ :: _, _, _, s₀, hs => SimAt.throw
   | _ :: _, [], _, _, s₀, hs => SimAt.throw
@@ -65,10 +67,10 @@ theorem checkTypedListS_sim (henv : EnvWF env) {depth : Nat} :
 theorem checkDefEqListS_sim (henv : EnvWF env) {depth : Nat} :
     ∀ {as bs : List Expr},
       (∀ a ∈ as, WScoped depth a) → (∀ b ∈ bs, WScoped depth b) →
-      ∀ {s₀ : IState}, ISOK env s₀ →
-      SimAt env s₀ RelV
-        (checkDefEqList (sharedOps (mkFEnv env)) env depth as bs)
-        (checkDefEqList fueledOpsM env depth as bs)
+      ∀ {s₀ : IState}, ISOK mode env s₀ →
+      SimAt mode env s₀ RelV
+        (checkDefEqList (sharedOps mode (mkFEnv env)) env depth as bs)
+        (checkDefEqList (fueledOpsM mode) env depth as bs)
   | [], [], _, _, s₀, hs => SimAt.pure hs rfl
   | [], _ :: _, _, _, s₀, hs => SimAt.throw
   | _ :: _, [], _, _, s₀, hs => SimAt.throw
@@ -93,10 +95,10 @@ theorem checkDefEqListS_sim (henv : EnvWF env) {depth : Nat} :
 theorem checkAnnotListS_sim (henv : EnvWF env) {depth : Nat} :
     ∀ {as : List Expr},
       (∀ a ∈ as, WScoped depth a) →
-      ∀ {s₀ : IState}, ISOK env s₀ →
-      SimAt env s₀ RelV
-        (checkAnnotList (sharedOps (mkFEnv env)) env depth as)
-        (checkAnnotList fueledOpsM env depth as)
+      ∀ {s₀ : IState}, ISOK mode env s₀ →
+      SimAt mode env s₀ RelV
+        (checkAnnotList (sharedOps mode (mkFEnv env)) env depth as)
+        (checkAnnotList (fueledOpsM mode) env depth as)
   | [], _, s₀, hs => SimAt.pure hs rfl
   | a :: as, ha, s₀, hs => by
     unfold checkAnnotList
@@ -119,11 +121,11 @@ theorem checkAnnotListS_sim (henv : EnvWF env) {depth : Nat} :
 theorem checkIotaSidesTyS_sim {depth : Nat} {alphaS lhsS rhsS : Expr}
     {ℓA : Level} {cvName : Name} (henv : EnvWF env)
     (hα : WScoped depth alphaS) (hl : WScoped depth lhsS)
-    (hr : WScoped depth rhsS) (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkIotaSidesTy (sharedOps (mkFEnv env)) env depth alphaS lhsS
+    (hr : WScoped depth rhsS) (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkIotaSidesTy mode (sharedOps mode (mkFEnv env)) env depth alphaS lhsS
         rhsS ℓA cvName)
-      (checkIotaSidesTy fueledOpsM env depth alphaS lhsS rhsS
+      (checkIotaSidesTy mode (fueledOpsM mode) env depth alphaS lhsS rhsS
         ℓA cvName) := by
   unfold checkIotaSidesTy
   dsimp only [sharedOps]
@@ -151,7 +153,13 @@ theorem checkIotaSidesTyS_sim {depth : Nat} {alphaS lhsS rhsS : Expr}
     exact SimAt.throw_bind
   | true =>
   simp only [↓reduceIte]
-  -- the type slot's own sort (task #146)
+  -- the type slot's own sort (task #146) — mode-gated (task #147)
+  cases htt : mode.ttChecks with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    exact SimAt.pure hs₄ rfl
+  | true =>
+  simp only [↓reduceIte]
   refine SimAt.bind (opE_infer_sim henv hs₄ hα)
     (fun s₅ tα tα' hs₅ hext₅ hTα => ?_)
   obtain ⟨rfl, htαW⟩ := hTα
@@ -175,11 +183,11 @@ theorem checkIotaThmS_sim {env' : Env} (henv' : EnvWF env')
     {lps : List Name} {tyA : Expr} {mI rP j : Nat} {r : RecRule}
     {cvj : ConstantVal} {cnP cnF : Nat} {rhsA : Expr}
     (htyA : tyA.hasFvar = false) (hctor : cvj.type.hasFvar = false)
-    (hrhsA : rhsA.hasFvar = false) (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkIotaThm (sharedOps (mkFEnv env)) env' env f cvName lps tyA
+    (hrhsA : rhsA.hasFvar = false) (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkIotaThm mode (sharedOps mode (mkFEnv env)) env' env f cvName lps tyA
         mI rP j r cvj cnP cnF rhsA)
-      (checkIotaThm fueledOpsM env' env f cvName lps tyA
+      (checkIotaThm mode (fueledOpsM mode) env' env f cvName lps tyA
         mI rP j r cvj cnP cnF rhsA) := by
   unfold checkIotaThm
   dsimp only [sharedOps]
@@ -353,11 +361,11 @@ theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
     {lps : List Name} {tyA : Expr} {mI rP j : Nat} {r : RecRule}
     {cvj : ConstantVal} {cnP cnF : Nat} {rhsA : Expr}
     (htyA : tyA.hasFvar = false) (hctor : cvj.type.hasFvar = false)
-    (hrhsA : rhsA.hasFvar = false) (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkIotaThmN (sharedOps (mkFEnv env)) env' env f cvName lps tyA
+    (hrhsA : rhsA.hasFvar = false) (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkIotaThmN mode (sharedOps mode (mkFEnv env)) env' env f cvName lps tyA
         mI rP j r cvj cnP cnF rhsA)
-      (checkIotaThmN fueledOpsM env' env f cvName lps tyA
+      (checkIotaThmN mode (fueledOpsM mode) env' env f cvName lps tyA
         mI rP j r cvj cnP cnF rhsA) := by
   unfold checkIotaThmN
   dsimp only [sharedOps]
@@ -566,11 +574,11 @@ theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
 theorem checkIotaRuleS_sim {env' : Env} (henv' : EnvWF env')
     (henv : EnvWF env) {f : Name → Name} {cvName : Name}
     {lps : List Name} {tyA : Expr} {mI rP j : Nat} {r : RecRule}
-    (htyA : tyA.hasFvar = false) (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkIotaRule (sharedOps (mkFEnv env)) env' env f cvName lps tyA
+    (htyA : tyA.hasFvar = false) (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkIotaRule mode (sharedOps mode (mkFEnv env)) env' env f cvName lps tyA
         mI rP j r)
-      (checkIotaRule fueledOpsM env' env f cvName lps tyA mI rP j r) := by
+      (checkIotaRule mode (fueledOpsM mode) env' env f cvName lps tyA mI rP j r) := by
   unfold checkIotaRule
   dsimp only [sharedOps]
   match hf : env'.find? r.ctor with
@@ -630,11 +638,11 @@ theorem checkIotaRulesS_sim {env' : Env} (henv' : EnvWF env')
     (henv : EnvWF env) {f : Name → Name} {cvName : Name}
     {lps : List Name} {tyA : Expr} {mI rP : Nat}
     (htyA : tyA.hasFvar = false) :
-    ∀ {j : Nat} {rules : List RecRule} {s₀ : IState}, ISOK env s₀ →
-      SimAt env s₀ RelV
-        (checkIotaRules (sharedOps (mkFEnv env)) env' env f cvName lps
+    ∀ {j : Nat} {rules : List RecRule} {s₀ : IState}, ISOK mode env s₀ →
+      SimAt mode env s₀ RelV
+        (checkIotaRules mode (sharedOps mode (mkFEnv env)) env' env f cvName lps
           tyA mI rP j rules)
-        (checkIotaRules fueledOpsM env' env f cvName lps tyA
+        (checkIotaRules mode (fueledOpsM mode) env' env f cvName lps tyA
           mI rP j rules)
   | _, [], s₀, hs => SimAt.pure hs rfl
   | j, r :: rest, s₀, hs => by
@@ -650,10 +658,10 @@ theorem checkIotaRulesS_sim {env' : Env} (henv' : EnvWF env')
 /-- The member-against-model check at the shared operations; the
 returned constant's type is well-scoped. -/
 theorem checkMemberValS_sim (henv : EnvWF env) {blockNames : List Name}
-    {cv : ConstantVal} (hs : ISOK env s₀) :
-    SimAt env s₀ (fun _ v w => v = w ∧ WScoped 0 v.type)
-      (checkMemberVal (sharedOps (mkFEnv env)) blockNames env cv)
-      (checkMemberVal fueledOpsM blockNames env cv) := by
+    {cv : ConstantVal} (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ (fun _ v w => v = w ∧ WScoped 0 v.type)
+      (checkMemberVal (sharedOps mode (mkFEnv env)) blockNames env cv)
+      (checkMemberVal (fueledOpsM mode) blockNames env cv) := by
   unfold checkMemberVal
   refine SimAt.bind (checkConstantValS_sim henv hs)
     (fun s₁ cvA cvA' hs₁ hext₁ hP => ?_)
@@ -686,10 +694,10 @@ theorem checkProjRuleS_sim (henv : EnvWF env) {pty : Expr}
     {cvj : ConstantVal} {lps : List Name} {nP nF i : Nat}
     (hptyf : pty.hasFvar = false)
     (hCf : cvj.type.hasFvar = false)
-    (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkProjRule (sharedOps (mkFEnv env)) env pty cvj lps nP nF i)
-      (checkProjRule fueledOpsM env pty cvj lps nP nF i) := by
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkProjRule (sharedOps mode (mkFEnv env)) env pty cvj lps nP nF i)
+      (checkProjRule (fueledOpsM mode) env pty cvj lps nP nF i) := by
   unfold checkProjRule
   dsimp only [sharedOps]
   match hrhs : Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i)) with
@@ -781,8 +789,8 @@ theorem checkProjRuleS_sim (henv : EnvWF env) {pty : Expr}
 
 /-- `checkProjLookups` (operation-free) as a `SimAt`. -/
 theorem checkProjLookupsS_sim {env' : Env} {T ctorName : Name}
-    {lps : List Name} {nP nF i : Nat} (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
+    {lps : List Name} {nP nF i : Nat} (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
       (checkProjLookups env' T ctorName lps nP nF i : CheckIM _)
       (checkProjLookups env' T ctorName lps nP nF i : FueledM _) := by
   unfold checkProjLookups
@@ -825,8 +833,8 @@ theorem checkProjLookupsS_sim {env' : Env} {T ctorName : Name}
 
 /-- `checkProjTy` (operation-free) as a `SimAt`. -/
 theorem checkProjTyS_sim {env' : Env} {T ctorName : Name}
-    {lps : List Name} {mty : Expr} {nP nF : Nat} (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
+    {lps : List Name} {mty : Expr} {nP nF : Nat} (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
       (checkProjTy env' T ctorName lps mty nP nF : CheckIM _)
       (checkProjTy env' T ctorName lps mty nP nF : FueledM _) := by
   unfold checkProjTy
@@ -854,8 +862,8 @@ theorem checkProjTyS_sim {env' : Env} {T ctorName : Name}
 
 /-- `checkProjShape` (operation-free) as a `SimAt`. -/
 theorem checkProjShapeS_sim {pty cty : Expr} {nP nF : Nat}
-    (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
       (checkProjShape pty cty nP nF : CheckIM _)
       (checkProjShape pty cty nP nF : FueledM _) := by
   unfold checkProjShape
@@ -888,11 +896,11 @@ telescope). -/
 theorem checkProjIotaS_sim {T ctorName : Name}
     (henv : EnvWF env)
     {lps : List Name} {cvj : ConstantVal} {nP nF i : Nat}
-    (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkProjIota (sharedOps (mkFEnv env)) env env T ctorName lps
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkProjIota mode (sharedOps mode (mkFEnv env)) env env T ctorName lps
         cvj nP nF i)
-      (checkProjIota fueledOpsM env env T ctorName lps cvj nP nF
+      (checkProjIota mode (fueledOpsM mode) env env T ctorName lps cvj nP nF
         i) := by
   unfold checkProjIota
   match h1 : env.find? ((projModelName T i).str "iota") with

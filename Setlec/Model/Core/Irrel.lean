@@ -11,6 +11,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
@@ -18,17 +20,17 @@ open SetTheory Expr
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 /-- Soundness of the stuck-term fallback: pair eta in either direction,
 struct eta in either direction, unit-likeness, else proof
 irrelevance. -/
 theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel)
     {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
-    (h : stuckIrrelP env fuel d a b = .ok true)
+    (h : stuckIrrelP mode env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
     (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
@@ -41,7 +43,7 @@ theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
   simp only [stuckIrrel, Bind.bind, Except.bind] at h
   simp only [pairEtaCert_fold, structEtaCert_fold, structUnitCert_fold,
     proofIrrel_fold] at h
-  cases hp1 : pairEtaCertP env fuel d a b with
+  cases hp1 : pairEtaCertP mode env fuel d a b with
   | error e => rw [hp1] at h; exact nomatch h
   | ok r₁ =>
   rw [hp1] at h
@@ -52,7 +54,7 @@ theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
       hoka hokb haa hab hva hvb
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases hp2 : pairEtaCertP env fuel d b a with
+  cases hp2 : pairEtaCertP mode env fuel d b a with
   | error e => rw [hp2] at h; exact nomatch h
   | ok r₂ =>
   rw [hp2] at h
@@ -63,7 +65,7 @@ theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
       hokb hoka hab haa hvb hva).symm
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases hs1 : structEtaCertP env fuel d a b with
+  cases hs1 : structEtaCertP mode env fuel d a b with
   | error e => rw [hs1] at h; exact nomatch h
   | ok r₃ =>
   rw [hs1] at h
@@ -74,7 +76,7 @@ theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
       hoka hokb haa hab hva hvb
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases hs2 : structEtaCertP env fuel d b a with
+  cases hs2 : structEtaCertP mode env fuel d b a with
   | error e => rw [hs2] at h; exact nomatch h
   | ok r₄ =>
   rw [hs2] at h
@@ -85,7 +87,7 @@ theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
       hokb hoka hab haa hvb hva).symm
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases hu1 : structUnitCertP env fuel d a b with
+  cases hu1 : structUnitCertP mode env fuel d a b with
   | error e => rw [hu1] at h; exact nomatch h
   | ok r₅ =>
   rw [hu1] at h

@@ -18,6 +18,8 @@ executable with no hypothesis beyond its acceptance.
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 /-- The declaration fold of the shared-state checker preserves having
 a model (the threaded index stays `mkFEnv`-shaped along the fold). -/
 private theorem foldlM_soundS {V : Type u} [SetTheory V] :
@@ -25,7 +27,7 @@ private theorem foldlM_soundS {V : Type u} [SetTheory V] :
       fe = mkFEnv fe.env →
       Nonempty (EnvModel V fe.env) →
       EtaFamiliesClosed fe.env →
-      ds.foldlM checkDeclSharedF fe = .ok fe' →
+      ds.foldlM (checkDeclSharedF mode) fe = .ok fe' →
       Nonempty (EnvModel V fe'.env)
   | [], fe, fe', _, hm, _, h => by
     have h' : (Except.ok fe : CheckM FEnv) = Except.ok fe' := h
@@ -33,7 +35,7 @@ private theorem foldlM_soundS {V : Type u} [SetTheory V] :
     exact hm
   | d :: ds, fe, fe', hfe, hm, hE1, h => by
     simp only [List.foldlM, Bind.bind, Except.bind] at h
-    cases hd : checkDeclSharedF fe d with
+    cases hd : checkDeclSharedF mode fe d with
     | error e => rw [hd] at h; exact nomatch h
     | ok fe1 =>
       rw [hd] at h
@@ -47,11 +49,11 @@ private theorem foldlM_soundS {V : Type u} [SetTheory V] :
 environment it accepts has a set-theoretic model. -/
 theorem checkDeclsS_sound (V : Type u) [SetTheory V]
     {ds : List Declaration} {env' : Env}
-    (h : checkDeclsShared ds = .ok env') :
+    (h : checkDeclsShared mode ds = .ok env') :
     Nonempty (EnvModel V env') := by
   unfold checkDeclsShared at h
   simp only [Bind.bind, Except.bind] at h
-  cases hf : ds.foldlM checkDeclSharedF (mkFEnv Env.empty) with
+  cases hf : ds.foldlM (checkDeclSharedF mode) (mkFEnv Env.empty) with
   | error e => rw [hf] at h; exact nomatch h
   | ok fe =>
     rw [hf] at h
@@ -65,7 +67,7 @@ theorem checkDeclsS_sound (V : Type u) [SetTheory V]
 containing a `def` or `theorem` whose stated type is `Empty`. -/
 theorem no_proof_of_Empty_input_S (V : Type u) [SetTheory V]
     {ds : List Declaration} {env' : Env}
-    (h : checkDeclsShared ds = .ok env')
+    (h : checkDeclsShared mode ds = .ok env')
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     (hd : Declaration.defnDecl cv value hint ∈ ds ∨
       Declaration.thmDecl cv value ∈ ds)
@@ -74,12 +76,12 @@ theorem no_proof_of_Empty_input_S (V : Type u) [SetTheory V]
       fe = mkFEnv fe.env →
       Nonempty (EnvModel V fe.env) →
       EtaFamiliesClosed fe.env →
-      ds.foldlM checkDeclSharedF fe = .ok fe' →
+      ds.foldlM (checkDeclSharedF mode) fe = .ok fe' →
       (Declaration.defnDecl cv value hint ∈ ds ∨
         Declaration.thmDecl cv value ∈ ds) → False by
     unfold checkDeclsShared at h
     simp only [Bind.bind, Except.bind] at h
-    cases hf : ds.foldlM checkDeclSharedF (mkFEnv Env.empty) with
+    cases hf : ds.foldlM (checkDeclSharedF mode) (mkFEnv Env.empty) with
     | error e => rw [hf] at h; exact nomatch h
     | ok fe =>
       exact hgen ds (mkFEnv Env.empty) rfl ⟨EnvModel.empty V⟩
@@ -92,7 +94,7 @@ theorem no_proof_of_Empty_input_S (V : Type u) [SetTheory V]
   | cons d ds ih =>
     intro fe fe' hfe hm hE1 h hd
     simp only [List.foldlM, Bind.bind, Except.bind] at h
-    cases hdd : checkDeclSharedF fe d with
+    cases hdd : checkDeclSharedF mode fe d with
     | error e => rw [hdd] at h; exact nomatch h
     | ok fe1 =>
       rw [hdd] at h
@@ -104,7 +106,7 @@ theorem no_proof_of_Empty_input_S (V : Type u) [SetTheory V]
       · obtain ⟨type, hann, c, hc, hcv⟩ := checkDecl_stores hF hdis
         rw [hty] at hann
         obtain rfl : Expr.const emptyName [] = type := by
-          have h1 : annotateCore fe.env F 0 (.const emptyName []) =
+          have h1 : annotateCore mode fe.env F 0 (.const emptyName []) =
               .ok type := hann
           cases F with
           | zero =>
@@ -132,7 +134,7 @@ executable checker**: if it accepts a declaration list, no constant in
 the resulting environment has type `Empty`. -/
 theorem no_proof_of_Empty_S (V : Type u) [SetTheory V]
     {ds : List Declaration} {env' : Env}
-    (h : checkDeclsShared ds = .ok env')
+    (h : checkDeclsShared mode ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
   obtain ⟨m⟩ := checkDeclsS_sound V h

@@ -16,6 +16,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open EStore Expr
 
 /-- Collapse a `denoteNode … = some x` hypothesis for a *default* match
@@ -76,13 +78,13 @@ section Walks
 variable {env : Env} {f : Nat}
 
 
-theorem defEqListI_sim (ih : SSimI env f) {d : Nat} :
+theorem defEqListI_sim (ih : SSimI mode env f) {d : Nat} :
     ∀ {args : List EIdx} {xs : List Expr} {brgs : List EIdx}
-      {ys : List Expr} {s₀ : IState}, ISOK env s₀ →
+      {ys : List Expr} {s₀ : IState}, ISOK mode env s₀ →
       DenL s₀.store args xs → DenL s₀.store brgs ys →
       (∀ x ∈ xs, WScoped d x) → (∀ y ∈ ys, WScoped d y) →
-      SimAt env s₀ RelV (defEqListI (coreKnotI (mkFEnv env) f) (mkFEnv env) d args brgs)
-        (defEqList (fueledFns env) env d xs ys) := by
+      SimAt mode env s₀ RelV (defEqListI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d args brgs)
+        (defEqList (fueledFns mode env) env d xs ys) := by
   intro args
   induction args with
   | nil =>
@@ -101,11 +103,11 @@ theorem defEqListI_sim (ih : SSimI env f) {d : Nat} :
       | [], [], _ => exact SimAt.pure hs rfl
       | [], _ :: _, h | _ :: _, [], h => exact absurd h (by simp [DenL])
       | b :: bs, y :: ys, ⟨hby, hbsys⟩ =>
-        show SimAt env s₀ RelV
-          ((coreKnotI (mkFEnv env) f).defeq d a b >>= fun r =>
-            if r then defEqListI (coreKnotI (mkFEnv env) f) (mkFEnv env) d as bs else pure false)
-          ((fueledFns env).defeq d x y >>= fun r =>
-            if r then defEqList (fueledFns env) env d xs ys else pure false)
+        show SimAt mode env s₀ RelV
+          ((coreKnotI mode (mkFEnv env) f).defeq d a b >>= fun r =>
+            if r then defEqListI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d as bs else pure false)
+          ((fueledFns mode env).defeq d x y >>= fun r =>
+            if r then defEqList (fueledFns mode env) env d xs ys else pure false)
         refine SimAt.bind (ih.defeq hs hax hby
           (hwx x (List.mem_cons_self ..)) (hwy y (List.mem_cons_self ..)))
           (fun s₁ rb r hs₁ hext₁ hP => ?_)
@@ -120,15 +122,15 @@ theorem defEqListI_sim (ih : SSimI env f) {d : Nat} :
           simp only [Bool.false_eq_true, ↓reduceIte]
           exact SimAt.pure hs₁ rfl
 
-theorem iotaCertsIAux_sim (ih : SSimI env f) {d : Nat} :
+theorem iotaCertsIAux_sim (ih : SSimI mode env f) {d : Nat} :
     ∀ {args : List EIdx} {xs : List Expr} {acc : List EIdx}
-      {ws : List Expr} {ty : EIdx} {tyx : Expr} {s₀ : IState}, ISOK env s₀ →
+      {ws : List Expr} {ty : EIdx} {tyx : Expr} {s₀ : IState}, ISOK mode env s₀ →
       s₀.store.denoteT ty = some tyx → DenL s₀.store acc ws →
       WScoped d (tyx.instantiateList ws) →
       DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
-      SimAt env s₀ RelV
-        (iotaCertsIAux (coreKnotI (mkFEnv env) f) (mkFEnv env) d ty acc args)
-        (iotaCerts (fueledFns env) env d (tyx.instantiateList ws) xs)
+      SimAt mode env s₀ RelV
+        (iotaCertsIAux (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d ty acc args)
+        (iotaCerts (fueledFns mode env) env d (tyx.instantiateList ws) xs)
   | [], xs, acc, ws, ty, tyx, s₀, hs, hty, hacc, hwty, hargs, hwargs => by
     match xs, hargs with
     | [], _ =>
@@ -159,16 +161,16 @@ theorem iotaCertsIAux_sim (ih : SSimI env f) {d : Nat} :
         have hwtb : WScoped d (et.instantiateList ws)
             ∧ WScoped d (eb.instantiateList ws 1) := by
           simpa only [WScoped] using hwty
-        show SimAt env s₀ RelV
+        show SimAt mode env s₀ RelV
           (instListM t acc >>= fun dom' =>
-            (coreKnotI (mkFEnv env) f).infer d a >>= fun ta =>
-            (coreKnotI (mkFEnv env) f).defeq d ta dom' >>= fun r =>
-            if r then iotaCertsIAux (coreKnotI (mkFEnv env) f)
+            (coreKnotI mode (mkFEnv env) f).infer d a >>= fun ta =>
+            (coreKnotI mode (mkFEnv env) f).defeq d ta dom' >>= fun r =>
+            if r then iotaCertsIAux (coreKnotI mode (mkFEnv env) f)
               (mkFEnv env) d b (a :: acc) as
             else pure false)
-          ((fueledFns env).infer d x >>= fun ta =>
-            (fueledFns env).defeq d ta (et.instantiateList ws) >>= fun r =>
-            if r then iotaCerts (fueledFns env) env d
+          ((fueledFns mode env).infer d x >>= fun ta =>
+            (fueledFns mode env).defeq d ta (et.instantiateList ws) >>= fun r =>
+            if r then iotaCerts (fueledFns mode env) env d
               ((eb.instantiateList ws 1).instantiate1 x) xs
             else pure false)
         have hwx : WScoped d x := hwargs x (List.mem_cons_self ..)
@@ -203,11 +205,11 @@ theorem iotaCertsIAux_sim (ih : SSimI env f) {d : Nat} :
           rw [Expr.instantiateList_nil]
           exact SimAt.pure hs rfl
         | a' :: acc', w :: ws', hacc =>
-          show SimAt env s₀ RelV
+          show SimAt mode env s₀ RelV
             (instListM ty (a' :: acc') >>= fun ty' =>
-              iotaCertsIAux (coreKnotI (mkFEnv env) f) (mkFEnv env)
+              iotaCertsIAux (coreKnotI mode (mkFEnv env) f) (mkFEnv env)
                 d ty' [] (a :: as))
-            (iotaCerts (fueledFns env) env d
+            (iotaCerts (fueledFns mode env) env d
               ((Expr.bvar k).instantiateList (w :: ws')) (x :: xs))
           refine SimAt.bind_left (instListM_eff (d := 0) hs hty hacc)
             (fun s₁ ty' hs₁ hext₁ hQty => ?_)
@@ -296,13 +298,13 @@ decreasing_by
     · rw [hacceq]; simp
   · apply Prod.Lex.left; simp
 
-theorem iotaCertsI_sim (ih : SSimI env f) {d : Nat} :
+theorem iotaCertsI_sim (ih : SSimI mode env f) {d : Nat} :
     ∀ {args : List EIdx} {xs : List Expr} {ty : EIdx} {tyx : Expr}
-      {s₀ : IState}, ISOK env s₀ →
+      {s₀ : IState}, ISOK mode env s₀ →
       s₀.store.denoteT ty = some tyx → WScoped d tyx →
       DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
-      SimAt env s₀ RelV (iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d ty args)
-        (iotaCerts (fueledFns env) env d tyx xs) := by
+      SimAt mode env s₀ RelV (iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d ty args)
+        (iotaCerts (fueledFns mode env) env d tyx xs) := by
   intro args xs ty tyx s₀ hs hty hwty hargs hwargs
   have := iotaCertsIAux_sim ih (acc := []) (ws := []) hs hty DenL.nil
     (by rw [Expr.instantiateList_nil]; exact hwty) hargs hwargs
@@ -315,18 +317,18 @@ section Walks2
 
 variable {env : Env} {f : Nat}
 
-theorem ensureSortI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e : Expr}
-    {s₀ : IState} (hs : ISOK env s₀)
+theorem ensureSortI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx} {e : Expr}
+    {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some e) (hw : WScoped d e) :
-    SimAt env s₀ RelL (ensureSortI (coreKnotI (mkFEnv env) f) d i)
-      (ensureSort (fueledFns env) env d e) := by
-  show SimAt env s₀ RelL
-    ((coreKnotI (mkFEnv env) f).whnf d i >>= fun w =>
+    SimAt mode env s₀ RelL (ensureSortI (coreKnotI mode (mkFEnv env) f) d i)
+      (ensureSort (fueledFns mode env) env d e) := by
+  show SimAt mode env s₀ RelL
+    ((coreKnotI mode (mkFEnv env) f).whnf d i >>= fun w =>
       viewI w >>= fun n =>
       match n with
       | some (.sort u) => pure u
       | _ => throw (.invalid "expected a sort"))
-    ((fueledFns env).whnf d e >>= fun w =>
+    ((fueledFns mode env).whnf d e >>= fun w =>
       match w with
       | .sort u => pure u
       | _ => throw (.invalid "expected a sort"))
@@ -357,11 +359,11 @@ theorem ensureSortI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e : Expr}
 
 /-- `litToCtorIfNatI` computes (an index denoting) the spec's
 `litToCtorIfNat`. -/
-theorem litToCtorIfNatI_eff {s₀ : IState} (hs : ISOK env s₀)
+theorem litToCtorIfNatI_eff {s₀ : IState} (hs : ISOK mode env s₀)
     {i : EIdx} {e : Expr} (hden : s₀.store.denoteT i = some e) :
-    IEff env s₀ (fun s r => s.store.denoteT r = some (litToCtorIfNat env e))
+    IEff mode env s₀ (fun s r => s.store.denoteT r = some (litToCtorIfNat env e))
       (litToCtorIfNatI (mkFEnv env) i) := by
-  show IEff env s₀ _ (viewI i >>= fun n =>
+  show IEff mode env s₀ _ (viewI i >>= fun n =>
     match n with
     | some (.lit (.natVal n)) =>
       if natLitSupportedF (mkFEnv env) then
@@ -424,11 +426,11 @@ theorem litToCtorIfNatI_eff {s₀ : IState} (hs : ISOK env s₀)
 
 /-- `unfoldDefinitionI` computes (an optional index denoting) the
 spec's pure `unfoldDefinition`. -/
-theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
+theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK mode env s₀)
     {i : EIdx} {e : Expr} (hden : s₀.store.denoteT i = some e) :
-    IEff env s₀ (fun s o => OptDen s.store o (unfoldDefinition env e))
+    IEff mode env s₀ (fun s o => OptDen s.store o (unfoldDefinition env e))
       (unfoldDefinitionI (mkFEnv env) i) := by
-  show IEff env s₀ _
+  show IEff mode env s₀ _
     (Setlec.withStore (fun st => st.getNode (st.getAppFnI i)) >>= fun n =>
       match n with
       | some (.const n us) => do
@@ -600,28 +602,28 @@ variable {env : Env} {f : Nat}
 /-- A twin-only effect against a pure fueled value. -/
 theorem SimAt.of_eff {s₀ : IState} {β α : Type} {Q : IState → β → Prop}
     {P : IState → β → α → Prop} {c : CheckIM β}
-    (h : IEff env s₀ Q c) (a : α) (hPa : ∀ s b, Q s b → P s b a) :
-    SimAt env s₀ P c (pure a) := by
+    (h : IEff mode env s₀ Q c) (a : α) (hPa : ∀ s b, Q s b → P s b a) :
+    SimAt mode env s₀ P c (pure a) := by
   intro v' s' hr
   obtain ⟨hs', hext, hQ⟩ := h v' s' hr
   exact ⟨hs', hext, a, hPa s' v' hQ, 0, rfl⟩
 
-theorem litMajorToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
-    {e : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem litMajorToCtorI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
+    {e : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some e) (hw : WScoped d e) :
-    SimAt env s₀ (RelE d)
-      (litMajorToCtorI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-      (litMajorToCtor (fueledFns env) env d e) := by
-  show SimAt env s₀ (RelE d)
+    SimAt mode env s₀ (RelE d)
+      (litMajorToCtorI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (litMajorToCtor (fueledFns mode env) env d e) := by
+  show SimAt mode env s₀ (RelE d)
     (viewI i >>= fun n =>
       match n with
       | some (.lit (.strVal s)) =>
         if strLitSupportedF (mkFEnv env) then do
           let x ← internExprM (strLitToConstructor s)
-          (coreKnotI (mkFEnv env) f).whnf d x
+          (coreKnotI mode (mkFEnv env) f).whnf d x
         else pure i
       | _ => litToCtorIfNatI (mkFEnv env) i)
-    (litMajorToCtor (fueledFns env) env d e)
+    (litMajorToCtor (fueledFns mode env) env d e)
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv hden
   rw [hn]
@@ -631,9 +633,9 @@ theorem litMajorToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     cases l with
     | strVal str =>
       dsimp only
-      rw [show litMajorToCtor (fueledFns env) env d (.lit (.strVal str)) =
+      rw [show litMajorToCtor (fueledFns mode env) env d (.lit (.strVal str)) =
         (if strLitSupported env then
-          (fueledFns env).whnf d (strLitToConstructor str)
+          (fueledFns mode env).whnf d (strLitToConstructor str)
          else pure (.lit (.strVal str))) from rfl]
       rw [strLitSupportedF_eq]
       by_cases hg : strLitSupported env
@@ -688,22 +690,22 @@ theorem litMajorToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     refine SimAt.of_eff (litToCtorIfNatI_eff hs hden) _
       (fun s b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
 
-theorem projLitToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
-    {e : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem projLitToCtorI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
+    {e : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some e) (hw : WScoped d e) :
-    SimAt env s₀ (RelE d)
-      (projLitToCtorI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-      (projLitToCtor (fueledFns env) env d e) := by
-  show SimAt env s₀ (RelE d)
+    SimAt mode env s₀ (RelE d)
+      (projLitToCtorI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (projLitToCtor (fueledFns mode env) env d e) := by
+  show SimAt mode env s₀ (RelE d)
     (viewI i >>= fun n =>
       match n with
       | some (.lit (.strVal s)) =>
         if strLitSupportedF (mkFEnv env) then do
           let x ← internExprM (strLitToConstructor s)
-          (coreKnotI (mkFEnv env) f).whnf d x
+          (coreKnotI mode (mkFEnv env) f).whnf d x
         else pure i
       | _ => pure i)
-    (projLitToCtor (fueledFns env) env d e)
+    (projLitToCtor (fueledFns mode env) env d e)
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv hden
   rw [hn]
@@ -713,9 +715,9 @@ theorem projLitToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     cases l with
     | strVal str =>
       dsimp only
-      rw [show projLitToCtor (fueledFns env) env d (.lit (.strVal str)) =
+      rw [show projLitToCtor (fueledFns mode env) env d (.lit (.strVal str)) =
         (if strLitSupported env then
-          (fueledFns env).whnf d (strLitToConstructor str)
+          (fueledFns mode env).whnf d (strLitToConstructor str)
          else pure (.lit (.strVal str))) from rfl]
       rw [strLitSupportedF_eq]
       by_cases hg : strLitSupported env
@@ -759,15 +761,15 @@ theorem projLitToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     invert_node hd
     exact SimAt.pure hs ⟨hden, hw⟩
 
-theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
-    {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem defeqSpineI_sim (ih : SSimI mode env f) {d : Nat} {i j : EIdx}
+    {a b : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hdena : s₀.store.denoteT i = some a)
     (hdenb : s₀.store.denoteT j = some b)
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    SimAt env s₀ RelV
-      (defeqSpineI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i j)
-      (defeqSpine (fueledFns env) env d a b) := by
-  show SimAt env s₀ RelV
+    SimAt mode env s₀ RelV
+      (defeqSpineI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (defeqSpine (fueledFns mode env) env d a b) := by
+  show SimAt mode env s₀ RelV
     (Setlec.withStore (fun st => st.getNode (st.getAppFnI i)) >>= fun n =>
       match n with
       | some (.const nm us) =>
@@ -779,16 +781,16 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
           if nm = nm' ∧ aargs.length = bargs.length then do
             match ← isEquivListLM us us' with
             | some true =>
-              defEqListI (coreKnotI (mkFEnv env) f) (mkFEnv env) d aargs bargs
+              defEqListI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d aargs bargs
             | _ => pure false
           else pure false
         | _ => pure false
       | _ => pure false)
-    (defeqSpine (fueledFns env) env d a b)
+    (defeqSpine (fueledFns mode env) env d a b)
   refine SimAt.withStore ?_
   obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv (getAppFnI_spec hs.wf hdena)
   rw [hn]
-  have hspec : defeqSpine (fueledFns env) env d a b =
+  have hspec : defeqSpine (fueledFns mode env) env d a b =
       (match a.getAppFn with
       | .const nm us =>
         match b.getAppFn with
@@ -796,7 +798,7 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
           if nm = nm' ∧ a.getAppArgs.length = b.getAppArgs.length then
             match Level.isEquivList us us' with
             | some true =>
-              defEqList (fueledFns env) env d a.getAppArgs b.getAppArgs
+              defEqList (fueledFns mode env) env d a.getAppArgs b.getAppArgs
             | _ => pure false
           else pure false
         | _ => pure false
@@ -966,13 +968,13 @@ private theorem relO_some_lit {s : IState} {r : EIdx} {n : Nat} {d : Nat}
     RelO d s (some r) (some (.lit (.natVal n))) :=
   ⟨h, by simp [WScoped]⟩
 
-theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
-    {e : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem reduceNatI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
+    {e : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some e) (hw : WScoped d e) :
-    SimAt env s₀ (RelO d)
-      (reduceNatI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-      (reduceNat (fueledFns env) env d e) := by
-  show SimAt env s₀ (RelO d)
+    SimAt mode env s₀ (RelO d)
+      (reduceNatI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (reduceNat (fueledFns mode env) env d e) := by
+  show SimAt mode env s₀ (RelO d)
     (viewI i >>= fun n =>
       match n with
       | some (.app f₁ b) =>
@@ -984,7 +986,7 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
           | [] =>
             readbackNM c >>= fun cn =>
             if cn = natSuccName ∧ natLitSupportedF (mkFEnv env) then
-              (coreKnotI (mkFEnv env) f).whnf d b >>= fun w =>
+              (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w =>
               Setlec.withStore (rawNatLitI? · w) >>= fun rn =>
               match rn with
               | some n => do
@@ -992,7 +994,7 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
                 pure (some r)
               | none => pure none
             else if cn = natPredName ∧ natOpGuardF (mkFEnv env) cn = true then
-              (coreKnotI (mkFEnv env) f).whnf d b >>= fun w =>
+              (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w =>
               Setlec.withStore (rawNatLitI? · w) >>= fun rn =>
               match rn with
               | some n =>
@@ -1003,7 +1005,7 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
                 | none => pure none
               | none => pure none
             else if cn = natLog2Name ∧ natOpGuardF (mkFEnv env) cn = true then
-              (coreKnotI (mkFEnv env) f).whnf d b >>= fun w =>
+              (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w =>
               Setlec.withStore (rawNatLitI? · w) >>= fun rn =>
               match rn with
               | some n =>
@@ -1014,7 +1016,7 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
                 | none => pure none
               | none => pure none
             else if cn = natLog2Name ∧ natLitSupportedF (mkFEnv env) then
-              (coreKnotI (mkFEnv env) f).whnf d b >>= fun w =>
+              (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w =>
               Setlec.withStore (rawNatLitI? · w) >>= fun rn =>
               match rn with
               | some _ => throw (.notImplemented
@@ -1035,8 +1037,8 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
                   cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
                   cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
                   natOpGuardF (mkFEnv env) cn = true then
-                (coreKnotI (mkFEnv env) f).whnf d a >>= fun w₁ =>
-                (coreKnotI (mkFEnv env) f).whnf d b >>= fun w₂ =>
+                (coreKnotI mode (mkFEnv env) f).whnf d a >>= fun w₁ =>
+                (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w₂ =>
                 Setlec.withStore (rawNatLitI? · w₁) >>= fun rn₁ =>
                 Setlec.withStore (rawNatLitI? · w₂) >>= fun rn₂ =>
                 match rn₁, rn₂ with
@@ -1049,8 +1051,8 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
                 | _, _ => pure none
               else if natOpWfNames.contains cn ∧
                   natLitSupportedF (mkFEnv env) then
-                (coreKnotI (mkFEnv env) f).whnf d a >>= fun w₁ =>
-                (coreKnotI (mkFEnv env) f).whnf d b >>= fun w₂ =>
+                (coreKnotI mode (mkFEnv env) f).whnf d a >>= fun w₁ =>
+                (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w₂ =>
                 Setlec.withStore (rawNatLitI? · w₁) >>= fun rn₁ =>
                 Setlec.withStore (rawNatLitI? · w₂) >>= fun rn₂ =>
                 match rn₁, rn₂ with
@@ -1061,7 +1063,7 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
           | _ => pure none
         | _ => pure none
       | _ => pure none)
-    (reduceNat (fueledFns env) env d e)
+    (reduceNat (fueledFns mode env) env d e)
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv hden
   rw [hn]
@@ -1097,24 +1099,24 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
           (fun s₀' cv hs hext' hcv => ?_)
         subst cv
         replace hb := denoteT_mono hext' hb
-        rw [show reduceNat (fueledFns env) env d (.app (.const c []) xb) =
+        rw [show reduceNat (fueledFns mode env) env d (.app (.const c []) xb) =
           (if c = natSuccName ∧ natLitSupported env then
-            (fueledFns env).whnf d xb >>= fun w =>
+            (fueledFns mode env).whnf d xb >>= fun w =>
             match rawNatLit? w with
             | some n => pure (some (.lit (.natVal (n + 1))))
             | none => pure none
           else if c = natPredName ∧ natOpGuard env c = true then
-            (fueledFns env).whnf d xb >>= fun w =>
+            (fueledFns mode env).whnf d xb >>= fun w =>
             match rawNatLit? w with
             | some n => pure (natOpResult c n 0)
             | none => pure none
           else if c = natLog2Name ∧ natOpGuard env c = true then
-            (fueledFns env).whnf d xb >>= fun w =>
+            (fueledFns mode env).whnf d xb >>= fun w =>
             match rawNatLit? w with
             | some n => pure (natOpResult c n 0)
             | none => pure none
           else if c = natLog2Name ∧ natLitSupported env then
-            (fueledFns env).whnf d xb >>= fun w =>
+            (fueledFns mode env).whnf d xb >>= fun w =>
             match rawNatLit? w with
             | some _ => throw (.notImplemented
                 s!"native Nat computation on literals ({c})")
@@ -1221,7 +1223,7 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
           subst cv
           replace hb := denoteT_mono hext' hb
           replace ha := denoteT_mono hext' ha
-          rw [show reduceNat (fueledFns env) env d
+          rw [show reduceNat (fueledFns mode env) env d
             (.app (.app (.const c []) xa) xb) =
             (if (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
                 c = natPowName ∨ c = natBeqName ∨ c = natBleName ∨
@@ -1229,14 +1231,14 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
                 c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
                 c = natShiftLeftName ∨ c = natShiftRightName) ∧
                 natOpGuard env c = true then
-              (fueledFns env).whnf d xa >>= fun w₁ =>
-              (fueledFns env).whnf d xb >>= fun w₂ =>
+              (fueledFns mode env).whnf d xa >>= fun w₁ =>
+              (fueledFns mode env).whnf d xb >>= fun w₂ =>
               match rawNatLit? w₁, rawNatLit? w₂ with
               | some n₁, some n₂ => pure (natOpResult c n₁ n₂)
               | _, _ => pure none
             else if natOpWfNames.contains c ∧ natLitSupported env then
-              (fueledFns env).whnf d xa >>= fun w₁ =>
-              (fueledFns env).whnf d xb >>= fun w₂ =>
+              (fueledFns mode env).whnf d xa >>= fun w₁ =>
+              (fueledFns mode env).whnf d xb >>= fun w₂ =>
               match rawNatLit? w₁, rawNatLit? w₂ with
               | some _, some _ => throw (.notImplemented
                   s!"native Nat computation on literals ({c})")
@@ -1348,13 +1350,13 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
 /-- `reduceNatI_sim` under the defeq-side fvar guard (the guard is the
 same `Bool` on both sides after the `hasFvarI` read is peeled, so the
 pruned branch is `pure none` twinned). -/
-theorem reduceNatIfI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
-    {e : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem reduceNatIfI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
+    {e : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some e) (hw : WScoped d e) (g : Bool) :
-    SimAt env s₀ (RelO d)
-      (if g then reduceNatI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i
+    SimAt mode env s₀ (RelO d)
+      (if g then reduceNatI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i
         else pure none)
-      (if g then reduceNat (fueledFns env) env d e else pure none) := by
+      (if g then reduceNat (fueledFns mode env) env d e else pure none) := by
   cases g
   · exact SimAt.pure hs trivial
   · exact reduceNatI_sim ih hs hden hw

@@ -13,6 +13,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
@@ -28,9 +30,9 @@ through `modeled_caps_eta`.  The unit law of a freshly installed
 unit-like former is discharged here, through `modeled_caps_unit`. -/
 theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     {env' env₁ : Env} {ci : ConstantInfo}
-    (h : checkIndMember (fueledOps F) blockNames caps env' ci = .ok env₁)
+    (h : checkIndMember (fueledOps mode F) blockNames caps env' ci = .ok env₁)
     (hpins : ∀ cv caps₂, ci = .indInfo cv caps₂ →
-      EtaPins env' cv.name cv.levelParams caps)
+      EtaPins mode env' cv.name cv.levelParams caps)
     (hbn : blockNames.contains ci.name = true)
     (m : EnvModel V env') (hI : BlockInstalled blockNames env' m.val)
     (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps),
@@ -174,10 +176,10 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
           injection heq with hcv hcaps
           subst hcv
           subst hcaps
-          have hpinsA : EtaPins env' cvA.name cvA.levelParams caps := by
+          have hpinsA : EtaPins mode env' cvA.name cvA.levelParams caps := by
             rw [hnameA, hlpsA]
             exact hpins cv caps' rfl
-          have hpins₁ : EtaPins ⟨.indInfo cvA caps :: env'.consts⟩
+          have hpins₁ : EtaPins mode ⟨.indInfo cvA caps :: env'.consts⟩
               cvA.name cvA.levelParams caps :=
             EtaPins.step hpinsA hfind'
           have hren₁ : ∀ cvmT mvalT hm,
@@ -258,8 +260,8 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps}
     (∀ ci ∈ rest, blockNames.contains ci.name = true) →
     (∀ cv caps₂,
       (ConstantInfo.indInfo cv caps₂) ∈ rest →
-      EtaPins env' cv.name cv.levelParams caps) →
-    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+      EtaPins mode env' cv.name cv.levelParams caps) →
+    rest.foldlM (checkIndMember (fueledOps mode F) blockNames caps) env' = .ok env₂ →
     ∀ m : EnvModel V env', BlockInstalled blockNames env' m.val →
     EtaFamiliesClosedO blockNames env' →
     BlockCapsPinned blockNames caps env' →
@@ -272,7 +274,7 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps}
   | ci :: rest, env', env₂, hns, hp, h, m, hI, hE1O, hBcaps => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci with
+    cases hstep : checkIndMember (fueledOps mode F) blockNames caps env' ci with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_
     rw [hstep] at h

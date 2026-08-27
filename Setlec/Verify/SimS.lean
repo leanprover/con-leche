@@ -28,6 +28,8 @@ The driver-level walks composing these along `checkDeclSF` are in
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open EStore Expr
 
 /-! ## The incremental index -/
@@ -47,7 +49,7 @@ theorem flushS_run (s : IState) :
 surviving components are the environment-free residue (`ISOKF`), the
 dropped caches' clauses are vacuous. -/
 theorem flushS_isok {env' : Env} {s : IState} (hs : ISOKF s) :
-    ISOK env' s.flushed := by
+    ISOK mode env' s.flushed := by
   refine ⟨hs.wf.toTWF, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz,
     hs.eqv, hs.ienv⟩ <;>
     (intros; simp_all [IState.flushed])
@@ -74,16 +76,16 @@ private theorem fueledM_bind_pure {α : Type} (x : FueledM α) :
 arena, run the simulated knot entry, read back. -/
 theorem opE_sim {pick : CoreFnsI → Nat → EIdx → CheckIM EIdx}
     {pf : FueledM Expr} {d : Nat} {e : Expr}
-    (hsim : ∀ {s₁ : IState} {i : EIdx}, ISOK env s₁ →
+    (hsim : ∀ {s₁ : IState} {i : EIdx}, ISOK mode env s₁ →
       s₁.store.denoteT i = some e →
-      SimAt env s₁ (RelE d)
-        (pick (coreKnotI (mkFEnv env) checkFuel) d i) pf)
-    (hs : ISOK env s₀) :
-    SimAt env s₀ (RelW d) (opE (mkFEnv env) pick d e) pf := by
+      SimAt mode env s₁ (RelE d)
+        (pick (coreKnotI mode (mkFEnv env) checkFuel) d i) pf)
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ (RelW d) (opE mode (mkFEnv env) pick d e) pf := by
   rw [← fueledM_bind_pure pf]
-  show SimAt env s₀ (RelW d)
+  show SimAt mode env s₀ (RelW d)
     (internExprM e >>= fun i =>
-      pick (coreKnotI (mkFEnv env) checkFuel) d i >>= fun j =>
+      pick (coreKnotI mode (mkFEnv env) checkFuel) d i >>= fun j =>
       withStore (fun st => st.readbackI j) >>= fun ro =>
       match ro with
       | some v => pure v
@@ -99,37 +101,37 @@ theorem opE_sim {pick : CoreFnsI → Nat → EIdx → CheckIM EIdx}
 /-- Shared `annotate` simulates the fueled family, from any invariant
 state. -/
 theorem opE_annotate_sim (henv : EnvWF env) {d : Nat} {e : Expr}
-    (hs : ISOK env s₀) (hw : WScoped d e) :
-    SimAt env s₀ (RelW d) (opE (mkFEnv env) (·.annotate) d e)
-      (fueledOpsM.annotate env d e) :=
+    (hs : ISOK mode env s₀) (hw : WScoped d e) :
+    SimAt mode env s₀ (RelW d) (opE mode (mkFEnv env) (·.annotate) d e)
+      ((fueledOpsM mode).annotate env d e) :=
   opE_sim (fun hs₁ hden =>
     (ssimI env henv checkFuel).annotate hs₁ hden hw) hs
 
 /-- Shared `inferType` simulates the fueled family. -/
 theorem opE_infer_sim (henv : EnvWF env) {d : Nat} {e : Expr}
-    (hs : ISOK env s₀) (hw : WScoped d e) :
-    SimAt env s₀ (RelW d) (opE (mkFEnv env) (·.infer) d e)
-      (fueledOpsM.inferType env d e) :=
+    (hs : ISOK mode env s₀) (hw : WScoped d e) :
+    SimAt mode env s₀ (RelW d) (opE mode (mkFEnv env) (·.infer) d e)
+      ((fueledOpsM mode).inferType env d e) :=
   opE_sim (fun hs₁ hden =>
     (ssimI env henv checkFuel).infer hs₁ hden hw) hs
 
 /-- Shared `whnf` simulates the fueled family. -/
 theorem opE_whnf_sim (henv : EnvWF env) {d : Nat} {e : Expr}
-    (hs : ISOK env s₀) (hw : WScoped d e) :
-    SimAt env s₀ (RelW d) (opE (mkFEnv env) (·.whnf) d e)
-      (fueledOpsM.whnf env d e) :=
+    (hs : ISOK mode env s₀) (hw : WScoped d e) :
+    SimAt mode env s₀ (RelW d) (opE mode (mkFEnv env) (·.whnf) d e)
+      ((fueledOpsM mode).whnf env d e) :=
   opE_sim (fun hs₁ hden =>
     (ssimI env henv checkFuel).whnf hs₁ hden hw) hs
 
 /-- Shared `isDefEq` simulates the fueled family. -/
 theorem opB_sim (henv : EnvWF env) {d : Nat} {a b : Expr}
-    (hs : ISOK env s₀) (hwa : WScoped d a) (hwb : WScoped d b) :
-    SimAt env s₀ RelV (opB (mkFEnv env) d a b)
-      (fueledOpsM.isDefEq env d a b) := by
-  show SimAt env s₀ RelV
+    (hs : ISOK mode env s₀) (hwa : WScoped d a) (hwb : WScoped d b) :
+    SimAt mode env s₀ RelV (opB mode (mkFEnv env) d a b)
+      ((fueledOpsM mode).isDefEq env d a b) := by
+  show SimAt mode env s₀ RelV
     (internExprM a >>= fun i => internExprM b >>= fun j =>
-      (coreKnotI (mkFEnv env) checkFuel).defeq d i j)
-    (fueledOpsM.isDefEq env d a b)
+      (coreKnotI mode (mkFEnv env) checkFuel).defeq d i j)
+    ((fueledOpsM mode).isDefEq env d a b)
   refine SimAt.bind_left (internExprM_eff hs a)
     (fun s₁ i hs₁ hext₁ hdena => ?_)
   refine SimAt.bind_left (internExprM_eff hs₁ b)
@@ -139,16 +141,16 @@ theorem opB_sim (henv : EnvWF env) {d : Nat} {a b : Expr}
 
 /-- Shared `ensureSort` simulates the fueled family. -/
 theorem opS_sim (henv : EnvWF env) {d : Nat} {e : Expr}
-    (hs : ISOK env s₀) (hw : WScoped d e) :
-    SimAt env s₀ RelV (opS (mkFEnv env) d e)
-      (fueledOpsM.ensureSort env d e) := by
-  have h1 : SimAt env s₀ RelV (opS (mkFEnv env) d e)
-      (ensureSort (fueledFns env) env d e >>= pure) := by
-    show SimAt env s₀ RelV
+    (hs : ISOK mode env s₀) (hw : WScoped d e) :
+    SimAt mode env s₀ RelV (opS mode (mkFEnv env) d e)
+      ((fueledOpsM mode).ensureSort env d e) := by
+  have h1 : SimAt mode env s₀ RelV (opS mode (mkFEnv env) d e)
+      (ensureSort (fueledFns mode env) env d e >>= pure) := by
+    show SimAt mode env s₀ RelV
       (internExprM e >>= fun i =>
-        ensureSortI (coreKnotI (mkFEnv env) checkFuel) d i >>= fun u =>
+        ensureSortI (coreKnotI mode (mkFEnv env) checkFuel) d i >>= fun u =>
         readbackLevelM u)
-      (ensureSort (fueledFns env) env d e >>= pure)
+      (ensureSort (fueledFns mode env) env d e >>= pure)
     refine SimAt.bind_left (internExprM_eff hs e)
       (fun s₁ i hs₁ hext₁ hden => ?_)
     refine SimAt.bind
@@ -159,7 +161,7 @@ theorem opS_sim (henv : EnvWF env) {d : Nat} {e : Expr}
   refine SimAt.wr h1 (fun u F h => ⟨F, ?_⟩)
   rw [FueledM.atF_bind] at h
   simp only [Bind.bind] at h
-  cases hx : (ensureSort (fueledFns env) env d e).val F with
+  cases hx : (ensureSort (fueledFns mode env) env d e).val F with
   | error er =>
     rw [hx] at h
     exact nomatch h

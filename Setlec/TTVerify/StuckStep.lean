@@ -14,6 +14,12 @@ where §8.6's factoring rule puts them: at functions the checker names.
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- `stuckIrrel`'s verdict yields an equation: the five rescues (pair
@@ -22,7 +28,7 @@ irrelevance last. -/
 def StuckIrrelStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {a b : Expr},
-    stuckIrrelP env fuel d a b = .ok true →
+    stuckIrrelP mode env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -37,7 +43,7 @@ def EtaCertStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {n : Name} {ty body b : Expr}
     {mb : BinderMeta},
-    etaCertP env fuel d n ty body mb b = .ok true →
+    etaCertP mode env fuel d n ty body mb b = .ok true →
     Expr.WScoped d (.lam n ty body mb) →
     (Expr.lam n ty body mb).looseBVarsBounded 0 = true →
     Expr.LeavesBounded (.lam n ty body mb) →
@@ -170,12 +176,12 @@ equation the checker just certified. -/
 /-- The two equations a binder congruence needs: the domains, and the
 opened bodies in the context the first domain extends. -/
 theorem binder_congr {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (ihd : DefEqClaimsTT m φ fuel)
+    {fuel : Nat} (ihd : DefEqClaimsTT mode m φ fuel)
     (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     {d : Nat} {Δ : List VExpr} {n₁ n₂ : Name}
     {ty₁ ty₂ body₁ body₂ : Expr} {A₁ B₁ A₂ B₂ : VExpr}
-    (hty : isDefEqCore env fuel d ty₁ ty₂ = .ok true)
-    (hbody : isDefEqCore env fuel (d + 1)
+    (hty : isDefEqCore mode env fuel d ty₁ ty₂ = .ok true)
+    (hbody : isDefEqCore mode env fuel (d + 1)
       (body₁.instantiate1 (.fvar d n₁ ty₁))
       (body₂.instantiate1 (.fvar d n₂ ty₂)) = .ok true)
     (hw1 : Expr.WScoped d ty₁ ∧ Expr.WScoped d body₁)
@@ -239,7 +245,7 @@ walk is ten rewrites, the block is the content. -/
 
 /-- **`DefEqStuckStepTT`, discharged.** -/
 theorem defeqStuck_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (ihd : DefEqClaimsTT m φ fuel)
+    {fuel : Nat} (ihd : DefEqClaimsTT mode m φ fuel)
     (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (hsi : StuckIrrelStepTT m φ fuel) (hec : EtaCertStepTT m φ fuel) :
     DefEqStuckStepTT m φ fuel := by
@@ -382,7 +388,7 @@ theorem defeqStuck_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     · rw [if_neg hnn] at h
       exact hsi h hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hva' hvb'
   case h_11 _ _ n₁ ty₁ body₁ mb₁ n₂ ty₂ body₂ mb₂ =>
-    cases hty : isDefEqCore env fuel d ty₁ ty₂ with
+    cases hty : isDefEqCore mode env fuel d ty₁ ty₂ with
     | error err => rw [hty] at h; exact nomatch h
     | ok v =>
       rw [hty] at h
@@ -428,7 +434,7 @@ theorem defeqStuck_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
         obtain ⟨T', hT'⟩ := hDB
         exact ⟨.sort 0, HasType.congrPi hT hT'⟩
   case h_12 _ _ n₁ ty₁ body₁ mb₁ n₂ ty₂ body₂ mb₂ =>
-    cases hty : isDefEqCore env fuel d ty₁ ty₂ with
+    cases hty : isDefEqCore mode env fuel d ty₁ ty₂ with
     | error err => rw [hty] at h; exact nomatch h
     | ok v =>
       rw [hty] at h
@@ -477,7 +483,7 @@ theorem defeqStuck_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     by_cases hlen : (Expr.app f₁ a₁).getAppArgs.length
         = (Expr.app f₂ a₂).getAppArgs.length
     · rw [if_pos hlen] at h
-      cases hfn : isDefEqCore env fuel d (Expr.app f₁ a₁).getAppFn
+      cases hfn : isDefEqCore mode env fuel d (Expr.app f₁ a₁).getAppFn
           (Expr.app f₂ a₂).getAppFn with
       | error err => rw [hfn] at h; exact nomatch h
       | ok v =>
@@ -488,7 +494,7 @@ theorem defeqStuck_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
         exact hsi h hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hva' hvb'
       | true =>
       simp only [if_true] at h
-      cases hlist : defEqList (pureFns env fuel) env d
+      cases hlist : defEqList (pureFns mode env fuel) env d
           (Expr.app f₁ a₁).getAppArgs (Expr.app f₂ a₂).getAppArgs with
       | error err => rw [hlist] at h; exact nomatch h
       | ok v2 =>
@@ -522,7 +528,7 @@ theorem defeqStuck_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     by_cases hii : (i₁ == i₂) = true
     · rw [if_pos hii] at h
       obtain rfl : i₁ = i₂ := eq_of_beq hii
-      cases hde : isDefEqCore env fuel d e₁ e₂ with
+      cases hde : isDefEqCore mode env fuel d e₁ e₂ with
       | error err => rw [hde] at h; exact nomatch h
       | ok v =>
         rw [hde] at h
@@ -558,7 +564,7 @@ theorem defeqStuck_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     · rw [if_neg hii] at h
       exact hsi h hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hva' hvb'
   case h_15 _ n₁ ty₁ body₁ mb₁ _ =>
-    cases hce : etaCertP env fuel d n₁ ty₁ body₁ mb₁ b' with
+    cases hce : etaCertP mode env fuel d n₁ ty₁ body₁ mb₁ b' with
     | error err => rw [etaCert_fold, hce] at h; exact nomatch h
     | ok v =>
       rw [etaCert_fold, hce] at h
@@ -569,7 +575,7 @@ theorem defeqStuck_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
         simp only [Bool.false_eq_true, if_false] at h
         exact hsi h hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hva' hvb'
   case h_16 _ _ n₂ ty₂ body₂ mb₂ _ =>
-    cases hce : etaCertP env fuel d n₂ ty₂ body₂ mb₂ a' with
+    cases hce : etaCertP mode env fuel d n₂ ty₂ body₂ mb₂ a' with
     | error err => rw [etaCert_fold, hce] at h; exact nomatch h
     | ok v =>
       rw [etaCert_fold, hce] at h
@@ -586,10 +592,10 @@ discharged too: the remaining obligations are the four certificate
 functions `stuckIrrel` calls, plus `etaCert`. -/
 theorem defeq_claimsTT_stuck {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihwc : WhnfCoreClaimsTT m φ fuel) (ihw : WhnfClaimsTT m φ fuel)
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel) (ihw : WhnfClaimsTT mode m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
     (hsi : StuckIrrelStepTT m φ fuel) (hec : EtaCertStepTT m φ fuel) :
-    DefEqClaimsTT m φ (fuel + 1) :=
+    DefEqClaimsTT mode m φ (fuel + 1) :=
   defeq_claimsTT_closed m φ hcl ihwc ihw
     (proofIrrel_stepTT m φ ihw ihi)
     (defeqStuck_stepTT m φ ihd hcl hsi hec)

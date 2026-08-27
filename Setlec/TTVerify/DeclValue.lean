@@ -45,7 +45,7 @@ docstring now says both paths may import it — so the duplicates are
 gone and this is an alias for the call sites' benefit. -/
 
 theorem checkConstantVal_invT {env : Env} {cv cv' : ConstantVal}
-    (h : checkConstantVal (fueledOps F) env cv = .ok cv') :
+    (h : checkConstantVal (fueledOps mode F) env cv = .ok cv') :
     env.find? cv.name = none ∧
     reservedBasisNames.contains cv.name = false ∧
     cv.name.isProjFnShape = false ∧
@@ -53,11 +53,11 @@ theorem checkConstantVal_invT {env : Env} {cv cv' : ConstantVal}
     cv.type.looseBVarsBounded 0 = true ∧
     cv.type.hasFvar = false ∧
     ∃ type stype u,
-      annotateCore env F 0 cv.type = .ok type ∧
+      annotateCore mode env F 0 cv.type = .ok type ∧
       type.allLevelParamsDefined cv.levelParams = true ∧
       type.constsResolve env = true ∧
-      inferTypeCore env F 0 type = .ok stype ∧
-      ensureSortCore env F 0 stype = .ok u ∧
+      inferTypeCore mode env F 0 type = .ok stype ∧
+      ensureSortCore mode env F 0 stype = .ok u ∧
       cv' = { cv with type := type } :=
   checkConstantVal_inv h
 

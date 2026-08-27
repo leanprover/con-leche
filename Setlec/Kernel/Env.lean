@@ -13,6 +13,37 @@ can replace it later, with a proof that it refines this one.
 
 namespace Setlec
 
+/-- The checker's three-mode setting (task #147), validated once at
+startup and threaded as configuration — never re-read at runtime (the
+`directStructsEnabled` discipline).
+
+* `.setModel` (the default, `--set-model`): the surface the
+  set-theoretic model proves.  The seven TT-lane checks (tasks #126,
+  #129, #130, #135, #136, #137, #146) are **off**; every always-on
+  certificate family (per-redex beta, per-argument application,
+  proof-irrelevance chains, `etaCert`, `iotaCerts`, `projCert`) keeps
+  running.
+* `.ttModel` (`--tt-model`): the seven TT-lane checks are **on** — the
+  surface `Setlec/TTVerify/*` reasons about (`CertifiedConfigTT`).
+* `.noModel` (`--no-model`): the unverified lane — full front-door
+  check per declaration (official-kernel parity), infer-only internal
+  discipline (task #134), and **no certificate families at all**
+  (task #76).  Selected by a different driver stack
+  (`Setlec/Kernel/CheckerNM.lean`); the certified drivers below never
+  run at this value, but `ttChecks .noModel = false` keeps the seven
+  off should they ever be pointed at it. -/
+inductive CheckMode where
+  | setModel
+  | ttModel
+  | noModel
+  deriving DecidableEq, Repr, Inhabited
+
+/-- Are the seven TT-lane checks enabled?  The one accessor the
+kernel branches on. -/
+def CheckMode.ttChecks : CheckMode → Bool
+  | .ttModel => true
+  | _ => false
+
 /-- Data common to all constants: name, universe parameters, type. -/
 structure ConstantVal where
   name : Name

@@ -48,6 +48,9 @@ valuation is free.
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-! ## The tower's context -/
@@ -1009,8 +1012,8 @@ inversions. -/
 `Eq.{ℓA}` names, checked at the opened statement frame. -/
 def IotaSlotSorted (F : Nat) (env₀ : Env) (k : Nat) (αS : Expr)
     (ℓA : Level) : Prop :=
-  ∃ tα, inferTypeCore env₀ F k αS = .ok tα ∧
-    isDefEqCore env₀ F k tα (Expr.sort ℓA) = .ok true
+  ∃ tα, inferTypeCore mode env₀ F k αS = .ok tα ∧
+    isDefEqCore mode env₀ F k tα (Expr.sort ℓA) = .ok true
 
 /-! ## More opener bookkeeping -/
 

@@ -28,14 +28,16 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
 
 /-- The mutual soundness induction; see the module docstring. -/
 theorem check_sound (m : EnvModel V env) :
-    ∀ (fuel : Nat), WhnfCoreClaims m φ fuel ∧ WhnfClaims m φ fuel ∧
-      DefEqClaims m φ fuel ∧ InferClaims m φ fuel := by
+    ∀ (fuel : Nat), WhnfCoreClaims mode m φ fuel ∧ WhnfClaims mode m φ fuel ∧
+      DefEqClaims mode m φ fuel ∧ InferClaims mode m φ fuel := by
   intro fuel
   induction fuel with
   | zero =>
@@ -65,7 +67,7 @@ theorem check_sound (m : EnvModel V env) :
 annotation truthfulness. -/
 theorem whnfCore_facts (m : EnvModel V env) (fuel : Nat) {d : Nat}
     {e e' : Expr} {ρ : Nat → V}
-    (h : whnfCore env fuel d e = .ok e')
+    (h : whnfCore mode env fuel d e = .ok e')
     (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e)
     (hok : FvarsOk V m.val env φ d ρ e) (ha : AnnotOk V m.val env φ d ρ e) :
@@ -77,7 +79,7 @@ theorem whnfCore_facts (m : EnvModel V env) (fuel : Nat) {d : Nat}
 truthfulness. -/
 theorem whnf_facts (m : EnvModel V env) (fuel : Nat) {d : Nat}
     {e e' : Expr} {ρ : Nat → V}
-    (h : whnf env fuel d e = .ok e')
+    (h : whnf mode env fuel d e = .ok e')
     (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e)
     (hok : FvarsOk V m.val env φ d ρ e) (ha : AnnotOk V m.val env φ d ρ e) :
@@ -88,7 +90,7 @@ theorem whnf_facts (m : EnvModel V env) (fuel : Nat) {d : Nat}
 /-- Definitional equality identifies interpretations. -/
 theorem isDefEqCore_sound (m : EnvModel V env) (fuel : Nat) {d : Nat}
     {a b : Expr} {ρ : Nat → V}
-    (h : isDefEqCore env fuel d a b = .ok true)
+    (h : isDefEqCore mode env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
     (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
@@ -105,7 +107,7 @@ well-scopedness of the output; task #100 stage 6: the run also
 model-side replacement of the deleted annotation pass). -/
 theorem inferTypeCore_sound (m : EnvModel V env) (fuel : Nat) {d : Nat}
     {e t : Expr} {ρ : Nat → V}
-    (h : inferTypeCore env fuel d e = .ok t)
+    (h : inferTypeCore mode env fuel d e = .ok t)
     (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e)
     (hok : FvarsOk V m.val env φ d ρ e) :
@@ -120,14 +122,14 @@ theorem inferTypeCore_sound (m : EnvModel V env) (fuel : Nat) {d : Nat}
 type with a universe. -/
 theorem ensureSortCore_sound (m : EnvModel V env) (fuel : Nat) {d : Nat}
     {t : Expr} {u : Level}
-    (h : ensureSortCore env fuel d t = .ok u) {ρ : Nat → V}
+    (h : ensureSortCore mode env fuel d t = .ok u) {ρ : Nat → V}
     (hw : WScoped d t) (hb : t.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded t)
     (hok : FvarsOk V m.val env φ d ρ t) (ha : AnnotOk V m.val env φ d ρ t) :
     interpExpr V m.val env φ d ρ t = some (univ (u.eval φ)) := by
   unfold ensureSortCore ensureSort at h
   simp only [whnf_def, Bind.bind, Except.bind] at h
-  cases hwh : whnf env fuel d t with
+  cases hwh : whnf mode env fuel d t with
   | error e => rw [hwh] at h; exact nomatch h
   | ok w =>
     rw [hwh] at h

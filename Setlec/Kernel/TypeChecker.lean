@@ -13,32 +13,34 @@ every claim over to the memoized instance the checker executes
 
 namespace Setlec
 
+variable (mode : CheckMode)
+
 /-- The pure core: the bodies tied at `CheckM`, fuel in the knot. -/
 def pureFns (env : Env) : Nat → CoreFns CheckM :=
-  coreKnot env id
+  coreKnot mode env id
 
 /-- Head normalization without delta (fueled). -/
 def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-  (pureFns env fuel).whnfCore depth e
+  (pureFns mode env fuel).whnfCore depth e
 
 /-- The full reduction loop (fueled). -/
 def whnf (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-  (pureFns env fuel).whnf depth e
+  (pureFns mode env fuel).whnf depth e
 
 /-- Infer-only type inference (fueled). -/
 def inferTypeCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-  (pureFns env fuel).infer depth e
+  (pureFns mode env fuel).infer depth e
 
 /-- Definitional equality (fueled). -/
 def isDefEqCore (env : Env) (fuel depth : Nat) (a b : Expr) : CheckM Bool :=
-  (pureFns env fuel).defeq depth a b
+  (pureFns mode env fuel).defeq depth a b
 
 /-- The annotation pass (fueled). -/
 def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-  (pureFns env fuel).annotate depth e
+  (pureFns mode env fuel).annotate depth e
 
 /-- `ensureSort` over the pure knot (fueled). -/
 def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
-  ensureSort (pureFns env fuel) env depth e
+  ensureSort (pureFns mode env fuel) env depth e
 
 end Setlec

@@ -14,6 +14,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
@@ -21,7 +23,7 @@ open SetTheory Expr
 /-- The `.basisDecl .quotK` case of `checkDecl_sound`: installing the
 quotient basis block preserves having a model. -/
 theorem installQuotBasis_sound {F : Nat} {env env' : Env}
-    (h : checkDecl (fueledOps F) env (.basisDecl .quotK) = .ok env')
+    (h : checkDecl mode (fueledOps mode F) env (.basisDecl .quotK) = .ok env')
     (m : EnvModel V env) (hE1 : EtaFamiliesClosed env) :
     Nonempty (EnvModel V env') ∧ EtaFamiliesClosed env' := by
       simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,

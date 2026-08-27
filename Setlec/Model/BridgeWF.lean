@@ -5,10 +5,10 @@ import Setlec.Model.DirectWF
 # Threading `EnvWF` through the declaration checker
 
 Part C of the refinement bridge left a successful cached `checkDecl`
-run reproduced by the `wfOpsM` instantiation (`checkDecl_wfOpsM_bridge`)
+run reproduced by the `wfOpsM mode` instantiation (`checkDecl_wfOpsM_bridge`)
 — the comparand that is the pure fueled family exactly over well-formed
 environments.  This file turns such runs into plain pure runs
-(`checkDecl (fueledOps F)`), given `EnvWF` of the *input* environment
+(`checkDecl mode (fueledOps mode F)`), given `EnvWF` of the *input* environment
 only: every intermediate environment the declaration checker calls the
 core operations at (the block-install fold's, the provisional recursor
 self, the projection-install fold's) is shown well-formed from the
@@ -23,6 +23,8 @@ set_option linter.unusedSimpArgs false
 set_option maxHeartbeats 3200000
 
 namespace Setlec
+
+variable {mode : CheckMode}
 
 open Expr
 
@@ -74,7 +76,7 @@ resolution are checked outright; closedness and fvar-freeness of the
 annotated type follow from the raw checks and annotation preserving
 scoping. -/
 private theorem cvA_type_facts {env : Env} {cv cvA : ConstantVal} {F : Nat}
-    (h : checkConstantVal (fueledOps F) env cv = .ok cvA) :
+    (h : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
     cvA.type.hasFvar = false ∧
     cvA.type.allLevelParamsDefined cvA.levelParams = true ∧
     cvA.type.constsResolve env = true ∧
@@ -98,7 +100,7 @@ private theorem find?_isSome_cons_swap {env : Env} {c₁ c₂ : ConstantInfo}
 rule's right-hand side. -/
 private theorem ruleChecked_rhs_facts {F : Nat} {env env₀ : Env}
     {f : Name → Name} {cvA : ConstantVal} {mI rP : Nat}
-    {r : RecRule} (h : RuleChecked F env env₀ f cvA mI rP r) :
+    {r : RecRule} (h : RuleChecked mode F env env₀ f cvA mI rP r) :
     (RecRule.rhs r).hasFvar = false ∧
     (RecRule.rhs r).looseBVarsBounded 0 = true ∧
     (RecRule.rhs r).allLevelParamsDefined cvA.levelParams = true ∧
@@ -109,25 +111,25 @@ private theorem ruleChecked_rhs_facts {F : Nat} {env env₀ : Env}
 
 /-! ## `checkIndMember` -/
 
-/-- A successful `wfOpsM` run of `checkIndMember` over a well-formed
+/-- A successful `wfOpsM mode` run of `checkIndMember` over a well-formed
 environment is the pure run at the same fuel, and its output
 environment is well-formed again. -/
 theorem checkIndMember_wfimp {blockNames : List Name} {caps : IndCaps}
     {env' env₁ : Env} {ci : ConstantInfo} {F : Nat}
     (henv' : EnvWF env')
-    (h : (checkIndMember wfOpsM blockNames caps env' ci).val F =
+    (h : (checkIndMember (wfOpsM mode) blockNames caps env' ci).val F =
       .ok env₁) :
-    checkIndMember (fueledOps F) blockNames caps env' ci = .ok env₁ ∧
+    checkIndMember (fueledOps mode F) blockNames caps env' ci = .ok env₁ ∧
       EnvWF env₁ := by
   unfold checkIndMember at h
   try dsimp only [] at h
   obtain ⟨cvA, hcmvW, h⟩ := atF_bind_ok h
   have hcmv := checkMemberVal_wfimp henv' hcmvW
-  have hpure : checkIndMember (fueledOps F) blockNames caps env' ci =
+  have hpure : checkIndMember (fueledOps mode F) blockNames caps env' ci =
       .ok env₁ := by
     unfold checkIndMember
     try dsimp only []
-    show (checkMemberVal (fueledOps F) blockNames env' ci.toConstantVal
+    show (checkMemberVal (fueledOps mode F) blockNames env' ci.toConstantVal
       >>= _) = _
     rw [hcmv]
     simp only [Bind.bind, Except.bind]
@@ -154,14 +156,14 @@ theorem checkIndMember_wfimp {blockNames : List Name} {caps : IndCaps}
       (fun _ _ _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq))
 
-/-- The recursor-provisioning fold, `wfOpsM` to pure, with the
+/-- The recursor-provisioning fold, `wfOpsM mode` to pure, with the
 provisional environment well-formed. -/
 private theorem provisionRecs_wfimp {blockNames : List Name} {F : Nat} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
       {p : Env × List (ConstantVal × Nat × Nat × List RecRule)},
       EnvWF envAcc →
-      (provisionRecs wfOpsM blockNames envAcc recs).val F = .ok p →
-      provisionRecs (fueledOps F) blockNames envAcc recs = .ok p ∧
+      (provisionRecs (wfOpsM mode) blockNames envAcc recs).val F = .ok p →
+      provisionRecs (fueledOps mode F) blockNames envAcc recs = .ok p ∧
         EnvWF p.1
   | [], envAcc, p, henv, h => by
     have h' : (Except.ok ((envAcc, []) : Env × _) :
@@ -198,10 +200,10 @@ private theorem provisionRecs_wfimp {blockNames : List Name} {F : Nat} :
     obtain ⟨hrec, hwfS⟩ := provisionRecs_wfimp rest _ henv₁ hrecW
     obtain ⟨envSelf, others⟩ := p'
     refine ⟨?_, ?_⟩
-    · show (checkMemberVal (fueledOps F) blockNames envAcc _ >>= _) = _
+    · show (checkMemberVal (fueledOps mode F) blockNames envAcc _ >>= _) = _
       rw [hcmv]
       simp only [Bind.bind, Except.bind]
-      show (provisionRecs (fueledOps F) blockNames _ rest >>= _) = _
+      show (provisionRecs (fueledOps mode F) blockNames _ rest >>= _) = _
       rw [hrec]
       simp only [Bind.bind, Except.bind]
       exact h
@@ -233,13 +235,13 @@ private theorem constWF_le {envA envB : Env}
     obtain ⟨p1, p2, p3, p4⟩ := n3 pin hp
     exact ⟨p1, p2, Expr.constsResolve_le hle p3, p4⟩
 
-/-- The recursor-group check, `wfOpsM` to pure, with the final
+/-- The recursor-group check, `wfOpsM mode` to pure, with the final
 environment well-formed. -/
 theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo} {F : Nat} (henv₂ : EnvWF env₂)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true)
-    (h : (checkIndRecs wfOpsM blockNames env₂ recs).val F = .ok env₃) :
-    checkIndRecs (fueledOps F) blockNames env₂ recs = .ok env₃ ∧
+    (h : (checkIndRecs mode (wfOpsM mode) blockNames env₂ recs).val F = .ok env₃) :
+    checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃ ∧
       EnvWF env₃ := by
   unfold checkIndRecs at h ⊢
   by_cases hemp : recs.isEmpty = true
@@ -261,13 +263,13 @@ theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
   obtain ⟨hprov, henvSelf⟩ := provisionRecs_wfimp recs env₂ henv₂ hprovW
   have hProv := provisionRecs_facts recs env₂ (envSelf, checked)
     hprov hbn
-  -- the rule-checking fold, `wfOpsM` to pure
+  -- the rule-checking fold, `wfOpsM mode` to pure
   have hfold : ∀ (cs : List (ConstantVal × Nat × Nat × List RecRule)),
       (∀ c ∈ cs, c.1.type.hasFvar = false) →
       ∀ (acc : Env) {envO : Env},
       (cs.foldlM (fun (acc : Env)
           (c : ConstantVal × Nat × Nat × List RecRule) => do
-          let rules' ← checkIotaRules wfOpsM env₂ envSelf
+          let rules' ← checkIotaRules mode (wfOpsM mode) env₂ envSelf
             (fun n => if blockNames.contains n then n.str "_model"
               else n) c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
             0 c.2.2.2
@@ -275,7 +277,7 @@ theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
             rules' :: acc.consts⟩ : Env)) acc).val F = .ok envO →
       cs.foldlM (fun (acc : Env)
           (c : ConstantVal × Nat × Nat × List RecRule) => do
-          let rules' ← checkIotaRules (fueledOps F) env₂ envSelf
+          let rules' ← checkIotaRules mode (fueledOps mode F) env₂ envSelf
             (fun n => if blockNames.contains n then n.str "_model"
               else n) c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
             0 c.2.2.2
@@ -300,7 +302,7 @@ theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
             Except CheckError Env) = .ok e₁ := hstep
         exact Except.ok.inj hs
       show ((do
-          let rules' ← checkIotaRules (fueledOps F) env₂ envSelf _
+          let rules' ← checkIotaRules mode (fueledOps mode F) env₂ envSelf _
             c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
             0 c.2.2.2
           pure (⟨.recInfo c.1 c.2.1 c.2.2.1
@@ -317,7 +319,7 @@ theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
     exact htyf
   have hpure := hfold checked htys env₂ h
   refine ⟨?_, ?_⟩
-  · show (provisionRecs (fueledOps F) blockNames env₂ recs >>= _) = _
+  · show (provisionRecs (fueledOps mode F) blockNames env₂ recs >>= _) = _
     rw [hprov]
     simp only [Bind.bind, Except.bind]
     exact hpure
@@ -373,51 +375,51 @@ theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
           exact ⟨p1, p2,
             by rw [← Expr.constsResolve_congr hisoSome]; exact p3, p4⟩
 
-/-- The `checkIndMember` fold over a block, `wfOpsM` to pure. -/
+/-- The `checkIndMember` fold over a block, `wfOpsM mode` to pure. -/
 private theorem foldIndMember_wfimp {blockNames : List Name}
     {caps : IndCaps} {F : Nat} :
     ∀ (block : List ConstantInfo) (env' : Env) {env₂ : Env},
       EnvWF env' →
-      (block.foldlM (checkIndMember wfOpsM blockNames caps) env').val F =
+      (block.foldlM (checkIndMember (wfOpsM mode) blockNames caps) env').val F =
         .ok env₂ →
-      block.foldlM (checkIndMember (fueledOps F) blockNames caps) env' =
+      block.foldlM (checkIndMember (fueledOps mode F) blockNames caps) env' =
         .ok env₂ ∧ EnvWF env₂
   | [], env', env₂, henv', h => by
     have h' : (Except.ok env' : CheckM Env) = Except.ok env₂ := h
     cases h'
     exact ⟨rfl, henv'⟩
   | ci :: block, env', env₂, henv', h => by
-    have h' : ((checkIndMember wfOpsM blockNames caps env' ci >>=
-        fun env₁ => block.foldlM (checkIndMember wfOpsM blockNames caps)
+    have h' : ((checkIndMember (wfOpsM mode) blockNames caps env' ci >>=
+        fun env₁ => block.foldlM (checkIndMember (wfOpsM mode) blockNames caps)
           env₁ : FueledM Env)).val F = .ok env₂ := h
     rw [FueledM.atF_bind] at h'
-    cases hm : (checkIndMember wfOpsM blockNames caps env' ci).val F with
+    cases hm : (checkIndMember (wfOpsM mode) blockNames caps env' ci).val F with
     | error e => rw [hm] at h'; exact nomatch h'
     | ok env₁ =>
       rw [hm] at h'
-      have h'' : (block.foldlM (checkIndMember wfOpsM blockNames caps)
+      have h'' : (block.foldlM (checkIndMember (wfOpsM mode) blockNames caps)
           env₁).val F = .ok env₂ := h'
       obtain ⟨hp, henv₁⟩ := checkIndMember_wfimp henv' hm
       obtain ⟨hrest, hwf⟩ := foldIndMember_wfimp block env₁ henv₁ h''
       refine ⟨?_, hwf⟩
-      show (checkIndMember (fueledOps F) blockNames caps env' ci >>=
-        fun env₁ => block.foldlM (checkIndMember (fueledOps F) blockNames
+      show (checkIndMember (fueledOps mode F) blockNames caps env' ci >>=
+        fun env₁ => block.foldlM (checkIndMember (fueledOps mode F) blockNames
           caps) env₁) = .ok env₂
       rw [hp]
       exact hrest
 
 /-! ## The projection-function install fold -/
 
-/-- One projection-install step, `wfOpsM` to pure, output well-formed:
+/-- One projection-install step, `wfOpsM mode` to pure, output well-formed:
 the stored degenerate recursor's type and rule right-hand side are
 fully re-checked by the projection stages, so its `ConstWF` needs no
 annotation-preservation reasoning. -/
 private theorem installProjFnStepE_wfimp {T ctorName : Name}
     {lps : List Name} {nP nF : Nat} {e e' : Env} {i F : Nat}
     (he : EnvWF e)
-    (h : (installProjFnStep wfOpsM T ctorName lps nP nF e i).val F =
+    (h : (installProjFnStep mode (wfOpsM mode) T ctorName lps nP nF e i).val F =
       .ok e') :
-    installProjFnStep (fueledOps F) T ctorName lps nP nF e i = .ok e' ∧
+    installProjFnStep mode (fueledOps mode F) T ctorName lps nP nF e i = .ok e' ∧
       EnvWF e' := by
   have h := installProjFnStep_wfimp he h
   refine ⟨h, ?_⟩
@@ -444,41 +446,41 @@ private theorem installProjFnStepE_wfimp {T ctorName : Name}
     subst h
     exact he
 
-/-- The projection-install fold, `wfOpsM` to pure. -/
+/-- The projection-install fold, `wfOpsM mode` to pure. -/
 private theorem foldProjFn_wfimp {T ctorName : Name} {lps : List Name}
     {nP nF F : Nat} :
     ∀ (idxs : List Nat) (e : Env) {e₂ : Env},
       EnvWF e →
-      (idxs.foldlM (installProjFnStep wfOpsM T ctorName lps nP nF)
+      (idxs.foldlM (installProjFnStep mode (wfOpsM mode) T ctorName lps nP nF)
         e).val F = .ok e₂ →
-      idxs.foldlM (installProjFnStep (fueledOps F) T ctorName lps nP nF)
+      idxs.foldlM (installProjFnStep mode (fueledOps mode F) T ctorName lps nP nF)
         e = .ok e₂ ∧ EnvWF e₂
   | [], e, e₂, he, h => by
     have h' : (Except.ok e : CheckM Env) = Except.ok e₂ := h
     cases h'
     exact ⟨rfl, he⟩
   | i :: idxs, e, e₂, he, h => by
-    have h' : ((installProjFnStep wfOpsM T ctorName lps nP nF e i >>=
-        fun e₁ => idxs.foldlM (installProjFnStep wfOpsM T ctorName lps nP
+    have h' : ((installProjFnStep mode (wfOpsM mode) T ctorName lps nP nF e i >>=
+        fun e₁ => idxs.foldlM (installProjFnStep mode (wfOpsM mode) T ctorName lps nP
           nF) e₁ : FueledM Env)).val F = .ok e₂ := h
     rw [FueledM.atF_bind] at h'
-    cases hm : (installProjFnStep wfOpsM T ctorName lps nP nF e i).val F
+    cases hm : (installProjFnStep mode (wfOpsM mode) T ctorName lps nP nF e i).val F
       with
     | error err => rw [hm] at h'; exact nomatch h'
     | ok e₁ =>
       rw [hm] at h'
-      have h'' : (idxs.foldlM (installProjFnStep wfOpsM T ctorName lps nP
+      have h'' : (idxs.foldlM (installProjFnStep mode (wfOpsM mode) T ctorName lps nP
           nF) e₁).val F = .ok e₂ := h'
       obtain ⟨hp, he₁⟩ := installProjFnStepE_wfimp he hm
       obtain ⟨hrest, hwf⟩ := foldProjFn_wfimp idxs e₁ he₁ h''
       refine ⟨?_, hwf⟩
-      show (installProjFnStep (fueledOps F) T ctorName lps nP nF e i >>=
-        fun e₁ => idxs.foldlM (installProjFnStep (fueledOps F) T ctorName
+      show (installProjFnStep mode (fueledOps mode F) T ctorName lps nP nF e i >>=
+        fun e₁ => idxs.foldlM (installProjFnStep mode (fueledOps mode F) T ctorName
           lps nP nF) e₁) = .ok e₂
       rw [hp]
       exact hrest
 
-/-- The template-install step, `wfOpsM`-run to pure run, preserving
+/-- The template-install step, `wfOpsM mode`-run to pure run, preserving
 environment well-formedness (the consed entry has the closed junk
 `Prop` type). -/
 private theorem installProjTemplateStepE_wfimp {T ctorName : Name}
@@ -521,7 +523,7 @@ private theorem installProjTemplateStepE_wfimp {T ctorName : Name}
         · intro _ _ heq
           exact nomatch heq
 
-/-- The template-install fold, `wfOpsM` to pure. -/
+/-- The template-install fold, `wfOpsM mode` to pure. -/
 private theorem foldProjTemplates_wfimp {T ctorName : Name}
     {lps : List Name} {nP nF F : Nat} :
     ∀ (idxs : List Nat) (e : Env) {e₂ : Env},
@@ -562,12 +564,12 @@ private theorem foldProjTemplates_wfimp {T ctorName : Name}
 
 /-! ## `checkIndDecl` and `checkDecl` -/
 
-/-- A successful `wfOpsM` run of `checkIndDecl` over a well-formed
+/-- A successful `wfOpsM mode` run of `checkIndDecl` over a well-formed
 environment is the pure run at the same fuel. -/
 theorem checkIndDecl_wfimp {env env₂ : Env} {block : List ConstantInfo}
     {F : Nat} (henv : EnvWF env)
-    (h : (checkIndDecl wfOpsM env block).val F = .ok env₂) :
-    checkIndDecl (fueledOps F) env block = .ok env₂ := by
+    (h : (checkIndDecl mode (wfOpsM mode) env block).val F = .ok env₂) :
+    checkIndDecl mode (fueledOps mode F) env block = .ok env₂ := by
   simp only [checkIndDecl] at h ⊢
   have hbnAll : ∀ ci ∈ block,
       (block.map (·.name)).contains ci.name = true := by
@@ -582,8 +584,8 @@ theorem checkIndDecl_wfimp {env env₂ : Env} {block : List ConstantInfo}
   split at h
   case _ cvT c0 cvC nP nF heq1 heq2 =>
     obtain ⟨caps, hcaps, h⟩ := atF_bind_ok h
-    obtain rfl : indBlockCaps env cvT cvC nP nF = caps := by
-      have hc : (Except.ok (indBlockCaps env cvT cvC nP nF) :
+    obtain rfl : indBlockCaps mode env cvT cvC nP nF = caps := by
+      have hc : (Except.ok (indBlockCaps mode env cvT cvC nP nF) :
           Except CheckError IndCaps) = .ok caps := hcaps
       exact Except.ok.inj hc
     obtain ⟨env₁, hfoldW, h⟩ := atF_bind_ok h
@@ -596,8 +598,8 @@ theorem checkIndDecl_wfimp {env env₂ : Env} {block : List ConstantInfo}
     simp only [Except.bind]
     rw [hrecs]
     simp only [Except.bind]
-    by_cases hctorRes : ctorResidualOk env₃ cvT.name cvC.name
-        cvT.levelParams nP nF (indBlockCaps env cvT cvC nP nF).eta = true
+    by_cases hctorRes : ctorResidualOk mode env₃ cvT.name cvC.name
+        cvT.levelParams nP nF (indBlockCaps mode env cvT cvC nP nF).eta = true
     case neg =>
       rw [if_neg hctorRes] at h
       exact absurd h atF_throw_bind
@@ -632,8 +634,8 @@ it (shape inversion for the structural-Nat certification's stored
 value). -/
 private theorem checkDefnVal_run_shape {env : Env} {cv : ConstantVal}
     {value : Expr} {hint : ReducibilityHint} {F : Nat} {env2 : Env}
-    (h : checkDefnVal (fueledOps F) env cv value hint = .ok env2) :
-    ∃ value', annotateCore env F 0 value = .ok value' ∧
+    (h : checkDefnVal (fueledOps mode F) env cv value hint = .ok env2) :
+    ∃ value', annotateCore mode env F 0 value = .ok value' ∧
       value.hasFvar = false ∧
       env2 = ⟨.defnInfo cv value' hint :: env.consts⟩ := by
   unfold checkDefnVal at h
@@ -645,16 +647,16 @@ private theorem checkDefnVal_run_shape {env : Env} {cv : ConstantVal}
   · rw [if_pos h2] at h; exact nomatch h
   rw [if_neg h2] at h
   revert h
-  cases hann : annotateCore env F 0 value with
+  cases hann : annotateCore mode env F 0 value with
   | error e =>
     intro h
-    rw [show CheckerOps.annotate (fueledOps F) env 0 value =
-      annotateCore env F 0 value from rfl, hann] at h
+    rw [show CheckerOps.annotate (fueledOps mode F) env 0 value =
+      annotateCore mode env F 0 value from rfl, hann] at h
     exact nomatch h
   | ok value' =>
     intro h
-    rw [show CheckerOps.annotate (fueledOps F) env 0 value =
-      annotateCore env F 0 value from rfl, hann] at h
+    rw [show CheckerOps.annotate (fueledOps mode F) env 0 value =
+      annotateCore mode env F 0 value from rfl, hann] at h
     simp only [Bind.bind, Except.bind] at h
     refine ⟨value', rfl, Bool.not_eq_true _ ▸ h2, ?_⟩
     by_cases h3 : Expr.allLevelParamsDefined cv.levelParams value' = true
@@ -664,28 +666,28 @@ private theorem checkDefnVal_run_shape {env : Env} {cv : ConstantVal}
     case neg => rw [if_neg h4] at h; exact nomatch h
     rw [if_pos h4] at h
     revert h
-    cases hvt : inferTypeCore env F 0 value' with
+    cases hvt : inferTypeCore mode env F 0 value' with
     | error e =>
       intro h
-      rw [show CheckerOps.inferType (fueledOps F) env 0 value' =
-        inferTypeCore env F 0 value' from rfl, hvt] at h
+      rw [show CheckerOps.inferType (fueledOps mode F) env 0 value' =
+        inferTypeCore mode env F 0 value' from rfl, hvt] at h
       exact nomatch h
     | ok vtype =>
       intro h
-      rw [show CheckerOps.inferType (fueledOps F) env 0 value' =
-        inferTypeCore env F 0 value' from rfl, hvt] at h
+      rw [show CheckerOps.inferType (fueledOps mode F) env 0 value' =
+        inferTypeCore mode env F 0 value' from rfl, hvt] at h
       simp only [Bind.bind, Except.bind] at h
       revert h
-      cases hde : isDefEqCore env F 0 vtype cv.type with
+      cases hde : isDefEqCore mode env F 0 vtype cv.type with
       | error e =>
         intro h
-        rw [show CheckerOps.isDefEq (fueledOps F) env 0 vtype cv.type =
-          isDefEqCore env F 0 vtype cv.type from rfl, hde] at h
+        rw [show CheckerOps.isDefEq (fueledOps mode F) env 0 vtype cv.type =
+          isDefEqCore mode env F 0 vtype cv.type from rfl, hde] at h
         exact nomatch h
       | ok b =>
         intro h
-        rw [show CheckerOps.isDefEq (fueledOps F) env 0 vtype cv.type =
-          isDefEqCore env F 0 vtype cv.type from rfl, hde] at h
+        rw [show CheckerOps.isDefEq (fueledOps mode F) env 0 vtype cv.type =
+          isDefEqCore mode env F 0 vtype cv.type from rfl, hde] at h
         simp only [Bind.bind, Except.bind] at h
         cases b with
         | true =>
@@ -700,7 +702,7 @@ private theorem checkDefnVal_run_shape {env : Env} {cv : ConstantVal}
 gate's re-annotation). -/
 private theorem checkOpaqueVal_run_hvf {env : Env} {cv : ConstantVal}
     {value : Expr} {F : Nat} {env2 : Env}
-    (h : checkOpaqueVal (fueledOps F) env cv value = .ok env2) :
+    (h : checkOpaqueVal (fueledOps mode F) env cv value = .ok env2) :
     value.hasFvar = false := by
   unfold checkOpaqueVal at h
   dsimp only [] at h
@@ -714,23 +716,23 @@ private theorem checkOpaqueVal_run_hvf {env : Env} {cv : ConstantVal}
 set_option maxHeartbeats 1600000 in
 theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     (henv : EnvWF env)
-    (h : (checkDecl wfOpsM env d).val F = .ok env₂) :
-    checkDecl (fueledOps F) env d = .ok env₂ := by
+    (h : (checkDecl mode (wfOpsM mode) env d).val F = .ok env₂) :
+    checkDecl mode (fueledOps mode F) env d = .ok env₂ := by
   cases d with
   | defnDecl cv value hint =>
     unfold checkDecl at h ⊢
     dsimp only [] at h ⊢
     obtain ⟨cvA, hccvW, h⟩ := atF_bind_ok h
-    have hccv : checkConstantVal (fueledOps F) env cv = .ok cvA :=
+    have hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA :=
       checkConstantVal_wfimp henv hccvW
-    show (checkConstantVal (fueledOps F) env cv >>= _) = _
+    show (checkConstantVal (fueledOps mode F) env cv >>= _) = _
     rw [hccv]
     simp only [Bind.bind, Except.bind]
     obtain ⟨htf, -, -, -⟩ := cvA_type_facts hccv
     obtain ⟨env2, hdefW, h⟩ := atF_bind_ok h
-    have hdefn : checkDefnVal (fueledOps F) env cvA value hint =
+    have hdefn : checkDefnVal (fueledOps mode F) env cvA value hint =
         .ok env2 := checkDefnVal_wfimp henv htf hdefW
-    show (checkDefnVal (fueledOps F) env cvA value hint >>= _) = _
+    show (checkDefnVal (fueledOps mode F) env cvA value hint >>= _) = _
     rw [hdefn]
     simp only [Bind.bind, Except.bind]
     obtain ⟨value', hann, hvf, henv2⟩ := checkDefnVal_run_shape hdefn
@@ -760,7 +762,7 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
       obtain ⟨u, hpinW, h⟩ := atF_bind_ok h
       have hpin' := checkDivModPin_wfimp henv
         (List.contains_iff_mem.mp h4) hv'fD hpinW
-      show (checkDivModPin (fueledOps F) env env2 cvA.name >>= _) = _
+      show (checkDivModPin (fueledOps mode F) env env2 cvA.name >>= _) = _
       rw [hpin']
       simp only [Bind.bind, Except.bind]
       exact h
@@ -782,7 +784,7 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
       exact ⟨wscopedB_substConst0 hval'f _ hs1,
         wscopedB_substConst0 hval'f _ hs2⟩
     have hcert' := certifyNatEqs_wfimp henv hsc hcert
-    show (certifyNatEqs (fueledOps F) env _ >>= _) = _
+    show (certifyNatEqs (fueledOps mode F) env _ >>= _) = _
     rw [hcert']
     simp only [Bind.bind, Except.bind]
     by_cases h3 : ok = true
@@ -798,7 +800,7 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     obtain ⟨u, hpinW, h⟩ := atF_bind_ok h
     have hpin' := checkDivModPin_wfimp henv
       (List.contains_iff_mem.mp h4) hv'fD hpinW
-    show (checkDivModPin (fueledOps F) env env2 cvA.name >>= _) = _
+    show (checkDivModPin (fueledOps mode F) env env2 cvA.name >>= _) = _
     rw [hpin']
     simp only [Bind.bind, Except.bind]
     exact h
@@ -806,9 +808,9 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     unfold checkDecl at h ⊢
     dsimp only [] at h ⊢
     obtain ⟨cvA, hccvW, h⟩ := atF_bind_ok h
-    have hccv : checkConstantVal (fueledOps F) env cv = .ok cvA :=
+    have hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA :=
       checkConstantVal_wfimp henv hccvW
-    show (checkConstantVal (fueledOps F) env cv >>= _) = _
+    show (checkConstantVal (fueledOps mode F) env cv >>= _) = _
     rw [hccv]
     simp only [Bind.bind, Except.bind]
     obtain ⟨htf, -, -, -⟩ := cvA_type_facts hccv
@@ -817,16 +819,16 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     unfold checkDecl at h ⊢
     dsimp only [] at h ⊢
     obtain ⟨cvA, hccvW, h⟩ := atF_bind_ok h
-    have hccv : checkConstantVal (fueledOps F) env cv = .ok cvA :=
+    have hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA :=
       checkConstantVal_wfimp henv hccvW
-    show (checkConstantVal (fueledOps F) env cv >>= _) = _
+    show (checkConstantVal (fueledOps mode F) env cv >>= _) = _
     rw [hccv]
     simp only [Bind.bind, Except.bind]
     obtain ⟨htf, -, -, -⟩ := cvA_type_facts hccv
     obtain ⟨env2, hopW, h⟩ := atF_bind_ok h
-    have hop : checkOpaqueVal (fueledOps F) env cvA value = .ok env2 :=
+    have hop : checkOpaqueVal (fueledOps mode F) env cvA value = .ok env2 :=
       checkOpaqueVal_wfimp henv htf hopW
-    show (checkOpaqueVal (fueledOps F) env cvA value >>= _) = _
+    show (checkOpaqueVal (fueledOps mode F) env cvA value >>= _) = _
     rw [hop]
     simp only [Bind.bind, Except.bind]
     have hvf : value.hasFvar = false := checkOpaqueVal_run_hvf hop
@@ -837,7 +839,7 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     rw [if_pos h1] at h ⊢
     obtain ⟨u, hpinW, h⟩ := atF_bind_ok h
     have hpin' := checkReducePin_wfimp henv hvf hpinW
-    show (checkReducePin (fueledOps F) env env2 cvA.name value >>= _) = _
+    show (checkReducePin (fueledOps mode F) env env2 cvA.name value >>= _) = _
     rw [hpin']
     simp only [Bind.bind, Except.bind]
     exact h
@@ -845,9 +847,9 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     unfold checkDecl at h ⊢
     dsimp only [] at h ⊢
     obtain ⟨cvA, hccvW, h⟩ := atF_bind_ok h
-    have hccv : checkConstantVal (fueledOps F) env cv = .ok cvA :=
+    have hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA :=
       checkConstantVal_wfimp henv hccvW
-    show (checkConstantVal (fueledOps F) env cv >>= _) = _
+    show (checkConstantVal (fueledOps mode F) env cv >>= _) = _
     rw [hccv]
     simp only [Bind.bind, Except.bind]
     by_cases h1 : stdAxiomOk env cvA = true
@@ -858,21 +860,21 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
         FueledM.atF_throw] at h
       exact h
   | basisDecl kind =>
-    have heq : checkDecl wfOpsM env (.basisDecl kind) =
-        checkDecl fueledOpsM env (.basisDecl kind) := rfl
+    have heq : checkDecl mode (wfOpsM mode) env (.basisDecl kind) =
+        checkDecl mode (fueledOpsM mode) env (.basisDecl kind) := rfl
     rw [heq, checkDecl_datF] at h
     exact h
   | indDecl block =>
     -- task #82: the direct clause dispatches here; both arms are
-    -- `wfOpsM`-to-pure, the direct one with its run-tied `EnvWF`
+    -- `wfOpsM mode`-to-pure, the direct one with its run-tied `EnvWF`
     -- obligations discharged from the stage inversions
     -- (`Setlec/Model/DirectWF.lean`)
     replace h : (match directParts? env block with
-      | some p => checkDirectStruct wfOpsM env p
-      | none => checkIndDecl wfOpsM env block).val F = .ok env₂ := h
+      | some p => checkDirectStruct (wfOpsM mode) env p
+      | none => checkIndDecl mode (wfOpsM mode) env block).val F = .ok env₂ := h
     show (match directParts? env block with
-      | some p => checkDirectStruct (fueledOps F) env p
-      | none => checkIndDecl (fueledOps F) env block) = .ok env₂
+      | some p => checkDirectStruct (fueledOps mode F) env p
+      | none => checkIndDecl mode (fueledOps mode F) env block) = .ok env₂
     cases hdp : directParts? env block with
     | none =>
       rw [hdp] at h
@@ -897,8 +899,8 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
 consistency layer — a successful cached `checkDecl` run is reproduced
 by the pure fueled checker at some fuel. -/
 theorem checkDecl_bridge {env env₂ : Env} {d : Declaration}
-    (henv : EnvWF env) (h : checkDecl cachedOps env d = .ok env₂) :
-    ∃ F, checkDecl (fueledOps F) env d = .ok env₂ := by
+    (henv : EnvWF env) (h : checkDecl mode (cachedOps mode) env d = .ok env₂) :
+    ∃ F, checkDecl mode (fueledOps mode F) env d = .ok env₂ := by
   obtain ⟨F, hF⟩ := checkDecl_wfOpsM_bridge h
   exact ⟨F, checkDecl_wfimp henv hF⟩
 

@@ -33,6 +33,12 @@ the caller needs both and nothing else can supply the second.
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- **The string-literal major expansion.**  `litMajorToCtor` replaces
@@ -41,7 +47,7 @@ otherwise. -/
 def LitMajorToCtorStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {e e' : Expr} {v : VExpr},
-    litMajorToCtorP env fuel d e = .ok e' →
+    litMajorToCtorP mode env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e → CtxOk m.cval env φ d Δ e →
     denote m.cval env φ d e = some v → ReductOk m φ d Δ e' v
@@ -55,7 +61,7 @@ def MajorToCtorStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {c : Name} {rules : List RecRule}
     {e e' : Expr} {v : VExpr},
-    majorToCtorP env fuel d c rules e = .ok e' →
+    majorToCtorP mode env fuel d c rules e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e → CtxOk m.cval env φ d Δ e →
     denote m.cval env φ d e = some v → ReductOk m φ d Δ e' v
@@ -92,8 +98,8 @@ spine position, so `VExpr_mkAppN_snoc` and `Deq.appArg` bridge them. -/
 /-- **`IotaStepTT`**, modulo the chain's two unproved links. -/
 theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
-    (ihw : WhnfClaimsTT m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
+    (ihw : WhnfClaimsTT mode m φ fuel)
     (hlitm : LitMajorToCtorStepTT m φ fuel)
     (hmajc : MajorToCtorStepTT m φ fuel) : IotaStepTT m φ fuel := by
   intro d Δ e e'' v h hws hb hLb hC hv
@@ -546,9 +552,9 @@ theorem whnfCore_claimsTT_iota {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hlitm : LitMajorToCtorStepTT m φ fuel)
     (hmajc : MajorToCtorStepTT m φ fuel)
     (hlitp : ProjLitToCtorStepTT m φ fuel)
-    (ihwc : WhnfCoreClaimsTT m φ fuel) (ihw : WhnfClaimsTT m φ fuel)
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel) :
-    WhnfCoreClaimsTT m φ (fuel + 1) :=
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel) (ihw : WhnfClaimsTT mode m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel) :
+    WhnfCoreClaimsTT mode m φ (fuel + 1) :=
   whnfCore_claimsTT m φ hcl (iota_stepTT m φ hcl ihd ihi ihw hlitm hmajc)
     (proj_stepTT m φ hcl ihwc ihw ihd ihi hlitp) ihwc ihw ihd ihi
 

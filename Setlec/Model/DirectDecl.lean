@@ -18,6 +18,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
@@ -98,8 +100,8 @@ theorem directParts?_inv {env : Env} {block : List ConstantInfo}
 /-- Inversion for `checkDirectInd` (stage 1). -/
 theorem checkDirectInd_inv {env : Env} {p : DirectParts} {F : Nat}
     {v : Env × ConstantVal}
-    (h : checkDirectInd (fueledOps F) env p = .ok v) :
-    ∃ cvTa bs, checkConstantVal (fueledOps F) env p.cvT = .ok cvTa ∧
+    (h : checkDirectInd (fueledOps mode F) env p = .ok v) :
+    ∃ cvTa bs, checkConstantVal (fueledOps mode F) env p.cvT = .ok cvTa ∧
       Expr.stripPis p.nP cvTa.type = some (bs, .sort p.resSort) ∧
       v = (⟨.indInfo cvTa (directCaps p) :: env.consts⟩, cvTa) := by
   rw [checkDirectInd] at h
@@ -129,7 +131,7 @@ just accepted: closed, so the syntactic three are free, and the checker's
 own annotation and inference runs supply the two semantic ones. -/
 theorem FrameOk.ofCheckedType {env : Env} (m : EnvModel V env) {F : Nat}
     {φ : Name → Nat} {cv cv' : ConstantVal}
-    (h : checkConstantVal (fueledOps F) env cv = .ok cv') :
+    (h : checkConstantVal (fueledOps mode F) env cv = .ok cv') :
     FrameOk V m.val env φ 0 (rho0 V) cv'.type := by
   obtain ⟨-, -, -, -, hlb, hfv, tyA, stype, u, hann, -, -, hst, -,
     hcvA⟩ := checkConstantVal_inv h
@@ -200,7 +202,7 @@ the singleton. -/
 theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
     {cvTa : ConstantVal} {F : Nat} {cty : Expr}
     {bs : List (Name × Expr × BinderMeta)}
-    (hccv : checkConstantVal (fueledOps F) env p.cvT = .ok cvTa)
+    (hccv : checkConstantVal (fueledOps mode F) env p.cvT = .ok cvTa)
     (hstrip : Expr.stripPis p.nP cvTa.type = some (bs, .sort p.resSort))
     (hctyP : cty.allLevelParamsDefined cvTa.levelParams = true)
     -- from `directNoModel`, part of recognition: the block is the
@@ -307,9 +309,9 @@ theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
 theorem checkDirectDomsAt_inv {env : Env} {F off : Nat}
     {fvs doms : List Expr} :
     ∀ (k : Nat),
-      checkDirectDomsAt (fueledOps F) env off fvs doms k = .ok () →
+      checkDirectDomsAt (fueledOps mode F) env off fvs doms k = .ok () →
       ∀ j, j < k → ∀ a b, fvs[j]? = some a → doms[j]? = some b →
-        isDefEqCore env F (off + j) (Expr.fvarTypeD a) b = .ok true := by
+        isDefEqCore mode env F (off + j) (Expr.fvarTypeD a) b = .ok true := by
   intro k
   induction k with
   | zero => intro _ j hj; exact absurd hj (by omega)
@@ -327,7 +329,7 @@ theorem checkDirectDomsAt_inv {env : Env} {F off : Nat}
       | some b₀ =>
         rw [hcb] at h
         simp only [pure, Except.pure] at h
-        cases hde : isDefEqCore env F (off + k) (Expr.fvarTypeD a₀) b₀ with
+        cases hde : isDefEqCore mode env F (off + k) (Expr.fvarTypeD a₀) b₀ with
         | error _ => rw [hde] at h; exact nomatch h
         | ok v =>
           rw [hde] at h
@@ -347,20 +349,20 @@ theorem checkDirectDomsAt_inv {env : Env} {F off : Nat}
 /-- Inversion for `checkDirectCtor` (stage 2). -/
 theorem checkDirectCtor_inv {env₀ env : Env} {p : DirectParts}
     {cvTa : ConstantVal} {F : Nat} {v : Env × ConstantVal}
-    (h : checkDirectCtor (fueledOps F) env₀ env p cvTa = .ok v) :
+    (h : checkDirectCtor (fueledOps mode F) env₀ env p cvTa = .ok v) :
     ∃ cvCa cbs fvsP crest tfvs trest xFvs,
-      checkConstantVal (fueledOps F) env p.cvC = .ok cvCa ∧
+      checkConstantVal (fueledOps mode F) env p.cvC = .ok cvCa ∧
       Expr.stripPis (p.nP + p.nF) cvCa.type =
         some (cbs, directFam p.cvT.name p.cvT.levelParams p.nP p.nF) ∧
       openPisAtFvars p.nP cvCa.type 0 = some (fvsP, crest) ∧
       openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest) ∧
-      checkDirectDomsAt (fueledOps F) env 0 fvsP
+      checkDirectDomsAt (fueledOps mode F) env 0 fvsP
         (tfvs.map Expr.fvarTypeD) p.nP = .ok () ∧
       openPisAtFvars p.nF crest p.nP = some (xFvs,
         Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
           fvsP) ∧
       (∀ x ∈ xFvs, (Expr.fvarTypeD x).constsResolve env₀ = true) ∧
-      checkDirectFieldUniv (fueledOps F) env p.resSort p.nP xFvs p.nF
+      checkDirectFieldUniv (fueledOps mode F) env p.resSort p.nP xFvs p.nF
         = .ok () ∧
       v = (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa) := by
   rw [checkDirectCtor] at h
@@ -453,19 +455,19 @@ theorem checkDirectCtor_inv {env₀ env : Env} {p : DirectParts}
 model reads, with each pin at the frame it was checked at. -/
 theorem checkDirectRecTy_inv {env : Env} {p : DirectParts}
     {cvTa cvCa cvRa : ConstantVal} {F : Nat} {v : Unit}
-    (h : checkDirectRecTy (fueledOps F) env p cvTa cvCa cvRa = .ok v) :
+    (h : checkDirectRecTy (fueledOps mode F) env p cvTa cvCa cvRa = .ok v) :
     ∃ fvsP rest cdomsP crest mfv mbs mdom minfv xFvs cdomsF jbs,
       directShape p.cvT.name p.cvC.name p.cvT.levelParams p.elim p.nP p.nF
         cvTa.type cvCa.type cvRa.type = true ∧
       openPisAtFvars (p.nP + 2) cvRa.type 0 = some (fvsP, rest) ∧
       Expr.instPisAt (fvsP.take p.nP) cvCa.type = some (cdomsP, crest) ∧
-      checkDirectDomsAt (fueledOps F) env 0 (fvsP.take p.nP) cdomsP p.nP
+      checkDirectDomsAt (fueledOps mode F) env 0 (fvsP.take p.nP) cdomsP p.nP
         = .ok () ∧
       fvsP[p.nP]? = some mfv ∧
       Expr.stripPis 1 (Expr.fvarTypeD mfv) =
         some (mbs, Expr.sort (.param p.elim)) ∧
       (mbs[0]?).map (·.2.1) = some mdom ∧
-      isDefEqCore env F p.nP mdom
+      isDefEqCore mode env F p.nP mdom
         (Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
           (fvsP.take p.nP)) = .ok true ∧
       fvsP[p.nP + 1]? = some minfv ∧
@@ -476,11 +478,11 @@ theorem checkDirectRecTy_inv {env : Env} {p : DirectParts}
       Expr.instPisAt xFvs crest = some (cdomsF,
         Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
           (fvsP.take p.nP)) ∧
-      checkDirectDomsAt (fueledOps F) env (p.nP + 2) xFvs cdomsF p.nF
+      checkDirectDomsAt (fueledOps mode F) env (p.nP + 2) xFvs cdomsF p.nF
         = .ok () ∧
       Expr.stripPis 1 rest = some (jbs, Expr.app mfv (.bvar 0)) ∧
       ∃ jdom, (jbs[0]?).map (·.2.1) = some jdom ∧
-        isDefEqCore env F (p.nP + 2) jdom
+        isDefEqCore mode env F (p.nP + 2) jdom
           (Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
             (fvsP.take p.nP)) = .ok true := by
   rw [checkDirectRecTy] at h
@@ -661,7 +663,7 @@ theorem directCtor_field {env : Env} (m : EnvModel V env) {F : Nat}
     {fvsP xFvs : List Expr}
     (hcq : openPisAtFvars p.nP cty 0 = some (fvsP, crest))
     (hxq : openPisAtFvars p.nF crest p.nP = some (xFvs, resid))
-    (hfu : checkDirectFieldUniv (fueledOps F) env p.resSort p.nP xFvs p.nF
+    (hfu : checkDirectFieldUniv (fueledOps mode F) env p.resSort p.nP xFvs p.nF
       = .ok ())
     (hfr0 : FrameOk V m.val env φ 0 (rho0 V) cty)
     {ps : List V} {d₁ : Nat} {ρ₁ : Nat → V} {mid : Expr}
@@ -674,7 +676,7 @@ theorem directCtor_field {env : Env} (m : EnvModel V env) {F : Nat}
   obtain rfl : mid = crest := by
     rw [hcq] at hopen
     exact ((Prod.mk.injEq _ _ _ _ ▸ Option.some.inj hopen).2).symm
-  refine FieldTele_of_walk (F := F) m p.nF p.nP ρ₁ _ xFvs resid hxq
+  refine FieldTele_of_walk (mode := mode) (F := F) m p.nF p.nP ρ₁ _ xFvs resid hxq
     (FrameOk.ofTeleFit hfit hfr0) ?_
   intro j hj
   exact checkDirectFieldUniv_inv p.nF hfu j hj
@@ -684,7 +686,7 @@ the family at the opened parameters, and its interpretation *is* the
 dependent-pair tower the constructor's value tuples into.
 
 The parameter fit crosses to the type former's telescope through the
-per-frame pins (`DomsInterpEq.of_pins`, `TeleFit.transfer`) — landing
+per-frame pins (`DomsInterpEq.of_pins (mode := mode)`, `TeleFit.transfer`) — landing
 at the very same frame and valuation — so the family's value folds at
 exactly these parameters (`directTyVal_fold`), and the tower it folds
 to is the one read off the constructor's own opening. -/
@@ -694,7 +696,7 @@ theorem directCtor_resid {env env₁ : Env} (m : EnvModel V env)
     {fvsP tfvs xFvs : List Expr} {tbs : List (Name × Expr × BinderMeta)}
     (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsP, crest))
     (htq : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
-    (hpins : checkDirectDomsAt (fueledOps F) env₁ 0 fvsP
+    (hpins : checkDirectDomsAt (fueledOps mode F) env₁ 0 fvsP
       (tfvs.map Expr.fvarTypeD) p.nP = .ok ())
     (hxq : openPisAtFvars p.nF crest p.nP = some (xFvs,
       Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP))
@@ -776,7 +778,7 @@ theorem directCtor_resid {env env₁ : Env} (m : EnvModel V env)
   refine directTyVal_fold hstripT hfrT.an ?_ hlenP
     (by rw [hcrestEq]; exact hfieldAt)
   obtain ⟨dT, ρT, restT, hfitT⟩ := TeleFit.transfer p.nP hfitP hlenP
-    (DomsInterpEq.of_pins m₁ F p.nP 0 (rho0 V) cvCa.type cvTa.type
+    (DomsInterpEq.of_pins (mode := mode) m₁ F p.nP 0 (rho0 V) cvCa.type cvTa.type
       fvsP tfvs _ trest hcq htq
       (fun j a b ha hb => by
         have hj : j < p.nP := by
@@ -803,7 +805,7 @@ constructor tuples into. -/
 theorem directCtor_mem {env env₁ : Env} (m : EnvModel V env)
     (m₁ : EnvModel V env₁) {F : Nat} {φ : Name → Nat} {p : DirectParts}
     {cvTa cvCa : ConstantVal} {v : Env × ConstantVal}
-    (hcc : checkDirectCtor (fueledOps F) env env₁ p cvTa = .ok v)
+    (hcc : checkDirectCtor (fueledOps mode F) env env₁ p cvTa = .ok v)
     (hfrT : FrameOk V m₁.val env₁ φ 0 (rho0 V) cvTa.type)
     (hnz : p.resSort.isNonZero = true)
     {tbs : List (Name × Expr × BinderMeta)}
@@ -814,7 +816,7 @@ theorem directCtor_mem {env env₁ : Env} (m : EnvModel V env)
       directTyVal V m.val env cvTa.type cvCa.type p.nP p.nF p.resSort ψ)
     (hagree : InterpAgree V m.val env m₁.val env₁ φ)
     (htres : cvTa.type.constsResolve env = true)
-    (hccC : checkConstantVal (fueledOps F) env₁ p.cvC = .ok cvCa) :
+    (hccC : checkConstantVal (fueledOps mode F) env₁ p.cvC = .ok cvCa) :
     ∃ Cv, interpClosed V m₁.val env₁ φ cvCa.type = some Cv ∧
       directCtorVal V m₁.val env₁ cvCa.type p.nP p.nF φ ∈ˢ Cv := by
   obtain ⟨cvCa', cbs, fvsP, crest, tfvs, trest, xFvs, hcv, hstripC, hcq, htq,
@@ -848,8 +850,8 @@ theorem extend_direct_ctor {env env₁ : Env} (m : EnvModel V env)
     (m₁ : EnvModel V env₁) {p : DirectParts} {cvTa cvCa : ConstantVal}
     {F : Nat} {v : Env × ConstantVal}
     (hE1 : EtaFamiliesClosed env₁)
-    (hcc : checkDirectCtor (fueledOps F) env env₁ p cvTa = .ok v)
-    (hccC : checkConstantVal (fueledOps F) env₁ p.cvC = .ok cvCa)
+    (hcc : checkDirectCtor (fueledOps mode F) env env₁ p cvTa = .ok v)
+    (hccC : checkConstantVal (fueledOps mode F) env₁ p.cvC = .ok cvCa)
     (hfrT : ∀ ψ : Name → Nat,
       FrameOk V m₁.val env₁ ψ 0 (rho0 V) cvTa.type)
     (hnz : p.resSort.isNonZero = true)
@@ -959,10 +961,10 @@ definitional pin of the stored λ-domains against the frame's
 annotations. -/
 theorem checkDirectRule_inv {env : Env} {p : DirectParts}
     {cvCa cvRa : ConstantVal} {F : Nat} {rhsA : Expr}
-    (h : checkDirectRule (fueledOps F) env p cvCa cvRa = .ok rhsA) :
+    (h : checkDirectRule (fueledOps mode F) env p cvCa cvRa = .ok rhsA) :
     ∃ rbs fvsP restR cdomsP crest xFvs crest2 ldoms lrest,
       p.rhs.hasFvar = false ∧ p.rhs.looseBVarsBounded 0 = true ∧
-      annotateCore env F 0 p.rhs = .ok rhsA ∧
+      annotateCore mode env F 0 p.rhs = .ok rhsA ∧
       rhsA.allLevelParamsDefined cvRa.levelParams = true ∧
       rhsA.constsResolve env = true ∧
       rhsA.looseBVarsBounded 0 = true ∧
@@ -972,9 +974,9 @@ theorem checkDirectRule_inv {env : Env} {p : DirectParts}
       Expr.instPisAt (fvsP.take p.nP) cvCa.type = some (cdomsP, crest) ∧
       openPisAtFvars p.nF crest (p.nP + 2) = some (xFvs, crest2) ∧
       Expr.instLamsAt (fvsP ++ xFvs) rhsA = some (ldoms, lrest) ∧
-      DefEqListOk F env (p.nP + 2 + p.nF)
+      DefEqListOk mode F env (p.nP + 2 + p.nF)
         ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms ∧
-      ∃ rhsTy, inferTypeCore env F 0 rhsA = .ok rhsTy := by
+      ∃ rhsTy, inferTypeCore mode env F 0 rhsA = .ok rhsTy := by
   simp only [checkDirectRule, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
     Except.bind] at h
@@ -989,7 +991,7 @@ theorem checkDirectRule_inv {env : Env} {p : DirectParts}
     revert hrawf'
     cases p.rhs.hasFvar <;> simp
   try dsimp only at h
-  cases hann : annotateCore env F 0 p.rhs with
+  cases hann : annotateCore mode env F 0 p.rhs with
   | error e => rw [hann] at h; exact nomatch h
   | ok rhsA' => ?_
   rw [hann] at h
@@ -1046,14 +1048,14 @@ theorem checkDirectRule_inv {env : Env} {p : DirectParts}
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases hde : checkDefEqList (fueledOps F) env (p.nP + 2 + p.nF)
+  cases hde : checkDefEqList (fueledOps mode F) env (p.nP + 2 + p.nF)
       ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms with
   | error e => intro h; exact nomatch h
   | ok u1 => ?_
   intro h
   try dsimp only at h
   revert h
-  cases hity : inferTypeCore env F 0 rhsA' with
+  cases hity : inferTypeCore mode env F 0 rhsA' with
   | error e => intro h; exact nomatch h
   | ok rhsTy => ?_
   intro h
@@ -1092,7 +1094,7 @@ theorem directRec_body {env₂ : Env} (m₂ : EnvModel V env₂)
     {F : Nat} {φ : Name → Nat} {p : DirectParts}
     {cvTa cvCa cvRa : ConstantVal} {fvsC : List Expr} {crestC : Expr}
     {cbs : List (Name × Expr × BinderMeta)}
-    (hrt : checkDirectRecTy (fueledOps F) env₂ p cvTa cvCa cvRa = .ok ())
+    (hrt : checkDirectRecTy (fueledOps mode F) env₂ p cvTa cvCa cvRa = .ok ())
     (hnz : p.resSort.isNonZero = true)
     (hfrRa : FrameOk V m₂.val env₂ φ 0 (rho0 V) cvRa.type)
     (hfrC : FrameOk V m₂.val env₂ φ 0 (rho0 V) cvCa.type)
@@ -1315,7 +1317,7 @@ theorem directRec_body {env₂ : Env} (m₂ : EnvModel V env₂)
         have hfrCrest : FrameOk V m₂.val env₂ φ (p.nP + 2)
             (updV V (updV V ρP p.nP M0) (p.nP + 1) mi0) crest := by
           refine FrameOk.weaken_top (FrameOk.weaken_top ?_)
-          refine FrameOk.ofInstWalk m₂ F (List.take p.nP fvs') hinstC
+          refine FrameOk.ofInstWalk (mode := mode) m₂ F (List.take p.nP fvs') hinstC
             (by rw [hlenTake]; exact hopP) hfitPs (by rw [hlenTake]; exact hlenPs)
             hfrRa hfrC ?_
           intro j a b ha hb
@@ -1541,8 +1543,8 @@ theorem directRec_rule_eq {env₂ : Env} (m₂ : EnvModel V env₂)
     {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal}
     {fvsC : List Expr} {crestC : Expr}
     {cbs : List (Name × Expr × BinderMeta)} {rhsA : Expr}
-    (hrt : checkDirectRecTy (fueledOps F) env₂ p cvTa cvCa cvRa = .ok ())
-    (hru : checkDirectRule (fueledOps F) env₂ p cvCa cvRa = .ok rhsA)
+    (hrt : checkDirectRecTy (fueledOps mode F) env₂ p cvTa cvCa cvRa = .ok ())
+    (hru : checkDirectRule (fueledOps mode F) env₂ p cvCa cvRa = .ok rhsA)
     (hnz : p.resSort.isNonZero = true)
     (hfrRa : ∀ φ : Name → Nat, FrameOk V m₂.val env₂ φ 0 (rho0 V) cvRa.type)
     (hfrC : ∀ φ : Name → Nat, FrameOk V m₂.val env₂ φ 0 (rho0 V) cvCa.type)
@@ -1691,7 +1693,7 @@ theorem directRec_rule_eq {env₂ : Env} (m₂ : EnvModel V env₂)
         exact (List.getElem?_take_of_lt hk).symm)
       (by omega)
     rw [hrho0, List.drop_zero, Nat.zero_add] at hfitPs
-    have hfr := FrameOk.ofInstWalk m₂ F (fvsP.take p.nP) hinstC
+    have hfr := FrameOk.ofInstWalk (mode := mode) m₂ F (fvsP.take p.nP) hinstC
       (by rw [hlenTake]; exact hopP) hfitPs (by rw [hlenTake]; exact hlenPs)
       (hfrRa ψ) (hfrC ψ)
       (fun j a b ha hb => by
@@ -2132,27 +2134,27 @@ parameters (frame `nP`), and the residual against the constructor's
 projections (frame `nP + 1`). -/
 theorem checkDirectProj_inv {env envOut : Env} {T C : Name} {lps : List Name}
     {nP nF i : Nat} {cvTa cvCa : ConstantVal} {F : Nat}
-    (h : checkDirectProj (fueledOps F) T C lps nP nF cvTa cvCa env i
+    (h : checkDirectProj (fueledOps mode F) T C lps nP nF cvTa cvCa env i
       = .ok envOut) :
     ∃ pty ptyA sty u fvsP prest sbs sbody sdom tFvs resid tfv cds fn fdom
       fbody fm rhsA,
       directProjTy T lps nP nF i cvTa.type cvCa.type = some pty ∧
       pty.hasFvar = false ∧ pty.looseBVarsBounded 0 = true ∧
-      annotateCore env F 0 pty = .ok ptyA ∧
+      annotateCore mode env F 0 pty = .ok ptyA ∧
       ptyA.allLevelParamsDefined lps = true ∧
       ptyA.constsResolve env = true ∧
       ptyA.looseBVarsBounded 0 = true ∧
       ptyA.hasFvar = false ∧
       (ptyA.stripPis (nP + 1)).isSome = true ∧
-      inferTypeCore env F 0 ptyA = .ok sty ∧
-      ensureSortCore env F 0 sty = .ok u ∧
+      inferTypeCore mode env F 0 ptyA = .ok sty ∧
+      ensureSortCore mode env F 0 sty = .ok u ∧
       env.find? (projFnName T i) = none ∧
       (∃ w : Unit, (checkProjShape ptyA cvCa.type nP nF : CheckM Unit)
         = .ok w) ∧
       openPisAtFvars nP ptyA 0 = some (fvsP, prest) ∧
       prest.stripPis 1 = some (sbs, sbody) ∧
       (sbs[0]?).map (·.2.1) = some sdom ∧
-      isDefEqCore env F nP sdom
+      isDefEqCore mode env F nP sdom
         (Expr.mkAppN (.const T (lps.map .param)) fvsP) = .ok true ∧
       openPisAtFvars 1 prest nP = some (tFvs, resid) ∧
       tFvs[0]? = some tfv ∧
@@ -2160,8 +2162,8 @@ theorem checkDirectProj_inv {env envOut : Env} {T C : Name} {lps : List Name}
           Expr.mkAppN (.const (projFnName T j) (lps.map .param))
             (fvsP ++ [tfv]))) cvCa.type
         = some (cds, .forallE fn fdom fbody fm) ∧
-      isDefEqCore env F (nP + 1) resid fdom = .ok true ∧
-      checkProjRule (fueledOps F) env ptyA cvCa lps nP nF i = .ok rhsA ∧
+      isDefEqCore mode env F (nP + 1) resid fdom = .ok true ∧
+      checkProjRule (fueledOps mode F) env ptyA cvCa lps nP nF i = .ok rhsA ∧
       envOut = ⟨.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
         [⟨C, nF, nP,
           if Expr.recRulePlain ptyA nP nP nP then .plain else .inert, rhsA⟩]
@@ -2353,7 +2355,7 @@ theorem directProj_param_stage {envP : Env} (mP : EnvModel V envP)
     (hfrPty : FrameOk V mP.val envP φ 0 (rho0 V) ptyA)
     (hopP : openPisAtFvars p.nP ptyA 0 = some (fvsP, prest))
     (hprest : prest = Expr.forallE n₀ sdom sbody m₀)
-    (hpin1 : isDefEqCore envP F p.nP sdom
+    (hpin1 : isDefEqCore mode envP F p.nP sdom
       (Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP)
       = .ok true)
     (hAgPC : DomsAgree V mP.val envP φ p.nP 0 (rho0 V) ptyA 0 (rho0 V)
@@ -2493,7 +2495,7 @@ theorem directProj_facts {envP : Env} (mP : EnvModel V envP)
     {cvTa cvCa : ConstantVal} {envOut : Env}
     {fvsC : List Expr} {crestC : Expr}
     {cbs : List (Name × Expr × BinderMeta)}
-    (hpj : checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+    (hpj : checkDirectProj (fueledOps mode F) p.cvT.name p.cvC.name
       p.cvT.levelParams p.nP p.nF cvTa cvCa envP i = .ok envOut)
     (hi : i < p.nF)
     (hnz : p.resSort.isNonZero = true)
@@ -2980,7 +2982,7 @@ theorem directProj_mem {envP : Env} (mP : EnvModel V envP)
     {cvTa cvCa : ConstantVal} {envOut : Env}
     {fvsC : List Expr} {crestC : Expr}
     {cbs : List (Name × Expr × BinderMeta)}
-    (hpj : checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+    (hpj : checkDirectProj (fueledOps mode F) p.cvT.name p.cvC.name
       p.cvT.levelParams p.nP p.nF cvTa cvCa envP i = .ok envOut)
     (hi : i < p.nF)
     (hnz : p.resSort.isNonZero = true)
@@ -3027,7 +3029,7 @@ theorem directProj_fold {envP : Env} (mP : EnvModel V envP)
     {cvTa cvCa : ConstantVal} {envOut : Env}
     {fvsC : List Expr} {crestC : Expr}
     {cbs : List (Name × Expr × BinderMeta)}
-    (hpj : checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+    (hpj : checkDirectProj (fueledOps mode F) p.cvT.name p.cvC.name
       p.cvT.levelParams p.nP p.nF cvTa cvCa envP i = .ok envOut)
     (hi : i < p.nF)
     (hnz : p.resSort.isNonZero = true)
@@ -3116,7 +3118,7 @@ theorem directProj_rule_eq {envP : Env} (mP : EnvModel V envP)
     {cvTa cvCa : ConstantVal} {envOut : Env}
     {fvsC : List Expr} {crestC : Expr}
     {cbs : List (Name × Expr × BinderMeta)}
-    (hpj : checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+    (hpj : checkDirectProj (fueledOps mode F) p.cvT.name p.cvC.name
       p.cvT.levelParams p.nP p.nF cvTa cvCa envP i = .ok envOut)
     (hi : i < p.nF)
     (hnz : p.resSort.isNonZero = true)
@@ -3495,7 +3497,7 @@ theorem directRec_mem {env₂ : Env} (m₂ : EnvModel V env₂)
     {F : Nat} {φ : Name → Nat} {p : DirectParts}
     {cvTa cvCa cvRa : ConstantVal} {fvsC : List Expr} {crestC : Expr}
     {cbs : List (Name × Expr × BinderMeta)}
-    (hrt : checkDirectRecTy (fueledOps F) env₂ p cvTa cvCa cvRa = .ok ())
+    (hrt : checkDirectRecTy (fueledOps mode F) env₂ p cvTa cvCa cvRa = .ok ())
     (hnz : p.resSort.isNonZero = true)
     (hfrRa : FrameOk V m₂.val env₂ φ 0 (rho0 V) cvRa.type)
     (hfrC : FrameOk V m₂.val env₂ φ 0 (rho0 V) cvCa.type)
@@ -3545,9 +3547,9 @@ theorem extend_direct_rec {env₂ : Env} (m₂ : EnvModel V env₂)
     (hfireEq : (if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP
       then RecRuleFire.plain else .inert) = fire)
     (hE2 : EtaFamiliesClosed env₂)
-    (hccR : checkConstantVal (fueledOps F) env₂ p.cvR = .ok cvRa)
-    (hrt : checkDirectRecTy (fueledOps F) env₂ p cvTa cvCa cvRa = .ok ())
-    (hru : checkDirectRule (fueledOps F) env₂ p cvCa cvRa = .ok rhsA)
+    (hccR : checkConstantVal (fueledOps mode F) env₂ p.cvR = .ok cvRa)
+    (hrt : checkDirectRecTy (fueledOps mode F) env₂ p cvTa cvCa cvRa = .ok ())
+    (hru : checkDirectRule (fueledOps mode F) env₂ p cvCa cvRa = .ok rhsA)
     (hnz : p.resSort.isNonZero = true)
     (hfrC : ∀ φ : Name → Nat, FrameOk V m₂.val env₂ φ 0 (rho0 V) cvCa.type)
     (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsC, crestC))
@@ -3764,7 +3766,7 @@ theorem extend_direct_proj {envP : Env} (mP : EnvModel V envP)
     (hfireEq : (if Expr.recRulePlain ptyA p.nP p.nP p.nP then
       RecRuleFire.plain else .inert) = fire)
     (hE : EtaFamiliesClosed envP)
-    (hpj : checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+    (hpj : checkDirectProj (fueledOps mode F) p.cvT.name p.cvC.name
       p.cvT.levelParams p.nP p.nF cvTa cvCa envP i = .ok envOut)
     (hi : i < p.nF)
     (hnz : p.resSort.isNonZero = true)
@@ -4000,15 +4002,15 @@ theorem extend_direct_proj {envP : Env} (mP : EnvModel V envP)
 projection fold, with the rule-carrying recursor environment spelled
 out. -/
 theorem checkDirectStruct_inv {env envOut : Env} {p : DirectParts} {F : Nat}
-    (h : checkDirectStruct (fueledOps F) env p = .ok envOut) :
+    (h : checkDirectStruct (fueledOps mode F) env p = .ok envOut) :
     ∃ env₁ cvTa env₂ cvCa cvRa rhsA,
-      checkDirectInd (fueledOps F) env p = .ok (env₁, cvTa) ∧
-      checkDirectCtor (fueledOps F) env env₁ p cvTa = .ok (env₂, cvCa) ∧
-      checkConstantVal (fueledOps F) env₂ p.cvR = .ok cvRa ∧
-      checkDirectRecTy (fueledOps F) env₂ p cvTa cvCa cvRa = .ok () ∧
-      checkDirectRule (fueledOps F) env₂ p cvCa cvRa = .ok rhsA ∧
+      checkDirectInd (fueledOps mode F) env p = .ok (env₁, cvTa) ∧
+      checkDirectCtor (fueledOps mode F) env env₁ p cvTa = .ok (env₂, cvCa) ∧
+      checkConstantVal (fueledOps mode F) env₂ p.cvR = .ok cvRa ∧
+      checkDirectRecTy (fueledOps mode F) env₂ p cvTa cvCa cvRa = .ok () ∧
+      checkDirectRule (fueledOps mode F) env₂ p cvCa cvRa = .ok rhsA ∧
       (List.range p.nF).foldlM
-        (checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+        (checkDirectProj (fueledOps mode F) p.cvT.name p.cvC.name
           p.cvT.levelParams p.nP p.nF cvTa cvCa)
         (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
           [⟨p.cvC.name, p.nF, p.nP,
@@ -4109,7 +4111,7 @@ theorem direct_proj_step {envJ envJ' : Env} (mJ : EnvModel V envJ)
       directFam p.cvT.name p.cvT.levelParams p.nP p.nF))
     (hTlps : cvTa.levelParams = p.cvT.levelParams)
     (hTname : cvTa.name = p.cvT.name)
-    (hpj : checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+    (hpj : checkDirectProj (fueledOps mode F) p.cvT.name p.cvC.name
       p.cvT.levelParams p.nP p.nF cvTa cvCa envJ i = .ok envJ') :
     ∃ mJ' : EnvModel V envJ',
       DirectStageOk V mJ' p cvTa cvCa crestC (i + 1) := by
@@ -4419,7 +4421,7 @@ theorem direct_proj_fold {env₃ : Env} (m₃ : EnvModel V env₃)
     (hTname : cvTa.name = p.cvT.name)
     (hst0 : DirectStageOk V m₃ p cvTa cvCa crestC 0) :
     ∀ (k : Nat), k ≤ p.nF → ∀ {envOut : Env},
-      (List.range k).foldlM (checkDirectProj (fueledOps F) p.cvT.name
+      (List.range k).foldlM (checkDirectProj (fueledOps mode F) p.cvT.name
         p.cvC.name p.cvT.levelParams p.nP p.nF cvTa cvCa) env₃
         = .ok envOut →
       ∃ mOut : EnvModel V envOut,
@@ -4440,7 +4442,7 @@ theorem direct_proj_fold {env₃ : Env} (m₃ : EnvModel V env₃)
     obtain ⟨mMid, hstMid⟩ := ih (by omega) hmid
     simp only [List.foldlM_cons, List.foldlM_nil, Bind.bind, Except.bind,
       pure, Except.pure] at hf
-    cases hstep : checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+    cases hstep : checkDirectProj (fueledOps mode F) p.cvT.name p.cvC.name
         p.cvT.levelParams p.nP p.nF cvTa cvCa envMid k with
     | error e => rw [hstep] at hf; exact nomatch hf
     | ok envN =>
@@ -4461,7 +4463,7 @@ theorem extend_direct_struct {env envOut : Env} (m : EnvModel V env)
     (hnz : p.resSort.isNonZero = true)
     (hClps0 : p.cvC.levelParams = p.cvT.levelParams)
     (hnomodel : (env.find? (p.cvT.name.str "_model")).isNone = true)
-    (h : checkDirectStruct (fueledOps F) env p = .ok envOut) :
+    (h : checkDirectStruct (fueledOps mode F) env p = .ok envOut) :
     Nonempty (EnvModel V envOut) ∧ EtaFamiliesClosed envOut := by
   obtain ⟨env₁, cvTa, env₂, cvCa, cvRa, rhsA, hq1, hq2, hq3, hq4, hq5,
     hfoldP⟩ := checkDirectStruct_inv h
@@ -4552,7 +4554,7 @@ theorem extend_direct_struct {env envOut : Env} (m : EnvModel V env)
       (⟨.indInfo cvTa (directCaps p) :: env.consts⟩ : Env) φ p.nP 0
       (rho0 V) cvCa.type cvTa.type := by
     intro φ
-    refine DomsInterpEq.of_pins m₁ F p.nP 0 (rho0 V) cvCa.type cvTa.type
+    refine DomsInterpEq.of_pins (mode := mode) m₁ F p.nP 0 (rho0 V) cvCa.type cvTa.type
       fvsC tfvs crestC trest hcq htq ?_ (hfrC₁ φ) (hfrT₁ φ)
     intro j a b ha hb
     have hj : j < p.nP := by

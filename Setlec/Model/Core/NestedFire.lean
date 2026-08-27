@@ -25,6 +25,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
@@ -61,7 +63,7 @@ theorem InstArgs.interpSpine {cval : ConstVal V} {D : Nat}
 
 set_option maxHeartbeats 1600000 in
 theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
-    (ihd : DefEqClaims m φ fuel)
+    (ihd : DefEqClaims mode m φ fuel)
     {d : Nat} {ρ : Nat → V}
     {r : RecRule} {cv cvj : ConstantVal} {mI rP : Nat}
     {us usj : List Level} {fe ae major : Expr}
@@ -81,7 +83,7 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
           pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
             (List.range (mI - rP)).map
               (fun i => Expr.bvar (mI - rP - 1 - i)))
-    (hpeq : defEqListP env fuel d
+    (hpeq : defEqListP mode env fuel d
       (major.getAppArgs.take r.ctorParams)
       (recFireComparands r cv.levelParams us cvj.levelParams
         (Expr.app fe ae).getAppArgs rP).2 = .ok true)
@@ -146,7 +148,7 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
     have h0 := hlev
     simp only [recFireComparands, hfp] at h0
     exact h0
-  have hpeq' : defEqListP env fuel d
+  have hpeq' : defEqListP mode env fuel d
       (major.getAppArgs.take r.ctorParams)
       (pins.map fun pin => Expr.instSeq
         (((Expr.app fe ae).getAppArgs.take mI).take rP) (rP - 1)

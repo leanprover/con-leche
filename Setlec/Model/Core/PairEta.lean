@@ -11,6 +11,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
@@ -18,18 +20,18 @@ open SetTheory Expr
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 /-- A successful pair-eta certification identifies the constructor
 application's interpretation with the stuck side's: both are the pair
 of the stuck side's components (or the proof point at the Prop
 collapse). -/
 theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel)
     {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
-    (h : pairEtaCertP env fuel d a b = .ok true)
+    (h : pairEtaCertP mode env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
     (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
@@ -39,8 +41,8 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
   obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
-    mIr, rPr, r, -, rfl, hfindM, htb, hwtb, hfindI, hfr, hrc, hrf, hmirp,
-    hgres, hlev, hdA, hdB, hd1, hd2, -, -⟩ := pairEtaCert_inv h
+    mIr, rPr, r, rfl, hfindM, htb, hwtb, hfindI, hfr, hrc, hrf, hmirp,
+    hgres, hlev, hdA, hdB, hd1, hd2, -⟩ := pairEtaCert_inv h
   -- identify the structure through the pinned recursor, then the
   -- constructor through the recursor's rule
   obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl hgres

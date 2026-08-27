@@ -40,6 +40,8 @@ instantiated at `sharedOps` — only the phase structure is mirrored.
 
 namespace Setlec
 
+variable (mode : CheckMode)
+
 /-- Indexed `Env.findCV?`. -/
 def FEnv.findCV? (fe : FEnv) (n : Name) : Option ConstantVal :=
   (fe.find? n).map (·.toConstantVal)
@@ -238,7 +240,8 @@ def checkEtaThmF (fe : FEnv) (T ctorName : Name) (lps : List Name)
                (.const (projModelName T j) (lps.map .param))
                (((List.range nP).map fun k => Expr.bvar (nP - k)) ++
                 [Expr.bvar 0])) &&
-          tbodyM == Expr.sort ℓA
+          -- TT-lane check (task #147): skipped unless `mode.ttChecks`
+          (!mode.ttChecks || tbodyM == Expr.sort ℓA)
         | _ => false)
      | _, _ => false)
   | _, _, _, _ => false
@@ -269,7 +272,8 @@ def checkUnitThmF (fe : FEnv) (T : Name) (lps : List Name)
           c == eqName && lhsC == Expr.bvar 1 && rhsC == Expr.bvar 0 &&
           tySlot == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
             ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)) &&
-          tbodyM == Expr.sort ℓA
+          -- TT-lane check (task #147): skipped unless `mode.ttChecks`
+          (!mode.ttChecks || tbodyM == Expr.sort ℓA)
         | _ => false)
      | _, _ => false)
   | _, _, _ => false
@@ -279,7 +283,8 @@ including why the subject is the *stored* constant and why the
 capability guard is load-bearing, is at `ctorResidualOk`). -/
 def ctorResidualOkF (fe : FEnv) (T ctorName : Name) (lps : List Name)
     (nP nF : Nat) (eta : Bool) : Bool :=
-  !eta ||
+  -- TT-lane check (task #147): trivially true unless `mode.ttChecks`.
+  !mode.ttChecks || !eta ||
   (match fe.find? ctorName with
    | some (.ctorInfo cvCA _ _) =>
      (match cvCA.type.stripPis (nP + nF) with
@@ -291,11 +296,11 @@ def ctorResidualOkF (fe : FEnv) (T ctorName : Name) (lps : List Name)
 def indBlockCapsF (fe : FEnv) (cvT cvC : ConstantVal) (nP nF : Nat) :
     IndCaps where
   eta := (cvC.levelParams = cvT.levelParams) &&
-    checkEtaThmF fe cvT.name cvC.name cvT.levelParams nP nF
+    checkEtaThmF mode fe cvT.name cvC.name cvT.levelParams nP nF
   etaCtor := cvC.name
   etaParams := nP
   etaFields := nF
-  unitlike := checkUnitThmF fe cvT.name cvT.levelParams nP
+  unitlike := checkUnitThmF mode fe cvT.name cvT.levelParams nP
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
 
@@ -319,7 +324,7 @@ ambient per-declaration state, not a fresh one. -/
 def opE (fe : FEnv) (pick : CoreFnsI → Nat → EIdx → CheckIM EIdx)
     (d : Nat) (e : Expr) : CheckIM Expr := do
   let i ← internExprM e
-  let j ← pick (coreKnotI fe checkFuel) d i
+  let j ← pick (coreKnotI mode fe checkFuel) d i
   match ← withStore (fun st => st.readbackI j) with
   | some v => pure v
   | none => throw (.internal "interned readback failed")
@@ -328,12 +333,12 @@ def opE (fe : FEnv) (pick : CoreFnsI → Nat → EIdx → CheckIM EIdx)
 def opB (fe : FEnv) (d : Nat) (a b : Expr) : CheckIM Bool := do
   let i ← internExprM a
   let j ← internExprM b
-  (coreKnotI fe checkFuel).defeq d i j
+  (coreKnotI mode fe checkFuel).defeq d i j
 
 /-- Shared-state sort-ensuring entry point. -/
 def opS (fe : FEnv) (d : Nat) (e : Expr) : CheckIM Level := do
   let i ← internExprM e
-  let u ← ensureSortI (coreKnotI fe checkFuel) d i
+  let u ← ensureSortI (coreKnotI mode fe checkFuel) d i
   readbackLevelM u
 
 /-- The per-declaration shared operations at a fixed environment index.
@@ -342,11 +347,11 @@ instantiate the record only at `fe.env`, which is what the bridge
 walks relate (there is no runtime check — the flush discipline is
 proven adequate, not tested). -/
 def sharedOps (fe : FEnv) : CheckerOps CheckIM where
-  annotate _ d e := opE fe (·.annotate) d e
-  inferType _ d e := opE fe (·.infer) d e
-  isDefEq _ d a b := opB fe d a b
-  ensureSort _ d e := opS fe d e
-  whnf _ d e := opE fe (·.whnf) d e
+  annotate _ d e := opE mode fe (·.annotate) d e
+  inferType _ d e := opE mode fe (·.infer) d e
+  isDefEq _ d a b := opB mode fe d a b
+  ensureSort _ d e := opS mode fe d e
+  whnf _ d e := opE mode fe (·.whnf) d e
 
 /-! ## Indexed mirrors of the declaration-checker functions (task #63)
 
@@ -470,7 +475,7 @@ def checkIotaThmF (ops : CheckerOps m) (fe' feSelf : FEnv)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq feSelf.env depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
-    checkIotaSidesTy ops feSelf.env depth (targs.getD 0 (.bvar 0)) lhsS
+    checkIotaSidesTy mode ops feSelf.env depth (targs.getD 0 (.bvar 0)) lhsS
       rhsS (eqHeadLevel tbody.getAppFn) cvName
 
 /-- `nestedRuleShape` through the index. -/
@@ -581,7 +586,7 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq feSelf.env depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
-    checkIotaSidesTy ops feSelf.env depth (targs.getD 0 (.bvar 0)) lhsS
+    checkIotaSidesTy mode ops feSelf.env depth (targs.getD 0 (.bvar 0)) lhsS
       rhsS (eqHeadLevel tbody.getAppFn) cvName
     pure (.nested lvls pins)
 
@@ -606,11 +611,11 @@ def checkIotaRuleF (ops : CheckerOps m) (fe' feSelf : FEnv)
       throw (.notImplemented s!"rule shape mismatch for {cvName}")
     let _rhsTy ← ops.inferType feSelf.env 0 rhsA
     let fire ← if Expr.recRulePlain tyA mI rP cnP then do
-        checkIotaThmF ops fe' feSelf f cvName lps tyA mI rP j r
+        checkIotaThmF mode ops fe' feSelf f cvName lps tyA mI rP j r
           cvj cnP cnF rhsA
         pure RecRuleFire.plain
       else
-        checkIotaThmNF ops fe' feSelf f cvName lps tyA mI rP j r
+        checkIotaThmNF mode ops fe' feSelf f cvName lps tyA mI rP j r
           cvj cnP cnF rhsA
     pure { r with rhs := rhsA, ctorParams := cnP, fire := fire }
 
@@ -620,7 +625,7 @@ def checkIotaRulesF (ops : CheckerOps m) (fe' feSelf : FEnv)
     (mI rP : Nat) : Nat → List RecRule → m (List RecRule)
   | _, [] => pure []
   | j, r :: rest => do
-    let r' ← checkIotaRuleF ops fe' feSelf f cvName lps tyA mI rP j r
+    let r' ← checkIotaRuleF mode ops fe' feSelf f cvName lps tyA mI rP j r
     let rest' ← checkIotaRulesF ops fe' feSelf f cvName lps tyA mI rP
       (j + 1) rest
     pure (r' :: rest')
@@ -730,7 +735,7 @@ def checkProjIotaF (ops : CheckerOps m) (fe : FEnv)
   let (_, sbodyO) ← unwrapOr (openPisAtFvars depth tcv.type 0)
     (.notImplemented "projection iota telescope")
   let targsO := sbodyO.getAppArgs
-  checkIotaSidesTy ops fe.env depth (targsO.getD 0 (.bvar 0))
+  checkIotaSidesTy mode ops fe.env depth (targsO.getD 0 (.bvar 0))
     (targsO.getD 1 (.bvar 0)) (targsO.getD 2 (.bvar 0))
     (eqHeadLevel sbody.getAppFn) (projModelName T i)
 
@@ -1105,7 +1110,7 @@ environment lookup routed through the index (task #63). -/
 def checkIndMemberS (blockNames : List Name) (caps : IndCaps)
     (fe : FEnv) (ci : ConstantInfo) : CheckIM FEnv := do
   flushS
-  let cvA ← checkMemberValF (sharedOps fe) blockNames fe ci.toConstantVal
+  let cvA ← checkMemberValF (sharedOps mode fe) blockNames fe ci.toConstantVal
   match ci with
   | .indInfo _ _ => pure (fe.push (.indInfo cvA caps))
   | .ctorInfo _ nP nF => pure (fe.push (.ctorInfo cvA nP nF))
@@ -1120,7 +1125,7 @@ def provisionRecsS (blockNames : List Name) :
     match ci with
     | .recInfo _ mI rP rules => do
       flushS
-      let cvA ← checkMemberValF (sharedOps feAcc) blockNames feAcc
+      let cvA ← checkMemberValF (sharedOps mode feAcc) blockNames feAcc
         ci.toConstantVal
       let (feSelf, others) ← provisionRecsS blockNames
         (feAcc.push (.recInfo cvA mI rP [])) rest
@@ -1141,10 +1146,10 @@ def checkIndRecsS (blockNames : List Name) (fe₂ : FEnv)
       if blockNames.contains n then n.str "_model" else n
     unless fe₂.find? eqName = some eqA do
       throw (.notImplemented "modeled recursor requires the pinned Eq basis")
-    let (feSelf, checked) ← provisionRecsS blockNames fe₂ recs
+    let (feSelf, checked) ← provisionRecsS mode blockNames fe₂ recs
     flushS
     checked.foldlM (fun (acc : FEnv) c => do
-        let rules' ← checkIotaRulesF (sharedOps feSelf) fe₂ feSelf
+        let rules' ← checkIotaRulesF mode (sharedOps mode feSelf) fe₂ feSelf
           f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
         pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules')))
       fe₂
@@ -1159,8 +1164,8 @@ def checkProjFnS (fe : FEnv) (T ctorName : Name) (lps : List Name)
   checkProjShape (m := CheckIM) pty cvj.type nP nF
   unless i < nF do
     throw (.invalid "projection index out of range")
-  let rhsA ← checkProjRuleF (sharedOps fe) fe pty cvj lps nP nF i
-  checkProjIotaF (sharedOps fe) fe T ctorName lps cvj nP nF i
+  let rhsA ← checkProjRuleF (sharedOps mode fe) fe pty cvj lps nP nF i
+  checkProjIotaF mode (sharedOps mode fe) fe T ctorName lps cvj nP nF i
   pure (fe.push (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
     [⟨ctorName, nF, nP,
       if Expr.recRulePlain pty nP nP nP then .plain else .inert, rhsA⟩]))
@@ -1171,7 +1176,7 @@ def installProjFnStepS (T ctorName : Name) (lps : List Name)
     (nP nF : Nat) (fe : FEnv) (i : Nat) : CheckIM FEnv := do
   if (fe.find? (projModelName T i)).isSome then do
     flushS
-    checkProjFnS fe T ctorName lps nP nF i
+    checkProjFnS mode fe T ctorName lps nP nF i
   else pure fe
 
 /-- The Prop-fallback elimination-template entry (mirrors
@@ -1209,7 +1214,7 @@ def checkDirectProjsS (T C : Name) (lps : List Name) (nP nF : Nat)
   | 0, _, _, fe => pure fe
   | todo + 1, i, rt?, fe => do
     flushS
-    let fe' ← checkDirectProjF (sharedOps fe) T C lps nP nF cvTa cvCa
+    let fe' ← checkDirectProjF (sharedOps mode fe) T C lps nP nF cvTa cvCa
       rt? fe i
     checkDirectProjsS T C lps nP nF cvTa cvCa todo (i + 1)
       (rt?.bind (Expr.instPisAtLift [directProjArg T lps nP i])) fe'
@@ -1221,13 +1226,13 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
   -- created them, and this driver walks five of them (the block's
   -- provisional environments plus one per projection).
   flushS
-  let (fe₁, cvTa) ← checkDirectIndF (sharedOps fe) fe p
+  let (fe₁, cvTa) ← checkDirectIndF (sharedOps mode fe) fe p
   flushS
-  let (fe₂, cvCa) ← checkDirectCtorF (sharedOps fe₁) fe fe₁ p cvTa
+  let (fe₂, cvCa) ← checkDirectCtorF (sharedOps mode fe₁) fe fe₁ p cvTa
   flushS
-  let cvRa ← checkConstantValF (sharedOps fe₂) fe₂ p.cvR
-  checkDirectRecTyF (sharedOps fe₂) fe₂ p cvTa cvCa cvRa
-  let rhsA ← checkDirectRuleF (sharedOps fe₂) fe₂ p cvCa cvRa
+  let cvRa ← checkConstantValF (sharedOps mode fe₂) fe₂ p.cvR
+  checkDirectRecTyF (sharedOps mode fe₂) fe₂ p cvTa cvCa cvRa
+  let rhsA ← checkDirectRuleF (sharedOps mode fe₂) fe₂ p cvCa cvRa
   let fe₃ := fe₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
     [⟨p.cvC.name, p.nF, p.nP,
       if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
@@ -1236,7 +1241,7 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
   unless (List.range p.nF).all
       (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
     throw (.invalid "projection name family taken")
-  checkDirectProjsS p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
+  checkDirectProjsS mode p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
     cvTa cvCa p.nF 0
     (Expr.instPisAtLift (directProjPs p.nP) cvCa.type) fe₃
 
@@ -1256,33 +1261,34 @@ def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
     block.filter (fun ci => match ci with
       | .ctorInfo _ _ _ => true | _ => false) with
   | [.indInfo cvT _], [.ctorInfo cvC nP nF] =>
-    let caps ← pure (indBlockCapsF fe cvT cvC nP nF)
-    let fe₂ ← nonrecs.foldlM (checkIndMemberS blockNames caps) fe
-    let fe₃ ← checkIndRecsS blockNames fe₂ recs
-    unless ctorResidualOkF fe₃ cvT.name cvC.name cvT.levelParams nP nF
+    let caps ← pure (indBlockCapsF mode fe cvT cvC nP nF)
+    let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames caps) fe
+    let fe₃ ← checkIndRecsS mode blockNames fe₂ recs
+    unless ctorResidualOkF mode fe₃ cvT.name cvC.name cvT.levelParams nP nF
         caps.eta do
       throw (.notImplemented "modeled structure: eta constructor residual")
     unless (List.range nF).all
         (fun j => (fe₃.find? (projFnName cvT.name j)).isNone) do
       throw (.invalid "projection name family taken")
     let fe₄ ← (List.range nF).foldlM
-      (installProjFnStepS cvT.name cvC.name cvT.levelParams nP nF) fe₃
+      (installProjFnStepS mode cvT.name cvC.name cvT.levelParams nP nF)
+      fe₃
     (List.range nF).foldlM
       (installProjTemplateStepS cvT.name cvC.name cvT.levelParams nP nF) fe₄
   | _, _ => do
-    let fe₂ ← nonrecs.foldlM (checkIndMemberS blockNames {}) fe
-    checkIndRecsS blockNames fe₂ recs
+    let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames {}) fe
+    checkIndRecsS mode blockNames fe₂ recs
 
 /-- One declaration in the shared state, index in and out (mirrors
 `checkDecl` branch by branch; every lookup through the index). -/
 def checkDeclSF (fe : FEnv) (d : Declaration) : CheckIM FEnv :=
   match d with
   | .defnDecl cv value hint => do
-    let cv ← checkConstantValF (sharedOps fe) fe cv
+    let cv ← checkConstantValF (sharedOps mode fe) fe cv
     -- Rare Nat-op branch decided before the value check, so the common
     -- path does not retain `fe` across it (see `checkDeclSP`).
     if natOpNames.contains cv.name || natDivModNames.contains cv.name then
-      let fe2 ← checkDefnValF (sharedOps fe) fe cv value hint
+      let fe2 ← checkDefnValF (sharedOps mode fe) fe cv value hint
       if natOpNames.contains cv.name then
         unless natOpGuardF fe2 cv.name &&
             (natOpDeps cv.name).all (natOpStoredOkF fe2) do
@@ -1290,7 +1296,7 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckIM FEnv :=
             s!"nonstandard structural Nat operation environment ({cv.name})")
         match fe2.find? cv.name with
         | some (.defnInfo _ value' _) =>
-          let ok ← certifyNatEqs (sharedOps fe) fe.env
+          let ok ← certifyNatEqs (sharedOps mode fe) fe.env
             ((natOpEquations 0 cv.name).map fun eq =>
               (Expr.substConst0 cv.name value' eq.1,
                Expr.substConst0 cv.name value' eq.2))
@@ -1300,21 +1306,21 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckIM FEnv :=
         | _ => throw (.internal
             s!"structural Nat operation not stored ({cv.name})")
       if natDivModNames.contains cv.name then
-        checkDivModPinF (sharedOps fe) fe fe2 cv.name
+        checkDivModPinF (sharedOps mode fe) fe fe2 cv.name
       pure fe2
     else
-      checkDefnValF (sharedOps fe) fe cv value hint
+      checkDefnValF (sharedOps mode fe) fe cv value hint
   | .thmDecl cv value => do
-    let cv ← checkConstantValF (sharedOps fe) fe cv
-    checkThmValF (sharedOps fe) fe cv value
+    let cv ← checkConstantValF (sharedOps mode fe) fe cv
+    checkThmValF (sharedOps mode fe) fe cv value
   | .opaqueDecl cv value => do
-    let cv ← checkConstantValF (sharedOps fe) fe cv
-    let fe2 ← checkOpaqueValF (sharedOps fe) fe cv value
+    let cv ← checkConstantValF (sharedOps mode fe) fe cv
+    let fe2 ← checkOpaqueValF (sharedOps mode fe) fe cv value
     if reduceOpNames.contains cv.name then
-      checkReducePinF (sharedOps fe) fe fe2 cv.name value
+      checkReducePinF (sharedOps mode fe) fe fe2 cv.name value
     pure fe2
   | .axiomDecl cv => do
-    let cvA ← checkConstantValF (sharedOps fe) fe cv
+    let cvA ← checkConstantValF (sharedOps mode fe) fe cv
     if stdAxiomOkF fe cvA then
       pure (fe.push (.axiomInfo cvA))
     else if cvA.name = trustCompilerName then
@@ -1340,19 +1346,19 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckIM FEnv :=
     kind.declsA.foldlM installBasisDeclF fe
   | .indDecl block =>
     match directPartsF? fe block with
-    | some p => checkDirectStructS fe p
-    | none => checkIndDeclSF fe block
+    | some p => checkDirectStructS mode fe p
+    | none => checkIndDeclSF mode fe block
 
 /-- The shared-state checker step the binary runs: the index is
 threaded *across* declarations (built once for the whole stream; each
 accepted constant is one `FEnv.push`), the interned state lives for
 exactly one declaration. -/
 def checkDeclSharedF (fe : FEnv) (d : Declaration) : CheckM FEnv :=
-  (checkDeclSF fe d).run' {}
+  (checkDeclSF mode fe d).run' {}
 
 /-- The declaration fold of the shared-state checker. -/
 def checkDeclsShared (ds : List Declaration) : CheckM Env := do
-  let fe ← ds.foldlM checkDeclSharedF (mkFEnv Env.empty)
+  let fe ← ds.foldlM (checkDeclSharedF mode) (mkFEnv Env.empty)
   pure fe.env
 
 /-! ## The parsed-index drivers (task #78)
@@ -1380,7 +1386,7 @@ environment-dependent caches at each declaration boundary. -/
 /-- Parsed-index `ensureSort`: the interned entry plus the level
 readback (the `opS` tail without the per-call tree interning). -/
 def opSIx (fe : FEnv) (d : Nat) (i : EIdx) : CheckIM Level := do
-  let u ← ensureSortI (coreKnotI fe checkFuel) d i
+  let u ← ensureSortI (coreKnotI mode fe checkFuel) d i
   readbackLevelM u
 
 /-- Read back an interned expression (internal error on a dangling
@@ -1419,13 +1425,13 @@ def checkConstantValP (fe : FEnv) (cv : ConstantValP) :
     throw (.invalid s!"loose bound variable in type of {cv.name}")
   if ← withStore (fun st => st.hasFvarI cv.type) then
     throw (.invalid s!"unexpected free variable in type of {cv.name}")
-  let jty ← (coreKnotI fe checkFuel).annotate 0 cv.type
+  let jty ← (coreKnotI mode fe checkFuel).annotate 0 cv.type
   unless ← withStore (fun st => st.allLevelParamsDefinedI cv.levelParams jty) do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless ← withStore (fun st => constsResolveFI st fe jty) do
     throw (.invalid s!"unknown constant in type of {cv.name}")
-  let jsty ← (coreKnotI fe checkFuel).infer 0 jty
-  let _u ← opSIx fe 0 jsty
+  let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
+  let _u ← opSIx mode fe 0 jsty
   let tyE ← readbackEM jty
   pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
 
@@ -1450,7 +1456,7 @@ def checkDefnValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if ← withStore (fun st => st.hasFvarI value) then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
@@ -1460,8 +1466,8 @@ def checkDefnValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
   recordIConst cvA.name cvA.type jty (some (vE, jv))
   -- CHECK PHASE ENTRY (task #64: the two-tier bracket hooks here —
   -- everything below produces no stored artifact)
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
+  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in definition {cvA.name}")
   -- CHECK PHASE EXIT (the driver-level cert branches that follow in
   -- `checkDeclSP` are check-phase too; the bracket closes after them)
@@ -1472,15 +1478,15 @@ is-a-proposition test stays install-side, preserving the pre-split
 error order). -/
 def checkThmValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
-  let jsty ← (coreKnotI fe checkFuel).infer 0 jty
-  let ul ← opSIx fe 0 jsty
+  let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
+  let ul ← opSIx mode fe 0 jsty
   unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
     throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
   unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if ← withStore (fun st => st.hasFvarI value) then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
@@ -1489,8 +1495,8 @@ def checkThmValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
   let vE ← readbackEM jv
   recordIConst cvA.name cvA.type jty (some (vE, jv))
   -- CHECK PHASE ENTRY (task #64 split, see `checkDefnValP`)
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
+  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
   -- CHECK PHASE EXIT
   pure (fe.push (.thmInfo cvA vE))
@@ -1505,7 +1511,7 @@ def checkOpaqueValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if ← withStore (fun st => st.hasFvarI value) then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
@@ -1513,8 +1519,8 @@ def checkOpaqueValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   recordIConst cvA.name cvA.type jty none
   -- CHECK PHASE ENTRY (task #64 split, see `checkDefnValP`)
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
+  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
   -- CHECK PHASE EXIT (the reduce-pin cert branch in `checkDeclSP` is
   -- check-phase too)
@@ -1530,7 +1536,7 @@ bracket instead. -/
 def checkDeclSPPlain (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
-    let (cvA, jty) ← checkConstantValP fe cv
+    let (cvA, jty) ← checkConstantValP mode fe cv
     -- The Nat-op certification branch is decided *before* checking the
     -- value: the pinned certifications intentionally run against the
     -- pre-push `fe`, so the rare branch must retain `fe` across
@@ -1539,7 +1545,7 @@ def checkDeclSPPlain (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
     -- (a hidden quadratic cost, one copy per definition).  The common
     -- path is therefore a tail call with `fe` consumed.
     if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
-      let fe2 ← checkDefnValP fe cvA jty value hint
+      let fe2 ← checkDefnValP mode fe cvA jty value hint
       if natOpNames.contains cvA.name then
         unless natOpGuardF fe2 cvA.name &&
             (natOpDeps cvA.name).all (natOpStoredOkF fe2) do
@@ -1547,7 +1553,7 @@ def checkDeclSPPlain (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
             s!"nonstandard structural Nat operation environment ({cvA.name})")
         match fe2.find? cvA.name with
         | some (.defnInfo _ value' _) =>
-          let ok ← certifyNatEqs (sharedOps fe) fe.env
+          let ok ← certifyNatEqs (sharedOps mode fe) fe.env
             ((natOpEquations 0 cvA.name).map fun eq =>
               (Expr.substConst0 cvA.name value' eq.1,
                Expr.substConst0 cvA.name value' eq.2))
@@ -1557,22 +1563,22 @@ def checkDeclSPPlain (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
         | _ => throw (.internal
             s!"structural Nat operation not stored ({cvA.name})")
       if natDivModNames.contains cvA.name then
-        checkDivModPinF (sharedOps fe) fe fe2 cvA.name
+        checkDivModPinF (sharedOps mode fe) fe fe2 cvA.name
       pure fe2
     else
-      checkDefnValP fe cvA jty value hint
+      checkDefnValP mode fe cvA jty value hint
   | .thmDecl cv value => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    checkThmValP fe cvA jty value
+    let (cvA, jty) ← checkConstantValP mode fe cv
+    checkThmValP mode fe cvA jty value
   | .opaqueDecl cv value => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    let fe2 ← checkOpaqueValP fe cvA jty value
+    let (cvA, jty) ← checkConstantValP mode fe cv
+    let fe2 ← checkOpaqueValP mode fe cvA jty value
     if reduceOpNames.contains cvA.name then do
       let vE ← readbackEM value
-      checkReducePinF (sharedOps fe) fe fe2 cvA.name vE
+      checkReducePinF (sharedOps mode fe) fe fe2 cvA.name vE
     pure fe2
   | .axiomDecl cv => do
-    let (cvA, jty) ← checkConstantValP fe cv
+    let (cvA, jty) ← checkConstantValP mode fe cv
     if stdAxiomOkF fe cvA then do
       recordIConst cvA.name cvA.type jty none
       pure (fe.push (.axiomInfo cvA))
@@ -1601,8 +1607,8 @@ def checkDeclSPPlain (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
     kind.declsA.foldlM installBasisDeclF fe
   | .indDecl block =>
     match directPartsF? fe block with
-    | some p => checkDirectStructS fe p
-    | none => checkIndDeclSF fe block
+    | some p => checkDirectStructS mode fe p
+    | none => checkIndDeclSF mode fe block
 
 /-! ## The per-declaration tier-two snapshot bracket (task #64)
 
@@ -1666,15 +1672,15 @@ so the snapshot is released on both verdicts). -/
 def bracketValB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM (Expr × EIdx × Bool) := do
   openSnapshotM
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   let vE ← readbackEM jv
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  let ok ← (coreKnotI fe checkFuel).defeq 0 jvt jty
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
+  let ok ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty
   let jv' ← closeSnapshotM jv
   pure (vE, jv', ok)
 
@@ -1685,7 +1691,7 @@ def checkDefnValPB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if ← withStore (fun st => st.hasFvarI value) then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let (vE, jv', ok) ← bracketValB4 fe cvA jty value
+  let (vE, jv', ok) ← bracketValB4 mode fe cvA jty value
   unless ok do
     throw (.invalid s!"type mismatch in definition {cvA.name}")
   recordIConst cvA.name cvA.type jty (some (vE, jv'))
@@ -1694,15 +1700,15 @@ def checkDefnValPB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
 /-- `checkThmValP` with the in-place annotate-snapshot bracket. -/
 def checkThmValPB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
-  let jsty ← (coreKnotI fe checkFuel).infer 0 jty
-  let ul ← opSIx fe 0 jsty
+  let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
+  let ul ← opSIx mode fe 0 jsty
   unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
     throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
   unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if ← withStore (fun st => st.hasFvarI value) then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let (vE, jv', ok) ← bracketValB4 fe cvA jty value
+  let (vE, jv', ok) ← bracketValB4 mode fe cvA jty value
   unless ok do
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
   recordIConst cvA.name cvA.type jty (some (vE, jv'))
@@ -1717,14 +1723,14 @@ def checkOpaqueValPB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
   if ← withStore (fun st => st.hasFvarI value) then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
   openSnapshotM
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  let ok ← (coreKnotI fe checkFuel).defeq 0 jvt jty
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
+  let ok ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty
   closeDiscardM
   unless ok do
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
@@ -1743,20 +1749,20 @@ def checkDeclSP (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
     -- dispatch before the header check and the unbracketed path runs
     -- it exactly once
     if natOpNames.contains cv.name || natDivModNames.contains cv.name then
-      checkDeclSPPlain fe pd
+      checkDeclSPPlain mode fe pd
     else do
-      let (cvA, jty) ← checkConstantValP fe cv
-      checkDefnValPB4 fe cvA jty value hint
+      let (cvA, jty) ← checkConstantValP mode fe cv
+      checkDefnValPB4 mode fe cvA jty value hint
   | .thmDecl cv value => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    checkThmValPB4 fe cvA jty value
+    let (cvA, jty) ← checkConstantValP mode fe cv
+    checkThmValPB4 mode fe cvA jty value
   | .opaqueDecl cv value =>
     if reduceOpNames.contains cv.name then
-      checkDeclSPPlain fe pd
+      checkDeclSPPlain mode fe pd
     else do
-      let (cvA, jty) ← checkConstantValP fe cv
-      checkOpaqueValPB4 fe cvA jty value
-  | _ => checkDeclSPPlain fe pd
+      let (cvA, jty) ← checkConstantValP mode fe cv
+      checkOpaqueValPB4 mode fe cvA jty value
+  | _ => checkDeclSPPlain mode fe pd
 
 /-- One step of the parsed-declaration fold: validate the indices
 against the parse store's range (`O(1)`; in-range indices denote under
@@ -1765,7 +1771,7 @@ def checkDeclSPStep (n0 : Nat) (fe : FEnv) (pd : DeclP) : CheckIM FEnv := do
   unless pd.inRangeB n0 do
     throw (.internal "parsed declaration index out of range")
   flushS
-  checkDeclSP fe pd
+  checkDeclSP mode fe pd
 
 /-- The parsed-declaration checker the binary runs: the parse arena
 arrives well-formed *by construction* (`WFStore`, task #103 — there is
@@ -1775,7 +1781,7 @@ environment-independent caches persist; the environment-dependent
 caches are flushed per declaration). -/
 def checkDeclsSP (st : WFStore) (pds : List DeclP) : CheckM Env := do
   -- SCOUT (task #64 low-bit): `EIdx` bound is the encoded one.
-  let fe ← (pds.foldlM (checkDeclSPStep (st.raw.nodes.size + st.raw.nodes.size))
+  let fe ← (pds.foldlM (checkDeclSPStep mode (st.raw.nodes.size + st.raw.nodes.size))
     (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 

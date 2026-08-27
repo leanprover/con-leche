@@ -39,9 +39,7 @@ import Setlec.Model.BridgeWF
 import Setlec.Model.ConsistencyC
 import Setlec.Kernel.CheckerS
 import Setlec.Kernel.CoreNC
-import Setlec.Kernel.CoreIO
 import Setlec.Kernel.CheckerNC
-import Setlec.Kernel.CheckerIO
 import Setlec.Kernel.Split
 import Setlec.Verify.SimS
 import Setlec.Verify.BridgeS1

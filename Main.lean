@@ -1,6 +1,5 @@
 import Setlec.Kernel.CheckerS
 import Setlec.Kernel.CheckerNC
-import Setlec.Kernel.CheckerIO
 import Setlec.Kernel.Split
 import Setlec.Frontend.Export
 
@@ -174,7 +173,7 @@ partial def diagLoop
 recursion with plain accumulators, exactly as `progressLoop` and for the
 same reason.  `bounds[i]` is the number of constants installed *before*
 declaration `i` — the visibility bound its check phase runs under. -/
-partial def installLoop (progress : Bool) (n0 : Nat)
+partial def installLoop (mode : Setlec.CheckMode) (progress : Bool) (n0 : Nat)
     (decls : Array Setlec.DeclP) (i : Nat) (fe : Setlec.FEnv)
     (bounds : Array Nat) (s : Setlec.IState) :
     IO (Except Setlec.CheckError
@@ -185,17 +184,18 @@ partial def installLoop (progress : Bool) (n0 : Nat)
       IO.println s!"INSTALL {i}: {declPName d}"
       (← IO.getStdout).flush
     let bounds := bounds.push fe.visibleBelow
-    match Setlec.installDeclSPStep n0 fe d s with
+    match Setlec.installDeclSPStep mode n0 fe d s with
     | .error e =>
       IO.eprintln s!"setlec: {e} [installing {declPName d}]"
       pure (.error e)
-    | .ok (fe, s) => installLoop progress n0 decls (i + 1) fe bounds s
+    | .ok (fe, s) => installLoop mode progress n0 decls (i + 1) fe bounds s
   else pure (.ok (fe, bounds, s))
 
 /-- Check-phase loop of the split driver: declarations `[i, hi)` of the
 stream, each against the *final* environment restricted to its own
 install-time prefix. -/
-partial def recheckLoop (progress : Bool) (decls : Array Setlec.DeclP)
+partial def recheckLoop (mode : Setlec.CheckMode)
+    (progress : Bool) (decls : Array Setlec.DeclP)
     (bounds : Array Nat) (i hi : Nat) (fe : Setlec.FEnv)
     (s : Setlec.IState) : IO (Except Setlec.CheckError Unit) := do
   if h : i < hi ∧ i < decls.size then
@@ -203,63 +203,57 @@ partial def recheckLoop (progress : Bool) (decls : Array Setlec.DeclP)
     if progress then
       IO.println s!"CHECK {i}: {declPName d}"
       (← IO.getStdout).flush
-    match Setlec.recheckDeclSPStep fe (bounds[i]?.getD 0) d s with
+    match Setlec.recheckDeclSPStep mode fe (bounds[i]?.getD 0) d s with
     | .error e =>
       IO.eprintln s!"setlec: {e} [checking {declPName d}]"
       pure (.error e)
-    | .ok (_, s) => recheckLoop progress decls bounds (i + 1) hi fe s
+    | .ok (_, s) => recheckLoop mode progress decls bounds (i + 1) hi fe s
   else pure (.ok ())
 
-/-- The real driver (run in the supervised child process).  `yolo`
-selects the unverified cert-skipping stack (same as
-`SETLEC_NO_PROOF_CERTS=1`); `pre` asserts the input is already
+/-- The real driver (run in the supervised child process).  `mode` is
+the three-mode setting (task #147), validated once by the caller and
+consumed here as configuration; `pre` asserts the input is already
 preprocessed (`--pre`), skipping preprocessor detection and spawn;
 `split?` selects the unverified install/check-split driver
 (`--install-only` / `--check-range`, task #108) with the requested
 half-open check range. -/
-def checkMain (file : String) (yolo : Bool) (inferOnly : Bool) (pre : Bool)
+def checkMain (file : String) (mode : CheckMode) (pre : Bool)
     (split? : Option (Nat × Option Nat)) : IO UInt32 := do
-    -- Measurement mode (task #76): SETLEC_NO_PROOF_CERTS=1 (or the
-    -- `--yolo` flag) selects the cert-skipping knot
-    -- (Setlec/Kernel/CheckerNC.lean) — the proof-feeding infer/defeq
-    -- calls the reference kernels do not perform are skipped.
-    -- UNVERIFIED: the consistency statements cover only the default
-    -- drivers below.
-    let noCerts := yolo || (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1"
-    -- Operating mode (task #134): SETLEC_INFER_ONLY=1 (or the
-    -- `--infer-only` flag) selects the infer-only stack
-    -- (Setlec/Kernel/CheckerIO.lean) — the reference kernels'
-    -- `infer_only` discipline: the front door checks the declaration
-    -- in full, internal re-derivations skip the per-argument
-    -- application re-check, every certificate family keeps running.
-    -- UNVERIFIED in the same sense as above (the consistency
-    -- statements are about the default drivers), but a *supported*
-    -- mode rather than a measurement knob — see the header of
-    -- Setlec/Kernel/CoreIO.lean for the distinction.
-    let inferOnly := inferOnly || (← IO.getEnv "SETLEC_INFER_ONLY") == some "1"
-    if inferOnly && split?.isSome then
+    -- The retired environment variables (tasks #76/#134) are hard
+    -- errors, not silently ignored: a verdict's provenance must be
+    -- readable off the invocation (task #147).
+    if (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1" then
+      IO.eprintln "setlec: SETLEC_NO_PROOF_CERTS is retired; the \
+        cert-skipping measurement lane is the --no-model mode \
+        (checking-mode front door included — see DESIGN.md, task #147)"
+      return 3
+    if (← IO.getEnv "SETLEC_INFER_ONLY") == some "1" then
+      IO.eprintln "setlec: SETLEC_INFER_ONLY is retired; the infer-only \
+        internal discipline is part of the --no-model mode, and the \
+        certified modes are --set-model (default) and --tt-model \
+        (see DESIGN.md, task #147)"
+      return 3
+    if mode == .noModel && split?.isSome then
       -- never silently ignored: the split driver is a different
       -- unverified stack, and combining the two would make the
       -- verdict's provenance unreadable
-      IO.eprintln "setlec: --infer-only cannot be combined with \
+      IO.eprintln "setlec: --no-model cannot be combined with \
         --install-only/--check-range"
-      return 3
-    if noCerts && inferOnly then
-      IO.eprintln "setlec: the measurement mode (--yolo / \
-        SETLEC_NO_PROOF_CERTS) and the infer-only mode (--infer-only / \
-        SETLEC_INFER_ONLY) are different things and cannot be combined"
       return 3
     -- Task #64: the per-declaration tier-two snapshot bracket IS the
     -- default value pipeline (checkDeclsSP); the former
     -- SETLEC_TIER_BRACKET measurement knob is retired — its modes and
     -- their measurements are recorded in DESIGN.md (reproducible at
     -- the pre-flip commit 2794be4).
+    -- Task #147: `--set-model`/`--tt-model` run the certified drivers
+    -- at the given mode (the seven TT-lane checks off/on);
+    -- `--no-model` runs the unverified lane
+    -- (Setlec/Kernel/CheckerNC.lean — checking-mode front door over
+    -- the cert-skipping internals).
     let stepF :=
-      if noCerts then checkDeclSPStepNC
-      else if inferOnly then checkDeclSPStepIO else checkDeclSPStep
+      if mode == .noModel then checkDeclSPStepNM else checkDeclSPStep mode
     let foldF :=
-      if noCerts then checkDeclsSPNC
-      else if inferOnly then checkDeclsSPIO else checkDeclsSP
+      if mode == .noModel then checkDeclsSPNM else checkDeclsSP mode
     -- Streaming frontend (task #57): the preprocessor writes to a temp
     -- file and the parse reads line by line — no wholesale text buffer
     -- in this process; retained memory is the parse arena plus the
@@ -308,11 +302,11 @@ def checkMain (file : String) (yolo : Bool) (inferOnly : Bool) (pre : Bool)
             match e with
             | .invalid _ => if full then 1 else 2
             | _ => e.exitCode
-          match ← installLoop progress n0 decls 0
+          match ← installLoop mode progress n0 decls 0
               (Setlec.mkFEnv Setlec.Env.empty) #[] { store := store.raw } with
           | .error e => return ← finish (verdict e)
           | .ok (fe, bounds, s) =>
-            match ← recheckLoop progress decls bounds lo hi fe s with
+            match ← recheckLoop mode progress decls bounds lo hi fe s with
             | .error e => return ← finish (verdict e)
             | .ok () =>
               IO.println s!"setlec: installed {fe.env.consts.length} constants \
@@ -361,20 +355,23 @@ def checkMain (file : String) (yolo : Bool) (inferOnly : Bool) (pre : Bool)
         try IO.FS.removeFile path catch _ => pure ()
 
 def usage : String := String.intercalate "\n" [
-  "usage: setlec [--yolo] [--infer-only] [--pre] [--install-only]",
-  "              [--check-range A:B] FILE.ndjson",
+  "usage: setlec [--set-model|--tt-model|--no-model] [--pre]",
+  "              [--install-only] [--check-range A:B] FILE.ndjson",
   "",
-  "  --yolo            skip the proof-feeding certification calls",
-  "                    (unverified measurement mode; same as",
-  "                    SETLEC_NO_PROOF_CERTS=1)",
-  "  --infer-only      re-derive types inside reduction without",
-  "                    re-checking application arguments, as the",
-  "                    reference kernels do; the declaration itself is",
-  "                    still checked in full at the front door, and",
-  "                    every certificate family keeps running (same as",
-  "                    SETLEC_INFER_ONLY=1).  A supported operating",
-  "                    mode, but only the default mode is covered by",
-  "                    the consistency proofs",
+  "  --set-model       the default: the verified checker, the surface",
+  "                    the set-theoretic consistency proofs are about.",
+  "                    The seven TT-lane checks (tasks #126/#129/#130/",
+  "                    #135/#136/#137/#146) are off; every always-on",
+  "                    certificate family runs",
+  "  --tt-model        the verified checker with the seven TT-lane",
+  "                    checks on — the surface the type-theoretic",
+  "                    bridge (Setlec/TTVerify) is about",
+  "  --no-model        the unverified lane: full checking-mode front",
+  "                    door per declaration (official-kernel parity),",
+  "                    infer-only internal re-derivations, and no",
+  "                    certificate families at all.  Replaces the",
+  "                    retired --yolo/SETLEC_NO_PROOF_CERTS and",
+  "                    --infer-only/SETLEC_INFER_ONLY",
   "  --pre             assert FILE is already preprocessed output of",
   "                    lean-inductive-models: skip the preprocessor",
   "                    detection scan and spawn entirely",
@@ -401,8 +398,7 @@ def parseRangeSpec (s : String) : Option (Nat × Option Nat) :=
   | _ => none
 
 structure Args where
-  yolo : Bool := false
-  inferOnly : Bool := false
+  mode : Setlec.CheckMode := .setModel
   pre : Bool := false
   /-- the split driver's check range (`some (0, some 0)` for
   `--install-only`) -/
@@ -412,8 +408,16 @@ structure Args where
 
 def parseArgs : List String → Args → Args
   | [], a => a
-  | "--yolo" :: rest, a => parseArgs rest { a with yolo := true }
-  | "--infer-only" :: rest, a => parseArgs rest { a with inferOnly := true }
+  | "--set-model" :: rest, a => parseArgs rest { a with mode := .setModel }
+  | "--tt-model" :: rest, a => parseArgs rest { a with mode := .ttModel }
+  | "--no-model" :: rest, a => parseArgs rest { a with mode := .noModel }
+  | "--yolo" :: _, a =>
+    { a with bad := some "--yolo is retired; the cert-skipping lane is \
+        --no-model (checking-mode front door included, task #147)" }
+  | "--infer-only" :: _, a =>
+    { a with bad := some "--infer-only is retired; its discipline is part \
+        of --no-model, and the certified modes are --set-model (default) \
+        and --tt-model (task #147)" }
   | "--pre" :: rest, a => parseArgs rest { a with pre := true }
   | "--install-only" :: rest, a =>
     parseArgs rest { a with split? := some (0, some 0) }
@@ -433,8 +437,10 @@ def parseArgs : List String → Args → Args
 /-- The child's argument vector, reassembled from the parsed options. -/
 def childArgs (a : Args) (file : String) : Array String :=
   #[file]
-    ++ (if a.yolo then #["--yolo"] else #[])
-    ++ (if a.inferOnly then #["--infer-only"] else #[])
+    ++ (match a.mode with
+        | .setModel => #[]
+        | .ttModel => #["--tt-model"]
+        | .noModel => #["--no-model"])
     ++ (if a.pre then #["--pre"] else #[])
     ++ (match a.split? with
         | some (0, some 0) => #["--install-only"]
@@ -446,8 +452,8 @@ def main (args : List String) : IO UInt32 := do
   if args.contains "--help" then
     IO.println usage
     return 0
-  -- `--yolo`: command-line alias for SETLEC_NO_PROOF_CERTS=1 (the
-  -- unverified measurement mode, task #76).
+  -- `--set-model`/`--tt-model`/`--no-model`: the three-mode setting
+  -- (task #147), validated here once and threaded as configuration.
   -- `--pre`: the input is already-preprocessed lean-inductive-models
   -- output (explicit user assertion — the checker never sniffs input
   -- content for it); skips the `needsPreprocess` scan and the
@@ -458,13 +464,10 @@ def main (args : List String) : IO UInt32 := do
     IO.eprintln s!"setlec: {msg}"
     IO.eprintln usage
     return 3
-  let yolo := a.yolo
   let pre := a.pre
-  if a.yolo && a.split?.isSome then
-    IO.eprintln "setlec: --yolo cannot be combined with --install-only/--check-range"
-    return 3
-  -- (the same refusal for `--infer-only` lives in `checkMain`, which
-  -- is where the environment-variable form of the mode is read too)
+  -- (the refusal of `--no-model` with the split driver lives in
+  -- `checkMain`, which is where the retired environment variables are
+  -- rejected too)
   match a.files.toList with
   | [file] =>
     -- OOM supervision: the Lean runtime's out-of-memory handler
@@ -477,7 +480,7 @@ def main (args : List String) : IO UInt32 := do
     -- input proof".  Progress output streams through (stdout is
     -- inherited); stderr is buffered for inspection and re-printed.
     if (← IO.getEnv "SETLEC_SUPERVISED").isSome then
-      checkMain file yolo a.inferOnly pre a.split?
+      checkMain file a.mode pre a.split?
     else
       let child ← IO.Process.spawn {
         cmd := (← IO.appPath).toString

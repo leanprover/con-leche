@@ -18,13 +18,15 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 /-- Invert a successful `checkMemberVal` run. -/
 theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
     {cv cvA : ConstantVal}
-    (h : checkMemberVal (fueledOps F) blockNames env' cv = .ok cvA) :
-    checkConstantVal (fueledOps F) env' cv = .ok cvA ∧
+    (h : checkMemberVal (fueledOps mode F) blockNames env' cv = .ok cvA) :
+    checkConstantVal (fueledOps mode F) env' cv = .ok cvA ∧
     cvA.name.isModelSuffix = false ∧
     ∃ cvm mval hmcvm,
       env'.find? (cvA.name.str "_model") =
@@ -36,7 +38,7 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
   simp only [checkMemberVal, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
     Except.bind] at h
-  cases hccv : checkConstantVal (fueledOps F) env' cv with
+  cases hccv : checkConstantVal (fueledOps mode F) env' cv with
   | error e => rw [hccv] at h; exact nomatch h
   | ok cvA' =>
   rw [hccv] at h
@@ -75,9 +77,9 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
 /-- Invert a successful `checkIndMember` run (non-recursor members). -/
 theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
     {env' env₁ : Env} {ci : ConstantInfo}
-    (h : checkIndMember (fueledOps F) blockNames caps env' ci = .ok env₁) :
+    (h : checkIndMember (fueledOps mode F) blockNames caps env' ci = .ok env₁) :
     ∃ cvA cvm mval hmcvm,
-      checkConstantVal (fueledOps F) env' ci.toConstantVal = .ok cvA ∧
+      checkConstantVal (fueledOps mode F) env' ci.toConstantVal = .ok cvA ∧
       cvA.name.isModelSuffix = false ∧
       env'.find? (cvA.name.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = cvA.levelParams ∧
@@ -89,7 +91,7 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
        (∃ cv nP nF, ci = .ctorInfo cv nP nF ∧
          env₁ = ⟨.ctorInfo cvA nP nF :: env'.consts⟩)) := by
   simp only [checkIndMember, Bind.bind, Except.bind] at h
-  cases hcmv : checkMemberVal (fueledOps F) blockNames env'
+  cases hcmv : checkMemberVal (fueledOps mode F) blockNames env'
       ci.toConstantVal with
   | error e => rw [hcmv] at h; exact nomatch h
   | ok cvA =>
@@ -114,13 +116,13 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
 theorem provisionRecs_cons_inv {blockNames : List Name}
     {envAcc : Env} {ci : ConstantInfo} {rest : List ConstantInfo}
     {p : Env × List (ConstantVal × Nat × Nat × List RecRule)}
-    (h : provisionRecs (fueledOps F) blockNames envAcc (ci :: rest) =
+    (h : provisionRecs (fueledOps mode F) blockNames envAcc (ci :: rest) =
       .ok p) :
     ∃ cv mI rP rules cvA p',
       ci = .recInfo cv mI rP rules ∧
-      checkMemberVal (fueledOps F) blockNames envAcc ci.toConstantVal =
+      checkMemberVal (fueledOps mode F) blockNames envAcc ci.toConstantVal =
         .ok cvA ∧
-      provisionRecs (fueledOps F) blockNames
+      provisionRecs (fueledOps mode F) blockNames
         ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest = .ok p' ∧
       p = (p'.1, (cvA, mI, rP, rules) :: p'.2) := by
   revert h
@@ -134,13 +136,13 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
   | .ctorInfo _ _ _ => intro h; exact nomatch h
   intro h
   simp only [provisionRecs, Bind.bind, Except.bind] at h
-  cases hcmv : checkMemberVal (fueledOps F) blockNames envAcc
+  cases hcmv : checkMemberVal (fueledOps mode F) blockNames envAcc
       (ConstantInfo.recInfo cv mI rP rules).toConstantVal with
   | error e => rw [hcmv] at h; exact nomatch h
   | ok cvA =>
   rw [hcmv] at h
   try dsimp only at h
-  cases hrec : provisionRecs (fueledOps F) blockNames
+  cases hrec : provisionRecs (fueledOps mode F) blockNames
       ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest with
   | error e => rw [hrec] at h; exact nomatch h
   | ok p' =>

@@ -1,0 +1,37 @@
+# No-model-specific expected exit codes, read by tests/arena.sh's
+# no-model sweep (task #147; successor of tests/yolo-expected.txt,
+# task #139).  Line format:
+#
+#   <exit-code> <suite> <fixture> [mode]
+#
+# with suite ∈ {arena, e2e}, and <fixture>/[mode] spelled exactly as in
+# tests/arena-expected.txt resp. tests/e2e-expected.txt.  A fixture with
+# no line here is expected to give, under `--no-model`, the same exit
+# code the default (`--set-model`) mode gives.
+#
+# What may be recorded here: divergences that are the no-model lane's
+# NATURE, each with a comment naming the mechanism.  The lane
+# (Setlec/Kernel/CheckerNC.lean) runs a full checking-mode front door —
+# so the old yolo mode's class-B argument-position escapes are GONE:
+# the three class-B witnesses of task #139 (yolo_arg_escape,
+# yolo_arg_escape_univs, yolo_decline_vs_accept) are all caught at the
+# front door again and need no accept-override.  What remains is the
+# error-CLASS difference: with the certificate families off, a defect
+# the certified stack positively detects as an unsupported feature
+# (decline, exit 2) inside a certificate-only code path may instead
+# surface as a plain type mismatch (reject, exit 1), or vice versa.
+# A 1-vs-2 pair like that is the mode's nature and gets a line here.
+#
+# NOTHING ELSE belongs here.  A good stream rejected, or a bad stream
+# accepted, under --no-model is a bug in the cert-skipping twins
+# (task #139's drift lesson): fix the twin, do not record the flip.
+
+# The unsupported projection shape in `PProd'._model.eta` sits inside
+# an application argument.  Certified: 2 ("projection on a
+# non-structure type", a positive decline at the annotation pass).
+# Under --no-model the checking-mode front door does look at the
+# argument (the class-B escape is gone), but the cert-free reduction
+# underneath resolves the same declaration to "invalid: expected a
+# sort" — a reject (1) where the certified stack positively declines.
+# Error-class difference, the lane's nature.
+1 e2e yolo_decline_vs_accept.ndjson

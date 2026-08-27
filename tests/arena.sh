@@ -10,7 +10,7 @@
 # The expectations file additionally pins the current accept/decline status
 # so that progress and regressions are both visible; update it consciously.
 #
-# Usage: tests/arena.sh [--direct-off] [--infer-only] [--no-yolo] [tests-dir]
+# Usage: tests/arena.sh [--direct-off] [--no-sweeps] [tests-dir]
 #
 # An <expectation> is either a single exit code, as for the overwhelming
 # majority of fixtures, or a pair "<on>|<off>" for the few fixtures whose
@@ -25,53 +25,37 @@
 # _tmp/, no source edit), applying the right-hand expectations.  It is an
 # opt-in run — the default invocation is unchanged, and unchanged in cost.
 #
-# `--infer-only` runs the arena and e2e halves with SETLEC_INFER_ONLY=1
-# (task #134), against the *same* expectations: the infer-only mode
-# trusts subterms at internal re-derivations, so it could in principle
-# accept a bad fixture the certified mode rejects — as of the landing
-# measurement none does, and this run is what would surface it.  The
-# split-driver half is skipped (the two modes are mutually exclusive by
-# construction); one case pins that refusal instead.  Opt-in: the
-# default invocation is unchanged and unchanged in cost.
+# THE THREE-MODE SWEEPS (task #147).  The checker has one three-valued
+# mode: `--set-model` (the default — the surface the set model proves,
+# the seven TT-lane checks off), `--tt-model` (the seven on — the
+# pre-#147 certified behavior), and `--no-model` (the unverified lane:
+# checking-mode front door, infer-only internals, no certificate
+# families; it absorbs the retired --yolo/SETLEC_NO_PROOF_CERTS and
+# --infer-only/SETLEC_INFER_ONLY).  The certified sections run at the
+# default (`--set-model`); afterwards both suites run again
 #
-# THE YOLO SWEEP (task #139).  After the certified sections a *second*
-# pass over both expectation files runs with SETLEC_NO_PROOF_CERTS=1 —
-# the cert-skipping measurement stack (Setlec/Kernel/{CoreNC,CheckerNC}
-# .lean, task #76).  It runs by default, because the mode had silently
-# drifted: `iotaRecNC` kept instantiating the stored nested-rule pins in
-# the pre-#105 `mI`-context after the certified twin was lowered to the
-# `rP`-context, and nothing in the harness ever ran a suite under the
-# flag — the `<on>|<off>` pairs above are the --direct-off switch, not
-# this one.  Measured cost of the extra pass (2026-08-27): ~17s arena +
-# ~21s e2e on top of a ~48s certified run; `--no-yolo` skips it for a
-# tight edit loop, but a landing gate runs it.  `--direct-off` and
-# `--infer-only` skip it too — those are opt-in runs of a *different*
-# configuration and stay unchanged in cost.
+#   * with `--tt-model`, against the SAME expectations — the seven
+#     checks all landed byte-identical on every fixture, so any
+#     mismatch here is a finding, printed as TT-MODEL DIVERGENCE; and
+#   * with `--no-model`, against the certified expectations plus the
+#     recorded overrides in tests/no-model-expected.txt (the successor
+#     of tests/yolo-expected.txt — see that file's header for what may
+#     be recorded: partial-stack divergences of the unverified lane,
+#     each with the defect it stops or starts detecting differently).
 #
-# The two stacks are expected to agree on every verdict except one
-# acknowledged class-B divergence: yolo skips the per-argument
-# application check everywhere — the argument's whole `infer`, not
-# just the argument-vs-domain `defeq` — so a stream whose *only*
-# defect is inside an application ARGUMENT can be accepted under yolo
-# and rejected, or declined, under the certified stack (2026-08-27
-# fuzz campaign, finding F1).  Such a fixture gets a yolo-specific
-# expected exit code in tests/yolo-expected.txt (same idea as the
-# `<on>|<off>` pairs, but as an override file rather than a column:
-# only the three purpose-built class-B witnesses diverge, so a column
-# would be 205 unused separators).  Any other flip is a bug in the NC
-# path — investigate, do not record it.
+# `--no-sweeps` skips both extra passes for a tight edit loop; a
+# landing gate runs them.  `--direct-off` skips them too — that is an
+# opt-in run of a different configuration and stays unchanged in cost.
 set -u
 cd "$(dirname "$0")/.."
 
 DIRECT=on
-INFER_ONLY=off
-YOLO_SWEEP=on
+MODE_SWEEPS=on
 args=()
 for a in "$@"; do
   case "$a" in
     --direct-off) DIRECT=off;;
-    --infer-only) INFER_ONLY=on;;
-    --no-yolo) YOLO_SWEEP=off;;
+    --no-sweeps) MODE_SWEEPS=off;;
     *) args+=("$a");;
   esac
 done
@@ -81,7 +65,7 @@ TESTS_DIR="${1:-_tmp/arena-tests}"
 BIN=.lake/build/bin/setlec
 EXPECTED=tests/arena-expected.txt
 E2E_EXPECTED=tests/e2e-expected.txt
-YOLO_EXPECTED=tests/yolo-expected.txt
+NM_EXPECTED=tests/no-model-expected.txt
 
 # Select the applicable half of an expectation: "0|2" is (on|off), a bare
 # "0" applies to both configurations.
@@ -113,47 +97,47 @@ else
   lake build setlec >/dev/null || exit 3
 fi
 
-if [ "$INFER_ONLY" = on ]; then
-  export SETLEC_INFER_ONLY=1
-  echo "infer-only mode: ON (task #134; expectations unchanged)"
-fi
 
-# The yolo overrides, keyed "<suite> <fixture> <mode>" (mode empty for
-# arena lines and for plain e2e lines).  See the header for when a line
-# belongs in here.
-declare -A YOLO_OVR=()
-if [ -f "$YOLO_EXPECTED" ]; then
+# The no-model overrides, keyed "<suite> <fixture> <mode>" (mode empty
+# for arena lines and for plain e2e lines).  See the file's header for
+# when a line belongs in here.
+declare -A NM_OVR=()
+if [ -f "$NM_EXPECTED" ]; then
   while read -r yexp ysuite yrel ymode; do
     case "$yexp" in ''|'#'*) continue;; esac
-    YOLO_OVR["$ysuite $yrel ${ymode:-}"]=$yexp
-  done < "$YOLO_EXPECTED"
+    NM_OVR["$ysuite $yrel ${ymode:-}"]=$yexp
+  done < "$NM_EXPECTED"
 fi
 
-# SWEEP is `cert` for the certified pass and `yolo` for the second one;
-# it selects the override table and the failure wording.
+# SWEEP is `cert` for the default (--set-model) pass, `tt` for the
+# --tt-model pass and `nomodel` for the --no-model pass; it selects the
+# mode flag, the override table and the failure wording.
 SWEEP=cert
+MODEFLAG=""
 
 # Resolve $want for one fixture: the certified expectation, overridden
-# in the yolo sweep if tests/yolo-expected.txt records a divergence.
+# in the no-model sweep if tests/no-model-expected.txt records a
+# divergence (the tt-model sweep takes the certified expectations
+# unmodified — byte-identity is the claim).
 resolve() { # <expectation-field> <suite> <fixture> <mode>
   pick "$1"
   want_src=certified
-  if [ "$SWEEP" = yolo ]; then
-    local o=${YOLO_OVR["$2 $3 ${4:-}"]:-}
-    if [ -n "$o" ]; then want=$o; want_src="tests/yolo-expected.txt"; fi
+  if [ "$SWEEP" = nomodel ]; then
+    local o=${NM_OVR["$2 $3 ${4:-}"]:-}
+    if [ -n "$o" ]; then want=$o; want_src="tests/no-model-expected.txt"; fi
   fi
   return 0
 }
 
-# Report a verdict that is not the expected one.  In the yolo sweep a
-# mismatch is a *divergence from the certified stack* (the expectation
-# is the certified one unless overridden), so it is worded as such.
+# Report a verdict that is not the expected one.  In the extra sweeps a
+# mismatch is a *divergence from the default mode* (the expectation is
+# the certified one unless overridden), so it is worded as such.
 mismatch() { # <prefix> <fixture> <want> <got>
-  if [ "$SWEEP" = yolo ]; then
-    echo "YOLO DIVERGENCE $2: $want_src expects exit $3, yolo got $4"
-  else
-    echo "$1 $2: expected exit $3, got $4"
-  fi
+  case "$SWEEP" in
+    tt) echo "TT-MODEL DIVERGENCE $2: $want_src expects exit $3, --tt-model got $4";;
+    nomodel) echo "NO-MODEL DIVERGENCE $2: $want_src expects exit $3, --no-model got $4";;
+    *) echo "$1 $2: expected exit $3, got $4";;
+  esac
   fail=1
 }
 
@@ -171,7 +155,7 @@ arena_half() {
     resolve "$exp" arena "$rel" ""
     arena_checked=$((arena_checked+1))
     f="$TESTS_DIR/$rel"
-    timeout 60 "$BIN" "$f" >/dev/null 2>&1
+    timeout 60 "$BIN" $MODEFLAG "$f" >/dev/null 2>&1
     got=$?
     case "$rel" in
       good/*) total_good=$((total_good+1))
@@ -211,16 +195,16 @@ e2e_half() {
     # preprocessor made unavailable, so the stream really carries no
     # `_model` declarations and the direct install path is exercised
     if [ "${mode:-}" = raw ]; then
-      SETLEC_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" "$src" >/dev/null 2>&1
+      SETLEC_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
     elif [ "${mode:-}" = pre ]; then
       # `pre` fixtures assert the --pre flag: the input is taken as
       # already preprocessed — no detection scan, no spawn.  The
       # preprocessor is left *available*, so a fixture whose verdict
       # depends on not preprocessing (std_axioms declines at the raw
       # `Iff` block) catches a broken/ignored flag.
-      timeout 60 "$BIN" --pre "$src" >/dev/null 2>&1
+      timeout 60 "$BIN" $MODEFLAG --pre "$src" >/dev/null 2>&1
     else
-      timeout 60 "$BIN" "$src" >/dev/null 2>&1
+      timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
     fi
     got=$?
     if [ "$got" != "$want" ]; then
@@ -257,18 +241,6 @@ SPLIT_GOOD=tests/e2e/indexed_vec.ndjson
 SPLIT_BAD=tests/e2e/nat_add_wrong.ndjson
 split_ok=0
 split_total=0
-# The split driver is the certified stack's; an infer-only run pins the
-# refusal to combine the two and leaves the rest of this section alone.
-if [ "$INFER_ONLY" = on ]; then
-  timeout 120 "$BIN" --install-only "$SPLIT_GOOD" >/dev/null 2>&1
-  if [ $? = 3 ]; then
-    echo "infer-only: refuses the split driver, as expected"
-  else
-    echo "INFER-ONLY FAIL: --install-only under SETLEC_INFER_ONLY did not error"
-    fail=1
-  fi
-  exit $fail
-fi
 split_case() {
   want=$1; shift
   split_total=$((split_total+1))
@@ -289,7 +261,7 @@ split_case 2 --check-range 46:47 "$SPLIT_BAD"    # just the bad one: reported…
 split_case 2 --check-range 0:1 "$SPLIT_BAD"      # …excluded: not tripped over
 split_case 2 --install-only "$SPLIT_BAD"         # nor installed into a reject
 split_case 3 --check-range bogus "$SPLIT_GOOD"   # malformed range spec
-split_case 3 --yolo --install-only "$SPLIT_GOOD" # unverified stack + split
+split_case 3 --no-model --install-only "$SPLIT_GOOD" # unverified stack + split
 # selectivity, positively: checking *only* declaration 46 must actually
 # report that declaration's failure
 split_total=$((split_total+1))
@@ -301,60 +273,85 @@ else
 fi
 echo "split driver: $split_ok/$split_total as expected"
 
-# The infer-only mode (task #134): it accepts what the certified stack
-# accepts and rejects what it rejects, and it refuses to be combined
-# with either of the other two non-default stacks — each combination
-# would make a verdict's provenance unreadable.  The whole-suite sweep
-# with the mode on is the opt-in `tests/arena.sh --infer-only` run.
-io_ok=0
-io_total=0
-io_case() {
+# The three-mode flags (task #147): the two non-default modes parse and
+# judge the smoke fixtures like the default; `--no-model` refuses the
+# split driver; and the RETIRED flags/environment variables error out
+# with a pointer to the new modes rather than being silently ignored.
+mode_ok=0
+mode_total=0
+mode_case() {
   want=$1; shift
-  io_total=$((io_total+1))
+  mode_total=$((mode_total+1))
   timeout 120 "$BIN" "$@" >/dev/null 2>&1
   got=$?
   if [ "$got" != "$want" ]; then
-    echo "INFER-ONLY FAIL ($*): expected exit $want, got $got"; fail=1
+    echo "MODE FAIL ($*): expected exit $want, got $got"; fail=1
   else
-    io_ok=$((io_ok+1))
+    mode_ok=$((mode_ok+1))
   fi
 }
-io_case 0 --infer-only "$SPLIT_GOOD"                 # accepts the good stream
-io_case 1 --infer-only "$SPLIT_BAD"                  # still rejects the bad one
-io_case 3 --infer-only --install-only "$SPLIT_GOOD"  # + split driver: refused
-io_case 3 --infer-only --yolo "$SPLIT_GOOD"          # + measurement mode: refused
-io_total=$((io_total+1))
-if SETLEC_INFER_ONLY=1 timeout 120 "$BIN" --install-only "$SPLIT_GOOD" \
+mode_case 0 --set-model "$SPLIT_GOOD"              # the default, spelled out
+mode_case 0 --tt-model "$SPLIT_GOOD"               # TT-lane checks on: accepts
+mode_case 1 --tt-model "$SPLIT_BAD"                # …and still rejects
+mode_case 0 --no-model "$SPLIT_GOOD"               # unverified lane: accepts
+mode_case 1 --no-model "$SPLIT_BAD"                # front door still rejects
+mode_case 3 --no-model --install-only "$SPLIT_GOOD" # + split driver: refused
+mode_case 3 --yolo "$SPLIT_GOOD"                   # retired flag: hard error
+mode_case 3 --infer-only "$SPLIT_GOOD"             # retired flag: hard error
+mode_total=$((mode_total+1))
+if SETLEC_NO_PROOF_CERTS=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
     >/dev/null 2>&1; [ $? = 3 ]; then
-  io_ok=$((io_ok+1))                                 # …also via the env var
+  mode_ok=$((mode_ok+1))                           # retired env var: hard error
 else
-  echo "INFER-ONLY FAIL: SETLEC_INFER_ONLY=1 --install-only did not error"
+  echo "MODE FAIL: SETLEC_NO_PROOF_CERTS=1 did not error"
   fail=1
 fi
-echo "infer-only: $io_ok/$io_total as expected"
+mode_total=$((mode_total+1))
+if SETLEC_INFER_ONLY=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
+    >/dev/null 2>&1; [ $? = 3 ]; then
+  mode_ok=$((mode_ok+1))                           # retired env var: hard error
+else
+  echo "MODE FAIL: SETLEC_INFER_ONLY=1 did not error"
+  fail=1
+fi
+echo "mode flags: $mode_ok/$mode_total as expected"
 
-# The yolo sweep (task #139): both suites again under
-# SETLEC_NO_PROOF_CERTS=1, against the certified expectations plus the
-# recorded class-B overrides.  See the header.
-if [ "$YOLO_SWEEP" = on ] && [ "$DIRECT" = on ]; then
-  SWEEP=yolo
-  export SETLEC_NO_PROOF_CERTS=1
-  yolo_fail_before=$fail
+# The mode sweeps (task #147): both suites again with `--tt-model`
+# (identical expectations — byte-identity is the claim) and with
+# `--no-model` (certified expectations plus the recorded overrides in
+# tests/no-model-expected.txt).  See the header.
+if [ "$MODE_SWEEPS" = on ] && [ "$DIRECT" = on ]; then
+  SWEEP=tt
+  MODEFLAG=--tt-model
+  tt_fail_before=$fail
   arena_half
-  yolo_arena=$arena_checked
+  tt_arena=$arena_checked
   e2e_half
-  unset SETLEC_NO_PROOF_CERTS
-  SWEEP=cert
-  if [ "$fail" = "$yolo_fail_before" ]; then
-    # "as expected" rather than "agree with certified": the overridden
-    # fixtures deliberately do not agree — they are the recorded
-    # class-B divergences, counted here so a silently emptied
-    # tests/yolo-expected.txt is visible in the summary line.
-    echo "yolo sweep: $yolo_arena arena + $e2e_total e2e as expected" \
-         "(${#YOLO_OVR[@]} recorded class-B divergences)"
+  if [ "$fail" = "$tt_fail_before" ]; then
+    echo "tt-model sweep: $tt_arena arena + $e2e_total e2e identical to default"
   else
-    echo "yolo sweep: DIVERGED — see the lines above" \
-         "(tests/arena.sh header: what belongs in tests/yolo-expected.txt)"
+    echo "tt-model sweep: DIVERGED — see the lines above (a divergence" \
+         "between --tt-model and the default is a FINDING, task #147)"
+  fi
+
+  SWEEP=nomodel
+  MODEFLAG=--no-model
+  nm_fail_before=$fail
+  arena_half
+  nm_arena=$arena_checked
+  e2e_half
+  SWEEP=cert
+  MODEFLAG=""
+  if [ "$fail" = "$nm_fail_before" ]; then
+    # "as expected" rather than "agree": the overridden fixtures
+    # deliberately do not agree — they are the recorded divergences of
+    # the unverified lane, counted here so a silently emptied
+    # tests/no-model-expected.txt is visible in the summary line.
+    echo "no-model sweep: $nm_arena arena + $e2e_total e2e as expected" \
+         "(${#NM_OVR[@]} recorded divergences)"
+  else
+    echo "no-model sweep: DIVERGED — see the lines above" \
+         "(tests/no-model-expected.txt header: what may be recorded)"
   fi
 fi
 

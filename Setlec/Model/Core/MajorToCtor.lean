@@ -11,6 +11,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
@@ -18,8 +20,8 @@ open SetTheory Expr
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 /-- Claims for the stuck-major rescue's result: the substituted major
 interprets to the same value as the stuck one (identity trivially; the
@@ -31,12 +33,12 @@ certificates the reduction then runs on it (`certs_fit` +
 `annotOk_spine`); its arguments' claims come from the reduced type's
 spine and, for eta, the projection certificates. -/
 theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel)
     {d : Nat} {recName cj : Name} {rules : List RecRule}
     {major₀ major : Expr} {ρ : Nat → V} {usj : List Level}
     {cvj : ConstantVal} {cnP cnF : Nat}
-    (hsub : majorToCtorP env fuel d recName rules major₀ = .ok major)
+    (hsub : majorToCtorP mode env fuel d recName rules major₀ = .ok major)
     (hmfn : major.getAppFn = .const cj usj)
     (hfj : env.find? cj = some (.ctorInfo cvj cnP cnF))
     (hw : WScoped d major₀) (hb : major₀.looseBVarsBounded 0 = true)
@@ -168,7 +170,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
       rw [Expr.getAppArgs_mkAppN] at hgargs
       simpa [Expr.getAppArgs] using hgargs
     -- the relocated synthetic-spine certificate and arity pin
-    have hmcerts : iotaCertsP env fuel d
+    have hmcerts : iotaCertsP mode env fuel d
         (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs = .ok true := by
       rw [hmargs, heqc.2]
@@ -266,7 +268,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
           some (.recInfo cvp mIp rPp rulesp) ∧
         cvp.levelParams = cvT.levelParams ∧
         (cvp.type.stripPis (tmaj.getAppArgs.length + 1)).isSome = true ∧
-        iotaCertsP env fuel d
+        iotaCertsP mode env fuel d
           (cvp.type.instantiateLevelParams cvp.levelParams usj)
           (tmaj.getAppArgs ++ [major₀]) = .ok true := by
       intro i hi
@@ -375,7 +377,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
       rw [hcf2] at hgargs
       simpa [Expr.getAppArgs] using hgargs
     -- the relocated synthetic-spine certificate and arity pin
-    have hmcerts : iotaCertsP env fuel d
+    have hmcerts : iotaCertsP mode env fuel d
         (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs = .ok true := by
       rw [hmargs, ← hcf2]
@@ -517,7 +519,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
       rw [hmargs]
       exact hspT
     -- the relocated synthetic-spine certificate and arity pin
-    have hmcerts : iotaCertsP env fuel d
+    have hmcerts : iotaCertsP mode env fuel d
         (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs = .ok true := by
       rw [hmargs]

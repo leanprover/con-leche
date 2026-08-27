@@ -27,6 +27,12 @@ That makes this clause the same shape as `proj_tele_typed`
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-! ## The pinned entry's first two premises
@@ -114,8 +120,8 @@ replaced by #129's certificate. -/
 /-- **`InferProjStepTT`, discharged.** -/
 theorem infer_proj_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) : InferProjStepTT m φ fuel := by
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel) : InferProjStepTT m φ fuel := by
   intro d Δ sn i pe t h hws hb hLb hC
   obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hf, hnat, hlen, husl,
     hcert, hres⟩ := inferTypeCore_proj_inv h
@@ -170,7 +176,7 @@ theorem infer_proj_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
   -- #129's certificate becomes the two premises `projFst` wants
   obtain ⟨TT, hTT⟩ := denote_projEntryTy m φ hpin hpsig husl d
   obtain ⟨xs, rest, hfit⟩ :=
-    certs_typed m φ hcl ihd ihi _ _ TT (projParamCert_inv hcert)
+    certs_typed m φ hcl ihd ihi _ _ TT (projParamCert_inv (hcert rfl))
       (by rcases hpin with rfl | rfl <;> exact Expr.WScoped.of_not_hasFvar rfl)
       (by rcases hpin with rfl | rfl <;> rfl)
       (by rcases hpin with rfl | rfl <;>
@@ -260,9 +266,9 @@ theorem infer_proj_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
 The fourth quarter of `CheckStepTT` is closed. -/
 theorem infer_claimsTT_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) :
-    InferClaimsTT m φ (fuel + 1) :=
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel) :
+    InferClaimsTT mode m φ (fuel + 1) :=
   infer_claimsTT m φ hcl (infer_strLit_step m φ)
     (infer_proj_step m φ hcl ihw ihd ihi) ihw ihd ihi
 
@@ -281,7 +287,7 @@ otherwise. -/
 def ProjLitToCtorStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {e e' : Expr} {v : VExpr},
-    projLitToCtorP env fuel d e = .ok e' →
+    projLitToCtorP mode env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e → CtxOk m.cval env φ d Δ e →
     denote m.cval env φ d e = some v → ReductOk m φ d Δ e' v
@@ -289,8 +295,8 @@ def ProjLitToCtorStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
 /-- **`ProjStepTT`**, modulo the literal-expansion link. -/
 theorem proj_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihwc : WhnfCoreClaimsTT m φ fuel) (ihw : WhnfClaimsTT m φ fuel)
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel) (ihw : WhnfClaimsTT mode m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
     (hlitp : ProjLitToCtorStepTT m φ fuel) : ProjStepTT m φ fuel := by
   intro d Δ sn i pe e' v h hws hb hLb hC hv
   obtain ⟨e₂, e₃, hwpe, hlit, hcase⟩ := whnf_proj_inv h
@@ -340,7 +346,7 @@ theorem proj_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
         obtain ⟨hnfC, -, -, hbdC, -⟩ := m.wf _ (find?_mem hpsigMk)
         simp only [ConstantInfo.toConstantVal] at hnfC hbdC
         obtain ⟨xs, rest, hfit⟩ :=
-          proj_tele_typed m φ hcl ihd ihi (hctor ▸ htele) hpsigMk
+          proj_tele_typed m φ hcl ihd ihi (hctor ▸ htele rfl) hpsigMk
             (Expr.WScoped.of_not_hasFvar (by
               rw [Expr.hasFvar_instantiateLevelParams]; exact hnfC))
             (by rw [Expr.looseBVarsBounded_instantiateLevelParams]

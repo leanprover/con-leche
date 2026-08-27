@@ -33,6 +33,12 @@ Two differences from the original, both of them savings:
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- `CtxOk` only reads the leaf set, so it restricts along any subset
@@ -47,9 +53,9 @@ theorem CtxOk.of_subset {cval : TConstVal} {env : Env} {φ : Name → Nat}
 `certs_fit`. -/
 theorem certs_typed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel) :
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel) :
     ∀ {d : Nat} {Δ : List VExpr} (ty : Expr) (args : List Expr) (T : VExpr),
-      iotaCertsP env fuel d ty args = .ok true →
+      iotaCertsP mode env fuel d ty args = .ok true →
       Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
       Expr.LeavesBounded ty →
       CtxOk m.cval env φ d Δ ty →

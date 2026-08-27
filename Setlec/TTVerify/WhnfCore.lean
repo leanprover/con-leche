@@ -47,6 +47,12 @@ pure bookkeeping, six times over, for nothing.  Here each is
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 variable {env : Env} {fuel d : Nat}
@@ -62,25 +68,25 @@ carry it across, which for a subject that does not move is pure
 bookkeeping. -/
 
 @[simp] theorem whnfCore_sort (u : Level) :
-    whnfCore env (fuel + 1) d (.sort u) = .ok (.sort u) := rfl
+    whnfCore mode env (fuel + 1) d (.sort u) = .ok (.sort u) := rfl
 
 @[simp] theorem whnfCore_fvar (idx : Nat) (n : Name) (ty : Expr) :
-    whnfCore env (fuel + 1) d (.fvar idx n ty) = .ok (.fvar idx n ty) := rfl
+    whnfCore mode env (fuel + 1) d (.fvar idx n ty) = .ok (.fvar idx n ty) := rfl
 
 @[simp] theorem whnfCore_forallE (n : Name) (ty body : Expr)
     (bi : BinderMeta) :
-    whnfCore env (fuel + 1) d (.forallE n ty body bi) =
+    whnfCore mode env (fuel + 1) d (.forallE n ty body bi) =
       .ok (.forallE n ty body bi) := rfl
 
 @[simp] theorem whnfCore_lam (n : Name) (ty body : Expr) (mb : BinderMeta) :
-    whnfCore env (fuel + 1) d (.lam n ty body mb) =
+    whnfCore mode env (fuel + 1) d (.lam n ty body mb) =
       .ok (.lam n ty body mb) := rfl
 
 @[simp] theorem whnfCore_const (n : Name) (us : List Level) :
-    whnfCore env (fuel + 1) d (.const n us) = .ok (.const n us) := rfl
+    whnfCore mode env (fuel + 1) d (.const n us) = .ok (.const n us) := rfl
 
 @[simp] theorem whnfCore_lit (l : Literal) :
-    whnfCore env (fuel + 1) d (.lit l) = .ok (.lit l) := rfl
+    whnfCore mode env (fuel + 1) d (.lit l) = .ok (.lit l) := rfl
 
 /-- The leaf clauses satisfy the `whnfCore` claim, for any denotation
 and context: the reduct is the subject, so the equation is `refl` and
@@ -94,7 +100,7 @@ theorem whnfCore_leaf_claim {cval : TConstVal} {φ : Name → Nat}
       (∃ n ty body bi, e = .forallE n ty body bi) ∨
       (∃ n ty body mb, e = .lam n ty body mb) ∨
       (∃ n us, e = .const n us) ∨ (∃ l, e = .lit l))
-    (h : whnfCore env (fuel + 1) d e = .ok e')
+    (h : whnfCore mode env (fuel + 1) d e = .ok e')
     (hv : denote cval env φ d e = some v) :
     ∃ v', denote cval env φ d e' = some v' ∧ Deq Δ v v' := by
   have he : e' = e := by
@@ -156,10 +162,10 @@ constructor's stored type plus the `iotaCertsP` fact, which is
 consumer of task #126. -/
 theorem proj_tele_typed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {c : Name} {us : List Level}
     {args : List Expr} {cvj : ConstantVal} {nP nF : Nat} {T : VExpr}
-    (hcert : projTeleCertP env fuel d c us args = .ok true)
+    (hcert : projTeleCertP mode env fuel d c us args = .ok true)
     (hfind : env.find? c = some (.ctorInfo cvj nP nF))
     (hw : Expr.WScoped d (cvj.type.instantiateLevelParams cvj.levelParams us))
     (hb : (cvj.type.instantiateLevelParams cvj.levelParams us).looseBVarsBounded 0

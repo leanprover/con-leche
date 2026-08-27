@@ -92,10 +92,10 @@ theorem reduceElem_shape {env : Env} {c : Name}
 
 /-- Inversion of the compiler-trust pin: the identity certificate. -/
 theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
-    (h : checkReducePin (fueledOps F) env env2 c value = .ok ()) :
+    (h : checkReducePin (fueledOps mode F) env env2 c value = .ok ()) :
     reduceElemOk env c = true ∧
-    ∃ valA, annotateCore env F 0 value = .ok valA ∧
-      isDefEqCore env F 1 (.app valA (reduceCertVar c))
+    ∃ valA, annotateCore mode env F 0 value = .ok valA ∧
+      isDefEqCore mode env F 1 (.app valA (reduceCertVar c))
         (reduceCertVar c) = .ok true := by
   simp only [checkReducePin, fueledOps_annotate, fueledOps_isDefEq,
     Bind.bind, Except.bind] at h
@@ -109,17 +109,17 @@ theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
     obtain ⟨-, h2⟩ := by simpa only [Bool.and_eq_true] using hg
     exact h2
   refine ⟨helem, ?_⟩
-  cases hva : annotateCore env F 0 value with
+  cases hva : annotateCore mode env F 0 value with
   | error e => rw [hva] at h; exact nomatch h
   | ok valA =>
   rw [hva] at h
   dsimp only at h
-  cases hpa : annotateCore env F 0 (reduceDeclPin c) with
+  cases hpa : annotateCore mode env F 0 (reduceDeclPin c) with
   | error e => rw [hpa] at h; exact nomatch h
   | ok pinA =>
   rw [hpa] at h
   dsimp only at h
-  cases hp1 : isDefEqCore env F 0 valA pinA with
+  cases hp1 : isDefEqCore mode env F 0 valA pinA with
   | error e => rw [hp1] at h; exact nomatch h
   | ok b1 =>
   rw [hp1] at h
@@ -127,7 +127,7 @@ theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
   | false => simp [throw, throwThe, MonadExceptOf.throw] at h
   | true =>
   simp only [if_true] at h
-  cases hp2 : isDefEqCore env F 1 (.app valA (reduceCertVar c))
+  cases hp2 : isDefEqCore mode env F 1 (.app valA (reduceCertVar c))
       (reduceCertVar c) with
   | error e => rw [hp2] at h; exact nomatch h
   | ok b2 =>

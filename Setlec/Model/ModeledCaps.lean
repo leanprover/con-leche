@@ -31,6 +31,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
@@ -138,7 +140,7 @@ the public names. -/
 theorem modeled_caps_eta
     {T : Name} {cvTa : ConstantVal} {capsT : IndCaps}
     (hcape : capsT.eta = true)
-    (hpins : EtaPins (⟨ci :: env.consts⟩ : Env) T cvTa.levelParams capsT)
+    (hpins : EtaPins mode (⟨ci :: env.consts⟩ : Env) T cvTa.levelParams capsT)
     (hren : ∀ cvmT mvalT hm,
       (⟨ci :: env.consts⟩ : Env).find? (T.str "_model") =
         some (.defnInfo cvmT mvalT hm) →
@@ -297,7 +299,7 @@ include m hfresh hagree hI₁ hcvp hcinres hcikindT in
 theorem modeled_caps_unit
     {T : Name} {cvTa : ConstantVal} {capsT : IndCaps}
     (hcapu : capsT.unitlike = true)
-    (hpins : EtaPins (⟨ci :: env.consts⟩ : Env) T cvTa.levelParams capsT)
+    (hpins : EtaPins mode (⟨ci :: env.consts⟩ : Env) T cvTa.levelParams capsT)
     (hren : ∀ cvmT mvalT hm,
       (⟨ci :: env.consts⟩ : Env).find? (T.str "_model") =
         some (.defnInfo cvmT mvalT hm) →
@@ -457,7 +459,7 @@ theorem blockMember_headEta {env : Env} (m : EnvModel V env)
     (hblockT : ∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps),
       (⟨ciH :: env.consts⟩ : Env).find? T = some (.indInfo cvT capsT) →
       blockNames.contains T = true → capsT.eta = true →
-      EtaPins env T cvT.levelParams capsT ∧
+      EtaPins mode env T cvT.levelParams capsT ∧
       blockNames.contains capsT.etaCtor = true ∧
       cvT.type.hasFvar = false ∧
       cvT.type.constsResolve env = true ∧

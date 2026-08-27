@@ -26,6 +26,12 @@ that each operation's clause is a rewrite rather than a proof.
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-! ## The primitives a `Nat` equation is built from
@@ -1250,7 +1256,7 @@ loose bound ones.  `reduceNat_inv` is exactly this observation, and
 this is the one place the bridge needs it. -/
 theorem reduceNat_frame {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} {e e₂ : Expr}
-    (h : reduceNatP env fuel d e = .ok (some e₂))
+    (h : reduceNatP mode env fuel d e = .ok (some e₂))
     (hC : CtxOk m.cval env φ d Δ e) :
     Expr.WScoped d e₂ ∧ e₂.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded e₂ ∧ CtxOk m.cval env φ d Δ e₂ := by
@@ -1270,8 +1276,8 @@ theorem reduceNat_frame {env : Env} (m : EnvTT env) (φ : Name → Nat)
 `Deq`-equally to that numeral. -/
 theorem arg_numeral {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} {a a0 : Expr} {n : Nat} {va : VExpr}
-    (ihw : WhnfClaimsTT m φ fuel) (hnat : natLitSupported env = true)
-    (hwa : whnf env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
+    (ihw : WhnfClaimsTT mode m φ fuel) (hnat : natLitSupported env = true)
+    (hwa : whnf mode env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
     (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded a) (hC : CtxOk m.cval env φ d Δ a)
     (hva : denote m.cval env φ d a = some va) :
@@ -1330,8 +1336,8 @@ a capless `log2` on a literal — throws, so it cannot reach here. -/
 /-- The `Nat.succ` fold. -/
 theorem reduceNat_succ_eq {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} {a a0 : Expr} {n : Nat} {v : VExpr}
-    (ihw : WhnfClaimsTT m φ fuel) (hnat : natLitSupported env = true)
-    (hwa : whnf env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
+    (ihw : WhnfClaimsTT mode m φ fuel) (hnat : natLitSupported env = true)
+    (hwa : whnf mode env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
     (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded a) (hC : CtxOk m.cval env φ d Δ a)
     (hv : denote m.cval env φ d (.app (.const natSuccName []) a)
@@ -1354,8 +1360,8 @@ theorem natOp_stored {env : Env} {c : Name} (hg : natOpGuard env c = true)
 /-- The `Nat.pred` fast path. -/
 theorem reduceNat_pred_eq {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} {a a0 : Expr} {n : Nat} {v : VExpr}
-    (ihw : WhnfClaimsTT m φ fuel) (hg : natOpGuard env natPredName = true)
-    (hwa : whnf env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
+    (ihw : WhnfClaimsTT mode m φ fuel) (hg : natOpGuard env natPredName = true)
+    (hwa : whnf mode env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
     (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded a) (hC : CtxOk m.cval env φ d Δ a)
     (hv : denote m.cval env φ d (.app (.const natPredName []) a)
@@ -1373,8 +1379,8 @@ theorem reduceNat_pred_eq {env : Env} (m : EnvTT env) (φ : Name → Nat)
 /-- The `Nat.log2` fast path. -/
 theorem reduceNat_log2_eq {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} {a a0 : Expr} {n : Nat} {v : VExpr}
-    (ihw : WhnfClaimsTT m φ fuel) (hg : natOpGuard env natLog2Name = true)
-    (hwa : whnf env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
+    (ihw : WhnfClaimsTT mode m φ fuel) (hg : natOpGuard env natLog2Name = true)
+    (hwa : whnf mode env fuel d a = .ok a0) (hraw : rawNatLit? a0 = some n)
     (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded a) (hC : CtxOk m.cval env φ d Δ a)
     (hv : denote m.cval env φ d (.app (.const natLog2Name []) a)
@@ -1402,9 +1408,9 @@ and `ble` land on a `Bool` constructor and get their own version. -/
 theorem reduceNat_bin_arith {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} {c : Name} {a b a0 b0 : Expr}
     {n₁ n₂ : Nat} {v : VExpr} {f : Nat → Nat → Nat}
-    (ihw : WhnfClaimsTT m φ fuel) (hnat : natLitSupported env = true)
-    (hwa : whnf env fuel d a = .ok a0) (hra : rawNatLit? a0 = some n₁)
-    (hwb : whnf env fuel d b = .ok b0) (hrb : rawNatLit? b0 = some n₂)
+    (ihw : WhnfClaimsTT mode m φ fuel) (hnat : natLitSupported env = true)
+    (hwa : whnf mode env fuel d a = .ok a0) (hra : rawNatLit? a0 = some n₁)
+    (hwb : whnf mode env fuel d b = .ok b0) (hrb : rawNatLit? b0 = some n₂)
     (hwsa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a) (hCa : CtxOk m.cval env φ d Δ a)
     (hwsb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
@@ -1428,13 +1434,13 @@ theorem reduceNat_bin_bool {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} {c : Name} {a b a0 b0 : Expr}
     {n₁ n₂ : Nat} {v : VExpr} {p : Nat → Nat → Prop}
     [inst : ∀ x y, Decidable (p x y)]
-    (ihw : WhnfClaimsTT m φ fuel) (hnat : natLitSupported env = true)
+    (ihw : WhnfClaimsTT mode m φ fuel) (hnat : natLitSupported env = true)
     (hbools : (∃ ciT, env.find? boolTrueName = some ciT ∧
         ciT.toConstantVal.levelParams = []) ∧
       (∃ ciF, env.find? boolFalseName = some ciF ∧
         ciF.toConstantVal.levelParams = []))
-    (hwa : whnf env fuel d a = .ok a0) (hra : rawNatLit? a0 = some n₁)
-    (hwb : whnf env fuel d b = .ok b0) (hrb : rawNatLit? b0 = some n₂)
+    (hwa : whnf mode env fuel d a = .ok a0) (hra : rawNatLit? a0 = some n₁)
+    (hwb : whnf mode env fuel d b = .ok b0) (hrb : rawNatLit? b0 = some n₂)
     (hwsa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a) (hCa : CtxOk m.cval env φ d Δ a)
     (hwsb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
@@ -1518,9 +1524,9 @@ theorem natOpResult_log2 (a b : Nat) :
 
 /-- The `.app (.const c []) a` clause of `ReduceNatStepTT`. -/
 theorem reduceNat_eq_unary {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (ihw : WhnfClaimsTT m φ fuel)
+    {fuel : Nat} (ihw : WhnfClaimsTT mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {c : Name} {a e₂ : Expr} {v : VExpr}
-    (h : reduceNatP env fuel d (.app (.const c []) a) = .ok (some e₂))
+    (h : reduceNatP mode env fuel d (.app (.const c []) a) = .ok (some e₂))
     (hws : Expr.WScoped d (.app (.const c []) a))
     (hb : (Expr.app (.const c []) a).looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded (.app (.const c []) a))
@@ -1533,7 +1539,7 @@ theorem reduceNat_eq_unary {env : Env} (m : EnvTT env) (φ : Name → Nat)
   · -- `Nat.succ` folding
     next hcond =>
     obtain ⟨rfl, hnat⟩ := hcond
-    cases hwa : whnf env fuel d a with
+    cases hwa : whnf mode env fuel d a with
     | error err => rw [hwa] at h; exact nomatch h
     | ok a0 =>
     rw [hwa] at h
@@ -1550,7 +1556,7 @@ theorem reduceNat_eq_unary {env : Env} (m : EnvTT env) (φ : Name → Nat)
     · -- `Nat.pred`
       next hcond =>
       obtain ⟨rfl, hg⟩ := hcond
-      cases hwa : whnf env fuel d a with
+      cases hwa : whnf mode env fuel d a with
       | error err => rw [hwa] at h; exact nomatch h
       | ok a0 =>
       rw [hwa] at h
@@ -1567,7 +1573,7 @@ theorem reduceNat_eq_unary {env : Env} (m : EnvTT env) (φ : Name → Nat)
       · -- `Nat.log2`, capped
         next hcond =>
         obtain ⟨rfl, hg⟩ := hcond
-        cases hwa : whnf env fuel d a with
+        cases hwa : whnf mode env fuel d a with
         | error err => rw [hwa] at h; exact nomatch h
         | ok a0 =>
         rw [hwa] at h
@@ -1583,7 +1589,7 @@ theorem reduceNat_eq_unary {env : Env} (m : EnvTT env) (φ : Name → Nat)
       · -- the capless `log2` branch throws, and the fall-through is
         -- `none`, so neither reaches here
         split at h
-        · cases hwa : whnf env fuel d a with
+        · cases hwa : whnf mode env fuel d a with
           | error err => rw [hwa] at h; exact nomatch h
           | ok a0 =>
           rw [hwa] at h
@@ -1661,9 +1667,9 @@ theorem natOpResult_ble (a b : Nat) :
 
 /-- The `.app (.app (.const c []) a) b` clause of `ReduceNatStepTT`. -/
 theorem reduceNat_eq_binary {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (ihw : WhnfClaimsTT m φ fuel)
+    {fuel : Nat} (ihw : WhnfClaimsTT mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {c : Name} {a b e₂ : Expr} {v : VExpr}
-    (h : reduceNatP env fuel d (.app (.app (.const c []) a) b)
+    (h : reduceNatP mode env fuel d (.app (.app (.const c []) a) b)
       = .ok (some e₂))
     (hws : Expr.WScoped d (.app (.app (.const c []) a) b))
     (hb : (Expr.app (.app (.const c []) a) b).looseBVarsBounded 0 = true)
@@ -1677,12 +1683,12 @@ theorem reduceNat_eq_binary {env : Env} (m : EnvTT env) (φ : Name → Nat)
   split at h
   · next hcond =>
     obtain ⟨hnames, hg⟩ := hcond
-    cases hwa : whnf env fuel d a with
+    cases hwa : whnf mode env fuel d a with
     | error err => rw [hwa] at h; exact nomatch h
     | ok a0 =>
     rw [hwa] at h
     dsimp only at h
-    cases hwb : whnf env fuel d b with
+    cases hwb : whnf mode env fuel d b with
     | error err => rw [hwb] at h; exact nomatch h
     | ok b0 =>
     rw [hwb] at h
@@ -1802,12 +1808,12 @@ theorem reduceNat_eq_binary {env : Env} (m : EnvTT env) (φ : Name → Nat)
         (natOps_shiftRight_closed m φ hfO) hv
   · -- the WF-name safety net throws; the fall-through returns `none`
     split at h
-    · cases hwa : whnf env fuel d a with
+    · cases hwa : whnf mode env fuel d a with
       | error err => rw [hwa] at h; exact nomatch h
       | ok a0 =>
       rw [hwa] at h
       dsimp only at h
-      cases hwb : whnf env fuel d b with
+      cases hwb : whnf mode env fuel d b with
       | error err => rw [hwb] at h; exact nomatch h
       | ok b0 =>
       rw [hwb] at h
@@ -1831,7 +1837,7 @@ forms. -/
 
 /-- **The literal-acceleration obligation, proved.** -/
 theorem reduceNat_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (ihw : WhnfClaimsTT m φ fuel) :
+    {fuel : Nat} (ihw : WhnfClaimsTT mode m φ fuel) :
     ReduceNatStepTT m φ fuel := by
   intro d Δ e e₂ v h hws hb hLb hC hv
   obtain ⟨h1, h2, h3, h4⟩ := reduceNat_frame m φ h hC
@@ -1882,8 +1888,8 @@ with the obligation discharged, which is possible here and not there
 only because the `Nat` closed forms live downstream. -/
 theorem whnf_claimsTT_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihwc : WhnfCoreClaimsTT m φ fuel) (ihw : WhnfClaimsTT m φ fuel) :
-    WhnfClaimsTT m φ (fuel + 1) :=
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel) (ihw : WhnfClaimsTT mode m φ fuel) :
+    WhnfClaimsTT mode m φ (fuel + 1) :=
   whnf_claimsTT m φ hcl ihwc (reduceNat_stepTT m φ ihw)
 
 end Setlec.TTVerify

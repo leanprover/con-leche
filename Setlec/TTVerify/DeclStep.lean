@@ -45,6 +45,9 @@ used as a *fall-through*, exactly as its docstring says.
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 variable {F : Nat}
@@ -55,32 +58,32 @@ variable {F : Nat}
 def DeclDefnTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {cv : ConstantVal} {value : Expr}
     {hint : ReducibilityHint},
-    checkDecl (fueledOps F) env (.defnDecl cv value hint) = .ok env₁ →
+    checkDecl mode (fueledOps mode F) env (.defnDecl cv value hint) = .ok env₁ →
     EnvTT env → Nonempty (EnvTT env₁)
 
 /-- A checked `theorem` preserves the derivation model. -/
 def DeclThmTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {cv : ConstantVal} {value : Expr},
-    checkDecl (fueledOps F) env (.thmDecl cv value) = .ok env₁ →
+    checkDecl mode (fueledOps mode F) env (.thmDecl cv value) = .ok env₁ →
     EnvTT env → Nonempty (EnvTT env₁)
 
 /-- A checked `opaque` preserves the derivation model. -/
 def DeclOpaqueTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {cv : ConstantVal} {value : Expr},
-    checkDecl (fueledOps F) env (.opaqueDecl cv value) = .ok env₁ →
+    checkDecl mode (fueledOps mode F) env (.opaqueDecl cv value) = .ok env₁ →
     EnvTT env → Nonempty (EnvTT env₁)
 
 /-- An accepted `axiom` — one of the three pinned families — preserves
 the derivation model. -/
 def DeclAxiomTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {cv : ConstantVal},
-    checkDecl (fueledOps F) env (.axiomDecl cv) = .ok env₁ →
+    checkDecl mode (fueledOps mode F) env (.axiomDecl cv) = .ok env₁ →
     EnvTT env → Nonempty (EnvTT env₁)
 
 /-- Installing a pinned basis block preserves the derivation model. -/
 def DeclBasisTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {kind : BasisKind},
-    checkDecl (fueledOps F) env (.basisDecl kind) = .ok env₁ →
+    checkDecl mode (fueledOps mode F) env (.basisDecl kind) = .ok env₁ →
     EnvTT env → Nonempty (EnvTT env₁)
 
 /-- Installing an inductive block preserves the derivation model.  The
@@ -91,8 +94,8 @@ it (see `CheckDeclTT`): a fresh block constructor whose name is an
 family's law, and only closure refutes the collision. -/
 def DeclIndTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {block : List ConstantInfo},
-    checkDecl (fueledOps F) env (.indDecl block) = .ok env₁ →
-    CertifiedConfigTT →
+    checkDecl mode (fueledOps mode F) env (.indDecl block) = .ok env₁ →
+    CertifiedConfigTT mode →
     EnvTT env → EtaFamiliesClosedT env → Nonempty (EnvTT env₁)
 
 /-! ## The dispatch
@@ -105,7 +108,9 @@ dispatch, so the transpose of the dispatch is the dispatch. -/
 theorem checkDeclTT_of (hdefn : DeclDefnTT F) (hthm : DeclThmTT F)
     (hopaq : DeclOpaqueTT F) (hax : DeclAxiomTT F) (hbas : DeclBasisTT F)
     (hind : DeclIndTT F) : CheckDeclTT F := by
-  intro env env₁ d h hdir m hE1
+  intro mode' env env₁ d h hdir m hE1
+  -- task #147: the certified configuration pins the running mode
+  obtain rfl : mode' = .ttModel := hdir.mode_eq
   cases d with
   | defnDecl cv value hint => exact hdefn h m
   | thmDecl cv value => exact hthm h m

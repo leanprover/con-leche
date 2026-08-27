@@ -36,6 +36,9 @@ set_option linter.unusedVariables false
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 variable {F : Nat}
@@ -279,7 +282,7 @@ here.  Transpose of `checkProjFn_sound`; see the module docstring for
 where the bottom runs. -/
 theorem checkProjFnTT {env' env₁ : Env} {T ctorName : Name}
     {lps : List Name} {nP nF i : Nat} {blockNames : List Name}
-    (h : checkProjFn (fueledOps F) env' T ctorName lps nP nF i = .ok env₁)
+    (h : checkProjFn mode (fueledOps mode F) env' T ctorName lps nP nF i = .ok env₁)
     (m : EnvTT env')
     (hinv : ProjPhaseInvT T ctorName nF env' m.cval)
     (hIB : BlockInstalledTT blockNames env' m.cval)
@@ -288,7 +291,7 @@ theorem checkProjFnTT {env' env₁ : Env} {T ctorName : Name}
       n.isProjFnShape = false)
     (hTind : ∃ cvT capsT, env'.find? T = some (.indInfo cvT capsT))
     (hpinsT : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
-      EtaPins env' T cvT.levelParams capsT)
+      EtaPins mode env' T cvT.levelParams capsT)
     (hCblock : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → blockNames.contains capsT.etaCtor = true)
     (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
@@ -566,7 +569,7 @@ theorem checkProjFnTT {env' env₁ : Env} {T ctorName : Name}
     (by rw [htakeP]; exact hdeParsP0)
     (by rw [hlhs] at hlhsTyC0; rw [hαS] at hlhsTyC0; exact hlhsTyC0)
     (by rw [hrhs] at hrhsTyC0; rw [hαS] at hrhsTyC0; exact hrhsTyC0)
-    (by rw [hαS] at hslot0; exact hslot0)
+    (by rw [hαS] at hslot0; exact (hslot0 rfl))
   -- the stored rule and constant
   have hnresP : reservedBasisNames.contains (projFnName T i) = false :=
     reservedBasisNames_not_num _ _
@@ -652,7 +655,7 @@ theorem checkProjFnTT {env' env₁ : Env} {T ctorName : Name}
               else .inert), rhsA⟩]).name = T from
           fun hh => hTneP hh.symm)] at hfT'
         exact hfT'
-      have hpins₁ : EtaPins (⟨ConstantInfo.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+      have hpins₁ : EtaPins mode (⟨ConstantInfo.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
         [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then
           RecRuleFire.plain else .inert), rhsA⟩] :: env'.consts⟩ : Env) T cvT.levelParams capsT :=
         EtaPins.step (hpinsT cvT capsT hfT'') hpnone
@@ -1103,13 +1106,13 @@ theorem checkProjFoldTT {T ctorName : Name} {lps : List Name}
     (hbshape : ∀ n, blockNames.contains n = true →
       n.isProjFnShape = false) :
     ∀ (idxs : List Nat) (env' env₁ : Env),
-    idxs.foldlM (installProjFnStep (fueledOps F) T ctorName lps nP nF)
+    idxs.foldlM (installProjFnStep mode (fueledOps mode F) T ctorName lps nP nF)
       env' = .ok env₁ →
     ∀ m : EnvTT env', ProjPhaseInvT T ctorName nF env' m.cval →
     BlockInstalledTT blockNames env' m.cval →
     (∃ cvT capsT, env'.find? T = some (.indInfo cvT capsT)) →
     (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
-      EtaPins env' T cvT.levelParams capsT) →
+      EtaPins mode env' T cvT.levelParams capsT) →
     (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → blockNames.contains capsT.etaCtor = true) →
     (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
@@ -1125,7 +1128,7 @@ theorem checkProjFoldTT {T ctorName : Name} {lps : List Name}
     unfold installProjFnStep at h
     by_cases hm : (env'.find? (projModelName T i₀)).isSome = true
     · rw [if_pos hm] at h
-      cases hstep : checkProjFn (fueledOps F) env' T ctorName lps nP nF
+      cases hstep : checkProjFn mode (fueledOps mode F) env' T ctorName lps nP nF
           i₀ with
       | error e => rw [hstep] at h; exact nomatch h
       | ok env₂ => ?_

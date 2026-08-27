@@ -2,18 +2,34 @@ import Setlec.Kernel.CheckerS
 import Setlec.Kernel.CoreNC
 
 /-!
-# The cert-skipping shared-state driver (task #76, `SETLEC_NO_PROOF_CERTS`)
+# The `--no-model` driver (task #147; formerly task #76's
+`SETLEC_NO_PROOF_CERTS` measurement stack)
 
-**Unverified measurement mode** — see `Setlec/Kernel/CoreNC.lean`.
+**The unverified lane**, absorbing both retired flags (`--yolo` /
+`SETLEC_NO_PROOF_CERTS` and `--infer-only` / `SETLEC_INFER_ONLY`):
+
+* **Full front-door check per declaration** (official-kernel parity,
+  the task-#134 discipline — *not* the old yolo mode's front-door
+  skip): the def/thm/opaque value pipeline and every declaration's
+  constant check annotate and infer on the checking-mode knot
+  `coreKnotFNC`, so the per-argument application re-check runs on the
+  declaration's own term.
+* **Infer-only internals**: every inference reduction and definitional
+  equality perform on their own intermediate terms goes through
+  `coreKnotNC`, whose `infer` walks the telescope without re-checking
+  arguments — exactly the reference kernels' `infer_only`.
+* **No certificate families at all** (the task-#76 skip list): the
+  proof-feeding infer/defeq calls inside the core engine are gone, and
+  the seven TT-lane install checks are off (`CheckMode.noModel`).
+
 Each definition here duplicates its `Setlec/Kernel/CheckerS.lean`
-counterpart verbatim with `sharedOps` replaced by `sharedOpsNC` (the
-core knot tied at the cert-skipping bodies).  Everything else is
-identical: the phase structure, the flush discipline, every
-declaration-level check — the flag removes only the proof-feeding
-infer/defeq calls inside the core engine, never a declaration-level or
-install-time check.  Main selects this driver only under
-`SETLEC_NO_PROOF_CERTS=1`; the default path (`checkDeclsShared`) is
-untouched and remains the subject of the consistency statements.
+counterpart with `sharedOps` replaced by `sharedOpsNC` (install-time
+engine ops on the cert-skipping knot) and the front-door knot
+references on `coreKnotFNC`.  The phase structure, the flush
+discipline and every declaration-level check are identical.  Main
+selects this driver only under `--no-model`; the default path
+(`checkDeclsSP`) is untouched and remains the subject of the
+consistency statements.
 -/
 
 namespace Setlec
@@ -86,7 +102,7 @@ def checkIndRecsNC (blockNames : List Name) (fe₂ : FEnv)
     let (feSelf, checked) ← provisionRecsNC blockNames fe₂ recs
     flushS
     checked.foldlM (fun (acc : FEnv) c => do
-        let rules' ← checkIotaRulesF (sharedOpsNC feSelf) fe₂ feSelf
+        let rules' ← checkIotaRulesF .noModel (sharedOpsNC feSelf) fe₂ feSelf
           f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
         pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules')))
       fe₂
@@ -101,7 +117,7 @@ def checkProjFnNC (fe : FEnv) (T ctorName : Name) (lps : List Name)
   unless i < nF do
     throw (.invalid "projection index out of range")
   let rhsA ← checkProjRuleF (sharedOpsNC fe) fe pty cvj lps nP nF i
-  checkProjIotaF (sharedOpsNC fe) fe T ctorName lps cvj nP nF i
+  checkProjIotaF .noModel (sharedOpsNC fe) fe T ctorName lps cvj nP nF i
   pure (fe.push (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
     [⟨ctorName, nF, nP,
       if Expr.recRulePlain pty nP nP nP then .plain else .inert, rhsA⟩]))
@@ -171,10 +187,11 @@ def checkIndDeclNC (fe : FEnv) (block : List ConstantInfo) :
     block.filter (fun ci => match ci with
       | .ctorInfo _ _ _ => true | _ => false) with
   | [.indInfo cvT _], [.ctorInfo cvC nP nF] =>
-    let caps ← pure (indBlockCapsF fe cvT cvC nP nF)
+    let caps ← pure (indBlockCapsF .noModel fe cvT cvC nP nF)
     let fe₂ ← nonrecs.foldlM (checkIndMemberNC blockNames caps) fe
     let fe₃ ← checkIndRecsNC blockNames fe₂ recs
-    unless ctorResidualOkF fe₃ cvT.name cvC.name cvT.levelParams nP nF
+    unless ctorResidualOkF .noModel fe₃ cvT.name cvC.name cvT.levelParams
+        nP nF
         caps.eta do
       throw (.notImplemented "modeled structure: eta constructor residual")
     unless (List.range nF).all
@@ -188,90 +205,11 @@ def checkIndDeclNC (fe : FEnv) (block : List ConstantInfo) :
     let fe₂ ← nonrecs.foldlM (checkIndMemberNC blockNames {}) fe
     checkIndRecsNC blockNames fe₂ recs
 
-/-- `checkDeclSF` at the cert-skipping ops. -/
-def checkDeclNC (fe : FEnv) (d : Declaration) : CheckIM FEnv :=
-  match d with
-  | .defnDecl cv value hint => do
-    let cv ← checkConstantValF (sharedOpsNC fe) fe cv
-    -- Rare Nat-op branch decided before the value check, so the common
-    -- path does not retain `fe` across it (see `checkDeclSP`).
-    if natOpNames.contains cv.name || natDivModNames.contains cv.name then
-      let fe2 ← checkDefnValF (sharedOpsNC fe) fe cv value hint
-      if natOpNames.contains cv.name then
-        unless natOpGuardF fe2 cv.name &&
-            (natOpDeps cv.name).all (natOpStoredOkF fe2) do
-          throw (.notImplemented
-            s!"nonstandard structural Nat operation environment ({cv.name})")
-        match fe2.find? cv.name with
-        | some (.defnInfo _ value' _) =>
-          let ok ← certifyNatEqs (sharedOpsNC fe) fe.env
-            ((natOpEquations 0 cv.name).map fun eq =>
-              (Expr.substConst0 cv.name value' eq.1,
-               Expr.substConst0 cv.name value' eq.2))
-          unless ok do
-            throw (.notImplemented
-              s!"nonstandard structural Nat operation ({cv.name})")
-        | _ => throw (.internal
-            s!"structural Nat operation not stored ({cv.name})")
-      if natDivModNames.contains cv.name then
-        checkDivModPinF (sharedOpsNC fe) fe fe2 cv.name
-      pure fe2
-    else
-      checkDefnValF (sharedOpsNC fe) fe cv value hint
-  | .thmDecl cv value => do
-    let cv ← checkConstantValF (sharedOpsNC fe) fe cv
-    checkThmValF (sharedOpsNC fe) fe cv value
-  | .opaqueDecl cv value => do
-    let cv ← checkConstantValF (sharedOpsNC fe) fe cv
-    let fe2 ← checkOpaqueValF (sharedOpsNC fe) fe cv value
-    if reduceOpNames.contains cv.name then
-      checkReducePinF (sharedOpsNC fe) fe fe2 cv.name value
-    pure fe2
-  | .axiomDecl cv => do
-    let cvA ← checkConstantValF (sharedOpsNC fe) fe cv
-    if stdAxiomOkF fe cvA then
-      pure (fe.push (.axiomInfo cvA))
-    else if cvA.name = trustCompilerName then
-      if trustCompilerOkF fe cvA then
-        pure (fe.push (.axiomInfo cvA))
-      else throw (.notImplemented
-        s!"unsupported Lean.trustCompiler shape ({cv.name})")
-    else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
-      if ofReduceAxOkF fe cvA then
-        pure (fe.push (.axiomInfo cvA))
-      else throw (.notImplemented
-        s!"unsupported compiler-trust axiom environment ({cv.name})")
-    else if cvA.name = propextName ∨ cvA.name = choiceName then
-      throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
-    else if toleratedAxiomNames.contains cvA.name then
-      pure fe
-    else
-      throw (.notImplemented s!"non-standard axiom ({cv.name})")
-  | .basisDecl kind => do
-    if kind = .quotK then
-      unless fe.find? eqName = some eqA do
-        throw (.notImplemented "quotient basis requires the pinned Eq basis")
-    kind.declsA.foldlM installBasisDeclF fe
-  | .indDecl block =>
-    match directPartsF? fe block with
-    | some p => checkDirectStructNC fe p
-    | none => checkIndDeclNC fe block
-
-/-- `checkDeclSharedF` at the cert-skipping ops (what the binary runs
-under `SETLEC_NO_PROOF_CERTS=1`). -/
-def checkDeclSharedNC (fe : FEnv) (d : Declaration) : CheckM FEnv :=
-  (checkDeclNC fe d).run' {}
-
-/-- `checkDeclsShared` at the cert-skipping ops. -/
-def checkDeclsSharedNC (ds : List Declaration) : CheckM Env := do
-  let fe ← ds.foldlM checkDeclSharedNC (mkFEnv Env.empty)
-  pure fe.env
-
-/-! ## Parsed-index drivers at the cert-skipping knot (task #78) -/
+/-! ## Parsed-index drivers at the no-model stack (tasks #78/#147): checking-mode front door (`coreKnotFNC`), cert-skipping internals -/
 
 /-- `opSIx` at the cert-skipping knot. -/
 def opSIxNC (fe : FEnv) (d : Nat) (i : EIdx) : CheckIM Level := do
-  let u ← ensureSortI (coreKnotNC fe checkFuel) d i
+  let u ← ensureSortI (coreKnotFNC fe checkFuel) d i
   readbackLevelM u
 
 /-- `checkConstantValP` at the cert-skipping knot. -/
@@ -289,12 +227,12 @@ def checkConstantValPNC (fe : FEnv) (cv : ConstantValP) :
     throw (.invalid s!"loose bound variable in type of {cv.name}")
   if ← withStore (fun st => st.hasFvarI cv.type) then
     throw (.invalid s!"unexpected free variable in type of {cv.name}")
-  let jty ← (coreKnotNC fe checkFuel).annotate 0 cv.type
+  let jty ← (coreKnotFNC fe checkFuel).annotate 0 cv.type
   unless ← withStore (fun st => st.allLevelParamsDefinedI cv.levelParams jty) do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless ← withStore (fun st => constsResolveFI st fe jty) do
     throw (.invalid s!"unknown constant in type of {cv.name}")
-  let jsty ← (coreKnotNC fe checkFuel).infer 0 jty
+  let jsty ← (coreKnotFNC fe checkFuel).infer 0 jty
   let _u ← opSIxNC fe 0 jsty
   let tyE ← readbackEM jty
   pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
@@ -308,7 +246,7 @@ def checkDefnValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if ← withStore (fun st => st.hasFvarI value) then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  let jv ← (coreKnotFNC fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
@@ -317,8 +255,8 @@ def checkDefnValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
   let vE ← readbackEM jv
   recordIConst cvA.name cvA.type jty (some (vE, jv))
   -- CHECK PHASE ENTRY (task #64 split, see `checkDefnValP`)
-  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
-  unless ← (coreKnotNC fe checkFuel).defeq 0 jvt jty do
+  let jvt ← (coreKnotFNC fe checkFuel).infer 0 jv
+  unless ← (coreKnotFNC fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in definition {cvA.name}")
   -- CHECK PHASE EXIT
   pure (fe.push (.defnInfo cvA vE hint))
@@ -326,7 +264,7 @@ def checkDefnValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
 /-- `checkThmValP` at the cert-skipping knot (task #64 split). -/
 def checkThmValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
-  let jsty ← (coreKnotNC fe checkFuel).infer 0 jty
+  let jsty ← (coreKnotFNC fe checkFuel).infer 0 jty
   let ul ← opSIxNC fe 0 jsty
   unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
     throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
@@ -334,7 +272,7 @@ def checkThmValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if ← withStore (fun st => st.hasFvarI value) then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  let jv ← (coreKnotFNC fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
@@ -343,8 +281,8 @@ def checkThmValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
   let vE ← readbackEM jv
   recordIConst cvA.name cvA.type jty (some (vE, jv))
   -- CHECK PHASE ENTRY (task #64 split, see `checkDefnValP`)
-  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
-  unless ← (coreKnotNC fe checkFuel).defeq 0 jvt jty do
+  let jvt ← (coreKnotFNC fe checkFuel).infer 0 jv
+  unless ← (coreKnotFNC fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
   -- CHECK PHASE EXIT
   pure (fe.push (.thmInfo cvA vE))
@@ -356,7 +294,7 @@ def checkOpaqueValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if ← withStore (fun st => st.hasFvarI value) then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  let jv ← (coreKnotFNC fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
@@ -364,8 +302,8 @@ def checkOpaqueValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   recordIConst cvA.name cvA.type jty none
   -- CHECK PHASE ENTRY (task #64 split, see `checkDefnValP`)
-  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
-  unless ← (coreKnotNC fe checkFuel).defeq 0 jvt jty do
+  let jvt ← (coreKnotFNC fe checkFuel).infer 0 jv
+  unless ← (coreKnotFNC fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
   -- CHECK PHASE EXIT
   pure (fe.push (.axiomInfo cvA))
@@ -455,15 +393,16 @@ def checkDefnValPNCB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     let st := s.store
     let s := { s with store := EStore.empty }
     { s with store := st.enableTierTwo }
-  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  let jv ← (coreKnotFNC fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   let vE ← readbackEM jv
-  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
-  let ok ← (coreKnotNC fe checkFuel).defeq 0 jvt jty
+  let jvt ← (coreKnotFNC fe checkFuel).infer 0 jv
+  let ok ← (coreKnotFNC fe checkFuel).defeq 0 jvt jty
+  flushInferFC
   let jv' ← closeSnapshotM jv
   unless ok do
     throw (.invalid s!"type mismatch in definition {cvA.name}")
@@ -473,7 +412,7 @@ def checkDefnValPNCB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
 /-- `checkThmValPNC` with the in-place annotate-snapshot bracket. -/
 def checkThmValPNCB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
-  let jsty ← (coreKnotNC fe checkFuel).infer 0 jty
+  let jsty ← (coreKnotFNC fe checkFuel).infer 0 jty
   let ul ← opSIxNC fe 0 jsty
   unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
     throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
@@ -485,15 +424,16 @@ def checkThmValPNCB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     let st := s.store
     let s := { s with store := EStore.empty }
     { s with store := st.enableTierTwo }
-  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  let jv ← (coreKnotFNC fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   let vE ← readbackEM jv
-  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
-  let ok ← (coreKnotNC fe checkFuel).defeq 0 jvt jty
+  let jvt ← (coreKnotFNC fe checkFuel).infer 0 jv
+  let ok ← (coreKnotFNC fe checkFuel).defeq 0 jvt jty
+  flushInferFC
   let jv' ← closeSnapshotM jv
   unless ok do
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
@@ -512,14 +452,15 @@ def checkOpaqueValPNCB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     let st := s.store
     let s := { s with store := EStore.empty }
     { s with store := st.enableTierTwo }
-  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  let jv ← (coreKnotFNC fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
-  let ok ← (coreKnotNC fe checkFuel).defeq 0 jvt jty
+  let jvt ← (coreKnotFNC fe checkFuel).infer 0 jv
+  let ok ← (coreKnotFNC fe checkFuel).defeq 0 jvt jty
+  flushInferFC
   modify fun s =>
     let st := s.store
     let s := { s with store := EStore.empty }
@@ -551,17 +492,18 @@ def checkDeclSPNC (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
   | _ => checkDeclSPNCPlain fe pd
 
 /-- One step of the cert-skipping fold (the bracketed checker). -/
-def checkDeclSPStepNC (n0 : Nat) (fe : FEnv) (pd : DeclP) :
+def checkDeclSPStepNM (n0 : Nat) (fe : FEnv) (pd : DeclP) :
     CheckIM FEnv := do
   unless pd.inRangeB n0 do
     throw (.internal "parsed declaration index out of range")
   flushS
+  flushInferFC
   checkDeclSPNC fe pd
 
-/-- The cert-skipping parsed-declaration checker (measurement knob;
-UNVERIFIED). -/
-def checkDeclsSPNC (st : WFStore) (pds : List DeclP) : CheckM Env := do
-  let fe ← (pds.foldlM (checkDeclSPStepNC (st.raw.nodes.size + st.raw.nodes.size))
+/-- The `--no-model` parsed-declaration checker (task #147;
+UNVERIFIED — reference-kernel parity is the claim, stated as parity). -/
+def checkDeclsSPNM (st : WFStore) (pds : List DeclP) : CheckM Env := do
+  let fe ← (pds.foldlM (checkDeclSPStepNM (st.raw.nodes.size + st.raw.nodes.size))
     (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 

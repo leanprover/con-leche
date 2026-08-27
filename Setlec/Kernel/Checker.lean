@@ -16,6 +16,7 @@ Verification: `Setlec.Verify.*` and `Setlec.Model.Consistency`.
 namespace Setlec
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
+variable (mode : CheckMode)
 
 /-! ## The direct simple-structure path (task #82)
 
@@ -814,11 +815,11 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- the dispatch lives here and not inside `checkIndDecl`.
     match directParts? env block with
     | some p => checkDirectStruct ops env p
-    | none => checkIndDecl ops env block
+    | none => checkIndDecl mode ops env block
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/
 def checkDecls (ops : CheckerOps m) (ds : List Declaration) : m Env :=
-  ds.foldlM (checkDecl ops) Env.empty
+  ds.foldlM (checkDecl mode ops) Env.empty
 
 end Setlec

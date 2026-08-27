@@ -4,8 +4,8 @@ import Setlec.Verify.Knot
 /-!
 # The interned knot: memo wrappers and the conditional simulation
 
-`SSimI env f` is the interned analogue of `ScopedSim`: at fuel `f`,
-every interned entry point (`coreKnotI (mkFEnv env) f`) simulates the
+`SSimI mode env f` is the interned analogue of `ScopedSim`: at fuel `f`,
+every interned entry point (`coreKnotI mode (mkFEnv env) f`) simulates the
 corresponding fueled family under the denotation, on denoting,
 well-scoped inputs.  This module proves the *memo-wrapper step*: from
 per-body simulation walks at fuel `f` (`Setlec/Verify/DiscI*.lean`),
@@ -20,34 +20,36 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open EStore Expr
 
 /-- The interned conditional simulation at fuel `f`. -/
-structure SSimI (env : Env) (f : Nat) : Prop where
+structure SSimI (mode : CheckMode) (env : Env) (f : Nat) : Prop where
   whnfCore : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-    ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
-    SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) f).whnfCore d i)
-      ((fueledFns env).whnfCore d e)
+    ISOK mode env s₀ → s₀.store.denoteT i = some e → WScoped d e →
+    SimAt mode env s₀ (RelE d) ((coreKnotI mode (mkFEnv env) f).whnfCore d i)
+      ((fueledFns mode env).whnfCore d e)
   whnf : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-    ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
-    SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) f).whnf d i)
-      ((fueledFns env).whnf d e)
+    ISOK mode env s₀ → s₀.store.denoteT i = some e → WScoped d e →
+    SimAt mode env s₀ (RelE d) ((coreKnotI mode (mkFEnv env) f).whnf d i)
+      ((fueledFns mode env).whnf d e)
   infer : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-    ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
-    SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) f).infer d i)
-      ((fueledFns env).infer d e)
+    ISOK mode env s₀ → s₀.store.denoteT i = some e → WScoped d e →
+    SimAt mode env s₀ (RelE d) ((coreKnotI mode (mkFEnv env) f).infer d i)
+      ((fueledFns mode env).infer d e)
   defeq : ∀ {s₀ : IState} {d : Nat} {i j : EIdx} {a b : Expr},
-    ISOK env s₀ → s₀.store.denoteT i = some a →
+    ISOK mode env s₀ → s₀.store.denoteT i = some a →
     s₀.store.denoteT j = some b → WScoped d a → WScoped d b →
-    SimAt env s₀ RelV ((coreKnotI (mkFEnv env) f).defeq d i j)
-      ((fueledFns env).defeq d a b)
+    SimAt mode env s₀ RelV ((coreKnotI mode (mkFEnv env) f).defeq d i j)
+      ((fueledFns mode env).defeq d a b)
   annotate : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-    ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
-    SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) f).annotate d i)
-      ((fueledFns env).annotate d e)
+    ISOK mode env s₀ → s₀.store.denoteT i = some e → WScoped d e →
+    SimAt mode env s₀ (RelE d) ((coreKnotI mode (mkFEnv env) f).annotate d i)
+      ((fueledFns mode env).annotate d e)
 
 /-- The base case: fuel `0` throws everywhere. -/
-theorem ssimI_zero (env : Env) : SSimI env 0 :=
+theorem ssimI_zero (env : Env) : SSimI mode env 0 :=
   { whnfCore := fun _ _ _ => SimAt.throw
     whnf := fun _ _ _ => SimAt.throw
     infer := fun _ _ _ => SimAt.throw
@@ -60,11 +62,11 @@ section Inserts
 
 variable {env : Env}
 
-theorem ISOK.insertWhnfCoreC {s : IState} (hs : ISOK env s)
+theorem ISOK.insertWhnfCoreC {s : IState} (hs : ISOK mode env s)
     {i j : EIdx} {a b : Expr}
     (hi : s.store.denoteT i = some a) (hj : s.store.denoteT j = some b)
-    (hrun : ∃ F, ∀ d, a.wscopedB d = true → whnfCore env F d a = .ok b) :
-    ISOK env { s with whnfCoreC := s.whnfCoreC.insert i j } := by
+    (hrun : ∃ F, ∀ d, a.wscopedB d = true → whnfCore mode env F d a = .ok b) :
+    ISOK mode env { s with whnfCoreC := s.whnfCoreC.insert i j } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, ?_, hs.whnfC,
     hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv⟩
@@ -79,11 +81,11 @@ theorem ISOK.insertWhnfCoreC {s : IState} (hs : ISOK env s)
   · rw [if_neg hk] at hl
     exact hs.whnfCoreC i' j' hl
 
-theorem ISOK.insertWhnfC {s : IState} (hs : ISOK env s)
+theorem ISOK.insertWhnfC {s : IState} (hs : ISOK mode env s)
     {i j : EIdx} {a b : Expr}
     (hi : s.store.denoteT i = some a) (hj : s.store.denoteT j = some b)
-    (hrun : ∃ F, ∀ d, a.wscopedB d = true → whnf env F d a = .ok b) :
-    ISOK env { s with whnfC := s.whnfC.insert i j } := by
+    (hrun : ∃ F, ∀ d, a.wscopedB d = true → whnf mode env F d a = .ok b) :
+    ISOK mode env { s with whnfC := s.whnfC.insert i j } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, ?_,
     hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv⟩
@@ -98,12 +100,12 @@ theorem ISOK.insertWhnfC {s : IState} (hs : ISOK env s)
   · rw [if_neg hk] at hl
     exact hs.whnfC i' j' hl
 
-theorem ISOK.insertInferC {s : IState} (hs : ISOK env s)
+theorem ISOK.insertInferC {s : IState} (hs : ISOK mode env s)
     {i j : EIdx} {a b : Expr}
     (hi : s.store.denoteT i = some a) (hj : s.store.denoteT j = some b)
     (hrun : ∃ F, ∀ d, a.wscopedB d = true →
-      inferTypeCore env F d a = .ok b) :
-    ISOK env { s with inferC := s.inferC.insert i j } := by
+      inferTypeCore mode env F d a = .ok b) :
+    ISOK mode env { s with inferC := s.inferC.insert i j } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC,
     hs.whnfC, ?_, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv⟩
@@ -118,12 +120,12 @@ theorem ISOK.insertInferC {s : IState} (hs : ISOK env s)
   · rw [if_neg hk] at hl
     exact hs.inferC i' j' hl
 
-theorem ISOK.insertAnnotC {s : IState} (hs : ISOK env s)
+theorem ISOK.insertAnnotC {s : IState} (hs : ISOK mode env s)
     {i j : EIdx} {a b : Expr}
     (hi : s.store.denoteT i = some a) (hj : s.store.denoteT j = some b)
     (hrun : ∃ F, ∀ d, a.wscopedB d = true →
-      annotateCore env F d a = .ok b) :
-    ISOK env { s with annotC := s.annotC.insert i j } := by
+      annotateCore mode env F d a = .ok b) :
+    ISOK mode env { s with annotC := s.annotC.insert i j } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC,
     hs.whnfC, hs.inferC, ?_, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv⟩
@@ -138,12 +140,12 @@ theorem ISOK.insertAnnotC {s : IState} (hs : ISOK env s)
   · rw [if_neg hk] at hl
     exact hs.annotC i' j' hl
 
-theorem ISOK.insertDefeqC {s : IState} (hs : ISOK env s)
+theorem ISOK.insertDefeqC {s : IState} (hs : ISOK mode env s)
     {i j : EIdx} {r : Bool} {a b : Expr}
     (hi : s.store.denoteT i = some a) (hj : s.store.denoteT j = some b)
     (hrun : ∃ F, ∀ d, a.wscopedB d = true → b.wscopedB d = true →
-      isDefEqCore env F d a b = .ok r) :
-    ISOK env { s with defeqC := s.defeqC.insert (i, j) r } := by
+      isDefEqCore mode env F d a b = .ok r) :
+    ISOK mode env { s with defeqC := s.defeqC.insert (i, j) r } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC,
     hs.whnfC, hs.inferC, hs.annotC, ?_, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv⟩
@@ -170,19 +172,19 @@ variable {env : Env} {f : Nat}
 
 theorem memoEI_whnfCore_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-      ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
-      SimAt env s₀ (RelE d)
-        (whnfCoreBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-        (whnfCoreBody (fueledFns env) env d e))
+      ISOK mode env s₀ → s₀.store.denoteT i = some e → WScoped d e →
+      SimAt mode env s₀ (RelE d)
+        (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+        (whnfCoreBody mode (fueledFns mode env) env d e))
     {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr}
-    (hs : ISOK env s₀) (hden : s₀.store.denoteT i = some e)
+    (hs : ISOK mode env s₀) (hden : s₀.store.denoteT i = some e)
     (hw : WScoped d e) :
-    SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) (f + 1)).whnfCore d i)
-      ((fueledFns env).whnfCore d e) := by
+    SimAt mode env s₀ (RelE d) ((coreKnotI mode (mkFEnv env) (f + 1)).whnfCore d i)
+      ((fueledFns mode env).whnfCore d e) := by
   intro v' s' hr
-  rw [show (coreKnotI (mkFEnv env) (f + 1)).whnfCore d i =
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).whnfCore d i =
     memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
-      (fun d e => whnfCoreBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -202,7 +204,7 @@ theorem memoEI_whnfCore_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : whnfCoreBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i s₀
+    cases hb : whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀
         with
     | error err =>
       rw [hb] at hr
@@ -226,19 +228,19 @@ theorem memoEI_whnfCore_sim (henv : EnvWF env)
 
 theorem memoEI_whnf_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-      ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
-      SimAt env s₀ (RelE d)
-        (whnfBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-        (whnfBody (fueledFns env) env d e))
+      ISOK mode env s₀ → s₀.store.denoteT i = some e → WScoped d e →
+      SimAt mode env s₀ (RelE d)
+        (whnfBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+        (whnfBody (fueledFns mode env) env d e))
     {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr}
-    (hs : ISOK env s₀) (hden : s₀.store.denoteT i = some e)
+    (hs : ISOK mode env s₀) (hden : s₀.store.denoteT i = some e)
     (hw : WScoped d e) :
-    SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) (f + 1)).whnf d i)
-      ((fueledFns env).whnf d e) := by
+    SimAt mode env s₀ (RelE d) ((coreKnotI mode (mkFEnv env) (f + 1)).whnf d i)
+      ((fueledFns mode env).whnf d e) := by
   intro v' s' hr
-  rw [show (coreKnotI (mkFEnv env) (f + 1)).whnf d i =
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).whnf d i =
     memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-      (fun d e => whnfBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => whnfBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -257,7 +259,7 @@ theorem memoEI_whnf_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : whnfBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i s₀ with
+    cases hb : whnfBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀ with
     | error err =>
       rw [hb] at hr
       simp only [Bind.bind, Except.bind] at hr
@@ -280,19 +282,19 @@ theorem memoEI_whnf_sim (henv : EnvWF env)
 
 theorem memoEI_infer_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-      ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
-      SimAt env s₀ (RelE d)
-        (inferBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-        (inferBody (fueledFns env) env d e))
+      ISOK mode env s₀ → s₀.store.denoteT i = some e → WScoped d e →
+      SimAt mode env s₀ (RelE d)
+        (inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+        (inferBody mode (fueledFns mode env) env d e))
     {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr}
-    (hs : ISOK env s₀) (hden : s₀.store.denoteT i = some e)
+    (hs : ISOK mode env s₀) (hden : s₀.store.denoteT i = some e)
     (hw : WScoped d e) :
-    SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) (f + 1)).infer d i)
-      ((fueledFns env).infer d e) := by
+    SimAt mode env s₀ (RelE d) ((coreKnotI mode (mkFEnv env) (f + 1)).infer d i)
+      ((fueledFns mode env).infer d e) := by
   intro v' s' hr
-  rw [show (coreKnotI (mkFEnv env) (f + 1)).infer d i =
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).infer d i =
     memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-      (fun d e => inferBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -312,7 +314,7 @@ theorem memoEI_infer_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : inferBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i s₀ with
+    cases hb : inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀ with
     | error err =>
       rw [hb] at hr
       simp only [Bind.bind, Except.bind] at hr
@@ -335,19 +337,19 @@ theorem memoEI_infer_sim (henv : EnvWF env)
 
 theorem memoEI_annotate_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-      ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
-      SimAt env s₀ (RelE d)
-        (annotateBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-        (annotateBody (fueledFns env) env d e))
+      ISOK mode env s₀ → s₀.store.denoteT i = some e → WScoped d e →
+      SimAt mode env s₀ (RelE d)
+        (annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+        (annotateBody (fueledFns mode env) env d e))
     {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr}
-    (hs : ISOK env s₀) (hden : s₀.store.denoteT i = some e)
+    (hs : ISOK mode env s₀) (hden : s₀.store.denoteT i = some e)
     (hw : WScoped d e) :
-    SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) (f + 1)).annotate d i)
-      ((fueledFns env).annotate d e) := by
+    SimAt mode env s₀ (RelE d) ((coreKnotI mode (mkFEnv env) (f + 1)).annotate d i)
+      ((fueledFns mode env).annotate d e) := by
   intro v' s' hr
-  rw [show (coreKnotI (mkFEnv env) (f + 1)).annotate d i =
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).annotate d i =
     memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-      (fun d e => annotateBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -367,7 +369,7 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : annotateBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i s₀
+    cases hb : annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀
         with
     | error err =>
       rw [hb] at hr
@@ -391,21 +393,21 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
 
 theorem memoBI_defeq_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : IState} {d : Nat} {i j : EIdx} {a b : Expr},
-      ISOK env s₀ → s₀.store.denoteT i = some a →
+      ISOK mode env s₀ → s₀.store.denoteT i = some a →
       s₀.store.denoteT j = some b → WScoped d a → WScoped d b →
-      SimAt env s₀ RelV
-        (defeqBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i j)
-        (defeqBody (fueledFns env) env d a b))
+      SimAt mode env s₀ RelV
+        (defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+        (defeqBody mode (fueledFns mode env) env d a b))
     {s₀ : IState} {d : Nat} {i j : EIdx} {a b : Expr}
-    (hs : ISOK env s₀) (hdena : s₀.store.denoteT i = some a)
+    (hs : ISOK mode env s₀) (hdena : s₀.store.denoteT i = some a)
     (hdenb : s₀.store.denoteT j = some b)
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    SimAt env s₀ RelV ((coreKnotI (mkFEnv env) (f + 1)).defeq d i j)
-      ((fueledFns env).defeq d a b) := by
+    SimAt mode env s₀ RelV ((coreKnotI mode (mkFEnv env) (f + 1)).defeq d i j)
+      ((fueledFns mode env).defeq d a b) := by
   intro v' s' hr
-  rw [show (coreKnotI (mkFEnv env) (f + 1)).defeq d i j =
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).defeq d i j =
     memoBI
-      (fun d i j => defeqBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i j)
+      (fun d i j => defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       d i j from rfl] at hr
   simp only [memoBI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -426,7 +428,7 @@ theorem memoBI_defeq_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : defeqBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i j s₀
+    cases hb : defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j s₀
         with
     | error err =>
       rw [hb] at hr

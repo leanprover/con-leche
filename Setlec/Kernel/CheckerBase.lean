@@ -33,16 +33,18 @@ structure CheckerOps (m : Type → Type) where
   ensureSort : Env → Nat → Expr → m Level
   whnf : Env → Nat → Expr → m Expr
 
+variable (mode : CheckMode)
+
 /-- The pure instantiation, at an arbitrary fuel. -/
 def fueledOps (F : Nat) : CheckerOps CheckM where
-  annotate env d e := annotateCore env F d e
-  inferType env d e := inferTypeCore env F d e
-  isDefEq env d a b := isDefEqCore env F d a b
-  ensureSort env d e := ensureSortCore env F d e
-  whnf env d e := Setlec.whnf env F d e
+  annotate env d e := annotateCore mode env F d e
+  inferType env d e := inferTypeCore mode env F d e
+  isDefEq env d a b := isDefEqCore mode env F d a b
+  ensureSort env d e := ensureSortCore mode env F d e
+  whnf env d e := Setlec.whnf mode env F d e
 
 /-- The pure instantiation, at the standard fuel. -/
-def pureOps : CheckerOps CheckM := fueledOps checkFuel
+def pureOps : CheckerOps CheckM := fueledOps mode checkFuel
 
 /-- The *interned* executable instantiation, at the standard fuel; each
 entry call interns its argument into a fresh arena, runs the id-keyed
@@ -53,11 +55,11 @@ consumed by the `cachedOps_*_bridge` lemmas in
 `Setlec/Verify/Bridge.lean` — everything above them (the declaration
 checker bridge and the consistency layer) is untouched. -/
 def cachedOps : CheckerOps CheckM where
-  annotate env d e := runEntryE env (fun r => r.annotate) d e
-  inferType env d e := runEntryE env (fun r => r.infer) d e
-  isDefEq env d a b := runEntryB env d a b
-  ensureSort env d e := runEntryS env d e
-  whnf env d e := runEntryE env (fun r => r.whnf) d e
+  annotate env d e := runEntryE mode env (fun r => r.annotate) d e
+  inferType env d e := runEntryE mode env (fun r => r.infer) d e
+  isDefEq env d a b := runEntryB mode env d a b
+  ensureSort env d e := runEntryS mode env d e
+  whnf env d e := runEntryE mode env (fun r => r.whnf) d e
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 

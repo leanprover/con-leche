@@ -16,6 +16,8 @@ commute lemmas.
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 /-- A binary relation between two checker monads, closed under the
 monadic operations the bodies use. -/
 structure MonadRel (M₁ M₂ : Type → Type)
@@ -429,26 +431,26 @@ theorem proofIrrel_snd_proj (d : Nat) (a b : Expr) :
   snd_tac
 
 theorem pairEtaCert_fst_proj (d : Nat) (a b : Expr) :
-    (pairEtaCert (pairFns r₁ r₂ h) env d a b).val.1 =
-      pairEtaCert r₁ env d a b := by
+    (pairEtaCert mode (pairFns r₁ r₂ h) env d a b).val.1 =
+      pairEtaCert mode r₁ env d a b := by
   unfold pairEtaCert projParamCert
   fst_tac
 
 theorem pairEtaCert_snd_proj (d : Nat) (a b : Expr) :
-    (pairEtaCert (pairFns r₁ r₂ h) env d a b).val.2 =
-      pairEtaCert r₂ env d a b := by
+    (pairEtaCert mode (pairFns r₁ r₂ h) env d a b).val.2 =
+      pairEtaCert mode r₂ env d a b := by
   unfold pairEtaCert projParamCert
   snd_tac
 
 theorem structEtaCertWith_fst_proj (d : Nat) (a b wtb : Expr) :
-    (structEtaCertWith (pairFns r₁ r₂ h) env d a b wtb).val.1 =
-      structEtaCertWith r₁ env d a b wtb := by
+    (structEtaCertWith mode (pairFns r₁ r₂ h) env d a b wtb).val.1 =
+      structEtaCertWith mode r₁ env d a b wtb := by
   unfold structEtaCertWith
   fst_tac
 
 theorem structEtaCertWith_snd_proj (d : Nat) (a b wtb : Expr) :
-    (structEtaCertWith (pairFns r₁ r₂ h) env d a b wtb).val.2 =
-      structEtaCertWith r₂ env d a b wtb := by
+    (structEtaCertWith mode (pairFns r₁ r₂ h) env d a b wtb).val.2 =
+      structEtaCertWith mode r₂ env d a b wtb := by
   unfold structEtaCertWith
   snd_tac
 
@@ -587,14 +589,14 @@ macro "snd_tac2" : tactic =>
     snd_step2 <;> snd_step2 <;> snd_step2)
 
 theorem structEtaCert_fst_proj (d : Nat) (a b : Expr) :
-    (structEtaCert (pairFns r₁ r₂ h) env d a b).val.1 =
-      structEtaCert r₁ env d a b := by
+    (structEtaCert mode (pairFns r₁ r₂ h) env d a b).val.1 =
+      structEtaCert mode r₁ env d a b := by
   unfold structEtaCert
   fst_tac2
 
 theorem structEtaCert_snd_proj (d : Nat) (a b : Expr) :
-    (structEtaCert (pairFns r₁ r₂ h) env d a b).val.2 =
-      structEtaCert r₂ env d a b := by
+    (structEtaCert mode (pairFns r₁ r₂ h) env d a b).val.2 =
+      structEtaCert mode r₂ env d a b := by
   unfold structEtaCert
   snd_tac2
 
@@ -604,8 +606,8 @@ theorem structEtaCert_snd_proj (d : Nat) (a b : Expr) :
 -- each rescue branch separately.
 set_option maxHeartbeats 800000 in
 theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
-    (majorToCtor (pairFns r₁ r₂ h) env d c rules e).val.1 =
-      majorToCtor r₁ env d c rules e := by
+    (majorToCtor mode (pairFns r₁ r₂ h) env d c rules e).val.1 =
+      majorToCtor mode r₁ env d c rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
   · rw [if_pos hca, if_pos hca]; rfl
@@ -641,8 +643,8 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
 
 set_option maxHeartbeats 800000 in
 theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
-    (majorToCtor (pairFns r₁ r₂ h) env d c rules e).val.2 =
-      majorToCtor r₂ env d c rules e := by
+    (majorToCtor mode (pairFns r₁ r₂ h) env d c rules e).val.2 =
+      majorToCtor mode r₂ env d c rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
   · rw [if_pos hca, if_pos hca]; rfl
@@ -865,26 +867,26 @@ macro "snd_tac3" : tactic =>
     snd_step3 <;> snd_step3 <;> snd_step3)
 
 theorem stuckIrrel_fst_proj (d : Nat) (a b : Expr) :
-    (stuckIrrel (pairFns r₁ r₂ h) env d a b).val.1 =
-      stuckIrrel r₁ env d a b := by
+    (stuckIrrel mode (pairFns r₁ r₂ h) env d a b).val.1 =
+      stuckIrrel mode r₁ env d a b := by
   unfold stuckIrrel
   fst_tac3
 
 theorem stuckIrrel_snd_proj (d : Nat) (a b : Expr) :
-    (stuckIrrel (pairFns r₁ r₂ h) env d a b).val.2 =
-      stuckIrrel r₂ env d a b := by
+    (stuckIrrel mode (pairFns r₁ r₂ h) env d a b).val.2 =
+      stuckIrrel mode r₂ env d a b := by
   unfold stuckIrrel
   snd_tac3
 
 theorem iotaRec_fst_proj (d : Nat) (e : Expr) :
-    (iotaRec (pairFns r₁ r₂ h) env d e).val.1 =
-      iotaRec r₁ env d e := by
+    (iotaRec mode (pairFns r₁ r₂ h) env d e).val.1 =
+      iotaRec mode r₁ env d e := by
   unfold iotaRec
   fst_tac3
 
 theorem iotaRec_snd_proj (d : Nat) (e : Expr) :
-    (iotaRec (pairFns r₁ r₂ h) env d e).val.2 =
-      iotaRec r₂ env d e := by
+    (iotaRec mode (pairFns r₁ r₂ h) env d e).val.2 =
+      iotaRec mode r₂ env d e := by
   unfold iotaRec
   snd_tac3
 
@@ -989,14 +991,14 @@ macro "snd_tac4" : tactic =>
     snd_step4 <;> snd_step4 <;> snd_step4)
 
 theorem whnfCoreBody_fst_proj (d : Nat) (e : Expr) :
-    (whnfCoreBody (pairFns r₁ r₂ h) env d e).val.1 =
-      whnfCoreBody r₁ env d e := by
+    (whnfCoreBody mode (pairFns r₁ r₂ h) env d e).val.1 =
+      whnfCoreBody mode r₁ env d e := by
   unfold whnfCoreBody
   fst_tac4
 
 theorem whnfCoreBody_snd_proj (d : Nat) (e : Expr) :
-    (whnfCoreBody (pairFns r₁ r₂ h) env d e).val.2 =
-      whnfCoreBody r₂ env d e := by
+    (whnfCoreBody mode (pairFns r₁ r₂ h) env d e).val.2 =
+      whnfCoreBody mode r₂ env d e := by
   unfold whnfCoreBody
   snd_tac4
 
@@ -1044,57 +1046,57 @@ theorem whnfBody_snd_proj (d : Nat) (e : Expr) :
   whnfLoop_snd_proj d whnfLoopFuel e
 
 theorem inferBody_fst_proj (d : Nat) (e : Expr) :
-    (inferBody (pairFns r₁ r₂ h) env d e).val.1 =
-      inferBody r₁ env d e := by
+    (inferBody mode (pairFns r₁ r₂ h) env d e).val.1 =
+      inferBody mode r₁ env d e := by
   unfold inferBody
   fst_tac4
 
 theorem inferBody_snd_proj (d : Nat) (e : Expr) :
-    (inferBody (pairFns r₁ r₂ h) env d e).val.2 =
-      inferBody r₂ env d e := by
+    (inferBody mode (pairFns r₁ r₂ h) env d e).val.2 =
+      inferBody mode r₂ env d e := by
   unfold inferBody
   snd_tac4
 
 theorem defeqStep_fst_proj (d : Nat) (k : Expr → Expr → PairM rel Bool)
     (k₁ : Expr → Expr → M₁ Bool) (hk : ∀ a b, (k a b).val.1 = k₁ a b)
     (a b : Expr) :
-    (defeqStep (pairFns r₁ r₂ h) env d k a b).val.1 =
-      defeqStep r₁ env d k₁ a b := by
+    (defeqStep mode (pairFns r₁ r₂ h) env d k a b).val.1 =
+      defeqStep mode r₁ env d k₁ a b := by
   unfold defeqStep
   fst_tac4k hk
 
 theorem defeqStep_snd_proj (d : Nat) (k : Expr → Expr → PairM rel Bool)
     (k₂ : Expr → Expr → M₂ Bool) (hk : ∀ a b, (k a b).val.2 = k₂ a b)
     (a b : Expr) :
-    (defeqStep (pairFns r₁ r₂ h) env d k a b).val.2 =
-      defeqStep r₂ env d k₂ a b := by
+    (defeqStep mode (pairFns r₁ r₂ h) env d k a b).val.2 =
+      defeqStep mode r₂ env d k₂ a b := by
   unfold defeqStep
   snd_tac4k hk
 
 theorem defeqLoop_fst_proj (d : Nat) :
     ∀ (n : Nat) (a b : Expr),
-      (defeqLoop (pairFns r₁ r₂ h) env d n a b).val.1 =
-        defeqLoop r₁ env d n a b
+      (defeqLoop mode (pairFns r₁ r₂ h) env d n a b).val.1 =
+        defeqLoop mode r₁ env d n a b
   | 0, _, _ => rfl
   | n + 1, a, b =>
     defeqStep_fst_proj d _ _ (fun x y => defeqLoop_fst_proj d n x y) a b
 
 theorem defeqLoop_snd_proj (d : Nat) :
     ∀ (n : Nat) (a b : Expr),
-      (defeqLoop (pairFns r₁ r₂ h) env d n a b).val.2 =
-        defeqLoop r₂ env d n a b
+      (defeqLoop mode (pairFns r₁ r₂ h) env d n a b).val.2 =
+        defeqLoop mode r₂ env d n a b
   | 0, _, _ => rfl
   | n + 1, a, b =>
     defeqStep_snd_proj d _ _ (fun x y => defeqLoop_snd_proj d n x y) a b
 
 theorem defeqBody_fst_proj (d : Nat) (a b : Expr) :
-    (defeqBody (pairFns r₁ r₂ h) env d a b).val.1 =
-      defeqBody r₁ env d a b :=
+    (defeqBody mode (pairFns r₁ r₂ h) env d a b).val.1 =
+      defeqBody mode r₁ env d a b :=
   defeqLoop_fst_proj d defeqLoopFuel a b
 
 theorem defeqBody_snd_proj (d : Nat) (a b : Expr) :
-    (defeqBody (pairFns r₁ r₂ h) env d a b).val.2 =
-      defeqBody r₂ env d a b :=
+    (defeqBody mode (pairFns r₁ r₂ h) env d a b).val.2 =
+      defeqBody mode r₂ env d a b :=
   defeqLoop_snd_proj d defeqLoopFuel a b
 
 theorem annotateBody_fst_proj (d : Nat) (e : Expr) :

@@ -18,8 +18,8 @@ open SetTheory Expr
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 /-- Pointwise interpretation of an expression spine. -/
 def InterpSpine (cval : ConstVal V) (env : Env) (φ : Name → Nat)

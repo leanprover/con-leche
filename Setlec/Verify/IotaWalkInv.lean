@@ -23,37 +23,39 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 /-! ## Fueled spine equalities -/
 
 theorem fueledOpsW_isDefEq (F : Nat) (env : Env) (d : Nat) (a b : Expr) :
-    (fueledOps F).isDefEq env d a b = isDefEqCore env F d a b := rfl
+    (fueledOps mode F).isDefEq env d a b = isDefEqCore mode env F d a b := rfl
 
 /-- Pairwise fueled definitional equality of two spines (the semantic
 content of a successful `checkDefEqList`). -/
-def DefEqListOk (F : Nat) (env : Env) (d : Nat) :
+def DefEqListOk (mode : CheckMode) (F : Nat) (env : Env) (d : Nat) :
     List Expr → List Expr → Prop
   | [], [] => True
   | a :: as, b :: bs =>
-    isDefEqCore env F d a b = .ok true ∧ DefEqListOk F env d as bs
+    isDefEqCore mode env F d a b = .ok true ∧ DefEqListOk mode F env d as bs
   | _, _ => False
 
 /-- Pairwise fueled inferred-type check of a spine against expected
 types (the semantic content of a successful `checkTypedList`). -/
-def TypedListOk (F : Nat) (env : Env) (d : Nat) :
+def TypedListOk (mode : CheckMode) (F : Nat) (env : Env) (d : Nat) :
     List Expr → List Expr → Prop
   | [], [] => True
   | a :: as, b :: bs =>
-    (∃ ty, inferTypeCore env F d a = .ok ty ∧
-      isDefEqCore env F d ty b = .ok true) ∧
-    TypedListOk F env d as bs
+    (∃ ty, inferTypeCore mode env F d a = .ok ty ∧
+      isDefEqCore mode env F d ty b = .ok true) ∧
+    TypedListOk mode F env d as bs
   | _, _ => False
 
 /-- Each expression is a fixed point of the annotation pass (the
 semantic content of a successful `checkAnnotList`). -/
-def AnnotListOk (F : Nat) (env : Env) (d : Nat) (l : List Expr) : Prop :=
-  ∀ a ∈ l, annotateCore env F d a = .ok a
+def AnnotListOk (mode : CheckMode) (F : Nat) (env : Env) (d : Nat) (l : List Expr) : Prop :=
+  ∀ a ∈ l, annotateCore mode env F d a = .ok a
 
 /-- Extract a member's inference run from a `TypedListOk` package
 (task #100 stage 6: this is the `AnnotOk` source for the nested pins —
@@ -61,8 +63,8 @@ the typed check's inference run establishes truthfulness via the
 restructured claims; the annotate-fixed-point check no longer
 carries semantic content). -/
 theorem TypedListOk.infer_of_mem {F : Nat} {env : Env} {d : Nat} :
-    ∀ {as bs : List Expr}, TypedListOk F env d as bs →
-      ∀ a ∈ as, ∃ ty, inferTypeCore env F d a = .ok ty := by
+    ∀ {as bs : List Expr}, TypedListOk mode F env d as bs →
+      ∀ a ∈ as, ∃ ty, inferTypeCore mode env F d a = .ok ty := by
   intro as
   induction as with
   | nil => intro bs h a ha; cases ha
@@ -75,7 +77,7 @@ theorem TypedListOk.infer_of_mem {F : Nat} {env : Env} {d : Nat} :
       · exact ih hrest a ha
 
 theorem DefEqListOk.length {F : Nat} {env : Env} {d : Nat} :
-    ∀ {as bs : List Expr}, DefEqListOk F env d as bs →
+    ∀ {as bs : List Expr}, DefEqListOk mode F env d as bs →
       as.length = bs.length := by
   intro as
   induction as with
@@ -89,9 +91,9 @@ theorem DefEqListOk.length {F : Nat} {env : Env} {d : Nat} :
     | b :: bs, ⟨_, h⟩ => simpa using ih h
 
 theorem DefEqListOk.pointwise {F : Nat} {env : Env} {d : Nat} :
-    ∀ {as bs : List Expr}, DefEqListOk F env d as bs →
+    ∀ {as bs : List Expr}, DefEqListOk mode F env d as bs →
       ∀ (i : Nat) {a b : Expr}, as[i]? = some a → bs[i]? = some b →
-        isDefEqCore env F d a b = .ok true := by
+        isDefEqCore mode env F d a b = .ok true := by
   intro as
   induction as with
   | nil =>
@@ -109,8 +111,8 @@ theorem DefEqListOk.pointwise {F : Nat} {env : Env} {d : Nat} :
       | i + 1, ha, hb => exact ih h i (by simpa using ha) (by simpa using hb)
 
 theorem DefEqListOk.take {F : Nat} {env : Env} {d : Nat} :
-    ∀ {as bs : List Expr} (n : Nat), DefEqListOk F env d as bs →
-      DefEqListOk F env d (as.take n) (bs.take n) := by
+    ∀ {as bs : List Expr} (n : Nat), DefEqListOk mode F env d as bs →
+      DefEqListOk mode F env d (as.take n) (bs.take n) := by
   intro as
   induction as with
   | nil =>
@@ -132,8 +134,8 @@ theorem DefEqListOk.take {F : Nat} {env : Env} {d : Nat} :
 /-- Invert a successful `checkDefEqList` run. -/
 theorem checkDefEqList_inv {F : Nat} {env : Env} {d : Nat} :
     ∀ {as bs : List Expr} {u : Unit},
-    checkDefEqList (fueledOps F) env d as bs = .ok u →
-    DefEqListOk F env d as bs := by
+    checkDefEqList (fueledOps mode F) env d as bs = .ok u →
+    DefEqListOk mode F env d as bs := by
   intro as
   induction as with
   | nil =>
@@ -153,7 +155,7 @@ theorem checkDefEqList_inv {F : Nat} {env : Env} {d : Nat} :
       simp only [checkDefEqList, fueledOpsW_isDefEq, Bind.bind,
         Except.bind] at h
       revert h
-      cases hde : isDefEqCore env F d a b with
+      cases hde : isDefEqCore mode env F d a b with
       | error e => intro h; exact nomatch h
       | ok v =>
         cases v with
@@ -186,12 +188,12 @@ theorem isEqHead_inv {e : Expr} (h : isEqHead e = true) :
   | .proj _ _ _, h => simp [isEqHead] at h
 
 theorem fueledOpsW_inferType (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).inferType env d e = inferTypeCore env F d e := rfl
+    (fueledOps mode F).inferType env d e = inferTypeCore mode env F d e := rfl
 
 theorem checkTypedList_inv {F : Nat} {env : Env} {d : Nat} :
     ∀ {as bs : List Expr} {u : Unit},
-      checkTypedList (fueledOps F) env d as bs = .ok u →
-      TypedListOk F env d as bs := by
+      checkTypedList (fueledOps mode F) env d as bs = .ok u →
+      TypedListOk mode F env d as bs := by
   intro as
   induction as with
   | nil =>
@@ -211,12 +213,12 @@ theorem checkTypedList_inv {F : Nat} {env : Env} {d : Nat} :
       simp only [checkTypedList, fueledOpsW_inferType, fueledOpsW_isDefEq,
         Bind.bind, Except.bind] at h
       revert h
-      cases hty : inferTypeCore env F d a with
+      cases hty : inferTypeCore mode env F d a with
       | error e => intro h; exact nomatch h
       | ok ty =>
         intro h
         dsimp only at h
-        cases hde : isDefEqCore env F d ty b with
+        cases hde : isDefEqCore mode env F d ty b with
         | error e =>
           rw [hde] at h
           exact nomatch h
@@ -231,13 +233,13 @@ theorem checkTypedList_inv {F : Nat} {env : Env} {d : Nat} :
             exact ⟨⟨ty, hty, hde⟩, ih h⟩
 
 theorem fueledOpsW_annotate (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).annotate env d e = annotateCore env F d e := rfl
+    (fueledOps mode F).annotate env d e = annotateCore mode env F d e := rfl
 
 /-- Invert a successful `checkAnnotList` run. -/
 theorem checkAnnotList_inv {F : Nat} {env : Env} {d : Nat} :
     ∀ {as : List Expr} {u : Unit},
-      checkAnnotList (fueledOps F) env d as = .ok u →
-      AnnotListOk F env d as := by
+      checkAnnotList (fueledOps mode F) env d as = .ok u →
+      AnnotListOk mode F env d as := by
   intro as
   induction as with
   | nil =>
@@ -248,7 +250,7 @@ theorem checkAnnotList_inv {F : Nat} {env : Env} {d : Nat} :
     simp only [checkAnnotList, fueledOpsW_annotate, Bind.bind,
       Except.bind] at h
     revert h
-    cases hann : annotateCore env F d a with
+    cases hann : annotateCore mode env F d a with
     | error e => intro h; exact nomatch h
     | ok aA =>
       intro h

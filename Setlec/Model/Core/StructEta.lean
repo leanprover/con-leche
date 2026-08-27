@@ -11,6 +11,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
@@ -18,8 +20,8 @@ open SetTheory Expr
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 /-- A successful structural eta certification (in its `With` form,
 against a separately derived weak-head-normal type of the stuck side)
@@ -28,12 +30,12 @@ side's: the stored eta law — stated over the public constructor and
 projection functions, its family premise discharged from the
 certificate's own lookups — reconstructs the member directly. -/
 theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel)
     {d : Nat} {a b tb wtb : Expr} {ρ : Nat → V} {va vb : V}
-    (h : structEtaCertWithP env fuel d a b wtb = .ok true)
-    (htb : inferTypeCore env fuel d b = .ok tb)
-    (hwtb : whnf env fuel d tb = .ok wtb)
+    (h : structEtaCertWithP mode env fuel d a b wtb = .ok true)
+    (htb : inferTypeCore mode env fuel d b = .ok tb)
+    (hwtb : whnf mode env fuel d tb = .ok wtb)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true)
     (hbb : b.looseBVarsBounded 0 = true)
@@ -244,7 +246,7 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
         some (.recInfo cvp mIp rPp rulesp) ∧
       cvp.levelParams = cvT.levelParams ∧
       (cvp.type.stripPis (wtb.getAppArgs.length + 1)).isSome = true ∧
-      iotaCertsP env fuel d
+      iotaCertsP mode env fuel d
         (cvp.type.instantiateLevelParams cvp.levelParams us')
         (wtb.getAppArgs ++ [b]) = .ok true := by
     intro i hi
@@ -418,10 +420,10 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
 /-- A successful structural eta certification (whole-certificate form,
 deriving the stuck side's type itself). -/
 theorem structEta_sound {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel)
     {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
-    (h : structEtaCertP env fuel d a b = .ok true)
+    (h : structEtaCertP mode env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true)
     (hbb : b.looseBVarsBounded 0 = true)
@@ -442,10 +444,10 @@ set_option maxHeartbeats 3200000 in
 interpretations: both values inhabit the same interpreted unit-like
 family, whose stored law makes any two members equal. -/
 theorem structUnit_sound {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel)
     {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
-    (h : structUnitCertP env fuel d a b = .ok true)
+    (h : structUnitCertP mode env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true)
     (hbb : b.looseBVarsBounded 0 = true)

@@ -18,14 +18,14 @@ open SetTheory Expr
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 set_option maxHeartbeats 1600000 in
 theorem infer_claims (m : EnvModel V env)
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel) :
-    InferClaims m φ (fuel + 1) := by
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel) :
+    InferClaims mode m φ (fuel + 1) := by
   intro d e t ρ h hw hb hLb hok
   cases e with
   | sort u =>

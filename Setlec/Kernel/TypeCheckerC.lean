@@ -92,8 +92,8 @@ def memoB (f : Nat → Expr → Expr → CheckSM Bool) :
 
 /-- The executable core: the bodies tied at `CheckSM`, every level's
 entry points wrapped with the guarded cache. -/
-def cachedFns (env : Env) : Nat → CoreFns CheckSM :=
-  coreKnot env fun r =>
+def cachedFns (mode : CheckMode) (env : Env) : Nat → CoreFns CheckSM :=
+  coreKnot mode env fun r =>
     { whnfCore := memoE (·.whnfCore)
         (fun st mp => { st with whnfCore := mp }) r.whnfCore
       whnf := memoE (·.whnf) (fun st mp => { st with whnf := mp }) r.whnf

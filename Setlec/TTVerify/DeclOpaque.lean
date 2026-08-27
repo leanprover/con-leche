@@ -27,6 +27,9 @@ identity on its element type, certified by
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 variable {F : Nat}
@@ -37,9 +40,9 @@ def ReducePinTT (F : Nat) : Prop :=
   ∀ {env : Env} (m : EnvTT env) {cv : ConstantVal} {value value' : Expr},
     cv.name ∈ reduceOpNames →
     env.find? cv.name = none →
-    checkReducePin (fueledOps F) env
+    checkReducePin (fueledOps mode F) env
       ⟨ConstantInfo.axiomInfo cv :: env.consts⟩ cv.name value = .ok () →
-    annotateCore env F 0 value = .ok value' →
+    annotateCore mode env F 0 value = .ok value' →
     value'.hasFvar = false → value'.looseBVarsBounded 0 = true →
     (∀ ψ : Name → Nat, ∃ v, denoteClosed m.cval env ψ value' = some v) →
     ConstantVal.matchesPin cv (reduceOpCvA cv.name) = true →
@@ -55,7 +58,7 @@ theorem declOpaqueTT (hrp : ReducePinTT F) : DeclOpaqueTT F := by
   intro env env₁ cv value h m
   simp only [checkDecl, checkOpaqueVal, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
-  cases hccv : checkConstantVal (fueledOps F) env cv with
+  cases hccv : checkConstantVal (fueledOps mode F) env cv with
   | error e => rw [hccv] at h; exact nomatch h
   | ok cv' =>
   rw [hccv] at h
@@ -69,7 +72,7 @@ theorem declOpaqueTT (hrp : ReducePinTT F) : DeclOpaqueTT F := by
   by_cases hivf : value.hasFvar = true
   case pos => simp [hivf] at h
   simp only [hivf] at h
-  cases hannv : annotateCore env F 0 value with
+  cases hannv : annotateCore mode env F 0 value with
   | error e => rw [hannv] at h; exact nomatch h
   | ok value' =>
   rw [hannv] at h
@@ -80,12 +83,12 @@ theorem declOpaqueTT (hrp : ReducePinTT F) : DeclOpaqueTT F := by
   by_cases hvr : value'.constsResolve env = true
   case neg => simp [hvr] at h
   simp only [hvr] at h
-  cases hvt : inferTypeCore env F 0 value' with
+  cases hvt : inferTypeCore mode env F 0 value' with
   | error e => rw [hvt] at h; exact nomatch h
   | ok vtype =>
   rw [hvt] at h
   try dsimp only at h
-  cases hde : isDefEqCore env F 0 vtype type with
+  cases hde : isDefEqCore mode env F 0 vtype type with
   | error e => rw [hde] at h; exact nomatch h
   | ok bq =>
   rw [hde] at h
@@ -150,7 +153,7 @@ theorem declOpaqueTT (hrp : ReducePinTT F) : DeclOpaqueTT F := by
         rw [hP, Env.find?_cons, if_pos rfl] at hfPj; exact nomatch hfPj
   by_cases hro : reduceOpNames.contains cv.name = true
   · rw [if_pos hro] at h
-    cases hpin : checkReducePin (fueledOps F) env
+    cases hpin : checkReducePin (fueledOps mode F) env
         ⟨ConstantInfo.axiomInfo { cv with type := type } :: env.consts⟩
         cv.name value with
     | error e => rw [hpin] at h; exact nomatch h

@@ -13,6 +13,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
@@ -20,8 +22,8 @@ open SetTheory Expr
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 /-- Soundness of one iota step: the reduct's interpretation matches the
 original application spine's, its annotations are truthful, and it stays
@@ -29,10 +31,10 @@ well-scoped — everything the whnf recursion needs to continue.  Fully
 generic: the fold facts come from the environment model's `rec_rules`,
 never from identifying the recursor by name. -/
 theorem iota_sound {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel)
     {d : Nat} {fe ae e'' : Expr} {ρ : Nat → V}
-    (hio : iotaRecP env fuel d (.app fe ae) = .ok (some e''))
+    (hio : iotaRecP mode env fuel d (.app fe ae) = .ok (some e''))
     (hw : WScoped d (Expr.app fe ae))
     (hb : (Expr.app fe ae).looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded (Expr.app fe ae))
@@ -412,7 +414,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
           (ConstantInfo.recInfo cv mI rP rules).toConstantVal.levelParams
           us p := by
     intro hfp
-    have hpeq' : defEqListP env fuel d
+    have hpeq' : defEqListP mode env fuel d
         (major.getAppArgs.take r.ctorParams)
         ((Expr.app fe ae).getAppArgs.take r.ctorParams) = .ok true := by
       have h0 := hpeq

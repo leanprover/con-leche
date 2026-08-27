@@ -13,6 +13,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
@@ -72,9 +74,9 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
        .bvar (nF - 1 - i)])
     {fvsO : List Expr} {sbodyO : Expr}
     (hopenO : openPisAtFvars (nP + nF) cvt.type 0 = some (fvsO, sbodyO))
-    (hrhsTyC : ∃ tr, inferTypeCore env F (nP + nF)
+    (hrhsTyC : ∃ tr, inferTypeCore mode env F (nP + nF)
         (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
-      isDefEqCore env F (nP + nF) tr
+      isDefEqCore mode env F (nP + nF) tr
         (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true)
     (hthm : env.find? thmName = some (.thmInfo cvt tval))
     (_hlpt : cvt.levelParams = cvA.levelParams)
@@ -84,17 +86,17 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     {ldoms : List Expr} {lrestL : Expr}
     (hopenP : openPisAtFvars nP cvA.type 0 = some (fvsP, restP))
     (hcinstP : Expr.instPisAt fvsP cvj.type = some (cdomsP, crestP))
-    (hdeParsP : DefEqListOk F env (nP + nF)
+    (hdeParsP : DefEqListOk mode F env (nP + nF)
       (fvsP.map Expr.fvarTypeD) cdomsP)
     (hopenX : openPisAtFvars nF crestP nP = some (xFvs, crest2X))
     (hlinstP : Expr.instLamsAt (fvsP ++ xFvs) (RecRule.rhs rule) =
       some (ldoms, lrestL))
-    (hdeLamP : DefEqListOk F env (nP + nF)
+    (hdeLamP : DefEqListOk mode F env (nP + nF)
       ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms)
     (hrhsw : (RecRule.rhs rule).hasFvar = false)
     (hrhsb : (RecRule.rhs rule).looseBVarsBounded 0 = true)
     {rhsTy : Expr}
-    (hity : inferTypeCore env F 0 (RecRule.rhs rule) = .ok rhsTy)
+    (hity : inferTypeCore mode env F 0 (RecRule.rhs rule) = .ok rhsTy)
     -- the eta head obligation, forwarded: only the caller (the
     -- projection phase, with its `ProjPhaseInv` identification in
     -- scope) knows whether this projection function completes its

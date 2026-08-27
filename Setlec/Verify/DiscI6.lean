@@ -13,28 +13,30 @@ set_option maxHeartbeats 4000000
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open EStore Expr
 
 section Walks
 
 variable {env : Env} {f : Nat}
 
-theorem isPropTypeI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
-    {ty : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem isPropTypeI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
+    {ty : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some ty) (hw : WScoped d ty) :
-    SimAt env s₀ RelV
-      (isPropTypeI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-      (isPropType (fueledFns env) env d ty) := by
-  show SimAt env s₀ RelV
-    ((coreKnotI (mkFEnv env) f).annotate d i >>= fun ty' =>
-      (coreKnotI (mkFEnv env) f).infer d ty' >>= fun tty =>
-      ensureSortI (coreKnotI (mkFEnv env) f) d tty >>= fun s =>
+    SimAt mode env s₀ RelV
+      (isPropTypeI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (isPropType (fueledFns mode env) env d ty) := by
+  show SimAt mode env s₀ RelV
+    ((coreKnotI mode (mkFEnv env) f).annotate d i >>= fun ty' =>
+      (coreKnotI mode (mkFEnv env) f).infer d ty' >>= fun tty =>
+      ensureSortI (coreKnotI mode (mkFEnv env) f) d tty >>= fun s =>
       internLM .zero >>= fun z =>
       isEquivLM s z >>= fun o =>
       liftFueled "level comparison" o)
-    ((fueledFns env).annotate d ty >>= fun ty' =>
-      (fueledFns env).infer d ty' >>= fun tty =>
-      ensureSort (fueledFns env) env d tty >>= fun s =>
+    ((fueledFns mode env).annotate d ty >>= fun ty' =>
+      (fueledFns mode env).infer d ty' >>= fun tty =>
+      ensureSort (fueledFns mode env) env d tty >>= fun s =>
       liftFueled "level comparison" (Level.isEquiv s Level.zero))
   refine SimAt.bind (ih.annotate hs hden hw)
     (fun s₁ ty' ty'x hs₁ hext₁ hP => ?_)
@@ -52,18 +54,18 @@ theorem isPropTypeI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
   subst ho
   exact SimAt.liftFueled _ _ hs₃o
 
-theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
+theorem projFieldDomI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {structProp : Bool} {sn : NIdx} {snx : Name}
     {e' : EIdx} {e'x : Expr}
     (hwe : WScoped d e'x) :
     ∀ (k j : Nat) {tel : EIdx} {telx : Expr} {s₀ : IState},
-      ISOK env s₀ → s₀.store.denoteN sn = some snx →
+      ISOK mode env s₀ → s₀.store.denoteN sn = some snx →
       s₀.store.denoteT e' = some e'x →
       s₀.store.denoteT tel = some telx → WScoped d telx →
-      SimAt env s₀ (RelE d)
-        (projFieldDomI (coreKnotI (mkFEnv env) f) (mkFEnv env) d
+      SimAt mode env s₀ (RelE d)
+        (projFieldDomI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
           structProp sn e' j k tel)
-        (projFieldDom (fueledFns env) env d structProp snx e'x j k
+        (projFieldDom (fueledFns mode env) env d structProp snx e'x j k
           telx)
   | 0, jj, tel, telx, s₀, hs, hsn, hde, hdt, hwtel => by
     unfold projFieldDomI
@@ -204,12 +206,12 @@ variable {env : Env} {f : Nat}
 
 /-- The shared reduct tail of the Prop-projection fallback: build the
 recursor elimination and re-annotate it under the scope guard. -/
-private theorem annotateProjRecI_rest (ih : SSimI env f)
+private theorem annotateProjRecI_rest (ih : SSimI mode env f)
     {d : Nat} {entry : ProjEntry} {te e' fi minor : EIdx}
     {params : List EIdx} {tex e'x fix minorx : Expr}
     {paramsx : List Expr} {us uf : List LIdx} {lus luf : List Level}
     {s₀ : IState}
-    (hs : ISOK env s₀)
+    (hs : ISOK mode env s₀)
     (hus : denoteLList s₀.store.denoteL us = some lus)
     (huf : denoteLList s₀.store.denoteL uf = some luf)
     (hte : s₀.store.denoteT te = some tex)
@@ -217,7 +219,7 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
     (hfi : s₀.store.denoteT fi = some fix)
     (hmin : s₀.store.denoteT minor = some minorx)
     (hparams : DenL s₀.store params paramsx) :
-    SimAt env s₀ (RelE d)
+    SimAt mode env s₀ (RelE d)
       (internNameM (entry.structName.str "rec") >>= fun recI =>
        internI (.const recI (uf ++ us)) >>=
         fun recC =>
@@ -228,7 +230,7 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
        Setlec.withStore (fun st => st.wscopedBI d raw &&
          st.looseBVarsBoundedI 0 raw &&
          st.leafGuardI raw e') >>= fun g =>
-       if g then (coreKnotI (mkFEnv env) f).annotate d raw
+       if g then (coreKnotI mode (mkFEnv env) f).annotate d raw
        else throw (.notImplemented "projection elimination scoping"))
       (let raw := Expr.mkAppN
           (.const (entry.structName.str "rec") (luf ++ lus))
@@ -237,7 +239,7 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
         if raw.wscopedB d && raw.looseBVarsBounded 0 &&
             raw.fvarLeaves.all
               (fun l => e'x.fvarLeaves.contains l) then
-          (fueledFns env).annotate d raw
+          (fueledFns mode env).annotate d raw
         else throw (.notImplemented "projection elimination scoping")) := by
   refine SimAt.bind_left
     (internNameM_eff hs (entry.structName.str "rec"))
@@ -288,18 +290,18 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
   · exact SimAt.throw
 
 set_option maxHeartbeats 8000000 in
-theorem annotateProjRecI_sim (ih : SSimI env f) (henv : EnvWF env)
+theorem annotateProjRecI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {entry : ProjEntry} {ip : Nat} {te e' : EIdx}
     {tex e'x : Expr} {us : List LIdx} {lus : List Level} {s₀ : IState}
-    (hs : ISOK env s₀)
+    (hs : ISOK mode env s₀)
     (hus : denoteLList s₀.store.denoteL us = some lus)
     (hte : s₀.store.denoteT te = some tex)
     (hde : s₀.store.denoteT e' = some e'x)
     (hwte : WScoped d tex) (hwe : WScoped d e'x) :
-    SimAt env s₀ (RelE d)
-      (annotateProjRecI (coreKnotI (mkFEnv env) f) (mkFEnv env) d entry
+    SimAt mode env s₀ (RelE d)
+      (annotateProjRecI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d entry
         ip te e' us)
-      (annotateProjRec (fueledFns env) env d entry ip tex e'x lus) := by
+      (annotateProjRec (fueledFns mode env) env d entry ip tex e'x lus) := by
   unfold annotateProjRecI
   unfold annotateProjRec
   rw [mkFEnv_find?]
@@ -456,18 +458,18 @@ section Walks3
 variable {env : Env} {f : Nat}
 
 set_option maxHeartbeats 8000000 in
-theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
+theorem annotateProjElimI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {sn : NIdx} {snx : Name} {ip : Nat} {te e' : EIdx}
     {tex e'x : Expr}
-    {s₀ : IState} (hs : ISOK env s₀)
+    {s₀ : IState} (hs : ISOK mode env s₀)
     (hsn : s₀.store.denoteN sn = some snx)
     (hte : s₀.store.denoteT te = some tex)
     (hde : s₀.store.denoteT e' = some e'x)
     (hwte : WScoped d tex) (hwe : WScoped d e'x) :
-    SimAt env s₀ (RelE d)
-      (annotateProjElimI (coreKnotI (mkFEnv env) f) (mkFEnv env) d sn
+    SimAt mode env s₀ (RelE d)
+      (annotateProjElimI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d sn
         ip te e')
-      (annotateProjElim (fueledFns env) env d snx ip tex e'x) := by
+      (annotateProjElim (fueledFns mode env) env d snx ip tex e'x) := by
   unfold annotateProjElimI
   unfold annotateProjElim
   refine SimAt.withStore ?_
@@ -569,12 +571,12 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
 
 
 set_option maxHeartbeats 8000000 in
-theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
-    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem annotateBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
+    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
-    SimAt env s₀ (RelE d)
-      (annotateBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-      (annotateBody (fueledFns env) env d ex) := by
+    SimAt mode env s₀ (RelE d)
+      (annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (annotateBody (fueledFns mode env) env d ex) := by
   unfold annotateBodyI
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv hden

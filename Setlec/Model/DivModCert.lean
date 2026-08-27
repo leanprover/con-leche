@@ -39,6 +39,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {ψ : Name → Nat}
 
 open SetTheory Expr
@@ -166,10 +168,10 @@ theorem divModCert_extract (m : EnvModel V env) (F : Nat)
     (hB : (divModCertApplied proofS hypsS).looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded (divModCertApplied proofS hypsS))
     (heq : EqSideOk env m.val ψ 4 ρ eqS vE (univ 0))
-    (hann : annotateCore env F 4 (divModCertApplied proofS hypsS) =
+    (hann : annotateCore mode env F 4 (divModCertApplied proofS hypsS) =
       .ok appliedA)
-    (hinf : inferTypeCore env F 4 appliedA = .ok tp)
-    (hde : isDefEqCore env F 4 tp eqS = .ok true) :
+    (hinf : inferTypeCore mode env F 4 appliedA = .ok tp)
+    (hde : isDefEqCore mode env F 4 tp eqS = .ok true) :
     ∃ w, w ∈ˢ vE := by
   obtain ⟨hei, hem, heA, heF, heW, heB, heL⟩ := heq
   have hsub := annotateCore_leaves_sub F _ hann hW hB
@@ -388,10 +390,10 @@ private theorem clause_extract2 (F : Nat)
     {proofS : Expr} (hpf : proofS.hasFvar = false)
     (hpb : proofS.looseBVarsBounded 0 = true)
     {appliedA tp : Expr}
-    (hann : annotateCore env F 4 (divModCertApplied proofS [h1E, h2E]) =
+    (hann : annotateCore mode env F 4 (divModCertApplied proofS [h1E, h2E]) =
       .ok appliedA)
-    (hinf : inferTypeCore env F 4 appliedA = .ok tp)
-    (hde : isDefEqCore env F 4 tp
+    (hinf : inferTypeCore mode env F 4 appliedA = .ok tp)
+    (hde : isDefEqCore mode env F 4 tp
       (.app (.app (.app (.const eqName [.succ .zero]) (.const natName []))
         lhsE) rhsE) = .ok true) :
     vl = vr := by
@@ -421,10 +423,10 @@ private theorem clause_extract1 (F : Nat)
     {proofS : Expr} (hpf : proofS.hasFvar = false)
     (hpb : proofS.looseBVarsBounded 0 = true)
     {appliedA tp : Expr}
-    (hann : annotateCore env F 4 (divModCertApplied proofS [h1E]) =
+    (hann : annotateCore mode env F 4 (divModCertApplied proofS [h1E]) =
       .ok appliedA)
-    (hinf : inferTypeCore env F 4 appliedA = .ok tp)
-    (hde : isDefEqCore env F 4 tp
+    (hinf : inferTypeCore mode env F 4 appliedA = .ok tp)
+    (hde : isDefEqCore mode env F 4 tp
       (.app (.app (.app (.const eqName [.succ .zero]) (.const natName []))
         lhsE) rhsE) = .ok true) :
     vl = vr := by
@@ -473,7 +475,7 @@ theorem divmod_certs_sound (m : EnvModel V env) (F : Nat)
     (hHmU : c = natLog2Name → ∀ ψ' : Name → Nat, ∃ hv,
       interpClosed V m.val env ψ' value' = some hv ∧
       hv ∈ˢ pi 1 (m.val natName ψ') (fun _ => m.val natName ψ'))
-    (hruns : CertRuns (CertRunFacts env F c value')
+    (hruns : CertRuns (CertRunFacts mode env F c value')
       (divModCertStmts c) (divModCertProofs c)) :
     ∀ val' : ConstVal V,
       (∀ ψ' : Name → Nat, interpClosed V m.val env ψ' value' =

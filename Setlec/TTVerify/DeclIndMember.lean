@@ -20,6 +20,9 @@ set_option linter.unusedVariables false
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 variable {F : Nat}
@@ -469,7 +472,7 @@ phase aliases `T._model.proj_i`. -/
 theorem modeledCapsUnitTT
     {T : Name} {cvTa : ConstantVal} {capsT : IndCaps}
     (hcapu : capsT.unitlike = true)
-    (hpins : EtaPins (⟨ci :: env.consts⟩ : Env) T cvTa.levelParams capsT)
+    (hpins : EtaPins mode (⟨ci :: env.consts⟩ : Env) T cvTa.levelParams capsT)
     (hren : ∀ cvmT mvalT hm,
       (⟨ci :: env.consts⟩ : Env).find? (T.str "_model") =
         some (.defnInfo cvmT mvalT hm) →
@@ -540,7 +543,7 @@ theorem modeledCapsUnitTT
     exact hd
   exact UnitFoldTT (caps := capsT) hcl hvp
     (member_eq_law m hcinres hagree) hroS hTmE hTmlpsE heqfE hS_stripE
-    hTm_stripE hsdomsE hxdomE hydomE hsbodyE htySlotE hsortE hSw hSb
+    hTm_stripE hsdomsE hxdomE hydomE hsbodyE htySlotE (hsortE rfl) hSw hSb
     hTmw hTmb hrenS hthmty hTmty hvT
 
 set_option maxHeartbeats 3200000 in
@@ -552,7 +555,7 @@ the same reason as `modeledCapsUnitTT`'s. -/
 theorem modeledCapsEtaTT
     {T : Name} {cvTa : ConstantVal} {capsT : IndCaps}
     (hcape : capsT.eta = true)
-    (hpins : EtaPins (⟨ci :: env.consts⟩ : Env) T cvTa.levelParams capsT)
+    (hpins : EtaPins mode (⟨ci :: env.consts⟩ : Env) T cvTa.levelParams capsT)
     (hren : ∀ cvmT mvalT hm,
       (⟨ci :: env.consts⟩ : Env).find? (T.str "_model") =
         some (.defnInfo cvmT mvalT hm) →
@@ -630,7 +633,7 @@ theorem modeledCapsEtaTT
   exact EtaFoldTT (caps := capsT) hcl hvp
     (member_eq_law m hcinres hagree) hroS hTmE hTmlpsE hCmE hCmlpsE
     hPjE heqfE hS_stripE hTm_stripE hsdomsE hxdomE hsbodyE htySlotE
-    hsortE hSw hSb hTmw hTmb hrenS hthmty hTmty hvT hvC hvP hlpsC hlpsP
+    (hsortE rfl) hSw hSb hTmw hTmb hrenS hthmty hTmty hvT hvC hvP hlpsC hlpsP
 
 end Laws
 
@@ -661,7 +664,7 @@ theorem blockMemberHeadEtaTT {env : Env} (m : EnvTT env)
     (hblockT : ∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps),
       (⟨ciH :: env.consts⟩ : Env).find? T = some (.indInfo cvT capsT) →
       blockNames.contains T = true → capsT.eta = true →
-      EtaPins env T cvT.levelParams capsT ∧
+      EtaPins mode env T cvT.levelParams capsT ∧
       blockNames.contains capsT.etaCtor = true ∧
       cvT.type.constsResolve env = true ∧
       ∀ j, j < capsT.etaFields → env.find? (projFnName T j) = none)
@@ -710,7 +713,7 @@ theorem blockMemberHeadEtaTT {env : Env} (m : EnvTT env)
         exact hvC ψ
       -- the capability constructor's stored level parameters are the
       -- family's: its model is the pins' model
-      have hpins₁ : EtaPins ⟨ciH :: env.consts⟩ T cvT.levelParams capsT :=
+      have hpins₁ : EtaPins mode ⟨ciH :: env.consts⟩ T cvT.levelParams capsT :=
         EtaPins.step hpinsT hfresh
       have hlpsC : levelParamsAt (⟨ciH :: env.consts⟩ : Env)
           capsT.etaCtor = cvT.levelParams := by
@@ -776,9 +779,9 @@ installed unit-like former is discharged here through
 `modeledCapsUnitTT`. -/
 theorem checkIndMemberTT {blockNames : List Name} {caps : IndCaps}
     {env' env₁ : Env} {ci : ConstantInfo}
-    (h : checkIndMember (fueledOps F) blockNames caps env' ci = .ok env₁)
+    (h : checkIndMember (fueledOps mode F) blockNames caps env' ci = .ok env₁)
     (hpins : ∀ cv caps₂, ci = .indInfo cv caps₂ →
-      EtaPins env' cv.name cv.levelParams caps)
+      EtaPins mode env' cv.name cv.levelParams caps)
     (hbn : blockNames.contains ci.name = true)
     (m : EnvTT env') (hI : BlockInstalledTT blockNames env' m.cval)
     (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps),
@@ -840,7 +843,7 @@ theorem checkIndMemberTT {blockNames : List Name} {caps : IndCaps}
       ConstWF ⟨ciS :: env'.consts⟩ ciS →
       (∀ cv caps', ciS = .indInfo cv caps' → caps' = caps) →
       (∀ cv caps', ciS = .indInfo cv caps' →
-        EtaPins env' cvA.name cvA.levelParams caps) →
+        EtaPins mode env' cvA.name cvA.levelParams caps) →
       ∃ m₁ : EnvTT env₁, BlockInstalledTT blockNames env₁ m₁.cval := by
     intro ciS hciScv hciSname henv₁ hkindS hwfS hcapsS hpinsS
     subst henv₁
@@ -890,7 +893,7 @@ theorem checkIndMemberTT {blockNames : List Name} {caps : IndCaps}
         exact hciScv.symm
       rw [show (ConstantInfo.indInfo cvA caps).name = cvA.name from rfl]
       -- the pins at the base, then stepped past the head
-      have hpinsA : EtaPins env' cvA.name cvA.levelParams caps :=
+      have hpinsA : EtaPins mode env' cvA.name cvA.levelParams caps :=
         hpinsS cvA caps rfl
       refine modeledCapsUnitTT (ci := .indInfo cvA caps) m hfreshS
         hnresS (Or.inl ⟨cvA, caps, rfl⟩)
@@ -940,7 +943,7 @@ theorem checkIndMemberTT {blockNames : List Name} {caps : IndCaps}
       exact e2.symm
     · intro cv2 caps2 heq
       have h1 := hpins cv caps' rfl
-      show EtaPins env' cvA.name cvA.levelParams caps
+      show EtaPins mode env' cvA.name cvA.levelParams caps
       rw [hnameA, hlpsA]
       exact h1
   · -- constructor
@@ -966,8 +969,8 @@ theorem checkIndFoldTT {blockNames : List Name} {caps : IndCaps}
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
     (∀ ci ∈ rest, blockNames.contains ci.name = true) →
     (∀ cv caps₂, (ConstantInfo.indInfo cv caps₂) ∈ rest →
-      EtaPins env' cv.name cv.levelParams caps) →
-    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env'
+      EtaPins mode env' cv.name cv.levelParams caps) →
+    rest.foldlM (checkIndMember (fueledOps mode F) blockNames caps) env'
       = .ok env₂ →
     ∀ m : EnvTT env', BlockInstalledTT blockNames env' m.cval →
     EtaFamiliesClosedO blockNames env' →
@@ -981,7 +984,7 @@ theorem checkIndFoldTT {blockNames : List Name} {caps : IndCaps}
   | ci :: rest, env', env₂, hns, hp, h, m, hI, hE1O, hBcaps => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci with
+    cases hstep : checkIndMember (fueledOps mode F) blockNames caps env' ci with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_
     rw [hstep] at h

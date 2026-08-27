@@ -25,13 +25,15 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 /-- The kernel-checked data of a *canonical* rule's `iota_j` theorem:
 everything `modeled_rule_fold` consumes.  `env` is the environment the
 theorem is stored in, `env₀` the provisional one carrying the block's
 rule-less recursors (the definitional-equality checks ran there). -/
-def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
+def PlainChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
     (cvA : ConstantVal) (mI rP cnP cnF : Nat) (r : RecRule)
     (cvj : ConstantVal) : Prop :=
   ∃ (thmName : Name) (cvt : ConstantVal) (ci : ConstantInfo)
@@ -56,32 +58,35 @@ def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     Expr.instPisAt (fvs.take cnP ++ fvs.drop rP)
       (cvj.type.renameConsts f) = some (cdoms, cres) ∧
     cres.getAppArgs.length = cnP + (mI - rP) ∧
-    DefEqListOk F env₀ (rP + cnF)
+    DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP) ∧
-    DefEqListOk F env₀ (rP + cnF)
+    DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP) ∧
     Expr.instPisAt (fvs.take rP) (cvA.type.renameConsts f) =
       some (rdoms, rrest) ∧
-    DefEqListOk F env₀ (rP + cnF)
+    DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms ∧
     openPisAtFvars rP cvA.type 0 = some (fvsP, restP) ∧
     Expr.instPisAt (fvsP.take cnP) cvj.type = some (cdomsP, crestP) ∧
-    DefEqListOk F env₀ (rP + cnF)
+    DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP ∧
     openPisAtFvars cnF crestP rP = some (xFvsP, crest2) ∧
     Expr.instLamsAt (fvsP ++ xFvsP) (RecRule.rhs r) =
       some (ldoms, lrest) ∧
-    DefEqListOk F env₀ (rP + cnF)
+    DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms ∧
-    isDefEqCore env₀ F (rP + cnF) rhsS
+    isDefEqCore mode env₀ F (rP + cnF) rhsS
       (Expr.mkAppN ((RecRule.rhs r).renameConsts f) fvs) = .ok true ∧
-    (∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
-      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true) ∧
-    (∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
-      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true) ∧
-    (∃ tα, inferTypeCore env₀ F (rP + cnF) αS = .ok tα ∧
-      isDefEqCore env₀ F (rP + cnF) tα (Expr.sort ℓA) = .ok true)
+    (∃ tl, inferTypeCore mode env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore mode env₀ F (rP + cnF) tl αS = .ok true) ∧
+    (∃ tr, inferTypeCore mode env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore mode env₀ F (rP + cnF) tr αS = .ok true) ∧
+    -- task #146's slot-sort certification is a TT-lane check
+    -- (task #147): delivered only at `mode.ttChecks`
+    (mode.ttChecks = true →
+      ∃ tα, inferTypeCore mode env₀ F (rP + cnF) αS = .ok tα ∧
+        isDefEqCore mode env₀ F (rP + cnF) tα (Expr.sort ℓA) = .ok true)
 
 /-- The kernel-checked data of a *nested-auxiliary* rule's `iota_j`
 theorem (`checkIotaThmN`): everything `modeled_rule_fold_nested`
@@ -92,7 +97,7 @@ prefix variables) instead of the leading telescope variables; index
 premises between the prefix and the major flow through exactly as on
 the plain path (the statement's index arguments are pinned against
 the constructor residual's canonical tuple). -/
-def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
+def NestedChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
     (cvA : ConstantVal) (mI rP cnP cnF : Nat) (r : RecRule)
     (cvj : ConstantVal) (lvls : List Level) (pins : List Expr) : Prop :=
   ∃ (thmName : Name) (cvt : ConstantVal) (ci : ConstantInfo)
@@ -123,48 +128,51 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
       ((cvj.type.instantiateLevelParams cvj.levelParams
         lvls).renameConsts f) = some (cdoms, cres) ∧
     cres.getAppArgs.length = cnP + (mI - rP) ∧
-    DefEqListOk F env₀ (rP + cnF)
+    DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP) ∧
-    DefEqListOk F env₀ (rP + cnF)
+    DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP) ∧
     Expr.instPisAt (fvs.take rP) (cvA.type.renameConsts f) =
       some (rdoms, rrest) ∧
-    DefEqListOk F env₀ (rP + cnF)
+    DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms ∧
     openPisAtFvars rP cvA.type 0 = some (fvsP, restP) ∧
-    AnnotListOk F env₀ (rP + cnF)
+    AnnotListOk mode F env₀ (rP + cnF)
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p)) ∧
     Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
       some (cdomsP, crestP) ∧
-    TypedListOk F env₀ (rP + cnF)
+    TypedListOk mode F env₀ (rP + cnF)
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       cdomsP ∧
     openPisAtFvars cnF crestP rP = some (xFvsP, crest2) ∧
     crest2.getAppArgs.length = cnP + (mI - rP) ∧
     Expr.instLamsAt (fvsP ++ xFvsP) (RecRule.rhs r) =
       some (ldoms, lrest) ∧
-    DefEqListOk F env₀ (rP + cnF)
+    DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms ∧
-    isDefEqCore env₀ F (rP + cnF) rhsS
+    isDefEqCore mode env₀ F (rP + cnF) rhsS
       (Expr.mkAppN ((RecRule.rhs r).renameConsts f) fvs) = .ok true ∧
-    (∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
-      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true) ∧
-    (∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
-      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true) ∧
-    (∃ tα, inferTypeCore env₀ F (rP + cnF) αS = .ok tα ∧
-      isDefEqCore env₀ F (rP + cnF) tα (Expr.sort ℓA) = .ok true)
+    (∃ tl, inferTypeCore mode env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore mode env₀ F (rP + cnF) tl αS = .ok true) ∧
+    (∃ tr, inferTypeCore mode env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore mode env₀ F (rP + cnF) tr αS = .ok true) ∧
+    -- task #146's slot-sort certification is a TT-lane check
+    -- (task #147): delivered only at `mode.ttChecks`
+    (mode.ttChecks = true →
+      ∃ tα, inferTypeCore mode env₀ F (rP + cnF) αS = .ok tα ∧
+        isDefEqCore mode env₀ F (rP + cnF) tα (Expr.sort ℓA) = .ok true)
 
 /-- Invert a successful `checkIotaThm` run (on the rule as returned,
 whose `rhs` is the annotated right-hand side). -/
 theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
     {cvA cvj : ConstantVal} {mI rP j cnP cnF : Nat}
     {r : RecRule} {rhsA : Expr} {u : Unit}
-    (h : checkIotaThm (fueledOps F) env' env₀ f cvA.name cvA.levelParams
+    (h : checkIotaThm mode (fueledOps mode F) env' env₀ f cvA.name cvA.levelParams
       cvA.type mI rP j r cvj cnP cnF rhsA = .ok u) :
-    PlainChecked F env' env₀ f cvA mI rP cnP cnF
+    PlainChecked mode F env' env₀ f cvA mI rP cnP cnF
       { r with rhs := rhsA } cvj := by
   simp only [checkIotaThm, checkIotaSidesTy, unwrapOr, Env.findCV?, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
@@ -244,14 +252,14 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   case neg => rw [if_neg hclen] at h; exact nomatch h
   rw [if_pos hclen] at h
   try dsimp only at h
-  cases hdq1 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+  cases hdq1 : checkDefEqList (fueledOps mode F) env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP) with
   | error e => rw [hdq1] at h; exact nomatch h
   | ok u1 =>
   rw [hdq1] at h
   try dsimp only at h
-  cases hdq2 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+  cases hdq2 : checkDefEqList (fueledOps mode F) env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD)
       (cdoms.drop cnP) with
   | error e => rw [hdq2] at h; exact nomatch h
@@ -266,7 +274,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  cases hdq3 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+  cases hdq3 : checkDefEqList (fueledOps mode F) env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms with
   | error e => rw [hdq3] at h; exact nomatch h
   | ok u3 =>
@@ -286,7 +294,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  cases hdqP : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+  cases hdqP : checkDefEqList (fueledOps mode F) env₀ (rP + cnF)
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP with
   | error e => rw [hdqP] at h; exact nomatch h
   | ok uP =>
@@ -306,14 +314,14 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  cases hdq4 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+  cases hdq4 : checkDefEqList (fueledOps mode F) env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms with
   | error e => rw [hdq4] at h; exact nomatch h
   | ok u4 =>
   rw [hdq4] at h
   try dsimp only at h
   revert h
-  cases hde : isDefEqCore env₀ F (rP + cnF) rhsS
+  cases hde : isDefEqCore mode env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) with
   | error e => intro h; exact nomatch h
   | ok v =>
@@ -324,13 +332,13 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases htl : inferTypeCore env₀ F (rP + cnF) lhsS with
+  cases htl : inferTypeCore mode env₀ F (rP + cnF) lhsS with
   | error e => intro h; exact nomatch h
   | ok tl => ?_
   intro h
   try dsimp only at h
   revert h
-  cases hdl : isDefEqCore env₀ F (rP + cnF) tl αS with
+  cases hdl : isDefEqCore mode env₀ F (rP + cnF) tl αS with
   | error e => intro h; exact nomatch h
   | ok vl =>
   cases vl with
@@ -340,13 +348,13 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases htr : inferTypeCore env₀ F (rP + cnF) rhsS with
+  cases htr : inferTypeCore mode env₀ F (rP + cnF) rhsS with
   | error e => intro h; exact nomatch h
   | ok tr => ?_
   intro h
   try dsimp only at h
   revert h
-  cases hdr : isDefEqCore env₀ F (rP + cnF) tr αS with
+  cases hdr : isDefEqCore mode env₀ F (rP + cnF) tr αS with
   | error e => intro h; exact nomatch h
   | ok vr =>
   cases vr with
@@ -355,14 +363,33 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
+  -- task #147: the slot-sort certification (task #146) is gated on the
+  -- mode; split on the gate first
+  cases htt : mode.ttChecks with
+  | false =>
+    rw [htt] at h
+    simp only [Bool.false_eq_true, if_false, pure, Except.pure] at h
+    exact ⟨(cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
+      tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
+      restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
+      hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
+      eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
+      checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
+      checkDefEqList_inv hdq3, hopenP, hcinstP,
+      checkDefEqList_inv hdqP, hopenX, hlinst,
+      checkDefEqList_inv hdq4, hde, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩,
+      fun hc => absurd hc (by simp [htt])⟩
+  | true =>
+  rw [htt] at h
+  simp only [if_true] at h
   revert h
-  cases htα : inferTypeCore env₀ F (rP + cnF) αS with
+  cases htα : inferTypeCore mode env₀ F (rP + cnF) αS with
   | error e => intro h; exact nomatch h
   | ok tα => ?_
   intro h
   try dsimp only at h
   revert h
-  cases hdα : isDefEqCore env₀ F (rP + cnF) tα
+  cases hdα : isDefEqCore mode env₀ F (rP + cnF) tα
       (Expr.sort (eqHeadLevel tbody.getAppFn)) with
   | error e => intro h; exact nomatch h
   | ok vα =>
@@ -380,7 +407,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
     checkDefEqList_inv hdq3, hopenP, hcinstP,
     checkDefEqList_inv hdqP, hopenX, hlinst,
     checkDefEqList_inv hdq4, hde, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩,
-    ⟨tα, htα, hdα⟩⟩
+    fun _ => ⟨tα, htα, hdα⟩⟩
 
 /-- Invert a successful `nestedRuleShape` computation into the facts
 the stored rule's flag records: the prefix-major offset, the syntactic
@@ -471,13 +498,13 @@ or the returned flag carries the certified shape and the full
 theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
     {cvA cvj : ConstantVal} {mI rP j cnP cnF : Nat}
     {r : RecRule} {rhsA : Expr} {fire : RecRuleFire}
-    (h : checkIotaThmN (fueledOps F) env' env₀ f cvA.name cvA.levelParams
+    (h : checkIotaThmN mode (fueledOps mode F) env' env₀ f cvA.name cvA.levelParams
       cvA.type mI rP j r cvj cnP cnF rhsA = .ok fire) :
     fire = .inert ∨
     ∃ lvls pins, fire = .nested lvls pins ∧
       nestedRuleShape env' env₀ cvA.name cvA.levelParams cvA.type
         mI rP cnP j = some (lvls, pins) ∧
-      NestedChecked F env' env₀ f cvA mI rP cnP cnF
+      NestedChecked mode F env' env₀ f cvA mI rP cnP cnF
         { r with rhs := rhsA } cvj lvls pins := by
   simp only [checkIotaThmN, checkIotaSidesTy] at h
   revert h
@@ -590,14 +617,14 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   case neg => rw [if_neg hclen] at h; exact nomatch h
   rw [if_pos hclen] at h
   try dsimp only at h
-  cases hdq1 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+  cases hdq1 : checkDefEqList (fueledOps mode F) env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP) with
   | error e => rw [hdq1] at h; exact nomatch h
   | ok u1 =>
   rw [hdq1] at h
   try dsimp only at h
-  cases hdq2 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+  cases hdq2 : checkDefEqList (fueledOps mode F) env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD)
       (cdoms.drop cnP) with
   | error e => rw [hdq2] at h; exact nomatch h
@@ -612,7 +639,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  cases hdq3 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+  cases hdq3 : checkDefEqList (fueledOps mode F) env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms with
   | error e => rw [hdq3] at h; exact nomatch h
   | ok u3 =>
@@ -625,7 +652,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  cases hannP : checkAnnotList (fueledOps F) env₀ (rP + cnF)
+  cases hannP : checkAnnotList (fueledOps mode F) env₀ (rP + cnF)
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p)) with
   | error e => rw [hannP] at h; exact nomatch h
   | ok uA =>
@@ -640,7 +667,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  cases hdtP : checkTypedList (fueledOps F) env₀ (rP + cnF)
+  cases hdtP : checkTypedList (fueledOps mode F) env₀ (rP + cnF)
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       cdomsP with
   | error e => rw [hdtP] at h; exact nomatch h
@@ -665,14 +692,14 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  cases hdq4 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+  cases hdq4 : checkDefEqList (fueledOps mode F) env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms with
   | error e => rw [hdq4] at h; exact nomatch h
   | ok u4 =>
   rw [hdq4] at h
   try dsimp only at h
   revert h
-  cases hde : isDefEqCore env₀ F (rP + cnF) rhsS
+  cases hde : isDefEqCore mode env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) with
   | error e => intro h; exact nomatch h
   | ok v =>
@@ -683,13 +710,13 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases htl : inferTypeCore env₀ F (rP + cnF) lhsS with
+  cases htl : inferTypeCore mode env₀ F (rP + cnF) lhsS with
   | error e => intro h; exact nomatch h
   | ok tl => ?_
   intro h
   try dsimp only at h
   revert h
-  cases hdl : isDefEqCore env₀ F (rP + cnF) tl αS with
+  cases hdl : isDefEqCore mode env₀ F (rP + cnF) tl αS with
   | error e => intro h; exact nomatch h
   | ok vl =>
   cases vl with
@@ -699,13 +726,13 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases htr : inferTypeCore env₀ F (rP + cnF) rhsS with
+  cases htr : inferTypeCore mode env₀ F (rP + cnF) rhsS with
   | error e => intro h; exact nomatch h
   | ok tr => ?_
   intro h
   try dsimp only at h
   revert h
-  cases hdr : isDefEqCore env₀ F (rP + cnF) tr αS with
+  cases hdr : isDefEqCore mode env₀ F (rP + cnF) tr αS with
   | error e => intro h; exact nomatch h
   | ok vr =>
   cases vr with
@@ -714,14 +741,38 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
+  -- task #147: the slot-sort certification (task #146) is gated on the
+  -- mode; split on the gate first
+  cases htt : mode.ttChecks with
+  | false =>
+    rw [htt] at h
+    simp only [Bool.false_eq_true, if_false, if_true, ite_true, pure,
+      Except.pure, Bind.bind, Except.bind, Except.ok.injEq] at h
+    exact Or.inr ⟨lvls, pins, h.symm, rfl,
+          (cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
+          tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
+          restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
+          hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
+          eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj,
+          ⟨bsC0, cbody0, Dc, usc, hcstrip, hcheadEq⟩,
+          hcinst, hclen,
+          checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
+          checkDefEqList_inv hdq3, hopenP, checkAnnotList_inv hannP,
+          hcinstP,
+          checkTypedList_inv hdtP, hopenX, eq_of_beq harX, hlinst,
+          checkDefEqList_inv hdq4, hde, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩,
+          fun hc => absurd hc (by simp [htt])⟩
+  | true =>
+  rw [htt] at h
+  simp only [if_true] at h
   revert h
-  cases htα : inferTypeCore env₀ F (rP + cnF) αS with
+  cases htα : inferTypeCore mode env₀ F (rP + cnF) αS with
   | error e => intro h; exact nomatch h
   | ok tα => ?_
   intro h
   try dsimp only at h
   revert h
-  cases hdα : isDefEqCore env₀ F (rP + cnF) tα
+  cases hdα : isDefEqCore mode env₀ F (rP + cnF) tα
       (Expr.sort (eqHeadLevel tbody.getAppFn)) with
   | error e => intro h; exact nomatch h
   | ok vα =>
@@ -744,14 +795,14 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         hcinstP,
         checkTypedList_inv hdtP, hopenX, eq_of_beq harX, hlinst,
         checkDefEqList_inv hdq4, hde, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩,
-        ⟨tα, htα, hdα⟩⟩
+        fun _ => ⟨tα, htα, hdα⟩⟩
 
 /-- The kernel-checked data of one modeled recursor rule: the
 hypothesis kit its fold obligation consumes.  `env` is the environment
 before the recursor group's installation, `env₀` the provisional one
 with the block's rule-less recursors (in which the rule's right-hand
 side was annotated). -/
-def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
+def RuleChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
     (cvA : ConstantVal) (mI rP : Nat) (r : RecRule) : Prop :=
   ∃ (cvj : ConstantVal) (cnP cnF : Nat) (raw rhsTy : Expr)
     (rbinders : List (Name × Expr × BinderMeta)) (rbody : Expr),
@@ -775,25 +826,25 @@ def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
             (List.range (mI - rP)).map
               (fun i => Expr.bvar (mI - rP - 1 - i))) ∧
       pins.length = cnP ∧
-      NestedChecked F env env₀ f cvA mI rP cnP cnF r cvj lvls pins) ∧
+      NestedChecked mode F env env₀ f cvA mI rP cnP cnF r cvj lvls pins) ∧
     raw.hasFvar = false ∧ raw.looseBVarsBounded 0 = true ∧
-    annotateCore env₀ F 0 raw = .ok (RecRule.rhs r) ∧
+    annotateCore mode env₀ F 0 raw = .ok (RecRule.rhs r) ∧
     (RecRule.rhs r).hasFvar = false ∧
     (RecRule.rhs r).looseBVarsBounded 0 = true ∧
     (RecRule.rhs r).allLevelParamsDefined cvA.levelParams = true ∧
     (RecRule.rhs r).constsResolve env₀ = true ∧
     (RecRule.rhs r).stripLams (rP + cnF) =
       some (rbinders, rbody) ∧
-    inferTypeCore env₀ F 0 (RecRule.rhs r) = .ok rhsTy ∧
+    inferTypeCore mode env₀ F 0 (RecRule.rhs r) = .ok rhsTy ∧
     (Expr.recRulePlain cvA.type mI rP cnP = true →
-      PlainChecked F env env₀ f cvA mI rP cnP cnF r cvj)
+      PlainChecked mode F env env₀ f cvA mI rP cnP cnF r cvj)
 
 /-- Invert one `checkIotaRule` run. -/
 theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
     {cvA : ConstantVal} {mI rP j : Nat} {r r' : RecRule}
-    (h : checkIotaRule (fueledOps F) env' env₀ f cvA.name cvA.levelParams
+    (h : checkIotaRule mode (fueledOps mode F) env' env₀ f cvA.name cvA.levelParams
       cvA.type mI rP j r = .ok r') :
-    RuleChecked F env' env₀ f cvA mI rP r' := by
+    RuleChecked mode F env' env₀ f cvA mI rP r' := by
   simp only [checkIotaRule, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
     Except.bind, pure, Except.pure] at h
@@ -823,7 +874,7 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
   have hrfF : (RecRule.rhs r).hasFvar = false := by
     revert hrf; cases (RecRule.rhs r).hasFvar <;> simp
   try dsimp only at h
-  cases hann : annotateCore env₀ F 0 (RecRule.rhs r) with
+  cases hann : annotateCore mode env₀ F 0 (RecRule.rhs r) with
   | error e => rw [hann] at h; exact nomatch h
   | ok rhsA =>
   rw [hann] at h
@@ -842,7 +893,7 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
   obtain ⟨⟨rbinders, rbody⟩, hstripEq⟩ :=
     Option.isSome_iff_exists.mp hstrip
   try dsimp only at h
-  cases hity : inferTypeCore env₀ F 0 rhsA with
+  cases hity : inferTypeCore mode env₀ F 0 rhsA with
   | error e => rw [hity] at h; exact nomatch h
   | ok rhsTy =>
   rw [hity] at h
@@ -851,7 +902,7 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
   case pos =>
     rw [if_pos hplain] at h
     revert h
-    cases hthm : checkIotaThm (fueledOps F) env' env₀ f cvA.name
+    cases hthm : checkIotaThm mode (fueledOps mode F) env' env₀ f cvA.name
         cvA.levelParams cvA.type mI rP j r cvj cnP cnF rhsA with
     | error e => intro h; exact nomatch h
     | ok u =>
@@ -872,7 +923,7 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
   case neg =>
     rw [if_neg hplain] at h
     revert h
-    cases hthmN : checkIotaThmN (fueledOps F) env' env₀ f cvA.name
+    cases hthmN : checkIotaThmN mode (fueledOps mode F) env' env₀ f cvA.name
         cvA.levelParams cvA.type mI rP j r cvj cnP cnF rhsA with
     | error e => intro h; exact nomatch h
     | ok fire =>
@@ -919,9 +970,9 @@ carries the full `RuleChecked` hypothesis kit. -/
 theorem checkIotaRules_inv {env' env₀ : Env} {f : Name → Name}
     {cvA : ConstantVal} {mI rP : Nat} :
     ∀ (j : Nat) (rules rules' : List RecRule),
-    checkIotaRules (fueledOps F) env' env₀ f cvA.name cvA.levelParams
+    checkIotaRules mode (fueledOps mode F) env' env₀ f cvA.name cvA.levelParams
       cvA.type mI rP j rules = .ok rules' →
-    ∀ r' ∈ rules', RuleChecked F env' env₀ f cvA mI rP r' := by
+    ∀ r' ∈ rules', RuleChecked mode F env' env₀ f cvA mI rP r' := by
   intro j rules
   induction rules generalizing j with
   | nil =>
@@ -933,14 +984,14 @@ theorem checkIotaRules_inv {env' env₀ : Env} {f : Name → Name}
     intro rules' h r' hr'
     simp only [checkIotaRules, Bind.bind, Except.bind] at h
     revert h
-    cases hr1 : checkIotaRule (fueledOps F) env' env₀ f cvA.name
+    cases hr1 : checkIotaRule mode (fueledOps mode F) env' env₀ f cvA.name
         cvA.levelParams cvA.type mI rP j r with
     | error e => intro h; exact nomatch h
     | ok r₁ => ?_
     intro h
     try dsimp only at h
     revert h
-    cases hrest : checkIotaRules (fueledOps F) env' env₀ f cvA.name
+    cases hrest : checkIotaRules mode (fueledOps mode F) env' env₀ f cvA.name
         cvA.levelParams cvA.type mI rP (j + 1) rest with
     | error e => intro h; exact nomatch h
     | ok rest' => ?_
@@ -960,7 +1011,7 @@ conjunct of each half is task #135's: the model former's telescope
 residual is `Sort ℓA` at the statement's own `Eq` level, which is what
 lets a consumer type the equation's type slot at the level the
 statement names (see `checkEtaThm`). -/
-def EtaPins (env' : Env) (T : Name) (lps : List Name)
+def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
     (caps : IndCaps) : Prop :=
   (caps.eta = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
@@ -999,7 +1050,8 @@ def EtaPins (env' : Env) (T : Name) (lps : List Name)
     tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
       ((List.range caps.etaParams).map fun k =>
         Expr.bvar (caps.etaParams - k)) ∧
-    tbodyM = Expr.sort ℓA) ∧
+    -- TT-lane conjunct (task #147): delivered only at `mode.ttChecks`
+    (mode.ttChecks = true → tbodyM = Expr.sort ℓA)) ∧
   (caps.unitlike = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
     (hmcvmT : ReducibilityHint)
@@ -1029,13 +1081,14 @@ def EtaPins (env' : Env) (T : Name) (lps : List Name)
     tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
       ((List.range caps.unitParams).map fun k =>
         Expr.bvar (caps.unitParams + 1 - k)) ∧
-    tbodyM = Expr.sort ℓA)
+    -- TT-lane conjunct (task #147): delivered only at `mode.ttChecks`
+    (mode.ttChecks = true → tbodyM = Expr.sort ℓA))
 
 set_option maxHeartbeats 3200000 in
 /-- Invert a positive unit-capability check into the stored pins. -/
 theorem checkUnitThm_inv {env' : Env} {T : Name}
     {lps : List Name} {nP : Nat}
-    (h : checkUnitThm env' T lps nP = true) :
+    (h : checkUnitThm mode env' T lps nP = true) :
     ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal)
       (mvalT : Expr) (hmcvmT : ReducibilityHint)
       (sbinders tbindersM : List (Name × Expr × BinderMeta))
@@ -1061,7 +1114,7 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
         [tySlot, .bvar 1, .bvar 0] ∧
       tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)) ∧
-      tbodyM = Expr.sort ℓA := by
+      (mode.ttChecks = true → tbodyM = Expr.sort ℓA) := by
   rw [checkUnitThm] at h
   revert h
   match hthm : env'.find? ((T.str "_model").str "unitlike") with
@@ -1184,7 +1237,8 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   refine ⟨tcv, tval, cvmT, mvalT, hmcvmT, sbinders, tbindersM, _, tbodyM,
     tySlot, ℓA, rfl, eq_of_beq htlps, rfl, eq_of_beq hTlps,
     (by rw [eq_of_beq heqA]), hS_strip, hTm_strip, hdoms, hxdom, hydom,
-    ?_, eq_of_beq hts, eq_of_beq hsortM⟩
+    ?_, eq_of_beq hts,
+    fun htt => eq_of_beq (by simpa [htt] using hsortM)⟩
   rw [eq_of_beq hceq, eq_of_beq hlhs, eq_of_beq hrhs]
   rfl
 
@@ -1192,7 +1246,7 @@ set_option maxHeartbeats 3200000 in
 /-- Invert a positive eta-capability check into the stored pins. -/
 theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
     {lps : List Name} {nP nF : Nat}
-    (h : checkEtaThm env' T ctorName lps nP nF = true) :
+    (h : checkEtaThm mode env' T ctorName lps nP nF = true) :
     ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal)
       (mvalT : Expr) (hmcvmT : ReducibilityHint)
       (sbinders tbindersM : List (Name × Expr × BinderMeta))
@@ -1226,7 +1280,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
               [Expr.bvar 0]))] ∧
       tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range nP).map fun k => Expr.bvar (nP - k)) ∧
-      tbodyM = Expr.sort ℓA := by
+      (mode.ttChecks = true → tbodyM = Expr.sort ℓA) := by
   rw [checkEtaThm] at h
   revert h
   match hthm : env'.find? ((T.str "_model").str "eta") with
@@ -1369,16 +1423,17 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
     tySlot, ℓA, rfl, eq_of_beq htlps, rfl, eq_of_beq hTlps,
     ⟨cvmC, mvalC, hmcvmC, rfl, eq_of_beq hClps⟩, hprojf,
     (by rw [eq_of_beq heqA]), hS_strip,
-    hTm_strip, hdoms, hxdom, ?_, eq_of_beq hts, eq_of_beq hsortM⟩
+    hTm_strip, hdoms, hxdom, ?_, eq_of_beq hts,
+    fun htt => eq_of_beq (by simpa [htt] using hsortM)⟩
   rw [eq_of_beq hceq, eq_of_beq hlhs, eq_of_beq hrhs]
   rfl
 
 /-- The pins persist under a fresh install. -/
 theorem EtaPins.step {env' : Env} {c₁ : ConstantInfo} {T : Name}
     {lps : List Name} {caps : IndCaps}
-    (h : EtaPins env' T lps caps)
+    (h : EtaPins mode env' T lps caps)
     (hfresh : env'.find? c₁.name = none) :
-    EtaPins ⟨c₁ :: env'.consts⟩ T lps caps := by
+    EtaPins mode ⟨c₁ :: env'.consts⟩ T lps caps := by
   have hkeep : ∀ (n : Name) (ci : ConstantInfo),
       env'.find? n = some ci →
       (⟨c₁ :: env'.consts⟩ : Env).find? n = some ci := by
@@ -1414,11 +1469,11 @@ non-recursor kinds (the pins only look up theorems, definitions and
 the pinned equality former). -/
 theorem EtaPins.transport {env₁ env₂ : Env} {T : Name}
     {lps : List Name} {caps : IndCaps}
-    (h : EtaPins env₁ T lps caps)
+    (h : EtaPins mode env₁ T lps caps)
     (hkeep : ∀ (n : Name) (ci : ConstantInfo), env₁.find? n = some ci →
       (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
       env₂.find? n = some ci) :
-    EtaPins env₂ T lps caps := by
+    EtaPins mode env₂ T lps caps := by
   have hk : ∀ (n : Name) (cv : ConstantVal) (tv : Expr),
       env₁.find? n = some (.thmInfo cv tv) →
       env₂.find? n = some (.thmInfo cv tv) :=

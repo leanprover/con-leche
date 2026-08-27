@@ -16,6 +16,8 @@ annotation).
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr in
 /-- Peeling a `∀`-telescope along scoped arguments preserves
 well-scopedness. -/
@@ -420,9 +422,9 @@ set_option maxHeartbeats 1600000 in
 closure. -/
 theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat),
-      (∀ {d : Nat} {e e' : Expr}, whnfCore env fuel d e = .ok e' →
+      (∀ {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e = .ok e' →
         ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves) ∧
-      (∀ {d : Nat} {e e' : Expr}, whnf env fuel d e = .ok e' →
+      (∀ {d : Nat} {e e' : Expr}, whnf mode env fuel d e = .ok e' →
         ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves)
   | 0 => ⟨(fun {_ _ _} h => nomatch h), (fun {_ _ _} h => nomatch h)⟩
   | fuel + 1 => by
@@ -545,7 +547,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
             (fvarLeaves_getAppArgs (getD_mem (by omega)) l hl2))
     · -- whnf loop: induction on the loop's own step budget (task #106)
       have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
-          whnfLoop (pureFns env fuel) env d n e = .ok e' →
+          whnfLoop (pureFns mode env fuel) env d n e = .ok e' →
           ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves := by
         intro n
         induction n with
@@ -569,9 +571,9 @@ set_option maxHeartbeats 1600000 in
 bound. -/
 theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat),
-      (∀ {d : Nat} {e e' : Expr}, whnfCore env fuel d e = .ok e' →
+      (∀ {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e = .ok e' →
         e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true) ∧
-      (∀ {d : Nat} {e e' : Expr}, whnf env fuel d e = .ok e' →
+      (∀ {d : Nat} {e e' : Expr}, whnf mode env fuel d e = .ok e' →
         e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true)
   | 0 => ⟨(fun {_ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h)⟩
   | fuel + 1 => by
@@ -672,7 +674,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
             (looseBVarsBounded_getAppArgs hbe₃ _ (getD_mem (by omega)))
     · -- whnf loop: induction on the loop's own step budget (task #106)
       have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
-          whnfLoop (pureFns env fuel) env d n e = .ok e' →
+          whnfLoop (pureFns mode env fuel) env d n e = .ok e' →
           e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true := by
         intro n
         induction n with
@@ -692,28 +694,28 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
 /-- Head normalization only shrinks the leaf closure. -/
 theorem whnfCore_fvarLeaves {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr}
-    (h : whnfCore env fuel d e = .ok e') :
+    (h : whnfCore mode env fuel d e = .ok e') :
     ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves :=
   (whnfPres_fvarLeaves henv fuel).1 h
 
 /-- The reduction loop only shrinks the leaf closure. -/
 theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr}
-    (h : whnf env fuel d e = .ok e') :
+    (h : whnf mode env fuel d e = .ok e') :
     ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves :=
   (whnfPres_fvarLeaves henv fuel).2 h
 
 /-- Head normalization preserves the bvar bound. -/
 theorem whnfCore_looseBVars {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr}
-    (h : whnfCore env fuel d e = .ok e')
+    (h : whnfCore mode env fuel d e = .ok e')
     (hb : e.looseBVarsBounded 0 = true) : e'.looseBVarsBounded 0 = true :=
   (whnfPres_looseBVars henv fuel).1 h hb
 
 /-- The reduction loop preserves the bvar bound. -/
 theorem whnf_looseBVars {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr}
-    (h : whnf env fuel d e = .ok e')
+    (h : whnf mode env fuel d e = .ok e')
     (hb : e.looseBVarsBounded 0 = true) : e'.looseBVarsBounded 0 = true :=
   (whnfPres_looseBVars henv fuel).2 h hb
 
@@ -721,7 +723,7 @@ theorem whnf_looseBVars {env : Env} (henv : EnvWF env)
 
 theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
-      inferTypeCore env fuel d e = .ok t → WScoped d e → WScoped d t
+      inferTypeCore mode env fuel d e = .ok t → WScoped d e → WScoped d t
   | 0, d, e, t, h, _ => nomatch h
   | fuel + 1, d, e, t, h, hw => by
     cases e with
@@ -837,7 +839,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
 
 theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
-      inferTypeCore env fuel d e = .ok t → WScoped d e →
+      inferTypeCore mode env fuel d e = .ok t → WScoped d e →
       ∀ l ∈ t.fvarLeaves, l ∈ e.fvarLeaves
   | 0, d, e, t, h, _ => nomatch h
   | fuel + 1, d, e, t, h, hw => by
@@ -977,7 +979,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
 
 theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
-      inferTypeCore env fuel d e = .ok t → WScoped d e →
+      inferTypeCore mode env fuel d e = .ok t → WScoped d e →
       e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
       t.looseBVarsBounded 0 = true
   | 0, d, e, t, h, _, _, _ => nomatch h

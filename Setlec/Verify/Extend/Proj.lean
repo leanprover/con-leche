@@ -19,6 +19,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 /-- Invert stage 1 of `checkProjFn` (the stored-constant lookups). -/
@@ -132,13 +134,13 @@ theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
 /-- Invert stage 3 of `checkProjFn` (the reduction rule). -/
 theorem checkProjRule_inv {env' : Env} {pty : Expr} {cvj : ConstantVal}
     {lps : List Name} {nP nF i : Nat} {rhsA : Expr}
-    (h : checkProjRule (fueledOps F) env' pty cvj lps nP nF i =
+    (h : checkProjRule (fueledOps mode F) env' pty cvj lps nP nF i =
       .ok rhsA) :
     ∃ raw rbinders cbindersR cbody,
       Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i)) = some raw ∧
       raw.hasFvar = false ∧
       raw.looseBVarsBounded 0 = true ∧
-      annotateCore env' F 0 raw = .ok rhsA ∧
+      annotateCore mode env' F 0 raw = .ok rhsA ∧
       rhsA.allLevelParamsDefined lps = true ∧
       rhsA.constsResolve env' = true ∧
       rhsA.looseBVarsBounded 0 = true ∧
@@ -150,12 +152,12 @@ theorem checkProjRule_inv {env' : Env} {pty : Expr} {cvj : ConstantVal}
       ∃ fvsP rest0 cdomsP crestP xFvs crest2X ldoms lrestL,
         openPisAtFvars nP pty 0 = some (fvsP, rest0) ∧
         Expr.instPisAt fvsP cvj.type = some (cdomsP, crestP) ∧
-        DefEqListOk F env' (nP + nF) (fvsP.map Expr.fvarTypeD) cdomsP ∧
+        DefEqListOk mode F env' (nP + nF) (fvsP.map Expr.fvarTypeD) cdomsP ∧
         openPisAtFvars nF crestP nP = some (xFvs, crest2X) ∧
         Expr.instLamsAt (fvsP ++ xFvs) rhsA = some (ldoms, lrestL) ∧
-        DefEqListOk F env' (nP + nF)
+        DefEqListOk mode F env' (nP + nF)
           ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms ∧
-        ∃ rhsTy, inferTypeCore env' F 0 rhsA = .ok rhsTy := by
+        ∃ rhsTy, inferTypeCore mode env' F 0 rhsA = .ok rhsTy := by
   simp only [checkProjRule, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
   revert h
@@ -173,7 +175,7 @@ theorem checkProjRule_inv {env' : Env} {pty : Expr} {cvj : ConstantVal}
     revert hrawf'
     cases raw.hasFvar <;> simp
   try dsimp only at h
-  cases hann : annotateCore env' F 0 raw with
+  cases hann : annotateCore mode env' F 0 raw with
   | error e => rw [hann] at h; exact nomatch h
   | ok rhsA' => ?_
   rw [hann] at h
@@ -224,7 +226,7 @@ theorem checkProjRule_inv {env' : Env} {pty : Expr} {cvj : ConstantVal}
   intro h
   try dsimp only at h
   revert h
-  cases hde1 : checkDefEqList (fueledOps F) env' (nP + nF)
+  cases hde1 : checkDefEqList (fueledOps mode F) env' (nP + nF)
       (fvsP.map Expr.fvarTypeD) cdomsP with
   | error e => intro h; exact nomatch h
   | ok u1 => ?_
@@ -243,14 +245,14 @@ theorem checkProjRule_inv {env' : Env} {pty : Expr} {cvj : ConstantVal}
   intro h
   try dsimp only at h
   revert h
-  cases hde2 : checkDefEqList (fueledOps F) env' (nP + nF)
+  cases hde2 : checkDefEqList (fueledOps mode F) env' (nP + nF)
       ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms with
   | error e => intro h; exact nomatch h
   | ok u2 => ?_
   intro h
   try dsimp only at h
   revert h
-  cases hity : inferTypeCore env' F 0 rhsA' with
+  cases hity : inferTypeCore mode env' F 0 rhsA' with
   | error e => intro h; exact nomatch h
   | ok rhsTy => ?_
   intro h
@@ -271,7 +273,7 @@ the opened telescope (task #100 stage 3), and the slot itself one
 against the sort its `Eq.{ℓA}` names (task #146). -/
 theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
     {lps : List Name} {cvj : ConstantVal} {nP nF i : Nat} {u : Unit}
-    (h : checkProjIota (fueledOps F) env' env' T ctorName lps cvj nP
+    (h : checkProjIota mode (fueledOps mode F) env' env' T ctorName lps cvj nP
       nF i = .ok u) :
     ∃ tcv tval sbinders cbindersR cbody tySlot ℓA,
       env'.find? ((projModelName T i).str "iota") =
@@ -294,17 +296,20 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
           (.bvar (nF - 1 - i))) ∧
       (∃ fvsO sbodyO,
         openPisAtFvars (nP + nF) tcv.type 0 = some (fvsO, sbodyO) ∧
-        (∃ tl, inferTypeCore env' F (nP + nF)
+        (∃ tl, inferTypeCore mode env' F (nP + nF)
             (sbodyO.getAppArgs.getD 1 (.bvar 0)) = .ok tl ∧
-          isDefEqCore env' F (nP + nF) tl
+          isDefEqCore mode env' F (nP + nF) tl
             (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true) ∧
-        (∃ tr, inferTypeCore env' F (nP + nF)
+        (∃ tr, inferTypeCore mode env' F (nP + nF)
             (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
-          isDefEqCore env' F (nP + nF) tr
+          isDefEqCore mode env' F (nP + nF) tr
             (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true) ∧
-        (∃ tα, inferTypeCore env' F (nP + nF)
+        -- task #146's slot-sort certification is a TT-lane check
+        -- (task #147): delivered only at `mode.ttChecks`
+        (mode.ttChecks = true →
+          ∃ tα, inferTypeCore mode env' F (nP + nF)
             (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok tα ∧
-          isDefEqCore env' F (nP + nF) tα (Expr.sort ℓA) = .ok true)) := by
+          isDefEqCore mode env' F (nP + nF) tα (Expr.sort ℓA) = .ok true)) := by
   simp only [checkProjIota, checkIotaSidesTy, unwrapOr,
     fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind,
     pure, Except.pure] at h
@@ -420,14 +425,14 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   intro h
   try dsimp only at h
   revert h
-  cases htl : inferTypeCore env' F (nP + nF)
+  cases htl : inferTypeCore mode env' F (nP + nF)
       (sbodyO.getAppArgs.getD 1 (.bvar 0)) with
   | error e => intro h; exact nomatch h
   | ok tl => ?_
   intro h
   try dsimp only at h
   revert h
-  cases hdl : isDefEqCore env' F (nP + nF) tl
+  cases hdl : isDefEqCore mode env' F (nP + nF) tl
       (sbodyO.getAppArgs.getD 0 (.bvar 0)) with
   | error e => intro h; exact nomatch h
   | ok vl => ?_
@@ -437,14 +442,14 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   intro h
   try dsimp only at h
   revert h
-  cases htr : inferTypeCore env' F (nP + nF)
+  cases htr : inferTypeCore mode env' F (nP + nF)
       (sbodyO.getAppArgs.getD 2 (.bvar 0)) with
   | error e => intro h; exact nomatch h
   | ok tr => ?_
   intro h
   try dsimp only at h
   revert h
-  cases hdr : isDefEqCore env' F (nP + nF) tr
+  cases hdr : isDefEqCore mode env' F (nP + nF) tr
       (sbodyO.getAppArgs.getD 0 (.bvar 0)) with
   | error e => intro h; exact nomatch h
   | ok vr => ?_
@@ -454,15 +459,25 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   intro h
   dsimp only [Expr.getAppFn, eqHeadLevel] at h
   try dsimp only at h
+  -- task #147: the slot-sort certification is gated on the mode
+  cases htt : mode.ttChecks with
+  | false =>
+    exact ⟨tcv, tval, sbinders, cbindersR, cbody, tySlot, ℓA,
+      rfl, htlps, rfl, hsdomsB, hS_strip,
+      ⟨fvsO, sbodyO, hopenO, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩,
+        fun hc => absurd hc (by simp [htt])⟩⟩
+  | true => ?_
+  rw [htt] at h
+  simp only [if_true] at h
   revert h
-  cases htα : inferTypeCore env' F (nP + nF)
+  cases htα : inferTypeCore mode env' F (nP + nF)
       (sbodyO.getAppArgs.getD 0 (.bvar 0)) with
   | error e => intro h; exact nomatch h
   | ok tα => ?_
   intro h
   try dsimp only at h
   revert h
-  cases hdα : isDefEqCore env' F (nP + nF) tα (Expr.sort ℓA) with
+  cases hdα : isDefEqCore mode env' F (nP + nF) tα (Expr.sort ℓA) with
   | error e => intro h; exact nomatch h
   | ok vα => ?_
   cases vα with
@@ -472,7 +487,7 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   exact ⟨tcv, tval, sbinders, cbindersR, cbody, tySlot, ℓA,
     rfl, htlps, rfl, hsdomsB, hS_strip,
     ⟨fvsO, sbodyO, hopenO, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩,
-      ⟨tα, htα, hdα⟩⟩⟩
+      fun _ => ⟨tα, htα, hdα⟩⟩⟩
 
 /-- Invert a successful `checkProjShape` run. -/
 theorem checkProjShape_inv {pty cty : Expr} {nP nF : Nat} {u : Unit}
@@ -518,7 +533,7 @@ theorem checkProjShape_inv {pty cty : Expr} {nP nF : Nat} {u : Unit}
 /-- Invert a successful `checkProjFn` into its stages. -/
 theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
     {lps : List Name} {nP nF i : Nat}
-    (h : checkProjFn (fueledOps F) env' T ctorName lps nP nF i = .ok env₁) :
+    (h : checkProjFn mode (fueledOps mode F) env' T ctorName lps nP nF i = .ok env₁) :
     ∃ cvj mcv,
       (checkProjLookups env' T ctorName lps nP nF i : CheckM _) =
         .ok (cvj, mcv) ∧
@@ -527,9 +542,9 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
       (∃ u : Unit, (checkProjShape pty cvj.type nP nF : CheckM _)
         = .ok u) ∧
       i < nF ∧
-      ∃ rhsA, checkProjRule (fueledOps F) env' pty cvj lps nP nF i =
+      ∃ rhsA, checkProjRule (fueledOps mode F) env' pty cvj lps nP nF i =
         .ok rhsA ∧
-      (∃ u : Unit, checkProjIota (fueledOps F) env' env' T ctorName
+      (∃ u : Unit, checkProjIota mode (fueledOps mode F) env' env' T ctorName
         lps cvj nP nF i = .ok u) ∧
       env₁ = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
         [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩] :: env'.consts⟩ := by
@@ -555,13 +570,13 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
   case neg => rw [if_neg hi] at h; exact nomatch h
   rw [if_pos hi] at h
   try dsimp only at h
-  cases hrule : checkProjRule (fueledOps F) env' pty cvj lps nP nF i
+  cases hrule : checkProjRule (fueledOps mode F) env' pty cvj lps nP nF i
       with
   | error e => rw [hrule] at h; exact nomatch h
   | ok rhsA => ?_
   rw [hrule] at h
   try dsimp only at h
-  cases hio : checkProjIota (fueledOps F) env' env' T ctorName lps
+  cases hio : checkProjIota mode (fueledOps mode F) env' env' T ctorName lps
       cvj nP nF i with
   | error e => rw [hio] at h; exact nomatch h
   | ok u => ?_
@@ -575,7 +590,7 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
 theorem checkProjFold_find_new {T ctorName : Name} {lps : List Name}
     {nP nF : Nat} :
     ∀ (idxs : List Nat) (env' env₁ : Env),
-    idxs.foldlM (installProjFnStep (fueledOps F) T ctorName lps nP nF)
+    idxs.foldlM (installProjFnStep mode (fueledOps mode F) T ctorName lps nP nF)
       env' = .ok env₁ →
     ∀ (n : Name) (ci : ConstantInfo), env₁.find? n = some ci →
     env'.find? n = some ci ∨
@@ -590,7 +605,7 @@ theorem checkProjFold_find_new {T ctorName : Name} {lps : List Name}
     unfold installProjFnStep at h
     by_cases hm : (env'.find? (projModelName T i₀)).isSome = true
     · rw [if_pos hm] at h
-      cases hstep : checkProjFn (fueledOps F) env' T ctorName lps nP nF i₀ with
+      cases hstep : checkProjFn mode (fueledOps mode F) env' T ctorName lps nP nF i₀ with
       | error e => rw [hstep] at h; exact nomatch h
       | ok env₂ => ?_
       rw [hstep] at h
@@ -622,7 +637,7 @@ theorem checkProjFold_find_new {T ctorName : Name} {lps : List Name}
 theorem checkProjFold_mono {T ctorName : Name} {lps : List Name}
     {nP nF : Nat} :
     ∀ (idxs : List Nat) (env' env₁ : Env),
-    idxs.foldlM (installProjFnStep (fueledOps F) T ctorName lps nP nF)
+    idxs.foldlM (installProjFnStep mode (fueledOps mode F) T ctorName lps nP nF)
       env' = .ok env₁ →
     ∀ n, (env'.find? n).isSome = true → (env₁.find? n).isSome = true
   | [], env', env₁, h, n, hn => by
@@ -635,7 +650,7 @@ theorem checkProjFold_mono {T ctorName : Name} {lps : List Name}
     unfold installProjFnStep at h
     by_cases hm : (env'.find? (projModelName T i₀)).isSome = true
     · rw [if_pos hm] at h
-      cases hstep : checkProjFn (fueledOps F) env' T ctorName lps nP nF i₀ with
+      cases hstep : checkProjFn mode (fueledOps mode F) env' T ctorName lps nP nF i₀ with
       | error e => rw [hstep] at h; exact nomatch h
       | ok env₂ => ?_
       rw [hstep] at h
@@ -729,7 +744,7 @@ theorem installProjTemplates_find_new {T ctorName : Name}
 theorem checkProjFold_find_preserved {T ctorName : Name}
     {lps : List Name} {nP nF : Nat} :
     ∀ (idxs : List Nat) (env' env₁ : Env),
-    idxs.foldlM (installProjFnStep (fueledOps F) T ctorName lps nP nF)
+    idxs.foldlM (installProjFnStep mode (fueledOps mode F) T ctorName lps nP nF)
       env' = .ok env₁ →
     ∀ (n : Name) (ci : ConstantInfo), env'.find? n = some ci →
     env₁.find? n = some ci
@@ -743,7 +758,7 @@ theorem checkProjFold_find_preserved {T ctorName : Name}
     unfold installProjFnStep at h
     by_cases hm : (env'.find? (projModelName T i₀)).isSome = true
     · rw [if_pos hm] at h
-      cases hstep : checkProjFn (fueledOps F) env' T ctorName lps nP nF i₀ with
+      cases hstep : checkProjFn mode (fueledOps mode F) env' T ctorName lps nP nF i₀ with
       | error e => rw [hstep] at h; exact nomatch h
       | ok env₂ => ?_
       rw [hstep] at h

@@ -44,6 +44,8 @@ is a **decline** (exit 2), never an acceptance — see `Main.lean`.
 
 namespace Setlec
 
+variable (mode : CheckMode)
+
 /-! ## Install phase -/
 
 /-- Declarations carrying a pinned environment condition and a
@@ -80,7 +82,7 @@ def installConstantValP (fe : FEnv) (cv : ConstantValP) :
     throw (.invalid s!"loose bound variable in type of {cv.name}")
   if ← withStore (fun st => st.hasFvarI cv.type) then
     throw (.invalid s!"unexpected free variable in type of {cv.name}")
-  let jty ← (coreKnotI fe checkFuel).annotate 0 cv.type
+  let jty ← (coreKnotI mode fe checkFuel).annotate 0 cv.type
   unless ← withStore (fun st => st.allLevelParamsDefinedI cv.levelParams jty) do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless ← withStore (fun st => constsResolveFI st fe jty) do
@@ -98,7 +100,7 @@ def installValueP (fe : FEnv) (cvA : ConstantVal) (value : EIdx) :
   if ← withStore (fun st => st.hasFvarI value) then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
   openSnapshotM
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
   unless ← withStore
       (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
@@ -115,21 +117,21 @@ ordinary driver. -/
 def installDeclSP (fe : FEnv) (pd : DeclP) : CheckIM FEnv := do
   match pd with
   | .defnDecl cv value hint => do
-    let (cvA, jty) ← installConstantValP fe cv
-    let (vE, jv) ← installValueP fe cvA value
+    let (cvA, jty) ← installConstantValP mode fe cv
+    let (vE, jv) ← installValueP mode fe cvA value
     recordIConst cvA.name cvA.type jty (some (vE, jv))
     pure (fe.push (.defnInfo cvA vE hint))
   | .thmDecl cv value => do
-    let (cvA, jty) ← installConstantValP fe cv
-    let (vE, jv) ← installValueP fe cvA value
+    let (cvA, jty) ← installConstantValP mode fe cv
+    let (vE, jv) ← installValueP mode fe cvA value
     recordIConst cvA.name cvA.type jty (some (vE, jv))
     pure (fe.push (.thmInfo cvA vE))
   | .opaqueDecl cv value => do
-    let (cvA, jty) ← installConstantValP fe cv
-    let _ ← installValueP fe cvA value
+    let (cvA, jty) ← installConstantValP mode fe cv
+    let _ ← installValueP mode fe cvA value
     recordIConst cvA.name cvA.type jty none
     pure (fe.push (.axiomInfo cvA))
-  | .axiomDecl _ | .indDecl _ | .basisDecl _ => checkDeclSP fe pd
+  | .axiomDecl _ | .indDecl _ | .basisDecl _ => checkDeclSP mode fe pd
 
 /-- One install step: the parse-range validation and cache flush of
 `checkDeclSPStep`, then the install. -/
@@ -137,7 +139,7 @@ def installDeclSPStep (n0 : Nat) (fe : FEnv) (pd : DeclP) : CheckIM FEnv := do
   unless pd.inRangeB n0 do
     throw (.internal "parsed declaration index out of range")
   flushS
-  installDeclSP fe pd
+  installDeclSP mode fe pd
 
 /-! ## Check phase
 
@@ -154,13 +156,13 @@ def ienvEntry? (n : Name) : CheckIM (Option IConstE) :=
 /-- The "the stated type is a type" check, on the recorded annotated
 type. -/
 def recheckTypeP (fe : FEnv) (jty : EIdx) : CheckIM Level := do
-  let jsty ← (coreKnotI fe checkFuel).infer 0 jty
-  opSIx fe 0 jsty
+  let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
+  opSIx mode fe 0 jsty
 
 /-- Conformance of a recorded value against its recorded type. -/
 def recheckValueP (fe : FEnv) (n : Name) (jty jv : EIdx) : CheckIM Unit := do
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
+  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in {n}")
 
 /-- The pinned-name certificate branches of `checkDeclSPPlain`,
@@ -176,7 +178,7 @@ def recheckPinsP (fe fe2 : FEnv) (pd : DeclP) : CheckIM Unit := do
           s!"nonstandard structural Nat operation environment ({cv.name})")
       match fe2.find? cv.name with
       | some (.defnInfo _ value' _) =>
-        let ok ← certifyNatEqs (sharedOps fe) fe.env
+        let ok ← certifyNatEqs (sharedOps mode fe) fe.env
           ((natOpEquations 0 cv.name).map fun eq =>
             (Expr.substConst0 cv.name value' eq.1,
              Expr.substConst0 cv.name value' eq.2))
@@ -186,11 +188,11 @@ def recheckPinsP (fe fe2 : FEnv) (pd : DeclP) : CheckIM Unit := do
       | _ => throw (.internal
           s!"structural Nat operation not stored ({cv.name})")
     if natDivModNames.contains cv.name then
-      checkDivModPinF (sharedOps fe) fe fe2 cv.name
+      checkDivModPinF (sharedOps mode fe) fe fe2 cv.name
   | .opaqueDecl cv value => do
     if reduceOpNames.contains cv.name then do
       let vE ← readbackEM value
-      checkReducePinF (sharedOps fe) fe fe2 cv.name vE
+      checkReducePinF (sharedOps mode fe) fe fe2 cv.name vE
   | _ => pure ()
 
 /-- The check phase of one declaration.  `fe` must already be restricted
@@ -202,36 +204,36 @@ def recheckDeclSP (fe : FEnv) (k : Nat) (pd : DeclP) : CheckIM Unit := do
   | .defnDecl cv _ _ => do
     match ← ienvEntry? cv.name with
     | some ⟨_, jty, some (_, jv)⟩ => do
-      let _u ← recheckTypeP fe jty
-      recheckValueP fe cv.name jty jv
+      let _u ← recheckTypeP mode fe jty
+      recheckValueP mode fe cv.name jty jv
     | _ => throw (.internal s!"not installed: {cv.name}")
-    if pinnedDeclP pd then recheckPinsP fe (fe.restrictTo (k + 1)) pd
+    if pinnedDeclP pd then recheckPinsP mode fe (fe.restrictTo (k + 1)) pd
   | .thmDecl cv _ => do
     match ← ienvEntry? cv.name with
     | some ⟨_, jty, some (_, jv)⟩ => do
-      let ul ← recheckTypeP fe jty
+      let ul ← recheckTypeP mode fe jty
       unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
         throw (.invalid s!"type of theorem {cv.name} is not a proposition")
-      recheckValueP fe cv.name jty jv
+      recheckValueP mode fe cv.name jty jv
     | _ => throw (.internal s!"not installed: {cv.name}")
   | .opaqueDecl cv value => do
     match ← ienvEntry? cv.name with
     | some ⟨_, jty, _⟩ => do
-      let _u ← recheckTypeP fe jty
+      let _u ← recheckTypeP mode fe jty
       -- an opaque's value is not stored, so it is re-annotated here
       openSnapshotM
-      let jv ← (coreKnotI fe checkFuel).annotate 0 value
-      let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-      let ok ← (coreKnotI fe checkFuel).defeq 0 jvt jty
+      let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
+      let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
+      let ok ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty
       closeDiscardM
       unless ok do
         throw (.invalid s!"type mismatch in opaque {cv.name}")
     | none => throw (.internal s!"not installed: {cv.name}")
-    if pinnedDeclP pd then recheckPinsP fe (fe.restrictTo (k + 1)) pd
+    if pinnedDeclP pd then recheckPinsP mode fe (fe.restrictTo (k + 1)) pd
   | .axiomDecl cv => do
     match ← ienvEntry? cv.name with
     | some ⟨_, jty, _⟩ => do
-      let _u ← recheckTypeP fe jty
+      let _u ← recheckTypeP mode fe jty
     -- a tolerated axiom is skipped at install, so there is nothing to
     -- re-check
     | none => pure ()
@@ -244,6 +246,6 @@ changed, so every cached lookup is stale) and run the check phase at the
 declaration's install-time prefix. -/
 def recheckDeclSPStep (fe : FEnv) (k : Nat) (pd : DeclP) : CheckIM Unit := do
   flushS
-  recheckDeclSP (fe.restrictTo k) k pd
+  recheckDeclSP mode (fe.restrictTo k) k pd
 
 end Setlec

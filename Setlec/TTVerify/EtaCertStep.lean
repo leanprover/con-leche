@@ -27,13 +27,17 @@ first, and then both rules speak about the same `A₁`.
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode; the seven gated checks
+reduce definitionally at `.ttModel`. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- **`EtaCertStepTT`, discharged.** -/
 theorem etaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) : EtaCertStepTT m φ fuel := by
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel) : EtaCertStepTT m φ fuel := by
   intro d Δ n₁ ty₁ body₁ b mb h hwa hba hLa hwb hbb hLb hCa hCb va vb
     hva hvb
   obtain ⟨tb, n₂, ty₂, fb, mb₂, htb, hwtb, hdty, hdbody⟩ := etaCert_inv h

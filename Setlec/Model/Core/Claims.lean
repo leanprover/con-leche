@@ -17,6 +17,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
@@ -30,40 +32,40 @@ theorem find?_name {env : Env} {n : Name} {ci : ConstantInfo}
 argument). -/
 theorem whnfCore_FvarsOk {cval : ConstVal V} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr} {ρ : Nat → V}
-    (h : whnfCore env fuel d e = .ok e')
+    (h : whnfCore mode env fuel d e = .ok e')
     (hok : FvarsOk V cval env φ d ρ e) : FvarsOk V cval env φ d ρ e' :=
   FvarsOk.of_subset (whnfCore_fvarLeaves henv fuel h) hok
 
 /-- The reduction loop preserves the local-context assumptions. -/
 theorem whnf_FvarsOk {cval : ConstVal V} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr} {ρ : Nat → V}
-    (h : whnf env fuel d e = .ok e')
+    (h : whnf mode env fuel d e = .ok e')
     (hok : FvarsOk V cval env φ d ρ e) : FvarsOk V cval env φ d ρ e' :=
   FvarsOk.of_subset (whnf_fvarLeaves henv fuel h) hok
 
 /-- The head-normalization (no delta) part of the mutual soundness
 claims. -/
-def WhnfCoreClaims (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
+def WhnfCoreClaims (mode : CheckMode) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {ρ : Nat → V},
-    whnfCore env fuel d e = .ok e' →
+    whnfCore mode env fuel d e = .ok e' →
     WScoped d e → e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
     FvarsOk V m.val env φ d ρ e → AnnotOk V m.val env φ d ρ e →
     interpExpr V m.val env φ d ρ e' = interpExpr V m.val env φ d ρ e ∧
     AnnotOk V m.val env φ d ρ e'
 
 /-- The reduction-loop part of the mutual soundness claims. -/
-def WhnfClaims (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
+def WhnfClaims (mode : CheckMode) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {ρ : Nat → V},
-    whnf env fuel d e = .ok e' →
+    whnf mode env fuel d e = .ok e' →
     WScoped d e → e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
     FvarsOk V m.val env φ d ρ e → AnnotOk V m.val env φ d ρ e →
     interpExpr V m.val env φ d ρ e' = interpExpr V m.val env φ d ρ e ∧
     AnnotOk V m.val env φ d ρ e'
 
 /-- The defeq part of the mutual soundness claims. -/
-def DefEqClaims (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
+def DefEqClaims (mode : CheckMode) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {ρ : Nat → V},
-    isDefEqCore env fuel d a b = .ok true →
+    isDefEqCore mode env fuel d a b = .ok true →
     WScoped d a → WScoped d b →
     a.looseBVarsBounded 0 = true → b.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a → Expr.LeavesBounded b →
@@ -77,9 +79,9 @@ stage 6: successful inference *establishes* the subject's annotation
 truthfulness — `AnnotOk` moved from hypothesis to conclusion, which is
 what replaces the deleted annotation pass's `annotate_sound` as the
 source of `AnnotOk` for stored trees). -/
-def InferClaims (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
+def InferClaims (mode : CheckMode) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {ρ : Nat → V},
-    inferTypeCore env fuel d e = .ok t →
+    inferTypeCore mode env fuel d e = .ok t →
     WScoped d e → e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
     FvarsOk V m.val env φ d ρ e →
     AnnotOk V m.val env φ d ρ e ∧
@@ -128,16 +130,16 @@ theorem litToCtorIfNat_claims (m : EnvModel V env) {d : Nat} {ρ : Nat → V}
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 /-- The full literal-major conversion's claims package
 (`litMajorToCtor`: `Nat` literals one layer, `String` literals via the
 whnf-reduced constructor form; the string branch consumes the whnf
 claims on the closed `strLitToConstructor` term). -/
-theorem litMajorToCtor_claims (hwc : WhnfClaims m φ fuel)
+theorem litMajorToCtor_claims (hwc : WhnfClaims mode m φ fuel)
     {d : Nat} {ρ : Nat → V} {e e₁ : Expr}
-    (h : litMajorToCtorP env fuel d e = .ok e₁)
+    (h : litMajorToCtorP mode env fuel d e = .ok e₁)
     (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e) (hok : FvarsOk V m.val env φ d ρ e)
     (hA : AnnotOk V m.val env φ d ρ e) :
@@ -173,9 +175,9 @@ theorem litMajorToCtor_claims (hwc : WhnfClaims m φ fuel)
 which becomes the whnf-reduced constructor form; the string branch
 consumes the whnf claims on the closed `strLitToConstructor` term,
 exactly as in `litMajorToCtor_claims`). -/
-theorem projLitToCtor_claims (hwc : WhnfClaims m φ fuel)
+theorem projLitToCtor_claims (hwc : WhnfClaims mode m φ fuel)
     {d : Nat} {ρ : Nat → V} {e e₁ : Expr}
-    (h : projLitToCtorP env fuel d e = .ok e₁)
+    (h : projLitToCtorP mode env fuel d e = .ok e₁)
     (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e) (hok : FvarsOk V m.val env φ d ρ e)
     (hA : AnnotOk V m.val env φ d ρ e) :
@@ -206,9 +208,9 @@ theorem projLitToCtor_claims (hwc : WhnfClaims m φ fuel)
 
 /-- A whnf result of `.sort u` identifies the interpretation with a
 universe (the inlined-`ensureSort` pattern of the inference rules). -/
-theorem sort_result (hwc : WhnfClaims m φ fuel) {d : Nat} {t : Expr} {u : Level}
+theorem sort_result (hwc : WhnfClaims mode m φ fuel) {d : Nat} {t : Expr} {u : Level}
     {ρ : Nat → V}
-    (h : whnf env fuel d t = .ok (.sort u))
+    (h : whnf mode env fuel d t = .ok (.sort u))
     (hw : WScoped d t) (hb : t.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded t)
     (hok : FvarsOk V m.val env φ d ρ t) (ha : AnnotOk V m.val env φ d ρ t) :
@@ -221,11 +223,11 @@ theorem sort_result (hwc : WhnfClaims m φ fuel) {d : Nat} {t : Expr} {u : Level
 assignment (established by a sort-certification chain), its
 interpretation is the proof point. -/
 theorem sortCert_pt {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihi : InferClaims mode m φ fuel)
     {d : Nat} {x tx stx : Expr} {uT : Level} {ρ : Nat → V}
-    (hti : inferTypeCore env fuel d x = .ok tx)
-    (hsti : inferTypeCore env fuel d tx = .ok stx)
-    (hwst : whnf env fuel d stx = .ok (.sort uT))
+    (hti : inferTypeCore mode env fuel d x = .ok tx)
+    (hsti : inferTypeCore mode env fuel d tx = .ok stx)
+    (hwst : whnf mode env fuel d stx = .ok (.sort uT))
     (hu0 : Level.eval φ uT = 0)
     (hw : WScoped d x) (hb : x.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded x)
@@ -262,9 +264,9 @@ theorem sortCert_pt {m : EnvModel V env} {fuel : Nat}
 /-- A successful proof-irrelevance certification collapses both sides
 to the proof point. -/
 theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihi : InferClaims mode m φ fuel)
     {d : Nat} {a b : Expr} {ρ : Nat → V}
-    (h : proofIrrelP env fuel d a b = .ok true)
+    (h : proofIrrelP mode env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
     (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
@@ -277,8 +279,8 @@ theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
     ⟨sta, uT, tb, stb, vT, hsta, hwta, hequ, htb, hstb, hwtb, heqv⟩
   · -- unit branch: every inhabitant of the basis unit type is `pt`
     have unitSide : ∀ (x tx wtx : Expr),
-        inferTypeCore env fuel d x = .ok tx →
-        whnf env fuel d tx = .ok wtx →
+        inferTypeCore mode env fuel d x = .ok tx →
+        whnf mode env fuel d tx = .ok wtx →
         isUnitLikeTy env wtx = true →
         WScoped d x → x.looseBVarsBounded 0 = true → Expr.LeavesBounded x →
         FvarsOk V m.val env φ d ρ x →

@@ -17,6 +17,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 /-! Projection equations for the pure checker operations: the
@@ -24,15 +26,15 @@ declaration-checker inversions unfold through these (never through
 `fueledOps` itself, so record spellings in hypotheses keep matching). -/
 
 theorem fueledOps_annotate (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).annotate env d e = annotateCore env F d e := rfl
+    (fueledOps mode F).annotate env d e = annotateCore mode env F d e := rfl
 theorem fueledOps_inferType (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).inferType env d e = inferTypeCore env F d e := rfl
+    (fueledOps mode F).inferType env d e = inferTypeCore mode env F d e := rfl
 theorem fueledOps_isDefEq (F : Nat) (env : Env) (d : Nat) (a b : Expr) :
-    (fueledOps F).isDefEq env d a b = isDefEqCore env F d a b := rfl
+    (fueledOps mode F).isDefEq env d a b = isDefEqCore mode env F d a b := rfl
 theorem fueledOps_ensureSort (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).ensureSort env d e = ensureSortCore env F d e := rfl
+    (fueledOps mode F).ensureSort env d e = ensureSortCore mode env F d e := rfl
 theorem fueledOps_whnf (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).whnf env d e = Setlec.whnf env F d e := rfl
+    (fueledOps mode F).whnf env d e = Setlec.whnf mode env F d e := rfl
 
 theorem find?_none_ne {env : Env} {n : Name} (h : env.find? n = none) :
     ∀ c ∈ env.consts, c.name ≠ n := by
@@ -42,7 +44,7 @@ theorem find?_none_ne {env : Env} {n : Name} (h : env.find? n = none) :
 
 /-- Inversion for `checkConstantVal`. -/
 theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
-    (h : checkConstantVal (fueledOps F) env cv = .ok cv') :
+    (h : checkConstantVal (fueledOps mode F) env cv = .ok cv') :
     env.find? cv.name = none ∧
     reservedBasisNames.contains cv.name = false ∧
     cv.name.isProjFnShape = false ∧
@@ -50,11 +52,11 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     cv.type.looseBVarsBounded 0 = true ∧
     cv.type.hasFvar = false ∧
     ∃ type stype u,
-      annotateCore env F 0 cv.type = .ok type ∧
+      annotateCore mode env F 0 cv.type = .ok type ∧
       type.allLevelParamsDefined cv.levelParams = true ∧
       type.constsResolve env = true ∧
-      inferTypeCore env F 0 type = .ok stype ∧
-      ensureSortCore env F 0 stype = .ok u ∧
+      inferTypeCore mode env F 0 type = .ok stype ∧
+      ensureSortCore mode env F 0 stype = .ok u ∧
       cv' = { cv with type := type } := by
   simp only [checkConstantVal, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
@@ -82,7 +84,7 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
   by_cases hif : cv.type.hasFvar = true
   case pos => simp [hif] at h
   simp only [hif] at h
-  cases hann : annotateCore env F 0 cv.type with
+  cases hann : annotateCore mode env F 0 cv.type with
   | error e => rw [hann] at h; exact nomatch h
   | ok type =>
   rw [hann] at h
@@ -93,12 +95,12 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
   by_cases htr : type.constsResolve env = true
   case neg => simp [htr] at h
   simp only [htr] at h
-  cases hst : inferTypeCore env F 0 type with
+  cases hst : inferTypeCore mode env F 0 type with
   | error e => rw [hst] at h; exact nomatch h
   | ok stype =>
   rw [hst] at h
   try dsimp only at h
-  cases hsort : ensureSortCore env F 0 stype with
+  cases hsort : ensureSortCore mode env F 0 stype with
   | error e => rw [hsort] at h; exact nomatch h
   | ok u =>
   rw [hsort] at h

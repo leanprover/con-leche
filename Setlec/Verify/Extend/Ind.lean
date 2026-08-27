@@ -19,6 +19,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 /-- A successful fold's members were all fresh at their own step, hence
@@ -26,13 +28,13 @@ already fresh at any earlier point. -/
 theorem checkIndMember_fold_names {blockNames : List Name}
     {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
-    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+    rest.foldlM (checkIndMember (fueledOps mode F) blockNames caps) env' = .ok env₂ →
     ∀ ci ∈ rest, env'.find? ci.name = none
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, env', env₂, h, ci, hci => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci₀ with
+    cases hstep : checkIndMember (fueledOps mode F) blockNames caps env' ci₀ with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ =>
     rw [hstep] at h
@@ -58,13 +60,13 @@ theorem checkIndMember_fold_names {blockNames : List Name}
 theorem checkIndFold_modelfree {blockNames : List Name}
     {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
-    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+    rest.foldlM (checkIndMember (fueledOps mode F) blockNames caps) env' = .ok env₂ →
     ∀ ci ∈ rest, ci.name.isModelSuffix = false
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, env', env₂, h, ci, hci => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci₀ with
+    cases hstep : checkIndMember (fueledOps mode F) blockNames caps env' ci₀ with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ =>
     rw [hstep] at h
@@ -85,13 +87,13 @@ projection-function-shaped name. -/
 theorem checkIndFold_projshape {blockNames : List Name}
     {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
-    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+    rest.foldlM (checkIndMember (fueledOps mode F) blockNames caps) env' = .ok env₂ →
     ∀ ci ∈ rest, ci.name.isProjFnShape = false
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, env', env₂, h, ci, hci => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci₀ with
+    cases hstep : checkIndMember (fueledOps mode F) blockNames caps env' ci₀ with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ =>
     rw [hstep] at h
@@ -110,7 +112,7 @@ theorem checkIndFold_find_new {blockNames : List Name}
     {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
     (∀ ci ∈ rest, blockNames.contains ci.name = true) →
-    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+    rest.foldlM (checkIndMember (fueledOps mode F) blockNames caps) env' = .ok env₂ →
     ∀ (n : Name) (ci : ConstantInfo), env₂.find? n = some ci →
     env'.find? n = some ci ∨
       (blockNames.contains n = true ∧
@@ -123,7 +125,7 @@ theorem checkIndFold_find_new {blockNames : List Name}
   | ci₀ :: rest, env', env₂, hns, h, n, ci, hf => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci₀ with
+    cases hstep : checkIndMember (fueledOps mode F) blockNames caps env' ci₀ with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_
     rw [hstep] at h
@@ -162,14 +164,14 @@ theorem checkIndFold_find_new {blockNames : List Name}
 constructor. -/
 theorem checkIndFold_kinds {blockNames : List Name} {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
-    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+    rest.foldlM (checkIndMember (fueledOps mode F) blockNames caps) env' = .ok env₂ →
     ∀ ci ∈ rest, (∃ cv caps', ci = .indInfo cv caps') ∨
       ∃ cv nP nF, ci = .ctorInfo cv nP nF
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, env', env₂, h, ci, hci => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci₀ with
+    cases hstep : checkIndMember (fueledOps mode F) blockNames caps env' ci₀ with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ =>
     rw [hstep] at h
@@ -188,7 +190,7 @@ fresh). -/
 theorem checkIndFold_find_preserved {blockNames : List Name}
     {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
-    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+    rest.foldlM (checkIndMember (fueledOps mode F) blockNames caps) env' = .ok env₂ →
     ∀ (n : Name) (ci : ConstantInfo), env'.find? n = some ci →
     env₂.find? n = some ci
   | [], _, _, h, n, ci, hf => by
@@ -198,7 +200,7 @@ theorem checkIndFold_find_preserved {blockNames : List Name}
   | ci₀ :: rest, env', env₂, h, n, ci, hf => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci₀ with
+    cases hstep : checkIndMember (fueledOps mode F) blockNames caps env' ci₀ with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_
     rw [hstep] at h
@@ -243,7 +245,7 @@ def BlockCapsPinned (blockNames : List Name) (caps : IndCaps)
 stored. -/
 theorem checkIndFold_mono {blockNames : List Name} {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
-    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' =
+    rest.foldlM (checkIndMember (fueledOps mode F) blockNames caps) env' =
       .ok env₂ →
     ∀ n, (env'.find? n).isSome = true → (env₂.find? n).isSome = true
   | [], _, _, h, n, hn => by
@@ -252,7 +254,7 @@ theorem checkIndFold_mono {blockNames : List Name} {caps : IndCaps} :
   | ci :: rest, env', env₂, h, n, hn => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember (fueledOps F) blockNames caps env'
+    cases hstep : checkIndMember (fueledOps mode F) blockNames caps env'
         ci with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_
@@ -275,14 +277,14 @@ theorem checkIndFold_mono {blockNames : List Name} {caps : IndCaps} :
 /-- After the member fold every folded member is stored. -/
 theorem checkIndFold_stored {blockNames : List Name} {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
-    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' =
+    rest.foldlM (checkIndMember (fueledOps mode F) blockNames caps) env' =
       .ok env₂ →
     ∀ ci ∈ rest, (env₂.find? ci.name).isSome = true
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, env', env₂, h, ci, hci => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember (fueledOps F) blockNames caps env'
+    cases hstep : checkIndMember (fueledOps mode F) blockNames caps env'
         ci₀ with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_

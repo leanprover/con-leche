@@ -2736,6 +2736,12 @@ per-declaration cache sharing, per-fire iota certification) are in the
 
 ## The verification-tax flag: SETLEC_NO_PROOF_CERTS (task #76)
 
+> **Superseded by task #147**: the flag and `--yolo` are retired.  The
+> cert-skipping engine (`CoreNC`/`CheckerNC`) is now the `--no-model`
+> lane, under a checking-mode front door it did not have — so the
+> front-door caveats below (and the class-B escapes) no longer apply
+> to any shipping mode.  The tax numbers remain the historical record.
+
 `SETLEC_NO_PROOF_CERTS=1` (command-line alias: `--yolo`) is an
 **unverified measurement mode**: it
 selects, once in `Main`, a second driver stack
@@ -2883,6 +2889,13 @@ audit and the sweep that keeps the statement true are in "The yolo
 sweep" below.
 
 ## The infer-only mode: SETLEC_INFER_ONLY (task #134)
+
+> **Superseded by task #147** (see "The three-mode setting"): the
+> flag and its environment variable are retired — the infer-only
+> internal discipline described below lives on as one third of
+> `--no-model`, and the `coreKnotF` front-door pattern as
+> `coreKnotFNC`.  The measurements and the assurance argument remain
+> the record of why the discipline is shaped this way.
 
 `SETLEC_INFER_ONLY=1` (command-line alias: `--infer-only`) is a
 **supported operating mode**, off by default.  It is the reference
@@ -9239,6 +9252,13 @@ three modes.
 
 ## The yolo sweep: a cert-skipping twin had drifted (2026-08-27, task #139)
 
+> **Superseded by task #147**: `SETLEC_NO_PROOF_CERTS`/`--yolo` is
+> retired; the sweep lives on as the `--no-model` sweep against
+> `tests/no-model-expected.txt`, and the class-B argument-position
+> escapes documented below are *caught again* by `--no-model`'s
+> checking-mode front door (only the decline-vs-reject error-class
+> divergence remains recorded).  The drift lesson stands.
+
 **What drifted.**  Task #105 lowered the indexed nested-auxiliary
 certification into the *prefix* context: a `.nested` rule's stored pins
 are instantiated against the recursor application's `rP` prefix
@@ -9592,3 +9612,203 @@ The signature is #136's, not #135's, and
 correctly so: this is a hard certificate inside an install check, so a
 violation declines rather than silently dropping a capability.
 Reverted; byte identity re-confirmed in all three modes.
+
+## The three-mode setting (2026-08-27, task #147)
+
+**The user-ruled shape.**  One three-valued mode replaces the flag
+zoo.  `Setlec.CheckMode` (`Setlec/Kernel/Env.lean`) is validated once
+at startup (`Main.lean`, `parseArgs`) and threaded as configuration —
+the `directStructsEnabled` discipline; nothing re-reads flags at
+runtime.
+
+* **`--set-model` (the DEFAULT)** — the surface the set model proves.
+  The seven TT-lane checks are **off**: #126 `projTeleCert` (the
+  `whnfCore` `.proj` clause), #129 `projParamCert` (the `inferBody`
+  `.proj` clause), #130 `pairEtaCert`'s `projParamCert` tail, #135's
+  eta/unit statement-sort conjunct (`checkEtaThm{,F}` /
+  `checkUnitThm{,F}`), #136's `ctorResidualOk`, #137's callee-side
+  constructor-telescope `iotaCerts` in `structEtaCertWith`, and #146's
+  iota-slot sort check in `checkIotaSidesTy`.  Every always-on
+  certificate family (per-redex beta, per-argument application,
+  proof-irrelevance chains, `etaCert`, `iotaCerts`, `projCert`) keeps
+  running.
+* **`--tt-model`** — the seven on: the pre-#147 certified behavior,
+  and the surface `Setlec/TTVerify` reasons about.
+* **`--no-model`** — the unverified lane, absorbing BOTH retired
+  flags: a full checking-mode front door per declaration
+  (official-kernel parity — NOT the old yolo mode's front-door skip),
+  task #134's infer-only internal discipline, and no certificate
+  families at all.  `--yolo`/`SETLEC_NO_PROOF_CERTS` and
+  `--infer-only`/`SETLEC_INFER_ONLY` are retired as user-facing
+  controls; both the flags and the environment variables now **exit 3
+  with a pointer to the new modes** (never silently ignored — a
+  verdict's provenance must be readable off the invocation).
+
+**Kernel implementation.**  The mode is an explicit first argument on
+exactly the call chains that reach the seven sites: the spec bodies
+(`whnfCoreBody`/`inferBody`/`defeqBody` and the
+`iotaRec`→`majorToCtor`→`structEtaCertWith`,
+`stuckIrrel`→`pairEtaCert` chains), their interned twins, the knots
+(`coreKnot`, `pureFns`, `cachedFns`, `coreKnotI`) and the shared
+`...F` install checks; each site is spelled
+`if mode.ttChecks then <check> else pure true` (Bool conjuncts as
+`!mode.ttChecks || <conjunct>`).  The `--no-model` stack is
+`Setlec/Kernel/CheckerNC.lean` re-pointed: `coreKnotFNC`
+(`Setlec/Kernel/CoreNC.lean`) is the task-#134 `coreKnotF` pattern —
+checking-mode `inferBodyI` at `.noModel` tied to itself over the
+cert-skipping `coreKnotNC` internals, with the `inferFC` checking-mode
+memo and its flush discipline — and the P-driver front doors run on
+it.  `Setlec/Kernel/CoreIO.lean` and `CheckerIO.lean` (the retired
+infer-only stack) and the old Declaration-level NC twin are deleted;
+entry points renamed `checkDeclSPStepNM`/`checkDeclsSPNM`.
+
+**Verify side.**  The seven checks' inversion conjuncts are stated as
+`mode.ttChecks = true → conjunct` inside the existing inversions (the
+#148 interface pin; `pairEtaCert_inv` alone needed the existential
+restructured — `∃ entry` moved under the implication).  The **set
+battery is mode-generic**: `checkDeclsSP_sound` and the
+`no_proof_of_Empty*` families quantify `∀ {mode}` and so cover the
+default — the #148 finding held with zero exceptions: no set-lane
+proof consumed any of the seven (they dropped as `-` or vacuous
+implications; any breakage here was declared a stop-and-report
+finding, and none occurred).  The **TT battery** is pinned:
+`CertifiedConfigTT` (one named Prop) became
+`directStructsEnabled = false ∧ mode = .ttModel`, with
+`.direct`/`.mode_eq`/`.ttChecks` extractors; the TTVerify step files
+state their lemmas at a file-local `private abbrev mode := .ttModel`,
+under which the gated bodies are *definitionally* the pre-#147 ones,
+so the walks went through unchanged and consumers discharge the gated
+conjuncts with `(h rfl)`.
+
+**Config audit** (the #148 vacuity guard): `tests/SetlecTests.lean`
+pins the compiled values — the `CheckMode` default, the
+`CheckMode.ttChecks` wiring on all three constructors, and
+`directStructsEnabled = true` — one `#guard` per value, each naming
+the theorem family that depends on it.
+
+**Tests.**  `tests/arena.sh` runs three sweeps: the certified sections
+at the default, then both suites again with `--tt-model` (SAME
+expectations — a divergence prints `TT-MODEL DIVERGENCE` and is a
+finding) and with `--no-model` (certified expectations plus
+`tests/no-model-expected.txt`, the successor of
+`tests/yolo-expected.txt`).  `--no-sweeps` keeps the tight edit loop.
+The mode_case section pins the two extra modes' smoke verdicts, the
+`--no-model`+split refusal, and the retired flags/env vars erroring.
+The three class-B fixtures of task #139 are **caught again** under
+`--no-model` (the checking-mode front door sees the argument
+positions): `yolo_arg_escape` 1, `yolo_arg_escape_univs` 1 — no
+overrides needed — and `yolo_decline_vs_accept` is the one recorded
+divergence (certified 2, no-model 1: the cert-free lane resolves the
+unsupported-projection stream to "invalid: expected a sort" instead of
+the annotation pass's positive decline — an error-class difference,
+the lane's nature, recorded with its mechanism in the file header).
+
+**Gates** (all green): `lake build` warning-free, `lake test`, arena
+90/92, e2e 72/72, split 11/11, mode flags 10/10, tt-model sweep
+`138 arena + 72 e2e identical to default`, no-model sweep
+`138 arena + 72 e2e as expected (1 recorded divergence)`, axioms
+exactly `[propext, Classical.choice, Quot.sound]` on the ten set-lane
+consistency theorems and the six TT theorems, zero sorries.
+init-prelude (`--pre`, 3653 declarations) is **byte-identical** —
+stdout, stderr, exit — against the pre-change baseline binary in both
+`--tt-model` vs old default and `--set-model` vs old default (every
+one of the seven checks had landed byte-neutral, and stayed so in
+aggregate).
+
+**Negation probes** (the gating must not have made the checks dead at
+`--tt-model`).  #146's slot-sort conjunct negated
+(`isDefEq tα (.sort (.succ ℓA))`): `--tt-model` declines
+`indexed_vec`/`nested_rec` (exit 2) while `--set-model` still accepts
+— alive there, gated here.  #135's eta statement-sort conjunct negated
+(`tbodyM != Expr.sort ℓA` in `checkEtaThmF`): 17 e2e fixtures flip to
+reject under `--tt-model` (the eta capability is denied and
+eta-dependent streams break) while `--set-model` is unaffected.  Both
+probes reverted; suite re-verified green.
+
+**Measured** (instructions:u; init-prelude median of 3, grind-ring-5
+single runs; all runs accept — 3653 resp. 3946 declarations):
+
+| stream | `--set-model` (default) | `--tt-model` | `--no-model` | old default | old `SETLEC_INFER_ONLY` |
+| --- | --- | --- | --- | --- | --- |
+| init-prelude | 33.88 G | 33.98 G | **16.16 G** | 33.88 G | 23.83 G |
+| grind-ring-5 | 127.49 G | 128.06 G | **70.21 G** | 127.76 G | — |
+
+The new default's tax relief (the seven checks off): **−0.31 %**
+init-prelude, −0.45 % grind-ring-5 — the TT lane's whole check budget
+is under half a percent, which is the number task #140 wanted
+re-baselined.  `--no-model` versus the old infer-only mode: 16.16 G
+vs 23.83 G (**−32 %** — the certificate families the old mode kept);
+versus the old yolo mode's recorded 11.34 G it costs +42 % — the
+checking-mode front door's price, paid deliberately (it is what
+catches the class-B escapes).
+
+## Owed records, landed with task #147
+
+The three summaries below were owed by earlier tasks whose data was
+preserved but whose DESIGN entries had not been written; the raw
+files remain the source of truth.
+
+### The certificate-cost decomposition (task #141; data in `_tmp/certprof-141/`)
+
+Per-family leave-one-out on the `Std.Time` cone
+(`_tmp/std-time-cone/pre2.ndjson`, fuel 200 000, infer-only lane,
+`CPMASK` bitmask instrumentation — the patch is preserved as
+`instrumentation.patch`): baseline 808.0 G instructions:u; the twelve
+certificate families decompose as
+
+* **family 2 (the per-redex beta argument re-check) dominates**:
+  masking it alone drops 201.0 G = 24.9 % (13 719 078 fires — the
+  count task #132 reproduced exactly); families 0/1 (iota recursor /
+  constructor telescopes) cost 39.9 G and 15.7 G; every other family
+  is ≤ 0.6 G alone;
+* the joint mask is **superadditive**: families 0–10 together drop
+  569.4 G (70.5 %) against ~257 G for the sum of singles — certified
+  reducts feed later certificates, so families amplify each other;
+  masking all twelve lands at 51.7 G, on the old yolo floor (51.1 G);
+* the memoization probes (`memo.sh`; `CPMEMO` variants) refute the
+  easy fix: memoizing certificate results recovers 0.7 %, memoizing
+  instantiations 3.7 %, both 3.8 % — the cost is in *distinct*
+  certificate work, not repetition.
+
+Consequence: any attempt on the verification tax must attack family 2
+structurally — which is what task #132 then tried and refuted.
+
+### The beta-classifier spike, refuted (task #132; data and RESULTS.txt in `_tmp/beta-classifier-132/`)
+
+The hypothesis: a cheap syntactic classifier (domain/body tier A/B/C —
+structural domains, structural or modeled-former bodies) could clear a
+large share of family-2 fires without running the re-check.  Measured
+on the `Std.Time` cone and a Mathlib-40 % prefix, both lanes, with a
+classify-but-skip-nothing control (`CPBETA=9`) to price the guard:
+
+* the tiers capture **14.2–21.3 %** of *fires* on `Std.Time` but only
+  **2.5–3.6 %** on Mathlib-40 % — and the captured fires are the cheap
+  ones: idealised (zero-cost-guard) savings are **0.27–0.41 %** of the
+  run, 1.31 % of the very family-2 cost the guard aims at;
+* the guard itself costs **+1.9 % / +4.9 %**, so every net number is
+  negative (as implemented: −1.6 % / −4.8 %);
+* the residual is structural, not classifiable: 65 % of kept fires are
+  nested-λ bodies whose innermost body fails the tier test;
+* verdict-neutral throughout (every run accepts identically), so the
+  refutation is purely about cost.
+
+Gate was ≥ 15 % absolute capture; measured ≤ 0.41 % idealised — a miss
+by ~45×, a #124-grade refutation.  Nothing landed; the base commit and
+patch are recorded in the directory.
+
+### The set-lane/seven-checks spike, verdict (task #148; design record in `_tmp/148-design/`)
+
+The spike asked whether the set model's proofs consume any of the
+seven TT-lane checks.  Verdict: **none** — every set-lane derivation
+takes the seven conjuncts as discarded hypotheses (`-` patterns or,
+after task #147, vacuous `mode.ttChecks = true → …` implications).
+Task #147 is the mechanized confirmation: the whole set battery
+(`checkDeclsSP_sound`, the `no_proof_of_Empty*` families and every
+bridge beneath them) re-proved **mode-generically** with the seven
+checks conditioned off at `--set-model`, with zero proof needing a
+gated conjunct.  The cross-task interface this pins: inversion
+lemmas state gated conjuncts as implications *inside* the existing
+statements (no split lemmas were needed; the one structural change is
+`pairEtaCert_inv`, whose `entry` existential moved under the
+implication), so the upcoming set-lane bridge consumes the same
+inversions the TT lane does.

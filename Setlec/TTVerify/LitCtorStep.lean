@@ -20,6 +20,10 @@ the string expansion contributes anything.
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode; the seven gated checks
+reduce definitionally at `.ttModel`. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- **A `Nat` literal's constructor form denotes to the literal.**
@@ -60,7 +64,7 @@ theorem natLitToConstructor_frames {cval : TConstVal} {env : Env}
 
 /-- **`LitMajorToCtorStepTT`, discharged.** -/
 theorem litMajorToCtor_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (ihw : WhnfClaimsTT m φ fuel) :
+    {fuel : Nat} (ihw : WhnfClaimsTT mode m φ fuel) :
     LitMajorToCtorStepTT m φ fuel := by
   intro d Δ e e' v h hws hb hLb hC hv
   match e, h with
@@ -103,7 +107,7 @@ theorem litMajorToCtor_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
 /-- **`ProjLitToCtorStepTT`, discharged.**  The same function without
 the `Nat` fallback. -/
 theorem projLitToCtor_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (ihw : WhnfClaimsTT m φ fuel) :
+    {fuel : Nat} (ihw : WhnfClaimsTT mode m φ fuel) :
     ProjLitToCtorStepTT m φ fuel := by
   intro d Δ e e' v h hws hb hLb hC hv
   match e, h with

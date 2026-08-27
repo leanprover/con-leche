@@ -14,6 +14,8 @@ set_option maxHeartbeats 2000000
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open EStore Expr
 
 section Walks
@@ -22,7 +24,7 @@ variable {env : Env} {f : Nat}
 
 private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
     (kM : Expr → FueledM Expr) (e : Expr) :
-    whnfCoreStepM (fueledFns env) env d kM e =
+    whnfCoreStepM mode (fueledFns mode env) env d kM e =
     (match e with
     | .sort u => pure (.sort u)
     | .fvar idx n ty => pure (.fvar idx n ty)
@@ -31,11 +33,11 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
     | .const n us => pure (.const n us)
     | .lit l => pure (.lit l)
     | .app g' a =>
-      (fueledFns env).whnfCore d (Expr.app g' a).getAppFn >>= fun v =>
-        whnfApp (fueledFns env) env d kM v (Expr.app g' a).getAppArgs
+      (fueledFns mode env).whnfCore d (Expr.app g' a).getAppFn >>= fun v =>
+        whnfApp mode (fueledFns mode env) env d kM v (Expr.app g' a).getAppArgs
     | .proj sn i pe =>
-      (fueledFns env).whnf d pe >>= fun e' =>
-      projLitToCtor (fueledFns env) env d e' >>= fun e' =>
+      (fueledFns mode env).whnf d pe >>= fun e' =>
+      projLitToCtor (fueledFns mode env) env d e' >>= fun e' =>
       match env.findProj? sn i with
       | some entry =>
         match e'.getAppFn with
@@ -43,13 +45,14 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               e'.getAppArgs.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then
-            projCert (fueledFns env) env d e' i
+            projCert (fueledFns mode env) env d e' i
               (Level.subst entry.levelParams us entry.fieldSort)
               (Level.subst entry.levelParams us entry.structSort)
               entry.numParams >>= fun b =>
             if b then
-              projTeleCert (fueledFns env) env d c us e'.getAppArgs >>=
-                fun b₂ =>
+              (if mode.ttChecks then
+                  projTeleCert (fueledFns mode env) env d c us e'.getAppArgs
+                else pure true) >>= fun b₂ =>
               if b₂ then
                 kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
               else pure (.proj sn i e')
@@ -63,20 +66,20 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
   cases e <;> rfl
 
 /-- The stuck/iota tail of `whnfCoreBodyI`'s application case. -/
-private theorem whnfCoreI_iota_tail (ih : SSimI env f) (henv : EnvWF env)
+private theorem whnfCoreI_iota_tail (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {f' a : EIdx} {f'x xa : Expr} {s₀ : IState}
-    (hs : ISOK env s₀) (hf'd : s₀.store.denoteT f' = some f'x)
+    (hs : ISOK mode env s₀) (hf'd : s₀.store.denoteT f' = some f'x)
     (had : s₀.store.denoteT a = some xa)
     (hwf' : WScoped d f'x) (hwa : WScoped d xa) :
-    SimAt env s₀ (RelE d)
+    SimAt mode env s₀ (RelE d)
       (internI (.app f' a) >>= fun fa =>
-        iotaRecI (coreKnotI (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
+        iotaRecI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
         match o with
-        | some e'' => (coreKnotI (mkFEnv env) f).whnfCore d e''
+        | some e'' => (coreKnotI mode (mkFEnv env) f).whnfCore d e''
         | none => pure fa)
-      (iotaRec (fueledFns env) env d (.app f'x xa) >>= fun o =>
+      (iotaRec mode (fueledFns mode env) env d (.app f'x xa) >>= fun o =>
         match o with
-        | some e'' => (fueledFns env).whnfCore d e''
+        | some e'' => (fueledFns mode env).whnfCore d e''
         | none => pure (.app f'x xa)) := by
   have hwapp : WScoped d (Expr.app f'x xa) := by
     simp only [WScoped]
@@ -104,18 +107,18 @@ private theorem whnfCoreI_iota_tail (ih : SSimI env f) (henv : EnvWF env)
 mutual
 
 /-- The bulk-beta argument loop simulates its pure mirror. -/
-theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
+theorem whnfAppI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
     {kI : EIdx → CheckIM EIdx} {kM : Expr → FueledM Expr}
-    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK env s →
+    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK mode env s →
       s.store.denoteT i = some ex → WScoped d ex →
-      SimAt env s (RelE d) (kI i) (kM ex)) :
+      SimAt mode env s (RelE d) (kI i) (kM ex)) :
     ∀ {args : List EIdx} {xs : List Expr} {v : EIdx} {vx : Expr}
-      {s₀ : IState}, ISOK env s₀ →
+      {s₀ : IState}, ISOK mode env s₀ →
       s₀.store.denoteT v = some vx → WScoped d vx →
       DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
-      SimAt env s₀ (RelE d)
-        (whnfAppI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI v args)
-        (whnfApp (fueledFns env) env d kM vx xs)
+      SimAt mode env s₀ (RelE d)
+        (whnfAppI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI v args)
+        (whnfApp mode (fueledFns mode env) env d kM vx xs)
   | [], xs, v, vx, s₀, hs, hv, hwv, hargs, hwargs => by
     match xs, hargs with
     | [], _ =>
@@ -282,26 +285,26 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
   termination_by args _ => (args.length, 0)
 
 /-- The iota arm of the loop simulates its mirror. -/
-theorem whnfAppIotaI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
+theorem whnfAppIotaI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
     {kI : EIdx → CheckIM EIdx} {kM : Expr → FueledM Expr}
-    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK env s →
+    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK mode env s →
       s.store.denoteT i = some ex → WScoped d ex →
-      SimAt env s (RelE d) (kI i) (kM ex))
+      SimAt mode env s (RelE d) (kI i) (kM ex))
     {v a : EIdx} {vx xa : Expr} {rest : List EIdx} {xs : List Expr}
-    {s₀ : IState} (hs : ISOK env s₀)
+    {s₀ : IState} (hs : ISOK mode env s₀)
     (hv : s₀.store.denoteT v = some vx) (hwv : WScoped d vx)
     (hax : s₀.store.denoteT a = some xa) (hwxa : WScoped d xa)
     (hrest : DenL s₀.store rest xs) (hwrest : ∀ x ∈ xs, WScoped d x) :
-    SimAt env s₀ (RelE d)
+    SimAt mode env s₀ (RelE d)
       (internI (.app v a) >>= fun fa =>
-        iotaRecI (coreKnotI (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
+        iotaRecI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
         match o with
         | some e'' =>
           kI e'' >>= fun v' =>
-            whnfAppI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI v' rest
+            whnfAppI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI v' rest
         | none =>
-          whnfAppI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI fa rest)
-      (whnfAppIota (fueledFns env) env d kM vx xa xs) := by
+          whnfAppI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI fa rest)
+      (whnfAppIota mode (fueledFns mode env) env d kM vx xa xs) := by
     unfold whnfAppIota
     have hwapp : WScoped d (.app vx xa) := by
       simp only [WScoped]
@@ -333,19 +336,19 @@ theorem whnfAppIotaI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
   termination_by (rest.length, 1)
 
 /-- The peel loop simulates its pure mirror. -/
-theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
+theorem betaPeelI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
     {kI : EIdx → CheckIM EIdx} {kM : Expr → FueledM Expr}
-    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK env s →
+    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK mode env s →
       s.store.denoteT i = some ex → WScoped d ex →
-      SimAt env s (RelE d) (kI i) (kM ex)) :
+      SimAt mode env s (RelE d) (kI i) (kM ex)) :
     ∀ {args : List EIdx} {xs : List Expr} {t : EIdx} {tx : Expr}
-      {acc : List EIdx} {ws : List Expr} {s₀ : IState}, ISOK env s₀ →
+      {acc : List EIdx} {ws : List Expr} {s₀ : IState}, ISOK mode env s₀ →
       s₀.store.denoteT t = some tx → DenL s₀.store acc ws →
       WScoped d (tx.instantiateList ws) →
       DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
-      SimAt env s₀ (RelE d)
-        (betaPeelI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI t acc args)
-        (betaPeel (fueledFns env) env d kM tx ws xs)
+      SimAt mode env s₀ (RelE d)
+        (betaPeelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI t acc args)
+        (betaPeel mode (fueledFns mode env) env d kM tx ws xs)
   | [], xs, t, tx, acc, ws, s₀, hs, ht, hacc, hwty, hargs, hwargs => by
     match xs, hargs with
     | [], _ =>
@@ -585,16 +588,16 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
 
 end
 
-theorem whnfCoreStepI_sim (ih : SSimI env f) (henv : EnvWF env)
+theorem whnfCoreStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {kI : EIdx → CheckIM EIdx} {kM : Expr → FueledM Expr}
-    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK env s →
+    (hk : ∀ {s : IState} {i : EIdx} {ex : Expr}, ISOK mode env s →
       s.store.denoteT i = some ex → WScoped d ex →
-      SimAt env s (RelE d) (kI i) (kM ex))
-    {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
+      SimAt mode env s (RelE d) (kI i) (kM ex))
+    {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
-    SimAt env s₀ (RelE d)
-      (whnfCoreStepI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI i)
-      (whnfCoreStepM (fueledFns env) env d kM ex) := by
+    SimAt mode env s₀ (RelE d)
+      (whnfCoreStepI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i)
+      (whnfCoreStepM mode (fueledFns mode env) env d kM ex) := by
   unfold whnfCoreStepI
   rw [whnfCoreStepM_unfold]
   refine SimAt.view ?_
@@ -730,14 +733,25 @@ theorem whnfCoreStepI_sim (ih : SSimI env f) (henv : EnvWF env)
           cases b with
           | true =>
             simp only [↓reduceIte]
-            refine SimAt.bind (projTeleCertI_sim ih henv hs₃
-              (denoteN_mono (hextb.trans (((hext₁m.trans hext₂).trans
-                hext₂f).trans hext₃)) hcDen)
-              (denoteLList_mono (((hext₁m.trans hext₂).trans
-                hext₂f).trans hext₃) hlusDen')
-              (hargs.mono (((hext₁m.trans hext₂).trans
-                hext₂f).trans hext₃)) hwe'.getAppArgs)
+            -- task #147: the telescope certification is mode-gated;
+            -- the gate is the same on both sides
+            refine SimAt.bind (P := RelV) ?_
               (fun s₄ b₂ b₂' hs₄ hext₄ hPb₂ => ?_)
+            case _ =>
+              cases htt : mode.ttChecks with
+              | false =>
+                simp only [Bool.false_eq_true, ↓reduceIte]
+                exact SimAt.pure hs₃ rfl
+              | true =>
+                simp only [↓reduceIte]
+                exact projTeleCertI_sim ih henv hs₃
+                  (denoteN_mono (hextb.trans (((hext₁m.trans hext₂).trans
+                    hext₂f).trans hext₃)) hcDen)
+                  (denoteLList_mono (((hext₁m.trans hext₂).trans
+                    hext₂f).trans hext₃) hlusDen')
+                  (hargs.mono (((hext₁m.trans hext₂).trans
+                    hext₂f).trans hext₃)) hwe'.getAppArgs
+            case _ =>
             obtain rfl : b₂ = b₂' := hPb₂
             cases b₂ with
             | true =>
@@ -822,13 +836,13 @@ theorem whnfCoreStepI_sim (ih : SSimI env f) (henv : EnvWF env)
 
 /-- The head-normalization *loop* simulates its mirror, by induction on
 the shared step budget (task #106). -/
-theorem whnfCoreLoopI_sim (ih : SSimI env f) (henv : EnvWF env)
+theorem whnfCoreLoopI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} :
-    ∀ (n : Nat) {i : EIdx} {ex : Expr} {s₀ : IState}, ISOK env s₀ →
+    ∀ (n : Nat) {i : EIdx} {ex : Expr} {s₀ : IState}, ISOK mode env s₀ →
       s₀.store.denoteT i = some ex → WScoped d ex →
-      SimAt env s₀ (RelE d)
-        (whnfCoreLoopI (coreKnotI (mkFEnv env) f) (mkFEnv env) d n i)
-        (whnfCoreLoopM (fueledFns env) env d n ex)
+      SimAt mode env s₀ (RelE d)
+        (whnfCoreLoopI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i)
+        (whnfCoreLoopM mode (fueledFns mode env) env d n ex)
   | 0, _, _, _, _, _, _ => SimAt.throw
   | n + 1, _, _, _, hs, hden, hw => by
     simp only [whnfCoreLoopI, whnfCoreLoopM]
@@ -838,12 +852,12 @@ theorem whnfCoreLoopI_sim (ih : SSimI env f) (henv : EnvWF env)
 /-- The interned head-normalization body simulates the chained
 specification body: the loop run is reproduced by `whnfCoreBody` at
 some knot fuel (`whnfCoreLoop_sound_body`). -/
-theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
-    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem whnfCoreBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
+    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
-    SimAt env s₀ (RelE d)
-      (whnfCoreBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-      (whnfCoreBody (fueledFns env) env d ex) := by
+    SimAt mode env s₀ (RelE d)
+      (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfCoreBody mode (fueledFns mode env) env d ex) := by
   unfold whnfCoreBodyI
   exact SimAt.wr (whnfCoreLoopI_sim ih henv whnfCoreLoopFuel hs hden hw)
     (fun v F hF => whnfCoreLoop_sound_body d ex v whnfCoreLoopFuel F hF)
@@ -856,9 +870,9 @@ variable {env : Env} {f : Nat}
 
 private theorem whnfStep_unfold (env : Env) (d : Nat)
     (kM : Expr → FueledM Expr) (e : Expr) :
-    whnfStep (fueledFns env) env d kM e =
-    ((fueledFns env).whnfCore d e >>= fun e₁ =>
-      reduceNat (fueledFns env) env d e₁ >>= fun o =>
+    whnfStep (fueledFns mode env) env d kM e =
+    ((fueledFns mode env).whnfCore d e >>= fun e₁ =>
+      reduceNat (fueledFns mode env) env d e₁ >>= fun o =>
       match o with
       | some e₂ => kM e₂
       | none =>
@@ -868,16 +882,16 @@ private theorem whnfStep_unfold (env : Env) (d : Nat)
 
 /-- One iteration of the reduction loop simulates its specification
 (task #106; the continuation is abstract, as in the body). -/
-theorem whnfStepI_sim (ih : SSimI env f) (henv : EnvWF env)
+theorem whnfStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {kI : EIdx → CheckIM EIdx} {kM : Expr → FueledM Expr}
-    (hk : ∀ {s : IState} {j : EIdx} {ey : Expr}, ISOK env s →
+    (hk : ∀ {s : IState} {j : EIdx} {ey : Expr}, ISOK mode env s →
       s.store.denoteT j = some ey → WScoped d ey →
-      SimAt env s (RelE d) (kI j) (kM ey))
-    {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
+      SimAt mode env s (RelE d) (kI j) (kM ey))
+    {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
-    SimAt env s₀ (RelE d)
-      (whnfStepI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI i)
-      (whnfStep (fueledFns env) env d kM ex) := by
+    SimAt mode env s₀ (RelE d)
+      (whnfStepI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i)
+      (whnfStep (fueledFns mode env) env d kM ex) := by
   unfold whnfStepI
   rw [whnfStep_unfold]
   refine SimAt.bind (ih.whnfCore hs hden hw)
@@ -915,24 +929,24 @@ theorem whnfStepI_sim (ih : SSimI env f) (henv : EnvWF env)
 
 /-- The reduction loop simulates its specification, by induction on the
 shared step budget (task #106). -/
-theorem whnfLoopI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
-    ∀ (n : Nat) {i : EIdx} {ex : Expr} {s₀ : IState}, ISOK env s₀ →
+theorem whnfLoopI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat} :
+    ∀ (n : Nat) {i : EIdx} {ex : Expr} {s₀ : IState}, ISOK mode env s₀ →
       s₀.store.denoteT i = some ex → WScoped d ex →
-      SimAt env s₀ (RelE d)
-        (whnfLoopI (coreKnotI (mkFEnv env) f) (mkFEnv env) d n i)
-        (whnfLoop (fueledFns env) env d n ex)
+      SimAt mode env s₀ (RelE d)
+        (whnfLoopI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i)
+        (whnfLoop (fueledFns mode env) env d n ex)
   | 0, _, _, _, _, _, _ => SimAt.throw
   | n + 1, _, _, _, hs, hden, hw => by
     simp only [whnfLoopI, whnfLoop]
     exact whnfStepI_sim ih henv
       (fun h1 h2 h3 => whnfLoopI_sim ih henv n h1 h2 h3) hs hden hw
 
-theorem whnfBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
-    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem whnfBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
+    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
-    SimAt env s₀ (RelE d)
-      (whnfBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-      (whnfBody (fueledFns env) env d ex) :=
+    SimAt mode env s₀ (RelE d)
+      (whnfBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfBody (fueledFns mode env) env d ex) :=
   whnfLoopI_sim ih henv whnfLoopFuel hs hden hw
 
 end Walks2
@@ -943,16 +957,16 @@ variable {env : Env} {f : Nat}
 
 set_option maxHeartbeats 4000000 in
 /-- The application-inference spine loop simulates its pure mirror. -/
-theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
+theorem inferSpineI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat} :
     ∀ {args : List EIdx} {xs : List Expr} {ty : EIdx} {tx : Expr}
-      {acc : Array EIdx} {ws : List Expr} {s₀ : IState}, ISOK env s₀ →
+      {acc : Array EIdx} {ws : List Expr} {s₀ : IState}, ISOK mode env s₀ →
       s₀.store.denoteT ty = some tx →
       DenL s₀.store acc.toList.reverse ws →
       WScoped d (tx.instantiateList ws) →
       DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
-      SimAt env s₀ (RelE d)
-        (inferSpineI (coreKnotI (mkFEnv env) f) (mkFEnv env) d ty acc args)
-        (inferSpine (fueledFns env) d tx ws xs)
+      SimAt mode env s₀ (RelE d)
+        (inferSpineI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d ty acc args)
+        (inferSpine (fueledFns mode env) d tx ws xs)
   | [], xs, ty, tx, acc, ws, s₀, hs, ht, hacc, hwty, hargs, hwargs => by
     match xs, hargs with
     | [], _ =>
@@ -1626,12 +1640,12 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         | letE nm' t' v' b' => invert_node hd'; exact SimAt.throw
         | proj s' j' e' => invert_node hd'; exact SimAt.throw
 
-theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
-    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem inferBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
+    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
-    SimAt env s₀ (RelE d)
-      (inferBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-      (inferBody (fueledFns env) env d ex) := by
+    SimAt mode env s₀ (RelE d)
+      (inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (inferBody mode (fueledFns mode env) env d ex) := by
   unfold inferBodyI
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv hden
@@ -1961,9 +1975,20 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
               (entry.ty.instantiateLevelParams entry.levelParams lus) :=
             wscoped_instLevels_of_not_hasFvar
               (henv _ (find?_mem (Env.findProj?_some hfp))).1 _ _
-          refine SimAt.bind (projParamCertI_sim ih hs₃ hQty hwty
-            (htargs.mono hext₃) hwte.getAppArgs)
+          refine SimAt.bind (P := RelV) ?_
             (fun s₃c bp bp' hs₃c hext₃c hPbp => ?_)
+          case _ =>
+            -- task #147: the certification is mode-gated; the gate is
+            -- the same on both sides
+            cases htt : mode.ttChecks with
+            | false =>
+              simp only [Bool.false_eq_true, ↓reduceIte]
+              exact SimAt.pure hs₃ rfl
+            | true =>
+              simp only [↓reduceIte]
+              exact projParamCertI_sim ih hs₃ hQty hwty
+                (htargs.mono hext₃) hwte.getAppArgs
+          case _ =>
           obtain rfl : bp = bp' := hPbp
           cases bp with
           | false => exact SimAt.throw

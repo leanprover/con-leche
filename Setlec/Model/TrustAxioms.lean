@@ -21,6 +21,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {ψ : Name → Nat}
 
 open SetTheory Expr
@@ -337,7 +339,7 @@ theorem reduceCert_sound (m : EnvModel V env) {c : Name} {F : Nat}
     (hAval : AnnotOk V m.val env ψ 0 (rho0 V) value')
     (hkeyv : ∃ v T, interpClosed V m.val env ψ value' = some v ∧
       interpClosed V m.val env ψ (reduceOpCvA c).type = some T ∧ v ∈ˢ T)
-    (hde : isDefEqCore env F 1 (.app value' (reduceCertVar c))
+    (hde : isDefEqCore mode env F 1 (.app value' (reduceCertVar c))
       (reduceCertVar c) = .ok true)
     {x : V} (hx : x ∈ˢ m.val (reduceElemName c) ψ)
     {v : V} (hv : interpClosed V m.val env ψ value' = some v) :

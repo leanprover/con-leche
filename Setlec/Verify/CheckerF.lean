@@ -17,6 +17,8 @@ only the value-level pieces are proven equal.
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 /-- `FEnv.find?` under `mkFEnv`, as a function equation. -/
 theorem mkFEnv_find?_fun (env : Env) :
     FEnv.find? (mkFEnv env) = env.find? :=
@@ -126,26 +128,26 @@ theorem divModCertsGuardF_eq (env : Env) (c : Name) (annVal : Expr) :
 
 theorem checkEtaThmF_eq (env : Env) (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) :
-    checkEtaThmF (mkFEnv env) T ctorName lps nP nF
-      = checkEtaThm env T ctorName lps nP nF := by
+    checkEtaThmF mode (mkFEnv env) T ctorName lps nP nF
+      = checkEtaThm mode env T ctorName lps nP nF := by
   simp only [checkEtaThmF, checkEtaThm, mkFEnv_find?] <;> rfl
 
 theorem checkUnitThmF_eq (env : Env) (T : Name) (lps : List Name)
     (nP : Nat) :
-    checkUnitThmF (mkFEnv env) T lps nP = checkUnitThm env T lps nP := by
+    checkUnitThmF mode (mkFEnv env) T lps nP = checkUnitThm mode env T lps nP := by
   simp only [checkUnitThmF, checkUnitThm, mkFEnv_find?] <;> rfl
 
 theorem indBlockCapsF_eq (env : Env) (cvT cvC : ConstantVal)
     (nP nF : Nat) :
-    indBlockCapsF (mkFEnv env) cvT cvC nP nF
-      = indBlockCaps env cvT cvC nP nF := by
+    indBlockCapsF mode (mkFEnv env) cvT cvC nP nF
+      = indBlockCaps mode env cvT cvC nP nF := by
   simp only [indBlockCapsF, indBlockCaps, checkEtaThmF_eq,
     checkUnitThmF_eq] <;> rfl
 
 theorem ctorResidualOkF_eq (env : Env) (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) (eta : Bool) :
-    ctorResidualOkF (mkFEnv env) T ctorName lps nP nF eta
-      = ctorResidualOk env T ctorName lps nP nF eta := by
+    ctorResidualOkF mode (mkFEnv env) T ctorName lps nP nF eta
+      = ctorResidualOk mode env T ctorName lps nP nF eta := by
   simp only [ctorResidualOkF, ctorResidualOk, mkFEnv_find?] <;> rfl
 
 theorem nestedRuleShapeF_eq (env' envS : Env) (cvName : Name)
@@ -194,9 +196,9 @@ theorem checkIotaThmF_eq (ops : CheckerOps m) (env' envS : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
     (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
     (cnP cnF : Nat) (rhsA : Expr) :
-    checkIotaThmF ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
+    checkIotaThmF mode ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
         mI rP j r cvj cnP cnF rhsA
-      = checkIotaThm ops env' envS f cvName lps tyA
+      = checkIotaThm mode ops env' envS f cvName lps tyA
         mI rP j r cvj cnP cnF rhsA := by
   simp only [checkIotaThmF, checkIotaThm, mkFEnv_findCV?] <;> rfl
 
@@ -204,9 +206,9 @@ theorem checkIotaThmNF_eq (ops : CheckerOps m) (env' envS : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
     (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
     (cnP cnF : Nat) (rhsA : Expr) :
-    checkIotaThmNF ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
+    checkIotaThmNF mode ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
         mI rP j r cvj cnP cnF rhsA
-      = checkIotaThmN ops env' envS f cvName lps tyA
+      = checkIotaThmN mode ops env' envS f cvName lps tyA
         mI rP j r cvj cnP cnF rhsA := by
   simp only [checkIotaThmNF, checkIotaThmN, mkFEnv_findCV?,
     nestedRuleShapeF_eq] <;> rfl
@@ -214,9 +216,9 @@ theorem checkIotaThmNF_eq (ops : CheckerOps m) (env' envS : Env)
 theorem checkIotaRuleF_eq (ops : CheckerOps m) (env' envS : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
     (mI rP j : Nat) (r : RecRule) :
-    checkIotaRuleF ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
+    checkIotaRuleF mode ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
         mI rP j r
-      = checkIotaRule ops env' envS f cvName lps tyA mI rP j r := by
+      = checkIotaRule mode ops env' envS f cvName lps tyA mI rP j r := by
   simp only [checkIotaRuleF, checkIotaRule, mkFEnv_find?,
     constsResolveF_eq, checkIotaThmF_eq, checkIotaThmNF_eq] <;> rfl
 
@@ -224,9 +226,9 @@ theorem checkIotaRulesF_eq (ops : CheckerOps m) (env' envS : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
     (mI rP : Nat) :
     ∀ (j : Nat) (rs : List RecRule),
-      checkIotaRulesF ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
+      checkIotaRulesF mode ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
           mI rP j rs
-        = checkIotaRules ops env' envS f cvName lps tyA mI rP j rs
+        = checkIotaRules mode ops env' envS f cvName lps tyA mI rP j rs
   | _, [] => rfl
   | j, r :: rest => by
     simp only [checkIotaRulesF, checkIotaRules, checkIotaRuleF_eq,
@@ -256,8 +258,8 @@ theorem checkProjRuleF_eq (ops : CheckerOps m) (env : Env) (pty : Expr)
 theorem checkProjIotaF_eq (ops : CheckerOps m) (env : Env)
     (T ctorName : Name)
     (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) :
-    checkProjIotaF ops (mkFEnv env) T ctorName lps cvj nP nF i
-      = checkProjIota ops env env T ctorName lps cvj nP nF i := by
+    checkProjIotaF mode ops (mkFEnv env) T ctorName lps cvj nP nF i
+      = checkProjIota mode ops env env T ctorName lps cvj nP nF i := by
   simp only [checkProjIotaF, checkProjIota, mkFEnv_find?, mkFEnv_env]
     <;> rfl
 
@@ -436,18 +438,18 @@ theorem checkDirectProjF_push (ops : CheckerOps CheckIM) (T C : Name)
 `checkDecl` (at the shared operations) followed by `mkFEnv`. -/
 theorem checkDeclSF_nonind (env : Env) (d : Declaration)
     (hnotind : ∀ block, d ≠ .indDecl block) :
-    checkDeclSF (mkFEnv env) d
-      = checkDecl (sharedOps (mkFEnv env)) env d
+    checkDeclSF mode (mkFEnv env) d
+      = checkDecl mode (sharedOps mode (mkFEnv env)) env d
           >>= fun e => pure (mkFEnv e) := by
   cases d with
   | indDecl block => exact absurd rfl (hnotind block)
   | defnDecl cv value hint =>
     show (do
-        let cv ← checkConstantValF (sharedOps (mkFEnv env))
+        let cv ← checkConstantValF (sharedOps mode (mkFEnv env))
           (mkFEnv env) cv
         if natOpNames.contains cv.name ||
             natDivModNames.contains cv.name then
-          let fe2 ← checkDefnValF (sharedOps (mkFEnv env)) (mkFEnv env)
+          let fe2 ← checkDefnValF (sharedOps mode (mkFEnv env)) (mkFEnv env)
             cv value hint
           if natOpNames.contains cv.name then
             unless natOpGuardF fe2 cv.name &&
@@ -456,7 +458,7 @@ theorem checkDeclSF_nonind (env : Env) (d : Declaration)
                 s!"nonstandard structural Nat operation environment ({cv.name})")
             match fe2.find? cv.name with
             | some (.defnInfo _ value' _) =>
-              let ok ← certifyNatEqs (sharedOps (mkFEnv env))
+              let ok ← certifyNatEqs (sharedOps mode (mkFEnv env))
                 (mkFEnv env).env
                 ((natOpEquations 0 cv.name).map fun eq =>
                   (Expr.substConst0 cv.name value' eq.1,
@@ -467,11 +469,11 @@ theorem checkDeclSF_nonind (env : Env) (d : Declaration)
             | _ => throw (.internal
                 s!"structural Nat operation not stored ({cv.name})")
           if natDivModNames.contains cv.name then
-            checkDivModPinF (sharedOps (mkFEnv env)) (mkFEnv env) fe2
+            checkDivModPinF (sharedOps mode (mkFEnv env)) (mkFEnv env) fe2
               cv.name
           pure fe2
         else
-          checkDefnValF (sharedOps (mkFEnv env)) (mkFEnv env)
+          checkDefnValF (sharedOps mode (mkFEnv env)) (mkFEnv env)
             cv value hint : CheckIM FEnv) = _
     unfold checkDecl
     simp only [checkConstantValF_eq, mkFEnv_env, bind_assoc]
@@ -506,20 +508,20 @@ theorem checkDeclSF_nonind (env : Env) (d : Declaration)
         rfl
   | thmDecl cv value =>
     show (do
-        let cv ← checkConstantValF (sharedOps (mkFEnv env))
+        let cv ← checkConstantValF (sharedOps mode (mkFEnv env))
           (mkFEnv env) cv
-        checkThmValF (sharedOps (mkFEnv env)) (mkFEnv env) cv value :
+        checkThmValF (sharedOps mode (mkFEnv env)) (mkFEnv env) cv value :
         CheckIM FEnv) = _
     unfold checkDecl
     simp only [checkConstantValF_eq, checkThmValF_push, bind_assoc]
   | opaqueDecl cv value =>
     show (do
-        let cv ← checkConstantValF (sharedOps (mkFEnv env))
+        let cv ← checkConstantValF (sharedOps mode (mkFEnv env))
           (mkFEnv env) cv
-        let fe2 ← checkOpaqueValF (sharedOps (mkFEnv env)) (mkFEnv env)
+        let fe2 ← checkOpaqueValF (sharedOps mode (mkFEnv env)) (mkFEnv env)
           cv value
         if reduceOpNames.contains cv.name then
-          checkReducePinF (sharedOps (mkFEnv env)) (mkFEnv env) fe2
+          checkReducePinF (sharedOps mode (mkFEnv env)) (mkFEnv env) fe2
             cv.name value
         pure fe2 : CheckIM FEnv) = _
     unfold checkDecl
@@ -532,7 +534,7 @@ theorem checkDeclSF_nonind (env : Env) (d : Declaration)
       ite_bindI] <;> rfl
   | axiomDecl cv =>
     show (do
-        let cvA ← checkConstantValF (sharedOps (mkFEnv env))
+        let cvA ← checkConstantValF (sharedOps mode (mkFEnv env))
           (mkFEnv env) cv
         if stdAxiomOkF (mkFEnv env) cvA then
           pure ((mkFEnv env).push (.axiomInfo cvA))

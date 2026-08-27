@@ -28,7 +28,7 @@ reverse opening) plus the chain algebra (`instSeq_instRevChain`).
 * `m₀ : EnvTT env₀` is the invariant **at the provisional
   environment** (rule-less recursors installed) — exactly as the model
   takes `EnvModel env₀`, supplied by the transpose of
-  `provisionRecs_sound`.  Together with `hstep : CheckStepTT` (proved,
+  `provisionRecs_sound`.  Together with `hstep : CheckStepTT mode` (proved,
   `checkStepTT`) it turns the kit's install-time checker runs into
   claims.
 * `hslot : IotaSlotSorted` is **the carried premise** named in advance
@@ -55,6 +55,9 @@ set_option maxHeartbeats 12800000
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- **The nested bottom**: a checked nested-auxiliary `iota_j`
@@ -62,7 +65,7 @@ theorem, fired as the stored rule's `RecRulesTT` law (its nested
 parameter premise consumed, its plain premise unused).  All statements
 are at the provisional install environment `env₀`. -/
 theorem IndBottomNestedTT
-    {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat} (hstep : CheckStepTT)
+    {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat} (hstep : CheckStepTT mode)
     {f : Name → Name} (hro : RenameOkT m₀.cval env₀ f)
     (heqfE : env₀.find? eqName = some eqA)
     -- the recursor's public data
@@ -92,7 +95,7 @@ theorem IndBottomNestedTT
     -- the rule's annotated right-hand side
     {rhsA : Expr} (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
-    {rhsTy : Expr} (hinfR : inferTypeCore env₀ F 0 rhsA = .ok rhsTy)
+    {rhsTy : Expr} (hinfR : inferTypeCore mode env₀ F 0 rhsA = .ok rhsTy)
     -- the checked theorem's statement and inhabitant
     {stmtTy : Expr}
     (hSw : stmtTy.hasFvar = false) (hSb : stmtTy.looseBVarsBounded 0 = true)
@@ -121,14 +124,14 @@ theorem IndBottomNestedTT
       ((cvj.type.instantiateLevelParams cvj.levelParams
         lvls).renameConsts f) = some (cdoms, cres))
     (hclen : cres.getAppArgs.length = cnP + (mI - rP))
-    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+    (hdeIdx : DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP))
     {rdoms : List Expr} {rrest : Expr}
     (hrinst : Expr.instPisAt (fvs.take rP) (tyA.renameConsts f) =
       some (rdoms, rrest))
-    (hdePre : DefEqListOk F env₀ (rP + cnF)
+    (hdePre : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms)
-    (hdeFld : DefEqListOk F env₀ (rP + cnF)
+    (hdeFld : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
     -- the kit (public prefix and constructor parameters)
     {fvsP : List Expr} {restP : Expr}
@@ -138,16 +141,16 @@ theorem IndBottomNestedTT
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
       some (cdomsP, crestP))
-    (hTypedP : TypedListOk F env₀ (rP + cnF)
+    (hTypedP : TypedListOk mode F env₀ (rP + cnF)
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       cdomsP)
     -- the right side and both sides' typings
-    (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
+    (hdeRhs : isDefEqCore mode env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
-    (hlhsTyC : ∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
-      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true)
-    (hrhsTyC : ∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
-      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
+    (hlhsTyC : ∃ tl, inferTypeCore mode env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore mode env₀ F (rP + cnF) tl αS = .ok true)
+    (hrhsTyC : ∃ tr, inferTypeCore mode env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore mode env₀ F (rP + cnF) tr αS = .ok true)
     -- the premise nothing supplies yet (DESIGN §16.1)
     (hslot : IotaSlotSorted F env₀ (rP + cnF) αS ℓA) :
     ∀ (φ : Name → Nat) (d : Nat) (us : List Level),
@@ -250,7 +253,7 @@ theorem IndBottomNestedTT
         denote m₀.cval env₀ (Level.substFn φ lps us) i (Expr.fvarTypeD x)
           = some (ΓF.getD (mF - 1 - i) default)) →
       ∀ (a b : Expr) (n : Nat), n ≤ mF → mF ≤ rP + cnF →
-      isDefEqCore env₀ F (rP + cnF) a b = .ok true →
+      isDefEqCore mode env₀ F (rP + cnF) a b = .ok true →
       (∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsF) →
       (∀ l ∈ b.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsF) →
       Expr.WScoped n a → Expr.WScoped n b →
@@ -973,8 +976,8 @@ theorem IndBottomNestedTT
     exact h1
   -- the two sides, typed at the slot
   have hsideTy : ∀ (side : Expr) (vside : VExpr),
-      (∃ ts, inferTypeCore env₀ F (rP + cnF) side = .ok ts ∧
-        isDefEqCore env₀ F (rP + cnF) ts αS = .ok true) →
+      (∃ ts, inferTypeCore mode env₀ F (rP + cnF) side = .ok ts ∧
+        isDefEqCore mode env₀ F (rP + cnF) ts αS = .ok true) →
       Expr.WScoped (rP + cnF) side → side.looseBVarsBounded 0 = true →
       Expr.LeavesBounded side →
       CtxOk m₀.cval env₀ (Level.substFn φ lps us) (rP + cnF) Γs side →

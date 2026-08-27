@@ -23,14 +23,20 @@ caller's caller.
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- Two certified argument lists concatenate. -/
 theorem defEqList_append {env : Env} {fuel d : Nat} :
     ∀ {as as' bs bs' : List Expr},
-      defEqList (pureFns env fuel) env d as as' = .ok true →
-      defEqList (pureFns env fuel) env d bs bs' = .ok true →
-      defEqList (pureFns env fuel) env d (as ++ bs) (as' ++ bs')
+      defEqList (pureFns mode env fuel) env d as as' = .ok true →
+      defEqList (pureFns mode env fuel) env d bs bs' = .ok true →
+      defEqList (pureFns mode env fuel) env d (as ++ bs) (as' ++ bs')
         = .ok true := by
   intro as
   induction as with
@@ -46,7 +52,7 @@ theorem defEqList_append {env : Env} {fuel d : Nat} :
     | cons a' as' =>
       rw [List.cons_append, List.cons_append]
       simp only [defEqList, Bind.bind, Except.bind, defeq_def] at h1 ⊢
-      cases hde : isDefEqCore env fuel d a a' with
+      cases hde : isDefEqCore mode env fuel d a a' with
       | error err => rw [hde] at h1; exact nomatch h1
       | ok r =>
         rw [hde] at h1
@@ -180,9 +186,9 @@ type it reduces itself.  Both consumers get the same lemma. -/
 theorem structEtaCertWith_stepTT {env : Env} (m : EnvTT env)
     (φ : Name → Nat) {fuel : Nat}
     (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {a b wtb : Expr} {va vb W : VExpr}
-    (hcert : structEtaCertWithP env fuel d a b wtb = .ok true)
+    (hcert : structEtaCertWithP mode env fuel d a b wtb = .ok true)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a) (hCa : CtxOk m.cval env φ d Δ a)
     (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
@@ -293,7 +299,7 @@ theorem structEtaCertWith_stepTT {env : Env} (m : EnvTT env)
   obtain ⟨zsC, restC, hfitC⟩ := certs_typed m φ hcl ihd ihi _
     (wtb.getAppArgs ++ (List.range cnF).map fun j =>
       Expr.mkAppN (.const (projFnName T j) us') (wtb.getAppArgs ++ [b]))
-    tv0 hcertsC hwtyC hbtyC hLtyC hCtyC hTVc (fun x hx => by
+    tv0 (hcertsC rfl) hwtyC hbtyC hLtyC hCtyC hTVc (fun x hx => by
       rcases List.mem_append.mp hx with h | h
       · exact hargs x h
       · obtain ⟨j, -, rfl⟩ := List.mem_map.mp h
@@ -532,8 +538,8 @@ theorem structEtaCertWith_stepTT {env : Env} (m : EnvTT env)
 /-- **`StructEtaCertStepTT`, discharged.** -/
 theorem structEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) : StructEtaCertStepTT m φ fuel := by
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel) : StructEtaCertStepTT m φ fuel := by
   intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   obtain ⟨tb, wtb, htb, hwtb, hcert⟩ := structEtaCert_inv h
   obtain ⟨vb', Tb, hvb', hTb, hbT⟩ := ihi htb hwb hbb hLb hCb
@@ -568,8 +574,8 @@ premises and this hypothesis goes away. -/
 theorem stuckIrrel_stepTT_closed {env : Env} (m : EnvTT env)
     (φ : Name → Nat) {fuel : Nat}
     (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) (hpe : PairEtaCertStepTT m φ fuel) :
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel) (hpe : PairEtaCertStepTT m φ fuel) :
     StuckIrrelStepTT m φ fuel :=
   stuckIrrel_stepTT m φ hcl ihw ihd ihi hpe
     (structEtaCert_stepTT m φ hcl ihw ihd ihi)
@@ -580,9 +586,9 @@ blocked certificate. -/
 theorem defeq_claimsTT_pairEta {env : Env} (m : EnvTT env)
     (φ : Name → Nat) {fuel : Nat}
     (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihwc : WhnfCoreClaimsTT m φ fuel) (ihw : WhnfClaimsTT m φ fuel)
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
-    (hpe : PairEtaCertStepTT m φ fuel) : DefEqClaimsTT m φ (fuel + 1) :=
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel) (ihw : WhnfClaimsTT mode m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
+    (hpe : PairEtaCertStepTT m φ fuel) : DefEqClaimsTT mode m φ (fuel + 1) :=
   defeq_claimsTT_stuck m φ hcl ihwc ihw ihd ihi
     (stuckIrrel_stepTT_closed m φ hcl ihw ihd ihi hpe)
     (etaCert_stepTT m φ hcl ihw ihd ihi)

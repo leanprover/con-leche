@@ -33,28 +33,30 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 /-! ## The memoized knot simulates the fueled families -/
 
 theorem cached_whnfCore_sim (env : Env) (henv : EnvWF env) (f : Nat)
-    (ih : ScopedSim env f)
+    (ih : ScopedSim mode env f)
     {d : Nat} {e : Expr} (hg : e.wscopedB d = true) :
-    (simRel env).R ((fueledFns env).whnfCore d e)
-      ((cachedFns env (f + 1)).whnfCore d e) := by
+    (simRel mode env).R ((fueledFns mode env).whnfCore d e)
+      ((cachedFns mode env (f + 1)).whnfCore d e) := by
   intro σ hσ v σ' hrun
-  rw [show (cachedFns env (f + 1)).whnfCore d e =
+  rw [show (cachedFns mode env (f + 1)).whnfCore d e =
     memoE (·.whnfCore) (fun st mp => { st with whnfCore := mp })
-      (fun d e => whnfCoreBody (cachedFns env f) env d e) d e from rfl]
+      (fun d e => whnfCoreBody mode (cachedFns mode env f) env d e) d e from rfl]
     at hrun
-  have hbody : ∀ v σ', whnfCoreBody (cachedFns env f) env d e σ =
+  have hbody : ∀ v σ', whnfCoreBody mode (cachedFns mode env f) env d e σ =
       .ok (v, σ') →
-      (∃ F, whnfCore env (F + 1) d e = .ok v) ∧ CacheOK env σ' := by
+      (∃ F, whnfCore mode env (F + 1) d e = .ok v) ∧ CacheOK mode env σ' := by
     intro v σ' hb
     have hgb := (whnfCoreBody_disc ih henv (WScoped.of_wscopedB hg)
       σ hσ v σ' hb).1
-    have hpair := (whnfCoreBody
-      (pairFns (fueledFns env) (gFns env f) (gFns_rel ih))
+    have hpair := (whnfCoreBody mode
+      (pairFns (fueledFns mode env) (gFns mode env f) (gFns_rel ih))
       env d e).property
     rw [whnfCoreBody_fst_proj, whnfCoreBody_snd_proj] at hpair
     obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ v σ' hgb
@@ -75,7 +77,7 @@ theorem cached_whnfCore_sim (env : Env) (henv : EnvWF env) (f : Nat)
     rw [hl] at hrun
     try dsimp only at hrun
     try simp only [StateT.bind] at hrun
-    cases hb : whnfCoreBody (cachedFns env f) env d e σ with
+    cases hb : whnfCoreBody mode (cachedFns mode env f) env d e σ with
     | error err =>
       rw [hb] at hrun
       simp only [Bind.bind, Except.bind] at hrun
@@ -104,23 +106,23 @@ theorem cached_whnfCore_sim (env : Env) (henv : EnvWF env) (f : Nat)
         exact hσ₁.1 e' r' hl'
 
 theorem cached_whnf_sim (env : Env) (henv : EnvWF env) (f : Nat)
-    (ih : ScopedSim env f)
+    (ih : ScopedSim mode env f)
     {d : Nat} {e : Expr} (hg : e.wscopedB d = true) :
-    (simRel env).R ((fueledFns env).whnf d e)
-      ((cachedFns env (f + 1)).whnf d e) := by
+    (simRel mode env).R ((fueledFns mode env).whnf d e)
+      ((cachedFns mode env (f + 1)).whnf d e) := by
   intro σ hσ v σ' hrun
-  rw [show (cachedFns env (f + 1)).whnf d e =
+  rw [show (cachedFns mode env (f + 1)).whnf d e =
     memoE (·.whnf) (fun st mp => { st with whnf := mp })
-      (fun d e => whnfBody (cachedFns env f) env d e) d e from rfl]
+      (fun d e => whnfBody (cachedFns mode env f) env d e) d e from rfl]
     at hrun
-  have hbody : ∀ v σ', whnfBody (cachedFns env f) env d e σ =
+  have hbody : ∀ v σ', whnfBody (cachedFns mode env f) env d e σ =
       .ok (v, σ') →
-      (∃ F, whnf env (F + 1) d e = .ok v) ∧ CacheOK env σ' := by
+      (∃ F, whnf mode env (F + 1) d e = .ok v) ∧ CacheOK mode env σ' := by
     intro v σ' hb
     have hgb := (whnfBody_disc ih henv (WScoped.of_wscopedB hg)
       σ hσ v σ' hb).1
     have hpair := (whnfBody
-      (pairFns (fueledFns env) (gFns env f) (gFns_rel ih))
+      (pairFns (fueledFns mode env) (gFns mode env f) (gFns_rel ih))
       env d e).property
     rw [whnfBody_fst_proj, whnfBody_snd_proj] at hpair
     obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ v σ' hgb
@@ -141,7 +143,7 @@ theorem cached_whnf_sim (env : Env) (henv : EnvWF env) (f : Nat)
     rw [hl] at hrun
     try dsimp only at hrun
     try simp only [StateT.bind] at hrun
-    cases hb : whnfBody (cachedFns env f) env d e σ with
+    cases hb : whnfBody (cachedFns mode env f) env d e σ with
     | error err =>
       rw [hb] at hrun
       simp only [Bind.bind, Except.bind] at hrun
@@ -170,23 +172,23 @@ theorem cached_whnf_sim (env : Env) (henv : EnvWF env) (f : Nat)
         exact hσ₁.2.1 e' r' hl'
 
 theorem cached_infer_sim (env : Env) (henv : EnvWF env) (f : Nat)
-    (ih : ScopedSim env f)
+    (ih : ScopedSim mode env f)
     {d : Nat} {e : Expr} (hg : e.wscopedB d = true) :
-    (simRel env).R ((fueledFns env).infer d e)
-      ((cachedFns env (f + 1)).infer d e) := by
+    (simRel mode env).R ((fueledFns mode env).infer d e)
+      ((cachedFns mode env (f + 1)).infer d e) := by
   intro σ hσ v σ' hrun
-  rw [show (cachedFns env (f + 1)).infer d e =
+  rw [show (cachedFns mode env (f + 1)).infer d e =
     memoE (·.infer) (fun st mp => { st with infer := mp })
-      (fun d e => inferBody (cachedFns env f) env d e) d e from rfl]
+      (fun d e => inferBody mode (cachedFns mode env f) env d e) d e from rfl]
     at hrun
-  have hbody : ∀ v σ', inferBody (cachedFns env f) env d e σ =
+  have hbody : ∀ v σ', inferBody mode (cachedFns mode env f) env d e σ =
       .ok (v, σ') →
-      (∃ F, inferTypeCore env (F + 1) d e = .ok v) ∧ CacheOK env σ' := by
+      (∃ F, inferTypeCore mode env (F + 1) d e = .ok v) ∧ CacheOK mode env σ' := by
     intro v σ' hb
     have hgb := (inferBody_disc ih henv (WScoped.of_wscopedB hg)
       σ hσ v σ' hb).1
-    have hpair := (inferBody
-      (pairFns (fueledFns env) (gFns env f) (gFns_rel ih))
+    have hpair := (inferBody mode
+      (pairFns (fueledFns mode env) (gFns mode env f) (gFns_rel ih))
       env d e).property
     rw [inferBody_fst_proj, inferBody_snd_proj] at hpair
     obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ v σ' hgb
@@ -207,7 +209,7 @@ theorem cached_infer_sim (env : Env) (henv : EnvWF env) (f : Nat)
     rw [hl] at hrun
     try dsimp only at hrun
     try simp only [StateT.bind] at hrun
-    cases hb : inferBody (cachedFns env f) env d e σ with
+    cases hb : inferBody mode (cachedFns mode env f) env d e σ with
     | error err =>
       rw [hb] at hrun
       simp only [Bind.bind, Except.bind] at hrun
@@ -236,23 +238,23 @@ theorem cached_infer_sim (env : Env) (henv : EnvWF env) (f : Nat)
         exact hσ₁.2.2.1 e' r' hl'
 
 theorem cached_annotate_sim (env : Env) (henv : EnvWF env) (f : Nat)
-    (ih : ScopedSim env f)
+    (ih : ScopedSim mode env f)
     {d : Nat} {e : Expr} (hg : e.wscopedB d = true) :
-    (simRel env).R ((fueledFns env).annotate d e)
-      ((cachedFns env (f + 1)).annotate d e) := by
+    (simRel mode env).R ((fueledFns mode env).annotate d e)
+      ((cachedFns mode env (f + 1)).annotate d e) := by
   intro σ hσ v σ' hrun
-  rw [show (cachedFns env (f + 1)).annotate d e =
+  rw [show (cachedFns mode env (f + 1)).annotate d e =
     memoE (·.annot) (fun st mp => { st with annot := mp })
-      (fun d e => annotateBody (cachedFns env f) env d e) d e from rfl]
+      (fun d e => annotateBody (cachedFns mode env f) env d e) d e from rfl]
     at hrun
-  have hbody : ∀ v σ', annotateBody (cachedFns env f) env d e σ =
+  have hbody : ∀ v σ', annotateBody (cachedFns mode env f) env d e σ =
       .ok (v, σ') →
-      (∃ F, annotateCore env (F + 1) d e = .ok v) ∧ CacheOK env σ' := by
+      (∃ F, annotateCore mode env (F + 1) d e = .ok v) ∧ CacheOK mode env σ' := by
     intro v σ' hb
     have hgb := (annotateBody_disc ih henv (WScoped.of_wscopedB hg)
       σ hσ v σ' hb).1
     have hpair := (annotateBody
-      (pairFns (fueledFns env) (gFns env f) (gFns_rel ih))
+      (pairFns (fueledFns mode env) (gFns mode env f) (gFns_rel ih))
       env d e).property
     rw [annotateBody_fst_proj, annotateBody_snd_proj] at hpair
     obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ v σ' hgb
@@ -273,7 +275,7 @@ theorem cached_annotate_sim (env : Env) (henv : EnvWF env) (f : Nat)
     rw [hl] at hrun
     try dsimp only at hrun
     try simp only [StateT.bind] at hrun
-    cases hb : annotateBody (cachedFns env f) env d e σ with
+    cases hb : annotateBody (cachedFns mode env f) env d e σ with
     | error err =>
       rw [hb] at hrun
       simp only [Bind.bind, Except.bind] at hrun
@@ -302,23 +304,23 @@ theorem cached_annotate_sim (env : Env) (henv : EnvWF env) (f : Nat)
         exact hσ₁.2.2.2.2 e' r' hl'
 
 theorem cached_defeq_sim (env : Env) (henv : EnvWF env) (f : Nat)
-    (ih : ScopedSim env f)
+    (ih : ScopedSim mode env f)
     {d : Nat} {a b : Expr} (hga : a.wscopedB d = true)
     (hgb : b.wscopedB d = true) :
-    (simRel env).R ((fueledFns env).defeq d a b)
-      ((cachedFns env (f + 1)).defeq d a b) := by
+    (simRel mode env).R ((fueledFns mode env).defeq d a b)
+      ((cachedFns mode env (f + 1)).defeq d a b) := by
   intro σ hσ v σ' hrun
-  rw [show (cachedFns env (f + 1)).defeq d a b =
-    memoB (fun d a b => defeqBody (cachedFns env f) env d a b) d a b
+  rw [show (cachedFns mode env (f + 1)).defeq d a b =
+    memoB (fun d a b => defeqBody mode (cachedFns mode env f) env d a b) d a b
       from rfl] at hrun
-  have hbody : ∀ v σ', defeqBody (cachedFns env f) env d a b σ =
+  have hbody : ∀ v σ', defeqBody mode (cachedFns mode env f) env d a b σ =
       .ok (v, σ') →
-      (∃ F, isDefEqCore env (F + 1) d a b = .ok v) ∧ CacheOK env σ' := by
+      (∃ F, isDefEqCore mode env (F + 1) d a b = .ok v) ∧ CacheOK mode env σ' := by
     intro v σ' hb
     have hgbody := (defeqBody_disc ih henv (WScoped.of_wscopedB hga)
       (WScoped.of_wscopedB hgb) σ hσ v σ' hb).1
-    have hpair := (defeqBody
-      (pairFns (fueledFns env) (gFns env f) (gFns_rel ih))
+    have hpair := (defeqBody mode
+      (pairFns (fueledFns mode env) (gFns mode env f) (gFns_rel ih))
       env d a b).property
     rw [defeqBody_fst_proj, defeqBody_snd_proj] at hpair
     obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ v σ' hgbody
@@ -339,7 +341,7 @@ theorem cached_defeq_sim (env : Env) (henv : EnvWF env) (f : Nat)
     rw [hl] at hrun
     try dsimp only at hrun
     try simp only [StateT.bind] at hrun
-    cases hb : defeqBody (cachedFns env f) env d a b σ with
+    cases hb : defeqBody mode (cachedFns mode env f) env d a b σ with
     | error err =>
       rw [hb] at hrun
       simp only [Bind.bind, Except.bind] at hrun
@@ -372,7 +374,7 @@ theorem cached_defeq_sim (env : Env) (henv : EnvWF env) (f : Nat)
 /-- The memoized knot simulates the fueled families at every level, on
 well-scoped arguments (well-formed environments). -/
 theorem scopedSim (env : Env) (henv : EnvWF env) :
-    ∀ f, ScopedSim env f
+    ∀ f, ScopedSim mode env f
   | 0 =>
     { whnfCore := fun {_ _} _ _ _ _ _ hrun => nomatch hrun
       whnf := fun {_ _} _ _ _ _ _ hrun => nomatch hrun
@@ -401,43 +403,43 @@ consistency layer's call sites. -/
 
 theorem cachedOps_whnf_bridge {env : Env} (henv : EnvWF env)
     {d : Nat} {e v : Expr} (hg : e.wscopedB d = true)
-    (h : cachedOps.whnf env d e = .ok v) :
-    ∃ F, whnf env F d e = .ok v :=
-  runEntryE_bridge (pf := (fueledFns env).whnf d e)
+    (h : (cachedOps mode).whnf env d e = .ok v) :
+    ∃ F, whnf mode env F d e = .ok v :=
+  runEntryE_bridge (pf := (fueledFns mode env).whnf d e)
     (fun hs hden => (ssimI env henv checkFuel).whnf hs hden
       (WScoped.of_wscopedB hg)) h
 
 theorem cachedOps_inferType_bridge {env : Env} (henv : EnvWF env)
     {d : Nat} {e v : Expr} (hg : e.wscopedB d = true)
-    (h : cachedOps.inferType env d e = .ok v) :
-    ∃ F, inferTypeCore env F d e = .ok v :=
-  runEntryE_bridge (pf := (fueledFns env).infer d e)
+    (h : (cachedOps mode).inferType env d e = .ok v) :
+    ∃ F, inferTypeCore mode env F d e = .ok v :=
+  runEntryE_bridge (pf := (fueledFns mode env).infer d e)
     (fun hs hden => (ssimI env henv checkFuel).infer hs hden
       (WScoped.of_wscopedB hg)) h
 
 theorem cachedOps_isDefEq_bridge {env : Env} (henv : EnvWF env)
     {d : Nat} {a b : Expr} {v : Bool} (hga : a.wscopedB d = true)
     (hgb : b.wscopedB d = true)
-    (h : cachedOps.isDefEq env d a b = .ok v) :
-    ∃ F, isDefEqCore env F d a b = .ok v :=
-  runEntryB_bridge (pf := (fueledFns env).defeq d a b)
+    (h : (cachedOps mode).isDefEq env d a b = .ok v) :
+    ∃ F, isDefEqCore mode env F d a b = .ok v :=
+  runEntryB_bridge (pf := (fueledFns mode env).defeq d a b)
     (fun hs hdena hdenb => (ssimI env henv checkFuel).defeq hs hdena
       hdenb (WScoped.of_wscopedB hga) (WScoped.of_wscopedB hgb)) h
 
 theorem cachedOps_annotate_bridge {env : Env} (henv : EnvWF env)
     {d : Nat} {e v : Expr} (hg : e.wscopedB d = true)
-    (h : cachedOps.annotate env d e = .ok v) :
-    ∃ F, annotateCore env F d e = .ok v :=
-  runEntryE_bridge (pf := (fueledFns env).annotate d e)
+    (h : (cachedOps mode).annotate env d e = .ok v) :
+    ∃ F, annotateCore mode env F d e = .ok v :=
+  runEntryE_bridge (pf := (fueledFns mode env).annotate d e)
     (fun hs hden => (ssimI env henv checkFuel).annotate hs hden
       (WScoped.of_wscopedB hg)) h
 
 theorem cachedOps_ensureSort_bridge {env : Env} (henv : EnvWF env)
     {d : Nat} {e : Expr} {u : Level} (hg : e.wscopedB d = true)
-    (h : cachedOps.ensureSort env d e = .ok u) :
-    ∃ F, ensureSortCore env F d e = .ok u := by
+    (h : (cachedOps mode).ensureSort env d e = .ok u) :
+    ∃ F, ensureSortCore mode env F d e = .ok u := by
   obtain ⟨F, hF⟩ := runEntryS_bridge
-    (pf := ensureSort (fueledFns env) env d e)
+    (pf := ensureSort (fueledFns mode env) env d e)
     (fun hs hden => ensureSortI_sim (ssimI env henv checkFuel) hs hden
       (WScoped.of_wscopedB hg)) h
   rw [ensureSort_atF, ensureSort_def] at hF

@@ -11,6 +11,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
@@ -18,15 +20,15 @@ open SetTheory Expr
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 set_option maxHeartbeats 3200000 in
 theorem defeq_claims (m : EnvModel V env)
-    (ihwc : WhnfCoreClaims m φ fuel)
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel) :
-    DefEqClaims m φ (fuel + 1) := by
+    (ihwc : WhnfCoreClaims mode m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel) :
+    DefEqClaims mode m φ (fuel + 1) := by
   -- Task #106: the literal-acceleration and lazy-delta chain is
   -- iteration on the loop's own step budget, so the claim is an
   -- induction on that budget at the *same* knot fuel; `ihwc`, `ihw`,
@@ -34,7 +36,7 @@ theorem defeq_claims (m : EnvModel V env)
   -- knot (head normalization, proof irrelevance, the structural
   -- congruences).
   suffices hloop : ∀ (n : Nat) {d : Nat} {a b : Expr} {ρ : Nat → V},
-      defeqLoop (pureFns env fuel) env d n a b = .ok true →
+      defeqLoop mode (pureFns mode env fuel) env d n a b = .ok true →
       WScoped d a → WScoped d b →
       a.looseBVarsBounded 0 = true → b.looseBVarsBounded 0 = true →
       Expr.LeavesBounded a → Expr.LeavesBounded b →
@@ -62,12 +64,12 @@ theorem defeq_claims (m : EnvModel V env)
     rw [hva] at hvb
     exact Option.some.inj hvb
   rw [if_neg heqab] at h
-  cases hwha : whnfCore env fuel d a with
+  cases hwha : whnfCore mode env fuel d a with
   | error e => rw [hwha] at h; exact nomatch h
   | ok a' =>
   rw [hwha] at h
   dsimp only at h
-  cases hwhb : whnfCore env fuel d b with
+  cases hwhb : whnfCore mode env fuel d b with
   | error e => rw [hwhb] at h; exact nomatch h
   | ok b' =>
   rw [hwhb] at h
@@ -88,7 +90,7 @@ theorem defeq_claims (m : EnvModel V env)
   have hoka' := whnfCore_FvarsOk m.wf fuel hwha hoka
   have hokb' := whnfCore_FvarsOk m.wf fuel hwhb hokb
   clear hwha hwhb hwa hwb haa hab hia hib hba hbb hLba hLbb hoka hokb
-  have hPI : stuckIrrelP env fuel d a' b' = .ok true → va = vb := fun hp =>
+  have hPI : stuckIrrelP mode env fuel d a' b' = .ok true → va = vb := fun hp =>
     stuckIrrel_sound ihw ihd ihi hp hwa' hwb' hba' hbb' hLba' hLbb'
       hoka' hokb' haa' hab' hva hvb
   by_cases heqab' : (a' == b') = true
@@ -98,7 +100,7 @@ theorem defeq_claims (m : EnvModel V env)
   rw [if_neg heqab'] at h
   -- proof irrelevance, hoisted before lazy delta (official kernel
   -- order): a positive certification collapses both sides to `pt`
-  cases hpi : proofIrrelP env fuel d a' b' with
+  cases hpi : proofIrrelP mode env fuel d a' b' with
   | error e => rw [hpi] at h; exact nomatch h
   | ok rpi =>
   rw [hpi] at h
@@ -118,14 +120,14 @@ theorem defeq_claims (m : EnvModel V env)
   -- result always comes from `reduceNatP` and `reduceNat_sound`
   -- applies unchanged
   cases hrna : (if !a'.hasFvar && !b'.hasFvar then
-      reduceNatP env fuel d a' else pure none) with
+      reduceNatP mode env fuel d a' else pure none) with
   | error e => rw [hrna] at h; exact nomatch h
   | ok oa =>
   rw [hrna] at h
   dsimp only at h
   cases oa with
   | some a₂ =>
-    have hrna' : reduceNatP env fuel d a' = .ok (some a₂) := by
+    have hrna' : reduceNatP mode env fuel d a' = .ok (some a₂) := by
       by_cases hg : (!a'.hasFvar && !b'.hasFvar) = true
       · rwa [if_pos hg] at hrna
       · rw [if_neg hg] at hrna
@@ -137,14 +139,14 @@ theorem defeq_claims (m : EnvModel V env)
   | none =>
   dsimp only at h
   cases hrnb : (if !a'.hasFvar && !b'.hasFvar then
-      reduceNatP env fuel d b' else pure none) with
+      reduceNatP mode env fuel d b' else pure none) with
   | error e => rw [hrnb] at h; exact nomatch h
   | ok ob =>
   rw [hrnb] at h
   dsimp only at h
   cases ob with
   | some b₂ =>
-    have hrnb' : reduceNatP env fuel d b' = .ok (some b₂) := by
+    have hrnb' : reduceNatP mode env fuel d b' = .ok (some b₂) := by
       by_cases hg : (!a'.hasFvar && !b'.hasFvar) = true
       · rwa [if_pos hg] at hrnb
       · rw [if_neg hg] at hrnb
@@ -162,7 +164,7 @@ theorem defeq_claims (m : EnvModel V env)
   -- argument.  The `pure false` slots are unreachable and vacuous.
   have hLeft : ∀ {x y : Expr},
       (match unfoldDefinition env x with
-        | some a₂ => defeqLoop (pureFns env fuel) env d n a₂ y
+        | some a₂ => defeqLoop mode (pureFns mode env fuel) env d n a₂ y
         | none => pure false) = .ok true →
       WScoped d x → WScoped d y →
       x.looseBVarsBounded 0 = true → y.looseBVarsBounded 0 = true →
@@ -182,7 +184,7 @@ theorem defeq_claims (m : EnvModel V env)
         (by rw [hi2]; exact hvx) hvy
   have hRight : ∀ {x y : Expr},
       (match unfoldDefinition env y with
-        | some b₂ => defeqLoop (pureFns env fuel) env d n x b₂
+        | some b₂ => defeqLoop mode (pureFns mode env fuel) env d n x b₂
         | none => pure false) = .ok true →
       WScoped d x → WScoped d y →
       x.looseBVarsBounded 0 = true → y.looseBVarsBounded 0 = true →
@@ -202,7 +204,7 @@ theorem defeq_claims (m : EnvModel V env)
         hvx (by rw [hi3]; exact hvy)
   have hBoth : ∀ {x y : Expr},
       (match unfoldDefinition env x, unfoldDefinition env y with
-        | some a₂, some b₂ => defeqLoop (pureFns env fuel) env d n a₂ b₂
+        | some a₂, some b₂ => defeqLoop mode (pureFns mode env fuel) env d n a₂ b₂
         | _, _ => pure false) = .ok true →
       WScoped d x → WScoped d y →
       x.looseBVarsBounded 0 = true → y.looseBVarsBounded 0 = true →
@@ -252,7 +254,7 @@ theorem defeq_claims (m : EnvModel V env)
       case isTrue =>
         -- same-head short-circuit; a negative verdict falls back to
         -- unfolding both sides
-        cases hsp : defeqSpineP env fuel d a' b' with
+        cases hsp : defeqSpineP mode env fuel d a' b' with
         | error e => rw [hsp] at h; exact nomatch h
         | ok r =>
         rw [hsp] at h
@@ -342,7 +344,7 @@ theorem defeq_claims (m : EnvModel V env)
     simp only [AnnotOk] at haa' hab'
     obtain ⟨haty₁, hcond₁⟩ := haa'
     obtain ⟨haty₂, hcond₂⟩ := hab'
-    cases hd1 : isDefEqCore env fuel d ty₁ ty₂ with
+    cases hd1 : isDefEqCore mode env fuel d ty₁ ty₂ with
     | error e => rw [hd1] at h; exact nomatch h
     | ok r₁ =>
     rw [hd1] at h
@@ -351,7 +353,7 @@ theorem defeq_claims (m : EnvModel V env)
     | false => simp [pure, Except.pure] at h
     | true =>
     simp only [] at h
-    cases hd2 : isDefEqCore env fuel (d + 1)
+    cases hd2 : isDefEqCore mode env fuel (d + 1)
         (body₁.instantiate1 (.fvar d n₁ ty₁)) (body₂.instantiate1 (.fvar d n₂ ty₂)) with
     | error e => rw [hd2] at h; exact nomatch h
     | ok r₂ =>
@@ -417,7 +419,7 @@ theorem defeq_claims (m : EnvModel V env)
     simp only [AnnotOk] at haa' hab'
     obtain ⟨haty₁, hcond₁⟩ := haa'
     obtain ⟨haty₂, hcond₂⟩ := hab'
-    cases hd1 : isDefEqCore env fuel d ty₁ ty₂ with
+    cases hd1 : isDefEqCore mode env fuel d ty₁ ty₂ with
     | error e => rw [hd1] at h; exact nomatch h
     | ok r₁ =>
     rw [hd1] at h
@@ -426,7 +428,7 @@ theorem defeq_claims (m : EnvModel V env)
     | false => simp [pure, Except.pure] at h
     | true =>
     simp only [] at h
-    cases hd2 : isDefEqCore env fuel (d + 1)
+    cases hd2 : isDefEqCore mode env fuel (d + 1)
         (body₁.instantiate1 (.fvar d n₁ ty₁)) (body₂.instantiate1 (.fvar d n₂ ty₂)) with
     | error e => rw [hd2] at h; exact nomatch h
     | ok r₂ =>
@@ -490,7 +492,7 @@ theorem defeq_claims (m : EnvModel V env)
       rw [if_neg hlen] at h
       exact hPI h
     rw [if_pos hlen] at h
-    cases hd1 : isDefEqCore env fuel d (Expr.app f₁ a₁).getAppFn
+    cases hd1 : isDefEqCore mode env fuel d (Expr.app f₁ a₁).getAppFn
         (Expr.app f₂ a₂).getAppFn with
     | error e => rw [hd1] at h; exact nomatch h
     | ok r₁ =>
@@ -502,7 +504,7 @@ theorem defeq_claims (m : EnvModel V env)
       exact hPI h
     | true =>
     simp only [↓reduceIte] at h
-    cases hd2 : defEqListP env fuel d (Expr.app f₁ a₁).getAppArgs
+    cases hd2 : defEqListP mode env fuel d (Expr.app f₁ a₁).getAppArgs
         (Expr.app f₂ a₂).getAppArgs with
     | error e => rw [hd2] at h; exact nomatch h
     | ok r₂ =>
@@ -812,7 +814,7 @@ theorem defeq_claims (m : EnvModel V env)
     split at h
     case _ hi =>
       try simp only [Bind.bind, Except.bind] at h
-      cases hd : isDefEqCore env fuel d e₁ e₂ with
+      cases hd : isDefEqCore mode env fuel d e₁ e₂ with
       | error e => rw [hd] at h; exact nomatch h
       | ok r =>
       rw [hd] at h

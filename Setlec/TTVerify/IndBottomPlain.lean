@@ -21,7 +21,7 @@ directly, so nothing ever walks the λ-tower.
 * `m₀ : EnvTT env₀` is the invariant **at the provisional
   environment** (rule-less recursors installed) — exactly as the model
   takes `EnvModel env₀`, supplied by the transpose of
-  `provisionRecs_sound`.  Together with `hstep : CheckStepTT` (proved,
+  `provisionRecs_sound`.  Together with `hstep : CheckStepTT mode` (proved,
   `checkStepTT`) it turns the kit's install-time checker runs into
   claims.
 * `hslot : IotaSlotSorted` is **the carried premise** named in advance
@@ -48,6 +48,9 @@ set_option maxHeartbeats 3200000
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- **The plain bottom**: a checked canonical `iota_j` theorem, fired
@@ -56,7 +59,7 @@ provisional install environment `env₀`; the assembly transports the
 law to the final environment (recursors with their rules swapped in),
 exactly as the model's `SwapList` step does. -/
 theorem IndBottomPlainTT
-    {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat} (hstep : CheckStepTT)
+    {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat} (hstep : CheckStepTT mode)
     {f : Name → Name} (hro : RenameOkT m₀.cval env₀ f)
     (heqfE : env₀.find? eqName = some eqA)
     -- the recursor's public data
@@ -80,7 +83,7 @@ theorem IndBottomPlainTT
     -- the rule's annotated right-hand side
     {rhsA : Expr} (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
-    {rhsTy : Expr} (hinfR : inferTypeCore env₀ F 0 rhsA = .ok rhsTy)
+    {rhsTy : Expr} (hinfR : inferTypeCore mode env₀ F 0 rhsA = .ok rhsTy)
     -- the checked theorem's statement and inhabitant
     {stmtTy : Expr}
     (hSw : stmtTy.hasFvar = false) (hSb : stmtTy.looseBVarsBounded 0 = true)
@@ -102,14 +105,14 @@ theorem IndBottomPlainTT
     (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP)
       (cvj.type.renameConsts f) = some (cdoms, cres))
     (hclen : cres.getAppArgs.length = cnP + (mI - rP))
-    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+    (hdeIdx : DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP))
     {rdoms : List Expr} {rrest : Expr}
     (hrinst : Expr.instPisAt (fvs.take rP) (tyA.renameConsts f) =
       some (rdoms, rrest))
-    (hdePre : DefEqListOk F env₀ (rP + cnF)
+    (hdePre : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms)
-    (hdeFld : DefEqListOk F env₀ (rP + cnF)
+    (hdeFld : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
     -- the kit (public prefix and constructor parameters)
     {fvsP : List Expr} {restP : Expr}
@@ -117,15 +120,15 @@ theorem IndBottomPlainTT
     {cdomsP : List Expr} {crestP : Expr}
     (hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type =
       some (cdomsP, crestP))
-    (hdePars : DefEqListOk F env₀ (rP + cnF)
+    (hdePars : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP)
     -- the right side and both sides' typings
-    (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
+    (hdeRhs : isDefEqCore mode env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
-    (hlhsTyC : ∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
-      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true)
-    (hrhsTyC : ∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
-      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
+    (hlhsTyC : ∃ tl, inferTypeCore mode env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore mode env₀ F (rP + cnF) tl αS = .ok true)
+    (hrhsTyC : ∃ tr, inferTypeCore mode env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore mode env₀ F (rP + cnF) tr αS = .ok true)
     -- the premise nothing supplies yet (DESIGN §16.1)
     (hslot : IotaSlotSorted F env₀ (rP + cnF) αS ℓA) :
     ∀ (φ : Name → Nat) (d : Nat) (us : List Level),
@@ -778,8 +781,8 @@ theorem IndBottomPlainTT
     exact h1
   -- the two sides, typed at the slot
   have hsideTy : ∀ (side : Expr) (vside : VExpr),
-      (∃ ts, inferTypeCore env₀ F (rP + cnF) side = .ok ts ∧
-        isDefEqCore env₀ F (rP + cnF) ts αS = .ok true) →
+      (∃ ts, inferTypeCore mode env₀ F (rP + cnF) side = .ok ts ∧
+        isDefEqCore mode env₀ F (rP + cnF) ts αS = .ok true) →
       Expr.WScoped (rP + cnF) side → side.looseBVarsBounded 0 = true →
       Expr.LeavesBounded side →
       CtxOk m₀.cval env₀ (Level.substFn φ lps us) (rP + cnF) Γs side →

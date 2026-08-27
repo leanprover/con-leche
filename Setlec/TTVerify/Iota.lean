@@ -22,6 +22,12 @@ with no step drawing on anything ambient.
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- The comparand level list does not read the recursor's arguments —
@@ -46,7 +52,7 @@ the eventual clause discharges them from `EnvTT.wf` and the reduction's
 invariants, exactly as the set model's iota case does. -/
 theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
     {d : Nat} {Δ : List VExpr}
     {n : Name} {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
     {rl : RecRule} {cvj : ConstantVal} {cnP cnF : Nat}
@@ -105,7 +111,7 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
       Deq Δ a b)
     -- the recursor's telescope, certified at the full spine
     {TR : VExpr}
-    (hcertR : iotaCertsP env fuel d
+    (hcertR : iotaCertsP mode env fuel d
       (cv.type.instantiateLevelParams cv.levelParams us)
       (args ++ [Expr.mkAppN (.const (RecRule.ctor rl) usj) margs]) = .ok true)
     (hwR : Expr.WScoped d (cv.type.instantiateLevelParams cv.levelParams us))
@@ -123,7 +129,7 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
         Expr.LeavesBounded x ∧ CtxOk m.cval env φ d Δ x)
     -- the constructor's telescope, certified at its own spine
     {TC : VExpr}
-    (hcertC : iotaCertsP env fuel d
+    (hcertC : iotaCertsP mode env fuel d
       (cvj.type.instantiateLevelParams cvj.levelParams usj) margs = .ok true)
     (hwC : Expr.WScoped d (cvj.type.instantiateLevelParams cvj.levelParams usj))
     (hbC : (cvj.type.instantiateLevelParams cvj.levelParams
@@ -377,14 +383,14 @@ generalization bought, and the reason the workaround (deriving through
 are both `Prop`s denote to `Deq`-equal terms. -/
 theorem proof_irrel_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} {d : Nat} {Δ : List VExpr}
-    (ihw : WhnfClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
     {a b ta tb sta stb : Expr} {uT vT : Level}
-    (hta : inferTypeCore env fuel d a = .ok ta)
-    (hsta : inferTypeCore env fuel d ta = .ok sta)
-    (hwa : whnf env fuel d sta = .ok (.sort uT)) (huT : uT.eval φ = 0)
-    (htb : inferTypeCore env fuel d b = .ok tb)
-    (hstb : inferTypeCore env fuel d tb = .ok stb)
-    (hwb : whnf env fuel d stb = .ok (.sort vT)) (hvT : vT.eval φ = 0)
+    (hta : inferTypeCore mode env fuel d a = .ok ta)
+    (hsta : inferTypeCore mode env fuel d ta = .ok sta)
+    (hwa : whnf mode env fuel d sta = .ok (.sort uT)) (huT : uT.eval φ = 0)
+    (htb : inferTypeCore mode env fuel d b = .ok tb)
+    (hstb : inferTypeCore mode env fuel d tb = .ok stb)
+    (hwb : whnf mode env fuel d stb = .ok (.sort vT)) (hvT : vT.eval φ = 0)
     (hCa : CtxOk m.cval env φ d Δ a) (hCb : CtxOk m.cval env φ d Δ b)
     (hwsa : Expr.WScoped d a) (hwsb : Expr.WScoped d b)
     (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
@@ -393,9 +399,9 @@ theorem proof_irrel_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
       denote m.cval env φ d b = some B ∧ Deq Δ A B := by
   -- each side: its type is derivable, and that type is a `Prop`
   have side : ∀ {e t st : Expr} {u : Level},
-      inferTypeCore env fuel d e = .ok t →
-      inferTypeCore env fuel d t = .ok st →
-      whnf env fuel d st = .ok (.sort u) → u.eval φ = 0 →
+      inferTypeCore mode env fuel d e = .ok t →
+      inferTypeCore mode env fuel d t = .ok st →
+      whnf mode env fuel d st = .ok (.sort u) → u.eval φ = 0 →
       CtxOk m.cval env φ d Δ e → Expr.WScoped d e →
       e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
       ∃ E T, denote m.cval env φ d e = some E ∧

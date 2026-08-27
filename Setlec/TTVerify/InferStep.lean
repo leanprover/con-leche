@@ -33,6 +33,10 @@ the checker's own guard.
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode; the seven gated checks
+reduce definitionally at `.ttModel`. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-! ## The leaf clauses -/
@@ -40,7 +44,7 @@ open Setlec.TT
 /-- `Sort u` infers `Sort (u+1)`, which is `HasType.sort`. -/
 theorem infer_sort_claim {env : Env} {cval : TConstVal} {φ : Name → Nat}
     {d : Nat} {Δ : List VExpr} {u : Level} {t : Expr}
-    (h : inferTypeCore env (fuel + 1) d (.sort u) = .ok t) :
+    (h : inferTypeCore mode env (fuel + 1) d (.sort u) = .ok t) :
     ∃ v tv, denote cval env φ d (.sort u) = some v ∧
       denote cval env φ d t = some tv ∧ HasType Δ v tv := by
   rw [inferTypeCore_succ] at h
@@ -56,7 +60,7 @@ theorem infer_sort_claim {env : Env} {cval : TConstVal} {φ : Name → Nat}
 `HasType.bvar` — and the index arithmetic is exactly `CtxOk`'s. -/
 theorem infer_fvar_claim {env : Env} {cval : TConstVal} {φ : Name → Nat}
     {d : Nat} {Δ : List VExpr} {idx : Nat} {n : Name} {ty t : Expr}
-    (h : inferTypeCore env (fuel + 1) d (.fvar idx n ty) = .ok t)
+    (h : inferTypeCore mode env (fuel + 1) d (.fvar idx n ty) = .ok t)
     (hC : CtxOk cval env φ d Δ (.fvar idx n ty)) :
     ∃ v tv, denote cval env φ d (.fvar idx n ty) = some v ∧
       denote cval env φ d t = some tv ∧ HasType Δ v tv := by
@@ -75,7 +79,7 @@ theorem infer_fvar_claim {env : Env} {cval : TConstVal} {φ : Name → Nat}
 /-- A `Nat` literal infers `Nat`. -/
 theorem infer_natLit_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {d : Nat} {Δ : List VExpr} {k : Nat} {t : Expr}
-    (h : inferTypeCore env (fuel + 1) d (.lit (.natVal k)) = .ok t) :
+    (h : inferTypeCore mode env (fuel + 1) d (.lit (.natVal k)) = .ok t) :
     ∃ v tv, denote m.cval env φ d (.lit (.natVal k)) = some v ∧
       denote m.cval env φ d t = some tv ∧ HasType Δ v tv := by
   rw [inferTypeCore_succ] at h
@@ -94,7 +98,7 @@ theorem infer_natLit_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
 refutes it from the denotation as well. -/
 theorem infer_bvar_claim {env : Env} {cval : TConstVal} {φ : Name → Nat}
     {d : Nat} {Δ : List VExpr} {i : Nat} {t : Expr}
-    (h : inferTypeCore env (fuel + 1) d (.bvar i) = .ok t) :
+    (h : inferTypeCore mode env (fuel + 1) d (.bvar i) = .ok t) :
     ∃ v tv, denote cval env φ d (.bvar i) = some v ∧
       denote cval env φ d t = some tv ∧ HasType Δ v tv := by
   rw [inferTypeCore_succ] at h
@@ -111,7 +115,7 @@ as for `reduceNat`. -/
 /-- The frame conditions of an inferred type. -/
 theorem frame_infer {env : Env} {cval : TConstVal} {φ : Name → Nat}
     (hwf : EnvWF env) {fuel d : Nat} {Δ : List VExpr} {e t : Expr}
-    (h : inferTypeCore env fuel d e = .ok t)
+    (h : inferTypeCore mode env fuel d e = .ok t)
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e) (hC : CtxOk cval env φ d Δ e) :
     Expr.WScoped d t ∧ t.looseBVarsBounded 0 = true ∧
@@ -133,10 +137,10 @@ above (§6). -/
 /-- `.app` infers by `HasType.app`, its premise from the certificate. -/
 theorem infer_app_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel)
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {f a t : Expr}
-    (h : inferTypeCore env (fuel + 1) d (.app f a) = .ok t)
+    (h : inferTypeCore mode env (fuel + 1) d (.app f a) = .ok t)
     (hws : Expr.WScoped d (.app f a))
     (hb : (Expr.app f a).looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded (.app f a))
@@ -206,8 +210,8 @@ the same — the whnf claim, then `conv` — so it is one lemma. -/
 sort. -/
 theorem hasType_of_ensureSort {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} {te : Expr} {u : Level} {v tv : VExpr}
-    (ihw : WhnfClaimsTT m φ fuel)
-    (hens : ensureSortCore env fuel d te = .ok u)
+    (ihw : WhnfClaimsTT mode m φ fuel)
+    (hens : ensureSortCore mode env fuel d te = .ok u)
     (hws : Expr.WScoped d te) (hb : te.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded te) (hC : CtxOk m.cval env φ d Δ te)
     (hte : denote m.cval env φ d te = some tv)
@@ -228,10 +232,10 @@ so no opening is needed on either side. -/
 /-- `.letE` infers by `HasType.letE`. -/
 theorem infer_letE_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel)
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {n : Name} {ty val b t : Expr}
-    (h : inferTypeCore env (fuel + 1) d (.letE n ty val b) = .ok t)
+    (h : inferTypeCore mode env (fuel + 1) d (.letE n ty val b) = .ok t)
     (hws : Expr.WScoped d (.letE n ty val b))
     (hb : (Expr.letE n ty val b).looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded (.letE n ty val b))
@@ -305,10 +309,10 @@ same function, so the result type matches on the nose. -/
 /-- `.forallE` infers by `HasType.pi`. -/
 theorem infer_forallE_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {n : Name} {ty body t : Expr}
     {mb : BinderMeta}
-    (h : inferTypeCore env (fuel + 1) d (.forallE n ty body mb) = .ok t)
+    (h : inferTypeCore mode env (fuel + 1) d (.forallE n ty body mb) = .ok t)
     (hws : Expr.WScoped d (.forallE n ty body mb))
     (hb : (Expr.forallE n ty body mb).looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded (.forallE n ty body mb))
@@ -379,7 +383,7 @@ directions. -/
 theorem infer_const_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     {d : Nat} {Δ : List VExpr} {n : Name} {us : List Level} {t : Expr}
-    (h : inferTypeCore env (fuel + 1) d (.const n us) = .ok t) :
+    (h : inferTypeCore mode env (fuel + 1) d (.const n us) = .ok t) :
     ∃ v tv, denote m.cval env φ d (.const n us) = some v ∧
       denote m.cval env φ d t = some tv ∧ HasType Δ v tv := by
   rw [inferTypeCore_succ] at h
@@ -444,10 +448,10 @@ from the producing side. -/
 /-- `.lam` infers by `HasType.lam`. -/
 theorem infer_lam_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihi : InferClaimsTT m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {n : Name} {ty body t : Expr}
     {mb : BinderMeta}
-    (h : inferTypeCore env (fuel + 1) d (.lam n ty body mb) = .ok t)
+    (h : inferTypeCore mode env (fuel + 1) d (.lam n ty body mb) = .ok t)
     (hws : Expr.WScoped d (.lam n ty body mb))
     (hb : (Expr.lam n ty body mb).looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded (.lam n ty body mb))
@@ -524,7 +528,7 @@ rather than structure.
 def InferStrLitStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {str : String} {t : Expr},
-    inferTypeCore env (fuel + 1) d (.lit (.strVal str)) = .ok t →
+    inferTypeCore mode env (fuel + 1) d (.lit (.strVal str)) = .ok t →
     ∃ v tv, denote m.cval env φ d (.lit (.strVal str)) = some v ∧
       denote m.cval env φ d t = some tv ∧ HasType Δ v tv
 
@@ -532,7 +536,7 @@ def InferStrLitStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
 def InferProjStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {sn : Name} {i : Nat} {pe t : Expr},
-    inferTypeCore env (fuel + 1) d (.proj sn i pe) = .ok t →
+    inferTypeCore mode env (fuel + 1) d (.proj sn i pe) = .ok t →
     Expr.WScoped d (.proj sn i pe) →
     (Expr.proj sn i pe).looseBVarsBounded 0 = true →
     Expr.LeavesBounded (.proj sn i pe) →
@@ -548,9 +552,9 @@ dispatch, because each one *is* a rule. -/
 theorem infer_claimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (hstr : InferStrLitStepTT m φ fuel) (hproj : InferProjStepTT m φ fuel)
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) :
-    InferClaimsTT m φ (fuel + 1) := by
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel) :
+    InferClaimsTT mode m φ (fuel + 1) := by
   intro d e t Δ h hws hb hLb hC
   match e, h, hws, hb, hLb, hC with
   | .sort u, h, _, _, _, _ => exact infer_sort_claim h

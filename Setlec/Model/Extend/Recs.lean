@@ -18,6 +18,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
@@ -28,7 +30,7 @@ facts. -/
 theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
       (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
-    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    provisionRecs (fueledOps mode F) blockNames envAcc recs = .ok p →
     (∀ ci ∈ recs, blockNames.contains ci.name = true) →
     ∀ (m : EnvModel V envAcc), BlockInstalled blockNames envAcc m.val →
     ∃ mS : EnvModel V p.1,
@@ -225,7 +227,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     (hself : envS.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
     (hkits : ∀ r' ∈ rules',
-      RuleChecked F env₂ envS f cvA mI rP r') :
+      RuleChecked mode F env₂ envS f cvA mI rP r') :
     RecMemberOk (V := V) env₃ mS.val
       (.recInfo cvA mI rP rules') := by
   intro cvR mI' rP' rules₀ hceq r hr
@@ -606,7 +608,7 @@ theorem chains_swap {F : Nat} {blockNames : List Name}
     ∀ {zipped : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)}
       {accS acc₃ envSelf env₃' : Env},
       ProvFacts F blockNames accS envSelf (zipped.map Prod.fst) →
-      RulesChain F env' envS f acc₃ env₃' zipped →
+      RulesChain mode F env' envS f acc₃ env₃' zipped →
       (∀ z ∈ zipped, SwapPair env₃ val
         (.recInfo z.1.1 z.1.2.1 z.1.2.2.1 [])
         (.recInfo z.1.1 z.1.2.1 z.1.2.2.1
@@ -636,7 +638,7 @@ set_option maxHeartbeats 3200000 in
 a model with the block invariant. -/
 theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
     {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs (fueledOps F) blockNames env₂ recs = .ok env₃)
+    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true)
     (hall : ∀ n, blockNames.contains n = true →
       (env₂.find? n).isSome = true ∨ ∃ ci ∈ recs, ci.name = n)
@@ -658,7 +660,7 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
   simp only [pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases hprov : provisionRecs (fueledOps F) blockNames env₂ recs with
+  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
   | error e => intro h; exact nomatch h
   | ok p => ?_
   intro h
@@ -778,7 +780,7 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
     obtain ⟨hnres, hshape, hms, hbnc, htyf, htyb, htlp, htres, hmodel,
       hself⟩ := ProvFacts.mem_facts hProv z.1 hz1
     have hcir := RulesChain.mem_facts hchain z hz
-    have hkits : ∀ r' ∈ z.2, RuleChecked F env₂ envSelf (fun n =>
+    have hkits : ∀ r' ∈ z.2, RuleChecked mode F env₂ envSelf (fun n =>
         if blockNames.contains n then n.str "_model" else n)
         z.1.1 z.1.2.1 z.1.2.2.1 r' :=
       checkIotaRules_inv 0 _ _ hcir

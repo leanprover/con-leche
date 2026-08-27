@@ -15,10 +15,12 @@ bridge began — is now a theorem, and with `FamiliesStepTT`
 (`Setlec/TTVerify/DeclFamilies.lean`) the acceptance theorem and the
 consistency corollary close over it.
 
-The one remaining hypothesis is `CertifiedConfigTT`: the bridge covers
-the configuration with the direct simple-structure install path off
-(see the docstring in `Setlec/TTVerify/Consistency.lean` — the switch
-defaults on, so this is a real, stated restriction, not a formality).
+The one remaining hypothesis is `CertifiedConfigTT mode`: the bridge
+covers the configuration with the direct simple-structure install path
+off AND the three-mode setting at `--tt-model` (task #147 — the seven
+TT-lane checks the bridge's inversions consume run only there; the
+default `--set-model` skips them).  Both conjuncts are real, stated
+restrictions, not formalities.
 -/
 
 namespace Setlec.TTVerify
@@ -39,9 +41,10 @@ theorem checkDeclTT : CheckDeclTT F :=
 configuration, every environment the checker accepts has a derivation
 model — every constant it stores has a `HasType` derivation of its
 type's denotation in the declarative type theory. -/
-theorem checkDecls_TT_closed (hdir : CertifiedConfigTT)
+theorem checkDecls_TT_closed {mode : CheckMode}
+    (hdir : CertifiedConfigTT mode)
     {ds : List Declaration} {env' : Env}
-    (h : checkDecls (fueledOps F) ds = .ok env') :
+    (h : checkDecls mode (fueledOps mode F) ds = .ok env') :
     Nonempty (EnvTT env') :=
   checkDecls_TT checkDeclTT familiesStepTT hdir h
 
@@ -50,9 +53,9 @@ type theory, with both fold hypotheses discharged.  Parametric in a
 model of the `SetTheory` interface, exactly as
 `no_proof_of_Empty_TT`. -/
 theorem no_proof_of_Empty_TT_closed (V : Type u) [SetTheory V]
-    (hdir : CertifiedConfigTT)
+    {mode : CheckMode} (hdir : CertifiedConfigTT mode)
     {ds : List Declaration} {env' : Env}
-    (h : checkDecls (fueledOps F) ds = .ok env')
+    (h : checkDecls mode (fueledOps mode F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False :=
   no_proof_of_Empty_TT V checkDeclTT familiesStepTT hdir h c hc hty

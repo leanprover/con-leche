@@ -27,6 +27,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {cval : ConstVal V} {env : Env}
   {φ : Name → Nat}
 
@@ -81,7 +83,7 @@ frame — the annotation side's interpretation and truthfulness, and the
 theorem stage_out {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
     {ψ : Name → Nat} {a b : Expr} {k D : Nat} {xs : List V}
     (hk : xs.length = k) (hkD : k ≤ D)
-    (hde : isDefEqCore env₀ F D a b = .ok true)
+    (hde : isDefEqCore mode env₀ F D a b = .ok true)
     (hpa : InterpPkg m₀.val env₀ ψ D
       (fun i => xs.getD i SetTheory.empty) a)
     (hpb : InterpPkg m₀.val env₀ ψ D
@@ -122,7 +124,7 @@ theorem stage_pkg_lam {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
     {ψ : Name → Nat} {D : Nat} {ρ : Nat → V}
     {spine : List Expr} {rhsA lrest ld : Expr} {ldoms : List Expr}
     (hlinst : Expr.instLamsAt spine rhsA = some (ldoms, lrest))
-    (hdeLam : DefEqListOk F env₀ D (spine.map Expr.fvarTypeD) ldoms)
+    (hdeLam : DefEqListOk mode F env₀ D (spine.map Expr.fvarTypeD) ldoms)
     {k : Nat} {vs : List V}
     (hk : k < spine.length)
     (hld : ldoms[k]? = some ld)
@@ -152,7 +154,7 @@ theorem stage_pkg_lam {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
     rw [List.take_of_length_le (l := lds₁) (by omega)] at h
     exact h.symm
   -- the prefix defeq facts
-  have hdeTk : DefEqListOk F env₀ D ((spine.take k).map Expr.fvarTypeD)
+  have hdeTk : DefEqListOk mode F env₀ D ((spine.take k).map Expr.fvarTypeD)
       lds₁ := by
     have h := DefEqListOk.take k hdeLam
     rwa [← List.map_take, ← hlds₁] at h
@@ -847,7 +849,7 @@ theorem modeled_stage {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
         (fun i => xs.getD i SetTheory.empty) crestP = some P)
     (hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA =
       some (ldoms, lrest))
-    (hdeLam : DefEqListOk F env₀ (rP + cnF)
+    (hdeLam : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
     (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
@@ -896,7 +898,7 @@ theorem modeled_stage {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
   obtain ⟨hpkgB, hWkB⟩ := stage_pkg_lam m₀ F hlinst hdeLam
     (by omega) hld hsp hws hΘ hLs hwsK hrhsw hrhsb hArhs hIrhs
   -- the stage defeq
-  have hde : isDefEqCore env₀ F (rP + cnF) (Expr.fvarTypeD fv) ld =
+  have hde : isDefEqCore mode env₀ F (rP + cnF) (Expr.fvarTypeD fv) ld =
       .ok true := by
     refine DefEqListOk.pointwise hdeLam k ?_ hld
     rw [List.getElem?_map, hfv]
@@ -943,7 +945,7 @@ theorem ctor_pkg_plain {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
     (hAty : AnnotOk V m₀.val env₀ ψ 0 (rho0 V) tyA)
     (hcinstP : Expr.instPisAt (fvsP.take cnP) cty =
       some (cdomsP, crestP))
-    (hdePars : DefEqListOk F env₀ (rP + cnF)
+    (hdePars : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP)
     (hplainLe : cnP ≤ rP)
     (hCw : cty.hasFvar = false)
@@ -1098,7 +1100,7 @@ theorem ctor_pkg_nested {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
     (hcinstN : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) cty =
       some (cdomsP, crestP))
-    (htlP : TypedListOk F env₀ (rP + cnF)
+    (htlP : TypedListOk mode F env₀ (rP + cnF)
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) cdomsP)
     (hCtw : cty.hasFvar = false)
     (hCtb : cty.looseBVarsBounded 0 = true)
@@ -1345,14 +1347,14 @@ theorem modeled_bottom_plain
     (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP)
       (cvj.type.renameConsts f) = some (cdoms, cres))
     (hclen : cres.getAppArgs.length = cnP + (mI - rP))
-    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+    (hdeIdx : DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP))
     (hrinst : Expr.instPisAt (fvs.take rP)
       (tyA.renameConsts f) = some (rdoms, rrest))
-    (hdePre : DefEqListOk F env₀ (rP + cnF)
+    (hdePre : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms)
-    (hdeFld : DefEqListOk F env₀ (rP + cnF)
+    (hdeFld : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
     -- kernel kit (public side)
     {rhsA : Expr} {fvsP : List Expr} {restP : Expr}
@@ -1361,18 +1363,18 @@ theorem modeled_bottom_plain
     (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
     (hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type =
       some (cdomsP, crestP))
-    (hdePars : DefEqListOk F env₀ (rP + cnF)
+    (hdePars : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP)
     (hopenX : openPisAtFvars cnF crestP rP = some (xFvsP, crest2))
     (hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA = some (ldoms, lrest))
-    (hdeLam : DefEqListOk F env₀ (rP + cnF)
+    (hdeLam : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
-    (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
+    (hdeRhs : isDefEqCore mode env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
-    (hlhsTyC : ∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
-      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true)
-    (hrhsTyC : ∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
-      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
+    (hlhsTyC : ∃ tl, inferTypeCore mode env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore mode env₀ F (rP + cnF) tl αS = .ok true)
+    (hrhsTyC : ∃ tr, inferTypeCore mode env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore mode env₀ F (rP + cnF) tr αS = .ok true)
     -- the rule right-hand side's facts
     (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
@@ -2838,11 +2840,11 @@ theorem rule_eq_of_bottom
     (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
     (hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type =
       some (cdomsP, crestP))
-    (hdePars : DefEqListOk F env₀ (rP + cnF)
+    (hdePars : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP)
     (hopenX : openPisAtFvars cnF crestP rP = some (xFvsP, crest2))
     (hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA = some (ldoms, lrest))
-    (hdeLam : DefEqListOk F env₀ (rP + cnF)
+    (hdeLam : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
     -- wf and resolution of the stored data
     (hrhsw : rhsA.hasFvar = false)
@@ -3091,14 +3093,14 @@ theorem modeled_rule_eq_plain
     (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP)
       (cvj.type.renameConsts f) = some (cdoms, cres))
     (hclen : cres.getAppArgs.length = cnP + (mI - rP))
-    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+    (hdeIdx : DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP))
     (hrinst : Expr.instPisAt (fvs.take rP)
       (tyA.renameConsts f) = some (rdoms, rrest))
-    (hdePre : DefEqListOk F env₀ (rP + cnF)
+    (hdePre : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms)
-    (hdeFld : DefEqListOk F env₀ (rP + cnF)
+    (hdeFld : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
     -- kernel kit (public side)
     {fvsP : List Expr} {restP : Expr}
@@ -3107,18 +3109,18 @@ theorem modeled_rule_eq_plain
     (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
     (hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type =
       some (cdomsP, crestP))
-    (hdePars : DefEqListOk F env₀ (rP + cnF)
+    (hdePars : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP)
     (hopenX : openPisAtFvars cnF crestP rP = some (xFvsP, crest2))
     (hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA = some (ldoms, lrest))
-    (hdeLam : DefEqListOk F env₀ (rP + cnF)
+    (hdeLam : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
-    (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
+    (hdeRhs : isDefEqCore mode env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
-    (hlhsTyC : ∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
-      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true)
-    (hrhsTyC : ∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
-      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
+    (hlhsTyC : ∃ tl, inferTypeCore mode env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore mode env₀ F (rP + cnF) tl αS = .ok true)
+    (hrhsTyC : ∃ tr, inferTypeCore mode env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore mode env₀ F (rP + cnF) tr αS = .ok true)
     -- wf and resolution of the stored data
     (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
@@ -3237,14 +3239,14 @@ theorem modeled_bottom_nested
       ((cvj.type.instantiateLevelParams cvj.levelParams
         lvls).renameConsts f) = some (cdoms, cres))
     (hclen : cres.getAppArgs.length = cnP + (mI - rP))
-    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+    (hdeIdx : DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP))
     (hrinst : Expr.instPisAt (fvs.take rP)
       (tyA.renameConsts f) = some (rdoms, rrest))
-    (hdePre : DefEqListOk F env₀ (rP + cnF)
+    (hdePre : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms)
-    (hdeFld : DefEqListOk F env₀ (rP + cnF)
+    (hdeFld : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
     -- kernel kit (public side)
     {rhsA : Expr} {fvsP : List Expr} {restP : Expr}
@@ -3256,18 +3258,18 @@ theorem modeled_bottom_nested
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
       some (cdomsP, crestP))
-    (htlP : TypedListOk F env₀ (rP + cnF)
+    (htlP : TypedListOk mode F env₀ (rP + cnF)
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) cdomsP)
     (hopenX : openPisAtFvars cnF crestP rP = some (xFvsP, crest2))
     (hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA = some (ldoms, lrest))
-    (hdeLam : DefEqListOk F env₀ (rP + cnF)
+    (hdeLam : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
-    (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
+    (hdeRhs : isDefEqCore mode env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
-    (hlhsTyC : ∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
-      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true)
-    (hrhsTyC : ∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
-      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
+    (hlhsTyC : ∃ tl, inferTypeCore mode env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore mode env₀ F (rP + cnF) tl αS = .ok true)
+    (hrhsTyC : ∃ tr, inferTypeCore mode env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore mode env₀ F (rP + cnF) tr αS = .ok true)
     -- the rule right-hand side's facts
     (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
@@ -5056,14 +5058,14 @@ theorem modeled_rule_eq_nested
       ((cvj.type.instantiateLevelParams cvj.levelParams
         lvls).renameConsts f) = some (cdoms, cres))
     (hclen : cres.getAppArgs.length = cnP + (mI - rP))
-    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+    (hdeIdx : DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP))
     (hrinst : Expr.instPisAt (fvs.take rP)
       (tyA.renameConsts f) = some (rdoms, rrest))
-    (hdePre : DefEqListOk F env₀ (rP + cnF)
+    (hdePre : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms)
-    (hdeFld : DefEqListOk F env₀ (rP + cnF)
+    (hdeFld : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
     -- kernel kit (public side)
     {fvsP : List Expr} {restP : Expr}
@@ -5075,18 +5077,18 @@ theorem modeled_rule_eq_nested
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
       some (cdomsP, crestP))
-    (htlP : TypedListOk F env₀ (rP + cnF)
+    (htlP : TypedListOk mode F env₀ (rP + cnF)
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) cdomsP)
     (hopenX : openPisAtFvars cnF crestP rP = some (xFvsP, crest2))
     (hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA = some (ldoms, lrest))
-    (hdeLam : DefEqListOk F env₀ (rP + cnF)
+    (hdeLam : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
-    (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
+    (hdeRhs : isDefEqCore mode env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
-    (hlhsTyC : ∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
-      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true)
-    (hrhsTyC : ∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
-      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
+    (hlhsTyC : ∃ tl, inferTypeCore mode env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore mode env₀ F (rP + cnF) tl αS = .ok true)
+    (hrhsTyC : ∃ tr, inferTypeCore mode env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore mode env₀ F (rP + cnF) tr αS = .ok true)
     -- wf and resolution of the stored data
     (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)

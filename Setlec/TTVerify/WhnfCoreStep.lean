@@ -28,6 +28,12 @@ missing is the scope bookkeeping around it.
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-! ## The two named clause obligations -/
@@ -39,7 +45,7 @@ recursive `whnfCore` call needs.  The equation half is
 def IotaStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {e e'' : Expr} {v : VExpr},
-    iotaRecP env fuel d e = .ok (some e'') →
+    iotaRecP mode env fuel d e = .ok (some e'') →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e → CtxOk m.cval env φ d Δ e →
     denote m.cval env φ d e = some v →
@@ -64,7 +70,7 @@ def ProjStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {sn : Name} {i : Nat} {pe e' : Expr}
     {v : VExpr},
-    whnfCore env (fuel + 1) d (.proj sn i pe) = .ok e' →
+    whnfCore mode env (fuel + 1) d (.proj sn i pe) = .ok e' →
     Expr.WScoped d (.proj sn i pe) →
     (Expr.proj sn i pe).looseBVarsBounded 0 = true →
     Expr.LeavesBounded (.proj sn i pe) →
@@ -88,11 +94,11 @@ where the rule fires, and nothing carried from above would do. -/
 `Deq`-equal terms. -/
 theorem denote_beta_step_certified {env : Env} (m : EnvTT env)
     (φ : Name → Nat) {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {n : Name} {ty body a ta : Expr}
     {A B x : VExpr}
-    (hta : inferTypeCore env fuel d a = .ok ta)
-    (hde : isDefEqCore env fuel d ta ty = .ok true)
+    (hta : inferTypeCore mode env fuel d a = .ok ta)
+    (hde : isDefEqCore mode env fuel d ta ty = .ok true)
     (hty : denote m.cval env φ d ty = some A)
     (hbody : denote m.cval env φ (d + 1)
       (body.instantiate1 (.fvar d n ty)) = some B)
@@ -133,10 +139,10 @@ all three recurse. -/
 theorem whnfCore_app_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (hiota : IotaStepTT m φ fuel)
-    (ihwc : WhnfCoreClaimsTT m φ fuel)
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {f a e' : Expr} {v : VExpr}
-    (h : whnfCore env (fuel + 1) d (.app f a) = .ok e')
+    (h : whnfCore mode env (fuel + 1) d (.app f a) = .ok e')
     (hws : Expr.WScoped d (.app f a))
     (hb : (Expr.app f a).looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded (.app f a))
@@ -258,9 +264,9 @@ on. -/
 theorem whnfCore_claimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (hiota : IotaStepTT m φ fuel) (hproj : ProjStepTT m φ fuel)
-    (ihwc : WhnfCoreClaimsTT m φ fuel) (_ihw : WhnfClaimsTT m φ fuel)
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel) :
-    WhnfCoreClaimsTT m φ (fuel + 1) := by
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel) (_ihw : WhnfClaimsTT mode m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel) :
+    WhnfCoreClaimsTT mode m φ (fuel + 1) := by
   intro d e e' Δ h hws hb hLb hC v hv
   match e with
   | .sort u => exact whnfCore_leaf_claim (Or.inl ⟨u, rfl⟩) h hv
@@ -518,7 +524,7 @@ as the other two: an unproved step is a `Prop` its consumers name. -/
 def ReduceNatStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {e e₂ : Expr} {v : VExpr},
-    reduceNatP env fuel d e = .ok (some e₂) →
+    reduceNatP mode env fuel d e = .ok (some e₂) →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e → CtxOk m.cval env φ d Δ e →
     denote m.cval env φ d e = some v →
@@ -530,9 +536,9 @@ def ReduceNatStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
 preserves the denotation up to a derivable equation. -/
 theorem whnfLoop_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihwc : WhnfCoreClaimsTT m φ fuel) (hnat : ReduceNatStepTT m φ fuel) :
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel) (hnat : ReduceNatStepTT m φ fuel) :
     ∀ (budget : Nat) {d : Nat} {Δ : List VExpr} {e e' : Expr} {v : VExpr},
-      whnfLoop (pureFns env fuel) env d budget e = .ok e' →
+      whnfLoop (pureFns mode env fuel) env d budget e = .ok e' →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e → CtxOk m.cval env φ d Δ e →
       denote m.cval env φ d e = some v →
@@ -548,7 +554,7 @@ theorem whnfLoop_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     rw [whnfLoop, whnfStep] at h
     simp only [Bind.bind, Except.bind, whnfCore_def] at h
     -- move one: head normalization
-    cases hwc : whnfCore env fuel d e with
+    cases hwc : whnfCore mode env fuel d e with
     | error err => rw [hwc] at h; exact nomatch h
     | ok e₁ =>
     rw [hwc] at h
@@ -562,7 +568,7 @@ theorem whnfLoop_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     have hC₁ : CtxOk m.cval env φ d Δ e₁ :=
       CtxOk.of_subset (whnfCore_fvarLeaves m.wf fuel hwc) hC
     -- move two: literal acceleration
-    cases hrn : reduceNatP env fuel d e₁ with
+    cases hrn : reduceNatP mode env fuel d e₁ with
     | error err => rw [reduceNat_fold] at h; rw [hrn] at h; exact nomatch h
     | ok o =>
     rw [reduceNat_fold] at h
@@ -596,8 +602,8 @@ budget; the second quarter of `CheckStepTT`, and the shortest of the
 four because `whnfBody` *is* the loop. -/
 theorem whnf_claimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihwc : WhnfCoreClaimsTT m φ fuel) (hnat : ReduceNatStepTT m φ fuel) :
-    WhnfClaimsTT m φ (fuel + 1) := by
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel) (hnat : ReduceNatStepTT m φ fuel) :
+    WhnfClaimsTT mode m φ (fuel + 1) := by
   intro d e e' Δ h hws hb hLb hC v hv
   rw [whnf_succ, whnfBody] at h
   exact whnfLoop_claim m φ hcl ihwc hnat whnfLoopFuel h hws hb hLb hC hv
@@ -618,7 +624,7 @@ def ReductOk {env : Env} (m : EnvTT env) (φ : Name → Nat) (d : Nat)
 /-- The `whnf` link. -/
 theorem whnf_reductOk {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} {e e' : Expr} {v : VExpr}
-    (ihw : WhnfClaimsTT m φ fuel) (hw : whnf env fuel d e = .ok e')
+    (ihw : WhnfClaimsTT mode m φ fuel) (hw : whnf mode env fuel d e = .ok e')
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e) (hC : CtxOk m.cval env φ d Δ e)
     (hv : denote m.cval env φ d e = some v) : ReductOk m φ d Δ e' v := by

@@ -14,6 +14,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
@@ -123,7 +125,7 @@ set_option maxHeartbeats 1600000 in
 with the phase invariant. -/
 theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     {lps : List Name} {nP nF i : Nat} {blockNames : List Name}
-    (h : checkProjFn (fueledOps F) env' T ctorName lps nP nF i = .ok env₁)
+    (h : checkProjFn mode (fueledOps mode F) env' T ctorName lps nP nF i = .ok env₁)
     (m : EnvModel V env')
     (hinv : ProjPhaseInv T ctorName nF env' m.val)
     (hIB : BlockInstalled blockNames env' m.val)
@@ -131,7 +133,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     (hbshape : ∀ n, blockNames.contains n = true →
       n.isProjFnShape = false)
     (hpinsT : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
-      EtaPins env' T cvT.levelParams capsT)
+      EtaPins mode env' T cvT.levelParams capsT)
     (hCblock : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → blockNames.contains capsT.etaCtor = true)
     (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
@@ -420,7 +422,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
         ⟨projFnName T i, lps, pty⟩ nP nP []).name = T from
         fun hh => hTne hh.symm)] at hfT'
       exact hfT'
-    have hpins₁ : EtaPins (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP []
+    have hpins₁ : EtaPins mode (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP []
         :: env'.consts⟩ : Env) T cvT.levelParams capsT :=
       EtaPins.step (hpinsT cvT capsT hfT'') hpnone
     have hI₁ : BlockInstalled blockNames
@@ -622,12 +624,12 @@ theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
     (hbshape : ∀ n, blockNames.contains n = true →
       n.isProjFnShape = false) :
     ∀ (idxs : List Nat) (env' env₁ : Env),
-    idxs.foldlM (installProjFnStep (fueledOps F) T ctorName lps nP nF)
+    idxs.foldlM (installProjFnStep mode (fueledOps mode F) T ctorName lps nP nF)
       env' = .ok env₁ →
     ∀ m : EnvModel V env', ProjPhaseInv T ctorName nF env' m.val →
     BlockInstalled blockNames env' m.val →
     (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
-      EtaPins env' T cvT.levelParams capsT) →
+      EtaPins mode env' T cvT.levelParams capsT) →
     (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → blockNames.contains capsT.etaCtor = true) →
     (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
@@ -642,7 +644,7 @@ theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
     unfold installProjFnStep at h
     by_cases hm : (env'.find? (projModelName T i₀)).isSome = true
     · rw [if_pos hm] at h
-      cases hstep : checkProjFn (fueledOps F) env' T ctorName lps nP nF i₀ with
+      cases hstep : checkProjFn mode (fueledOps mode F) env' T ctorName lps nP nF i₀ with
       | error e => rw [hstep] at h; exact nomatch h
       | ok env₂ => ?_
       rw [hstep] at h

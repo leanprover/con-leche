@@ -99,6 +99,8 @@ of an unproved step is visible in the source rather than in a comment.
 
 namespace Setlec.TTVerify
 
+variable {mode : CheckMode}
+
 open Setlec.TT
 
 variable {V : Type u}
@@ -257,10 +259,10 @@ variable (m : EnvTT env) (φ : Name → Nat)
 
 /-- Head normalization (no delta) preserves the denotation up to a
 derivable equation.  Transpose of `WhnfCoreClaims`. -/
-def WhnfCoreClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+def WhnfCoreClaimsTT (mode : CheckMode) {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δ : List VExpr},
-    whnfCore env fuel d e = .ok e' →
+    whnfCore mode env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     CtxOk m.cval env φ d Δ e →
@@ -268,10 +270,10 @@ def WhnfCoreClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
       ∃ v', denote m.cval env φ d e' = some v' ∧ Deq Δ v v'
 
 /-- The reduction loop, ditto.  Transpose of `WhnfClaims`. -/
-def WhnfClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+def WhnfClaimsTT (mode : CheckMode) {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δ : List VExpr},
-    whnf env fuel d e = .ok e' →
+    whnf mode env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     CtxOk m.cval env φ d Δ e →
@@ -280,10 +282,10 @@ def WhnfClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
 
 /-- A positive definitional-equality verdict yields a derivable
 equation.  Transpose of `DefEqClaims`. -/
-def DefEqClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+def DefEqClaimsTT (mode : CheckMode) {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δ : List VExpr},
-    isDefEqCore env fuel d a b = .ok true →
+    isDefEqCore mode env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -295,10 +297,10 @@ def DefEqClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
 /-- Successful inference yields a typing derivation.  Transpose of
 `InferClaims` — note that the set-model version's `AnnotOk` conjuncts
 have no counterpart, so this is the whole of it. -/
-def InferClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+def InferClaimsTT (mode : CheckMode) {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δ : List VExpr},
-    inferTypeCore env fuel d e = .ok t →
+    inferTypeCore mode env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     CtxOk m.cval env φ d Δ e →
@@ -316,19 +318,19 @@ is taken as the hypothesis `CheckStepTT`. -/
 from the four claims at `fuel`.  This is the transpose of the four
 `*_claims` lemmas of `Setlec/Model/Core/*`, and it is what stage 2 of
 task #119 discharges. -/
-def CheckStepTT : Prop :=
+def CheckStepTT (mode : CheckMode) : Prop :=
   ∀ (env : Env) (m : EnvTT env) (φ : Name → Nat) (fuel : Nat),
-    WhnfCoreClaimsTT m φ fuel → WhnfClaimsTT m φ fuel →
-    DefEqClaimsTT m φ fuel → InferClaimsTT m φ fuel →
-    WhnfCoreClaimsTT m φ (fuel + 1) ∧ WhnfClaimsTT m φ (fuel + 1) ∧
-      DefEqClaimsTT m φ (fuel + 1) ∧ InferClaimsTT m φ (fuel + 1)
+    WhnfCoreClaimsTT mode m φ fuel → WhnfClaimsTT mode m φ fuel →
+    DefEqClaimsTT mode m φ fuel → InferClaimsTT mode m φ fuel →
+    WhnfCoreClaimsTT mode m φ (fuel + 1) ∧ WhnfClaimsTT mode m φ (fuel + 1) ∧
+      DefEqClaimsTT mode m φ (fuel + 1) ∧ InferClaimsTT mode m φ (fuel + 1)
 
 /-- The mutual soundness induction.  Transpose of `check_sound`; only
 the step is outstanding. -/
-theorem checkSoundTT {env : Env} (hstep : CheckStepTT) (m : EnvTT env)
+theorem checkSoundTT {env : Env} (hstep : CheckStepTT mode) (m : EnvTT env)
     (φ : Name → Nat) :
-    ∀ fuel : Nat, WhnfCoreClaimsTT m φ fuel ∧ WhnfClaimsTT m φ fuel ∧
-      DefEqClaimsTT m φ fuel ∧ InferClaimsTT m φ fuel := by
+    ∀ fuel : Nat, WhnfCoreClaimsTT mode m φ fuel ∧ WhnfClaimsTT mode m φ fuel ∧
+      DefEqClaimsTT mode m φ fuel ∧ InferClaimsTT mode m φ fuel := by
   intro fuel
   induction fuel with
   | zero =>
@@ -356,9 +358,9 @@ wrappers at the end of `Setlec/Model/TypeChecker.lean`. -/
 
 /-- Successful inference is sound: the subject denotes, its inferred
 type denotes, and the first has a derivation of the second. -/
-theorem inferTypeCore_soundTT {env : Env} (hstep : CheckStepTT)
+theorem inferTypeCore_soundTT {env : Env} (hstep : CheckStepTT mode)
     (m : EnvTT env) (φ : Name → Nat) (fuel : Nat) {d : Nat} {e t : Expr}
-    {Δ : List VExpr} (h : inferTypeCore env fuel d e = .ok t)
+    {Δ : List VExpr} (h : inferTypeCore mode env fuel d e = .ok t)
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e) (hΔ : CtxOk m.cval env φ d Δ e) :
     ∃ v tv, denote m.cval env φ d e = some v ∧
@@ -367,9 +369,9 @@ theorem inferTypeCore_soundTT {env : Env} (hstep : CheckStepTT)
 
 /-- A positive definitional-equality verdict identifies denotations up
 to a derivable equation. -/
-theorem isDefEqCore_soundTT {env : Env} (hstep : CheckStepTT)
+theorem isDefEqCore_soundTT {env : Env} (hstep : CheckStepTT mode)
     (m : EnvTT env) (φ : Name → Nat) (fuel : Nat) {d : Nat} {a b : Expr}
-    {Δ : List VExpr} (h : isDefEqCore env fuel d a b = .ok true)
+    {Δ : List VExpr} (h : isDefEqCore mode env fuel d a b = .ok true)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a)
     (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
@@ -386,9 +388,9 @@ No typing is carried across — see this module's withdrawal note: an
 equation in this layer transports no typing (that schema is
 *refutable*), and a carried hypothesis could not supply any clause its
 premise anyway. -/
-theorem whnf_factsTT {env : Env} (hstep : CheckStepTT) (m : EnvTT env)
+theorem whnf_factsTT {env : Env} (hstep : CheckStepTT mode) (m : EnvTT env)
     (φ : Name → Nat) (fuel : Nat) {d : Nat} {e e' : Expr}
-    {Δ : List VExpr} (h : whnf env fuel d e = .ok e')
+    {Δ : List VExpr} (h : whnf mode env fuel d e = .ok e')
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e) (hΔ : CtxOk m.cval env φ d Δ e)
     {v : VExpr} (hv : denote m.cval env φ d e = some v) :

@@ -379,13 +379,15 @@ end Setlec.Expr
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 /-- Annotation only shrinks the free-variable leaf closure (the
 projection-elimination path is guarded to stay inside it). -/
 theorem annotateCore_leaves_sub {env : Env} :
     ∀ (fuel : Nat) (e : Expr) {d : Nat} {e' : Expr},
-      annotateCore env fuel d e = .ok e' → WScoped d e →
+      annotateCore mode env fuel d e = .ok e' → WScoped d e →
       e.looseBVarsBounded 0 = true →
       ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves
   | 0, _, _, _, h, _, _ => by simp [annotateCore_zero, throw, throwThe,
@@ -447,12 +449,12 @@ theorem annotateCore_leaves_sub {env : Env} :
     rw [annotateCore_succ] at h
     simp only [annotateBody, Bind.bind, Except.bind] at h
     simp only [annotate_def] at h
-    cases hty : annotateCore env fuel d ty with
+    cases hty : annotateCore mode env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
     rw [hty] at h; dsimp only at h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
-    cases hbody : annotateCore env fuel (d + 1)
+    cases hbody : annotateCore mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty')) with
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
@@ -485,12 +487,12 @@ theorem annotateCore_leaves_sub {env : Env} :
     rw [annotateCore_succ] at h
     simp only [annotateBody, Bind.bind, Except.bind] at h
     simp only [annotate_def] at h
-    cases hty : annotateCore env fuel d ty with
+    cases hty : annotateCore mode env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
     rw [hty] at h; dsimp only at h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
-    cases hbody : annotateCore env fuel (d + 1)
+    cases hbody : annotateCore mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty')) with
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>

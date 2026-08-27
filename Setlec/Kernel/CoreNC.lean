@@ -1,9 +1,15 @@
 import Setlec.Kernel.CoreI
 
 /-!
-# The cert-skipping interned core (task #76, `SETLEC_NO_PROOF_CERTS`)
+# The cert-skipping interned core (task #76; task #147: `--no-model`)
 
-**Unverified measurement mode.**  Twins of the interned core bodies
+**The unverified lane.**  Originally the `SETLEC_NO_PROOF_CERTS=1`
+measurement mode (task #76); since task #147 it is the engine of the
+`--no-model` mode — the cert-skipping internal knot (`coreKnotNC`,
+infer-only inside reduction exactly as the reference kernels are) under
+a checking-mode front-door knot (`coreKnotFNC`, the task-#134 pattern:
+the declaration's own term is checked in full, per-argument application
+checks included).  Twins of the interned core bodies
 (`Setlec/Kernel/CoreI.lean`) with the infer/defeq calls removed that
 exist *only* to feed the soundness proofs — the reference kernels
 (official C++ kernel, lean4lean) do not perform them, so skipping them
@@ -13,9 +19,9 @@ fair performance comparison: the instruction delta between the default
 gap to the reference kernels is engineering quality.
 
 None of the consistency proofs cover this knot.  The default path
-(`coreKnotI` → `sharedOps` → `checkDeclsShared`) is byte-identical to
-before this file existed; Main selects this knot only when the
-`SETLEC_NO_PROOF_CERTS=1` environment variable is set.
+(`coreKnotI` → `sharedOps` → `checkDeclsSP`) is untouched by this
+file; Main reaches these bodies only through the `--no-model` driver
+(`Setlec/Kernel/CheckerNC.lean`, task #147).
 
 Skipped here (each site cites why it is proof-only):
 
@@ -794,5 +800,40 @@ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
         (fun d a b => defeqBodyNC (coreKnotNC fe fuel) fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
         (fun d e => annotateBodyI (coreKnotNC fe fuel) fe d e) }
+
+/-- The `--no-model` **checking-mode front-door knot** (task #147; the
+task-#134 `coreKnotF` pattern over the cert-skipping internals).
+`infer` is the certified `inferBodyI` at `.noModel` — the official
+kernel's checking-mode `infer_type_core(e, infer_only := false)`: the
+per-argument application re-check runs on the declaration's own term
+and propagates down it, while the projection-parameter certification
+(task #129, a TT-lane check) is off at `.noModel`.  `annotate` is tied
+to itself for the same reason.  `whnfCore`/`whnf`/`defeq` are
+`coreKnotNC`'s, so every inference *reduction* performs internally is
+infer-only and certificate-free.  The checking-mode inference memo is
+`inferFC`, kept apart from the infer-only `inferC` (a type derived
+infer-only is never served to a checking-mode query). -/
+def coreKnotFNC (fe : FEnv) : Nat → CoreFnsI
+  | 0 =>
+    { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
+      whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+      infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+      defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
+  | fuel + 1 =>
+    { whnfCore := (coreKnotNC fe (fuel + 1)).whnfCore
+      whnf := (coreKnotNC fe (fuel + 1)).whnf
+      defeq := (coreKnotNC fe (fuel + 1)).defeq
+      infer := memoEI (·.inferFC) (fun st mp => { st with inferFC := mp })
+        (fun d e => inferBodyI .noModel (coreKnotFNC fe fuel) fe d e)
+      annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
+        (fun d e => annotateBodyI (coreKnotFNC fe fuel) fe d e) }
+
+/-- Drop the checking-mode inference memo.  Its keys are arena
+indices, so it must go wherever the index-carrying memos go: at a
+declaration boundary and at every snapshot close that truncates tier
+two. -/
+def flushInferFC : CheckIM Unit :=
+  modify fun s => { s with inferFC := {} }
 
 end Setlec

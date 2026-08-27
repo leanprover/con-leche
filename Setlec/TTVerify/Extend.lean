@@ -34,6 +34,10 @@ set_option linter.unusedVariables false
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode; the seven gated checks
+reduce definitionally at `.ttModel`. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- `env₂` extends `env₁`: every constant stored in `env₁` is stored in

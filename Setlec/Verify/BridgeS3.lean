@@ -7,7 +7,7 @@ The single-environment functions of the direct-install path
 (`checkDirectFieldUniv`, `checkDirectDomsAt`, `checkDirectInd`,
 `checkDirectCtor`, `checkDirectRecTy`, `checkDirectRule`,
 `checkDirectProj`), as `SimAt`s between the `sharedOps` and
-`fueledOpsM` instantiations.  The per-site scoping facts mirror
+`(fueledOpsM mode)` instantiations.  The per-site scoping facts mirror
 `Setlec/Verify/BridgeWfImp.lean`'s `_wfimp` walks one for one; the
 `FEnv`-to-`Env` step is `Setlec/Verify/CheckerF.lean`'s `_eq`/`_push`
 family and happens in `Setlec/Model/BridgeS.lean`, so everything here
@@ -30,10 +30,10 @@ theorem checkDirectDomsAtS_sim (henv : EnvWF env) {off : Nat}
     (hc : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       WScoped (off + i) (Expr.fvarTypeD x))
     (ht : ∀ (i : Nat) (x : Expr), doms[i]? = some x → WScoped (off + i) x) :
-    ∀ {j : Nat} {s₀ : IState}, ISOK env s₀ →
-      SimAt env s₀ RelV
-        (checkDirectDomsAt (sharedOps (mkFEnv env)) env off fvs doms j)
-        (checkDirectDomsAt fueledOpsM env off fvs doms j)
+    ∀ {j : Nat} {s₀ : IState}, ISOK mode env s₀ →
+      SimAt mode env s₀ RelV
+        (checkDirectDomsAt (sharedOps mode (mkFEnv env)) env off fvs doms j)
+        (checkDirectDomsAt (fueledOpsM mode) env off fvs doms j)
   | 0, s₀, hs => SimAt.pure hs rfl
   | j + 1, s₀, hs => by
     unfold checkDirectDomsAt
@@ -58,10 +58,10 @@ theorem checkDirectFieldUnivS_sim (henv : EnvWF env) {s : Level} {nP : Nat}
     {fvs : List Expr}
     (hfvs : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       WScoped (nP + i) (Expr.fvarTypeD x)) :
-    ∀ {j : Nat} {s₀ : IState}, ISOK env s₀ →
-      SimAt env s₀ RelV
-        (checkDirectFieldUniv (sharedOps (mkFEnv env)) env s nP fvs j)
-        (checkDirectFieldUniv fueledOpsM env s nP fvs j)
+    ∀ {j : Nat} {s₀ : IState}, ISOK mode env s₀ →
+      SimAt mode env s₀ RelV
+        (checkDirectFieldUniv (sharedOps mode (mkFEnv env)) env s nP fvs j)
+        (checkDirectFieldUniv (fueledOpsM mode) env s nP fvs j)
   | 0, s₀, hs => SimAt.pure hs rfl
   | j + 1, s₀, hs => by
     unfold checkDirectFieldUniv
@@ -87,10 +87,10 @@ theorem checkDirectFieldUnivS_sim (henv : EnvWF env) {s : Level} {nP : Nat}
 
 /-- Stage 1 (the type former) at the shared operations. -/
 theorem checkDirectIndS_sim (henv : EnvWF env) {p : DirectParts}
-    (hs : ISOK env s₀) :
-    SimAt env s₀ (fun _ v w => v = w ∧ WScoped 0 (Prod.snd v).type)
-      (checkDirectInd (sharedOps (mkFEnv env)) env p)
-      (checkDirectInd fueledOpsM env p) := by
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ (fun _ v w => v = w ∧ WScoped 0 (Prod.snd v).type)
+      (checkDirectInd (sharedOps mode (mkFEnv env)) env p)
+      (checkDirectInd (fueledOpsM mode) env p) := by
   unfold checkDirectInd
   dsimp only [sharedOps]
   refine SimAt.bind (checkConstantValS_sim henv hs)
@@ -108,10 +108,10 @@ theorem checkDirectIndS_sim (henv : EnvWF env) {p : DirectParts}
 /-- Stage 2 (the constructor) at the shared operations. -/
 theorem checkDirectCtorS_sim (henv : EnvWF env) {env₀ : Env}
     {p : DirectParts} {cvTa : ConstantVal}
-    (hTf : cvTa.type.hasFvar = false) (hs : ISOK env s₀) :
-    SimAt env s₀ (fun _ v w => v = w ∧ WScoped 0 (Prod.snd v).type)
-      (checkDirectCtor (sharedOps (mkFEnv env)) env₀ env p cvTa)
-      (checkDirectCtor fueledOpsM env₀ env p cvTa) := by
+    (hTf : cvTa.type.hasFvar = false) (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ (fun _ v w => v = w ∧ WScoped 0 (Prod.snd v).type)
+      (checkDirectCtor (sharedOps mode (mkFEnv env)) env₀ env p cvTa)
+      (checkDirectCtor (fueledOpsM mode) env₀ env p cvTa) := by
   unfold checkDirectCtor
   dsimp only [sharedOps]
   refine SimAt.bind (checkConstantValS_sim henv hs)
@@ -182,10 +182,10 @@ set_option maxHeartbeats 1600000 in
 theorem checkDirectRecTyS_sim (henv : EnvWF env) {p : DirectParts}
     {cvTa cvCa cvRa : ConstantVal}
     (hCf : cvCa.type.hasFvar = false) (hRf : cvRa.type.hasFvar = false)
-    (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkDirectRecTy (sharedOps (mkFEnv env)) env p cvTa cvCa cvRa)
-      (checkDirectRecTy fueledOpsM env p cvTa cvCa cvRa) := by
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkDirectRecTy (sharedOps mode (mkFEnv env)) env p cvTa cvCa cvRa)
+      (checkDirectRecTy (fueledOpsM mode) env p cvTa cvCa cvRa) := by
   unfold checkDirectRecTy
   dsimp only [sharedOps]
   by_cases h0 : directShape p.cvT.name p.cvC.name p.cvT.levelParams p.elim
@@ -361,10 +361,10 @@ set_option maxHeartbeats 1600000 in
 theorem checkDirectRuleS_sim (henv : EnvWF env) {p : DirectParts}
     {cvCa cvRa : ConstantVal}
     (hCf : cvCa.type.hasFvar = false) (hRf : cvRa.type.hasFvar = false)
-    (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkDirectRule (sharedOps (mkFEnv env)) env p cvCa cvRa)
-      (checkDirectRule fueledOpsM env p cvCa cvRa) := by
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkDirectRule (sharedOps mode (mkFEnv env)) env p cvCa cvRa)
+      (checkDirectRule (fueledOpsM mode) env p cvCa cvRa) := by
   unfold checkDirectRule
   dsimp only [sharedOps]
   by_cases h0 : (!p.rhs.hasFvar && Expr.looseBVarsBounded 0 p.rhs) = true
@@ -440,10 +440,10 @@ set_option maxHeartbeats 1600000 in
 operations. -/
 theorem checkDirectProjS_sim (henv : EnvWF env) {T C : Name}
     {lps : List Name} {nP nF i : Nat} {cvTa cvCa : ConstantVal}
-    (hCf : cvCa.type.hasFvar = false) (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkDirectProj (sharedOps (mkFEnv env)) T C lps nP nF cvTa cvCa env i)
-      (checkDirectProj fueledOpsM T C lps nP nF cvTa cvCa env i) := by
+    (hCf : cvCa.type.hasFvar = false) (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkDirectProj (sharedOps mode (mkFEnv env)) T C lps nP nF cvTa cvCa env i)
+      (checkDirectProj (fueledOpsM mode) T C lps nP nF cvTa cvCa env i) := by
   unfold checkDirectProj
   dsimp only [sharedOps]
   refine SimAt.bind (SimAt.unwrapOr' hs) (fun s₁ pty pty' hs₁ hext₁ hP => ?_)

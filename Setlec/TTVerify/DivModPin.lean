@@ -39,6 +39,9 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-! ## The fragment's constants, denoted -/
@@ -196,7 +199,7 @@ containment lemmas carrying the frames across the two walks. -/
 correspondence survives it. -/
 theorem CtxOk.annotate {env : Env} {cval : TConstVal} {φ : Name → Nat}
     {F d : Nat} {Δ : List VExpr} {e e' : Expr}
-    (hann : annotateCore env F d e = .ok e') (hw : Expr.WScoped d e)
+    (hann : annotateCore mode env F d e = .ok e') (hw : Expr.WScoped d e)
     (hb : e.looseBVarsBounded 0 = true)
     (h : CtxOk cval env φ d Δ e) : CtxOk cval env φ d Δ e' :=
   ⟨h.1, fun l hl => h.2 l (annotateCore_leaves_sub F e hann hw hb l hl)⟩
@@ -210,9 +213,9 @@ theorem cert_extractT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hwE : Expr.WScoped 4 eqS) (hbE : eqS.looseBVarsBounded 0 = true)
     (hLE : Expr.LeavesBounded eqS) (hCE : CtxOk m.cval env φ 4 Δ eqS)
     (hE : denote m.cval env φ 4 eqS = some E)
-    (hann : annotateCore env F 4 A0 = .ok appliedA)
-    (hinf : inferTypeCore env F 4 appliedA = .ok tp)
-    (hde : isDefEqCore env F 4 tp eqS = .ok true) :
+    (hann : annotateCore mode env F 4 A0 = .ok appliedA)
+    (hinf : inferTypeCore mode env F 4 appliedA = .ok tp)
+    (hde : isDefEqCore mode env F 4 tp eqS = .ok true) :
     ∃ v, HasType Δ v E := by
   have hsub := annotateCore_leaves_sub F _ hann hw hb
   have hwA : Expr.WScoped 4 appliedA := annotateCore_WScoped F _ hann hw
@@ -412,7 +415,7 @@ theorem clause2T (m : EnvTT env) (φ : Name → Nat)
     {h1 h2 eqE proof : Expr}
     (hf1 : natFragOk env c h1 = true) (hf2 : natFragOk env c h2 = true)
     (hfE : natFragOk env c eqE = true)
-    (hrun : CertRunFacts env F c value' ([h1, h2], eqE) proof)
+    (hrun : CertRunFacts mode env F c value' ([h1, h2], eqE) proof)
     {H1 H2 A L R : VExpr}
     (hH1 : denote m.cval env φ 2 (Expr.substConst0 c value' h1) = some H1)
     (hH2 : denote m.cval env φ 2 (Expr.substConst0 c value' h2) = some H2)
@@ -491,7 +494,7 @@ theorem clause1T (m : EnvTT env) (φ : Name → Nat)
     (hEq : env.find? eqName = some eqA)
     {h1 eqE proof : Expr}
     (hf1 : natFragOk env c h1 = true) (hfE : natFragOk env c eqE = true)
-    (hrun : CertRunFacts env F c value' ([h1], eqE) proof)
+    (hrun : CertRunFacts mode env F c value' ([h1], eqE) proof)
     {H1 A L R : VExpr}
     (hH1 : denote m.cval env φ 2 (Expr.substConst0 c value' h1) = some H1)
     (hEE : denote m.cval env φ 2 (Expr.substConst0 c value' eqE)
@@ -884,7 +887,7 @@ theorem dmClause1 (m : EnvTT env) (φ : Name → Nat) {F : Nat}
     (hgr : DMSpine m φ c value' gr GR (m.cval boolName φ))
     (hL : DMSpine m φ c value' lhs L (m.cval natName φ))
     (hR : DMSpine m φ c value' rhs R (m.cval natName φ))
-    (hrun : CertRunFacts env F c value'
+    (hrun : CertRunFacts mode env F c value'
       ([.app (.app (.app (.const eqName [.succ .zero]) (.const boolName []))
           gl) gr],
         .app (.app (.app (.const eqName [.succ .zero]) (.const natName []))
@@ -928,7 +931,7 @@ theorem dmClause2 (m : EnvTT env) (φ : Name → Nat) {F : Nat}
     (hgr2 : DMSpine m φ c value' gr2 GR2 (m.cval boolName φ))
     (hL : DMSpine m φ c value' lhs L (m.cval natName φ))
     (hR : DMSpine m φ c value' rhs R (m.cval natName φ))
-    (hrun : CertRunFacts env F c value'
+    (hrun : CertRunFacts mode env F c value'
       ([.app (.app (.app (.const eqName [.succ .zero]) (.const boolName []))
           gl) gr,
         .app (.app (.app (.const eqName [.succ .zero]) (.const boolName []))
@@ -981,7 +984,7 @@ the certificate run, and hand both to a driver.  Nothing else. -/
 /-- `natGcd`. -/
 theorem dmGcd (m : EnvTT env) (φ : Name → Nat) {F : Nat}
     (hb : DMBase m φ natGcdName value')
-    (hruns : CertRuns (CertRunFacts env F natGcdName value')
+    (hruns : CertRuns (CertRunFacts mode env F natGcdName value')
       (divModCertStmts natGcdName) (divModCertProofs natGcdName))
     {Γ : List VExpr} {x y : VExpr}
     (hx : HasType Γ x (m.cval natName φ))
@@ -1012,7 +1015,7 @@ theorem dmGcd (m : EnvTT env) (φ : Name → Nat) {F : Nat}
 /-- `natShiftLeft`. -/
 theorem dmShl (m : EnvTT env) (φ : Name → Nat) {F : Nat}
     (hb : DMBase m φ natShiftLeftName value')
-    (hruns : CertRuns (CertRunFacts env F natShiftLeftName value')
+    (hruns : CertRuns (CertRunFacts mode env F natShiftLeftName value')
       (divModCertStmts natShiftLeftName) (divModCertProofs natShiftLeftName))
     {Γ : List VExpr} {x y : VExpr}
     (hx : HasType Γ x (m.cval natName φ))
@@ -1043,7 +1046,7 @@ theorem dmShl (m : EnvTT env) (φ : Name → Nat) {F : Nat}
 /-- `natShiftRight`. -/
 theorem dmShr (m : EnvTT env) (φ : Name → Nat) {F : Nat}
     (hb : DMBase m φ natShiftRightName value')
-    (hruns : CertRuns (CertRunFacts env F natShiftRightName value')
+    (hruns : CertRuns (CertRunFacts mode env F natShiftRightName value')
       (divModCertStmts natShiftRightName) (divModCertProofs natShiftRightName))
     {Γ : List VExpr} {x y : VExpr}
     (hx : HasType Γ x (m.cval natName φ))
@@ -1074,7 +1077,7 @@ theorem dmShr (m : EnvTT env) (φ : Name → Nat) {F : Nat}
 /-- `natLog2`. -/
 theorem dmLog2 (m : EnvTT env) (φ : Name → Nat) {F : Nat}
     (hb : DMBase m φ natLog2Name value')
-    (hruns : CertRuns (CertRunFacts env F natLog2Name value')
+    (hruns : CertRuns (CertRunFacts mode env F natLog2Name value')
       (divModCertStmts natLog2Name) (divModCertProofs natLog2Name))
     {Γ : List VExpr} {x y : VExpr}
     (hx : HasType Γ x (m.cval natName φ))
@@ -1105,7 +1108,7 @@ theorem dmLog2 (m : EnvTT env) (φ : Name → Nat) {F : Nat}
 /-- `natLand`. -/
 theorem dmLand (m : EnvTT env) (φ : Name → Nat) {F : Nat}
     (hb : DMBase m φ natLandName value')
-    (hruns : CertRuns (CertRunFacts env F natLandName value')
+    (hruns : CertRuns (CertRunFacts mode env F natLandName value')
       (divModCertStmts natLandName) (divModCertProofs natLandName))
     {Γ : List VExpr} {x y : VExpr}
     (hx : HasType Γ x (m.cval natName φ))
@@ -1136,7 +1139,7 @@ theorem dmLand (m : EnvTT env) (φ : Name → Nat) {F : Nat}
 /-- `natLor`. -/
 theorem dmLor (m : EnvTT env) (φ : Name → Nat) {F : Nat}
     (hb : DMBase m φ natLorName value')
-    (hruns : CertRuns (CertRunFacts env F natLorName value')
+    (hruns : CertRuns (CertRunFacts mode env F natLorName value')
       (divModCertStmts natLorName) (divModCertProofs natLorName))
     {Γ : List VExpr} {x y : VExpr}
     (hx : HasType Γ x (m.cval natName φ))
@@ -1167,7 +1170,7 @@ theorem dmLor (m : EnvTT env) (φ : Name → Nat) {F : Nat}
 /-- `natXor`. -/
 theorem dmXor (m : EnvTT env) (φ : Name → Nat) {F : Nat}
     (hb : DMBase m φ natXorName value')
-    (hruns : CertRuns (CertRunFacts env F natXorName value')
+    (hruns : CertRuns (CertRunFacts mode env F natXorName value')
       (divModCertStmts natXorName) (divModCertProofs natXorName))
     {Γ : List VExpr} {x y : VExpr}
     (hx : HasType Γ x (m.cval natName φ))
@@ -1198,7 +1201,7 @@ theorem dmXor (m : EnvTT env) (φ : Name → Nat) {F : Nat}
 /-- `natDiv`. -/
 theorem dmDiv (m : EnvTT env) (φ : Name → Nat) {F : Nat}
     (hb : DMBase m φ natDivName value')
-    (hruns : CertRuns (CertRunFacts env F natDivName value')
+    (hruns : CertRuns (CertRunFacts mode env F natDivName value')
       (divModCertStmts natDivName) (divModCertProofs natDivName))
     {Γ : List VExpr} {x y : VExpr}
     (hx : HasType Γ x (m.cval natName φ))
@@ -1236,7 +1239,7 @@ theorem dmDiv (m : EnvTT env) (φ : Name → Nat) {F : Nat}
 /-- `natMod`. -/
 theorem dmMod (m : EnvTT env) (φ : Name → Nat) {F : Nat}
     (hb : DMBase m φ natModName value')
-    (hruns : CertRuns (CertRunFacts env F natModName value')
+    (hruns : CertRuns (CertRunFacts mode env F natModName value')
       (divModCertStmts natModName) (divModCertProofs natModName))
     {Γ : List VExpr} {x y : VExpr}
     (hx : HasType Γ x (m.cval natName φ))

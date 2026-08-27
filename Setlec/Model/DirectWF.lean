@@ -14,6 +14,8 @@ sequence, so it lives here once.
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 /-- Introduction for `ConstWF` with the clause types spelled out (the
 `thmInfo` clause defaulted, as every constant installed by the direct
 path is an inductive-kind one). -/
@@ -62,7 +64,7 @@ theorem directConstWF {env : Env} {c : ConstantInfo}
 four type-slot facts; every value clause is refuted by the kind). -/
 theorem envWF_cons_ind {env : Env} (henv : EnvWF env)
     {cvA : ConstantVal} {caps : IndCaps} {F : Nat} {cv : ConstantVal}
-    (hccv : checkConstantVal (fueledOps F) env cv = .ok cvA) :
+    (hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
     EnvWF ⟨.indInfo cvA caps :: env.consts⟩ := by
   obtain ⟨htf, htp, htr, htb⟩ := checkConstantVal_typeWF hccv
   exact EnvWF.cons henv (directConstWF htf htp
@@ -73,7 +75,7 @@ theorem envWF_cons_ind {env : Env} (henv : EnvWF env)
 /-- A checked constructor cons is well-formed. -/
 theorem envWF_cons_ctor {env : Env} (henv : EnvWF env)
     {cvA : ConstantVal} {nP nF F : Nat} {cv : ConstantVal}
-    (hccv : checkConstantVal (fueledOps F) env cv = .ok cvA) :
+    (hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
     EnvWF ⟨.ctorInfo cvA nP nF :: env.consts⟩ := by
   obtain ⟨htf, htp, htr, htb⟩ := checkConstantVal_typeWF hccv
   exact EnvWF.cons henv (directConstWF htf htp
@@ -85,7 +87,7 @@ theorem envWF_cons_ctor {env : Env} (henv : EnvWF env)
 well-formed and the stored type is closed. -/
 theorem direct_ind_wf {env env₁ : Env} (henv : EnvWF env)
     {p : DirectParts} {cvTa : ConstantVal} {F : Nat}
-    (h : checkDirectInd (fueledOps F) env p = .ok (env₁, cvTa)) :
+    (h : checkDirectInd (fueledOps mode F) env p = .ok (env₁, cvTa)) :
     EnvWF env₁ ∧ cvTa.type.hasFvar = false := by
   obtain ⟨cvTa', bs, hccv, -, hv⟩ := checkDirectInd_inv h
   simp only [Prod.mk.injEq] at hv
@@ -95,7 +97,7 @@ theorem direct_ind_wf {env env₁ : Env} (henv : EnvWF env)
 /-- Stage 2 at the run level. -/
 theorem direct_ctor_wf {env₀ env env₂ : Env} (henv : EnvWF env)
     {p : DirectParts} {cvTa cvCa : ConstantVal} {F : Nat}
-    (h : checkDirectCtor (fueledOps F) env₀ env p cvTa = .ok (env₂, cvCa)) :
+    (h : checkDirectCtor (fueledOps mode F) env₀ env p cvTa = .ok (env₂, cvCa)) :
     EnvWF env₂ ∧ cvCa.type.hasFvar = false ∧
       cvCa.type.looseBVarsBounded 0 = true := by
   obtain ⟨cvCa', cbs, fvsC, crestC, tfvs, trest, xFvs, hccv, -, -, -, -, -,
@@ -110,8 +112,8 @@ rule is well-formed (the rule's right-hand side facts come from
 `checkDirectRule_inv`, the fire mode is never `.nested`). -/
 theorem direct_rec_wf {env : Env} (henv : EnvWF env)
     {p : DirectParts} {cvCa cvRa : ConstantVal} {rhsA : Expr} {F G : Nat}
-    (hcv : checkConstantVal (fueledOps F) env p.cvR = .ok cvRa)
-    (hru : checkDirectRule (fueledOps G) env p cvCa cvRa = .ok rhsA) :
+    (hcv : checkConstantVal (fueledOps mode F) env p.cvR = .ok cvRa)
+    (hru : checkDirectRule (fueledOps mode G) env p cvCa cvRa = .ok rhsA) :
     EnvWF ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
@@ -138,7 +140,7 @@ level: the environment it produces is well-formed. -/
 theorem direct_proj_wf {env envOut : Env} (henv : EnvWF env)
     {T C : Name} {lps : List Name} {nP nF i F : Nat}
     {cvTa cvCa : ConstantVal}
-    (h : checkDirectProj (fueledOps F) T C lps nP nF cvTa cvCa env i
+    (h : checkDirectProj (fueledOps mode F) T C lps nP nF cvTa cvCa env i
       = .ok envOut) :
     EnvWF envOut := by
   obtain ⟨pty, ptyA, sty, u, fvsP, prest, sbs, sbody, sdom, tFvs, resid,

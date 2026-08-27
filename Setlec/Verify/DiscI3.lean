@@ -12,6 +12,8 @@ set_option maxHeartbeats 1000000
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open EStore Expr
 
 section Walks
@@ -20,7 +22,7 @@ variable {env : Env} {f : Nat}
 
 private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
     (rules : List RecRule) (major : Expr) :
-    majorToCtor (fueledFns env) env d recName rules major =
+    majorToCtor mode (fueledFns mode env) env d recName rules major =
     (if isCtorApp env major then pure major else
     match rules with
     | [rl] =>
@@ -31,8 +33,8 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
           match env.find? T with
           | some (.indInfo cvT caps) =>
             if caps.ruleK = true ∧ cnF = 0 then
-              (fueledFns env).infer d major >>= fun tm =>
-              (fueledFns env).whnf d tm >>= fun tmaj =>
+              (fueledFns mode env).infer d major >>= fun tm =>
+              (fueledFns mode env).whnf d tm >>= fun tmaj =>
               match tmaj.getAppFn with
               | .const T' ust =>
                 if T' = T ∧ cvj.levelParams.length = ust.length then
@@ -43,15 +45,15 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                     if fab.wscopedB d && fab.looseBVarsBounded 0 &&
                         fab.fvarLeaves.all
                           (fun l => major.fvarLeaves.contains l) then
-                      iotaCerts (fueledFns env) env d
+                      iotaCerts (fueledFns mode env) env d
                           (cvj.type.instantiateLevelParams
                             cvj.levelParams ust)
                           (tmaj.getAppArgs.take cnP) >>= fun rc =>
                       if rc then
-                        (fueledFns env).infer d fab >>= fun tfab =>
-                        (fueledFns env).defeq d tmaj tfab >>= fun rd =>
+                        (fueledFns mode env).infer d fab >>= fun tfab =>
+                        (fueledFns mode env).defeq d tmaj tfab >>= fun rd =>
                         if rd then
-                          proofIrrel (fueledFns env) env d fab major >>=
+                          proofIrrel (fueledFns mode env) env d fab major >>=
                             fun r =>
                           if r then pure fab
                           else pure major
@@ -63,8 +65,8 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
               | _ => pure major
             else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
                 Name.isProjFnShape recName = false then
-              (fueledFns env).infer d major >>= fun tm =>
-              (fueledFns env).whnf d tm >>= fun tmaj =>
+              (fueledFns mode env).infer d major >>= fun tm =>
+              (fueledFns mode env).whnf d tm >>= fun tmaj =>
               match tmaj.getAppFn with
               | .const T' ust =>
                 if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
@@ -82,7 +84,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                     if fab.wscopedB d && fab.looseBVarsBounded 0 &&
                         fab.fvarLeaves.all
                           (fun l => major.fvarLeaves.contains l) then
-                      iotaCerts (fueledFns env) env d
+                      iotaCerts (fueledFns mode env) env d
                           (cvj.type.instantiateLevelParams
                             cvj.levelParams ust)
                           (tmaj.getAppArgs ++
@@ -91,12 +93,12 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                                 (tmaj.getAppArgs ++ [major])) >>=
                         fun rc =>
                       if rc then
-                        structEtaCertWith (fueledFns env) env d fab major
+                        structEtaCertWith mode (fueledFns mode env) env d fab major
                             tmaj >>= fun r =>
                         if r then pure fab
                         else if caps.etaFields = 0 ∧
                             cvj.levelParams.length = ust.length then
-                          proofIrrel (fueledFns env) env d fab major >>=
+                          proofIrrel (fueledFns mode env) env d fab major >>=
                             fun r' =>
                           if r' then pure fab
                           else pure major
@@ -112,15 +114,15 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
       | _ => pure major
     | _ => pure major) := rfl
 
-theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
+theorem majorToCtorI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {recName : Name} {rules : List RecRule} {i : EIdx}
-    {major : Expr} {s₀ : IState} (hs : ISOK env s₀)
+    {major : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some major) (hmaj : WScoped d major) :
-    SimAt env s₀ (RelE d)
-      (majorToCtorI (coreKnotI (mkFEnv env) f) (mkFEnv env) d recName
+    SimAt mode env s₀ (RelE d)
+      (majorToCtorI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d recName
         rules i)
-      (majorToCtor (fueledFns env) env d recName rules major) := by
-  show SimAt env s₀ (RelE d)
+      (majorToCtor mode (fueledFns mode env) env d recName rules major) := by
+  show SimAt mode env s₀ (RelE d)
     (Setlec.withStore (fun st => isCtorAppI (mkFEnv env) st i) >>=
       fun ctor =>
       if ctor then pure i else
@@ -133,8 +135,8 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
             match (mkFEnv env).find? T with
             | some (.indInfo cvT caps) =>
               if caps.ruleK = true ∧ cnF = 0 then
-                (coreKnotI (mkFEnv env) f).infer d i >>= fun tm =>
-                (coreKnotI (mkFEnv env) f).whnf d tm >>= fun tmaj =>
+                (coreKnotI mode (mkFEnv env) f).infer d i >>= fun tm =>
+                (coreKnotI mode (mkFEnv env) f).whnf d tm >>= fun tmaj =>
                 Setlec.withStore
                     (fun st => st.getNode (st.getAppFnI tmaj)) >>= fun n =>
                 match n with
@@ -154,15 +156,15 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                       if g then
                         constTyAtM (mkFEnv env) ctorI rl.ctor ust >>=
                           fun tyCtor =>
-                        iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env)
+                        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env)
                             d tyCtor (margs.take cnP) >>= fun rc =>
                         if rc then
-                          (coreKnotI (mkFEnv env) f).infer d fab >>=
+                          (coreKnotI mode (mkFEnv env) f).infer d fab >>=
                             fun tfab =>
-                          (coreKnotI (mkFEnv env) f).defeq d tmaj
+                          (coreKnotI mode (mkFEnv env) f).defeq d tmaj
                               tfab >>= fun rd =>
                           if rd then
-                            proofIrrelI (coreKnotI (mkFEnv env) f)
+                            proofIrrelI (coreKnotI mode (mkFEnv env) f)
                                 (mkFEnv env) d fab i >>= fun r =>
                             if r then pure fab
                             else pure i
@@ -174,8 +176,8 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                 | _ => pure i
               else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
                   Name.isProjFnShape recName = false then
-                (coreKnotI (mkFEnv env) f).infer d i >>= fun tm =>
-                (coreKnotI (mkFEnv env) f).whnf d tm >>= fun tmaj =>
+                (coreKnotI mode (mkFEnv env) f).infer d i >>= fun tm =>
+                (coreKnotI mode (mkFEnv env) f).whnf d tm >>= fun tmaj =>
                 Setlec.withStore
                     (fun st => st.getNode (st.getAppFnI tmaj)) >>= fun n =>
                 match n with
@@ -204,15 +206,15 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                       if g then
                         constTyAtM (mkFEnv env) ctorI rl.ctor ust >>=
                           fun tyCtor =>
-                        iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env)
+                        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env)
                             d tyCtor (margs ++ projs) >>= fun rc =>
                         if rc then
-                          structEtaCertWithI (coreKnotI (mkFEnv env) f)
+                          structEtaCertWithI mode (coreKnotI mode (mkFEnv env) f)
                               (mkFEnv env) d fab i tmaj >>= fun r =>
                           if r then pure fab
                           else if caps.etaFields = 0 ∧
                               cvj.levelParams.length = ust.length then
-                            proofIrrelI (coreKnotI (mkFEnv env) f)
+                            proofIrrelI (coreKnotI mode (mkFEnv env) f)
                                 (mkFEnv env) d fab i >>= fun r' =>
                             if r' then pure fab
                             else pure i
@@ -227,7 +229,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
           | _ => pure i
         | _ => pure i
       | _ => pure i)
-    (majorToCtor (fueledFns env) env d recName rules major)
+    (majorToCtor mode (fueledFns mode env) env d recName rules major)
   rw [majorToCtor_unfold]
   refine SimAt.withStore ?_
   rw [isCtorAppI_spec hs.wf hden]
@@ -684,18 +686,18 @@ variable {env : Env} {f : Nat}
 mapped list. -/
 theorem pinArgsI_eff (lps : List Name) (us : List LIdx)
     (lus : List Level) :
-    ∀ (ps : List Expr) {s₀ : IState}, ISOK env s₀ →
+    ∀ (ps : List Expr) {s₀ : IState}, ISOK mode env s₀ →
       denoteLList s₀.store.denoteL us = some lus →
       ∀ {args : List EIdx} {xs : List Expr} (t : Nat),
       DenL s₀.store args xs →
-      IEff env s₀ (fun s rs => DenL s.store rs
+      IEff mode env s₀ (fun s rs => DenL s.store rs
           (ps.map fun p => Expr.instSpine xs t
             (p.instantiateLevelParams lps lus)))
         (pinArgsI lps us args t ps)
   | [], s₀, hs, hus, args, xs, t, hargs => by
     exact IEff.pure hs trivial
   | p :: ps, s₀, hs, hus, args, xs, t, hargs => by
-    show IEff env s₀ _
+    show IEff mode env s₀ _
       (internExprM p >>= fun praw =>
         instLevelParamsM lps us praw >>= fun pi =>
         instSpineM args t pi >>= fun r =>
@@ -717,13 +719,13 @@ theorem pinArgsI_eff (lps : List Name) (us : List LIdx)
 /-- The shared certificate tail of the iota step (after the firing-mode
 comparands): recursor/constructor telescope certificates, the
 canonical-index check, and the reduct. -/
-private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
+private theorem iotaRec_certs_tail (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {i major : EIdx} {ex majorx : Expr} {cI jI : NIdx}
     {c cj : Name}
     {us usj : List LIdx} {lus lusj : List Level}
     {cv cvj : ConstantVal} {mI rP cnP cnF : Nat}
     {rules : List RecRule} {rl : RecRule}
-    {args margs : List EIdx} {s₀ : IState} (hs : ISOK env s₀)
+    {args margs : List EIdx} {s₀ : IState} (hs : ISOK mode env s₀)
     (hcI : s₀.store.denoteN cI = some c)
     (hjI : s₀.store.denoteN jI = some cj)
     (hus : denoteLList s₀.store.denoteL us = some lus)
@@ -735,13 +737,13 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
     (hmd : s₀.store.denoteT major = some majorx) (hmaj : WScoped d majorx)
     (hargs : DenL s₀.store args ex.getAppArgs)
     (hmargs : DenL s₀.store margs majorx.getAppArgs) :
-    SimAt env s₀ (RelO d)
+    SimAt mode env s₀ (RelO d)
       (constTyAtM (mkFEnv env) cI c us >>= fun tyRec =>
-        iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyRec
+        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d tyRec
             (args.take mI ++ [major]) >>= fun r₂ =>
         if r₂ then
           constTyAtM (mkFEnv env) jI cj usj >>= fun tyCtor =>
-          iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyCtor
+          iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d tyCtor
               margs >>= fun r₃ =>
           if r₃ then
             Setlec.withStore (fun st =>
@@ -755,7 +757,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
               match n'' with
               | some (.const _ _) =>
                 Setlec.withStore (·.getAppArgsI residual) >>= fun resArgs =>
-                defEqListI (coreKnotI (mkFEnv env) f) (mkFEnv env) d
+                defEqListI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
                     (resArgs.drop rl.ctorParams)
                     ((args.take mI).drop rP) >>= fun r₄ =>
                 if r₄ then
@@ -768,11 +770,11 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
             | _, _ => pure none
           else pure none
         else pure none)
-      (iotaCerts (fueledFns env) env d
+      (iotaCerts (fueledFns mode env) env d
           (cv.type.instantiateLevelParams cv.levelParams lus)
           (ex.getAppArgs.take mI ++ [majorx]) >>= fun r₂ =>
         if r₂ then
-          iotaCerts (fueledFns env) env d
+          iotaCerts (fueledFns mode env) env d
               (cvj.type.instantiateLevelParams cvj.levelParams lusj)
               majorx.getAppArgs >>= fun r₃ =>
           if r₃ then
@@ -783,7 +785,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
             | some (_, cbody), some residual =>
               match cbody.getAppFn with
               | .const _ _ =>
-                defEqList (fueledFns env) env d
+                defEqList (fueledFns mode env) env d
                     (residual.getAppArgs.drop rl.ctorParams)
                     ((ex.getAppArgs.take mI).drop rP) >>= fun r₄ =>
                 if r₄ then
@@ -967,16 +969,16 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
                 invert_head hd''; exact SimAt.pure hs₅ trivial
 
 private theorem iotaRec_unfold (env : Env) (d : Nat) (e : Expr) :
-    iotaRec (fueledFns env) env d e =
+    iotaRec mode (fueledFns mode env) env d e =
     (match e.getAppFn with
     | .const c us =>
       match env.find? c with
       | some (.recInfo cv mI rP rules) =>
         if e.getAppArgs.length = mI + 1 then
-          (fueledFns env).whnf d (e.getAppArgs.getD mI (.bvar 0)) >>=
+          (fueledFns mode env).whnf d (e.getAppArgs.getD mI (.bvar 0)) >>=
             fun major₀ =>
-          litMajorToCtor (fueledFns env) env d major₀ >>= fun major₁ =>
-          majorToCtor (fueledFns env) env d c rules major₁ >>= fun major =>
+          litMajorToCtor (fueledFns mode env) env d major₀ >>= fun major₁ =>
+          majorToCtor mode (fueledFns mode env) env d c rules major₁ >>= fun major =>
           match major.getAppFn with
           | .const cj usj =>
             match env.find? cj with
@@ -997,19 +999,19 @@ private theorem iotaRec_unfold (env : Env) (d : Nat) (e : Expr) :
                           cvj.levelParams e.getAppArgs rP).1) >>=
                       fun okl =>
                     if okl then
-                      defEqList (fueledFns env) env d
+                      defEqList (fueledFns mode env) env d
                           (major.getAppArgs.take rl.ctorParams)
                           (recFireComparands rl cv.levelParams us
                             cvj.levelParams e.getAppArgs rP).2 >>=
                         fun r₁ =>
                       if r₁ then
-                        iotaCerts (fueledFns env) env d
+                        iotaCerts (fueledFns mode env) env d
                             (cv.type.instantiateLevelParams
                               cv.levelParams us)
                             (e.getAppArgs.take mI ++ [major]) >>=
                           fun r₂ =>
                         if r₂ then
-                          iotaCerts (fueledFns env) env d
+                          iotaCerts (fueledFns mode env) env d
                               (cvj.type.instantiateLevelParams
                                 cvj.levelParams usj)
                               major.getAppArgs >>= fun r₃ =>
@@ -1023,7 +1025,7 @@ private theorem iotaRec_unfold (env : Env) (d : Nat) (e : Expr) :
                             | some (_, cbody), some residual =>
                               match cbody.getAppFn with
                               | .const _ _ =>
-                                defEqList (fueledFns env) env d
+                                defEqList (fueledFns mode env) env d
                                     (residual.getAppArgs.drop
                                       rl.ctorParams)
                                     ((e.getAppArgs.take mI).drop rP) >>=
@@ -1052,12 +1054,12 @@ private theorem iotaRec_unfold (env : Env) (d : Nat) (e : Expr) :
     | _ => pure none) := rfl
 
 set_option maxHeartbeats 8000000 in
-theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
-    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem iotaRecI_sim (ih : SSimI mode env f) (henv : EnvWF env)
+    {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
-    SimAt env s₀ (RelO d)
-      (iotaRecI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
-      (iotaRec (fueledFns env) env d ex) := by
+    SimAt mode env s₀ (RelO d)
+      (iotaRecI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (iotaRec mode (fueledFns mode env) env d ex) := by
   unfold iotaRecI
   rw [iotaRec_unfold]
   refine SimAt.withStore ?_

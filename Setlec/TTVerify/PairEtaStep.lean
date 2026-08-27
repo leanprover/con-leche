@@ -26,6 +26,10 @@ than an `isEquiv` argument.
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode; the seven gated checks
+reduce definitionally at `.ttModel`. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- **Only `PSigma'` passes the pair-eta test**: a reserved recursor
@@ -73,12 +77,15 @@ theorem pairLike_eq_psigma {env : Env} (m : EnvTT env) {c' : Name}
 /-- **`PairEtaCertStepTT`, discharged.** -/
 theorem pairEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) : PairEtaCertStepTT m φ fuel := by
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel) : PairEtaCertStepTT m φ fuel := by
   intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
-    mI, rP, rr, entry, rfl, hfc, htb, hwtb, hfI, hfr, hrc, hrf, hmirp,
-    hgres, hlev', hdA, hdB, hd1, hd2, hfe, hcert⟩ := pairEtaCert_inv h
+    mI, rP, rr, rfl, hfc, htb, hwtb, hfI, hfr, hrc, hrf, hmirp,
+    hgres, hlev', hdA, hdB, hd1, hd2, hfec⟩ := pairEtaCert_inv h
+  -- task #147: the TT lane runs at `.ttModel`, so the gated conjunct
+  -- is delivered
+  obtain ⟨entry, hfe, hcert⟩ := hfec rfl
   obtain ⟨rfl, hctor⟩ := pairLike_eq_psigma m hfr hrf hmirp hgres
   obtain rfl : c = psigmaMkName := by rw [← hrc, hctor]
   -- the stuck side's type, reduced

@@ -17,6 +17,10 @@ set_option maxHeartbeats 3200000
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode; the seven gated checks
+reduce definitionally at `.ttModel`. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- The frame-generic workhorse (`hopenDeqG`): an install-time
@@ -24,7 +28,7 @@ definitional equality over a frame's openers, instantiated along a
 fitted prefix, padding the rest. -/
 theorem openFrame_deq {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
     {ψ : Name → Nat} {Δ : List VExpr} {K : Nat}
-    (ihd : DefEqClaimsTT m₀ ψ F) :
+    (ihd : DefEqClaimsTT mode m₀ ψ F) :
     ∀ (fvsF : List Expr) (ΓF : List VExpr) (mF : Nat),
     ΓF.length = mF →
     (∀ (i : Nat) (x : Expr), fvsF[i]? = some x →
@@ -34,7 +38,7 @@ theorem openFrame_deq {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
       denote m₀.cval env₀ (ψ) i (Expr.fvarTypeD x)
         = some (ΓF.getD (mF - 1 - i) default)) →
     ∀ (a b : Expr) (n : Nat), n ≤ mF → mF ≤ K →
-    isDefEqCore env₀ F (K) a b = .ok true →
+    isDefEqCore mode env₀ F (K) a b = .ok true →
     (∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsF) →
     (∀ l ∈ b.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsF) →
     Expr.WScoped n a → Expr.WScoped n b →
@@ -94,7 +98,7 @@ recursor's `j`-th instantiated domain and the constructor's are
 `Deq`, along the fired prefix. -/
 theorem paramBridge {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
     {ψ : Name → Nat} {Δ : List VExpr}
-    (ihd : DefEqClaimsTT m₀ ψ F)
+    (ihd : DefEqClaimsTT mode m₀ ψ F)
     {rP cnP cnF : Nat} {xs : List VExpr}
     {fvsP fvsC : List Expr} {ΓP Γj : List VExpr}
     {cdomsP : List Expr} {crestP cvjty : Expr}
@@ -109,7 +113,7 @@ theorem paramBridge {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
     (hCb : cvjty.looseBVarsBounded 0 = true)
     (hcinstP : Expr.instPisAt (fvsP.take cnP) cvjty
       = some (cdomsP, crestP))
-    (hdePars : DefEqListOk F env₀ (rP + cnF)
+    (hdePars : DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP)
     (hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
       ∃ nm ty, x = Expr.fvar i nm ty)
@@ -292,7 +296,7 @@ each position's typing converted from the fire site's fittings along
 the install's opened definitional equalities. -/
 theorem zipperStage {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
     {ψ : Name → Nat} {Δ : List VExpr}
-    (ihd : DefEqClaimsTT m₀ ψ F)
+    (ihd : DefEqClaimsTT mode m₀ ψ F)
     {f : Name → Name} (hro : RenameOkT m₀.cval env₀ f)
     {rP cnP cnF mI : Nat} {xs ys : List VExpr}
     {fvs fvsP : List Expr} {Γs ΓP Γj : List VExpr}
@@ -358,9 +362,9 @@ theorem zipperStage {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
       some (rdoms, rrest))
     (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP)
       (cvjty.renameConsts f) = some (cdoms, cres))
-    (hdePre : DefEqListOk F env₀ (rP + cnF)
+    (hdePre : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms)
-    (hdeFld : DefEqListOk F env₀ (rP + cnF)
+    (hdeFld : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
     (hPRdoms : ∀ (j : Nat) (x x' : Expr),
       (fvsP.map Expr.fvarTypeD)[j]? = some x →
@@ -819,7 +823,7 @@ residual, the major through the parameter pin. -/
 theorem pointStage {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
     {φ : Name → Nat} {lps : List Name} {us usj : List Level}
     {Δ : List VExpr}
-    (ihd : DefEqClaimsTT m₀ (Level.substFn φ lps us) F)
+    (ihd : DefEqClaimsTT mode m₀ (Level.substFn φ lps us) F)
     {f : Name → Name} (hro : RenameOkT m₀.cval env₀ f)
     {ctor : Name} {cvj : ConstantVal} {ciCm : ConstantInfo}
     (hfCmE : env₀.find? (f ctor) = some ciCm)
@@ -845,7 +849,7 @@ theorem pointStage {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
         (fvs.take cnP ++ fvs.drop rP))
     (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP)
       (cvjty.renameConsts f) = some (cdoms, cres))
-    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+    (hdeIdx : DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP))
     (hpar : ∀ i, i < cnP → i < mI →
@@ -1200,7 +1204,7 @@ open Setlec.TT
 
 /-- `TypedListOk` lists have equal lengths. -/
 private theorem TypedListOk.length' {F : Nat} {env : Env} {d : Nat} :
-    ∀ {as bs : List Expr}, TypedListOk F env d as bs →
+    ∀ {as bs : List Expr}, TypedListOk mode F env d as bs →
       as.length = bs.length := by
   intro as
   induction as with
@@ -1215,10 +1219,10 @@ private theorem TypedListOk.length' {F : Nat} {env : Env} {d : Nat} :
 
 /-- `TypedListOk`, read at one position. -/
 private theorem TypedListOk.pointwise' {F : Nat} {env : Env} {d : Nat} :
-    ∀ {as bs : List Expr}, TypedListOk F env d as bs →
+    ∀ {as bs : List Expr}, TypedListOk mode F env d as bs →
       ∀ (i : Nat) {a b : Expr}, as[i]? = some a → bs[i]? = some b →
-        ∃ ty, inferTypeCore env F d a = .ok ty ∧
-          isDefEqCore env F d ty b = .ok true := by
+        ∃ ty, inferTypeCore mode env F d a = .ok ty ∧
+          isDefEqCore mode env F d ty b = .ok true := by
   intro as
   induction as with
   | nil =>
@@ -1314,8 +1318,8 @@ the fired fields.  (`IndBottomNestedTT`'s Stages D-E, sealed.) -/
 theorem nestedMixedFit {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
     {φ : Name → Nat} {lps : List Name} {us : List Level}
     {Δ : List VExpr}
-    (ihd : DefEqClaimsTT m₀ (Level.substFn φ lps us) F)
-    (ihi : InferClaimsTT m₀ (Level.substFn φ lps us) F)
+    (ihd : DefEqClaimsTT mode m₀ (Level.substFn φ lps us) F)
+    (ihi : InferClaimsTT mode m₀ (Level.substFn φ lps us) F)
     {rP cnP cnF mI : Nat} {xs ys : List VExpr}
     {pins : List Expr} {fvsP : List Expr} {ΓP Γj : List VExpr}
     {TVj Rj : VExpr} {cvjtyL : Expr}
@@ -1350,7 +1354,7 @@ theorem nestedMixedFit {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
     (hcinstP : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       cvjtyL = some (cdomsP, crestP))
-    (hTypedP : TypedListOk F env₀ (rP + cnF)
+    (hTypedP : TypedListOk mode F env₀ (rP + cnF)
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       cdomsP)
     (hcsRpre : ∀ j, j ≤ rP →
@@ -1488,10 +1492,10 @@ theorem nestedMixedFit {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
         = some W ∧
       W = VExpr.instRevChain ((List.range rP).map fun j =>
         VExpr.bvar (rP + cnF - 1 - j)) wp ∧
-      inferTypeCore env₀ F (rP + cnF)
+      inferTypeCore mode env₀ F (rP + cnF)
         (Expr.instSpine (fvsP.take rP) (rP - 1) (pins.getD q default))
         = .ok ty ∧
-      isDefEqCore env₀ F (rP + cnF) ty (cdomsP.getD q default)
+      isDefEqCore mode env₀ F (rP + cnF) ty (cdomsP.getD q default)
         = .ok true ∧
       denote m₀.cval env₀ (Level.substFn φ lps us) (rP + cnF) ty
         = some vty ∧
@@ -2001,7 +2005,7 @@ each position's typing converted from the fire site's fittings along
 the install's opened definitional equalities. -/
 theorem zipperStageN {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
     {ψ : Name → Nat} {Δ : List VExpr}
-    (ihd : DefEqClaimsTT m₀ ψ F)
+    (ihd : DefEqClaimsTT mode m₀ ψ F)
     {f : Name → Name} (hro : RenameOkT m₀.cval env₀ f)
     {rP cnP cnF mI : Nat} {xs ys : List VExpr}
     {fvs fvsP spN : List Expr} {Γs ΓP Γj mixN : List VExpr}
@@ -2078,9 +2082,9 @@ theorem zipperStageN {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
     (hrinst : Expr.instPisAt (fvs.take rP) (tyA.renameConsts f) =
       some (rdoms, rrest))
     (hcinst : Expr.instPisAt spN ctyN = some (cdoms, cres))
-    (hdePre : DefEqListOk F env₀ (rP + cnF)
+    (hdePre : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms)
-    (hdeFld : DefEqListOk F env₀ (rP + cnF)
+    (hdeFld : DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
     (hPRdoms : ∀ (j : Nat) (x x' : Expr),
       (fvsP.map Expr.fvarTypeD)[j]? = some x →
@@ -2512,7 +2516,7 @@ residual, the major through the parameter pin. -/
 theorem pointStageN {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
     {φ : Name → Nat} {lps : List Name} {us usj : List Level}
     {Δ : List VExpr}
-    (ihd : DefEqClaimsTT m₀ (Level.substFn φ lps us) F)
+    (ihd : DefEqClaimsTT mode m₀ (Level.substFn φ lps us) F)
     {f : Name → Name} (_hro : RenameOkT m₀.cval env₀ f)
     {ctor : Name} {cvj : ConstantVal} {ciCm : ConstantInfo}
     (_hfCmE : env₀.find? (f ctor) = some ciCm)
@@ -2535,7 +2539,7 @@ theorem pointStageN {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
     (hmaj : Expr.ErasedEq (lhsS.getAppArgs.getLastD (.bvar 0))
       (Expr.mkAppN (.const (f ctor) lvls) spN))
     (hcinst : Expr.instPisAt spN ctyN = some (cdoms, cres))
-    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+    (hdeIdx : DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP))
     (hspdenN : DenoteSpine m₀.cval env₀ (Level.substFn φ lps us)
@@ -2829,20 +2833,20 @@ theorem pointStageN {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
 it to turn `domsMatchAux`'s syntactic equalities into the
 `DefEqListOk` runs the sealed stages consume. -/
 theorem isDefEqCore_rfl {env : Env} {F d : Nat} (e : Expr) :
-    isDefEqCore env (F + 1) d e e = .ok true := by
+    isDefEqCore mode env (F + 1) d e e = .ok true := by
   obtain ⟨n, hn⟩ := defeqLoopFuel_succ
   rw [isDefEqCore_succ]
-  show defeqLoop (pureFns env F) env d defeqLoopFuel e e = .ok true
+  show defeqLoop mode (pureFns mode env F) env d defeqLoopFuel e e = .ok true
   rw [hn]
-  show defeqStep (pureFns env F) env d
-    (defeqLoop (pureFns env F) env d n) e e = .ok true
+  show defeqStep mode (pureFns mode env F) env d
+    (defeqLoop mode (pureFns mode env F) env d n) e e = .ok true
   unfold defeqStep
   simp [pure, Except.pure]
 
 /-- Pointwise-equal lists are checker-definitionally equal lists. -/
 theorem DefEqListOk.of_eq {env : Env} {F d : Nat} :
     ∀ {as bs : List Expr}, as = bs →
-      DefEqListOk (F + 1) env d as bs := by
+      DefEqListOk mode (F + 1) env d as bs := by
   intro as bs h
   subst h
   induction as with

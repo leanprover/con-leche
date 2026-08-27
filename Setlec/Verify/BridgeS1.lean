@@ -5,9 +5,9 @@ import Setlec.Verify.BridgeWfImp
 # Shared-state walks, part 1: the single-environment checker functions
 
 Each lemma relates a generic declaration-checker function instantiated
-at the shared operations (`sharedOps (mkFEnv env)`, state shared across
+at the shared operations (`sharedOps mode (mkFEnv env)`, state shared across
 all operation calls) to the same function at the fueled families
-(`fueledOpsM`), as a `SimAt` — the invariant `ISOK env` is threaded
+(`(fueledOpsM mode)`), as a `SimAt` — the invariant `ISOK mode env` is threaded
 through every call, so cache entries created by one call are consumed
 by later ones soundly.  The per-site well-scopedness facts mirror the
 `_wfimp` walks (`Setlec/Verify/BridgeWfImp.lean`).
@@ -16,6 +16,8 @@ by later ones soundly.  The per-site well-scopedness facts mirror the
 set_option linter.unusedSimpArgs false
 
 namespace Setlec
+
+variable {mode : CheckMode}
 
 open Expr
 
@@ -26,10 +28,10 @@ variable {env : Env} {s₀ : IState}
 /-- `checkConstantVal` at the shared operations simulates the fueled
 instantiation; the returned constant's type is well-scoped. -/
 theorem checkConstantValS_sim (henv : EnvWF env) {cv : ConstantVal}
-    (hs : ISOK env s₀) :
-    SimAt env s₀ (fun _ v w => v = w ∧ WScoped 0 v.type)
-      (checkConstantVal (sharedOps (mkFEnv env)) env cv)
-      (checkConstantVal fueledOpsM env cv) := by
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ (fun _ v w => v = w ∧ WScoped 0 v.type)
+      (checkConstantVal (sharedOps mode (mkFEnv env)) env cv)
+      (checkConstantVal (fueledOpsM mode) env cv) := by
   unfold checkConstantVal
   dsimp only [sharedOps]
   by_cases h1 : (env.find? cv.name).isSome = true
@@ -83,11 +85,11 @@ theorem checkConstantValS_sim (henv : EnvWF env) {cv : ConstantVal}
 stores the annotated (fvar-free) value under `cv.name`. -/
 theorem checkDefnValS_sim (henv : EnvWF env) {cv : ConstantVal}
     {value : Expr} {hint : ReducibilityHint} (htf : WScoped 0 cv.type)
-    (hs : ISOK env s₀) :
-    SimAt env s₀ (fun _ v w => v = w ∧ ∀ cv' v' h',
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ (fun _ v w => v = w ∧ ∀ cv' v' h',
         v.find? cv.name = some (.defnInfo cv' v' h') → v'.hasFvar = false)
-      (checkDefnVal (sharedOps (mkFEnv env)) env cv value hint)
-      (checkDefnVal fueledOpsM env cv value hint) := by
+      (checkDefnVal (sharedOps mode (mkFEnv env)) env cv value hint)
+      (checkDefnVal (fueledOpsM mode) env cv value hint) := by
   unfold checkDefnVal
   dsimp only [sharedOps]
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
@@ -128,10 +130,10 @@ theorem checkDefnValS_sim (henv : EnvWF env) {cv : ConstantVal}
 
 /-- `checkThmVal` at the shared operations. -/
 theorem checkThmValS_sim (henv : EnvWF env) {cv : ConstantVal}
-    {value : Expr} (htf : WScoped 0 cv.type) (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkThmVal (sharedOps (mkFEnv env)) env cv value)
-      (checkThmVal fueledOpsM env cv value) := by
+    {value : Expr} (htf : WScoped 0 cv.type) (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkThmVal (sharedOps mode (mkFEnv env)) env cv value)
+      (checkThmVal (fueledOpsM mode) env cv value) := by
   unfold checkThmVal
   dsimp only [sharedOps]
   refine SimAt.bind (opE_infer_sim henv hs htf)
@@ -183,10 +185,10 @@ theorem checkThmValS_sim (henv : EnvWF env) {cv : ConstantVal}
 carries the raw value's `hasFvar` fact for the compiler-trust install
 gate's re-annotation). -/
 theorem checkOpaqueValS_sim (henv : EnvWF env) {cv : ConstantVal}
-    {value : Expr} (htf : WScoped 0 cv.type) (hs : ISOK env s₀) :
-    SimAt env s₀ (fun _ v w => v = w ∧ value.hasFvar = false)
-      (checkOpaqueVal (sharedOps (mkFEnv env)) env cv value)
-      (checkOpaqueVal fueledOpsM env cv value) := by
+    {value : Expr} (htf : WScoped 0 cv.type) (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ (fun _ v w => v = w ∧ value.hasFvar = false)
+      (checkOpaqueVal (sharedOps mode (mkFEnv env)) env cv value)
+      (checkOpaqueVal (fueledOpsM mode) env cv value) := by
   unfold checkOpaqueVal
   dsimp only [sharedOps]
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
@@ -222,10 +224,10 @@ theorem checkOpaqueValS_sim (henv : EnvWF env) {cv : ConstantVal}
 /-- `checkReducePin` at the shared operations. -/
 theorem checkReducePinS_sim (henv : EnvWF env) {env2 : Env} {c : Name}
     {value : Expr} (hvf : value.hasFvar = false)
-    (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkReducePin (sharedOps (mkFEnv env)) env env2 c value)
-      (checkReducePin fueledOpsM env env2 c value) := by
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkReducePin (sharedOps mode (mkFEnv env)) env env2 c value)
+      (checkReducePin (fueledOpsM mode) env env2 c value) := by
   unfold checkReducePin
   dsimp only [sharedOps]
   by_cases h1 : (reduceStoredOk env2 c && reduceElemOk env c) = true
@@ -280,10 +282,10 @@ theorem checkReducePinS_sim (henv : EnvWF env) {env2 : Env} {c : Name}
 theorem certifyNatEqsS_sim (henv : EnvWF env) :
     ∀ {eqs : List (Expr × Expr)},
       (∀ eq ∈ eqs, (eq.1.wscopedB 2 = true) ∧ (eq.2.wscopedB 2 = true)) →
-      ∀ {s₀ : IState}, ISOK env s₀ →
-      SimAt env s₀ RelV
-        (certifyNatEqs (sharedOps (mkFEnv env)) env eqs)
-        (certifyNatEqs fueledOpsM env eqs)
+      ∀ {s₀ : IState}, ISOK mode env s₀ →
+      SimAt mode env s₀ RelV
+        (certifyNatEqs (sharedOps mode (mkFEnv env)) env eqs)
+        (certifyNatEqs (fueledOpsM mode) env eqs)
   | [], _, s₀, hs => SimAt.pure hs rfl
   | eq :: rest, hsc, s₀, hs => by
     unfold certifyNatEqs
@@ -308,11 +310,11 @@ theorem checkDivModCertsS_sim (henv : EnvWF env) {c : Name}
     ∀ {stmts : List (List Expr × Expr)} {proofs : List Expr},
       (∀ st ∈ stmts, (∀ hyp ∈ st.1, hyp.wscopedB 2 = true) ∧
         st.2.wscopedB 4 = true) →
-      ∀ {s₀ : IState}, ISOK env s₀ →
-      SimAt env s₀ RelV
-        (checkDivModCerts (sharedOps (mkFEnv env)) env c annVal
+      ∀ {s₀ : IState}, ISOK mode env s₀ →
+      SimAt mode env s₀ RelV
+        (checkDivModCerts (sharedOps mode (mkFEnv env)) env c annVal
           stmts proofs)
-        (checkDivModCerts fueledOpsM env c annVal stmts proofs)
+        (checkDivModCerts (fueledOpsM mode) env c annVal stmts proofs)
   | [], [], _, s₀, hs => SimAt.pure hs rfl
   | [], _ :: _, _, s₀, hs => SimAt.pure hs rfl
   | _ :: _, [], _, s₀, hs => SimAt.pure hs rfl
@@ -364,10 +366,10 @@ theorem checkDivModPinS_sim (henv : EnvWF env) {env2 : Env} {c : Name}
     (hc : c ∈ natDivModNames)
     (hv'f : ∀ cv' v' h', env2.find? c = some (.defnInfo cv' v' h') →
       v'.hasFvar = false)
-    (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
-      (checkDivModPin (sharedOps (mkFEnv env)) env env2 c)
-      (checkDivModPin fueledOpsM env env2 c) := by
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV
+      (checkDivModPin (sharedOps mode (mkFEnv env)) env env2 c)
+      (checkDivModPin (fueledOpsM mode) env env2 c) := by
   unfold checkDivModPin
   dsimp only [sharedOps]
   by_cases h1 : divModEnvGuard env2 c = true
@@ -425,8 +427,8 @@ theorem checkDivModPinS_sim (henv : EnvWF env) {env2 : Env} {c : Name}
 
 /-- `installBasisDecl` (operation-free) as a `SimAt`. -/
 theorem installBasisDeclS_sim {env' : Env} {ci : ConstantInfo}
-    (hs : ISOK env s₀) :
-    SimAt env s₀ RelV (installBasisDecl env' ci : CheckIM Env)
+    (hs : ISOK mode env s₀) :
+    SimAt mode env s₀ RelV (installBasisDecl env' ci : CheckIM Env)
       (installBasisDecl env' ci : FueledM Env) := by
   unfold installBasisDecl
   by_cases h1 : (env'.find? ci.name).isNone = true
@@ -438,8 +440,8 @@ theorem installBasisDeclS_sim {env' : Env} {ci : ConstantInfo}
 /-- The basis-install fold as a `SimAt`. -/
 theorem installBasisFoldS_sim :
     ∀ (cis : List ConstantInfo) (env' : Env) {s₀ : IState},
-      ISOK env s₀ →
-      SimAt env s₀ RelV
+      ISOK mode env s₀ →
+      SimAt mode env s₀ RelV
         (cis.foldlM installBasisDecl env' : CheckIM Env)
         (cis.foldlM installBasisDecl env' : FueledM Env)
   | [], env', s₀, hs => SimAt.pure hs rfl
@@ -453,10 +455,10 @@ theorem installBasisFoldS_sim :
 /-- The non-inductive branches of `checkDecl` at the shared
 operations: the whole declaration runs at the input environment, all
 operation calls sharing one state. -/
-theorem checkDeclS_nonind_sim (henv : EnvWF env) (hs : ISOK env s₀)
+theorem checkDeclS_nonind_sim (henv : EnvWF env) (hs : ISOK mode env s₀)
     {d : Declaration} (hnotind : ∀ block, d ≠ .indDecl block) :
-    SimAt env s₀ RelV (checkDecl (sharedOps (mkFEnv env)) env d)
-      (checkDecl fueledOpsM env d) := by
+    SimAt mode env s₀ RelV (checkDecl mode (sharedOps mode (mkFEnv env)) env d)
+      (checkDecl mode (fueledOpsM mode) env d) := by
   cases d with
   | indDecl block => exact absurd rfl (hnotind block)
   | defnDecl cv value hint =>

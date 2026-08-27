@@ -28,12 +28,14 @@ arena extension thread the persistent state across declarations.
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open EStore Expr
 
 /-- A successful step validated its indices. -/
 private theorem checkDeclSPStep_inRange {n0 : Nat} {fe : FEnv}
     {pd : DeclP} {s₀ : IState} {fe' : FEnv} {s' : IState}
-    (h : checkDeclSPStep n0 fe pd s₀ = .ok (fe', s')) :
+    (h : checkDeclSPStep mode n0 fe pd s₀ = .ok (fe', s')) :
     pd.inRangeB n0 = true := by
   unfold checkDeclSPStep at h
   by_cases hin : pd.inRangeB n0 = true
@@ -48,9 +50,9 @@ theorem checkDeclSPStep_run {env : Env} (henv : EnvWF env) {pd : DeclP}
     {d : Declaration} {n0 : Nat} {s₀ : IState} (hres : ISOKF s₀)
     (hden : denoteDeclP s₀.store pd = some d)
     {fe' : FEnv} {s' : IState}
-    (h : checkDeclSPStep n0 (mkFEnv env) pd s₀ = .ok (fe', s')) :
+    (h : checkDeclSPStep mode n0 (mkFEnv env) pd s₀ = .ok (fe', s')) :
     ISOKF s' ∧ Ext s₀.store s'.store ∧ fe' = mkFEnv fe'.env ∧
-    ∃ F, checkDecl (fueledOps F) env d = .ok fe'.env := by
+    ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
   unfold checkDeclSPStep at h
   by_cases hin : pd.inRangeB n0 = true
   case neg =>
@@ -61,11 +63,11 @@ theorem checkDeclSPStep_run {env : Env} (henv : EnvWF env) {pd : DeclP}
   rw [flushS_run] at hflush
   injection hflush with hflush
   obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hflush
-  have hisok : ISOK env s₀.flushed := flushS_isok hres
+  have hisok : ISOK mode env s₀.flushed := flushS_isok hres
   have hden' : denoteDeclP s₀.flushed.store pd = some d := hden
   have main : (∀ block, pd ≠ .indDecl block) →
       ISOKF s' ∧ Ext s₀.store s'.store ∧ fe' = mkFEnv fe'.env ∧
-      ∃ F, checkDecl (fueledOps F) env d = .ok fe'.env := by
+      ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
     intro hind
     obtain ⟨hs', hext, v, ⟨henvEq, hmk⟩, F, hF⟩ :=
       (checkDeclSP_sim henv hisok hres.wf.tier_off hden' hind) fe' s' h
@@ -78,8 +80,8 @@ theorem checkDeclSPStep_run {env : Env} (henv : EnvWF env) {pd : DeclP}
     obtain rfl : Declaration.indDecl block = d := by
       simpa [denoteDeclP] using hden'
     have hrun : (match directPartsF? (mkFEnv env) block with
-        | some p => checkDirectStructS (mkFEnv env) p
-        | none => checkIndDeclSF (mkFEnv env) block) s₀.flushed =
+        | some p => checkDirectStructS mode (mkFEnv env) p
+        | none => checkIndDeclSF mode (mkFEnv env) block) s₀.flushed =
         .ok (fe', s') := h
     obtain ⟨hres', hext, hfe, F, hF⟩ :=
       checkIndOrDirectSF_run henv (hisok.residue hres.wf.tier_off) hrun
@@ -98,7 +100,7 @@ private theorem foldSP {V : Type u} [SetTheory V] {st0 : EStore}
       Nonempty (EnvModel V fe.env) →
       EtaFamiliesClosed fe.env →
       ISOKF s₀ → Ext st0 s₀.store →
-      (pds.foldlM (checkDeclSPStep (st0.nodes.size + st0.nodes.size)) fe) s₀ =
+      (pds.foldlM (checkDeclSPStep mode (st0.nodes.size + st0.nodes.size)) fe) s₀ =
         .ok (fe', s') →
       Nonempty (EnvModel V fe'.env)
   | [], fe, fe', s₀, s', _, hm, _, _, _, h => by
@@ -124,12 +126,12 @@ private theorem foldSP {V : Type u} [SetTheory V] {st0 : EStore}
 environment it accepts has a set-theoretic model. -/
 theorem checkDeclsSP_sound (V : Type u) [SetTheory V]
     {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSP st pds = .ok env') :
+    (h : checkDeclsSP mode st pds = .ok env') :
     Nonempty (EnvModel V env') := by
   unfold checkDeclsSP at h
   simp only [Bind.bind, Except.bind] at h
   have hwf : st.raw.WF := st.wf
-  cases hf : (pds.foldlM (checkDeclSPStep (st.raw.nodes.size + st.raw.nodes.size))
+  cases hf : (pds.foldlM (checkDeclSPStep mode (st.raw.nodes.size + st.raw.nodes.size))
       (mkFEnv Env.empty)).run' { store := st.raw } with
   | error e => rw [hf] at h; exact nomatch h
   | ok fe =>
@@ -138,7 +140,7 @@ theorem checkDeclsSP_sound (V : Type u) [SetTheory V]
       have h' : (Except.ok fe.env : CheckM Env) = .ok env' := h
       exact Except.ok.inj h'
     simp only [StateT.run'] at hf
-    cases hrun : (pds.foldlM (checkDeclSPStep (st.raw.nodes.size + st.raw.nodes.size))
+    cases hrun : (pds.foldlM (checkDeclSPStep mode (st.raw.nodes.size + st.raw.nodes.size))
         (mkFEnv Env.empty)) { store := st.raw } with
     | error e =>
       rw [hrun] at hf
@@ -157,7 +159,7 @@ executable checker**: if it accepts, no constant in the resulting
 environment has type `Empty`. -/
 theorem no_proof_of_Empty_SP (V : Type u) [SetTheory V]
     {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSP st pds = .ok env')
+    (h : checkDeclsSP mode st pds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
   obtain ⟨m⟩ := checkDeclsSP_sound V h
@@ -169,7 +171,7 @@ denotes `Empty` — the stream-level statement, with the parsed-index ↦
 expression identification through the parse store's denotation. -/
 theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
     {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSP st pds = .ok env')
+    (h : checkDeclsSP mode st pds = .ok env')
     {cvp : ConstantValP} {value : EIdx}
     (hd : (∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
       DeclP.thmDecl cvp value ∈ pds)
@@ -179,7 +181,7 @@ theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
   unfold checkDeclsSP at h
   have hwf : st.raw.WF := st.wf
   simp only [Bind.bind, Except.bind, StateT.run'] at h
-  cases hrun : (pds.foldlM (checkDeclSPStep (st.raw.nodes.size + st.raw.nodes.size))
+  cases hrun : (pds.foldlM (checkDeclSPStep mode (st.raw.nodes.size + st.raw.nodes.size))
       (mkFEnv Env.empty)) { store := st.raw } with
   | error e =>
     rw [hrun] at h
@@ -193,7 +195,7 @@ theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
         Nonempty (EnvModel V fe.env) →
         EtaFamiliesClosed fe.env →
         ISOKF s₀ → Ext st.raw s₀.store →
-        (pds.foldlM (checkDeclSPStep (st.raw.nodes.size + st.raw.nodes.size)) fe) s₀ =
+        (pds.foldlM (checkDeclSPStep mode (st.raw.nodes.size + st.raw.nodes.size)) fe) s₀ =
           .ok (fe', s') →
         ((∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
           DeclP.thmDecl cvp value ∈ pds) → False by
@@ -248,7 +250,7 @@ theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
               ⟨cvp.name, cvp.levelParams, .const emptyName []⟩ ve hint)) →
             False := by
           intro hcase
-          have hstores : ∃ type, annotateCore fe.env F 0
+          have hstores : ∃ type, annotateCore mode fe.env F 0
                 (.const emptyName []) = .ok type ∧
               ∃ c, c ∈ fe₁.env.consts ∧ c.toConstantVal =
                 ⟨cvp.name, cvp.levelParams, type⟩ := by
@@ -260,7 +262,7 @@ theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
               exact ⟨type, hann, c, hc, hcv⟩
           obtain ⟨type, hann, c, hc, hcv⟩ := hstores
           obtain rfl : Expr.const emptyName [] = type := by
-            have h1 : annotateCore fe.env F 0 (.const emptyName []) =
+            have h1 : annotateCore mode fe.env F 0 (.const emptyName []) =
                 .ok type := hann
             cases F with
             | zero =>

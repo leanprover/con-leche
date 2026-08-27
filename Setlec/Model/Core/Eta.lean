@@ -11,6 +11,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
@@ -18,17 +20,17 @@ open SetTheory Expr
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 /-- A successful eta certification identifies the λ's interpretation
 with the stuck side's (`SetTheory.lam_eta`). -/
 theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel)
     {d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr} {m₁ : BinderMeta} {ρ : Nat → V}
     {va vb : V}
-    (hec : etaCertP env fuel d n₁ ty₁ body₁ m₁ b = .ok true)
+    (hec : etaCertP mode env fuel d n₁ ty₁ body₁ m₁ b = .ok true)
     (hwa : WScoped d (Expr.lam n₁ ty₁ body₁ m₁)) (hwb : WScoped d b)
     (hba : (Expr.lam n₁ ty₁ body₁ m₁).looseBVarsBounded 0 = true)
     (hbb : b.looseBVarsBounded 0 = true)
@@ -182,13 +184,13 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
 /-- Soundness of the one-sided-λ branch of `isDefEqCore` (λ on the
 left): eta, else proof irrelevance. -/
 theorem etaBranch_sound {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel)
     {d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr} {m₁ : BinderMeta} {ρ : Nat → V}
     {va vb : V}
     (h : (do
-      if ← etaCertP env fuel d n₁ ty₁ body₁ m₁ b then pure true
-      else stuckIrrelP env fuel d (Expr.lam n₁ ty₁ body₁ m₁) b :
+      if ← etaCertP mode env fuel d n₁ ty₁ body₁ m₁ b then pure true
+      else stuckIrrelP mode env fuel d (Expr.lam n₁ ty₁ body₁ m₁) b :
         CheckM Bool) = .ok true)
     (hwa : WScoped d (Expr.lam n₁ ty₁ body₁ m₁)) (hwb : WScoped d b)
     (hba : (Expr.lam n₁ ty₁ body₁ m₁).looseBVarsBounded 0 = true)
@@ -203,7 +205,7 @@ theorem etaBranch_sound {m : EnvModel V env} {fuel : Nat}
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
   simp only [Bind.bind, Except.bind] at h
-  cases hec : etaCertP env fuel d n₁ ty₁ body₁ m₁ b with
+  cases hec : etaCertP mode env fuel d n₁ ty₁ body₁ m₁ b with
   | error e => rw [hec] at h; exact nomatch h
   | ok r =>
   rw [hec] at h
@@ -220,13 +222,13 @@ theorem etaBranch_sound {m : EnvModel V env} {fuel : Nat}
 /-- Soundness of the one-sided-λ branch of `isDefEqCore` (λ on the
 right). -/
 theorem etaBranch_sound' {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
+    (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+    (ihi : InferClaims mode m φ fuel)
     {d : Nat} {n₂ : Name} {ty₂ body₂ a : Expr} {m₂ : BinderMeta} {ρ : Nat → V}
     {va vb : V}
     (h : (do
-      if ← etaCertP env fuel d n₂ ty₂ body₂ m₂ a then pure true
-      else stuckIrrelP env fuel d a (Expr.lam n₂ ty₂ body₂ m₂) :
+      if ← etaCertP mode env fuel d n₂ ty₂ body₂ m₂ a then pure true
+      else stuckIrrelP mode env fuel d a (Expr.lam n₂ ty₂ body₂ m₂) :
         CheckM Bool) = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d (Expr.lam n₂ ty₂ body₂ m₂))
     (hba : a.looseBVarsBounded 0 = true)
@@ -241,7 +243,7 @@ theorem etaBranch_sound' {m : EnvModel V env} {fuel : Nat}
     (hvb : interpExpr V m.val env φ d ρ (Expr.lam n₂ ty₂ body₂ m₂) = some vb) :
     va = vb := by
   simp only [Bind.bind, Except.bind] at h
-  cases hec : etaCertP env fuel d n₂ ty₂ body₂ m₂ a with
+  cases hec : etaCertP mode env fuel d n₂ ty₂ body₂ m₂ a with
   | error e => rw [hec] at h; exact nomatch h
   | ok r =>
   rw [hec] at h

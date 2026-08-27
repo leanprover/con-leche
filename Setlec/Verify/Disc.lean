@@ -20,6 +20,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 /-- Scoping of an optional result. -/
@@ -36,14 +38,14 @@ section Walks
 variable {env : Env} {f : Nat}
 
 /-- Shorthand for the two records every walk relates. -/
-local notation "C" => cachedFns env f
-local notation "G" => gFns env f
+local notation "C" => cachedFns mode env f
+local notation "G" => gFns mode env f
 
-theorem ensureSort_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem ensureSort_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV env (fun _ => True) (ensureSort C env d e)
+    DiscV mode env (fun _ => True) (ensureSort C env d e)
       (ensureSort G env d e) := by
-  show DiscV env _
+  show DiscV mode env _
     ((C : CoreFns CheckSM).whnf d e >>= fun w =>
       match w with
       | .sort u => pure u
@@ -57,9 +59,9 @@ theorem ensureSort_disc (ih : ScopedSim env f) (henv : EnvWF env)
     | exact DiscV.pure trivial
     | exact DiscV.throw _
 
-theorem reduceNat_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem reduceNat_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV env (WScopedO d) (reduceNat C env d e)
+    DiscV mode env (WScopedO d) (reduceNat C env d e)
       (reduceNat G env d e) := by
   match e with
   | .bvar _ | .fvar _ _ _ | .sort _ | .lam _ _ _ _ | .forallE _ _ _ _
@@ -155,20 +157,20 @@ theorem reduceNat_disc (ih : ScopedSim env f) (henv : EnvWF env)
 /-- `reduceNat_disc` under the defeq-side fvar guard (the guard is the
 same pure `Bool` on both records, so the pruned branch is `pure none`
 twinned). -/
-theorem reduceNatIf_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem reduceNatIf_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) (g : Bool) :
-    DiscV env (WScopedO d)
+    DiscV mode env (WScopedO d)
       (if g then reduceNat C env d e else pure none)
       (if g then reduceNat G env d e else pure none) := by
   cases g
   · exact DiscV.pure WScopedO.none
   · exact reduceNat_disc ih henv hw
 
-theorem iotaCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem iotaCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} :
     ∀ {args : List Expr} {ty : Expr}, WScoped d ty →
       (∀ x ∈ args, WScoped d x) →
-      DiscV env (fun _ => True) (iotaCerts C env d ty args)
+      DiscV mode env (fun _ => True) (iotaCerts C env d ty args)
         (iotaCerts G env d ty args) := by
   intro args
   induction args with
@@ -182,7 +184,7 @@ theorem iotaCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
     | forallE n ty body mb =>
       have hwtb : WScoped d ty ∧ WScoped d body := by
         simpa only [WScoped] using hwty
-      show DiscV env _
+      show DiscV mode env _
         ((C : CoreFns CheckSM).infer d arg >>= fun ta =>
           (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
           if b then iotaCerts C env d (body.instantiate1 arg) rest
@@ -201,10 +203,10 @@ theorem iotaCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
     | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
     | letE _ _ _ _ | lit _ | proj _ _ _ => exact DiscV.pure trivial
 
-theorem defEqList_disc (ih : ScopedSim env f) {d : Nat} :
+theorem defEqList_disc (ih : ScopedSim mode env f) {d : Nat} :
     ∀ {as bs : List Expr}, (∀ x ∈ as, WScoped d x) →
       (∀ x ∈ bs, WScoped d x) →
-      DiscV env (fun _ => True) (defEqList C env d as bs)
+      DiscV mode env (fun _ => True) (defEqList C env d as bs)
         (defEqList G env d as bs) := by
   intro as
   induction as with
@@ -218,7 +220,7 @@ theorem defEqList_disc (ih : ScopedSim env f) {d : Nat} :
     cases bs with
     | nil => exact DiscV.pure trivial
     | cons b bs =>
-      show DiscV env _
+      show DiscV mode env _
         ((C : CoreFns CheckSM).defeq d a b >>= fun r =>
           if r then defEqList C env d as bs else pure false)
         ((G : CoreFns CheckSM).defeq d a b >>= fun r =>
@@ -232,9 +234,9 @@ theorem defEqList_disc (ih : ScopedSim env f) {d : Nat} :
           (fun x hx => hwbs x (List.mem_cons_of_mem _ hx))
       | false => exact DiscV.pure trivial
 
-theorem defeqSpine_disc (ih : ScopedSim env f) {d : Nat} {a b : Expr}
+theorem defeqSpine_disc (ih : ScopedSim mode env f) {d : Nat} {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV env (fun _ => True) (defeqSpine C env d a b)
+    DiscV mode env (fun _ => True) (defeqSpine C env d a b)
       (defeqSpine G env d a b) := by
   unfold defeqSpine
   split
@@ -268,9 +270,9 @@ theorem wscoped_instLevels_of_not_hasFvar {e : Expr}
     WScoped d (e.instantiateLevelParams ps us) :=
   WScoped.of_not_hasFvar (by rw [hasFvar_instantiateLevelParams]; exact h)
 
-theorem proofIrrel_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem proofIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV env (fun _ => True) (proofIrrel C env d a b)
+    DiscV mode env (fun _ => True) (proofIrrel C env d a b)
       (proofIrrel G env d a b) := by
   unfold proofIrrel
   refine DiscV.bind (ih.site_infer henv hwa) (fun ta hta => ?_)
@@ -297,20 +299,20 @@ theorem proofIrrel_disc (ih : ScopedSim env f) (henv : EnvWF env)
 /-- Twin of `projTeleCert_disc` on the inference path (task #129); the
 entry's stored type is closed because the table entry is a stored
 constant.  Task #130 runs it at the pair-eta certificate too. -/
-theorem projParamCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem projParamCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {T : Name} {i : Nat} {entry : ProjEntry} {us : List Level}
     {params : List Expr} (hfp : env.findProj? T i = some entry)
     (hwargs : ∀ x ∈ params, WScoped d x) :
-    DiscV env (fun _ => True) (projParamCert C env d entry us params)
+    DiscV mode env (fun _ => True) (projParamCert C env d entry us params)
       (projParamCert G env d entry us params) :=
   iotaCerts_disc ih henv
     (wscoped_instLevels_of_not_hasFvar
       (henv _ (find?_mem (Env.findProj?_some hfp))).1 _ _) hwargs
 
-theorem pairEtaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem pairEtaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV env (fun _ => True) (pairEtaCert C env d a b)
-      (pairEtaCert G env d a b) := by
+    DiscV mode env (fun _ => True) (pairEtaCert mode C env d a b)
+      (pairEtaCert mode G env d a b) := by
   unfold pairEtaCert
   split
   case _ c us pα pβ s₁ s₂ =>
@@ -352,13 +354,17 @@ theorem pairEtaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
                         · simpa only [WScoped] using hwb
                         · split
                           · split
-                            · rename_i entry hfp
-                              exact projParamCert_disc ih henv hfp (by
-                                intro x hx
-                                rcases List.mem_cons.mp hx with rfl | hx
-                                · exact hwAB.1
-                                · rw [List.mem_singleton.mp hx]
-                                  exact hwAB.2)
+                            -- task #147: the mode gate, then the
+                            -- projection-entry match
+                            · split
+                              · rename_i entry hfp
+                                exact projParamCert_disc ih henv hfp (by
+                                  intro x hx
+                                  rcases List.mem_cons.mp hx with rfl | hx
+                                  · exact hwAB.1
+                                  · rw [List.mem_singleton.mp hx]
+                                    exact hwAB.2)
+                              · exact DiscV.pure trivial
                             · exact DiscV.pure trivial
                           · exact DiscV.pure trivial
                       · exact DiscV.pure trivial
@@ -372,19 +378,19 @@ theorem pairEtaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
     all_goals exact DiscV.pure trivial
   all_goals exact DiscV.pure trivial
 
-theorem structEtaProjCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem structEtaProjCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} (T : Name) (us' : List Level) {targs : List Expr} {b : Expr}
     (lpsT : List Name) (hwt : ∀ x ∈ targs, WScoped d x)
     (hwb : WScoped d b) :
     ∀ (idxs : List Nat),
-      DiscV env (fun _ => True)
+      DiscV mode env (fun _ => True)
         (structEtaProjCerts C env d T us' targs b lpsT idxs)
         (structEtaProjCerts G env d T us' targs b lpsT idxs) := by
   intro idxs
   induction idxs with
   | nil => exact DiscV.pure trivial
   | cons i rest ihrest =>
-    show DiscV env _
+    show DiscV mode env _
       (match env.find? (projFnName T i) with
         | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
@@ -439,11 +445,11 @@ theorem structEtaProjCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
       | indInfo cv caps => exact DiscV.pure trivial
       | ctorInfo cv nP nF => exact DiscV.pure trivial
 
-theorem structEtaCertWith_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem structEtaCertWith_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b wtb : Expr} (hwa : WScoped d a) (hwb : WScoped d b)
     (hwwtb : WScoped d wtb) :
-    DiscV env (fun _ => True) (structEtaCertWith C env d a b wtb)
-      (structEtaCertWith G env d a b wtb) := by
+    DiscV mode env (fun _ => True) (structEtaCertWith mode C env d a b wtb)
+      (structEtaCertWith mode G env d a b wtb) := by
   unfold structEtaCertWith
   split <;> try exact DiscV.pure trivial
   rename_i c us heqa
@@ -488,29 +494,31 @@ theorem structEtaCertWith_disc (ih : ScopedSim env f) (henv : EnvWF env)
       (cvc.type.instantiateLevelParams cvc.levelParams us) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfc)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
-  refine DiscV.bind
-    (iotaCerts_disc ih henv htycw (args := wtb.getAppArgs ++ _)
-      (fun x hx => by
-        rcases List.mem_append.mp hx with hx | hx
-        · exact hwwtb.getAppArgs x hx
-        · exact hwprojs x hx))
-    (fun r₄ _ => ?_)
-  split <;> try exact DiscV.pure trivial
-  exact defEqList_disc ih
-    (fun x hx => hwa.getAppArgs x (List.mem_of_mem_drop hx)) hwprojs
+  refine DiscV.bind (P := fun _ => True) ?_ (fun r₄ _ => ?_)
+  · -- task #147: the certificate is mode-gated
+    split
+    · exact iotaCerts_disc ih henv htycw (args := wtb.getAppArgs ++ _)
+        (fun x hx => by
+          rcases List.mem_append.mp hx with hx | hx
+          · exact hwwtb.getAppArgs x hx
+          · exact hwprojs x hx)
+    · exact DiscV.pure trivial
+  · split <;> try exact DiscV.pure trivial
+    exact defEqList_disc ih
+      (fun x hx => hwa.getAppArgs x (List.mem_of_mem_drop hx)) hwprojs
 
-theorem structEtaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem structEtaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV env (fun _ => True) (structEtaCert C env d a b)
-      (structEtaCert G env d a b) := by
+    DiscV mode env (fun _ => True) (structEtaCert mode C env d a b)
+      (structEtaCert mode G env d a b) := by
   unfold structEtaCert
   refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
   refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
   exact structEtaCertWith_disc ih henv hwa hwb hwtb
 
-theorem structUnitCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem structUnitCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV env (fun _ => True) (structUnitCert C env d a b)
+    DiscV mode env (fun _ => True) (structUnitCert C env d a b)
       (structUnitCert G env d a b) := by
   unfold structUnitCert
   refine DiscV.bind (ih.site_infer henv hwa) (fun ta hta => ?_)
@@ -530,11 +538,11 @@ theorem structUnitCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
   exact iotaCerts_disc ih henv htyw hwta.getAppArgs
 
-theorem etaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem etaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {n₁ : Name} {ty₁ body₁ : Expr} {m₁ : BinderMeta} {b : Expr}
     (hwty : WScoped d ty₁) (hwbody : WScoped d body₁)
     (hwb : WScoped d b) :
-    DiscV env (fun _ => True) (etaCert C env d n₁ ty₁ body₁ m₁ b)
+    DiscV mode env (fun _ => True) (etaCert C env d n₁ ty₁ body₁ m₁ b)
       (etaCert G env d n₁ ty₁ body₁ m₁ b) := by
   unfold etaCert
   refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
@@ -551,11 +559,11 @@ theorem etaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
   simp only [WScoped]
   exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d, hwty⟩
 
-theorem projCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem projCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e₂ : Expr} {i : Nat} {fieldLvl structLvl : Level}
     {nP : Nat}
     (hwe : WScoped d e₂) :
-    DiscV env (fun _ => True)
+    DiscV mode env (fun _ => True)
       (projCert C env d e₂ i fieldLvl structLvl nP)
       (projCert G env d e₂ i fieldLvl structLvl nP) := by
   unfold projCert
@@ -575,10 +583,10 @@ theorem projCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
       refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okW _ => ?_)
       exact DiscV.pure trivial
 
-theorem projTeleCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem projTeleCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {c : Name} {us : List Level} {args : List Expr}
     (hwargs : ∀ x ∈ args, WScoped d x) :
-    DiscV env (fun _ => True) (projTeleCert C env d c us args)
+    DiscV mode env (fun _ => True) (projTeleCert C env d c us args)
       (projTeleCert G env d c us args) := by
   unfold projTeleCert
   cases hf : env.find? c with
@@ -590,10 +598,10 @@ theorem projTeleCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
     exact iotaCerts_disc ih henv
       (wscoped_instLevels_of_not_hasFvar htf _ _) hwargs
 
-theorem stuckIrrel_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem stuckIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV env (fun _ => True) (stuckIrrel C env d a b)
-      (stuckIrrel G env d a b) := by
+    DiscV mode env (fun _ => True) (stuckIrrel mode C env d a b)
+      (stuckIrrel mode G env d a b) := by
   unfold stuckIrrel
   refine DiscV.bind (pairEtaCert_disc ih henv hwa hwb) (fun r₁ _ => ?_)
   split
@@ -612,11 +620,11 @@ theorem stuckIrrel_disc (ih : ScopedSim env f) (henv : EnvWF env)
   · exact DiscV.pure trivial
   exact proofIrrel_disc ih henv hwa hwb
 
-theorem majorToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem majorToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {recName : Name} {rules : List RecRule} {major : Expr}
     (hmaj : WScoped d major) :
-    DiscV env (WScoped d) (majorToCtor C env d recName rules major)
-      (majorToCtor G env d recName rules major) := by
+    DiscV mode env (WScoped d) (majorToCtor mode C env d recName rules major)
+      (majorToCtor mode G env d recName rules major) := by
   unfold majorToCtor
   -- outer casing peeled by hand (the body outgrew the splitter's
   -- internal simp budget)
@@ -712,9 +720,9 @@ theorem majorToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
       · exact DiscV.pure hmaj
     · exact DiscV.pure hmaj
 
-theorem isPropType_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem isPropType_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {ty : Expr} (hwty : WScoped d ty) :
-    DiscV env (fun _ => True) (isPropType C env d ty)
+    DiscV mode env (fun _ => True) (isPropType C env d ty)
       (isPropType G env d ty) := by
   unfold isPropType
   refine DiscV.bind (ih.site_annotate hwty) (fun ty' hty' => ?_)
@@ -722,11 +730,11 @@ theorem isPropType_disc (ih : ScopedSim env f) (henv : EnvWF env)
   refine DiscV.bind (ensureSort_disc ih henv hs) (fun u _ => ?_)
   exact DiscV.liftFueled_true _ _
 
-theorem projFieldDom_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem projFieldDom_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {structProp : Bool} {sn : Name} {e' : Expr}
     (hwe : WScoped d e') :
     ∀ (k j : Nat) {tel : Expr}, WScoped d tel →
-      DiscV env (WScoped d)
+      DiscV mode env (WScoped d)
         (projFieldDom C env d structProp sn e' j k tel)
         (projFieldDom G env d structProp sn e' j k tel) := by
   intro k
@@ -760,11 +768,11 @@ theorem projFieldDom_disc (ih : ScopedSim env f) (henv : EnvWF env)
               (fun _ h => h.elim)
         · exact ihk (j + 1) hwrest'
 
-theorem annotateProjRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem annotateProjRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {entry : ProjEntry} {i : Nat} {te e' : Expr}
     {us : List Level}
     (hwte : WScoped d te) (hwe : WScoped d e') :
-    DiscV env (WScoped d) (annotateProjRec C env d entry i te e' us)
+    DiscV mode env (WScoped d) (annotateProjRec C env d entry i te e' us)
       (annotateProjRec G env d entry i te e' us) := by
   unfold annotateProjRec
   split <;> try exact DiscV.throw _
@@ -805,10 +813,10 @@ theorem annotateProjRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
          exact ih.site_annotate (WScoped.of_wscopedB
            (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1)))
 
-theorem annotateProjElim_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem annotateProjElim_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {sn : Name} {i : Nat} {te e' : Expr}
     (hwte : WScoped d te) (hwe : WScoped d e') :
-    DiscV env (WScoped d) (annotateProjElim C env d sn i te e')
+    DiscV mode env (WScoped d) (annotateProjElim C env d sn i te e')
       (annotateProjElim G env d sn i te e') := by
   unfold annotateProjElim
   split <;> try exact DiscV.throw _
@@ -829,9 +837,9 @@ theorem annotateProjElim_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact annotateProjRec_disc ih henv hwte hwe
   · exact DiscV.throw _
 
-theorem litMajorToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem litMajorToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV env (WScoped d) (litMajorToCtor C env d e)
+    DiscV mode env (WScoped d) (litMajorToCtor C env d e)
       (litMajorToCtor G env d e) := by
   unfold litMajorToCtor
   split
@@ -840,9 +848,9 @@ theorem litMajorToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact DiscV.pure hw
   · exact DiscV.pure (litToCtorIfNat_WScoped hw)
 
-theorem projLitToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem projLitToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV env (WScoped d) (projLitToCtor C env d e)
+    DiscV mode env (WScoped d) (projLitToCtor C env d e)
       (projLitToCtor G env d e) := by
   unfold projLitToCtor
   split
@@ -851,10 +859,10 @@ theorem projLitToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact DiscV.pure hw
   · exact DiscV.pure hw
 
-theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem iotaRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV env (WScopedO d) (iotaRec C env d e)
-      (iotaRec G env d e) := by
+    DiscV mode env (WScopedO d) (iotaRec mode C env d e)
+      (iotaRec mode G env d e) := by
   unfold iotaRec
   split <;> try exact DiscV.pure WScopedO.none
   rename_i c us heqfn
@@ -934,10 +942,10 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
       · exact hmaj.getAppArgs x (List.mem_of_mem_drop hx)
   · exact DiscV.pure WScopedO.none
 
-theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV env (WScoped d) (whnfCoreBody C env d e)
-      (whnfCoreBody G env d e) := by
+    DiscV mode env (WScoped d) (whnfCoreBody mode C env d e)
+      (whnfCoreBody mode G env d e) := by
   match e with
   | .sort u | .fvar _ _ _ | .forallE _ _ _ _ | .lam _ _ _ _
   | .const _ _ | .lit _ =>
@@ -946,7 +954,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | .letE _ ty v b =>
     have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
       simpa only [WScoped] using hw
-    show DiscV env _
+    show DiscV mode env _
       ((C : CoreFns CheckSM).whnfCore d (b.instantiate1 v))
       ((G : CoreFns CheckSM).whnfCore d (b.instantiate1 v))
     exact ih.site_whnfCore henv
@@ -954,7 +962,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by
       simpa only [WScoped] using hw
-    show DiscV env _
+    show DiscV mode env _
       ((C : CoreFns CheckSM).whnfCore d g' >>= fun f' =>
         match f' with
         | .lam n ty body mb =>
@@ -964,7 +972,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
             (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
           else pure (.app (.lam n ty body mb) a)
         | f' =>
-          iotaRec C env d (.app f' a) >>= fun o =>
+          iotaRec mode C env d (.app f' a) >>= fun o =>
           match o with
           | some e'' => (C : CoreFns CheckSM).whnfCore d e''
           | none => pure (.app f' a))
@@ -977,7 +985,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
             (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
           else pure (.app (.lam n ty body mb) a)
         | f' =>
-          iotaRec G env d (.app f' a) >>= fun o =>
+          iotaRec mode G env d (.app f' a) >>= fun o =>
           match o with
           | some e'' => (G : CoreFns CheckSM).whnfCore d e''
           | none => pure (.app f' a))
@@ -1008,7 +1016,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       | none => exact DiscV.pure hwapp
   | .proj sn i pe =>
     have hwpe : WScoped d pe := by simpa only [WScoped] using hw
-    show DiscV env _
+    show DiscV mode env _
       ((C : CoreFns CheckSM).whnf d pe >>= fun e' =>
         projLitToCtor C env d e' >>= fun e' =>
         match env.findProj? sn i with
@@ -1023,7 +1031,9 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
                 (Level.subst entry.levelParams us entry.structSort)
                 entry.numParams >>= fun b =>
               if b then
-                projTeleCert C env d c us e'.getAppArgs >>= fun b₂ =>
+                (if mode.ttChecks then
+                    projTeleCert C env d c us e'.getAppArgs
+                  else pure true) >>= fun b₂ =>
                 if b₂ then
                   (C : CoreFns CheckSM).whnfCore d
                     (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -1046,7 +1056,9 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
                 (Level.subst entry.levelParams us entry.structSort)
                 entry.numParams >>= fun b =>
               if b then
-                projTeleCert G env d c us e'.getAppArgs >>= fun b₂ =>
+                (if mode.ttChecks then
+                    projTeleCert G env d c us e'.getAppArgs
+                  else pure true) >>= fun b₂ =>
                 if b₂ then
                   (G : CoreFns CheckSM).whnfCore d
                     (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -1067,20 +1079,24 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     split <;> try exact DiscV.pure hwproj
     refine DiscV.bind (projCert_disc ih henv he') (fun b _ => ?_)
     split
-    · refine DiscV.bind (projTeleCert_disc ih henv
-        (args := e'.getAppArgs) he'.getAppArgs) (fun b₂ _ => ?_)
-      split
-      · exact ih.site_whnfCore henv (hwarg _)
-      · exact DiscV.pure hwproj
+    · refine DiscV.bind (P := fun _ => True) ?_ (fun b₂ _ => ?_)
+      · -- task #147: the telescope certification is mode-gated
+        split
+        · exact projTeleCert_disc ih henv
+            (args := e'.getAppArgs) he'.getAppArgs
+        · exact DiscV.pure trivial
+      · split
+        · exact ih.site_whnfCore henv (hwarg _)
+        · exact DiscV.pure hwproj
     · exact DiscV.pure hwproj
 
 /-- One iteration of the reduction loop, with the continuation
 abstracted (task #106). -/
-theorem whnfStep_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem whnfStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} {kC kG : Expr → _}
-    (hk : ∀ {x : Expr}, WScoped d x → DiscV env (WScoped d) (kC x) (kG x))
+    (hk : ∀ {x : Expr}, WScoped d x → DiscV mode env (WScoped d) (kC x) (kG x))
     (hw : WScoped d e) :
-    DiscV env (WScoped d) (whnfStep C env d kC e)
+    DiscV mode env (WScoped d) (whnfStep C env d kC e)
       (whnfStep G env d kG e) := by
   unfold whnfStep
   refine DiscV.bind (ih.site_whnfCore henv hw) (fun e₁ he₁ => ?_)
@@ -1092,28 +1108,28 @@ theorem whnfStep_disc (ih : ScopedSim env f) (henv : EnvWF env)
       exact hk (unfoldDefinition_WScoped henv hunf he₁)
     · exact DiscV.pure he₁
 
-theorem whnfLoop_disc (ih : ScopedSim env f) (henv : EnvWF env) :
+theorem whnfLoop_disc (ih : ScopedSim mode env f) (henv : EnvWF env) :
     ∀ (n : Nat) {d : Nat} {e : Expr}, WScoped d e →
-      DiscV env (WScoped d) (whnfLoop C env d n e) (whnfLoop G env d n e)
+      DiscV mode env (WScoped d) (whnfLoop C env d n e) (whnfLoop G env d n e)
   | 0, _, _, _ => DiscV.throw _
   | n + 1, _, _, hw =>
     whnfStep_disc ih henv (fun hx => whnfLoop_disc ih henv n hx) hw
 
-theorem whnfBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem whnfBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV env (WScoped d) (whnfBody C env d e)
+    DiscV mode env (WScoped d) (whnfBody C env d e)
       (whnfBody G env d e) :=
   whnfLoop_disc ih henv whnfLoopFuel hw
 
 set_option maxHeartbeats 1600000 in
-theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV env (WScoped d) (annotateBody C env d e)
+    DiscV mode env (WScoped d) (annotateBody C env d e)
       (annotateBody G env d e) := by
   match e with
   | .bvar i => exact DiscV.pure (by simp [WScoped])
   | .fvar idx n ty =>
-    show DiscV env _
+    show DiscV mode env _
       (if idx < d then pure (Expr.fvar idx n ty)
        else throw (.invalid "free variable out of scope"))
       (if idx < d then pure (Expr.fvar idx n ty)
@@ -1124,7 +1140,7 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | .sort u => exact DiscV.pure (by simp [WScoped])
   | .const n us => exact DiscV.pure (by simp [WScoped])
   | .lit (.natVal n) =>
-    show DiscV env _
+    show DiscV mode env _
       (if natLitSupported env then pure (Expr.lit (.natVal n))
        else throw (.invalid "Nat literal without the Nat basis declarations"))
       (if natLitSupported env then pure (Expr.lit (.natVal n))
@@ -1133,7 +1149,7 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact DiscV.pure (by simp [WScoped])
     · exact DiscV.throw _
   | .lit (.strVal s) =>
-    show DiscV env _
+    show DiscV mode env _
       (if strLitSupported env then pure (Expr.lit (.strVal s))
        else throw (.notImplemented
          "string literals before the String support declarations"))
@@ -1146,7 +1162,7 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | .letE n ty v b =>
     have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
       simpa only [WScoped] using hw
-    show DiscV env _
+    show DiscV mode env _
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).infer d ty' >>= fun tty =>
         ensureSort C env d tty >>= fun _ =>
@@ -1178,7 +1194,7 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by
       simpa only [WScoped] using hw
-    show DiscV env _
+    show DiscV mode env _
       ((C : CoreFns CheckSM).annotate d g' >>= fun f' =>
         (C : CoreFns CheckSM).annotate d a >>= fun a' =>
         pure (Expr.app f' a'))
@@ -1191,7 +1207,7 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | .forallE n ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
-    show DiscV env _
+    show DiscV mode env _
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
@@ -1209,7 +1225,7 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | .lam n ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
-    show DiscV env _
+    show DiscV mode env _
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
@@ -1226,7 +1242,7 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     exact ⟨hty', WScoped.abstract1 0 hbody'⟩
   | .proj sn i pe =>
     have hwpe : WScoped d pe := by simpa only [WScoped] using hw
-    show DiscV env _
+    show DiscV mode env _
       ((C : CoreFns CheckSM).annotate d pe >>= fun e' =>
         (C : CoreFns CheckSM).infer d e' >>= fun te₀ =>
         (C : CoreFns CheckSM).whnf d te₀ >>= fun te =>
@@ -1269,10 +1285,10 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact annotateProjElim_disc ih henv hte he'
 
 set_option maxHeartbeats 1600000 in
-theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV env (WScoped d) (inferBody C env d e)
-      (inferBody G env d e) := by
+    DiscV mode env (WScoped d) (inferBody mode C env d e)
+      (inferBody mode G env d e) := by
   match e with
   | .bvar _ => exact DiscV.throw _
   | .letE _ ty v b =>
@@ -1290,7 +1306,7 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
         (WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
     · exact DiscV.throw _
   | .lit (.strVal s) =>
-    show DiscV env _
+    show DiscV mode env _
       (if strLitSupported env then pure (Expr.const stringName [])
        else throw (.notImplemented
          "string literals before the String support declarations"))
@@ -1304,7 +1320,7 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | .fvar idx n ty =>
     have h' : idx < d ∧ WScoped idx ty := by
       simpa only [WScoped] using hw
-    show DiscV env _
+    show DiscV mode env _
       (if idx < d then pure ty
        else throw (.invalid "free variable out of scope"))
       (if idx < d then pure ty
@@ -1313,7 +1329,7 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact DiscV.pure (WScoped.mono (Nat.le_of_lt h'.1) h'.2)
     · exact DiscV.throw _
   | .lit (.natVal n) =>
-    show DiscV env _
+    show DiscV mode env _
       (if natLitSupported env then pure (Expr.const natName [])
        else throw (.invalid "Nat literal without the Nat basis declarations"))
       (if natLitSupported env then pure (Expr.const natName [])
@@ -1393,9 +1409,12 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     rename_i entry hfpw
     split <;> try exact DiscV.throw _
     rename_i hcond
-    -- task #129: the parameter-telescope certification, then the residual
-    refine DiscV.bind (projParamCert_disc ih henv hfpw hww.getAppArgs)
-      (fun bp _ => ?_)
+    -- task #129: the parameter-telescope certification (mode-gated,
+    -- task #147), then the residual
+    refine DiscV.bind (P := fun _ => True) ?_ (fun bp _ => ?_)
+    · split
+      · exact projParamCert_disc ih henv hfpw hww.getAppArgs
+      · exact DiscV.pure trivial
     split
     · split
       · rename_i resTy hres
@@ -1416,13 +1435,13 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
             (fun _ h => h.elim)
 
 set_option maxHeartbeats 1600000 in
-theorem defeqStep_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} {kC kG : Expr → Expr → _}
     (hk : ∀ {x y : Expr}, WScoped d x → WScoped d y →
-      DiscV env (fun _ => True) (kC x y) (kG x y))
+      DiscV mode env (fun _ => True) (kC x y) (kG x y))
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV env (fun _ => True) (defeqStep C env d kC a b)
-      (defeqStep G env d kG a b) := by
+    DiscV mode env (fun _ => True) (defeqStep mode C env d kC a b)
+      (defeqStep mode G env d kG a b) := by
   unfold defeqStep
   split
   · exact DiscV.pure trivial
@@ -1453,7 +1472,7 @@ theorem defeqStep_disc (ih : ScopedSim env f) (henv : EnvWF env)
       exact hk ha' (unfoldDefinition_WScoped henv hub hb')
     · exact DiscV.pure trivial
   case h_3 =>
-    have hboth : DiscV env (fun _ => True)
+    have hboth : DiscV mode env (fun _ => True)
         (match unfoldDefinition env a', unfoldDefinition env b' with
           | some a₂, some b₂ => kC a₂ b₂
           | _, _ => pure false)
@@ -1607,19 +1626,19 @@ theorem defeqStep_disc (ih : ScopedSim env f) (henv : EnvWF env)
       · exact stuckIrrel_disc ih henv ha' hb'
     case h_17 => exact stuckIrrel_disc ih henv ha' hb'
 
-theorem defeqLoop_disc (ih : ScopedSim env f) (henv : EnvWF env) :
+theorem defeqLoop_disc (ih : ScopedSim mode env f) (henv : EnvWF env) :
     ∀ (n : Nat) {d : Nat} {a b : Expr}, WScoped d a → WScoped d b →
-      DiscV env (fun _ => True) (defeqLoop C env d n a b)
-        (defeqLoop G env d n a b)
+      DiscV mode env (fun _ => True) (defeqLoop mode C env d n a b)
+        (defeqLoop mode G env d n a b)
   | 0, _, _, _, _, _ => DiscV.throw _
   | n + 1, _, _, _, hwa, hwb =>
     defeqStep_disc ih henv
       (fun hx hy => defeqLoop_disc ih henv n hx hy) hwa hwb
 
-theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+theorem defeqBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV env (fun _ => True) (defeqBody C env d a b)
-      (defeqBody G env d a b) :=
+    DiscV mode env (fun _ => True) (defeqBody mode C env d a b)
+      (defeqBody mode G env d a b) :=
   defeqLoop_disc ih henv defeqLoopFuel hwa hwb
 
 end Walks

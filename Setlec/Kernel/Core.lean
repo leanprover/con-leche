@@ -93,6 +93,13 @@ section Bodies
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
+/- The three-mode setting (task #147): definitions below that mention
+`mode` take it as their first explicit argument (after the monad
+instances).  Only the seven TT-lane check sites branch on it, through
+`CheckMode.ttChecks`; at `.ttModel` the checker is exactly the pre-#147
+one, at `.setModel` (the default) the seven checks are skipped. -/
+variable (mode : CheckMode)
+
 /-- Lift a fuel-style partial result; `none` is an internal error. -/
 def liftFueled (what : String) : Option α → m α
   | some a => pure a
@@ -864,10 +871,14 @@ def pairEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
                         -- `⊢ B : arrow A (Sort v)`) are recorded where
                         -- the rule fires.  The levels are the *type*'s
                         -- (`us'`), which is where `A` and `B` sit.
-                        match env.findProj? c' 0 with
-                        | some entry =>
-                          projParamCert r env depth entry us' [A, B]
-                        | none => pure false
+                        -- TT-lane check (task #147): skipped unless
+                        -- `mode.ttChecks`.
+                        if mode.ttChecks then
+                          match env.findProj? c' 0 with
+                          | some entry =>
+                            projParamCert r env depth entry us' [A, B]
+                          | none => pure false
+                        else pure true
                       else pure false
                     else pure false
                   else pure false
@@ -940,14 +951,17 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                       -- rather than at the callers, so that both
                       -- consumers get it (`majorToCtor`'s eta rescue ran
                       -- it already, task #71; `defeq`'s `structEtaCert`
-                      -- did not)
-                      if ← iotaCerts r env depth
-                          (cvc.type.instantiateLevelParams
-                            cvc.levelParams us)
-                          (wtb.getAppArgs ++
-                            (List.range cnF).map fun i =>
-                              Expr.mkAppN (.const (projFnName T i) us')
-                                (wtb.getAppArgs ++ [b])) then
+                      -- did not).  TT-lane check (task #147): skipped
+                      -- unless `mode.ttChecks`.
+                      if ← (if mode.ttChecks then
+                          iotaCerts r env depth
+                            (cvc.type.instantiateLevelParams
+                              cvc.levelParams us)
+                            (wtb.getAppArgs ++
+                              (List.range cnF).map fun i =>
+                                Expr.mkAppN (.const (projFnName T i) us')
+                                  (wtb.getAppArgs ++ [b]))
+                        else pure true) then
                         defEqList r env depth (a.getAppArgs.drop cnP)
                           ((List.range cnF).map fun i =>
                             Expr.mkAppN (.const (projFnName T i) us')
@@ -975,7 +989,7 @@ def structEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
   let tb ← r.infer depth b
   let wtb ← r.whnf depth tb
-  structEtaCertWith r env depth a b wtb
+  structEtaCertWith mode r env depth a b wtb
 
 /-- Unit-likeness certification: `a` and `b` inhabit the same stored
 unit-like family (the types are definitionally equal and the type
@@ -1029,10 +1043,10 @@ either direction, structural eta in either direction, unit-likeness,
 else proof irrelevance. -/
 def stuckIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
-  if ← pairEtaCert r env depth a b then pure true
-  else if ← pairEtaCert r env depth b a then pure true
-  else if ← structEtaCert r env depth a b then pure true
-  else if ← structEtaCert r env depth b a then pure true
+  if ← pairEtaCert mode r env depth a b then pure true
+  else if ← pairEtaCert mode r env depth b a then pure true
+  else if ← structEtaCert mode r env depth a b then pure true
+  else if ← structEtaCert mode r env depth b a then pure true
   else if ← structUnitCert r env depth a b then pure true
   else proofIrrel r env depth a b
 
@@ -1154,7 +1168,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                           cvj.levelParams ust)
                         (etaFabArgs T ust tmaj.getAppArgs major
                           caps.etaFields) then
-                      if ← structEtaCertWith r env depth fab major
+                      if ← structEtaCertWith mode r env depth fab major
                           tmaj then
                         pure fab
                       -- 0-field rescue for the pinned basis `PUnit`
@@ -1259,7 +1273,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       if args.length = mI + 1 then
         let major₀ ← r.whnf depth (args.getD mI (.bvar 0))
         let major₁ ← litMajorToCtor r env depth major₀
-        let major ← majorToCtor r env depth c rules major₁
+        let major ← majorToCtor mode r env depth c rules major₁
         match major.getAppFn with
         | .const cj usj =>
           match env.find? cj with
@@ -1411,7 +1425,7 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           r.whnfCore depth (body.instantiate1 a)
         else pure (.app (.lam n ty body mb) a)
       | f' => do
-        match ← iotaRec r env depth (.app f' a) with
+        match ← iotaRec mode r env depth (.app f' a) with
         | some e'' => r.whnfCore depth e''
         | none => pure (.app f' a)
     | .proj sn i pe => do
@@ -1448,8 +1462,11 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
               -- constructor's stored telescope, so the reduction's
               -- typing premises (the parameters' sorts and the fields'
               -- typings, at the domains the rule names) are recorded
-              -- where the rule fires.
-              if ← projTeleCert r env depth c us args then
+              -- where the rule fires.  TT-lane check (task #147):
+              -- skipped unless `mode.ttChecks`.
+              if ← (if mode.ttChecks then
+                  projTeleCert r env depth c us args
+                else pure true) then
                 r.whnfCore depth arg
               else pure (.proj sn i e')
             else pure (.proj sn i e')
@@ -1611,7 +1628,11 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             -- the entry's own telescope, so the two premises the
             -- projection rules name about them (`⊢ A : Sort u` and
             -- `⊢ B : A → Sort v`) are recorded where the rule fires.
-            unless ← projParamCert r env depth entry us te.getAppArgs do
+            -- TT-lane check (task #147): skipped unless
+            -- `mode.ttChecks`.
+            unless ← (if mode.ttChecks then
+                projParamCert r env depth entry us te.getAppArgs
+              else pure true) do
               throw (.invalid "projection parameter type mismatch")
             match piResidual
                 (entry.ty.instantiateLevelParams entry.levelParams us)
@@ -1779,22 +1800,22 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     -- `reduceNat` and loop)
     | .lit (.natVal n), .const c us =>
       if c = natZeroName ∧ us = [] then pure (n == 0)
-      else stuckIrrel r env depth (.lit (.natVal n)) (.const c us)
+      else stuckIrrel mode r env depth (.lit (.natVal n)) (.const c us)
     | .const c us, .lit (.natVal n) =>
       if c = natZeroName ∧ us = [] then pure (n == 0)
-      else stuckIrrel r env depth (.const c us) (.lit (.natVal n))
+      else stuckIrrel mode r env depth (.const c us) (.lit (.natVal n))
     | .lit (.natVal nn), .app f x =>
       match nn, f with
       | k + 1, .const c [] =>
         if c = natSuccName then r.defeq depth (.lit (.natVal k)) x
-        else stuckIrrel r env depth (.lit (.natVal nn)) (.app f x)
-      | _, _ => stuckIrrel r env depth (.lit (.natVal nn)) (.app f x)
+        else stuckIrrel mode r env depth (.lit (.natVal nn)) (.app f x)
+      | _, _ => stuckIrrel mode r env depth (.lit (.natVal nn)) (.app f x)
     | .app f x, .lit (.natVal nn) =>
       match nn, f with
       | k + 1, .const c [] =>
         if c = natSuccName then r.defeq depth x (.lit (.natVal k))
-        else stuckIrrel r env depth (.app f x) (.lit (.natVal nn))
-      | _, _ => stuckIrrel r env depth (.app f x) (.lit (.natVal nn))
+        else stuckIrrel mode r env depth (.app f x) (.lit (.natVal nn))
+      | _, _ => stuckIrrel mode r env depth (.app f x) (.lit (.natVal nn))
     -- a string literal against a unary `String.ofList` application:
     -- expand the literal to its constructor form and compare — the
     -- reference kernels' `tryStringLitExpansion` (lean4lean
@@ -1804,20 +1825,20 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     | .lit (.strVal st), .app (.const cO usO) x =>
       if cO = stringOfListName ∧ usO = [] ∧ strLitSupported env then
         r.defeq depth (strLitToConstructor st) (.app (.const cO usO) x)
-      else stuckIrrel r env depth (.lit (.strVal st)) (.app (.const cO usO) x)
+      else stuckIrrel mode r env depth (.lit (.strVal st)) (.app (.const cO usO) x)
     | .app (.const cO usO) x, .lit (.strVal st) =>
       if cO = stringOfListName ∧ usO = [] ∧ strLitSupported env then
         r.defeq depth (.app (.const cO usO) x) (strLitToConstructor st)
-      else stuckIrrel r env depth (.app (.const cO usO) x) (.lit (.strVal st))
+      else stuckIrrel mode r env depth (.app (.const cO usO) x) (.lit (.strVal st))
     | .fvar i n₁ ty₁, .fvar j n₂ ty₂ =>
       if i == j then pure true
-      else stuckIrrel r env depth (.fvar i n₁ ty₁) (.fvar j n₂ ty₂)
+      else stuckIrrel mode r env depth (.fvar i n₁ ty₁) (.fvar j n₂ ty₂)
     | .const n us, .const n' us' =>
       if n = n' then
         if ← liftFueled "level comparison" (Level.isEquivList us us') then
           pure true
-        else stuckIrrel r env depth (.const n us) (.const n' us')
-      else stuckIrrel r env depth (.const n us) (.const n' us')
+        else stuckIrrel mode r env depth (.const n us) (.const n' us')
+      else stuckIrrel mode r env depth (.const n us) (.const n' us')
     | .forallE n₁ ty₁ body₁ _m₁, .forallE n₂ ty₂ body₂ _m₂ => do
       -- No binder-annotation comparison, like the official kernel's
       -- (task #100 stage 3: the level-free collapse model reads no
@@ -1855,33 +1876,33 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
             (Expr.app f₂ a₂).getAppFn then
           if ← defEqList r env depth (Expr.app f₁ a₁).getAppArgs
               (Expr.app f₂ a₂).getAppArgs then pure true
-          else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
-        else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
-      else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
+          else stuckIrrel mode r env depth (.app f₁ a₁) (.app f₂ a₂)
+        else stuckIrrel mode r env depth (.app f₁ a₁) (.app f₂ a₂)
+      else stuckIrrel mode r env depth (.app f₁ a₁) (.app f₂ a₂)
     | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ => do
       -- Stuck projections: congruence, else the stuck fallbacks.
       if i₁ == i₂ then
         if ← r.defeq depth e₁ e₂ then pure true
-        else stuckIrrel r env depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
-      else stuckIrrel r env depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
+        else stuckIrrel mode r env depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
+      else stuckIrrel mode r env depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
     -- One-sided λ: eta, else the stuck fallbacks.
     | .lam n₁ ty₁ body₁ m₁, b₂ => do
       if ← etaCert r env depth n₁ ty₁ body₁ m₁ b₂ then pure true
-      else stuckIrrel r env depth (.lam n₁ ty₁ body₁ m₁) b₂
+      else stuckIrrel mode r env depth (.lam n₁ ty₁ body₁ m₁) b₂
     | a₁, .lam n₂ ty₂ body₂ m₂ => do
       if ← etaCert r env depth n₂ ty₂ body₂ m₂ a₁ then pure true
-      else stuckIrrel r env depth a₁ (.lam n₂ ty₂ body₂ m₂)
+      else stuckIrrel mode r env depth a₁ (.lam n₂ ty₂ body₂ m₂)
     -- Distinct whnf-stuck head symbols: only the stuck fallbacks can
     -- equate them; `false` is always sound, and `whnf` has already
     -- thrown on unsupported heads, so no unimplemented case can hide
     -- here.
-    | e₁, e₂ => stuckIrrel r env depth e₁ e₂
+    | e₁, e₂ => stuckIrrel mode r env depth e₁ e₂
 
 /-- The lazy-delta loop: iterate `defeqStep` on its own step budget. -/
 def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
     Nat → Expr → Expr → m Bool
   | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
-  | fl + 1, a, b => defeqStep r env depth (defeqLoop r env depth fl) a b
+  | fl + 1, a, b => defeqStep mode r env depth (defeqLoop r env depth fl) a b
 
 /-- Step budget of the lazy-delta loop (lean4lean's
 `FuelConfig.lazyDelta`, generously sized here because this loop also
@@ -1892,7 +1913,7 @@ absorbs the literal-acceleration re-entries lean4lean routes through
 /-- The definitional-equality body: the lazy-delta loop at its own
 step budget. -/
 def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
-  fun depth a b => defeqLoop r env depth defeqLoopFuel a b
+  fun depth a b => defeqLoop mode r env depth defeqLoopFuel a b
 
 /-- Check that a (raw) type is a `Prop` by annotating it and inferring
 its sort. -/
@@ -2112,7 +2133,7 @@ next level is constructed lazily, inside each entry point's closure
 (constant work per call; an eager tower would cost `fuel` allocations
 per instantiation). -/
 def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
-    (env : Env)
+    (mode : CheckMode) (env : Env)
     (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
   | 0 =>
     { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
@@ -2122,12 +2143,15 @@ def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
       annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
   | fuel + 1 =>
     wrap
-      { whnfCore := fun d e => whnfCoreBody (coreKnot env wrap fuel) env d e
-        whnf := fun d e => whnfBody (coreKnot env wrap fuel) env d e
-        infer := fun d e => inferBody (coreKnot env wrap fuel) env d e
-        defeq := fun d a b => defeqBody (coreKnot env wrap fuel) env d a b
+      { whnfCore := fun d e =>
+          whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+        whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+        infer := fun d e =>
+          inferBody mode (coreKnot mode env wrap fuel) env d e
+        defeq := fun d a b =>
+          defeqBody mode (coreKnot mode env wrap fuel) env d a b
         annotate := fun d e =>
-          annotateBody (coreKnot env wrap fuel) env d e }
+          annotateBody (coreKnot mode env wrap fuel) env d e }
 
 /-- The shared fuel for the checker core: bounds the recursion depth of
 reduction, inference and definitional equality.  Exhaustion is an

@@ -23,6 +23,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open EStore Expr
 
 section WalksP
@@ -33,11 +35,11 @@ variable {env : Env} {s₀ : IState}
 
 /-- Inserting a tagged interned-environment entry preserves the
 invariant (the `ienv` clause is exactly the tags' denotations). -/
-theorem ISOK.insertIEnv {s : IState} (hs : ISOK env s) {n : Name}
+theorem ISOK.insertIEnv {s : IState} (hs : ISOK mode env s) {n : Name}
     {ent : IConstE} (hty : s.store.denote ent.ty = some ent.tyE)
     (hval : ∀ vE vi, ent.val = some (vE, vi) →
       s.store.denote vi = some vE) :
-    ISOK env { s with ienv := s.ienv.insert n ent } := by
+    ISOK mode env { s with ienv := s.ienv.insert n ent } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC,
     hs.whnfC, hs.inferC, hs.annotC, hs.defeqC, hs.lsimp,
     hs.lnz, hs.eqv, ?_⟩
@@ -66,13 +68,13 @@ denote *tier-one* (the `ienv` clause survives the bracket close); at a
 flag-off state — the only states the drivers record from — the
 tier-aware facts the operation walks produce convert via
 `WF.denoteT_eq`. -/
-theorem recordIConst_eff (hs : ISOK env s₀)
+theorem recordIConst_eff (hs : ISOK mode env s₀)
     (hoff : s₀.store.tierTwo = false) {n : Name} {tyE : Expr}
     {ty : EIdx} {val : Option (Expr × EIdx)}
     (hty : s₀.store.denoteT ty = some tyE)
     (hval : ∀ vE vi, val = some (vE, vi) →
       s₀.store.denoteT vi = some vE) :
-    IEff env s₀ (fun _ _ => True) (recordIConst n tyE ty val) := by
+    IEff mode env s₀ (fun _ _ => True) (recordIConst n tyE ty val) := by
   intro v' s' hr
   rw [recordIConst_run] at hr
   injection hr with h1
@@ -83,9 +85,9 @@ theorem recordIConst_eff (hs : ISOK env s₀)
     trivial⟩
 
 /-- `readbackEM` yields the denotation, state untouched. -/
-theorem readbackEM_eff (hs : ISOK env s₀) {j : EIdx} {w : Expr}
+theorem readbackEM_eff (hs : ISOK mode env s₀) {j : EIdx} {w : Expr}
     (hden : s₀.store.denoteT j = some w) :
-    IEff env s₀ (fun _ v => v = w) (readbackEM j) := by
+    IEff mode env s₀ (fun _ v => v = w) (readbackEM j) := by
   intro v' s' hr
   rw [show readbackEM j = (Setlec.withStore (fun st => st.readbackI j) >>=
       fun o => match o with
@@ -110,16 +112,16 @@ private theorem fueledM_bind_pure' {α : Type} (x : FueledM α) :
 
 /-- Parsed-index `ensureSort` simulates the fueled family. -/
 theorem opSIx_sim (henv : EnvWF env) {d : Nat} {i : EIdx} {e : Expr}
-    (hs : ISOK env s₀) (hden : s₀.store.denoteT i = some e)
+    (hs : ISOK mode env s₀) (hden : s₀.store.denoteT i = some e)
     (hw : WScoped d e) :
-    SimAt env s₀ RelV (opSIx (mkFEnv env) d i)
-      (fueledOpsM.ensureSort env d e) := by
-  have h1 : SimAt env s₀ RelV (opSIx (mkFEnv env) d i)
-      (ensureSort (fueledFns env) env d e >>= pure) := by
-    show SimAt env s₀ RelV
-      (ensureSortI (coreKnotI (mkFEnv env) checkFuel) d i >>= fun u =>
+    SimAt mode env s₀ RelV (opSIx mode (mkFEnv env) d i)
+      ((fueledOpsM mode).ensureSort env d e) := by
+  have h1 : SimAt mode env s₀ RelV (opSIx mode (mkFEnv env) d i)
+      (ensureSort (fueledFns mode env) env d e >>= pure) := by
+    show SimAt mode env s₀ RelV
+      (ensureSortI (coreKnotI mode (mkFEnv env) checkFuel) d i >>= fun u =>
         readbackLevelM u)
-      (ensureSort (fueledFns env) env d e >>= pure)
+      (ensureSort (fueledFns mode env) env d e >>= pure)
     refine SimAt.bind
       (ensureSortI_sim (ssimI env henv checkFuel) hs hden hw)
       (fun s₂ u lu hs₂ hext₂ hPu => ?_)
@@ -128,7 +130,7 @@ theorem opSIx_sim (henv : EnvWF env) {d : Nat} {i : EIdx} {e : Expr}
   refine SimAt.wr h1 (fun u F h => ⟨F, ?_⟩)
   rw [FueledM.atF_bind] at h
   simp only [Bind.bind] at h
-  cases hx : (ensureSort (fueledFns env) env d e).val F with
+  cases hx : (ensureSort (fueledFns mode env) env d e).val F with
   | error er =>
     rw [hx] at h
     exact nomatch h
@@ -147,14 +149,14 @@ the fueled families on the denoted header: the returned constant is
 the fueled result, its type well-scoped, and the returned index
 denotes it. -/
 theorem checkConstantValP_sim (henv : EnvWF env) {cvp : ConstantValP}
-    {tyE : Expr} (hs : ISOK env s₀)
+    {tyE : Expr} (hs : ISOK mode env s₀)
     (hoff : s₀.store.tierTwo = false)
     (hden : s₀.store.denote cvp.type = some tyE) :
-    SimAt env s₀ (fun s v w => v.1 = w ∧ v.1.name = cvp.name ∧
+    SimAt mode env s₀ (fun s v w => v.1 = w ∧ v.1.name = cvp.name ∧
         WScoped 0 v.1.type ∧
         s.store.denote v.2 = some v.1.type)
-      (checkConstantValP (mkFEnv env) cvp)
-      (checkConstantVal fueledOpsM env
+      (checkConstantValP mode (mkFEnv env) cvp)
+      (checkConstantVal (fueledOpsM mode) env
         ⟨cvp.name, cvp.levelParams, tyE⟩) := by
   have hdenT : s₀.store.denoteT cvp.type = some tyE :=
     EStore.denoteT_of_denote hs.wf hden
@@ -229,13 +231,13 @@ annotated (fvar-free) value. -/
 theorem checkDefnValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     {jty : EIdx} {value : EIdx} {ve : Expr} {hint : ReducibilityHint}
     (htf : WScoped 0 cvA.type) (hjty : s₀.store.denote jty = some cvA.type)
-    (hdenv : s₀.store.denote value = some ve) (hs : ISOK env s₀)
+    (hdenv : s₀.store.denote value = some ve) (hs : ISOK mode env s₀)
     (hoff : s₀.store.tierTwo = false) :
-    SimAt env s₀ (fun _ v w => v.env = w ∧ v = mkFEnv v.env ∧
+    SimAt mode env s₀ (fun _ v w => v.env = w ∧ v = mkFEnv v.env ∧
         ∀ cv' v' h', v.env.find? cvA.name = some (.defnInfo cv' v' h') →
           v'.hasFvar = false)
-      (checkDefnValP (mkFEnv env) cvA jty value hint)
-      (checkDefnVal fueledOpsM env cvA ve hint) := by
+      (checkDefnValP mode (mkFEnv env) cvA jty value hint)
+      (checkDefnVal (fueledOpsM mode) env cvA ve hint) := by
   have hdenvT : s₀.store.denoteT value = some ve :=
     EStore.denoteT_of_denote hs.wf hdenv
   have hjtyT : s₀.store.denoteT jty = some cvA.type :=
@@ -312,11 +314,11 @@ theorem checkDefnValP_sim (henv : EnvWF env) {cvA : ConstantVal}
 theorem checkThmValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     {jty : EIdx} {value : EIdx} {ve : Expr}
     (htf : WScoped 0 cvA.type) (hjty : s₀.store.denote jty = some cvA.type)
-    (hdenv : s₀.store.denote value = some ve) (hs : ISOK env s₀)
+    (hdenv : s₀.store.denote value = some ve) (hs : ISOK mode env s₀)
     (hoff : s₀.store.tierTwo = false) :
-    SimAt env s₀ (fun _ v w => v.env = w ∧ v = mkFEnv v.env)
-      (checkThmValP (mkFEnv env) cvA jty value)
-      (checkThmVal fueledOpsM env cvA ve) := by
+    SimAt mode env s₀ (fun _ v w => v.env = w ∧ v = mkFEnv v.env)
+      (checkThmValP mode (mkFEnv env) cvA jty value)
+      (checkThmVal (fueledOpsM mode) env cvA ve) := by
   have hdenvT : s₀.store.denoteT value = some ve :=
     EStore.denoteT_of_denote hs.wf hdenv
   have hjtyT : s₀.store.denoteT jty = some cvA.type :=
@@ -407,12 +409,12 @@ theorem checkThmValP_sim (henv : EnvWF env) {cvA : ConstantVal}
 theorem checkOpaqueValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     {jty : EIdx} {value : EIdx} {ve : Expr}
     (htf : WScoped 0 cvA.type) (hjty : s₀.store.denote jty = some cvA.type)
-    (hdenv : s₀.store.denote value = some ve) (hs : ISOK env s₀)
+    (hdenv : s₀.store.denote value = some ve) (hs : ISOK mode env s₀)
     (hoff : s₀.store.tierTwo = false) :
-    SimAt env s₀ (fun _ v w => (v.env = w ∧ v = mkFEnv v.env) ∧
+    SimAt mode env s₀ (fun _ v w => (v.env = w ∧ v = mkFEnv v.env) ∧
         ve.hasFvar = false)
-      (checkOpaqueValP (mkFEnv env) cvA jty value)
-      (checkOpaqueVal fueledOpsM env cvA ve) := by
+      (checkOpaqueValP mode (mkFEnv env) cvA jty value)
+      (checkOpaqueVal (fueledOpsM mode) env cvA ve) := by
   have hdenvT : s₀.store.denoteT value = some ve :=
     EStore.denoteT_of_denote hs.wf hdenv
   have hjtyT : s₀.store.denoteT jty = some cvA.type :=
@@ -477,20 +479,20 @@ theorem checkOpaqueValP_sim (henv : EnvWF env) {cvA : ConstantVal}
 /-- The non-inductive branches of the unbracketed dispatcher
 `checkDeclSPPlain` simulate the generic `checkDecl` at the fueled
 families on the denoted declaration. -/
-theorem checkDeclSPPlain_sim (henv : EnvWF env) (hs : ISOK env s₀)
+theorem checkDeclSPPlain_sim (henv : EnvWF env) (hs : ISOK mode env s₀)
     (hoff : s₀.store.tierTwo = false)
     {pd : DeclP} {d : Declaration}
     (hden : denoteDeclP s₀.store pd = some d)
     (hnotind : ∀ block, pd ≠ .indDecl block) :
-    SimAt env s₀ (fun _ v w => v.env = w ∧ v = mkFEnv v.env)
-      (checkDeclSPPlain (mkFEnv env) pd)
-      (checkDecl fueledOpsM env d) := by
+    SimAt mode env s₀ (fun _ v w => v.env = w ∧ v = mkFEnv v.env)
+      (checkDeclSPPlain mode (mkFEnv env) pd)
+      (checkDecl mode (fueledOpsM mode) env d) := by
   cases pd with
   | indDecl block => exact absurd rfl (hnotind block)
   | basisDecl kind =>
     obtain rfl : Declaration.basisDecl kind = d := by
       simpa [denoteDeclP] using hden
-    show SimAt env s₀ _ (do
+    show SimAt mode env s₀ _ (do
         if kind = .quotK then
           unless (mkFEnv env).find? eqName = some eqA do
             throw (.notImplemented
@@ -524,7 +526,7 @@ theorem checkDeclSPPlain_sim (henv : EnvWF env) (hs : ISOK env s₀)
     simp only [denoteDeclP, denoteCVP, Option.bind_eq_some_iff,
       Option.map_eq_some_iff] at hden
     obtain ⟨cv0, ⟨tyE, htyE, rfl⟩, rfl⟩ := hden
-    show SimAt env s₀ _ _ (checkDecl fueledOpsM env
+    show SimAt mode env s₀ _ _ (checkDecl mode (fueledOpsM mode) env
       (.axiomDecl ⟨cvp.name, cvp.levelParams, tyE⟩))
     unfold checkDeclSPPlain checkDecl
     dsimp only
@@ -639,7 +641,7 @@ theorem checkDeclSPPlain_sim (henv : EnvWF env) (hs : ISOK env s₀)
           ¬(natDivModNames.contains cvR.name = true) := by
         simpa [not_or] using hb
       simp only [if_neg hb, if_neg h1, if_neg h4]
-      rw [← bind_pure (checkDefnValP (mkFEnv env) _ jty value hint)]
+      rw [← bind_pure (checkDefnValP mode (mkFEnv env) _ jty value hint)]
       refine SimAt.bind (checkDefnValP_sim henv hwty hjty
           (denote_mono hext₁ hve) hs₁ (tierOffExt hext₁ hoff))
         (fun s₂ fe2 env2 hs₂ hext₂ hP₂ => ?_)

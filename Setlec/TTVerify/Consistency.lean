@@ -57,9 +57,9 @@ preservation is the purely syntactic `FamiliesStepTT` below —
 separated rather than bundled into the conclusion so that the five
 value/basis cases stay untouched by the re-signing. -/
 def CheckDeclTT (F : Nat) : Prop :=
-  ∀ {env env₁ : Env} {d : Declaration},
-    checkDecl (fueledOps F) env d = .ok env₁ →
-    CertifiedConfigTT →
+  ∀ {mode : CheckMode} {env env₁ : Env} {d : Declaration},
+    checkDecl mode (fueledOps mode F) env d = .ok env₁ →
+    CertifiedConfigTT mode →
     EnvTT env → EtaFamiliesClosedT env → Nonempty (EnvTT env₁)
 
 /-- **The closure of stored eta families survives a checked
@@ -68,25 +68,25 @@ closure half of the model's `checkDecl_sound` conclusion, separated.
 Stated under the certified configuration, like `CheckDeclTT`: the
 direct-install path is the one dispatch it does not cover. -/
 def FamiliesStepTT (F : Nat) : Prop :=
-  ∀ {env env₁ : Env} {d : Declaration},
-    checkDecl (fueledOps F) env d = .ok env₁ →
-    CertifiedConfigTT →
+  ∀ {mode : CheckMode} {env env₁ : Env} {d : Declaration},
+    checkDecl mode (fueledOps mode F) env d = .ok env₁ →
+    CertifiedConfigTT mode →
     EtaFamiliesClosedT env → EtaFamiliesClosedT env₁
 
 /-- The fold over the declaration stream.  Transpose of
 `foldlM_sound`. -/
-private theorem foldlM_TT (hstep : CheckDeclTT F)
-    (hfam : FamiliesStepTT F) (hdir : CertifiedConfigTT) :
+private theorem foldlM_TT {mode : CheckMode} (hstep : CheckDeclTT F)
+    (hfam : FamiliesStepTT F) (hdir : CertifiedConfigTT mode) :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       Nonempty (EnvTT env) → EtaFamiliesClosedT env →
-      ds.foldlM (checkDecl (fueledOps F)) env = .ok env' →
+      ds.foldlM (checkDecl mode (fueledOps mode F)) env = .ok env' →
       Nonempty (EnvTT env')
   | [], _, _, hm, _, h => by
     simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ hm
   | d :: ds, env, _, hm, hE1, h => by
     simp only [List.foldlM, Bind.bind, Except.bind] at h
-    cases hd : checkDecl (fueledOps F) env d with
+    cases hd : checkDecl mode (fueledOps mode F) env d with
     | error e => rw [hd] at h; exact nomatch h
     | ok env1 =>
       rw [hd] at h
@@ -98,10 +98,12 @@ private theorem foldlM_TT (hstep : CheckDeclTT F)
 derivation model, i.e. every constant it stores has a `HasType`
 derivation of its type's denotation.  Transpose of
 `checkDecls_sound`. -/
-theorem checkDecls_TT (hstep : CheckDeclTT F) (hfam : FamiliesStepTT F)
-    (hdir : CertifiedConfigTT)
+theorem checkDecls_TT {mode : CheckMode}
+    (hstep : CheckDeclTT F) (hfam : FamiliesStepTT F)
+    (hdir : CertifiedConfigTT mode)
     {ds : List Declaration} {env' : Env}
-    (h : checkDecls (fueledOps F) ds = .ok env') : Nonempty (EnvTT env') :=
+    (h : checkDecls mode (fueledOps mode F) ds = .ok env') :
+    Nonempty (EnvTT env') :=
   foldlM_TT hstep hfam hdir ds Env.empty ⟨EnvTT.empty⟩
     EtaFamiliesClosedT.empty h
 
@@ -142,11 +144,11 @@ theorem no_constant_of_Empty_TT (V : Type u) [SetTheory V] {env : Env}
 /-- **No proof of `Empty` is ever accepted** — through the declarative
 type theory.  Transpose of `no_proof_of_Empty`; the set-model theorem of
 the same name is untouched and both paths coexist. -/
-theorem no_proof_of_Empty_TT (V : Type u) [SetTheory V]
+theorem no_proof_of_Empty_TT (V : Type u) [SetTheory V] {mode : CheckMode}
     (hstep : CheckDeclTT F) (hfam : FamiliesStepTT F)
-    (hdir : CertifiedConfigTT)
+    (hdir : CertifiedConfigTT mode)
     {ds : List Declaration} {env' : Env}
-    (h : checkDecls (fueledOps F) ds = .ok env')
+    (h : checkDecls mode (fueledOps mode F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
   obtain ⟨m⟩ := checkDecls_TT hstep hfam hdir h

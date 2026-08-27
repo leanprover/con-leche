@@ -18,6 +18,9 @@ set_option linter.unusedVariables false
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 variable {F : Nat}
@@ -73,7 +76,7 @@ and residual head obligation is refuted by kind and name shape. -/
 theorem provisionRecsTT {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
       (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
-    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    provisionRecs (fueledOps mode F) blockNames envAcc recs = .ok p →
     (∀ ci ∈ recs, blockNames.contains ci.name = true) →
     ∀ (m : EnvTT envAcc), BlockInstalledTT blockNames envAcc m.cval →
     ∃ mS : EnvTT p.1,
@@ -269,7 +272,7 @@ theorem recMemberTT_of_kit {env₂ envS env₃ : Env} (mS : EnvTT envS)
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envS.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
-    (hkits : ∀ r' ∈ rules', RuleChecked F env₂ envS f cvA mI rP r') :
+    (hkits : ∀ r' ∈ rules', RuleChecked mode F env₂ envS f cvA mI rP r') :
     RecMemberTT env₃ mS.cval (.recInfo cvA mI rP rules') := by
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote mS.cval envS φ d e = denote mS.cval env₃ φ d e :=
@@ -358,7 +361,7 @@ theorem recMemberTT_of_kit {env₂ envS env₃ : Env} (mS : EnvTT envS)
       (recRulePlain_le_mIT hplain) (recRulePlain_leT hplain)
       hrhsf hrhsb hity hSw0 hSb0 hthm hopen hheadEq hargs3 hlhead
       hlarity hlpre hmaj hcstrip hcinst hclen hdeIdx hrinst hdePre
-      hdeFld hopenP hcinstP hdePars hdeRhs hlhsTyC hrhsTyC hslot
+      hdeFld hopenP hcinstP hdePars hdeRhs hlhsTyC hrhsTyC (hslot rfl)
     refine ⟨recRulePlain_le_mIT hplain, ?_⟩
     intro φ d us hlenU
     obtain ⟨RV, hRV, hlaw⟩ := hbot φ d us hlenU
@@ -419,7 +422,7 @@ theorem recMemberTT_of_kit {env₂ envS env₃ : Env} (mS : EnvTT envS)
       hlvlsLen hpinsLen hpinsWf
       hrhsf hrhsb hity hSw0 hSb0 hthm hopen hheadEq hargs3 hlhead
       hlarity hlpre hmaj hCstrips hCresHead hcinst hclen hdeIdx hrinst
-      hdePre hdeFld hopenP hcinstN0 htlP0 hdeRhs hlhsTyC hrhsTyC hslot
+      hdePre hdeFld hopenP hcinstN0 htlP0 hdeRhs hlhsTyC hrhsTyC (hslot rfl)
     refine ⟨hmIrP, ?_⟩
     intro φ d us hlenU
     obtain ⟨RV, hRV, hlaw⟩ := hbot φ d us hlenU
@@ -477,7 +480,7 @@ private theorem chains_swapT {blockNames : List Name}
         List RecRule)}
       {accS acc₃ envSelf env₃' : Env},
       ProvFacts F blockNames accS envSelf (zipped.map Prod.fst) →
-      RulesChain F env' envS f acc₃ env₃' zipped →
+      RulesChain mode F env' envS f acc₃ env₃' zipped →
       (∀ z ∈ zipped, SwapPairT env₃ cval
         (.recInfo z.1.1 z.1.2.1 z.1.2.2.1 [])
         (.recInfo z.1.1 z.1.2.1 z.1.2.2.1 z.2)) →
@@ -507,7 +510,7 @@ a derivation model with the block invariant.  Transpose of
 `checkIndRecs_sound`, through `EnvTT.swap`. -/
 theorem checkIndRecsTT {blockNames : List Name}
     {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs (fueledOps F) blockNames env₂ recs = .ok env₃)
+    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true)
     (hall : ∀ n, blockNames.contains n = true →
       (env₂.find? n).isSome = true ∨ ∃ ci ∈ recs, ci.name = n)
@@ -529,7 +532,7 @@ theorem checkIndRecsTT {blockNames : List Name}
   simp only [pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases hprov : provisionRecs (fueledOps F) blockNames env₂ recs with
+  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
   | error e => intro h; exact nomatch h
   | ok p => ?_
   intro h
@@ -646,7 +649,7 @@ theorem checkIndRecsTT {blockNames : List Name}
     obtain ⟨hnres, hshape, hms, hbnc, htyf, htyb, htlp, htres, hmodel,
       hself⟩ := ProvFacts.mem_facts hProv z.1 hz1
     have hcir := RulesChain.mem_facts hchain z hz
-    have hkits : ∀ r' ∈ z.2, RuleChecked F env₂ envSelf (fun n =>
+    have hkits : ∀ r' ∈ z.2, RuleChecked mode F env₂ envSelf (fun n =>
         if blockNames.contains n then n.str "_model" else n)
         z.1.1 z.1.2.1 z.1.2.2.1 r' :=
       checkIotaRules_inv 0 _ _ hcir

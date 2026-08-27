@@ -20,6 +20,7 @@ consumes it for `checkDecl`'s `indDecl` arm.  Verification:
 namespace Setlec
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
+variable (mode : CheckMode)
 
 /-- Certify that both sides of a modeled iota equation inhabit the
 equation's type (task #100 stage-3 finding: the collapse removed
@@ -38,9 +39,12 @@ def checkIotaSidesTy (ops : CheckerOps m) (envSelf : Env) (depth : Nat)
   let tr ← ops.inferType envSelf depth rhsS
   unless ← ops.isDefEq envSelf depth tr alphaS do
     throw (.notImplemented s!"iota statement rhs type for {cvName}")
-  let tα ← ops.inferType envSelf depth alphaS
-  unless ← ops.isDefEq envSelf depth tα (.sort ℓA) do
-    throw (.notImplemented s!"iota statement type slot sort for {cvName}")
+  -- TT-lane check (task #147): the slot-sort certification (task
+  -- #146) is skipped unless `mode.ttChecks`.
+  if mode.ttChecks then
+    let tα ← ops.inferType envSelf depth alphaS
+    unless ← ops.isDefEq envSelf depth tα (.sort ℓA) do
+      throw (.notImplemented s!"iota statement type slot sort for {cvName}")
 
 /-- Check a *canonical* recursor rule's `iota_j` theorem,
 *semantically*: the stored theorem's telescope is opened at free
@@ -135,7 +139,7 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq envSelf depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
-    checkIotaSidesTy ops envSelf depth (targs.getD 0 (.bvar 0)) lhsS
+    checkIotaSidesTy mode ops envSelf depth (targs.getD 0 (.bvar 0)) lhsS
       rhsS (eqHeadLevel tbody.getAppFn) cvName
 
 /-- The nested-shape data of a non-canonical rule: the constructor's
@@ -302,7 +306,7 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq envSelf depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
-    checkIotaSidesTy ops envSelf depth (targs.getD 0 (.bvar 0)) lhsS
+    checkIotaSidesTy mode ops envSelf depth (targs.getD 0 (.bvar 0)) lhsS
       rhsS (eqHeadLevel tbody.getAppFn) cvName
     pure (.nested lvls pins)
 
@@ -339,11 +343,11 @@ def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
     -- `iotaRec` reads the flag instead of re-walking the recursor type
     -- on every fire
     let fire ← if Expr.recRulePlain tyA mI rP cnP then do
-        checkIotaThm ops env' envSelf f cvName lps tyA mI rP j r
+        checkIotaThm mode ops env' envSelf f cvName lps tyA mI rP j r
           cvj cnP cnF rhsA
         pure RecRuleFire.plain
       else
-        checkIotaThmN ops env' envSelf f cvName lps tyA mI rP j r
+        checkIotaThmN mode ops env' envSelf f cvName lps tyA mI rP j r
           cvj cnP cnF rhsA
     pure { r with rhs := rhsA, ctorParams := cnP, fire := fire }
 
@@ -353,7 +357,7 @@ def checkIotaRules (ops : CheckerOps m) (env' envSelf : Env) (f : Name → Name)
     (mI rP : Nat) : Nat → List RecRule → m (List RecRule)
   | _, [] => pure []
   | j, r :: rest => do
-    let r' ← checkIotaRule ops env' envSelf f cvName lps tyA mI rP j r
+    let r' ← checkIotaRule mode ops env' envSelf f cvName lps tyA mI rP j r
     let rest' ← checkIotaRules ops env' envSelf f cvName lps tyA mI rP
       (j + 1) rest
     pure (r' :: rest')
@@ -435,7 +439,7 @@ def checkIndRecs (ops : CheckerOps m) (blockNames : List Name)
       throw (.notImplemented "modeled recursor requires the pinned Eq basis")
     let (envSelf, checked) ← provisionRecs ops blockNames env₂ recs
     checked.foldlM (fun (acc : Env) c => do
-        let rules' ← checkIotaRules ops env₂ envSelf f c.1.name
+        let rules' ← checkIotaRules mode ops env₂ envSelf f c.1.name
           c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
         pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env))
       env₂
@@ -544,7 +548,7 @@ def checkProjIota (ops : CheckerOps m) (env' envSelf : Env)
   let (_, sbodyO) ← unwrapOr (openPisAtFvars depth tcv.type 0)
     (.notImplemented "projection iota telescope")
   let targsO := sbodyO.getAppArgs
-  checkIotaSidesTy ops envSelf depth (targsO.getD 0 (.bvar 0))
+  checkIotaSidesTy mode ops envSelf depth (targsO.getD 0 (.bvar 0))
     (targsO.getD 1 (.bvar 0)) (targsO.getD 2 (.bvar 0))
     (eqHeadLevel sbody.getAppFn) (projModelName T i)
 
@@ -561,7 +565,7 @@ def checkProjFn (ops : CheckerOps m) (env' : Env) (T ctorName : Name) (lps : Lis
   unless i < nF do
     throw (.invalid "projection index out of range")
   let rhsA ← checkProjRule ops env' pty cvj lps nP nF i
-  checkProjIota ops env' env' T ctorName lps cvj nP nF i
+  checkProjIota mode ops env' env' T ctorName lps cvj nP nF i
   -- a degenerate recursor: no motive, no minors, no indices, so the
   -- major sits at position nP and the rule prefix is the parameters;
   -- the canonical flag is computed here, once, like `checkIotaRule`
@@ -621,8 +625,9 @@ def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
           -- sort (task #135): the type slot above is `T._model p⃗`, so
           -- this says the slot lives at `Sort ℓA` for the very `ℓA` the
           -- statement's `Eq` carries — the premise `eqValT`'s first
-          -- β-step needs and Π-injectivity cannot recover
-          tbodyM == Expr.sort ℓA
+          -- β-step needs and Π-injectivity cannot recover.  TT-lane
+          -- check (task #147): skipped unless `mode.ttChecks`.
+          (!mode.ttChecks || tbodyM == Expr.sort ℓA)
         | _ => false)
      | _, _ => false)
   | _, _, _, _ => false
@@ -658,8 +663,9 @@ def checkUnitThm (env' : Env) (T : Name) (lps : List Name)
           tySlot == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
             ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)) &&
           -- and the slot's sort is the equation's own level (task
-          -- #135; see `checkEtaThm`)
-          tbodyM == Expr.sort ℓA
+          -- #135; see `checkEtaThm`).  TT-lane check (task #147):
+          -- skipped unless `mode.ttChecks`.
+          (!mode.ttChecks || tbodyM == Expr.sort ℓA)
         | _ => false)
      | _, _ => false)
   | _, _, _ => false
@@ -693,7 +699,7 @@ phase never sees a template entry). -/
 def installProjFnStep (ops : CheckerOps m) (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) : m Env :=
   if (e.find? (projModelName T i)).isSome then
-    checkProjFn ops e T ctorName lps nP nF i
+    checkProjFn mode ops e T ctorName lps nP nF i
   else pure e
 
 /-- One elimination-template install step (the second pass): indices
@@ -708,11 +714,11 @@ def installProjTemplateStep (T ctorName : Name) (lps : List Name)
 def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
     IndCaps where
   eta := (cvC.levelParams = cvT.levelParams) &&
-    checkEtaThm env cvT.name cvC.name cvT.levelParams nP nF
+    checkEtaThm mode env cvT.name cvC.name cvT.levelParams nP nF
   etaCtor := cvC.name
   etaParams := nP
   etaFields := nF
-  unitlike := checkUnitThm env cvT.name cvT.levelParams nP
+  unitlike := checkUnitThm mode env cvT.name cvT.levelParams nP
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
 
@@ -744,7 +750,8 @@ block with neither capability.  `unitlike` does not need it — its
 right-hand side is a law premise, not a fabricated spine. -/
 def ctorResidualOk (env' : Env) (T ctorName : Name) (lps : List Name)
     (nP nF : Nat) (eta : Bool) : Bool :=
-  !eta ||
+  -- TT-lane check (task #147): trivially true unless `mode.ttChecks`.
+  !mode.ttChecks || !eta ||
   (match env'.find? ctorName with
    | some (.ctorInfo cvCA _ _) =>
      (match cvCA.type.stripPis (nP + nF) with
@@ -779,12 +786,12 @@ def checkIndDecl (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
     block.filter (fun ci => match ci with
       | .ctorInfo _ _ _ => true | _ => false) with
   | [.indInfo cvT _], [.ctorInfo cvC nP nF] =>
-    let caps ← pure (indBlockCaps env cvT cvC nP nF)
+    let caps ← pure (indBlockCaps mode env cvT cvC nP nF)
     let env₂ ← nonrecs.foldlM
       (checkIndMember ops blockNames caps) env
-    let env₃ ← checkIndRecs ops blockNames env₂ recs
+    let env₃ ← checkIndRecs mode ops blockNames env₂ recs
     -- the eta capability's constructor returns the family (task #136)
-    unless ctorResidualOk env₃ cvT.name cvC.name cvT.levelParams nP nF
+    unless ctorResidualOk mode env₃ cvT.name cvC.name cvT.levelParams nP nF
         caps.eta do
       throw (.notImplemented "modeled structure: eta constructor residual")
     -- the whole projection name family must be ours to install
@@ -792,13 +799,14 @@ def checkIndDecl (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
         (fun j => (env₃.find? (projFnName cvT.name j)).isNone) do
       throw (.invalid "projection name family taken")
     let env₄ ← (List.range nF).foldlM
-      (installProjFnStep ops cvT.name cvC.name cvT.levelParams nP nF) env₃
+      (installProjFnStep mode ops cvT.name cvC.name cvT.levelParams nP nF)
+      env₃
     (List.range nF).foldlM
       (installProjTemplateStep cvT.name cvC.name cvT.levelParams nP nF)
       env₄
   | _, _ => do
     let env₂ ← nonrecs.foldlM (checkIndMember ops blockNames {}) env
-    checkIndRecs ops blockNames env₂ recs
+    checkIndRecs mode ops blockNames env₂ recs
 
 
 end Setlec

@@ -43,6 +43,10 @@ first transposition and came back here (`Setlec/TTVerify/DESIGN.md`
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode; the seven gated checks
+reduce definitionally at `.ttModel`. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-! ## The identification
@@ -184,10 +188,10 @@ second time. -/
 to a unit-like family is derivably of `PUnit` at some level. -/
 theorem punit_side {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr}
-    (ihw : WhnfClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
     {e t wt : Expr}
-    (het : inferTypeCore env fuel d e = .ok t)
-    (hwt : whnf env fuel d t = .ok wt)
+    (het : inferTypeCore mode env fuel d e = .ok t)
+    (hwt : whnf mode env fuel d t = .ok wt)
     (hu : isUnitLikeTy env wt = true)
     (hC : CtxOk m.cval env φ d Δ e) (hws : Expr.WScoped d e)
     (hb : e.looseBVarsBounded 0 = true) (hL : Expr.LeavesBounded e) :
@@ -223,8 +227,8 @@ theorem punit_side {env : Env} (m : EnvTT env) (φ : Name → Nat)
 
 /-- **`ProofIrrelStepTT`, discharged.** -/
 theorem proofIrrel_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (ihw : WhnfClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) : ProofIrrelStepTT m φ fuel := by
+    {fuel : Nat} (ihw : WhnfClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel) : ProofIrrelStepTT m φ fuel := by
   intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   obtain ⟨ta, wta, hta, hwta, hcase⟩ := proofIrrel_inv h
   rcases hcase with ⟨hua, tb, wtb, htb, hwtb, hub⟩ |

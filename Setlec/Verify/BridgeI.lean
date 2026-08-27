@@ -6,7 +6,7 @@ import Setlec.Verify.DiscI6
 Ties the per-body walks (`Setlec/Verify/DiscI*.lean`) through the memo
 wrappers (`Setlec/Verify/SimIKnot.lean`) into the interned conditional
 simulation at every fuel: `ssimI` — every interned entry point
-(`coreKnotI (mkFEnv env) f`) simulates the pure fueled families under
+(`coreKnotI mode (mkFEnv env) f`) simulates the pure fueled families under
 the denotation, on denoting well-scoped inputs over well-formed
 environments.  The entry-point runners' bridges (consumed by
 `Setlec/Verify/Bridge.lean` after the executable flip) are stated here
@@ -20,7 +20,7 @@ namespace Setlec
 open EStore Expr
 
 /-- The interned knot simulates the fueled families at every fuel. -/
-theorem ssimI (env : Env) (henv : EnvWF env) : ∀ f, SSimI env f
+theorem ssimI (env : Env) (henv : EnvWF env) : ∀ f, SSimI mode env f
   | 0 => ssimI_zero env
   | f + 1 =>
     { whnfCore := fun hs hden hw =>
@@ -69,11 +69,11 @@ readback of a simulated interned run, hence reproduced by the fueled
 comparand at some fuel. -/
 theorem runEntryE_bridge {pick : CoreFnsI → Nat → EIdx → CheckIM EIdx}
     {pf : FueledM Expr} {d : Nat} {e v : Expr}
-    (hsim : ∀ {s₀ : IState} {i : EIdx}, ISOK env s₀ →
+    (hsim : ∀ {s₀ : IState} {i : EIdx}, ISOK mode env s₀ →
       s₀.store.denoteT i = some e →
-      SimAt env s₀ (RelE d)
-        (pick (coreKnotI (mkFEnv env) checkFuel) d i) pf)
-    (h : runEntryE env pick d e = .ok v) :
+      SimAt mode env s₀ (RelE d)
+        (pick (coreKnotI mode (mkFEnv env) checkFuel) d i) pf)
+    (h : runEntryE mode env pick d e = .ok v) :
     ∃ F, pf.val F = .ok v := by
   unfold runEntryE at h
   rcases hie : EStore.empty.internExpr e with ⟨i0, st0⟩
@@ -81,7 +81,7 @@ theorem runEntryE_bridge {pick : CoreFnsI → Nat → EIdx → CheckIM EIdx}
   obtain ⟨hwf0, -, hden0⟩ := internExpr_spec empty_wf e
   rw [hie] at hwf0 hden0
   simp only [Bind.bind, Except.bind] at h
-  cases hrun : (pick (coreKnotI (mkFEnv env) checkFuel) d i0).run
+  cases hrun : (pick (coreKnotI mode (mkFEnv env) checkFuel) d i0).run
       { store := st0 } with
   | error er => rw [hrun] at h; exact nomatch h
   | ok pr =>
@@ -100,11 +100,11 @@ theorem runEntryE_bridge {pick : CoreFnsI → Nat → EIdx → CheckIM EIdx}
 /-- Binary entry-runner bridge (`isDefEq`). -/
 theorem runEntryB_bridge {pf : FueledM Bool} {d : Nat} {a b : Expr}
     {v : Bool}
-    (hsim : ∀ {s₀ : IState} {i j : EIdx}, ISOK env s₀ →
+    (hsim : ∀ {s₀ : IState} {i j : EIdx}, ISOK mode env s₀ →
       s₀.store.denoteT i = some a → s₀.store.denoteT j = some b →
-      SimAt env s₀ RelV
-        ((coreKnotI (mkFEnv env) checkFuel).defeq d i j) pf)
-    (h : runEntryB env d a b = .ok v) :
+      SimAt mode env s₀ RelV
+        ((coreKnotI mode (mkFEnv env) checkFuel).defeq d i j) pf)
+    (h : runEntryB mode env d a b = .ok v) :
     ∃ F, pf.val F = .ok v := by
   unfold runEntryB at h
   rcases hia : EStore.empty.internExpr a with ⟨i0, st1⟩
@@ -117,11 +117,11 @@ theorem runEntryB_bridge {pf : FueledM Bool} {d : Nat} {a b : Expr}
   obtain ⟨hwf2, hext2, hdenb⟩ := internExpr_spec hwf1 b
   rw [hib] at hwf2 hext2 hdenb
   simp only [StateT.run'] at h
-  cases hrun : ((coreKnotI (mkFEnv env) checkFuel).defeq d i0 j0).run
+  cases hrun : ((coreKnotI mode (mkFEnv env) checkFuel).defeq d i0 j0).run
       { store := st2 } with
   | error er =>
-    rw [show ((coreKnotI (mkFEnv env) checkFuel).defeq d i0 j0).run
-      { store := st2 } = (coreKnotI (mkFEnv env) checkFuel).defeq d i0 j0
+    rw [show ((coreKnotI mode (mkFEnv env) checkFuel).defeq d i0 j0).run
+      { store := st2 } = (coreKnotI mode (mkFEnv env) checkFuel).defeq d i0 j0
       { store := st2 } from rfl] at hrun
     simp only [Functor.map, StateT.run, hrun, Except.map] at h
     exact nomatch h
@@ -133,8 +133,8 @@ theorem runEntryB_bridge {pf : FueledM Bool} {d : Nat} {a b : Expr}
         (EStore.denoteT_of_denote hwf2.toTWF hdenb)
         r s' (run_inv hrun)
     obtain rfl : r = vv := hPv
-    rw [show ((coreKnotI (mkFEnv env) checkFuel).defeq d i0 j0).run
-      { store := st2 } = (coreKnotI (mkFEnv env) checkFuel).defeq d i0 j0
+    rw [show ((coreKnotI mode (mkFEnv env) checkFuel).defeq d i0 j0).run
+      { store := st2 } = (coreKnotI mode (mkFEnv env) checkFuel).defeq d i0 j0
       { store := st2 } from rfl] at hrun
     simp only [Functor.map, StateT.run, hrun, Except.map,
       Except.ok.injEq] at h
@@ -144,11 +144,11 @@ theorem runEntryB_bridge {pf : FueledM Bool} {d : Nat} {a b : Expr}
 a level index which the runner reads back. -/
 theorem runEntryS_bridge {pf : FueledM Level} {d : Nat} {e : Expr}
     {u : Level}
-    (hsim : ∀ {s₀ : IState} {i : EIdx}, ISOK env s₀ →
+    (hsim : ∀ {s₀ : IState} {i : EIdx}, ISOK mode env s₀ →
       s₀.store.denoteT i = some e →
-      SimAt env s₀ RelL
-        (ensureSortI (coreKnotI (mkFEnv env) checkFuel) d i) pf)
-    (h : runEntryS env d e = .ok u) :
+      SimAt mode env s₀ RelL
+        (ensureSortI (coreKnotI mode (mkFEnv env) checkFuel) d i) pf)
+    (h : runEntryS mode env d e = .ok u) :
     ∃ F, pf.val F = .ok u := by
   unfold runEntryS at h
   rcases hie : EStore.empty.internExpr e with ⟨i0, st0⟩
@@ -156,7 +156,7 @@ theorem runEntryS_bridge {pf : FueledM Level} {d : Nat} {e : Expr}
   obtain ⟨hwf0, -, hden0⟩ := internExpr_spec empty_wf e
   rw [hie] at hwf0 hden0
   simp only [Bind.bind, Except.bind] at h
-  cases hrun : (ensureSortI (coreKnotI (mkFEnv env) checkFuel) d i0).run
+  cases hrun : (ensureSortI (coreKnotI mode (mkFEnv env) checkFuel) d i0).run
       { store := st0 } with
   | error er =>
     rw [hrun] at h

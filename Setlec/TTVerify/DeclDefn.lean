@@ -26,6 +26,9 @@ work.
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 variable {F : Nat}
@@ -37,7 +40,7 @@ def NatOpPinTT (F : Nat) : Prop :=
     {hint : ReducibilityHint},
     cv.name ∈ natOpNames →
     env.find? cv.name = none →
-    annotateCore env F 0 value = .ok value' →
+    annotateCore mode env F 0 value = .ok value' →
     value'.hasFvar = false → value'.looseBVarsBounded 0 = true →
     (∀ ψ : Name → Nat, ∃ v, denoteClosed m.cval env ψ value' = some v) →
     natOpGuard ⟨ConstantInfo.defnInfo cv value' hint :: env.consts⟩ cv.name
@@ -45,7 +48,7 @@ def NatOpPinTT (F : Nat) : Prop :=
     (∀ eq ∈ (natOpEquations 0 cv.name).map (fun eq =>
         (Expr.substConst0 cv.name value' eq.1,
          Expr.substConst0 cv.name value' eq.2)),
-      isDefEqCore env F 2 eq.1 eq.2 = .ok true) →
+      isDefEqCore mode env F 2 eq.1 eq.2 = .ok true) →
     ∀ eq ∈ natOpEquations 0 cv.name, ∀ φ : Name → Nat, ∃ L R,
       denote (cvalAt m.cval env cv.name value')
         ⟨ConstantInfo.defnInfo cv value' hint :: env.consts⟩ φ 2 eq.1
@@ -63,12 +66,12 @@ def DivModPinTT (F : Nat) : Prop :=
     {hint : ReducibilityHint},
     cv.name ∈ natDivModNames →
     env.find? cv.name = none →
-    annotateCore env F 0 value = .ok value' →
+    annotateCore mode env F 0 value = .ok value' →
     value'.hasFvar = false → value'.looseBVarsBounded 0 = true →
     (∀ ψ : Name → Nat, ∃ v t,
       denoteClosed m.cval env ψ value' = some v ∧
       denoteClosed m.cval env ψ cv.type = some t ∧ HasType [] v t) →
-    checkDivModPin (fueledOps F) env
+    checkDivModPin (fueledOps mode F) env
       ⟨ConstantInfo.defnInfo cv value' hint :: env.consts⟩ cv.name
       = .ok () →
     natOpGuard ⟨ConstantInfo.defnInfo cv value' hint :: env.consts⟩ cv.name
@@ -81,15 +84,15 @@ def DivModPinTT (F : Nat) : Prop :=
 /-- Inversion for the recurrence certifier: every equation passed. -/
 theorem certifyNatEqs_inv {env : Env} :
     ∀ (eqs : List (Expr × Expr)),
-      certifyNatEqs (fueledOps F) env eqs = .ok true →
-      ∀ eq ∈ eqs, isDefEqCore env F 2 eq.1 eq.2 = .ok true := by
+      certifyNatEqs (fueledOps mode F) env eqs = .ok true →
+      ∀ eq ∈ eqs, isDefEqCore mode env F 2 eq.1 eq.2 = .ok true := by
   intro eqs
   induction eqs with
   | nil => intro _ eq hq; exact nomatch hq
   | cons e es ih =>
     intro h eq hq
     simp only [certifyNatEqs, Bind.bind, Except.bind, fueledOps_isDefEq] at h
-    cases hde : isDefEqCore env F 2 e.1 e.2 with
+    cases hde : isDefEqCore mode env F 2 e.1 e.2 with
     | error err => rw [hde] at h; exact nomatch h
     | ok r =>
       rw [hde] at h
@@ -107,7 +110,7 @@ theorem declDefnTT (hnp : NatOpPinTT F) (hdm : DivModPinTT F) :
   intro env env₁ cv value hint h m
   simp only [checkDecl, checkDefnVal, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
-  cases hccv : checkConstantVal (fueledOps F) env cv with
+  cases hccv : checkConstantVal (fueledOps mode F) env cv with
   | error e => rw [hccv] at h; exact nomatch h
   | ok cv' =>
   rw [hccv] at h
@@ -121,7 +124,7 @@ theorem declDefnTT (hnp : NatOpPinTT F) (hdm : DivModPinTT F) :
   by_cases hivf : value.hasFvar = true
   case pos => simp [hivf] at h
   simp only [hivf] at h
-  cases hannv : annotateCore env F 0 value with
+  cases hannv : annotateCore mode env F 0 value with
   | error e => rw [hannv] at h; exact nomatch h
   | ok value' =>
   rw [hannv] at h
@@ -132,12 +135,12 @@ theorem declDefnTT (hnp : NatOpPinTT F) (hdm : DivModPinTT F) :
   by_cases hvr : value'.constsResolve env = true
   case neg => simp [hvr] at h
   simp only [hvr] at h
-  cases hvt : inferTypeCore env F 0 value' with
+  cases hvt : inferTypeCore mode env F 0 value' with
   | error e => rw [hvt] at h; exact nomatch h
   | ok vtype =>
   rw [hvt] at h
   try dsimp only at h
-  cases hde : isDefEqCore env F 0 vtype type with
+  cases hde : isDefEqCore mode env F 0 vtype type with
   | error e => rw [hde] at h; exact nomatch h
   | ok bq =>
   rw [hde] at h
@@ -254,7 +257,7 @@ theorem declDefnTT (hnp : NatOpPinTT F) (hdm : DivModPinTT F) :
         rw [Env.find?_cons]
         exact if_pos rfl] at h
       dsimp only at h
-      cases hcert : certifyNatEqs (fueledOps F) env
+      cases hcert : certifyNatEqs (fueledOps mode F) env
           ((natOpEquations 0 cv.name).map fun eq =>
             (Expr.substConst0 cv.name value' eq.1,
              Expr.substConst0 cv.name value' eq.2)) with
@@ -269,7 +272,7 @@ theorem declDefnTT (hnp : NatOpPinTT F) (hdm : DivModPinTT F) :
             simpa only [Bool.and_eq_true] using hg
           by_cases hdmn : natDivModNames.contains cv.name = true
           · rw [if_pos hdmn] at h
-            cases hpin : checkDivModPin (fueledOps F) env
+            cases hpin : checkDivModPin (fueledOps mode F) env
                 ⟨ConstantInfo.defnInfo { cv with type := type } value'
                   hint :: env.consts⟩ cv.name with
             | error e => rw [hpin] at h; exact nomatch h
@@ -297,7 +300,7 @@ theorem declDefnTT (hnp : NatOpPinTT F) (hdm : DivModPinTT F) :
   · rw [if_neg hnon] at h
     by_cases hdmn : natDivModNames.contains cv.name = true
     · rw [if_pos hdmn] at h
-      cases hpin : checkDivModPin (fueledOps F) env
+      cases hpin : checkDivModPin (fueledOps mode F) env
           ⟨ConstantInfo.defnInfo { cv with type := type } value'
             hint :: env.consts⟩ cv.name with
       | error e => rw [hpin] at h; exact nomatch h

@@ -24,6 +24,10 @@ String.ofList … : String     the pinned `List.{0} Char → String`
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode; the seven gated checks
+reduce definitionally at `.ttModel`. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-! ## The workhorse
@@ -567,9 +571,9 @@ discharged; only the projection clause remains. -/
 theorem infer_claimsTT_strLit {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (hproj : InferProjStepTT m φ fuel)
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) :
-    InferClaimsTT m φ (fuel + 1) :=
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel) :
+    InferClaimsTT mode m φ (fuel + 1) :=
   infer_claimsTT m φ hcl (infer_strLit_step m φ) hproj ihw ihd ihi
 
 end Setlec.TTVerify

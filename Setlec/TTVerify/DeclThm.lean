@@ -22,6 +22,9 @@ until stage 2's end.
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 variable {F : Nat}
@@ -44,9 +47,9 @@ theorem value_key {env : Env} (m : EnvTT env) {type value' stype vtype : Expr}
     (htf : type.hasFvar = false) (hbt' : type.looseBVarsBounded 0 = true)
     (hvf' : value'.hasFvar = false)
     (hbv' : value'.looseBVarsBounded 0 = true)
-    (hst : inferTypeCore env F 0 type = .ok stype)
-    (hvt : inferTypeCore env F 0 value' = .ok vtype)
-    (hde : isDefEqCore env F 0 vtype type = .ok true) :
+    (hst : inferTypeCore mode env F 0 type = .ok stype)
+    (hvt : inferTypeCore mode env F 0 value' = .ok vtype)
+    (hde : isDefEqCore mode env F 0 vtype type = .ok true) :
     ∀ ψ : Name → Nat, ∃ v t,
       denoteClosed m.cval env ψ value' = some v ∧
       denoteClosed m.cval env ψ type = some t ∧ HasType [] v t := by
@@ -72,7 +75,7 @@ theorem declThmTT : DeclThmTT F := by
   simp only [checkDecl, checkThmVal, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
     Bind.bind, Except.bind] at h
-  cases hccv : checkConstantVal (fueledOps F) env cv with
+  cases hccv : checkConstantVal (fueledOps mode F) env cv with
   | error e => rw [hccv] at h; exact nomatch h
   | ok cv' =>
   rw [hccv] at h
@@ -80,12 +83,12 @@ theorem declThmTT : DeclThmTT F := by
   obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann,
     htp, htr, hst, hsort, rfl⟩ := checkConstantVal_invT hccv
   simp only [Pure.pure, Except.pure] at h
-  cases hst2 : inferTypeCore env F 0 type with
+  cases hst2 : inferTypeCore mode env F 0 type with
   | error e => rw [hst2] at h; exact nomatch h
   | ok stype2 =>
   rw [hst2] at h
   try dsimp only at h
-  cases hsort2 : ensureSortCore env F 0 stype2 with
+  cases hsort2 : ensureSortCore mode env F 0 stype2 with
   | error e => rw [hsort2] at h; exact nomatch h
   | ok u2 =>
   rw [hsort2] at h
@@ -105,7 +108,7 @@ theorem declThmTT : DeclThmTT F := by
   by_cases hivf : value.hasFvar = true
   case pos => simp [hivf] at h
   simp only [hivf] at h
-  cases hannv : annotateCore env F 0 value with
+  cases hannv : annotateCore mode env F 0 value with
   | error e => rw [hannv] at h; exact nomatch h
   | ok value' =>
   rw [hannv] at h
@@ -116,12 +119,12 @@ theorem declThmTT : DeclThmTT F := by
   by_cases hvr : value'.constsResolve env = true
   case neg => simp [hvr] at h
   simp only [hvr] at h
-  cases hvt : inferTypeCore env F 0 value' with
+  cases hvt : inferTypeCore mode env F 0 value' with
   | error e => rw [hvt] at h; exact nomatch h
   | ok vtype =>
   rw [hvt] at h
   try dsimp only at h
-  cases hde : isDefEqCore env F 0 vtype type with
+  cases hde : isDefEqCore mode env F 0 vtype type with
   | error e => rw [hde] at h; exact nomatch h
   | ok b =>
   rw [hde] at h

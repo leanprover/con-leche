@@ -14,6 +14,8 @@ set_option maxHeartbeats 4000000
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open EStore Expr
 
 section Walks
@@ -35,10 +37,10 @@ private theorem beq_transfer {st : EStore} (hwf : st.TWF) {i j : EIdx}
     rw [beq_eq_false_iff_ne.mpr hij, beq_eq_false_iff_ne.mpr hab]
 
 /-- The one-sided-λ (right) stuck arm. -/
-private theorem defeqI_etaR_arm (ih : SSimI env f) (henv : EnvWF env)
+private theorem defeqI_etaR_arm (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {a' b' t₂ b₂ : EIdx} {a'x ty₂x body₂x : Expr} {nm₂ : NIdx}
     {nm₂x : Name}
-    {m₂ : IBinderMeta} {bm₂ : BinderMeta} {s₀ : IState} (hs : ISOK env s₀)
+    {m₂ : IBinderMeta} {bm₂ : BinderMeta} {s₀ : IState} (hs : ISOK mode env s₀)
     (hnm₂ : s₀.store.denoteN nm₂ = some nm₂x)
     (haS : s₀.store.denoteT a' = some a'x)
     (hty₂ : s₀.store.denoteT t₂ = some ty₂x)
@@ -46,14 +48,14 @@ private theorem defeqI_etaR_arm (ih : SSimI env f) (henv : EnvWF env)
     (hbS : s₀.store.denoteT b' = some (.lam nm₂x ty₂x body₂x bm₂))
     (hwa' : WScoped d a'x)
     (hwb' : WScoped d (Expr.lam nm₂x ty₂x body₂x bm₂)) :
-    SimAt env s₀ RelV
-      (etaCertI (coreKnotI (mkFEnv env) f) (mkFEnv env) d nm₂ t₂ b₂ m₂
+    SimAt mode env s₀ RelV
+      (etaCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d nm₂ t₂ b₂ m₂
           a' >>= fun r =>
         if r then pure true
-        else stuckIrrelI (coreKnotI (mkFEnv env) f) (mkFEnv env) d a' b')
-      (etaCert (fueledFns env) env d nm₂x ty₂x body₂x bm₂ a'x >>= fun r =>
+        else stuckIrrelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
+      (etaCert (fueledFns mode env) env d nm₂x ty₂x body₂x bm₂ a'x >>= fun r =>
         if r then pure true
-        else stuckIrrel (fueledFns env) env d a'x
+        else stuckIrrel mode (fueledFns mode env) env d a'x
           (.lam nm₂x ty₂x body₂x bm₂)) := by
   have h2 : WScoped d ty₂x ∧ WScoped d body₂x := by
     simpa only [WScoped] using hwb'
@@ -70,10 +72,10 @@ private theorem defeqI_etaR_arm (ih : SSimI env f) (henv : EnvWF env)
       (denoteT_mono hext₁ hbS) hwa' hwb'
 
 /-- The one-sided-λ (left) stuck arm. -/
-private theorem defeqI_etaL_arm (ih : SSimI env f) (henv : EnvWF env)
+private theorem defeqI_etaL_arm (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {a' b' t₁ b₁ : EIdx} {b'x ty₁x body₁x : Expr} {nm₁ : NIdx}
     {nm₁x : Name}
-    {m₁ : IBinderMeta} {bm₁ : BinderMeta} {s₀ : IState} (hs : ISOK env s₀)
+    {m₁ : IBinderMeta} {bm₁ : BinderMeta} {s₀ : IState} (hs : ISOK mode env s₀)
     (hnm₁ : s₀.store.denoteN nm₁ = some nm₁x)
     (haS : s₀.store.denoteT a' = some (.lam nm₁x ty₁x body₁x bm₁))
     (hty₁ : s₀.store.denoteT t₁ = some ty₁x)
@@ -81,14 +83,14 @@ private theorem defeqI_etaL_arm (ih : SSimI env f) (henv : EnvWF env)
     (hbS : s₀.store.denoteT b' = some b'x)
     (hwa' : WScoped d (Expr.lam nm₁x ty₁x body₁x bm₁))
     (hwb' : WScoped d b'x) :
-    SimAt env s₀ RelV
-      (etaCertI (coreKnotI (mkFEnv env) f) (mkFEnv env) d nm₁ t₁ b₁ m₁
+    SimAt mode env s₀ RelV
+      (etaCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d nm₁ t₁ b₁ m₁
           b' >>= fun r =>
         if r then pure true
-        else stuckIrrelI (coreKnotI (mkFEnv env) f) (mkFEnv env) d a' b')
-      (etaCert (fueledFns env) env d nm₁x ty₁x body₁x bm₁ b'x >>= fun r =>
+        else stuckIrrelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
+      (etaCert (fueledFns mode env) env d nm₁x ty₁x body₁x bm₁ b'x >>= fun r =>
         if r then pure true
-        else stuckIrrel (fueledFns env) env d
+        else stuckIrrel mode (fueledFns mode env) env d
           (.lam nm₁x ty₁x body₁x bm₁) b'x) := by
   have h1 : WScoped d ty₁x ∧ WScoped d body₁x := by
     simpa only [WScoped] using hwa'
@@ -107,18 +109,18 @@ private theorem defeqI_etaL_arm (ih : SSimI env f) (henv : EnvWF env)
 /-- The lazy-delta "unfold both sides" branch (task #106: the
 unfoldings are materialized only here, inside the branch that consumes
 them). -/
-private theorem defeqBoth (_ih : SSimI env f) (henv : EnvWF env)
+private theorem defeqBoth (_ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {kI : EIdx → EIdx → CheckIM Bool}
     {kM : Expr → Expr → FueledM Bool}
-    (hk : ∀ {s : IState} {p q : EIdx} {x y : Expr}, ISOK env s →
+    (hk : ∀ {s : IState} {p q : EIdx} {x y : Expr}, ISOK mode env s →
       s.store.denoteT p = some x → s.store.denoteT q = some y →
       WScoped d x → WScoped d y →
-      SimAt env s RelV (kI p q) (kM x y))
-    {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
+      SimAt mode env s RelV (kI p q) (kM x y))
+    {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hdena : s₀.store.denoteT i = some a)
     (hdenb : s₀.store.denoteT j = some b)
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    SimAt env s₀ RelV
+    SimAt mode env s₀ RelV
       (unfoldDefinitionI (mkFEnv env) i >>= fun ua =>
         unfoldDefinitionI (mkFEnv env) j >>= fun ub =>
         match ua, ub with
@@ -160,20 +162,20 @@ private theorem defeqBoth (_ih : SSimI env f) (henv : EnvWF env)
             (unfoldDefinition_WScoped henv hub hwb)
 
 set_option maxHeartbeats 12000000 in
-theorem defeqStepI_sim (ih : SSimI env f) (henv : EnvWF env)
+theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {kI : EIdx → EIdx → CheckIM Bool}
     {kM : Expr → Expr → FueledM Bool}
-    (hk : ∀ {s : IState} {p q : EIdx} {x y : Expr}, ISOK env s →
+    (hk : ∀ {s : IState} {p q : EIdx} {x y : Expr}, ISOK mode env s →
       s.store.denoteT p = some x → s.store.denoteT q = some y →
       WScoped d x → WScoped d y →
-      SimAt env s RelV (kI p q) (kM x y))
-    {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
+      SimAt mode env s RelV (kI p q) (kM x y))
+    {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hdena : s₀.store.denoteT i = some a)
     (hdenb : s₀.store.denoteT j = some b)
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    SimAt env s₀ RelV
-      (defeqStepI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI i j)
-      (defeqStep (fueledFns env) env d kM a b) := by
+    SimAt mode env s₀ RelV
+      (defeqStepI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i j)
+      (defeqStep mode (fueledFns mode env) env d kM a b) := by
   unfold defeqStepI
   unfold defeqStep
   rw [beq_transfer hs.wf hdena hdenb]
@@ -1600,13 +1602,13 @@ theorem defeqStepI_sim (ih : SSimI env f) (henv : EnvWF env)
 
 /-- The lazy-delta *loop* simulates its specification, by induction on
 the shared step budget (task #106). -/
-theorem defeqLoopI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
-    ∀ (n : Nat) {i j : EIdx} {a b : Expr} {s₀ : IState}, ISOK env s₀ →
+theorem defeqLoopI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat} :
+    ∀ (n : Nat) {i j : EIdx} {a b : Expr} {s₀ : IState}, ISOK mode env s₀ →
       s₀.store.denoteT i = some a → s₀.store.denoteT j = some b →
       WScoped d a → WScoped d b →
-      SimAt env s₀ RelV
-        (defeqLoopI (coreKnotI (mkFEnv env) f) (mkFEnv env) d n i j)
-        (defeqLoop (fueledFns env) env d n a b)
+      SimAt mode env s₀ RelV
+        (defeqLoopI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i j)
+        (defeqLoop mode (fueledFns mode env) env d n a b)
   | 0, _, _, _, _, _, _, _, _, _, _ => SimAt.throw
   | n + 1, _, _, _, _, _, hs, hda, hdb, hwa, hwb => by
     simp only [defeqLoopI, defeqLoop]
@@ -1614,14 +1616,14 @@ theorem defeqLoopI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
       (fun h1 h2 h3 h4 h5 => defeqLoopI_sim ih henv n h1 h2 h3 h4 h5)
       hs hda hdb hwa hwb
 
-theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
-    {d : Nat} {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
+theorem defeqBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
+    {d : Nat} {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hdena : s₀.store.denoteT i = some a)
     (hdenb : s₀.store.denoteT j = some b)
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    SimAt env s₀ RelV
-      (defeqBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i j)
-      (defeqBody (fueledFns env) env d a b) :=
+    SimAt mode env s₀ RelV
+      (defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (defeqBody mode (fueledFns mode env) env d a b) :=
   defeqLoopI_sim ih henv defeqLoopFuel hs hdena hdenb hwa hwb
 
 end Walks

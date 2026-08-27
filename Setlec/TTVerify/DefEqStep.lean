@@ -38,6 +38,12 @@ got, and for the same reason.
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- The continuation's contract, which is `DefEqClaimsTT`'s own shape
@@ -66,7 +72,7 @@ def DefEqStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {k : Expr → Expr → CheckM Bool}, DefEqContTT m φ d k →
     ∀ {Δ : List VExpr} {a b : Expr},
-      defeqStep (pureFns env fuel) env d k a b = .ok true →
+      defeqStep mode (pureFns mode env fuel) env d k a b = .ok true →
       Expr.WScoped d a → a.looseBVarsBounded 0 = true →
       Expr.LeavesBounded a →
       Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -86,7 +92,7 @@ The bridge inherits the factoring rather than rediscovering it. -/
 theorem defeqLoop_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hstep : DefEqStepTT m φ fuel) :
     ∀ (budget : Nat) {d : Nat} {Δ : List VExpr} {a b : Expr},
-      defeqLoop (pureFns env fuel) env d budget a b = .ok true →
+      defeqLoop mode (pureFns mode env fuel) env d budget a b = .ok true →
       Expr.WScoped d a → a.looseBVarsBounded 0 = true →
       Expr.LeavesBounded a →
       Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -111,7 +117,7 @@ theorem defeqLoop_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
 `CheckStepTT`, modulo the step. -/
 theorem defeq_claimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hstep : DefEqStepTT m φ fuel) :
-    DefEqClaimsTT m φ (fuel + 1) := by
+    DefEqClaimsTT mode m φ (fuel + 1) := by
   intro d a b Δ h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   rw [isDefEqCore_succ, defeqBody] at h
   exact defeqLoop_claim m φ hstep defeqLoopFuel h hwa hba hLa hwb hbb hLb
@@ -128,8 +134,8 @@ handoff to the continuation. -/
 — both sides of every move need exactly this package. -/
 theorem whnfCore_package {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} {a a' : Expr} {va : VExpr}
-    (ihwc : WhnfCoreClaimsTT m φ fuel)
-    (hw : whnfCore env fuel d a = .ok a')
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel)
+    (hw : whnfCore mode env fuel d a = .ok a')
     (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded a) (hC : CtxOk m.cval env φ d Δ a)
     (hva : denote m.cval env φ d a = some va) :
@@ -189,7 +195,7 @@ already proved become obligations.
 def ProofIrrelStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {a b : Expr},
-    proofIrrelP env fuel d a b = .ok true →
+    proofIrrelP mode env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -202,7 +208,7 @@ def ProofIrrelStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
 def DefEqSpineStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {a b : Expr},
-    defeqSpineP env fuel d a b = .ok true →
+    defeqSpineP mode env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -230,15 +236,15 @@ def DefEqStuckStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δ : List VExpr} {k : Expr → Expr → CheckM Bool}
     {a b a' b' : Expr},
-    defeqStep (pureFns env fuel) env d k a b = .ok true →
+    defeqStep mode (pureFns mode env fuel) env d k a b = .ok true →
     (a == b) = false →
-    whnfCore env fuel d a = .ok a' → whnfCore env fuel d b = .ok b' →
+    whnfCore mode env fuel d a = .ok a' → whnfCore mode env fuel d b = .ok b' →
     (a' == b') = false →
-    proofIrrelP env fuel d a' b' = .ok false →
+    proofIrrelP mode env fuel d a' b' = .ok false →
     (if !a'.hasFvar && !b'.hasFvar then
-      reduceNatP env fuel d a' else pure none) = .ok none →
+      reduceNatP mode env fuel d a' else pure none) = .ok none →
     (if !a'.hasFvar && !b'.hasFvar then
-      reduceNatP env fuel d b' else pure none) = .ok none →
+      reduceNatP mode env fuel d b' else pure none) = .ok none →
     unfoldableHead env a' = false → unfoldableHead env b' = false →
     Expr.WScoped d a' → a'.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a' →
@@ -292,7 +298,7 @@ theorem delta_package {env : Env} (m : EnvTT env) (φ : Name → Nat)
 /-- **`DefEqStepTT`**, modulo the three checker-function obligations. -/
 theorem defeqStep_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihwc : WhnfCoreClaimsTT m φ fuel) (ihw : WhnfClaimsTT m φ fuel)
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel) (ihw : WhnfClaimsTT mode m φ fuel)
     (hpi : ProofIrrelStepTT m φ fuel) (hstk : DefEqStuckStepTT m φ fuel)
     (hspine : DefEqSpineStepTT m φ fuel) : DefEqStepTT m φ fuel := by
   intro d k hk Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
@@ -306,12 +312,12 @@ theorem defeqStep_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     obtain rfl : a = b := eq_of_beq hab
     obtain rfl : va = vb := by rw [hva] at hvb; exact Option.some.inj hvb
     exact Deq.refl
-  · cases hwca : whnfCore env fuel d a with
+  · cases hwca : whnfCore mode env fuel d a with
     | error err => rw [hwca] at h; exact nomatch h
     | ok a' =>
     rw [hwca] at h
     dsimp only at h
-    cases hwcb : whnfCore env fuel d b with
+    cases hwcb : whnfCore mode env fuel d b with
     | error err => rw [hwcb] at h; exact nomatch h
     | ok b' =>
     rw [hwcb] at h
@@ -328,7 +334,7 @@ theorem defeqStep_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
       obtain rfl : a' = b' := eq_of_beq hab'
       obtain rfl : va' = vb' := by rw [hva'] at hvb'; exact Option.some.inj hvb'
       exact Deq.refl
-    · cases hir : proofIrrelP env fuel d a' b' with
+    · cases hir : proofIrrelP mode env fuel d a' b' with
       | error err => rw [hir] at h; exact nomatch h
       | ok r =>
       rw [hir] at h
@@ -339,14 +345,14 @@ theorem defeqStep_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
       | false =>
         -- literal acceleration, either side
         cases hna : (if !a'.hasFvar && !b'.hasFvar then
-            reduceNatP env fuel d a' else pure none) with
+            reduceNatP mode env fuel d a' else pure none) with
         | error err => rw [hna] at h; exact nomatch h
         | ok o₁ =>
         rw [hna] at h
         dsimp only at h
         match o₁, hna, h with
         | some a₂, hna, h =>
-          have hred : reduceNatP env fuel d a' = .ok (some a₂) := by
+          have hred : reduceNatP mode env fuel d a' = .ok (some a₂) := by
             split at hna
             · exact hna
             · exact nomatch hna
@@ -356,14 +362,14 @@ theorem defeqStep_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
         | none, hna, h =>
         dsimp only at h
         cases hnb : (if !a'.hasFvar && !b'.hasFvar then
-            reduceNatP env fuel d b' else pure none) with
+            reduceNatP mode env fuel d b' else pure none) with
         | error err => rw [hnb] at h; exact nomatch h
         | ok o₂ =>
         rw [hnb] at h
         dsimp only at h
         match o₂, hnb, h with
         | some b₂, hnb, h =>
-          have hred : reduceNatP env fuel d b' = .ok (some b₂) := by
+          have hred : reduceNatP mode env fuel d b' = .ok (some b₂) := by
             split at hnb
             · exact hnb
             · exact nomatch hnb
@@ -425,7 +431,7 @@ theorem defeqStep_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
                   (headHint env b') && sameConstHeads a' b') <;>
                 rw [hsr] at h
               · exact hboth (x := pure false) h
-              · cases hsp : defeqSpineP env fuel d a' b' with
+              · cases hsp : defeqSpineP mode env fuel d a' b' with
                 | error err => rw [hsp] at h; exact nomatch h
                 | ok r' =>
                 rw [hsp] at h
@@ -457,10 +463,10 @@ obligations remain, all at checker functions or a checker
 configuration. -/
 theorem defeq_claimsTT_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihwc : WhnfCoreClaimsTT m φ fuel) (ihw : WhnfClaimsTT m φ fuel)
+    (ihwc : WhnfCoreClaimsTT mode m φ fuel) (ihw : WhnfClaimsTT mode m φ fuel)
     (hpi : ProofIrrelStepTT m φ fuel) (hstk : DefEqStuckStepTT m φ fuel)
     (hspine : DefEqSpineStepTT m φ fuel) :
-    DefEqClaimsTT m φ (fuel + 1) :=
+    DefEqClaimsTT mode m φ (fuel + 1) :=
   defeq_claimsTT m φ (defeqStep_claim m φ hcl ihwc ihw hpi hstk hspine)
 
 /-! ## The same-head spine short-circuit
@@ -501,10 +507,10 @@ theorem Deq.mkAppN {Δ : List VExpr} : ∀ {as bs : List VExpr} {f g : VExpr},
 
 /-- Inversion for `defEqList`: every pair is definitionally equal. -/
 theorem defEqList_inv {env : Env} {fuel d : Nat} :
-    ∀ {as bs : List Expr}, defEqListP env fuel d as bs = .ok true →
+    ∀ {as bs : List Expr}, defEqListP mode env fuel d as bs = .ok true →
       as.length = bs.length ∧
       ∀ i : Fin as.length,
-        isDefEqCore env fuel d as[i] (bs.getD i default) = .ok true := by
+        isDefEqCore mode env fuel d as[i] (bs.getD i default) = .ok true := by
   intro as
   induction as with
   | nil =>
@@ -519,7 +525,7 @@ theorem defEqList_inv {env : Env} {fuel d : Nat} :
     | cons y ys =>
       simp only [defEqListP, defEqList, Bind.bind, Except.bind,
         defeq_def] at h
-      cases hxy : isDefEqCore env fuel d x y with
+      cases hxy : isDefEqCore mode env fuel d x y with
       | error err => rw [hxy] at h; exact nomatch h
       | ok r =>
       rw [hxy] at h
@@ -595,8 +601,8 @@ block's `.app`/`.app` clause — the checker factors the same way
 (`defEqList` is one function called from both). -/
 theorem spine_congr {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} {a b : Expr}
-    (ihd : DefEqClaimsTT m φ fuel)
-    (hlist : defEqList (pureFns env fuel) env d a.getAppArgs b.getAppArgs
+    (ihd : DefEqClaimsTT mode m φ fuel)
+    (hlist : defEqList (pureFns mode env fuel) env d a.getAppArgs b.getAppArgs
       = .ok true)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a) (hCa : CtxOk m.cval env φ d Δ a)
@@ -648,7 +654,7 @@ theorem spine_congr {env : Env} (m : EnvTT env) (φ : Name → Nat)
 
 /-- **`DefEqSpineStepTT`, discharged.** -/
 theorem defeqSpine_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (ihd : DefEqClaimsTT m φ fuel) :
+    {fuel : Nat} (ihd : DefEqClaimsTT mode m φ fuel) :
     DefEqSpineStepTT m φ fuel := by
   intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   obtain ⟨n, us, us', hfa, hfb, hlenAB, hlev, hlist⟩ := defeqSpine_inv h

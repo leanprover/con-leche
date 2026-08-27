@@ -10,6 +10,8 @@ every fueled entry point.
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 /-- `q` succeeds wherever `p` succeeds, with the same value. -/
 def MRefines {α : Type} (p q : CheckM α) : Prop :=
   ∀ v, p = .ok v → q = .ok v
@@ -44,8 +46,8 @@ variable {r₁ r₂ : CoreFns CheckM} {env : Env}
 /-! Per-body monotonicity, extracted from the pair instantiation. -/
 
 theorem whnfCoreBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (e : Expr) :
-    MRefines (whnfCoreBody r₁ env d e) (whnfCoreBody r₂ env d e) := by
-  have := (whnfCoreBody (pairFns r₁ r₂ h) env d e).property
+    MRefines (whnfCoreBody mode r₁ env d e) (whnfCoreBody mode r₂ env d e) := by
+  have := (whnfCoreBody mode (pairFns r₁ r₂ h) env d e).property
   rwa [whnfCoreBody_fst_proj, whnfCoreBody_snd_proj] at this
 
 theorem whnfBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (e : Expr) :
@@ -54,13 +56,13 @@ theorem whnfBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (e : Expr) :
   rwa [whnfBody_fst_proj, whnfBody_snd_proj] at this
 
 theorem inferBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (e : Expr) :
-    MRefines (inferBody r₁ env d e) (inferBody r₂ env d e) := by
-  have := (inferBody (pairFns r₁ r₂ h) env d e).property
+    MRefines (inferBody mode r₁ env d e) (inferBody mode r₂ env d e) := by
+  have := (inferBody mode (pairFns r₁ r₂ h) env d e).property
   rwa [inferBody_fst_proj, inferBody_snd_proj] at this
 
 theorem defeqBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (a b : Expr) :
-    MRefines (defeqBody r₁ env d a b) (defeqBody r₂ env d a b) := by
-  have := (defeqBody (pairFns r₁ r₂ h) env d a b).property
+    MRefines (defeqBody mode r₁ env d a b) (defeqBody mode r₂ env d a b) := by
+  have := (defeqBody mode (pairFns r₁ r₂ h) env d a b).property
   rwa [defeqBody_fst_proj, defeqBody_snd_proj] at this
 
 theorem annotateBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (e : Expr) :
@@ -78,27 +80,27 @@ end Mono
 /-! ## Fuel monotonicity at the knot -/
 
 theorem pureFns_mono (env : Env) : ∀ {f f' : Nat}, f ≤ f' →
-    FnsRefines (pureFns env f) (pureFns env f')
+    FnsRefines (pureFns mode env f) (pureFns mode env f')
   | 0, f', _ => by
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · intro d e v hv
-      rw [show (pureFns env 0).whnfCore d e = whnfCore env 0 d e from rfl,
+      rw [show (pureFns mode env 0).whnfCore d e = whnfCore mode env 0 d e from rfl,
         whnfCore_zero] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
     · intro d e v hv
-      rw [show (pureFns env 0).whnf d e = whnf env 0 d e from rfl,
+      rw [show (pureFns mode env 0).whnf d e = whnf mode env 0 d e from rfl,
         whnf_zero] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
     · intro d e v hv
-      rw [show (pureFns env 0).infer d e = inferTypeCore env 0 d e from rfl,
+      rw [show (pureFns mode env 0).infer d e = inferTypeCore mode env 0 d e from rfl,
         inferTypeCore_zero] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
     · intro d a b v hv
-      rw [show (pureFns env 0).defeq d a b = isDefEqCore env 0 d a b from rfl,
+      rw [show (pureFns mode env 0).defeq d a b = isDefEqCore mode env 0 d a b from rfl,
         isDefEqCore_zero] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
     · intro d e v hv
-      rw [show (pureFns env 0).annotate d e = annotateCore env 0 d e from rfl,
+      rw [show (pureFns mode env 0).annotate d e = annotateCore mode env 0 d e from rfl,
         annotateCore_zero] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
   | f + 1, f' + 1, hle => by
@@ -112,41 +114,41 @@ theorem pureFns_mono (env : Env) : ∀ {f f' : Nat}, f ≤ f' →
 /-! ## Fueled corollaries -/
 
 theorem whnfCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : whnfCore env f d e = .ok r) :
-    whnfCore env f' d e = .ok r :=
+    {d : Nat} {e r : Expr} (h : whnfCore mode env f d e = .ok r) :
+    whnfCore mode env f' d e = .ok r :=
   (pureFns_mono env hle).1 d e r h
 
 theorem whnf_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : whnf env f d e = .ok r) :
-    whnf env f' d e = .ok r :=
+    {d : Nat} {e r : Expr} (h : whnf mode env f d e = .ok r) :
+    whnf mode env f' d e = .ok r :=
   (pureFns_mono env hle).2.1 d e r h
 
 theorem inferTypeCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : inferTypeCore env f d e = .ok r) :
-    inferTypeCore env f' d e = .ok r :=
+    {d : Nat} {e r : Expr} (h : inferTypeCore mode env f d e = .ok r) :
+    inferTypeCore mode env f' d e = .ok r :=
   (pureFns_mono env hle).2.2.1 d e r h
 
 theorem isDefEqCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {a b : Expr} {r : Bool} (h : isDefEqCore env f d a b = .ok r) :
-    isDefEqCore env f' d a b = .ok r :=
+    {d : Nat} {a b : Expr} {r : Bool} (h : isDefEqCore mode env f d a b = .ok r) :
+    isDefEqCore mode env f' d a b = .ok r :=
   (pureFns_mono env hle).2.2.2.1 d a b r h
 
 theorem annotateCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : annotateCore env f d e = .ok r) :
-    annotateCore env f' d e = .ok r :=
+    {d : Nat} {e r : Expr} (h : annotateCore mode env f d e = .ok r) :
+    annotateCore mode env f' d e = .ok r :=
   (pureFns_mono env hle).2.2.2.2 d e r h
 
 theorem ensureSortCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
     {d : Nat} {e : Expr} {u : Level}
-    (h : ensureSortCore env f d e = .ok u) :
-    ensureSortCore env f' d e = .ok u := by
+    (h : ensureSortCore mode env f d e = .ok u) :
+    ensureSortCore mode env f' d e = .ok u := by
   cases f with
   | zero =>
-    rw [show ensureSortCore env 0 d e =
-      ensureSort (pureFns env 0) env d e from rfl] at h
+    rw [show ensureSortCore mode env 0 d e =
+      ensureSort (pureFns mode env 0) env d e from rfl] at h
     revert h
     unfold ensureSort
-    rw [show (pureFns env 0).whnf d e = whnf env 0 d e from rfl, whnf_zero]
+    rw [show (pureFns mode env 0).whnf d e = whnf mode env 0 d e from rfl, whnf_zero]
     intro h
     simp [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
   | succ f =>

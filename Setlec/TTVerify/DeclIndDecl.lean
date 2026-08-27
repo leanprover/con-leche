@@ -23,6 +23,9 @@ set_option linter.unusedVariables false
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 variable {F : Nat}
@@ -31,11 +34,11 @@ variable {F : Nat}
 capability. -/
 theorem ctorResidualOk_invT {env' : Env} {T ctorName : Name}
     {lps : List Name} {nP nF : Nat}
-    (h : ctorResidualOk env' T ctorName lps nP nF true = true) :
+    (h : ctorResidualOk mode env' T ctorName lps nP nF true = true) :
     ∃ cvCA a b bs, env'.find? ctorName = some (.ctorInfo cvCA a b) ∧
       cvCA.type.stripPis (nP + nF) = some (bs, directFam T lps nP nF) := by
   rw [ctorResidualOk] at h
-  simp only [Bool.not_true, Bool.false_or] at h
+  simp only [Bool.not_true] at h
   revert h
   match hfc : env'.find? ctorName with
   | none => intro h; exact nomatch h
@@ -58,13 +61,13 @@ theorem ctorResidualOk_invT {env' : Env} {T ctorName : Name}
 
 /-- The direct-install path is off under the certified
 configuration. -/
-theorem directParts?_none (hdir : CertifiedConfigTT) (env : Env)
+theorem directParts?_none (hdir : CertifiedConfigTT mode) (env : Env)
     (block : List ConstantInfo) : directParts? env block = none := by
   unfold directParts?
   cases directPartsCore? block with
   | none => rfl
   | some p =>
-    rw [show directStructsEnabled = false from hdir]
+    rw [show directStructsEnabled = false from hdir.direct]
     rfl
 
 set_option maxHeartbeats 12800000 in
@@ -73,10 +76,10 @@ Transpose of `checkIndDecl_sound`'s statement half (its closure half
 is `FamiliesStepTT`'s business). -/
 theorem declIndTT : DeclIndTT F := by
   intro env env₁ block h hdir m hE1
-  rw [show checkDecl (fueledOps F) env (.indDecl block) =
+  rw [show checkDecl mode (fueledOps mode F) env (.indDecl block) =
       (match directParts? env block with
-        | some p => checkDirectStruct (fueledOps F) env p
-        | none => checkIndDecl (fueledOps F) env block) from rfl,
+        | some p => checkDirectStruct (fueledOps mode F) env p
+        | none => checkIndDecl mode (fueledOps mode F) env block) from rfl,
     directParts?_none hdir env block] at h
   rw [checkIndDecl] at h
   simp only [Bind.bind, Except.bind] at h
@@ -155,12 +158,12 @@ theorem declIndTT : DeclIndTT F := by
       _ hkindsB hIfilt hCfilt
     have hfold' : (block.filter (fun ci => match ci with
         | ConstantInfo.recInfo _ _ _ _ => false
-        | _ => true)).foldlM (checkIndMember (fueledOps F)
-          (block.map (·.name)) (indBlockCaps env cvT cvC nP nF)) env
+        | _ => true)).foldlM (checkIndMember (fueledOps mode F)
+          (block.map (·.name)) (indBlockCaps mode env cvT cvC nP nF)) env
         = .ok env₂ := hfold
     -- the eta constructor's residual (task #136)
-    by_cases hctorRes : ctorResidualOk env₃ cvT.name cvC.name
-        cvT.levelParams nP nF (indBlockCaps env cvT cvC nP nF).eta = true
+    by_cases hctorRes : ctorResidualOk mode env₃ cvT.name cvC.name
+        cvT.levelParams nP nF (indBlockCaps mode env cvT cvC nP nF).eta = true
     case neg => rw [if_neg hctorRes] at h; exact nomatch h
     rw [if_pos hctorRes] at h
     try simp only [pure, Except.pure] at h
@@ -194,8 +197,8 @@ theorem declIndTT : DeclIndTT F := by
         rw [hPfree₃ j hj] at h2
         exact nomatch h2
     -- pins for the former at the base
-    have hpinsT0 : EtaPins env cvT.name cvT.levelParams
-        (indBlockCaps env cvT cvC nP nF) := etaPinsT_of_caps
+    have hpinsT0 : EtaPins mode env cvT.name cvT.levelParams
+        (indBlockCaps mode env cvT cvC nP nF) := etaPinsT_of_caps
     have hTin : (ConstantInfo.indInfo cvT capsT) ∈ block := by
       have h1 : ConstantInfo.indInfo cvT capsT ∈
           [ConstantInfo.indInfo cvT capsT] := List.mem_singleton.mpr rfl
@@ -247,7 +250,7 @@ theorem declIndTT : DeclIndTT F := by
       · exact checkIndRecs_modelfree hrecs ci₀ hci₀
     -- the residual pin, once (its find? is at env₃; the member steps
     -- transport their own into it)
-    have hPinAt : (indBlockCaps env cvT cvC nP nF).eta = true →
+    have hPinAt : (indBlockCaps mode env cvT cvC nP nF).eta = true →
         ∀ cvC' : ConstantVal,
         env₃.find? cvC.name = some (.ctorInfo cvC' nP nF) →
         CtorResidualPin cvT.name cvT.levelParams cvC' nP nF := by
@@ -265,10 +268,10 @@ theorem declIndTT : DeclIndTT F := by
         BlockInstalledTT (block.map (·.name)) env₂ m₂.cval →
         reservedBasisNames.contains cvT.name = false →
         (∃ cvTA, env₂.find? cvT.name =
-          some (.indInfo cvTA (indBlockCaps env cvT cvC nP nF)) ∧
+          some (.indInfo cvTA (indBlockCaps mode env cvT cvC nP nF)) ∧
           cvTA.levelParams = cvT.levelParams ∧
-          EtaPins env₂ cvT.name cvTA.levelParams
-            (indBlockCaps env cvT cvC nP nF)) →
+          EtaPins mode env₂ cvT.name cvTA.levelParams
+            (indBlockCaps mode env cvT cvC nP nF)) →
         (∃ cvCA, env₂.find? cvC.name = some (.ctorInfo cvCA nP nF)) →
         Nonempty (EnvTT env₁) := by
       rintro m₂ hI₂ hTnres ⟨cvTA, hTst, hTAlps, hpins₂⟩ ⟨cvCA, hCst⟩
@@ -291,7 +294,7 @@ theorem declIndTT : DeclIndTT F := by
         (fun n hn => hnmS n hn)
         m₂ hI₂
       have hTst₃ : env₃.find? cvT.name =
-          some (.indInfo cvTA (indBlockCaps env cvT cvC nP nF)) :=
+          some (.indInfo cvTA (indBlockCaps mode env cvT cvC nP nF)) :=
         checkIndRecs_find_preserved hrecs hbnrec _ _ hTst
           (fun _ _ _ _ hcon => nomatch hcon)
       have hCst₃ : env₃.find? cvC.name = some (.ctorInfo cvCA nP nF) :=
@@ -344,15 +347,15 @@ theorem declIndTT : DeclIndTT F := by
       rw [hord] at hfold'
       simp only [List.foldlM_cons, List.foldlM_nil, Bind.bind,
         Except.bind, pure, Except.pure] at hfold'
-      cases hs1 : checkIndMember (fueledOps F) (block.map (·.name))
-          (indBlockCaps env cvT cvC nP nF) env
+      cases hs1 : checkIndMember (fueledOps mode F) (block.map (·.name))
+          (indBlockCaps mode env cvT cvC nP nF) env
           (ConstantInfo.indInfo cvT capsT) with
       | error e => rw [hs1] at hfold'; exact nomatch hfold'
       | ok envm => ?_
       rw [hs1] at hfold'
       try dsimp only at hfold'
-      cases hs2 : checkIndMember (fueledOps F) (block.map (·.name))
-          (indBlockCaps env cvT cvC nP nF) envm
+      cases hs2 : checkIndMember (fueledOps mode F) (block.map (·.name))
+          (indBlockCaps mode env cvT cvC nP nF) envm
           (ConstantInfo.ctorInfo cvC nP nF) with
       | error e => rw [hs2] at hfold'; exact nomatch hfold'
       | ok envf => ?_
@@ -372,7 +375,7 @@ theorem declIndTT : DeclIndTT F := by
         rw [show cvAI.type = tyAI from by rw [hcvAI]]
         exact hresI
       have henvm : envm = ⟨.indInfo cvAI
-          (indBlockCaps env cvT cvC nP nF) :: env.consts⟩ := by
+          (indBlockCaps mode env cvT cvC nP nF) :: env.consts⟩ := by
         rcases hkindI with ⟨-, he⟩ | ⟨cv', nP', nF', heqTT, -⟩
         · exact he
         · exact nomatch heqTT
@@ -383,7 +386,7 @@ theorem declIndTT : DeclIndTT F := by
         hannC, hlpC, hresC, -, -, hcvAC⟩ := checkConstantVal_inv hccvC
       have hnameC : cvAC.name = cvC.name := by rw [hcvAC]; rfl
       have henv₂ : env₂ = ⟨.ctorInfo cvAC nP nF ::
-          (⟨.indInfo cvAI (indBlockCaps env cvT cvC nP nF) ::
+          (⟨.indInfo cvAI (indBlockCaps mode env cvT cvC nP nF) ::
             env.consts⟩ : Env).consts⟩ := by
         rcases hkindC with ⟨⟨cv', caps'', heqTT⟩, -⟩ |
           ⟨cv', nP', nF', heqTT, he⟩
@@ -402,13 +405,13 @@ theorem declIndTT : DeclIndTT F := by
       have hfreshT : env.find? cvT.name = none := by
         rw [← hnameI]
         exact hfreshI
-      have hfindCm : (⟨.indInfo cvAI (indBlockCaps env cvT cvC nP nF)
+      have hfindCm : (⟨.indInfo cvAI (indBlockCaps mode env cvT cvC nP nF)
           :: env.consts⟩ : Env).find? cvC.name = none := hfindC
       have hCneT : cvC.name ≠ cvT.name := by
         intro he
         rw [he] at hfindCm
         rw [Env.find?_cons, if_pos (show (ConstantInfo.indInfo cvAI
-          (indBlockCaps env cvT cvC nP nF)).name = cvT.name
+          (indBlockCaps mode env cvT cvC nP nF)).name = cvT.name
           from hnameI)] at hfindCm
         exact nomatch hfindCm
       -- projection names of the block former are free at the base
@@ -449,7 +452,7 @@ theorem declIndTT : DeclIndTT F := by
                   cvAI.name from hnameI.symm)))) ψ
           subst hcv
           refine blockMemberHeadEtaTT (ciH := .indInfo cvAI
-            (indBlockCaps env cvT cvC nP nF)) m hfreshI
+            (indBlockCaps mode env cvT cvC nP nF)) m hfreshI
             (show reservedBasisNames.contains cvAI.name = false from by
               rw [hnameI]; exact hnresI)
             (show cvAI.name.isProjFnShape = false from by
@@ -461,13 +464,13 @@ theorem declIndTT : DeclIndTT F := by
               hf2 he2 hr2)
             ?_ hI₁c T' cvT' capsT' hfT' hcape' hres' hfam'
             (by
-              rw [show (ConstantInfo.indInfo cvAI (indBlockCaps env cvT
+              rw [show (ConstantInfo.indInfo cvAI (indBlockCaps mode env cvT
                 cvC nP nF)).name = cvAI.name from rfl, hnameI]
               exact hpart')
           -- the block-former facts at the extension
           intro T2 cvT2 capsT2 hfT2 hTb2 hcape2
           by_cases hTh : (ConstantInfo.indInfo cvAI
-              (indBlockCaps env cvT cvC nP nF)).name = T2
+              (indBlockCaps mode env cvT cvC nP nF)).name = T2
           · rw [Env.find?_cons, if_pos hTh] at hfT2
             obtain heq2 := Option.some.inj hfT2
             injection heq2 with e1 e2
@@ -475,8 +478,8 @@ theorem declIndTT : DeclIndTT F := by
             subst e2
             rw [← hTh]
             refine ⟨?_, ?_, ?_, ?_⟩
-            · show EtaPins env cvAI.name cvAI.levelParams
-                (indBlockCaps env cvT cvC nP nF)
+            · show EtaPins mode env cvAI.name cvAI.levelParams
+                (indBlockCaps mode env cvT cvC nP nF)
               rw [hnameI, hlpsAI]
               exact hpinsT0
             · show (block.map (·.name)).contains cvC.name = true
@@ -497,7 +500,7 @@ theorem declIndTT : DeclIndTT F := by
           rcases hor with rfl | hC
           · -- the fresh former's family: its constructor is unstored
             rw [Env.find?_cons, if_pos (show (ConstantInfo.indInfo cvAI
-              (indBlockCaps env cvT cvC nP nF)).name =
+              (indBlockCaps mode env cvT cvC nP nF)).name =
               (ConstantInfo.indInfo cvT capsT).name from hnameI)] at hfT'
             obtain heq2 := Option.some.inj hfT'
             injection heq2 with e1 e2
@@ -505,10 +508,10 @@ theorem declIndTT : DeclIndTT F := by
             subst e2
             have hCneH : cvC.name ≠ (ConstantInfo.indInfo cvT
                 capsT).name := hCneT
-            rw [show (indBlockCaps env cvT cvC nP nF).etaCtor
+            rw [show (indBlockCaps mode env cvT cvC nP nF).etaCtor
               = cvC.name from rfl] at hfC'
             rw [Env.find?_cons, if_neg (show ¬(ConstantInfo.indInfo cvAI
-              (indBlockCaps env cvT cvC nP nF)).name = cvC.name from
+              (indBlockCaps mode env cvT cvC nP nF)).name = cvC.name from
               fun hh => hCneT ((hnameI.symm.trans hh).symm))] at hfC'
             rw [hbfresh cvC.name hbnC] at hfC'
             exact nomatch hfC'
@@ -516,7 +519,7 @@ theorem declIndTT : DeclIndTT F := by
             by_cases hTh : T' = (ConstantInfo.indInfo cvT capsT).name
             · subst hTh
               rw [Env.find?_cons, if_pos (show (ConstantInfo.indInfo
-                cvAI (indBlockCaps env cvT cvC nP nF)).name =
+                cvAI (indBlockCaps mode env cvT cvC nP nF)).name =
                 (ConstantInfo.indInfo cvT capsT).name from hnameI)]
                 at hfT'
               obtain heq2 := Option.some.inj hfT'
@@ -525,7 +528,7 @@ theorem declIndTT : DeclIndTT F := by
               subst e2
               exact hCneT hC
             · rw [Env.find?_cons, if_neg (show ¬(ConstantInfo.indInfo
-                cvAI (indBlockCaps env cvT cvC nP nF)).name = T' from
+                cvAI (indBlockCaps mode env cvT cvC nP nF)).name = T' from
                 fun hh => hTh (hnameI.symm.trans hh).symm)] at hfT'
               obtain ⟨cvC0, hfC0⟩ := hE1 T' cvT' capsT' hfT' hcape'
                 hTres'
@@ -537,7 +540,7 @@ theorem declIndTT : DeclIndTT F := by
                 from rfl, hfreshT] at hsC
               exact nomatch hsC)
       -- step 2: the constructor
-      have hfreshC : (⟨.indInfo cvAI (indBlockCaps env cvT cvC nP nF) ::
+      have hfreshC : (⟨.indInfo cvAI (indBlockCaps mode env cvT cvC nP nF) ::
           env.consts⟩ : Env).find? cvAC.name = none := by
         rw [hnameC]
         exact hfindCm
@@ -581,10 +584,10 @@ theorem declIndTT : DeclIndTT F := by
             -- environment
             intro T2 cvT2 capsT2 hf2 he2 hr2 hTb2
             have hTne : T2 ≠ (ConstantInfo.indInfo cvAI
-                (indBlockCaps env cvT cvC nP nF)).name := by
+                (indBlockCaps mode env cvT cvC nP nF)).name := by
               intro hcontra
               rw [hcontra] at hTb2
-              rw [show ((ConstantInfo.indInfo cvAI (indBlockCaps env cvT
+              rw [show ((ConstantInfo.indInfo cvAI (indBlockCaps mode env cvT
                 cvC nP nF)).name : Name) = cvAI.name from rfl, hnameI,
                 hbnT] at hTb2
               exact nomatch hTb2
@@ -601,7 +604,7 @@ theorem declIndTT : DeclIndTT F := by
               exact nomatch (Option.some.inj hfT2)
             · rw [Env.find?_cons, if_neg hTh] at hfT2
               by_cases hTI : (ConstantInfo.indInfo cvAI
-                  (indBlockCaps env cvT cvC nP nF)).name = T2
+                  (indBlockCaps mode env cvT cvC nP nF)).name = T2
               · rw [Env.find?_cons, if_pos hTI] at hfT2
                 obtain heq2 := Option.some.inj hfT2
                 injection heq2 with e1 e2
@@ -609,9 +612,9 @@ theorem declIndTT : DeclIndTT F := by
                 subst e2
                 rw [← hTI]
                 refine ⟨?_, ?_, ?_, ?_⟩
-                · show EtaPins (⟨.indInfo cvAI (indBlockCaps env cvT cvC
+                · show EtaPins mode (⟨.indInfo cvAI (indBlockCaps mode env cvT cvC
                     nP nF) :: env.consts⟩ : Env) cvAI.name
-                    cvAI.levelParams (indBlockCaps env cvT cvC nP nF)
+                    cvAI.levelParams (indBlockCaps mode env cvT cvC nP nF)
                   refine EtaPins.step ?_ hfreshI
                   rw [hnameI, hlpsAI]
                   exact hpinsT0
@@ -619,18 +622,18 @@ theorem declIndTT : DeclIndTT F := by
                   exact hbnC
                 · exact Expr.constsResolve_mono htresI
                 · intro j hj
-                  show (⟨.indInfo cvAI (indBlockCaps env cvT cvC nP nF)
+                  show (⟨.indInfo cvAI (indBlockCaps mode env cvT cvC nP nF)
                     :: env.consts⟩ : Env).find?
                       (projFnName cvAI.name j) = none
                   rw [hnameI]
-                  cases hf₀ : (⟨.indInfo cvAI (indBlockCaps env cvT cvC
+                  cases hf₀ : (⟨.indInfo cvAI (indBlockCaps mode env cvT cvC
                       nP nF) :: env.consts⟩ : Env).find?
                       (projFnName cvT.name j) with
                   | none => rfl
                   | some ci₂ =>
                     exfalso
                     have h2 : (((⟨ConstantInfo.ctorInfo cvAC nP nF ::
-                        (⟨ConstantInfo.indInfo cvAI (indBlockCaps env
+                        (⟨ConstantInfo.indInfo cvAI (indBlockCaps mode env
                           cvT cvC nP nF) :: env.consts⟩ :
                           Env).consts⟩ : Env)).find?
                         (projFnName cvT.name j)).isSome = true := by
@@ -655,13 +658,13 @@ theorem declIndTT : DeclIndTT F := by
               cvAC nP nF).name = cvAI.name from fun hh =>
                 hCneT ((hnameC.symm.trans hh).trans hnameI))] at hfT'
             rw [Env.find?_cons, if_pos (show (ConstantInfo.indInfo cvAI
-              (indBlockCaps env cvT cvC nP nF)).name = cvAI.name
+              (indBlockCaps mode env cvT cvC nP nF)).name = cvAI.name
               from rfl)] at hfT'
             obtain heq2 := Option.some.inj hfT'
             injection heq2 with e1 e2
             subst e1
             subst e2
-            rw [show (indBlockCaps env cvT cvC nP nF).etaCtor = cvC.name
+            rw [show (indBlockCaps mode env cvT cvC nP nF).etaCtor = cvC.name
               from rfl] at hfC'
             rw [Env.find?_cons, if_pos (show (ConstantInfo.ctorInfo cvAC
               nP nF).name = cvC.name from hnameC)] at hfC'
@@ -675,8 +678,8 @@ theorem declIndTT : DeclIndTT F := by
                     from hnameC)])
                   (fun _ _ _ _ hcon => nomatch hcon))
             show CtorResidualPin cvAI.name cvAI.levelParams cvAC
-              (indBlockCaps env cvT cvC nP nF).etaParams
-              (indBlockCaps env cvT cvC nP nF).etaFields
+              (indBlockCaps mode env cvT cvC nP nF).etaParams
+              (indBlockCaps mode env cvT cvC nP nF).etaFields
             rw [hnameI, hlpsAI]
             exact hpin
           · -- an older family: closure refutes the collision
@@ -703,10 +706,10 @@ theorem declIndTT : DeclIndTT F := by
         ⟨cvAI, ?_, hlpsAI, ?_⟩ ⟨cvAC, ?_⟩
       · rw [Env.find?_cons_of_isSome hfreshC
           (by rw [Env.find?_cons, if_pos (show (ConstantInfo.indInfo
-            cvAI (indBlockCaps env cvT cvC nP nF)).name = cvT.name
+            cvAI (indBlockCaps mode env cvT cvC nP nF)).name = cvT.name
             from hnameI)]; rfl)]
         rw [Env.find?_cons, if_pos (show (ConstantInfo.indInfo cvAI
-          (indBlockCaps env cvT cvC nP nF)).name = cvT.name
+          (indBlockCaps mode env cvT cvC nP nF)).name = cvT.name
           from hnameI)]
       · rw [hlpsAI]
         refine EtaPins.step ?_ hfreshC
@@ -718,15 +721,15 @@ theorem declIndTT : DeclIndTT F := by
       rw [hord] at hfold'
       simp only [List.foldlM_cons, List.foldlM_nil, Bind.bind,
         Except.bind, pure, Except.pure] at hfold'
-      cases hs1 : checkIndMember (fueledOps F) (block.map (·.name))
-          (indBlockCaps env cvT cvC nP nF) env
+      cases hs1 : checkIndMember (fueledOps mode F) (block.map (·.name))
+          (indBlockCaps mode env cvT cvC nP nF) env
           (ConstantInfo.ctorInfo cvC nP nF) with
       | error e => rw [hs1] at hfold'; exact nomatch hfold'
       | ok envm => ?_
       rw [hs1] at hfold'
       try dsimp only at hfold'
-      cases hs2 : checkIndMember (fueledOps F) (block.map (·.name))
-          (indBlockCaps env cvT cvC nP nF) envm
+      cases hs2 : checkIndMember (fueledOps mode F) (block.map (·.name))
+          (indBlockCaps mode env cvT cvC nP nF) envm
           (ConstantInfo.indInfo cvT capsT) with
       | error e => rw [hs2] at hfold'; exact nomatch hfold'
       | ok envf => ?_
@@ -764,7 +767,7 @@ theorem declIndTT : DeclIndTT F := by
         rw [show cvAI.type = tyAI from by rw [hcvAI]]
         exact hresI
       have henv₂ : env₂ = ⟨.indInfo cvAI
-          (indBlockCaps env cvT cvC nP nF) ::
+          (indBlockCaps mode env cvT cvC nP nF) ::
           (⟨.ctorInfo cvAC nP nF :: env.consts⟩ : Env).consts⟩ := by
         rcases hkindI with ⟨-, he⟩ | ⟨cv', nP', nF', heqTT, -⟩
         · exact he
@@ -889,7 +892,7 @@ theorem declIndTT : DeclIndTT F := by
                   cvAI.name from hnameI.symm)))) ψ
           subst hcv
           refine blockMemberHeadEtaTT (ciH := .indInfo cvAI
-            (indBlockCaps env cvT cvC nP nF)) m₁ hfreshIm
+            (indBlockCaps mode env cvT cvC nP nF)) m₁ hfreshIm
             (show reservedBasisNames.contains cvAI.name = false from by
               rw [hnameI]; exact hnresI)
             (show cvAI.name.isProjFnShape = false from by
@@ -899,7 +902,7 @@ theorem declIndTT : DeclIndTT F := by
               rw [hnameI]; exact hbnT)
             ?_ ?_ hI₁c T' cvT' capsT' hfT' hcape' hres' hfam'
             (by
-              rw [show (ConstantInfo.indInfo cvAI (indBlockCaps env cvT
+              rw [show (ConstantInfo.indInfo cvAI (indBlockCaps mode env cvT
                 cvC nP nF)).name = cvAI.name from rfl, hnameI]
               exact hpart')
           · -- outside formers stay closed at the intermediate
@@ -919,7 +922,7 @@ theorem declIndTT : DeclIndTT F := by
           · -- the block-former facts at the extension
             intro T2 cvT2 capsT2 hfT2 hTb2 hcape2
             by_cases hTh : (ConstantInfo.indInfo cvAI
-                (indBlockCaps env cvT cvC nP nF)).name = T2
+                (indBlockCaps mode env cvT cvC nP nF)).name = T2
             · rw [Env.find?_cons, if_pos hTh] at hfT2
               obtain heq2 := Option.some.inj hfT2
               injection heq2 with e1 e2
@@ -927,9 +930,9 @@ theorem declIndTT : DeclIndTT F := by
               subst e2
               rw [← hTh]
               refine ⟨?_, ?_, ?_, ?_⟩
-              · show EtaPins (⟨.ctorInfo cvAC nP nF :: env.consts⟩ :
+              · show EtaPins mode (⟨.ctorInfo cvAC nP nF :: env.consts⟩ :
                   Env) cvAI.name cvAI.levelParams
-                  (indBlockCaps env cvT cvC nP nF)
+                  (indBlockCaps mode env cvT cvC nP nF)
                 refine EtaPins.step ?_ hfreshC
                 rw [hnameI, hlpsAI]
                 exact hpinsT0
@@ -947,7 +950,7 @@ theorem declIndTT : DeclIndTT F := by
                 | none => rfl
                 | some ci₂ =>
                   exfalso
-                  have h2 : (((⟨ConstantInfo.indInfo cvAI (indBlockCaps
+                  have h2 : (((⟨ConstantInfo.indInfo cvAI (indBlockCaps mode
                       env cvT cvC nP nF) ::
                       (⟨ConstantInfo.ctorInfo cvAC nP nF ::
                         env.consts⟩ : Env).consts⟩ : Env)).find?
@@ -973,16 +976,16 @@ theorem declIndTT : DeclIndTT F := by
           · -- the block former's family: the checker's #136 pin
             subst hTI
             rw [Env.find?_cons, if_pos (show (ConstantInfo.indInfo cvAI
-              (indBlockCaps env cvT cvC nP nF)).name = cvAI.name
+              (indBlockCaps mode env cvT cvC nP nF)).name = cvAI.name
               from rfl)] at hfT'
             obtain heq2 := Option.some.inj hfT'
             injection heq2 with e1 e2
             subst e1
             subst e2
-            rw [show (indBlockCaps env cvT cvC nP nF).etaCtor = cvC.name
+            rw [show (indBlockCaps mode env cvT cvC nP nF).etaCtor = cvC.name
               from rfl] at hfC'
             rw [Env.find?_cons, if_neg (show ¬(ConstantInfo.indInfo cvAI
-              (indBlockCaps env cvT cvC nP nF)).name = cvC.name from
+              (indBlockCaps mode env cvT cvC nP nF)).name = cvC.name from
               fun hh => hTneC ((hnameI.symm.trans hh)))] at hfC'
             rw [Env.find?_cons, if_pos (show (ConstantInfo.ctorInfo cvAC
               nP nF).name = cvC.name from hnameC)] at hfC'
@@ -992,7 +995,7 @@ theorem declIndTT : DeclIndTT F := by
             have hpin := hPinAt hcape' cvAC
               (checkIndRecs_find_preserved hrecs hbnrec _ _ (by
                   rw [Env.find?_cons, if_neg (show ¬(ConstantInfo.indInfo
-                    cvAI (indBlockCaps env cvT cvC nP nF)).name =
+                    cvAI (indBlockCaps mode env cvT cvC nP nF)).name =
                     cvC.name from fun hh =>
                       hTneC (hnameI.symm.trans hh))]
                   rw [Env.find?_cons, if_pos (show
@@ -1000,18 +1003,18 @@ theorem declIndTT : DeclIndTT F := by
                     from hnameC)])
                   (fun _ _ _ _ hcon => nomatch hcon))
             show CtorResidualPin cvAI.name cvAI.levelParams cvAC
-              (indBlockCaps env cvT cvC nP nF).etaParams
-              (indBlockCaps env cvT cvC nP nF).etaFields
+              (indBlockCaps mode env cvT cvC nP nF).etaParams
+              (indBlockCaps mode env cvT cvC nP nF).etaFields
             rw [hnameI, hlpsAI]
             exact hpin
           · exfalso
             rcases hor with rfl | hC
             · rw [Env.find?_cons, if_pos (show (ConstantInfo.indInfo
-                cvAI (indBlockCaps env cvT cvC nP nF)).name =
+                cvAI (indBlockCaps mode env cvT cvC nP nF)).name =
                 (ConstantInfo.indInfo cvT capsT).name from hnameI)]
                 at hfT'
               exact hTI (hnameI ▸ rfl)
-            · by_cases hTC : (ConstantInfo.indInfo cvAI (indBlockCaps
+            · by_cases hTC : (ConstantInfo.indInfo cvAI (indBlockCaps mode
                   env cvT cvC nP nF)).name = T'
               · exact hTI hTC.symm
               rw [Env.find?_cons, if_neg hTC] at hfT'
@@ -1047,7 +1050,7 @@ theorem declIndTT : DeclIndTT F := by
       refine hrest m₂ hI₂ (hnameI ▸ hnresI)
         ⟨cvAI, ?_, hlpsAI, ?_⟩ ⟨cvAC, ?_⟩
       · rw [Env.find?_cons, if_pos (show (ConstantInfo.indInfo cvAI
-          (indBlockCaps env cvT cvC nP nF)).name = cvT.name
+          (indBlockCaps mode env cvT cvC nP nF)).name = cvT.name
           from hnameI)]
       · rw [hlpsAI]
         refine EtaPins.step ?_ hfreshIm

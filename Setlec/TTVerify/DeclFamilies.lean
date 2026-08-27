@@ -16,6 +16,9 @@ set_option linter.unusedVariables false
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 variable {F : Nat}
@@ -24,7 +27,7 @@ variable {F : Nat}
 
 private theorem checkDefnVal_shape {env env₂ : Env} {cv : ConstantVal}
     {value : Expr} {hint : ReducibilityHint}
-    (h : checkDefnVal (fueledOps F) env cv value hint = .ok env₂) :
+    (h : checkDefnVal (fueledOps mode F) env cv value hint = .ok env₂) :
     ∃ valueA, env₂ = ⟨.defnInfo cv valueA hint :: env.consts⟩ := by
   simp only [checkDefnVal, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, Bind.bind, Except.bind] at h
@@ -35,7 +38,7 @@ private theorem checkDefnVal_shape {env env₂ : Env} {cv : ConstantVal}
   case pos => simp [hfv] at h
   simp only [hfv] at h
   try dsimp only at h
-  cases hann : annotateCore env F 0 value with
+  cases hann : annotateCore mode env F 0 value with
   | error e => rw [hann] at h; exact nomatch h
   | ok valueA =>
   rw [hann] at h
@@ -46,12 +49,12 @@ private theorem checkDefnVal_shape {env env₂ : Env} {cv : ConstantVal}
   by_cases hres : valueA.constsResolve env = true
   case neg => simp [hres] at h
   simp only [hres] at h
-  cases hvt : inferTypeCore env F 0 valueA with
+  cases hvt : inferTypeCore mode env F 0 valueA with
   | error e => rw [hvt] at h; exact nomatch h
   | ok vtype =>
   rw [hvt] at h
   try dsimp only at h
-  cases hde : isDefEqCore env F 0 vtype cv.type with
+  cases hde : isDefEqCore mode env F 0 vtype cv.type with
   | error e => rw [hde] at h; exact nomatch h
   | ok b =>
   rw [hde] at h
@@ -64,17 +67,17 @@ private theorem checkDefnVal_shape {env env₂ : Env} {cv : ConstantVal}
 
 private theorem checkThmVal_shape {env env₂ : Env} {cv : ConstantVal}
     {value : Expr}
-    (h : checkThmVal (fueledOps F) env cv value = .ok env₂) :
+    (h : checkThmVal (fueledOps mode F) env cv value = .ok env₂) :
     ∃ valueA, env₂ = ⟨.thmInfo cv valueA :: env.consts⟩ := by
   simp only [checkThmVal, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, fueledOps_ensureSort, Bind.bind,
     Except.bind] at h
-  cases hst : inferTypeCore env F 0 cv.type with
+  cases hst : inferTypeCore mode env F 0 cv.type with
   | error e => rw [hst] at h; exact nomatch h
   | ok stype =>
   rw [hst] at h
   try dsimp only at h
-  cases hsort : ensureSortCore env F 0 stype with
+  cases hsort : ensureSortCore mode env F 0 stype with
   | error e => rw [hsort] at h; exact nomatch h
   | ok u =>
   rw [hsort] at h
@@ -95,7 +98,7 @@ private theorem checkThmVal_shape {env env₂ : Env} {cv : ConstantVal}
   case pos => simp [hfv] at h
   simp only [hfv] at h
   try dsimp only at h
-  cases hann : annotateCore env F 0 value with
+  cases hann : annotateCore mode env F 0 value with
   | error e => rw [hann] at h; exact nomatch h
   | ok valueA =>
   rw [hann] at h
@@ -106,12 +109,12 @@ private theorem checkThmVal_shape {env env₂ : Env} {cv : ConstantVal}
   by_cases hres : valueA.constsResolve env = true
   case neg => simp [hres] at h
   simp only [hres] at h
-  cases hvt : inferTypeCore env F 0 valueA with
+  cases hvt : inferTypeCore mode env F 0 valueA with
   | error e => rw [hvt] at h; exact nomatch h
   | ok vtype =>
   rw [hvt] at h
   try dsimp only at h
-  cases hde : isDefEqCore env F 0 vtype cv.type with
+  cases hde : isDefEqCore mode env F 0 vtype cv.type with
   | error e => rw [hde] at h; exact nomatch h
   | ok b =>
   rw [hde] at h
@@ -123,7 +126,7 @@ private theorem checkThmVal_shape {env env₂ : Env} {cv : ConstantVal}
 
 private theorem checkOpaqueVal_shape {env env₂ : Env} {cv : ConstantVal}
     {value : Expr}
-    (h : checkOpaqueVal (fueledOps F) env cv value = .ok env₂) :
+    (h : checkOpaqueVal (fueledOps mode F) env cv value = .ok env₂) :
     env₂ = ⟨.axiomInfo cv :: env.consts⟩ := by
   simp only [checkOpaqueVal, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, Bind.bind, Except.bind] at h
@@ -134,7 +137,7 @@ private theorem checkOpaqueVal_shape {env env₂ : Env} {cv : ConstantVal}
   case pos => simp [hfv] at h
   simp only [hfv] at h
   try dsimp only at h
-  cases hann : annotateCore env F 0 value with
+  cases hann : annotateCore mode env F 0 value with
   | error e => rw [hann] at h; exact nomatch h
   | ok valueA =>
   rw [hann] at h
@@ -145,12 +148,12 @@ private theorem checkOpaqueVal_shape {env env₂ : Env} {cv : ConstantVal}
   by_cases hres : valueA.constsResolve env = true
   case neg => simp [hres] at h
   simp only [hres] at h
-  cases hvt : inferTypeCore env F 0 valueA with
+  cases hvt : inferTypeCore mode env F 0 valueA with
   | error e => rw [hvt] at h; exact nomatch h
   | ok vtype =>
   rw [hvt] at h
   try dsimp only at h
-  cases hde : isDefEqCore env F 0 vtype cv.type with
+  cases hde : isDefEqCore mode env F 0 vtype cv.type with
   | error e => rw [hde] at h; exact nomatch h
   | ok b =>
   rw [hde] at h
@@ -215,7 +218,7 @@ private theorem basisFold_closed {ds : List ConstantInfo}
 
 set_option maxHeartbeats 6400000 in
 private theorem indFamilies {env env₁ : Env} {block : List ConstantInfo}
-    (h : checkIndDecl (fueledOps F) env block = .ok env₁)
+    (h : checkIndDecl mode (fueledOps mode F) env block = .ok env₁)
     (hE1 : EtaFamiliesClosedT env) : EtaFamiliesClosedT env₁ := by
   rw [checkIndDecl] at h
   simp only [Bind.bind, Except.bind] at h
@@ -242,8 +245,8 @@ private theorem indFamilies {env env₁ : Env} {block : List ConstantInfo}
     try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
     obtain ⟨env₂, hfold, h⟩ := Except.bind_ok h
     obtain ⟨env₃, hrecs, h⟩ := Except.bind_ok h
-    by_cases hctorRes : ctorResidualOk env₃ cvT.name cvC.name
-        cvT.levelParams nP nF (indBlockCaps env cvT cvC nP nF).eta = true
+    by_cases hctorRes : ctorResidualOk mode env₃ cvT.name cvC.name
+        cvT.levelParams nP nF (indBlockCaps mode env cvT cvC nP nF).eta = true
     case neg => rw [if_neg hctorRes] at h; exact nomatch h
     rw [if_pos hctorRes] at h
     try simp only [pure, Except.pure] at h
@@ -262,7 +265,7 @@ private theorem indFamilies {env env₁ : Env} {block : List ConstantInfo}
     have hcorr₂ : ∀ (n : Name) (cv2 : ConstantVal) (caps2 : IndCaps),
         env₂.find? n = some (.indInfo cv2 caps2) →
         env.find? n = some (.indInfo cv2 caps2) ∨
-        (n = cvT.name ∧ caps2 = indBlockCaps env cvT cvC nP nF ∧
+        (n = cvT.name ∧ caps2 = indBlockCaps mode env cvT cvC nP nF ∧
           ∃ cvCA, env₂.find? cvC.name = some (.ctorInfo cvCA nP nF)) := by
       -- unroll the two members
       have hIfilt : (block.filter (fun ci => match ci with
@@ -300,8 +303,8 @@ private theorem indFamilies {env env₁ : Env} {block : List ConstantInfo}
         _ hkindsB hIfilt hCfilt
       have hfold' : (block.filter (fun ci => match ci with
           | ConstantInfo.recInfo _ _ _ _ => false
-          | _ => true)).foldlM (checkIndMember (fueledOps F)
-            (block.map (·.name)) (indBlockCaps env cvT cvC nP nF)) env
+          | _ => true)).foldlM (checkIndMember (fueledOps mode F)
+            (block.map (·.name)) (indBlockCaps mode env cvT cvC nP nF)) env
           = .ok env₂ := hfold
       intro n cv2 caps2 hf₂
       rcases horder with hord | hord <;> rw [hord] at hfold' <;>
@@ -309,16 +312,16 @@ private theorem indFamilies {env env₁ : Env} {block : List ConstantInfo}
           Except.bind, pure, Except.pure] at hfold'
       · -- [former, constructor]
         revert hfold'
-        cases hs1 : checkIndMember (fueledOps F) (block.map (·.name))
-            (indBlockCaps env cvT cvC nP nF) env
+        cases hs1 : checkIndMember (fueledOps mode F) (block.map (·.name))
+            (indBlockCaps mode env cvT cvC nP nF) env
             (ConstantInfo.indInfo cvT capsT) with
         | error e => intro hfold'; exact nomatch hfold'
         | ok envm => ?_
         intro hfold'
         try dsimp only at hfold'
         revert hfold'
-        cases hs2 : checkIndMember (fueledOps F) (block.map (·.name))
-            (indBlockCaps env cvT cvC nP nF) envm
+        cases hs2 : checkIndMember (fueledOps mode F) (block.map (·.name))
+            (indBlockCaps mode env cvT cvC nP nF) envm
             (ConstantInfo.ctorInfo cvC nP nF) with
         | error e => intro hfold'; exact nomatch hfold'
         | ok envf => ?_
@@ -332,7 +335,7 @@ private theorem indFamilies {env env₁ : Env} {block : List ConstantInfo}
           checkConstantVal_inv hccvI
         have hnameI : cvAI.name = cvT.name := by rw [hcvAI]; rfl
         have henvm : envm = ⟨.indInfo cvAI
-            (indBlockCaps env cvT cvC nP nF) :: env.consts⟩ := by
+            (indBlockCaps mode env cvT cvC nP nF) :: env.consts⟩ := by
           rcases hkindI with ⟨-, he⟩ | ⟨cv', nP', nF', heqTT, -⟩
           · exact he
           · exact nomatch heqTT
@@ -343,7 +346,7 @@ private theorem indFamilies {env env₁ : Env} {block : List ConstantInfo}
           hcvAC⟩ := checkConstantVal_inv hccvC
         have hnameC : cvAC.name = cvC.name := by rw [hcvAC]; rfl
         have henv₂ : env₂ = ⟨.ctorInfo cvAC nP nF ::
-            (⟨.indInfo cvAI (indBlockCaps env cvT cvC nP nF) ::
+            (⟨.indInfo cvAI (indBlockCaps mode env cvT cvC nP nF) ::
               env.consts⟩ : Env).consts⟩ := by
           rcases hkindC with ⟨⟨cv', caps'', heqTT⟩, -⟩ |
             ⟨cv', nP', nF', heqTT, he⟩
@@ -372,16 +375,16 @@ private theorem indFamilies {env env₁ : Env} {block : List ConstantInfo}
           · exact Or.inl hf₂
       · -- [constructor, former]
         revert hfold'
-        cases hs1 : checkIndMember (fueledOps F) (block.map (·.name))
-            (indBlockCaps env cvT cvC nP nF) env
+        cases hs1 : checkIndMember (fueledOps mode F) (block.map (·.name))
+            (indBlockCaps mode env cvT cvC nP nF) env
             (ConstantInfo.ctorInfo cvC nP nF) with
         | error e => intro hfold'; exact nomatch hfold'
         | ok envm => ?_
         intro hfold'
         try dsimp only at hfold'
         revert hfold'
-        cases hs2 : checkIndMember (fueledOps F) (block.map (·.name))
-            (indBlockCaps env cvT cvC nP nF) envm
+        cases hs2 : checkIndMember (fueledOps mode F) (block.map (·.name))
+            (indBlockCaps mode env cvT cvC nP nF) envm
             (ConstantInfo.indInfo cvT capsT) with
         | error e => intro hfold'; exact nomatch hfold'
         | ok envf => ?_
@@ -412,7 +415,7 @@ private theorem indFamilies {env env₁ : Env} {block : List ConstantInfo}
           hcvAI⟩ := checkConstantVal_inv hccvI
         have hnameI : cvAI.name = cvT.name := by rw [hcvAI]; rfl
         have henv₂ : env₂ = ⟨.indInfo cvAI
-            (indBlockCaps env cvT cvC nP nF) ::
+            (indBlockCaps mode env cvT cvC nP nF) ::
             (⟨.ctorInfo cvAC nP nF :: env.consts⟩ : Env).consts⟩ := by
           rcases hkindI with ⟨-, he⟩ | ⟨cv', nP', nF', heqTT, -⟩
           · exact he
@@ -427,7 +430,7 @@ private theorem indFamilies {env env₁ : Env} {block : List ConstantInfo}
           · rw [← hh]
             exact hnameI.symm ▸ rfl
           · rw [Env.find?_cons, if_neg (show ¬(ConstantInfo.indInfo cvAI
-              (indBlockCaps env cvT cvC nP nF)).name = cvC.name from
+              (indBlockCaps mode env cvT cvC nP nF)).name = cvC.name from
               fun hh2 => by
                 have h0 : cvAI.name = cvC.name := hh2
                 rw [hnameI] at h0
@@ -507,11 +510,13 @@ private theorem basisDecls_headOk (kind : BasisKind) :
 set_option maxHeartbeats 3200000 in
 /-- **`FamiliesStepTT`, discharged.** -/
 theorem familiesStepTT : FamiliesStepTT F := by
-  intro env env₁ d h hdir hE1
+  intro mode' env env₁ d h hdir hE1
+  -- task #147: the certified configuration pins the running mode
+  obtain rfl : mode' = .ttModel := hdir.mode_eq
   cases d with
   | defnDecl cv value hint =>
     simp only [checkDecl, Bind.bind, Except.bind] at h
-    cases hccv : checkConstantVal (fueledOps F) env cv with
+    cases hccv : checkConstantVal (fueledOps mode F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
     | ok cvA =>
     rw [hccv] at h
@@ -519,7 +524,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
     obtain ⟨hfind', -, -, -, -, -, type, stype, u, -, -, -, -, -,
       rfl⟩ := checkConstantVal_invT hccv
     revert h
-    cases hdv : checkDefnVal (fueledOps F) env
+    cases hdv : checkDefnVal (fueledOps mode F) env
         { cv with type := type } value hint with
     | error e => intro h; exact nomatch h
     | ok env₂ => ?_
@@ -538,7 +543,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
           exact (Except.ok.inj h).symm
         rw [if_pos hdm] at h
         revert h
-        cases hpin : checkDivModPin (fueledOps F) env env₂ cv.name with
+        cases hpin : checkDivModPin (fueledOps mode F) env env₂ cv.name with
         | error err => intro h; exact nomatch h
         | ok u =>
           intro h
@@ -562,7 +567,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
         intro h
         try dsimp only at h
         revert h
-        cases hcert : certifyNatEqs (fueledOps F) env
+        cases hcert : certifyNatEqs (fueledOps mode F) env
             ((natOpEquations 0 cv.name).map fun eq =>
               (Expr.substConst0 cv.name value' eq.1,
                Expr.substConst0 cv.name value' eq.2)) with
@@ -582,7 +587,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
           exact (Except.ok.inj h).symm
         rw [if_pos hdm] at h
         revert h
-        cases hpin : checkDivModPin (fueledOps F) env env₂ cv.name with
+        cases hpin : checkDivModPin (fueledOps mode F) env env₂ cv.name with
         | error err => intro h; exact nomatch h
         | ok u =>
           intro h
@@ -597,7 +602,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
       (fun _ _ hx _ => ConstantInfo.noConfusion hx)
   | thmDecl cv value =>
     simp only [checkDecl, Bind.bind, Except.bind] at h
-    cases hccv : checkConstantVal (fueledOps F) env cv with
+    cases hccv : checkConstantVal (fueledOps mode F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
     | ok cvA =>
     rw [hccv] at h
@@ -609,7 +614,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
       (fun _ _ hx _ => ConstantInfo.noConfusion hx)
   | opaqueDecl cv value =>
     simp only [checkDecl, Bind.bind, Except.bind] at h
-    cases hccv : checkConstantVal (fueledOps F) env cv with
+    cases hccv : checkConstantVal (fueledOps mode F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
     | ok cvA =>
     rw [hccv] at h
@@ -617,7 +622,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
     obtain ⟨hfind', -, -, -, -, -, type, stype, u, -, -, -, -, -,
       rfl⟩ := checkConstantVal_invT hccv
     revert h
-    cases hov : checkOpaqueVal (fueledOps F) env
+    cases hov : checkOpaqueVal (fueledOps mode F) env
         { cv with type := type } value with
     | error e => intro h; exact nomatch h
     | ok env₂ => ?_
@@ -632,7 +637,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
         exact (Except.ok.inj h).symm
       rw [if_pos hro] at h
       revert h
-      cases hrp : checkReducePin (fueledOps F) env env₂ cv.name value with
+      cases hrp : checkReducePin (fueledOps mode F) env env₂ cv.name value with
       | error err => intro h; exact nomatch h
       | ok u =>
         intro h
@@ -644,7 +649,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
       (fun _ _ hx _ => ConstantInfo.noConfusion hx)
   | axiomDecl cv =>
     simp only [checkDecl, Bind.bind, Except.bind] at h
-    cases hccv : checkConstantVal (fueledOps F) env cv with
+    cases hccv : checkConstantVal (fueledOps mode F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
     | ok cvA =>
     rw [hccv] at h
@@ -694,10 +699,10 @@ theorem familiesStepTT : FamiliesStepTT F := by
       try dsimp only at h
       exact basisFold_closed (basisDecls_headOk _) h hE1
   | indDecl block =>
-    rw [show checkDecl (fueledOps F) env (.indDecl block) =
+    rw [show checkDecl mode (fueledOps mode F) env (.indDecl block) =
         (match directParts? env block with
-          | some p => checkDirectStruct (fueledOps F) env p
-          | none => checkIndDecl (fueledOps F) env block) from rfl,
+          | some p => checkDirectStruct (fueledOps mode F) env p
+          | none => checkIndDecl mode (fueledOps mode F) env block) from rfl,
       directParts?_none hdir env block] at h
     exact indFamilies h hE1
 

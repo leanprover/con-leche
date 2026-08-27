@@ -11,6 +11,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
@@ -18,14 +20,14 @@ open SetTheory Expr
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 /-- A successful pairwise definitional-equality check relates spines of
 equal length. -/
 theorem defEqList_length {fuel : Nat} :
     ∀ {d : Nat} (as bs : List Expr),
-      defEqListP env fuel d as bs = .ok true → as.length = bs.length := by
+      defEqListP mode env fuel d as bs = .ok true → as.length = bs.length := by
   intro d as
   induction as with
   | nil =>
@@ -43,10 +45,10 @@ theorem defEqList_length {fuel : Nat} :
 /-- Pairwise definitional equality of two interpreted spines yields
 pointwise equal values. -/
 theorem defEqList_values {m : EnvModel V env} {fuel : Nat}
-    (ihd : DefEqClaims m φ fuel) :
+    (ihd : DefEqClaims mode m φ fuel) :
     ∀ {d : Nat} {ρ : Nat → V}
       (as bs : List Expr) (vs us : List V),
-      defEqListP env fuel d as bs = .ok true →
+      defEqListP mode env fuel d as bs = .ok true →
       (∀ x ∈ as, WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
         Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
         AnnotOk V m.val env φ d ρ x) →
@@ -89,8 +91,8 @@ set-application folds over the head value (`annotOk_spine_inv`) —
 coincide.  The reducibility hints that *scheduled* this comparison
 never enter: the fact is unconditional in them. -/
 theorem defeqSpine_values {m : EnvModel V env} {fuel : Nat}
-    (ihd : DefEqClaims m φ fuel) {d : Nat} {a b : Expr} {ρ : Nat → V}
-    (h : defeqSpineP env fuel d a b = .ok true)
+    (ihd : DefEqClaims mode m φ fuel) {d : Nat} {a b : Expr} {ρ : Nat → V}
+    (h : defeqSpineP mode env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
     (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
@@ -189,10 +191,10 @@ the set-application fold of the head value over the argument values
 (`annotOk_spine_inv`), and the folds agree componentwise.  Replaces
 the former per-position recursion of `defeqBody`'s app clause. -/
 theorem defeqApp_values {m : EnvModel V env} {fuel : Nat}
-    (ihd : DefEqClaims m φ fuel) {d : Nat} {a b : Expr} {ρ : Nat → V}
+    (ihd : DefEqClaims mode m φ fuel) {d : Nat} {a b : Expr} {ρ : Nat → V}
     (hlen : a.getAppArgs.length = b.getAppArgs.length)
-    (hhd : isDefEqCore env fuel d a.getAppFn b.getAppFn = .ok true)
-    (hlist : defEqListP env fuel d a.getAppArgs b.getAppArgs = .ok true)
+    (hhd : isDefEqCore mode env fuel d a.getAppFn b.getAppFn = .ok true)
+    (hlist : defEqListP mode env fuel d a.getAppArgs b.getAppArgs = .ok true)
     (hane : a.getAppArgs ≠ [])
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
@@ -256,10 +258,10 @@ each certified argument's inferred type is definitionally equal to the
 corresponding (progressively instantiated) domain, so its interpreted
 value is a member of the interpreted domain. -/
 theorem certs_fit {m : EnvModel V env} {fuel : Nat}
-    (ihd : DefEqClaims m φ fuel) (ihi : InferClaims m φ fuel) :
+    (ihd : DefEqClaims mode m φ fuel) (ihi : InferClaims mode m φ fuel) :
     ∀ {d : Nat} {ρ : Nat → V}
       (ty : Expr) (args : List Expr) (vs : List V) (T : V),
-      iotaCertsP env fuel d ty args = .ok true →
+      iotaCertsP mode env fuel d ty args = .ok true →
       WScoped d ty → ty.looseBVarsBounded 0 = true →
       Expr.LeavesBounded ty → FvarsOk V m.val env φ d ρ ty →
       AnnotOk V m.val env φ d ρ ty →

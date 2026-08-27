@@ -25,6 +25,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
@@ -35,9 +37,9 @@ private theorem value_facts {env : Env} (m : EnvModel V env)
     {value value' type vtype : Expr}
     (hlbv : value.looseBVarsBounded 0 = true)
     (hivf : value.hasFvar = false)
-    (hannv : annotateCore env F 0 value = .ok value')
-    (hvt : inferTypeCore env F 0 value' = .ok vtype)
-    (hde : isDefEqCore env F 0 vtype type = .ok true)
+    (hannv : annotateCore mode env F 0 value = .ok value')
+    (hvt : inferTypeCore mode env F 0 value' = .ok vtype)
+    (hde : isDefEqCore mode env F 0 vtype type = .ok true)
     (htf : type.hasFvar = false)
     (htb : type.looseBVarsBounded 0 = true)
     (hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) type)
@@ -86,8 +88,8 @@ private theorem max_ne_zero_r'' {u v : Nat} (h : v ≠ 0) : Nat.max u v ≠ 0 :=
 /-- `certifyNatEqs` succeeded on every equation. -/
 private theorem certifyNatEqs_inv {F : Nat} {env : Env} :
     ∀ {eqs : List (Expr × Expr)},
-      certifyNatEqs (fueledOps F) env eqs = .ok true →
-      ∀ eq ∈ eqs, isDefEqCore env F 2 eq.1 eq.2 = .ok true := by
+      certifyNatEqs (fueledOps mode F) env eqs = .ok true →
+      ∀ eq ∈ eqs, isDefEqCore mode env F 2 eq.1 eq.2 = .ok true := by
   intro eqs
   induction eqs with
   | nil => intro h eq hm; cases hm
@@ -96,7 +98,7 @@ private theorem certifyNatEqs_inv {F : Nat} {env : Env} :
     simp only [certifyNatEqs, fueledOps_isDefEq, Bind.bind,
       Except.bind] at h
     revert h
-    cases hde : isDefEqCore env F 2 e.1 e.2 with
+    cases hde : isDefEqCore mode env F 2 e.1 e.2 with
     | error err => intro h; exact nomatch h
     | ok b =>
       cases b with
@@ -113,7 +115,7 @@ private theorem certifyNatEqs_inv {F : Nat} {env : Env} :
 sides. -/
 private theorem eqSides_defeq {env : Env} (m : EnvModel V env) (F : Nat)
     {l r : Expr} {ψ : Name → Nat} {ρ : Nat → V} {vl vr Tl Tr : V}
-    (hde : isDefEqCore env F 2 l r = .ok true)
+    (hde : isDefEqCore mode env F 2 l r = .ok true)
     (hl : EqSideOk env m.val ψ 2 ρ l vl Tl)
     (hr : EqSideOk env m.val ψ 2 ρ r vr Tr) :
     interpExpr V m.val env ψ 2 ρ l = interpExpr V m.val env ψ 2 ρ r := by
@@ -128,7 +130,7 @@ private theorem eqSides_defeq {env : Env} (m : EnvModel V env) (F : Nat)
 private theorem eqSides_defeq_const {env : Env} (m : EnvModel V env)
     (F : Nat) {l : Expr} {bn : Name} {ci : ConstantInfo} {ψ : Name → Nat}
     {ρ : Nat → V} {vl Tl : V}
-    (hde : isDefEqCore env F 2 l (.const bn []) = .ok true)
+    (hde : isDefEqCore mode env F 2 l (.const bn []) = .ok true)
     (hl : EqSideOk env m.val ψ 2 ρ l vl Tl)
     (hf : env.find? bn = some ci)
     (hlp : ci.toConstantVal.levelParams = []) :
@@ -168,7 +170,7 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
       (∃ ciF, env.find? boolFalseName = some ciF ∧
         ciF.toConstantVal.levelParams = []))
     (hcert : ∀ eq ∈ natOpEquations 0 c,
-      isDefEqCore env F 2 (Expr.substConst0 c H eq.1)
+      isDefEqCore mode env F 2 (Expr.substConst0 c H eq.1)
         (Expr.substConst0 c H eq.2) = .ok true) :
     ∀ eq ∈ natOpEquations 0 c, ∀ (ψ : Name → Nat) (x y : V),
       (∀ T, interpExpr V m.val env ψ 2 (rho0 V) (.const natName []) =
@@ -351,13 +353,13 @@ stored shape pins and the two definitional-equality runs — the pin
 comparison and the identity certificate. -/
 private theorem checkReducePin_run_inv {env env2 : Env} {c : Name}
     {value : Expr} {F : Nat} {u : Unit}
-    (h : checkReducePin (fueledOps F) env env2 c value = .ok u) :
+    (h : checkReducePin (fueledOps mode F) env env2 c value = .ok u) :
     (reduceStoredOk env2 c && reduceElemOk env c) = true ∧
     reducePinGuard env c = true ∧
-    ∃ valA pinA, annotateCore env F 0 value = .ok valA ∧
-      annotateCore env F 0 (reduceDeclPin c) = .ok pinA ∧
-      isDefEqCore env F 0 valA pinA = .ok true ∧
-      isDefEqCore env F 1 (.app valA (reduceCertVar c))
+    ∃ valA pinA, annotateCore mode env F 0 value = .ok valA ∧
+      annotateCore mode env F 0 (reduceDeclPin c) = .ok pinA ∧
+      isDefEqCore mode env F 0 valA pinA = .ok true ∧
+      isDefEqCore mode env F 1 (.app valA (reduceCertVar c))
         (reduceCertVar c) = .ok true := by
   unfold checkReducePin at h
   by_cases h1 : (reduceStoredOk env2 c && reduceElemOk env c) = true
@@ -369,60 +371,60 @@ private theorem checkReducePin_run_inv {env env2 : Env} {c : Name}
   refine ⟨h1, h2, ?_⟩
   simp only [Bind.bind, Except.bind] at h
   revert h
-  cases hannv : annotateCore env F 0 value with
+  cases hannv : annotateCore mode env F 0 value with
   | error e =>
     intro h
-    rw [show CheckerOps.annotate (fueledOps F) env 0 value =
-      annotateCore env F 0 value from rfl, hannv] at h
+    rw [show CheckerOps.annotate (fueledOps mode F) env 0 value =
+      annotateCore mode env F 0 value from rfl, hannv] at h
     exact nomatch h
   | ok valA =>
   intro h
-  rw [show CheckerOps.annotate (fueledOps F) env 0 value =
-    annotateCore env F 0 value from rfl, hannv] at h
+  rw [show CheckerOps.annotate (fueledOps mode F) env 0 value =
+    annotateCore mode env F 0 value from rfl, hannv] at h
   simp only [Bind.bind, Except.bind] at h
   revert h
-  cases hannp : annotateCore env F 0 (reduceDeclPin c) with
+  cases hannp : annotateCore mode env F 0 (reduceDeclPin c) with
   | error e =>
     intro h
-    rw [show CheckerOps.annotate (fueledOps F) env 0 (reduceDeclPin c) =
-      annotateCore env F 0 (reduceDeclPin c) from rfl, hannp] at h
+    rw [show CheckerOps.annotate (fueledOps mode F) env 0 (reduceDeclPin c) =
+      annotateCore mode env F 0 (reduceDeclPin c) from rfl, hannp] at h
     exact nomatch h
   | ok pinA =>
   intro h
-  rw [show CheckerOps.annotate (fueledOps F) env 0 (reduceDeclPin c) =
-    annotateCore env F 0 (reduceDeclPin c) from rfl, hannp] at h
+  rw [show CheckerOps.annotate (fueledOps mode F) env 0 (reduceDeclPin c) =
+    annotateCore mode env F 0 (reduceDeclPin c) from rfl, hannp] at h
   simp only [Bind.bind, Except.bind] at h
   revert h
-  cases hde0 : isDefEqCore env F 0 valA pinA with
+  cases hde0 : isDefEqCore mode env F 0 valA pinA with
   | error e =>
     intro h
-    rw [show CheckerOps.isDefEq (fueledOps F) env 0 valA pinA =
-      isDefEqCore env F 0 valA pinA from rfl, hde0] at h
+    rw [show CheckerOps.isDefEq (fueledOps mode F) env 0 valA pinA =
+      isDefEqCore mode env F 0 valA pinA from rfl, hde0] at h
     exact nomatch h
   | ok b0 =>
   intro h
-  rw [show CheckerOps.isDefEq (fueledOps F) env 0 valA pinA =
-    isDefEqCore env F 0 valA pinA from rfl, hde0] at h
+  rw [show CheckerOps.isDefEq (fueledOps mode F) env 0 valA pinA =
+    isDefEqCore mode env F 0 valA pinA from rfl, hde0] at h
   simp only [Bind.bind, Except.bind] at h
   cases b0 with
   | false => simp [pure, Except.pure] at h
   | true =>
   simp only [↓reduceIte] at h
   revert h
-  cases hde1 : isDefEqCore env F 1 (.app valA (reduceCertVar c))
+  cases hde1 : isDefEqCore mode env F 1 (.app valA (reduceCertVar c))
       (reduceCertVar c) with
   | error e =>
     intro h
-    rw [show CheckerOps.isDefEq (fueledOps F) env 1
+    rw [show CheckerOps.isDefEq (fueledOps mode F) env 1
         (.app valA (reduceCertVar c)) (reduceCertVar c) =
-      isDefEqCore env F 1 (.app valA (reduceCertVar c))
+      isDefEqCore mode env F 1 (.app valA (reduceCertVar c))
         (reduceCertVar c) from rfl, hde1] at h
     exact nomatch h
   | ok b1 =>
   intro h
-  rw [show CheckerOps.isDefEq (fueledOps F) env 1
+  rw [show CheckerOps.isDefEq (fueledOps mode F) env 1
       (.app valA (reduceCertVar c)) (reduceCertVar c) =
-    isDefEqCore env F 1 (.app valA (reduceCertVar c))
+    isDefEqCore mode env F 1 (.app valA (reduceCertVar c))
       (reduceCertVar c) from rfl, hde1] at h
   simp only [Bind.bind, Except.bind] at h
   cases b1 with
@@ -484,13 +486,13 @@ private theorem stdAxiomOk_choice_inv {env : Env} {cvA : ConstantVal}
 stored eta families closed (the side invariant `EtaFamiliesClosed`,
 threaded next to the model through the fold). -/
 theorem checkDecl_sound {env env' : Env} {d : Declaration}
-    (h : checkDecl (fueledOps F) env d = .ok env') (m : EnvModel V env)
+    (h : checkDecl mode (fueledOps mode F) env d = .ok env') (m : EnvModel V env)
     (hE1 : EtaFamiliesClosed env) :
     Nonempty (EnvModel V env') ∧ EtaFamiliesClosed env' := by
   cases d with
   | axiomDecl cv =>
     simp only [checkDecl, Bind.bind, Except.bind] at h
-    cases hccv : checkConstantVal (fueledOps F) env cv with
+    cases hccv : checkConstantVal (fueledOps mode F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
     | ok cv' =>
     rw [hccv] at h
@@ -764,8 +766,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     -- route unchanged.  The three recognition facts the model
     -- extension needs come from `directParts?_inv`.
     replace h : (match directParts? env block with
-      | some p => checkDirectStruct (fueledOps F) env p
-      | none => checkIndDecl (fueledOps F) env block) = .ok env' := h
+      | some p => checkDirectStruct (fueledOps mode F) env p
+      | none => checkIndDecl mode (fueledOps mode F) env block) = .ok env' := h
     cases hdp : directParts? env block with
     | none =>
       rw [hdp] at h
@@ -1845,7 +1847,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
-    cases hccv : checkConstantVal (fueledOps F) env cv with
+    cases hccv : checkConstantVal (fueledOps mode F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
     | ok cv' =>
     rw [hccv] at h
@@ -1859,7 +1861,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     by_cases hivf : value.hasFvar = true
     case pos => simp [hivf] at h
     simp only [hivf] at h
-    cases hannv : annotateCore env F 0 value with
+    cases hannv : annotateCore mode env F 0 value with
     | error e => rw [hannv] at h; exact nomatch h
     | ok value' =>
     rw [hannv] at h
@@ -1870,12 +1872,12 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     by_cases hvr : value'.constsResolve env = true
     case neg => simp [hvr] at h
     simp only [hvr] at h
-    cases hvt : inferTypeCore env F 0 value' with
+    cases hvt : inferTypeCore mode env F 0 value' with
     | error e => rw [hvt] at h; exact nomatch h
     | ok vtype =>
     rw [hvt] at h
     try dsimp only at h
-    cases hde : isDefEqCore env F 0 vtype type with
+    cases hde : isDefEqCore mode env F 0 vtype type with
     | error e => rw [hde] at h; exact nomatch h
     | ok b =>
     rw [hde] at h
@@ -1894,12 +1896,12 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             (natOpDeps cv.name).all (natOpStoredOk
               (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
                 env.consts⟩ : Env))) = true ∧
-          certifyNatEqs (fueledOps F) env
+          certifyNatEqs (fueledOps mode F) env
             ((natOpEquations 0 cv.name).map fun eq =>
               (Expr.substConst0 cv.name value' eq.1,
                Expr.substConst0 cv.name value' eq.2)) = .ok true) ∧
         (natDivModNames.contains cv.name = true →
-          checkDivModPin (fueledOps F) env
+          checkDivModPin (fueledOps mode F) env
             (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
               env.consts⟩ : Env) cv.name = .ok ()) := by
       by_cases hnop : natOpNames.contains cv.name = true
@@ -1924,7 +1926,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         rw [hfind2] at h
         dsimp only at h
         revert h
-        cases hcert0 : certifyNatEqs (fueledOps F) env
+        cases hcert0 : certifyNatEqs (fueledOps mode F) env
             ((natOpEquations 0 cv.name).map fun eq =>
               (Expr.substConst0 cv.name value' eq.1,
                Expr.substConst0 cv.name value' eq.2)) with
@@ -1941,7 +1943,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             by_cases hdm : natDivModNames.contains cv.name = true
             · rw [if_pos hdm] at h
               revert h
-              cases hpin : checkDivModPin (fueledOps F) env
+              cases hpin : checkDivModPin (fueledOps mode F) env
                   (⟨ConstantInfo.defnInfo { cv with type := type } value'
                     hint :: env.consts⟩ : Env) cv.name with
               | error err => intro h; exact nomatch h
@@ -1959,7 +1961,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         by_cases hdm : natDivModNames.contains cv.name = true
         · rw [if_pos hdm] at h
           revert h
-          cases hpin : checkDivModPin (fueledOps F) env
+          cases hpin : checkDivModPin (fueledOps mode F) env
               (⟨ConstantInfo.defnInfo { cv with type := type } value'
                 hint :: env.consts⟩ : Env) cv.name with
           | error err => intro h; exact nomatch h
@@ -2117,7 +2119,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         fun hh => hnepins.2.2.2.2.2 hh)]
       exact ⟨⟨ciT, hTd.symm.trans hT, hlpT⟩, ⟨ciF, hFd.symm.trans hF, hlpF⟩⟩
     have hcertE : ∀ eq ∈ natOpEquations 0 cv.name,
-        isDefEqCore env F 2 (Expr.substConst0 cv.name value' eq.1)
+        isDefEqCore mode env F 2 (Expr.substConst0 cv.name value' eq.1)
           (Expr.substConst0 cv.name value' eq.2) = .ok true := by
       intro eq heq
       exact certifyNatEqs_inv hcert0 _ (List.mem_map_of_mem heq)
@@ -2242,7 +2244,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
-    cases hccv : checkConstantVal (fueledOps F) env cv with
+    cases hccv : checkConstantVal (fueledOps mode F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
     | ok cv' =>
     rw [hccv] at h
@@ -2251,12 +2253,12 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     -- the theorem-specific proposition check re-runs inference on the type
-    cases hst2 : inferTypeCore env F 0 type with
+    cases hst2 : inferTypeCore mode env F 0 type with
     | error e => rw [hst2] at h; exact nomatch h
     | ok stype2 =>
     rw [hst2] at h
     try dsimp only at h
-    cases hsort2 : ensureSortCore env F 0 stype2 with
+    cases hsort2 : ensureSortCore mode env F 0 stype2 with
     | error e => rw [hsort2] at h; exact nomatch h
     | ok u2 =>
     rw [hsort2] at h
@@ -2276,7 +2278,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     by_cases hivf : value.hasFvar = true
     case pos => simp [hivf] at h
     simp only [hivf] at h
-    cases hannv : annotateCore env F 0 value with
+    cases hannv : annotateCore mode env F 0 value with
     | error e => rw [hannv] at h; exact nomatch h
     | ok value' =>
     rw [hannv] at h
@@ -2287,12 +2289,12 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     by_cases hvr : value'.constsResolve env = true
     case neg => simp [hvr] at h
     simp only [hvr] at h
-    cases hvt : inferTypeCore env F 0 value' with
+    cases hvt : inferTypeCore mode env F 0 value' with
     | error e => rw [hvt] at h; exact nomatch h
     | ok vtype =>
     rw [hvt] at h
     try dsimp only at h
-    cases hde : isDefEqCore env F 0 vtype type with
+    cases hde : isDefEqCore mode env F 0 vtype type with
     | error e => rw [hde] at h; exact nomatch h
     | ok b =>
     rw [hde] at h
@@ -2338,7 +2340,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     simp only [checkDecl, checkDefnVal, checkOpaqueVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
-    cases hccv : checkConstantVal (fueledOps F) env cv with
+    cases hccv : checkConstantVal (fueledOps mode F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
     | ok cv' =>
     rw [hccv] at h
@@ -2352,7 +2354,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     by_cases hivf : value.hasFvar = true
     case pos => simp [hivf] at h
     simp only [hivf] at h
-    cases hannv : annotateCore env F 0 value with
+    cases hannv : annotateCore mode env F 0 value with
     | error e => rw [hannv] at h; exact nomatch h
     | ok value' =>
     rw [hannv] at h
@@ -2363,12 +2365,12 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     by_cases hvr : value'.constsResolve env = true
     case neg => simp [hvr] at h
     simp only [hvr] at h
-    cases hvt : inferTypeCore env F 0 value' with
+    cases hvt : inferTypeCore mode env F 0 value' with
     | error e => rw [hvt] at h; exact nomatch h
     | ok vtype =>
     rw [hvt] at h
     try dsimp only at h
-    cases hde : isDefEqCore env F 0 vtype type with
+    cases hde : isDefEqCore mode env F 0 vtype type with
     | error e => rw [hde] at h; exact nomatch h
     | ok b =>
     rw [hde] at h
@@ -2440,7 +2442,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     case pos =>
       rw [if_pos hred] at h
       revert h
-      cases hpin : checkReducePin (fueledOps F) env
+      cases hpin : checkReducePin (fueledOps mode F) env
           ⟨ConstantInfo.axiomInfo { cv with type := type } ::
             env.consts⟩ cv.name value with
       | error e =>
@@ -2493,13 +2495,13 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
 private theorem foldlM_sound {env' : Env} :
     ∀ (ds : List Declaration) (env : Env), Nonempty (EnvModel V env) →
       EtaFamiliesClosed env →
-      ds.foldlM (checkDecl (fueledOps F)) env = .ok env' → Nonempty (EnvModel V env')
+      ds.foldlM (checkDecl mode (fueledOps mode F)) env = .ok env' → Nonempty (EnvModel V env')
   | [], env, hm, _, h => by
     simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ hm
   | d :: ds, env, hm, hE1, h => by
     simp only [List.foldlM, Bind.bind, Except.bind] at h
-    cases hd : checkDecl (fueledOps F) env d with
+    cases hd : checkDecl mode (fueledOps mode F) env d with
     | error e => rw [hd] at h; exact nomatch h
     | ok env1 =>
       rw [hd] at h
@@ -2509,7 +2511,7 @@ private theorem foldlM_sound {env' : Env} :
 
 /-- Soundness: every accepted environment has a set-theoretic model. -/
 theorem checkDecls_sound {ds : List Declaration} {env' : Env}
-    (h : checkDecls (fueledOps F) ds = .ok env') : Nonempty (EnvModel V env') :=
+    (h : checkDecls mode (fueledOps mode F) ds = .ok env') : Nonempty (EnvModel V env') :=
   foldlM_sound ds Env.empty ⟨EnvModel.empty V⟩ EtaFamiliesClosed.empty h
 
 /-- Model-level core of the consistency corollary: a modeled
@@ -2531,15 +2533,15 @@ theorem no_constant_of_Empty {env : Env} (m : EnvModel V env)
 annotated declared type. -/
 theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     {value : Expr} {hint : ReducibilityHint} {d : Declaration}
-    (h : checkDecl (fueledOps F) env d = .ok env₁)
+    (h : checkDecl mode (fueledOps mode F) env d = .ok env₁)
     (hd : d = .defnDecl cv value hint ∨ d = .thmDecl cv value) :
-    ∃ type, annotateCore env F 0 cv.type = .ok type ∧
+    ∃ type, annotateCore mode env F 0 cv.type = .ok type ∧
       ∃ c ∈ env₁.consts, c.toConstantVal = ⟨cv.name, cv.levelParams, type⟩ := by
   rcases hd with rfl | rfl
   · simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
-    cases hccv : checkConstantVal (fueledOps F) env cv with
+    cases hccv : checkConstantVal (fueledOps mode F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
     | ok cv' =>
     rw [hccv] at h
@@ -2553,7 +2555,7 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     by_cases hivf : value.hasFvar = true
     case pos => simp [hivf] at h
     simp only [hivf] at h
-    cases hannv : annotateCore env F 0 value with
+    cases hannv : annotateCore mode env F 0 value with
     | error e => rw [hannv] at h; exact nomatch h
     | ok value' =>
     rw [hannv] at h
@@ -2564,12 +2566,12 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     by_cases hvr : value'.constsResolve env = true
     case neg => simp [hvr] at h
     simp only [hvr] at h
-    cases hvt : inferTypeCore env F 0 value' with
+    cases hvt : inferTypeCore mode env F 0 value' with
     | error e => rw [hvt] at h; exact nomatch h
     | ok vtype =>
     rw [hvt] at h
     try dsimp only at h
-    cases hde : isDefEqCore env F 0 vtype type with
+    cases hde : isDefEqCore mode env F 0 vtype type with
     | error e => rw [hde] at h; exact nomatch h
     | ok b =>
     rw [hde] at h
@@ -2602,7 +2604,7 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
         rw [hfind2] at h
         dsimp only at h
         revert h
-        cases hcert0 : certifyNatEqs (fueledOps F) env
+        cases hcert0 : certifyNatEqs (fueledOps mode F) env
             ((natOpEquations 0 cv.name).map fun eq =>
               (Expr.substConst0 cv.name value' eq.1,
                Expr.substConst0 cv.name value' eq.2)) with
@@ -2619,7 +2621,7 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
             by_cases hdm : natDivModNames.contains cv.name = true
             · rw [if_pos hdm] at h
               revert h
-              cases hpin : checkDivModPin (fueledOps F) env
+              cases hpin : checkDivModPin (fueledOps mode F) env
                   (⟨ConstantInfo.defnInfo { cv with type := type } value'
                     hint :: env.consts⟩ : Env) cv.name with
               | error err => intro h; exact nomatch h
@@ -2636,7 +2638,7 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
         by_cases hdm : natDivModNames.contains cv.name = true
         · rw [if_pos hdm] at h
           revert h
-          cases hpin : checkDivModPin (fueledOps F) env
+          cases hpin : checkDivModPin (fueledOps mode F) env
               (⟨ConstantInfo.defnInfo { cv with type := type } value'
                 hint :: env.consts⟩ : Env) cv.name with
           | error err => intro h; exact nomatch h
@@ -2654,7 +2656,7 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
   · simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
-    cases hccv : checkConstantVal (fueledOps F) env cv with
+    cases hccv : checkConstantVal (fueledOps mode F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
     | ok cv' =>
     rw [hccv] at h
@@ -2662,12 +2664,12 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
-    cases hst2 : inferTypeCore env F 0 type with
+    cases hst2 : inferTypeCore mode env F 0 type with
     | error e => rw [hst2] at h; exact nomatch h
     | ok stype2 =>
     rw [hst2] at h
     try dsimp only at h
-    cases hsort2 : ensureSortCore env F 0 stype2 with
+    cases hsort2 : ensureSortCore mode env F 0 stype2 with
     | error e => rw [hsort2] at h; exact nomatch h
     | ok u2 =>
     rw [hsort2] at h
@@ -2687,7 +2689,7 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     by_cases hivf : value.hasFvar = true
     case pos => simp [hivf] at h
     simp only [hivf] at h
-    cases hannv : annotateCore env F 0 value with
+    cases hannv : annotateCore mode env F 0 value with
     | error e => rw [hannv] at h; exact nomatch h
     | ok value' =>
     rw [hannv] at h
@@ -2698,12 +2700,12 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     by_cases hvr : value'.constsResolve env = true
     case neg => simp [hvr] at h
     simp only [hvr] at h
-    cases hvt : inferTypeCore env F 0 value' with
+    cases hvt : inferTypeCore mode env F 0 value' with
     | error e => rw [hvt] at h; exact nomatch h
     | ok vtype =>
     rw [hvt] at h
     try dsimp only at h
-    cases hde : isDefEqCore env F 0 vtype type with
+    cases hde : isDefEqCore mode env F 0 vtype type with
     | error e => rw [hde] at h; exact nomatch h
     | ok b =>
     rw [hde] at h
@@ -2721,7 +2723,7 @@ private theorem foldlM_no_Empty_decl :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       Nonempty (EnvModel V env) →
       EtaFamiliesClosed env →
-      ds.foldlM (checkDecl (fueledOps F)) env = .ok env' →
+      ds.foldlM (checkDecl mode (fueledOps mode F)) env = .ok env' →
       ∀ {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint},
         (Declaration.defnDecl cv value hint ∈ ds ∨
           Declaration.thmDecl cv value ∈ ds) →
@@ -2730,7 +2732,7 @@ private theorem foldlM_no_Empty_decl :
     rcases hd with hd | hd <;> cases hd
   | d :: ds, env, env', hm, hE1, h, cv, value, hint, hd, hty => by
     simp only [List.foldlM, Bind.bind, Except.bind] at h
-    cases hdd : checkDecl (fueledOps F) env d with
+    cases hdd : checkDecl mode (fueledOps mode F) env d with
     | error e => rw [hdd] at h; exact nomatch h
     | ok env1 =>
     rw [hdd] at h
@@ -2740,7 +2742,7 @@ private theorem foldlM_no_Empty_decl :
     · obtain ⟨type, hann, c, hc, hcv⟩ := checkDecl_stores hdd hdis
       rw [hty] at hann
       obtain rfl : Expr.const emptyName [] = type := by
-        have h1 : annotateCore env F 0 (.const emptyName []) =
+        have h1 : annotateCore mode env F 0 (.const emptyName []) =
             .ok type := hann
         cases F with
         | zero =>
@@ -2768,7 +2770,7 @@ declaration list containing a `def` or `theorem` whose stated type is
 `Empty` — no reference to the resulting environment needed. -/
 theorem no_proof_of_Empty_input (V : Type u) [SetTheory V]
     {ds : List Declaration} {env' : Env}
-    (h : checkDecls (fueledOps F) ds = .ok env')
+    (h : checkDecls mode (fueledOps mode F) ds = .ok env')
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     (hd : Declaration.defnDecl cv value hint ∈ ds ∨
       Declaration.thmDecl cv value ∈ ds)
@@ -2786,7 +2788,7 @@ accepted proof of the empty type would exhibit a member of the empty
 set. -/
 theorem no_proof_of_Empty (V : Type u) [SetTheory V]
     {ds : List Declaration} {env' : Env}
-    (h : checkDecls (fueledOps F) ds = .ok env')
+    (h : checkDecls mode (fueledOps mode F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
   obtain ⟨m⟩ := checkDecls_sound (V := V) h

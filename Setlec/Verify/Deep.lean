@@ -23,15 +23,17 @@ against the run at depth `d + 1` on `shiftFrom p e` (all `fvar`s at
 indices `≥ p` bumped by one, `p ≤ d` the shift point); the two runs
 step in lock-step, results relating by the shift.  One claim per core
 entry point (`ShiftClaims`), one helper lemma per record-parameterized
-body helper (at the same fuel, against `pureFns env fuel`), one fuel
+body helper (at the same fuel, against `pureFns mode env fuel`), one fuel
 induction at the knot.  Setting `p := d` and shrinking with
 `shiftFrom_eq_self` turns the bisimulation into
-`whnfCore env fuel (d+1) e = whnfCore env fuel d e` for `e` scoped at
+`whnfCore mode env fuel (d+1) e = whnfCore mode env fuel d e` for `e` scoped at
 `d`, and chaining walks any two well-scoped depths
 (`whnfCore_depth_inv` and friends).
 -/
 
 namespace Setlec
+
+variable {mode : CheckMode}
 
 open Expr
 
@@ -331,42 +333,42 @@ private theorem piResidual_shiftFrom {p : Nat} :
 /-! ## The bisimulation claims -/
 
 /-- `whnfCore` commutes with the fvar shift. -/
-def WhnfCoreShift (env : Env) (fuel : Nat) : Prop :=
+def WhnfCoreShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
   ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-    whnfCore env fuel (d + 1) (shiftFrom p e) =
-      (whnfCore env fuel d e).map (shiftFrom p)
+    whnfCore mode env fuel (d + 1) (shiftFrom p e) =
+      (whnfCore mode env fuel d e).map (shiftFrom p)
 
 /-- The `whnf` reduction loop commutes with the fvar shift. -/
-def WhnfShift (env : Env) (fuel : Nat) : Prop :=
+def WhnfShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
   ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-    whnf env fuel (d + 1) (shiftFrom p e) =
-      (whnf env fuel d e).map (shiftFrom p)
+    whnf mode env fuel (d + 1) (shiftFrom p e) =
+      (whnf mode env fuel d e).map (shiftFrom p)
 
 /-- `inferTypeCore` commutes with the fvar shift. -/
-def InferShift (env : Env) (fuel : Nat) : Prop :=
+def InferShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
   ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-    inferTypeCore env fuel (d + 1) (shiftFrom p e) =
-      (inferTypeCore env fuel d e).map (shiftFrom p)
+    inferTypeCore mode env fuel (d + 1) (shiftFrom p e) =
+      (inferTypeCore mode env fuel d e).map (shiftFrom p)
 
 /-- `isDefEqCore` is invariant under the fvar shift. -/
-def DefEqShift (env : Env) (fuel : Nat) : Prop :=
+def DefEqShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
   ∀ {p d : Nat}, p ≤ d → ∀ {a b : Expr}, WScoped d a → WScoped d b →
-    isDefEqCore env fuel (d + 1) (shiftFrom p a) (shiftFrom p b) =
-      isDefEqCore env fuel d a b
+    isDefEqCore mode env fuel (d + 1) (shiftFrom p a) (shiftFrom p b) =
+      isDefEqCore mode env fuel d a b
 
 /-- `annotateCore` commutes with the fvar shift. -/
-def AnnotShift (env : Env) (fuel : Nat) : Prop :=
+def AnnotShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
   ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-    annotateCore env fuel (d + 1) (shiftFrom p e) =
-      (annotateCore env fuel d e).map (shiftFrom p)
+    annotateCore mode env fuel (d + 1) (shiftFrom p e) =
+      (annotateCore mode env fuel d e).map (shiftFrom p)
 
 /-- All entry-point bisimulation claims at one fuel. -/
-structure ShiftClaims (env : Env) (fuel : Nat) : Prop where
-  whnfCore : WhnfCoreShift env fuel
-  whnf : WhnfShift env fuel
-  infer : InferShift env fuel
-  defeq : DefEqShift env fuel
-  annotate : AnnotShift env fuel
+structure ShiftClaims (mode : CheckMode) (env : Env) (fuel : Nat) : Prop where
+  whnfCore : WhnfCoreShift mode env fuel
+  whnf : WhnfShift mode env fuel
+  infer : InferShift mode env fuel
+  defeq : DefEqShift mode env fuel
+  annotate : AnnotShift mode env fuel
 
 /-! ## Helper bodies at the same fuel
 
@@ -380,10 +382,10 @@ section Helpers
 variable {env : Env} {fuel : Nat}
 
 private theorem ensureSort_shift (_henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hw : WScoped d e) :
-    ensureSort (pureFns env fuel) env (d + 1) (shiftFrom p e) =
-      ensureSort (pureFns env fuel) env d e := by
+    ensureSort (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
+      ensureSort (pureFns mode env fuel) env d e := by
   simp only [ensureSort]
   refine bind_congr _ (ih.whnf hpd hw) ?_
   intro w _
@@ -391,10 +393,10 @@ private theorem ensureSort_shift (_henv : EnvWF env)
   case fvar => rw [shiftFrom_fvar]
 
 private theorem reduceNat_shift (_henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hw : WScoped d e) :
-    reduceNat (pureFns env fuel) env (d + 1) (shiftFrom p e) =
-      (reduceNat (pureFns env fuel) env d e).map
+    reduceNat (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
+      (reduceNat (pureFns mode env fuel) env d e).map
         (Option.map (shiftFrom p)) := by
   match e with
   | .bvar _ | .fvar _ _ _ | .sort _ | .lam _ _ _ _ | .forallE _ _ _ _
@@ -500,11 +502,11 @@ private theorem reduceNat_shift (_henv : EnvWF env)
 /-- `reduceNat_shift` under the defeq-side fvar guard: the pruned
 branch is `pure none` on both sides. -/
 private theorem reduceNatIf_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hw : WScoped d e) (g : Bool) :
-    (if g then reduceNat (pureFns env fuel) env (d + 1) (shiftFrom p e)
+    (if g then reduceNat (pureFns mode env fuel) env (d + 1) (shiftFrom p e)
       else pure none) =
-      (if g then reduceNat (pureFns env fuel) env d e
+      (if g then reduceNat (pureFns mode env fuel) env d e
         else (pure none : CheckM (Option Expr))).map
         (Option.map (shiftFrom p)) := by
   cases g
@@ -521,12 +523,12 @@ private theorem reduceNatIf_some {g : Bool} {x : CheckM (Option Expr)}
   · exact h
 
 private theorem iotaCerts_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) :
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) :
     ∀ {args : List Expr} {ty : Expr}, WScoped d ty →
       (∀ x ∈ args, WScoped d x) →
-      iotaCerts (pureFns env fuel) env (d + 1) (shiftFrom p ty)
+      iotaCerts (pureFns mode env fuel) env (d + 1) (shiftFrom p ty)
           (args.map (shiftFrom p)) =
-        iotaCerts (pureFns env fuel) env d ty args := by
+        iotaCerts (pureFns mode env fuel) env d ty args := by
   intro args
   induction args with
   | nil => intro ty _ _; rfl
@@ -540,9 +542,9 @@ private theorem iotaCerts_shift (henv : EnvWF env)
       have hwty' : WScoped d ty' ∧ WScoped d body := by
         simpa only [WScoped] using hwty
       show ((do
-          let ta ← (pureFns env fuel).infer (d + 1) (shiftFrom p arg)
-          if ← (pureFns env fuel).defeq (d + 1) ta (shiftFrom p ty') then
-            iotaCerts (pureFns env fuel) env (d + 1)
+          let ta ← (pureFns mode env fuel).infer (d + 1) (shiftFrom p arg)
+          if ← (pureFns mode env fuel).defeq (d + 1) ta (shiftFrom p ty') then
+            iotaCerts (pureFns mode env fuel) env (d + 1)
               ((shiftFrom p body).instantiate1 (shiftFrom p arg))
               (rest.map (shiftFrom p))
           else pure false : CheckM Bool)) = _
@@ -577,12 +579,12 @@ private theorem etaFabArgs_shift (p : Nat) (T : Name) (ust : List Level)
   rfl
 
 private theorem defEqList_shift (_henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) :
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) :
     ∀ {as bs : List Expr}, (∀ x ∈ as, WScoped d x) →
       (∀ x ∈ bs, WScoped d x) →
-      defEqList (pureFns env fuel) env (d + 1) (as.map (shiftFrom p))
+      defEqList (pureFns mode env fuel) env (d + 1) (as.map (shiftFrom p))
           (bs.map (shiftFrom p)) =
-        defEqList (pureFns env fuel) env d as bs := by
+        defEqList (pureFns mode env fuel) env d as bs := by
   intro as
   induction as with
   | nil =>
@@ -596,9 +598,9 @@ private theorem defEqList_shift (_henv : EnvWF env)
       have hwa : WScoped d a := hwas a (List.mem_cons_self ..)
       have hwb : WScoped d b := hwbs b (List.mem_cons_self ..)
       show ((do
-          if ← (pureFns env fuel).defeq (d + 1) (shiftFrom p a)
+          if ← (pureFns mode env fuel).defeq (d + 1) (shiftFrom p a)
               (shiftFrom p b) then
-            defEqList (pureFns env fuel) env (d + 1)
+            defEqList (pureFns mode env fuel) env (d + 1)
               (as.map (shiftFrom p)) (bs.map (shiftFrom p))
           else pure false : CheckM Bool)) = _
       refine bind_congr_eq (ih.defeq hpd hwa hwb) ?_
@@ -612,10 +614,10 @@ shift: the head constants and levels are shift-fixed, the spine
 lengths are preserved, and the argument comparisons commute
 (`defEqList_shift`). -/
 private theorem defeqSpine_shift (_henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    defeqSpine (pureFns env fuel) env (d + 1) (shiftFrom p a)
-      (shiftFrom p b) = defeqSpine (pureFns env fuel) env d a b := by
+    defeqSpine (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+      (shiftFrom p b) = defeqSpine (pureFns mode env fuel) env d a b := by
   unfold defeqSpine
   rw [getAppFn_shiftFrom]
   cases hfa : a.getAppFn <;> try rfl
@@ -639,11 +641,11 @@ private theorem defeqSpine_shift (_henv : EnvWF env)
     | false => rfl
 
 private theorem proofIrrel_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    proofIrrel (pureFns env fuel) env (d + 1) (shiftFrom p a)
+    proofIrrel (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      proofIrrel (pureFns env fuel) env d a b := by
+      proofIrrel (pureFns mode env fuel) env d a b := by
   simp only [proofIrrel]
   refine bind_congr _ (ih.infer hpd hwa) ?_
   intro ta hta
@@ -680,11 +682,11 @@ private theorem proofIrrel_shift (henv : EnvWF env)
     case fvar => rw [shiftFrom_fvar]
 
 private theorem pairEtaCert_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    pairEtaCert (pureFns env fuel) env (d + 1) (shiftFrom p a)
+    pairEtaCert mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      pairEtaCert (pureFns env fuel) env d a b := by
+      pairEtaCert mode (pureFns mode env fuel) env d a b := by
   cases a <;> try (first | rfl | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
   case app f₁ s₂ =>
   cases f₁ <;> try (first | rfl | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
@@ -765,6 +767,9 @@ private theorem pairEtaCert_shift (henv : EnvWF env)
               simpa only [WScoped] using hwb)) ?_
         intro bb₂ _
         refine ite_congr' (fun _ => ?_) (fun _ => rfl)
+        -- task #147: the certification is mode-gated; the gate is the
+        -- same on both sides
+        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
         -- task #130: the parameter-telescope certification, shift-invariant
         -- by `iotaCerts_shift` at the entry's (closed) stored type
         cases hfp : env.findProj? c' 0 with
@@ -786,12 +791,12 @@ private theorem pairEtaCert_shift (henv : EnvWF env)
           exact hpc
 
 private theorem structEtaProjCerts_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) (T : Name)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (T : Name)
     (us' : List Level) {targs : List Expr} {b : Expr} (lpsT : List Name) :
     ∀ (idxs : List Nat), (∀ x ∈ targs, WScoped d x) → WScoped d b →
-      structEtaProjCerts (pureFns env fuel) env (d + 1) T us'
+      structEtaProjCerts (pureFns mode env fuel) env (d + 1) T us'
           (targs.map (shiftFrom p)) (shiftFrom p b) lpsT idxs =
-        structEtaProjCerts (pureFns env fuel) env d T us' targs b lpsT
+        structEtaProjCerts (pureFns mode env fuel) env d T us' targs b lpsT
           idxs := by
   intro idxs
   induction idxs with
@@ -803,10 +808,10 @@ private theorem structEtaProjCerts_shift (henv : EnvWF env)
         if cvp.levelParams = lpsT ∧
             (cvp.type.stripPis ((targs.map (shiftFrom p)).length + 1)).isSome
               = true then do
-          if ← iotaCerts (pureFns env fuel) env (d + 1)
+          if ← iotaCerts (pureFns mode env fuel) env (d + 1)
               (cvp.type.instantiateLevelParams cvp.levelParams us')
               (targs.map (shiftFrom p) ++ [shiftFrom p b]) then
-            structEtaProjCerts (pureFns env fuel) env (d + 1) T us'
+            structEtaProjCerts (pureFns mode env fuel) env (d + 1) T us'
               (targs.map (shiftFrom p)) (shiftFrom p b) lpsT rest
           else pure false
         else pure false
@@ -815,10 +820,10 @@ private theorem structEtaProjCerts_shift (henv : EnvWF env)
       | some (.recInfo cvp _ _ _) =>
         if cvp.levelParams = lpsT ∧
             (cvp.type.stripPis (targs.length + 1)).isSome = true then do
-          if ← iotaCerts (pureFns env fuel) env d
+          if ← iotaCerts (pureFns mode env fuel) env d
               (cvp.type.instantiateLevelParams cvp.levelParams us')
               (targs ++ [b]) then
-            structEtaProjCerts (pureFns env fuel) env d T us' targs b
+            structEtaProjCerts (pureFns mode env fuel) env d T us' targs b
               lpsT rest
           else pure false
         else pure false
@@ -848,11 +853,11 @@ private theorem structEtaProjCerts_shift (henv : EnvWF env)
       exact ihrest hwtargs hwb
 
 private theorem structEtaCertWith_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {a b wtb : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b wtb : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) (hwwtb : WScoped d wtb) :
-    structEtaCertWith (pureFns env fuel) env (d + 1) (shiftFrom p a)
+    structEtaCertWith mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) (shiftFrom p wtb) =
-      structEtaCertWith (pureFns env fuel) env d a b wtb := by
+      structEtaCertWith mode (pureFns mode env fuel) env d a b wtb := by
   simp only [structEtaCertWith]
   rw [getAppFn_shiftFrom]
   cases hfa : a.getAppFn <;> try rfl
@@ -943,7 +948,12 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
           · exact hwprojs x hx)
       rw [shiftFrom_eq_self_of_not_hasFvar htelc, List.map_append,
         ← hlist] at h4
-      refine bind_congr_eq h4 ?_
+      -- task #147: the certificate is mode-gated; the gate is the same
+      -- on both sides
+      refine bind_congr_eq ?_ ?_
+      · cases htt : mode.ttChecks
+        · rfl
+        · simpa using h4
       intro b₄ _
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
       have h3 := defEqList_shift henv ih hpd (as := a.getAppArgs.drop cnP)
@@ -955,11 +965,11 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
       exact h3
 
 private theorem structEtaCert_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    structEtaCert (pureFns env fuel) env (d + 1) (shiftFrom p a)
+    structEtaCert mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      structEtaCert (pureFns env fuel) env d a b := by
+      structEtaCert mode (pureFns mode env fuel) env d a b := by
   simp only [structEtaCert]
   refine bind_congr _ (ih.infer hpd hwb) ?_
   intro tb htb
@@ -970,11 +980,11 @@ private theorem structEtaCert_shift (henv : EnvWF env)
     (whnf_WScoped henv fuel hwtb' hwtb)
 
 private theorem structUnitCert_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    structUnitCert (pureFns env fuel) env (d + 1) (shiftFrom p a)
+    structUnitCert (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      structUnitCert (pureFns env fuel) env d a b := by
+      structUnitCert (pureFns mode env fuel) env d a b := by
   simp only [structUnitCert]
   refine bind_congr _ (ih.infer hpd hwa) ?_
   intro ta hta
@@ -1015,13 +1025,13 @@ private theorem structUnitCert_shift (henv : EnvWF env)
     exact h
 
 private theorem etaCert_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) (n₁ : Name)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (n₁ : Name)
     {ty₁ body₁ : Expr} (m₁ : BinderMeta) {b : Expr}
     (hwty₁ : WScoped d ty₁) (hwbody₁ : WScoped d body₁)
     (hwb : WScoped d b) :
-    etaCert (pureFns env fuel) env (d + 1) n₁ (shiftFrom p ty₁)
+    etaCert (pureFns mode env fuel) env (d + 1) n₁ (shiftFrom p ty₁)
         (shiftFrom p body₁) m₁ (shiftFrom p b) =
-      etaCert (pureFns env fuel) env d n₁ ty₁ body₁ m₁ b := by
+      etaCert (pureFns mode env fuel) env d n₁ ty₁ body₁ m₁ b := by
   simp only [etaCert]
   refine bind_congr _ (ih.infer hpd hwb) ?_
   intro tb htb
@@ -1049,11 +1059,11 @@ private theorem etaCert_shift (henv : EnvWF env)
       from by rw [shiftFrom_app, shiftFrom_fvar_ge hpd]] at h
 
 private theorem stuckIrrel_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    stuckIrrel (pureFns env fuel) env (d + 1) (shiftFrom p a)
+    stuckIrrel mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      stuckIrrel (pureFns env fuel) env d a b := by
+      stuckIrrel mode (pureFns mode env fuel) env d a b := by
   simp only [stuckIrrel]
   refine bind_congr_eq (pairEtaCert_shift henv ih hpd hwa hwb) ?_
   intro b₁ _
@@ -1073,12 +1083,12 @@ private theorem stuckIrrel_shift (henv : EnvWF env)
   exact proofIrrel_shift henv ih hpd hwa hwb
 
 private theorem projCert_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {e₂ : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e₂ : Expr}
     (hwe₂ : WScoped d e₂) (i : Nat) (fieldLvl structLvl : Level)
     (nP : Nat) :
-    projCert (pureFns env fuel) env (d + 1) (shiftFrom p e₂) i
+    projCert (pureFns mode env fuel) env (d + 1) (shiftFrom p e₂) i
         fieldLvl structLvl nP =
-      projCert (pureFns env fuel) env d e₂ i fieldLvl structLvl nP := by
+      projCert (pureFns mode env fuel) env d e₂ i fieldLvl structLvl nP := by
   simp only [projCert]
   rw [getAppArgs_shiftFrom, getD_map_shiftFrom]
   have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
@@ -1108,12 +1118,12 @@ private theorem projCert_shift (henv : EnvWF env)
   case fvar => rw [shiftFrom_fvar]
 
 private theorem projTeleCert_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) (c : Name)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (c : Name)
     (us : List Level) {args : List Expr}
     (hwargs : ∀ x ∈ args, WScoped d x) :
-    projTeleCert (pureFns env fuel) env (d + 1) c us
+    projTeleCert (pureFns mode env fuel) env (d + 1) c us
         (args.map (shiftFrom p)) =
-      projTeleCert (pureFns env fuel) env d c us args := by
+      projTeleCert (pureFns mode env fuel) env d c us args := by
   simp only [projTeleCert]
   cases hf : env.find? c with
   | none => rfl
@@ -1130,11 +1140,11 @@ private theorem projTeleCert_shift (henv : EnvWF env)
     rwa [shiftFrom_eq_self_of_not_hasFvar htel] at h
 
 private theorem majorToCtor_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
     (rules : List RecRule) {major : Expr} (hwmaj : WScoped d major) :
-    majorToCtor (pureFns env fuel) env (d + 1) recName rules
+    majorToCtor mode (pureFns mode env fuel) env (d + 1) recName rules
         (shiftFrom p major) =
-      (majorToCtor (pureFns env fuel) env d recName rules major).map
+      (majorToCtor mode (pureFns mode env fuel) env d recName rules major).map
         (shiftFrom p) := by
   simp only [majorToCtor]
   rw [isCtorApp_shiftFrom]
@@ -1303,7 +1313,7 @@ subject, exactly as the set model's `iota_sound` does.  Nothing else
 about the lemma changes. -/
 theorem iotaRec_WScoped (henv : EnvWF env)
     {d : Nat} {e e'' : Expr}
-    (h : iotaRec (pureFns env fuel) env d e = .ok (some e''))
+    (h : iotaRec mode (pureFns mode env fuel) env d e = .ok (some e''))
     (hw : WScoped d e) : WScoped d e'' := by
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
     cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hlit, hsub,
@@ -1339,12 +1349,12 @@ theorem iotaRec_WScoped (henv : EnvWF env)
 /-- Shifting commutes with the literal-major conversion (the string
 branch reduces a closed term, invariant under shifting). -/
 private theorem litMajorToCtor_shift (_henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) :
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) :
     ∀ {e : Expr}, WScoped d e →
-    litMajorToCtor (pureFns env fuel) env (d + 1) (shiftFrom p e) =
-      (litMajorToCtor (pureFns env fuel) env d e).map (shiftFrom p)
+    litMajorToCtor (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
+      (litMajorToCtor (pureFns mode env fuel) env d e).map (shiftFrom p)
   | .lit (.strVal s), _ => by
-    show litMajorToCtor (pureFns env fuel) env (d + 1) (.lit (.strVal s)) = _
+    show litMajorToCtor (pureFns mode env fuel) env (d + 1) (.lit (.strVal s)) = _
     simp only [litMajorToCtor]
     split
     · have hres := ih.whnf (p := p) hpd (strLitToConstructor_WScoped s d)
@@ -1372,7 +1382,7 @@ private theorem litMajorToCtor_shift (_henv : EnvWF env)
     show pure (litToCtorIfNat env (.fvar (shiftIdx p idx) n (shiftTy p idx ty))) = _
     rw [show (litToCtorIfNat env (.fvar (shiftIdx p idx) n (shiftTy p idx ty))) =
       .fvar (shiftIdx p idx) n (shiftTy p idx ty) from rfl]
-    rw [show (litMajorToCtor (pureFns env fuel) env d (.fvar idx n ty)) =
+    rw [show (litMajorToCtor (pureFns mode env fuel) env d (.fvar idx n ty)) =
       pure (.fvar idx n ty) from rfl]
     rw [show (Except.map (shiftFrom p) (pure (Expr.fvar idx n ty)) :
         CheckM Expr) = pure (shiftFrom p (.fvar idx n ty)) from rfl]
@@ -1401,12 +1411,12 @@ private theorem litMajorToCtor_shift (_henv : EnvWF env)
 /-- Shifting commutes with the projection-scrutinee literal conversion
 (the string branch reduces a closed term, invariant under shifting). -/
 private theorem projLitToCtor_shift (_henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) :
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) :
     ∀ {e : Expr}, WScoped d e →
-    projLitToCtor (pureFns env fuel) env (d + 1) (shiftFrom p e) =
-      (projLitToCtor (pureFns env fuel) env d e).map (shiftFrom p)
+    projLitToCtor (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
+      (projLitToCtor (pureFns mode env fuel) env d e).map (shiftFrom p)
   | .lit (.strVal s), _ => by
-    show projLitToCtor (pureFns env fuel) env (d + 1) (.lit (.strVal s)) = _
+    show projLitToCtor (pureFns mode env fuel) env (d + 1) (.lit (.strVal s)) = _
     simp only [projLitToCtor]
     split
     · have hres := ih.whnf (p := p) hpd (strLitToConstructor_WScoped s d)
@@ -1420,7 +1430,7 @@ private theorem projLitToCtor_shift (_henv : EnvWF env)
   | .fvar idx n ty, _ => by
     rw [shiftFrom_fvar]
     show pure (Expr.fvar (shiftIdx p idx) n (shiftTy p idx ty)) = _
-    rw [show (projLitToCtor (pureFns env fuel) env d (.fvar idx n ty)) =
+    rw [show (projLitToCtor (pureFns mode env fuel) env d (.fvar idx n ty)) =
       pure (.fvar idx n ty) from rfl]
     rw [show (Except.map (shiftFrom p) (pure (Expr.fvar idx n ty)) :
         CheckM Expr) = pure (shiftFrom p (.fvar idx n ty)) from rfl]
@@ -1432,10 +1442,10 @@ private theorem projLitToCtor_shift (_henv : EnvWF env)
   | .proj sn i pe, _ => rfl
 
 private theorem iotaRec_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hwe : WScoped d e) :
-    iotaRec (pureFns env fuel) env (d + 1) (shiftFrom p e) =
-      (iotaRec (pureFns env fuel) env d e).map
+    iotaRec mode (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
+      (iotaRec mode (pureFns mode env fuel) env d e).map
         (Option.map (shiftFrom p)) := by
   simp only [iotaRec]
   rw [getAppFn_shiftFrom]
@@ -1604,10 +1614,10 @@ private theorem iotaRec_shift (henv : EnvWF env)
             rfl
 
 private theorem isPropType_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {ty : Expr}
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {ty : Expr}
     (hwty : WScoped d ty) :
-    isPropType (pureFns env fuel) env (d + 1) (shiftFrom p ty) =
-      isPropType (pureFns env fuel) env d ty := by
+    isPropType (pureFns mode env fuel) env (d + 1) (shiftFrom p ty) =
+      isPropType (pureFns mode env fuel) env d ty := by
   simp only [isPropType]
   refine bind_congr _ (ih.annotate hpd hwty) ?_
   intro ty' hty'
@@ -1620,12 +1630,12 @@ private theorem isPropType_shift (henv : EnvWF env)
   rfl
 
 private theorem projFieldDom_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d)
     (structProp : Bool) (sn : Name) {e' : Expr} (hwe' : WScoped d e') :
     ∀ (k j : Nat) {tel : Expr}, WScoped d tel →
-      projFieldDom (pureFns env fuel) env (d + 1) structProp sn
+      projFieldDom (pureFns mode env fuel) env (d + 1) structProp sn
           (shiftFrom p e') j k (shiftFrom p tel) =
-        (projFieldDom (pureFns env fuel) env d structProp sn e' j k
+        (projFieldDom (pureFns mode env fuel) env d structProp sn e' j k
           tel).map (shiftFrom p) := by
   intro k
   induction k with
@@ -1659,7 +1669,7 @@ private theorem projFieldDom_shift (henv : EnvWF env)
 private theorem projFieldDom_WScoped {d : Nat} {structProp : Bool}
     {sn : Name} {e' : Expr} (hwe' : WScoped d e') :
     ∀ (k j : Nat) {tel dom : Expr},
-      projFieldDom (pureFns env fuel) env d structProp sn e' j k tel
+      projFieldDom (pureFns mode env fuel) env d structProp sn e' j k tel
         = .ok dom →
       WScoped d tel → WScoped d dom := by
   intro k
@@ -1693,7 +1703,7 @@ private theorem projFieldDom_WScoped {d : Nat} {structProp : Bool}
     · split at h
       · -- Prop-structure guard
         revert h
-        cases hb : isPropType (pureFns env fuel) env d ty with
+        cases hb : isPropType (pureFns mode env fuel) env d ty with
         | error err =>
           intro h
           exact nomatch h
@@ -1743,14 +1753,14 @@ private theorem pisToLams_WScoped {d : Nat} :
         exact ⟨hw'.1, pisToLams_WScoped k hin hw'.2 hwb⟩
 
 private theorem annotateProjRec_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d)
     (entry : ProjEntry)
     (i : Nat) {te e' : Expr} (us : List Level)
     (hwte : WScoped d te) (hwe' : WScoped d e') :
-    annotateProjRec (pureFns env fuel) env (d + 1) entry i
+    annotateProjRec (pureFns mode env fuel) env (d + 1) entry i
         (shiftFrom p te)
         (shiftFrom p e') us =
-      (annotateProjRec (pureFns env fuel) env d entry i te e' us).map
+      (annotateProjRec (pureFns mode env fuel) env d entry i te e' us).map
         (shiftFrom p) := by
   simp only [annotateProjRec]
   split
@@ -1852,11 +1862,11 @@ private theorem annotateProjRec_shift (henv : EnvWF env)
         exact ih.annotate hpd hwraw
 
 private theorem annotateProjElim_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) (sn : Name)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (sn : Name)
     (i : Nat) {te e' : Expr} (hwte : WScoped d te) (hwe' : WScoped d e') :
-    annotateProjElim (pureFns env fuel) env (d + 1) sn i (shiftFrom p te)
+    annotateProjElim (pureFns mode env fuel) env (d + 1) sn i (shiftFrom p te)
         (shiftFrom p e') =
-      (annotateProjElim (pureFns env fuel) env d sn i te e').map
+      (annotateProjElim (pureFns mode env fuel) env d sn i te e').map
         (shiftFrom p) := by
   simp only [annotateProjElim]
   rw [getAppFn_shiftFrom]
@@ -1899,7 +1909,7 @@ private theorem annotateProjElim_shift (henv : EnvWF env)
 /-! ## The body step lemmas -/
 
 private theorem whnfCore_step (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) : WhnfCoreShift env (fuel + 1) := by
+    (ih : ShiftClaims mode env fuel) : WhnfCoreShift mode env (fuel + 1) := by
   intro p d hpd e hw
   rw [whnfCore_succ, whnfCore_succ]
   match e with
@@ -1915,9 +1925,9 @@ private theorem whnfCore_step (henv : EnvWF env)
   | .letE n ty v body =>
     simp only [WScoped] at hw
     rw [shiftFrom_letE]
-    show whnfCoreBody (pureFns env fuel) env (d + 1)
+    show whnfCoreBody mode (pureFns mode env fuel) env (d + 1)
         (.letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
-      (whnfCoreBody (pureFns env fuel) env d (.letE n ty v body)).map
+      (whnfCoreBody mode (pureFns mode env fuel) env d (.letE n ty v body)).map
         (shiftFrom p)
     simp only [whnfCoreBody]
     have h := ih.whnfCore hpd (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
@@ -1930,14 +1940,14 @@ private theorem whnfCore_step (henv : EnvWF env)
     intro f' hf'
     have hwf' : WScoped d f' := whnfCore_WScoped henv fuel hf' hw.1
     have hiota : ∀ (f'' : Expr), WScoped d f'' →
-        (iotaRec (pureFns env fuel) env (d + 1)
+        (iotaRec mode (pureFns mode env fuel) env (d + 1)
             (.app (shiftFrom p f'') (shiftFrom p a)) >>= fun o =>
           match o with
-          | some e'' => (pureFns env fuel).whnfCore (d + 1) e''
+          | some e'' => (pureFns mode env fuel).whnfCore (d + 1) e''
           | none => pure (.app (shiftFrom p f'') (shiftFrom p a))) =
-        ((iotaRec (pureFns env fuel) env d (.app f'' a) >>= fun o =>
+        ((iotaRec mode (pureFns mode env fuel) env d (.app f'' a) >>= fun o =>
           match o with
-          | some e'' => (pureFns env fuel).whnfCore d e''
+          | some e'' => (pureFns mode env fuel).whnfCore d e''
           | none => pure (.app f'' a)).map (shiftFrom p)) := by
       intro f'' hwf''
       have hwapp : WScoped d (Expr.app f'' a) := by
@@ -1976,9 +1986,9 @@ private theorem whnfCore_step (henv : EnvWF env)
     | app f'' a'' => exact hiota _ hwf'
   | .proj sn i pe =>
     simp only [WScoped] at hw
-    show whnfCoreBody (pureFns env fuel) env (d + 1)
+    show whnfCoreBody mode (pureFns mode env fuel) env (d + 1)
         (.proj sn i (shiftFrom p pe)) =
-      (whnfCoreBody (pureFns env fuel) env d (.proj sn i pe)).map
+      (whnfCoreBody mode (pureFns mode env fuel) env d (.proj sn i pe)).map
         (shiftFrom p)
     simp only [whnfCoreBody]
     refine bind_rel _ _ (ih.whnf hpd hw) ?_
@@ -2010,9 +2020,14 @@ private theorem whnfCore_step (henv : EnvWF env)
         entry.numParams) ?_
       intro bb _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-      refine bind_rel_eq _ (projTeleCert_shift henv ih hpd c us₂
-        (args := e₃.getAppArgs)
-        (fun x hx => hwe₃.getAppArgs x hx)) ?_
+      -- task #147: the certification is mode-gated; the gate is the
+      -- same on both sides
+      refine bind_rel_eq _ ?_ ?_
+      · cases htt : mode.ttChecks
+        · rfl
+        · simpa using projTeleCert_shift henv ih hpd c us₂
+            (args := e₃.getAppArgs)
+            (fun x hx => hwe₃.getAppArgs x hx)
       intro bb₂ _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       exact ih.whnfCore hpd hwarg
@@ -2021,10 +2036,10 @@ private theorem whnfCore_step (henv : EnvWF env)
 own step budget (task #106); the per-step head normalization comes
 from the knot hypothesis `ih`. -/
 private theorem whnfLoop_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) :
+    (ih : ShiftClaims mode env fuel) :
     ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-      whnfLoop (pureFns env fuel) env (d + 1) n (shiftFrom p e) =
-        (whnfLoop (pureFns env fuel) env d n e).map (shiftFrom p) := by
+      whnfLoop (pureFns mode env fuel) env (d + 1) n (shiftFrom p e) =
+        (whnfLoop (pureFns mode env fuel) env d n e).map (shiftFrom p) := by
   intro n
   induction n with
   | zero => intro p d hpd e hw; rfl
@@ -2052,13 +2067,13 @@ private theorem whnfLoop_shift (henv : EnvWF env)
       exact ihN hpd (unfoldDefinition_WScoped henv hu hwe₁)
 
 private theorem whnf_step (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) : WhnfShift env (fuel + 1) := by
+    (ih : ShiftClaims mode env fuel) : WhnfShift mode env (fuel + 1) := by
   intro p d hpd e hw
   rw [whnf_succ, whnf_succ]
   exact whnfLoop_shift henv ih whnfLoopFuel hpd hw
 
 private theorem infer_step (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) : InferShift env (fuel + 1) := by
+    (ih : ShiftClaims mode env fuel) : InferShift mode env (fuel + 1) := by
   intro p d hpd e hw
   rw [inferTypeCore_succ, inferTypeCore_succ]
   match e with
@@ -2066,9 +2081,9 @@ private theorem infer_step (henv : EnvWF env)
   | .letE n ty v body =>
     simp only [WScoped] at hw
     rw [shiftFrom_letE]
-    show inferBody (pureFns env fuel) env (d + 1)
+    show inferBody mode (pureFns mode env fuel) env (d + 1)
         (.letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
-      (inferBody (pureFns env fuel) env d (.letE n ty v body)).map
+      (inferBody mode (pureFns mode env fuel) env d (.letE n ty v body)).map
         (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
     refine bind_rel _ _ (ih.infer hpd hw.1) ?_
@@ -2086,14 +2101,14 @@ private theorem infer_step (henv : EnvWF env)
     rwa [shiftFrom_instantiate1_gen] at h
   | .sort u => rfl
   | .lit (.natVal n) =>
-    show inferBody (pureFns env fuel) env (d + 1) (.lit (.natVal n)) =
-      (inferBody (pureFns env fuel) env d (.lit (.natVal n))).map
+    show inferBody mode (pureFns mode env fuel) env (d + 1) (.lit (.natVal n)) =
+      (inferBody mode (pureFns mode env fuel) env d (.lit (.natVal n))).map
         (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .lit (.strVal str) =>
-    show inferBody (pureFns env fuel) env (d + 1) (.lit (.strVal str)) =
-      (inferBody (pureFns env fuel) env d (.lit (.strVal str))).map
+    show inferBody mode (pureFns mode env fuel) env (d + 1) (.lit (.strVal str)) =
+      (inferBody mode (pureFns mode env fuel) env d (.lit (.strVal str))).map
         (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
@@ -2109,8 +2124,8 @@ private theorem infer_step (henv : EnvWF env)
     · simp only [shiftTy, if_neg hp, pure, Except.pure, map_ok]
       rw [shiftFrom_eq_self (fvarsBelow_mono (by omega) hw.2.fvarsBelow)]
   | .const n us =>
-    show inferBody (pureFns env fuel) env (d + 1) (.const n us) =
-      (inferBody (pureFns env fuel) env d (.const n us)).map (shiftFrom p)
+    show inferBody mode (pureFns mode env fuel) env (d + 1) (.const n us) =
+      (inferBody mode (pureFns mode env fuel) env d (.const n us)).map (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
     cases hf : env.find? n with
     | none => rfl
@@ -2125,9 +2140,9 @@ private theorem infer_step (henv : EnvWF env)
         shiftFrom_eq_self_of_not_hasFvar hty]
   | .forallE n ty body mb =>
     simp only [WScoped] at hw
-    show inferBody (pureFns env fuel) env (d + 1)
+    show inferBody mode (pureFns mode env fuel) env (d + 1)
         (.forallE n (shiftFrom p ty) (shiftFrom p body) mb) =
-      (inferBody (pureFns env fuel) env d (.forallE n ty body mb)).map
+      (inferBody mode (pureFns mode env fuel) env d (.forallE n ty body mb)).map
         (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
     refine bind_rel _ _ (ih.infer hpd hw.1) ?_
@@ -2152,9 +2167,9 @@ private theorem infer_step (henv : EnvWF env)
     rfl
   | .lam n ty body mb =>
     simp only [WScoped] at hw
-    show inferBody (pureFns env fuel) env (d + 1)
+    show inferBody mode (pureFns mode env fuel) env (d + 1)
         (.lam n (shiftFrom p ty) (shiftFrom p body) mb) =
-      (inferBody (pureFns env fuel) env d (.lam n ty body mb)).map
+      (inferBody mode (pureFns mode env fuel) env d (.lam n ty body mb)).map
         (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
     refine bind_rel _ _ (ih.infer hpd hw.1) ?_
@@ -2198,9 +2213,9 @@ private theorem infer_step (henv : EnvWF env)
     rfl
   | .proj sn i pe =>
     simp only [WScoped] at hw
-    show inferBody (pureFns env fuel) env (d + 1)
+    show inferBody mode (pureFns mode env fuel) env (d + 1)
         (.proj sn i (shiftFrom p pe)) =
-      (inferBody (pureFns env fuel) env d (.proj sn i pe)).map
+      (inferBody mode (pureFns mode env fuel) env d (.proj sn i pe)).map
         (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
     refine bind_rel _ _ (ih.infer hpd hw) ?_
@@ -2232,7 +2247,9 @@ private theorem infer_step (henv : EnvWF env)
         (WScoped.of_not_hasFvar hclosed) (args := w.getAppArgs)
         (fun x hx => hww'.getAppArgs x hx)
       rw [shiftFrom_eq_self_of_not_hasFvar hclosed] at hpc
-      refine bind_rel_eq _ hpc ?_
+      -- task #147: the certification is mode-gated; the gate is the
+      -- same on both sides
+      refine bind_rel_eq _ (ite_congr' (fun _ => hpc) (fun _ => rfl)) ?_
       intro bb _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       have hres := piResidual_shiftFrom (p := p) (w.getAppArgs ++ [pe])
@@ -2248,12 +2265,12 @@ private theorem infer_step (henv : EnvWF env)
 step budget (task #106); the per-step `whnfCore`, proof irrelevance
 and the structural congruences come from the knot hypothesis `ih`. -/
 private theorem defeqLoop_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) :
+    (ih : ShiftClaims mode env fuel) :
     ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ {a b : Expr},
       WScoped d a → WScoped d b →
-      defeqLoop (pureFns env fuel) env (d + 1) n (shiftFrom p a)
+      defeqLoop mode (pureFns mode env fuel) env (d + 1) n (shiftFrom p a)
           (shiftFrom p b) =
-        defeqLoop (pureFns env fuel) env d n a b := by
+        defeqLoop mode (pureFns mode env fuel) env d n a b := by
   intro n
   induction n with
   | zero => intro p d _ a b _ _; rfl
@@ -2304,10 +2321,10 @@ private theorem defeqLoop_shift (henv : EnvWF env)
   have hunfL : ∀ {x y : Expr}, WScoped d x → WScoped d y →
       (match unfoldDefinition env (shiftFrom p x) with
         | some a₂ =>
-          defeqLoop (pureFns env fuel) env (d + 1) n a₂ (shiftFrom p y)
+          defeqLoop mode (pureFns mode env fuel) env (d + 1) n a₂ (shiftFrom p y)
         | none => pure false) =
       (match unfoldDefinition env x with
-        | some a₂ => defeqLoop (pureFns env fuel) env d n a₂ y
+        | some a₂ => defeqLoop mode (pureFns mode env fuel) env d n a₂ y
         | none => pure false) := by
     intro x y hx hy
     rw [unfoldDefinition_shiftFrom henv]
@@ -2319,10 +2336,10 @@ private theorem defeqLoop_shift (henv : EnvWF env)
   have hunfR : ∀ {x y : Expr}, WScoped d x → WScoped d y →
       (match unfoldDefinition env (shiftFrom p y) with
         | some b₂ =>
-          defeqLoop (pureFns env fuel) env (d + 1) n (shiftFrom p x) b₂
+          defeqLoop mode (pureFns mode env fuel) env (d + 1) n (shiftFrom p x) b₂
         | none => pure false) =
       (match unfoldDefinition env y with
-        | some b₂ => defeqLoop (pureFns env fuel) env d n x b₂
+        | some b₂ => defeqLoop mode (pureFns mode env fuel) env d n x b₂
         | none => pure false) := by
     intro x y hx hy
     rw [unfoldDefinition_shiftFrom henv]
@@ -2334,10 +2351,10 @@ private theorem defeqLoop_shift (henv : EnvWF env)
   have hunfB : ∀ {x y : Expr}, WScoped d x → WScoped d y →
       (match unfoldDefinition env (shiftFrom p x),
           unfoldDefinition env (shiftFrom p y) with
-        | some a₂, some b₂ => defeqLoop (pureFns env fuel) env (d + 1) n a₂ b₂
+        | some a₂, some b₂ => defeqLoop mode (pureFns mode env fuel) env (d + 1) n a₂ b₂
         | _, _ => pure false) =
       (match unfoldDefinition env x, unfoldDefinition env y with
-        | some a₂, some b₂ => defeqLoop (pureFns env fuel) env d n a₂ b₂
+        | some a₂, some b₂ => defeqLoop mode (pureFns mode env fuel) env d n a₂ b₂
         | _, _ => pure false) := by
     intro x y hx hy
     rw [unfoldDefinition_shiftFrom henv, unfoldDefinition_shiftFrom henv]
@@ -2369,8 +2386,8 @@ private theorem defeqLoop_shift (henv : EnvWF env)
   | true => dsimp only; exact hunfR hwwa hwwb
   | false =>
   dsimp only
-  have hstuck : stuckIrrel (pureFns env fuel) env (d + 1) (shiftFrom p wa)
-      (shiftFrom p wb) = stuckIrrel (pureFns env fuel) env d wa wb :=
+  have hstuck : stuckIrrel mode (pureFns mode env fuel) env (d + 1) (shiftFrom p wa)
+      (shiftFrom p wb) = stuckIrrel mode (pureFns mode env fuel) env d wa wb :=
     stuckIrrel_shift henv ih hpd hwwa hwwb
   cases wa <;> cases wb <;>
     try (first
@@ -2652,13 +2669,13 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
 
 private theorem defeq_step (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) : DefEqShift env (fuel + 1) := by
+    (ih : ShiftClaims mode env fuel) : DefEqShift mode env (fuel + 1) := by
   intro p d hpd a b hwa hwb
   rw [isDefEqCore_succ, isDefEqCore_succ]
   exact defeqLoop_shift henv ih defeqLoopFuel hpd hwa hwb
 
 private theorem annotate_step (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) : AnnotShift env (fuel + 1) := by
+    (ih : ShiftClaims mode env fuel) : AnnotShift mode env (fuel + 1) := by
   intro p d hpd e hw
   rw [annotateCore_succ, annotateCore_succ]
   match e with
@@ -2666,17 +2683,17 @@ private theorem annotate_step (henv : EnvWF env)
   | .sort u => rfl
   | .const n us => rfl
   | .lit (.strVal str) =>
-    show annotateBody (pureFns env fuel) env (d + 1) (.lit (.strVal str)) =
-      (annotateBody (pureFns env fuel) env d (.lit (.strVal str))).map
+    show annotateBody (pureFns mode env fuel) env (d + 1) (.lit (.strVal str)) =
+      (annotateBody (pureFns mode env fuel) env d (.lit (.strVal str))).map
         (shiftFrom p)
     simp only [annotateBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .letE n ty v body =>
     simp only [WScoped] at hw
     rw [shiftFrom_letE]
-    show annotateBody (pureFns env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
-      (annotateBody (pureFns env fuel) env d (.letE n ty v body)).map
+      (annotateBody (pureFns mode env fuel) env d (.letE n ty v body)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw.1) ?_
@@ -2700,8 +2717,8 @@ private theorem annotate_step (henv : EnvWF env)
       (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
     rwa [shiftFrom_instantiate1_gen] at hbody
   | .lit (.natVal n) =>
-    show annotateBody (pureFns env fuel) env (d + 1) (.lit (.natVal n)) =
-      (annotateBody (pureFns env fuel) env d (.lit (.natVal n))).map
+    show annotateBody (pureFns mode env fuel) env (d + 1) (.lit (.natVal n)) =
+      (annotateBody (pureFns mode env fuel) env d (.lit (.natVal n))).map
         (shiftFrom p)
     simp only [annotateBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
@@ -2726,9 +2743,9 @@ private theorem annotate_step (henv : EnvWF env)
     rfl
   | .forallE n ty body mb =>
     simp only [WScoped] at hw
-    show annotateBody (pureFns env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.forallE n (shiftFrom p ty) (shiftFrom p body) mb) =
-      (annotateBody (pureFns env fuel) env d (.forallE n ty body mb)).map
+      (annotateBody (pureFns mode env fuel) env d (.forallE n ty body mb)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw.1) ?_
@@ -2744,9 +2761,9 @@ private theorem annotate_step (henv : EnvWF env)
     rfl
   | .lam n ty body mb =>
     simp only [WScoped] at hw
-    show annotateBody (pureFns env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.lam n (shiftFrom p ty) (shiftFrom p body) mb) =
-      (annotateBody (pureFns env fuel) env d (.lam n ty body mb)).map
+      (annotateBody (pureFns mode env fuel) env d (.lam n ty body mb)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw.1) ?_
@@ -2762,9 +2779,9 @@ private theorem annotate_step (henv : EnvWF env)
     rfl
   | .proj sn i pe =>
     simp only [WScoped] at hw
-    show annotateBody (pureFns env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.proj sn i (shiftFrom p pe)) =
-      (annotateBody (pureFns env fuel) env d (.proj sn i pe)).map
+      (annotateBody (pureFns mode env fuel) env d (.proj sn i pe)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw) ?_
@@ -2799,7 +2816,7 @@ end Helpers
 /-- The bisimulation: every core entry point commutes with the fvar
 shift, at every fuel. -/
 theorem shiftClaims {env : Env} (henv : EnvWF env) :
-    ∀ (fuel : Nat), ShiftClaims env fuel := by
+    ∀ (fuel : Nat), ShiftClaims mode env fuel := by
   intro fuel
   induction fuel with
   | zero =>
@@ -2817,33 +2834,33 @@ variable {env : Env}
 
 private theorem whnfCore_depth_succ (henv : EnvWF env) (fuel : Nat)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    whnfCore env fuel (d + 1) e = whnfCore env fuel d e := by
-  have h := (shiftClaims henv fuel).whnfCore (Nat.le_refl d) hw
+    whnfCore mode env fuel (d + 1) e = whnfCore mode env fuel d e := by
+  have h := (shiftClaims (mode := mode) henv fuel).whnfCore (Nat.le_refl d) hw
   rw [shiftFrom_eq_self hw.fvarsBelow] at h
   rw [h]
-  cases hres : whnfCore env fuel d e with
+  cases hres : whnfCore mode env fuel d e with
   | error err => rfl
   | ok r =>
     simp [shiftFrom_eq_self (whnfCore_WScoped henv fuel hres hw).fvarsBelow]
 
 private theorem whnf_depth_succ (henv : EnvWF env) (fuel : Nat)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    whnf env fuel (d + 1) e = whnf env fuel d e := by
-  have h := (shiftClaims henv fuel).whnf (Nat.le_refl d) hw
+    whnf mode env fuel (d + 1) e = whnf mode env fuel d e := by
+  have h := (shiftClaims (mode := mode) henv fuel).whnf (Nat.le_refl d) hw
   rw [shiftFrom_eq_self hw.fvarsBelow] at h
   rw [h]
-  cases hres : whnf env fuel d e with
+  cases hres : whnf mode env fuel d e with
   | error err => rfl
   | ok r =>
     simp [shiftFrom_eq_self (whnf_WScoped henv fuel hres hw).fvarsBelow]
 
 private theorem inferTypeCore_depth_succ (henv : EnvWF env) (fuel : Nat)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    inferTypeCore env fuel (d + 1) e = inferTypeCore env fuel d e := by
-  have h := (shiftClaims henv fuel).infer (Nat.le_refl d) hw
+    inferTypeCore mode env fuel (d + 1) e = inferTypeCore mode env fuel d e := by
+  have h := (shiftClaims (mode := mode) henv fuel).infer (Nat.le_refl d) hw
   rw [shiftFrom_eq_self hw.fvarsBelow] at h
   rw [h]
-  cases hres : inferTypeCore env fuel d e with
+  cases hres : inferTypeCore mode env fuel d e with
   | error err => rfl
   | ok r =>
     simp [shiftFrom_eq_self
@@ -2851,18 +2868,18 @@ private theorem inferTypeCore_depth_succ (henv : EnvWF env) (fuel : Nat)
 
 private theorem isDefEqCore_depth_succ (henv : EnvWF env) (fuel : Nat)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
-    isDefEqCore env fuel (d + 1) a b = isDefEqCore env fuel d a b := by
-  have h := (shiftClaims henv fuel).defeq (Nat.le_refl d) hwa hwb
+    isDefEqCore mode env fuel (d + 1) a b = isDefEqCore mode env fuel d a b := by
+  have h := (shiftClaims (mode := mode) henv fuel).defeq (Nat.le_refl d) hwa hwb
   rwa [shiftFrom_eq_self hwa.fvarsBelow, shiftFrom_eq_self hwb.fvarsBelow]
     at h
 
 private theorem annotateCore_depth_succ (henv : EnvWF env) (fuel : Nat)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    annotateCore env fuel (d + 1) e = annotateCore env fuel d e := by
-  have h := (shiftClaims henv fuel).annotate (Nat.le_refl d) hw
+    annotateCore mode env fuel (d + 1) e = annotateCore mode env fuel d e := by
+  have h := (shiftClaims (mode := mode) henv fuel).annotate (Nat.le_refl d) hw
   rw [shiftFrom_eq_self hw.fvarsBelow] at h
   rw [h]
-  cases hres : annotateCore env fuel d e with
+  cases hres : annotateCore mode env fuel d e with
   | error err => rfl
   | ok r =>
     simp [shiftFrom_eq_self
@@ -2870,7 +2887,7 @@ private theorem annotateCore_depth_succ (henv : EnvWF env) (fuel : Nat)
 
 private theorem whnfCore_depth_le (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {e : Expr} (hw : WScoped d₁ e) :
-    whnfCore env fuel d₂ e = whnfCore env fuel d₁ e := by
+    whnfCore mode env fuel d₂ e = whnfCore mode env fuel d₁ e := by
   obtain ⟨k, rfl⟩ : ∃ k, d₂ = d₁ + k := ⟨d₂ - d₁, by omega⟩
   clear hle
   induction k with
@@ -2881,7 +2898,7 @@ private theorem whnfCore_depth_le (henv : EnvWF env) (fuel : Nat)
 
 private theorem whnf_depth_le (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {e : Expr} (hw : WScoped d₁ e) :
-    whnf env fuel d₂ e = whnf env fuel d₁ e := by
+    whnf mode env fuel d₂ e = whnf mode env fuel d₁ e := by
   obtain ⟨k, rfl⟩ : ∃ k, d₂ = d₁ + k := ⟨d₂ - d₁, by omega⟩
   clear hle
   induction k with
@@ -2892,7 +2909,7 @@ private theorem whnf_depth_le (henv : EnvWF env) (fuel : Nat)
 
 private theorem inferTypeCore_depth_le (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {e : Expr} (hw : WScoped d₁ e) :
-    inferTypeCore env fuel d₂ e = inferTypeCore env fuel d₁ e := by
+    inferTypeCore mode env fuel d₂ e = inferTypeCore mode env fuel d₁ e := by
   obtain ⟨k, rfl⟩ : ∃ k, d₂ = d₁ + k := ⟨d₂ - d₁, by omega⟩
   clear hle
   induction k with
@@ -2904,7 +2921,7 @@ private theorem inferTypeCore_depth_le (henv : EnvWF env) (fuel : Nat)
 private theorem isDefEqCore_depth_le (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {a b : Expr} (hwa : WScoped d₁ a)
     (hwb : WScoped d₁ b) :
-    isDefEqCore env fuel d₂ a b = isDefEqCore env fuel d₁ a b := by
+    isDefEqCore mode env fuel d₂ a b = isDefEqCore mode env fuel d₁ a b := by
   obtain ⟨k, rfl⟩ : ∃ k, d₂ = d₁ + k := ⟨d₂ - d₁, by omega⟩
   clear hle
   induction k with
@@ -2916,7 +2933,7 @@ private theorem isDefEqCore_depth_le (henv : EnvWF env) (fuel : Nat)
 
 private theorem annotateCore_depth_le (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {e : Expr} (hw : WScoped d₁ e) :
-    annotateCore env fuel d₂ e = annotateCore env fuel d₁ e := by
+    annotateCore mode env fuel d₂ e = annotateCore mode env fuel d₁ e := by
   obtain ⟨k, rfl⟩ : ∃ k, d₂ = d₁ + k := ⟨d₂ - d₁, by omega⟩
   clear hle
   induction k with
@@ -2931,7 +2948,7 @@ both depths. -/
 theorem whnfCore_depth_inv (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} {e : Expr} (h₁ : e.wscopedB d₁ = true)
     (h₂ : e.wscopedB d₂ = true) :
-    whnfCore env fuel d₁ e = whnfCore env fuel d₂ e := by
+    whnfCore mode env fuel d₁ e = whnfCore mode env fuel d₂ e := by
   rcases Nat.le_total d₁ d₂ with hle | hle
   · exact (whnfCore_depth_le henv fuel hle (WScoped.of_wscopedB h₁)).symm
   · exact whnfCore_depth_le henv fuel hle (WScoped.of_wscopedB h₂)
@@ -2940,7 +2957,7 @@ theorem whnfCore_depth_inv (henv : EnvWF env) (fuel : Nat)
 theorem whnf_depth_inv (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} {e : Expr} (h₁ : e.wscopedB d₁ = true)
     (h₂ : e.wscopedB d₂ = true) :
-    whnf env fuel d₁ e = whnf env fuel d₂ e := by
+    whnf mode env fuel d₁ e = whnf mode env fuel d₂ e := by
   rcases Nat.le_total d₁ d₂ with hle | hle
   · exact (whnf_depth_le henv fuel hle (WScoped.of_wscopedB h₁)).symm
   · exact whnf_depth_le henv fuel hle (WScoped.of_wscopedB h₂)
@@ -2949,7 +2966,7 @@ theorem whnf_depth_inv (henv : EnvWF env) (fuel : Nat)
 theorem inferTypeCore_depth_inv (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} {e : Expr} (h₁ : e.wscopedB d₁ = true)
     (h₂ : e.wscopedB d₂ = true) :
-    inferTypeCore env fuel d₁ e = inferTypeCore env fuel d₂ e := by
+    inferTypeCore mode env fuel d₁ e = inferTypeCore mode env fuel d₂ e := by
   rcases Nat.le_total d₁ d₂ with hle | hle
   · exact (inferTypeCore_depth_le henv fuel hle
       (WScoped.of_wscopedB h₁)).symm
@@ -2960,7 +2977,7 @@ theorem isDefEqCore_depth_inv (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} {a b : Expr} (ha₁ : a.wscopedB d₁ = true)
     (hb₁ : b.wscopedB d₁ = true) (ha₂ : a.wscopedB d₂ = true)
     (hb₂ : b.wscopedB d₂ = true) :
-    isDefEqCore env fuel d₁ a b = isDefEqCore env fuel d₂ a b := by
+    isDefEqCore mode env fuel d₁ a b = isDefEqCore mode env fuel d₂ a b := by
   rcases Nat.le_total d₁ d₂ with hle | hle
   · exact (isDefEqCore_depth_le henv fuel hle (WScoped.of_wscopedB ha₁)
       (WScoped.of_wscopedB hb₁)).symm
@@ -2971,7 +2988,7 @@ theorem isDefEqCore_depth_inv (henv : EnvWF env) (fuel : Nat)
 theorem annotateCore_depth_inv (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} {e : Expr} (h₁ : e.wscopedB d₁ = true)
     (h₂ : e.wscopedB d₂ = true) :
-    annotateCore env fuel d₁ e = annotateCore env fuel d₂ e := by
+    annotateCore mode env fuel d₁ e = annotateCore mode env fuel d₂ e := by
   rcases Nat.le_total d₁ d₂ with hle | hle
   · exact (annotateCore_depth_le henv fuel hle
       (WScoped.of_wscopedB h₁)).symm
@@ -2982,8 +2999,8 @@ the depth. -/
 theorem ensureSortCore_depth_inv (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} {e : Expr} (h₁ : e.wscopedB d₁ = true)
     (h₂ : e.wscopedB d₂ = true) :
-    ensureSortCore env fuel d₁ e = ensureSortCore env fuel d₂ e := by
-  show (whnf env fuel d₁ e >>= fun w =>
+    ensureSortCore mode env fuel d₁ e = ensureSortCore mode env fuel d₂ e := by
+  show (whnf mode env fuel d₁ e >>= fun w =>
       match w with
       | .sort u => pure u
       | _ => throw (.invalid "expected a sort")) = _

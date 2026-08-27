@@ -10,17 +10,46 @@ namespace SetlecTests
 
 open Setlec
 
+/-! ## Config audit (task #147/#148, vacuity protection)
+
+The mode-relevant compiled constants the verification batteries state
+their theorems at.  A theorem stated "at the default configuration"
+is silently vacuous if a flag it assumes is compiled the other way;
+these guards pin the actual values.  One `#guard` per pinned value,
+each naming the theorem family that depends on it. -/
+
+-- The default mode is `--set-model`: `CheckMode`'s `Inhabited` default
+-- (which Main's `Args.mode := .setModel` and the driver dispatch pin
+-- operationally — tests/arena.sh's mode_case exercises the flag).  The
+-- set-lane consistency theorems (`checkDeclsSP_sound` /
+-- `no_proof_of_Empty*` families) are consumed at this mode by the
+-- #148 bridge.
+#guard (default : CheckMode) == .setModel
+
+-- The seven-check gate wiring (the TT lane's `CertifiedConfigTT`
+-- conjunct `mode = .ttModel` and the set lane's vacuous implications
+-- both read `CheckMode.ttChecks`): on exactly at `.ttModel`.
+#guard CheckMode.ttChecks .setModel == false
+#guard CheckMode.ttChecks .ttModel == true
+#guard CheckMode.ttChecks .noModel == false
+
+-- The direct simple-structure master switch ships ON (task #119/#120;
+-- the TT bridge's `CertifiedConfigTT` premises `directStructsEnabled =
+-- false`, i.e. the bridge reasons about the switched-off
+-- configuration — this guard keeps the shipped value visible).
+#guard directStructsEnabled == true
+
 def dummyAxiom : Declaration :=
   .axiomDecl { name := .str .anonymous "foo", levelParams := [], type := .sort .zero }
 
 -- An arbitrary custom axiom is a positive decline at its own record
 -- (user ruling: only the tolerated whitelist may be declared).
-#guard checkDecl pureOps Env.empty dummyAxiom matches .error (.notImplemented _)
+#guard checkDecl .setModel (pureOps .setModel) Env.empty dummyAxiom matches .error (.notImplemented _)
 
 -- A tolerated axiom (whitelist: exactly sorryAx, task #95) is
 -- well-formedness-checked but not installed — the environment is
 -- unchanged (the frontend declines any later use).
-#guard match checkDecl pureOps Env.empty
+#guard match checkDecl .setModel (pureOps .setModel) Env.empty
     (.axiomDecl { name := .str .anonymous "sorryAx", levelParams := [],
                   type := .sort .zero }) with
   | .ok e => e.consts.isEmpty
@@ -29,19 +58,19 @@ def dummyAxiom : Declaration :=
 -- The compiler-trust family is no longer tolerated: it *installs*
 -- (task #95), so without its pinned prerequisites (the True family)
 -- a trustCompiler record is a positive decline at its own record.
-#guard checkDecl pureOps Env.empty
+#guard checkDecl .setModel (pureOps .setModel) Env.empty
     (.axiomDecl { name := (Name.anonymous.str "Lean").str "trustCompiler",
                   levelParams := [], type := .sort .zero })
   matches .error (.notImplemented _)
 
 -- A garbage axiom record (its type is not a type) still rejects.
-#guard checkDecl pureOps Env.empty
+#guard checkDecl .setModel (pureOps .setModel) Env.empty
     (.axiomDecl { name := .str .anonymous "foo", levelParams := [],
                   type := .bvar 0 })
   matches .error _
 
 -- The empty list of declarations is accepted.
-#guard (checkDecls pureOps []).toBool == true
+#guard (checkDecls .setModel (pureOps .setModel) []).toBool == true
 
 /-! ## Sort-fragment definitions -/
 
@@ -51,47 +80,47 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
     (.regular 0)
 
 -- `def basicDef : Type := Prop` (tutorial test 001)
-#guard (checkDecls pureOps [mkDef "basicDef" [] (.sort (.succ .zero)) (.sort .zero)]).toBool
+#guard (checkDecls .setModel (pureOps .setModel) [mkDef "basicDef" [] (.sort (.succ .zero)) (.sort .zero)]).toBool
 
 -- `def bad : Prop := Type` is rejected (type mismatch).
-#guard checkDecls pureOps [mkDef "bad" [] (.sort .zero) (.sort (.succ .zero))]
+#guard checkDecls .setModel (pureOps .setModel) [mkDef "bad" [] (.sort .zero) (.sort (.succ .zero))]
   matches .error (.invalid _)
 
 -- Duplicate universe parameters are rejected.
-#guard checkDecls pureOps [mkDef "dup" ["u", "u"] (.sort (.succ .zero)) (.sort .zero)]
+#guard checkDecls .setModel (pureOps .setModel) [mkDef "dup" ["u", "u"] (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- Undeclared universe parameter in the type is rejected.
-#guard checkDecls pureOps [mkDef "undecl" [] (.sort (.succ (.param (.str .anonymous "u"))))
+#guard checkDecls .setModel (pureOps .setModel) [mkDef "undecl" [] (.sort (.succ (.param (.str .anonymous "u"))))
     (.sort (.param (.str .anonymous "u")))]
   matches .error (.invalid _)
 
 -- Duplicate declarations are rejected.
-#guard checkDecls pureOps [mkDef "d" [] (.sort (.succ .zero)) (.sort .zero),
+#guard checkDecls .setModel (pureOps .setModel) [mkDef "d" [] (.sort (.succ .zero)) (.sort .zero),
                    mkDef "d" [] (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- `def levelComp4.{u} : Type 0 := Sort (imax u 0)` (tutorial test 018)
-#guard (checkDecls pureOps [mkDef "levelComp4" ["u"] (.sort (.succ .zero))
+#guard (checkDecls .setModel (pureOps .setModel) [mkDef "levelComp4" ["u"] (.sort (.succ .zero))
     (.sort (.imax (.param (.str .anonymous "u")) .zero))]).toBool
 
 /-! ## Dependent function types -/
 
 -- `def arrowType : Type := Prop → Prop` (tutorial test 003)
-#guard (checkDecls pureOps [mkDef "arrowType" [] (.sort (.succ .zero))
+#guard (checkDecls .setModel (pureOps .setModel) [mkDef "arrowType" [] (.sort (.succ .zero))
   (.forallE (.str .anonymous "a") (.sort .zero) (.sort .zero) ⟨.default⟩)]).toBool
 
 -- `def dependentType : Prop := ∀ (p : Prop), p` (tutorial test 004): impredicativity
-#guard (checkDecls pureOps [mkDef "dependentType" [] (.sort .zero)
+#guard (checkDecls .setModel (pureOps .setModel) [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default⟩)]).toBool
 
 -- `∀ (p : Prop), p : Type` is rejected (it is a Prop).
-#guard checkDecls pureOps [mkDef "bad2" [] (.sort (.succ .zero))
+#guard checkDecls .setModel (pureOps .setModel) [mkDef "bad2" [] (.sort (.succ .zero))
     (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default⟩)]
   matches .error (.invalid _)
 
 -- Input expressions containing fvars are rejected.
-#guard checkDecls pureOps [mkDef "sneaky" [] (.sort (.succ .zero))
+#guard checkDecls .setModel (pureOps .setModel) [mkDef "sneaky" [] (.sort (.succ .zero))
     (.fvar 0 (.str .anonymous "x") (.sort (.succ .zero)))]
   matches .error (.invalid _)
 
@@ -102,18 +131,18 @@ private def mkThm (n : String) (type value : Expr) : Declaration :=
 
 -- `theorem t : ∀ (p : Prop), p → p`-shaped: a Prop-typed theorem is accepted
 -- when its (in-fragment) value matches.
-#guard (checkDecls pureOps [mkThm "t"
+#guard (checkDecls .setModel (pureOps .setModel) [mkThm "t"
     (.forallE (.str .anonymous "p") (.sort .zero) (.sort .zero) ⟨.default⟩)
     (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default⟩)])
   matches .error (.invalid _)  -- value `∀ p, p : Prop` vs type `Prop → Prop : Prop`? mismatch
 
 -- A theorem whose type is not a proposition is rejected (tutorial 012).
-#guard checkDecls pureOps [mkThm "bad3" (.sort (.succ .zero)) (.sort .zero)]
+#guard checkDecls .setModel (pureOps .setModel) [mkThm "bad3" (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- A theorem stating an accepted Prop with a matching proof-shaped value:
 -- `theorem t2 : Prop-valued-forall` where value has exactly that type.
-#guard (checkDecls pureOps [mkDef "prp" [] (.sort .zero)
+#guard (checkDecls .setModel (pureOps .setModel) [mkDef "prp" [] (.sort .zero)
     (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default⟩),
   mkThm "t2" (.sort .zero) (.const (.str .anonymous "prp") [])]).toBool == false
   -- (const prp : Prop, but Prop ≠ prp's type Prop... value `prp : Prop`; type `Prop`:
@@ -154,13 +183,13 @@ private def emptyModelAuxName : Name :=
 #guard match Frontend.parseExport basisModelExport with
   | .ok ⟨st, ds, _⟩ =>
     match ds.toList.mapM st.raw.readbackDecl with
-    | some decls => (checkDecls pureOps decls).toBool
+    | some decls => (checkDecls .setModel (pureOps .setModel) decls).toBool
     | none => false
   | .error _ => false
 
 -- … and the parsed-index checker itself accepts them.
 #guard match Frontend.parseExport basisModelExport with
-  | .ok ⟨st, ds, _⟩ => (checkDeclsSP st ds.toList).toBool
+  | .ok ⟨st, ds, _⟩ => (checkDeclsSP .setModel st ds.toList).toBool
   | .error _ => false
 
 /-! ## Frontend: taint skip-and-continue
@@ -210,7 +239,7 @@ private def taintSkipExport : String := String.intercalate "\n" [
 -- … and the parsed-index checker accepts what remains (nothing
 -- tainted can reach install: it is absent from the declarations).
 #guard match Frontend.parseExport taintSkipExport with
-  | .ok ⟨st, ds, _⟩ => (checkDeclsSP st ds.toList).toBool
+  | .ok ⟨st, ds, _⟩ => (checkDeclsSP .setModel st ds.toList).toBool
   | .error _ => false
 
 -- A stream without tolerated-axiom uses records no skips.

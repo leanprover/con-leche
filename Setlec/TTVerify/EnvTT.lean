@@ -410,12 +410,26 @@ def UnitLawTT (env : Env) (cval : TConstVal) (T : Name) (cvT : ConstantVal)
     Deq Δ B B'
 
 /-- **The certified configuration** (one named `Prop`, per protocol):
-the flag assignments under which the bridge's claims hold.  Task #147
-will re-sign this with the mode flag (`ttModel = on`) next to the
-direct-structs switch; consumers take `CertifiedConfigTT` and never
-inline the conjuncts, so that re-signing is a single supplier
-change. -/
-def CertifiedConfigTT : Prop := directStructsEnabled = false
+the flag assignments under which the bridge's claims hold — the
+direct-structs switch off, and (task #147) the three-mode setting at
+`--tt-model`, the mode at which the seven TT-lane checks run.
+Consumers take `CertifiedConfigTT mode` and never inline the
+conjuncts, so a re-signing stays a single supplier change. -/
+def CertifiedConfigTT (mode : CheckMode) : Prop :=
+  directStructsEnabled = false ∧ mode = .ttModel
+
+/-- Extract the direct-structs conjunct. -/
+theorem CertifiedConfigTT.direct {mode : CheckMode}
+    (h : CertifiedConfigTT mode) : directStructsEnabled = false := h.1
+
+/-- Extract the mode conjunct. -/
+theorem CertifiedConfigTT.mode_eq {mode : CheckMode}
+    (h : CertifiedConfigTT mode) : mode = .ttModel := h.2
+
+/-- The seven TT-lane checks are on in the certified configuration. -/
+theorem CertifiedConfigTT.ttChecks {mode : CheckMode}
+    (h : CertifiedConfigTT mode) : mode.ttChecks = true := by
+  rw [h.2]; rfl
 
 /-- The stored inductive families' capability laws.  Transpose of
 `CapsOk`, and **provenance-abstract** for the same reason: the

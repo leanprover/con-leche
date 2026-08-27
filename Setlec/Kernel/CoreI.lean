@@ -958,6 +958,11 @@ def projParamCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (pty : EIdx) (params : List EIdx) : CheckIM Bool :=
   iotaCertsI r fe depth pty params
 
+/- Task #147: functions below that mention `mode` take the
+three-mode setting as their first explicit argument; only the seven
+TT-lane check sites branch on it (`CheckMode.ttChecks`). -/
+variable (mode : CheckMode)
+
 /-- Twin of `pairEtaCert`. -/
 def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     CheckIM Bool := do
@@ -1002,13 +1007,18 @@ def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
                                     -- type's parameters against the
                                     -- projection entry's telescope
                                     -- (twin of `pairEtaCert`'s call).
-                                    match fe.findProj? c'n 0 with
-                                    | some _ => do
-                                      let pf ← projFnIdxM c' 0
-                                      let pty ← constTyAtM fe pf
-                                        (projFnName c'n 0) us'
-                                      projParamCertI r fe depth pty [A, B]
-                                    | none => pure false
+                                    -- TT-lane check (task #147):
+                                    -- skipped unless `mode.ttChecks`.
+                                    if mode.ttChecks then
+                                      match fe.findProj? c'n 0 with
+                                      | some _ => do
+                                        let pf ← projFnIdxM c' 0
+                                        let pty ← constTyAtM fe pf
+                                          (projFnName c'n 0) us'
+                                        projParamCertI r fe depth pty
+                                          [A, B]
+                                      | none => pure false
+                                    else pure true
                                   else pure false
                                 else pure false
                               else pure false
@@ -1097,9 +1107,13 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       -- constructor's own telescope, here rather than at
                       -- the callers, so that BOTH consumers get it —
                       -- `majorToCtorI`'s eta rescue ran it already
-                      -- (task #71), `defeq`'s `structEtaCertI` did not
-                      let tyCtor ← constTyAtM fe c cn us
-                      if ← iotaCertsI r fe depth tyCtor (targs ++ projs) then
+                      -- (task #71), `defeq`'s `structEtaCertI` did not.
+                      -- TT-lane check (task #147): skipped unless
+                      -- `mode.ttChecks`.
+                      if ← (if mode.ttChecks then do
+                          let tyCtor ← constTyAtM fe c cn us
+                          iotaCertsI r fe depth tyCtor (targs ++ projs)
+                        else pure true) then
                         defEqListI r fe depth (aargs.drop cnP) projs
                       else pure false
                     else pure false
@@ -1118,7 +1132,7 @@ def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     CheckIM Bool := do
   let tb ← r.infer depth b
   let wtb ← r.whnf depth tb
-  structEtaCertWithI r fe depth a b wtb
+  structEtaCertWithI mode r fe depth a b wtb
 
 /-- Twin of `structUnitCert`. -/
 def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
@@ -1168,10 +1182,10 @@ def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
 /-- Twin of `stuckIrrel`. -/
 def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     CheckIM Bool := do
-  if ← pairEtaCertI r fe depth a b then pure true
-  else if ← pairEtaCertI r fe depth b a then pure true
-  else if ← structEtaCertI r fe depth a b then pure true
-  else if ← structEtaCertI r fe depth b a then pure true
+  if ← pairEtaCertI mode r fe depth a b then pure true
+  else if ← pairEtaCertI mode r fe depth b a then pure true
+  else if ← structEtaCertI mode r fe depth a b then pure true
+  else if ← structEtaCertI mode r fe depth b a then pure true
   else if ← structUnitCertI r fe depth a b then pure true
   else proofIrrelI r fe depth a b
 
@@ -1258,7 +1272,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     let tyCtor ← constTyAtM fe ctorI rl.ctor ust
                     if ← iotaCertsI r fe depth tyCtor
                         (margs ++ projs) then do
-                      if ← structEtaCertWithI r fe depth fab major
+                      if ← structEtaCertWithI mode r fe depth fab major
                           tmaj then
                         pure fab
                       else if caps.etaFields = 0 ∧
@@ -1325,7 +1339,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
         let bvar0 ← internI (.bvar 0)
         let major₀ ← r.whnf depth (args.getD mI bvar0)
         let major₁ ← litMajorToCtorI r fe depth major₀
-        let major ← majorToCtorI r fe depth cn rules major₁
+        let major ← majorToCtorI mode r fe depth cn rules major₁
         match ← withStore (fun st => st.getNode (st.getAppFnI major)) with
         | some (.const cj usj) => do
           let cjn ← readbackNM cj
@@ -1450,13 +1464,14 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     match ← viewI v with
     | some (.lam _ ty body _mb) => do
         let ta ← r.infer depth a
-        if ← r.defeq depth ta ty then betaPeelI r fe depth k body [a] rest
+        if ← r.defeq depth ta ty then
+          betaPeelI r fe depth k body [a] rest
         else do
           let fa ← internI (.app v a)
           mkAppNM fa rest
     | _ => do
       let fa ← internI (.app v a)
-      match ← iotaRecI r fe depth fa with
+      match ← iotaRecI mode r fe depth fa with
       | some e'' => do
         let v' ← k e''
         whnfAppI r fe depth k v' rest
@@ -1521,7 +1536,7 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let v ← r.whnfCore depth h
-      whnfAppI r fe depth k v args
+      whnfAppI mode r fe depth k v args
     | some (.proj sn i pe) => do
       let e' ← r.whnf depth pe
       let e' ← projLitToCtorI r fe depth e'
@@ -1544,8 +1559,12 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
             if ← projCertI r fe depth e' i fl
                 mx entry.numParams then
-              -- task #126: the constructor-telescope certification
-              if ← projTeleCertI r fe depth c entry.ctor us args then
+              -- task #126: the constructor-telescope certification.
+              -- TT-lane check (task #147): skipped unless
+              -- `mode.ttChecks`.
+              if ← (if mode.ttChecks then
+                  projTeleCertI r fe depth c entry.ctor us args
+                else pure true) then
                 k arg
               else internI (.proj sn i e')
             else internI (.proj sn i e')
@@ -1566,12 +1585,13 @@ budget. -/
 def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → EIdx → CheckIM EIdx
   | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
-  | n + 1, e => whnfCoreStepI r fe depth (whnfCoreLoopI r fe depth n) e
+  | n + 1, e =>
+    whnfCoreStepI mode r fe depth (whnfCoreLoopI r fe depth n) e
 
 /-- Twin of `whnfCoreBody`: the head-normalization loop at its own step
 budget. -/
 def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
-  fun depth e => whnfCoreLoopI r fe depth whnfCoreLoopFuel e
+  fun depth e => whnfCoreLoopI mode r fe depth whnfCoreLoopFuel e
 
 /-- Application-inference spine loop (task #50): walk the raw
 Π-telescope against the arguments with deferred substitution — each
@@ -1819,7 +1839,11 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
             let pty ← constTyAtM fe pf (projFnName Tn i) us
             -- Task #129: certify the type former's parameters against
             -- the entry's own telescope (twin of `projParamCert`).
-            unless ← projParamCertI r fe depth pty targs do
+            -- TT-lane check (task #147): skipped unless
+            -- `mode.ttChecks`.
+            unless ← (if mode.ttChecks then
+                projParamCertI r fe depth pty targs
+              else pure true) do
               throw (.invalid "projection parameter type mismatch")
             match ← piResidualM pty (targs ++ [pe]) with
             | some resTy => pure resTy
@@ -1905,51 +1929,51 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.lit l₁), some (.lit l₂) => pure (l₁ == l₂)
     | some (.lit (.natVal n)), some (.const c us) =>
       if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
-      else stuckIrrelI r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.const c us), some (.lit (.natVal n)) =>
       if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
-      else stuckIrrelI r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.lit (.natVal nn)), some (.app f x) => do
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
         if ← beqNameM c natSuccName then do
           let kl ← internI (.lit (.natVal k))
           r.defeq depth kl x
-        else stuckIrrelI r fe depth a' b'
-      | _, _ => stuckIrrelI r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      | _, _ => stuckIrrelI mode r fe depth a' b'
     | some (.app f x), some (.lit (.natVal nn)) => do
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
         if ← beqNameM c natSuccName then do
           let kl ← internI (.lit (.natVal k))
           r.defeq depth x kl
-        else stuckIrrelI r fe depth a' b'
-      | _, _ => stuckIrrelI r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      | _, _ => stuckIrrelI mode r fe depth a' b'
     | some (.lit (.strVal s)), some (.app fO _x) => do
       match ← viewI fO with
       | some (.const cO usO) =>
         if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
           let sc ← internExprM (strLitToConstructor s)
           r.defeq depth sc b'
-        else stuckIrrelI r fe depth a' b'
-      | _ => stuckIrrelI r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      | _ => stuckIrrelI mode r fe depth a' b'
     | some (.app fO _x), some (.lit (.strVal s)) => do
       match ← viewI fO with
       | some (.const cO usO) =>
         if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
           let sc ← internExprM (strLitToConstructor s)
           r.defeq depth a' sc
-        else stuckIrrelI r fe depth a' b'
-      | _ => stuckIrrelI r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      | _ => stuckIrrelI mode r fe depth a' b'
     | some (.fvar i _ _), some (.fvar j _ _) =>
       if i == j then pure true
-      else stuckIrrelI r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.const n us), some (.const n' us') =>
       if n = n' then do
         if ← liftFueled "level comparison" (← isEquivListLM us us') then
           pure true
-        else stuckIrrelI r fe depth a' b'
-      else stuckIrrelI r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.forallE n₁ ty₁ body₁ _m₁), some (.forallE n₂ ty₂ body₂ _m₂) => do
       -- no binder-annotation comparison; see `defeqBody`
       unless ← r.defeq depth ty₁ ty₂ do return false
@@ -1975,32 +1999,33 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         let h₂ ← withStore (fun st => st.getAppFnI b')
         if ← r.defeq depth h₁ h₂ then do
           if ← defEqListI r fe depth as₁ as₂ then pure true
-          else stuckIrrelI r fe depth a' b'
-        else stuckIrrelI r fe depth a' b'
-      else stuckIrrelI r fe depth a' b'
+          else stuckIrrelI mode r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.proj _s₁ i₁ e₁), some (.proj _s₂ i₂ e₂) => do
       if i₁ == i₂ then do
         if ← r.defeq depth e₁ e₂ then pure true
-        else stuckIrrelI r fe depth a' b'
-      else stuckIrrelI r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.lam n₁ ty₁ body₁ m₁), _ => do
       if ← etaCertI r fe depth n₁ ty₁ body₁ m₁ b' then pure true
-      else stuckIrrelI r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | _, some (.lam n₂ ty₂ body₂ m₂) => do
       if ← etaCertI r fe depth n₂ ty₂ body₂ m₂ a' then pure true
-      else stuckIrrelI r fe depth a' b'
-    | some _, some _ => stuckIrrelI r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
+    | some _, some _ => stuckIrrelI mode r fe depth a' b'
     | _, _ => throw (.internal "interned node missing")
 
 /-- Twin of `defeqLoop`. -/
 def defeqLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → EIdx → EIdx → CheckIM Bool
   | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
-  | fl + 1, a, b => defeqStepI r fe depth (defeqLoopI r fe depth fl) a b
+  | fl + 1, a, b =>
+    defeqStepI mode r fe depth (defeqLoopI r fe depth fl) a b
 
 /-- Twin of `defeqBody`. -/
 def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bool :=
-  fun depth a b => defeqLoopI r fe depth defeqLoopFuel a b
+  fun depth a b => defeqLoopI mode r fe depth defeqLoopFuel a b
 
 /-- Twin of `isPropType`. -/
 def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : EIdx) :
@@ -2305,13 +2330,13 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
   | fuel + 1 =>
     { whnfCore := memoEI (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => whnfCoreBodyI (coreKnotI fe fuel) fe d e)
+        (fun d e => whnfCoreBodyI mode (coreKnotI fe fuel) fe d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (coreKnotI fe fuel) fe d e)
       infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => inferBodyI (coreKnotI fe fuel) fe d e)
+        (fun d e => inferBodyI mode (coreKnotI fe fuel) fe d e)
       defeq := memoBI
-        (fun d a b => defeqBodyI (coreKnotI fe fuel) fe d a b)
+        (fun d a b => defeqBodyI mode (coreKnotI fe fuel) fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
         (fun d e => annotateBodyI (coreKnotI fe fuel) fe d e) }
 
@@ -2329,7 +2354,7 @@ def runEntryE (env : Env)
     (d : Nat) (e : Expr) : CheckM Expr := do
   let fe := mkFEnv env
   let (i, store) := EStore.empty.internExpr e
-  let (j, s) ← (pick (coreKnotI fe checkFuel) d i).run { store := store }
+  let (j, s) ← (pick (coreKnotI mode fe checkFuel) d i).run { store := store }
   match s.store.readbackI j with
   | some v => pure v
   | none => throw (.internal "interned readback failed")
@@ -2339,13 +2364,14 @@ def runEntryB (env : Env) (d : Nat) (a b : Expr) : CheckM Bool := do
   let fe := mkFEnv env
   let (i, store) := EStore.empty.internExpr a
   let (j, store) := store.internExpr b
-  ((coreKnotI fe checkFuel).defeq d i j).run' { store := store }
+  ((coreKnotI mode fe checkFuel).defeq d i j).run' { store := store }
 
 /-- Run the interned sort-ensuring entry on an `Expr`. -/
 def runEntryS (env : Env) (d : Nat) (e : Expr) : CheckM Level := do
   let fe := mkFEnv env
   let (i, store) := EStore.empty.internExpr e
-  let (u, s) ← (ensureSortI (coreKnotI fe checkFuel) d i).run { store := store }
+  let (u, s) ←
+    (ensureSortI (coreKnotI mode fe checkFuel) d i).run { store := store }
   match s.store.readbackL u with
   | some l => pure l
   | none => throw (.internal "interned level readback failed")

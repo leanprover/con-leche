@@ -41,18 +41,24 @@ whole of its denotation obligation.
 
 namespace Setlec.TTVerify
 
+/- Task #147: this file's lemmas are stated at the TT-lane mode — the
+seven gated checks reduce definitionally at `.ttModel`, so the walks
+below see the pre-#147 bodies (`CertifiedConfigTT` pins the running
+mode to this value). -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 /-- A fabricated constructor spine denotes, and carries the frame
 conditions the checker's scope guard checked. -/
 theorem fab_reduct {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel d : Nat} {Δ : List VExpr} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    (ihd : DefEqClaimsTT mode m φ fuel) (ihi : InferClaimsTT mode m φ fuel)
     {cj : Name} {cvj : ConstantVal} {cnP cnF : Nat} {ust : List Level}
     {L : List Expr}
     (hfj : env.find? cj = some (.ctorInfo cvj cnP cnF))
     (hlenU : cvj.levelParams.length = ust.length)
-    (hcerts : iotaCertsP env fuel d
+    (hcerts : iotaCertsP mode env fuel d
       (cvj.type.instantiateLevelParams cvj.levelParams ust)
       L = .ok true)
     (hws : Expr.WScoped d (Expr.mkAppN (.const cj ust) L))
@@ -92,8 +98,8 @@ theorem fab_reduct {env : Env} (m : EnvTT env) (φ : Name → Nat)
 /-- **`MajorToCtorStepTT`, discharged.** -/
 theorem majorToCtor_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
-    (ihi : InferClaimsTT m φ fuel) : MajorToCtorStepTT m φ fuel := by
+    (ihw : WhnfClaimsTT mode m φ fuel) (ihd : DefEqClaimsTT mode m φ fuel)
+    (ihi : InferClaimsTT mode m φ fuel) : MajorToCtorStepTT m φ fuel := by
   intro d Δ c rules e e' v h hws hb hLb hC hv
   rcases majorToCtor_inv h with rfl | ⟨hsc, hbf, hleaf, rl, cvj, cnP, cnF,
     tmaj₀, tmaj, T, us₀, ust, cvT, caps, hrules, hfj, hpr, hfT, hinf,
@@ -156,7 +162,7 @@ discharges it, and the parameter is gone.
 families at every fuel — the whole of stage 2's per-expression half. -/
 
 /-- **`CheckStepTT`, proved.** -/
-theorem checkStepTT : CheckStepTT := by
+theorem checkStepTT : CheckStepTT mode := by
   intro env m φ fuel ihwc ihw ihd ihi
   have hc : ∀ n ψ, VExpr.Closed (m.cval n ψ) := m.cval_closed
   refine ⟨?_, ?_, ?_, ?_⟩
@@ -170,8 +176,8 @@ theorem checkStepTT : CheckStepTT := by
 
 /-- **The four claim families, at every fuel.** -/
 theorem checkClaimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat) :
-    ∀ fuel : Nat, WhnfCoreClaimsTT m φ fuel ∧ WhnfClaimsTT m φ fuel ∧
-      DefEqClaimsTT m φ fuel ∧ InferClaimsTT m φ fuel :=
+    ∀ fuel : Nat, WhnfCoreClaimsTT mode m φ fuel ∧ WhnfClaimsTT mode m φ fuel ∧
+      DefEqClaimsTT mode m φ fuel ∧ InferClaimsTT mode m φ fuel :=
   checkSoundTT checkStepTT m φ
 
 end Setlec.TTVerify

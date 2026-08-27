@@ -21,6 +21,8 @@ set_option linter.unusedVariables false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 /-- Every reachable `fvar` leaf with index `d` is exactly `fvar d n ty`. -/
@@ -134,12 +136,12 @@ the rewrite was, it passed the scope guard and was re-annotated. -/
 theorem annotateProjRec_inv {env : Env} {fuel d : Nat}
     {entry : ProjEntry}
     {i : Nat} {te e₂ e' : Expr} {us : List Level}
-    (h : annotateProjRecP env fuel d entry i te e₂ us = .ok e') :
+    (h : annotateProjRecP mode env fuel d entry i te e₂ us = .ok e') :
     ∃ raw : Expr,
       raw.wscopedB d = true ∧
       raw.looseBVarsBounded 0 = true ∧
       raw.fvarLeaves.all (fun l => e₂.fvarLeaves.contains l) = true ∧
-      annotateCore env fuel d raw = .ok e' := by
+      annotateCore mode env fuel d raw = .ok e' := by
   simp only [annotateProjRecP, annotateProjRec, Bind.bind, Except.bind,
     annotate_def, infer_def] at h
   split at h
@@ -149,13 +151,13 @@ theorem annotateProjRec_inv {env : Env} {fuel d : Nat}
   split at h
   case h_2 => exact nomatch h
   revert h
-  cases hp : isPropType (pureFns env fuel) env d te with
+  cases hp : isPropType (pureFns mode env fuel) env d te with
   | error err => intro h; exact nomatch h
   | ok structProp =>
   intro h
   dsimp only at h
   revert h
-  cases hf : projFieldDom (pureFns env fuel) env d structProp
+  cases hf : projFieldDom (pureFns mode env fuel) env d structProp
       entry.structName e₂ 0 i _ with
   | error err => intro h; exact nomatch h
   | ok fi =>
@@ -164,19 +166,19 @@ theorem annotateProjRec_inv {env : Env} {fuel d : Nat}
   split at h
   case h_2 => exact nomatch h
   revert h
-  cases ha : annotateCore env fuel d fi with
+  cases ha : annotateCore mode env fuel d fi with
   | error err => intro h; exact nomatch h
   | ok fi' =>
   intro h
   dsimp only at h
   revert h
-  cases hi : inferTypeCore env fuel d fi' with
+  cases hi : inferTypeCore mode env fuel d fi' with
   | error err => intro h; exact nomatch h
   | ok tfi =>
   intro h
   dsimp only at h
   revert h
-  cases hs : ensureSort (pureFns env fuel) env d tfi with
+  cases hs : ensureSort (pureFns mode env fuel) env d tfi with
   | error err => intro h; exact nomatch h
   | ok sfi =>
   intro h
@@ -247,12 +249,12 @@ was chosen (installed projection function or inlined recursor), it
 passed the scope guard and was re-annotated. -/
 theorem annotateProjElim_inv {env : Env} {fuel d : Nat} {sn : Name}
     {i : Nat} {te e₂ e' : Expr}
-    (h : annotateProjElimP env fuel d sn i te e₂ = .ok e') :
+    (h : annotateProjElimP mode env fuel d sn i te e₂ = .ok e') :
     ∃ raw : Expr,
       raw.wscopedB d = true ∧
       raw.looseBVarsBounded 0 = true ∧
       raw.fvarLeaves.all (fun l => e₂.fvarLeaves.contains l) = true ∧
-      annotateCore env fuel d raw = .ok e' := by
+      annotateCore mode env fuel d raw = .ok e' := by
   simp only [annotateProjElimP, annotateProjElim] at h
   revert h
   match hfn : te.getAppFn with
@@ -313,28 +315,28 @@ name normalized to the type's head), or the projection was rewritten
 through the elimination dispatch. -/
 theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     {i : Nat} {e e' : Expr}
-    (h : annotateCore env (fuel + 1) d (.proj sn i e) = .ok e') :
-    ∃ e₂ tt te, annotateCore env fuel d e = .ok e₂ ∧
-      inferTypeCore env fuel d e₂ = .ok tt ∧ whnf env fuel d tt = .ok te ∧
+    (h : annotateCore mode env (fuel + 1) d (.proj sn i e) = .ok e') :
+    ∃ e₂ tt te, annotateCore mode env fuel d e = .ok e₂ ∧
+      inferTypeCore mode env fuel d e₂ = .ok tt ∧ whnf mode env fuel d tt = .ok te ∧
       ((∃ T us entry, te.getAppFn = .const T us ∧
           env.findProj? T i = some entry ∧ entry.native = true ∧
           te.getAppArgs.length = entry.numParams ∧
           e' = .proj T i e₂) ∨
-        annotateProjElimP env fuel d sn i te e₂ = .ok e') := by
+        annotateProjElimP mode env fuel d sn i te e₂ = .ok e') := by
   rw [annotateCore_succ] at h
   simp only [annotateBody, Bind.bind, Except.bind] at h
   simp only [annotate_def, infer_def, whnf_def, annotateProjElim_fold] at h
-  cases he : annotateCore env fuel d e with
+  cases he : annotateCore mode env fuel d e with
   | error err => rw [he] at h; exact nomatch h
   | ok e₂ =>
   rw [he] at h
   dsimp only at h
-  cases hte : inferTypeCore env fuel d e₂ with
+  cases hte : inferTypeCore mode env fuel d e₂ with
   | error err => rw [hte] at h; exact nomatch h
   | ok tt =>
   rw [hte] at h
   dsimp only at h
-  cases hw : whnf env fuel d tt with
+  cases hw : whnf mode env fuel d tt with
   | error err => rw [hw] at h; exact nomatch h
   | ok te =>
   rw [hw] at h
@@ -374,18 +376,18 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
 /-- Inversion for `annotate` on applications: the two annotated subterms
 are reassembled, and the application-rule check ran successfully. -/
 theorem annotateCore_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
-    (h : annotateCore env (fuel + 1) d (.app f a) = .ok e') :
-    ∃ f' a', annotateCore env fuel d f = .ok f' ∧
-      annotateCore env fuel d a = .ok a' ∧
+    (h : annotateCore mode env (fuel + 1) d (.app f a) = .ok e') :
+    ∃ f' a', annotateCore mode env fuel d f = .ok f' ∧
+      annotateCore mode env fuel d a = .ok a' ∧
       e' = .app f' a' := by
   rw [annotateCore_succ] at h
   simp only [annotateBody, Bind.bind, Except.bind] at h
   simp only [annotate_def] at h
-  cases hf : annotateCore env fuel d f with
+  cases hf : annotateCore mode env fuel d f with
   | error e => rw [hf] at h; exact nomatch h
   | ok f' =>
   rw [hf] at h; dsimp only at h
-  cases ha : annotateCore env fuel d a with
+  cases ha : annotateCore mode env fuel d a with
   | error e => rw [ha] at h; exact nomatch h
   | ok a' =>
   rw [ha] at h
@@ -397,39 +399,39 @@ checked to be a type, the value against the annotation, and the body is
 annotated with the value transparent (as its zeta reduct). -/
 theorem annotateCore_letE_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty v b e' : Expr}
-    (h : annotateCore env (fuel + 1) d (.letE n ty v b) = .ok e') :
-    ∃ ty' v', annotateCore env fuel d ty = .ok ty' ∧
-      annotateCore env fuel d v = .ok v' ∧
-      annotateCore env fuel d (b.instantiate1 v) = .ok e' ∧
+    (h : annotateCore mode env (fuel + 1) d (.letE n ty v b) = .ok e') :
+    ∃ ty' v', annotateCore mode env fuel d ty = .ok ty' ∧
+      annotateCore mode env fuel d v = .ok v' ∧
+      annotateCore mode env fuel d (b.instantiate1 v) = .ok e' ∧
       ∃ tty u tv,
-        inferTypeCore env fuel d ty' = .ok tty ∧
-        ensureSortCore env fuel d tty = .ok u ∧
-        inferTypeCore env fuel d v' = .ok tv ∧
-        isDefEqCore env fuel d tv ty' = .ok true := by
+        inferTypeCore mode env fuel d ty' = .ok tty ∧
+        ensureSortCore mode env fuel d tty = .ok u ∧
+        inferTypeCore mode env fuel d v' = .ok tv ∧
+        isDefEqCore mode env fuel d tv ty' = .ok true := by
   rw [annotateCore_succ] at h
   simp only [annotateBody, Bind.bind, Except.bind] at h
   simp only [annotate_def, infer_def, defeq_def, ensureSort_def] at h
-  cases hty : annotateCore env fuel d ty with
+  cases hty : annotateCore mode env fuel d ty with
   | error e => rw [hty] at h; exact nomatch h
   | ok ty' =>
   rw [hty] at h; dsimp only at h
-  cases hit : inferTypeCore env fuel d ty' with
+  cases hit : inferTypeCore mode env fuel d ty' with
   | error e => rw [hit] at h; exact nomatch h
   | ok tty =>
   rw [hit] at h; dsimp only at h
-  cases hes : ensureSortCore env fuel d tty with
+  cases hes : ensureSortCore mode env fuel d tty with
   | error e => rw [hes] at h; exact nomatch h
   | ok u =>
   rw [hes] at h; dsimp only at h
-  cases hv : annotateCore env fuel d v with
+  cases hv : annotateCore mode env fuel d v with
   | error e => rw [hv] at h; exact nomatch h
   | ok v' =>
   rw [hv] at h; dsimp only at h
-  cases hiv : inferTypeCore env fuel d v' with
+  cases hiv : inferTypeCore mode env fuel d v' with
   | error e => rw [hiv] at h; exact nomatch h
   | ok tv =>
   rw [hiv] at h; dsimp only at h
-  cases hde : isDefEqCore env fuel d tv ty' with
+  cases hde : isDefEqCore mode env fuel d tv ty' with
   | error e => rw [hde] at h; exact nomatch h
   | ok bl =>
   rw [hde] at h; dsimp only at h
@@ -443,7 +445,7 @@ theorem annotateCore_letE_inv {env : Env} {fuel d : Nat} {n : Name}
 
 theorem annotateCore_WScoped {env : Env} :
     ∀ (fuel : Nat) (e : Expr) {d : Nat} {e' : Expr},
-      annotateCore env fuel d e = .ok e' → WScoped d e → WScoped d e'
+      annotateCore mode env fuel d e = .ok e' → WScoped d e → WScoped d e'
   | 0, _, _, _, h, _ => by simp [annotateCore_zero, throw, throwThe,
       MonadExceptOf.throw] at h
   | fuel + 1, .bvar i, d, e', h, hw => by
@@ -513,12 +515,12 @@ theorem annotateCore_WScoped {env : Env} :
     rw [annotateCore_succ] at h
     simp only [annotateBody, Bind.bind, Except.bind] at h
     simp only [annotate_def] at h
-    cases hty : annotateCore env fuel d ty with
+    cases hty : annotateCore mode env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
     rw [hty] at h; dsimp only at h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
-    cases hbody : annotateCore env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
+    cases hbody : annotateCore mode env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h
@@ -533,12 +535,12 @@ theorem annotateCore_WScoped {env : Env} :
     rw [annotateCore_succ] at h
     simp only [annotateBody, Bind.bind, Except.bind] at h
     simp only [annotate_def] at h
-    cases hty : annotateCore env fuel d ty with
+    cases hty : annotateCore mode env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
     rw [hty] at h; dsimp only at h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
-    cases hbody : annotateCore env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
+    cases hbody : annotateCore mode env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h
@@ -556,7 +558,7 @@ theorem annotateCore_WScoped {env : Env} :
 
 theorem annotateCore_looseBVars {env : Env} :
     ∀ (fuel : Nat) (e : Expr) {d : Nat} {e' : Expr},
-      annotateCore env fuel d e = .ok e' → e.looseBVarsBounded 0 = true →
+      annotateCore mode env fuel d e = .ok e' → e.looseBVarsBounded 0 = true →
       e'.looseBVarsBounded 0 = true
   | 0, _, _, _, h, _ => by simp [annotateCore_zero, throw, throwThe,
       MonadExceptOf.throw] at h
@@ -627,11 +629,11 @@ theorem annotateCore_looseBVars {env : Env} :
     rw [annotateCore_succ] at h
     simp only [annotateBody, Bind.bind, Except.bind] at h
     simp only [annotate_def] at h
-    cases hty : annotateCore env fuel d ty with
+    cases hty : annotateCore mode env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
     rw [hty] at h; dsimp only at h
-    cases hbody : annotateCore env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
+    cases hbody : annotateCore mode env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h
@@ -646,11 +648,11 @@ theorem annotateCore_looseBVars {env : Env} :
     rw [annotateCore_succ] at h
     simp only [annotateBody, Bind.bind, Except.bind] at h
     simp only [annotate_def] at h
-    cases hty : annotateCore env fuel d ty with
+    cases hty : annotateCore mode env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
     rw [hty] at h; dsimp only at h
-    cases hbody : annotateCore env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
+    cases hbody : annotateCore mode env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h

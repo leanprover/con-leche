@@ -29,6 +29,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {cval : ConstVal V} {env : Env}
   {φ : Name → Nat}
 
@@ -50,7 +52,7 @@ theorem pi_walk {env : Env} (m : EnvModel V env) (F : Nat)
       {dsR : List Expr} {restS restR : Expr},
       Expr.instPisAt spine tyS = some (spine.map Expr.fvarTypeD, restS) →
       Expr.instPisAt spine tyR = some (dsR, restR) →
-      DefEqListOk F env D (spine.map Expr.fvarTypeD) dsR →
+      DefEqListOk mode F env D (spine.map Expr.fvarTypeD) dsR →
       FvarSpine D ρ spine vs →
       (∀ a ∈ spine, WScoped D a) →
       WScoped D tyS → tyS.looseBVarsBounded 0 = true →
@@ -99,10 +101,10 @@ theorem pi_walk {env : Env} (m : EnvModel V env) (F : Nat)
     subst domS
     subst hdsRc
     -- the defeq fact at this binder
-    have hde0 : isDefEqCore env F D tfv domR = .ok true := by
+    have hde0 : isDefEqCore mode env F D tfv domR = .ok true := by
       rw [List.map_cons] at hde
       exact hde.1
-    have hde' : DefEqListOk F env D (spine'.map Expr.fvarTypeD) dsR' := by
+    have hde' : DefEqListOk mode F env D (spine'.map Expr.fvarTypeD) dsR' := by
       rw [List.map_cons] at hde
       exact hde.2
     -- structural facts
@@ -238,7 +240,7 @@ theorem pi_walk_src {env : Env} (m : EnvModel V env) (F : Nat)
     ∀ {spine : List Expr} {vs : List V} {tyR : Expr}
       {dsR : List Expr} {restR : Expr},
       Expr.instPisAt spine tyR = some (dsR, restR) →
-      DefEqListOk F env D (spine.map Expr.fvarTypeD) dsR →
+      DefEqListOk mode F env D (spine.map Expr.fvarTypeD) dsR →
       FvarSpine D ρ spine vs →
       (∀ a ∈ spine, WScoped D a) →
       (∀ a ∈ spine, Expr.LeavesBounded a) →
@@ -271,10 +273,10 @@ theorem pi_walk_src {env : Env} (m : EnvModel V env) (F : Nat)
       instPisAt_cons_inv hopR
     subst hdsRc
     -- the defeq fact at this binder
-    have hde0 : isDefEqCore env F D tfv domR = .ok true := by
+    have hde0 : isDefEqCore mode env F D tfv domR = .ok true := by
       rw [List.map_cons] at hde
       exact hde.1
-    have hde' : DefEqListOk F env D (spine'.map Expr.fvarTypeD) dsR' := by
+    have hde' : DefEqListOk mode F env D (spine'.map Expr.fvarTypeD) dsR' := by
       rw [List.map_cons] at hde
       exact hde.2
     -- the spine head's annotation facts
@@ -384,7 +386,7 @@ theorem typed_walk {env : Env} (m : EnvModel V env) (F : Nat)
     {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
     ∀ {args : List Expr} {tyR : Expr} {dsR : List Expr} {restR : Expr},
       Expr.instPisAt args tyR = some (dsR, restR) →
-      TypedListOk F env D args dsR →
+      TypedListOk mode F env D args dsR →
       (∀ a ∈ args, WScoped D a ∧ a.looseBVarsBounded 0 = true ∧
         Expr.LeavesBounded a ∧ FvarsOk V m.val env φ D ρ a ∧
         AnnotOk V m.val env φ D ρ a) →
@@ -744,7 +746,7 @@ theorem lam_walk {env : Env} (m : EnvModel V env) (F : Nat)
     ∀ {spine : List Expr} {vs : List V} {tyL : Expr} {dsL : List Expr}
       {restL : Expr},
       Expr.instLamsAt spine tyL = some (dsL, restL) →
-      DefEqListOk F env D (spine.map Expr.fvarTypeD) dsL →
+      DefEqListOk mode F env D (spine.map Expr.fvarTypeD) dsL →
       FvarSpine D ρ spine vs →
       (∀ a ∈ spine, WScoped D a) →
       (∀ a ∈ spine, FvarsOk V m.val env φ D ρ a) →
@@ -821,7 +823,7 @@ theorem lam_walk {env : Env} (m : EnvModel V env) (F : Nat)
       | some A => intro _; exact ⟨A, rfl⟩
     obtain ⟨A, hAi⟩ := hIdom
     -- the defeq identifies the λ-domain with the annotation
-    have hde0 : isDefEqCore env F D tfv dom = .ok true := by
+    have hde0 : isDefEqCore mode env F D tfv dom = .ok true := by
       rw [List.map_cons] at hde
       exact hde.1
     have hTA : T = A :=

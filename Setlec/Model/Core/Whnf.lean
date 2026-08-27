@@ -13,6 +13,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
@@ -24,28 +26,28 @@ inner facts back to the claims' fuel). -/
 
 private theorem whnf_forallE_eq {env : Env} {fuel d : Nat} {n : Name}
     {t b e' : Expr} {mb : BinderMeta}
-    (h : whnf env fuel d (.forallE n t b mb) = .ok e') :
+    (h : whnf mode env fuel d (.forallE n t b mb) = .ok e') :
     e' = .forallE n t b mb := by
   have h1 := whnf_mono (Nat.le_add_right fuel 2) h
-  have h2 : whnf env (fuel + 2) d (.forallE n t b mb) =
+  have h2 : whnf mode env (fuel + 2) d (.forallE n t b mb) =
       .ok (.forallE n t b mb) := by
     -- one iteration of the reduction loop suffices (task #106: the
     -- budget is `irreducible`, so peel it with its positivity witness)
     obtain ⟨k, hk⟩ := whnfLoopFuel_succ
     rw [whnf_succ]
-    show whnfLoop (pureFns env (fuel + 1)) env d whnfLoopFuel _ = _
+    show whnfLoop (pureFns mode env (fuel + 1)) env d whnfLoopFuel _ = _
     rw [hk]
     rfl
   rw [h1] at h2
   exact Except.ok.inj h2
 
 private theorem inferTypeCore_app_inv' {env : Env} {fuel d : Nat}
-    {f a t : Expr} (h : inferTypeCore env fuel d (.app f a) = .ok t) :
-    ∃ tf n' ty' body' m', inferTypeCore env fuel d f = .ok tf ∧
-      whnf env fuel d tf = .ok (.forallE n' ty' body' m') ∧
+    {f a t : Expr} (h : inferTypeCore mode env fuel d (.app f a) = .ok t) :
+    ∃ tf n' ty' body' m', inferTypeCore mode env fuel d f = .ok tf ∧
+      whnf mode env fuel d tf = .ok (.forallE n' ty' body' m') ∧
       t = body'.instantiate1 a ∧
-      ∃ ta, inferTypeCore env fuel d a = .ok ta ∧
-        isDefEqCore env fuel d ta ty' = .ok true := by
+      ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
+        isDefEqCore mode env fuel d ta ty' = .ok true := by
   match fuel, h with
   | 0, h => rw [inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
@@ -58,7 +60,7 @@ private theorem inferTypeCore_app_inv' {env : Env} {fuel d : Nat}
 
 private theorem inferTypeCore_const_inv {env : Env} {fuel d : Nat}
     {n : Name} {us : List Level} {t : Expr}
-    (h : inferTypeCore env fuel d (.const n us) = .ok t) :
+    (h : inferTypeCore mode env fuel d (.const n us) = .ok t) :
     ∃ ci, env.find? n = some ci ∧
       t = ci.toConstantVal.type.instantiateLevelParams
         ci.toConstantVal.levelParams us := by
@@ -87,16 +89,16 @@ private theorem inferTypeCore_const_inv {env : Env} {fuel d : Nat}
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}
-variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-  (ihi : InferClaims m φ fuel)
+variable (ihw : WhnfClaims mode m φ fuel) (ihd : DefEqClaims mode m φ fuel)
+  (ihi : InferClaims mode m φ fuel)
 
 set_option maxHeartbeats 1600000 in
 /-- Head normalization (no delta) preserves the interpretation and
 annotation truthfulness. -/
 theorem whnfCore_claims (m : EnvModel V env)
-    (ihwc : WhnfCoreClaims m φ fuel) (ihw : WhnfClaims m φ fuel)
-    (ihd : DefEqClaims m φ fuel) (ihi : InferClaims m φ fuel) :
-    WhnfCoreClaims m φ (fuel + 1) := by
+    (ihwc : WhnfCoreClaims mode m φ fuel) (ihw : WhnfClaims mode m φ fuel)
+    (ihd : DefEqClaims mode m φ fuel) (ihi : InferClaims mode m φ fuel) :
+    WhnfCoreClaims mode m φ (fuel + 1) := by
   intro d e e' ρ h hw hb hLb hok ha
   cases e with
   | sort u =>
@@ -808,15 +810,15 @@ theorem whnfCore_claims (m : EnvModel V env)
 `Nat.succ` folding, the unary `pred` fast path, or a binary fast
 path. -/
 theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
-    (h : reduceNatP env fuel d e = .ok (some e₂)) :
+    (h : reduceNatP mode env fuel d e = .ok (some e₂)) :
     (∃ a a' n, e = .app (.const natSuccName []) a ∧
       natLitSupported env = true ∧
-      whnf env fuel d a = .ok a' ∧ rawNatLit? a' = some n ∧
+      whnf mode env fuel d a = .ok a' ∧ rawNatLit? a' = some n ∧
       e₂ = .lit (.natVal (n + 1))) ∨
     (∃ c a a' n, e = .app (.const c []) a ∧
       (c = natPredName ∨ c = natLog2Name) ∧
       natOpGuard env c = true ∧
-      whnf env fuel d a = .ok a' ∧ rawNatLit? a' = some n ∧
+      whnf mode env fuel d a = .ok a' ∧ rawNatLit? a' = some n ∧
       natOpResult c n 0 = some e₂) ∨
     (∃ c a b a' b' n₁ n₂, e = .app (.app (.const c []) a) b ∧
       (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
@@ -825,8 +827,8 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
        c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
        c = natShiftLeftName ∨ c = natShiftRightName) ∧
       natOpGuard env c = true ∧
-      whnf env fuel d a = .ok a' ∧ rawNatLit? a' = some n₁ ∧
-      whnf env fuel d b = .ok b' ∧ rawNatLit? b' = some n₂ ∧
+      whnf mode env fuel d a = .ok a' ∧ rawNatLit? a' = some n₁ ∧
+      whnf mode env fuel d b = .ok b' ∧ rawNatLit? b' = some n₂ ∧
       natOpResult c n₁ n₂ = some e₂) := by
   dsimp only [reduceNatP] at h
   revert h
@@ -857,7 +859,7 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
     split
     case isTrue hg =>
       obtain ⟨rfl, hs⟩ := hg
-      cases hwa : whnf env fuel d a with
+      cases hwa : whnf mode env fuel d a with
       | error err => intro h; exact nomatch h
       | ok a' =>
       intro h
@@ -874,7 +876,7 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
       split
       case isTrue hg =>
         obtain ⟨rfl, hguard⟩ := hg
-        cases hwa : whnf env fuel d a with
+        cases hwa : whnf mode env fuel d a with
         | error err => intro h; exact nomatch h
         | ok a' =>
         intro h
@@ -898,7 +900,7 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
         case isTrue hg =>
           -- the certified `log2` branch
           obtain ⟨rfl, hguard⟩ := hg
-          cases hwa : whnf env fuel d a with
+          cases hwa : whnf mode env fuel d a with
           | error err => intro h; exact nomatch h
           | ok a' =>
           intro h
@@ -922,7 +924,7 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
           split
           · intro h
             revert h
-            cases hw : whnf env fuel d a with
+            cases hw : whnf mode env fuel d a with
             | error err => intro h; exact nomatch h
             | ok a' =>
             intro h
@@ -939,13 +941,13 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
     split
     case isTrue hg =>
       obtain ⟨hor, hguard⟩ := hg
-      cases hwa : whnf env fuel d a with
+      cases hwa : whnf mode env fuel d a with
       | error err => intro h; exact nomatch h
       | ok a' =>
       intro h
       dsimp only at h
       revert h
-      cases hwb : whnf env fuel d b with
+      cases hwb : whnf mode env fuel d b with
       | error err => intro h; exact nomatch h
       | ok b' =>
       intro h
@@ -971,13 +973,13 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
       split
       · intro h
         revert h
-        cases hw1 : whnf env fuel d a with
+        cases hw1 : whnf mode env fuel d a with
         | error err => intro h; exact nomatch h
         | ok a' =>
         intro h
         dsimp only at h
         revert h
-        cases hw2 : whnf env fuel d b with
+        cases hw2 : whnf mode env fuel d b with
         | error err => intro h; exact nomatch h
         | ok b' =>
         intro h
@@ -996,8 +998,8 @@ claims on the arguments and the meta-level literal inductions over the
 stored recurrences (`EnvModel.nat_ops`) — and every invariant is
 trivially re-established (the result is a closed atom). -/
 theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
-    {ρ : Nat → V} (ihw : WhnfClaims m φ fuel)
-    (h : reduceNatP env fuel d e = .ok (some e₂))
+    {ρ : Nat → V} (ihw : WhnfClaims mode m φ fuel)
+    (h : reduceNatP mode env fuel d e = .ok (some e₂))
     (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e) (hok : FvarsOk V m.val env φ d ρ e)
     (ha : AnnotOk V m.val env φ d ρ e) :
@@ -1457,14 +1459,14 @@ theorem unfoldDefinition_sound (m : EnvModel V env) {d : Nat}
 truthfulness: a `whnfCore` step, then literal acceleration or one
 delta unfolding, then the loop again. -/
 theorem whnfLoop_claims (m : EnvModel V env)
-    (ihwc : WhnfCoreClaims m φ fuel) (ihw : WhnfClaims m φ fuel) :
-    WhnfClaims m φ (fuel + 1) := by
+    (ihwc : WhnfCoreClaims mode m φ fuel) (ihw : WhnfClaims mode m φ fuel) :
+    WhnfClaims mode m φ (fuel + 1) := by
   -- Task #106: the delta/literal chain is iteration on the loop's own
   -- step budget, so the claim is an induction on that budget at the
   -- *same* knot fuel; `ihwc` covers each step's head normalization and
   -- `ihw` the `whnf` calls inside `reduceNat`.
   suffices hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr} {ρ : Nat → V},
-      whnfLoop (pureFns env fuel) env d n e = .ok e' →
+      whnfLoop (pureFns mode env fuel) env d n e = .ok e' →
       WScoped d e → e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
       FvarsOk V m.val env φ d ρ e → AnnotOk V m.val env φ d ρ e →
       interpExpr V m.val env φ d ρ e' = interpExpr V m.val env φ d ρ e ∧

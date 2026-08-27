@@ -36,6 +36,8 @@ The environment assembly itself is in `Setlec/Model/DirectDecl.lean`.
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
@@ -48,10 +50,10 @@ result sort. -/
 theorem checkDirectFieldUniv_inv {env : Env} {F : Nat} {s : Level}
     {nP : Nat} {fvs : List Expr} :
     ∀ (k : Nat),
-      checkDirectFieldUniv (fueledOps F) env s nP fvs k = .ok () →
+      checkDirectFieldUniv (fueledOps mode F) env s nP fvs k = .ok () →
       ∀ j, j < k → ∃ fv ty u, fvs[j]? = some fv ∧
-        inferTypeCore env F (nP + j) (Expr.fvarTypeD fv) = .ok ty ∧
-        ensureSortCore env F (nP + j) ty = .ok u ∧
+        inferTypeCore mode env F (nP + j) (Expr.fvarTypeD fv) = .ok ty ∧
+        ensureSortCore mode env F (nP + j) ty = .ok u ∧
         Level.leq u s = some true := by
   intro k
   induction k with
@@ -66,12 +68,12 @@ theorem checkDirectFieldUniv_inv {env : Env} {F : Nat} {s : Level}
     | some fv =>
       rw [hfv] at h
       simp only [pure, Except.pure] at h
-      cases hty : inferTypeCore env F (nP + k) (Expr.fvarTypeD fv) with
+      cases hty : inferTypeCore mode env F (nP + k) (Expr.fvarTypeD fv) with
       | error _ => rw [hty] at h; exact nomatch h
       | ok ty =>
         rw [hty] at h
         dsimp only [] at h
-        cases hu : ensureSortCore env F (nP + k) ty with
+        cases hu : ensureSortCore mode env F (nP + k) ty with
         | error _ => rw [hu] at h; exact nomatch h
         | ok u =>
           rw [hu] at h
@@ -340,7 +342,7 @@ theorem DomsInterpEq.of_pins {env : Env} (m : EnvModel V env) (F : Nat)
       openPisAtFvars k S d = some (fvsS, rS) →
       openPisAtFvars k R d = some (fvsR, rR) →
       (∀ (j : Nat) (a b : Expr), fvsS[j]? = some a → fvsR[j]? = some b →
-        isDefEqCore env F (d + j) (Expr.fvarTypeD a) (Expr.fvarTypeD b)
+        isDefEqCore mode env F (d + j) (Expr.fvarTypeD a) (Expr.fvarTypeD b)
           = .ok true) →
       FrameOk V m.val env φ d ρ S →
       FrameOk V m.val env φ d ρ R →
@@ -369,7 +371,7 @@ theorem DomsInterpEq.of_pins {env : Env} (m : EnvModel V env) (F : Nat)
         obtain ⟨hdWS, hdbS, hdlS, hdfS, hdaS, BS, hdiS⟩ := hfrS.dom
         obtain ⟨hdWR, hdbR, hdlR, hdfR, hdaR, BR, hdiR⟩ := hfrR.dom
         -- the pin at this binder, at exactly this frame
-        have hpin : isDefEqCore env F d domS domR = .ok true := by
+        have hpin : isDefEqCore mode env F d domS domR = .ok true := by
           have h0 := hpins 0 (.fvar d nS domS) (.fvar d nR domR) rfl rfl
           rwa [Nat.add_zero] at h0
         have hBeq : BS = BR :=
@@ -568,7 +570,7 @@ the pin's frame only has to dominate the frame the interpretations are
 taken at. -/
 theorem isDefEqCore_sound_at {env : Env} (m : EnvModel V env) (F : Nat)
     {φ : Name → Nat} {d D : Nat} {ρ : Nat → V} {a b : Expr} {A B : V}
-    (hle : d ≤ D) (h : isDefEqCore env F D a b = .ok true)
+    (hle : d ≤ D) (h : isDefEqCore mode env F D a b = .ok true)
     (hfa : FrameOk V m.val env φ d ρ a) (hfb : FrameOk V m.val env φ d ρ b)
     (hia : interpExpr V m.val env φ d ρ a = some A)
     (hib : interpExpr V m.val env φ d ρ b = some B) : A = B := by
@@ -776,7 +778,7 @@ theorem FrameOk.ofInstWalk {env : Env} (m : EnvModel V env) (F : Nat)
       FrameOk V m.val env φ d ρ S →
       FrameOk V m.val env φ d ρ R →
       (∀ (j : Nat) (a b : Expr), sp[j]? = some a → ds[j]? = some b →
-        isDefEqCore env F (d + j) (Expr.fvarTypeD a) b = .ok true) →
+        isDefEqCore mode env F (d + j) (Expr.fvarTypeD a) b = .ok true) →
       FrameOk V m.val env φ d' ρ' rR := by
   intro sp
   induction sp with
@@ -808,7 +810,7 @@ theorem FrameOk.ofInstWalk {env : Env} (m : EnvModel V env) (F : Nat)
           obtain ⟨nR, domR, bodyR, mR, ds', rfl, rfl, hinst'⟩ :=
             instPisAt_cons_inv hinst
           obtain ⟨-, -, -, -, -, BR, hdiR⟩ := hfrR.dom
-          have hpin : isDefEqCore env F d domS domR = .ok true := by
+          have hpin : isDefEqCore mode env F d domS domR = .ok true := by
             have h0 := hpins 0 (.fvar d nS domS) domR rfl rfl
             rwa [Nat.add_zero] at h0
           obtain ⟨hdWS, hdbS, hdlS, hdfS, hdaS, -⟩ := hfrS.dom
@@ -1025,7 +1027,7 @@ theorem DomsAgree.of_pins_inst_gen {env : Env} (m : EnvModel V env) (F : Nat)
       openPisAtFvars k S d = some (fvsS, rS) →
       Expr.instPisAt fvsS R = some (dsR, rR) →
       (∀ (j : Nat) (a b : Expr), fvsS[j]? = some a → dsR[j]? = some b →
-        isDefEqCore env F (Df j) (Expr.fvarTypeD a) b = .ok true) →
+        isDefEqCore mode env F (Df j) (Expr.fvarTypeD a) b = .ok true) →
       FrameOk V m.val env φ d ρ S →
       FrameOk V m.val env φ d ρ R →
       DomsAgree V m.val env φ k d ρ S d ρ R := by
@@ -1048,7 +1050,7 @@ theorem DomsAgree.of_pins_inst_gen {env : Env} (m : EnvModel V env) (F : Nat)
           instPisAt_cons_inv hinstR
         obtain ⟨hdWS, hdbS, hdlS, hdfS, hdaS, BS, hdiS⟩ := hfrS.dom
         obtain ⟨hdWR, hdbR, hdlR, hdfR, hdaR, BR, hdiR⟩ := hfrR.dom
-        have hpin : isDefEqCore env F (Df 0) domS domR = .ok true :=
+        have hpin : isDefEqCore mode env F (Df 0) domS domR = .ok true :=
           hpins 0 (.fvar d nS domS) domR rfl rfl
         have hBeq : BS = BR :=
           isDefEqCore_sound_at m F (by have := hDf 0 (by omega); omega) hpin
@@ -1084,7 +1086,7 @@ theorem DomsAgree.of_pins_inst {env : Env} (m : EnvModel V env) (F : Nat)
     (hopS : openPisAtFvars k S d = some (fvsS, rS))
     (hinstR : Expr.instPisAt fvsS R = some (dsR, rR))
     (hpins : ∀ (j : Nat) (a b : Expr), fvsS[j]? = some a → dsR[j]? = some b →
-      isDefEqCore env F (d + j) (Expr.fvarTypeD a) b = .ok true)
+      isDefEqCore mode env F (d + j) (Expr.fvarTypeD a) b = .ok true)
     (hfrS : FrameOk V m.val env φ d ρ S)
     (hfrR : FrameOk V m.val env φ d ρ R) :
     DomsAgree V m.val env φ k d ρ S d ρ R :=
@@ -1100,7 +1102,7 @@ theorem DomsAgree.of_pins_inst_at {env : Env} (m : EnvModel V env) (F : Nat)
     (hopS : openPisAtFvars k S d = some (fvsS, rS))
     (hinstR : Expr.instPisAt fvsS R = some (dsR, rR))
     (hpins : ∀ (j : Nat) (a b : Expr), fvsS[j]? = some a → dsR[j]? = some b →
-      isDefEqCore env F D (Expr.fvarTypeD a) b = .ok true)
+      isDefEqCore mode env F D (Expr.fvarTypeD a) b = .ok true)
     (hfrS : FrameOk V m.val env φ d ρ S)
     (hfrR : FrameOk V m.val env φ d ρ R) :
     DomsAgree V m.val env φ k d ρ S d ρ R :=
@@ -1405,8 +1407,8 @@ theorem FieldTele_of_walk {env : Env} (m : EnvModel V env) {F : Nat}
       openPisAtFvars k ty d = some (xFvs, rest) →
       FrameOk V m.val env φ d ρ ty →
       (∀ j, j < k → ∃ fv tyj u, xFvs[j]? = some fv ∧
-        inferTypeCore env F (d + j) (Expr.fvarTypeD fv) = .ok tyj ∧
-        ensureSortCore env F (d + j) tyj = .ok u ∧
+        inferTypeCore mode env F (d + j) (Expr.fvarTypeD fv) = .ok tyj ∧
+        ensureSortCore mode env F (d + j) tyj = .ok u ∧
         Level.leq u s = some true) →
       FieldTele V m.val env φ (s.eval φ) k d ρ ty := by
   intro k

@@ -21,6 +21,8 @@ set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open Expr
 
 /-- The per-item facts of the provisioning phase, chaining the
@@ -167,30 +169,31 @@ theorem swapSh_find?_corr :
 /-- The rule-checking fold's per-item facts, chaining the final
 environments; the list pairs each provisioned item with its checked
 rule list. -/
-inductive RulesChain (F : Nat) (env' envS : Env) (f : Name → Name) :
+inductive RulesChain (mode : CheckMode) (F : Nat)
+    (env' envS : Env) (f : Name → Name) :
     Env → Env →
     List ((ConstantVal × Nat × Nat × List RecRule) ×
       List RecRule) → Prop
-  | nil {env : Env} : RulesChain F env' envS f env env []
+  | nil {env : Env} : RulesChain mode F env' envS f env env []
   | cons {envAcc env₃ : Env} {cvA : ConstantVal} {mI rP : Nat}
       {rules rules' : List RecRule}
       {rest : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)} :
-      checkIotaRules (fueledOps F) env' envS f cvA.name cvA.levelParams
+      checkIotaRules mode (fueledOps mode F) env' envS f cvA.name cvA.levelParams
         cvA.type mI rP 0 rules = .ok rules' →
-      RulesChain F env' envS f
+      RulesChain mode F env' envS f
         ⟨.recInfo cvA mI rP rules' :: envAcc.consts⟩ env₃ rest →
-      RulesChain F env' envS f envAcc env₃
+      RulesChain mode F env' envS f envAcc env₃
         (((cvA, mI, rP, rules), rules') :: rest)
 
 /-- Invert the rule-checking fold into its chain. -/
 theorem rulesFold_inv {F : Nat} {env' envS : Env} {f : Name → Name} :
     ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule)) (envAcc env₃ : Env),
     checked.foldlM (fun (acc : Env) c => do
-        let rules' ← checkIotaRules (fueledOps F) env' envS f c.1.name
+        let rules' ← checkIotaRules mode (fueledOps mode F) env' envS f c.1.name
           c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
         pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env)) envAcc = .ok env₃ →
     ∃ zipped, zipped.map Prod.fst = checked ∧
-      RulesChain F env' envS f envAcc env₃ zipped
+      RulesChain mode F env' envS f envAcc env₃ zipped
   | [], envAcc, env₃, h => by
     simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -199,7 +202,7 @@ theorem rulesFold_inv {F : Nat} {env' envS : Env} {f : Name → Name} :
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
     revert h
-    cases hcir : checkIotaRules (fueledOps F) env' envS f c.1.name
+    cases hcir : checkIotaRules mode (fueledOps mode F) env' envS f c.1.name
         c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2 with
     | error e => intro h; exact nomatch h
     | ok rules' => ?_
@@ -216,7 +219,7 @@ theorem chains_swapSh {F : Nat} {blockNames : List Name}
     ∀ {zipped : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)}
       {accS acc₃ envSelf env₃ : Env},
       ProvFacts F blockNames accS envSelf (zipped.map Prod.fst) →
-      RulesChain F env' envS f acc₃ env₃ zipped →
+      RulesChain mode F env' envS f acc₃ env₃ zipped →
       SwapShList accS.consts acc₃.consts →
       SwapShList envSelf.consts env₃.consts := by
   intro zipped
@@ -242,9 +245,9 @@ theorem RulesChain.mem_facts {F : Nat} {env' envS : Env}
     {f : Name → Name} :
     ∀ {envAcc env₃ : Env}
       {zipped : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)},
-      RulesChain F env' envS f envAcc env₃ zipped →
+      RulesChain mode F env' envS f envAcc env₃ zipped →
       ∀ z ∈ zipped,
-        checkIotaRules (fueledOps F) env' envS f z.1.1.name
+        checkIotaRules mode (fueledOps mode F) env' envS f z.1.1.name
           z.1.1.levelParams z.1.1.type z.1.2.1 z.1.2.2.1
           0 z.1.2.2.2 = .ok z.2 := by
   intro envAcc env₃ zipped h
@@ -321,7 +324,7 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
 theorem provisionRecs_names {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
       (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
-    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    provisionRecs (fueledOps mode F) blockNames envAcc recs = .ok p →
     ∀ ci ∈ recs, ∃ c ∈ p.2, c.1.name = ci.name
   | [], envAcc, p, h, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
@@ -341,7 +344,7 @@ theorem provisionRecs_names {F : Nat} {blockNames : List Name} :
 theorem provisionRecs_mono {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
       (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
-    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    provisionRecs (fueledOps mode F) blockNames envAcc recs = .ok p →
     ∀ n, (envAcc.find? n).isSome = true → (p.1.find? n).isSome = true
   | [], envAcc, p, h, n, hn => by
     simp only [provisionRecs, pure, Except.pure, Except.ok.injEq] at h
@@ -363,7 +366,7 @@ chain. -/
 theorem provisionRecs_fresh {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
       (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
-    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    provisionRecs (fueledOps mode F) blockNames envAcc recs = .ok p →
     ∀ ci ∈ recs, envAcc.find? ci.name = none
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
@@ -384,7 +387,7 @@ theorem provisionRecs_fresh {F : Nat} {blockNames : List Name} :
 started from. -/
 theorem checkIndRecs_names {F : Nat} {blockNames : List Name}
     {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs (fueledOps F) blockNames env₂ recs = .ok env₃) :
+    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃) :
     ∀ ci ∈ recs, env₂.find? ci.name = none := by
   rw [checkIndRecs] at h
   by_cases hemp : recs.isEmpty = true
@@ -399,7 +402,7 @@ theorem checkIndRecs_names {F : Nat} {blockNames : List Name}
   simp only [pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases hprov : provisionRecs (fueledOps F) blockNames env₂ recs with
+  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
   | error e => intro h; exact nomatch h
   | ok p => intro h; exact provisionRecs_fresh recs env₂ p hprov
 
@@ -408,7 +411,7 @@ theorem checkIndRecs_names {F : Nat} {blockNames : List Name}
 theorem provisionRecs_modelfree {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
       (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
-    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    provisionRecs (fueledOps mode F) blockNames envAcc recs = .ok p →
     ∀ ci ∈ recs, ci.name.isModelSuffix = false
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
@@ -425,7 +428,7 @@ theorem provisionRecs_modelfree {F : Nat} {blockNames : List Name} :
 /-- Installed recursors never carry a model-shaped name. -/
 theorem checkIndRecs_modelfree {F : Nat} {blockNames : List Name}
     {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs (fueledOps F) blockNames env₂ recs = .ok env₃) :
+    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃) :
     ∀ ci ∈ recs, ci.name.isModelSuffix = false := by
   rw [checkIndRecs] at h
   by_cases hemp : recs.isEmpty = true
@@ -440,7 +443,7 @@ theorem checkIndRecs_modelfree {F : Nat} {blockNames : List Name}
   simp only [pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases hprov : provisionRecs (fueledOps F) blockNames env₂ recs with
+  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
   | error e => intro h; exact nomatch h
   | ok p => intro h; exact provisionRecs_modelfree recs env₂ p hprov
 
@@ -450,7 +453,7 @@ theorem checkIndRecs_modelfree {F : Nat} {blockNames : List Name}
 theorem provisionRecs_facts {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
       (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
-    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    provisionRecs (fueledOps mode F) blockNames envAcc recs = .ok p →
     (∀ ci ∈ recs, blockNames.contains ci.name = true) →
     ProvFacts F blockNames envAcc p.1 p.2
   | [], envAcc, p, h, _ => by
@@ -519,7 +522,7 @@ an accumulator constant or an installed recursor of the chain. -/
 theorem rulesChain_mem {F : Nat} {env' envS : Env} {f : Name → Name} :
     ∀ {envAcc env₃ : Env}
       {zipped : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)},
-      RulesChain F env' envS f envAcc env₃ zipped →
+      RulesChain mode F env' envS f envAcc env₃ zipped →
       ∀ c ∈ env₃.consts, c ∈ envAcc.consts ∨
         ∃ z ∈ zipped, c = .recInfo z.1.1 z.1.2.1 z.1.2.2.1 z.2 := by
   intro envAcc env₃ zipped h
@@ -540,7 +543,7 @@ name (`checkConstantVal` rejects the shape). -/
 theorem provisionRecs_projshape {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
       (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
-    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    provisionRecs (fueledOps mode F) blockNames envAcc recs = .ok p →
     ∀ ci ∈ recs, ci.name.isProjFnShape = false
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
@@ -557,7 +560,7 @@ theorem provisionRecs_projshape {F : Nat} {blockNames : List Name} :
 name. -/
 theorem checkIndRecs_projshape {F : Nat} {blockNames : List Name}
     {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs (fueledOps F) blockNames env₂ recs = .ok env₃) :
+    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃) :
     ∀ ci ∈ recs, ci.name.isProjFnShape = false := by
   rw [checkIndRecs] at h
   by_cases hemp : recs.isEmpty = true
@@ -572,7 +575,7 @@ theorem checkIndRecs_projshape {F : Nat} {blockNames : List Name}
   simp only [pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases hprov : provisionRecs (fueledOps F) blockNames env₂ recs with
+  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
   | error e => intro h; exact nomatch h
   | ok p => intro h; exact provisionRecs_projshape recs env₂ p hprov
 
@@ -580,7 +583,7 @@ theorem checkIndRecs_projshape {F : Nat} {blockNames : List Name}
 theorem provisionRecs_find_new {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
       (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
-    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    provisionRecs (fueledOps mode F) blockNames envAcc recs = .ok p →
     ∀ (n : Name) (ci : ConstantInfo), p.1.find? n = some ci →
     envAcc.find? n = some ci ∨
       ∃ cv mI rP rules, ci = .recInfo cv mI rP rules
@@ -601,7 +604,7 @@ theorem provisionRecs_find_new {F : Nat} {blockNames : List Name} :
 /-- The recursor phase adds only recursor-kind constants. -/
 theorem checkIndRecs_find_new {F : Nat} {blockNames : List Name}
     {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs (fueledOps F) blockNames env₂ recs = .ok env₃)
+    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true) :
     ∀ (n : Name) (ci : ConstantInfo), env₃.find? n = some ci →
     env₂.find? n = some ci ∨
@@ -620,7 +623,7 @@ theorem checkIndRecs_find_new {F : Nat} {blockNames : List Name}
   simp only [pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases hprov : provisionRecs (fueledOps F) blockNames env₂ recs with
+  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
   | error e => intro h; exact nomatch h
   | ok p => ?_
   intro h
@@ -652,7 +655,7 @@ fresh). -/
 theorem provisionRecs_find_preserved {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
       (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
-    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    provisionRecs (fueledOps mode F) blockNames envAcc recs = .ok p →
     ∀ (n : Name) (ci : ConstantInfo), envAcc.find? n = some ci →
     p.1.find? n = some ci
   | [], envAcc, p, h, n, ci, hf => by
@@ -678,7 +681,7 @@ theorem provisionRecs_find_preserved {F : Nat} {blockNames : List Name} :
 (only provisioned recursors get their rule lists attached). -/
 theorem checkIndRecs_find_preserved {F : Nat} {blockNames : List Name}
     {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs (fueledOps F) blockNames env₂ recs = .ok env₃)
+    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true) :
     ∀ (n : Name) (ci : ConstantInfo), env₂.find? n = some ci →
     (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
@@ -697,7 +700,7 @@ theorem checkIndRecs_find_preserved {F : Nat} {blockNames : List Name}
   simp only [pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases hprov : provisionRecs (fueledOps F) blockNames env₂ recs with
+  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
   | error e => intro h; exact nomatch h
   | ok p => ?_
   intro h
@@ -726,7 +729,7 @@ theorem checkIndRecs_find_preserved {F : Nat} {blockNames : List Name}
 stay stored. -/
 theorem checkIndRecs_mono {F : Nat} {blockNames : List Name}
     {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs (fueledOps F) blockNames env₂ recs = .ok env₃)
+    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true) :
     ∀ n, (env₂.find? n).isSome = true → (env₃.find? n).isSome = true := by
   rw [checkIndRecs] at h
@@ -743,7 +746,7 @@ theorem checkIndRecs_mono {F : Nat} {blockNames : List Name}
   simp only [pure, Except.pure] at h
   try dsimp only at h
   revert h
-  cases hprov : provisionRecs (fueledOps F) blockNames env₂ recs with
+  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
   | error e => intro h; exact nomatch h
   | ok p => ?_
   intro h

@@ -18,6 +18,8 @@ transfers to the executable with no hypothesis beyond its acceptance.
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 /-- The declaration fold of the executable checker preserves having a
 model: per step, `EnvWF` from the model feeds the bridge, the bridged
 pure run feeds `checkDecl_sound`. -/
@@ -25,7 +27,7 @@ private theorem foldlM_soundC {V : Type u} [SetTheory V] :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       Nonempty (EnvModel V env) →
       EtaFamiliesClosed env →
-      ds.foldlM (checkDecl cachedOps) env = .ok env' →
+      ds.foldlM (checkDecl mode (cachedOps mode)) env = .ok env' →
       Nonempty (EnvModel V env')
   | [], env, env', hm, _, h => by
     have h' : (Except.ok env : CheckM Env) = Except.ok env' := h
@@ -33,7 +35,7 @@ private theorem foldlM_soundC {V : Type u} [SetTheory V] :
     exact hm
   | d :: ds, env, env', hm, hE1, h => by
     simp only [List.foldlM, Bind.bind, Except.bind] at h
-    cases hd : checkDecl cachedOps env d with
+    cases hd : checkDecl mode (cachedOps mode) env d with
     | error e => rw [hd] at h; exact nomatch h
     | ok env1 =>
       rw [hd] at h
@@ -46,7 +48,7 @@ private theorem foldlM_soundC {V : Type u} [SetTheory V] :
 accepts has a set-theoretic model. -/
 theorem checkDeclsC_sound (V : Type u) [SetTheory V]
     {ds : List Declaration} {env' : Env}
-    (h : checkDecls cachedOps ds = .ok env') :
+    (h : checkDecls mode (cachedOps mode) ds = .ok env') :
     Nonempty (EnvModel V env') :=
   foldlM_soundC ds Env.empty ⟨EnvModel.empty V⟩
     EtaFamiliesClosed.empty h
@@ -55,7 +57,7 @@ theorem checkDeclsC_sound (V : Type u) [SetTheory V]
 a `def` or `theorem` whose stated type is `Empty`. -/
 theorem no_proof_of_Empty_input_C (V : Type u) [SetTheory V]
     {ds : List Declaration} {env' : Env}
-    (h : checkDecls cachedOps ds = .ok env')
+    (h : checkDecls mode (cachedOps mode) ds = .ok env')
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     (hd : Declaration.defnDecl cv value hint ∈ ds ∨
       Declaration.thmDecl cv value ∈ ds)
@@ -63,7 +65,7 @@ theorem no_proof_of_Empty_input_C (V : Type u) [SetTheory V]
   suffices hgen : ∀ (ds : List Declaration) (env : Env) {env' : Env},
       Nonempty (EnvModel V env) →
       EtaFamiliesClosed env →
-      ds.foldlM (checkDecl cachedOps) env = .ok env' →
+      ds.foldlM (checkDecl mode (cachedOps mode)) env = .ok env' →
       (Declaration.defnDecl cv value hint ∈ ds ∨
         Declaration.thmDecl cv value ∈ ds) → False by
     exact hgen ds Env.empty ⟨EnvModel.empty V⟩ EtaFamiliesClosed.empty
@@ -76,7 +78,7 @@ theorem no_proof_of_Empty_input_C (V : Type u) [SetTheory V]
   | cons d ds ih =>
     intro env env' hm hE1 h hd
     simp only [List.foldlM, Bind.bind, Except.bind] at h
-    cases hdd : checkDecl cachedOps env d with
+    cases hdd : checkDecl mode (cachedOps mode) env d with
     | error e => rw [hdd] at h; exact nomatch h
     | ok env1 =>
       rw [hdd] at h
@@ -87,7 +89,7 @@ theorem no_proof_of_Empty_input_C (V : Type u) [SetTheory V]
       · obtain ⟨type, hann, c, hc, hcv⟩ := checkDecl_stores hF hdis
         rw [hty] at hann
         obtain rfl : Expr.const emptyName [] = type := by
-          have h1 : annotateCore env F 0 (.const emptyName []) =
+          have h1 : annotateCore mode env F 0 (.const emptyName []) =
               .ok type := hann
           cases F with
           | zero =>
@@ -115,7 +117,7 @@ checker**: if it accepts a declaration list, no constant in the
 resulting environment has type `Empty`. -/
 theorem no_proof_of_Empty_C (V : Type u) [SetTheory V]
     {ds : List Declaration} {env' : Env}
-    (h : checkDecls cachedOps ds = .ok env')
+    (h : checkDecls mode (cachedOps mode) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
   obtain ⟨m⟩ := checkDeclsC_sound V h

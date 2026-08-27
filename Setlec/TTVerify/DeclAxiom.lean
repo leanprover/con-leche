@@ -47,6 +47,9 @@ a named checker function and §8.6 puts the boundary there.
 
 namespace Setlec.TTVerify
 
+/- Task #147: stated at the TT-lane mode. -/
+private abbrev mode : CheckMode := .ttModel
+
 open Setlec.TT
 
 variable {F : Nat}
@@ -195,7 +198,7 @@ theorem declAxiomTT (hstd : StdAxiomKeyTT) (htc : TrustCompilerKeyTT)
     (hofr : OfReduceKeyTT) : DeclAxiomTT F := by
   intro env env₁ cv h m
   simp only [checkDecl, Bind.bind, Except.bind] at h
-  cases hccv : checkConstantVal (fueledOps F) env cv with
+  cases hccv : checkConstantVal (fueledOps mode F) env cv with
   | error e => rw [hccv] at h; exact nomatch h
   | ok cvA =>
   rw [hccv] at h

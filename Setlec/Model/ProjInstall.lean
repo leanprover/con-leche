@@ -19,6 +19,8 @@ interpreted projection redex onto the projected field's value.
 
 namespace Setlec
 
+variable {mode : CheckMode}
+
 open SetTheory
 
 /-! ## Syntactic helpers -/
@@ -520,9 +522,9 @@ theorem proj_bottom
     -- domain pinning, and the type slot carries no syntactic pin)
     {fvsO : List Expr} {sbodyO : Expr}
     (hopenO : openPisAtFvars (nP + nF) cvt.type 0 = some (fvsO, sbodyO))
-    (hrhsTyC : ∃ tr, inferTypeCore env F (nP + nF)
+    (hrhsTyC : ∃ tr, inferTypeCore mode env F (nP + nF)
         (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
-      isDefEqCore env F (nP + nF) tr
+      isDefEqCore mode env F (nP + nF) tr
         (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true)
     -- the rule right-hand side
     {rhsA : Expr} {rbs : List (Name × Expr × BinderMeta)} {rbody : Expr}
@@ -534,7 +536,7 @@ theorem proj_bottom
     {ldoms : List Expr} {lrestL : Expr}
     (hopenP : openPisAtFvars nP cvA.type 0 = some (fvsP, restP))
     (hcinstP : Expr.instPisAt fvsP cvj.type = some (cdomsP, crestP))
-    (hdeParsP : DefEqListOk F env (nP + nF)
+    (hdeParsP : DefEqListOk mode F env (nP + nF)
       (fvsP.map Expr.fvarTypeD) cdomsP)
     (hopenX : openPisAtFvars nF crestP nP = some (xFvs, crest2X))
     (hlinstP : Expr.instLamsAt (fvsP ++ xFvs) rhsA =
@@ -1468,7 +1470,7 @@ theorem rule_eq_of_bottom_ext
     (hopenX : openPisAtFvars nF crestP rP = some (xFvs, crest2X))
     (hlinstP : Expr.instLamsAt (fvsP ++ xFvs) (RecRule.rhs rule) =
       some (ldoms, lrestL))
-    (hdeLamP : DefEqListOk F env (rP + nF)
+    (hdeLamP : DefEqListOk mode F env (rP + nF)
       ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms)
     -- well-formedness over the base environment
     (hTcl : cvA.type.hasFvar = false)
@@ -1833,12 +1835,12 @@ theorem proj_rule_eq_of_bottom
     {ldoms : List Expr} {lrestL : Expr}
     (hopenP : openPisAtFvars nP cvA.type 0 = some (fvsP, restP))
     (hcinstP : Expr.instPisAt fvsP cvj.type = some (cdomsP, crestP))
-    (hdeParsP : DefEqListOk F env (nP + nF)
+    (hdeParsP : DefEqListOk mode F env (nP + nF)
       (fvsP.map Expr.fvarTypeD) cdomsP)
     (hopenX : openPisAtFvars nF crestP nP = some (xFvs, crest2X))
     (hlinstP : Expr.instLamsAt (fvsP ++ xFvs) (RecRule.rhs rule) =
       some (ldoms, lrestL))
-    (hdeLamP : DefEqListOk F env (nP + nF)
+    (hdeLamP : DefEqListOk mode F env (nP + nF)
       ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms)
     (hTcl : cvA.type.hasFvar = false)
     (hTb : cvA.type.looseBVarsBounded 0 = true)
@@ -1971,9 +1973,9 @@ theorem proj_rule_eq
        .bvar (nF - 1 - i)])
     {fvsO : List Expr} {sbodyO : Expr}
     (hopenO : openPisAtFvars (nP + nF) cvt.type 0 = some (fvsO, sbodyO))
-    (hrhsTyC : ∃ tr, inferTypeCore env F (nP + nF)
+    (hrhsTyC : ∃ tr, inferTypeCore mode env F (nP + nF)
         (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
-      isDefEqCore env F (nP + nF) tr
+      isDefEqCore mode env F (nP + nF) tr
         (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true)
     {dN : Name} {dus : List Level} {dargs : List Expr}
     (hcbody : cbody = Expr.mkAppN (.const dN dus) dargs)
@@ -1984,12 +1986,12 @@ theorem proj_rule_eq
     {ldoms : List Expr} {lrestL : Expr}
     (hopenP : openPisAtFvars nP cvA.type 0 = some (fvsP, restP))
     (hcinstP : Expr.instPisAt fvsP cvj.type = some (cdomsP, crestP))
-    (hdeParsP : DefEqListOk F env (nP + nF)
+    (hdeParsP : DefEqListOk mode F env (nP + nF)
       (fvsP.map Expr.fvarTypeD) cdomsP)
     (hopenX : openPisAtFvars nF crestP nP = some (xFvs, crest2X))
     (hlinstP : Expr.instLamsAt (fvsP ++ xFvs) (RecRule.rhs rule) =
       some (ldoms, lrestL))
-    (hdeLamP : DefEqListOk F env (nP + nF)
+    (hdeLamP : DefEqListOk mode F env (nP + nF)
       ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms)
     -- well-formedness over the base environment
     (hTcl : cvA.type.hasFvar = false)
