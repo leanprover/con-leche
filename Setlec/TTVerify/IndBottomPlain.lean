@@ -1088,7 +1088,10 @@ theorem IndBottomPlainTT
           denote_depth_closed hcl hCw hCb (rP + cnF)]
         exact hTVj0
       obtain ⟨vMidE, hvMidE⟩ := instPisAt_fvar_denote_defined hcl _
-        htakeE hspTakeFacts
+        htakeE (fun q x hx => by
+          obtain ⟨⟨i0, nm0, t0, rfl⟩, hw1, hb1⟩ := hspTakeFacts q x hx
+          exact ⟨⟨VExpr.bvar (rP + cnF - 1 - i0), by rw [denote_fvar]⟩,
+            hw1, hb1⟩)
         ((Expr.WScoped.of_not_hasFvar (by
           rw [hasFvar_renameConsts]; exact hCw)
           (d := rP + cnF)).fvarsBelow)
@@ -1531,7 +1534,10 @@ theorem IndBottomPlainTT
       denote_depth_closed hcl hCw hCb (rP + cnF)]
     exact hTVj0
   obtain ⟨vCres, hcresden⟩ := instPisAt_fvar_denote_defined hcl _ hcinst
-    hspFacts
+    (fun q x hx => by
+      obtain ⟨⟨i0, nm0, t0, rfl⟩, hw1, hb1⟩ := hspFacts q x hx
+      exact ⟨⟨VExpr.bvar (rP + cnF - 1 - i0), by rw [denote_fvar]⟩,
+        hw1, hb1⟩)
     ((Expr.WScoped.of_not_hasFvar (d := rP + cnF) (by
       rw [hasFvar_renameConsts]; exact hCw)).fvarsBelow)
     (by rw [Expr.looseBVarsBounded_renameConsts]; exact hCb) hTVjK

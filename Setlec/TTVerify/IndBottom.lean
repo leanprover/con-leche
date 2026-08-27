@@ -1556,7 +1556,7 @@ theorem instPisAt_fvar_denote_defined {cval : TConstVal} {env : Env}
       Expr.instPisAt sp ty = some (ds, rs) →
       ∀ {D : Nat},
       (∀ (j : Nat) (x : Expr), sp[j]? = some x →
-        (∃ i nm t, x = Expr.fvar i nm t) ∧ Expr.WScoped D x ∧
+        (∃ w, denote cval env ψ D x = some w) ∧ Expr.WScoped D x ∧
           x.looseBVarsBounded 0 = true) →
       Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
       ∀ {T : VExpr}, denote cval env ψ D ty = some T →
@@ -1570,12 +1570,12 @@ theorem instPisAt_fvar_denote_defined {cval : TConstVal} {env : Env}
     exact ⟨T, hT⟩
   | cons a sp ih =>
     intro ty ds rs h D hsp hfb hb T hT
-    obtain ⟨⟨i, nm, t, rfl⟩, hwsa, hba⟩ := hsp 0 a rfl
+    obtain ⟨⟨w0, hw0⟩, hwsa, hba⟩ := hsp 0 a rfl
     match ty, h with
     | .forallE nmT dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp
-          (body.instantiate1 (.fvar i nm t)) with
+          (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
       | some p => ?_
       rw [h1] at h
@@ -1595,21 +1595,14 @@ theorem instPisAt_fvar_denote_defined {cval : TConstVal} {env : Env}
           (body.instantiate1 (.fvar D nmT dom)) with
       | none => rw [hB] at hT; exact nomatch hT
       | some B => ?_
-      have hfvden : denote cval env ψ D (.fvar i nm t) =
-          some (VExpr.bvar (D - 1 - i)) := by rw [denote_fvar]
-      have hTI : denote cval env ψ D (body.instantiate1 (.fvar i nm t))
-          = some (B.inst (.bvar (D - 1 - i)) 0) := by
+      have hTI : denote cval env ψ D (body.instantiate1 a)
+          = some (B.inst w0 0) := by
         rw [denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
-          hfvden 0, hB]
+          hw0 0, hB]
         rfl
       exact ih h1
         (fun j x hx => hsp (j + 1) x (by simpa using hx))
-        (Expr.fvarsBelow_instantiate1_gen
-          (by
-            have hiD : i < D := by
-              simp only [Expr.WScoped] at hwsa
-              exact hwsa.1
-            simpa [Expr.fvarsBelow] using hiD) 0 hfb'.2)
+        (Expr.fvarsBelow_instantiate1_gen hwsa.fvarsBelow 0 hfb'.2)
         (Expr.looseBVarsBounded_instantiate1_gen hba hb'.2) hTI
 
 /-- A nonempty tower's head domain is its context's outermost entry. -/
