@@ -126,7 +126,20 @@ one telescope fits the other.
 That the domains agree while the *bodies* do not is the whole reason
 this cannot be a rewrite — the public type former ends in a sort and
 the statement ends in an equation, so only the fitting transfers, not
-the residual. -/
+the residual.
+
+**The pattern predicts the next phase's piece, and the prediction is
+worth cashing early.**  If the shared piece is always the spine-mover
+between two descriptions of a telescope, then the *bottoms*' shared
+piece is whatever moves the **constructor** spine between the rule's
+description of it and the fired redex's — and that is exactly where
+§8.2's index premise lives (`ruleLhsAux` fills the recursor's index
+slots with the constructor's canonical tuple; the fired form leaves
+them free).  So the index-premise plumbing is not a *second* cost on
+top of the bottoms' spine lemma: **it is that spine lemma.**  Two
+anticipated pieces collapse into one, which is the first time this
+bridge's pattern-noticing has bought a schedule change rather than an
+explanation. -/
 
 /-- Two `VExpr` telescopes met by the same spine, agreeing binder for
 binder.  The residuals are free: only the domains are constrained, and

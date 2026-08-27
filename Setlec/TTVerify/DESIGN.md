@@ -110,6 +110,7 @@ first: a lemma with **no possible consumer**.
 | the same bookkeeping repeated | it is missing a **hypothesis** |
 | a conjunct destructured to `-` | it was **offered** a hypothesis and declined it |
 | no use site can exist | it was **sliced where the code does not slice** |
+| a "trivial" lemma that will not go through | the **relation carries more than you thought** |
 
 The third is the second's mirror image and was found the same way
 (§14.4, the `hheadRec` narrowing): the inversion `iotaRec_inv` handed
@@ -122,9 +123,23 @@ the abstraction was stated without it.
 
 The fourth is the sharpest because it is not a matter of degree: a
 lemma that is true, compiles, and can never be applied is one that cut
-a sequential body at a point the body does not expose.  All four are
-read off the consumers — including, in the last case, off their
+a sequential body at a point the body does not expose.  The first four
+are read off the consumers — including, in the fourth case, off their
 absence.
+
+The **fifth** is the only one read off the *definition* rather than the
+use sites, and it fires earliest of all: before there is a consumer at
+all.  Instance (§15, `SameDoms`): the relation looked like an ordinary
+congruence, so its reflexivity lemma got written first, by reflex —
+and it is **false**.  A non-`∀` type has no domains to agree about, so
+`SameDoms T T (x :: xs)` is unprovable; the witness has to come from a
+*fitting* (`VTeleTyped.sameDoms`), not from the type alone.  What the
+failure was announcing is that the relation is genuinely **partial**:
+it is not "these two types are alike" but "this spine fits both", and
+the spine is doing work.  Writing the plausible version first is what
+surfaced it, which makes this tell cheap to trip on purpose — *when a
+new relation appears, try its trivial lemmas immediately; the ones
+that refuse are describing the relation.*
 
 ### The third practice: the checker is telescope-shaped throughout
 
@@ -4234,6 +4249,17 @@ guards a law could quantify past.  The probation the sibling rule
 imposes on neighbouring conjuncts is therefore **discharged for the
 whole bridge**, not just for the one inversion that raised it.
 
+> **AND THE PHASE-SPINE PATTERN PREDICTS ITS FORM.**  Each phase of
+> this bridge has needed exactly one shared piece before any of its
+> cases could be written, and it is always the one that **moves a
+> spine between two descriptions of the same telescope**: `BetaSpine`
+> for the basis blocks, `VTeleTyped.retarget` for the folds.  Applied
+> forward, the bottoms' shared piece must be whatever moves the
+> *constructor* spine between the rule's description and the fired
+> redex's — which is precisely where this premise lives.  So the index
+> plumbing is **not a second cost on top of** the bottoms' spine
+> lemma; it *is* that lemma.  Budget one piece, not two.
+
 **Not threaded yet, deliberately.**  The fourth and fifth narrowings
 were each done with the consumer in hand — `PUnit`'s eta rescue, then
 `Quot`'s field — and the playbook's own criterion is that *a hypothesis
@@ -4420,9 +4446,25 @@ with binder names:
 Three payouts, none of them binder renaming.  The pattern matches the
 level-erasure tally's: the decision was made in one currency and has
 paid in three others, which is the tell that it was tracking the
-object rather than the symptom.  *Two entries is not yet a series, but
-the format has now been earned twice, and both times by a decision
-whose stated reason was the least interesting thing about it.*
+object rather than the symptom.
+
+> **THE FORMAT'S THESIS, PROVISIONALLY.**  Both entries share a
+> stronger claim than either makes alone: *the stated reason was the
+> least interesting thing about the decision.*  Level erasure was
+> justified by avoiding a vestigial `φ`; `eqUpToNames` by binder
+> renaming.  Neither reason predicts a single one of the six payouts
+> between them.
+>
+> This is also **why the third column earns its keep**.  A record that
+> tracked decisions by their stated reasons would make them all look
+> interchangeable — every one is "because otherwise X breaks" — and
+> would give no way to tell a decision that fits the object from one
+> that merely patches a symptom.  The returns column is the only place
+> that difference shows.
+>
+> *Two entries is a coincidence; a third would make it the format's
+> thesis rather than an observation about it.  If one arrives, promote
+> this box.*
 
 #### The transposition recipe, as arithmetic
 
