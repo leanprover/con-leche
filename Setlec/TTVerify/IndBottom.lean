@@ -1,6 +1,7 @@
 import Setlec.TTVerify.DeclInd
 import Setlec.TTVerify.Certs
 import Setlec.TTVerify.ReducePin
+import Setlec.Verify.BridgeWfImp
 
 /-!
 # The bottoms' context machinery: open equations, fired
@@ -225,6 +226,249 @@ theorem Deq.instCtx {Δ : List VExpr} :
     rw [hlen] at h1
     have h2 := ih h1
     simpa [VExpr.instSeq_cons, List.length_cons, Nat.add_sub_cancel] using h2
+
+/-! ## Opening the statement's telescope
+
+The kit's expressions all live in one frame: the checked theorem's
+telescope opened at free variables (`openPisAtFvars` at depth `0`).
+This section is the walk that turns that frame into the claims' inputs:
+the denoted tower (`PiTele`), each opener's annotation denoted at its
+own depth, and the `CtxOk` any kit expression needs — its leaves are
+all openers (`openPisAtFvars_leaves`), each of which the walk has
+covered. -/
+
+/-- Every free-variable leaf reachable from an opened telescope — from
+the opened body or from any opener's own annotation — is either a leaf
+of the unopened expression or exactly one of the openers.  With the
+subject closed, the openers are a *leaf-closed* set: annotations
+mention only earlier openers, which are openers again. -/
+theorem openPisAtFvars_leaves :
+    ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr},
+      openPisAtFvars k e d = some (fvs, body) →
+      ∀ l, (l ∈ body.fvarLeaves ∨ ∃ x ∈ fvs, l ∈ x.fvarLeaves) →
+        l ∈ e.fvarLeaves ∨ Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+  intro k
+  induction k with
+  | zero =>
+    intro e d fvs body h l hl
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    rcases hl with hl | ⟨x, hx, -⟩
+    · exact Or.inl hl
+    · exact nomatch hx
+  | succ k ih =>
+    intro e d fvs body h l hl
+    match e, h with
+    | .forallE nm dom bodyE mb, h =>
+      simp only [openPisAtFvars] at h
+      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d nm dom))
+          (d + 1) with
+      | none => rw [hop] at h; exact nomatch h
+      | some p =>
+        rw [hop] at h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        -- a leaf of the head opener resolves directly
+        have head : l ∈ (Expr.fvar d nm dom).fvarLeaves →
+            l ∈ (Expr.forallE nm dom bodyE mb).fvarLeaves ∨
+              Expr.fvar l.1 l.2.1 l.2.2 ∈
+                Expr.fvar d nm dom :: p.1 := by
+          intro hl'
+          rw [Expr.fvarLeaves] at hl'
+          rcases List.mem_cons.mp hl' with rfl | hl'
+          · exact Or.inr (List.mem_cons_self ..)
+          · refine Or.inl ?_
+            rw [Expr.fvarLeaves]
+            exact List.mem_append_left _ hl'
+        rcases hl with hl | ⟨x, hx, hlx⟩
+        · rcases ih hop l (Or.inl hl) with hl' | hl'
+          · rcases Expr.fvarLeaves_instantiate1 bodyE 0 hl' with h1 | h1
+            · refine Or.inl ?_
+              rw [Expr.fvarLeaves]
+              exact List.mem_append_right _ h1
+            · exact head h1
+          · exact Or.inr (List.mem_cons_of_mem _ hl')
+        · rcases List.mem_cons.mp hx with rfl | hx'
+          · exact head hlx
+          · rcases ih hop l (Or.inr ⟨x, hx', hlx⟩) with hl' | hl'
+            · rcases Expr.fvarLeaves_instantiate1 bodyE 0 hl' with h1 | h1
+              · refine Or.inl ?_
+                rw [Expr.fvarLeaves]
+                exact List.mem_append_right _ h1
+              · exact head h1
+            · exact Or.inr (List.mem_cons_of_mem _ hl')
+
+/-- **The opening walk, denoted.**  Opening a telescope whose denote
+succeeds yields the `.pi` tower's context, the denoted opened body, and
+each opener's annotation denoted *at its own depth* to its tower
+entry.  (Consumers lift with `denote_lift`; the entry `Γ.getD (k-1-i)`
+is the `i`-th binder's domain as written, which is where `HasType.bvar`
+wants it.) -/
+theorem openPisAtFvars_denoteTele {cval : TConstVal} {env : Env}
+    {ψ : Name → Nat} :
+    ∀ (k : Nat) {e : Expr} {j : Nat} {fvs : List Expr} {body : Expr}
+      {T : VExpr},
+      openPisAtFvars k e j = some (fvs, body) →
+      denote cval env ψ j e = some T →
+      ∃ (Γ : List VExpr) (R : VExpr),
+        PiTele k T Γ R ∧
+        denote cval env ψ (j + k) body = some R ∧
+        ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+          denote cval env ψ (j + i) (Expr.fvarTypeD x) =
+            some (Γ.getD (k - 1 - i) default) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e j fvs body T h hT
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨[], T, .nil, hT, fun i x hx => nomatch hx⟩
+  | succ k ih =>
+    intro e j fvs body T h hT
+    match e, h with
+    | .forallE nm dom bodyE mb, h =>
+      simp only [openPisAtFvars] at h
+      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar j nm dom))
+          (j + 1) with
+      | none => rw [hop] at h; exact nomatch h
+      | some p =>
+        rw [hop] at h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        rw [denote_forallE] at hT
+        cases hA : denote cval env ψ j dom with
+        | none => rw [hA] at hT; exact nomatch hT
+        | some A => ?_
+        rw [hA] at hT
+        cases hB : denote cval env ψ (j + 1)
+            (bodyE.instantiate1 (.fvar j nm dom)) with
+        | none => rw [hB] at hT; exact nomatch hT
+        | some B => ?_
+        rw [hB] at hT
+        obtain rfl : T = .pi A B := (Option.some.inj hT).symm
+        obtain ⟨Γ', R, htele, hbody, hdoms⟩ := ih hop hB
+        have hΓlen : Γ'.length = k := htele.length
+        refine ⟨Γ' ++ [A], R, .cons htele, ?_, ?_⟩
+        · rw [show j + (k + 1) = j + 1 + k from by omega]
+          exact hbody
+        · intro i x hx
+          cases i with
+          | zero =>
+            obtain rfl : Expr.fvar j nm dom = x := by
+              simpa using hx
+            show denote cval env ψ (j + 0) dom = _
+            rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
+              simp only [Nat.sub_zero, Nat.add_sub_cancel, List.getD]
+              rw [List.getElem?_append_right (by omega), hΓlen,
+                Nat.sub_self]
+              rfl]
+            exact hA
+          | succ i =>
+            rw [List.getElem?_cons_succ] at hx
+            have h1 := hdoms i x hx
+            have hik : i < k := by
+              rcases Nat.lt_or_ge i k with h' | h'
+              · exact h'
+              · exfalso
+                rw [List.getElem?_eq_none (by
+                  have := openPisAtFvars_stripPis k hop
+                  obtain ⟨-, -, -, hlen, -, -⟩ := this
+                  omega)] at hx
+                exact nomatch hx
+            rw [show (Γ' ++ [A]).getD (k + 1 - 1 - (i + 1)) default =
+                Γ'.getD (k - 1 - i) default from by
+              simp only [List.getD]
+              rw [show k + 1 - 1 - (i + 1) = k - 1 - i from by omega,
+                List.getElem?_append_left (by omega)]]
+            rw [show j + (i + 1) = j + 1 + i from by omega]
+            exact h1
+
+/-- **`CtxOk` for a kit expression**, at any context whose entries at
+the touched indices are the tower's domains.  The expression's leaves
+are all openers below `n` (openers by `openPisAtFvars_leaves`, below
+`n` by its own `WScoped`), so entries at indices `< k - n` — the
+padding — are never consulted. -/
+theorem ctxOk_of_openers {cval : TConstVal} {env : Env} {ψ : Name → Nat}
+    (hcl : ∀ n ψ', VExpr.Closed (cval n ψ'))
+    {k : Nat} {fvs : List Expr} {Γ Δ' : List VExpr}
+    (hΔlen : Δ'.length = k) (hfvslen : fvs.length = k)
+    (hshape : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      ∃ nm ty, x = Expr.fvar i nm ty)
+    (hws : ∀ x ∈ fvs, Expr.WScoped k x)
+    (hdoms : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      denote cval env ψ i (Expr.fvarTypeD x) =
+        some (Γ.getD (k - 1 - i) default))
+    {e : Expr} {n : Nat}
+    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hwsE : Expr.WScoped n e)
+    (hent : ∀ i, i < n → Δ'[k - 1 - i]? =
+      some (Γ.getD (k - 1 - i) default)) :
+    CtxOk cval env ψ k Δ' e := by
+  refine ⟨hΔlen, ?_⟩
+  intro l hl
+  have hmem := hleaf l hl
+  obtain ⟨pos, hpos⟩ := List.getElem?_of_mem hmem
+  obtain ⟨nm, ty, hx⟩ := hshape pos _ hpos
+  obtain ⟨h1, h2, h3⟩ : l.1 = pos ∧ l.2.1 = nm ∧ l.2.2 = ty := by
+    injection hx with a b c
+    exact ⟨a, b, c⟩
+  subst h1 h2 h3
+  -- the leaf's index is below `n`
+  have hlt : l.1 < n := Expr.fvarLeaves_lt_of_wscoped hwsE l hl
+  -- the annotation is scoped below its own variable
+  have hw := hws _ (List.mem_of_getElem? hpos)
+  have hwty : l.1 < k ∧ Expr.WScoped l.1 l.2.2 := by
+    simpa [Expr.WScoped] using hw
+  have hfb : Expr.fvarsBelow l.1 l.2.2 := hwty.2.fvarsBelow
+  refine ⟨by omega, hfb,
+    (Γ.getD (k - 1 - l.1) default).liftN (k - l.1), ?_, ?_⟩
+  · have hd1 := hdoms l.1 _ hpos
+    rw [show Expr.fvarTypeD (Expr.fvar l.1 l.2.1 l.2.2) = l.2.2 from rfl]
+      at hd1
+    have hd2 := denote_lift (cval := cval) (env := env) (φ := ψ) hcl
+      (p := l.1) (e := l.2.2) hfb k (by omega)
+    rw [hd2, hd1]
+    rfl
+  · have h4 := HasType.bvar (Γ := Δ') (i := k - 1 - l.1)
+      (hent l.1 hlt)
+    rw [show k - 1 - l.1 + 1 = k - l.1 from by omega] at h4
+    exact h4
+
+/-- **A lifted term under a padded spine.**  A depth-`k` denote of an
+expression over the first `n` openers is the depth-`n` denote lifted by
+the padding's width; instantiating the padded spine on the lift is
+instantiating the real prefix on the original — every padding cut
+passes under the lift, one unit each.  Unconditional in `A`: bvars
+beyond the real prefix shift identically on both sides. -/
+theorem instSeq_append_absorb :
+    ∀ (ws pads : List VExpr) (A : VExpr),
+      VExpr.instSeq (ws ++ pads) (ws.length + pads.length - 1)
+        (VExpr.liftN pads.length A 0) =
+      VExpr.instSeq ws (ws.length - 1) A := by
+  intro ws
+  induction ws with
+  | nil =>
+    intro pads A
+    rcases Nat.eq_zero_or_pos pads.length with h0 | h0
+    · rw [List.eq_nil_of_length_eq_zero h0]
+      simp [VExpr.liftN_zero]
+    · rw [List.nil_append, VExpr.instSeq_nil]
+      have h := VExpr.instSeq_liftN pads (pads.length - 1) A
+        (by omega)
+      rw [show pads.length - 1 + 1 = pads.length from by omega] at h
+      simpa [Nat.sub_self, VExpr.liftN_zero] using h
+  | cons w ws ih =>
+    intro pads A
+    have e1 : (w :: ws).length + pads.length - 1 =
+        ws.length + pads.length := by
+      simp only [List.length_cons]
+      omega
+    have e2 : (w :: ws).length - 1 = ws.length := by
+      simp only [List.length_cons, Nat.add_sub_cancel]
+    rw [e1, e2, List.cons_append, VExpr.instSeq_cons, VExpr.instSeq_cons]
+    rw [VExpr.inst_liftN_comm A (by omega) w,
+      show ws.length + pads.length - pads.length = ws.length from by omega]
+    exact ih pads (A.inst w ws.length)
 
 /-! ## The padding
 
