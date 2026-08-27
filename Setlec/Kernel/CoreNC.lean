@@ -410,7 +410,7 @@ def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                  let cmpOk ← match rl.fire with
                    | .nested _ pins => do
                      let cmpArgs ← pinArgsI cv.levelParams us
-                       (args.take mI) (mI - 1) pins
+                       (args.take rP) (rP - 1) pins
                      defEqListI r fe depth (margs.take rl.ctorParams) cmpArgs
                    | _ =>
                      if Name.isProjFnShape cn then
