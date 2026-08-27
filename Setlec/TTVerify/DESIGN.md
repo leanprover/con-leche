@@ -161,6 +161,35 @@ supplies something the telescope failed to give**.  A
 that criterion would have been wrong — so anyone applying the
 diagnostic above should know that absorb equations are not the signal.
 
+### A gate note: a warnings check on a cached build is vacuous
+
+A warning escaped to `master` (`DeclBasis.lean:881`, an unused binder)
+while every landing report claimed a warning-free build.  The mechanism
+is worth writing down because it will recur:
+
+* **Lean emits a file's warnings only when it *compiles* that file.**
+  An incremental `lake build` that finds everything cached prints a
+  summary and nothing else — so a warnings check run against a cached
+  build is not a weak check, it is **no check at all**.
+* The warning was therefore emitted exactly *once*, on the build right
+  after the edit that introduced it, into a command filtered with
+  `grep -E "^error"`.  Every later build was cached, and the
+  landing-time gate used `| tail -1`, which shows only the summary
+  line.
+
+Two independent holes, and either alone would have caught it — which is
+the usual shape of an escape.  The gate for a landing that touches
+`Setlec/TTVerify/*` is therefore:
+
+```
+rm -f .lake/build/lib/lean/Setlec/TTVerify/*.olean
+lake build 2>&1 | grep -E "^(error|warning)"      # must print nothing
+```
+
+The general rule: **a check whose input is produced by a cache must
+first invalidate that cache, or it is measuring the cache.**  The same
+reasoning applies to any "we ran it and saw nothing" gate.
+
 ### The second practice: measure rare shapes; the suite does not cover them
 
 > **A fixture suite being green says nothing about argument shapes it
@@ -885,18 +914,36 @@ were reached by trying:
 So the three parts of the final architecture, stated as they should be
 quoted:
 
-1. **The set model is the consistency proof of the real checker** —
-   the shipped binary, direct install and the fast `infer_only` path
-   included (the latter via the #109 `pt`-freshness /
-   domain-determination route now in progress).  Nothing in task #119
-   weakens, replaces or deletes any of it, and a reader wanting "is the
-   thing we ship consistent?" is asking the set model, not this file.
+1. **The set model is the consistency proof of the real checker in its
+   *default* configuration** — the shipped binary with direct install,
+   `SETLEC_INFER_ONLY` **off**.  Nothing in task #119 weakens, replaces
+   or deletes any of it, and a reader wanting "is the thing we ship
+   consistent?" is asking the set model, not this file.
+
+   **CORRECTED, 2026-08-27.**  This entry used to promise that the set
+   model would cover the fast `infer_only` path too, "via the #109
+   `pt`-freshness / domain-determination route now in progress".  That
+   route was **refuted by the whole-stream census** (1–4 % capture even
+   with a free guard; top-level `DESIGN.md`, the census section at
+   commit `3078208`), and task #134 landed `infer_only` as a
+   *supported but unverified* operating mode: flag-off is verified,
+   flag-on carries **reference-kernel parity** rather than a soundness
+   proof.  So the coverage claim is now explicitly flag-off, and the
+   promise is withdrawn rather than left standing as pending work.
 2. **The TT bridge covers the *certified* configuration** —
-   certificates on (`infer_only` fast path off) and
-   `directStructsEnabled = false` — as a **conditional theorem**.  Two
-   flags, the same honest shape the direct-install conditionality
-   already had; both are named `Prop`s or named build constants, never
-   hidden side conditions.
+   certificates on (`SETLEC_INFER_ONLY` off) and
+   `directStructsEnabled = false` — as a **conditional theorem**.
+   Both are named `Prop`s or named build constants, never hidden side
+   conditions.
+
+   **There are now three conditionalities in this project, not two**,
+   and they are of two different kinds.  `directStructs` and the
+   certificate flag are conditions *this* file's theorems carry.
+   `SETLEC_INFER_ONLY` is a third, and it is the one neither
+   verification path covers — the set model's claim stops at flag-off
+   and the bridge's does too.  A reader checking which claim a verdict
+   carries has to read the invocation, which is why #134 made the two
+   diagnostic flags mutually exclusive on the command line.
 3. **The layer's unconditional returns** are not conditional on
    anything: `Setlec/TT/*`'s own absolute consistency, its two-lemma
    metatheory, and the design-instrumentation record this document is
@@ -1066,7 +1113,8 @@ Three consequences, each of which looked like an independent question:
    relate typed terms to untypeable ones by design.  See the
    retraction below.
 2. **Infer-only mode cannot be justified in this bridge** (task #124),
-   so the app-argument certificate — 98.6 % of the tax — is permanent
+   so the app-argument certificate — 98.6 % of the tax, on the measure
+   amended at §6.1 — is permanent
    *here*.  All four routes to the argument's typing at the inferred
    domain are closed, the last of them because the official kernel's
    own justification *is* subject reduction.  See "Why the certificates
@@ -1131,8 +1179,29 @@ That one call is **98.6 %** of it.  The site is
 `Setlec/Kernel/CoreI.lean:1534` (the certificate at 1545–1547 and its
 post-whnf twin at 1554–1556); the spec-side twin is the `.app` clause
 of `inferBody`, `Setlec/Kernel/Core.lean:1495`.  `--yolo` is a literal
-alias for `SETLEC_NO_PROOF_CERTS`, so the whole ~39× certified/yolo gap
-is certificates and nothing else.
+alias for `SETLEC_NO_PROOF_CERTS`.
+
+> **AMENDED, 2026-08-27 (task #134) — the 98.6 % share is right, the
+> *tax* it is 98.6 % of is not.**  `--yolo` drops the per-argument
+> application check at **every** invocation, the driver's front door
+> included — and the front-door check is one the reference kernels
+> perform too (`check(e)` at `infer_only = false`).  So part of what
+> the mask attributed to *certification* is ordinary checking that any
+> kernel does, i.e. engineering gap.  Measured against #134's
+> infer-only mode, which keeps the front door and drops only the
+> internal re-checks, the honest certified-mode tax is **~1.9× on
+> `Std.Time`**, not the ~42× the old framing implied — roughly half the
+> old number was front-door work.  See top-level `DESIGN.md`, "The
+> infer-only mode: SETLEC_INFER_ONLY (task #134)", for the
+> decomposition.
+>
+> **What this does *not* change is the argument this section makes.**
+> The re-check is still the dominant certificate, still exists only
+> because `AnnotOk` is a conclusion rather than a carried hypothesis,
+> and is still the thing a typing judgment would obviate at the
+> *internal* sites.  The correction is to the size of the prize, not to
+> where it comes from — and §6's "the tax is one call" reading survives
+> with a smaller number attached.
 
 **What that call establishes is `⟦a⟧ ∈ˢ ⟦A⟧` at every application
 node** — precisely `AnnotOk`'s app clause — and it exists *only*
@@ -1173,7 +1242,7 @@ motivated.
 
 | certificate | checker can skip | bridge can do without | status |
 |---|---|---|---|
-| app-argument re-check (`inferSpineI`) | yes — the 98.6 % | **no** | *established* (four routes closed) |
+| app-argument re-check (`inferSpineI`) | yes — the 98.6 % (see §6.1's amendment) | **no** | *established* (four routes closed) |
 | beta re-check | yes | **no** | *established* (`propext` refutes the alternative) |
 | iota telescope certifications (`iotaCerts`) | yes | **no** | **prediction** |
 | structure-eta / unit-like telescope certifications | yes | **no** | **confirmed, verbatim** (below) |
@@ -1438,7 +1507,8 @@ next subsection is why.
 ### Why the certificates are structural (and task #124 cannot be
 ### justified here)
 
-The measurement above says the app-argument re-check is 98.6 % of the
+The measurement above (as amended — the *share* stands, the tax it is a
+share of is smaller) says the app-argument re-check is 98.6 % of the
 tax and that the reference kernels do it once per declaration rather
 than per reduct.  The natural conclusion — carry the fact instead of
 re-deriving it — **does not work in this layer**, and the reason is a
@@ -1507,7 +1577,8 @@ two pi types does not descend to their domains.  In the set model the
 domain-relative collapse erases the domain outright at `Prop`
 (`lamC A f = pt`), so the function's *value* does not determine it
 either.  Different mechanisms, same conclusion, and it explains why the
-certificate is the one call that costs 98.6 %: it is doing the one
+certificate is the one call that costs 98.6 % of the tax: it is doing
+the one
 thing nothing else can do.
 
 If this reading survives contact with the remaining clauses it is the

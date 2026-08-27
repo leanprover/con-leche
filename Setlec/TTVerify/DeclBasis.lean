@@ -878,7 +878,7 @@ theorem Deq.mkAppN_congrFun {Γ : List VExpr} :
     ∀ (xs : List VExpr) {f f' : VExpr}, Deq Γ f f' →
       Deq Γ (VExpr.mkAppN f xs) (VExpr.mkAppN f' xs)
   | [], _, _, h => h
-  | x :: xs, _, _, h => Deq.mkAppN_congrFun xs (Deq.appFun h)
+  | _ :: xs, _, _, h => Deq.mkAppN_congrFun xs (Deq.appFun h)
 
 /-- **The chain, collapsed.** -/
 theorem Deq.ofBetaSpine {Γ : List VExpr} {f : VExpr} {args : List VExpr}
