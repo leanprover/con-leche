@@ -6307,3 +6307,26 @@ above; the ws-condition's pin entries close by `hchain` at
 `ErasedEq` major, fields unchanged), and re-audit of the level story
 at the redex head (`hlev`'s nested comparands).  Estimated ~300-500
 lines on top of the WIP — but do the §19.1 restructure first.
+
+## §20 The sealed per-stage decomposition, landed (plain side)
+
+§19.1's prescription, first half.  `Setlec/TTVerify/IndBottomStages.lean`
+holds the plain bottom's four largest blocks as top-level theorems —
+`openFrame_deq` (the frame workhorse, `K`-generic), `padHit`,
+`paramBridge` (Stage D's bridge), `zipperStage` (Stage G) and
+`pointStage` (Stage J's pointwise loop) — each restating its
+`have`-block verbatim with the block's free hypotheses as parameters
+under their original names; `IndBottomPlainTT` binds them back, so the
+extraction is proof-content-neutral (statement unchanged, `git show`
+is deletions plus five applications).
+
+**Measured effect** (same polling method as §19.1's baseline):
+`IndBottomPlain.lean` 13.3 GB → **3.7 GB** peak RSS;
+`IndBottomStages.lean` elaborates at 2.8 GB.  Main proof 1940 → 1084
+lines.  The flat-parameter style (30-50 per lemma) turned out to be
+cheap to produce — the compiler's unknown-identifier errors enumerate
+the block's frontier — and none of the extractions needed proof edits
+beyond binding `hcl`/`hopenDeqG`/`hpadhit` in a preamble and adapting
+one `hleafS` disjunct shape at the call sites.  Frame-fact *structures*
+were not needed for this half; if the nested side's lemma frontiers
+get worse, introduce them there.
