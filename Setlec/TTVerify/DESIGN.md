@@ -5106,13 +5106,26 @@ shape plus inhabitation, and nothing about which constant carries it.
 
 #### 14.7.6 Status
 
-* **Done**: the phase's shared machinery (§14.7.2) and `UnitFoldTT`.
-* **Blocked on §14.7.4**: `DeclIndTT`'s discharge of `hTmSort`.
-* **Next, and unblocked**: `EtaFoldTT` (same skeleton; the residual is
-  `denote_paramTuple` at the same three shifts plus the constructor
-  spine over `etaFields` projections), then the two bottoms, then
-  `ProjBottomTT`, then `CheckDeclTT`.  All four end at
-  `Deq.ofEqThm` and so all four meet §14.7.4 again.
+* **Done**: the phase's shared machinery (§14.7.2), `UnitFoldTT` and
+  `EtaFoldTT`.
+* **Blocked on §14.7.4** (task #135, in flight): both folds' discharge
+  of `StatementSortPin`.
+* **Blocked on §14.7.7** (filed, not granted): `EtaFoldTT`'s discharge
+  of `EtaRhsTyped`.
+* **Next**: the two bottoms, then `ProjBottomTT`, then `CheckDeclTT`.
+  Their type slots are motive applications rather than the model
+  former, so they meet §14.7.4 at a *different* `Â` and will want
+  form 2 (the `checkIotaSidesTy` route) rather than `StatementSortPin`;
+  their two sides are already certified.
+
+**The prediction of §14.7.2 cashed.**  `denote_paramTuple` /
+`instSeq_paramTuple` were factored out of `UnitFoldTT` on the argument
+that every pinned domain is the same tuple at a shift.  `EtaFoldTT`'s
+residual — which has a *nested* spine, the fabricated constructor over
+`etaFields` projection applications — is `denote_paramSpine` four times
+and `instSeq_paramList` three times, and `denote_etaResidual` went
+through on its first compile.  That is the payoff of the factoring
+stated as an outcome rather than as a plan.
 #### 14.7.7 The premise is one of *three*, and eta needs a second one
 
 Found while starting `EtaFoldTT`, on the grant to proceed.  **This is
