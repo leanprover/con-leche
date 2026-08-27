@@ -142,39 +142,44 @@ bridge's pattern-noticing has bought a schedule change rather than an
 explanation. -/
 
 /-- Two `VExpr` telescopes met by the same spine, agreeing binder for
-binder.  The residuals are free: only the domains are constrained, and
-only at the positions the spine reaches. -/
-inductive SameDoms : VExpr → VExpr → List VExpr → Prop
-  | nil {T T' : VExpr} : SameDoms T T' []
-  | cons {A B B' x : VExpr} {xs : List VExpr} :
-      SameDoms (B.inst x) (B'.inst x) xs →
-      SameDoms (.pi A B) (.pi A B') (x :: xs)
+binder — **and both residuals named**.  Only the domains are
+constrained, and only at the positions the spine reaches.
+
+Naming the second residual is not decoration: a fold has to *continue*
+past the retarget (the statement's telescope does not end where the
+type former's does), so "some residual exists" is exactly the fact it
+cannot use. -/
+inductive TeleAlign : VExpr → VExpr → List VExpr → VExpr → VExpr → Prop
+  | nil {T T' : VExpr} : TeleAlign T T' [] T T'
+  | cons {A B B' x r r' : VExpr} {xs : List VExpr} :
+      TeleAlign (B.inst x) (B'.inst x) xs r r' →
+      TeleAlign (.pi A B) (.pi A B') (x :: xs) r r'
 
 /-- **Retargeting a fitted spine.**  A spine that fits one telescope
-fits any telescope with the same domains — with its own residual.  The
-argument typings are *reused*, not re-derived, which is the point: at a
-fold's use site they are hypotheses, not things the proof can rebuild. -/
+fits any telescope aligned with it — at the residual the alignment
+names.  The argument typings are *reused*, not re-derived, which is the
+point: at a fold's use site they are hypotheses, not things the proof
+can rebuild. -/
 theorem VTeleTyped.retarget {Δ : List VExpr} :
-    ∀ {T T' : VExpr} {xs : List VExpr} {rest : VExpr},
-      VTeleTyped Δ T xs rest → SameDoms T T' xs →
-      ∃ rest', VTeleTyped Δ T' xs rest' := by
-  intro T T' xs rest h
+    ∀ {T T' : VExpr} {xs : List VExpr} {rest rest' : VExpr},
+      VTeleTyped Δ T xs rest → TeleAlign T T' xs rest rest' →
+      VTeleTyped Δ T' xs rest' := by
+  intro T T' xs rest rest' h
   induction h generalizing T' with
-  | nil => intro _; exact ⟨T', .nil⟩
+  | nil => intro ha; cases ha with | nil => exact .nil
   | @cons A B x xs rest hx _ ih =>
-    intro hs
-    cases hs with
-    | cons hs' =>
-      obtain ⟨rest', hfit⟩ := ih hs'
-      exact ⟨rest', .cons hx hfit⟩
+    intro ha
+    cases ha with
+    | cons ha' => exact .cons hx (ih ha')
 
-/-- A fitted spine's own telescope agrees with itself — the degenerate
-retarget.  Note it is *not* reflexivity of `SameDoms`: a non-`∀` type
-has no domains to agree about, so the relation is genuinely partial and
-the witness has to come from a fitting. -/
-theorem VTeleTyped.sameDoms {Δ : List VExpr} :
+/-- The alignment a fitting already carries: every telescope is aligned
+with itself along any spine that fits it.  Note this is *not*
+reflexivity of `TeleAlign` — a non-`∀` type has no domains to agree
+about, so the relation is genuinely partial and the witness has to come
+from a fitting. -/
+theorem VTeleTyped.teleAlign {Δ : List VExpr} :
     ∀ {T rest : VExpr} {ys : List VExpr},
-      VTeleTyped Δ T ys rest → SameDoms T T ys := by
+      VTeleTyped Δ T ys rest → TeleAlign T T ys rest rest := by
   intro T rest ys h
   induction h with
   | nil => exact .nil

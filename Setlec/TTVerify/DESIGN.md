@@ -136,7 +136,12 @@ and it is **false**.  A non-`∀` type has no domains to agree about, so
 *fitting* (`VTeleTyped.sameDoms`), not from the type alone.  What the
 failure was announcing is that the relation is genuinely **partial**:
 it is not "these two types are alike" but "this spine fits both", and
-the spine is doing work.  Writing the plausible version first is what
+the spine is doing work.  (The relation is now `TeleAlign`: the same
+partiality, plus **both residuals named**, because a fold has to
+continue past the retarget — the statement's telescope does not end
+where the type former's does, so "some residual exists" is exactly the
+fact it cannot use.  That second correction came from the same source
+as the first: asking what the *consumer* would do with the conclusion.)  Writing the plausible version first is what
 surfaced it, which makes this tell cheap to trip on purpose — *when a
 new relation appears, try its trivial lemmas immediately; the ones
 that refuse are describing the relation.*
