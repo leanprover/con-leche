@@ -1205,6 +1205,77 @@ theorem VExpr.instSeq_inst0 :
       rw [h2, VExpr.instSeq_cons (e := X), VExpr.instSeq_cons (e := b),
         show t + 1 - 1 = t from by omega]
 
+/-- `instSeq` moves under an outer lift at cut `0`: the cut shifts by
+the lift (task #119, the nested arc's chain algebra). -/
+theorem VExpr.instSeq_liftN0 :
+    ∀ (vs : List VExpr) (t m : Nat) (Y : VExpr), vs.length ≤ t + 1 →
+      VExpr.instSeq vs (t + m) (Y.liftN m)
+        = (VExpr.instSeq vs t Y).liftN m
+  | [], _, _, _, _ => rfl
+  | a :: vs, t, m, Y, h => by
+    show VExpr.instSeq vs (t + m - 1) ((VExpr.liftN m Y).inst a (t + m))
+      = _
+    rw [VExpr.inst_liftN_comm Y (by omega) a, Nat.add_sub_cancel]
+    cases t with
+    | zero =>
+      obtain rfl : vs = [] := by
+        simp only [List.length_cons] at h
+        exact List.eq_nil_of_length_eq_zero (by omega)
+      rfl
+    | succ t' =>
+      rw [show t' + 1 + m - 1 = t' + m from by omega]
+      exact VExpr.instSeq_liftN0 vs t' m (Y.inst a (t' + 1))
+        (by simpa using Nat.le_of_succ_le_succ (by simpa using h))
+
+/-- A subject with only low bound variables passes through `instSeq`
+untouched: every cut is above its range. -/
+theorem VExpr.instSeq_eq_self_of_bvarsBelow :
+    ∀ (vs : List VExpr) (t : Nat) {X : VExpr} {m : Nat},
+      VExpr.bvarsBelow m X → m + vs.length ≤ t + 1 →
+      VExpr.instSeq vs t X = X
+  | [], _, _, _, _, _ => rfl
+  | a :: vs, t, X, m, hb, h => by
+    show VExpr.instSeq vs (t - 1) (X.inst a t) = _
+    rw [VExpr.inst_eq_self (VExpr.bvarsBelow.mono (by
+      simp only [List.length_cons] at h
+      omega) hb)]
+    cases t with
+    | zero =>
+      obtain rfl : vs = [] := by
+        simp only [List.length_cons] at h
+        exact List.eq_nil_of_length_eq_zero (by omega)
+      rfl
+    | succ t' =>
+      exact VExpr.instSeq_eq_self_of_bvarsBelow vs t' hb (by
+        simp only [List.length_cons] at h
+        omega)
+
+/-- **`instSeq` through a reverse-instantiation chain**, with no side
+conditions: the chain's elements move to the ambient cut, the subject
+to the cut shifted past the chain (task #119, the nested bottom's
+statement-side pins under the fired spine). -/
+theorem VExpr.instSeq_instRevChain :
+    ∀ (bs : List VExpr) (X : VExpr) (vs : List VExpr) (t : Nat),
+      vs.length ≤ t + 1 →
+      VExpr.instSeq vs t (VExpr.instRevChain bs X)
+        = VExpr.instRevChain (bs.map (VExpr.instSeq vs t))
+            (VExpr.instSeq vs (t + bs.length) X)
+  | [], X, vs, t, _ => rfl
+  | b :: bs, X, vs, t, h => by
+    show VExpr.instSeq vs t (VExpr.instRevChain bs
+        (X.inst (b.liftN bs.length) 0)) = _
+    rw [VExpr.instSeq_instRevChain bs _ vs t h,
+      VExpr.instSeq_inst0 vs (t + bs.length) X _ (by omega),
+      VExpr.instSeq_liftN0 vs t bs.length b h]
+    show VExpr.instRevChain (List.map _ bs) _ = _
+    rw [show (b :: bs).map (VExpr.instSeq vs t)
+        = VExpr.instSeq vs t b :: bs.map (VExpr.instSeq vs t) from rfl]
+    show _ = VExpr.instRevChain (bs.map (VExpr.instSeq vs t)) _
+    rw [show (bs.map (VExpr.instSeq vs t)).length = bs.length from by
+        simp]
+    simp only [List.length_cons]
+    rfl
+
 /-- **The cross-frame instantiation.**  An `instPisAt` run at scattered
 frame variables, denoted at the frame and instantiated along the
 frame's full value spine, is the walk of the (spine-instantiated)
@@ -1218,14 +1289,14 @@ theorem instPisAt_denote_cross {cval : TConstVal} {env : Env}
       Expr.instPisAt sp ty = some (ds, rs) →
       ∀ {D : Nat} {vals : List VExpr}, vals.length = D →
       (∀ (j : Nat) (x : Expr), sp[j]? = some x →
-        (∃ i nm t, x = .fvar i nm t) ∧ Expr.WScoped D x ∧
-          x.looseBVarsBounded 0 = true) →
+        Expr.WScoped D x ∧ x.looseBVarsBounded 0 = true) →
       Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
       ∀ {T : VExpr}, denote cval env ψ D ty = some T →
       ∀ {vRs : VExpr}, denote cval env ψ D rs = some vRs →
       ∀ {ws : List VExpr}, ws.length = sp.length →
-      (∀ (j i : Nat) (nm : Name) (t : Expr), sp[j]? = some (.fvar i nm t) →
-        ws[j]? = some (VExpr.instSeq vals (D - 1) (.bvar (D - 1 - i)))) →
+      (∀ (j : Nat) (x : Expr), sp[j]? = some x →
+        ∃ w0, denote cval env ψ D x = some w0 ∧
+          ws[j]? = some (VExpr.instSeq vals (D - 1) w0)) →
       ∀ {Γ : List VExpr} {R : VExpr},
         PiTele sp.length (VExpr.instSeq vals (D - 1) T) Γ R →
         VExpr.instSeq vals (D - 1) vRs =
@@ -1242,12 +1313,13 @@ theorem instPisAt_denote_cross {cval : TConstVal} {env : Env}
     rfl
   | cons a sp ih =>
     intro ty ds rs h D vals hvlen hsp hfb hb T hT vRs hRs ws hwlen hws Γ R hp
-    obtain ⟨⟨i, nm, t, rfl⟩, hwsa, hba⟩ := hsp 0 a rfl
+    obtain ⟨hwsa, hba⟩ := hsp 0 a rfl
+    obtain ⟨w0, hw0den, hw0⟩ := hws 0 a rfl
     match ty, h with
     | .forallE nmT dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp
-          (body.instantiate1 (.fvar i nm t)) with
+          (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
       | some p => ?_
       rw [h1] at h
@@ -1271,17 +1343,14 @@ theorem instPisAt_denote_cross {cval : TConstVal} {env : Env}
       | some B => ?_
       rw [hB] at hT
       obtain rfl : T = .pi A B := (Option.some.inj hT).symm
-      -- the instantiated body, denoted through the top opening
-      have hfvden : denote cval env ψ D (.fvar i nm t) =
-          some (VExpr.bvar (D - 1 - i)) := by rw [denote_fvar]
+      -- the instantiated body, denoted through the top value
       have hbeta := denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
-        hfvden 0
+        hw0den 0
       -- the spine and its values
       match ws, hwlen with
       | w :: ws', hwlen => ?_
-      have hw : w = VExpr.instSeq vals (D - 1) (.bvar (D - 1 - i)) := by
-        have := hws 0 i nm t rfl
-        simpa using this
+      have hw : w = VExpr.instSeq vals (D - 1) w0 := by
+        simpa using hw0
       -- the tower, peeled
       rw [show VExpr.instSeq vals (D - 1) (VExpr.pi A B) =
           .pi (VExpr.instSeq vals (D - 1) A)
@@ -1297,18 +1366,12 @@ theorem instPisAt_denote_cross {cval : TConstVal} {env : Env}
       cases hp with
       | @cons _ _ _ _ Γ' hp' => ?_
       -- the recursive frame
-      have hfbI : Expr.fvarsBelow D (body.instantiate1 (.fvar i nm t)) :=
-        Expr.fvarsBelow_instantiate1_gen
-          (by
-            have : i < D := by
-              simp only [Expr.WScoped] at hwsa
-              exact hwsa.1
-            simpa [Expr.fvarsBelow] using this) 0 hfb'.2
-      have hbI : (body.instantiate1
-          (.fvar i nm t)).looseBVarsBounded 0 = true :=
+      have hfbI : Expr.fvarsBelow D (body.instantiate1 a) :=
+        Expr.fvarsBelow_instantiate1_gen hwsa.fvarsBelow 0 hfb'.2
+      have hbI : (body.instantiate1 a).looseBVarsBounded 0 = true :=
         Expr.looseBVarsBounded_instantiate1_gen hba hb'.2
-      have hTI : denote cval env ψ D (body.instantiate1 (.fvar i nm t))
-          = some (B.inst (.bvar (D - 1 - i)) 0) := by
+      have hTI : denote cval env ψ D (body.instantiate1 a)
+          = some (B.inst w0 0) := by
         rw [hbeta, hB]
         rfl
       -- the instantiated tower for the recursion
@@ -1317,21 +1380,23 @@ theorem instPisAt_denote_cross {cval : TConstVal} {env : Env}
       have hrec := ih h1 hvlen
         (fun j x hx => hsp (j + 1) x (by simpa using hx))
         hfbI hbI hTI hRs (by simpa using hwlen)
-        (fun j i' nm' t' hj => by
-          have := hws (j + 1) i' nm' t' (by simpa using hj)
-          simpa using this)
+        (fun j x hj => by
+          obtain ⟨w1, hd1, hg1⟩ := hws (j + 1) x (by simpa using hj)
+          exact ⟨w1, hd1, by simpa using hg1⟩)
         (Γ := ctxInstAt w 0 Γ') (R := R.inst w sp.length) ?_
       · have hlen' : ws'.length = sp.length := by simpa using hwlen
         rw [hrec, show (w :: ws').length - 1 = ws'.length from by simp,
           VExpr.instSeq_cons, hlen']
-      · have hiD : i < D := by
-          simp only [Expr.WScoped] at hwsa
-          exact hwsa.1
-        have hID : VExpr.instSeq vals (D - 1)
-            (B.inst (.bvar (D - 1 - i)) 0) =
-            (VExpr.instSeq vals D B).inst w 0 := by
-          rw [VExpr.instSeq_inst0 vals (D - 1) B (.bvar (D - 1 - i))
-            (by omega), show D - 1 + 1 = D from by omega, ← hw]
+      · have hID : VExpr.instSeq vals (D - 1)
+            (B.inst w0 0) = (VExpr.instSeq vals D B).inst w 0 := by
+          rcases Nat.eq_zero_or_pos D with h0 | h0
+          · obtain rfl : vals = [] := by
+              rw [h0] at hvlen
+              exact List.eq_nil_of_length_eq_zero hvlen
+            simp only [VExpr.instSeq] at hw ⊢
+            rw [hw]
+          · rw [VExpr.instSeq_inst0 vals (D - 1) B w0
+              (by omega), show D - 1 + 1 = D from by omega, ← hw]
         rw [hID]
         exact hp2
 
