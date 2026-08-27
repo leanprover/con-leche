@@ -1088,6 +1088,13 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
       checkIndRecsS_run henv₂ hbnAll hwf₂ hrecs
     rw [hfe₃] at h
     simp only [mkFEnv_find?] at h
+    rw [ctorResidualOkF_eq] at h
+    by_cases hctorRes : ctorResidualOk fe₃.env cvT.name cvC.name
+        cvT.levelParams nP nF caps.eta = true
+    case neg =>
+      rw [if_neg hctorRes] at h
+      exact absurd h throwI_bind_ok
+    rw [if_pos hctorRes] at h
     by_cases hguard : (List.range nF).all
         (fun j => (fe₃.env.find? (projFnName cvT.name j)).isNone) = true
     case neg =>
@@ -1161,7 +1168,7 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
         have hv : (Except.ok fe₃.env : Except CheckError Env) = .ok v :=
           hF₂p.symm.trans hok
         injection hv
-      rw [if_pos hguard]
+      rw [if_pos hctorRes, if_pos hguard]
       split
       next err herr => exact nomatch (hF₃p'.symm.trans herr)
       next v hok =>

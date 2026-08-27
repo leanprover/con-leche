@@ -5290,21 +5290,27 @@ Before any request: check whether `checkMemberVal`'s `eqUpToNames`
 against the model constructor, or `EtaPins`' constructor-model
 conjuncts, already deliver it — and if a request is still warranted,
 price it with the same corpus measurement §14.7.4 used.
-#### 14.7.9 GRANTED IN PART (task #136): the remaining link, read and then measured
+#### 14.7.9 GRANTED, but read §14.7.11 first (task #136)
 
-**Landed 2026-08-27, checker half only.**  `indBlockCaps` /
-`indBlockCapsF`'s `eta` field now carries the requested conjunct — the
-public constructor's telescope residual is `directFam cvT.name
-cvT.levelParams nP nF` — guarded by the capability exactly as the
-measurement below prescribes.  The **verify-side threading did not
-land**: `EtaPins` is parameterised by `(env', T, lps, caps)` and the
-fact is about `cvC.type`, which none of those four reach; see the
-FINDING under "The eta capability pins the constructor's residual" in
-`DESIGN.md` for the three spellings tried and why each fails.  So
-`eta_rescue`'s supplier for `EtaLawTT`'s third premise still has no
-route from the install, and a carrier decision is owed before
-`EtaRhsTyped` can be discharged from this pin.  The rest of this
-section is the original request, kept for the reasoning.
+**The site and the subject named below are wrong**, and §14.7.11 is
+this section's own retraction: the request was measured on
+`indBlockCapsF`'s **raw** `cvC.type` and specified against the
+constructor's **stored** `ConstantVal` — two different objects.  What
+landed 2026-08-27 is the §14.7.11 form: `ctorResidualOk`, on the
+stored constant, guarded by `caps.eta`, in `checkIndDecl`'s
+single-constructor branch (and its two driver mirrors).  The
+re-measurement — including raw vs stored side by side, which never
+disagree in 1356 blocks — and the one deviation from §14.7.11's letter
+(the check runs one step after the member install, because
+`checkIndMember` has no `T` in scope) are in `DESIGN.md`, "The eta
+capability pins the constructor's residual".
+
+The verify-side carrier is *not* `EtaPins` (§14.7.11(b) confirms the
+category error the implementer diagnosed); it is the `EnvTT` field
+discharged from the install's own inline inversion, and that work is
+not part of #136's landing.  The rest of this section is the original
+request, kept for the reasoning — with its object named loosely, which
+is exactly what §14.7.11 is about.
 
 §14.7.8 left one question open and told its author to read before
 requesting.  Read, then measured; here is the outcome.
@@ -5672,3 +5678,24 @@ evidence about the annotate-shape question; if they do, it is the
 counterexample that proves the ruling was necessary.  Either way it
 costs one extra field in the trace line.
 
+
+**Outcome (2026-08-27, landed).**  Re-measured at the new site with
+both types in the same trace line: 1356 single-constructor modeled
+blocks, **975/975 eta-capable and 90/90 unit-capable satisfy the
+property**, all 91 failures capability-free and all of them indexed
+families, and **raw vs stored disagree 0 times**.  The free evidence
+came out clean — which is evidence, not a licence: the landed check
+reads the stored constant through `find?`, so the inversion yields
+`CtorResidualPin` for the very `ConstantVal` the environment holds and
+the bridge's discharge is `exact`.
+
+One deviation from (b)'s letter, with its reason: the check runs *one
+step after* the member install, in `checkIndDecl`'s single-constructor
+branch, because `checkIndMember` has no family name in scope (`IndCaps`
+does not carry `T`) and threading one would touch 121 references across
+`Setlec/Model/*` and `Setlec/Verify/*`.  Same value, read back from the
+environment; three localised `by_cases` in the Model layer; the fact
+handed over is the stronger stored-and-found form.  Details, gates and
+the negation probe (decline at `inductive LT`, arena 67/92, e2e 32/67)
+are in `DESIGN.md`, "The eta capability pins the constructor's
+residual".

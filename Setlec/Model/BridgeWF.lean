@@ -596,6 +596,12 @@ theorem checkIndDecl_wfimp {env env₂ : Env} {block : List ConstantInfo}
     simp only [Except.bind]
     rw [hrecs]
     simp only [Except.bind]
+    by_cases hctorRes : ctorResidualOk env₃ cvT.name cvC.name
+        cvT.levelParams nP nF (indBlockCaps env cvT cvC nP nF).eta = true
+    case neg =>
+      rw [if_neg hctorRes] at h
+      exact absurd h atF_throw_bind
+    rw [if_pos hctorRes] at h ⊢
     by_cases hguard : (List.range nF).all (fun j =>
         (env₃.find? (projFnName cvT.name j)).isNone) = true
     case neg =>

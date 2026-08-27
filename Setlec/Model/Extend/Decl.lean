@@ -116,6 +116,15 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
         | _ => true)).foldlM (checkIndMember (fueledOps F)
           (block.map (·.name)) (indBlockCaps env cvT cvC nP nF)) env
         = .ok env₁ := hfold
+    -- the eta constructor's residual (task #136): a syntactic guard on
+    -- the *stored* constructor, refuted exactly like the freshness one
+    by_cases hctorRes : ctorResidualOk env₃ cvT.name cvC.name
+        cvT.levelParams nP nF (indBlockCaps env cvT cvC nP nF).eta = true
+    case neg => rw [if_neg hctorRes] at h; exact nomatch h
+    rw [if_pos hctorRes] at h
+    try simp only [pure, Except.pure] at h
+    try dsimp only at h
+    try simp only [Bind.bind, Except.bind] at h
     -- the projection-family freshness check (extracted early: the
     -- member steps' refutations read it back through the monotone
     -- phases)

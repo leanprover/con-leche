@@ -694,24 +694,10 @@ def installProjTemplateStep (T ctorName : Name) (lps : List Name)
     installProjTemplate e T ctorName lps nP nF i
   else pure e
 
-/-- The capabilities recorded for a single-constructor modeled block.
-
-The `eta` field's middle conjunct is task #136's: the constructor's
-telescope residual is the family applied to the parameter variables —
-literally the conjunct `checkDirectCtor` (`Setlec/Kernel/Checker.lean`)
-already makes on the direct path, here on the modeled one and
-**guarded by the capability**.  Unguarded it would reject real
-streams: the indexed families (`Acc`, `HEq`, `Int.NonNeg`, …) have
-residual `T p⃗ i⃗`, and they are exactly the blocks that earn no
-capability (measured: 978/978 eta-capable blocks satisfy it, all 99
-failures are capability-free).  `unitlike` does not need it — its
-right-hand side is a law premise, not a fabricated spine. -/
+/-- The capabilities recorded for a single-constructor modeled block. -/
 def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
     IndCaps where
   eta := (cvC.levelParams = cvT.levelParams) &&
-    (match cvC.type.stripPis (nP + nF) with
-     | some (_, cbody) => cbody == directFam cvT.name cvT.levelParams nP nF
-     | none => false) &&
     checkEtaThm env cvT.name cvC.name cvT.levelParams nP nF
   etaCtor := cvC.name
   etaParams := nP
@@ -719,6 +705,42 @@ def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
   unitlike := checkUnitThm env cvT.name cvT.levelParams nP
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
+
+/-- **Task #136: an eta-capable family's constructor returns the family
+applied to its parameters.**  Literally the conjunct `checkDirectCtor`
+(`Setlec/Kernel/Checker.lean`) already makes on the direct path,
+`cbody == directFam T lps nP nF`, here on the modeled path.
+
+Two things about it are load-bearing and were measured, not argued.
+
+*The subject is the **stored** constant.*  Not the block's incoming
+`ConstantVal`: the environment contains only what `checkMemberVal`
+stored — `checkConstantVal`'s **annotated** output — and that is what
+every consumer reads back (`constTyAt`, and the fire-site certificate
+through it).  A check on the raw type would be a different syntactic
+object and would owe a bridge lemma "annotation preserves a
+constructor's residual" that nothing else needs.  Hence the `find?`:
+the check reads the constant exactly the way its consumers do.  (The
+corpus says the two never disagree — 1356 blocks, 0 differences — but
+that is evidence, not a licence to check the wrong object.)
+
+*The capability guard is not cosmetic.*  Unguarded, this conjunct is
+**refuted by the corpus** at the *indexed* families (`Acc`, `HEq`,
+`Int.NonNeg`, `IndexedSingleton`, `IndexedUnit`, `SortElimProp`, …)
+whose residual is `T p⃗ i⃗`; they earn no capability and must keep
+installing untouched.  Guarded on `eta` it is corpus-clean: 975/975
+eta-capable blocks satisfy it, and every one of the 91 failures is a
+block with neither capability.  `unitlike` does not need it — its
+right-hand side is a law premise, not a fabricated spine. -/
+def ctorResidualOk (env' : Env) (T ctorName : Name) (lps : List Name)
+    (nP nF : Nat) (eta : Bool) : Bool :=
+  !eta ||
+  (match env'.find? ctorName with
+   | some (.ctorInfo cvCA _ _) =>
+     (match cvCA.type.stripPis (nP + nF) with
+      | some (_, cbody) => cbody == directFam T lps nP nF
+      | none => false)
+   | _ => false)
 
 /-- Check and install a modeled inductive block: every member is
 checked against its `_model` counterpart (type up to the public↔model
@@ -751,6 +773,10 @@ def checkIndDecl (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
     let env₂ ← nonrecs.foldlM
       (checkIndMember ops blockNames caps) env
     let env₃ ← checkIndRecs ops blockNames env₂ recs
+    -- the eta capability's constructor returns the family (task #136)
+    unless ctorResidualOk env₃ cvT.name cvC.name cvT.levelParams nP nF
+        caps.eta do
+      throw (.notImplemented "modeled structure: eta constructor residual")
     -- the whole projection name family must be ours to install
     unless (List.range nF).all
         (fun j => (env₃.find? (projFnName cvT.name j)).isNone) do

@@ -142,6 +142,12 @@ theorem indBlockCapsF_eq (env : Env) (cvT cvC : ConstantVal)
   simp only [indBlockCapsF, indBlockCaps, checkEtaThmF_eq,
     checkUnitThmF_eq] <;> rfl
 
+theorem ctorResidualOkF_eq (env : Env) (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (eta : Bool) :
+    ctorResidualOkF (mkFEnv env) T ctorName lps nP nF eta
+      = ctorResidualOk env T ctorName lps nP nF eta := by
+  simp only [ctorResidualOkF, ctorResidualOk, mkFEnv_find?] <;> rfl
+
 theorem nestedRuleShapeF_eq (env' envS : Env) (cvName : Name)
     (lps : List Name) (tyA : Expr) (mI rP cnP j : Nat) :
     nestedRuleShapeF (mkFEnv env') (mkFEnv envS) cvName lps tyA

@@ -274,14 +274,23 @@ def checkUnitThmF (fe : FEnv) (T : Name) (lps : List Name)
      | _, _ => false)
   | _, _, _ => false
 
-/-- `indBlockCaps` through the index (including task #136's
-constructor-residual conjunct on `eta`; see there). -/
+/-- `ctorResidualOk` through the index (task #136; the reasoning,
+including why the subject is the *stored* constant and why the
+capability guard is load-bearing, is at `ctorResidualOk`). -/
+def ctorResidualOkF (fe : FEnv) (T ctorName : Name) (lps : List Name)
+    (nP nF : Nat) (eta : Bool) : Bool :=
+  !eta ||
+  (match fe.find? ctorName with
+   | some (.ctorInfo cvCA _ _) =>
+     (match cvCA.type.stripPis (nP + nF) with
+      | some (_, cbody) => cbody == directFam T lps nP nF
+      | none => false)
+   | _ => false)
+
+/-- `indBlockCaps` through the index. -/
 def indBlockCapsF (fe : FEnv) (cvT cvC : ConstantVal) (nP nF : Nat) :
     IndCaps where
   eta := (cvC.levelParams = cvT.levelParams) &&
-    (match cvC.type.stripPis (nP + nF) with
-     | some (_, cbody) => cbody == directFam cvT.name cvT.levelParams nP nF
-     | none => false) &&
     checkEtaThmF fe cvT.name cvC.name cvT.levelParams nP nF
   etaCtor := cvC.name
   etaParams := nP
@@ -1250,6 +1259,9 @@ def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
     let caps ← pure (indBlockCapsF fe cvT cvC nP nF)
     let fe₂ ← nonrecs.foldlM (checkIndMemberS blockNames caps) fe
     let fe₃ ← checkIndRecsS blockNames fe₂ recs
+    unless ctorResidualOkF fe₃ cvT.name cvC.name cvT.levelParams nP nF
+        caps.eta do
+      throw (.notImplemented "modeled structure: eta constructor residual")
     unless (List.range nF).all
         (fun j => (fe₃.find? (projFnName cvT.name j)).isNone) do
       throw (.invalid "projection name family taken")

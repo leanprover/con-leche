@@ -174,6 +174,9 @@ def checkIndDeclNC (fe : FEnv) (block : List ConstantInfo) :
     let caps ← pure (indBlockCapsF fe cvT cvC nP nF)
     let fe₂ ← nonrecs.foldlM (checkIndMemberNC blockNames caps) fe
     let fe₃ ← checkIndRecsNC blockNames fe₂ recs
+    unless ctorResidualOkF fe₃ cvT.name cvC.name cvT.levelParams nP nF
+        caps.eta do
+      throw (.notImplemented "modeled structure: eta constructor residual")
     unless (List.range nF).all
         (fun j => (fe₃.find? (projFnName cvT.name j)).isNone) do
       throw (.invalid "projection name family taken")
