@@ -472,16 +472,32 @@ theorem structEtaCertWith_disc (ih : ScopedSim env f) (henv : EnvWF env)
     (fun x hx => hwa.getAppArgs x (List.mem_of_mem_take hx))
     hwwtb.getAppArgs) (fun r₃ _ => ?_)
   split <;> try exact DiscV.pure trivial
-  refine defEqList_disc ih
-    (fun x hx => hwa.getAppArgs x (List.mem_of_mem_drop hx)) ?_
-  intro x hx
-  obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
-  refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
-  intro y hy
-  rcases List.mem_append.mp hy with hy | hy
-  · exact hwwtb.getAppArgs y hy
-  · rcases List.mem_singleton.mp hy with rfl
-    exact hwb
+  have hwprojs : ∀ x ∈ (List.range cnF).map (fun i =>
+      Expr.mkAppN (.const (projFnName T i) us')
+        (wtb.getAppArgs ++ [b])), WScoped d x := by
+    intro x hx
+    obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
+    refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
+    intro y hy
+    rcases List.mem_append.mp hy with hy | hy
+    · exact hwwtb.getAppArgs y hy
+    · rcases List.mem_singleton.mp hy with rfl
+      exact hwb
+  -- task #137: the constructor-telescope certificate
+  have htycw : WScoped d
+      (cvc.type.instantiateLevelParams cvc.levelParams us) := by
+    obtain ⟨htf, -⟩ := henv _ (find?_mem hfc)
+    exact wscoped_instLevels_of_not_hasFvar htf _ _
+  refine DiscV.bind
+    (iotaCerts_disc ih henv htycw (args := wtb.getAppArgs ++ _)
+      (fun x hx => by
+        rcases List.mem_append.mp hx with hx | hx
+        · exact hwwtb.getAppArgs x hx
+        · exact hwprojs x hx))
+    (fun r₄ _ => ?_)
+  split <;> try exact DiscV.pure trivial
+  exact defEqList_disc ih
+    (fun x hx => hwa.getAppArgs x (List.mem_of_mem_drop hx)) hwprojs
 
 theorem structEtaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
