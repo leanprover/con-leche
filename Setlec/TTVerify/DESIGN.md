@@ -5677,6 +5677,45 @@ side by side**.  If they never differ on this residual, that is free
 evidence about the annotate-shape question; if they do, it is the
 counterexample that proves the ruling was necessary.  Either way it
 costs one extra field in the trace line.
+#### 14.7.12 #137 landed: two certificate instances, and the `inv` is ours
+
+Recorded at the merge, so the re-signing increment does not re-derive
+it.  Master `2970b7d`.
+
+**What landed.**  `structEtaCertWithI` / `structEtaCertWith` now run
+the constructor-telescope `iotaCerts` themselves, so both callers are
+served — the gap §14.7.10 identified at the `defeq` path.  Measured
+before landing, as ordered: **1 644 defeq-path evaluations, zero
+failures**, cost inside run-to-run spread.  The memoisation prior was
+*refuted the useful way* — everything the new certificate re-derives
+was already cached, which is why a certificate that looks like real
+work costs nothing.
+
+**Two facts the re-signing needs.**
+
+1. **`structEtaCertWith_inv` was deliberately left unchanged.**  It
+   steps over the new certificate, so the existential's new conjunct —
+   and the destructuring fallout at its existing use sites — belongs to
+   *this* increment.  That is the right ownership call (§14.7.10 named
+   the consumer; the consumer's inversion is the consumer's), and it
+   means the re-signing's step-4 work now has two halves: add the
+   conjunct to the `inv`, then consume it.
+
+2. **The caller-side copy at `majorToCtorI` is kept, non-redundantly.**
+   Same certificate, *different control flow*: a callee-side failure
+   falls through to the `etaFields = 0` `proofIrrel` rescue, while a
+   caller-side failure returns the stuck major.  So they are distinct
+   *instances* of provably the same call, and the two bridge consumers
+   discharge from different ones — `StructEtaCertStep.lean` from the
+   callee's, `MajorStep.lean` from the caller's.
+
+**Sequencing, updated.**  §14.7.10 concluded "the re-signing should
+land *with* it, not before".  It now lands *after*, unblocked: the
+`EtaLawTT` re-signing plus the `EnvTT` field is a single increment
+whose only remaining external dependency is #136's re-measurement
+(§14.7.11) for `CtorResidualPin`'s discharge — and even that blocks
+only the *discharge*, not the threading, since `EtaRhsTyped` carries
+the premise in the law's own shape meanwhile.
 
 
 **Outcome (2026-08-27, landed).**  Re-measured at the new site with
