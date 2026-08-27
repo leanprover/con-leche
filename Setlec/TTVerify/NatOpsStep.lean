@@ -207,57 +207,6 @@ theorem natOp_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (by rw [cval_natT m φ hnat]; exact hasType_numeral a)
     (by rw [cval_natT m φ hnat]; exact hasType_numeral b)
 
-/-- The guard's own consequences, in the form every operation clause
-reads them: the literal support, and that the operation and each of its
-dependencies is stored with no level parameters. -/
-theorem natOpGuard_deps {env : Env} {c : Name}
-    (hguard : natOpGuard env c = true) :
-    natLitSupported env = true ∧
-      ∀ n ∈ natOpDeps c, ∃ cv v hh, env.find? n = some (.defnInfo cv v hh) ∧
-        cv.levelParams = [] := by
-  simp only [natOpGuard, Bool.and_eq_true] at hguard
-  refine ⟨hguard.1.1, ?_⟩
-  intro n hn
-  have hd := hguard.1.2
-  rw [List.all_eq_true] at hd
-  have h := hd n (by simpa using hn)
-  cases hx : env.find? n with
-  | none => rw [hx] at h; exact nomatch h
-  | some ci =>
-    rw [hx] at h
-    cases ci with
-    | defnInfo cv v hh =>
-      exact ⟨cv, v, hh, rfl, by simpa [List.isEmpty_iff] using h⟩
-    | _ => simp at h
-
-/-- The `Bool` constructors are pinned by the guard of any operation
-whose recurrences mention them. -/
-theorem natOpGuard_bools {env : Env} {c : Name}
-    (hguard : natOpGuard env c = true)
-    (hc : c = natBeqName ∨ c = natBleName ∨ natDivModNames.contains c = true) :
-    (∃ ci, env.find? boolTrueName = some ci ∧
-        ci.toConstantVal.levelParams = []) ∧
-      (∃ ci, env.find? boolFalseName = some ci ∧
-        ci.toConstantVal.levelParams = []) := by
-  simp only [natOpGuard, Bool.and_eq_true] at hguard
-  have hb := hguard.2
-  rw [show (decide (c = natBeqName) || decide (c = natBleName) ||
-      natDivModNames.contains c) = true from by
-    rcases hc with rfl | rfl | h
-    · simp
-    · simp
-    · rw [h]; simp] at hb
-  simp only [if_true, Bool.and_eq_true] at hb
-  obtain ⟨hT, hF⟩ := hb
-  constructor
-  · cases hx : env.find? boolTrueName with
-    | none => rw [hx] at hT; exact nomatch hT
-    | some ci => rw [hx] at hT; exact ⟨ci, rfl,
-      by simpa [List.isEmpty_iff] using hT⟩
-  · cases hx : env.find? boolFalseName with
-    | none => rw [hx] at hF; exact nomatch hF
-    | some ci => rw [hx] at hF; exact ⟨ci, rfl,
-      by simpa [List.isEmpty_iff] using hF⟩
 
 /-- A dependency of a guarded operation denotes to its valuation. -/
 theorem denote_dep {env : Env} (m : EnvTT env) (φ : Name → Nat)
@@ -1349,13 +1298,6 @@ theorem reduceNat_succ_eq {env : Env} (m : EnvTT env) (φ : Name → Nat)
   rw [cval_natSuccT m φ hnat, numeral_succ, natSuccT]
   exact Deq.appArg (arg_numeral m φ ihw hnat hwa hraw hws hb hLb hC ha)
 
-/-- A guarded operation is stored as a definition. -/
-theorem natOp_stored {env : Env} {c : Name} (hg : natOpGuard env c = true)
-    (hc : c ∈ natOpDeps c) :
-    ∃ cv v hh, env.find? c = some (.defnInfo cv v hh) := by
-  obtain ⟨-, hdeps⟩ := natOpGuard_deps hg
-  obtain ⟨cv, v, hh, hf, -⟩ := hdeps c hc
-  exact ⟨cv, v, hh, hf⟩
 
 /-- The `Nat.pred` fast path. -/
 theorem reduceNat_pred_eq {env : Env} (m : EnvTT env) (φ : Name → Nat)

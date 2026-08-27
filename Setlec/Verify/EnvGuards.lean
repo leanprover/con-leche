@@ -275,4 +275,77 @@ theorem EtaFamiliesClosed.cons_nonind {env : Env} {c₀ : ConstantInfo}
     rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
     exact hfC
 
+
+/-! ## The `Nat` fast-path guard, unpacked
+
+`natOpGuard` is the certificate that a structural-`Nat` operation may
+be accelerated on literals.  Its three consequences below are read by
+every clause of both lanes' `reduceNat` bridges — the literal support,
+the operation's and its dependencies' storage with no level parameters,
+and the two `Bool` constructors for the comparison and div/mod
+branches.  All of them are statements about `Env.find?` alone;
+relocated here from `Setlec/TTVerify/NatOpsStep.lean` (task #148, T3)
+so that the `Setlec/SetR/*` bridge consumes them rather than restating
+them. -/
+
+/-- The guard's own consequences, in the form every operation clause
+reads them: the literal support, and that the operation and each of its
+dependencies is stored with no level parameters. -/
+theorem natOpGuard_deps {env : Env} {c : Name}
+    (hguard : natOpGuard env c = true) :
+    natLitSupported env = true ∧
+      ∀ n ∈ natOpDeps c, ∃ cv v hh, env.find? n = some (.defnInfo cv v hh) ∧
+        cv.levelParams = [] := by
+  simp only [natOpGuard, Bool.and_eq_true] at hguard
+  refine ⟨hguard.1.1, ?_⟩
+  intro n hn
+  have hd := hguard.1.2
+  rw [List.all_eq_true] at hd
+  have h := hd n (by simpa using hn)
+  cases hx : env.find? n with
+  | none => rw [hx] at h; exact nomatch h
+  | some ci =>
+    rw [hx] at h
+    cases ci with
+    | defnInfo cv v hh =>
+      exact ⟨cv, v, hh, rfl, by simpa [List.isEmpty_iff] using h⟩
+    | _ => simp at h
+
+/-- The `Bool` constructors are pinned by the guard of any operation
+whose recurrences mention them. -/
+theorem natOpGuard_bools {env : Env} {c : Name}
+    (hguard : natOpGuard env c = true)
+    (hc : c = natBeqName ∨ c = natBleName ∨ natDivModNames.contains c = true) :
+    (∃ ci, env.find? boolTrueName = some ci ∧
+        ci.toConstantVal.levelParams = []) ∧
+      (∃ ci, env.find? boolFalseName = some ci ∧
+        ci.toConstantVal.levelParams = []) := by
+  simp only [natOpGuard, Bool.and_eq_true] at hguard
+  have hb := hguard.2
+  rw [show (decide (c = natBeqName) || decide (c = natBleName) ||
+      natDivModNames.contains c) = true from by
+    rcases hc with rfl | rfl | h
+    · simp
+    · simp
+    · rw [h]; simp] at hb
+  simp only [if_true, Bool.and_eq_true] at hb
+  obtain ⟨hT, hF⟩ := hb
+  constructor
+  · cases hx : env.find? boolTrueName with
+    | none => rw [hx] at hT; exact nomatch hT
+    | some ci => rw [hx] at hT; exact ⟨ci, rfl,
+      by simpa [List.isEmpty_iff] using hT⟩
+  · cases hx : env.find? boolFalseName with
+    | none => rw [hx] at hF; exact nomatch hF
+    | some ci => rw [hx] at hF; exact ⟨ci, rfl,
+      by simpa [List.isEmpty_iff] using hF⟩
+
+/-- A guarded operation is stored as a definition. -/
+theorem natOp_stored {env : Env} {c : Name} (hg : natOpGuard env c = true)
+    (hc : c ∈ natOpDeps c) :
+    ∃ cv v hh, env.find? c = some (.defnInfo cv v hh) := by
+  obtain ⟨-, hdeps⟩ := natOpGuard_deps hg
+  obtain ⟨cv, v, hh, hf, -⟩ := hdeps c hc
+  exact ⟨cv, v, hh, hf⟩
+
 end Setlec

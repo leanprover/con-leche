@@ -8,6 +8,8 @@ import Setlec.SetR.Bridge.Claims
 import Setlec.SetR.Bridge.WhnfCore
 import Setlec.SetR.Bridge.Infer
 import Setlec.SetR.Bridge.DefEq
+import Setlec.SetR.Bridge.ReduceNat
+import Setlec.SetR.Bridge.Step
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family

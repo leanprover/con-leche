@@ -321,3 +321,98 @@ shape the decision may change.
   `inferTypeCore` restricted to one `Expr` shape).  A *case restriction* is
   legitimate; a *stage split* inside a `do` block is not, and none is used
   — `defeqStep_claimR` is one proof for that reason.
+
+### Batch (f) landed — and what premise-exactness cost here
+
+`Bridge/ReduceNat.lean` discharges `ReduceNatStepR` (R8 `natSucc`,
+R9 `natOp1`, R10 `natOp2`), so **`WhnfClaimsR` at `fuel + 1` is closed**
+(`whnf_claimsR_closed`), and `Bridge/Step.lean` assembles `CheckStepR`
+from the remaining ten obligations.  The batch is repair-independent:
+R8–R10 have no `Infer` premise, so the finding above cannot reach them.
+
+The scale is the number worth recording.  The TT lane's counterpart
+(`Setlec/TTVerify/NatOpsStep.lean`) is ~1 900 lines and almost all of it
+is *content*: sixteen `natOps_*_closed` meta-inductions transporting
+each stored recurrence to the layer's numerals, on top of identifying
+`natLitT` with `numeral` through the pinned basis valuations.  Here the
+whole batch is ~430 lines of branch dispatch plus four denotation facts
+(`denote_natLitV`, `denote_rawNatLitR`, `denote_natOpResultR`, the two
+application-shape inversions), because **the rules are stated over
+`cval` and `natLitV` directly**: `natLitV cval φ n` *is* `denote`'s own
+literal clause, so nothing has to be pinned, and the fold's value enters
+as the side condition `denoteClosed cval env φ (natOpResult c n₁ n₂) =
+some V`, which the bridge *computes*.  The recurrences never appear —
+they are the soundness tier's business, where `EnvS.nat_ops` consumes
+them once.  Quote this when sizing (b)–(g): the ratio is roughly 4:1 in
+the bridge's favour, and it is entirely the two-pack discipline.
+
+Two more V-free relocations were forced and made, both verbatim:
+`natOpGuard_deps` / `natOpGuard_bools` / `natOp_stored` from
+`TTVerify/NatOpsStep.lean` to `Setlec/Verify/EnvGuards.lean` (whose
+docstring already claims to be the home of the guards' V-free
+readings), and a new `natOpResult_atom` beside `natOpResult_shape` in
+`Setlec/Verify/InferLemmas.lean` — the strengthening a *denoting*
+consumer needs, since "some constant" is not enough when `natOpGuard`
+pins exactly `boolTrueName`/`boolFalseName`.
+
+### FINDING 2 (blocking for batch (e) and the stuck cascade): the family has no projection congruence
+
+Two accepting paths of the checker have **no rule to bridge to** — this
+is an incompleteness of the premise-exact inventory, not an unsoundness,
+and it is independent of Finding 1's repair choice.
+
+* **`Red` has no `projArg`.**  `whnfCoreBody`'s `.proj` clause
+  (`Core.lean:1431-1475`) reduces its scrutinee with `whnf` (and expands
+  a string literal) *before* consulting the projection table, and
+  **every** non-firing branch returns `pure (.proj sn i e')` — the
+  reduced scrutinee under the projection.  That is the common case (a
+  stuck scrutinee, a non-native entry, a failed `projCert`).  So the
+  bridge owes `Red μ Δ (.proj i ⟦pe⟧) (.proj i ⟦e'⟧)` from
+  `Red μ Δ ⟦pe⟧ ⟦e'⟧`, and no constructor concludes it: of `Red`'s
+  fourteen, only `refl`, `trans` and `projRed` can conclude at a `.proj`
+  subject, and `projRed`'s conclusion is the selected *field*, never a
+  projection.  Missing rule:
+  `| projArg {Δ i p p'} : Red μ Δ p p' → Red μ Δ (.proj i p) (.proj i p')`.
+* **`DefEq` has no `projCong`.**  `defeqStep`'s stuck block
+  (`Core.lean:1884-1889`) compares `.proj s₁ i₁ e₁` with
+  `.proj s₂ i₂ e₂` by `i₁ == i₂` plus `r.defeq e₁ e₂`, and returns
+  `true`.  The bridge owes `DefEq μ Δ (.proj i v₁) (.proj i v₂)` from
+  `DefEq μ Δ v₁ v₂`; none of D1–D14 concludes it (`appCong` is about
+  `mkAppN`, and the eta/unit rules are shape-pinned).  Missing rule:
+  `| projCong {Δ i a b} : DefEq μ Δ a b → DefEq μ Δ (.proj i a) (.proj i b)`.
+
+Both are **trivially sound** — `interp (.proj i v)` is `sfst`/`ssnd` of
+`interp v`, so each case is a `congrArg` on the premise's equation, and
+`AnnotOkV` of both sides is already a hypothesis of `DefEq`-soundness
+(for `Red`-soundness, `AnnotOkV (.proj i p')` follows from the reduct's
+own `AnnotOkV` conjunct plus the subject's `i < 2`).  Both are pure
+*additions* to the mutual block, so the cost is two more cases in
+`Weaken.lean`'s 42-case recursor application (mechanical: the `.proj`
+lift commutation is already there for `Infer.proj`) and two more in
+T4's soundness induction.
+
+Consequence for the batches: `ProjStepR` (batch e) cannot be discharged
+without `Red.projArg`, and `DefEqStuckStepR` cannot be discharged even
+in its congruence-only portion without `DefEq.projCong` — the `.proj` /
+`.proj` case sits in the same match as `.forallE`/`.lam`/`.app`, so the
+clause cannot be split around it at a legitimate boundary (a case
+restriction on the *input space* would have to name the stuck block's
+own configuration, which is what `DefEqStuckStepR` already is).  The
+congruence portion is therefore held until the two rules land with the
+Finding 1 repair, rather than being split at a fabricated boundary.
+
+For the record, what the congruence portion *is* — verified by reading
+each case against its rule, and blocked only by the two above:
+`sort`/`sort` (D1, via `Level.isEquiv_sound`), `lit`/`lit` (D1),
+the two `lit (.natVal 0)`/`Nat.zero` pairs (D1 — `natLitV … 0` is the
+`Nat.zero` valuation), `fvar`/`fvar` at equal index (D1),
+`const`/`const` under `isEquivList` (D1, via `EnvR.val_params`), the two
+`lit (.natVal (k+1))`/`Nat.succ`-application pairs (D14 + D2 — and the
+`natLitSupported` side condition comes for free from the subject's own
+`denote` fact), `forallE`/`forallE` (D5, through `CtxOkR.openCong`),
+`lam`/`lam` (D6, likewise), `app`/`app` (D7, through `defEqList`'s
+inversion and a `DefEqL` list induction).  The two string-literal
+expansion cases need `denoteClosed … (strLitToConstructor s)` — R7's own
+side condition — which is content the `Setlec/Verify/StrLitExpr.lean`
+tier should supply; the one-sided λ cases are D13 and so are held by
+Finding 1.

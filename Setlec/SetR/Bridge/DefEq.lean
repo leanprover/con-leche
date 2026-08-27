@@ -400,42 +400,4 @@ theorem defeq_claimsR_closed {env : Env} (m : EnvR env) (φ : Name → Nat)
     DefEqClaimsR mode m φ (fuel + 1) :=
   defeq_claimsR m φ (defeqStep_claimR m φ hcl ihwc hnat hpi hstk hspine)
 
-/-! ## `CheckStepR`, assembled
-
-Every remaining obligation is a named `Prop` at a checker function or a
-checker configuration; `CheckStepR` follows from them. -/
-
-/-- The bundle of outstanding clause obligations, for readability at the
-assembly site. -/
-structure StepObligationsR (mode : CheckMode) {env : Env} (m : EnvR env)
-    (φ : Name → Nat) (fuel : Nat) : Prop where
-  iota : IotaStepR (mode := mode) m φ fuel
-  proj : ProjStepR (mode := mode) m φ fuel
-  reduceNat : ReduceNatStepR (mode := mode) m φ fuel
-  inferPi : InferPiStepR (mode := mode) m φ fuel
-  inferLam : InferLamStepR (mode := mode) m φ fuel
-  inferApp : InferAppStepR (mode := mode) m φ fuel
-  inferLet : InferLetStepR (mode := mode) m φ fuel
-  inferProj : InferProjStepR (mode := mode) m φ fuel
-  proofIrrel : ProofIrrelStepR (mode := mode) m φ fuel
-  defeqStuck : DefEqStuckStepR (mode := mode) m φ fuel
-  defeqSpine : DefEqSpineStepR (mode := mode) m φ fuel
-
-/-- **`CheckStepR` from the clause obligations.**  The four quarters are
-`whnfCore_claimsR`, `whnf_claimsR`, `defeq_claimsR_closed` and
-`infer_claimsR`; everything structural is proved, everything else is
-one of the eleven named `Prop`s above. -/
-theorem checkStepR_of
-    (hob : ∀ (env : Env) (m : EnvR env) (φ : Name → Nat) (fuel : Nat),
-      (∀ n ψ, VExpr.Closed (m.cval n ψ)) → StepObligationsR mode m φ fuel) :
-    CheckStepR mode := by
-  intro env m φ fuel ihwc ihw ihd ihi
-  have hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ) := m.cval_closed
-  obtain ⟨hiota, hproj, hnat, hpi, hlam, happ, hlet, hiproj, hirr, hstk,
-    hspine⟩ := hob env m φ fuel hcl
-  exact ⟨whnfCore_claimsR m φ hcl hiota hproj ihwc ihw ihd ihi,
-    whnf_claimsR m φ hcl ihwc hnat,
-    defeq_claimsR_closed m φ hcl ihwc hnat hirr hstk hspine,
-    infer_claimsR m φ hcl hpi hlam happ hlet hiproj⟩
-
 end Setlec.SetR
