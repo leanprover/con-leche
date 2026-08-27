@@ -3442,5 +3442,375 @@ theorem extendQuotMkTT {env : Env} (m : EnvTT env)
       hQc]
     rfl
 
+/-- The `Quot` block's earlier constants, denoted in the environment
+`Quot.ind`'s install works in. -/
+theorem denote_quotInd_consts {env : Env} {ci : ConstantInfo}
+    (m : EnvTT env) {val : (Name → Nat) → VExpr} (φ : Name → Nat)
+    (w : Level)
+    (hQ : env.find? quotName = some quotA)
+    (hM : env.find? quotMkName = some quotMkA)
+    (hnQ : ci.name ≠ quotName) (hnM : ci.name ≠ quotMkName) :
+    (∀ e : Nat,
+      denote (cvalSet m.cval ci.name val) ⟨ci :: env.consts⟩ φ e
+        (.const quotName [w]) = some (VExpr.const .quot [w.eval φ])) ∧
+    (∀ e : Nat,
+      denote (cvalSet m.cval ci.name val) ⟨ci :: env.consts⟩ φ e
+        (.const quotMkName [w]) = some (VExpr.const .quotMk [w.eval φ])) := by
+  have hQv : ∀ ψ : Name → Nat,
+      m.cval quotName ψ = VExpr.const .quot [ψ uNT] := fun ψ =>
+    cval_pinned m (by decide) (by rw [hQ]; rfl) ψ
+      (by simp +decide [pinnedDirectT])
+  have hMv : ∀ ψ : Name → Nat,
+      m.cval quotMkName ψ = VExpr.const .quotMk [ψ uNT] := fun ψ =>
+    cval_pinned m (by decide) (by rw [hM]; rfl) ψ
+      (by simp +decide [pinnedDirectT])
+  constructor
+  · intro e
+    rw [denote_const, Env.find?_cons, if_neg hnQ, hQ]
+    simp only [show ([w] : List Level).length
+      = quotA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalSet_ne (Ne.symm hnQ), hQv]
+    rfl
+  · intro e
+    rw [denote_const, Env.find?_cons, if_neg hnM, hM]
+    simp only [show ([w] : List Level).length
+      = quotMkA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalSet_ne (Ne.symm hnM), hMv]
+    rfl
+
+/-- `Quot.mk`'s pinned type, denoted — the constructor telescope a fire
+site's `hfitC` is stated against. -/
+theorem denote_quotMk_type {env : Env} {ci : ConstantInfo}
+    (m : EnvTT env) {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat)
+    (w : Level)
+    (hQ : env.find? quotName = some quotA)
+    (hM : env.find? quotMkName = some quotMkA)
+    (hnQ : ci.name ≠ quotName) (hnM : ci.name ≠ quotMkName) :
+    denote (cvalSet m.cval ci.name val) ⟨ci :: env.consts⟩ φ d
+        (quotMkA.toConstantVal.type.instantiateLevelParams
+          quotMkA.toConstantVal.levelParams [w])
+      = some (.pi (.sort (w.eval φ))
+        (.pi (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0)))
+          (.pi (.bvar 1)
+            (VExpr.mkAppN (VExpr.const .quot [w.eval φ])
+              [.bvar 2, .bvar 1])))) := by
+  have hsu : Level.subst [uNT] [w] (.param uNT) = w := by
+    simp [Level.subst, Level.subst.go, uNT]
+  have hsz : Level.subst [uNT] [w] .zero = .zero := by
+    simp [Level.subst, Level.subst.go]
+  obtain ⟨hQc, -⟩ := denote_quotInd_consts m (val := val) φ w hQ hM hnQ hnM
+  rw [show quotMkA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+          (Expr.forallE (Name.anonymous.str "r")
+            (Expr.forallE Name.anonymous (.bvar 0)
+              (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
+                { bi := .default }) { bi := .default })
+            (Expr.forallE (Name.anonymous.str "a") (.bvar 1)
+              (.app (.app (.const quotName [.param uNT]) (.bvar 2))
+                (.bvar 1)) { bi := .default })
+            { bi := .default })
+          { bi := .implicit } from rfl,
+    show quotMkA.toConstantVal.levelParams = [uNT] from rfl]
+  simp [Expr.instantiateLevelParams, hsu, hsz, denote_forallE, denote_sort,
+    denote_app, denote_fvar, hQc, VExpr.mkAppN, Level.eval]
+
+/-- **`Quot.ind`'s pinned type, denoted at any depth and any level.** -/
+theorem denote_quotInd_type {env : Env} (m : EnvTT env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w : Level)
+    (hQ : env.find? quotName = some quotA)
+    (hM : env.find? quotMkName = some quotMkA) :
+    denote (cvalSet m.cval quotIndA.name val) ⟨quotIndA :: env.consts⟩ φ d
+        (quotIndA.toConstantVal.type.instantiateLevelParams
+          quotIndA.toConstantVal.levelParams [w])
+      = some (.pi (.sort (w.eval φ))
+        (.pi (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0)))
+          (.pi (.pi (VExpr.mkAppN (VExpr.const .quot [w.eval φ])
+                [.bvar 1, .bvar 0]) (.sort 0))
+            (.pi (.pi (.bvar 2)
+                (.app (.bvar 1) (VExpr.mkAppN
+                  (VExpr.const .quotMk [w.eval φ])
+                  [.bvar 3, .bvar 2, .bvar 0])))
+              (.pi (VExpr.mkAppN (VExpr.const .quot [w.eval φ])
+                  [.bvar 3, .bvar 2])
+                (.app (.bvar 2) (.bvar 0))))))) := by
+  have hsu : Level.subst [uNT] [w] (.param uNT) = w := by
+    simp [Level.subst, Level.subst.go, uNT]
+  have hsz : Level.subst [uNT] [w] .zero = .zero := by
+    simp [Level.subst, Level.subst.go]
+  obtain ⟨hQc, hMc⟩ := denote_quotInd_consts m (ci := quotIndA) (val := val)
+    φ w hQ hM (by decide) (by decide)
+  rw [show quotIndA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+          (Expr.forallE (Name.anonymous.str "r")
+            (Expr.forallE Name.anonymous (.bvar 0)
+              (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
+                { bi := .default }) { bi := .default })
+            (Expr.forallE (Name.anonymous.str "β")
+              (Expr.forallE (Name.anonymous.str "a")
+                (.app (.app (.const quotName [.param uNT]) (.bvar 1))
+                  (.bvar 0)) (.sort .zero) { bi := .default })
+              (Expr.forallE (Name.anonymous.str "mk")
+                (Expr.forallE (Name.anonymous.str "a") (.bvar 2)
+                  (.app (.bvar 1)
+                    (.app (.app (.app (.const quotMkName [.param uNT])
+                      (.bvar 3)) (.bvar 2)) (.bvar 0)))
+                  { bi := .default })
+                (Expr.forallE (Name.anonymous.str "q")
+                  (.app (.app (.const quotName [.param uNT]) (.bvar 3))
+                    (.bvar 2))
+                  (.app (.bvar 2) (.bvar 0)) { bi := .default })
+                { bi := .default })
+              { bi := .implicit })
+            { bi := .implicit })
+          { bi := .implicit } from rfl,
+    show quotIndA.toConstantVal.levelParams = [uNT] from rfl]
+  simp [Expr.instantiateLevelParams, hsu, hsz, denote_forallE, denote_sort,
+    denote_app, denote_fvar, hQc, hMc, VExpr.mkAppN, Level.eval]
+
+/-- `Quot.ind`'s single stored rule. -/
+def quotIndRule : RecRule :=
+  { ctor := quotMkName, nfields := 1, ctorParams := 2, fire := .plain,
+    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uNT))
+      (Expr.lam (Name.anonymous.str "r")
+        (Expr.forallE Name.anonymous (.bvar 0)
+          (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
+            { bi := .default }) { bi := .default })
+        (Expr.lam (Name.anonymous.str "β")
+          (Expr.forallE (Name.anonymous.str "a")
+            (.app (.app (.const quotName [.param uNT]) (.bvar 1)) (.bvar 0))
+            (.sort .zero) { bi := .default })
+          (Expr.lam (Name.anonymous.str "mk")
+            (Expr.forallE (Name.anonymous.str "a") (.bvar 2)
+              (.app (.bvar 1)
+                (.app (.app (.app (.const quotMkName [.param uNT])
+                  (.bvar 3)) (.bvar 2)) (.bvar 0)))
+              { bi := .default })
+            (Expr.lam (Name.anonymous.str "a") (.bvar 3)
+              (.app (.bvar 1) (.bvar 0)) { bi := .default })
+            { bi := .default })
+          { bi := .default })
+        { bi := .default })
+      { bi := .default } }
+
+/-- The stored declaration, with its rule named. -/
+theorem quotIndA_eq :
+    quotIndA = .recInfo quotIndA.toConstantVal 4 4 [quotIndRule] := rfl
+
+/-- `Quot.ind`'s right-hand side, denoted. -/
+def quotIndRhsV (a : Nat) : VExpr :=
+  .lam (.sort a)
+    (.lam (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0)))
+      (.lam (.pi (VExpr.mkAppN (VExpr.const .quot [a]) [.bvar 1, .bvar 0])
+          (.sort 0))
+        (.lam (.pi (.bvar 2)
+            (.app (.bvar 1) (VExpr.mkAppN (VExpr.const .quotMk [a])
+              [.bvar 3, .bvar 2, .bvar 0])))
+          (.lam (.bvar 3) (.app (.bvar 1) (.bvar 0))))))
+
+theorem denote_quotInd_rhs {env : Env} (m : EnvTT env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w : Level)
+    (hQ : env.find? quotName = some quotA)
+    (hM : env.find? quotMkName = some quotMkA) :
+    denote (cvalSet m.cval quotIndA.name val) ⟨quotIndA :: env.consts⟩ φ d
+        ((RecRule.rhs quotIndRule).instantiateLevelParams
+          quotIndA.toConstantVal.levelParams [w])
+      = some (quotIndRhsV (w.eval φ)) := by
+  have hsu : Level.subst [uNT] [w] (.param uNT) = w := by
+    simp [Level.subst, Level.subst.go, uNT]
+  have hsz : Level.subst [uNT] [w] .zero = .zero := by
+    simp [Level.subst, Level.subst.go]
+  obtain ⟨hQc, hMc⟩ := denote_quotInd_consts m (ci := quotIndA) (val := val)
+    φ w hQ hM (by decide) (by decide)
+  rw [show quotIndA.toConstantVal.levelParams = [uNT] from rfl]
+  simp only [quotIndRule]
+  simp [Expr.instantiateLevelParams, hsu, hsz, denote_lam, denote_forallE,
+    denote_sort, denote_app, denote_fvar, hQc, hMc, quotIndRhsV,
+    VExpr.mkAppN, Level.eval]
+
+
+/-- **`Quot.ind`, installed.**  Its iota is *proof irrelevance*: the
+motive lands in `Prop` by the stored type's own `Sort 0`, and the layer
+carries no `quotIndMk` rule, so both sides are simply proofs.  The
+right-hand side's field slot is typed at the **recursor's** parameter,
+which is what the fire site's parameter test supplies. -/
+theorem extendQuotIndTT {env : Env} (m : EnvTT env)
+    (hQ : env.find? quotName = some quotA)
+    (hM : env.find? quotMkName = some quotMkA)
+    (hfresh : env.find? quotIndName = none)
+    (hwf : EnvWF ⟨quotIndA :: env.consts⟩) :
+    ∃ m' : EnvTT ⟨quotIndA :: env.consts⟩,
+      m'.cval = cvalSet m.cval quotIndA.name
+        (fun ψ => VExpr.const .quotInd [ψ uNT]) := by
+  refine extendBasisTT m (val := fun ψ => VExpr.const .quotInd [ψ uNT])
+    (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name quotIndA = quotIndName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uNT (by show uNT ∈ [uNT]; exact List.mem_cons_self)]
+  · intro φ
+    refine ⟨_, ?_, HasType.const⟩
+    rw [denoteClosed, ← Expr.instantiateLevelParams_self
+        quotIndA.toConstantVal.levelParams quotIndA.toConstantVal.type,
+      show quotIndA.toConstantVal.levelParams.map Level.param
+        = [Level.param uNT] from rfl,
+      denote_quotInd_type m φ 0 (.param uNT) hQ hM]
+    simp [Level.eval, BConst.type, quotT, quotMkT, relT, lv, VExpr.mkAppN,
+      VExpr.liftN]
+  · -- the rule's constructor is stored
+    intro cv mI rP rules heq
+    injection heq with _ _ _ h4
+    subst h4
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · exact ⟨quotMkA.toConstantVal, 2, 1, hM⟩
+    · exact nomatch hr'
+  · -- the iota rule
+    intro cv mI rP rules heq
+    injection heq with h1' h2' h3' h4'
+    subst h1'; subst h2'; subst h3'; subst h4'
+    intro rl hrl _
+    rcases List.mem_cons.mp hrl with rfl | hr'
+    · refine ⟨by omega, ?_⟩
+      intro φ d us hus
+      obtain ⟨w, rfl⟩ : ∃ a, us = [a] := by
+        match us, hus with
+        | [a], _ => exact ⟨a, rfl⟩
+      refine ⟨_, denote_quotInd_rhs m
+        (val := fun ψ => VExpr.const .quotInd [ψ uNT]) φ d w hQ hM, ?_⟩
+      intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj hlev
+        hpar hdTV hdTVj hfitR hfitC
+      have hMu := hM
+      simp only [quotMkName, quotName] at hMu
+      rw [Env.find?_cons, if_neg (by decide), hMu] at hfj
+      obtain ⟨rfl, rfl, rfl⟩ :
+          cvj = quotMkA.toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
+        injection Option.some.inj hfj with a1 a2 a3
+        exact ⟨a1.symm, a2.symm, a3.symm⟩
+      obtain ⟨y1, y2, ya, rfl⟩ : ∃ a b c, ys = [a, b, c] := by
+        match ys, hys with
+        | [a, b, c], _ => exact ⟨a, b, c, rfl⟩
+      obtain ⟨xα, xr, xβ, xmk, rfl⟩ : ∃ a b c e, xs = [a, b, c, e] := by
+        match xs, hxs with
+        | [a, b, c, e], _ => exact ⟨a, b, c, e, rfl⟩
+      obtain ⟨v1, rfl⟩ : ∃ a, usj = [a] := by
+        match usj, husj with
+        | [a], _ => exact ⟨a, rfl⟩
+      have hlps : quotMkA.toConstantVal.levelParams = [uNT] := rfl
+      have hlu : Level.eval φ v1 = Level.eval φ w := by
+        have := congrFun hlev uNT
+        rw [hlps] at this
+        simpa [recFireComparands, Level.substFn, Level.subst, Level.subst.go,
+          uNT] using this
+      have hctor : cvalSet m.cval quotIndA.name
+          (fun ψ => VExpr.const .quotInd [ψ uNT])
+          ((Name.anonymous.str "Quot").str "mk")
+          (Level.substFn φ quotMkA.toConstantVal.levelParams [v1])
+          = VExpr.const .quotMk [Level.eval φ w] := by
+        rw [cvalSet_ne (by decide)]
+        have hv := cval_pinned m (n := quotMkName) (by decide)
+          (by rw [hM]; rfl)
+          (Level.substFn φ quotMkA.toConstantVal.levelParams [v1])
+          (t := VExpr.const .quotMk
+            [Level.substFn φ quotMkA.toConstantVal.levelParams [v1] uNT])
+          (by simp +decide [pinnedDirectT])
+        simp only [quotMkName, quotName] at hv
+        rw [hv]
+        simp only [show Level.substFn φ quotMkA.toConstantVal.levelParams
+          [v1] uNT = Level.eval φ v1 from by
+            rw [hlps]; simp [Level.substFn, uNT], hlu]
+      obtain rfl : TV = _ :=
+        (Option.some.inj ((denote_quotInd_type m
+          (val := fun ψ => VExpr.const .quotInd [ψ uNT]) φ d w
+          hQ hM).symm.trans hdTV)).symm
+      obtain rfl : TVj = _ :=
+        (Option.some.inj ((denote_quotMk_type m (ci := quotIndA)
+          (val := fun ψ => VExpr.const .quotInd [ψ uNT]) φ d v1
+          hQ hM (by decide) (by decide)).symm.trans hdTVj)).symm
+      rw [hctor] at hfitR
+      rw [hlu] at hfitC
+      rw [cvalSet_self, hctor]
+      have hfitR0 := hfitR
+      cases hfitR with | cons t1 hfitR =>
+      cases hfitR with | cons t2 hfitR =>
+      cases hfitR with | cons t3 hfitR =>
+      cases hfitR with | cons t4 hfitR =>
+      cases hfitR with | cons t5 hfitR =>
+      cases hfitR with | nil =>
+      cases hfitC with | cons c1 hfitC =>
+      cases hfitC with | cons c2 hfitC =>
+      cases hfitC with | cons c3 hfitC =>
+      -- **the parameter test**: the fired constructor's `α` and `r`
+      -- are the recursor's
+      have hp0 : Deq Δ y1 xα := by
+        have := hpar rfl 0 ?_ ?_
+        · simpa using this
+        · exact Nat.zero_lt_succ _
+        · exact Nat.zero_lt_succ _
+      -- the telescope entries, cleaned
+      have hβ : HasType Δ xβ
+          (.pi (VExpr.mkAppN (VExpr.const .quot [Level.eval φ w]) [xα, xr])
+            (.sort 0)) := by
+        simpa [VExpr.mkAppN, inst_chain1, VExpr.liftN_zero] using t3
+      have hq : HasType Δ
+          (VExpr.mkAppN (VExpr.const .quotMk [Level.eval φ w]) [y1, y2, ya])
+          (VExpr.mkAppN (VExpr.const .quot [Level.eval φ w]) [xα, xr]) := by
+        simpa [VExpr.mkAppN, inst_chain3, inst_chain2] using t5
+      have hya : HasType Δ ya y1 := by simpa [inst_chain1] using c3
+      have hya' : HasType Δ ya xα := Deq.conv hya hp0
+      -- the minor premise at the recursor's parameter
+      have hyaD : HasType Δ ya (((VExpr.liftN 2 xα 0).inst xr 1).inst xβ 0) := by
+        rw [inst_chain2]; exact hya'
+      have hmkT : HasType Δ (.app xmk ya)
+          (.app xβ (VExpr.mkAppN (VExpr.const .quotMk [Level.eval φ w])
+            [xα, xr, ya])) := by
+        simpa [VExpr.mkAppN, inst_chain1, inst_chain2, inst_chain3,
+          VExpr.liftN_zero] using HasType.app t4 hyaD
+      -- both sides are proofs
+      have hyaL : HasType Δ ya ((VExpr.liftN 1 xα 0).inst xr 0) := by
+        rw [inst_chain1]; exact hya'
+      have hqmk : HasType Δ
+          (VExpr.mkAppN (VExpr.const .quotMk [Level.eval φ w]) [xα, xr, ya])
+          (VExpr.mkAppN (VExpr.const .quot [Level.eval φ w]) [xα, xr]) := by
+        simpa [VExpr.mkAppN, quotT, lv, inst_chain1, inst_chain2,
+          VExpr.liftN_zero] using
+          HasType.app (HasType.app (HasType.app
+            (HasType.const (Γ := Δ) (c := BConst.quotMk)
+              (us := [Level.eval φ w])) t1) t2) hyaL
+      have hRProp : HasType Δ (.app xβ
+          (VExpr.mkAppN (VExpr.const .quotMk [Level.eval φ w]) [xα, xr, ya]))
+          (.sort 0) := HasType.app hβ hqmk
+      have hLProp : HasType Δ (.app xβ
+          (VExpr.mkAppN (VExpr.const .quotMk [Level.eval φ w]) [y1, y2, ya]))
+          (.sort 0) := HasType.app hβ hq
+      have hLhs := hfitR0.appN (HasType.const (Γ := Δ) (c := BConst.quotInd)
+        (us := [Level.eval φ w]))
+      simp only [VExpr.inst, VExpr.liftN, Nat.reduceAdd, Nat.reduceLT,
+        Nat.reduceSub, reduceIte, inst_chain1, inst_chain2,
+        VExpr.liftN_zero] at hLhs
+      -- **proof irrelevance**, then β on the right-hand side
+      refine Deq.trans (Deq.intro (HasType.proofIrrel hLProp hRProp hLhs
+        hmkT)) (Deq.symm (Deq.trans (Deq.ofBetaSpine
+          (f := quotIndRhsV (Level.eval φ w))
+          (.cons t1 (.cons t2 (.cons t3 (.cons t4 (.cons ?hya .nil))))))
+          ?hmid))
+      case hya =>
+        simp only [VExpr.inst, VExpr.liftN, Nat.reduceAdd, Nat.reduceLT,
+          Nat.reduceSub, reduceIte, inst_chain3]
+        exact hya'
+      case hmid =>
+        simp only [VExpr.inst, VExpr.liftN, Nat.reduceAdd, Nat.reduceLT,
+          Nat.reduceSub, reduceIte, inst_chain1, VExpr.liftN_zero]
+        exact Deq.refl
+    · exact nomatch hr'
+
+
 end Setlec.TTVerify
 

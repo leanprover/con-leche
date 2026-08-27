@@ -4122,6 +4122,16 @@ RecRule.fire rl = .plain →
   check; its transpose is `Deq`, and `Deq.conv` is exactly what the
   install needs to retype a field at the recursor's parameter.
 
+**Confirmed in use at `Quot.ind`.**  Its iota is one line of the new
+premise and then *proof irrelevance*: the stored motive's codomain is
+`Sort 0`, the layer carries no `quotIndMk` rule, and both sides are
+therefore simply proofs.  The premise's whole job is
+`Deq.conv hya hp0` — the field `a`, typed at the constructor's `α` by
+its own telescope, retyped at the recursor's.  Without it there is no
+step; with it the rest is bookkeeping.  (`Quot` also confirms the
+inverse reading of §11's four *derived* eliminators: `Quot.ind` is a
+fifth, derived not from an equational law but from the collapse.)
+
 #### `Eq`: the deferred towers, elaborated
 
 §11 deferred four valuations — `Eq`, `Eq.refl`, `Eq.rec`, `PSigma'.rec`
