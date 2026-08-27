@@ -6480,3 +6480,33 @@ All three bottoms are now closed.  Remaining: `DeclIndTT` (§16.4 +
 `IndBottomProjTT`'s kit from `checkProjShape`/`checkProjRule`/
 `checkProjIota` + `isDefEqCore_rfl` for the `==` pins), then
 `checkDeclTT_of`.
+
+## §24 `DeclIndTT`: the assembly map (next arc)
+
+All three bottoms are landed; what remains of the phase is the
+transpose of the model's inductive-install assembly and then
+`checkDeclTT_of`.  The transpose sources, file by file
+(`Setlec/Model/Extend/`), with what the TT side already has:
+
+| model source | content | TT status |
+| --- | --- | --- |
+| `Decl.lean` (`checkIndDecl_sound`) | the top-level fold: suffix split, single-ctor arm, member folds, residual check, proj installs | to write (`DeclIndTT`'s body) |
+| `Ind.lean` | `checkIndMember` installs (former + ctor via `EnvTT.cons`) | to write; `EnvTT.cons` + all head-clause vacuity patterns are landed |
+| `Recs.lean` | `provisionRecs` (rule-less installs), `checkIotaRules` inversion → the bottoms' kits | to write; the kits' conjuncts are `PlainChecked`/`NestedChecked`/`checkProjIota`-shaped and the bottoms take them verbatim (§16.1/§21/§23) |
+| `GroupSwap.lean` (`extend_rules_eq`) | the rule-list swap transport | to write as `GroupSwapTT`; design settled: `denote` reads the environment only through `find?`-`toConstantVal` and the two literal guards, so one `denote_env_ext` congruence (mirroring `denote_cval_congr`) transports every `EnvTT` field, `rec_rules` re-established from the per-rule laws (the bottoms' outputs) and `SwapPair`'s obligations |
+| `Proj.lean`/`ProjFn.lean` | projection-family installs | to write; `IndBottomProjTT`'s kit derives from `checkProjShape`/`checkProjRule`/`checkProjIota` inversions + `isDefEqCore_rfl` for the `==` pins (§22-23); templates are plain defn installs |
+| `Sibs.lean`/`Modeled.lean` | group-local naming facts | mostly syntactic; transpose as needed |
+
+Block-level discharges at the single-ctor arm: `ctor_residual` (from
+`ctorResidualOk`'s run — the checker's own #136 check inverts to
+`CtorResidualPin` exactly), `caps_ok` via `EtaFoldTT`/`UnitFoldTT`
+(§14.7/§18: their suppliers are the checked `_model` capability
+theorems, inverted by `checkEtaThm_inv`/`checkUnitThm_inv`), and the
+head-clause vacuities as in `DeclBasis`'s six blocks.
+
+Two practical notes carried from this run: (i) every kit derivation
+that opens `==`-pinned bvar-level facts to the frame (the proj and
+nested redex pins) is Expr-level computation — put each in
+`IndBottomStages` from the start, per §23's house rule; (ii) the
+`hslot` conjunct now arrives from the #146 inversions on all three
+paths — the bottoms' `hslot` hypotheses discharge by `exact`.
