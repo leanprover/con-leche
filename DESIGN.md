@@ -9664,6 +9664,25 @@ that worst case on purpose: the configuration that ships must be the
 configuration that was measured, so the guard binds only past the most
 pathological stream on record, at some 5 GB of memo.
 
+An earlier guess of 16 M was measured and *rejected*: the `Std.Time`
+cone tripped it (peak read back as exactly 16 000 000, RSS 12.5 GB
+instead of 13.6 GB), i.e. the cap would have silently truncated the
+configuration the numbers below were taken from.  The rule the value
+follows is that the benchmarked configuration must be the shipped one;
+the cap is a guard past the frontier, never a participant in it.
+
+**A stricter knob, deliberately not taken.**  The `Std.Time` cone's
++26.7 % peak RSS is a heavy tax, and the analysis that excuses it —
+one declaration's transient, bounded by `instCCap` — is an argument
+about pathology, not a bound anyone would want on a hot path.  If that
+trade is ever refused, the stricter form is a **per-declaration
+flush**: `instC` is already dropped in `IState.flushed`, so moving it
+to the driver's per-declaration boundary instead of the environment
+transition is a one-line change on plumbing that exists.  It would cap
+retention at one declaration's working set at the cost of the
+cross-declaration hits — unmeasured, and not measured here because the
+measured configuration is the one that ships.
+
 **Verification: the memo is self-certifying, like `ienv`.**  `ISOK`
 (`Setlec/Verify/SimI.lean`) gains one clause — every entry
 `(i, vs, d) ↦ r` comes with `∃ a ws`, `denoteT i = some a`,
@@ -9711,6 +9730,15 @@ and −19.64 % / +2.5 % on the Mathlib prefix; both reproduce (−5.58 %,
 matrix: the first is the smallest win of the four and the second the
 largest per-RSS-point, and `grind-ring-5`'s +18.4 % is the largest
 memory cost any *shipped-fuel* stream pays.
+
+**A new baseline to quote.**  `grind-ring-5`'s −9.94 % was not
+predicted by the probe and is the surprise of the run; whoever picks
+up the **#140** regression question after #147 should measure against
+its *new* certified baseline of **114.92 G** instructions:u (`--pre`
+on the preprocessed fixture, median of three), not the 127.60 G that
+pre-#145 master reads.  Part of whatever #140 was chasing on that
+fixture is now gone, and comparing across the two baselines would
+double-count this task's win.
 
 **Gates.**  Build warning-free (full recompile), `lake test`, arena
 90/92, e2e 72/72, split driver 11/11, infer-only 5/5 and the full
