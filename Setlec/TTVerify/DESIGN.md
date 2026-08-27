@@ -6172,7 +6172,10 @@ accessor, `Setlec/Kernel/CheckerBase.lean`).  `PlainChecked`,
 `checkProjIota_inv` (`Setlec/Verify/Extend/Proj.lean`) carry
 `IotaSlotSorted`'s body verbatim as their last conjunct, so each
 bottom's `hslot` discharges by `exact` — that swap is still to be
-made; until it is, the hypothesis stays.  The rest of this section is
+made; until it is, the hypothesis stays.  `IotaSlotSorted`'s own
+docstring still reads as a pending request: it is left untouched
+deliberately, so that the de-staling lands with the swap rather than
+across an in-flight edit of `IndBottom.lean`.  The rest of this section is
 the original request, kept for the reasoning.
 
 **The gap.**  Every bottom fires `EqLawTT`, whose first β-step wants
