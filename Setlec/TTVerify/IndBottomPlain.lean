@@ -1204,11 +1204,16 @@ theorem IndBottomPlainTT
         rw [denote_forallE, hAE, hBE]
       have hcross := instPisAt_denote_cross hcl
         ((fvs.take cnP ++ fvs.drop rP).take (cnP + (n - rP))) htakeE
-        hvalslen hspTakeFacts
+        hvalslen (fun j x hx => (hspTakeFacts j x hx).2)
         ((Expr.WScoped.of_not_hasFvar (d := rP + cnF) (by
           rw [hasFvar_renameConsts]; exact hCw)).fvarsBelow)
         (by rw [Expr.looseBVarsBounded_renameConsts]; exact hCb)
-        hTVjK hvMidE2 hwsXlen hwsCond htowerX
+        hTVjK hvMidE2 hwsXlen
+        (fun j x hx => by
+          obtain ⟨⟨i, nm, t, rfl⟩, -, -⟩ := hspTakeFacts j x hx
+          exact ⟨VExpr.bvar (rP + cnF - 1 - i), by rw [denote_fvar],
+            hwsCond j i nm t hx⟩)
+        htowerX
       -- read the head domain off both sides
       rw [VExpr.instSeq_pi _ _ _ _ (by rw [hvalslen]; omega)] at hcross
       obtain ⟨SJ, hSJ⟩ : ∃ SJ, cnP + cnF - (cnP + (n - rP)) = SJ + 1 :=
@@ -1573,11 +1578,17 @@ theorem IndBottomPlainTT
       Γj Rj := by
     rw [VExpr.instSeq_eq_self_of_closed hTVjClosed, hsplen]
     exact htowerJ
-  have hcrossF := instPisAt_denote_cross hcl _ hcinst hzslen hspFacts
+  have hcrossF := instPisAt_denote_cross hcl _ hcinst hzslen
+    (fun j x hx => (hspFacts j x hx).2)
     ((Expr.WScoped.of_not_hasFvar (d := rP + cnF) (by
       rw [hasFvar_renameConsts]; exact hCw)).fvarsBelow)
     (by rw [Expr.looseBVarsBounded_renameConsts]; exact hCb)
-    hTVjK hcresden (by rw [hmixlen, hsplen]) hwsCondF htowerJF
+    hTVjK hcresden (by rw [hmixlen, hsplen])
+    (fun j x hx => by
+      obtain ⟨⟨i, nm, t, rfl⟩, -, -⟩ := hspFacts j x hx
+      exact ⟨VExpr.bvar (rP + cnF - 1 - i), by rw [denote_fvar],
+        hwsCondF j i nm t hx⟩)
+    htowerJF
   -- the two spines of the crossed residual, aligned by arity
   have hcresE : cres = Expr.mkAppN cres.getAppFn cres.getAppArgs :=
     (Expr.mkAppN_getApp cres).symm
