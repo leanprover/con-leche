@@ -325,6 +325,29 @@ theorem basisUnitVacuous {env : Env} (m : EnvTT env) {ci : ConstantInfo}
   intro cv caps heq hunit hnres
   rw [hres] at hnres; exact nomatch hnres
 
+
+/-- Projection-function names determine their parent. -/
+theorem projFnName_inj {T T' : Name} {i j : Nat}
+    (h : projFnName T i = projFnName T' j) : T = T' := by
+  unfold projFnName at h
+  injection h with h1 _
+  injection h1
+
+/-- The pinned pair's projection valuations: the layer's `proj` former
+under the parameter binders (`psigmaFst_derivable`). -/
+def pairProjValT (i : Nat) (ψ : Name → Nat) : VExpr :=
+  .lam (.sort (ψ uNT))
+    (.lam (.pi (.bvar 0) (.sort (ψ vNT)))
+      (.lam (VExpr.mkAppN (VExpr.const .psigma [ψ uNT, ψ vNT])
+          [.bvar 1, .bvar 0])
+        (.proj i (.bvar 0))))
+
+theorem pairProjValT_closed (i : Nat) (ψ : Name → Nat) :
+    VExpr.Closed (pairProjValT i ψ) := by
+  simp only [pairProjValT, VExpr.Closed, VExpr.bvarsBelow, VExpr.mkAppN]
+  repeat' apply And.intro
+  all_goals first | trivial | omega
+
 /-! ## `Empty`
 
 The pilot block: two constants, and `Empty.rec`'s rule list is `[]`, so
@@ -2373,6 +2396,93 @@ theorem extendPSigmaMkTT {env : Env} (m : EnvTT env)
     simp [denote_forallE, denote_sort, denote_app, denote_fvar, Level.eval,
       hPc]
     rfl
+
+
+/-- **The pinned pair's projections, installed.**  The only `projInfo`
+constants any block installs — and therefore the only test of
+`hheadProj`, `hheadProjPair`, and of `hheadEta` at a head that is *not*
+reserved. -/
+theorem extendPairProjTT {env : Env} (m : EnvTT env) {i : Nat}
+    {entry : ProjEntry} {ci : ConstantInfo}
+    (hci : ci = .projInfo entry)
+    (hentry : entry = pairFstEntry ∨ entry = pairSndEntry)
+    (hnat : entry.native = true)
+    (hname : ci.name = projFnName psigmaName i)
+    (hlp : ci.toConstantVal.levelParams = [uNT, vNT])
+    (hP : env.find? psigmaName = some psigmaA)
+    (hM : env.find? psigmaMkName = some psigmaMkA)
+    (hfresh : env.find? ci.name = none)
+    (hwf : EnvWF ⟨ci :: env.consts⟩)
+    (htype : ∀ φ : Name → Nat, ∃ t,
+      denoteClosed (cvalSet m.cval ci.name (pairProjValT i))
+        ⟨ci :: env.consts⟩ φ ci.toConstantVal.type = some t ∧
+        HasType [] (pairProjValT i φ) t) :
+    ∃ m' : EnvTT ⟨ci :: env.consts⟩,
+      m'.cval = cvalSet m.cval ci.name (pairProjValT i) := by
+  refine extendBasisTT m (val := pairProjValT i) ?eta ?unit
+    (fun hb => by rw [hci] at hb; exact nomatch hb)
+    (fun ψ t hp => by
+      rw [hname] at hp
+      simp only [pinnedDirectT] at hp
+      rw [if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide))] at hp
+      exact nomatch hp)
+    hfresh hwf (fun ψ => pairProjValT_closed i ψ) ?params htype
+    (fun _ _ _ heq => by rw [hci] at heq; exact nomatch heq)
+    (fun _ _ heq => by rw [hci] at heq; exact nomatch heq)
+    (fun _ heq => by rw [hci] at heq; exact nomatch heq)
+    (fun hemp => by
+      rw [hname] at hemp
+      exact absurd hemp (projFnName_ne_reserved (n := emptyName) (by decide)))
+    (fun _ _ _ _ heq => by rw [hci] at heq; exact nomatch heq)
+    (fun _ _ _ _ heq => by rw [hci] at heq; exact nomatch heq)
+    (fun e heq _ => by
+      rw [hci] at heq
+      injection heq with he
+      exact ⟨he ▸ hentry, hP, hM⟩)
+    (fun _ e heq _ => by
+      rw [hci] at heq
+      injection heq with he
+      exact he ▸ hnat)
+    (fun heq => by
+      rw [hname] at heq
+      exact absurd heq (projFnName_ne_reserved (n := eqName) (by decide)))
+  case params =>
+    intro φ₁ φ₂ hp
+    rw [hlp] at hp
+    rw [pairProjValT, pairProjValT,
+      hp uNT (by show uNT ∈ [uNT, vNT]; exact List.mem_cons_self),
+      hp vNT (by
+        show vNT ∈ [uNT, vNT]
+        exact List.mem_cons_of_mem _ List.mem_cons_self)]
+  case eta =>
+    intro T cvT caps hf hcape hresT hfam hpart
+    rcases hpart with hT | hC | ⟨j, hj, hP'⟩
+    · rw [hT, Env.find?_cons, if_pos rfl, hci] at hf; exact nomatch hf
+    · obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
+      rw [hC, Env.find?_cons, if_pos rfl, hci] at hfC; exact nomatch hfC
+    · rw [hname] at hP'
+      obtain rfl : T = psigmaName := projFnName_inj hP'
+      rw [show reservedBasisNames.contains psigmaName = true from by decide]
+        at hresT
+      exact nomatch hresT
+  case unit =>
+    intro cv caps heq _ _
+    rw [hci] at heq; exact nomatch heq
 
 
 end Setlec.TTVerify

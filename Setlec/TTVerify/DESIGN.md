@@ -3803,6 +3803,38 @@ carries *its own* type, rather than borrowing the parent's, so the
 `htype` obligation reads `e.ty` and the two pinned entries are
 `native := true`.
 
+#### The test ran: the clauses were right, the premise was not
+
+`extendPairProjTT` installs either pinned projection, and the two
+flagged obligations are **consumed**, not sidestepped:
+
+* `hheadProj` takes `entry.native = true` and returns the entry's
+  identity plus the two stored parents — every conjunct comes straight
+  from the entry's own facts;
+* `hheadProjPair` is the entry's `native` flag, read back.
+
+Neither needed reshaping.  So the flag's aim was wrong and its firing
+was right: **the clauses it doubted are correctly stated; what was
+wrong was the premise the vacuous discharges let stand.**
+
+**`hheadEta` at an unreserved head is the one thing that cost new
+content.**  All three disjuncts are refutable, but only two of them the
+way the reserved case does it:
+
+1. `T = ci.name` — the extended environment then answers with a
+   `projInfo` where an `indInfo` was demanded;
+2. `caps.etaCtor = ci.name` — `EtaFamilyStoredT` demands a `ctorInfo`
+   there, and gets the same `projInfo`;
+3. `projFnName T j = ci.name` — **this one is new.**  For a reserved
+   head it was `projFnName_ne_reserved`, immediate.  For a projection
+   head the equation is *satisfiable*, and refuting it needs
+   `projFnName_inj`: the name determines its parent, so `T = PSigma'`,
+   which **is** reserved, contradicting the clause's own
+   `reservedBasisNames.contains T = false`.
+
+One lemma, and it is the exact shape the four vacuous blocks could
+never have called for.
+
 **And this is the first pre-registered flag to *fire*.**  Every earlier
 one — the constructor level question, `Nat.rec`'s recursive occurrence —
 resolved as a confirmed non-event.  A practice whose flags only ever
