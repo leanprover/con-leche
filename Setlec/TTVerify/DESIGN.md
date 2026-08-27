@@ -5432,3 +5432,87 @@ completed: `MajorStep.lean`'s consumer discharges the new premise
 (certificate + `CtorResidualPin`), and `StructEtaCertStep.lean`'s
 cannot.  The re-signing should therefore land *with* it, not before.
 
+## 15. The bottoms: §8.2's sixth narrowing, cashed with its supplier
+
+Scouted before writing either bottom, on the same discipline §14.7.8
+extracted: ask the *call sites* what they certify, and ask **all** of
+them.
+
+### 15.1 The prediction, and what the reading found
+
+§8.2 predicted a sixth narrowing (after the level and parameter ones)
+and `DESIGN.md` §14.6.2 predicted that its plumbing *is* the bottoms'
+spine lemma — the thing that moves the constructor spine between the
+rule's description of it (`ruleLhsAux`, index slots filled with the
+constructor's canonical tuple) and the fired redex's (index slots
+free).  Both hold, and there is a third fact the record did not have:
+**the guard already exists**, so unlike §14.7.4/§14.7.9 this narrowing
+costs no checker change.
+
+`iotaRec` (`Setlec/Kernel/Core.lean`, ~1299), after both `iotaCerts`
+and before it will fire:
+
+```
+match (cvj.type.instantiateLevelParams …).stripPis (ctorParams + nfields),
+      piResidual (cvj.type.instantiateLevelParams …) margs with
+| some (_, cbody), some residual =>
+  match cbody.getAppFn with
+  | .const _ _ =>
+    if ← defEqList r env depth
+        (residual.getAppArgs.drop rl.ctorParams)   -- canonical indices
+        ((args.take mI).drop rP) then …            -- the redex's indices
+```
+
+with its own comment: *"the model's iota equation only speaks about
+the canonical indices"*.  So a fired redex's index arguments are never
+free — they are definitionally the constructor's canonical tuple.
+That is the sixth narrowing, in the checker, with a supplier.
+
+### 15.2 `IotaIndexPin`, and why the anticipated piece is not needed
+
+The premise is named now, in the shape the supplier produces, for the
+reason `StatementSortPin` (#135) and `CtorResidualPin` (#136) were:
+a premise written as the consumer will hand it over discharges by
+`exact`; written any other way it needs a shim (§0's first tell).
+
+```lean
+def IotaIndexPin (Δ : List VExpr) (restC : VExpr) (cnP mI rP : Nat)
+    (xs : List VExpr) : Prop :=
+  ∃ (H : VExpr) (cargs : List VExpr),
+    restC = VExpr.mkAppN H cargs ∧
+    ∀ i, i < mI - rP →
+      Deq Δ (cargs.getD (cnP + i) default) (xs.getD (rP + i) default)
+```
+
+§14.6.2 budgeted "a `VExpr`-level `getAppArgs` (none exists) or a
+reformulation through `restC`".  **The reformulation wins outright, and
+the anticipated piece is not built**: the constructor's residual is
+already a bound variable of `RecRulesTT` (`VTeleTyped Δ TVj ys restC`),
+and `denote_mkAppN_inv` — the bridge's only way of reading a spine
+apart — *produces exactly this existential*.  A `VExpr.getAppArgs`
+would have to be defined, given lemmas, and then related back to
+`mkAppN`; the existential is what the inversion already hands over.
+
+That is a budgeted piece coming in at **zero**, and it is worth the
+sentence: the pattern §14.6.2 used to predict it ("the shared piece is
+always the spine-mover between two descriptions of a telescope") was
+right about *what* was needed and wrong about *what it would cost*,
+because it did not notice the mover was already the inversion's output
+shape.
+
+### 15.3 What this asks for, and what it does not
+
+* **No checker change.**  Unlike the sort pin (#135) and the
+  constructor residual (#136), the guard is there.
+* **A `RecRulesTT` re-signing** — one premise, in the fired form's
+  established pattern, alongside the level and parameter narrowings it
+  joins.  Producers (`DeclBasisTT`'s six blocks) are only *helped*: a
+  new premise is a new hypothesis they may ignore.  The consumer
+  (`Setlec/TTVerify/IotaStep.lean`) must supply it, and the guard above
+  is what it supplies it from.
+* The bottoms then meet §14.7.4's sort gap at a **motive application**
+  rather than the model former, so they want form 2 (the
+  `checkIotaSidesTy` route) as §14.7.6 pre-split — and their two
+  *sides* are already certified there, which is the half #135 did not
+  have to provide.
+
