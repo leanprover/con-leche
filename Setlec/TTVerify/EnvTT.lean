@@ -301,6 +301,50 @@ def EtaFamilyStoredT (env : Env) (T : Name) (caps : IndCaps) : Prop :=
   ∀ j, j < caps.etaFields → ∃ cv mI rP rules,
     env.find? (projFnName T j) = some (.recInfo cv mI rP rules)
 
+/-- Every stored non-reserved eta-capable type former's constructor is
+stored, at exactly the capability record's arities.  **Not** an `EnvTT`
+field, for the model's own reason (`EtaFamiliesClosed`,
+`Setlec/Model/Interp.lean`, an eighth `V`-free duplicate — see
+`EtaFamilyStoredT` for the relocation note): inside a block's install
+derivation the former is stored before its constructor, so the
+intermediate models live in the window where this fails.  It holds at
+every declaration boundary and is threaded through the consistency
+fold *next to* the invariant (`CheckDeclTT`); the modeled-inductive
+case consumes it to refute a fresh constructor completing an *older*
+former's eta family — the one head obligation kind dispatch cannot
+refute. -/
+def EtaFamiliesClosedT (env : Env) : Prop :=
+  ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T = some (.indInfo cvT caps) → caps.eta = true →
+    reservedBasisNames.contains T = false →
+    ∃ cvC, env.find? caps.etaCtor =
+      some (.ctorInfo cvC caps.etaParams caps.etaFields)
+
+theorem EtaFamiliesClosedT.empty : EtaFamiliesClosedT Env.empty := by
+  intro T cvT caps h
+  simp [Env.find?, Env.empty] at h
+
+/-- Prepending one fresh constant that is not a non-reserved
+eta-capable former keeps the stored eta families closed. -/
+theorem EtaFamiliesClosedT.cons_nonind {env : Env} {c₀ : ConstantInfo}
+    (hE1 : EtaFamiliesClosedT env)
+    (hfresh : env.find? c₀.name = none)
+    (hknd : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
+      reservedBasisNames.contains c₀.name = true) :
+    EtaFamiliesClosedT (⟨c₀ :: env.consts⟩ : Env) := by
+  intro T cvT caps hf he hr
+  rw [Env.find?_cons] at hf
+  split at hf
+  · next hh =>
+    obtain rfl := Option.some.inj hf
+    rw [← hh] at hr
+    rw [hknd cvT caps rfl he] at hr
+    exact nomatch hr
+  · obtain ⟨cvC, hfC⟩ := hE1 T cvT caps hf he hr
+    refine ⟨cvC, ?_⟩
+    rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
+    exact hfC
+
 /-- **The structural-eta law, fired.**  Transpose of `EnvModel`'s
 `EtaLaw`, in the same *fired* form as `RecRulesTT` and for the same
 reason (§8): the premises the layer's rules want are supplied at the

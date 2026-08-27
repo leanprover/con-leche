@@ -45,42 +45,62 @@ variable {F : Nat}
 /-- **The per-declaration step**, stage 2 of task #119: checking one
 declaration against a derivation-modelled environment yields a
 derivation-modelled environment.  The transpose of `checkDecl_sound`,
-and the only thing between `EnvTT.empty` and the acceptance theorem. -/
+and the only thing between `EnvTT.empty` and the acceptance theorem.
+
+The closure of the stored eta families (`EtaFamiliesClosedT`) enters
+as a hypothesis, threaded through the fold beside the invariant
+exactly as the set model threads `EtaFamiliesClosed`: it holds at
+every declaration boundary but not mid-block, so it cannot be an
+`EnvTT` field, and only the modeled-inductive case reads it (to refute
+a fresh constructor completing an *older* former's family).  Its own
+preservation is the purely syntactic `FamiliesStepTT` below —
+separated rather than bundled into the conclusion so that the five
+value/basis cases stay untouched by the re-signing. -/
 def CheckDeclTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {d : Declaration},
     checkDecl (fueledOps F) env d = .ok env₁ →
     CertifiedConfigTT →
-    EnvTT env → Nonempty (EnvTT env₁)
+    EnvTT env → EtaFamiliesClosedT env → Nonempty (EnvTT env₁)
+
+/-- **The closure of stored eta families survives a checked
+declaration.**  Purely syntactic (no valuation, no derivations) — the
+closure half of the model's `checkDecl_sound` conclusion, separated. -/
+def FamiliesStepTT (F : Nat) : Prop :=
+  ∀ {env env₁ : Env} {d : Declaration},
+    checkDecl (fueledOps F) env d = .ok env₁ →
+    EtaFamiliesClosedT env → EtaFamiliesClosedT env₁
 
 /-- The fold over the declaration stream.  Transpose of
 `foldlM_sound`. -/
 private theorem foldlM_TT (hstep : CheckDeclTT F)
-    (hdir : CertifiedConfigTT) :
+    (hfam : FamiliesStepTT F) (hdir : CertifiedConfigTT) :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
-      Nonempty (EnvTT env) →
+      Nonempty (EnvTT env) → EtaFamiliesClosedT env →
       ds.foldlM (checkDecl (fueledOps F)) env = .ok env' →
       Nonempty (EnvTT env')
-  | [], _, _, hm, h => by
+  | [], _, _, hm, _, h => by
     simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ hm
-  | d :: ds, env, _, hm, h => by
+  | d :: ds, env, _, hm, hE1, h => by
     simp only [List.foldlM, Bind.bind, Except.bind] at h
     cases hd : checkDecl (fueledOps F) env d with
     | error e => rw [hd] at h; exact nomatch h
     | ok env1 =>
       rw [hd] at h
       obtain ⟨m⟩ := hm
-      exact foldlM_TT hstep hdir ds env1 (hstep hd hdir m) h
+      exact foldlM_TT hstep hfam hdir ds env1 (hstep hd hdir m hE1)
+        (hfam hd hE1) h
 
 /-- **The acceptance theorem**: every accepted environment has a
 derivation model, i.e. every constant it stores has a `HasType`
 derivation of its type's denotation.  Transpose of
 `checkDecls_sound`. -/
-theorem checkDecls_TT (hstep : CheckDeclTT F)
+theorem checkDecls_TT (hstep : CheckDeclTT F) (hfam : FamiliesStepTT F)
     (hdir : CertifiedConfigTT)
     {ds : List Declaration} {env' : Env}
     (h : checkDecls (fueledOps F) ds = .ok env') : Nonempty (EnvTT env') :=
-  foldlM_TT hstep hdir ds Env.empty ⟨EnvTT.empty⟩ h
+  foldlM_TT hstep hfam hdir ds Env.empty ⟨EnvTT.empty⟩
+    EtaFamiliesClosedT.empty h
 
 /-! ## The consistency corollary
 
@@ -120,12 +140,13 @@ theorem no_constant_of_Empty_TT (V : Type u) [SetTheory V] {env : Env}
 type theory.  Transpose of `no_proof_of_Empty`; the set-model theorem of
 the same name is untouched and both paths coexist. -/
 theorem no_proof_of_Empty_TT (V : Type u) [SetTheory V]
-    (hstep : CheckDeclTT F) (hdir : CertifiedConfigTT)
+    (hstep : CheckDeclTT F) (hfam : FamiliesStepTT F)
+    (hdir : CertifiedConfigTT)
     {ds : List Declaration} {env' : Env}
     (h : checkDecls (fueledOps F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDecls_TT hstep hdir h
+  obtain ⟨m⟩ := checkDecls_TT hstep hfam hdir h
   exact no_constant_of_Empty_TT V m c hc hty
 
 end Setlec.TTVerify

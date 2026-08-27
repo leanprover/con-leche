@@ -84,12 +84,16 @@ def DeclBasisTT (F : Nat) : Prop :=
     EnvTT env → Nonempty (EnvTT env₁)
 
 /-- Installing an inductive block preserves the derivation model.  The
-direct-install switch is off, so this is `checkIndDecl`. -/
+direct-install switch is off, so this is `checkIndDecl`.  The stored
+eta families' closure enters as a hypothesis — the one case that reads
+it (see `CheckDeclTT`): a fresh block constructor whose name is an
+*older* eta-capable former's capability constructor would owe that
+family's law, and only closure refutes the collision. -/
 def DeclIndTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {block : List ConstantInfo},
     checkDecl (fueledOps F) env (.indDecl block) = .ok env₁ →
     CertifiedConfigTT →
-    EnvTT env → Nonempty (EnvTT env₁)
+    EnvTT env → EtaFamiliesClosedT env → Nonempty (EnvTT env₁)
 
 /-! ## The dispatch
 
@@ -101,13 +105,13 @@ dispatch, so the transpose of the dispatch is the dispatch. -/
 theorem checkDeclTT_of (hdefn : DeclDefnTT F) (hthm : DeclThmTT F)
     (hopaq : DeclOpaqueTT F) (hax : DeclAxiomTT F) (hbas : DeclBasisTT F)
     (hind : DeclIndTT F) : CheckDeclTT F := by
-  intro env env₁ d h hdir m
+  intro env env₁ d h hdir m hE1
   cases d with
   | defnDecl cv value hint => exact hdefn h m
   | thmDecl cv value => exact hthm h m
   | opaqueDecl cv value => exact hopaq h m
   | axiomDecl cv => exact hax h m
   | basisDecl kind => exact hbas h m
-  | indDecl block => exact hind h hdir m
+  | indDecl block => exact hind h hdir m hE1
 
 end Setlec.TTVerify
