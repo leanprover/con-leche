@@ -5169,6 +5169,12 @@ fold is proving (`Deq Δ B rhs` plus `⊢ B : Â` gives it by `conv`).  It
 is equivalent to the goal, not weaker than it — which is exactly why no
 amount of rearranging the fold produces it.
 
+> **RETRACTED in §14.7.8**: the paragraph below claimed the checker
+> does not certify the fabricated spine and that one `iotaCertsI` call
+> was missing.  **It does certify it**, at the caller.  The premise is
+> still owed by `EtaLawTT` — the re-signing stands — but *no checker
+> change is needed for it*.  Read §14.7.8 before acting on this.
+
 **Recommended supplier, and why it is a separate grant.**  Unlike
 #135's conjunct there is no syntactic pin that gives it: the
 fabrication's typing is semantic.  The cheapest faithful route is a
@@ -5195,4 +5201,65 @@ and unaffected.
 **Until then**, `EtaFoldTT` will carry both premises as named
 hypotheses beside `StatementSortPin`, so that each has one supplier and
 one swap.
+#### 14.7.8 RETRACTION: the synthetic-spine certificate exists
+
+§14.7.7 said the checker never certifies the fabricated constructor
+spine and that the fix was "one more `iotaCertsI`, on the
+constructor's telescope".  **That is wrong**, and the record caught it:
+it contradicted the predecessor's `structEtaCertStepTT` report, which
+had recorded as a *measured overshoot* that `structEtaCertWith`
+supplies more than predicted, naming task #71's synthetic-spine
+certification.  Two careful reports disagreed about one site; the
+disagreement was the signal.
+
+**What is actually there.**  The call is at the **caller**, not inside
+`structEtaCertWithI`:
+
+```
+-- Setlec/Kernel/CoreI.lean, majorToCtorI's eta branch (~1246)
+-- synthetic-spine certification, as in the K branch (task #71)
+let tyCtor ← constTyAtM fe ctorI rl.ctor ust
+if ← iotaCertsI r fe depth tyCtor (margs ++ projs) then do
+  if ← structEtaCertWithI r fe depth fab major tmaj then …
+```
+
+I read `structEtaCertWithI`'s body, found `iotaCertsI` only on `T`'s
+telescope and on the projections, and concluded the constructor's was
+missing.  It is two lines above the call.  **And the bridge already
+inverts it**: `Setlec/TTVerify/MajorStep.lean`'s `fab_reduct` takes
+`hcerts : iotaCertsP … cvj.type … L = .ok true` and runs `certs_typed`
+on it — then uses only `hfit.spine`, the `DenoteSpine`, and discards
+the *typing* half.  §0's third tell, in the bridge's own code: a
+conjunct available at the only use site and declined.
+
+So **no checker change is needed** for the fabricated spine, and the
+request that would have become #136 is withdrawn.  The `EtaLawTT`
+re-signing still stands — the field must *ask* for the premise — but
+its supplier is a certificate that has been there since task #71.
+
+**The generalisable lesson, because it is not "look harder".**  A
+guard can live at the caller and still be part of the callee's
+contract.  Reading a function body is not reading its *precondition*;
+the checker composes its certificates by sequencing, so the question
+"is X certified?" has to be asked of the **call site**, not of the
+definition.  The predecessor's report was phrased about the site
+("`structEtaCertWith` supplies…"), mine about the definition, and only
+one of those is the thing the fold consumes.
+
+**Where the remaining link actually is, stated without repeating the
+error.**  The certificate yields `⊢ fab : ⟦rest⟧` where `rest` is the
+*constructor's* telescope residual; the law's premise wants
+`⊢ fab : T p⃗`.  Closing that needs "a stored constructor's result type
+is its family applied to the parameters".  That fact **is** checked —
+on the **direct** path, `checkDirectCtor`
+(`Setlec/Kernel/Checker.lean:125`, `cbody == directFam …`, plus the
+opened-residual check at :143) — and I have **not** found it on the
+modeled path, which is the one `EtaFoldTT` serves.
+
+That is deliberately stated as "not found", not as "missing".  The
+whole point of this section is that the second reading is what costs.
+Before any request: check whether `checkMemberVal`'s `eqUpToNames`
+against the model constructor, or `EtaPins`' constructor-model
+conjuncts, already deliver it — and if a request is still warranted,
+price it with the same corpus measurement §14.7.4 used.
 

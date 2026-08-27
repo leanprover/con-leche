@@ -1256,11 +1256,15 @@ statement's right-hand side is the fabricated constructor spine, and
 
 Stated as exactly the premise `EtaLawTT` would gain — same binders,
 same side conditions, the RHS typing in place of the conclusion — so
-that it is neither vacuous nor stronger than the law needs.  What the
-checker already certifies at the rescue site is every *field's* typing
-(`structEtaProjCertsI`) and `T`'s telescope (`iotaCertsI`); what is
-missing is the constructor telescope's fit, one `iotaCerts` call
-away. -/
+that it is neither vacuous nor stronger than the law needs.
+
+**Its supplier already exists** (`DESIGN.md` §14.7.8, which retracts an
+earlier claim here that it did not): `majorToCtorI`'s eta branch runs
+`iotaCertsI` on the **constructor's** telescope at `margs ++ projs`
+(task #71's synthetic-spine certification) immediately before calling
+`structEtaCertWithI`, and `Setlec/TTVerify/MajorStep.lean`'s
+`fab_reduct` already inverts it — using only the `DenoteSpine` half and
+discarding the typing.  No checker change is owed for this premise. -/
 def EtaRhsTyped (env : Env) (cval : TConstVal) (T : Name)
     (cvT : ConstantVal) (caps : IndCaps) : Prop :=
   ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr) (us : List Level)
