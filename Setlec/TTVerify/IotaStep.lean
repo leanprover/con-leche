@@ -99,7 +99,7 @@ theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj,
     cnP, cnF, r, cbinders, cbody, residual, cr, usr,
     hfn, hfc, hlenA, hw0, hl0, hm0, hmfn, hfj, hrule, hlenM,
-    -, -, hfire, hlev, hdefl, hcerts, hmcerts, -, -, -, -, rfl⟩ := iotaRec_inv h
+    -, -, hfire, hlev, hdefl, hcerts, hmcerts, -, hresid, -, hidxde, rfl⟩ := iotaRec_inv h
   obtain ⟨args, maj, hsplit, hlenA', hgetd⟩ := list_snoc_of_length hlenA
   have heq : e = Expr.mkAppN (.const c us) (args ++ [maj]) := by
     rw [← hsplit, ← hfn, Expr.mkAppN_getApp]
@@ -246,6 +246,89 @@ theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
         rw [show args.getD i default = args[i] from
           by simp [List.getD, List.getElem?_eq_getElem hiA]] at hb
         exact ihd hde hwC' hbC' hLC' hwA' hbA' hLA' hCC' hCA' ha hb
+      -- the fire site's **index** test (§15): `iotaRec` compares the
+      -- constructor's canonical index tuple against the recursor's own
+      -- index arguments, and the inversion already hands both over —
+      -- `IotaStep` had been destructuring past them
+      rw [hsplit, htake] at hidxde
+      have hwCty : Expr.WScoped d
+          (cvj.type.instantiateLevelParams cvj.levelParams usj) :=
+        Expr.WScoped.of_not_hasFvar (by
+          rw [Expr.hasFvar_instantiateLevelParams]; exact hnfC)
+      have hwRes : Expr.WScoped d residual :=
+        piResidual_WScoped hresid hwCty (fun x hx => (hargsC x hx).1)
+      have hbRes : residual.looseBVarsBounded 0 = true :=
+        piResidual_looseBVars hresid
+          (by rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hbdC)
+          (fun x hx => (hargsC x hx).2.1)
+      have hleafRes : ∀ l ∈ residual.fvarLeaves,
+          ∃ x ∈ major.getAppArgs, l ∈ x.fvarLeaves := by
+        intro l hl
+        rcases piResidual_fvarLeaves hresid l hl with h1 | h2
+        · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar (by
+            rw [Expr.hasFvar_instantiateLevelParams]; exact hnfC)] at h1
+          exact nomatch h1
+        · exact h2
+      have hLRes : Expr.LeavesBounded residual := by
+        intro l hl
+        obtain ⟨x, hx, hlx⟩ := hleafRes l hl
+        exact (hargsC x hx).2.2.1 l hlx
+      have hCRes : CtxOk m.cval env φ d Δ residual := by
+        refine ⟨hC.1, fun l hl => ?_⟩
+        obtain ⟨x, hx, hlx⟩ := hleafRes l hl
+        exact (hargsC x hx).2.2.2.2 l hlx
+      obtain ⟨hlenD, hall⟩ := defEqList_inv hidxde
+      have hlenIdxP : (residual.getAppArgs.drop (RecRule.ctorParams r)).length
+          = mI - rP := by
+        rw [hlenD, List.length_drop, hlenA']
+      have hidxG : ∀ i, i < mI - rP → ∀ a b : VExpr,
+          denote m.cval env φ d
+            ((residual.getAppArgs.drop (RecRule.ctorParams r)).getD i default)
+            = some a →
+          denote m.cval env φ d ((args.drop rP).getD i default) = some b →
+          Deq Δ a b := by
+        intro i hi a b ha hb
+        have hiL : i < (residual.getAppArgs.drop
+            (RecRule.ctorParams r)).length := by omega
+        have hiR : i < (args.drop rP).length := by
+          rw [List.length_drop]; omega
+        have hde := hall ⟨i, hiL⟩
+        simp only [Fin.getElem_fin] at hde
+        rw [show (residual.getAppArgs.drop (RecRule.ctorParams r))[i]
+            = (residual.getAppArgs.drop (RecRule.ctorParams r)).getD i default
+            from by simp [List.getD, List.getElem?_eq_getElem hiL]] at hde
+        obtain ⟨hwL, hbL, hLL, hCL⟩ :
+            Expr.WScoped d ((residual.getAppArgs.drop
+              (RecRule.ctorParams r)).getD i default) ∧
+            ((residual.getAppArgs.drop (RecRule.ctorParams r)).getD i
+              default).looseBVarsBounded 0 = true ∧
+            Expr.LeavesBounded ((residual.getAppArgs.drop
+              (RecRule.ctorParams r)).getD i default) ∧
+            CtxOk m.cval env φ d Δ ((residual.getAppArgs.drop
+              (RecRule.ctorParams r)).getD i default) := by
+          have hmem : (residual.getAppArgs.drop
+              (RecRule.ctorParams r)).getD i default ∈ residual.getAppArgs := by
+            rw [show (residual.getAppArgs.drop (RecRule.ctorParams r)).getD i
+                default = (residual.getAppArgs.drop (RecRule.ctorParams r))[i]
+                from by simp [List.getD, List.getElem?_eq_getElem hiL]]
+            exact List.mem_of_mem_drop (List.getElem_mem hiL)
+          exact ⟨hwRes.getAppArgs _ hmem,
+            looseBVarsBounded_getAppArgs hbRes _ hmem,
+            fun l hl => hLRes l (fvarLeaves_getAppArgs hmem l hl),
+            CtxOk.of_subset (fun l hl => fvarLeaves_getAppArgs hmem l hl) hCRes⟩
+        obtain ⟨hwR', hbR', hLR', hCR'⟩ : Expr.WScoped d
+            ((args.drop rP).getD i default) ∧
+            ((args.drop rP).getD i default).looseBVarsBounded 0 = true ∧
+            Expr.LeavesBounded ((args.drop rP).getD i default) ∧
+            CtxOk m.cval env φ d Δ ((args.drop rP).getD i default) := by
+          have hmem : (args.drop rP).getD i default ∈ e.getAppArgs := by
+            rw [hsplit]
+            refine List.mem_append_left _ ?_
+            rw [show (args.drop rP).getD i default = (args.drop rP)[i] from by
+              simp [List.getD, List.getElem?_eq_getElem hiR]]
+            exact List.mem_of_mem_drop (List.getElem_mem hiR)
+          exact hframe _ hmem
+        exact ihd hde hwL hbL hLL hwR' hbR' hLR' hCL hCR' ha hb
       -- fire
       have hfired := rec_rules_fire m φ hcl ihd ihi hfc hrl hfire
         (hrc ▸ hfj) hlenA' hlenM hlenR hlenJ
@@ -254,7 +337,7 @@ theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
               (Level.isEquivList_sound hlev φ),
             recFireComparands_levels r cv.levelParams us cvj.levelParams
               e.getAppArgs [] rP rP])
-        hparP
+        hparP hresid hlenIdxP hidxG
         (by rw [htake] at hcerts; rw [hmajEq']; exact hcerts)
         (Expr.WScoped.of_not_hasFvar (by
           rw [Expr.hasFvar_instantiateLevelParams]; exact hnfR))

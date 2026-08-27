@@ -204,6 +204,15 @@ def RecRulesTT (env : Env) (cval : TConstVal) : Prop :=
           (RecRule.fire rl = .plain →
             ∀ i, i < RecRule.ctorParams rl → i < mI →
               Deq Δ (ys.getD i default) (xs.getD i default)) →
+          -- **the fire site's own index check.**  `iotaRec` runs a
+          -- third comparison beside the level and parameter ones:
+          -- `defEqList (residual.getAppArgs.drop ctorParams)
+          --            ((args.take mI).drop rP)`, whose left side is
+          -- the constructor's *canonical* index tuple.  So a fired
+          -- redex's indices are never free either — §8.2's sixth and
+          -- last narrowing, and the only one whose guard was already
+          -- in the checker when the bridge came to need it (§15).
+          IotaIndexPin Δ restC (RecRule.ctorParams rl) mI rP xs →
           -- the two stored types, denoted (`denote_env_shrink` moves
           -- these; `denote_storedTy` produces them at a fire site)
           denote cval env φ d

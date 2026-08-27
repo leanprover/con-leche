@@ -5777,4 +5777,50 @@ against the wrong object measures nothing at all — and no amount of
 green tells you which you have.  Both failures are invisible in the
 output and visible only in the *setup*, which is why the setup is what
 the record has to carry.
+### 15.5 The re-signing, landed — and the sweep's own evidence
+
+`RecRulesTT` now carries `IotaIndexPin`.  The threading was exactly
+§15.4's plan; three things it turned up are worth keeping.
+
+**The sweep is evidence, not bookkeeping.**  Seven `hheadRec` sites
+discharge `RecRulesTT`'s head obligation across the six basis blocks.
+Of them, **five decline the parameter premise with `_` and two consume
+it** — and the two are `Quot`'s eliminators, exactly where §8.2
+recorded the fifth narrowing as *fatal rather than merely wasteful*
+("a field typed at the constructor's parameter cannot be moved to the
+recursor's").  A record claim about which blocks need which premise,
+confirmed by where the underscores fall.  All seven decline the new
+index premise, as expected: the basis recursors are not modeled and
+their laws never mention canonical indices.
+
+**Three inversion conjuncts were being discarded, and two of them were
+the whole job.**  `IotaStep.lean` destructured `iotaRec_inv` as
+`… hcerts, hmcerts, -, -, -, -, rfl⟩`.  The second and fourth `-` are
+`piResidual … = some residual` and the index `defEqListP` — precisely
+the premise's two ingredients.  Un-discarding them *is* the supplier.
+With `fab_reduct`'s discarded typing half (§14.7.8) and `toV`'s
+discarded denote fact (§15.4), that is **four** instances now, and the
+generalisation has earned its place in §0:
+
+> When this bridge needs a fact, look first at the conjunct its own
+> inversion already returns.
+
+**A third "already existed".**  A `defEqListP_length` helper was
+written for the bounds, then deleted: `defEqList_inv` already returns
+`⟨length, pointwise⟩`, and the neighbouring `hparP` was already using
+it that way *twelve lines above the new code*.  After
+`denote_instLevels` (§14.7.3) that is the second lemma this run wrote
+before searching — and the second time the neighbouring code already
+had the answer.  §14.7.3's "search this side too" wants a sharper form:
+**read the sibling obligation before writing a helper for yours**; the
+two consume the same inversion and will want the same accessors.
+
+**What the premise cost, end to end**: one line in `RecRulesTT`, three
+transports (`RecRulesTT.cons`, `EnvTT.cons`, `EnvTT.consBasis`), seven
+`_`s, ~60 lines assembling it in `rec_rules_fire` from
+`denote_mkAppN_inv`, and ~70 lines supplying it in `IotaStep.lean` —
+of which the residual's four frame conditions were most of the work,
+and all four were already available (`piResidual_WScoped`,
+`piResidual_looseBVars`, `piResidual_fvarLeaves` plus a pointwise
+`CtxOk`).  Nothing new about `VExpr` was needed, as §15.2 predicted.
 

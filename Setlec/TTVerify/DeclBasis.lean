@@ -185,6 +185,7 @@ theorem extendBasisTT {env : Env} (m : EnvTT env) {ci : ConstantInfo}
             (RecRule.fire rl = .plain →
               ∀ i, i < RecRule.ctorParams rl → i < mI →
                 Deq Δ (ys.getD i default) (xs.getD i default)) →
+            IotaIndexPin Δ restC (RecRule.ctorParams rl) mI rP xs →
             denote (cvalSet m.cval ci.name val) ⟨ci :: env.consts⟩ φ d
               (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
             denote (cvalSet m.cval ci.name val) ⟨ci :: env.consts⟩ φ d
@@ -691,7 +692,7 @@ theorem extendPUnitRecTT {env : Env} (m : EnvTT env)
           Expr.instantiate1_lam, reduceIte, hPc', hUc', denote_fvar]
         simp
       · intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj
-          hlev _ hTV hTVj hR hC
+          hlev _ _ hTV hTVj hR hC
         -- the rule's constructor is the stored `PUnit.unit`
         have hU' := hU
         simp only [punitUnitName, punitName] at hU'
@@ -1544,7 +1545,7 @@ theorem extendEqRecTT {env : Env} (m : EnvTT env)
       refine ⟨_, denote_eqRec_rhs m (val := eqRecValT) φ d w1 w2 hE hR hEv
         hRv, ?_⟩
       intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj hlev
-        _ hdTV hdTVj hfitR hfitC
+        _ _ hdTV hdTVj hfitR hfitC
       have hRu := hR
       simp only [eqReflName, eqName] at hRu
       rw [Env.find?_cons, if_neg (by decide), hRu] at hfj
@@ -2049,7 +2050,7 @@ theorem extendNatRecTT {env : Env} (m : EnvTT env)
       refine ⟨_, denote_natRec_zeroRhs m
         (val := fun ψ => VExpr.const .natRec [ψ uNT]) φ d w hN hZ hS, ?_⟩
       intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj hlev
-        _ hdTV hdTVj hfitR hfitC
+        _ _ hdTV hdTVj hfitR hfitC
       have hZu := hZ
       simp only [natZeroName, natName] at hZu
       rw [Env.find?_cons, if_neg (by decide), hZu] at hfj
@@ -2116,7 +2117,7 @@ theorem extendNatRecTT {env : Env} (m : EnvTT env)
         refine ⟨_, denote_natRec_succRhs m
           (val := fun ψ => VExpr.const .natRec [ψ uNT]) φ d w hN hZ hS, ?_⟩
         intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj
-          hlev _ hdTV hdTVj hfitR hfitC
+          hlev _ _ hdTV hdTVj hfitR hfitC
         have hSu := hS
         simp only [natSuccName, natName] at hSu
         rw [Env.find?_cons, if_neg (by decide), hSu] at hfj
@@ -3050,7 +3051,7 @@ theorem extendPSigmaRecTT {env : Env} (m : EnvTT env)
       refine ⟨_, denote_psigmaRec_rhs m (val := psigmaRecValT) φ d w1 w2
         hP hM hPv hMv, ?_⟩
       intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj hlev
-        _ hdTV hdTVj hfitR hfitC
+        _ _ hdTV hdTVj hfitR hfitC
       have hMu := hM
       simp only [psigmaMkName, psigmaName] at hMu
       rw [Env.find?_cons, if_neg (by decide), hMu] at hfj
@@ -3709,7 +3710,7 @@ theorem extendQuotIndTT {env : Env} (m : EnvTT env)
       refine ⟨_, denote_quotInd_rhs m
         (val := fun ψ => VExpr.const .quotInd [ψ uNT]) φ d w hQ hM, ?_⟩
       intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj hlev
-        hpar hdTV hdTVj hfitR hfitC
+        hpar _ hdTV hdTVj hfitR hfitC
       have hMu := hM
       simp only [quotMkName, quotName] at hMu
       rw [Env.find?_cons, if_neg (by decide), hMu] at hfj
@@ -4134,7 +4135,7 @@ theorem extendQuotLiftTT {env : Env} (m : EnvTT env)
         (val := fun ψ => VExpr.const .quotLift [ψ uNT, ψ vNT]) φ d w1 w2
         hE, ?_⟩
       intro cvj cnP cnF hfj Δ usj xs ys TV TVj restR restC hxs hys husj hlev
-        hpar hdTV hdTVj hfitR hfitC
+        hpar _ hdTV hdTVj hfitR hfitC
       have hMu := hM
       simp only [quotMkName, quotName] at hMu
       rw [Env.find?_cons, if_neg (by decide), hMu] at hfj

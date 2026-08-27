@@ -72,6 +72,25 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
           denote m.cval env φ d (margs.getD i default) = some a →
           denote m.cval env φ d (args.getD i default) = some b →
           Deq Δ a b)
+    -- the fire site's **index** test, in the form the law consumes
+    -- (§15): `iotaRec` compares the constructor's canonical index
+    -- tuple — the tail of its telescope residual — against the
+    -- recursor's own index arguments, and the modeled iota equation
+    -- speaks only about the canonical ones.  `restCE` is that
+    -- residual; `TeleTyped.rest_eq` identifies it with the certified
+    -- walk's, so the two descriptions meet here.
+    {restCE : Expr}
+    (hrestCE : piResidual
+      (cvj.type.instantiateLevelParams cvj.levelParams usj) margs
+      = some restCE)
+    (hlenIdx : (restCE.getAppArgs.drop (RecRule.ctorParams rl)).length
+      = mI - rP)
+    (hidxG : ∀ i, i < mI - rP → ∀ a b : VExpr,
+      denote m.cval env φ d
+        ((restCE.getAppArgs.drop (RecRule.ctorParams rl)).getD i default)
+        = some a →
+      denote m.cval env φ d ((args.drop rP).getD i default) = some b →
+      Deq Δ a b)
     -- the recursor's telescope, certified at the full spine
     {TR : VExpr}
     (hcertR : iotaCertsP env fuel d
@@ -140,7 +159,7 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     rw [hmaj] at hy; exact (Option.some.inj hy).symm
   -- the two sides are the spines' `VExpr` applications
   obtain ⟨RVR, hvR, -⟩ := hfitR.toV hcl hiR
-  obtain ⟨RVC, hvC, -⟩ := hfitC.toV hcl hiC
+  obtain ⟨RVC, hvC, hdenC⟩ := hfitC.toV hcl hiC
   obtain rfl : L = VExpr.mkAppN (m.cval n (Level.substFn φ cv.levelParams us))
       (xs ++ [VExpr.mkAppN
         (m.cval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj))
@@ -158,7 +177,7 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
       (hspC.drop (RecRule.ctorParams rl))) hRH] at hR
     exact (Option.some.inj hR).symm
   refine hlaw cvj cnP cnF hctor Δ usj xs ys TR TC RVR RVC ?_ ?_ hlenJ hlev
-    ?_ hiR hiC hvR hvC
+    ?_ ?_ hiR hiC hvR hvC
   · have := hspR.length
     omega
   · have := hspC.length
@@ -176,6 +195,32 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     · rw [show args.getD i default = args[i] from
         by simp [List.getD, List.getElem?_eq_getElem hiA]]
       exact DenoteSpine.get hspR ⟨i, hiA⟩
+  · -- the index test, moved onto the denoted spines: the constructor's
+    -- residual is read apart as a spine, which is exactly the shape
+    -- `denote_mkAppN_inv` returns (§15.2)
+    obtain rfl : restCE = restC :=
+      Option.some.inj (hrestCE.symm.trans hfitC.rest_eq)
+    have hden' : denote m.cval env φ d
+        (Expr.mkAppN restCE.getAppFn restCE.getAppArgs) = some RVC := by
+      rw [Expr.mkAppN_getApp]; exact hdenC
+    obtain ⟨vf, vs, -, hsp, hRVC⟩ := denote_mkAppN_inv hden'
+    refine ⟨vf, vs, hRVC, ?_⟩
+    intro i hi
+    have hlenDrop : restCE.getAppArgs.length - RecRule.ctorParams rl
+        = mI - rP := by simpa using hlenIdx
+    have hbC : RecRule.ctorParams rl + i < restCE.getAppArgs.length := by omega
+    have hbA : rP + i < args.length := by omega
+    have hlenVs : vs.length = restCE.getAppArgs.length := hsp.length
+    refine hidxG i hi _ _ ?_ ?_
+    · rw [show (restCE.getAppArgs.drop (RecRule.ctorParams rl)).getD i default
+          = restCE.getAppArgs[RecRule.ctorParams rl + i] from by
+        simp [List.getD, List.getElem?_drop,
+          List.getElem?_eq_getElem hbC]]
+      exact DenoteSpine.get hsp ⟨RecRule.ctorParams rl + i, hbC⟩
+    · rw [show (args.drop rP).getD i default = args[rP + i] from by
+        simp [List.getD, List.getElem?_drop,
+          List.getElem?_eq_getElem hbA]]
+      exact DenoteSpine.get hspR ⟨rP + i, hbA⟩
 
 /-! ## The stuck-major rescues
 
