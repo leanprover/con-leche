@@ -4156,6 +4156,54 @@ throwing it away.
 > of parameters — and expect it to be fatal again for the same reason.
 > Check it before writing the five, not after.
 
+#### The check, done — and the answer is in the model's own tower
+
+**Confirmed: the index premise is needed, and the model shows why the
+model never needed it.**  `ruleLhsAux` (`Setlec/Model/Interp.lean:319`)
+builds the canonical iota redex as
+
+```
+mkAppN (.const n us)
+  (fvsP ++ crest2.getAppArgs.drop ctorParams ++ [ctor spine])
+```
+
+— the recursor's **index slots are filled with the constructor's
+canonical index tuple**, which is *literally the same expression* the
+checker's third `defEqList` compares against
+(`residual.getAppArgs.drop rl.ctorParams`).  `RecRulesOk`'s docstring
+says so in words ("applied … to the prefix, **the canonical index
+tuple** and the constructor spine"); the definition says so in code.
+
+So the tower form **never quantified over the recursor's index
+arguments at all** — it hard-codes the canonical ones.  The fired form
+does quantify, and the extra generality is exactly one comparison wide.
+That is the third inversion of the same mechanism, and the first one
+*predicted* rather than discovered: levels (fourth instance),
+parameters (fifth, fatal), indices (sixth, and fatal for the same
+reason — a modeled recursor's rule right-hand side drops the index
+slots entirely, so the law's two sides disagree on them unless the
+premise identifies them).
+
+> **The rule this settles.**  Wherever the model states a law over a
+> *hard-coded* canonical form and the bridge restates it over a
+> *quantified* one, the difference is a checker guard — and the guard
+> is the only thing that can pay for it.  The three instances are
+> `recFireComparands.1` (levels), `recFireComparands.2` (parameters),
+> and `ruleLhsAux`'s index tuple.  There are no others: `iotaRec` runs
+> exactly three comparisons.
+
+**Not threaded yet, deliberately.**  The fourth and fifth narrowings
+were each done with the consumer in hand — `PUnit`'s eta rescue, then
+`Quot`'s field — and the playbook's own criterion is that *a hypothesis
+is legitimate exactly when the actual caller can discharge it*.  Here
+the caller is `IndBottomPlainTT`, which is not written.  The premise
+also costs real plumbing the other two did not: a `VExpr`-level
+`getAppArgs` (there is none) and a `denote`-commutes-with-`getAppArgs`
+lemma, or an equivalent reformulation through `restC`.  Both decisions
+— the exact form, and whether to spend that plumbing or reformulate —
+belong with `IndBottomPlainTT`, not before it.  `EtaFoldTT` and
+`UnitFoldTT` do not touch iota and can be written first.
+
 **Confirmed in use at `Quot.ind`.**  Its iota is one line of the new
 premise and then *proof irrelevance*: the stored motive's codomain is
 `Sort 0`, the layer carries no `quotIndMk` rule, and both sides are
