@@ -1293,9 +1293,14 @@ Stated as exactly the premise `EtaLawTT` would gain — same binders,
 same side conditions, the RHS typing in place of the conclusion — so
 that it is neither vacuous nor stronger than the law needs.
 
-**Its supplier is `CtorResidualPin` plus a certificate that already
-exists** (`DESIGN.md` §14.7.8, which retracts an earlier claim here
-that the certificate did not): `majorToCtorI`'s eta branch runs
+**Its supplier is `CtorResidualPin` plus a certificate — and there are
+now *two* instances of that certificate, one per consumer**
+(`DESIGN.md` §14.7.8 and §14.7.12).  Task #137 added the callee-side
+one inside `structEtaCertWithI`, which is what the `defeq`-path
+consumer (`StructEtaCertStep.lean`) discharges from; the caller-side
+one described below is kept, and is what `MajorStep.lean`'s consumer
+discharges from.  They are distinct instances of provably the same
+call — see §14.7.12 for why keeping both is not redundancy: `majorToCtorI`'s eta branch runs
 `iotaCertsI` on the **constructor's** telescope at `margs ++ projs`
 (task #71's synthetic-spine certification) immediately before calling
 `structEtaCertWithI`, and `Setlec/TTVerify/MajorStep.lean`'s
