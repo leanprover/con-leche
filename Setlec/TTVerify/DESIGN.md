@@ -5056,15 +5056,33 @@ annotation), `EqLawTT` is not restatable without it (there is no
 cumulativity rule), and choosing a different `ψ` is blocked by
 `val_params`.
 
-**The risk, and how to price it.**  Whether the real preprocessor emits
-`T._model : ∀ p⃗, Sort ℓ` with the *same* level expression the eta and
-unitlike theorems carry is an empirical question — the generator takes
-the theorem's level from `Meta.getLevel` on the carrier
-(`lean-inductive-models`, `Driver/Unitlike.lean`), which should agree,
-but level normalisation could differ.  It is cheap to settle: add the
-check, run `tests/arena.sh`, and see whether the accept counts move.
-The `isEquiv` form of (1) is immune to normalisation differences and
-is what should be tried if the `==` form regresses.
+**The risk, priced — measured, not argued.**  Whether the real
+preprocessor emits `T._model : ∀ p⃗, Sort ℓ` with the *same* level
+expression the eta and unitlike theorems carry is an empirical
+question (the generator takes the theorem's level from
+`Meta.getLevel` on the carrier, `lean-inductive-models`,
+`Driver/Unitlike.lean` — it should agree, but level normalisation
+could differ).  §0's second practice says to count it in the real
+stream rather than assume, and a property nobody can check casually is
+one nobody will check — so it was checked.
+
+`checkEtaThmF` / `checkUnitThmF` (the **`FEnv` path**, which is the one
+that executes — the `Env` versions in `Modeled.lean` are never reached
+at runtime, and probing them first produced zero hits on a 3 653-
+declaration stream) were instrumented to report
+`tbodyM == Expr.sort ℓA` at every call, and the whole fixture corpus
+run:
+
+| corpus | eta hits | unit hits | `==` holds |
+|---|---|---|---|
+| `_tmp/arena-tests` (182 streams, incl. `init-prelude`) | 300 | 47 | **347 / 347** |
+| `tests/e2e` (all fixtures, incl. gzipped) | 678 | 44 | **722 / 722** |
+
+**1 069 calls, zero counterexamples.**  The plain `==` form is
+sufficient; the `Level.isEquiv` form is the fallback if a future
+preprocessor normalises differently, and costs nothing to prefer.  The
+instrumentation was temporary and is not committed (the checker files
+are untouched: `git status` clean, gates re-run green after revert).
 
 **Until it is granted**, `UnitFoldTT` carries the fact as the
 hypothesis `hTmSort : tbodyM = Expr.sort ℓA`, isolated to one line
