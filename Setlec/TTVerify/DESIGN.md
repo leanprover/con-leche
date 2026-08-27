@@ -5864,3 +5864,240 @@ coincidence.  Recorded because the tell is cheap: **a catch-all branch
 where the rewrite makes no progress is often the counterexample, not a
 missing simp lemma.**
 
+## 16. HANDOFF: what a successor needs that the files do not say
+
+Written at the end of the run that landed the phase's machinery, both
+folds, both re-signings and four pins with suppliers.  Branch
+`feat/119-ttverify-stage2`, worktree `.claude/worktrees/ttv-stage2`,
+merged `--ff-only` **from the repo root** (a bare merge inside the
+worktree reports "Already up to date" and does nothing — verify by
+master's SHA, never by the merge's output).  `_tmp/` is per-worktree:
+if the `lean-inductive-models` symlink is missing, `arena.sh` reports
+53/67 silently.  Gate procedure: §0's forced-recompile note, then
+`lake test`, arena 90/92, e2e 67/67, split 11/11, infer-only 5/5,
+axioms exactly `[propext, Classical.choice, Quot.sound]`.
+
+### 16.1 `IndBottomPlainTT`, planned
+
+**The entry kit is free.**  `PlainChecked`
+(`Setlec/Verify/Extend/Iota.lean:34`) is already `V`-free and already
+in `Verify/`, so unlike the folds' `EtaPins` nothing needs restating.
+Its destructuring is 21 existentials and 25 conjuncts; **this pattern
+is verified to elaborate**, copy it:
+
+```lean
+obtain ⟨thmName, cvt, ci, fvs, tbody, lA, alphaS, lhsS, rhsS,
+  cdoms, cres, rdoms, rrest, fvsP, restP, cdomsP, crestP, xFvsP,
+  crest2, ldoms, lrest,
+  hthm, hcvt, hlps, hopen, hheadEq, hargs3, hlhead, hlarity, hlpre,
+  hmaj, hCstrip, hcinst, hclen, hdeIdx, hdeFld, hrinst, hdePre,
+  hopenP, hcinstP, hdePars, hopenX, hlinst, hdeLam, hdeRhs,
+  hlhsTy, hrhsTy⟩ := hkit
+obtain ⟨bs, body₀, hstrip, hlenFvs, hidxFvs, herased⟩ :=
+  openPisAtFvars_stripPis (rP + cnF) hopen        -- applies directly
+```
+
+**Provenance of the model's ~60 hypotheses.**
+
+| bridge source | what it covers |
+|---|---|
+| `PlainChecked` (free) | the whole syntactic layer: the opener, the `Eq` head/args, the LHS's head/arity/prefix/major, the constructor instantiation and its canonical index tuple, the four `DefEqListOk`s, the RHS defeq, **and the two sides' typings** (`hlhsTy`/`hrhsTy` — `checkIotaSidesTy`, §14.7.7's two "already certified" entries) |
+| `openPisAtFvars_stripPis` (new, landed) | turns `hopen` into the `stripPis` that `piTower_of_stripPis`, `denote_paramTuple` and `instSeq_paramTuple` consume; also gives `fvs[j] = .fvar (d+j) _ _` and the `ErasedEq` body |
+| `denote_renameConsts` + `RenEqT`/`PiDomsRenEqT` | the public↔`_model` transport, exactly as in `UnitFoldTT` |
+| `EnvTT` fields | `has_type` at the theorem, the recursor and the constructor; `eq_law`; `val_params`; `wf` |
+| `IotaIndexPin` (landed, in `RecRulesTT`) | the fired redex's indices are the constructor's canonical tuple |
+| **genuinely new** | the LHS reassembly, the `Deq` spine congruence, and `αS`'s sort (below) |
+
+**The one thing with no supplier — expect it, it is the next
+exception-list item.**  §14.7.7's table says the bottoms owe the *sort*
+of the equation's type slot.  Here that slot is `αS`, a **motive
+application**, so `StatementSortPin` does not apply and there is no
+syntactic pin to be had: `checkIotaSidesTy` certifies both *sides*
+inhabit `αS` and says nothing about `αS : Sort ℓA`.  The request is
+form 2 of §14.7.4 — extend `checkIotaSidesTy` (it already has `ops`)
+with `inferType αS` and an `isDefEq` against `.sort ℓA`.  **Do not ask
+before measuring** (§14.7.9): instrument `checkIotaSidesTy`, cross-tab
+over arena + e2e, and only then request.  Commit the named `Prop`
+first so the implementer can grep it, the way `StatementSortPin` and
+`CtorResidualPin` made their swaps `exact`.
+
+**Four hard spots, and what I would try at each.**
+
+1. *`αS`'s sort* — above.  Carry it as a named hypothesis meanwhile;
+   the fold is otherwise complete without it.
+2. *Indices*: `hdeIdx` relates `(lhsS.getAppArgs.drop rP).take (mI-rP)`
+   to `cres.getAppArgs.drop cnP`; `IotaIndexPin` relates the *fired*
+   redex's indices to the constructor residual's.  Compose by
+   `Deq.trans` — the two speak about the same canonical tuple from the
+   install side and the fire side respectively, which is the whole
+   point of the sixth narrowing.
+3. *Spine congruence*: `Deq.app`/`appFun`/`appArg` exist;
+   an n-ary `Deq.mkAppN` does **not**.  Write it (a `List` induction,
+   ~10 lines) — the LHS reassembly needs it once per spine.
+4. *`hdeRhs` and the four `DefEqListOk`s* need `DefEqClaimsTT` **at the
+   install environment**.  This is the structural question to settle
+   *first*, before any of the above: the folds never needed the claims
+   because they consumed only typings.  Check how `DeclBasisTT`'s
+   `RecRulesTT` discharge obtains them (`DeclBasis.lean`'s block
+   lemmas) — if the install-time claims are not available, that is a
+   design question, not a proof step, and it should be raised before
+   the body is written.
+
+### 16.2 `IndBottomNestedTT`: the delta
+
+`NestedChecked` (`Verify/Extend/Iota.lean`, just below `PlainChecked`)
+mirrors it *exactly* except for how the major is formed.  So:
+
+* **Verbatim**: the opener bridge, the `Eq` head/args handling, `αS`'s
+  sort (same gap), the RHS defeq, the two sides' typings, and — per
+  the docstring's own sentence — **the index premises, which "flow
+  through exactly as on the plain path"**.  That is the cashed form of
+  §14.6.2's "budget one piece, not two".
+* **Different**: the major is the constructor at the *stored* level
+  instantiations `lvls` and parameter instantiations `pins`, in
+  **rP-context** (`Expr.lowerBVars` at install, `Expr.instSpine` at
+  the fire site), not at the telescope's variables.  The fire-site
+  counterpart is `recFireComparands`'s `.nested` branch, which the
+  landed `hlev`/`hpar` premises of `RecRulesTT` already thread.
+* Memory note #105 ("nested-aux iota rules") is the design record for
+  the pins' rP-context and the index-var split; read it before
+  starting, not after.
+
+### 16.3 `ProjBottomTT`, and the `EtaLawTT` + `EnvTT` increment
+
+**`ProjBottomTT`** should be `IndBottomPlainTT` at `cnF = 0`:
+`checkProjFn` stores a projection function as a *degenerate recursor*,
+so it lands in `RecRulesTT` and **not** in `ProjOkT` — `ProjOkT` is
+untouched by `DeclIndTT`.  Do the plain bottom first and see how much
+generalises; my expectation is that the entry kit differs and the body
+does not.
+
+**The `EnvTT` field, designed but not written.**  Shape, chosen so
+that mid-block states are vacuous rather than false:
+
+```lean
+def CtorResidualOkT (env : Env) : Prop :=
+  ∀ T cvT caps cvC, env.find? T = some (.indInfo cvT caps) →
+    caps.eta = true →
+    env.find? caps.etaCtor =
+      some (.ctorInfo cvC caps.etaParams caps.etaFields) →
+    CtorResidualPin T cvT.levelParams cvC caps.etaParams caps.etaFields
+```
+
+**Why implication-shaped and not `∃ cvC, …`**: a block stores the
+former before the constructor, so an existential form is *false*
+mid-block, exactly the way `SameDoms.refl` was false (§0's fifth tell).
+The implication is vacuous until the constructor lands and is
+discharged when it does.  It also matches the consumer: `eta_rescue`
+already holds the constructor's `find?` (from `EtaFamilyStoredT`), so
+it can apply the field directly.
+
+**Threading**: `.empty` is trivial; `.cons` is preserved by freshness
+(`find?` is monotone) with a head obligation at the constructor's
+install.  But note #136's check runs **once per block, after all
+members** (between the recursor group and the projection-family
+freshness check) — so the natural discharge is at the *block* level in
+`DeclIndTT`, not per-`cons`.  Expect to prove the field for the whole
+block at once and to thread it unchanged through the member conses.
+
+**The `EtaLawTT` re-signing** is one premise (`EtaRhsTyped`'s body),
+both suppliers landed (§14.7.12): `MajorStep.lean`'s consumer from the
+caller-side certificate, `StructEtaCertStep.lean`'s from the callee-side
+one that #137 added.  `EtaFoldTT` then *drops* `EtaRhsTyped` — the
+premise moves from the fold's hypothesis list into the law's binder,
+which makes the fold shorter, not longer.
+
+### 16.4 `CheckDeclTT` assembly checklist
+
+Five of six cases are closed (`DeclDefnTT`, `DeclThmTT`,
+`DeclOpaqueTT`, `DeclAxiomTT`, `DeclBasisTT`).  The sixth needs
+`DeclIndTT` to build one `EnvTT.cons` per block member, supplying:
+
+* `hheadRec` ← the bottoms (**now with the `IotaIndexPin` premise
+  available as a hypothesis** — producers are only helped);
+* `hheadEta`/`hheadUnit` ← `EtaFoldTT`/`UnitFoldTT` via
+  `etaPinsT_of_caps`;
+* `hheadCtors`, `hheadProj`, `hheadProjPair`, `hheadEq`, `hheadBasis`,
+  `hheadNat`, `hheadDivMod`, `hheadReduce` ← freshness/kind
+  arguments, as in `DeclBasisTT`'s six blocks;
+* the new `CtorResidualOkT` head obligation.
+
+**Foreseen friction**: `EnvTT.cons` takes ~18 positional arguments
+(§14.6.3 lists the order for `extendBasisTT`; `EnvTT.cons`'s is
+adjacent and worth writing out before use).  The `hheadRec` binder now
+carries one more premise than the six basis blocks needed — they
+decline it with `_`, and a modeled block will *consume* it, which is
+the first place the sweep's asymmetry shows up in anger.
+
+### 16.5 Working memory a successor cannot recover from the code
+
+**Search the siblings before writing a helper.**  This run wrote two
+lemmas that already existed — `denote_instLevels` (§14.7.3) and a
+`defEqListP_length` whose answer was in `defEqList_inv`, *twelve lines
+above the new code* (§15.5).  Both were caught late.  The inventory to
+check first, because the bottoms will want all of it:
+
+* `Setlec/TTVerify/Tele.lean` — `TeleTyped.{toV,appN,spine,rest_eq}`,
+  `VTeleTyped.{appN,append,retarget,retarget',teleAlign}`,
+  `DenoteSpine.{append,take,drop,length,map,get,snoc_inv}`,
+  `denote_mkAppN`, `denote_mkAppN_inv`;
+* `Setlec/TTVerify/TeleOpen.lean` — `VExpr.instSeq` + 9 lemmas,
+  `openFvars` + 4, `instSeq_instantiate1_in`, `VExpr.inst_mkAppN`,
+  `openPisAtFvars_stripPis`,
+  `stripPis_instantiate1_fvar_isSome_rev`;
+* `Setlec/TTVerify/DeclInd.lean` — `denote_paramSpine`,
+  `denote_paramTuple`, `instSeq_paramList`, `instSeq_paramTuple`,
+  `paramList_inst`, `paramTuple_inst`, `instSeq_len_succ`,
+  `instSeqV_len_succ`, `PiTower.*`, `teleAlign_of_stripPis`,
+  `eqSlotSort_of_sortPin`, `Deq.ofEqThm{,Closed}`;
+* `Setlec/TTVerify/Rename.lean` — `denote_renameConsts`, `RenEqT.*`,
+  `PiDomsRenEqT.*`;
+* `Setlec/Verify/` — `defEqList_inv` (**returns length *and*
+  pointwise**), `iotaRec_inv`, `piResidual_{WScoped,looseBVars,
+  fvarLeaves}`, `Expr.mkAppN_getApp`, `Expr.stripPis_{snoc,prefix,
+  length,instantiate1_eq}`, `ErasedEq.stripPis_inv`,
+  `Expr.stripPis_renameConsts_inv`, `Level.{eval_subst,substFn_map_param,
+  substFn_map_subst}`.
+
+**And read the *sibling obligation* before writing a helper for
+yours** — `hparP` and `hidxG` in `IotaStep.lean` consume the same
+inversion and want the same accessors.  That is the sharpened form of
+§14.7.3.
+
+**Elaboration gotchas beyond §14.6.3's list**, each of which cost a
+cycle here:
+
+* `intro` cannot bind `-`; use `_`.  (So a `-`-sweep of an `intro`
+  chain is literally an `_`-sweep.)
+* `show T from e` **breaks when `T` ends in an unparenthesised
+  lambda**: `((List.range nP).map fun k => …)` swallows the `from`.
+  Parenthesise the lambda, or use a `have`.
+* A lemma stated at depth `d + nP + c` will **not** `rw` against a goal
+  at `d + nP`, defeq or not.  Give such lemmas an explicit depth
+  parameter plus `(hdd : dd = d + nP + c)`; likewise an explicit cut
+  `(ht : t = c + nP - 1)` for `instSeq`.
+* `nP - 1 + 1 = nP` **fails at `nP = 0`**; `instSeq_len_succ` /
+  `instSeqV_len_succ` handle it via the empty argument list.  Do not
+  case-split on `nP` at every site.
+* `obtain rfl : a = b` may eliminate *either* name — check which
+  survives before writing the rest of the block (`restCE` survived,
+  `restC` did not).
+* `congr 1` on `some (.bvar x) = some (.bvar y)` does not reach the
+  `Nat`; use `simp only [Option.some.injEq, VExpr.bvar.injEq]; omega`.
+* `by_contra` is unavailable (no Mathlib); use
+  `rcases Nat.lt_or_ge …`.
+* `List.getD_eq_getElem` does not exist; `simp [List.getD,
+  List.getElem?_eq_getElem h]` is the idiom, and `List.getElem?_drop`
+  is what moves `getD` past a `drop`.
+* `defEqList_inv` gives `⟨length, pointwise⟩`; the pointwise part
+  arrives with the **left** side as `[i]` and the **right** as
+  `getD i default`.  Rewrite only the side that needs it.
+
+**A false lemma is a message.**  Three times now the wrong statement
+announced itself rather than merely failing: `SameDoms.refl` (§0),
+`TeleAlign.inst` (§15.4's retraction), and
+`stripPis_instantiate1_isSome_rev` for a general argument (§15.6).  In
+each case a "trivial" step that would not go through was describing
+the object.  **Try the trivial lemmas early; the ones that refuse are
+the design.**
+
