@@ -10,20 +10,18 @@
 # The expectations file additionally pins the current accept/decline status
 # so that progress and regressions are both visible; update it consciously.
 #
-# Usage: tests/arena.sh [--direct-off] [--no-sweeps] [tests-dir]
+# Usage: tests/arena.sh [--no-sweeps] [tests-dir]
 #
-# An <expectation> is either a single exit code, as for the overwhelming
-# majority of fixtures, or a pair "<on>|<off>" for the few fixtures whose
-# verdict depends on the direct simple-structure master switch
-# (`Setlec.directStructsEnabled`, Setlec/Kernel/Direct.lean, task #119):
-# the left code is expected in the shipped configuration, the right one
-# with the switch off.  Both forms are accepted in tests/arena-expected.txt
-# and in tests/e2e-expected.txt.
-#
-# `--direct-off` runs the whole suite against a second binary built with
-# that switch set to `false` (tests/build-direct-off.sh builds it into
-# _tmp/, no source edit), applying the right-hand expectations.  It is an
-# opt-in run — the default invocation is unchanged, and unchanged in cost.
+# An <expectation> is a single exit code.  Until task #148 T0b it could
+# also be a pair "<on>|<off>" for the five fixtures whose verdict
+# depended on the direct simple-structure master switch
+# (`Setlec.directStructsEnabled`, Setlec/Kernel/Direct.lean, task
+# #119/#120), and `--direct-off` ran the whole suite against a second
+# binary built with the switch off.  The switch now ships `false` — the
+# configuration both verified lanes reason about — so the shipped binary
+# *is* the former "off" column: the pairs collapsed to single codes and
+# the second-binary harness (tests/build-direct-off.sh) went with them.
+# The pre-flip codes are recorded in the two expectation files.
 #
 # THE THREE-MODE SWEEPS (task #147).  The checker has one three-valued
 # mode: `--set-model` (the default — the surface the set model proves,
@@ -44,17 +42,14 @@
 #     each with the defect it stops or starts detecting differently).
 #
 # `--no-sweeps` skips both extra passes for a tight edit loop; a
-# landing gate runs them.  `--direct-off` skips them too — that is an
-# opt-in run of a different configuration and stays unchanged in cost.
+# landing gate runs them.
 set -u
 cd "$(dirname "$0")/.."
 
-DIRECT=on
 MODE_SWEEPS=on
 args=()
 for a in "$@"; do
   case "$a" in
-    --direct-off) DIRECT=off;;
     --no-sweeps) MODE_SWEEPS=off;;
     *) args+=("$a");;
   esac
@@ -66,14 +61,6 @@ BIN=.lake/build/bin/setlec
 EXPECTED=tests/arena-expected.txt
 E2E_EXPECTED=tests/e2e-expected.txt
 NM_EXPECTED=tests/no-model-expected.txt
-
-# Select the applicable half of an expectation: "0|2" is (on|off), a bare
-# "0" applies to both configurations.
-if [ "$DIRECT" = off ]; then
-  pick() { case "$1" in *'|'*) want=${1#*|};; *) want=$1;; esac; }
-else
-  pick() { case "$1" in *'|'*) want=${1%%'|'*};; *) want=$1;; esac; }
-fi
 
 if [ ! -d "$TESTS_DIR" ]; then
   # The arena tests are vendored (pinned snapshot, 2026-08-19,
@@ -88,14 +75,7 @@ if [ ! -d "$TESTS_DIR" ]; then
   fi
 fi
 
-if [ "$DIRECT" = off ]; then
-  BIN=$(tests/build-direct-off.sh 2>/dev/null) || {
-    echo "failed to build the direct-structs-off binary" \
-         "(run tests/build-direct-off.sh to see why)" >&2; exit 3; }
-  echo "direct simple-structure installs: OFF ($BIN)"
-else
-  lake build setlec >/dev/null || exit 3
-fi
+lake build setlec >/dev/null || exit 3
 
 
 # The no-model overrides, keyed "<suite> <fixture> <mode>" (mode empty
@@ -120,7 +100,7 @@ MODEFLAG=""
 # divergence (the tt-model sweep takes the certified expectations
 # unmodified — byte-identity is the claim).
 resolve() { # <expectation-field> <suite> <fixture> <mode>
-  pick "$1"
+  want=$1
   want_src=certified
   if [ "$SWEEP" = nomodel ]; then
     local o=${NM_OVR["$2 $3 ${4:-}"]:-}
@@ -320,7 +300,7 @@ echo "mode flags: $mode_ok/$mode_total as expected"
 # (identical expectations — byte-identity is the claim) and with
 # `--no-model` (certified expectations plus the recorded overrides in
 # tests/no-model-expected.txt).  See the header.
-if [ "$MODE_SWEEPS" = on ] && [ "$DIRECT" = on ]; then
+if [ "$MODE_SWEEPS" = on ]; then
   SWEEP=tt
   MODEFLAG=--tt-model
   tt_fail_before=$fail

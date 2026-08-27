@@ -414,7 +414,16 @@ the flag assignments under which the bridge's claims hold — the
 direct-structs switch off, and (task #147) the three-mode setting at
 `--tt-model`, the mode at which the seven TT-lane checks run.
 Consumers take `CertifiedConfigTT mode` and never inline the
-conjuncts, so a re-signing stays a single supplier change. -/
+conjuncts, so a re-signing stays a single supplier change.
+
+Since task #148 T0b (2026-08-27) the first conjunct is **dischargeable
+at the shipped build**: `directStructsEnabled` compiles to `false`
+(pinned by a `#guard` in `tests/SetlecTests.lean`), so a consumer can
+supply it by `rfl` and the only remaining assumption is the mode.  The
+`Prop` deliberately keeps the conjunct rather than dropping it: it is
+the statement of *which* configuration is certified, and it must stay
+readable off the theorem if the switch is ever flipped back.  (Task
+#148's executors own any restructuring here.) -/
 def CertifiedConfigTT (mode : CheckMode) : Prop :=
   directStructsEnabled = false ∧ mode = .ttModel
 

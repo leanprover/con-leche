@@ -29,11 +29,16 @@ through exactly those artifacts, so the bridge has nothing to read for
 one.  With the switch off such a block takes the ordinary modeled
 clause instead — a fall-through, not a decline.
 
-**The switch defaults on** (measured: turning it off costs five
-verdicts, all losses; see `DESIGN.md`, "The master switch, and why it
-defaults on"), so this hypothesis is a real restriction on the
-configuration the bridge covers, and it is stated rather than hidden.
-The set model covers both settings and continues to.
+**Since task #148 T0b (2026-08-27) the switch ships off**, so this
+hypothesis is no longer a restriction at all: it is discharged by
+`rfl` at the shipped build (pinned by a `#guard` in
+`tests/SetlecTests.lean`), and the only assumption left in
+`CertifiedConfigTT` is the mode.  It stayed on until then because
+turning it off costs five verdicts, all losses (see `DESIGN.md`, "The
+master switch, and why it defaults on" and "Direct structs off by
+default"); the ruling that direct-install structures are removable is
+what settled the trade.  The set model covers both settings and
+continues to, until #148 T7 deletes the path.
 -/
 
 namespace Setlec.TTVerify

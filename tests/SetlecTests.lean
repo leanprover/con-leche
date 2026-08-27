@@ -33,11 +33,17 @@ each naming the theorem family that depends on it. -/
 #guard CheckMode.ttChecks .ttModel == true
 #guard CheckMode.ttChecks .noModel == false
 
--- The direct simple-structure master switch ships ON (task #119/#120;
--- the TT bridge's `CertifiedConfigTT` premises `directStructsEnabled =
--- false`, i.e. the bridge reasons about the switched-off
--- configuration — this guard keeps the shipped value visible).
-#guard directStructsEnabled == true
+-- The direct simple-structure master switch ships OFF since task #148
+-- T0b (it shipped ON from #119/#120 until 2026-08-27).  BOTH verified
+-- lanes assume the switched-off configuration: the TT bridge premises
+-- it explicitly (`CertifiedConfigTT`'s `directStructsEnabled = false`
+-- conjunct, now dischargeable by `rfl` at the shipped build), and the
+-- upcoming #148 set-lane relation family covers no direct-install
+-- rule, so a set-lane theorem stated at the default mode would be
+-- VACUOUS-BY-FALSE-HYPOTHESIS (risk R4) if this were compiled `true`.
+-- Flipping it back is therefore a verification-scope change, not a
+-- configuration tweak — this guard makes the flip fail `lake test`.
+#guard directStructsEnabled == false
 
 def dummyAxiom : Declaration :=
   .axiomDecl { name := .str .anonymous "foo", levelParams := [], type := .sort .zero }

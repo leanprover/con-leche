@@ -267,28 +267,51 @@ no `_model` companions then declines for the modeled path's own reason,
 with the modeled path's own message, and no error or decline message is
 invented for the switch itself.
 
-The switch exists because the TTVerify bridge (task #119) denotes a
-stored inductive through its checked `_model` artifacts, of which a
-directly installed structure has none; the bridge's theorems are stated
-for the switched-off configuration.  Nothing about the direct path is
-deleted — its recognition layer, its install (`Setlec/Kernel/Checker.lean`)
-and its set-theoretic model (`Setlec/Model/Direct*.lean`) all stay
-proved either way.
+The switch exists because a verification lane denotes a stored
+inductive through its checked `_model` artifacts, of which a directly
+installed structure has none; the TTVerify bridge's theorems are stated
+for the switched-off configuration (`CertifiedConfigTT`), and the
+set-lane relation family of task #148 will be too.  Nothing about the
+direct path is deleted — its recognition layer, its install
+(`Setlec/Kernel/Checker.lean`) and its set-theoretic model
+(`Setlec/Model/Direct*.lean`) all stay proved either way.
 
-**Default `true`, because switching it off is measurably not
-verdict-neutral** (measured 2026-08-26): five expectations move, all of
-them losses — `tests/e2e/direct_struct_raw.ndjson` (both its `raw` and
-its `pre` line) goes `0 → 2`, since with no `_model` companion in the
-stream the modeled path has nothing to check against, and the arena
+**Ships `false` since task #148 T0b (2026-08-27), by user ruling that
+direct-install structures are optional/removable.**  Both verified
+lanes then reason about the shipped configuration — no gap left for a
+bridge to state — and the direct path becomes unreachable at runtime,
+pending its deletion (task #148 T7).
+
+The price, re-measured at the flip and unchanged from the 2026-08-26
+measurement, is five expectations, all of them losses:
+`tests/e2e/direct_struct_raw.ndjson` (both its `raw` and its `pre`
+line) goes `0 → 2`, since with no `_model` companion in the stream the
+modeled path has nothing to check against, and the arena
 duplicate-declaration fixtures `bad/tutorial/13{3,4,7}` go `1 → 2`,
-giving up the reference-correct *reject* for a decline.  So the
-switched-off configuration the bridge reasons about is not the shipped
-one; that gap is the bridge's to state, not this switch's to hide.
+giving up the reference-correct *reject* for a decline.  Preprocessed
+production streams always carry `_model` artifacts, so `directNoModel`
+is false on them and the route was already dead there: init-prelude is
+byte-identical across the flip in all three modes.
+
+To exercise the direct path while it still exists, flip this constant
+to `true` and restore the five expectations (they are recorded, with
+their pre-flip values, in the two expectation files' headers).
+
+**Deliberately not mode-indexed.**  `--tt-model` needs it `false`
+(`CertifiedConfigTT`) and `--set-model` needs it `false` from T0b on,
+so the only mode that could still carry the route is `--no-model` —
+the unverified lane, where the route buys nothing but a second install
+implementation to keep alive.  Threading `CheckMode` into
+`directParts?`/`directPartsF?` (and hence into the three knots and
+every bridge that mentions them) to preserve it there would be
+strictly more machinery than the constant it replaces, so the switch
+stays a plain compile-time constant and all three modes read the same
+value.
 
 Read by `directParts?` (and its indexed twin `directPartsF?`), so the
 pure knot, the shared knot and the cert-skipping knot are switched
 together and their bridges are unaffected. -/
-def directStructsEnabled : Bool := true
+def directStructsEnabled : Bool := false
 
 /-- Recognise a direct simple-structure block against an environment
 (`directPartsCore?`, non-recursiveness, and artifact absence), subject

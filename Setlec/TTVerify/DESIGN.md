@@ -1008,14 +1008,29 @@ acceptable is the second bullet below rather than the first.
    covering the direct clause, and nothing in task #119 weakens,
    replaces or deletes any of it.  So we lose nothing today: the set
    model remains the shipped guarantee while the TT route is built up
-   over a sub-configuration.
+   over a sub-configuration.  (Since task #148 T0b the direct clause is
+   no longer *part of* the shipped configuration — the switch ships
+   off — so the two lanes now agree on it by both covering a route the
+   binary never takes; `checkDecl_sound` still proves the clause until
+   #148 T7 deletes it.)
 
-Since 2026-08-26 the switched-off configuration is at least
-*exercisable*: `tests/build-direct-off.sh` builds a second binary with
-the constant flipped, without mutating the tree.  That does not make
-the theorems cover the shipped default — they still do not — but it
-means the configuration they do cover is one a reader can run rather
-than one that exists only in a proof.
+Since 2026-08-26 the switched-off configuration was at least
+*exercisable*: `tests/build-direct-off.sh` built a second binary with
+the constant flipped, without mutating the tree.  That did not make
+the theorems cover the shipped default — they did not — but it meant
+the configuration they did cover was one a reader could run rather
+than one that existed only in a proof.
+
+**Since task #148 T0b (2026-08-27) this whole gap is closed for this
+conjunct**: `directStructsEnabled` ships `false` (user ruling that
+direct-install structures are optional/removable, ahead of the #148
+set-lane relation family, which covers no direct-install rule either).
+`CertifiedConfigTT`'s `directStructsEnabled = false` conjunct is
+therefore discharged by `rfl` at the shipped build, the second-binary
+harness is gone (the shipped binary *is* the configuration), and the
+one remaining hypothesis of the TT theorems is the mode — `mode =
+.ttModel`, i.e. not the default `--set-model`.  The category-error
+warning below stands unchanged on that conjunct.
 
 **Exit condition — for this flag only.**  The TT route covers the
 shipped default's *structures* once one of two things happens: the
