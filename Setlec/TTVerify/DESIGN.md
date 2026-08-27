@@ -5823,4 +5823,44 @@ of which the residual's four frame conditions were most of the work,
 and all four were already available (`piResidual_WScoped`,
 `piResidual_looseBVars`, `piResidual_fvarLeaves` plus a pointwise
 `CtxOk`).  Nothing new about `VExpr` was needed, as §15.2 predicted.
+### 15.6 The bottoms' first piece: one opener, not two
+
+`IndBottomPlainTT` scouted.  Its entry kit is `PlainChecked`
+(`Setlec/Verify/Extend/Iota.lean:34`) — already `V`-free and already in
+`Verify/`, so unlike the folds' `EtaPins` there is nothing to restate.
+
+**The one structural mismatch, and it is now closed.**  Every *iota*
+pin is phrased against `openPisAtFvars` (the checked `iota_j`
+theorem's telescope opened at free variables, its parts read off with
+`getAppFn`/`getAppArgs`), while the capability pins use `stripPis` and
+the folds' machinery — `piTower_of_stripPis`, `denote_paramTuple`,
+`instSeq_paramTuple` — was built on `Expr.instSeq (openFvars d k)`.
+Two openers, one telescope.
+
+`openPisAtFvars_stripPis` is the agreement: a successful
+`openPisAtFvars k e d` yields the `stripPis k` the fold machinery
+wants, the opening variables at indices `d + j`, and an opened body
+`ErasedEq` to the canonical one.  `ErasedEq` is the right tolerance
+rather than a weakening: the two openers differ *only* in whether the
+opening variable carries the binder's own name and domain or canonical
+ones, and `denote` reads neither — so `denote_erasedEq` consumes the
+difference exactly.
+
+So the bottoms inherit the folds' machinery instead of getting a second
+copy against a second opener.  That is the same economy §14.7.2 named
+for `denote_paramTuple`, one level up: **make the two descriptions
+meet once, at the opener, rather than per-lemma.**
+
+**A false lemma caught by the `simp` that would not fire.**  The
+supporting step wants "if the opened telescope strips, so does the
+unopened one".  Stated for a general instantiation it is **false** —
+`(.bvar 0).instantiate1 v 0 = v` may be a `∀` while `.bvar 0` is not —
+and the proof announced it by leaving the catch-all branch with nothing
+to reduce.  Restricted to `fvar` instantiation it is true and is what
+the checker actually does; the existing
+`stripLams_instantiate1_fvar_isSome_rev` had already made the same
+restriction for λ-telescopes, which is confirmation rather than
+coincidence.  Recorded because the tell is cheap: **a catch-all branch
+where the rewrite makes no progress is often the counterexample, not a
+missing simp lemma.**
 

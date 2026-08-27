@@ -266,4 +266,104 @@ theorem instSeq_instantiate1_in {b : Expr}
       (Nat.zero_le _)]
     simp
 
+/-! ## The checker's opener, tied to the fold machinery
+
+`openPisAtFvars` is how every *iota* pin is stated — the checked
+`iota_j` theorem's telescope is opened at free variables and the
+statement's parts are read off with `getAppFn`/`getAppArgs` — while the
+capability pins use `stripPis` and the folds were built on
+`Expr.instSeq (openFvars d k)`.  The two openers agree: both peel
+outermost-first, giving the `j`-th binder the variable at index
+`d + j`.  This section is that agreement, so the bottoms inherit
+`piTower_of_stripPis`, `denote_paramTuple` and everything else the
+folds built rather than re-deriving them against a second opener.
+
+`openPisAtFvars` opens with the binder's *own* name and domain and
+`openFvars` with canonical ones; `denote` reads neither
+(`Setlec/TTVerify/Denote.lean`), so the two bodies are `ErasedEq` and
+that is exactly the tolerance `denote_erasedEq` consumes. -/
+
+/-- A telescope that opens at a free variable strips.  **The `fvar`
+restriction is not cosmetic**: for a general `v` the statement is
+false, since `(.bvar 0).instantiate1 v 0 = v` may be a `∀` while
+`.bvar 0` is not.  Sibling of `stripLams_instantiate1_fvar_isSome_rev`,
+and the checker only ever opens at variables. -/
+theorem stripPis_instantiate1_fvar_isSome_rev {i : Nat} {nm : Name}
+    {ty : Expr} :
+    ∀ (k : Nat) {e : Expr} (j : Nat),
+      ((e.instantiate1 (.fvar i nm ty) j).stripPis k).isSome = true →
+      (e.stripPis k).isSome = true := by
+  intro k
+  induction k with
+  | zero => intro e j _; rfl
+  | succ k ih =>
+    intro e j h
+    cases e with
+    | forallE n ty' body m =>
+      simp only [Expr.instantiate1, Expr.stripPis, Option.isSome_map] at h ⊢
+      exact ih (j + 1) h
+    | bvar l =>
+      simp only [Expr.instantiate1] at h
+      split at h
+      · simp only [Expr.stripPis] at h; exact nomatch h
+      · split at h <;> (simp only [Expr.stripPis] at h; exact nomatch h)
+    | _ => simp only [Expr.instantiate1, Expr.stripPis] at h; exact nomatch h
+
+/-- **The checker's opener, read as a strip plus a canonical
+opening.**  `openPisAtFvars` succeeding gives the `stripPis` the fold
+machinery wants, an opened body `ErasedEq` to the canonical one, and
+the opening variables at their expected indices. -/
+theorem openPisAtFvars_stripPis :
+    ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr},
+      openPisAtFvars k e d = some (fvs, body) →
+      ∃ bs body₀, e.stripPis k = some (bs, body₀) ∧
+        fvs.length = k ∧
+        (∀ j, j < k → ∃ nm ty, fvs[j]? = some (.fvar (d + j) nm ty)) ∧
+        Expr.ErasedEq body
+          (Expr.instSeq (openFvars d k) (k - 1) body₀) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e d fvs body h
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨[], e, rfl, rfl, fun j hj => absurd hj (by omega),
+      Expr.ErasedEq.rfl _⟩
+  | succ k ih =>
+    intro e d fvs body h
+    match e, h with
+    | .forallE nm dom bodyE mb, h =>
+      simp only [openPisAtFvars] at h
+      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d nm dom))
+          (d + 1) with
+      | none => rw [hop] at h; exact nomatch h
+      | some p =>
+        rw [hop] at h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨bs', body₀', hstrip', hlen', hidx', herased'⟩ := ih hop
+        have hsome : (bodyE.stripPis k).isSome = true :=
+          stripPis_instantiate1_fvar_isSome_rev k 0 (by rw [hstrip']; rfl)
+        obtain ⟨⟨bs, body₀⟩, hstrip⟩ := Option.isSome_iff_exists.mp hsome
+        obtain ⟨hbody0, -⟩ := Expr.stripPis_instantiate1_eq k 0 hstrip hstrip'
+        refine ⟨(nm, dom, mb) :: bs, body₀, by simp [Expr.stripPis, hstrip],
+          by simp [hlen'], ?_, ?_⟩
+        · intro j hj
+          cases j with
+          | zero => exact ⟨nm, dom, by simp⟩
+          | succ j =>
+            obtain ⟨nm', ty', hj'⟩ := hidx' j (by omega)
+            refine ⟨nm', ty', ?_⟩
+            rw [List.getElem?_cons_succ, hj']
+            congr 2
+            omega
+        · rw [openFvars_succ, Nat.add_sub_cancel, Expr.instSeq]
+          refine Expr.ErasedEq.trans herased' ?_
+          rw [hbody0]
+          simp only [Nat.zero_add]
+          exact Expr.instSeq_erasedEq _ (k - 1)
+            (Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl _)
+              (show Expr.ErasedEq (Expr.fvar d nm dom)
+                (Expr.fvar d Name.anonymous (.sort .zero)) from rfl))
+
 end Setlec.TTVerify
