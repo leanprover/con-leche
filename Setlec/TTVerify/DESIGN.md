@@ -5014,9 +5014,10 @@ model type's sort".
 **Still open, and deliberately out of #135's landing scope** (the grant
 was form (1) only): form (2), the semantic `checkIotaSidesTy` check,
 which is what the `IndBottom*TT` / `ProjBottomTT` obligations need for
-*their* sort premise; and §14.7.7's second eta premise, the fabricated
-right-hand side's typing.  §14.7.7's closing sentence stands — form
-(1) is unaffected by the resizing.
+*their* sort premise.  §14.7.7's second eta premise is *not* on that
+list any more — §14.7.8 retracts it; its supplier has existed since
+task #71 and no checker change is owed.  §14.7.7's closing sentence
+stands either way: form (1) is unaffected by the resizing.
 
 The rest of this section is the original request, kept for the
 reasoning.

@@ -1250,8 +1250,9 @@ is the *fabricated constructor spine* instead of a second subject.
 **It takes two named premises, not one** (`DESIGN.md` §14.7.7).
 `StatementSortPin` is #135's, and its supplier has landed
 (`checkEtaThm_inv`); `EtaRhsTyped` is the one the fabricated spine
-needs, which has no syntactic supplier and is filed as a separate
-request.  Both are named, so each is one supplier and one swap. -/
+needs, and its supplier turned out to exist already (§14.7.8's
+retraction — task #71's certificate, at the *caller*).  Both are
+named, so each is one supplier and one swap. -/
 
 /-- **The second pending premise** (`DESIGN.md` §14.7.7): the eta
 statement's right-hand side is the fabricated constructor spine, and
