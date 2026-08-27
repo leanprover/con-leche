@@ -3148,4 +3148,310 @@ theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
           exact h1
 
 
+
+/-- The projection rule's opened body denotes to the field's bound
+variable (sealed: the `instSeq`-of-`bvar` computation in a small
+context; DESIGN §22). -/
+theorem projBodyValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
+    {cnP cnF i : Nat} (hilt : i < cnF) {Cβ : VExpr}
+    (hCβden : denote cval env ψ (0 + (cnP + cnF))
+      (Expr.instSeq (openFvars 0 (cnP + cnF)) (cnP + cnF - 1)
+        (.bvar (cnF - 1 - i))) = some Cβ) :
+    Cβ = .bvar (cnP + cnF - 1 - (cnP + i)) := by
+  have hhit := Expr.instSeq_bvar (openFvars 0 (cnP + cnF))
+    (cnP + cnF - 1) (cnF - 1 - i)
+    (openFvars_bounded 0 (cnP + cnF)) (by omega)
+    (by rw [openFvars_length]; omega)
+  rw [openFvars_getElem? (d := 0) (k := cnP + cnF)
+    (i := cnP + cnF - 1 - (cnF - 1 - i)) (by omega)] at hhit
+  have hidxeq : cnP + cnF - 1 - (cnF - 1 - i) = cnP + i := by omega
+  rw [hidxeq] at hhit
+  have h2 := hCβden
+  rw [← Option.some.inj hhit] at h2
+  rw [denote_fvar] at h2
+  have h3 := Option.some.inj h2
+  rw [← h3]
+  simp only [Nat.zero_add]
+
+/-- Two canonically-opened towers with pointwise-equal raw domains
+have the same denoted context (sealed for the same reason). -/
+theorem towerCtxEq {cval : TConstVal} {env : Env} {ψ : Name → Nat}
+    {k : Nat} {Γβ Γc : List VExpr}
+    {rbinders cbinders : List (Name × Expr × BinderMeta)}
+    (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
+    (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
+    (hβdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+      rbinders[i0]? = some b →
+      denote cval env ψ (0 + i0)
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        some (Γβ.getD (k - 1 - i0) default))
+    (hcdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+      cbinders[i0]? = some b →
+      denote cval env ψ (0 + i0)
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        some (Γc.getD (k - 1 - i0) default))
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+      i0 < k → rbinders[i0]? = some b →
+      cbinders[i0]? = some b' → b.2.1 = b'.2.1) :
+    Γβ = Γc := by
+  refine List.ext_getElem (by omega) ?_
+  intro q h1 h2
+  have hq : q < k := by omega
+  have hbβlt : k - 1 - q < rbinders.length := by omega
+  have hbclt : k - 1 - q < cbinders.length := by omega
+  obtain ⟨bβ, hbβ⟩ : ∃ b, rbinders[k - 1 - q]? = some b :=
+    ⟨rbinders[k - 1 - q]'hbβlt, List.getElem?_eq_getElem hbβlt⟩
+  obtain ⟨bc, hbc⟩ : ∃ b, cbinders[k - 1 - q]? = some b :=
+    ⟨cbinders[k - 1 - q]'hbclt, List.getElem?_eq_getElem hbclt⟩
+  have hβq := hβdoms (k - 1 - q) bβ hbβ
+  have hcq := hcdoms (k - 1 - q) bc hbc
+  have hdomeq := hrdomsEq (k - 1 - q) bβ bc (by omega) hbβ hbc
+  rw [hdomeq] at hβq
+  have h3 : Γβ.getD (k - 1 - (k - 1 - q)) default =
+      Γc.getD (k - 1 - (k - 1 - q)) default :=
+    Option.some.inj (hβq.symm.trans hcq)
+  rw [show k - 1 - (k - 1 - q) = q from by omega] at h3
+  rw [show Γβ[q] = Γβ.getD q default from by
+      simp [List.getD, List.getElem?_eq_getElem h1],
+    show Γc[q] = Γc.getD q default from by
+      simp [List.getD, List.getElem?_eq_getElem h2]]
+  exact h3
+
+
+/-- The fired-spine value of the projection field's bound variable
+(sealed). -/
+theorem projFieldValue {rP cnP cnF i : Nat} {xs ys : List VExpr}
+    (hcnPrP : cnP = rP) (hilt : i < cnF)
+    (hxslen : rP ≤ xs.length) (hlenY : ys.length = cnP + cnF) :
+    VExpr.instSeq (xs.take rP ++ ys.drop cnP)
+      ((xs.take rP ++ ys.drop cnP).length - 1)
+      (.bvar (cnP + cnF - 1 - (cnP + i))) = ys.getD (cnP + i) default := by
+  have hpadhit := padHit (K := rP + cnF)
+  have hzslen : (xs.take rP ++ ys.drop cnP).length = rP + cnF := by
+    simp only [List.length_append, List.length_take, List.length_drop]
+    omega
+  have h1 := hpadhit (rP + cnF) (rP + i) (xs.take rP ++ ys.drop cnP)
+    (by omega) hzslen (Nat.le_refl _)
+  rw [Nat.sub_self] at h1
+  simp only [List.replicate, List.append_nil] at h1
+  rw [hzslen, show cnP + cnF - 1 - (cnP + i) = rP + cnF - 1 - (rP + i)
+    from by omega, h1]
+  simp only [List.getD]
+  rw [List.getElem?_append_right (by rw [List.length_take]; omega),
+    List.length_take,
+    show rP + i - min rP xs.length = i from by omega,
+    List.getElem?_drop]
+
+/-- The projection statement's right side denotes to the field's
+frame variable (sealed). -/
+theorem projRhsValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
+    {fvs : List Expr} {rP cnF i : Nat} {vR : VExpr}
+    (hshapeS : ∀ (i0 : Nat) (x : Expr), fvs[i0]? = some x →
+      ∃ nm ty, x = Expr.fvar i0 nm ty)
+    (hfvslen : fvs.length = rP + cnF) (hilt : i < cnF)
+    (hRden : denote cval env ψ (rP + cnF) (fvs.getD (rP + i) default)
+      = some vR) :
+    vR = .bvar (rP + cnF - 1 - (rP + i)) := by
+  obtain ⟨nm, t, hsh⟩ := hshapeS (rP + i) fvs[rP + i]
+    (List.getElem?_eq_getElem (show rP + i < fvs.length from by omega))
+  rw [show fvs.getD (rP + i) default = fvs[rP + i] from by
+      simp [List.getD, List.getElem?_eq_getElem
+        (show rP + i < fvs.length from by omega)],
+    hsh, denote_fvar] at hRden
+  exact (Option.some.inj hRden).symm
+
+
+set_option maxHeartbeats 6400000 in
+/-- The projection redex, pointwise (`pointStage`'s prefix and major
+branches; the projection has no index positions).  Sealed. -/
+theorem pointStageP {env₀ : Env} (m₀ : EnvTT env₀)
+    {φ : Name → Nat} {lps : List Name} {us usj : List Level}
+    {Δ : List VExpr}
+    {f : Name → Name} (hro : RenameOkT m₀.cval env₀ f)
+    {ctor : Name} {cvj : ConstantVal} {ciCm : ConstantInfo}
+    (hfCmE : env₀.find? (f ctor) = some ciCm)
+    (hCmlps : ciCm.toConstantVal.levelParams = cvj.levelParams)
+    (hagree : ∀ p ∈ cvj.levelParams,
+      Level.substFn φ cvj.levelParams usj p = Level.substFn φ lps us p)
+    (hctorE : env₀.find? ctor = some (.ctorInfo cvj cnP cnF))
+    {rP cnP cnF mI : Nat} {xs ys : List VExpr}
+    {vLargs : List VExpr} {fvs : List Expr} {lhsS : Expr}
+    (hplainLe : cnP ≤ rP) (_hrPmI : rP ≤ mI) (hmIrP : mI = rP)
+    (hlenX : xs.length = mI) (hlenY : ys.length = cnP + cnF)
+    (hfvslen : fvs.length = rP + cnF)
+    (hvLargslen : vLargs.length = mI + 1)
+    (hlarity : lhsS.getAppArgs.length = mI + 1)
+    (hlpre : lhsS.getAppArgs.take rP = fvs.take rP)
+    (hmaj : lhsS.getAppArgs.getLastD (.bvar 0) =
+      Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
+        (fvs.take cnP ++ fvs.drop rP))
+    (hshapeS : ∀ (i0 : Nat) (x : Expr), fvs[i0]? = some x →
+      ∃ nm ty, x = Expr.fvar i0 nm ty)
+    (hsplen : (fvs.take cnP ++ fvs.drop rP).length = cnP + cnF)
+    (hspIdx : ∀ (q : Nat), q < cnP + cnF →
+      ∃ nm t, (fvs.take cnP ++ fvs.drop rP)[q]? =
+        some (Expr.fvar (if q < cnP then q else rP + (q - cnP)) nm t))
+    (hzslen : (xs.take rP ++ ys.drop cnP).length = rP + cnF)
+    (hzsget : ∀ p, p < rP + cnF →
+      (xs.take rP ++ ys.drop cnP).getD p default =
+        (if p < rP then xs.getD p default
+         else ys.getD (cnP + (p - rP)) default))
+    (hzsel : ∀ q, q < rP + cnF →
+      VExpr.instSeq (xs.take rP ++ ys.drop cnP) (rP + cnF - 1)
+        (.bvar (rP + cnF - 1 - q)) =
+        (xs.take rP ++ ys.drop cnP).getD q default)
+    (hpar : ∀ i0, i0 < cnP → i0 < mI →
+      Deq Δ (ys.getD i0 default) (xs.getD i0 default))
+    (hspL : DenoteSpine m₀.cval env₀ (Level.substFn φ lps us)
+      (rP + cnF) lhsS.getAppArgs vLargs) :
+    ∀ i2 : Fin (xs ++ [VExpr.mkAppN
+    (m₀.cval ctor (Level.substFn φ cvj.levelParams usj)) ys]).length,
+    Deq Δ (xs ++ [VExpr.mkAppN
+      (m₀.cval ctor (Level.substFn φ cvj.levelParams usj)) ys])[i2]
+      ((vLargs.map (VExpr.instSeq (xs.take rP ++ ys.drop cnP)
+        (rP + cnF - 1))).getD i2 default) := by
+  have hcl := m₀.cval_closed
+  have hgetD : ∀ (L : List VExpr) (g : VExpr → VExpr) (q : Nat),
+      q < L.length → (L.map g).getD q default = g (L.getD q default) := by
+    intro L g q hq
+    simp [List.getD, List.getElem?_map, List.getElem?_eq_getElem hq]
+  have hspLget := DenoteSpine.get hspL
+  intro i
+  have hilen : i.1 < mI + 1 := by
+    have h0 := i.2
+    simp only [List.length_append, List.length_cons,
+      List.length_nil] at h0
+    omega
+  rw [Fin.getElem_fin, hgetD vLargs _ i.1 (by omega)]
+
+  by_cases hirP : i.1 < rP
+  · -- a prefix position: the frame's own variable, on both sides
+    have htk := congrArg (fun l => l[i.1]?) hlpre
+    simp only [List.getElem?_take_of_lt hirP] at htk
+    obtain ⟨nm, t, hsh⟩ := hshapeS i.1 fvs[i.1]
+      (List.getElem?_eq_getElem (show i.1 < fvs.length from by omega))
+    have hden := hspLget ⟨i.1, by omega⟩
+    simp only [Fin.getElem_fin] at hden
+    rw [show lhsS.getAppArgs[i.1] = fvs[i.1] from by
+        have h2 := htk
+        rw [List.getElem?_eq_getElem
+            (show i.1 < lhsS.getAppArgs.length from by omega),
+          List.getElem?_eq_getElem
+            (show i.1 < fvs.length from by omega)] at h2
+        exact Option.some.inj h2,
+      hsh, denote_fvar] at hden
+    have hvLi : vLargs.getD i.1 default =
+        VExpr.bvar (rP + cnF - 1 - i.1) := (Option.some.inj hden).symm
+    rw [List.getElem_append_left (by omega : i.1 < xs.length),
+      hvLi, hzsel i.1 (by omega), hzsget i.1 (by omega), if_pos hirP,
+      show xs.getD i.1 default = xs[i.1] from by
+        simp [List.getD, List.getElem?_eq_getElem
+          (show i.1 < xs.length from by omega)]]
+
+  · -- the major premise: the constructor at parameters and fields
+    have hieq : i.1 = mI := by omega
+    -- the statement's last argument is the canonical spine
+    have hlast : lhsS.getAppArgs.getD mI default =
+        Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
+          (fvs.take cnP ++ fvs.drop rP) := by
+      rw [← hmaj, List.getLastD_eq_getLast?, List.getLast?_eq_getElem?,
+        hlarity, Nat.add_sub_cancel]
+      simp [List.getD, List.getElem?_eq_getElem
+        (show mI < lhsS.getAppArgs.length from by omega)]
+    -- its denotation: the model constructor over the frame's bvars
+    have hspden : DenoteSpine m₀.cval env₀ (Level.substFn φ lps us)
+        (rP + cnF) (fvs.take cnP ++ fvs.drop rP)
+        ((List.range (cnP + cnF)).map (fun q => VExpr.bvar
+          (rP + cnF - 1 -
+            (if q < cnP then q else rP + (q - cnP))))) := by
+      refine DenoteSpine.of_getElem
+        (by rw [hsplen, List.length_map, List.length_range]) ?_
+      intro q hq
+      rw [hsplen] at hq
+      obtain ⟨nm, t, hq1⟩ := hspIdx q hq
+      rw [show (fvs.take cnP ++ fvs.drop rP).getD q default =
+          Expr.fvar (if q < cnP then q else rP + (q - cnP)) nm t
+          from by simp [List.getD, hq1],
+        denote_fvar,
+        show ((List.range (cnP + cnF)).map (fun q => VExpr.bvar
+          (rP + cnF - 1 - (if q < cnP then q else rP + (q - cnP))))
+          ).getD q default = VExpr.bvar (rP + cnF - 1 -
+            (if q < cnP then q else rP + (q - cnP))) from by
+          simp [List.getD, List.getElem?_map, List.getElem?_range hq]]
+    have hheadden : denote m₀.cval env₀ (Level.substFn φ lps us)
+        (rP + cnF) (.const (f ctor) (cvj.levelParams.map .param)) =
+        some (m₀.cval ctor (Level.substFn φ cvj.levelParams usj)) := by
+      rw [denote_const, hfCmE]
+      dsimp only
+      rw [if_pos (by rw [List.length_map, hCmlps])]
+      congr 1
+      rw [hCmlps,
+        show Level.substFn (Level.substFn φ lps us) cvj.levelParams
+          (cvj.levelParams.map Level.param) =
+          Level.substFn φ lps us from
+        funext fun p => Level.substFn_map_param, hro.2.2]
+      exact (m₀.val_params ctor _ hctorE _ _
+        (fun p hp => hagree p hp)).symm
+    have hmajden := hspLget ⟨mI, by omega⟩
+    simp only [Fin.getElem_fin] at hmajden
+    rw [show lhsS.getAppArgs[mI] =
+        lhsS.getAppArgs.getD mI default from by
+      simp [List.getD, List.getElem?_eq_getElem
+        (show mI < lhsS.getAppArgs.length from by omega)],
+      hlast, denote_mkAppN hspden hheadden] at hmajden
+    have hvLmaj : vLargs.getD i.1 default =
+        VExpr.mkAppN (m₀.cval ctor (Level.substFn φ cvj.levelParams
+          usj)) ((List.range (cnP + cnF)).map (fun q => VExpr.bvar
+          (rP + cnF - 1 -
+            (if q < cnP then q else rP + (q - cnP))))) := by
+      rw [hieq]
+      exact (Option.some.inj hmajden).symm
+    have hmapmaj : ((List.range (cnP + cnF)).map
+        (VExpr.instSeq (xs.take rP ++ ys.drop cnP) (rP + cnF - 1) ∘
+          fun q => VExpr.bvar (rP + cnF - 1 -
+            (if q < cnP then q else rP + (q - cnP))))) =
+        (List.range (cnP + cnF)).map (fun q =>
+          if q < cnP then xs.getD q default
+          else ys.getD q default) := by
+      refine List.map_congr_left ?_
+      intro q hq
+      have hqm := List.mem_range.mp hq
+      simp only [Function.comp_apply]
+      by_cases hqc : q < cnP
+      · rw [if_pos hqc, if_pos hqc, hzsel q (by omega),
+          hzsget q (by omega), if_pos (by omega : q < rP)]
+      · rw [if_neg hqc, if_neg hqc,
+          hzsel (rP + (q - cnP)) (by omega),
+          hzsget (rP + (q - cnP)) (by omega),
+          if_neg (by omega : ¬ rP + (q - cnP) < rP),
+          show cnP + (rP + (q - cnP) - rP) = q from by omega]
+    rw [hvLmaj,
+      show (xs ++ [VExpr.mkAppN (m₀.cval ctor
+          (Level.substFn φ cvj.levelParams usj)) ys])[i.1]'(i.2) =
+        VExpr.mkAppN (m₀.cval ctor
+          (Level.substFn φ cvj.levelParams usj)) ys from by
+        rw [List.getElem_append_right (by omega : xs.length ≤ i.1)]
+        simp [show i.1 - xs.length = 0 from by omega]]
+    rw [VExpr.instSeq_mkAppN,
+      VExpr.instSeq_eq_self_of_closed (hcl _ _), List.map_map, hmapmaj]
+    refine Deq.mkAppN Deq.refl ?_ ?_
+    · rw [List.length_map, List.length_range, hlenY]
+    · intro q
+      have hq2 := q.2
+      have hqm : q.1 < cnP + cnF := by omega
+      rw [Fin.getElem_fin,
+        show ys[q.1]'(hq2) = ys.getD q.1 default from by
+          simp [List.getD],
+        show ((List.range (cnP + cnF)).map (fun q =>
+          if q < cnP then xs.getD q default else ys.getD q default)
+          ).getD q.1 default = (if q.1 < cnP then xs.getD q.1 default
+            else ys.getD q.1 default) from by
+          simp [List.getD, List.getElem?_map, List.getElem?_range hqm]]
+      by_cases hqc : q.1 < cnP
+      · rw [if_pos hqc]
+        exact hpar q.1 hqc (by omega)
+      · rw [if_neg hqc]
+
+
+
 end Setlec.TTVerify

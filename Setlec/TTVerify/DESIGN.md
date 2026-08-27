@@ -6436,3 +6436,47 @@ zipper:
 Estimated ~600-800 lines against the sealed stages, of which
 `stripLams_denoteTele` is ~120.  After it: `DeclIndTT` per §16.4 with
 the `ctor_residual` block discharge, then `checkDeclTT_of`.
+
+## §23 `IndBottomProjTT`, landed — and the bisection that shaped it
+
+§22's plan executed; the projection bottom is closed
+(`IndBottomProj.lean`, standard three axioms, in the umbrella).  The
+retarget and β routes worked as designed; the kit is §22's list plus
+`hmIrP`/`hcnPrP` (the degenerate-recursor equalities carried as
+hypotheses so the plain stages' text applies verbatim) and the
+`hCstrip`/`hdomsSC`/`hrhsSpin`/`hrhsAstrip`/`hrdomsEq` conjuncts.
+
+**The resource story (the tripwire firing, diagnosed).**  The first
+assembly compiled clean but at ≥30 GB (two capped runs killed at 26 GB
+and 34.7 GB, still climbing) — against 3.7/4.0 GB for the sealed plain
+and nested mains.  Sorry-half bisection in scratch, RSS-metered and
+RSS-killed at 15 GB, attributed the memory *not* to the copied stage
+machinery (through Stage H: 6.2 GB) but to four ~10-line derivations
+and one 150-line block running in the ~1000-line main context:
+
+| span | cost |
+| --- | --- |
+| through Stage E | 2.5 GB |
+| + Stage F/F' | 5.5-6.2 GB |
+| `hCβ` (instSeq-of-bvar computation) | +4 GB |
+| `hΓβΓj` (context ext-loop) | +5 GB |
+| `hfld`/`hvRfld` (field-value rewrites) | +6.5 GB |
+| `hpt` (pointwise block, inline) | +6 GB |
+
+The lesson sharpens §19.1: **elaboration cost is dominated by
+motive/defeq work scaling with the ambient context, not by line
+count** — the same text costs megabytes as a top-level lemma over its
+~20-hypothesis frontier.  Sealing exactly those spans
+(`projBodyValue`, `towerCtxEq`, `projFieldValue`, `projRhsValue`,
+`pointStageP` in `IndBottomStages.lean`) brought the file to a
+measured **7.1 GB** with no proof-content change.  House rule going
+forward: any in-proof derivation that rewrites under `denote`/`instSeq`
+terms or loops over a context belongs in a sealed lemma from the
+start; and no single-file compile expected above ~20 GB — split first,
+compile after.
+
+All three bottoms are now closed.  Remaining: `DeclIndTT` (§16.4 +
+`ctor_residual` block discharge; the proj case supplies
+`IndBottomProjTT`'s kit from `checkProjShape`/`checkProjRule`/
+`checkProjIota` + `isDefEqCore_rfl` for the `==` pins), then
+`checkDeclTT_of`.

@@ -50,6 +50,7 @@ import Setlec.TTVerify.IndBottom
 import Setlec.TTVerify.IndBottomStages
 import Setlec.TTVerify.IndBottomPlain
 import Setlec.TTVerify.IndBottomNested
+import Setlec.TTVerify.IndBottomProj
 
 /-!
 # The TTVerify bridge (task #119)
