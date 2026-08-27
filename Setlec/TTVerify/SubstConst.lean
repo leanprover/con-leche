@@ -24,6 +24,16 @@ the shape of the thing: `natOpEquations` are spines over constants and
 two free variables, with no binder anywhere, and a deep substitution
 would have to commute with `instantiate1` and with `fvar` annotations
 for no gain.
+
+**Why this module did not move with the rest of the denote stack**
+(task #148, T1).  `Setlec/Verify/Denote/*` is the lane-neutral home for
+everything the denotation needs; `denote_substConst0` would belong there
+too, except that it takes an `EnvTT env` -- for `m.cval` and
+`m.cval_closed` alone -- and `EnvTT` is the TT lane's own environment
+invariant.  Relocating it would mean generalising the argument to a bare
+valuation plus a closedness hypothesis, which is a statement change and
+so out of a pure-relocation task's scope.  Same for `cvalAt`, which it
+reads from `Setlec/TTVerify/Extend.lean`.
 -/
 
 namespace Setlec.TTVerify
