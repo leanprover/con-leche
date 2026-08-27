@@ -463,10 +463,8 @@ def main (args : List String) : IO UInt32 := do
   if a.yolo && a.split?.isSome then
     IO.eprintln "setlec: --yolo cannot be combined with --install-only/--check-range"
     return 3
-  if a.inferOnly && a.split?.isSome then
-    IO.eprintln "setlec: --infer-only cannot be combined with \
-      --install-only/--check-range"
-    return 3
+  -- (the same refusal for `--infer-only` lives in `checkMain`, which
+  -- is where the environment-variable form of the mode is read too)
   match a.files.toList with
   | [file] =>
     -- OOM supervision: the Lean runtime's out-of-memory handler
