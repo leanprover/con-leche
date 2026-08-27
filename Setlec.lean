@@ -45,6 +45,7 @@ import Setlec.Verify.SimS
 import Setlec.Verify.BridgeS1
 import Setlec.Verify.BridgeS2
 import Setlec.Verify.BridgeS3
+import Setlec.Verify.BridgeS4
 import Setlec.Model.BridgeS
 import Setlec.Model.ConsistencyS
 import Setlec.Verify.ParseP
