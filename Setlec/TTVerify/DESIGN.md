@@ -5253,8 +5253,13 @@ on it — then uses only `hfit.spine`, the `DenoteSpine`, and discards
 the *typing* half.  §0's third tell, in the bridge's own code: a
 conjunct available at the only use site and declined.
 
-So **no checker change is needed** for the fabricated spine, and the
-request that would have become #136 is withdrawn.  The `EtaLawTT`
+So **no checker change is needed at this call site** for the fabricated
+spine, and the request that would have become #136 is withdrawn.
+(**§14.7.10 amends the scope of this sentence**: `structEtaCertWith`
+has a *second* caller, reached from `defeq`, which is not so guarded.
+The fact recorded here stands; the conclusion "no checker change is
+owed for this premise" was drawn from one call site and is too
+strong.)  The `EtaLawTT`
 re-signing still stands — the field must *ask* for the premise — but
 its supplier is a certificate that has been there since task #71.
 
@@ -5365,4 +5370,65 @@ because the code has no place where "eta-capable" and "constructor
 residual" are looked at together.  §0's second practice earning its
 keep: the suite would have gone green on a guarded check and red on an
 unguarded one, and only counting told which.
+#### 14.7.10 AMENDMENT to §14.7.8: `structEtaCertWith` has two callers
+
+§14.7.8 established a *fact* — `majorToCtorI`'s eta branch runs
+`iotaCertsI` on the constructor's telescope (task #71) — and drew a
+*conclusion* from it: "no checker change is owed for this premise".
+**The fact stands; the conclusion was too strong.**  It is owed, at the
+*other* caller.
+
+`structEtaCertWithI` is called from two places
+(`Setlec/Kernel/CoreI.lean`):
+
+| caller | line | constructor telescope certified? |
+|---|---|---|
+| `majorToCtorI`, eta rescue | 1251 | **yes** — `iotaCertsI … tyCtor (margs ++ projs)` at 1248 |
+| `structEtaCertI`, from `defeq` | 1111 | **no** — it only does `infer b`, `whnf`, then calls |
+
+and `structEtaCertI` is itself reached from `defeq` twice (1163, 1164,
+the symmetric pair).  So the guard §14.7.8 found protects one consumer
+and not the other.
+
+The bridge sees it directly: `structEtaCertWith_stepTT`
+(`Setlec/TTVerify/StructEtaCertStep.lean`) carries `hbT : HasType Δ vb W`
+— the *stuck subject's* typing — and **no typing of the fabrication**,
+and its header states the certificate is "self-sufficient: … so
+everything `EtaLawTT` asks for is certified on the spot".  That claim
+is exactly true of the *current* `EtaLawTT` and becomes false the
+moment the law gains the right-hand-side premise.  A landed docstring
+that goes stale under a re-signing is the re-signing telling you which
+consumer it breaks.
+
+**The error, named, because it is §14.7.8's own lesson committed one
+level up.**  §14.7.8 says: ask "is X certified?" of the *call site*,
+not of the definition.  I asked *a* call site — the one I had just
+been shown — and generalised to "the premise".  The rule needs its
+plural: ask it of **every** call site, because a function with two
+callers can be guarded by one of them.  `grep` for the callee, not just
+for the guard.
+
+**What this asks of #136.**  Nothing — #136 is the
+`CtorResidualPin` conjunct, is correctly scoped, and is unaffected.
+This is a *separate* one-line checker change, and it belongs inside
+`structEtaCertWithI` rather than at its callers, precisely so that
+both consumers are served:
+
+```
+-- after structEtaProjCertsI, where `projs` is already in scope (:1093)
+let tyCtor ← constTyAtM fe c cn us
+if ← iotaCertsI r fe depth tyCtor (targs ++ projs) then …
+```
+
+It makes `majorToCtorI`'s copy redundant (harmless, and it can stay).
+It can only make the checker *stricter*, so the thing to price is
+whether any accepted stream stops being accepted — measurable exactly
+as §14.7.4 and §14.7.9 were, and the prior is good, since the same
+certificate already succeeds at every `majorToCtor` eta rescue in the
+corpus.
+
+**Until it exists**, the `EtaLawTT` re-signing can be threaded but not
+completed: `MajorStep.lean`'s consumer discharges the new premise
+(certificate + `CtorResidualPin`), and `StructEtaCertStep.lean`'s
+cannot.  The re-signing should therefore land *with* it, not before.
 
