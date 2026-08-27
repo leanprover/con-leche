@@ -2532,5 +2532,81 @@ theorem extendPairProjTT {env : Env} (m : EnvTT env) {i : Nat}
     rw [hci] at heq; exact nomatch heq
 
 
+/-- `PSigma'.fst`, installed. -/
+theorem extendPairFstTT {env : Env} (m : EnvTT env)
+    (hP : env.find? psigmaName = some psigmaA)
+    (hM : env.find? psigmaMkName = some psigmaMkA)
+    (hfresh : env.find? pairFstA.name = none)
+    (hwf : EnvWF ⟨pairFstA :: env.consts⟩) :
+    ∃ m' : EnvTT ⟨pairFstA :: env.consts⟩,
+      m'.cval = cvalSet m.cval pairFstA.name (pairProjValT 0) := by
+  refine extendPairProjTT m rfl (Or.inl rfl) (by decide) rfl rfl hP hM
+    hfresh hwf ?_
+  intro φ
+  have hPc : ∀ d : Nat,
+      denote (cvalSet m.cval pairFstA.name (pairProjValT 0))
+        ⟨pairFstA :: env.consts⟩ φ d
+        (.const psigmaName [.param uNT, .param vNT])
+        = some (VExpr.const .psigma [φ uNT, φ vNT]) := by
+    intro d
+    refine denote_const_pin m (by decide) hP rfl (by decide) ?_ d
+    rw [show Level.substFn φ psigmaA.toConstantVal.levelParams
+        [Level.param uNT, Level.param vNT] = φ from
+      substFn_param_self φ [uNT, vNT]]
+    simp +decide [pinnedDirectT]
+  refine ⟨_, ?_, (pairProjValT_typed φ).1⟩
+  rw [denoteClosed, show pairFstA.toConstantVal.type
+    = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+        (Expr.forallE (Name.anonymous.str "β")
+          (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+            (.sort (.param vNT)) { bi := .default })
+          (Expr.forallE (Name.anonymous.str "t")
+            (.app (.app (.const psigmaName [.param uNT, .param vNT])
+              (.bvar 1)) (.bvar 0))
+            (.bvar 2) { bi := .default })
+          { bi := .implicit })
+        { bi := .implicit } from rfl]
+  simp [denote_forallE, denote_sort, denote_app, denote_fvar, Level.eval,
+    hPc, VExpr.mkAppN]
+
+/-- `PSigma'.snd`, installed. -/
+theorem extendPairSndTT {env : Env} (m : EnvTT env)
+    (hP : env.find? psigmaName = some psigmaA)
+    (hM : env.find? psigmaMkName = some psigmaMkA)
+    (hfresh : env.find? pairSndA.name = none)
+    (hwf : EnvWF ⟨pairSndA :: env.consts⟩) :
+    ∃ m' : EnvTT ⟨pairSndA :: env.consts⟩,
+      m'.cval = cvalSet m.cval pairSndA.name (pairProjValT 1) := by
+  refine extendPairProjTT m rfl (Or.inr rfl) (by decide) rfl rfl hP hM
+    hfresh hwf ?_
+  intro φ
+  have hPc : ∀ d : Nat,
+      denote (cvalSet m.cval pairSndA.name (pairProjValT 1))
+        ⟨pairSndA :: env.consts⟩ φ d
+        (.const psigmaName [.param uNT, .param vNT])
+        = some (VExpr.const .psigma [φ uNT, φ vNT]) := by
+    intro d
+    refine denote_const_pin m (by decide) hP rfl (by decide) ?_ d
+    rw [show Level.substFn φ psigmaA.toConstantVal.levelParams
+        [Level.param uNT, Level.param vNT] = φ from
+      substFn_param_self φ [uNT, vNT]]
+    simp +decide [pinnedDirectT]
+  refine ⟨_, ?_, (pairProjValT_typed φ).2⟩
+  rw [denoteClosed, show pairSndA.toConstantVal.type
+    = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+        (Expr.forallE (Name.anonymous.str "β")
+          (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+            (.sort (.param vNT)) { bi := .default })
+          (Expr.forallE (Name.anonymous.str "t")
+            (.app (.app (.const psigmaName [.param uNT, .param vNT])
+              (.bvar 1)) (.bvar 0))
+            (.app (.bvar 1) (.proj psigmaName 0 (.bvar 0)))
+            { bi := .default })
+          { bi := .implicit })
+        { bi := .implicit } from rfl]
+  simp [denote_forallE, denote_sort, denote_app, denote_fvar, denote_proj,
+    Expr.instantiate1, Level.eval, hPc, VExpr.mkAppN]
+
+
 end Setlec.TTVerify
 
