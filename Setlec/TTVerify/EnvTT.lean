@@ -312,7 +312,15 @@ Consumed by `majorToCtor`'s eta-rescue branch, whose
 `TeleTyped` from its own `iotaCerts` on `T`'s parameter telescope, and
 the subject's typing from the `infer major` that produced `tmaj`.
 That correspondence was pre-registered before this definition was
-written and confirmed verbatim (`Setlec/TTVerify/DESIGN.md` §6). -/
+written and confirmed verbatim (`Setlec/TTVerify/DESIGN.md` §6).
+
+**Task #119 re-signing (§16.3): the fabrication's typing is a
+premise** — the binder that used to be `EtaFoldTT`'s separate
+`EtaRhsTyped` hypothesis.  The supplier is `structEtaCertWith`'s
+constructor-telescope certificate (task #137) together with the
+stored residual pin (`CtorResidualOkT` below); `EtaFoldTT` got
+shorter, `eta_rescue`'s callers pay the certificate they already
+ran. -/
 def EtaLawTT (env : Env) (cval : TConstVal) (T : Name) (cvT : ConstantVal)
     (caps : IndCaps) : Prop :=
   ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr) (us : List Level)
@@ -322,6 +330,14 @@ def EtaLawTT (env : Env) (cval : TConstVal) (T : Name) (cvT : ConstantVal)
       (cvT.type.instantiateLevelParams cvT.levelParams us) = some TV →
     VTeleTyped Δ TV xs rest →
     HasType Δ B
+      (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us)) xs) →
+    HasType Δ
+      (VExpr.mkAppN (cval caps.etaCtor
+          (Level.substFn φ (levelParamsAt env caps.etaCtor) us))
+        (xs ++ (List.range caps.etaFields).map fun j =>
+          VExpr.mkAppN (cval (projFnName T j)
+            (Level.substFn φ (levelParamsAt env (projFnName T j)) us))
+            (xs ++ [B])))
       (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us)) xs) →
     Deq Δ B
       (VExpr.mkAppN (cval caps.etaCtor
@@ -355,6 +371,33 @@ environment remembers nothing about how a family was installed, so the
 laws are stated over public names and say only what the reduction
 rules consume.  Basis families are exempt (`reservedBasisNames`) —
 their eta and unit facts ride the pinned clauses. -/
+def CtorResidualPin (T : Name) (lps : List Name) (cvC : ConstantVal)
+    (nP nF : Nat) : Prop :=
+  ∃ bs, cvC.type.stripPis (nP + nF) = some (bs, directFam T lps nP nF)
+
+/-- **Every stored eta-capable family's constructor has the pinned
+residual** (task #136's install-time check, `checkCtorResidual`,
+transposed).  Implication-shaped so that mid-block states are vacuous
+rather than false (§16.3): a block stores the family before the
+constructor, so an existential form would be false between the two
+installs.  Guarded on the reservation flags exactly as `CapsOkTT`'s
+eta clause is — the basis blocks refute the head obligation from
+their reservation, and the only consumer (`eta_rescue`'s premise
+supplier in `Setlec/TTVerify/StructEtaCertStep.lean`) holds both
+flags from `EtaFamilyStoredT`. -/
+def CtorResidualOkT (env : Env) : Prop :=
+  ∀ T cvT caps cvC, env.find? T = some (.indInfo cvT caps) →
+    caps.eta = true →
+    reservedBasisNames.contains T = false →
+    reservedBasisNames.contains caps.etaCtor = false →
+    env.find? caps.etaCtor =
+      some (.ctorInfo cvC caps.etaParams caps.etaFields) →
+    CtorResidualPin T cvT.levelParams cvC caps.etaParams caps.etaFields
+
+theorem CtorResidualOkT.empty : CtorResidualOkT Env.empty := by
+  intro T cvT caps cvC h
+  simp [Env.find?, Env.empty] at h
+
 def CapsOkTT (env : Env) (cval : TConstVal) : Prop :=
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.eta = true →
@@ -845,6 +888,10 @@ structure EnvTT (env : Env) where
   in the fired form.  Transpose of `EnvModel.caps_ok`; consumed by
   `majorToCtor`'s rescue branches. -/
   caps_ok : CapsOkTT env cval
+  /-- Every stored eta-capable family's constructor has the pinned
+  residual (`CtorResidualOkT`).  Syntactic, like `proj_ok` — the
+  transpose of task #136's install-time check. -/
+  ctor_residual : CtorResidualOkT env
   /-- Every stored native projection-table entry is a pinned pair
   entry with its block stored (`ProjOkT`).  Transpose of
   `EnvModel.proj_ok`, verbatim — the clause is syntactic. -/
@@ -888,6 +935,7 @@ def EnvTT.empty : EnvTT Env.empty where
   empty_pinned := fun _ => ⟨0, rfl⟩
   rec_rules := RecRulesTT.empty _
   caps_ok := CapsOkTT.empty _
+  ctor_residual := CtorResidualOkT.empty
   proj_ok := ProjOkT.empty
   rec_ctors := RecCtorsStoredT.empty
   eq_law := EqLawTT.empty _

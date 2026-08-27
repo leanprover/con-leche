@@ -200,7 +200,8 @@ theorem declDefnTT (hnp : NatOpPinTT F) (hdm : DivModPinTT F) :
       hwfc hvf' hbv' hkey ?_
       (fun _ value2 _ heq => by injection heq with _ h2 _; exact h2.symm)
       (fun _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
-      (fun _ _ heq => nomatch heq) (fun _ heq => nomatch heq) hres' ?_
+      (fun _ _ heq => nomatch heq) (fun _ heq => nomatch heq)
+      (fun _ _ _ heq => nomatch heq) hres' ?_
       (fun _ _ _ _ hmem => hnat hmem) (fun _ _ _ _ hmem => hdiv hmem)
       (fun _ heq => nomatch heq)
     · intro φ₁ φ₂ hp

@@ -313,6 +313,14 @@ theorem eta_rescue {env : Env} (m : EnvTT env) (φ : Name → Nat)
       (cvT.type.instantiateLevelParams cvT.levelParams ust) targs xs rest)
     (hB : denote m.cval env φ d major = some B)
     (hBt : HasType Δ B
+      (VExpr.mkAppN (m.cval T (Level.substFn φ cvT.levelParams ust)) xs))
+    (hfabT : HasType Δ
+      (VExpr.mkAppN (m.cval caps.etaCtor
+          (Level.substFn φ (levelParamsAt env caps.etaCtor) ust))
+        (xs ++ (List.range caps.etaFields).map fun j =>
+          VExpr.mkAppN (m.cval (projFnName T j)
+            (Level.substFn φ (levelParamsAt env (projFnName T j)) ust))
+            (xs ++ [B])))
       (VExpr.mkAppN (m.cval T (Level.substFn φ cvT.levelParams ust)) xs)) :
     ∃ F, denote m.cval env φ d
       (Expr.mkAppN (.const caps.etaCtor ust)
@@ -346,7 +354,7 @@ theorem eta_rescue {env : Env} (m : EnvTT env) (φ : Name → Nat)
       (DenoteSpine.append hsp hproj) ?_
     simp [denote_const, hfC, levelParamsAt, ConstantInfo.toConstantVal, hlenC]
   · refine m.caps_ok.1 T cvT caps hT heta hres
-      ⟨hcres, ⟨cvC, hfC⟩, hfP⟩ φ d Δ ust xs TV rest' B ?_ hTV hvfit hBt
+      ⟨hcres, ⟨cvC, hfC⟩, hfP⟩ φ d Δ ust xs TV rest' B ?_ hTV hvfit hBt hfabT
     rw [hsp.length, hlen]
 
 /-! ## The stuck-major K rescue

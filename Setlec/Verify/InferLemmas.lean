@@ -1910,6 +1910,11 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
         cvT.levelParams (List.range cnF) = .ok true ∧
       defEqListP env fuel d (a.getAppArgs.take cnP) wtb.getAppArgs
         = .ok true ∧
+      iotaCertsP env fuel d
+        (cvc.type.instantiateLevelParams cvc.levelParams us)
+        (wtb.getAppArgs ++ (List.range cnF).map fun i =>
+          Expr.mkAppN (.const (projFnName T i) us')
+            (wtb.getAppArgs ++ [b])) = .ok true ∧
       defEqListP env fuel d (a.getAppArgs.drop cnP)
         ((List.range cnF).map fun i =>
           Expr.mkAppN (.const (projFnName T i) us')
@@ -2025,12 +2030,9 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp [pure, Except.pure] at h
   | true => ?_
   simp only [↓reduceIte] at h
-  -- task #137: the constructor-telescope certificate now runs inside
-  -- `structEtaCertWith` (it used to run only at `majorToCtor`'s eta
-  -- rescue).  The statement above is deliberately unchanged — the
-  -- conjunct is the bridge's to consume, and adding it here would
-  -- break every existing destructuring — so the successful cert is
-  -- stepped over.
+  -- task #137's constructor-telescope certificate, exposed for the
+  -- bridge's `EtaLawTT` premise (task #119: the `EtaRhsTyped` binder
+  -- moved into the law)
   cases hic2 : iotaCertsP env fuel d
       (cvc.type.instantiateLevelParams cvc.levelParams us)
       (wtb.getAppArgs ++ (List.range cnF).map fun i =>
@@ -2046,7 +2048,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   simp only [↓reduceIte] at h
   exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
     rfl, hfc, hal, rfl, hfT, he1, he2, he3, he4, he5,
-    he5b, he6, he7, he8, he9, hlev, hic, hpc, hd1, h⟩
+    he5b, he6, he7, he8, he9, hlev, hic, hpc, hd1, hic2, h⟩
 
 /-- Inversion of the structure-eta certificate through its type
 reduction: the stuck side's type is inferred and reduced, and the

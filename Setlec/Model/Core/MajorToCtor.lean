@@ -231,7 +231,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
     obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, us'2, cvT2, caps2,
       hfn2, hfc2, hal2, hwfn2, hfT2, hce2, hcc2, hcp2, hcf2, hres2,
       hresC2, htal2, hulen2, hclps2, hTstrip2, hlev2, hic2, hpc2,
-      hd1, hd2⟩ := structEtaCertWith_inv hse
+      hd1, -, hd2⟩ := structEtaCertWith_inv hse
     -- identify the certificate's constants with the continuation's
     obtain ⟨rfl, rfl⟩ : cj = c2 ∧ usj = us2 := by
       rw [hmfn] at hfn2
