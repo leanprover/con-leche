@@ -4694,3 +4694,217 @@ exists to carry, not what it fails at.
 `CheckDeclTT` now stands on five of its six obligations: `DeclDefnTT`,
 `DeclThmTT`, `DeclOpaqueTT`, `DeclAxiomTT`, `DeclBasisTT`.
 
+
+### 14.6 HANDOFF: what a successor needs that the code does not say
+
+Written at the end of the run that discharged `DeclBasisTT`.  The
+branch is `feat/119-ttverify-stage2`, the worktree is
+`.claude/worktrees/ttv-stage2`, and master is merged `--ff-only` from
+it (**from the repo root** — a bare `git merge --ff-only` *inside* a
+worktree silently reports "Already up to date"; verify by comparing
+SHAs, never by the merge command's output).
+
+Gate procedure, mandatory for anything touching `Setlec/TTVerify/*`:
+
+```
+rm -f .lake/build/lib/lean/Setlec/TTVerify/*.olean
+lake build 2>&1 | grep -E "^(error|warning)"      # must print nothing
+lake test
+```
+
+The forced recompile is not superstition: Lean emits a file's warnings
+only when it *compiles* the file, so an incremental build hides a
+warning in a file it did not touch.  A warning escaped to master
+exactly once, that way.
+
+The arena / e2e / split-driver / infer-only gates were **not** re-run
+during this run, and the argument is worth repeating rather than
+re-deriving: every change was confined to `Setlec/TTVerify/*`, which
+the checker never imports, so the checker's compiled output is
+byte-identical and those gates cannot have moved.  The moment a change
+touches `Setlec/Kernel/*` or `Setlec/Verify/*`, that argument lapses.
+
+#### 14.6.1 The next lemma, designed
+
+`UnitFoldTT`'s middle needs one piece, and it is the foundation all
+five obligations stand on.
+
+**What it does.**  Turn the install's *syntactic* description of the
+checked theorem's statement into the *semantic* telescope a fold can
+walk.  The pins give `tcv.type.stripPis (nP + 2) = some (sbinders,
+sbody)`; the use site gives `denote cval env φ d tcv.type = some T̂`.
+The lemma must produce a `TeleAlign` whose second residual is named —
+`.pi Tm (.pi Tm' eqSpine)` — so the fold can peel the last two binders
+by hand and land in `Deq.ofEqThm`.
+
+**Shape** (approximate; fix it against the consumer, see the warning):
+
+```lean
+theorem teleAlign_of_stripPis (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
+    ∀ (k : Nat) {e e' : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+      {body body' : Expr} {d : Nat} {v v' : VExpr} {xs : List VExpr},
+      e.stripPis  k = some (bs,  body)  →
+      e'.stripPis k = some (bs', body') →
+      (∀ j (b b'), j < k → bs[j]? = some b → bs'[j]? = some b' →
+        b.2.1 = b'.2.1) →                      -- the pins' domain match
+      denote cval env φ d e  = some v  →
+      denote cval env φ d e' = some v' →
+      xs.length = k →
+      ∃ r r', TeleAlign v v' xs r r' ∧
+        denote cval env φ (d + k) <opened body>  = some r ∧
+        denote cval env φ (d + k) <opened body'> = some r'
+```
+
+**Induction structure.**  On `k`, unknown at the use site (it is
+`caps.unitParams`).  Each step is: `denote_forallE` to expose
+`.pi A B`, the domain match to identify the two `A`s, then
+`denote_beta` (`Setlec/TTVerify/Inst.lean:186`) to see that the
+instantiated codomain `B.inst x` is the denotation of the body with the
+opened fvar substituted.  `denote_forallE` opens with `.fvar d n ty`
+and steps `d` to `d + 1`; `stripPis` leaves binders *unopened*, so the
+`k`-th binder's type has loose bvars and cannot be denoted at `d` —
+that mismatch is the whole content of the lemma and the reason it is
+not three lines.
+
+**Estimate:** 150–250 lines.  Everything it needs exists: `denote_forallE`
+(`Denote.lean:289`), `denote_beta` (`Inst.lean:186`), `denote_erasedEq`
+(`Inst.lean:265`), `TeleAlign` and `VTeleTyped.retarget`
+(`DeclInd.lean`).
+
+> **WRITE IT FROM THE USE, NOT FROM THE HYPOTHESIS.**  This design
+> space has punished the other order twice on `TeleAlign` alone:
+> * `SameDoms.refl` was written by reflex and is **false** — a non-`∀`
+>   type has no domains to agree about, so the relation is partial and
+>   its witness must come from a *fitting*;
+> * `SameDoms` then constrained only the domains, so `retarget` could
+>   conclude only that *some* residual exists — precisely the fact a
+>   fold cannot use, because the statement's telescope does not end
+>   where the type former's does.
+>
+> Both were fixed by one question: **what will the consumer do with
+> this conclusion?**  Ask it before writing the statement, not after
+> the proof compiles.  Concretely: write `UnitFoldTT`'s proof skeleton
+> with this lemma `sorry`ed, read off the shape the skeleton actually
+> demands, and only then state it.
+
+#### 14.6.2 The remaining-work map
+
+In order, with consumers, frictions and the shared pieces each uses.
+
+**1. `UnitFoldTT`** — consumer: `EnvTT.cons`'s `hheadUnit`, hence
+`CapsOkTT`, hence `majorToCtor`'s zero-field rescue and the
+proof-irrelevance path.  Statement pins: the *unit half* of `EtaPins`
+(`Setlec/Verify/Extend/Iota.lean:917`), obtained via
+`etaPinsT_of_caps`.  The statement is
+`∀ p⃗ (x y : T._model p⃗), Eq.{ℓA} (T._model p⃗) x y`.
+Shared pieces: `teleAlign_of_stripPis` (above), `VTeleTyped.retarget`,
+`Deq.ofEqThmClosed`.  Model counterpart: `unit_rule_fold`
+(`Model/EtaInstall.lean:581`), **12 syntactic / 9 semantic**.
+
+**2. `EtaFoldTT`** — same skeleton.  The second subject binder is
+replaced by `caps.etaFields` projection arguments, so the final spine
+is `mkAppN (cval etaCtor …) (xs ++ projections)` instead of `B'`.
+Model counterpart: `eta_rule_fold` (`Model/EtaInstall.lean:24`),
+**~15 syntactic / 8 semantic**.
+
+**3–4. `IndBottomPlainTT` / `IndBottomNestedTT`** — 63 % of
+`IndInstall.lean` between them, and near-duplicates differing only in
+how the constructor spine is formed.  **These carry §8.2's index
+premise, and the cashed prediction says the premise's plumbing *is*
+this phase's spine lemma** — the thing that moves the constructor spine
+between the rule's description (`ruleLhsAux`, which fills the
+recursor's index slots with the constructor's canonical tuple) and the
+fired redex's (which leaves them free).  Budget one piece, not two.
+The premise's form should be settled with `IndBottomPlainTT`'s skeleton
+in hand, for the same reason as 14.6.1's warning; it will need a
+`VExpr`-level `getAppArgs` (none exists) or a reformulation through
+`restC`.
+
+**5. `ProjBottomTT`** — the same at a projection function, which
+`checkProjFn` stores as a *degenerate recursor*, so it lands in
+`RecRulesTT` and not in `ProjOkT`.  `ProjOkT` is untouched by
+`DeclIndTT`.
+
+**Two known frictions, neither paid yet.**
+* `RenEq` lives in `Model/TeleElim.lean` (blocked) but unfolds to
+  `ErasedEq` from `Setlec/Verify/Subst.lean` (usable) — the bridge
+  needs a one-line local definition or an inlining.
+* The pins give domain equality against the **model**'s telescope while
+  the folds want it against the **public** one.  The chain is
+  `checkMemberVal_inv`'s `eqUpToNames` → `ErasedEq.stripPis_inv` +
+  `stripPis_renameConsts_inv` (both in `Verify/`) → `denote_erasedEq`.
+  This is `eqUpToNames`'s third payout (§ the tally) and the machinery
+  to consume it already exists.
+
+#### 14.6.3 Working memory a successor cannot recover from the record
+
+**The annotated declarations are not the raw ones, and the difference
+bites.**  `Setlec/Kernel/Basis/Quot.lean`'s raw `quotBasis` says
+`fire := .inert` and `ctorParams := 0` for both quotient rules; the
+*annotated* `quotIndA`/`quotLiftA` say `.plain` and `ctorParams := 2`.
+Annotation **computes** those fields.  Reading the raw list cost a
+whole design pass (`Quot.ind` was planned as iota-free).  *Always read
+the `*A` declaration, never the raw block.*  Corollary: the `*A_eq`
+lemmas (`psigmaRecA_eq`, `quotIndA_eq`, `quotLiftA_eq`) look like idle
+documentation and are not — they are `rfl` **transcription checks**,
+and `quotIndA_eq` caught a wrong binder-info on its first run.  Write
+one for every rule you transcribe.
+
+**`extendBasisTT`'s argument order** (all positional in the existing
+`refine`s): `hheadEta`, `hheadUnit`, `hpin`, `hdirect`, `hfresh`,
+`hwf`, `hclosed`, `hparams`, `htype`, `hnodefn`, `hnothm`, `hnoax`,
+`hempty`, `hheadCtors`, `hheadRec`, `hheadProj`, `hheadProjPair`,
+`hheadEq`.  Idioms: `hpin` is `(fun _ => by decide)` at a basis-kind
+constant and `(fun h => nomatch h)` at an axiom; `hdirect` is always
+`rw [show ConstantInfo.name cA = cName from rfl] at hp;
+simp +decide [pinnedDirectT] at hp; exact hp`.
+
+**Named `*RhsV` defs exist only to be `BetaSpine`'s `f`.**  On the
+left-hand side `Deq.ofBetaSpine`'s head is inferred from the goal; on
+the right-hand side it is not, so it must be supplied — which is why
+`psigmaRecRhsV`, `quotIndRhsV`, `quotLiftRhsV` are separate `def`s
+instead of shapes inlined in their `denote_*_rhs` lemmas.  Nothing in
+the statements says this.
+
+**Block lemmas build `EnvWF`; they do not receive it.**
+`installBasisDecl` checks *only* freshness, so `BasisChain` carries
+nothing about resolution.  Hence every block has `res2`/`res3`/… goals.
+In those goals you must `rw [show <ci>.toConstantVal.type = <the
+literal> from rfl]` before `simp [Expr.constsResolve, <find? facts>]`
+— **do not** put the constant's `def` name in the simp set: `simp`
+unfolds it in the *environment* too, and the `find?` hypotheses stop
+matching.  That trap cost a cycle at three separate blocks.
+
+**Elaboration gotchas, each of which cost at least one build cycle.**
+* `Deq.conv`, never `HasType.conv (…).toHasType _` — the latter leaves
+  the inert `T` slot un-inferable.
+* `cval_pinned`'s `t` is implicit and determined by its `hpin`
+  argument, so a `by simp` there cannot infer it: pass `(t := …)`.
+* `Level.eval φ (Level.param n)` does **not** close by `rfl` in these
+  goals; `simp [Level.eval]` does.
+* `HasType.const` at the head of an application chain needs
+  `(c := …) (us := …)`.
+* `intro` cannot bind `-`; use `_`.
+* For normalizing fired spines, `simp only [VExpr.inst, VExpr.liftN,
+  Nat.reduceAdd, Nat.reduceLT, Nat.reduceSub, reduceIte,
+  inst_chain₁₋₄, inst_absorb₂₁₋₅₄, VExpr.liftN_zero]` — the four `Nat`
+  simprocs must be spelled out or the `if i < k` guards do not reduce.
+  Plain `simp` also works but may over-normalize `mkAppN`.
+
+**An unstated ordering.**  Within a basis block the constants must be
+installed in `declsA` order, and each install's `htype` needs the
+*earlier* constants' valuations.  Two ways to get them, and the second
+is much cheaper: thread `∀ ψ, m.cval n ψ = …` hypotheses along the
+chain (what `Eq` does, because `eqValT` is not pinned), or call
+`cval_pinned` from the invariant (what `PSigma'` and `Quot` do, because
+they are).  Prefer `cval_pinned` whenever `pinnedDirectT` has an entry.
+
+**Why `RecRulesTT`'s parameter premise looks the way it does** — the
+statement alone will not tell you: guarded on `.plain` because a nested
+rule's comparands are its stored *pins*, not the recursor's arguments;
+restricted to `i < mI` because the checker's comparand list is the
+recursor's *whole* argument list including the major, and a faithful
+unguarded form would have had to carry the major's slot and with it the
+`Deq` between the major as written and the major in constructor form.
+Nothing is lost: `ctorParams ≤ rP ≤ mI` at every real recursor, and
+`RecRulesOk` states the first half explicitly.

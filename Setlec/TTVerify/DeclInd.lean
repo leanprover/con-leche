@@ -9,6 +9,14 @@ the pieces they share, and `EtaFoldTT`/`UnitFoldTT` first, because they
 are the smallest and they close `CapsOkTT` — which `majorToCtor`'s
 rescues already consume.
 
+> **START AT `DESIGN.md` §14.6.**  The next lemma's design, the
+> remaining-work map for all five obligations, and the working-memory
+> notes a successor cannot recover from the code (the annotated-vs-raw
+> declaration trap, `extendBasisTT`'s positional argument order, why
+> the `*RhsV` defs exist, the elaboration gotchas) are written there
+> and are *not* repeated here.  This header covers only what this
+> module contains.
+
 **What the scouting settled** (§14.1's gate, discharged): the whole
 *syntactic* layer of the install — `EtaPins`, `checkEtaThm_inv`,
 `checkUnitThm_inv`, `EtaPins.step`, `EtaPins.transport` — is already
