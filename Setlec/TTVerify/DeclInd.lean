@@ -104,4 +104,67 @@ theorem etaPinsT_of_caps {env : Env} {cvT cvC : ConstantVal} {nP nF : Nat} :
     simp only [indBlockCaps] at hcapu
     exact hcapu
 
+/-! ## The phase's block-independent half
+
+Each phase of this bridge has needed exactly one shared spine lemma
+before any of its cases could be written: the basis blocks needed
+`BetaSpine` (fire a λ-tower at a spine) and then `inst_chain₁₋₄`
+(collapse what firing leaves behind).  This phase needs a third, and
+it is worth naming the pattern: **the shared piece is always the one
+that moves a spine between two descriptions of the same telescope.**
+
+Here the two descriptions are the *public* type former's telescope,
+which the use site's `VTeleTyped` is stated against, and the *checked
+theorem's* statement telescope, which the fold has to apply the
+theorem along.  The install's pins say the two agree binder for binder
+(`sbinders[k].2.1 = tbindersM[k].2.1`, and the public-vs-model half by
+`checkMemberVal_inv`'s `eqUpToNames`, which `denote_erasedEq`
+(`Setlec/TTVerify/Inst.lean:265`) turns into equal denotations).  What
+is missing is the step that *uses* that agreement: a spine that fits
+one telescope fits the other.
+
+That the domains agree while the *bodies* do not is the whole reason
+this cannot be a rewrite — the public type former ends in a sort and
+the statement ends in an equation, so only the fitting transfers, not
+the residual. -/
+
+/-- Two `VExpr` telescopes met by the same spine, agreeing binder for
+binder.  The residuals are free: only the domains are constrained, and
+only at the positions the spine reaches. -/
+inductive SameDoms : VExpr → VExpr → List VExpr → Prop
+  | nil {T T' : VExpr} : SameDoms T T' []
+  | cons {A B B' x : VExpr} {xs : List VExpr} :
+      SameDoms (B.inst x) (B'.inst x) xs →
+      SameDoms (.pi A B) (.pi A B') (x :: xs)
+
+/-- **Retargeting a fitted spine.**  A spine that fits one telescope
+fits any telescope with the same domains — with its own residual.  The
+argument typings are *reused*, not re-derived, which is the point: at a
+fold's use site they are hypotheses, not things the proof can rebuild. -/
+theorem VTeleTyped.retarget {Δ : List VExpr} :
+    ∀ {T T' : VExpr} {xs : List VExpr} {rest : VExpr},
+      VTeleTyped Δ T xs rest → SameDoms T T' xs →
+      ∃ rest', VTeleTyped Δ T' xs rest' := by
+  intro T T' xs rest h
+  induction h generalizing T' with
+  | nil => intro _; exact ⟨T', .nil⟩
+  | @cons A B x xs rest hx _ ih =>
+    intro hs
+    cases hs with
+    | cons hs' =>
+      obtain ⟨rest', hfit⟩ := ih hs'
+      exact ⟨rest', .cons hx hfit⟩
+
+/-- A fitted spine's own telescope agrees with itself — the degenerate
+retarget.  Note it is *not* reflexivity of `SameDoms`: a non-`∀` type
+has no domains to agree about, so the relation is genuinely partial and
+the witness has to come from a fitting. -/
+theorem VTeleTyped.sameDoms {Δ : List VExpr} :
+    ∀ {T rest : VExpr} {ys : List VExpr},
+      VTeleTyped Δ T ys rest → SameDoms T T ys := by
+  intro T rest ys h
+  induction h with
+  | nil => exact .nil
+  | cons _ _ ih => exact .cons ih
+
 end Setlec.TTVerify
