@@ -97,12 +97,23 @@ structure ISOK (env : Env) (s : IState) : Prop where
   ienv : ∀ (nm : Name) (ent : IConstE), s.ienv[nm]? = some ent →
     s.store.denote ent.ty = some ent.tyE ∧
     ∀ vE vi, ent.val = some (vE, vi) → s.store.denote vi = some vE
+  /-- The bulk-instantiation memo (task #145) is self-certifying in the
+  same sense as `ienv`: an entry says its result index denotes the
+  `instantiateList` of what its key denotes.  Like the entry-point memo
+  clauses this is a pure-substitution fact — no environment, no fuel,
+  no depth (the key carries the cursor), so it is stable under arena
+  extension and would survive every environment transition; `flushS`
+  drops the table anyway, because the tier bracket may truncate the
+  arena its keys index into. -/
+  instC : ∀ i vs d r, s.instC[(i, vs, d)]? = some r → ∃ a ws,
+    s.store.denoteT i = some a ∧ DenL s.store vs ws ∧
+    s.store.denoteT r = some (a.instantiateList ws d)
 
 /-- The invariant holds for a fresh state over any canonical arena
 (all caches empty). -/
 theorem ISOK.fresh (env : Env) {store : EStore} (hwf : store.WF) :
     ISOK env { store := store } := by
-  refine ⟨hwf.toTWF, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+  refine ⟨hwf.toTWF, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     first
       | exact LvlMemoInv.empty
       | exact LvlQMemoInv.empty
@@ -144,7 +155,7 @@ invariant (all clauses only assert denotations, which are
 theorem ISOK.withStore {env : Env} {s : IState} (h : ISOK env s)
     {st' : EStore} (hwf' : st'.TWF) (hext : Ext s.store st') :
     ISOK env { s with store := st' } := by
-  refine ⟨hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro n us i hl
     obtain ⟨nm, lus, ci, hnm, h0, h1, h2⟩ := h.constTy n us i hl
     exact ⟨nm, lus, ci, denoteN_mono hext hnm,
@@ -182,6 +193,10 @@ theorem ISOK.withStore {env : Env} {s : IState} (h : ISOK env s)
     obtain ⟨hty, hval⟩ := h.ienv nm ent hl
     exact ⟨denote_mono hext hty,
       fun vE vi hv => denote_mono hext (hval vE vi hv)⟩
+  · intro i vs d r hl
+    obtain ⟨a, ws, h1, h2, h3⟩ := h.instC i vs d r hl
+    exact ⟨a, ws, denoteT_mono hext h1, h2.mono hext,
+      denoteT_mono hext h3⟩
 
 /-- Replacing the arena and the simplify memo together (the
 `simplifyLM`/`isEquivLM` wrappers). -/
@@ -193,7 +208,7 @@ theorem ISOK.withStoreLsimp {env : Env} {s : IState} (h : ISOK env s)
   have base := h.withStore hwf' hext
   exact ⟨base.wf, base.constTy, base.constVal, base.ruleRhs,
     base.whnfCoreC, base.whnfC, base.inferC, base.annotC, base.defeqC,
-    hinv', base.lnz, base.eqv, base.ienv⟩
+    hinv', base.lnz, base.eqv, base.ienv, base.instC⟩
 
 /-- Replacing the `isNonZero` memo (the `isNonZeroLM` wrapper; the
 arena is untouched). -/
@@ -202,7 +217,8 @@ theorem ISOK.withLnz {env : Env} {s : IState} (h : ISOK env s)
     (hinv' : LvlQMemoInv s.store Level.isNonZero m') :
     ISOK env { s with lnzC := m' } :=
   ⟨h.wf, h.constTy, h.constVal, h.ruleRhs, h.whnfCoreC, h.whnfC,
-    h.inferC, h.annotC, h.defeqC, h.lsimp, hinv', h.eqv, h.ienv⟩
+    h.inferC, h.annotC, h.defeqC, h.lsimp, hinv', h.eqv, h.ienv,
+    h.instC⟩
 
 /-- Replacing the arena, the simplify memo and the equivalence result
 cache together (the `isEquivLM` wrapper). -/
@@ -216,7 +232,7 @@ theorem ISOK.withStoreLsimpEqv {env : Env} {s : IState} (h : ISOK env s)
   have base := h.withStore hwf' hext
   exact ⟨base.wf, base.constTy, base.constVal, base.ruleRhs,
     base.whnfCoreC, base.whnfC, base.inferC, base.annotC, base.defeqC,
-    hinv', base.lnz, heqv', base.ienv⟩
+    hinv', base.lnz, heqv', base.ienv, base.instC⟩
 
 /-! ## The simulation and effect relations -/
 
@@ -523,8 +539,15 @@ private theorem instListM_run (e : EIdx) (vs : List EIdx) (d : Nat)
     (s : IState) :
     instListM e vs d s = .ok
       (if s.store.bvarBoundD e ≤ d then (e, s)
-       else ((s.store.instantiateListI e vs d).1,
-         { s with store := (s.store.instantiateListI e vs d).2 })) := rfl
+       else match s.instC[(e, vs, d)]? with
+         | some r => (r, s)
+         | none =>
+           let mp := if s.instC.size < instCCap then s.instC else {}
+           ((s.store.instantiateListI e vs d).1,
+             { s with
+               store := (s.store.instantiateListI e vs d).2,
+               instC := mp.insert (e, vs, d)
+                 (s.store.instantiateListI e vs d).1 })) := rfl
 
 private theorem abstract1M_run (e : EIdx) (d : Nat) (s : IState) :
     abstract1M e d s = .ok ((s.store.abstract1I e d).1,
@@ -730,6 +753,36 @@ theorem inst1M_eff (hs : ISOK env s₀) {e v : EIdx} {d : Nat} {a w : Expr}
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
     exact ⟨hs.withStore hwf' hext, hext, hden⟩
 
+/-- Inserting a backed entry into the bulk-instantiation memo preserves
+the invariant (task #145).  The `instCCap` overflow branch inserts into
+the *empty* table instead, which is the same statement with a smaller
+table — hence the `mp` generalisation. -/
+theorem ISOK.insertInstC {s : IState} (hs : ISOK env s)
+    {e r : EIdx} {vs : List EIdx} {d : Nat} {a : Expr} {ws : List Expr}
+    {mp : Std.HashMap (EIdx × List EIdx × Nat) EIdx}
+    (hmp : ∀ i vs' d' r', mp[(i, vs', d')]? = some r' → ∃ a' ws',
+      s.store.denoteT i = some a' ∧ DenL s.store vs' ws' ∧
+      s.store.denoteT r' = some (a'.instantiateList ws' d'))
+    (he : s.store.denoteT e = some a) (hvs : DenL s.store vs ws)
+    (hr : s.store.denoteT r = some (a.instantiateList ws d)) :
+    ISOK env { s with instC := mp.insert (e, vs, d) r } := by
+  refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC,
+    hs.whnfC, hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz,
+    hs.eqv, hs.ienv, ?_⟩
+  intro i' vs' d' r' hl
+  simp only at hl
+  rw [Std.HashMap.getElem?_insert] at hl
+  by_cases hk : ((e, vs, d) : EIdx × List EIdx × Nat) == (i', vs', d')
+  · rw [if_pos hk] at hl
+    obtain ⟨rfl, rfl, rfl⟩ : e = i' ∧ vs = vs' ∧ d = d' := by
+      have h := eq_of_beq hk
+      exact ⟨congrArg Prod.fst h, congrArg (Prod.fst ∘ Prod.snd) h,
+        congrArg (Prod.snd ∘ Prod.snd) h⟩
+    cases hl
+    exact ⟨a, ws, he, hvs, hr⟩
+  · rw [if_neg hk] at hl
+    exact hmp i' vs' d' r' hl
+
 theorem instListM_eff (hs : ISOK env s₀) {e : EIdx} {vs : List EIdx}
     {d : Nat} {a : Expr} {ws : List Expr}
     (he : s₀.store.denoteT e = some a) (hvs : DenL s₀.store vs ws) :
@@ -746,9 +799,32 @@ theorem instListM_eff (hs : ISOK env s₀) {e : EIdx} {vs : List EIdx}
     rw [Expr.instantiateList_eq_self (hs.wf.bvarBoundD_le2 he hble)]
     exact he
   · rw [if_neg hble] at h1
-    obtain ⟨hwf', hext, hden⟩ := instantiateListI_spec (d := d) hs.wf he hvs
-    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
-    exact ⟨hs.withStore hwf' hext, hext, hden⟩
+    cases hhit : s₀.instC[(e, vs, d)]? with
+    | some j =>
+      -- memo hit: the entry is backed, and its key denotes uniquely
+      rw [hhit] at h1
+      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
+      obtain ⟨a', ws', hea, hvsa, hja⟩ := hs.instC e vs d _ hhit
+      obtain rfl : a = a' := Option.some.inj (he.symm.trans hea)
+      obtain rfl : ws = ws' := hvs.det hvsa
+      exact ⟨hs, Ext.refl _, hja⟩
+    | none =>
+      rw [hhit] at h1
+      obtain ⟨hwf', hext, hden⟩ := instantiateListI_spec (d := d) hs.wf he hvs
+      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
+      refine ⟨?_, hext, hden⟩
+      have hbase := hs.withStore hwf' hext
+      refine ISOK.insertInstC (s := { s₀ with store := _ }) hbase ?_
+        (denoteT_mono hext he) (hvs.mono hext) hden
+      -- the retained table is either the old one (transported along
+      -- the extension) or empty, both backed
+      split
+      · intro i' vs' d' r' hl
+        obtain ⟨a', ws', h1', h2', h3'⟩ := hs.instC i' vs' d' r' hl
+        exact ⟨a', ws', denoteT_mono hext h1', h2'.mono hext,
+          denoteT_mono hext h3'⟩
+      · intro i' vs' d' r' hl
+        simp at hl
 
 private theorem instListRevM_run (e : EIdx) (vs : Array EIdx) (d : Nat)
     (s : IState) :
@@ -757,13 +833,6 @@ private theorem instListRevM_run (e : EIdx) (vs : Array EIdx) (d : Nat)
        else ((s.store.instantiateRevI e vs d).1,
          { s with store := (s.store.instantiateRevI e vs d).2 })) := rfl
 
-/-- `instListRevM` is `instListM` on the reversed accumulator read as
-a list (task #97). -/
-theorem instListRevM_eq (e : EIdx) (vs : Array EIdx) (d : Nat) :
-    instListRevM e vs d = instListM e vs.toList.reverse d := by
-  funext s
-  rw [instListRevM_run, instListM_run, instantiateRevI_eq]
-
 theorem instListRevM_eff (hs : ISOK env s₀) {e : EIdx} {vs : Array EIdx}
     {d : Nat} {a : Expr} {ws : List Expr}
     (he : s₀.store.denoteT e = some a)
@@ -771,8 +840,20 @@ theorem instListRevM_eff (hs : ISOK env s₀) {e : EIdx} {vs : Array EIdx}
     IEff env s₀
       (fun s i => s.store.denoteT i = some (a.instantiateList ws d))
       (instListRevM e vs d) := by
-  rw [instListRevM_eq]
-  exact instListM_eff hs he hvs
+  intro v' s' hr
+  rw [instListRevM_run, instantiateRevI_eq] at hr
+  injection hr with h1
+  by_cases hble : s₀.store.bvarBoundD e ≤ d
+  · rw [if_pos hble] at h1
+    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
+    refine ⟨hs, Ext.refl _, ?_⟩
+    rw [Expr.instantiateList_eq_self (hs.wf.bvarBoundD_le2 he hble)]
+    exact he
+  · rw [if_neg hble] at h1
+    obtain ⟨hwf', hext, hden⟩ :=
+      instantiateListI_spec (d := d) hs.wf he hvs
+    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
+    exact ⟨hs.withStore hwf' hext, hext, hden⟩
 
 theorem abstract1M_eff (hs : ISOK env s₀) {e : EIdx} {d : Nat} {a : Expr}
     (he : s₀.store.denoteT e = some a) :
@@ -1262,7 +1343,7 @@ theorem ISOK.insertConstTy {s : IState} (hs : ISOK env s)
     ISOK env { s with constTyAt := s.constTyAt.insert (nI, us) i } := by
   refine ⟨hs.wf, ?_, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
     hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
-    hs.ienv⟩
+    hs.ienv, hs.instC⟩
   intro n' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
@@ -1290,7 +1371,7 @@ theorem ISOK.insertConstVal {s : IState} (hs : ISOK env s)
     ISOK env { s with constValAt := s.constValAt.insert (nI, us) i } := by
   refine ⟨hs.wf, hs.constTy, ?_, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
     hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
-    hs.ienv⟩
+    hs.ienv, hs.instC⟩
   intro n' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
@@ -1320,7 +1401,7 @@ theorem ISOK.insertRuleRhs {s : IState} (hs : ISOK env s)
     ISOK env { s with ruleRhsAt := s.ruleRhsAt.insert (cI, jI, us) i } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, ?_, hs.whnfCoreC, hs.whnfC,
     hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
-    hs.ienv⟩
+    hs.ienv, hs.instC⟩
   intro c' j' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl

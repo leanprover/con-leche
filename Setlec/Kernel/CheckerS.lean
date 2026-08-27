@@ -303,12 +303,19 @@ def indBlockCapsF (fe : FEnv) (cvT cvC : ConstantVal) (nP nF : Nat) :
 transition).  The environment-independent components survive: the
 arena, the interned environment (`ienv`, self-certified by denotation
 tags), the loose-bvar-bound cache and the level-operation caches —
-none of their invariants mention the environment. -/
+none of their invariants mention the environment.
+
+The bulk-instantiation memo `instC` (task #145) is environment-
+independent too, but it is dropped all the same: it is keyed by arena
+indices, and this is the point at which the tier bracket may truncate
+the arena (`Setlec/Verify/BracketB4.lean`), so its keys are exactly
+what the close must not survive.  Bounding its size is a welcome side
+effect. -/
 def IState.flushed (s : IState) : IState :=
   { s with
       constTyAt := {}, constValAt := {}, ruleRhsAt := {},
       whnfCoreC := {}, whnfC := {}, inferC := {}, defeqC := {},
-      annotC := {} }
+      annotC := {}, instC := {} }
 
 def flushS : CheckIM Unit :=
   modify (·.flushed)
