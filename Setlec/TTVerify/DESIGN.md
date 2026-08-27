@@ -6212,3 +6212,45 @@ pattern: the premise stated over the pins' *opened denotations*
 (`openFvars` must relocate to a leaf module first — `EnvTT.lean` cannot
 import `TeleOpen.lean`), supplied by `IotaStep.lean` from the guard it
 already destructures past, declined with `_` by the basis blocks.
+
+## §18 The `EtaLawTT` + `CtorResidualOkT` increment (third run, task #119)
+
+§16.3, landed in one increment:
+
+* **`EtaLawTT` carries the fabrication's typing as a premise** —
+  `EtaRhsTyped`'s body verbatim, bound after the subject's typing.
+  `EtaFoldTT` dropped its `hrhs` hypothesis (the binder is the
+  premise); `EtaRhsTyped` stays as documentation of the moved binder.
+* **`CtorResidualOkT` is an `EnvTT` field** (`ctor_residual`), the
+  transpose of #136's `checkCtorResidual`.  One deliberate deviation
+  from §16.3's spelled shape: the clause carries **both reservation
+  guards** (`T` and `caps.etaCtor` non-reserved), matching `CapsOkTT`'s
+  eta clause and `EtaFamilyStoredT`'s first conjunct.  Without them the
+  basis blocks cannot refute the head obligation's `etaCtor = ci.name`
+  disjunct (nothing else forbids an *old* family from naming a reserved
+  constructor), and the only consumer holds both flags anyway.  With
+  them, `basisResidVacuous (by decide)` closes all twenty pinned
+  installs and `extendPairProjTT` refutes by kind.
+* **The supplier lives once, in `structEtaCertWith_stepTT`** — both
+  consumers (defeq's `structEtaCert` and `majorToCtor`'s eta rescue)
+  route through it, so `MajorStep.lean` needed no change beyond what
+  `eta_rescue`'s new `hfabT` hypothesis forces.  The derivation:
+  `structEtaCertWith_inv` now exposes #137's constructor-telescope
+  certificate (new conjunct between the two `defEqList` halves;
+  the inversion already stepped over it), `certs_typed` walks it,
+  `DenoteSpine.unique` identifies the walked spine with the law's,
+  `TeleTyped.rest_eq` + `piResidual_of_stripPis` (new: `piResidual` at
+  full depth = the stripped body under `Expr.instSeq`) compute the
+  walked residual, the pin rewrites it to `directFam`, and
+  `Expr.instSeq_bvar`/`instSeq_mkAppN`/`substFn_map_subst`/
+  `substFn_map_param` reduce it to `T p⃗` at the law's levels.
+* `extendValueTT` gained `hc₀nctor` (a value install is not a
+  constructor) — the residual head obligation's second disjunct needs
+  it; the three callers decline by `nomatch`.
+
+Still open from the queue: `IndBottomNestedTT` (the algebra
+prerequisites — `openRev`, `instRevChain`, `denote_openRev`, the
+`RecRulesTT` nested premise — are landed; the bottom itself is not),
+`ProjBottomTT`, `DeclIndTT`/`CheckDeclTT`.  The block-level discharge
+of `ctor_residual` at a modeled install belongs to `DeclIndTT`
+(§16.3's threading note stands).

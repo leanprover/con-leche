@@ -95,6 +95,83 @@ theorem etaFab_frames {cval : TConstVal} {env : Env} {φ : Name → Nat}
     · simp [Expr.fvarLeaves] at h
     · exact (hmem x hx).2.2.2 l hlx
 
+/-- Denotation spines are unique: `denote` is a function. -/
+theorem DenoteSpine.unique {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d : Nat} :
+    ∀ {as : List Expr} {vs vs' : List VExpr},
+      DenoteSpine cval env φ d as vs →
+      DenoteSpine cval env φ d as vs' → vs = vs' := by
+  intro as
+  induction as with
+  | nil => intro vs vs' h h'; cases h; cases h'; rfl
+  | cons a as ih =>
+    intro vs vs' h h'
+    cases h with
+    | cons hv hs =>
+      cases h' with
+      | cons hv' hs' =>
+        cases hv.symm.trans hv'
+        rw [ih hs hs']
+
+private theorem map_range_getD' {α : Type} [Inhabited α] (l : List α) :
+    (List.range l.length).map (fun k => l.getD k default) = l := by
+  apply List.ext_getElem
+  · simp
+  · intro i h1 h2
+    simp [List.getD, List.getElem?_eq_getElem h2]
+
+private theorem instSeq_const' : ∀ (args : List Expr) (t : Nat)
+    (n : Name) (ls : List Level),
+    Expr.instSeq args t (.const n ls) = .const n ls
+  | [], _, _, _ => rfl
+  | _ :: as, t, n, ls => instSeq_const' as (t - 1) n ls
+
+/-- `piResidual` through a full-depth strip: the tower consumed by
+exactly its depth is the stripped body under the argument spine.
+(Task #119 §16.3: the residual-pin consumer's bridge from
+`TeleTyped.rest_eq` to the pinned `directFam`.) -/
+theorem piResidual_of_stripPis :
+    ∀ (args : List Expr) {e : Expr}
+      {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      e.stripPis args.length = some (bs, body) →
+      piResidual e args
+        = some (Expr.instSeq args (args.length - 1) body) := by
+  intro args
+  induction args with
+  | nil =>
+    intro e bs body h
+    simp only [List.length_nil, Expr.stripPis, Option.some.injEq,
+      Prod.mk.injEq] at h
+    rw [← h.2]
+    rfl
+  | cons a as ih =>
+    intro e bs body h
+    match e, h with
+    | .forallE n dm b m, h =>
+      simp only [List.length_cons, Expr.stripPis] at h
+      cases hstrip : b.stripPis as.length with
+      | none => rw [hstrip] at h; exact nomatch h
+      | some q =>
+        obtain ⟨bs0, body0⟩ := q
+        rw [hstrip] at h
+        simp only [Option.map_some, Option.some.injEq,
+          Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        have hsome : ((b.instantiate1 a 0).stripPis as.length).isSome :=
+          Expr.stripPis_instantiate1_isSome as.length 0
+            (by rw [hstrip]; rfl)
+        obtain ⟨bs1, body1, hstrip1⟩ : ∃ bs1 body1,
+            (b.instantiate1 a 0).stripPis as.length = some (bs1, body1) := by
+          cases hq : (b.instantiate1 a 0).stripPis as.length with
+          | none => rw [hq] at hsome; exact nomatch hsome
+          | some q => exact ⟨q.1, q.2, rfl⟩
+        obtain ⟨hbody1, -⟩ :=
+          Expr.stripPis_instantiate1_eq as.length 0 hstrip hstrip1
+        show piResidual (b.instantiate1 a) as = _
+        rw [ih hstrip1, hbody1]
+        simp only [Nat.zero_add]
+        rfl
+
 /-- **The certificate against a given reduced type.**  Stated at
 `structEtaCertWith` rather than at `structEtaCert` because that is
 where the checker factors: `majorToCtor`'s eta rescue calls it with
@@ -117,7 +194,7 @@ theorem structEtaCertWith_stepTT {env : Env} (m : EnvTT env)
     (hvb : denote m.cval env φ d b = some vb) : Deq Δ va vb := by
   obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, hfn, hfc, hlenA, hfnb,
     hfT, heta, hctor, hpP, hpF, hresT, hresC, hlenT, hlenU, hlps, _,
-    hlev, hcerts, hprojs, hd1, hd2⟩ := structEtaCertWith_inv hcert
+    hlev, hcerts, hprojs, hd1, hcertsC, hd2⟩ := structEtaCertWith_inv hcert
   -- the family's telescope, certified
   obtain ⟨TV, hTV⟩ := denote_declType m φ hfT hcl us' d
   obtain ⟨hwty, hbty, hLty, hCty⟩ := closed_frames (cval := m.cval)
@@ -160,6 +237,220 @@ theorem structEtaCertWith_stepTT {env : Env} (m : EnvTT env)
         structEtaProjCerts_inv (List.range cnF) hprojs j
           (List.mem_range.mpr (hpF ▸ hj))
       exact ⟨cvp, mIp, rPp, rulesp, hfp⟩
+  -- **task #119 §16.3: the law's premise** — the fabrication is typed
+  -- at `T p⃗`, from task #137's constructor-telescope certificate plus
+  -- the stored residual pin (`EnvTT.ctor_residual`)
+  have hprojs' : ∀ j, j < cnF → ∃ cvp mIp rPp rulesp,
+      env.find? (projFnName T j) = some (.recInfo cvp mIp rPp rulesp) ∧
+      cvp.levelParams = cvT.levelParams := fun j hj => by
+    obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpp, -, -⟩ :=
+      structEtaProjCerts_inv (List.range cnF) hprojs j
+        (List.mem_range.mpr hj)
+    exact ⟨cvp, mIp, rPp, rulesp, hfp, hlpp⟩
+  have hprojDen : DenoteSpine m.cval env φ d
+      ((List.range cnF).map fun j =>
+        Expr.mkAppN (.const (projFnName T j) us')
+          (wtb.getAppArgs ++ [b]))
+      ((List.range cnF).map fun j =>
+        VExpr.mkAppN (m.cval (projFnName T j)
+          (Level.substFn φ (levelParamsAt env (projFnName T j)) us'))
+          (xs ++ [vb])) := by
+    refine DenoteSpine.map fun j hj => ?_
+    obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpp⟩ :=
+      hprojs' j (List.mem_range.mp hj)
+    refine denote_mkAppN (DenoteSpine.append hfit.spine
+      (.cons hvb .nil)) ?_
+    simp [denote_const, hfp, levelParamsAt, ConstantInfo.toConstantVal,
+      hlpp, hlenU]
+  -- the constructor's stored type denotes, and types its constant
+  have hcname : cvc.name = c := by
+    rw [Env.find?] at hfc
+    have := List.find?_some hfc
+    simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
+  obtain ⟨hnfC, -, -, hbdC, -⟩ := m.wf _ (find?_mem hfc)
+  obtain ⟨tv0, htv0, hct⟩ := m.has_type _ (find?_mem hfc)
+    (Level.substFn φ cvc.levelParams us)
+  dsimp only [ConstantInfo.name, ConstantInfo.toConstantVal]
+    at hnfC hbdC htv0 hct
+  rw [hcname] at hct
+  have hTVc : denote m.cval env φ d
+      (cvc.type.instantiateLevelParams cvc.levelParams us)
+      = some tv0 := by
+    rw [denote_depth_closed hcl
+        (by rw [Expr.hasFvar_instantiateLevelParams]; exact hnfC)
+        (by rw [Expr.looseBVarsBounded_instantiateLevelParams]
+            exact hbdC) d,
+      denoteClosed, denote_instLevels m.val_params φ 0]
+    exact htv0
+  obtain ⟨hwtyC, hbtyC, hLtyC, hCtyC⟩ := closed_frames (cval := m.cval)
+    (env := env) (φ := φ) hCr.1
+    (by rw [Expr.hasFvar_instantiateLevelParams cvc.levelParams us]
+        exact hnfC)
+    (by
+      rw [Expr.looseBVarsBounded_instantiateLevelParams cvc.levelParams us]
+      exact hbdC)
+  -- the certificate's telescope walk over the fabricated spine
+  obtain ⟨zsC, restC, hfitC⟩ := certs_typed m φ hcl ihd ihi _
+    (wtb.getAppArgs ++ (List.range cnF).map fun j =>
+      Expr.mkAppN (.const (projFnName T j) us') (wtb.getAppArgs ++ [b]))
+    tv0 hcertsC hwtyC hbtyC hLtyC hCtyC hTVc (fun x hx => by
+      rcases List.mem_append.mp hx with h | h
+      · exact hargs x h
+      · obtain ⟨j, -, rfl⟩ := List.mem_map.mp h
+        exact etaFab_frames (cval := m.cval) (Δ := Δ)
+          (fun y hy => (hargs y hy).1) (fun y hy => (hargs y hy).2.1)
+          (fun y hy => (hargs y hy).2.2.1)
+          (fun y hy => (hargs y hy).2.2.2) hwb hbb hLb hCb j)
+  obtain rfl : zsC = xs ++ (List.range cnF).map fun j =>
+      VExpr.mkAppN (m.cval (projFnName T j)
+        (Level.substFn φ (levelParamsAt env (projFnName T j)) us'))
+        (xs ++ [vb]) :=
+    hfitC.spine.unique (DenoteSpine.append hfit.spine hprojDen)
+  -- the stored constructor's residual is the pinned family application
+  have hfcC : env.find? caps.etaCtor
+      = some (.ctorInfo cvc caps.etaParams caps.etaFields) := by
+    rw [hctor, hpP, hpF]; exact hfc
+  obtain ⟨bsR, hstripR⟩ := m.ctor_residual T cvT caps cvc hfT heta hresT
+    hfam.1 hfcC
+  rw [hpP, hpF] at hstripR
+  -- the walked residual, syntactically: the pin under the spine
+  have hlenF : (wtb.getAppArgs ++ (List.range cnF).map fun j =>
+      Expr.mkAppN (.const (projFnName T j) us')
+        (wtb.getAppArgs ++ [b])).length = cnP + cnF := by
+    simp [hlenT]
+  have hsomeU : ((cvc.type.instantiateLevelParams cvc.levelParams
+      us).stripPis (cnP + cnF)).isSome :=
+    Expr.stripPis_instantiateLevelParams_isSome cvc.levelParams us
+      (cnP + cnF) (by rw [hstripR]; rfl)
+  obtain ⟨bsU, bodyU, hstripU⟩ : ∃ bsU bodyU,
+      (cvc.type.instantiateLevelParams cvc.levelParams us).stripPis
+        (cnP + cnF) = some (bsU, bodyU) := by
+    cases hq : (cvc.type.instantiateLevelParams cvc.levelParams
+        us).stripPis (cnP + cnF) with
+    | none => rw [hq] at hsomeU; exact nomatch hsomeU
+    | some q => exact ⟨q.1, q.2, rfl⟩
+  obtain ⟨hbodyU, -⟩ := Expr.stripPis_instantiateLevelParams_eq
+    cvc.levelParams us (cnP + cnF) hstripR hstripU
+  have hresidC := hfitC.rest_eq
+  have hresid2 := piResidual_of_stripPis
+    (wtb.getAppArgs ++ (List.range cnF).map fun j =>
+      Expr.mkAppN (.const (projFnName T j) us') (wtb.getAppArgs ++ [b]))
+    (by rw [hlenF]; exact hstripU)
+  rw [hresidC, hlenF] at hresid2
+  obtain rfl : restC = Expr.instSeq
+      (wtb.getAppArgs ++ (List.range cnF).map fun j =>
+        Expr.mkAppN (.const (projFnName T j) us')
+          (wtb.getAppArgs ++ [b]))
+      (cnP + cnF - 1) bodyU := Option.some.inj hresid2
+  -- the pin's body, level-instantiated
+  have hbodyC : bodyU = Expr.mkAppN
+      (.const T ((cvT.levelParams.map Level.param).map
+        (Level.subst cvc.levelParams us)))
+      ((List.range cnP).map fun k => Expr.bvar (cnF + cnP - 1 - k)) := by
+    rw [hbodyU]
+    show (Expr.mkAppN (.const T (cvT.levelParams.map Level.param))
+      ((List.range cnP).map fun k =>
+        Expr.bvar (cnF + cnP - 1 - k))).instantiateLevelParams
+        cvc.levelParams us = _
+    rw [instantiateLevelParams_mkAppN]
+    refine congrArg (Expr.mkAppN _) ?_
+    rw [List.map_map]
+    rfl
+  -- ... and consumed by the spine: `T` at the family's arguments
+  have hrestSyn : Expr.instSeq
+      (wtb.getAppArgs ++ (List.range cnF).map fun j =>
+        Expr.mkAppN (.const (projFnName T j) us')
+          (wtb.getAppArgs ++ [b]))
+      (cnP + cnF - 1) bodyU
+      = Expr.mkAppN
+        (.const T ((cvT.levelParams.map Level.param).map
+          (Level.subst cvc.levelParams us)))
+        wtb.getAppArgs := by
+    rw [hbodyC, Expr.instSeq_mkAppN, instSeq_const']
+    refine congrArg (Expr.mkAppN _) ?_
+    rw [List.map_map]
+    have hrhs := (map_range_getD' wtb.getAppArgs).symm
+    rw [hlenT] at hrhs
+    conv => rhs; rw [hrhs]
+    refine List.map_congr_left fun k hk => ?_
+    have hklt : k < cnP := List.mem_range.mp hk
+    have hbcl : ∀ a ∈ wtb.getAppArgs ++ (List.range cnF).map fun j =>
+        Expr.mkAppN (.const (projFnName T j) us')
+          (wtb.getAppArgs ++ [b]), a.looseBVarsBounded 0 = true := by
+      intro a ha
+      rcases List.mem_append.mp ha with h | h
+      · exact (hargs a h).2.1
+      · obtain ⟨j, -, rfl⟩ := List.mem_map.mp h
+        exact (etaFab_frames (cval := m.cval) (Δ := Δ)
+          (fun y hy => (hargs y hy).1) (fun y hy => (hargs y hy).2.1)
+          (fun y hy => (hargs y hy).2.2.1)
+          (fun y hy => (hargs y hy).2.2.2) hwb hbb hLb hCb j).2.1
+    have hhit := Expr.instSeq_bvar
+      (wtb.getAppArgs ++ (List.range cnF).map fun j =>
+        Expr.mkAppN (.const (projFnName T j) us')
+          (wtb.getAppArgs ++ [b]))
+      (cnP + cnF - 1) (cnF + cnP - 1 - k) hbcl (by omega)
+      (by rw [hlenF]; omega)
+    have hidx : cnP + cnF - 1 - (cnF + cnP - 1 - k) = k := by omega
+    rw [hidx] at hhit
+    have hk2 : k < (wtb.getAppArgs ++ (List.range cnF).map fun j =>
+        Expr.mkAppN (.const (projFnName T j) us')
+          (wtb.getAppArgs ++ [b])).length := by rw [hlenF]; omega
+    rw [List.getElem?_eq_getElem hk2] at hhit
+    have hgetk : (wtb.getAppArgs ++ (List.range cnF).map fun j =>
+        Expr.mkAppN (.const (projFnName T j) us')
+          (wtb.getAppArgs ++ [b]))[k] = wtb.getAppArgs.getD k default := by
+      rw [List.getElem_append_left (by rw [hlenT]; omega)]
+      simp [List.getD, List.getElem?_eq_getElem
+        (show k < wtb.getAppArgs.length from by rw [hlenT]; omega)]
+    rw [hgetk] at hhit
+    exact (Option.some.inj hhit).symm
+  -- the walked residual denotes to the law's type slot
+  obtain ⟨RVc, hvfitC, hrestVC⟩ := hfitC.toV hcl hTVc
+  rw [hrestSyn] at hrestVC
+  have hrestDen : denote m.cval env φ d
+      (Expr.mkAppN
+        (.const T ((cvT.levelParams.map Level.param).map
+          (Level.subst cvc.levelParams us)))
+        wtb.getAppArgs)
+      = some (VExpr.mkAppN
+        (m.cval T (Level.substFn φ cvT.levelParams us')) xs) := by
+    refine denote_mkAppN hfit.spine ?_
+    rw [denote_const, hfT]
+    dsimp only
+    rw [if_pos (show ((cvT.levelParams.map Level.param).map
+        (Level.subst cvc.levelParams us)).length
+        = (ConstantInfo.indInfo cvT caps).toConstantVal.levelParams.length
+      from by simp [ConstantInfo.toConstantVal])]
+    refine congrArg some ?_
+    refine m.val_params T _ hfT _ _ ?_
+    intro p hp
+    dsimp only [ConstantInfo.toConstantVal] at hp ⊢
+    rw [Level.substFn_map_subst (by simp) hp, ← hlps,
+      Level.substFn_map_param, hlps,
+      Level.substFn_congr (Level.isEquivList_sound hlev φ)]
+  rw [hrestVC] at hrestDen
+  obtain rfl : RVc = VExpr.mkAppN
+      (m.cval T (Level.substFn φ cvT.levelParams us')) xs :=
+    Option.some.inj hrestDen
+  -- assembled: the fabrication's typing, in the law's spelling
+  have hheads : m.cval caps.etaCtor
+      (Level.substFn φ (levelParamsAt env caps.etaCtor) us')
+      = m.cval c (Level.substFn φ cvc.levelParams us) := by
+    rw [hctor, levelParamsAt, hfc]
+    dsimp only [ConstantInfo.toConstantVal]
+    rw [Level.substFn_congr (Level.isEquivList_sound hlev φ)]
+  have hfabT : HasType Δ
+      (VExpr.mkAppN (m.cval caps.etaCtor
+          (Level.substFn φ (levelParamsAt env caps.etaCtor) us'))
+        (xs ++ (List.range caps.etaFields).map fun j =>
+          VExpr.mkAppN (m.cval (projFnName T j)
+            (Level.substFn φ (levelParamsAt env (projFnName T j)) us'))
+            (xs ++ [vb])))
+      (VExpr.mkAppN (m.cval T
+        (Level.substFn φ cvT.levelParams us')) xs) := by
+    rw [hheads, hpF]
+    exact hvfitC.appN (HasType.weakenNil hct Δ)
   -- the eta law, fired at the fabrication
   obtain ⟨F, hF, hDF⟩ := eta_rescue m φ hcl hfT heta hresT hfam
     (by rw [hlenT, hpP])
@@ -173,7 +464,7 @@ theorem structEtaCertWith_stepTT {env : Env} (m : EnvTT env)
       rw [levelParamsAt, hfp]
       dsimp only [ConstantInfo.toConstantVal]
       rw [hlpp]; exact hlenU)
-    hTV hfit hvb hBt
+    hTV hfit hvb hBt hfabT
   -- and the constructor application agrees with the fabrication
   have hea : a = Expr.mkAppN (.const c us) a.getAppArgs := by
     rw [← hfn, Expr.mkAppN_getApp]

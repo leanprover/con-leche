@@ -113,6 +113,7 @@ theorem extendValueTT {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
     (hc₀nrec : ∀ cv2 mI rP rules, c₀ ≠ .recInfo cv2 mI rP rules)
     (hc₀nind : ∀ cv2 caps, c₀ ≠ .indInfo cv2 caps)
     (hc₀nproj : ∀ entry, c₀ ≠ .projInfo entry)
+    (hc₀nctor : ∀ cv2 cnP cnF, c₀ ≠ .ctorInfo cv2 cnP cnF)
     (hnres : reservedBasisNames.contains name = false)
     (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
@@ -153,7 +154,15 @@ theorem extendValueTT {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       rw [hc₀name] at hn; exact (cvalAt_ne hn).symm)
   refine ⟨EnvTT.cons m hi hwf ?_ ?_ ?_ ?_ ?_ ?_
     (fun cv2 mI rP rules heq => absurd heq (hc₀nrec cv2 mI rP rules))
-    ?_ hheadEta ?_ ?_ (fun _ entry heq _ => absurd heq (hc₀nproj entry)) ?_
+    ?_ hheadEta ?_
+    (fun T cvT caps cvC hfT _ _ _ hfcC hor => by
+      rcases hor with hT | hC
+      · rw [hT, Env.find?_cons, if_pos rfl] at hfT
+        exact absurd (Option.some.inj hfT) (hc₀nind cvT caps)
+      · rw [hC, Env.find?_cons, if_pos rfl] at hfcC
+        exact absurd (Option.some.inj hfcC)
+          (hc₀nctor cvC caps.etaParams caps.etaFields))
+    ?_ (fun _ entry heq _ => absurd heq (hc₀nproj entry)) ?_
     ?_ hheadNat hheadDivMod hheadReduce⟩
   · -- the new valuation is closed
     intro ψ

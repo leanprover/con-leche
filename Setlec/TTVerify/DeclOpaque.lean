@@ -136,7 +136,7 @@ theorem declOpaqueTT (hrp : ReducePinTT F) : DeclOpaqueTT F := by
       hbv' hkey
       ?_ (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
-      (fun _ heq => nomatch heq) hres' ?_
+      (fun _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) hres' ?_
       (fun _ _ _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) hred
     · intro φ₁ φ₂ hp
       exact denote_params_ext m.val_params hp 0 value' hvp

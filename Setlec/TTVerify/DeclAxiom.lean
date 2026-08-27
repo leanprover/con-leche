@@ -89,6 +89,10 @@ theorem extendAxiomTT {env : Env} (m : EnvTT env) {cv : ConstantVal}
   refine ⟨EnvTT.cons m hi hwf ?_ ?_ ?_ (fun _ _ _ heq => nomatch heq)
     (fun _ _ heq => nomatch heq) ?_ (fun _ _ _ _ heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) ?_ (fun _ _ heq => nomatch heq)
+    (fun T cvT caps cvC hfT _ _ _ hfcC hor => by
+      rcases hor with hT | hC
+      · rw [hT, Env.find?_cons, if_pos rfl] at hfT; exact nomatch hfT
+      · rw [hC, Env.find?_cons, if_pos rfl] at hfcC; exact nomatch hfcC)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq) ?_ ?_
     (fun _ _ _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) ?_⟩
   · intro ψ

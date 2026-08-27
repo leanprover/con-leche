@@ -47,7 +47,7 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
     va = vb := by
   obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
     hfn, hfc, hal, hwfn, hfT, hce, hcc, hcp, hcf, hres,
-    hresC, htal, hulen, hclps, hTstrip, hlev, hic, hpc, hd1, hd2⟩ :=
+    hresC, htal, hulen, hclps, hTstrip, hlev, hic, hpc, hd1, -, hd2⟩ :=
     structEtaCertWith_inv h
   -- level assignments
   obtain ⟨ψ', hψ'⟩ : ∃ x, x = Level.substFn φ cvT.levelParams us' :=

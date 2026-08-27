@@ -448,7 +448,9 @@ that `grep StatementSortPin` stays the list of sites it serves. -/
 def StatementSortPin (tbody : Expr) (l : Level) : Prop :=
   tbody = Expr.sort l
 
-/-- **Task #136's conjunct.**  An eta-capable modeled family's
+/-! **Task #136's conjunct** (`CtorResidualPin`, now defined in
+`Setlec/TTVerify/EnvTT.lean` where the `ctor_residual` field consumes
+it).  An eta-capable modeled family's
 constructor returns *the family applied to its parameters*.
 
 This is literally the check `checkDirectCtor` already makes on the
@@ -475,9 +477,6 @@ Stated over the *public* constructor's stored `ConstantVal`: the model
 side cannot serve it, because a model's own residual is unpinned
 (models are stored opaque), which is what §14.7.9's reading
 established. -/
-def CtorResidualPin (T : Name) (lps : List Name) (cvC : ConstantVal)
-    (nP nF : Nat) : Prop :=
-  ∃ bs, cvC.type.stripPis (nP + nF) = some (bs, directFam T lps nP nF)
 
 /-- **The equation type slot's sort, derived from the pin.**  The
 spine lemma paying twice: a *second* alignment, this time between the
@@ -1395,10 +1394,9 @@ theorem EtaFoldTT {env : Env} {cval : TConstVal}
     (hlpsC : levelParamsAt env caps.etaCtor = cvT.levelParams)
     (hlpsP : ∀ j, j < caps.etaFields →
       levelParamsAt env (projFnName T j) = cvT.levelParams)
-    (hrhs : EtaRhsTyped env cval T cvT caps) :
+    :
     EtaLawTT env cval T cvT caps := by
-  intro φ d Δ us xs TV rest B hlen hTV hfit hB
-  have hrhsT := hrhs φ d Δ us xs TV rest B hlen hTV hfit hB
+  intro φ d Δ us xs TV rest B hlen hTV hfit hB hrhsT
   obtain ⟨nx, mx, hxdom'⟩ := hxdom
   subst hsbody htySlot
   -- the public/model identifications, applied once to goal and premises

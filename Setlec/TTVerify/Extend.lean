@@ -779,6 +779,32 @@ stored *there*, but not on the new constant).  Doing it the other way
 would need agreement at `c₀.name`, which is exactly what an install
 does not have. -/
 
+/-- The residual pin clause survives a fresh install: it is purely
+syntactic, so only the two `find?`s can change, and a head obligation
+covers the disjunction.  (Task #119 §16.3.) -/
+theorem CtorResidualOkT.cons {env : Env} {c₀ : ConstantInfo}
+    (h : CtorResidualOkT env)
+    (hhead : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps)
+      (cvC : ConstantVal),
+      (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      caps.eta = true →
+      reservedBasisNames.contains T = false →
+      reservedBasisNames.contains caps.etaCtor = false →
+      (⟨c₀ :: env.consts⟩ : Env).find? caps.etaCtor =
+        some (.ctorInfo cvC caps.etaParams caps.etaFields) →
+      (T = c₀.name ∨ caps.etaCtor = c₀.name) →
+      CtorResidualPin T cvT.levelParams cvC caps.etaParams
+        caps.etaFields) :
+    CtorResidualOkT ⟨c₀ :: env.consts⟩ := by
+  intro T cvT caps cvC hf heta hrT hrC hfc
+  by_cases hd : T = c₀.name ∨ caps.etaCtor = c₀.name
+  · exact hhead T cvT caps cvC hf heta hrT hrC hfc hd
+  · have hnT : T ≠ c₀.name := fun hh => hd (Or.inl hh)
+    have hnC : caps.etaCtor ≠ c₀.name := fun hh => hd (Or.inr hh)
+    rw [Env.find?_cons, if_neg (fun hh => hnT hh.symm)] at hf
+    rw [Env.find?_cons, if_neg (fun hh => hnC hh.symm)] at hfc
+    exact h T cvT caps cvC hf heta hrT hrC hfc
+
 /-- The capability laws survive a fresh install, given the head
 obligations.  Transpose of `CapsOk.cons`. -/
 theorem CapsOkTT.cons {env : Env} {cval cval' : TConstVal}
@@ -839,11 +865,11 @@ theorem CapsOkTT.cons {env : Env} {cval cval' : TConstVal}
       have hTres : cvT.type.constsResolve env = true := by
         obtain ⟨-, -, h3, -⟩ := hwfe _ (find?_mem hf)
         simpa [ConstantInfo.toConstantVal] using h3
-      intro φ d Δ us xs TV rest B hlen hTV hfit hBt
+      intro φ d Δ us xs TV rest B hlen hTV hfit hBt hfabT
       have hTV' := hdown φ d _ TV
         (by rw [Expr.constsResolve_instantiateLevelParams cvT.levelParams us]
             exact hTres) hTV
-      rw [← hag T hnT] at hBt
+      rw [← hag T hnT] at hBt hfabT
       have hproj : ∀ j ∈ List.range caps.etaFields,
           VExpr.mkAppN (cval' (projFnName T j)
             (Level.substFn φ
@@ -857,8 +883,8 @@ theorem CapsOkTT.cons {env : Env} {cval cval' : TConstVal}
           levelParamsAt_cons_of_ne
             (fun hh => (hnP j (List.mem_range.mp hj)) hh.symm)]
       rw [List.map_congr_left hproj, ← hag _ hnC,
-        levelParamsAt_cons_of_ne (fun hh => hnC hh.symm)]
-      exact hlaw φ d Δ us xs TV rest B hlen hTV' hfit hBt
+        levelParamsAt_cons_of_ne (fun hh => hnC hh.symm)] at hfabT ⊢
+      exact hlaw φ d Δ us xs TV rest B hlen hTV' hfit hBt hfabT
   · intro T cvT caps hf hcapu hres
     by_cases hn : T = c₀.name
     · subst hn
@@ -1488,6 +1514,17 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
     (hheadUnit : ∀ cv caps, c₀ = .indInfo cv caps → caps.unitlike = true →
       reservedBasisNames.contains c₀.name = false →
       UnitLawTT ⟨c₀ :: env.consts⟩ cval' c₀.name cv caps)
+    (hheadResid : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps)
+      (cvC : ConstantVal),
+      (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      caps.eta = true →
+      reservedBasisNames.contains T = false →
+      reservedBasisNames.contains caps.etaCtor = false →
+      (⟨c₀ :: env.consts⟩ : Env).find? caps.etaCtor =
+        some (.ctorInfo cvC caps.etaParams caps.etaFields) →
+      (T = c₀.name ∨ caps.etaCtor = c₀.name) →
+      CtorResidualPin T cvT.levelParams cvC caps.etaParams
+        caps.etaFields)
     (hheadProj : ∀ entry, c₀ = .projInfo entry → entry.native = true →
       (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
       env.find? psigmaName = some psigmaA ∧
@@ -1532,6 +1569,7 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       rec_rules := RecRulesTT.cons m.rec_rules m.wf hi m.rec_ctors hheadRec
       caps_ok := CapsOkTT.cons m.caps_ok m.wf hi.fresh hi.ag hi.lit
         hheadEta hheadUnit
+      ctor_residual := CtorResidualOkT.cons m.ctor_residual hheadResid
       proj_ok := ProjOkT.cons m.proj_ok hi.fresh hheadProj hheadProjPair
       rec_ctors := RecCtorsStoredT.cons m.rec_ctors hi.fresh hheadCtors
       eq_law := EqLawTT.cons m.eq_law hi.ag hheadEq

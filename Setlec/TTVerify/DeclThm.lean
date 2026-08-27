@@ -152,7 +152,7 @@ theorem declThmTT : DeclThmTT F := by
     rfl rfl hfind' ?_ hvf' hbv' hkey ?_ (fun _ _ _ heq => nomatch heq)
     (fun _ value2 heq => by injection heq with _ h2; exact h2.symm)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
-    (fun _ heq => nomatch heq) hres' ?_
+    (fun _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) hres' ?_
     (fun _ _ _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq)
   · -- the extended environment is well-formed
