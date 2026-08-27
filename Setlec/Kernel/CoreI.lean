@@ -1091,7 +1091,17 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       targs b cvT.levelParams (List.range cnF) then do
                     if ← defEqListI r fe depth (aargs.take cnP) targs then do
                       let projs ← projAppsI T us' targs b (List.range cnF)
-                      defEqListI r fe depth (aargs.drop cnP) projs
+                      -- synthetic-spine certification (task #137): the
+                      -- fabricated constructor application
+                      -- `c targs (proj_i … b)` is certified against the
+                      -- constructor's own telescope, here rather than at
+                      -- the callers, so that BOTH consumers get it —
+                      -- `majorToCtorI`'s eta rescue ran it already
+                      -- (task #71), `defeq`'s `structEtaCertI` did not
+                      let tyCtor ← constTyAtM fe c cn us
+                      if ← iotaCertsI r fe depth tyCtor (targs ++ projs) then
+                        defEqListI r fe depth (aargs.drop cnP) projs
+                      else pure false
                     else pure false
                   else pure false
                 else pure false

@@ -916,17 +916,41 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
         refine List.map_congr_left fun i _ => ?_
         rw [Function.comp_apply, shiftFrom_mkAppN, List.map_append]
         rfl
+      have hwprojs : ∀ x ∈ (List.range cnF).map (fun i =>
+          Expr.mkAppN (.const (projFnName T i) us')
+            (wtb.getAppArgs ++ [b])), WScoped d x := by
+        intro x hx
+        obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
+        refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
+        intro y hy
+        rcases List.mem_append.mp hy with hy | hy
+        · exact hwwtb.getAppArgs y hy
+        · rw [List.mem_singleton.mp hy]; exact hwb
+      -- task #137: the constructor-telescope certificate
+      have htelc : (cvc.type.instantiateLevelParams cvc.levelParams
+          us).hasFvar = false := by
+        rw [hasFvar_instantiateLevelParams]
+        exact (henv _ (find?_mem hfc)).1
+      have h4 := iotaCerts_shift henv ih hpd
+        (ty := cvc.type.instantiateLevelParams cvc.levelParams us)
+        (WScoped.of_not_hasFvar htelc)
+        (args := wtb.getAppArgs ++ (List.range cnF).map (fun i =>
+          Expr.mkAppN (.const (projFnName T i) us')
+            (wtb.getAppArgs ++ [b])))
+        (fun x hx => by
+          rcases List.mem_append.mp hx with hx | hx
+          · exact hwwtb.getAppArgs x hx
+          · exact hwprojs x hx)
+      rw [shiftFrom_eq_self_of_not_hasFvar htelc, List.map_append,
+        ← hlist] at h4
+      refine bind_congr_eq h4 ?_
+      intro b₄ _
+      refine ite_congr' (fun _ => ?_) (fun _ => rfl)
       have h3 := defEqList_shift henv ih hpd (as := a.getAppArgs.drop cnP)
         (bs := (List.range cnF).map (fun i =>
           Expr.mkAppN (.const (projFnName T i) us') (wtb.getAppArgs ++ [b])))
         (fun x hx => hwa.getAppArgs x (List.mem_of_mem_drop hx))
-        (fun x hx => by
-          obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
-          refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
-          intro y hy
-          rcases List.mem_append.mp hy with hy | hy
-          · exact hwwtb.getAppArgs y hy
-          · rw [List.mem_singleton.mp hy]; exact hwb)
+        hwprojs
       rw [List.map_drop, ← hlist] at h3
       exact h3
 

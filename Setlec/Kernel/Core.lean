@@ -934,10 +934,25 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                       (List.range cnF) then
                     if ← defEqList r env depth
                         (a.getAppArgs.take cnP) wtb.getAppArgs then
-                      defEqList r env depth (a.getAppArgs.drop cnP)
-                        ((List.range cnF).map fun i =>
-                          Expr.mkAppN (.const (projFnName T i) us')
-                            (wtb.getAppArgs ++ [b]))
+                      -- synthetic-spine certification (task #137): the
+                      -- fabricated constructor application is certified
+                      -- against the constructor's own telescope, here
+                      -- rather than at the callers, so that both
+                      -- consumers get it (`majorToCtor`'s eta rescue ran
+                      -- it already, task #71; `defeq`'s `structEtaCert`
+                      -- did not)
+                      if ← iotaCerts r env depth
+                          (cvc.type.instantiateLevelParams
+                            cvc.levelParams us)
+                          (wtb.getAppArgs ++
+                            (List.range cnF).map fun i =>
+                              Expr.mkAppN (.const (projFnName T i) us')
+                                (wtb.getAppArgs ++ [b])) then
+                        defEqList r env depth (a.getAppArgs.drop cnP)
+                          ((List.range cnF).map fun i =>
+                            Expr.mkAppN (.const (projFnName T i) us')
+                              (wtb.getAppArgs ++ [b]))
+                      else pure false
                     else pure false
                   else pure false
                 else pure false

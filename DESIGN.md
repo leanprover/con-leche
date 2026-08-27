@@ -8872,6 +8872,134 @@ conjunct was negated and the binary rebuilt: init-prelude then
 check is load-bearing and passes at the live sites; that is the
 positive half of the measurement the byte-identity gate cannot give.
 
+## The eta certificate certifies its own fabrication (2026-08-27, task #137)
+
+**The `defeq` path was fabricating a constructor spine it never
+typed.**  `Setlec/TTVerify/DESIGN.md` §14.7.8 established that
+`majorToCtorI`'s eta rescue runs the task-#71 synthetic-spine
+certificate and concluded "no checker change is owed for this
+premise"; §14.7.10 (commit `0b409b2`) amended the conclusion, because
+the callee has *two* callers and only one of them carries the guard:
+
+| caller | line (pre-change) | constructor telescope certified? |
+|---|---|---|
+| `majorToCtorI`, eta rescue | CoreI:1251 | **yes** — `iotaCertsI … tyCtor (margs ++ projs)` two lines above |
+| `structEtaCertI`, from `defeq` | CoreI:1111 | **no** — `infer b`, `whnf`, call |
+
+`structEtaCertWithI` builds `projs = [proj_i targs b]` and compares the
+constructor's field arguments against them, so the term
+`c targs (proj_0 targs b) …` is *asserted* to be a well-typed
+inhabitant of `T targs` — and on the `defeq` path nothing had checked
+that spine against `c`'s own telescope.  The fix is the one line
+§14.7.10 spelled out, placed in the **callee** so both consumers get
+it, right after `projs` is built:
+
+```lean
+let tyCtor ← constTyAtM fe c cn us
+if ← iotaCertsI r fe depth tyCtor (targs ++ projs) then …
+```
+
+**Measured before implemented.**  The check can only make the checker
+stricter, so the thing to price was whether any accepted stream stops
+being accepted.  An instrumented build ran the candidate certificate
+at *both* sites and **discarded** its result (so instrumented verdicts
+equal baseline verdicts), tagging each outcome with its caller:
+
+| corpus | site | calls reaching the cert | `true` | `false` | throw |
+|---|---|---|---|---|---|
+| arena + e2e + split + infer-only sweep | `defeq` | 1 406 | **1 406** | 0 | 0 |
+| arena + e2e + split + infer-only sweep | `major` | 276 | 276 | 0 | 0 |
+| init-prelude, certified | `defeq` | 128 | **128** | 0 | 0 |
+| init-prelude, certified | `major` | 19 | 19 | 0 | 0 |
+| init-prelude, `SETLEC_INFER_ONLY=1` | `defeq` | 110 | **110** | 0 | 0 |
+| init-prelude, `SETLEC_INFER_ONLY=1` | `major` | 19 | 19 | 0 | 0 |
+
+**1 644 evaluations on the previously-unguarded `defeq` path, zero
+counterexamples.**  (Entries into `structEtaCertWithI` are far more
+numerous — 5 958 + 449 + 291 on the `defeq` path — most of them bail
+at the capability guard long before the certificate; the table counts
+the calls that actually reach it.)
+
+**The caller-side call stays, and not out of caution.**  The two
+spines *are* the same values: at the rescue site `a = fab =
+c ust (margs ++ projs)`, so the callee reads back `c` and `ust` from
+`fab`'s head and `targs = margs` from `tmaj`'s, `caps.etaCtor =
+rl.ctor` and `caps.etaFields = cnF` are guarded, and `constTyAtM` is
+memoised on `(nI, us)` — the callee's certificate is *literally the
+same call*.  What is not the same is the **control flow**:
+`majorToCtorI` gates the *whole* eta branch on it, so a failure
+returns `major` immediately, whereas a failure inside
+`structEtaCertWithI` falls through to the `caps.etaFields = 0` →
+`proofIrrelI` rescue below.  Removing the caller's copy would make a
+currently-unreachable rescue reachable — a verdict change, not a
+redundancy elimination — so it stays.  Byte-identity therefore carries
+no evidence about it either way, and that is stated rather than
+implied.
+
+**Mirrors.**  Three copies of this body exist and they were treated
+differently, on the reason each exists:
+
+* `structEtaCertWithI` (`Setlec/Kernel/CoreI.lean`) — the one that
+  executes.  Changed.
+* `structEtaCertWith` (`Setlec/Kernel/Core.lean`) — the `Env`/`Expr`
+  spec the simulation and inversion theorems are stated against.
+  Changed in step; letting it diverge would break the pin.
+* `structEtaCertWithNC` (`Setlec/Kernel/CoreNC.lean`) — **unchanged by
+  design**: this is the mode that prices out the `iotaCertsI` family,
+  and it already skips the type-former and per-projection telescope
+  certifications here, and `majorToCtorNC` already omits the
+  caller-side one.  A mode that skips every other member of the family
+  and keeps this one reports a meaningless number (the task-#126/#129
+  judgement, applied again).
+
+**What `SETLEC_NO_PROOF_CERTS=1` actually exercises: nothing of this.**
+The instrumented run confirms it — that mode emitted *zero* trace
+lines, because `structEtaCertNC` calls `structEtaCertWithNC`.  Its
+byte-identity result is a control (the change did not leak into the
+cert-skipping core), not a test of the new check.
+
+**Verify fallout, and where the line was drawn.**  Three proofs about
+the spec body needed the new step threaded through — `Deep.lean`'s
+`structEtaCertWith_shift`, `Disc.lean`'s `structEtaCertWith_disc`,
+`DiscI2.lean`'s `structEtaCertWith_unfold` / `structEtaCertWithI_sim`
+— all mechanical (one `iotaCerts_shift` / `iotaCerts_disc` /
+`constTyAtM_eff` + `iotaCertsI_sim` step apiece, plus hoisting the
+already-present projection well-scopedness into a shared `have`).
+`InferLemmas.lean`'s `structEtaCertWith_inv` steps *over* the new
+certificate and its **statement is deliberately unchanged**: adding
+the conjunct would break every existing destructuring of that
+existential, and the conjunct is the bridge's to introduce when
+`EtaLawTT` is re-signed (§14.7.10).  `Fueled.lean` and
+`Model/Core/StructEta.lean` needed nothing.
+
+**Gates.**  Build warning-free with the six touched modules' oleans
+force-deleted and recompiled; `lake test`; arena 90/92; e2e 67/67;
+split driver 11/11; infer-only 5/5 and the full `--infer-only` sweep
+(90/92, 67/67); consistency axioms exactly
+`[propext, Classical.choice, Quot.sound]`; no `sorry`s; init-prelude
+byte-identical — stdout, stderr, exit — in the certified, the
+`SETLEC_NO_PROOF_CERTS=1` and the `SETLEC_INFER_ONLY=1` modes against
+a binary built from pre-change master.
+
+**Cost: none measurable.**  init-prelude, `instructions:u`, median of
+three: 38.8097 G before, 38.8036 G after — **−0.016 %**, i.e. inside
+the run-to-run spread (the three samples straddle each other).  The
+prior said the `defeq` path would run this far more often than the
+rescue path and might need memoising; it runs it 128 times per
+init-prelude and costs nothing, because everything it re-derives —
+`constTyAtM`'s instantiation, and the `infer`/`defeq` of the very
+arguments the surrounding `defEqList` just compared — is already in
+the caches.  No memoisation is warranted.
+
+**Negation probe.**  Byte-identity cannot show a new *check* is true,
+only that no verdict moved, so the certificate was inverted
+(`if !(← iotaCertsI …)`, which on this corpus is "always false" since
+it never fails) and the binary rebuilt.  init-prelude then **rejects**
+(exit 1, `type mismatch in definition PProd.rec._model`), arena falls
+90/92 → **69/92**, e2e 67/67 → **29/67**, split 11/11 → 9/11,
+infer-only 5/5 → 4/5.  The check is on the hot path for every
+structure-eta defeq in the prelude, and it passes at every live site;
+that is the positive half the byte-identity gate cannot give.
 ## The eta capability pins the constructor's residual (2026-08-27, task #136)
 
 **#135's direct sibling, and the fifth change the TT bridge (task

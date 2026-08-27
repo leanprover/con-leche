@@ -1437,11 +1437,20 @@ private theorem structEtaCertWith_unfold (env : Env) (d : Nat)
                           (a.getAppArgs.take cnP) wtb.getAppArgs >>=
                         fun r₃ =>
                       if r₃ then
-                        defEqList (fueledFns env) env d
-                          (a.getAppArgs.drop cnP)
-                          ((List.range cnF).map fun i =>
-                            Expr.mkAppN (.const (projFnName T i) us')
-                              (wtb.getAppArgs ++ [b]))
+                        iotaCerts (fueledFns env) env d
+                            (cvc.type.instantiateLevelParams
+                              cvc.levelParams us)
+                            (wtb.getAppArgs ++
+                              (List.range cnF).map fun i =>
+                                Expr.mkAppN (.const (projFnName T i) us')
+                                  (wtb.getAppArgs ++ [b])) >>= fun r₄ =>
+                        if r₄ then
+                          defEqList (fueledFns env) env d
+                            (a.getAppArgs.drop cnP)
+                            ((List.range cnF).map fun i =>
+                              Expr.mkAppN (.const (projFnName T i) us')
+                                (wtb.getAppArgs ++ [b]))
+                        else pure false
                       else pure false
                     else pure false
                   else pure false
@@ -1504,8 +1513,14 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
                         if r₃ then
                           projAppsI T us' targs j (List.range cnF) >>=
                             fun projs =>
-                          defEqListI (coreKnotI (mkFEnv env) f)
-                            (mkFEnv env) d (aargs.drop cnP) projs
+                          constTyAtM (mkFEnv env) c cn us >>= fun tyCtor =>
+                          iotaCertsI (coreKnotI (mkFEnv env) f)
+                              (mkFEnv env) d tyCtor (targs ++ projs) >>=
+                            fun r₄ =>
+                          if r₄ then
+                            defEqListI (coreKnotI (mkFEnv env) f)
+                              (mkFEnv env) d (aargs.drop cnP) projs
+                          else pure false
                         else pure false
                       else pure false
                     else pure false
@@ -1654,19 +1669,58 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
                             (htargs.mono hext₀₅)
                             (denoteT_mono hext₀₅ hdenb))
                             (fun s₆ projs hs₆ hext₆ hQp => ?_)
-                          refine defEqListI_sim ih hs₆
-                            ((haargs.mono (hext₀₅.trans hext₆)).drop cnP)
-                            hQp
-                            (fun x hx => hwa.getAppArgs x
-                              (List.mem_of_mem_drop hx)) ?_
-                          intro x hx
-                          obtain ⟨i', -, rfl⟩ := List.mem_map.mp hx
-                          refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
-                          intro y hy
-                          rcases List.mem_append.mp hy with hy | hy
-                          · exact hwwtb.getAppArgs y hy
-                          · rcases List.mem_singleton.mp hy with rfl
-                            exact hwb
+                          have hext₀₆ := hext₀₅.trans hext₆
+                          have hwprojs : ∀ x ∈ (List.range cnF).map
+                              (fun i => Expr.mkAppN
+                                (.const (projFnName Tv i) lus')
+                                (wtb.getAppArgs ++ [b])),
+                              WScoped d x := by
+                            intro x hx
+                            obtain ⟨i', -, rfl⟩ := List.mem_map.mp hx
+                            refine Expr.WScoped.mkAppN
+                              (by simp [WScoped]) ?_
+                            intro y hy
+                            rcases List.mem_append.mp hy with hy | hy
+                            · exact hwwtb.getAppArgs y hy
+                            · rcases List.mem_singleton.mp hy with rfl
+                              exact hwb
+                          -- task #137: the constructor-telescope
+                          -- certificate
+                          refine SimAt.bind_left (constTyAtM_eff hs₆
+                            (denoteN_mono
+                              (hextc.trans (hextT.trans hext₀₆)) hnmDen)
+                            (denoteLList_mono hext₀₆ hlusDen)
+                            hfc)
+                            (fun s₇ tyCtor hs₇ hext₇ hQtyc => ?_)
+                          have htycw : WScoped d
+                              (cvc.type.instantiateLevelParams
+                                cvc.levelParams lus) := by
+                            obtain ⟨htf, -⟩ := henv _ (find?_mem hfc)
+                            exact wscoped_instLevels_of_not_hasFvar
+                              htf _ _
+                          refine SimAt.bind (iotaCertsI_sim ih hs₇ hQtyc
+                            htycw
+                            ((htargs.mono (hext₀₆.trans hext₇)).append
+                              (hQp.mono hext₇))
+                            (fun x hx => by
+                              rcases List.mem_append.mp hx with hx | hx
+                              · exact hwwtb.getAppArgs x hx
+                              · exact hwprojs x hx))
+                            (fun s₈ r₄ r₄' hs₈ hext₈ hPr₄ => ?_)
+                          obtain rfl : r₄ = r₄' := hPr₄
+                          cases r₄ with
+                          | false =>
+                            simp only [Bool.false_eq_true, ↓reduceIte]
+                            exact SimAt.pure hs₈ rfl
+                          | true =>
+                            simp only [↓reduceIte]
+                            exact defEqListI_sim ih hs₈
+                              ((haargs.mono
+                                (hext₀₆.trans (hext₇.trans hext₈))).drop
+                                cnP)
+                              (hQp.mono (hext₇.trans hext₈))
+                              (fun x hx => hwa.getAppArgs x
+                                (List.mem_of_mem_drop hx)) hwprojs
                 · exact SimAt.pure hs rfl
               | axiomInfo cv => exact SimAt.pure hs rfl
               | defnInfo cv v h => exact SimAt.pure hs rfl

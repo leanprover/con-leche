@@ -2025,6 +2025,25 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp [pure, Except.pure] at h
   | true => ?_
   simp only [↓reduceIte] at h
+  -- task #137: the constructor-telescope certificate now runs inside
+  -- `structEtaCertWith` (it used to run only at `majorToCtor`'s eta
+  -- rescue).  The statement above is deliberately unchanged — the
+  -- conjunct is the bridge's to consume, and adding it here would
+  -- break every existing destructuring — so the successful cert is
+  -- stepped over.
+  cases hic2 : iotaCertsP env fuel d
+      (cvc.type.instantiateLevelParams cvc.levelParams us)
+      (wtb.getAppArgs ++ (List.range cnF).map fun i =>
+        Expr.mkAppN (.const (projFnName T i) us')
+          (wtb.getAppArgs ++ [b])) with
+  | error e => rw [hic2] at h; exact nomatch h
+  | ok r₄ => ?_
+  rw [hic2] at h
+  try dsimp only at h
+  cases r₄ with
+  | false => simp [pure, Except.pure] at h
+  | true => ?_
+  simp only [↓reduceIte] at h
   exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
     rfl, hfc, hal, rfl, hfT, he1, he2, he3, he4, he5,
     he5b, he6, he7, he8, he9, hlev, hic, hpc, hd1, h⟩
