@@ -4192,6 +4192,36 @@ premise identifies them).
 > and `ruleLhsAux`'s index tuple.  There are no others: `iotaRec` runs
 > exactly three comparisons.
 
+#### The family is CLOSED, and that is a different kind of knowledge
+
+`iotaRec` runs **exactly three** comparisons before it fires — levels,
+parameters, indices — and each one is a fact the fired law needs and
+the tower form did not.  All three are now identified, two threaded and
+one predicted with its shape and its cost written down.  So:
+
+> **No fourth narrowing exists to find.**  This class of defect is
+> *done* for the iota path.
+
+That is worth stating separately from the individual findings, because
+a closed family is not the same kind of knowledge as an open pattern.
+An open pattern says "look here again"; it never stops costing
+attention, and it never tells you when you are finished.  A closed one
+says "there is nothing further here", and the closure is *by
+construction* — it rests on counting the guards in `iotaRec`, not on
+having stopped finding instances.  The sixth instance was **predicted
+from the enumeration** rather than discovered by a proof failing, which
+is what makes the enumeration trustworthy: it produced a hit before it
+was consulted for reassurance.
+
+The **sweep** closes the same question one level out.  Every
+`obtain ⟨…⟩ := …_inv …` in the bridge whose pattern drops a conjunct:
+seven sites, six of the discarded conjuncts belonging to `iotaRec_inv`
+alone, and the remainder shape facts (`stripPis … |>.isSome`,
+`piResidual … = some _`, `cbody.getAppFn = .const _ _`) rather than
+guards a law could quantify past.  The probation the sibling rule
+imposes on neighbouring conjuncts is therefore **discharged for the
+whole bridge**, not just for the one inversion that raised it.
+
 **Not threaded yet, deliberately.**  The fourth and fifth narrowings
 were each done with the consumer in hand — `PUnit`'s eta rescue, then
 `Quot`'s field — and the playbook's own criterion is that *a hypothesis
