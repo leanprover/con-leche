@@ -102,7 +102,18 @@ The cost, stated: this field is *longer* than `RecRulesOk`, because the
 firing conditions live in its statement.  What it buys is short proofs
 at both ends — the install denotes the `_model.iota_j` theorem and
 instantiates it (`TeleTyped.appN`), and the fire site already holds
-the premises. -/
+the premises.
+
+**And the trade has an instance on the other side.**  `Deq.ofEqThm`
+(`Setlec/TTVerify/DeclInd.lean`) is *two lines* against the bulk of the
+model's 553-line `eta_rule_fold`, and for the same root cause as the
+debit above: a syntactic layer has no off-domain.  The model must
+produce a set-theoretic inhabitant of an interpreted equality and then
+read equality of *values* off it; here the equality is a syntactic
+former and `Deq.intro` **is** the elimination.  So the fired form is not
+uniformly dearer — it is dearer in *statements* and cheaper in
+*eliminations*, which is a characterized trade rather than a priced
+one-way cost. -/
 def RecRulesTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     env.find? n = some (.recInfo cv mI rP rules) →

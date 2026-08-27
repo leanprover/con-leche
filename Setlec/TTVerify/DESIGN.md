@@ -4394,6 +4394,55 @@ currency it was made for is unremarkable; one that pays in three others
 is evidence the decision was tracking something real about the
 object.*
 
+#### A second decision earns the tally: `eqUpToNames`, not `==`
+
+**The decision** (#105): the major pin comparing a preprocessed
+declaration against its model companion is `eqUpToNames`, not
+structural `==`.  **The stated reason** was narrow and defensive — the
+preprocessor renames binders, so `==` would reject streams that are
+correct.
+
+**What it has actually bought**, in three places that had nothing to do
+with binder names:
+
+1. **The nested-aux certification** (#105) could pin a lowered
+   `rP`-context rule at all.  Structural equality would have failed on
+   the index-variable split, which is not a renaming.
+2. **The projection audit** (#107) could state `annotateProjRec`'s
+   permanence: the 113 accepting `Exists` uses in `init-full` match
+   their templates up to names and *not* structurally.
+3. **The modeled-inductive folds** (§14.3, in progress) get their
+   public-versus-model telescope bridge from
+   `checkMemberVal_inv`'s `eqUpToNames` — the public type former's
+   domains against the model's, which is exactly the comparison the
+   fold needs and exactly the one `==` cannot make.
+
+Three payouts, none of them binder renaming.  The pattern matches the
+level-erasure tally's: the decision was made in one currency and has
+paid in three others, which is the tell that it was tracking the
+object rather than the symptom.  *Two entries is not yet a series, but
+the format has now been earned twice, and both times by a decision
+whose stated reason was the least interesting thing about it.*
+
+#### The transposition recipe, as arithmetic
+
+`Setlec/TTVerify/DeclInd.lean`'s header states the fold headers'
+template, and it is worth naming here because the remaining folds
+should each carry the same three-line count:
+
+> Split the model theorem's hypotheses into **`V`-free syntactic**
+> (find?s, `stripPis` shapes, telescope-domain matches,
+> `hasFvar = false`) and **semantic**.  The syntactic ones are
+> inherited *unchanged*.  The semantic ones are replaced one for one —
+> `interpClosed`/`∈ˢ` → `denote`/`HasType`, `TeleFit` → `VTeleTyped`,
+> the `Eq` former's value → `EnvTT.eq_law` — except `AnnotOk`, which
+> **vanishes**.
+
+`unit_rule_fold` is 12/9; `eta_rule_fold` is ~15/8.  Stating the count
+before writing the proof is what turns "transpose it" from a hope into
+a plan, and it is the same discipline as measuring the function you
+invert (§0).
+
 #### `Eq.rec`'s ingredients, complete
 
 The wrapper's four computational inputs are landed:
