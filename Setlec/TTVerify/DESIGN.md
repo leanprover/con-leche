@@ -190,6 +190,11 @@ The general rule: **a check whose input is produced by a cache must
 first invalidate that cache, or it is measuring the cache.**  The same
 reasoning applies to any "we ran it and saw nothing" gate.
 
+**It caught a defect on its first run** — an unused parameter in the
+increment that introduced the corrected procedure, by exactly the
+mechanism diagnosed above.  A process fix that finds something the first
+time it is used is as good a validation as a process fix gets.
+
 ### The second practice: measure rare shapes; the suite does not cover them
 
 > **A fixture suite being green says nothing about argument shapes it
@@ -3816,6 +3821,14 @@ flagged obligations are **consumed**, not sidestepped:
 Neither needed reshaping.  So the flag's aim was wrong and its firing
 was right: **the clauses it doubted are correctly stated; what was
 wrong was the premise the vacuous discharges let stand.**
+
+> **A fired flag's value is the investigation it forces, not the
+> accuracy of its aim.**  This one pointed at two clauses and found a
+> premise one level up.  Had it been scored on aim it would read as a
+> miss; scored on what it produced — a re-signed lemma, a rule about
+> vacuous discharges putting whole signatures on probation, and a
+> confirmation that the doubted clauses were fine — it is the most
+> productive flag of the six raised so far.
 
 **`hheadEta` at an unreserved head is the one thing that cost new
 content.**  All three disjuncts are refutable, but only two of them the
