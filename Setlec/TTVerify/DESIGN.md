@@ -5257,6 +5257,8 @@ So **no checker change is needed** for the fabricated spine, and the
 request that would have become #136 is withdrawn.  The `EtaLawTT`
 re-signing still stands — the field must *ask* for the premise — but
 its supplier is a certificate that has been there since task #71.
+(The number was reused: task #136 is §14.7.9's *different* request,
+the constructor-residual pin, and it landed.)
 
 **The generalisable lesson, because it is not "look harder".**  A
 guard can live at the caller and still be part of the callee's
@@ -5283,7 +5285,21 @@ Before any request: check whether `checkMemberVal`'s `eqUpToNames`
 against the model constructor, or `EtaPins`' constructor-model
 conjuncts, already deliver it — and if a request is still warranted,
 price it with the same corpus measurement §14.7.4 used.
-#### 14.7.9 The remaining link, read and then measured
+#### 14.7.9 GRANTED IN PART (task #136): the remaining link, read and then measured
+
+**Landed 2026-08-27, checker half only.**  `indBlockCaps` /
+`indBlockCapsF`'s `eta` field now carries the requested conjunct — the
+public constructor's telescope residual is `directFam cvT.name
+cvT.levelParams nP nF` — guarded by the capability exactly as the
+measurement below prescribes.  The **verify-side threading did not
+land**: `EtaPins` is parameterised by `(env', T, lps, caps)` and the
+fact is about `cvC.type`, which none of those four reach; see the
+FINDING under "The eta capability pins the constructor's residual" in
+`DESIGN.md` for the three spellings tried and why each fails.  So
+`eta_rescue`'s supplier for `EtaLawTT`'s third premise still has no
+route from the install, and a carrier decision is owed before
+`EtaRhsTyped` can be discharged from this pin.  The rest of this
+section is the original request, kept for the reasoning.
 
 §14.7.8 left one question open and told its author to read before
 requesting.  Read, then measured; here is the outcome.

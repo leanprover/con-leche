@@ -694,10 +694,24 @@ def installProjTemplateStep (T ctorName : Name) (lps : List Name)
     installProjTemplate e T ctorName lps nP nF i
   else pure e
 
-/-- The capabilities recorded for a single-constructor modeled block. -/
+/-- The capabilities recorded for a single-constructor modeled block.
+
+The `eta` field's middle conjunct is task #136's: the constructor's
+telescope residual is the family applied to the parameter variables —
+literally the conjunct `checkDirectCtor` (`Setlec/Kernel/Checker.lean`)
+already makes on the direct path, here on the modeled one and
+**guarded by the capability**.  Unguarded it would reject real
+streams: the indexed families (`Acc`, `HEq`, `Int.NonNeg`, …) have
+residual `T p⃗ i⃗`, and they are exactly the blocks that earn no
+capability (measured: 978/978 eta-capable blocks satisfy it, all 99
+failures are capability-free).  `unitlike` does not need it — its
+right-hand side is a law premise, not a fabricated spine. -/
 def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
     IndCaps where
   eta := (cvC.levelParams = cvT.levelParams) &&
+    (match cvC.type.stripPis (nP + nF) with
+     | some (_, cbody) => cbody == directFam cvT.name cvT.levelParams nP nF
+     | none => false) &&
     checkEtaThm env cvT.name cvC.name cvT.levelParams nP nF
   etaCtor := cvC.name
   etaParams := nP

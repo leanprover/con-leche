@@ -8871,3 +8871,146 @@ conjunct was negated and the binary rebuilt: init-prelude then
 *rejects* (exit 1, at `PProd.rec._model`) and e2e falls to 29/67.  The
 check is load-bearing and passes at the live sites; that is the
 positive half of the measurement the byte-identity gate cannot give.
+
+## The eta capability pins the constructor's residual (2026-08-27, task #136)
+
+**#135's direct sibling, and the fifth change the TT bridge (task
+#119) asked of the checker.**  Same protocol — a measured request, one
+conjunct, both mirrors, the byte-identity + negation pair of gates.
+Siblings: tasks #126, #129, #130, #135.
+
+**The gap** (`Setlec/TTVerify/DESIGN.md` §14.7.8–§14.7.9).  `EtaLawTT`'s
+eta-rescue branch fabricates the constructor spine and gets, from task
+#71's synthetic-spine certificate, `⊢ fab : ⟦rest⟧` where `rest` is the
+**constructor's telescope residual**.  The law's premise wants
+`⊢ fab : T p⃗`.  Closing that needs "a stored constructor's result type
+is its own family applied to the parameters".  That fact is checked on
+the **direct** path — `checkDirectCtor` (`Setlec/Kernel/Checker.lean`),
+`cbody == directFam T lps nP nF`, re-checked opened one screen later —
+and had no counterpart on the **modeled** path, which is the one
+`EtaFoldTT` serves.  The public → model chain (`checkMemberVal`'s
+`eqUpToNames`) transports a shape but has nothing to transport *from*:
+models are stored opaque.
+
+**The measurement came before the request.**  `indBlockCapsF` is the
+one place where `cvT`, `cvC`, `nP`, `nF` are all in scope, so it was
+instrumented to report, per modeled block, both capability verdicts and
+whether the public constructor's residual is `directFam`.  Whole
+corpus, arena + e2e:
+
+| `eta` | `unitlike` | residual is `directFam` | blocks |
+|---|---|---|---|
+| true | false | true | 959 |
+| true | true | true | 19 |
+| false | true | true | 72 |
+| false | false | true | 228 |
+| false | false | **false** | **99** |
+
+**978/978 eta-capable blocks satisfy it; all 99 failures are blocks
+with neither capability** — the *indexed* families (`Acc`, `HEq`,
+`Int.NonNeg`, `IndexedSingleton`, `SortElimProp`, …), whose residual is
+`T p⃗ i⃗`.  So the naive form of this check is **wrong**: unguarded it
+rejects 99 real sites.  This is the measurement earning its keep — the
+suite goes green on a guarded check and red on an unguarded one, and
+only counting told which.
+
+**The check.**  One conjunct on `indBlockCapsF`'s **`eta` field**, so
+that it guards only whether the capability is granted and never
+whether the block installs:
+
+```
+(match cvC.type.stripPis (nP + nF) with
+ | some (_, cbody) => cbody == directFam cvT.name cvT.levelParams nP nF
+ | none => false)
+```
+
+`unitlike` does not get it — its right-hand side is a law premise, not
+a fabricated spine — and `checkEtaThmF` does not get it either: that
+check never receives the constructor.  `directCaps`
+(`Setlec/Kernel/Checker.lean`) needs nothing; the direct path already
+makes the conjunct, twice.
+
+**Placed as the middle conjunct, deliberately.**  `eta` reads
+`levelParams && residual && checkEtaThm…`, so the two existing
+inversion sites (`Setlec/Model/Extend/Decl.lean`,
+`Setlec/TTVerify/DeclInd.lean`) keep spelling the eta-theorem half
+`hcape.2` after `simp only [indBlockCaps, Bool.and_eq_true]`.  Nothing
+downstream changed.
+
+**Mirror surface.**  As in #135 this is an install-time syntactic
+`Bool`, not a certificate, so the cert-skipping driver is not a
+separate copy — `CheckerNC` calls the *same* `indBlockCapsF`.  Two
+places:
+
+| site | file | role |
+|---|---|---|
+| `indBlockCapsF` | `Setlec/Kernel/CheckerS.lean` | the version that executes, on both the S and NC drivers |
+| `indBlockCaps` | `Setlec/Kernel/Modeled.lean` | the `Env` version — never reached at runtime, but the domain of the Verify inversions, pinned to the live one by `indBlockCapsF_eq` (`Setlec/Verify/CheckerF.lean`) |
+
+`indBlockCapsF_eq` needed no proof change: the new conjunct is
+environment-independent, so its two sides are syntactically the same
+and the existing `simp only […] <;> rfl` still closes it.
+
+**The verify-side threading is NOT in this task's landing** — see the
+finding below.  What landed is the checker pin and its mirror; the
+`EtaPins` conjunct #136 was requested to add cannot be stated as
+specified, and that is reported rather than improvised around.
+
+**FINDING: `EtaPins` cannot carry this fact.**  `EtaPins env' T lps
+caps` (`Setlec/Verify/Extend/Iota.lean`) is parameterised by the
+environment, the family name, its level parameters and the **capability
+record**.  Every conjunct it has is either a `find?`-fact about a
+*model-side* constant in `env'` or plain syntax about that constant's
+stored type.  The new fact is about `cvC.type` — the **public,
+pre-install, un-annotated** constructor value — and `cvC` is reachable
+from none of `EtaPins`' four arguments (`caps` keeps only
+`etaCtor`/`etaParams`/`etaFields`).  Three spellings were considered
+and each fails for a different reason:
+
+1. *About `env'.find? caps.etaCtor`* — not establishable.  `EtaPins` is
+   established at the **pre-block** environment
+   (`etaPinsT_of_caps`, `Setlec/TTVerify/DeclInd.lean`; `hpinsT0`,
+   `Setlec/Model/Extend/Decl.lean`), where the public constructor is
+   not installed yet.
+2. *The same, in `∀`-guarded form so it is vacuous pre-install* — not
+   transportable.  `EtaPins.step` takes only a `find?`-preservation
+   hypothesis; a `∀` over the *extended* environment is exactly what
+   such a hypothesis cannot preserve, and proving it for the
+   constructor's own install step needs "annotation preserves a
+   constructor type's residual", which is neither stated nor obviously
+   true (`checkMemberVal` stores `checkConstantVal`'s **annotated**
+   type, and the certificate the bridge inverts reads *that* type).
+3. *About the model constructor `cvmC.type`* — establishable and
+   transportable, but it is a **different check**: the corpus
+   measurement above is of the public residual, and swapping in an
+   unmeasured model-side check is the mistake §14.7.9 warns against.
+
+There is also no named "inversion theorem covering the caps
+computation" to forward it through: the two sites invert `indBlockCaps`
+inline with `simp only [indBlockCaps, Bool.and_eq_true]`.  Carrying
+this fact needs either an extra `EtaPins` parameter (37 use sites, 8 of
+them in `Setlec/TTVerify/*`) or a new carrier predicate at the
+`checkIndDecl` level where `cvC` is in scope — a design decision, not a
+mechanical mirror of #135, and outside this task's fence.
+
+**Gates.**  Build warning-free (touched oleans force-recompiled),
+`lake test`, arena 90/92, e2e 67/67, split driver 11/11, infer-only
+5/5 and the full `--infer-only` sweep, axioms exactly
+`[propext, Classical.choice, Quot.sound]` on the nine consistency
+theorems, no sorries, init-prelude byte-identical — stdout, stderr,
+exit — in the certified, the `SETLEC_NO_PROOF_CERTS=1` and the
+`SETLEC_INFER_ONLY=1` modes against a binary built from pre-change
+master.  Cost: 38.7961 G → 38.8044 G instructions:u on init-prelude,
+**+0.021 %** (median of three) — one `stripPis` and one `==` per
+modeled single-constructor block.
+
+**Negation probe.**  Byte identity does not prove a conjunct *true*,
+only that no verdict moved, and a capability dropped everywhere would
+be invisible if nothing consumed it.  So the conjunct was negated
+(`!(cbody == directFam …)`) in both mirrors and the binary rebuilt:
+init-prelude then **rejects** (exit 1, `invalid: type mismatch in
+definition PProd.rec._model`) and e2e falls to **29/67**, the split
+driver to 9/11.  Same signature as #135's probe, which is the point:
+the eta capability is load-bearing on the real streams, and this
+conjunct passes at every live site.  The negation was then reverted and
+byte identity re-confirmed in all three modes.

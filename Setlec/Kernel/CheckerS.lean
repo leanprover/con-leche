@@ -274,10 +274,14 @@ def checkUnitThmF (fe : FEnv) (T : Name) (lps : List Name)
      | _, _ => false)
   | _, _, _ => false
 
-/-- `indBlockCaps` through the index. -/
+/-- `indBlockCaps` through the index (including task #136's
+constructor-residual conjunct on `eta`; see there). -/
 def indBlockCapsF (fe : FEnv) (cvT cvC : ConstantVal) (nP nF : Nat) :
     IndCaps where
   eta := (cvC.levelParams = cvT.levelParams) &&
+    (match cvC.type.stripPis (nP + nF) with
+     | some (_, cbody) => cbody == directFam cvT.name cvT.levelParams nP nF
+     | none => false) &&
     checkEtaThmF fe cvT.name cvC.name cvT.levelParams nP nF
   etaCtor := cvC.name
   etaParams := nP
