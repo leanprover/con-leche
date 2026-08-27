@@ -338,17 +338,24 @@ instance : Inhabited IState := ⟨{}⟩
 (task #145).  The memo is unbounded in principle — it accumulates one
 entry per distinct `(target, values, cursor)` triple until the next
 flush — and its space cost is real: the `Std.Time` cone probe paid
-+26.6 % peak RSS for −6.0 % instructions.  Flushes come at
-environment transitions, so a *single* pathological declaration is the
-only shape that can grow it without bound; this cap is the guard
-against that shape and nothing else.  It is deliberately far above
-what any real stream reaches (the `Std.Time` cone peaks around 3.7 M
-entries, `init-prelude` and the Mathlib prefixes an order of magnitude
-below that), so no measured configuration ever trips it.  On overflow
-the table is dropped whole — a fresh memo, no eviction policy: at this
-size the run is already pathological and the only property worth
-keeping is the bound. -/
-def instCCap : Nat := 16000000
++26.6 % peak RSS for −6.0 % instructions.  Flushes come at environment
+transitions, so a *single* declaration is the only shape that can grow
+it without bound; this cap is the guard against that shape and nothing
+else.
+
+Measured peaks (certified lane): `init-prelude` **8 934** entries, a
+40 % Mathlib prefix **115 802**, and the `Std.Time` cone — a
+stress stream that needs twice the shipped `checkFuel` to finish at
+all — **18 318 022**, all of the last in one flush epoch, for 13.6 GB
+peak RSS.  The cap is set above that worst case on purpose: the
+measured configuration must be the one that ships, so the guard binds
+only *past* the most pathological stream on record.  At roughly 170
+bytes an entry it bounds the memo's own footprint at some 5 GB.
+
+On overflow the table is dropped whole — a fresh memo, no eviction
+policy: past this size the run is already pathological and the only
+property worth keeping is the bound. -/
+def instCCap : Nat := 32000000
 
 /-- The interned checker monad. -/
 abbrev CheckIM := StateT IState CheckM
