@@ -54,6 +54,29 @@ theorem mono {st st' : EStore} (hext : Ext st st') :
     ⟨denoteT_mono hext h, mono hext (is := is) (xs := xs) hs⟩
   | [], _ :: _, h | _ :: _, [], h => nomatch h
 
+/-- Transport along a pointwise denotation equality (the tier-bracket
+open, which leaves `denoteT` alone). -/
+theorem of_denoteT_eq {st st' : EStore}
+    (h : ∀ i, st'.denoteT i = st.denoteT i) :
+    ∀ {is : List EIdx} {xs : List Expr}, DenL st is xs → DenL st' is xs
+  | [], [], _ => trivial
+  | i :: is, _ :: xs, ⟨hi, hs⟩ =>
+    ⟨(h i).trans hi, of_denoteT_eq h (is := is) (xs := xs) hs⟩
+  | [], _ :: _, hh | _ :: _, [], hh => nomatch hh
+
+/-- An index list denotes at most one expression list (`denoteT` is a
+function) — the reading rule for a memo entry keyed by index lists
+(task #145). -/
+theorem det {st : EStore} :
+    ∀ {is : List EIdx} {xs ys : List Expr}, DenL st is xs →
+      DenL st is ys → xs = ys
+  | [], [], [], _, _ => rfl
+  | _ :: is, _ :: xs, _ :: ys, ⟨h, hs⟩, ⟨h', hs'⟩ => by
+    obtain rfl : _ = _ := Option.some.inj (h.symm.trans h')
+    rw [det (is := is) (xs := xs) (ys := ys) hs hs']
+  | [], [], _ :: _, _, h | [], _ :: _, _, h, _
+  | _ :: _, [], _, h, _ | _ :: _, _ :: _, [], _, h => nomatch h
+
 theorem append {st : EStore} :
     ∀ {is is' : List EIdx} {xs xs' : List Expr}, DenL st is xs →
       DenL st is' xs' → DenL st (is ++ is') (xs ++ xs')

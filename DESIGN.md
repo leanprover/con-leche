@@ -9613,6 +9613,167 @@ correctly so: this is a hard certificate inside an install check, so a
 violation declines rather than silently dropping a capability.
 Reverted; byte identity re-confirmed in all three modes.
 
+## The `instListM` sites get a persistent memo (2026-08-27, task #145)
+
+**One memo, eight call sites, nothing else.**  `instListM`
+(`Setlec/Kernel/CoreI.lean`) — interned bulk instantiation — now
+consults `IState.instC`, a persistent map
+`(EIdx × List EIdx × Nat) → EIdx` from the *whole argument tuple* of
+the pure operation to its result.  Everything else about the checker
+is unchanged, and every verdict on every fixture is unchanged.
+
+**Where the work was.**  A per-call-site census (`CPCENSUS`) and a
+per-site memo bitmask (`CPMEMO`) over all 23 bulk-instantiation sites,
+run over three streams and three lanes, put the whole win in the eight
+`instListM` sites (the probe's group `list`, sites 0–7): the recursor
+argument-certificate walk `iotaCertsIAux` (sites 0/1), `betaPeelI`
+(2–5) and `betaPeelNC` (6/7).  All three walk a binder telescope
+argument by argument while an accumulator grows one element at a time,
+so the *same* `(telescope, argument prefix)` pair is instantiated once
+per remaining argument — quadratic re-instantiation of a shape whose
+result is a pure function of the arena.  On a 40 % Mathlib prefix the
+census counts 1.57 M fires at those sites against 0.43 M distinct
+keys.  Attribution, certified lane, same prefix: `list` −19.64 %,
+`beta` −9.90 %, `iota` −8.46 %, `rev` (all fifteen `instListRevM`
+sites together) −4.31 %.
+
+**Why the `instListRevM` sites are deliberately left alone.**  They
+are the binder loops (`inferLamsI`, `inferPisI`, `annotateLamsI`,
+`annotatePisI`) and the application spines (`inferSpineI` and its
+infer-only and cert-skipping twins) — the sites that exist *because*
+they mirror the reference kernels' `instantiateRev` discipline
+(task #97).  The match-reference ruling forbids drifting from the
+references' strategy for a merely verdict-preserving gain; a memo is
+not a strategy change, but it is still machinery the references do not
+have, and machinery is carried only where the measurement pays for it.
+Here it does not: adding the fifteen `rev` sites on top of `list` buys
+a further −0.3 % on the `Std.Time` cone certified, *loses* 0.5 points
+on the same cone infer-only (−3.77 % → −3.31 %), and costs another
++26 % peak RSS (13.3 GB → 16.1 GB).  Scoped out, and the scoping is
+the measured configuration verbatim: `CPMEMO=255`.
+
+**The null result is the control.**  With certificates skipped
+(`SETLEC_NO_PROOF_CERTS=1`) the memo is worth **0.0 %** on all four
+streams — the probe's 0.00 %, reproduced here as +0.03 % to +0.06 %,
+i.e. the cost of the extra hash lookup and nothing more.  That is the
+expected shape and the reason to believe the attribution: the
+`iotaCertsIAux` and `betaPeelI` re-instantiation only happens because
+the certificates re-walk telescopes the reduction itself does not,
+so with the certificates gone there is nothing to collapse.  It also
+prices the mechanism honestly — this is not a reduction speed-up, it
+is the *certificate tax* getting cheaper.
+
+**Keys are depth-free.**  The key is `(target, values, cursor)`: every
+argument of `EStore.instantiateListI`, and nothing else.  The `cursor`
+is that operation's own de Bruijn offset — at all eight sites the
+default `0` — not the checker's ambient binder depth, so the entry is a
+closed fact about a pure function and the #31 depth-free discipline is
+satisfied by construction rather than by a side condition.
+
+**The size knob.**  `instCCap` (`Setlec/Kernel/CoreI.lean`) bounds the
+table at **32 000 000** entries; on overflow it is dropped whole and
+refilled, no eviction policy.  Flushes come at environment
+transitions, so only a single declaration can grow the table without
+bound, and the cap guards that shape alone.  Measured peaks, certified
+lane, via a throwaway peak counter: `init-prelude` **8 934**,
+the 40 % Mathlib prefix **115 802**, and the `Std.Time` cone —
+a stress stream that needs twice the shipped `checkFuel` to finish at
+all — **18 318 022**, all of the last inside *one* flush epoch, for
+13.6 GB peak RSS at roughly 170 bytes an entry.  The cap sits above
+that worst case on purpose: the configuration that ships must be the
+configuration that was measured, so the guard binds only past the most
+pathological stream on record, at some 5 GB of memo.
+
+An earlier guess of 16 M was measured and *rejected*: the `Std.Time`
+cone tripped it (peak read back as exactly 16 000 000, RSS 12.5 GB
+instead of 13.6 GB), i.e. the cap would have silently truncated the
+configuration the numbers below were taken from.  The rule the value
+follows is that the benchmarked configuration must be the shipped one;
+the cap is a guard past the frontier, never a participant in it.
+
+**A stricter knob, deliberately not taken.**  The `Std.Time` cone's
++26.7 % peak RSS is a heavy tax, and the analysis that excuses it —
+one declaration's transient, bounded by `instCCap` — is an argument
+about pathology, not a bound anyone would want on a hot path.  If that
+trade is ever refused, the stricter form is a **per-declaration
+flush**: `instC` is already dropped in `IState.flushed`, so moving it
+to the driver's per-declaration boundary instead of the environment
+transition is a one-line change on plumbing that exists.  It would cap
+retention at one declaration's working set at the cost of the
+cross-declaration hits — unmeasured, and not measured here because the
+measured configuration is the one that ships.
+
+**Verification: the memo is self-certifying, like `ienv`.**  `ISOK`
+(`Setlec/Verify/SimI.lean`) gains one clause — every entry
+`(i, vs, d) ↦ r` comes with `∃ a ws`, `denoteT i = some a`,
+`DenL vs ws` and `denoteT r = some (a.instantiateList ws d)`.  No
+environment, no fuel, no depth: a pure-substitution fact, `Ext`-stable
+by `denoteT_mono` and `DenL.mono`, so it survives arena extension and
+would survive every environment transition — `flushS` drops the table
+regardless, because the tier bracket may *truncate* the arena its keys
+index into (`ISOK.truncFlush`).  `instListM_eff` gains a hit case: the
+entry is backed, `denoteT` is a function and `DenL` is functional
+(`DenL.det`, new), so the cached index denotes the required
+instantiation and the state is unchanged; the miss case inserts via
+`ISOK.insertInstC`, generalised over the retained table so the
+overflow branch (insert into the empty map) is the same lemma.  The
+bracket-open transport takes one bullet (`DenL.of_denoteT_eq`, new).
+The other twelve `ISOK` reconstruction sites take one field apiece.
+
+**One casualty.**  `instListRevM_eq` — `instListRevM e vs d =
+instListM e vs.toList.reverse d`, the task #97 identification — is
+*no longer true*: one side memoizes and the other does not.  It is
+deleted, and `instListRevM_eff` repeats the ten-line raw proof over
+`instantiateRevI_eq` instead of routing through `instListM_eff`.  The
+two remain equal at the spec level, which is all any caller used it
+for.
+
+**Measurements** (median of three, `instructions:u` and peak RSS;
+`--pre` on preprocessed streams; the `Std.Time` cone against a pair of
+`checkFuel := 200000` builds, since the shipped 100 000 does not
+finish it):
+
+| stream | lane | base | new | Δ instr | base RSS | new RSS | Δ RSS |
+|---|---|---|---|---|---|---|---|
+| init-prelude | certified | 33.72 G | 32.45 G | **−3.76 %** | 110.6 MB | 110.8 MB | +0.2 % |
+| init-prelude | yolo | 11.36 G | 11.37 G | +0.06 % | 105.1 MB | 105.6 MB | +0.5 % |
+| grind-ring-5 | certified | 127.60 G | 114.92 G | **−9.94 %** | 455.9 MB | 539.9 MB | +18.4 % |
+| grind-ring-5 | yolo | 30.49 G | 30.50 G | +0.03 % | 162.5 MB | 162.1 MB | −0.3 % |
+| Mathlib 40 % | certified | 1727.47 G | 1391.10 G | **−19.47 %** | 730.6 MB | 749.6 MB | +2.6 % |
+| Mathlib 40 % | yolo | 176.06 G | 176.11 G | +0.03 % | 450.3 MB | 451.1 MB | +0.2 % |
+| Std.Time cone | certified | 1648.15 G | 1556.13 G | **−5.58 %** | 10475 MB | 13273 MB | +26.7 % |
+| Std.Time cone | yolo | 51.12 G | 51.15 G | +0.05 % | 181.4 MB | 182.2 MB | +0.5 % |
+
+The probe predicted −6.04 % / +26.6 % on the `Std.Time` cone certified
+and −19.64 % / +2.5 % on the Mathlib prefix; both reproduce (−5.58 %,
+−19.47 %).  `init-prelude` and `grind-ring-5` were not in the probe
+matrix: the first is the smallest win of the four and the second the
+largest per-RSS-point, and `grind-ring-5`'s +18.4 % is the largest
+memory cost any *shipped-fuel* stream pays.
+
+**A new baseline to quote.**  `grind-ring-5`'s −9.94 % was not
+predicted by the probe and is the surprise of the run; whoever picks
+up the **#140** regression question after #147 should measure against
+its *new* certified baseline of **114.92 G** instructions:u (`--pre`
+on the preprocessed fixture, median of three), not the 127.60 G that
+pre-#145 master reads.  Part of whatever #140 was chasing on that
+fixture is now gone, and comparing across the two baselines would
+double-count this task's win.
+
+**Gates.**  Build warning-free (full recompile), `lake test`, arena
+90/92, e2e 72/72, split driver 11/11, infer-only 5/5 and the full
+`tests/arena.sh --infer-only` sweep, the yolo sweep green (138 arena +
+72 e2e as expected), axioms exactly
+`[propext, Classical.choice, Quot.sound]` on all thirteen consistency
+theorems, no sorries.  Init-prelude
+(`_tmp/perfcmp/init-prelude.preprocessed.ndjson`, `--pre`, 3653
+declarations) **byte-identical** — stdout, stderr, exit 0 — against a
+binary built from pre-change master in the certified, the
+`SETLEC_NO_PROOF_CERTS=1` and the `SETLEC_INFER_ONLY=1` modes.  Byte
+identity is the strong statement here: a memo that ever returned a
+different index than the recomputation would move a verdict, and the
+arena's hash-consing is exactly why it cannot.
+
 ## The three-mode setting (2026-08-27, task #147)
 
 **The user-ruled shape.**  One three-valued mode replaces the flag

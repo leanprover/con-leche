@@ -323,8 +323,39 @@ structure IState where
   lsimpC : EStore.LMemo := {}
   lnzC : Std.HashMap LIdx Bool := {}
   eqvC : Std.HashMap (LIdx × LIdx) Bool := {}
+  /-- Persistent memo of bulk instantiation at the `instListM` sites
+  (task #145), keyed by the *whole argument tuple* of the pure
+  operation — target index, value-index list, cursor — so the entry is
+  a fact about `instantiateListI` alone and mentions no ambient
+  binder depth (the `#31` depth-free discipline; at every call site
+  the cursor is the default `0`).  Bounded by `instCCap` and flushed
+  with the entry-point memos. -/
+  instC : Std.HashMap (EIdx × List EIdx × Nat) EIdx := {}
 
 instance : Inhabited IState := ⟨{}⟩
+
+/-- Entry bound for the persistent bulk-instantiation memo `instC`
+(task #145).  The memo is unbounded in principle — it accumulates one
+entry per distinct `(target, values, cursor)` triple until the next
+flush — and its space cost is real: the `Std.Time` cone probe paid
++26.6 % peak RSS for −6.0 % instructions.  Flushes come at environment
+transitions, so a *single* declaration is the only shape that can grow
+it without bound; this cap is the guard against that shape and nothing
+else.
+
+Measured peaks (certified lane): `init-prelude` **8 934** entries, a
+40 % Mathlib prefix **115 802**, and the `Std.Time` cone — a
+stress stream that needs twice the shipped `checkFuel` to finish at
+all — **18 318 022**, all of the last in one flush epoch, for 13.6 GB
+peak RSS.  The cap is set above that worst case on purpose: the
+measured configuration must be the one that ships, so the guard binds
+only *past* the most pathological stream on record.  At roughly 170
+bytes an entry it bounds the memo's own footprint at some 5 GB.
+
+On overflow the table is dropped whole — a fresh memo, no eviction
+policy: past this size the run is already pathological and the only
+property worth keeping is the bound. -/
+def instCCap : Nat := 32000000
 
 /-- The interned checker monad. -/
 abbrev CheckIM := StateT IState CheckM
@@ -419,22 +450,47 @@ def inst1M (e v : EIdx) (d : Nat := 0) : CheckIM EIdx :=
       (r', { s with store := store })
 
 /-- Memoized interned `Expr.instantiateList` (bulk instantiation,
-task #50); identity shortcut as in `inst1M` (task #72). -/
+task #50); identity shortcut as in `inst1M` (task #72).
+
+Task #145: beyond the shortcut and the per-call node memo inside
+`instantiateListI`, the *result* is memoized across calls in
+`IState.instC`.  The eight `instListM` sites are the recursor-argument
+certificate walk (`iotaCertsIAux`) and the two β-peels, which re-enter
+the same `(binder telescope, argument prefix)` pair once per argument;
+persisting the result collapses that quadratic re-instantiation
+(−6.0 % instructions on the `Std.Time` cone, −19.6 % on a 40 %
+Mathlib prefix, both certified).  The sibling `instListRevM` is
+deliberately *not* memoized: it serves the binder loops and the
+application spines, which are faithful to the reference kernels'
+`instantiateRev` discipline and were measured to lose on one lane
+while costing a further +26 % RSS. -/
 def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
     CheckIM EIdx :=
   modifyGet fun s =>
     if s.store.bvarBoundD e ≤ d then (e, s)
     else
-      let store := s.store
-      let s := { s with store := EStore.empty }
-      let (r', store) := store.instantiateListI e vs d
-      (r', { s with store := store })
+      match s.instC[(e, vs, d)]? with
+      | some r => (r, s)
+      | none =>
+        -- linear discipline (task #64): detach arena *and* memo before
+        -- the update, so neither is shared while `instantiateListI`
+        -- mutates the arena
+        let store := s.store
+        let mp := s.instC
+        let s := { s with store := EStore.empty, instC := {} }
+        let mp := if mp.size < instCCap then mp else {}
+        let (r', store) := store.instantiateListI e vs d
+        (r', { s with store := store, instC := mp.insert (e, vs, d) r' })
 
 /-- Memoized interned bulk instantiation on a reversed accumulator
 array — innermost binder **last**, the binder loops' push order
 (lean4lean's `instantiateRev` discipline, task #97); identity shortcut
-as in `instListM`.  Equal to `instListM e vs.toList.reverse d`
-(`instListRevM_eq`, `Setlec/Verify/SimI.lean`). -/
+as in `instListM`.  Task #145 unpicked the former definitional
+identity with `instListM e vs.toList.reverse d`: this sibling is *not*
+memoized (measured: no win here, and a further +26 % peak RSS), so the
+identification survives only as the shared spec —
+`instantiateRevI_eq` — and `instListRevM_eff`
+(`Setlec/Verify/SimI.lean`) repeats the raw proof. -/
 def instListRevM (e : EIdx) (vs : Array EIdx) (d : Nat := 0) :
     CheckIM EIdx :=
   modifyGet fun s =>

@@ -114,7 +114,7 @@ theorem ISOK.enable {s : IState} (hs : ISOK mode env s) :
       = denoteLList s.store.denoteL us :=
     fun us => denoteLList_congr (fun u _ => hL u)
   refine ⟨enableTierTwo_twf hs.wf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-    ?_, ?_, ?_⟩
+    ?_, ?_, ?_, ?_⟩
   · intro n us i hl
     obtain ⟨nm, lus, ci, hnm, h0, hfind, h2⟩ := hs.constTy n us i hl
     exact ⟨nm, lus, ci, (hN n).trans hnm, (hLL us).trans h0, hfind,
@@ -156,6 +156,10 @@ theorem ISOK.enable {s : IState} (hs : ISOK mode env s) :
     obtain ⟨hty, hval⟩ := hs.ienv nm ent hl
     exact ⟨(h1 ent.ty).trans hty,
       fun vE vi hv => (h1 vi).trans (hval vE vi hv)⟩
+  · intro i vs d r hl
+    obtain ⟨a, ws, h1', h2, h3⟩ := hs.instC i vs d r hl
+    exact ⟨a, ws, (hT i).trans h1', DenL.of_denoteT_eq hT h2,
+      (hT r).trans h3⟩
 
 /-- The discarding close re-establishes the invariant at a flag-off
 state: the flushed caches' clauses are vacuous, the level caches and
@@ -168,7 +172,7 @@ theorem ISOK.truncFlush {s : IState} (hs : ISOK mode env s) :
   have hL : ∀ u, s.store.truncateTierTwo.denoteL u = s.store.denoteL u :=
     truncateTierTwo_denoteL s.store
   refine ⟨(truncateTierTwo_wf hs.wf).toTWF, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-    ?_, ?_, ?_, ?_, ?_⟩
+    ?_, ?_, ?_, ?_, ?_, ?_⟩
   all_goals try (intros; simp_all [IState.flushed]; done)
   · intro u r hl
     obtain ⟨h1', h2⟩ := hs.lsimp u r hl
