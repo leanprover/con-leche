@@ -6101,3 +6101,114 @@ each case a "trivial" step that would not go through was describing
 the object.  **Try the trivial lemmas early; the ones that refuse are
 the design.**
 
+
+## 17. The plain bottom, closed — and the slot-sort request, measured
+
+Written at the landing of `IndBottomPlainTT`
+(`Setlec/TTVerify/IndBottomPlain.lean`, sorry-free, master `ea9fcea`).
+Three things belong on the record: the answer to §16.1's structural
+question, the machinery the bottom actually needed (§16.1's budget was
+right about the shape and wrong about one prerequisite), and the
+request for the one premise still carried.
+
+### 17.1 §16.1(4) answered: the claims are available, the model's way
+
+`modeled_bottom_plain` takes `m₀ : EnvModel V env₀` — the invariant at
+the *provisional* environment — and `provisionRecs_sound`
+(`Setlec/Model/Extend/Recs.lean`) is what supplies it.  The bridge
+does the same: `IndBottomPlainTT` takes `m₀ : EnvTT env₀` plus
+`hstep : CheckStepTT` (proved — `checkStepTT`), and derives
+`DefEqClaimsTT`/`InferClaimsTT` by `checkSoundTT`.  The assembly owes
+the transpose of `provisionRecs_sound` (each rule-less recursor is an
+`EnvTT.cons` whose `hheadRec` is vacuous) and of the `SwapList`
+transport (the law proved at `env₀` moves to the final environment,
+where the recursors differ only in their rule lists, which `denote`
+never reads).  **No design question: the model's structure was the
+answer.**
+
+### 17.2 What the bottom needed that §16.1 did not list
+
+* **The depth mismatch, and the padding trick.**  The claims return
+  `Deq`s in a context of length *exactly* `rP + cnF` (`CtxOk`'s first
+  conjunct), while a zipper step at position `n` holds only `n` fitted
+  values.  `CtxOk` constrains only the entries its subject's leaves
+  reach, so the untouched slots are chosen `.sort 0` and instantiated
+  with the closed inhabitant `∀ p : Prop, p` (`CtxSpine.pad`,
+  `dummyPropT`) — a strengthening lemma is neither available nor
+  needed.  The set model never meets this: a valuation restricts for
+  free.
+* **The cross-frame instantiation** (`instPisAt_denote_cross`).  The
+  kit's constructor runs open `cvj.type` at *scattered* statement
+  variables; the fire site walks the denoted tower at its own values.
+  One lemma relates them, for any value assignment, with one
+  commutation (`instSeq_inst0`) as its whole content.  This is the
+  fired form's price for the model's `ctor_pkg_*` machinery, paid
+  once.
+* **`IotaIndexPin` was under-strong — found by using, as predicted.**
+  `mkAppN` decompositions are not unique and `Deq` has no application
+  injectivity, so the pin's `getD` facts about an unlocatable split
+  could not be aligned with the bottom's own reading of `restC`.  The
+  re-signing (master `c16235e`) adds the arity, disjunctively
+  (`mI = rP ∨ cargs.length = cnP + (mI - rP)`): with no indices the
+  facts are vacuous and the supplier's guard does not determine the
+  arity.  Cost: two lines in `rec_rules_fire`; the transports pass the
+  pin opaquely and the basis blocks never touch it.
+* **Consumers confirmed the fired form's dividend.**  `PlainChecked`'s
+  public λ-tower conjuncts (`hopenX`, `hlinst`, `hdeLam`) and the
+  theorem's `find?` are *not* hypotheses of the bottom — the fired
+  law's right side is the rule's denoted rhs applied to the spine, so
+  nothing walks the tower.  (`hopenP`/`hcinstP`/`hdePars` **are**
+  needed — the parameter bridge crosses recursor-prefix and
+  constructor-parameter domains through the public frame.)
+
+### 17.3 REQUEST (form 2 of §14.7.4): `checkIotaSidesTy` certifies the slot's sort
+
+**The gap.**  Every bottom fires `EqLawTT`, whose first β-step wants
+`⊢ ⟦αS⟧ : Sort ⟦ℓA⟧` — the equation slot at the sort its own `Eq.{ℓA}`
+names.  Here the slot is a **motive application**, so `StatementSortPin`
+(a syntactic pin on the model former's residual) cannot serve it, and
+no syntactic pin can: the slot's shape varies per rule.  Inversion
+cannot recover it (Π-injectivity is refuted, `Inversion.lean`).
+
+**The ask.**  `checkIotaSidesTy` (`Setlec/Kernel/Modeled.lean`) — which
+already holds `ops`, the depth and the slot, and already certifies both
+*sides* against it — additionally infers the slot's type and `isDefEq`s
+it against `.sort ℓA` at the statement's own equation level; the level
+reaches the call from each of the six call sites' own `Eq`-head match.
+The carrier `IotaSlotSorted` (`Setlec/TTVerify/IndBottom.lean`) is that
+check's inversion shape verbatim, committed in advance so the swap is
+`exact`; `PlainChecked`/`NestedChecked` gain the conjunct and the
+`checkIotaThm{,N}` inversions forward it.
+
+**The measurement** (temporary probe on the shared
+`checkIotaSidesTy`, both paths — it is one function; six call sites
+threaded the level; reverted, checker byte-identical, gates re-run
+green): whole corpus, arena (incl. `init-prelude`) + e2e:
+
+| calls | slot's sort check passes |
+|---|---|
+| 3 895 | **3 895 / 3 895** |
+
+Zero counterexamples; the check can only make the checker stricter and
+rejects nothing in the corpus.
+
+**Until granted**, `IndBottomPlainTT` (and the nested and projection
+bottoms after it) carry `hslot : IotaSlotSorted` as one named
+hypothesis each — one supplier, one swap per bottom.
+
+### 17.4 Named in advance: the nested law is missing its parameter premise
+
+Scouted for `IndBottomNestedTT`, recorded before the proof is written.
+`RecRulesTT`'s parameter premise is `.plain`-guarded (§14.6.3: a
+nested rule's comparands are its stored *pins*, so the plain shape
+would be wrong for it) — but no nested-shaped premise was added, and
+the nested bottom is the first consumer that needs one: the checked
+statement's major applies the constructor to the **pins** at the
+statement's prefix, the fired major to arbitrary `ys`, and identifying
+`ys.take cnP` with the pins' instantiation is exactly what `iotaRec`'s
+comparison (`defEqList (margs.take ctorParams) (recFireComparands …).2`,
+nested branch) guards.  Expect a re-signing in the `IotaIndexPin`
+pattern: the premise stated over the pins' *opened denotations*
+(`openFvars` must relocate to a leaf module first — `EnvTT.lean` cannot
+import `TeleOpen.lean`), supplied by `IotaStep.lean` from the guard it
+already destructures past, declined with `_` by the basis blocks.
