@@ -10,11 +10,25 @@
 #
 # This file exists for ONE class of entry: the acknowledged class-B
 # divergence.  The measurement stack (Setlec/Kernel/CoreNC.lean, task
-# #76) skips the per-argument application check everywhere, so a stream
-# whose only defect is an application type mismatch can be *accepted*
-# under yolo while the certified stack rejects it.  A fixture like that
-# is not a bug; it gets a line here, with a comment naming the mismatch
-# it stops detecting.
+# #76) skips the per-argument application check everywhere — and
+# `inferSpineNC` drops the whole per-argument `infer`, not merely the
+# argument-vs-domain `defeq` — so a stream whose only defect is
+# *inside an application ARGUMENT* can be accepted under yolo while
+# the certified stack rejects or declines it.  The escaping defect can
+# be any of: an application type mismatch; a wrong universe-argument
+# count on a constant; an application of a non-function; a binder
+# whose domain is not a sort; an unsupported projection shape.  (Fuzz
+# campaign 2026-08-27, finding F1 — the earlier wording of this
+# paragraph said "an application type mismatch" and understated the
+# mode.)  A fixture like that is not a bug; it gets a line here, with
+# a comment naming the defect it stops detecting.
+#
+# The certified side of such a pair need not be a *reject*: an
+# unsupported feature reachable only from an argument is a positive
+# decline (2) certified and an accept (0) under yolo, so a 2-vs-0 pair
+# belongs here on the same terms as 1-vs-0.  Nothing about the line
+# format changes — the override simply replaces whatever exit code
+# tests/e2e-expected.txt (resp. tests/arena-expected.txt) records.
 #
 # NOTHING ELSE belongs here.  Any other flip means the cert-skipping
 # twins have drifted from the certified ones — which is exactly what
@@ -23,6 +37,25 @@
 # had been lowered to the `rP`-context (indexed_nested_aux.ndjson:
 # certified 0, yolo 1).  Fix the twin, do not record the flip.
 #
-# As of the 2026-08-27 audit no fixture in either suite diverges: the
-# full arena (138 lines) and e2e (67 lines) suites give identical
-# verdicts in both modes, so this file is empty of entries.
+# The 2026-08-27 audit found no *pre-existing* fixture in either suite
+# diverging: the full arena (138 lines) and the then-67 e2e lines gave
+# identical verdicts in both modes.  The three entries below are the
+# fuzz campaign's purpose-built class-B witnesses (finding F1), landed
+# so the class is exercised rather than merely documented; every other
+# fixture still agrees in both modes.
+
+# yolo skips the per-argument infer, so `(fun h : p => h) (rfl : 0 = 0)`
+# is accepted at type `p` — the redex's result type is `p` and only the
+# argument check could have seen that the argument is not a proof of it.
+# Certified: 1 (application type mismatch).  Yolo accepts, and the
+# stream's `theorem everything : ∀ p : Prop, p` goes through.
+0 e2e yolo_arg_escape.ndjson raw
+# The same escape with a defect that is not a type mismatch at all:
+# `Nat.zero.{1}` in argument position, i.e. a wrong universe-argument
+# count, which certified reports as "incorrect number of universe
+# levels for Nat.zero" (1).  The class is the argument *position*.
+0 e2e yolo_arg_escape_univs.ndjson raw
+# Decline-vs-accept: the unsupported projection shape in `PProd'.
+# _model.eta` sits inside an application argument, so yolo never
+# infers it.  Certified: 2 ("projection on a non-structure type").
+0 e2e yolo_decline_vs_accept.ndjson

@@ -50,12 +50,14 @@
 #
 # The two stacks are expected to agree on every verdict except one
 # acknowledged class-B divergence: yolo skips the per-argument
-# application check everywhere, so a stream whose *only* defect is an
-# application type mismatch can be accepted under yolo and rejected
-# under the certified stack.  Such a fixture gets a yolo-specific
+# application check everywhere — the argument's whole `infer`, not
+# just the argument-vs-domain `defeq` — so a stream whose *only*
+# defect is inside an application ARGUMENT can be accepted under yolo
+# and rejected, or declined, under the certified stack (2026-08-27
+# fuzz campaign, finding F1).  Such a fixture gets a yolo-specific
 # expected exit code in tests/yolo-expected.txt (same idea as the
 # `<on>|<off>` pairs, but as an override file rather than a column:
-# as of 2026-08-27 no fixture in either suite diverges, so a column
+# only the three purpose-built class-B witnesses diverge, so a column
 # would be 205 unused separators).  Any other flip is a bug in the NC
 # path — investigate, do not record it.
 set -u
@@ -344,8 +346,12 @@ if [ "$YOLO_SWEEP" = on ] && [ "$DIRECT" = on ]; then
   unset SETLEC_NO_PROOF_CERTS
   SWEEP=cert
   if [ "$fail" = "$yolo_fail_before" ]; then
-    echo "yolo sweep: $yolo_arena arena + $e2e_total e2e agree with certified" \
-         "(${#YOLO_OVR[@]} recorded divergences)"
+    # "as expected" rather than "agree with certified": the overridden
+    # fixtures deliberately do not agree — they are the recorded
+    # class-B divergences, counted here so a silently emptied
+    # tests/yolo-expected.txt is visible in the summary line.
+    echo "yolo sweep: $yolo_arena arena + $e2e_total e2e as expected" \
+         "(${#YOLO_OVR[@]} recorded class-B divergences)"
   else
     echo "yolo sweep: DIVERGED — see the lines above" \
          "(tests/arena.sh header: what belongs in tests/yolo-expected.txt)"

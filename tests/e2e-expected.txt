@@ -311,3 +311,37 @@
 # identifies the two sides.  The fixture pins that agreement -- it must
 # stay 0 whether or not the rescue is ever made to fire here.
 0 psigma_rec_eta.ndjson raw
+
+# The class-B yolo escape, exercised (2026-08-27 fuzz campaign,
+# finding F1).  Under SETLEC_NO_PROOF_CERTS=1 `inferSpineNC` drops the
+# whole per-argument `infer` — not just the argument/domain `defeq` —
+# so *any* defect living only inside an application ARGUMENT escapes
+# the measurement stack.  These three hand-built streams are the
+# certified stack's side of that: each must give the verdict on this
+# line, while tests/yolo-expected.txt records what yolo gives instead
+# (0 for all three).  They are the only fixtures in either suite with
+# a yolo override; keeping them here — rather than only in a campaign
+# scratch directory — is what makes the divergence a tested property.
+#
+# yolo_arg_escape: `theorem everything : ∀ p : Prop, p :=
+#   fun p => (fun h : p => h) (Eq.refl Nat Nat.zero)`.  The redex's
+# result type really is `p`, so only the argument check can see that
+# `rfl : 0 = 0` is not a proof of `p`: rejected here, accepted under
+# yolo, which therefore "proves" ∀ p : Prop, p.
+1 yolo_arg_escape.ndjson raw
+# yolo_arg_escape_univs: `def w9 : Nat := (fun x : Nat => Nat.zero)
+#   Nat.zero.{1}` — the escaping defect is a wrong universe-argument
+# count on a constant in argument position, not a type mismatch at
+# all.  It is here to pin that the class is the argument *position*,
+# not one particular error: dropping the per-argument `infer` also
+# drops that argument's universe-arity, non-function-application,
+# binder-domain-is-a-sort and projection-shape checks.
+1 yolo_arg_escape_univs.ndjson raw
+# yolo_decline_vs_accept: a preprocessed `PProd'._model` family whose
+# `eta` theorem reaches an unsupported projection shape (`projection
+# on a non-structure type`) from inside an application argument.  The
+# certified stack positively DECLINES it (2); yolo never infers the
+# argument, so the unsupported feature is never detected and the
+# stream is accepted (0).  The escape is therefore not confined to
+# reject-vs-accept — a decline can be lost the same way.
+2 yolo_decline_vs_accept.ndjson

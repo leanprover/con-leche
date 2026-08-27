@@ -2836,16 +2836,48 @@ suites check.  The accurate statement:
 > verdict **except one acknowledged class-B divergence**: `inferSpineNC`
 > drops the per-argument application check *everywhere*, the front door
 > included (see the task-#134 amendment above), so a stream whose only
-> defect is an application type mismatch may be **accepted** under the
-> flag and rejected by the certified stack.  Every other flip is a bug
-> in an NC twin.
+> defect is **inside an application argument** may be **accepted** under
+> the flag and rejected — or declined — by the certified stack.  Every
+> other flip is a bug in an NC twin.
 
-Empirically the divergence is not exercised: as of the 2026-08-27
-audit the full arena suite (138 expectation lines) and the full e2e
-suite (67) give **identical** exit codes in both modes, so
-`tests/yolo-expected.txt` — the file that records a class-B divergence
-when one appears — has no entries.  The audit and the sweep that keeps
-the statement true are in "The yolo sweep" below.
+**The class is the argument position, not the type mismatch (fuzz
+campaign 2026-08-27, finding F1).**  The paragraph above used to read
+"whose only defect is an application type mismatch", which understates
+the mode: `inferSpineNC` does not merely skip the argument-vs-domain
+`defeq`, it skips the argument's `infer` altogether.  Everything that
+`infer` would have detected about a term appearing *only* in argument
+position is therefore invisible under the flag — a wrong
+universe-argument count on a constant, an application of a
+non-function, a binder whose domain is not a sort, an unsupported
+projection shape, as well as the type mismatch itself.  The certified
+side of such a pair is correspondingly not always a reject: an
+unsupported feature reachable only from an argument is a positive
+decline (2) certified and an accept (0) under yolo.
+
+The divergence is now **exercised**, not merely documented.  The
+2026-08-27 audit found no *pre-existing* fixture diverging — the full
+arena suite (138 expectation lines) and the then-67 e2e lines gave
+identical exit codes in both modes — so the campaign built three
+witnesses and landed them as e2e fixtures with `tests/yolo-expected.txt`
+overrides:
+
+| fixture | certified | yolo | escaping defect |
+|---|---|---|---|
+| `yolo_arg_escape.ndjson` | 1 | **0** | application type mismatch |
+| `yolo_arg_escape_univs.ndjson` | 1 | **0** | universe-argument count |
+| `yolo_decline_vs_accept.ndjson` | 2 | **0** | unsupported projection shape |
+
+The first is the sharpest statement of the mode's honesty limit:
+`theorem everything : ∀ p : Prop, p := fun p => (fun h : p => h)
+(Eq.refl Nat Nat.zero)`.  The redex's *result* type really is `p`, so
+only the argument check can see that `rfl : 0 = 0` is not a proof of
+`p` — and `--yolo` accepts the stream.  A measurement run's exit code
+is a measurement artefact, never a verdict; the certified stack is the
+only thing that pronounces.  Note the contrast with the infer-only
+mode, which keeps the driver's front door and therefore rejects
+(resp. declines) all three exactly as the certified stack does.  The
+audit and the sweep that keeps the statement true are in "The yolo
+sweep" below.
 
 ## The infer-only mode: SETLEC_INFER_ONLY (task #134)
 
@@ -9245,21 +9277,30 @@ one such line, at `indexed_nested_aux.ndjson`.
 **What may be recorded, and what may not.**  `tests/yolo-expected.txt`
 exists for one class of entry, the acknowledged **class-B** divergence:
 `inferSpineNC` drops the per-argument application check *everywhere*,
-the driver's front door included, so a stream whose only defect is an
-application type mismatch may be accepted under the flag.  That is a
-known property of the measurement mode (task #134's amendment to the
-verification-tax section), not a bug, and a fixture exhibiting it gets
-a line.  Every other flip is an NC twin that has drifted: fix the twin,
-do not record the flip.  The file's header says so.
+the driver's front door included, so a stream whose only defect is
+inside an application **argument** may be accepted under the flag.
+That is a known property of the measurement mode (task #134's
+amendment to the verification-tax section), not a bug, and a fixture
+exhibiting it gets a line.  Every other flip is an NC twin that has
+drifted: fix the twin, do not record the flip.  The file's header says
+so.  (The wording of this class was tightened after the 2026-08-27
+fuzz campaign's finding F1: the dropped check is the argument's whole
+`infer`, so the class covers universe-argument counts, non-function
+applications, non-sort binder domains and unsupported projection
+shapes as well as type mismatches — and, since an unsupported feature
+in argument position is a certified *decline*, a 2-vs-0 pair records
+here exactly like a 1-vs-0 one.)
 
 **The audit.**  With the fix in, the full arena suite (138 expectation
 lines, 92 good) and the full e2e suite (67 lines, at their declared
 `raw`/`pre` modes) give **identical** exit codes in both modes — zero
-divergences, zero recorded overrides.  The class-B behaviour is real
-but unexercised by any current fixture: none of the `bad/` streams has
-an application type mismatch as its *only* defect.  The stale
-"verdicts are identical in both modes" claim in the verification-tax
-section is amended in place to the exact statement.
+divergences, zero recorded overrides.  The class-B behaviour was real
+but unexercised by any fixture then in the suites: none of the `bad/`
+streams has its *only* defect inside an application argument.  The
+stale "verdicts are identical in both modes" claim in the
+verification-tax section is amended in place to the exact statement.
+(Superseded on the fixture count by the campaign witnesses below: the
+e2e suite is now 70 lines with three recorded overrides.)
 
 **How thin the coverage was** (instrumented `iotaRecNC`, one trace line
 per `.nested` comparand computation, whole corpus, reverted after the
@@ -9295,3 +9336,48 @@ and the `SETLEC_INFER_ONLY=1` modes.  The certified identity is the
 scope fence (only the NC path was touched); the *yolo* identity is
 expected for the reason the table above gives — init-prelude fires no
 `.nested` rule, so the changed line is never reached on that stream.
+
+### Class B, exercised (2026-08-27 fuzz campaign, finding F1)
+
+The campaign's first finding was that the class-B contract as written
+understated the mode.  `inferSpineNC` does not skip the
+argument-vs-domain `defeq`; it skips the argument's `infer`, so *any*
+defect living only inside an application argument escapes the flag.
+Three purpose-built streams are now committed as e2e fixtures, each
+with a `tests/yolo-expected.txt` override — the file's first entries,
+and the reason the sweep's summary line now reports a non-zero
+"recorded divergences" count:
+
+| fixture | mode | certified | yolo | escaping defect |
+|---|---|---|---|---|
+| `tests/e2e/yolo_arg_escape.ndjson` | `raw` | 1 | **0** | application type mismatch |
+| `tests/e2e/yolo_arg_escape_univs.ndjson` | `raw` | 1 | **0** | universe-argument count |
+| `tests/e2e/yolo_decline_vs_accept.ndjson` | — | 2 | **0** | unsupported projection shape |
+
+`yolo_arg_escape` is the witness worth remembering: `theorem
+everything : ∀ p : Prop, p := fun p => (fun h : p => h) (Eq.refl Nat
+Nat.zero)` is **accepted** under `--yolo`.  The redex's result type is
+`p`, so the argument check is the only thing that could see that
+`rfl : 0 = 0` does not prove `p`.  `yolo_arg_escape_univs` (`def w9 :
+Nat := (fun x : Nat => Nat.zero) Nat.zero.{1}`) pins that the class is
+the argument *position* rather than one error kind, and
+`yolo_decline_vs_accept` pins that a certified **decline** can be lost
+the same way — a shape the header's original contract did not
+anticipate, now covered there.
+
+All three are rejected (resp. declined) identically to the certified
+stack under `SETLEC_INFER_ONLY=1`, which keeps the driver's front
+door: the escape is specific to the measurement stack, and the
+`--infer-only` sweep needs no expectation entries for them.
+
+Gates for this landing (tests and documentation only — no source
+file changed, `lake build` rebuilt nothing): `lake build`
+warning-free, `lake test`, arena 90/92, e2e **70/70**, split driver
+11/11, infer-only 5/5, and the yolo sweep green at
+`138 arena + 70 e2e as expected (3 recorded class-B divergences)`.
+The sweep's summary line was reworded from "agree with certified" to
+"as expected" at the same time: the overridden fixtures deliberately
+do not agree, and the override count is printed so that a silently
+emptied `tests/yolo-expected.txt` shows up there.  The full
+`tests/arena.sh --infer-only` sweep is green as well (70/70 at the
+certified expectations).
