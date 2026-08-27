@@ -2937,6 +2937,12 @@ init-prelude probe (`_tmp/perfcmp/init-prelude.preprocessed.ndjson`,
 | *diagnostic*: front door infer-only too | 14.89 G | — |
 | `SETLEC_NO_PROOF_CERTS=1` | 11.34 G | 0.96 s |
 
+The diagnostic row is one edit away at any time: point `coreKnotF`'s
+`infer` at `inferBodyIO` instead of `inferBodyI`, and the front door
+stops checking arguments too.  It is *not* a mode — it checks less
+than the reference kernels do — but it is what isolates the front
+door's share below.
+
 `_tmp/std-time-cone/pre2.ndjson` (4215-declaration `Std.Time` cone, a
 scratch build with `checkFuel` at 200 000 — the stream needs it; all
 modes accept 6390 declarations):
