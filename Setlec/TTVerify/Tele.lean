@@ -82,6 +82,18 @@ inductive VTeleTyped (Δ : List VExpr) : VExpr → List VExpr → VExpr → Prop
       VTeleTyped Δ (B.inst x) xs rest →
       VTeleTyped Δ (.pi A B) (x :: xs) rest
 
+/-- Fittings compose: walking `xs` and then `ys` from the residual is
+walking `xs ++ ys`.  What a capability fold needs, where the pins reach
+the parameter prefix and the law's subjects are peeled by hand. -/
+theorem VTeleTyped.append {Δ : List VExpr} :
+    ∀ {T : VExpr} {xs : List VExpr} {mid : VExpr} {ys : List VExpr}
+      {rest : VExpr}, VTeleTyped Δ T xs mid → VTeleTyped Δ mid ys rest →
+      VTeleTyped Δ T (xs ++ ys) rest := by
+  intro T xs mid ys rest h
+  induction h with
+  | nil => intro h2; exact h2
+  | cons hx _ ih => intro h2; exact .cons hx (ih h2)
+
 /-- Applying along a fitting spine.  The object-level induction lives
 here, once; the `Expr`-side `TeleTyped.appN` is a corollary. -/
 theorem VTeleTyped.appN {Δ : List VExpr} {T : VExpr} {xs : List VExpr}

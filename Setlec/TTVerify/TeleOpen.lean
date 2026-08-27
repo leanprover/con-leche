@@ -81,6 +81,15 @@ theorem instSeq_mkAppN : ∀ (as : List VExpr) (t : Nat) (f : VExpr)
     rw [mkAppN_cons, ih, instSeq_app]
     rfl
 
+/-- Instantiation distributes over an application spine. -/
+theorem inst_mkAppN : ∀ (args : List VExpr) (f a : VExpr) (k : Nat),
+    (mkAppN f args).inst a k =
+      mkAppN (f.inst a k) (args.map (·.inst a k)) := by
+  intro args
+  induction args with
+  | nil => intro f a k; rfl
+  | cons x xs ih => intro f a k; rw [mkAppN_cons, ih]; rfl
+
 /-- Under a binder the cut steps up — the transcription of
 `Expr.instSeq_forallE`, with the same side condition. -/
 theorem instSeq_pi : ∀ (as : List VExpr) (t : Nat) (A B : VExpr),

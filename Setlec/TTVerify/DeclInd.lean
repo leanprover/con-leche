@@ -65,31 +65,40 @@ inhabitant of an interpreted equality and then read equality of
 `Deq.intro` is the whole elimination. -/
 
 /-- **A checked equality theorem, fired at a use site.**  The last step
-of `EtaFoldTT`, `UnitFoldTT` and `ProjBottomTT`. -/
-theorem Deq.ofEqThm {env : Env} (m : EnvTT env)
+of `EtaFoldTT`, `UnitFoldTT` and `ProjBottomTT`.
+
+Stated over `cval` and `EqLawTT` rather than over an `EnvTT`, because
+the folds run at the *extended* environment of a block member's
+install, where the `EnvTT` being built is exactly what is not yet
+available (the same reason `unit_rule_fold` takes unpacked hypotheses
+rather than an `EnvModel`). -/
+theorem Deq.ofEqThm {env : Env} {cval : TConstVal} (heq : EqLawTT env cval)
     (hE : env.find? eqName = some eqA) (ψ : Name → Nat)
     {Δ : List VExpr} {v Tstmt A a b : VExpr} {args : List VExpr}
     (hv : HasType Δ v Tstmt)
     (hfit : VTeleTyped Δ Tstmt args
-      (VExpr.mkAppN (m.cval eqName ψ) [A, a, b]))
+      (VExpr.mkAppN (cval eqName ψ) [A, a, b]))
     (hA : HasType Δ A (.sort (ψ uNT))) (ha : HasType Δ a A)
     (hb : HasType Δ b A) :
     Deq Δ a b :=
   Deq.intro (Setlec.TT.Deq.conv (hfit.appN hv)
-    (m.eq_law hE ψ Δ A a b hA ha hb))
+    (heq hE ψ Δ A a b hA ha hb))
 
-/-- The same, when the theorem is a *closed* constant's valuation —
-which is how every checked `_model.*` theorem reaches a use site. -/
-theorem Deq.ofEqThmClosed {env : Env} (m : EnvTT env)
-    (hE : env.find? eqName = some eqA) (ψ : Name → Nat) {n : Name}
-    {Δ : List VExpr} {Tstmt A a b : VExpr} {args : List VExpr}
-    (hv : HasType [] (m.cval n ψ) Tstmt)
+/-- The same, when the theorem's term is *closed* — which is how every
+checked `_model.*` theorem reaches a use site.  The equality's own
+level assignment is a separate argument: the statement's `Eq.{ℓA}` is
+read at `ℓA`, not at the constant's parameters. -/
+theorem Deq.ofEqThmClosed {env : Env} {cval : TConstVal}
+    (heq : EqLawTT env cval)
+    (hE : env.find? eqName = some eqA) (ψ : Name → Nat)
+    {Δ : List VExpr} {v Tstmt A a b : VExpr} {args : List VExpr}
+    (hv : HasType [] v Tstmt)
     (hfit : VTeleTyped Δ Tstmt args
-      (VExpr.mkAppN (m.cval eqName ψ) [A, a, b]))
+      (VExpr.mkAppN (cval eqName ψ) [A, a, b]))
     (hA : HasType Δ A (.sort (ψ uNT))) (ha : HasType Δ a A)
     (hb : HasType Δ b A) :
     Deq Δ a b :=
-  Deq.ofEqThm m hE ψ (HasType.weakenNil hv Δ) hfit hA ha hb
+  Deq.ofEqThm heq hE ψ (HasType.weakenNil hv Δ) hfit hA ha hb
 
 /-! ## The install's syntactic pins, assembled
 
@@ -413,5 +422,553 @@ theorem teleAlign_of_stripPis {cval : TConstVal} {env : Env} {φ : Name → Nat}
   obtain ⟨R, R', hR, hR', htow⟩ :=
     piTower_of_stripPis hro k h1 h2 hdoms hv hv'
   exact ⟨R, R', hR, hR', htow.teleAlign k hlen⟩
+
+
+/-! ## The pinned parameter tuple
+
+Every pinned domain of a capability statement is the *same* thing: the
+model former applied to the statement's parameter variables, at some
+bvar shift.  Opened, denoted and fitted with the use site's spine it
+becomes the public former applied to that spine — which is exactly the
+type `UnitLawTT`'s two subjects are given at.
+
+Done once here, at a shift `c`, because the unit statement uses it
+three times (the `x` domain at `c = 0`, the `y` domain at `c = 1`, the
+equation's type slot at `c = 2`) and the eta statement uses it again. -/
+
+/-- Indexing a list by its own `range` is mapping it. -/
+private theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)
+    (g : α → β) :
+    (List.range xs.length).map (fun l => g (xs.getD l default)) = xs.map g := by
+  refine List.ext_getElem? ?_
+  intro i
+  rw [List.getElem?_map, List.getElem?_map]
+  rcases Nat.lt_or_ge i xs.length with h | h
+  · rw [List.getElem?_range h, List.getElem?_eq_getElem h]
+    simp [List.getD, List.getElem?_eq_getElem h]
+  · rw [List.getElem?_eq_none (by simp; omega), List.getElem?_eq_none h]
+    rfl
+
+/-- **The parameter tuple, opened and denoted.**  The `k`-th pinned
+parameter variable is the `k`-th opening variable, whose denotation at
+depth `d + nP + c` is `bvar (c + nP - 1 - k)`. -/
+theorem denote_paramTuple {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d nP c dd : Nat} {n : Name} {us : List Level} {vc : VExpr}
+    (hdd : dd = d + nP + c)
+    (hc : denote cval env φ dd (.const n us) = some vc) :
+    denote cval env φ dd
+      (Expr.instSeq (openFvars d nP) (nP - 1)
+        (Expr.mkAppN (.const n us)
+          ((List.range nP).map fun l => Expr.bvar (nP - 1 - l)))) =
+      some (VExpr.mkAppN vc
+        ((List.range nP).map fun l => VExpr.bvar (c + nP - 1 - l))) := by
+  subst hdd
+  rw [Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ (by rfl)]
+  refine denote_mkAppN ?_ hc
+  rw [List.map_map]
+  refine DenoteSpine.map ?_
+  intro l hl
+  have hlt : l < nP := by simpa using List.mem_range.mp hl
+  have hb := Expr.instSeq_bvar (openFvars d nP) (nP - 1) (nP - 1 - l)
+    (openFvars_bounded d nP) (by omega) (by simp; omega)
+  rw [show nP - 1 - (nP - 1 - l) = l from by omega,
+    openFvars_getElem? hlt] at hb
+  simp only [Function.comp_apply]
+  rw [← Option.some.inj hb, denote_fvar]
+  simp only [Option.some.injEq, VExpr.bvar.injEq]
+  omega
+
+/-- **The parameter tuple, fitted.**  The same tuple with the use
+site's spine substituted, lifted past the `c` binders the residual sits
+under — lifts the consumer's own `inst` absorbs. -/
+theorem instSeq_paramTuple {vc : VExpr} (hvc : VExpr.Closed vc)
+    {nP c t : Nat} {xs : List VExpr} (ht : t = c + nP - 1)
+    (hlen : xs.length = nP) :
+    VExpr.instSeq xs t
+      (VExpr.mkAppN vc ((List.range nP).map fun l =>
+        VExpr.bvar (c + nP - 1 - l))) =
+      VExpr.mkAppN vc (xs.map (VExpr.liftN c · 0)) := by
+  subst ht
+  rw [VExpr.instSeq_mkAppN, VExpr.instSeq_eq_self_of_closed hvc, List.map_map]
+  congr 1
+  rw [← hlen, ← map_range_getD xs (VExpr.liftN c · 0)]
+  refine List.map_congr_left ?_
+  intro l hl
+  have hlt : l < xs.length := by simpa using List.mem_range.mp hl
+  simp only [Function.comp_apply]
+  rw [show c + xs.length - 1 - l = c + (xs.length - 1 - l) from by omega]
+  rw [VExpr.instSeq_bvar_hit xs c (xs.length - 1 - l)
+    (xs.getD l default)
+    (by rw [show xs.length - 1 - (xs.length - 1 - l) = l from by omega]
+        simp [List.getD, List.getElem?_eq_getElem hlt]) (by omega)]
+
+
+/-- `instSeq` at `nP - 1 + 1` is `instSeq` at `nP` — trivially when
+`nP ≥ 1`, and vacuously when the argument list is empty. -/
+private theorem instSeq_len_succ {args : List Expr} {nP : Nat}
+    (h : args.length = nP) (e : Expr) :
+    Expr.instSeq args (nP - 1 + 1) e = Expr.instSeq args nP e := by
+  rcases Nat.eq_zero_or_pos nP with h0 | h0
+  · subst h0
+    rw [List.eq_nil_of_length_eq_zero h]
+    rfl
+  · rw [show nP - 1 + 1 = nP from by omega]
+
+/-- The same, on the term side. -/
+private theorem instSeqV_len_succ {xs : List VExpr} {nP : Nat}
+    (h : xs.length = nP) (e : VExpr) :
+    VExpr.instSeq xs (nP - 1 + 1) e = VExpr.instSeq xs nP e := by
+  rcases Nat.eq_zero_or_pos nP with h0 | h0
+  · subst h0
+    rw [List.eq_nil_of_length_eq_zero h]
+    rfl
+  · rw [show nP - 1 + 1 = nP from by omega]
+
+/-- Instantiating a parameter tuple below its range: every index drops
+by one. -/
+private theorem paramTuple_inst (Tm : Name) (lvls : List Level) (nP c : Nat)
+    (w : Expr) (g g' : Nat → Nat)
+    (hg : ∀ k, k < nP → c < g k ∧ g k - 1 = g' k) :
+    (Expr.mkAppN (.const Tm lvls)
+        ((List.range nP).map fun k => Expr.bvar (g k))).instantiate1 w c =
+      Expr.mkAppN (.const Tm lvls)
+        ((List.range nP).map fun k => Expr.bvar (g' k)) := by
+  rw [Expr.mkAppN_instantiate1]
+  congr 1
+  rw [List.map_map]
+  refine List.map_congr_left ?_
+  intro k hk
+  obtain ⟨h1, h2⟩ := hg k (List.mem_range.mp hk)
+  simp only [Function.comp_apply, Expr.instantiate1]
+  rw [if_neg (by omega), if_pos (by omega), h2]
+
+/-- **The unit statement's residual, computed.**  Opening the `nP`
+parameter binders and denoting leaves the two subject domains and the
+equation, all three built from the same parameter tuple at shifts
+`0`, `1` and `2`. -/
+theorem denote_unitResidual {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d nP : Nat} {nx ny : Name} {mx my : BinderMeta} {Tm : Name}
+    {lvls : List Level} {lA : Level} {vT veq : VExpr}
+    (hcT : ∀ dd : Nat, denote cval env φ dd (.const Tm lvls) = some vT)
+    (hcE : ∀ dd : Nat, denote cval env φ dd (.const eqName [lA]) = some veq) :
+    denote cval env φ (d + nP)
+      (Expr.instSeq (openFvars d nP) (nP - 1)
+        (.forallE nx
+          (Expr.mkAppN (.const Tm lvls)
+            ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)))
+          (.forallE ny
+            (Expr.mkAppN (.const Tm lvls)
+              ((List.range nP).map fun k => Expr.bvar (nP - k)))
+            (Expr.mkAppN (.const eqName [lA])
+              [Expr.mkAppN (.const Tm lvls)
+                ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)),
+               Expr.bvar 1, Expr.bvar 0]) my) mx)) =
+      some (.pi
+        (VExpr.mkAppN vT ((List.range nP).map fun l => VExpr.bvar (0 + nP - 1 - l)))
+        (.pi
+          (VExpr.mkAppN vT ((List.range nP).map fun l => VExpr.bvar (1 + nP - 1 - l)))
+          (VExpr.mkAppN veq
+            [VExpr.mkAppN vT
+              ((List.range nP).map fun l => VExpr.bvar (2 + nP - 1 - l)),
+             VExpr.bvar 1, VExpr.bvar 0]))) := by
+  have hargsb := openFvars_bounded d nP
+  have hargslen := openFvars_length d nP
+  have hle : (openFvars d nP).length ≤ nP - 1 + 1 := by rw [hargslen]; omega
+  -- the outer binder
+  rw [Expr.instSeq_forallE _ _ _ _ _ _ hle, instSeq_len_succ hargslen,
+    denote_forallE,
+    denote_paramTuple (c := 0) (d := d) (nP := nP) (dd := d + nP) rfl
+      (hcT (d + nP))]
+  -- open it, and push the opening past the parameter substitution
+  rw [instSeq_instantiate1_in (b := Expr.fvar (d + nP) nx
+      (Expr.instSeq (openFvars d nP) (nP - 1)
+        (Expr.mkAppN (.const Tm lvls)
+          ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))))) rfl
+    _ nP hargsb (Nat.le_of_eq hargslen)]
+  -- the second binder: the `y` domain is the `x` domain, one index down
+  rw [show (Expr.forallE ny
+        (Expr.mkAppN (.const Tm lvls)
+          ((List.range nP).map fun k => Expr.bvar (nP - k)))
+        (Expr.mkAppN (.const eqName [lA])
+          [Expr.mkAppN (.const Tm lvls)
+            ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)),
+           Expr.bvar 1, Expr.bvar 0]) my).instantiate1
+        (Expr.fvar (d + nP) nx
+          (Expr.instSeq (openFvars d nP) (nP - 1)
+            (Expr.mkAppN (.const Tm lvls)
+              ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))))) 0 =
+      Expr.forallE ny
+        (Expr.mkAppN (.const Tm lvls)
+          ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)))
+        ((Expr.mkAppN (.const eqName [lA])
+          [Expr.mkAppN (.const Tm lvls)
+            ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)),
+           Expr.bvar 1, Expr.bvar 0]).instantiate1
+          (Expr.fvar (d + nP) nx
+            (Expr.instSeq (openFvars d nP) (nP - 1)
+              (Expr.mkAppN (.const Tm lvls)
+                ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))))) 1) my from by
+    show Expr.forallE ny _ _ my = _
+    rw [paramTuple_inst Tm lvls nP 0 _ (fun k => nP - k) (fun k => nP - 1 - k)
+      (fun k hk => ⟨by omega, by omega⟩)]]
+  -- the second binder
+  rw [Expr.instSeq_forallE _ _ _ _ _ _ hle, instSeq_len_succ hargslen,
+    denote_forallE,
+    denote_paramTuple (c := 1) (d := d) (nP := nP) (dd := d + nP + 1) rfl
+      (hcT (d + nP + 1))]
+  rw [instSeq_instantiate1_in (b := Expr.fvar (d + nP + 1) ny
+      (Expr.instSeq (openFvars d nP) (nP - 1)
+        (Expr.mkAppN (.const Tm lvls)
+          ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))))) rfl
+    _ nP hargsb (Nat.le_of_eq hargslen)]
+  -- the equation: both subject slots become the opening variables, and
+  -- the type slot drops back to the parameter tuple
+  have hEqBody : ((Expr.mkAppN (.const eqName [lA])
+        [Expr.mkAppN (.const Tm lvls)
+          ((List.range nP).map (fun k => Expr.bvar (nP + 1 - k))),
+         Expr.bvar 1, Expr.bvar 0]).instantiate1
+        (Expr.fvar (d + nP) nx
+          (Expr.instSeq (openFvars d nP) (nP - 1)
+            (Expr.mkAppN (.const Tm lvls)
+              ((List.range nP).map (fun k => Expr.bvar (nP - 1 - k)))))) 1).instantiate1
+        (Expr.fvar (d + nP + 1) ny
+          (Expr.instSeq (openFvars d nP) (nP - 1)
+            (Expr.mkAppN (.const Tm lvls)
+              ((List.range nP).map (fun k => Expr.bvar (nP - 1 - k)))))) 0 =
+      Expr.mkAppN (.const eqName [lA])
+        [Expr.mkAppN (.const Tm lvls)
+          ((List.range nP).map (fun k => Expr.bvar (nP - 1 - k))),
+         Expr.fvar (d + nP) nx
+          (Expr.instSeq (openFvars d nP) (nP - 1)
+            (Expr.mkAppN (.const Tm lvls)
+              ((List.range nP).map (fun k => Expr.bvar (nP - 1 - k))))),
+         Expr.fvar (d + nP + 1) ny
+          (Expr.instSeq (openFvars d nP) (nP - 1)
+            (Expr.mkAppN (.const Tm lvls)
+              ((List.range nP).map (fun k => Expr.bvar (nP - 1 - k)))))] := by
+    rw [Expr.mkAppN_instantiate1, Expr.mkAppN_instantiate1]
+    simp only [List.map_cons, List.map_nil]
+    rw [paramTuple_inst Tm lvls nP 1 _ (fun k => nP + 1 - k) (fun k => nP - k)
+      (fun k hk => ⟨by omega, by omega⟩),
+      paramTuple_inst Tm lvls nP 0 _ (fun k => nP - k) (fun k => nP - 1 - k)
+      (fun k hk => ⟨by omega, by omega⟩)]
+    rfl
+  rw [hEqBody]
+  -- denote the equation spine
+  rw [Expr.instSeq_mkAppN]
+  simp only [List.map_cons, List.map_nil]
+  rw [Expr.instSeq_eq_self (e := Expr.const eqName [lA]) _ _ (by rfl),
+    Expr.instSeq_eq_self (e := Expr.fvar (d + nP) nx _) _ _ (by rfl),
+    Expr.instSeq_eq_self (e := Expr.fvar (d + nP + 1) ny _) _ _ (by rfl)]
+  rw [denote_mkAppN (vs := [VExpr.mkAppN vT
+        ((List.range nP).map fun l => VExpr.bvar (2 + nP - 1 - l)),
+      VExpr.bvar 1, VExpr.bvar 0])
+    (.cons (denote_paramTuple (c := 2) (d := d) (nP := nP)
+        (dd := d + nP + 1 + 1) rfl (hcT (d + nP + 1 + 1)))
+      (.cons (by rw [denote_fvar]
+                 simp only [Option.some.injEq, VExpr.bvar.injEq]
+                 omega)
+        (.cons (by rw [denote_fvar]
+                   simp only [Option.some.injEq, VExpr.bvar.injEq]
+                   omega) .nil)))
+    (hcE (d + nP + 1 + 1))]
+
+/-- The unit residual, fitted with the use site's spine.  The three
+parameter tuples come back as the *same* spine at three lifts, which
+is what the two `VTeleTyped.cons` steps then absorb. -/
+theorem instSeq_unitResidual {vT veq : VExpr} (hvT : VExpr.Closed vT)
+    (hveq : VExpr.Closed veq) {nP : Nat} {xs : List VExpr}
+    (hlen : xs.length = nP) :
+    VExpr.instSeq xs (nP - 1)
+      (.pi
+        (VExpr.mkAppN vT
+          ((List.range nP).map fun l => VExpr.bvar (0 + nP - 1 - l)))
+        (.pi
+          (VExpr.mkAppN vT
+            ((List.range nP).map fun l => VExpr.bvar (1 + nP - 1 - l)))
+          (VExpr.mkAppN veq
+            [VExpr.mkAppN vT
+              ((List.range nP).map fun l => VExpr.bvar (2 + nP - 1 - l)),
+             VExpr.bvar 1, VExpr.bvar 0]))) =
+      .pi (VExpr.mkAppN vT xs)
+        (.pi (VExpr.mkAppN vT (xs.map (VExpr.liftN 1 · 0)))
+          (VExpr.mkAppN veq
+            [VExpr.mkAppN vT (xs.map (VExpr.liftN 2 · 0)),
+             VExpr.bvar 1, VExpr.bvar 0])) := by
+  rw [VExpr.instSeq_pi _ _ _ _ (by rw [hlen]; omega), instSeqV_len_succ hlen,
+    VExpr.instSeq_pi _ _ _ _ (by rw [hlen]; omega),
+    instSeq_paramTuple hvT (c := 0) (by omega) hlen,
+    instSeq_paramTuple hvT (c := 1) (by omega) hlen,
+    VExpr.instSeq_mkAppN, VExpr.instSeq_eq_self_of_closed hveq]
+  simp only [List.map_cons, List.map_nil]
+  rw [instSeq_paramTuple hvT (c := 2) (by omega) hlen,
+    VExpr.instSeq_bvar_lt xs (nP + 1) 1 (by rw [hlen]; omega),
+    VExpr.instSeq_bvar_lt xs (nP + 1) 0 (by rw [hlen]; omega)]
+  congr 2
+  rw [show (fun x => VExpr.liftN 0 x 0) = (id : VExpr → VExpr) from by
+    funext x; exact VExpr.liftN_zero x 0]
+  exact List.map_id xs
+
+/-! ## `UnitFoldTT`
+
+The first of §14.3's five obligations.  Hypotheses are the *unpacked*
+pins, exactly as `unit_rule_fold` takes them — a fold runs at the
+extended environment of a block member's install, where the `EnvTT`
+being built is precisely what is not yet available.
+
+**The unitlike theorem's *name* is not a hypothesis**, and that is a
+finding rather than an omission: the fold consumes only its pinned type
+shape and its inhabitation (`hthmty`), never `env.find?`.  The `find?`
+fact was written in from `unit_rule_fold`, which needs it for
+`interpClosed_extend_fresh`; the bridge's `denote_depth_closed` needs
+nothing.  Dropped rather than `_`-prefixed, per §8.2 — a hypothesis a
+proof does not read is a claim about the contract that is not true.
+
+**`hTmSort` is a pin the checker does not yet make.**  `EqLawTT` fires
+`eqValT`'s first β-step, whose premise is `⊢ Â : Sort (ψ uNT)` with
+`ψ uNT = ⟦ℓA⟧` — the level the *statement's* `Eq.{ℓA}` carries.  The
+set model gets that membership from `AnnotOk`, which this bridge drops;
+inversion cannot recover it, because reading the sort back out of the
+`Eq` spine needs Π-injectivity, and Π-injectivity is refuted
+(`Setlec/TTVerify/Inversion.lean`).  So it has to be *supplied*, and
+the cheapest supplier is a syntactic pin the checker already computes
+and discards: `checkUnitThm` binds the model type's residual (`_`) and
+the equation's level (`_ℓ`) and compares neither.  With
+`tbodyM = .sort ℓA` in hand the fact is derived here, from
+`EnvTT.has_type` at `T._model` and a *second* use of
+`teleAlign_of_stripPis` — which is why the hypothesis is isolated to
+one line rather than threaded.  Recorded in `DESIGN.md`; until the pin
+lands, `DeclIndTT` cannot discharge it. -/
+
+set_option maxHeartbeats 1600000 in
+/-- **The unit-like law, from the checked `T._model.unitlike`
+theorem.**  Transpose of `unit_rule_fold`. -/
+theorem UnitFoldTT {env : Env} {cval : TConstVal}
+    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    (hvp : ValParams env cval)
+    (heqlaw : EqLawTT env cval)
+    {f : Name → Name} (hro : RenameOkT cval env f)
+    {T : Name} {cvT : ConstantVal} {caps : IndCaps}
+    {tcv cvmT : ConstantVal} {mvalT : Expr}
+    {hmT : ReducibilityHint}
+    {sbinders tbindersM : List (Name × Expr × BinderMeta)}
+    {sbody tbodyM tySlot : Expr} {lA : Level}
+    (hTmE : env.find? (T.str "_model") = some (.defnInfo cvmT mvalT hmT))
+    (hTmlps : cvmT.levelParams = cvT.levelParams)
+    (heqfE : env.find? eqName = some eqA)
+    (hS_strip : tcv.type.stripPis (caps.unitParams + 2) =
+      some (sbinders, sbody))
+    (hTm_strip : cvmT.type.stripPis caps.unitParams = some (tbindersM, tbodyM))
+    (hsdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+      k < caps.unitParams → sbinders[k]? = some b → tbindersM[k]? = some b' →
+      b.2.1 = b'.2.1)
+    (hxdom : ∃ nx mx, sbinders[caps.unitParams]? = some (nx,
+      Expr.mkAppN (.const (T.str "_model") (cvT.levelParams.map .param))
+        ((List.range caps.unitParams).map fun k =>
+          Expr.bvar (caps.unitParams - 1 - k)), mx))
+    (hydom : ∃ ny my, sbinders[caps.unitParams + 1]? = some (ny,
+      Expr.mkAppN (.const (T.str "_model") (cvT.levelParams.map .param))
+        ((List.range caps.unitParams).map fun k =>
+          Expr.bvar (caps.unitParams - k)), my))
+    (hsbody : sbody =
+      Expr.mkAppN (.const eqName [lA]) [tySlot, .bvar 1, .bvar 0])
+    (htySlot : tySlot = Expr.mkAppN
+      (.const (T.str "_model") (cvT.levelParams.map .param))
+      ((List.range caps.unitParams).map fun k =>
+        Expr.bvar (caps.unitParams + 1 - k)))
+    (hTmSort : tbodyM = Expr.sort lA)
+    (hSw : tcv.type.hasFvar = false)
+    (hSb : tcv.type.looseBVarsBounded 0 = true)
+    (hTmw : cvmT.type.hasFvar = false)
+    (hTmb : cvmT.type.looseBVarsBounded 0 = true)
+    (hren : Expr.eqUpToNames (cvT.type.renameConsts f) cvmT.type = true)
+    (hthmty : ∀ psi : Name → Nat, ∃ t,
+      denoteClosed cval env psi tcv.type = some t ∧
+      HasType [] (cval tcv.name psi) t)
+    (hTmty : ∀ psi : Name → Nat, ∃ t,
+      denoteClosed cval env psi cvmT.type = some t ∧
+      HasType [] (cval (T.str "_model") psi) t)
+    (hvT : ∀ psi : Name → Nat, cval T psi = cval (T.str "_model") psi) :
+    UnitLawTT env cval T cvT caps := by
+  intro φ d Δ us xs TV rest B B' hlen hTV hfit hB hB'
+  obtain ⟨nx, mx, hxdom'⟩ := hxdom
+  obtain ⟨ny, my, hydom'⟩ := hydom
+  subst hsbody htySlot hTmSort
+  -- the ambient level assignment
+  have hcTm : ∀ dd : Nat,
+      denote cval env (Level.substFn φ cvT.levelParams us) dd
+        (.const (T.str "_model") (cvT.levelParams.map .param)) =
+      some (cval (T.str "_model") (Level.substFn φ cvT.levelParams us)) := by
+    intro dd
+    rw [denote_const, hTmE]
+    dsimp only
+    rw [if_pos (by simp [ConstantInfo.toConstantVal, hTmlps])]
+    have hsub : Level.substFn (Level.substFn φ cvT.levelParams us)
+        (ConstantInfo.defnInfo cvmT mvalT hmT).toConstantVal.levelParams
+        (List.map Level.param cvT.levelParams) =
+        Level.substFn φ cvT.levelParams us := by
+      have hlp : (ConstantInfo.defnInfo cvmT mvalT hmT).toConstantVal.levelParams
+          = cvT.levelParams := by simp [ConstantInfo.toConstantVal, hTmlps]
+      rw [hlp]
+      funext p
+      exact Level.substFn_map_param
+    rw [hsub]
+  have hcEq : ∀ dd : Nat,
+      denote cval env (Level.substFn φ cvT.levelParams us) dd
+        (.const eqName [lA]) =
+      some (cval eqName (Level.substFn
+        (Level.substFn φ cvT.levelParams us) eqA.toConstantVal.levelParams
+        [lA])) := by
+    intro dd
+    rw [denote_const, heqfE]
+    dsimp only
+    rw [if_pos (by rfl)]
+  -- (1) the public telescope, level-instantiated away
+  rw [denote_instLevels hvp (ks := cvT.levelParams) (us := us) φ d cvT.type]
+    at hTV
+  -- (2) the public telescope's own strip, through the rename chain
+  obtain ⟨bsR, bodyR, hstripR, hlenR, hdomsR, -⟩ :=
+    Expr.ErasedEq.stripPis_inv caps.unitParams
+      (Expr.ErasedEq.of_eqUpToNames hren) hTm_strip
+  obtain ⟨tbinders, tbody, hT_strip, hbsmap, -⟩ :=
+    Expr.stripPis_renameConsts_inv (f := f) caps.unitParams hstripR
+  have hdomsPub : ∀ (i : Nat) (b₁ b₂ : Name × Expr × BinderMeta),
+      tbinders[i]? = some b₁ → tbindersM[i]? = some b₂ →
+      RenEqT f b₁.2.1 b₂.2.1 := by
+    intro i b₁ b₂ hb₁ hb₂
+    have hbR : bsR[i]? = some (b₁.1, (b₁.2.1).renameConsts f, b₁.2.2) := by
+      rw [hbsmap, List.getElem?_map, hb₁]; rfl
+    exact (hdomsR i _ _ hbR hb₂).1
+  -- (3) the statement's prefix strip, with the pinned domains
+  obtain ⟨ny', dy', my', hyb, hstrip1⟩ :=
+    Expr.stripPis_snoc (caps.unitParams + 1) hS_strip
+  obtain ⟨nx', dx', mx', hxb, hstrip0⟩ :=
+    Expr.stripPis_snoc caps.unitParams hstrip1
+  have hxb' : sbinders[caps.unitParams]? = some (nx', dx', mx') := by
+    rw [← List.getElem?_take_of_lt (show caps.unitParams < caps.unitParams + 1
+      by omega)]
+    exact hxb
+  have hdx : dx' = Expr.mkAppN
+      (.const (T.str "_model") (cvT.levelParams.map .param))
+      ((List.range caps.unitParams).map fun k =>
+        Expr.bvar (caps.unitParams - 1 - k)) :=
+    congrArg (fun t => t.2.1) (Option.some.inj (hxb'.symm.trans hxdom'))
+  have hdy : dy' = Expr.mkAppN
+      (.const (T.str "_model") (cvT.levelParams.map .param))
+      ((List.range caps.unitParams).map fun k =>
+        Expr.bvar (caps.unitParams - k)) :=
+    congrArg (fun t => t.2.1) (Option.some.inj (hyb.symm.trans hydom'))
+  subst hdx hdy
+  -- (4) the two derivations the invariant supplies
+  obtain ⟨Tstmt, hTstmtC, hthmv⟩ := hthmty (Level.substFn φ cvT.levelParams us)
+  have hTstmt : denote cval env (Level.substFn φ cvT.levelParams us) d
+      tcv.type = some Tstmt := by
+    rw [denote_depth_closed hcl hSw hSb d]; exact hTstmtC
+  obtain ⟨Tmod, hTmodC, hTmodv⟩ := hTmty (Level.substFn φ cvT.levelParams us)
+  have hTmod : denote cval env (Level.substFn φ cvT.levelParams us) d
+      cvmT.type = some Tmod := by
+    rw [denote_depth_closed hcl hTmw hTmb d]; exact hTmodC
+  -- (5) the two domain-agreement prefixes
+  have hpiM : PiDomsRenEqT f caps.unitParams cvT.type cvmT.type :=
+    PiDomsRenEqT.of_pointwise caps.unitParams hT_strip hTm_strip hdomsPub
+  have hpiS : PiDomsRenEqT f caps.unitParams cvT.type tcv.type := by
+    refine PiDomsRenEqT.of_pointwise caps.unitParams hT_strip hstrip0 ?_
+    intro i b₁ b₂ hb₁ hb₂
+    have hi : i < caps.unitParams := by
+      rcases Nat.lt_or_ge i caps.unitParams with h | h
+      · exact h
+      · rw [List.getElem?_eq_none
+          (by rw [Expr.stripPis_length caps.unitParams hT_strip]; omega)] at hb₁
+        exact nomatch hb₁
+    have hilt : i < tbindersM.length := by
+      rw [Expr.stripPis_length caps.unitParams hTm_strip]; exact hi
+    have hbM : tbindersM[i]? = some tbindersM[i] :=
+      List.getElem?_eq_getElem hilt
+    rw [List.getElem?_take_of_lt hi,
+      List.getElem?_take_of_lt (show i < caps.unitParams + 1 by omega)] at hb₂
+    rw [hsdoms i b₂ tbindersM[i] hi hb₂ hbM]
+    exact hdomsPub i b₁ tbindersM[i] hb₁ hbM
+  -- (6) the two alignments, and the retarget
+  obtain ⟨R, RS, hR, hRS, halignS⟩ :=
+    teleAlign_of_stripPis hro caps.unitParams hT_strip hstrip0 hpiS hTV hTstmt
+      hlen
+  obtain ⟨R', RM, hR', hRM, halignM⟩ :=
+    teleAlign_of_stripPis hro caps.unitParams hT_strip hTm_strip hpiM hTV hTmod
+      hlen
+  obtain rfl : R' = R := Option.some.inj (hR'.symm.trans hR)
+  obtain ⟨-, hfitS⟩ := hfit.retarget' halignS
+  obtain ⟨-, hfitM⟩ := hfit.retarget' halignM
+  -- (7) the type slot's sort, off the pending pin
+  obtain rfl : RM = VExpr.sort (Level.eval (Level.substFn φ cvT.levelParams us)
+      lA) := by
+    rw [Expr.instSeq_eq_self _ _ (by rfl), denote_sort] at hRM
+    exact (Option.some.inj hRM).symm
+  rw [VExpr.instSeq_sort] at hfitM
+  have hAsort : HasType Δ
+      (VExpr.mkAppN (cval (T.str "_model")
+        (Level.substFn φ cvT.levelParams us)) xs)
+      (.sort (Level.eval (Level.substFn φ cvT.levelParams us) lA)) :=
+    hfitM.appN (HasType.weakenNil hTmodv Δ)
+  -- (8) the residual, computed and fitted
+  rw [denote_unitResidual hcTm hcEq] at hRS
+  obtain rfl := Option.some.inj hRS
+  rw [instSeq_unitResidual (hcl _ _) (hcl _ _) hlen] at hfitS
+  -- (9) fire the theorem at the two subjects
+  simp only [hvT] at hB hB'
+  have hpsi2 : Level.substFn (Level.substFn φ cvT.levelParams us)
+      eqA.toConstantVal.levelParams [lA] uNT =
+      Level.eval (Level.substFn φ cvT.levelParams us) lA := rfl
+  refine Deq.ofEqThmClosed heqlaw heqfE
+    (Level.substFn (Level.substFn φ cvT.levelParams us)
+      eqA.toConstantVal.levelParams [lA]) (args := xs ++ [B, B']) hthmv ?_
+    (by rw [hpsi2]; exact hAsort) hB hB'
+  refine hfitS.append (VTeleTyped.cons hB (VTeleTyped.cons ?_ ?_))
+  · have habs : (xs.map (VExpr.liftN 1 · 0)).map (VExpr.inst · B 0) = xs := by
+      rw [List.map_map]
+      refine Eq.trans (List.map_congr_left ?_) (List.map_id xs)
+      intro x _
+      show VExpr.inst (VExpr.liftN 1 x 0) B 0 = x
+      rw [VExpr.inst_liftN_absorb x (Nat.zero_le 0) (Nat.le_refl 0) B,
+        VExpr.liftN_zero]
+    rw [VExpr.inst_mkAppN, VExpr.inst_eq_self_of_closed (hcl _ _), habs]
+    exact hB'
+  · have habs2 : (xs.map (VExpr.liftN 2 · 0)).map (VExpr.inst · B 1) =
+        xs.map (VExpr.liftN 1 · 0) := by
+      rw [List.map_map]
+      refine List.map_congr_left ?_
+      intro x _
+      show VExpr.inst (VExpr.liftN 2 x 0) B 1 = VExpr.liftN 1 x 0
+      exact VExpr.inst_liftN_absorb x (Nat.zero_le 1) (by omega) B
+    have habs3 : (xs.map (VExpr.liftN 1 · 0)).map (VExpr.inst · B' 0) = xs := by
+      rw [List.map_map]
+      refine Eq.trans (List.map_congr_left ?_) (List.map_id xs)
+      intro x _
+      show VExpr.inst (VExpr.liftN 1 x 0) B' 0 = x
+      rw [VExpr.inst_liftN_absorb x (Nat.zero_le 0) (Nat.le_refl 0) B',
+        VExpr.liftN_zero]
+    have hres : ∀ VE VT : VExpr, VExpr.Closed VE → VExpr.Closed VT →
+        ((VExpr.mkAppN VE [VExpr.mkAppN VT (xs.map (VExpr.liftN 2 · 0)),
+            VExpr.bvar 1, VExpr.bvar 0]).inst B 1).inst B' 0 =
+          VExpr.mkAppN VE [VExpr.mkAppN VT xs, B, B'] := by
+      intro VE VT hVE hVT
+      have h1 : (VExpr.mkAppN VE [VExpr.mkAppN VT (xs.map (VExpr.liftN 2 · 0)),
+          VExpr.bvar 1, VExpr.bvar 0]).inst B 1 =
+          VExpr.mkAppN VE [VExpr.mkAppN VT (xs.map (VExpr.liftN 1 · 0)),
+            VExpr.liftN 1 B 0, VExpr.bvar 0] := by
+        rw [VExpr.inst_mkAppN, VExpr.inst_eq_self_of_closed hVE]
+        simp only [List.map_cons, List.map_nil]
+        rw [VExpr.inst_mkAppN, VExpr.inst_eq_self_of_closed hVT, habs2]
+        simp only [VExpr.inst_bvar, Nat.lt_irrefl, if_false, Nat.zero_lt_one,
+          if_true]
+      rw [h1, VExpr.inst_mkAppN, VExpr.inst_eq_self_of_closed hVE]
+      simp only [List.map_cons, List.map_nil]
+      rw [VExpr.inst_mkAppN, VExpr.inst_eq_self_of_closed hVT, habs3,
+        VExpr.inst_liftN_absorb B (Nat.zero_le 0) (Nat.le_refl 0) B',
+        VExpr.liftN_zero]
+      simp only [VExpr.inst_bvar, Nat.lt_irrefl, if_false, if_true,
+        VExpr.liftN_zero]
+    simp only [Nat.zero_add]
+    rw [hres _ _ (hcl _ _) (hcl _ _)]
+    exact VTeleTyped.nil
 
 end Setlec.TTVerify
