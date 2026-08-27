@@ -43,6 +43,7 @@ import Setlec.TTVerify.StdAxiomKey
 import Setlec.TTVerify.NatOpPin
 import Setlec.TTVerify.DivModPin
 import Setlec.TTVerify.DeclBasis
+import Setlec.TTVerify.DeclInd
 
 /-!
 # The TTVerify bridge (task #119)
