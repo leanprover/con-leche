@@ -1,5 +1,6 @@
 import Setlec.TTVerify.DeclBasis
 import Setlec.Verify.Extend.Iota
+import Setlec.TTVerify.TeleOpen
 
 /-!
 # `DeclIndTT`: the modeled-inductive install
@@ -192,5 +193,225 @@ theorem VTeleTyped.teleAlign {Δ : List VExpr} :
   induction h with
   | nil => exact .nil
   | cons _ _ ih => exact .cons ih
+
+/-- `retarget`, with the fitting's own residual *identified*.  A fold
+needs both halves: `TeleAlign` determines the residual on each side
+from the telescope and the spine, so the fitting it was handed is the
+alignment's first residual, and there is nothing to reconcile. -/
+theorem VTeleTyped.retarget' {Δ : List VExpr} :
+    ∀ {T T' : VExpr} {xs : List VExpr} {rest r r' : VExpr},
+      VTeleTyped Δ T xs rest → TeleAlign T T' xs r r' →
+      rest = r ∧ VTeleTyped Δ T' xs r' := by
+  intro T T' xs rest r r' h
+  induction h generalizing T' r r' with
+  | nil => intro ha; cases ha with | nil => exact ⟨rfl, .nil⟩
+  | @cons A B x xs rest hx _ ih =>
+    intro ha
+    cases ha with
+    | cons ha' =>
+      obtain ⟨he, hf⟩ := ih ha'
+      exact ⟨he, .cons hx hf⟩
+
+/-! ## The tower, separated from the spine
+
+**A retraction, and the reason it is one.**  `teleAlign_of_stripPis`
+was first attempted as a single induction from `stripPis` straight to
+`TeleAlign`, with the residual named as `VExpr.instSeq xs (k-1) R`.
+It does not go through, and the obstruction is worth recording because
+it is §0's fifth tell firing a second time on this same relation:
+
+> `TeleAlign S S' ys r r' → TeleAlign (S.inst x j) (S'.inst x j) ys
+> (r.inst x j) (r'.inst x j)` is **false**.
+
+`inst_inst_comm` says the two orders differ by `x' .inst x j` on the
+*other* spine elements, and a spine over an open context `Δ` has some.
+So `TeleAlign` does not commute with substitution — which is the
+relation announcing, once more, that **the spine is doing work**: the
+statement being proved by induction must not mention it.
+
+The fix is to slice one step earlier.  `PiTower k S S' R R'` is
+`TeleAlign` with the spine deleted: `S` and `S'` are `k` nested `.pi`s
+with pairwise equal domains, over bodies `R` and `R'`.  The syntactic
+induction (`piTower_of_stripPis`) produces *that*, where it does go
+through — a tower substituted is a tower — and the spine is fitted
+afterwards in one step (`PiTower.teleAlign`), where `VExpr.instSeq`'s
+recursion lines up with `TeleAlign`'s peel by construction. -/
+
+/-- Two `VExpr` telescopes of the same depth with pairwise equal
+domains — `TeleAlign` with the spine deleted. -/
+inductive PiTower : Nat → VExpr → VExpr → VExpr → VExpr → Prop
+  | nil {R R' : VExpr} : PiTower 0 R R' R R'
+  | cons {k : Nat} {A B B' R R' : VExpr} :
+      PiTower k B B' R R' → PiTower (k + 1) (.pi A B) (.pi A B') R R'
+
+/-- A substituted tower is a tower — the step `TeleAlign` cannot
+take. -/
+theorem PiTower.inst :
+    ∀ {k : Nat} {S S' R R' : VExpr}, PiTower k S S' R R' →
+      ∀ (x : VExpr) (j : Nat),
+        PiTower k (S.inst x j) (S'.inst x j)
+          (R.inst x (j + k)) (R'.inst x (j + k)) := by
+  intro k S S' R R' h
+  induction h with
+  | nil => intro x j; simpa using PiTower.nil
+  | @cons k A B B' R R' _ ih =>
+    intro x j
+    have h1 := ih x (j + 1)
+    rw [show j + 1 + k = j + (k + 1) from by omega] at h1
+    exact PiTower.cons (A := A.inst x j) h1
+
+/-- **Fitting the spine.**  A tower of depth `k` is aligned along any
+spine of length `k`, and the residuals are the bodies with the spine
+substituted at descending cuts — which is exactly `VExpr.instSeq`,
+because that is how `TeleAlign` peels. -/
+theorem PiTower.teleAlign :
+    ∀ (k : Nat) {S S' R R' : VExpr}, PiTower k S S' R R' →
+      ∀ {xs : List VExpr}, xs.length = k →
+        TeleAlign S S' xs (VExpr.instSeq xs (k - 1) R)
+          (VExpr.instSeq xs (k - 1) R') := by
+  intro k
+  induction k with
+  | zero =>
+    intro S S' R R' h xs hlen
+    obtain rfl : xs = [] := List.eq_nil_of_length_eq_zero hlen
+    cases h
+    exact .nil
+  | succ k ih =>
+    intro S S' R R' h xs hlen
+    cases h with
+    | @cons _ A B B' _ _ ht =>
+      match xs, hlen with
+      | x :: xs', hlen =>
+        have hlen' : xs'.length = k := by simpa using hlen
+        have h2 := ht.inst x 0
+        rw [Nat.zero_add] at h2
+        refine TeleAlign.cons ?_
+        simpa only [VExpr.instSeq_cons, Nat.add_sub_cancel] using ih h2 hlen'
+
+/-- **The syntactic half: a `stripPis` pair with matching domains
+denotes to a tower.**  The two telescopes are opened together at the
+*same* canonical variables — legitimate because `denote` reads neither
+a binder's name nor an `fvar`'s annotation, and because `RenEqT.fvar`
+says the two sides' own opening variables are related regardless.
+
+The bodies are left where `stripPis` leaves them: with `k` loose
+bvars, opened by `Expr.instSeq` at `openFvars`.  Substituting the use
+site's spine is `PiTower.teleAlign`'s job, and keeping the two steps
+apart is what makes this induction go through (see the retraction
+above). -/
+theorem piTower_of_stripPis {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {f : Name → Name} (hro : RenameOkT cval env f) :
+    ∀ (k : Nat) {e e' : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+      {body body' : Expr} {d : Nat} {v v' : VExpr},
+      e.stripPis k = some (bs, body) →
+      e'.stripPis k = some (bs', body') →
+      PiDomsRenEqT f k e e' →
+      denote cval env φ d e = some v →
+      denote cval env φ d e' = some v' →
+      ∃ R R' : VExpr,
+        denote cval env φ (d + k)
+          (Expr.instSeq (openFvars d k) (k - 1) body) = some R ∧
+        denote cval env φ (d + k)
+          (Expr.instSeq (openFvars d k) (k - 1) body') = some R' ∧
+        PiTower k v v' R R' := by
+  intro k
+  induction k with
+  | zero =>
+    intro e e' bs bs' body body' d v v' h1 h2 _ hv hv'
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h1 h2
+    obtain ⟨-, rfl⟩ := h1
+    obtain ⟨-, rfl⟩ := h2
+    exact ⟨v, v', by simpa [openFvars, Expr.instSeq] using hv,
+      by simpa [openFvars, Expr.instSeq] using hv', .nil⟩
+  | succ k ih =>
+    intro e e' bs bs' body body' d v v' h1 h2 hdoms hv hv'
+    match e, h1, hdoms with
+    | .forallE n ty b m, h1, hdoms =>
+    obtain ⟨n', ty', b', m', rfl, hdty, hdb⟩ := hdoms
+    simp only [Expr.stripPis] at h1 h2
+    cases hs1 : b.stripPis k with
+    | none => rw [hs1] at h1; exact nomatch h1
+    | some p1 => ?_
+    cases hs2 : b'.stripPis k with
+    | none => rw [hs2] at h2; exact nomatch h2
+    | some p2 => ?_
+    rw [hs1] at h1
+    rw [hs2] at h2
+    simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h1 h2
+    obtain ⟨-, rfl⟩ := h1
+    obtain ⟨-, rfl⟩ := h2
+    -- the two heads
+    rw [denote_forallE] at hv hv'
+    cases hA : denote cval env φ d ty with
+    | none => rw [hA] at hv; exact nomatch hv
+    | some A => ?_
+    rw [hA] at hv
+    cases hB : denote cval env φ (d + 1) (b.instantiate1 (.fvar d n ty)) with
+    | none => rw [hB] at hv; exact nomatch hv
+    | some B => ?_
+    rw [hB] at hv
+    obtain rfl : v = .pi A B := (Option.some.inj hv).symm
+    rw [RenEqT.denote hro hdty d, hA] at hv'
+    cases hB' : denote cval env φ (d + 1)
+        (b'.instantiate1 (.fvar d n' ty')) with
+    | none => rw [hB'] at hv'; exact nomatch hv'
+    | some B' => ?_
+    rw [hB'] at hv'
+    obtain rfl : v' = .pi A B' := (Option.some.inj hv').symm
+    -- the opened tails, and their telescopes
+    obtain ⟨q1, hq1⟩ := Option.isSome_iff_exists.mp
+      (Expr.stripPis_instantiate1_isSome (v := .fvar d n ty) k 0
+        (by rw [hs1]; rfl))
+    obtain ⟨q2, hq2⟩ := Option.isSome_iff_exists.mp
+      (Expr.stripPis_instantiate1_isSome (v := .fvar d n' ty') k 0
+        (by rw [hs2]; rfl))
+    obtain ⟨hbody1, -⟩ := Expr.stripPis_instantiate1_eq k 0 hs1 hq1
+    obtain ⟨hbody2, -⟩ := Expr.stripPis_instantiate1_eq k 0 hs2 hq2
+    obtain ⟨R, R', hR, hR', htow⟩ :=
+      ih (bs := q1.1) (bs' := q2.1) (body := q1.2) (body' := q2.2)
+        (by rw [hq1]) (by rw [hq2])
+        (PiDomsRenEqT.instantiate1 RenEqT.fvar k 0 hdb) hB hB'
+    simp only [Nat.zero_add] at hbody1 hbody2
+    rw [hbody1] at hR
+    rw [hbody2] at hR'
+    refine ⟨R, R', ?_, ?_, PiTower.cons htow⟩
+    · rw [show d + (k + 1) = d + 1 + k from by omega, openFvars_succ,
+        Nat.add_sub_cancel, Expr.instSeq]
+      rw [denote_erasedEq (Expr.instSeq_erasedEq _ (k - 1)
+        (Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl _)
+          (show Expr.ErasedEq (Expr.fvar d Name.anonymous (.sort .zero))
+            (Expr.fvar d n ty) from rfl)))]
+      exact hR
+    · rw [show d + (k + 1) = d + 1 + k from by omega, openFvars_succ,
+        Nat.add_sub_cancel, Expr.instSeq]
+      rw [denote_erasedEq (Expr.instSeq_erasedEq _ (k - 1)
+        (Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl _)
+          (show Expr.ErasedEq (Expr.fvar d Name.anonymous (.sort .zero))
+            (Expr.fvar d n' ty') from rfl)))]
+      exact hR'
+
+/-- **The alignment, assembled.**  `piTower_of_stripPis` for the
+syntax, `PiTower.teleAlign` for the spine.  This is the lemma the two
+folds and the two bottoms consume. -/
+theorem teleAlign_of_stripPis {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {f : Name → Name} (hro : RenameOkT cval env f) (k : Nat)
+    {e e' : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+    {body body' : Expr} {d : Nat} {v v' : VExpr} {xs : List VExpr}
+    (h1 : e.stripPis k = some (bs, body))
+    (h2 : e'.stripPis k = some (bs', body'))
+    (hdoms : PiDomsRenEqT f k e e')
+    (hv : denote cval env φ d e = some v)
+    (hv' : denote cval env φ d e' = some v')
+    (hlen : xs.length = k) :
+    ∃ R R' : VExpr,
+      denote cval env φ (d + k)
+        (Expr.instSeq (openFvars d k) (k - 1) body) = some R ∧
+      denote cval env φ (d + k)
+        (Expr.instSeq (openFvars d k) (k - 1) body') = some R' ∧
+      TeleAlign v v' xs (VExpr.instSeq xs (k - 1) R)
+        (VExpr.instSeq xs (k - 1) R') := by
+  obtain ⟨R, R', hR, hR', htow⟩ :=
+    piTower_of_stripPis hro k h1 h2 hdoms hv hv'
+  exact ⟨R, R', hR, hR', htow.teleAlign k hlen⟩
 
 end Setlec.TTVerify

@@ -43,6 +43,8 @@ import Setlec.TTVerify.StdAxiomKey
 import Setlec.TTVerify.NatOpPin
 import Setlec.TTVerify.DivModPin
 import Setlec.TTVerify.DeclBasis
+import Setlec.TTVerify.Rename
+import Setlec.TTVerify.TeleOpen
 import Setlec.TTVerify.DeclInd
 
 /-!
