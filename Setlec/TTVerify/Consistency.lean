@@ -64,10 +64,13 @@ def CheckDeclTT (F : Nat) : Prop :=
 
 /-- **The closure of stored eta families survives a checked
 declaration.**  Purely syntactic (no valuation, no derivations) — the
-closure half of the model's `checkDecl_sound` conclusion, separated. -/
+closure half of the model's `checkDecl_sound` conclusion, separated.
+Stated under the certified configuration, like `CheckDeclTT`: the
+direct-install path is the one dispatch it does not cover. -/
 def FamiliesStepTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {d : Declaration},
     checkDecl (fueledOps F) env d = .ok env₁ →
+    CertifiedConfigTT →
     EtaFamiliesClosedT env → EtaFamiliesClosedT env₁
 
 /-- The fold over the declaration stream.  Transpose of
@@ -89,7 +92,7 @@ private theorem foldlM_TT (hstep : CheckDeclTT F)
       rw [hd] at h
       obtain ⟨m⟩ := hm
       exact foldlM_TT hstep hfam hdir ds env1 (hstep hd hdir m hE1)
-        (hfam hd hE1) h
+        (hfam hd hdir hE1) h
 
 /-- **The acceptance theorem**: every accepted environment has a
 derivation model, i.e. every constant it stores has a `HasType`
