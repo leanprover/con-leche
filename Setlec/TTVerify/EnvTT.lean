@@ -71,6 +71,48 @@ namespace Setlec.TTVerify
 
 open Setlec.TT
 
+/-- **The fire site's index check** — §8.2's *sixth* narrowing, and
+the one the record predicted would be the bottoms' spine lemma.
+
+`iotaRec` (`Setlec/Kernel/Core.lean`, ~1299) runs, after the two
+`iotaCerts` and before it will fire:
+
+```
+defEqList (residual.getAppArgs.drop rl.ctorParams)   -- canonical indices
+          ((args.take mI).drop rP)                   -- the redex's indices
+```
+
+with `residual = piResidual (cvj.type.instantiateLevelParams …) margs`
+— the constructor's own telescope residual.  So a fired redex's index
+arguments are **never free**: they are definitionally the
+constructor's canonical tuple, which is exactly what the modeled iota
+equation speaks about.  Like the level and parameter narrowings before
+it, this is a guard the checker already runs and the fired form must
+carry, or the law quantifies over redexes no fire site supplies.
+
+**The spelling is fixed here, before the consumer needs it**, for the
+reason `StatementSortPin` and `CtorResidualPin` were: a premise
+written in the shape the supplier produces makes the discharge
+`exact`, and one written any other way makes it a shim (§0's first
+tell).
+
+**Why `restC` and not a `VExpr`-level `getAppArgs`.**  §14.6.2
+budgeted "a `VExpr`-level `getAppArgs` (none exists) or a
+reformulation through `restC`".  The reformulation wins outright: the
+constructor's residual is already a bound variable of `RecRulesTT`
+(`VTeleTyped Δ TVj ys restC`), and `denote_mkAppN_inv` — which is how
+the bridge reads any spine apart — *produces* precisely the
+existential below.  A `getAppArgs` on `VExpr` would have to be
+introduced, given lemmas, and then related back to `mkAppN`; the
+existential is what the inversion hands over already.  So the piece
+this phase looked like it needed does not need to be built. -/
+def IotaIndexPin (Δ : List VExpr) (restC : VExpr) (cnP mI rP : Nat)
+    (xs : List VExpr) : Prop :=
+  ∃ (H : VExpr) (cargs : List VExpr),
+    restC = VExpr.mkAppN H cargs ∧
+    ∀ i, i < mI - rP →
+      Deq Δ (cargs.getD (cnP + i) default) (xs.getD (rP + i) default)
+
 /-- **The fired modeled-iota contract** (task #119; the decision and its
 argument are in `Setlec/TTVerify/DESIGN.md` §8).
 
@@ -187,48 +229,6 @@ def RecRulesTT (env : Env) (cval : TConstVal) : Prop :=
 theorem RecRulesTT.empty (cval : TConstVal) : RecRulesTT Env.empty cval := by
   intro n cv mI rP rules h
   simp [Env.find?, Env.empty] at h
-
-/-- **The fire site's index check** — §8.2's *sixth* narrowing, and
-the one the record predicted would be the bottoms' spine lemma.
-
-`iotaRec` (`Setlec/Kernel/Core.lean`, ~1299) runs, after the two
-`iotaCerts` and before it will fire:
-
-```
-defEqList (residual.getAppArgs.drop rl.ctorParams)   -- canonical indices
-          ((args.take mI).drop rP)                   -- the redex's indices
-```
-
-with `residual = piResidual (cvj.type.instantiateLevelParams …) margs`
-— the constructor's own telescope residual.  So a fired redex's index
-arguments are **never free**: they are definitionally the
-constructor's canonical tuple, which is exactly what the modeled iota
-equation speaks about.  Like the level and parameter narrowings before
-it, this is a guard the checker already runs and the fired form must
-carry, or the law quantifies over redexes no fire site supplies.
-
-**The spelling is fixed here, before the consumer needs it**, for the
-reason `StatementSortPin` and `CtorResidualPin` were: a premise
-written in the shape the supplier produces makes the discharge
-`exact`, and one written any other way makes it a shim (§0's first
-tell).
-
-**Why `restC` and not a `VExpr`-level `getAppArgs`.**  §14.6.2
-budgeted "a `VExpr`-level `getAppArgs` (none exists) or a
-reformulation through `restC`".  The reformulation wins outright: the
-constructor's residual is already a bound variable of `RecRulesTT`
-(`VTeleTyped Δ TVj ys restC`), and `denote_mkAppN_inv` — which is how
-the bridge reads any spine apart — *produces* precisely the
-existential below.  A `getAppArgs` on `VExpr` would have to be
-introduced, given lemmas, and then related back to `mkAppN`; the
-existential is what the inversion hands over already.  So the piece
-this phase looked like it needed does not need to be built. -/
-def IotaIndexPin (Δ : List VExpr) (restC : VExpr) (cnP mI rP : Nat)
-    (xs : List VExpr) : Prop :=
-  ∃ (H : VExpr) (cargs : List VExpr),
-    restC = VExpr.mkAppN H cargs ∧
-    ∀ i, i < mI - rP →
-      Deq Δ (cargs.getD (cnP + i) default) (xs.getD (rP + i) default)
 
 
 /-- The eta family of an eta-capable stored structure is complete:

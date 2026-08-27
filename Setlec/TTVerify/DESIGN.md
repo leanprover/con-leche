@@ -5515,4 +5515,73 @@ shape.
   `checkIotaSidesTy` route) as §14.7.6 pre-split — and their two
   *sides* are already certified there, which is the half #135 did not
   have to provide.
+### 15.4 The narrowing scoreboard, and the re-signing's validated plan
+
+**Scoreboard.**  Of §8.2's six predicted narrowings:
+
+| # | narrowing | outcome |
+|---|---|---|
+| 1–3 | levels, parameters, **indices** | **guard already in the checker**; the bridge only certifies it was load-bearing |
+| 4 | `Quot`'s parameter narrowing | fatal-and-threaded — the laws are unprovable without it |
+| 5 | the equation type slot's **sort** | checker change (#135, landed) |
+| 6 | the constructor **residual** + the defeq-path **certificate** | checker changes (#136, #137, in flight) |
+
+The rule stands with a corollary now attached:
+
+> Wherever the model states a law over a hard-coded canonical form and
+> the bridge quantifies, the difference is a **checker guard** — and
+> sometimes the guard is already there, and the bridge merely
+> discovers it was load-bearing.
+
+**On the alignment tally (§8.4): deliberate, or coincidence?**  The
+index guard's own comment says *"the model's iota equation only speaks
+about the canonical indices"* — so its author added it **for the model
+path's benefit**, knowing the law was stated at the canonical form.
+That makes it *deliberate forward provision*, not luck: the bridge
+inherits it because both verifications need the same fact for the same
+reason.  By contrast, `denote_mkAppN_inv`'s output shape *being* the
+existential `IotaIndexPin` wants is undesigned — the inversion was
+written to read redexes apart, long before anything needed a
+constructor residual's index tuple.  One of each, and the distinction
+is worth keeping: the first predicts more such guards exist, the second
+does not.
+
+**The threading plan, validated by doing it and then reverting.**  The
+re-signing was threaded end to end far enough to confirm every link,
+then rolled back rather than left half-applied.  What it costs, in
+order:
+
+1. `RecRulesTT` gains `IotaIndexPin Δ restC (RecRule.ctorParams rl) mI rP xs`
+   after the parameter narrowing.  (`IotaIndexPin` is already placed
+   *before* `RecRulesTT` for this.)
+2. Two transports take it verbatim: `RecRulesTT.cons`'s `hhead`
+   (`Extend.lean` ~1222 and its `intro`/`exact` pair) and `EnvTT.cons`'s
+   `hheadRec` (~1442), plus `EnvTT.consBasis`'s (`DeclBasis.lean` ~188).
+   **Confirmed compiling.**
+3. The six basis blocks then get the conjunct offered; `-`-sweep them so
+   it is visibly declined.
+4. The single consumer `rec_rules_fire` (`Iota.lean`) assembles it.
+5. `IotaStep.lean` supplies its hypothesis, mirroring `hparP` exactly.
+
+**Two more discarded conjuncts, found in step 4 and worth their own
+line** — §0's third tell, twice more, in our own code:
+
+* `rec_rules_fire` writes `obtain ⟨RVC, hvC, -⟩ := hfitC.toV hcl hiC`.
+  The `-` is `denote … restC = some RVC` — precisely the fact needed to
+  read the constructor residual's spine apart.
+* `iotaRec_inv` (`Setlec/Verify/InferLemmas.lean` ~726) already returns
+  both `piResidual … = some residual` **and** the index `defEqListP`;
+  `IotaStep.lean` destructures past them.
+
+So step 4/5's inputs are all present and merely unclaimed — the same
+shape as `MajorStep.lean`'s `fab_reduct` discarding `certs_typed`'s
+typing half (§14.7.8).  **Three independent instances now**: when this
+bridge needs a fact, the first place to look is the conjunct its own
+inversion already returns.
+
+**Landed from the attempt** (kept because reusable and green):
+`TeleTyped.rest_eq` — a typed walk's residual is `piResidual`'s, the
+link between a checker guard stated about `piResidual` and a bridge
+that holds the walk.  It is what step 4 needs and nothing else
+supplied.
 
