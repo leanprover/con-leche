@@ -5253,8 +5253,13 @@ on it — then uses only `hfit.spine`, the `DenoteSpine`, and discards
 the *typing* half.  §0's third tell, in the bridge's own code: a
 conjunct available at the only use site and declined.
 
-So **no checker change is needed** for the fabricated spine, and the
-request that would have become #136 is withdrawn.  The `EtaLawTT`
+So **no checker change is needed at this call site** for the fabricated
+spine, and the request that would have become #136 is withdrawn.
+(**§14.7.10 amends the scope of this sentence**: `structEtaCertWith`
+has a *second* caller, reached from `defeq`, which is not so guarded.
+The fact recorded here stands; the conclusion "no checker change is
+owed for this premise" was drawn from one call site and is too
+strong.)  The `EtaLawTT`
 re-signing still stands — the field must *ask* for the premise — but
 its supplier is a certificate that has been there since task #71.
 (The number was reused: task #136 is §14.7.9's *different* request,
@@ -5354,6 +5359,26 @@ the task #71 certificate `MajorStep.lean` already inverts: that gives
 the fabrication at the *constructor's* residual, and the conjunct is
 what identifies that residual with `T p⃗`.
 
+**The spelling is committed in advance, for the implementer to grep.**
+`Setlec/TTVerify/DeclInd.lean` now carries
+
+```lean
+def CtorResidualPin (T : Name) (lps : List Name) (cvC : ConstantVal)
+    (nP nF : Nat) : Prop :=
+  ∃ bs, cvC.type.stripPis (nP + nF) = some (bs, directFam T lps nP nF)
+```
+
+next to `StatementSortPin`, and for the same reason: a conjunct stated
+in the shape the bridge consumes makes the swap `exact`, and one
+stated in any other shape makes it a shim (§0's first tell).  Three
+things are load-bearing in it — `stripPis` at the **full** telescope
+`nP + nF`, the binder list **unconstrained**, and `directFam`'s last
+argument `nF` (the field count, as in `checkDirectCtor`'s call, *not*
+the `0` a recursor's major premise uses).  It is stated over the
+**public** constructor's stored `ConstantVal` because the model side
+cannot serve it — a model's own residual is unpinned, which is what
+the reading above established.
+
 **And note what the measurement bought beyond a yes/no.**  The naive
 form of this check was *wrong* — 99 counterexamples — and the guard
 that fixes it is not something reading the code would have suggested,
@@ -5361,4 +5386,149 @@ because the code has no place where "eta-capable" and "constructor
 residual" are looked at together.  §0's second practice earning its
 keep: the suite would have gone green on a guarded check and red on an
 unguarded one, and only counting told which.
+#### 14.7.10 AMENDMENT to §14.7.8: `structEtaCertWith` has two callers
+
+§14.7.8 established a *fact* — `majorToCtorI`'s eta branch runs
+`iotaCertsI` on the constructor's telescope (task #71) — and drew a
+*conclusion* from it: "no checker change is owed for this premise".
+**The fact stands; the conclusion was too strong.**  It is owed, at the
+*other* caller.
+
+`structEtaCertWithI` is called from two places
+(`Setlec/Kernel/CoreI.lean`):
+
+| caller | line | constructor telescope certified? |
+|---|---|---|
+| `majorToCtorI`, eta rescue | 1251 | **yes** — `iotaCertsI … tyCtor (margs ++ projs)` at 1248 |
+| `structEtaCertI`, from `defeq` | 1111 | **no** — it only does `infer b`, `whnf`, then calls |
+
+and `structEtaCertI` is itself reached from `defeq` twice (1163, 1164,
+the symmetric pair).  So the guard §14.7.8 found protects one consumer
+and not the other.
+
+The bridge sees it directly: `structEtaCertWith_stepTT`
+(`Setlec/TTVerify/StructEtaCertStep.lean`) carries `hbT : HasType Δ vb W`
+— the *stuck subject's* typing — and **no typing of the fabrication**,
+and its header states the certificate is "self-sufficient: … so
+everything `EtaLawTT` asks for is certified on the spot".  That claim
+is exactly true of the *current* `EtaLawTT` and becomes false the
+moment the law gains the right-hand-side premise.  A landed docstring
+that goes stale under a re-signing is the re-signing telling you which
+consumer it breaks.
+
+**The error, named, because it is §14.7.8's own lesson committed one
+level up.**  §14.7.8 says: ask "is X certified?" of the *call site*,
+not of the definition.  I asked *a* call site — the one I had just
+been shown — and generalised to "the premise".  The rule needs its
+plural: ask it of **every** call site, because a function with two
+callers can be guarded by one of them.  `grep` for the callee, not just
+for the guard.
+
+**What this asks of #136.**  Nothing — #136 is the
+`CtorResidualPin` conjunct, is correctly scoped, and is unaffected.
+This is a *separate* one-line checker change, and it belongs inside
+`structEtaCertWithI` rather than at its callers, precisely so that
+both consumers are served:
+
+```
+-- after structEtaProjCertsI, where `projs` is already in scope (:1093)
+let tyCtor ← constTyAtM fe c cn us
+if ← iotaCertsI r fe depth tyCtor (targs ++ projs) then …
+```
+
+It makes `majorToCtorI`'s copy redundant (harmless, and it can stay).
+It can only make the checker *stricter*, so the thing to price is
+whether any accepted stream stops being accepted — measurable exactly
+as §14.7.4 and §14.7.9 were, and the prior is good, since the same
+certificate already succeeds at every `majorToCtor` eta rescue in the
+corpus.
+
+**Until it exists**, the `EtaLawTT` re-signing can be threaded but not
+completed: `MajorStep.lean`'s consumer discharges the new premise
+(certificate + `CtorResidualPin`), and `StructEtaCertStep.lean`'s
+cannot.  The re-signing should therefore land *with* it, not before.
+
+## 15. The bottoms: §8.2's sixth narrowing, cashed with its supplier
+
+Scouted before writing either bottom, on the same discipline §14.7.8
+extracted: ask the *call sites* what they certify, and ask **all** of
+them.
+
+### 15.1 The prediction, and what the reading found
+
+§8.2 predicted a sixth narrowing (after the level and parameter ones)
+and `DESIGN.md` §14.6.2 predicted that its plumbing *is* the bottoms'
+spine lemma — the thing that moves the constructor spine between the
+rule's description of it (`ruleLhsAux`, index slots filled with the
+constructor's canonical tuple) and the fired redex's (index slots
+free).  Both hold, and there is a third fact the record did not have:
+**the guard already exists**, so unlike §14.7.4/§14.7.9 this narrowing
+costs no checker change.
+
+`iotaRec` (`Setlec/Kernel/Core.lean`, ~1299), after both `iotaCerts`
+and before it will fire:
+
+```
+match (cvj.type.instantiateLevelParams …).stripPis (ctorParams + nfields),
+      piResidual (cvj.type.instantiateLevelParams …) margs with
+| some (_, cbody), some residual =>
+  match cbody.getAppFn with
+  | .const _ _ =>
+    if ← defEqList r env depth
+        (residual.getAppArgs.drop rl.ctorParams)   -- canonical indices
+        ((args.take mI).drop rP) then …            -- the redex's indices
+```
+
+with its own comment: *"the model's iota equation only speaks about
+the canonical indices"*.  So a fired redex's index arguments are never
+free — they are definitionally the constructor's canonical tuple.
+That is the sixth narrowing, in the checker, with a supplier.
+
+### 15.2 `IotaIndexPin`, and why the anticipated piece is not needed
+
+The premise is named now, in the shape the supplier produces, for the
+reason `StatementSortPin` (#135) and `CtorResidualPin` (#136) were:
+a premise written as the consumer will hand it over discharges by
+`exact`; written any other way it needs a shim (§0's first tell).
+
+```lean
+def IotaIndexPin (Δ : List VExpr) (restC : VExpr) (cnP mI rP : Nat)
+    (xs : List VExpr) : Prop :=
+  ∃ (H : VExpr) (cargs : List VExpr),
+    restC = VExpr.mkAppN H cargs ∧
+    ∀ i, i < mI - rP →
+      Deq Δ (cargs.getD (cnP + i) default) (xs.getD (rP + i) default)
+```
+
+§14.6.2 budgeted "a `VExpr`-level `getAppArgs` (none exists) or a
+reformulation through `restC`".  **The reformulation wins outright, and
+the anticipated piece is not built**: the constructor's residual is
+already a bound variable of `RecRulesTT` (`VTeleTyped Δ TVj ys restC`),
+and `denote_mkAppN_inv` — the bridge's only way of reading a spine
+apart — *produces exactly this existential*.  A `VExpr.getAppArgs`
+would have to be defined, given lemmas, and then related back to
+`mkAppN`; the existential is what the inversion already hands over.
+
+That is a budgeted piece coming in at **zero**, and it is worth the
+sentence: the pattern §14.6.2 used to predict it ("the shared piece is
+always the spine-mover between two descriptions of a telescope") was
+right about *what* was needed and wrong about *what it would cost*,
+because it did not notice the mover was already the inversion's output
+shape.
+
+### 15.3 What this asks for, and what it does not
+
+* **No checker change.**  Unlike the sort pin (#135) and the
+  constructor residual (#136), the guard is there.
+* **A `RecRulesTT` re-signing** — one premise, in the fired form's
+  established pattern, alongside the level and parameter narrowings it
+  joins.  Producers (`DeclBasisTT`'s six blocks) are only *helped*: a
+  new premise is a new hypothesis they may ignore.  The consumer
+  (`Setlec/TTVerify/IotaStep.lean`) must supply it, and the guard above
+  is what it supplies it from.
+* The bottoms then meet §14.7.4's sort gap at a **motive application**
+  rather than the model former, so they want form 2 (the
+  `checkIotaSidesTy` route) as §14.7.6 pre-split — and their two
+  *sides* are already certified there, which is the half #135 did not
+  have to provide.
 

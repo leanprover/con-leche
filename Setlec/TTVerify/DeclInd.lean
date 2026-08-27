@@ -448,6 +448,37 @@ that `grep StatementSortPin` stays the list of sites it serves. -/
 def StatementSortPin (tbody : Expr) (l : Level) : Prop :=
   tbody = Expr.sort l
 
+/-- **Task #136's conjunct.**  An eta-capable modeled family's
+constructor returns *the family applied to its parameters*.
+
+This is literally the check `checkDirectCtor` already makes on the
+direct path (`Setlec/Kernel/Checker.lean:125`,
+`cbody == directFam p.cvT.name p.cvT.levelParams p.nP p.nF`), moved to
+the modeled path and **guarded on the eta capability** — the guard is
+not cosmetic: unguarded, the conjunct is *refuted by the corpus*, at
+99 indexed families (`Acc`, `HEq`, `Int.NonNeg`, `IndexedSingleton`,
+`SortElimProp`, …) whose residual is `T p⃗ i⃗` and which must keep
+installing with `eta = false`.  Guarded it is corpus-clean: 978/978
+eta-capable and 91/91 unit-capable blocks satisfy it.  The table is
+`DESIGN.md` §14.7.9.
+
+**Spelling matters here, so it is fixed in advance.**  This is the
+shape the bridge consumes — `stripPis` at the *full* constructor
+telescope, binder list unconstrained, residual literally `directFam` —
+so that the discharge of `EtaFoldTT`'s `EtaRhsTyped` is `exact` from
+the inversion, the way `StatementSortPin` made #135's swap `exact`.
+The suffix `nF` in `directFam …  nP nF` is the field count, matching
+`checkDirectCtor`'s call and *not* the `0` used for a recursor's major
+premise.
+
+Stated over the *public* constructor's stored `ConstantVal`: the model
+side cannot serve it, because a model's own residual is unpinned
+(models are stored opaque), which is what §14.7.9's reading
+established. -/
+def CtorResidualPin (T : Name) (lps : List Name) (cvC : ConstantVal)
+    (nP nF : Nat) : Prop :=
+  ∃ bs, cvC.type.stripPis (nP + nF) = some (bs, directFam T lps nP nF)
+
 /-- **The equation type slot's sort, derived from the pin.**  The
 spine lemma paying twice: a *second* alignment, this time between the
 public former's telescope and the model former's, carries the use
@@ -1262,13 +1293,17 @@ Stated as exactly the premise `EtaLawTT` would gain — same binders,
 same side conditions, the RHS typing in place of the conclusion — so
 that it is neither vacuous nor stronger than the law needs.
 
-**Its supplier already exists** (`DESIGN.md` §14.7.8, which retracts an
-earlier claim here that it did not): `majorToCtorI`'s eta branch runs
+**Its supplier is `CtorResidualPin` plus a certificate that already
+exists** (`DESIGN.md` §14.7.8, which retracts an earlier claim here
+that the certificate did not): `majorToCtorI`'s eta branch runs
 `iotaCertsI` on the **constructor's** telescope at `margs ++ projs`
 (task #71's synthetic-spine certification) immediately before calling
 `structEtaCertWithI`, and `Setlec/TTVerify/MajorStep.lean`'s
 `fab_reduct` already inverts it — using only the `DenoteSpine` half and
-discarding the typing.  No checker change is owed for this premise. -/
+discarding the typing.  That certificate types the fabrication at the
+*constructor's* residual; `CtorResidualPin` (task #136) is what
+identifies that residual with `T p⃗`, and the two together discharge
+this premise at `eta_rescue`. -/
 def EtaRhsTyped (env : Env) (cval : TConstVal) (T : Name)
     (cvT : ConstantVal) (caps : IndCaps) : Prop :=
   ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr) (us : List Level)
