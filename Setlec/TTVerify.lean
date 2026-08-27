@@ -52,6 +52,7 @@ import Setlec.TTVerify.IndBottomPlain
 import Setlec.TTVerify.IndBottomNested
 import Setlec.TTVerify.IndBottomProj
 import Setlec.TTVerify.EnvSwap
+import Setlec.TTVerify.DeclIndMember
 
 /-!
 # The TTVerify bridge (task #119)
