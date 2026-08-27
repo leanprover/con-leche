@@ -1,5 +1,6 @@
 import Setlec.Verify.Denote
 import Setlec.TTVerify.EnvTT
+import Setlec.Verify.Extend.Sibs
 import Setlec.Verify.EnvWF
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InstLevels
@@ -259,9 +260,8 @@ Listing the seven is the fix.
 
 They are hypotheses for the same reason they are in `denote_mono`:
 deriving them from the guards needs
-`natLitSupported_inv`, a `V`-free fact stranded in
-`Setlec/Model/Interp.lean` (the fifth such; see `EnvTT.lean`'s
-relocation note).  Install sites discharge them from freshness. -/
+`natLitSupported_inv`, which was stranded in `Setlec/Model/Interp.lean`
+and now lives, `V`-free, in `Setlec/Verify/EnvGuards.lean`.  Install sites discharge them from freshness. -/
 
 /-- Denotation reads the valuation only at names the environment
 resolves, so valuations agreeing there give equal denotations. -/
@@ -820,7 +820,7 @@ theorem CapsOkTT.cons {env : Env} {cval cval' : TConstVal}
     (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true → reservedBasisNames.contains T = false →
-      EtaFamilyStoredT ⟨c₀ :: env.consts⟩ T caps →
+      EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
       (T = c₀.name ∨ caps.etaCtor = c₀.name ∨
         ∃ j, j < caps.etaFields ∧ projFnName T j = c₀.name) →
       EtaLawTT ⟨c₀ :: env.consts⟩ cval' T cvT caps)
@@ -859,7 +859,7 @@ theorem CapsOkTT.cons {env : Env} {cval cval' : TConstVal}
       rw [hfind _ hnT] at hf
       obtain ⟨hCres, ⟨cvC, hfC⟩, hfP⟩ := hfam
       rw [hfind _ hnC] at hfC
-      have hfam₀ : EtaFamilyStoredT env T caps := by
+      have hfam₀ : EtaFamilyStored env T caps := by
         refine ⟨hCres, ⟨cvC, hfC⟩, ?_⟩
         intro j hj
         obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfP j hj
@@ -1107,7 +1107,7 @@ theorem BasisPinnedTT.cons {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (h : BasisPinnedTT env cval)
     (hi : Installs env cval cval' c₀)
     (hhead : reservedBasisNames.contains c₀.name = true →
-      (isBasisKind c₀ = true → c₀ = pinnedInfoT c₀.name) ∧
+      (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
       ∀ (ψ : Name → Nat) (t : VExpr),
         pinnedDirectT c₀.name ψ = some t → cval' c₀.name ψ = t) :
     BasisPinnedTT ⟨c₀ :: env.consts⟩ cval' := by
@@ -1511,7 +1511,7 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
     (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true → reservedBasisNames.contains T = false →
-      EtaFamilyStoredT ⟨c₀ :: env.consts⟩ T caps →
+      EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
       (T = c₀.name ∨ caps.etaCtor = c₀.name ∨
         ∃ j, j < caps.etaFields ∧ projFnName T j = c₀.name) →
       EtaLawTT ⟨c₀ :: env.consts⟩ cval' T cvT caps)
@@ -1537,7 +1537,7 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       c₀.name = projFnName psigmaName i → entry.native = true)
     (hheadEq : c₀.name = eqName → EqLawTT ⟨c₀ :: env.consts⟩ cval')
     (hheadBasis : reservedBasisNames.contains c₀.name = true →
-      (isBasisKind c₀ = true → c₀ = pinnedInfoT c₀.name) ∧
+      (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
       ∀ (ψ : Name → Nat) (t : VExpr),
         pinnedDirectT c₀.name ψ = some t → cval' c₀.name ψ = t)
     (hheadNat : ∀ cv v hint, c₀ = .defnInfo cv v hint →
@@ -1575,7 +1575,7 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
         hheadEta hheadUnit
       ctor_residual := CtorResidualOkT.cons m.ctor_residual hheadResid
       proj_ok := ProjOkT.cons m.proj_ok hi.fresh hheadProj hheadProjPair
-      rec_ctors := RecCtorsStoredT.cons m.rec_ctors hi.fresh hheadCtors
+      rec_ctors := RecCtorsStored.cons m.rec_ctors hi.fresh hheadCtors
       eq_law := EqLawTT.cons m.eq_law hi.ag hheadEq
       basis_pinned := BasisPinnedTT.cons m.basis_pinned hi hheadBasis
       nat_ops := NatOpsTT.cons m.nat_ops hi hheadNat

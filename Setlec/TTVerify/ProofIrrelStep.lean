@@ -59,11 +59,11 @@ The transpose of `Setlec/Model/BasisVal.lean`'s
 `pinnedInfo_ctorInfo_cases`, and proved the same way. -/
 theorem pinnedInfoT_recInfo_cases {n : Name} {cv : ConstantVal}
     {mI rP : Nat} {rules : List RecRule}
-    (h : pinnedInfoT n = .recInfo cv mI rP rules) :
+    (h : pinnedInfo n = .recInfo cv mI rP rules) :
     n = eqName.str "rec" ∨ n = natName.str "rec" ∨
     n = psigmaName.str "rec" ∨ n = punitName.str "rec" ∨
     n = emptyName.str "rec" ∨ n = quotLiftName ∨ n = quotIndName := by
-  unfold pinnedInfoT at h
+  unfold pinnedInfo at h
   by_cases h1 : n = eqName
   · rw [if_pos h1] at h; exact nomatch h
   rw [if_neg h1] at h
@@ -135,7 +135,7 @@ theorem unitLike_eq_punit {env : Env} (m : EnvTT env) {e : Expr}
   obtain ⟨c, us, cvi, capsi, cvr, mI, rP, r, rfl, hfc, hfr, hmI, hnf,
     hres⟩ := isUnitLikeTy_inv h
   -- the recursor's stored declaration is the pinned one
-  have hpin : pinnedInfoT (c.str "rec") = .recInfo cvr mI rP [r] :=
+  have hpin : pinnedInfo (c.str "rec") = .recInfo cvr mI rP [r] :=
     ((m.basis_pinned _ _ hfr hres).1 rfl).symm
   -- and every pin but `PUnit.rec`'s is refuted by the test's own
   -- three conditions, or by its name
@@ -144,16 +144,16 @@ theorem unitLike_eq_punit {env : Env} (m : EnvTT env) {e : Expr}
       he | he | he | he | he | he | he
     · -- `Eq.rec` has an index: `mI = 5`, `rP = 4`
       rw [he] at hpin
-      rw [show pinnedInfoT (eqName.str "rec") = eqRecA from rfl] at hpin
+      rw [show pinnedInfo (eqName.str "rec") = eqRecA from rfl] at hpin
       simp only [eqRecA, ConstantInfo.recInfo.injEq] at hpin
       omega
     · -- `Nat.rec` has two rules
       rw [he] at hpin
-      rw [show pinnedInfoT (natName.str "rec") = natRecA from rfl] at hpin
+      rw [show pinnedInfo (natName.str "rec") = natRecA from rfl] at hpin
       simp [natRecA] at hpin
     · -- `PSigma'.rec`'s single rule has two fields
       rw [he] at hpin
-      rw [show pinnedInfoT (psigmaName.str "rec") = psigmaRecA from rfl]
+      rw [show pinnedInfo (psigmaName.str "rec") = psigmaRecA from rfl]
         at hpin
       simp only [psigmaRecA, ConstantInfo.recInfo.injEq,
         List.cons.injEq] at hpin
@@ -162,15 +162,15 @@ theorem unitLike_eq_punit {env : Env} (m : EnvTT env) {e : Expr}
     · exact (Name.str.injEq .. ▸ he).1
     · -- `Empty.rec` has no rules
       rw [he] at hpin
-      rw [show pinnedInfoT (emptyName.str "rec") = emptyRecA from rfl]
+      rw [show pinnedInfo (emptyName.str "rec") = emptyRecA from rfl]
         at hpin
       simp [emptyRecA] at hpin
     · exact absurd (Name.str.injEq .. ▸ he).2 (by decide)
     · exact absurd (Name.str.injEq .. ▸ he).2 (by decide)
   subst hc
-  have hp : ConstantInfo.indInfo cvi capsi = pinnedInfoT punitName :=
+  have hp : ConstantInfo.indInfo cvi capsi = pinnedInfo punitName :=
     (m.basis_pinned _ _ hfc (by decide)).1 rfl
-  rw [show pinnedInfoT punitName = punitA from rfl] at hp
+  rw [show pinnedInfo punitName = punitA from rfl] at hp
   exact ⟨us, rfl, hp ▸ hfc⟩
 
 /-! ## The branch
@@ -218,9 +218,9 @@ theorem punit_side {env : Env} (m : EnvTT env) (φ : Name → Nat)
     have hpv : m.cval punitName
         (Level.substFn φ punitA.toConstantVal.levelParams us)
         = punitT
-            ((Level.substFn φ punitA.toConstantVal.levelParams us) uNT) :=
+            ((Level.substFn φ punitA.toConstantVal.levelParams us) uN) :=
       cval_pinned m (n := punitName) (by decide) (by rw [hfind]; rfl) _ rfl
-    exact ⟨E, (Level.substFn φ punitA.toConstantVal.levelParams us) uNT,
+    exact ⟨E, (Level.substFn φ punitA.toConstantVal.levelParams us) uN,
       hE, hpv ▸ Deq.conv hEt hDeq⟩
   · rw [if_neg hlen] at hW
     exact nomatch hW

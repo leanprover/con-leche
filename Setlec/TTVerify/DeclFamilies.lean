@@ -5,8 +5,8 @@ import Setlec.TTVerify.DeclIndDecl
 
 The purely syntactic half of the model's `checkDecl_sound` conclusion,
 separated (see `Setlec/TTVerify/Consistency.lean`): every kind of
-checked declaration keeps `EtaFamiliesClosedT` — value kinds and
-basis blocks by `EtaFamiliesClosedT.cons_nonind` (their heads are
+checked declaration keeps `EtaFamiliesClosed` — value kinds and
+basis blocks by `EtaFamiliesClosed.cons_nonind` (their heads are
 never non-reserved eta-capable formers), the modeled-inductive block
 by its own structure (the single-constructor arm stores the capability
 constructor in the same block).
@@ -191,7 +191,7 @@ private theorem basisFold_closed {ds : List ConstantInfo}
     (hres : ∀ ci ∈ ds, basisHeadOk ci = true) :
     ∀ {env env₂ : Env},
     (ds.foldlM installBasisDecl env : CheckM Env) = .ok env₂ →
-    EtaFamiliesClosedT env → EtaFamiliesClosedT env₂ := by
+    EtaFamiliesClosed env → EtaFamiliesClosed env₂ := by
   induction ds with
   | nil =>
     intro env env₂ h hE1
@@ -207,7 +207,7 @@ private theorem basisFold_closed {ds : List ConstantInfo}
       rw [hstep] at h
       obtain ⟨hfresh, rfl⟩ := installBasisDecl_shape hstep
       refine ih (fun c hc => hres c (List.mem_cons_of_mem _ hc)) h
-        (EtaFamiliesClosedT.cons_nonind hE1 hfresh ?_)
+        (EtaFamiliesClosed.cons_nonind hE1 hfresh ?_)
       intro cv caps heq hcape
       have hok := hres ci List.mem_cons_self
       rw [heq] at hok ⊢
@@ -219,7 +219,7 @@ private theorem basisFold_closed {ds : List ConstantInfo}
 set_option maxHeartbeats 6400000 in
 private theorem indFamilies {env env₁ : Env} {block : List ConstantInfo}
     (h : checkIndDecl mode (fueledOps mode F) env block = .ok env₁)
-    (hE1 : EtaFamiliesClosedT env) : EtaFamiliesClosedT env₁ := by
+    (hE1 : EtaFamiliesClosed env) : EtaFamiliesClosed env₁ := by
   rw [checkIndDecl] at h
   simp only [Bind.bind, Except.bind] at h
   split at h
@@ -598,7 +598,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
         simp [throw, throwThe, MonadExceptOf.throw] at h
     subst henv
     obtain ⟨valueA, rfl⟩ := checkDefnVal_shape hdv
-    exact EtaFamiliesClosedT.cons_nonind hE1 hfind'
+    exact EtaFamiliesClosed.cons_nonind hE1 hfind'
       (fun _ _ hx _ => ConstantInfo.noConfusion hx)
   | thmDecl cv value =>
     simp only [checkDecl, Bind.bind, Except.bind] at h
@@ -610,7 +610,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
     obtain ⟨hfind', -, -, -, -, -, type, stype, u, -, -, -, -, -,
       rfl⟩ := checkConstantVal_invT hccv
     obtain ⟨valueA, rfl⟩ := checkThmVal_shape h
-    exact EtaFamiliesClosedT.cons_nonind hE1 hfind'
+    exact EtaFamiliesClosed.cons_nonind hE1 hfind'
       (fun _ _ hx _ => ConstantInfo.noConfusion hx)
   | opaqueDecl cv value =>
     simp only [checkDecl, Bind.bind, Except.bind] at h
@@ -645,7 +645,7 @@ theorem familiesStepTT : FamiliesStepTT F := by
         exact (Except.ok.inj h).symm
     subst henv
     obtain rfl := checkOpaqueVal_shape hov
-    exact EtaFamiliesClosedT.cons_nonind hE1 hfind'
+    exact EtaFamiliesClosed.cons_nonind hE1 hfind'
       (fun _ _ hx _ => ConstantInfo.noConfusion hx)
   | axiomDecl cv =>
     simp only [checkDecl, Bind.bind, Except.bind] at h
@@ -656,9 +656,9 @@ theorem familiesStepTT : FamiliesStepTT F := by
     try dsimp only at h
     obtain ⟨hfind', -, -, -, -, -, type, stype, u, -, -, -, -, -,
       rfl⟩ := checkConstantVal_invT hccv
-    have hnonind : EtaFamiliesClosedT
+    have hnonind : EtaFamiliesClosed
         ⟨.axiomInfo { cv with type := type } :: env.consts⟩ :=
-      EtaFamiliesClosedT.cons_nonind hE1 hfind'
+      EtaFamiliesClosed.cons_nonind hE1 hfind'
         (fun _ _ hx _ => ConstantInfo.noConfusion hx)
     split at h
     · simp only [pure, Except.pure, Except.ok.injEq] at h

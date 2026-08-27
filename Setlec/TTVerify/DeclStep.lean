@@ -96,7 +96,7 @@ def DeclIndTT (F : Nat) : Prop :=
   ∀ {env env₁ : Env} {block : List ConstantInfo},
     checkDecl mode (fueledOps mode F) env (.indDecl block) = .ok env₁ →
     CertifiedConfigTT mode →
-    EnvTT env → EtaFamiliesClosedT env → Nonempty (EnvTT env₁)
+    EnvTT env → EtaFamiliesClosed env → Nonempty (EnvTT env₁)
 
 /-! ## The dispatch
 

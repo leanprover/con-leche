@@ -244,7 +244,7 @@ def extendModeledOneTT {env : Env} (m : EnvTT env)
     (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       (⟨ci :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true → reservedBasisNames.contains T = false →
-      EtaFamilyStoredT ⟨ci :: env.consts⟩ T caps →
+      EtaFamilyStored ⟨ci :: env.consts⟩ T caps →
       (T = ci.name ∨ caps.etaCtor = ci.name ∨
         ∃ j, j < caps.etaFields ∧ projFnName T j = ci.name) →
       EtaLawTT ⟨ci :: env.consts⟩
@@ -673,7 +673,7 @@ theorem blockMemberHeadEtaTT {env : Env} (m : EnvTT env)
     ∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps),
       (⟨ciH :: env.consts⟩ : Env).find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → reservedBasisNames.contains T = false →
-      EtaFamilyStoredT ⟨ciH :: env.consts⟩ T capsT →
+      EtaFamilyStored ⟨ciH :: env.consts⟩ T capsT →
       (T = ciH.name ∨ capsT.etaCtor = ciH.name ∨
         ∃ j, j < capsT.etaFields ∧ projFnName T j = ciH.name) →
       EtaLawTT ⟨ciH :: env.consts⟩
@@ -787,7 +787,7 @@ theorem checkIndMemberTT {blockNames : List Name} {caps : IndCaps}
     (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps),
       env₁.find? T = some (.indInfo cvT capsT) → capsT.eta = true →
       reservedBasisNames.contains T = false →
-      EtaFamilyStoredT env₁ T capsT →
+      EtaFamilyStored env₁ T capsT →
       (T = ci.name ∨ capsT.etaCtor = ci.name ∨
         ∃ j, j < capsT.etaFields ∧ projFnName T j = ci.name) →
       ∀ cval₁ : TConstVal,
@@ -1042,7 +1042,7 @@ theorem checkIndFoldTT {blockNames : List Name} {caps : IndCaps}
         (⟨ci₁ :: env'.consts⟩ : Env).find? T =
           some (.indInfo cvT capsT) → capsT.eta = true →
         reservedBasisNames.contains T = false →
-        EtaFamilyStoredT ⟨ci₁ :: env'.consts⟩ T capsT →
+        EtaFamilyStored ⟨ci₁ :: env'.consts⟩ T capsT →
         (T = ci.name ∨ capsT.etaCtor = ci.name ∨
           ∃ j, j < capsT.etaFields ∧ projFnName T j = ci.name) →
         ∀ cval₁ : TConstVal,

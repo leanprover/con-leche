@@ -78,7 +78,7 @@ theorem Deq.ofEqThm {env : Env} {cval : TConstVal} (heq : EqLawTT env cval)
     (hv : HasType Δ v Tstmt)
     (hfit : VTeleTyped Δ Tstmt args
       (VExpr.mkAppN (cval eqName ψ) [A, a, b]))
-    (hA : HasType Δ A (.sort (ψ uNT))) (ha : HasType Δ a A)
+    (hA : HasType Δ A (.sort (ψ uN))) (ha : HasType Δ a A)
     (hb : HasType Δ b A) :
     Deq Δ a b :=
   Deq.intro (Setlec.TT.Deq.conv (hfit.appN hv)
@@ -95,7 +95,7 @@ theorem Deq.ofEqThmClosed {env : Env} {cval : TConstVal}
     (hv : HasType [] v Tstmt)
     (hfit : VTeleTyped Δ Tstmt args
       (VExpr.mkAppN (cval eqName ψ) [A, a, b]))
-    (hA : HasType Δ A (.sort (ψ uNT))) (ha : HasType Δ a A)
+    (hA : HasType Δ A (.sort (ψ uN))) (ha : HasType Δ a A)
     (hb : HasType Δ b A) :
     Deq Δ a b :=
   Deq.ofEqThm heq hE ψ (HasType.weakenNil hv Δ) hfit hA ha hb
@@ -1038,7 +1038,7 @@ proof does not read is a claim about the contract that is not true.
 
 **`hTmSort` is a pin the checker makes** (task #135, landed).
 `EqLawTT` fires `eqValT`'s first β-step, whose premise is
-`⊢ Â : Sort (ψ uNT)` with `ψ uNT = ⟦ℓA⟧` — the level the
+`⊢ Â : Sort (ψ uN)` with `ψ uN = ⟦ℓA⟧` — the level the
 *statement's* `Eq.{ℓA}` carries.  The
 set model gets that membership from `AnnotOk`, which this bridge drops;
 inversion cannot recover it, because reading the sort back out of the
@@ -1216,7 +1216,7 @@ theorem UnitFoldTT {env : Env} {cval : TConstVal}
   -- (9) fire the theorem at the two subjects
   simp only [hvT] at hB hB'
   have hpsi2 : Level.substFn (Level.substFn φ cvT.levelParams us)
-      eqA.toConstantVal.levelParams [lA] uNT =
+      eqA.toConstantVal.levelParams [lA] uN =
       Level.eval (Level.substFn φ cvT.levelParams us) lA := rfl
   refine Deq.ofEqThmClosed heqlaw heqfE
     (Level.substFn (Level.substFn φ cvT.levelParams us)
@@ -1541,7 +1541,7 @@ theorem EtaFoldTT {env : Env} {cval : TConstVal}
     hlen] at hfitS
   -- fire the theorem at the subject
   have hpsi2 : Level.substFn (Level.substFn φ cvT.levelParams us)
-      eqA.toConstantVal.levelParams [lA] uNT =
+      eqA.toConstantVal.levelParams [lA] uN =
       Level.eval (Level.substFn φ cvT.levelParams us) lA := rfl
   refine Deq.ofEqThmClosed heqlaw heqfE
     (Level.substFn (Level.substFn φ cvT.levelParams us)

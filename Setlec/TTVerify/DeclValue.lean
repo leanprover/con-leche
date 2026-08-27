@@ -23,7 +23,7 @@ non-vacuous.
 `checkConstantVal_inv` and the `fueledOps` projection equations are
 restated here.  They are `V`-free and live in `Setlec/Model/Extend/
 Inversions.lean`, whose *whole* content is `V`-free — the sixth member
-of the misfiled class named at `EtaFamilyStoredT`, and the clearest one
+of the misfiled class named at `EtaFamilyStored`, and the clearest one
 yet: the file's own docstring says "small syntactic inversion lemmas".
 Importing it would drag `Setlec/Model/TypeChecker` and four install
 modules into the bridge, which is the coupling the relocation note
@@ -118,7 +118,7 @@ theorem extendValueTT {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
     (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true → reservedBasisNames.contains T = false →
-      EtaFamilyStoredT ⟨c₀ :: env.consts⟩ T caps →
+      EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
       (T = c₀.name ∨ caps.etaCtor = c₀.name ∨
         ∃ j, j < caps.etaFields ∧ projFnName T j = c₀.name) →
       EtaLawTT ⟨c₀ :: env.consts⟩ (cvalAt m.cval env name value) T cvT caps)

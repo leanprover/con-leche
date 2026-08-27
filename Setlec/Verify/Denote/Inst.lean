@@ -331,7 +331,7 @@ decreasing_by
 
 /-- Name erasure only changes what `ErasedEq` ignores.  A duplicate of
 `Setlec/Model/StdAxioms.lean`'s lemma of the same name; `V`-free, and
-one more member of the misfiled class named at `EtaFamilyStoredT`. -/
+one more member of the misfiled class named at `EtaFamilyStored`. -/
 theorem erasedEq_of_eraseNames :
     ∀ {a b : Expr}, a.eraseNames = b.eraseNames → Expr.ErasedEq a b
   | .bvar _, b, h => by

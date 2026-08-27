@@ -308,7 +308,7 @@ theorem eta_rescue {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hT : env.find? T = some (.indInfo cvT caps))
     (heta : caps.eta = true)
     (hres : reservedBasisNames.contains T = false)
-    (hfam : EtaFamilyStoredT env T caps)
+    (hfam : EtaFamilyStored env T caps)
     (hlen : targs.length = caps.etaParams)
     (hlenC : ust.length = (levelParamsAt env caps.etaCtor).length)
     (hlenP : ∀ j, j < caps.etaFields →

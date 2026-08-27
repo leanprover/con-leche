@@ -236,7 +236,7 @@ theorem structEtaCertWith_stepTT {env : Env} (m : EnvTT env)
   have hBt : HasType Δ vb (VExpr.mkAppN
       (m.cval T (Level.substFn φ cvT.levelParams us')) xs) := hWeq ▸ hbT
   -- the family is complete: constructor and projection functions stored
-  have hfam : EtaFamilyStoredT env T caps := by
+  have hfam : EtaFamilyStored env T caps := by
     refine ⟨by rw [hctor]; exact hresC, ⟨cvc, ?_⟩, fun j hj => ?_⟩
     · rw [hctor, hpP, hpF]; exact hfc
     · obtain ⟨cvp, mIp, rPp, rulesp, hfp, _, _, _⟩ :=

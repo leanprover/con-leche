@@ -41,35 +41,35 @@ theorem pairLike_eq_psigma {env : Env} (m : EnvTT env) {c' : Name}
     (hnf : rr.nfields = 2) (hmi : mI = rP)
     (hres : reservedBasisNames.contains (c'.str "rec") = true) :
     c' = psigmaName ∧ rr.ctor = psigmaMkName := by
-  have hpin : pinnedInfoT (c'.str "rec") = .recInfo cvr mI rP [rr] :=
+  have hpin : pinnedInfo (c'.str "rec") = .recInfo cvr mI rP [rr] :=
     ((m.basis_pinned _ _ hfr hres).1 rfl).symm
   have hc : c' = psigmaName := by
     rcases pinnedInfoT_recInfo_cases hpin with
       he | he | he | he | he | he | he
     · rw [he] at hpin
-      rw [show pinnedInfoT (eqName.str "rec") = eqRecA from rfl] at hpin
+      rw [show pinnedInfo (eqName.str "rec") = eqRecA from rfl] at hpin
       simp only [eqRecA, ConstantInfo.recInfo.injEq] at hpin
       omega
     · rw [he] at hpin
-      rw [show pinnedInfoT (natName.str "rec") = natRecA from rfl] at hpin
+      rw [show pinnedInfo (natName.str "rec") = natRecA from rfl] at hpin
       simp [natRecA] at hpin
     · exact (Name.str.injEq ..  ▸ he).1
     · rw [he] at hpin
-      rw [show pinnedInfoT (punitName.str "rec") = punitRecA from rfl]
+      rw [show pinnedInfo (punitName.str "rec") = punitRecA from rfl]
         at hpin
       simp only [punitRecA, ConstantInfo.recInfo.injEq,
         List.cons.injEq] at hpin
       have h2 : rr.nfields = 0 := by rw [← hpin.2.2.2.1]
       omega
     · rw [he] at hpin
-      rw [show pinnedInfoT (emptyName.str "rec") = emptyRecA from rfl]
+      rw [show pinnedInfo (emptyName.str "rec") = emptyRecA from rfl]
         at hpin
       simp [emptyRecA] at hpin
     · exact absurd (Name.str.injEq .. ▸ he).2 (by decide)
     · exact absurd (Name.str.injEq .. ▸ he).2 (by decide)
   refine ⟨hc, ?_⟩
   rw [hc] at hpin
-  rw [show pinnedInfoT (psigmaName.str "rec") = psigmaRecA from rfl] at hpin
+  rw [show pinnedInfo (psigmaName.str "rec") = psigmaRecA from rfl] at hpin
   simp only [psigmaRecA, ConstantInfo.recInfo.injEq, List.cons.injEq] at hpin
   rw [← hpin.2.2.2.1]
   rfl
@@ -111,7 +111,7 @@ theorem pairEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   -- the pinned pair's stored declarations
   have hpsig : env.find? psigmaName = some psigmaA := by
     have := (m.basis_pinned _ _ hfI (by decide)).1 rfl
-    rw [show pinnedInfoT psigmaName = psigmaA from rfl] at this
+    rw [show pinnedInfo psigmaName = psigmaA from rfl] at this
     exact this ▸ hfI
   have hnat : entry.native = true := m.proj_ok.2 0 entry (by
     rw [Env.findProj?] at hfe
@@ -153,18 +153,18 @@ theorem pairEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   have hpp : m.cval psigmaName
       (Level.substFn φ psigmaA.toConstantVal.levelParams us') =
       .const .psigma
-        [Level.substFn φ psigmaA.toConstantVal.levelParams us' uNT,
-         Level.substFn φ psigmaA.toConstantVal.levelParams us' vNT] :=
+        [Level.substFn φ psigmaA.toConstantVal.levelParams us' uN,
+         Level.substFn φ psigmaA.toConstantVal.levelParams us' vN] :=
     cval_pinned m (n := psigmaName) (by decide) (by rw [hpsig]; rfl) _
       (by simp +decide [pinnedDirectT])
   -- the stuck side is derivably of that pair type
   have hbPi : HasType Δ vb (psigmaT
-      (Level.substFn φ psigmaA.toConstantVal.levelParams us' uNT)
-      (Level.substFn φ psigmaA.toConstantVal.levelParams us' vNT) VA VB) := by
+      (Level.substFn φ psigmaA.toConstantVal.levelParams us' uN)
+      (Level.substFn φ psigmaA.toConstantVal.levelParams us' vN) VA VB) := by
     have := Deq.conv hbT hDW
     rwa [show psigmaT
-        (Level.substFn φ psigmaA.toConstantVal.levelParams us' uNT)
-        (Level.substFn φ psigmaA.toConstantVal.levelParams us' vNT) VA VB
+        (Level.substFn φ psigmaA.toConstantVal.levelParams us' uN)
+        (Level.substFn φ psigmaA.toConstantVal.levelParams us' vN) VA VB
         = VExpr.app (.app (m.cval psigmaName
           (Level.substFn φ psigmaA.toConstantVal.levelParams us')) VA) VB
         from by rw [hpp]; rfl]
@@ -200,8 +200,8 @@ theorem pairEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     intro nm
     rw [Level.eval_subst, hlpE]
     rfl
-  rw [hlev uNT] at hAs
-  rw [hlev vNT] at hBs
+  rw [hlev uN] at hAs
+  rw [hlev vN] at hBs
   -- the constructor side, and the four certified arguments
   have hea : Expr.app (.app (.app (.app (.const psigmaMkName us) pα) pβ) s₁) s₂
       = Expr.mkAppN (.const psigmaMkName us) [pα, pβ, s₁, s₂] := rfl
@@ -270,8 +270,8 @@ theorem pairEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
       (hprojFrames 1).2.2.2 hs4 (hdenProj 1 (by omega))
   -- the constructor head, at the type's levels
   have hmk : vfm = .const .psigmaMk
-      [Level.substFn φ psigmaA.toConstantVal.levelParams us' uNT,
-       Level.substFn φ psigmaA.toConstantVal.levelParams us' vNT] := by
+      [Level.substFn φ psigmaA.toConstantVal.levelParams us' uN,
+       Level.substFn φ psigmaA.toConstantVal.levelParams us' vN] := by
     rw [denote_const, hpsigMk] at hvfm
     dsimp only at hvfm
     · split at hvfm
@@ -285,8 +285,8 @@ theorem pairEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
         have hpm : m.cval psigmaMkName
             (Level.substFn φ psigmaMkA.toConstantVal.levelParams us')
             = .const .psigmaMk
-              [Level.substFn φ psigmaMkA.toConstantVal.levelParams us' uNT,
-               Level.substFn φ psigmaMkA.toConstantVal.levelParams us' vNT] :=
+              [Level.substFn φ psigmaMkA.toConstantVal.levelParams us' uN,
+               Level.substFn φ psigmaMkA.toConstantVal.levelParams us' vN] :=
           cval_pinned m (n := psigmaMkName) (by decide)
             (by rw [hpsigMk]; rfl) _
             (by simp +decide [pinnedDirectT])

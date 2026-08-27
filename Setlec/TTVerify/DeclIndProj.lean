@@ -622,7 +622,7 @@ theorem checkProjFnTT {env' env₁ : Env} {T ctorName : Name}
         [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then
           RecRuleFire.plain else .inert), rhsA⟩] :: env'.consts⟩ : Env).find? T' = some (ConstantInfo.indInfo cvT capsT) →
       capsT.eta = true → reservedBasisNames.contains T' = false →
-      EtaFamilyStoredT (⟨ConstantInfo.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+      EtaFamilyStored (⟨ConstantInfo.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
         [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then
           RecRuleFire.plain else .inert), rhsA⟩] :: env'.consts⟩ : Env) T' capsT →
       (T' = projFnName T i ∨ capsT.etaCtor = projFnName T i ∨

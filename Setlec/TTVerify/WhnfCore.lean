@@ -207,12 +207,12 @@ theorem psigmaMk_tele_premises {cval : TConstVal} {env : Env}
       denote cval env φ d a = some Va ∧
       denote cval env φ d b = some Vb ∧
       HasType Δ VA (.sort ((Level.subst psigmaMkA.toConstantVal.levelParams us
-        (.param uNT)).eval φ)) ∧
+        (.param uN)).eval φ)) ∧
       HasType Δ VB (arrow VA (.sort ((Level.subst
-        psigmaMkA.toConstantVal.levelParams us (.param vNT)).eval φ))) ∧
+        psigmaMkA.toConstantVal.levelParams us (.param vN)).eval φ))) ∧
       HasType Δ Va VA ∧
       HasType Δ Vb (.app VB Va) := by
-  simp only [psigmaMkA, ConstantInfo.toConstantVal, uNT, vNT,
+  simp only [psigmaMkA, ConstantInfo.toConstantVal, uN, vN,
     Expr.instantiateLevelParams] at h ⊢
   -- α : Sort u
   cases h with | cons hty1 harg1 hx1 _ _ hbA h => ?_

@@ -1,3 +1,4 @@
+import Setlec.Verify.EnvWF
 import Setlec.Kernel.Checker
 
 /-!
@@ -15,6 +16,13 @@ All four inversions and the premise were written in
 V]`, but none of them mentions a valuation.  Relocated verbatim so the
 declarative type-theory bridge can consume them instead of restating
 them (task #123, `Setlec/TTVerify/DESIGN.md` §14.1).
+
+`EtaFamiliesClosed` joined them in task #148's T1, from
+`Setlec/Model/Interp.lean` and against `EnvTT.lean`'s restatement of
+it: the "eighth `V`-free duplicate" of the relocation note that used to
+sit on `EtaFamilyStored` in `Setlec/TTVerify/EnvTT.lean`.  That note is
+discharged — every duplicate it listed now has exactly one home, here
+or in `Setlec/Verify/EnvPreds.lean`.
 -/
 
 set_option linter.unusedVariables false
@@ -225,5 +233,46 @@ theorem strLitSupported_congr {env₁ env₂ : Env}
     strLitSupported env₁ = strLitSupported env₂ := by
   unfold strLitSupported
   rw [natLitSupported_congr hNat hZero hSucc, hS, hO, hL, hN, hC, hH, hF]
+
+/-- Every stored non-reserved eta-capable type former's constructor is
+stored, at exactly the capability record's arities.  **Not** an
+`EnvModel` clause: inside a block's install derivation the former is
+stored before its constructor, so the intermediate models live in the
+window where this fails for the freshly installed former.  It holds at
+every declaration boundary and is threaded through the consistency
+fold *next to* the model; constructor-installing sites consume it to
+refute a fresh constructor completing an *older* former's eta family
+(the older family's constructor slot is already taken). -/
+def EtaFamiliesClosed (env : Env) : Prop :=
+  ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T = some (.indInfo cvT caps) → caps.eta = true →
+    reservedBasisNames.contains T = false →
+    ∃ cvC, env.find? caps.etaCtor =
+      some (.ctorInfo cvC caps.etaParams caps.etaFields)
+
+theorem EtaFamiliesClosed.empty : EtaFamiliesClosed Env.empty := by
+  intro T cvT caps h
+  simp [Env.find?, Env.empty] at h
+
+/-- Prepending one fresh constant that is not a non-reserved
+eta-capable former keeps the stored eta families closed. -/
+theorem EtaFamiliesClosed.cons_nonind {env : Env} {c₀ : ConstantInfo}
+    (hE1 : EtaFamiliesClosed env)
+    (hfresh : env.find? c₀.name = none)
+    (hknd : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
+      reservedBasisNames.contains c₀.name = true) :
+    EtaFamiliesClosed (⟨c₀ :: env.consts⟩ : Env) := by
+  intro T cvT caps hf he hr
+  rw [Env.find?_cons] at hf
+  split at hf
+  · next hh =>
+    obtain rfl := Option.some.inj hf
+    rw [← hh] at hr
+    rw [hknd cvT caps rfl he] at hr
+    exact nomatch hr
+  · obtain ⟨cvC, hfC⟩ := hE1 T cvT caps hf he hr
+    refine ⟨cvC, ?_⟩
+    rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
+    exact hfC
 
 end Setlec

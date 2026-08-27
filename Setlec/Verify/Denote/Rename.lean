@@ -33,8 +33,11 @@ and `PiDomsRenEq`.  They are `V`-free and belong in `Setlec/Verify/*`
 under #123's criterion; they are restated here rather than moved
 because `Model/TeleElim.lean` is mid-flight (`DESIGN.md` §14.6.2 names
 this as one of the phase's two known frictions).  Same reasoning, and
-the same non-fix, as `EtaFamilyStoredT` in `Setlec/TTVerify/EnvTT.lean`:
-**do not** import `Setlec/Model/*` from here.
+the same non-fix, as the duplicates task #148's T1 relocation cleared
+out of `Setlec/TTVerify/EnvTT.lean` (`EtaFamilyStored` and its seven
+siblings, now in `Setlec/Verify/EnvGuards.lean` and
+`Setlec/Verify/EnvPreds.lean`): **do not** import `Setlec/Model/*` from
+here.
 -/
 
 namespace Setlec.TTVerify

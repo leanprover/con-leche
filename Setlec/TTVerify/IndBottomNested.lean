@@ -1015,7 +1015,7 @@ theorem IndBottomNestedTT
       (args := xs.take rP ++ ys.drop cnP) hpv hfitEq
       (by
         rw [show Level.substFn (Level.substFn φ lps us)
-          eqA.toConstantVal.levelParams [ℓA] uNT =
+          eqA.toConstantVal.levelParams [ℓA] uN =
           Level.eval (Level.substFn φ lps us) ℓA from rfl]
         exact hAsort) hLty hRty
   -- ===== Stage I: the right side is the rule's own application =====

@@ -1,4 +1,6 @@
 import Setlec.Verify.Denote
+import Setlec.Verify.Denote.Pinned
+import Setlec.Verify.EnvGuards
 import Setlec.Verify.Denote.VClosed
 import Setlec.Verify.Denote.Tele
 import Setlec.Verify.Denote.OpenVars
@@ -269,82 +271,6 @@ theorem RecRulesTT.empty (cval : TConstVal) : RecRulesTT Env.empty cval := by
   simp [Env.find?, Env.empty] at h
 
 
-/-- The eta family of an eta-capable stored structure is complete:
-the capability record's constructor is stored at exactly its arities,
-and every documented projection function is stored.  **A deliberate
-duplicate, awaiting relocation.**  This restates
-`Setlec/Model/Interp.lean`'s `EtaFamilyStored`, which is `V`-free and
-belongs in `Setlec/Verify/*`; a relocation task tracks it, together
-with `natLitSupported_congr` / `natLitSupported_inv`, which the bridge
-duplicates for the same reason.  Deferred because `Model/Interp.lean`
-is heavily trafficked and moving it mid-flight would collide.
-
-**The diagnostic, for finding the rest of this class:** if transposing
-a definition to the bridge changes *nothing* — same statement, same
-proof obligations, no `V` anywhere — it was misfiled.  `ProjOkT` is the
-clearest case: it transposed verbatim, which is exactly the signature
-of a clause that was never about the model.
-
-**Do not "fix" the duplication by importing `Setlec/Model/*` from
-here.**  That is the wrong direction: the bridge must not depend on the
-set-model path (both verification routes are meant to stand alone), and
-an import would couple them permanently to save a ten-line
-restatement.  The fix is the relocation, when it is safe to make.
-
-It is the *premise* under which the eta law is owed: mid-block the
-former is stored before its constructor, so the premise fails and the
-law is not yet owed; the family-completing install discharges it. -/
-def EtaFamilyStoredT (env : Env) (T : Name) (caps : IndCaps) : Prop :=
-  reservedBasisNames.contains caps.etaCtor = false ∧
-  (∃ cvC, env.find? caps.etaCtor =
-    some (.ctorInfo cvC caps.etaParams caps.etaFields)) ∧
-  ∀ j, j < caps.etaFields → ∃ cv mI rP rules,
-    env.find? (projFnName T j) = some (.recInfo cv mI rP rules)
-
-/-- Every stored non-reserved eta-capable type former's constructor is
-stored, at exactly the capability record's arities.  **Not** an `EnvTT`
-field, for the model's own reason (`EtaFamiliesClosed`,
-`Setlec/Model/Interp.lean`, an eighth `V`-free duplicate — see
-`EtaFamilyStoredT` for the relocation note): inside a block's install
-derivation the former is stored before its constructor, so the
-intermediate models live in the window where this fails.  It holds at
-every declaration boundary and is threaded through the consistency
-fold *next to* the invariant (`CheckDeclTT`); the modeled-inductive
-case consumes it to refute a fresh constructor completing an *older*
-former's eta family — the one head obligation kind dispatch cannot
-refute. -/
-def EtaFamiliesClosedT (env : Env) : Prop :=
-  ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
-    env.find? T = some (.indInfo cvT caps) → caps.eta = true →
-    reservedBasisNames.contains T = false →
-    ∃ cvC, env.find? caps.etaCtor =
-      some (.ctorInfo cvC caps.etaParams caps.etaFields)
-
-theorem EtaFamiliesClosedT.empty : EtaFamiliesClosedT Env.empty := by
-  intro T cvT caps h
-  simp [Env.find?, Env.empty] at h
-
-/-- Prepending one fresh constant that is not a non-reserved
-eta-capable former keeps the stored eta families closed. -/
-theorem EtaFamiliesClosedT.cons_nonind {env : Env} {c₀ : ConstantInfo}
-    (hE1 : EtaFamiliesClosedT env)
-    (hfresh : env.find? c₀.name = none)
-    (hknd : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
-      reservedBasisNames.contains c₀.name = true) :
-    EtaFamiliesClosedT (⟨c₀ :: env.consts⟩ : Env) := by
-  intro T cvT caps hf he hr
-  rw [Env.find?_cons] at hf
-  split at hf
-  · next hh =>
-    obtain rfl := Option.some.inj hf
-    rw [← hh] at hr
-    rw [hknd cvT caps rfl he] at hr
-    exact nomatch hr
-  · obtain ⟨cvC, hfC⟩ := hE1 T cvT caps hf he hr
-    refine ⟨cvC, ?_⟩
-    rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
-    exact hfC
-
 /-- **The structural-eta law, fired.**  Transpose of `EnvModel`'s
 `EtaLaw`, in the same *fired* form as `RecRulesTT` and for the same
 reason (§8): the premises the layer's rules want are supplied at the
@@ -450,7 +376,7 @@ installs.  Guarded on the reservation flags exactly as `CapsOkTT`'s
 eta clause is — the basis blocks refute the head obligation from
 their reservation, and the only consumer (`eta_rescue`'s premise
 supplier in `Setlec/TTVerify/StructEtaCertStep.lean`) holds both
-flags from `EtaFamilyStoredT`. -/
+flags from `EtaFamilyStored`. -/
 def CtorResidualOkT (env : Env) : Prop :=
   ∀ T cvT caps cvC, env.find? T = some (.indInfo cvT caps) →
     caps.eta = true →
@@ -468,7 +394,7 @@ def CapsOkTT (env : Env) (cval : TConstVal) : Prop :=
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.eta = true →
     reservedBasisNames.contains T = false →
-    EtaFamilyStoredT env T caps → EtaLawTT env cval T cvT caps) ∧
+    EtaFamilyStored env T caps → EtaLawTT env cval T cvT caps) ∧
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.unitlike = true →
     reservedBasisNames.contains T = false →
@@ -476,77 +402,6 @@ def CapsOkTT (env : Env) (cval : TConstVal) : Prop :=
 
 theorem CapsOkTT.empty (cval : TConstVal) : CapsOkTT Env.empty cval := by
   refine ⟨?_, ?_⟩ <;> (intro T cvT caps h; simp [Env.find?, Env.empty] at h)
-
-/-- Every stored *native* projection-table entry is one of the two
-pinned pair entries, with the pair block stored alongside.
-
-**Purely syntactic, so it transposes verbatim** — it mentions no
-values, no interpretation and no derivations, and the `V` of
-`EnvModel`'s `ProjOk` never appears in it.  That is worth noticing
-rather than glossing: a clause that survives the transposition
-*unchanged* is one that was never about the model in the first place,
-and it is the cheapest kind of field to carry.
-
-Another deliberate duplicate of a `V`-free definition stranded in
-`Setlec/Model/Interp.lean`; see `EtaFamilyStoredT` for the relocation
-note and for why importing `Setlec/Model/*` here is the wrong fix. -/
-def ProjOkT (env : Env) : Prop :=
-  (∀ n entry, env.find? n = some (.projInfo entry) →
-    entry.native = true →
-    (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
-    env.find? psigmaName = some psigmaA ∧
-    env.find? psigmaMkName = some psigmaMkA) ∧
-  ∀ i entry, env.find? (projFnName psigmaName i) = some (.projInfo entry) →
-    entry.native = true
-
-theorem ProjOkT.empty : ProjOkT Env.empty := by
-  refine ⟨?_, ?_⟩ <;> (intro n entry h; simp [Env.find?, Env.empty] at h)
-
-/-- Every stored recursor rule's constructor is itself stored.  A
-seventh `V`-free duplicate (`Setlec/Model/IndModel.lean`); see
-`EtaFamilyStoredT` for the relocation note.
-
-**A fifth returning clause** (`Setlec/TTVerify/DESIGN.md` §12.10).  It
-was dropped from the first transposition as "syntactic, no consumer",
-and `EnvTT.cons` promptly took it as a *hypothesis* — which reads as a
-consumer having been found and then charged to the caller instead of to
-the invariant.  `CheckDeclTT` is where the bill arrives: a `theorem`
-install has no recursors of its own to reason about and cannot possibly
-prove a fact about the recursors already stored.  The fact belongs to
-the environment, so it is a field. -/
-def RecCtorsStoredT (env : Env) : Prop :=
-  ∀ n cv mI rP rules,
-    env.find? n = some (.recInfo cv mI rP rules) →
-    ∀ r ∈ rules, ∃ cvj cnP cnF,
-      env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)
-
-theorem RecCtorsStoredT.empty : RecCtorsStoredT Env.empty := by
-  intro n cv mI rP rules h
-  simp [Env.find?, Env.empty] at h
-
-/-- The clause survives an install: old recursors keep their stored
-constructors, and a newly installed recursor supplies its own. -/
-theorem RecCtorsStoredT.cons {env : Env} {c₀ : ConstantInfo}
-    (h : RecCtorsStoredT env) (hfresh : env.find? c₀.name = none)
-    (hhead : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
-      ∀ r ∈ rules, ∃ cvj cnP cnF,
-        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) :
-    RecCtorsStoredT ⟨c₀ :: env.consts⟩ := by
-  have lift : ∀ {c : Name} {cvj : ConstantVal} {cnP cnF : Nat},
-      env.find? c = some (.ctorInfo cvj cnP cnF) →
-      (⟨c₀ :: env.consts⟩ : Env).find? c = some (.ctorInfo cvj cnP cnF) :=
-    fun hc => by
-      rw [Env.find?_cons_of_isSome hfresh (by rw [hc]; rfl)]; exact hc
-  intro n cv mI rP rules hf r hr
-  by_cases hn : c₀.name = n
-  · subst hn
-    rw [Env.find?_cons, if_pos rfl] at hf
-    obtain ⟨cvj, cnP, cnF, hc⟩ :=
-      hhead cv mI rP rules (Option.some.inj hf) r hr
-    exact ⟨cvj, cnP, cnF, lift hc⟩
-  · rw [Env.find?_cons, if_neg hn] at hf
-    obtain ⟨cvj, cnP, cnF, hc⟩ := h n cv mI rP rules hf r hr
-    exact ⟨cvj, cnP, cnF, lift hc⟩
 
 /-! ## The pinned basis
 
@@ -569,21 +424,6 @@ index-sensitive λ-tower, and the house rule (`Setlec/TT/DESIGN.md`
 so each lands with the clause that consumes it, not before.  Writing
 four unverified towers now is exactly the error the rule exists to
 prevent. -/
-
-/-- The pinned level-parameter names.  A fourth `V`-free definition
-stranded in `Setlec/Model/BasisVal.lean`; see `EtaFamilyStoredT` for
-the relocation note. -/
-def uNT : Name := Name.anonymous.str "u"
-/-- The second pinned level-parameter name. -/
-def vNT : Name := Name.anonymous.str "v"
-/-- The pinned *recursors*' motive-level parameter.  `Eq.rec`,
-`PUnit.rec` and their siblings are generated with the motive's level
-named `u_1` and the *type's* level named `u` — the opposite order from
-the layer's `BConst` level lists, where the type's level comes first.
-Reading the wrong name here is not a mismatch a proof would catch
-later: it is a `val_params` violation, because the declaration does not
-bind `v` at all. -/
-def u1NT : Name := Name.anonymous.str "u_1"
 
 /-- **The pinned `Eq` block's fired law** (§11).  The checker's `Eq` is
 an ordinary pinned inductive *constant*, which can appear partially
@@ -610,7 +450,7 @@ costs its consumers nothing they were not already paying. -/
 def EqLawTT (env : Env) (cval : TConstVal) : Prop :=
   env.find? eqName = some eqA →
   ∀ (ψ : Name → Nat) (Δ : List VExpr) (A a b : VExpr),
-    HasType Δ A (.sort (ψ uNT)) → HasType Δ a A → HasType Δ b A →
+    HasType Δ A (.sort (ψ uN)) → HasType Δ a A → HasType Δ b A →
     Deq Δ (VExpr.mkAppN (cval eqName ψ) [A, a, b]) (.eqE A a b)
 
 theorem EqLawTT.empty (cval : TConstVal) : EqLawTT Env.empty cval := by
@@ -631,80 +471,6 @@ theorem EqLawTT.cons {env : Env} {cval cval' : TConstVal}
   · rw [Env.find?_cons, if_neg hn] at hf
     rw [← hag eqName (fun hh => hn hh.symm)]
     exact h hf
-
-/-- What a reserved basis constant denotes to, where it denotes to a
-bare built-in.  `none` for the four the layer derives rather than
-carries (see the section note).
-
-**Three entries were wrong until the basis install elaborated them**
-(task #119, `DESIGN.md` §8.2's defect, in its "unproved definition"
-form).  `Empty` is stored *level-monomorphically* (`levelParams = []`),
-so its valuation may not read the assignment at all — its level is
-fixed by its pinned type, `Sort 1`.  `Empty.rec` binds **one** level
-where the layer's `emptyRec` takes two, the first being `Empty`'s own.
-And `PUnit.rec` binds `u_1, u` — motive level *second* in the layer's
-order and named `u_1`, not `v`.
-
-Each would have been caught only here, because `val_params` is what
-they violate and nothing before the install asserts it for a basis
-constant.  That is the house rule's point exactly (`Setlec/TT/DESIGN.md`
-§3.1): a definition is a conjecture until a consumer elaborates it. -/
-def pinnedDirectT (n : Name) (ψ : Name → Nat) : Option VExpr :=
-  if n = natName then some (.const .nat [])
-  else if n = natZeroName then some (.const .natZero [])
-  else if n = natSuccName then some (.const .natSucc [])
-  else if n = natName.str "rec" then some (.const .natRec [ψ uNT])
-  else if n = psigmaName then some (.const .psigma [ψ uNT, ψ vNT])
-  else if n = psigmaMkName then some (.const .psigmaMk [ψ uNT, ψ vNT])
-  else if n = punitName then some (.const .punit [ψ uNT])
-  else if n = punitUnitName then some (.const .punitUnit [ψ uNT])
-  else if n = punitName.str "rec" then
-    some (.const .punitRec [ψ uNT, ψ u1NT])
-  else if n = emptyName then some (.const .empty [1])
-  else if n = emptyName.str "rec" then
-    some (.const .emptyRec [1, ψ uNT])
-  else if n = quotName then some (.const .quot [ψ uNT])
-  else if n = quotMkName then some (.const .quotMk [ψ uNT])
-  else if n = quotLiftName then some (.const .quotLift [ψ uNT, ψ vNT])
-  else if n = quotIndName then some (.const .quotInd [ψ uNT])
-  else if n = quotSoundName then some (.const .quotSound [ψ uNT])
-  else none
-
-/-- Is this constant-info one of the basis kinds?  A fifth `V`-free
-definition stranded in `Setlec/Model/BasisVal.lean`
-(`ConstantInfo.isBasis`); see `EtaFamilyStoredT` for the relocation
-note.  Renamed rather than shadowed so that dot notation stays
-unambiguous when both verification paths are imported together. -/
-def isBasisKind : ConstantInfo → Bool
-  | .indInfo _ _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ => true
-  | _ => false
-
-/-- The pinned declaration stored at each reserved basis name.  A sixth
-`V`-free duplicate (`Setlec/Model/BasisVal.lean`'s `pinnedInfo`); the
-`*A` declarations themselves live in `Setlec/Kernel/Basis/*` and are
-shared. -/
-def pinnedInfoT (n : Name) : ConstantInfo :=
-  if n = eqName then eqA
-  else if n = eqReflName then eqReflA
-  else if n = eqName.str "rec" then eqRecA
-  else if n = natName then natA
-  else if n = natZeroName then natZeroA
-  else if n = natSuccName then natSuccA
-  else if n = natName.str "rec" then natRecA
-  else if n = psigmaName then psigmaA
-  else if n = psigmaMkName then psigmaMkA
-  else if n = psigmaName.str "rec" then psigmaRecA
-  else if n = punitName then punitA
-  else if n = punitUnitName then punitUnitA
-  else if n = punitName.str "rec" then punitRecA
-  else if n = emptyName then emptyA
-  else if n = emptyName.str "rec" then emptyRecA
-  else if n = quotName then quotA
-  else if n = quotMkName then quotMkA
-  else if n = quotLiftName then quotLiftA
-  else if n = quotIndName then quotIndA
-  else if n = quotSoundName then quotSoundA
-  else .axiomInfo ⟨n, [], .sort .zero⟩
 
 /-- Every stored reserved-basis constant is the pinned *declaration*,
 and — where the layer still carries it — is valued by its direct pin.
@@ -727,7 +493,7 @@ def BasisPinnedTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ (n : Name) (ci : ConstantInfo),
     env.find? n = some ci →
     reservedBasisNames.contains n = true →
-    (isBasisKind ci = true → ci = pinnedInfoT n) ∧
+    (ConstantInfo.isBasis ci = true → ci = pinnedInfo n) ∧
     ∀ (t : VExpr) (ψ : Name → Nat), pinnedDirectT n ψ = some t →
       cval n ψ = t
 
@@ -963,9 +729,9 @@ structure EnvTT (env : Env) where
   `EnvModel.proj_ok`, verbatim — the clause is syntactic. -/
   proj_ok : ProjOkT env
   /-- Every stored recursor rule's constructor is stored
-  (`RecCtorsStoredT`).  Part of the transpose of `IndOk`; consumed by
+  (`RecCtorsStored`).  Part of the transpose of `IndOk`; consumed by
   `RecRulesTT.cons` at every install. -/
-  rec_ctors : RecCtorsStoredT env
+  rec_ctors : RecCtorsStored env
   /-- The pinned `Eq` spine is the layer's equality former
   (`EqLawTT`, §11).  Consumed by the three standard-axiom
   inhabitation keys. -/
@@ -1003,7 +769,7 @@ def EnvTT.empty : EnvTT Env.empty where
   caps_ok := CapsOkTT.empty _
   ctor_residual := CtorResidualOkT.empty
   proj_ok := ProjOkT.empty
-  rec_ctors := RecCtorsStoredT.empty
+  rec_ctors := RecCtorsStored.empty
   eq_law := EqLawTT.empty _
   basis_pinned := BasisPinnedTT.empty _
   nat_ops := NatOpsTT.empty _

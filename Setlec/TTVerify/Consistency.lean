@@ -47,7 +47,7 @@ declaration against a derivation-modelled environment yields a
 derivation-modelled environment.  The transpose of `checkDecl_sound`,
 and the only thing between `EnvTT.empty` and the acceptance theorem.
 
-The closure of the stored eta families (`EtaFamiliesClosedT`) enters
+The closure of the stored eta families (`EtaFamiliesClosed`) enters
 as a hypothesis, threaded through the fold beside the invariant
 exactly as the set model threads `EtaFamiliesClosed`: it holds at
 every declaration boundary but not mid-block, so it cannot be an
@@ -60,7 +60,7 @@ def CheckDeclTT (F : Nat) : Prop :=
   ∀ {mode : CheckMode} {env env₁ : Env} {d : Declaration},
     checkDecl mode (fueledOps mode F) env d = .ok env₁ →
     CertifiedConfigTT mode →
-    EnvTT env → EtaFamiliesClosedT env → Nonempty (EnvTT env₁)
+    EnvTT env → EtaFamiliesClosed env → Nonempty (EnvTT env₁)
 
 /-- **The closure of stored eta families survives a checked
 declaration.**  Purely syntactic (no valuation, no derivations) — the
@@ -71,14 +71,14 @@ def FamiliesStepTT (F : Nat) : Prop :=
   ∀ {mode : CheckMode} {env env₁ : Env} {d : Declaration},
     checkDecl mode (fueledOps mode F) env d = .ok env₁ →
     CertifiedConfigTT mode →
-    EtaFamiliesClosedT env → EtaFamiliesClosedT env₁
+    EtaFamiliesClosed env → EtaFamiliesClosed env₁
 
 /-- The fold over the declaration stream.  Transpose of
 `foldlM_sound`. -/
 private theorem foldlM_TT {mode : CheckMode} (hstep : CheckDeclTT F)
     (hfam : FamiliesStepTT F) (hdir : CertifiedConfigTT mode) :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
-      Nonempty (EnvTT env) → EtaFamiliesClosedT env →
+      Nonempty (EnvTT env) → EtaFamiliesClosed env →
       ds.foldlM (checkDecl mode (fueledOps mode F)) env = .ok env' →
       Nonempty (EnvTT env')
   | [], _, _, hm, _, h => by
@@ -105,7 +105,7 @@ theorem checkDecls_TT {mode : CheckMode}
     (h : checkDecls mode (fueledOps mode F) ds = .ok env') :
     Nonempty (EnvTT env') :=
   foldlM_TT hstep hfam hdir ds Env.empty ⟨EnvTT.empty⟩
-    EtaFamiliesClosedT.empty h
+    EtaFamiliesClosed.empty h
 
 /-! ## The consistency corollary
 

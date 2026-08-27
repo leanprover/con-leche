@@ -12,7 +12,7 @@ law, the constructor-residual (#136) and projection-freshness checks,
 the recursor group and the projection phases — and with it, the sixth
 case of `CheckDeclTT`.
 
-The threaded `EtaFamiliesClosedT` is consumed exactly once, at the
+The threaded `EtaFamiliesClosed` is consumed exactly once, at the
 member installs: a fresh block constructor whose name is an *older*
 eta-capable former's capability constructor would owe that family's
 law, and closure refutes the collision (the older family's constructor

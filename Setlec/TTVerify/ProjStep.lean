@@ -53,11 +53,11 @@ theorem projEntry_tele_premises {cval : TConstVal} {env : Env}
     ∃ VA VB, denote cval env φ d A = some VA ∧
       denote cval env φ d B = some VB ∧
       HasType Δ VA (.sort ((Level.subst entry.levelParams us
-        (.param uNT)).eval φ)) ∧
+        (.param uN)).eval φ)) ∧
       HasType Δ VB (arrow VA (.sort ((Level.subst entry.levelParams us
-        (.param vNT)).eval φ))) := by
+        (.param vN)).eval φ))) := by
   rcases hpin with rfl | rfl <;>
-  · simp only [pairFstEntry, pairSndEntry, pairFstTyA, pairSndTyA, uNT, vNT,
+  · simp only [pairFstEntry, pairSndEntry, pairFstTyA, pairSndTyA, uN, vN,
       Expr.instantiateLevelParams] at h ⊢
     cases h with | cons hty1 harg1 hx1 _ _ hbA h => ?_
     rw [denote_sort] at hty1
@@ -203,8 +203,8 @@ theorem infer_proj_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
   have hteEq : te = Expr.mkAppN (.const psigmaName us) [A, B] := by
     rw [← hargs2, ← hfn, Expr.mkAppN_getApp]
   have hvteEq : vte = psigmaT
-      (Level.substFn φ psigmaA.toConstantVal.levelParams us uNT)
-      (Level.substFn φ psigmaA.toConstantVal.levelParams us vNT) VA VB := by
+      (Level.substFn φ psigmaA.toConstantVal.levelParams us uN)
+      (Level.substFn φ psigmaA.toConstantVal.levelParams us vN) VA VB := by
     rw [hteEq] at hvte
     rw [denote_mkAppN (vf := m.cval psigmaName
         (Level.substFn φ psigmaA.toConstantVal.levelParams us))
@@ -215,14 +215,14 @@ theorem infer_proj_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
     have hpp : m.cval psigmaName
         (Level.substFn φ psigmaA.toConstantVal.levelParams us) =
         .const .psigma
-          [Level.substFn φ psigmaA.toConstantVal.levelParams us uNT,
-           Level.substFn φ psigmaA.toConstantVal.levelParams us vNT] :=
+          [Level.substFn φ psigmaA.toConstantVal.levelParams us uN,
+           Level.substFn φ psigmaA.toConstantVal.levelParams us vN] :=
       cval_pinned m (n := psigmaName) (by decide) (by rw [hpsig]; rfl) _
         (by simp +decide [pinnedDirectT])
     rw [← hvte, psigmaT, hpp]
   rw [hvteEq] at hpte
-  rw [hlev uNT] at hAs
-  rw [hlev vNT] at hBs
+  rw [hlev uN] at hAs
+  rw [hlev vN] at hBs
   -- the residual, and the rule
   rcases hpin with rfl | rfl
   · obtain rfl : i = 0 := hidx.1.symm
@@ -373,13 +373,13 @@ theorem proj_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
         have hpp : m.cval psigmaMkName
             (Level.substFn φ psigmaMkA.toConstantVal.levelParams us) =
             .const .psigmaMk
-              [Level.substFn φ psigmaMkA.toConstantVal.levelParams us uNT,
-               Level.substFn φ psigmaMkA.toConstantVal.levelParams us vNT] :=
+              [Level.substFn φ psigmaMkA.toConstantVal.levelParams us uN,
+               Level.substFn φ psigmaMkA.toConstantVal.levelParams us vN] :=
           cval_pinned m (n := psigmaMkName) (by decide)
             (by rw [hpsigMk]; rfl) _ (by simp +decide [pinnedDirectT])
         have hP₃' : P₃ = psigmaMkT
-            (Level.substFn φ psigmaMkA.toConstantVal.levelParams us uNT)
-            (Level.substFn φ psigmaMkA.toConstantVal.levelParams us vNT)
+            (Level.substFn φ psigmaMkA.toConstantVal.levelParams us uN)
+            (Level.substFn φ psigmaMkA.toConstantVal.levelParams us vN)
             VA VB Va Vb := by
           rw [he₃] at hP₃
           rw [denote_mkAppN (vf := m.cval psigmaMkName
@@ -399,8 +399,8 @@ theorem proj_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
           intro nm
           rw [Level.eval_subst]
           rfl
-        rw [hlev uNT] at hAs
-        rw [hlev vNT] at hBs
+        rw [hlev uN] at hAs
+        rw [hlev vN] at hBs
         obtain ⟨hred0, hred1⟩ := proj_reduction_step hAs hBs has hbs
         -- the selected field, and the recursive call on it
         have hidx : entry.idx = i := by

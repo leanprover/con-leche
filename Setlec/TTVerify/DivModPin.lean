@@ -357,7 +357,7 @@ the equation at whatever type the stored `Eq` law wants — no
 unique-typing argument enters. -/
 theorem hyp_inhabited (hEq : env.find? eqName = some eqA)
     {Γ : List VExpr} {B a b : VExpr}
-    (hB : HasType Γ B (.sort (ψ uNT))) (ha : HasType Γ a B)
+    (hB : HasType Γ B (.sort (ψ uN))) (ha : HasType Γ a B)
     (hb : HasType Γ b B) (h : Deq Γ a b) :
     HasType Γ .prf (VExpr.mkAppN (m.cval eqName ψ) [B, a, b]) :=
   HasType.conv (h.toHasType B)
@@ -421,7 +421,7 @@ theorem clause2T (m : EnvTT env) (φ : Name → Nat)
     (hH2 : denote m.cval env φ 2 (Expr.substConst0 c value' h2) = some H2)
     (hEE : denote m.cval env φ 2 (Expr.substConst0 c value' eqE)
       = some (VExpr.mkAppN (m.cval eqName ψ) [A, L, R]))
-    (hAT : HasType [m.cval natName φ, m.cval natName φ] A (.sort (ψ uNT)))
+    (hAT : HasType [m.cval natName φ, m.cval natName φ] A (.sort (ψ uN)))
     (hLT : HasType [m.cval natName φ, m.cval natName φ] L A)
     (hRT : HasType [m.cval natName φ, m.cval natName φ] R A)
     {Γ : List VExpr} {x y : VExpr}
@@ -499,7 +499,7 @@ theorem clause1T (m : EnvTT env) (φ : Name → Nat)
     (hH1 : denote m.cval env φ 2 (Expr.substConst0 c value' h1) = some H1)
     (hEE : denote m.cval env φ 2 (Expr.substConst0 c value' eqE)
       = some (VExpr.mkAppN (m.cval eqName ψ) [A, L, R]))
-    (hAT : HasType [m.cval natName φ, m.cval natName φ] A (.sort (ψ uNT)))
+    (hAT : HasType [m.cval natName φ, m.cval natName φ] A (.sort (ψ uN)))
     (hLT : HasType [m.cval natName φ, m.cval natName φ] L A)
     (hRT : HasType [m.cval natName φ, m.cval natName φ] R A)
     {Γ : List VExpr} {x y : VExpr}
@@ -714,7 +714,7 @@ variable {env : Env} {m : EnvTT env} {φ : Name → Nat} {c : Name}
 def psiEq1 (φ : Name → Nat) : Name → Nat :=
   Level.substFn φ eqA.toConstantVal.levelParams [.succ .zero]
 
-theorem psiEq1_uNT (φ : Name → Nat) : psiEq1 φ uNT = 1 := rfl
+theorem psiEq1_uNT (φ : Name → Nat) : psiEq1 φ uN = 1 := rfl
 
 /-- A pinned-equality statement: its fragment membership and its
 denotation, from the three spines it is built from. -/
@@ -903,7 +903,7 @@ theorem dmClause1 (m : EnvTT env) (φ : Name → Nat) {F : Nat}
   have hvb := hb.valBnd
   obtain ⟨hf1, hd1⟩ := dmEqStmt hb hb.boolTy hgl hgr
   obtain ⟨hfE, hdE⟩ := dmEqStmt hb hb.natTy hL hR
-  have hBool : HasType Γ (m.cval boolName φ) (.sort (psiEq1 φ uNT)) := by
+  have hBool : HasType Γ (m.cval boolName φ) (.sort (psiEq1 φ uN)) := by
     have := HasType.close2 (m.cval_closed natName φ) (by trivial)
       hb.boolTy.sound.2.2 hx hy
     rwa [inst2_closed (m.cval_closed boolName φ)] at this
@@ -951,7 +951,7 @@ theorem dmClause2 (m : EnvTT env) (φ : Name → Nat) {F : Nat}
   obtain ⟨hf1, hd1⟩ := dmEqStmt hb hb.boolTy hgl hgr
   obtain ⟨hf2, hd2⟩ := dmEqStmt hb hb.boolTy hgl2 hgr2
   obtain ⟨hfE, hdE⟩ := dmEqStmt hb hb.natTy hL hR
-  have hBool : HasType Γ (m.cval boolName φ) (.sort (psiEq1 φ uNT)) := by
+  have hBool : HasType Γ (m.cval boolName φ) (.sort (psiEq1 φ uN)) := by
     have := HasType.close2 (m.cval_closed natName φ) (by trivial)
       hb.boolTy.sound.2.2 hx hy
     rwa [inst2_closed (m.cval_closed boolName φ)] at this

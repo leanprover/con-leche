@@ -28,8 +28,9 @@ variable {F : Nat}
 /-! ## Small computation facts
 
 `recRulePlain_le`/`_le_mI` are ninth `V`-free duplicates
-(`Setlec/Model/IotaWalk.lean`); see `EtaFamilyStoredT` for the
-relocation note.  The `recFireComparands` computations are what turn
+(`Setlec/Model/IotaWalk.lean`); the eight ahead of them in that class
+were relocated to `Setlec/Verify/{EnvGuards,EnvPreds}.lean` by task
+#148's T1, and these two are the residue it did not cover.  The `recFireComparands` computations are what turn
 `RecMemberTT`'s level premise into the bottoms' spelling. -/
 
 /-- A canonical rule's constructor parameters are among the recursor's
