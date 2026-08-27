@@ -8538,3 +8538,43 @@ model's basis-typed type-level definition at install, store the
 verdict as a checked capability, as eta did); execution is its own
 task with its own gates.  Until it lands, modeled types stay outside
 the guard.
+
+## The guard-capture census (task #124, 2026-08-27, diag/124-guard-census)
+
+Measured verdict on the static-guard route for skipping the `inferSpineI`
+per-argument re-check: **the guard captures ~0% of the app-argument tax,
+and Std.Time — predicted near-total — is the *worst* stream.**
+`perf stat instructions:u`, medians; verdicts identical in all 53 timed
+runs (3653/6390/61048 accepted, no movement).
+
+The current verification tax (baseline certified vs all-app-arg-masked):
+init-prelude 33.83G → 13.85G (tax 59% of the run, 2.4×);
+Std.Time pre2 1645.5G → 54.7G (97%, 30×);
+init-full 3130.2G → 551.9G (82%, 5.7×).
+
+Capture with a **free** guard (upper bound; measured guard overhead
+5–9% makes net negative everywhere): init-prelude 7.4%/4.1%
+(G1/#109-clause guards), Std.Time 1.9%/1.0%, init-full 3.7%/1.5%.
+
+**The mechanism — counts and cost are decoupled**: 54–70% of re-check
+*sites* clear the guard, carrying ~0% of the *cost*. Guard-clear sites
+are the **leaves** of the certificate recursion (infers of memoised
+`Nat`/`Bool`/sort arguments); guard-kept sites are its **trunk** (the
+`Nat.below`/`PProd` tower descents — `Nat.below` alone is 1.39M sites
+on Std.Time). Masking the 61% of clear sites removes 5.6% of sites
+*reached*; masking the 39% kept sites removes 82%. A static beta-peel
+variant clearing 85.7% of Std.Time sites still captures nothing.
+
+Residual at kept sites (Std.Time, #109 clauses): Sort≥1 21.4%
+(hard wall), beta-redex domains 19.0%, other-inductive 12.1%,
+recursor-headed 3.9%, Prop-typed 3.9%. The carved-universe option
+(clearing Sort≥1 domains) is therefore also worthless for this
+purpose: it moves sites, not cost.
+
+Consequences: #124 route (iii) refuted by measurement; the certified
+tax stands as the price of the only stateable soundness argument
+(§ the certificate does the one thing nothing else can). #109's battery
+retains its semantic value (domain determination, the restored-gate
+option at ~5–8% free-guard ceiling on prelude-like streams — marginal
+after guard overhead). Raw data: _tmp/census-124/, branch
+diag/124-guard-census (never merged).
