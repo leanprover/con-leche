@@ -2823,4 +2823,30 @@ theorem pointStageN {env₀ : Env} (m₀ : EnvTT env₀) {F : Nat}
             if_neg (by omega),
             show cnP + (rP + (q.1 - cnP) - rP) = q.1 from by omega]
 
+
+/-- The checker's definitional equality accepts a syntactic identity
+(the fast path, one step).  The projection path's kit derivations use
+it to turn `domsMatchAux`'s syntactic equalities into the
+`DefEqListOk` runs the sealed stages consume. -/
+theorem isDefEqCore_rfl {env : Env} {F d : Nat} (e : Expr) :
+    isDefEqCore env (F + 1) d e e = .ok true := by
+  obtain ⟨n, hn⟩ := defeqLoopFuel_succ
+  rw [isDefEqCore_succ]
+  show defeqLoop (pureFns env F) env d defeqLoopFuel e e = .ok true
+  rw [hn]
+  show defeqStep (pureFns env F) env d
+    (defeqLoop (pureFns env F) env d n) e e = .ok true
+  unfold defeqStep
+  simp [pure, Except.pure]
+
+/-- Pointwise-equal lists are checker-definitionally equal lists. -/
+theorem DefEqListOk.of_eq {env : Env} {F d : Nat} :
+    ∀ {as bs : List Expr}, as = bs →
+      DefEqListOk (F + 1) env d as bs := by
+  intro as bs h
+  subst h
+  induction as with
+  | nil => exact trivial
+  | cons a as ih => exact ⟨isDefEqCore_rfl a, ih⟩
+
 end Setlec.TTVerify

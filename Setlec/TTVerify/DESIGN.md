@@ -6386,3 +6386,53 @@ as agreed).
 Remaining: `ProjBottomTT` (§16.3's `cnF = 0` expectation, now against
 the sealed plain shape), then `DeclIndTT`/`CheckDeclTT` per §16.4 +
 the `ctor_residual` block discharge.
+
+## §22 `ProjBottomTT`: the worked plan (next increment)
+
+§16.3's "`IndBottomPlainTT` at `cnF = 0`" resolves on inspection of
+`checkProjFn` to: the stored projection recursor has `mI = rP = nP`
+and `ctorParams = nP`, `nfields = nF` — **no index positions**
+(`mI - rP = 0`), not no fields.  The direct proof is much smaller than
+the plain bottom because on the projection path the statement's
+telescope domains are *syntactically* the constructor's renamed
+(`domsMatchAux`, a real `==` under `DecidableEq`), which collapses the
+zipper:
+
+* **Fit**: build the mixed fit exactly as the plain Stage E does
+  (`paramBridge` + the field prefix conversion; with `cnP = rP` the
+  mixed spine *is* the fired spine `zs`); then **retarget** it to the
+  statement tower via `teleAlign_of_stripPis` (`e := cvj.type`,
+  `e' := stmtTy`, `hdoms : PiDomsRenEqT f (nP+nF) cvj.type stmtTy`
+  from `domsMatchAux` — no `hdePre`/`hdeFld`/S-frame `hcinst` runs
+  exist on this path and none are needed).  The retargeted residual is
+  the `openFvars`-opened body's denote; reconcile with Stage A's
+  `hRbody` through the canonical-opening `ErasedEq`
+  (`instSeq_erasedEq_args`, `Setlec/Verify/Subst.lean`).
+* **Fire**: plain Stage A + Stage H verbatim (`hslot` from
+  `checkProjIota_inv`'s #146 conjunct).
+* **Redex**: pointwise as `pointStage`'s prefix/major branches with no
+  index case; the statement redex is
+  `f (projFnName T i)` at `fvs.take nP ++ [mk-spine]` (kit hypothesis
+  in opened form; the assembly computes the opening of the `==`-pinned
+  bvar-level `lhsS`).
+* **Reduct** (the one genuinely new piece): the rule's rhs is the
+  annotated λ-tower over the constructor's domains returning
+  `.bvar (nF - 1 - i)`; `mkAppN RV zs` β-reduces onto the field value
+  by `CtxSpine.betaSpine` + `Deq.ofBetaSpine` at `Γj` (the λ-domains
+  are the constructor's, syntactically — `checkProjRule`'s second
+  `domsMatchAux`).  Needs `stripLams_denoteTele`
+  (`openPisAtFvars_denoteTele`'s λ-mirror; the annotation-irrelevant
+  opening at `openFvars`, with `stripLams_instantiate1_{isSome,eq}`
+  from `Setlec/Verify/Subst.lean`) — sketched, not landed.
+* **Kit sources** (all landed checker-side): `checkProjShape` (ctor
+  strip + residual arity `nP` + const head — `hclen`/`hCstripsHead`
+  analogs), `checkProjRule` (P-frame `hopenP`/`hcinstP`/`hdePars` runs
+  verbatim, the λ-tower shape, `hinfR`), `checkProjIota` (statement
+  shape pins + `checkIotaSidesTy` + the slot sort), `checkProjTy`
+  (public-type closure/telescope).  The syntactic `==` pins become
+  `DefEqListOk` runs by `isDefEqCore_rfl`/`DefEqListOk.of_eq`
+  (landed, `IndBottomStages.lean`).
+
+Estimated ~600-800 lines against the sealed stages, of which
+`stripLams_denoteTele` is ~120.  After it: `DeclIndTT` per §16.4 with
+the `ctor_residual` block discharge, then `checkDeclTT_of`.
