@@ -9568,16 +9568,17 @@ counterexamples (`Setlec/TTVerify/DESIGN.md` §17.3).  The landing
 confirms it end to end: no fixture's verdict moved.
 
 **Gates.**  Build warning-free with the ten touched modules' oleans
-force-deleted and recompiled, `lake test`, arena 90/92, e2e 70/70,
+force-deleted and recompiled, `lake test`, arena 90/92, e2e 72/72,
 split driver 11/11, infer-only 5/5 and the full `tests/arena.sh
 --infer-only` sweep, the yolo sweep green
-(`138 arena + 70 e2e as expected`), axioms exactly
+(`138 arena + 72 e2e as expected`), axioms exactly
 `[propext, Classical.choice, Quot.sound]` on the nine consistency
 theorems, no sorries, init-prelude byte-identical — stdout, stderr,
 exit — in the certified, the `SETLEC_NO_PROOF_CERTS=1` and the
 `SETLEC_INFER_ONLY=1` modes against a binary built from pre-change
-master.  Cost: 38.8089 G → 38.8253 G instructions:u on init-prelude,
-**+0.042 %** (median of three) — one `inferType` and one `isDefEq` per
+master (all re-run against master `61a23c9` after merging it in).
+Cost: 38.6530 G → 38.6714 G instructions:u on init-prelude,
+**+0.048 %** (median of three) — one `inferType` and one `isDefEq` per
 iota statement, and the most expensive of the seven bridge changes so
 far, as a semantic certificate should be next to six syntactic ones.
 
@@ -9586,7 +9587,8 @@ Negated (`unless !(← ops.isDefEq …)`) in the single source and
 rebuilt, init-prelude **declines** at the first modeled recursor
 (`not implemented yet: iota statement type slot sort for LT.rec [at
 inductive LT]`, exit 2), arena falls to **46/92**, e2e to **30/70**,
-split 8/11, infer-only 3/5.  The signature is #136's, not #135's, and
+split 8/11, infer-only 3/5 (the e2e count is the pre-merge suite's 70).
+The signature is #136's, not #135's, and
 correctly so: this is a hard certificate inside an install check, so a
 violation declines rather than silently dropping a capability.
 Reverted; byte identity re-confirmed in all three modes.
