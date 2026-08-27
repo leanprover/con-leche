@@ -485,8 +485,12 @@ def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
 /-- Memoized interned bulk instantiation on a reversed accumulator
 array — innermost binder **last**, the binder loops' push order
 (lean4lean's `instantiateRev` discipline, task #97); identity shortcut
-as in `instListM`.  Equal to `instListM e vs.toList.reverse d`
-(`instListRevM_eq`, `Setlec/Verify/SimI.lean`). -/
+as in `instListM`.  Task #145 unpicked the former definitional
+identity with `instListM e vs.toList.reverse d`: this sibling is *not*
+memoized (measured: no win here, and a further +26 % peak RSS), so the
+identification survives only as the shared spec —
+`instantiateRevI_eq` — and `instListRevM_eff`
+(`Setlec/Verify/SimI.lean`) repeats the raw proof. -/
 def instListRevM (e : EIdx) (vs : Array EIdx) (d : Nat := 0) :
     CheckIM EIdx :=
   modifyGet fun s =>
