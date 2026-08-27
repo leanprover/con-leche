@@ -1,4 +1,5 @@
 import Setlec.TTVerify.DefEqStep
+import Setlec.TTVerify.OpenRevDenote
 import Setlec.Verify.Deep
 
 /-!
@@ -329,6 +330,146 @@ theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
             exact List.mem_of_mem_drop (List.getElem_mem hiR)
           exact hframe _ hmem
         exact ihd hde hwL hbL hLL hwR' hbR' hLR' hCL hCR' ha hb
+      -- **the fire site's nested parameter test** (§17.4): `iotaRec`
+      -- compares the constructor's parameters against the stored pins
+      -- instantiated at the rule prefix; the law meets it at the
+      -- pins' base-0 reverse opening (`denote_openRev`)
+      have htakeR0 : e.getAppArgs.take rP = args.take rP := by
+        rw [hsplit]
+        exact List.take_append_of_le_length (by omega)
+      have hparNP : ∀ lvls pins, RecRule.fire r = .nested lvls pins →
+          ∀ i, i < RecRule.ctorParams r →
+          ∀ (a : VExpr) (vxs : List VExpr),
+            denote m.cval env φ d (major.getAppArgs.getD i default)
+              = some a →
+            DenoteSpine m.cval env φ d (args.take rP) vxs →
+            ∀ vp : VExpr,
+              denote m.cval env φ rP (openRev 0 rP
+                ((pins.getD i default).instantiateLevelParams
+                  cv.levelParams us)) = some vp →
+              Deq Δ a (VExpr.instRevChain vxs vp) := by
+        intro lvls pins hn i hi a vxs ha hvxs vp hvp
+        have hcmp : (recFireComparands r cv.levelParams us
+            cvj.levelParams e.getAppArgs rP).2 = pins.map (fun p =>
+              Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
+                (p.instantiateLevelParams cv.levelParams us)) := by
+          simp [recFireComparands, hn]
+        rw [hcmp] at hdefl
+        obtain ⟨hlenD, hall⟩ := defEqList_inv hdefl
+        rw [List.length_take, List.length_map] at hlenD
+        have hpinslen : pins.length = RecRule.ctorParams r := by
+          have h0 : major.getAppArgs.length =
+              RecRule.ctorParams r + RecRule.nfields r := hlenM
+          omega
+        -- the stored pin's syntactic facts
+        obtain ⟨-, -, -, -, hnested⟩ := hrules cv mI rP rules rfl r hrl
+        obtain ⟨-, -, hpinsWf, -⟩ := hnested lvls pins hn
+        have hpinmem : pins.getD i default ∈ pins := by
+          refine List.mem_of_getElem? (i := i) ?_
+          simp [List.getD, List.getElem?_eq_getElem
+            (show i < pins.length from by omega)]
+        obtain ⟨hpinF, hpinLp, hpinRes, hpinB⟩ := hpinsWf _ hpinmem
+        -- the comparand at this position
+        have hiT : i < (major.getAppArgs.take
+            (RecRule.ctorParams r)).length := by
+          rw [List.length_take]
+          have h0 : major.getAppArgs.length =
+              RecRule.ctorParams r + RecRule.nfields r := hlenM
+          omega
+        have hde := hall ⟨i, hiT⟩
+        simp only [Fin.getElem_fin] at hde
+        rw [show (major.getAppArgs.take (RecRule.ctorParams r))[i]
+            = major.getAppArgs[i] from by simp [List.getElem_take],
+          show (pins.map (fun p => Expr.instSpine
+              (e.getAppArgs.take rP) (rP - 1)
+              (p.instantiateLevelParams cv.levelParams us))).getD i
+              default = Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
+                ((pins.getD i default).instantiateLevelParams
+                  cv.levelParams us) from by
+            simp only [List.getD, List.getElem?_map,
+              List.getElem?_eq_getElem
+                (show i < pins.length from by omega)]
+            rfl] at hde
+        -- the argument prefix's facts
+        have hargsPre : ∀ x ∈ args.take rP, Expr.WScoped d x ∧
+            x.looseBVarsBounded 0 = true ∧ Expr.fvarsBelow d x := by
+          intro x hx
+          have hx' : x ∈ e.getAppArgs := by
+            rw [hsplit]
+            exact List.mem_append_left _ (List.mem_of_mem_take hx)
+          obtain ⟨hw, hb2, -, -⟩ := hframe x hx'
+          exact ⟨hw, hb2, hw.fvarsBelow⟩
+        have hprelen : (args.take rP).length = rP := by
+          rw [List.length_take]
+          omega
+        -- the pin, instantiated at the prefix, denotes through the
+        -- base-0 reverse opening
+        have hpinF' : (Expr.instantiateLevelParams cv.levelParams us
+            (pins.getD i default)).hasFvar = false := by
+          rw [Expr.hasFvar_instantiateLevelParams]
+          exact hpinF
+        have hpinB' : (Expr.instantiateLevelParams cv.levelParams us
+            (pins.getD i default)).looseBVarsBounded
+            (args.take rP).length = true := by
+          rw [Expr.looseBVarsBounded_instantiateLevelParams, hprelen]
+          exact hpinB
+        have hcden := denote_openRev hcl (args.take rP) hargsPre
+          ((Expr.WScoped.of_not_hasFvar (d := d) hpinF').fvarsBelow)
+          hpinB' hvxs
+        rw [hprelen] at hcden
+        have hbase := denote_openRev_base (env := env) (φ := φ) hcl
+          hpinF' (by
+            rw [Expr.looseBVarsBounded_instantiateLevelParams]
+            exact hpinB) d
+        rw [hbase, hvp] at hcden
+        rw [Expr.instSpine_eq_instSeq, htakeR0] at hde
+        -- the comparand's frame facts, and the claims
+        have hcw : Expr.WScoped d (Expr.instSeq (args.take rP) (rP - 1)
+            (Expr.instantiateLevelParams cv.levelParams us
+              (pins.getD i default))) := by
+          rw [← Expr.instSpine_eq_instSeq]
+          exact instSpine_WScoped _
+            (Expr.WScoped.of_not_hasFvar hpinF')
+            (fun x hx => (hargsPre x hx).1)
+        have hcb : (Expr.instSeq (args.take rP) (rP - 1)
+            (Expr.instantiateLevelParams cv.levelParams us
+              (pins.getD i default))).looseBVarsBounded 0 = true := by
+          rw [← Expr.instSpine_eq_instSeq,
+            show rP - 1 = (args.take rP).length - 1 from by
+              rw [hprelen]]
+          exact instSpine_closed (fun x hx => (hargsPre x hx).2.1) hpinB'
+        have hcL : Expr.LeavesBounded (Expr.instSeq (args.take rP)
+            (rP - 1) (Expr.instantiateLevelParams cv.levelParams us
+              (pins.getD i default))) := by
+          intro l hl
+          rw [← Expr.instSpine_eq_instSeq] at hl
+          rcases fvarLeaves_instSpine _ hl with h1 | ⟨x, hx, hlx⟩
+          · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hpinF'] at h1
+            exact nomatch h1
+          · have hx' : x ∈ e.getAppArgs := by
+              rw [hsplit]
+              exact List.mem_append_left _ (List.mem_of_mem_take hx)
+            exact (hframe x hx').2.2.1 l hlx
+        have hcC : CtxOk m.cval env φ d Δ (Expr.instSeq (args.take rP)
+            (rP - 1) (Expr.instantiateLevelParams cv.levelParams us
+              (pins.getD i default))) := by
+          refine ⟨hC.1, fun l hl => ?_⟩
+          rw [← Expr.instSpine_eq_instSeq] at hl
+          rcases fvarLeaves_instSpine _ hl with h1 | ⟨x, hx, hlx⟩
+          · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hpinF'] at h1
+            exact nomatch h1
+          · have hx' : x ∈ e.getAppArgs := by
+              rw [hsplit]
+              exact List.mem_append_left _ (List.mem_of_mem_take hx)
+            exact (hframe x hx').2.2.2.2 l hlx
+        simp only [Option.map_some] at hcden
+        -- the constructor argument's own facts, and the claims
+        have hiM2 : i < major.getAppArgs.length := by omega
+        obtain ⟨hwA, hbA, hLA, hCA⟩ := hargsC major.getAppArgs[i]
+          (List.getElem_mem hiM2)
+        rw [show major.getAppArgs.getD i default = major.getAppArgs[i]
+          from by simp [List.getD, List.getElem?_eq_getElem hiM2]] at ha
+        exact ihd hde hwA hbA hLA hcw hcb hcL hCA hcC ha hcden
       -- fire
       have hfired := rec_rules_fire m φ hcl ihd ihi hfc hrl hfire
         (hrc ▸ hfj) hlenA' hlenM hlenR hlenJ
@@ -337,7 +478,7 @@ theorem iota_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
               (Level.isEquivList_sound hlev φ),
             recFireComparands_levels r cv.levelParams us cvj.levelParams
               e.getAppArgs [] rP rP])
-        hparP hresid hlenIdxP hidxG
+        hparP hparNP hresid hlenIdxP hidxG
         (by rw [htake] at hcerts; rw [hmajEq']; exact hcerts)
         (Expr.WScoped.of_not_hasFvar (by
           rw [Expr.hasFvar_instantiateLevelParams]; exact hnfR))

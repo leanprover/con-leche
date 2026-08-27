@@ -72,6 +72,18 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
           denote m.cval env φ d (margs.getD i default) = some a →
           denote m.cval env φ d (args.getD i default) = some b →
           Deq Δ a b)
+    -- the same check's nested form (§17.4), in the shape the fire
+    -- site's own guard supplies it
+    (hparN : ∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+      ∀ i, i < RecRule.ctorParams rl →
+      ∀ (a : VExpr) (vxs : List VExpr),
+        denote m.cval env φ d (margs.getD i default) = some a →
+        DenoteSpine m.cval env φ d (args.take rP) vxs →
+        ∀ vp : VExpr,
+          denote m.cval env φ rP
+            (openRev 0 rP ((pins.getD i default).instantiateLevelParams
+              cv.levelParams us)) = some vp →
+          Deq Δ a (VExpr.instRevChain vxs vp))
     -- the fire site's **index** test, in the form the law consumes
     -- (§15): `iotaRec` compares the constructor's canonical index
     -- tuple — the tail of its telescope residual — against the
@@ -177,7 +189,7 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
       (hspC.drop (RecRule.ctorParams rl))) hRH] at hR
     exact (Option.some.inj hR).symm
   refine hlaw cvj cnP cnF hctor Δ usj xs ys TR TC RVR RVC ?_ ?_ hlenJ hlev
-    ?_ ?_ hiR hiC hvR hvC
+    ?_ ?_ ?_ hiR hiC hvR hvC
   · have := hspR.length
     omega
   · have := hspC.length
@@ -195,6 +207,17 @@ theorem rec_rules_fire {env : Env} (m : EnvTT env) (φ : Name → Nat)
     · rw [show args.getD i default = args[i] from
         by simp [List.getD, List.getElem?_eq_getElem hiA]]
       exact DenoteSpine.get hspR ⟨i, hiA⟩
+  · -- the nested parameter test, moved onto the denoted spines
+    intro lvls pins hn i hi vp hvp
+    have hlenYs : ys.length = margs.length := hspC.length
+    have hiM' : i < margs.length := by omega
+    refine hparN lvls pins hn i hi (ys.getD i default) (xs.take rP)
+      ?_ (hspR.take rP) vp hvp
+    rw [show margs.getD i default = margs[i] from
+      by simp [List.getD, List.getElem?_eq_getElem hiM']]
+    have h1 := DenoteSpine.get hspC ⟨i, hiM'⟩
+    simpa [List.getD, List.getElem?_eq_getElem (show i < ys.length from
+      by omega)] using h1
   · -- the index test, moved onto the denoted spines: the constructor's
     -- residual is read apart as a spine, which is exactly the shape
     -- `denote_mkAppN_inv` returns (§15.2)

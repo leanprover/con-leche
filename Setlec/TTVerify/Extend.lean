@@ -1220,6 +1220,15 @@ theorem RecRulesTT.cons {env : Env} {cval cval' : TConstVal}
             (RecRule.fire rl = .plain →
               ∀ i, i < RecRule.ctorParams rl → i < mI →
                 Deq Δ (ys.getD i default) (xs.getD i default)) →
+            (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+              ∀ i, i < RecRule.ctorParams rl →
+              ∀ vp : VExpr,
+                denote cval' ⟨c₀ :: env.consts⟩ φ rP
+                  (openRev 0 rP ((pins.getD i
+                    default).instantiateLevelParams cv.levelParams us))
+                  = some vp →
+                Deq Δ (ys.getD i default)
+                  (VExpr.instRevChain (xs.take rP) vp)) →
             IotaIndexPin Δ restC (RecRule.ctorParams rl) mI rP xs →
             denote cval' ⟨c₀ :: env.consts⟩ φ d
               (cv.type.instantiateLevelParams cv.levelParams us) = some TV →
@@ -1259,8 +1268,8 @@ theorem RecRulesTT.cons {env : Env} {cval cval' : TConstVal}
     rw [Env.find?_cons, if_neg hnc] at hctor
     obtain ⟨-, -, hres1, -, -, -, -⟩ := hwfe _ (find?_mem hf)
     obtain ⟨-, -, hres2, -⟩ := hwfe _ (find?_mem hctor)
-    intro Δ usj xs ys TV TVj restR restC hlenX hlenY hlenJ hlev hpar hidx hTV
-      hTVj hfitR hfitC
+    intro Δ usj xs ys TV TVj restR restC hlenX hlenY hlenJ hlev hpar hparN
+      hidx hTV hTVj hfitR hfitC
     have hTV' := hi.denoteDown
       (by rw [Expr.constsResolve_instantiateLevelParams cv.levelParams us]
           simpa [ConstantInfo.toConstantVal] using hres1) hTV
@@ -1270,7 +1279,10 @@ theorem RecRulesTT.cons {env : Env} {cval cval' : TConstVal}
     rw [← hi.ag _ (Ne.symm hnc)] at hfitR
     rw [← hi.ag n (fun hh => hn hh.symm), ← hi.ag _ (Ne.symm hnc)]
     exact hlaw cvj cnP cnF hctor Δ usj xs ys TV TVj restR restC hlenX hlenY
-      hlenJ hlev hpar hidx hTV' hTVj' hfitR hfitC
+      hlenJ hlev hpar
+      (fun lvls pins hn i hi' vp hvp =>
+        hparN lvls pins hn i hi' vp (hi.denoteUp hvp))
+      hidx hTV' hTVj' hfitR hfitC
 
 /-! ### The WF-recursive clauses
 
@@ -1440,6 +1452,15 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
             (RecRule.fire rl = .plain →
               ∀ i, i < RecRule.ctorParams rl → i < mI →
                 Deq Δ (ys.getD i default) (xs.getD i default)) →
+            (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+              ∀ i, i < RecRule.ctorParams rl →
+              ∀ vp : VExpr,
+                denote cval' ⟨c₀ :: env.consts⟩ φ rP
+                  (openRev 0 rP ((pins.getD i
+                    default).instantiateLevelParams cv.levelParams us))
+                  = some vp →
+                Deq Δ (ys.getD i default)
+                  (VExpr.instRevChain (xs.take rP) vp)) →
             IotaIndexPin Δ restC (RecRule.ctorParams rl) mI rP xs →
             denote cval' ⟨c₀ :: env.consts⟩ φ d
               (cv.type.instantiateLevelParams cv.levelParams us) = some TV →

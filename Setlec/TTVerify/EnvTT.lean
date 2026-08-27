@@ -1,6 +1,7 @@
 import Setlec.TTVerify.Denote
 import Setlec.TTVerify.VClosed
 import Setlec.TTVerify.Tele
+import Setlec.TTVerify.OpenVars
 import Setlec.TT.Semantics.Consistency
 
 /-!
@@ -213,6 +214,25 @@ def RecRulesTT (env : Env) (cval : TConstVal) : Prop :=
           (RecRule.fire rl = .plain →
             ∀ i, i < RecRule.ctorParams rl → i < mI →
               Deq Δ (ys.getD i default) (xs.getD i default)) →
+          -- **the same check's nested form.**  A nested rule's
+          -- comparands are its stored *pins* instantiated at the
+          -- recursor's rule prefix, so the plain shape above is wrong
+          -- for it and is guarded off; this is the premise the nested
+          -- bottom — its first consumer — could not be written without
+          -- (§17.4).  The pin appears through its base-`0` reverse
+          -- opening, which is where the fire site's real-argument
+          -- instantiation and the install's statement-side one meet
+          -- (`denote_openRev`); the fired constructor's parameters are
+          -- then the pins at the recursor's own first `rP` denoted
+          -- arguments.
+          (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+            ∀ i, i < RecRule.ctorParams rl →
+            ∀ vp : VExpr,
+              denote cval env φ rP
+                (openRev 0 rP ((pins.getD i default).instantiateLevelParams
+                  cv.levelParams us)) = some vp →
+              Deq Δ (ys.getD i default)
+                (VExpr.instRevChain (xs.take rP) vp)) →
           -- **the fire site's own index check.**  `iotaRec` runs a
           -- third comparison beside the level and parameter ones:
           -- `defEqList (residual.getAppArgs.drop ctorParams)

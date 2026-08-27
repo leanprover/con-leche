@@ -1,5 +1,6 @@
 import Setlec.TTVerify.Rename
 import Setlec.TTVerify.SubstAlgebra
+import Setlec.TTVerify.OpenVars
 
 /-!
 # Opening a telescope, and substituting a spine into what is left
@@ -201,45 +202,6 @@ variables, so `instSeq_forallE`, `instSeq_mkAppN`, `instSeq_bvar` and
 is the one the `Expr` side was missing — that an instantiation *below*
 the substituted range passes through (`instSeq_instantiate1_in`, the
 dual of `Expr.instSeq_instantiate1_out`). -/
-
-/-- The `k` opening variables of a telescope at depth `d`, outermost
-first.  `denote` reads neither name nor annotation
-(`Setlec/TTVerify/Denote.lean`), so canonical ones are as good as the
-binders' own — which is what lets a *single* opening stand for the two
-telescopes an alignment relates. -/
-def openFvars : Nat → Nat → List Expr
-  | _, 0 => []
-  | d, k + 1 => Expr.fvar d Name.anonymous (.sort .zero) :: openFvars (d + 1) k
-
-@[simp] theorem openFvars_length : ∀ (d k : Nat), (openFvars d k).length = k
-  | _, 0 => rfl
-  | d, k + 1 => by simp [openFvars, openFvars_length (d + 1) k]
-
-theorem openFvars_zero (d : Nat) : openFvars d 0 = [] := rfl
-
-theorem openFvars_succ (d k : Nat) :
-    openFvars d (k + 1) =
-      Expr.fvar d Name.anonymous (.sort .zero) :: openFvars (d + 1) k := rfl
-
-theorem openFvars_bounded : ∀ (d k : Nat),
-    ∀ a ∈ openFvars d k, a.looseBVarsBounded 0 = true
-  | _, 0 => by intro a ha; exact nomatch ha
-  | d, k + 1 => by
-    intro a ha
-    rcases List.mem_cons.mp ha with rfl | h
-    · rfl
-    · exact openFvars_bounded (d + 1) k a h
-
-theorem openFvars_getElem? : ∀ {d k i : Nat}, i < k →
-    (openFvars d k)[i]? =
-      some (Expr.fvar (d + i) Name.anonymous (.sort .zero))
-  | _, 0, _, h => absurd h (by omega)
-  | d, k + 1, 0, _ => by simp [openFvars]
-  | d, k + 1, i + 1, h => by
-    rw [openFvars_succ, List.getElem?_cons_succ,
-      openFvars_getElem? (d := d + 1) (k := k) (i := i) (by omega)]
-    congr 2
-    omega
 
 /-- **An instantiation below the substituted range passes through.**
 The dual of `Expr.instSeq_instantiate1_out`, and the fact that lets a
