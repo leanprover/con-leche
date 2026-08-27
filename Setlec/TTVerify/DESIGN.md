@@ -6510,3 +6510,69 @@ nested redex pins) is Expr-level computation — put each in
 `IndBottomStages` from the start, per §23's house rule; (ii) the
 `hslot` conjunct now arrives from the #146 inversions on all three
 paths — the bottoms' `hslot` hypotheses discharge by `exact`.
+
+## §25 `CheckDeclTT` closed — the assembly arc's record (fourth run)
+
+The phase's final theorem is landed.  `Setlec/TTVerify/Main.lean`:
+
+    theorem checkDeclTT : CheckDeclTT F :=
+      checkDeclTT_of declDefnTT_closed declThmTT declOpaqueTT_closed
+        declAxiomTT_closed declBasisTT declIndTT
+
+with `checkDecls_TT_closed` / `no_proof_of_Empty_TT_closed`
+discharging both fold hypotheses (`CheckDeclTT`, `FamiliesStepTT`);
+`CertifiedConfigTT` remains the one stated configuration hypothesis.
+Axioms on all of them: exactly `[propext, Classical.choice,
+Quot.sound]`.  §24's map held; what it did not predict is recorded
+here.
+
+**The closure threading decision.**  The model threads
+`EtaFamiliesClosed` beside `EnvModel` through the consistency fold;
+the TT signatures didn't.  Rather than widen `CheckDeclTT`'s
+*conclusion* (which would have reopened the five landed value/basis
+cases), the closure entered input-only — `CheckDeclTT` and `DeclIndTT`
+take `EtaFamiliesClosedT env` as a hypothesis, and its preservation is
+a separate, purely syntactic `FamiliesStepTT`
+(`Setlec/TTVerify/DeclFamilies.lean`), proved with no valuations or
+derivations at all: install-shape inversions for the value kinds
+(the nat-op/div-mod/reduce gate trees case-bash to "every accepting
+leaf is `pure env₂`"), a `basisHeadOk` fold for the basis blocks, and
+member-order unrolling plus phase find-preservation for the inductive
+block.  One finding en route: `basisDecls` are *not* all reserved —
+the psigma pair projection helpers (`pairFstA`/`pairSndA`) are
+non-reserved recursors, so the per-member fact is "no non-reserved
+eta-capable *former*", decidable per kind, not blanket reservedness.
+
+**The projection bottom's base-env route.**  `IndBottomProjTT` is
+stated at the environment the checker runs the projection group in —
+the *base* env, before the projection function is stored — with
+`Rn := projModelName T i` under the pruned renaming `f₀` that fixes
+the model name.  The installed constant's law is then recovered at
+`EnvTT.cons` by rewriting the base law's `cval (T._model.proj_i)` head
+through `cvalAlias_self`, mirroring the model's `proj_rule_eq`
+base-vs-extended bridging.  `EnvTT.revalue` (EnvSwap.lean) was built
+first as an alternative (revalue the fresh name after install); the
+alias route made it unnecessary, but it is landed and correct — a
+general tool for future fresh-name revaluations, not dead weight.
+
+**`nestedLvlsLength`.**  The nested bottom's `hlvlsLen` hypothesis has
+no syntactic pin to invert; it is derived *semantically* — the
+checked statement denotes, and a denoting `mkAppN (const c lvls)`
+spine forces `lvls.length` to the stored constant's arity
+(`DeclIndRecs.lean`, sealed per the §19/§23 elaboration house rule).
+
+**Owned errors from this run** (per the practices list): a leftover
+`subst h` after `Except.bind_ok` consumption (bind_ok *shadows*, it
+does not clear — the term-mode `obtain` leaves the source hypothesis);
+one wrong-direction contradiction derivation at the ctor/former name
+clash (rewrote a name equation into a hypothesis that didn't contain
+it — fixed by re-deriving the `find?`-hit form); and a stale-olean
+false trail: `FamiliesStepTT`'s re-signing wasn't rebuilt before its
+consumer, so `intro` silently dug into `EtaFamiliesClosedT`'s body
+and produced `hE1 : Name` — when an intro'd hypothesis has a
+nonsensical type, check the import chain's oleans before the proof.
+
+Gate battery at the landing (83987a1): `lake build` warning-free with
+touched TTVerify oleans force-recompiled, `lake test`, arena 90/92,
+e2e 72/72, split 11/11, infer-only 5/5, yolo sweep as expected, zero
+sorries.
