@@ -53,18 +53,29 @@ private def canonLevel (m : Name → Name) : Level → Level
   | .imax u v => .imax (canonLevel m u) (canonLevel m v)
   | .param n => .param (m n)
 
-/-- Erase binder names and rename level parameters: the alpha/renaming
-canonical form used to match a parsed inductive block against a pinned
-basis block (Lean's exports use auto-bound universe names and hygienic
-binder names, both semantically irrelevant). -/
+/-- Erase binder names *and binder annotations* and rename level
+parameters: the alpha/renaming canonical form used to match a parsed
+inductive block against a pinned basis block (Lean's exports use
+auto-bound universe names and hygienic binder names, both semantically
+irrelevant).
+
+Task #142, pin-side normalization: the parser already maps every
+stream binder to `.default`, but the pinned declarations keep the real
+`BinderInfo`s of the toolchain signatures they were generated from
+(`Setlec/Kernel/Basis/*`, `Setlec/Kernel/StdAxioms.lean` — the
+`TTVerify` layer pins those literals).  Both sides of every
+`ConstantInfo.canon` comparison go through here, so erasing the
+annotation here is what keeps the two sides consistent; without it the
+strip would *invert* the bug and no basis block would ever match. -/
 private def canonExpr (m : Name → Name) : Expr → Expr
   | .bvar i => .bvar i
   | .fvar idx _ ty => .fvar idx .anonymous (canonExpr m ty)
   | .sort u => .sort (canonLevel m u)
   | .const n us => .const n (us.map (canonLevel m))
   | .app f a => .app (canonExpr m f) (canonExpr m a)
-  | .lam _ ty b bm => .lam .anonymous (canonExpr m ty) (canonExpr m b) bm
-  | .forallE _ ty b bm => .forallE .anonymous (canonExpr m ty) (canonExpr m b) bm
+  | .lam _ ty b _ => .lam .anonymous (canonExpr m ty) (canonExpr m b) ⟨.default⟩
+  | .forallE _ ty b _ =>
+      .forallE .anonymous (canonExpr m ty) (canonExpr m b) ⟨.default⟩
   | .letE _ ty v b => .letE .anonymous (canonExpr m ty) (canonExpr m v)
       (canonExpr m b)
   | .lit l => .lit l
@@ -245,12 +256,17 @@ private def getDeclExpr' (st : State) (j : Json) (key : String) : M Expr := do
 private def getIdxs (j : Json) (key : String) : M (Array Nat) := do
   (← (← j.getObjVal? key).getArr?).mapM (·.getNat?)
 
-private def parseBinderInfo (j : Json) : M BinderInfo := do
+/-- Validate a binder record's `binderInfo` field and **discard** it
+(task #142).  Kernel typing erases binder annotations — the official
+kernel accepts a declaration however its binders are marked — so the
+frontend maps every parsed binder to `.default`, and an
+annotation-only deviation cannot exist anywhere downstream (in
+particular it can no longer make a basis block miss its pin).  The
+field is still parsed: an unknown spelling is a malformed record, not
+a silently ignored one. -/
+private def parseBinderInfo (j : Json) : M Unit := do
   match (← (← j.getObjVal? "binderInfo").getStr?) with
-  | "default" => pure .default
-  | "implicit" => pure .implicit
-  | "strictImplicit" => pure .strictImplicit
-  | "instImplicit" => pure .instImplicit
+  | "default" | "implicit" | "strictImplicit" | "instImplicit" => pure ()
   | s => throw s!"unknown binderInfo {s}"
 
 /-- Intern one name node into the parse arena (linear threading, as
@@ -353,14 +369,16 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
         (.app (← getExprIdx' st v "fn") (← getExprIdx' st v "arg"))
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "lam" then
+      parseBinderInfo v
       let (e, st) ← st.intern' (.lam (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
-        ⟨← parseBinderInfo v⟩)
+        ⟨.default⟩)
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "forallE" then
+      parseBinderInfo v
       let (e, st) ← st.intern' (.forallE (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
-        ⟨← parseBinderInfo v⟩)
+        ⟨.default⟩)
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "letE" then
       let (e, st) ← st.intern' (.letE (← getNameIdx' st v "name")

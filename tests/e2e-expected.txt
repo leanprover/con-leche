@@ -345,3 +345,15 @@
 # stream is accepted (0).  The escape is therefore not confined to
 # reject-vs-accept — a decline can be lost the same way.
 2 yolo_decline_vs_accept.ndjson
+# basis_binderinfo{,_rec} (task #142, 2026-08-27 fuzz campaign finding
+# F2): raw lean4export streams that are byte-for-byte a good stream
+# except that one binder of a *pinned basis block* carries a different
+# `BinderInfo` — `Nat.succ : {n : Nat} → Nat` in the first, a binder
+# of `Nat.rec` in the second.  Kernel typing erases binder annotations,
+# so the official kernel accepts both; before #142 the block missed
+# every pin and fell through to the alias path, which rejected the
+# reserved name `Nat` (exit 1 — a *soundness-shaped* false reject).
+# The frontend now maps every parsed binder to `.default`, so the
+# deviation cannot exist downstream at all.
+0 basis_binderinfo.ndjson raw
+0 basis_binderinfo_rec.ndjson raw

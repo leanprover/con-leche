@@ -157,7 +157,9 @@ requires the pinned `Eq` basis plus standardly-shaped stored `Iff`
 the checked type against annotated pins (`Setlec/Kernel/StdAxioms.lean`).
 Since the exporter's hygienic binder names are unstable across
 preprocessor runs, pin matching compares types up to binder names
-(`Expr.eraseNames`); the interpretation never reads what is erased
+(`Expr.eraseNames`); the pins themselves carry only `.default` binder
+annotations, matching the frontend's parse-time strip (task #142
+below).  The interpretation never reads what is erased
 (`Expr.ErasedEq.of_eraseNames` + `interp_erasedEq` transport the model
 facts from the pin to the stored type).  Models: `propext` is the
 proof point `pt`, true by propositional extensionality of the set
@@ -2150,11 +2152,12 @@ lean-inductive-models `_model` encodings of `Prop` inductives (`And`,
 projections, which only proof irrelevance can equate with the original.
 
 The frontend matches incoming inductive blocks against the pinned basis
-blocks *up to binder names and positional level-parameter renaming*
-(`ConstantInfo.canon`): Lean's exports use auto-bound universe names
-(`Eq.{u_1}`, `Eq.rec.{u, u_1}`) and hygienic binder names, both
-semantically irrelevant; the checker installs the pinned (annotated)
-declarations.
+blocks *up to binder names, binder annotations, and positional
+level-parameter renaming* (`ConstantInfo.canon`): Lean's exports use
+auto-bound universe names (`Eq.{u_1}`, `Eq.rec.{u, u_1}`) and hygienic
+binder names, both semantically irrelevant, and `BinderInfo` is
+display data no typing rule reads (task #142); the checker installs
+the pinned (annotated) declarations.
 
 ### Generic eta/iota machinery (2026-08-19, per review)
 
@@ -9381,6 +9384,98 @@ do not agree, and the override count is printed so that a silently
 emptied `tests/yolo-expected.txt` shows up there.  The full
 `tests/arena.sh --infer-only` sweep is green as well (70/70 at the
 certified expectations).
+
+## Binder annotations are erased at the parser (task #142, 2026-08-27)
+
+**The finding (fuzz campaign F2).**  A stream that is byte-for-byte a
+good stream *except* that one binder of a pinned basis block carries a
+different `BinderInfo` — `Nat.succ : {n : Nat} → Nat` — missed every
+pin, fell through to the alias path, and was **rejected** (exit 1)
+with `reserved basis name Nat`.  The official kernel accepts it:
+binder annotations are display data, and kernel typing erases them.  A
+false reject on an annotation-only deviation is the wrong verdict for
+the wrong reason, and it was reachable by a one-character edit.
+
+**The ruling (user).**  Remove `BinderInfo` during *parsing*.  The
+frontend maps every binder annotation to `.default` as streams are
+parsed, so annotation-only deviations cannot exist anywhere
+downstream.
+
+**Where the strip lives.**  `Setlec/Frontend/Export.lean`,
+`parseExprEntry`: the `lam` and `forallE` entries intern `⟨.default⟩`.
+`parseBinderInfo` still *parses* the field and still rejects an
+unknown spelling as a malformed record — it just returns `Unit`.  That
+is the only place stream input becomes an `Expr` binder, so it is the
+only place the strip is needed.  No kernel logic was touched: nothing
+in `Setlec/Kernel/*` branches on an annotation (`defeq` matches
+`_m₁`/`_m₂`; `natOpTyPinned` matches `_mb`; `piBinderInfos` is
+unused), which is what makes the strip verdict-neutral.
+
+**Pin-side normalization** (the half that would otherwise *invert* the
+bug — pins carry the real annotations of the toolchain signatures they
+were generated from, so a one-sided strip would make them never
+match).  The two pin comparisons need different treatment, because
+their pin literals differ in how tightly they are pinned by proofs:
+
+* **Basis blocks and the quotient bundle** (`ConstantInfo.canon`
+  equality in the frontend).  Both sides go through `canonExpr`, so
+  the annotation is erased *there*, beside the binder-name erasure
+  that was already happening.  The pinned literals in
+  `Setlec/Kernel/Basis/*` keep their real annotations — `TTVerify`
+  pins them with `{ bi := .implicit } from rfl`, and rewriting them
+  would be a large, conflict-prone diff for no gain.
+* **Standard axioms and the compiler-trust family**
+  (`ConstantVal.matchesPin`, via `Expr.eraseNames`).  Here the *pin
+  literals* were normalized instead: every binder in
+  `Setlec/Kernel/StdAxioms.lean` — raw and annotated forms alike — is
+  now `⟨.default⟩`, including `propext`'s `{a b : Prop}`,
+  `Iff.intro`'s and `Classical.choice`'s `{α}`.  Nothing pins those
+  annotations (no `.implicit` occurs in any `Model/`, `Verify/` or
+  `TTVerify/` file outside the basis blocks), and this route keeps
+  `Expr.eraseNames` **and `Expr.ErasedEq` unchanged** — the model's
+  "same denotation" relation still relates binder metadata, so
+  `ErasedEq.of_eraseNames` + `interp_erasedEq` bridge a `matchesPin`
+  hit exactly as before.  A regeneration through `AnnotateBasis.lean`
+  must preserve this normalization (noted in the module header).
+
+**Rejected alternative.**  Making `Expr.eraseNames` erase the
+annotation and dropping the `m = m'` conjunct from `Expr.ErasedEq` was
+tried first.  It is *semantically* correct — no interpretation clause
+reads `BinderMeta`, whose only field is the display `BinderInfo` since
+task #100 erased the codomain sort — but it does not stay mechanical:
+`TowerOk.cons` shares the binder metadata between a frame and the λ it
+opens *by construction* (`ruleLhs` copies the right-hand side's), so
+`TowerOk.of_stages` stops going through, and the fallout reached
+`RuleFold`, `InstFrames`, `TeleElim`, `ModeledCaps`, `IndBottom`,
+`DeclInd` and `Inst` — including files another agent was editing.  The
+pin-literal normalization achieves the same verdict with a two-file
+diff.  If `ErasedEq` is ever wanted annotation-blind for its own sake,
+it is a self-contained task whose real content is `TowerOk`.
+
+**Preprocessor consistency is automatic**: the `_model` families the
+preprocessor emits re-enter through the same `processLineCore`, so
+model and public declarations are stripped identically — there is no
+side channel.
+
+**Fixtures.**  `tests/e2e/basis_binderinfo.ndjson` (a `Nat.succ`
+binder) and `tests/e2e/basis_binderinfo_rec.ndjson` (a `Nat.rec`
+binder), both `raw`, both expected **0**; they were exit 1 before.
+Neither needs a `tests/yolo-expected.txt` entry — both modes accept.
+
+**Gates** (all green): `lake build` warning-free with the touched
+modules force-recompiled, `lake test`, arena 90/92, e2e **72/72**,
+split driver 11/11, `--infer-only` sweep 90/92 + 72/72, yolo sweep
+`138 arena + 72 e2e as expected (3 recorded class-B divergences)`,
+soundness/consistency axioms exactly `[propext, Classical.choice,
+Quot.sound]`, no sorries.  init-prelude (`--pre`, 3653 declarations)
+is **byte-identical** in stdout, stderr and exit code across all three
+modes (certified, `SETLEC_NO_PROOF_CERTS=1`, `SETLEC_INFER_ONLY=1`).
+
+**Measured** (init-prelude, `perf stat -e instructions:u`, median of
+3): 34.0160 G → 33.8651 G, **−0.44 %**.  The strip collapses binders
+that differed only in annotation onto the same arena node, so the
+parse arena shares slightly more — a small free win, not the point of
+the change.
 
 ## The iota certificate certifies the slot's sort (2026-08-27, task #146)
 
