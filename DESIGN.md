@@ -4739,6 +4739,13 @@ and the direct path takes over by absence.
 
 ### The master switch, and why it defaults on (2026-08-26, task #119)
 
+> **Superseded by task #148 T0b (2026-08-27)**: the switch now ships
+> `false`, the `<on>|<off>` expectation pairs collapsed to single codes
+> and `tests/build-direct-off.sh` / `tests/arena.sh --direct-off` are
+> gone.  The section below is the record of the on-by-default era and
+> of the measurement the flip re-used; see "Direct structs off by
+> default" at the end of this file for what changed and why.
+
 `Setlec.directStructsEnabled` (`Setlec/Kernel/Direct.lean`) gates the
 whole route in one place: `directParts?` and its indexed twin
 `directPartsF?` conjoin it into their recognition test, so the pure
@@ -9973,3 +9980,118 @@ statements (no split lemmas were needed; the one structural change is
 `pairEtaCert_inv`, whose `entry` existential moved under the
 implication), so the upcoming set-lane bridge consumes the same
 inversions the TT lane does.
+
+## Direct structs off by default (2026-08-27, task #148 T0b)
+
+**The user ruling.**  Direct-install structures are *optional and
+removable*.  The #148 campaign — factoring `--set-model` through an
+algorithmic relation family on the env-free TT syntax — writes no
+direct-install rule, so the campaign's theorems would have to be
+stated under a `directStructsEnabled = false` hypothesis.  With the
+constant compiled `true` that hypothesis is FALSE and every theorem
+under it is vacuous (the campaign's risk R4).  A vacuity guard is not
+something to prove around; the configuration moves instead.
+
+`Setlec.directStructsEnabled` (`Setlec/Kernel/Direct.lean`) therefore
+now ships **`false`**.  Nothing else about the direct path changed: its
+recognition layer, its install and its set-theoretic model
+(`Setlec/Model/Direct*.lean`, ~7.6k lines) are all still there and
+still proved — `checkDecl_sound` covers a clause the binary no longer
+takes.  Deleting them is task #148 T7's commit, not this one's.
+
+**Not mode-indexed, deliberately.**  `--tt-model` requires the switch
+off already (`CertifiedConfigTT`), `--set-model` requires it off from
+here on, so the only mode that could still carry the route is
+`--no-model` — the unverified lane, where it buys nothing but a second
+install implementation to keep alive.  Preserving it there means
+threading `CheckMode` into `directParts?`/`directPartsF?` and hence
+into the three knots and every bridge that mentions them: strictly
+more machinery than the constant it would replace (the same argument
+that refused a command-line flag in task #119).  So it stays one
+compile-time constant and all three modes read it.
+
+**Verdict effect: exactly the five expectations task #119 measured,
+re-measured at the flip, no sixth.**
+
+| fixture | before | after |
+|---|---|---|
+| `tests/e2e/direct_struct_raw.ndjson` (`raw` line) | 0 | 2 |
+| `tests/e2e/direct_struct_raw.ndjson` (`pre` line) | 0 | 2 |
+| `bad/tutorial/133_dup_ctor_def.ndjson` | 1 | 2 |
+| `bad/tutorial/134_dup_rec_def.ndjson` | 1 | 2 |
+| `bad/tutorial/137_dup_ctor_rec.ndjson` | 1 | 2 |
+
+All five are **declines, and positive ones** — the exit-code
+convention's requirement, checked and not assumed.  The switch is a
+fall-through, not a decline of its own: the block takes the ordinary
+modeled clause and declines there for the modeled path's own reason,
+with the modeled path's own message.  Verified on the message, not
+just the code — all five report
+
+    setlec: not implemented yet: missing model for X [at inductive X]
+
+(`X` = `Wrap`, `dup_ctor_def`, `dup_rec_def`, `dup_ctor_rec`), i.e. a
+`.notImplemented` raised where the artifact is looked for: a
+positively detected missing feature, not a failed internal
+construction (which would be exit 3) and not a claim that the input is
+invalid (exit 1).  The two neighbours task #119 checked for
+*non*-movement were re-checked and are still unmoved:
+`bad/tutorial/131_dup_defs` still rejects (its duplicate is a `def`,
+caught before any block), `bad/tutorial/136_dup_rec_def2` still
+declines for the same missing-model reason it always did.
+
+No good stream regressed (campaign risk R5, the stop-and-report case):
+arena stays **90/92** — the three arena movers are `bad/` fixtures, so
+they never counted toward the accepted-good score, and reject → decline
+is the harmless direction (nothing bad is accepted; only rejection
+sharpness is lost).  The one good stream that moves,
+`direct_struct_raw`, is the fixture *crafted for the direct route*: it
+deliberately bypasses generating a `_model` fallback, so its decline is
+the route's absence being reported, exactly as the campaign design
+anticipated.  It is kept rather than deleted — it is the live witness
+of what the route bought, and its `pre` line is now a *sharper* --pre
+probe than before (an ignored `--pre` would spawn the preprocessor,
+whose `_model` companions would make it accept).
+
+Production streams are untouched, as predicted and as measured:
+preprocessed streams always carry `_model` artifacts, so `directNoModel`
+is false and the route was already dead on them.  init-prelude (`--pre`,
+3653 declarations) is **byte-identical** — stdout, stderr and exit — to
+a `9ffcbdf` baseline binary in all three modes.
+
+**Test-machinery simplification.**  With the shipped configuration now
+being the former "off" column, the task-#120 two-column machinery had
+no second configuration left to describe:
+
+* the `<on>|<off>` expectation pairs in `tests/arena-expected.txt` and
+  `tests/e2e-expected.txt` collapse to single exit codes (5 of 205
+  lines), with each fixture's pre-flip code recorded in a comment;
+* `tests/arena.sh` loses `--direct-off` and its `pick` selector, and
+  `tests/build-direct-off.sh` (the second-binary builder) is deleted.
+  The recipe survives in the expectation-file headers and in
+  `directStructsEnabled`'s docstring: flip the constant, restore the
+  five codes.
+
+The deliberate coverage cut: **the switched-on configuration is no
+longer exercised by any suite.**  That is the point — it is no longer
+a configuration anyone ships or reasons about, and its code is on T7's
+deletion list.  Until then the direct path's *proofs* still build with
+every `lake build`; only its runtime is unreachable.
+
+**Config audit** (`tests/SetlecTests.lean`).  The task-#147 audit
+block's third guard flips to `#guard directStructsEnabled == false`
+and its comment is re-pointed: both verified lanes now assume the
+switched-off configuration, so flipping the constant back is a
+verification-scope change and fails `lake test` at that guard.
+`CertifiedConfigTT`'s `directStructsEnabled = false` conjunct is
+correspondingly **dischargeable by `rfl` at the shipped build** — noted
+in its docstring; the `Prop` itself is left alone (it is the statement
+of which configuration is certified, and #148's executors own any
+restructuring).
+
+**Gates** (all green): `lake build` warning-free with `Direct.lean`'s
+whole cone force-recompiled, `lake test`, arena 90/92, e2e 72/72, split
+11/11, mode flags 10/10, tt-model sweep identical to default, no-model
+sweep as expected (1 recorded divergence, unchanged), axioms exactly
+`[propext, Classical.choice, Quot.sound]`, zero sorries, init-prelude
+byte-identical at all three modes.

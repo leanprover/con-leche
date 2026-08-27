@@ -1,10 +1,18 @@
 # Expected exit codes for the vendored arena tutorial tests, read by
 # tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).
 #
-# An expectation is a single exit code, or a pair "<on>|<off>" for the
-# fixtures whose verdict depends on the direct simple-structure master
-# switch (`Setlec.directStructsEnabled`, task #119): left = shipped
-# configuration, right = `tests/arena.sh --direct-off`.
+# An expectation is a single exit code.
+#
+# Until task #148 T0b (2026-08-27) it could also be a pair "<on>|<off>",
+# pinning both settings of the direct simple-structure master switch
+# `Setlec.directStructsEnabled` (task #119/#120), with
+# `tests/arena.sh --direct-off` running the right-hand column against a
+# second, switched-off binary.  That switch now ships `false` — the only
+# setting either verified lane reasons about — so the "on" column
+# described no shipped configuration any more and was dropped together
+# with the second-binary harness.  The three fixtures it applied to
+# carry their pre-flip code in a comment; to exercise the direct path
+# while it still exists, flip the constant back and restore them.
 0 good/tutorial/001_basicDef.ndjson
 0 good/tutorial/003_arrowType.ndjson
 0 good/tutorial/004_dependentType.ndjson
@@ -137,9 +145,17 @@
 1 bad/tutorial/124_accRecNoEta.ndjson
 1 bad/tutorial/131_dup_defs.ndjson
 1 bad/tutorial/132_dup_ind_def.ndjson
-1|2 bad/tutorial/133_dup_ctor_def.ndjson
-1|2 bad/tutorial/134_dup_rec_def.ndjson
+# The three duplicate-declaration fixtures below (13{3,4,7}) declined
+# before the direct install path was enabled (task #82), rejected while
+# it shipped on (the reference-correct verdict for a duplicate name),
+# and decline again since task #148 T0b switched it off: the modeled
+# path they now fall through to has no `_model` companion to check
+# against and declines first.  Pre-flip code: 1.  Reject → decline is
+# the harmless direction — nothing bad is accepted, only the rejection
+# sharpness is lost.
+2 bad/tutorial/133_dup_ctor_def.ndjson
+2 bad/tutorial/134_dup_rec_def.ndjson
 2 bad/tutorial/135_misnamed_rec_user.ndjson
 2 bad/tutorial/136_dup_rec_def2.ndjson
-1|2 bad/tutorial/137_dup_ctor_rec.ndjson
+2 bad/tutorial/137_dup_ctor_rec.ndjson
 2 bad/tutorial/138_DupConCon.ndjson
