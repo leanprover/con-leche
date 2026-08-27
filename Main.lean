@@ -1,5 +1,6 @@
 import Setlec.Kernel.CheckerS
 import Setlec.Kernel.CheckerNC
+import Setlec.Kernel.CheckerIO
 import Setlec.Kernel.Split
 import Setlec.Frontend.Export
 
@@ -216,7 +217,7 @@ preprocessed (`--pre`), skipping preprocessor detection and spawn;
 `split?` selects the unverified install/check-split driver
 (`--install-only` / `--check-range`, task #108) with the requested
 half-open check range. -/
-def checkMain (file : String) (yolo : Bool) (pre : Bool)
+def checkMain (file : String) (yolo : Bool) (inferOnly : Bool) (pre : Bool)
     (split? : Option (Nat × Option Nat)) : IO UInt32 := do
     -- Measurement mode (task #76): SETLEC_NO_PROOF_CERTS=1 (or the
     -- `--yolo` flag) selects the cert-skipping knot
@@ -225,13 +226,40 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool)
     -- UNVERIFIED: the consistency statements cover only the default
     -- drivers below.
     let noCerts := yolo || (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1"
+    -- Operating mode (task #134): SETLEC_INFER_ONLY=1 (or the
+    -- `--infer-only` flag) selects the infer-only stack
+    -- (Setlec/Kernel/CheckerIO.lean) — the reference kernels'
+    -- `infer_only` discipline: the front door checks the declaration
+    -- in full, internal re-derivations skip the per-argument
+    -- application re-check, every certificate family keeps running.
+    -- UNVERIFIED in the same sense as above (the consistency
+    -- statements are about the default drivers), but a *supported*
+    -- mode rather than a measurement knob — see the header of
+    -- Setlec/Kernel/CoreIO.lean for the distinction.
+    let inferOnly := inferOnly || (← IO.getEnv "SETLEC_INFER_ONLY") == some "1"
+    if inferOnly && split?.isSome then
+      -- never silently ignored: the split driver is a different
+      -- unverified stack, and combining the two would make the
+      -- verdict's provenance unreadable
+      IO.eprintln "setlec: --infer-only cannot be combined with \
+        --install-only/--check-range"
+      return 3
+    if noCerts && inferOnly then
+      IO.eprintln "setlec: the measurement mode (--yolo / \
+        SETLEC_NO_PROOF_CERTS) and the infer-only mode (--infer-only / \
+        SETLEC_INFER_ONLY) are different things and cannot be combined"
+      return 3
     -- Task #64: the per-declaration tier-two snapshot bracket IS the
     -- default value pipeline (checkDeclsSP); the former
     -- SETLEC_TIER_BRACKET measurement knob is retired — its modes and
     -- their measurements are recorded in DESIGN.md (reproducible at
     -- the pre-flip commit 2794be4).
-    let stepF := if noCerts then checkDeclSPStepNC else checkDeclSPStep
-    let foldF := if noCerts then checkDeclsSPNC else checkDeclsSP
+    let stepF :=
+      if noCerts then checkDeclSPStepNC
+      else if inferOnly then checkDeclSPStepIO else checkDeclSPStep
+    let foldF :=
+      if noCerts then checkDeclsSPNC
+      else if inferOnly then checkDeclsSPIO else checkDeclsSP
     -- Streaming frontend (task #57): the preprocessor writes to a temp
     -- file and the parse reads line by line — no wholesale text buffer
     -- in this process; retained memory is the parse arena plus the
@@ -333,12 +361,20 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool)
         try IO.FS.removeFile path catch _ => pure ()
 
 def usage : String := String.intercalate "\n" [
-  "usage: setlec [--yolo] [--pre] [--install-only] [--check-range A:B]",
-  "              FILE.ndjson",
+  "usage: setlec [--yolo] [--infer-only] [--pre] [--install-only]",
+  "              [--check-range A:B] FILE.ndjson",
   "",
   "  --yolo            skip the proof-feeding certification calls",
   "                    (unverified measurement mode; same as",
   "                    SETLEC_NO_PROOF_CERTS=1)",
+  "  --infer-only      re-derive types inside reduction without",
+  "                    re-checking application arguments, as the",
+  "                    reference kernels do; the declaration itself is",
+  "                    still checked in full at the front door, and",
+  "                    every certificate family keeps running (same as",
+  "                    SETLEC_INFER_ONLY=1).  A supported operating",
+  "                    mode, but only the default mode is covered by",
+  "                    the consistency proofs",
   "  --pre             assert FILE is already preprocessed output of",
   "                    lean-inductive-models: skip the preprocessor",
   "                    detection scan and spawn entirely",
@@ -366,6 +402,7 @@ def parseRangeSpec (s : String) : Option (Nat × Option Nat) :=
 
 structure Args where
   yolo : Bool := false
+  inferOnly : Bool := false
   pre : Bool := false
   /-- the split driver's check range (`some (0, some 0)` for
   `--install-only`) -/
@@ -376,6 +413,7 @@ structure Args where
 def parseArgs : List String → Args → Args
   | [], a => a
   | "--yolo" :: rest, a => parseArgs rest { a with yolo := true }
+  | "--infer-only" :: rest, a => parseArgs rest { a with inferOnly := true }
   | "--pre" :: rest, a => parseArgs rest { a with pre := true }
   | "--install-only" :: rest, a =>
     parseArgs rest { a with split? := some (0, some 0) }
@@ -396,6 +434,7 @@ def parseArgs : List String → Args → Args
 def childArgs (a : Args) (file : String) : Array String :=
   #[file]
     ++ (if a.yolo then #["--yolo"] else #[])
+    ++ (if a.inferOnly then #["--infer-only"] else #[])
     ++ (if a.pre then #["--pre"] else #[])
     ++ (match a.split? with
         | some (0, some 0) => #["--install-only"]
@@ -424,6 +463,10 @@ def main (args : List String) : IO UInt32 := do
   if a.yolo && a.split?.isSome then
     IO.eprintln "setlec: --yolo cannot be combined with --install-only/--check-range"
     return 3
+  if a.inferOnly && a.split?.isSome then
+    IO.eprintln "setlec: --infer-only cannot be combined with \
+      --install-only/--check-range"
+    return 3
   match a.files.toList with
   | [file] =>
     -- OOM supervision: the Lean runtime's out-of-memory handler
@@ -436,7 +479,7 @@ def main (args : List String) : IO UInt32 := do
     -- input proof".  Progress output streams through (stdout is
     -- inherited); stderr is buffered for inspection and re-printed.
     if (← IO.getEnv "SETLEC_SUPERVISED").isSome then
-      checkMain file yolo pre a.split?
+      checkMain file yolo a.inferOnly pre a.split?
     else
       let child ← IO.Process.spawn {
         cmd := (← IO.appPath).toString

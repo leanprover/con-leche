@@ -1235,7 +1235,12 @@ where other kernels re-check):
 unfold → repeat`) and its literal/quotient hook points; the syntactic
 `a == b` fast path (pre- and post-whnf) in defeq; hoisting proof
 irrelevance into the stuck-terms fallback.  The **infer-only** mode was
-attempted and deferred (see "Inference re-checks" above); the early
+attempted and deferred (see "Inference re-checks" above) and finally
+landed as an off-by-default operating mode in task #134, once both
+routes to skipping the re-check *with a proof* had been closed — the
+static guard by measurement (task #124) and the metatheorem by
+refutation (`spike/inferonly-metatheory`); see "The infer-only mode:
+SETLEC_INFER_ONLY (task #134)".  The early
 proof-irrelevance hoist in defeq was reverted for fuel-depth reasons
 (it stays in the stuck fallback).
 
@@ -2808,6 +2813,187 @@ gap: **~39×** over the official kernel (of the total ~53×).  The tax
 is dominated by the per-fire telescope certifications; the remaining
 gap is the interning/parsing/cache substrate (see the performance
 roadmap).
+
+**Amendment (task #134, 2026-08-27): this figure overstates the tax.**
+`inferSpineNC` drops the per-argument application check at *every*
+invocation, the driver's front door included — but the front-door
+check is one the reference kernels perform (`check(e)` at
+`infer_only = false`), so its share is engineering gap, not
+certification.  Measured against the infer-only mode, which keeps the
+front door and drops only the internal re-checks, the split is roughly
+half and half; the honest decomposition is in "The infer-only mode:
+SETLEC_INFER_ONLY (task #134)" below.  Everything else in this section
+stands, including the site list — only the label on the front-door
+share of the `inferSpine` bullet changes.
+
+## The infer-only mode: SETLEC_INFER_ONLY (task #134)
+
+`SETLEC_INFER_ONLY=1` (command-line alias: `--infer-only`) is a
+**supported operating mode**, off by default.  It is the reference
+kernels' `infer_only` discipline: a declaration is checked *once*, at
+the top, by the driver's front door; the inferences that reduction and
+definitional equality perform on their own intermediate terms
+re-derive types **without re-checking application arguments**.
+
+**Structure** (`Setlec/Kernel/CoreIO.lean`,
+`Setlec/Kernel/CheckerIO.lean`; the flag never reaches the kernel as
+data — `Main` selects a driver, exactly as for the measurement mode).
+Two knots, which is what "at internal invocations only" means:
+
+* `coreKnotIO` — the **infer-only** knot, what every internal call
+  sees.  Its `infer` is `inferBodyIO`, which differs from `inferBodyI`
+  in exactly one clause: the application clause walks the Π-telescope
+  with `inferSpineIO` instead of `inferSpineI`, i.e. without the
+  per-argument `infer` + `defeq`.  `whnfCore`, `whnf`, `defeq`,
+  `annotate` and every certificate they reach — `iotaCertsI`, the beta
+  certificates of `whnfAppI`/`betaPeelI`, `projCertI`,
+  `projParamCertI`, the structure-eta and unit-like certificates — are
+  the certified bodies, unchanged and still running.
+* `coreKnotF` — the **checking-mode** knot, the only one the driver
+  holds.  `infer` is the certified `inferBodyI` tied to *itself*, so
+  the per-argument re-check runs and checking mode propagates down the
+  declaration's own term (the official kernel threads its `infer_only`
+  argument through `infer_app`/`infer_lambda`/`infer_let` the same
+  way); `annotate` likewise.  `whnfCore`/`whnf`/`defeq` are
+  `coreKnotIO`'s, so the inferences *inside* reduction are infer-only.
+
+The official kernel keeps one inference cache per flag value
+(`m_st->m_infer_type[2]`); `coreKnotF` keeps its own, `IState.inferFC`,
+so an infer-only result can never be served to a checking-mode query.
+The share runs one way only — `memoEIO` reads `inferFC` before
+`inferC`, which is sound because the two bodies return the same type
+wherever both succeed — and `inferFC` is dropped wherever the other
+index-carrying memos are (per declaration, and at every snapshot close
+that truncates tier two).
+
+**Scope.**  Only the def/thm/opaque value pipeline runs on this stack.
+Install-only kinds (axioms, quotient/basis blocks, inductive blocks)
+and the two rare pinned-certificate branches (structural Nat
+operations, reduce pins) fall through to the shared, fully certified
+`checkDeclSPPlain`; a declaration therefore runs on exactly one stack,
+and the per-declaration flush keeps neither mode's memo from reaching
+the other.  Three checks that the reference kernels *do* skip at
+`infer_only` are **kept** here — the λ/∀ domain-sort checks, the `letE`
+value conformance, and `projParamCertI` — because this mode narrows
+exactly one site and a deviation in the strict direction needs no
+argument.  The mode refuses to combine with `--yolo` or with the split
+driver (`--install-only`/`--check-range`): either combination would
+make a verdict's provenance unreadable.
+
+### The assurance model — say it in full
+
+* **Flag off (default).**  The fully verified checker.  Every
+  consistency statement (`Setlec/Model/ConsistencyP.lean` and friends)
+  is about this path and applies to it unchanged; the flag-off binary
+  is byte-identical in behaviour to the pre-flag one, in the certified
+  *and* the `SETLEC_NO_PROOF_CERTS` mode (the landing gate: stdout,
+  stderr and exit status compared against a binary built from the
+  pre-change tree, on init-prelude, plain and progress modes).
+* **Flag on.**  Official-kernel `infer_only` discipline.  The verified
+  claims cover flag-off; the flag-on argument is **reference-kernel
+  parity, stated as parity and not smuggled in as verification**.  This
+  is the same two-conditionality shape the `directStructsEnabled`
+  hypothesis already has (`Setlec/TTVerify/DESIGN.md` §4): a named,
+  visible configuration, not a hidden side condition.
+
+The temptation to say more has already been tried and refuted.  The
+metatheorem that would license the mode outright —
+`Typable e → InferOnly e t → HasType e t` — is **false**, mechanized
+as `InferOnlyRefuted` on the (never-merged) `spike/inferonly-metatheory`
+branch, with a closed witness and the accompanying refutations of
+level-guarded Π-domain injectivity and of unique typing.  It is false
+for the reference kernels in exactly the same way; they do not rest on
+it either.  What the mode rests on is an operational invariant — every
+term whose type is re-derived internally is a reduct of a term the
+front door checked — which is an argument about the *engine*, not a
+theorem about the *terms*.  The static-guard route that would have
+made the skip verifiable was separately refuted by measurement (task
+#124, "The guard-capture census" below: the guard captures ~0 % of the
+cost).  Both refutations are why the mode ships as a mode.
+
+### It is not `SETLEC_NO_PROOF_CERTS`
+
+|  | `SETLEC_NO_PROOF_CERTS=1` / `--yolo` | `SETLEC_INFER_ONLY=1` / `--infer-only` |
+| --- | --- | --- |
+| what it is | unverified **measurement** mode (task #76) | supported **operating** mode (task #134) |
+| what it skips | whole certificate families: iota telescope certifications, beta re-checks, eta/unit-like certifications, *and* the application re-check everywhere | exactly one re-check — the per-argument application check — and only at internal invocations |
+| the front door | also skips the argument checks there, so it checks *less* than the reference kernels do | full checking mode: the declaration's own applications are all checked, as `check(e)` does |
+| purpose | price the verification tax; never to judge a stream | run real streams faster, at reference-kernel discipline |
+
+The two are mutually exclusive on the command line for that reason: a
+reader must be able to tell from the invocation which claim a verdict
+carries.
+
+### Measured
+
+init-prelude probe (`_tmp/perfcmp/init-prelude.preprocessed.ndjson`,
+`--pre`, `perf stat` instructions, medians of 3; all three modes accept
+3653 declarations):
+
+| configuration | instructions | wall |
+| --- | --- | --- |
+| default (certified) | 33.84 G | 3.01 s |
+| `SETLEC_INFER_ONLY=1` | 23.71 G | 2.14 s |
+| *diagnostic*: front door infer-only too | 14.89 G | — |
+| `SETLEC_NO_PROOF_CERTS=1` | 11.34 G | 0.96 s |
+
+`_tmp/std-time-cone/pre2.ndjson` (4215-declaration `Std.Time` cone, a
+scratch build with `checkFuel` at 200 000 — the stream needs it; all
+modes accept 6390 declarations):
+
+| configuration | wall |
+| --- | --- |
+| default (certified) | 3 m 33 s |
+| `SETLEC_INFER_ONLY=1` | 1 m 51 s |
+| *diagnostic*: front door infer-only too | 5.6 s |
+| `SETLEC_NO_PROOF_CERTS=1` | 4.9 s |
+
+**Verdicts do not move.**  Every arena fixture (92 good, all bad) and
+every e2e fixture was run in both modes at the landing commit: 90/92
+accepted and 67/67 as expected with the flag on, and **not one
+verdict differs** — no good stream moved, and no bad-input fixture
+flipped from reject to accept.  That was not a foregone conclusion:
+trusting subterms at internal re-derivations *may* accept a bad input
+the certified mode rejects, and such a flip would be the mode's nature
+rather than a bug.  As of this measurement the enumeration of flips is
+empty; `tests/arena.sh --infer-only` is the opt-in sweep that would
+surface a future one, and any flip it finds belongs in this paragraph.
+A *good* stream changing verdict would be a real bug instead.
+
+### The finding: half of the "verification tax" is the front door's
+
+The diagnostic row above is the point.  Masking the argument re-check
+*everywhere* — which is what `--yolo` does, and what task #124's census
+measured — collapses init-prelude to 14.89 G and `Std.Time` to 5.6 s;
+masking it only at internal invocations, keeping the front door as the
+reference kernels have it, stops at 23.71 G and 1 m 51 s.  So the
+application re-check decomposes into two halves that are *not the same
+kind of thing*:
+
+* **internal re-checks** — init-prelude 10.1 G (30 % of the run),
+  `Std.Time` ~102 s (48 %).  Genuine verification tax: the reference
+  kernels do not perform these, and this mode is exactly their removal.
+* **front-door checks** — init-prelude 8.8 G (26 %), `Std.Time` ~105 s
+  (49 %).  **Not a tax at all.**  `check(v)` in the official kernel
+  runs `is_def_eq(a_type, d_type)` on every application argument of the
+  declaration's value, and lean4lean's `check` does the same; the
+  official kernel merely does it in well under a second.  This share is
+  engineering gap, not certification.
+* the certificate families themselves are the remainder: init-prelude
+  3.6 G (11 %), `Std.Time` ~0.7 s — consistent with the ~4 s of 292 s
+  the census attributed to them.
+
+**Consequence for the numbers already recorded here.**  The task-#76
+measurement (`SETLEC_NO_PROOF_CERTS`, "Verification tax: 53.7 G ≈ 26 %")
+and the `Std.Time` line elsewhere in this document ("`--yolo` … 5.4 s
+versus 3 m 51 s: a ~42× certified-mode tax") **overstate the tax**,
+because `inferSpineNC` skips the front-door argument checks too.  The
+task-#76 site list calls that residue proof-only, which is true of
+internal invocations and false of the front door.  The honest split is
+the one above, and the certified-mode tax on `Std.Time` is ~1.9×, not
+~42×; the rest of that ratio is the engine's cost for checks the
+reference kernels also run.  Nothing about the certified path changes —
+only what the `--yolo` delta may be called.
 
 ## Bulk instantiation, lean4lean-style (task #50)
 
@@ -8010,6 +8196,13 @@ inference re-check — the deferred infer-only mode — the beta
 certificate, and the iota telescope certificates).  `--yolo` skips
 exactly those and checks the same stream in 5.4 s versus 3 m 51 s: a
 **~42× certified-mode tax**, on the same engine and the same stream.
+**Amendment (task #134): ~42× is too large a label for "tax".**
+`--yolo` also drops the per-argument check at the driver's *front
+door*, which the reference kernels perform; the mode that keeps it and
+drops only the internal re-checks runs the same stream in 1 m 51 s.
+The certified-mode tax on this stream is therefore **~1.9×**, and the
+remaining ~20× is engineering gap on checks the references also run —
+see "The infer-only mode: SETLEC_INFER_ONLY (task #134)".
 That is the sharpest evidence yet for task #90 (*certified-mode tax —
 reuse reductions between check and cert paths*), and it is where the
 frontier actually lives.  It is also the measurement that makes a
@@ -8578,3 +8771,14 @@ retains its semantic value (domain determination, the restored-gate
 option at ~5–8% free-guard ceiling on prelude-like streams — marginal
 after guard overhead). Raw data: _tmp/census-124/, branch
 diag/124-guard-census (never merged).
+
+**What followed (task #134).**  With the guard route refuted here and
+the metatheorem route refuted on `spike/inferonly-metatheory`, the
+re-check ships as an *off-by-default mode* instead of a verified skip:
+`SETLEC_INFER_ONLY=1` drops it at internal invocations only, keeping
+the front door and every certificate family.  The census's
+"all-app-arg-masked" column (init-prelude 13.85 G) is *not* what that
+mode costs — it masks the front door too; the mode lands at 23.71 G.
+The difference between those two columns is the front-door share,
+which the reference kernels also pay: see "The infer-only mode:
+SETLEC_INFER_ONLY (task #134)".

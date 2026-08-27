@@ -10,7 +10,7 @@
 # The expectations file additionally pins the current accept/decline status
 # so that progress and regressions are both visible; update it consciously.
 #
-# Usage: tests/arena.sh [--direct-off] [tests-dir]
+# Usage: tests/arena.sh [--direct-off] [--infer-only] [tests-dir]
 #
 # An <expectation> is either a single exit code, as for the overwhelming
 # majority of fixtures, or a pair "<on>|<off>" for the few fixtures whose
@@ -24,14 +24,25 @@
 # that switch set to `false` (tests/build-direct-off.sh builds it into
 # _tmp/, no source edit), applying the right-hand expectations.  It is an
 # opt-in run — the default invocation is unchanged, and unchanged in cost.
+#
+# `--infer-only` runs the arena and e2e halves with SETLEC_INFER_ONLY=1
+# (task #134), against the *same* expectations: the infer-only mode
+# trusts subterms at internal re-derivations, so it could in principle
+# accept a bad fixture the certified mode rejects — as of the landing
+# measurement none does, and this run is what would surface it.  The
+# split-driver half is skipped (the two modes are mutually exclusive by
+# construction); one case pins that refusal instead.  Opt-in: the
+# default invocation is unchanged and unchanged in cost.
 set -u
 cd "$(dirname "$0")/.."
 
 DIRECT=on
+INFER_ONLY=off
 args=()
 for a in "$@"; do
   case "$a" in
     --direct-off) DIRECT=off;;
+    --infer-only) INFER_ONLY=on;;
     *) args+=("$a");;
   esac
 done
@@ -69,6 +80,11 @@ if [ "$DIRECT" = off ]; then
   echo "direct simple-structure installs: OFF ($BIN)"
 else
   lake build setlec >/dev/null || exit 3
+fi
+
+if [ "$INFER_ONLY" = on ]; then
+  export SETLEC_INFER_ONLY=1
+  echo "infer-only mode: ON (task #134; expectations unchanged)"
 fi
 
 fail=0
@@ -158,6 +174,18 @@ SPLIT_GOOD=tests/e2e/indexed_vec.ndjson
 SPLIT_BAD=tests/e2e/nat_add_wrong.ndjson
 split_ok=0
 split_total=0
+# The split driver is the certified stack's; an infer-only run pins the
+# refusal to combine the two and leaves the rest of this section alone.
+if [ "$INFER_ONLY" = on ]; then
+  timeout 120 "$BIN" --install-only "$SPLIT_GOOD" >/dev/null 2>&1
+  if [ $? = 3 ]; then
+    echo "infer-only: refuses the split driver, as expected"
+  else
+    echo "INFER-ONLY FAIL: --install-only under SETLEC_INFER_ONLY did not error"
+    fail=1
+  fi
+  exit $fail
+fi
 split_case() {
   want=$1; shift
   split_total=$((split_total+1))
@@ -189,5 +217,37 @@ else
   echo "SPLIT FAIL: --check-range 46:47 did not report addOk"; fail=1
 fi
 echo "split driver: $split_ok/$split_total as expected"
+
+# The infer-only mode (task #134): it accepts what the certified stack
+# accepts and rejects what it rejects, and it refuses to be combined
+# with either of the other two non-default stacks — each combination
+# would make a verdict's provenance unreadable.  The whole-suite sweep
+# with the mode on is the opt-in `tests/arena.sh --infer-only` run.
+io_ok=0
+io_total=0
+io_case() {
+  want=$1; shift
+  io_total=$((io_total+1))
+  timeout 120 "$BIN" "$@" >/dev/null 2>&1
+  got=$?
+  if [ "$got" != "$want" ]; then
+    echo "INFER-ONLY FAIL ($*): expected exit $want, got $got"; fail=1
+  else
+    io_ok=$((io_ok+1))
+  fi
+}
+io_case 0 --infer-only "$SPLIT_GOOD"                 # accepts the good stream
+io_case 1 --infer-only "$SPLIT_BAD"                  # still rejects the bad one
+io_case 3 --infer-only --install-only "$SPLIT_GOOD"  # + split driver: refused
+io_case 3 --infer-only --yolo "$SPLIT_GOOD"          # + measurement mode: refused
+io_total=$((io_total+1))
+if SETLEC_INFER_ONLY=1 timeout 120 "$BIN" --install-only "$SPLIT_GOOD" \
+    >/dev/null 2>&1; [ $? = 3 ]; then
+  io_ok=$((io_ok+1))                                 # …also via the env var
+else
+  echo "INFER-ONLY FAIL: SETLEC_INFER_ONLY=1 --install-only did not error"
+  fail=1
+fi
+echo "infer-only: $io_ok/$io_total as expected"
 
 exit $fail

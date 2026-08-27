@@ -312,6 +312,12 @@ structure IState where
   whnfCoreC : Std.HashMap EIdx EIdx := {}
   whnfC : Std.HashMap EIdx EIdx := {}
   inferC : Std.HashMap EIdx EIdx := {}
+  /-- Memo of the *checking-mode* inference (`coreKnotF`, task #134),
+  kept apart from `inferC` so a result derived in infer-only mode can
+  never be served to a checking-mode query.  Unused — and always
+  empty — on the default (fully certified) path, which never builds
+  `coreKnotF`; see `Setlec/Kernel/CoreIO.lean`. -/
+  inferFC : Std.HashMap EIdx EIdx := {}
   defeqC : Std.HashMap (EIdx × EIdx) Bool := {}
   annotC : Std.HashMap EIdx EIdx := {}
   lsimpC : EStore.LMemo := {}
