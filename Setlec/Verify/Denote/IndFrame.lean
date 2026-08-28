@@ -2026,4 +2026,59 @@ theorem looseBVarsBounded_renameConsts {f : Name → Name} :
   induction e <;> intro k <;>
     simp_all [Expr.renameConsts, Expr.looseBVarsBounded]
 
+
+/-- `stripPis` commutes with constant renaming (renaming touches no
+binder structure). -/
+theorem stripPis_renameConsts {f : Name → Name} :
+    ∀ (n : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr},
+      e.stripPis n = some (bs, body) →
+      (e.renameConsts f).stripPis n =
+        some (bs.map (fun b => (b.1, b.2.1.renameConsts f, b.2.2)),
+          body.renameConsts f) := by
+  intro n
+  induction n with
+  | zero =>
+    intro e bs body h
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    rfl
+  | succ n ih =>
+    intro e bs body h
+    match e, h with
+    | .forallE nm dom b m, h =>
+      simp only [Expr.stripPis] at h
+      cases hs : b.stripPis n with
+      | none => rw [hs] at h; exact nomatch h
+      | some p =>
+        rw [hs] at h
+        simp only [Option.map_some, Option.some.injEq] at h
+        obtain ⟨hbs, hbody⟩ : (nm, dom, m) :: p.1 = bs ∧ p.2 = body := by
+          cases h; exact ⟨rfl, rfl⟩
+        subst hbs hbody
+        show ((b.renameConsts f).stripPis n).map _ = _
+        rw [ih hs]
+        rfl
+
+/-- Constant renaming keeps the application-spine arity. -/
+theorem getAppArgs_length_renameConsts {f : Name → Name} :
+    ∀ (e : Expr),
+      (e.renameConsts f).getAppArgs.length = e.getAppArgs.length := by
+  intro e
+  induction e with
+  | app g a ihg _ =>
+    show ((g.renameConsts f).getAppArgs ++ [a.renameConsts f]).length
+      = (g.getAppArgs ++ [a]).length
+    rw [List.length_append, List.length_append, ihg]
+    rfl
+  | bvar i => rfl
+  | fvar i n ty => rfl
+  | sort u => rfl
+  | const n us => rfl
+  | lam n ty b m => rfl
+  | forallE n ty b m => rfl
+  | letE n ty v b => rfl
+  | lit l => rfl
+  | proj s i e => rfl
+
 end Setlec.TTVerify
