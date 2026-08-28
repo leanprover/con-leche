@@ -770,7 +770,6 @@ elimination-template second pass installs pure stored data
 (`installProjTemplate`) and is folded into `TemplatesR`. -/
 def DeclIndR (μ : CheckMode) (F : Nat) (env : Env) (cval : TConstVal)
     (block : List ConstantInfo) (env₂ : Env) : Prop :=
-  ∃ cval₂ : TConstVal,
   let recs := block.filter (fun ci => match ci with
     | .recInfo _ _ _ _ => true | _ => false)
   let nonrecs := block.filter (fun ci => match ci with
@@ -796,36 +795,44 @@ def DeclIndR (μ : CheckMode) (F : Nat) (env : Env) (cval : TConstVal)
            ProjInstallR μ F cvT.name cvC.name cvT.levelParams nP nF
              envR cvalR (List.range nF) envP cvalP ∧
            TemplatesR cvT.name cvC.name cvT.levelParams nP nF envP
-             cvalP (List.range nF) env₂ cval₂)) ∨
+             (List.range nF) env₂)) ∨
    (¬ (∃ cvT capsT cvC nP nF,
         block.filter (fun ci => match ci with
           | .indInfo _ _ => true | _ => false) = [.indInfo cvT capsT] ∧
         block.filter (fun ci => match ci with
           | .ctorInfo _ _ _ => true | _ => false)
           = [.ctorInfo cvC nP nF]) ∧
-    ∃ envM cvalM,
+    ∃ envM cvalM cval₂,
       IndMembersR μ F blockNames {} env cval nonrecs envM cvalM ∧
       IndRecsR μ F blockNames envM cvalM recs env₂ cval₂))
 where
   /-- The elimination-template second pass: pure stored-data installs
-  (`installProjTemplateStep`); the exact per-field skip/install shape
-  is D6's refinement point — the fold records only that each step
-  extends by at most the template entry. -/
+  (`installProjTemplateStep`).
+
+  **No valuation** (D6's refinement point, cashed at T5 stage 6).  The
+  other block folds thread a `TConstVal` because their members *alias*
+  their model artifacts — a checker-side fact (`cvalModeled` mirrors
+  `checkIndMember`'s semantics).  A template entry exists precisely
+  because the field has no artifact, so there is nothing to alias and
+  the valuation is the *install's* free choice.  Threading one here
+  would have forced the soundness side to model a valuation the
+  relation picked arbitrarily; dropping it is both simpler and more
+  faithful to `installProjTemplate`, which never touches a value. -/
   TemplatesR (T ctorName : Name) (lps : List Name) (nP nF : Nat) :
-      Env → TConstVal → List Nat → Env → TConstVal → Prop
-    | env', cval, [], env₂, cval₂ => env₂ = env' ∧ cval₂ = cval
-    | env', cval, i :: rest, env₂, cval₂ =>
-      ∃ env'' cval'',
-        ((env'' = env' ∧ cval'' = cval) ∨
+      Env → List Nat → Env → Prop
+    | env', [], env₂ => env₂ = env'
+    | env', i :: rest, env₂ =>
+      ∃ env'',
+        (env'' = env' ∨
          ∃ entry : ProjEntry, entry.structName = T ∧ entry.idx = i ∧
            entry.native = false ∧
-           env'' = ⟨.projInfo entry :: env'.consts⟩ ∧
-           -- a template entry has no model artifact, so its valuation
-           -- is the install's own choice (any inhabitant of the
-           -- entry's `Prop`-valued type); the relation records only
-           -- that it is a fresh-name extension
-           ∃ Vt, cval'' = cvalWith cval (projFnName T i) Vt) ∧
-        TemplatesR T ctorName lps nP nF env'' cval'' rest env₂ cval₂
+           -- the stored shape and the freshness `installProjTemplate`
+           -- checks (`Modeled.lean:687-691`), both of which the cons
+           -- needs
+           entry.levelParams = lps ∧ entry.ty = .sort .zero ∧
+           (env'.find? (projFnName T i)).isNone = true ∧
+           env'' = ⟨.projInfo entry :: env'.consts⟩) ∧
+        TemplatesR T ctorName lps nP nF env'' rest env₂
 
 /-! ## The assembly -/
 

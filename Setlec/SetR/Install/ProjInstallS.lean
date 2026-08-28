@@ -887,4 +887,158 @@ theorem projInstallS {μ : CheckMode} {F : Nat} {T ctorName : Name}
       (fun cvT capsT hf => hCblock cvT capsT (hdown cvT capsT hf))
       (fun cvT capsT hf => hFields cvT capsT (hdown cvT capsT hf))
 
+/-! ## The elimination templates
+
+A template entry exists *precisely because* the field has no
+`T._model.proj_i` artifact — so, unlike every other block entry, there
+is no model valuation to copy and `cvalModeled` does not apply.  The
+install chooses one, and the relation only records that the step is a
+fresh-name `cvalWith` extension (dictating the choice there would
+freeze an install decision the relation has no business making).
+
+`VExpr.eqE (.sort 0) .prf .prf` is the choice: `eqv_mem_univ` puts it
+in `univ 0` — which is what `denote (.sort .zero)` interprets to, the
+entry's stored junk type — `AnnotOkV`'s `eqE` clause bottoms out at
+two `prf` leaves, and it is closed and level-independent. -/
+
+/-- The valuation an elimination-template entry takes. -/
+def templateVal : (Name → Nat) → VExpr :=
+  fun _ => .eqE (.sort 0) .prf .prf
+
+set_option maxHeartbeats 1600000 in
+/-- **One elimination-template entry installs.** -/
+theorem templateConsS {env' : Env} (m : EnvS V env')
+    {T : Name} {lps : List Name} {i : Nat} {entry : ProjEntry}
+    (hstruct : entry.structName = T) (hidx : entry.idx = i)
+    (hnat : entry.native = false)
+    (hlps : entry.levelParams = lps)
+    (hty : entry.ty = .sort .zero)
+    (hpnone : (env'.find? (projFnName T i)).isNone = true)
+    (hTnres : reservedBasisNames.contains T = false) :
+    ∃ m' : EnvS V ⟨.projInfo entry :: env'.consts⟩,
+      m'.cval = cvalWith m.cval (projFnName T i) templateVal := by
+  have hname : (ConstantInfo.projInfo entry).name = projFnName T i := by
+    show projFnName entry.structName entry.idx = projFnName T i
+    rw [hstruct, hidx]
+  have hcvA : (ConstantInfo.projInfo entry).toConstantVal
+      = ⟨projFnName T i, lps, .sort .zero⟩ := by
+    show (⟨projFnName entry.structName entry.idx, entry.levelParams,
+      entry.ty⟩ : ConstantVal) = _
+    rw [hstruct, hidx, hlps, hty]
+  have hfresh :
+      env'.find? (ConstantInfo.projInfo entry).name = none := by
+    rw [hname]
+    exact Option.isNone_iff_eq_none.mp hpnone
+  obtain ⟨cval₀, hcval₀⟩ : ∃ c, c = cvalWith m.cval (projFnName T i)
+      templateVal := ⟨_, rfl⟩
+  have hag : ∀ n, n ≠ (ConstantInfo.projInfo entry).name →
+      m.cval n = cval₀ n := by
+    intro n hn
+    rw [hcval₀, cvalWith_ne (by rw [← hname]; exact hn)]
+  have hi : Installs env' m.cval cval₀ (.projInfo entry) :=
+    Installs.of_fresh hfresh hag
+  have hselfA : ∀ ψ : Name → Nat,
+      cval₀ (ConstantInfo.projInfo entry).name ψ
+        = VExpr.eqE (.sort 0) .prf .prf := by
+    intro ψ
+    rw [hname, hcval₀]
+    exact congrFun cvalWith_self ψ
+  have hnres : reservedBasisNames.contains
+      (ConstantInfo.projInfo entry).name = false := by
+    rw [hname]; exact reservedBasisNames_not_num _ _
+  refine ⟨EnvS.cons m hi ?_ ?_ ?_ ?_ ?_
+    (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq)
+    (fun cv2 v2 heq => ConstantInfo.noConfusion heq)
+    (fun heq => absurd (hname ▸ heq) (Name.num_ne_str _ _ _ _))
+    (fun cv2 mI2 rP2 rules2 heq => ConstantInfo.noConfusion heq)
+    (fun cv2 mI2 rP2 rules2 heq => ConstantInfo.noConfusion heq)
+    ?_
+    (fun cv2 caps2 heq => ConstantInfo.noConfusion heq)
+    (fun e2 heq hnat2 => by
+      obtain rfl := ConstantInfo.projInfo.inj heq
+      rw [hnat] at hnat2
+      exact nomatch hnat2)
+    ?_
+    (fun heq => absurd (hname ▸ heq) (Name.num_ne_str _ _ _ _))
+    (fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h))
+    (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq)
+    (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq)
+    (fun cv2 heq => ConstantInfo.noConfusion heq), hcval₀⟩
+  · -- `EnvWF`
+    refine EnvWF.cons m.wf ⟨?_, ?_, ?_, ?_,
+      (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq),
+      (fun cv2 mI2 rP2 rules2 heq => ConstantInfo.noConfusion heq),
+      (fun cv2 v2 heq => ConstantInfo.noConfusion heq)⟩ <;>
+      rw [hcvA] <;> rfl
+  · intro ψ
+    rw [hselfA]
+    exact ⟨trivial, trivial, trivial⟩
+  · intro φ₁ φ₂ _
+    rw [hselfA, hselfA]
+  · intro ψ ρ
+    rw [hselfA]
+    exact ⟨trivial, trivial⟩
+  · -- the front door: the junk value inhabits `Prop`
+    intro φ
+    refine ⟨.sort 0, ?_, ?_⟩
+    · show denoteClosed cval₀ ⟨.projInfo entry :: env'.consts⟩ φ
+        (ConstantInfo.projInfo entry).toConstantVal.type = _
+      rw [hcvA]
+      show denote cval₀ _ φ 0 (Expr.sort Level.zero) = _
+      rw [denote_sort]
+      rfl
+    · intro ρ
+      rw [hselfA, interp_sort, interp_eqE]
+      exact ⟨eqv_mem_univ _ _, trivial⟩
+  · -- the eta head: a template entry is a `.projInfo`, so nothing
+    -- can complete a family through it
+    intro T' cvT capsT hfT' hcape hresT hfam hpart
+    exfalso
+    rcases hpart with hh | hh | ⟨j, hj, hh⟩
+    · rw [Env.find?_cons, if_pos hh.symm] at hfT'
+      exact nomatch (Option.some.inj hfT')
+    · obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
+      rw [Env.find?_cons, if_pos hh.symm] at hfC
+      exact nomatch (Option.some.inj hfC)
+    · obtain ⟨-, -, hfP⟩ := hfam
+      obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfP j hj
+      rw [Env.find?_cons, if_pos hh.symm] at hf2
+      exact nomatch (Option.some.inj hf2)
+  · -- the pinned-pair obligation: `T` is not `PSigma'`
+    intro i2 e2 heq hpair
+    exfalso
+    obtain rfl := ConstantInfo.projInfo.inj heq
+    rw [hname] at hpair
+    have hTps : T = psigmaName := by
+      have hh : Name.num (T.str "proj") i
+        = Name.num (psigmaName.str "proj") i2 := hpair
+      exact (Name.str.inj (Name.num.inj hh).1).1
+    rw [hTps] at hTnres
+    exact absurd hTnres (by decide)
+
+/-- **The elimination-template fold.**  Nothing but the model
+survives it: a template entry carries no artifact, so no block
+invariant is claimed of it, and the relation carries no valuation —
+the install's choice is `templateVal`. -/
+theorem templatesS {T ctorName : Name} {lps : List Name} {nP nF : Nat}
+    (hTnres : reservedBasisNames.contains T = false) :
+    ∀ (fields : List Nat) {env' : Env} (_m : EnvS V env') {env₂ : Env},
+      DeclIndR.TemplatesR T ctorName lps nP nF env' fields env₂ →
+      Nonempty (EnvS V env₂) := by
+  intro fields
+  induction fields with
+  | nil =>
+    intro env' m env₂ h
+    obtain rfl := h
+    exact ⟨m⟩
+  | cons i rest ih =>
+    intro env' m env₂ h
+    obtain ⟨env'', hstep, hrec⟩ := h
+    rcases hstep with rfl | ⟨entry, hstruct, hidx, hnat, hlps,
+      hty, hpnone, rfl⟩
+    · exact ih m hrec
+    · obtain ⟨m', -⟩ :=
+        templateConsS m hstruct hidx hnat hlps hty hpnone hTnres
+      exact ih m' hrec
+
 end Setlec.SetR
