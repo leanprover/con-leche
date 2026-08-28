@@ -410,6 +410,153 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
       subst h
       exact hrp hro hrpin
 
+/-- **`defnDecl`, bridged**, parametric in the two structural-`Nat`
+pin inversions.  Both packs are phrased over the **annotated** value
+the environment actually stores (`value'`), not over the stream's
+`value`. -/
+theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
+    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+    {value : Expr} {hint : ReducibilityHint}
+    (hnat : ∀ {eqs : List (Expr × Expr)},
+      certifyNatEqs (m := CheckM) (fueledOps μ F) env eqs = .ok true →
+      NatEqsR μ env m.cval eqs)
+    (hdm : ∀ {env' : Env} {v : Expr},
+      natDivModNames.contains cv.name = true →
+      checkDivModPin (m := CheckM) (fueledOps μ F) env env' cv.name
+        = .ok () →
+      DivModPinR μ F env env' m.cval cv.name v)
+    (h : checkDecl μ (fueledOps μ F) env (.defnDecl cv value hint)
+      = .ok env₂) :
+    DeclDefnR μ F env m.cval cv value hint env₂ := by
+  simp only [checkDecl, checkDefnVal, fueledOps_annotate,
+    fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
+  cases hccv : checkConstantVal (fueledOps μ F) env cv with
+  | error e => rw [hccv] at h; exact nomatch h
+  | ok cv' =>
+  rw [hccv] at h
+  try dsimp only at h
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
+  simp only [Pure.pure, Except.pure] at h
+  by_cases hlbv : value.looseBVarsBounded 0 = true
+  case neg => simp [hlbv] at h
+  simp only [hlbv] at h
+  by_cases hivf : value.hasFvar = true
+  case pos => simp [hivf] at h
+  simp only [hivf] at h
+  have hivf' : value.hasFvar = false := by
+    revert hivf; cases value.hasFvar <;> simp
+  cases hannv : annotateCore μ env F 0 value with
+  | error e => rw [hannv] at h; exact nomatch h
+  | ok value' =>
+  rw [hannv] at h
+  try dsimp only at h
+  by_cases hvp : value'.allLevelParamsDefined cv.levelParams = true
+  case neg => simp [hvp] at h
+  simp only [hvp] at h
+  by_cases hvr : value'.constsResolve env = true
+  case neg => simp [hvr] at h
+  simp only [hvr] at h
+  cases hvt : inferTypeCore μ env F 0 value' with
+  | error e => rw [hvt] at h; exact nomatch h
+  | ok vtype =>
+  rw [hvt] at h
+  try dsimp only at h
+  cases hde : isDefEqCore μ env F 0 vtype type with
+  | error e => rw [hde] at h; exact nomatch h
+  | ok b =>
+  rw [hde] at h
+  cases b with
+  | false => exact nomatch h
+  | true =>
+  simp only [Bool.false_eq_true, ↓reduceIte] at h
+  -- the environment the two pin blocks run against, and its own lookup
+  have hfind2 : (⟨ConstantInfo.defnInfo { cv with type := type } value'
+        hint :: env.consts⟩ : Env).find? cv.name
+      = some (.defnInfo { cv with type := type } value' hint) := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  -- **the dispatch, once**: the stored environment and the two packs
+  have key : env₂ = ⟨ConstantInfo.defnInfo { cv with type := type }
+        value' hint :: env.consts⟩ ∧
+      (natOpNames.contains cv.name = true →
+        natOpGuard ⟨ConstantInfo.defnInfo { cv with type := type }
+            value' hint :: env.consts⟩ cv.name = true ∧
+        (natOpDeps cv.name).all (natOpStoredOk
+          ⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
+            env.consts⟩) = true ∧
+        certifyNatEqs (m := CheckM) (fueledOps μ F) env
+          ((natOpEquations 0 cv.name).map fun eq =>
+            (Expr.substConst0 cv.name value' eq.1,
+             Expr.substConst0 cv.name value' eq.2)) = .ok true) ∧
+      (natDivModNames.contains cv.name = true →
+        checkDivModPin (m := CheckM) (fueledOps μ F) env
+          ⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
+            env.consts⟩ cv.name = .ok ()) := by
+    by_cases hno : natOpNames.contains cv.name = true
+    · rw [if_pos hno] at h
+      by_cases hg : (natOpGuard ⟨ConstantInfo.defnInfo
+            { cv with type := type } value' hint :: env.consts⟩ cv.name
+          && (natOpDeps cv.name).all (natOpStoredOk
+            ⟨ConstantInfo.defnInfo { cv with type := type } value'
+              hint :: env.consts⟩)) = true
+      · rw [if_pos hg] at h
+        rw [hfind2] at h
+        dsimp only at h
+        cases hcert : certifyNatEqs (m := CheckM) (fueledOps μ F) env
+            ((natOpEquations 0 cv.name).map fun eq =>
+              (Expr.substConst0 cv.name value' eq.1,
+               Expr.substConst0 cv.name value' eq.2)) with
+        | error e => rw [hcert] at h; exact nomatch h
+        | ok v =>
+        rw [hcert] at h
+        cases v with
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte, throw, throwThe,
+            MonadExceptOf.throw] at h
+          exact nomatch h
+        | true =>
+        simp only [↓reduceIte] at h
+        obtain ⟨hg1, hg2⟩ := Bool.and_eq_true _ _ |>.mp hg
+        by_cases hdn : natDivModNames.contains cv.name = true
+        · rw [if_pos hdn] at h
+          cases hpin : checkDivModPin (m := CheckM) (fueledOps μ F) env
+              ⟨ConstantInfo.defnInfo { cv with type := type } value'
+                hint :: env.consts⟩ cv.name with
+          | error e => rw [hpin] at h; exact nomatch h
+          | ok u =>
+            rw [hpin] at h
+            simp only [Except.ok.injEq] at h
+            subst h
+            exact ⟨rfl, fun _ => ⟨hg1, hg2, rfl⟩, fun _ => rfl⟩
+        · rw [if_neg hdn] at h
+          simp only [Except.ok.injEq] at h
+          subst h
+          exact ⟨rfl, fun _ => ⟨hg1, hg2, rfl⟩, fun hc => absurd hc hdn⟩
+      · rw [if_neg hg] at h
+        simp only [throw, throwThe, MonadExceptOf.throw] at h
+        exact nomatch h
+    · rw [if_neg hno] at h
+      by_cases hdn : natDivModNames.contains cv.name = true
+      · rw [if_pos hdn] at h
+        cases hpin : checkDivModPin (m := CheckM) (fueledOps μ F) env
+            ⟨ConstantInfo.defnInfo { cv with type := type } value'
+              hint :: env.consts⟩ cv.name with
+        | error e => rw [hpin] at h; exact nomatch h
+        | ok u =>
+          rw [hpin] at h
+          simp only [Except.ok.injEq] at h
+          subst h
+          exact ⟨rfl, fun hc => absurd hc hno, fun _ => rfl⟩
+      · rw [if_neg hdn] at h
+        simp only [Except.ok.injEq] at h
+        subst h
+        exact ⟨rfl, fun hc => absurd hc hno, fun hc => absurd hc hdn⟩
+  obtain ⟨rfl, hnatK, hdmK⟩ := key
+  exact ⟨type, value', hcv,
+    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde hcv,
+    rfl,
+    fun hc => ⟨(hnatK hc).1, (hnatK hc).2.1, hnat (hnatK hc).2.2⟩,
+    fun hc => hdm hc (hdmK hc)⟩
+
 /-! ## `basisDecl`
 
 The simplest branch: a guard on the pinned `Eq` former, then a fold of

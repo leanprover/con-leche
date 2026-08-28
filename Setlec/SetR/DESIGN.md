@@ -3761,7 +3761,8 @@ construct an `EnvR` until the assembly did.
    `EnvR.ty_denotes` and the annotate output's `constsResolve`.  Note both
    relations quantify over **every** `φ`, so the bridge must be run at an
    arbitrary assignment — `checkBridge` already is.
-2. **`declDefnR`** (the others LANDED) — each is its
+2. ~~**`declDefnR`**~~ **LANDED** (all five value/basis branches are
+   through) — each was its
    branch's `simp only [checkDecl, …]` inversion over (1), plus its own
    conditional pack (`NatEqsR`/`DivModPinR` at `defn`, the sort-is-`Prop`
    conjunct at `thm`, `ReducePinR` at `opaque`, the four shape gates at
@@ -3845,3 +3846,28 @@ conjunct triplicates the four-level `by_cases` nest.  The `hdm`
 parameter must be phrased over the *annotated* value the environment
 actually stores, not over the source `value`: `DivModPinR`'s last
 argument is `value'`.
+
+### T6 progress — `declDefnR`; the `cases h : e` goal-rewrite trap
+
+`declDefnR` lands, and with it **five of the six branches**; only
+`declIndR` remains.
+
+Two notes for anyone reading the branch:
+
+* The `do` sequencing **inlines the div/mod block into every leaf** of
+  the `Nat`-op dispatch, so the "resolve the dispatch once" discipline
+  buys less than it looks: the shared `tail` lemma that would have
+  factored it has to match the inlined `if`/`match` term
+  *syntactically*, and stating that shape is more brittle than
+  repeating the four-line resolution at the two surviving leaves.  The
+  discipline that did pay is resolving **`env₂` and both packs in one
+  `have`** rather than once per conjunct.
+* **`cases hcert : e with` rewrites the GOAL too**, not just the
+  hypothesis it names.  After `cases hcert : certifyNatEqs … with
+  | ok v =>`, the `key` statement's own `certifyNatEqs … = .ok true`
+  conjunct has already become `Except.ok true = Except.ok true`, so
+  the conjunct is discharged by `rfl` and passing `hcert` is a type
+  error.  Same for `checkDivModPin`.  Cost: one round trip; worth a
+  line here because the error message ("expected type
+  `Except.ok true = Except.ok true`") reads like a bug in the
+  statement rather than the tactic doing its job.
