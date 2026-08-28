@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.Step
+import Setlec.SetR.Bridge.ReduceNat
 
 /-!
 # The structural inference clauses (task #148, T3, batches a-rest + b)

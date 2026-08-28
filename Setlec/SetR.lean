@@ -30,7 +30,6 @@ import Setlec.SetR.Bridge.WhnfCore
 import Setlec.SetR.Bridge.Infer
 import Setlec.SetR.Bridge.DefEq
 import Setlec.SetR.Bridge.ReduceNat
-import Setlec.SetR.Bridge.Step
 import Setlec.SetR.Bridge.InferStruct
 import Setlec.SetR.Bridge.Spine
 import Setlec.SetR.Bridge.Irrel
@@ -44,6 +43,8 @@ import Setlec.SetR.Bridge.DefEqClosed
 import Setlec.SetR.Bridge.Proj
 import Setlec.SetR.Bridge.ProjRed
 import Setlec.SetR.Bridge.Major
+import Setlec.SetR.Bridge.Iota
+import Setlec.SetR.Bridge.Main
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family

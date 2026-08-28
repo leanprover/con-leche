@@ -84,6 +84,15 @@ structure EnvR (env : Env) where
     ∀ r ∈ rules, ∀ (us : List Level) (ψ : Name → Nat),
       ∃ R, denoteClosed cval env ψ
         (r.rhs.instantiateLevelParams cv.levelParams us) = some R
+  /-- **A stored recursor's parameter count does not exceed its major
+  index.**  The bridge-side half of the D3 split: `EnvWF` concludes
+  `rP ≤ mI` only inside the `.nested` branch, so R11's *nested* premise
+  carries it, while R11's *index* side condition needs it on `.plain`
+  fires too (premise 6's length disjunct is otherwise open at
+  `mI < rP`).  The soundness side takes the same fact from
+  `EnvS.rec_rules`' first component; this field is backed by it. -/
+  rec_params_le : ∀ n cv mI rP rules,
+    env.find? n = some (.recInfo cv mI rP rules) → rP ≤ mI
   /-- Every stored native projection-table entry is a pinned pair entry
   with its block stored (`ProjOkT`).  Syntactic; the bridge's I9 and R6
   clauses need it to identify the entry's type as a *concrete* closed

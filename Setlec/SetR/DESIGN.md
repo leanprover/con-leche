@@ -1191,3 +1191,70 @@ layer carries the unconditional `rP ≤ mI`).  The bridge needs the same
 fact from the same place: `EnvR.rec_params_le`, backed by the identical
 `EnvS` component.  This is not a new finding — it is the *other half* of
 the D3 split, and it lands with R11.
+
+## T3 — **`CheckStepR` is closed**: the bridge half is done
+
+`Bridge/Main.lean`: **`checkStepR : CheckStepR mode`** with no
+outstanding obligation, and `checkBridge` — the four claims at every
+fuel.  A successful `--set-model` checker run yields a derivation of the
+relation family.
+
+| quarter | closed by | batch |
+|---|---|---|
+| `WhnfCoreClaimsR` | `whnfCore_claimsR` + `iota_stepR` + `proj_stepR` | a/b, e, g |
+| `WhnfClaimsR` | `whnf_claimsR_closed` | f |
+| `DefEqClaimsR` | `defeq_claimsR_full` | a, c, d |
+| `InferClaimsR` | `infer_claimsR` + the five structural clauses + `inferProj_stepR` | a, b, e |
+
+`Bridge/Step.lean` is deleted: `StepObligationsR` recorded ten named
+obligations and all ten are discharged, so keeping it would name work
+that no longer exists.
+
+**What the bridge is conditional on is exactly `EnvR`** — nine V-free
+environment facts, every one either a field of `EnvTT`/`EnvS` or an
+immediate consequence.  There is no `SetTheory`, no membership and no
+interpretation anywhere in the tier.  That is the factoring the campaign
+was for, and it is now a fact rather than a plan.
+
+### R11's four non-transcription points
+
+`iotaRec_inv` returns every side condition R11 names, so the clause is
+mostly transcription.  Four places are not, and each turned out to be a
+small general fact rather than iota-specific work:
+
+* **the level guard reads no arguments** — `recFireComparands`'s `.1`
+  component ignores its `args` in *both* fire branches, so the rule's
+  spelling at `[]` and the checker's at the real spine agree by
+  `cases … <;> rfl` (`recFireComparands_fst_nil`);
+* **the `Nat`-literal major conversion is invisible to the denotation**
+  (`denote_litToCtorIfNat`) — design §7.2's "`litToCtorIfNat`
+  contributes zero rules", discharged rather than asserted;
+* **the residual is the telescope's** — the `Tele` premise's residual
+  and the checker's `piResidual` are the same walk (`Tele.residual` +
+  `denote_piResidualR`), so premise 6's index decomposition is
+  `denote_mkAppN_inv` applied to that one shared value;
+* **only one nested comparand is known to denote.**  The rule
+  hypothesises exactly the `i`-th pin's opening, so the component must
+  be pulled out of `defEqList` *syntactically* (`defEqListP_get`), not
+  through a whole-list `DenoteSpine`.  Reaching for the list-level lemma
+  first is the natural move and it fails on the `none` case — **the
+  premise's shape tells you which extraction it wants**, and that is
+  worth stating generally: a premise quantified at one index wants a
+  pointwise inversion, not a spine one.
+
+The nested pin bridge itself is `denote_openRev` +
+`denote_openRev_base` — the checker's comparand is
+`instSpine (args.take rP) (rP-1) pin` and the rule's is
+`instRevChain (xs.take rP) ⟦openRev 0 rP pin⟧`, which is exactly that
+identity plus its base-independence.
+
+### Closing tally
+
+Findings raised and resolved: three (the slack/`Red` non-composition,
+the missing projection congruences, the doubled-`Infer` chains), each
+mechanized in both directions — the unreachable goal *and* the repaired
+variant — before being routed.  Rule amendments consumed: four (repair
+A, the two congruences, D3's split), none of which required an edit to
+an already-landed bridge clause.  Relocations out of misfiled homes:
+six.  The two conversion-free rules remain `certs_teleR`'s and
+`denote_piResidualR`'s — both transposed from *walks*.
