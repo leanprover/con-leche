@@ -3335,6 +3335,52 @@ will not solve its metavariables by unification.
 **Longhand-first for existential-head goals** is now the informal
 practice this and lever 2 both point at.
 
+## `DeclBasisS`: the `Nat` block lands — the recipe repeats (2026-08-28)
+
+Third of six.  `Nat.rec` is the recipe's second recursor and the first
+with **two** rules, one of them recursive in the constant being
+installed.
+
+### The recipe held, and one part was free
+
+The block's **five denotation helpers**
+(`denote_natRec_constsS`, `denote_natRec_typeS`,
+`denote_natRec_zeroRhsS`, `denote_natRec_succRhsS`) transposed from
+the TT lane by **pure mechanical substitution** — `EnvTT → EnvS V`,
+`cvalSet → cvalWith`, `cval_pinned → cvalS_pinned` — and compiled with
+**zero edits**.  They are stated at an *arbitrary* depth, so the
+depth-0 problem never touches them; it lives only in how a lane's
+`hheadRec` consumes them.  The three non-recursor constants likewise
+went in first try.
+
+### What was genuinely new
+
+* **The recursive occurrence.**  `Nat.rec`'s `succ` right-hand side
+  mentions `Nat.rec`, which the *self* valuation supplies
+  (`cvalWith_self`) — and its truthfulness and value are one lemma,
+  `hspine`, proved once from `bval_mem_type` + `app_mem_piC` and then
+  used at both the `AnnotOkV` node and the reduct's equality.
+* **`natStepSpace` needs a `piC_congr` bridge.**  The minor premise's
+  denoted type is `piC ω (fun k => piC (M k) (fun _ => M (app natSuccV k)))`
+  while the layer's `natStepSpace` says `M (natsucc k)`.  They differ
+  by `natSuccV_app`, which needs `k ∈ ω` — i.e. exactly `piC_congr`'s
+  fibre hypothesis.  Expect the same shape wherever a constructor
+  appears inside a minor premise's type.
+* **`natrec_succ` exists** (`SetTheory/Basic.lean:100`) stated with
+  `natsucc`; `natrec_vsucc` is stated with `vsucc` and, despite
+  `natsucc := vsucc`, is **not** accepted against a `natsucc` goal.
+  Use the wrapper.
+
+### Three traps for the remaining blocks
+
+1. Level substitutions **and** constant names must be written expanded.
+2. `Level.substFn φ [uN] [w] uN` does not reduce on its own — supply
+   `show … = w.eval φ from by simp [Level.substFn, uN]`.
+3. The `∃ A B` fibres of every `AnnotOkV_app` must be given
+   explicitly; `t2''`/`t3''`-style `have`s in the binders' own
+   environment (`interp_inst0` one way, a `piC_congr` bridge the
+   other) are what make the four-argument assembly a single `exact`.
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -3355,7 +3401,7 @@ needs.
 | `declIndS` 5 | **done** — `projConsS`, `projFnS`, `projInstallS` |
 | `declIndS` 6 | **done** — `templateVal`, `templateConsS`, `templatesS`; `TemplatesR` re-signed valuation-free |
 | `DeclIndS` assembly | **done** — `Install/DeclIndS.lean` |
-| `DeclBasisS` | **in progress** — infrastructure, lever 2, and the `Empty` and `PUnit` blocks landed; four blocks left (`Nat`, `Quot`, `Eq`, `PSigma'`, the `Eq`-bridged families) |
+| `DeclBasisS` | **in progress** — infrastructure, lever 2, and the `Empty`, `PUnit`, `Nat` blocks landed; three left (`Quot`, `Eq`, `PSigma'` + the `Eq`-bridged families) plus the dispatch |
 
 Open obligations, all in the house pattern: `DeclBasisS`, `DeclIndS`,
 `MemberKeyS`, `MemberEtaS`, `MemberUnitS`, `DivModPinS`,

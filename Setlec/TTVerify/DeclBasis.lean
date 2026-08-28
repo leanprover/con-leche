@@ -965,41 +965,6 @@ theorem inst_chain4 (x e3 e2 e1 e0 : VExpr) :
     ((((VExpr.liftN 4 x 0).inst e3 3).inst e2 2).inst e1 1).inst e0 0 = x := by
   rw [VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e3, inst_chain3]
 
-/-- Substituting each level parameter by itself is the identity. -/
-theorem Level.subst_param_self (ks : List Name) :
-    ∀ l : Level, Level.subst ks (ks.map Level.param) l = l := by
-  have hgo : ∀ (ks : List Name) (n : Name),
-      Level.subst.go ks (ks.map Level.param) n = .param n := by
-    intro ks
-    induction ks with
-    | nil => intro n; rfl
-    | cons k ks ih =>
-      intro n
-      by_cases h : k = n
-      · subst h; simp [Level.subst.go]
-      · simp only [List.map_cons, Level.subst.go, if_neg h]
-        exact ih n
-  intro l
-  induction l with
-  | zero => rfl
-  | succ l ih => simp [Level.subst, ih]
-  | max l r ihl ihr => simp [Level.subst, ihl, ihr]
-  | imax l r ihl ihr => simp [Level.subst, ihl, ihr]
-  | param n => exact hgo ks n
-
-/-- …and so is instantiating a declaration at its own parameters. -/
-theorem Expr.instantiateLevelParams_self (ks : List Name) :
-    ∀ e : Expr, e.instantiateLevelParams ks (ks.map Level.param) = e := by
-  intro e
-  have hmap : ∀ us : List Level,
-      us.map (Level.subst ks (ks.map Level.param)) = us := by
-    intro us
-    induction us with
-    | nil => rfl
-    | cons x xs ih => simp [Level.subst_param_self, ih]
-  induction e <;>
-    simp_all [Expr.instantiateLevelParams, Level.subst_param_self, hmap]
-
 /-! ## `Eq`
 
 The block whose valuations were **deferred** (§11, and the house rule:

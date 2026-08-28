@@ -881,6 +881,837 @@ theorem extendNatSuccS {env : Env} (m : EnvS V env)
           (.const natName []) { bi := .default } from rfl]
     simp [denote_forallE, Expr.instantiate1, hNc]
 
+/-- The `Nat` block's earlier constants, denoted in the environment
+`Nat.rec` is going into. -/
+theorem denote_natRec_constsS {env : Env} (m : EnvS V env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    (∀ d : Nat, denote (cvalWith m.cval natRecA.name val)
+        ⟨natRecA :: env.consts⟩ φ d (.const natName []) = some natT) ∧
+    (∀ d : Nat, denote (cvalWith m.cval natRecA.name val)
+        ⟨natRecA :: env.consts⟩ φ d (.const natZeroName [])
+        = some natZeroT) ∧
+    (∀ d : Nat, denote (cvalWith m.cval natRecA.name val)
+        ⟨natRecA :: env.consts⟩ φ d (.const natSuccName [])
+        = some (VExpr.const .natSucc [])) := by
+  refine ⟨fun d => ?_, fun d => ?_, fun d => ?_⟩
+  · refine denote_const_pinS m (by decide) hN rfl (by decide) ?_ d
+    simp +decide [pinnedDirectT]
+    rfl
+  · refine denote_const_pinS m (by decide) hZ rfl (by decide) ?_ d
+    simp +decide [pinnedDirectT]
+    rfl
+  · refine denote_const_pinS m (by decide) hS rfl (by decide) ?_ d
+    simp +decide [pinnedDirectT]
+
+/-- **`Nat.rec`'s pinned type, denoted at any depth and any level.** -/
+theorem denote_natRec_typeS {env : Env} (m : EnvS V env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w : Level)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    denote (cvalWith m.cval natRecA.name val) ⟨natRecA :: env.consts⟩ φ
+      d
+        (natRecA.toConstantVal.type.instantiateLevelParams
+          natRecA.toConstantVal.levelParams [w])
+      = some (.pi (.pi natT (.sort (w.eval φ)))
+        (.pi (.app (.bvar 0) natZeroT)
+          (.pi (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 3) (.app (VExpr.const .natSucc []) (.bvar
+                1)))))
+            (.pi natT (.app (.bvar 3) (.bvar 0)))))) := by
+  obtain ⟨hNc, hZc, hSc⟩ := denote_natRec_constsS m (val := val) φ hN
+    hZ hS
+  have hsu : Level.subst [uN] [w] (.param uN) = w := by
+    simp [Level.subst, Level.subst.go]
+  rw [show natRecA.toConstantVal.levelParams = [uN] from rfl,
+    show natRecA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "motive")
+          (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+            (.sort (.param uN)) { bi := .default })
+          (Expr.forallE (Name.anonymous.str "zero")
+            (.app (.bvar 0) (.const natZeroName []))
+            (Expr.forallE (Name.anonymous.str "succ")
+              (Expr.forallE (Name.anonymous.str "n") (.const natName [])
+                (Expr.forallE (Name.anonymous.str "n_ih")
+                  (.app (.bvar 2) (.bvar 0))
+                  (.app (.bvar 3)
+                    (.app (.const natSuccName []) (.bvar 1)))
+                  { bi := .default })
+                { bi := .default })
+              (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+                (.app (.bvar 3) (.bvar 0)) { bi := .default })
+              { bi := .default })
+            { bi := .default })
+          { bi := .implicit } from rfl]
+  simp [Expr.instantiateLevelParams, hsu, denote_forallE, denote_sort,
+    denote_app, denote_fvar, hNc, hZc, hSc]
+
+
+/-- `Nat.rec`'s two stored rules. -/
+def natRecZeroRule : RecRule :=
+  { ctor := natZeroName, nfields := 0, ctorParams := 0, fire := .plain,
+    rhs := Expr.lam (Name.anonymous.str "motive")
+      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+        (.sort (.param uN)) { bi := .default })
+      (Expr.lam (Name.anonymous.str "zero")
+        (.app (.bvar 0) (.const natZeroName []))
+        (Expr.lam (Name.anonymous.str "succ")
+          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
+            (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2)
+              (.bvar 0))
+              (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
+              { bi := .default })
+            { bi := .default })
+          (.bvar 1) { bi := .default })
+        { bi := .default })
+      { bi := .default } }
+
+def natRecSuccRule : RecRule :=
+  { ctor := natSuccName, nfields := 1, ctorParams := 0, fire := .plain,
+    rhs := Expr.lam (Name.anonymous.str "motive")
+      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+        (.sort (.param uN)) { bi := .default })
+      (Expr.lam (Name.anonymous.str "zero")
+        (.app (.bvar 0) (.const natZeroName []))
+        (Expr.lam (Name.anonymous.str "succ")
+          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
+            (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2)
+              (.bvar 0))
+              (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
+              { bi := .default })
+            { bi := .default })
+          (Expr.lam (Name.anonymous.str "n") (.const natName [])
+            (.app (.app (.bvar 1) (.bvar 0))
+              (.app (.app (.app (.app (.const (natName.str "rec")
+                [.param uN]) (.bvar 3)) (.bvar 2)) (.bvar 1)) (.bvar
+                  0)))
+            { bi := .default })
+          { bi := .default })
+        { bi := .default })
+      { bi := .default } }
+
+theorem natRecA_eq :
+    natRecA = .recInfo natRecA.toConstantVal 3 3
+      [natRecZeroRule, natRecSuccRule] := rfl
+
+/-- The `zero` rule's right-hand side, denoted. -/
+theorem denote_natRec_zeroRhsS {env : Env} (m : EnvS V env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w : Level)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    denote (cvalWith m.cval natRecA.name val) ⟨natRecA :: env.consts⟩ φ
+      d
+        ((RecRule.rhs natRecZeroRule).instantiateLevelParams
+          natRecA.toConstantVal.levelParams [w])
+      = some (.lam (.pi natT (.sort (w.eval φ)))
+        (.lam (.app (.bvar 0) natZeroT)
+          (.lam (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 3) (.app (VExpr.const .natSucc []) (.bvar
+                1)))))
+            (.bvar 1)))) := by
+  obtain ⟨hNc, hZc, hSc⟩ := denote_natRec_constsS m (val := val) φ hN
+    hZ hS
+  have hsu : Level.subst [uN] [w] (.param uN) = w := by
+    simp [Level.subst, Level.subst.go]
+  rw [show natRecA.toConstantVal.levelParams = [uN] from rfl]
+  simp only [natRecZeroRule]
+  simp [Expr.instantiateLevelParams, hsu, denote_lam, denote_forallE,
+    denote_sort, denote_app, denote_fvar, hNc, hZc, hSc]
+
+
+/-- **The `succ` rule's right-hand side, denoted** — the first stored
+rule in any block whose right-hand side mentions the recursor being
+installed.  It resolves to `cval'`, the post-install valuation, which
+`hheadRec` has always been stated at. -/
+theorem denote_natRec_succRhsS {env : Env} (m : EnvS V env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w : Level)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    denote (cvalWith m.cval natRecA.name val) ⟨natRecA :: env.consts⟩ φ
+      d
+        ((RecRule.rhs natRecSuccRule).instantiateLevelParams
+          natRecA.toConstantVal.levelParams [w])
+      = some (.lam (.pi natT (.sort (w.eval φ)))
+        (.lam (.app (.bvar 0) natZeroT)
+          (.lam (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 3) (.app (VExpr.const .natSucc []) (.bvar
+                1)))))
+            (.lam natT
+              (.app (.app (.bvar 1) (.bvar 0))
+                (VExpr.mkAppN (val (Level.substFn φ [uN] [w]))
+                  [.bvar 3, .bvar 2, .bvar 1, .bvar 0])))))) := by
+  obtain ⟨hNc, hZc, hSc⟩ := denote_natRec_constsS m (val := val) φ hN
+    hZ hS
+  have hsu : Level.subst [uN] [w] (.param uN) = w := by
+    simp [Level.subst, Level.subst.go]
+  have hRc : ∀ e : Nat,
+      denote (cvalWith m.cval natRecA.name val) ⟨natRecA :: env.consts⟩
+        φ e
+        (.const (natName.str "rec") [w])
+        = some (val (Level.substFn φ [uN] [w])) := by
+    intro e
+    rw [denote_const, Env.find?_cons,
+      if_pos (show ConstantInfo.name natRecA = natName.str "rec" from
+        rfl)]
+    simp only [show ([w] : List Level).length
+      = natRecA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [show cvalWith m.cval natRecA.name val (natName.str "rec") = val
+      from
+      cvalWith_self (n := natRecA.name)]
+    rfl
+  rw [show natRecA.toConstantVal.levelParams = [uN] from rfl]
+  simp only [natRecSuccRule]
+  simp [Expr.instantiateLevelParams, hsu, denote_lam, denote_forallE,
+    denote_sort, denote_app, denote_fvar, hNc, hZc, hSc, hRc,
+    VExpr.mkAppN]
+
+set_option maxHeartbeats 12800000 in
+/-- **`Nat.rec`, installed.**  Two rules; the `succ` one is recursive
+in the constant being installed, which the *self* valuation
+(`cvalWith_self`) supplies. -/
+theorem extendNatRecS {env : Env} (m : EnvS V env)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA)
+    (hfresh : env.find? (natName.str "rec") = none)
+    (hwf : EnvWF ⟨natRecA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨natRecA :: env.consts⟩,
+      m'.cval = cvalWith m.cval natRecA.name
+        (fun ψ => VExpr.const .natRec [ψ uN]) := by
+  refine extendBasisS m (val := fun ψ => VExpr.const .natRec [ψ uN])
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name natRecA = natName.str "rec"
+        from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ (fun _ _ => trivial) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
+  · intro φ
+    refine ⟨_, ?_, fun ρ =>
+      ⟨HasType.sound (V := V) HasType.const ρ (Sat_nil V ρ),
+        AnnotOkV_bconst_type (V := V) _ _ ρ⟩⟩
+    rw [denoteClosed, ← Expr.instantiateLevelParams_self
+        natRecA.toConstantVal.levelParams natRecA.toConstantVal.type,
+      show natRecA.toConstantVal.levelParams.map Level.param
+        = [Level.param uN] from rfl,
+      denote_natRec_typeS m (val := fun ψ => VExpr.const .natRec [ψ uN])
+        φ 0 (.param uN) hN hZ hS]
+    rfl
+  · -- both rules' constructors are stored
+    intro cv mI rP rules heq
+    injection heq with _ _ _ h4
+    subst h4
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · exact ⟨natZeroA.toConstantVal, 0, 0, hZ⟩
+    · rcases List.mem_cons.mp hr' with rfl | hr''
+      · exact ⟨natSuccA.toConstantVal, 0, 1, hS⟩
+      · exact nomatch hr''
+  · -- the two iota rules
+    intro cv mI rP rules heq
+    injection heq with h1' h2' h3' h4'
+    subst h1'; subst h2'; subst h3'; subst h4'
+    intro rl hrl _ φ
+    refine ⟨by omega, ?_⟩
+    intro us hus
+    obtain ⟨w, rfl⟩ : ∃ a, us = [a] := by
+      match us, hus with
+      | [a], _ => exact ⟨a, rfl⟩
+    obtain ⟨hNc, hZc, hSc⟩ := denote_natRec_constsS m
+      (val := fun ψ => VExpr.const .natRec [ψ uN]) φ hN hZ hS
+    rcases List.mem_cons.mp hrl with rfl | hr'
+    · -- `Nat.rec … Nat.zero ↦ zero`
+      refine ⟨_, denote_natRec_zeroRhsS m
+        (val := fun ψ => VExpr.const .natRec [ψ uN]) φ 0 w hN hZ hS, ?_⟩
+      intro cvj cnP cnF hfj usj ρ xs ys TV TVj restR restC hxs hys husj
+        hlev hplain hnested hidx hTV hTVj hfitR hfitC
+      have hZu := hZ
+      simp only [natZeroName, natName] at hZu
+      rw [Env.find?_cons, if_neg (by decide), hZu] at hfj
+      obtain ⟨rfl, rfl, rfl⟩ :
+          cvj = natZeroA.toConstantVal ∧ cnP = 0 ∧ cnF = 0 := by
+        injection Option.some.inj hfj with a1 a2 a3
+        exact ⟨a1.symm, a2.symm, a3.symm⟩
+      obtain rfl : ys = [] := List.eq_nil_of_length_eq_zero hys
+      obtain ⟨xM, xz, xs', rfl⟩ : ∃ a b c, xs = [a, b, c] := by
+        match xs, hxs with
+        | [a, b, c], _ => exact ⟨a, b, c, rfl⟩
+      obtain rfl : TV = .pi (.pi natT (.sort (w.eval φ)))
+          (.pi (.app (.bvar 0) natZeroT)
+            (.pi (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+                (.app (.bvar 3)
+                  (.app (VExpr.const .natSucc []) (.bvar 1)))))
+              (.pi natT (.app (.bvar 3) (.bvar 0))))) := by
+        have hty := denote_natRec_typeS m
+          (val := fun ψ => VExpr.const .natRec [ψ uN]) φ 0 w hN hZ hS
+        rw [denoteClosed] at hTV
+        exact (Option.some.inj (hty.symm.trans hTV)).symm
+      have hctorV : cvalWith m.cval natRecA.name
+          (fun ψ => VExpr.const .natRec [ψ uN])
+          ((Name.anonymous.str "Nat").str "zero")
+          (Level.substFn φ natZeroA.toConstantVal.levelParams usj)
+          = natZeroT := by
+        rw [cvalWith_ne (by decide)]
+        refine cvalS_pinned m (by decide) (by rw [hZu]; rfl) _ ?_
+        simp +decide [pinnedDirectT]
+        rfl
+      have hrecV : cvalWith m.cval natRecA.name
+          (fun ψ => VExpr.const .natRec [ψ uN]) natRecA.name
+          (Level.substFn φ [Name.anonymous.str "u"] [w])
+          = VExpr.const .natRec [w.eval φ] := by
+        rw [cvalWith_self]
+        simp [Level.substFn, uN]
+      cases hfitR with | cons t1 hfitR =>
+      cases hfitR with | cons t2 hfitR =>
+      cases hfitR with | cons t3 hfitR =>
+      cases hfitR with | cons t4 hfitR =>
+      rw [hrecV]
+      rw [show (VExpr.mkAppN (cvalWith m.cval natRecA.name
+          (fun ψ => VExpr.const .natRec [ψ uN])
+          ((Name.anonymous.str "Nat").str "zero")
+          (Level.substFn φ natZeroA.toConstantVal.levelParams usj)) [])
+        = cvalWith m.cval natRecA.name
+          (fun ψ => VExpr.const .natRec [ψ uN])
+          ((Name.anonymous.str "Nat").str "zero")
+          (Level.substFn φ natZeroA.toConstantVal.levelParams usj)
+        from rfl, hctorV] at t4 ⊢
+      -- the three memberships, in the layer's own vocabulary
+      have t1' : interp V ρ xM ∈ˢ piC (omega : V)
+          (fun _ => univ (w.eval φ)) := by
+        simpa [natT, interp_pi, interp_const, interp_sort, bval]
+          using t1
+      have t2' : interp V ρ xz ∈ˢ app (interp V ρ xM) natzero := by
+        simpa [natZeroT, VExpr.inst, VExpr.liftN_zero, interp_app,
+          interp_const, bval] using t2
+      have t3' : interp V ρ xs' ∈ˢ natStepSpace V (interp V ρ xM) := by
+        rw [← interp_natStepT]
+        have hstep : VExpr.inst (VExpr.inst
+            (VExpr.pi natT (VExpr.pi
+              (VExpr.app (VExpr.bvar 2) (VExpr.bvar 0))
+              (VExpr.app (VExpr.bvar 3)
+                (VExpr.app (VExpr.const .natSucc []) (VExpr.bvar 1)))))
+            xM (0 + 1)) xz 0 = natStepT xM := by
+          rw [natStepT, natSuccT]
+          simp only [VExpr.inst, Nat.zero_add, Nat.reduceAdd]
+          rw [if_neg (show ¬((2:Nat) < 2) by omega),
+            if_pos (show (0:Nat) < 2 by omega),
+            if_neg (show ¬((3:Nat) < 3) by omega), if_true, if_true]
+          rw [VExpr.inst_liftN_absorb xM (Nat.zero_le _)
+              (Nat.le_refl 1) xz,
+            VExpr.inst_liftN_absorb xM (Nat.zero_le _)
+              (show (2:Nat) ≤ 0 + 2 by omega) xz]
+          simp [VExpr.inst, natT]
+        rw [hstep] at t3
+        exact t3
+      have t4' : (natzero : V) ∈ˢ (omega : V) := natzero_mem
+      refine ⟨?_, ?_⟩
+      · simp only [List.take, List.drop, List.cons_append,
+          List.nil_append, VExpr.mkAppN_cons, VExpr.mkAppN_nil,
+          interp_app, interp_const, interp_lam, interp_pi, interp_sort,
+          natT, natZeroT, bval, lv, List.getD_cons_zero, interp_bvar,
+          cons]
+        have hdom : (piC (omega : V) fun x =>
+              piC (app (interp V ρ xM) x)
+                fun _ => app (interp V ρ xM) (app (natSuccV V) x))
+            = natStepSpace V (interp V ρ xM) := by
+          rw [natStepSpace]
+          exact piC_congr (fun n hn =>
+            piC_congr (fun _ _ => by rw [natSuccV_app (V := V) hn]))
+        rw [natRecV_app V t1' t2' t3' t4', natrec_zero]
+        rw [app_lamC t1', app_lamC t2', hdom, app_lamC t3']
+      · -- truthfulness: three `AnnotOkV_app` steps
+        intro hxsA hysA
+        have hMA : AnnotOkV V ρ xM := hxsA xM (by simp)
+        have hzA : AnnotOkV V ρ xz := hxsA xz (by simp)
+        have hsA : AnnotOkV V ρ xs' := hxsA xs' (by simp)
+        obtain ⟨hb1, hb2⟩ := AnnotOkV_bconst_type (V := V) .natRec
+          [w.eval φ] ρ
+        simp only [arrow, lv, List.getD_cons_zero,
+          VExpr.lift, VExpr.liftN, AnnotOkV_pi] at hb1 hb2
+        have hRA : AnnotOkV V ρ
+            (VExpr.lam (.pi natT (.sort (w.eval φ)))
+              (.lam (.app (.bvar 0) natZeroT)
+                (.lam (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+                    (.app (.bvar 3)
+                      (.app (VExpr.const .natSucc []) (.bvar 1)))))
+                  (.bvar 1)))) := by
+          refine ⟨hb1, fun x hx => ?_⟩
+          obtain ⟨h2a, h2b⟩ := hb2 x hx
+          refine ⟨h2a, fun y hy => ?_⟩
+          obtain ⟨h3a, -⟩ := h2b y hy
+          exact ⟨h3a, fun _ _ => trivial⟩
+        have hRm : interp V ρ
+            (VExpr.lam (.pi natT (.sort (w.eval φ)))
+              (.lam (.app (.bvar 0) natZeroT)
+                (.lam (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+                    (.app (.bvar 3)
+                      (.app (VExpr.const .natSucc []) (.bvar 1)))))
+                  (.bvar 1))))
+            ∈ˢ piC (interp V ρ (.pi natT (.sort (w.eval φ))))
+              (fun x => piC (interp V (cons V x ρ)
+                  (.app (.bvar 0) natZeroT))
+                (fun y => piC (interp V (cons V y (cons V x ρ))
+                    (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+                      (.app (.bvar 3)
+                        (.app (VExpr.const .natSucc []) (.bvar 1))))))
+                  (fun _ => interp V (cons V x ρ)
+                    (.app (.bvar 0) natZeroT)))) := by
+          exact lamC_mem (fun x hx => lamC_mem (fun y hy =>
+            lamC_mem (fun z hz => by
+              simpa [interp_bvar, cons] using hy)))
+        simp only [List.take, List.drop, List.append_nil,
+          VExpr.mkAppN_cons, VExpr.mkAppN_nil, AnnotOkV_app]
+        refine ⟨⟨⟨hRA, hMA, _, _, hRm, t1⟩, hzA, _, _,
+          app_mem_piC hRm t1, ?_⟩, hsA, _, _,
+          app_mem_piC (app_mem_piC hRm t1) ?_, ?_⟩
+        · rw [← interp_inst0]; exact t2
+        · rw [← interp_inst0]; exact t2
+        · have hdom2 : interp V (cons V (interp V ρ xz)
+              (cons V (interp V ρ xM) ρ))
+              (VExpr.pi natT (VExpr.pi
+                (VExpr.app (VExpr.bvar 2) (VExpr.bvar 0))
+                (VExpr.app (VExpr.bvar 3)
+                  (VExpr.app (VExpr.const .natSucc []) (VExpr.bvar
+                    1)))))
+              = natStepSpace V (interp V ρ xM) := by
+            simp only [natStepSpace, interp_pi, interp_app, interp_bvar,
+              cons, natT, interp_const, bval]
+            exact piC_congr (fun n hn => piC_congr (fun _ _ => by
+              rw [natSuccV_app (V := V) hn]))
+          rw [hdom2]
+          exact t3'
+    · rcases List.mem_cons.mp hr' with rfl | hr''
+      · -- `Nat.rec … (Nat.succ n) ↦ succ n (Nat.rec … n)`
+        refine ⟨_, denote_natRec_succRhsS m
+          (val := fun ψ => VExpr.const .natRec [ψ uN]) φ 0 w hN hZ hS,
+          ?_⟩
+        intro cvj cnP cnF hfj usj ρ xs ys TV TVj restR restC hxs hys
+          husj hlev hplain hnested hidx hTV hTVj hfitR hfitC
+        have hSu := hS
+        simp only [natSuccName, natName] at hSu
+        rw [Env.find?_cons, if_neg (by decide), hSu] at hfj
+        obtain ⟨rfl, rfl, rfl⟩ :
+            cvj = natSuccA.toConstantVal ∧ cnP = 0 ∧ cnF = 1 := by
+          injection Option.some.inj hfj with a1 a2 a3
+          exact ⟨a1.symm, a2.symm, a3.symm⟩
+        obtain ⟨n, rfl⟩ : ∃ a, ys = [a] := by
+          match ys, hys with
+          | [a], _ => exact ⟨a, rfl⟩
+        obtain ⟨xM, xz, xs', rfl⟩ : ∃ a b c, xs = [a, b, c] := by
+          match xs, hxs with
+          | [a, b, c], _ => exact ⟨a, b, c, rfl⟩
+        obtain rfl : TV = .pi (.pi natT (.sort (w.eval φ)))
+            (.pi (.app (.bvar 0) natZeroT)
+              (.pi (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+                  (.app (.bvar 3)
+                    (.app (VExpr.const .natSucc []) (.bvar 1)))))
+                (.pi natT (.app (.bvar 3) (.bvar 0))))) := by
+          have hty := denote_natRec_typeS m
+            (val := fun ψ => VExpr.const .natRec [ψ uN]) φ 0 w hN hZ hS
+          rw [denoteClosed] at hTV
+          exact (Option.some.inj (hty.symm.trans hTV)).symm
+        obtain rfl : TVj = .pi natT natT := by
+          rw [denoteClosed, show natSuccA.toConstantVal.type
+              = Expr.forallE (Name.anonymous.str "n")
+                (.const natName []) (.const natName [])
+                { bi := .default } from rfl] at hTVj
+          simp [denote_forallE, Expr.instantiate1, hNc,
+            Expr.instantiateLevelParams] at hTVj
+          exact hTVj.symm
+        cases hfitC with | cons hn0 hfitC =>
+        have hn : interp V ρ n ∈ˢ (omega : V) := by
+          simpa [natT, interp_const, bval] using hn0
+        have hrecV : cvalWith m.cval natRecA.name
+            (fun ψ => VExpr.const .natRec [ψ uN]) natRecA.name
+            (Level.substFn φ [Name.anonymous.str "u"] [w])
+            = VExpr.const .natRec [w.eval φ] := by
+          rw [cvalWith_self]
+          simp [Level.substFn, uN]
+        have hctorV : cvalWith m.cval natRecA.name
+            (fun ψ => VExpr.const .natRec [ψ uN])
+            ((Name.anonymous.str "Nat").str "succ")
+            (Level.substFn φ natSuccA.toConstantVal.levelParams usj)
+            = VExpr.const .natSucc [] := by
+          rw [cvalWith_ne (by decide)]
+          refine cvalS_pinned m (by decide) (by rw [hSu]; rfl) _ ?_
+          simp +decide [pinnedDirectT]
+        cases hfitR with | cons t1 hfitR =>
+        cases hfitR with | cons t2 hfitR =>
+        cases hfitR with | cons t3 hfitR =>
+        cases hfitR with | cons t4 hfitR =>
+        have t1' : interp V ρ xM ∈ˢ piC (omega : V)
+            (fun _ => univ (w.eval φ)) := by
+          simpa [natT, interp_pi, interp_const, interp_sort, bval]
+            using t1
+        have t2' : interp V ρ xz ∈ˢ app (interp V ρ xM) natzero := by
+          simpa [natZeroT, VExpr.inst, VExpr.liftN_zero, interp_app,
+            interp_const, bval] using t2
+        have t3' : interp V ρ xs' ∈ˢ natStepSpace V (interp V ρ xM) :=
+          by
+          rw [← interp_natStepT]
+          have hstep : VExpr.inst (VExpr.inst
+              (VExpr.pi natT (VExpr.pi
+                (VExpr.app (VExpr.bvar 2) (VExpr.bvar 0))
+                (VExpr.app (VExpr.bvar 3)
+                  (VExpr.app (VExpr.const .natSucc []) (VExpr.bvar
+                    1)))))
+              xM (0 + 1)) xz 0 = natStepT xM := by
+            rw [natStepT, natSuccT]
+            simp only [VExpr.inst, Nat.zero_add, Nat.reduceAdd]
+            rw [if_neg (show ¬((2:Nat) < 2) by omega),
+              if_pos (show (0:Nat) < 2 by omega),
+              if_neg (show ¬((3:Nat) < 3) by omega), if_true, if_true]
+            rw [VExpr.inst_liftN_absorb xM (Nat.zero_le _)
+                (Nat.le_refl 1) xz,
+              VExpr.inst_liftN_absorb xM (Nat.zero_le _)
+                (show (2:Nat) ≤ 0 + 2 by omega) xz]
+            simp [VExpr.inst, natT]
+          rw [hstep] at t3
+          exact t3
+        have hdom : (piC (omega : V) fun x =>
+              piC (app (interp V ρ xM) x)
+                fun _ => app (interp V ρ xM) (app (natSuccV V) x))
+            = natStepSpace V (interp V ρ xM) := by
+          rw [natStepSpace]
+          exact piC_congr (fun n' hn' =>
+            piC_congr (fun _ _ => by rw [natSuccV_app (V := V) hn']))
+        rw [hrecV, hctorV]
+        refine ⟨?_, ?_⟩
+        · simp only [List.take, List.drop, List.cons_append,
+            List.nil_append, VExpr.mkAppN_cons, VExpr.mkAppN_nil,
+            interp_app, interp_const, interp_lam, interp_pi,
+              interp_sort,
+            natT, natZeroT, bval, lv, List.getD_cons_zero, interp_bvar,
+            cons]
+          rw [natSuccV_app (V := V) hn,
+            natRecV_app V t1' t2' t3' (natsucc_mem hn)]
+          rw [natrec_succ _ _ hn]
+          rw [app_lamC t1', app_lamC t2', hdom, app_lamC t3',
+            app_lamC hn]
+          rw [show Level.substFn φ [uN] [w] uN = w.eval φ from by
+              simp [Level.substFn, uN],
+            natRecV_app V t1' t2' t3' hn]
+        · -- truthfulness: four `AnnotOkV_app` steps, and the reduct's
+          -- own recursive occurrence is `bval_mem_type` again
+          intro hxsA hysA
+          have hMA : AnnotOkV V ρ xM := hxsA xM (by simp)
+          have hzA : AnnotOkV V ρ xz := hxsA xz (by simp)
+          have hsA : AnnotOkV V ρ xs' := hxsA xs' (by simp)
+          have hnA : AnnotOkV V ρ n := hysA n (by simp)
+          obtain ⟨hb1, hb2⟩ := AnnotOkV_bconst_type (V := V) .natRec
+            [w.eval φ] ρ
+          simp only [arrow, lv, List.getD_cons_zero,
+            VExpr.lift, VExpr.liftN, AnnotOkV_pi] at hb1 hb2
+          -- the reduct's own recursive spine, at any assignment
+          have hspine : ∀ (ρ' : Nat → V) (x y z n' : V),
+              x ∈ˢ piC (omega : V) (fun _ => univ (w.eval φ)) →
+              y ∈ˢ app x natzero →
+              z ∈ˢ (piC (omega : V) fun k => piC (app x k)
+                fun _ => app x (app (natSuccV V) k)) →
+              n' ∈ˢ (omega : V) →
+              AnnotOkV V (cons V n' (cons V z (cons V y (cons V x ρ'))))
+                (VExpr.mkAppN
+                  (VExpr.const .natRec [Level.substFn φ [uN] [w] uN])
+                  [.bvar 3, .bvar 2, .bvar 1, .bvar 0]) ∧
+              interp V (cons V n' (cons V z (cons V y (cons V x ρ'))))
+                (VExpr.mkAppN
+                  (VExpr.const .natRec [Level.substFn φ [uN] [w] uN])
+                  [.bvar 3, .bvar 2, .bvar 1, .bvar 0])
+                = natrec y z n' ∧
+              app z n' ∈ˢ piC (app x n')
+                (fun _ => app x (app (natSuccV V) n')) ∧
+              natrec y z n' ∈ˢ app x n' := by
+            intro ρ' x y z n' hx hy hz2 hn'
+            have hlv : Level.substFn φ [uN] [w] uN = w.eval φ := by
+              simp [Level.substFn, uN]
+            have hstepEq : (piC (omega : V) fun k => piC (app x k)
+                fun _ => app x (app (natSuccV V) k))
+                = natStepSpace V x := by
+              rw [natStepSpace]
+              exact piC_congr (fun k hk => piC_congr (fun _ _ => by
+                rw [natSuccV_app (V := V) hk]))
+            have hz : z ∈ˢ natStepSpace V x := by
+              rw [← hstepEq]; exact hz2
+            have hb := bval_mem_type V .natRec [w.eval φ] ρ'
+            simp only [lv, List.getD_cons_zero,
+              
+              bval] at hb
+            refine ⟨?_, ?_, ?_, ?_⟩
+            · simp only [VExpr.mkAppN_cons, VExpr.mkAppN_nil,
+                AnnotOkV_app, AnnotOkV_const, AnnotOkV_bvar,
+                interp_app, interp_const, interp_bvar, cons, hlv,
+                true_and]
+              exact ⟨⟨⟨⟨_, _, hb, hx⟩, _, _, app_mem_piC hb hx, hy⟩,
+                _, _, app_mem_piC (app_mem_piC hb hx) hy, hz2⟩,
+                _, _, app_mem_piC (app_mem_piC (app_mem_piC hb hx) hy)
+                  hz2, hn'⟩
+            · simp only [VExpr.mkAppN_cons, VExpr.mkAppN_nil,
+                interp_app, interp_const, interp_bvar, cons, hlv, bval,
+                lv, List.getD_cons_zero]
+              exact natRecV_app V hx hy hz hn'
+            · exact app_mem_piC hz2 hn'
+            · exact natRecV_mem_fibre (V := V) hy hz hn'
+          have hbody : ∀ x, x ∈ˢ interp V ρ (.pi natT
+                (.sort (w.eval φ))) →
+              ∀ y, y ∈ˢ interp V (cons V x ρ)
+                (.app (.bvar 0) natZeroT) →
+              ∀ z, z ∈ˢ interp V (cons V y (cons V x ρ))
+                (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+                  (.app (.bvar 3)
+                    (.app (VExpr.const .natSucc []) (.bvar 1))))) →
+              ∀ n', n' ∈ˢ interp V (cons V z (cons V y (cons V x ρ)))
+                natT →
+              AnnotOkV V (cons V n' (cons V z (cons V y (cons V x ρ))))
+                (.app (.app (.bvar 1) (.bvar 0))
+                  (VExpr.mkAppN (VExpr.const .natRec
+                      [Level.substFn φ [uN] [w] uN])
+                    [.bvar 3, .bvar 2, .bvar 1, .bvar 0])) ∧
+              interp V (cons V n' (cons V z (cons V y (cons V x ρ))))
+                (.app (.app (.bvar 1) (.bvar 0))
+                  (VExpr.mkAppN (VExpr.const .natRec
+                      [Level.substFn φ [uN] [w] uN])
+                    [.bvar 3, .bvar 2, .bvar 1, .bvar 0]))
+                ∈ˢ app x (app (natSuccV V) n') := by
+            intro x hx y hy z hz n' hn'
+            obtain ⟨hsp1, hsp2, hsp3, hsp4⟩ :=
+              hspine ρ x y z n' hx hy hz hn'
+            constructor
+            · simp only [AnnotOkV_app, AnnotOkV_bvar, interp_app,
+                interp_bvar, cons]
+              exact ⟨⟨trivial, trivial, _, _, hz, hn'⟩, hsp1,
+                _, _, hsp3, by rw [hsp2]; exact hsp4⟩
+            · simp only [interp_app, interp_bvar, cons]
+              rw [hsp2]
+              exact app_mem_piC hsp3 hsp4
+          have t2'' : interp V ρ xz ∈ˢ interp V (cons V (interp V ρ xM)
+            ρ)
+              (.app (.bvar 0) natZeroT) := by
+            rw [← interp_inst0]; exact t2
+          have t3'' : interp V ρ xs' ∈ˢ
+              interp V (cons V (interp V ρ xz) (cons V (interp V ρ xM)
+                ρ))
+                (VExpr.pi natT (VExpr.pi
+                (VExpr.app (VExpr.bvar 2) (VExpr.bvar 0))
+                (VExpr.app (VExpr.bvar 3)
+                  (VExpr.app (VExpr.const .natSucc []) (VExpr.bvar
+                    1))))) := by
+            have hdom2 : interp V (cons V (interp V ρ xz)
+                (cons V (interp V ρ xM) ρ)) (VExpr.pi natT (VExpr.pi
+                (VExpr.app (VExpr.bvar 2) (VExpr.bvar 0))
+                (VExpr.app (VExpr.bvar 3)
+                  (VExpr.app (VExpr.const .natSucc []) (VExpr.bvar
+                    1)))))
+                = natStepSpace V (interp V ρ xM) := by
+              simp only [natStepSpace, interp_pi, interp_app,
+                interp_bvar, cons, natT, interp_const, bval]
+              exact piC_congr (fun k hk => piC_congr (fun _ _ => by
+                rw [natSuccV_app (V := V) hk]))
+            rw [hdom2]; exact t3'
+          have hn'' : interp V ρ n ∈ˢ interp V (cons V (interp V ρ xs')
+              (cons V (interp V ρ xz) (cons V (interp V ρ xM) ρ)))
+              natT := by
+            simpa [natT, interp_const, bval] using hn
+          have hRA : AnnotOkV V ρ (VExpr.lam (.pi natT (.sort (w.eval
+            φ)))
+              (.lam (.app (.bvar 0) natZeroT)
+                (.lam (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+                    (.app (.bvar 3)
+                      (.app (VExpr.const .natSucc []) (.bvar 1)))))
+                  (.lam natT
+                    (.app (.app (.bvar 1) (.bvar 0))
+                      (VExpr.mkAppN (VExpr.const .natRec
+                          [Level.substFn φ [uN] [w] uN])
+                        [.bvar 3, .bvar 2, .bvar 1, .bvar 0])))))) := by
+            refine ⟨hb1, fun x hx => ?_⟩
+            obtain ⟨h2a, h2b⟩ := hb2 x hx
+            refine ⟨h2a, fun y hy => ?_⟩
+            obtain ⟨h3a, -⟩ := h2b y hy
+            refine ⟨h3a, fun z hz => ⟨trivial, fun n' hn' => ?_⟩⟩
+            exact (hbody x hx y hy z hz n' hn').1
+          have hRm : interp V ρ (VExpr.lam (.pi natT (.sort (w.eval φ)))
+              (.lam (.app (.bvar 0) natZeroT)
+                (.lam (.pi natT (.pi (.app (.bvar 2) (.bvar 0))
+                    (.app (.bvar 3)
+                      (.app (VExpr.const .natSucc []) (.bvar 1)))))
+                  (.lam natT
+                    (.app (.app (.bvar 1) (.bvar 0))
+                      (VExpr.mkAppN (VExpr.const .natRec
+                          [Level.substFn φ [uN] [w] uN])
+                        [.bvar 3, .bvar 2, .bvar 1, .bvar 0])))))) ∈ˢ
+              piC (interp V ρ (.pi natT (.sort (w.eval φ))))
+                (fun x => piC (interp V (cons V x ρ)
+                    (.app (.bvar 0) natZeroT))
+                  (fun y => piC (interp V (cons V y (cons V x ρ))
+                      (VExpr.pi natT (VExpr.pi
+                (VExpr.app (VExpr.bvar 2) (VExpr.bvar 0))
+                (VExpr.app (VExpr.bvar 3)
+                  (VExpr.app (VExpr.const .natSucc []) (VExpr.bvar
+                    1))))))
+                    (fun z => piC (interp V
+                        (cons V z (cons V y (cons V x ρ))) natT)
+                      (fun n' => app x (app (natSuccV V) n'))))) := by
+            exact lamC_mem (fun x hx => lamC_mem (fun y hy =>
+              lamC_mem (fun z hz => lamC_mem (fun n' hn' =>
+                (hbody x hx y hy z hz n' hn').2))))
+          simp only [List.take, List.drop, List.cons_append,
+            List.nil_append, VExpr.mkAppN_cons, VExpr.mkAppN_nil,
+            AnnotOkV_app]
+          exact ⟨⟨⟨⟨hRA, hMA, _, _, hRm, t1⟩, hzA, _, _,
+              app_mem_piC hRm t1, t2''⟩, hsA, _, _,
+              app_mem_piC (app_mem_piC hRm t1) t2'', t3''⟩, hnA, _, _,
+            app_mem_piC (app_mem_piC (app_mem_piC hRm t1) t2'') t3'',
+            hn''⟩
+      · exact nomatch hr''
+
+/-- **The `Nat` block, installed.** -/
+theorem declBasisS_natK {env env₁ : Env} (m : EnvS V env)
+    (h : BasisInstallR env BasisKind.natK.declsA env₁) :
+    Nonempty (EnvS V env₁) := by
+  rw [show BasisKind.natK.declsA = [natA, natZeroA, natSuccA, natRecA]
+    from rfl] at h
+  obtain ⟨h1, h2, h3, h4, hnil⟩ := h
+  subst hnil
+  have hwf1 : EnvWF ⟨natA :: env.consts⟩ :=
+    EnvWF.cons m.wf ⟨rfl, rfl, rfl, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  obtain ⟨m1, -⟩ := extendNatS m (Option.isNone_iff_eq_none.mp h1) hwf1
+  have hN1 : (⟨natA :: env.consts⟩ : Env).find? natName = some natA :=
+    by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hwf2 : EnvWF ⟨natZeroA :: natA :: env.consts⟩ :=
+    EnvWF.cons hwf1 ⟨rfl, rfl, ?res2, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res2 =>
+    show Expr.constsResolve _ natZeroA.toConstantVal.type = true
+    have hf : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natName
+        = some natA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hN1
+    rw [show natZeroA.toConstantVal.type = Expr.const natName [] from
+      rfl]
+    simp [Expr.constsResolve, hf]
+  obtain ⟨m2, -⟩ := extendNatZeroS m1 hN1 (Option.isNone_iff_eq_none.mp
+    h2) hwf2
+  have hN2 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natName
+      = some natA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hN1
+  have hZ2 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natZeroName
+      = some natZeroA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hwf3 : EnvWF ⟨natSuccA :: natZeroA :: natA :: env.consts⟩ :=
+    EnvWF.cons hwf2 ⟨rfl, rfl, ?res3, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res3 =>
+    show Expr.constsResolve _ natSuccA.toConstantVal.type = true
+    have hf : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩ : Env).find?
+        natName = some natA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hN2
+    rw [show natSuccA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "n") (.const natName [])
+        (.const natName []) { bi := .default } from rfl]
+    simp [Expr.constsResolve, hf]
+  obtain ⟨m3, -⟩ := extendNatSuccS m2 hN2 (Option.isNone_iff_eq_none.mp
+    h3) hwf3
+  have hN3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩ : Env).find?
+      natName = some natA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hN2
+  have hZ3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩ : Env).find?
+      natZeroName = some natZeroA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hZ2
+  have hS3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩ : Env).find?
+      natSuccName = some natSuccA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hwf4 : EnvWF ⟨natRecA :: natSuccA :: natZeroA :: natA ::
+    env.consts⟩ :=
+    EnvWF.cons hwf3 ⟨rfl, rfl, ?res4, rfl,
+      (fun _ _ _ heq => nomatch heq), ?rec4,
+      (fun _ _ heq => nomatch heq)⟩
+  case res4 =>
+    show Expr.constsResolve _ natRecA.toConstantVal.type = true
+    have hfN : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩
+      :
+        Env).find? natName = some natA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hN3
+    have hfZ : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩
+      :
+        Env).find? natZeroName = some natZeroA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hZ3
+    have hfS : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩
+      :
+        Env).find? natSuccName = some natSuccA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hS3
+    rw [show natRecA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "motive")
+            (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+              (.sort (.param uN)) { bi := .default })
+            (Expr.forallE (Name.anonymous.str "zero")
+              (.app (.bvar 0) (.const natZeroName []))
+              (Expr.forallE (Name.anonymous.str "succ")
+                (Expr.forallE (Name.anonymous.str "n") (.const natName
+                  [])
+                  (Expr.forallE (Name.anonymous.str "n_ih")
+                    (.app (.bvar 2) (.bvar 0))
+                    (.app (.bvar 3)
+                      (.app (.const natSuccName []) (.bvar 1)))
+                    { bi := .default })
+                  { bi := .default })
+                (Expr.forallE (Name.anonymous.str "t") (.const natName
+                  [])
+                  (.app (.bvar 3) (.bvar 0)) { bi := .default })
+                { bi := .default })
+              { bi := .default })
+            { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hfN, hfZ, hfS]
+  case rec4 =>
+    intro cv mI rP rules heq
+    injection heq with h1' h2' h3' h4'
+    subst h4'
+    have hfN : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩
+      :
+        Env).find? natName = some natA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hN3
+    have hfZ : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩
+      :
+        Env).find? natZeroName = some natZeroA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hZ3
+    have hfS : (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩
+      :
+        Env).find? natSuccName = some natSuccA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hS3
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · refine ⟨rfl, ?_, ?_, rfl, fun lvls pins heqf => nomatch heqf⟩
+      · subst h1'; rfl
+      · show Expr.constsResolve _ (RecRule.rhs natRecZeroRule) = true
+        simp [Expr.constsResolve, natRecZeroRule, hfN, hfZ, hfS]
+    · rcases List.mem_cons.mp hr' with rfl | hr''
+      · refine ⟨rfl, ?_, ?_, rfl, fun lvls pins heqf => nomatch heqf⟩
+        · subst h1'; rfl
+        · show Expr.constsResolve _ (RecRule.rhs natRecSuccRule) = true
+          have hfR : (⟨natRecA :: natSuccA :: natZeroA :: natA ::
+              env.consts⟩ : Env).find? (natName.str "rec")
+              = some natRecA := by
+            rw [Env.find?_cons]; exact if_pos rfl
+          simp [Expr.constsResolve, natRecSuccRule, hfN, hfZ, hfS, hfR]
+      · exact nomatch hr''
+  obtain ⟨m4, -⟩ := extendNatRecS m3 hN3 hZ3 hS3
+    (Option.isNone_iff_eq_none.mp h4) hwf4
+  exact ⟨m4⟩
+
 /-- **The `PUnit` block, installed.** -/
 theorem declBasisS_punitK {env env₂ : Env} (m : EnvS V env)
     (h : BasisInstallR env BasisKind.punitK.declsA env₂) :
