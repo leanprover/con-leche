@@ -6226,3 +6226,35 @@ and `EnvS.reduce_ops` gives `app (cval op) a = a` for `a ∈ˢ E`.
 
 Estimated remainder: the `Eq`-spine peeling (~80 lines) and the
 three-fold `lamC_mem` (~40).
+
+### The last gap in `OfReduceKeyS`: the spine helpers point the wrong way
+
+`SetR/Sound/Iota.lean` already has `AnnotOkV_mkAppN_parts` /
+`AnnotOkV_mkAppN_args` — but both are **destructors** (truthfulness of
+a spine yields truthfulness of its parts).  Building `AnnotOkV` of the
+`Eq` spine needs the **constructor** direction, which is where the
+`piC` memberships enter and which nothing supplies yet.
+
+So the one lemma still to write is
+
+```
+AnnotOkV_mkAppN_of :
+  AnnotOkV ρ f → (∀ a ∈ as, AnnotOkV ρ a) →
+  <the chain of piC memberships along the spine> →
+  AnnotOkV ρ (VExpr.mkAppN f as)
+```
+
+— three `AnnotOkV_app` steps for the three-argument `Eq` spine, with
+the memberships peeled from `m.cval_memType` at `eqName` through
+`app_mem_piC`.  The level bookkeeping checks out:
+`interp_sort ρ u = univ u`, `reduceElem_sort` puts the element type at
+`.sort 1`, and `eqVS` instantiates `Eq` at `.succ .zero`, so
+`EqLawV.app₃`'s `interp A ∈ˢ univ (ψ uN)` is `univ 1` on both sides.
+
+*A note on the inventory rule's failure mode here.*  Finding
+`AnnotOkV_mkAppN_parts` by name looked like a hit and was a miss: the
+name says what it is *about*, not which way it runs.  **Search the
+conclusion, not the subject** — a helper about the right object can
+still face the wrong direction, and for `AnnotOkV` (destructors are
+cheap, constructors carry the side conditions) that asymmetry is
+systematic.
