@@ -5777,3 +5777,56 @@ template and none with a shortcut.  This is the first time in the
 campaign that the inventory rule comes back **empty five times in a
 row** — which is itself the finding: *the install tier's debt is
 genuine work, not unlocated work.*
+
+### DECISION REQUEST — `DivModCertR` was frozen without a consumer
+
+`CtxOkR.pinnedCtx` lands (the rock's first piece, and the one with
+reuse).  Before building the other two, the evidence says the rock may
+not need to exist.
+
+**Three facts.**
+
+1. **`DivModCertR` has exactly one occurrence in the tree** — its own
+   use inside `DivModPinR` (`SetR/Decl.lean:225`).  Nothing consumes
+   it.  Its consumer would be `DivModPinS`, which is an *open* install
+   obligation, so the detailed `Infer`-side content at depth `4` was
+   frozen **before any consumer exercised it**.  That is precisely
+   what D6's house rule forbids, and the rule is written in this file:
+   *the house rule forbids freezing a statement no consumer has
+   exercised.*
+2. **The TT lane did not transpose the certificates at all.**
+   `DivModPinTT` (`TTVerify/DeclDefn.lean:64`) takes
+   `checkDivModPin … = .ok ()` **as a hypothesis** and does the
+   certificate work *inside* `divModPinTT`.  The lane that has
+   actually finished this branch chose the other factoring.
+3. **The rock's size is the certificates.**  `checkDivModPin_inv` and
+   `checkDivModCerts_inv` are already shared-tier and already deliver
+   the guards, the storage, the pin annotate and `CertRuns`.  What is
+   expensive is turning `CertRuns` into `Forall2 DivModCertR`: a
+   depth-`4` frame package over a fragment richer than `natFragOk`'s,
+   plus the `Infer`-side transport — `TTVerify/DivModPin.lean` spends
+   ~1400 lines on the equivalent.
+
+**The proposal.**  Replace `DivModPinR`'s
+`Forall2 DivModCertR …` conjunct by the checker's own verdict,
+`checkDivModCerts (fueledOps μ F) env c value' (divModCertStmts c)
+(divModCertProofs c) = .ok true`, exactly as `DivModPinTT` keeps it.
+Then `DivModPinBridgeR` is discharged by `checkDivModPin_inv` alone —
+**T6's ledger closes today** — and the certificate work moves to
+`DivModPinS`, the install obligation that must do it anyway and where
+the TT lane put it.
+
+**What this does and does not cost.**  It does *not* eliminate work:
+`DivModPinS` gets less and must do more, and it is already on the
+campaign's list of five.  It does *not* weaken any final theorem: the
+verdict carries the same information the transposition would have, and
+`DivModPinS`'s statement is unchanged.  What it changes is **where**
+the depth-`4` machinery lives — beside the `EnvS` reasoning that
+consumes it, rather than in a relation that nothing reads.
+
+**Why I am asking rather than doing.**  Every earlier consumer-vote
+had an actual consumer to read.  This one has none, so the argument is
+from precedent and a house rule rather than from a use site — and it
+edits a relation the fourteen rest on.  That is the stop bar's
+"proof-design question the records do not answer", one level up: the
+records answer it *by analogy*, which is not the same thing.
