@@ -789,3 +789,57 @@ subject is a rule component (subject/argument/binder-body/fabrication
 spine) or a declaration front door's denoted stored object.  The
 extended-context premises (I6's `B`, I7's `b`) have binder-body
 subjects.  No further doubled chains exist.
+
+## T3 — batch (c) and the first two thirds of batch (d)
+
+Finding 3's amendment landed and the affected clauses went through
+without incident.  What this pass added:
+
+| file | content |
+|---|---|
+| `Bridge/Irrel.lean` | `unitLike_denote` and **`ProofIrrelStepR` proved** — D9's unit branch and D8's `Prop` branch |
+| `Bridge/Certs.lean` | `DenoteSpine.det`, **`certs_teleR`** (the `iotaCerts` → `Tele` walk), `denote_declTypeR`, `frame_declTypeR` |
+| `Bridge/StuckIrrel.lean` | `PairEtaCertStepR` / `StructEtaCertStepR` obligations, **`StructUnitCertStepR` proved** (D11), and **`stuckIrrel_stepR`** — the cascade's dispatch |
+| `Bridge/Eta.lean` | **`EtaCertStepR` proved** (D13) |
+| `Bridge/StrLitR.lean` | `denote_strLitCtorR`, `frame_strLitCtorR` — R7's two side conditions, at any depth |
+
+Three observations worth keeping.
+
+**`certs_teleR` is the one consumer of the inference claim that needs
+no conversion at all.**  `Tele.cons` is `Infer Δ a ta → DefEq Δ ta A →
+…` and `iotaCerts`'s step is `infer arg` then `defeq ta dom` — the same
+pair in the same order — so each step is two induction hypotheses and
+the constructor, with no `inferShapeR` in between.  Everywhere else the
+slack has to be composed; here the rule was already shaped to take it.
+That is the two-pack discipline at its sharpest, and `certs_teleR` is
+reused by D10, D11, R6, R11 and R12–R14.
+
+**D13 measures premise-exactness against the TT lane directly.**  The
+TT lane's `etaCert_stepTT` has to *retype* `b` at the λ's domain
+(`congrPi`) before `HasType.eta` fires, then compose with `congrLam`;
+here the rule names the domain mismatch as its own premise
+(`DefEq Δ A₂ A₁`), so the clause is four bridge moves and one
+constructor.  The retyping happens once, in the rule, instead of once
+per use.
+
+**One more V-free relocation, and this one was forced by three
+consumers at once.**  `denote_strLitToConstructor`'s chain (the six
+shape lemmas, `denote_nilTerm`/`denote_consTerm`/`denote_strLitList`,
+plus `substFn_nil` and `denote_const_nolevels`) was stranded in
+`TTVerify/{StrLitStep,NatOpsStep}.lean` behind an `EnvTT` argument it
+never used beyond level insensitivity.  Relocated to
+`Setlec/Verify/Denote/StrLit.lean` and **generalized from `EnvTT` to
+`ValParams`**; the `EnvTT`-shaped statements stay where their consumers
+are, each now one line over the generalized form, so there is exactly
+one proof.  `denote_const_nolevels`'s 45 call sites and `substFn_nil`'s
+are untouched (same name, same signature, same namespace).
+
+### Outstanding after this pass
+
+| obligation | batch | what it needs |
+|---|---|---|
+| `DefEqStuckStepR` | d | the seventeen-case match itself.  Every case's rule is verified in the finding-2 record above (and `.proj`/`.proj` now has `DefEq.projCong`); the two string cases now have their side conditions from `Bridge/StrLitR.lean`, the two binder cases fire `CtxOkR.openCong`, the two one-sided-λ cases call `etaCert_stepR`, and every fallthrough calls `stuckIrrel_stepR` |
+| `PairEtaCertStepR` | d | D12, from `pairEtaCert_inv` (its `mode.ttChecks` conjunct vacuous) |
+| `StructEtaCertStepR` | d | D10, from `structEtaCert_inv` / `structEtaCertWith_inv` + `structEtaProjCerts_inv`, through `certs_teleR` |
+| `ProjStepR`, `InferProjStepR` | e | R6 (with T4's `Tele` premise) and I9 |
+| `IotaStepR` | g | R11 + the R12–R14 rescues |

@@ -5,6 +5,7 @@ import Setlec.Verify.EnvWF
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InstLevels
 import Setlec.Verify.Denote.Levels
+import Setlec.Verify.Denote.StrLit
 import Setlec.Verify.Denote.Install
 
 /-!

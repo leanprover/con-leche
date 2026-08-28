@@ -30,6 +30,11 @@ import Setlec.SetR.Bridge.ReduceNat
 import Setlec.SetR.Bridge.Step
 import Setlec.SetR.Bridge.InferStruct
 import Setlec.SetR.Bridge.Spine
+import Setlec.SetR.Bridge.Irrel
+import Setlec.SetR.Bridge.Certs
+import Setlec.SetR.Bridge.StuckIrrel
+import Setlec.SetR.Bridge.Eta
+import Setlec.SetR.Bridge.StrLitR
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family

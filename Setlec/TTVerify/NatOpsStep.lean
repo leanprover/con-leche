@@ -1,5 +1,6 @@
 import Setlec.TTVerify.WhnfCoreStep
 import Setlec.Verify.Denote.Weaken
+import Setlec.Verify.Denote.StrLit
 
 /-!
 # The `Nat` fast path's obligation
@@ -55,19 +56,14 @@ theorem denote_natOp_y {cval : TConstVal} {env : Env} {φ : Name → Nat}
     denote cval env φ 2 (.fvar 1 n ty) = some (.bvar 0) := by
   rw [denote_fvar]
 
-/-- The empty level substitution is the identity assignment. -/
-theorem substFn_nil (φ : Name → Nat) : Level.substFn φ [] [] = φ := by
-  funext q
-  rfl
-
 /-- A stored constant with no level parameters denotes to its valuation
-at the ambient assignment. -/
+at the ambient assignment.  The `EnvTT` specialization of
+`denote_const_nolevelsV` (`Setlec/Verify/Denote/StrLit.lean`). -/
 theorem denote_const_nolevels {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {c : Name} {ci : ConstantInfo} (hf : env.find? c = some ci)
     (hlp : ci.toConstantVal.levelParams = []) (d : Nat) :
-    denote m.cval env φ d (.const c []) = some (m.cval c φ) := by
-  rw [denote_const, hf]
-  simp only [hlp, List.length_nil, if_true, substFn_nil]
+    denote m.cval env φ d (.const c []) = some (m.cval c φ) :=
+  denote_const_nolevelsV φ hf hlp d
 
 /-- The valuation of `Nat.zero` is the layer's. -/
 theorem cval_natZeroT {env : Env} (m : EnvTT env) (φ : Name → Nat)
