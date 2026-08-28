@@ -4849,3 +4849,61 @@ genuinely absent, so the practice works when applied — the failure was
 skipping it on the one helper that looked too small to be worth a
 grep.  **Size is not a reason to skip the inventory check; it is the
 best predictor that the helper already exists.**
+
+### `IotaThmNR`: every input traced but one — the assembly plan
+
+Traced ahead of writing, per the trace-before-write discipline.  The
+nested pack is *not* "the plain pack plus witnesses" (my earlier
+estimate, and the fourth time a tally has understated a shape count):
+its six `IotaWalksR` rows sit at a **different constructor spine** and
+a **level-instantiated** constructor type, and it carries a seventh
+row that is `TypedListW`, not `DefEqListW`.
+
+**Inputs that already exist** (no new lemma needed):
+
+* the constructor type at `lvls`, packaged — `denote_declTypeR` +
+  `frame_declTypeR` (`Bridge/Certs.lean:141,171`), which are exactly
+  "a stored declaration's type at a level instantiation"; the plain
+  path never needed them because its constructor is at the identity
+  instantiation;
+* the pins' **syntactic** frame facts — `nestedRuleShape` itself
+  certifies `!p.hasFvar && p.looseBVarsBounded rP &&
+  p.constsResolve envSelf && p.allLevelParamsDefined lps`
+  (`Kernel/Modeled.lean:177-178`).  Read the *shape function*, not the
+  premise bundle: `NestedChecked` carries the pin facts only by
+  carrying `nestedRuleShape`'s verdict;
+* `instSpine` transport of those facts — `instSpine_WScoped`,
+  `instSpine_closed`, `fvarLeaves_instSpine`
+  (`Verify/InstSpine.lean:42,55,~80`), all three already proved;
+* rows 1–6 themselves — the five packs `iotaThmR_of` needed, unchanged.
+
+**The one open input: the pins' denotation.**  `TypedListW`'s
+`TypedAtW` puts `∃ Ev, denote … p = some Ev` *outside* its `∀ Δ`, and
+the soundness side genuinely consumes it
+(`Install/IndBottomNestedS.lean:328-345` reads the pins' canonical
+values back through `denote_openRev`) — so it cannot be weakened away.
+It is also not free: `constsResolve` records that a pin's constants
+*exist*, not that their level arities match `denote`'s `.const`
+clause, which is the same gap `EnvR.rec_rhs_denotes` was added to
+close for rule right-hand sides.
+
+The route that should work, to be confirmed first thing next stretch:
+`TypedListOk` gives `inferTypeCore … p = .ok t`, and `InferClaimsR`
+turns that into the denotation — but it demands a `CtxOkR … Δ p`, and
+`TypedAtW`'s existential has no `Δ` in scope.  The campaign's own
+device for this is `OpenCtxR` (`SetR/Decl.lean:61`, "the opened
+variables' annotations at their own depths", pinned rather than
+existential *precisely* so it is not vacuous-premise-unsound).  So the
+missing step is a **canonical-context lemma**: an `openPisAtFvars`
+opening yields a `Δ` with `OpenCtxR`, and `CtxOkR … Δ e` for anything
+whose leaves are among the openers.  Check whether one exists before
+building it; if it does not, it is the next stretch's single new
+derivation and everything else is transcription.
+
+*The estimate that keeps failing.*  Four times now a stretch has been
+sized by counting instances rather than shapes, and four times the
+shape count was higher.  The nested pack was called "witnesses, not
+walks" before anyone read `nestedRuleShape`.  The discipline that
+works is the one applied here: **trace every input to a named
+supplier before writing a line, and let the one input that has no
+supplier be the stretch's stated risk.**
