@@ -1,5 +1,9 @@
 import Setlec.Verify.BridgeWfImp
-import Setlec.Model.DirectWF
+import Setlec.Verify.BridgeDecl
+import Setlec.Verify.Extend.Modeled
+import Setlec.Verify.Extend.Inversions
+import Setlec.Verify.Extend.Proj
+import Setlec.Verify.Extend.Recs
 
 /-!
 # Threading `EnvWF` through the declaration checker
@@ -870,30 +874,19 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     -- task #82: the direct clause dispatches here; both arms are
     -- `wfOpsM mode`-to-pure, the direct one with its run-tied `EnvWF`
     -- obligations discharged from the stage inversions
-    -- (`Setlec/Model/DirectWF.lean`)
     replace h : (match directParts? env block with
       | some p => checkDirectStruct (wfOpsM mode) env p
       | none => checkIndDecl mode (wfOpsM mode) env block).val F = .ok env₂ := h
     show (match directParts? env block with
       | some p => checkDirectStruct (fueledOps mode F) env p
       | none => checkIndDecl mode (fueledOps mode F) env block) = .ok env₂
-    cases hdp : directParts? env block with
-    | none =>
-      rw [hdp] at h
-      exact checkIndDecl_wfimp henv h
-    | some p =>
-      rw [hdp] at h
-      refine checkDirectStruct_wfimp henv ?_ ?_ ?_ ?_ h
-      · intro e₁ cvTa hind
-        exact direct_ind_wf henv (checkDirectInd_wfimp henv hind)
-      · intro e₁ e₂ cvTa cvCa hind hct
-        obtain ⟨henv₁, hTf⟩ :=
-          direct_ind_wf henv (checkDirectInd_wfimp henv hind)
-        exact direct_ctor_wf henv₁ (checkDirectCtor_wfimp henv₁ hTf hct)
-      · intro e₂ cvCa cvRa rhsA henv₂ hcv hru
-        exact direct_rec_wf henv₂ hcv hru
-      · intro cvTa cvCa e e' i he hpj
-        exact direct_proj_wf he hpj
+    -- task #148 T6: the direct branch is unreachable
+    -- (`directStructsEnabled = false`), so the whole
+    -- `Setlec/Model/DirectWF.lean` dependence collapses at one
+    -- `rw` — which is what lets this file live in the shared tier
+    -- and both soundness routes use it.
+    rw [directParts?_none] at h ⊢
+    exact checkIndDecl_wfimp henv h
 
 /-! ## The punchline (part two) -/
 

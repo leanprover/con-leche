@@ -1,4 +1,5 @@
 import Setlec.SetR.Bridge.Sound
+import Setlec.Verify.BridgeWFDecl
 
 /-!
 # The `SetR` route's consistency theorems (task #148, T6)
@@ -64,6 +65,52 @@ theorem no_proof_of_Empty_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
   obtain ⟨m⟩ := checkDecls_sound_R hkey heta hdm
     hstd hofr h
+  exact no_constant_of_Empty_R m c hc hty
+
+/-- The cached-executable fold.  `checkDecl_bridge` supplies, per
+declaration, a fuel at which the pure checker reproduces the cached
+run; everything after that is `foldlM_R`'s step. -/
+theorem foldlM_RC (hkey : MemberKeyS V) (heta : MemberEtaS V)
+    {μ : CheckMode} (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
+    (hofr : OfReduceKeyS V) :
+    ∀ (ds : List Declaration) (env : Env) {env' : Env},
+      Nonempty (EnvS V env) →
+      ds.foldlM (checkDecl μ (cachedOps μ)) env = .ok env' →
+      Nonempty (EnvS V env')
+  | [], env, env', hm, h => by
+    have h' : (Except.ok env : CheckM Env) = Except.ok env' := h
+    cases h'
+    exact hm
+  | d :: ds, env, _, hm, h => by
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    cases hd : checkDecl μ (cachedOps μ) env d with
+    | error e => rw [hd] at h; exact nomatch h
+    | ok env1 =>
+      rw [hd] at h
+      obtain ⟨m⟩ := hm
+      obtain ⟨F, hF⟩ := checkDecl_bridge m.wf hd
+      exact foldlM_RC hkey heta hdm hstd hofr ds env1
+        (declStepS hdm reducePinS hstd hofr declBasisS
+          (declIndS hkey heta) m
+          (checkDeclR_sound hkey heta m hF)) h
+
+/-- **The acceptance theorem for the cached executable checker.** -/
+theorem checkDeclsC_sound_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
+    {μ : CheckMode} (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
+    (hofr : OfReduceKeyS V) {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (cachedOps μ) ds = .ok env') :
+    Nonempty (EnvS V env') :=
+  foldlM_RC hkey heta hdm hstd hofr ds Env.empty ⟨EnvS.empty V⟩ h
+
+/-- **No proof of `Empty`** is accepted by the cached executable. -/
+theorem no_proof_of_Empty_C_R (hkey : MemberKeyS V)
+    (heta : MemberEtaS V) {μ : CheckMode} (hdm : DivModPinS V)
+    (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (cachedOps μ) ds = .ok env')
+    (c : ConstantInfo) (hc : c ∈ env'.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False := by
+  obtain ⟨m⟩ := checkDeclsC_sound_R hkey heta hdm hstd hofr h
   exact no_constant_of_Empty_R m c hc hty
 
 end Setlec.SetR

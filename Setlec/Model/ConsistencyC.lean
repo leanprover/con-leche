@@ -1,5 +1,5 @@
 import Setlec.Model.Consistency
-import Setlec.Model.BridgeWF
+import Setlec.Verify.BridgeWFDecl
 
 /-!
 # Consistency of the executable checker

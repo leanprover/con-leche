@@ -35,7 +35,7 @@ import Setlec.Verify.Deep
 import Setlec.Verify.Bridge
 import Setlec.Verify.BridgeDecl
 import Setlec.Model.DirectWF
-import Setlec.Model.BridgeWF
+import Setlec.Verify.BridgeWFDecl
 import Setlec.Model.ConsistencyC
 import Setlec.Kernel.CheckerS
 import Setlec.Kernel.CoreNC

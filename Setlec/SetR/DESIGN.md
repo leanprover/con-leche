@@ -5871,3 +5871,40 @@ a caution about **detail**; this is the first time it caught a
 statement whose detail was right and whose *existence* was wrong.  The
 sharper form: **an unexercised statement's first error is usually not
 its content but its right to exist.**
+
+### The narrowing was a collapse, and the `_C` driver followed
+
+The trace said "narrow `DirectWF`'s import to the syntactic lemmas it
+uses".  Reading the use site, there was nothing to narrow — there was
+a branch to delete.  `Model/BridgeWF.lean` touched `DirectWF` at
+**exactly one place**, the `some p` arm of
+`cases hdp : directParts? env block`, and `directParts?_none` makes
+that arm unreachable.  Two lines replace nineteen, the
+`Setlec.Model.DirectWF` import goes, and the file — already entirely
+V-free — becomes shared-tier material.
+
+So `Model/BridgeWF.lean` is now **`Setlec/Verify/BridgeWFDecl.lean`**
+(`git mv`, one importer to repoint plus the root).  `directParts?_none`
+moved with it into `Verify/BridgeDecl.lean`, where every consumer's
+dependence on the compile-time switch is findable from one place.
+
+*The general shape, worth a line beside the relocation thesis:*
+**before narrowing a dependence, check whether the branch that
+creates it can fire.**  A dead branch is not a dependence to be
+minimised; it is a dependence to be deleted, and the two look
+identical from the import list.
+
+With `checkDecl_bridge` reachable, the cached-driver fold is the
+transposition it was advertised as:
+
+* `foldlM_RC` — per declaration, `checkDecl_bridge m.wf` supplies a
+  fuel at which the pure checker reproduces the cached run; the rest
+  is `foldlM_R`'s step verbatim.  Compiled first attempt;
+* `checkDeclsC_sound_R`, `no_proof_of_Empty_C_R` — two of the
+  fourteen, both at `[propext, Classical.choice, Quot.sound]`, both
+  carrying exactly the install tier's five.
+
+Five of the fourteen now stand.  The `_S` and `_SP` drivers are the
+same shape with their own bridges (`checkDeclSharedF`, the
+parsed-index step over the store); the `_input` corollaries follow the
+Model lane's `foldlM_no_Empty_decl` pattern.
