@@ -74,8 +74,7 @@ theorem certValueS {μ : CheckMode} {F : Nat} {env : Env}
     (m : EnvS V env) (φ : Name → Nat) {c : Name} {annVal : Expr}
     {st : List Expr × Expr} {proof : Expr}
     (hfacts : CertRunFacts μ env F c annVal st proof)
-    {Δ : List VExpr} (hlen : Δ.length = 4)
-    (hclΔ : ∀ A ∈ Δ, VExpr.Closed A)
+    {Δ : List VExpr}
     (hW : Expr.WScoped 4 (divModCertApplied
       (Expr.substConstAll c annVal proof)
       (st.1.map (Expr.substConst0 c annVal))))
@@ -84,17 +83,13 @@ theorem certValueS {μ : CheckMode} {F : Nat} {env : Env}
     (hL : Expr.LeavesBounded (divModCertApplied
       (Expr.substConstAll c annVal proof)
       (st.1.map (Expr.substConst0 c annVal))))
-    (hslot : ∀ l ∈ (divModCertApplied
-        (Expr.substConstAll c annVal proof)
-        (st.1.map (Expr.substConst0 c annVal))).fvarLeaves,
-      l.1 < 4 ∧ Expr.fvarsBelow l.1 l.2.2 ∧
-      denote m.cval env φ 4 l.2.2 = some (Δ.getD (3 - l.1) default))
+    (hCA : CtxOkR μ m.cval env φ 4 Δ (divModCertApplied
+      (Expr.substConstAll c annVal proof)
+      (st.1.map (Expr.substConst0 c annVal))))
     (hWE : Expr.WScoped 4 (Expr.substConst0 c annVal st.2))
     (hBE : (Expr.substConst0 c annVal st.2).looseBVarsBounded 0 = true)
     (hLE : Expr.LeavesBounded (Expr.substConst0 c annVal st.2))
-    (hslotE : ∀ l ∈ (Expr.substConst0 c annVal st.2).fvarLeaves,
-      l.1 < 4 ∧ Expr.fvarsBelow l.1 l.2.2 ∧
-      denote m.cval env φ 4 l.2.2 = some (Δ.getD (3 - l.1) default))
+    (hCE : CtxOkR μ m.cval env φ 4 Δ (Expr.substConst0 c annVal st.2))
     {vE : VExpr}
     (hvE : denote m.cval env φ 4 (Expr.substConst0 c annVal st.2)
       = some vE)
@@ -108,13 +103,10 @@ theorem certValueS {μ : CheckMode} {F : Nat} {env : Env}
     annotateCore_looseBVars F _ hann hB
   have hsub := annotateCore_leaves_sub F _ hann hW hB
   have hLA : Expr.LeavesBounded appliedA := fun l hl => hL l (hsub l hl)
-  have hCA : CtxOkR μ m.cval env φ 4 Δ appliedA :=
-    CtxOkR.pinnedCtx hlen hclΔ (fun l hl => hslot l (hsub l hl))
-  have hCE : CtxOkR μ m.cval env φ 4 Δ
-      (Expr.substConst0 c annVal st.2) :=
-    CtxOkR.pinnedCtx hlen hclΔ hslotE
+  have hCA' : CtxOkR μ m.cval env φ 4 Δ appliedA :=
+    CtxOkR.of_subset hsub hCA
   obtain ⟨v, tv, hv, htv, T', hInf, hDeq⟩ :=
-    ihi hinf hWA hBA hLA hCA
+    ihi hinf hWA hBA hLA hCA'
   have hWtp : Expr.WScoped 4 tp :=
     inferTypeCore_WScoped m.wf F hinf hWA
   have hBtp : tp.looseBVarsBounded 0 = true :=
@@ -122,7 +114,7 @@ theorem certValueS {μ : CheckMode} {F : Nat} {env : Env}
   have hLtp : Expr.LeavesBounded tp :=
     fun l hl => hLA l (inferTypeCore_fvarLeaves m.wf F hinf hWA l hl)
   have hCtp : CtxOkR μ m.cval env φ 4 Δ tp :=
-    CtxOkR.of_subset (inferTypeCore_fvarLeaves m.wf F hinf hWA) hCA
+    CtxOkR.of_subset (inferTypeCore_fvarLeaves m.wf F hinf hWA) hCA'
   have hDeq2 : DefEq μ env m.cval φ Δ tv vE :=
     ihd hde hWtp hBtp hLtp hWE hBE hLE hCtp hCE htv hvE
   have hI := (Infer.sound (m.toHyp φ) hInf ρ hsat).2
@@ -552,80 +544,25 @@ theorem dmLeavesOk_leavesBounded {e : Expr} (h : dmLeavesOk e = true) :
   intro l hl
   rcases dmLeavesOk_mem h hl with rfl | rfl <;> rfl
 
-/-- The frame's four entries: the two hypothesis slots on top, the two
-`Nat` variables below. -/
-def dmCtx (H1 H2 natV : VExpr) : List VExpr := [H2, H1, natV, natV]
+/-! ### Why the slots are not built here
 
-@[simp] theorem dmCtx_len {H1 H2 natV : VExpr} :
-    (dmCtx H1 H2 natV).length = 4 := rfl
+An earlier version of this layer supplied `certValueS` with
+`CtxOkR.pinnedCtx`'s *closed-entry* form: `Δ.length = 4`, every entry
+closed, and each leaf's annotation denoting to `Δ.getD (3 - l.1)`.
+For the two `Nat` slots that is right.  For a **hypothesis** slot it is
+jointly unsatisfiable: the slot's entry is the denotation of a
+hypothesis type, which mentions `x` and `y` — it is `.bvar 3`/`.bvar 2`
+at depth 4 — so it is not closed, and `pinnedCtx`'s `hcl` can never be
+discharged.  The pair compiled and sat in the tree because no consumer
+had exercised it (trap family, sixth shape: *jointly unsatisfiable
+premises*).
 
-/-- A statement's leaves sit in the two `Nat` slots. -/
-theorem dmSlots_stmt {env : Env} {cval : TConstVal} {c : Name}
-    {value' : Expr} (φ : Name → Nat) {H1 H2 natV : VExpr}
-    (hvf : value'.hasFvar = false)
-    (hnat : denote cval env φ 4 (Expr.const natName []) = some natV)
-    {e : Expr} (h : dmLeavesOk e = true) :
-    ∀ l ∈ (Expr.substConst0 c value' e).fvarLeaves, l.1 < 4 ∧
-      Expr.fvarsBelow l.1 l.2.2 ∧
-      denote cval env φ 4 l.2.2
-        = some ((dmCtx H1 H2 natV).getD (3 - l.1) default) := by
-  intro l hl
-  rw [fvarLeaves_substConst0 (n := c) hvf e] at hl
-  rcases dmLeavesOk_mem h hl with rfl | rfl
-  · exact ⟨by omega, trivial, hnat⟩
-  · exact ⟨by omega, trivial, hnat⟩
-
-/-- The two-hypothesis applied certificate's leaves sit in their four
-slots. -/
-theorem dmSlots_applied2 {env : Env} {cval : TConstVal} {c : Name}
-    {value' : Expr} (φ : Name → Nat) {H1 H2 natV : VExpr}
-    (hvf : value'.hasFvar = false)
-    (hnat : denote cval env φ 4 (Expr.const natName []) = some natV)
-    {h1 h2 p : Expr} (hp : p.hasFvar = false)
-    (hl1 : dmLeavesOk h1 = true) (hl2 : dmLeavesOk h2 = true)
-    (hfb1 : Expr.fvarsBelow 2 (Expr.substConst0 c value' h1))
-    (hfb2 : Expr.fvarsBelow 3 (Expr.substConst0 c value' h2))
-    (hd1 : denote cval env φ 4 (Expr.substConst0 c value' h1) = some H1)
-    (hd2 : denote cval env φ 4 (Expr.substConst0 c value' h2)
-      = some H2) :
-    ∀ l ∈ (divModCertApplied p [Expr.substConst0 c value' h1,
-        Expr.substConst0 c value' h2]).fvarLeaves,
-      l.1 < 4 ∧ Expr.fvarsBelow l.1 l.2.2 ∧
-      denote cval env φ 4 l.2.2
-        = some ((dmCtx H1 H2 natV).getD (3 - l.1) default) := by
-  intro l hl
-  rcases divModCertApplied_mem2 hp hl with rfl | rfl | rfl | hm | rfl | hm
-  · exact ⟨by omega, trivial, hnat⟩
-  · exact ⟨by omega, trivial, hnat⟩
-  · exact ⟨by omega, hfb1, hd1⟩
-  · exact dmSlots_stmt (c := c) (value' := value') (H1 := H1)
-      (H2 := H2) φ hvf hnat hl1 l hm
-  · exact ⟨by omega, hfb2, hd2⟩
-  · exact dmSlots_stmt (c := c) (value' := value') (H1 := H1)
-      (H2 := H2) φ hvf hnat hl2 l hm
-
-/-- The one-hypothesis applied certificate's leaves. -/
-theorem dmSlots_applied1 {env : Env} {cval : TConstVal} {c : Name}
-    {value' : Expr} (φ : Name → Nat) {H1 H2 natV : VExpr}
-    (hvf : value'.hasFvar = false)
-    (hnat : denote cval env φ 4 (Expr.const natName []) = some natV)
-    {h1 p : Expr} (hp : p.hasFvar = false)
-    (hl1 : dmLeavesOk h1 = true)
-    (hfb1 : Expr.fvarsBelow 2 (Expr.substConst0 c value' h1))
-    (hd1 : denote cval env φ 4 (Expr.substConst0 c value' h1)
-      = some H1) :
-    ∀ l ∈ (divModCertApplied p
-        [Expr.substConst0 c value' h1]).fvarLeaves,
-      l.1 < 4 ∧ Expr.fvarsBelow l.1 l.2.2 ∧
-      denote cval env φ 4 l.2.2
-        = some ((dmCtx H1 H2 natV).getD (3 - l.1) default) := by
-  intro l hl
-  rcases divModCertApplied_mem1 hp hl with rfl | rfl | rfl | hm
-  · exact ⟨by omega, trivial, hnat⟩
-  · exact ⟨by omega, trivial, hnat⟩
-  · exact ⟨by omega, hfb1, hd1⟩
-  · exact dmSlots_stmt (c := c) (value' := value') (H1 := H1)
-      (H2 := H2) φ hvf hnat hl1 l hm
+`CtxOkR` itself is **slack** — it asks for `Infer Δ (.bvar (d-1-l.1)) T'`
+and `DefEq T' T`, not for entry equality — so the frame is satisfiable
+with `Δ`'s hypothesis entries at depth 2 and `Infer.bvar`'s own
+`liftN 2` supplying the depth-4 denotation.  So `certValueS`,
+`dmCertEq1` and `dmCertEq2` take `CtxOkR` **directly**: strictly more
+general, and it puts the lift where the caller can see it. -/
 
 /-! ## One certificate, packaged -/
 
@@ -697,21 +634,19 @@ theorem dmCertEq2 {μ : CheckMode} {F : Nat} {env : Env}
     (hb2 : h2.looseBVarsBounded 0 = true)
     (hbL : l.looseBVarsBounded 0 = true)
     (hbR : r.looseBVarsBounded 0 = true)
-    {natV H1 H2 lV rV : VExpr}
+    {natV lV rV : VExpr} {Δ : List VExpr}
     (hnat : denote m.cval env φ 4 (Expr.const natName []) = some natV)
-    (hd1 : denote m.cval env φ 4 (Expr.substConst0 c value' h1)
-      = some H1)
-    (hd2 : denote m.cval env φ 4 (Expr.substConst0 c value' h2)
-      = some H2)
     (hdl : denote m.cval env φ 4 (Expr.substConst0 c value' l)
       = some lV)
     (hdr : denote m.cval env φ 4 (Expr.substConst0 c value' r)
       = some rV)
-    (hclN : VExpr.Closed natV) (hcl1 : VExpr.Closed H1)
-    (hcl2 : VExpr.Closed H2)
-    (ρ : Nat → V)
-    (hs0 : ρ 0 ∈ˢ interp V ρ H2) (hs1 : ρ 1 ∈ˢ interp V ρ H1)
-    (hs2 : ρ 2 ∈ˢ interp V ρ natV) (hs3 : ρ 3 ∈ˢ interp V ρ natV)
+    (hCA : CtxOkR μ m.cval env φ 4 Δ (divModCertApplied
+      (Expr.substConstAll c value' proof)
+      ([h1, h2].map (Expr.substConst0 c value'))))
+    (hCE : CtxOkR μ m.cval env φ 4 Δ (Expr.substConst0 c value'
+      (.app (.app (.app (.const eqName [.succ .zero])
+        (.const natName [])) l) r)))
+    (ρ : Nat → V) (hsat : Sat V Δ ρ)
     (hNU : interp V ρ natV ∈ˢ univ 1)
     (hlm : interp V ρ lV ∈ˢ interp V ρ natV)
     (hrm : interp V ρ rV ∈ˢ interp V ρ natV) :
@@ -771,19 +706,8 @@ theorem dmCertEq2 {μ : CheckMode} {F : Nat} {env : Env}
         (.const natName [])) l) r)) :=
     dmLeavesOk_leavesBounded (dmLeavesOk_substConst0 hvf hlE)
   -- the certificate
-  have hw := certValueS m φ hfacts (Δ := dmCtx H1 H2 natV) rfl
-    (by intro A hA
-        simp only [dmCtx, List.mem_cons, List.not_mem_nil,
-          or_false] at hA
-        rcases hA with rfl | rfl | rfl | rfl <;> assumption)
-    hWA hBA hLA
-    (dmSlots_applied2 φ hvf hnat hpf hl1 hl2 hw1'.fvarsBelow
-      hw2'.fvarsBelow hd1 hd2)
-    hwE hbE hLE
-    (dmSlots_stmt (c := c) (value' := value') (H1 := H1) (H2 := H2)
-      φ hvf hnat hlE)
-    hvE ρ
-    (sat_four hcl2 hcl1 hclN hclN hs0 hs1 hs2 hs3)
+  have hw := certValueS m φ hfacts (Δ := Δ) hWA hBA hLA hCA
+    hwE hbE hLE hCE hvE ρ hsat
   obtain ⟨w, hw'⟩ := hw
   exact eqSpine_eq m φ hEq ρ hNU hlm hrm hw'
 
@@ -806,19 +730,19 @@ theorem dmCertEq1 {μ : CheckMode} {F : Nat} {env : Env}
     (hb1 : h1.looseBVarsBounded 0 = true)
     (hbL : l.looseBVarsBounded 0 = true)
     (hbR : r.looseBVarsBounded 0 = true)
-    {natV H1 H2 lV rV : VExpr}
+    {natV lV rV : VExpr} {Δ : List VExpr}
     (hnat : denote m.cval env φ 4 (Expr.const natName []) = some natV)
-    (hd1 : denote m.cval env φ 4 (Expr.substConst0 c value' h1)
-      = some H1)
     (hdl : denote m.cval env φ 4 (Expr.substConst0 c value' l)
       = some lV)
     (hdr : denote m.cval env φ 4 (Expr.substConst0 c value' r)
       = some rV)
-    (hclN : VExpr.Closed natV) (hcl1 : VExpr.Closed H1)
-    (hcl2 : VExpr.Closed H2)
-    (ρ : Nat → V)
-    (hs0 : ρ 0 ∈ˢ interp V ρ H2) (hs1 : ρ 1 ∈ˢ interp V ρ H1)
-    (hs2 : ρ 2 ∈ˢ interp V ρ natV) (hs3 : ρ 3 ∈ˢ interp V ρ natV)
+    (hCA : CtxOkR μ m.cval env φ 4 Δ (divModCertApplied
+      (Expr.substConstAll c value' proof)
+      ([h1].map (Expr.substConst0 c value'))))
+    (hCE : CtxOkR μ m.cval env φ 4 Δ (Expr.substConst0 c value'
+      (.app (.app (.app (.const eqName [.succ .zero])
+        (.const natName [])) l) r)))
+    (ρ : Nat → V) (hsat : Sat V Δ ρ)
     (hNU : interp V ρ natV ∈ˢ univ 1)
     (hlm : interp V ρ lV ∈ˢ interp V ρ natV)
     (hrm : interp V ρ rV ∈ˢ interp V ρ natV) :
@@ -871,18 +795,8 @@ theorem dmCertEq1 {μ : CheckMode} {F : Nat} {env : Env}
         (.const natName [])) l) r)) :=
     dmLeavesOk_leavesBounded (dmLeavesOk_substConst0 hvf hlE)
   -- the certificate
-  have hw := certValueS m φ hfacts (Δ := dmCtx H1 H2 natV) rfl
-    (by intro A hA
-        simp only [dmCtx, List.mem_cons, List.not_mem_nil,
-          or_false] at hA
-        rcases hA with rfl | rfl | rfl | rfl <;> assumption)
-    hWA hBA hLA
-    (dmSlots_applied1 (H2 := H2) φ hvf hnat hpf hl1 hw1'.fvarsBelow hd1)
-    hwE hbE hLE
-    (dmSlots_stmt (c := c) (value' := value') (H1 := H1) (H2 := H2)
-      φ hvf hnat hlE)
-    hvE ρ
-    (sat_four hcl2 hcl1 hclN hclN hs0 hs1 hs2 hs3)
+  have hw := certValueS m φ hfacts (Δ := Δ) hWA hBA hLA hCA
+    hwE hbE hLE hCE hvE ρ hsat
   obtain ⟨w, hw'⟩ := hw
   exact eqSpine_eq m φ hEq ρ hNU hlm hrm hw'
 
@@ -1058,8 +972,8 @@ theorem dmDenEval {env : Env} (m : EnvS V env) (φ : Name → Nat)
     (hvf : value'.hasFvar = false)
     (hvb : value'.looseBVarsBounded 0 = true)
     {Vc : VExpr} (hVc : denoteClosed m.cval env φ value' = some Vc)
-    (hstore : ∀ n ∈ ns, n ≠ c ∧ ∃ ci, env.find? n = some ci ∧
-      ci.toConstantVal.levelParams = []) :
+    (hstore : ∀ n ∈ ns, n = c ∨ (n ≠ c ∧ ∃ ci,
+      env.find? n = some ci ∧ ci.toConstantVal.levelParams = [])) :
     ∀ e : Expr, dmFragOk c ns e = true →
       ∃ eV, denote m.cval env φ 4 (Expr.substConst0 c value' e)
           = some eV ∧
@@ -1072,8 +986,9 @@ theorem dmDenEval {env : Env} (m : EnvS V env) (φ : Name → Nat)
     obtain ⟨hn, rfl⟩ := h
     rcases hn with rfl | hn
     · exact ⟨_, denote_dmSelf φ hcl hvf hvb hVc 4, fun ρ4 => rfl⟩
-    · obtain ⟨hnc, ci, hfi, hlpi⟩ := hstore n (by simpa using hn)
-      exact ⟨_, denote_dmDep φ hfi hlpi hnc 4, fun ρ4 => rfl⟩
+    · rcases hstore n (by simpa using hn) with rfl | ⟨hnc, ci, hfi, hlpi⟩
+      · exact ⟨_, denote_dmSelf φ hcl hvf hvb hVc 4, fun ρ4 => rfl⟩
+      · exact ⟨_, denote_dmDep φ hfi hlpi hnc 4, fun ρ4 => rfl⟩
   | .app f a, h => by
     simp only [dmFragOk, Bool.and_eq_true] at h
     obtain ⟨fV, hfd, hfe⟩ := dmDenEval m φ hcl hvf hvb hVc hstore f h.1
@@ -1090,7 +1005,7 @@ theorem dmDenEval {env : Env} (m : EnvS V env) (φ : Name → Nat)
   | .bvar _, h | .sort _, h | .lam _ _ _ _, h | .letE _ _ _ _, h
   | .forallE _ _ _ _, h | .lit _, h | .proj _ _ _, h => nomatch h
 
-/-! ## The install obligation -/
+/-! ## The install obligation's preamble -/
 
 set_option maxHeartbeats 6400000 in
 /-- **The div/mod frame, assembled from the guards.**  Everything the
@@ -1337,4 +1252,3 @@ theorem dmFrameS {μ : CheckMode} {F : Nat} {env : Env} (m : EnvS V env)
     hvalNat, hNU, hBU, hbleMem, hdepBin, htyOwn⟩
 
 end Setlec.SetR
-

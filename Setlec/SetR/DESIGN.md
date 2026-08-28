@@ -6765,3 +6765,57 @@ for the guard slot.  One friction is known in advance: the blocks need
 compute then), so the proof should generalise `cv.name` to a variable
 before `rcases`ing `natDivModNames` — otherwise `subst` has nothing to
 act on.
+
+### The trap family's sixth shape: **jointly unsatisfiable premises**
+
+Instantiating `dmCertEq1` at `Nat.gcd`'s first certificate found a
+defect in three statements this campaign had already landed and
+audited.
+
+**What was wrong.**  `certValueS` (and through it `dmCertEq1`/`2`) took
+`CtxOkR.pinnedCtx`'s *closed-entry* form: `Δ.length = 4`, **every entry
+closed**, and each leaf's annotation denoting to `Δ.getD (3 - l.1)`.
+For the two `Nat` slots that is exactly right.  For a **hypothesis**
+slot it cannot be met at all: the entry is the denotation of a
+hypothesis type, and a hypothesis type mentions `x` and `y` — at depth
+4 it is `.bvar 3`/`.bvar 2`, so it is *not closed*, and `pinnedCtx`'s
+`hcl` has no proof.
+
+So the two premises were jointly unsatisfiable.  Everything compiled;
+the axiom audit was clean; the statements were **vacuous**.
+
+**Why `CtxOkR` was fine all along.**  The relation is *slack* by
+design: it asks for `Infer Δ (.bvar (d-1-l.1)) T'` together with
+`DefEq T' T`, not for entry equality.  So the frame is satisfiable with
+the hypothesis entries at depth **2**, `Infer.bvar`'s own `liftN 2`
+supplying the depth-4 denotation — the TT lane's `denote4_of_denote2`
+is exactly that step, and its presence there was the clue.
+`pinnedCtx` is one *sufficient* route, correct only where the entries
+are closed; T6 landed it "for `DivModPinS`" without an exercised
+consumer, and the closedness hypothesis is what that cost.
+
+**The fix.**  `certValueS`, `dmCertEq1` and `dmCertEq2` now take
+`CtxOkR` **directly** — strictly more general, satisfiable, and it puts
+the lift where the caller can see it.  The three closed-entry slot
+builders (`dmSlots_stmt`, `dmSlots_applied1/2`) are deleted; the
+reasoning is kept as a `/-! ### Why the slots are not built here -/`
+note at the site.
+
+**The rule, sharpened.**  The campaign's test was *"an obligation is
+dischargeable only if every free variable of its conclusion is
+determined by its hypotheses."*  That test passes here — and the
+statement was still vacuous.  The missing check is the dual:
+
+> **Before freezing a premise pair, ask what makes them true
+> *together*.**  Each of `hclΔ` and `hslot` is satisfiable alone; only
+> their conjunction is not.  A premise list is not a set of
+> independent facts, and "each one has a supplier" does not mean the
+> list does.
+
+The house rule that would have caught it is already written in this
+file — *the house rule forbids freezing a statement no consumer has
+exercised* — and it was violated twice over: by `pinnedCtx` at T6, and
+by `certValueS` here.  This is the second time an unexercised statement
+in this campaign had its quantifiers or its premises wrong; the trap
+family is now **six**-membered, and every member was found by the first
+consumer, never by review.
