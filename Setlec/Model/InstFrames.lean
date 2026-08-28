@@ -1413,24 +1413,6 @@ theorem instPisAt_append_of :
     rfl
 
 omit [SetTheory V] in
-/-- A telescope that strips syntactically admits any instantiation
-walk of matching length. -/
-theorem instPisAt_isSome_of_stripPis :
-    ∀ (args : List Expr) {e : Expr},
-      (e.stripPis args.length).isSome = true →
-      (Expr.instPisAt args e).isSome = true
-  | [], e, _ => by simp [Expr.instPisAt]
-  | a :: as, e, h => by
-    match e, h with
-    | .forallE n dom body m, h =>
-      simp only [List.length_cons, Expr.stripPis, Option.isSome_map] at h
-      have h' : ((body.instantiate1 a).stripPis as.length).isSome = true :=
-        Expr.stripPis_instantiate1_isSome as.length 0 h
-      have := instPisAt_isSome_of_stripPis as h'
-      simp only [Expr.instPisAt, Option.isSome_map]
-      exact this
-
-omit [SetTheory V] in
 /-- Scoping of an instantiation walk's domains and residual. -/
 theorem instPisAt_wscoped {D : Nat} :
     ∀ (args : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},

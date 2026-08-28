@@ -298,4 +298,126 @@ def IndBottomNestedS (V : Type w) [SetTheory V] : Prop :=
           ((∀ a ∈ xs, AnnotOkV V ρ a) → (∀ b ∈ ys, AnnotOkV V ρ b) →
             AnnotOkV V ρ (VExpr.mkAppN RV (xs.take rP ++ ys.drop cnP)))
 
+/-- **The projection bottom** ([set] transpose of `IndBottomProjTT`):
+the checked `proj_i.iota` theorem of a stored *degenerate* projection
+recursor (`mI = rP`, `ctorParams = rP`, no indices) yields its fired
+`RecRulesV` law.
+
+Deltas against the plain statement — all forced by the projection
+install running **different checks** (`checkProjShape`/`checkProjRule`/
+`checkProjIota`, not `checkIotaThm`):
+
+* no domain *walks*: the statement's telescope domains are the
+  constructor's, **renamed** (`_hdomsSC`, `checkProjIota`'s
+  `domsMatchAux`), and the rule λ-tower's domains are the
+  constructor's on the nose (`_hrdomsEq`, `checkProjRule`'s), so the
+  three contexts are identified syntactically (`towerCtxEq{,D}`)
+  instead of by firing `DefEqListW`s;
+* no rhs walk: the reduct is the λ-tower's β-contractum to the
+  field's bound variable (`_hrhsAstrip`), read off by
+  `projBodyValue`;
+* consequently no `_hdePre`/`_hdeFld`/`_hdeRhs`/`_hdeIdx`/`_hdeLam`
+  and no P-frame (`fvsP`/`xFvsP`) at all;
+* **no `IotaSlotSorted`** either (the TT statement's one unsupplied
+  premise): `fireS` recovers the equation slot's universe membership
+  from the statement's own truthfulness plus `Eq`-former graph
+  rigidity, exactly as in the plain bottom. -/
+def IndBottomProjS (V : Type w) [SetTheory V] : Prop :=
+  ∀ {μ : CheckMode} {envS : Env} (mS : EnvS V envS)
+    {f : Name → Name} (_hro : RenameOkT mS.cval envS f)
+    (_heqfE : envS.find? eqName = some eqA)
+    {Rn : Name} {lps : List Name} {tyA : Expr} {mI rP : Nat}
+    {ciRm : ConstantInfo}
+    (_hfRnE : envS.find? (f Rn) = some ciRm)
+    (_hRmlps : ciRm.toConstantVal.levelParams = lps)
+    {ctor : Name} {cvj : ConstantVal} {cnP cnF : Nat}
+    (_hctorE : envS.find? ctor = some (.ctorInfo cvj cnP cnF))
+    {ciCm : ConstantInfo}
+    (_hfCmE : envS.find? (f ctor) = some ciCm)
+    (_hCmlps : ciCm.toConstantVal.levelParams = cvj.levelParams)
+    (_hCw : cvj.type.hasFvar = false)
+    (_hCb : cvj.type.looseBVarsBounded 0 = true)
+    (_hClp : cvj.type.allLevelParamsDefined cvj.levelParams = true)
+    -- the degenerate recursor's shape
+    {i : Nat} (_hmIrP : mI = rP) (_hcnPrP : cnP = rP) (_hilt : i < cnF)
+    -- `checkProjShape`: the constructor's telescope and residual
+    {cbinders : List (Name × Expr × BinderMeta)} {cbody : Expr}
+    (_hCstrip : cvj.type.stripPis (cnP + cnF) = some (cbinders, cbody))
+    (_hcbodyArity : cbody.getAppArgs.length = cnP)
+    {Dc : Name} {usc : List Level}
+    (_hcbodyHead : cbody.getAppFn = Expr.const Dc usc)
+    -- `checkProjRule`: the rule is the constructor telescope's
+    -- λ-tower returning the field, with the constructor's domains
+    {rhsA : Expr} (_hrhsw : rhsA.hasFvar = false)
+    (_hrhsb : rhsA.looseBVarsBounded 0 = true)
+    {rbinders : List (Name × Expr × BinderMeta)}
+    (_hrhsAstrip : rhsA.stripLams (cnP + cnF)
+      = some (rbinders, .bvar (cnF - 1 - i)))
+    (_hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+      i0 < cnP + cnF → rbinders[i0]? = some b →
+      cbinders[i0]? = some b' → b.2.1 = b'.2.1)
+    (_hrhsKey : ∀ ψ' : Name → Nat, ∃ Rv t,
+      denoteClosed mS.cval envS ψ' rhsA = some Rv ∧
+      ∀ ρ : Nat → V, AnnotOkV V ρ Rv ∧ interp V ρ Rv ∈ˢ interp V ρ t)
+    -- the checked statement's front doors and opened kit
+    {stmtTy : Expr} (_hSw : stmtTy.hasFvar = false)
+    (_hSb : stmtTy.looseBVarsBounded 0 = true)
+    (_hthm : ∀ ψ' : Name → Nat, ∃ t,
+      denoteClosed mS.cval envS ψ' stmtTy = some t ∧
+      ∀ ρ : Nat → V, (∃ pv : V, pv ∈ˢ interp V ρ t) ∧ AnnotOkV V ρ t)
+    {fvs : List Expr} {tbody : Expr} {ℓA : Level} {αS lhsS rhsS : Expr}
+    (_hopen : openPisAtFvars (rP + cnF) stmtTy 0 = some (fvs, tbody))
+    (_hheadEq : tbody.getAppFn = .const eqName [ℓA])
+    (_hargs3 : tbody.getAppArgs = [αS, lhsS, rhsS])
+    (_hlhead : lhsS.getAppFn = Expr.const (f Rn) (lps.map .param))
+    (_hlarity : lhsS.getAppArgs.length = mI + 1)
+    (_hlpre : lhsS.getAppArgs.take rP = fvs.take rP)
+    (_hmaj : lhsS.getAppArgs.getLastD (.bvar 0) =
+      Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
+        (fvs.take cnP ++ fvs.drop rP))
+    (_hrhsSpin : rhsS = fvs.getD (rP + i) default)
+    -- `checkProjIota`: the statement's domains are the constructor's,
+    -- renamed to the model side
+    {sbinders : List (Name × Expr × BinderMeta)} {sbody : Expr}
+    (_hSstrip : stmtTy.stripPis (cnP + cnF) = some (sbinders, sbody))
+    (_hdomsSC : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+      i0 < cnP + cnF → sbinders[i0]? = some b →
+      cbinders[i0]? = some b' → b.2.1 = b'.2.1.renameConsts f)
+    (_hsidesTy : ∀ ψ' : Name → Nat,
+      IotaSidesTyR μ envS mS.cval ψ' (rP + cnF) αS lhsS rhsS),
+    ∀ (φ : Name → Nat) (us : List Level), us.length = lps.length →
+      ∃ RV, denoteClosed mS.cval envS φ
+          (rhsA.instantiateLevelParams lps us) = some RV ∧
+        ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List VExpr)
+          (TV TVj restR restC : VExpr),
+          xs.length = mI →
+          ys.length = cnP + cnF →
+          usj.length = cvj.levelParams.length →
+          Level.substFn φ cvj.levelParams usj
+            = Level.substFn φ cvj.levelParams
+                (cvj.levelParams.map fun p => Level.subst lps us (.param p)) →
+          (∀ i, i < cnP → i < mI →
+            interp V ρ (ys.getD i default)
+              = interp V ρ (xs.getD i default)) →
+          IotaIndexPinV V ρ restC cnP mI rP xs →
+          denoteClosed mS.cval envS φ
+            (tyA.instantiateLevelParams lps us) = some TV →
+          denoteClosed mS.cval envS φ
+            (cvj.type.instantiateLevelParams cvj.levelParams usj)
+            = some TVj →
+          TeleFitV V ρ TV
+            (xs ++ [VExpr.mkAppN
+              (mS.cval ctor (Level.substFn φ cvj.levelParams usj)) ys])
+            restR →
+          TeleFitV V ρ TVj ys restC →
+          interp V ρ
+              (VExpr.mkAppN (mS.cval Rn (Level.substFn φ lps us))
+                (xs ++ [VExpr.mkAppN
+                  (mS.cval ctor (Level.substFn φ cvj.levelParams usj))
+                  ys]))
+            = interp V ρ
+                (VExpr.mkAppN RV (xs.take rP ++ ys.drop cnP)) ∧
+          ((∀ a ∈ xs, AnnotOkV V ρ a) → (∀ b ∈ ys, AnnotOkV V ρ b) →
+            AnnotOkV V ρ (VExpr.mkAppN RV (xs.take rP ++ ys.drop cnP)))
+
 end Setlec.SetR

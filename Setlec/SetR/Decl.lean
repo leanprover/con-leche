@@ -603,10 +603,23 @@ where
 
 /-- The projection-function phase for one field (`checkProjFn`,
 `Modeled.lean:560-575`): lookups, the public type's roundtrip pins,
-the rule's annotate output, and the `proj_i.iota` sides pack over the
-statement's opened telescope.  The rule-synthesis internals
-(`checkProjRule`, `checkProjShape`) enter through their stored outputs
-(recorded refinement point D6). -/
+the rule's annotate output and synthesis pins, and the `proj_i.iota`
+theorem's shape pins and sides pack over the statement's opened
+telescope.
+
+**D6's reserved refinement, cashed (task #148, T5 c4).**  The
+rule-synthesis internals now enter as the pins their *first consumer*
+— `IndBottomProjS` — reads: `checkProjShape`'s constructor telescope
+and residual arity/head, `checkProjRule`'s λ-tower shape
+(`stripLams` to the field's bound variable) with its
+`domsMatchAux`-pinned domains and its rhs front door, and
+`checkProjIota`'s `domsMatchAux` domain pin (the statement's telescope
+domains *are* the constructor's, renamed).  `checkProjRule`'s two
+`checkDefEqList` frame walks and its `instPisAt`/`openPisAtFvars` runs
+stay untransposed: the projection bottom reaches its λ-tower context
+through the syntactic domain pins (`towerCtxEq`), so no consumer
+exercises them, and the house rule forbids freezing a statement no
+consumer has exercised. -/
 def ProjFnR (μ : CheckMode) (_F : Nat) (env' : Env) (cval : TConstVal)
     (T ctorName : Name) (lps : List Name) (nP nF i : Nat)
     (env'' : Env) : Prop :=
@@ -625,18 +638,45 @@ def ProjFnR (μ : CheckMode) (_F : Nat) (env' : Env) (cval : TConstVal)
     pty.allLevelParamsDefined lps = true ∧
     (pty.stripPis (nP + 1)).isSome = true ∧
     i < nF ∧
-    -- the `proj_i.iota` theorem's shape pins and sides pack
-    (∃ tcv tval,
-      env'.find? ((projModelName T i).str "iota")
-        = some (.thmInfo tcv tval) ∧
-      tcv.levelParams = lps ∧
-      ∃ fvsI sbodyO,
-        openPisAtFvars (nP + nF) tcv.type 0 = some (fvsI, sbodyO) ∧
-        (∀ φ : Name → Nat,
-          IotaSidesTyR μ env' cval φ (nP + nF)
-            (sbodyO.getAppArgs.getD 0 (.bvar 0))
-            (sbodyO.getAppArgs.getD 1 (.bvar 0))
-            (sbodyO.getAppArgs.getD 2 (.bvar 0)))) ∧
+    -- `checkProjShape` (`CheckerBase.lean:234-243`)
+    (pty.stripPis nP).isSome = true ∧
+    (∃ cbinders cbody,
+      cvj.type.stripPis (nP + nF) = some (cbinders, cbody) ∧
+      cbody.getAppArgs.length = nP ∧
+      (∃ c cus, cbody.getAppFn = Expr.const c cus) ∧
+      -- `checkProjRule` (`CheckerBase.lean:247-278`)
+      rhsA.hasFvar = false ∧
+      rhsA.looseBVarsBounded 0 = true ∧
+      rhsA.allLevelParamsDefined lps = true ∧
+      rhsA.constsResolve env' = true ∧
+      (∃ rbinders,
+        rhsA.stripLams (nP + nF) = some (rbinders, .bvar (nF - 1 - i)) ∧
+        ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta), i0 < nP + nF →
+          rbinders[i0]? = some b → cbinders[i0]? = some b' →
+          b.2.1 = b'.2.1) ∧
+      -- the rule's front door (`ops.inferType env' 0 rhsA`)
+      (∀ φ : Name → Nat, ∃ Rv t,
+        denoteClosed cval env' φ rhsA = some Rv ∧
+        Infer μ env' cval φ [] Rv t) ∧
+      -- the `proj_i.iota` theorem's shape pins and sides pack
+      (∃ tcv tval,
+        env'.find? ((projModelName T i).str "iota")
+          = some (.thmInfo tcv tval) ∧
+        tcv.levelParams = lps ∧
+        (∃ sbinders sbody,
+          tcv.type.stripPis (nP + nF) = some (sbinders, sbody) ∧
+          -- `checkProjIota`'s `domsMatchAux`: the statement's domains
+          -- are the constructor's, renamed to the model side
+          ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta), i0 < nP + nF →
+            sbinders[i0]? = some b → cbinders[i0]? = some b' →
+            b.2.1 = b'.2.1.renameConsts (projFwd T ctorName nF)) ∧
+        ∃ fvsI sbodyO,
+          openPisAtFvars (nP + nF) tcv.type 0 = some (fvsI, sbodyO) ∧
+          (∀ φ : Name → Nat,
+            IotaSidesTyR μ env' cval φ (nP + nF)
+              (sbodyO.getAppArgs.getD 0 (.bvar 0))
+              (sbodyO.getAppArgs.getD 1 (.bvar 0))
+              (sbodyO.getAppArgs.getD 2 (.bvar 0))))) ∧
     env'' = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
       [⟨ctorName, nF, nP,
         if Expr.recRulePlain pty nP nP nP then .plain else .inert,

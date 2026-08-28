@@ -1665,9 +1665,12 @@ theorem projBodyValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
   rw [← h3]
   simp only [Nat.zero_add]
 
-/-- Two canonically-opened towers with pointwise-equal raw domains
-have the same denoted context (sealed for the same reason). -/
-theorem towerCtxEq {cval : TConstVal} {env : Env} {ψ : Name → Nat}
+/-- Two canonically-opened towers whose raw domains **denote equally**
+at their own depths have the same denoted context.  The denote-level
+form is what a *renamed* domain pin needs (the projection statement's
+telescope is the constructor's renamed, not equal to it — task #148,
+T5 c4); `towerCtxEq` is the syntactic corollary. -/
+theorem towerCtxEqD {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     {k : Nat} {Γβ Γc : List VExpr}
     {rbinders cbinders : List (Name × Expr × BinderMeta)}
     (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
@@ -1684,7 +1687,11 @@ theorem towerCtxEq {cval : TConstVal} {env : Env} {ψ : Name → Nat}
         some (Γc.getD (k - 1 - i0) default))
     (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
-      cbinders[i0]? = some b' → b.2.1 = b'.2.1) :
+      cbinders[i0]? = some b' →
+      denote cval env ψ (0 + i0)
+          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        denote cval env ψ (0 + i0)
+          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b'.2.1)) :
     Γβ = Γc := by
   refine List.ext_getElem (by omega) ?_
   intro q h1 h2
@@ -1708,6 +1715,30 @@ theorem towerCtxEq {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     show Γc[q] = Γc.getD q default from by
       simp [List.getD, List.getElem?_eq_getElem h2]]
   exact h3
+
+/-- Two canonically-opened towers with pointwise-equal raw domains
+have the same denoted context (sealed for the same reason). -/
+theorem towerCtxEq {cval : TConstVal} {env : Env} {ψ : Name → Nat}
+    {k : Nat} {Γβ Γc : List VExpr}
+    {rbinders cbinders : List (Name × Expr × BinderMeta)}
+    (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
+    (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
+    (hβdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+      rbinders[i0]? = some b →
+      denote cval env ψ (0 + i0)
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        some (Γβ.getD (k - 1 - i0) default))
+    (hcdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+      cbinders[i0]? = some b →
+      denote cval env ψ (0 + i0)
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        some (Γc.getD (k - 1 - i0) default))
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+      i0 < k → rbinders[i0]? = some b →
+      cbinders[i0]? = some b' → b.2.1 = b'.2.1) :
+    Γβ = Γc :=
+  towerCtxEqD hrblen hcblen hΓβlen hΓclen hβdoms hcdoms
+    (fun i0 b b' hi hb hb' => by rw [hrdomsEq i0 b b' hi hb hb'])
 
 /-- The fired-spine value of the projection field's bound variable
 (sealed). -/

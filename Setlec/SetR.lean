@@ -27,6 +27,7 @@ import Setlec.SetR.Install.IndStagesS
 import Setlec.SetR.Install.IndBottomPlainS
 import Setlec.SetR.Install.IndNestedS
 import Setlec.SetR.Install.IndBottomNestedS
+import Setlec.SetR.Install.IndBottomProjS
 import Setlec.SetR.Examples
 import Setlec.SetR.Bridge.Env
 import Setlec.SetR.Bridge.Claims
