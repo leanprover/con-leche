@@ -124,6 +124,84 @@ def UnitLawV (env : Env) (cval : TConstVal) (T : Name)
       (VExpr.mkAppN (cval T (Level.substFn φ' cvT.levelParams us)) xs) →
     x = y
 
+/-- The fired index pin ([set] transpose of `IotaIndexPin`): the
+constructor residual decomposes as a spine whose trailing arguments
+interpret as the recursor's index arguments. -/
+def IotaIndexPinV (ρ : Nat → V) (restC : VExpr) (cnP mI rP : Nat)
+    (xs : List VExpr) : Prop :=
+  ∃ (H : VExpr) (cargs : List VExpr),
+    restC = VExpr.mkAppN H cargs ∧
+    (mI = rP ∨ cargs.length = cnP + (mI - rP)) ∧
+    ∀ i, i < mI - rP →
+      interp V ρ (cargs.getD (cnP + i) default)
+        = interp V ρ (xs.getD (rP + i) default)
+
+/-- The fired modeled-iota contract ([set] transpose of `RecRulesTT`,
+with `VTeleTyped → TeleFitV` and `Deq → interp`-equality at every
+environment).  Beyond the equality it concludes the applied reduct's
+truthfulness under argument truthfulness — the `RecRulesOk`
+`AnnotOk`-of-rhs clause in the fired form the transport conjunct
+consumes. -/
+def RecRulesV (env : Env) (cval : TConstVal) (φ : Name → Nat) : Prop :=
+  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    env.find? n = some (.recInfo cv mI rP rules) →
+    ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
+    rP ≤ mI ∧
+    ∀ us : List Level, us.length = cv.levelParams.length →
+      ∃ R, denoteClosed cval env φ
+          ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
+          = some R ∧
+        ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+          env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+        ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List VExpr)
+          (TV TVj restR restC : VExpr),
+          xs.length = mI →
+          ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+          usj.length = cvj.levelParams.length →
+          Level.substFn φ cvj.levelParams usj
+            = Level.substFn φ cvj.levelParams
+                (recFireComparands rl cv.levelParams us cvj.levelParams
+                  [] rP).1 →
+          (RecRule.fire rl = .plain →
+            ∀ i, i < RecRule.ctorParams rl → i < mI →
+              interp V ρ (ys.getD i default)
+                = interp V ρ (xs.getD i default)) →
+          (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+            ∀ i, i < RecRule.ctorParams rl →
+            ∀ vp : VExpr,
+              denote cval env φ rP
+                (openRev 0 rP
+                  ((pins.getD i default).instantiateLevelParams
+                    cv.levelParams us)) = some vp →
+              VExpr.bvarsBelow rP vp →
+              interp V ρ (ys.getD i default)
+                = interp V ρ (VExpr.instRevChain (xs.take rP) vp)) →
+          IotaIndexPinV V ρ restC (RecRule.ctorParams rl) mI rP xs →
+          denoteClosed cval env φ
+            (cv.type.instantiateLevelParams cv.levelParams us)
+            = some TV →
+          denoteClosed cval env φ
+            (cvj.type.instantiateLevelParams cvj.levelParams usj)
+            = some TVj →
+          TeleFitV V ρ TV
+            (xs ++ [VExpr.mkAppN
+              (cval (RecRule.ctor rl)
+                (Level.substFn φ cvj.levelParams usj)) ys]) restR →
+          TeleFitV V ρ TVj ys restC →
+          interp V ρ
+              (VExpr.mkAppN
+                (cval n (Level.substFn φ cv.levelParams us))
+                (xs ++ [VExpr.mkAppN
+                  (cval (RecRule.ctor rl)
+                    (Level.substFn φ cvj.levelParams usj)) ys]))
+            = interp V ρ
+                (VExpr.mkAppN R
+                  (xs.take rP ++ ys.drop (RecRule.ctorParams rl))) ∧
+          ((∀ a ∈ xs, AnnotOkV V ρ a) → (∀ b ∈ ys, AnnotOkV V ρ b) →
+            AnnotOkV V ρ
+              (VExpr.mkAppN R
+                (xs.take rP ++ ys.drop (RecRule.ctorParams rl))))
+
 /-- A stored structural-`Nat` operation's semantic certificate
 (`NatOpsOk` transpose): the literal fast-path guard, and the defining
 recurrence equations semantically — the two free variables denote to
@@ -282,5 +360,9 @@ structure EnvSHyp (env : Env) (cval : TConstVal) (φ : Name → Nat) :
   recurrences (§2 `div_mod`; supplier: the div/mod certificate
   pack). -/
   div_mod : DivModV V env cval φ
+  /-- The fired modeled-iota contract (§2 `rec_rules`; supplier: the
+  block install, off the checked `_model.iota_j` theorems' front
+  doors). -/
+  rec_rules : RecRulesV V env cval φ
 
 end Setlec.SetR

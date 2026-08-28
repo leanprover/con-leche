@@ -513,3 +513,55 @@ cases: I9's sigma package and residual membership come from
 `mem_psigmaV_app` (rigidity — the #129-replacement, "membership
 self-certifies the domains") + `sfst_mem`/`ssnd_mem`; R6 as above.
 `EnvSHyp` gained `proj_ok : ProjOkT env`.
+
+## T4 — COMPLETE: the soundness half lands
+
+### Inventory (as landed)
+
+| file | content |
+|---|---|
+| `AnnotOkV.lean` | `AnnotOkV` (the `AnnotOk` transpose; cons-extension, `eqE`/`prf` leaves, definedness conjuncts dropped incl. the `lam` clause's junk `∃ B, w ∈ˢ B` companion), clause equations, `interp` invariance below a bound, the two-lemma substitution metatheory (`AnnotOkV_liftN`/`AnnotOkV_inst` as biconditionals, `AnnotOkV_inst0`), `TeleFitV` + `appN`/`rest_annot`/`appN_annot` |
+| `Sound/Motives.lean` | the five motives (`RedS`/`InfS`/`DeqS`/`TeleS`/`DeqLS`, the graded architecture), `EnvSHyp` (nine fields: `cval_closed`, `annot_okV`, `mem_type`, `basis_pinned`, `caps_ok`, `proj_ok`, `nat_ops`, `div_mod`, `rec_rules`), the law shapes (`EtaLawV`/`UnitLawV`/`CapsOkV`, `NatOpsV`, `DivModClausesV`/`DivModV`, `IotaIndexPinV`/`RecRulesV`), `interp_mkAppN_map` |
+| `Sound/Struct.lean` | Red refl/trans/appFn/beta/zeta/projArg; Infer sort/bvar/const/pi/lam/app/letE; DefEq structural core + congruences + D14; Tele/DefEqL |
+| `Sound/Irrel.lean` | D8/D9 (proof irrelevance; `unitLike_eq_punit` via `basis_pinned`), D13 (λ-eta) |
+| `Sound/Rigidity.lean` | off-domain-emptiness eliminations (`app_lamC_of_not_mem`, `psigmaV_ne_pt`, `mem_psigmaV_app`, `psigmaMkV_zero`) |
+| `Sound/Stuck.lean` | D10/D11 (the capability-law consumers), D12 (pair eta by rigidity), R12–R14 (rescues; `fab_annot`) |
+| `Sound/Proj.lean` | I9/R6 (`projEntry_pins`, pinned-type denote computations, concrete `piResidualV` walks, `TeleFitV_psigmaMk`) |
+| `Sound/Lit.lean` | I4/I5/R7/R8 (`natLit_facts`/`strLit_facts` — `mem_type`-based, `denoteClosed_strLitToConstructor`) |
+| `Sound/NatOps.lean` + `Sound/NatOpsWf.lean` | R9/R10 (equation plumbing + sixteen per-op literal meta-inductions, the model's WF bodies transposed 1:1; PinGen certificates for the bit ops) |
+| `Sound/Iota.lean` | R11 (the `RecRulesV` consumer; spine split + index pin + fired contract) |
+| `Sound/Main.lean` | the five theorems `{Red,Infer,DefEq,Tele,DefEqL}.sound` — one recursor application each over the 46 case lemmas |
+
+### For T5 (the interface, in one place)
+
+`EnvSHyp V env cval φ` is what T5's `EnvS` must discharge, by
+projection.  Statement shapes deliberately frozen by this tier's
+consumers (the house rule); the suppliers named per field in the
+docstrings.  Notes:
+
+* `mem_type` carries the **denoted type's `AnnotOkV`** beside the
+  membership — supplied by the *type front door's* subject conjunct
+  (`Infer ⟦type'⟧ tT` → `Infer.sound`'s first component), never by a
+  value inference's type slot (that conjunct no longer exists).
+* `RecRulesV` concludes the equality **and** the applied reduct's
+  truthfulness under argument truthfulness (the `RecRulesOk`
+  `AnnotOk`-of-rhs clause, fired); its hypotheses are memberships
+  (`TeleFitV`), pointwise interp-equalities, and the `IotaIndexPinV`
+  existential — nothing `AnnotOkV`-conditional.
+* The laws (`EtaLawV`/`UnitLawV`) are the *model's* `EtaLaw`/`UnitLaw`
+  transposes (not `EtaLawTT`'s re-signed form): no #135/#136/#137
+  content, the fabrication side unconditioned.
+* `NatOpsV` is equation-based (the `NatOpsOk` transpose); `DivModV` is
+  clause-based over `DivModClausesV` (the `DivModOk` transpose) —
+  both keyed exactly on what `certifyNatEqs`/`checkDivModPin`
+  certify, consumable from `Decl.lean`'s packs through the
+  unconditional `DefEq.sound`.
+* Relocations made for lane-sharing: `BasisPinnedTT` →
+  `Verify/Denote/Pinned.lean`; `unitLike_eq_punit` /
+  `pairLike_eq_psigma` / `pinnedInfoT_recInfo_cases` →
+  `Verify/PinnedShapes.lean` (generalized to `BasisPinnedTT`);
+  `natOpGuard_inv`/`intro`/`cons` → `Verify/EnvGuards.lean`.
+
+**No finding #1**: every case closed on set-mode certificates alone;
+the two relation amendments (repair A; R6's telescope exposure) were
+premise-*shape* corrections, not new checks.
