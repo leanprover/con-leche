@@ -948,3 +948,43 @@ are a `List.range cnF |>.map`, `projSpinesV` is the same map on the
 Both eta certificates discard a `mode.ttChecks = true →` conjunct
 (#130's `projParamCert` in D12, #137's constructor telescope in D10) —
 premise-exactness, visible as a `-` in the `obtain` pattern.
+
+### T3 — the owed R6 `Tele`-walk verification: **T4's claim holds**
+
+T4's second amendment exposed R6's constructor-spine telescope as a
+premise, arguing "the bridge cost is the inversion walk the model
+already performs at `Model/Core/Whnf.lean:639-741`".  Checked at the
+clause, against the set-mode inversions:
+
+* **The walk is not `certs_teleR`'s.**  `whnf_proj_inv` delivers
+  `projTeleCertP` (task #126) only under `mode.ttChecks = true`, so at
+  `--set-model` there is *no* `iotaCerts` run on the constructor spine.
+  Anyone reaching for `certs_teleR` here will find nothing to invert —
+  worth stating, because that is the obvious first move.
+* **It is the `projCert` infer run's walk, and it is available.**
+  `projCert_inv` returns `inferTypeCore … e₃ = .ok te` on the
+  *constructor application*, and `inferTypeCore_app_inv` peels it one
+  argument at a time, each step yielding `infer arg = ta` plus
+  `defeq ta dom` — which is exactly `Tele.cons`'s premise pair, in the
+  checker's own order.  This is precisely what the model does: the
+  cited range walks four `inferTypeCore_app_inv'` steps down the pinned
+  `PSigma'.mk` type, computing the four domains concretely
+  (`Sort u`, `α → Sort v`, `α`, `β a`) and using `whnf_forallE_eq` to
+  say the `whnf` of a concrete `∀` is itself.
+* **The alignment step is the one real cost**, and T4 named it: the
+  infer walk's domains come from `whnf` of the partial application's
+  inferred type, while `Tele` peels the *stored* type syntactically.
+  They agree because the entry is pinned (`ProjOkT`) and the pinned
+  constructor's stored type is a literal `∀`-tower, on which `whnf` is
+  the identity.  So the alignment is a computation, as claimed — but it
+  is a computation that needs the pin.
+
+**Consequence for `EnvR` (interface note for T5/T6).**  The bridge's
+R6 clause therefore needs `ProjOkT env`, which `EnvR` does not yet
+carry — `EnvSHyp` gained `proj_ok` for the same reason on the soundness
+side.  It will be added with its first consumer (batch e), not before;
+T5's `EnvS → EnvR` adapter should expect one more V-free field, already
+present in `EnvS`.
+
+No finding: the claim is verified as stated, with the two caveats above
+recorded so batch (e) does not start down the `certs_teleR` path.
