@@ -164,6 +164,252 @@ theorem valueFrontR_of {V : Type w} [SetTheory V] {env : Env}
     DefEq.trans hD
       (ihd hde hwvt hbvt hLvt hwt hbt hLt hCvt hCt hvt' hTv)⟩
 
+/-! ## `thmDecl`
+
+The value front doors plus one extra: the type's sort is `Prop`.  The
+checker states that as `Level.isEquiv u .zero`; the relation states it
+as `DefEq … sT (.sort 0)`, and `Level.isEquiv_sound` is the whole
+distance between them. -/
+
+/-- **`thmDecl`, bridged.** -/
+theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
+    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+    {value : Expr}
+    (h : checkDecl μ (fueledOps μ F) env (.thmDecl cv value)
+      = .ok env₂) :
+    DeclThmR μ F env m.cval cv value env₂ := by
+  simp only [checkDecl, checkThmVal, fueledOps_annotate,
+    fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
+    Bind.bind, Except.bind] at h
+  cases hccv : checkConstantVal (fueledOps μ F) env cv with
+  | error e => rw [hccv] at h; exact nomatch h
+  | ok cv' =>
+  rw [hccv] at h
+  try dsimp only at h
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
+  simp only [Pure.pure, Except.pure] at h
+  cases hst2 : inferTypeCore μ env F 0 type with
+  | error e => rw [hst2] at h; exact nomatch h
+  | ok stype2 =>
+  rw [hst2] at h
+  try dsimp only at h
+  cases hsort2 : ensureSortCore μ env F 0 stype2 with
+  | error e => rw [hsort2] at h; exact nomatch h
+  | ok u2 =>
+  rw [hsort2] at h
+  try dsimp only at h
+  cases hpz : Level.isEquiv u2 Level.zero with
+  | none => rw [hpz] at h; simp [liftFueled] at h
+  | some bz =>
+  rw [hpz] at h
+  cases bz with
+  | false => simp [liftFueled, pure, Except.pure] at h
+  | true =>
+  simp only [liftFueled, pure, Except.pure] at h
+  try dsimp only at h
+  by_cases hlbv : value.looseBVarsBounded 0 = true
+  case neg => simp [hlbv] at h
+  simp only [hlbv] at h
+  by_cases hivf : value.hasFvar = true
+  case pos => simp [hivf] at h
+  simp only [hivf] at h
+  have hivf' : value.hasFvar = false := by
+    revert hivf; cases value.hasFvar <;> simp
+  cases hannv : annotateCore μ env F 0 value with
+  | error e => rw [hannv] at h; exact nomatch h
+  | ok value' =>
+  rw [hannv] at h
+  try dsimp only at h
+  by_cases hvp : value'.allLevelParamsDefined cv.levelParams = true
+  case neg => simp [hvp] at h
+  simp only [hvp] at h
+  by_cases hvr : value'.constsResolve env = true
+  case neg => simp [hvr] at h
+  simp only [hvr] at h
+  cases hvt : inferTypeCore μ env F 0 value' with
+  | error e => rw [hvt] at h; exact nomatch h
+  | ok vtype =>
+  rw [hvt] at h
+  try dsimp only at h
+  cases hde : isDefEqCore μ env F 0 vtype type with
+  | error e => rw [hde] at h; exact nomatch h
+  | ok b =>
+  rw [hde] at h
+  cases b with
+  | false => exact nomatch h
+  | true =>
+  simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
+  refine ⟨type, value', hcv, fun φ => ?_,
+    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde hcv,
+    h.symm⟩
+  obtain ⟨-, ihw, -, ihi⟩ := checkBridge m.toEnvR φ F
+  obtain ⟨hwt, hbt, hLt, hCt⟩ :=
+    closed0_framesR (μ := μ) (cval := m.cval) (env := env) (φ := φ)
+      htf hbt'
+  obtain ⟨Tv, tv2, hTv, htv2, T', hI, hD⟩ := ihi hst2 hwt hbt hLt hCt
+  obtain ⟨hws, hbs, hLs, hCs⟩ :=
+    closed0_framesR (μ := μ) (cval := m.cval) (env := env) (φ := φ)
+      (Expr.not_hasFvar_of_fvarsBelow_zero
+        (inferTypeCore_WScoped m.wf F hst2 hwt).fvarsBelow)
+      (inferTypeCore_looseBVars m.wf F hst2 hwt hbt hLt)
+  obtain ⟨sv, hsv, hRed⟩ :=
+    ihw (ensureSortCore_inv hsort2) hws hbs hLs hCs htv2
+  rw [denote_sort, Level.isEquiv_sound hpz φ] at hsv
+  obtain rfl := (Option.some.inj hsv).symm
+  exact ⟨Tv, T', hTv, hI, DefEq.trans hD (DefEq.ofRed hRed)⟩
+
+/-! ## `axiomDecl`
+
+A pure dispatch on Boolean shape gates: the two standard axioms, the
+compiler-trust family, and the tolerated skip.  Nothing semantic
+happens past `ConstantValR` — the axioms' *content* is the install
+layer's `StdAxiomKeyS`/`OfReduceKeyS`, not the bridge's. -/
+
+/-- **`axiomDecl`, bridged.** -/
+theorem declAxiomR {V : Type w} [SetTheory V] {env env₂ : Env}
+    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+    (h : checkDecl μ (fueledOps μ F) env (.axiomDecl cv) = .ok env₂) :
+    DeclAxiomR μ F env m.cval cv env₂ := by
+  simp only [checkDecl, Bind.bind, Except.bind] at h
+  cases hccv : checkConstantVal (fueledOps μ F) env cv with
+  | error e => rw [hccv] at h; exact nomatch h
+  | ok cvA =>
+  rw [hccv] at h
+  try dsimp only at h
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of m hccv
+  refine ⟨type, hcv, ?_⟩
+  by_cases hstd : stdAxiomOk env { cv with type := type } = true
+  · rw [if_pos hstd] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl ⟨hstd, h.symm⟩
+  rw [if_neg hstd] at h
+  have hstdF : stdAxiomOk env { cv with type := type } = false := by
+    revert hstd; cases stdAxiomOk env { cv with type := type } <;> simp
+  by_cases htc : cv.name = trustCompilerName
+  · rw [if_pos htc] at h
+    by_cases htco : trustCompilerOk env { cv with type := type } = true
+    · rw [if_pos htco] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inr (Or.inl ⟨htc, htco, h.symm⟩)
+    · rw [if_neg htco] at h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
+  rw [if_neg htc] at h
+  by_cases hofr : cv.name = ofReduceNatName ∨ cv.name = ofReduceBoolName
+  · rw [if_pos hofr] at h
+    by_cases hofro : ofReduceAxOk env { cv with type := type } = true
+    · rw [if_pos hofro] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inr (Or.inr (Or.inl ⟨hofr, hofro, h.symm⟩))
+    · rw [if_neg hofro] at h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
+  rw [if_neg hofr] at h
+  by_cases hpc : cv.name = propextName ∨ cv.name = choiceName
+  · rw [if_pos hpc] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  rw [if_neg hpc] at h
+  by_cases htol : toleratedAxiomNames.contains cv.name = true
+  · rw [if_pos htol] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    refine Or.inr (Or.inr (Or.inr ⟨hstdF, htc, ?_, ?_, ?_, ?_, htol,
+      h.symm⟩))
+    · exact fun hh => hofr (Or.inl hh)
+    · exact fun hh => hofr (Or.inr hh)
+    · exact fun hh => hpc (Or.inl hh)
+    · exact fun hh => hpc (Or.inr hh)
+  · rw [if_neg htol] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-! ## `opaqueDecl` and `defnDecl`
+
+The same value front doors, and then each kind's own conditional pin
+pack.  Those packs are taken as **parameters** here, exactly as the TT
+lane parameterises `declDefnTT` on `NatOpPinTT`/`DivModPinTT`: each is
+its own inversion of its own checker routine, and keeping them out of
+the branch script is what stops the branch from growing a second
+subject. -/
+
+/-- **`opaqueDecl`, bridged**, parametric in the compiler-trust pin's
+own inversion. -/
+theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
+    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+    {value : Expr}
+    (hrp : ∀ {env' : Env},
+      reduceOpNames.contains cv.name = true →
+      checkReducePin (m := CheckM) (fueledOps μ F) env env' cv.name
+          value = .ok () →
+      ReducePinR μ F env env' m.cval cv.name value)
+    (h : checkDecl μ (fueledOps μ F) env (.opaqueDecl cv value)
+      = .ok env₂) :
+    DeclOpaqueR μ F env m.cval cv value env₂ := by
+  simp only [checkDecl, checkOpaqueVal, fueledOps_annotate,
+    fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
+  cases hccv : checkConstantVal (fueledOps μ F) env cv with
+  | error e => rw [hccv] at h; exact nomatch h
+  | ok cv' =>
+  rw [hccv] at h
+  try dsimp only at h
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
+  simp only [Pure.pure, Except.pure] at h
+  by_cases hlbv : value.looseBVarsBounded 0 = true
+  case neg => simp [hlbv] at h
+  simp only [hlbv] at h
+  by_cases hivf : value.hasFvar = true
+  case pos => simp [hivf] at h
+  simp only [hivf] at h
+  have hivf' : value.hasFvar = false := by
+    revert hivf; cases value.hasFvar <;> simp
+  cases hannv : annotateCore μ env F 0 value with
+  | error e => rw [hannv] at h; exact nomatch h
+  | ok value' =>
+  rw [hannv] at h
+  try dsimp only at h
+  by_cases hvp : value'.allLevelParamsDefined cv.levelParams = true
+  case neg => simp [hvp] at h
+  simp only [hvp] at h
+  by_cases hvr : value'.constsResolve env = true
+  case neg => simp [hvr] at h
+  simp only [hvr] at h
+  cases hvt : inferTypeCore μ env F 0 value' with
+  | error e => rw [hvt] at h; exact nomatch h
+  | ok vtype =>
+  rw [hvt] at h
+  try dsimp only at h
+  cases hde : isDefEqCore μ env F 0 vtype type with
+  | error e => rw [hde] at h; exact nomatch h
+  | ok b =>
+  rw [hde] at h
+  cases b with
+  | false => exact nomatch h
+  | true =>
+  simp only [Bool.false_eq_true, ↓reduceIte] at h
+  refine ⟨type, value', hcv,
+    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde hcv,
+    ?_, ?_⟩
+  · by_cases hro : reduceOpNames.contains cv.name = true
+    · rw [if_pos hro] at h
+      cases hrpin : checkReducePin (m := CheckM) (fueledOps μ F) env
+          ⟨.axiomInfo { cv with type := type } :: env.consts⟩ cv.name
+          value with
+      | error e => rw [hrpin] at h; exact nomatch h
+      | ok u =>
+        rw [hrpin] at h
+        simp only [Except.ok.injEq] at h
+        exact h.symm
+    · rw [if_neg hro] at h
+      simp only [Except.ok.injEq] at h
+      exact h.symm
+  · intro hro
+    rw [if_pos hro] at h
+    cases hrpin : checkReducePin (m := CheckM) (fueledOps μ F) env
+        ⟨.axiomInfo { cv with type := type } :: env.consts⟩ cv.name
+        value with
+    | error e => rw [hrpin] at h; exact nomatch h
+    | ok u =>
+      rw [hrpin] at h
+      simp only [Except.ok.injEq] at h
+      subst h
+      exact hrp hro hrpin
+
 /-! ## `basisDecl`
 
 The simplest branch: a guard on the pinned `Eq` former, then a fold of

@@ -3761,7 +3761,7 @@ construct an `EnvR` until the assembly did.
    `EnvR.ty_denotes` and the annotate output's `constsResolve`.  Note both
    relations quantify over **every** `φ`, so the bridge must be run at an
    arbitrary assignment — `checkBridge` already is.
-2. **`declDefnR`, `declThmR`, `declOpaqueR`, `declAxiomR`** — each is its
+2. **`declDefnR`** (the others LANDED) — each is its
    branch's `simp only [checkDecl, …]` inversion over (1), plus its own
    conditional pack (`NatEqsR`/`DivModPinR` at `defn`, the sort-is-`Prop`
    conjunct at `thm`, `ReducePinR` at `opaque`, the four shape gates at
@@ -3814,3 +3814,34 @@ The `thm` branch's extra conjunct (`DefEq … sT (.sort 0)`) is
 `Level.isEquiv_sound` (`Verify/Level.lean:314`) supplies that from the
 checker's `Level.isEquiv u .zero` guard — checked, so the branch is
 unblocked.
+
+### T6 progress — four of six branches bridged
+
+`declBasisR`, `declThmR`, `declAxiomR`, `declOpaqueR`.  All three of
+the new ones compiled first try off the recipe: the branch's own
+`simp only [checkDecl, check*Val, fueledOps_*, Bind.bind, Except.bind]`
+inversion, `constantValR_of`, `valueFrontR_of`, and the branch's own
+tail.
+
+* `thmDecl` — the extra `DefEq … sT (.sort 0)` conjunct is
+  `ConstantValR`'s last component read at `u.eval φ = 0`, which
+  `Level.isEquiv_sound` supplies from the checker's own guard.
+* `axiomDecl` — a pure dispatch on Boolean shape gates; nothing
+  semantic past `ConstantValR`.  The axioms' *content* is the install
+  layer's `StdAxiomKeyS`/`OfReduceKeyS`, not the bridge's.
+* `opaqueDecl` — parametric in the compiler-trust pin's own inversion
+  (`checkReducePin → ReducePinR`), exactly as the TT lane parameterises
+  `declDefnTT` on `NatOpPinTT`/`DivModPinTT`.  Keeping each pin pack
+  out of the branch script is what stops the branch from growing a
+  second subject.
+
+**`declDefnR` is the branch left of the four**, and it is the one with
+two conditional packs rather than one (`certifyNatEqs → NatEqsR` and
+`checkDivModPin → DivModPinR`), plus a `match` on the just-consed
+environment's own lookup.  Its dispatch should be resolved **once**
+into a `have` yielding the triple (`env₂ = …`, the natOp conjunct, the
+divMod conjunct) and only then assembled — resolving it separately per
+conjunct triplicates the four-level `by_cases` nest.  The `hdm`
+parameter must be phrased over the *annotated* value the environment
+actually stores, not over the source `value`: `DivModPinR`'s last
+argument is `value'`.
