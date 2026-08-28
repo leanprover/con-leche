@@ -1217,24 +1217,32 @@ theorem dmFrameS {μ : CheckMode} {F : Nat} {env : Env} (m : EnvS V env)
           ∈ˢ interp V ρ' (m.cval boolName φ)) ∧
       (∀ n ∈ natOpDeps cv.name, n ≠ cv.name →
         (n = natPredName || n = natLog2Name) = false →
+        (n = natBeqName || n = natBleName) = false →
         ∀ (ρ' : Nat → V) (a b : V),
           a ∈ˢ interp V ρ' (m.cval natName φ) →
           b ∈ˢ interp V ρ' (m.cval natName φ) →
-          ∃ cn, (cn = boolName ∨ cn = natName) ∧
           SetTheory.app (SetTheory.app (interp V ρ' (m.cval n φ)) a) b
-            ∈ˢ interp V ρ' (m.cval cn φ)) ∧
-      ((∃ nm nm2 mb mb2, type' = .forallE nm (.const natName [])
-          (.forallE nm2 (.const natName []) (.const natName []) mb2)
-          mb) ∨
-        (∃ nm mb, type' = .forallE nm (.const natName [])
-          (.const natName []) mb)) ∧
+            ∈ˢ interp V ρ' (m.cval natName φ)) ∧
+      ((decide (cv.name = natLog2Name) = false →
+          ∃ nm nm2 mb mb2, type' = .forallE nm (.const natName [])
+            (.forallE nm2 (.const natName []) (.const natName []) mb2)
+            mb) ∧
+        (cv.name = natLog2Name →
+          ∃ nm mb, type' = .forallE nm (.const natName [])
+            (.const natName []) mb)) ∧
       (∀ n ∈ natOpDeps cv.name ++ [natSuccName, natZeroName,
           boolTrueName, boolFalseName],
         n = cv.name ∨ (n ≠ cv.name ∧ ∃ ci, env.find? n = some ci ∧
           ci.toConstantVal.levelParams = [])) ∧
       (∀ (bn : Name), bn = boolTrueName ∨ bn = boolFalseName →
         ∀ ρ' : Nat → V, interp V ρ' (m.cval bn φ)
-          ∈ˢ interp V ρ' (m.cval boolName φ)) := by
+          ∈ˢ interp V ρ' (m.cval boolName φ)) ∧
+      (∀ ρ' : Nat → V, interp V ρ' (m.cval natZeroName φ)
+        ∈ˢ interp V ρ' (m.cval natName φ)) ∧
+      (∀ (ρ' : Nat → V) (a : V),
+        a ∈ˢ interp V ρ' (m.cval natName φ) →
+        SetTheory.app (interp V ρ' (m.cval natSuccName φ)) a
+          ∈ˢ interp V ρ' (m.cval natName φ)) := by
   -- the guards, unpacked
   simp only [divModEnvGuard, Bool.and_eq_true] at hgenv
   obtain ⟨⟨⟨⟨hnog, hdeps⟩, hEq2⟩, hbT⟩, hbF⟩ := hgenv
@@ -1327,25 +1335,26 @@ theorem dmFrameS {μ : CheckMode} {F : Nat} {env : Env} (m : EnvS V env)
   have hdepAll := List.all_eq_true.mp hdeps
   have hdepBin : ∀ n ∈ natOpDeps cv.name, n ≠ cv.name →
       (n = natPredName || n = natLog2Name) = false →
+      (n = natBeqName || n = natBleName) = false →
       ∀ (ρ' : Nat → V) (a b : V),
         a ∈ˢ interp V ρ' (m.cval natName φ) →
         b ∈ˢ interp V ρ' (m.cval natName φ) →
-        ∃ cn, (cn = boolName ∨ cn = natName) ∧
         SetTheory.app (SetTheory.app (interp V ρ' (m.cval n φ)) a) b
-          ∈ˢ interp V ρ' (m.cval cn φ) := by
-    intro n hn hnc hnu ρ' a b ha hb
+          ∈ˢ interp V ρ' (m.cval natName φ) := by
+    intro n hn hnc hnu hnb ρ' a b ha hb
     obtain ⟨cvn, vn, hintn, hfn2, hpin2⟩ :=
       natOpStoredOk_tyPinned (hdepAll n hn)
     obtain ⟨nm, nm2, mb, mb2, cod, htyn, hcod⟩ :=
       natOpTyPinned_binaryE hnu hpin2
     have hfn : env.find? n = some (.defnInfo cvn vn hintn) :=
       hdown _ _ hnc hfn2
-    rcases natOpCod_stored hcod with ⟨ciB, rfl, hfB2, hlpB⟩ | rfl
-    · exact ⟨boolName, Or.inl rfl,
-        dmBinMem m φ hfn htyn hfN hlpN
-          (hdown _ _ (hne _ (by simp)) hfB2) hlpB ρ' ha hb⟩
-    · exact ⟨natName, Or.inr rfl,
-        dmBinMem m φ hfn htyn hfN hlpN hfN hlpN ρ' ha hb⟩
+    have hcodN : cod = Expr.const natName [] := by
+      unfold natOpCod at hcod
+      rw [if_neg (show ¬((decide (n = natBeqName)
+        || decide (n = natBleName)) = true) from by simp [hnb])] at hcod
+      simpa using hcod
+    subst hcodN
+    exact dmBinMem m φ hfn htyn hfN hlpN hfN hlpN ρ' ha hb
   -- the value front door: the checked value's own denotation
   obtain ⟨hvlb, hvhf, hannv, -, -, hfront⟩ := id hvfr
   obtain ⟨Tv, Vc, tv, hTv, hVc, hInfV, hDeqV⟩ := hfront φ
@@ -1422,21 +1431,27 @@ theorem dmFrameS {μ : CheckMode} {F : Nat} {env : Env} (m : EnvS V env)
         or_false] at hmem
       rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide))] at hcod
     simpa using hcod
+  have hnotpred : (decide (cv.name = natPredName)) = false := by
+    simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+      or_false] at hmem
+    rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
   have htyOwn :
-      ((∃ nm nm2 mb mb2, type' = Expr.forallE nm (.const natName [])
-          (.forallE nm2 (.const natName []) (.const natName []) mb2)
-          mb) ∨
-        (∃ nm mb, type' = Expr.forallE nm (.const natName [])
-          (.const natName []) mb)) := by
-    by_cases hun : (cv.name = natPredName || cv.name = natLog2Name)
-        = true
-    · obtain ⟨nmT, mbT, codT, htyT, hcodT⟩ :=
-        natOpTyPinned_unaryE hun (htyS2 ▸ hpinS2)
-      exact Or.inr ⟨nmT, mbT, by rw [htyT, hnotcmp codT hcodT]⟩
+      ((decide (cv.name = natLog2Name) = false →
+          ∃ nm nm2 mb mb2, type' = Expr.forallE nm (.const natName [])
+            (.forallE nm2 (.const natName []) (.const natName []) mb2)
+            mb) ∧
+        (cv.name = natLog2Name →
+          ∃ nm mb, type' = Expr.forallE nm (.const natName [])
+            (.const natName []) mb)) := by
+    refine ⟨fun hnl => ?_, fun hl => ?_⟩
     · obtain ⟨nmT, nmT2, mbT, mbT2, codT, htyT, hcodT⟩ :=
-        natOpTyPinned_binaryE (by simpa using hun) (htyS2 ▸ hpinS2)
-      exact Or.inl ⟨nmT, nmT2, mbT, mbT2, by
-        rw [htyT, hnotcmp codT hcodT]⟩
+        natOpTyPinned_binaryE (by
+          simp only [Bool.or_eq_false_iff]
+          exact ⟨hnotpred, hnl⟩) (htyS2 ▸ hpinS2)
+      exact ⟨nmT, nmT2, mbT, mbT2, by rw [htyT, hnotcmp codT hcodT]⟩
+    · obtain ⟨nmT, mbT, codT, htyT, hcodT⟩ :=
+        natOpTyPinned_unaryE (by simp [hl]) (htyS2 ▸ hpinS2)
+      exact ⟨nmT, mbT, by rw [htyT, hnotcmp codT hcodT]⟩
   -- the literal-support and `Bool` constructors, stored
   obtain ⟨ciZ, hfZ, hlpZ⟩ : ∃ ci, env.find? natZeroName = some ci ∧
       ci.toConstantVal.levelParams = [] := by
@@ -1529,7 +1544,254 @@ theorem dmFrameS {μ : CheckMode} {F : Nat} {env : Env} (m : EnvS V env)
       denote_const_nolevelsS hfB hlpB φ 0] at ht
     obtain rfl := Option.some.inj ht
     exact (hlaw ρ').1
+  -- the literals inhabit `Nat`
+  have hzeroMem : ∀ ρ' : Nat → V,
+      interp V ρ' (m.cval natZeroName φ)
+        ∈ˢ interp V ρ' (m.cval natName φ) := by
+    intro ρ'
+    obtain ⟨cvZ, hfZ2, htyZ⟩ : ∃ cvZ, env.find? natZeroName = some cvZ ∧
+        cvZ.toConstantVal.type = Expr.const natName [] := by
+      cases hf : (⟨ConstantInfo.defnInfo
+          ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+          env.consts⟩ : Env).find? natZeroName with
+      | none => rw [hf] at hzero; exact nomatch hzero
+      | some ci =>
+        have hz := hf ▸ hzero
+        cases ci with
+        | ctorInfo cvZ nP nF =>
+          simp only [natZeroOk, Bool.and_eq_true, beq_iff_eq] at hz
+          exact ⟨_, hdown _ _ (hne _ (by simp)) hf, hz.2⟩
+        | _ => exact nomatch hz
+    obtain ⟨t, ht, hlaw⟩ := m.cval_memType hfZ2 φ
+    rw [htyZ, show denoteClosed m.cval env φ (Expr.const natName [])
+        = denote m.cval env φ 0 (Expr.const natName []) from rfl,
+      denote_const_nolevelsS hfN hlpN φ 0] at ht
+    obtain rfl := Option.some.inj ht
+    exact (hlaw ρ').1
+  have hsuccMem : ∀ (ρ' : Nat → V) (a : V),
+      a ∈ˢ interp V ρ' (m.cval natName φ) →
+      SetTheory.app (interp V ρ' (m.cval natSuccName φ)) a
+        ∈ˢ interp V ρ' (m.cval natName φ) := by
+    intro ρ' a ha
+    obtain ⟨ciS2, hfS2', htyS2'⟩ : ∃ ci,
+        env.find? natSuccName = some ci ∧ ∃ nm mb,
+        ci.toConstantVal.type = Expr.forallE nm (.const natName [])
+          (.const natName []) mb := by
+      cases hf : (⟨ConstantInfo.defnInfo
+          ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+          env.consts⟩ : Env).find? natSuccName with
+      | none => rw [hf] at hsucc; exact nomatch hsucc
+      | some ci =>
+        exact ⟨ci, hdown _ _ (hne _ (by simp)) hf,
+          natSuccOk_ty (hf ▸ hsucc)⟩
+    obtain ⟨nmS, mbS, htyS3⟩ := htyS2'
+    exact dmUnMem m φ hfS2' htyS3 hfN hlpN hfN hlpN ρ' ha
   exact ⟨_, ciB, Vc, hfN, hlpN, hfB, hlpB, hEqE, hVc, hvalSelf,
-    hvalNat, hNU, hBU, hbleMem, hdepBin, htyOwn, hstore, hctorMem⟩
+    hvalNat, hNU, hBU, hbleMem, hdepBin, htyOwn, hstore, hctorMem,
+    hzeroMem, hsuccMem⟩
+
+/-! ## One guarded clause, as a theorem
+
+The nine operations' clause blocks are instantiations of this: denote
+the four fragments, read the equation off the certificate, and hand
+back the `app`-chain `DivModClausesV` is written in.  Everything
+syntactic about a statement is `by decide` at the call site. -/
+
+set_option maxHeartbeats 12800000 in
+/-- **A guarded div/mod clause, discharged.** -/
+theorem dmClause1S {μ : CheckMode} {F : Nat} {env : Env}
+    (m : EnvS V env) {cv : ConstantVal} {type' value value' : Expr}
+    {hint : ReducibilityHint} {c : Name}
+    (hmem : cv.name ∈ natDivModNames)
+    (hvfr : ValueFrontR μ F env m.cval cv value type' value')
+    (hgenv : divModEnvGuard ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩
+      value' hint :: env.consts⟩ cv.name = true)
+    (hc : cv.name = c)
+    (φ : Name → Nat) (ρ : Nat → V) (xx yy : V)
+    (hxx : xx ∈ˢ interp V ρ (cvalAt m.cval env cv.name value' natName
+      (Level.substFn φ ([] : List Name) ([] : List Level))))
+    (hyy : yy ∈ˢ interp V ρ (cvalAt m.cval env cv.name value' natName
+      (Level.substFn φ ([] : List Name) ([] : List Level)))) :
+    ∀ gl gr lhs rhs proof : Expr,
+      CertRunFacts μ env F c value'
+        ([Expr.app (.app (.app (.const eqName [.succ .zero])
+            (.const boolName [])) gl) gr],
+         Expr.app (.app (.app (.const eqName [.succ .zero])
+            (.const natName [])) lhs) rhs) proof →
+      dmFragOk c (natOpDeps c ++ [natSuccName, natZeroName,
+        boolTrueName, boolFalseName]) gl = true →
+      dmFragOk c (natOpDeps c ++ [natSuccName, natZeroName,
+        boolTrueName, boolFalseName]) gr = true →
+      dmFragOk c (natOpDeps c ++ [natSuccName, natZeroName,
+        boolTrueName, boolFalseName]) lhs = true →
+      dmFragOk c (natOpDeps c ++ [natSuccName, natZeroName,
+        boolTrueName, boolFalseName]) rhs = true →
+      Expr.wscopedB 2 (Expr.app (.app (.app
+        (.const eqName [.succ .zero]) (.const boolName [])) gl) gr)
+        = true →
+      Expr.wscopedB 4 lhs = true → Expr.wscopedB 4 rhs = true →
+      (Expr.app (.app (.app (.const eqName [.succ .zero])
+        (.const boolName [])) gl) gr).looseBVarsBounded 0 = true →
+      lhs.looseBVarsBounded 0 = true →
+      rhs.looseBVarsBounded 0 = true →
+      dmLeavesOk (Expr.app (.app (.app (.const eqName [.succ .zero])
+        (.const boolName [])) gl) gr) = true →
+      dmLeavesOk lhs = true → dmLeavesOk rhs = true →
+      (dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy lhs
+          ∈ˢ interp V ρ (m.cval natName φ)) →
+      (dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy rhs
+          ∈ˢ interp V ρ (m.cval natName φ)) →
+      (dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy gl
+          ∈ˢ interp V ρ (m.cval boolName φ)) →
+      (dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy gr
+          ∈ˢ interp V ρ (m.cval boolName φ)) →
+      dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy gl
+        = dmEvalV V (fun n => interp V ρ
+          (dmVal m.cval env c value' φ n)) xx yy gr →
+      dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy lhs
+        = dmEvalV V (fun n => interp V ρ
+          (dmVal m.cval env c value' φ n)) xx yy rhs := by
+  obtain ⟨ciN, ciB, Vc, hfN, hlpN, hfB, hlpB, hEqE, hVc, hvalSelf,
+    hvalNat, hNU, hBU, hbleMem, hdepBin, htyOwn, hstore, hctorMem,
+    hzeroMem, hsuccMem⟩ := dmFrameS m hmem hvfr hgenv φ
+  obtain ⟨hvlb, hvhf, hannv, -, -, -⟩ := id hvfr
+  obtain ⟨hvf', hbv'⟩ := annotate_syntax hannv hvhf hvlb
+  have hclN : VExpr.Closed (m.cval natName φ) := m.cval_closed _ _
+  have hnatDen : ∀ d : Nat, denote m.cval env φ d
+      (Expr.const natName []) = some (m.cval natName φ) :=
+    fun d => denote_const_nolevelsS hfN hlpN φ d
+  have hneAll : ∀ n ∈ ([natName, boolName] : List Name),
+      n ≠ cv.name := by
+    intro n hn
+    simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+      or_false] at hmem hn
+    rcases hmem with h|h|h|h|h|h|h|h|h <;>
+      rcases hn with rfl|rfl <;> (rw [h]; decide)
+  have hvalDep : ∀ n : Name, n ≠ cv.name →
+      dmVal m.cval env cv.name value' φ n = m.cval n φ := by
+    intro n hn
+    rw [dmVal, show cvalAt m.cval env cv.name value' n = m.cval n
+      from cvalAt_ne hn,
+      show Level.substFn φ ([] : List Name) ([] : List Level) = φ
+      from funext fun _ => rfl]
+  have hboolDen : ∀ d : Nat, denote m.cval env φ d
+      (Expr.substConst0 cv.name value' (Expr.const boolName []))
+      = some (m.cval boolName φ) := by
+    intro d
+    rw [denote_dmDep φ hfB hlpB (hneAll _ (by simp)) d,
+      hvalDep _ (hneAll _ (by simp))]
+  rw [hvalNat] at hxx hyy
+  -- the frame's valuations are closed, hence environment-independent
+  have hdmCl : ∀ n : Name,
+      VExpr.Closed (dmVal m.cval env cv.name value' φ n) := by
+    intro n
+    by_cases hn : n = cv.name
+    · subst hn
+      rw [hvalSelf]
+      exact denote_closed m.cval_closed hvf' hbv' hVc
+    · rw [hvalDep n hn]
+      exact m.cval_closed _ _
+  have hdmInv : ∀ (n : Name) (ρ' : Nat → V),
+      interp V ρ' (dmVal m.cval env cv.name value' φ n)
+        = interp V ρ (dmVal m.cval env cv.name value' φ n) :=
+    fun n ρ' => interp_closed V (hdmCl n) ρ' ρ
+  -- the operation itself is a function on the frame's `Nat`
+  have hselfMem : (∃ nm nm2 mb mb2, type' = Expr.forallE nm
+        (.const natName [])
+        (.forallE nm2 (.const natName []) (.const natName []) mb2) mb) →
+      ∀ (ρ' : Nat → V) (a b : V),
+        a ∈ˢ interp V ρ' (m.cval natName φ) →
+        b ∈ˢ interp V ρ' (m.cval natName φ) →
+        SetTheory.app (SetTheory.app (interp V ρ' Vc) a) b
+          ∈ˢ interp V ρ' (m.cval natName φ) := by
+    rintro ⟨nm, nm2, mb, mb2, hty⟩ ρ' a b ha hb
+    exact dmSelfMem m φ hvfr hty hfN hlpN hfN hlpN hVc ρ' ha hb
+  rw [hc] at hmem hvalSelf hstore hdepBin hvalDep hdmCl hdmInv hneAll hboolDen htyOwn
+  intro gl gr lhs rhs proof hfacts hfgl hfgr hflhs hfrhs hwH hwL hwR
+    hbH hbL hbR hlH hlL hlR hmL hmR hmgl hmgr hguard
+  have hpf : (Expr.substConstAll c value' proof).hasFvar = false := by
+    have hg := hfacts.1
+    simp only [divModCertGuard, Bool.and_eq_true,
+      Bool.not_eq_true'] at hg
+    exact hg.1.1.1.1.2
+  obtain ⟨glV, hgld, hgle⟩ := dmDenEval m φ (d := 4) m.cval_closed
+    hvf' hbv' hVc hstore gl hfgl
+  obtain ⟨grV, hgrd, hgre⟩ := dmDenEval m φ (d := 4) m.cval_closed
+    hvf' hbv' hVc hstore gr hfgr
+  obtain ⟨lV, hld, hle⟩ := dmDenEval m φ (d := 4) m.cval_closed
+    hvf' hbv' hVc hstore lhs hflhs
+  obtain ⟨rV, hrd, hre⟩ := dmDenEval m φ (d := 4) m.cval_closed
+    hvf' hbv' hVc hstore rhs hfrhs
+  obtain ⟨gl2, hgl2, hgle2⟩ := dmDenEval m φ (d := 2) m.cval_closed
+    hvf' hbv' hVc hstore gl hfgl
+  obtain ⟨gr2, hgr2, hgre2⟩ := dmDenEval m φ (d := 2) m.cval_closed
+    hvf' hbv' hVc hstore gr hfgr
+  have hH1 := denote_eqSpine (cval := m.cval) (c := c)
+    (value' := value') φ hEqE (hboolDen 2) hgl2 hgr2
+  have hfb1 : Expr.fvarsBelow 2 (Expr.substConst0 c value'
+      (Expr.app (.app (.app (.const eqName [.succ .zero])
+        (.const boolName [])) gl) gr)) :=
+    Expr.WScoped.fvarsBelow
+      (Expr.WScoped.of_wscopedB (wscopedB_substConst0 hvf' _ hwH))
+  have hlE : dmLeavesOk (Expr.app (.app (.app
+      (.const eqName [.succ .zero]) (.const natName [])) lhs) rhs)
+      = true := by
+    simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append,
+      List.all_append, Bool.and_eq_true]
+    exact ⟨hlL, hlR⟩
+  have hCA := dmCtxOk_applied1 (μ := μ) (H2 := m.cval natName φ) φ
+    m.cval_closed hvf' hclN (hnatDen 4) hpf hlH hfb1 hH1
+  have hCE := dmCtxOk_stmt (μ := μ) (c := c) (value' := value')
+    (H1 := VExpr.mkAppN (m.cval eqName (Level.substFn φ
+      eqA.toConstantVal.levelParams [Level.zero.succ]))
+      [m.cval boolName φ, gl2, gr2])
+    (H2 := m.cval natName φ) φ hvf' hclN (hnatDen 4) hlE
+  -- the frame's valuation, at the four-entry environment
+  have hvalFun : ∀ ρ' : Nat → V, (fun n => interp V ρ'
+      (dmVal m.cval env c value' φ n))
+      = (fun n => interp V ρ (dmVal m.cval env c value' φ n)) :=
+    fun ρ' => funext fun n => hdmInv n ρ'
+  -- the hypothesis slot is inhabited by the guard
+  have hsat := sat_dm (A0 := m.cval natName φ) (A1 := _)
+    (natV := m.cval natName φ) (ρ := ρ) (a := xx) (b := pt)
+    (yy := yy) (xx := xx) hclN
+    (by rw [interp_closed V hclN _ ρ]; exact hxx)
+    (by
+      rw [EqLawV.app₃ V m.eq_lawV hEqE
+        (Level.substFn φ eqA.toConstantVal.levelParams
+          [Level.zero.succ]) (cons V yy (cons V xx ρ))
+        (m.cval boolName φ) gl2 gr2
+        (by rw [eqSubst_uN]; exact hBU _)
+        (by
+          rw [hgle2, hvalFun,
+            interp_closed V (m.cval_closed boolName φ) _ ρ]
+          exact hmgl)
+        (by
+          rw [hgre2, hvalFun,
+            interp_closed V (m.cval_closed boolName φ) _ ρ]
+          exact hmgr)]
+      rw [hgle2, hgre2, hvalFun]
+      show pt ∈ˢ eqv (dmEvalV V (fun n => interp V ρ
+          (dmVal m.cval env c value' φ n)) xx yy gl)
+        (dmEvalV V (fun n => interp V ρ
+          (dmVal m.cval env c value' φ n)) xx yy gr)
+      rw [hguard]
+      exact pt_mem_eqv_self _)
+    (by rw [interp_closed V hclN _ ρ]; exact hyy)
+    (by rw [interp_closed V hclN _ ρ]; exact hxx)
+  have heq := dmCertEq1 m φ hEqE (hneAll _ (by simp)) hvf' hbv'
+    hfacts hlH hlL hlR hwH hwL hwR hbH hbL hbR (hnatDen 4) hld hrd
+    hCA hCE
+    _ hsat (hNU _)
+    (by rw [hle, hvalFun, interp_closed V hclN _ ρ]; exact hmL)
+    (by rw [hre, hvalFun, interp_closed V hclN _ ρ]; exact hmR)
+  rw [hle, hre, hvalFun] at heq
+  exact heq
 
 end Setlec.SetR

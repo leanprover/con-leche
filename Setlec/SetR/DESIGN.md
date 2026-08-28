@@ -6851,3 +6851,50 @@ shape of a step you have not taken yet.*
 Landed with it: `dmCtxOk_stmt`, `dmCtxOk_applied1`, `dmCtxOk_applied2`
 — the three `CtxOkR`s a clause needs, in the satisfiable form.  All at
 `[propext, Classical.choice, Quot.sound]`.
+
+### `dmClause1S` — one guarded div/mod clause, discharged
+
+The crux of `DivModPinS` is proved.  `Setlec/SetR/DivModPin.lean` is
+1797 lines, all at `[propext, Classical.choice, Quot.sound]`.
+
+```
+dmClause1S : … → CertRunFacts μ env F c value' ([eqB gl gr], eqN lhs rhs) proof →
+  <13 syntactic facts, all `by decide` at the call site> →
+  <4 memberships> →
+  dmEvalV V VAL xx yy gl = dmEvalV V VAL xx yy gr →
+  dmEvalV V VAL xx yy lhs = dmEvalV V VAL xx yy rhs
+```
+
+That conclusion is *literally* a `DivModClausesV` conjunct: `dmEvalV`
+of `op2 x y` is `app (app (val c) x) y`.  So each of the seventeen
+one-hypothesis clauses is one application of this theorem.
+
+**What made it work, in order:** `dmFrameS` (the guards, unpacked
+once), `dmDenEval` at the frame depth the fragment is *read* at,
+`denote_lift1`/`denote_lift2` to carry the hypothesis entries from
+where they are *stated* (2 and 3) to where `CtxOkR` reads them (4),
+`dmCtxOk_applied1`/`dmCtxOk_stmt` through `pinnedCtxLift`, `sat_dm`
+with each hypothesis slot read in its own shifted environment, and
+`EqLawV.app₃` + `pt_mem_eqv_self` turning the clause's guard into that
+slot's inhabitant.
+
+Two frictions, both already in this file's own record and both fired
+again:
+
+* **multi-line `at`-lists do not parse** — the `rw [hc] at …` list had
+  to go on one line;
+* `(…).fvarsBelow` on a fresh line parses as an application; write
+  `Expr.WScoped.fvarsBelow (…)`.
+
+And one new sizing note: the frame's `htyOwn` had to be split *by
+`Nat.log2`* rather than offered as a disjunction — a consumer needs to
+*know* it has the binary shape, and `∨` makes it prove that again at
+every call.  **A disjunction in a frame is a bill the consumer pays
+once per use; a conditional is one it pays once.**
+
+**Remaining:** the nine clause blocks — for each operation, unpack
+`CertRuns`, supply `dmClause1S` with the two/three certificates'
+memberships (`hselfMem`, `hdepBin`, `hbleMem`, `hzeroMem`,
+`hsuccMem`, `hctorMem` are all in `dmFrameS`), and read off
+`DivModClausesV`.  `Nat.div`/`Nat.mod`'s first certificate has two
+hypotheses and wants the `dmCertEq2` twin of `dmClause1S`.
