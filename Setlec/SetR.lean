@@ -63,6 +63,7 @@ import Setlec.SetR.Bridge.Main
 import Setlec.SetR.Bridge.Decl
 import Setlec.SetR.Bridge.DeclInd
 import Setlec.SetR.Bridge.Sound
+import Setlec.SetR.Main
 import Setlec.SetR.Annot.Syntax
 import Setlec.SetR.Annot.Pass
 import Setlec.SetR.Annot.Kinding

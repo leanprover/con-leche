@@ -5311,3 +5311,32 @@ The three obligations left as named hypotheses (`NatEqsBridgeR`,
 each quantifies over an `EnvS V env` and speaks at that `m`'s own
 valuation.  That is deliberate, and it is the rule above applied
 prospectively rather than retroactively for once.
+
+### Three of the fourteen land; the other eleven are a different shape
+
+`Setlec/SetR/Main.lean` carries `no_constant_of_Empty_R`,
+`checkDecls_sound_R` and `no_proof_of_Empty_R` — the three stated over
+`checkDecls` at `fueledOps`.  `no_proof_of_Empty_R` takes the §3 route
+exactly as planned: `EnvS.mem_type` at the stored constant gives
+`interp ρ (cval c ψ) ∈ˢ interp ρ t`, `empty_pinned` identifies `t` as
+`emptyT u`, `interp_emptyT` collapses it to `SetTheory.empty`, and
+`not_mem_empty` closes.  Nine lines.
+
+**The other eleven are not more of the same.**  Each `_S`/`_C`/`_SP`
+variant re-runs its *own* driver fold — `foldlM_soundS`,
+`foldlM_soundC`, `foldSP` in the Model lane — because the drivers are
+different functions (`checkDeclsShared`, `cachedOps`,
+`checkDeclsSP` over parsed indices), not different arguments to one.
+So the remaining work is three driver-fold inductions, each
+transposing an existing Model-lane one, and then eight corollaries
+that are two lines each.  Counting them as "eleven theorems" overstates
+the work by about three; counting them as "three folds" understates it
+by the parsed-index one, which carries the store's `WF` and `Ext`
+threading.  The honest unit is **three folds and eight corollaries**.
+
+*Axiom audit, on everything landed.*  All three of the fourteen, plus
+`checkDeclR_sound`, `foldlM_R`, `declIndRS`, `iotaThmR_of`,
+`iotaThmNR_of`, `iotaRulesR_of`, `projFnR_of`, `indRecsRS`,
+`projInstallRS`: `[propext, Classical.choice, Quot.sound]`, exactly.
+Zero `sorry` in the tree (the six textual hits are all the word
+`sorryAx` in prose).
