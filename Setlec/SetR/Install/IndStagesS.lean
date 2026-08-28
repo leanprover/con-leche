@@ -2283,4 +2283,212 @@ theorem lamTowerStepS :
       rw [hval]
       exact lamC_mem_upair _ _
 
+
+set_option maxHeartbeats 3200000 in
+/-- **The per-position annotation identification** (`annotS` stage 1):
+at every frame position the statement's opener annotation is `DefEq`
+(under any context validating the two walked subjects) to the P-frame's
+canonical annotation — the prefix through the recursor-domain walk, the
+fields through the constructor-domain walk, each composed with the
+renamed-equal reading of the canonical run (`instPisAt_renEq`:
+same-index openers, renamed base). -/
+theorem annotPFrameEqS {μ : CheckMode} {env : Env} {cval : TConstVal}
+    {ψ' : Name → Nat}
+    {f : Name → Name} (hro : RenameOkT cval env f)
+    {rP cnP cnF : Nat} (hplainLe : cnP ≤ rP)
+    {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
+    (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      ∃ nm ty, x = Expr.fvar i nm ty)
+    {tyA tyAR : Expr} (hrenTy : RenEqT f tyA tyAR)
+    {fvsPl : List Expr} {restP : Expr}
+    (hopenP : openPisAtFvars rP tyA 0 = some (fvsPl, restP))
+    {cvjty cvjR : Expr} (hrenCvj : RenEqT f cvjty cvjR)
+    {cdomsP : List Expr} {crestP : Expr}
+    (hcinstP : Expr.instPisAt (fvsPl.take cnP) cvjty
+      = some (cdomsP, crestP))
+    {xFvsP : List Expr} {ldoms : Expr}
+    (hopenXP : openPisAtFvars cnF crestP rP = some (xFvsP, ldoms))
+    {rdoms : List Expr} {rrest : Expr}
+    (hrinst : Expr.instPisAt (fvs.take rP) tyAR = some (rdoms, rrest))
+    {cdoms : List Expr} {cres : Expr}
+    (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP) cvjR
+      = some (cdoms, cres))
+    (hdePre : DefEqListW μ env cval ψ' (rP + cnF)
+      ((fvs.take rP).map Expr.fvarTypeD) rdoms)
+    (hdeFld : DefEqListW μ env cval ψ' (rP + cnF)
+      ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP)) :
+    ∀ i, i < rP + cnF →
+      ∃ Ai Bi,
+        denote cval env ψ' (rP + cnF)
+          (Expr.fvarTypeD (fvs.getD i default)) = some Ai ∧
+        denote cval env ψ' (rP + cnF)
+          (Expr.fvarTypeD ((fvsPl ++ xFvsP).getD i default)) = some Bi ∧
+        ∀ Δ : List VExpr,
+          CtxOkR μ cval env ψ' (rP + cnF) Δ
+            (Expr.fvarTypeD (fvs.getD i default)) →
+          CtxOkR μ cval env ψ' (rP + cnF) Δ
+            (if i < rP then rdoms.getD i default
+              else cdoms.getD (cnP + (i - rP)) default) →
+          DefEq μ env cval ψ' Δ Ai Bi := by
+  intro i hiK
+  have hfvsPlen : fvsPl.length = rP := openPisAtFvars_length _ hopenP
+  have hxlen : xFvsP.length = cnF := openPisAtFvars_length _ hopenXP
+  have hPpre : Expr.instPisAt fvsPl tyA
+      = some (fvsPl.map Expr.fvarTypeD, restP) :=
+    openPisAtFvars_instPisAt _ hopenP
+  have hPx : Expr.instPisAt xFvsP crestP
+      = some (xFvsP.map Expr.fvarTypeD, ldoms) :=
+    openPisAtFvars_instPisAt _ hopenXP
+  have hPfld : Expr.instPisAt (fvsPl.take cnP ++ xFvsP) cvjty
+      = some (cdomsP ++ xFvsP.map Expr.fvarTypeD, ldoms) :=
+    Expr.instPisAt_append _ hcinstP hPx
+  have hcdomsPlen : cdomsP.length = cnP := by
+    have h := instPisAt_length _ hcinstP
+    rw [List.length_take, hfvsPlen] at h
+    omega
+  have hcdomslen : cdoms.length = cnP + cnF := by
+    have h := instPisAt_length _ hcinst
+    rw [List.length_append, List.length_take, List.length_drop,
+      hfvslen] at h
+    omega
+  rcases Nat.lt_or_ge i rP with hi | hi
+  · -- prefix: statement annotation ↔ `rdoms[i]` ↔ P annotation
+    obtain ⟨hwlen, hwget⟩ := Forall2.length_getD hdePre
+    have hslen : ((fvs.take rP).map Expr.fvarTypeD).length = rP := by
+      rw [List.length_map, List.length_take, hfvslen]
+      omega
+    have hde := hwget i default default (by rw [hslen]; omega)
+    rcases hfx : fvs[i]? with _ | fx
+    · rw [List.getElem?_eq_none_iff, hfvslen] at hfx
+      omega
+    have hLsub : ((fvs.take rP).map Expr.fvarTypeD).getD i default
+        = Expr.fvarTypeD (fvs.getD i default) := by
+      rw [List.getD, List.getElem?_map,
+        List.getElem?_take_of_lt hi, hfx, List.getD, hfx]
+      rfl
+    rw [hLsub] at hde
+    obtain ⟨Ai, Bi, hAi, hBi, hder⟩ := hde
+    -- the canonical run's `RenEqT` alignment against `rdoms`
+    have hrenD := instPisAt_renEq fvsPl (fvs.take rP) hPpre hrinst
+      hrenTy
+      (fun i0 a a' ha ha' => by
+        obtain ⟨nm, ty, ha2⟩ := openPisAtFvars_index _ _ _ hopenP i0 a ha
+        have hi0 : i0 < rP := by
+          have := (List.getElem?_eq_some_iff.mp ha).1
+          rw [hfvsPlen] at this
+          exact this
+        rw [List.getElem?_take_of_lt hi0] at ha'
+        obtain ⟨nm', ty', ha2'⟩ := hshapeS i0 a' ha'
+        rw [ha2, ha2', show (0 : Nat) + i0 = i0 from by omega]
+        exact RenEqT.fvar)
+      (by rw [hfvsPlen, List.length_take, hfvslen]; omega)
+    rcases hpi : fvsPl[i]? with _ | pxi
+    · rw [List.getElem?_eq_none_iff, hfvsPlen] at hpi
+      omega
+    have hrenI : RenEqT f (Expr.fvarTypeD pxi) (rdoms.getD i default) := by
+      rcases hri : rdoms[i]? with _ | ri
+      · rw [List.getElem?_eq_none_iff, ← hwlen, hslen] at hri
+        omega
+      · rw [List.getD, hri]
+        exact hrenD.1 i _ _ (by rw [List.getElem?_map, hpi]; rfl) hri
+    have hPsub : (fvsPl ++ xFvsP).getD i default = pxi := by
+      rw [List.getD, List.getElem?_append_left (by rw [hfvsPlen]; omega),
+        hpi]
+      rfl
+    have hBden : denote cval env ψ' (rP + cnF) (Expr.fvarTypeD pxi)
+        = some Bi := by
+      have h := RenEqT.denote (cval := cval) (env := env) (φ := ψ') hro
+        hrenI (rP + cnF)
+      rcases hrd : rdoms[i]? with _ | ri
+      · rw [List.getElem?_eq_none_iff, ← hwlen, hslen] at hrd
+        omega
+      · rw [← h]
+        exact hBi
+    refine ⟨Ai, Bi, hAi, by rw [hPsub]; exact hBden, ?_⟩
+    intro Δ h1 h2
+    rw [if_pos hi] at h2
+    exact hder Δ h1 h2
+  · -- field: statement annotation ↔ `cdoms[cnP + j]` ↔ P annotation
+    obtain ⟨hwlen, hwget⟩ := Forall2.length_getD hdeFld
+    have hslen : ((fvs.drop rP).map Expr.fvarTypeD).length = cnF := by
+      rw [List.length_map, List.length_drop, hfvslen]
+      omega
+    have hde := hwget (i - rP) default default (by rw [hslen]; omega)
+    have hlenSpines : (fvsPl.take cnP ++ xFvsP).length
+        = (fvs.take cnP ++ fvs.drop rP).length := by
+      rw [List.length_append, List.length_append, List.length_take,
+        List.length_take, List.length_drop, hfvsPlen, hfvslen, hxlen]
+      omega
+    rcases hfx : fvs[i]? with _ | fx
+    · rw [List.getElem?_eq_none_iff, hfvslen] at hfx
+      omega
+    have hLsub : ((fvs.drop rP).map Expr.fvarTypeD).getD (i - rP) default
+        = Expr.fvarTypeD (fvs.getD i default) := by
+      rw [List.getD, List.getElem?_map, List.getElem?_drop,
+        show rP + (i - rP) = i from by omega, hfx, List.getD, hfx]
+      rfl
+    have hRsub : (cdoms.drop cnP).getD (i - rP) default
+        = cdoms.getD (cnP + (i - rP)) default := by
+      rw [List.getD, List.getD, List.getElem?_drop]
+    rw [hLsub, hRsub] at hde
+    obtain ⟨Ai, Bi, hAi, hBi, hder⟩ := hde
+    -- the composed canonical run's `RenEqT` alignment against `cdoms`
+    have hrenD := instPisAt_renEq (fvsPl.take cnP ++ xFvsP)
+      (fvs.take cnP ++ fvs.drop rP) hPfld hcinst hrenCvj
+      (fun i0 a a' ha ha' => by
+        have htkP : (fvsPl.take cnP).length = cnP := by
+          rw [List.length_take, hfvsPlen]
+          omega
+        have htkS : (fvs.take cnP).length = cnP := by
+          rw [List.length_take, hfvslen]
+          omega
+        rcases Nat.lt_or_ge i0 cnP with h0 | h0
+        · rw [List.getElem?_append_left (by rw [htkP]; omega),
+            List.getElem?_take_of_lt h0] at ha
+          rw [List.getElem?_append_left (by rw [htkS]; omega),
+            List.getElem?_take_of_lt h0] at ha'
+          obtain ⟨nm, ty, ha2⟩ := openPisAtFvars_index _ _ _ hopenP i0 a ha
+          obtain ⟨nm', ty', ha2'⟩ := hshapeS i0 a' ha'
+          rw [ha2, ha2', show (0 : Nat) + i0 = i0 from by omega]
+          exact RenEqT.fvar
+        · rw [List.getElem?_append_right (by rw [htkP]; omega),
+            htkP] at ha
+          rw [List.getElem?_append_right (by rw [htkS]; omega),
+            htkS, List.getElem?_drop] at ha'
+          obtain ⟨nm, ty, ha2⟩ :=
+            openPisAtFvars_index _ _ _ hopenXP (i0 - cnP) a ha
+          obtain ⟨nm', ty', ha2'⟩ := hshapeS (rP + (i0 - cnP)) a' ha'
+          rw [ha2, ha2']
+          exact RenEqT.fvar)
+      hlenSpines
+    rcases hpi : xFvsP[i - rP]? with _ | pxi
+    · rw [List.getElem?_eq_none_iff, hxlen] at hpi
+      omega
+    have hrenI : RenEqT f (Expr.fvarTypeD pxi)
+        (cdoms.getD (cnP + (i - rP)) default) := by
+      rcases hri : cdoms[cnP + (i - rP)]? with _ | ri
+      · rw [List.getElem?_eq_none_iff, hcdomslen] at hri
+        omega
+      · rw [List.getD, hri]
+        refine hrenD.1 (cnP + (i - rP)) _ _ ?_ hri
+        rw [List.getElem?_append_right
+            (by rw [hcdomsPlen]; omega), hcdomsPlen,
+          show cnP + (i - rP) - cnP = i - rP from by omega,
+          List.getElem?_map, hpi]
+        rfl
+    have hPsub : (fvsPl ++ xFvsP).getD i default = pxi := by
+      rw [List.getD, List.getElem?_append_right (by rw [hfvsPlen]; omega),
+        hfvsPlen, hpi]
+      rfl
+    have hBden : denote cval env ψ' (rP + cnF) (Expr.fvarTypeD pxi)
+        = some Bi := by
+      have h := RenEqT.denote (cval := cval) (env := env) (φ := ψ') hro
+        hrenI (rP + cnF)
+      rw [← h]
+      exact hBi
+    refine ⟨Ai, Bi, hAi, by rw [hPsub]; exact hBden, ?_⟩
+    intro Δ h1 h2
+    rw [if_neg (by omega)] at h2
+    exact hder Δ h1 h2
+
 end Setlec.SetR
