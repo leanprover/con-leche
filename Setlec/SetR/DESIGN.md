@@ -2835,16 +2835,69 @@ The fold threads the invariant
 It survives later steps because step `k` writes only `projFnName T k`,
 which is neither `projFnName T j` (`k ≠ j`) nor `projModelName T j`.
 
-**The eta head, at a projection install.**  `EtaFamilyStored` wants
-*every* `projFnName T j`, `j < caps.etaFields`, stored — so the
-obligation is vacuous at every field but the last, and at the last it
-is `etaLawKeyS`, whose `hvP` is exactly the fold's invariant.  But
-`MemberEtaS`'s lesson applies unchanged: `T` there is quantified over
-*stored* families, and identifying it with the block's former is an
-assembly-level fact.  So expect `ProjEtaS` to be **forwarded** too,
-with the live `etaLawKeyS` discharge landing in the `DeclIndS`
-assembly beside `MemberEtaS`'s.  Do not plan to close it inside the
-fold.
+**The eta head, at a projection install** — *corrected 2026-08-28,
+after landing stage 5a*.  The prediction above (that `ProjEtaS` would
+be forwarded like `MemberEtaS`) was **wrong**, and wrong for the P2
+reason yet again: the head disjunct had to be read, not summarised.
+At a projection install the head is a `.recInfo`, so
+
+* `T' = c₀.name` puts a `.recInfo` where the family's own lookup
+  demands an `.indInfo`, and
+* `caps.etaCtor = c₀.name` puts one where `EtaFamilyStored` demands a
+  `.ctorInfo`,
+
+both immediately absurd.  Only the projection disjunct survives, and
+it *pins* `T' = T` and the field index.  So the obligation is
+discharged **in-fold**, by `etaLawKeyS` one environment ahead — which
+is exactly the shape finding 6 produced.  This also makes the Model
+lane's `hbshape` premise unnecessary here: refuting by the stored
+*kind* is cheaper than refuting by the name's shape, and independent
+of the block.
+
+## T5 stage 5a landed; what `projFnS` still needs (2026-08-28)
+
+`ProjPhaseInvS`, `projFwd_renameOkT` and `projProvisionS` are in
+`Install/ProjInstallS.lean`, warning- and sorry-free.
+
+### The architecture is forced, not chosen
+
+The projection recursor **cannot** be consed with its rule and then
+have `indBottomProjS` fire at the result: the bottom is premised on an
+`EnvS`, and `EnvS.cons`'s `hheadRec` is a field of the very bundle
+being built.  That is practice P1, and it makes the recursor group's
+*provision → fire → swap* shape mandatory here too — with a single
+cons in place of the group's fold.  Stage 3a's `EnvS.swap` and stage
+3c's `RecRuleLawV.swapS` are reused unchanged.
+
+Two premises the Model lane's `checkProjFn_sound` carries turned out
+to be unnecessary: `hbshape` (see the corrected note above) and
+`hptyB` (the roundtrip equation alone identifies the denotation).
+
+### `projFnS`'s remaining work, precisely
+
+1. **The phase invariant at `env₀`** (the rule-less extension): the
+   `j = i` conjunct is `cvalWith_self`, the rest is `hinv` transported
+   over a fresh cons.  This is what `projFwd_renameOkT` then consumes,
+   and note that at `env₀` the *pruned* and *full* projection maps
+   coincide, because `projFnName T i` is stored there — which is why
+   the Model lane's separate `f`/`f₀` pair is not needed.
+2. **The bottom's pins**, all from `ProjFnR` transported up by
+   freshness; `_hrhsKey`'s semantic form comes from `Infer.sound` at
+   `env'` with `m.toHyp` (the `iotaRuleS` pattern).
+3. **The bridge** from `indBottomProjS`'s conclusion to
+   `RecRuleLawV`'s body.  Three small gaps, all already tooled:
+   `recFireComparands_plain` (relocated in stage 3b) for the level
+   comparand, `ProjFnR`'s `hctor` plus injectivity for the `find?`
+   premise that fixes `cvj cnP cnF`, and `mI = rP = nP` for `rP ≤ mI`.
+   The `.inert` case is vacuous against `RecRulesV`'s own
+   `fire ≠ .inert`.
+4. **The swap**: `SwapShList.cons (Or.inr ⟨…⟩) (SwapShList.of_eq _)`,
+   `SwapNResS` at the head from `reservedBasisNames_not_num`, and the
+   three global facts (`EnvWF`, `RecCtorsStored`, `RecRulesV`) as in
+   `indRecsS`.
+
+Then the fold (`projInstallS`) threads `ProjPhaseInvS` +
+`BlockInstalledTT` over `List.range nF`, with the skip branch a no-op.
 
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
@@ -2863,7 +2916,7 @@ needs.
 | `declIndS` 2 | **done** — `memberInstallS`, `indMembersS` (non-recursor members), `provisionRecsS` (rule-less recursors ⇒ `EnvS V envSelf`) |
 | `declIndS` 3 | **done** — `EnvS.swap` (3a), `iotaRuleS` (3b), `indRecsS` (3c) |
 | `declIndS` 4 | **done** — `memberUnitS` discharged; `MemberEtaS` forwarded to the assembly (see the stage-4 record) |
-| `declIndS` 5 | **not started, but scoped** — see "Stage 5's shape" above: obligation table, the fold's valuation invariant, and why `ProjEtaS` will be forwarded |
+| `declIndS` 5 | **5a landed** (`ProjPhaseInvS`, `projFwd_renameOkT`, `projProvisionS`); 5b (`projFnS` + the fold) scoped in "what `projFnS` still needs" |
 | `declIndS` 6 | **not started** — the elimination templates |
 | `DeclIndS` assembly | **not started** |
 | `DeclBasisS` | **not started** — the basis install (the TT lane's `DeclBasis.lean` is the template) |
