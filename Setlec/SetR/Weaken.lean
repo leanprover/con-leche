@@ -375,7 +375,8 @@ private theorem wkRedIota (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h2 : rules.find? (fun r' => r'.ctor == rl.ctor) = some rl)
     (h3 : rl.fire ≠ .inert)
     (h4 : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF))
-    (h5 : rP ≤ mI) (h6 : xs.length = mI + 1)
+    (h5 : ∀ lvls pins, rl.fire = .nested lvls pins → rP ≤ mI)
+    (h6 : xs.length = mI + 1)
     (h7 : ys.length = rl.ctorParams + rl.nfields)
     (h8 : us.length = cv.levelParams.length)
     (h9 : usj.length = cvj.levelParams.length)
@@ -436,9 +437,6 @@ private theorem wkRedIota (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       (VExpr.mkAppN R (xs.take rP ++ ys.drop rl.ctorParams)) := by
   intro nn kk Δ' HH
   have hxs : mI < xs.length := by omega
-  have hxtake : ((xs.take rP).map (·.liftN nn kk)).length = rP := by
-    simp only [List.length_map, List.length_take]
-    omega
   rw [liftN_mkAppN, liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _),
     liftN_eq_self_of_closed h15c, List.map_append, List.map_take,
     List.map_drop]
@@ -453,6 +451,7 @@ private theorem wkRedIota (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
   · intro hp
     simpa [← List.map_take] using ih19 hp HH
   · intro lvls pins hf i hi vp hden hbb
+    have hrp : rP ≤ mI := h5 lvls pins hf
     have hiy : i < ys.length := by omega
     have hlen : (xs.take rP).length = rP := by
       simp only [List.length_take]

@@ -108,7 +108,8 @@ theorem sndRedIota (henv : EnvSHyp V env cval φ)
     (h2 : rules.find? (fun r' => r'.ctor == rl.ctor) = some rl)
     (h3 : rl.fire ≠ .inert)
     (h4 : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF))
-    (h5 : rP ≤ mI) (h6 : xs.length = mI + 1)
+    (_ : ∀ lvls pins, rl.fire = .nested lvls pins → rP ≤ mI)
+    (h6 : xs.length = mI + 1)
     (h7 : ys.length = rl.ctorParams + rl.nfields)
     (h8 : us.length = cv.levelParams.length)
     (h9 : usj.length = cvj.levelParams.length)
@@ -168,7 +169,7 @@ theorem sndRedIota (henv : EnvSHyp V env cval φ)
       (VExpr.mkAppN R (xs.take rP ++ ys.drop rl.ctorParams)) := by
   intro ρ hΔ
   have hrl : rl ∈ rules := List.mem_of_find?_eq_some h2
-  obtain ⟨-, hR⟩ := henv.rec_rules n' cv mI rP rules h1 rl hrl h3
+  obtain ⟨h5, hR⟩ := henv.rec_rules n' cv mI rP rules h1 rl hrl h3
   obtain ⟨R', hdR', hfired⟩ := hR us h8
   obtain rfl : R' = R := Option.some.inj (hdR'.symm.trans h15)
   have hxsm : (xs.take mI).length = mI := by

@@ -67,7 +67,9 @@ premise keeps the design's `xs.take mI ++ [m]` spine, which is the
 checker's own `iotaCerts` argument.  Recorded as a finding against the
 design table's spelling, resolved in the only readable direction.
 
-**D3 — `rP ≤ mI` is an R11 side condition.**  Not checked per-fire by
+**D3 — `rP ≤ mI` is an R11 side condition.**  *(Amended 2026-08-28:
+guarded on `.nested` fires — see the fourth T4 amendment record.)*
+Not checked per-fire by
 `iotaRec`; supplied by `EnvWF` (as `RecRulesTT` concludes it).  M1
 needs it: the nested premise's `instRevChain (xs.take rP) vp` commutes
 with lifting only at chain arity `rP` (`instRevChain_liftN` wants
@@ -1121,3 +1123,24 @@ to settle before writing the clause rather than during:
 
 The first looks right on the evidence, but it is a rule-shape change and
 therefore T4's call, not the bridge's.
+
+### T4 amendment, fourth increment — D3's `rP ≤ mI` guarded on `.nested` fires
+
+T3's pre-iota risk record was right and the ruling adopted its
+resolution: `EnvWF` concludes `rP ≤ mI` only in the `.nested` branch
+(`Verify/EnvWF.lean:57`), `iotaRec` never checks it per-fire, and D3's
+own justification (M1's pin-chain arity) needs it only there — so
+R11's side condition became `∀ lvls pins, rl.fire = .nested lvls pins
+→ rP ≤ mI` (same premise slot; `wkRedIota` consumes it inside its
+nested case, where the `instRevChain` lift lives).
+
+**The coordinator's verification question, answered**: yes,
+`sndRedIota`'s equality consumes `rP ≤ mI` *unconditionally* — the
+reduct-spine alignment `(xs.take mI).take rP = xs.take rP` (the
+`take_take` step) is fire-kind-independent — so the plain branch does
+need the fact, and it takes the flagged alternative route: it is
+already an **install-layer fact**, `RecRulesV`'s first conclusion
+(`rP ≤ mI ∧ …`, mirroring `RecRulesTT`, whose TT-lane install
+derivation proves it for plain rules from the provisioning shape
+pins).  `sndRedIota` now reads it off `henv.rec_rules` instead of the
+rule; the rule's premise stays exactly what the bridge can discharge.
