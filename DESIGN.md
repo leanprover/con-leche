@@ -10188,6 +10188,14 @@ body type).  The obstacle, stated so it is not rediscovered:
   each intermediate opened node, `O(k · size)` per chain — same
   fixture, same objection.
 
+**The lane-side record is owed, deliberately.**  This section is the
+resolution of `Setlec/SetR/DESIGN.md`'s A5 fork (repair **A**, granted
+with the exception above); the matching "A5 RESOLVED" note belongs in
+that file, but it was in flight under the T5 agent when this landed and
+an edit collision there is not worth a doc placement.  Whoever touches
+`Setlec/SetR/DESIGN.md` next should point A5's *Consequence* paragraph
+here — the technical content the lane needs is the next two paragraphs.
+
 **Nothing is lost to the lane, but the lane owes an induction.**  At an
 outer binder the codomain is the inner λ's own `∀`-type, whose sort is
 `imax` of the inner *domain*'s sort — checked at that binder, and
