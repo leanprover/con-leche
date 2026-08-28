@@ -147,4 +147,127 @@ theorem CtxOkR.app {d : Nat} {Δ : List VExpr} {f x : Expr}
   · exact hf.2 l h
   · exact hx.2 l h
 
+/-- **Covered leaves inherit the correspondence.**  `CtxOkR.of_subset`
+restricts along *one* expression; a pin whose leaves are scattered
+over a whole opening needs the list form.  (`of_subset` is the
+singleton case; it stays, because most call sites have one witness.) -/
+theorem CtxOkR.of_cover {d : Nat} {Δ : List VExpr} {L : List Expr}
+    {e : Expr} (hlen : Δ.length = d)
+    (hL : ∀ x ∈ L, CtxOkR μ cval env φ d Δ x)
+    (hsub : ∀ l ∈ e.fvarLeaves, ∃ x ∈ L, l ∈ x.fvarLeaves) :
+    CtxOkR μ cval env φ d Δ e :=
+  ⟨hlen, fun l hl => by
+    obtain ⟨x, hx, hlx⟩ := hsub l hl
+    exact (hL x hx).2 l hlx⟩
+
+/-- `weakenTop`, iterated: a correspondence survives any number of
+fresh binders pushed on the context's head. -/
+theorem CtxOkR.weakenN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
+    ∀ (Δ₀ : List VExpr) {d : Nat} {Δ : List VExpr} {e : Expr},
+      CtxOkR μ cval env φ d Δ e →
+      CtxOkR μ cval env φ (d + Δ₀.length) (Δ₀ ++ Δ) e
+  | [], d, Δ, e, h => h
+  | A :: Δ₀, d, Δ, e, h => by
+    have hrec := CtxOkR.weakenN hcl Δ₀ h
+    have := CtxOkR.weakenTop (A := A) hcl hrec
+    rw [show d + (A :: Δ₀).length = d + Δ₀.length + 1 from by
+      simp only [List.length_cons]; omega]
+    exact this
+
+/-- **The canonical context of a telescope opening.**  Opening `k`
+`∀`-binders at fresh variables extends the context by exactly the
+binders' denotations, and at the extended context *both* the opened
+body and every opened variable satisfy the correspondence.
+
+This is `OpenCtxR`'s content in the form the bridge consumes it.  It
+is what lets a *pin* — an expression the checker only ever inferred a
+type for, whose denotation `InferClaimsR` will produce but only at
+some context — be denoted at all: with `CtxOkR.of_cover`, anything
+whose leaves are covered by the opening inherits the correspondence,
+and `InferClaimsR`'s output denotation does not mention the context.
+-/
+theorem openPisAtFvars_ctxOkR (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
+    ∀ (k : Nat) {e : Expr} {d₀ : Nat} {fvs : List Expr} {body : Expr}
+      {Δ : List VExpr} {T : VExpr},
+      openPisAtFvars k e d₀ = some (fvs, body) →
+      CtxOkR μ cval env φ d₀ Δ e →
+      denote cval env φ d₀ e = some T →
+      Expr.WScoped d₀ e →
+      ∃ Δ₀ : List VExpr, Δ₀.length = k ∧
+        CtxOkR μ cval env φ (d₀ + k) (Δ₀ ++ Δ) body ∧
+        ∀ x ∈ fvs, CtxOkR μ cval env φ (d₀ + k) (Δ₀ ++ Δ) x := by
+  intro k
+  induction k with
+  | zero =>
+    intro e d₀ fvs body Δ T hopen hC _ _
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq]
+      at hopen
+    obtain ⟨rfl, rfl⟩ := hopen
+    exact ⟨[], rfl, by simpa using hC, fun x hx => nomatch hx⟩
+  | succ n ih =>
+    intro e d₀ fvs body Δ T hopen hC hT hw
+    match e, hopen with
+    | .forallE nm dom bodyE mb, hopen => ?_
+    simp only [openPisAtFvars] at hopen
+    cases h1 : openPisAtFvars n
+        (bodyE.instantiate1 (.fvar d₀ nm dom)) (d₀ + 1) with
+    | none => rw [h1] at hopen; exact nomatch hopen
+    | some p => ?_
+    rw [h1] at hopen
+    simp only [Option.some.injEq, Prod.mk.injEq] at hopen
+    obtain ⟨rfl, rfl⟩ := hopen
+    have hw' : Expr.WScoped d₀ dom ∧ Expr.WScoped d₀ bodyE := by
+      rw [Expr.WScoped] at hw; exact hw
+    rw [denote_forallE] at hT
+    cases hA : denote cval env φ d₀ dom with
+    | none => rw [hA] at hT; exact nomatch hT
+    | some A => ?_
+    rw [hA] at hT
+    cases hB : denote cval env φ (d₀ + 1)
+        (bodyE.instantiate1 (.fvar d₀ nm dom)) with
+    | none => rw [hB] at hT; exact nomatch hT
+    | some B => ?_
+    -- `CtxOkR.of_subset` lives downstream (`Bridge/Env.lean`); the two
+    -- restrictions here are one line each, so they are taken directly
+    have hCdom : CtxOkR μ cval env φ d₀ Δ dom :=
+      ⟨hC.1, fun l hl => hC.2 l (by
+        rw [Expr.fvarLeaves]; exact List.mem_append_left _ hl)⟩
+    have hCbody : CtxOkR μ cval env φ d₀ Δ bodyE :=
+      ⟨hC.1, fun l hl => hC.2 l (by
+        rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl)⟩
+    -- the opened body, and the new variable itself, at `A :: Δ`
+    have hCstep : CtxOkR μ cval env φ (d₀ + 1) (A :: Δ)
+        (bodyE.instantiate1 (.fvar d₀ nm dom)) :=
+      CtxOkR.open hcl hCbody hCdom hA hw'.1.fvarsBelow
+    have hCfv : CtxOkR μ cval env φ (d₀ + 1) (A :: Δ)
+        (.fvar d₀ nm dom) := by
+      refine ⟨by simp [hC.1], fun l hl => ?_⟩
+      rw [Expr.fvarLeaves] at hl
+      rcases List.mem_cons.mp hl with rfl | hl'
+      · refine ⟨by omega, hw'.1.fvarsBelow, A.liftN 1, ?_,
+          A.liftN 1, ?_, DefEq.refl⟩
+        · rw [denote_weaken_top hcl hw'.1.fvarsBelow, hA]; rfl
+        · rw [show d₀ + 1 - 1 - d₀ = 0 from by omega]
+          exact Infer.bvar rfl
+      · exact (CtxOkR.weakenTop (A := A) hcl hCdom).2 l hl'
+    have hw2 : Expr.WScoped (d₀ + 1)
+        (bodyE.instantiate1 (.fvar d₀ nm dom)) :=
+      Expr.WScoped.instantiate1_gen
+        (show Expr.WScoped (d₀ + 1) (.fvar d₀ nm dom) from by
+          rw [Expr.WScoped]; exact ⟨by omega, hw'.1⟩) 0
+        (hw'.2.mono (Nat.le_succ d₀))
+    obtain ⟨Δ₀, hlen, hCb, hCfvs⟩ := ih h1 hCstep hB hw2
+    refine ⟨Δ₀ ++ [A], by simp [hlen], ?_, ?_⟩
+    · rw [show d₀ + (n + 1) = d₀ + 1 + n from by omega,
+        List.append_assoc]
+      exact hCb
+    · intro x hx
+      rw [show d₀ + (n + 1) = d₀ + 1 + n from by omega,
+        List.append_assoc]
+      rcases List.mem_cons.mp hx with rfl | hx'
+      · have := CtxOkR.weakenN hcl Δ₀ hCfv
+        rw [hlen] at this
+        exact this
+      · exact hCfvs x hx'
+
 end Setlec.SetR
