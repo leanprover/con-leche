@@ -1722,7 +1722,7 @@ it; stage 1 is not.
 # Task #151 tier B — the collapse-free two-regime interpretation
 
 `Setlec/SetR/Interp2/*` (landed: `Ops`, `Syntax`, `Interp`, `Kit`,
-`Univ`).  Imports `Setlec/SetTheory/Basic.lean` and nothing else — no
+`Univ`, `TierA`).  Imports `Setlec/SetTheory/Basic.lean` and nothing else — no
 checker, no model layer, and in particular **no module built over the
 collapse operators**.  Zero edits to existing files outside this
 document and `Setlec/SetR.lean`.
