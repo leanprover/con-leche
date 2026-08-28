@@ -4451,3 +4451,26 @@ For the assembly, the six components of `IotaWalksR` sort as:
 the left list — the pack is index-based, so a sublist is a projection,
 not a re-derivation).  Row 1 needs the spine source above.  Rows 5–6
 are single comparisons.
+
+### T6 — all three walk shapes are packaged
+
+`spine_walk_pack` closes the third shape: the frames descend from the
+application's own (`Expr.WScoped.getAppArgs`,
+`looseBVarsBounded_getAppArgs`, `fvarLeaves_getAppArgs`) and the
+denotations from `denote_mkAppN_inv` after
+`← Expr.mkAppN_getApp`.
+
+`DenoteSpine` has `.take`/`.drop`/`.append`/`.length`/`.map` but **no
+member accessor**, so extracting "this argument denotes" from it is a
+three-line induction, written inline.  If a third consumer appears,
+that is a `DenoteSpine.mem` for `Verify/Denote/Tele.lean` — flagged
+now rather than after the duplication, per the relocation rule.
+
+The walk layer's final inventory, seven lemmas covering all twelve
+lists across three shapes:
+
+    defEqAtW_of   defEqListW_of                  the comparison core
+    opener_walk_pack  opener_fvar_pack           shape 1 (annotations)
+    instPisAt_walk_pack  storedType_pack         shape 2 (domains)
+    spine_walk_pack                              shape 3 (spines)
+    stmtWalk_of                                  the common entry point

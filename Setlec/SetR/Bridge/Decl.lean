@@ -850,6 +850,40 @@ theorem stmtWalk_of {env : Env} (m : EnvR env) {μ : CheckMode}
     exact hLeft i x hi
   · exact hRight e h'
 
+/-- **The spine package** — the walk layer's *third* shape (the
+convergence file's correction).  The index walk compares application
+spine arguments, whose denotations come neither from an opening nor
+from an `instPisAt` run but from `denote_mkAppN_inv`, which inverts a
+denoting application into its head and a `DenoteSpine`.  The three
+frames descend from the application's own by
+`Expr.WScoped.getAppArgs`, `looseBVarsBounded_getAppArgs` and
+`fvarLeaves_getAppArgs`. -/
+theorem spine_walk_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
+    {D : Nat} {e : Expr} {v : VExpr}
+    (hw : Expr.WScoped D e) (hb : e.looseBVarsBounded 0 = true)
+    (hL : Expr.LeavesBounded e)
+    (hd : denote m.cval env φ D e = some v) :
+    ∀ a ∈ e.getAppArgs, Expr.WScoped D a ∧
+      a.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded a ∧
+      ∃ w, denote m.cval env φ D a = some w := by
+  intro a ha
+  refine ⟨hw.getAppArgs a ha, looseBVarsBounded_getAppArgs hb a ha,
+    fun l hl => hL l (fvarLeaves_getAppArgs ha l hl), ?_⟩
+  rw [← Expr.mkAppN_getApp e] at hd
+  obtain ⟨vf, vs, -, hsp, -⟩ := denote_mkAppN_inv hd
+  have hmem : ∀ {as : List Expr} {vs : List VExpr},
+      DenoteSpine m.cval env φ D as vs →
+      ∀ x ∈ as, ∃ w, denote m.cval env φ D x = some w := by
+    intro as vs h
+    induction h with
+    | nil => intro x hx; exact nomatch hx
+    | cons hda _ ih =>
+      intro x hx
+      rcases List.mem_cons.mp hx with rfl | hx'
+      · exact ⟨_, hda⟩
+      · exact ih x hx'
+  exact hmem hsp a ha
+
 /-! ## `indDecl`, the front half: the member fold
 
 `checkMemberVal` is `checkConstantVal` plus the model-artifact
