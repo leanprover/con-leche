@@ -1,4 +1,5 @@
 import Setlec.SetR.CtxOkR
+import Setlec.Verify.Denote.Install
 
 /-!
 # `DeclR`: the per-declaration relation (task #148, T2 — statements)
@@ -359,36 +360,61 @@ def MemberValR (μ : CheckMode) (F : Nat) (env' : Env)
           if blockNames.contains n then n.str "_model" else n)
         cvm.type = true
 
-/-- The non-recursor member fold (`checkIndMember` over `nonrecs`). -/
-def IndMembersR (μ : CheckMode) (F : Nat) (cval : TConstVal)
+/-- The valuation a modeled block member takes at its install: the
+model artifact's.  The block folds thread it (finding 5's resolution,
+option 3 — see the `IndMembersR` docstring). -/
+def cvalModeled (cval : TConstVal) (n : Name) : TConstVal :=
+  cvalWith cval n (fun ψ => cval (n.str "_model") ψ)
+
+/-- The non-recursor member fold (`checkIndMember` over `nonrecs`).
+
+**The valuation runs with the environment** (finding 5, resolved
+2026-08-28 in favour of option 3).  The checker threads a running
+*environment* through the block, and each member's type may mention
+the members installed before it — a constructor targets its family —
+so a fold that fixed one `cval` would state member `k > 1`'s front
+door about the valuation those members had *before* they existed.
+Indexing by the running valuation makes the relation and the install
+(`indMemberS`) agree **by construction**: the step's valuation is the
+one the install builds, `cvalModeled`.  It also puts blocks on the
+same discipline as the single-declaration kinds, whose `cval` *is*
+the running valuation at their own check time; and it leaves no
+unstated obligation on T6 (any running-vs-final agreement is a
+freshness lemma proved where a consumer wants the final form). -/
+def IndMembersR (μ : CheckMode) (F : Nat)
     (blockNames : List Name) (caps : IndCaps) :
-    Env → List ConstantInfo → Env → Prop
-  | env', [], env₂ => env₂ = env'
-  | env', ci :: rest, env₂ =>
+    Env → TConstVal → List ConstantInfo → Env → TConstVal → Prop
+  | env', cval, [], env₂, cval₂ => env₂ = env' ∧ cval₂ = cval
+  | env', cval, ci :: rest, env₂, cval₂ =>
     ∃ cvA, MemberValR μ F env' cval blockNames ci.toConstantVal cvA ∧
       match ci with
       | .indInfo _ _ =>
-        IndMembersR μ F cval blockNames caps
-          ⟨.indInfo cvA caps :: env'.consts⟩ rest env₂
+        IndMembersR μ F blockNames caps
+          ⟨.indInfo cvA caps :: env'.consts⟩ (cvalModeled cval cvA.name)
+          rest env₂ cval₂
       | .ctorInfo _ nP nF =>
-        IndMembersR μ F cval blockNames caps
-          ⟨.ctorInfo cvA nP nF :: env'.consts⟩ rest env₂
+        IndMembersR μ F blockNames caps
+          ⟨.ctorInfo cvA nP nF :: env'.consts⟩
+          (cvalModeled cval cvA.name) rest env₂ cval₂
       | _ => False
 
 /-- Recursor provisioning (`provisionRecs`): each recursor's constant
 is member-checked and provisioned rule-less on top of the previous
 ones. -/
-def ProvisionRecsR (μ : CheckMode) (F : Nat) (cval : TConstVal)
+def ProvisionRecsR (μ : CheckMode) (F : Nat)
     (blockNames : List Name) :
-    Env → List ConstantInfo →
-    Env → List (ConstantVal × Nat × Nat × List RecRule) → Prop
-  | envAcc, [], envSelf, checked => envSelf = envAcc ∧ checked = []
-  | envAcc, ci :: rest, envSelf, checked =>
+    Env → TConstVal → List ConstantInfo →
+    Env → TConstVal → List (ConstantVal × Nat × Nat × List RecRule) →
+    Prop
+  | envAcc, cval, [], envSelf, cvalSelf, checked =>
+    envSelf = envAcc ∧ cvalSelf = cval ∧ checked = []
+  | envAcc, cval, ci :: rest, envSelf, cvalSelf, checked =>
     ∃ cvA mI rP rules rest',
       ci = .recInfo ci.toConstantVal mI rP rules ∧
       MemberValR μ F envAcc cval blockNames ci.toConstantVal cvA ∧
-      ProvisionRecsR μ F cval blockNames
-        ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest envSelf rest' ∧
+      ProvisionRecsR μ F blockNames
+        ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩
+        (cvalModeled cval cvA.name) rest envSelf cvalSelf rest' ∧
       checked = (cvA, mI, rP, rules) :: rest'
 
 /-- The statement-side walks common to `checkIotaThm` and
@@ -577,29 +603,37 @@ def IotaRulesR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
 
 /-- The recursor-group phase (`checkIndRecs`): the pinned-`Eq` guard,
 provisioning, and the per-recursor installs. -/
-def IndRecsR (μ : CheckMode) (F : Nat) (cval : TConstVal)
-    (blockNames : List Name) (env₂ : Env) (recs : List ConstantInfo)
-    (env₃ : Env) : Prop :=
-  (recs = [] ∧ env₃ = env₂) ∨
+def IndRecsR (μ : CheckMode) (F : Nat)
+    (blockNames : List Name) (env₂ : Env) (cval₂ : TConstVal)
+    (recs : List ConstantInfo) (env₃ : Env) (cval₃ : TConstVal) :
+    Prop :=
+  (recs = [] ∧ env₃ = env₂ ∧ cval₃ = cval₂) ∨
   (recs ≠ [] ∧
    env₂.find? eqName = some eqA ∧
-   ∃ envSelf checked,
-     ProvisionRecsR μ F cval blockNames env₂ recs envSelf checked ∧
-     IndRecsFoldR μ F cval blockNames envSelf env₂ checked env₃)
+   ∃ envSelf cvalSelf checked,
+     ProvisionRecsR μ F blockNames env₂ cval₂ recs envSelf cvalSelf
+       checked ∧
+     IndRecsFoldR μ F blockNames envSelf cvalSelf env₂ cval₂ checked
+       env₃ cval₃)
 where
-  /-- The install fold over the provisioned group. -/
-  IndRecsFoldR (μ : CheckMode) (F : Nat) (cval : TConstVal)
-      (blockNames : List Name) (envSelf : Env) :
-      Env → List (ConstantVal × Nat × Nat × List RecRule) → Env → Prop
-    | acc, [], out => out = acc
-    | acc, c :: rest, out =>
+  /-- The install fold over the provisioned group.  The self
+  environment and its valuation are the provisioning's output (the
+  rules are checked against the whole group); the accumulator's
+  valuation runs with the accumulator (finding 5, option 3). -/
+  IndRecsFoldR (μ : CheckMode) (F : Nat)
+      (blockNames : List Name) (envSelf : Env) (cvalSelf : TConstVal) :
+      Env → TConstVal → List (ConstantVal × Nat × Nat × List RecRule) →
+      Env → TConstVal → Prop
+    | acc, cval, [], out, cvalOut => out = acc ∧ cvalOut = cval
+    | acc, cval, c :: rest, out, cvalOut =>
       ∃ rules',
-        IotaRulesR μ F acc envSelf cval
+        IotaRulesR μ F acc envSelf cvalSelf
           (fun n => if blockNames.contains n then n.str "_model" else n)
           c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
           rules' ∧
-        IndRecsFoldR μ F cval blockNames envSelf
-          ⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ rest out
+        IndRecsFoldR μ F blockNames envSelf cvalSelf
+          ⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩
+          (cvalModeled cval c.1.name) rest out cvalOut
 
 /-- The projection-function phase for one field (`checkProjFn`,
 `Modeled.lean:560-575`): lookups, the public type's roundtrip pins,
@@ -687,17 +721,24 @@ the elimination-template pass (`installProjFnStep` /
 `installProjTemplateStep`; both skip where the model's artifacts are
 absent — the skip conditions are the stored-data lookups above, so the
 fold is stated disjunctively per field). -/
-def ProjInstallR (μ : CheckMode) (F : Nat) (cval : TConstVal)
+def ProjInstallR (μ : CheckMode) (F : Nat)
     (T ctorName : Name) (lps : List Name) (nP nF : Nat) :
-    Env → List Nat → Env → Prop
-  | env', [], env₄ => env₄ = env'
-  | env', i :: rest, env₄ =>
-    ∃ env'',
-      (ProjFnR μ F env' cval T ctorName lps nP nF i env'' ∨
+    Env → TConstVal → List Nat → Env → TConstVal → Prop
+  | env', cval, [], env₄, cval₄ => env₄ = env' ∧ cval₄ = cval
+  | env', cval, i :: rest, env₄, cval₄ =>
+    ∃ env'' cval'',
+      ((ProjFnR μ F env' cval T ctorName lps nP nF i env'' ∧
+          -- the projection function's valuation is the model
+          -- projection's (finding 5, option 3; this is the
+          -- identification `etaLawKeyS` consumes as `hvP`)
+          cval'' = cvalWith cval (projFnName T i)
+            (fun ψ => cval (projModelName T i) ψ)) ∨
        -- artifact absent: the step is a no-op (`installProjFnStep`'s
        -- skip; the exact skip conditions are D6's refinement point)
-       ((env'.find? (projModelName T i)).isNone = true ∧ env'' = env')) ∧
-      ProjInstallR μ F cval T ctorName lps nP nF env'' rest env₄
+       ((env'.find? (projModelName T i)).isNone = true ∧ env'' = env' ∧
+         cval'' = cval)) ∧
+      ProjInstallR μ F T ctorName lps nP nF env'' cval'' rest env₄
+        cval₄
 
 /-- A modeled inductive block (design §1.5, `indDecl` row): the block
 split pins, the member fold, the recursor group, and — for
@@ -707,6 +748,7 @@ elimination-template second pass installs pure stored data
 (`installProjTemplate`) and is folded into `TemplatesR`. -/
 def DeclIndR (μ : CheckMode) (F : Nat) (env : Env) (cval : TConstVal)
     (block : List ConstantInfo) (env₂ : Env) : Prop :=
+  ∃ cval₂ : TConstVal,
   let recs := block.filter (fun ci => match ci with
     | .recInfo _ _ _ _ => true | _ => false)
   let nonrecs := block.filter (fun ci => match ci with
@@ -720,43 +762,48 @@ def DeclIndR (μ : CheckMode) (F : Nat) (env : Env) (cval : TConstVal)
         | .ctorInfo _ _ _ => true | _ => false)
         = [.ctorInfo cvC nP nF] ∧
       (let caps := indBlockCaps μ env cvT cvC nP nF
-       ∃ envM envR,
-         IndMembersR μ F cval blockNames caps env nonrecs envM ∧
-         IndRecsR μ F cval blockNames envM recs envR ∧
+       ∃ envM cvalM envR cvalR,
+         IndMembersR μ F blockNames caps env cval nonrecs envM cvalM ∧
+         IndRecsR μ F blockNames envM cvalM recs envR cvalR ∧
          ctorResidualOk μ envR cvT.name cvC.name cvT.levelParams nP nF
            caps.eta = true ∧
          (List.range nF).all
            (fun j => (envR.find? (projFnName cvT.name j)).isNone)
            = true ∧
-         ∃ envP,
-           ProjInstallR μ F cval cvT.name cvC.name cvT.levelParams nP nF
-             envR (List.range nF) envP ∧
+         ∃ envP cvalP,
+           ProjInstallR μ F cvT.name cvC.name cvT.levelParams nP nF
+             envR cvalR (List.range nF) envP cvalP ∧
            TemplatesR cvT.name cvC.name cvT.levelParams nP nF envP
-             (List.range nF) env₂)) ∨
+             cvalP (List.range nF) env₂ cval₂)) ∨
    (¬ (∃ cvT capsT cvC nP nF,
         block.filter (fun ci => match ci with
           | .indInfo _ _ => true | _ => false) = [.indInfo cvT capsT] ∧
         block.filter (fun ci => match ci with
           | .ctorInfo _ _ _ => true | _ => false)
           = [.ctorInfo cvC nP nF]) ∧
-    ∃ envM,
-      IndMembersR μ F cval blockNames {} env nonrecs envM ∧
-      IndRecsR μ F cval blockNames envM recs env₂))
+    ∃ envM cvalM,
+      IndMembersR μ F blockNames {} env cval nonrecs envM cvalM ∧
+      IndRecsR μ F blockNames envM cvalM recs env₂ cval₂))
 where
   /-- The elimination-template second pass: pure stored-data installs
   (`installProjTemplateStep`); the exact per-field skip/install shape
   is D6's refinement point — the fold records only that each step
   extends by at most the template entry. -/
   TemplatesR (T ctorName : Name) (lps : List Name) (nP nF : Nat) :
-      Env → List Nat → Env → Prop
-    | env', [], env₂ => env₂ = env'
-    | env', i :: rest, env₂ =>
-      ∃ env'',
-        (env'' = env' ∨
+      Env → TConstVal → List Nat → Env → TConstVal → Prop
+    | env', cval, [], env₂, cval₂ => env₂ = env' ∧ cval₂ = cval
+    | env', cval, i :: rest, env₂, cval₂ =>
+      ∃ env'' cval'',
+        ((env'' = env' ∧ cval'' = cval) ∨
          ∃ entry : ProjEntry, entry.structName = T ∧ entry.idx = i ∧
            entry.native = false ∧
-           env'' = ⟨.projInfo entry :: env'.consts⟩) ∧
-        TemplatesR T ctorName lps nP nF env'' rest env₂
+           env'' = ⟨.projInfo entry :: env'.consts⟩ ∧
+           -- a template entry has no model artifact, so its valuation
+           -- is the install's own choice (any inhabitant of the
+           -- entry's `Prop`-valued type); the relation records only
+           -- that it is a fresh-name extension
+           ∃ Vt, cval'' = cvalWith cval (projFnName T i) Vt) ∧
+        TemplatesR T ctorName lps nP nF env'' cval'' rest env₂ cval₂
 
 /-! ## The assembly -/
 

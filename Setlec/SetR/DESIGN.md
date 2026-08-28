@@ -1673,7 +1673,47 @@ constructor and projections need not be stored yet, so only the block
 fold can discharge `hheadEta`/`hheadUnit`.  Everything else is vacuous
 by kind or refuted by the member's non-reservedness.
 
-### FINDING 5 (raised at `declIndS` stage 2; **a reading to fix, not a wall**): the block folds' fixed `cval`
+### FINDING 5 — **RESOLVED 2026-08-28: option 3, the folds run the valuation**
+
+The decision, with its rationale, then the record of the finding as
+raised.
+
+**Decided**: `IndMembersR`, `ProvisionRecsR`, `IndRecsFoldR`,
+`ProjInstallR` and `TemplatesR` are re-signed to **thread the running
+valuation** — `Env → TConstVal → … → Env → TConstVal → Prop` — with
+each step's valuation being the one the install builds,
+`cvalModeled cval n := cvalWith cval n (fun ψ => cval (n.str "_model") ψ)`
+(and, for a projection function, `cval (projModelName T i)` — the
+identification `etaLawKeyS` consumes as `hvP`).  `DeclIndR`
+existentially closes the final valuation.
+
+Three reasons, in the campaign's vocabulary:
+
+1. **Faithfulness / bridge-dischargeability.**  The checker threads a
+   running *environment* through the block; the bridge inverts
+   `checkIndDecl`'s fold member by member, and each inversion hands
+   over facts about the **current** env — the running valuation is
+   what the inversion delivers on the nose.  Pre-block is semantically
+   wrong for `k > 1`; post-block is right only via a
+   not-mentioned-freshness adjustment the bridge would owe at *every*
+   member.
+2. **It puts blocks on the single-declaration kinds' discipline.**
+   `declThmS` takes the pre-*declaration* `cval`, which for a single
+   declaration *is* the running valuation at its own check time (the
+   entry is added after).  A block differs only in one `DeclR` step
+   installing many members incrementally; option 3 makes that the same
+   discipline rather than a special case.
+3. **No unstated T6 obligation** — correct by construction.  Any
+   running-vs-final agreement lemma (freshness-based; members never
+   forward-reference) is proved at a consumption site that *wants* the
+   final form, instead of being a silent precondition of the assembly.
+
+`indMemberS` was re-signed to match (it already built exactly
+`cvalModeled`, so the agreement is now literal) and to **expose its
+valuation** — `∃ m₂, m₂.cval = cvalModeled m.cval cvA.name` rather than
+`Nonempty` — which is what lets the fold compose.
+
+*The finding as raised.*
 
 `IndMembersR` — and equally `IndRecsR`'s `ProvisionRecsR`/
 `IndRecsFoldR`, `ProjInstallR` and `TemplatesR` — thread **one**
@@ -1951,3 +1991,33 @@ order, and add the `const` clause (separate landing).  Nothing in
 `AVExpr.liftN`/`inst` simp lemmas that `Kit.lean`'s two inductions
 cite.  Tier A's `erase`/`erase_liftN`/`erase_inst` are unaffected —
 they are what tier B's substitution stack would compose with.
+
+## T5 — `declIndS` stage 2: the member fold (2026-08-28)
+
+`indMembersS` (`Install/IndMembersS.lean`) runs `indMemberS` along
+`IndMembersR`, carrying the running valuation and the block invariant
+**`BlockInstalledTT`** — reused from the TT lane *verbatim*
+(`Verify/Extend/Block.lean`), because it is `TConstVal`-stated and
+V-free, and its `.step` is exactly the per-member preservation the
+fold needs.  That is the eighth shared-tier reuse and the cheapest of
+them: no transposition at all.
+
+Three obligations stay named, their suppliers outside the fold:
+
+* `MemberKeyS` — the member's *semantic* content: the model
+  artifact's value inhabits the member's renamed type.  Supplier: the
+  model definition's own `mem_type`, transported across
+  `MemberValR`'s `eqUpToNames` pin, using the block invariant to
+  identify the public names' valuations with the model names'.
+* `MemberEtaS` / `MemberUnitS` — `EnvS.cons`'s capability head
+  obligations.  They are **vacuous at every member but the one that
+  completes the family** (`EtaFamilyStored` is false until the
+  constructor and every projection are stored), and at that member the
+  block assembly discharges them through `etaLawKeyS`/`unitLawKeyS`.
+  Deferring them is the TT lane's own choice (`checkIndMemberTT` takes
+  them as hypotheses) and for the same reason.
+
+Remaining in `declIndS`: the recursor group (stage 3 — provisioning,
+then the install fold on the three iota bottoms), the capability
+record, the projection installs on `indBottomProjS`, and the
+templates; plus `DeclBasisS`.

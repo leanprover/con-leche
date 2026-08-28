@@ -233,21 +233,53 @@ theorem zetaEq {Δ : List VExpr} {e : VExpr} {ea : AVExpr}
   | proj _ ih => exact .proj ih
   | prf => exact .prf
 
-/-- The `mkAppN` closure the literal cases use. -/
-theorem mkAppN {Δ : List VExpr} : ∀ {as : List VExpr} {aas : List AVExpr}
-    {f : VExpr} {fa : AVExpr}, Annotates μ env cval φ Δ f fa →
-    List.Forall₂ (Annotates μ env cval φ Δ) as aas →
-    Annotates μ env cval φ Δ (VExpr.mkAppN f as) (AVExpr.mkAppN fa aas) := by
-  intro as
-  induction as with
-  | nil =>
-    intro aas f fa hf has
-    cases has
-    exact hf
-  | cons a as ih =>
-    intro aas f fa hf has
-    cases has with
-    | cons ha hrest => exact ih (.app hf ha) hrest
+/-! ### The literal subjects
+
+I4's and I5's subjects are `cval`-spines (`natLitT` is a `Nat.succ`
+chain over `Nat.zero`; `strLitT` is a `String.mk` over a `List Char`
+constructor chain), so their annotations are built from the stored
+valuations' by `Annotates.app` alone. -/
+
+/-- `Annotates.app` in existential form (the shape the spine builders
+compose in). -/
+theorem app_exists {Δ : List VExpr} {f a : VExpr}
+    (hf : ∃ fa, Annotates μ env cval φ Δ f fa)
+    (ha : ∃ aa, Annotates μ env cval φ Δ a aa) :
+    ∃ ea, Annotates μ env cval φ Δ (.app f a) ea := by
+  obtain ⟨fa, hfa⟩ := hf
+  obtain ⟨aa, haa⟩ := ha
+  exact ⟨.app fa aa, .app hfa haa⟩
+
+/-- `natLitT` is a `Nat.succ`-spine over `Nat.zero`. -/
+theorem natLitT {Δ : List VExpr} {zv sv : VExpr}
+    (hz : ∃ za, Annotates μ env cval φ Δ zv za)
+    (hs : ∃ sa, Annotates μ env cval φ Δ sv sa) :
+    ∀ n : Nat,
+      ∃ ea, Annotates μ env cval φ Δ (Setlec.TTVerify.natLitT zv sv n) ea := by
+  intro n
+  induction n with
+  | zero => exact hz
+  | succ n ih =>
+    obtain ⟨sa, hsa⟩ := hs
+    obtain ⟨ea, hea⟩ := ih
+    exact ⟨.app sa ea, .app hsa hea⟩
+
+/-- The character-list part of a string literal's constructor form. -/
+theorem charListT {Δ : List VExpr} {nilV consV ofNatV zv sv : VExpr}
+    (hnil : ∃ a, Annotates μ env cval φ Δ nilV a)
+    (hcons : ∃ a, Annotates μ env cval φ Δ consV a)
+    (hofNat : ∃ a, Annotates μ env cval φ Δ ofNatV a)
+    (hz : ∃ a, Annotates μ env cval φ Δ zv a)
+    (hs : ∃ a, Annotates μ env cval φ Δ sv a) :
+    ∀ cs : List Char,
+      ∃ ea, Annotates μ env cval φ Δ
+        (Setlec.TTVerify.charListT nilV consV ofNatV zv sv cs) ea := by
+  intro cs
+  induction cs with
+  | nil => exact hnil
+  | cons c cs ih =>
+    exact app_exists
+      (app_exists hcons (app_exists hofNat (Annotates.natLitT hz hs c.toNat))) ih
 
 end Annotates
 
@@ -273,62 +305,21 @@ namespace CvalAnnot
 
 variable {μ : CheckMode} {env : Env} {cval : TConstVal} {φ : Name → Nat}
 
-/-- `Nat`-literal valuations are annotatable: `natLitT` is a
-`Nat.succ`-spine over `Nat.zero`, both stored valuations. -/
-theorem natLitT (h : CvalAnnot μ env cval φ) (Δ : List VExpr)
-    (zv sv : VExpr) (hz : ∃ za, Annotates μ env cval φ Δ zv za)
-    (hs : ∃ sa, Annotates μ env cval φ Δ sv sa) :
-    ∀ n : Nat, ∃ ea, Annotates μ env cval φ Δ (Setlec.TTVerify.natLitT zv sv n) ea := by
-  intro n
-  induction n with
-  | zero => exact hz
-  | succ n ih =>
-    obtain ⟨sa, hsa⟩ := hs
-    obtain ⟨ea, hea⟩ := ih
-    exact ⟨.app sa ea, .app hsa hea⟩
-
 /-- I4's subject. -/
 theorem natLitV (h : CvalAnnot μ env cval φ) (Δ : List VExpr) (n : Nat) :
-    ∃ ea, Annotates μ env cval φ Δ (Setlec.SetR.natLitV cval φ n) ea :=
-  h.natLitT Δ _ _ (h _ _ Δ) (h _ _ Δ) n
-
-/-- The character-list part of a string literal's constructor form. -/
-theorem charListT (h : CvalAnnot μ env cval φ) (Δ : List VExpr)
-    (nilV consV ofNatV zv sv : VExpr)
-    (hnil : ∃ a, Annotates μ env cval φ Δ nilV a)
-    (hcons : ∃ a, Annotates μ env cval φ Δ consV a)
-    (hofNat : ∃ a, Annotates μ env cval φ Δ ofNatV a)
-    (hz : ∃ a, Annotates μ env cval φ Δ zv a)
-    (hs : ∃ a, Annotates μ env cval φ Δ sv a) :
-    ∀ cs : List Char,
-      ∃ ea, Annotates μ env cval φ Δ
-        (Setlec.TTVerify.charListT nilV consV ofNatV zv sv cs) ea := by
-  intro cs
-  induction cs with
-  | nil => exact hnil
-  | cons c cs ih =>
-    obtain ⟨ca, hca⟩ := hcons
-    obtain ⟨oa, hoa⟩ := hofNat
-    obtain ⟨na, hna⟩ := h.natLitT Δ zv sv hz hs c.toNat
-    obtain ⟨ta, hta⟩ := ih
-    exact ⟨.app (.app ca (.app oa na)) ta, .app (.app hca (.app hoa hna)) hta⟩
+    ∃ ea, Annotates μ env cval φ Δ (Setlec.SetR.natLitV cval φ n) ea := by
+  simp only [Setlec.SetR.natLitV]
+  exact Annotates.natLitT (h _ _ Δ) (h _ _ Δ) n
 
 /-- I5's subject. -/
 theorem strLitT (h : CvalAnnot μ env cval φ) (Δ : List VExpr) (s : String) :
     ∃ ea, Annotates μ env cval φ Δ (Setlec.TTVerify.strLitT cval env φ s) ea := by
-  obtain ⟨fa, hfa⟩ := h stringOfListName (Level.substFn φ [] []) Δ
-  obtain ⟨ca, hca⟩ := h.charListT Δ _ _ _ _ _
-    (by obtain ⟨a, ha⟩ := h listNilName (Level.substFn φ (levelParamsAt env listNilName) [.zero]) Δ
-        obtain ⟨b, hb⟩ := h charName (Level.substFn φ [] []) Δ
-        exact ⟨.app a b, .app ha hb⟩)
-    (by obtain ⟨a, ha⟩ := h listConsName (Level.substFn φ (levelParamsAt env listConsName) [.zero]) Δ
-        obtain ⟨b, hb⟩ := h charName (Level.substFn φ [] []) Δ
-        exact ⟨.app a b, .app ha hb⟩)
-    (h charOfNatName (Level.substFn φ [] []) Δ)
-    (h natZeroName (Level.substFn φ [] []) Δ)
-    (h natSuccName (Level.substFn φ [] []) Δ)
-    s.toList
-  exact ⟨.app fa ca, .app hfa hca⟩
+  simp only [Setlec.TTVerify.strLitT]
+  exact Annotates.app_exists (h _ _ Δ)
+    (Annotates.charListT
+      (Annotates.app_exists (h _ _ Δ) (h _ _ Δ))
+      (Annotates.app_exists (h _ _ Δ) (h _ _ Δ))
+      (h _ _ Δ) (h _ _ Δ) (h _ _ Δ) s.toList)
 
 end CvalAnnot
 
@@ -383,38 +374,58 @@ theorem Infer.annotates (hcv : CvalAnnot μ env cval φ) {Δ : List VExpr}
     h
   all_goals try (intros; exact trivial)
   -- I1 `sort`
-  · exact fun _ _ => ⟨.sort _, .sort⟩
+  · intros
+    exact ⟨.sort _, .sort⟩
   -- I2 `bvar`
-  · exact fun _ _ _ _ => ⟨.bvar _, .bvar⟩
+  · intros
+    exact ⟨.bvar _, .bvar⟩
   -- I3 `const`
-  · exact fun Δ _ _ _ _ _ _ _ _ => hcv _ _ Δ
+  · intros
+    exact hcv _ _ _
   -- I4 `litNat`
-  · exact fun Δ _ _ => hcv.natLitV Δ _
+  · intros
+    exact hcv.natLitV _ _
   -- I5 `litStr`
-  · exact fun Δ _ _ => hcv.strLitT Δ _
+  · intros
+    exact hcv.strLitT _ _
   -- I6 `pi`
-  · rintro Δ A B tA tB u v hA hu hB hv - ⟨Aa, hAa⟩ - ⟨Ba, hBa⟩
-    exact ⟨.pi u v Aa Ba, .pi ⟨tA, hA, hu⟩ ⟨tB, hB, hv⟩ hAa hBa⟩
+  · intros
+    rename_i hA hu hB hv ihA _ ihB _
+    obtain ⟨Aa, hAa⟩ := ihA
+    obtain ⟨Ba, hBa⟩ := ihB
+    exact ⟨.pi _ _ Aa Ba, .pi ⟨_, hA, hu⟩ ⟨_, hB, hv⟩ hAa hBa⟩
   -- I7 `lam`
-  · rintro Δ A b tA B u hA hu hb ⟨Aa, hAa⟩ - ⟨ba, hba⟩
-    exact ⟨.lam u Aa ba, .lam ⟨tA, hA, hu⟩ hAa hba⟩
+  · intros
+    rename_i hA hu _ ihA _ ihb
+    obtain ⟨Aa, hAa⟩ := ihA
+    obtain ⟨ba, hba⟩ := ihb
+    exact ⟨.lam _ Aa ba, .lam ⟨_, hA, hu⟩ hAa hba⟩
   -- I8 `app`
-  · rintro Δ f a tf A B ta - - - - ⟨fa, hfa⟩ - ⟨aa, haa⟩ -
+  · intros
+    rename_i ihf _ iha _
+    obtain ⟨fa, hfa⟩ := ihf
+    obtain ⟨aa, haa⟩ := iha
     exact ⟨.app fa aa, .app hfa haa⟩
   -- I9 `proj`
-  · rintro Δ p tp TP resV i T entry ciT us ps - - - - - - - - -
-      _ _ ⟨pa, hpa⟩ -
-    exact ⟨.proj i pa, .proj hpa⟩
-  -- I10 `letE` (the zeta clause)
-  · rintro Δ T v b tT tv B u - - - - - - - - ⟨ba, hba⟩
+  · intros
+    rename_i ihp _
+    obtain ⟨pa, hpa⟩ := ihp
+    exact ⟨.proj _ pa, .proj hpa⟩
+  -- I10 `letE` — the zeta clause: the derivation certifies the
+  -- contractum, and that annotation *is* the let node's
+  · intros
+    rename_i ihb
+    obtain ⟨ba, hba⟩ := ihb
     exact ⟨ba, .zeta hba⟩
   -- `Tele.nil`
-  · intro _ _ a ha
+  · intros
+    rename_i ha
     simp at ha
   -- `Tele.cons`
-  · rintro Δ A B a ta rest as - - - ⟨aa, haa⟩ - ihs x hx
+  · intros
+    rename_i iha _ ihs x hx
     rcases List.mem_cons.mp hx with rfl | hx
-    · exact ⟨aa, haa⟩
+    · exact iha
     · exact ihs x hx
 
 /-- **The existence theorem for `Tele`**: every certified spine argument

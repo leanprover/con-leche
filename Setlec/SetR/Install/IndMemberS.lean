@@ -53,15 +53,14 @@ theorem indMemberS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
       (T = c₀.name ∨ caps.etaCtor = c₀.name ∨
         ∃ j, j < caps.etaFields ∧ projFnName T j = c₀.name) →
       EtaLawV V ⟨c₀ :: env.consts⟩
-        (cvalWith m.cval cvA.name
-          (fun ψ => m.cval (cvA.name.str "_model") ψ)) T cvT caps)
+        (cvalModeled m.cval cvA.name) T cvT caps)
     (hheadUnit : ∀ cv caps, c₀ = .indInfo cv caps →
       caps.unitlike = true →
       reservedBasisNames.contains c₀.name = false →
       UnitLawV V ⟨c₀ :: env.consts⟩
-        (cvalWith m.cval cvA.name
-          (fun ψ => m.cval (cvA.name.str "_model") ψ)) c₀.name cv caps) :
-    Nonempty (EnvS V ⟨c₀ :: env.consts⟩) := by
+        (cvalModeled m.cval cvA.name) c₀.name cv caps) :
+    ∃ m₂ : EnvS V ⟨c₀ :: env.consts⟩,
+      m₂.cval = cvalModeled m.cval cvA.name := by
   have hfresh' : env.find? c₀.name = none := by
     rw [hc₀name]; exact hfresh
   have hnres' : reservedBasisNames.contains c₀.name = false := by
@@ -83,9 +82,7 @@ theorem indMemberS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
       intro cv2 heq <;> exact nomatch heq
   have hlpsA : c₀.toConstantVal.levelParams = cvA.levelParams := by
     rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ <;> rfl
-  have hi : Installs env m.cval
-      (cvalWith m.cval cvA.name
-        (fun ψ => m.cval (cvA.name.str "_model") ψ)) c₀ :=
+  have hi : Installs env m.cval (cvalModeled m.cval cvA.name) c₀ :=
     Installs.of_fresh hfresh' (fun n hn => by
       rw [hc₀name] at hn
       exact (cvalWith_ne hn).symm)
@@ -101,24 +98,24 @@ theorem indMemberS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
     ?_ ?_
     (fun cv2 v2 h2 heq => absurd heq (hndefn cv2 v2 h2))
     (fun cv2 v2 h2 heq => absurd heq (hndefn cv2 v2 h2))
-    (fun cv2 heq => absurd heq (hnax cv2))⟩
+    (fun cv2 heq => absurd heq (hnax cv2)), rfl⟩
   · -- the model's valuation is closed
     intro ψ
-    show VExpr.Closed (cvalWith m.cval cvA.name _ c₀.name ψ)
-    rw [hc₀name, cvalWith_self]
+    show VExpr.Closed (cvalModeled m.cval cvA.name c₀.name ψ)
+    rw [hc₀name, cvalModeled, cvalWith_self]
     exact m.cval_closed _ _
   · -- it reads only the member's declared level parameters
     intro φ₁ φ₂ hp
-    show cvalWith m.cval cvA.name _ c₀.name φ₁
-      = cvalWith m.cval cvA.name _ c₀.name φ₂
-    rw [hc₀name, cvalWith_self]
+    show cvalModeled m.cval cvA.name c₀.name φ₁
+      = cvalModeled m.cval cvA.name c₀.name φ₂
+    rw [hc₀name, cvalModeled, cvalWith_self]
     refine m.val_params _ _ hmE φ₁ φ₂ ?_
     intro p hpm
     exact hp p (by rw [hlpsA, ← hmlps]; exact hpm)
   · -- and is truthful
     intro ψ ρ
-    show AnnotOkV V ρ (cvalWith m.cval cvA.name _ c₀.name ψ)
-    rw [hc₀name, cvalWith_self]
+    show AnnotOkV V ρ (cvalModeled m.cval cvA.name c₀.name ψ)
+    rw [hc₀name, cvalModeled, cvalWith_self]
     exact m.annot_okV _ _ _
   · -- the type front door, transported up
     intro φ
