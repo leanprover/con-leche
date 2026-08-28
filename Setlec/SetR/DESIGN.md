@@ -3102,6 +3102,56 @@ They are not interchangeable in the needed direction:
 be given as `VExpr`s — which is exactly what the shared
 `pinnedDirectT` already does, and which is the right starting point.
 
+## `DeclBasisS`: the `Empty` pilot, and what it measured (2026-08-28)
+
+`Install/BasisS.lean` holds the shared half — `basisEtaVacuousS`,
+`basisUnitVacuousS`, `cvalS_pinned`, `extendBasisS` — plus the `Empty`
+block (`extendEmptyS`, `extendEmptyRecS`, `declBasisS_emptyK`).
+
+### The saving that is real: `HasType.sound`
+
+`EnvS.cons`'s `htype` wants
+`interp ρ (val φ) ∈ˢ interp ρ t`; the TT lane's counterpart proves
+`HasType [] (val φ) t`; and **`HasType.sound`
+(`TT/Semantics/Soundness.lean`) turns the second into the first**.  So
+every pinned constant's *membership* is one application away from the
+derivation the TT lane already writes, and the two lanes do the same
+type computation rather than two different ones.
+
+This does **not** couple the lanes: `Setlec/SetR/*` does not import
+`Setlec/TTVerify/*` and must not.  What both sit on is `Setlec/TT/*` —
+the judgment and its soundness — which is shared already.
+
+### The cost that is real: `AnnotOkV`
+
+The [set] lane's extra conjunct is `AnnotOkV ρ t`, and there is **no
+general `HasType → AnnotOkV` lemma** to lean on.  It would need
+well-formed *contexts*: `AnnotOkV`'s `lam`/`pi` clauses demand the
+binder domain be truthful, and TT's rules do not premise a λ-domain's
+sort, so a garbage domain types fine and is not truthful.  Per
+constant it is mechanical — unfold, and each application node's
+premise comes from the binder's own `Sat` membership — but it is not
+free.
+
+### The measurement, and a correction to the size expectation
+
+The campaign constant "[set] transpositions come in at roughly half
+the TT lane's size" **does not hold for this file's non-recursor
+content**.  `Empty` is TT 159 lines vs [set] 173 — about 1.1×, because
+TT's content there is a `HasType.const` one-liner while [set] adds the
+`AnnotOkV` computation.  The half-size saving comes from *fired-form
+eliminations replacing `Deq` assembly*, which is recursor content —
+so expect it in `Nat`, `PSigma'`, `Quot` and `Eq`, and **not** in the
+type computations.
+
+Blocks remaining, with TT-lane sizes as the yardstick: `PUnit` 379,
+`Quot` 481, `Nat` 624, `Eq` 729, the `Eq`-bridged families 830,
+`PSigma'` 1025 — 4068 TT lines.  A mixed factor puts the [set] total
+at roughly **2500–3500 lines**.  This is the campaign's largest single
+remaining piece and is properly several sessions; the per-block
+sub-stage discipline (one block, landed with the battery) is what
+keeps it tractable.
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -3122,7 +3172,7 @@ needs.
 | `declIndS` 5 | **done** — `projConsS`, `projFnS`, `projInstallS` |
 | `declIndS` 6 | **done** — `templateVal`, `templateConsS`, `templatesS`; `TemplatesR` re-signed valuation-free |
 | `DeclIndS` assembly | **done** — `Install/DeclIndS.lean` |
-| `DeclBasisS` | **not started; the only T5 piece left** — scoped above, incl. why the Model lane cannot be reused |
+| `DeclBasisS` | **in progress** — infrastructure + `Empty` landed; five blocks left (see the pilot's measurement) |
 
 Open obligations, all in the house pattern: `DeclBasisS`, `DeclIndS`,
 `MemberKeyS`, `MemberEtaS`, `MemberUnitS`, `DivModPinS`,
@@ -3325,3 +3375,9 @@ B5″ above, or A — and A conflicts with the goal's no-new-checks clause.
 **Escalated to the user**, per the amendment protocol: this is a fork
 between reinstating a kernel check and a metatheory whose feasibility is
 unproved, and it is not a choice tier A should make silently.
+
+**Resolved (#152, master `40bae4b`): repair A** — the λ-rule computes
+its codomain sort, under `CheckMode.verified`.  The full resolution
+trail is in the main `DESIGN.md`'s section *"The λ-rule computes its
+codomain sort"*; this note exists only so the fork above is not read as
+still open.

@@ -100,17 +100,6 @@ what that list is for:
   `Name.str`.
 -/
 
-/-- A projection function is never a reserved basis name: `projFnName`
-builds a `Name.num` node, and every reserved name is a `Name.str`. -/
-theorem projFnName_ne_reserved {T n : Name} {j : Nat}
-    (h : reservedBasisNames.contains n = true) : projFnName T j ≠ n := by
-  intro hh
-  subst hh
-  simp only [reservedBasisNames, List.contains_cons, List.contains_nil,
-    Bool.or_eq_true, beq_iff_eq, projFnName] at h
-  rcases h with h | h | h | h | h | h | h | h | h | h | h | h | h | h | h |
-    h | h | h | h | h | h <;> exact nomatch h
-
 /-- The valuation with one name reset to a given term — the basis
 install's counterpart of `cvalAt`, which reads a *value* where a pinned
 constant has none. -/

@@ -37,6 +37,7 @@ import Setlec.SetR.Install.IotaRuleS
 import Setlec.SetR.Install.IndRecsS
 import Setlec.SetR.Install.ProjInstallS
 import Setlec.SetR.Install.DeclIndS
+import Setlec.SetR.Install.BasisS
 import Setlec.SetR.Examples
 import Setlec.SetR.Bridge.Env
 import Setlec.SetR.Bridge.Claims
