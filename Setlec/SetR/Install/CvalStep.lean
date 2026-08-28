@@ -67,7 +67,8 @@ theorem EnvS.mem_type_step {env : Env} (mS : EnvS V env)
     ∀ c ∈ env.consts, ∀ φ : Name → Nat,
       ∃ t, denoteClosed cval' env φ c.toConstantVal.type = some t ∧
         ∀ ρ : Nat → V,
-          interp V ρ (cval' c.name φ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t := by
+          interp V ρ (cval' c.name φ) ∈ˢ interp V ρ t ∧
+          AnnotOkV V ρ t := by
   intro c hc φ
   obtain ⟨t, ht, hfacts⟩ := mS.mem_type c hc φ
   refine ⟨t, ?_, ?_⟩
@@ -103,20 +104,37 @@ theorem EqFormerKeyV.cvalStep {env : Env} {cval cval' : TConstVal}
       = denoteClosed cval' env φ _ from denote_cvalStep hi φ 0 _]
   exact hT
 
+/-- A **pruned** renaming stays sound across an install's valuation
+change: at a stored name both sides move together, and at an unstored
+one the pruning makes the renaming the identity. -/
+theorem renameOkT_cvalStep {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo} {f : Name → Name}
+    (hi : Installs env cval cval' c₀)
+    (hprune : ∀ n : Name, (env.find? n).isSome = false → f n = n)
+    (h : RenameOkT cval env f) : RenameOkT cval' env f := by
+  refine ⟨h.1, h.2.1, ?_⟩
+  intro n ψ
+  rcases hf : env.find? n with _ | ci
+  · rw [hprune n (by rw [hf]; rfl)]
+  · obtain ⟨ci', hf', -⟩ := h.1 n ci hf
+    rw [← hi.agree (n := f n) (by rw [hf']; rfl),
+      ← hi.agree (n := n) (by rw [hf]; rfl)]
+    exact h.2.2 n ψ
+
 /-- The eta law crosses one install: it reads the environment through
 the former's denoted type alone. -/
 theorem EtaLawV.up {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀)
     {T : Name} {cvT : ConstantVal} {caps : IndCaps}
     (hres : ∀ us : List Level,
-      (cvT.type.instantiateLevelParams cvT.levelParams us).constsResolve
-        env = true)
+      (cvT.type.instantiateLevelParams cvT.levelParams
+        us).constsResolve env = true)
     (h : EtaLawV V env cval' T cvT caps) :
     EtaLawV V ⟨c₀ :: env.consts⟩ cval' T cvT caps := by
   intro φ' us ρ xs TV rest B hlen hTV
   refine h φ' us ρ xs TV rest B hlen ?_
-  rw [show denoteClosed cval' env φ' _
-      = denoteClosed cval env φ' _ from (denote_cvalStep hi φ' 0 _).symm]
+  rw [show denoteClosed cval' env φ' _ = denoteClosed cval env φ' _
+      from (denote_cvalStep hi φ' 0 _).symm]
   exact hi.denoteDown (hres us) hTV
 
 /-- The unit-like law crosses one install, by the same reading. -/
@@ -124,14 +142,14 @@ theorem UnitLawV.up {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀)
     {T : Name} {cvT : ConstantVal} {caps : IndCaps}
     (hres : ∀ us : List Level,
-      (cvT.type.instantiateLevelParams cvT.levelParams us).constsResolve
-        env = true)
+      (cvT.type.instantiateLevelParams cvT.levelParams
+        us).constsResolve env = true)
     (h : UnitLawV V env cval' T cvT caps) :
     UnitLawV V ⟨c₀ :: env.consts⟩ cval' T cvT caps := by
   intro φ' us ρ xs TV rest x y hlen hTV
   refine h φ' us ρ xs TV rest x y hlen ?_
-  rw [show denoteClosed cval' env φ' _
-      = denoteClosed cval env φ' _ from (denote_cvalStep hi φ' 0 _).symm]
+  rw [show denoteClosed cval' env φ' _ = denoteClosed cval env φ' _
+      from (denote_cvalStep hi φ' 0 _).symm]
   exact hi.denoteDown (hres us) hTV
 
 end Setlec.SetR

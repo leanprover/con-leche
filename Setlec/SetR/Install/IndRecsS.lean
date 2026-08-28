@@ -471,7 +471,7 @@ theorem RecRuleLawV.swapS {env₀ env₃ : Env} (hcg : SwapCongr env₀ env₃)
 set_option maxHeartbeats 3200000 in
 /-- **The recursor-group phase**: provision, fire, swap. -/
 theorem indRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
-    (hunit : MemberUnitS V) {μ : CheckMode} {F : Nat}
+    {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo} {cval₃ : TConstVal}
     (m : EnvS V env₂) (hI : BlockInstalledTT blockNames env₂ m.cval)
@@ -484,8 +484,8 @@ theorem indRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
   rcases h with ⟨-, rfl, rfl⟩ | ⟨-, heqf, envSelf, cvalSelf, checked,
     hprov, hfold⟩
   · exact ⟨m, rfl, hI⟩
-  obtain ⟨mS, hmScval, hIS⟩ := provisionRecsS hkey heta hunit recs m
-    hprov hI
+  obtain ⟨mS, hmScval, hIS⟩ := provisionRecsS hkey heta recs m
+    hbn hprov hI
   rw [← hmScval] at hprov hfold hIS
   -- every block member is stored in the provisional environment
   have hnames : ∀ n, blockNames.contains n = true →
