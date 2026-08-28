@@ -1,4 +1,6 @@
 import Setlec.SetR.Bridge.DeclInd
+import Setlec.SetR.Install.ReducePin
+import Setlec.SetR.Install.BasisS
 
 /-!
 # The assembly (task #148, T6)
@@ -63,8 +65,8 @@ theorem checkDeclR_sound (hkey : MemberKeyS V) (heta : MemberEtaS V)
 theorem foldlM_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat}
     (hdmR : DivModPinBridgeR V μ F)
-    (hdm : DivModPinS V) (hrp : ReducePinS V) (hstd : StdAxiomKeyS V)
-    (hofr : OfReduceKeyS V) (hbas : DeclBasisS V) (hind : DeclIndS V) :
+    (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
+    (hofr : OfReduceKeyS V) :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       Nonempty (EnvS V env) →
       ds.foldlM (checkDecl μ (fueledOps μ F)) env = .ok env' →
@@ -79,9 +81,9 @@ theorem foldlM_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     | ok env1 =>
       rw [hd] at h
       obtain ⟨m⟩ := hm
-      exact foldlM_R hkey heta hdmR hdm hrp hstd hofr hbas
-        hind ds env1
-        (declStepS hdm hrp hstd hofr hbas hind m
+      exact foldlM_R hkey heta hdmR hdm hstd hofr ds env1
+        (declStepS hdm reducePinS hstd hofr declBasisS
+          (declIndS hkey heta) m
           (checkDeclR_sound hkey heta hdmR m hd)) h
 
 end Setlec.SetR

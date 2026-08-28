@@ -46,26 +46,26 @@ theorem no_constant_of_Empty_R {env : Env} (m : EnvS V env)
 theorem checkDecls_sound_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat}
     (hdmR : DivModPinBridgeR V μ F)
-    (hdm : DivModPinS V) (hrp : ReducePinS V) (hstd : StdAxiomKeyS V)
-    (hofr : OfReduceKeyS V) (hbas : DeclBasisS V) (hind : DeclIndS V)
+    (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
+    (hofr : OfReduceKeyS V)
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
     Nonempty (EnvS V env') :=
-  foldlM_R hkey heta hdmR hdm hrp hstd hofr hbas hind
+  foldlM_R hkey heta hdmR hdm hstd hofr
     ds Env.empty ⟨EnvS.empty V⟩ h
 
 /-- **No proof of `Empty` is ever accepted**, on the `SetR` route. -/
 theorem no_proof_of_Empty_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat}
     (hdmR : DivModPinBridgeR V μ F)
-    (hdm : DivModPinS V) (hrp : ReducePinS V) (hstd : StdAxiomKeyS V)
-    (hofr : OfReduceKeyS V) (hbas : DeclBasisS V) (hind : DeclIndS V)
+    (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
+    (hofr : OfReduceKeyS V)
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDecls_sound_R hkey heta hdmR hdm hrp
-    hstd hofr hbas hind h
+  obtain ⟨m⟩ := checkDecls_sound_R hkey heta hdmR hdm
+    hstd hofr h
   exact no_constant_of_Empty_R m c hc hty
 
 end Setlec.SetR
