@@ -789,3 +789,61 @@ subject is a rule component (subject/argument/binder-body/fabrication
 spine) or a declaration front door's denoted stored object.  The
 extended-context premises (I6's `B`, I7's `b`) have binder-body
 subjects.  No further doubled chains exist.
+
+## T5 — the install layer (in progress; stages a1–a3 landed)
+
+### Inventory (as landed so far)
+
+| file | content |
+|---|---|
+| `Setlec/Verify/Denote/Install.lean` | **relocated** (T1/T3 precedent, statements unchanged, namespace kept): the V-free install-transport core of `TTVerify/Extend.lean` — `EnvExtends`/`denote_mono`, `denote_cval_congr`, `LitAgree`, `denote_env_shrink`/`denote_install`, the guard monotonicity family, `Installs`, `BasisPinnedTT.cons`, `ProjOkT.cons`, `divModNames_agree` — plus `cvalAt` (from `DeclValue.lean`) and `cvalWith` (from `DeclAxiom.lean`) |
+| `Setlec/Verify/Denote/SubstConst.lean` | **relocated + generalized**: `shallowE`, `denote_substConst0` over a bare valuation + closedness (the generalization the original's docstring predicted) |
+| `EnvS.lean` | `EnvS` (the invariant; `EnvTT` transposed with membership-form semantic fields — module docstring has the row-by-row table), `.empty`, `EnvS.toHyp` (discharges T4's frozen `EnvSHyp` by projection; the `mem_type` crossing via `denote_instLevels`), `EqLawV`/`ReduceOpsV` (+ `.empty` laws), the declaration-level consequences |
+| `Install/Cons.lean` | the per-field `.cons` transports (`EqLawV`, `ReduceOpsV`, `NatOpsV`, `DivModV`, `CapsOkV`, `RecRulesV`; `mem_type`/`defn_eq`/`thm_ok` movers) + the assembler `EnvS.cons` (transpose of `EnvTT.cons` minus `ctor_residual`) |
+| `Install/Value.lean` | `typeFrontS`/`valueKeyS` (the front doors through T4's soundness at `Sat`-trivial `[]`), `extendValueS`, the `DivModPinS`/`ReducePinS` obligations |
+| `Install/ValueKinds.lean` | `declThmS` (complete), `declOpaqueS` (mod `ReducePinS` — now discharged), `declDefnS` (mod `DivModPinS`; the structural-`Nat` pack discharged **inline**: `NatEqsR` already carries the substituted equations' denotations, so the derivation is `denote_substConst0` + `DefEq.sound` at a two-entry `Sat`) |
+| `Install/Axiom.lean` | `extendAxiomS`, `StdAxiomKeyS`/`OfReduceKeyS` obligations, `trustCompilerKeyS` (discharged), `declAxiomS` |
+| `Install/ReducePin.lean` | `reducePinS` — the compiler-trust identity from the certificate through the unconditional `DefEq.sound` at a one-entry `Sat` |
+
+### Decisions/deviations so far
+
+* **`proj_rules` absorbed into `rec_rules`** (design §2 listed it as a
+  separate field): the projection functions are stored *recursors*
+  (`ProjFnR` installs `.recInfo` entries), R11 is their only [set]
+  consumer, and `RecRulesV` is keyed on every stored `recInfo` — a
+  separate field would state the same law twice.
+* `EnvS` quantifies `φ` (the fields hold at every assignment);
+  `EnvSHyp` fixes one — `EnvS.toHyp` instantiates.  The `mem_type`
+  field keeps `EnvTT.has_type`'s keying (membership at each `φ`,
+  uninstantiated stored type); the projection to `EnvSHyp.mem_type`'s
+  I3-keyed instantiated form crosses via `denote_instLevels`.
+* The [set] transports are lighter than their TT twins exactly as the
+  design predicts: `interp`/`AnnotOkV`/`TeleFitV`/`IotaIndexPinV`
+  components are env-free and pass through untouched; only `denote`
+  facts move and `cval` occurrences rewrite.
+
+### DECISION (T5, 2026-08-28) — D6 refinement: the positive-depth walk packs go to bridge-shaped quantified contexts
+
+The first consumer of `IotaWalksR`/`IotaThmR`/`IotaSidesTyR` (the
+plain bottom's `Sat`-construction) cannot fire them as pinned:
+building `Sat Δm (value chain)` needs, at each telescope step, the
+domain walk's interp-equality — whose `DefEq.sound` reading demands a
+**full** `Sat Δm`, circularly.  The TT lane's padding trick
+(`IndBottom.lean`: untouched inner slots are `.sort 0`, instantiated
+with `dummyPropT`) transposes exactly — `pt ∈ˢ univ 0` makes `.sort 0`
+slots `Sat`-free — but only if the walk derivations are available *at
+padded contexts*, which the `OpenCtxR`-pinned form cannot supply while
+the bridge's claims (`∀ Δ, CtxOkR … → DefEq …`) can: `CtxOkR`
+constrains only the leaves the subject touches, so one checker run
+yields the derivation at every padded context.  Therefore the
+positive-depth packs are refined (D6's reserved refinement, exercised
+by their first consumer) from pinned `OpenCtxR` contexts to the
+bridge's own quantified form: each certified comparison carries
+`∀ Δ, CtxOkR … lhs → CtxOkR … rhs → DefEq μ Δ ⟦lhs⟧ ⟦rhs⟧` (and
+`TypedListW`/`IotaSidesTyR` likewise).  This is **not** the vacuity
+trap D6 warns about — that was existentially quantified contexts; the
+universal form is precisely what the bridge proves.  `DivModCertR`'s
+pinned `[Nat, Nat, H1, H2]` context stays (its subjects touch every
+slot; no padding is ever needed).  Bridge cost: nil (the claims are
+already `∀ Δ`-shaped).  Consumer cost: a `CtxOkR`-construction lemma
+at the padded pinned contexts (the `ctxOk_of_openers` transpose).
