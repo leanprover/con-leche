@@ -1144,3 +1144,50 @@ already an **install-layer fact**, `RecRulesV`'s first conclusion
 derivation proves it for plain rules from the provisioning shape
 pins).  `sndRedIota` now reads it off `henv.rec_rules` instead of the
 rule; the rule's premise stays exactly what the bridge can discharge.
+
+## T3 — batch (g) part 1: the rescues land; R11's recipe
+
+`Bridge/Major.lean` discharges `MajorStepR` — R12 (K), R13 (structural
+eta), R14 (the 0-field fallthrough) and the identity.  These are
+amendment-independent, so they landed ahead of R11.
+
+**`majorToCtor_inv` carries the fabrication's frame conditions with
+it** (`wscopedB`, the loose-bvar bound, the leaf-subset fact), so the
+clause needs no scope bookkeeping of its own — the checker's guards were
+recorded by the inversion.  That is the first clause in the bridge where
+that happens, and it is worth noting as a property of well-written
+inversions: an inversion that returns the *frames* as well as the
+certificates saves its consumer a page.
+
+R13 is what `structEtaCertWith_stepR` was factored out for: the
+certificate is already stated at the `tmaj` `majorToCtor` computed, so
+the wrapper's own reduction must not be redone.
+
+### R11, fully specified
+
+T4's D3 amendment landed (`rP ≤ mI` guarded on `.nested`), so the shape
+is frozen.  Everything R11 needs is now available; recording the map so
+the clause is a transcription:
+
+| premise | source |
+|---|---|
+| the recursor/rule/constructor lookups, lengths, `stripPis` | `iotaRec_inv`, directly |
+| the level guard at `[]` | `iotaRec_inv`'s guard at `e.getAppArgs`, plus `(recFireComparands … args rP).1 = (… [] rP).1` — the `.1` component reads no arguments in *either* fire branch (`Core.lean:1241-1251`), so this is `cases rl.fire <;> rfl` |
+| `TV`, `TVj` denote (+ D1 closedness) | `denote_declTypeR` |
+| `R` denotes (+ closedness) | `EnvR.rec_rhs_denotes` + `denote_closedExprR` |
+| premises 1–2 (major whnf, rescue) | `WhnfClaimsR` + `litMajorToCtorP_inv`/`denote_strLitCtorR` (R16) + `MajorStepR` |
+| premise 3 `.plain` | `defEqL_of_defEqListR`; `recFireComparands`'s `.2` is `args.take ctorParams` in that branch |
+| premise 3' `.nested` | `denote_openRev` — `recFireComparands`'s `.2` is `pins.map (Expr.instSpine (args.take rP) (rP-1) ∘ …)`, which is exactly that lemma's `instSeq`-at-`as.length-1` shape, with `as := args.take rP` |
+| premises 4–5 (the two telescopes) | `certs_teleR` |
+| premise 6 (the index decomposition) | `denote_piResidualR` identifies the `Tele` residual with `⟦residual⟧`, `denote_mkAppN_inv` splits it into `H`/`cargs`, and `DefEqL.length_eq` gives the length disjunct |
+
+**One more `EnvR` field is needed, and it is the D3 amendment's mirror
+image.**  Premise 6's disjunct `mI = rP ∨ cargs.length = ctorParams +
+(mI - rP)` follows from `DefEqL.length_eq` *except* when `mI < rP` on a
+`.plain` fire — the exact case the amendment removed from the rule's
+premises.  T4's verification found the same thing on the soundness side
+and answered it from `henv.rec_rules`' first component (the install
+layer carries the unconditional `rP ≤ mI`).  The bridge needs the same
+fact from the same place: `EnvR.rec_params_le`, backed by the identical
+`EnvS` component.  This is not a new finding — it is the *other half* of
+the D3 split, and it lands with R11.
