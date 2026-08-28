@@ -682,7 +682,7 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
   have heq' := heq
   simp only [Env.mk.injEq, List.cons.injEq] at heq'
   obtain ⟨hrecEq, -⟩ := heq'
-  obtain ⟨-, -, hres, hbv, hfv, hlp⟩ := checkProjTy_inv hty'
+  obtain ⟨-, -, hres, hbv, hfv, hlp, -⟩ := checkProjTy_inv hty'
   obtain ⟨raw, rb, cb, cbody, hraw, hrf, hrb, hann, halp, hrres, hrbv,
     hrfv, hsl, hsp, hdm, -⟩ := checkProjRule_inv hrule'
   show EnvWF (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP

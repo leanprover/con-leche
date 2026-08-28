@@ -97,7 +97,9 @@ theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
     pty.constsResolve env' = true ∧
     pty.looseBVarsBounded 0 = true ∧
     pty.hasFvar = false ∧
-    pty.allLevelParamsDefined lps = true := by
+    pty.allLevelParamsDefined lps = true ∧
+    -- task #148 T6: the telescope guard, which `ProjFnR` records
+    (pty.stripPis (nP + 1)).isSome = true := by
   simp only [checkProjTy, Bind.bind, Except.bind] at h
   by_cases hround : ((mty.renameConsts (projBack T ctorName nF)).renameConsts
       (projFwd T ctorName nF) == mty) = true
@@ -129,7 +131,7 @@ theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
   rw [if_pos hpis] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  exact ⟨rfl, eq_of_beq hround, hres, hptyb, hptyf, hptylp⟩
+  exact ⟨rfl, eq_of_beq hround, hres, hptyb, hptyf, hptylp, hpis⟩
 
 /-- Invert stage 3 of `checkProjFn` (the reduction rule). -/
 theorem checkProjRule_inv {env' : Env} {pty : Expr} {cvj : ConstantVal}

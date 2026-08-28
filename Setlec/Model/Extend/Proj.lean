@@ -146,7 +146,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     ⟨u, hio⟩, henv₁⟩ := checkProjFn_inv h
   obtain ⟨mval, hmmcv, hctor, hfm, hmlps, hpnone, hTf, heqf⟩ :=
     checkProjLookups_inv hlk
-  obtain ⟨hptyB, hround, hptyres, hptyb, hptyf, hptylp⟩ :=
+  obtain ⟨hptyB, hround, hptyres, hptyb, hptyf, hptylp, -⟩ :=
     checkProjTy_inv hty
   obtain ⟨raw, rbinders, cbindersR, cbody, hraw, hrawf, hrawb, hann,
     hrlp, hrres, hrb, hrf, hstripR, hC_strip, hdomsB,

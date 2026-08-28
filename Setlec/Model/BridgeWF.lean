@@ -430,7 +430,7 @@ private theorem installProjFnStepE_wfimp {T ctorName : Name}
   · obtain ⟨cvj, mcv, hlk, pty, hty, ⟨_, hshape⟩, hi, rhsA, hrule,
       ⟨_, hio⟩, heq⟩ := checkProjFn_inv h
     subst heq
-    obtain ⟨-, -, hres, hbv, hfv, hlp⟩ := checkProjTy_inv hty
+    obtain ⟨-, -, hres, hbv, hfv, hlp, -⟩ := checkProjTy_inv hty
     obtain ⟨raw, rb, cb, cbody, hraw, hrf, hrb, hann, halp, hrres, hrbv,
       hrfv, hsl, hsp, hdm⟩ := checkProjRule_inv hrule
     refine EnvWF.cons he (constWF_intro hfv hlp
