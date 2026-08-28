@@ -6375,3 +6375,60 @@ member on the nose.
 needs the syntactic form even though the two are definitionally equal.
 (`denote_eqA_typeS`'s hypothesis is in `exact` position, so it takes
 either.)
+
+### `StdAxiomKeyS`: calibration (measured, not landed)
+
+**The identity pattern does not apply, and that is good news.**
+`propext` and `Classical.choice` are not rearrangements of their own
+types — but they do not need the TT lane's syntactic `Iff.rec`/
+`Nonempty.rec` elimination either.  Both are **layer constants**:
+`BConst.propext` and `BConst.choice` exist, with
+`bval .propext = pt` and `bval .choice us = choiceV V (lv us 0)`
+(`TT/Semantics/Value.lean:302`), and `TT/Semantics/ConstOk.lean`
+already proves each inhabits *the layer's* type
+(`bval_mem_propext`, `bval_mem_choice` — the latter in four lines).
+
+So the set-lane witnesses are
+
+```
+propext : fun _ => VExpr.const .propext []
+choice  : fun ψ => VExpr.const .choice [ψ uN]
+```
+
+and obligations 1–3 are **one-liners**: `Closed` is `trivial`,
+`AnnotOkV ρ (.const _ _)` is `trivial`, and level-invariance is `rfl`
+(propext) or one `uN` lookup off the pin (choice).  A probe
+(scratch) confirms this compiles, with `denote_propext_typeS`
+transposed to a bare `cval` unchanged.
+
+**Why the TT lane needed an elimination and this lane does not.**
+`HasType` cannot see `bval`: the layer's `propext` is typed
+`∀ A B : Prop, (A→B) → (B→A) → A = B`, and no typing derivation turns
+an inhabitant of the opaque `Iff a b` into the two implications — only
+`Iff.rec` does.  Membership is *semantic*: the checker's hypothesis
+domain `⟦Iff a b⟧` need only be shown to **force** `a = b`, which is a
+`prop_ext` argument about truth values.  **This is the third time the
+rule "size an obligation against the lane that will discharge it" has
+paid: TTVerify was the wrong template; `Model/StdAxioms.lean` is the
+right one.**
+
+**What actually remains**, and it is the largest of the five:
+
+| piece | source | ≈ lines |
+|---|---|---|
+| `iff_shapes`, `nonempty_shapes` (pure `stdAxiomOk` inversion, **no `m`**) | relocate `TTVerify/StdAxiomKey.lean` → `Verify/` | 110 |
+| `denote_{propext,iffRec,iffIntro,choice,nonemptyIntro,nonemptyRec}_type` (bare `cval`; probe-verified for the first) | relocate + generalize | 190 |
+| `iff_forces_eq` and its `iffVal`/`iffIntroVal`/`iffRecVal` supports | transpose `Model/StdAxioms.lean:129–443` | 315 |
+| `nonemptyVal_forces` and supports | transpose `Model/StdAxioms.lean:523–768` | 245 |
+| the two keys + `AnnotOkV t` (the `Eq`-spine, `hEqApp` pattern) | new | 120 |
+
+≈ **980 lines**, of which ~300 are relocations that shrink
+`TTVerify/StdAxiomKey.lean` and serve both lanes.
+
+**One reconciliation is genuinely new** (neither lane has it):
+`choiceV` (TT) abstracts over `¬¬A`, while the checker's pin abstracts
+over `⟦Nonempty A⟧`, and `Model`'s `choiceVal` over `unitSet`/`empty`.
+`lamC_mem` needs the domains to *match*, so the proof must first show
+`⟦Nonempty A⟧ = ¬¬A` by `prop_ext` (both live in `univ 0`) — the
+forward direction is `nonemptyVal_forces`, the backward one
+`nonemptyIntroVal_app₂_mem` plus `exists_mem_of_dneg`.
