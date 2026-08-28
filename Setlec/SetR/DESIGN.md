@@ -5001,3 +5001,36 @@ descends along the depth index — `opener_denotes_at`'s equation read
 backwards, needed because the pins are denoted at the walk depth but
 their residual is taken at the opening depth), `getLastD_mem`,
 `typedListOk_infer`, `denoteSpine_mem_denotes`.
+
+### A premise with the right supplier at the wrong environment
+
+`iotaThmR_of`'s λ-row needed the rule's right-hand side to denote, and
+I narrowed its recursor premise to a stored `recInfo` plus rule
+membership so that `EnvR.rec_rhs_denotes` could supply it.  The
+supplier check was run and passed — and it was still wrong.
+
+`RuleChecked`'s `env₀` is the **provisional** environment, the one
+carrying the block's *rule-less* recursors (its own docstring says so).
+The rule is not stored there, so `rec_rhs_denotes` has nothing to say
+about it, and no caller could ever discharge the premise.  It was
+satisfiable in the abstract and unreachable in fact.
+
+The real supplier was in `IotaRuleR`'s own text all along: the fold
+carries `inferTypeCore … 0 rhsA = .ok rhsTy`, which `InferClaimsR`
+turns into the denotation at the empty context.  Both `iotaThmR_of`
+and `iotaThmNR_of` now take `hrhsnf`/`hrhsb`/`hrhsDen` directly and
+lift with `denote_closedExprR`; `rhs_pack` is **retracted** (it was
+correct, and had no caller left).
+
+This is a subtler cousin of the vacuity trap, and it deserves its own
+line beside the legitimacy rule:
+
+> **Naming a supplier is not enough — name the *environment* the
+> supplier speaks at, and check it is the one the caller holds.**
+
+Which is P2, verbatim, applied to a premise I wrote myself.  P2 has
+been on this file's first page since T5 and I ran it on other people's
+premises and not on my own.  The cheap mechanical form: when a new
+premise mentions an environment variable, write down which of the
+caller's environments it is (`env`, `env₀`/provisional, `envSelf`,
+`env'`) *before* writing the signature.

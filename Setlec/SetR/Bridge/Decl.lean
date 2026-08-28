@@ -798,26 +798,6 @@ theorem instLamsAt_walk_pack {env : Env} (m : EnvR env)
   exact opener_denotes_at m hxW.fvarsBelow
     (show i ≤ D from by omega) hden
 
-/-- **A stored fireable rule's right-hand side, packaged** at any
-depth.  `EnvR.rec_rhs_denotes` speaks at the *closed* denotation and
-at an arbitrary level instantiation; at the identity instantiation
-(`Expr.instantiateLevelParams_self`) it is the rule's own `rhs`, and
-`denote_closedExprR` lifts the closed denotation to every depth.
-`EnvR.wf`'s recursor clause supplies the two syntactic conjuncts. -/
-theorem rhs_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
-    {n : Name} {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
-    (hf : env.find? n = some (.recInfo cv mI rP rules))
-    {r : RecRule} (hr : r ∈ rules) (hfire : RecRule.fire r ≠ .inert) :
-    r.rhs.hasFvar = false ∧ r.rhs.looseBVarsBounded 0 = true ∧
-      ∃ V, ∀ D, denote m.cval env φ D r.rhs = some V := by
-  obtain ⟨R, hR0⟩ := m.rec_rhs_denotes _ _ _ _ _ hf r hr hfire
-    (cv.levelParams.map .param) φ (by rw [List.length_map])
-  rw [Expr.instantiateLevelParams_self] at hR0
-  obtain ⟨-, -, -, -, -, hrec', -⟩ := m.wf _ (find?_mem hf)
-  obtain ⟨hRnf, -, -, hRbd, -⟩ := hrec' cv mI rP rules rfl r hr
-  exact ⟨hRnf, hRbd,
-    R, (denote_closedExprR m.cval_closed hRnf hRbd hR0).2⟩
-
 /-- **The openers themselves**, packaged.  `instPisAt_walk_pack`'s
 spine hypothesis is about the opener *fvars*, not their annotations,
 so it needs this rather than `opener_walk_pack`.  Two of the four
@@ -1383,11 +1363,13 @@ caller has — the iota fold walks exactly the stored rules. -/
 theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
     {μ : CheckMode} {F : Nat} {f : Name → Name} {cvA cvj : ConstantVal}
     {mI rP cnP cnF j : Nat} {r : RecRule} {rhsA : Expr}
-    {rules : List RecRule} {ciC : ConstantInfo}
-    (hrecSelf : envSelf.find? cvA.name
-      = some (.recInfo cvA mI rP rules))
-    (hrmem : { r with rhs := rhsA } ∈ rules)
-    (hfire : RecRule.fire { r with rhs := rhsA } ≠ .inert)
+    {ciR ciC : ConstantInfo}
+    (hrecSelf : envSelf.find? cvA.name = some ciR)
+    (hcvRR : ciR.toConstantVal = cvA)
+    (hrhsnf : rhsA.hasFvar = false)
+    (hrhsb : rhsA.looseBVarsBounded 0 = true)
+    (hrhsDen : ∀ φ : Name → Nat,
+      ∃ V, denoteClosed m.cval envSelf φ rhsA = some V)
     (hctorSelf : envSelf.find? r.ctor = some ciC)
     (hcvC : ciC.toConstantVal = cvj)
     (hro : RenameOkT m.cval envSelf f)
@@ -1405,8 +1387,6 @@ theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
     hrinst, hdePre, hopenP, hcinstP, hdeP, hopenX, hlinst, hdeLam,
     hdeRhs, hty1, hty2, hty3⟩ := h
   subst hpin
-  have hcvRR : (ConstantInfo.recInfo cvA mI rP rules).toConstantVal
-      = cvA := rfl
   refine ⟨cvt, fvs, tbody, ?_, hlpt, hopen, ?_, ?_, ?_⟩
   · rw [Env.findCV?, hfthm, Option.map_some, hcvt]
   · rw [hheadEq]; rfl
@@ -1511,8 +1491,11 @@ theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
       ---------------------------------------------------------------
       -- (e) the rule's right-hand side, and its renamed application
       ---------------------------------------------------------------
-      obtain ⟨hRnf, hRbd, VR, hVR⟩ := rhs_pack m (φ := φ) hrecSelf
-        hrmem hfire
+      obtain ⟨VR0, hVR0⟩ := hrhsDen φ
+      have hVR : ∀ D, denote m.cval envSelf φ D rhsA = some VR0 :=
+        (denote_closedExprR m.cval_closed hrhsnf hrhsb hVR0).2
+      have hRnf := hrhsnf
+      have hRbd := hrhsb
       have hlamSp : ∀ a ∈ fvsP ++ xFvsP,
           Expr.WScoped (rP + cnF) a ∧
           a.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded a ∧
@@ -1631,12 +1614,14 @@ spellings take them directly from `instSpine_pin_pack`. -/
 theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
     {μ : CheckMode} {F : Nat} {f : Name → Name} {cvA cvj : ConstantVal}
     {mI rP cnP cnF j : Nat} {r : RecRule} {rhsA : Expr}
-    {rules : List RecRule} {ciC : ConstantInfo}
+    {ciR ciC : ConstantInfo}
     {lvls : List Level} {pins : List Expr}
-    (hrecSelf : envSelf.find? cvA.name
-      = some (.recInfo cvA mI rP rules))
-    (hrmem : { r with rhs := rhsA } ∈ rules)
-    (hfire : RecRule.fire { r with rhs := rhsA } ≠ .inert)
+    (hrecSelf : envSelf.find? cvA.name = some ciR)
+    (hcvRR : ciR.toConstantVal = cvA)
+    (hrhsnf : rhsA.hasFvar = false)
+    (hrhsb : rhsA.looseBVarsBounded 0 = true)
+    (hrhsDen : ∀ φ : Name → Nat,
+      ∃ V, denoteClosed m.cval envSelf φ rhsA = some V)
     (hctorSelf : envSelf.find? r.ctor = some ciC)
     (hcvC : ciC.toConstantVal = cvj)
     (hro : RenameOkT m.cval envSelf f)
@@ -1656,8 +1641,6 @@ theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
     hrinst, hdePre, hopenP, hannP, hcinstP, htypedP, hopenX, hcrestLen,
     hlinst, hdeLam, hdeRhs, hty1, hty2, hty3⟩ := h
   subst hpin
-  have hcvRR : (ConstantInfo.recInfo cvA mI rP rules).toConstantVal
-      = cvA := rfl
   refine ⟨hshape, cvt, fvs, tbody, ?_, hlpt, hopen, ?_, ?_, ?_⟩
   · rw [Env.findCV?, hfthm, Option.map_some, hcvt]
   · rw [hheadEq]; rfl
@@ -1956,8 +1939,11 @@ theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
       ---------------------------------------------------------------
       -- (f) the rule's right-hand side, and its renamed application
       ---------------------------------------------------------------
-      obtain ⟨hRnf, hRbd, VR, hVR⟩ := rhs_pack m (φ := φ) hrecSelf
-        hrmem hfire
+      obtain ⟨VR0, hVR0⟩ := hrhsDen φ
+      have hVR : ∀ D, denote m.cval envSelf φ D rhsA = some VR0 :=
+        (denote_closedExprR m.cval_closed hrhsnf hrhsb hVR0).2
+      have hRnf := hrhsnf
+      have hRbd := hrhsb
       have hlamSp : ∀ a ∈ fvsP ++ xFvsP,
           Expr.WScoped (rP + cnF) a ∧
           a.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded a ∧
