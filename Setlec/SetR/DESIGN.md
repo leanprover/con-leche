@@ -988,3 +988,59 @@ present in `EnvS`.
 
 No finding: the claim is verified as stated, with the two caveats above
 recorded so batch (e) does not start down the `certs_teleR` path.
+
+## T3 — batch (e), first half: I9 lands; R6's remaining shape
+
+`Bridge/Proj.lean`: **`InferProjStepR` proved** (I9), together with
+three pieces the rest of (e) and (g) reuse —
+`denote_piResidualR` (`denote` commutes with `piResidual`),
+`denote_closedExprR` (a *pinned* closed expression's denotation is
+depth-independent and closed, where `EnvR.wf` does not apply because
+the expression is not a stored declaration's type), and
+`denote_entryTyR` (the pinned entry's type, denoted, with its
+closedness).
+
+`Setlec/SetR/ProjPins.lean` is new: `projEntry_pins`,
+`denote_pairFstTy_eq`, `denote_pairSndTy_eq`, `denote_psigmaMkTy_eq`
+and the two `piResidualV` walks, **relocated verbatim** out of
+`Setlec/SetR/Sound/Proj.lean`.  The soundness tier built them first and
+the bridge needs exactly the same facts; they are V-free (`denote`,
+`Env.find?`, `ProjOkT`), so they sit below both tiers with one proof.
+`EnvR` gained `proj_ok : ProjOkT env` with this, its first consumer —
+the interface note from the R6 verification, now cashed.
+
+**`denote_piResidualR` is the `.proj` analogue of `certs_teleR`**: like
+it, it needed no conversion, because the rule was already shaped to
+take what the checker computes.  Two rules out of the family have that
+property and both are the ones whose premises were transposed from a
+*walk* rather than from a single certificate — worth noting as the
+shape to aim for when a rule is designed.
+
+### What R6 still needs (the walk, made precise)
+
+The verification above established that R6's `Tele TC vs restC` comes
+from inverting the `inferTypeCore e₃` run that `projCert` performs.
+Writing it needs three things, in this order:
+
+1. **Three fuel-lifted inversions relocated.**  `whnf_forallE_eq`,
+   `inferTypeCore_app_inv'` and `inferTypeCore_const_inv` are `private`
+   in `Setlec/Model/Core/Whnf.lean:27-70`.  All three are V-free and
+   general (they are `*_mono`-lifted forms of existing inversions), and
+   the model's own comment calls them "fuel-lifted inversions for the
+   certificate walk of the native pair projection" — i.e. exactly this
+   walk.  They belong in `Setlec/Verify/InferLemmas.lean`.
+2. **The four-step concrete walk.**  `inferTypeCore_app_inv'` peels the
+   constructor application one argument at a time; at each step
+   `whnf_forallE_eq` says the whnf of the pinned type's `∀` is itself,
+   which is what aligns the walk's domains with `Tele`'s syntactic
+   peeling of `TC` (`denote_psigmaMkTy_eq`'s concrete form).  Each step
+   then yields `Infer Δ ⟦arg⟧ ⟦ta⟧` and `DefEq Δ ⟦ta⟧ A` — `Tele.cons`.
+3. **The scrutinee reduction**, which is where `Red.projArg` (finding
+   2's rule) and R7 fire: `whnf_proj_inv` reduces the scrutinee with
+   `whnf` and expands a string literal with `projLitToCtor`
+   (`projLitToCtorP_inv` + `denote_strLitCtorR`), and *every non-firing
+   branch* returns `.proj sn i e'` — the case `Red.projArg` exists for.
+
+Batch (g)'s R11 additionally reuses (1) and `certs_teleR`; its rescues
+R12–R14 reuse `denote_declTypeR`, `certs_teleR` and the D8/D9 and D10
+certificates already proved.

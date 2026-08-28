@@ -1,6 +1,7 @@
 import Setlec.SetR.CtxOkR
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InferLeaves
+import Setlec.SetR.ProjPins
 
 /-!
 # `EnvR`: the environment facts the bridge consumes (task #148, T3)
@@ -68,6 +69,13 @@ structure EnvR (env : Env) where
   defn_eq : ∀ cv value hint,
     ConstantInfo.defnInfo cv value hint ∈ env.consts → ∀ ψ : Name → Nat,
       denoteClosed cval env ψ value = some (cval cv.name ψ)
+  /-- Every stored native projection-table entry is a pinned pair entry
+  with its block stored (`ProjOkT`).  Syntactic; the bridge's I9 and R6
+  clauses need it to identify the entry's type as a *concrete* closed
+  expression (`Setlec/SetR/ProjPins.lean`), which is what makes their
+  denotation and residual walks computations.  `EnvS` carries the same
+  field. -/
+  proj_ok : ProjOkT env
   /-- Every theorem is denoted by its proof value; the `thmInfo` half of
   `defn_eq`. -/
   thm_ok : ∀ cv value,
