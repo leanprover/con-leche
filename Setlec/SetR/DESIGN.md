@@ -1258,3 +1258,35 @@ A, the two congruences, D3's split), none of which required an edit to
 an already-landed bridge clause.  Relocations out of misfiled homes:
 six.  The two conversion-free rules remain `certs_teleR`'s and
 `denote_piResidualR`'s — both transposed from *walks*.
+
+## T5 c2 — the plain bottom, landed (2026-08-28)
+
+`indBottomPlainS : IndBottomPlainS V` (`Install/IndBottomPlainS.lean`)
+glues six sealed stages (`Install/IndStagesS.lean`):
+
+* `zipperS` — Sat + statement fit at `zs := xs.take rP ++ ys.drop cnP`;
+* `fireS` — the equation's truth through `eq_lawV` (slot-sort by
+  `piC_dom_unique` graph rigidity — the #146-avoidance route, as
+  designed);
+* `reductS` / `pointS` — the two sides identified with the reduct and
+  the fired redex (full-spine `instPisAt_denote_cross` +
+  `teleFitV_rest_eq` + `IotaIndexPinV` on the index branch);
+* `annotS` — the truthfulness transport.  **Decision (mirrors the
+  model's `TowerOk`)**: the reduct's `AnnotOkV` app-packages come from
+  the rule rhs's *own* λ-tower, read through the new
+  `instLamsAt_denoteTele`; the fired spine's layer memberships
+  (`annotMemS`) go Sat → statement annotation → walked recursor/ctor
+  domain (`hdePre`/`hdeFld`) → renamed-equal canonical P-annotation
+  (`instPisAt_renEq`, no walk) → walked rhs λ-domain (`hdeLam`) →
+  lift/chain absorption (`shiftE_chainE_take`) down to the layer's own
+  depth; the descent (`lamTowerStepS`) β-walks the tower with
+  `lamC_mem_upair` packages.  P-frame walk subjects fire at the
+  statement context through `ctxOkR_of_walked_openers`, the
+  `Infer`-up-to-`DefEq` slack filled by the annotation identification
+  (`annotPFrameEqS`) — no second context, no padding induction.
+* **Statement amendment**: both bottoms now carry the lam-domain walk
+  pack (`hdeLam`), the `instLamsAt` run, `crestP`'s field opening and
+  the `stripLams` pin — present in `IotaThmR`/`IotaThmNR` all along,
+  omitted from the c1 statements.
+
+No finding-#1: every law derived from set-mode install checks.
