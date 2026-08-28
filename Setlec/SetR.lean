@@ -7,6 +7,8 @@ import Setlec.SetR.Sound.Rigidity
 import Setlec.SetR.Sound.Stuck
 import Setlec.SetR.Sound.Proj
 import Setlec.SetR.Sound.Lit
+import Setlec.SetR.Sound.NatOps
+import Setlec.SetR.Sound.NatOpsWf
 import Setlec.SetR.Weaken
 import Setlec.SetR.CtxOkR
 import Setlec.SetR.Decl

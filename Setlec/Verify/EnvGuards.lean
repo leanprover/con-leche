@@ -275,4 +275,110 @@ theorem EtaFamiliesClosed.cons_nonind {env : Env} {c₀ : ConstantInfo}
     rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
     exact hfC
 
+/-! ## The guard, inverted -/
+
+/-- Everything `natOpGuard` checked, as separate facts. -/
+theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
+    natLitSupported env = true ∧
+    (∀ n ∈ natOpDeps c, ∃ cvn vn hn,
+      env.find? n = some (.defnInfo cvn vn hn) ∧ cvn.levelParams = []) ∧
+    ((c = natBeqName ∨ c = natBleName ∨ c ∈ natDivModNames) →
+      (∃ ciT, env.find? boolTrueName = some ciT ∧
+        ciT.toConstantVal.levelParams = []) ∧
+      (∃ ciF, env.find? boolFalseName = some ciF ∧
+        ciF.toConstantVal.levelParams = [])) := by
+  unfold natOpGuard at h
+  simp only [Bool.and_eq_true] at h
+  obtain ⟨⟨hs, hdeps⟩, hbool⟩ := h
+  refine ⟨hs, ?_, ?_⟩
+  · intro n hn
+    have := List.all_eq_true.mp hdeps n hn
+    revert this
+    split
+    · next cvn vn hn heq =>
+      intro hlp
+      exact ⟨cvn, vn, hn, heq, List.isEmpty_iff.mp (by simpa using hlp)⟩
+    · intro hh; exact nomatch hh
+  · intro hc
+    have hcb : (c = natBeqName || c = natBleName ||
+        natDivModNames.contains c) = true := by
+      rcases hc with rfl | rfl | hm
+      · simp
+      · simp
+      · rw [List.contains_iff_mem.mpr hm, Bool.or_true]
+    rw [if_pos hcb] at hbool
+    simp only [Bool.and_eq_true] at hbool
+    obtain ⟨hT, hF⟩ := hbool
+    constructor
+    · revert hT
+      split
+      · next ciT heq =>
+        intro hlp
+        exact ⟨ciT, heq, List.isEmpty_iff.mp (by simpa using hlp)⟩
+      · intro hh; exact nomatch hh
+    · revert hF
+      split
+      · next ciF heq =>
+        intro hlp
+        exact ⟨ciF, heq, List.isEmpty_iff.mp (by simpa using hlp)⟩
+      · intro hh; exact nomatch hh
+
+/-- Rebuild the guard from the separate facts. -/
+theorem natOpGuard_intro {c : Name}
+    (hs : natLitSupported env = true)
+    (hdeps : ∀ n ∈ natOpDeps c, ∃ cvn vn hn,
+      env.find? n = some (.defnInfo cvn vn hn) ∧ cvn.levelParams = [])
+    (hbool : (c = natBeqName ∨ c = natBleName ∨ c ∈ natDivModNames) →
+      (∃ ciT, env.find? boolTrueName = some ciT ∧
+        ciT.toConstantVal.levelParams = []) ∧
+      (∃ ciF, env.find? boolFalseName = some ciF ∧
+        ciF.toConstantVal.levelParams = [])) :
+    natOpGuard env c = true := by
+  unfold natOpGuard
+  simp only [Bool.and_eq_true]
+  refine ⟨⟨hs, ?_⟩, ?_⟩
+  · refine List.all_eq_true.mpr ?_
+    intro n hn
+    obtain ⟨cvn, vn, hn, heq, hlp⟩ := hdeps n hn
+    rw [heq]
+    simp [hlp]
+  · split
+    · next hcb =>
+      simp only [Bool.or_eq_true, decide_eq_true_eq] at hcb
+      have hcb' : c = natBeqName ∨ c = natBleName ∨ c ∈ natDivModNames := by
+        rcases hcb with (h | h) | h
+        · exact Or.inl h
+        · exact Or.inr (Or.inl h)
+        · exact Or.inr (Or.inr (List.contains_iff_mem.mp h))
+      obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hcb'
+      rw [hT, hF]
+      simp [hlpT, hlpF]
+    · rfl
+
+/-- The guard survives extension by a fresh constant. -/
+theorem natOpGuard_cons {c : Name} {c₀ : ConstantInfo}
+    (hfresh : env.find? c₀.name = none)
+    (h : natOpGuard env c = true) :
+    natOpGuard (⟨c₀ :: env.consts⟩ : Env) c = true := by
+  obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv h
+  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, -⟩ :=
+    natLitSupported_inv hs
+  refine natOpGuard_intro ?_ ?_ ?_
+  · rw [natLitSupported_congr
+      (Env.find?_cons_of_isSome hfresh (by simp [hnn]))
+      (Env.find?_cons_of_isSome hfresh (by simp [hzz]))
+      (Env.find?_cons_of_isSome hfresh (by simp [hss]))]
+    exact hs
+  · intro n hn
+    obtain ⟨cvn, vn, hn, heq, hlp⟩ := hdeps n hn
+    exact ⟨cvn, vn, hn,
+      (Env.find?_cons_of_isSome hfresh (by simp [heq])).trans heq, hlp⟩
+  · intro hc
+    obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hc
+    exact ⟨⟨ciT, (Env.find?_cons_of_isSome hfresh (by simp [hT])).trans hT,
+        hlpT⟩,
+      ⟨ciF, (Env.find?_cons_of_isSome hfresh (by simp [hF])).trans hF,
+        hlpF⟩⟩
+
+
 end Setlec

@@ -124,6 +124,100 @@ def UnitLawV (env : Env) (cval : TConstVal) (T : Name)
       (VExpr.mkAppN (cval T (Level.substFn φ' cvT.levelParams us)) xs) →
     x = y
 
+/-- A stored structural-`Nat` operation's semantic certificate
+(`NatOpsOk` transpose): the literal fast-path guard, and the defining
+recurrence equations semantically — the two free variables denote to
+the two innermost context slots, valued by members of the stored
+`Nat`'s interpretation. -/
+def NatOpsV (env : Env) (cval : TConstVal) (φ : Name → Nat) : Prop :=
+  ∀ c ∈ natOpNames, ∀ cv v hint,
+    env.find? c = some (.defnInfo cv v hint) →
+    natOpGuard env c = true ∧
+    ∀ eq ∈ natOpEquations 0 c, ∃ L R,
+      denote cval env φ 2 eq.1 = some L ∧
+      denote cval env φ 2 eq.2 = some R ∧
+      ∀ (ρ : Nat → V) (x y : V),
+        x ∈ˢ interp V ρ (cval natName (Level.substFn φ [] [])) →
+        y ∈ˢ interp V ρ (cval natName (Level.substFn φ [] [])) →
+        interp V (cons V y (cons V x ρ)) L
+          = interp V (cons V y (cons V x ρ)) R
+
+/-- The `ble`-guarded value-level clauses of a pin-certified
+WF-recursive operation, over a value valuation of the level-mono
+heads (`DivModClauses` transpose, verbatim — value-level). -/
+def DivModClausesV (val : Name → V) (c : Name) (x y : V) : Prop :=
+  let vT := val boolTrueName
+  let vF := val boolFalseName
+  let one : V := SetTheory.app (val natSuccName) (val natZeroName)
+  let two : V := SetTheory.app (val natSuccName) one
+  let ble2 : V → V → V :=
+    fun a b => SetTheory.app (SetTheory.app (val natBleName) a) b
+  let op2 : V → V → V :=
+    fun a b => SetTheory.app (SetTheory.app (val c) a) b
+  let sub2 : V → V → V :=
+    fun a b => SetTheory.app (SetTheory.app (val natSubName) a) b
+  let add2 : V → V → V :=
+    fun a b => SetTheory.app (SetTheory.app (val natAddName) a) b
+  let mul2 : V → V → V :=
+    fun a b => SetTheory.app (SetTheory.app (val natMulName) a) b
+  let div2 : V → V → V :=
+    fun a b => SetTheory.app (SetTheory.app (val natDivName) a) b
+  let mod2 : V → V → V :=
+    fun a b => SetTheory.app (SetTheory.app (val natModName) a) b
+  if c = natGcdName then
+    (ble2 one x = vT → op2 x y = op2 (mod2 y x) x) ∧
+    (ble2 one x = vF → op2 x y = y)
+  else if c = natShiftLeftName then
+    (ble2 one y = vT → op2 x y = op2 (mul2 two x) (sub2 y one)) ∧
+    (ble2 one y = vF → op2 x y = x)
+  else if c = natShiftRightName then
+    (ble2 one y = vT → op2 x y = div2 (op2 x (sub2 y one)) two) ∧
+    (ble2 one y = vF → op2 x y = x)
+  else if c = natLog2Name then
+    (ble2 two x = vT →
+      SetTheory.app (val c) x
+        = SetTheory.app (val natSuccName)
+            (SetTheory.app (val c) (div2 x two))) ∧
+    (ble2 two x = vF → SetTheory.app (val c) x = val natZeroName)
+  else if c = natLandName then
+    (ble2 one x = vT →
+      op2 x y = add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (mul2 (mod2 x two) (mod2 y two))) ∧
+    (ble2 one x = vF → op2 x y = val natZeroName)
+  else if c = natLorName then
+    (ble2 one x = vT →
+      op2 x y = add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (sub2 (add2 (mod2 x two) (mod2 y two))
+          (mul2 (mod2 x two) (mod2 y two)))) ∧
+    (ble2 one x = vF → op2 x y = y)
+  else if c = natXorName then
+    (ble2 one x = vT →
+      op2 x y = add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (mod2 (add2 (mod2 x two) (mod2 y two)) two)) ∧
+    (ble2 one x = vF → op2 x y = y)
+  else
+    (ble2 y x = vT → ble2 one y = vT →
+     op2 x y =
+       (if c = natDivName then
+          SetTheory.app (val natSuccName) (op2 (sub2 x y) y)
+        else op2 (sub2 x y) y)) ∧
+    (ble2 y x = vF →
+     op2 x y = (if c = natDivName then val natZeroName else x)) ∧
+    (ble2 one y = vF →
+     op2 x y = (if c = natDivName then val natZeroName else x))
+
+/-- A stored pin-certified WF-recursive operation's guard and guarded
+recurrences at the value level (`DivModOk` transpose). -/
+def DivModV (env : Env) (cval : TConstVal) (φ : Name → Nat) : Prop :=
+  ∀ c ∈ natDivModNames, ∀ cv v hint,
+    env.find? c = some (.defnInfo cv v hint) →
+    natOpGuard env c = true ∧
+    ∀ (ρ : Nat → V) (x y : V),
+      x ∈ˢ interp V ρ (cval natName (Level.substFn φ [] [])) →
+      y ∈ˢ interp V ρ (cval natName (Level.substFn φ [] [])) →
+      DivModClausesV V
+        (fun n => interp V ρ (cval n (Level.substFn φ [] []))) c x y
+
 /-- The stored families' capability laws (`CapsOk` transpose,
 provenance-abstract, basis families exempt). -/
 def CapsOkV (env : Env) (cval : TConstVal) : Prop :=
@@ -180,5 +274,13 @@ structure EnvSHyp (env : Env) (cval : TConstVal) (φ : Name → Nat) :
   entry with its block stored (§2 `proj_ok`; the relocated `ProjOkT`,
   verbatim — syntactic, install-supplied). -/
   proj_ok : ProjOkT env
+  /-- The structural-`Nat` operations' semantic certificates (§2
+  `nat_ops`; supplier: `certifyNatEqs`' derivations through the
+  unconditional DefEq-sound). -/
+  nat_ops : NatOpsV V env cval φ
+  /-- The pin-certified WF-recursive operations' guarded value
+  recurrences (§2 `div_mod`; supplier: the div/mod certificate
+  pack). -/
+  div_mod : DivModV V env cval φ
 
 end Setlec.SetR
