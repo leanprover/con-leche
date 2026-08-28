@@ -4608,3 +4608,48 @@ seductive.  The rule earned:
 > recorded, or written with the site-specific inputs already
 > abstracted.  The second is usually cheaper, and — as here — often
 > yields the shorter proof.
+
+## T6 — `iotaThmR_of`'s complete signature (traced)
+
+Tracing every environment requirement of the six rows, before writing
+them, gives the final signature.  Recording it here rather than
+discovering it mid-witness, per the signature-fact discipline that
+already saved one rewrite.
+
+    iotaThmR_of (m : EnvR envSelf)
+      (hro       : RenameOkT m.cval envSelf f)
+      (hrecSelf  : envSelf.find? cvA.name = some ciR)
+      (hcvR      : ciR.toConstantVal = cvA)
+      (hctorSelf : envSelf.find? r.ctor  = some ciC)
+      (hcvC      : ciC.toConstantVal = cvj)
+      (htransfer : ∀ n ci, env'.find? n = some ci →
+                     (∀ cv a b rs, ci ≠ .recInfo cv a b rs) →
+                     envSelf.find? n = some ci)
+      (h : PlainChecked μ F env' envSelf f cvA mI rP cnP cnF j
+             { r with rhs := rhsA } cvj)
+
+`htransfer` is the new one, and it is why: `PlainChecked` finds the
+`iota_j` **statement** at `env'`, while the walks need its type to
+denote at `envSelf`.  A statement is a `defnInfo`/`thmInfo`, never a
+recursor, so the non-recursor transfer suffices — and that is exactly
+the property `indRecsS` already *concludes* for its own environment
+step (`Install/IndRecsS.lean:552`), so the rules fold has it to hand.
+
+**Why the third environment fact appears only now.**  The signature
+note recorded two (the constructor and recursor at `envSelf`) because
+those are what the *`instPisAt` subjects* need.  The statement's own
+type is needed by the *openers*, and I traced the subjects before the
+openers.  The general form: a walk's environment requirements come
+from **both** of its lists, and the left list's subject is the
+statement itself.
+
+With this, every row's inputs are named:
+
+| row | left pack | right pack |
+|---|---|---|
+| idx | `spine_walk_pack` at `lhsS` (via `tbody`) | `spine_walk_pack` at `cres` |
+| dom | `opener_walk_pack_gen` at the statement | `instPisAt_walk_pack` (`hcinst`) |
+| pre | `opener_walk_pack_gen` at the statement | `instPisAt_walk_pack` (`hrinst`, `renamedType_pack`) |
+| lam | `opener_walk_pack_gen` ×2 (`hopenP`, then `hopenX` at the residual) | `instPisAt_walk_pack` (`hlinst`) |
+| rhs | single `defEqAtW_of` | — |
+| sides | `IotaSidesTyR` from `hty1`/`hty2`/`hty3` | — |
