@@ -69,6 +69,21 @@ structure EnvR (env : Env) where
   defn_eq : ∀ cv value hint,
     ConstantInfo.defnInfo cv value hint ∈ env.consts → ∀ ψ : Name → Nat,
       denoteClosed cval env ψ value = some (cval cv.name ψ)
+  /-- **Every stored fireable recursor rule's right-hand side denotes**,
+  at every instantiation of the recursor's level parameters.
+
+  `ty_denotes` covers stored *types*; a rule's `rhs` is not one.
+  `EnvWF` gives it `hasFvar = false`, `constsResolve` and
+  `looseBVarsBounded 0`, but `constsResolve` records *existence* of the
+  referenced constants, not the level-arity matches `denote`'s `.const`
+  clause tests — so denotability is a genuinely extra fact.
+  `EnvS.rec_rules` carries it; consumed by R11's `denoteClosed` side
+  condition (batch g). -/
+  rec_rhs_denotes : ∀ n cv mI rP rules,
+    env.find? n = some (.recInfo cv mI rP rules) →
+    ∀ r ∈ rules, ∀ (us : List Level) (ψ : Name → Nat),
+      ∃ R, denoteClosed cval env ψ
+        (r.rhs.instantiateLevelParams cv.levelParams us) = some R
   /-- Every stored native projection-table entry is a pinned pair entry
   with its block stored (`ProjOkT`).  Syntactic; the bridge's I9 and R6
   clauses need it to identify the entry's type as a *concrete* closed

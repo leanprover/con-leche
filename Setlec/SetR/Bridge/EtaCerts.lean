@@ -55,13 +55,24 @@ theorem choose_fun {α : Type _} {P : Nat → α → Prop} (h : ∀ j, ∃ x, P 
   ⟨fun j => Classical.choose (h j), fun j => Classical.choose_spec (h j)⟩
 
 /-- **`StructEtaCertStepR`, proved** (D10). -/
-theorem structEtaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
+theorem structEtaCertWith_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
-    (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
-    (ihi : InferClaimsR mode m φ fuel) :
-    StructEtaCertStepR (mode := mode) m φ fuel := by
-  intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
-  obtain ⟨tb, wtb, htb, hwtb, hcw⟩ := structEtaCert_inv h
+    (_ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
+    (ihi : InferClaimsR mode m φ fuel)
+    {d : Nat} {Δ : List VExpr} {a b wtb : Expr} {W TB : VExpr}
+    (hcw : structEtaCertWithP mode env fuel d a b wtb = .ok true)
+    (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a) (hCa : CtxOkR mode m.cval env φ d Δ a)
+    (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded b) (hCb : CtxOkR mode m.cval env φ d Δ b)
+    (hwr : Expr.WScoped d wtb) (hbr : wtb.looseBVarsBounded 0 = true)
+    (hLr : Expr.LeavesBounded wtb) (hCr : CtxOkR mode m.cval env φ d Δ wtb)
+    {va vb : VExpr} (hva : denote m.cval env φ d a = some va)
+    (hvb : denote m.cval env φ d b = some vb)
+    (hW : denote m.cval env φ d wtb = some W)
+    (hbI : Infer mode env m.cval φ Δ vb TB)
+    (hbD : DefEq mode env m.cval φ Δ TB W) :
+    DefEq mode env m.cval φ Δ va vb := by
   obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, hfna, hfc, hlena, hfnb,
     hfT, heta, hectr, hepar, hefld, hresT, hresc, hlenb, hlenus, hlpc,
     hstrip, hlev, hcertT, hprojs, hdefL1, -, hdefL2⟩ :=
@@ -76,18 +87,6 @@ theorem structEtaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
   · next hlenc =>
     obtain rfl : vf = m.cval c (Level.substFn φ cvc.levelParams us) :=
       (Option.some.inj hvf).symm
-    -- the stuck side's type, reduced to the family's application
-    obtain ⟨vb₀, W, hvb₀, hW, TB, hbI, hbD⟩ :=
-      inferShapeR m φ ihw ihi htb hwtb hwb hbb hLb hCb
-    have hveq : vb₀ = vb := by rw [hvb₀] at hvb; exact Option.some.inj hvb
-    rw [hveq] at hbI
-    obtain ⟨htbw, htbb, htbL, htbC⟩ := frame_inferR m.wf htb hwb hbb hLb hCb
-    have hwr : Expr.WScoped d wtb := whnf_WScoped m.wf fuel hwtb htbw
-    have hbr : wtb.looseBVarsBounded 0 = true := whnf_looseBVars m.wf fuel hwtb htbb
-    have hLr : Expr.LeavesBounded wtb := fun l hl =>
-      htbL l (whnf_fvarLeaves m.wf fuel hwtb l hl)
-    have hCr : CtxOkR mode m.cval env φ d Δ wtb :=
-      CtxOkR.of_subset (whnf_fvarLeaves m.wf fuel hwtb) htbC
     rw [show wtb = Expr.mkAppN wtb.getAppFn wtb.getAppArgs from
       (Expr.mkAppN_getApp wtb).symm, hfnb] at hW
     obtain ⟨vT, ts, hvT, hspt, rfl⟩ := denote_mkAppN_inv hW
@@ -200,6 +199,29 @@ theorem structEtaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           (hspa.drop cnP) (DenoteSpine.map_list _ (fun j hj => hprojden j (by simpa using hj))))
     · exact nomatch hvT
   · exact nomatch hvf
+
+/-- **`StructEtaCertStepR`, proved** (D10) — `structEtaCert` is
+`structEtaCertWith` at the stuck side's own reduced type, so the wrapper
+is that reduction plus the core.  R13 (`Red.rescueEta`) calls the core
+directly, at the `tmaj` `majorToCtor` already computed. -/
+theorem structEtaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
+    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
+    (ihi : InferClaimsR mode m φ fuel) :
+    StructEtaCertStepR (mode := mode) m φ fuel := by
+  intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
+  obtain ⟨tb, wtb, htb, hwtb, hcw⟩ := structEtaCert_inv h
+  obtain ⟨vb₀, W, hvb₀, hW, TB, hbI, hbD⟩ :=
+    inferShapeR m φ ihw ihi htb hwtb hwb hbb hLb hCb
+  have hveq : vb₀ = vb := by rw [hvb₀] at hvb; exact Option.some.inj hvb
+  rw [hveq] at hbI
+  obtain ⟨htbw, htbb, htbL, htbC⟩ := frame_inferR m.wf htb hwb hbb hLb hCb
+  exact structEtaCertWith_stepR m φ hcl ihw ihd ihi hcw hwa hba hLa hCa
+    hwb hbb hLb hCb
+    (whnf_WScoped m.wf fuel hwtb htbw) (whnf_looseBVars m.wf fuel hwtb htbb)
+    (fun l hl => htbL l (whnf_fvarLeaves m.wf fuel hwtb l hl))
+    (CtxOkR.of_subset (whnf_fvarLeaves m.wf fuel hwtb) htbC)
+    hva hvb hW hbI hbD
 
 /-- **`PairEtaCertStepR`, proved** (D12). -/
 theorem pairEtaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
