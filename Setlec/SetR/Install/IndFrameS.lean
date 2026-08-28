@@ -488,7 +488,7 @@ theorem ctxOkR_of_openers {μ : CheckMode} {cval : TConstVal} {env : Env}
       denote cval env φ i (Expr.fvarTypeD x) = some (As i))
     {e : Expr} {n : Nat}
     (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
-    (hwsE : Expr.WScoped n e)
+    (hltE : ∀ l ∈ e.fvarLeaves, l.1 < n)
     (hent : ∀ i, i < n → Δ'[k - 1 - i]? = some (As i)) :
     CtxOkR μ cval env φ k Δ' e := by
   refine ⟨hΔlen, ?_⟩
@@ -500,7 +500,7 @@ theorem ctxOkR_of_openers {μ : CheckMode} {cval : TConstVal} {env : Env}
     injection hx with a b c
     exact ⟨a, b, c⟩
   subst h1 h2 h3
-  have hlt : l.1 < n := Expr.fvarLeaves_lt_of_wscoped hwsE l hl
+  have hlt : l.1 < n := hltE l hl
   have hw := hws _ (List.mem_of_getElem? hpos)
   have hwty : l.1 < k ∧ Expr.WScoped l.1 l.2.2 := by
     simpa [Expr.WScoped] using hw
