@@ -104,6 +104,116 @@ theorem denote_const_pinS {env : Env} (m : EnvS V env)
   rw [cvalWith_ne (Ne.symm hne)]
   exact congrArg some (cvalS_pinned m hres (by rw [hf]; rfl) _ hpin)
 
+/-! ## Every pinned type is truthful
+
+`EnvS.cons`'s `htype` asks for `AnnotOkV ρ t` beside the membership,
+and for a pinned constant `t` is `BConst.type c us`.  That is **one
+lemma for the whole basis**. -/
+
+set_option maxHeartbeats 3200000 in
+theorem AnnotOkV_bconst_type (c : BConst) (us : List Nat)
+    (ρ : Nat → V) : AnnotOkV V ρ (BConst.type c us) := by
+  cases c <;>
+    simp only [BConst.type, arrow, AnnotOkV_pi, AnnotOkV_sort,
+      AnnotOkV_const, AnnotOkV_app, AnnotOkV_bvar, AnnotOkV_eqE,
+      interp_pi, interp_const, interp_sort, interp_bvar,
+      interp_app, cons, natT, natZeroT, punitT, punitUnitT, emptyT,
+      psigmaT, quotT, relT, quotMkT, VExpr.mkAppN, VExpr.lift,
+      VExpr.liftN, true_and, and_true] <;>
+    (repeat' first
+      | trivial
+      | exact ⟨_, _, ‹_›, ‹_›⟩
+      | exact ⟨_, _, ‹_›, natzero_mem⟩
+      | exact ⟨_, _, ‹_›, pt_mem_unitSet⟩
+      | apply And.intro
+      | intro _)
+  -- **the twenty-four residual goals, longhand.**  Every one is
+  -- `∃ A B, F ∈ˢ piC A B ∧ a ∈ˢ A`; `F` is a bound motive, a layer
+  -- constant, or a partial application of one, and `bval_mem_type`
+  -- composed with `app_mem_piC` once per argument already consumed
+  -- supplies it.  Written out rather than closed by a generic tactic:
+  -- two attempts at one failed to fire (the `∃ A B` metavariables are
+  -- not solved through `interp (BConst.type …)`'s unfolding).
+  case natRec.right.right.left.right.left.right.right =>
+    exact ⟨_, _, bval_mem_type V .natSucc [] ρ,
+      ‹_›⟩
+  case natRec.right.right.left.right.right =>
+    exact ⟨_, _, ‹_›,
+      app_mem_piC (bval_mem_type V .natSucc [] ρ) ‹_›⟩
+  case psigmaMk.right.right.left =>
+    exact ⟨_, _, bval_mem_type V .psigma [lv us 0, lv us 1] ρ,
+      ‹_›⟩
+  case psigmaMk.right.right.right =>
+    exact ⟨_, _,
+      app_mem_piC (bval_mem_type V .psigma [lv us 0, lv us 1] ρ) ‹_›,
+      ‹_›⟩
+  case quotMk.right.left =>
+    exact ⟨_, _, bval_mem_type V .quot [lv us 0] ρ,
+      ‹_›⟩
+  case quotMk.right.right =>
+    exact ⟨_, _, app_mem_piC (bval_mem_type V .quot [lv us 0] ρ) ‹_›,
+      ‹_›⟩
+  case quotLift.right.right.left.left.right =>
+    -- the head is the *relation* applied to one side; naming the
+    -- binders is what an anonymous `assumption` cannot get right
+    rename_i A hA r hr B hB f hf a ha b hb
+    exact ⟨_, _, app_mem_piC hr ha, hb⟩
+  case quotLift.right.right.right.left.left =>
+    exact ⟨_, _, bval_mem_type V .quot [lv us 0] ρ,
+      ‹_›⟩
+  case quotLift.right.right.right.left.right =>
+    exact ⟨_, _, app_mem_piC (bval_mem_type V .quot [lv us 0] ρ) ‹_›,
+      ‹_›⟩
+  case quotInd.right.left.left.left =>
+    exact ⟨_, _, bval_mem_type V .quot [lv us 0] ρ,
+      ‹_›⟩
+  case quotInd.right.left.left.right =>
+    exact ⟨_, _, app_mem_piC (bval_mem_type V .quot [lv us 0] ρ) ‹_›,
+      ‹_›⟩
+  case quotInd.right.right.left.left.left.left =>
+    exact ⟨_, _, bval_mem_type V .quotMk [lv us 0] ρ,
+      ‹_›⟩
+  case quotInd.right.right.left.left.left.right =>
+    exact ⟨_, _, app_mem_piC (bval_mem_type V .quotMk [lv us 0] ρ) ‹_›,
+      ‹_›⟩
+  case quotInd.right.right.left.left.right =>
+    exact ⟨_, _, app_mem_piC
+      (app_mem_piC (bval_mem_type V .quotMk [lv us 0] ρ) ‹_›) ‹_›,
+      ‹_›⟩
+  case quotInd.right.right.left.right =>
+    exact ⟨_, _, ‹_›,
+      app_mem_piC (app_mem_piC
+      (app_mem_piC (bval_mem_type V .quotMk [lv us 0] ρ) ‹_›) ‹_›) ‹_›⟩
+  case quotInd.right.right.right.left.left =>
+    exact ⟨_, _, bval_mem_type V .quot [lv us 0] ρ,
+      ‹_›⟩
+  case quotInd.right.right.right.left.right =>
+    exact ⟨_, _, app_mem_piC (bval_mem_type V .quot [lv us 0] ρ) ‹_›,
+      ‹_›⟩
+  case quotSound.right.left.right =>
+    rename_i A hA r hr a ha b hb
+    exact ⟨_, _, app_mem_piC hr ha, hb⟩
+  case quotSound.right.right.left.left.left =>
+    exact ⟨_, _, bval_mem_type V .quotMk [lv us 0] ρ,
+      ‹_›⟩
+  case quotSound.right.right.left.left.right =>
+    exact ⟨_, _, app_mem_piC (bval_mem_type V .quotMk [lv us 0] ρ) ‹_›,
+      ‹_›⟩
+  case quotSound.right.right.left.right =>
+    exact ⟨_, _, app_mem_piC
+      (app_mem_piC (bval_mem_type V .quotMk [lv us 0] ρ) ‹_›) ‹_›,
+      ‹_›⟩
+  case quotSound.right.right.right.left.left =>
+    exact ⟨_, _, bval_mem_type V .quotMk [lv us 0] ρ,
+      ‹_›⟩
+  case quotSound.right.right.right.left.right =>
+    exact ⟨_, _, app_mem_piC (bval_mem_type V .quotMk [lv us 0] ρ) ‹_›,
+      ‹_›⟩
+  case quotSound.right.right.right.right =>
+    exact ⟨_, _, app_mem_piC
+      (app_mem_piC (bval_mem_type V .quotMk [lv us 0] ρ) ‹_›) ‹_›,
+      ‹_›⟩
+
 /-! ## The per-constant install -/
 
 set_option maxHeartbeats 1600000 in
