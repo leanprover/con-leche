@@ -118,30 +118,46 @@ theorem projFwd_renameOkT {T ctorName : Name} {nF : Nat} {env' : Env}
         from rfl)]
       exact (hfound n ci₂ hf₂).2 ψ
 
-/-! ## One field: provision rule-less, fire, swap
+/-- The model projection's own name is a `projFwd` fixed point: it is
+not the family, not the constructor (their stored *kinds* differ), and
+not shaped like a public projection. -/
+theorem projFwd_model_self {T ctorName : Name} {nF i : Nat}
+    (hC : projModelName T i ≠ ctorName) :
+    projFwd T ctorName nF (projModelName T i) = projModelName T i := by
+  unfold projFwd
+  rw [if_neg (show ¬projModelName T i = T from Name.str_str_ne T _ _),
+    if_neg hC]
+  rw [show (List.range nF).find?
+      (fun j => projModelName T i == projFnName T j) = none from by
+    rw [List.find?_eq_none]
+    intro j _
+    intro hh
+    exact Name.num_ne_str _ _ _ _ (eq_of_beq hh).symm]
 
-The projection recursor cannot be consed **with** its rule and then
-have `indBottomProjS` fire at the result: the bottom is premised on an
-`EnvS`, and `EnvS.cons`'s `hheadRec` is a field of the very bundle
-being built (practice P1).  The recursor group's architecture is
-therefore forced here too — provision rule-less, fire at the
-provisioned environment where a model genuinely exists, and swap the
-rule in (`EnvS.swap`, stage 3a; `RecRuleLawV.swapS`, stage 3c).
-Unlike the group case the provisioning is a single cons, so no fold is
-needed. -/
+/-! ## One field: the cons, with the bottom fired below it
 
-/-- The rule-less projection entry. -/
-abbrev projProvEntry (T : Name) (lps : List Name) (pty : Expr)
-    (nP i : Nat) : ConstantInfo :=
-  .recInfo ⟨projFnName T i, lps, pty⟩ nP nP []
+P1 says a helper premised on a bundle cannot establish a field of that
+bundle, and `EnvS.cons`'s `hheadRec` *is* such a field — so
+`indBottomProjS`, premised on an `EnvS`, cannot fire at the extension.
+The remedy is **not** to provision-and-swap (that was this file's first
+plan, and it needs the sides pack transported to the bigger
+environment, which nothing tools).  It is to **re-aim the bottom
+below**: `checkProjFn` runs its checks before the recursor is stored,
+so the whole kit already lives at the base environment, and
+instantiating the bottom at `Rn := projModelName T i` — the *model's*
+name, which the pinned statement's head names anyway — makes its
+conclusion a law about `cval (T._model.proj_i)`.  At the cons that is
+definitionally the installed constant's valuation
+(`cvalWith_self`), so the law arrives already in the right shape.
 
-/-- The ruled projection entry (`ProjFnR`'s stored output). -/
-abbrev projRuledEntry (T ctorName : Name) (lps : List Name) (pty : Expr)
-    (nP nF i : Nat) (rhsA : Expr) : ConstantInfo :=
-  .recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-    [⟨ctorName, nF, nP,
-      if Expr.recRulePlain pty nP nP nP then .plain else .inert,
-      rhsA⟩]
+The same reading is what the TT lane records at
+`TTVerify/DeclIndProj.lean`'s "Where the bottom runs". -/
+
+/-- The stored projection entry: a degenerate recursor, at whatever
+rule list the caller installs. -/
+abbrev projEntry (T : Name) (lps : List Name) (pty : Expr)
+    (nP i : Nat) (rules : List RecRule) : ConstantInfo :=
+  .recInfo ⟨projFnName T i, lps, pty⟩ nP nP rules
 
 /-- **The phase invariant crosses a projection cons.**  Parameterised
 by the head entry, because both the provisioned (rule-less) and the
@@ -235,13 +251,16 @@ theorem projPhaseInvS_cons {T ctorName : Name} {nF : Nat} {env' : Env}
       exact hv' ψ
 
 set_option maxHeartbeats 3200000 in
-/-- **The rule-less projection entry installs.**  Everything but the
-front door and the eta head is either vacuous at a `.recInfo` head or
-a name-distinctness fact; the front door is the model projection's own,
-read through the renaming; the eta head is `etaLawKeyS` one
-environment ahead (finding 6). -/
-theorem projProvisionS {μ : CheckMode} {env' : Env} (m : EnvS V env')
+/-- **The projection entry installs.**  Everything but the front door,
+the stored rules and the eta head is either vacuous at a `.recInfo`
+head or a name-distinctness fact; the front door is the model
+projection's own, read through the renaming; the eta head is
+`etaLawKeyS` one environment ahead (finding 6).  The *rules* are the
+caller's, because the projection bottom fires **below** this cons —
+see the module docstring. -/
+theorem projConsS {μ : CheckMode} {env' : Env} (m : EnvS V env')
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
+    {rules : List RecRule}
     {blockNames : List Name} {mcv : ConstantVal} {mval : Expr}
     {mhint : ReducibilityHint} {pty : Expr}
     (hfm : env'.find? (projModelName T i)
@@ -268,8 +287,23 @@ theorem projProvisionS {μ : CheckMode} {env' : Env} (m : EnvS V env')
     (hCblock : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → blockNames.contains capsT.etaCtor = true)
     (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
-      capsT.eta = true → capsT.etaFields = nF) :
-    ∃ m₀ : EnvS V ⟨projProvEntry T lps pty nP i :: env'.consts⟩,
+      capsT.eta = true → capsT.etaFields = nF)
+    -- the stored rules' own obligations
+    (hrulesWF : ∀ r ∈ rules,
+      (RecRule.rhs r).hasFvar = false ∧
+      (RecRule.rhs r).allLevelParamsDefined lps = true ∧
+      (RecRule.rhs r).constsResolve env' = true ∧
+      (RecRule.rhs r).looseBVarsBounded 0 = true ∧
+      ∀ lvls pins, RecRule.fire r ≠ .nested lvls pins)
+    (hheadCtors : ∀ r ∈ rules, ∃ cvj cnP cnF,
+      env'.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
+    (hheadRec : ∀ (φ : Name → Nat), ∀ rl ∈ rules,
+      RecRule.fire rl ≠ .inert →
+      RecRuleLawV V ⟨projEntry T lps pty nP i rules :: env'.consts⟩
+        (cvalWith m.cval (projFnName T i)
+          (fun ψ => m.cval (projModelName T i) ψ)) φ
+        (projFnName T i) ⟨projFnName T i, lps, pty⟩ nP nP rl) :
+    ∃ m₀ : EnvS V ⟨projEntry T lps pty nP i rules :: env'.consts⟩,
       m₀.cval = cvalWith m.cval (projFnName T i)
         (fun ψ => m.cval (projModelName T i) ψ) := by
   obtain ⟨cval₀, hcval₀⟩ : ∃ c, c = cvalWith m.cval (projFnName T i)
@@ -282,7 +316,8 @@ theorem projProvisionS {μ : CheckMode} {env' : Env} (m : EnvS V env')
   have hag : ∀ n, n ≠ projFnName T i → m.cval n = cval₀ n := by
     intro n hn
     rw [hcval₀, cvalWith_ne hn]
-  have hi : Installs env' m.cval cval₀ (projProvEntry T lps pty nP i) :=
+  have hi : Installs env' m.cval cval₀
+      (projEntry T lps pty nP i rules) :=
     Installs.of_fresh hfresh hag
   have hself : cval₀ (projFnName T i)
       = fun ψ => m.cval (projModelName T i) ψ := by
@@ -297,11 +332,16 @@ theorem projProvisionS {μ : CheckMode} {env' : Env} (m : EnvS V env')
     (fun cv2 mI2 rP2 rules2 heq r hr => by
       injection heq with _ _ _ h4
       rw [← h4] at hr
-      exact nomatch hr)
-    (fun cv2 mI2 rP2 rules2 heq rl hrl => by
-      injection heq with _ _ _ h4
+      obtain ⟨cvjr, cnPr, cnFr, hfr⟩ := hheadCtors r hr
+      exact ⟨cvjr, cnPr, cnFr, hfr⟩)
+    (fun cv2 mI2 rP2 rules2 heq rl hrl hfire => by
+      injection heq with h1 h2 h3 h4
+      subst h1; subst h2; subst h3
       rw [← h4] at hrl
-      exact nomatch hrl)
+      refine ⟨(hheadRec (fun _ => 0) rl hrl hfire).1, ?_⟩
+      intro φ us hus
+      rw [← hcval₀] at hheadRec
+      exact (hheadRec φ rl hrl hfire).2 us hus)
     ?_
     (fun cv2 caps2 heq => ConstantInfo.noConfusion heq)
     (fun e heq => ConstantInfo.noConfusion heq)
@@ -320,9 +360,13 @@ theorem projProvisionS {μ : CheckMode} {env' : Env} (m : EnvS V env')
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
       (fun cv2 v2 heq => ConstantInfo.noConfusion heq)⟩
     intro cv2 mI2 rP2 rules2 heq r hr
-    injection heq with _ _ _ h4
+    injection heq with h1 _ _ h4
     rw [← h4] at hr
-    exact nomatch hr
+    obtain ⟨w1, w2, w3, w4, w5⟩ := hrulesWF r hr
+    refine ⟨w1, by rw [← h1]; exact w2,
+      Expr.constsResolve_mono w3, w4, ?_⟩
+    intro lvls pins hfr
+    exact absurd hfr (w5 lvls pins)
   · -- closedness
     intro ψ
     show VExpr.Closed (cval₀ (projFnName T i) ψ)
@@ -346,7 +390,7 @@ theorem projProvisionS {μ : CheckMode} {env' : Env} (m : EnvS V env')
     obtain ⟨t, ht, hfacts⟩ :=
       m.mem_type (.defnInfo mcv mval mhint) (find?_mem hfm) φ
     refine ⟨t, ?_, ?_⟩
-    · show denoteClosed cval₀ ⟨projProvEntry T lps pty nP i ::
+    · show denoteClosed cval₀ ⟨projEntry T lps pty nP i rules ::
         env'.consts⟩ φ pty = some t
       refine hi.denoteUp (d := 0) ?_
       have hrenP : pty.renameConsts (fun n =>
@@ -372,12 +416,12 @@ theorem projProvisionS {μ : CheckMode} {env' : Env} (m : EnvS V env')
         projFnName T' j = projFnName T i := by
       rcases hpart with hh | hh | hh
       · rw [Env.find?_cons, if_pos (show
-          (projProvEntry T lps pty nP i).name = T'
+          (projEntry T lps pty nP i rules).name = T'
           from hh.symm)] at hfT'
         exact nomatch (Option.some.inj hfT')
       · obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
         rw [Env.find?_cons, if_pos (show
-          (projProvEntry T lps pty nP i).name = capsT.etaCtor
+          (projEntry T lps pty nP i rules).name = capsT.etaCtor
           from hh.symm)] at hfC
         exact nomatch (Option.some.inj hfC)
       · exact hh
@@ -443,7 +487,7 @@ theorem projProvisionS {μ : CheckMode} {env' : Env} (m : EnvS V env')
       · subst hji'
         rw [hselfA, hagS _ (by rw [hfPmj]; rfl)]
       · obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfam.2.2 j' hj'
-        have hne2 : ¬(projProvEntry T lps pty nP i).name
+        have hne2 : ¬(projEntry T lps pty nP i rules).name
             = projFnName T j' := by
           intro hh
           exact hji' (by
@@ -492,5 +536,291 @@ theorem projProvisionS {μ : CheckMode} {env' : Env} (m : EnvS V env')
     exact etaLawKeyS (V := V) m hi hclA hresTA rfl rfl rfl rfl hthmE
       htlps hTmE hTmlps hCmE hCmlps hprojE heqfE hSstrip hTstrip
       hsdoms hxdom hsbody htySlot hvT hvC hvP hroB hrenTA
+
+set_option maxHeartbeats 6400000 in
+/-- **One projection field installs.**  The bottom fires at the *base*
+environment under `Rn := projModelName T i`; `projConsS` then stores
+the entry, and `cvalWith_self` makes the base law's head the installed
+constant's valuation. -/
+theorem projFnS {μ : CheckMode} {F : Nat} {env' env₁ : Env}
+    {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
+    {blockNames : List Name} (m : EnvS V env')
+    (hR : ProjFnR μ F env' m.cval T ctorName lps nP nF i env₁)
+    (hinv : ProjPhaseInvS T ctorName nF env' m.cval)
+    (hIB : BlockInstalledTT blockNames env' m.cval)
+    (hTblock : blockNames.contains T = true)
+    (hbshape : ∀ n, blockNames.contains n = true →
+      n.isProjFnShape = false)
+    (hpinsT : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+      EtaPins μ env' T cvT.levelParams capsT)
+    (hCblock : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+      capsT.eta = true → blockNames.contains capsT.etaCtor = true)
+    (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+      capsT.eta = true → capsT.etaFields = nF) :
+    ∃ m₁ : EnvS V env₁,
+      m₁.cval = cvalWith m.cval (projFnName T i)
+        (fun ψ => m.cval (projModelName T i) ψ) ∧
+      ProjPhaseInvS T ctorName nF env₁ m₁.cval ∧
+      BlockInstalledTT blockNames env₁ m₁.cval := by
+  obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
+    hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
+    hilt, hstripP, hbig, henv⟩ := hR
+  obtain ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
+    hrhsb, hrlp, hrres, hrstrip, hrhsKey, hthmpack⟩ := hbig
+  obtain ⟨rbinders, hrhsAstrip, hrdomsEq⟩ := hrstrip
+  obtain ⟨tcv, tval, hthmE, htlps, hsbodyPin, fvsI, sbodyO, hopen,
+    hsidesTy⟩ := hthmpack
+  obtain ⟨sbinders, ℓA, tySlot, hSstrip, hdomsSC⟩ := hsbodyPin
+  subst henv
+  have hfresh : env'.find? (projFnName T i) = none :=
+    Option.isNone_iff_eq_none.mp hpnone
+  have hCf : (env'.find? ctorName).isSome = true := by rw [hctor]; rfl
+  -- the model projection is not the constructor: the stored kinds
+  -- would clash
+  have hPCne : projModelName T i ≠ ctorName := by
+    intro hh
+    rw [hh, hctor] at hfm
+    exact nomatch (Option.some.inj hfm)
+  -- the pruned projection renaming, and its fixed point at `Rn`
+  have hro := projFwd_renameOkT hinv
+  have hfRn : (if (env'.find? (projModelName T i)).isSome = true then
+      projFwd T ctorName nF (projModelName T i)
+      else projModelName T i) = projModelName T i := by
+    rw [if_pos (show (env'.find? (projModelName T i)).isSome = true
+      from by rw [hfm]; rfl)]
+    exact projFwd_model_self hPCne
+  have hfCt : (if (env'.find? ctorName).isSome = true then
+      projFwd T ctorName nF ctorName else ctorName)
+      = ctorName.str "_model" := by
+    rw [if_pos hCf]
+    unfold projFwd
+    by_cases hCT : ctorName = T
+    · rw [if_pos hCT, hCT]
+    · rw [if_neg hCT, if_pos rfl]
+  -- the stored constants' syntactic facts
+  obtain ⟨hCw, -, hCres, hCb, -, -, -⟩ := m.wf _ (find?_mem hctor)
+  obtain ⟨hSw, -, -, hSb, -, -, -⟩ := m.wf _ (find?_mem hthmE)
+  have hClp :
+      cvj.type.allLevelParamsDefined cvj.levelParams = true := by
+    obtain ⟨-, h2, -⟩ := m.wf _ (find?_mem hctor)
+    exact h2
+  -- the model constructor, from the phase invariant
+  obtain ⟨cvmC, mvalC, hmC, hfCm, hlpsC, -⟩ := hinv.2.1 _ hctor
+  -- the statement's opened parts
+  obtain ⟨hfvsIlen, hheadEqO, αS, hargs3O⟩ :=
+    projStmtParts hilt hSb hopen hSstrip
+  have hnPle : nP ≤ fvsI.length := by rw [hfvsIlen]; omega
+  -- the two spine facts the bottom's pins need
+  have hlargs : (Expr.mkAppN (.const (projModelName T i)
+      (lps.map .param))
+      (fvsI.take nP ++ [Expr.mkAppN
+        (.const (ctorName.str "_model") (cvj.levelParams.map .param))
+        (fvsI.take nP ++ fvsI.drop nP)])).getAppArgs
+      = fvsI.take nP ++ [Expr.mkAppN
+        (.const (ctorName.str "_model") (cvj.levelParams.map .param))
+        (fvsI.take nP ++ fvsI.drop nP)] :=
+    Expr.getAppArgs_mkAppN _ _
+  -- the rhs key, at the base environment
+  have hrhsKeyS : ∀ ψ' : Name → Nat, ∃ Rv t,
+      denoteClosed m.cval env' ψ' rhsA = some Rv ∧
+      ∀ ρ : Nat → V,
+        AnnotOkV V ρ Rv ∧ interp V ρ Rv ∈ˢ interp V ρ t := by
+    intro ψ'
+    obtain ⟨Rv, t, hRv, hInf⟩ := hrhsKey ψ'
+    exact ⟨Rv, t, hRv, fun ρ =>
+      Infer.sound (m.toHyp ψ') hInf ρ (Sat_nil V ρ)⟩
+  -- the statement's front door
+  have hthmS : ∀ ψ' : Name → Nat, ∃ t,
+      denoteClosed m.cval env' ψ' tcv.type = some t ∧
+      ∀ ρ : Nat → V,
+        (∃ pv : V, pv ∈ˢ interp V ρ t) ∧ AnnotOkV V ρ t := by
+    intro ψ'
+    obtain ⟨t, ht, hfacts⟩ :=
+      m.mem_type (.thmInfo tcv tval) (find?_mem hthmE) ψ'
+    exact ⟨t, ht, fun ρ => ⟨⟨_, (hfacts ρ).1⟩, (hfacts ρ).2⟩⟩
+  -- the domain pin, at the pruned renaming
+  have hdomsSCp : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+      i0 < nP + nF → sbinders[i0]? = some b → cbinders[i0]? = some b' →
+      b.2.1 = b'.2.1.renameConsts (fun n =>
+        if (env'.find? n).isSome = true then
+          projFwd T ctorName nF n else n) := by
+    intro i0 b b' hi0 hb hb'
+    rw [Expr.renameConsts_congr_resolve
+      (g := projFwd T ctorName nF)
+      (fun n hn => by simp only [hn, if_true]) _
+      ((Expr.constsResolve_stripPis (nP + nF) hCstrip hCres).1 b'
+        (List.mem_of_getElem? hb'))]
+    exact hdomsSC i0 b b' hi0 hb hb'
+  -- the pinned left-hand side, named
+  obtain ⟨ctorSpine, hctorSpine⟩ : ∃ e, e = Expr.mkAppN
+      (.const (ctorName.str "_model") (cvj.levelParams.map .param))
+      (fvsI.take nP ++ fvsI.drop nP) := ⟨_, rfl⟩
+  obtain ⟨lhsLit, hlhsLit⟩ : ∃ e, e = Expr.mkAppN
+      (.const (projModelName T i) (lps.map .param))
+      (fvsI.take nP ++ [ctorSpine]) := ⟨_, rfl⟩
+  have hargs3 : sbodyO.getAppArgs
+      = [αS, lhsLit, fvsI.getD (nP + i) default] := by
+    rw [hlhsLit, hctorSpine]; exact hargs3O
+  have hlargsE : lhsLit.getAppArgs = fvsI.take nP ++ [ctorSpine] := by
+    rw [hlhsLit]; exact Expr.getAppArgs_mkAppN _ _
+  have htakeLen : (fvsI.take nP).length = nP := by
+    rw [List.length_take]; omega
+  have hlhead : lhsLit.getAppFn
+      = Expr.const (if (env'.find? (projModelName T i)).isSome = true
+        then projFwd T ctorName nF (projModelName T i)
+        else projModelName T i) (lps.map .param) := by
+    rw [hlhsLit, Expr.getAppFn_mkAppN, hfRn]
+    rfl
+  have hlarity : lhsLit.getAppArgs.length = nP + 1 := by
+    rw [hlargsE]
+    simp [htakeLen]
+  have hlpre : lhsLit.getAppArgs.take nP = fvsI.take nP := by
+    rw [hlargsE]
+    exact List.take_left' htakeLen
+  have hmaj : lhsLit.getAppArgs.getLastD (.bvar 0) = ctorSpine := by
+    rw [hlargsE]
+    simp
+  have hsidesTyS : ∀ ψ' : Name → Nat,
+      IotaSidesTyR μ env' m.cval ψ' (nP + nF) αS lhsLit
+        (fvsI.getD (nP + i) default) := by
+    intro ψ'
+    have h := hsidesTy ψ'
+    rw [hargs3] at h
+    simpa using h
+  obtain ⟨Dc, usc, hcbodyHead'⟩ := hcbodyHead
+  -- **the bottom fires, at the base environment**
+  have hbot := indBottomProjS (V := V) (Rn := projModelName T i)
+    (lps := lps) (tyA := pty) (mI := nP) (rP := nP) (i := i)
+    m hro heqf (by rw [hfRn]; exact hfm)
+    (show ConstantVal.levelParams
+      (ConstantInfo.defnInfo mcv mval mhint).toConstantVal = lps
+      from hmlps) hctor
+    (by rw [hfCt]; exact hfCm)
+    (show ConstantVal.levelParams
+      (ConstantInfo.defnInfo cvmC mvalC hmC).toConstantVal
+      = cvj.levelParams from hlpsC)
+    hCw hCb hClp rfl rfl hilt
+    hCstrip hcbodyArity hcbodyHead' hrhsw hrhsb hrhsAstrip hrdomsEq
+    hrhsKeyS hSw hSb hthmS hopen hheadEqO hargs3 hlhead hlarity hlpre
+    (by rw [hmaj, hctorSpine, hfCt]) rfl hSstrip hdomsSCp hsidesTyS
+  -- the installed valuation and its install
+  obtain ⟨cval₀, hcval₀⟩ : ∃ c, c = cvalWith m.cval (projFnName T i)
+      (fun ψ => m.cval (projModelName T i) ψ) := ⟨_, rfl⟩
+  have hag : ∀ n, n ≠ projFnName T i → m.cval n = cval₀ n := by
+    intro n hn
+    rw [hcval₀, cvalWith_ne hn]
+  have hselfA : ∀ ψ : Name → Nat,
+      cval₀ (projFnName T i) ψ = m.cval (projModelName T i) ψ := by
+    intro ψ
+    rw [hcval₀]
+    exact congrFun cvalWith_self ψ
+  have hiA : Installs env' m.cval cval₀
+      (projEntry T lps pty nP i
+        [⟨ctorName, nF, nP,
+          if Expr.recRulePlain pty nP nP nP then .plain else .inert,
+          rhsA⟩]) :=
+    Installs.of_fresh hfresh hag
+  have hCne : ctorName ≠ projFnName T i := by
+    intro hh
+    rw [hh, hfresh] at hctor
+    exact nomatch hctor
+  -- **the bridge**: the base law, read at the installed entry
+  have hheadRecS : ∀ (φ : Name → Nat), ∀ rl ∈ [(⟨ctorName, nF, nP,
+        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
+        else .inert, rhsA⟩ : RecRule)],
+      RecRule.fire rl ≠ .inert →
+      RecRuleLawV V ⟨projEntry T lps pty nP i
+        [⟨ctorName, nF, nP,
+          if Expr.recRulePlain pty nP nP nP then .plain else .inert,
+          rhsA⟩] :: env'.consts⟩ cval₀ φ
+        (projFnName T i) ⟨projFnName T i, lps, pty⟩ nP nP rl := by
+    intro φ rl hrl hfire
+    obtain rfl : rl = ⟨ctorName, nF, nP,
+        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
+        else .inert, rhsA⟩ := by
+      rcases List.mem_cons.mp hrl with h | h
+      · exact h
+      · exact nomatch h
+    -- an `.inert` rule is excluded by the clause's own premise
+    have hplainFire : (if Expr.recRulePlain pty nP nP nP then
+        RecRuleFire.plain else .inert) = .plain := by
+      by_cases hc : Expr.recRulePlain pty nP nP nP = true
+      · simp [hc]
+      · exact absurd (show RecRule.fire _ = RecRuleFire.inert from by
+          simp only [eq_false_of_ne_true hc]; rfl) hfire
+    refine ⟨Nat.le_refl _, ?_⟩
+    intro us hus
+    obtain ⟨RV, hRVden, hRVlaw⟩ := hbot φ us hus
+    refine ⟨RV, hiA.denoteUp hRVden, ?_⟩
+    intro cvj' cnP' cnF' hfc' usj ρ xs ys TV TVj restR restC hlenX
+      hlenY husjlen hlev hplain hnested hidx hTV hTVj hfitR hfitC
+    -- the stored constructor is the one the kit named
+    obtain ⟨rfl, -, -⟩ : cvj' = cvj ∧ cnP' = nP ∧ cnF' = nF := by
+      rw [Env.find?_cons, if_neg (show ¬(projEntry T lps pty nP i
+        [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
+          .plain else .inert, rhsA⟩]).name = ctorName from
+        fun hh => hCne hh.symm), hctor] at hfc'
+      obtain ⟨h1, h2, h3⟩ :=
+        ConstantInfo.ctorInfo.inj (Option.some.inj hfc')
+      exact ⟨h1.symm, h2.symm, h3.symm⟩
+    replace hTV := hiA.denoteDown (by
+      rw [Expr.constsResolve_instantiateLevelParams]; exact hptyres)
+      hTV
+    replace hTVj := hiA.denoteDown (by
+      rw [Expr.constsResolve_instantiateLevelParams]; exact hCres)
+      hTVj
+    rw [← hag ctorName hCne] at hfitR ⊢
+    rw [hselfA]
+    refine hRVlaw usj ρ xs ys TV TVj restR restC hlenX hlenY husjlen
+      ?_ (fun i0 h1 h2 => hplain hplainFire i0 h1 h2) hidx hTV hTVj
+      hfitR hfitC
+    rw [hlev, recFireComparands_plain hplainFire]
+  rw [hcval₀] at hheadRecS
+  -- the stored rule's own obligations
+  have hrulesWFS : ∀ r ∈ [(⟨ctorName, nF, nP,
+        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
+        else .inert, rhsA⟩ : RecRule)],
+      (RecRule.rhs r).hasFvar = false ∧
+      (RecRule.rhs r).allLevelParamsDefined lps = true ∧
+      (RecRule.rhs r).constsResolve env' = true ∧
+      (RecRule.rhs r).looseBVarsBounded 0 = true ∧
+      ∀ lvls pins, RecRule.fire r ≠ .nested lvls pins := by
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | h
+    · refine ⟨hrhsw, hrlp, hrres, hrhsb, ?_⟩
+      intro lvls pins
+      by_cases hc : Expr.recRulePlain pty nP nP nP = true
+      · simp only [hc, if_true]
+        exact fun hh => nomatch hh
+      · simp only [eq_false_of_ne_true hc]
+        exact fun hh => nomatch hh
+    · exact nomatch h
+  have hheadCtorsS : ∀ r ∈ [(⟨ctorName, nF, nP,
+        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
+        else .inert, rhsA⟩ : RecRule)],
+      ∃ cvj' cnP' cnF', env'.find? (RecRule.ctor r)
+        = some (.ctorInfo cvj' cnP' cnF') := by
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | h
+    · exact ⟨cvj, nP, nF, hctor⟩
+    · exact nomatch h
+  have hnotb : blockNames.contains (projFnName T i) = false := by
+    cases hc : blockNames.contains (projFnName T i) with
+    | false => rfl
+    | true =>
+      exact absurd (hbshape _ hc)
+        (by rw [show (projFnName T i).isProjFnShape = true from rfl]
+            exact fun hh => nomatch hh)
+  obtain ⟨m₁, hm₁cval⟩ := projConsS m hfm hmlps hpnone hround hptyres
+    hptyb hptyf hptylp hinv hIB hTblock hpinsT hCblock hFields
+    hrulesWFS hheadCtorsS hheadRecS
+  refine ⟨m₁, hm₁cval, ?_, ?_⟩
+  · rw [hm₁cval]
+    exact projPhaseInvS_cons rfl hinv hfresh hTf hCf hfm hmlps hilt
+      (fun ψ => congrFun cvalWith_self ψ)
+      (fun n hn => (cvalWith_ne hn).symm)
+  · rw [hm₁cval]
+    exact BlockInstalledTT.fresh_cons hIB hnotb hfresh
+      (fun n ψ hn => congrFun (cvalWith_ne hn) ψ)
 
 end Setlec.SetR

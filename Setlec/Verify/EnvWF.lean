@@ -179,6 +179,15 @@ theorem Name.str_ne (n : Name) (s : String) : n.str s ≠ n := by
   simp at h1
   omega
 
+/-- No name equals its own two-step string extension. -/
+theorem Name.str_str_ne (n : Name) (s₁ s₂ : String) :
+    (n.str s₁).str s₂ ≠ n := by
+  intro h
+  have h1 : sizeOf ((Name.str (Name.str n s₁) s₂)) = sizeOf n :=
+    congrArg sizeOf h
+  simp at h1
+  omega
+
 /-- Resolution only reads whether names are stored. -/
 theorem Expr.constsResolve_congr {env₁ env₂ : Env}
     (henv : ∀ n, (env₁.find? n).isSome = (env₂.find? n).isSome) :

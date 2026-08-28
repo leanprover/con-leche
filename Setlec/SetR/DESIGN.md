@@ -2859,15 +2859,37 @@ of the block.
 `ProjPhaseInvS`, `projFwd_renameOkT` and `projProvisionS` are in
 `Install/ProjInstallS.lean`, warning- and sorry-free.
 
-### The architecture is forced, not chosen
+### The architecture is forced, not chosen — **retracted 2026-08-28**
 
-The projection recursor **cannot** be consed with its rule and then
-have `indBottomProjS` fire at the result: the bottom is premised on an
-`EnvS`, and `EnvS.cons`'s `hheadRec` is a field of the very bundle
-being built.  That is practice P1, and it makes the recursor group's
-*provision → fire → swap* shape mandatory here too — with a single
-cons in place of the group's fold.  Stage 3a's `EnvS.swap` and stage
-3c's `RecRuleLawV.swapS` are reused unchanged.
+The claim was: the projection recursor cannot be consed with its rule
+and then have `indBottomProjS` fire at the result (P1 — the bottom is
+premised on an `EnvS`, and `hheadRec` is a field of that bundle), so
+*provision → fire → swap* is mandatory.
+
+**The P1 diagnosis is right; the remedy was wrong, and it was not the
+cheap one.**  P1 says the helper cannot be premised on the bundle *at
+the environment where its conclusion lives*.  Provisioning is one way
+out.  The other — the one that costs nothing — is to **re-aim the
+helper below**: `checkProjFn` runs every one of its checks *before*
+the recursor is stored, so the whole kit already lives at the base
+environment, and instantiating the bottom at
+`Rn := projModelName T i` (the model's name, which the pinned
+statement's head names anyway) makes its conclusion a law about
+`cval (T._model.proj_i)` — which at the cons is definitionally the
+installed constant's valuation, by `cvalWith_self`.
+
+The provisioning route additionally needs the sides pack transported
+from the base to the extended environment, and **nothing tools that**
+(the relation family has context weakening, not environment
+monotonicity).  So the retracted plan was not merely more expensive:
+it was blocked.
+
+The TT lane records the same reading at `TTVerify/DeclIndProj.lean`'s
+"Where the bottom runs", which is where it should have been read
+first.  Recorded as a **P2 near-miss of a new kind**: not a premise
+misread, but *a practice applied without looking for its second
+remedy*.  P1 tells you a route is closed; it does not tell you which
+of the open ones to take.
 
 Two premises the Model lane's `checkProjFn_sound` carries turned out
 to be unnecessary: `hbshape` (see the corrected note above) and
@@ -2895,6 +2917,23 @@ to be unnecessary: `hbshape` (see the corrected note above) and
    `SwapNResS` at the head from `reservedBasisNames_not_num`, and the
    three global facts (`EnvWF`, `RecCtorsStored`, `RecRulesV`) as in
    `indRecsS`.
+
+### Landed, 5b part 1
+
+`projPhaseInvS_cons` (parameterised by the head entry, since the
+invariant never reads a rule list), `projFwd_model_self`, the
+generalised `projConsS` (the rule list is the caller's), and
+`projFnS`.  Two supporting facts were needed and are now shared:
+`Name.str_str_ne` (`Verify/EnvWF.lean`) and the twelfth relocation —
+`openPisAtFvars_instSeq`, `range_map_getD_prefix`/`_suffix` and
+`projStmtParts` to `Verify/Denote/TeleOpen.lean`.
+
+`ProjFnR` gained the pin it was missing: `checkProjIota`'s **body
+match**.  The relation stopped at the domain match and the sides pack,
+so the statement's `Eq`-spine shape — which the bottom needs and the
+checker does pin — was absent.  D6 reserved exactly this refinement
+for its first consumer, and `projFnS` is it.  (`ProjFnR` has no
+producer yet — that is T6 — so the refinement cost nothing.)
 
 Then the fold (`projInstallS`) threads `ProjPhaseInvS` +
 `BlockInstalledTT` over `List.range nF`, with the skip branch a no-op.

@@ -697,8 +697,30 @@ def ProjFnR (μ : CheckMode) (_F : Nat) (env' : Env) (cval : TConstVal)
         env'.find? ((projModelName T i).str "iota")
           = some (.thmInfo tcv tval) ∧
         tcv.levelParams = lps ∧
-        (∃ sbinders sbody,
-          tcv.type.stripPis (nP + nF) = some (sbinders, sbody) ∧
+        -- `checkProjIota`'s body match (`Modeled.lean:535-543`): the
+        -- statement's strip-form body is the pinned `Eq`-spine, with
+        -- the model projection applied to the parameters and the
+        -- model constructor's full spine, equated to the field's
+        -- bound variable.  **D6 refinement, cashed at T5 stage 5b**:
+        -- the projection bottom consumes the *opened* form, and
+        -- `projStmtParts` computes it from exactly this pin — so the
+        -- pin is the checker's own `match`, transposed verbatim.
+        (∃ (sbinders : List (Name × Expr × BinderMeta)) (ℓA : Level)
+            (tySlot : Expr),
+          tcv.type.stripPis (nP + nF) = some (sbinders,
+            .app (.app (.app (.const eqName [ℓA]) tySlot)
+              (Expr.mkAppN (.const (projModelName T i)
+                  (lps.map .param))
+                (((List.range nP).map fun k =>
+                    Expr.bvar (nP + nF - 1 - k)) ++
+                 [Expr.mkAppN
+                   (.const (ctorName.str "_model")
+                     (cvj.levelParams.map .param))
+                   (((List.range nP).map fun k =>
+                       Expr.bvar (nP + nF - 1 - k)) ++
+                    ((List.range nF).map fun k =>
+                      Expr.bvar (nF - 1 - k)))])))
+              (.bvar (nF - 1 - i))) ∧
           -- `checkProjIota`'s `domsMatchAux`: the statement's domains
           -- are the constructor's, renamed to the model side
           ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta), i0 < nP + nF →
