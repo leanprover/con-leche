@@ -1495,4 +1495,33 @@ theorem reductS {μ : CheckMode} {env : Env} {cval : TConstVal}
       List.getElem?_eq_none (by omega)]
     rfl
 
+
+/-- A fit's residual is determined: the tower body, spine-instantiated. -/
+theorem teleFitV_rest_eq :
+    ∀ (k : Nat) {T : VExpr} {Γ : List VExpr} {R : VExpr},
+      PiTele k T Γ R → ∀ {ws : List VExpr} {ρ : Nat → V} {rest : VExpr},
+      ws.length = k → TeleFitV V ρ T ws rest →
+      rest = VExpr.instSeq ws (k - 1) R := by
+  intro k
+  induction k with
+  | zero =>
+    intro T Γ R h ws ρ rest hlen hfit
+    cases h
+    obtain rfl := List.length_eq_zero_iff.mp hlen
+    cases hfit
+    rfl
+  | succ k ihk =>
+    intro T Γ R h ws ρ rest hlen hfit
+    cases h with
+    | @cons _ A B _ Γ' htail =>
+    match ws, hlen with
+    | w :: ws', hlen =>
+    have hlen' : ws'.length = k := by simpa using hlen
+    cases hfit with
+    | cons hmem htailFit =>
+      have := ihk (htail.inst w 0) hlen' htailFit
+      rw [this, VExpr.instSeq_cons,
+        show k + 1 - 1 - 1 = k - 1 from by omega, Nat.add_sub_cancel,
+        Nat.zero_add]
+
 end Setlec.SetR
