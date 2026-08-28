@@ -176,41 +176,11 @@ def NatEqsR (μ : CheckMode) (env : Env) (cval : TConstVal)
       denote cval env φ 2 eq.2 = some R ∧
       DefEq μ env cval φ [natVR cval φ, natVR cval φ] L R
 
-/-- One div/mod certificate (`checkDivModCerts` step,
-`Setlec/Kernel/Checker.lean:584-598`): the applied vendored proof
-annotates, and at every `φ` it infers a type `DefEq` to the
-substituted characteristic equation, at depth `4` over the canonical
-context (`x y : Nat` and the substituted hypothesis slots at their own
-depths; unused slots are padded with `Nat` — the checker's depth-`4`
-convention is independent of the hypothesis count). -/
-def DivModCertR (μ : CheckMode) (F : Nat) (env : Env)
-    (cval : TConstVal) (c : Name) (value' : Expr)
-    (hyps : List Expr) (eqE proof : Expr) : Prop :=
-  ∃ appliedA,
-    annotateCore μ env F 4
-      (divModCertApplied (Expr.substConstAll c value' proof)
-        (hyps.map (Expr.substConst0 c value'))) = .ok appliedA ∧
-    ∀ φ : Name → Nat,
-      ∃ H1 H2 : VExpr,
-        (∀ h1, (hyps.map (Expr.substConst0 c value'))[0]? = some h1 →
-          denote cval env φ 2 h1 = some H1) ∧
-        ((hyps.map (Expr.substConst0 c value'))[0]? = none →
-          H1 = natVR cval φ) ∧
-        (∀ h2, (hyps.map (Expr.substConst0 c value'))[1]? = some h2 →
-          denote cval env φ 3 h2 = some H2) ∧
-        ((hyps.map (Expr.substConst0 c value'))[1]? = none →
-          H2 = natVR cval φ) ∧
-        ∃ Av Tv Ev,
-          denote cval env φ 4 appliedA = some Av ∧
-          denote cval env φ 4 (Expr.substConst0 c value' eqE) = some Ev ∧
-          Infer μ env cval φ [H2, H1, natVR cval φ, natVR cval φ] Av Tv ∧
-          DefEq μ env cval φ [H2, H1, natVR cval φ, natVR cval φ] Tv Ev
-
 /-- The `checkDivModPin` pack (`Setlec/Kernel/Checker.lean:638-658`):
 environment/pin guards, the stored value pinned `DefEq` to the vendored
 definition, and the certificate list. -/
 def DivModPinR (μ : CheckMode) (F : Nat) (env env₂ : Env)
-    (cval : TConstVal) (c : Name) (value' : Expr) : Prop :=
+    (_cval : TConstVal) (c : Name) (value' : Expr) : Prop :=
   divModEnvGuard env₂ c = true ∧
   divModPinGuard env c = true ∧
   divModCertsGuard env c value' = true ∧
@@ -220,10 +190,22 @@ def DivModPinR (μ : CheckMode) (F : Nat) (env env₂ : Env)
     -- elaborator-drift gate, `DivModPinTT` does not record it either,
     -- and the pin's denotation has no supplier.  The certificates
     -- below carry the derivation-layer content.
-    Forall2
-      (fun (se : List Expr × Expr) (proof : Expr) =>
-        DivModCertR μ F env cval c value' se.1 se.2 proof)
-      (divModCertStmts c) (divModCertProofs c)
+    -- task #148 T6, **reversible design decision**: the certificate
+    -- list enters as the checker's own verdict, not as a transposed
+    -- relation.  `DivModCertR` (a depth-`4` `Infer`/`DefEq` pack) had
+    -- **zero consumers** — D6's house rule forbids freezing a
+    -- statement no consumer has exercised, and the trap family is
+    -- five-for-five on unexercised statements getting their
+    -- quantifiers wrong.  `DivModPinTT` (`TTVerify/DeclDefn.lean:64`)
+    -- keeps the checker call for the same branch, and that lane
+    -- finished it.
+    --
+    -- *Reopen condition*: if `DivModPinS`'s discharge shows the
+    -- certificate content wants first-class relational form,
+    -- reintroduce it **then**, shaped by that actual consumer.
+    -- `CtxOkR.pinnedCtx` is already landed for it.
+    checkDivModCerts (m := CheckM) (fueledOps μ F) env c value'
+      (divModCertStmts c) (divModCertProofs c) = .ok true
 
 /-- The `checkReducePin` pack (`Setlec/Kernel/Checker.lean:677-697`):
 storage/element/pin guards, the witness pinned `DefEq` to the vendored

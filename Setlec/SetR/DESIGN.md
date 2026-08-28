@@ -5830,3 +5830,44 @@ from precedent and a house rule rather than from a use site — and it
 edits a relation the fourteen rest on.  That is the stop bar's
 "proof-design question the records do not answer", one level up: the
 records answer it *by analogy*, which is not the same thing.
+
+### T6's LEDGER IS CLOSED — the grant, executed
+
+`DivModPinR`'s certificate conjunct is now the checker's own verdict
+(`checkDivModCerts … = .ok true`), `DivModCertR` is deleted, and
+`divModPinR_of` discharges the whole pack from `checkDivModPin_inv`
+alone — twelve lines.  `declDefnR`'s `hdm` is deleted.
+
+**`no_proof_of_Empty_R` now carries exactly five hypotheses, and all
+five are the install tier's**: `MemberKeyS`, `MemberEtaS`,
+`DivModPinS`, `StdAxiomKeyS`, `OfReduceKeyS`.  **Zero bridge
+obligations remain.**  T6 owed three; three are closed.
+
+**Guard (a) — the decision is reversible, and here is its reopen
+condition.**  Recorded at the definition site as well as here.  The
+certificate content enters as a verdict *because no consumer had
+shaped it*.  If `DivModPinS`'s discharge shows the content wants
+first-class relational form, **reintroduce it then, shaped by that
+consumer** — not before.  `CtxOkR.pinnedCtx` stays landed precisely
+for that eventuality: it is the reusable geometric piece
+(`[H2, H1, natVR, natVR]` with per-slot annotations), it has no
+dependence on the decision either way, and `DivModPinS` will want it.
+
+**Guard (b) — confirmed, and worth stating exactly.**  The edit
+touches `Setlec/SetR/Decl.lean` (the `DeclR` tier) and its three
+consumers.  `Setlec/SetR/Rel.lean` contains **zero** occurrences of
+`DivModPinR`, `DivModCertR` or `checkDivModCerts`, before or after.
+The `[set]` relation family's premise-exactness claim is about
+`Rel.lean`'s forty-two constructors and is untouched: **the core
+relation family has not acquired a checker-verdict premise.**  What
+acquired one is the per-declaration `Prop` that *describes a
+`checkDecl` run* — a tier whose whole job is to mention the checker,
+and which mentions `annotateCore`, `isDefEqCore` and `inferTypeCore`
+throughout already.
+
+*The general lesson, since the grant turned on it.*  The house rule
+("do not freeze a statement no consumer has exercised") was written as
+a caution about **detail**; this is the first time it caught a
+statement whose detail was right and whose *existence* was wrong.  The
+sharper form: **an unexercised statement's first error is usually not
+its content but its right to exist.**

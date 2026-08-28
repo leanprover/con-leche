@@ -6,6 +6,7 @@ import Setlec.Verify.Denote.IndFrame
 import Setlec.Verify.Extend.Proj
 import Setlec.Verify.NatOpFrag
 import Setlec.Verify.ReducePinInv
+import Setlec.Verify.DivModInv
 
 /-!
 # The declaration-level bridge (task #148, T6)
@@ -518,6 +519,28 @@ theorem reducePinR_of {V : Type w} [SetTheory V] {env env' : Env}
       · rw [hnil] at hl'; exact nomatch hl')
     hCap hCx hdap hdx
 
+/-- **`checkDivModPin`, discharged.**  With the certificate list
+entering as the checker's own verdict, the whole pack is
+`checkDivModPin_inv`'s output re-associated: the guards, the pin
+annotate, and the certs run.  The stored value the pack is about is
+the one `env'` holds, which the inversion produces — that is the
+`v`-freeness repair's supplier. -/
+theorem divModPinR_of {V : Type w} [SetTheory V] {env env' : Env}
+    (m : EnvS V env) {μ : CheckMode} {F : Nat} {c : Name}
+    {cv0 : ConstantVal} {v : Expr} {hint0 : ReducibilityHint}
+    (hstore : env'.find? c = some (.defnInfo cv0 v hint0))
+    (h : checkDivModPin (m := CheckM) (fueledOps μ F) env env' c
+      = .ok ()) :
+    DivModPinR μ F env env' m.cval c v := by
+  obtain ⟨henv, cv', value', hint', hfind, hguards, ⟨pinA, hpa, -⟩,
+    hcerts⟩ := checkDivModPin_inv h
+  obtain rfl : value' = v := by
+    rw [hstore] at hfind
+    exact (ConstantInfo.defnInfo.inj (Option.some.inj hfind)).2.1.symm
+  obtain ⟨hpin, hcertsG⟩ := by
+    simpa only [Bool.and_eq_true] using hguards
+  exact ⟨henv, hpin, hcertsG, pinA, hpa, hcerts⟩
+
 /-- **`thmDecl`, bridged.** -/
 theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
     (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
@@ -772,17 +795,6 @@ the environment actually stores (`value'`), not over the stream's
 theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
     (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     {value : Expr} {hint : ReducibilityHint}
-    -- task #148 T6: `v` is **determined** by the annotate hypothesis.
-    -- Left free (as it was) the conclusion asserted the pack for an
-    -- arbitrary value, which `checkDivModPin` — it takes no value,
-    -- reading one out of `env'` — cannot warrant.  The consumers
-    -- voted: `DeclDefnR`'s own conjunct names the branch's `value'`.
-    (hdm : ∀ {env' : Env} {v : Expr},
-      annotateCore μ env F 0 value = .ok v →
-      natDivModNames.contains cv.name = true →
-      checkDivModPin (m := CheckM) (fueledOps μ F) env env' cv.name
-        = .ok () →
-      DivModPinR μ F env env' m.cval cv.name v)
     (h : checkDecl μ (fueledOps μ F) env (.defnDecl cv value hint)
       = .ok env₂) :
     DeclDefnR μ F env m.cval cv value hint env₂ := by
@@ -928,7 +940,8 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
           obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ
           exact ⟨Vv, hVv⟩)
         (hnatK hc).1 (hnatK hc).2.2⟩,
-    fun hc => hdm hannv hc (hdmK hc)⟩
+    fun hc => divModPinR_of m
+      (by rw [Env.find?_cons]; exact if_pos rfl) (hdmK hc)⟩
 
 /-! ## The opened statement's frame
 

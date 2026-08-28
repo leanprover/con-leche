@@ -36,22 +36,13 @@ theorem directParts?_none (env : Env) (block : List ConstantInfo) :
   | none => rfl
   | some p => simp [directStructsEnabled]
 
-def DivModPinBridgeR (V : Type w) [SetTheory V] (μ : CheckMode)
-    (F : Nat) : Prop :=
-  ∀ {env env' : Env} (m : EnvS V env) {n : Name} {value v : Expr},
-    annotateCore μ env F 0 value = .ok v →
-    natDivModNames.contains n = true →
-    checkDivModPin (m := CheckM) (fueledOps μ F) env env' n = .ok () →
-    DivModPinR μ F env env' m.cval n v
-
 theorem checkDeclR_sound (hkey : MemberKeyS V) (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat}
-    (hdmR : DivModPinBridgeR V μ F)
     {env env₂ : Env} (m : EnvS V env) {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
     DeclR μ F m.cval env d env₂ :=
   checkDeclR_of
-    (fun hh => declDefnR m (fun ha hn hp => hdmR m ha hn hp) hh)
+    (fun hh => declDefnR m hh)
     (fun hh => declThmR m hh)
     (fun hh => declOpaqueR m hh)
     (fun hh => declAxiomR m hh)
@@ -65,7 +56,6 @@ theorem checkDeclR_sound (hkey : MemberKeyS V) (heta : MemberEtaS V)
 
 theorem foldlM_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat}
-    (hdmR : DivModPinBridgeR V μ F)
     (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V) :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
@@ -82,9 +72,9 @@ theorem foldlM_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     | ok env1 =>
       rw [hd] at h
       obtain ⟨m⟩ := hm
-      exact foldlM_R hkey heta hdmR hdm hstd hofr ds env1
+      exact foldlM_R hkey heta hdm hstd hofr ds env1
         (declStepS hdm reducePinS hstd hofr declBasisS
           (declIndS hkey heta) m
-          (checkDeclR_sound hkey heta hdmR m hd)) h
+          (checkDeclR_sound hkey heta m hd)) h
 
 end Setlec.SetR
