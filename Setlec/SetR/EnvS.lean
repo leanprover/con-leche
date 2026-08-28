@@ -245,7 +245,8 @@ theorem Env.find?_mem {env : Env} {n : Name} {ci : ConstantInfo}
 
 /-- `EnvS` discharges the soundness tier's hypothesis bundle at every
 assignment. -/
-theorem EnvS.toHyp {env : Env} (m : EnvS V env) (φ : Name → Nat) :
+theorem EnvS.toHyp {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS V env) (φ : Name → Nat) :
     EnvSHyp V env m.cval φ where
   cval_closed := m.cval_closed
   annot_okV := m.annot_okV
@@ -281,7 +282,8 @@ a two-line consequence of the invariant. -/
 
 /-- A stored definition's body inhabits its stated type's
 interpretation. -/
-theorem EnvS.memType_defn {env : Env} (m : EnvS V env)
+theorem EnvS.memType_defn {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS V env)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     (hc : ConstantInfo.defnInfo cv value hint ∈ env.consts)
     (φ : Name → Nat) :
@@ -293,7 +295,8 @@ theorem EnvS.memType_defn {env : Env} (m : EnvS V env)
 
 /-- A stored theorem's proof value inhabits its statement's
 interpretation. -/
-theorem EnvS.memType_thm {env : Env} (m : EnvS V env)
+theorem EnvS.memType_thm {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS V env)
     {cv : ConstantVal} {value : Expr}
     (hc : ConstantInfo.thmInfo cv value ∈ env.consts) (φ : Name → Nat) :
     ∃ v t, denoteClosed m.cval env φ value = some v ∧

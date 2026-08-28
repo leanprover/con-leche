@@ -517,7 +517,7 @@ theorem natOpPinTT : NatOpPinTT F := by
   have hdeq := ihd (hcerts _ (List.mem_map.mpr ⟨eq, hq, rfl⟩))
     hw1 hb1 hL1 hw2 hb2 hL2 hC1 hC2 hd1 hd2
   -- and moved across the install by `denote_substConst0`
-  have hsub := denote_substConst0 m (c₀ := .defnInfo cv value' hint)
+  have hsub := denote_substConst0 m.cval_closed (c₀ := .defnInfo cv value' hint)
     (c := cv.name) φ rfl hfresh hlp hV hvf hbv 2
   refine ⟨w1, w2, ?_, ?_, ?_⟩
   · rw [hsub _ (shallowE_of_natFragOk hf1)]; exact hd1

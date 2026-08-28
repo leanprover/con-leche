@@ -60,18 +60,9 @@ Like `extendValueTT` but with the valuation chosen outright rather than
 read off a value — `defn_eq` and `thm_ok` are both vacuous at an
 `axiomInfo`, so the install is strictly smaller. -/
 
-/-- Extend a valuation at one name by an explicitly chosen term. -/
-def cvalWith (cval : TConstVal) (n : Name) (V : (Name → Nat) → VExpr) :
-    TConstVal := fun c ψ => if c = n then V ψ else cval c ψ
-
-theorem cvalWith_ne {cval : TConstVal} {n : Name}
-    {V : (Name → Nat) → VExpr} {c : Name} (h : c ≠ n) :
-    cvalWith cval n V c = cval c := by
-  funext ψ; simp [cvalWith, h]
-
-theorem cvalWith_self {cval : TConstVal} {n : Name}
-    {V : (Name → Nat) → VExpr} : cvalWith cval n V n = V := by
-  funext ψ; simp [cvalWith]
+/- `cvalWith` (extend a valuation by an explicitly chosen term)
+relocated to `Setlec/Verify/Denote/Install.lean` (task #148, T5) — the
+[set] axiom install chooses its valuation the same way. -/
 
 /-- **The axiom install.** -/
 theorem extendAxiomTT {env : Env} (m : EnvTT env) {cv : ConstantVal}

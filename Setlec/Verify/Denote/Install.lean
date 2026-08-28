@@ -941,6 +941,19 @@ theorem divModNames_agree {env : Env} {cval cval' : TConstVal} {c : Name}
       hag _ (by revert hF; cases env.find? boolFalseName <;> simp)⟩
 
 
+/-- Extend a valuation at one name by an explicitly chosen term. -/
+def cvalWith (cval : TConstVal) (n : Name) (V : (Name → Nat) → VExpr) :
+    TConstVal := fun c ψ => if c = n then V ψ else cval c ψ
+
+theorem cvalWith_ne {cval : TConstVal} {n : Name}
+    {V : (Name → Nat) → VExpr} {c : Name} (h : c ≠ n) :
+    cvalWith cval n V c = cval c := by
+  funext ψ; simp [cvalWith, h]
+
+theorem cvalWith_self {cval : TConstVal} {n : Name}
+    {V : (Name → Nat) → VExpr} : cvalWith cval n V n = V := by
+  funext ψ; simp [cvalWith]
+
 /-! ## The valuation an install chooses
 
 At a fresh name, by the value's denotation; everywhere else unchanged.

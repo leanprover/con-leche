@@ -16,6 +16,9 @@ import Setlec.SetR.CtxOkR
 import Setlec.SetR.Decl
 import Setlec.SetR.EnvS
 import Setlec.SetR.Install.Cons
+import Setlec.SetR.Install.Value
+import Setlec.SetR.Install.ValueKinds
+import Setlec.SetR.Install.Axiom
 import Setlec.SetR.Examples
 import Setlec.SetR.Bridge.Env
 import Setlec.SetR.Bridge.Claims
