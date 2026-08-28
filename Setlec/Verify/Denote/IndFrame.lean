@@ -2017,4 +2017,13 @@ theorem instLamsAt_take :
           simp only [List.take_succ_cons, Expr.instLamsAt, h2]
           rfl
 
+
+/-- Constant renaming leaves the loose-bvar bound unchanged. -/
+theorem looseBVarsBounded_renameConsts {f : Name → Name} :
+    ∀ (e : Expr) (k : Nat),
+      (e.renameConsts f).looseBVarsBounded k = e.looseBVarsBounded k := by
+  intro e
+  induction e <;> intro k <;>
+    simp_all [Expr.renameConsts, Expr.looseBVarsBounded]
+
 end Setlec.TTVerify
