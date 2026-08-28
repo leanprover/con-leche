@@ -4550,3 +4550,35 @@ same direction, which is worth naming: **a table written while
 proving the easy row will overstate what that row's lemma covers.**
 Write coverage claims after the hard row, or write them as
 conjectures.
+
+### T6 — the renamed rows are supplied
+
+Three lemmas, all landed:
+
+* `wscoped_renameConsts` and `leavesBounded_renameConsts` in the
+  **shared tier** (`Verify/Denote/IndFrame.lean`), the prospective
+  relocation rule's third application — renaming touches `const`
+  heads and `proj` structure names, never `fvar` indices or `bvar`s,
+  so neither statement is lane-specific and the TT lane's renamed
+  walks will want both;
+* `renamedType_pack` in the bridge, every conjunct its unrenamed twin
+  composed with a preservation lemma, and the denotation
+  `denote_renameConsts` under the `RenameOkT` the fold builds.
+
+Two mechanical notes, both of which cost round trips:
+
+* **`LeavesBounded` under renaming is far cleaner through an
+  equation.**  The direct induction leaves one open goal per
+  constructor after `simp_all`; proving
+  `(e.renameConsts f).fvarLeaves = e.fvarLeaves.map (fun l => (l.1,
+  l.2.1, l.2.2.renameConsts f))` first makes the consequence four
+  lines.  General shape: *when a predicate over a derived list
+  resists induction, prove the list's own equation instead.*
+* **Do not give a shared-tier lemma a dotted `Expr.` prefix inside
+  `namespace Setlec.TTVerify`.**  The prefix resolves against the
+  enclosing `Setlec`, and the resulting constant is reachable under
+  neither `Setlec.Expr.…` nor `Setlec.TTVerify.Expr.…` from a
+  consumer that opens both.  Plain identifiers (`wscoped_renameConsts`)
+  resolve unambiguously.  Also: `lake env lean` type-checks a file
+  without installing its `.olean`, so a consumer keeps seeing the old
+  one — `lake build <module>` between the two edits.

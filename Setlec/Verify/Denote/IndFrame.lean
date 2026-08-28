@@ -1217,6 +1217,37 @@ theorem instPisAt_fvar_denote_defined {cval : TConstVal} {env : Env}
         (Expr.fvarsBelow_instantiate1_gen hwsa.fvarsBelow 0 hfb'.2)
         (Expr.looseBVarsBounded_instantiate1_gen hba hb'.2) hTI
 
+/-- Renaming constants preserves scoping: it touches `const` heads and
+`proj` structure names, never `fvar` indices or `bvar`s (task #148,
+T6, prospective relocation — the TT lane's renamed walks want this
+too). -/
+theorem wscoped_renameConsts {f : Name → Name} :
+    ∀ (e : Expr) {d : Nat},
+      Expr.WScoped d e → Expr.WScoped d (e.renameConsts f) := by
+  intro e
+  induction e <;> intro d h <;>
+    simp_all [Expr.renameConsts, Expr.WScoped]
+
+/-- Renaming rewrites each leaf's *annotation* and nothing else — the
+indices and names are untouched. -/
+theorem fvarLeaves_renameConstsE {f : Name → Name} :
+    ∀ (e : Expr), (e.renameConsts f).fvarLeaves
+      = e.fvarLeaves.map
+        (fun l => (l.1, l.2.1, l.2.2.renameConsts f)) := by
+  intro e
+  induction e <;> simp_all [Expr.renameConsts, Expr.fvarLeaves]
+
+/-- …so renaming preserves the leaf-annotation bound, by
+`looseBVarsBounded_renameConsts` at each leaf. -/
+theorem leavesBounded_renameConsts {f : Name → Name} (e : Expr)
+    (h : Expr.LeavesBounded e) :
+    Expr.LeavesBounded (e.renameConsts f) := by
+  intro l hl
+  rw [fvarLeaves_renameConstsE] at hl
+  obtain ⟨l₀, hl₀, rfl⟩ := List.mem_map.mp hl
+  rw [Expr.looseBVarsBounded_renameConsts]
+  exact h l₀ hl₀
+
 /-- **Every domain an `instPisAt` run collects denotes**, when the
 subject does — the list half of `instPisAt_fvar_denote_defined`, and
 what the `iota_j` statement walks need per element (task #148, T6:

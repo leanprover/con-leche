@@ -753,6 +753,27 @@ theorem storedType_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
     opener_denotes_at m (Expr.WScoped.of_not_hasFvar hnf).fvarsBelow
       (Nat.zero_le D) ht⟩
 
+/-- **A stored constant's type under the block renaming**, packaged —
+what `IotaWalksR`'s renamed rows need, and the reason
+`storedType_pack` alone does not reach them.  Every conjunct is its
+unrenamed twin composed with a preservation lemma; the denotation is
+`denote_renameConsts`, whose `RenameOkT` premise the recursor group's
+fold already builds. -/
+theorem renamedType_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
+    {f : Name → Name} (hro : RenameOkT m.cval env f)
+    {n : Name} {ci : ConstantInfo} (hfind : env.find? n = some ci)
+    (D : Nat) :
+    Expr.WScoped D (ci.toConstantVal.type.renameConsts f) ∧
+    (ci.toConstantVal.type.renameConsts f).looseBVarsBounded 0 = true ∧
+    Expr.LeavesBounded (ci.toConstantVal.type.renameConsts f) ∧
+    ∃ v, denote m.cval env φ D (ci.toConstantVal.type.renameConsts f)
+      = some v := by
+  obtain ⟨hw, hb, hL, v, hv⟩ := storedType_pack m (φ := φ) hfind D
+  exact ⟨wscoped_renameConsts _ hw,
+    by rw [looseBVarsBounded_renameConsts]; exact hb,
+    leavesBounded_renameConsts _ hL,
+    v, by rw [denote_renameConsts hro]; exact hv⟩
+
 /-! ## The comparison walks
 
 Every `iota_j` statement walk the checker runs is a `checkDefEqList`
