@@ -5340,3 +5340,62 @@ threading.  The honest unit is **three folds and eight corollaries**.
 `projInstallRS`: `[propext, Classical.choice, Quot.sound]`, exactly.
 Zero `sorry` in the tree (the six textual hits are all the word
 `sorryAx` in prose).
+
+### The three carried obligations, audited against the trap family
+
+The coordinator is right that a carried hypothesis is where an
+undischargeable premise could hide from every gate.  Applying the
+campaign's own tests to all three, with evidence, before building:
+
+**They do not have the vacuity signature.**  Each is stated
+*attached* — `∀ {env} (m : EnvS V env) …`, concluding at `m.cval` for
+`m`'s own `env`.  That is the parameter/premise test the third trap
+instance sharpened, and all three pass it by construction.
+
+**Each has a named supplier at a named environment.**
+
+| obligation | supplier | environment |
+|---|---|---|
+| `NatEqsBridgeR` | `DefEqClaimsR` (via `checkBridge`) on `certifyNatEqs`' per-pair `isDefEqCore … 2` verdict | the *defn site's* `env` — the same one `declDefnR` is proved at |
+| `DivModPinBridgeR` | `InferClaimsR` + `DefEqClaimsR` on `checkDivModPin`'s certificate verdicts at depth `4` | ditto |
+| `ReducePinBridgeR` | `DefEqClaimsR` on `checkReducePin`'s two identity verdicts at depths `0` and `1` | ditto |
+
+**Positive evidence they are true.**  Each is the transpose of a fact
+the *Model lane already proves*, from the *same* checker verdicts at
+the *same* environment: `certifyNatEqs_inv` / `natop_eqs_sound`
+(`Model/Consistency.lean:89,151`), `checkReducePin_run_inv` (`:354`),
+and the div/mod certificate block.  And the SetR versions are
+**strictly easier** than the Model ones: `NatEqsR` asks only for the
+relation family's `DefEq`, which `DefEqClaimsR` yields directly —
+none of the interp-level recurrence `natop_eqs_sound` establishes is
+needed.
+
+**What is genuinely missing, and it is not machinery — it is three
+frame packages.**  Each equation/certificate side needs the four
+inputs every bridge consumes (`WScoped`, `looseBVarsBounded`,
+`LeavesBounded`, `denote`) plus a `CtxOkR` at the *canonical* context
+the checker used:
+
+* `WScoped 2` is already supplied — `natOpEquations_wscopedB`
+  (`Verify/BridgeWfImp.lean:2048`), plus `natOpEquations_shallow`
+  already in `SetR/Install/ValueKinds.lean`;
+* the leaf and denotation facts are not, and must come from the
+  generated pins' shape (finitely many op names, so per-name
+  computation) transported across `Expr.substConst0 c value'` using
+  `value'`'s facts from `ValueFrontR`;
+* the canonical contexts are `[natVR, natVR]` (depth 2),
+  `[H2, H1, natVR, natVR]` (depth 4) and `[E]` (depth 1) — this is
+  `Decl.lean`'s own "pinned `Nat` entries" note, and no `CtxOkR`
+  producer for them exists yet.  It is the sibling of
+  `openPisAtFvars_ctxOkR`: same shape, canonical entries instead of
+  opener annotations.
+
+**Honest size.**  One shared piece (the canonical-context `CtxOkR`
+family) and three instantiations, the div/mod one the largest because
+its certificates are `Infer`-side at depth 4 with optional hypothesis
+slots.  That is a stretch, not a session, and it is the *only* thing
+between the current spine and hypothesis-free theorems.
+
+**The gate is not cleared.**  Reporting this rather than claiming it,
+per the rule the campaign has been running on: a premise nobody has
+discharged is a premise, however good the evidence.
