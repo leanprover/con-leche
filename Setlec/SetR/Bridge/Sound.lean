@@ -36,7 +36,7 @@ theorem directParts?_none (env : Env) (block : List ConstantInfo) :
   | none => rfl
   | some p => simp [directStructsEnabled]
 
-theorem checkDeclR_sound (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem checkDeclR_sound (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat}
     {env env₂ : Env} (m : EnvS V env) {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
@@ -51,10 +51,10 @@ theorem checkDeclR_sound (hkey : MemberKeyS V) (heta : MemberEtaS V)
     -- (`directStructsEnabled = false`), so `checkDecl`'s `indDecl`
     -- clause *is* `checkIndDecl`.  The `DeclR` relation records the
     -- modeled path only, and this is where that is discharged.
-    (fun hh => declIndRS hkey heta m (by
+    (fun hh => declIndRS memberKeyS heta m (by
       simpa [checkDecl, directParts?_none] using hh)) h
 
-theorem foldlM_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem foldlM_R (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat}
     (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V) :
@@ -72,9 +72,9 @@ theorem foldlM_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     | ok env1 =>
       rw [hd] at h
       obtain ⟨m⟩ := hm
-      exact foldlM_R hkey heta hdm hstd hofr ds env1
+      exact foldlM_R heta hdm hstd hofr ds env1
         (declStepS hdm reducePinS hstd hofr declBasisS
-          (declIndS hkey heta) m
-          (checkDeclR_sound hkey heta m hd)) h
+          (declIndS memberKeyS heta) m
+          (checkDeclR_sound heta m hd)) h
 
 end Setlec.SetR

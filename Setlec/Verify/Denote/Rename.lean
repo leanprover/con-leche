@@ -210,4 +210,79 @@ theorem PiDomsRenEqT.of_pointwise {f : Name → Name} :
       · exact ih hs1 hs2 (fun i c₁ c₂ hc₁ hc₂ =>
           hdoms (i + 1) c₁ c₂ (by simpa using hc₁) (by simpa using hc₂))
 
+/-- **Renaming preserves the denotation of a *resolving* expression**
+under the first and third `RenameOkT` clauses alone.  The second
+clause (unstored maps to unstored) exists only to keep an unstored
+constant from acquiring a denotation; an expression every constant of
+which resolves never reaches it.  That is what lets a block's own
+renaming be used at a *member* environment, where the block's later
+members are not stored yet (task #148 T6). -/
+theorem denote_renameConsts_resolve {f : Name → Name}
+    (hup : ∀ n ci, env.find? n = some ci →
+      ∃ ci', env.find? (f n) = some ci' ∧
+        ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams)
+    (hval : ∀ (n : Name) (ci : ConstantInfo), env.find? n = some ci →
+      ∀ ψ : Name → Nat, cval (f n) ψ = cval n ψ) :
+    ∀ (e : Expr) (d : Nat), e.constsResolve env = true →
+      denote cval env φ d (e.renameConsts f) = denote cval env φ d e
+  | .bvar _, _, _ => by simp [Expr.renameConsts]
+  | .sort _, _, _ => by simp [Expr.renameConsts]
+  | .fvar _ _ _, _, _ => by simp [Expr.renameConsts]
+  | .lit (.natVal _), _, _ => by rw [Expr.renameConsts]
+  | .lit (.strVal _), _, _ => by rw [Expr.renameConsts]
+  | .const n ws, d, hr => by
+    simp only [Expr.renameConsts, denote_const]
+    cases hf : env.find? n with
+    | none =>
+      rw [Expr.constsResolve, hf] at hr
+      exact nomatch hr
+    | some ci =>
+      obtain ⟨ci', hf', hlp⟩ := hup n ci hf
+      rw [hf']
+      dsimp only
+      rw [hlp]
+      by_cases hal : ws.length = ci.toConstantVal.levelParams.length
+      · rw [if_pos hal, if_pos hal, hval n ci hf]
+      · rw [if_neg hal, if_neg hal]
+  | .app g a, d, hr => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [Expr.renameConsts, denote_app,
+      denote_renameConsts_resolve hup hval g d hr.1,
+      denote_renameConsts_resolve hup hval a d hr.2]
+  | .proj s i e, d, hr => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [Expr.renameConsts, denote_proj,
+      denote_renameConsts_resolve hup hval e d hr.2]
+  | .forallE n ty body m, d, hr => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [Expr.renameConsts, denote_forallE]
+    rw [← Expr.renameConsts_instantiate1]
+    rw [denote_renameConsts_resolve hup hval ty d hr.1,
+      denote_renameConsts_resolve hup hval
+        (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
+  | .lam n ty body m, d, hr => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [Expr.renameConsts, denote_lam]
+    rw [← Expr.renameConsts_instantiate1]
+    rw [denote_renameConsts_resolve hup hval ty d hr.1,
+      denote_renameConsts_resolve hup hval
+        (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
+  | .letE n ty val body, d, hr => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
+    simp only [Expr.renameConsts, denote_letE]
+    rw [← Expr.renameConsts_instantiate1]
+    rw [denote_renameConsts_resolve hup hval ty d hr.1.1,
+      denote_renameConsts_resolve hup hval val d hr.1.2,
+      denote_renameConsts_resolve hup hval
+        (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (Expr.constsResolve_instantiate1 hr.1.1 0 hr.2)]
+  termination_by e => e.sizeB
+  decreasing_by
+    all_goals first
+    | (simp [Expr.sizeB]; omega)
+    | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+    | (simp [Expr.sizeB])
+
 end Setlec.TTVerify

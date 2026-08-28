@@ -295,4 +295,5 @@ theorem declAxiomS (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
       (by rcases hofn with hh | hh <;> rw [hh] <;> decide)
   · exact ⟨m⟩
 
+
 end Setlec.SetR

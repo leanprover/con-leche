@@ -6032,3 +6032,61 @@ they are not, and the one whose witness is *given* is both the
 smallest and the one whose success calibrates the pair — which is
 precisely the read the calibration was commissioned to produce.
 `MemberEtaS` remains unmeasured and is the one genuine unknown left.
+
+### `MemberKeyS` CLOSED — the calibration's prediction held exactly
+
+The witness was given and the conjuncts came from `EnvS`'s own fields,
+as `trustCompilerKeyS` predicted.  `memberKeyS` is **thirty lines**:
+`EnvS.cval_memType` at the stored `_model` constant supplies the
+membership *and* the truthfulness outright, and all that remains is
+that the two types denote the same — the block renaming carries
+`cvA.type` to `cvm.type` up to `eqUpToNames`, and `denote` is blind to
+exactly that difference (`denote_erasedEq`).
+
+**One new shared lemma, and its reason is worth the line.**
+`denote_renameConsts` needs the full `RenameOkT`, whose second clause
+(*unstored maps to unstored*) fails at a **member** environment: the
+block's later members are not stored yet, so a block name can be
+unstored while its `_model` is stored.  But that clause exists only to
+stop an unstored constant acquiring a denotation, and an expression
+every constant of which *resolves* never reaches it.  Hence
+`denote_renameConsts_resolve` (`Verify/Denote/Rename.lean`), premised
+on the two clauses `BlockInstalledTT` actually supplies plus
+`constsResolve`.
+
+> **A premise that fails at your environment may be doing work your
+> expression never needs.**  Before strengthening the environment,
+> check whether the clause is reachable from the subject.
+
+`no_proof_of_Empty_R` and its thirteen siblings now carry **four**:
+`MemberEtaS`, `DivModPinS`, `StdAxiomKeyS`, `OfReduceKeyS`.
+
+### `MemberEtaS` measured — not a rock, and not transcription
+
+Its Model siblings are `modeled_caps_eta`
+(`Model/ModeledCaps.lean:140`, ~160 lines) and `blockMember_headEta`
+(`:446`, ~100) — call it **~260 lines of template**.
+
+**P3 does *not* bite here.**  `EtaLawV` concludes an `interp`
+*equality*; there is no membership-plus-truthfulness, no `AnnotOkV`,
+and therefore no witness to construct.  That makes it structurally
+unlike the two axiom keys.
+
+**What differs is the quantification, not the semantics.**  The Model's
+`EtaLaw` quantifies over **values** (`ps : List V`, `x : V`) and uses
+`SpineFold`/`TeleFit`; `EtaLawV` quantifies over **`VExpr`s**
+(`xs`, `B`) and uses `mkAppN`/`interp`/`TeleFitV`/`etaFabArgsV`.  So
+the derivation transposes in shape and needs a value↔`VExpr`
+adaptation layer — the `interp (mkAppN …) = SpineFold …` direction —
+much of which the `SetR` `Sound` tier already carries
+(`etaFabArgsV` is its own).
+
+**Sized read: between `MemberKeyS` and `OfReduceKeyS`.**  Bigger than
+transcription because of the adaptation layer; smaller than the axiom
+keys because nothing has to be *built*.  **Not a rock** — reporting
+that, since the instruction was to stop if it looked like one.
+
+Revised order for the remaining four: `MemberEtaS` (medium,
+templated), then `OfReduceKeyS` (first witness construction — it will
+set the pattern for `StdAxiomKeyS`'s two), then `StdAxiomKeyS`, then
+`DivModPinS` last with `pinnedCtx` waiting for it.

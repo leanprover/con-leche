@@ -47,18 +47,18 @@ theorem no_constant_of_Empty_R {env : Env} (m : EnvS V env)
     · intro hTi; exact nomatch hTi
 
 /-- **The acceptance theorem, on the `SetR` route.** -/
-theorem checkDecls_sound_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem checkDecls_sound_R (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat}
     (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V)
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
     Nonempty (EnvS V env') :=
-  foldlM_R hkey heta hdm hstd hofr
+  foldlM_R heta hdm hstd hofr
     ds Env.empty ⟨EnvS.empty V⟩ h
 
 /-- **No proof of `Empty` is ever accepted**, on the `SetR` route. -/
-theorem no_proof_of_Empty_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem no_proof_of_Empty_R (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat}
     (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V)
@@ -66,14 +66,14 @@ theorem no_proof_of_Empty_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     (h : checkDecls μ (fueledOps μ F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDecls_sound_R hkey heta hdm
+  obtain ⟨m⟩ := checkDecls_sound_R heta hdm
     hstd hofr h
   exact no_constant_of_Empty_R m c hc hty
 
 /-- The cached-executable fold.  `checkDecl_bridge` supplies, per
 declaration, a fuel at which the pure checker reproduces the cached
 run; everything after that is `foldlM_R`'s step. -/
-theorem foldlM_RC (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem foldlM_RC (heta : MemberEtaS V)
     {μ : CheckMode} (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V) :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
@@ -92,32 +92,32 @@ theorem foldlM_RC (hkey : MemberKeyS V) (heta : MemberEtaS V)
       rw [hd] at h
       obtain ⟨m⟩ := hm
       obtain ⟨F, hF⟩ := checkDecl_bridge m.wf hd
-      exact foldlM_RC hkey heta hdm hstd hofr ds env1
+      exact foldlM_RC heta hdm hstd hofr ds env1
         (declStepS hdm reducePinS hstd hofr declBasisS
-          (declIndS hkey heta) m
-          (checkDeclR_sound hkey heta m hF)) h
+          (declIndS memberKeyS heta) m
+          (checkDeclR_sound heta m hF)) h
 
 /-- **The acceptance theorem for the cached executable checker.** -/
-theorem checkDeclsC_sound_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem checkDeclsC_sound_R (heta : MemberEtaS V)
     {μ : CheckMode} (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V) {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (cachedOps μ) ds = .ok env') :
     Nonempty (EnvS V env') :=
-  foldlM_RC hkey heta hdm hstd hofr ds Env.empty ⟨EnvS.empty V⟩ h
+  foldlM_RC heta hdm hstd hofr ds Env.empty ⟨EnvS.empty V⟩ h
 
 /-- **No proof of `Empty`** is accepted by the cached executable. -/
-theorem no_proof_of_Empty_C_R (hkey : MemberKeyS V)
-    (heta : MemberEtaS V) {μ : CheckMode} (hdm : DivModPinS V)
+theorem no_proof_of_Empty_C_R (heta : MemberEtaS V) {μ : CheckMode}
+    (hdm : DivModPinS V)
     (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (cachedOps μ) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDeclsC_sound_R hkey heta hdm hstd hofr h
+  obtain ⟨m⟩ := checkDeclsC_sound_R heta hdm hstd hofr h
   exact no_constant_of_Empty_R m c hc hty
 
 /-- The shared-state executable's fold. -/
-theorem foldlM_RS (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem foldlM_RS (heta : MemberEtaS V)
     {μ : CheckMode} (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V) :
     ∀ (ds : List Declaration) (fe : FEnv) {fe' : FEnv},
@@ -138,13 +138,13 @@ theorem foldlM_RS (hkey : MemberKeyS V) (heta : MemberEtaS V)
       obtain ⟨m⟩ := hm
       rw [hfe] at hd
       obtain ⟨hfe1, F, hF⟩ := checkDeclSharedF_bridge m.wf hd
-      exact foldlM_RS hkey heta hdm hstd hofr ds fe1 hfe1
+      exact foldlM_RS heta hdm hstd hofr ds fe1 hfe1
         (declStepS hdm reducePinS hstd hofr declBasisS
-          (declIndS hkey heta) m
-          (checkDeclR_sound hkey heta m hF)) h
+          (declIndS memberKeyS heta) m
+          (checkDeclR_sound heta m hF)) h
 
 /-- **The acceptance theorem for the shared-state executable.** -/
-theorem checkDeclsS_sound_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem checkDeclsS_sound_R (heta : MemberEtaS V)
     {μ : CheckMode} (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V) {ds : List Declaration} {env' : Env}
     (h : checkDeclsShared μ ds = .ok env') :
@@ -158,26 +158,26 @@ theorem checkDeclsS_sound_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     obtain rfl : fe.env = env' := by
       have h' : (Except.ok fe.env : CheckM Env) = .ok env' := h
       exact Except.ok.inj h'
-    exact foldlM_RS hkey heta hdm hstd hofr ds (mkFEnv Env.empty) rfl
+    exact foldlM_RS heta hdm hstd hofr ds (mkFEnv Env.empty) rfl
       ⟨EnvS.empty V⟩ hf
 
 /-- **No proof of `Empty`** is accepted by the shared-state
 executable. -/
-theorem no_proof_of_Empty_S_R (hkey : MemberKeyS V)
-    (heta : MemberEtaS V) {μ : CheckMode} (hdm : DivModPinS V)
+theorem no_proof_of_Empty_S_R (heta : MemberEtaS V) {μ : CheckMode}
+    (hdm : DivModPinS V)
     (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
     {ds : List Declaration} {env' : Env}
     (h : checkDeclsShared μ ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDeclsS_sound_R hkey heta hdm hstd hofr h
+  obtain ⟨m⟩ := checkDeclsS_sound_R heta hdm hstd hofr h
   exact no_constant_of_Empty_R m c hc hty
 
 /-- The parsed-index executable's fold.  The store invariant's
 supplier is the bundle: `WFStore.wf` gives `st.raw.WF` once, and the
 fold threads `ISOKF`/`Ext` from `checkDeclSPStep_run` — the same
 "name the environment each premise is at" discipline, at the store. -/
-theorem foldSP_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem foldSP_R (heta : MemberEtaS V)
     {μ : CheckMode} (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V) {st0 : EStore} (hwfst : st0.WF) :
     ∀ (pds : List DeclP) (fe : FEnv) {fe' : FEnv} {s₀ s' : IState},
@@ -202,15 +202,15 @@ theorem foldSP_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     rw [hfe] at hstep
     obtain ⟨hres₁, hext₁, hfe₁, F, hF⟩ :=
       checkDeclSPStep_run m.wf hres hd hstep
-    exact foldSP_R hkey heta hdm hstd hofr hwfst pds fe₁ hfe₁
+    exact foldSP_R heta hdm hstd hofr hwfst pds fe₁ hfe₁
       (declStepS hdm reducePinS hstd hofr declBasisS
-        (declIndS hkey heta) m
-        (checkDeclR_sound hkey heta m hF)) hres₁
+        (declIndS memberKeyS heta) m
+        (checkDeclR_sound heta m hF)) hres₁
       (hext0.trans hext₁) h
 
 /-- **The acceptance theorem for the parsed-index executable.** -/
-theorem checkDeclsSP_sound_R (hkey : MemberKeyS V)
-    (heta : MemberEtaS V) {μ : CheckMode} (hdm : DivModPinS V)
+theorem checkDeclsSP_sound_R (heta : MemberEtaS V) {μ : CheckMode}
+    (hdm : DivModPinS V)
     (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
     {st : WFStore} {pds : List DeclP} {env' : Env}
     (h : checkDeclsSP μ st pds = .ok env') :
@@ -237,36 +237,37 @@ theorem checkDeclsSP_sound_R (hkey : MemberKeyS V)
       rw [hrun] at hf
       simp only [Functor.map, Except.map, Except.ok.injEq] at hf
       subst hf
-      exact foldSP_R hkey heta hdm hstd hofr hwf pds
+      exact foldSP_R heta hdm hstd hofr hwf pds
         (mkFEnv Env.empty) rfl ⟨EnvS.empty V⟩ (ISOKF.fresh hwf)
         (Ext.refl _) hrun
 
 /-- **No proof of `Empty`** is accepted by the parsed-index
 executable. -/
-theorem no_proof_of_Empty_SP_R (hkey : MemberKeyS V)
-    (heta : MemberEtaS V) {μ : CheckMode} (hdm : DivModPinS V)
+theorem no_proof_of_Empty_SP_R (heta : MemberEtaS V) {μ : CheckMode}
+    (hdm : DivModPinS V)
     (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
     {st : WFStore} {pds : List DeclP} {env' : Env}
     (h : checkDeclsSP μ st pds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDeclsSP_sound_R hkey heta hdm hstd hofr h
+  obtain ⟨m⟩ := checkDeclsSP_sound_R heta hdm hstd hofr h
   exact no_constant_of_Empty_R m c hc hty
 
 /-- **One checked declaration extends the invariant.** -/
-theorem checkDecl_sound_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem checkDecl_sound_R (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat} (hdm : DivModPinS V)
     (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
     {env env₂ : Env} {d : Declaration} (m : EnvS V env)
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
     Nonempty (EnvS V env₂) :=
-  declStepS hdm reducePinS hstd hofr declBasisS (declIndS hkey heta) m
-    (checkDeclR_sound hkey heta m h)
+  declStepS hdm reducePinS hstd hofr declBasisS
+    (declIndS memberKeyS heta) m
+    (checkDeclR_sound heta m h)
 
 /-- A declared `Empty`-typed `def`/`theorem` cannot survive the fold:
 the stored constant would carry the annotated type, which annotation
 leaves as `Empty`. -/
-theorem foldlM_no_Empty_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem foldlM_no_Empty_R (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat} (hdm : DivModPinS V)
     (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
@@ -298,12 +299,12 @@ theorem foldlM_no_Empty_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
         | succ F' =>
           rw [annotateCore_succ] at h1
           simpa [annotateBody, pure, Except.pure] using h1
-      obtain ⟨m1⟩ := checkDecl_sound_R (d := d) hkey heta hdm hstd
+      obtain ⟨m1⟩ := checkDecl_sound_R (d := d) heta hdm hstd
         hofr m hdd
       exact no_constant_of_Empty_R m1 c hc (by rw [hcv])
     · refine foldlM_no_Empty_R (value := value) (hint := hint)
-        hkey heta hdm hstd hofr hty ds env1
-        (checkDecl_sound_R (d := d) hkey heta hdm hstd hofr m hdd)
+        heta hdm hstd hofr hty ds env1
+        (checkDecl_sound_R (d := d) heta hdm hstd hofr m hdd)
         h ?_
       rcases hd with hd | hd
       · rcases List.mem_cons.mp hd with rfl | hmem
@@ -314,8 +315,8 @@ theorem foldlM_no_Empty_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
         · exact Or.inr hmem
 
 /-- **No accepted stream declares a proof of `Empty`.** -/
-theorem no_proof_of_Empty_input_R (hkey : MemberKeyS V)
-    (heta : MemberEtaS V) {μ : CheckMode} {F : Nat}
+theorem no_proof_of_Empty_input_R (heta : MemberEtaS V)
+    {μ : CheckMode} {F : Nat}
     (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V) {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env')
@@ -323,11 +324,11 @@ theorem no_proof_of_Empty_input_R (hkey : MemberKeyS V)
     (hd : Declaration.defnDecl cv value hint ∈ ds ∨
       Declaration.thmDecl cv value ∈ ds)
     (hty : cv.type = .const emptyName []) : False :=
-  foldlM_no_Empty_R hkey heta hdm hstd hofr hty ds Env.empty
+  foldlM_no_Empty_R heta hdm hstd hofr hty ds Env.empty
     ⟨EnvS.empty V⟩ h hd
 
 /-- The cached executable's input-level fold. -/
-theorem foldlM_no_Empty_RC (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem foldlM_no_Empty_RC (heta : MemberEtaS V)
     {μ : CheckMode} (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
@@ -360,12 +361,12 @@ theorem foldlM_no_Empty_RC (hkey : MemberKeyS V) (heta : MemberEtaS V)
         | succ F' =>
           rw [annotateCore_succ] at h1
           simpa [annotateBody, pure, Except.pure] using h1
-      obtain ⟨m1⟩ := checkDecl_sound_R (d := d) hkey heta hdm hstd
+      obtain ⟨m1⟩ := checkDecl_sound_R (d := d) heta hdm hstd
         hofr m hF
       exact no_constant_of_Empty_R m1 c hc (by rw [hcv])
     · refine foldlM_no_Empty_RC (value := value) (hint := hint)
-        hkey heta hdm hstd hofr hty ds env1
-        (checkDecl_sound_R (d := d) hkey heta hdm hstd hofr m hF)
+        heta hdm hstd hofr hty ds env1
+        (checkDecl_sound_R (d := d) heta hdm hstd hofr m hF)
         h ?_
       rcases hd with hd | hd
       · rcases List.mem_cons.mp hd with rfl | hmem
@@ -377,8 +378,9 @@ theorem foldlM_no_Empty_RC (hkey : MemberKeyS V) (heta : MemberEtaS V)
 
 /-- **No accepted stream declares a proof of `Empty`** — cached
 executable. -/
-theorem no_proof_of_Empty_input_C_R (hkey : MemberKeyS V)
-    (heta : MemberEtaS V) {μ : CheckMode} (hdm : DivModPinS V)
+theorem no_proof_of_Empty_input_C_R (heta : MemberEtaS V)
+    {μ : CheckMode}
+    (hdm : DivModPinS V)
     (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (cachedOps μ) ds = .ok env')
@@ -386,11 +388,11 @@ theorem no_proof_of_Empty_input_C_R (hkey : MemberKeyS V)
     (hd : Declaration.defnDecl cv value hint ∈ ds ∨
       Declaration.thmDecl cv value ∈ ds)
     (hty : cv.type = .const emptyName []) : False :=
-  foldlM_no_Empty_RC hkey heta hdm hstd hofr hty ds Env.empty
+  foldlM_no_Empty_RC heta hdm hstd hofr hty ds Env.empty
     ⟨EnvS.empty V⟩ h hd
 
 /-- The shared-state executable's input-level fold. -/
-theorem foldlM_no_Empty_RS (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem foldlM_no_Empty_RS (heta : MemberEtaS V)
     {μ : CheckMode} (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
@@ -425,12 +427,12 @@ theorem foldlM_no_Empty_RS (hkey : MemberKeyS V) (heta : MemberEtaS V)
         | succ F' =>
           rw [annotateCore_succ] at h1
           simpa [annotateBody, pure, Except.pure] using h1
-      obtain ⟨m1⟩ := checkDecl_sound_R (d := d) hkey heta hdm hstd
+      obtain ⟨m1⟩ := checkDecl_sound_R (d := d) heta hdm hstd
         hofr m hF
       exact no_constant_of_Empty_R m1 c hc (by rw [hcv])
     · refine foldlM_no_Empty_RS (value := value) (hint := hint)
-        hkey heta hdm hstd hofr hty ds fe1 hfe1
-        (checkDecl_sound_R (d := d) hkey heta hdm hstd hofr m hF)
+        heta hdm hstd hofr hty ds fe1 hfe1
+        (checkDecl_sound_R (d := d) heta hdm hstd hofr m hF)
         h ?_
       rcases hd with hd | hd
       · rcases List.mem_cons.mp hd with rfl | hmem
@@ -442,8 +444,9 @@ theorem foldlM_no_Empty_RS (hkey : MemberKeyS V) (heta : MemberEtaS V)
 
 /-- **No accepted stream declares a proof of `Empty`** — shared-state
 executable. -/
-theorem no_proof_of_Empty_input_S_R (hkey : MemberKeyS V)
-    (heta : MemberEtaS V) {μ : CheckMode} (hdm : DivModPinS V)
+theorem no_proof_of_Empty_input_S_R (heta : MemberEtaS V)
+    {μ : CheckMode}
+    (hdm : DivModPinS V)
     (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
     {ds : List Declaration} {env' : Env}
     (h : checkDeclsShared μ ds = .ok env')
@@ -456,14 +459,15 @@ theorem no_proof_of_Empty_input_S_R (hkey : MemberKeyS V)
   cases hf : ds.foldlM (checkDeclSharedF μ) (mkFEnv Env.empty) with
   | error e => rw [hf] at h; exact nomatch h
   | ok fe =>
-    exact foldlM_no_Empty_RS hkey heta hdm hstd hofr hty ds
+    exact foldlM_no_Empty_RS heta hdm hstd hofr hty ds
       (mkFEnv Env.empty) rfl ⟨EnvS.empty V⟩ hf hd
 
 /-- **No accepted input stream declares a proof of `Empty`** — the
 parsed-index executable, at the *stream* level: the parsed record's
 type index denotes `Empty` in the parse store. -/
-theorem no_proof_of_Empty_input_SP_R (hkey : MemberKeyS V)
-    (heta : MemberEtaS V) {μ : CheckMode} (hdm : DivModPinS V)
+theorem no_proof_of_Empty_input_SP_R (heta : MemberEtaS V)
+    {μ : CheckMode}
+    (hdm : DivModPinS V)
     (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
     {st : WFStore} {pds : List DeclP} {env' : Env}
     (h : checkDeclsSP μ st pds = .ok env')
@@ -567,7 +571,7 @@ theorem no_proof_of_Empty_input_SP_R (hkey : MemberKeyS V)
             | succ F' =>
               rw [annotateCore_succ] at h1
               simpa [annotateBody, pure, Except.pure] using h1
-          obtain ⟨m1⟩ := checkDecl_sound_R (d := d) hkey heta hdm hstd
+          obtain ⟨m1⟩ := checkDecl_sound_R (d := d) heta hdm hstd
             hofr m hF
           exact no_constant_of_Empty_R m1 c hc (by rw [hcv])
         rcases hdd with ⟨hint, rfl⟩ | rfl
@@ -583,7 +587,7 @@ theorem no_proof_of_Empty_input_SP_R (hkey : MemberKeyS V)
             · exact absurd (.inr heq.symm) hdis
             · exact .inr hmem
         exact ih fe₁ hfe₁
-          (checkDecl_sound_R (d := d) hkey heta hdm hstd hofr m hF)
+          (checkDecl_sound_R (d := d) heta hdm hstd hofr m hF)
           hres₁ (hext0.trans hext₁) h hd'
 
 end Setlec.SetR

@@ -522,4 +522,54 @@ theorem provisionRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
       (by rw [hm₁cval]; exact hrec)
       (by rw [hm₁cval]; exact hI₁)
 
+/-- **`MemberKeyS`, discharged.**  The witness is *given*: the member
+takes its model artifact's valuation, so `EnvS.cval_memType` at the
+stored `_model` constant supplies the membership and the truthfulness
+outright.  All that is left is that the two types denote the same —
+the block renaming carries `cvA.type` to `cvm.type` up to
+`eqUpToNames`, and `denote` is blind to exactly that difference.
+
+The renaming is used at a *member* environment, where the block's
+later members are not stored yet, so the full `RenameOkT` is
+unavailable; `denote_renameConsts_resolve` needs only the two clauses
+`BlockInstalledTT` supplies, because `cvA.type` resolves. -/
+theorem memberKeyS : MemberKeyS V := by
+  intro μ F blockNames env m cv cvA hmv hIB ψ
+  obtain ⟨type', hcv, rfl, -, cvm, mval, hint, hfm, hlpm, hren⟩ := hmv
+  obtain ⟨-, hres, -, -, -, -, hann, -, htr, -⟩ := hcv
+  have hup : ∀ n ci, env.find? n = some ci →
+      ∃ ci', env.find? ((fun n =>
+          if blockNames.contains n then n.str "_model" else n) n)
+        = some ci' ∧
+        ci'.toConstantVal.levelParams
+          = ci.toConstantVal.levelParams := by
+    intro n ci hfn
+    dsimp only
+    by_cases hb : blockNames.contains n = true
+    · obtain ⟨cvm', mval', hint', hfm', hlp', -, -⟩ := hIB n hb ci hfn
+      exact ⟨.defnInfo cvm' mval' hint', by rw [if_pos hb]; exact hfm',
+        hlp'⟩
+    · exact ⟨ci, by rw [if_neg hb]; exact hfn, rfl⟩
+  have hval : ∀ (n : Name) (ci : ConstantInfo),
+      env.find? n = some ci → ∀ ψ' : Name → Nat,
+      m.cval ((fun n =>
+        if blockNames.contains n then n.str "_model" else n) n) ψ'
+        = m.cval n ψ' := by
+    intro n ci hfn ψ'
+    dsimp only
+    by_cases hb : blockNames.contains n = true
+    · obtain ⟨-, -, -, -, -, -, hv⟩ := hIB n hb ci hfn
+      rw [if_pos hb, ← hv ψ']
+    · rw [if_neg hb]
+  -- the model constant's own membership, and the two types agree
+  obtain ⟨t, ht, hlaw⟩ :=
+    EnvS.cval_memType m (n := (cv.name.str "_model")) hfm ψ
+  refine ⟨t, ?_, hlaw⟩
+  show denoteClosed m.cval env ψ type' = some t
+  rw [← ht]
+  show denote m.cval env ψ 0 type' = denote m.cval env ψ 0 cvm.type
+  rw [← denote_erasedEq (Expr.ErasedEq.of_eqUpToNames hren) 0]
+  exact (denote_renameConsts_resolve (φ := ψ) hup hval type' 0
+    htr).symm
+
 end Setlec.SetR
