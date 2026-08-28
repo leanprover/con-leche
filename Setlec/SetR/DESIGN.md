@@ -4334,3 +4334,31 @@ What remains for the walks is the **right**-hand lists (`instPisAt`
 outputs), whose denotations are `instPisAt_denote_doms` and whose
 frames are `instPisAt_leaves`/`instPisAt_bounded` — the same shape of
 package, against lemmas that already exist.
+
+### T6 — both walk packages, and the walk layer is closed
+
+`instPisAt_walk_pack` lands, the right-hand twin of
+`opener_walk_pack`, assembled from `instPisAt_WScoped`,
+`instPisAt_bounded`, `instPisAt_leaves` and `instPisAt_denote_doms`.
+It compiled first try — the analogy held exactly, which is what one
+should expect when both sides' frame lemmas were written by the same
+hand for the same reason.
+
+**The walk layer is now closed.**  Its whole content is four lemmas:
+
+    defEqAtW_of        one comparison, from `DefEqClaimsR`
+    defEqListW_of      the list fold
+    opener_walk_pack   every walk's LEFT list  (all six)
+    instPisAt_walk_pack  every walk's RIGHT list (all six)
+
+Two packs cover twelve lists because every statement walk compares a
+`(fvs…).map fvarTypeD` against an `instPisAt` output — the design's
+economy showing again, and the reason the walks looked like the
+campaign's big rock and are not.
+
+What is left of `IotaThmR` is now purely assembly: instantiate the two
+packs at the statement's own openings, feed `defEqListW_of`, and fill
+the validated witness's two stubs.  `IotaThmNR` is the same against
+`NestedChecked` (whose extra content — the stored `lvls`/`pins`, the
+generalized major pin — is *syntactic*, so it adds witnesses, not
+walks).

@@ -666,6 +666,42 @@ theorem opener_walk_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
     exact nomatch h'
   · exact hbfv _ h'
 
+/-- **The `instPisAt` walk package** — the right-hand list's twin of
+`opener_walk_pack`, and by the same economy: every statement walk's
+right list is an `instPisAt` output, so one lemma covers all six.
+Assembled from `instPisAt_WScoped`, `instPisAt_bounded`,
+`instPisAt_leaves` and `instPisAt_denote_doms`. -/
+theorem instPisAt_walk_pack {env : Env} (m : EnvR env)
+    {φ : Name → Nat} {D : Nat} {sp : List Expr} {ty : Expr}
+    {ds : List Expr} {rs : Expr}
+    (hinst : Expr.instPisAt sp ty = some (ds, rs))
+    (hwty : Expr.WScoped D ty) (hbty : ty.looseBVarsBounded 0 = true)
+    (hLty : Expr.LeavesBounded ty)
+    (hsp : ∀ a ∈ sp, Expr.WScoped D a ∧ a.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded a)
+    (hspd : ∀ (j : Nat) (x : Expr), sp[j]? = some x →
+      ∃ w, denote m.cval env φ D x = some w)
+    {T : VExpr} (hT : denote m.cval env φ D ty = some T) :
+    ∀ x ∈ ds, Expr.WScoped D x ∧ x.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded x ∧
+      ∃ v, denote m.cval env φ D x = some v := by
+  intro x hx
+  obtain ⟨hw, -⟩ :=
+    instPisAt_WScoped sp ty hinst hwty (fun a ha => (hsp a ha).1)
+  obtain ⟨hb, -⟩ :=
+    instPisAt_bounded sp hinst hbty (fun a ha => (hsp a ha).2.1)
+  refine ⟨hw x hx, hb x hx, ?_, ?_⟩
+  · intro l hl
+    rcases instPisAt_leaves sp hinst l (Or.inl ⟨x, hx, hl⟩) with
+      h' | ⟨a, ha, hla⟩
+    · exact hLty l h'
+    · exact (hsp a ha).2.2 l hla
+  · exact instPisAt_denote_doms m.cval_closed sp hinst
+      (fun j y hy => ⟨hspd j y hy,
+        (hsp y (List.mem_of_getElem? hy)).1,
+        (hsp y (List.mem_of_getElem? hy)).2.1⟩)
+      hwty.fvarsBelow hbty hT x hx
+
 /-! ## The comparison walks
 
 Every `iota_j` statement walk the checker runs is a `checkDefEqList`
