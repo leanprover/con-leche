@@ -931,6 +931,117 @@ theorem opener_walk_pack_gen {env : Env} (m : EnvR env)
   · exact hL l h'
   · exact hbfv _ h'
 
+/-- **The opened body, packaged.**  `opener_walk_pack_gen` and
+`opener_fvar_pack_gen` deliver a telescope opening's *annotations* and
+*variables*; `IotaWalksR`'s index row and its `IotaSidesTyR` row are
+about the opened **body** (the statement's `Eq` application), so the
+third component needs its own pack.  Each conjunct is the residual
+half of the frame lemma whose domain half the other two packs use. -/
+theorem opener_body_pack_gen {env : Env} (m : EnvR env)
+    {φ : Name → Nat} {e : Expr} {d₀ k D : Nat} {fvs : List Expr}
+    {body : Expr}
+    (hw : Expr.WScoped d₀ e) (hb : e.looseBVarsBounded 0 = true)
+    (hL : Expr.LeavesBounded e)
+    {T : VExpr} (hT : denote m.cval env φ d₀ e = some T)
+    (hopen : openPisAtFvars k e d₀ = some (fvs, body))
+    (hle : d₀ + k ≤ D) :
+    Expr.WScoped D body ∧ body.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded body ∧
+      ∃ v, denote m.cval env φ D body = some v := by
+  obtain ⟨hbbody, hbfv⟩ := openPisAtFvars_bounded k hopen hb
+  obtain ⟨hwfv, hwbody⟩ := openPisAtFvars_WScoped k e d₀ hopen hw
+  obtain ⟨Γ, R, -, hRbody, -⟩ := openPisAtFvars_denoteTele k hopen hT
+  refine ⟨Expr.WScoped.mono (by omega) hwbody, hbbody, ?_,
+    opener_denotes_at m hwbody.fvarsBelow (by omega) hRbody⟩
+  intro l hl
+  rcases openPisAtFvars_leaves k hopen l (Or.inl hl) with h' | h'
+  · exact hL l h'
+  · exact hbfv _ h'
+
+/-- **An application spine, packaged** from its head and arguments —
+`spine_walk_pack` run backwards.  `IotaWalksR`'s `rhs` row compares
+the statement's right side against the rule's right-hand side
+*applied to the whole opening*, which is built, not found. -/
+theorem mkAppN_walk_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
+    {D : Nat} {g : Expr} {as : List Expr}
+    (hwg : Expr.WScoped D g) (hbg : g.looseBVarsBounded 0 = true)
+    (hLg : Expr.LeavesBounded g)
+    (has : ∀ a ∈ as, Expr.WScoped D a ∧ a.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded a ∧ ∃ w, denote m.cval env φ D a = some w)
+    {vg : VExpr} (hg : denote m.cval env φ D g = some vg) :
+    Expr.WScoped D (Expr.mkAppN g as) ∧
+      (Expr.mkAppN g as).looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded (Expr.mkAppN g as) ∧
+      ∃ v, denote m.cval env φ D (Expr.mkAppN g as) = some v := by
+  have hsp : ∀ (bs : List Expr),
+      (∀ a ∈ bs, ∃ w, denote m.cval env φ D a = some w) →
+      ∃ vs, DenoteSpine m.cval env φ D bs vs := by
+    intro bs
+    induction bs with
+    | nil => intro _; exact ⟨[], DenoteSpine.nil⟩
+    | cons b bs ih =>
+      intro hb2
+      obtain ⟨w, hw⟩ := hb2 b List.mem_cons_self
+      obtain ⟨vs, hvs⟩ :=
+        ih (fun a ha => hb2 a (List.mem_cons_of_mem _ ha))
+      exact ⟨w :: vs, DenoteSpine.cons hw hvs⟩
+  obtain ⟨vs, hvs⟩ := hsp as (fun a ha => (has a ha).2.2.2)
+  refine ⟨Expr.WScoped.mkAppN hwg (fun x hx => (has x hx).1),
+    looseBVarsBounded_mkAppN hbg (fun x hx => (has x hx).2.1),
+    ?_, _, denote_mkAppN hvs hg⟩
+  intro l hl
+  rcases fvarLeaves_mkAppN hl with h' | ⟨x, hx, hlx⟩
+  · exact hLg l h'
+  · exact (has x hx).2.2.1 l hlx
+
+/-- **The two side-typing obligations, bridged** — `IotaWalksR`'s
+sixth row.  Each side's `inferTypeCore` verdict becomes an `Infer`
+derivation up to `DefEq` (`InferClaimsR`); the *inferred* type's own
+context correspondence, which `DefEqClaimsR` then needs, is not
+supplied by the caller and is not meant to be: it follows from the
+subject's by `CtxOkR.of_subset` and `inferTypeCore_fvarLeaves`. -/
+theorem iotaSidesTyR_of {env : Env} (m : EnvR env) {μ : CheckMode}
+    {F : Nat} {φ : Name → Nat} {d : Nat} {αS lhsS rhsS : Expr}
+    (hwA : Expr.WScoped d αS) (hbA : αS.looseBVarsBounded 0 = true)
+    (hLA : Expr.LeavesBounded αS)
+    (hwL : Expr.WScoped d lhsS) (hbL : lhsS.looseBVarsBounded 0 = true)
+    (hLL : Expr.LeavesBounded lhsS)
+    (hwR : Expr.WScoped d rhsS) (hbR : rhsS.looseBVarsBounded 0 = true)
+    (hLR : Expr.LeavesBounded rhsS)
+    {Av Lv Rv : VExpr}
+    (hAv : denote m.cval env φ d αS = some Av)
+    (hLv : denote m.cval env φ d lhsS = some Lv)
+    (hRv : denote m.cval env φ d rhsS = some Rv)
+    {tl tr : Expr}
+    (hil : inferTypeCore μ env F d lhsS = .ok tl)
+    (hdl : isDefEqCore μ env F d tl αS = .ok true)
+    (hir : inferTypeCore μ env F d rhsS = .ok tr)
+    (hdr : isDefEqCore μ env F d tr αS = .ok true) :
+    IotaSidesTyR μ env m.cval φ d αS lhsS rhsS := by
+  refine ⟨Av, Lv, Rv, hAv, hLv, hRv, fun Δ hCA hCL hCR => ?_⟩
+  obtain ⟨-, -, ihd, ihi⟩ := checkBridge m φ F
+  constructor
+  · obtain ⟨v, tv, hv, htv, T', hI, hD⟩ := ihi hil hwL hbL hLL hCL
+    obtain rfl : v = Lv := by rw [hv] at hLv; exact Option.some.inj hLv
+    refine ⟨T', hI, DefEq.trans hD (ihd hdl
+      (inferTypeCore_WScoped m.wf F hil hwL)
+      (inferTypeCore_looseBVars m.wf F hil hwL hbL hLL)
+      (fun l hl =>
+        hLL l (inferTypeCore_fvarLeaves m.wf F hil hwL l hl))
+      hwA hbA hLA
+      (CtxOkR.of_subset
+        (inferTypeCore_fvarLeaves m.wf F hil hwL) hCL) hCA htv hAv)⟩
+  · obtain ⟨v, tv, hv, htv, T', hI, hD⟩ := ihi hir hwR hbR hLR hCR
+    obtain rfl : v = Rv := by rw [hv] at hRv; exact Option.some.inj hRv
+    refine ⟨T', hI, DefEq.trans hD (ihd hdr
+      (inferTypeCore_WScoped m.wf F hir hwR)
+      (inferTypeCore_looseBVars m.wf F hir hwR hbR hLR)
+      (fun l hl =>
+        hLR l (inferTypeCore_fvarLeaves m.wf F hir hwR l hl))
+      hwA hbA hLA
+      (CtxOkR.of_subset
+        (inferTypeCore_fvarLeaves m.wf F hir hwR) hCR) hCA htv hAv)⟩
+
 /-- The generalised twin of `opener_fvar_pack`: the opener *fvars*
 themselves at a general subject and opening depth. -/
 theorem opener_fvar_pack_gen {env : Env} (m : EnvR env)
