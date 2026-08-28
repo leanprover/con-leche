@@ -4382,10 +4382,26 @@ plus `opener_fvar_pack`, which supplies the right pack's *spine*
 hypothesis (the opener fvars themselves rather than their
 annotations — two of its four conjuncts are free by computation).
 
-Two packs cover twelve lists because **every statement walk compares
-the same two shapes**: a `(fvs…).map fvarTypeD` against an `instPisAt`
-output.  The rock was real when the tally was "six walks each needing
-everything"; it dissolved once the shape was named.
+Two packs cover most of twelve lists because **almost every statement
+walk compares the same two shapes**: a `(fvs…).map fvarTypeD` against
+an `instPisAt` output.  The rock was real when the tally was "six
+walks each needing everything"; it dissolved once the shape was named.
+
+**Correction (recorded rather than quietly fixed).**  "The same two
+shapes" was too strong, and assembling `IotaWalksR` is where it shows.
+There is a **third** shape: the *index* walk compares
+`(largs.drop rP).take (mI - rP)` against `cres.getAppArgs.drop cnP` —
+**application spine arguments**, not annotations and not `instPisAt`
+domains.  Its denotations come from a different place again,
+`denote_mkAppN_inv` (`Verify/Denote/Tele.lean`), which inverts a
+denoting `mkAppN` into its head plus a `DenoteSpine` over the
+arguments.
+
+So the honest tally is **three shapes over twelve lists**, not two.
+The economy claim survives intact — the point was never the number,
+it was that the count is over *shapes* and not over *instances* — but
+the number was wrong, and a convergence file that rounds its own
+evidence in its favour is worth less than one that does not.
 
 That is the general lesson and it is not about walks: *a tally over
 instances is not an estimate — count the distinct shapes first.*  The
@@ -4417,3 +4433,21 @@ One assembly note: `instPisAt_walk_pack`'s spine hypothesis wants a
 hands back *four* (frames + denotation), because the same pack serves
 the pack's other argument, which wants the denotation alone.  Project
 rather than re-derive — the mismatch is deliberate, not an oversight.
+
+### T6 — `IotaWalksR`'s three shapes
+
+For the assembly, the six components of `IotaWalksR` sort as:
+
+| component | left | right | shape |
+|---|---|---|---|
+| `idxL/idxR` | `(largs.drop rP).take (mI-rP)` | `cres.getAppArgs.drop cnP` | **spine** |
+| `domL/domR` | `xFvs.map fvarTypeD` | `cdoms.drop cnP` | annot / instPisAt |
+| `preL/preR` | `(fvs.take rP).map fvarTypeD` | `rdoms` | annot / instPisAt |
+| `lamL/lamR` | `(fvsP ++ xFvsP).map fvarTypeD` | `ldomsL` | annot / instLamsAt |
+| `rhsS` vs applied | — | — | single `DefEqAtW` |
+| `IotaSidesTyR` | — | — | its own pack |
+
+`stmtWalk_of` serves rows 2–4 (with `take`/`drop`/`++` variations on
+the left list — the pack is index-based, so a sublist is a projection,
+not a re-derivation).  Row 1 needs the spine source above.  Rows 5–6
+are single comparisons.
