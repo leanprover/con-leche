@@ -5150,3 +5150,30 @@ relation should name the environment its checker actually ran at, not
 the one its accumulator happens to be holding.**  The two coincide
 only at the first step, which is why this kind of slip survives every
 `nil`-case sanity check.
+
+### `indRecsRS` — and the base-environment fix paying for itself
+
+With `IndRecsFoldR` re-based, `indRecsFoldRS` is **thirty lines and
+compiled first try**: nothing in the relation depends on the
+accumulator any more, so the fold is a plain induction calling
+`iotaRulesR_of` at the fixed `mS.toEnvR`.  Had the relation kept
+naming `acc`, this same fold would have owed a four-relation
+monotonicity transport plus an unprovable side condition.  That is the
+clearest measurement yet of what naming the wrong environment costs:
+**the difference between a thirty-line induction and a blocked one.**
+
+`indRecsRS` itself is the phase's shape, transcribed: empty case,
+pinned-`Eq` guard, `provisionRecsRS` (interleaved — its per-recursor
+`MemberValR` sits at the growing accumulator), then the rules fold
+(not interleaved).  It produces `IndRecsR` *alone*; the caller runs
+`indRecsS` on it for the invariant, which is what "does not
+interleave" means operationally.
+
+Relocation applied at its stated threshold: `blockRenameOkT` (the
+block renaming is sound at the provisional environment) was inline in
+`indRecsS` and moved out when `indRecsFoldRS` became its **second**
+consumer — not on first sighting, not on the third.
+
+The three interleaved walks are now `indMembersRS`, `provisionRecsRS`,
+`projInstallRS`; the two non-interleaved bridges are `templatesR_of`
+and `indRecsRS`.  Finding 8's four-fold scorecard is fully cashed.

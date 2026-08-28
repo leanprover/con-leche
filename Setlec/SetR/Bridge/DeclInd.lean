@@ -289,4 +289,120 @@ theorem projInstallRS {μ : CheckMode} {F : Nat} {T ctorName : Name}
     exact hrec
 
 
+/-! ## The recursor group
+
+The rules fold does **not** interleave (the note above): every
+semantic conjunct of a rule lives at the fixed `envSelf` the
+provisioning produced, and — since `IndRecsFoldR` now names the
+*base* environment — the only accumulator-dependent thing left in the
+relation is nothing at all.  One `EnvR envSelf` serves the whole
+fold, and `indRecsRS` produces the relation alone; the caller runs
+`indRecsS` on it for the invariant. -/
+
+/-- **The rules fold, bridged** at the fixed self environment. -/
+theorem indRecsFoldRS {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {envBase envSelf : Env}
+    (mS : EnvR envSelf)
+    (hro : RenameOkT mS.cval envSelf (fun n =>
+      if blockNames.contains n then n.str "_model" else n))
+    (htr : ∀ (n : Name) (ci : ConstantInfo),
+      envBase.find? n = some ci → envSelf.find? n = some ci) :
+    ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule))
+      {acc env₃ : Env} {cval : TConstVal},
+      (∀ c ∈ checked, envSelf.find? c.1.name
+        = some (.recInfo c.1 c.2.1 c.2.2.1 [])) →
+      checked.foldlM (fun (acc : Env) c => do
+        let rules' ← checkIotaRules (m := CheckM) μ (fueledOps μ F)
+          envBase envSelf
+          (fun n => if blockNames.contains n then n.str "_model" else n)
+          c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
+        pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env))
+        acc = .ok env₃ →
+      ∃ cval₃, IndRecsR.IndRecsFoldR μ F blockNames envBase envSelf
+        mS.cval acc cval checked env₃ cval₃ := by
+  intro checked
+  induction checked with
+  | nil =>
+    intro acc env₃ cval _ h
+    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨cval, h.symm, rfl⟩
+  | cons c rest ih =>
+    intro acc env₃ cval hself h
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    revert h
+    cases hr : checkIotaRules (m := CheckM) μ (fueledOps μ F) envBase
+        envSelf
+        (fun n => if blockNames.contains n then n.str "_model" else n)
+        c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2 with
+    | error e => intro h; exact nomatch h
+    | ok rules' => ?_
+    intro h
+    try dsimp only at h
+    obtain ⟨cval₃, hrec⟩ :=
+      ih (acc := ⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩)
+        (cval := cvalModeled cval c.1.name)
+        (fun c' hc' => hself c' (List.mem_cons_of_mem _ hc')) h
+    refine ⟨cval₃, rules', ?_, hrec⟩
+    exact iotaRulesR_of mS (hself c List.mem_cons_self) rfl hro
+      (fun n ci hf => ⟨ci, htr n ci hf, rfl⟩) 0 c.2.2.2 rules' hr
+
+/-- **The recursor-group phase, bridged** (`checkIndRecs`): the
+empty case, the pinned-`Eq` guard, the provisioning (interleaved,
+`provisionRecsRS`), and the rules fold (not interleaved). -/
+theorem indRecsRS (hkey : MemberKeyS V) (heta : MemberEtaS V)
+    {μ : CheckMode} {F : Nat} {blockNames : List Name} :
+    ∀ (recs : List ConstantInfo) {env₂ : Env} (m : EnvS V env₂)
+      {env₃ : Env},
+      (∀ ci ∈ recs, blockNames.contains ci.name = true) →
+      (∀ n, blockNames.contains n = true →
+        (env₂.find? n).isSome = true ∨ ∃ ci ∈ recs, ci.name = n) →
+      BlockInstalledTT blockNames env₂ m.cval →
+      checkIndRecs (m := CheckM) μ (fueledOps μ F) blockNames env₂ recs
+        = .ok env₃ →
+      ∃ cval₃, IndRecsR μ F blockNames env₂ m.cval recs env₃ cval₃ := by
+  intro recs env₂ m env₃ hbn hall hI h
+  simp only [checkIndRecs] at h
+  by_cases hemp : recs.isEmpty = true
+  · rw [if_pos hemp] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨m.cval, Or.inl ⟨List.isEmpty_iff.mp hemp, h.symm, rfl⟩⟩
+  rw [if_neg hemp] at h
+  simp only [Bind.bind, Except.bind] at h
+  revert h
+  by_cases heqf : env₂.find? eqName = some eqA
+  case neg =>
+    rw [if_neg heqf]
+    intro h
+    exact nomatch h
+  rw [if_pos heqf]
+  intro h
+  try dsimp only at h
+  revert h
+  cases hprovE : provisionRecs (m := CheckM) (fueledOps μ F)
+      blockNames env₂ recs with
+  | error e => intro h; exact nomatch h
+  | ok p => ?_
+  obtain ⟨envSelf, checked⟩ := p
+  intro h
+  try dsimp only at h
+  obtain ⟨cvalSelf, mS, hprov, hmScval, hIS⟩ :=
+    provisionRecsRS hkey heta recs m hbn hI hprovE
+  rw [← hmScval] at hprov hIS
+  have hnames : ∀ n, blockNames.contains n = true →
+      (envSelf.find? n).isSome = true := by
+    intro n hn
+    rcases hall n hn with hfound | ⟨ci, hci, rfl⟩
+    · rcases hf : env₂.find? n with _ | ci
+      · rw [hf] at hfound; exact nomatch hfound
+      · rw [provisionRecsS_mono recs hprov n ci hf]; rfl
+    · exact provisionRecsS_stored recs hprov ci hci
+  obtain ⟨cval₃, hfold⟩ :=
+    indRecsFoldRS (envBase := env₂) mS.toEnvR
+      (blockRenameOkT mS hIS hnames)
+      (provisionRecsS_mono recs hprov) checked
+      (fun c hc => (provisionRecsS_entries recs hprov c hc).1)
+      (cval := m.cval) h
+  exact ⟨cval₃, Or.inr ⟨fun hc => hemp (by rw [hc]; rfl), heqf,
+    envSelf, mS.cval, checked, hprov, hfold⟩⟩
+
 end Setlec.SetR

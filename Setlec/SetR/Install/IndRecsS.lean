@@ -344,6 +344,47 @@ theorem iotaRulesS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
 
 /-! ## The two folds, in step -/
 
+/-- **The block renaming is sound at the provisional
+environment.**  Extracted from `indRecsS` when the bridge's own
+rules fold (`indRecsFoldRS`) needed the same fact — the *second*
+consumer, which is the relocation rule's threshold. -/
+theorem blockRenameOkT {blockNames : List Name} {envSelf : Env}
+    (mS : EnvS V envSelf)
+    (hIS : BlockInstalledTT blockNames envSelf mS.cval)
+    (hnames : ∀ n, blockNames.contains n = true →
+      (envSelf.find? n).isSome = true) :
+    RenameOkT mS.cval envSelf (fun n =>
+      if blockNames.contains n then n.str "_model" else n) := by
+    refine ⟨?_, ?_, ?_⟩
+    · intro n ciS hfS
+      dsimp only
+      by_cases hc : blockNames.contains n = true
+      · rw [if_pos hc]
+        obtain ⟨cvmS, mvalS, hmS, hfmS, hlpsS, -, -⟩ := hIS n hc ciS hfS
+        exact ⟨.defnInfo cvmS mvalS hmS, hfmS, hlpsS⟩
+      · rw [if_neg hc]
+        exact ⟨ciS, hfS, rfl⟩
+    · intro n hfS
+      dsimp only
+      by_cases hc : blockNames.contains n = true
+      · have := hnames n hc
+        rw [hfS] at this
+        exact nomatch this
+      · rw [if_neg hc]
+        exact hfS
+    · intro n ψ
+      dsimp only
+      by_cases hc : blockNames.contains n = true
+      · rw [if_pos hc]
+        rcases hfS : envSelf.find? n with _ | ciS
+        · have := hnames n hc
+          rw [hfS] at this
+          exact nomatch this
+        · obtain ⟨-, -, -, -, -, -, hvS⟩ := hIS n hc ciS hfS
+          exact (hvS ψ).symm
+      · rw [if_neg hc]
+
+
 set_option maxHeartbeats 1600000 in
 /-- **The provisioning and the install fold, run together.**  The
 pairing is what makes each rule kit's environment readable: the
@@ -574,36 +615,7 @@ theorem indRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
       · rw [provisionRecsS_mono recs hprov n ci hf]; rfl
     · exact provisionRecsS_stored recs hprov ci hci
   -- the block renaming is sound at the provisional environment
-  have hro : RenameOkT mS.cval envSelf (fun n =>
-      if blockNames.contains n then n.str "_model" else n) := by
-    refine ⟨?_, ?_, ?_⟩
-    · intro n ciS hfS
-      dsimp only
-      by_cases hc : blockNames.contains n = true
-      · rw [if_pos hc]
-        obtain ⟨cvmS, mvalS, hmS, hfmS, hlpsS, -, -⟩ := hIS n hc ciS hfS
-        exact ⟨.defnInfo cvmS mvalS hmS, hfmS, hlpsS⟩
-      · rw [if_neg hc]
-        exact ⟨ciS, hfS, rfl⟩
-    · intro n hfS
-      dsimp only
-      by_cases hc : blockNames.contains n = true
-      · have := hnames n hc
-        rw [hfS] at this
-        exact nomatch this
-      · rw [if_neg hc]
-        exact hfS
-    · intro n ψ
-      dsimp only
-      by_cases hc : blockNames.contains n = true
-      · rw [if_pos hc]
-        rcases hfS : envSelf.find? n with _ | ciS
-        · have := hnames n hc
-          rw [hfS] at this
-          exact nomatch this
-        · obtain ⟨-, -, -, -, -, -, hvS⟩ := hIS n hc ciS hfS
-          exact (hvS ψ).symm
-      · rw [if_neg hc]
+  have hro := blockRenameOkT mS hIS hnames
   -- run the two folds in step
   obtain ⟨hswR, hnresR, rfl, hentR, hentF⟩ :=
     indRecsFoldS mS hIS hro
