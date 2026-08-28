@@ -1126,6 +1126,81 @@ theorem defEqListW_of {env : Env} (m : EnvR env) {μ : CheckMode}
   | [], _ :: _, _, h => nomatch h
   | _ :: _, [], _, h => nomatch h
 
+/-- **Inference success plus *any* context yields denotability.**  The
+campaign's only source of a denotation for an expression that is
+neither a stored type nor an opener nor built from them: a *pin*, for
+which the checker's sole verdict is that it inferred a type.  The
+denotation `InferClaimsR` returns does not mention `Δ`, so the context
+is scaffolding — supply one with `openPisAtFvars_ctxOkR` and
+`CtxOkR.of_cover` and discard it. -/
+theorem denote_of_inferR {env : Env} (m : EnvR env) {μ : CheckMode}
+    {F : Nat} {φ : Name → Nat} {d : Nat} {e t : Expr}
+    {Δ : List VExpr}
+    (hi : inferTypeCore μ env F d e = .ok t)
+    (hw : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hL : Expr.LeavesBounded e)
+    (hC : CtxOkR μ m.cval env φ d Δ e) :
+    ∃ v, denote m.cval env φ d e = some v := by
+  obtain ⟨-, -, -, ihi⟩ := checkBridge m φ F
+  obtain ⟨v, -, hv, -⟩ := ihi hi hw hb hL hC
+  exact ⟨v, hv⟩
+
+/-- **One typed comparison, bridged** — `checkTypedList`'s element, the
+`Infer`-side twin of `defEqAtW_of`.  Both denotations are premises:
+`TypedAtW` states them outside its `∀ Δ` (the soundness side reads the
+values back), so they cannot be produced inside. -/
+theorem typedAtW_of {env : Env} (m : EnvR env) {μ : CheckMode}
+    {F : Nat} {φ : Name → Nat} {d : Nat} {e dom : Expr}
+    (hwe : Expr.WScoped d e) (hbe : e.looseBVarsBounded 0 = true)
+    (hLe : Expr.LeavesBounded e)
+    (hwd : Expr.WScoped d dom) (hbd : dom.looseBVarsBounded 0 = true)
+    (hLd : Expr.LeavesBounded dom)
+    {Ev Dv : VExpr}
+    (hEv : denote m.cval env φ d e = some Ev)
+    (hDv : denote m.cval env φ d dom = some Dv)
+    {ty : Expr}
+    (hi : inferTypeCore μ env F d e = .ok ty)
+    (hde : isDefEqCore μ env F d ty dom = .ok true) :
+    TypedAtW μ env m.cval φ d e dom := by
+  refine ⟨Ev, Dv, hEv, hDv, fun Δ hCe hCd => ?_⟩
+  obtain ⟨-, -, ihd, ihi⟩ := checkBridge m φ F
+  obtain ⟨v, tv, hv, htv, T', hI, hD⟩ := ihi hi hwe hbe hLe hCe
+  obtain rfl : v = Ev := by rw [hv] at hEv; exact Option.some.inj hEv
+  exact ⟨T', hI, DefEq.trans hD (ihd hde
+    (inferTypeCore_WScoped m.wf F hi hwe)
+    (inferTypeCore_looseBVars m.wf F hi hwe hbe hLe)
+    (fun l hl => hLe l (inferTypeCore_fvarLeaves m.wf F hi hwe l hl))
+    hwd hbd hLd
+    (CtxOkR.of_subset (inferTypeCore_fvarLeaves m.wf F hi hwe) hCe)
+    hCd htv hDv)⟩
+
+/-- **A typed walk, bridged** — `checkTypedList`'s verdict pack, the
+`Infer`-side twin of `defEqListW_of`. -/
+theorem typedListW_of {env : Env} (m : EnvR env) {μ : CheckMode}
+    {F : Nat} {φ : Name → Nat} {d : Nat} :
+    ∀ (es doms : List Expr),
+      (∀ x ∈ es ++ doms, Expr.WScoped d x ∧
+        x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+        ∃ v, denote m.cval env φ d x = some v) →
+      TypedListOk μ F env d es doms →
+      TypedListW μ env m.cval φ d es doms
+  | [], [], _, _ => trivial
+  | a :: as, b :: bs, hfr, h => by
+    obtain ⟨hwa, hba, hLa, Av, hAv⟩ := hfr a (by simp)
+    obtain ⟨hwb, hbb, hLb, Bv, hBv⟩ := hfr b (by simp)
+    obtain ⟨ty, hi, hde⟩ := h.1
+    exact ⟨typedAtW_of m hwa hba hLa hwb hbb hLb hAv hBv hi hde,
+      typedListW_of m as bs
+        (fun e he => hfr e (by
+          rcases List.mem_append.mp he with h' | h'
+          · exact List.mem_append.mpr
+              (Or.inl (List.mem_cons_of_mem _ h'))
+          · exact List.mem_append.mpr
+              (Or.inr (List.mem_cons_of_mem _ h'))))
+        h.2⟩
+  | [], _ :: _, _, h => nomatch h
+  | _ :: _, [], _, h => nomatch h
+
 /-- **A statement walk, closed.**  The shape every `iota_j` walk has:
 a prefix of an opened telescope's annotations against the domains an
 `instPisAt` run collects from a stored type.  The two packs supply
