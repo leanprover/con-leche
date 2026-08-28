@@ -6187,3 +6187,42 @@ type's is proved — which the conclusion demands anyway.
 `HasType` bookkeeping *plus* `AnnotOkV`, over a relocated shape layer
 that is already done.  The lesson stands and sharpens: **check every
 lane before pricing, and price the delta, not the template.**
+
+### `OfReduceKeyS`, half built — and the witness/type identity, exact
+
+`denote_ofReducePinS` (`Install/Axiom.lean`) restates the TT lane's
+type computation over `EnvS`, first attempt: the original used its
+`EnvTT` only through `denote_const_nolevels`, and
+`denote_const_nolevelsS` is the in-lane twin.  With `eqVS` beside it,
+the pinned type is now known to denote to
+
+```
+.pi E (.pi E (.pi (Eq E (op a) b) (Eq E a b)))
+```
+
+**The structural finding, and it is sharper than "the `AnnotOkV` half
+is free".**  `AnnotOkV`'s `.lam` and `.pi` clauses are *literally the
+same shape* (`AnnotOkV_lam` / `AnnotOkV_pi`, `SetR/AnnotOkV.lean:80`).
+So with the witness built as
+`.lam E (.lam E (.lam H₁ (.bvar 0)))` from the type's own components,
+
+> `AnnotOkV ρ (Vf ψ)` **is** `AnnotOkV ρ t`'s first three components,
+> with `trivial` for the fourth (`AnnotOkV` of a `.bvar` is `True`).
+
+Not "follows from" — *is*.  That is the pattern `StdAxiomKeyS` should
+reuse: **build the witness out of the type's own subterms and its
+truthfulness is the type's, component for component.**
+
+**What remains, precisely.**  `AnnotOkV ρ t` itself is *not* available
+from the invariant — `cvA` is fresh, so `cval_memType` does not apply
+to it — and must be proved from the pinned type's shape.  Its only
+non-trivial part is the `Eq`-spine's three `AnnotOkV_app` obligations
+(`interp f ∈ˢ piC A B`, `interp a ∈ˢ A`), which peel from
+`m.cval_memType` at `eqName` (stored, `hEq`) through `app_mem_piC`.
+The membership `interp (Vf ψ) ∈ˢ interp ρ t` is then `lamC_mem` three
+times, and the innermost step is the whole mathematical content:
+`interp H₁ = interp H₂` because `EqLawV.app₃` reduces both to `eqv`
+and `EnvS.reduce_ops` gives `app (cval op) a = a` for `a ∈ˢ E`.
+
+Estimated remainder: the `Eq`-spine peeling (~80 lines) and the
+three-fold `lamC_mem` (~40).

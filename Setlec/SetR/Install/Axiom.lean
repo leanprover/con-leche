@@ -1,4 +1,5 @@
 import Setlec.SetR.Install.ValueKinds
+import Setlec.Verify.OfReducePin
 
 /-!
 # The `axiom` case (task #148, T5)
@@ -295,5 +296,46 @@ theorem declAxiomS (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
       (by rcases hofn with hh | hh <;> rw [hh] <;> decide)
   · exact ⟨m⟩
 
+
+/-- The equality former's valuation at the pinned level `1`. -/
+def eqVS {env : Env} (m : EnvS V env) (ψ : Name → Nat) : VExpr :=
+  m.cval eqName
+    (Level.substFn ψ eqA.toConstantVal.levelParams [.succ .zero])
+
+/-- **The pinned `ofReduce` type, denoted.**  The `EnvS` restatement
+of `denote_ofReducePin`: it used its `EnvTT` only through
+`denote_const_nolevels`. -/
+theorem denote_ofReducePinS {env : Env} (m : EnvS V env) {n : Name}
+    (hn : n = ofReduceNatName ∨ n = ofReduceBoolName)
+    {ciE : ConstantInfo} {cvR : ConstantVal}
+    (hfE : env.find? (reduceElemName (ofReduceOp n)) = some ciE)
+    (hlpE : ciE.toConstantVal.levelParams = [])
+    (hfR : env.find? (ofReduceOp n) = some (.axiomInfo cvR))
+    (hlpR : cvR.levelParams = [])
+    (hEq : env.find? eqName = some eqA) (ψ : Name → Nat) :
+    denote m.cval env ψ 0 (ofReducePinA n).type =
+      some (.pi (m.cval (reduceElemName (ofReduceOp n)) ψ)
+        (.pi (m.cval (reduceElemName (ofReduceOp n)) ψ)
+          (.pi (VExpr.mkAppN (eqVS m ψ)
+              [m.cval (reduceElemName (ofReduceOp n)) ψ,
+               .app (m.cval (ofReduceOp n) ψ) (.bvar 1), .bvar 0])
+            (VExpr.mkAppN (eqVS m ψ)
+              [m.cval (reduceElemName (ofReduceOp n)) ψ,
+               .bvar 2, .bvar 1])))) := by
+  have hE : ∀ d, denote m.cval env ψ d
+      (.const (reduceElemName (ofReduceOp n)) [])
+      = some (m.cval (reduceElemName (ofReduceOp n)) ψ) :=
+    fun d => denote_const_nolevelsS hfE hlpE ψ d
+  have hR : ∀ d, denote m.cval env ψ d (.const (ofReduceOp n) [])
+      = some (m.cval (ofReduceOp n) ψ) :=
+    fun d => denote_const_nolevelsS hfR hlpR ψ d
+  have hQ : ∀ d, denote m.cval env ψ d (.const eqName [.succ .zero])
+      = some (eqVS m ψ) := by
+    intro d
+    rw [denote_const, hEq, eqVS]
+    exact if_pos rfl
+  rw [ofReducePin_type hn]
+  simp [denote_forallE, hE, Expr.instantiate1, denote_app, denote_fvar,
+    Expr.mkAppN, VExpr.mkAppN, hQ, hR]
 
 end Setlec.SetR
