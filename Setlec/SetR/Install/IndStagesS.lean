@@ -2215,9 +2215,9 @@ the tower by β — the partial application *is* the next layer's `lamC`
 package by `lamC_mem_upair`. -/
 theorem lamTowerStepS :
     ∀ (n : Nat) {K : Nat} (_hn : n ≤ K) {Γl : List VExpr} {C : VExpr}
-      (hΓ : Γl.length = K) {ws : List VExpr} (hw : ws.length = K)
+      (_hΓ : Γl.length = K) {ws : List VExpr} (_hw : ws.length = K)
       {ρ : Nat → V}
-      (hmem : ∀ k, k < K → interp V ρ (ws.getD k default)
+      (_hmem : ∀ k, k < K → interp V ρ (ws.getD k default)
         ∈ˢ interp V (chainE V ρ (ws.take k))
             (Γl.getD (K - 1 - k) default)),
       interp V ρ (VExpr.mkAppN (lamCtx Γl C) (ws.take n))
