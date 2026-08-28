@@ -1956,4 +1956,65 @@ theorem instLamsAt_leaves :
       · exact push h2
       · exact Or.inr ⟨b, List.mem_cons_of_mem _ hb, hlb⟩
 
+
+/-- The opener returns one variable per binder. -/
+theorem openPisAtFvars_length :
+    ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr},
+      openPisAtFvars k e d = some (fvs, body) → fvs.length = k := by
+  intro k
+  induction k with
+  | zero =>
+    intro e d fvs body h
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    rfl
+  | succ k ih =>
+    intro e d fvs body h
+    match e, h with
+    | .forallE nm dom bodyE mb, h =>
+      simp only [openPisAtFvars] at h
+      cases h1 : openPisAtFvars k (bodyE.instantiate1 (.fvar d nm dom))
+          (d + 1) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p =>
+        rw [h1] at h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp [ih h1]
+
+/-- Truncating an `instLamsAt` run (the λ mirror of `instPisAt_take`). -/
+theorem instLamsAt_take :
+    ∀ (sp : List Expr) (n : Nat) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instLamsAt sp ty = some (ds, rs) →
+      ∃ mid, Expr.instLamsAt (sp.take n) ty = some (ds.take n, mid) ∧
+        Expr.instLamsAt (sp.drop n) mid = some (ds.drop n, rs) := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro n ty ds rs h
+    simp only [Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨ty, by simp [Expr.instLamsAt], by simp [Expr.instLamsAt]⟩
+  | cons a sp ih =>
+    intro n ty ds rs h
+    match ty, h with
+    | .lam nm dom body mb, h =>
+      simp only [Expr.instLamsAt] at h
+      cases h1 : Expr.instLamsAt sp (body.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p =>
+        rw [h1] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        cases n with
+        | zero =>
+          refine ⟨.lam nm dom body mb, by simp [Expr.instLamsAt], ?_⟩
+          simp only [List.drop_zero, Expr.instLamsAt, h1]
+          rfl
+        | succ n =>
+          obtain ⟨mid, h2, h3⟩ := ih n h1
+          refine ⟨mid, ?_, by simpa using h3⟩
+          simp only [List.take_succ_cons, Expr.instLamsAt, h2]
+          rfl
+
 end Setlec.TTVerify
