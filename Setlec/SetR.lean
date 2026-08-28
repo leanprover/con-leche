@@ -30,6 +30,7 @@ import Setlec.SetR.Install.IndBottomNestedS
 import Setlec.SetR.Install.IndBottomProjS
 import Setlec.SetR.Install.EtaLawS
 import Setlec.SetR.Install.Step
+import Setlec.SetR.Install.IndMemberS
 import Setlec.SetR.Examples
 import Setlec.SetR.Bridge.Env
 import Setlec.SetR.Bridge.Claims

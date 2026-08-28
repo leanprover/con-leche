@@ -1644,3 +1644,77 @@ worth one line: **both** of its sides are frame variables (`.bvar 1`
 and `.bvar 0`), whose binder domains `checkUnitThm` pins to the family
 application — so `Sat` supplies both memberships and finding 4's
 rigidity is not needed at all.  Only the eta law fabricates a side.
+
+## T5 — the per-kind dispatch, and `declIndS` stage 1 (2026-08-28)
+
+`declStepS` (`Install/Step.lean`) is the `checkDeclR_sound`-shaped
+lemma T6 consumes: **a `DeclR` derivation extends an `EnvS`**, by pure
+dispatch over the six kinds.  Four go through the landed kind lemmas
+(`declDefnS`/`declThmS`/`declOpaqueS`/`declAxiomS`); the two remaining
+are named as obligations in the house pattern —
+
+* `DeclBasisS` — supplier: the basis install;
+* `DeclIndS` — supplier: the block install (the member fold, the
+  recursor group consuming the three iota bottoms, the capability
+  record consuming `etaLawKeyS`/`unitLawKeyS`, the projection installs
+  and the templates).
+
+So the per-kind lemma set is **closed modulo those two**, and T6 can
+be written against `declStepS` today.
+
+`indMemberS` (`Install/IndMemberS.lean`) is `declIndS`'s stage 1 and
+`extendAxiomS`'s sibling: a checked non-recursor block member
+(`.indInfo`/`.ctorInfo`) installed **at the model artifact's
+valuation** — `cval T ψ := cval (T._model) ψ`, which is exactly the
+identification `etaLawKeyS`/`unitLawKeyS` consume as `hvT`/`hvC`.  Two
+`EnvS.cons` obligations stay parameters, as in the TT lane
+(`checkIndMemberTT`): at a single member's install the family's
+constructor and projections need not be stored yet, so only the block
+fold can discharge `hheadEta`/`hheadUnit`.  Everything else is vacuous
+by kind or refuted by the member's non-reservedness.
+
+### FINDING 5 (raised at `declIndS` stage 2; **a reading to fix, not a wall**): the block folds' fixed `cval`
+
+`IndMembersR` — and equally `IndRecsR`'s `ProvisionRecsR`/
+`IndRecsFoldR`, `ProjInstallR` and `TemplatesR` — thread **one**
+`cval` unchanged through the fold, while each step's environment
+grows.  The step's front door is `ConstantValR μ F env'ₖ cval …`,
+whose last conjunct reads `denoteClosed cval env'ₖ φ type'` and
+`Infer μ env'ₖ cval …`.  A later member's type *does* mention earlier
+block members (a constructor targets its family), so which valuation
+`cval` denotes is not a detail.
+
+Two readings, and they are not equivalent:
+
+* **`cval` = the declaration's pre-block valuation** (what every
+  landed consumer passes — `declThmS` and friends take
+  `h : DeclXR μ F env m.cval …`).  Then for member `k > 1` the front
+  door speaks about the *junk* valuation the block members had before
+  they were installed, and the install cannot use it: the fact is
+  about the wrong function and no transport recovers it.
+* **`cval` = the post-block valuation**.  Then the fold is correct —
+  on every name in `env'ₖ` the post-block valuation agrees with the
+  running one — but T6 must **construct the final valuation before
+  consuming the relation**.  That is possible (it is
+  `cvalWith … (T ↦ cval (T._model)) …` over the block's names, all of
+  whose model artifacts are already in `env₀`), but it is a real
+  obligation on T6 and nothing in the tier says so.
+
+The third option is to **index the folds by the running valuation**,
+which is what the install actually builds:
+
+```
+  | env', cval, ci :: rest, env₂, cval₂ =>
+    ∃ cvA, MemberValR μ F env' cval blockNames ci.toConstantVal cvA ∧
+      … IndMembersR … ⟨.indInfo cvA caps :: env'.consts⟩
+          (cvalWith cval cvA.name
+            (fun ψ => cval (cvA.name.str "_model") ψ)) rest env₂ cval₂
+```
+
+so the relation and `indMemberS` agree **by construction** and no
+side condition on T6 is needed.  This is the same class as finding 4
+(a statement fixed before meeting its consumer) but, unlike it, the
+present statement is *defensible* under the second reading — so the
+choice is a design decision, not a repair, and it is recorded here
+rather than taken.  `declIndS` stage 2 (the member fold) is blocked on
+it; stage 1 is not.
