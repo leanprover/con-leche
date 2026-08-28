@@ -2716,6 +2716,62 @@ semantically — the statement's major applies the constructor family at
 so a mismatched `lvls` makes the statement fail to denote at all.  The
 checker never has to look; the model has to prove it.
 
+## T5 stage 4 (2026-08-28) — the asymmetric discharges, and a correction
+
+### `MemberUnitS`: discharged, after being re-signed
+
+The obligation as first stated was **not provable**, and the reason is
+worth keeping: `caps.unitlike = true` on an *abstract* `caps` says
+nothing.  The caps an install stores are `indBlockCaps`' output, and
+its two Booleans are exactly `checkEtaThm`/`checkUnitThm`, which invert
+to the artifacts' shape pins.  That inversion is the shared, V-free
+`EtaPins` (`Verify/Extend/Iota.lean`), and it is what `unitLawKeyS`
+consumes.  So `MemberUnitS` now takes `MemberValR` + `BlockInstalledTT`
++ `EtaPins`, in the same shape the Model lane's `checkIndMember_sound`
+has always used, and the block folds thread it with `EtaPins.step`.
+
+The discharge itself is short, and confirms c5's observation: the
+unit-like law is the *easy* half of the pair because it fabricates no
+side — both of its subjects are given, so all that is left is moving
+the model's facts onto the installed valuation.
+
+### `MemberEtaS`: **not** a member-fold discharge — the handoff was wrong
+
+The T5 handoff said `MemberEtaS` is "gated and therefore vacuous during
+both member folds".  That is **false**, and the counterexample is
+inside `EtaFamilyStored` itself: with `caps.etaFields = 0` the
+projection conjunct is vacuous, so the family completes as soon as its
+*constructor* is stored — which happens inside the member fold.  A
+0-field eta-capable structure is exactly that case.
+
+Working the cases out properly:
+
+| case | why |
+|---|---|
+| family already complete in `env` | **impossible** — the head disjunct puts `c₀.name` at `T`, the ctor, or a projection, and `c₀.name` is fresh |
+| `projFnName T j = c₀.name` | **impossible** — `ConstantValR` pins `cv.name.isProjFnShape = false` |
+| completing, `etaFields > 0` | refuted, but only from `DeclIndR`'s `(envR.find? (projFnName cvT.name j)).isNone` conjunct — an **assembly-level** fact |
+| completing, `etaFields = 0` | **live**; `etaLawKeyS` fires with its projection premise vacuous |
+
+Both live rows need facts the fold does not have (the run's freshness
+facts; the block's identification of `T`).  So `MemberEtaS` stays a
+*forwarded* obligation, discharged at the `DeclIndS` assembly — which
+is precisely what the Model lane already does and says:
+
+> the eta head obligation is *forwarded* to the caller … only the
+> caller knows whether the member completes a family
+> (`Model/Extend/Ind.lean:22`)
+
+It is re-signed then, with its consumer, per the house rule.  The
+asymmetry the handoff named is real; its *explanation* was not.
+
+**Method note**: the handoff's error came from reasoning about
+`EtaFamilyStored` from its name and purpose rather than from its
+text.  Both wrong steps this session (this one and finding 6's
+"`unitLawKeyS`'s inputs are available there") were of that shape —
+a premise checked for the *data* it needs and not for the *environment*
+or the *degenerate case* it quantifies over.
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -2732,7 +2788,7 @@ needs.
 | `declIndS` 1 | **done** — `indMemberS` (one member, at the model's valuation; admits a rule-less `.recInfo` head) |
 | `declIndS` 2 | **done** — `memberInstallS`, `indMembersS` (non-recursor members), `provisionRecsS` (rule-less recursors ⇒ `EnvS V envSelf`) |
 | `declIndS` 3 | **done** — `EnvS.swap` (3a), `iotaRuleS` (3b), `indRecsS` (3c) |
-| `declIndS` 4 | **unblocked** — FINDING 6 resolved (option 1); the asymmetric discharges are next |
+| `declIndS` 4 | **done** — `memberUnitS` discharged; `MemberEtaS` forwarded to the assembly (see the stage-4 record) |
 | `declIndS` 5 | **not started** — projection installs on `indBottomProjS` |
 | `declIndS` 6 | **not started** — the elimination templates |
 | `DeclIndS` assembly | **not started** |
