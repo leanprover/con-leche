@@ -1524,4 +1524,586 @@ theorem teleFitV_rest_eq :
         show k + 1 - 1 - 1 = k - 1 from by omega, Nat.add_sub_cancel,
         Nat.zero_add]
 
+
+set_option maxHeartbeats 6400000 in
+/-- **The point stage**: the statement's lhs, position by position, is
+the fired redex — prefix openers read the chain, index arguments cross
+through the canonical residual (the index walk + `IotaIndexPinV`), and
+the major is the canonical constructor application reconciled through
+the parameter equalities and the fire-site level guard. -/
+theorem pointS {μ : CheckMode} {env : Env} {cval : TConstVal}
+    {φ : Name → Nat} {lps : List Name} {us : List Level}
+    {ψ' : Name → Nat} (hψ'E : ψ' = Level.substFn φ lps us)
+    {zs : List VExpr}
+    (henv : EnvSHyp V env cval ψ')
+    {f : Name → Name} (hro : RenameOkT cval env f)
+    (hvp : ∀ n ci, env.find? n = some ci →
+      ∀ φ₁ φ₂ : Name → Nat,
+        (∀ p ∈ ci.toConstantVal.levelParams, φ₁ p = φ₂ p) →
+        cval n φ₁ = cval n φ₂)
+    {Rn : Name}
+    {rP cnP cnF mI : Nat} {xs ys : List VExpr} {ρ : Nat → V}
+    (hzs : zs = xs.take rP ++ ys.drop cnP)
+    (hrPmI : rP ≤ mI) (hplainLe : cnP ≤ rP)
+    (hlenX : xs.length = mI) (hlenY : ys.length = cnP + cnF)
+    {ctor : Name} {cvj : ConstantVal} {usj : List Level}
+    (hlenJ : usj.length = cvj.levelParams.length)
+    (hctorE : env.find? ctor = some (.ctorInfo cvj cnP cnF))
+    {ciCm : ConstantInfo} (hfCmE : env.find? (f ctor) = some ciCm)
+    (hCmlps : ciCm.toConstantVal.levelParams = cvj.levelParams)
+    (hlev : Level.substFn φ cvj.levelParams usj
+      = Level.substFn φ cvj.levelParams
+          (cvj.levelParams.map fun p => Level.subst lps us (.param p)))
+    {ciRm : ConstantInfo} (hfRnE : env.find? (f Rn) = some ciRm)
+    (hRmlps : ciRm.toConstantVal.levelParams = lps)
+    {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
+    (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      ∃ nm ty, x = Expr.fvar i nm ty)
+    (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
+    (hbFvs : ∀ x ∈ fvs, x.looseBVarsBounded 0 = true)
+    (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    {Γs : List VExpr} (hΓslen : Γs.length = rP + cnF)
+    (hdomsS0 : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      denote cval env (ψ') i (Expr.fvarTypeD x)
+        = some (Γs.getD (rP + cnF - 1 - i) default))
+    (hsat : Sat V Γs (chainE V ρ zs))
+    {lhsS : Expr} {vL : VExpr}
+    (hvL : denote cval env (ψ') (rP + cnF) lhsS
+      = some vL)
+    (hlhead : lhsS.getAppFn = Expr.const (f Rn) (lps.map .param))
+    (hlarity : lhsS.getAppArgs.length = mI + 1)
+    (hlpre : lhsS.getAppArgs.take rP = fvs.take rP)
+    (hmaj : lhsS.getAppArgs.getLastD (.bvar 0)
+      = Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
+          (fvs.take cnP ++ fvs.drop rP))
+    (hleafLhs : ∀ l ∈ lhsS.fvarLeaves,
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hltLhs : ∀ l ∈ lhsS.fvarLeaves, l.1 < rP + cnF)
+    {ctyR : Expr} (hCwR : ctyR.hasFvar = false)
+    (hCbR : ctyR.looseBVarsBounded 0 = true)
+    {TVj : VExpr}
+    (hTVjK : denote cval env (ψ') (rP + cnF) ctyR
+      = some TVj)
+    (hTVjcl : VExpr.Closed TVj)
+    {Γj : List VExpr} {Rj : VExpr}
+    (htowerJ : PiTele (cnP + cnF) TVj Γj Rj)
+    {cdoms : List Expr} {cres : Expr}
+    (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP) ctyR
+      = some (cdoms, cres))
+    (hclen : cres.getAppArgs.length = cnP + (mI - rP))
+    {vHC : VExpr} {vArgsC : List VExpr}
+    (hRjdec : Rj = VExpr.mkAppN vHC vArgsC)
+    (hArgsClen : vArgsC.length = cnP + (mI - rP))
+    (hdeIdx : DefEqListW μ env cval (ψ') (rP + cnF)
+      ((lhsS.getAppArgs.drop rP).take (mI - rP))
+      (cres.getAppArgs.drop cnP))
+    {restC : VExpr} (hfitC : TeleFitV V ρ TVj ys restC)
+    (hidx : IotaIndexPinV V ρ restC cnP mI rP xs)
+    (hpar : ∀ i, i < cnP →
+      interp V ρ (ys.getD i default) = interp V ρ (xs.getD i default)) :
+    interp V (chainE V ρ zs) vL
+      = interp V ρ
+          (VExpr.mkAppN (cval Rn (ψ'))
+            (xs ++ [VExpr.mkAppN
+              (cval ctor (Level.substFn φ cvj.levelParams usj)) ys])) := by
+  have hxtlen : (xs.take rP).length = rP := by
+    rw [List.length_take, hlenX]
+    omega
+  have hzslen : zs.length = rP + cnF := by
+    rw [hzs, List.length_append, hxtlen, List.length_drop, hlenY]
+    omega
+  have hzsPre : ∀ n, n < rP →
+      zs.getD n default = xs.getD n default := by
+    intro n hn
+    rw [hzs, List.getD, List.getElem?_append_left (by omega),
+      List.getElem?_take_of_lt hn]
+    rfl
+  have hzsFld : ∀ j, j < cnF →
+      zs.getD (rP + j) default = ys.getD (cnP + j) default := by
+    intro j hj
+    rw [hzs, List.getD, List.getElem?_append_right (by omega), hxtlen,
+      List.getElem?_drop, show rP + j - rP = j from by omega]
+    rfl
+  -- decompose the lhs
+  have hlhsApp : lhsS = Expr.mkAppN
+      (.const (f Rn) (lps.map .param)) lhsS.getAppArgs := by
+    rw [← hlhead]
+    exact (Expr.mkAppN_getApp lhsS).symm
+  rw [hlhsApp] at hvL
+  obtain ⟨vLf, vLargs, hvLf, hLspine, rfl⟩ := denote_mkAppN_inv hvL
+  have hvLargsLen : vLargs.length = mI + 1 := by
+    rw [hLspine.length, hlarity]
+  have hcl' := henv.cval_closed
+  -- shared scattered-spine facts
+  have hsplen : (fvs.take cnP ++ fvs.drop rP).length = cnP + cnF := by
+    rw [List.length_append, List.length_take, List.length_drop, hfvslen]
+    omega
+  have hspGet : ∀ q, q < cnP + cnF →
+      ∃ x, (fvs.take cnP ++ fvs.drop rP)[q]? = some x ∧
+        fvs[if q < cnP then q else rP + (q - cnP)]? = some x := by
+    intro q hq
+    by_cases hqc : q < cnP
+    · rcases hx : fvs[q]? with _ | x
+      · rw [List.getElem?_eq_none_iff, hfvslen] at hx
+        omega
+      · refine ⟨x, ?_, by rw [if_pos hqc]; exact hx⟩
+        rw [List.getElem?_append_left
+          (by rw [List.length_take, hfvslen]; omega),
+          List.getElem?_take_of_lt hqc]
+        exact hx
+    · rcases hx : fvs[rP + (q - cnP)]? with _ | x
+      · rw [List.getElem?_eq_none_iff, hfvslen] at hx
+        omega
+      · refine ⟨x, ?_, by rw [if_neg hqc]; exact hx⟩
+        have hmin : min cnP (rP + cnF) = cnP := by omega
+        rw [List.getElem?_append_right
+          (by rw [List.length_take, hfvslen]; omega),
+          List.getElem?_drop, List.length_take, hfvslen, hmin]
+        exact hx
+  have hspIdx : ∀ (q : Nat) (x : Expr),
+      (fvs.take cnP ++ fvs.drop rP)[q]? = some x →
+      ∃ nm ty, x = Expr.fvar (if q < cnP then q else rP + (q - cnP)) nm ty ∧
+        x ∈ fvs := by
+    intro q x hx
+    have hq : q < cnP + cnF := by
+      rcases Nat.lt_or_ge q (cnP + cnF) with h' | h'
+      · exact h'
+      · rw [List.getElem?_eq_none (by rw [hsplen]; omega)] at hx
+        exact nomatch hx
+    obtain ⟨x', hx', hfx⟩ := hspGet q hq
+    obtain rfl : x = x' := by
+      rw [hx] at hx'
+      exact Option.some.inj hx'
+    obtain ⟨nm, ty, hxe⟩ := hshapeS _ _ hfx
+    exact ⟨nm, ty, hxe, List.mem_of_getElem? hfx⟩
+  have hspFacts : ∀ (q : Nat) (x : Expr),
+      (fvs.take cnP ++ fvs.drop rP)[q]? = some x →
+      (∃ w, denote cval env ψ' (rP + cnF) x = some w) ∧
+        Expr.WScoped (rP + cnF) x ∧ x.looseBVarsBounded 0 = true := by
+    intro q x hx
+    obtain ⟨nm, ty, rfl, hmem⟩ := hspIdx q x hx
+    exact ⟨⟨_, denote_fvar cval env ψ' (rP + cnF) _ nm ty⟩,
+      hwsFvs _ hmem, hbFvs _ hmem⟩
+  have hfbCty : Expr.fvarsBelow (rP + cnF) ctyR := by
+    refine Expr.fvarsBelow_of_fvarLeaves fun l hl => ?_
+    rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hCwR] at hl
+    exact nomatch hl
+  have hfvsLt : ∀ l : Nat × Name × Expr,
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs → l.1 < rP + cnF := by
+    intro l hl
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem hl
+    obtain ⟨nm', ty', heq⟩ := hshapeS q _ hq
+    have hql : q < fvs.length := (List.getElem?_eq_some_iff.mp hq).1
+    injection heq with h1 _
+    rw [h1]
+    rw [hfvslen] at hql
+    exact hql
+  -- the head of the statement's lhs is the recursor's leaf
+  have hconstDen : ∀ (c : Name) (ci : ConstantInfo) (ks : List Name),
+      env.find? c = some ci → ci.toConstantVal.levelParams = ks →
+      denote cval env ψ' (rP + cnF) (.const c (ks.map .param))
+        = some (cval c ψ') := by
+    intro c ci ks hf hlp
+    rw [denote_const, hf]
+    dsimp only
+    rw [if_pos (by rw [hlp, List.length_map]), hlp,
+      show Level.substFn ψ' ks (ks.map .param) = ψ' from
+        funext fun _ => Level.substFn_map_param]
+  have hvLfEq : vLf = cval Rn ψ' := by
+    rw [hconstDen (f Rn) ciRm lps hfRnE hRmlps] at hvLf
+    rw [hro.2.2] at hvLf
+    exact (Option.some.inj hvLf).symm
+  -- the constructor's fire-site levels agree with the pinned ones
+  have hctorLev : cval ctor (Level.substFn φ cvj.levelParams usj)
+      = cval ctor ψ' := by
+    refine hvp ctor _ hctorE _ _ ?_
+    intro p hp
+    have hmm : (cvj.levelParams.map fun q => Level.subst lps us (.param q))
+        = (cvj.levelParams.map Level.param).map (Level.subst lps us) := by
+      rw [List.map_map]
+      rfl
+    calc Level.substFn φ cvj.levelParams usj p
+        = Level.substFn φ cvj.levelParams
+            ((cvj.levelParams.map Level.param).map (Level.subst lps us))
+            p := by rw [hlev, hmm]
+      _ = Level.substFn (Level.substFn φ lps us) cvj.levelParams
+            (cvj.levelParams.map Level.param) p :=
+          Level.substFn_map_subst (by rw [List.length_map]) hp
+      _ = ψ' p := by
+          rw [hψ'E]
+          exact Level.substFn_map_param
+  -- reduce to the mapped spine equality
+  rw [hvLfEq, interp_mkAppN_map, interp_mkAppN_map,
+    interp_closed V (hcl' Rn ψ') (chainE V ρ zs) ρ]
+  suffices hmap : vLargs.map (interp V (chainE V ρ zs))
+      = (xs ++ [VExpr.mkAppN
+          (cval ctor (Level.substFn φ cvj.levelParams usj)) ys]).map
+          (interp V ρ) by
+    rw [hmap]
+  refine List.ext_getElem? fun i => ?_
+  rw [List.getElem?_map, List.getElem?_map]
+  rcases Nat.lt_or_ge i (mI + 1) with hi | hi
+  · -- in range: extract the lhs argument and its denotation
+    rcases hai : lhsS.getAppArgs[i]? with _ | ai
+    · rw [List.getElem?_eq_none_iff, hlarity] at hai
+      omega
+    obtain ⟨vi, hvi, hdi⟩ := denoteSpine_getElem?' hLspine i ai hai
+    rw [hvi]
+    rcases Nat.lt_or_ge i rP with hiP | hiP
+    · -- prefix branch: the opener reads the chain at an `xs` slot
+      have hlargsFv : lhsS.getAppArgs[i]? = fvs[i]? := by
+        have h1 := congrArg (fun l => l[i]?) hlpre
+        simp only [List.getElem?_take_of_lt hiP] at h1
+        exact h1
+      obtain ⟨nm, ty, rfl⟩ := hshapeS i ai (by rw [← hlargsFv]; exact hai)
+      rw [denote_fvar] at hdi
+      obtain rfl : vi = .bvar (rP + cnF - 1 - i) :=
+        (Option.some.inj hdi).symm
+      rw [List.getElem?_append_left (by rw [hlenX]; omega)]
+      rcases hx : xs[i]? with _ | xv
+      · rw [List.getElem?_eq_none_iff, hlenX] at hx
+        omega
+      have hgx : xs.getD i default = xv := by
+        rw [List.getD, hx]
+        rfl
+      have hbb : rP + cnF - 1 - i < zs.length := by
+        rw [hzslen]
+        omega
+      rw [Option.map_some, Option.map_some, interp_bvar, chainE_lt hbb,
+        hzslen, show rP + cnF - 1 - (rP + cnF - 1 - i) = i from by omega,
+        hzsPre i hiP, hgx]
+    · rcases Nat.lt_or_ge i mI with hiM | hiM
+      · -- index branch: walk, cross, and the fired index pin
+        have hj : i - rP < mI - rP := by omega
+        have hmIrP : rP < mI := by omega
+        -- the walk element
+        obtain ⟨hwlen, hwget⟩ := Forall2.length_getD hdeIdx
+        have hlenL : ((lhsS.getAppArgs.drop rP).take (mI - rP)).length
+            = mI - rP := by
+          rw [List.length_take, List.length_drop, hlarity]
+          omega
+        have hde := hwget (i - rP) default default (by rw [hlenL]; omega)
+        have hLsub : ((lhsS.getAppArgs.drop rP).take (mI - rP)).getD
+              (i - rP) default
+            = ai := by
+          rw [List.getD, List.getElem?_take_of_lt hj, List.getElem?_drop,
+            show rP + (i - rP) = i from by omega, hai]
+          rfl
+        rcases hbx : cres.getAppArgs[cnP + (i - rP)]? with _ | bx
+        · rw [List.getElem?_eq_none_iff, hclen] at hbx
+          omega
+        have hRsub : (cres.getAppArgs.drop cnP).getD (i - rP) default
+            = bx := by
+          rw [List.getD, List.getElem?_drop, hbx]
+          rfl
+        rw [hLsub, hRsub] at hde
+        -- leaves of the two subjects
+        have hleafA : ∀ l ∈ ai.fvarLeaves,
+            Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+          intro l hl
+          exact hleafLhs l
+            (fvarLeaves_getAppArgs (List.mem_of_getElem? hai) l hl)
+        have hltA : ∀ l ∈ ai.fvarLeaves, l.1 < rP + cnF := by
+          intro l hl
+          exact hltLhs l
+            (fvarLeaves_getAppArgs (List.mem_of_getElem? hai) l hl)
+        have hleafB : ∀ l ∈ bx.fvarLeaves,
+            Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+          intro l hl
+          have hlc : l ∈ cres.fvarLeaves :=
+            fvarLeaves_getAppArgs (List.mem_of_getElem? hbx) l hl
+          rcases instPisAt_leaves _ hcinst l (Or.inr hlc) with
+            hty | ⟨a, ha, hla⟩
+          · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hCwR] at hty
+            exact nomatch hty
+          · obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
+            obtain ⟨nm, ty, rfl, hmem⟩ := hspIdx q _ hq
+            rw [Expr.fvarLeaves] at hla
+            rcases List.mem_cons.mp hla with rfl | hla'
+            · exact hmem
+            · exact hleafClosed l ⟨_, hmem, by
+                rw [Expr.fvarLeaves]
+                exact List.mem_cons_of_mem _ hla'⟩
+        have hltB : ∀ l ∈ bx.fvarLeaves, l.1 < rP + cnF := by
+          intro l hl
+          exact hfvsLt l (hleafB l hl)
+        -- fire the walk at the full context
+        have hent : ∀ i', i' < rP + cnF →
+            Γs[rP + cnF - 1 - i']? =
+              some (Γs.getD (rP + cnF - 1 - i') default) := by
+          intro i' hi'
+          rw [List.getD]
+          rcases hg : Γs[rP + cnF - 1 - i']? with _ | g
+          · rw [List.getElem?_eq_none_iff, hΓslen] at hg
+            omega
+          · rfl
+        obtain ⟨Av, Bv, hAv, hBv, heqAB⟩ := openWalk_eqS henv
+          (k := rP + cnF) (fvs := fvs)
+          (As := fun i' => Γs.getD (rP + cnF - 1 - i') default)
+          hΓslen hshapeS hwsFvs
+          (fun i' x hx => hdomsS0 i' x hx) (n := rP + cnF) hent hde
+          hleafA hltA hleafB hltB hsat
+        obtain rfl : vi = Av := by
+          rw [hdi] at hAv
+          exact Option.some.inj hAv
+        -- the residual's denotation and spine
+        obtain ⟨vCres, hvCres⟩ := instPisAt_fvar_denote_defined hcl'
+          _ hcinst (D := rP + cnF) hspFacts hfbCty hCbR hTVjK
+        have hvCres1 : denote cval env ψ' (rP + cnF)
+            (Expr.mkAppN cres.getAppFn cres.getAppArgs) = some vCres := by
+          rw [Expr.mkAppN_getApp]
+          exact hvCres
+        obtain ⟨vcH, vcArgs, hvcH, hcsp, hvCresEq⟩ :=
+          denote_mkAppN_inv hvCres1
+        have hvcArgsLen : vcArgs.length = cnP + (mI - rP) := by
+          rw [hcsp.length, hclen]
+        obtain ⟨bv', hbv', hdb'⟩ := denoteSpine_getElem?' hcsp _ bx hbx
+        obtain rfl : Bv = bv' := by
+          rw [hdb'] at hBv
+          exact (Option.some.inj hBv).symm
+        -- the mixed spine and the full cross
+        have hmixlen : ((List.range (cnP + cnF)).map
+            (fun q => zs.getD (if q < cnP then q else rP + (q - cnP))
+              default)).length = cnP + cnF := by
+          rw [List.length_map, List.length_range]
+        have hmixget : ∀ q, q < cnP + cnF →
+            ((List.range (cnP + cnF)).map
+              (fun q => zs.getD (if q < cnP then q else rP + (q - cnP))
+                default))[q]?
+            = some (zs.getD (if q < cnP then q else rP + (q - cnP))
+                default) := by
+          intro q hq
+          rw [List.getElem?_map, List.getElem?_range hq]
+          rfl
+        have htowFull : PiTele (fvs.take cnP ++ fvs.drop rP).length
+            (VExpr.instSeq zs (rP + cnF - 1) TVj) Γj Rj := by
+          rw [hsplen, VExpr.instSeq_eq_self_of_closed hTVjcl]
+          exact htowerJ
+        have hwsCondF : ∀ (q : Nat) (x : Expr),
+            (fvs.take cnP ++ fvs.drop rP)[q]? = some x →
+            ∃ w0, denote cval env ψ' (rP + cnF) x = some w0 ∧
+              ((List.range (cnP + cnF)).map
+                (fun q => zs.getD (if q < cnP then q else rP + (q - cnP))
+                  default))[q]?
+                = some (VExpr.instSeq zs (rP + cnF - 1) w0) := by
+          intro q x hx
+          have hq : q < cnP + cnF := by
+            rcases Nat.lt_or_ge q (cnP + cnF) with h' | h'
+            · exact h'
+            · rw [List.getElem?_eq_none (by rw [hsplen]; omega)] at hx
+              exact nomatch hx
+          obtain ⟨nm, ty, rfl, hmem⟩ := hspIdx q x hx
+          have hidxK : (if q < cnP then q else rP + (q - cnP))
+              < rP + cnF := by
+            by_cases hqc : q < cnP
+            · rw [if_pos hqc]
+              omega
+            · rw [if_neg hqc]
+              omega
+          refine ⟨.bvar (rP + cnF - 1 -
+              (if q < cnP then q else rP + (q - cnP))),
+            denote_fvar cval env ψ' (rP + cnF) _ nm ty, ?_⟩
+          rw [instSeq_bvar_full hidxK hzslen]
+          exact hmixget q hq
+        have hcross := instPisAt_denote_cross hcl' _ hcinst
+          (D := rP + cnF) (vals := zs) hzslen
+          (fun q x hx => (hspFacts q x hx).2) hfbCty hCbR hTVjK hvCres
+          (ws := (List.range (cnP + cnF)).map
+            (fun q => zs.getD (if q < cnP then q else rP + (q - cnP))
+              default))
+          (by rw [hmixlen, hsplen]) hwsCondF htowFull
+        rw [hvCresEq, VExpr.instSeq_mkAppN, hRjdec, VExpr.instSeq_mkAppN,
+          hmixlen] at hcross
+        have hcrossSp := (VExpr.mkAppN_inj hcross
+          (by rw [List.length_map, List.length_map, hvcArgsLen,
+            hArgsClen])).2
+        -- element of the crossed spines
+        rcases hva : vArgsC[cnP + (i - rP)]? with _ | va
+        · rw [List.getElem?_eq_none_iff, hArgsClen] at hva
+          omega
+        have hel : VExpr.instSeq zs (rP + cnF - 1) Bv
+            = VExpr.instSeq ((List.range (cnP + cnF)).map
+                (fun q => zs.getD (if q < cnP then q else rP + (q - cnP))
+                  default)) (cnP + cnF - 1) va := by
+          have h1 := congrArg (fun l => l[cnP + (i - rP)]?) hcrossSp
+          simp only [List.getElem?_map, hbv', hva, Option.map_some] at h1
+          exact Option.some.inj h1
+        -- the fired pin identifies the `ys`-instantiated element
+        have hrest : restC = VExpr.instSeq ys (cnP + cnF - 1) Rj :=
+          teleFitV_rest_eq (cnP + cnF) htowerJ (by rw [hlenY]) hfitC
+        obtain ⟨H, cargs, hrestEq, hcarLen, hcarInterp⟩ := hidx
+        rcases hcarLen with hcase | hcarLen
+        · omega
+        have hrest2 : VExpr.mkAppN H cargs
+            = VExpr.mkAppN (VExpr.instSeq ys (cnP + cnF - 1) vHC)
+                (vArgsC.map (VExpr.instSeq ys (cnP + cnF - 1))) := by
+          rw [← hrestEq, hrest, hRjdec, VExpr.instSeq_mkAppN]
+        have hcargsSp := (VExpr.mkAppN_inj hrest2
+          (by rw [hcarLen, List.length_map, hArgsClen])).2
+        have hcel : cargs.getD (cnP + (i - rP)) default
+            = VExpr.instSeq ys (cnP + cnF - 1) va := by
+          have h1 := congrArg (fun l => l[cnP + (i - rP)]?) hcargsSp
+          simp only [List.getElem?_map, hva, Option.map_some] at h1
+          rw [List.getD, h1]
+          rfl
+        -- the mixed chain equals the constructor chain
+        have hchainEq : chainE V ρ ((List.range (cnP + cnF)).map
+              (fun q => zs.getD (if q < cnP then q else rP + (q - cnP))
+                default))
+            = chainE V ρ ys := by
+          funext q
+          rcases Nat.lt_or_ge q (cnP + cnF) with hq | hq
+          · rw [chainE_lt (by rw [hmixlen]; exact hq),
+              chainE_lt (by rw [hlenY]; exact hq), hmixlen, hlenY]
+            have hpb : cnP + cnF - 1 - q < cnP + cnF := by omega
+            rw [show ((List.range (cnP + cnF)).map
+                (fun q => zs.getD (if q < cnP then q else rP + (q - cnP))
+                  default)).getD (cnP + cnF - 1 - q) default
+              = zs.getD (if cnP + cnF - 1 - q < cnP then cnP + cnF - 1 - q
+                  else rP + (cnP + cnF - 1 - q - cnP)) default from by
+                rw [List.getD, hmixget _ hpb]
+                rfl]
+            by_cases hpc : cnP + cnF - 1 - q < cnP
+            · rw [if_pos hpc, hzsPre _ (by omega)]
+              exact (hpar _ hpc).symm
+            · rw [if_neg hpc, hzsFld (cnP + cnF - 1 - q - cnP) (by omega),
+                show cnP + (cnP + cnF - 1 - q - cnP) = cnP + cnF - 1 - q
+                  from by omega]
+          · rw [chainE_ge (by rw [hmixlen]; exact hq),
+              chainE_ge (by rw [hlenY]; exact hq), hmixlen, hlenY]
+        -- assemble
+        rw [List.getElem?_append_left (by rw [hlenX]; omega)]
+        rcases hx : xs[i]? with _ | xv
+        · rw [List.getElem?_eq_none_iff, hlenX] at hx
+          omega
+        rw [Option.map_some, Option.map_some]
+        have hgx : xs.getD i default = xv := by
+          rw [List.getD, hx]
+          rfl
+        have hchain : interp V (chainE V ρ zs) vi
+            = interp V ρ (xs.getD i default) := by
+          calc interp V (chainE V ρ zs) vi
+              = interp V (chainE V ρ zs) Bv := heqAB
+            _ = interp V ρ (VExpr.instSeq zs (zs.length - 1) Bv) :=
+                (interp_instSeq zs Bv ρ).symm
+            _ = interp V ρ (VExpr.instSeq ((List.range (cnP + cnF)).map
+                  (fun q => zs.getD
+                    (if q < cnP then q else rP + (q - cnP)) default))
+                  (cnP + cnF - 1) va) := by
+                rw [hzslen]
+                exact congrArg (interp V ρ) hel
+            _ = interp V (chainE V ρ ((List.range (cnP + cnF)).map
+                  (fun q => zs.getD
+                    (if q < cnP then q else rP + (q - cnP)) default))) va
+                := by
+                rw [show cnP + cnF - 1 = (((List.range (cnP + cnF)).map
+                    (fun q => zs.getD
+                      (if q < cnP then q else rP + (q - cnP)) default)
+                    ).length) - 1 from by rw [hmixlen]]
+                exact interp_instSeq _ va ρ
+            _ = interp V (chainE V ρ ys) va := by rw [hchainEq]
+            _ = interp V ρ (VExpr.instSeq ys (ys.length - 1) va) :=
+                (interp_instSeq ys va ρ).symm
+            _ = interp V ρ (cargs.getD (cnP + (i - rP)) default) := by
+                rw [hlenY, hcel]
+            _ = interp V ρ (xs.getD (rP + (i - rP)) default) :=
+                hcarInterp (i - rP) hj
+            _ = interp V ρ (xs.getD i default) := by
+                rw [show rP + (i - rP) = i from by omega]
+        rw [hchain, hgx]
+      · -- major branch: i = mI
+        obtain rfl : mI = i := by omega
+        -- the last lhs argument is the canonical constructor application
+        have hlast : lhsS.getAppArgs[mI]?
+            = some (Expr.mkAppN
+                (.const (f ctor) (cvj.levelParams.map .param))
+                (fvs.take cnP ++ fvs.drop rP)) := by
+          have h1 := hmaj
+          rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?,
+            hlarity, Nat.add_sub_cancel] at h1
+          rcases h2 : lhsS.getAppArgs[mI]? with _ | y
+          · rw [List.getElem?_eq_none_iff, hlarity] at h2
+            omega
+          · rw [h2] at h1
+            rw [Option.getD_some] at h1
+            rw [h1]
+        obtain rfl : ai = Expr.mkAppN
+            (.const (f ctor) (cvj.levelParams.map .param))
+            (fvs.take cnP ++ fvs.drop rP) := by
+          rw [hai] at hlast
+          exact Option.some.inj hlast
+        -- decompose its denotation
+        obtain ⟨vch, vmargs, hvch, hcspM, hviEq⟩ := denote_mkAppN_inv hdi
+        have hvchEq : vch = cval ctor ψ' := by
+          rw [hconstDen (f ctor) ciCm cvj.levelParams hfCmE hCmlps]
+            at hvch
+          rw [hro.2.2] at hvch
+          exact (Option.some.inj hvch).symm
+        have hmargsLen : vmargs.length = cnP + cnF := by
+          rw [hcspM.length, hsplen]
+        -- the right-hand element is the pinned constructor application
+        rw [List.getElem?_append_right (by rw [hlenX]; omega), hlenX,
+          Nat.sub_self]
+        rw [show ([VExpr.mkAppN
+            (cval ctor (Level.substFn φ cvj.levelParams usj)) ys])[0]?
+          = some (VExpr.mkAppN
+              (cval ctor (Level.substFn φ cvj.levelParams usj)) ys)
+          from rfl]
+        rw [Option.map_some, Option.map_some]
+        rw [hviEq, interp_mkAppN_map, interp_mkAppN_map, hvchEq,
+          interp_closed V (hcl' ctor ψ') (chainE V ρ zs) ρ, ← hctorLev]
+        suffices hsp2 : vmargs.map (interp V (chainE V ρ zs))
+            = ys.map (interp V ρ) by
+          rw [hsp2]
+        refine List.ext_getElem? fun q => ?_
+        rw [List.getElem?_map, List.getElem?_map]
+        rcases Nat.lt_or_ge q (cnP + cnF) with hq | hq
+        · obtain ⟨xq, hxq, hxq2⟩ := hspGet q hq
+          obtain ⟨nm, ty, rfl, hmem⟩ := hspIdx q xq hxq
+          obtain ⟨vq, hvq, hdq⟩ := denoteSpine_getElem?' hcspM q _ hxq
+          rw [hvq]
+          rcases hyq : ys[q]? with _ | yq
+          · rw [List.getElem?_eq_none_iff, hlenY] at hyq
+            omega
+          rw [Option.map_some, Option.map_some]
+          rw [denote_fvar] at hdq
+          obtain rfl : vq = .bvar (rP + cnF - 1 -
+              (if q < cnP then q else rP + (q - cnP))) :=
+            (Option.some.inj hdq).symm
+          have hgy : ys.getD q default = yq := by
+            rw [List.getD, hyq]
+            rfl
+          have hbb : rP + cnF - 1 -
+              (if q < cnP then q else rP + (q - cnP)) < zs.length := by
+            rw [hzslen]
+            by_cases hqc : q < cnP
+            · rw [if_pos hqc]
+              omega
+            · rw [if_neg hqc]
+              omega
+          rw [interp_bvar, chainE_lt hbb, hzslen,
+            show rP + cnF - 1 - (rP + cnF - 1 -
+                (if q < cnP then q else rP + (q - cnP)))
+              = (if q < cnP then q else rP + (q - cnP)) from by
+              by_cases hqc : q < cnP
+              · rw [if_pos hqc]
+                omega
+              · rw [if_neg hqc]
+                omega]
+          by_cases hqc : q < cnP
+          · rw [if_pos hqc, hzsPre q (by omega), ← hgy]
+            exact congrArg some (hpar q hqc).symm
+          · rw [if_neg hqc, hzsFld (q - cnP) (by omega),
+              show cnP + (q - cnP) = q from by omega, hgy]
+        · rw [List.getElem?_eq_none (by rw [hmargsLen]; omega),
+            List.getElem?_eq_none (by rw [hlenY]; omega)]
+          rfl
+  · -- out of range: both sides are `none`
+    rw [List.getElem?_eq_none (by rw [hvLargsLen]; omega),
+      List.getElem?_eq_none (by
+        rw [List.length_append, hlenX, List.length_cons, List.length_nil]
+        omega)]
+    rfl
+
 end Setlec.SetR
