@@ -3279,6 +3279,62 @@ obligations are not the same shape, and it is the first thing to
 examine.  Do **not** iterate on the simp set blind — three attempts
 here produced no information, which is what the stop was for.
 
+## `DeclBasisS`: the `PUnit` block lands — the recursor recipe (2026-08-28)
+
+`declBasisS_punitK` closes the second of six blocks, and with it the
+lane's **first recursor**.  The recipe below is what the remaining
+four (`Nat`, `Quot`×2, `Eq`, `PSigma'`) follow.
+
+### Why the TT tactic could not be transposed, and what replaced it
+
+`RecRuleLawV` speaks `denoteClosed` — depth **0** — where the TT
+lane's `hheadRec` speaks `denote … φ d` at an arbitrary depth.  The
+tactic was therefore not transposed at all; the λ-tower is **walked by
+hand at depth 0**:
+
+```
+rw [denoteClosed]                       -- fires; the goal display
+                                        -- re-folds it, ignore that
+simp only [Expr.instantiateLevelParams, …, hsu, hsu1]
+rw [denote_lam, denote_forallE, hPc' 0 φ w2]
+simp only [Expr.instantiate1_*, Nat.reduceAdd, reduceIte]
+rw [denote_lam, denote_app, denote_fvar, hUc' 1 φ w2]
+simp [Expr.instantiate1_bvar, denote_fvar]
+```
+
+`denote_lam`/`denote_forallE` expose a `match` whose **scrutinee must
+be rewritten before it reduces**, and at depth 0 every scrutinee is
+one of the block's own pinned constants — which is exactly what makes
+the walk finite and mechanical.  Two traps, both paid for once:
+
+* the level substitutions must be stated with the **expanded** names
+  (`Name.anonymous.str "u"`), never `uN`/`u1N`, or `simp only` will
+  not match — and the same holds for the *constant* names, hence the
+  `hPc'`/`hUc'` copies normalised by `simp only [punitName, …]`;
+* `0 + 1` is not the literal `1`: `Nat.reduceAdd` must be in the set
+  before `reduceIte` can fire on `if 0 = 1`.
+
+### Lever 1, cashed
+
+The law itself is three lines once the memberships are in hand:
+`punitRecV_app V hM hm pt_mem_unitSet` — the layer's iota law as a
+**value equation** — then `app_lamC hM`, `app_lamC hm` for the
+reduct's two β-steps.  The TT lane needs a `Deq` chain assembled from
+typing rules for the same step.  This is the half-size constant,
+confirmed at the first recursor.
+
+### The truthfulness conjunct
+
+`RecRuleLawV`'s second component is two `AnnotOkV_app` steps, each fed
+by the binder membership `TeleFitV` already supplies, plus `lamC_mem`
+twice for the reduct's own membership.  **Supply the `∃ A B` fibres
+explicitly** — the same lesson as lever 2's postmortem, in a second
+place: an existential whose witness must come from a `piC` membership
+will not solve its metavariables by unification.
+
+**Longhand-first for existential-head goals** is now the informal
+practice this and lever 2 both point at.
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -3299,7 +3355,7 @@ needs.
 | `declIndS` 5 | **done** — `projConsS`, `projFnS`, `projInstallS` |
 | `declIndS` 6 | **done** — `templateVal`, `templateConsS`, `templatesS`; `TemplatesR` re-signed valuation-free |
 | `DeclIndS` assembly | **done** — `Install/DeclIndS.lean` |
-| `DeclBasisS` | **in progress** — infrastructure, `Empty`, `PUnit`'s two non-recursor constants, and **lever 2** (`AnnotOkV_bconst_type`) landed; `extendPUnitRecS` blocked at one step, diagnosed above |
+| `DeclBasisS` | **in progress** — infrastructure, lever 2, and the `Empty` and `PUnit` blocks landed; four blocks left (`Nat`, `Quot`, `Eq`, `PSigma'`, the `Eq`-bridged families) |
 
 Open obligations, all in the house pattern: `DeclBasisS`, `DeclIndS`,
 `MemberKeyS`, `MemberEtaS`, `MemberUnitS`, `DivModPinS`,
