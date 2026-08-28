@@ -2643,6 +2643,79 @@ that dodges the bundle.
 **Not affected**: `MemberKeyS` (states and concludes at the same
 environment), and the three value-kind obligations.
 
+## FINDING 6 RESOLVED (2026-08-28) — option 1, the one-step-ahead restatement
+
+Decided by the coordinator, landed as priced.  The classification line
+stands verbatim: **not finding-#1 — an interface stated for the
+environment its designer had, not the one its consumer has**, the same
+class as FINDING 4 and `EnvR.rec_rhs_denotes`.
+
+### What changed
+
+`EtaLawKeyS`/`UnitLawKeyS` now take, alongside the model `mS` at the
+*smaller* environment, an installed valuation and its install:
+
+```
+{cval' : TConstVal} {c₀ : ConstantInfo}
+(_hi : Installs envS mS.cval cval' c₀)
+(_hcl : ∀ n ψ, VExpr.Closed (cval' n ψ))
+(_hresT : ∀ us, (cvT.type.instantiateLevelParams …).constsResolve envS = true)
+```
+
+and conclude `EtaLawV V ⟨c₀ :: envS.consts⟩ cval' …`.  Every pin that
+mentioned `mS.cval` now mentions `cval'`; the two proof bodies were a
+**mechanical substitution** — they compiled unchanged on the first
+attempt — because `mS.cval` occurred in them only as *a valuation*.
+
+Five bridge points needed real content, all in the new
+`Install/CvalStep.lean`:
+
+| bridge | how |
+|---|---|
+| `denote_cvalStep` | the valuation change at a fixed environment — *unconditional*, since `denote` returns `none` at an unresolved constant |
+| `EnvS.mem_type_step` | the artifacts' front doors at `cval'` |
+| `EqLawV.cvalStep`, `EqFormerKeyV.cvalStep` | the pinned `Eq`'s law and firing key at `cval'` |
+| `EtaLawV.up` / `UnitLawV.up` | the statement's own move, `Installs.denoteDown` ∘ the valuation change |
+
+`hcl` had to become a *hypothesis* rather than a derived fact: `cval'`
+at `c₀.name` is only pinned down when `c₀` is the family's former, its
+constructor, or one of its projections, and the key must also hold at
+installs that are none of those.  The consumer has it — it is
+`EnvS.cons`'s own `hclosed` obligation.
+
+### The load-bearing sub-repair: `fireS` no longer takes `EnvSHyp`
+
+The circularity was never in the key lemmas' *content*; it was in one
+parameter.  `fireS` took the whole `EnvSHyp` and used exactly two of
+its nine fields — `cval_closed` and `mem_type`, both only at
+`eqName`.  Those two are now `EqFormerKeyV`, and
+`EnvSHyp.eqFormerKey` builds it at the sites that have a bundle (the
+three iota bottoms, unchanged one line each).
+
+This is **not** option 3.  Option 3 was to split the T4-frozen
+`EnvSHyp` itself and re-sign every consumer of the bundle across the
+tier.  What landed narrows *one internal helper's* parameter to the
+facts it already used, at five call sites, all inside `Install/`.
+`EnvSHyp` is untouched.
+
+**General lesson, worth carrying past T5**: a helper premised on a
+whole environment bundle cannot be used to *establish* any field of
+that bundle.  When a bundle field's own proof runs through a shared
+engine, the engine must be premised on the fields it uses, not on the
+bundle.  Check this at the point a new `EnvSHyp` field is added, not
+at the point its supplier is written.
+
+### `nestedLvlsLength` — for the #151 record
+
+Stage 3b's relocation is another instance of the pattern #151 is
+about: **information the semantic side demands that the syntax never
+carried.**  `hlvlsLen` (`lvls.length = cvj.levelParams.length`) is
+established by *no checker comparison*.  It is forced only
+semantically — the statement's major applies the constructor family at
+`lvls`, and `denote`'s `.const` clause is guarded on the stored arity,
+so a mismatched `lvls` makes the statement fail to denote at all.  The
+checker never has to look; the model has to prove it.
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -2659,7 +2732,7 @@ needs.
 | `declIndS` 1 | **done** — `indMemberS` (one member, at the model's valuation; admits a rule-less `.recInfo` head) |
 | `declIndS` 2 | **done** — `memberInstallS`, `indMembersS` (non-recursor members), `provisionRecsS` (rule-less recursors ⇒ `EnvS V envSelf`) |
 | `declIndS` 3 | **done** — `EnvS.swap` (3a), `iotaRuleS` (3b), `indRecsS` (3c) |
-| `declIndS` 4 | **blocked on FINDING 6** — the capability keys are stated one environment too late |
+| `declIndS` 4 | **unblocked** — FINDING 6 resolved (option 1); the asymmetric discharges are next |
 | `declIndS` 5 | **not started** — projection installs on `indBottomProjS` |
 | `declIndS` 6 | **not started** — the elimination templates |
 | `DeclIndS` assembly | **not started** |
