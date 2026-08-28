@@ -1419,3 +1419,122 @@ unconditioned, so the law is the statement's equation read at a
 `Sat`-constructed chain, exactly as `fireS` reads the iota equation.
 `UnitLawV` is the same shape with the two memberships in place of the
 fabrication.
+
+## T5 c4 — the projection bottom, landed (2026-08-28)
+
+`indBottomProjS : IndBottomProjS V` (`Install/IndBottomProjS.lean`),
+together with **D6's reserved `ProjFnR` refinement**, in one increment
+(the house rule: a statement is refined only with its consumer).
+
+### The refinement, read off the checker
+
+`ProjFnR` now carries what its first consumer reads: `checkProjShape`'s
+constructor telescope + residual arity/head, `checkProjRule`'s λ-tower
+shape (`stripLams` to `.bvar (nF-1-i)`) with its `domsMatchAux`-pinned
+domains, its four wellformedness pins and its rhs front door, and
+`checkProjIota`'s `domsMatchAux` domain pin.  **Deliberately still
+untransposed**: `checkProjRule`'s two `checkDefEqList` frame walks and
+its `instPisAt`/`openPisAtFvars` runs — the bottom reaches its λ-tower
+context through the *syntactic* pins, so no consumer exercises them.
+
+### Why it is smaller than the TT lane's, not larger
+
+The pre-c4 scoping note (above) predicted a third zipper/point pair.
+It was wrong in the useful direction: **`pointS` and `fireS` are reused
+verbatim** and only the zipper and the reduct change, each shrinking to
+a few dozen lines, because the projection install's pins are
+*syntactic* where the iota install's are *walks*:
+
+| | plain/nested | projection |
+|---|---|---|
+| statement context | fired domain walks (`hdePre`/`hdeFld`), strong induction over the frame (`zipperS`) | `Γs = Γj` outright: `towerCtxEqD` on `checkProjIota`'s `domsMatchAux` + `PiTele.det`; the fit is `hfitC` read at the fired spine through `hpar` |
+| λ-tower context | `annotPFrameEqS` ∘ `annotMemS` (P-frame identification, `hdeLam`) | `Γlam = Γj` outright: `towerCtxEq` on `checkProjRule`'s `domsMatchAux` |
+| reduct | `reductS` (the rhs walk `hdeRhs`) | β: `lamTowerStepS` at the zipper's *own* memberships, `projBodyValue` naming the contractum |
+| truthfulness | `annotS` | the same `lamTowerStepS` call's second component |
+
+So the whole P-frame (`fvsP`/`xFvsP`/`hcinstP`/`hopenXP`/`hinstLam`/
+`hdeLam`/`hdePars`) is **absent** from `IndBottomProjS`.  ~490 lines of
+assembly against the TT lane's ~886 plus `pointStageP`.
+
+A projection fire is a `.plain` fire at `mI = rP = cnP`: its spine is
+the frame's openers, its **mixed value spine is the fired spine
+itself**, and its index walk is `Forall2 _ [] []`.  That is what makes
+`pointS` reusable, and it is the c3 spine abstraction paying a second
+time.
+
+**No `IotaSlotSorted`** (the TT statement's one unsupplied premise, #146):
+`fireS` recovers the slot's universe membership from the statement's own
+truthfulness plus `Eq`-former graph rigidity, unchanged.
+
+Two V-free additions, both shared-tier: `towerCtxEqD` (the denote-level
+form of `towerCtxEq` — a *renamed* domain pin needs it; `towerCtxEq` is
+now its syntactic corollary), and `instPisAt_isSome_of_stripPis`
+**relocated verbatim** (the seventh relocation) from
+`Setlec/Model/InstFrames.lean` to `Setlec/Verify/InstSpine.lean`, where
+both lanes see it — it sat behind a `SetTheory` section variable it
+never used.
+
+## FINDING 4 (c5, raised and diagnosed; **repair identified, not landed**): `EqLawV` cannot supply the eta/unit laws' fabricated side
+
+**`EnvS` has no handle on `cval eqName` strong enough to type the eta
+statement's right-hand side.**  Mechanized (`pinnedDirectT eqName ψ =
+none` — `Eq` is one of the four reserved names the layer *derives*
+rather than carries, `Verify/Denote/Pinned.lean:40-59`), so
+`EnvS.basis_pinned` says nothing about `Eq`'s valuation, and the only
+other handle is `EqLawV`.
+
+*The shape.*  `EqLawV`'s computation clause takes **both** sides'
+memberships in the slot as premises, and its only rigidity conjunct is
+`interp ρ (cval eqName ψ) ≠ pt` — about the **bare head**.  Firing the
+`T._model.eta` statement therefore needs:
+
+* the left side (`.bvar 0`, the major) in the slot — **free**, from
+  `Sat`: `checkEtaThm` pins the major's binder domain to
+  `T._model p⃗`, which is the slot; and
+* the right side (`C._model p⃗ (proj_j p⃗ x)…`) in the slot — **not
+  available**.  Unlike the three iota bottoms, whose sides are
+  certified by `checkIotaSidesTy` (`IotaSidesTyR`, which `fireS`
+  consumes), `checkEtaThm`/`checkUnitThm` are pure `Bool` shape
+  matches: they run **no** side certification, and their one
+  slot-sort conjunct (`tbodyM == Expr.sort ℓA`, task #135) is
+  **`mode.ttChecks`-gated**, i.e. absent at `--set-model`.
+
+*Why the model lane does not hit it.*  `eta_rule_fold`
+(`Model/EtaInstall.lean:553-559`) obtains exactly this membership from
+the statement's own `AnnotOk` package plus `lam_dom_of_ne` applied to
+`eqVal_app₂ hαu hvlmem` — i.e. from the **concrete** `eqVal`, which the
+model has by definition and the [set] `EnvS` does not.  The naive
+substitutes all fail: `mem_type` for `Eq` plus two `app_mem_piC` steps
+gives `app (app vEq vα) vL ∈ piC ⟦vα⟧ (fun _ => univ 0)`, and
+`piC_dom_unique` against `AnnotOkV`'s level-3 package then needs
+`app (app vEq vα) vL ≠ pt` — which is *true* (`truthVal_ne_pt`) but not
+derivable from a typing, since `pt ∈ˢ piC A (fun _ => univ 0)` holds.
+
+*The repair (one clause, and it makes the interface **smaller**).*
+Replace `EqLawV`'s computation clause by `eqVal_app₂`'s transpose:
+
+```
+    ∀ (ρ : Nat → V) (A a : VExpr),
+      interp V ρ A ∈ˢ univ (ψ uN) → interp V ρ a ∈ˢ interp V ρ A →
+      app (app (interp V ρ (cval eqName ψ)) (interp V ρ A))
+          (interp V ρ a)
+        = lamC (interp V ρ A) (fun y => eqv (interp V ρ a) y)
+```
+
+From it: the present three-membership clause follows by `app_lamC`; the
+partial application's non-`pt` fact by `lamC_ne_pt_of_witness` (witness
+`a ∈ A`, `eqv _ _ ≠ pt`); and the fabricated side's membership by
+`lamC_dom_of_ne` against the statement's own `AnnotOkV`.  Supplier: the
+basis install, by the *same* computation `Model/Basis/Eq/Install.lean`
+already performs — nothing new is assumed, the fact is moved from the
+model's definitional knowledge into the [set] invariant where the
+install can pass it on.
+
+*Scope and status.*  `EqLawV` is an `EnvS`-only field (**not** in T4's
+frozen `EnvSHyp`), its supplier is unwritten, and its three present
+consumers (the iota bottoms' `heqlaw`) use only the computation clause
+— so the change costs `EqLawV.empty` (vacuous) and `EqLawV.cons`
+(transport) and touches no frozen statement.  It is **not landed**: per
+the house rule it lands with its consumer, and its consumer is the
+unwritten eta-law derivation.  Recording it here so that pass starts
+from a solved design problem.
