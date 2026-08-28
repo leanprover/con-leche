@@ -1,5 +1,7 @@
 import Setlec.SetR.Install.IndMemberS
+import Setlec.SetR.Install.EtaLawS
 import Setlec.Verify.Extend.Block
+import Setlec.Verify.Extend.Iota
 
 /-!
 # The block-member fold (task #148, T5, `declIndS` stage 2)
@@ -59,24 +61,110 @@ def MemberEtaS (V : Type w) [SetTheory V] : Prop :=
       EtaLawV V ⟨c₀ :: env.consts⟩ (cvalModeled m.cval cvA.name)
         T cvT caps
 
-/-- **The unit-like head obligation at a member install.** -/
+/-- **The unit-like head obligation at a member install** (T5 stage 4).
+
+Re-signed with the premises its discharge needs.  The `caps` an
+install stores are not free data — they are `indBlockCaps`' output,
+whose two Booleans invert to the checked artifacts' shape pins.  That
+inversion is `EtaPins`, and without it `caps.unitlike = true` says
+nothing at all.  The block fold carries it (`EtaPins.step` at each
+member); `DeclIndR`'s `indBlockCaps` binding is where it is created. -/
 def MemberUnitS (V : Type w) [SetTheory V] : Prop :=
-  ∀ {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
-    {cvA : ConstantVal}, c₀.name = cvA.name →
-    ∀ cv caps, c₀ = .indInfo cv caps → caps.unitlike = true →
-      reservedBasisNames.contains c₀.name = false →
-      UnitLawV V ⟨c₀ :: env.consts⟩ (cvalModeled m.cval cvA.name)
-        c₀.name cv caps
+  ∀ {μ : CheckMode} {F : Nat} {blockNames : List Name} {env : Env}
+    (m : EnvS V env) {cv cvA : ConstantVal} {caps : IndCaps},
+    MemberValR μ F env m.cval blockNames cv cvA →
+    BlockInstalledTT blockNames env m.cval →
+    blockNames.contains cvA.name = true →
+    EtaPins μ env cvA.name cvA.levelParams caps →
+    caps.unitlike = true →
+    reservedBasisNames.contains cvA.name = false →
+    UnitLawV V ⟨.indInfo cvA caps :: env.consts⟩
+      (cvalModeled m.cval cvA.name) cvA.name cvA caps
+
+set_option maxHeartbeats 1600000 in
+/-- **`MemberUnitS`, discharged** (T5 stage 4): `unitLawKeyS`, run one
+environment ahead (finding 6), over `EtaPins`' unit half.
+
+Nothing here is a case split — the unit-like law is the *easy* half of
+the pair, because it fabricates no side: both of its subjects are
+given, so the only work is moving the model's facts onto the installed
+valuation and handing `unitLawKeyS` its pins. -/
+theorem memberUnitS : MemberUnitS V := by
+  intro μ F blockNames env m cv cvA caps hmv hI hbn hpins hcapu hnres
+  obtain ⟨type', hcv, hcvA, hms, cvm, mval, hint, hmE, hmlps, hren⟩ :=
+    id hmv
+  obtain ⟨hfind, -, -, -, -, -, -, -, htr, -⟩ := hcv
+  have hnameA : cvA.name = cv.name := by rw [hcvA]
+  have htypeA : cvA.type = type' := by rw [hcvA]
+  have hfreshA : env.find? cvA.name = none := by
+    rw [hnameA]; exact Option.isNone_iff_eq_none.mp hfind
+  -- the install this member is
+  have hi : Installs env m.cval (cvalModeled m.cval cvA.name)
+      (.indInfo cvA caps) :=
+    Installs.of_fresh hfreshA (fun n hn => by
+      rw [cvalModeled, cvalWith_ne (show n ≠ cvA.name from hn)])
+  have hcl : ∀ (n : Name) (ψ : Name → Nat),
+      VExpr.Closed (cvalModeled m.cval cvA.name n ψ) := by
+    intro n ψ
+    by_cases hn : n = cvA.name
+    · subst hn
+      rw [cvalModeled, cvalWith_self]
+      exact m.cval_closed _ _
+    · rw [cvalModeled, cvalWith_ne hn]
+      exact m.cval_closed _ _
+  have hresT : ∀ us : List Level,
+      (cvA.type.instantiateLevelParams cvA.levelParams us).constsResolve
+        env = true := by
+    intro us
+    rw [Expr.constsResolve_instantiateLevelParams, htypeA]
+    exact htr
+  -- the public/model identification at the head
+  have hvT : ∀ ψ : Name → Nat,
+      cvalModeled m.cval cvA.name cvA.name ψ
+        = cvalModeled m.cval cvA.name (cvA.name.str "_model") ψ := by
+    intro ψ
+    simp only [cvalModeled, cvalWith_ne (Name.str_ne cvA.name "_model"),
+      cvalWith_self]
+  -- the block renaming, on the installed valuation
+  have hroB := renameOkT_cvalStep hi
+    (fun n hn => by simp only [hn]; rfl) hI.renameOkT
+  have hrenT : RenEqT (fun n => if (env.find? n).isSome = true then
+      (if blockNames.contains n then n.str "_model" else n) else n)
+      cvA.type cvm.type := by
+    unfold RenEqT
+    rw [htypeA, Expr.renameConsts_congr_resolve
+      (g := fun n => if blockNames.contains n then n.str "_model" else n)
+      (fun n hn => by simp only [hn, if_true]) _ htr, ← htypeA]
+    exact Expr.ErasedEq.of_eqUpToNames hren
+  obtain ⟨-, hunitPins⟩ := hpins
+  obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
+    tbodyM, tySlot, ℓA, hthmE, htlps, hTmE, hTmlps, heqfE, hSstrip,
+    hTstrip, hsdoms, hxdom, hydom, hsbody, htySlot, -⟩ :=
+    hunitPins hcapu
+  -- the two lookups of `T._model` agree
+  have hcvmEq : cvm = cvmT := by
+    obtain ⟨h1, -, -⟩ :=
+      ConstantInfo.defnInfo.inj (Option.some.inj (hmE.symm.trans hTmE))
+    exact h1
+  rw [hcvmEq] at hrenT
+  exact unitLawKeyS (V := V) m hi hcl hresT rfl rfl hthmE htlps hTmE
+    hTmlps heqfE hSstrip hTstrip hsdoms hxdom hydom hsbody htySlot hvT
+    hroB hrenT
 
 /-- **One member installed, with the block invariant carried**: the
 shared step of both block folds (the non-recursor members and the
 recursor provisioning, whose entries are rule-less). -/
 theorem memberInstallS (hkey : MemberKeyS V) (heta : MemberEtaS V)
-    (hunit : MemberUnitS V) {μ : CheckMode} {F : Nat}
+    {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env : Env} (m : EnvS V env)
     {cv cvA : ConstantVal} {c₀ : ConstantInfo}
     (hmv : MemberValR μ F env m.cval blockNames cv cvA)
     (hI : BlockInstalledTT blockNames env m.cval)
+    (hbn : blockNames.contains cvA.name = true)
+    -- the block's capability artifacts, at *this* accumulator; the
+    -- fold steps them up with `EtaPins.step` (T5 stage 4)
+    (hpins : ∀ caps, c₀ = .indInfo cvA caps →
+      EtaPins μ env cv.name cv.levelParams caps)
     (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
     (hkind : (∃ caps, c₀ = .indInfo cvA caps) ∨
       (∃ nP nF, c₀ = .ctorInfo cvA nP nF) ∨
@@ -117,7 +205,13 @@ theorem memberInstallS (hkey : MemberKeyS V) (heta : MemberEtaS V)
     · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
         intro cv2 v2 heq <;> exact nomatch heq
   obtain ⟨m₁, hm₁⟩ := indMemberS m hc₀name hkind hfreshA hwf hnresA
-    hmE hmlps (hkey m hmv hI) (heta m hc₀name) (hunit m hc₀name)
+    hmE hmlps (hkey m hmv hI) (heta m hc₀name)
+    (fun cv2 caps2 hceq hcapu2 _ => by
+      have hcv2 : cv2 = cvA := by rw [← hc₀cv, hceq]; rfl
+      subst hcv2
+      rw [hceq]
+      exact memberUnitS m hmv hI hbn
+        (by rw [hnameA, hlpsA]; exact hpins caps2 hceq) hcapu2 hnresA)
   refine ⟨m₁, hm₁, ?_⟩
   refine BlockInstalledTT.step hI (by rw [hc₀name]; exact hms)
     (by rw [hc₀name]; exact hmE)
@@ -134,10 +228,14 @@ theorem memberInstallS (hkey : MemberKeyS V) (heta : MemberEtaS V)
 running valuation ends at the fold's, and the block invariant holds
 of the result. -/
 theorem indMembersS (hkey : MemberKeyS V) (heta : MemberEtaS V)
-    (hunit : MemberUnitS V) {μ : CheckMode} {F : Nat}
+    {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {caps : IndCaps} :
     ∀ (members : List ConstantInfo) {env : Env} (m : EnvS V env)
       {env₂ : Env} {cval₂ : TConstVal},
+      (∀ ci ∈ members, blockNames.contains ci.name = true) →
+      (∀ (cv : ConstantVal) (caps₂ : IndCaps),
+        ConstantInfo.indInfo cv caps₂ ∈ members →
+        EtaPins μ env cv.name cv.levelParams caps) →
       IndMembersR μ F blockNames caps env m.cval members env₂ cval₂ →
       BlockInstalledTT blockNames env m.cval →
       ∃ m₂ : EnvS V env₂,
@@ -145,22 +243,40 @@ theorem indMembersS (hkey : MemberKeyS V) (heta : MemberEtaS V)
   intro members
   induction members with
   | nil =>
-    intro env m env₂ cval₂ h hI
+    intro env m env₂ cval₂ hbn hp h hI
     obtain ⟨rfl, rfl⟩ := h
     exact ⟨m, rfl, hI⟩
   | cons ci rest ih =>
-    intro env m env₂ cval₂ h hI
+    intro env m env₂ cval₂ hbn hp h hI
     obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+    have hnameA : cvA.name = ci.toConstantVal.name := by rw [hcvA]
+    have hfreshA : env.find? cvA.name = none := by
+      rw [hnameA]
+      exact Option.isNone_iff_eq_none.mp hcv.1
+    have hbnA : blockNames.contains cvA.name = true := by
+      rw [hnameA]; exact hbn ci List.mem_cons_self
     cases ci with
     | indInfo cv caps' =>
-      obtain ⟨m₁, hm₁cval, hI₁⟩ := memberInstallS hkey heta hunit m hmv
-        hI rfl rfl (Or.inl ⟨caps, rfl⟩)
-      exact ih m₁ (by rw [hm₁cval]; exact hmatch)
+      obtain ⟨m₁, hm₁cval, hI₁⟩ := memberInstallS hkey heta m hmv
+        hI hbnA
+        (fun caps₃ heq => by
+          obtain ⟨-, -, -, rfl⟩ := ConstantInfo.indInfo.inj heq
+          exact hp cv caps' List.mem_cons_self)
+        rfl rfl (Or.inl ⟨caps, rfl⟩)
+      exact ih m₁ (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
+        (fun cv₂ caps₂ hmem => EtaPins.step
+          (hp cv₂ caps₂ (List.mem_cons_of_mem _ hmem)) hfreshA)
+        (by rw [hm₁cval]; exact hmatch)
         (by rw [hm₁cval]; exact hI₁)
     | ctorInfo cv nP nF =>
-      obtain ⟨m₁, hm₁cval, hI₁⟩ := memberInstallS hkey heta hunit m hmv
-        hI rfl rfl (Or.inr (Or.inl ⟨nP, nF, rfl⟩))
-      exact ih m₁ (by rw [hm₁cval]; exact hmatch)
+      obtain ⟨m₁, hm₁cval, hI₁⟩ := memberInstallS hkey heta m hmv
+        hI hbnA (fun caps₃ heq => ConstantInfo.noConfusion heq)
+        rfl rfl (Or.inr (Or.inl ⟨nP, nF, rfl⟩))
+      exact ih m₁ (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
+        (fun cv₂ caps₂ hmem => EtaPins.step
+          (hp cv₂ caps₂ (List.mem_cons_of_mem _ hmem)) hfreshA)
+        (by rw [hm₁cval]; exact hmatch)
         (by rw [hm₁cval]; exact hI₁)
     | axiomInfo cv => exact nomatch hmatch
     | defnInfo cv v hint => exact nomatch hmatch
@@ -172,11 +288,12 @@ theorem indMembersS (hkey : MemberKeyS V) (heta : MemberEtaS V)
 rule-less, giving the *self* environment the rule checks are run
 against, its valuation, and the checked list. -/
 theorem provisionRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
-    (hunit : MemberUnitS V) {μ : CheckMode} {F : Nat}
+    {μ : CheckMode} {F : Nat}
     {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) {envAcc : Env} (m : EnvS V envAcc)
       {envSelf : Env} {cvalSelf : TConstVal}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
+      (∀ ci ∈ recs, blockNames.contains ci.name = true) →
       ProvisionRecsR μ F blockNames envAcc m.cval recs envSelf cvalSelf
         checked →
       BlockInstalledTT blockNames envAcc m.cval →
@@ -186,15 +303,20 @@ theorem provisionRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
   intro recs
   induction recs with
   | nil =>
-    intro envAcc m envSelf cvalSelf checked h hI
+    intro envAcc m envSelf cvalSelf checked hbn h hI
     obtain ⟨rfl, rfl, -⟩ := h
     exact ⟨m, rfl, hI⟩
   | cons ci rest ih =>
-    intro envAcc m envSelf cvalSelf checked h hI
+    intro envAcc m envSelf cvalSelf checked hbn h hI
     obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hrec, -⟩ := h
-    obtain ⟨m₁, hm₁cval, hI₁⟩ := memberInstallS hkey heta hunit m hmv
-      hI rfl rfl (Or.inr (Or.inr ⟨mI, rP, rfl⟩))
-    exact ih m₁ (by rw [hm₁cval]; exact hrec)
+    obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+    have hnameA : cvA.name = ci.toConstantVal.name := by rw [hcvA]
+    obtain ⟨m₁, hm₁cval, hI₁⟩ := memberInstallS hkey heta m hmv
+      hI (by rw [hnameA]; exact hbn ci List.mem_cons_self)
+      (fun caps₃ heq => ConstantInfo.noConfusion heq)
+      rfl rfl (Or.inr (Or.inr ⟨mI, rP, rfl⟩))
+    exact ih m₁ (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
+      (by rw [hm₁cval]; exact hrec)
       (by rw [hm₁cval]; exact hI₁)
 
 end Setlec.SetR

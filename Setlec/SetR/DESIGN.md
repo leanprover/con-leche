@@ -8,6 +8,43 @@ as written, and what T3 (bridge) and T4 (soundness) need to know that
 the design document does not say.  House practices are
 `Setlec/TTVerify/DESIGN.md` §0/§25 (binding).
 
+## Promoted practices (binding here; candidates for §0/§25)
+
+Two rules earned promotion during T5 by recurring across unrelated
+stages.  They sit at the top of this file because they are checks to
+run *while designing*, not lessons to read afterwards.
+
+**P1 — a helper premised on a whole environment bundle cannot
+establish any field of that bundle.**  `EnvSHyp` carries `caps_ok`, so
+`fireS` — premised on the bundle — could not be used to prove a
+capability law (finding 6).  The repair was not to weaken the bundle
+but to premise the *helper* on the fields it actually uses:
+`fireS` used two of nine, both only at `eqName`, now `EqFormerKeyV`.
+**Check this at the moment a field is ADDED to a bundle**, by asking
+which helpers its own supplier will have to run; checking it when the
+supplier is written is already too late, because by then the helper's
+signature is load-bearing everywhere.
+
+**P2 — read a premise for the environment it quantifies over and the
+degenerate case it admits, not for the data it supplies.**  Three
+instances in one session, all of them the record failing against its
+own author:
+
+* finding 6 — `unitLawKeyS`'s inputs were checked for *availability*
+  and not for *which environment* its `EnvS` sat at;
+* `MemberUnitS` — `caps.unitlike = true` was read as "the artifacts
+  exist" when over an abstract `caps` it says nothing at all;
+* `MemberEtaS` — `EtaFamilyStored` was read from its name and purpose
+  ("the family is complete, so it cannot be") instead of its text,
+  where `etaFields = 0` makes the projection conjunct vacuous and the
+  family completes inside the member fold.
+
+The concrete check: for every premise of a statement you are about to
+freeze, name (a) the environment each of its lookups is at, (b) what
+it says when its numeric parameters are `0`, and (c) what it says when
+its `IndCaps`/`ConstantVal` arguments are abstract rather than the
+checker's output.
+
 ## T2 inventory (this tier, as landed)
 
 | file | content |
@@ -2643,6 +2680,264 @@ that dodges the bundle.
 **Not affected**: `MemberKeyS` (states and concludes at the same
 environment), and the three value-kind obligations.
 
+## FINDING 6 RESOLVED (2026-08-28) — option 1, the one-step-ahead restatement
+
+Decided by the coordinator, landed as priced.  The classification line
+stands verbatim: **not finding-#1 — an interface stated for the
+environment its designer had, not the one its consumer has**, the same
+class as FINDING 4 and `EnvR.rec_rhs_denotes`.
+
+### What changed
+
+`EtaLawKeyS`/`UnitLawKeyS` now take, alongside the model `mS` at the
+*smaller* environment, an installed valuation and its install:
+
+```
+{cval' : TConstVal} {c₀ : ConstantInfo}
+(_hi : Installs envS mS.cval cval' c₀)
+(_hcl : ∀ n ψ, VExpr.Closed (cval' n ψ))
+(_hresT : ∀ us, (cvT.type.instantiateLevelParams …).constsResolve envS = true)
+```
+
+and conclude `EtaLawV V ⟨c₀ :: envS.consts⟩ cval' …`.  Every pin that
+mentioned `mS.cval` now mentions `cval'`; the two proof bodies were a
+**mechanical substitution** — they compiled unchanged on the first
+attempt — because `mS.cval` occurred in them only as *a valuation*.
+
+Five bridge points needed real content, all in the new
+`Install/CvalStep.lean`:
+
+| bridge | how |
+|---|---|
+| `denote_cvalStep` | the valuation change at a fixed environment — *unconditional*, since `denote` returns `none` at an unresolved constant |
+| `EnvS.mem_type_step` | the artifacts' front doors at `cval'` |
+| `EqLawV.cvalStep`, `EqFormerKeyV.cvalStep` | the pinned `Eq`'s law and firing key at `cval'` |
+| `EtaLawV.up` / `UnitLawV.up` | the statement's own move, `Installs.denoteDown` ∘ the valuation change |
+
+`hcl` had to become a *hypothesis* rather than a derived fact: `cval'`
+at `c₀.name` is only pinned down when `c₀` is the family's former, its
+constructor, or one of its projections, and the key must also hold at
+installs that are none of those.  The consumer has it — it is
+`EnvS.cons`'s own `hclosed` obligation.
+
+### The load-bearing sub-repair: `fireS` no longer takes `EnvSHyp`
+
+The circularity was never in the key lemmas' *content*; it was in one
+parameter.  `fireS` took the whole `EnvSHyp` and used exactly two of
+its nine fields — `cval_closed` and `mem_type`, both only at
+`eqName`.  Those two are now `EqFormerKeyV`, and
+`EnvSHyp.eqFormerKey` builds it at the sites that have a bundle (the
+three iota bottoms, unchanged one line each).
+
+This is **not** option 3.  Option 3 was to split the T4-frozen
+`EnvSHyp` itself and re-sign every consumer of the bundle across the
+tier.  What landed narrows *one internal helper's* parameter to the
+facts it already used, at five call sites, all inside `Install/`.
+`EnvSHyp` is untouched.
+
+**General lesson, worth carrying past T5**: a helper premised on a
+whole environment bundle cannot be used to *establish* any field of
+that bundle.  When a bundle field's own proof runs through a shared
+engine, the engine must be premised on the fields it uses, not on the
+bundle.  Check this at the point a new `EnvSHyp` field is added, not
+at the point its supplier is written.
+
+### `nestedLvlsLength` — for the #151 record
+
+Stage 3b's relocation is another instance of the pattern #151 is
+about: **information the semantic side demands that the syntax never
+carried.**  `hlvlsLen` (`lvls.length = cvj.levelParams.length`) is
+established by *no checker comparison*.  It is forced only
+semantically — the statement's major applies the constructor family at
+`lvls`, and `denote`'s `.const` clause is guarded on the stored arity,
+so a mismatched `lvls` makes the statement fail to denote at all.  The
+checker never has to look; the model has to prove it.
+
+## T5 stage 4 (2026-08-28) — the asymmetric discharges, and a correction
+
+### `MemberUnitS`: discharged, after being re-signed
+
+The obligation as first stated was **not provable**, and the reason is
+worth keeping: `caps.unitlike = true` on an *abstract* `caps` says
+nothing.  The caps an install stores are `indBlockCaps`' output, and
+its two Booleans are exactly `checkEtaThm`/`checkUnitThm`, which invert
+to the artifacts' shape pins.  That inversion is the shared, V-free
+`EtaPins` (`Verify/Extend/Iota.lean`), and it is what `unitLawKeyS`
+consumes.  So `MemberUnitS` now takes `MemberValR` + `BlockInstalledTT`
++ `EtaPins`, in the same shape the Model lane's `checkIndMember_sound`
+has always used, and the block folds thread it with `EtaPins.step`.
+
+The discharge itself is short, and confirms c5's observation: the
+unit-like law is the *easy* half of the pair because it fabricates no
+side — both of its subjects are given, so all that is left is moving
+the model's facts onto the installed valuation.
+
+### `MemberEtaS`: **not** a member-fold discharge — the handoff was wrong
+
+The T5 handoff said `MemberEtaS` is "gated and therefore vacuous during
+both member folds".  That is **false**, and the counterexample is
+inside `EtaFamilyStored` itself: with `caps.etaFields = 0` the
+projection conjunct is vacuous, so the family completes as soon as its
+*constructor* is stored — which happens inside the member fold.  A
+0-field eta-capable structure is exactly that case.
+
+Working the cases out properly:
+
+| case | why |
+|---|---|
+| family already complete in `env` | **impossible** — the head disjunct puts `c₀.name` at `T`, the ctor, or a projection, and `c₀.name` is fresh |
+| `projFnName T j = c₀.name` | **impossible** — `ConstantValR` pins `cv.name.isProjFnShape = false` |
+| completing, `etaFields > 0` | refuted, but only from `DeclIndR`'s `(envR.find? (projFnName cvT.name j)).isNone` conjunct — an **assembly-level** fact |
+| completing, `etaFields = 0` | **live**; `etaLawKeyS` fires with its projection premise vacuous |
+
+Both live rows need facts the fold does not have (the run's freshness
+facts; the block's identification of `T`).  So `MemberEtaS` stays a
+*forwarded* obligation, discharged at the `DeclIndS` assembly — which
+is precisely what the Model lane already does and says:
+
+> the eta head obligation is *forwarded* to the caller … only the
+> caller knows whether the member completes a family
+> (`Model/Extend/Ind.lean:22`)
+
+It is re-signed then, with its consumer, per the house rule.  The
+asymmetry the handoff named is real; its *explanation* was not.
+
+**Method note**: the handoff's error came from reasoning about
+`EtaFamilyStored` from its name and purpose rather than from its
+text.  Both wrong steps this session (this one and finding 6's
+"`unitLawKeyS`'s inputs are available there") were of that shape —
+a premise checked for the *data* it needs and not for the *environment*
+or the *degenerate case* it quantifies over.
+
+## Stage 5's shape, scoped (2026-08-28)
+
+Scoped from `ProjFnR` and `EnvS.cons` before writing any of it, so the
+next pass starts from the obligation list rather than deriving it.
+
+One field's install is `EnvS.cons` at
+`c₀ = .recInfo ⟨projFnName T i, lps, pty⟩ nP nP [rule]` with
+`cval'' = cvalWith cval (projFnName T i) (fun ψ => cval (projModelName T i) ψ)`.
+Of `EnvS.cons`'s sixteen obligations:
+
+| obligation | source |
+|---|---|
+| `hwf` | `ProjFnR`'s syntactic pins on `pty` and `rhsA` |
+| `hheadCtors` | `ProjFnR`'s first conjunct (the constructor's lookup) |
+| `hheadRec` | **`indBottomProjS`** — the only heavy one, and it is already proved (c4) |
+| `hclosed`, `hparams`, `hannot` | `m`'s fields at `projModelName T i` |
+| `htype` | **new named obligation** (`ProjKeyS`) — the model projection's value inhabits the *renamed-back* public type `pty`; the projection counterpart of `MemberKeyS` |
+| `hheadEta` | the live capability case — see below |
+| `hheadUnit`, `hheadProj`, `hheadProjPair`, `hheadNat`, `hheadDivMod`, `hheadReduce` | vacuous: the head is a `.recInfo` |
+| `hempty`, `hheadEq`, `hheadBasis` | name distinctness (`isProjFnShape`) |
+
+The fold threads the invariant
+`∀ j ≤ i, ∀ ψ, cval (projFnName T j) ψ = cval (projModelName T j) ψ`.
+It survives later steps because step `k` writes only `projFnName T k`,
+which is neither `projFnName T j` (`k ≠ j`) nor `projModelName T j`.
+
+**The eta head, at a projection install** — *corrected 2026-08-28,
+after landing stage 5a*.  The prediction above (that `ProjEtaS` would
+be forwarded like `MemberEtaS`) was **wrong**, and wrong for the P2
+reason yet again: the head disjunct had to be read, not summarised.
+At a projection install the head is a `.recInfo`, so
+
+* `T' = c₀.name` puts a `.recInfo` where the family's own lookup
+  demands an `.indInfo`, and
+* `caps.etaCtor = c₀.name` puts one where `EtaFamilyStored` demands a
+  `.ctorInfo`,
+
+both immediately absurd.  Only the projection disjunct survives, and
+it *pins* `T' = T` and the field index.  So the obligation is
+discharged **in-fold**, by `etaLawKeyS` one environment ahead — which
+is exactly the shape finding 6 produced.  This also makes the Model
+lane's `hbshape` premise unnecessary here: refuting by the stored
+*kind* is cheaper than refuting by the name's shape, and independent
+of the block.
+
+## T5 stage 5a landed; what `projFnS` still needs (2026-08-28)
+
+`ProjPhaseInvS`, `projFwd_renameOkT` and `projProvisionS` are in
+`Install/ProjInstallS.lean`, warning- and sorry-free.
+
+### The architecture is forced, not chosen — **retracted 2026-08-28**
+
+The claim was: the projection recursor cannot be consed with its rule
+and then have `indBottomProjS` fire at the result (P1 — the bottom is
+premised on an `EnvS`, and `hheadRec` is a field of that bundle), so
+*provision → fire → swap* is mandatory.
+
+**The P1 diagnosis is right; the remedy was wrong, and it was not the
+cheap one.**  P1 says the helper cannot be premised on the bundle *at
+the environment where its conclusion lives*.  Provisioning is one way
+out.  The other — the one that costs nothing — is to **re-aim the
+helper below**: `checkProjFn` runs every one of its checks *before*
+the recursor is stored, so the whole kit already lives at the base
+environment, and instantiating the bottom at
+`Rn := projModelName T i` (the model's name, which the pinned
+statement's head names anyway) makes its conclusion a law about
+`cval (T._model.proj_i)` — which at the cons is definitionally the
+installed constant's valuation, by `cvalWith_self`.
+
+The provisioning route additionally needs the sides pack transported
+from the base to the extended environment, and **nothing tools that**
+(the relation family has context weakening, not environment
+monotonicity).  So the retracted plan was not merely more expensive:
+it was blocked.
+
+The TT lane records the same reading at `TTVerify/DeclIndProj.lean`'s
+"Where the bottom runs", which is where it should have been read
+first.  Recorded as a **P2 near-miss of a new kind**: not a premise
+misread, but *a practice applied without looking for its second
+remedy*.  P1 tells you a route is closed; it does not tell you which
+of the open ones to take.
+
+Two premises the Model lane's `checkProjFn_sound` carries turned out
+to be unnecessary: `hbshape` (see the corrected note above) and
+`hptyB` (the roundtrip equation alone identifies the denotation).
+
+### `projFnS`'s remaining work, precisely
+
+1. **The phase invariant at `env₀`** (the rule-less extension): the
+   `j = i` conjunct is `cvalWith_self`, the rest is `hinv` transported
+   over a fresh cons.  This is what `projFwd_renameOkT` then consumes,
+   and note that at `env₀` the *pruned* and *full* projection maps
+   coincide, because `projFnName T i` is stored there — which is why
+   the Model lane's separate `f`/`f₀` pair is not needed.
+2. **The bottom's pins**, all from `ProjFnR` transported up by
+   freshness; `_hrhsKey`'s semantic form comes from `Infer.sound` at
+   `env'` with `m.toHyp` (the `iotaRuleS` pattern).
+3. **The bridge** from `indBottomProjS`'s conclusion to
+   `RecRuleLawV`'s body.  Three small gaps, all already tooled:
+   `recFireComparands_plain` (relocated in stage 3b) for the level
+   comparand, `ProjFnR`'s `hctor` plus injectivity for the `find?`
+   premise that fixes `cvj cnP cnF`, and `mI = rP = nP` for `rP ≤ mI`.
+   The `.inert` case is vacuous against `RecRulesV`'s own
+   `fire ≠ .inert`.
+4. **The swap**: `SwapShList.cons (Or.inr ⟨…⟩) (SwapShList.of_eq _)`,
+   `SwapNResS` at the head from `reservedBasisNames_not_num`, and the
+   three global facts (`EnvWF`, `RecCtorsStored`, `RecRulesV`) as in
+   `indRecsS`.
+
+### Landed, 5b part 1
+
+`projPhaseInvS_cons` (parameterised by the head entry, since the
+invariant never reads a rule list), `projFwd_model_self`, the
+generalised `projConsS` (the rule list is the caller's), and
+`projFnS`.  Two supporting facts were needed and are now shared:
+`Name.str_str_ne` (`Verify/EnvWF.lean`) and the twelfth relocation —
+`openPisAtFvars_instSeq`, `range_map_getD_prefix`/`_suffix` and
+`projStmtParts` to `Verify/Denote/TeleOpen.lean`.
+
+`ProjFnR` gained the pin it was missing: `checkProjIota`'s **body
+match**.  The relation stopped at the domain match and the sides pack,
+so the statement's `Eq`-spine shape — which the bottom needs and the
+checker does pin — was absent.  D6 reserved exactly this refinement
+for its first consumer, and `projFnS` is it.  (`ProjFnR` has no
+producer yet — that is T6 — so the refinement cost nothing.)
+
+Then the fold (`projInstallS`) threads `ProjPhaseInvS` +
+`BlockInstalledTT` over `List.range nF`, with the skip branch a no-op.
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -2659,8 +2954,8 @@ needs.
 | `declIndS` 1 | **done** — `indMemberS` (one member, at the model's valuation; admits a rule-less `.recInfo` head) |
 | `declIndS` 2 | **done** — `memberInstallS`, `indMembersS` (non-recursor members), `provisionRecsS` (rule-less recursors ⇒ `EnvS V envSelf`) |
 | `declIndS` 3 | **done** — `EnvS.swap` (3a), `iotaRuleS` (3b), `indRecsS` (3c) |
-| `declIndS` 4 | **blocked on FINDING 6** — the capability keys are stated one environment too late |
-| `declIndS` 5 | **not started** — projection installs on `indBottomProjS` |
+| `declIndS` 4 | **done** — `memberUnitS` discharged; `MemberEtaS` forwarded to the assembly (see the stage-4 record) |
+| `declIndS` 5 | **5a landed** (`ProjPhaseInvS`, `projFwd_renameOkT`, `projProvisionS`); 5b (`projFnS` + the fold) scoped in "what `projFnS` still needs" |
 | `declIndS` 6 | **not started** — the elimination templates |
 | `DeclIndS` assembly | **not started** |
 | `DeclBasisS` | **not started** — the basis install (the TT lane's `DeclBasis.lean` is the template) |

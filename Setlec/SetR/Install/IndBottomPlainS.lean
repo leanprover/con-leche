@@ -449,7 +449,7 @@ theorem indBottomPlainS : IndBottomPlainS V := by
   obtain ⟨hleafα, hltα⟩ := hargLeaf αS hmemα
   obtain ⟨hleafL, hltL⟩ := hargLeaf lhsS hmemL
   obtain ⟨hleafR, hltR⟩ := hargLeaf rhsS hmemR
-  obtain ⟨vα, vL, vR, hvα, hvL, hvR, heqLR⟩ := fireS henv heqlaw heqfE
+  obtain ⟨vα, vL, vR, hvα, hvL, hvR, heqLR⟩ := fireS (henv.eqFormerKey heqfE) heqlaw heqfE
     htowerS
     (fun ρ0 => (hTstFacts ρ0).2) (fun ρ0 => (hTstFacts ρ0).1)
     hRbodyDen htbody

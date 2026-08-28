@@ -1072,6 +1072,33 @@ theorem sidesMemS {μ : CheckMode} {env : Env} {cval : TConstVal}
     exact h1
 
 set_option maxHeartbeats 3200000 in
+/-- **What the firing stage needs of the environment** (task #148, T5,
+finding 6): the pinned `Eq` former's closedness and its front door at
+the running valuation — *not* the whole `EnvSHyp`.  Narrowing this
+parameter is what lets a capability key run one environment ahead of
+its own `EnvS`: the bundle carries `caps_ok`, and a law being proved
+cannot be premised on a bundle that already contains it. -/
+def EqFormerKeyV (V : Type w) [SetTheory V] (env : Env)
+    (cval : TConstVal) (φ : Name → Nat) : Prop :=
+  (∀ ψ : Name → Nat, VExpr.Closed (cval eqName ψ)) ∧
+  ∀ us : List Level,
+    us.length = eqA.toConstantVal.levelParams.length →
+    ∀ T : VExpr,
+      denoteClosed cval env φ
+        (eqA.toConstantVal.type.instantiateLevelParams
+          eqA.toConstantVal.levelParams us) = some T →
+      ∀ ρ : Nat → V,
+        interp V ρ (cval eqName
+            (Level.substFn φ eqA.toConstantVal.levelParams us))
+          ∈ˢ interp V ρ T ∧ AnnotOkV V ρ T
+
+/-- A stored `Eq` gives the firing key. -/
+theorem EnvSHyp.eqFormerKey {env : Env} {cval : TConstVal}
+    {φ : Name → Nat} (henv : EnvSHyp V env cval φ)
+    (heqfE : env.find? eqName = some eqA) :
+    EqFormerKeyV V env cval φ :=
+  ⟨fun _ => henv.cval_closed _ _, henv.mem_type eqName eqA heqfE⟩
+
 /-- **The firing stage**: the checked equation, fired at the zipped
 chain — the theorem's inhabitant applied along the fit lands in the
 interpreted `Eq`-spine, the spine computes to the truth set through
@@ -1079,7 +1106,7 @@ interpreted `Eq`-spine, the spine computes to the truth set through
 rigidity of the pinned `Eq` former against the statement's own
 truthfulness), and `mem_eqv` reads the equation off. -/
 theorem fireS {env : Env} {cval : TConstVal}
-    {ψ' : Name → Nat} (henv : EnvSHyp V env cval ψ')
+    {ψ' : Name → Nat} (hkey : EqFormerKeyV V env cval ψ')
     (heqlaw : EqLawV V env cval)
     (heqfE : env.find? eqName = some eqA)
     {rP cnF : Nat}
@@ -1194,8 +1221,7 @@ theorem fireS {env : Env} {cval : TConstVal}
         denote_fvar, hb2, denote_forallE, denote_fvar, hb3,
         denote_sort]
       rfl
-    have hmem := henv.mem_type eqName eqA heqfE [ℓA] (by rfl)
-      _ hTden (chainE V ρ zs)
+    have hmem := hkey.2 [ℓA] (by rfl) _ hTden (chainE V ρ zs)
     have hEqIn2 : interp V (chainE V ρ zs) vEq
         ∈ˢ piC (univ (ℓA.eval ψ'))
           (fun x => interp V (cons V x (chainE V ρ zs))
@@ -1221,7 +1247,7 @@ theorem fireS {env : Env} {cval : TConstVal}
   -- the residual computes to the interpreted equation spine
   have hEqcl : VExpr.Closed vEq := by
     rw [hvEq']
-    exact henv.cval_closed _ _
+    exact hkey.1 _
   have hresid : interp V ρ
       (VExpr.instSeq zs (rP + cnF - 1) (VExpr.mkAppN vEq [vα, vL, vR]))
       = eqv (interp V (chainE V ρ zs) vL)
