@@ -2504,6 +2504,145 @@ the F4/A3/B5 decision.
 unbuilt and unimported** (the same sweep the tier-A record notes for
 `Annot/*`).  It is compiled and wired as of this branch.  Tier B works
 in `.claude/worktrees/tier-b` on `feat/151-tierB` from here.
+## T5 stage 3 landed (2026-08-28) — the recursor group, end to end
+
+`iotaRuleS` (`Install/IotaRuleS.lean`) and `indRecsS`
+(`Install/IndRecsS.lean`) close stage 3.  Three records worth keeping.
+
+### The rule kits are checked against the accumulator, not the self env
+
+`IotaRulesR`'s environment argument is `IndRecsFoldR`'s *running
+accumulator* — `envSelf` with some of the group's recursors already
+carrying their rules.  So the natural-looking hypothesis
+
+> every lookup in the kit's environment is a lookup in `envSelf`
+
+is **false**, and false exactly at the group's own recursors.
+`iotaRuleS.hup` is therefore a *correspondence*: a lookup either agrees
+or differs only in a recursor's rule list.  Its three uses survive:
+two are at non-recursor kinds (the constructor, `Eq`), and the third —
+the `iota_j` statement's stored entry — reads only `toConstantVal`,
+which a swap preserves.  (That third one is why the correspondence has
+to carry the swapped entry's `ConstantVal`, not merely say "or it is
+some recursor".)
+
+This is also why `indRecsFoldS` runs the **provisioning and the
+install fold in step**, as one induction over `recs`: the pairing is
+what makes the correspondence available at each kit.  The provisioning
+alone cannot supply it (it never sees the ruled entries) and the
+install fold alone cannot either (it never sees the rule-less ones).
+
+### Two keyings of the same information, both needed
+
+`indRecsFoldS` returns the swapped entries' facts twice — once keyed
+by **membership** (`∀ c ∈ env₃.consts`) and once by **`find?`**.  That
+is not redundancy: `EnvWF` quantifies over `env.consts` while
+`RecCtorsStored`/`RecRulesV` key on lookups, and *nothing in `EnvS`
+forbids two entries under one name*, so neither form implies the
+other.  Both thread through the induction for free — the `find?`
+form's base case is exactly provisioning monotonicity, the membership
+form's is provisioning's `mem` monotonicity.
+
+A general lesson for the tier: when a fold's output feeds both a
+list-quantified and a lookup-quantified consumer, produce both; do not
+try to bridge them with a nodup invariant the structure does not have.
+
+### `RecRuleLawV`, factored
+
+`RecRulesV` (`Sound/Motives.lean`) is now `∀ stored recursor, ∀ fired
+rule, RecRuleLawV …`.  A *single rule's* law is what `iotaRuleS` hands
+back and what has to cross the rule-list swap, and it deserved a name;
+`RecRuleLawV.swapS` is its transport, five lines, because the law
+reads the environment only through `denote` and the constructor's
+lookup.
+
+Two relocations came with the stage, both verbatim, both because the
+fact is about `Expr` or `denote` and neither lane owns it:
+`recRulePlain_leT`/`_le_mIT`/`recFireComparands_plain`/`_nested` to
+`Verify/InstSpine.lean` (the residue T1 did not cover), and
+`nestedLvlsLength` to `Verify/Denote/IndFrame.lean` — the nested
+bottom's `hlvlsLen`, which **no checker comparison establishes**: it is
+forced semantically, the statement's major applying `f ctor` at `lvls`
+and `denote`'s `.const` clause being guarded on the stored arity.
+
+## FINDING 6 (**blocking, stage 4**) — the capability keys are stated one environment too late
+
+**Raised at the stage-3/4 boundary, before any of stage 4 was
+written.**  Not finding-#1 territory (no missing checker check); the
+same class as FINDING 4 and `EnvR.rec_rhs_denotes` — an interface
+stated for the environment its designer had, not the one its consumer
+has.  It is **blocking**: stage 4 cannot start until it is decided.
+
+### The wall
+
+`EnvS.cons`'s `hheadUnit` obligation is
+
+```
+∀ cv caps, c₀ = .indInfo cv caps → caps.unitlike = true →
+  reservedBasisNames.contains c₀.name = false →
+  UnitLawV V ⟨c₀ :: env.consts⟩ cval' c₀.name cv caps
+```
+
+— the law **at the extension**, with only `m : EnvS V env` in hand.
+`unitLawKeyS : UnitLawKeyS V` (c5) instead takes
+`mS : EnvS V envS` and concludes `UnitLawV V envS mS.cval …`.  Applying
+it at `envS := ⟨c₀ :: env.consts⟩` needs an `EnvS` there, which is what
+`EnvS.cons` is *building*.
+
+And the circle is real, not cosmetic.  `unitLawKeyS` uses `mS` five
+times: `cval_closed`, `val_params`, `mem_type`, `wf`, and
+`toHyp ψ'` — the last feeding `fireS`.  `EnvSHyp` **contains
+`caps_ok : CapsOkV`**, so "the bundle at the extension" already
+contains the very law being proved.  `etaLawKeyS` has the identical
+shape (same five uses, same single `fireS` call), so stage 5's
+projection install hits the same wall.
+
+### Why it is repairable, and cheaply
+
+The apparent circularity dissolves once one notices **where the
+semantic content actually comes from**.  `UnitLawKeyS`'s hypotheses are
+*all syntactic pins* (`stripPis`, `getAppArgs`, `eqUpToNames`) — there
+is not one `Infer`/`DefEq` walk among them.  The only semantics enter
+through `mS.mem_type` of the `T._model.unitlike` **theorem**, and that
+theorem is stored in `env`, below the extension.  So every soundness
+run can happen at `env`, with `m.toHyp` — no circularity — and only
+the *statement* needs moving up.
+
+The TT lane already does exactly this: `modeledCapsUnitTT`
+(`TTVerify/DeclIndMember.lean:329`) takes the pre-extension `m`,
+pulls the artifacts' lookups down with `member_below`, and pushes the
+denotations up with `hi.denoteUp`.  It takes `hcl`/`hvp` as *explicit
+hypotheses* rather than as `m`-fields, which is precisely the shape
+that dodges the bundle.
+
+### Priced options
+
+1. **One-step-ahead restatement** (recommended).  Give
+   `UnitLawKeyS`/`EtaLawKeyS` `mS : EnvS V env`, an abstract `cval'`,
+   `hi : Installs env mS.cval cval' c₀`, the artifacts' lookups **at
+   `env`**, and the conclusion at `⟨c₀ :: env.consts⟩`.  The bodies
+   survive: they run at `env` throughout (so `fireS` gets
+   `mS.toHyp ψ'`, valid), and the boundary transport is
+   `Installs.denoteUp` plus `denote_cval_congr` off the fresh name —
+   both already in `Verify/Denote/Install.lean`.  The consumer's
+   pull-down is `member_below`, already shared.  Estimated cost:
+   the two signatures, ~40 lines of boundary plumbing each, plus the
+   `cval'`-for-`mS.cval` renaming through two ~450-line proofs (a
+   mechanical substitution, since `mS.cval` appears there only as *a*
+   valuation).
+2. **Weaken `EnvS.cons`'s obligation** to receive the fields it has
+   already established.  Rejected on inspection: `toHyp` needs
+   `caps_ok`, so the obligation cannot be handed a usable bundle no
+   matter how `EnvS.cons` is re-ordered.
+3. **Split `EnvSHyp`** into a caps-free core plus `caps_ok`, and
+   premise `fireS` on the core.  Cleanest in principle and would also
+   pay off wherever else the bundle is over-strong, but it re-signs a
+   T4-frozen interface and every `fireS` caller; strictly more
+   expensive than (1) for the same payoff here.
+
+**Not affected**: `MemberKeyS` (states and concludes at the same
+environment), and the three value-kind obligations.
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -2519,8 +2658,8 @@ needs.
 | `declStepS` | **done** — per-kind dispatch; the set is closed modulo `DeclBasisS`/`DeclIndS`, so **T6 can be written today** |
 | `declIndS` 1 | **done** — `indMemberS` (one member, at the model's valuation; admits a rule-less `.recInfo` head) |
 | `declIndS` 2 | **done** — `memberInstallS`, `indMembersS` (non-recursor members), `provisionRecsS` (rule-less recursors ⇒ `EnvS V envSelf`) |
-| `declIndS` 3 | **not started** — `EnvS.swap`, then `iotaRuleS`, then the group install (architecture recorded above; do **not** cons-fold) |
-| `declIndS` 4 | **not started** — the capability record |
+| `declIndS` 3 | **done** — `EnvS.swap` (3a), `iotaRuleS` (3b), `indRecsS` (3c) |
+| `declIndS` 4 | **blocked on FINDING 6** — the capability keys are stated one environment too late |
 | `declIndS` 5 | **not started** — projection installs on `indBottomProjS` |
 | `declIndS` 6 | **not started** — the elimination templates |
 | `DeclIndS` assembly | **not started** |
