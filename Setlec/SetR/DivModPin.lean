@@ -997,9 +997,10 @@ noncomputable def dmEvalV (W : Type w) [SetTheory W]
     (n : Name) (ty : Expr) :
     dmEvalV V val x y (Expr.fvar i n ty) = if i = 0 then x else y := rfl
 
-/-- **The fragment, denoted and evaluated.** -/
+/-- **The fragment, denoted and evaluated**, at any frame depth: the
+statements are read at 4, the hypothesis *types* at 2 and 3. -/
 theorem dmDenEval {env : Env} (m : EnvS V env) (φ : Name → Nat)
-    {c : Name} {value' : Expr} {ns : List Name}
+    {c : Name} {value' : Expr} {ns : List Name} {d : Nat}
     (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (hvf : value'.hasFvar = false)
     (hvb : value'.looseBVarsBounded 0 = true)
@@ -1007,35 +1008,82 @@ theorem dmDenEval {env : Env} (m : EnvS V env) (φ : Name → Nat)
     (hstore : ∀ n ∈ ns, n = c ∨ (n ≠ c ∧ ∃ ci,
       env.find? n = some ci ∧ ci.toConstantVal.levelParams = [])) :
     ∀ e : Expr, dmFragOk c ns e = true →
-      ∃ eV, denote m.cval env φ 4 (Expr.substConst0 c value' e)
+      ∃ eV, denote m.cval env φ d (Expr.substConst0 c value' e)
           = some eV ∧
-        ∀ ρ4 : Nat → V, interp V ρ4 eV
-          = dmEvalV V (fun n => interp V ρ4
-              (dmVal m.cval env c value' φ n)) (ρ4 3) (ρ4 2) e
+        ∀ ρd : Nat → V, interp V ρd eV
+          = dmEvalV V (fun n => interp V ρd
+              (dmVal m.cval env c value' φ n))
+              (ρd (d - 1 - 0)) (ρd (d - 1 - 1)) e
   | .const n us, h => by
     simp only [dmFragOk, Bool.and_eq_true, Bool.or_eq_true,
       beq_iff_eq, List.isEmpty_iff] at h
     obtain ⟨hn, rfl⟩ := h
     rcases hn with rfl | hn
-    · exact ⟨_, denote_dmSelf φ hcl hvf hvb hVc 4, fun ρ4 => rfl⟩
+    · exact ⟨_, denote_dmSelf φ hcl hvf hvb hVc d, fun ρd => rfl⟩
     · rcases hstore n (by simpa using hn) with rfl | ⟨hnc, ci, hfi, hlpi⟩
-      · exact ⟨_, denote_dmSelf φ hcl hvf hvb hVc 4, fun ρ4 => rfl⟩
-      · exact ⟨_, denote_dmDep φ hfi hlpi hnc 4, fun ρ4 => rfl⟩
+      · exact ⟨_, denote_dmSelf φ hcl hvf hvb hVc d, fun ρd => rfl⟩
+      · exact ⟨_, denote_dmDep φ hfi hlpi hnc d, fun ρd => rfl⟩
   | .app f a, h => by
     simp only [dmFragOk, Bool.and_eq_true] at h
-    obtain ⟨fV, hfd, hfe⟩ := dmDenEval m φ hcl hvf hvb hVc hstore f h.1
-    obtain ⟨aV, had, hae⟩ := dmDenEval m φ hcl hvf hvb hVc hstore a h.2
-    exact ⟨_, denote_dmApp1 hfd had, fun ρ4 => by
+    obtain ⟨fV, hfd, hfe⟩ :=
+      dmDenEval m φ (d := d) hcl hvf hvb hVc hstore f h.1
+    obtain ⟨aV, had, hae⟩ :=
+      dmDenEval m φ (d := d) hcl hvf hvb hVc hstore a h.2
+    exact ⟨_, denote_dmApp1 hfd had, fun ρd => by
       rw [interp_app, hfe, hae, dmEvalV_app]⟩
   | .fvar i nm ty, h => by
     simp only [dmFragOk, Bool.and_eq_true, Bool.or_eq_true,
       beq_iff_eq] at h
     obtain ⟨hi, rfl⟩ := h
     rcases hi with rfl | rfl
-    · exact ⟨.bvar 3, denote_dmX, fun ρ4 => by simp [dmEvalV_fvar]⟩
-    · exact ⟨.bvar 2, denote_dmY, fun ρ4 => by simp [dmEvalV_fvar]⟩
+    · refine ⟨.bvar (d - 1 - 0), ?_, fun ρd => by
+        simp [dmEvalV_fvar]⟩
+      show denote m.cval env φ d
+        (.fvar 0 nm (.const natName [])) = _
+      rw [denote_fvar]
+    · refine ⟨.bvar (d - 1 - 1), ?_, fun ρd => by
+        simp [dmEvalV_fvar]⟩
+      show denote m.cval env φ d
+        (.fvar 1 nm (.const natName [])) = _
+      rw [denote_fvar]
   | .bvar _, h | .sort _, h | .lam _ _ _ _, h | .letE _ _ _ _, h
   | .forallE _ _ _ _, h | .lit _, h | .proj _ _ _, h => nomatch h
+
+/-- **The div/mod frame, satisfied.**  The two `Nat` slots take `x`
+and `y`; each hypothesis slot is read in its *own* shifted
+environment, which is what makes a non-closed entry legitimate. -/
+theorem sat_dm {A0 A1 natV : VExpr} {ρ : Nat → V} {a b yy xx : V}
+    (hclN : VExpr.Closed natV)
+    (h0 : a ∈ˢ interp V (cons V b (cons V yy (cons V xx ρ))) A0)
+    (h1 : b ∈ˢ interp V (cons V yy (cons V xx ρ)) A1)
+    (h2 : yy ∈ˢ interp V ρ natV)
+    (h3 : xx ∈ˢ interp V ρ natV) :
+    Sat V [A0, A1, natV, natV]
+      (cons V a (cons V b (cons V yy (cons V xx ρ)))) := by
+  intro i A hi
+  match i with
+  | 0 =>
+    simp only [List.getElem?_cons_zero, Option.some.injEq] at hi
+    subst hi
+    exact h0
+  | 1 =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero,
+      Option.some.injEq] at hi
+    subst hi
+    exact h1
+  | 2 =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero,
+      Option.some.injEq] at hi
+    subst hi
+    rw [interp_closed V hclN _ ρ]
+    exact h2
+  | 3 =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero,
+      Option.some.injEq] at hi
+    subst hi
+    rw [interp_closed V hclN _ ρ]
+    exact h3
+  | n + 4 => simp at hi
 
 /-! ## The frame, built — in the lift-carrying form -/
 
@@ -1175,10 +1223,18 @@ theorem dmFrameS {μ : CheckMode} {F : Nat} {env : Env} (m : EnvS V env)
           ∃ cn, (cn = boolName ∨ cn = natName) ∧
           SetTheory.app (SetTheory.app (interp V ρ' (m.cval n φ)) a) b
             ∈ˢ interp V ρ' (m.cval cn φ)) ∧
-      ((∃ nm nm2 mb mb2 cn, type' = .forallE nm (.const natName [])
-          (.forallE nm2 (.const natName []) (.const cn []) mb2) mb) ∨
-        (∃ nm mb cn, type' = .forallE nm (.const natName [])
-          (.const cn []) mb)) := by
+      ((∃ nm nm2 mb mb2, type' = .forallE nm (.const natName [])
+          (.forallE nm2 (.const natName []) (.const natName []) mb2)
+          mb) ∨
+        (∃ nm mb, type' = .forallE nm (.const natName [])
+          (.const natName []) mb)) ∧
+      (∀ n ∈ natOpDeps cv.name ++ [natSuccName, natZeroName,
+          boolTrueName, boolFalseName],
+        n = cv.name ∨ (n ≠ cv.name ∧ ∃ ci, env.find? n = some ci ∧
+          ci.toConstantVal.levelParams = [])) ∧
+      (∀ (bn : Name), bn = boolTrueName ∨ bn = boolFalseName →
+        ∀ ρ' : Nat → V, interp V ρ' (m.cval bn φ)
+          ∈ˢ interp V ρ' (m.cval boolName φ)) := by
   -- the guards, unpacked
   simp only [divModEnvGuard, Bool.and_eq_true] at hgenv
   obtain ⟨⟨⟨⟨hnog, hdeps⟩, hEq2⟩, hbT⟩, hbF⟩ := hgenv
@@ -1201,7 +1257,7 @@ theorem dmFrameS {μ : CheckMode} {F : Nat} {env : Env} (m : EnvS V env)
     rwa [Env.find?_cons, if_neg (fun hh => hnn hh.symm)] at hf
   -- the literal-support constants, at this environment
   simp only [natOpGuard, Bool.and_eq_true] at hnog
-  obtain ⟨⟨hlit, -⟩, -⟩ := hnog
+  obtain ⟨⟨hlit, -⟩, hnogFull⟩ := hnog
   simp only [natLitSupported, Bool.and_eq_true] at hlit
   obtain ⟨⟨hnat, hzero⟩, hsucc⟩ := hlit
   obtain ⟨cvN, capsN, hfN, hlpN, htyN⟩ :
@@ -1352,26 +1408,128 @@ theorem dmFrameS {μ : CheckMode} {F : Nat} {env : Env} (m : EnvS V env)
     obtain rfl := Option.some.inj ht
     exact (hlaw ρ').1
   -- the operation's own pinned type, in the shape `dmSelfMem` reads
+  -- no pin-certified operation is a comparison, so its codomain is
+  -- `Nat`
+  have hnotcmp : ∀ cod : Expr, natOpCod
+      (⟨ConstantInfo.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value'
+        hint :: env.consts⟩ : Env) cv.name cod = true →
+      cod = Expr.const natName [] := by
+    intro cod hcod
+    unfold natOpCod at hcod
+    rw [if_neg (show ¬((decide (cv.name = natBeqName)
+        || decide (cv.name = natBleName)) = true) from by
+      simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+        or_false] at hmem
+      rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide))] at hcod
+    simpa using hcod
   have htyOwn :
-      ((∃ nm nm2 mb mb2 cn, type' = Expr.forallE nm (.const natName [])
-          (.forallE nm2 (.const natName []) (.const cn []) mb2) mb) ∨
-        (∃ nm mb cn, type' = Expr.forallE nm (.const natName [])
-          (.const cn []) mb)) := by
+      ((∃ nm nm2 mb mb2, type' = Expr.forallE nm (.const natName [])
+          (.forallE nm2 (.const natName []) (.const natName []) mb2)
+          mb) ∨
+        (∃ nm mb, type' = Expr.forallE nm (.const natName [])
+          (.const natName []) mb)) := by
     by_cases hun : (cv.name = natPredName || cv.name = natLog2Name)
         = true
     · obtain ⟨nmT, mbT, codT, htyT, hcodT⟩ :=
         natOpTyPinned_unaryE hun (htyS2 ▸ hpinS2)
-      refine Or.inr ⟨nmT, mbT, ?_⟩
-      rcases natOpCod_stored hcodT with ⟨-, rfl, -⟩ | rfl
-      · exact ⟨boolName, htyT⟩
-      · exact ⟨natName, htyT⟩
+      exact Or.inr ⟨nmT, mbT, by rw [htyT, hnotcmp codT hcodT]⟩
     · obtain ⟨nmT, nmT2, mbT, mbT2, codT, htyT, hcodT⟩ :=
         natOpTyPinned_binaryE (by simpa using hun) (htyS2 ▸ hpinS2)
-      refine Or.inl ⟨nmT, nmT2, mbT, mbT2, ?_⟩
-      rcases natOpCod_stored hcodT with ⟨-, rfl, -⟩ | rfl
-      · exact ⟨boolName, htyT⟩
-      · exact ⟨natName, htyT⟩
+      exact Or.inl ⟨nmT, nmT2, mbT, mbT2, by
+        rw [htyT, hnotcmp codT hcodT]⟩
+  -- the literal-support and `Bool` constructors, stored
+  obtain ⟨ciZ, hfZ, hlpZ⟩ : ∃ ci, env.find? natZeroName = some ci ∧
+      ci.toConstantVal.levelParams = [] := by
+    simp only [natZeroOk] at hzero
+    split at hzero
+    · next cvZ nP nF hf =>
+      simp only [Bool.and_eq_true, List.isEmpty_iff] at hzero
+      exact ⟨_, hdown _ _ (hne _ (by simp)) hf, hzero.1⟩
+    · exact nomatch hzero
+  obtain ⟨ciS', hfS', hlpS'⟩ : ∃ ci, env.find? natSuccName = some ci ∧
+      ci.toConstantVal.levelParams = [] := by
+    simp only [natSuccOk] at hsucc
+    split at hsucc
+    · next cvS nP nF hf =>
+      simp only [Bool.and_eq_true, List.isEmpty_iff] at hsucc
+      exact ⟨_, hdown _ _ (hne _ (by simp)) hf, hsucc.1⟩
+    · exact nomatch hsucc
+  have hcont : natDivModNames.contains cv.name = true := by
+    simpa using hmem
+  have hbc := hnogFull
+  rw [if_pos (show (decide (cv.name = natBeqName)
+      || decide (cv.name = natBleName)
+      || natDivModNames.contains cv.name) = true from by
+    simp only [Bool.or_eq_true, decide_eq_true_eq,
+      List.contains_iff_mem] at *
+    exact Or.inr hmem)] at hbc
+  simp only [Bool.and_eq_true] at hbc
+  obtain ⟨hbcT, hbcF⟩ := hbc
+  obtain ⟨ciT2, hfT2, hlpT2⟩ : ∃ ci, env.find? boolTrueName = some ci ∧
+      ci.toConstantVal.levelParams = [] := by
+    split at hbcT
+    · next ci hf =>
+      simp only [List.isEmpty_iff] at hbcT
+      exact ⟨ci, hdown _ _ (hne _ (by simp)) hf, hbcT⟩
+    · exact nomatch hbcT
+  obtain ⟨ciF2, hfF2, hlpF2⟩ : ∃ ci,
+      env.find? boolFalseName = some ci ∧
+      ci.toConstantVal.levelParams = [] := by
+    split at hbcF
+    · next ci hf =>
+      simp only [List.isEmpty_iff] at hbcF
+      exact ⟨ci, hdown _ _ (hne _ (by simp)) hf, hbcF⟩
+    · exact nomatch hbcF
+  have hstore : ∀ n ∈ natOpDeps cv.name ++ [natSuccName, natZeroName,
+      boolTrueName, boolFalseName],
+      n = cv.name ∨ (n ≠ cv.name ∧ ∃ ci, env.find? n = some ci ∧
+        ci.toConstantVal.levelParams = []) := by
+    intro n hn
+    rcases List.mem_append.mp hn with hn' | hn'
+    · by_cases hnc : n = cv.name
+      · exact Or.inl hnc
+      · refine Or.inr ⟨hnc, ?_⟩
+        have hs := hdepAll n hn'
+        simp only [natOpStoredOk] at hs
+        split at hs
+        · next cvn vn hintn hf =>
+          simp only [Bool.and_eq_true, List.isEmpty_iff] at hs
+          exact ⟨_, hdown _ _ hnc hf, hs.1⟩
+        · exact nomatch hs
+    · simp only [List.mem_cons, List.not_mem_nil, or_false] at hn'
+      rcases hn' with rfl | rfl | rfl | rfl
+      · exact Or.inr ⟨hne _ (by simp), _, hfS', hlpS'⟩
+      · exact Or.inr ⟨hne _ (by simp), _, hfZ, hlpZ⟩
+      · exact Or.inr ⟨hne _ (by simp), _, hfT2, hlpT2⟩
+      · exact Or.inr ⟨hne _ (by simp), _, hfF2, hlpF2⟩
+  -- the two `Bool` constructors inhabit `Bool`
+  have hctorMem : ∀ (bn : Name),
+      bn = boolTrueName ∨ bn = boolFalseName →
+      ∀ ρ' : Nat → V, interp V ρ' (m.cval bn φ)
+        ∈ˢ interp V ρ' (m.cval boolName φ) := by
+    intro bn hbn ρ'
+    obtain ⟨ci, hf, hty⟩ : ∃ ci, env.find? bn = some ci ∧
+        ci.toConstantVal.type = Expr.const boolName [] := by
+      rcases hbn with rfl | rfl
+      · revert hbT
+        split
+        · next ci hf =>
+          intro h; simp only [beq_iff_eq] at h
+          exact ⟨ci, hdown _ _ (hne _ (by simp)) hf, h⟩
+        · intro h; exact nomatch h
+      · revert hbF
+        split
+        · next ci hf =>
+          intro h; simp only [beq_iff_eq] at h
+          exact ⟨ci, hdown _ _ (hne _ (by simp)) hf, h⟩
+        · intro h; exact nomatch h
+    obtain ⟨t, ht, hlaw⟩ := m.cval_memType hf φ
+    rw [hty, show denoteClosed m.cval env φ (Expr.const boolName [])
+        = denote m.cval env φ 0 (Expr.const boolName []) from rfl,
+      denote_const_nolevelsS hfB hlpB φ 0] at ht
+    obtain rfl := Option.some.inj ht
+    exact (hlaw ρ').1
   exact ⟨_, ciB, Vc, hfN, hlpN, hfB, hlpB, hEqE, hVc, hvalSelf,
-    hvalNat, hNU, hBU, hbleMem, hdepBin, htyOwn⟩
+    hvalNat, hNU, hBU, hbleMem, hdepBin, htyOwn, hstore, hctorMem⟩
 
 end Setlec.SetR
