@@ -877,22 +877,6 @@ theorem declBasisTT_punitK {env env₁ : Env} (m : EnvTT env)
   exact ⟨m3⟩
 
 
-/-- A declaration read at its *own* level parameters is read at the
-ambient assignment.  Every basis constant's type mentions its siblings
-this way. -/
-theorem substFn_param_self (φ : Name → Nat) :
-    ∀ (ks : List Name), Level.substFn φ ks (ks.map Level.param) = φ := by
-  intro ks
-  induction ks with
-  | nil => funext n; rfl
-  | cons k ks ih =>
-    funext n
-    by_cases h : k = n
-    · subst h; simp [Level.substFn, Level.eval]
-    · simp only [List.map_cons, Level.substFn, if_neg h]
-      exact congrFun ih n
-
-
 /-! ### β along a spine
 
 Every basis block's iota rule is the same shape — a λ-tower applied to
@@ -925,45 +909,6 @@ theorem Deq.ofBetaSpine {Γ : List VExpr} {f : VExpr} {args : List VExpr}
     exact Deq.trans (Deq.mkAppN_congrFun xs
       (Deq.intro (HasType.beta (T := x) hx))) ih
 
-
-/-- A lifted telescope variable, recovered: `k` lifts and the `k`
-instantiations that consume them cancel exactly.  Every fired spine
-produces these chains, and nothing else stands between the computed
-`inst` and the variable it started as. -/
-theorem inst_chain1 (x e : VExpr) : (VExpr.liftN 1 x 0).inst e 0 = x := by
-  rw [VExpr.inst_liftN_absorb x (Nat.zero_le _) (Nat.le_refl 0) e,
-    VExpr.liftN_zero]
-
-/-- The same absorptions stopping *short* of zero: a telescope entry
-that still sits under binders keeps the residual lift.  Named at each
-arity because `simp` matches numerals, not `m + 1`. -/
-theorem inst_absorb21 (x e : VExpr) :
-    (VExpr.liftN 2 x 0).inst e 1 = VExpr.liftN 1 x 0 :=
-  VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e
-
-theorem inst_absorb32 (x e : VExpr) :
-    (VExpr.liftN 3 x 0).inst e 2 = VExpr.liftN 2 x 0 :=
-  VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e
-
-theorem inst_absorb43 (x e : VExpr) :
-    (VExpr.liftN 4 x 0).inst e 3 = VExpr.liftN 3 x 0 :=
-  VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e
-
-theorem inst_absorb54 (x e : VExpr) :
-    (VExpr.liftN 5 x 0).inst e 4 = VExpr.liftN 4 x 0 :=
-  VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e
-
-theorem inst_chain2 (x e1 e0 : VExpr) :
-    ((VExpr.liftN 2 x 0).inst e1 1).inst e0 0 = x := by
-  rw [VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e1, inst_chain1]
-
-theorem inst_chain3 (x e2 e1 e0 : VExpr) :
-    (((VExpr.liftN 3 x 0).inst e2 2).inst e1 1).inst e0 0 = x := by
-  rw [VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e2, inst_chain2]
-
-theorem inst_chain4 (x e3 e2 e1 e0 : VExpr) :
-    ((((VExpr.liftN 4 x 0).inst e3 3).inst e2 2).inst e1 1).inst e0 0 = x := by
-  rw [VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e3, inst_chain3]
 
 /-! ## `Eq`
 
@@ -1194,7 +1139,7 @@ theorem eqReflValT_congr {ψ₁ ψ₂ : Name → Nat} (h : ψ₁ uN = ψ₂ uN) 
 The general form is the one `hheadRec` supplies at a fire site — depth
 `d`, the recursor's own `us` — and the install's own `htype` is its
 special case at depth `0` and the declaration's own parameters
-(`substFn_param_self`).  Written once for the same reason `BetaSpine`
+(`Level.substFn_param_self`).  Written once for the same reason `BetaSpine`
 and the `instantiate1` kit were: every block needs exactly this
 shape. -/
 theorem denote_eqRec_type {env : Env} (m : EnvTT env)
@@ -1409,7 +1354,7 @@ theorem extendEqReflTT {env : Env} (m : EnvTT env)
       = eqA.toConstantVal.levelParams.length from rfl, if_true]
     rw [cvalSet_ne (by decide),
       show Level.substFn φ eqA.toConstantVal.levelParams [Level.param uN]
-        = φ from substFn_param_self φ [uN], hEv]
+        = φ from Level.substFn_param_self φ [uN], hEv]
   refine extendBasisTT m (val := eqReflValT) (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
     (basisResidVacuous (by decide))
     (fun _ => by decide)
@@ -1493,7 +1438,7 @@ theorem extendEqRecTT {env : Env} (m : EnvTT env)
         = [Level.param u1N, Level.param uN] from rfl,
       denote_eqRec_type m φ 0 (.param u1N) (.param uN) hE hR hEv hRv,
       show Level.substFn φ [uN] [Level.param uN] = φ from
-        substFn_param_self φ [uN]]
+        Level.substFn_param_self φ [uN]]
     rfl
   · -- the rule's constructor is stored
     intro cv mI rP rules heq
@@ -2380,7 +2325,7 @@ theorem extendPSigmaMkTT {env : Env} (m : EnvTT env)
     refine denote_const_pin m (by decide) hP rfl (by decide) ?_ d
     rw [show Level.substFn φ psigmaA.toConstantVal.levelParams
         [Level.param uN, Level.param vN] = φ from
-      substFn_param_self φ [uN, vN]]
+      Level.substFn_param_self φ [uN, vN]]
     simp +decide [pinnedDirectT]
   refine extendBasisTT m
     (val := fun ψ => VExpr.const .psigmaMk [ψ uN, ψ vN])
@@ -2583,7 +2528,7 @@ theorem extendPairFstTT {env : Env} (m : EnvTT env)
     refine denote_const_pin m (by decide) hP rfl (by decide) ?_ d
     rw [show Level.substFn φ psigmaA.toConstantVal.levelParams
         [Level.param uN, Level.param vN] = φ from
-      substFn_param_self φ [uN, vN]]
+      Level.substFn_param_self φ [uN, vN]]
     simp +decide [pinnedDirectT]
   refine ⟨_, ?_, (pairProjValT_typed φ).1⟩
   rw [denoteClosed, show pairFstA.toConstantVal.type
@@ -2620,7 +2565,7 @@ theorem extendPairSndTT {env : Env} (m : EnvTT env)
     refine denote_const_pin m (by decide) hP rfl (by decide) ?_ d
     rw [show Level.substFn φ psigmaA.toConstantVal.levelParams
         [Level.param uN, Level.param vN] = φ from
-      substFn_param_self φ [uN, vN]]
+      Level.substFn_param_self φ [uN, vN]]
     simp +decide [pinnedDirectT]
   refine ⟨_, ?_, (pairProjValT_typed φ).2⟩
   rw [denoteClosed, show pairSndA.toConstantVal.type
@@ -3418,7 +3363,7 @@ theorem extendQuotMkTT {env : Env} (m : EnvTT env)
     intro d φ
     refine denote_const_pin m (by decide) hQ rfl (by decide) ?_ d
     rw [show Level.substFn φ quotA.toConstantVal.levelParams
-        [Level.param uN] = φ from substFn_param_self φ [uN]]
+        [Level.param uN] = φ from Level.substFn_param_self φ [uN]]
     simp +decide [pinnedDirectT]
   refine extendBasisTT m (val := fun ψ => VExpr.const .quotMk [ψ uN])
     (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))

@@ -518,4 +518,48 @@ variable (a : VExpr) (n k : Nat)
 
 end Distrib
 
+/-! ## Lift/instantiate chains at the fired arities
+
+Relocated here (task #148, T5) from the TT lane's basis install: the
+[set] lane's recursor iotas walk the very same telescopes, and a
+substitution identity is shared tier, not lane-local. -/
+
+/-- A lifted telescope variable, recovered: `k` lifts and the `k`
+instantiations that consume them cancel exactly.  Every fired spine
+produces these chains, and nothing else stands between the computed
+`inst` and the variable it started as. -/
+theorem inst_chain1 (x e : VExpr) : (VExpr.liftN 1 x 0).inst e 0 = x := by
+  rw [VExpr.inst_liftN_absorb x (Nat.zero_le _) (Nat.le_refl 0) e,
+    VExpr.liftN_zero]
+
+/-- The same absorptions stopping *short* of zero: a telescope entry
+that still sits under binders keeps the residual lift.  Named at each
+arity because `simp` matches numerals, not `m + 1`. -/
+theorem inst_absorb21 (x e : VExpr) :
+    (VExpr.liftN 2 x 0).inst e 1 = VExpr.liftN 1 x 0 :=
+  VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e
+
+theorem inst_absorb32 (x e : VExpr) :
+    (VExpr.liftN 3 x 0).inst e 2 = VExpr.liftN 2 x 0 :=
+  VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e
+
+theorem inst_absorb43 (x e : VExpr) :
+    (VExpr.liftN 4 x 0).inst e 3 = VExpr.liftN 3 x 0 :=
+  VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e
+
+theorem inst_absorb54 (x e : VExpr) :
+    (VExpr.liftN 5 x 0).inst e 4 = VExpr.liftN 4 x 0 :=
+  VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e
+
+theorem inst_chain2 (x e1 e0 : VExpr) :
+    ((VExpr.liftN 2 x 0).inst e1 1).inst e0 0 = x := by
+  rw [VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e1, inst_chain1]
+
+theorem inst_chain3 (x e2 e1 e0 : VExpr) :
+    (((VExpr.liftN 3 x 0).inst e2 2).inst e1 1).inst e0 0 = x := by
+  rw [VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e2, inst_chain2]
+
+theorem inst_chain4 (x e3 e2 e1 e0 : VExpr) :
+    ((((VExpr.liftN 4 x 0).inst e3 3).inst e2 2).inst e1 1).inst e0 0 = x := by
+  rw [VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e3, inst_chain3]
 end Setlec.TT

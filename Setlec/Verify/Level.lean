@@ -373,4 +373,19 @@ theorem substFn_of_evalEqList {φ : Name → Nat} :
         · exact h1
         · exact ih h2 p
 
+/-- A declaration read at its *own* level parameters is read at the
+ambient assignment.  Every basis constant's type mentions its siblings
+this way. -/
+theorem substFn_param_self (φ : Name → Nat) :
+    ∀ (ks : List Name), Level.substFn φ ks (ks.map Level.param) = φ := by
+  intro ks
+  induction ks with
+  | nil => funext n; rfl
+  | cons k ks ih =>
+    funext n
+    by_cases h : k = n
+    · subst h; simp [Level.substFn, Level.eval]
+    · simp only [List.map_cons, Level.substFn, if_neg h]
+      exact congrFun ih n
+
 end Setlec.Level
