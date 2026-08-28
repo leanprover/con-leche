@@ -6571,3 +6571,50 @@ churned its signature is over, so `ofReduceKeyS` goes in at
 **The fourteen now carry exactly two hypotheses**: `DivModPinS V` and
 `StdAxiomKeyS V`.  Every one of them still stands at
 `[propext, Classical.choice, Quot.sound]`.
+
+### The ledger, and the two that remain (measured)
+
+Fourteen theorems, two hypotheses, all at
+`[propext, Classical.choice, Quot.sound]`:
+
+```
+no_constant_of_Empty_R          checkDecls_sound_R
+no_proof_of_Empty_R             checkDeclsC_sound_R
+no_proof_of_Empty_C_R           checkDeclsS_sound_R
+no_proof_of_Empty_S_R           checkDeclsSP_sound_R
+no_proof_of_Empty_SP_R          checkDecl_sound_R
+no_proof_of_Empty_input_R       no_proof_of_Empty_input_C_R
+no_proof_of_Empty_input_S_R     no_proof_of_Empty_input_SP_R
+```
+
+**`DivModPinS` — sized against the right lane, and it is the larger.**
+Applying "check every lane before pricing": the TT lane's
+`TTVerify/DivModPin.lean` is 1526 lines, but the *set* lane's own
+twin is `Model/DivModCert.lean` at **1622**, and that is the template
+(`EnvModel`, `interp`, value equations — not `HasType`).  The SetR
+delta is the same one `StdAxiomKeyS` has: `m.val n ψ` becomes
+`interp V ρ (m.cval n ψ)` at every statement, plus `AnnotOkV`
+packages the Model lane does not carry.
+
+The inputs are already shared-tier: `checkDivModPin_inv` and
+`checkDivModCerts_inv` (`Verify/DivModInv.lean`) deliver the guards,
+the storage, the pin annotate and `CertRuns`.  What must be built is
+`CertRuns → DivModClausesV`: `Model/DivModCert.lean`'s
+`divModCert_extract` → `divmod_certs_sound` chain, over `EnvS`.
+`CtxOkR.pinnedCtx` is landed and is the frame this consumes.
+
+*Classification of the TT file, for whoever relocates:* ~350 of its
+1526 lines are lane-independent (`natOpCod_shape`, `CtxOk.annotate`,
+`denote_natOpCod`, `denote_natOpTy1`/`_2`, `denote4_of_denote2`,
+`certGuard_proof`, the three `*_cons` guard lemmas, `psiEq1`,
+`dmEqStmt`, the `dm*` value abbreviations and the `inst2_*` family) —
+`cval`-only or pure.  The remaining ~900 (`clause1T`/`clause2T`,
+`DMSpine.sound`, `dmClause1`/`2`, the nine per-operation lemmas,
+`dmBase_of_guard`, `cert_extractT`, `Frames4.*`) are `HasType` work
+with no set-side content.
+
+**`StdAxiomKeyS` — ~980 lines**, plan unchanged (relocations first,
+then `iff_forces_eq`, then the `¬¬`/`Nonempty` reconciliation).
+
+**Both are leaves**: proving either changes no signature, so partial
+work on them cannot break the tree — but it also cannot be sealed.
