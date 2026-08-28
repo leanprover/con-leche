@@ -3223,6 +3223,62 @@ Two more relocations came with this pass: `projFnName_ne_reserved` to
 simp set to `Verify/Subst.lean` (fourteenth) — both V-free, both
 needed by each lane's basis file.
 
+## Lever 2 landed; `extendPUnitRecS`'s exact blocker (2026-08-28)
+
+### `AnnotOkV_bconst_type` is proved — every pinned type is truthful
+
+Built longhand as the record instructed, and the record's diagnosis
+was right in substance but wrong in cause.  **Why the generic closers
+failed**: the `∃ A B` metavariables must be fixed by the *head*'s
+membership, and `bval_mem_type` cannot supply them with `c` and `us`
+left as placeholders — there is nothing to solve them from.  Naming
+the constant (`bval_mem_type V .quot [lv us 0] ρ`) fixes it, and 22 of
+the 24 close as one-liners.  The other two need `rename_i`: their head
+is a bound *relation* applied to one side, and an anonymous
+`assumption` picks the wrong binder.
+
+Its payoff is immediate and permanent: `AnnotOkV_bconst_type (V := V)
+_ _ ρ` is now the whole of every pinned constant's truthfulness
+obligation, verified against `PUnit.rec`'s.
+
+### `extendPUnitRecS`: everything but the rule, and where it stops
+
+Written and compiling except `hheadRec`; backed out to keep the tree
+green.  Inside `hheadRec`, the structure, the level substitutions
+(`hsu`/`hsu1` — state them with the *expanded* names
+`Name.anonymous.str "u"`, not `uN`, or the `simp only` will not
+match), the constructor identification and the choice of `R` are all
+settled.  The step that does not go through is the **denotation of
+`R`**:
+
+```
+denoteClosed cval ⟨punitRecA :: env.consts⟩ φ
+    (rhs.instantiateLevelParams lps [w1, w2])
+  = some (.lam (.pi (punitT …) (.sort …)) (.lam (.app (.bvar 0) (punitUnitT …)) (.bvar 0)))
+```
+
+Facts established, so the next pass need not re-derive them:
+
+* `rw [denoteClosed]` **does** fire (checked directly).  The goal
+  display re-folds `denote … 0 …` back to `denoteClosed`, which is
+  misleading — do not read the pretty-printed goal as evidence that it
+  did not.
+* the TT lane's simp set does **not** finish it here, and a trailing
+  full `simp` reports *no progress*, so the residue is not a missing
+  rewrite in that set;
+* `denote_bvar` is `none` — a bare `.bvar` never denotes.  The λ
+  bodies must be opened through `Expr.instantiate1` at an `fvar`,
+  which `denote_lam` does and the simp set does provide
+  (`Expr.instantiate1_bvar` + `reduceIte` + `denote_fvar`).
+
+**The lane difference to check first**: the TT lane's `hheadRec`
+concludes about `denote cval env φ d …` at an *arbitrary depth*
+`d`, while `RecRuleLawV` uses `denoteClosed`, i.e. depth `0`.  The
+tactic was transposed verbatim; that is the one place the two
+obligations are not the same shape, and it is the first thing to
+examine.  Do **not** iterate on the simp set blind — three attempts
+here produced no information, which is what the stop was for.
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -3243,7 +3299,7 @@ needs.
 | `declIndS` 5 | **done** — `projConsS`, `projFnS`, `projInstallS` |
 | `declIndS` 6 | **done** — `templateVal`, `templateConsS`, `templatesS`; `TemplatesR` re-signed valuation-free |
 | `DeclIndS` assembly | **done** — `Install/DeclIndS.lean` |
-| `DeclBasisS` | **in progress** — infrastructure, `Empty`, and `PUnit`'s two non-recursor constants landed; see "the two levers" for the next pass |
+| `DeclBasisS` | **in progress** — infrastructure, `Empty`, `PUnit`'s two non-recursor constants, and **lever 2** (`AnnotOkV_bconst_type`) landed; `extendPUnitRecS` blocked at one step, diagnosed above |
 
 Open obligations, all in the house pattern: `DeclBasisS`, `DeclIndS`,
 `MemberKeyS`, `MemberEtaS`, `MemberUnitS`, `DivModPinS`,
