@@ -698,7 +698,7 @@ One more V-free relocation, verbatim: `substFn_of_evalEqList` from
 `TTVerify/DefEqStep.lean` to `Setlec/Verify/Level.lean` (a statement
 about levels alone; both lanes' same-head spine short-circuits need it).
 
-### FINDING 3 (blocking batches (c), (e) and the (g) rescues): the *doubled*-`Infer` premise chains do not compose either
+### FINDING 3 — RESOLVED 2026-08-28 (T4 amendment, third increment): the *doubled*-`Infer` premise chains do not compose either
 
 Repair A converted the `Red`-at-an-inferred-type premises.  It did not
 touch a second, smaller family that has the same defect for the same
@@ -765,3 +765,27 @@ the subject.  No `AnnotOkV`, no new premise beyond the equation.
 proof-irrelevance premise is built through D8/D9.  Everything else in
 those batches is unaffected — D9, D10, D11, D12, D13, R11 and R13 all
 have single `Infer`+`DefEq` pairs and compose today.
+
+### T4 amendment, third increment — finding 3 applied (linking `DefEq` in the doubled-`Infer` chains)
+
+Applied as proposed, T4 owning the shapes: the four premise pairs —
+D8 `irrelProp`'s two chains (`ta`/`tb` sides) and R6 `projRed`'s two
+(field and subject) — each gained the linking `DefEq` (`ta ↝ ta'`,
+`tb ↝ tb'`, `te ↝ te'`), with the second `Infer` re-subjected at the
+primed variable.  `Weaken.lean`'s two cases re-signed (two/two new
+`DeqW` IH slots); the soundness cost was exactly as priced —
+**free under the T4 architecture**: `DefEq`-sound being unconditional,
+the linking premise contributes only the equality, and the chains
+close by `mem_univ_zero` threaded through it (`sndDeqIrrelProp`,
+`sndRedProjRed`'s collapse branch) — the same equality-not-identity
+threading as the model's `sortCert_pt`.
+
+**The sweep, recorded** (so the two findings' pattern cannot produce a
+finding 4 of the same shape): every `Infer` premise of `Rel.lean` and
+`Decl.lean` was enumerated and its subject classified.  After this
+amendment the only `Infer` premises whose subject is another premise's
+*produced type* are the four primed-and-linked ones; every other
+subject is a rule component (subject/argument/binder-body/fabrication
+spine) or a declaration front door's denoted stored object.  The
+extended-context premises (I6's `B`, I7's `b`) have binder-body
+subjects.  No further doubled chains exist.
