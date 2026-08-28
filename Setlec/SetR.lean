@@ -15,6 +15,7 @@ import Setlec.SetR.Weaken
 import Setlec.SetR.CtxOkR
 import Setlec.SetR.Decl
 import Setlec.SetR.EnvS
+import Setlec.SetR.Install.Cons
 import Setlec.SetR.Examples
 import Setlec.SetR.Bridge.Env
 import Setlec.SetR.Bridge.Claims

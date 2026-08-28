@@ -467,38 +467,6 @@ of them is pinned by `natOpGuard` — that is what the dependency list is
 that a pinned name is stored and therefore not the one being
 installed. -/
 
-/-- Every name a clause set reads is valued the same after an install
-at a different name. -/
-theorem divModNames_agree {env : Env} {cval cval' : TConstVal} {c : Name}
-    (hag : ∀ n, (env.find? n).isSome = true → cval n = cval' n)
-    (hg : natOpGuard env c = true) :
-    (∀ n ∈ natOpDeps c, cval n = cval' n) ∧
-      cval natZeroName = cval' natZeroName ∧
-      cval natSuccName = cval' natSuccName ∧
-      (natDivModNames.contains c = true →
-        cval boolTrueName = cval' boolTrueName ∧
-        cval boolFalseName = cval' boolFalseName) := by
-  simp only [natOpGuard, Bool.and_eq_true] at hg
-  obtain ⟨⟨h0, hdeps⟩, hbool⟩ := hg
-  simp only [natLitSupported, Bool.and_eq_true] at h0
-  obtain ⟨⟨-, h2⟩, h3⟩ := h0
-  refine ⟨?_, ?_, ?_, ?_⟩
-  · intro n hn
-    rw [List.all_eq_true] at hdeps
-    have hn' := hdeps n (by simpa using hn)
-    exact hag n (by revert hn'; cases env.find? n <;> simp)
-  · exact hag _ (by revert h2; cases env.find? natZeroName <;> simp [natZeroOk])
-  · exact hag _ (by revert h3; cases env.find? natSuccName <;> simp [natSuccOk])
-  · intro hc
-    rw [show (decide (c = natBeqName) || decide (c = natBleName) ||
-        natDivModNames.contains c) = true from by
-          simp only [hc, Bool.or_true]] at hbool
-    simp only [if_true] at hbool
-    simp only [Bool.and_eq_true] at hbool
-    obtain ⟨hT, hF⟩ := hbool
-    exact ⟨hag _ (by revert hT; cases env.find? boolTrueName <;> simp),
-      hag _ (by revert hF; cases env.find? boolFalseName <;> simp)⟩
-
 /-- The guarded recurrences survive an install. -/
 theorem DivModTT.cons {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (h : DivModTT env cval)
