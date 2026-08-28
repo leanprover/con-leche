@@ -2021,3 +2021,235 @@ Remaining in `declIndS`: the recursor group (stage 3 — provisioning,
 then the install fold on the three iota bottoms), the capability
 record, the projection installs on `indBottomProjS`, and the
 templates; plus `DeclBasisS`.
+
+# Task #151 tier A — the sort-annotation pass
+
+Non-invasive by construction: three **new** modules under
+`Setlec/SetR/Annot/*`, plus the lib-root registration.  `denote`, the
+relation family (`Rel.lean`), the bridge (`Bridge/*`) and the soundness
+half (`Sound/*`) are untouched — tier A *consumes* the landed
+`Sound/Main.lean` and adds nothing to it.  That is the tiering
+rationale: the annotated syntax and the pass that produces it are a
+decoration on top of a finished lane, so they can be landed, reviewed
+and revised without moving anything the campaign already verified.
+
+## Inventory (as landed)
+
+| file | content |
+|---|---|
+| `Annot/Syntax.lean` | `AVExpr` (the sort-annotated `VExpr`), `erase`, the de Bruijn kit (`liftN`/`inst`/`mkAppN`) with clause equations, and the erase-commutations `erase_liftN` / `erase_inst` / `erase_mkAppN` |
+| `Annot/Pass.lean` | `HasSort` (the sort fact) + `HasSort.ofConv`; `ZetaEq` + `ZetaEq.refl`; the `Annotates` relation; `Annotates.zetaEq` (the erase contract); the literal-spine closures; `CvalAnnot` (the one environment hypothesis); **`Infer.annotates`** and **`Tele.annotates`** (existence, one recursor application over the 44 minor premises) |
+| `Annot/Kinding.lean` | `univ_inj`; `ZetaEq.interp_eq`; `interp_eq_univ_of_sortFact`; **`sortFact_unique`** (+ the linked form); `HasSort.mem_univ` / `HasSort.annotOkV`; `Annotates.interp_erase` |
+
+## The rulings, and where they came from
+
+* **Ground numerals.**  `VExpr` already evaluates every level
+  expression at its use site, so an annotation is a `Nat`.  There is no
+  level substitution to commute with — which is exactly what makes the
+  substitution kit *inert*: `erase_liftN`/`erase_inst` hold because
+  nothing in `liftN`/`inst` reads or writes a numeral slot.
+* **Annotations are cached premises.**  A slot exists where a rule's own
+  premises supply the fact *and* a consumer reads it.  Hence
+  `pi (u v) A B` (I6 has two `DefEq … (.sort _)` premises),
+  `lam (u) A b` (I7 has one, the domain's), **`letE` with no sort**
+  (I10 supplies one but `interp` reads neither the annotation nor its
+  sort — `let` is not a type former, so there is nothing to grade), and
+  `eqE` keeping its unannotated, unread type slot as `VExpr` does.
+* **The sort fact is `DefEq`-shaped, not `Red`-shaped.**  The brief
+  writes the premise as `Red tA (.sort u)`; the landed family says
+  `Infer Δ A tA → DefEq Δ tA (.sort u)`, per T4's **repair A** (above).
+  `HasSort` is spelled at the landed shape, which is also what makes it
+  **conversion-invariant on the type side** (`HasSort.ofConv`, one
+  `DefEq.trans`) — the property a cached premise has to have.
+
+## Per-tree sort correctness; no cross-tree claim
+
+`Annotates`' binder clauses **are** the invariant: a derivation of
+`Annotates … Δ (.lam A b) (.lam u Aa ba)` contains a `HasSort … Δ A u`
+by construction, and `cases`/`rec` hands it to tier C.  So correctness
+is *per tree*, and its two eliminations are proved here:
+`HasSort.mem_univ` (`⟦A⟧ρ ∈ˢ univ u` at any satisfying `ρ`) and
+`HasSort.annotOkV` (the domain's truthfulness).
+
+**No cross-tree coherence is claimed, and the reason is a negative
+result worth keeping.**  The hoped-for form
+
+```
+    interp V ρ A ∈ˢ univ u → interp V ρ A ∈ˢ univ v → u = v
+```
+
+is **false**: the tower is cumulative (`SetTheory.univ_mono`), so
+membership fixes a *lower bound* on the sort and never the sort.  Only
+`univ u = univ v` separates levels, and that needs the two facts to be
+about the **same type**.  Hence the unique-kinding statement below, and
+hence cross-tree agreement stays tier C's business — where every
+statement has the `∀ ρ, Sat V Δ ρ → …` shape, an unsatisfiable context
+is vacuous, and `sortFact_unique` settles the satisfiable ones through
+the shared inferred type each pair of facts is threaded onto.
+
+## Unique kinding, semantic form (the statement tier C consumes)
+
+```
+    sortFact_unique (henv : EnvSHyp V env cval φ)
+      (hu : DefEq μ env cval φ Δ tA (.sort u))
+      (hv : DefEq μ env cval φ Δ tA (.sort v))
+      (hρ : Sat V Δ ρ) : u = v
+```
+
+Route: `DefEq`-soundness is *unconditional* under `Sat` (the T4
+architecture), so both premises read as equalities at the one value
+`interp V ρ tA` — `univ u = interp V ρ tA = univ v` — and `univ_inj`
+recovers the numeral.  `sortFact_unique_of_conv` is the same with a
+linking `DefEq` between two inferred types.
+
+**`univ_inj` did not exist.**  Searched `Setlec/SetTheory/Derive/*`:
+`Univ.lean` has `univ_mono`, `univ_mem_univ`, `univ_subset_succ`;
+`Derive/Empty.lean` has `not_mem_self`; injectivity is absent.  It is
+proved in `Annot/Kinding.lean` from those three (`u < v` gives
+`univ u ∈ˢ univ (u+1) ⊆ˢ univ v`, and the equality would put a set
+inside itself).  It is a **general fact about the tower with no #151
+content**: its home is `Setlec/SetTheory/Derive/Univ.lean` and it
+should be relocated there verbatim when a second consumer appears (the
+eighth relocation).  It sits in `Annot/` only because tier A may not
+edit existing files.
+
+## FINDING A1 — the `let` body is not certified un-instantiated
+
+I10 certifies the let body **only** in instantiated form
+(`Infer Δ (b.inst v) B`); a derivation contains no sub-derivation about
+`b` in the extended context `T :: Δ`, so the binder sorts *inside* `b`
+have no justification there.  Recovering one needs substitution
+admissibility for the family (`HasSort (T :: Δ) C u` ↔
+`HasSort Δ (C.inst v) u`), and the family's only metatheory is
+weakening (M1).
+
+**Resolved, in the premise-exact direction**: `Annotates` has **no
+structural `letE` clause**; a `let` node is annotated by the annotation
+of its zeta contractum (`Annotates.zeta`), which is exactly what the
+checker's own premise supplies.  Semantically free —
+`interp ρ (.letE T v b) = interp ρ (b.inst v)` (`interp_inst0`).
+
+The price is that the erase contract is exact only *up to zeta*, and
+that is what `ZetaEq` records: `Annotates.zetaEq : ZetaEq e ea.erase`,
+with `ZetaEq.interp_eq` its semantic reading and
+`Annotates.interp_erase` the form tier C uses
+(`interp ρ ea.erase = interp ρ e`).  `AVExpr.letE` is **kept** —
+`AVExpr` stays a faithful variant of `VExpr` and `erase` stays
+surjective — but the pass never emits it.
+
+## FINDING A2 — reduction is annotation-opaque
+
+The existence theorem's motives are graded exactly like T4's soundness:
+`Infer` carries the content, `Tele` carries its spine's arguments, and
+**`Red`/`DefEq`/`DefEqL` carry nothing**.  That is forced, not lazy:
+
+* `Red.beta`'s subject `.app (.lam A b) a` has a λ whose **domain sort
+  no premise supplies** (R4's premises are the argument's
+  `Infer`+`DefEq` pair only), and `Red.zeta`'s subject is premise-free
+  altogether — so "the subject of a reduction is annotatable" is false;
+* even the *transport* reading ("if the redex is annotatable so is the
+  contractum") is unavailable: it needs
+  `Annotates (A :: Δ) b ba → Annotates Δ a aa →
+   Annotates Δ (b.inst a) (ba.inst aa)`, i.e. substitution
+  admissibility for `HasSort` again.
+
+Tier C must therefore not expect to move an annotation across a `Red`
+step.  (`AnnotOkV` *does* transport — `RedS`'s second conjunct — because
+it is a semantic predicate; `Annotates` is a derivation-backed one.)
+
+## The one environment hypothesis
+
+I3/I4/I5's subjects are stored-constant valuations (`cval n ψ`,
+`natLitV`, `strLitT`), arbitrary `VExpr`s as far as this tier is
+concerned, so their binders' sorts cannot come from the derivation.
+`CvalAnnot` supplies them, and it is the exact analogue of
+`EnvSHyp.annot_okV` — the field a future `EnvS` component discharges.
+The two literal subjects follow from it by `Annotates.app` alone
+(`Annotates.natLitT` / `Annotates.charListT`).
+
+## FINDING A3 (**blocking, campaign-level**) — the λ codomain sort is *not computed by the checker*, so tier B's F4 has no premise-exact repair
+
+Tier B's F4 (above) is correct as a refutation: a term-directed,
+environment-free λ clause needs the **codomain** sort, and `lam (u)`
+does not carry it.  Its **corollary is not**: F4 states that "the
+kernel's λ-codomain `ensureSort` … is where the λ codomain sort comes
+from" and that de-gating "may drop the comparison, but the sort must
+still be computed".  Read against the landed checker, **it is already
+gone, deliberately, and nothing computes it**:
+
+* `Setlec/Kernel/Core.lean:1588-1600` — the λ clause, with its own
+  comment: *"The body's type is not sort-checked here (task #100 stage
+  6: the official-kernel `infer_lambda` shape — the λ-annotation
+  re-check died with the stored annotations …)"*.  It runs
+  `r.infer (depth+1) (body.instantiate1 …)` and rebuilds the `∀`.  No
+  `whnf`, no `ensureSort`, at either mode (the clause is not
+  `ttChecks`-gated).  Compare the **∀** clause four lines above
+  (`Core.lean:1578-1587`), which *does* call `ensureSort` on the opened
+  body — that asymmetry is exactly why I6 has two sort premises and I7
+  has one.
+* `Setlec/Verify/InferLemmas.lean:149-157` — `inferTypeCore_lam_inv`
+  returns `∃ tty u bt, infer ty = tty ∧ whnf tty = .sort u ∧
+  infer (body…) = bt ∧ t = .forallE …`.  The **domain**'s sort and no
+  more; there is no conjunct to invert for the codomain.
+* `Setlec/Kernel/Expr.lean:72-74` — `BinderMeta` is `⟨bi⟩`.  The
+  codomain-sort slot the task-#49-era annotate pass filled was deleted
+  with the decoration apparatus in #100 stage 6 (DESIGN.md's stage-6
+  record: the cod memos, `codOfCore`/`codOfI`/`IState.codOfC`,
+  `internBMFast`, `annotate_sound` — all deleted).
+
+**Consequence: the requested I7 amendment cannot be landed.**  Adding
+`Infer (A :: Δ) b B → DefEq (A :: Δ) tB (.sort v)`-shaped premises to
+I7 would break premise-exactness (design §0) *and* would make the
+bridge clause `infer_lam_claimR` (`Bridge/InferStruct.lean:175-190`)
+undischargeable — there is no `whnf bt = .ok (.sort v)` fact in the
+inversion — so **`checkStepR`, a landed COMPLETE theorem, would stop
+being provable**.  This is precisely the stop condition the amendment
+request named ("a bridge inversion lacking the conjunct"), and it is
+recorded rather than taken.  Tier A's `lam (u)` is therefore left as
+landed, and the `AVExpr` swap stays blocked.
+
+**Repairs, priced** (the decision is campaign-level, like findings 1–3):
+
+* **A — restore the computation in the kernel's λ clause.**  One line
+  (`let _v ← ensureSort r env (depth+1) bt`, the ∀ clause's own move).
+  Cost: it is a *kernel* change, so it lands outside SetR — the
+  interned/`CheckerS`/`CoreNC` mirrors and their sim proofs,
+  `inferTypeCore_lam_inv`'s re-sign and its two consumers
+  (`Model/Core/Infer.lean:208`, `Bridge/InferStruct.lean:190`), and the
+  model lane (which ignores the fact — a `-`).  Two risks: it makes the
+  checker **stricter than the reference kernel** (Lean's `infer_lambda`
+  does not sort-check the body's type), so it can only *lose*
+  completeness — arena 90/92 and e2e 72/72 are the measurement, and any
+  loss is a "restrictions are findings" report; and it reverses part of
+  #100 stage 6, which that record calls "pure relaxation toward
+  reference".  Perf: one extra `whnf` per λ node.
+* **B — read `v` off the λ's *type*.**  Available only where the λ's
+  type is a stored declaration type (whose front door *does* run
+  `ensureSort`, `Checker.lean:272/380`); a λ's inferred type is
+  **built**, not inferred, so no `Infer.pi` derivation exists for it in
+  general.  Partial and non-compositional; not a repair.
+* **C — make the interpretation type-directed** (interpret annotated
+  *derivations*, or annotate the λ from the `∀` that types it).  The
+  `∀` node's annotation *is* available (I6 runs both `ensureSort`s), so
+  this is the repair that needs no kernel change; the cost is tier B's
+  `interp2` losing term-directedness, which is an architectural
+  decision on tier B's side, not a threading task.
+* **D — squash at the rule, not at the interpretation** (λ always a
+  graph; proof irrelevance handled by D8/D9 alone).  Reduces to C: the
+  membership at a `v = 0` product still has to know it is at `v = 0`.
+
+**Value inspection is not an escape** — tier B's own
+`lam_cod_sort_needed` witness has `F x = pt` on both readings, so a
+clause that inspects the fibre's *values* fails for the same reason a
+clause on `(u, A, F)` does.  That is the point of #151.
+
+## Tier A gate record
+
+`lake build` of the three modules warning-free; `lake test`; arena
+90/92, e2e 72/72, split 11/11, mode flags 10/10, tt-model sweep
+identical, no-model sweep as expected (1 recorded divergence); axioms
+exactly `[propext, Classical.choice, Quot.sound]` or fewer on every
+theorem of the tier (`erase_liftN`/`erase_inst` need only `propext`;
+`erase_mkAppN` and `ZetaEq.refl` need none); zero sorries; binary cone
+untouched (three proof-only modules in `SetlecSetR`, imported by
+nothing else).
