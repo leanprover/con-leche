@@ -405,4 +405,248 @@ theorem indRecsRS (hkey : MemberKeyS V) (heta : MemberEtaS V)
   exact ⟨cval₃, Or.inr ⟨fun hc => hemp (by rw [hc]; rfl), heqf,
     envSelf, mS.cval, checked, hprov, hfold⟩⟩
 
+set_option maxHeartbeats 4000000 in
+/-- **The `indDecl` branch, walked** (`checkIndDecl`) — the five folds
+assembled.  Structurally `declIndS` with each install fold replaced by
+its bridge-side twin, and with one premise sourced from the other
+side: `declIndS` gets its base `BlockInstalledTT` *vacuously from the
+relations* (`indMembersR_fresh` / `indRecsR_fresh`), which the bridge
+cannot do because the relations are what it is producing.  The
+checker-side twins — `checkIndMember_fold_names`, `checkIndFold_mono`
+and `checkIndRecs_fresh` — say the same thing about the same block,
+from the verdict instead of the relation. -/
+theorem declIndRS (hkey : MemberKeyS V) (heta : MemberEtaS V)
+    {μ : CheckMode} {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} (m : EnvS V env)
+    (h : checkIndDecl (m := CheckM) μ (fueledOps μ F) env block
+      = .ok env₂) :
+    DeclIndR μ F env m.cval block env₂ := by
+  simp only [checkIndDecl, Bind.bind, Except.bind, pure,
+    Except.pure] at h
+  split at h
+  case isFalse => simp [throw, throwThe, MonadExceptOf.throw] at h
+  next hsplit =>
+  split at h
+  case h_2 =>
+    next hnone =>
+    split at h
+    case h_1 => exact nomatch h
+    next envM hmemFold =>
+    have hbnAll : ∀ ci ∈ block,
+        (block.map (·.name)).contains ci.name = true := by
+      intro ci hci
+      have hmm : ci.name ∈ block.map (·.name) := List.mem_map_of_mem hci
+      simpa using hmm
+    have hbnNon : ∀ ci ∈ block.filter (fun ci => match ci with
+        | .recInfo _ _ _ _ => false | _ => true),
+        (block.map (·.name)).contains ci.name = true :=
+      fun ci hci => hbnAll ci (List.mem_filter.mp hci).1
+    have hbnRec : ∀ ci ∈ block.filter (fun ci => match ci with
+        | .recInfo _ _ _ _ => true | _ => false),
+        (block.map (·.name)).contains ci.name = true :=
+      fun ci hci => hbnAll ci (List.mem_filter.mp hci).1
+    have hI0 : BlockInstalledTT (block.map (·.name)) env m.cval := by
+      intro n hn ci hf
+      exfalso
+      have hmm : n ∈ block.map (·.name) := by simpa using hn
+      obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmm
+      rw [hsplit] at hci₀
+      rcases List.mem_append.mp hci₀ with hci₀ | hci₀
+      · rw [checkIndMember_fold_names _ _ _ hmemFold ci₀ hci₀] at hf
+        exact nomatch hf
+      · have hup := checkIndFold_mono _ _ _ hmemFold ci₀.name
+          (by rw [hf]; rfl)
+        rw [checkIndRecs_fresh h ci₀ hci₀] at hup
+        exact nomatch hup
+    obtain ⟨cvalM, m₁, hmem, hm₁cval, hI₁⟩ :=
+      indMembersRS hkey heta _ m hbnNon
+        (fun cv caps₂ _ => etaPins_empty) hI0 hmemFold
+    rw [← hm₁cval] at hI₁
+    have hall : ∀ n, (block.map (·.name)).contains n = true →
+        (envM.find? n).isSome = true ∨
+        ∃ ci ∈ block.filter (fun ci => match ci with
+          | .recInfo _ _ _ _ => true | _ => false), ci.name = n := by
+      intro n hn
+      have hmm : n ∈ block.map (·.name) := by simpa using hn
+      obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmm
+      rw [hsplit] at hci₀
+      rcases List.mem_append.mp hci₀ with hci₀ | hci₀
+      · exact Or.inl (indMembersR_stored _ hmem ci₀ hci₀)
+      · exact Or.inr ⟨ci₀, hci₀, rfl⟩
+    obtain ⟨cval₂, hrecs⟩ :=
+      indRecsRS hkey heta _ m₁ hbnRec hall hI₁ h
+    rw [hm₁cval] at hrecs
+    refine ⟨hsplit, Or.inr ⟨?_, envM, cvalM, cval₂, hmem, hrecs⟩⟩
+    rintro ⟨cvT, capsT, cvC, nP, nF, hI, hC⟩
+    exact hnone cvT capsT cvC nP nF hI hC
+  next cvT capsT cvC nP nF hIfilt hCfilt =>
+  split at h
+  case h_1 => exact nomatch h
+  next envM hmemFold =>
+  split at h
+  case h_1 => exact nomatch h
+  next envR hrecsFold =>
+  split at h
+  case isFalse => exact nomatch h
+  next hres =>
+  split at h
+  case isFalse => exact nomatch h
+  next hprojFresh =>
+  split at h
+  case h_1 => exact nomatch h
+  next envP hprojFold =>
+  -- the block's bookkeeping
+  have hbnAll : ∀ ci ∈ block,
+      (block.map (·.name)).contains ci.name = true := by
+    intro ci hci
+    have hmm : ci.name ∈ block.map (·.name) := List.mem_map_of_mem hci
+    simpa using hmm
+  have hbnNon : ∀ ci ∈ block.filter (fun ci => match ci with
+      | .recInfo _ _ _ _ => false | _ => true),
+      (block.map (·.name)).contains ci.name = true :=
+    fun ci hci => hbnAll ci (List.mem_filter.mp hci).1
+  have hbnRec : ∀ ci ∈ block.filter (fun ci => match ci with
+      | .recInfo _ _ _ _ => true | _ => false),
+      (block.map (·.name)).contains ci.name = true :=
+    fun ci hci => hbnAll ci (List.mem_filter.mp hci).1
+  -- the base invariant, from the *checker*: no block name is stored
+  have hI0 : BlockInstalledTT (block.map (·.name)) env m.cval := by
+    intro n hn ci hf
+    exfalso
+    have hmm : n ∈ block.map (·.name) := by simpa using hn
+    obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmm
+    rw [hsplit] at hci₀
+    rcases List.mem_append.mp hci₀ with hci₀ | hci₀
+    · rw [checkIndMember_fold_names _ _ _ hmemFold ci₀ hci₀] at hf
+      exact nomatch hf
+    · have hup := checkIndFold_mono _ _ _ hmemFold ci₀.name
+        (by rw [hf]; rfl)
+      rw [checkIndRecs_fresh hrecsFold ci₀ hci₀] at hup
+      exact nomatch hup
+  -- the block's two named members
+  have hmemFil : ∀ {p : ConstantInfo → Bool} {x : ConstantInfo},
+      block.filter p = [x] → x ∈ block := by
+    intro p x hfil
+    have hx : x ∈ block.filter p := by
+      rw [hfil]; exact List.mem_singleton_self _
+    exact (List.mem_filter.mp hx).1
+  have hsingle : ∀ {p : ConstantInfo → Bool} {x y : ConstantInfo},
+      block.filter p = [x] → y ∈ block → p y = true → y = x := by
+    intro p x y hfil hy hpy
+    have hx : y ∈ block.filter p := List.mem_filter.mpr ⟨hy, hpy⟩
+    rw [hfil, List.mem_singleton] at hx
+    exact hx
+  have hTin : ConstantInfo.indInfo cvT capsT ∈ block := hmemFil hIfilt
+  have hCin : ConstantInfo.ctorInfo cvC nP nF ∈ block := hmemFil hCfilt
+  have hTnon : ConstantInfo.indInfo cvT capsT ∈ block.filter
+      (fun ci => match ci with
+        | .recInfo _ _ _ _ => false | _ => true) :=
+    List.mem_filter.mpr ⟨hTin, rfl⟩
+  have hTblock : (block.map (·.name)).contains cvT.name = true :=
+    hbnAll _ hTin
+  have hCblockN : (block.map (·.name)).contains cvC.name = true :=
+    hbnAll _ hCin
+  -- the member fold, walked
+  obtain ⟨cvalM, m₁, hmem, hm₁cval, hI₁⟩ :=
+    indMembersRS hkey heta _ m hbnNon
+      (fun cv caps₂ hmm => by
+        obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj
+          (hsingle hIfilt (List.mem_filter.mp hmm).1 rfl)
+        exact etaPins_of_indBlockCaps)
+      hI0 hmemFold
+  rw [← hm₁cval] at hI₁
+  -- the recursor group, bridged then installed
+  have hall : ∀ n, (block.map (·.name)).contains n = true →
+      (envM.find? n).isSome = true ∨
+      ∃ ci ∈ block.filter (fun ci => match ci with
+        | .recInfo _ _ _ _ => true | _ => false), ci.name = n := by
+    intro n hn
+    have hmm : n ∈ block.map (·.name) := by simpa using hn
+    obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmm
+    rw [hsplit] at hci₀
+    rcases List.mem_append.mp hci₀ with hci₀ | hci₀
+    · exact Or.inl (indMembersR_stored _ hmem ci₀ hci₀)
+    · exact Or.inr ⟨ci₀, hci₀, rfl⟩
+  obtain ⟨cvalR, hrecs⟩ :=
+    indRecsRS hkey heta _ m₁ hbnRec hall hI₁ hrecsFold
+  obtain ⟨m₂, hm₂cval, hI₂, hnonrecUp, -, -⟩ :=
+    indRecsS hkey heta m₁ hI₁ hbnRec hall hrecs
+  rw [← hm₂cval] at hI₂
+  rw [hm₁cval] at hrecs
+  have hbshape : ∀ n, (block.map (·.name)).contains n = true →
+      n.isProjFnShape = false := by
+    intro n hn
+    have hmm : n ∈ block.map (·.name) := by simpa using hn
+    obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmm
+    rw [hsplit] at hci₀
+    rcases List.mem_append.mp hci₀ with hx | hx
+    · exact (indMembersR_nameGuards _ hmem ci₀ hx).1
+    · exact (indRecsR_nameGuards hrecs ci₀ hx).1
+  have hTnres : reservedBasisNames.contains cvT.name = false :=
+    (indMembersR_nameGuards _ hmem _ hTnon).2
+  -- the stored former, identified
+  have hidR : ∀ (cvT' : ConstantVal) (capsT' : IndCaps),
+      envR.find? cvT.name = some (.indInfo cvT' capsT') →
+      cvT'.levelParams = cvT.levelParams ∧
+      capsT' = indBlockCaps μ env cvT cvC nP nF := by
+    intro cvT' capsT' hf
+    obtain ⟨cvA, hnameA, hlpsA, hfM⟩ :=
+      indMembersR_indEntry _ hmem cvT capsT hTnon
+    have hfR := hnonrecUp cvT.name (.indInfo cvA
+      (indBlockCaps μ env cvT cvC nP nF)) hfM
+      (fun cv mI rP rules hh => ConstantInfo.noConfusion hh)
+    rw [hf] at hfR
+    obtain ⟨h1, h2⟩ := ConstantInfo.indInfo.inj (Option.some.inj hfR)
+    exact ⟨by rw [h1]; exact hlpsA, h2⟩
+  have hkeepR : ∀ (n : Name) (ci : ConstantInfo),
+      env.find? n = some ci →
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      envR.find? n = some ci := by
+    intro n ci hf hnr
+    exact hnonrecUp n ci (indMembersR_mono _ hmem n ci hf) hnr
+  have hinvR : ProjPhaseInvS cvT.name cvC.name nF envR m₂.cval := by
+    refine ⟨?_, ?_, ?_⟩
+    · intro ci hf
+      obtain ⟨cvm, mval, hint, hfm, hlps, -, hv⟩ :=
+        hI₂ cvT.name hTblock ci hf
+      exact ⟨cvm, mval, hint, hfm, hlps, hv⟩
+    · intro ci hf
+      obtain ⟨cvm, mval, hint, hfm, hlps, -, hv⟩ :=
+        hI₂ cvC.name hCblockN ci hf
+      exact ⟨cvm, mval, hint, hfm, hlps, hv⟩
+    · intro j hj ci hf
+      exfalso
+      have hnone := List.all_eq_true.mp hprojFresh j
+        (List.mem_range.mpr hj)
+      rw [hf] at hnone
+      exact nomatch hnone
+  have hpinsR : ∀ (cvT' : ConstantVal) (capsT' : IndCaps),
+      envR.find? cvT.name = some (.indInfo cvT' capsT') →
+      EtaPins μ envR cvT.name cvT'.levelParams capsT' := by
+    intro cvT' capsT' hf
+    obtain ⟨hlps', rfl⟩ := hidR cvT' capsT' hf
+    rw [hlps']
+    exact EtaPins.transport etaPins_of_indBlockCaps hkeepR
+  have hCblockR : ∀ (cvT' : ConstantVal) (capsT' : IndCaps),
+      envR.find? cvT.name = some (.indInfo cvT' capsT') →
+      capsT'.eta = true →
+      (block.map (·.name)).contains capsT'.etaCtor = true := by
+    intro cvT' capsT' hf _
+    obtain ⟨-, rfl⟩ := hidR cvT' capsT' hf
+    exact hCblockN
+  have hFieldsR : ∀ (cvT' : ConstantVal) (capsT' : IndCaps),
+      envR.find? cvT.name = some (.indInfo cvT' capsT') →
+      capsT'.eta = true → capsT'.etaFields = nF := by
+    intro cvT' capsT' hf _
+    obtain ⟨-, rfl⟩ := hidR cvT' capsT' hf
+    rfl
+  -- the projection fold, walked; then the templates
+  obtain ⟨cvalP, m₃, hproj, hm₃cval, -, -⟩ :=
+    projInstallRS hTblock hbshape (List.range nF) m₂ hprojFold hinvR
+      hI₂ hpinsR hCblockR hFieldsR
+  rw [hm₂cval] at hproj
+  refine ⟨hsplit, Or.inl ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt,
+    envM, cvalM, envR, cvalR, hmem, hrecs, hres, hprojFresh,
+    envP, cvalP, hproj, templatesR_of _ h⟩⟩
+
 end Setlec.SetR

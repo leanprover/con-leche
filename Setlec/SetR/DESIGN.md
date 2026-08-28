@@ -5226,3 +5226,39 @@ Everything else in `declIndRS` is transcription: `indMembersRS`,
 stable — the interface is wide enough that doing it before the second
 consumer compiles would be guessing), `projInstallRS`,
 `templatesR_of`.
+
+### `declIndRS` landed — and the "new obligation" was already built
+
+The trace's one open item was a **direction** problem, and its
+resolution was the inventory rule's positive half for the fourth time:
+`checkIndMember_fold_names` and `checkIndFold_mono`
+(`Verify/Extend/Ind.lean`) and `provisionRecs_fresh`
+(`Verify/Extend/Recs.lean`) all existed.  Only the last hop was
+missing — `checkIndRecs_fresh`, ten lines unfolding the phase down to
+`provisionRecs_fresh` — and with it the base `BlockInstalledTT` comes
+from the *checker's verdict* instead of from the relations.
+
+`declIndRS` is then `declIndS` with the five folds swapped for their
+bridge twins.  The single-constructor arm and the generic arm both
+went through; the whole thing is `split at h` down the phase structure
+(the `unless`/`match` chain) and then the premise derivation verbatim.
+
+*One tactic note worth keeping.*  `rw [if_pos hguard] at h` fails on
+`checkIndDecl`'s split guard even though the `if` is at the head of
+`h` — the `Decidable` instance `by_cases` produces is not the one the
+`if` carries, so the pattern does not match.  **`split at h` is the
+robust form for a checker `unless`**, and it hands back the guard as a
+named hypothesis in the positive branch, which is what the relation
+wants anyway.
+
+Not extracted: the ~60 lines of projection premises now appear in both
+`declIndS` and `declIndRS`.  The interface is wide (two relations, two
+`EnvS`s, five block facts) and the relocation rule says to extract on
+the second consumer — which this is — so it is queued, deliberately,
+until the assembly above it is stable.  Recording the debt rather than
+paying it mid-assembly is the judgment; the alternative was to guess a
+signature while both consumers were still moving.
+
+The `indDecl` branch is now bridged end to end.  What remains is
+`checkDeclR_sound` (the six-way dispatch), the `checkDecls` fold, and
+the fourteen.

@@ -871,4 +871,33 @@ theorem SwapShList.congr {consts₀ consts₃ : List ConstantInfo}
       obtain rfl := Option.some.inj hf
       exact absurd rfl (hnr cv mI rP [])
 
+/-- **Every recursor of the group is fresh at the phase's own input.**
+The checker-side twin of `indRecsR_fresh`, which the *bridge* needs
+(the install derives its base invariant from the relation; the bridge
+has to derive it from the checker — task #148 T6). -/
+theorem checkIndRecs_fresh {F : Nat} {blockNames : List Name}
+    {env₂ env₃ : Env} {recs : List ConstantInfo}
+    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs
+      = .ok env₃) :
+    ∀ ci ∈ recs, env₂.find? ci.name = none := by
+  simp only [checkIndRecs] at h
+  by_cases hemp : recs.isEmpty = true
+  · intro ci hci
+    rw [List.isEmpty_iff.mp hemp] at hci
+    exact nomatch hci
+  rw [if_neg hemp] at h
+  simp only [Bind.bind, Except.bind] at h
+  revert h
+  by_cases heqf : env₂.find? eqName = some eqA
+  case neg =>
+    rw [if_neg heqf]
+    intro h
+    exact nomatch h
+  rw [if_pos heqf]
+  intro h
+  revert h
+  cases hp : provisionRecs (fueledOps mode F) blockNames env₂ recs with
+  | error e => intro h; exact nomatch h
+  | ok p => intro _; exact provisionRecs_fresh recs env₂ p hp
+
 end Setlec
