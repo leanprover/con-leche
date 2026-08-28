@@ -53,7 +53,8 @@ import Setlec.SetR.Bridge.ProjRed
 import Setlec.SetR.Bridge.Major
 import Setlec.SetR.Bridge.Iota
 import Setlec.SetR.Bridge.Main
-import Setlec.SetR.Interp2.Interp
+import Setlec.SetR.Interp2.Univ
+import Setlec.SetR.Interp2.TierA
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family

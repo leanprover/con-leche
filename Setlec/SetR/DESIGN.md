@@ -1718,3 +1718,236 @@ present statement is *defensible* under the second reading — so the
 choice is a design decision, not a repair, and it is recorded here
 rather than taken.  `declIndS` stage 2 (the member fold) is blocked on
 it; stage 1 is not.
+
+# Task #151 tier B — the collapse-free two-regime interpretation
+
+`Setlec/SetR/Interp2/*` (landed: `Ops`, `Syntax`, `Interp`, `Kit`,
+`Univ`).  Imports `Setlec/SetTheory/Basic.lean` and nothing else — no
+checker, no model layer, and in particular **no module built over the
+collapse operators**.  Zero edits to existing files outside this
+document and `Setlec/SetR.lean`.
+
+## The two regimes
+
+`interp2 V ρ e : V` is total on annotated terms, term-directed and
+environment-free.  Every binder carries the numeral its regime is
+chosen by; **no clause inspects a semantic value**, which is the whole
+point — the inspection "is this value everywhere the proof point over
+its domain?" *is* the domain-relative collapse (task #100).
+
+The dispatch lives in two operators (`Interp2/Ops.lean`), and nowhere
+else:
+
+| | `v = 0` — squash | `v ≠ 0` — graph |
+|---|---|---|
+| `piR v A B` | `truthVal (∀ x ∈ A, B x inhabited)` | `piSet A B` |
+| `lamR v A F` | `pt` | `graph F A` |
+
+These are the **pre-#100 `SetTheory.pi`/`SetTheory.lam`** (see the git
+history of `Derive/Pi.lean`, commit `19d070d^`), restated in the
+`Setlec.SetR.Interp2` namespace so that `Setlec/SetTheory/*` is
+untouched.  What is new is not the operators but that the *numeral now
+comes from the term* — tier A's annotation pass — rather than from a
+checker-side stored annotation the model had to re-derive.  The law
+battery is that file's, plus the inversion laws only the
+annotation-driven definition can have.
+
+The remaining clauses are annotation-free: `sort u ↦ univ u`,
+`app f a ↦ app ⟦f⟧ ⟦a⟧`, `eqE _ a b ↦ eqv ⟦a⟧ ⟦b⟧`, `proj ↦
+sfst`/`ssnd`, `letE ↦` ζ (substitute the value), `prf ↦ pt`.
+
+**Application needs no annotation, and this is not luck.**
+`SetTheory.app`'s proof-point tag (`app pt a = pt`) *is* the squash
+regime's β, and `app_graph` *is* the graph regime's; the two clauses of
+the one operator already match the two regimes.  So `interp2`'s `app`
+case is uniform.
+
+**`letE`.**  ζ needs no annotation, so tier A's `letE` annotation
+decision does not reach this clause.  If tier A lands a `letE` whose
+type slot is semantically load-bearing, `interp2_letE` is the one and
+only clause to revisit.
+
+## What replaced the collapse at each of its former sites
+
+| collapse fact | replacement | note |
+|---|---|---|
+| `mem_piC_cases` (member is `pt` **or** a graph) | `mem_piR_pos` — member **is** a graph | no dispatch; every consumer that split now does not |
+| `app_lamC` (β with no premises, via the `pt` branch) | `app_lamR_pos` (β, `v ≠ 0`, premise-free) + `app_lamR` (β at `v = 0`, fibre-universe premise) | the `v = 0` premise is the pre-#100 one |
+| `piC_dom_unique` (needs `f ≠ pt`) | `piR_dom_unique` — **no side condition** | supplying `≠ pt` is what the collapse made hard (T5 c5) |
+| `lamC_empty` (every empty-domain λ is `pt`) | `lamR_pos_empty` — the empty **graph** | this clause is the #100 countermodel; it is gone |
+| `piC_empty = unitSet` at every codomain | `piR_pos_empty = {∅}` at `v ≠ 0` | truth only in the squash regime |
+| `piC_prop_eq` (`Prop` products *compute* to truth values) | `piR_zero` — by definition | |
+| `piC_mem_univ` + `piC_mem_univ_max` ("may land smaller") | `piR_mem_univ` — the `imax` rule, **sharp** (`piR_pos_not_mem_univZero`) | the regimes are disjoint |
+| `pt_mem_piC_iff` | `not_pt_mem_piR_pos` — the point inhabits **no** graph-regime product | |
+| `lamC_eta`, `eq_of_mem_piC_app_eq` | `lamR_eta`, `eq_of_mem_piR_app_eq` | unchanged in shape |
+
+## `pt` is demoted, not deleted
+
+The brief asked for "no `pt` anywhere".  **That is not achievable, and
+the reason is a finding, not an omission.**  `SetTheory` fixes
+`univ 0 = power unitSet = power (sing pt)`, so a proposition *is* a
+subset of the canonical singleton and the unique inhabitant of a true
+proposition *is* `pt`.  Any two-regime interpretation must give the
+squash regime's values *some* canonical point, and `SetTheory` has
+already chosen which.  Removing it would mean re-deriving `univZero`
+over a different singleton — an edit to `Setlec/SetTheory/*` with no
+payoff, since renaming the point changes nothing.
+
+What *is* achievable, and is delivered, is the demotion:
+
+* `pt` occurs in **exactly two definition bodies**: `lamR`'s `v = 0`
+  branch and `interp2`'s `.prf` clause.  Both are the canonical proof,
+  in the regime where every value is the canonical proof.
+* No definition and no proof in `Interp2/*` **tests** whether a value
+  is `pt`.  (`pcol`/`lamC` do; that test is the collapse.)
+* The graph regime never produces, contains or consults it:
+  `lamR_ne_pt`, `not_pt_mem_piR_pos`, `mem_piR_pos`'s fourth clause.
+* No junk point is needed: off-domain application is the canonical `∅`
+  (`app_off_dom_piR_pos`, `interp2_app_off_dom`), and that off-domain
+  behaviour is *canonical*, which is what makes on-domain agreement
+  total agreement (`interp2_pi_ext`).
+
+## The universe question, assessed
+
+**Question (transformed).**  The record's version — "`pt ∈ univ (u+1)`
+was forced for transitive chains" — does not survive the removal of the
+collapse, because what forced it was that a `Type`-level abstraction
+could *be* `pt`.  The live question becomes: *can anything the
+`SetTheory` universe tower happens to contain break the graph inversion
+at a universe-codomain product?*
+
+**Answer: no, and structurally so.**  `piR v A B` at `v ≠ 0` is
+`piSet A B`, carved out by **separation**: `f ∈ piSet A B` iff
+`f ⊆ sigmaPairs A B` and `f` is total and single-valued on `A`
+(`mem_piR_pos_iff`).  That is a property of `f`'s own members.
+Universe transitivity says members of members of `U` are in `U` — it
+enlarges `U`, and can never add a member to a set defined by
+separation.  `interp2_univ_cod_inversion` is the universe-codomain
+instance, and it is proved *by the general lemma with no extra
+hypothesis*: the inversion is fibre-blind.
+
+**Verdict on the parked contingency.**  The non-transitive-chain
+re-choice is **not needed, and there is nothing left for it to fix**.
+`Setlec/SetTheory/Core.lean`'s transitivity clause and the ω-chain stay
+exactly as they are; this layer imposes no new demand on the class.
+(The prognosis in the brief was "no"; it is confirmed, mechanized in
+`Interp2/Univ.lean`.)
+
+## Findings
+
+**F1 — the T5 c5 universe-cohabitation wall is exactly the
+empty-domain case, and it is gone here.**  This section recorded (T5
+c5) that "`pt ∈ˢ piC A (fun _ => univ 0)` *holds*: the proof point
+cohabits the Prop-valued function space, so a typing cannot separate
+`Eq α a` from `pt`."  Mechanized (`Univ.lean`):
+
+```
+pt_not_mem_univZero    : ¬ (pt : V) ∈ˢ univZero
+pt_mem_piC_univZero_iff : (pt : V) ∈ˢ piC A (fun _ => univ 0) ↔ A = empty
+```
+
+So the cohabitation is **not** general: it is precisely the case where
+the domain cannot be shown nonempty.  The dodge (separating the two by
+`lamC`-rigidity rather than by typing) was therefore right *as taken* —
+a derivation quantified over an unknown `α` cannot rule the empty case
+out — but the wall is narrower than recorded, and under `interp2` it
+does not exist at all: `piR v ∅ B = {∅}`, and
+`not_pt_mem_piR_empty` closes even that case.  **Consequence for T5
+c5**: in the two-regime world the naive route works and `EqLawV` can
+stay at the three-fold clause, as the DESIGN note anticipated.
+
+**F2 — the regime split is sharp, so the annotation is a fact about
+the value, not a bound on it.**  `piR_pos_not_mem_univZero`: a
+graph-regime product with inhabited fibres is never a truth value.
+Under the collapse only the one-directional `piC_mem_univ_max` is
+available ("collapsed values may land *smaller*"), which is why
+level-blind reasoning about interpreted binders needs side conditions
+there and none here.
+
+**F3 — the substitution stack transposes unchanged.**
+`interp2_liftN`/`interp2_inst`/`interp2_inst0`/`interp2_mkAppN` are
+`Setlec/TT/Semantics/Interp.lean`'s, line for line modulo the extra
+numeral fields.  Removing the collapse costs nothing in the
+substitution metatheory — as predicted, because `interp2` is
+structural and the numerals are carried, never read, by `liftN`/`inst`.
+
+## Scope: what is deliberately **not** here
+
+* **The built-in constants.**  `AVExpr` has no `const` case and
+  `interp2` no `bval` clause.  `Setlec.TT.bval`'s values are `lamC`
+  towers — collapse-built — and rebuilding them as `lamR` towers is a
+  separate landing, because each constant's *application law* then
+  acquires the pre-#100 shape: at `u = 0` the whole tower is the
+  canonical proof, so `natRecV_app` and friends regain the
+  `v = 0 → fibres are truth values` premise that `app_lamC` had made
+  unnecessary.  Mechanically portable (the pre-#100 `app_lam'` is the
+  template), but it is a law-surface change, not an interpretation
+  change, and nothing in the interpretation, the kit or the universe
+  assessment depends on it.
+* **`sigmaSet`.**  Already two-regime (`Derive/Sigma.lean` dispatches
+  on `w = 0`), so `proj ↦ sfst`/`ssnd` needs nothing; it is the
+  precedent this tier follows.
+* **Soundness against a judgment.**  There is no `AVExpr` typing
+  relation to be sound against until tier A's `Annot/Kinding.lean`
+  lands.
+
+## F4 — the `λ` node must carry its **codomain** sort (blocks the swap)
+
+Tier A's `Annot/Syntax.lean` landed with `lam (u) ty body`, `u` being
+the *domain*'s sort — faithful to `Rel.lean`'s I7, which has one
+`DefEq … (.sort u)` premise and it is the domain's (I6, ∀-formation,
+has two).  **`pi (u v)` is exactly what tier B needs; `lam (u)` is not
+the numeral tier B reads.**  A λ is squashed iff the product it
+inhabits is a proposition iff the *body's type* has sort `0`; the
+domain's sort says nothing about that.
+
+Mechanized in `Interp2/TierA.lean`:
+
+```
+lam_cod_sort_needed :
+  ∀ (L : Nat → V → (V → V) → V),
+    (∀ u v A F B, (∀ x ∈ A, F x ∈ B x) → L u A F ∈ˢ piR v A B) → False
+```
+
+`L` is exactly the shape a structural, environment-free interpretation's
+λ clause has — a function of the node's annotation, the domain's value
+and the body's fibre function.  The witness is `A = {•}`,
+`F = fun _ => •`, `B = fun _ => {•}`: at `v = 0` proof irrelevance
+forces `L 0 {•} F = •`, at `v = 1` graph-hood forces
+`L 0 {•} F ≠ •`, and the two readings share *every argument of `L`*.
+`lamR_sound_at_every_regime` is the positive half: with `v` in hand the
+clause is sound at both regimes with the same premise.
+
+**The fix is one numeral** — `lam (u v) ty body`, `v` the sort of the
+body's type — which is what `Interp2/Syntax.lean`'s provisional node
+already carries.  The premise is not in I7 as stated: supplying it
+means I7 gains the opened-body sort premise (`Infer (A :: Δ) b B`,
+`DefEq (A :: Δ) tB (.sort v)`) that its sibling I6 already has.
+
+**Consequence for the #100 de-gating plan.**  The kernel's λ-codomain
+`ensureSort` is listed there for deletion ("delete defeq cod comparison
++ λ-cod re-check — pure relaxation toward reference").  It is
+**load-bearing for tier B**: it is where the λ codomain sort comes
+from.  De-gating may drop the *comparison*, but the sort must still be
+computed and stored, or the two-regime interpretation has no annotation
+to read at `lam`.  Since the whole point of #151 is that the
+interpretation reads annotations instead of values, this is a
+requirement on the annotation pass, not a regression.
+
+## Coordination: the `AVExpr` swap
+
+`Interp2/Syntax.lean` is **tier B's provisional `AVExpr`**.  It mirrors
+`Setlec.TT.VExpr` constructor for constructor, minus `const` (above),
+plus the annotations `lam (v)` and `pi (u v)`; `liftN`/`inst` carry the
+numerals through untouched.
+
+**The swap is blocked on F4**, not on scheduling: tier A's node cannot
+be interpreted (F4 is a refutation, not a preference).  Once `lam`
+gains its codomain numeral the swap is: delete `Interp2/Syntax.lean`,
+re-point `Interp2/Interp.lean`'s import, reconcile the `lam` field
+order, and add the `const` clause (separate landing).  Nothing in
+`Kit.lean`, `Univ.lean` or `TierA.lean` reads the syntax except through
+`interp2`, so the blast radius is `Interp.lean`'s nine clauses and the
+`AVExpr.liftN`/`inst` simp lemmas that `Kit.lean`'s two inductions
+cite.  Tier A's `erase`/`erase_liftN`/`erase_inst` are unaffected —
+they are what tier B's substitution stack would compose with.
