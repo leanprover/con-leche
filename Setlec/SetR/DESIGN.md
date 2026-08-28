@@ -4669,3 +4669,29 @@ With this, every row's inputs are named:
 | lam | `opener_walk_pack_gen` ×2 (`hopenP`, then `hopenX` at the residual) | `instPisAt_walk_pack` (`hlinst`) |
 | rhs | single `defEqAtW_of` | — |
 | sides | `IotaSidesTyR` from `hty1`/`hty2`/`hty3` | — |
+
+### T6 — the sixth row's pack, traced
+
+`IotaWalksR`'s last component, `IotaSidesTyR`, is the two side typings:
+each side's inferred type is `DefEq` to the statement's `αS`, at every
+correlating context.  It is `InferClaimsR` composed with
+`DefEqClaimsR` — the same two-step `constantValR_of` runs at a
+declaration's type — with two shape notes traced before writing:
+
+* **The denotations are the caller's.**  `InferClaimsR` produces
+  `denote lhsS = some Lv` only *inside* its `CtxOkR` premise, which
+  `IotaSidesTyR` quantifies over `Δ`.  So `Lv`/`Rv` cannot be produced
+  outside the binder and must be hypotheses — which the caller has,
+  from `spine_walk_pack` at `tbody`.  Same discipline as every other
+  pack: definedness in, comparison out.
+* **`DefEqClaimsR` at the second step needs `CtxOkR … Δ tl` for the
+  *inferred* type**, which is not a sub-expression of anything in
+  scope.  The tool is `CtxOkR.of_subset` (`Bridge/Env.lean:115`) fed by
+  `inferTypeCore_fvarLeaves` (`Verify/InferLeaves.lean:840`): an
+  inferred type's leaves are a subset of its input's, so the input's
+  `CtxOkR` transports.  That pairing is not obvious from either
+  lemma's name and is the reason this row looked harder than it is.
+
+With it, **every one of `IotaWalksR`'s six rows has a named pack and
+every pack has named inputs.**  Nothing in `IotaThmR` is untraced;
+what remains is writing.
