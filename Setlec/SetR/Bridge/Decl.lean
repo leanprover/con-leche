@@ -703,6 +703,121 @@ theorem instPisAt_walk_pack {env : Env} (m : EnvR env)
         (hsp y (List.mem_of_getElem? hy)).2.1⟩)
       hwty.fvarsBelow hbty hT x hx
 
+/-- **The `instPisAt` residual, packaged** — `instPisAt_walk_pack`'s
+other half, at identical premises.  Every frame lemma the domains
+pack calls already produces the residual conjunct and discards it;
+`IotaWalksR`'s λ-row opens this residual, so it is collected here
+rather than re-derived at the use site (task #148 T6). -/
+theorem instPisAt_res_pack {env : Env} (m : EnvR env)
+    {φ : Name → Nat} {D : Nat} {sp : List Expr} {ty : Expr}
+    {ds : List Expr} {rs : Expr}
+    (hinst : Expr.instPisAt sp ty = some (ds, rs))
+    (hwty : Expr.WScoped D ty) (hbty : ty.looseBVarsBounded 0 = true)
+    (hLty : Expr.LeavesBounded ty)
+    (hsp : ∀ a ∈ sp, Expr.WScoped D a ∧ a.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded a)
+    (hspd : ∀ (j : Nat) (x : Expr), sp[j]? = some x →
+      ∃ w, denote m.cval env φ D x = some w)
+    {T : VExpr} (hT : denote m.cval env φ D ty = some T) :
+    Expr.WScoped D rs ∧ rs.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded rs ∧
+      ∃ v, denote m.cval env φ D rs = some v := by
+  obtain ⟨-, hw⟩ :=
+    instPisAt_WScoped sp ty hinst hwty (fun a ha => (hsp a ha).1)
+  obtain ⟨-, hb⟩ :=
+    instPisAt_bounded sp hinst hbty (fun a ha => (hsp a ha).2.1)
+  refine ⟨hw, hb, ?_, ?_⟩
+  · intro l hl
+    rcases instPisAt_leaves sp hinst l (Or.inr hl) with
+      h' | ⟨a, ha, hla⟩
+    · exact hLty l h'
+    · exact (hsp a ha).2.2 l hla
+  · exact instPisAt_denote_res m.cval_closed sp hinst
+      (fun j y hy => ⟨hspd j y hy,
+        (hsp y (List.mem_of_getElem? hy)).1,
+        (hsp y (List.mem_of_getElem? hy)).2.1⟩)
+      hwty.fvarsBelow hbty hT
+
+/-- **The `instLamsAt` domains, packaged** — the λ-side counterpart of
+`instPisAt_walk_pack`, and `IotaWalksR`'s fourth row's right-hand
+side.  The denotation comes from `instLamsAt_denoteTele`, which places
+domain `i` at depth `i`; `opener_denotes_at` lifts each to the common
+walk depth `D`, which is what makes the opener-shape premise
+(`sp[i]? = some (.fvar i …)`) load-bearing. -/
+theorem instLamsAt_walk_pack {env : Env} (m : EnvR env)
+    {φ : Name → Nat} {D : Nat} {sp : List Expr} {e : Expr}
+    {ds : List Expr} {rs : Expr}
+    (hinst : Expr.instLamsAt sp e = some (ds, rs))
+    (hshape : ∀ (i : Nat) (x : Expr), sp[i]? = some x →
+      ∃ nm ty, x = Expr.fvar i nm ty)
+    (hwe : Expr.WScoped 0 e) (hbe : e.looseBVarsBounded 0 = true)
+    (hLe : Expr.LeavesBounded e)
+    (hsp : ∀ a ∈ sp, Expr.WScoped D a ∧ a.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded a)
+    {V : VExpr} (hV : denote m.cval env φ 0 e = some V)
+    (hle : sp.length ≤ D) :
+    ∀ x ∈ ds, Expr.WScoped D x ∧ x.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded x ∧
+      ∃ v, denote m.cval env φ D x = some v := by
+  intro x hx
+  obtain ⟨hw, -⟩ :=
+    instLamsAt_WScoped sp e hinst (Expr.WScoped.mono (Nat.zero_le D)
+      hwe) (fun a ha => (hsp a ha).1)
+  obtain ⟨hb, -⟩ :=
+    instLamsAt_bounded sp hinst hbe (fun a ha => (hsp a ha).2.1)
+  have hLx : Expr.LeavesBounded x := by
+    intro l hl
+    rcases instLamsAt_leaves sp hinst l (Or.inl ⟨x, hx, hl⟩) with
+      h' | ⟨a, ha, hla⟩
+    · exact hLe l h'
+    · exact (hsp a ha).2.2 l hla
+  refine ⟨hw x hx, hb x hx, hLx, ?_⟩
+  obtain ⟨Γ, C, -, -, -, hds⟩ :=
+    instLamsAt_denoteTele (j := 0) sp hinst
+      (fun i y hy => by
+        obtain ⟨nm, ty, rfl⟩ := hshape i y hy
+        exact ⟨nm, ty, by rw [Nat.zero_add]⟩) hV
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hx
+  have hilt : i < ds.length := by
+    rcases Nat.lt_or_ge i ds.length with h | h
+    · exact h
+    · rw [List.getElem?_eq_none h] at hi; exact nomatch hi
+  have hdlen : ds.length = sp.length := instLamsAt_length sp hinst
+  -- domain `i` is scoped at `i`, so its depth-`i` denotation lifts
+  have hxW : Expr.WScoped i x := by
+    have h0 := instLamsAt_index_WScoped sp (d := 0) hinst hwe
+      (fun k a hk => by
+        obtain ⟨nm, ty, rfl⟩ := hshape k a hk
+        have h1 := (hsp _ (List.mem_of_getElem? hk)).1
+        rw [Expr.WScoped] at h1 ⊢
+        exact ⟨by omega, h1.2⟩) i x hi
+    rwa [Nat.zero_add] at h0
+  have hden : denote m.cval env φ i x =
+      some (Γ.getD (sp.length - 1 - i) default) := by
+    simpa using hds i x hi
+  exact opener_denotes_at m hxW.fvarsBelow
+    (show i ≤ D from by omega) hden
+
+/-- **A stored fireable rule's right-hand side, packaged** at any
+depth.  `EnvR.rec_rhs_denotes` speaks at the *closed* denotation and
+at an arbitrary level instantiation; at the identity instantiation
+(`Expr.instantiateLevelParams_self`) it is the rule's own `rhs`, and
+`denote_closedExprR` lifts the closed denotation to every depth.
+`EnvR.wf`'s recursor clause supplies the two syntactic conjuncts. -/
+theorem rhs_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
+    {n : Name} {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
+    (hf : env.find? n = some (.recInfo cv mI rP rules))
+    {r : RecRule} (hr : r ∈ rules) (hfire : RecRule.fire r ≠ .inert) :
+    r.rhs.hasFvar = false ∧ r.rhs.looseBVarsBounded 0 = true ∧
+      ∃ V, ∀ D, denote m.cval env φ D r.rhs = some V := by
+  obtain ⟨R, hR0⟩ := m.rec_rhs_denotes _ _ _ _ _ hf r hr hfire
+    (cv.levelParams.map .param) φ (by rw [List.length_map])
+  rw [Expr.instantiateLevelParams_self] at hR0
+  obtain ⟨-, -, -, -, -, hrec', -⟩ := m.wf _ (find?_mem hf)
+  obtain ⟨hRnf, -, -, hRbd, -⟩ := hrec' cv mI rP rules rfl r hr
+  exact ⟨hRnf, hRbd,
+    R, (denote_closedExprR m.cval_closed hRnf hRbd hR0).2⟩
+
 /-- **The openers themselves**, packaged.  `instPisAt_walk_pack`'s
 spine hypothesis is about the opener *fvars*, not their annotations,
 so it needs this rather than `opener_walk_pack`.  Two of the four

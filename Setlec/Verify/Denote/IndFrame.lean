@@ -1311,6 +1311,160 @@ theorem instPisAt_denote_doms {cval : TConstVal} {env : Env}
             hfb'.2)
           (Expr.looseBVarsBounded_instantiate1_gen hba hb'.2) hTI d hd'
 
+/-- **The `instPisAt` residual denotes** whenever the subject and the
+spine do — `instPisAt_denote_doms`' other half.  `instPisAt_walk_pack`
+discards the residual component of every frame lemma it calls; the
+λ-row of `IotaWalksR` opens exactly that residual, so it needs the
+denotation too (task #148 T6). -/
+theorem instPisAt_denote_res {cval : TConstVal} {env : Env}
+    {ψ : Name → Nat} (hcl : ∀ n ψ', VExpr.Closed (cval n ψ')) :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instPisAt sp ty = some (ds, rs) →
+      ∀ {D : Nat},
+      (∀ (j : Nat) (x : Expr), sp[j]? = some x →
+        (∃ w, denote cval env ψ D x = some w) ∧ Expr.WScoped D x ∧
+          x.looseBVarsBounded 0 = true) →
+      Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
+      ∀ {T : VExpr}, denote cval env ψ D ty = some T →
+      ∃ v, denote cval env ψ D rs = some v := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro ty ds rs h D _ _ _ T hT
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨T, hT⟩
+  | cons a sp ih =>
+    intro ty ds rs h D hsp hfb hb T hT
+    obtain ⟨⟨w0, hw0⟩, hwsa, hba⟩ := hsp 0 a rfl
+    match ty, h with
+    | .forallE nmT dom body mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p => ?_
+      rw [h1] at h
+      simp only [Option.map_some, Option.some.injEq,
+        Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      have hfb' : Expr.fvarsBelow D dom ∧ Expr.fvarsBelow D body := hfb
+      have hb' : dom.looseBVarsBounded 0 = true ∧
+          body.looseBVarsBounded 1 = true := by
+        revert hb
+        simp [Expr.looseBVarsBounded]
+      rw [denote_forallE] at hT
+      cases hA : denote cval env ψ D dom with
+      | none => rw [hA] at hT; exact nomatch hT
+      | some A => ?_
+      rw [hA] at hT
+      cases hB : denote cval env ψ (D + 1)
+          (body.instantiate1 (.fvar D nmT dom)) with
+      | none => rw [hB] at hT; exact nomatch hT
+      | some B => ?_
+      have hTI : denote cval env ψ D (body.instantiate1 a)
+          = some (B.inst w0 0) := by
+        rw [denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+          hw0 0, hB]
+        rfl
+      exact ih h1 (fun j x hx => hsp (j + 1) x (by simpa using hx))
+        (Expr.fvarsBelow_instantiate1_gen hwsa.fvarsBelow 0 hfb'.2)
+        (Expr.looseBVarsBounded_instantiate1_gen hba hb'.2) hTI
+
+/-- **`instLamsAt` preserves `looseBVarsBounded 0`** — the λ-side
+mirror of `instPisAt_bounded`, which the λ-row's domain package
+needs and which no lane had yet. -/
+theorem instLamsAt_bounded :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instLamsAt sp ty = some (ds, rs) →
+      ty.looseBVarsBounded 0 = true →
+      (∀ a ∈ sp, a.looseBVarsBounded 0 = true) →
+      (∀ x ∈ ds, x.looseBVarsBounded 0 = true) ∧
+        rs.looseBVarsBounded 0 = true := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro ty ds rs h hb _
+    simp only [Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨(fun x hx => nomatch hx), hb⟩
+  | cons a sp ih =>
+    intro ty ds rs h hb hsp
+    match ty, h with
+    | .lam nm dom body mb, h =>
+      simp only [Expr.instLamsAt] at h
+      cases h1 : Expr.instLamsAt sp (body.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p =>
+        rw [h1] at h
+        simp only [Option.map_some, Option.some.injEq,
+          Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        have hb' : dom.looseBVarsBounded 0 = true ∧
+            body.looseBVarsBounded 1 = true := by
+          revert hb
+          simp [Expr.looseBVarsBounded]
+        obtain ⟨hds, hrs⟩ := ih h1
+          (Expr.looseBVarsBounded_instantiate1_gen
+            (hsp a List.mem_cons_self) hb'.2)
+          (fun b hb2 => hsp b (List.mem_cons_of_mem _ hb2))
+        refine ⟨?_, hrs⟩
+        intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx'
+        · exact hb'.1
+        · exact hds x hx'
+
+/-- **`instLamsAt`'s domains are scoped at their own index** — the
+λ-side mirror of `instPisAt_index_WScoped`.  Domain `i` has only the
+spine's first `i` entries substituted into it, so it is scoped at
+`d + i` and not merely at the telescope's full height; that grading is
+what lets each domain's denotation be *lifted* to a common walk depth
+(task #148 T6, `IotaWalksR`'s λ-row). -/
+theorem instLamsAt_index_WScoped :
+    ∀ (sp : List Expr) {d : Nat} {ty : Expr} {ds : List Expr}
+      {rs : Expr},
+      Expr.instLamsAt sp ty = some (ds, rs) → Expr.WScoped d ty →
+      (∀ (i : Nat) (a : Expr), sp[i]? = some a →
+        Expr.WScoped (d + i + 1) a) →
+      ∀ (i : Nat) (x : Expr), ds[i]? = some x → Expr.WScoped (d + i) x
+  | [], d, ty, ds, rs, h, _, _ => by
+    simp only [Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    intro i x hx
+    exact nomatch hx
+  | a :: as, d, ty, ds, rs, h, hty, hsp => by
+    cases ty with
+    | lam nm dom body mb =>
+      simp only [Expr.instLamsAt, Option.map_eq_some_iff] at h
+      obtain ⟨q, hq, hqe⟩ := h
+      simp only [Prod.mk.injEq] at hqe
+      obtain ⟨rfl, rfl⟩ := hqe
+      have hty' : Expr.WScoped d dom ∧ Expr.WScoped d body := by
+        simpa [Expr.WScoped] using hty
+      have haw : Expr.WScoped (d + 1) a := by
+        have h0 := hsp 0 a rfl
+        rwa [Nat.add_zero] at h0
+      intro i x hx
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+        rw [← hx, Nat.add_zero]
+        exact hty'.1
+      | succ i =>
+        simp only [List.getElem?_cons_succ] at hx
+        have hrec := instLamsAt_index_WScoped as (d := d + 1) hq
+          (Expr.WScoped.instantiate1_gen haw 0
+            (hty'.2.mono (Nat.le_succ d)))
+          (fun k b hb => by
+            have h0 := hsp (k + 1) b (by simpa using hb)
+            rw [show d + (k + 1) + 1 = d + 1 + k + 1 from by omega]
+              at h0
+            exact h0) i x hx
+        rw [show d + (i + 1) = d + 1 + i from by omega]
+        exact hrec
+    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _
+    | forallE _ _ _ _ | letE _ _ _ _ | lit _ | proj _ _ _ =>
+      exact nomatch h
+
 /-- A nonempty tower's head domain is its context's outermost entry. -/
 theorem PiTele.head : ∀ {k : Nat} {T : VExpr} {Γ : List VExpr} {R : VExpr},
     PiTele (k + 1) T Γ R →
