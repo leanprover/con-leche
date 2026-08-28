@@ -35,8 +35,15 @@ theorem iotaRuleS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       if blockNames.contains n then n.str "_model" else n)
     (hro : RenameOkT mS.cval envSelf f)
     (hIS : BlockInstalledTT blockNames envSelf mS.cval)
+    -- the rule kits are checked against the *running accumulator*,
+    -- which is `envSelf` with some of the group's recursors already
+    -- carrying their rules — so this is a correspondence, not an
+    -- inclusion (the inclusion is false exactly at those recursors)
     (hup : ∀ (n : Name) (ci : ConstantInfo), env₂.find? n = some ci →
-      envSelf.find? n = some ci)
+      envSelf.find? n = some ci ∨
+      ∃ cv mI' rP' rules rules',
+        ci = .recInfo cv mI' rP' rules ∧
+        envSelf.find? n = some (.recInfo cv mI' rP' rules'))
     {cvA : ConstantVal} {mI rP j : Nat} {r r' : RecRule}
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
@@ -44,62 +51,8 @@ theorem iotaRuleS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hkit : IotaRuleR μ F env₂ envSelf mS.cval f cvA.name
       cvA.levelParams cvA.type mI rP j r r')
     (hfire : RecRule.fire r' ≠ .inert) (φ : Name → Nat) :
-    rP ≤ mI ∧
-    ∀ us : List Level, us.length = cvA.levelParams.length →
-      ∃ R, denoteClosed mS.cval envSelf φ
-          ((RecRule.rhs r').instantiateLevelParams cvA.levelParams us)
-          = some R ∧
-        ∀ (cvj : ConstantVal) (cnP cnF : Nat),
-          envSelf.find? (RecRule.ctor r')
-            = some (.ctorInfo cvj cnP cnF) →
-        ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List VExpr)
-          (TV TVj restR restC : VExpr),
-          xs.length = mI →
-          ys.length = RecRule.ctorParams r' + RecRule.nfields r' →
-          usj.length = cvj.levelParams.length →
-          Level.substFn φ cvj.levelParams usj
-            = Level.substFn φ cvj.levelParams
-                (recFireComparands r' cvA.levelParams us cvj.levelParams
-                  [] rP).1 →
-          (RecRule.fire r' = .plain →
-            ∀ i, i < RecRule.ctorParams r' → i < mI →
-              interp V ρ (ys.getD i default)
-                = interp V ρ (xs.getD i default)) →
-          (∀ lvls pins, RecRule.fire r' = .nested lvls pins →
-            ∀ i, i < RecRule.ctorParams r' →
-            ∀ vp : VExpr,
-              denote mS.cval envSelf φ rP
-                (openRev 0 rP
-                  ((pins.getD i default).instantiateLevelParams
-                    cvA.levelParams us)) = some vp →
-              VExpr.bvarsBelow rP vp →
-              interp V ρ (ys.getD i default)
-                = interp V ρ (VExpr.instRevChain (xs.take rP) vp)) →
-          IotaIndexPinV V ρ restC (RecRule.ctorParams r') mI rP xs →
-          denoteClosed mS.cval envSelf φ
-            (cvA.type.instantiateLevelParams cvA.levelParams us)
-            = some TV →
-          denoteClosed mS.cval envSelf φ
-            (cvj.type.instantiateLevelParams cvj.levelParams usj)
-            = some TVj →
-          TeleFitV V ρ TV
-            (xs ++ [VExpr.mkAppN
-              (mS.cval (RecRule.ctor r')
-                (Level.substFn φ cvj.levelParams usj)) ys]) restR →
-          TeleFitV V ρ TVj ys restC →
-          interp V ρ
-              (VExpr.mkAppN
-                (mS.cval cvA.name (Level.substFn φ cvA.levelParams us))
-                (xs ++ [VExpr.mkAppN
-                  (mS.cval (RecRule.ctor r')
-                    (Level.substFn φ cvj.levelParams usj)) ys]))
-            = interp V ρ
-                (VExpr.mkAppN R
-                  (xs.take rP ++ ys.drop (RecRule.ctorParams r'))) ∧
-          ((∀ a ∈ xs, AnnotOkV V ρ a) → (∀ b ∈ ys, AnnotOkV V ρ b) →
-            AnnotOkV V ρ
-              (VExpr.mkAppN R
-                (xs.take rP ++ ys.drop (RecRule.ctorParams r')))) := by
+    RecRuleLawV V envSelf mS.cval φ cvA.name cvA mI rP r' := by
+  unfold RecRuleLawV
   obtain ⟨cvjK, cnPK, cnFK, rhsA, hfcK, hnfK, hrb, hrf, hann, hrlp,
     hrres, hstripRhs, hkey, fire, hr'eq, hbranch⟩ := hkit
   -- the rule's stored shape
@@ -111,7 +64,11 @@ theorem iotaRuleS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   -- the recursor's and the constructor's stored guards
   obtain ⟨htyw, -, -, htyb, -, -, -⟩ := mS.wf _ (Env.find?_mem hself)
   have hfcS : envSelf.find? (RecRule.ctor r)
-      = some (.ctorInfo cvjK cnPK cnFK) := hup _ _ hfcK
+      = some (.ctorInfo cvjK cnPK cnFK) := by
+    rcases hup _ _ hfcK with h |
+      ⟨cv, mI', rP', rules, rules', heq, -⟩
+    · exact h
+    · exact nomatch heq
   obtain ⟨hCw, hClp, -, hCb, -, -, -⟩ := mS.wf _ (Env.find?_mem hfcS)
   -- the recursor's model counterpart
   obtain ⟨cvm, mval, hm, hfm, hlpsm, -, -⟩ :=
@@ -138,7 +95,11 @@ theorem iotaRuleS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       dsimp only
       rw [if_neg hbc]
       exact hfcS
-  have heqfS : envSelf.find? eqName = some eqA := hup _ _ heqfind
+  have heqfS : envSelf.find? eqName = some eqA := by
+    rcases hup _ _ heqfind with h |
+      ⟨cv, mI', rP', rules, rules', heq, -⟩
+    · exact h
+    · exact nomatch heq
   obtain ⟨hrhsAw, hrhsAb⟩ := annotate_syntax hann hrf hrb
   have hRmlps : (ConstantInfo.defnInfo cvm mval
       hm).toConstantVal.levelParams = cvA.levelParams := hlpsm
@@ -172,18 +133,22 @@ theorem iotaRuleS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       lrest, hcinst, hclen, hrinst, hopenP, hcinstP, hopenXP,
       ldomsL, lrest2, hinstLam, hdePars, hwalks⟩ := hthmR
     -- the statement's stored entry and front doors
-    obtain ⟨ciT, hciT, hciTcv⟩ : ∃ ciT, env₂.find?
+    -- only the stored `ConstantVal` matters, so a swapped entry
+    -- (were the statement's name a recursor's) serves just as well
+    obtain ⟨ciT, hciTS, hciTcv⟩ : ∃ ciT, envSelf.find?
         ((cvA.name.str "_model").str s!"iota_{j}") = some ciT ∧
         ciT.toConstantVal = cvt := by
       unfold Env.findCV? at hcvtE
       rcases h : env₂.find? ((cvA.name.str "_model").str s!"iota_{j}")
-        with _ | ciT
+        with _ | ci₂
       · rw [h] at hcvtE; exact nomatch hcvtE
       · rw [h] at hcvtE
-        exact ⟨ciT, rfl, (Option.some.inj hcvtE)⟩
-    have hciTS : envSelf.find?
-        ((cvA.name.str "_model").str s!"iota_{j}") = some ciT :=
-      hup _ _ hciT
+        have hcv₂ : ci₂.toConstantVal = cvt := Option.some.inj hcvtE
+        rcases hup _ _ h with h' |
+          ⟨cv, mI', rP', rules, rules', heq, h'⟩
+        · exact ⟨ci₂, h', hcv₂⟩
+        · exact ⟨.recInfo cv mI' rP' rules', h',
+          by rw [← hcv₂, heq]; rfl⟩
     obtain ⟨hSw0, -, -, hSb0, -, -, -⟩ :=
       mS.wf _ (Env.find?_mem hciTS)
     rw [hciTcv] at hSw0 hSb0
@@ -264,18 +229,22 @@ theorem iotaRuleS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       refine ⟨hrPmI, ?_⟩
       intro us huslen
       -- the statement's stored entry and front doors
-      obtain ⟨ciT, hciT, hciTcv⟩ : ∃ ciT, env₂.find?
+      -- only the stored `ConstantVal` matters, so a swapped entry
+      -- (were the statement's name a recursor's) serves just as well
+      obtain ⟨ciT, hciTS, hciTcv⟩ : ∃ ciT, envSelf.find?
           ((cvA.name.str "_model").str s!"iota_{j}") = some ciT ∧
           ciT.toConstantVal = cvt := by
         unfold Env.findCV? at hcvtE
         rcases h : env₂.find? ((cvA.name.str "_model").str s!"iota_{j}")
-          with _ | ciT
+          with _ | ci₂
         · rw [h] at hcvtE; exact nomatch hcvtE
         · rw [h] at hcvtE
-          exact ⟨ciT, rfl, (Option.some.inj hcvtE)⟩
-      have hciTS : envSelf.find?
-          ((cvA.name.str "_model").str s!"iota_{j}") = some ciT :=
-        hup _ _ hciT
+          have hcv₂ : ci₂.toConstantVal = cvt := Option.some.inj hcvtE
+          rcases hup _ _ h with h' |
+            ⟨cv, mI', rP', rules, rules', heq, h'⟩
+          · exact ⟨ci₂, h', hcv₂⟩
+          · exact ⟨.recInfo cv mI' rP' rules', h',
+          by rw [← hcv₂, heq]; rfl⟩
       obtain ⟨hSw0, -, -, hSb0, -, -, -⟩ :=
       mS.wf _ (Env.find?_mem hciTS)
       rw [hciTcv] at hSw0 hSb0

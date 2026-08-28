@@ -136,16 +136,14 @@ def IotaIndexPinV (ρ : Nat → V) (restC : VExpr) (cnP mI rP : Nat)
       interp V ρ (cargs.getD (cnP + i) default)
         = interp V ρ (xs.getD (rP + i) default)
 
-/-- The fired modeled-iota contract ([set] transpose of `RecRulesTT`,
-with `VTeleTyped → TeleFitV` and `Deq → interp`-equality at every
-environment).  Beyond the equality it concludes the applied reduct's
-truthfulness under argument truthfulness — the `RecRulesOk`
+/-- **One rule's** fired modeled-iota contract ([set] transpose of
+`RecRulesTT`, with `VTeleTyped → TeleFitV` and `Deq → interp`-equality
+at every environment).  Beyond the equality it concludes the applied
+reduct's truthfulness under argument truthfulness — the `RecRulesOk`
 `AnnotOk`-of-rhs clause in the fired form the transport conjunct
 consumes. -/
-def RecRulesV (env : Env) (cval : TConstVal) (φ : Name → Nat) : Prop :=
-  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-    env.find? n = some (.recInfo cv mI rP rules) →
-    ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
+def RecRuleLawV (env : Env) (cval : TConstVal) (φ : Name → Nat)
+    (n : Name) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) : Prop :=
     rP ≤ mI ∧
     ∀ us : List Level, us.length = cv.levelParams.length →
       ∃ R, denoteClosed cval env φ
@@ -201,6 +199,16 @@ def RecRulesV (env : Env) (cval : TConstVal) (φ : Name → Nat) : Prop :=
             AnnotOkV V ρ
               (VExpr.mkAppN R
                 (xs.take rP ++ ys.drop (RecRule.ctorParams rl))))
+
+/-- The fired modeled-iota contract, keyed on every stored recursor.
+Factored (task #148, T5 stage 3c) so that a *single rule's* law — what
+`iotaRuleS` hands back and what the group install carries across the
+rule-list swap — has a name. -/
+def RecRulesV (env : Env) (cval : TConstVal) (φ : Name → Nat) : Prop :=
+  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    env.find? n = some (.recInfo cv mI rP rules) →
+    ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
+      RecRuleLawV V env cval φ n cv mI rP rl
 
 /-- A stored structural-`Nat` operation's semantic certificate
 (`NatOpsOk` transpose): the literal fast-path guard, and the defining
