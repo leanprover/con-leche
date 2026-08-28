@@ -1547,7 +1547,7 @@ theorem pointS {μ : CheckMode} {env : Env} {cval : TConstVal}
     (hrPmI : rP ≤ mI) (hplainLe : cnP ≤ rP)
     (hlenX : xs.length = mI) (hlenY : ys.length = cnP + cnF)
     {ctor : Name} {cvj : ConstantVal} {usj : List Level}
-    (hlenJ : usj.length = cvj.levelParams.length)
+    (_hlenJ : usj.length = cvj.levelParams.length)
     (hctorE : env.find? ctor = some (.ctorInfo cvj cnP cnF))
     {ciCm : ConstantInfo} (hfCmE : env.find? (f ctor) = some ciCm)
     (hCmlps : ciCm.toConstantVal.levelParams = cvj.levelParams)
