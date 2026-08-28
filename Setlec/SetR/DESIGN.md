@@ -5177,3 +5177,52 @@ consumer — not on first sighting, not on the third.
 The three interleaved walks are now `indMembersRS`, `provisionRecsRS`,
 `projInstallRS`; the two non-interleaved bridges are `templatesR_of`
 and `indRecsRS`.  Finding 8's four-fold scorecard is fully cashed.
+
+### `declIndRS` traced — one new obligation, and it is a *direction*
+### problem, not a size problem
+
+`declIndS`'s body is ~100 lines of premise derivation feeding the four
+install folds.  `declIndRS` reuses all of it with the folds replaced
+by their `RS` counterparts — with **one circularity**, found by
+tracing rather than by writing:
+
+`indMembersRS` takes `BlockInstalledTT blockNames env m.cval` as an
+*input*.  In `declIndS` that comes from `hI0gen`, which proves it
+**vacuously** — no block name is stored at the base — using
+`indMembersR_fresh` / `indRecsR_fresh`, i.e. **from the relations**.
+But in the bridge the relations are what we are producing.  The
+implication runs the wrong way.
+
+So the one thing `declIndRS` needs that does not exist is a
+**checker-side** twin of that freshness argument:
+
+> from `checkIndDecl … env block = .ok env₂`, conclude
+> `∀ ci ∈ block, env.find? ci.name = none`
+
+— a fold-freshness induction over `checkIndMember` (whose
+`checkMemberVal` checks freshness at its own accumulator, and the
+accumulator only grows) and over `provisionRecs` inside
+`checkIndRecs`.  It mirrors `indMembersR_fresh`/`indRecsR_fresh`
+exactly, on the other side of the bridge.
+
+*Why this is worth a line beyond its size.*  Every previous missing
+input in this campaign was a **missing fact**; this one is a fact that
+exists, proved, in the right file, pointing the wrong way.  The
+recognition rule:
+
+> **When a bridge reuses an install's derivation, check each premise
+> for which side it is derived *from*.  A premise the install gets
+> from the relation is a premise the bridge must get from the
+> checker.**
+
+That is the same shape as finding 8 (the install consumes what the
+bridge produces) one level down, at the *premises* rather than the
+relation — and it is the last place it can hide, because
+`checkDeclR_sound` and the fold above it take no invariants at all.
+
+Everything else in `declIndRS` is transcription: `indMembersRS`,
+`indRecsRS` + `indRecsS`, the four projection premises verbatim from
+`declIndS` (extraction to a shared lemma is the cleanup once both are
+stable — the interface is wide enough that doing it before the second
+consumer compiles would be guessing), `projInstallRS`,
+`templatesR_of`.
