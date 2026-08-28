@@ -107,4 +107,87 @@ theorem indMembersRS (hkey : MemberKeyS V) (heta : MemberEtaS V)
       | recInfo cv mI rP rules | projInfo e =>
         simp [throw, throwThe, MonadExceptOf.throw] at h
 
+/-! ## The provisioning fold
+
+The second of the three interleaved walks, and the last one that
+*must* interleave: `ProvisionRecsR`'s per-recursor front door
+(`MemberValR`) sits at the accumulator, which the fold grows.
+
+The rules fold that follows it does **not** interleave, and that is
+worth stating because it halves what is left.  `IndRecsFoldR` passes
+`envSelf`/`cvalSelf` — not the accumulator's — to `IotaRulesR`, so
+every *semantic* conjunct of a rule (`denoteClosed cval envSelf …`,
+`Infer μ envSelf cval …`) lives at the **fixed** self environment the
+provisioning produced.  What varies with the accumulator is only
+`env'.find? r.ctor`, a lookup.  One `EnvR envSelf` therefore serves
+the whole rules fold, and the recognition rule's check comes out
+negative for it. -/
+
+/-- **The provisioning fold, walked.** -/
+theorem provisionRecsRS (hkey : MemberKeyS V) (heta : MemberEtaS V)
+    {μ : CheckMode} {F : Nat} {blockNames : List Name} :
+    ∀ (recs : List ConstantInfo) {envAcc : Env} (m : EnvS V envAcc)
+      {envSelf : Env}
+      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
+      (∀ ci ∈ recs, blockNames.contains ci.name = true) →
+      BlockInstalledTT blockNames envAcc m.cval →
+      provisionRecs (m := CheckM) (fueledOps μ F) blockNames envAcc recs
+        = .ok (envSelf, checked) →
+      ∃ (cvalSelf : TConstVal) (mS : EnvS V envSelf),
+        ProvisionRecsR μ F blockNames envAcc m.cval recs envSelf
+          cvalSelf checked ∧
+        mS.cval = cvalSelf ∧
+        BlockInstalledTT blockNames envSelf cvalSelf := by
+  intro recs
+  induction recs with
+  | nil =>
+    intro envAcc m envSelf checked _ hI h
+    simp only [provisionRecs, pure, Except.pure, Except.ok.injEq,
+      Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨m.cval, m, ⟨rfl, rfl, rfl⟩, rfl, hI⟩
+  | cons ci rest ih =>
+    intro envAcc m envSelf checked hbn hI h
+    cases ci with
+    | recInfo cv mI rP rules =>
+      simp only [provisionRecs, Bind.bind, Except.bind] at h
+      revert h
+      cases hmv0 : checkMemberVal (m := CheckM) (fueledOps μ F)
+          blockNames envAcc (ConstantInfo.recInfo cv mI rP
+            rules).toConstantVal with
+      | error e => intro h; exact nomatch h
+      | ok cvA =>
+        intro h
+        dsimp only at h
+        have hmv : MemberValR μ F envAcc m.cval blockNames
+            (ConstantInfo.recInfo cv mI rP rules).toConstantVal cvA :=
+          memberValR_of m.toEnvR hmv0
+        obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+        have hnameA : cvA.name = (ConstantInfo.recInfo cv mI rP
+            rules).toConstantVal.name := by rw [hcvA]
+        obtain ⟨m₁, hm₁cval, hI₁⟩ := memberInstallS hkey heta m hmv
+          hI (by rw [hnameA]; exact hbn _ List.mem_cons_self)
+          (fun caps₃ heq => ConstantInfo.noConfusion heq)
+          rfl rfl (Or.inr (Or.inr ⟨mI, rP, rfl⟩))
+        cases hrest : provisionRecs (m := CheckM) (fueledOps μ F)
+            blockNames ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩
+            rest with
+        | error e => rw [hrest] at h; exact nomatch h
+        | ok p =>
+          rw [hrest] at h
+          simp only [pure, Except.pure, Except.ok.injEq,
+            Prod.mk.injEq] at h
+          obtain ⟨rfl, rfl⟩ := h
+          obtain ⟨cvalSelf, mS, hrel, hmS, hIS⟩ :=
+            ih m₁
+              (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
+              (by rw [hm₁cval]; exact hI₁) hrest
+          exact ⟨cvalSelf, mS,
+            ⟨cvA, mI, rP, rules, p.2, rfl, hmv,
+              by rw [← hm₁cval]; exact hrel, rfl⟩,
+            hmS, hIS⟩
+    | axiomInfo cv | defnInfo cv v hint | thmInfo cv v
+    | indInfo cv c | ctorInfo cv nP nF | projInfo e =>
+      simp [provisionRecs, throw, throwThe, MonadExceptOf.throw] at h
+
 end Setlec.SetR
