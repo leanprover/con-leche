@@ -29,6 +29,7 @@ import Setlec.SetR.Install.IndNestedS
 import Setlec.SetR.Install.IndBottomNestedS
 import Setlec.SetR.Install.IndBottomProjS
 import Setlec.SetR.Install.EtaLawS
+import Setlec.SetR.Install.Step
 import Setlec.SetR.Examples
 import Setlec.SetR.Bridge.Env
 import Setlec.SetR.Bridge.Claims
@@ -51,6 +52,7 @@ import Setlec.SetR.Bridge.ProjRed
 import Setlec.SetR.Bridge.Major
 import Setlec.SetR.Bridge.Iota
 import Setlec.SetR.Bridge.Main
+import Setlec.SetR.Interp2.Interp
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family
