@@ -35,6 +35,9 @@ import Setlec.SetR.Bridge.Certs
 import Setlec.SetR.Bridge.StuckIrrel
 import Setlec.SetR.Bridge.Eta
 import Setlec.SetR.Bridge.StrLitR
+import Setlec.SetR.Bridge.Stuck
+import Setlec.SetR.Bridge.EtaCerts
+import Setlec.SetR.Bridge.DefEqClosed
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family

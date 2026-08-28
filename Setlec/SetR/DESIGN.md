@@ -900,3 +900,51 @@ are untouched (same name, same signature, same namespace).
 | `StructEtaCertStepR` | d | D10, from `structEtaCert_inv` / `structEtaCertWith_inv` + `structEtaProjCerts_inv`, through `certs_teleR` |
 | `ProjStepR`, `InferProjStepR` | e | R6 (with T4's `Tele` premise) and I9 |
 | `IotaStepR` | g | R11 + the R12–R14 rescues |
+
+## T3 — batch (d) closed: the whole defeq quarter stands
+
+`DefEqClaimsR` at `fuel + 1` now has **no outstanding step**
+(`defeq_claimsR_full`), and so does `WhnfClaimsR`
+(`whnf_claimsR_closed`, batch f).  What is left of `CheckStepR` is the
+projection clauses (batch e) and the iota clause (batch g).
+
+| file | content |
+|---|---|
+| `Bridge/Stuck.lean` | **`DefEqStuckStepR` proved** — the seventeen-case match, `split at h` in the checker's own order |
+| `Bridge/EtaCerts.lean` | `DenoteSpine.map_list`, `choose_fun`, **`StructEtaCertStepR` (D10)** and **`PairEtaCertStepR` (D12)** proved |
+| `Bridge/DefEqClosed.lean` | `stuckIrrel_stepR_closed`, `defeq_claimsR_full` |
+
+Four notes worth keeping.
+
+**`split at h` delivers the stuck block's seventeen cases in the
+checker's source order.**  That is not luck: the block is one `match`
+on `(a', b')`, so its compiled decision tree *is* the case list, and the
+bridge's dispatch is the checker's dispatch with the rule names filled
+in.  The DESIGN record of finding 2 (written before the rules existed)
+predicted each case's rule; all seventeen landed on the predicted rule.
+
+**Cases 7–8 need no reduction rule at all.**  The checker expands the
+string literal and compares `strLitToConstructor st` against the other
+side; `denote_strLitCtorR` says that expression denotes to *the same
+`VExpr`* as the literal, so the recursive verdict already **is** the
+equation wanted.  R7 is not invoked here — it is invoked at the `.proj`
+and iota-major sites, where the *reduct* is what moves.  Cases 3–4 are
+`DefEq.refl` for the same kind of reason (`natLitV cval φ 0` is
+literally the `Nat.zero` valuation).
+
+**`CtxOkR.openCong` has exactly two consumers**, cases 11 and 12, and
+they are why the slack design exists.  `binder_congrR` factors them:
+they differ only in the `denote` clause and the congruence rule.
+
+**D10 is the campaign's first use of choice, and it is bookkeeping.**
+`structEtaProjCerts_inv` gives one existential per field index while the
+rule quantifies six *functions* of the index; `choose_fun` (one
+`Classical.choose` per index) closes the gap.  No content passes through
+it — the per-field facts are the same ones the inversion returns.  The
+one genuinely new lemma is `DenoteSpine.map_list`: the field comparands
+are a `List.range cnF |>.map`, `projSpinesV` is the same map on the
+`VExpr` side, so the spine denotes pointwise.
+
+Both eta certificates discard a `mode.ttChecks = true →` conjunct
+(#130's `projParamCert` in D12, #137's constructor telescope in D10) —
+premise-exactness, visible as a `-` in the `obtain` pattern.
