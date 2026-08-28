@@ -732,6 +732,26 @@ theorem opener_fvar_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
     exact nomatch h'
   · exact hbfv _ h'
 
+/-- **A stored constant's type, packaged** at any depth — the third
+walk input, and the one the `instPisAt` packs need for their subject.
+`EnvR.wf` supplies the closedness, `EnvR.ty_denotes` the denotation at
+depth `0`, and `opener_denotes_at` lifts it. -/
+theorem storedType_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
+    {n : Name} {ci : ConstantInfo} (hfind : env.find? n = some ci)
+    (D : Nat) :
+    Expr.WScoped D ci.toConstantVal.type ∧
+    ci.toConstantVal.type.looseBVarsBounded 0 = true ∧
+    Expr.LeavesBounded ci.toConstantVal.type ∧
+    ∃ v, denote m.cval env φ D ci.toConstantVal.type = some v := by
+  obtain ⟨hnf, -, -, hb, -⟩ := m.wf ci (find?_mem hfind)
+  obtain ⟨t, ht⟩ := m.ty_denotes ci (find?_mem hfind) φ
+  rw [denoteClosed] at ht
+  exact ⟨Expr.WScoped.mono (Nat.zero_le D)
+      (Expr.WScoped.of_not_hasFvar hnf), hb,
+    Expr.LeavesBounded.of_not_hasFvar hnf,
+    opener_denotes_at m (Expr.WScoped.of_not_hasFvar hnf).fvarsBelow
+      (Nat.zero_le D) ht⟩
+
 /-! ## The comparison walks
 
 Every `iota_j` statement walk the checker runs is a `checkDefEqList`
@@ -789,6 +809,46 @@ theorem defEqListW_of {env : Env} (m : EnvR env) {μ : CheckMode}
         h.2⟩
   | [], _ :: _, _, h => nomatch h
   | _ :: _, [], _, h => nomatch h
+
+/-- **A statement walk, closed.**  The shape every `iota_j` walk has:
+a prefix of an opened telescope's annotations against the domains an
+`instPisAt` run collects from a stored type.  The two packs supply
+both sides; `defEqListW_of` does the fold. -/
+theorem stmtWalk_of {env : Env} (m : EnvR env) {μ : CheckMode}
+    {F : Nat} {φ : Name → Nat} {D : Nat}
+    {nR : Name} {ciR : ConstantInfo} {cvR : ConstantVal}
+    {nC : Name} {ciC : ConstantInfo} {cvj : ConstantVal}
+    {k cnP : Nat} {fvsP : List Expr} {restP : Expr}
+    {cdomsP : List Expr} {crestP : Expr}
+    (hfR : env.find? nR = some ciR) (hcvR : ciR.toConstantVal = cvR)
+    (hfC : env.find? nC = some ciC) (hcvC : ciC.toConstantVal = cvj)
+    (hopenP : openPisAtFvars k cvR.type 0 = some (fvsP, restP))
+    (hle : k ≤ D)
+    (hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type
+      = some (cdomsP, crestP))
+    (hde : DefEqListOk μ F env D ((fvsP.take cnP).map Expr.fvarTypeD)
+      cdomsP) :
+    DefEqListW μ env m.cval φ D
+      ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP := by
+  obtain ⟨hnfR, -, -, hbR, -⟩ := m.wf ciR (find?_mem hfR)
+  rw [hcvR] at hnfR hbR
+  have hLeft := opener_walk_pack m (φ := φ) hfR hcvR hnfR hbR hopenP hle
+  have hFvar := opener_fvar_pack m (φ := φ) hnfR hbR hopenP hle
+  obtain ⟨hwC, hbC, hLC, TC, hTC⟩ :=
+    storedType_pack m (φ := φ) hfC D
+  rw [hcvC] at hwC hbC hLC hTC
+  have hRight := instPisAt_walk_pack m (φ := φ) hcinstP hwC hbC hLC
+    (fun a ha => ⟨(hFvar a (List.mem_of_mem_take ha)).1,
+      (hFvar a (List.mem_of_mem_take ha)).2.1,
+      (hFvar a (List.mem_of_mem_take ha)).2.2.1⟩)
+    (fun j y hy => (hFvar y
+      (List.mem_of_mem_take (List.mem_of_getElem? hy))).2.2.2) hTC
+  refine defEqListW_of m _ _ (fun e he => ?_) hde
+  rcases List.mem_append.mp he with h' | h'
+  · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem (List.mem_of_mem_take hx)
+    exact hLeft i x hi
+  · exact hRight e h'
 
 /-! ## `indDecl`, the front half: the member fold
 

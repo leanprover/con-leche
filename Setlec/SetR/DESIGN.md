@@ -4391,3 +4391,29 @@ That is the general lesson and it is not about walks: *a tally over
 instances is not an estimate — count the distinct shapes first.*  The
 same move retired the six copies `BasisChain` replaced (§14.4), the
 four `IndBottom` runs' shared statement walks, and now this.
+
+### T6 — the walks are closed, not merely supplied
+
+`storedType_pack` (a stored constant's type at any depth, from
+`EnvR.wf` + `ty_denotes` + `opener_denotes_at`) and then `stmtWalk_of`:
+
+    stmtWalk_of : … → DefEqListOk μ F env D
+                        ((fvsP.take cnP).map fvarTypeD) cdomsP
+                → DefEqListW μ env cval φ D
+                        ((fvsP.take cnP).map fvarTypeD) cdomsP
+
+That is **the** shape every `iota_j` walk has — a prefix of an opened
+telescope's annotations against the domains an `instPisAt` run
+collects from a stored type — so the walk layer is now closed as a
+single consumable lemma rather than a kit to be re-assembled per
+site.  Six lemmas total:
+
+    defEqAtW_of  defEqListW_of
+    opener_walk_pack  opener_fvar_pack  instPisAt_walk_pack
+    stmtWalk_of
+
+One assembly note: `instPisAt_walk_pack`'s spine hypothesis wants a
+*three*-component package (frames only) while `opener_fvar_pack`
+hands back *four* (frames + denotation), because the same pack serves
+the pack's other argument, which wants the denotation alone.  Project
+rather than re-derive — the mismatch is deliberate, not an oversight.
