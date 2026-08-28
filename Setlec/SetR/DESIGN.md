@@ -5736,3 +5736,44 @@ bridge obligation and its largest, and it is the one place where the
 sibling lane's work does *not* transpose — recorded because the
 inventory rule has been right so often that its exception deserves
 naming.
+
+### The two traces the campaign asked for
+
+**(A) The driver folds need a relocation that is not free.**
+`checkDeclsC_sound` runs `foldlM_soundC`, whose whole content is
+`checkDecl_bridge` (`Model/BridgeWF.lean:903`): from a `cachedOps`
+run, produce a fuel `F` with the same `fueledOps` verdict.  The `SetR`
+fold is then `foldlM_R` with that step inserted, and the obligations
+re-quantified over `F` (they are `F`-indexed).  `_S` and `_SP` are the
+same with their own driver bridges.
+
+`Model/BridgeWF.lean` is **entirely V-free** (zero `SetTheory`), as is
+`Model/DirectWF.lean` — but `DirectWF` imports `Model.Extend`, whose
+umbrella pulls in the set model's V-dependent extension lemmas.  So
+the relocation is real but **not** a copy: it needs `DirectWF`'s
+dependence on `Model.Extend` narrowed to the syntactic lemmas it
+actually uses.  `Setlec/SetR/*` imports no `Setlec/Model/*` today and
+that discipline is the reason this is not simply an added import.
+
+**(B) The five install obligations: table, as requested.**
+
+| obligation | Model sibling | proved? | transposes? |
+|---|---|---|---|
+| `StdAxiomKeyS` | `propext_key`, `choice_key` (`Model/StdAxioms.lean:476,799`) | yes | **no** |
+| `OfReduceKeyS` | `ofReduce_key`, `trustCompiler_key` (`Model/TrustAxioms.lean:426,65`) | yes | **no** |
+| `DivModPinS` | `divModCert_extract` (`Model/DivModCert.lean:163`) + `Consistency`'s block | yes | **no** |
+| `MemberKeyS` | the member install's model key (`Model/IndInstall.lean`) | yes | **no** |
+| `MemberEtaS` | the eta-law key | yes | **no** |
+
+**Every one has a proved Model sibling, and not one of them
+relocates.**  The reason is uniform: they are stated over `EnvModel`
+and conclude with `HasType`/`has_type`, while the `SetR` versions must
+conclude with `EnvS.mem_type` — membership *plus* the denoted type's
+truthfulness (`AnnotOkV`).  That is P3's territory, and P3 says
+truthfulness does not transport along an interpretation equality.
+
+So the five are five re-proofs at the `EnvS` layer, each with a proved
+template and none with a shortcut.  This is the first time in the
+campaign that the inventory rule comes back **empty five times in a
+row** — which is itself the finding: *the install tier's debt is
+genuine work, not unlocated work.*
