@@ -338,4 +338,22 @@ theorem denote_ofReducePinS {env : Env} (m : EnvS V env) {n : Name}
   simp [denote_forallE, hE, Expr.instantiate1, denote_app, denote_fvar,
     Expr.mkAppN, VExpr.mkAppN, hQ, hR]
 
+/-- **The pinned `Eq` former's type, denoted** at any assignment
+sending its one level parameter to `1`. -/
+theorem denote_eqA_typeS {env : Env} {cval : TConstVal}
+    (ψ' : Name → Nat) (hu : ψ' (Name.anonymous.str "u") = 1) :
+    denoteClosed cval env ψ' eqA.toConstantVal.type
+      = some (.pi (.sort 1)
+          (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0)))) := by
+  have hty : eqA.toConstantVal.type =
+      Expr.forallE (Name.anonymous.str "α")
+        (Expr.sort (Level.param (Name.anonymous.str "u")))
+        (Expr.forallE (Name.anonymous.str "a") (Expr.bvar 0)
+          (Expr.forallE (Name.anonymous.str "b") (Expr.bvar 1)
+            (Expr.sort Level.zero) ⟨.default⟩) ⟨.default⟩)
+        ⟨.implicit⟩ := rfl
+  rw [denoteClosed, hty]
+  simp [denote_forallE, denote_sort, Expr.instantiate1,
+    denote_fvar, Level.eval, hu]
+
 end Setlec.SetR

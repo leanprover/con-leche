@@ -6258,3 +6258,49 @@ conclusion, not the subject** — a helper about the right object can
 still face the wrong direction, and for `AnnotOkV` (destructors are
 cheap, constructors carry the side conditions) that asymmetry is
 systematic.
+
+### `OfReduceKeyS`'s preamble, verified — and the two bridges it needed
+
+`denote_eqA_typeS` is landed (`Install/Axiom.lean`): the pinned `Eq`
+former's type denotes to
+`.pi (.sort 1) (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0)))` at any
+assignment sending `u` to `1`.
+
+Two bridging facts were needed and neither was obvious:
+
+* **`denote` will not fire through a projection.**
+  `simp [denote_forallE, …]` made *no progress* on
+  `eqA.toConstantVal.type` — the projection blocks the equation
+  lemmas.  `have hty : eqA.toConstantVal.type = <literal> := rfl;
+  rw [hty]` first, and the same `simp` closes it.  Worth naming
+  because the failure looks like a missing lemma and is a blocked
+  head.
+* **`matchesPin` gives `eraseNames` equality, not type equality.**  So
+  the pin does *not* hand over `cvA.type = pin.type`; it hands over
+  `Expr.ErasedEq`, through `erasedEq_of_eraseNames`
+  (`Verify/Denote/Inst.lean:335`, shared tier), and `denote_erasedEq`
+  moves the denotation.  Same shape as the nested major's `hmaj`.
+
+**The preamble compiles**, establishing: the element type's storage
+and `Sort 1` pin, the operation's storage and empty level parameters,
+`ofReduceOp cvA.name ∈ reduceOpNames`, `cvA.levelParams = []`, and
+
+```
+∀ ψ, denoteClosed m.cval env ψ cvA.type
+  = some (.pi E (.pi E (.pi (mkAppN eqV [E, app op (.bvar 1), .bvar 0])
+                           (mkAppN eqV [E, .bvar 2, .bvar 1]))))
+```
+
+**What remains are the four conclusion obligations**, all against that
+one computed type:
+
+1. `VExpr.Closed (Vf ψ)` — structural;
+2. level-invariance — `m.val_params` at `E`, `op` (both level-free)
+   and at `eqName` (whose one parameter the substituted assignment
+   pins to `1` regardless of `ψ`);
+3. `AnnotOkV ρ (Vf ψ)` — **the identity**: the first three components
+   of `AnnotOkV ρ t`, `trivial` for the `.bvar` tail;
+4. `AnnotOkV ρ t` and `interp (Vf ψ) ∈ˢ interp ρ t` — the `Eq`-spine
+   peeling (`AnnotOkV_mkAppN_of`, constructor direction) and threefold
+   `lamC_mem`, whose innermost step is `EqLawV.app₃` +
+   `EnvS.reduce_ops`.
