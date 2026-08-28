@@ -1,5 +1,6 @@
 import Setlec.SetR.Bridge.Main
 import Setlec.SetR.Install.Step
+import Setlec.Verify.IotaWalkInv
 
 /-!
 # The declaration-level bridge (task #148, T6)
@@ -559,6 +560,64 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
     rfl,
     fun hc => ⟨(hnatK hc).1, (hnatK hc).2.1, hnat (hnatK hc).2.2⟩,
     fun hc => hdm hc (hdmK hc)⟩
+
+/-! ## The comparison walks
+
+Every `iota_j` statement walk the checker runs is a `checkDefEqList`
+or a single `isDefEq`, and every one of them lands in the relation as
+`DefEqAtW`/`DefEqListW`.  Those differ from what `DefEqClaimsR`
+delivers in exactly one respect: they assert the two **denotations
+exist**, where the claim takes them as inputs.  Everything else — the
+`∀ Δ` quantification over correlating contexts, the two `CtxOkR`
+premises — matches the claim's shape verbatim.
+
+So the whole walk layer factors through one lemma, and what is left to
+supply per element is a denotation and three frame facts, both of
+which the opened statement's own type carries. -/
+
+/-- **One comparison, bridged.** -/
+theorem defEqAtW_of {env : Env} (m : EnvR env) {μ : CheckMode}
+    {F : Nat} {φ : Name → Nat} {d : Nat} {a b : Expr}
+    (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a)
+    (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded b)
+    {Av Bv : VExpr}
+    (hAv : denote m.cval env φ d a = some Av)
+    (hBv : denote m.cval env φ d b = some Bv)
+    (h : isDefEqCore μ env F d a b = .ok true) :
+    DefEqAtW μ env m.cval φ d a b := by
+  refine ⟨Av, Bv, hAv, hBv, fun Δ hCa hCb => ?_⟩
+  obtain ⟨-, -, ihd, -⟩ := checkBridge m φ F
+  exact ihd h hwa hba hLa hwb hbb hLb hCa hCb hAv hBv
+
+/-- **A comparison list, bridged** — `checkDefEqList`'s verdict pack
+(`DefEqListOk`) against the relation's pointwise quantified walk.  The
+per-element frames and denotations are the caller's; the fold itself
+is this induction. -/
+theorem defEqListW_of {env : Env} (m : EnvR env) {μ : CheckMode}
+    {F : Nat} {φ : Name → Nat} {d : Nat} :
+    ∀ (as bs : List Expr),
+      (∀ e ∈ as ++ bs, Expr.WScoped d e ∧
+        e.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded e ∧
+        ∃ v, denote m.cval env φ d e = some v) →
+      DefEqListOk μ F env d as bs →
+      DefEqListW μ env m.cval φ d as bs
+  | [], [], _, _ => trivial
+  | a :: as, b :: bs, hfr, h => by
+    obtain ⟨hwa, hba, hLa, Av, hAv⟩ := hfr a (by simp)
+    obtain ⟨hwb, hbb, hLb, Bv, hBv⟩ := hfr b (by simp)
+    exact ⟨defEqAtW_of m hwa hba hLa hwb hbb hLb hAv hBv h.1,
+      defEqListW_of m as bs
+        (fun e he => hfr e (by
+          rcases List.mem_append.mp he with h' | h'
+          · exact List.mem_append.mpr
+              (Or.inl (List.mem_cons_of_mem _ h'))
+          · exact List.mem_append.mpr
+              (Or.inr (List.mem_cons_of_mem _ h'))))
+        h.2⟩
+  | [], _ :: _, _, h => nomatch h
+  | _ :: _, [], _, h => nomatch h
 
 /-! ## `indDecl`, the front half: the member fold
 

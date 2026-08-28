@@ -4100,3 +4100,31 @@ RuleChecked … j r'`) via `List.getElem?_of_mem`.  Consumers that never
 look at the index gained one `⟨jj, …⟩` binder; the one that is
 *about* a single rule (`ruleChecked_rhs_facts`) took `j` as a
 parameter instead.  Total: 8 files, all edits positional.
+
+### T6 — the walk layer factors through one lemma
+
+Rock 1's second and third respects turn out to be one lemma and one
+mechanical conversion.
+
+Every `iota_j` statement walk the checker runs is a `checkDefEqList`
+or a single `isDefEq`, and every one lands in the relation as
+`DefEqAtW`/`DefEqListW`.  Those differ from what `DefEqClaimsR`
+delivers in **exactly one respect**: they assert the two *denotations
+exist*, where the claim takes them as inputs.  The `∀ Δ` quantification
+over correlating contexts and the two `CtxOkR` premises match the
+claim's shape verbatim.
+
+So `defEqAtW_of` and `defEqListW_of` (landed) are the whole walk
+layer, and what remains to supply per element is a denotation and
+three frame facts (`WScoped`, `looseBVarsBounded`, `LeavesBounded`).
+Both come from the opened statement's own type — `EnvR.ty_denotes` at
+the `iota_j` theorem, decomposed through the `openPisAtFvars`
+machinery (`Verify/Denote/TeleOpen.lean`, whose V-free parts were
+relocated in T1 and extended in T5).  That decomposition is the D6
+"quantified-context walk" the install side's docstrings name, and it
+is the last piece of rock 1 with any content: after it, `IotaThmR`
+from `PlainChecked` is Bool-vs-Prop conversion plus a rename of
+bound existentials (`PlainChecked`'s `rrest`/`restP`/`crest2`/`ldoms`
+are `IotaThmR`'s `lrest`/`crest2`/`ldoms`/`ldomsL` — the lists are
+the same, the names are not; write the witness in `IotaThmR`'s order,
+not `PlainChecked`'s).
