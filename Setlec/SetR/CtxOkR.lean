@@ -296,6 +296,34 @@ theorem CtxOkR.pinnedCtx {d : Nat} {Δ : List VExpr} {e : Expr}
   have := Infer.bvar (μ := μ) (env := env) (cval := cval) (φ := φ) hget
   rwa [VExpr.liftN_eq_self_of_closed hAcl] at this
 
+/-- **The pinned context, per slot, with the lift carried.**  The
+general form: `CtxOkR` asks for `Infer`+`DefEq`, not for entry
+equality, so a slot's entry need only denote *up to `Infer.bvar`'s own
+`liftN`*.  `pinnedCtx` above is the corollary where every entry is
+closed and the lift vanishes — correct for a context of constant
+types, and **not** for a telescope whose later entries mention its
+earlier variables (the div/mod certificates' hypothesis slots: a
+hypothesis type mentions `x` and `y`, so its depth-`d` denotation is
+its own denotation *lifted*, never itself). -/
+theorem CtxOkR.pinnedCtxLift {d : Nat} {Δ : List VExpr} {e : Expr}
+    (hlen : Δ.length = d)
+    (hslot : ∀ l ∈ e.fvarLeaves, l.1 < d ∧
+      Expr.fvarsBelow l.1 l.2.2 ∧
+      denote cval env φ d l.2.2
+        = some ((Δ.getD (d - 1 - l.1) default).liftN (d - l.1))) :
+    CtxOkR μ cval env φ d Δ e := by
+  refine ⟨hlen, fun l hl => ?_⟩
+  obtain ⟨hlt, hfb, hden⟩ := hslot l hl
+  have hidx : d - 1 - l.1 < Δ.length := by rw [hlen]; omega
+  have hget : Δ[d - 1 - l.1]?
+      = some (Δ.getD (d - 1 - l.1) default) := by
+    rw [List.getD, List.getElem?_eq_getElem hidx]
+    rfl
+  refine ⟨hlt, hfb, _, hden, _, ?_, DefEq.refl⟩
+  have hb := Infer.bvar (μ := μ) (env := env) (cval := cval) (φ := φ)
+    hget
+  rwa [show d - 1 - l.1 + 1 = d - l.1 from by omega] at hb
+
 /-- **The canonical constant context** — `pinnedCtx`'s homogeneous
 case: every entry is one closed valuation `A`, and every leaf carries
 the same annotation denoting it. -/

@@ -544,6 +544,38 @@ theorem dmLeavesOk_leavesBounded {e : Expr} (h : dmLeavesOk e = true) :
   intro l hl
   rcases dmLeavesOk_mem h hl with rfl | rfl <;> rfl
 
+/-! ## Depth lifting: a telescope entry denotes one way, reads another
+
+A hypothesis slot's entry is its type's denotation at the depth where
+that type is *stated* (2 for the first hypothesis, 3 for the second);
+what `CtxOkR` reads is the denotation at 4, which is the entry lifted
+by exactly `Infer.bvar`'s own amount.  These are the two instances the
+div/mod frame needs — the `V`-free twins of the TT lane's
+`denote4_of_denote2`, whose presence there was the clue that the
+entries are shallow. -/
+
+/-- Depth 3 to depth 4. -/
+theorem denote_lift1 {env : Env} {cval : TConstVal} {φ : Name → Nat}
+    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {e : Expr} {W : VExpr}
+    (hfb : Expr.fvarsBelow 3 e)
+    (h : denote cval env φ 3 e = some W) :
+    denote cval env φ 4 e = some (W.liftN 1) := by
+  rw [show (4 : Nat) = 3 + 1 from rfl, denote_weaken_top hcl hfb, h]
+  rfl
+
+/-- Depth 2 to depth 4. -/
+theorem denote_lift2 {env : Env} {cval : TConstVal} {φ : Name → Nat}
+    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {e : Expr} {W : VExpr}
+    (hfb : Expr.fvarsBelow 2 e)
+    (h : denote cval env φ 2 e = some W) :
+    denote cval env φ 4 e = some (W.liftN 2) := by
+  have h3 : denote cval env φ 3 e = some (W.liftN 1) := by
+    rw [denote_weaken_top hcl hfb, h]; rfl
+  rw [show (4 : Nat) = 3 + 1 from rfl,
+    denote_weaken_top hcl (Expr.fvarsBelow_mono (by omega) hfb), h3]
+  simp only [Option.map_some]
+  rw [VExpr.liftN_liftN_absorb W (Nat.le_refl 0) (Nat.zero_le _) 1]
+
 /-! ### Why the slots are not built here
 
 An earlier version of this layer supplied `certValueS` with
@@ -1004,6 +1036,97 @@ theorem dmDenEval {env : Env} (m : EnvS V env) (φ : Name → Nat)
     · exact ⟨.bvar 2, denote_dmY, fun ρ4 => by simp [dmEvalV_fvar]⟩
   | .bvar _, h | .sort _, h | .lam _ _ _ _, h | .letE _ _ _ _, h
   | .forallE _ _ _ _, h | .lit _, h | .proj _ _ _, h => nomatch h
+
+/-! ## The frame, built — in the lift-carrying form -/
+
+/-- A statement's leaves sit in the two `Nat` slots, whose entry is
+closed and so equal to its own lift. -/
+theorem dmCtxOk_stmt {env : Env} {cval : TConstVal} {c : Name}
+    {value' : Expr} {μ : CheckMode} (φ : Name → Nat)
+    {H1 H2 natV : VExpr}
+    (hvf : value'.hasFvar = false) (hclN : VExpr.Closed natV)
+    (hnat : denote cval env φ 4 (Expr.const natName []) = some natV)
+    {e : Expr} (h : dmLeavesOk e = true) :
+    CtxOkR μ cval env φ 4 [H2, H1, natV, natV]
+      (Expr.substConst0 c value' e) := by
+  refine CtxOkR.pinnedCtxLift rfl (fun l hl => ?_)
+  rw [fvarLeaves_substConst0 (n := c) hvf e] at hl
+  rcases dmLeavesOk_mem h hl with rfl | rfl
+  · exact ⟨by omega, trivial, by
+      rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
+  · exact ⟨by omega, trivial, by
+      rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
+
+/-- The one-hypothesis applied certificate's frame: the hypothesis
+entry is its type's denotation at depth **2**, which is where the type
+is stated. -/
+theorem dmCtxOk_applied1 {env : Env} {cval : TConstVal} {c : Name}
+    {value' : Expr} {μ : CheckMode} (φ : Name → Nat)
+    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    {H1 H2 natV : VExpr}
+    (hvf : value'.hasFvar = false) (hclN : VExpr.Closed natV)
+    (hnat : denote cval env φ 4 (Expr.const natName []) = some natV)
+    {h1 p : Expr} (hp : p.hasFvar = false)
+    (hl1 : dmLeavesOk h1 = true)
+    (hfb1 : Expr.fvarsBelow 2 (Expr.substConst0 c value' h1))
+    (hd1 : denote cval env φ 2 (Expr.substConst0 c value' h1)
+      = some H1) :
+    CtxOkR μ cval env φ 4 [H2, H1, natV, natV]
+      (divModCertApplied p [Expr.substConst0 c value' h1]) := by
+  refine CtxOkR.pinnedCtxLift rfl (fun l hl => ?_)
+  rcases divModCertApplied_mem1 hp hl with rfl | rfl | rfl | hm
+  · exact ⟨by omega, trivial, by
+      rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
+  · exact ⟨by omega, trivial, by
+      rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
+  · exact ⟨by omega, hfb1, denote_lift2 hcl hfb1 hd1⟩
+  · rw [fvarLeaves_substConst0 (n := c) hvf h1] at hm
+    rcases dmLeavesOk_mem hl1 hm with rfl | rfl
+    · exact ⟨by omega, trivial, by
+        rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
+    · exact ⟨by omega, trivial, by
+        rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
+
+/-- The two-hypothesis applied certificate's frame: the second
+hypothesis entry is stated at depth **3**. -/
+theorem dmCtxOk_applied2 {env : Env} {cval : TConstVal} {c : Name}
+    {value' : Expr} {μ : CheckMode} (φ : Name → Nat)
+    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    {H1 H2 natV : VExpr}
+    (hvf : value'.hasFvar = false) (hclN : VExpr.Closed natV)
+    (hnat : denote cval env φ 4 (Expr.const natName []) = some natV)
+    {h1 h2 p : Expr} (hp : p.hasFvar = false)
+    (hl1 : dmLeavesOk h1 = true) (hl2 : dmLeavesOk h2 = true)
+    (hfb1 : Expr.fvarsBelow 2 (Expr.substConst0 c value' h1))
+    (hfb2 : Expr.fvarsBelow 3 (Expr.substConst0 c value' h2))
+    (hd1 : denote cval env φ 2 (Expr.substConst0 c value' h1)
+      = some H1)
+    (hd2 : denote cval env φ 3 (Expr.substConst0 c value' h2)
+      = some H2) :
+    CtxOkR μ cval env φ 4 [H2, H1, natV, natV]
+      (divModCertApplied p [Expr.substConst0 c value' h1,
+        Expr.substConst0 c value' h2]) := by
+  refine CtxOkR.pinnedCtxLift rfl (fun l hl => ?_)
+  rcases divModCertApplied_mem2 hp hl with rfl | rfl | rfl | hm |
+    rfl | hm
+  · exact ⟨by omega, trivial, by
+      rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
+  · exact ⟨by omega, trivial, by
+      rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
+  · exact ⟨by omega, hfb1, denote_lift2 hcl hfb1 hd1⟩
+  · rw [fvarLeaves_substConst0 (n := c) hvf h1] at hm
+    rcases dmLeavesOk_mem hl1 hm with rfl | rfl
+    · exact ⟨by omega, trivial, by
+        rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
+    · exact ⟨by omega, trivial, by
+        rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
+  · exact ⟨by omega, hfb2, denote_lift1 hcl hfb2 hd2⟩
+  · rw [fvarLeaves_substConst0 (n := c) hvf h2] at hm
+    rcases dmLeavesOk_mem hl2 hm with rfl | rfl
+    · exact ⟨by omega, trivial, by
+        rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
+    · exact ⟨by omega, trivial, by
+        rw [hnat]; simp [VExpr.liftN_eq_self_of_closed hclN]⟩
 
 /-! ## The install obligation's preamble -/
 

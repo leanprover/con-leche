@@ -6819,3 +6819,35 @@ by `certValueS` here.  This is the second time an unexercised statement
 in this campaign had its quantifiers or its premises wrong; the trap
 family is now **six**-membered, and every member was found by the first
 consumer, never by review.
+
+### The frame, in its honest form — `pinnedCtxLift`
+
+Built against the actual consumer this time, not ahead of one.
+
+`CtxOkR.pinnedCtxLift` (`Setlec/SetR/CtxOkR.lean`) is `pinnedCtx`'s
+general form: the slot condition reads
+
+```
+denote cval env φ d l.2.2 = some ((Δ.getD (d - 1 - l.1) default).liftN (d - l.1))
+```
+
+— exactly `Infer.bvar`'s own lift, since `Infer.bvar` at index
+`i = d - 1 - l.1` produces `(Δ[i]).liftN (i + 1)`.  `pinnedCtx` is the
+corollary where every entry is closed and the lift vanishes: right for
+a context of *constant* types, wrong for a **telescope** whose later
+entries mention its earlier variables.
+
+The div/mod frame is `[H₂, H₁, natV, natV]` where **`H₁` is the first
+hypothesis type's denotation at depth 2 and `H₂` the second's at depth
+3** — the depths at which those types are *stated*.  Two `V`-free
+lifting lemmas (`denote_lift1`, `denote_lift2`) carry them to depth 4;
+they are the twins of the TT lane's `denote4_of_denote2`, whose
+existence there was the clue I had classified and walked past.
+
+*The searchlight rule, from the other side: a lemma the sibling lane
+has and you do not is not noise in a classification table — it is the
+shape of a step you have not taken yet.*
+
+Landed with it: `dmCtxOk_stmt`, `dmCtxOk_applied1`, `dmCtxOk_applied2`
+— the three `CtxOkR`s a clause needs, in the satisfiable form.  All at
+`[propext, Classical.choice, Quot.sound]`.
