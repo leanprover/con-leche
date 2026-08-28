@@ -248,7 +248,7 @@ private theorem wkRedZeta {Δ : List VExpr} {T v b : VExpr} :
   exact .zeta
 
 private theorem wkRedProjRed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
-    {Δ : List VExpr} {p P fv ta tta te tte : VExpr}
+    {Δ : List VExpr} {p P fv ta tta te tte TC restC : VExpr}
     {i : Nat} {sn : Name} {entry : ProjEntry} {ci : ConstantInfo}
     {us : List Level} {vs : List VExpr}
     (h1 : env.findProj? sn i = some entry) (h2 : entry.native = true)
@@ -261,30 +261,38 @@ private theorem wkRedProjRed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       (cval entry.ctor
         (Level.substFn φ ci.toConstantVal.levelParams us)) vs)
     (h9 : vs[entry.numParams + i]? = some fv)
+    (hTC : denoteClosed cval env φ
+      (ci.toConstantVal.type.instantiateLevelParams
+        ci.toConstantVal.levelParams us) = some TC)
+    (hTCc : VExpr.Closed TC)
     (_ : Red μ env cval φ Δ p P)
+    (_ : Tele μ env cval φ Δ TC vs restC)
     (_ : Infer μ env cval φ Δ fv ta) (_ : Infer μ env cval φ Δ ta tta)
-    (_ : Red μ env cval φ Δ tta
+    (_ : DefEq μ env cval φ Δ tta
       (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)))
     (_ : Infer μ env cval φ Δ P te) (_ : Infer μ env cval φ Δ te tte)
-    (_ : Red μ env cval φ Δ tte
+    (_ : DefEq μ env cval φ Δ tte
       (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ)))
     (ihp : RedW μ env cval φ Δ p P)
+    (ihTele : TeleW μ env cval φ Δ TC vs restC)
     (ihfv : InfW μ env cval φ Δ fv ta)
     (ihta : InfW μ env cval φ Δ ta tta)
-    (ihtta : RedW μ env cval φ Δ tta
+    (ihtta : DeqW μ env cval φ Δ tta
       (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)))
     (ihP : InfW μ env cval φ Δ P te)
     (ihte : InfW μ env cval φ Δ te tte)
-    (ihtte : RedW μ env cval φ Δ tte
+    (ihtte : DeqW μ env cval φ Δ tte
       (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ))) :
     RedW μ env cval φ Δ (.proj i p) fv := by
   intro n k Δ' H
-  refine Red.projRed (vs := vs.map (·.liftN n k)) h1 h2 h3
-    (by simpa using h4) h5 h6 h7 ?_ ?_ (ihp H) (ihfv H) (ihta H)
-    (ihtta H) (ihP H) (ihte H) (ihtte H)
+  refine Red.projRed (vs := vs.map (·.liftN n k))
+    (restC := restC.liftN n k) h1 h2 h3
+    (by simpa using h4) h5 h6 h7 ?_ ?_ hTC hTCc (ihp H) ?_ (ihfv H)
+    (ihta H) (ihtta H) (ihP H) (ihte H) (ihtte H)
   · rw [h8, liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _)]
   · rw [List.getElem?_map, h9]
     rfl
+  · simpa [liftN_eq_self_of_closed hTCc] using ihTele H
 
 private theorem wkRedStrLit (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     {Δ : List VExpr} {s : String} {SC P : VExpr}
@@ -476,7 +484,7 @@ private theorem wkRedRescueK (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h12 : denoteClosed cval env φ
       (cvj.type.instantiateLevelParams cvj.levelParams ust) = some TVj)
     (h12c : TVj.Closed)
-    (_ : Infer μ env cval φ Δ m₀ tm) (_ : Red μ env cval φ Δ tm TM)
+    (_ : Infer μ env cval φ Δ m₀ tm) (_ : DefEq μ env cval φ Δ tm TM)
     (_ : Tele μ env cval φ Δ TVj (ts.take cnP) rest)
     (_ : Infer μ env cval φ Δ
       (VExpr.mkAppN (cval rl.ctor (Level.substFn φ cvj.levelParams ust))
@@ -485,7 +493,7 @@ private theorem wkRedRescueK (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (_ : DefEq μ env cval φ Δ
       (VExpr.mkAppN (cval rl.ctor (Level.substFn φ cvj.levelParams ust))
         (ts.take cnP)) m₀)
-    (ih13 : InfW μ env cval φ Δ m₀ tm) (ih14 : RedW μ env cval φ Δ tm TM)
+    (ih13 : InfW μ env cval φ Δ m₀ tm) (ih14 : DeqW μ env cval φ Δ tm TM)
     (ih15 : TeleW μ env cval φ Δ TVj (ts.take cnP) rest)
     (ih16 : InfW μ env cval φ Δ
       (VExpr.mkAppN (cval rl.ctor (Level.substFn φ cvj.levelParams ust))
@@ -536,7 +544,7 @@ private theorem wkRedRescueEta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h14 : denoteClosed cval env φ
       (cvj.type.instantiateLevelParams cvj.levelParams ust) = some TVj)
     (h14c : TVj.Closed)
-    (_ : Infer μ env cval φ Δ m₀ tm) (_ : Red μ env cval φ Δ tm TM)
+    (_ : Infer μ env cval φ Δ m₀ tm) (_ : DefEq μ env cval φ Δ tm TM)
     (_ : Tele μ env cval φ Δ TVj
       (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
         caps.etaFields) rest)
@@ -545,7 +553,7 @@ private theorem wkRedRescueEta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
         (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
         (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
           caps.etaFields)) m₀)
-    (ih15 : InfW μ env cval φ Δ m₀ tm) (ih16 : RedW μ env cval φ Δ tm TM)
+    (ih15 : InfW μ env cval φ Δ m₀ tm) (ih16 : DeqW μ env cval φ Δ tm TM)
     (ih17 : TeleW μ env cval φ Δ TVj
       (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
         caps.etaFields) rest)
@@ -603,12 +611,12 @@ private theorem wkRedRescueUnit0 (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h15 : denoteClosed cval env φ
       (cvj.type.instantiateLevelParams cvj.levelParams ust) = some TVj)
     (h15c : TVj.Closed)
-    (_ : Infer μ env cval φ Δ m₀ tm) (_ : Red μ env cval φ Δ tm TM)
+    (_ : Infer μ env cval φ Δ m₀ tm) (_ : DefEq μ env cval φ Δ tm TM)
     (_ : Tele μ env cval φ Δ TVj ts rest)
     (_ : DefEq μ env cval φ Δ
       (VExpr.mkAppN
         (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust)) ts) m₀)
-    (ih16 : InfW μ env cval φ Δ m₀ tm) (ih17 : RedW μ env cval φ Δ tm TM)
+    (ih16 : InfW μ env cval φ Δ m₀ tm) (ih17 : DeqW μ env cval φ Δ tm TM)
     (ih18 : TeleW μ env cval φ Δ TVj ts rest)
     (ih19 : DeqW μ env cval φ Δ
       (VExpr.mkAppN
@@ -633,6 +641,12 @@ private theorem wkRedRescueUnit0 (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
   · rw [h14, liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _)]
   · simpa [liftN_eq_self_of_closed h15c] using ih18 HH
   · simpa [← hfab] using ih19 HH
+
+private theorem wkRedProjArg {Δ : List VExpr} {e e' : VExpr} {i : Nat}
+    (_ : Red μ env cval φ Δ e e') (ih : RedW μ env cval φ Δ e e') :
+    RedW μ env cval φ Δ (.proj i e) (.proj i e') := by
+  intro _ _ _ H
+  exact .projArg (ih H)
 
 /- Infer (I1–I10) -/
 
@@ -693,23 +707,23 @@ private theorem wkInfLitStr (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
 
 private theorem wkInfPi {Δ : List VExpr} {A B tA tB : VExpr} {u v : Nat}
     (_ : Infer μ env cval φ Δ A tA)
-    (_ : Red μ env cval φ Δ tA (.sort u))
+    (_ : DefEq μ env cval φ Δ tA (.sort u))
     (_ : Infer μ env cval φ (A :: Δ) B tB)
-    (_ : Red μ env cval φ (A :: Δ) tB (.sort v))
+    (_ : DefEq μ env cval φ (A :: Δ) tB (.sort v))
     (ihA : InfW μ env cval φ Δ A tA)
-    (ihtA : RedW μ env cval φ Δ tA (.sort u))
+    (ihtA : DeqW μ env cval φ Δ tA (.sort u))
     (ihB : InfW μ env cval φ (A :: Δ) B tB)
-    (ihtB : RedW μ env cval φ (A :: Δ) tB (.sort v)) :
+    (ihtB : DeqW μ env cval φ (A :: Δ) tB (.sort v)) :
     InfW μ env cval φ Δ (.pi A B) (.sort (imax u v)) := by
   intro _ _ _ H
   exact .pi (ihA H) (ihtA H) (ihB (H.succ _)) (ihtB (H.succ _))
 
 private theorem wkInfLam {Δ : List VExpr} {A b tA B : VExpr} {u : Nat}
     (_ : Infer μ env cval φ Δ A tA)
-    (_ : Red μ env cval φ Δ tA (.sort u))
+    (_ : DefEq μ env cval φ Δ tA (.sort u))
     (_ : Infer μ env cval φ (A :: Δ) b B)
     (ihA : InfW μ env cval φ Δ A tA)
-    (ihtA : RedW μ env cval φ Δ tA (.sort u))
+    (ihtA : DeqW μ env cval φ Δ tA (.sort u))
     (ihb : InfW μ env cval φ (A :: Δ) b B) :
     InfW μ env cval φ Δ (.lam A b) (.pi A B) := by
   intro _ _ _ H
@@ -717,11 +731,11 @@ private theorem wkInfLam {Δ : List VExpr} {A b tA B : VExpr} {u : Nat}
 
 private theorem wkInfApp {Δ : List VExpr} {f a tf A B ta : VExpr}
     (_ : Infer μ env cval φ Δ f tf)
-    (_ : Red μ env cval φ Δ tf (.pi A B))
+    (_ : DefEq μ env cval φ Δ tf (.pi A B))
     (_ : Infer μ env cval φ Δ a ta)
     (_ : DefEq μ env cval φ Δ ta A)
     (ihf : InfW μ env cval φ Δ f tf)
-    (ihtf : RedW μ env cval φ Δ tf (.pi A B))
+    (ihtf : DeqW μ env cval φ Δ tf (.pi A B))
     (iha : InfW μ env cval φ Δ a ta)
     (ihd : DeqW μ env cval φ Δ ta A) :
     InfW μ env cval φ Δ (.app f a) (B.inst a) := by
@@ -743,11 +757,11 @@ private theorem wkInfProj (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h7c : TP.Closed)
     (h8 : piResidualV TP (ps ++ [p]) = some resV)
     (_ : Infer μ env cval φ Δ p tp)
-    (_ : Red μ env cval φ Δ tp
+    (_ : DefEq μ env cval φ Δ tp
       (VExpr.mkAppN
         (cval T (Level.substFn φ ciT.toConstantVal.levelParams us)) ps))
     (ihp : InfW μ env cval φ Δ p tp)
-    (ihr : RedW μ env cval φ Δ tp
+    (ihr : DeqW μ env cval φ Δ tp
       (VExpr.mkAppN
         (cval T (Level.substFn φ ciT.toConstantVal.levelParams us)) ps)) :
     InfW μ env cval φ Δ (.proj i p) resV := by
@@ -762,12 +776,12 @@ private theorem wkInfProj (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
 private theorem wkInfLetE {Δ : List VExpr} {T v b tT tv B : VExpr}
     {u : Nat}
     (_ : Infer μ env cval φ Δ T tT)
-    (_ : Red μ env cval φ Δ tT (.sort u))
+    (_ : DefEq μ env cval φ Δ tT (.sort u))
     (_ : Infer μ env cval φ Δ v tv)
     (_ : DefEq μ env cval φ Δ tv T)
     (_ : Infer μ env cval φ Δ (b.inst v) B)
     (ihT : InfW μ env cval φ Δ T tT)
-    (ihtT : RedW μ env cval φ Δ tT (.sort u))
+    (ihtT : DeqW μ env cval φ Δ tT (.sort u))
     (ihv : InfW μ env cval φ Δ v tv)
     (ihd : DeqW μ env cval φ Δ tv T)
     (ihb : InfW μ env cval φ Δ (b.inst v) B) :
@@ -837,16 +851,16 @@ private theorem wkDeqIrrelProp {Δ : List VExpr}
     {a b ta sta tb stb : VExpr}
     (_ : Infer μ env cval φ Δ a ta)
     (_ : Infer μ env cval φ Δ ta sta)
-    (_ : Red μ env cval φ Δ sta (.sort 0))
+    (_ : DefEq μ env cval φ Δ sta (.sort 0))
     (_ : Infer μ env cval φ Δ b tb)
     (_ : Infer μ env cval φ Δ tb stb)
-    (_ : Red μ env cval φ Δ stb (.sort 0))
+    (_ : DefEq μ env cval φ Δ stb (.sort 0))
     (ih1 : InfW μ env cval φ Δ a ta)
     (ih2 : InfW μ env cval φ Δ ta sta)
-    (ih3 : RedW μ env cval φ Δ sta (.sort 0))
+    (ih3 : DeqW μ env cval φ Δ sta (.sort 0))
     (ih4 : InfW μ env cval φ Δ b tb)
     (ih5 : InfW μ env cval φ Δ tb stb)
-    (ih6 : RedW μ env cval φ Δ stb (.sort 0)) :
+    (ih6 : DeqW μ env cval φ Δ stb (.sort 0)) :
     DeqW μ env cval φ Δ a b := by
   intro _ _ _ H
   exact .irrelProp (ih1 H) (ih2 H) (ih3 H) (ih4 H) (ih5 H) (ih6 H)
@@ -859,16 +873,16 @@ private theorem wkDeqIrrelUnit (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h3 : isUnitLikeTy env (.const c₂ us₂) = true)
     (h4 : us₂.length = (levelParamsAt env c₂).length)
     (_ : Infer μ env cval φ Δ a ta)
-    (_ : Red μ env cval φ Δ ta
+    (_ : DefEq μ env cval φ Δ ta
       (cval c₁ (Level.substFn φ (levelParamsAt env c₁) us₁)))
     (_ : Infer μ env cval φ Δ b tb)
-    (_ : Red μ env cval φ Δ tb
+    (_ : DefEq μ env cval φ Δ tb
       (cval c₂ (Level.substFn φ (levelParamsAt env c₂) us₂)))
     (ih1 : InfW μ env cval φ Δ a ta)
-    (ih2 : RedW μ env cval φ Δ ta
+    (ih2 : DeqW μ env cval φ Δ ta
       (cval c₁ (Level.substFn φ (levelParamsAt env c₁) us₁)))
     (ih3 : InfW μ env cval φ Δ b tb)
-    (ih4 : RedW μ env cval φ Δ tb
+    (ih4 : DeqW μ env cval φ Δ tb
       (cval c₂ (Level.substFn φ (levelParamsAt env c₂) us₂))) :
     DeqW μ env cval φ Δ a b := by
   intro nn kk Δ' HH
@@ -908,7 +922,7 @@ private theorem wkDeqStructEta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
         = some (TPv j))
     (h19c : ∀ j, j < cnF → (TPv j).Closed)
     (_ : Infer μ env cval φ Δ b tb)
-    (_ : Red μ env cval φ Δ tb
+    (_ : DefEq μ env cval φ Δ tb
       (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us')) ts))
     (_ : Tele μ env cval φ Δ TFv ts restT)
     (_ : ∀ j, j < cnF →
@@ -917,7 +931,7 @@ private theorem wkDeqStructEta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (_ : DefEqL μ env cval φ Δ (as.drop cnP)
       (projSpinesV cval T (Level.substFn φ cvT.levelParams us') ts b cnF))
     (ih20 : InfW μ env cval φ Δ b tb)
-    (ih21 : RedW μ env cval φ Δ tb
+    (ih21 : DeqW μ env cval φ Δ tb
       (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us')) ts))
     (ih22 : TeleW μ env cval φ Δ TFv ts restT)
     (ih23 : ∀ j (_ : j < cnF),
@@ -962,19 +976,19 @@ private theorem wkDeqStructUnit (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       (cvT.type.instantiateLevelParams cvT.levelParams us') = some TFv)
     (h7c : TFv.Closed)
     (_ : Infer μ env cval φ Δ a ta)
-    (_ : Red μ env cval φ Δ ta
+    (_ : DefEq μ env cval φ Δ ta
       (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us')) ts))
     (_ : Infer μ env cval φ Δ b tb)
-    (_ : Red μ env cval φ Δ tb TB)
+    (_ : DefEq μ env cval φ Δ tb TB)
     (_ : DefEq μ env cval φ Δ
       (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us')) ts)
       TB)
     (_ : Tele μ env cval φ Δ TFv ts rest)
     (ih8 : InfW μ env cval φ Δ a ta)
-    (ih9 : RedW μ env cval φ Δ ta
+    (ih9 : DeqW μ env cval φ Δ ta
       (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us')) ts))
     (ih10 : InfW μ env cval φ Δ b tb)
-    (ih11 : RedW μ env cval φ Δ tb TB)
+    (ih11 : DeqW μ env cval φ Δ tb TB)
     (ih12 : DeqW μ env cval φ Δ
       (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us')) ts)
       TB)
@@ -1002,13 +1016,13 @@ private theorem wkDeqPairEta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h9 : us.length = cvm.levelParams.length)
     (h10 : us'.length = cvi.levelParams.length)
     (_ : Infer μ env cval φ Δ b tb)
-    (_ : Red μ env cval φ Δ tb
+    (_ : DefEq μ env cval φ Δ tb
       (.app (.app (cval c' (Level.substFn φ cvi.levelParams us')) A) B))
     (_ : DefEq μ env cval φ Δ pα A) (_ : DefEq μ env cval φ Δ pβ B)
     (_ : DefEq μ env cval φ Δ s₁ (.proj 0 b))
     (_ : DefEq μ env cval φ Δ s₂ (.proj 1 b))
     (ihb : InfW μ env cval φ Δ b tb)
-    (ihr : RedW μ env cval φ Δ tb
+    (ihr : DeqW μ env cval φ Δ tb
       (.app (.app (cval c' (Level.substFn φ cvi.levelParams us')) A) B))
     (ihα : DeqW μ env cval φ Δ pα A) (ihβ : DeqW μ env cval φ Δ pβ B)
     (ih1 : DeqW μ env cval φ Δ s₁ (.proj 0 b))
@@ -1025,11 +1039,11 @@ private theorem wkDeqPairEta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
 
 private theorem wkDeqEta {Δ : List VExpr} {A₁ b₁ b tb A₂ B : VExpr}
     (_ : Infer μ env cval φ Δ b tb)
-    (_ : Red μ env cval φ Δ tb (.pi A₂ B))
+    (_ : DefEq μ env cval φ Δ tb (.pi A₂ B))
     (_ : DefEq μ env cval φ Δ A₂ A₁)
     (_ : DefEq μ env cval φ (A₁ :: Δ) b₁ (.app b.lift (.bvar 0)))
     (ihb : InfW μ env cval φ Δ b tb)
-    (ihr : RedW μ env cval φ Δ tb (.pi A₂ B))
+    (ihr : DeqW μ env cval φ Δ tb (.pi A₂ B))
     (ihd : DeqW μ env cval φ Δ A₂ A₁)
     (ihe : DeqW μ env cval φ (A₁ :: Δ) b₁ (.app b.lift (.bvar 0))) :
     DeqW μ env cval φ Δ (.lam A₁ b₁) b := by
@@ -1054,6 +1068,12 @@ private theorem wkDeqLitSuccApp (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     liftN_eq_self_of_closed (show VExpr.Closed (succV cval φ) from hcl _ _)]
   refine DefEq.litSuccApp h1 ?_
   simpa [liftN_eq_self_of_closed (natLitV_closed hcl m)] using ih HH
+
+private theorem wkDeqProjCong {Δ : List VExpr} {e₁ e₂ : VExpr} {i : Nat}
+    (_ : DefEq μ env cval φ Δ e₁ e₂) (ih : DeqW μ env cval φ Δ e₁ e₂) :
+    DeqW μ env cval φ Δ (.proj i e₁) (.proj i e₂) := by
+  intro _ _ _ H
+  exact .projCong (ih H)
 
 /- Tele / DefEqL -/
 
@@ -1114,13 +1134,14 @@ theorem Red.weakenN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (wkRedProjRed hcl) (wkRedStrLit hcl) (wkRedNatSucc hcl)
     (wkRedNatOp1 hcl) (wkRedNatOp2 hcl) (wkRedIota hcl)
     (wkRedRescueK hcl) (wkRedRescueEta hcl) (wkRedRescueUnit0 hcl)
+    wkRedProjArg
     wkInfSort wkInfBvar (wkInfConst hcl) (wkInfLitNat hcl)
     (wkInfLitStr hcl) wkInfPi wkInfLam wkInfApp (wkInfProj hcl)
     wkInfLetE
     wkDeqRefl wkDeqSymm wkDeqTrans wkDeqOfRed wkDeqPiCong wkDeqLamCong
     wkDeqAppCong wkDeqIrrelProp (wkDeqIrrelUnit hcl)
     (wkDeqStructEta hcl) (wkDeqStructUnit hcl) (wkDeqPairEta hcl)
-    wkDeqEta (wkDeqLitSuccApp hcl)
+    wkDeqEta (wkDeqLitSuccApp hcl) wkDeqProjCong
     wkTeleNil wkTeleCons wkDeqLNil wkDeqLCons
     h
 
@@ -1138,13 +1159,14 @@ theorem Infer.weakenN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (wkRedProjRed hcl) (wkRedStrLit hcl) (wkRedNatSucc hcl)
     (wkRedNatOp1 hcl) (wkRedNatOp2 hcl) (wkRedIota hcl)
     (wkRedRescueK hcl) (wkRedRescueEta hcl) (wkRedRescueUnit0 hcl)
+    wkRedProjArg
     wkInfSort wkInfBvar (wkInfConst hcl) (wkInfLitNat hcl)
     (wkInfLitStr hcl) wkInfPi wkInfLam wkInfApp (wkInfProj hcl)
     wkInfLetE
     wkDeqRefl wkDeqSymm wkDeqTrans wkDeqOfRed wkDeqPiCong wkDeqLamCong
     wkDeqAppCong wkDeqIrrelProp (wkDeqIrrelUnit hcl)
     (wkDeqStructEta hcl) (wkDeqStructUnit hcl) (wkDeqPairEta hcl)
-    wkDeqEta (wkDeqLitSuccApp hcl)
+    wkDeqEta (wkDeqLitSuccApp hcl) wkDeqProjCong
     wkTeleNil wkTeleCons wkDeqLNil wkDeqLCons
     h
 
@@ -1162,13 +1184,14 @@ theorem DefEq.weakenN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (wkRedProjRed hcl) (wkRedStrLit hcl) (wkRedNatSucc hcl)
     (wkRedNatOp1 hcl) (wkRedNatOp2 hcl) (wkRedIota hcl)
     (wkRedRescueK hcl) (wkRedRescueEta hcl) (wkRedRescueUnit0 hcl)
+    wkRedProjArg
     wkInfSort wkInfBvar (wkInfConst hcl) (wkInfLitNat hcl)
     (wkInfLitStr hcl) wkInfPi wkInfLam wkInfApp (wkInfProj hcl)
     wkInfLetE
     wkDeqRefl wkDeqSymm wkDeqTrans wkDeqOfRed wkDeqPiCong wkDeqLamCong
     wkDeqAppCong wkDeqIrrelProp (wkDeqIrrelUnit hcl)
     (wkDeqStructEta hcl) (wkDeqStructUnit hcl) (wkDeqPairEta hcl)
-    wkDeqEta (wkDeqLitSuccApp hcl)
+    wkDeqEta (wkDeqLitSuccApp hcl) wkDeqProjCong
     wkTeleNil wkTeleCons wkDeqLNil wkDeqLCons
     h
 
@@ -1187,13 +1210,14 @@ theorem Tele.weakenN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (wkRedProjRed hcl) (wkRedStrLit hcl) (wkRedNatSucc hcl)
     (wkRedNatOp1 hcl) (wkRedNatOp2 hcl) (wkRedIota hcl)
     (wkRedRescueK hcl) (wkRedRescueEta hcl) (wkRedRescueUnit0 hcl)
+    wkRedProjArg
     wkInfSort wkInfBvar (wkInfConst hcl) (wkInfLitNat hcl)
     (wkInfLitStr hcl) wkInfPi wkInfLam wkInfApp (wkInfProj hcl)
     wkInfLetE
     wkDeqRefl wkDeqSymm wkDeqTrans wkDeqOfRed wkDeqPiCong wkDeqLamCong
     wkDeqAppCong wkDeqIrrelProp (wkDeqIrrelUnit hcl)
     (wkDeqStructEta hcl) (wkDeqStructUnit hcl) (wkDeqPairEta hcl)
-    wkDeqEta (wkDeqLitSuccApp hcl)
+    wkDeqEta (wkDeqLitSuccApp hcl) wkDeqProjCong
     wkTeleNil wkTeleCons wkDeqLNil wkDeqLCons
     h
 
@@ -1212,13 +1236,14 @@ theorem DefEqL.weakenN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (wkRedProjRed hcl) (wkRedStrLit hcl) (wkRedNatSucc hcl)
     (wkRedNatOp1 hcl) (wkRedNatOp2 hcl) (wkRedIota hcl)
     (wkRedRescueK hcl) (wkRedRescueEta hcl) (wkRedRescueUnit0 hcl)
+    wkRedProjArg
     wkInfSort wkInfBvar (wkInfConst hcl) (wkInfLitNat hcl)
     (wkInfLitStr hcl) wkInfPi wkInfLam wkInfApp (wkInfProj hcl)
     wkInfLetE
     wkDeqRefl wkDeqSymm wkDeqTrans wkDeqOfRed wkDeqPiCong wkDeqLamCong
     wkDeqAppCong wkDeqIrrelProp (wkDeqIrrelUnit hcl)
     (wkDeqStructEta hcl) (wkDeqStructUnit hcl) (wkDeqPairEta hcl)
-    wkDeqEta (wkDeqLitSuccApp hcl)
+    wkDeqEta (wkDeqLitSuccApp hcl) wkDeqProjCong
     wkTeleNil wkTeleCons wkDeqLNil wkDeqLCons
     h
 

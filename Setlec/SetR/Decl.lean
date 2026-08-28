@@ -120,7 +120,7 @@ def ConstantValR (μ : CheckMode) (F : Nat) (env : Env)
   ∀ φ : Name → Nat,
     ∃ Tv tT u, denoteClosed cval env φ type' = some Tv ∧
       Infer μ env cval φ [] Tv tT ∧
-      Red μ env cval φ [] tT (.sort u)
+      DefEq μ env cval φ [] tT (.sort u)
 
 /-- The value front door shared by `defn`/`thm`/`opaque`
 (`checkDefnVal`/`checkThmVal`/`checkOpaqueVal`'s common core): the
@@ -254,7 +254,7 @@ def DeclThmR (μ : CheckMode) (F : Nat) (env : Env) (cval : TConstVal)
     (∀ φ : Name → Nat,
       ∃ Tv sT, denoteClosed cval env φ type' = some Tv ∧
         Infer μ env cval φ [] Tv sT ∧
-        Red μ env cval φ [] sT (.sort 0)) ∧
+        DefEq μ env cval φ [] sT (.sort 0)) ∧
     ValueFrontR μ F env cval cv value type' value' ∧
     env₂ = ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
       env.consts⟩

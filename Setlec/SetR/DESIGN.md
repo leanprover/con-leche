@@ -322,6 +322,249 @@ shape the decision may change.
   legitimate; a *stage split* inside a `do` block is not, and none is used
   — `defeqStep_claimR` is one proof for that reason.
 
+## T4 — DECISION on the slack/`Red` finding: repair A, no extra premises (2026-08-27)
+
+**Decided by the soundness side, as the interface record.**  All 20
+`Red`-at-an-inferred-type premises (T3's list: I6 ×2, I7, I8, I9, I10,
+R6 ×2, R12–R14, D8 ×2, D9 ×2, D10, D11 ×2, D12, D13) are now
+`DefEq μ Δ tx Shape` in `Setlec/SetR/Rel.lean`, and the two
+declaration-level front doors with the same shape (`ConstantValR`'s
+`ensureSort` pair and the thm-kind's `sort 0` pair in
+`Setlec/SetR/Decl.lean`) follow suit.  Subject-side reductions (R6's
+`Red p P`, R7's chain, R8–R10's argument whnfs, R11's major chain)
+stay `Red`.  `Weaken.lean`'s affected cases re-signed (`RedW → DeqW`
+in the IH slots); `CtxOkR` untouched (it never applies an affected
+rule); `Examples.lean` adjusted.  **The four residual rules (I8, I9,
+D12, D13) carry no additional premise** — the re-run of the
+"semantic domain determination" audit found every needed fact
+derivable from set-mode certificates (below), so there is **no
+finding #1**.
+
+**Why repair C was rejected.**  `Infer.conv` buys the cheapest bridge
+but breaks the certificate-inventory reading of `Infer` (a rule with
+no checker counterpart), puts a conv case into every future inversion
+of an `Infer` premise (R6's soundness *must* invert its `Infer P te`
+premise — see below — and D12/I9 may), and its one concentrated
+obligation (AnnotOkV crossing) is exactly the impossible one.  Repair
+A's per-site obligations all discharge.
+
+### The soundness architecture that makes A free (binding for T4/T5/T6)
+
+The analysis that settled the repair also settled the soundness
+statement shapes, which **diverge from the campaign design's §0
+decision 2 as written** in three ways.  Root cause (agreeing with
+T3's "common root", proved independently on this side): `AnnotOkV`
+cannot cross a `DefEq` in either direction — the biconditional dies at
+`ofRed` + `symm` (a truthful contractum does not rebuild the redex's
+hereditary λ-clause), one-directional forms die at `symm` alone — *and*
+`DefEq.trans`'s free middle term already makes any
+`AnnotOkV`-hypothesis-carrying DefEq-sound non-inductive (the middle
+has no truthfulness source).  Both problems have one solution: the
+equality lane must not touch `AnnotOkV` at all.
+
+* **DefEq-sound is unconditional**: `∀ ρ, Sat V Δ ρ → ⟦a⟧ρ = ⟦b⟧ρ`.
+  No `AnnotOkV` hypotheses (stronger than the design's "takes AnnotOkV
+  of both sides"), no `AnnotOkV` conclusions.  `symm`/`trans` become
+  trivial; D5/D6/D13's binder premises are consumed at *membership*
+  extensions (`Sat_cons`), which need no truthfulness.
+* **Red-sound**: `∀ ρ, Sat → ⟦v⟧ρ = ⟦w⟧ρ ∧ (AnnotOkV ρ v → AnnotOkV ρ w)`
+  — the equality is unconditional too; the transport conjunct is the
+  design's forward preservation, and stays (its consumers: reduct
+  truthfulness at whnf sites in the T5/T6 folds).
+* **Infer-sound**: `∀ ρ, Sat → AnnotOkV ρ v ∧ ⟦v⟧ρ ∈ˢ ⟦T⟧ρ` — the
+  design's third conjunct (`AnnotOkV T`) is **dropped**.  Its only
+  intra-induction source was `Red`-transport along the type-whnf
+  premise (gone under repair A), and the consumer audit found nothing
+  that needs it: every `AnnotOkV`-package the hard rules use is
+  rebuilt from memberships + pinned-value rigidity (below), and T5's
+  stored-type truthfulness comes from the *type front door's* subject
+  conjunct (`Infer ⟦type'⟧ tT` gives `AnnotOkV ⟦type'⟧`), never from a
+  value inference's type slot.
+* **Consequently `SatA` degenerates to `Sat`** (`TT/Semantics/
+  Soundness.lean`, reused): the per-entry `AnnotOkV` component of the
+  design's `SatA` had exactly one consumer — I2's type conclusion —
+  which died with the type conjunct.  Binder congruences then extend
+  contexts by membership alone, which is what makes their cases
+  provable at all.
+* **Tele-sound**: `∀ ρ, Sat → TeleFitV ρ T as rest ∧
+  (∀ a ∈ as, AnnotOkV ρ a) ∧ (AnnotOkV ρ T → AnnotOkV ρ rest)`;
+  **DefEqL-sound**: `∀ ρ, Sat → as.map (interp ρ) = bs.map (interp ρ)`.
+
+### The four residual rules, discharged (the re-run audit)
+
+* **I8 `app`**: the membership needs only `⟦f⟧ ∈ ⟦tf⟧ = piC ⟦A⟧ _`
+  and `⟦a⟧ ∈ ⟦ta⟧ = ⟦A⟧` (two unconditional `DefEq`-eqs), then
+  `app_mem_piC` + `interp_inst0`; the subject package is those two
+  memberships.  `AnnotOkV A` is *not* needed — that worry was an
+  artifact of the old motive shape.
+* **I9 `proj` / D12 `pairEta`**: the sigma package comes from
+  **pinned-value rigidity**, not from the type's truthfulness:
+  `⟦TE⟧ = app (app (psigmaV u v) ⟦ps₀⟧) ⟦ps₁⟧` with the former pinned
+  (`proj_ok` + `basis_pinned`).  If `⟦ps₀⟧ ∉ univ u` the partial
+  application is an off-domain application of a non-`pt` graph, hence
+  `empty` (`app_graph_of_not_mem`, `psigmaV ≠ pt` by witness), so the
+  premise membership `⟦p⟧ ∈ ⟦TE⟧` is vacuous; same for `⟦ps₁⟧` against
+  the fibre space; on-domain, `psigmaV_app` folds `⟦TE⟧` to a
+  `sigmaSet` *with* the domain memberships in hand.  Membership in the
+  pinned former's application **self-certifies the domains**.  D12
+  additionally uses `psigmaEta_law` (+ the `Nat.max = 0` collapse
+  branch, where both sides are `pt`).
+* **D13 `eta`**: `⟦b₁⟧ = app ⟦b⟧ x` for `x ∈ ⟦A₁⟧` comes from the
+  binder premise at a `Sat`-extension; `lamC_congr` + `lamC_eta` close
+  it.  No truthfulness of `A₁` enters.
+* **R6 `projRed`** (the doubled-`Infer` sites): the collapse branch
+  (`fieldSort`-eval 0) is the certificate chains + `mem_univ_zero` +
+  `sfst_pt`/`ssnd_pt`.  The no-collapse branch obtains the constructor
+  spine's component memberships by **inverting the `Infer P te`
+  premise** (relational `cases`; the I3-alternative head is handled by
+  `annot_okV`/`mem_type`) — the exact transpose of the model's own
+  `inferTypeCore_app_inv'` walk (`Setlec/Model/Core/Whnf.lean:539-741`),
+  which is the mechanized witness that set-mode certificates suffice.
+
+**For T5/T6**: `EnvS`'s semantic fields will be consumed in
+membership/interp-equality form only (`RecRulesV`, `CapsOkV`,
+`NatOpsV`, `DivModV` hypotheses are `TeleFitV` fits and memberships;
+`mem_type` carries the membership *and* the denoted type's `AnnotOkV`
+— supplied by the type front door's subject conjunct; `annot_okV`
+unchanged).  Nothing consumes an `AnnotOkV`-of-inferred-type fact.
+
+### T4 addendum — finding 2 (projection congruence), repaired in the same amendment
+
+Two accepting checker paths had no rule: `whnfCoreBody`'s `.proj`
+clause returns the stuck `.proj sn i e'` after reducing the scrutinee
+on every non-firing branch (`Core.lean:1431-1475`), and `defeqStep`'s
+stuck block accepts `.proj` vs `.proj` on index equality plus
+scrutinee defeq (`Core.lean:1884-1889`).  Added `Red.projArg` and
+`DefEq.projCong` (each: scrutinee premise only — the checker runs no
+certificate on those paths), **appended at the end of the respective
+constructor lists** so the T2 rules keep their relative recursor
+positions (all `*.rec` applications after `Red`'s block still shift by
+one — `Weaken.lean`'s five applications show the new order:
+`wkRedProjArg` after the rescues, `wkDeqProjCong` after
+`wkDeqLitSuccApp`).  Soundness verified against the T4 architecture
+before landing: the equality is `congrArg` on the scrutinee's
+(unconditional) equality through `interp_proj`; `Red.projArg`'s
+forward `AnnotOkV` transport holds because the `.proj` clause of
+`AnnotOkV` is the scrutinee's truthfulness plus `i < 2` plus a
+*value-level* sigma package on `⟦e⟧`, and the package rides the
+scrutinee equality.
+
+### T4 — the dropped-conclusion consumer check (run before landing, per protocol)
+
+The three reshapes were checked against every planned T5/T6 consumer
+in the campaign design's §2/§4 tables:
+
+* **`EnvS.annot_okV`** is built from the *value* front door's
+  **subject** conjunct (`Infer [] ⟦value'⟧ tv` gives
+  `AnnotOkV ⟦value'⟧`), which survives unchanged.  ✓
+* **`EnvS.mem_type`'s membership** is the value front door's `mem`
+  plus the `DefEq tv ⟦type'⟧` certificate — and here the two reshapes
+  are *linked*: with the old weak DefEq-sound this step needed
+  `AnnotOkV tv` (exactly the dropped conjunct); with the unconditional
+  DefEq-sound it needs nothing.  Dropping the type conjunct is
+  consistent *only* together with the unconditional form — neither
+  reshape is separable.  ✓
+* **`EnvS.mem_type`'s `AnnotOkV`-of-the-denoted-type component** (what
+  I3-sound consumes) comes from the *type* front door's subject
+  conjunct (`Infer [] ⟦type'⟧ tT` gives `AnnotOkV ⟦type'⟧`) — present
+  for every declaration kind.  ✓
+* **`RecRulesV`/#146-avoidance** ("the slot's membership comes from
+  the statement's own AnnotOkV"): the statement is the `_model.iota_j`
+  member's stored *type*, and its `AnnotOkV` is again the member's
+  type-front-door **subject** conjunct; the tower elimination
+  (`app_mem_piC` chain + `eq_lawV` + `mem_eqv`) consumes memberships
+  and that subject-side fact only.  Same for the eta/unit law
+  derivations from `_model.eta`/`_model.unitlike`.  ✓
+* No planned consumer reads the `AnnotOkV` of a value's *inferred*
+  type (`tv`/`tT` slots) anywhere in §2's supplier column; the
+  conjunct is consumerless as dropped.  ✓
+
+### T4 amendment, second increment — R6 carries the constructor spine's telescope certificate
+
+Batch (e)'s audit found the one place where the relational abstraction
+loses a fact the checker's run contains: R6's `Infer Δ P te` premise.
+The model's proj-reduction soundness (`Model/Core/Whnf.lean:639-741`)
+recovers the constructor components' canonical memberships by
+*inverting the infer run* (`inferTypeCore_app_inv'` four deep — the
+run is syntax-directed, so the inversion is deterministic).  The
+relational counterpart — `cases` on the `Infer` premise — is **not**
+deterministic: `Infer.const`'s subject `cval n ψ` overlaps app-shaped
+terms, and in that alternative the component certificates are
+unreachable (and the value-level packages provably cannot substitute —
+the partial-collapse scenario of the #100 note).  So R6 now carries
+`denoteClosed` of the constructor's instantiated stored type (+ D1
+closedness) and a `Tele μ Δ TC vs restC` premise — the infer run's own
+per-argument re-checks, exposed, by the same premise-exactness
+argument as repair A.  Bridge cost: the inversion walk the model
+already performs, packaged as `Tele.cons` chains (the pinned
+constructor type is concrete, so the domain alignments are
+computations).  With it, R6's soundness is `TeleFitV_psigmaMk` (the
+four component memberships) + `psigmaMkV_app`'s fold, and the
+`Nat.max = 0` collapse branch closes from the field certificate's
+sort chain — no inversion, no AnnotOkV.
+
+### T4 batch (e) record — the proj rules land
+
+`Sound/Proj.lean`: `projEntry_pins` (the `ProjOkT` + stored-name
+identification), the three pinned-type denote computations
+(`denote_pairFstTy_eq`/`denote_pairSndTy_eq`/`denote_psigmaMkTy_eq`),
+the two concrete `piResidualV` walks, `TeleFitV_psigmaMk`, and the two
+cases: I9's sigma package and residual membership come from
+`mem_psigmaV_app` (rigidity — the #129-replacement, "membership
+self-certifies the domains") + `sfst_mem`/`ssnd_mem`; R6 as above.
+`EnvSHyp` gained `proj_ok : ProjOkT env`.
+
+## T4 — COMPLETE: the soundness half lands
+
+### Inventory (as landed)
+
+| file | content |
+|---|---|
+| `AnnotOkV.lean` | `AnnotOkV` (the `AnnotOk` transpose; cons-extension, `eqE`/`prf` leaves, definedness conjuncts dropped incl. the `lam` clause's junk `∃ B, w ∈ˢ B` companion), clause equations, `interp` invariance below a bound, the two-lemma substitution metatheory (`AnnotOkV_liftN`/`AnnotOkV_inst` as biconditionals, `AnnotOkV_inst0`), `TeleFitV` + `appN`/`rest_annot`/`appN_annot` |
+| `Sound/Motives.lean` | the five motives (`RedS`/`InfS`/`DeqS`/`TeleS`/`DeqLS`, the graded architecture), `EnvSHyp` (nine fields: `cval_closed`, `annot_okV`, `mem_type`, `basis_pinned`, `caps_ok`, `proj_ok`, `nat_ops`, `div_mod`, `rec_rules`), the law shapes (`EtaLawV`/`UnitLawV`/`CapsOkV`, `NatOpsV`, `DivModClausesV`/`DivModV`, `IotaIndexPinV`/`RecRulesV`), `interp_mkAppN_map` |
+| `Sound/Struct.lean` | Red refl/trans/appFn/beta/zeta/projArg; Infer sort/bvar/const/pi/lam/app/letE; DefEq structural core + congruences + D14; Tele/DefEqL |
+| `Sound/Irrel.lean` | D8/D9 (proof irrelevance; `unitLike_eq_punit` via `basis_pinned`), D13 (λ-eta) |
+| `Sound/Rigidity.lean` | off-domain-emptiness eliminations (`app_lamC_of_not_mem`, `psigmaV_ne_pt`, `mem_psigmaV_app`, `psigmaMkV_zero`) |
+| `Sound/Stuck.lean` | D10/D11 (the capability-law consumers), D12 (pair eta by rigidity), R12–R14 (rescues; `fab_annot`) |
+| `Sound/Proj.lean` | I9/R6 (`projEntry_pins`, pinned-type denote computations, concrete `piResidualV` walks, `TeleFitV_psigmaMk`) |
+| `Sound/Lit.lean` | I4/I5/R7/R8 (`natLit_facts`/`strLit_facts` — `mem_type`-based, `denoteClosed_strLitToConstructor`) |
+| `Sound/NatOps.lean` + `Sound/NatOpsWf.lean` | R9/R10 (equation plumbing + sixteen per-op literal meta-inductions, the model's WF bodies transposed 1:1; PinGen certificates for the bit ops) |
+| `Sound/Iota.lean` | R11 (the `RecRulesV` consumer; spine split + index pin + fired contract) |
+| `Sound/Main.lean` | the five theorems `{Red,Infer,DefEq,Tele,DefEqL}.sound` — one recursor application each over the 46 case lemmas |
+
+### For T5 (the interface, in one place)
+
+`EnvSHyp V env cval φ` is what T5's `EnvS` must discharge, by
+projection.  Statement shapes deliberately frozen by this tier's
+consumers (the house rule); the suppliers named per field in the
+docstrings.  Notes:
+
+* `mem_type` carries the **denoted type's `AnnotOkV`** beside the
+  membership — supplied by the *type front door's* subject conjunct
+  (`Infer ⟦type'⟧ tT` → `Infer.sound`'s first component), never by a
+  value inference's type slot (that conjunct no longer exists).
+* `RecRulesV` concludes the equality **and** the applied reduct's
+  truthfulness under argument truthfulness (the `RecRulesOk`
+  `AnnotOk`-of-rhs clause, fired); its hypotheses are memberships
+  (`TeleFitV`), pointwise interp-equalities, and the `IotaIndexPinV`
+  existential — nothing `AnnotOkV`-conditional.
+* The laws (`EtaLawV`/`UnitLawV`) are the *model's* `EtaLaw`/`UnitLaw`
+  transposes (not `EtaLawTT`'s re-signed form): no #135/#136/#137
+  content, the fabrication side unconditioned.
+* `NatOpsV` is equation-based (the `NatOpsOk` transpose); `DivModV` is
+  clause-based over `DivModClausesV` (the `DivModOk` transpose) —
+  both keyed exactly on what `certifyNatEqs`/`checkDivModPin`
+  certify, consumable from `Decl.lean`'s packs through the
+  unconditional `DefEq.sound`.
+* Relocations made for lane-sharing: `BasisPinnedTT` →
+  `Verify/Denote/Pinned.lean`; `unitLike_eq_punit` /
+  `pairLike_eq_psigma` / `pinnedInfoT_recInfo_cases` →
+  `Verify/PinnedShapes.lean` (generalized to `BasisPinnedTT`);
+  `natOpGuard_inv`/`intro`/`cons` → `Verify/EnvGuards.lean`.
+
+**No finding #1**: every case closed on set-mode certificates alone;
+the two relation amendments (repair A; R6's telescope exposure) were
+premise-*shape* corrections, not new checks.
 ### Batch (f) landed — and what premise-exactness cost here
 
 `Bridge/ReduceNat.lean` discharges `ReduceNatStepR` (R8 `natSucc`,
@@ -355,7 +598,14 @@ readings), and a new `natOpResult_atom` beside `natOpResult_shape` in
 consumer needs, since "some constant" is not enough when `natOpGuard`
 pins exactly `boolTrueName`/`boolFalseName`.
 
-### FINDING 2 (blocking for batch (e) and the stuck cascade): the family has no projection congruence
+### FINDING 2 (raised at batch (f); **repaired** by T4's addendum above): the family has no projection congruence
+
+*Status: resolved.*  `Red.projArg` and `DefEq.projCong` landed with the
+repair-A amendment (see "T4 addendum — finding 2" above), appended at
+the end of their constructor lists so the T2 rules keep their recursor
+positions.  The record below is the finding as raised, kept because its
+case-by-case verification of the stuck block is what batch (d) writes
+straight through.
 
 Two accepting paths of the checker have **no rule to bridge to** — this
 is an incompleteness of the premise-exact inventory, not an unsoundness,
@@ -391,7 +641,8 @@ own `AnnotOkV` conjunct plus the subject's `i < 2`).  Both are pure
 lift commutation is already there for `Infer.proj`) and two more in
 T4's soundness induction.
 
-Consequence for the batches: `ProjStepR` (batch e) cannot be discharged
+Consequence for the batches (as raised; now unblocked): `ProjStepR`
+(batch e) cannot be discharged
 without `Red.projArg`, and `DefEqStuckStepR` cannot be discharged even
 in its congruence-only portion without `DefEq.projCong` — the `.proj` /
 `.proj` case sits in the same match as `.forallE`/`.lam`/`.app`, so the

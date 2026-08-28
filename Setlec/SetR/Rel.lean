@@ -36,6 +36,20 @@ Every rule cites its checker site (`Setlec/Kernel/Core.lean` unless
 noted); the checker is the source of truth, and a premise that reads
 wrong against the cited body is a finding, not a silent fix.
 
+**Type-normalization premises are `DefEq`, not `Red`** (the 2026-08-27
+amendment, T3's finding + T4's decision — the full record is in
+`Setlec/SetR/DESIGN.md`).  Wherever the checker runs
+`t ← infer x; w ← whnf t; match w`, the rule's premise pair is
+`Infer x tx` + `DefEq tx Shape`: the bridge's infer-claim is stated up
+to the relation's own equality (design §0 decision 1), so it cannot
+name the checker's actual `t` — the slack sits *between* the two
+premises, and `Red` (directed reduction, deliberately without a
+conversion prefix) cannot absorb it, while `DefEq` contains the actual
+chain via `DefEq.trans (DefEq.symm …) (DefEq.ofRed …)`.  Subject-side
+reductions (the iota major, `reduceNat` arguments, `Red p P` in the
+`.proj` clause) remain `Red` — there the checker reduces the term
+itself and the bridge derives the reduction directly.
+
 Four checker features contribute **zero rules** (design §7.2): delta
 (`denote` reads definitions through `cval`; a delta step is an identity
 of denotations), `Nat`-literal packing/unpacking (`⟦.lit (n+1)⟧` *is*
@@ -134,8 +148,19 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
   `projCert` pack (`Core.lean:1363-1378`) — and **no `projTeleCert`**
   (#126 is tt-only).  `sn` is the node's struct-name slot, which the
   denotation does not carry; it is quantified, and soundness pins what
-  a native entry can be through `ProjOk`. -/
-  | projRed {Δ : List VExpr} {p P fv ta tta te tte : VExpr}
+  a native entry can be through `ProjOk`.
+
+  **The constructor spine's telescope certificate is a premise**
+  (the 2026-08-27 T4 amendment, second increment — record in
+  `Setlec/SetR/DESIGN.md`): the checker's `projCert` infers the
+  constructor form `P` as a whole, and that run's own per-argument
+  re-checks are what the model's soundness consumes
+  (`Model/Core/Whnf.lean:639-741`, via `inferTypeCore_app_inv'`).
+  The relational `Infer P te` premise alone under-determines them
+  (`Infer.const` overlaps app-shaped subjects), so the rule exposes
+  them as a `Tele` walk over the constructor's denoted stored type —
+  the same premise-exactness argument as repair A. -/
+  | projRed {Δ : List VExpr} {p P fv ta tta te tte TC restC : VExpr}
       {i : Nat} {sn : Name} {entry : ProjEntry} {ci : ConstantInfo}
       {us : List Level} {vs : List VExpr} :
       -- side conditions (V-free), read off the clause's guards
@@ -151,18 +176,29 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
         (cval entry.ctor
           (Level.substFn φ ci.toConstantVal.levelParams us)) vs →
       vs[entry.numParams + i]? = some fv →
+      -- the constructor's stored type, denoted (D1 closedness)
+      denoteClosed cval env φ
+        (ci.toConstantVal.type.instantiateLevelParams
+          ci.toConstantVal.levelParams us) = some TC →
+      VExpr.Closed TC →
       -- the subject reduces to constructor form
       Red μ env cval φ Δ p P →
+      -- the constructor spine's telescope certificate (the infer run's
+      -- own argument re-checks, exposed — see the docstring)
+      Tele μ env cval φ Δ TC vs restC →
       -- `projCert`: the projected field's type's sort is the entry's
-      -- instantiated field sort …
+      -- instantiated field sort …  (`DefEq`, not `Red`: the checker
+      -- whnfs its own inferred type; the bridge's infer-claim is up to
+      -- `DefEq`, so the normalization premise absorbs the slack — the
+      -- 2026-08-27 amendment, `Setlec/SetR/DESIGN.md`)
       Infer μ env cval φ Δ fv ta →
       Infer μ env cval φ Δ ta tta →
-      Red μ env cval φ Δ tta
+      DefEq μ env cval φ Δ tta
         (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)) →
       -- … and the subject's type's sort is the instantiated struct sort
       Infer μ env cval φ Δ P te →
       Infer μ env cval φ Δ te tte →
-      Red μ env cval φ Δ tte
+      DefEq μ env cval φ Δ tte
         (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ)) →
       Red μ env cval φ Δ (.proj i p) fv
   /-- R7/R16: a `String` literal steps to (the reduction of) its
@@ -327,8 +363,9 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
         (cvj.type.instantiateLevelParams cvj.levelParams ust) = some TVj →
       VExpr.Closed TVj →
       -- the major's type, normalized to the family's application
+      -- (`DefEq`: type-normalization premise, see the amendment note)
       Infer μ env cval φ Δ m₀ tm →
-      Red μ env cval φ Δ tm TM →
+      DefEq μ env cval φ Δ tm TM →
       -- the synthetic-spine certificate (task #71, `Core.lean:1108-1111`)
       Tele μ env cval φ Δ TVj (ts.take cnP) rest →
       -- the official `to_cnstr_when_K` type check on the fabrication
@@ -375,7 +412,7 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
         (cvj.type.instantiateLevelParams cvj.levelParams ust) = some TVj →
       VExpr.Closed TVj →
       Infer μ env cval φ Δ m₀ tm →
-      Red μ env cval φ Δ tm TM →
+      DefEq μ env cval φ Δ tm TM →
       -- the synthetic-spine certificate at the fabricated spine
       -- (task #71, `Core.lean:1166-1170` — always on)
       Tele μ env cval φ Δ TVj
@@ -419,7 +456,7 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
         (cvj.type.instantiateLevelParams cvj.levelParams ust) = some TVj →
       VExpr.Closed TVj →
       Infer μ env cval φ Δ m₀ tm →
-      Red μ env cval φ Δ tm TM →
+      DefEq μ env cval φ Δ tm TM →
       -- the synthetic-spine certificate (0 fields: the spine is `ts`)
       Tele μ env cval φ Δ TVj ts rest →
       -- the proof-irrelevance certificate
@@ -430,6 +467,15 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       Red μ env cval φ Δ m₀
         (VExpr.mkAppN
           (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust)) ts)
+  /-- R15 (T3's finding 2, 2026-08-27): projection congruence — the
+  `.proj` clause of `whnfCoreBody` (`Core.lean:1431-1475`) reduces the
+  scrutinee and returns the stuck `.proj` on every non-firing branch.
+  Premise-free beyond the scrutinee reduction (the clause runs no
+  certificate on that path); appended at the end of `Red`'s own
+  constructor list so the T2 rules keep their relative order. -/
+  | projArg {Δ : List VExpr} {e e' : VExpr} {i : Nat} :
+      Red μ env cval φ Δ e e' →
+      Red μ env cval φ Δ (.proj i e) (.proj i e')
 
 /-- **Inference** (design §1.3, I1–I10): successful `inferTypeCore`
 runs (`inferBody`, `Core.lean:1546-1658`), premise-exact at
@@ -471,26 +517,26 @@ inductive Infer (μ : CheckMode) (env : Env) (cval : TConstVal)
       Infer μ env cval φ Δ (strLitT cval env φ s)
         (cval stringName (Level.substFn φ [] []))
   /-- I6: ∀-formation (`Core.lean:1578-1587`): the domain's sort and
-  the opened body's sort (`ensureSort` = an I-premise + R-premise
-  pair). -/
+  the opened body's sort (`ensureSort` = an I-premise + D-premise
+  pair; the normalization premise is `DefEq`, amendment note). -/
   | pi {Δ : List VExpr} {A B tA tB : VExpr} {u v : Nat} :
       Infer μ env cval φ Δ A tA →
-      Red μ env cval φ Δ tA (.sort u) →
+      DefEq μ env cval φ Δ tA (.sort u) →
       Infer μ env cval φ (A :: Δ) B tB →
-      Red μ env cval φ (A :: Δ) tB (.sort v) →
+      DefEq μ env cval φ (A :: Δ) tB (.sort v) →
       Infer μ env cval φ Δ (.pi A B) (.sort (imax u v))
   /-- I7: λ (`Core.lean:1588-1600`): the domain must be a type; the
   body's type is read back under the binder. -/
   | lam {Δ : List VExpr} {A b tA B : VExpr} {u : Nat} :
       Infer μ env cval φ Δ A tA →
-      Red μ env cval φ Δ tA (.sort u) →
+      DefEq μ env cval φ Δ tA (.sort u) →
       Infer μ env cval φ (A :: Δ) b B →
       Infer μ env cval φ Δ (.lam A b) (.pi A B)
   /-- I8: application (`Core.lean:1601-1613`), with the per-argument
   re-check — always on at `--set-model`. -/
   | app {Δ : List VExpr} {f a tf A B ta : VExpr} :
       Infer μ env cval φ Δ f tf →
-      Red μ env cval φ Δ tf (.pi A B) →
+      DefEq μ env cval φ Δ tf (.pi A B) →
       Infer μ env cval φ Δ a ta →
       DefEq μ env cval φ Δ ta A →
       Infer μ env cval φ Δ (.app f a) (B.inst a)
@@ -513,7 +559,7 @@ inductive Infer (μ : CheckMode) (env : Env) (cval : TConstVal)
       VExpr.Closed TP →
       piResidualV TP (ps ++ [p]) = some resV →
       Infer μ env cval φ Δ p tp →
-      Red μ env cval φ Δ tp
+      DefEq μ env cval φ Δ tp
         (VExpr.mkAppN
           (cval T (Level.substFn φ ciT.toConstantVal.levelParams us)) ps) →
       Infer μ env cval φ Δ (.proj i p) resV
@@ -521,7 +567,7 @@ inductive Infer (μ : CheckMode) (env : Env) (cval : TConstVal)
   matches it, body inferred with the value transparent. -/
   | letE {Δ : List VExpr} {T v b tT tv B : VExpr} {u : Nat} :
       Infer μ env cval φ Δ T tT →
-      Red μ env cval φ Δ tT (.sort u) →
+      DefEq μ env cval φ Δ tT (.sort u) →
       Infer μ env cval φ Δ v tv →
       DefEq μ env cval φ Δ tv T →
       Infer μ env cval φ Δ (b.inst v) B →
@@ -581,10 +627,10 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
   | irrelProp {Δ : List VExpr} {a b ta sta tb stb : VExpr} :
       Infer μ env cval φ Δ a ta →
       Infer μ env cval φ Δ ta sta →
-      Red μ env cval φ Δ sta (.sort 0) →
+      DefEq μ env cval φ Δ sta (.sort 0) →
       Infer μ env cval φ Δ b tb →
       Infer μ env cval φ Δ tb stb →
-      Red μ env cval φ Δ stb (.sort 0) →
+      DefEq μ env cval φ Δ stb (.sort 0) →
       DefEq μ env cval φ Δ a b
   /-- D9: proof irrelevance, the unit branch (`proofIrrel`,
   `Core.lean:775-781`): each side's type whnfs to a pinned unit-like
@@ -598,10 +644,10 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
       isUnitLikeTy env (.const c₂ us₂) = true →
       us₂.length = (levelParamsAt env c₂).length →
       Infer μ env cval φ Δ a ta →
-      Red μ env cval φ Δ ta
+      DefEq μ env cval φ Δ ta
         (cval c₁ (Level.substFn φ (levelParamsAt env c₁) us₁)) →
       Infer μ env cval φ Δ b tb →
-      Red μ env cval φ Δ tb
+      DefEq μ env cval φ Δ tb
         (cval c₂ (Level.substFn φ (levelParamsAt env c₂) us₂)) →
       DefEq μ env cval φ Δ a b
   /-- D10: structural eta for a stored eta-capable structure
@@ -644,8 +690,9 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
           = some (TPv j)) →
       (∀ j, j < cnF → VExpr.Closed (TPv j)) →
       -- the stuck side's type, normalized to the family's application
+      -- (`DefEq`: type-normalization premise, amendment note)
       Infer μ env cval φ Δ b tb →
-      Red μ env cval φ Δ tb
+      DefEq μ env cval φ Δ tb
         (VExpr.mkAppN
           (cval T (Level.substFn φ cvT.levelParams us')) ts) →
       -- the type-former telescope certificate
@@ -676,11 +723,11 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
         (cvT.type.instantiateLevelParams cvT.levelParams us') = some TFv →
       VExpr.Closed TFv →
       Infer μ env cval φ Δ a ta →
-      Red μ env cval φ Δ ta
+      DefEq μ env cval φ Δ ta
         (VExpr.mkAppN
           (cval T (Level.substFn φ cvT.levelParams us')) ts) →
       Infer μ env cval φ Δ b tb →
-      Red μ env cval φ Δ tb TB →
+      DefEq μ env cval φ Δ tb TB →
       DefEq μ env cval φ Δ
         (VExpr.mkAppN
           (cval T (Level.substFn φ cvT.levelParams us')) ts) TB →
@@ -703,7 +750,7 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
       us.length = cvm.levelParams.length →
       us'.length = cvi.levelParams.length →
       Infer μ env cval φ Δ b tb →
-      Red μ env cval φ Δ tb
+      DefEq μ env cval φ Δ tb
         (.app (.app (cval c' (Level.substFn φ cvi.levelParams us')) A) B) →
       DefEq μ env cval φ Δ pα A →
       DefEq μ env cval φ Δ pβ B →
@@ -717,7 +764,7 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
   is pointwise the application.  The mirrored direction is D2. -/
   | eta {Δ : List VExpr} {A₁ b₁ b tb A₂ B : VExpr} :
       Infer μ env cval φ Δ b tb →
-      Red μ env cval φ Δ tb (.pi A₂ B) →
+      DefEq μ env cval φ Δ tb (.pi A₂ B) →
       DefEq μ env cval φ Δ A₂ A₁ →
       DefEq μ env cval φ (A₁ :: Δ) b₁ (.app b.lift (.bvar 0)) →
       DefEq μ env cval φ Δ (.lam A₁ b₁) b
@@ -730,6 +777,14 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
       DefEq μ env cval φ Δ (natLitV cval φ k) x →
       DefEq μ env cval φ Δ (natLitV cval φ (k + 1))
         (.app (succV cval φ) x)
+  /-- D15 (T3's finding 2, 2026-08-27): projection congruence — the
+  stuck-comparison block (`Core.lean:1884-1889`) accepts two `.proj`
+  nodes on index equality plus scrutinee defeq.  Appended at the end
+  of `DefEq`'s own constructor list so the T2 rules keep their
+  relative order. -/
+  | projCong {Δ : List VExpr} {e₁ e₂ : VExpr} {i : Nat} :
+      DefEq μ env cval φ Δ e₁ e₂ →
+      DefEq μ env cval φ Δ (.proj i e₁) (.proj i e₂)
 
 /-- **Telescope certification** (design §1.4): `iotaCerts`
 (`Core.lean:735-743`) — each spine argument's inferred type is defeq

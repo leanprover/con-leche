@@ -58,4 +58,34 @@ def pinnedDirectT (n : Name) (ψ : Name → Nat) : Option VExpr :=
   else if n = quotSoundName then some (.const .quotSound [ψ uN])
   else none
 
+/-- Every stored reserved-basis constant is the pinned *declaration*,
+and — where the layer still carries it — is valued by its direct pin.
+Transpose of `IndOk`'s fourth conjunct.
+
+This is what makes a reduction's *syntactic* match usable: the `.proj`
+clause matches a constructor head against `entry.ctor`, and only the
+valuation clause turns that into `⟦e'⟧ = psigmaMkT u v A B a b`, which
+is the shape `projFstMk` is stated at.
+
+**The declaration clause came back** (`Setlec/TTVerify/DESIGN.md` §12.10).
+It was dropped on the first transposition as "syntactic, no consumer",
+and `ProofIrrelStepTT`'s unit-like branch is the consumer: `isUnitLikeTy`
+accepts a `.const c _` whose `c.str "rec"` is *reserved*, so identifying
+`c` as `PUnit` — which is what `HasType.punitEta` is stated at — is
+exactly reading the four other reserved recursors' pinned shapes and
+finding that none of them is single-rule, zero-field and index-free.
+Without the clause the branch is unprovable; with it, it is a `decide`. -/
+def BasisPinnedTT (env : Env) (cval : TConstVal) : Prop :=
+  ∀ (n : Name) (ci : ConstantInfo),
+    env.find? n = some ci →
+    reservedBasisNames.contains n = true →
+    (ConstantInfo.isBasis ci = true → ci = pinnedInfo n) ∧
+    ∀ (t : VExpr) (ψ : Name → Nat), pinnedDirectT n ψ = some t →
+      cval n ψ = t
+
+theorem BasisPinnedTT.empty (cval : TConstVal) :
+    BasisPinnedTT Env.empty cval := by
+  intro n ci h
+  simp [Env.find?, Env.empty] at h
+
 end Setlec.TTVerify

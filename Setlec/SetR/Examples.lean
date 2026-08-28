@@ -38,11 +38,11 @@ example : Infer μ env cval φ []
       (.pi (.sort 1) (.sort 1)) := by
     have hb : Infer μ env cval φ [(.sort 1)] (.bvar 0)
         ((VExpr.sort 1).liftN 1) := Infer.bvar rfl
-    exact Infer.lam Infer.sort Red.refl (by simpa using hb)
+    exact Infer.lam Infer.sort DefEq.refl (by simpa using hb)
   have h : Infer μ env cval φ []
       (.app (.lam (.sort 1) (.bvar 0)) (.sort 0))
       ((VExpr.sort 1).inst (.sort 0)) :=
-    Infer.app hf Red.refl Infer.sort DefEq.refl
+    Infer.app hf DefEq.refl Infer.sort DefEq.refl
   simpa [VExpr.inst] using h
 
 /-- A `Tele` chain: walking the telescope `Sort 1 → Sort 1` at the
