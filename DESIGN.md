@@ -10275,10 +10275,12 @@ modes.
 
 | stream | before | after | Δ |
 |---|---|---|---|
-| init-prelude | 37.4260 G | 37.5145 G | **+0.24 %** |
-| grind-ring-5 | 124.3778 G | 124.6436 G | **+0.21 %** |
-| app-lam | 384.456 G | 384.379 G | −0.02 % (noise) |
-| init-prelude `--no-model` | 20.9851 G | 20.9881 G | +0.01 % (noise) |
+| init-prelude | 37.4338 G | 37.5153 G | **+0.22 %** |
+| grind-ring-5 | 124.3972 G | 124.6520 G | **+0.20 %** |
+| app-lam | 384.458 G | 384.380 G | −0.02 % (noise) |
+| init-prelude `--no-model` | 20.9853 G | 20.9902 G | +0.02 % (noise) |
+
+(measured against master `cfb5b1e`, after merging it in)
 
 The prediction attached to the grant was "near-noise via the infer
 memo — the body type was already inferred, so `ensureSort` is a `whnf`
