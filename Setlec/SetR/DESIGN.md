@@ -1082,3 +1082,42 @@ concrete route would not have transferred at all.  Recording it as the
 general lesson: **when a rule's premise is a telescope, prove the walk
 from the `stripPis` witness the checker already pins, not from the
 shape of whichever type happens to be at hand.**
+
+### What batch (g) needs, and one risk to settle first
+
+`IotaStepR` is `CheckStepR`'s last obligation.  `iotaRec_inv` is
+comprehensive — it returns every side condition R11 names — and the
+reusable machinery is in place: `certs_teleR` for the two `iotaCerts`
+telescopes, `tele_of_inferSpineR` for anything the walk reaches,
+`denote_declTypeR` for the stored types, `defEqL_of_defEqListR` for the
+comparand lists, `denote_strLitCtorR` for R16 at the major, and D8/D9
+(`proofIrrel_stepR`) and D10 (`structEtaCert_stepR`) for the R12–R14
+rescues through `majorToCtor_inv`.  Two things are *not* in place:
+
+**1. A new `EnvR` field: the rule's right-hand side denotes.**  R11
+carries `denoteClosed cval env φ (rl.rhs.instantiateLevelParams …) =
+some R` (+ D1 closedness).  `EnvR.ty_denotes` covers stored *types*
+only, and `EnvWF` gives the rhs's `hasFvar = false`, `constsResolve`
+and `looseBVarsBounded 0` but **not** its denotability (`constsResolve`
+gives existence, not the level-arity matches `denote`'s `.const` clause
+needs).  `EnvS.rec_rules` carries exactly this fact, so the field is
+`EnvS`-backed like `proj_ok`; add it with its consumer.
+
+**2. RISK — `rP ≤ mI` may not be suppliable for `.plain` fires.**
+R11 states `rP ≤ mI` as an unconditional side condition (deviation D3),
+recorded as "supplier: `EnvWF`".  Reading `Setlec/Verify/EnvWF.lean:57`,
+`EnvWF` concludes `rP ≤ mI` **only inside the `.nested` branch**
+(`∀ lvls pins, fire r = .nested lvls pins → rP ≤ mI ∧ …`); nothing in
+the `.plain` case relates the two, and `iotaRec` does not check it
+per-fire.  D3's own justification is M1's nested-premise chain arity, so
+the condition is only *needed* where it is *available*.  Two resolutions,
+to settle before writing the clause rather than during:
+
+* move `rP ≤ mI` inside R11's nested premise (where M1 uses it), leaving
+  `.plain` fires unencumbered — the smaller change, and it matches the
+  reason the condition exists; or
+* have the install layer establish it unconditionally and expose it
+  (an `EnvR`/`EnvS` field), if some consumer needs it for `.plain` too.
+
+The first looks right on the evidence, but it is a rule-shape change and
+therefore T4's call, not the bridge's.
