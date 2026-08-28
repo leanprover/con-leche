@@ -2940,6 +2940,1052 @@ theorem denote_quotSound_typeS {env : Env} (m : EnvS V env)
 
 
 
+
+/-! ## `Eq`
+
+The block the layer *derives* rather than carries: `Eq` is the `.eqE`
+former eta-expanded, `Eq.refl` is `.prf` under two binders, and
+`Eq.rec` returns its minor premise — its stored rule is `.inert`, so
+the block has no iota obligation at all.  What it does have, uniquely,
+is `hheadEq`: this install is where `EqLawV` enters the bundle.
+
+(The `Eq`-former helpers `denote_eq_typeS`/`eqV_memS` sit with the
+`Quot` block above, where the bridge that consumes them lives.) -/
+
+/-- `Eq`'s valuation: the former, eta-expanded. -/
+def eqValT (ψ : Name → Nat) : VExpr :=
+  .lam (.sort (ψ uN)) (.lam (.bvar 0) (.lam (.bvar 1)
+    (.eqE (.bvar 2) (.bvar 1) (.bvar 0))))
+
+/-- `Eq.refl`'s valuation. -/
+def eqReflValT (ψ : Name → Nat) : VExpr :=
+  .lam (.sort (ψ uN)) (.lam (.bvar 0) .prf)
+
+/-- The tower is closed. -/
+theorem eqValT_closed (ψ : Name → Nat) : VExpr.Closed (eqValT ψ) := by
+  simp only [eqValT, VExpr.Closed, VExpr.bvarsBelow]
+  exact ⟨trivial, by omega, by omega, by omega, by omega, by omega⟩
+
+/-- `Eq.refl`'s tower is closed. -/
+theorem eqReflValT_closed (ψ : Name → Nat) : VExpr.Closed (eqReflValT ψ) := by
+  simp only [eqReflValT, VExpr.Closed, VExpr.bvarsBelow]
+  exact ⟨trivial, by omega, trivial⟩
+
+/-- `Eq.rec`'s valuation: the minor premise, returned.  Transport is
+the identity — `eqRec_derivable` (`Setlec/TT/Examples.lean`), which is
+why the layer does not carry `Eq.rec` at all. -/
+def eqRecValT (ψ : Name → Nat) : VExpr :=
+  .lam (.sort (ψ uN))
+    (.lam (.bvar 0)
+      (.lam (.pi (.bvar 1)
+          (.pi (VExpr.mkAppN (eqValT ψ) [.bvar 2, .bvar 1, .bvar 0])
+            (.sort (ψ u1N))))
+        (.lam (.app (.app (.bvar 0) (.bvar 1))
+            (VExpr.mkAppN (eqReflValT ψ) [.bvar 2, .bvar 1]))
+          (.lam (.bvar 3)
+            (.lam (VExpr.mkAppN (eqValT ψ) [.bvar 4, .bvar 3, .bvar 0])
+              (.bvar 2))))))
+
+/-- `Eq.rec`'s tower is closed. -/
+theorem eqRecValT_closed (ψ : Name → Nat) : VExpr.Closed (eqRecValT ψ) := by
+  simp only [eqRecValT, VExpr.Closed, VExpr.bvarsBelow, VExpr.mkAppN,
+    eqValT, eqReflValT]
+  repeat' apply And.intro
+  all_goals first | trivial | omega
+
+/-- **`Eq`'s tower, interpreted.**  A three-deep `lamC` over the
+layer's truth-set former. -/
+theorem eqValT_interp (ψ : Name → Nat) (ρ : Nat → V) :
+    interp V ρ (eqValT ψ)
+      = lamC (univ (ψ uN))
+        (fun a => lamC a (fun x => lamC a (fun y => eqv x y))) := by
+  simp [eqValT, interp_lam, interp_sort, interp_bvar, interp_eqE, cons]
+
+/-- **`EqLawV`'s equation, from the tower** — two `app_lamC`s where
+the TT lane needs three β-steps and their lift absorptions. -/
+theorem eqValT_lawS (ψ : Name → Nat) (ρ : Nat → V) (A a : VExpr)
+    (hA : interp V ρ A ∈ˢ univ (ψ uN))
+    (ha : interp V ρ a ∈ˢ interp V ρ A) :
+    SetTheory.app (SetTheory.app (interp V ρ (eqValT ψ))
+        (interp V ρ A)) (interp V ρ a)
+      = lamC (interp V ρ A) (fun y => eqv (interp V ρ a) y) := by
+  rw [eqValT_interp, app_lamC hA, app_lamC ha]
+
+/-- …and `EqLawV`'s rigidity clause: the tower is never the proof
+point, witnessed at the unit proposition. -/
+theorem eqValT_ne_pt (ψ : Name → Nat) (ρ : Nat → V) :
+    interp V ρ (eqValT ψ) ≠ pt := by
+  rw [eqValT_interp]
+  refine lamC_ne_pt_of_witness (x := unitSet) (unitSet_mem_univ _) ?_
+  refine lamC_ne_pt_of_witness (x := pt) pt_mem_unitSet ?_
+  refine lamC_ne_pt_of_witness (x := pt) pt_mem_unitSet ?_
+  unfold SetTheory.eqv
+  exact truthVal_ne_pt _
+
+/-- The tower inhabits `Eq`'s denoted type. -/
+theorem eqValT_memS (ψ : Name → Nat) (ρ : Nat → V) :
+    interp V ρ (eqValT ψ) ∈ˢ piC (univ (ψ uN))
+      (fun a => piC a (fun _ => piC a (fun _ => univ 0))) := by
+  rw [eqValT_interp]
+  exact lamC_mem (fun _a _ => lamC_mem (fun _x _ =>
+    lamC_mem (fun _y _ => eqv_mem_univ _ _)))
+
+theorem eqValT_annotS (ψ : Name → Nat) (ρ : Nat → V) :
+    AnnotOkV V ρ (eqValT ψ) := by
+  simp [eqValT, AnnotOkV_lam, AnnotOkV_eqE, AnnotOkV_bvar, AnnotOkV_sort]
+
+/-- The full spine's value. -/
+theorem eqValT_app₃S (ψ : Name → Nat) (ρ : Nat → V) (A a b : VExpr)
+    (hA : interp V ρ A ∈ˢ univ (ψ uN))
+    (ha : interp V ρ a ∈ˢ interp V ρ A)
+    (hb : interp V ρ b ∈ˢ interp V ρ A) :
+    interp V ρ (VExpr.mkAppN (eqValT ψ) [A, a, b])
+      = eqv (interp V ρ a) (interp V ρ b) := by
+  show interp V ρ (.app (.app (.app (eqValT ψ) A) a) b) = _
+  rw [interp_app, interp_app, interp_app, eqValT_lawS ψ ρ A a hA ha,
+    app_lamC hb]
+
+/-- …and the spine is truthful. -/
+theorem eqValT_app₃_annotS (ψ : Name → Nat) (ρ : Nat → V)
+    (A a b : VExpr) (hAA : AnnotOkV V ρ A) (haA : AnnotOkV V ρ a)
+    (hbA : AnnotOkV V ρ b)
+    (hA : interp V ρ A ∈ˢ univ (ψ uN))
+    (ha : interp V ρ a ∈ˢ interp V ρ A)
+    (hb : interp V ρ b ∈ˢ interp V ρ A) :
+    AnnotOkV V ρ (VExpr.mkAppN (eqValT ψ) [A, a, b]) := by
+  have hm := eqValT_memS (V := V) ψ ρ
+  simp only [VExpr.mkAppN, AnnotOkV_app]
+  exact ⟨⟨⟨eqValT_annotS ψ ρ, hAA, _, _, hm, hA⟩, haA, _, _,
+      app_mem_piC hm hA, ha⟩,
+    hbA, _, _, app_mem_piC (app_mem_piC hm hA) ha, hb⟩
+
+/-- The towers read the assignment only at their own level names. -/
+theorem eqValT_congr {ψ₁ ψ₂ : Name → Nat} (h : ψ₁ uN = ψ₂ uN) :
+    eqValT ψ₁ = eqValT ψ₂ := by rw [eqValT, eqValT, h]
+
+theorem eqReflValT_congr {ψ₁ ψ₂ : Name → Nat} (h : ψ₁ uN = ψ₂ uN) :
+    eqReflValT ψ₁ = eqReflValT ψ₂ := by rw [eqReflValT, eqReflValT, h]
+
+/-- `Eq.refl`'s tower, interpreted. -/
+theorem eqReflValT_interp (ψ : Name → Nat) (ρ : Nat → V) :
+    interp V ρ (eqReflValT ψ)
+      = lamC (univ (ψ uN)) (fun a => lamC a (fun _ => pt)) := by
+  simp [eqReflValT, interp_lam, interp_sort, interp_bvar, interp_prf,
+    cons]
+
+theorem eqReflValT_app₂S (ψ : Name → Nat) (ρ : Nat → V) (A a : VExpr)
+    (hA : interp V ρ A ∈ˢ univ (ψ uN))
+    (ha : interp V ρ a ∈ˢ interp V ρ A) :
+    interp V ρ (VExpr.mkAppN (eqReflValT ψ) [A, a]) = pt := by
+  show interp V ρ (.app (.app (eqReflValT ψ) A) a) = _
+  rw [interp_app, interp_app, eqReflValT_interp, app_lamC hA,
+    app_lamC ha]
+
+theorem eqReflValT_memS (ψ : Name → Nat) (ρ : Nat → V) :
+    interp V ρ (eqReflValT ψ) ∈ˢ
+      piC (univ (ψ uN)) (fun a => piC a (fun x => eqv x x)) := by
+  rw [eqReflValT_interp]
+  exact lamC_mem (fun _a _ => lamC_mem (fun x _ => pt_mem_eqv_self x))
+
+theorem eqReflValT_annotS (ψ : Name → Nat) (ρ : Nat → V) :
+    AnnotOkV V ρ (eqReflValT ψ) := by
+  simp [eqReflValT, AnnotOkV_lam, AnnotOkV_bvar, AnnotOkV_sort,
+    AnnotOkV_prf]
+
+/-- `Eq.rec`'s pinned type, as it denotes at the declaration's own
+level parameters. -/
+def eqRecTyV (ψ : Name → Nat) : VExpr :=
+  .pi (.sort (ψ uN))
+    (.pi (.bvar 0)
+      (.pi (.pi (.bvar 1)
+          (.pi (VExpr.mkAppN (eqValT ψ) [.bvar 2, .bvar 1, .bvar 0])
+            (.sort (ψ u1N))))
+        (.pi (.app (.app (.bvar 0) (.bvar 1))
+            (VExpr.mkAppN (eqReflValT ψ) [.bvar 2, .bvar 1]))
+          (.pi (.bvar 3)
+            (.pi (VExpr.mkAppN (eqValT ψ) [.bvar 4, .bvar 3, .bvar 0])
+              (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))))))
+
+/-- **`Eq.rec`'s tower inhabits its type** — where the TT lane needs
+`proofIrrel` and a `congrApp` pair, the [set] lane reads the transport
+straight off the hypothesis: a member of `eqv a b` *is* a proof that
+`a = b`, and it is `pt`. -/
+theorem eqRecValT_memS (ψ : Name → Nat) (ρ : Nat → V) :
+    interp V ρ (eqRecValT ψ) ∈ˢ interp V ρ (eqRecTyV ψ) := by
+  simp only [eqRecValT, eqRecTyV, interp_lam, interp_pi, interp_sort,
+    interp_bvar, interp_app, cons]
+  refine lamC_mem (fun xa hxa => lamC_mem (fun xv hxv =>
+    lamC_mem (fun xM hxM => lamC_mem (fun xh hxh =>
+      lamC_mem (fun xb hxb => lamC_mem (fun xt hxt => ?_))))))
+  have het : interp V (cons V xb (cons V xh (cons V xM
+      (cons V xv (cons V xa ρ)))))
+      (VExpr.mkAppN (eqValT ψ) [.bvar 4, .bvar 3, .bvar 0])
+      = eqv xv xb := by
+    rw [eqValT_app₃S ψ _ (.bvar 4) (.bvar 3) (.bvar 0)
+      (by simpa [interp_bvar, cons] using hxa)
+      (by simpa [interp_bvar, cons] using hxv)
+      (by simpa [interp_bvar, cons] using hxb)]
+    simp [interp_bvar, cons]
+  rw [het] at hxt
+  have hvb : xv = xb := mem_eqv hxt
+  have hpt : xt = pt := mem_univ_zero (eqv_mem_univ _ _) hxt
+  have herefl : interp V (cons V xM (cons V xv (cons V xa ρ)))
+      (VExpr.mkAppN (eqReflValT ψ) [.bvar 2, .bvar 1]) = pt :=
+    eqReflValT_app₂S ψ _ (.bvar 2) (.bvar 1)
+      (by simpa [interp_bvar, cons] using hxa)
+      (by simpa [interp_bvar, cons] using hxv)
+  rw [herefl] at hxh
+  rw [← hvb, hpt]
+  simpa [interp_bvar, cons] using hxh
+
+/-- …and the type is truthful. -/
+theorem eqRecTyV_annotS (ψ : Name → Nat) (ρ : Nat → V) :
+    AnnotOkV V ρ (eqRecTyV ψ) := by
+  simp only [eqRecTyV]
+  refine ⟨trivial, fun xa hxa => ⟨trivial, fun xv hxv => ⟨?_,
+    fun xM hxM => ⟨?_, fun xh _ => ⟨trivial, fun xb hxb => ⟨?_,
+      fun xt hxt => ?_⟩⟩⟩⟩⟩⟩
+  · -- the motive's type
+    refine ⟨trivial, fun xb hxb => ⟨?_, fun _ _ => trivial⟩⟩
+    exact eqValT_app₃_annotS ψ _ (.bvar 2) (.bvar 1) (.bvar 0)
+      trivial trivial trivial
+      (by simpa [interp_bvar, cons] using hxa)
+      (by simpa [interp_bvar, cons] using hxv)
+      (by simpa [interp_bvar, cons] using hxb)
+  · -- the minor premise's type
+    have het : interp V (cons V xv (cons V xv (cons V xa ρ)))
+        (VExpr.mkAppN (eqValT ψ) [.bvar 2, .bvar 1, .bvar 0])
+        = eqv xv xv := by
+      rw [eqValT_app₃S ψ _ (.bvar 2) (.bvar 1) (.bvar 0)
+        (by simpa [interp_bvar, cons] using hxa)
+        (by simpa [interp_bvar, cons] using hxv)
+        (by simpa [interp_bvar, cons] using hxv)]
+      simp [interp_bvar, cons]
+    have hxM' : xM ∈ˢ piC (interp V (cons V xv (cons V xa ρ))
+          (VExpr.bvar 1))
+        (fun xb' => piC (interp V (cons V xb' (cons V xv (cons V xa ρ)))
+            (VExpr.mkAppN (eqValT ψ) [.bvar 2, .bvar 1, .bvar 0]))
+          (fun _ => univ (ψ u1N))) := by
+      simpa [interp_pi, interp_bvar, cons] using hxM
+    have hxv0 : xv ∈ˢ interp V (cons V xv (cons V xa ρ))
+        (VExpr.bvar 1) := by simpa [interp_bvar, cons] using hxv
+    have hMapp : SetTheory.app xM xv ∈ˢ piC (eqv xv xv)
+        (fun _ => univ (ψ u1N)) := by
+      have h := app_mem_piC hxM' hxv0
+      rwa [het] at h
+    have hRm := eqReflValT_memS (V := V) ψ
+      (cons V xM (cons V xv (cons V xa ρ)))
+    have hxa' : interp V (cons V xM (cons V xv (cons V xa ρ)))
+        (VExpr.bvar 2) ∈ˢ univ (ψ uN) := by
+      simpa [interp_bvar, cons] using hxa
+    have hxv' : interp V (cons V xM (cons V xv (cons V xa ρ)))
+        (VExpr.bvar 1) ∈ˢ interp V (cons V xM (cons V xv
+          (cons V xa ρ))) (VExpr.bvar 2) := by
+      simpa [interp_bvar, cons] using hxv
+    have hRA : AnnotOkV V (cons V xM (cons V xv (cons V xa ρ)))
+        (VExpr.mkAppN (eqReflValT ψ) [.bvar 2, .bvar 1]) := by
+      simp only [VExpr.mkAppN, AnnotOkV_app]
+      exact ⟨⟨eqReflValT_annotS ψ _, trivial, _, _, hRm, hxa'⟩,
+        trivial, _, _, app_mem_piC hRm hxa', hxv'⟩
+    have hRmem : interp V (cons V xM (cons V xv (cons V xa ρ)))
+        (VExpr.mkAppN (eqReflValT ψ) [.bvar 2, .bvar 1])
+        ∈ˢ eqv xv xv :=
+      app_mem_piC (B := fun x => eqv x x)
+        (app_mem_piC hRm hxa') hxv'
+    simp only [AnnotOkV_app, AnnotOkV_bvar]
+    exact ⟨⟨trivial, trivial, _, _, hxM', hxv0⟩, hRA,
+      eqv xv xv, fun _ => univ (ψ u1N), hMapp, hRmem⟩
+  · -- the hypothesis' type
+    exact eqValT_app₃_annotS ψ _ (.bvar 4) (.bvar 3) (.bvar 0)
+      trivial trivial trivial
+      (by simpa [interp_bvar, cons] using hxa)
+      (by simpa [interp_bvar, cons] using hxv)
+      (by simpa [interp_bvar, cons] using hxb)
+  · -- the conclusion
+    have hxM' : xM ∈ˢ piC (interp V (cons V xv (cons V xa ρ))
+          (VExpr.bvar 1))
+        (fun xb' => piC (interp V (cons V xb' (cons V xv (cons V xa ρ)))
+            (VExpr.mkAppN (eqValT ψ) [.bvar 2, .bvar 1, .bvar 0]))
+          (fun _ => univ (ψ u1N))) := by
+      simpa [interp_pi, interp_bvar, cons] using hxM
+    have hxb' : xb ∈ˢ interp V (cons V xv (cons V xa ρ))
+        (VExpr.bvar 1) := by simpa [interp_bvar, cons] using hxb
+    have het2 : interp V (cons V xb (cons V xv (cons V xa ρ)))
+        (VExpr.mkAppN (eqValT ψ) [.bvar 2, .bvar 1, .bvar 0])
+        = eqv xv xb := by
+      rw [eqValT_app₃S ψ _ (.bvar 2) (.bvar 1) (.bvar 0)
+        (by simpa [interp_bvar, cons] using hxa)
+        (by simpa [interp_bvar, cons] using hxv)
+        (by simpa [interp_bvar, cons] using hxb)]
+      simp [interp_bvar, cons]
+    have het3 : interp V (cons V xb (cons V xh (cons V xM
+          (cons V xv (cons V xa ρ)))))
+        (VExpr.mkAppN (eqValT ψ) [.bvar 4, .bvar 3, .bvar 0])
+        = eqv xv xb := by
+      rw [eqValT_app₃S ψ _ (.bvar 4) (.bvar 3) (.bvar 0)
+        (by simpa [interp_bvar, cons] using hxa)
+        (by simpa [interp_bvar, cons] using hxv)
+        (by simpa [interp_bvar, cons] using hxb)]
+      simp [interp_bvar, cons]
+    rw [het3] at hxt
+    have hMapp2 : SetTheory.app xM xb ∈ˢ piC (eqv xv xb)
+        (fun _ => univ (ψ u1N)) := by
+      have h := app_mem_piC hxM' hxb'
+      rwa [het2] at h
+    simp only [AnnotOkV_app, AnnotOkV_bvar]
+    exact ⟨⟨trivial, trivial, _, _, hxM', hxb'⟩, trivial,
+      eqv xv xb, fun _ => univ (ψ u1N), hMapp2, hxt⟩
+
+/-- `Eq.rec`'s tower is truthful: its lam domains are exactly the
+type's pi domains, and its body is a variable. -/
+theorem eqRecValT_annotS (ψ : Name → Nat) (ρ : Nat → V) :
+    AnnotOkV V ρ (eqRecValT ψ) := by
+  obtain ⟨c1, c2⟩ := eqRecTyV_annotS (V := V) ψ ρ
+  refine ⟨c1, fun x1 h1 => ?_⟩
+  obtain ⟨d1, d2⟩ := c2 x1 h1
+  refine ⟨d1, fun x2 h2 => ?_⟩
+  obtain ⟨e1, e2⟩ := d2 x2 h2
+  refine ⟨e1, fun x3 h3 => ?_⟩
+  obtain ⟨f1, f2⟩ := e2 x3 h3
+  refine ⟨f1, fun x4 h4 => ?_⟩
+  obtain ⟨g1, g2⟩ := f2 x4 h4
+  refine ⟨g1, fun x5 h5 => ?_⟩
+  obtain ⟨i1, -⟩ := g2 x5 h5
+  exact ⟨i1, fun _ _ => trivial⟩
+
+/-- **`Eq`, installed** — and with it `EqLawV`, discharged from the
+tower rather than assumed. -/
+theorem extendEqS {env : Env} (m : EnvS V env)
+    (hfresh : env.find? eqName = none)
+    (hwf : EnvWF ⟨eqA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨eqA :: env.consts⟩,
+      m'.cval = cvalWith m.cval eqA.name eqValT := by
+  refine extendBasisS m (val := eqValT)
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name eqA = eqName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp)
+    hfresh hwf (fun ψ => eqValT_closed ψ) ?_
+    (fun ψ ρ => eqValT_annotS ψ ρ) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq) ?_
+  · intro φ₁ φ₂ hp
+    exact eqValT_congr (hp uN (by show uN ∈ [uN]; exact List.mem_cons_self))
+  · intro φ
+    refine ⟨.pi (.sort (φ uN)) (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0))),
+      ?_, fun ρ => ⟨?_, by simp [AnnotOkV_pi]⟩⟩
+    · rw [denoteClosed,
+        show eqA.toConstantVal.type
+          = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+              (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+                (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
+                  (.sort .zero) { bi := .default }) { bi := .default })
+              { bi := .implicit } from rfl]
+      simp [denote_forallE, denote_sort, denote_fvar, Level.eval]
+    · simpa [interp_pi, interp_sort, interp_bvar, cons]
+        using eqValT_memS (V := V) φ ρ
+  · -- **`EqLawV`**: the tower's two `app_lamC`s, plus its rigidity
+    intro _ _ ψ
+    rw [show cvalWith m.cval eqA.name eqValT eqName = eqValT from
+      cvalWith_self (n := eqA.name)]
+    exact ⟨fun ρ => eqValT_ne_pt ψ ρ,
+      fun ρ A a hA ha => eqValT_lawS ψ ρ A a hA ha⟩
+
+/-- **`Eq.refl`, installed** — `.prf` under two binders; its type is
+the tower's own spine at a reflexive pair. -/
+theorem extendEqReflS {env : Env} (m : EnvS V env)
+    (hE : env.find? eqName = some eqA)
+    (hEv : ∀ ψ : Name → Nat, m.cval eqName ψ = eqValT ψ)
+    (hfresh : env.find? eqReflName = none)
+    (hwf : EnvWF ⟨eqReflA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨eqReflA :: env.consts⟩,
+      m'.cval = cvalWith m.cval eqReflA.name eqReflValT := by
+  have hEc : ∀ (d : Nat) (φ : Name → Nat),
+      denote (cvalWith m.cval eqReflA.name eqReflValT)
+        ⟨eqReflA :: env.consts⟩ φ d (.const eqName [.param uN])
+        = some (eqValT φ) := by
+    intro d φ
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hE]
+    simp only [show ([Level.param uN] : List Level).length
+      = eqA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalWith_ne (by decide),
+      show Level.substFn φ eqA.toConstantVal.levelParams [Level.param uN]
+        = φ from Level.substFn_param_self φ [uN], hEv]
+  refine extendBasisS m (val := eqReflValT)
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name eqReflA = eqReflName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp)
+    hfresh hwf (fun ψ => eqReflValT_closed ψ) ?_
+    (fun _ _ => by simp [eqReflValT, AnnotOkV_lam, AnnotOkV_bvar,
+      AnnotOkV_sort, AnnotOkV_prf]) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    exact eqReflValT_congr
+      (hp uN (by show uN ∈ [uN]; exact List.mem_cons_self))
+  · intro φ
+    refine ⟨.pi (.sort (φ uN)) (.pi (.bvar 0)
+      (VExpr.mkAppN (eqValT φ) [.bvar 1, .bvar 0, .bvar 0])),
+      ?_, fun ρ => ⟨?_, ?_⟩⟩
+    · rw [denoteClosed,
+        show eqReflA.toConstantVal.type
+          = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+              (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+                (.app (.app (.app (.const eqName [.param uN]) (.bvar 1))
+                  (.bvar 0)) (.bvar 0)) { bi := .default })
+              { bi := .implicit } from rfl]
+      simp [denote_forallE, denote_sort, denote_app, denote_fvar,
+        Level.eval, hEc, VExpr.mkAppN]
+    · simp only [eqReflValT, interp_lam, interp_pi, interp_sort,
+        interp_bvar, cons]
+      refine lamC_mem (fun a ha => lamC_mem (fun x hx => ?_))
+      rw [eqValT_app₃S φ (cons V x (cons V a ρ)) (.bvar 1) (.bvar 0)
+        (.bvar 0) (by simpa [interp_bvar, cons] using ha)
+        (by simpa [interp_bvar, cons] using hx)
+        (by simpa [interp_bvar, cons] using hx)]
+      exact pt_mem_eqv_self _
+    · refine ⟨trivial, fun a ha => ⟨trivial, fun x hx => ?_⟩⟩
+      exact eqValT_app₃_annotS φ (cons V x (cons V a ρ)) (.bvar 1)
+        (.bvar 0) (.bvar 0) trivial trivial trivial
+        (by simpa [interp_bvar, cons] using ha)
+        (by simpa [interp_bvar, cons] using hx)
+        (by simpa [interp_bvar, cons] using hx)
+
+
+/-- **`Eq.rec`'s pinned type, denoted at any depth and any levels.**
+
+The general form is the one `hheadRec` supplies at a fire site — depth
+`d`, the recursor's own `us` — and the install's own `htype` is its
+special case at depth `0` and the declaration's own parameters
+(`Level.substFn_param_self`).  Written once for the same reason `BetaSpine`
+and the `instantiate1` kit were: every block needs exactly this
+shape. -/
+theorem denote_eqRec_typeS {env : Env} (m : EnvS V env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat)
+    (w1 w2 : Level)
+    (hE : env.find? eqName = some eqA)
+    (hR : env.find? eqReflName = some eqReflA)
+    (hEv : ∀ ψ : Name → Nat, m.cval eqName ψ = eqValT ψ)
+    (hRv : ∀ ψ : Name → Nat, m.cval eqReflName ψ = eqReflValT ψ) :
+    denote (cvalWith m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ d
+        (eqRecA.toConstantVal.type.instantiateLevelParams
+          eqRecA.toConstantVal.levelParams [w1, w2])
+      = some (.pi (.sort (w2.eval φ))
+        (.pi (.bvar 0)
+          (.pi (.pi (.bvar 1)
+              (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                  [.bvar 2, .bvar 1, .bvar 0])
+                (.sort (w1.eval φ))))
+            (.pi (.app (.app (.bvar 0) (.bvar 1))
+                (VExpr.mkAppN (eqReflValT (Level.substFn φ [uN] [w2]))
+                  [.bvar 2, .bvar 1]))
+              (.pi (.bvar 3)
+                (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                    [.bvar 4, .bvar 3, .bvar 0])
+                  (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))))))) := by
+  have hsu : Level.subst [u1N, uN] [w1, w2] (.param uN) = w2 := by
+    simp [Level.subst, Level.subst.go, uN, u1N]
+  have hsu1 : Level.subst [u1N, uN] [w1, w2] (.param u1N) = w1 := by
+    simp [Level.subst, Level.subst.go, u1N]
+  have hEc : ∀ e : Nat,
+      denote (cvalWith m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
+        (.const eqName [w2]) = some (eqValT (Level.substFn φ [uN] [w2])) := by
+    intro e
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hE]
+    simp only [show ([w2] : List Level).length
+      = eqA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalWith_ne (by decide), hEv]
+    rfl
+  have hRc : ∀ e : Nat,
+      denote (cvalWith m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
+        (.const eqReflName [w2])
+        = some (eqReflValT (Level.substFn φ [uN] [w2])) := by
+    intro e
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hR]
+    simp only [show ([w2] : List Level).length
+      = eqReflA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalWith_ne (by decide), hRv]
+    rfl
+  rw [show eqRecA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+          (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+            (Expr.forallE (Name.anonymous.str "motive")
+              (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
+                (Expr.forallE (Name.anonymous.str "t")
+                  (.app (.app (.app (.const eqName [.param uN]) (.bvar 2))
+                    (.bvar 1)) (.bvar 0))
+                  (.sort (.param u1N)) { bi := .default })
+                { bi := .default })
+              (Expr.forallE (Name.anonymous.str "refl")
+                (.app (.app (.bvar 0) (.bvar 1))
+                  (.app (.app (.const eqReflName [.param uN]) (.bvar 2))
+                    (.bvar 1)))
+                (Expr.forallE (Name.anonymous.str "b") (.bvar 3)
+                  (Expr.forallE (Name.anonymous.str "t")
+                    (.app (.app (.app (.const eqName [.param uN]) (.bvar 4))
+                      (.bvar 3)) (.bvar 0))
+                    (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))
+                    { bi := .default })
+                  { bi := .implicit })
+                { bi := .default })
+              { bi := .implicit })
+            { bi := .implicit })
+          { bi := .implicit } from rfl,
+    show eqRecA.toConstantVal.levelParams = [u1N, uN] from rfl]
+  simp [Expr.instantiateLevelParams, hsu, hsu1, denote_forallE, denote_sort,
+    denote_app, denote_fvar, hEc, hRc, VExpr.mkAppN]
+
+/-- `Eq.rec`'s single stored rule. -/
+def eqRecRule : RecRule :=
+  { ctor := eqReflName, nfields := 0, ctorParams := 2, fire := .plain,
+    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uN))
+      (Expr.lam (Name.anonymous.str "a") (.bvar 0)
+        (Expr.lam (Name.anonymous.str "motive")
+          (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
+            (Expr.forallE (Name.anonymous.str "t")
+              (.app (.app (.app (.const eqName [.param uN]) (.bvar 2))
+                (.bvar 1)) (.bvar 0))
+              (.sort (.param u1N)) { bi := .default })
+            { bi := .default })
+          (Expr.lam (Name.anonymous.str "refl")
+            (.app (.app (.bvar 0) (.bvar 1))
+              (.app (.app (.const eqReflName [.param uN]) (.bvar 2))
+                (.bvar 1)))
+            (.bvar 0) { bi := .default })
+          { bi := .default })
+        { bi := .default })
+      { bi := .implicit } }
+
+/-- The stored declaration, with its rule named. -/
+theorem eqRecA_eq :
+    eqRecA = .recInfo eqRecA.toConstantVal 5 4 [eqRecRule] := rfl
+
+/-- **`Eq.rec`'s rule right-hand side, denoted** — the same four
+domains the type has, over the minor premise. -/
+theorem denote_eqRec_rhsS {env : Env} (m : EnvS V env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat)
+    (w1 w2 : Level)
+    (hE : env.find? eqName = some eqA)
+    (hR : env.find? eqReflName = some eqReflA)
+    (hEv : ∀ ψ : Name → Nat, m.cval eqName ψ = eqValT ψ)
+    (hRv : ∀ ψ : Name → Nat, m.cval eqReflName ψ = eqReflValT ψ) :
+    denote (cvalWith m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ d
+        ((RecRule.rhs eqRecRule).instantiateLevelParams
+          eqRecA.toConstantVal.levelParams [w1, w2])
+      = some (.lam (.sort (w2.eval φ))
+        (.lam (.bvar 0)
+          (.lam (.pi (.bvar 1)
+              (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                  [.bvar 2, .bvar 1, .bvar 0])
+                (.sort (w1.eval φ))))
+            (.lam (.app (.app (.bvar 0) (.bvar 1))
+                (VExpr.mkAppN (eqReflValT (Level.substFn φ [uN] [w2]))
+                  [.bvar 2, .bvar 1]))
+              (.bvar 0))))) := by
+  have hsu : Level.subst [u1N, uN] [w1, w2] (.param uN) = w2 := by
+    simp [Level.subst, Level.subst.go, uN, u1N]
+  have hsu1 : Level.subst [u1N, uN] [w1, w2] (.param u1N) = w1 := by
+    simp [Level.subst, Level.subst.go, u1N]
+  have hEc : ∀ e : Nat,
+      denote (cvalWith m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
+        (.const eqName [w2]) = some (eqValT (Level.substFn φ [uN] [w2])) := by
+    intro e
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hE]
+    simp only [show ([w2] : List Level).length
+      = eqA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalWith_ne (by decide), hEv]
+    rfl
+  have hRc : ∀ e : Nat,
+      denote (cvalWith m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
+        (.const eqReflName [w2])
+        = some (eqReflValT (Level.substFn φ [uN] [w2])) := by
+    intro e
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hR]
+    simp only [show ([w2] : List Level).length
+      = eqReflA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalWith_ne (by decide), hRv]
+    rfl
+  rw [show eqRecA.toConstantVal.levelParams = [u1N, uN] from rfl]
+  simp only [eqRecRule]
+  simp [Expr.instantiateLevelParams, hsu, hsu1, denote_lam, denote_forallE,
+    denote_sort, denote_app, denote_fvar, hEc, hRc, VExpr.mkAppN]
+
+set_option maxHeartbeats 1600000 in
+/-- **`Eq.rec`, installed** — the block's whole iota is β, because the
+layer derives the eliminator rather than carrying it.  Six `app_lamC`s
+on the left, four on the right, meeting at the minor premise. -/
+theorem extendEqRecS {env : Env} (m : EnvS V env)
+    (hE : env.find? eqName = some eqA)
+    (hR : env.find? eqReflName = some eqReflA)
+    (hEv : ∀ ψ : Name → Nat, m.cval eqName ψ = eqValT ψ)
+    (hRv : ∀ ψ : Name → Nat, m.cval eqReflName ψ = eqReflValT ψ)
+    (hfresh : env.find? (eqName.str "rec") = none)
+    (hwf : EnvWF ⟨eqRecA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨eqRecA :: env.consts⟩,
+      m'.cval = cvalWith m.cval eqRecA.name eqRecValT := by
+  refine extendBasisS m (val := eqRecValT)
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name eqRecA = eqName.str "rec" from rfl] at hp
+      simp +decide [pinnedDirectT] at hp)
+    hfresh hwf (fun ψ => eqRecValT_closed ψ) ?_
+    (fun ψ ρ => eqRecValT_annotS ψ ρ) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · -- the valuation reads only `u` and `u_1`
+    intro φ₁ φ₂ hp
+    have hu : φ₁ uN = φ₂ uN := hp uN (by
+      show uN ∈ [u1N, uN]
+      exact List.mem_cons_of_mem _ List.mem_cons_self)
+    rw [eqRecValT, eqRecValT, hu,
+      hp u1N (by show u1N ∈ [u1N, uN]; exact List.mem_cons_self),
+      eqValT_congr hu, eqReflValT_congr hu]
+  · -- the pinned type, denoted
+    intro φ
+    refine ⟨eqRecTyV φ, ?_, fun ρ =>
+      ⟨eqRecValT_memS (V := V) φ ρ, eqRecTyV_annotS (V := V) φ ρ⟩⟩
+    rw [denoteClosed, ← Expr.instantiateLevelParams_self
+        eqRecA.toConstantVal.levelParams eqRecA.toConstantVal.type,
+      show eqRecA.toConstantVal.levelParams.map Level.param
+        = [Level.param u1N, Level.param uN] from rfl,
+      denote_eqRec_typeS m φ 0 (.param u1N) (.param uN) hE hR hEv hRv,
+      show Level.substFn φ [uN] [Level.param uN] = φ from
+        Level.substFn_param_self φ [uN]]
+    rfl
+  · -- the rule's constructor is stored
+    intro cv mI rP rules heq
+    injection heq with _ _ _ h4
+    subst h4
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · exact ⟨eqReflA.toConstantVal, 2, 0, hR⟩
+    · exact nomatch hr'
+  · -- the iota rule
+    intro cv mI rP rules heq
+    injection heq with h1 h2 h3 h4
+    subst h1; subst h2; subst h3; subst h4
+    intro rl hrl _ φ
+    rcases List.mem_cons.mp hrl with rfl | hr'
+    · refine ⟨by omega, ?_⟩
+      intro us hus
+      obtain ⟨w1, w2, rfl⟩ : ∃ a b, us = [a, b] := by
+        match us, hus with
+        | [a, b], _ => exact ⟨a, b, rfl⟩
+      refine ⟨_, denote_eqRec_rhsS m (val := eqRecValT) φ 0 w1 w2 hE hR
+        hEv hRv, ?_⟩
+      intro cvj cnP cnF hfj usj ρ xs ys TV TVj restR restC hxs hys
+        husj hlev hplain hnested hidx hTV hTVj hR' hC
+      have hRu := hR
+      simp only [eqReflName, eqName] at hRu
+      rw [Env.find?_cons, if_neg (by decide), hRu] at hfj
+      obtain ⟨rfl, rfl, rfl⟩ :
+          cvj = eqReflA.toConstantVal ∧ cnP = 2 ∧ cnF = 0 := by
+        injection Option.some.inj hfj with a1 a2 a3
+        exact ⟨a1.symm, a2.symm, a3.symm⟩
+      obtain ⟨q1, q2, rfl⟩ : ∃ a b, ys = [a, b] := by
+        match ys, hys with
+        | [a, b], _ => exact ⟨a, b, rfl⟩
+      obtain ⟨xa, xv, xM, xh, xb, rfl⟩ :
+          ∃ a b c e f, xs = [a, b, c, e, f] := by
+        match xs, hxs with
+        | [a, b, c, e, f], _ => exact ⟨a, b, c, e, f, rfl⟩
+      have hTVc := Option.some.inj (hTV.symm.trans
+        (denote_eqRec_typeS m (val := eqRecValT) φ 0 w1 w2 hE hR hEv hRv))
+      subst hTVc
+      have hctor : cvalWith m.cval eqRecA.name eqRecValT
+          ((Name.anonymous.str "Eq").str "refl")
+          (Level.substFn φ eqReflA.toConstantVal.levelParams usj)
+          = eqReflValT (Level.substFn φ [uN] [w2]) := by
+        have hRv' := hRv
+        simp only [eqReflName, eqName] at hRv'
+        rw [cvalWith_ne (by decide), hRv']
+        refine eqReflValT_congr ?_
+        have h := congrFun hlev uN
+        simp only [recFireComparands] at h
+        rw [h]
+        rfl
+      rw [hctor] at hR'
+      cases hR' with | cons t1 hR' =>
+      cases hR' with | cons t2 hR' =>
+      cases hR' with | cons t3 hR' =>
+      cases hR' with | cons t4 hR' =>
+      cases hR' with | cons t5 hR' =>
+      cases hR' with | cons t6 hR' =>
+      simp +decide only [VExpr.mkAppN, VExpr.inst, 
+        Nat.reduceAdd, Nat.reduceSub, reduceIte,
+        inst_chain1, inst_absorb21,
+        inst_absorb32, inst_absorb43, VExpr.liftN_zero,
+        VExpr.inst_eq_self_of_closed
+          (eqValT_closed (Level.substFn φ [uN] [w2])),
+        VExpr.inst_eq_self_of_closed
+          (eqReflValT_closed (Level.substFn φ [uN] [w2]))] at t1 t2 t3 t4 t5 t6
+      have hu2 : Level.substFn φ [Name.anonymous.str "u_1",
+          Name.anonymous.str "u"] [w1, w2] uN = Level.eval φ w2 := by
+        simp [Level.substFn, uN]
+      have hu1 : Level.substFn φ [Name.anonymous.str "u_1",
+          Name.anonymous.str "u"] [w1, w2] u1N = Level.eval φ w1 := by
+        simp [Level.substFn, u1N]
+      have hψ2 : Level.substFn φ [uN] [w2] uN = Level.eval φ w2 := by
+        simp [Level.substFn, uN]
+      have hEV : eqValT (Level.substFn φ [Name.anonymous.str "u_1",
+            Name.anonymous.str "u"] [w1, w2])
+          = eqValT (Level.substFn φ [uN] [w2]) :=
+        eqValT_congr (by rw [hu2, hψ2])
+      have hRV : eqReflValT (Level.substFn φ [Name.anonymous.str "u_1",
+            Name.anonymous.str "u"] [w1, w2])
+          = eqReflValT (Level.substFn φ [uN] [w2]) :=
+        eqReflValT_congr (by rw [hu2, hψ2])
+      have hA2g : interp V (cons V (interp V ρ xa) ρ) (VExpr.bvar 0)
+          = interp V ρ xa := by simp [interp_bvar, cons]
+      have hA5g : interp V (cons V (interp V ρ xh) (cons V (interp V ρ xM)
+            (cons V (interp V ρ xv) (cons V (interp V ρ xa) ρ))))
+            (VExpr.bvar 3) = interp V ρ xa := by simp [interp_bvar, cons]
+      -- the motive's space, in the layer's vocabulary
+      have hA3t : interp V ρ (VExpr.pi xa
+            (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                [VExpr.liftN 1 xa 0, VExpr.liftN 1 xv 0, .bvar 0])
+              (.sort (Level.eval φ w1))))
+          = piC (interp V ρ xa) (fun b => piC (eqv (interp V ρ xv) b)
+              (fun _ => univ (Level.eval φ w1))) := by
+        simp only [interp_pi, interp_sort]
+        refine piC_congr (fun b hb => ?_)
+        congr 1
+        rw [eqValT_app₃S (Level.substFn φ [uN] [w2]) (cons V b ρ)
+          (VExpr.liftN 1 xa 0) (VExpr.liftN 1 xv 0) (.bvar 0)
+          (by rw [interp_lift_cons (V := V) xa b ρ, hψ2]; simpa using t1)
+          (by rw [interp_lift_cons (V := V) xv b ρ,
+                interp_lift_cons (V := V) xa b ρ]; exact t2)
+          (by rw [interp_lift_cons (V := V) xa b ρ, interp_bvar]
+              simpa [cons] using hb)]
+        rw [interp_lift_cons (V := V) xv b ρ, interp_bvar]
+        simp [cons]
+      have hA3g : interp V (cons V (interp V ρ xv)
+            (cons V (interp V ρ xa) ρ))
+            (VExpr.pi (.bvar 1)
+              (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                  [.bvar 2, .bvar 1, .bvar 0])
+                (.sort (Level.eval φ w1))))
+          = piC (interp V ρ xa) (fun b => piC (eqv (interp V ρ xv) b)
+              (fun _ => univ (Level.eval φ w1))) := by
+        simp only [interp_pi, interp_sort, interp_bvar, cons]
+        refine piC_congr (fun b hb => ?_)
+        congr 1
+        rw [eqValT_app₃S (Level.substFn φ [uN] [w2])
+          (cons V b (cons V (interp V ρ xv) (cons V (interp V ρ xa) ρ)))
+          (.bvar 2) (.bvar 1) (.bvar 0)
+          (by rw [interp_bvar, hψ2]; simpa [cons] using t1)
+          (by rw [interp_bvar, interp_bvar]; simpa [cons] using t2)
+          (by rw [interp_bvar, interp_bvar]; simpa [cons] using hb)]
+        simp [interp_bvar, cons]
+      -- the minor premise's space
+      have hA4t : interp V ρ (VExpr.app (.app xM xv)
+            (VExpr.mkAppN (eqReflValT (Level.substFn φ [uN] [w2]))
+              [xa, xv]))
+          = SetTheory.app (SetTheory.app (interp V ρ xM) (interp V ρ xv))
+            pt := by
+        rw [interp_app, interp_app,
+          eqReflValT_app₂S (Level.substFn φ [uN] [w2]) ρ xa xv
+            (by rw [hψ2]; simpa using t1) t2]
+      have hA4g : interp V (cons V (interp V ρ xM)
+            (cons V (interp V ρ xv) (cons V (interp V ρ xa) ρ)))
+            (VExpr.app (.app (.bvar 0) (.bvar 1))
+              (VExpr.mkAppN (eqReflValT (Level.substFn φ [uN] [w2]))
+                [.bvar 2, .bvar 1]))
+          = SetTheory.app (SetTheory.app (interp V ρ xM) (interp V ρ xv))
+            pt := by
+        rw [interp_app, interp_app,
+          eqReflValT_app₂S (Level.substFn φ [uN] [w2]) _ (.bvar 2)
+            (.bvar 1) (by rw [interp_bvar, hψ2]; simpa [cons] using t1)
+            (by rw [interp_bvar, interp_bvar]; simpa [cons] using t2)]
+        simp [interp_bvar, cons]
+      -- the hypothesis' space, and the equation it forces
+      have hA6t : interp V ρ (VExpr.mkAppN
+            (eqValT (Level.substFn φ [uN] [w2])) [xa, xv, xb])
+          = eqv (interp V ρ xv) (interp V ρ xb) :=
+        eqValT_app₃S (Level.substFn φ [uN] [w2]) ρ xa xv xb
+          (by rw [hψ2]; simpa using t1) t2 t5
+      have hA6g : interp V (cons V (interp V ρ xb)
+            (cons V (interp V ρ xh) (cons V (interp V ρ xM)
+              (cons V (interp V ρ xv) (cons V (interp V ρ xa) ρ)))))
+            (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+              [.bvar 4, .bvar 3, .bvar 0])
+          = eqv (interp V ρ xv) (interp V ρ xb) := by
+        rw [eqValT_app₃S (Level.substFn φ [uN] [w2]) _ (.bvar 4)
+          (.bvar 3) (.bvar 0)
+          (by rw [interp_bvar, hψ2]; simpa [cons] using t1)
+          (by rw [interp_bvar, interp_bvar]; simpa [cons] using t2)
+          (by rw [interp_bvar, interp_bvar]; simpa [cons] using t5)]
+        simp [interp_bvar, cons]
+      simp only [VExpr.mkAppN] at hA3t hA4t hA6t hA3g hA4g hA6g
+      have hA4g0 := hA4g
+      simp only [interp_app] at hA4g hA6g
+      rw [hA3t] at t3
+      rw [hA4t] at t4
+      rw [hA6t] at t6
+      simp only [interp_app] at t6
+      refine ⟨?_, ?_⟩
+      · rw [cvalWith_self, hctor]
+        simp only [List.take, List.drop, List.cons_append,
+          List.nil_append]
+        refine Eq.trans (b := interp V ρ xh) ?_ (Eq.symm ?_)
+        · simp only [eqRecValT, hu2, hu1, hEV, hRV, VExpr.mkAppN,
+            interp_lam, interp_app]
+          rw [app_lamC t1, hA2g, app_lamC t2, hA3g, app_lamC t3, hA4g,
+            app_lamC t4, hA5g, app_lamC t5, hA6g, app_lamC t6]
+          simp [interp_bvar, cons]
+        · simp only [VExpr.mkAppN, interp_lam, interp_app]
+          rw [app_lamC t1, hA2g, app_lamC t2, hA3g, app_lamC t3, hA4g,
+            app_lamC t4]
+          simp [interp_bvar, cons]
+      · intro hxsA hysA
+        have haA : AnnotOkV V ρ xa := hxsA xa (by simp)
+        have hvA : AnnotOkV V ρ xv := hxsA xv (by simp)
+        have hMA : AnnotOkV V ρ xM := hxsA xM (by simp)
+        have hhA : AnnotOkV V ρ xh := hxsA xh (by simp)
+        have m2 : interp V ρ xv ∈ˢ
+            interp V (cons V (interp V ρ xa) ρ) (VExpr.bvar 0) := by
+          rw [hA2g]; exact t2
+        have m3 : interp V ρ xM ∈ˢ
+            interp V (cons V (interp V ρ xv) (cons V (interp V ρ xa) ρ))
+              (VExpr.pi (.bvar 1)
+                (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                    [.bvar 2, .bvar 1, .bvar 0])
+                  (.sort (Level.eval φ w1)))) := by
+          simp only [VExpr.mkAppN]
+          rw [hA3g]; exact t3
+        have m4 : interp V ρ xh ∈ˢ
+            interp V (cons V (interp V ρ xM) (cons V (interp V ρ xv)
+              (cons V (interp V ρ xa) ρ)))
+              (VExpr.app (.app (.bvar 0) (.bvar 1))
+                (VExpr.mkAppN (eqReflValT (Level.substFn φ [uN] [w2]))
+                  [.bvar 2, .bvar 1])) := by
+          simp only [VExpr.mkAppN]
+          rw [hA4g0]; exact t4
+        have hRA : AnnotOkV V ρ
+            (VExpr.lam (.sort (Level.eval φ w2))
+              (.lam (.bvar 0)
+                (.lam (.pi (.bvar 1)
+                    (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                        [.bvar 2, .bvar 1, .bvar 0])
+                      (.sort (Level.eval φ w1))))
+                  (.lam (.app (.app (.bvar 0) (.bvar 1))
+                      (VExpr.mkAppN
+                        (eqReflValT (Level.substFn φ [uN] [w2]))
+                        [.bvar 2, .bvar 1]))
+                    (.bvar 0))))) := by
+          refine ⟨trivial, fun x1 h1 => ⟨trivial, fun x2 h2 => ⟨?_,
+            fun x3 h3 => ⟨?_, fun _ _ => trivial⟩⟩⟩⟩
+          · refine ⟨trivial, fun b hb => ⟨?_, fun _ _ => trivial⟩⟩
+            exact eqValT_app₃_annotS (Level.substFn φ [uN] [w2]) _
+              (.bvar 2) (.bvar 1) (.bvar 0) trivial trivial trivial
+              (by rw [interp_bvar, hψ2]; simpa [cons] using h1)
+              (by rw [interp_bvar, interp_bvar]; simpa [cons] using h2)
+              (by rw [interp_bvar, interp_bvar]; simpa [cons] using hb)
+          · have hRm2 := eqReflValT_memS (V := V)
+              (Level.substFn φ [uN] [w2])
+              (cons V x3 (cons V x2 (cons V x1 ρ)))
+            have hx1' : interp V (cons V x3 (cons V x2 (cons V x1 ρ)))
+                (VExpr.bvar 2) ∈ˢ univ (Level.substFn φ [uN] [w2] uN) := by
+              rw [interp_bvar, hψ2]; simpa [cons] using h1
+            have hx2' : interp V (cons V x3 (cons V x2 (cons V x1 ρ)))
+                (VExpr.bvar 1) ∈ˢ interp V (cons V x3 (cons V x2
+                  (cons V x1 ρ))) (VExpr.bvar 2) := by
+              rw [interp_bvar, interp_bvar]; simpa [cons] using h2
+            have hx3' : x3 ∈ˢ piC (interp V (cons V x2 (cons V x1 ρ))
+                  (VExpr.bvar 1))
+                (fun b => piC (interp V (cons V b (cons V x2
+                    (cons V x1 ρ)))
+                    (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                      [.bvar 2, .bvar 1, .bvar 0]))
+                  (fun _ => univ (Level.eval φ w1))) := by
+              simpa [interp_pi, interp_sort] using h3
+            have het : interp V (cons V x2 (cons V x2 (cons V x1 ρ)))
+                (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                  [.bvar 2, .bvar 1, .bvar 0]) = eqv x2 x2 := by
+              rw [eqValT_app₃S (Level.substFn φ [uN] [w2]) _ (.bvar 2)
+                (.bvar 1) (.bvar 0)
+                (by rw [interp_bvar, hψ2]; simpa [cons] using h1)
+                (by rw [interp_bvar, interp_bvar]; simpa [cons] using h2)
+                (by rw [interp_bvar, interp_bvar]; simpa [cons] using h2)]
+              simp [interp_bvar, cons]
+            have hx2b : x2 ∈ˢ interp V (cons V x2 (cons V x1 ρ))
+                (VExpr.bvar 1) := by simpa [interp_bvar, cons] using h2
+            have hMapp : SetTheory.app x3 x2 ∈ˢ piC (eqv x2 x2)
+                (fun _ => univ (Level.eval φ w1)) := by
+              have h := app_mem_piC hx3' hx2b
+              rwa [het] at h
+            have hRmem : interp V (cons V x3 (cons V x2 (cons V x1 ρ)))
+                (VExpr.mkAppN (eqReflValT (Level.substFn φ [uN] [w2]))
+                  [.bvar 2, .bvar 1]) ∈ˢ eqv x2 x2 :=
+              app_mem_piC (B := fun x => eqv x x)
+                (app_mem_piC hRm2 hx1') hx2'
+            have hRA2 : AnnotOkV V (cons V x3 (cons V x2 (cons V x1 ρ)))
+                (VExpr.mkAppN (eqReflValT (Level.substFn φ [uN] [w2]))
+                  [.bvar 2, .bvar 1]) := by
+              simp only [VExpr.mkAppN, AnnotOkV_app]
+              exact ⟨⟨eqReflValT_annotS _ _, trivial, _, _, hRm2, hx1'⟩,
+                trivial, _, _, app_mem_piC hRm2 hx1', hx2'⟩
+            simp only [AnnotOkV_app, AnnotOkV_bvar]
+            exact ⟨⟨trivial, trivial, _, _, hx3', hx2b⟩, hRA2,
+              eqv x2 x2, fun _ => univ (Level.eval φ w1), hMapp, hRmem⟩
+        have hRm : interp V ρ
+            (VExpr.lam (.sort (Level.eval φ w2))
+              (.lam (.bvar 0)
+                (.lam (.pi (.bvar 1)
+                    (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                        [.bvar 2, .bvar 1, .bvar 0])
+                      (.sort (Level.eval φ w1))))
+                  (.lam (.app (.app (.bvar 0) (.bvar 1))
+                      (VExpr.mkAppN
+                        (eqReflValT (Level.substFn φ [uN] [w2]))
+                        [.bvar 2, .bvar 1]))
+                    (.bvar 0))))) ∈ˢ
+            piC (interp V ρ (VExpr.sort (Level.eval φ w2))) (fun x1 =>
+              piC (interp V (cons V x1 ρ) (VExpr.bvar 0)) (fun x2 =>
+                piC (interp V (cons V x2 (cons V x1 ρ))
+                    (VExpr.pi (.bvar 1)
+                      (.pi (VExpr.mkAppN
+                          (eqValT (Level.substFn φ [uN] [w2]))
+                          [.bvar 2, .bvar 1, .bvar 0])
+                        (.sort (Level.eval φ w1))))) (fun x3 =>
+                  piC (interp V (cons V x3 (cons V x2 (cons V x1 ρ)))
+                      (VExpr.app (.app (.bvar 0) (.bvar 1))
+                        (VExpr.mkAppN
+                          (eqReflValT (Level.substFn φ [uN] [w2]))
+                          [.bvar 2, .bvar 1])))
+                    (fun _ => interp V (cons V x3 (cons V x2
+                        (cons V x1 ρ)))
+                      (VExpr.app (.app (.bvar 0) (.bvar 1))
+                        (VExpr.mkAppN
+                          (eqReflValT (Level.substFn φ [uN] [w2]))
+                          [.bvar 2, .bvar 1])))))) := by
+          simp only [interp_lam]
+          exact lamC_mem (fun _ _ => lamC_mem (fun _ _ =>
+            lamC_mem (fun _ _ => lamC_mem (fun _ h4 => h4))))
+        simp only [List.take, List.drop, List.append_nil,
+          VExpr.mkAppN_cons, VExpr.mkAppN_nil, AnnotOkV_app]
+        exact ⟨⟨⟨⟨hRA, haA, _, _, hRm, t1⟩, hvA, _, _,
+              app_mem_piC hRm t1, m2⟩, hMA, _, _,
+            app_mem_piC (app_mem_piC hRm t1) m2, m3⟩, hhA, _, _,
+          app_mem_piC (app_mem_piC (app_mem_piC hRm t1) m2) m3, m4⟩
+    · exact nomatch hr'
+
+/-- **The `Eq` block, installed.**  Two `BetaSpine`s meeting at the
+minor premise are the whole of its iota — the block whose eliminator
+the layer derives is the block whose install has no computation
+obligation. -/
+theorem declBasisS_eqK {env env₁ : Env} (m : EnvS V env)
+    (h : BasisInstallR env BasisKind.eqK.declsA env₁) :
+    Nonempty (EnvS V env₁) := by
+  rw [show BasisKind.eqK.declsA = [eqA, eqReflA, eqRecA] from rfl] at h
+  obtain ⟨h1, h2, h3, hnil⟩ := h
+  subst hnil
+  have hwf1 : EnvWF ⟨eqA :: env.consts⟩ :=
+    EnvWF.cons m.wf ⟨rfl, rfl, rfl, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  obtain ⟨m1, hm1⟩ := extendEqS m (Option.isNone_iff_eq_none.mp h1) hwf1
+  have hE1 : (⟨eqA :: env.consts⟩ : Env).find? eqName = some eqA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hEv1 : ∀ ψ : Name → Nat, m1.cval eqName ψ = eqValT ψ := by
+    intro ψ; rw [hm1]; rfl
+  have hwf2 : EnvWF ⟨eqReflA :: eqA :: env.consts⟩ :=
+    EnvWF.cons hwf1 ⟨rfl, rfl, ?res2, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res2 =>
+    show Expr.constsResolve _ eqReflA.toConstantVal.type = true
+    have hf : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
+        = some eqA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hE1
+    rw [show eqReflA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+            (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+              (.app (.app (.app (.const eqName [.param uN]) (.bvar 1))
+                (.bvar 0)) (.bvar 0)) { bi := .default })
+            { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hf]
+  obtain ⟨m2, hm2⟩ := extendEqReflS m1 hE1 hEv1 (Option.isNone_iff_eq_none.mp h2) hwf2
+  have hE2 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
+      = some eqA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hE1
+  have hR2 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqReflName
+      = some eqReflA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hEv2 : ∀ ψ : Name → Nat, m2.cval eqName ψ = eqValT ψ := by
+    intro ψ
+    rw [hm2, cvalWith_ne (by decide)]
+    exact hEv1 ψ
+  have hRv2 : ∀ ψ : Name → Nat, m2.cval eqReflName ψ = eqReflValT ψ := by
+    intro ψ; rw [hm2]; rfl
+  have hwf3 : EnvWF ⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ :=
+    EnvWF.cons hwf2 ⟨rfl, rfl, ?res3, rfl,
+      (fun _ _ _ heq => nomatch heq), ?rec3,
+      (fun _ _ heq => nomatch heq)⟩
+  case res3 =>
+    show Expr.constsResolve _ eqRecA.toConstantVal.type = true
+    have hfE : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
+        = some eqA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hE2
+    have hfR : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
+        eqReflName = some eqReflA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hR2
+    rw [show eqRecA.toConstantVal.type = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+          (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+            (Expr.forallE (Name.anonymous.str "motive")
+              (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
+                (Expr.forallE (Name.anonymous.str "t")
+                  (.app (.app (.app (.const eqName [.param uN]) (.bvar 2))
+                    (.bvar 1)) (.bvar 0))
+                  (.sort (.param u1N)) { bi := .default })
+                { bi := .default })
+              (Expr.forallE (Name.anonymous.str "refl")
+                (.app (.app (.bvar 0) (.bvar 1))
+                  (.app (.app (.const eqReflName [.param uN]) (.bvar 2))
+                    (.bvar 1)))
+                (Expr.forallE (Name.anonymous.str "b") (.bvar 3)
+                  (Expr.forallE (Name.anonymous.str "t")
+                    (.app (.app (.app (.const eqName [.param uN]) (.bvar 4))
+                      (.bvar 3)) (.bvar 0))
+                    (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))
+                    { bi := .default })
+                  { bi := .implicit })
+                { bi := .default })
+              { bi := .implicit })
+            { bi := .implicit })
+          { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hfE, hfR]
+  case rec3 =>
+    intro cv mI rP rules heq
+    injection heq with h1' h2' h3' h4'
+    subst h4'
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · refine ⟨rfl, ?_, ?_, rfl, fun lvls pins heqf => nomatch heqf⟩
+      · subst h1'; rfl
+      · have hfE : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
+            eqName = some eqA := by
+          rw [Env.find?_cons, if_neg (by decide)]; exact hE2
+        have hfR : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
+            eqReflName = some eqReflA := by
+          rw [Env.find?_cons, if_neg (by decide)]; exact hR2
+        show Expr.constsResolve _ (RecRule.rhs eqRecRule) = true
+        simp [Expr.constsResolve, eqRecRule, hfE, hfR]
+    · exact nomatch hr'
+  obtain ⟨m3, -⟩ := extendEqRecS m2 hE2 hR2 hEv2 hRv2 (Option.isNone_iff_eq_none.mp h3) hwf3
+  exact ⟨m3⟩
+
 /-- **`Quot.sound`, installed** — the block's stored *axiom*.  No
 rules; the whole content is the `Eq`-bridged type. -/
 theorem extendQuotSoundS {env : Env} (m : EnvS V env)
