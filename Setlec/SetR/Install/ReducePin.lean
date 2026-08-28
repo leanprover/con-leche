@@ -41,7 +41,7 @@ theorem sat_one {A : VExpr} {ρ : Nat → V} {x : V}
 /-- **`ReducePinS`, discharged.** -/
 theorem reducePinS : ReducePinS V := by
   intro μ F env m cv type' value value' hmem hfresh hcv hvfr hpin hpinCv
-  obtain ⟨hstored, helem, hguard, valA, pinA, hannA, hannP, hpinDeq,
+  obtain ⟨hstored, helem, hguard, valA, pinA, hannA, hannP,
     hcert⟩ := hpin
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, hfrontV⟩ := hvfr
   -- the two annotate runs of the same value agree

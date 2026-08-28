@@ -5,6 +5,7 @@ import Setlec.Verify.Extend.Iota
 import Setlec.Verify.Denote.IndFrame
 import Setlec.Verify.Extend.Proj
 import Setlec.Verify.NatOpFrag
+import Setlec.Verify.ReducePinInv
 
 /-!
 # The declaration-level bridge (task #148, T6)
@@ -419,6 +420,104 @@ theorem natEqsR_of_certs {V : Type w} [SetTheory V] {env : Env}
   exact ⟨natEqFrame_of_frag m hvf hbv hden0 hf1,
     natEqFrame_of_frag m hvf hbv hden0 hf2⟩
 
+/-- **`checkReducePin`, discharged.**  The obligation `declOpaqueR`
+used to carry.  The element type is a stored level-free constant, so
+it denotes to the pinned valuation and the certificate's context is
+`CtxOkR.constCtx` at one entry; `DefEqClaimsR` then transports the
+depth-`1` identity verdict. -/
+theorem reducePinR_of {V : Type w} [SetTheory V] {env env' : Env}
+    (m : EnvS V env) {μ : CheckMode} {F : Nat} {c : Name}
+    {value : Expr}
+    (hvfacts : ∀ a : Expr, annotateCore μ env F 0 value = .ok a →
+      a.hasFvar = false ∧ a.looseBVarsBounded 0 = true ∧
+      ∀ φ : Name → Nat, ∃ V0, denoteClosed m.cval env φ a = some V0)
+    (h : checkReducePin (m := CheckM) (fueledOps μ F) env env' c value
+      = .ok ()) :
+    ReducePinR μ F env env' m.cval c value := by
+  obtain ⟨hstored, helem, hpg, valA, pinA, hva, hpa, hp1, hp2⟩ :=
+    checkReducePin_inv h
+  obtain ⟨hvAf, hvAb, hvden⟩ := hvfacts valA hva
+  obtain ⟨ciE, hfE, hlpE⟩ := reduceElem_shape helem
+  have hEty : reduceElemTy c = .const (reduceElemName c) [] := by
+    unfold reduceElemTy reduceElemName
+    split <;> rfl
+  refine ⟨hstored, helem, hpg, valA, pinA, hva, hpa, fun φ => ?_⟩
+  -- the element type denotes to the pinned valuation, at any depth
+  have hE : ∀ d, denote m.cval env φ d (reduceElemTy c)
+      = some (m.cval (reduceElemName c) φ) := by
+    intro d
+    rw [hEty, denote_const, hfE]
+    dsimp only
+    rw [if_pos (by rw [hlpE]; rfl), hlpE]
+    rfl
+  obtain ⟨V0, hV0⟩ := hvden φ
+  have hV0d : ∀ d, denote m.cval env φ d valA = some V0 :=
+    (denote_closedExprR m.cval_closed hvAf hvAb hV0).2
+  refine ⟨_, V0, hE 0, hV0, ?_⟩
+  obtain ⟨-, -, ihd, -⟩ := checkBridge m.toEnvR φ F
+  -- the certificate variable and the two compared sides
+  have hcv : reduceCertVar c
+      = Expr.fvar 0 (.str .anonymous "a") (.const (reduceElemName c) []) := by
+    rw [reduceCertVar, hEty]
+  have hnil : (Expr.const (reduceElemName c) []).fvarLeaves = [] :=
+    Expr.fvarLeaves_eq_nil_of_not_hasFvar rfl
+  have hxleaf : ∀ l ∈ (reduceCertVar c).fvarLeaves,
+      l.1 < 1 ∧ l.2.2 = reduceElemTy c := by
+    intro l hl
+    rw [hcv, Expr.fvarLeaves] at hl
+    rcases List.mem_cons.mp hl with rfl | hl'
+    · exact ⟨by omega, hEty.symm⟩
+    · rw [hnil] at hl'
+      exact nomatch hl'
+  have hCx : CtxOkR μ m.cval env φ 1
+      (List.replicate 1 (m.cval (reduceElemName c) φ))
+      (reduceCertVar c) :=
+    CtxOkR.constCtx (m.cval_closed _ _) (hE 1)
+      (by rw [hEty]; trivial) hxleaf
+  have hCap : CtxOkR μ m.cval env φ 1
+      (List.replicate 1 (m.cval (reduceElemName c) φ))
+      (.app valA (reduceCertVar c)) := by
+    refine ⟨hCx.1, fun l hl => ?_⟩
+    rw [Expr.fvarLeaves] at hl
+    rcases List.mem_append.mp hl with h' | h'
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hvAf] at h'
+      exact nomatch h'
+    · exact hCx.2 l h'
+  have hdx : denote m.cval env φ 1 (reduceCertVar c)
+      = some (.bvar 0) := by
+    rw [hcv, denote_fvar]
+  have hdap : denote m.cval env φ 1 (.app valA (reduceCertVar c))
+      = some (.app V0 (.bvar 0)) := by
+    rw [denote_app, hV0d 1, hdx]
+  exact ihd hp2
+    (by
+      rw [Expr.WScoped]
+      refine ⟨Expr.WScoped.mono (Nat.zero_le 1)
+        (Expr.WScoped.of_not_hasFvar hvAf), ?_⟩
+      rw [hcv, Expr.WScoped]
+      exact ⟨by omega, by rw [Expr.WScoped]; trivial⟩)
+    (by
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨hvAb, rfl⟩)
+    (fun l hl => by
+      rw [Expr.fvarLeaves] at hl
+      rcases List.mem_append.mp hl with h' | h'
+      · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hvAf] at h'
+        exact nomatch h'
+      · rw [hcv, Expr.fvarLeaves] at h'
+        rcases List.mem_cons.mp h' with rfl | h''
+        · rfl
+        · rw [hnil] at h''; exact nomatch h'')
+    (by rw [hcv, Expr.WScoped]
+        exact ⟨by omega, by rw [Expr.WScoped]; trivial⟩)
+    rfl
+    (fun l hl => by
+      rw [hcv, Expr.fvarLeaves] at hl
+      rcases List.mem_cons.mp hl with rfl | hl'
+      · rfl
+      · rw [hnil] at hl'; exact nomatch hl')
+    hCap hCx hdap hdx
+
 /-- **`thmDecl`, bridged.** -/
 theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
     (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
@@ -582,11 +681,6 @@ own inversion. -/
 theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
     (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     {value : Expr}
-    (hrp : ∀ {env' : Env},
-      reduceOpNames.contains cv.name = true →
-      checkReducePin (m := CheckM) (fueledOps μ F) env env' cv.name
-          value = .ok () →
-      ReducePinR μ F env env' m.cval cv.name value)
     (h : checkDecl μ (fueledOps μ F) env (.opaqueDecl cv value)
       = .ok env₂) :
     DeclOpaqueR μ F env m.cval cv value env₂ := by
@@ -658,7 +752,18 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
       rw [hrpin] at h
       simp only [Except.ok.injEq] at h
       subst h
-      exact hrp hro hrpin
+      refine reducePinR_of m (fun a hann => ?_) hrpin
+      refine ⟨Expr.not_hasFvar_of_fvarsBelow_zero
+          ((annotateCore_WScoped F value hann
+            (Expr.WScoped.of_not_hasFvar hivf')).fvarsBelow),
+        annotateCore_looseBVars F value hann hlbv, fun φ => ?_⟩
+      obtain rfl : a = value' := by
+        rw [hannv] at hann; exact (Except.ok.inj hann).symm
+      obtain ⟨-, -, -, -, -, hf⟩ :=
+        valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt
+          hde hcv
+      obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ
+      exact ⟨Vv, hVv⟩
 
 /-- **`defnDecl`, bridged**, parametric in the two structural-`Nat`
 pin inversions.  Both packs are phrased over the **annotated** value

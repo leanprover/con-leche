@@ -5619,3 +5619,39 @@ already voted" test that settled the `ErasedEq` granularity.
 
 Both are the same stretch's work: one relocation, one additive
 inversion pin, one discharge each.
+
+### Obligation 3 CLOSED — and the pin conjunct was dead weight
+
+`Setlec/Verify/ReducePinInv.lean` takes `reduceElem_shape` and
+`checkReducePin_inv` out of the TT lane, with the **additive
+strengthening** the trace predicted: the inversion now records both
+guards, both annotate outputs and *both* `isDefEq` verdicts.  The TT
+lane's own consumer takes a nine-way destructuring with seven
+discards and is otherwise untouched; its certified theorems and the
+tt-model sweep are unchanged.
+
+`reducePinR_of` then discharges `ReducePinR`, and **`declOpaqueR`'s
+`hrp` is deleted**.  Two obligations down; `no_proof_of_Empty_R`
+carries **nine**.
+
+**The finding on the way.**  `ReducePinR` demanded a `DefEq` between
+the annotated value and the *pin*, and the pin's own denotation has no
+supplier.  Before building one, the consumer test: `reducePinS`
+destructured that conjunct as `hpinDeq` and **never used it**.  The TT
+lane had already written down why —
+
+> *the first `isDefEq` (`valA ≡ pin`) is the elaborator-drift gate — it
+> exists so a toolchain change surfaces as a decline rather than
+> silently — and the bridge needs nothing from it, which is the
+> expected shape: a gate that protects the checker's other guarantees
+> leaves the derivation layer alone.*
+
+So the conjunct is gone from `ReducePinR`.  This is the third time the
+consumers have decided a spec question (after the `ErasedEq`
+granularity and `IndRecsFoldR`'s base environment), and the third time
+the answer was already written in the source before anyone asked.
+Worth stating as the *positive* form of the searchlight rule:
+
+> **When a spec asks for something with no supplier, read the
+> consumers before building one.  A conjunct nobody reads is not a
+> gap in the machinery; it is a gap in the spec.**

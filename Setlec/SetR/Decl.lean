@@ -236,10 +236,12 @@ def ReducePinR (μ : CheckMode) (F : Nat) (env env₂ : Env)
   ∃ valA pinA,
     annotateCore μ env F 0 value = .ok valA ∧
     annotateCore μ env F 0 (reduceDeclPin c) = .ok pinA ∧
-    (∀ φ : Name → Nat, ∃ V P,
-      denoteClosed cval env φ valA = some V ∧
-      denoteClosed cval env φ pinA = some P ∧
-      DefEq μ env cval φ [] V P) ∧
+    -- task #148 T6: the pin comparison is **not** recorded.  It is
+    -- the elaborator-drift gate (`TTVerify/ReducePin.lean`'s own
+    -- reading: "a gate that protects the *checker's* other guarantees
+    -- leaves the derivation layer alone"), the install destructured
+    -- it and never used it, and the pin's own denotation has no
+    -- supplier.  Consumer's vote, as with the `ErasedEq` granularity.
     (∀ φ : Name → Nat, ∃ E V,
       denoteClosed cval env φ (reduceElemTy c) = some E ∧
       denoteClosed cval env φ valA = some V ∧

@@ -41,25 +41,16 @@ def DivModPinBridgeR (V : Type w) [SetTheory V] (μ : CheckMode)
     checkDivModPin (m := CheckM) (fueledOps μ F) env env' n = .ok () →
     DivModPinR μ F env env' m.cval n v
 
-def ReducePinBridgeR (V : Type w) [SetTheory V] (μ : CheckMode)
-    (F : Nat) : Prop :=
-  ∀ {env env' : Env} (m : EnvS V env) {n : Name} {value : Expr},
-    reduceOpNames.contains n = true →
-    checkReducePin (m := CheckM) (fueledOps μ F) env env' n value
-      = .ok () →
-    ReducePinR μ F env env' m.cval n value
-
 theorem checkDeclR_sound (hkey : MemberKeyS V) (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat}
     (hdmR : DivModPinBridgeR V μ F)
-    (hrpR : ReducePinBridgeR V μ F)
     {env env₂ : Env} (m : EnvS V env) {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
     DeclR μ F m.cval env d env₂ :=
   checkDeclR_of
     (fun hh => declDefnR m (fun hn hp => hdmR m hn hp) hh)
     (fun hh => declThmR m hh)
-    (fun hh => declOpaqueR m (fun hn hp => hrpR m hn hp) hh)
+    (fun hh => declOpaqueR m hh)
     (fun hh => declAxiomR m hh)
     (fun hh => declBasisR hh)
     -- the direct-structure path is compile-time disabled
@@ -72,7 +63,6 @@ theorem checkDeclR_sound (hkey : MemberKeyS V) (heta : MemberEtaS V)
 theorem foldlM_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     {μ : CheckMode} {F : Nat}
     (hdmR : DivModPinBridgeR V μ F)
-    (hrpR : ReducePinBridgeR V μ F)
     (hdm : DivModPinS V) (hrp : ReducePinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V) (hbas : DeclBasisS V) (hind : DeclIndS V) :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
@@ -89,9 +79,9 @@ theorem foldlM_R (hkey : MemberKeyS V) (heta : MemberEtaS V)
     | ok env1 =>
       rw [hd] at h
       obtain ⟨m⟩ := hm
-      exact foldlM_R hkey heta hdmR hrpR hdm hrp hstd hofr hbas
+      exact foldlM_R hkey heta hdmR hdm hrp hstd hofr hbas
         hind ds env1
         (declStepS hdm hrp hstd hofr hbas hind m
-          (checkDeclR_sound hkey heta hdmR hrpR m hd)) h
+          (checkDeclR_sound hkey heta hdmR m hd)) h
 
 end Setlec.SetR
