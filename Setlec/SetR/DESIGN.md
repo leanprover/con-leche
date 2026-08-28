@@ -4959,3 +4959,45 @@ positive half.
 
 `IotaThmNR` is now transcription: every input named, every supplier
 existing.
+
+### `IotaThmNR` transcribed — the trace's dividend, measured
+
+`iotaThmNR_of` compiled **with no `sorry` on the first full attempt**,
+both bullets, ~250 lines.  That is what a complete trace buys: the
+previous stretch converted every input into a named supplier, and this
+one was typing.  The only work left at write time was arithmetic
+(`cnF + rP = rP + cnF`) and one recorded-trap recurrence.
+
+**One finding on the way in.**  `IotaThmNR` demanded `eqUpToNames` on
+the nested major, and `NestedChecked` **cannot supply it**: the
+checker does test `eqUpToNames`, but `checkIotaThmN_inv` weakens it
+through `ErasedEq.of_eqUpToNames`, which is sound only in that
+direction — `eqUpToNames` still compares `fvar` annotations, which
+`ErasedEq` drops.  The campaign's own spec asked for something
+strictly stronger than the checker's own inversion delivers.
+
+Nor was the stronger form wanted: `IndBottomNestedS` takes the pin as
+`_hmaj` (*unused*), and the soundness argument reads the major through
+`denote_erasedEq`.  Decisive evidence: the two SetR call sites were
+already applying `ErasedEq.of_eqUpToNames` by hand, so **dropping the
+wrapper was the entire diff**.  `IotaThmNR` now carries `ErasedEq`.
+No final claim changes — the conjunct is unused downstream, so a
+weaker intermediate relation leaves the theorems untouched.
+
+The general shape, worth a line: **when a spec and an inversion
+disagree, check which one the consumer reads before deciding which to
+move.**  Here the consumer had already voted, twice, in the source.
+
+**Recorded trap, recurring.**  `DenoteSpine.mem_denotes` declared
+inside `namespace Setlec.SetR` resolves as
+`Setlec.SetR.DenoteSpine.mem_denotes` and is reachable under neither
+path — the dotted-prefix trap, hit again.  Renamed to the plain
+`denoteSpine_mem_denotes`.  It was extracted from an inline `have`
+inside `spine_walk_pack` on the *second* consumer appearing, which is
+the relocation rule applied at its stated threshold.
+
+New shared helpers this stretch: `opener_denotes_below` (denotability
+descends along the depth index — `opener_denotes_at`'s equation read
+backwards, needed because the pins are denoted at the walk depth but
+their residual is taken at the opening depth), `getLastD_mem`,
+`typedListOk_infer`, `denoteSpine_mem_denotes`.

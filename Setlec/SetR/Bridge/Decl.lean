@@ -1126,6 +1126,65 @@ theorem defEqListW_of {env : Env} (m : EnvR env) {μ : CheckMode}
   | [], _ :: _, _, h => nomatch h
   | _ :: _, [], _, h => nomatch h
 
+/-- **Denotability descends** along the depth index, for anything the
+depth's own frame already scopes.  `opener_denotes_at` lifts a
+denotation up; the nested pack needs a pin denoted at the *walk* depth
+to be denoted at the shallower opening depth its residual is taken
+at, which is the same equation read backwards. -/
+theorem opener_denotes_below {env : Env} (m : EnvR env) {φ : Name → Nat}
+    {i D : Nat} {e : Expr} {w : VExpr}
+    (hfb : Expr.fvarsBelow i e) (hle : i ≤ D)
+    (h : denote m.cval env φ D e = some w) :
+    ∃ v, denote m.cval env φ i e = some v := by
+  rw [denote_lift m.cval_closed hfb D hle] at h
+  cases hv : denote m.cval env φ i e with
+  | none => rw [hv] at h; exact nomatch h
+  | some v => exact ⟨v, rfl⟩
+
+/-- A denoted spine denotes each of its members.  (Plain identifier,
+not `DenoteSpine.…`: the dotted form would resolve against the
+enclosing `Setlec.SetR` and be reachable under neither path.) -/
+theorem denoteSpine_mem_denotes {env : Env} {cval : TConstVal}
+    {φ : Name → Nat} {d : Nat} :
+    ∀ {as : List Expr} {vs : List VExpr},
+      DenoteSpine cval env φ d as vs →
+      ∀ x ∈ as, ∃ w, denote cval env φ d x = some w := by
+  intro as vs h
+  induction h with
+  | nil => intro x hx; exact nomatch hx
+  | cons hda _ ih =>
+    intro x hx
+    rcases List.mem_cons.mp hx with rfl | hx'
+    · exact ⟨_, hda⟩
+    · exact ih x hx'
+
+/-- A nonempty list's `getLastD` is a member. -/
+theorem getLastD_mem {as : List Expr} {n : Nat} {d : Expr}
+    (hlen : as.length = n + 1) : as.getLastD d ∈ as := by
+  have hx : as[n]? = some as[n] :=
+    List.getElem?_eq_getElem (by omega)
+  rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?, hlen,
+    Nat.add_sub_cancel, hx]
+  exact List.getElem_mem _
+
+/-- `checkTypedList`'s per-element inference verdict, extracted.  The
+nested pack needs the verdicts *before* it can call `typedListW_of`,
+because the pins' denotations — which that fold takes as inputs — are
+exactly what the verdicts produce (`denote_of_inferR`). -/
+theorem typedListOk_infer {μ : CheckMode} {F : Nat} {env : Env}
+    {d : Nat} :
+    ∀ {es doms : List Expr}, TypedListOk μ F env d es doms →
+      ∀ a ∈ es, ∃ ty, inferTypeCore μ env F d a = .ok ty
+  | [], [], _ => fun a ha => nomatch ha
+  | a :: as, b :: bs, h => by
+    intro x hx
+    obtain ⟨ty, hi, -⟩ := h.1
+    rcases List.mem_cons.mp hx with rfl | hx'
+    · exact ⟨ty, hi⟩
+    · exact typedListOk_infer h.2 x hx'
+  | [], _ :: _, h => nomatch h
+  | _ :: _, [], h => nomatch h
+
 /-- **A stored pin's three syntactic facts**, at the opener spine that
 closes it.  A pin is fvar-free and bounded by exactly the prefix's
 binder count (`nestedRuleShape_inv`), so instantiating it at that many
@@ -1287,18 +1346,7 @@ theorem spine_walk_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
     fun l hl => hL l (fvarLeaves_getAppArgs ha l hl), ?_⟩
   rw [← Expr.mkAppN_getApp e] at hd
   obtain ⟨vf, vs, -, hsp, -⟩ := denote_mkAppN_inv hd
-  have hmem : ∀ {as : List Expr} {vs : List VExpr},
-      DenoteSpine m.cval env φ D as vs →
-      ∀ x ∈ as, ∃ w, denote m.cval env φ D x = some w := by
-    intro as vs h
-    induction h with
-    | nil => intro x hx; exact nomatch hx
-    | cons hda _ ih =>
-      intro x hx
-      rcases List.mem_cons.mp hx with rfl | hx'
-      · exact ⟨_, hda⟩
-      · exact ih x hx'
-  exact hmem hsp a ha
+  exact denoteSpine_mem_denotes hsp a ha
 
 /-! ## `indDecl`, the front half: the member fold
 
@@ -1551,6 +1599,442 @@ theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
           hdeRhs
       · -- 6. the two sides' types against the statement's `α`
         obtain ⟨tl, hil, hdl⟩ := hty1
+        obtain ⟨tr, hir, hdr⟩ := hty2
+        exact iotaSidesTyR_of m hwα hbα hLα hwl hbl hLl hwr hbr hLr
+          hvα hvl hvr hil hdl hir hdr
+
+set_option maxHeartbeats 4000000 in
+/-- **A nested-auxiliary rule's `iota_j` theorem, bridged** — the
+transpose of `checkIotaThmN`.  Structurally `iotaThmR_of` at a
+different constructor spine and a level-instantiated constructor type,
+plus a seventh walk (`TypedListW`, not `DefEqListW`) over the stored
+parameter pins.
+
+The pins are the only inputs that are neither stored types nor
+openers, and they appear at **two spellings** that no transport
+relates — `denote` is `none` on a loose `.bvar`, so the `instSpine`
+that closes a pin is load-bearing and it closes it at two different
+spines:
+
+* `pinsP` (recursor-type openers, unrenamed) denotes because the
+  checker *inferred its type*: `typedListOk_infer` extracts the
+  verdict, `denote_of_inferR` converts it, at the context
+  `openPisAtFvars_ctxOkR` builds and `CtxOkR.of_cover` transfers;
+* `pinsF` (statement openers, renamed) denotes because the statement's
+  own **major** does: `hmaj` is an `ErasedEq` to the constructor
+  applied to `pinsF ++ xFvs`, and `denote_erasedEq` moves the
+  major's denotation across.
+
+Their three *syntactic* facts are not `ErasedEq`-transportable
+(erasure drops `fvar` annotations, `WScoped` does not), so both
+spellings take them directly from `instSpine_pin_pack`. -/
+theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
+    {μ : CheckMode} {F : Nat} {f : Name → Name} {cvA cvj : ConstantVal}
+    {mI rP cnP cnF j : Nat} {r : RecRule} {rhsA : Expr}
+    {rules : List RecRule} {ciC : ConstantInfo}
+    {lvls : List Level} {pins : List Expr}
+    (hrecSelf : envSelf.find? cvA.name
+      = some (.recInfo cvA mI rP rules))
+    (hrmem : { r with rhs := rhsA } ∈ rules)
+    (hfire : RecRule.fire { r with rhs := rhsA } ≠ .inert)
+    (hctorSelf : envSelf.find? r.ctor = some ciC)
+    (hcvC : ciC.toConstantVal = cvj)
+    (hro : RenameOkT m.cval envSelf f)
+    (htransfer : ∀ n ci, env'.find? n = some ci →
+      ∃ ci', envSelf.find? n = some ci' ∧
+        ci'.toConstantVal = ci.toConstantVal)
+    (hshape : nestedRuleShape env' envSelf cvA.name cvA.levelParams
+      cvA.type mI rP cnP j = some (lvls, pins))
+    (h : NestedChecked μ F env' envSelf f cvA mI rP cnP cnF j
+      { r with rhs := rhsA } cvj lvls pins) :
+    IotaThmNR μ F env' envSelf m.cval f cvA.name cvA.levelParams
+      cvA.type mI rP j r cvj cnP cnF rhsA lvls pins := by
+  obtain ⟨thmName, cvt, ci, fvs, tbody, ℓA, αS, lhsS, rhsS, cdoms, cres,
+    rdoms, rrest, fvsP, restP, cdomsP, crestP, xFvsP, crest2, ldoms,
+    lrest, hfthm, hcvt, hpin, hlpt, hopen, hheadEq, hargs3, hlhead,
+    hlarity, hlpre, hmaj, hcstrip, hcinst, hclen, hdeIdx, hdeFld,
+    hrinst, hdePre, hopenP, hannP, hcinstP, htypedP, hopenX, hcrestLen,
+    hlinst, hdeLam, hdeRhs, hty1, hty2, hty3⟩ := h
+  subst hpin
+  have hcvRR : (ConstantInfo.recInfo cvA mI rP rules).toConstantVal
+      = cvA := rfl
+  refine ⟨hshape, cvt, fvs, tbody, ?_, hlpt, hopen, ?_, ?_, ?_⟩
+  · rw [Env.findCV?, hfthm, Option.map_some, hcvt]
+  · rw [hheadEq]; rfl
+  · rw [hargs3]; rfl
+  · rw [hargs3]
+    dsimp only
+    refine ⟨by simpa using hlhead, by simpa using hlarity,
+      by simpa using hlpre, hmaj, ?_,
+      cdoms, cres, rdoms, rrest, fvsP, restP, cdomsP, crestP, xFvsP,
+      crest2, hcinst, hclen, hrinst, hopenP,
+      ⟨hannP, hcinstP, hopenX, by simpa using hcrestLen⟩,
+      ldoms, lrest, hlinst, ?_, ?_⟩
+    · obtain ⟨bsC0, cbody0, Dc, usc, hs1, hs2⟩ := hcstrip
+      exact ⟨bsC0, cbody0, hs1, by rw [hs2]⟩
+    · -- the pins' typed walk
+      intro φ
+      obtain ⟨hwA0, hbA0, hLA0, TA0, hTA0⟩ :=
+        storedType_pack m (φ := φ) hrecSelf 0
+      rw [hcvRR] at hwA0 hbA0 hLA0 hTA0
+      obtain ⟨hAnf, -, -, hAbd, -⟩ := m.wf _ (find?_mem hrecSelf)
+      rw [hcvRR] at hAnf hAbd
+      have hPF := opener_fvar_pack_gen m (φ := φ) (D := rP + cnF)
+        hwA0 hbA0 hLA0 hTA0 hopenP (by omega)
+      have hfvsPlen : fvsP.length = rP :=
+        openPisAtFvars_length rP hopenP
+      have htkP : (fvsP.take rP).length = rP := by
+        rw [List.length_take, hfvsPlen]; omega
+      obtain ⟨-, -, hpinsWf, -⟩ := nestedRuleShape_inv hshape
+      have hpinPsyn : ∀ x ∈ pins.map (fun p =>
+          Expr.instSpine (fvsP.take rP) (rP - 1) p),
+          Expr.WScoped (rP + cnF) x ∧
+          x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x := by
+        intro x hx
+        obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hx
+        have h1 := instSpine_pin_pack (D := rP + cnF)
+          (sp := fvsP.take rP) (p := p) (hpinsWf p hp).1
+          (by rw [htkP]; exact (hpinsWf p hp).2.2.2)
+          (fun a ha => ⟨(hPF a (List.mem_of_mem_take ha)).1,
+            (hPF a (List.mem_of_mem_take ha)).2.1,
+            (hPF a (List.mem_of_mem_take ha)).2.2.1⟩)
+        rw [htkP] at h1
+        exact h1
+      obtain ⟨Δ₀, hΔ₀len, -, hΔ₀fvs⟩ :=
+        openPisAtFvars_ctxOkR (μ := μ) (cval := m.cval)
+          (env := envSelf) (φ := φ) m.cval_closed rP (Δ := [])
+          hopenP (CtxOkR.nil
+            (Expr.fvarLeaves_eq_nil_of_not_hasFvar hAnf)) hTA0 hwA0
+      have hΔlen : (List.replicate cnF (VExpr.sort .zero)
+          ++ (Δ₀ ++ [])).length = rP + cnF := by
+        rw [List.length_append, List.length_replicate,
+          List.length_append, hΔ₀len]
+        simp
+        omega
+      have hΔfvs : ∀ x ∈ fvsP,
+          CtxOkR μ m.cval envSelf φ (rP + cnF)
+            (List.replicate cnF (VExpr.sort .zero)
+              ++ (Δ₀ ++ [])) x := by
+        intro x hx
+        have h1 := CtxOkR.weakenN (cval := m.cval) m.cval_closed
+          (List.replicate cnF (VExpr.sort .zero)) (hΔ₀fvs x hx)
+        rw [List.length_replicate] at h1
+        rw [show rP + cnF = 0 + rP + cnF from by omega]
+        exact h1
+      have hpinPden : ∀ x ∈ pins.map (fun p =>
+          Expr.instSpine (fvsP.take rP) (rP - 1) p),
+          ∃ v, denote m.cval envSelf φ (rP + cnF) x = some v := by
+        intro x hx
+        obtain ⟨ty, hi⟩ := typedListOk_infer htypedP x hx
+        obtain ⟨p, hp, hxe⟩ := List.mem_map.mp hx
+        refine denote_of_inferR m hi (hpinPsyn x hx).1
+          (hpinPsyn x hx).2.1 (hpinPsyn x hx).2.2
+          (CtxOkR.of_cover (L := fvsP.take rP) hΔlen
+            (fun y hy => hΔfvs y (List.mem_of_mem_take hy))
+            (fun l hl => ?_))
+        rw [← hxe] at hl
+        rcases fvarLeaves_instSpine _ hl with h' | ⟨a, ha, hla⟩
+        · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar
+            (hpinsWf p hp).1] at h'
+          exact nomatch h'
+        · exact ⟨a, ha, hla⟩
+      obtain ⟨hwCl, hbCl, hLCl, -⟩ :=
+        frame_declTypeR (cval := m.cval) (φ := φ) (mode := μ) m.wf
+          hctorSelf lvls (rP + cnF)
+          (Δ := List.replicate (rP + cnF) (VExpr.sort .zero))
+          (by rw [List.length_replicate])
+      rw [hcvC] at hwCl hbCl hLCl
+      obtain ⟨TCl, -, -, hTCl⟩ :=
+        denote_declTypeR m φ m.cval_closed hctorSelf lvls (rP + cnF)
+      rw [hcvC] at hTCl
+      have hcdomsP := instPisAt_walk_pack m (φ := φ) hcinstP
+        hwCl hbCl hLCl hpinPsyn
+        (fun _ y hy => hpinPden y (List.mem_of_getElem? hy)) hTCl
+      exact typedListW_of m _ _ (fun e he => by
+        rcases List.mem_append.mp he with h' | h'
+        · exact ⟨(hpinPsyn e h').1, (hpinPsyn e h').2.1,
+            (hpinPsyn e h').2.2, hpinPden e h'⟩
+        · exact hcdomsP e h') htypedP
+    · -- the six rows
+      intro φ
+      obtain ⟨-, -, hpinsWf, -⟩ := nestedRuleShape_inv hshape
+      obtain ⟨hAnf, -, -, hAbd, -⟩ := m.wf _ (find?_mem hrecSelf)
+      rw [hcvRR] at hAnf hAbd
+      ---------------------------------------------------------------
+      -- (a) the statement, transferred, and its opening
+      ---------------------------------------------------------------
+      obtain ⟨ciT, hciT, hciTcv⟩ := htransfer _ _ hfthm
+      have hTty : ciT.toConstantVal.type = cvt.type := by
+        rw [hciTcv, hcvt]
+      obtain ⟨hwS0, hbS0, hLS0, TS, hTS0⟩ :=
+        storedType_pack m (φ := φ) hciT 0
+      rw [hTty] at hwS0 hbS0 hLS0 hTS0
+      have hstmt := opener_walk_pack_gen m (φ := φ) (D := rP + cnF)
+        hwS0 hbS0 hLS0 hTS0 hopen (by omega)
+      have hstmtF := opener_fvar_pack_gen m (φ := φ) (D := rP + cnF)
+        hwS0 hbS0 hLS0 hTS0 hopen (by omega)
+      obtain ⟨hwB, hbB, hLB, vB, hvB⟩ :=
+        opener_body_pack_gen m (φ := φ) (D := rP + cnF)
+          hwS0 hbS0 hLS0 hTS0 hopen (by omega)
+      have hargs := spine_walk_pack m hwB hbB hLB hvB
+      rw [hargs3] at hargs
+      obtain ⟨hwα, hbα, hLα, vα, hvα⟩ := hargs αS (by simp)
+      obtain ⟨hwl, hbl, hLl, vl, hvl⟩ := hargs lhsS (by simp)
+      obtain ⟨hwr, hbr, hLr, vr, hvr⟩ := hargs rhsS (by simp)
+      have hlhsA := spine_walk_pack m hwl hbl hLl hvl
+      have hfvslen : fvs.length = rP + cnF :=
+        openPisAtFvars_length (rP + cnF) hopen
+      have htkS : (fvs.take rP).length = rP := by
+        rw [List.length_take, hfvslen]; omega
+      ---------------------------------------------------------------
+      -- (b) the major, and the renamed pins it denotes
+      ---------------------------------------------------------------
+      obtain ⟨-, -, -, vM, hvM⟩ :=
+        hlhsA _ (getLastD_mem (d := Expr.bvar 0) hlarity)
+      rw [denote_erasedEq hmaj (rP + cnF)] at hvM
+      obtain ⟨-, vs, -, hspM, -⟩ := denote_mkAppN_inv hvM
+      have hpinFden := denoteSpine_mem_denotes hspM
+      have hpinFsyn : ∀ x ∈ pins.map (fun p =>
+          Expr.instSpine (fvs.take rP) (rP - 1) (p.renameConsts f)),
+          Expr.WScoped (rP + cnF) x ∧
+          x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x := by
+        intro x hx
+        obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hx
+        have h1 := instSpine_pin_pack (D := rP + cnF)
+          (sp := fvs.take rP) (p := p.renameConsts f)
+          (by rw [hasFvar_renameConsts]; exact (hpinsWf p hp).1)
+          (by rw [looseBVarsBounded_renameConsts, htkS]
+              exact (hpinsWf p hp).2.2.2)
+          (fun a ha => ⟨(hstmtF a (List.mem_of_mem_take ha)).1,
+            (hstmtF a (List.mem_of_mem_take ha)).2.1,
+            (hstmtF a (List.mem_of_mem_take ha)).2.2.1⟩)
+        rw [htkS] at h1
+        exact h1
+      have hspF : ∀ a ∈ pins.map (fun p =>
+            Expr.instSpine (fvs.take rP) (rP - 1) (p.renameConsts f))
+            ++ fvs.drop rP,
+          Expr.WScoped (rP + cnF) a ∧
+          a.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded a ∧
+          ∃ v, denote m.cval envSelf φ (rP + cnF) a = some v := by
+        intro a ha
+        rcases List.mem_append.mp ha with h' | h'
+        · exact ⟨(hpinFsyn a h').1, (hpinFsyn a h').2.1,
+            (hpinFsyn a h').2.2, hpinFden a (by
+              exact List.mem_append_left _ h')⟩
+        · exact hstmtF a (List.mem_of_mem_drop h')
+      ---------------------------------------------------------------
+      -- (c) the constructor type at `lvls`, renamed
+      ---------------------------------------------------------------
+      obtain ⟨hwC1, hbC1, hLC1, -⟩ :=
+        frame_declTypeR (cval := m.cval) (φ := φ) (mode := μ) m.wf
+          hctorSelf lvls (rP + cnF)
+          (Δ := List.replicate (rP + cnF) (VExpr.sort .zero))
+          (by rw [List.length_replicate])
+      rw [hcvC] at hwC1 hbC1 hLC1
+      obtain ⟨TC1, -, -, hTC1⟩ :=
+        denote_declTypeR m φ m.cval_closed hctorSelf lvls (rP + cnF)
+      rw [hcvC] at hTC1
+      have hwCR := wscoped_renameConsts (f := f) _ hwC1
+      have hbCR : ((cvj.type.instantiateLevelParams cvj.levelParams
+          lvls).renameConsts f).looseBVarsBounded 0 = true := by
+        rw [looseBVarsBounded_renameConsts]; exact hbC1
+      have hLCR := leavesBounded_renameConsts (f := f) _ hLC1
+      have hTCR : denote m.cval envSelf φ (rP + cnF)
+          ((cvj.type.instantiateLevelParams cvj.levelParams
+            lvls).renameConsts f) = some TC1 := by
+        rw [denote_renameConsts hro]; exact hTC1
+      obtain ⟨hwCr, hbCr, hLCr, vCr, hvCr⟩ :=
+        instPisAt_res_pack m (φ := φ) hcinst hwCR hbCR hLCR
+          (fun a ha => ⟨(hspF a ha).1, (hspF a ha).2.1,
+            (hspF a ha).2.2.1⟩)
+          (fun _ y hy => (hspF y (List.mem_of_getElem? hy)).2.2.2) hTCR
+      have hcresA := spine_walk_pack m hwCr hbCr hLCr hvCr
+      have hcdoms := instPisAt_walk_pack m (φ := φ) hcinst
+        hwCR hbCR hLCR
+        (fun a ha => ⟨(hspF a ha).1, (hspF a ha).2.1,
+          (hspF a ha).2.2.1⟩)
+        (fun _ y hy => (hspF y (List.mem_of_getElem? hy)).2.2.2) hTCR
+      ---------------------------------------------------------------
+      -- (d) the recursor type: renamed at the prefix, own opening
+      ---------------------------------------------------------------
+      obtain ⟨hwA, hbA, hLA, TA, hTA⟩ :=
+        renamedType_pack m (φ := φ) hro hrecSelf (rP + cnF)
+      rw [hcvRR] at hwA hbA hLA hTA
+      have hrdoms := instPisAt_walk_pack m (φ := φ) hrinst hwA hbA hLA
+        (fun a ha => ⟨(hstmtF a (List.mem_of_mem_take ha)).1,
+          (hstmtF a (List.mem_of_mem_take ha)).2.1,
+          (hstmtF a (List.mem_of_mem_take ha)).2.2.1⟩)
+        (fun _ y hy =>
+          (hstmtF y (List.mem_of_mem_take
+            (List.mem_of_getElem? hy))).2.2.2) hTA
+      obtain ⟨hwA0, hbA0, hLA0, TA0, hTA0⟩ :=
+        storedType_pack m (φ := φ) hrecSelf 0
+      rw [hcvRR] at hwA0 hbA0 hLA0 hTA0
+      have hPF := opener_fvar_pack_gen m (φ := φ) (D := rP + cnF)
+        hwA0 hbA0 hLA0 hTA0 hopenP (by omega)
+      have hPFlow := opener_fvar_pack_gen m (φ := φ) (D := rP)
+        hwA0 hbA0 hLA0 hTA0 hopenP (by omega)
+      have hP := opener_walk_pack_gen m (φ := φ) (D := rP + cnF)
+        hwA0 hbA0 hLA0 hTA0 hopenP (by omega)
+      have hfvsPlen : fvsP.length = rP :=
+        openPisAtFvars_length rP hopenP
+      have htkP : (fvsP.take rP).length = rP := by
+        rw [List.length_take, hfvsPlen]; omega
+      ---------------------------------------------------------------
+      -- (e) the public pins at depth rP, and the field residual
+      ---------------------------------------------------------------
+      have hpinPlow : ∀ x ∈ pins.map (fun p =>
+          Expr.instSpine (fvsP.take rP) (rP - 1) p),
+          Expr.WScoped rP x ∧
+          x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x := by
+        intro x hx
+        obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hx
+        have h1 := instSpine_pin_pack (D := rP)
+          (sp := fvsP.take rP) (p := p) (hpinsWf p hp).1
+          (by rw [htkP]; exact (hpinsWf p hp).2.2.2)
+          (fun a ha => ⟨(hPFlow a (List.mem_of_mem_take ha)).1,
+            (hPFlow a (List.mem_of_mem_take ha)).2.1,
+            (hPFlow a (List.mem_of_mem_take ha)).2.2.1⟩)
+        rw [htkP] at h1
+        exact h1
+      have hpinPhigh : ∀ x ∈ pins.map (fun p =>
+          Expr.instSpine (fvsP.take rP) (rP - 1) p),
+          ∃ v, denote m.cval envSelf φ (rP + cnF) x = some v := by
+        intro x hx
+        obtain ⟨ty, hi⟩ := typedListOk_infer htypedP x hx
+        obtain ⟨p, hp, hxe⟩ := List.mem_map.mp hx
+        obtain ⟨Δ₀, hΔ₀len, -, hΔ₀fvs⟩ :=
+          openPisAtFvars_ctxOkR (μ := μ) (cval := m.cval)
+            (env := envSelf) (φ := φ) m.cval_closed rP (Δ := [])
+            hopenP (CtxOkR.nil
+              (Expr.fvarLeaves_eq_nil_of_not_hasFvar hAnf)) hTA0 hwA0
+        have hΔlen : (List.replicate cnF (VExpr.sort .zero)
+            ++ (Δ₀ ++ [])).length = rP + cnF := by
+          rw [List.length_append, List.length_replicate,
+            List.length_append, hΔ₀len]
+          simp
+          omega
+        refine denote_of_inferR m hi
+          (Expr.WScoped.mono (by omega) (hpinPlow x hx).1)
+          (hpinPlow x hx).2.1 (hpinPlow x hx).2.2
+          (CtxOkR.of_cover (L := fvsP.take rP) hΔlen
+            (fun y hy => ?_) (fun l hl => ?_))
+        · have h1 := CtxOkR.weakenN (cval := m.cval) m.cval_closed
+            (List.replicate cnF (VExpr.sort .zero))
+            (hΔ₀fvs y (List.mem_of_mem_take hy))
+          rw [List.length_replicate] at h1
+          rw [show rP + cnF = 0 + rP + cnF from by omega]
+          exact h1
+        · rw [← hxe] at hl
+          rcases fvarLeaves_instSpine _ hl with h' | ⟨a, ha, hla⟩
+          · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar
+              (hpinsWf p hp).1] at h'
+            exact nomatch h'
+          · exact ⟨a, ha, hla⟩
+      have hpinPden : ∀ x ∈ pins.map (fun p =>
+          Expr.instSpine (fvsP.take rP) (rP - 1) p),
+          ∃ v, denote m.cval envSelf φ rP x = some v := fun x hx =>
+        opener_denotes_below m (hpinPlow x hx).1.fvarsBelow
+          (by omega) (hpinPhigh x hx).choose_spec
+      obtain ⟨hwC0, hbC0, hLC0, -⟩ :=
+        frame_declTypeR (cval := m.cval) (φ := φ) (mode := μ) m.wf
+          hctorSelf lvls rP
+          (Δ := List.replicate rP (VExpr.sort .zero))
+          (by rw [List.length_replicate])
+      rw [hcvC] at hwC0 hbC0 hLC0
+      obtain ⟨TC0, -, -, hTC0⟩ :=
+        denote_declTypeR m φ m.cval_closed hctorSelf lvls rP
+      rw [hcvC] at hTC0
+      obtain ⟨hwX, hbX, hLX, vX, hvX⟩ :=
+        instPisAt_res_pack m (φ := φ) hcinstP hwC0 hbC0 hLC0
+          hpinPlow
+          (fun _ y hy => hpinPden y (List.mem_of_getElem? hy)) hTC0
+      have hX := opener_walk_pack_gen m (φ := φ) (D := rP + cnF)
+        hwX hbX hLX hvX hopenX (by omega)
+      have hXF := opener_fvar_pack_gen m (φ := φ) (D := rP + cnF)
+        hwX hbX hLX hvX hopenX (by omega)
+      ---------------------------------------------------------------
+      -- (f) the rule's right-hand side, and its renamed application
+      ---------------------------------------------------------------
+      obtain ⟨hRnf, hRbd, VR, hVR⟩ := rhs_pack m (φ := φ) hrecSelf
+        hrmem hfire
+      have hlamSp : ∀ a ∈ fvsP ++ xFvsP,
+          Expr.WScoped (rP + cnF) a ∧
+          a.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded a ∧
+          ∃ v, denote m.cval envSelf φ (rP + cnF) a = some v := by
+        intro a ha
+        rcases List.mem_append.mp ha with h' | h'
+        · exact hPF a h'
+        · exact hXF a h'
+      have hlamShape : ∀ (i : Nat) (x : Expr),
+          (fvsP ++ xFvsP)[i]? = some x →
+          ∃ nm ty, x = Expr.fvar i nm ty := by
+        intro i x hx
+        rcases Nat.lt_or_ge i rP with hlt | hge
+        · rw [List.getElem?_append_left (by omega)] at hx
+          obtain ⟨nm, ty, hxe⟩ :=
+            openPisAtFvars_index rP cvA.type 0 hopenP i x hx
+          exact ⟨nm, ty, by rw [hxe, Nat.zero_add]⟩
+        · rw [List.getElem?_append_right (by omega), hfvsPlen] at hx
+          obtain ⟨nm, ty, hxe⟩ :=
+            openPisAtFvars_index cnF crestP rP hopenX (i - rP) x hx
+          refine ⟨nm, ty, ?_⟩
+          rw [hxe, show rP + (i - rP) = i from by omega]
+      have hldoms := instLamsAt_walk_pack m (φ := φ) (D := rP + cnF)
+        hlinst hlamShape
+        (Expr.WScoped.of_not_hasFvar hRnf) hRbd
+        (Expr.LeavesBounded.of_not_hasFvar hRnf)
+        (fun a ha => ⟨(hlamSp a ha).1, (hlamSp a ha).2.1,
+          (hlamSp a ha).2.2.1⟩) (hVR 0)
+        (by
+          rw [List.length_append, hfvsPlen,
+            openPisAtFvars_length cnF hopenX]
+          omega)
+      obtain ⟨hwRhs, hbRhs, hLRhs, vRhs, hvRhs⟩ :=
+        mkAppN_walk_pack m (φ := φ) (g := Expr.renameConsts f rhsA)
+          (as := fvs)
+          (wscoped_renameConsts _
+            (Expr.WScoped.mono (Nat.zero_le (rP + cnF))
+              (Expr.WScoped.of_not_hasFvar hRnf)))
+          (by rw [looseBVarsBounded_renameConsts]; exact hRbd)
+          (leavesBounded_renameConsts _
+            (Expr.LeavesBounded.of_not_hasFvar hRnf))
+          (fun a ha => hstmtF a ha)
+          (by rw [denote_renameConsts hro]; exact hVR (rP + cnF))
+      ---------------------------------------------------------------
+      -- the six rows
+      ---------------------------------------------------------------
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+      · refine defEqListW_of m _ _ (fun e he => ?_) hdeIdx
+        rcases List.mem_append.mp he with h' | h'
+        · exact hlhsA e (List.mem_of_mem_drop (List.mem_of_mem_take h'))
+        · exact hcresA e (List.mem_of_mem_drop h')
+      · refine defEqListW_of m _ _ (fun e he => ?_) hdeFld
+        rcases List.mem_append.mp he with h' | h'
+        · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
+          obtain ⟨i, hi⟩ :=
+            List.getElem?_of_mem (List.mem_of_mem_drop hx)
+          exact hstmt i x hi
+        · exact hcdoms e (List.mem_of_mem_drop h')
+      · refine defEqListW_of m _ _ (fun e he => ?_) hdePre
+        rcases List.mem_append.mp he with h' | h'
+        · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
+          obtain ⟨i, hi⟩ :=
+            List.getElem?_of_mem (List.mem_of_mem_take hx)
+          exact hstmt i x hi
+        · exact hrdoms e h'
+      · refine defEqListW_of m _ _ (fun e he => ?_) hdeLam
+        rcases List.mem_append.mp he with h' | h'
+        · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
+          rcases List.mem_append.mp hx with h'' | h''
+          · obtain ⟨i, hi⟩ := List.getElem?_of_mem h''
+            exact hP i x hi
+          · obtain ⟨i, hi⟩ := List.getElem?_of_mem h''
+            exact hX i x hi
+        · exact hldoms e h'
+      · exact defEqAtW_of m hwr hbr hLr hwRhs hbRhs hLRhs hvr hvRhs
+          hdeRhs
+      · obtain ⟨tl, hil, hdl⟩ := hty1
         obtain ⟨tr, hir, hdr⟩ := hty2
         exact iotaSidesTyR_of m hwα hbα hLα hwl hbl hLl hwr hbr hLr
           hvα hvl hvr hil hdl hir hdr
