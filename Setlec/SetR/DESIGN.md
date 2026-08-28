@@ -3929,5 +3929,55 @@ the invariant as the others.  (2) buys unconditionality for the ind
 branch at the price of maintaining two invariants that must be kept
 in step forever.
 
-Not taken here: this changes the shape of `checkDeclR_sound` (one
-branch invariant-conditional), which is an assembly-level decision.
+**DECIDED: option 1 — interleave, output both.**  Three grounds beyond
+the above:
+
+* the conditionality is **not an asymmetry at the theorem the user
+  sees**: `checkDeclR_sound` was always `EnvS env → … → EnvS env₂`
+  shaped, so an `EnvS`-conditional `indDecl` branch matches the final
+  composition exactly.  The unconditional five siblings are the bonus,
+  not the norm;
+* it is the classical **combined-induction** shape — the fold carries
+  the invariant that feeds the next step's typing.  The model's own
+  install proof works this way, and fighting it with a parallel weaker
+  invariant is exactly the two-invariants-forever maintenance shape
+  this campaign exists to delete;
+* the pattern isolated above is the finding's durable content.
+
+**The recognition rule** (belongs beside the P-rules):
+
+> **A bridge must interleave with its install exactly when the
+> relation it produces quantifies over environments the fold
+> creates.**
+
+Check it by asking, of each conjunct of the target relation, *which*
+environment its lookups and derivations are at.  A conjunct at the
+base environment is bridgeable alone; a conjunct at an intermediate
+environment is not, and no amount of weakening the invariant changes
+that — it only moves which invariant has to be rebuilt there.
+`TemplatesR` passes (no front door at all); the five value/basis
+branches pass (one front door, at the base environment);
+`IndMembersR`, `IndRecsR` and `ProjFnR` fail.
+
+### Finding 8, implemented — the interleaved walk works
+
+`Setlec/SetR/Bridge/DeclInd.lean` opens with `indMembersRS`: literally
+`indMembersS`' induction with `memberValR_of` inserted at each step to
+*produce* the front door instead of consuming it, accumulating the
+relation and the invariant together.  It went through unchanged
+otherwise — every side-condition thread (`hbn`, `EtaPins.step`,
+`BlockInstalledTT`) is the install's own, and `memberInstallS` is
+called exactly as `indMembersS` calls it.
+
+That is the decision's practical confirmation: the orchestration is
+written a second time, and it is *only* orchestration — no
+sub-theorem, no invariant, and no side condition is duplicated.  The
+remaining two folds (`indRecsRS` over `checkIndRecs`, `projInstallRS`
+over `installProjFnStep` with `ProjFnR`) follow the same three lines
+per step: checker step, bridge at `m.toEnvR`, install step.
+
+One shape note for them: the fold hypothesis `h` never mentions the
+running valuation (it is the *checker's* fold, which has none), so the
+recursive call takes `h` unchanged — a `rw [hm₁cval] at h` there
+fails, and the reflex to "step everything" is what makes it look like
+the valuation threading has a hole when it does not.
