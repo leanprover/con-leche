@@ -1,5 +1,5 @@
-import Setlec.SetR.Interp2.Ops
 import Setlec.SetR.Interp2.Syntax
+import Setlec.SetR.Interp2.Value
 
 /-!
 # `interp2` — the collapse-free two-regime interpretation (task #151, tier B)
@@ -32,6 +32,7 @@ The clauses in one line each:
 |---|---|---|
 | `bvar i` | `ρ i` | — |
 | `sort u` | `univ u` | — |
+| `const c us` | `bval2 c us` | annotation-free (the tower's own) |
 | `app f a` | `app ⟦f⟧ ⟦a⟧` | uniform: graph application above `0`, `app pt _ = pt` at `0` |
 | `lam v A b` | `lamR v ⟦A⟧ (fun x => ⟦b⟧ₓ)` | annotation |
 | `pi u v A B` | `piR v ⟦A⟧ (fun x => ⟦B⟧ₓ)` | annotation |
@@ -147,6 +148,7 @@ Binders read their annotation; nothing reads a value. -/
 noncomputable def interp2 : (Nat → V) → AVExpr → V
   | ρ, .bvar i => ρ i
   | _, .sort u => univ u
+  | _, .const c us => bval2 V c us
   | ρ, .app f a => SetTheory.app (interp2 ρ f) (interp2 ρ a)
   | ρ, .lam v A b => lamR v (interp2 ρ A) fun x => interp2 (cons x ρ) b
   | ρ, .pi _ v A B => piR v (interp2 ρ A) fun x => interp2 (cons x ρ) B
@@ -159,6 +161,8 @@ noncomputable def interp2 : (Nat → V) → AVExpr → V
     interp2 V ρ (.bvar i) = ρ i := rfl
 @[simp] theorem interp2_sort (ρ : Nat → V) (u : Nat) :
     interp2 V ρ (.sort u) = univ u := rfl
+@[simp] theorem interp2_const (ρ : Nat → V) (c : Setlec.TT.BConst)
+    (us : List Nat) : interp2 V ρ (.const c us) = bval2 V c us := rfl
 @[simp] theorem interp2_app (ρ : Nat → V) (f a : AVExpr) :
     interp2 V ρ (.app f a) = SetTheory.app (interp2 V ρ f) (interp2 V ρ a) := rfl
 @[simp] theorem interp2_lam (ρ : Nat → V) (v : Nat) (A b : AVExpr) :

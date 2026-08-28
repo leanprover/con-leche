@@ -59,6 +59,7 @@ import Setlec.SetR.Annot.Pass
 import Setlec.SetR.Annot.Kinding
 import Setlec.SetR.Interp2.Univ
 import Setlec.SetR.Interp2.TierA
+import Setlec.SetR.Interp2.Graded
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family

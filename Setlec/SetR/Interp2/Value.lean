@@ -114,8 +114,8 @@ theorem natStep_apply {u : Nat} {M s : V} (hM : M ∈ˢ natMotiveSpace V u)
     exact piR_zero_mem_univZero
   refine app_mem_piR h1 hih fun hu _ _ => ?_
   subst hu
-  have := natMotive_apply V hM (natsucc_mem hk)
-  rwa [univ_zero] at this
+  have h2 := natMotive_apply V hM (natsucc_mem hk)
+  rwa [univ_zero] at h2
 
 theorem natRecV2_mem_fibre {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V u)
     (hz : z ∈ˢ app M natzero) (hs : s ∈ˢ natStepSpace2 V u M)
@@ -132,11 +132,9 @@ theorem natRecV2_app {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V u)
     app (app (app (app (natRecV2 V u) M) z) s) n = natrec z s n := by
   by_cases hu : u = 0
   · subst hu
-    have hMn : app M n ∈ˢ (univZero : V) := by
-      have := natMotive_apply V hM hn
-      rwa [univ_zero] at this
     rw [natRecV2, lamR_zero, app_pt, app_pt, app_pt, app_pt]
-    exact (eq_pt_of_mem_univZero hMn (natRecV2_mem_fibre V hM hz hs hn)).symm
+    exact (mem_univ_zero (natMotive_apply V hM hn)
+      (natRecV2_mem_fibre V hM hz hs hn)).symm
   · rw [natRecV2, app_lamR_pos hu hM, app_lamR_pos hu hz, app_lamR_pos hu hs,
       app_lamR_pos hu hn]
 
@@ -157,11 +155,10 @@ theorem punitRecV2_app {v : Nat} {M m t : V} (hM : M ∈ˢ punitMotiveSpace V v)
     app (app (app (punitRecV2 V v) M) m) t = m := by
   by_cases hv : v = 0
   · subst hv
-    have hMpt : app M pt ∈ˢ (univZero : V) := by
-      have := app_mem_piR_pos (Nat.succ_ne_zero 0) hM (pt_mem_unitSet (V := V))
-      rwa [univ_zero] at this
+    have hMpt : app M pt ∈ˢ (univ 0 : V) :=
+      app_mem_piR_pos (Nat.succ_ne_zero 0) hM (pt_mem_unitSet (V := V))
     rw [punitRecV2, lamR_zero, app_pt, app_pt, app_pt]
-    exact (eq_pt_of_mem_univZero hMpt hm).symm
+    exact (mem_univ_zero hMpt hm).symm
   · rw [punitRecV2, app_lamR_pos hv hM, app_lamR_pos hv hm, app_lamR_pos hv ht]
 
 /-! ## `PSigma'` -/
@@ -289,7 +286,9 @@ theorem psigmaEta_law2 {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
 
 theorem maxOne_ne_zero (u : Nat) : Nat.max u 1 ≠ 0 := by
   intro h
-  exact absurd (Nat.le_zero.mp (h ▸ Nat.le_max_right u 1)) (by decide)
+  have h1 : (1 : Nat) ≤ Nat.max u 1 := Nat.le_max_right u 1
+  rw [h] at h1
+  exact absurd (Nat.le_zero.mp h1) Nat.one_ne_zero
 
 /-- `A → A → Prop`.  Note the annotations: `Prop = Sort 0` lives in
 `Sort 1`, so `A → Prop` has codomain sort `1` and is itself a *type*
@@ -320,13 +319,9 @@ theorem quotMkV2_app {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
     app (app (app (quotMkV2 V u) A) R) a = quotClass u A R a := by
   by_cases hu : u = 0
   · subst hu
-    have hq : quotClass 0 A R a ∈ˢ (univZero : V) := by
-      have := quotSet_mem_univ (R := R) hA
-      rw [univ_zero] at this
-      exact mem_univZero.mpr fun z hz =>
-        mem_unitSet_iff.mpr (eq_pt_of_mem_univZero this (quotClass_mem ha) ▸
-          mem_unitSet_iff.mp (mem_univZero.mp this _ (quotClass_mem ha)) ▸ hz) |>.elim
-    exact absurd hq (fun _ => absurd rfl rfl)
+    have hcp : quotClass 0 A R a = pt :=
+      mem_univ_zero (quotSet_mem_univ hA) (quotClass_mem ha)
+    rw [quotMkV2, lamR_zero, app_pt, app_pt, app_pt, hcp]
   · rw [quotMkV2, app_lamR_pos hu hA, app_lamR_pos hu hR, app_lamR_pos hu ha]
 
 /-- The lift of `f` to the quotient, at an annotation:
@@ -337,19 +332,13 @@ noncomputable def quotLiftR (u v : Nat) (A R f : V) : V :=
 
 theorem quotLiftR_app {u v : Nat} (hv : v ≠ 0) {A R f q : V}
     (hq : q ∈ˢ quotSet u A R) :
-    app (quotLiftR u v A R f) q = app f (qrep u A R q) := by
+    app (quotLiftR V u v A R f) q = app f (qrep u A R q) := by
   rw [quotLiftR]; exact app_lamR_pos hv hq
 
 theorem quotLiftR_mem {u v : Nat} {A R f B : V}
-    (hf : f ∈ˢ piR v A fun _ => B) :
-    quotLiftR u v A R f ∈ˢ piR v (quotSet u A R) fun _ => B := by
-  refine lamR_mem fun q hq => ?_
-  refine app_mem_piR hf (qrep_spec hq).1 fun hv _ _ => ?_
-  subst hv
-  exact mem_univZero.mpr fun z hz => by
-    have := eq_pt_of_mem_piR_zero hf
-    exact mem_unitSet_iff.mpr (eq_pt_of_mem_univZero
-      (by rw [← univ_zero]; exact hBz) hz)
+    (hf : f ∈ˢ piR v A fun _ => B) (hB0 : v = 0 → B ∈ˢ (univZero : V)) :
+    quotLiftR V u v A R f ∈ˢ piR v (quotSet u A R) fun _ => B :=
+  lamR_mem fun _q hq => app_mem_piR hf (qrep_spec hq).1 fun hv _ _ => hB0 hv
 
 /-! ## `Quot.lift` -/
 
@@ -363,7 +352,7 @@ noncomputable def quotInvSpace2 (A R f : V) : V :=
 `app_mem_piR` steps, each discharging its `v = 0` fibre premise from
 `piR_zero_mem_univZero` / `eqv_mem_univZero` — the pre-#100 shape,
 recovered. -/
-theorem quotInv_of_mem2 {A R f h : V} (hh : h ∈ˢ quotInvSpace2 A R f) :
+theorem quotInv_of_mem2 {A R f h : V} (hh : h ∈ˢ quotInvSpace2 V A R f) :
     ∀ a b, a ∈ˢ A → b ∈ˢ A → (∃ w, w ∈ˢ app (app R a) b) →
       app f a = app f b := by
   intro a b ha hb hw
@@ -385,14 +374,14 @@ noncomputable def quotLiftV2 (u v : Nat) : V :=
     lamR v (relSpace2 V u A) fun R =>
       lamR v (univ v) fun B =>
         lamR v (piR v A fun _ => B) fun f =>
-          lamR v (quotInvSpace2 A R f) fun _ => quotLiftR u v A R f
+          lamR v (quotInvSpace2 V A R f) fun _ => quotLiftR V u v A R f
 
 theorem quotLiftV2_app {u v : Nat} (hv : v ≠ 0) {A R B f h : V}
     (hA : A ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace2 V u A)
     (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piR v A fun _ => B)
-    (hh : h ∈ˢ quotInvSpace2 A R f) :
+    (hh : h ∈ˢ quotInvSpace2 V A R f) :
     app (app (app (app (app (quotLiftV2 V u v) A) R) B) f) h =
-      quotLiftR u v A R f := by
+      quotLiftR V u v A R f := by
   rw [quotLiftV2, app_lamR_pos hv hA, app_lamR_pos hv hR, app_lamR_pos hv hB,
     app_lamR_pos hv hf, app_lamR_pos hv hh]
 
@@ -406,7 +395,7 @@ theorem piR_zero_empty (B : V → V) : piR 0 (empty : V) B = unitSet := by
   rw [piR_zero, truthVal_eq_unitSet (fun x hx => absurd hx (not_mem_empty x))]
 
 /-- A `¬¬A` inhabitant witnesses that `A` is inhabited. -/
-theorem exists_mem_of_dneg2 {A h : V} (hh : h ∈ˢ dnegSpace2 A) :
+theorem exists_mem_of_dneg2 {A h : V} (hh : h ∈ˢ dnegSpace2 V A) :
     ∃ x, x ∈ˢ A := by
   rcases Classical.em (∃ x, x ∈ˢ A) with hex | hne
   · exact hex
@@ -415,23 +404,23 @@ theorem exists_mem_of_dneg2 {A h : V} (hh : h ∈ˢ dnegSpace2 A) :
     subst hA
     have hpt : (pt : V) ∈ˢ piR 0 (empty : V) fun _ => (empty : V) := by
       rw [piR_zero_empty]; exact pt_mem_unitSet
+    have hemp : (empty : V) ∈ˢ (univZero : V) := by
+      have h0 := empty_mem_univ (V := V) 0
+      rwa [univ_zero] at h0
     rw [dnegSpace2] at hh
-    exact not_mem_empty _
-      (app_mem_piR hh hpt fun _ _ _ => by
-        rw [← univ_zero]; exact empty_mem_univ 0)
+    exact not_mem_empty _ (app_mem_piR hh hpt fun _ _ _ => hemp)
 
 /-- `Classical.choice.{u}`; result sort `u`. -/
 noncomputable def choiceV2 (u : Nat) : V :=
-  lamR u (univ u) fun A => lamR u (dnegSpace2 A) fun _ => schoice A
+  lamR u (univ u) fun A => lamR u (dnegSpace2 V A) fun _ => schoice A
 
 theorem choiceV2_app {u : Nat} {A h : V} (hA : A ∈ˢ (univ u : V))
-    (hh : h ∈ˢ dnegSpace2 A) : app (app (choiceV2 V u) A) h = schoice A := by
+    (hh : h ∈ˢ dnegSpace2 V A) : app (app (choiceV2 V u) A) h = schoice A := by
   by_cases hu : u = 0
   · subst hu
-    obtain ⟨x, hx⟩ := exists_mem_of_dneg2 hh
+    obtain ⟨x, hx⟩ := exists_mem_of_dneg2 V hh
     rw [choiceV2, lamR_zero, app_pt, app_pt]
-    rw [univ_zero] at hA
-    exact (eq_pt_of_mem_univZero hA (schoice_mem hx)).symm
+    exact (mem_univ_zero hA (schoice_mem hx)).symm
   · rw [choiceV2, app_lamR_pos hu hA, app_lamR_pos hu hh]
 
 /-! ## `Empty.rec`

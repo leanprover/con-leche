@@ -2253,3 +2253,152 @@ theorem of the tier (`erase_liftN`/`erase_inst` need only `propext`;
 `erase_mkAppN` and `ZetaEq.refl` need none); zero sorries; binary cone
 untouched (three proof-only modules in `SetlecSetR`, imported by
 nothing else).
+
+# Task #151 tier B — option C assessed, and B2 (the constants' towers)
+
+## FINDING B5 (**blocking**) — option C is refuted: the wall is the *proof argument*, not the λ
+
+The F4/A3 impasse was ruled repaired by **option C**: move the
+two-regime split from the λ *value* to the soundness *judgment* —
+`⟦lam …⟧` uniformly the graph, `pi u v` keeping both numerals, and the
+conclusion **graded by the type's kind** (membership above `0`, *truth*
+of the type's interpretation at `0`, with the subject never consulted).
+
+Mechanized in `Setlec/SetR/Interp2/Graded.lean` (`Real k x T` is the
+graded conclusion, and each rule is stated semantically over the data
+it has, as `TierA.lean`'s refutation is).  **Two of the three
+representative rules work; the third has a wall.**
+
+| rule | status |
+|---|---|
+| **I7** (λ), both regimes | ✅ `graded_lam` — *one* statement covers both regimes and reads **no** codomain annotation.  C buys exactly what it promised here. |
+| **D8** (proof irrelevance) | ✅ `graded_proof_irrel` — free: the kind-`0` conclusion does not mention the subject. |
+| **I8** (app), argument at a positive kind | ✅ `graded_app` — both codomain regimes, one proof. |
+| **I8** (app), argument at kind `0` | ❌ `graded_app_zero_dom_refuted` (positive codomain), `graded_app_zero_dom_zero_cod_refuted` (`Prop` codomain) |
+
+**The wall.**  Applying a function to a **proof** needs the proof's
+*value* to inhabit its proposition; the graded conclusion at kind `0`
+supplies only the proposition's *truth*.  Under C a proof-λ's value is
+a graph — concretely `⟦fun (x : False) => x⟧ = graph _ ∅ = ∅`
+(`proof_lam_value_ne_pt`) — so `app ⟦f⟧ ⟦a⟧` is off-domain junk `∅`
+and the fibre at that junk is empty.  Both witnesses use `A = {•}`,
+`B x = ⟦x = •⟧` (a legitimate `Sort 1`-valued family by cumulativity,
+`eqvFamily_mem_univ_one`) and the proof argument `∅`.
+
+**Why no re-grading escapes it** (`proof_value_forced`): equality
+reflection and `propext` force a proposition's interpretation to be a
+subset of the canonical singleton — `propext`'s own graded conclusion
+is `eqv ⟦A⟧ ⟦B⟧` inhabited, i.e. `⟦A⟧ = ⟦B⟧`, which fails for
+equi-inhabited propositions unless propositions *are* truth values —
+so a proof whose value is ever consumed **is** `pt`.  Recovering "which
+terms are proofs" is the λ codomain sort again.  Option C therefore
+relocates the requirement; it does not remove it.
+
+**Not a corner case.**  `Quot.lift` takes the invariance proof,
+`Classical.choice` takes `¬¬A`, `Empty.rec` takes the subject: every
+one is an `I8` step at `u = 0`, and each appears in the basis
+constants' own application laws (`quotLiftV2_app`, `choiceV2_app` —
+both take the proof argument's *membership*, `Interp2/Value.lean`).
+
+**The guard, restated correctly.**  "Kinds are conversion-invariant so
+regimes can't mix across `DefEq`" is true *syntactically* (tier A's
+unique kinding) and **false semantically**: `kind_not_semantic`
+exhibits `unitSet ∈ univ 0` **and** `unitSet ∈ univ 1`.  Cumulativity
+means no value-level fact excludes a `DefEq` relating a kind-`0` type
+to a kind-`1` one, so any graded statement must carry its kind as data
+and can never recover it from `V`.
+
+### Repair B5′ — supply the λ codomain sort as a **metatheorem**, not a runtime check
+
+A3's repair list prices A (kernel change — a new runtime `ensureSort`
+that can reject, ruled out), B (read `v` off the λ's type — partial),
+C (type-directed interpretation — refuted above) and D (reduces to C).
+A fifth is not on the list and appears to dominate:
+
+> The λ codomain sort exists in the **metatheory** even though the
+> checker never computes it.  Tier A's `Annotates` is a *relational*
+> pass over derivations with existence theorems — not executable kernel
+> code — so it may obtain `v` from a **validity (regularity) lemma**
+> for the family: *if `Infer Δ b B` then `B` has a sort*, i.e.
+> `∃ v, DefEq Δ tB (.sort v)` for `Infer Δ B tB`.
+
+This needs **no I7 premise** (so premise-exactness and
+`infer_lam_claimR` are untouched), **no kernel change** (so no new
+rejection path and no reversal of #100 stage 6), and no runtime cost.
+It answers A3's objection to repair B — "no `Infer.pi` derivation
+exists for a built type" — because validity *constructs* the sorting
+of the built type from the sortings of its parts rather than reading it
+off a derivation.
+
+**What to check before adopting** (tier A's call, since it is their
+family): whether validity is provable for `Infer` as landed — the
+usual obligations are that stored declaration types are well-sorted
+(the `EnvS` invariant should give this), that `whnf`/`DefEq` preserve
+sortedness, and the recursor/projection clauses.  If validity fails for
+a clause, that clause is the finding.  Recorded as the proposal, not
+taken.
+
+## B2 — the built-in constants' towers (`Interp2/Value.lean`)
+
+`Setlec/TT/Semantics/Value.lean`'s `bval` restated over `piR`/`lamR`
+(`bval2`).  **Independent of the F4/A3/B5 decision**: `bval2` is
+indexed by the constant and its level list, never by a λ *node*, so it
+neither needs nor supplies a binder annotation.
+
+*Annotation convention.*  Every λ in a tower carries the tower's
+**result sort** `r`.  That is not the exact `imax` fold at each binder,
+but it agrees with it on the only thing `piR`/`lamR` read
+(`imax x y = 0 ↔ y = 0`, `imax_eq_zero_iff`), and
+`lamR_mem_zero_agree` is the bridge for a consumer wanting the exact
+annotation.  *Domains* carry exact sorts, because that is what
+consumers' hypotheses are stated with: motive spaces are
+`piR (r+1) …`, the relation space is `piR (max u 1) …` (`A → Prop` is a
+*type* — its codomain `Prop = Sort 0` lives in `Sort 1`, a place it is
+easy to get wrong), and the invariance / double-negation spaces are
+`piR 0 …` throughout.
+
+*The law surface, as priced.*  Each application law splits by regime:
+at `r ≠ 0` it is `app_lamR_pos` — **fewer** hypotheses than the
+collapse version needed; at `r = 0` the tower *is* the canonical proof
+and the law holds only because both sides are, which is the pre-#100
+`v = 0 → the fibres are truth values` premise resurfacing.  **No
+statement grew a premise**: each law discharges the `r = 0` case from
+its own motive/fibre hypothesis (`natRecV2_app` from `hM`,
+`punitRecV2_app` from `hM`, `quotMkV2_app` from `hA`, `choiceV2_app`
+from `hh` via `exists_mem_of_dneg2`).  The one place a premise *is*
+taken is `quotLiftR_mem`'s `hB0 : v = 0 → B ∈ˢ univZero` — the codomain
+is an argument there, so no other hypothesis carries it.
+
+*Two values change.*
+
+* **`Empty.rec` was `pt`; it no longer is.**  Under the collapse its
+  inner λ has an empty domain and `lamC_empty` collapses at *every*
+  level; two-regime it is `lamR v … (lamR v ∅ …)` — the empty graph at
+  `v ≠ 0` (`emptyRecV2_ne_pt`), the canonical proof at `v = 0`
+  (`emptyRecV2_zero`).  This is the #100 countermodel's cause showing
+  up in the basis.
+* **`SetTheory.quotLift` is `lamC`-built**, so tier B carries
+  `quotLiftR` — the same abstraction at an annotation.  It is the
+  **only** `SetTheory` operator this file must replace: `natrec`,
+  `schoice`, `quotSet`, `quotClass`, `qrep`, `sigmaSet`, `sfst`/`ssnd`
+  are collapse-free, and `sigmaSet`/`quotSet`/`quotClass` are already
+  *annotation-driven* — the recorded precedent this tier follows.
+
+`PSigma'.mk`'s explicit `if max u v = 0 then pt` tag is **gone from the
+definition** (the annotation squashes the whole tower at `0`), though
+`psigmaMkV2_app` still states the `if`-form so its consumers are
+unchanged.
+
+*Coordination with tier A.*  `Interp2/Syntax.lean` now carries
+`const (c : BConst) (us : List Nat)` — tier A's node **verbatim** — and
+`interp2`'s clause is `bval2 V c us`.  The provisional syntax's only
+remaining difference from tier A's is the `lam` numeral, i.e. exactly
+the F4/A3/B5 decision.
+
+## Housekeeping
+
+`Setlec/SetR/Interp2/Value.lean` reached master in commit `121fded`
+**swept from another agent's shared working tree while it was still
+unbuilt and unimported** (the same sweep the tier-A record notes for
+`Annot/*`).  It is compiled and wired as of this branch.  Tier B works
+in `.claude/worktrees/tier-b` on `feat/151-tierB` from here.

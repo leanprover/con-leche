@@ -58,6 +58,7 @@ theorem interp2_liftN (n : Nat) :
     simp only [AVExpr.liftN_bvar, interp2_bvar, shiftE]
     split <;> rfl
   | sort u => intro k ρ; rfl
+  | const c us => intro k ρ; rfl
   | app f a ihf iha =>
     intro k ρ; simp only [AVExpr.liftN_app, interp2_app, ihf, iha]
   | lam v A b ihA ihb =>
@@ -108,6 +109,7 @@ theorem interp2_inst :
         exact interp2_liftN V k a 0 ρ
       · simp only [if_neg h, if_neg h2, instE]; rfl
   | sort u => intro a k ρ; rfl
+  | const c us => intro a k ρ; rfl
   | app f b ihf ihb =>
     intro a k ρ; simp only [AVExpr.inst_app, interp2_app, ihf, ihb]
   | lam v A b ihA ihb =>

@@ -1,3 +1,5 @@
+import Setlec.TT.Const
+
 /-!
 # `AVExpr` — annotated terms (**provisional**, tier B's local copy)
 
@@ -21,12 +23,10 @@ otherwise mirrors constructor for constructor:
 * **`pi` carries `u` and `v`**, the sorts of domain and codomain — the
   product is a truth value exactly when `v = 0`, and `u` is what the
   universe-placement law reads (`Interp2/Univ.lean`);
-* **there is no `const`**.  The built-in constants' values
-  (`Setlec.TT.bval`) are `lamC` towers, i.e. collapse-built; rebuilding
-  them as `lamR` towers is the named tier-B follow-up (see DESIGN), and
-  nothing in the interpretation, the lemma kit or the universe
-  assessment depends on them.  Adding the case is a one-line extension
-  of `interp2`.
+* **`const` is tier A's node verbatim** — `const (c : BConst)
+  (us : List Nat)`, coordinated so the swap needs no reconciliation
+  there.  Its values are `Interp2/Value.lean`'s two-regime towers
+  (`bval2`), not `Setlec.TT.bval`'s collapse-built ones.
 
 `liftN`/`inst` are `Setlec.TT.VExpr`'s, with the annotations carried
 through untouched — they are numerals, not terms.
@@ -41,6 +41,9 @@ inductive AVExpr where
   | bvar (i : Nat)
   /-- `Sort u` at a concrete level -/
   | sort (u : Nat)
+  /-- a built-in constant at a concrete level instantiation (tier A's
+  node verbatim) -/
+  | const (c : Setlec.TT.BConst) (us : List Nat)
   /-- application -/
   | app (f a : AVExpr)
   /-- `fun (_ : ty) => body`, where `body`'s type has sort `v` -/
@@ -72,6 +75,7 @@ def mkAppN (f : AVExpr) : List AVExpr → AVExpr
 def liftN (n : Nat) : AVExpr → (k : Nat := 0) → AVExpr
   | .bvar i, k => .bvar (if i < k then i else i + n)
   | .sort u, _ => .sort u
+  | .const c us, _ => .const c us
   | .app f a, k => .app (liftN n f k) (liftN n a k)
   | .lam v A b, k => .lam v (liftN n A k) (liftN n b (k + 1))
   | .pi u v A B, k => .pi u v (liftN n A k) (liftN n B (k + 1))
@@ -89,6 +93,7 @@ def inst : AVExpr → AVExpr → (k : Nat := 0) → AVExpr
   | .bvar i, a, k =>
     if i < k then .bvar i else if i = k then liftN k a else .bvar (i - 1)
   | .sort u, _, _ => .sort u
+  | .const c us, _, _ => .const c us
   | .app f b, a, k => .app (inst f a k) (inst b a k)
   | .lam v A b, a, k => .lam v (inst A a k) (inst b a (k + 1))
   | .pi u v A B, a, k => .pi u v (inst A a k) (inst B a (k + 1))
@@ -100,6 +105,8 @@ def inst : AVExpr → AVExpr → (k : Nat := 0) → AVExpr
 @[simp] theorem liftN_bvar (n k i : Nat) :
     liftN n (.bvar i) k = .bvar (if i < k then i else i + n) := rfl
 @[simp] theorem liftN_sort (n k u : Nat) : liftN n (.sort u) k = .sort u := rfl
+@[simp] theorem liftN_const (n k : Nat) (c : Setlec.TT.BConst) (us : List Nat) :
+    liftN n (.const c us) k = .const c us := rfl
 @[simp] theorem liftN_app (n k : Nat) (f a : AVExpr) :
     liftN n (.app f a) k = .app (liftN n f k) (liftN n a k) := rfl
 @[simp] theorem liftN_lam (n k v : Nat) (A b : AVExpr) :
@@ -117,6 +124,8 @@ def inst : AVExpr → AVExpr → (k : Nat := 0) → AVExpr
 
 @[simp] theorem inst_sort (a : AVExpr) (k u : Nat) :
     inst (.sort u) a k = .sort u := rfl
+@[simp] theorem inst_const (a : AVExpr) (k : Nat) (c : Setlec.TT.BConst)
+    (us : List Nat) : inst (.const c us) a k = .const c us := rfl
 @[simp] theorem inst_app (a : AVExpr) (k : Nat) (f b : AVExpr) :
     inst (.app f b) a k = .app (inst f a k) (inst b a k) := rfl
 @[simp] theorem inst_lam (a : AVExpr) (k v : Nat) (A b : AVExpr) :
