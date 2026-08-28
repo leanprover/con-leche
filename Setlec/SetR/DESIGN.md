@@ -1290,3 +1290,86 @@ glues six sealed stages (`Install/IndStagesS.lean`):
   omitted from the c1 statements.
 
 No finding-#1: every law derived from set-mode install checks.
+
+## T5 c3 — the nested bottom, landed (2026-08-28); **risk R1 cleared**
+
+`indBottomNestedS : IndBottomNestedS V`
+(`Install/IndBottomNestedS.lean`).  The headline is that it reuses the
+plain bottom's six stages *unchanged in content*: the stages were first
+made **parameter-spine-generic** (one commit, no proof step lost), and
+the nested fire is then an instantiation.
+
+### The generalization (`IndStagesS.lean`, all six stages)
+
+`zipFieldTermEq`, `zipperS`, `pointS`, `annotPFrameEqS`, `annotMemS`,
+`annotS` no longer mention `fvs.take cnP` / `xs.take cnP`.  They take
+
+| hypothesis | what it says | plain | nested |
+|---|---|---|---|
+| `hsplen`/`hspLeaf`/`hspScope` | the constructor run's expression spine: length, leaves among the openers below `rP + (q + 1 - cnP)`, frame-scoped | the openers `fvs.take cnP ++ fvs.drop rP` | `pins.map (instSpine (fvs.take rP) (rP-1) ∘ renameConsts f) ++ fvs.drop rP` |
+| `hmixlen`/`hmixsp` | the **crossing datum**: position `q` denotes to `w0`, and the mixed value there is `instSeq zs (rP+cnF-1) w0` | `xs.take cnP ++ ys.drop cnP` | `pinWs.map (instSeq zs …) ++ ys.drop cnP` |
+| `hmixFldEq`/`hmixPar`/`hmixVal` | the mixed values read as the constructor's own spine | `hpar` | `hparP` through `pinCrossS` |
+| `hpsRen` | the canonical and renamed parameter spines are pointwise `RenEqT` (the annot stages) | `RenEqT.fvar` | `instSeq_renameConsts` ∘ `instSeq_erasedEq_args` |
+| `hmaj`/`hctorHead` (`pointS`) | the major, **up to `ErasedEq`**, under an abstract head that denotes to the fire-site constructor valuation | `ErasedEq.rfl`, parameter-mapped head | the stored `lvls` |
+
+`cnP ≤ rP` and the plain level-agreement premise disappear from all six
+stages — they were only ever needed to *read* the plain spine.
+
+**The lesson, stated generally**: a stage that consumes a spine should
+name what it needs of it (leaves, scope, crossing) rather than the
+spine's construction.  Both fires then supply the same five facts, and
+the nested lane costs one lemma plus an assembly instead of a second
+copy of the stages.  (The TT lane mirrored instead — `nestedMixedFit` +
+`zipperStageN` + `pointStageN`, ~1 500 lines; here the delta is ~130
+lines of stage signature and ~430 lines of assembly.)
+
+### The one new fact: `pinCrossS` (`Install/IndNestedS.lean`)
+
+```
+VExpr.instSeq zs (rP + cnF - 1)
+    ⟦ instSpine (fvs.take rP) (rP - 1) (pin.renameConsts f) ⟧
+  = VExpr.instRevChain (xs.take rP) ⟦ openRev 0 rP pin ⟧
+```
+
+an **identity of `VExpr`s** — `denote_openRev` (real-argument
+instantiation read through the reverse opening) puts the frame's own
+bvar spine in front, `denote_openRev_base` moves the opened denotation
+to base 0, `nestedChain` slides the reverse chain onto the fired spine,
+and `denote_renameConsts` erases the rename.  Nothing interpretive
+happens, so the two `interp_instRevChain*` lemmas a first attempt
+reached for were **retracted**: the pointwise-agreement route is not
+needed at all when the crossing is syntactic.
+
+### RISK R1: cleared, no finding
+
+The rule's parameter premise is quantified over the pin's **value**
+(`∀ vp, denote … rP (openRev 0 rP pin) = some vp → bvarsBelow rP vp →
+interp ρ (ys.getD i) = interp ρ (instRevChain (xs.take rP) vp)`) — the
+design's §8.1-corrected shape.  Nothing in the derivation asks whether
+a pin *fits in a clause*, so the task-#13 wall is never approached; the
+value-quantified form is consumed exactly once, in `hmixPar`, against
+the `vp` that `pinCrossS` produced.
+
+**Where the pins' values come from** (the one thing the plain bottom
+had for free): the statement's own pin walk `_hTypedP : TypedListW …
+(pins.map (instSpine (fvsP.take rP) (rP-1))) cdomsP` — the checker's
+`checkTypedList` run — denotes the *canonical* instantiations at the
+recursor frame, and `denote_openRev` read backwards turns that into the
+existence of `⟦openRev 0 rP pin⟧`.  Premise-exactness holds: no fact is
+used that a `--set-model` run does not establish.
+
+### The remaining nested deltas, all bookkeeping
+
+* the constructor tower is denoted at the **stored** levels: `hlev` +
+  `Level.substFn_map_subst` gives `substFn φ cvjLps usj ≐ substFn ψ'
+  cvjLps lvls` on `cvj.levelParams`, and `denote_params_ext` moves the
+  tower there;
+* the residual arity is `instPisAt_residual_arity_const`, **not** the
+  `_fvar` version — a nested run's spine is not a variable spine, which
+  is exactly why `IndBottomNestedS` carries `_hCstripsHead`'s
+  constant-head witness where the plain statement carries `_hCstrips`;
+* the major is matched by `denote_erasedEq` (the pin form is `ErasedEq`
+  to the checker's, not syntactically equal — the #105 "major pin is
+  `eqUpToNames` not `==`" record, cashed here).
+
+No finding-#1: every law derived from set-mode install checks.
