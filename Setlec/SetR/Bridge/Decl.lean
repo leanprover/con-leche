@@ -619,6 +619,53 @@ theorem opener_denotes_at {env : Env} (m : EnvR env) {φ : Name → Nat}
   rw [denote_lift m.cval_closed hfb D hle, h]
   rfl
 
+/-- **The openers' walk package.**  Everything `defEqListW_of` needs
+about a statement walk's *left*-hand list, for a telescope opened from
+a stored, closed subject at depth `0`: the three frame facts and the
+denotation, all at the walk's depth `D`.
+
+Assembled from four existing frame lemmas plus `opener_denotes_at`;
+the subject being `hasFvar`-free is what makes
+`openPisAtFvars_leaves` conclude that *every* leaf of an opener's
+annotation is itself an opener, hence `looseBVarsBounded 0`. -/
+theorem opener_walk_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
+    {n : Name} {ci : ConstantInfo} {cvt : ConstantVal} {k D : Nat}
+    {fvs : List Expr} {tbody : Expr}
+    (hfind : env.find? n = some ci) (hcv : ci.toConstantVal = cvt)
+    (hnf : cvt.type.hasFvar = false)
+    (hb : cvt.type.looseBVarsBounded 0 = true)
+    (hopen : openPisAtFvars k cvt.type 0 = some (fvs, tbody))
+    (hle : k ≤ D) :
+    ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      Expr.WScoped D (Expr.fvarTypeD x) ∧
+      (Expr.fvarTypeD x).looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded (Expr.fvarTypeD x) ∧
+      ∃ v, denote m.cval env φ D (Expr.fvarTypeD x) = some v := by
+  intro i x hx
+  have hmem : x ∈ fvs := List.mem_of_getElem? hx
+  obtain ⟨-, hbfv⟩ := openPisAtFvars_bounded k hopen hb
+  obtain ⟨hwfv, -⟩ := openPisAtFvars_WScoped k cvt.type 0 hopen
+    (Expr.WScoped.of_not_hasFvar hnf)
+  obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index k cvt.type 0 hopen i x hx
+  have hwx := hwfv _ hmem
+  rw [Expr.WScoped] at hwx
+  obtain ⟨hlt, hwty⟩ := hwx
+  rw [Nat.zero_add] at hlt hwty
+  obtain ⟨Γ, R, -, hfvd⟩ :=
+    stmtOpened_denotes m (φ := φ) hfind hcv hopen
+  refine ⟨Expr.WScoped.mono (by omega) hwty, hbfv _ hmem, ?_,
+    opener_denotes_at m hwty.fvarsBelow (by omega) (hfvd i _ hx)⟩
+  -- every leaf of an opener's annotation is itself an opener
+  intro l hl
+  have hlx : l ∈ (Expr.fvar (0 + i) nm ty).fvarLeaves := by
+    simp only [Expr.fvarLeaves, Expr.fvarTypeD] at hl ⊢
+    exact List.mem_cons_of_mem _ hl
+  rcases openPisAtFvars_leaves k hopen l (Or.inr ⟨_, hmem, hlx⟩) with
+    h' | h'
+  · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hnf] at h'
+    exact nomatch h'
+  · exact hbfv _ h'
+
 /-! ## The comparison walks
 
 Every `iota_j` statement walk the checker runs is a `checkDefEqList`

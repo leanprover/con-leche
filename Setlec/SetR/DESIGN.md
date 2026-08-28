@@ -4302,3 +4302,35 @@ from `ProvisionRecsR`'s output.  This is not a finding — nothing is
 mis-stated — but it is the difference between an inversion lemma and a
 fold-context lemma, and getting it wrong costs a rewrite of a
 40-component witness.
+
+### T6 — the walks' left-hand side, fully supplied
+
+`opener_walk_pack`: everything `defEqListW_of` needs about a
+statement walk's **left**-hand list — the three frame facts and the
+denotation, all at the walk's depth — for a telescope opened from a
+stored, closed subject at depth `0`.  Assembled from four existing
+frame lemmas (`openPisAtFvars_bounded`/`_WScoped`/`_index`/`_leaves`)
+plus `stmtOpened_denotes` and `opener_denotes_at`.  No new induction.
+
+Every statement walk's left list is `(fvs…).map Expr.fvarTypeD` for
+some opening, so this lemma covers all six at once.
+
+Three details that cost a round trip each and are worth transcribing:
+
+* `openPisAtFvars_WScoped` concludes `WScoped (0 + k) x` for the
+  **fvar**, not its annotation; `rw [Expr.WScoped]` unfolds it to
+  `(0+i) < (0+k) ∧ WScoped (0+i) ty`, and both need `Nat.zero_add`
+  (the depth trap, third instance);
+* the annotation's `LeavesBounded` is the interesting conjunct: it
+  holds because the *subject* is `hasFvar`-free, so
+  `openPisAtFvars_leaves` forces every leaf of an opener's annotation
+  to be **itself an opener**, whose annotation `openPisAtFvars_bounded`
+  bounds.  Without the subject's closedness there is nothing to say;
+* `(Expr.fvar i nm ty).fvarLeaves` is `(i, nm, ty) :: ty.fvarLeaves`,
+  so the leaf of the annotation embeds by `List.mem_cons_of_mem`, not
+  by an append lemma.
+
+What remains for the walks is the **right**-hand lists (`instPisAt`
+outputs), whose denotations are `instPisAt_denote_doms` and whose
+frames are `instPisAt_leaves`/`instPisAt_bounded` — the same shape of
+package, against lemmas that already exist.
