@@ -3750,3 +3750,40 @@ against that supplier before the structure is frozen.*  `EnvR` was
 frozen in T3 with the supplier named in prose and unbuilt; the
 mismatch survived T4 and T5 untouched because nothing had reason to
 construct an `EnvR` until the assembly did.
+
+### T6 handoff — the ordered remainder
+
+1. **`ConstantValR` / `ValueFrontR` bridges** (the tier's bulk, and the
+   gate for four of the six branches).  Ingredients: `checkConstantVal_inv`
+   and `fueledOps_*` (`Verify/Extend/Inversions.lean`) for the syntactic
+   conjuncts; `checkBridge` (`Bridge/Main.lean`) at `EnvS.toEnvR` for the
+   `Infer`/`DefEq` conjuncts; the `denoteClosed` existentials come from
+   `EnvR.ty_denotes` and the annotate output's `constsResolve`.  Note both
+   relations quantify over **every** `φ`, so the bridge must be run at an
+   arbitrary assignment — `checkBridge` already is.
+2. **`declDefnR`, `declThmR`, `declOpaqueR`, `declAxiomR`** — each is its
+   branch's `simp only [checkDecl, …]` inversion over (1), plus its own
+   conditional pack (`NatEqsR`/`DivModPinR` at `defn`, the sort-is-`Prop`
+   conjunct at `thm`, `ReducePinR` at `opaque`, the four shape gates at
+   `axiom`).  The Model lane's `checkDecl_sound`
+   (`Model/Consistency.lean:488-2513`) inverts exactly these branches and
+   is the template — read it for the inversion order, not for its
+   conclusions.
+3. **`declIndR`** — the big one; `DeclIndR` is `Decl.lean:771+`.  Expect
+   it to dominate the tier the way `IndBottom` dominated T5's.
+4. **`checkDeclR_sound`** = `checkDeclR_of` ∘ (1-3), composed with
+   `declStepS` and the five open obligations threaded at the assembly
+   level, then the `checkDecls` fold (transpose `foldlM_TT`,
+   `TTVerify/Consistency.lean:83`).
+5. **The thirteen `*_R` theorems** (§4 of the design doc).  Counted from
+   the checklist they are *fourteen* names: `checkDecl_sound`,
+   `checkDecls_sound`, `no_proof_of_Empty{,_input}`,
+   `no_constant_of_Empty`, and the `_S`/`_C`/`_SP` triples
+   (`checkDecls*_sound`, `no_proof_of_Empty*`, `no_proof_of_Empty_input*`).
+   Flag the discrepancy when reporting rather than dropping one.
+   `no_proof_of_Empty_R` takes the §3 route: a stored constant of type
+   `Empty` gives `interp (cval c ψ) ∈ˢ interp ⟦Empty⟧ = SetTheory.empty`
+   (`EnvS.mem_type` + `empty_pinned` + `interp_emptyT`), refuted by
+   `not_mem_empty`.
+6. **Axiom audit** on all of them, then the checkpoint commit with BOTH
+   lanes green.
