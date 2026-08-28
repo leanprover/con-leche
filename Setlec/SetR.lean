@@ -42,6 +42,7 @@ import Setlec.SetR.Bridge.Stuck
 import Setlec.SetR.Bridge.EtaCerts
 import Setlec.SetR.Bridge.DefEqClosed
 import Setlec.SetR.Bridge.Proj
+import Setlec.SetR.Bridge.ProjRed
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family

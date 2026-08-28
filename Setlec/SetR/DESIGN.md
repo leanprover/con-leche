@@ -1044,3 +1044,41 @@ Writing it needs three things, in this order:
 Batch (g)'s R11 additionally reuses (1) and `certs_teleR`; its rescues
 R12–R14 reuse `denote_declTypeR`, `certs_teleR` and the D8/D9 and D10
 certificates already proved.
+
+## T3 — batch (e) closed: `ProjStepR` and `InferProjStepR` both proved
+
+`Bridge/ProjRed.lean` discharges R6, the scrutinee's reduction (R7 at
+the `.proj` site) and the stuck branch.  `CheckStepR`'s only remaining
+obligation is `IotaStepR` (batch g).
+
+**The stuck branch is `Red.projArg`'s reason to exist.**  Finding 2
+predicted it from reading the clause; here it fires: *every* non-firing
+branch of `whnfCoreBody`'s `.proj` clause returns the reduced scrutinee
+under the projection, and no other rule concludes at a `.proj` subject
+whose scrutinee moved.
+
+**The walk is general, not concrete — and that was the right call.**
+The model performs R6's constructor-spine walk *concretely*: four
+`inferTypeCore_app_inv'` steps down the pinned `PSigma'.mk` type with
+each domain computed by hand (`Model/Core/Whnf.lean:560-741`).  The
+bridge does it once, generically, in `tele_of_inferSpineR`:
+
+* `inferTypeCore_app_inv'` peels one argument at a time, right to left
+  (the way an application chain is built), each step yielding
+  `infer arg` and `defeq ta dom` — `Tele.cons`'s pair, in the checker's
+  order;
+* the alignment between the walk's `whnf`'d domains and `Tele`'s
+  *syntactic* peeling is `whnf_forallE_self`: **a `∀`-tower is its own
+  whnf**.  The tower witness is `stripPis` — which the checker's own
+  installs already pin, and which survives instantiation
+  (`stripPis_instantiate1`), so the invariant carries down the walk;
+* `Tele.snoc` reassembles, since the peeling runs right to left while
+  `Tele` is built left to right.
+
+Cost: about the same as the concrete version at this one site.  Payoff:
+batch (g)'s R11 recursor and constructor telescopes are *the same walk
+at a different arity*, and neither of those types is pinned — so the
+concrete route would not have transferred at all.  Recording it as the
+general lesson: **when a rule's premise is a telescope, prove the walk
+from the `stripPis` witness the checker already pins, not from the
+shape of whichever type happens to be at hand.**
