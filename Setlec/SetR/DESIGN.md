@@ -5971,3 +5971,64 @@ actually needs, and the trims must be applied one at a time.**
 
 All fourteen carry exactly the install tier's five, which is now the
 whole remaining distance.
+
+### CALIBRATION — measured, and the answer changed on measuring
+
+The task was "land the genuinely smaller of `StdAxiomKeyS` /
+`OfReduceKeyS`".  Measuring first (per the trace-before-write
+discipline) turned up the cost driver, and it is not template size.
+
+**Template sizes, measured.**
+
+| obligation | Model template(s) | lines |
+|---|---|---|
+| `OfReduceKeyS` | `ofReduce_key` (`TrustAxioms.lean:426`) | ~120 |
+| `StdAxiomKeyS` | `propext_key` (`StdAxioms.lean:476`) + `choice_key` (`:799`) | ~320 + ~42 |
+
+So `OfReduceKeyS` is the smaller, by three-fold, and by measurement
+rather than guess.
+
+**But the templates are not the cost.**  Every Model key concludes
+with a *value* — `SetTheory.pt ∈ˢ T`.  Every `SetR` key must produce
+a **`VExpr` witness** `Vf` together with `AnnotOkV V ρ (Vf ψ)`, and
+`AnnotOkV` is a **structural recursion on `VExpr`** (`SetR/AnnotOkV.lean:47`).
+There is **no `pt`-valued `VExpr` in the tree**.  So the witness has
+to be built and its truthfulness proved structurally — with no Model
+analogue to transpose, because the Model lane never needed a syntactic
+witness at all.
+
+That is P3, located exactly: *truthfulness does not transport along an
+interpretation equality*, and the place it bites is the **witness**,
+not the membership.
+
+**Where the template *does* transpose — and it is the pair.**  The
+in-lane precedent is `trustCompilerKeyS` (`Install/Axiom.lean:191`,
+already discharged, ~80 lines): its witness is
+`m.cval trueIntroName ψ` — a **stored constant's valuation** — and
+every conjunct then comes from `EnvS`'s own fields (`cval_closed`,
+`val_params`, `annot_okV`, `cval_memType`).  No construction at all.
+
+And `MemberKeyS`'s witness is
+`m.cval (cvA.name.str "_model") ψ` — **also a stored constant's
+valuation**, handed to it by the statement.  So the member key is the
+`trustCompilerKeyS` shape, not the axiom-key shape: what it needs is
+`cval_memType` at the model constant plus the type identification the
+preprocessor's syntactic contract already supplies.
+
+**The sized read, which is what the calibration was for:**
+
+| obligation | shape | size |
+|---|---|---|
+| `MemberKeyS` | witness given (stored `_model` valuation) — `trustCompilerKeyS`'s shape | **smallest**; transcription-leaning |
+| `OfReduceKeyS` | witness must be **constructed**, `AnnotOkV` proved structurally | medium; the construction is new work |
+| `MemberEtaS` | concludes `EtaLawV`, a capability law, not a membership — different shape from all four others | unmeasured; sized by `EtaLawV`'s demands |
+| `StdAxiomKeyS` | the `OfReduceKeyS` delta, twice, over a 3× template | large |
+| `DivModPinS` | now also owns the depth-4 certificate machinery (the granted move); the TT lane spends ~1400 lines on the equivalent | **largest** |
+
+**The recommendation, against the standing order:** start with
+`MemberKeyS`, not an axiom key.  The order "smallest first to
+calibrate" was chosen when the five looked uniform; measurement says
+they are not, and the one whose witness is *given* is both the
+smallest and the one whose success calibrates the pair — which is
+precisely the read the calibration was commissioned to produce.
+`MemberEtaS` remains unmeasured and is the one genuine unknown left.
