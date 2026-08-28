@@ -270,4 +270,31 @@ theorem openPisAtFvars_ctxOkR (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
         exact this
       · exact hCfvs x hx'
 
+/-- **The canonical constant context.**  A context every entry of
+which is one closed valuation `A`, against an expression all of whose
+fvar leaves carry the *same* annotation denoting `A`.  This is
+`Decl.lean`'s "pinned `Nat` entries" case, and the sibling of
+`openPisAtFvars_ctxOkR`: canonical entries instead of an opening's
+own annotations. -/
+theorem CtxOkR.constCtx {d : Nat} {ty : Expr} {A : VExpr}
+    {e : Expr}
+    (hA : VExpr.Closed A)
+    (hty : denote cval env φ d ty = some A)
+    (htyfb : Expr.fvarsBelow 0 ty)
+    (hleaves : ∀ l ∈ e.fvarLeaves, l.1 < d ∧ l.2.2 = ty) :
+    CtxOkR μ cval env φ d (List.replicate d A) e := by
+  refine ⟨by rw [List.length_replicate], fun l hl => ?_⟩
+  obtain ⟨hlt, hlty⟩ := hleaves l hl
+  have hfb : Expr.fvarsBelow l.1 l.2.2 := by
+    rw [hlty]
+    exact Expr.fvarsBelow_mono (Nat.zero_le _) htyfb
+  have hden : denote cval env φ d l.2.2 = some A := by
+    rw [hlty]; exact hty
+  refine ⟨hlt, hfb, A, hden, A, ?_, DefEq.refl⟩
+  have hget : (List.replicate d A)[d - 1 - l.1]? = some A := by
+    rw [List.getElem?_replicate]
+    rw [if_pos (show d - 1 - l.1 < d from by omega)]
+  have := Infer.bvar (μ := μ) (env := env) (cval := cval) (φ := φ) hget
+  rwa [VExpr.liftN_eq_self_of_closed hA] at this
+
 end Setlec.SetR

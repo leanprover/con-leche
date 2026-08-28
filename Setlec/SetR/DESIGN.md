@@ -5399,3 +5399,23 @@ between the current spine and hypothesis-free theorems.
 **The gate is not cleared.**  Reporting this rather than claiming it,
 per the rule the campaign has been running on: a premise nobody has
 discharged is a premise, however good the evidence.
+
+### The shared blocker, removed: `CtxOkR.constCtx`
+
+The one piece all three carried obligations wait on is built.
+`CtxOkR.constCtx` (`SetR/CtxOkR.lean`) discharges the correspondence
+at a context every entry of which is one **closed** valuation `A`,
+against an expression all of whose fvar leaves carry the *same*
+annotation denoting `A`.  Fifteen lines: the leaf's `Infer` is
+`Infer.bvar` at `List.replicate`, and the lift collapses because `A`
+is closed (`VExpr.liftN_eq_self_of_closed`).
+
+That is exactly the `[natVR, natVR]` / `[H2, H1, natVR, natVR]` /
+`[E]` shape the three obligations need, generalised once rather than
+three times — the sibling of `openPisAtFvars_ctxOkR`, canonical
+entries instead of an opening's annotations.
+
+What remains per obligation is now only its own **frame package** for
+the equation/certificate sides: the leaf and denotation facts of the
+generated pins, transported across `Expr.substConst0 c value'`.
+`WScoped` is already supplied (`natOpEquations_wscopedB`).
