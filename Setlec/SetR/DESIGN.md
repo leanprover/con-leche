@@ -2039,7 +2039,7 @@ and revised without moving anything the campaign already verified.
 |---|---|
 | `Annot/Syntax.lean` | `AVExpr` (the sort-annotated `VExpr`), `erase`, the de Bruijn kit (`liftN`/`inst`/`mkAppN`) with clause equations, and the erase-commutations `erase_liftN` / `erase_inst` / `erase_mkAppN` |
 | `Annot/Pass.lean` | `HasSort` (the sort fact) + `HasSort.ofConv`; `ZetaEq` + `ZetaEq.refl`; the `Annotates` relation; `Annotates.zetaEq` (the erase contract); the literal-spine closures; `CvalAnnot` (the one environment hypothesis); **`Infer.annotates`** and **`Tele.annotates`** (existence, one recursor application over the 44 minor premises) |
-| `Annot/Kinding.lean` | `univ_inj`; `ZetaEq.interp_eq`; `interp_eq_univ_of_sortFact`; **`sortFact_unique`** (+ the linked form); `HasSort.mem_univ` / `HasSort.annotOkV`; `Annotates.interp_erase` |
+| `Annot/Kinding.lean` | `ZetaEq.interp_eq`; `interp_eq_univ_of_sortFact`; **`sortFact_unique`** (+ the linked form); `HasSort.mem_univ` / `HasSort.annotOkV`; `Annotates.interp_erase` |
 
 ## The rulings, and where they came from
 
@@ -2071,21 +2071,41 @@ is *per tree*, and its two eliminations are proved here:
 `HasSort.mem_univ` (`⟦A⟧ρ ∈ˢ univ u` at any satisfying `ρ`) and
 `HasSort.annotOkV` (the domain's truthfulness).
 
-**No cross-tree coherence is claimed, and the reason is a negative
-result worth keeping.**  The hoped-for form
+### NEGATIVE RESULT A4 (standing) — membership-form kinding is false; kinds thread through *shared inferred types*
+
+**The rule for every consumer, tier C included: a level is recovered
+from an equality of universes, never from a typing.**  The hoped-for
+form
 
 ```
     interp V ρ A ∈ˢ univ u → interp V ρ A ∈ˢ univ v → u = v
 ```
 
-is **false**: the tower is cumulative (`SetTheory.univ_mono`), so
-membership fixes a *lower bound* on the sort and never the sort.  Only
-`univ u = univ v` separates levels, and that needs the two facts to be
-about the **same type**.  Hence the unique-kinding statement below, and
-hence cross-tree agreement stays tier C's business — where every
-statement has the `∀ ρ, Sat V Δ ρ → …` shape, an unsatisfiable context
-is vacuous, and `sortFact_unique` settles the satisfiable ones through
-the shared inferred type each pair of facts is threaded onto.
+is **false**, and not by an accident of this model: the tower is
+cumulative (`SetTheory.univ_mono : m ≤ n → univ m ⊆ˢ univ n`), so a
+membership fixes only a **lower bound** on the sort.  Every set that
+inhabits `univ u` inhabits every `univ v` above it, so no pair of
+memberships can separate two levels.  The *only* handle the tower
+offers is `SetTheory.univ_inj` (`univ u = univ v → u = v`, relocated
+below), and reaching it needs the two sort facts to be about the
+**same type** — which is why `sortFact_unique` is stated at one `tA`
+and why `sortFact_unique_of_conv` needs a linking `DefEq` rather than
+two independent typings.
+
+Two consequences, both binding:
+
+* **No cross-tree coherence is claimed at tier A.**  Two annotations of
+  one term, justified by unrelated derivations, are not shown to carry
+  the same numerals, and cannot be by any argument at this tier.
+* **Tier C threads kinds through shared inferred types.**  Wherever two
+  binder sorts must agree, the statement has to name the type they are
+  both facts about (or a `DefEq` between the two inferred types), and
+  the agreement is then `sortFact_unique`/`sortFact_unique_of_conv` at
+  a satisfying `ρ`.  Contexts with no satisfying `ρ` are vacuous under
+  the `∀ ρ, Sat V Δ ρ → …` shape every statement already has, so the
+  two mechanisms together cover the space — but the "read the level
+  back off a membership" shortcut must never be reached for.  It is the
+  natural first move and it is unsound.
 
 ## Unique kinding, semantic form (the statement tier C consumes)
 
@@ -2102,16 +2122,18 @@ architecture), so both premises read as equalities at the one value
 recovers the numeral.  `sortFact_unique_of_conv` is the same with a
 linking `DefEq` between two inferred types.
 
-**`univ_inj` did not exist.**  Searched `Setlec/SetTheory/Derive/*`:
-`Univ.lean` has `univ_mono`, `univ_mem_univ`, `univ_subset_succ`;
-`Derive/Empty.lean` has `not_mem_self`; injectivity is absent.  It is
-proved in `Annot/Kinding.lean` from those three (`u < v` gives
-`univ u ∈ˢ univ (u+1) ⊆ˢ univ v`, and the equality would put a set
-inside itself).  It is a **general fact about the tower with no #151
-content**: its home is `Setlec/SetTheory/Derive/Univ.lean` and it
-should be relocated there verbatim when a second consumer appears (the
-eighth relocation).  It sits in `Annot/` only because tier A may not
-edit existing files.
+**`univ_inj` did not exist; it does now, in its home** (the campaign's
+**eighth relocation**, done verbatim in its own commit).  Searched
+`Setlec/SetTheory/Derive/*`: `Univ.lean` had `univ_mono`,
+`univ_mem_univ`, `univ_subset_succ`; `Derive/Empty.lean` has
+`not_mem_self`; injectivity was absent.  It is proved from those three
+(`u < v` gives `univ u ∈ˢ univ (u+1) ⊆ˢ univ v`, and the equality would
+put a set inside itself) and now sits beside `univ_mono` in
+`Setlec/SetTheory/Derive/Univ.lean`, with A4's warning in its
+docstring — the two facts belong together, since `univ_mono` is
+precisely why `univ_inj` is the only handle.  A general fact about the
+tower with no #151 content; `Annot/Kinding.lean` consumes it as
+`SetTheory.univ_inj`.
 
 ## FINDING A1 — the `let` body is not certified un-instantiated
 
@@ -2242,6 +2264,31 @@ landed, and the `AVExpr` swap stays blocked.
 `lam_cod_sort_needed` witness has `F x = pt` on both readings, so a
 clause that inspects the fibre's *values* fails for the same reason a
 clause on `(u, A, F)` does.  That is the point of #151.
+
+### A3 — RULING: **option C** (2026-08-28)
+
+The split moves to the **soundness judgment** (truth-at-`0` /
+membership-at-positive), not to the λ node.  Consequences, all
+recorded as settled:
+
+* **No kernel change.**  `Core.lean`'s λ clause stays the
+  official-kernel `infer_lambda` shape; #100 stage 6 is not reversed;
+  the checker does not become stricter than the reference kernel, so
+  the completeness risk option A carried never has to be measured.
+* **No I7 amendment.**  `Rel.lean` is untouched, premise-exactness
+  holds, and `checkStepR` stays proved — which was the whole reason the
+  amendment was stopped.
+* **`AVExpr.lam` stays as landed**, with the domain numeral only.  It
+  is the numeral I7 *does* supply; whether any consumer reads it is
+  tier B's C-increment to say, and if the answer is no the follow-up is
+  a one-constructor simplification to an unannotated `lam` (nothing
+  outside `Annot/Syntax.lean` and `Annotates.lam` would move — `erase`,
+  the substitution kit and both erase-commutations are
+  annotation-blind by construction).
+* **The `AVExpr` swap unblocks when tier B's C-increment lands.**  Tier
+  B's F4 stands as a correct refutation of a *term-directed* λ clause;
+  option C is the architectural answer to it, and F4's corollary about
+  the kernel's `ensureSort` is retracted by the citations above.
 
 ## Tier A gate record
 
