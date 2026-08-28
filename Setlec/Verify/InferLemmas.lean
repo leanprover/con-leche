@@ -1,3 +1,4 @@
+import Setlec.Verify.Mono
 import Setlec.Kernel.TypeChecker
 import Setlec.Verify.Shift
 import Setlec.Verify.InstLevels
@@ -352,6 +353,82 @@ theorem inferTypeCore_letE_inv {env : Env} {fuel d : Nat} {n : Name}
   | true =>
     simp only [↓reduceIte] at h
     exact ⟨tty, s, tv, rfl, hes, rfl, hde, h⟩
+
+/-! ## Fuel-lifted inversions
+
+The three inversions the native-pair projection's certificate walk
+needs, in the form that walk consumes: stated at an arbitrary fuel
+rather than at `fuel + 1`, by lifting the one-level forms through
+`Verify/Mono.lean`.  (Task #100 introduced them for the walk that
+replaced the collapse-refuted `PairMkFacts` domain clauses.)
+
+Relocated here from `Setlec/Model/Core/Whnf.lean` (task #148, T3),
+where they were `private`: they are V-free inversions of the checker,
+which is what this module is for, and both the set model's proj case
+and the `Setlec/SetR/*` bridge's R6 clause consume them.  Statements
+unchanged. -/
+
+theorem whnf_forallE_eq {env : Env} {fuel d : Nat} {n : Name}
+    {t b e' : Expr} {mb : BinderMeta}
+    (h : whnf mode env fuel d (.forallE n t b mb) = .ok e') :
+    e' = .forallE n t b mb := by
+  have h1 := whnf_mono (Nat.le_add_right fuel 2) h
+  have h2 : whnf mode env (fuel + 2) d (.forallE n t b mb) =
+      .ok (.forallE n t b mb) := by
+    -- one iteration of the reduction loop suffices (task #106: the
+    -- budget is `irreducible`, so peel it with its positivity witness)
+    obtain ⟨k, hk⟩ := whnfLoopFuel_succ
+    rw [whnf_succ]
+    show whnfLoop (pureFns mode env (fuel + 1)) env d whnfLoopFuel _ = _
+    rw [hk]
+    rfl
+  rw [h1] at h2
+  exact Except.ok.inj h2
+
+theorem inferTypeCore_app_inv' {env : Env} {fuel d : Nat}
+    {f a t : Expr} (h : inferTypeCore mode env fuel d (.app f a) = .ok t) :
+    ∃ tf n' ty' body' m', inferTypeCore mode env fuel d f = .ok tf ∧
+      whnf mode env fuel d tf = .ok (.forallE n' ty' body' m') ∧
+      t = body'.instantiate1 a ∧
+      ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
+        isDefEqCore mode env fuel d ta ty' = .ok true := by
+  match fuel, h with
+  | 0, h => rw [inferTypeCore_zero] at h; exact nomatch h
+  | fuel + 1, h =>
+    obtain ⟨tf, n', ty', body', m', h1, h2, h3, ta, h4, h5⟩ :=
+      inferTypeCore_app_inv h
+    exact ⟨tf, n', ty', body', m', inferTypeCore_mono (Nat.le_succ _) h1,
+      whnf_mono (Nat.le_succ _) h2, h3, ta,
+      inferTypeCore_mono (Nat.le_succ _) h4,
+      isDefEqCore_mono (Nat.le_succ _) h5⟩
+
+theorem inferTypeCore_const_inv {env : Env} {fuel d : Nat}
+    {n : Name} {us : List Level} {t : Expr}
+    (h : inferTypeCore mode env fuel d (.const n us) = .ok t) :
+    ∃ ci, env.find? n = some ci ∧
+      t = ci.toConstantVal.type.instantiateLevelParams
+        ci.toConstantVal.levelParams us := by
+  match fuel, h with
+  | 0, h => rw [inferTypeCore_zero] at h; exact nomatch h
+  | fuel + 1, h =>
+    rw [inferTypeCore_succ] at h
+    simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
+      Except.bind] at h
+    revert h
+    cases hf : env.find? n with
+    | none =>
+      intro h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
+    | some ci =>
+      intro h
+      dsimp only at h
+      revert h
+      split
+      · intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact ⟨ci, rfl, h.symm⟩
+      · intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-! ## Application-spine helpers -/
 
