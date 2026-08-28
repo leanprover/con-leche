@@ -26,7 +26,8 @@ The tier's semantic half, consuming the **landed** soundness
 `DefEq`-soundness is *unconditional* under `Sat` (the T4 architecture),
 so both premises read as interpretation equalities at the **one** value
 `interp V ρ tA`: `univ u = interp V ρ tA = univ v`.  The numeral is then
-recovered by injectivity of the universe tower (`univ_inj` below).
+recovered by injectivity of the universe tower
+(`SetTheory.univ_inj`).
 
 **The membership route does not exist, and that is the tier's headline
 negative result.**  One might hope for
@@ -53,15 +54,12 @@ through the shared inferred type each pair of facts is threaded onto.
 
 ## `univ_inj`
 
-Not present in `Setlec/SetTheory/Derive/*` (searched: `Univ.lean` has
-`univ_mono`, `univ_mem_univ`, `univ_subset_succ`, and `Derive/Empty.lean`
-has `not_mem_self`, but no injectivity).  It is proved here from those
-three, and it is a **general fact about the tower with no #151 content**:
-its home is `Setlec/SetTheory/Derive/Univ.lean`, and it should be
-relocated there verbatim when a second consumer appears (the relocation
-discipline this campaign has used seven times — see
-`Setlec/SetR/DESIGN.md`).  It lives here only because tier A may not
-edit existing files.
+`SetTheory.univ_inj` (`Setlec/SetTheory/Derive/Univ.lean`) is the
+handle: `univ u = univ v → u = v`, from `univ_mono`, `univ_mem_univ` and
+`not_mem_self`.  It did not exist when this tier was written and was
+proved here; it is a general fact about the tower with no #151 content,
+so it was **relocated verbatim** to its home beside `univ_mono` (the
+eighth relocation of the campaign — see `Setlec/SetR/DESIGN.md`).
 -/
 
 namespace Setlec.SetR
@@ -70,20 +68,6 @@ open Setlec.TT Setlec.TTVerify
 open SetTheory
 
 universe w
-
-/-! ## Injectivity of the universe tower -/
-
-/-- **The universe tower is injective.**  `univ u ∈ˢ univ (u+1) ⊆ˢ univ v`
-whenever `u < v`, so an equality of two levels' universes would put a set
-inside itself, against regularity (`not_mem_self`). -/
-theorem univ_inj {V : Type w} [SetTheory V] {u v : Nat}
-    (h : (univ u : V) = univ v) : u = v := by
-  rcases Nat.lt_trichotomy u v with hlt | heq | hgt
-  · exact absurd (h ▸ univ_mono (V := V) hlt _ (univ_mem_univ u))
-      (not_mem_self (univ v : V))
-  · exact heq
-  · exact absurd (h ▸ univ_mono (V := V) hgt _ (univ_mem_univ v))
-      (not_mem_self (univ u : V))
 
 /-! ## The erase contract, semantically -/
 
