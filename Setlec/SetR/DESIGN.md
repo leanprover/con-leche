@@ -2772,6 +2772,43 @@ text.  Both wrong steps this session (this one and finding 6's
 a premise checked for the *data* it needs and not for the *environment*
 or the *degenerate case* it quantifies over.
 
+## Stage 5's shape, scoped (2026-08-28)
+
+Scoped from `ProjFnR` and `EnvS.cons` before writing any of it, so the
+next pass starts from the obligation list rather than deriving it.
+
+One field's install is `EnvS.cons` at
+`c₀ = .recInfo ⟨projFnName T i, lps, pty⟩ nP nP [rule]` with
+`cval'' = cvalWith cval (projFnName T i) (fun ψ => cval (projModelName T i) ψ)`.
+Of `EnvS.cons`'s sixteen obligations:
+
+| obligation | source |
+|---|---|
+| `hwf` | `ProjFnR`'s syntactic pins on `pty` and `rhsA` |
+| `hheadCtors` | `ProjFnR`'s first conjunct (the constructor's lookup) |
+| `hheadRec` | **`indBottomProjS`** — the only heavy one, and it is already proved (c4) |
+| `hclosed`, `hparams`, `hannot` | `m`'s fields at `projModelName T i` |
+| `htype` | **new named obligation** (`ProjKeyS`) — the model projection's value inhabits the *renamed-back* public type `pty`; the projection counterpart of `MemberKeyS` |
+| `hheadEta` | the live capability case — see below |
+| `hheadUnit`, `hheadProj`, `hheadProjPair`, `hheadNat`, `hheadDivMod`, `hheadReduce` | vacuous: the head is a `.recInfo` |
+| `hempty`, `hheadEq`, `hheadBasis` | name distinctness (`isProjFnShape`) |
+
+The fold threads the invariant
+`∀ j ≤ i, ∀ ψ, cval (projFnName T j) ψ = cval (projModelName T j) ψ`.
+It survives later steps because step `k` writes only `projFnName T k`,
+which is neither `projFnName T j` (`k ≠ j`) nor `projModelName T j`.
+
+**The eta head, at a projection install.**  `EtaFamilyStored` wants
+*every* `projFnName T j`, `j < caps.etaFields`, stored — so the
+obligation is vacuous at every field but the last, and at the last it
+is `etaLawKeyS`, whose `hvP` is exactly the fold's invariant.  But
+`MemberEtaS`'s lesson applies unchanged: `T` there is quantified over
+*stored* families, and identifying it with the block's former is an
+assembly-level fact.  So expect `ProjEtaS` to be **forwarded** too,
+with the live `etaLawKeyS` discharge landing in the `DeclIndS`
+assembly beside `MemberEtaS`'s.  Do not plan to close it inside the
+fold.
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -2789,7 +2826,7 @@ needs.
 | `declIndS` 2 | **done** — `memberInstallS`, `indMembersS` (non-recursor members), `provisionRecsS` (rule-less recursors ⇒ `EnvS V envSelf`) |
 | `declIndS` 3 | **done** — `EnvS.swap` (3a), `iotaRuleS` (3b), `indRecsS` (3c) |
 | `declIndS` 4 | **done** — `memberUnitS` discharged; `MemberEtaS` forwarded to the assembly (see the stage-4 record) |
-| `declIndS` 5 | **not started** — projection installs on `indBottomProjS` |
+| `declIndS` 5 | **not started, but scoped** — see "Stage 5's shape" above: obligation table, the fold's valuation invariant, and why `ProjEtaS` will be forwarded |
 | `declIndS` 6 | **not started** — the elimination templates |
 | `DeclIndS` assembly | **not started** |
 | `DeclBasisS` | **not started** — the basis install (the TT lane's `DeclBasis.lean` is the template) |
