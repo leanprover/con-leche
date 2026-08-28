@@ -5940,3 +5940,34 @@ exactly the install tier's five.  The Model lane's `_C`, `_S` and
 
 Remaining: the five `*_input` corollaries (the
 `foldlM_no_Empty_decl` pattern), then the install tier's five.
+
+### ALL FOURTEEN STAND — the breadth dimension is done
+
+`checkDecl_stores` came out of `Model/Consistency.lean` into
+`Setlec/Verify/DeclStores.lean` (purely syntactic; both routes' input
+corollaries turn on it), and with it the last five landed:
+`checkDecl_sound_R` and the four `*_input_*` corollaries, on the
+Model lane's `foldlM_no_Empty_decl` pattern.
+
+**The fourteen, all at `[propext, Classical.choice, Quot.sound]`:**
+
+| | pure | cached | shared | parsed |
+|---|---|---|---|---|
+| acceptance | `checkDecls_sound_R` | `checkDeclsC_sound_R` | `checkDeclsS_sound_R` | `checkDeclsSP_sound_R` |
+| no stored `Empty` | `no_proof_of_Empty_R` | `no_proof_of_Empty_C_R` | `no_proof_of_Empty_S_R` | `no_proof_of_Empty_SP_R` |
+| no declared `Empty` | `no_proof_of_Empty_input_R` | `..._input_C_R` | `..._input_S_R` | `..._input_SP_R` |
+
+plus `checkDecl_sound_R` (one declaration extends the invariant) and
+`no_constant_of_Empty_R` (the model-level core).
+
+*A relocation note worth keeping.*  Moving proof text between files
+changes which `simp` arguments fire: `checkDecl_stores` arrived with
+**nine** newly-unused `simp` arguments, and trimming them one at a
+time turned up two places where a *different* argument then became
+necessary (`checkThmVal` in the second branch, `fueledOps_ensureSort`
+after it).  The rule: **after relocating a proof, the warning list is
+not a tidy-up — it is a re-derivation of which lemmas the goal
+actually needs, and the trims must be applied one at a time.**
+
+All fourteen carry exactly the install tier's five, which is now the
+whole remaining distance.
