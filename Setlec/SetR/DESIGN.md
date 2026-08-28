@@ -4128,3 +4128,37 @@ bound existentials (`PlainChecked`'s `rrest`/`restP`/`crest2`/`ldoms`
 are `IotaThmR`'s `lrest`/`crest2`/`ldoms`/`ldomsL` — the lists are
 the same, the names are not; write the witness in `IotaThmR`'s order,
 not `PlainChecked`'s).
+
+### T6 — D6's walk is assembly, not derivation
+
+Entering the quantified-context decomposition revised its cost
+downward.  I had it recorded as "the last piece of rock 1 with any
+content"; on inspection the content is already built, in
+`Verify/Denote/IndFrame.lean`:
+
+* `openPisAtFvars_denoteTele` — an opened telescope whose subject
+  denotes yields the opened body's denotation *and* each opener's
+  annotation denoted at its own depth, against the `.pi` tower's
+  context;
+* `instPisAt_fvar_denote_defined` — an `instPisAt` run at frame
+  variables of a denoting subject has a denoting residual;
+* `instPisAt_denote_cross` — the domain lists' correspondence.
+
+So the decomposition is a *composition* of three existing lemmas with
+`EnvR.ty_denotes`, not a new induction.  `stmtType_denotes` and
+`stmtOpened_denotes` (landed) are that composition's entry point: from
+a `find?` of the `iota_j` statement to the opened body's denotation
+and every opener's, which is exactly the per-element input
+`defEqAtW_of` wants.
+
+Two depth traps in the composition, both from `openPisAtFvars`'s
+opening depth being an explicit parameter: the tele lemma concludes at
+`j + k` and at `j + i`, and with `j = 0` those are `0 + k`/`0 + i`,
+which do not match `k`/`i` syntactically.  Both need `Nat.zero_add`
+rewrites — the second one *under* the `∀ i x` binder, so it has to be
+done after `refine … fun i x hx => ?_` rather than by rewriting the
+hypothesis.
+
+Revised remaining shape: rock 1 is now **entirely assembly** — the
+walks (`defEqListW_of` per element, fed by `stmtOpened_denotes`), the
+Bool-vs-Prop conversions, and the permuted-name rename.

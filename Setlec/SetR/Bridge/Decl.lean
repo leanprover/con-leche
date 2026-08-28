@@ -1,6 +1,7 @@
 import Setlec.SetR.Bridge.Main
 import Setlec.SetR.Install.Step
 import Setlec.Verify.IotaWalkInv
+import Setlec.Verify.Denote.IndFrame
 
 /-!
 # The declaration-level bridge (task #148, T6)
@@ -560,6 +561,49 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
     rfl,
     fun hc => ⟨(hnatK hc).1, (hnatK hc).2.1, hnat (hnatK hc).2.2⟩,
     fun hc => hdm hc (hdmK hc)⟩
+
+/-! ## The opened statement's frame
+
+D6's quantified-context walk, entered.  Every walk element of an
+`iota_j` statement is a piece of that statement's *opened* type, so
+what the walk layer needs per element — a denotation and three frame
+facts — all descends from one fact: the stored theorem's type denotes.
+`EnvR.ty_denotes` supplies that, and
+`openPisAtFvars_denoteTele` (`Verify/Denote/IndFrame.lean`) turns it
+into the opened body's denotation together with each opener's
+annotation denoted at its own depth. -/
+
+/-- **A stored constant's type denotes** — `EnvR.ty_denotes` at a
+`find?` rather than a membership, which is how every statement pin
+reaches it. -/
+theorem stmtType_denotes {env : Env} (m : EnvR env) {φ : Name → Nat}
+    {n : Name} {ci : ConstantInfo} {cvt : ConstantVal}
+    (hfind : env.find? n = some ci) (hcv : ci.toConstantVal = cvt) :
+    ∃ T, denote m.cval env φ 0 cvt.type = some T := by
+  obtain ⟨t, ht⟩ := m.ty_denotes ci (find?_mem hfind) φ
+  rw [hcv, denoteClosed] at ht
+  exact ⟨t, ht⟩
+
+/-- **The opened statement, denoted.**  The composite the walks
+consume: the opened body denotes at the opening depth, and every
+opener's annotation denotes at its own. -/
+theorem stmtOpened_denotes {env : Env} (m : EnvR env) {φ : Name → Nat}
+    {n : Name} {ci : ConstantInfo} {cvt : ConstantVal} {k : Nat}
+    {fvs : List Expr} {tbody : Expr}
+    (hfind : env.find? n = some ci) (hcv : ci.toConstantVal = cvt)
+    (hopen : openPisAtFvars k cvt.type 0 = some (fvs, tbody)) :
+    ∃ (Γ : List VExpr) (R : VExpr),
+      denote m.cval env φ k tbody = some R ∧
+      ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+        denote m.cval env φ i (Expr.fvarTypeD x)
+          = some (Γ.getD (k - 1 - i) default) := by
+  obtain ⟨T, hT⟩ := stmtType_denotes m (φ := φ) hfind hcv
+  obtain ⟨Γ, R, -, hbody, hfv⟩ :=
+    openPisAtFvars_denoteTele k hopen hT
+  rw [Nat.zero_add] at hbody
+  refine ⟨Γ, R, hbody, fun i x hx => ?_⟩
+  have h := hfv i x hx
+  rwa [Nat.zero_add] at h
 
 /-! ## The comparison walks
 
