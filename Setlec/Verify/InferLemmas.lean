@@ -145,7 +145,13 @@ theorem whnfStep_inv {env : Env} {fuel d : Nat} {k : Expr → CheckM Expr}
     exact ⟨e₁, rfl, Or.inr (Or.inr ⟨hrn, hu, h.symm⟩)⟩
 
 /-- Inversion for the λ-rule of `inferTypeCore` (infer-only: the
-annotation is reused whole). -/
+annotation is reused whole).  The last conjunct is the **codomain
+sort** (task #152), delivered at the verified modes only: it is the
+`HasSort (A :: Δ) B v` premise the set lane's annotation pass needs at
+every λ node, in the shape the checker computes it (infer, then whnf
+to a sort — `Setlec/SetR/Annot/Pass.lean`'s `HasSort` unfolded along
+the bridge).  At `.noModel` — the official-parity lane, which does not
+run the check — it is vacuous. -/
 theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCore mode env (fuel + 1) d (.lam n ty body m) = .ok t) :
@@ -154,6 +160,9 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       whnf mode env fuel d tty = .ok (.sort u) ∧
       inferTypeCore mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
+      (mode.verified = true → body.isLam = false → ∃ btt v,
+        inferTypeCore mode env fuel (d + 1) bt = .ok btt ∧
+        whnf mode env fuel (d + 1) btt = .ok (.sort v)) ∧
       t = .forallE n ty (bt.abstract1 d) m := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
@@ -181,8 +190,34 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
   | error err => rw [hbt] at h; exact nomatch h
   | ok bt =>
   rw [hbt] at h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact ⟨tty, u, bt, rfl, hwtty, rfl, h.symm⟩
+  dsimp only at h
+  -- the codomain-sort check (task #152), at the verified modes
+  by_cases hv : (mode.verified && !body.isLam) = true
+  case neg =>
+    rw [if_neg hv] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    refine ⟨tty, u, bt, rfl, hwtty, rfl, fun hv' hlam => ?_, h.symm⟩
+    exact absurd (by simp [hv', hlam]) hv
+  rw [if_pos hv] at h
+  simp only [ensureSort, whnf_def, Bind.bind, Except.bind] at h
+  revert h
+  cases hbtt : inferTypeCore mode env fuel (d + 1) bt with
+  | error err => intro h; exact nomatch h
+  | ok btt => ?_
+  dsimp only
+  cases hwbtt : whnf mode env fuel (d + 1) btt with
+  | error err => intro h; exact nomatch h
+  | ok wbtt => ?_
+  dsimp only
+  match wbtt with
+  | .sort v =>
+    intro h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨tty, u, bt, rfl, hwtty, rfl,
+      fun _ _ => ⟨btt, v, hbtt, hwbtt⟩, h.symm⟩
+  | .bvar _ | .fvar _ _ _ | .const _ _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- Inversion for the application rule of `inferTypeCore` (task #100
 de-gating: the per-argument re-check runs unconditionally — the former

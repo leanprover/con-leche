@@ -33,6 +33,17 @@ each naming the theorem family that depends on it. -/
 #guard CheckMode.ttChecks .ttModel == true
 #guard CheckMode.ttChecks .noModel == false
 
+-- The λ-codomain-sort gate (task #152, `inferBody`'s `.lam` clause):
+-- ON in both verified lanes — the set lane's annotation pass reads the
+-- fact off `inferTypeCore_lam_inv`'s `mode.verified = true → …`
+-- conjunct, so compiling this `false` at `.setModel` would make that
+-- conjunct vacuous — and OFF at `.noModel`, which is the
+-- official-parity lane (the reference kernel's `infer_lambda` does not
+-- sort-check the body's type).
+#guard CheckMode.verified .setModel == true
+#guard CheckMode.verified .ttModel == true
+#guard CheckMode.verified .noModel == false
+
 -- The direct simple-structure master switch ships OFF since task #148
 -- T0b (it shipped ON from #119/#120 until 2026-08-27).  BOTH verified
 -- lanes assume the switched-off configuration: the TT bridge premises

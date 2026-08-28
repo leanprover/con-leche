@@ -44,6 +44,18 @@ def CheckMode.ttChecks : CheckMode → Bool
   | .ttModel => true
   | _ => false
 
+/-- Are the *verified* modes' extra checks enabled — the checks both
+model lanes want and the unverified lane must not run, because it is
+the official-parity lane?  The second accessor the kernel branches on
+(task #152: the λ-rule's codomain-sort check, `inferBody`'s `.lam`
+clause).  This is deliberately **not** `ttChecks`: the λ codomain sort
+is a premise of the *set* lane's annotation pass (`Setlec/SetR`), so it
+must run at `.setModel` too; and it is a check the reference kernel's
+`infer_lambda` does not run, so it must not run at `.noModel`. -/
+def CheckMode.verified : CheckMode → Bool
+  | .noModel => false
+  | _ => true
+
 /-- Data common to all constants: name, universe parameters, type. -/
 structure ConstantVal where
   name : Name

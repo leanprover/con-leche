@@ -49,6 +49,17 @@ def shiftFrom (p : Nat) : Expr → Expr
   | .lit l => .lit l
   | .proj s i e => .proj s i (shiftFrom p e)
 
+/-- Shifting preserves the head shape, so the λ-rule's chain guard
+(task #152) reads the same on both sides of a shift. -/
+theorem isLam_shiftFrom {p : Nat} :
+    ∀ (e : Expr), (shiftFrom p e).isLam = e.isLam := by
+  intro e
+  cases e with
+  | fvar idx n ty =>
+    simp only [shiftFrom]
+    split <;> rfl
+  | _ => rfl
+
 /-- Shifting from `p` does nothing to a term whose reachable `fvar`s are
 below `p`... except inside `fvar` type annotations, which `fvarsBelow` does
 not constrain; hence this lemma requires annotation-free positions only in

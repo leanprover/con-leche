@@ -289,6 +289,14 @@ def looseBVarsBounded (k : Nat) : Expr → Bool
     looseBVarsBounded k ty && looseBVarsBounded k val && looseBVarsBounded (k + 1) body
   | .proj _ _ e => looseBVarsBounded k e
 
+/-- Is the expression a λ?  The λ-rule's codomain-sort check (task
+#152) fires once per λ *chain* — at the innermost binder, whose body
+is not itself a λ — because that is the granularity the interned
+binder-telescope loop (task #72) can reproduce. -/
+def isLam : Expr → Bool
+  | .lam .. => true
+  | _ => false
+
 /-- Does the expression contain any free variable (`fvar`)?  Input
 declarations must be `fvar`-free; the checker introduces `fvar`s only
 internally when opening binders. -/

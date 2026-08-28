@@ -581,9 +581,11 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       match ← viewI wtty with
       | some (.sort _) => do
         -- Binder-telescope loop (task #72), shared with `inferBodyI`.
+        -- At `.noModel` the λ-codomain sort check is off (task #152:
+        -- official-kernel parity is this lane's whole point).
         let fv ← internI (.fvar depth n ty)
         let fuel ← withStore (·.nodes.size)
-        inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb)]
+        inferLamsI .noModel r depth fuel body 1 #[fv] [(n, ty, mb)]
       | _ => throw (.invalid "expected a sort")
     | some (.app _ _) => do
       let h ← withStore (fun st => st.getAppFnI e)

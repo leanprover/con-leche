@@ -2186,6 +2186,24 @@ private theorem infer_step (henv : EnvWF env)
     rw [shiftFrom_instantiate1 hpd] at hbody
     refine bind_rel _ _ hbody ?_
     intro bt hbt
+    have hwbt : WScoped (d + 1) bt :=
+      inferTypeCore_WScoped henv fuel hbt hwo
+    -- the codomain-sort check (task #152) commutes like the ∀ rule's
+    -- (shifting does not change the body's head shape, so the guard
+    -- reads the same on both sides)
+    rw [isLam_shiftFrom body]
+    by_cases hv : (mode.verified && !body.isLam) = true
+    case neg =>
+      rw [if_neg hv, if_neg hv, ← shiftFrom_abstract1 hpd]
+      rfl
+    rw [if_pos hv, if_pos hv]
+    refine bind_rel _ _ (ih.infer (p := p) (d := d + 1) (by omega) hwbt) ?_
+    intro btt hbtt
+    have hwbtt : WScoped (d + 1) btt :=
+      inferTypeCore_WScoped henv fuel hbtt hwbt
+    refine bind_rel_eq _ (ensureSort_shift henv ih (p := p)
+      (d := d + 1) (by omega) hwbtt) ?_
+    intro v _
     rw [← shiftFrom_abstract1 hpd]
     rfl
   | .app f a =>

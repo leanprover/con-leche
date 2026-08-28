@@ -145,18 +145,67 @@ theorem inferLamsLeafI_sim (ih : SSimI mode env f) {d : Nat}
     (hfvs : DenL s₀.store fvs.toList.reverse ws) (hstk : DenILStk s₀ stk stkx)
     (hw : WScoped (d + k) (tx.instantiateList ws)) :
     SimAt mode env s₀ RelD
-      (inferLamsLeafI (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
-      (inferLamsLeaf (fueledFns mode env) d tx k ws stkx) := by
+      (inferLamsLeafI mode (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
+      (inferLamsLeaf mode (fueledFns mode env) d tx k ws stkx) := by
   unfold inferLamsLeafI inferLamsLeaf
   refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hfvs)
     (fun s₁ ob hs₁ hext₁ hQob => ?_)
   refine SimAt.bind (ih.infer hs₁ hQob hw)
     (fun s₂ bt btx hs₂ hext₂ hPbt => ?_)
   obtain ⟨hbtd, hwbt⟩ := hPbt
-  refine SimAt.bind_left (abstractRangeM_eff hs₂ hbtd)
-    (fun s₅ cur hs₅ hext₅ hQcur => ?_)
-  exact inferLamsOutI_sim hs₅
-    (DenILStk.mono (((hext₁.trans hext₂)).trans hext₅) hstk) hQcur
+  -- the λ-chain guard (task #152): the residual's head shape, read on
+  -- both sides of the denotation
+  refine SimAt.view ?_
+  obtain ⟨nd, hn, hc, hd⟩ :=
+    denoteT_some_inv (denoteT_mono (hext₁.trans hext₂) ht)
+  rw [hn]
+  cases nd
+  case lam nmN tyN bodyN mbN =>
+    invert_node hd
+    dsimp only
+    refine SimAt.bind_left (abstractRangeM_eff hs₂ hbtd)
+      (fun s₅ cur hs₅ hext₅ hQcur => ?_)
+    exact inferLamsOutI_sim hs₅
+      (DenILStk.mono (((hext₁.trans hext₂)).trans hext₅) hstk) hQcur
+  all_goals
+    (first | invert_node hd | cases hd)
+    dsimp only
+    by_cases hv : mode.verified = true
+    case neg =>
+      simp only [if_neg hv]
+      refine SimAt.bind_left (abstractRangeM_eff hs₂ hbtd)
+        (fun s₅ cur hs₅ hext₅ hQcur => ?_)
+      exact inferLamsOutI_sim hs₅
+        (DenILStk.mono (((hext₁.trans hext₂)).trans hext₅) hstk) hQcur
+    simp only [if_pos hv]
+    refine SimAt.bind (ih.infer hs₂ hbtd hwbt)
+      (fun s₃ btt bttx hs₃ hext₃ hPbtt => ?_)
+    obtain ⟨hbttd, hwbtt⟩ := hPbtt
+    refine SimAt.bind (ih.whnf hs₃ hbttd hwbtt)
+      (fun s₄ wbt wx hs₄ hext₄ hPw => ?_)
+    obtain ⟨hwd, hww⟩ := hPw
+    refine SimAt.view ?_
+    obtain ⟨nd', hn', hc', hd'⟩ := denoteT_some_inv hwd
+    rw [hn']
+    cases nd' with
+    | sort v =>
+      rw [denoteNode, Option.map_eq_some_iff] at hd'
+      obtain ⟨lv, hlv, rfl⟩ := hd'
+      refine SimAt.bind_left (abstractRangeM_eff hs₄
+        (denoteT_mono (hext₃.trans hext₄) hbtd))
+        (fun s₅ cur hs₅ hext₅ hQcur => ?_)
+      exact inferLamsOutI_sim hs₅
+        (DenILStk.mono ((((hext₁.trans hext₂).trans hext₃).trans
+          hext₄).trans hext₅) hstk) hQcur
+    | bvar i => cases hd'; exact SimAt.throw
+    | fvar idx nm tt => invert_node hd'; exact SimAt.throw
+    | const nm us => invert_node hd'; exact SimAt.throw
+    | app f' a' => invert_node hd'; exact SimAt.throw
+    | lam nm tt b mm => invert_node hd'; exact SimAt.throw
+    | forallE nm tt b mm => invert_node hd'; exact SimAt.throw
+    | letE nm tt vv b => invert_node hd'; exact SimAt.throw
+    | lit l => cases hd'; exact SimAt.throw
+    | proj sp i e' => invert_node hd'; exact SimAt.throw
 
 theorem inferLamsI_sim (ih : SSimI mode env f) {d : Nat} :
     ∀ (fuel : Nat) {t : EIdx} {tx : Expr} {k : Nat}
@@ -167,8 +216,8 @@ theorem inferLamsI_sim (ih : SSimI mode env f) {d : Nat} :
       DenL s₀.store fvs.toList.reverse ws → DenILStk s₀ stk stkx →
       WScoped (d + k) (tx.instantiateList ws) →
       SimAt mode env s₀ RelD
-        (inferLamsI (coreKnotI mode (mkFEnv env) f) d fuel t k fvs stk)
-        (inferLams (fueledFns mode env) d fuel tx k ws stkx)
+        (inferLamsI mode (coreKnotI mode (mkFEnv env) f) d fuel t k fvs stk)
+        (inferLams mode (fueledFns mode env) d fuel tx k ws stkx)
   | 0, t, tx, k, fvs, ws, stk, stkx, s₀ => by
     intro hs ht hfvs hstk hw
     exact inferLamsLeafI_sim ih hs ht hfvs hstk hw
@@ -184,10 +233,10 @@ theorem inferLamsI_sim (ih : SSimI mode env f) {d : Nat} :
           match ← viewI wtty with
           | some (.sort _) => do
             let fv ← internI (.fvar (d + k) n tyo)
-            inferLamsI (coreKnotI mode (mkFEnv env) f) d fuel body (k + 1)
+            inferLamsI mode (coreKnotI mode (mkFEnv env) f) d fuel body (k + 1)
               (fvs.push fv) ((n, tyo, mb) :: stk)
           | _ => throw (.invalid "expected a sort")
-        | _ => inferLamsLeafI (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
+        | _ => inferLamsLeafI mode (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
       _
     refine SimAt.view ?_
     obtain ⟨nd, hn, hc, hd⟩ := denoteT_some_inv ht
@@ -873,10 +922,27 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
     ((do
       let bt ← (fueledFns mode env).infer (d + 1)
         (bodyx.instantiate1 (.fvar d nm tyx))
+      if mode.verified && !bodyx.isLam then
+        let btt ← (fueledFns mode env).infer (d + 1) bt
+        let _ ← ensureSort (fueledFns mode env) env (d + 1) btt
+        pure ()
       pure (Expr.forallE nm tyx (bt.abstract1 d) mbx)) : FueledM Expr).val F
     = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx))
-        >>= fun bt => pure (Expr.forallE nm tyx (bt.abstract1 d) mbx)) := by
+        >>= fun bt =>
+          if mode.verified && !bodyx.isLam then
+            inferTypeCore mode env F (d + 1) bt >>= fun btt =>
+              ensureSortCore mode env F (d + 1) btt >>= fun _ =>
+                pure (Expr.forallE nm tyx (bt.abstract1 d) mbx)
+          else pure (Expr.forallE nm tyx (bt.abstract1 d) mbx)) := by
   rw [FueledM.atF_bind]
+  congr 1
+  funext bt
+  by_cases hv : (mode.verified && !bodyx.isLam) = true
+  case neg => rw [if_neg hv, if_neg hv]; rfl
+  rw [if_pos hv, if_pos hv, FueledM.atF_bind]
+  congr 1
+  funext btt
+  rw [FueledM.atF_bind, ensureSort_atF]
   rfl
 
 /-- The λ-inference loop against `inferBody`'s own λ-tail (task #100
@@ -892,20 +958,24 @@ theorem inferLamsI_tail_sim (ih : SSimI mode env f) (henv : EnvWF env)
     (hfv : s₀.store.denoteT fv = some (.fvar d nmx tyx))
     (hwty : WScoped d tyx) (hwbody : WScoped d bodyx) :
     SimAt mode env s₀ (RelE d)
-      (inferLamsI (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
+      (inferLamsI mode (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
         [(nm, t, ⟨mbbi⟩)])
       (do
         let bt ← (fueledFns mode env).infer (d + 1)
           (bodyx.instantiate1 (.fvar d nmx tyx))
+        if mode.verified && !bodyx.isLam then
+          let btt ← (fueledFns mode env).infer (d + 1) bt
+          let _ ← ensureSort (fueledFns mode env) env (d + 1) btt
+          pure ()
         pure (Expr.forallE nmx tyx (bt.abstract1 d) ⟨mbbi⟩)) := by
   have hwopen : WScoped (d + 1)
       (bodyx.instantiateList [Expr.fvar d nmx tyx]) := by
     rw [instList_single]
     exact WScoped.instantiate1 hwty 0 hwbody
   have hcore : SimAt mode env s₀ RelD
-      (inferLamsI (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
+      (inferLamsI mode (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
         [(nm, t, ⟨mbbi⟩)])
-      (inferLams (fueledFns mode env) d fuel bodyx 1 [Expr.fvar d nmx tyx]
+      (inferLams mode (fueledFns mode env) d fuel bodyx 1 [Expr.fvar d nmx tyx]
         [(nmx, tyx, ⟨mbbi⟩)]) := by
     refine inferLamsI_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact DenL.cons hfv DenL.nil)
@@ -915,28 +985,55 @@ theorem inferLamsI_tail_sim (ih : SSimI mode env f) (henv : EnvWF env)
     intro res F hF
     rw [inferLams_atF] at hF
     obtain ⟨F', hchain⟩ := inferLams_sound fuel bodyx 1
-      [Expr.fvar d nmx tyx] [(nmx, tyx, ⟨mbbi⟩)] F res rfl hF
+      [Expr.fvar d nmx tyx] [(nmx, tyx, ⟨mbbi⟩)] F res rfl
+      (by
+        intro x hx
+        rcases List.mem_singleton.mp hx with rfl
+        exact ⟨_, _, _, rfl⟩)
+      hF
     refine ⟨F', ?_⟩
     rw [inferLamTail_atF]
-    obtain ⟨bt, hbt, hwrap⟩ := bind_okB hchain
+    obtain ⟨bt, hbt, htail⟩ := bind_okB hchain
     have hbt' : inferTypeCore mode env F' (d + 1)
         (bodyx.instantiate1 (.fvar d nmx tyx)) = .ok bt := by
       rw [← instList_single bodyx (Expr.fvar d nmx tyx)]
       exact hbt
     rw [hbt', okB_bind]
-    unfold inferLamsWrap at hwrap
-    exact hwrap
+    unfold inferLamsTail at htail
+    by_cases hv : (mode.verified && !bodyx.isLam) = true
+    case neg =>
+      rw [if_neg hv] at htail ⊢
+      unfold inferLamsWrap at htail
+      exact htail
+    rw [if_pos hv] at htail ⊢
+    rw [infer_def] at htail
+    obtain ⟨btt, hbtt, htail⟩ := bind_okB htail
+    rw [hbtt, okB_bind]
+    rw [ensureSort_def] at htail
+    obtain ⟨v, hvv, htail⟩ := bind_okB htail
+    rw [hvv, okB_bind]
+    unfold inferLamsWrap at htail
+    exact htail
   case hsc =>
     intro s v' vv hden hrun
     refine ⟨hden, ?_⟩
     obtain ⟨F, hF⟩ := hrun
     rw [inferLamTail_atF] at hF
     obtain ⟨bt, hbt, hF⟩ := bind_okB hF
-    injection hF with hres
-    subst hres
     have hwbt : WScoped (d + 1) bt :=
       inferTypeCore_WScoped henv F hbt
         (WScoped.instantiate1 hwty 0 hwbody)
+    have hres : vv = Expr.forallE nmx tyx (bt.abstract1 d) ⟨mbbi⟩ := by
+      revert hF
+      by_cases hv : (mode.verified && !bodyx.isLam) = true
+      case neg => rw [if_neg hv]; intro hF; injection hF with hres; exact hres.symm
+      rw [if_pos hv]
+      intro hF
+      obtain ⟨btt, -, hF⟩ := bind_okB hF
+      obtain ⟨v, -, hF⟩ := bind_okB hF
+      injection hF with hres
+      exact hres.symm
+    subst hres
     exact (by
       simp only [WScoped]
       exact ⟨hwty, WScoped.abstract1 0 hwbt⟩ :

@@ -187,7 +187,7 @@ theorem infer_lam_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
       denote m.cval env φ d t = some tv ∧
       ∃ T', Infer mode env m.cval φ Δ v T' ∧
         DefEq mode env m.cval φ Δ T' tv := by
-  obtain ⟨tty, u, bt, hty, hwu, hbt, rfl⟩ := inferTypeCore_lam_inv h
+  obtain ⟨tty, u, bt, hty, hwu, hbt, -, rfl⟩ := inferTypeCore_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLty : Expr.LeavesBounded ty := fun l hl =>

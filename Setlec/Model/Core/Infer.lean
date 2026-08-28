@@ -204,7 +204,7 @@ theorem infer_claims (m : EnvModel V env)
       rw [heq]
       exact hpi
   | lam n ty body m' =>
-    obtain ⟨tty, u, bt, htyi, hu, hbt, rfl⟩ :=
+    obtain ⟨tty, u, bt, htyi, hu, hbt, -, rfl⟩ :=
       inferTypeCore_lam_inv h
     simp only [WScoped] at hw
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb

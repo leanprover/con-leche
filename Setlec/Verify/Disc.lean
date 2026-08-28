@@ -1373,6 +1373,17 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split <;> try exact DiscV.throw _
     refine DiscV.bind (ih.site_infer henv
       (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
+    -- the codomain-sort check (task #152), at the verified modes and
+    -- at the innermost binder of a λ-chain
+    by_cases hv : (mode.verified && !body.isLam) = true
+    case neg =>
+      simp only [if_neg hv]
+      exact DiscV.pure (by
+        simp only [WScoped]
+        exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)
+    simp only [if_pos hv]
+    refine DiscV.bind (ih.site_infer henv hbt) (fun btt hbtt => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv hbtt) (fun v _ => ?_)
     exact DiscV.pure (by
       simp only [WScoped]
       exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)

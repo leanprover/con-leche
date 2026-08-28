@@ -63,14 +63,43 @@ def inferLamsOut (d : Nat) :
     inferLamsOut d rest (j - 1)
       (Expr.forallE n (tyo.abstractRange d j) cur mb)
 
-/-- Pure mirror of `inferLamsLeafI`. -/
-def inferLamsLeaf (r : CoreFns m) (d : Nat) (t : Expr) (k : Nat)
-    (fvs : List Expr) (stk : List InferLamEntryX) : m Expr := do
+/-- Instantiating with free variables does not change a term's head
+shape — the λ-chain guard (task #152) reads the same on the peel's
+residual and on its bulk-opened form. -/
+theorem isLam_instantiateList_fvars {vs : List Expr}
+    (hv : ∀ x ∈ vs, ∃ i n ty, x = Expr.fvar i n ty) :
+    ∀ (e : Expr) (dd : Nat), (e.instantiateList vs dd).isLam = e.isLam := by
+  intro e dd
+  cases e
+  case bvar j =>
+    rw [Expr.instantiateList]
+    split
+    · simp only [Expr.isLam]
+    · split
+      · obtain ⟨i, n', ty', hx⟩ := hv vs[j - dd] (List.getElem_mem _)
+        rw [hx, Expr.instantiateList]
+        simp only [Expr.isLam]
+      · simp only [Expr.isLam]
+  all_goals (rw [Expr.instantiateList]; try simp only [Expr.isLam])
+
+/-- Pure mirror of `inferLamsLeafI` (task #152: the chain's body-type
+sort check, at the verified modes, on a non-λ residual). -/
+def inferLamsLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
+    (t : Expr) (k : Nat) (fvs : List Expr)
+    (stk : List InferLamEntryX) : m Expr := do
   let bt ← r.infer (d + k) (t.instantiateList fvs)
+  match t with
+  | .lam .. => pure ()
+  | _ =>
+    if mode.verified then
+      let btt ← r.infer (d + k) bt
+      match ← r.whnf (d + k) btt with
+      | .sort _ => pure ()
+      | _ => throw (.invalid "expected a sort")
   inferLamsOut d stk (k - 1) (bt.abstractRange d k)
 
 /-- Pure mirror of `inferLamsI`. -/
-def inferLams (r : CoreFns m) (d : Nat) :
+def inferLams (mode : CheckMode) (r : CoreFns m) (d : Nat) :
     Nat → Expr → Nat → List Expr → List InferLamEntryX → m Expr
   | fuel + 1, t, k, fvs, stk =>
     match t with
@@ -79,11 +108,11 @@ def inferLams (r : CoreFns m) (d : Nat) :
       let tty ← r.infer (d + k) tyo
       match ← r.whnf (d + k) tty with
       | .sort _ =>
-        inferLams r d fuel body (k + 1) (Expr.fvar (d + k) n tyo :: fvs)
-          ((n, tyo, mb) :: stk)
+        inferLams mode r d fuel body (k + 1)
+          (Expr.fvar (d + k) n tyo :: fvs) ((n, tyo, mb) :: stk)
       | _ => throw (.invalid "expected a sort")
-    | t => inferLamsLeaf r d t k fvs stk
-  | 0, t, k, fvs, stk => inferLamsLeaf r d t k fvs stk
+    | t => inferLamsLeaf mode r d t k fvs stk
+  | 0, t, k, fvs, stk => inferLamsLeaf mode r d t k fvs stk
 
 /-- Pure mirror of `inferPisOutI` (the `imax` fold, pure). -/
 def inferPisOut : List Level → Level → Level
@@ -165,15 +194,28 @@ def annotateLams (r : CoreFns m) (d : Nat) :
 /-! ## The chained tails (wraps) -/
 
 /-- The chained `inferBody` λ-tail folded over the peeled binders
-(innermost first, `j` the head entry's binder level): post-erasure the
-λ-rule performs no runs after the body inference, so the tail is a pure
-`abstract1` fold. -/
+(innermost first, `j` the head entry's binder level): every wrapped
+level's body is a λ, so the λ-rule performs no runs there (its
+codomain check is chain-guarded, task #152) and the fold is pure. -/
 def inferLamsWrap (d : Nat) :
     List InferLamEntryX → Nat → Expr → m Expr
   | [], _j, bt => pure bt
   | (n, tyo, mb) :: rest, j, bt =>
     inferLamsWrap d rest (j - 1)
       (.forallE n tyo (bt.abstract1 (d + j)) mb)
+
+/-- The chained λ-tail *at the peel's residual*: the innermost λ node's
+own codomain-sort check (task #152 — it fires exactly when the residual
+`t` is not a λ, which is when the peel stopped on it), then the pure
+wrap of the peeled binders. -/
+def inferLamsTail (mode : CheckMode) (r : CoreFns m) (env : Env)
+    (d : Nat) (t : Expr) (k : Nat) (stk : List InferLamEntryX)
+    (bt : Expr) : m Expr := do
+  if mode.verified && !t.isLam then
+    let btt ← r.infer (d + k) bt
+    let _ ← ensureSort r env (d + k) btt
+    pure ()
+  inferLamsWrap d stk (k - 1) bt
 
 /-- The chained `inferBody` ∀-tail folded over the peeled binders: per
 level, the chained rule's `ensureSort` of the freshly built inner sort
@@ -210,17 +252,18 @@ variable {r : CoreFns m} {env : Env} {d : Nat}
 
 theorem inferLams_zero (t : Expr) (k : Nat) (fvs : List Expr)
     (stk : List InferLamEntryX) :
-    inferLams r d 0 t k fvs stk = inferLamsLeaf r d t k fvs stk := rfl
+    inferLams mode r d 0 t k fvs stk
+      = inferLamsLeaf mode r d t k fvs stk := rfl
 
 theorem inferLams_succ_lam (fuel : Nat) (n : Name) (ty body : Expr)
     (mb : BinderMeta) (k : Nat) (fvs : List Expr)
     (stk : List InferLamEntryX) :
-    inferLams r d (fuel + 1) (.lam n ty body mb) k fvs stk
+    inferLams mode r d (fuel + 1) (.lam n ty body mb) k fvs stk
       = (do
         let tty ← r.infer (d + k) (ty.instantiateList fvs)
         match ← r.whnf (d + k) tty with
         | .sort _ =>
-          inferLams r d fuel body (k + 1)
+          inferLams mode r d fuel body (k + 1)
             (Expr.fvar (d + k) n (ty.instantiateList fvs) :: fvs)
             ((n, ty.instantiateList fvs, mb) :: stk)
         | _ => throw (.invalid "expected a sort")) := rfl
@@ -228,8 +271,8 @@ theorem inferLams_succ_lam (fuel : Nat) (n : Name) (ty body : Expr)
 theorem inferLams_succ_ne_lam (fuel : Nat) {t : Expr}
     (ht : ∀ n ty body mb, t ≠ .lam n ty body mb) (k : Nat)
     (fvs : List Expr) (stk : List InferLamEntryX) :
-    inferLams r d (fuel + 1) t k fvs stk
-      = inferLamsLeaf r d t k fvs stk := by
+    inferLams mode r d (fuel + 1) t k fvs stk
+      = inferLamsLeaf mode r d t k fvs stk := by
   cases t with
   | lam n ty body mb => exact absurd rfl (ht n ty body mb)
   | _ => rw [inferLams] <;> exact fun _ _ _ _ h => nomatch h
@@ -335,7 +378,11 @@ theorem inferTypeCore_lam_eq (env : Env) (F d : Nat) (n : Name)
          | .sort _ =>
            inferTypeCore mode env F (d + 1)
                (body.instantiate1 (.fvar d n ty)) >>= fun bt =>
-             pure (Expr.forallE n ty (bt.abstract1 d) mb)
+             if mode.verified && !body.isLam then
+               inferTypeCore mode env F (d + 1) bt >>= fun btt =>
+                 ensureSortCore mode env F (d + 1) btt >>= fun _ =>
+                   pure (Expr.forallE n ty (bt.abstract1 d) mb)
+             else pure (Expr.forallE n ty (bt.abstract1 d) mb)
          | _ => throw (.invalid "expected a sort")) := rfl
 
 theorem annotateCore_forallE_eq (env : Env) (F d : Nat) (n : Name)
@@ -401,19 +448,36 @@ theorem inferLamsOut_atF (d : Nat) :
 
 theorem inferLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
     (fvs : List Expr) (stk : List InferLamEntryX) (F : Nat) :
-    (inferLamsLeaf (fueledFns mode env) d t k fvs stk).val F
-      = inferLamsLeaf (pureFns mode env F) d t k fvs stk := by
+    (inferLamsLeaf mode (fueledFns mode env) d t k fvs stk).val F
+      = inferLamsLeaf mode (pureFns mode env F) d t k fvs stk := by
   unfold inferLamsLeaf
   rw [FueledM.atF_bind]
   congr 1
   funext bt
-  exact inferLamsOut_atF d stk (k - 1) _ F
+  cases t <;>
+    try exact inferLamsOut_atF d stk (k - 1) _ F
+  all_goals
+    dsimp only
+    by_cases hv : mode.verified = true
+    case neg =>
+      simp only [if_neg hv]
+      exact inferLamsOut_atF d stk (k - 1) _ F
+    simp only [if_pos hv]
+    rw [FueledM.atF_bind]
+    congr 1
+    funext btt
+    rw [FueledM.atF_bind]
+    congr 1
+    funext w
+    cases w <;> first
+      | rfl
+      | exact inferLamsOut_atF d stk (k - 1) _ F
 
 theorem inferLams_atF (d : Nat) :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List InferLamEntryX) (F : Nat),
-      (inferLams (fueledFns mode env) d fuel t k fvs stk).val F
-        = inferLams (pureFns mode env F) d fuel t k fvs stk
+      (inferLams mode (fueledFns mode env) d fuel t k fvs stk).val F
+        = inferLams mode (pureFns mode env F) d fuel t k fvs stk
   | 0, t, k, fvs, stk, F => inferLamsLeaf_atF d t k fvs stk F
   | fuel + 1, t, k, fvs, stk, F => by
     by_cases hlam : ∃ n ty body mb, t = Expr.lam n ty body mb
@@ -590,33 +654,74 @@ theorem inferLamsOut_wrap {d : Nat} :
         omega)
 
 /-- Leaf-phase soundness: the mirror's leaf run is the chained
-inference of the bulk-opened residual followed by the (pure) tails. -/
+inference of the bulk-opened residual, the innermost λ node's own
+codomain check (task #152) and the (pure) tails. -/
 theorem inferLamsLeaf_sound {d : Nat} {t : Expr}
     {k : Nat} {fvs : List Expr} {stk : List InferLamEntryX} {F : Nat}
     {res : Expr}
     (hlen : stk.length = k)
-    (hrun : inferLamsLeaf (pureFns mode env F) d t k fvs stk = .ok res) :
+    (hrun : inferLamsLeaf mode (pureFns mode env F) d t k fvs stk = .ok res) :
     ∃ F', (inferTypeCore mode env F' (d + k) (t.instantiateList fvs) >>=
-      fun bt => inferLamsWrap (m := CheckM) d stk (k - 1) bt)
-        = .ok res := by
+      fun bt => inferLamsTail (m := CheckM) mode (pureFns mode env F')
+        env d t k stk bt) = .ok res := by
   unfold inferLamsLeaf at hrun
   obtain ⟨bt, hbt, hrun⟩ := bind_okB hrun
   rw [infer_def] at hbt
-  cases stk with
-  | nil =>
-    obtain rfl : k = 0 := by simpa using hlen.symm
-    unfold inferLamsOut at hrun
-    rw [abstractRange_zero] at hrun
-    exact ⟨F, by rw [hbt, okB_bind]; exact hrun⟩
-  | cons e rest =>
-    have hk1 : 1 ≤ k := by rw [← hlen]; simp
-    have hkeq : (k - 1) + 1 = k := by omega
-    refine ⟨F, ?_⟩
-    rw [hbt, okB_bind]
-    rw [← inferLamsOut_wrap (e :: rest) (k - 1) bt
-      (by simp only [List.length_cons] at hlen ⊢; omega)]
-    rw [hkeq]
-    exact hrun
+  refine ⟨F, ?_⟩
+  rw [hbt, okB_bind]
+  unfold inferLamsTail
+  -- the guard, and the check it guards, are the leaf's own
+  have hout : ∀ {res' : Expr},
+      inferLamsOut (m := CheckM) d stk (k - 1) (bt.abstractRange d k)
+          = .ok res' →
+        inferLamsWrap (m := CheckM) d stk (k - 1) bt = .ok res' := by
+    intro res' h
+    cases stk with
+    | nil =>
+      obtain rfl : k = 0 := by simpa using hlen.symm
+      unfold inferLamsOut at h
+      rw [abstractRange_zero] at h
+      exact h
+    | cons e rest =>
+      have hk1 : 1 ≤ k := by rw [← hlen]; simp
+      have hkeq : (k - 1) + 1 = k := by omega
+      rw [← inferLamsOut_wrap (e :: rest) (k - 1) bt
+        (by simp only [List.length_cons] at hlen ⊢; omega), hkeq]
+      exact h
+  revert hrun
+  cases t
+  case lam n' ty' body' mb' =>
+    intro hrun
+    simp only [Expr.isLam, Bool.not_true, Bool.and_false,
+      Bool.false_eq_true, ↓reduceIte]
+    exact hout hrun
+  all_goals
+    intro hrun
+    dsimp only at hrun ⊢
+    simp only [Expr.isLam, Bool.not_false, Bool.and_true]
+    by_cases hv : mode.verified = true
+    case neg =>
+      rw [if_neg hv] at hrun ⊢
+      exact hout hrun
+    rw [if_pos hv] at hrun ⊢
+    rw [infer_def] at hrun ⊢
+    obtain ⟨btt, hbtt, hrun⟩ := bind_okB hrun
+    rw [hbtt, okB_bind]
+    obtain ⟨w, hw, hrun⟩ := bind_okB hrun
+    rw [whnf_def] at hw
+    rw [ensureSort_def, ensureSortCore_eq, hw, okB_bind]
+    revert hrun
+    cases w with
+    | sort v =>
+      intro hrun
+      dsimp only at hrun ⊢
+      try rw [pure_bind] at hrun
+      try rw [pure_bind]
+      exact hout hrun
+    | bvar _ | fvar _ _ _ | const _ _ | app _ _ | lam _ _ _ _
+    | forallE _ _ _ _ | letE _ _ _ _ | lit _ | proj _ _ _ =>
+      intro hrun
+      exact nomatch hrun
 
 /-- A successful peel run is reproduced by the chained inference of the
 bulk-opened residual followed by the chained tails, at some fuel. -/
@@ -624,18 +729,19 @@ theorem inferLams_sound {d : Nat} :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List InferLamEntryX) (F : Nat) (res : Expr),
       stk.length = k →
-      inferLams (pureFns mode env F) d fuel t k fvs stk = .ok res →
+      (∀ x ∈ fvs, ∃ i n ty, x = Expr.fvar i n ty) →
+      inferLams mode (pureFns mode env F) d fuel t k fvs stk = .ok res →
       ∃ F', (inferTypeCore mode env F' (d + k) (t.instantiateList fvs) >>=
-        fun bt => inferLamsWrap (m := CheckM) d stk (k - 1) bt)
-          = .ok res := by
+        fun bt => inferLamsTail (m := CheckM) mode (pureFns mode env F')
+          env d t k stk bt) = .ok res := by
   intro fuel
   induction fuel with
   | zero =>
-    intro t k fvs stk F res hlen hrun
+    intro t k fvs stk F res hlen hfv hrun
     rw [inferLams_zero] at hrun
     exact inferLamsLeaf_sound hlen hrun
   | succ fuel ihf =>
-    intro t k fvs stk F res hlen hrun
+    intro t k fvs stk F res hlen hfv hrun
     by_cases hlam : ∃ n ty body mb, t = Expr.lam n ty body mb
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [inferLams_succ_lam] at hrun
@@ -656,13 +762,23 @@ theorem inferLams_sound {d : Nat} :
         | lit l => exact nomatch hrun
         | proj sp i e => exact nomatch hrun
       dsimp only at hrun
+      have hfv' : ∀ x ∈ (Expr.fvar (d + k) n (ty.instantiateList fvs) :: fvs),
+          ∃ i n' ty', x = Expr.fvar i n' ty' := by
+        intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx'
+        · exact ⟨_, _, _, rfl⟩
+        · exact hfv x hx'
       obtain ⟨F', hchain⟩ := ihf body (k + 1) _ _ F res
-        (by simpa using hlen) hrun
-      obtain ⟨bt, hbt, hwrap⟩ := bind_okB hchain
+        (by simpa using hlen) hfv' hrun
+      obtain ⟨bt, hbt, htail⟩ := bind_okB hchain
       have hlamL : (Expr.lam n ty body mb).instantiateList fvs
           = Expr.lam n (ty.instantiateList fvs)
             (body.instantiateList fvs 1) mb := by
         simp [Expr.instantiateList]
+      -- the chained level's guard is the peel's own: instantiating
+      -- with free variables preserves the head shape (task #152)
+      have hguard : (body.instantiateList fvs 1).isLam = body.isLam :=
+        isLam_instantiateList_fvars hfv body 1
       refine ⟨(max F F') + 1, ?_⟩
       rw [hlamL, inferTypeCore_lam_eq]
       rw [inferTypeCore_mono (Nat.le_max_left F F') htty, okB_bind]
@@ -674,10 +790,30 @@ theorem inferLams_sound {d : Nat} :
             (Expr.fvar (d + k) n (ty.instantiateList fvs) :: fvs) from
         (Expr.instantiateList_cons ..).symm]
       rw [show d + k + 1 = d + (k + 1) from by omega]
-      rw [inferTypeCore_mono (Nat.le_max_right F F') hbt, okB_bind, pure_bind]
-      -- the wrap's head step is definitional
-      rw [show (k + 1 : Nat) - 1 = k from rfl] at hwrap
-      exact hwrap
+      rw [inferTypeCore_mono (Nat.le_max_right F F') hbt, okB_bind]
+      rw [hguard]
+      -- the outer level's own tail is pure (its body is a λ)
+      unfold inferLamsTail at htail ⊢
+      rw [show (Expr.lam n ty body mb).isLam = true from rfl]
+      simp only [Bool.not_true, Bool.and_false, Bool.false_eq_true,
+        ↓reduceIte]
+      rw [show (k + 1 : Nat) - 1 = k from rfl] at htail
+      by_cases hg : (mode.verified && !body.isLam) = true
+      case neg =>
+        rw [if_neg hg] at htail ⊢
+        rw [pure_bind]
+        unfold inferLamsWrap at htail
+        exact htail
+      rw [if_pos hg] at htail ⊢
+      rw [infer_def] at htail
+      obtain ⟨btt, hbtt, htail⟩ := bind_okB htail
+      rw [inferTypeCore_mono (Nat.le_max_right F F') hbtt, okB_bind]
+      rw [ensureSort_def] at htail
+      obtain ⟨v, hv, htail⟩ := bind_okB htail
+      rw [ensureSortCore_mono (Nat.le_max_right F F') hv, okB_bind]
+      rw [pure_bind]
+      unfold inferLamsWrap at htail
+      exact htail
     · have ht : ∀ n ty body mb, t ≠ Expr.lam n ty body mb :=
         fun n ty b mb hh => hlam ⟨n, ty, b, mb, hh⟩
       rw [inferLams_succ_ne_lam _ ht] at hrun

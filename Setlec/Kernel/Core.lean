@@ -1587,15 +1587,34 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | _ => throw (.invalid "expected a sort")
     | .lam n ty body mb => do
       -- The domain must be a type (and the model needs its
-      -- interpretation defined), exactly as in the ∀ rule.  The body's
-      -- type is not sort-checked here (task #100 stage 6: the
-      -- official-kernel `infer_lambda` shape — the λ-annotation
-      -- re-check died with the stored annotations, and the collapse
-      -- model's `AnnotOk` carries no fibre-universe facts).
+      -- interpretation defined), exactly as in the ∀ rule.
       match ← r.whnf depth (← r.infer depth ty) with
       | .sort _ => do
         let bt ← r.infer (depth + 1)
           (body.instantiate1 (.fvar depth n ty))
+        -- The *codomain* sort, at the verified modes only (task #152,
+        -- restoring the I6/I7 symmetry task #100 stage 6 broke): the
+        -- ∀ clause's own `ensureSort` move, on the body's inferred
+        -- type.  It is what the set lane's annotation pass needs —
+        -- `HasSort (A :: Δ) B v` — and what no metatheorem supplies
+        -- (`Setlec/SetR/DESIGN.md` findings A3, B5, A5: validity for
+        -- `Infer` is refuted at the application clause, so the fact
+        -- has to be computed).  The reference kernel's `infer_lambda`
+        -- does not run it, so `.noModel` — the official-parity lane —
+        -- does not either.
+        --
+        -- It fires once per λ **chain**, at the innermost binder (the
+        -- `!body.isLam` guard).  At an outer binder the codomain is
+        -- the inner λ's own `∀`-type, whose sort is `imax` of the
+        -- inner domain's (checked at that binder) and the chain's
+        -- (checked here) — so no fact is lost, and this is the
+        -- granularity the interned telescope loop (task #72) can
+        -- reproduce: it opens a whole λ-chain in bulk and never
+        -- materializes the intermediate opened types.
+        if mode.verified && !body.isLam then
+          let btt ← r.infer (depth + 1) bt
+          let _ ← ensureSort r env (depth + 1) btt
+          pure ()
         pure (.forallE n ty (bt.abstract1 depth) mb)
       | _ => throw (.invalid "expected a sort")
     | .app f a => do

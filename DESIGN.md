@@ -10095,3 +10095,198 @@ whole cone force-recompiled, `lake test`, arena 90/92, e2e 72/72, split
 sweep as expected (1 recorded divergence, unchanged), axioms exactly
 `[propext, Classical.choice, Quot.sound]`, zero sorries, init-prelude
 byte-identical at all three modes.
+
+## The λ-rule computes its codomain sort (2026-08-28, task #152)
+
+**The eighth bridge-requested checker change, and the first with a
+*user-granted exception* to the goal's no-new-checks clause.**  The
+seven before it (tasks #126, #129, #130, #135, #136, #137, #146) all
+certified something the checker already computed and discarded; this
+one makes the checker compute something new, and can therefore *reject
+streams the reference kernel accepts*.  The grant's rationale, on the
+record: **front-door checks are cheap — they do not affect reduction,
+and they benefit from the infer caches.**
+
+### Why it was owed (`Setlec/SetR/DESIGN.md`, findings A3 → B5 → A5)
+
+Task #100 stage 6 deleted the λ-annotation re-check along with the
+stored annotations, leaving `inferBody`'s `.lam` clause in the
+official-kernel `infer_lambda` shape: the domain is checked to be a
+type, the body's type is inferred, and the `∀` is rebuilt.  The **∀**
+clause four lines above *does* `ensureSort` its opened body's inferred
+type — I6 has two sort premises where I7 has one, and that asymmetry
+is what the #151 annotation lane ran into:
+
+* **A3** — the λ codomain sort is not computed anywhere, so tier B's
+  F4 has no premise-exact repair; five repairs were priced.
+* **B5** — repair C (type-directed interpretation) is *refuted*: a
+  proof argument's value must be `pt`, which is the codomain sort
+  again.
+* **A5** — repair B5′ (supply the sort as a *validity metatheorem*) is
+  *refuted*: validity fails at the application clause, because
+  `Infer`'s type slot is determined only up to `DefEq` and `HasSort`
+  is not `DefEq`-stable (`hasSort_not_defEq_stable`).  Its consequence
+  paragraph escalated the fork to the user: reinstate a kernel check
+  (A), or bet on an unproved metatheory (B5″).
+
+**The fork is resolved: A, mode-gated.**  `Setlec/SetR/DESIGN.md`'s
+new section records it on the lane's side.
+
+### The check
+
+`inferBody`'s `.lam` clause (`Setlec/Kernel/Core.lean`), after the
+body's type `bt` is inferred:
+
+```
+        if mode.verified && !body.isLam then
+          let btt ← r.infer (depth + 1) bt
+          let _ ← ensureSort r env (depth + 1) btt
+          pure ()
+```
+
+— the ∀ clause's own `ensureSort` move, on the codomain.  It is
+`HasSort (A :: Δ) B v` (`Setlec/SetR/Annot/Pass.lean`) in the shape the
+checker computes it: infer, then whnf to a sort.
+
+**Mode-gated on a new accessor.**  `CheckMode.verified`
+(`Setlec/Kernel/Env.lean`) is ON at `.setModel` and `.ttModel`, OFF at
+`.noModel`.  It is deliberately **not** `ttChecks`: the fact is a
+premise of the *set* lane, so it must run at the default mode; and the
+reference kernel's `infer_lambda` does not run it, so the
+official-parity lane must not.  `tests/SetlecTests.lean` pins all three
+values, in the #148 config-audit style.
+
+### FINDING — the check fires once per λ **chain**, not per λ node
+
+The requested form was per-node.  It is **not reproducible against the
+interned checker** and was therefore landed chain-guarded
+(`!body.isLam`: at the innermost binder of a λ-chain, on the chain's
+body type).  The obstacle, stated so it is not rediscovered:
+
+* The interned twin peels a whole λ-chain in one loop (`inferLamsI`,
+  task #72), bulk-opens the residual, and **never materializes the
+  intermediate opened body types** — the rebuild is a pure
+  `abstractRange` fold with no knot calls.
+* A per-node spec check would therefore have to be *manufactured* in
+  `inferLams_sound` (`Setlec/Verify/BinderLoop.lean`) for every level
+  the loop does not run: at level `j` it is `infer (∀ tyo_j B_j)`,
+  whose ∀-rule needs the round trip
+  `(bt.abstract1 (d+j)).instantiate1 (.fvar (d+j) n tyo_j) = bt`.  That
+  needs `fvarConsistent` and boundedness for the running term at every
+  level — the leaf-discipline package (`inferTypeCore_fvarLeaves`,
+  `inferTypeCore_looseBVars`, `abstract1_instantiate1`) — which
+  `inferLams_sound` does not carry and whose hypotheses would cascade
+  up the interned simulation tower (`inferLamsI_tail_sim`,
+  `Setlec/Verify/DiscI4.lean`), which is scope-only by design.  The ∀
+  loop has no such problem because *its* intermediate values are
+  literal sorts (`inferPisWrap_sort`, `whnf_sort`).
+* The two alternatives were priced, not argued.  **De-telescoping the
+  λ case at the verified modes** restores per-binder nested
+  `instantiate1` — the pre-#72 cost on λ-towers, and `perf/app-lam`
+  (4 000 binders, 384 G instructions today) is the fixture that would
+  pay it.  **Checking every level inside the leaf phase** must rebuild
+  each intermediate opened node, `O(k · size)` per chain — same
+  fixture, same objection.
+
+**Nothing is lost to the lane, but the lane owes an induction.**  At an
+outer binder the codomain is the inner λ's own `∀`-type, whose sort is
+`imax` of the inner *domain*'s sort — checked at that binder, and
+already in `inferTypeCore_lam_inv` — and the chain's body-type sort,
+checked here.  `hasSort_pi_of` (`Setlec/SetR/Annot/Validity.lean`,
+proved, and recorded in A5's case map as I7's free clause) is exactly
+that step, so the bridge derives the per-node premise by a structural
+induction along the chain.  A5's own table is the evidence that the
+missing piece was never I7: it was I8.
+
+### The inversion
+
+`inferTypeCore_lam_inv` (`Setlec/Verify/InferLemmas.lean`) gains, in
+the #147 implication form:
+
+```
+      (mode.verified = true → body.isLam = false → ∃ btt v,
+        inferTypeCore mode env fuel (d + 1) bt = .ok btt ∧
+        whnf mode env fuel (d + 1) btt = .ok (.sort v)) ∧
+```
+
+Its four consumers take it as `-`: `Setlec/Verify/InferLeaves.lean`
+(three), `Setlec/Model/Core/Infer.lean`,
+`Setlec/TTVerify/InferStep.lean`, `Setlec/SetR/Bridge/InferStruct.lean`
+— no set-lane or TT-lane proof gained an obligation, the #148 finding
+holding for the eighth time.
+
+### Mirror surface
+
+| site | file | role |
+|---|---|---|
+| `inferBody` `.lam` | `Setlec/Kernel/Core.lean` | the spec, and the inversion's domain |
+| `inferLamsLeafI` | `Setlec/Kernel/CoreI.lean` | the interned twin (the binary), shared by `inferBodyI` and `inferBodyNC` |
+| `inferLamsLeaf` | `Setlec/Verify/BinderLoop.lean` | the pure mirror the simulation goes through |
+| `inferLamsTail` | `Setlec/Verify/BinderLoop.lean` | **new**: the chained λ-tail *at the residual* — the innermost node's check, then the (still pure) `inferLamsWrap` |
+
+`inferBodyNC` passes `.noModel` explicitly (its lane's whole point is
+parity), so the one shared loop serves all three modes.  The
+identification theorems that had to move: `inferTypeCore_lam_eq`,
+`inferLamsLeaf_atF`, `inferLamsLeaf_sound`, `inferLams_sound` (which
+gains one hypothesis — the peel's accumulator holds only free
+variables, so instantiation preserves the chain guard:
+`isLam_instantiateList_fvars`), `inferLamsLeafI_sim`,
+`inferLamsI_tail_sim`, `inferLamTail_atF`, plus the λ clause in
+`Setlec/Verify/Disc.lean` (scoped-call discipline) and
+`Setlec/Verify/Deep.lean` (shift commutation, with
+`isLam_shiftFrom`).
+
+### Gates
+
+`lake build` warning-free with the touched modules' oleans
+force-deleted and recompiled, `lake test` (including the three new
+config guards), arena 90/92, e2e 72/72, split driver 11/11, mode flags
+10/10, tt-model sweep `138 arena + 72 e2e identical to default`,
+no-model sweep `138 arena + 72 e2e as expected (1 recorded
+divergence)`, axioms exactly `[propext, Classical.choice, Quot.sound]`
+on the ten set-lane consistency theorems and the three closed TT
+theorems, zero sorries.  init-prelude is **verdict- and
+byte-identical** — stdout, stderr, exit — in all three modes against a
+binary built from pre-change master.
+
+**Corpus-clean, which is the gate that matters here**: this is the
+first change that *can* reject a stream the reference accepts (a λ
+whose body type has no sort), so every fixture was re-run in every
+mode and none moved — including `perf/grind-ring-5` (3 946
+declarations) and `perf/app-lam` (97 declarations of 4 000-binder λ
+towers), where the named hazard was a fuel-starved `whnf` on a huge
+body type.  It did not materialize.
+
+### Negation probe
+
+Byte identity does not prove a new check *runs*.  Negated (the sort
+branch swapped with the throw) in the interned leaf and rebuilt:
+init-prelude **rejects** at `--set-model` *and* `--tt-model`
+(`invalid: expected a sort [at def LT._model]`, exit 1) and still
+**accepts** at `--no-model` (exit 0) — the check is alive in both
+verified lanes and genuinely off in the parity lane, which is the
+gating claim.  Arena falls to 23/92, e2e to 19/72, split 8/11, mode
+flags 8/10.  Reverted; verdict identity re-confirmed in all three
+modes.
+
+### Cost
+
+`instructions:u`, `--set-model`, median of 3:
+
+| stream | before | after | Δ |
+|---|---|---|---|
+| init-prelude | 37.4260 G | 37.5145 G | **+0.24 %** |
+| grind-ring-5 | 124.3778 G | 124.6436 G | **+0.21 %** |
+| app-lam | 384.456 G | 384.379 G | −0.02 % (noise) |
+| init-prelude `--no-model` | 20.9851 G | 20.9881 G | +0.01 % (noise) |
+
+The prediction attached to the grant was "near-noise via the infer
+memo — the body type was already inferred, so `ensureSort` is a `whnf`
+of a memo-warm term".  The measurement says **a fifth of a percent, not
+noise**, and the reason is worth recording: the check does not merely
+`whnf` the body type, it **infers** it — `HasSort` is a fact about the
+type's *own* type — and that inference is cold, because the body type
+is a term the checker built rather than one it walked.  Its subterms
+are memo-warm, which is why the figure is a fifth of a percent and not
+a multiple.  `app-lam` is the reason the chain guard matters: one check
+per λ-chain there rather than 4 000.

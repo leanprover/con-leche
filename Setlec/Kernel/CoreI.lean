@@ -1747,12 +1747,26 @@ def inferLamsOutI (d : Nat) :
     inferLamsOutI d rest (j - 1) node
 
 /-- Leaf phase of `inferLamsI`: bulk-open the residual body, infer it,
-then rebuild outward (task #100 stage 6: no body-type sort check — the
-official-kernel `infer_lambda` shape). -/
+then rebuild outward.
+
+Task #152: at the verified modes the chain's body type is
+sort-checked here — the spec's codomain check (`inferBody`'s `.lam`
+clause), which fires at the innermost binder of a λ-chain, i.e.
+exactly when the peel stops on a non-λ residual.  The guard is the
+same one the spec uses, on the same term. -/
 def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
     (fvs : Array EIdx) (stk : List InferLamEntry) : CheckIM EIdx := do
   let ob ← instListRevM t fvs
   let bt ← r.infer (d + k) ob
+  match ← viewI t with
+  | some (.lam ..) => pure ()
+  | _ =>
+    if mode.verified then
+      let btt ← r.infer (d + k) bt
+      let wbtt ← r.whnf (d + k) btt
+      match ← viewI wbtt with
+      | some (.sort _) => pure ()
+      | _ => throw (.invalid "expected a sort")
   let cur ← abstractRangeM bt d k
   inferLamsOutI d stk (k - 1) cur
 
@@ -1775,8 +1789,8 @@ def inferLamsI (r : CoreFnsI) (d : Nat) :
         inferLamsI r d fuel body (k + 1) (fvs.push fv)
           ((n, tyo, mb) :: stk)
       | _ => throw (.invalid "expected a sort")
-    | _ => inferLamsLeafI r d t k fvs stk
-  | 0, t, k, fvs, stk => inferLamsLeafI r d t k fvs stk
+    | _ => inferLamsLeafI mode r d t k fvs stk
+  | 0, t, k, fvs, stk => inferLamsLeafI mode r d t k fvs stk
 
 /-- Rebuild loop of `inferPisI`: fold the accumulated domain sorts by
 `imax`, innermost binder first — exactly the chained `∀`-rule's result
@@ -1871,7 +1885,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         -- open in bulk, rebuild with `abstractRange`.
         let fv ← internI (.fvar depth n ty)
         let fuel ← withStore (·.nodes.size)
-        inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb)]
+        inferLamsI mode r depth fuel body 1 #[fv] [(n, ty, mb)]
       | _ => throw (.invalid "expected a sort")
     | some (.app _ _) => do
       -- Bulk telescope consumption (task #50): infer the spine head

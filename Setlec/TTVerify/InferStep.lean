@@ -458,7 +458,7 @@ theorem infer_lam_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
     (hC : CtxOk m.cval env φ d Δ (.lam n ty body mb)) :
     ∃ v tv, denote m.cval env φ d (.lam n ty body mb) = some v ∧
       denote m.cval env φ d t = some tv ∧ HasType Δ v tv := by
-  obtain ⟨tty, u, bt, hty, hwu, hbt, rfl⟩ := inferTypeCore_lam_inv h
+  obtain ⟨tty, u, bt, hty, hwu, hbt, -, rfl⟩ := inferTypeCore_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLty : Expr.LeavesBounded ty := fun l hl =>
