@@ -6090,3 +6090,56 @@ Revised order for the remaining four: `MemberEtaS` (medium,
 templated), then `OfReduceKeyS` (first witness construction — it will
 set the pattern for `StdAxiomKeyS`'s two), then `StdAxiomKeyS`, then
 `DivModPinS` last with `pinnedCtx` waiting for it.
+
+### `MemberEtaS` BREAKS PATTERN — it is plumbing, not proof
+
+The sizing (~260 lines of template, value↔`VExpr` adaptation) was a
+measurement of the wrong thing.  Two facts found on starting it:
+
+**1. The heavy lifting is already done, in this lane.**
+`etaLawKeyS` (`Install/EtaLawS.lean:108`) is **proved** — the whole
+`EtaLawV` derivation, model artifacts through shape pins to the fired
+law.  Nothing of `modeled_caps_eta` needs transposing; the SetR lane
+did it during T5.  My estimate priced the Model template because I
+checked the Model lane first, which was the wrong lane to check for an
+obligation whose *own* lane had already built the machinery.
+
+**2. `MemberEtaS` is not dischargeable at its current signature — and
+this file already said so.**  §"`MemberEtaS`: not a member-fold
+discharge" works the four cases and concludes:
+
+> Both live rows need facts the fold does not have (the run's
+> freshness facts; the block's identification of `T`).  So
+> `MemberEtaS` stays a *forwarded* obligation, discharged at the
+> `DeclIndS` assembly … It is re-signed then, with its consumer, per
+> the house rule.
+
+That is exactly where the campaign now stands.  `etaLawKeyS`'s premise
+list wants the model artifacts, the shape pins, the valuation
+identifications and a renaming — none of which `MemberEtaS`'s current
+signature carries, and none of which the member fold has.  The
+assembly does: `hprojFresh` is in scope at **both** assembly sites
+(`Install/DeclIndS.lean:115`, `Bridge/DeclInd.lean:494`), which is the
+fact the `etaFields > 0` row was refuted from.
+
+**Why this is a stop.**  The other four remaining obligations are
+*proofs at a fixed signature*.  This one is a **signature change with
+a ripple**: `MemberEtaS`/`heta` occurs ~82 times across seven files —
+`Main.lean` (48, the fourteen), `Bridge/DeclInd.lean` (13),
+`Install/IndMembersS.lean` (8), `Install/DeclIndS.lean` (5),
+`Bridge/Sound.lean` (5), `Install/IndRecsS.lean` (2),
+`Bridge/EtaCerts.lean` (1).  Re-signing it means adding the assembly
+premises, threading them from the two assemblies down through both
+member folds, and discharging there — after which `heta` leaves the
+fourteen entirely.
+
+**The lesson, and it is the sizing rule's own blind spot:**
+
+> **Size an obligation against the lane that will discharge it, not
+> the lane that already discharged its sibling.**  A template in the
+> other lane measures the *mathematics*; it says nothing about whether
+> your own lane already has it, or whether your statement can even
+> receive it.
+
+Both errors this stretch were that: the mathematics was done and the
+statement could not receive it.
