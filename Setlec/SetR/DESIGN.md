@@ -8,6 +8,43 @@ as written, and what T3 (bridge) and T4 (soundness) need to know that
 the design document does not say.  House practices are
 `Setlec/TTVerify/DESIGN.md` §0/§25 (binding).
 
+## Promoted practices (binding here; candidates for §0/§25)
+
+Two rules earned promotion during T5 by recurring across unrelated
+stages.  They sit at the top of this file because they are checks to
+run *while designing*, not lessons to read afterwards.
+
+**P1 — a helper premised on a whole environment bundle cannot
+establish any field of that bundle.**  `EnvSHyp` carries `caps_ok`, so
+`fireS` — premised on the bundle — could not be used to prove a
+capability law (finding 6).  The repair was not to weaken the bundle
+but to premise the *helper* on the fields it actually uses:
+`fireS` used two of nine, both only at `eqName`, now `EqFormerKeyV`.
+**Check this at the moment a field is ADDED to a bundle**, by asking
+which helpers its own supplier will have to run; checking it when the
+supplier is written is already too late, because by then the helper's
+signature is load-bearing everywhere.
+
+**P2 — read a premise for the environment it quantifies over and the
+degenerate case it admits, not for the data it supplies.**  Three
+instances in one session, all of them the record failing against its
+own author:
+
+* finding 6 — `unitLawKeyS`'s inputs were checked for *availability*
+  and not for *which environment* its `EnvS` sat at;
+* `MemberUnitS` — `caps.unitlike = true` was read as "the artifacts
+  exist" when over an abstract `caps` it says nothing at all;
+* `MemberEtaS` — `EtaFamilyStored` was read from its name and purpose
+  ("the family is complete, so it cannot be") instead of its text,
+  where `etaFields = 0` makes the projection conjunct vacuous and the
+  family completes inside the member fold.
+
+The concrete check: for every premise of a statement you are about to
+freeze, name (a) the environment each of its lookups is at, (b) what
+it says when its numeric parameters are `0`, and (c) what it says when
+its `IndCaps`/`ConstantVal` arguments are abstract rather than the
+checker's output.
+
 ## T2 inventory (this tier, as landed)
 
 | file | content |
