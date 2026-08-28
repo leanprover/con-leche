@@ -3881,6 +3881,1269 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
           app_mem_piC (app_mem_piC (app_mem_piC hRm t1) m2) m3, m4⟩
     · exact nomatch hr'
 
+/-! ## `PSigma'`
+
+Five constants: the type and its constructor (pinned), the recursor
+(the fourth of the layer's *derived* four), and two `projInfo`
+entries — the only block that installs any. -/
+
+/-- `PSigma'.rec`'s valuation: the minor premise at the subject's two
+projections — `psigmaRec_derivable` (`Setlec/TT/Examples.lean`).  The
+last of the layer's *derived* four, and the one that derives through
+**structure η** where `Eq.rec` derived through proof irrelevance. -/
+def psigmaRecValT (ψ : Name → Nat) : VExpr :=
+  .lam (.sort (ψ uN))
+    (.lam (.pi (.bvar 0) (.sort (ψ vN)))
+      (.lam (.pi (VExpr.mkAppN (VExpr.const .psigma [ψ uN, ψ vN])
+            [.bvar 1, .bvar 0]) (.sort 0))
+        (.lam (.pi (.bvar 2)
+            (.pi (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 2) (VExpr.mkAppN
+                (VExpr.const .psigmaMk [ψ uN, ψ vN])
+                [.bvar 4, .bvar 3, .bvar 1, .bvar 0]))))
+          (.lam (VExpr.mkAppN (VExpr.const .psigma [ψ uN, ψ vN])
+              [.bvar 3, .bvar 2])
+            (.app (.app (.bvar 1) (.proj 0 (.bvar 0)))
+              (.proj 1 (.bvar 0)))))))
+
+/-- The tower is closed. -/
+theorem psigmaRecValT_closed (ψ : Name → Nat) :
+    VExpr.Closed (psigmaRecValT ψ) := by
+  simp only [psigmaRecValT, VExpr.Closed, VExpr.bvarsBelow, VExpr.mkAppN]
+  repeat' apply And.intro
+  all_goals first | trivial | omega
+
+/-- The tower reads the assignment only at its own level names. -/
+theorem psigmaRecValT_congr {ψ₁ ψ₂ : Name → Nat}
+    (hu : ψ₁ uN = ψ₂ uN) (hv : ψ₁ vN = ψ₂ vN) :
+    psigmaRecValT ψ₁ = psigmaRecValT ψ₂ := by
+  rw [psigmaRecValT, psigmaRecValT, hu, hv]
+
+/-- The `PSigma'` block's two earlier constants, denoted in the
+environment the recursor's install works in. -/
+theorem denote_psigmaRec_constsS {env : Env} (m : EnvS V env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (w1 w2 : Level)
+    (hP : env.find? psigmaName = some psigmaA)
+    (hM : env.find? psigmaMkName = some psigmaMkA)
+    (hPv : ∀ ψ : Name → Nat,
+      m.cval psigmaName ψ = VExpr.const .psigma [ψ uN, ψ vN])
+    (hMv : ∀ ψ : Name → Nat,
+      m.cval psigmaMkName ψ = VExpr.const .psigmaMk [ψ uN, ψ vN]) :
+    (∀ e : Nat,
+      denote (cvalWith m.cval psigmaRecA.name val)
+        ⟨psigmaRecA :: env.consts⟩ φ e (.const psigmaName [w1, w2])
+        = some (VExpr.const .psigma [w1.eval φ, w2.eval φ])) ∧
+    (∀ e : Nat,
+      denote (cvalWith m.cval psigmaRecA.name val)
+        ⟨psigmaRecA :: env.consts⟩ φ e (.const psigmaMkName [w1, w2])
+        = some (VExpr.const .psigmaMk [w1.eval φ, w2.eval φ])) := by
+  constructor
+  · intro e
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hP]
+    simp only [show ([w1, w2] : List Level).length
+      = psigmaA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalWith_ne (by decide), hPv]
+    rfl
+  · intro e
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hM]
+    simp only [show ([w1, w2] : List Level).length
+      = psigmaMkA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalWith_ne (by decide), hMv]
+    rfl
+
+/-- **`PSigma'.rec`'s pinned type, denoted at any depth and any
+levels.** -/
+theorem denote_psigmaRec_typeS {env : Env} (m : EnvS V env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat)
+    (w1 w2 : Level)
+    (hP : env.find? psigmaName = some psigmaA)
+    (hM : env.find? psigmaMkName = some psigmaMkA)
+    (hPv : ∀ ψ : Name → Nat,
+      m.cval psigmaName ψ = VExpr.const .psigma [ψ uN, ψ vN])
+    (hMv : ∀ ψ : Name → Nat,
+      m.cval psigmaMkName ψ = VExpr.const .psigmaMk [ψ uN, ψ vN]) :
+    denote (cvalWith m.cval psigmaRecA.name val) ⟨psigmaRecA :: env.consts⟩ φ d
+        (psigmaRecA.toConstantVal.type.instantiateLevelParams
+          psigmaRecA.toConstantVal.levelParams [w1, w2])
+      = some (.pi (.sort (w1.eval φ))
+        (.pi (.pi (.bvar 0) (.sort (w2.eval φ)))
+          (.pi (.pi (VExpr.mkAppN
+                (VExpr.const .psigma [w1.eval φ, w2.eval φ])
+                [.bvar 1, .bvar 0]) (.sort 0))
+            (.pi (.pi (.bvar 2)
+                (.pi (.app (.bvar 2) (.bvar 0))
+                  (.app (.bvar 2) (VExpr.mkAppN
+                    (VExpr.const .psigmaMk [w1.eval φ, w2.eval φ])
+                    [.bvar 4, .bvar 3, .bvar 1, .bvar 0]))))
+              (.pi (VExpr.mkAppN
+                  (VExpr.const .psigma [w1.eval φ, w2.eval φ])
+                  [.bvar 3, .bvar 2])
+                (.app (.bvar 2) (.bvar 0))))))) := by
+  have hsu : Level.subst [uN, vN] [w1, w2] (.param uN) = w1 := by
+    simp [Level.subst, Level.subst.go, uN]
+  have hsv : Level.subst [uN, vN] [w1, w2] (.param vN) = w2 := by
+    simp [Level.subst, Level.subst.go, uN, vN]
+  have hsz : Level.subst [uN, vN] [w1, w2] .zero = .zero := by
+    simp [Level.subst]
+  obtain ⟨hPc, hMc⟩ := denote_psigmaRec_constsS m (val := val) φ w1 w2 hP hM
+    hPv hMv
+  rw [show psigmaRecA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+          (Expr.forallE (Name.anonymous.str "β")
+            (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+              (.sort (.param vN)) { bi := .default })
+            (Expr.forallE (Name.anonymous.str "motive")
+              (Expr.forallE (Name.anonymous.str "t")
+                (.app (.app (.const psigmaName [.param uN, .param vN])
+                  (.bvar 1)) (.bvar 0))
+                (.sort .zero) { bi := .default })
+              (Expr.forallE (Name.anonymous.str "mk")
+                (Expr.forallE (Name.anonymous.str "fst") (.bvar 2)
+                  (Expr.forallE (Name.anonymous.str "snd")
+                    (.app (.bvar 2) (.bvar 0))
+                    (.app (.bvar 2)
+                      (.app (.app (.app (.app (.const psigmaMkName
+                        [.param uN, .param vN]) (.bvar 4)) (.bvar 3))
+                        (.bvar 1)) (.bvar 0)))
+                    { bi := .default })
+                  { bi := .default })
+                (Expr.forallE (Name.anonymous.str "t")
+                  (.app (.app (.const psigmaName [.param uN, .param vN])
+                    (.bvar 3)) (.bvar 2))
+                  (.app (.bvar 2) (.bvar 0)) { bi := .default })
+                { bi := .default })
+              { bi := .implicit })
+            { bi := .implicit })
+          { bi := .implicit } from rfl,
+    show psigmaRecA.toConstantVal.levelParams = [uN, vN] from rfl]
+  simp [Expr.instantiateLevelParams, hsu, hsv, denote_forallE, denote_sort,
+    denote_app, denote_fvar, hPc, hMc, hsz, VExpr.mkAppN, Level.eval]
+
+/-- `PSigma'.mk`'s pinned type, denoted — the constructor telescope the
+fire site's `hfitC` is stated against. -/
+theorem denote_psigmaMk_typeS {env : Env} (m : EnvS V env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat)
+    (w1 w2 : Level)
+    (hP : env.find? psigmaName = some psigmaA)
+    (hM : env.find? psigmaMkName = some psigmaMkA)
+    (hPv : ∀ ψ : Name → Nat,
+      m.cval psigmaName ψ = VExpr.const .psigma [ψ uN, ψ vN])
+    (hMv : ∀ ψ : Name → Nat,
+      m.cval psigmaMkName ψ = VExpr.const .psigmaMk [ψ uN, ψ vN]) :
+    denote (cvalWith m.cval psigmaRecA.name val) ⟨psigmaRecA :: env.consts⟩ φ d
+        (psigmaMkA.toConstantVal.type.instantiateLevelParams
+          psigmaMkA.toConstantVal.levelParams [w1, w2])
+      = some (.pi (.sort (w1.eval φ))
+        (.pi (.pi (.bvar 0) (.sort (w2.eval φ)))
+          (.pi (.bvar 1)
+            (.pi (.app (.bvar 1) (.bvar 0))
+              (VExpr.mkAppN (VExpr.const .psigma [w1.eval φ, w2.eval φ])
+                [.bvar 3, .bvar 2]))))) := by
+  have hsu : Level.subst [uN, vN] [w1, w2] (.param uN) = w1 := by
+    simp [Level.subst, Level.subst.go, uN]
+  have hsv : Level.subst [uN, vN] [w1, w2] (.param vN) = w2 := by
+    simp [Level.subst, Level.subst.go, uN, vN]
+  obtain ⟨hPc, -⟩ := denote_psigmaRec_constsS m (val := val) φ w1 w2 hP hM
+    hPv hMv
+  rw [show psigmaMkA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+          (Expr.forallE (Name.anonymous.str "β")
+            (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+              (.sort (.param vN)) { bi := .default })
+            (Expr.forallE (Name.anonymous.str "fst") (.bvar 1)
+              (Expr.forallE (Name.anonymous.str "snd")
+                (.app (.bvar 1) (.bvar 0))
+                (.app (.app (.const psigmaName
+                    [.param uN, .param vN]) (.bvar 3)) (.bvar 2))
+                { bi := .default })
+              { bi := .default })
+            { bi := .implicit })
+          { bi := .implicit } from rfl,
+    show psigmaMkA.toConstantVal.levelParams = [uN, vN] from rfl]
+  simp [Expr.instantiateLevelParams, hsu, hsv, denote_forallE, denote_sort,
+    denote_app, denote_fvar, hPc, VExpr.mkAppN]
+
+/-- `PSigma'.rec`'s single stored rule. -/
+def psigmaRecRule : RecRule :=
+  { ctor := psigmaMkName, nfields := 2, ctorParams := 2, fire := .plain,
+    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uN))
+      (Expr.lam (Name.anonymous.str "β")
+        (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+          (.sort (.param vN)) { bi := .default })
+        (Expr.lam (Name.anonymous.str "motive")
+          (Expr.forallE (Name.anonymous.str "t")
+            (.app (.app (.const psigmaName [.param uN, .param vN])
+              (.bvar 1)) (.bvar 0))
+            (.sort .zero) { bi := .default })
+          (Expr.lam (Name.anonymous.str "mk")
+            (Expr.forallE (Name.anonymous.str "fst") (.bvar 2)
+              (Expr.forallE (Name.anonymous.str "snd")
+                (.app (.bvar 2) (.bvar 0))
+                (.app (.bvar 2)
+                  (.app (.app (.app (.app (.const psigmaMkName
+                    [.param uN, .param vN]) (.bvar 4)) (.bvar 3))
+                    (.bvar 1)) (.bvar 0)))
+                { bi := .default })
+              { bi := .default })
+            (Expr.lam (Name.anonymous.str "fst") (.bvar 3)
+              (Expr.lam (Name.anonymous.str "snd")
+                (.app (.bvar 3) (.bvar 0))
+                (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0))
+                { bi := .default })
+              { bi := .default })
+            { bi := .default })
+          { bi := .default })
+        { bi := .default })
+      { bi := .implicit } }
+
+/-- The stored declaration, with its rule named. -/
+theorem psigmaRecA_eq :
+    psigmaRecA = .recInfo psigmaRecA.toConstantVal 4 4 [psigmaRecRule] := rfl
+
+/-- `PSigma'.rec`'s rule right-hand side, denoted — named, because the
+iota proof has to hand it to `BetaSpine` as an explicit head. -/
+def psigmaRecRhsV (a b : Nat) : VExpr :=
+  .lam (.sort a)
+    (.lam (.pi (.bvar 0) (.sort b))
+      (.lam (.pi (VExpr.mkAppN (VExpr.const .psigma [a, b])
+            [.bvar 1, .bvar 0]) (.sort 0))
+        (.lam (.pi (.bvar 2)
+            (.pi (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 2) (VExpr.mkAppN (VExpr.const .psigmaMk [a, b])
+                [.bvar 4, .bvar 3, .bvar 1, .bvar 0]))))
+          (.lam (.bvar 3)
+            (.lam (.app (.bvar 3) (.bvar 0))
+              (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0)))))))
+
+/-- **`PSigma'.rec`'s rule right-hand side, denoted.** -/
+theorem denote_psigmaRec_rhsS {env : Env} (m : EnvS V env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat)
+    (w1 w2 : Level)
+    (hP : env.find? psigmaName = some psigmaA)
+    (hM : env.find? psigmaMkName = some psigmaMkA)
+    (hPv : ∀ ψ : Name → Nat,
+      m.cval psigmaName ψ = VExpr.const .psigma [ψ uN, ψ vN])
+    (hMv : ∀ ψ : Name → Nat,
+      m.cval psigmaMkName ψ = VExpr.const .psigmaMk [ψ uN, ψ vN]) :
+    denote (cvalWith m.cval psigmaRecA.name val) ⟨psigmaRecA :: env.consts⟩ φ d
+        ((RecRule.rhs psigmaRecRule).instantiateLevelParams
+          psigmaRecA.toConstantVal.levelParams [w1, w2])
+      = some (psigmaRecRhsV (w1.eval φ) (w2.eval φ)) := by
+  have hsu : Level.subst [uN, vN] [w1, w2] (.param uN) = w1 := by
+    simp [Level.subst, Level.subst.go, uN]
+  have hsv : Level.subst [uN, vN] [w1, w2] (.param vN) = w2 := by
+    simp [Level.subst, Level.subst.go, uN, vN]
+  have hsz : Level.subst [uN, vN] [w1, w2] .zero = .zero := by
+    simp [Level.subst]
+  obtain ⟨hPc, hMc⟩ := denote_psigmaRec_constsS m (val := val) φ w1 w2 hP hM
+    hPv hMv
+  rw [show psigmaRecA.toConstantVal.levelParams = [uN, vN] from rfl]
+  simp only [psigmaRecRule]
+  simp [Expr.instantiateLevelParams, hsu, hsv, denote_lam, denote_forallE,
+    denote_sort, denote_app, denote_fvar, hPc, hMc, hsz, psigmaRecRhsV,
+    VExpr.mkAppN, Level.eval]
+
+/-- The pinned pair's projection valuations: the layer's `proj` former
+under the parameter binders (`psigmaFst_derivable`). -/
+def pairProjValT (i : Nat) (ψ : Name → Nat) : VExpr :=
+  .lam (.sort (ψ uN))
+    (.lam (.pi (.bvar 0) (.sort (ψ vN)))
+      (.lam (VExpr.mkAppN (VExpr.const .psigma [ψ uN, ψ vN])
+          [.bvar 1, .bvar 0])
+        (.proj i (.bvar 0))))
+
+theorem pairProjValT_closed (i : Nat) (ψ : Name → Nat) :
+    VExpr.Closed (pairProjValT i ψ) := by
+  simp only [pairProjValT, VExpr.Closed, VExpr.bvarsBelow, VExpr.mkAppN]
+  repeat' apply And.intro
+  all_goals first | trivial | omega
+
+/-- `PSigma'`, installed. -/
+theorem extendPSigmaS {env : Env} (m : EnvS V env)
+    (hfresh : env.find? psigmaName = none)
+    (hwf : EnvWF ⟨psigmaA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨psigmaA :: env.consts⟩,
+      m'.cval = cvalWith m.cval psigmaA.name
+        (fun ψ => VExpr.const .psigma [ψ uN, ψ vN]) := by
+  refine extendBasisS m (val := fun ψ => VExpr.const .psigma [ψ uN, ψ vN])
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name psigmaA = psigmaName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ (fun _ _ => trivial) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uN (by show uN ∈ [uN, vN]; exact List.mem_cons_self),
+      hp vN (by
+        show vN ∈ [uN, vN]
+        exact List.mem_cons_of_mem _ List.mem_cons_self)]
+  · intro φ
+    refine ⟨_, ?_, fun ρ =>
+      ⟨HasType.sound (V := V) HasType.const ρ (Sat_nil V ρ),
+        AnnotOkV_bconst_type (V := V) _ _ ρ⟩⟩
+    rw [denoteClosed, show psigmaA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+          (Expr.forallE (Name.anonymous.str "β")
+            (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+              (.sort (.param vN)) { bi := .default })
+            (.sort (.max (.param uN) (.param vN))) { bi := .default })
+          { bi := .implicit } from rfl]
+    simp [denote_forallE, denote_sort, denote_fvar, Level.eval]
+    rfl
+
+/-- `PSigma'.mk`, installed. -/
+theorem extendPSigmaMkS {env : Env} (m : EnvS V env)
+    (hP : env.find? psigmaName = some psigmaA)
+    (hfresh : env.find? psigmaMkName = none)
+    (hwf : EnvWF ⟨psigmaMkA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨psigmaMkA :: env.consts⟩,
+      m'.cval = cvalWith m.cval psigmaMkA.name
+        (fun ψ => VExpr.const .psigmaMk [ψ uN, ψ vN]) := by
+  have hPc : ∀ (d : Nat) (φ : Name → Nat),
+      denote (cvalWith m.cval psigmaMkA.name
+        (fun ψ => VExpr.const .psigmaMk [ψ uN, ψ vN]))
+        ⟨psigmaMkA :: env.consts⟩ φ d
+        (.const psigmaName [.param uN, .param vN])
+        = some (VExpr.const .psigma [φ uN, φ vN]) := by
+    intro d φ
+    refine denote_const_pinS m (by decide) hP rfl (by decide) ?_ d
+    rw [show Level.substFn φ psigmaA.toConstantVal.levelParams
+        [Level.param uN, Level.param vN] = φ from
+      Level.substFn_param_self φ [uN, vN]]
+    simp +decide [pinnedDirectT]
+  refine extendBasisS m
+    (val := fun ψ => VExpr.const .psigmaMk [ψ uN, ψ vN])
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name psigmaMkA = psigmaMkName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ (fun _ _ => trivial) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uN (by show uN ∈ [uN, vN]; exact List.mem_cons_self),
+      hp vN (by
+        show vN ∈ [uN, vN]
+        exact List.mem_cons_of_mem _ List.mem_cons_self)]
+  · intro φ
+    refine ⟨_, ?_, fun ρ =>
+      ⟨HasType.sound (V := V) HasType.const ρ (Sat_nil V ρ),
+        AnnotOkV_bconst_type (V := V) _ _ ρ⟩⟩
+    rw [denoteClosed, show psigmaMkA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+          (Expr.forallE (Name.anonymous.str "β")
+            (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+              (.sort (.param vN)) { bi := .default })
+            (Expr.forallE (Name.anonymous.str "fst") (.bvar 1)
+              (Expr.forallE (Name.anonymous.str "snd")
+                (.app (.bvar 1) (.bvar 0))
+                (.app (.app (.const psigmaName
+                    [.param uN, .param vN]) (.bvar 3)) (.bvar 2))
+                { bi := .default })
+              { bi := .default })
+            { bi := .implicit })
+          { bi := .implicit } from rfl]
+    simp [denote_forallE, denote_sort, denote_app, denote_fvar, Level.eval,
+      hPc]
+    rfl
+
+/-- `PSigma'.fst`'s denoted type. -/
+def pairFstTyV (a b : Nat) : VExpr :=
+  .pi (.sort a)
+    (.pi (.pi (.bvar 0) (.sort b))
+      (.pi (VExpr.mkAppN (VExpr.const .psigma [a, b]) [.bvar 1, .bvar 0])
+        (.bvar 2)))
+
+/-- `PSigma'.snd`'s denoted type. -/
+def pairSndTyV (a b : Nat) : VExpr :=
+  .pi (.sort a)
+    (.pi (.pi (.bvar 0) (.sort b))
+      (.pi (VExpr.mkAppN (VExpr.const .psigma [a, b]) [.bvar 1, .bvar 0])
+        (.app (.bvar 1) (.proj 0 (.bvar 0)))))
+
+/-- **The projections' towers inhabit their pinned types** — the
+layer's `sfst_mem`/`ssnd_mem` under three `lamC_mem`s, where the TT
+lane routes through `HasType.projFst`/`projSnd`. -/
+theorem pairFst_memS (φ : Name → Nat) (ρ : Nat → V) :
+    interp V ρ (pairProjValT 0 φ)
+        ∈ˢ interp V ρ (pairFstTyV (φ uN) (φ vN))
+      ∧ AnnotOkV V ρ (pairFstTyV (φ uN) (φ vN)) := by
+  have hpv := fun (ρ' : Nat → V) =>
+    bval_mem_type V .psigma [φ uN, φ vN] ρ'
+  simp only [BConst.type, lv, List.getD_cons_zero, List.getD_cons_succ,
+    interp_pi, interp_sort, interp_bvar, interp_arrow, cons] at hpv
+  constructor
+  · simp only [pairProjValT, pairFstTyV, interp_lam, interp_pi,
+      interp_sort, interp_bvar, cons, VExpr.mkAppN, interp_app,
+      interp_const, bval, lv, List.getD_cons_zero, List.getD_cons_succ,
+      interp_proj, reduceIte]
+    refine lamC_mem (fun A hA => lamC_mem (fun B hB =>
+      lamC_mem (fun p hp => ?_)))
+    rw [psigmaV_app V hA hB] at hp
+    exact sfst_mem V hA hp
+  · simp only [pairFstTyV]
+    refine ⟨trivial, fun A hA => ⟨⟨trivial, fun _ _ => trivial⟩,
+      fun B hB => ⟨?_, fun _ _ => trivial⟩⟩⟩
+    have hA' : A ∈ˢ (univ (φ uN) : V) := by simpa [interp_sort] using hA
+    have hB' : B ∈ˢ piC A (fun _ => univ (φ vN)) := by
+      simpa [interp_pi, interp_sort, interp_bvar, cons] using hB
+    simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_const, AnnotOkV_bvar,
+      interp_const, interp_bvar, cons]
+    exact ⟨⟨trivial, trivial, _, _, hpv ρ, hA'⟩, trivial, _, _,
+      app_mem_piC (hpv ρ) hA', hB'⟩
+
+theorem pairSnd_memS (φ : Name → Nat) (ρ : Nat → V) :
+    interp V ρ (pairProjValT 1 φ)
+        ∈ˢ interp V ρ (pairSndTyV (φ uN) (φ vN))
+      ∧ AnnotOkV V ρ (pairSndTyV (φ uN) (φ vN)) := by
+  have hpv := fun (ρ' : Nat → V) =>
+    bval_mem_type V .psigma [φ uN, φ vN] ρ'
+  simp only [BConst.type, lv, List.getD_cons_zero, List.getD_cons_succ,
+    interp_pi, interp_sort, interp_bvar, interp_arrow, cons] at hpv
+  constructor
+  · simp only [pairProjValT, pairSndTyV, interp_lam, interp_pi,
+      interp_sort, interp_bvar, cons, VExpr.mkAppN, interp_app,
+      interp_const, bval, lv, List.getD_cons_zero, List.getD_cons_succ,
+      interp_proj, reduceIte]
+    refine lamC_mem (fun A hA => lamC_mem (fun B hB =>
+      lamC_mem (fun p hp => ?_)))
+    rw [psigmaV_app V hA hB] at hp
+    exact ssnd_mem V hA hB hp
+  · simp only [pairSndTyV]
+    refine ⟨trivial, fun A hA => ⟨⟨trivial, fun _ _ => trivial⟩,
+      fun B hB => ⟨?_, fun p hp => ?_⟩⟩⟩
+    · have hA' : A ∈ˢ (univ (φ uN) : V) := by simpa [interp_sort] using hA
+      have hB' : B ∈ˢ piC A (fun _ => univ (φ vN)) := by
+        simpa [interp_pi, interp_sort, interp_bvar, cons] using hB
+      simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_const,
+        AnnotOkV_bvar, interp_const, interp_bvar, cons]
+      exact ⟨⟨trivial, trivial, _, _, hpv ρ, hA'⟩, trivial, _, _,
+        app_mem_piC (hpv ρ) hA', hB'⟩
+    · have hA' : A ∈ˢ (univ (φ uN) : V) := by simpa [interp_sort] using hA
+      have hB' : B ∈ˢ piC A (fun _ => univ (φ vN)) := by
+        simpa [interp_pi, interp_sort, interp_bvar, cons] using hB
+      have hp' : p ∈ˢ sigmaSet (Nat.max (φ uN) (φ vN)) A
+          (fun x => SetTheory.app B x) := by
+        have h := hp
+        simp only [VExpr.mkAppN, interp_app, interp_const, bval, lv,
+          interp_bvar, cons, List.getD_cons_zero,
+          List.getD_cons_succ] at h
+        rwa [psigmaV_app V hA' hB'] at h
+      simp only [AnnotOkV_app, AnnotOkV_proj, AnnotOkV_bvar, interp_proj,
+        interp_bvar, cons, reduceIte]
+      exact ⟨trivial, ⟨trivial, by omega, _, _, _, _, hp', hA',
+          fun x hx => app_mem_piC hB' hx⟩,
+        A, fun _ => univ (φ vN), hB', sfst_mem V hA' hp'⟩
+
+/-- The projections' towers are truthful. -/
+theorem pairProjValT_annotS (i : Nat) (hi : i < 2) (φ : Name → Nat)
+    (ρ : Nat → V) : AnnotOkV V ρ (pairProjValT i φ) := by
+  simp only [pairProjValT]
+  refine ⟨trivial, fun A hA => ⟨⟨trivial, fun _ _ => trivial⟩,
+    fun B hB => ⟨?_, fun p hp => ?_⟩⟩⟩
+  · have hpv := bval_mem_type V .psigma [φ uN, φ vN]
+      (cons V B (cons V A ρ))
+    simp only [BConst.type, lv, List.getD_cons_zero, List.getD_cons_succ,
+      interp_pi, interp_sort, interp_bvar, interp_arrow, cons] at hpv
+    have hA' : A ∈ˢ (univ (φ uN) : V) := by simpa [interp_sort] using hA
+    have hB' : B ∈ˢ piC A (fun _ => univ (φ vN)) := by
+      simpa [interp_pi, interp_sort, interp_bvar, cons] using hB
+    simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_const, AnnotOkV_bvar,
+      interp_const, interp_bvar, cons]
+    exact ⟨⟨trivial, trivial, _, _, hpv, hA'⟩, trivial, _, _,
+      app_mem_piC hpv hA', hB'⟩
+  · have hA' : A ∈ˢ (univ (φ uN) : V) := by simpa [interp_sort] using hA
+    have hB' : B ∈ˢ piC A (fun _ => univ (φ vN)) := by
+      simpa [interp_pi, interp_sort, interp_bvar, cons] using hB
+    have hp' : p ∈ˢ sigmaSet (Nat.max (φ uN) (φ vN)) A
+        (fun x => SetTheory.app B x) := by
+      have h := hp
+      simp only [VExpr.mkAppN, interp_app, interp_const, bval, lv,
+        interp_bvar, cons, List.getD_cons_zero,
+        List.getD_cons_succ] at h
+      rwa [psigmaV_app V hA' hB'] at h
+    simp only [AnnotOkV_proj, AnnotOkV_bvar, interp_bvar, cons]
+    exact ⟨trivial, hi, _, _, _, _, hp', hA',
+      fun x hx => app_mem_piC hB' hx⟩
+
+/-- **The pinned pair's projections, installed.**  The only `projInfo`
+constants any block installs — and therefore the only test of
+`hheadProj`, `hheadProjPair`, and of `hheadEta` at a head that is *not*
+reserved. -/
+theorem extendPairProjS {env : Env} (m : EnvS V env) {i : Nat}
+    {entry : ProjEntry} {ci : ConstantInfo}
+    (hci : ci = .projInfo entry)
+    (hentry : entry = pairFstEntry ∨ entry = pairSndEntry)
+    (hnat : entry.native = true)
+    (hi : i < 2)
+    (hname : ci.name = projFnName psigmaName i)
+    (hlp : ci.toConstantVal.levelParams = [uN, vN])
+    (hP : env.find? psigmaName = some psigmaA)
+    (hM : env.find? psigmaMkName = some psigmaMkA)
+    (hfresh : env.find? ci.name = none)
+    (hwf : EnvWF ⟨ci :: env.consts⟩)
+    (htype : ∀ φ : Name → Nat, ∃ t,
+      denoteClosed (cvalWith m.cval ci.name (pairProjValT i))
+        ⟨ci :: env.consts⟩ φ ci.toConstantVal.type = some t ∧
+        ∀ ρ : Nat → V, interp V ρ (pairProjValT i φ) ∈ˢ interp V ρ t ∧
+          AnnotOkV V ρ t) :
+    ∃ m' : EnvS V ⟨ci :: env.consts⟩,
+      m'.cval = cvalWith m.cval ci.name (pairProjValT i) := by
+  refine extendBasisS m (val := pairProjValT i) ?eta ?unit
+    (fun hb => by rw [hci] at hb; exact nomatch hb)
+    (fun ψ t hp => by
+      rw [hname] at hp
+      simp only [pinnedDirectT] at hp
+      rw [if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide)),
+        if_neg (projFnName_ne_reserved (by decide))] at hp
+      exact nomatch hp)
+    hfresh hwf (fun ψ => pairProjValT_closed i ψ) ?params
+    (fun ψ ρ => pairProjValT_annotS i hi ψ ρ) htype
+    (fun _ _ _ heq => by rw [hci] at heq; exact nomatch heq)
+    (fun _ _ heq => by rw [hci] at heq; exact nomatch heq)
+    (fun _ heq => by rw [hci] at heq; exact nomatch heq)
+    (fun hemp => by
+      rw [hname] at hemp
+      exact absurd hemp (projFnName_ne_reserved (n := emptyName) (by decide)))
+    (fun _ _ _ _ heq => by rw [hci] at heq; exact nomatch heq)
+    (fun _ _ _ _ heq => by rw [hci] at heq; exact nomatch heq)
+    (fun e heq _ => by
+      rw [hci] at heq
+      injection heq with he
+      exact ⟨he ▸ hentry, hP, hM⟩)
+    (fun _ e heq _ => by
+      rw [hci] at heq
+      injection heq with he
+      exact he ▸ hnat)
+    (fun heq => by
+      rw [hname] at heq
+      exact absurd heq (projFnName_ne_reserved (n := eqName) (by decide)))
+  case params =>
+    intro φ₁ φ₂ hp
+    rw [hlp] at hp
+    rw [pairProjValT, pairProjValT,
+      hp uN (by show uN ∈ [uN, vN]; exact List.mem_cons_self),
+      hp vN (by
+        show vN ∈ [uN, vN]
+        exact List.mem_cons_of_mem _ List.mem_cons_self)]
+  case eta =>
+    intro T cvT caps hf hcape hresT hfam hpart
+    rcases hpart with hT | hC | ⟨j, hj, hP'⟩
+    · rw [hT, Env.find?_cons, if_pos rfl, hci] at hf; exact nomatch hf
+    · obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
+      rw [hC, Env.find?_cons, if_pos rfl, hci] at hfC; exact nomatch hfC
+    · rw [hname] at hP'
+      obtain rfl : T = psigmaName := (projFnName_inj hP').1
+      rw [show reservedBasisNames.contains psigmaName = true from by decide]
+        at hresT
+      exact nomatch hresT
+  case unit =>
+    intro cv caps heq _ _
+    rw [hci] at heq; exact nomatch heq
+
+/-- `PSigma'.fst`, installed. -/
+theorem extendPairFstS {env : Env} (m : EnvS V env)
+    (hP : env.find? psigmaName = some psigmaA)
+    (hM : env.find? psigmaMkName = some psigmaMkA)
+    (hfresh : env.find? pairFstA.name = none)
+    (hwf : EnvWF ⟨pairFstA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨pairFstA :: env.consts⟩,
+      m'.cval = cvalWith m.cval pairFstA.name (pairProjValT 0) := by
+  refine extendPairProjS m rfl (Or.inl rfl) (by decide) (by omega) rfl rfl hP hM
+    hfresh hwf ?_
+  intro φ
+  have hPc : ∀ d : Nat,
+      denote (cvalWith m.cval pairFstA.name (pairProjValT 0))
+        ⟨pairFstA :: env.consts⟩ φ d
+        (.const psigmaName [.param uN, .param vN])
+        = some (VExpr.const .psigma [φ uN, φ vN]) := by
+    intro d
+    refine denote_const_pinS m (by decide) hP rfl (by decide) ?_ d
+    rw [show Level.substFn φ psigmaA.toConstantVal.levelParams
+        [Level.param uN, Level.param vN] = φ from
+      Level.substFn_param_self φ [uN, vN]]
+    simp +decide [pinnedDirectT]
+  refine ⟨pairFstTyV (φ uN) (φ vN), ?_, fun ρ => pairFst_memS φ ρ⟩
+  rw [denoteClosed, show pairFstA.toConstantVal.type
+    = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+        (Expr.forallE (Name.anonymous.str "β")
+          (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+            (.sort (.param vN)) { bi := .default })
+          (Expr.forallE (Name.anonymous.str "t")
+            (.app (.app (.const psigmaName [.param uN, .param vN])
+              (.bvar 1)) (.bvar 0))
+            (.bvar 2) { bi := .default })
+          { bi := .implicit })
+        { bi := .implicit } from rfl]
+  simp [denote_forallE, denote_sort, denote_app, denote_fvar, Level.eval,
+    hPc, VExpr.mkAppN, pairFstTyV]
+
+/-- `PSigma'.snd`, installed. -/
+theorem extendPairSndS {env : Env} (m : EnvS V env)
+    (hP : env.find? psigmaName = some psigmaA)
+    (hM : env.find? psigmaMkName = some psigmaMkA)
+    (hfresh : env.find? pairSndA.name = none)
+    (hwf : EnvWF ⟨pairSndA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨pairSndA :: env.consts⟩,
+      m'.cval = cvalWith m.cval pairSndA.name (pairProjValT 1) := by
+  refine extendPairProjS m rfl (Or.inr rfl) (by decide) (by omega) rfl rfl hP hM
+    hfresh hwf ?_
+  intro φ
+  have hPc : ∀ d : Nat,
+      denote (cvalWith m.cval pairSndA.name (pairProjValT 1))
+        ⟨pairSndA :: env.consts⟩ φ d
+        (.const psigmaName [.param uN, .param vN])
+        = some (VExpr.const .psigma [φ uN, φ vN]) := by
+    intro d
+    refine denote_const_pinS m (by decide) hP rfl (by decide) ?_ d
+    rw [show Level.substFn φ psigmaA.toConstantVal.levelParams
+        [Level.param uN, Level.param vN] = φ from
+      Level.substFn_param_self φ [uN, vN]]
+    simp +decide [pinnedDirectT]
+  refine ⟨pairSndTyV (φ uN) (φ vN), ?_, fun ρ => pairSnd_memS φ ρ⟩
+  rw [denoteClosed, show pairSndA.toConstantVal.type
+    = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+        (Expr.forallE (Name.anonymous.str "β")
+          (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+            (.sort (.param vN)) { bi := .default })
+          (Expr.forallE (Name.anonymous.str "t")
+            (.app (.app (.const psigmaName [.param uN, .param vN])
+              (.bvar 1)) (.bvar 0))
+            (.app (.bvar 1) (.proj psigmaName 0 (.bvar 0)))
+            { bi := .default })
+          { bi := .implicit })
+        { bi := .implicit } from rfl]
+  simp [denote_forallE, denote_sort, denote_app, denote_fvar, denote_proj,
+    Expr.instantiate1, Level.eval, hPc, VExpr.mkAppN, pairSndTyV]
+
+/-- `PSigma'.rec`'s denoted type. -/
+def psigmaRecTyV (a b : Nat) : VExpr :=
+  .pi (.sort a)
+    (.pi (.pi (.bvar 0) (.sort b))
+      (.pi (.pi (VExpr.mkAppN (VExpr.const .psigma [a, b])
+            [.bvar 1, .bvar 0]) (.sort 0))
+        (.pi (.pi (.bvar 2)
+            (.pi (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 2) (VExpr.mkAppN
+                (VExpr.const .psigmaMk [a, b])
+                [.bvar 4, .bvar 3, .bvar 1, .bvar 0]))))
+          (.pi (VExpr.mkAppN (VExpr.const .psigma [a, b])
+              [.bvar 3, .bvar 2])
+            (.app (.bvar 2) (.bvar 0))))))
+
+/-- **`PSigma'.rec`'s tower inhabits its type, and both are truthful.**
+The recursion is the two projections; the motive lands where the
+constructor spine would, by the layer's own eta law
+(`psigmaEta_law`). -/
+theorem psigmaRecTyV_annotS (a b : Nat) (ρ : Nat → V) :
+    AnnotOkV V ρ (psigmaRecTyV a b) := by
+  have hpv := fun (ρ' : Nat → V) => bval_mem_type V .psigma [a, b] ρ'
+  simp only [BConst.type, lv, List.getD_cons_zero, List.getD_cons_succ,
+    interp_pi, interp_sort, interp_bvar, interp_arrow, cons] at hpv
+  have hmv := fun (ρ' : Nat → V) => bval_mem_type V .psigmaMk [a, b] ρ'
+  simp only [BConst.type, lv, List.getD_cons_zero, List.getD_cons_succ,
+    interp_pi, interp_sort, interp_bvar, interp_arrow, interp_app,
+    interp_const, bval, cons, psigmaT, VExpr.mkAppN] at hmv
+  simp only [psigmaRecTyV]
+  refine ⟨trivial, fun A hA => ?_⟩
+  have hA' : A ∈ˢ (univ (a) : V) := by simpa [interp_sort] using hA
+  refine ⟨⟨trivial, fun _ _ => trivial⟩, fun B hB => ?_⟩
+  have hB' : B ∈ˢ piC A (fun _ => univ (b)) := by
+    simpa [interp_pi, interp_sort, interp_bvar, cons] using hB
+  have hspine : ∀ (ρ' : Nat → V) (i j : Nat), ρ' i = A → ρ' j = B →
+      AnnotOkV V ρ' (VExpr.mkAppN (VExpr.const .psigma
+        [a, b]) [.bvar i, .bvar j]) := by
+    intro ρ' i j hi hj
+    have h1 : interp V ρ' (VExpr.bvar i) ∈ˢ univ (a) := by
+      rw [interp_bvar, hi]; exact hA'
+    have h2 : interp V ρ' (VExpr.bvar j) ∈ˢ piC
+        (interp V ρ' (VExpr.bvar i)) (fun _ => univ (b)) := by
+      rw [interp_bvar, interp_bvar, hi, hj]; exact hB'
+    simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_const,
+      AnnotOkV_bvar]
+    exact ⟨⟨trivial, trivial, _, _, hpv ρ', h1⟩, trivial, _, _,
+      app_mem_piC (hpv ρ') h1, h2⟩
+  refine ⟨⟨?_, fun _ _ => trivial⟩, fun M hM => ?_⟩
+  · exact hspine _ 1 0 (by simp [cons]) (by simp [cons])
+  have hM' : M ∈ˢ piC (SetTheory.app (SetTheory.app
+      (psigmaV V (a) (b)) A) B) (fun _ => univ 0) := by
+    simpa [interp_pi, interp_sort, VExpr.mkAppN, interp_app,
+      interp_const, bval, lv, interp_bvar, cons] using hM
+  refine ⟨⟨trivial, fun x hx => ?_⟩, fun mk hmk => ?_⟩
+  · have hx' : x ∈ˢ A := by simpa [interp_bvar, cons] using hx
+    refine ⟨?_, fun y hy => ?_⟩
+    · simp only [AnnotOkV_app, AnnotOkV_bvar, interp_bvar, cons]
+      exact ⟨trivial, trivial, A, fun _ => univ (b), hB', hx'⟩
+    · have hy' : y ∈ˢ SetTheory.app B x := by
+        simpa [interp_app, interp_bvar, cons] using hy
+      have hMs := hM'
+      rw [psigmaV_app V hA' hB'] at hMs
+      have h1 := app_mem_piC (hmv ρ) hA'
+      have h2 := app_mem_piC h1 hB'
+      have h3 := app_mem_piC h2 hx'
+      have h4 := app_mem_piC h3 hy'
+      have hmkm : SetTheory.app (SetTheory.app (SetTheory.app
+          (SetTheory.app (psigmaMkV V (a) (b)) A) B) x) y
+          ∈ˢ sigmaSet (Nat.max (a) (b)) A
+            (fun z => SetTheory.app B z) := by
+        rwa [psigmaV_app V hA' hB'] at h4
+      have hspA : AnnotOkV V (cons V y (cons V x (cons V M
+          (cons V B (cons V A ρ)))))
+          (VExpr.mkAppN (VExpr.const .psigmaMk [a, b])
+            [.bvar 4, .bvar 3, .bvar 1, .bvar 0]) := by
+        simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_const,
+          AnnotOkV_bvar, interp_bvar, cons]
+        exact ⟨⟨⟨⟨trivial, trivial, _, _, hmv ρ, hA'⟩, trivial, _, _,
+              h1, hB'⟩, trivial, _, _, h2, hx'⟩,
+          trivial, _, _, h3, hy'⟩
+      rw [AnnotOkV_app]
+      refine ⟨trivial, hspA,
+        sigmaSet (Nat.max (a) (b)) A
+          (fun z => SetTheory.app B z), fun _ => univ 0, ?_, ?_⟩
+      · simpa [interp_bvar, cons] using hMs
+      · simpa [VExpr.mkAppN, interp_app, interp_const, bval, lv,
+          interp_bvar, cons, List.getD_cons_zero,
+          List.getD_cons_succ] using hmkm
+  refine ⟨?_, fun p hp => ?_⟩
+  · exact hspine _ 3 2 (by simp [cons]) (by simp [cons])
+  · have hp' : p ∈ˢ SetTheory.app (SetTheory.app
+        (psigmaV V (a) (b)) A) B := by
+      simpa [VExpr.mkAppN, interp_app, interp_const, bval, lv,
+        interp_bvar, cons, List.getD_cons_zero,
+        List.getD_cons_succ] using hp
+    simp only [AnnotOkV_app, AnnotOkV_bvar, interp_bvar, cons]
+    exact ⟨trivial, trivial, _, _, hM', hp'⟩
+
+theorem psigmaRecValT_memS (φ : Name → Nat) (ρ : Nat → V) :
+    interp V ρ (psigmaRecValT φ)
+        ∈ˢ interp V ρ (psigmaRecTyV (φ uN) (φ vN))
+      ∧ AnnotOkV V ρ (psigmaRecTyV (φ uN) (φ vN)) := by
+  have hpv := fun (ρ' : Nat → V) =>
+    bval_mem_type V .psigma [φ uN, φ vN] ρ'
+  simp only [BConst.type, lv, List.getD_cons_zero, List.getD_cons_succ,
+    interp_pi, interp_sort, interp_bvar, interp_arrow, cons] at hpv
+  have hmv := fun (ρ' : Nat → V) =>
+    bval_mem_type V .psigmaMk [φ uN, φ vN] ρ'
+  simp only [BConst.type, lv, List.getD_cons_zero, List.getD_cons_succ,
+    interp_pi, interp_sort, interp_bvar, interp_arrow, interp_app,
+    interp_const, bval, cons, psigmaT, VExpr.mkAppN] at hmv
+  refine ⟨?_, psigmaRecTyV_annotS (φ uN) (φ vN) ρ⟩
+  · simp +decide only [psigmaRecValT, psigmaRecTyV, interp_lam,
+      interp_pi, interp_sort, interp_bvar, cons, VExpr.mkAppN,
+      interp_app, interp_const, bval, lv, List.getD_cons_zero,
+      List.getD_cons_succ, interp_proj, reduceIte]
+    refine lamC_mem (fun A hA => lamC_mem (fun B hB =>
+      lamC_mem (fun M hM => lamC_mem (fun mk hmk =>
+        lamC_mem (fun p hp => ?_)))))
+    rw [psigmaV_app V hA hB] at hp
+    have h1 := app_mem_piC hmk (sfst_mem V hA hp)
+    have h2 := app_mem_piC h1 (ssnd_mem V hA hB hp)
+    rwa [psigmaEta_law V hA hB hp] at h2
+
+theorem psigmaRecValT_annotS (φ : Name → Nat) (ρ : Nat → V) :
+    AnnotOkV V ρ (psigmaRecValT φ) := by
+  obtain ⟨-, hc⟩ := psigmaRecValT_memS (V := V) φ ρ
+  simp only [psigmaRecTyV] at hc
+  obtain ⟨c1, c2⟩ := hc
+  refine ⟨c1, fun A hA => ?_⟩
+  obtain ⟨d1, d2⟩ := c2 A hA
+  refine ⟨d1, fun B hB => ?_⟩
+  obtain ⟨e1, e2⟩ := d2 B hB
+  refine ⟨e1, fun M hM => ?_⟩
+  obtain ⟨f1, f2⟩ := e2 M hM
+  refine ⟨f1, fun mk hmk => ?_⟩
+  obtain ⟨g1, -⟩ := f2 mk hmk
+  refine ⟨g1, fun p hp => ?_⟩
+  have hA' : A ∈ˢ (univ (φ uN) : V) := by simpa [interp_sort] using hA
+  have hB' : B ∈ˢ piC A (fun _ => univ (φ vN)) := by
+    simpa [interp_pi, interp_sort, interp_bvar, cons] using hB
+  have hmk' : mk ∈ˢ piC A (fun x => piC (SetTheory.app B x)
+      (fun y => SetTheory.app M (SetTheory.app (SetTheory.app
+        (SetTheory.app (SetTheory.app (psigmaMkV V (φ uN) (φ vN)) A) B)
+        x) y))) := by
+    simpa [interp_pi, interp_app, interp_const, bval, lv, VExpr.mkAppN,
+      interp_bvar, cons, List.getD_cons_zero,
+      List.getD_cons_succ] using hmk
+  have hp' : p ∈ˢ sigmaSet (Nat.max (φ uN) (φ vN)) A
+      (fun x => SetTheory.app B x) := by
+    have h := hp
+    simp only [VExpr.mkAppN, interp_app, interp_const, bval, lv,
+      interp_bvar, cons, List.getD_cons_zero, List.getD_cons_succ] at h
+    rwa [psigmaV_app V hA' hB'] at h
+  have hsigma : ∀ j : Nat, j < 2 → AnnotOkV V (cons V p (cons V mk
+      (cons V M (cons V B (cons V A ρ))))) (VExpr.proj j (VExpr.bvar 0)) := by
+    intro j hj
+    simp only [AnnotOkV_proj, AnnotOkV_bvar, interp_bvar, cons]
+    exact ⟨trivial, hj, _, _, _, _, hp', hA',
+      fun x hx => app_mem_piC hB' hx⟩
+  simp only [AnnotOkV_app, AnnotOkV_bvar, interp_proj, interp_bvar, cons,
+    reduceIte]
+  exact ⟨⟨trivial, hsigma 0 (by omega), _, _, hmk',
+      sfst_mem V hA' hp'⟩,
+    hsigma 1 (by omega), _, _,
+    app_mem_piC hmk' (sfst_mem V hA' hp'), ssnd_mem V hA' hB' hp'⟩
+
+/-- The rule's right-hand side is truthful, and its tower inhabits the
+telescope the fire site walks. -/
+theorem psigmaRecRhs_annotS (a b : Nat) (ρ : Nat → V) :
+    AnnotOkV V ρ (psigmaRecRhsV a b) := by
+  obtain ⟨c1, c2⟩ := psigmaRecTyV_annotS (V := V) a b ρ
+  simp only [psigmaRecRhsV]
+  refine ⟨c1, fun x1 h1 => ?_⟩
+  obtain ⟨d1, d2⟩ := c2 x1 h1
+  refine ⟨d1, fun x2 h2 => ?_⟩
+  obtain ⟨e1, e2⟩ := d2 x2 h2
+  refine ⟨e1, fun x3 h3 => ?_⟩
+  obtain ⟨f1, f2⟩ := e2 x3 h3
+  refine ⟨f1, fun x4 h4 => ⟨trivial, fun x5 h5 => ?_⟩⟩
+  have h2' : x2 ∈ˢ piC x1 (fun _ => univ b) := by
+    simpa [interp_pi, interp_sort, interp_bvar, cons] using h2
+  have h5' : x5 ∈ˢ x1 := by simpa [interp_bvar, cons] using h5
+  have h4' : x4 ∈ˢ piC x1 (fun y => piC (SetTheory.app x2 y)
+      (fun z => SetTheory.app x3 (SetTheory.app (SetTheory.app
+        (SetTheory.app (SetTheory.app (psigmaMkV V a b) x1) x2) y) z))) := by
+    simpa [interp_pi, interp_app, interp_const, bval, lv, VExpr.mkAppN,
+      interp_bvar, cons, List.getD_cons_zero,
+      List.getD_cons_succ] using h4
+  refine ⟨?_, fun x6 h6 => ?_⟩
+  · simp only [AnnotOkV_app, AnnotOkV_bvar, interp_bvar, cons]
+    exact ⟨trivial, trivial, x1, fun _ => univ b, h2', h5'⟩
+  · have h6' : x6 ∈ˢ SetTheory.app x2 x5 := by
+      simpa [interp_app, interp_bvar, cons] using h6
+    simp only [AnnotOkV_app, AnnotOkV_bvar, interp_bvar, cons]
+    exact ⟨⟨trivial, trivial, _, _, h4', h5'⟩, trivial, _, _,
+      app_mem_piC h4' h5', h6'⟩
+
+theorem psigmaRecRhs_memS (a b : Nat) (ρ : Nat → V) :
+    interp V ρ (psigmaRecRhsV a b) ∈ˢ
+      piC (univ a) (fun x1 =>
+        piC (piC x1 (fun _ => univ b)) (fun x2 =>
+          piC (piC (SetTheory.app (SetTheory.app (psigmaV V a b) x1) x2)
+              (fun _ => univ 0)) (fun x3 =>
+            piC (piC x1 (fun y => piC (SetTheory.app x2 y) (fun z =>
+                SetTheory.app x3 (SetTheory.app (SetTheory.app
+                  (SetTheory.app (SetTheory.app (psigmaMkV V a b) x1) x2)
+                  y) z)))) (fun _x4 =>
+              piC x1 (fun x5 => piC (SetTheory.app x2 x5) (fun x6 =>
+                SetTheory.app x3 (SetTheory.app (SetTheory.app
+                  (SetTheory.app (SetTheory.app (psigmaMkV V a b) x1) x2)
+                  x5) x6))))))) := by
+  simp +decide only [psigmaRecRhsV, interp_lam, interp_pi, interp_sort,
+    interp_bvar, interp_app, interp_const, cons, bval, lv, VExpr.mkAppN,
+    List.getD_cons_zero, List.getD_cons_succ]
+  exact lamC_mem (fun x1 _ => lamC_mem (fun x2 _ =>
+    lamC_mem (fun x3 _ => lamC_mem (fun x4 h4 =>
+      lamC_mem (fun x5 h5 => lamC_mem (fun x6 h6 =>
+        app_mem_piC (app_mem_piC h4 h5) h6))))))
+
+/-- **`PSigma'.rec`, installed.**  Unlike `Eq`'s, this block's iota has
+real content past β: the tower returns the minor premise at the two
+*projections*, and the rule's right-hand side wants it at the two
+*fields*, so the two projection computations (`projFstMk`, `projSndMk`)
+close the gap — applied on the rule's side, where the constructor
+spine's own telescope supplies their premises. -/
+theorem extendPSigmaRecS {env : Env} (m : EnvS V env)
+    (hP : env.find? psigmaName = some psigmaA)
+    (hM : env.find? psigmaMkName = some psigmaMkA)
+    (hPv : ∀ ψ : Name → Nat,
+      m.cval psigmaName ψ = VExpr.const .psigma [ψ uN, ψ vN])
+    (hMv : ∀ ψ : Name → Nat,
+      m.cval psigmaMkName ψ = VExpr.const .psigmaMk [ψ uN, ψ vN])
+    (hfresh : env.find? (psigmaName.str "rec") = none)
+    (hwf : EnvWF ⟨psigmaRecA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨psigmaRecA :: env.consts⟩,
+      m'.cval = cvalWith m.cval psigmaRecA.name psigmaRecValT := by
+  refine extendBasisS m (val := psigmaRecValT)
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name psigmaRecA = psigmaName.str "rec" from rfl]
+        at hp
+      simp +decide [pinnedDirectT] at hp)
+    hfresh hwf (fun ψ => psigmaRecValT_closed ψ) ?_
+    (fun ψ ρ => psigmaRecValT_annotS ψ ρ) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · -- the valuation reads only `u` and `v`
+    intro φ₁ φ₂ hp
+    exact psigmaRecValT_congr
+      (hp uN (by show uN ∈ [uN, vN]; exact List.mem_cons_self))
+      (hp vN (by
+        show vN ∈ [uN, vN]
+        exact List.mem_cons_of_mem _ List.mem_cons_self))
+  · -- the pinned type, denoted
+    intro φ
+    refine ⟨psigmaRecTyV (φ uN) (φ vN), ?_,
+      fun ρ => psigmaRecValT_memS φ ρ⟩
+    rw [denoteClosed, ← Expr.instantiateLevelParams_self
+        psigmaRecA.toConstantVal.levelParams psigmaRecA.toConstantVal.type,
+      show psigmaRecA.toConstantVal.levelParams.map Level.param
+        = [Level.param uN, Level.param vN] from rfl,
+      denote_psigmaRec_typeS m φ 0 (.param uN) (.param vN) hP hM hPv hMv]
+    rfl
+  · -- the rule's constructor is stored
+    intro cv mI rP rules heq
+    injection heq with _ _ _ h4
+    subst h4
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · exact ⟨psigmaMkA.toConstantVal, 2, 2, hM⟩
+    · exact nomatch hr'
+  · -- the iota rule
+    intro cv mI rP rules heq
+    injection heq with h1 h2 h3 h4
+    subst h1; subst h2; subst h3; subst h4
+    intro rl hrl _ φ
+    rcases List.mem_cons.mp hrl with rfl | hr'
+    · refine ⟨by omega, ?_⟩
+      intro us hus
+      obtain ⟨w1, w2, rfl⟩ : ∃ a b, us = [a, b] := by
+        match us, hus with
+        | [a, b], _ => exact ⟨a, b, rfl⟩
+      refine ⟨_, denote_psigmaRec_rhsS m (val := psigmaRecValT) φ 0 w1 w2
+        hP hM hPv hMv, ?_⟩
+      intro cvj cnP cnF hfj usj ρ xs ys TV TVj restR restC hxs hys
+        husj hlev hplain hnested hidx hTV hTVj hR' hC
+      have hMu := hM
+      simp only [psigmaMkName, psigmaName] at hMu
+      rw [Env.find?_cons, if_neg (by decide), hMu] at hfj
+      obtain ⟨rfl, rfl, rfl⟩ :
+          cvj = psigmaMkA.toConstantVal ∧ cnP = 2 ∧ cnF = 2 := by
+        injection Option.some.inj hfj with a1 a2 a3
+        exact ⟨a1.symm, a2.symm, a3.symm⟩
+      obtain ⟨y1, y2, ya, yb, rfl⟩ : ∃ a b c e, ys = [a, b, c, e] := by
+        match ys, hys with
+        | [a, b, c, e], _ => exact ⟨a, b, c, e, rfl⟩
+      obtain ⟨xa, xb, xM, xmk, rfl⟩ : ∃ a b c e, xs = [a, b, c, e] := by
+        match xs, hxs with
+        | [a, b, c, e], _ => exact ⟨a, b, c, e, rfl⟩
+      obtain ⟨v1, v2, rfl⟩ : ∃ a b, usj = [a, b] := by
+        match usj, husj with
+        | [a, b], _ => exact ⟨a, b, rfl⟩
+      have hlps : psigmaMkA.toConstantVal.levelParams = [uN, vN] := rfl
+      have hlu : Level.eval φ v1 = Level.eval φ w1 := by
+        have h := congrFun hlev uN
+        rw [hlps] at h
+        simpa [recFireComparands, Level.substFn, Level.subst,
+          Level.subst.go, uN, vN] using h
+      have hlv : Level.eval φ v2 = Level.eval φ w2 := by
+        have h := congrFun hlev vN
+        rw [hlps] at h
+        simpa [recFireComparands, Level.substFn, Level.subst,
+          Level.subst.go, uN, vN] using h
+      have hctorV : cvalWith m.cval psigmaRecA.name psigmaRecValT
+          ((Name.anonymous.str "PSigma'").str "mk")
+          (Level.substFn φ psigmaMkA.toConstantVal.levelParams [v1, v2])
+          = VExpr.const .psigmaMk [Level.eval φ w1, Level.eval φ w2] := by
+        have hMv' := hMv
+        simp only [psigmaMkName, psigmaName] at hMv'
+        rw [cvalWith_ne (by decide), hMv']
+        simp only [show Level.substFn φ
+            psigmaMkA.toConstantVal.levelParams [v1, v2] uN
+            = Level.eval φ v1 from by
+              rw [hlps]; simp [Level.substFn, uN],
+          show Level.substFn φ
+            psigmaMkA.toConstantVal.levelParams [v1, v2] vN
+            = Level.eval φ v2 from by
+              rw [hlps]; simp [Level.substFn, uN, vN], hlu, hlv]
+      have hTVc := Option.some.inj (hTV.symm.trans
+        (denote_psigmaRec_typeS m (val := psigmaRecValT) φ 0 w1 w2
+          hP hM hPv hMv))
+      have hTVjc := Option.some.inj (hTVj.symm.trans
+        (denote_psigmaMk_typeS m (val := psigmaRecValT)
+          φ 0 v1 v2 hP hM hPv hMv))
+      subst hTVc; subst hTVjc
+      rw [hctorV] at hR'
+      rw [hlu, hlv] at hC
+      cases hR' with | cons t1 hR' =>
+      cases hR' with | cons t2 hR' =>
+      cases hR' with | cons t3 hR' =>
+      cases hR' with | cons t4 hR' =>
+      cases hR' with | cons t5 hR' =>
+      cases hC with | cons c1 hC =>
+      cases hC with | cons c2 hC =>
+      cases hC with | cons c3 hC =>
+      cases hC with | cons c4 hC =>
+      have hliftc : ∀ (x : V) (e : VExpr) (ρ' : Nat → V),
+          interp V (cons V x ρ') (VExpr.liftN 1 e 0) = interp V ρ' e :=
+        fun x e ρ' => interp_lift_cons (V := V) e x ρ'
+      have hliftc2 : ∀ (x y : V) (e : VExpr) (ρ' : Nat → V),
+          interp V (cons V y (cons V x ρ')) (VExpr.liftN 2 e 0)
+            = interp V ρ' e := by
+        intro x y e ρ'
+        rw [interp_liftN_cons0]
+        have h : (fun i => cons V y (cons V x ρ') (i + 2)) = ρ' := by
+          funext i; simp [cons]
+        rw [h]
+      have hpl := hplain rfl
+      have hxa0 : interp V ρ y1 = interp V ρ xa := by
+        simpa using hpl 0 (by decide) (by decide)
+      have hxb0 : interp V ρ y2 = interp V ρ xb := by
+        simpa using hpl 1 (by decide) (by decide)
+      simp +decide only [VExpr.inst, Nat.reduceAdd,
+        Nat.reduceSub, reduceIte, inst_chain1, 
+        inst_absorb21, inst_absorb32,
+        inst_absorb43, VExpr.liftN_zero,
+        VExpr.mkAppN, interp_pi, interp_sort, interp_app, interp_const,
+        interp_bvar, cons, bval, lv, List.getD_cons_zero,
+        List.getD_cons_succ, hliftc, hliftc2, hxa0, hxb0]
+        at t1 t2 t3 t4 t5 c3 c4
+      have hu1 : Level.substFn φ [Name.anonymous.str "u",
+          Name.anonymous.str "v"] [w1, w2] uN = Level.eval φ w1 := by
+        simp [Level.substFn, uN]
+      have hu2 : Level.substFn φ [Name.anonymous.str "u",
+          Name.anonymous.str "v"] [w1, w2] vN = Level.eval φ w2 := by
+        simp [Level.substFn, vN]
+      refine ⟨?_, ?_⟩
+      · rw [cvalWith_self, hctorV]
+        simp +decide only [List.take, List.drop, List.cons_append,
+          List.nil_append]
+        refine Eq.trans (b := SetTheory.app (SetTheory.app
+          (interp V ρ xmk) (interp V ρ ya)) (interp V ρ yb)) ?_
+          (Eq.symm ?_)
+        · simp +decide only [psigmaRecValT, hu1, hu2, VExpr.mkAppN,
+            interp_lam, interp_pi, interp_sort, interp_bvar, interp_app,
+            interp_const, interp_proj, cons, bval, lv,
+            List.getD_cons_zero, List.getD_cons_succ, reduceIte,
+            hxa0, hxb0]
+          rw [app_lamC t1, app_lamC t2, app_lamC t3, app_lamC t4,
+            app_lamC t5, sfst_mk V t1 t2 c3 c4, ssnd_mk V t1 t2 c3 c4]
+        · simp +decide only [psigmaRecRhsV, VExpr.mkAppN, interp_lam,
+            interp_pi, interp_sort, interp_bvar, interp_app,
+            interp_const, cons, bval, lv, List.getD_cons_zero,
+            List.getD_cons_succ]
+          rw [app_lamC t1, app_lamC t2, app_lamC t3, app_lamC t4,
+            app_lamC c3, app_lamC c4]
+      · intro hxsA hysA
+        have haA : AnnotOkV V ρ xa := hxsA xa (by simp)
+        have hbA : AnnotOkV V ρ xb := hxsA xb (by simp)
+        have hMA : AnnotOkV V ρ xM := hxsA xM (by simp)
+        have hmkA : AnnotOkV V ρ xmk := hxsA xmk (by simp)
+        have hyaA : AnnotOkV V ρ ya := hysA ya (by simp)
+        have hybA : AnnotOkV V ρ yb := hysA yb (by simp)
+        have hRA := psigmaRecRhs_annotS (V := V) (Level.eval φ w1)
+          (Level.eval φ w2) ρ
+        have hRm := psigmaRecRhs_memS (V := V) (Level.eval φ w1)
+          (Level.eval φ w2) ρ
+        simp only [List.take, List.drop, List.cons_append,
+          List.nil_append, VExpr.mkAppN_cons, VExpr.mkAppN_nil,
+          AnnotOkV_app]
+        exact ⟨⟨⟨⟨⟨⟨hRA, haA, _, _, hRm, t1⟩, hbA, _, _,
+                  app_mem_piC hRm t1, t2⟩, hMA, _, _,
+                app_mem_piC (app_mem_piC hRm t1) t2, t3⟩, hmkA, _, _,
+              app_mem_piC (app_mem_piC (app_mem_piC hRm t1) t2) t3,
+              t4⟩, hyaA, _, _,
+            app_mem_piC (app_mem_piC (app_mem_piC
+              (app_mem_piC hRm t1) t2) t3) t4, c3⟩, hybA, _, _,
+          app_mem_piC (app_mem_piC (app_mem_piC (app_mem_piC
+            (app_mem_piC hRm t1) t2) t3) t4) c3, c4⟩
+    · exact nomatch hr'
+
+/-- **The `PSigma'` block, installed.**  Five constants — the block that
+installs the only `projInfo` constants any block installs, and the only
+one whose iota needs more than β. -/
+theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
+    (h : BasisInstallR env BasisKind.psigmaK.declsA env₁) :
+    Nonempty (EnvS V env₁) := by
+  rw [show BasisKind.psigmaK.declsA
+    = [psigmaA, psigmaMkA, psigmaRecA, pairFstA, pairSndA] from rfl] at h
+  obtain ⟨h1, h2, h3, h4, h5, hnil⟩ := h
+  subst hnil
+  have hwf1 : EnvWF ⟨psigmaA :: env.consts⟩ :=
+    EnvWF.cons m.wf ⟨rfl, rfl, rfl, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  obtain ⟨m1, -⟩ := extendPSigmaS m (Option.isNone_iff_eq_none.mp h1) hwf1
+  have hP1 : (⟨psigmaA :: env.consts⟩ : Env).find? psigmaName
+      = some psigmaA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  have hwf2 : EnvWF ⟨psigmaMkA :: psigmaA :: env.consts⟩ :=
+    EnvWF.cons hwf1 ⟨rfl, rfl, ?res2, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res2 =>
+    show Expr.constsResolve _ psigmaMkA.toConstantVal.type = true
+    have hf : (⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env).find? psigmaName
+        = some psigmaA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP1
+    rw [show psigmaMkA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+          (Expr.forallE (Name.anonymous.str "β")
+            (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+              (.sort (.param vN)) { bi := .default })
+            (Expr.forallE (Name.anonymous.str "fst") (.bvar 1)
+              (Expr.forallE (Name.anonymous.str "snd")
+                (.app (.bvar 1) (.bvar 0))
+                (.app (.app (.const psigmaName
+                    [.param uN, .param vN]) (.bvar 3)) (.bvar 2))
+                { bi := .default })
+              { bi := .default })
+            { bi := .implicit })
+          { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hf]
+  obtain ⟨m2, -⟩ := extendPSigmaMkS m1 hP1 (Option.isNone_iff_eq_none.mp h2) hwf2
+  have hP2 : (⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env).find? psigmaName
+      = some psigmaA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hP1
+  have hM2 : (⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env).find? psigmaMkName
+      = some psigmaMkA := by
+    rw [Env.find?_cons]; exact if_pos rfl
+  -- the two valuations the recursor's install needs are the invariant's,
+  -- not the chain's: both constants are pinned
+  have hPv2 : ∀ ψ : Name → Nat,
+      m2.cval psigmaName ψ = VExpr.const .psigma [ψ uN, ψ vN] := fun ψ =>
+    cvalS_pinned m2 (by decide) (by rw [hP2]; rfl) ψ
+      (by simp +decide [pinnedDirectT])
+  have hMv2 : ∀ ψ : Name → Nat,
+      m2.cval psigmaMkName ψ = VExpr.const .psigmaMk [ψ uN, ψ vN] :=
+    fun ψ => cvalS_pinned m2 (by decide) (by rw [hM2]; rfl) ψ
+      (by simp +decide [pinnedDirectT])
+  have hwf3 : EnvWF ⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :=
+    EnvWF.cons hwf2 ⟨rfl, rfl, ?res3, rfl,
+      (fun _ _ _ heq => nomatch heq), ?rec3,
+      (fun _ _ heq => nomatch heq)⟩
+  case res3 =>
+    show Expr.constsResolve _ psigmaRecA.toConstantVal.type = true
+    have hfP : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+        Env).find? psigmaName = some psigmaA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP2
+    have hfM : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+        Env).find? psigmaMkName = some psigmaMkA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hM2
+    rw [show psigmaRecA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+            (Expr.forallE (Name.anonymous.str "β")
+              (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+                (.sort (.param vN)) { bi := .default })
+              (Expr.forallE (Name.anonymous.str "motive")
+                (Expr.forallE (Name.anonymous.str "t")
+                  (.app (.app (.const psigmaName [.param uN, .param vN])
+                    (.bvar 1)) (.bvar 0))
+                  (.sort .zero) { bi := .default })
+                (Expr.forallE (Name.anonymous.str "mk")
+                  (Expr.forallE (Name.anonymous.str "fst") (.bvar 2)
+                    (Expr.forallE (Name.anonymous.str "snd")
+                      (.app (.bvar 2) (.bvar 0))
+                      (.app (.bvar 2)
+                        (.app (.app (.app (.app (.const psigmaMkName
+                          [.param uN, .param vN]) (.bvar 4)) (.bvar 3))
+                          (.bvar 1)) (.bvar 0)))
+                      { bi := .default })
+                    { bi := .default })
+                  (Expr.forallE (Name.anonymous.str "t")
+                    (.app (.app (.const psigmaName [.param uN, .param vN])
+                      (.bvar 3)) (.bvar 2))
+                    (.app (.bvar 2) (.bvar 0)) { bi := .default })
+                  { bi := .default })
+                { bi := .implicit })
+              { bi := .implicit })
+            { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hfP, hfM]
+  case rec3 =>
+    intro cv mI rP rules heq
+    injection heq with h1' _ _ h4'
+    subst h1'; subst h4'
+    have hfP : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+        Env).find? psigmaName = some psigmaA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP2
+    have hfM : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+        Env).find? psigmaMkName = some psigmaMkA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hM2
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · exact ⟨rfl, rfl, by
+        show Expr.constsResolve _ (RecRule.rhs psigmaRecRule) = true
+        simp [Expr.constsResolve, psigmaRecRule, hfP, hfM], rfl,
+        fun lvls pins heqf => nomatch heqf⟩
+    · exact nomatch hr'
+  obtain ⟨m3, -⟩ := extendPSigmaRecS m2 hP2 hM2 hPv2 hMv2 (Option.isNone_iff_eq_none.mp h3) hwf3
+  have hP3 : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+      Env).find? psigmaName = some psigmaA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hP2
+  have hM3 : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
+      Env).find? psigmaMkName = some psigmaMkA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hM2
+  have hwf4 : EnvWF ⟨pairFstA :: psigmaRecA :: psigmaMkA :: psigmaA ::
+      env.consts⟩ :=
+    EnvWF.cons hwf3 ⟨rfl, rfl, ?res4, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res4 =>
+    show Expr.constsResolve _ pairFstA.toConstantVal.type = true
+    have hfP : (⟨pairFstA :: psigmaRecA :: psigmaMkA :: psigmaA ::
+        env.consts⟩ : Env).find? psigmaName = some psigmaA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP3
+    rw [show pairFstA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+            (Expr.forallE (Name.anonymous.str "β")
+              (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+                (.sort (.param vN)) { bi := .default })
+              (Expr.forallE (Name.anonymous.str "t")
+                (.app (.app (.const psigmaName [.param uN, .param vN])
+                  (.bvar 1)) (.bvar 0))
+                (.bvar 2) { bi := .default })
+              { bi := .implicit })
+            { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hfP]
+  obtain ⟨m4, -⟩ := extendPairFstS m3 hP3 hM3 (Option.isNone_iff_eq_none.mp h4) hwf4
+  have hP4 : (⟨pairFstA :: psigmaRecA :: psigmaMkA :: psigmaA ::
+      env.consts⟩ : Env).find? psigmaName = some psigmaA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hP3
+  have hM4 : (⟨pairFstA :: psigmaRecA :: psigmaMkA :: psigmaA ::
+      env.consts⟩ : Env).find? psigmaMkName = some psigmaMkA := by
+    rw [Env.find?_cons, if_neg (by decide)]; exact hM3
+  have hwf5 : EnvWF ⟨pairSndA :: pairFstA :: psigmaRecA :: psigmaMkA ::
+      psigmaA :: env.consts⟩ :=
+    EnvWF.cons hwf4 ⟨rfl, rfl, ?res5, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  case res5 =>
+    show Expr.constsResolve _ pairSndA.toConstantVal.type = true
+    have hfP : (⟨pairSndA :: pairFstA :: psigmaRecA :: psigmaMkA ::
+        psigmaA :: env.consts⟩ : Env).find? psigmaName = some psigmaA := by
+      rw [Env.find?_cons, if_neg (by decide)]; exact hP4
+    rw [show pairSndA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+            (Expr.forallE (Name.anonymous.str "β")
+              (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
+                (.sort (.param vN)) { bi := .default })
+              (Expr.forallE (Name.anonymous.str "t")
+                (.app (.app (.const psigmaName [.param uN, .param vN])
+                  (.bvar 1)) (.bvar 0))
+                (.app (.bvar 1) (.proj psigmaName 0 (.bvar 0))) { bi := .default })
+              { bi := .implicit })
+            { bi := .implicit } from rfl]
+    simp [Expr.constsResolve, hfP]
+  obtain ⟨m5, -⟩ := extendPairSndS m4 hP4 hM4 (Option.isNone_iff_eq_none.mp h5) hwf5
+  exact ⟨m5⟩
+
 /-- **The `Eq` block, installed.**  Two `BetaSpine`s meeting at the
 minor premise are the whole of its iota — the block whose eliminator
 the layer derives is the block whose install has no computation
