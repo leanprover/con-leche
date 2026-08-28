@@ -1,5 +1,6 @@
 import Setlec.SetR.Install.ValueKinds
 import Setlec.Verify.OfReducePin
+import Setlec.Verify.Denote.Inst
 
 /-!
 # The `axiom` case (task #148, T5)
@@ -355,5 +356,324 @@ theorem denote_eqA_typeS {env : Env} {cval : TConstVal}
   rw [denoteClosed, hty]
   simp [denote_forallE, denote_sort, Expr.instantiate1,
     denote_fvar, Level.eval, hu]
+
+/-! ## `Lean.ofReduceBool`/`Lean.ofReduceNat`, discharged
+
+The pin fixes the axiom's type to `∀ a b : E, op a = b → a = b`, whose
+inhabitant is `fun a b h => h`: `reduce_ops` says the trusted operation
+is the identity on `E`, so the hypothesis' `Eq`-spine and the
+conclusion's interpret to the *same* truth set.  The witness is built
+out of the type's own subterms, so its `AnnotOkV` **is** the type's,
+component for component (`AnnotOkV`'s `.lam` and `.pi` clauses have the
+same shape), with `trivial` for the `.bvar` tail. -/
+
+set_option maxHeartbeats 3200000 in
+/-- **The `ofReduce*` key.** -/
+theorem ofReduceKeyS : OfReduceKeyS V := by
+  intro env m cvA hok hor hfresh
+  simp only [ofReduceAxOk, Bool.and_eq_true, decide_eq_true_eq] at hok
+  obtain ⟨⟨⟨hEq, helem⟩, hstored⟩, hpin⟩ := hok
+  obtain ⟨ciE, hfE, hlpE, htyE⟩ := reduceElem_sort helem
+  obtain ⟨cvR, hfR, hmpR⟩ : ∃ cvR,
+      env.find? (ofReduceOp cvA.name) = some (.axiomInfo cvR) ∧
+      ConstantVal.matchesPin cvR
+        (reduceOpCvA (ofReduceOp cvA.name)) = true := by
+    rw [reduceStoredOk] at hstored
+    cases hf : env.find? (ofReduceOp cvA.name) with
+    | none => rw [hf] at hstored; exact nomatch hstored
+    | some ci =>
+      rw [hf] at hstored
+      cases ci with
+      | axiomInfo cvR => exact ⟨cvR, rfl, hstored⟩
+      | _ => exact nomatch hstored
+  obtain ⟨-, hlpR⟩ := matchesPin_invT hmpR
+  rw [show (reduceOpCvA (ofReduceOp cvA.name)).levelParams = [] from by
+    unfold reduceOpCvA; split <;> rfl] at hlpR
+  have hmem : ofReduceOp cvA.name ∈ reduceOpNames := by
+    unfold ofReduceOp; split <;> decide
+  have htyA : Expr.ErasedEq cvA.type (ofReducePinA cvA.name).type := by
+    simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+      beq_iff_eq] at hpin
+    exact erasedEq_of_eraseNames hpin.2
+  have htyR : Expr.ErasedEq cvR.type
+      (reduceOpCvA (ofReduceOp cvA.name)).type := by
+    simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+      beq_iff_eq] at hmpR
+    exact erasedEq_of_eraseNames hmpR.2
+  have hden : ∀ ψ : Name → Nat,
+      denoteClosed m.cval env ψ cvA.type
+        = some (.pi (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
+          (.pi (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
+            (.pi (VExpr.mkAppN (eqVS m ψ)
+                [m.cval (reduceElemName (ofReduceOp cvA.name)) ψ,
+                 .app (m.cval (ofReduceOp cvA.name) ψ) (.bvar 1),
+                 .bvar 0])
+              (VExpr.mkAppN (eqVS m ψ)
+                [m.cval (reduceElemName (ofReduceOp cvA.name)) ψ,
+                 .bvar 2, .bvar 1])))) := by
+    intro ψ
+    rw [denoteClosed, denote_erasedEq htyA 0]
+    exact denote_ofReducePinS m hor hfE hlpE hfR hlpR hEq ψ
+  -- the `Eq` former's one level parameter is pinned to `1`
+  have hsub : ∀ (φ : Name → Nat) (p : Name),
+      p ∈ eqA.toConstantVal.levelParams →
+      Level.substFn φ eqA.toConstantVal.levelParams
+        [Level.zero.succ] p = 1 := by
+    intro φ p hp
+    have hlpEq : eqA.toConstantVal.levelParams
+        = [Name.anonymous.str "u"] := rfl
+    rw [hlpEq] at hp
+    have hpu : p = Name.anonymous.str "u" := List.mem_singleton.mp hp
+    subst hpu
+    rfl
+  have heqψ : ∀ φ : Name → Nat,
+      Level.substFn φ eqA.toConstantVal.levelParams
+        [Level.zero.succ] uN = 1 :=
+    fun φ => hsub φ _ (List.Mem.head _)
+  -- the element type is closed, and inhabits `Sort 1`
+  have hEc : ∀ (ψ : Name → Nat) (ρ ρ' : Nat → V),
+      interp V ρ (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
+        = interp V ρ'
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) :=
+    fun ψ ρ ρ' => interp_closed V (m.cval_closed _ ψ) ρ ρ'
+  have hEmem : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      interp V ρ (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
+        ∈ˢ univ 1 := by
+    intro ψ ρ
+    obtain ⟨t, ht, hlaw⟩ := m.cval_memType hfE ψ
+    rw [htyE, show denoteClosed m.cval env ψ (Expr.sort (.succ .zero))
+        = denote m.cval env ψ 0 (Expr.sort (.succ .zero)) from rfl,
+      denote_sort] at ht
+    obtain rfl := Option.some.inj ht
+    exact (hlaw ρ).1
+  -- the pinned `Eq` former inhabits its three-fold product
+  have hQmem : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      interp V ρ (eqVS m ψ) ∈ˢ piC (univ 1)
+        (fun A => piC A (fun _ => piC A (fun _ => univ 0))) := by
+    intro ψ ρ
+    obtain ⟨t, ht, hlaw⟩ := m.cval_memType hEq
+      (Level.substFn ψ eqA.toConstantVal.levelParams [.succ .zero])
+    rw [denote_eqA_typeS _ (heqψ ψ)] at ht
+    obtain rfl := Option.some.inj ht
+    exact (hlaw ρ).1
+  -- the trusted operation inhabits `E → E`
+  have hOpi : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      interp V ρ (m.cval (ofReduceOp cvA.name) ψ)
+        ∈ˢ piC (interp V ρ
+            (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ))
+          (fun _ => interp V ρ
+            (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)) := by
+    intro ψ ρ
+    obtain ⟨t, ht, hlaw⟩ := m.cval_memType hfR ψ
+    rw [show ((ConstantInfo.axiomInfo cvR).toConstantVal) = cvR
+        from rfl, denoteClosed, denote_erasedEq htyR 0,
+      reduceOpCv_type hor] at ht
+    simp only [denote_forallE,
+      denote_const_nolevelsS hfE hlpE, Expr.instantiate1] at ht
+    obtain rfl := Option.some.inj ht
+    have h1 := (hlaw ρ).1
+    rw [interp_pi,
+      show (fun x => interp V (cons V x ρ)
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ))
+        = (fun _ : V => interp V ρ
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)) from
+        funext fun x => hEc ψ _ ρ] at h1
+    exact h1
+  -- one application of the operation: truthful, and the identity
+  have hOpApp : ∀ (ψ : Name → Nat) (ρ : Nat → V) (a : VExpr),
+      interp V ρ a ∈ˢ interp V ρ
+        (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) →
+      AnnotOkV V ρ a →
+      AnnotOkV V ρ (.app (m.cval (ofReduceOp cvA.name) ψ) a) ∧
+        interp V ρ (.app (m.cval (ofReduceOp cvA.name) ψ) a)
+          = interp V ρ a := by
+    intro ψ ρ a ha hoka
+    refine ⟨?_, ?_⟩
+    · rw [AnnotOkV_app]
+      exact ⟨m.annot_okV _ _ _, hoka, _, _, hOpi ψ ρ, ha⟩
+    · rw [interp_app]
+      exact (m.reduce_ops _ hmem cvR hfR hmpR).2 ψ ρ _ ha
+  -- an `Eq`-spine over the element type is truthful
+  have hEqApp : ∀ (ψ : Name → Nat) (ρ : Nat → V) (a b : VExpr),
+      interp V ρ a ∈ˢ interp V ρ
+        (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) →
+      interp V ρ b ∈ˢ interp V ρ
+        (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) →
+      AnnotOkV V ρ a → AnnotOkV V ρ b →
+      AnnotOkV V ρ (VExpr.mkAppN (eqVS m ψ)
+        [m.cval (reduceElemName (ofReduceOp cvA.name)) ψ, a, b]) := by
+    intro ψ ρ a b ha hb hoka hokb
+    have hQ := hQmem ψ ρ
+    have hE := hEmem ψ ρ
+    have h1 : AnnotOkV V ρ (.app (eqVS m ψ)
+        (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)) := by
+      rw [AnnotOkV_app]
+      exact ⟨m.annot_okV _ _ _, m.annot_okV _ _ _, _, _, hQ, hE⟩
+    have h1m := app_mem_piC hQ hE
+    have h2 : AnnotOkV V ρ (.app (.app (eqVS m ψ)
+        (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)) a) := by
+      rw [AnnotOkV_app]
+      exact ⟨h1, hoka, _, _, h1m, ha⟩
+    have h2m := app_mem_piC h1m ha
+    show AnnotOkV V ρ (.app (.app (.app (eqVS m ψ) _) a) b)
+    rw [AnnotOkV_app]
+    exact ⟨h2, hokb, _, _, h2m, hb⟩
+  -- the two `Eq`-statement frames, at their own de Bruijn depths
+  have hframe : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      ρ 1 ∈ˢ interp V ρ
+        (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) →
+      ρ 0 ∈ˢ interp V ρ
+        (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) →
+      AnnotOkV V ρ (VExpr.mkAppN (eqVS m ψ)
+          [m.cval (reduceElemName (ofReduceOp cvA.name)) ψ,
+           .app (m.cval (ofReduceOp cvA.name) ψ) (.bvar 1),
+           .bvar 0]) ∧
+        interp V ρ (VExpr.mkAppN (eqVS m ψ)
+          [m.cval (reduceElemName (ofReduceOp cvA.name)) ψ,
+           .app (m.cval (ofReduceOp cvA.name) ψ) (.bvar 1),
+           .bvar 0]) = eqv (ρ 1) (ρ 0) := by
+    intro ψ ρ h1 h0
+    obtain ⟨hok1, hev1⟩ := hOpApp ψ ρ (.bvar 1) h1 trivial
+    have hm1 : interp V ρ (.app (m.cval (ofReduceOp cvA.name) ψ)
+        (.bvar 1)) ∈ˢ interp V ρ
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) := by
+      rw [hev1]; exact h1
+    have happ := EqLawV.app₃ V m.eq_lawV hEq
+      (Level.substFn ψ eqA.toConstantVal.levelParams [Level.zero.succ])
+      ρ (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
+      (.app (m.cval (ofReduceOp cvA.name) ψ) (.bvar 1)) (.bvar 0)
+      (by rw [heqψ]; exact hEmem ψ ρ) hm1 h0
+    rw [hev1] at happ
+    exact ⟨hEqApp ψ ρ _ _ hm1 h0 hok1 trivial, happ⟩
+  have hframe2 : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      ρ 2 ∈ˢ interp V ρ
+        (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) →
+      ρ 1 ∈ˢ interp V ρ
+        (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) →
+      AnnotOkV V ρ (VExpr.mkAppN (eqVS m ψ)
+          [m.cval (reduceElemName (ofReduceOp cvA.name)) ψ,
+           .bvar 2, .bvar 1]) ∧
+        interp V ρ (VExpr.mkAppN (eqVS m ψ)
+          [m.cval (reduceElemName (ofReduceOp cvA.name)) ψ,
+           .bvar 2, .bvar 1]) = eqv (ρ 2) (ρ 1) := by
+    intro ψ ρ h2 h1
+    exact ⟨hEqApp ψ ρ _ _ h2 h1 trivial trivial,
+      EqLawV.app₃ V m.eq_lawV hEq
+        (Level.substFn ψ eqA.toConstantVal.levelParams
+          [Level.zero.succ])
+        ρ (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
+        (.bvar 2) (.bvar 1)
+        (by rw [heqψ]; exact hEmem ψ ρ) h2 h1⟩
+  -- the witness: `fun a b h => h`, built from the type's own pieces
+  refine ⟨fun ψ =>
+      .lam (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
+        (.lam (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
+          (.lam (VExpr.mkAppN (eqVS m ψ)
+              [m.cval (reduceElemName (ofReduceOp cvA.name)) ψ,
+               .app (m.cval (ofReduceOp cvA.name) ψ) (.bvar 1),
+               .bvar 0]) (.bvar 0))),
+    ?_, ?_, ?_, ?_⟩
+  · intro ψ
+    have hE := m.cval_closed (reduceElemName (ofReduceOp cvA.name)) ψ
+    have hO := m.cval_closed (ofReduceOp cvA.name) ψ
+    have hQ := m.cval_closed eqName
+      (Level.substFn ψ eqA.toConstantVal.levelParams [.succ .zero])
+    simp only [VExpr.Closed, VExpr.mkAppN, eqVS] at *
+    have hE2 : ∀ k, VExpr.bvarsBelow k
+        (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) :=
+      fun k => VExpr.bvarsBelow.mono (Nat.zero_le k) hE
+    have hO2 : ∀ k, VExpr.bvarsBelow k (m.cval (ofReduceOp cvA.name) ψ) :=
+      fun k => VExpr.bvarsBelow.mono (Nat.zero_le k) hO
+    have hQ2 : ∀ k, VExpr.bvarsBelow k (m.cval eqName
+        (Level.substFn ψ eqA.toConstantVal.levelParams
+          [Level.zero.succ])) :=
+      fun k => VExpr.bvarsBelow.mono (Nat.zero_le k) hQ
+    simp [VExpr.bvarsBelow, hE2, hO2, hQ2]
+  · intro φ₁ φ₂ _
+    have hEe : m.cval (reduceElemName (ofReduceOp cvA.name)) φ₁
+        = m.cval (reduceElemName (ofReduceOp cvA.name)) φ₂ :=
+      m.val_params _ _ hfE φ₁ φ₂ (by rw [hlpE]; intro p hp; exact nomatch hp)
+    have hOe : m.cval (ofReduceOp cvA.name) φ₁
+        = m.cval (ofReduceOp cvA.name) φ₂ :=
+      m.val_params _ _ hfR φ₁ φ₂ (by
+        show ∀ p ∈ cvR.levelParams, φ₁ p = φ₂ p
+        rw [hlpR]; intro p hp; exact nomatch hp)
+    have hQe : eqVS m φ₁ = eqVS m φ₂ := by
+      rw [eqVS, eqVS]
+      exact m.val_params _ _ hEq _ _ (fun p hp => by
+        rw [hsub φ₁ p hp, hsub φ₂ p hp])
+    dsimp only
+    rw [hEe, hOe, hQe]
+  · -- the witness is truthful: its annotations *are* the type's
+    intro ψ ρ
+    rw [AnnotOkV_lam]
+    refine ⟨m.annot_okV _ _ _, fun x hx => ?_⟩
+    rw [AnnotOkV_lam]
+    refine ⟨m.annot_okV _ _ _, fun y hy => ?_⟩
+    rw [AnnotOkV_lam]
+    refine ⟨(hframe ψ (cons V y (cons V x ρ)) ?_ ?_).1,
+      fun _ _ => trivial⟩
+    · show x ∈ˢ _
+      rw [← hEc ψ ρ]; exact hx
+    · show y ∈ˢ _
+      rw [← hEc ψ (cons V x ρ)]; exact hy
+  · intro ψ
+    refine ⟨_, hden ψ, fun ρ => ⟨?_, ?_⟩⟩
+    · rw [interp_lam, interp_pi]
+      refine lamC_mem fun x hx => ?_
+      rw [interp_lam, interp_pi]
+      refine lamC_mem fun y hy => ?_
+      rw [interp_lam, interp_pi]
+      refine lamC_mem fun h hh => ?_
+      have hx2 : (cons V y (cons V x ρ)) 1 ∈ˢ interp V
+          (cons V y (cons V x ρ))
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) := by
+        show x ∈ˢ _
+        rw [← hEc ψ ρ]; exact hx
+      have hy2 : (cons V y (cons V x ρ)) 0 ∈ˢ interp V
+          (cons V y (cons V x ρ))
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) := by
+        show y ∈ˢ _
+        rw [← hEc ψ (cons V x ρ)]; exact hy
+      have hx3 : (cons V h (cons V y (cons V x ρ))) 2 ∈ˢ interp V
+          (cons V h (cons V y (cons V x ρ)))
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) := by
+        show x ∈ˢ _
+        rw [← hEc ψ ρ]; exact hx
+      have hy3 : (cons V h (cons V y (cons V x ρ))) 1 ∈ˢ interp V
+          (cons V h (cons V y (cons V x ρ)))
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) := by
+        show y ∈ˢ _
+        rw [← hEc ψ (cons V x ρ)]; exact hy
+      rw [(hframe2 ψ _ hx3 hy3).2]
+      rw [(hframe ψ _ hx2 hy2).2] at hh
+      exact hh
+    · rw [AnnotOkV_pi]
+      refine ⟨m.annot_okV _ _ _, fun x hx => ?_⟩
+      rw [AnnotOkV_pi]
+      refine ⟨m.annot_okV _ _ _, fun y hy => ?_⟩
+      have hx2 : (cons V y (cons V x ρ)) 1 ∈ˢ interp V
+          (cons V y (cons V x ρ))
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) := by
+        show x ∈ˢ _
+        rw [← hEc ψ ρ]; exact hx
+      have hy2 : (cons V y (cons V x ρ)) 0 ∈ˢ interp V
+          (cons V y (cons V x ρ))
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) := by
+        show y ∈ˢ _
+        rw [← hEc ψ (cons V x ρ)]; exact hy
+      rw [AnnotOkV_pi]
+      refine ⟨(hframe ψ _ hx2 hy2).1, fun h hh => ?_⟩
+      have hx3 : (cons V h (cons V y (cons V x ρ))) 2 ∈ˢ interp V
+          (cons V h (cons V y (cons V x ρ)))
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) := by
+        show x ∈ˢ _
+        rw [← hEc ψ ρ]; exact hx
+      have hy3 : (cons V h (cons V y (cons V x ρ))) 1 ∈ˢ interp V
+          (cons V h (cons V y (cons V x ρ)))
+          (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) := by
+        show y ∈ˢ _
+        rw [← hEc ψ (cons V x ρ)]; exact hy
+      exact (hframe2 ψ _ hx3 hy3).1
 
 end Setlec.SetR

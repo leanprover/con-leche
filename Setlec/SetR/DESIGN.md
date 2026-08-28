@@ -6304,3 +6304,74 @@ one computed type:
    peeling (`AnnotOkV_mkAppN_of`, constructor direction) and threefold
    `lamC_mem`, whose innermost step is `EqLawV.app₃` +
    `EnvS.reduce_ops`.
+
+### `OfReduceKeyS` closed
+
+All four obligations landed; the theorem stands at exactly
+`[propext, Classical.choice, Quot.sound]`, ~230 lines in
+`Install/Axiom.lean` (preamble + six shared `have`s + four
+obligations).  Battery green (`lake build` warning-free, `lake test`,
+arena 90/92, e2e 72/72, split 11/11, mode flags 10/10, both sweeps).
+
+**The shape that carried it.** Six `have`s, stated *before* the
+`refine`, do all the semantic work and are then consumed by both the
+witness' truthfulness (obligation 3) and the type's (obligation 4):
+
+* `hEc` — the element type is closed, so its interpretation is
+  environment-independent (`interp_closed`); every de Bruijn shift in
+  the proof is discharged by this one lemma;
+* `hEmem` — `interp ρ E ∈ˢ univ 1`, off `cval_memType` at the `Sort 1`
+  pin;
+* `hQmem` — the pinned `Eq` former inhabits
+  `piC (univ 1) (fun A => piC A fun _ => piC A fun _ => univ 0)`, off
+  `cval_memType` + `denote_eqA_typeS`;
+* `hOpi` — the trusted operation inhabits `E → E`, off `cval_memType`
+  + `denote_erasedEq htyR` + `reduceOpCv_type`;
+* `hOpApp` — one application is truthful *and* is the identity
+  (`reduce_ops`), returned as a **pair**: the caller needs both, and
+  splitting them duplicated the membership side condition;
+* `hEqApp` — an `Eq`-spine over `E` is truthful, three `AnnotOkV_app`
+  steps chained by `app_mem_piC` on `hQmem`.
+
+**`hframe`/`hframe2`: state the frame at its own de Bruijn depth.**
+The hypothesis' statement reads `ρ 1`/`ρ 0`; the conclusion's reads
+`ρ 2`/`ρ 1`.  Stating each as *`∀ ρ`, given `ρ 1 ∈ˢ ⟦E⟧` and
+`ρ 0 ∈ˢ ⟦E⟧`, the spine is truthful and interprets to `eqv (ρ 1)
+(ρ 0)`* — rather than parameterising over the two members `x y` — is
+what makes the `cons`-towers discharge by `show x ∈ˢ _` + a single
+`hEc` rewrite instead of by transport.  **Rule: when a statement is
+about a term with free de Bruijn indices, quantify the environment,
+not the values it happens to hold.**
+
+Then the whole of obligation 4's membership is: three `interp_lam,
+interp_pi` rewrites, three `lamC_mem`s, and
+
+```
+rw [(hframe2 ψ _ hx3 hy3).2]; rw [(hframe ψ _ hx2 hy2).2] at hh
+```
+
+— the two frames interpret to the *same* truth set `eqv x y`, because
+`reduce_ops` makes `op x` the identity, so `fun a b h => h` is a
+member on the nose.
+
+**Two mechanical traps, both new:**
+
+* **A `def`'s dot notation resolves against the wrong explicit
+  argument.**  `m.eq_lawV.app₃` elaborated `eq_lawV` into `EqLawV.app₃`'s
+  *first explicit* argument, which is `V` (the section variable is
+  `(V : Type w)`, not implicit).  Write `EqLawV.app₃ V m.eq_lawV …`.
+  Generic: for a lemma in the namespace of a `Prop`-valued `def` whose
+  section makes the carrier explicit, dot notation is unusable.
+* **`rw [h]` inside a `by` block that fills a not-yet-unified
+  argument.**  `(by rw [heqψ]; …)` for `app₃`'s `hA` failed with
+  "did not find … in the target expression `VExpr`" — the `A` argument
+  was still a metavariable, so the goal was not yet a membership.
+  Supplying `A`, `a`, `b` and `ψ` explicitly fixed it.  The error text
+  names the *metavariable's type*, which is the tell.
+* Doc comments go **after** `set_option … in`, not before.
+
+**`heqψ` must be spelled with `uN`**, not with
+`Name.anonymous.str "u"`: `EqLawV`'s statement says `ψ uN`, and `rw`
+needs the syntactic form even though the two are definitionally equal.
+(`denote_eqA_typeS`'s hypothesis is in `exact` position, so it takes
+either.)
