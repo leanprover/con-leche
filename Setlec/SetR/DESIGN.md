@@ -5582,3 +5582,40 @@ and it had been sitting after them.  A seven-line lemma with no
 dependencies migrating upward is the cheapest kind of file-order
 change and is worth doing eagerly rather than threading a hypothesis
 around it.
+
+### Obligations 2 and 3, traced from the sibling lane
+
+Both follow obligation 1's pattern exactly — relocate a V-free
+inversion, then discharge — with one wrinkle each, found by reading
+the TT lane first (P1a).
+
+**Reduce (obligation 3).**  `checkReducePin_inv`
+(`TTVerify/ReducePin.lean:94`) is V-free and relocatable, and
+`reducePinTT` (`:140`) is the discharge template — including the
+`CtxOk` at the single-element context, which is `CtxOkR.constCtx`'s
+shape again.  *The wrinkle:* the TT inversion **drops the pin side**.
+It returns `reduceElemOk`, the annotate output and the depth-`1`
+identity certificate, but not `pinA` nor `isDefEqCore … 0 valA pinA` —
+and `ReducePinR` demands the `DefEq [] V P` against the pin.  So the
+relocation must come with an **additive strengthening** of the
+inversion (the proof already has both in scope at `hpa`/`hp1`; it
+discards them), in the now-familiar shape: append, never reconstruct.
+
+**Div/mod (obligation 2).**  Same route through
+`checkDivModPin`, plus the `v`-freeness repair.  The consumer question
+the coordinator asked to settle first has a clear answer in the
+source: `checkDivModPin ops env env' c` **takes no value** — it reads
+`env'.find? c` and binds `value'` there.  So the free `v` must be
+replaced by a *bound* one, introduced with its storage hypothesis:
+
+```
+∃ value', env'.find? c = some (.defnInfo _ value' _) ∧
+  DivModPinR μ F env env' m.cval c value'
+```
+
+and `DeclDefnR`'s own conjunct already names the branch's `value'`, so
+the consumers agree with that reading — the same "the consumers have
+already voted" test that settled the `ErasedEq` granularity.
+
+Both are the same stretch's work: one relocation, one additive
+inversion pin, one discharge each.
