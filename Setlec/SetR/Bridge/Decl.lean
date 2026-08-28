@@ -816,6 +816,32 @@ theorem opener_walk_pack_gen {env : Env} (m : EnvR env)
   · exact hL l h'
   · exact hbfv _ h'
 
+/-- The generalised twin of `opener_fvar_pack`: the opener *fvars*
+themselves at a general subject and opening depth. -/
+theorem opener_fvar_pack_gen {env : Env} (m : EnvR env)
+    {φ : Name → Nat} {e : Expr} {d₀ k D : Nat} {fvs : List Expr}
+    {body : Expr}
+    (hw : Expr.WScoped d₀ e) (hb : e.looseBVarsBounded 0 = true)
+    (hL : Expr.LeavesBounded e)
+    {T : VExpr} (_hT : denote m.cval env φ d₀ e = some T)
+    (hopen : openPisAtFvars k e d₀ = some (fvs, body))
+    (hle : d₀ + k ≤ D) :
+    ∀ x ∈ fvs, Expr.WScoped D x ∧ x.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded x ∧
+      ∃ v, denote m.cval env φ D x = some v := by
+  intro x hx
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hx
+  obtain ⟨-, hbfv⟩ := openPisAtFvars_bounded k hopen hb
+  obtain ⟨hwfv, -⟩ := openPisAtFvars_WScoped k e d₀ hopen hw
+  obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index k e d₀ hopen i x hi
+  refine ⟨Expr.WScoped.mono (by omega) (hwfv _ hx), rfl, ?_,
+    ⟨_, denote_fvar _ _ _ _ _ _ _⟩⟩
+  intro l hl
+  rcases openPisAtFvars_leaves k hopen l
+    (Or.inr ⟨_, hx, hl⟩) with h' | h'
+  · exact hL l h'
+  · exact hbfv _ h'
+
 /-! ## The comparison walks
 
 Every `iota_j` statement walk the checker runs is a `checkDefEqList`

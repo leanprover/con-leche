@@ -4761,3 +4761,29 @@ clean — but they had been *unchecked*, which is a different state from
 applies retroactively to the work already done under its absence;
 running that pass is part of adopting the rule, not optional
 diligence.
+
+### T6 walk layer: the fifth over-specialisation instance (2026-08-28)
+
+`opener_fvar_pack` was written against the *stored-subject, depth-0* site
+and needed generalising the moment a second site appeared — exactly as
+`opener_walk_pack` had.  `opener_fvar_pack_gen` (arbitrary subject with
+package, arbitrary opening depth, `d₀ + k ≤ D`) now sits beside
+`opener_walk_pack_gen`; both are in `Bridge/Decl.lean`.
+
+Applying the recorded rule *generalise at the second site, not the third*:
+the walk-pack family is now written in `_gen` form first, and the
+specialised variants are kept only where they already have consumers.
+
+**Recipe validated on row 2 (the ctor-domain row) of `iotaThmR_of`:**
+`defEqListW_of` with, on the left, `opener_walk_pack_gen` + the fvar
+facts from `opener_fvar_pack_gen` — both instantiated with an *explicit*
+`(D := rP + cnF)`, since `D` appears only in the conclusion and `omega`
+cannot see the intended depth otherwise (this was the spurious
+"omega could not prove the goal") — and on the right
+`instPisAt_walk_pack` fed by `storedType_pack` at the ctor, transported
+across the rename by `denote_renameConsts hro`,
+`wscoped_renameConsts`, `leavesBounded_renameConsts`.  A `List.drop cnP`
+on the right side is absorbed by `List.mem_of_mem_drop`.
+
+Rows 3 (rec-param domains) and 4 (λ-row domains) are the same shape at
+different takes/drops; rows 1, 5, 6 remain.
