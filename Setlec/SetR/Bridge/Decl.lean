@@ -557,6 +557,110 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
     fun hc => ⟨(hnatK hc).1, (hnatK hc).2.1, hnat (hnatK hc).2.2⟩,
     fun hc => hdm hc (hdmK hc)⟩
 
+/-! ## `indDecl`, the back half: the two projection-phase folds
+
+`checkIndDecl`'s last two steps are folds over `List.range nF`.  The
+template fold is a pure stored-data install and inverts outright; the
+projection-function fold is parametric in `ProjFnR`'s own inversion,
+for the same reason the value branches' pin packs are — one subject
+per lemma. -/
+
+/-- **The elimination-template fold, inverted.** -/
+theorem templatesR_of {T ctorName : Name} {lps : List Name}
+    {nP nF : Nat} :
+    ∀ (l : List Nat) {env' env₂ : Env},
+      l.foldlM (installProjTemplateStep (m := CheckM) T ctorName lps
+        nP nF) env' = .ok env₂ →
+      DeclIndR.TemplatesR T ctorName lps nP nF env' l env₂
+  | [], env', env₂, h => by
+    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
+    exact h.symm
+  | i :: l, env', env₂, h => by
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    revert h
+    cases hstep : installProjTemplateStep (m := CheckM) T ctorName lps
+        nP nF env' i with
+    | error e => intro h; exact nomatch h
+    | ok env'' =>
+      intro h
+      refine ⟨env'', ?_, templatesR_of l h⟩
+      simp only [installProjTemplateStep] at hstep
+      by_cases hfr : (env'.find? (projFnName T i)).isNone = true
+      · rw [if_pos hfr] at hstep
+        simp only [installProjTemplate] at hstep
+        revert hstep
+        cases hrec : env'.find? (T.str "rec") with
+        | none =>
+          intro hstep
+          dsimp only at hstep
+          simp only [pure, Except.pure, Except.ok.injEq] at hstep
+          exact Or.inl hstep.symm
+        | some ci =>
+          match ci with
+          | .recInfo cvR mI rP [rule] =>
+            intro hstep
+            dsimp only at hstep
+            by_cases hcond :
+                (env'.find? (projFnName T i)).isNone = true ∧
+                  mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧
+                  i < nF
+            · rw [if_pos hcond] at hstep
+              simp only [pure, Except.pure, Except.ok.injEq] at hstep
+              exact Or.inr ⟨_, rfl, rfl, rfl, rfl, rfl, hfr, hstep.symm⟩
+            · rw [if_neg hcond] at hstep
+              simp only [pure, Except.pure, Except.ok.injEq] at hstep
+              exact Or.inl hstep.symm
+          | .recInfo cvR mI rP [] | .recInfo cvR mI rP (_ :: _ :: _)
+          | .axiomInfo _ | .defnInfo _ _ _ | .thmInfo _ _
+          | .indInfo _ _ | .ctorInfo _ _ _ | .projInfo _ =>
+            intro hstep
+            dsimp only at hstep
+            simp only [pure, Except.pure, Except.ok.injEq] at hstep
+            exact Or.inl hstep.symm
+      · rw [if_neg hfr] at hstep
+        simp only [pure, Except.pure, Except.ok.injEq] at hstep
+        exact Or.inl hstep.symm
+
+/-- **The projection-function fold, inverted**, parametric in the
+per-field install's own inversion. -/
+theorem projInstallR_of {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS V env) {μ : CheckMode} {F : Nat}
+    {T ctorName : Name} {lps : List Name} {nP nF : Nat}
+    (hfn : ∀ {e e' : Env} {cval : TConstVal} {i : Nat},
+      (e.find? (projModelName T i)).isSome = true →
+      installProjFnStep (m := CheckM) μ (fueledOps μ F) T ctorName lps
+        nP nF e i = .ok e' →
+      ProjFnR μ F e cval T ctorName lps nP nF i e') :
+    ∀ (l : List Nat) {env' env₄ : Env} {cval : TConstVal},
+      l.foldlM (installProjFnStep (m := CheckM) μ (fueledOps μ F) T
+        ctorName lps nP nF) env' = .ok env₄ →
+      ∃ cval₄, ProjInstallR μ F T ctorName lps nP nF env' cval l env₄
+        cval₄
+  | [], env', env₄, cval, h => by
+    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨cval, h.symm, rfl⟩
+  | i :: l, env', env₄, cval, h => by
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    revert h
+    cases hstep : installProjFnStep (m := CheckM) μ (fueledOps μ F) T
+        ctorName lps nP nF env' i with
+    | error e => intro h; exact nomatch h
+    | ok env'' =>
+      intro h
+      by_cases hm : (env'.find? (projModelName T i)).isSome = true
+      · obtain ⟨cval₄, htail⟩ := projInstallR_of m hfn l
+          (cval := cvalWith cval (projFnName T i)
+            (fun ψ => cval (projModelName T i) ψ)) h
+        exact ⟨cval₄, _, _, Or.inl ⟨hfn hm hstep, rfl⟩, htail⟩
+      · obtain ⟨cval₄, htail⟩ :=
+          projInstallR_of m hfn l (cval := cval) h
+        refine ⟨cval₄, _, _, Or.inr ⟨?_, ?_, rfl⟩, htail⟩
+        · revert hm
+          cases (env'.find? (projModelName T i)) <;> simp
+        · simp only [installProjFnStep, if_neg hm, pure,
+            Except.pure, Except.ok.injEq] at hstep
+          exact hstep.symm
+
 /-! ## `basisDecl`
 
 The simplest branch: a guard on the pinned `Eq` former, then a fold of
