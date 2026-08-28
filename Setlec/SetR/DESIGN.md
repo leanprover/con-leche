@@ -6664,3 +6664,47 @@ truth set into the equation; then the nine operations' clause
 assembly.  `c ∈ natOpDeps c` for every div/mod op, so `divModEnvGuard`
 pins the operation's *own* type as well as its dependencies' — that is
 where `dmBinMem` gets its hypothesis for the self case.
+
+### `DivModPinS`: one certificate, discharged
+
+`dmCertEq1`/`dmCertEq2` land — the packaged forms a clause
+instantiates.  Both at `[propext, Classical.choice, Quot.sound]`;
+`Setlec/SetR/DivModPin.lean` is now 762 lines.
+
+**The design that made these short: everything a certificate needs
+from its statement is `decide`-able of the literal statement.**  The
+three syntactic obligations `InferClaimsR`/`DefEqClaimsR` ask for —
+`WScoped 4`, `looseBVarsBounded 0`, `LeavesBounded` — plus the
+`pinnedCtx` slot condition all reduce to *where the leaves are*, and
+the div/mod statements' leaves are exactly `x` and `y` at `Nat`.  That
+is `dmLeavesOk`, a `Bool`, and every one of the three obligations
+follows from it plus `wscopedB`/`looseBVarsBounded` on the literal.
+
+The substitution of the pinned operation preserves all three
+(`fvarLeaves_substConst0`, `wscopedB_substConst0`,
+`looseBVarsBounded_substConst0`), so a clause's syntactic side
+conditions are `by decide` **on the unsubstituted statement** — the
+`annVal` blob never has to be examined.
+
+*Rule: when a proof obligation is about a literal, find the decidable
+predicate it factors through before writing any induction.  The
+inductions are then about the one thing that is not literal.*
+
+Two mechanical notes worth keeping:
+
+* `Expr.WScoped` is well-founded, so `simp only [Expr.WScoped]`
+  unfolds it **all the way** to a flat nest of `<` and `True`, and an
+  anonymous constructor cannot be written against the result.  Build
+  with per-former lemmas (`dmApp_wscoped`, `dmFvar_wscoped`) instead —
+  their goals stop unfolding at a variable.
+* Applying a substitution lemma to the *whole* statement and proving
+  the unsubstituted side by `simp` is much shorter than pushing the
+  substitution through the spine by hand.  The first version of `hwE`
+  did the latter and needed four `show`s; the second is one line.
+
+**Remaining:** the vocabulary's denotations (`op2`, `sub2`, `add2`,
+`mul2`, `div2`, `mod2`, `ble2`, the literals) and the nine
+operations' clause blocks.  Each clause supplies `dmCertEq*` with two
+denotations and two memberships and reads off the equation;
+`DivModClausesV`'s conjuncts are the same `app`-chains, so the match
+is structural.

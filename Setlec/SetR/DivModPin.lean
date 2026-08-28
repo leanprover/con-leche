@@ -34,7 +34,16 @@ What is here:
 * `sat_four` — the four-entry frame, satisfied slot by slot;
 * the pinned-type inversions and `dmBinMem`/`dmUnMem` — every operation
   the certificates mention is a function on the frame's `Nat`, which is
-  what the `Eq`-spine's side conditions want.
+  what the `Eq`-spine's side conditions want;
+* `eqSpine_eq` — the pinned `Eq`-spine's interpretation is the
+  equation's truth set, so *inhabited* means *equal*;
+* `dmCertEq1`/`dmCertEq2` — **one certificate, discharged**: the two
+  packaged forms (one and two hypotheses) a clause instantiates.
+
+Everything a certificate needs from its *statement* is decidable of
+the literal statement (`dmLeavesOk`, `wscopedB`, `looseBVarsBounded`),
+and the substitution of the pinned operation into it preserves all
+three — so a clause's syntactic obligations are `by decide`.
 -/
 
 namespace Setlec.SetR
@@ -350,5 +359,496 @@ theorem dmUnMem {env : Env} (m : EnvS V env) (φ : Name → Nat)
     funext a
     exact interp_closed V (m.cval_closed cn φ) _ ρ] at h1
   exact app_mem_piC h1 hx
+
+/-! ## From an inhabited statement to an equation -/
+
+/-- The `Eq.{1}` level assignment sends `u` to `1`. -/
+theorem eqSubst_uN (φ : Name → Nat) :
+    Level.substFn φ eqA.toConstantVal.levelParams [Level.zero.succ] uN
+      = 1 := rfl
+
+/-- The pinned `Eq`-spine's interpretation is the truth set of the
+equation, so *inhabited* means *equal*. -/
+theorem eqSpine_eq {env : Env} (m : EnvS V env) (φ : Name → Nat)
+    (hEq : env.find? eqName = some eqA) (ρ : Nat → V)
+    {A l r : VExpr}
+    (hA : interp V ρ A ∈ˢ univ 1)
+    (hl : interp V ρ l ∈ˢ interp V ρ A)
+    (hr : interp V ρ r ∈ˢ interp V ρ A)
+    {w : V} (hw : w ∈ˢ interp V ρ (VExpr.mkAppN (eqVS m φ) [A, l, r])) :
+    interp V ρ l = interp V ρ r := by
+  rw [eqVS] at hw
+  rw [EqLawV.app₃ V m.eq_lawV hEq
+    (Level.substFn φ eqA.toConstantVal.levelParams [Level.zero.succ])
+    ρ A l r (by rw [eqSubst_uN]; exact hA) hl hr] at hw
+  exact eq_of_mem_eqv hw
+
+/-- The pinned `Eq`-spine, denoted: the head carries `Eq.{1}`, whose
+level argument is not `[]`, so the operation substitution leaves it
+alone. -/
+theorem denote_eqSpine {env : Env} {cval : TConstVal} {c : Name}
+    {value' : Expr} (φ : Name → Nat)
+    (hEq : env.find? eqName = some eqA) {A a b : Expr}
+    {AV aV bV : VExpr} {d : Nat}
+    (hA : denote cval env φ d (Expr.substConst0 c value' A) = some AV)
+    (ha : denote cval env φ d (Expr.substConst0 c value' a) = some aV)
+    (hb : denote cval env φ d (Expr.substConst0 c value' b) = some bV) :
+    denote cval env φ d (Expr.substConst0 c value'
+        (.app (.app (.app (.const eqName [.succ .zero]) A) a) b))
+      = some (VExpr.mkAppN
+          (cval eqName (Level.substFn φ eqA.toConstantVal.levelParams
+            [Level.zero.succ])) [AV, aV, bV]) := by
+  have hhead : denote cval env φ d
+      (Expr.substConst0 c value' (.const eqName [.succ .zero]))
+      = some (cval eqName (Level.substFn φ
+          eqA.toConstantVal.levelParams [Level.zero.succ])) := by
+    rw [show Expr.substConst0 c value' (.const eqName [.succ .zero])
+        = .const eqName [.succ .zero] from by
+      simp only [Expr.substConst0]
+      rw [if_neg (by rintro ⟨-, hh⟩; exact nomatch hh)]]
+    rw [denote_const, hEq]
+    exact if_pos rfl
+  have h1 : denote cval env φ d
+      (.app (Expr.substConst0 c value' (.const eqName [.succ .zero]))
+        (Expr.substConst0 c value' A))
+      = some (.app (cval eqName (Level.substFn φ
+          eqA.toConstantVal.levelParams [Level.zero.succ])) AV) := by
+    rw [denote_app, hhead, hA]
+  have h2 : denote cval env φ d
+      (.app (.app (Expr.substConst0 c value' (.const eqName [.succ .zero]))
+        (Expr.substConst0 c value' A)) (Expr.substConst0 c value' a))
+      = some (.app (.app (cval eqName (Level.substFn φ
+          eqA.toConstantVal.levelParams [Level.zero.succ])) AV) aV) := by
+    rw [denote_app, h1, ha]
+  show denote cval env φ d
+      (.app (.app (.app (Expr.substConst0 c value'
+        (.const eqName [.succ .zero]))
+        (Expr.substConst0 c value' A)) (Expr.substConst0 c value' a))
+        (Expr.substConst0 c value' b)) = _
+  rw [denote_app, h2, hb]
+  rfl
+
+/-! ## The applied certificate's leaves
+
+`divModCertApplied` opens the proof at `x`, `y` and one `fvar` per
+hypothesis, carrying the hypothesis *type* as the annotation.  With an
+`fvar`-free proof blob every leaf is one of those variables or comes
+from a hypothesis type. -/
+
+/-- Where a leaf of the two-hypothesis applied form can come from. -/
+theorem divModCertApplied_mem2 {p h1 h2 : Expr}
+    (hp : p.hasFvar = false) {l : Nat × Name × Expr}
+    (hl : l ∈ (divModCertApplied p [h1, h2]).fvarLeaves) :
+    l = (0, Name.anonymous.str "x", Expr.const natName []) ∨
+    l = (1, Name.anonymous.str "y", Expr.const natName []) ∨
+    l = (2, Name.anonymous.str "h1", h1) ∨ l ∈ h1.fvarLeaves ∨
+    l = (3, Name.anonymous.str "h2", h2) ∨ l ∈ h2.fvarLeaves := by
+  simp only [divModCertApplied, Expr.fvarLeaves,
+    Expr.fvarLeaves_eq_nil_of_not_hasFvar hp, List.nil_append,
+    List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hl
+  rcases hl with ((h | h) | h | h) | h | h
+  · exact Or.inl h
+  · exact Or.inr (Or.inl h)
+  · exact Or.inr (Or.inr (Or.inl h))
+  · exact Or.inr (Or.inr (Or.inr (Or.inl h)))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h))))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h))))
+
+/-- Where a leaf of the one-hypothesis applied form can come from. -/
+theorem divModCertApplied_mem1 {p h1 : Expr}
+    (hp : p.hasFvar = false) {l : Nat × Name × Expr}
+    (hl : l ∈ (divModCertApplied p [h1]).fvarLeaves) :
+    l = (0, Name.anonymous.str "x", Expr.const natName []) ∨
+    l = (1, Name.anonymous.str "y", Expr.const natName []) ∨
+    l = (2, Name.anonymous.str "h1", h1) ∨ l ∈ h1.fvarLeaves := by
+  simp only [divModCertApplied, Expr.fvarLeaves,
+    Expr.fvarLeaves_eq_nil_of_not_hasFvar hp, List.nil_append,
+    List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hl
+  rcases hl with (h | h) | h | h
+  · exact Or.inl h
+  · exact Or.inr (Or.inl h)
+  · exact Or.inr (Or.inr (Or.inl h))
+  · exact Or.inr (Or.inr (Or.inr h))
+
+/-! ## The statements' syntactic frame, decided
+
+Every div/mod certificate statement mentions exactly the two frame
+variables `x` and `y`, both at `Nat`.  That is a decidable property of
+the (literal) statement, and it is all the depth-4 frame needs from
+it. -/
+
+/-- Is every leaf of `e` the frame's `x` or `y`, at `Nat`? -/
+def dmLeavesOk (e : Expr) : Bool :=
+  e.fvarLeaves.all (fun l =>
+    (l.1 == 0 && l.2.1 == Name.anonymous.str "x" &&
+      l.2.2 == Expr.const natName []) ||
+    (l.1 == 1 && l.2.1 == Name.anonymous.str "y" &&
+      l.2.2 == Expr.const natName []))
+
+/-- A leaf of a `dmLeavesOk` term, identified. -/
+theorem dmLeavesOk_mem {e : Expr} (h : dmLeavesOk e = true)
+    {l : Nat × Name × Expr} (hl : l ∈ e.fvarLeaves) :
+    l = (0, Name.anonymous.str "x", Expr.const natName []) ∨
+    l = (1, Name.anonymous.str "y", Expr.const natName []) := by
+  have hm := List.all_eq_true.mp h l hl
+  simp only [Bool.or_eq_true, Bool.and_eq_true, beq_iff_eq] at hm
+  rcases hm with ⟨⟨h1, h2⟩, h3⟩ | ⟨⟨h1, h2⟩, h3⟩
+  · exact Or.inl (by
+      rcases l with ⟨i, n, t⟩
+      simp only at h1 h2 h3
+      rw [h1, h2, h3])
+  · exact Or.inr (by
+      rcases l with ⟨i, n, t⟩
+      simp only at h1 h2 h3
+      rw [h1, h2, h3])
+
+/-- `dmLeavesOk` survives the operation substitution. -/
+theorem dmLeavesOk_substConst0 {c : Name} {value' e : Expr}
+    (hvf : value'.hasFvar = false) (h : dmLeavesOk e = true) :
+    dmLeavesOk (Expr.substConst0 c value' e) = true := by
+  unfold dmLeavesOk at h ⊢
+  rw [fvarLeaves_substConst0 hvf e]
+  exact h
+
+/-- A `dmLeavesOk` term is leaf-bounded: `Nat` has no loose bound
+variables. -/
+theorem dmLeavesOk_leavesBounded {e : Expr} (h : dmLeavesOk e = true) :
+    Expr.LeavesBounded e := by
+  intro l hl
+  rcases dmLeavesOk_mem h hl with rfl | rfl <;> rfl
+
+/-- The frame's four entries: the two hypothesis slots on top, the two
+`Nat` variables below. -/
+def dmCtx (H1 H2 natV : VExpr) : List VExpr := [H2, H1, natV, natV]
+
+@[simp] theorem dmCtx_len {H1 H2 natV : VExpr} :
+    (dmCtx H1 H2 natV).length = 4 := rfl
+
+/-- A statement's leaves sit in the two `Nat` slots. -/
+theorem dmSlots_stmt {env : Env} {cval : TConstVal} {c : Name}
+    {value' : Expr} (φ : Name → Nat) {H1 H2 natV : VExpr}
+    (hvf : value'.hasFvar = false)
+    (hnat : denote cval env φ 4 (Expr.const natName []) = some natV)
+    {e : Expr} (h : dmLeavesOk e = true) :
+    ∀ l ∈ (Expr.substConst0 c value' e).fvarLeaves, l.1 < 4 ∧
+      Expr.fvarsBelow l.1 l.2.2 ∧
+      denote cval env φ 4 l.2.2
+        = some ((dmCtx H1 H2 natV).getD (3 - l.1) default) := by
+  intro l hl
+  rw [fvarLeaves_substConst0 (n := c) hvf e] at hl
+  rcases dmLeavesOk_mem h hl with rfl | rfl
+  · exact ⟨by omega, trivial, hnat⟩
+  · exact ⟨by omega, trivial, hnat⟩
+
+/-- The two-hypothesis applied certificate's leaves sit in their four
+slots. -/
+theorem dmSlots_applied2 {env : Env} {cval : TConstVal} {c : Name}
+    {value' : Expr} (φ : Name → Nat) {H1 H2 natV : VExpr}
+    (hvf : value'.hasFvar = false)
+    (hnat : denote cval env φ 4 (Expr.const natName []) = some natV)
+    {h1 h2 p : Expr} (hp : p.hasFvar = false)
+    (hl1 : dmLeavesOk h1 = true) (hl2 : dmLeavesOk h2 = true)
+    (hfb1 : Expr.fvarsBelow 2 (Expr.substConst0 c value' h1))
+    (hfb2 : Expr.fvarsBelow 3 (Expr.substConst0 c value' h2))
+    (hd1 : denote cval env φ 4 (Expr.substConst0 c value' h1) = some H1)
+    (hd2 : denote cval env φ 4 (Expr.substConst0 c value' h2)
+      = some H2) :
+    ∀ l ∈ (divModCertApplied p [Expr.substConst0 c value' h1,
+        Expr.substConst0 c value' h2]).fvarLeaves,
+      l.1 < 4 ∧ Expr.fvarsBelow l.1 l.2.2 ∧
+      denote cval env φ 4 l.2.2
+        = some ((dmCtx H1 H2 natV).getD (3 - l.1) default) := by
+  intro l hl
+  rcases divModCertApplied_mem2 hp hl with rfl | rfl | rfl | hm | rfl | hm
+  · exact ⟨by omega, trivial, hnat⟩
+  · exact ⟨by omega, trivial, hnat⟩
+  · exact ⟨by omega, hfb1, hd1⟩
+  · exact dmSlots_stmt (c := c) (value' := value') (H1 := H1)
+      (H2 := H2) φ hvf hnat hl1 l hm
+  · exact ⟨by omega, hfb2, hd2⟩
+  · exact dmSlots_stmt (c := c) (value' := value') (H1 := H1)
+      (H2 := H2) φ hvf hnat hl2 l hm
+
+/-- The one-hypothesis applied certificate's leaves. -/
+theorem dmSlots_applied1 {env : Env} {cval : TConstVal} {c : Name}
+    {value' : Expr} (φ : Name → Nat) {H1 H2 natV : VExpr}
+    (hvf : value'.hasFvar = false)
+    (hnat : denote cval env φ 4 (Expr.const natName []) = some natV)
+    {h1 p : Expr} (hp : p.hasFvar = false)
+    (hl1 : dmLeavesOk h1 = true)
+    (hfb1 : Expr.fvarsBelow 2 (Expr.substConst0 c value' h1))
+    (hd1 : denote cval env φ 4 (Expr.substConst0 c value' h1)
+      = some H1) :
+    ∀ l ∈ (divModCertApplied p
+        [Expr.substConst0 c value' h1]).fvarLeaves,
+      l.1 < 4 ∧ Expr.fvarsBelow l.1 l.2.2 ∧
+      denote cval env φ 4 l.2.2
+        = some ((dmCtx H1 H2 natV).getD (3 - l.1) default) := by
+  intro l hl
+  rcases divModCertApplied_mem1 hp hl with rfl | rfl | rfl | hm
+  · exact ⟨by omega, trivial, hnat⟩
+  · exact ⟨by omega, trivial, hnat⟩
+  · exact ⟨by omega, hfb1, hd1⟩
+  · exact dmSlots_stmt (c := c) (value' := value') (H1 := H1)
+      (H2 := H2) φ hvf hnat hl1 l hm
+
+/-! ## One certificate, packaged -/
+
+/-- A frame variable is well-scoped at depth 4. -/
+theorem dmFvar_wscoped {i : Nat} {n : Name} {ty : Expr} (hi : i < 4)
+    (hty : Expr.WScoped i ty) :
+    Expr.WScoped 4 (Expr.fvar i n ty) := by
+  simp only [Expr.WScoped]
+  exact ⟨hi, hty⟩
+
+/-- Scope composes over applications. -/
+theorem dmApp_wscoped {d : Nat} {f a : Expr} (hf : Expr.WScoped d f)
+    (ha : Expr.WScoped d a) : Expr.WScoped d (.app f a) := by
+  simp only [Expr.WScoped]
+  exact ⟨hf, ha⟩
+
+/-- The two-hypothesis applied form's scope and bound-variable
+facts. -/
+theorem dmApplied2_frame {p a b : Expr}
+    (hpf : p.hasFvar = false) (hpb : p.looseBVarsBounded 0 = true)
+    (hwa : Expr.WScoped 2 a) (hwb : Expr.WScoped 3 b) :
+    Expr.WScoped 4 (divModCertApplied p [a, b]) ∧
+      (divModCertApplied p [a, b]).looseBVarsBounded 0 = true := by
+  refine ⟨?_, ?_⟩
+  · show Expr.WScoped 4 (.app (.app (.app (.app p _) _) _) _)
+    exact dmApp_wscoped (dmApp_wscoped (dmApp_wscoped
+      (Expr.WScoped.of_not_hasFvar hpf)
+      (dmFvar_wscoped (by omega) (Expr.WScoped.of_not_hasFvar rfl)))
+      (dmFvar_wscoped (by omega) (Expr.WScoped.of_not_hasFvar rfl)))
+      (dmFvar_wscoped (by omega) hwa) |> fun h =>
+        dmApp_wscoped h (dmFvar_wscoped (by omega) hwb)
+  · show ((((p.app _).app _).app _).app _).looseBVarsBounded 0 = true
+    simp [Expr.looseBVarsBounded, hpb]
+
+/-- The one-hypothesis applied form's scope and bound-variable
+facts. -/
+theorem dmApplied1_frame {p a : Expr}
+    (hpf : p.hasFvar = false) (hpb : p.looseBVarsBounded 0 = true)
+    (hwa : Expr.WScoped 2 a) :
+    Expr.WScoped 4 (divModCertApplied p [a]) ∧
+      (divModCertApplied p [a]).looseBVarsBounded 0 = true := by
+  refine ⟨?_, ?_⟩
+  · show Expr.WScoped 4 (.app (.app (.app p _) _) _)
+    exact dmApp_wscoped (dmApp_wscoped (dmApp_wscoped
+      (Expr.WScoped.of_not_hasFvar hpf)
+      (dmFvar_wscoped (by omega) (Expr.WScoped.of_not_hasFvar rfl)))
+      (dmFvar_wscoped (by omega) (Expr.WScoped.of_not_hasFvar rfl)))
+      (dmFvar_wscoped (by omega) hwa)
+  · show (((p.app _).app _).app _).looseBVarsBounded 0 = true
+    simp [Expr.looseBVarsBounded, hpb]
+
+/-- **A two-hypothesis certificate, discharged**: at a frame
+satisfying its hypotheses, the pinned equation's two sides have equal
+interpretation. -/
+theorem dmCertEq2 {μ : CheckMode} {F : Nat} {env : Env}
+    (m : EnvS V env) (φ : Name → Nat) {c : Name} {value' : Expr}
+    (hEq : env.find? eqName = some eqA) (hneN : natName ≠ c)
+    (hvf : value'.hasFvar = false)
+    (hvb : value'.looseBVarsBounded 0 = true)
+    {h1 h2 l r proof : Expr}
+    (hfacts : CertRunFacts μ env F c value'
+      ([h1, h2], .app (.app (.app (.const eqName [.succ .zero])
+        (.const natName [])) l) r) proof)
+    (hl1 : dmLeavesOk h1 = true) (hl2 : dmLeavesOk h2 = true)
+    (hlL : dmLeavesOk l = true) (hlR : dmLeavesOk r = true)
+    (hw1 : Expr.wscopedB 2 h1 = true) (hw2 : Expr.wscopedB 3 h2 = true)
+    (hwL : Expr.wscopedB 4 l = true) (hwR : Expr.wscopedB 4 r = true)
+    (hb1 : h1.looseBVarsBounded 0 = true)
+    (hb2 : h2.looseBVarsBounded 0 = true)
+    (hbL : l.looseBVarsBounded 0 = true)
+    (hbR : r.looseBVarsBounded 0 = true)
+    {natV H1 H2 lV rV : VExpr}
+    (hnat : denote m.cval env φ 4 (Expr.const natName []) = some natV)
+    (hd1 : denote m.cval env φ 4 (Expr.substConst0 c value' h1)
+      = some H1)
+    (hd2 : denote m.cval env φ 4 (Expr.substConst0 c value' h2)
+      = some H2)
+    (hdl : denote m.cval env φ 4 (Expr.substConst0 c value' l)
+      = some lV)
+    (hdr : denote m.cval env φ 4 (Expr.substConst0 c value' r)
+      = some rV)
+    (hclN : VExpr.Closed natV) (hcl1 : VExpr.Closed H1)
+    (hcl2 : VExpr.Closed H2)
+    (ρ : Nat → V)
+    (hs0 : ρ 0 ∈ˢ interp V ρ H2) (hs1 : ρ 1 ∈ˢ interp V ρ H1)
+    (hs2 : ρ 2 ∈ˢ interp V ρ natV) (hs3 : ρ 3 ∈ˢ interp V ρ natV)
+    (hNU : interp V ρ natV ∈ˢ univ 1)
+    (hlm : interp V ρ lV ∈ˢ interp V ρ natV)
+    (hrm : interp V ρ rV ∈ˢ interp V ρ natV) :
+    interp V ρ lV = interp V ρ rV := by
+  obtain ⟨hguard, appliedA, tp, hann, hinf, hde⟩ := id hfacts
+  simp only [divModCertGuard, Bool.and_eq_true, Bool.not_eq_true'] at hguard
+  obtain ⟨⟨⟨⟨⟨hpb, hpf⟩, -⟩, -⟩, -⟩, -⟩ := hguard
+  -- the substituted hypothesis types
+  have hw1' : Expr.WScoped 2 (Expr.substConst0 c value' h1) :=
+    Expr.WScoped.of_wscopedB (wscopedB_substConst0 hvf h1 hw1)
+  have hw2' : Expr.WScoped 3 (Expr.substConst0 c value' h2) :=
+    Expr.WScoped.of_wscopedB (wscopedB_substConst0 hvf h2 hw2)
+  have hb1' := looseBVarsBounded_substConst0 (n := c) hvb h1 hb1
+  have hb2' := looseBVarsBounded_substConst0 (n := c) hvb h2 hb2
+  obtain ⟨hWA, hBA⟩ := dmApplied2_frame hpf hpb hw1' hw2'
+  -- the applied term is leaf-bounded
+  have hLA : Expr.LeavesBounded (divModCertApplied
+      (Expr.substConstAll c value' proof)
+      [Expr.substConst0 c value' h1, Expr.substConst0 c value' h2]) := by
+    intro lf hlf
+    rcases divModCertApplied_mem2 hpf hlf with rfl | rfl | rfl | hm |
+      rfl | hm
+    · rfl
+    · rfl
+    · exact hb1'
+    · exact dmLeavesOk_leavesBounded
+        (dmLeavesOk_substConst0 hvf hl1) lf hm
+    · exact hb2'
+    · exact dmLeavesOk_leavesBounded
+        (dmLeavesOk_substConst0 hvf hl2) lf hm
+  -- the statement's frame
+  have hnat' : denote m.cval env φ 4
+      (Expr.substConst0 c value' (Expr.const natName [])) = some natV := by
+    rwa [show Expr.substConst0 c value' (Expr.const natName [])
+        = Expr.const natName [] from by
+      simp only [Expr.substConst0]
+      rw [if_neg (fun hh => hneN hh.1)]]
+  have hvE := denote_eqSpine (cval := m.cval) (c := c) (value' := value')
+    φ hEq hnat' hdl hdr
+  have hlE : dmLeavesOk (Expr.app (.app (.app
+      (.const eqName [.succ .zero]) (.const natName [])) l) r) = true := by
+    simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append,
+      List.all_append, Bool.and_eq_true]
+    exact ⟨hlL, hlR⟩
+  have hwE : Expr.WScoped 4 (Expr.substConst0 c value'
+      (.app (.app (.app (.const eqName [.succ .zero])
+        (.const natName [])) l) r)) :=
+    Expr.WScoped.of_wscopedB (wscopedB_substConst0 hvf _
+      (by simp [Expr.wscopedB, hwL, hwR]))
+  have hbE : (Expr.substConst0 c value' (.app (.app (.app
+      (.const eqName [.succ .zero]) (.const natName [])) l) r)).looseBVarsBounded 0
+      = true :=
+    looseBVarsBounded_substConst0 hvb _
+      (by simp [Expr.looseBVarsBounded, hbL, hbR])
+  have hLE : Expr.LeavesBounded (Expr.substConst0 c value'
+      (.app (.app (.app (.const eqName [.succ .zero])
+        (.const natName [])) l) r)) :=
+    dmLeavesOk_leavesBounded (dmLeavesOk_substConst0 hvf hlE)
+  -- the certificate
+  have hw := certValueS m φ hfacts (Δ := dmCtx H1 H2 natV) rfl
+    (by intro A hA
+        simp only [dmCtx, List.mem_cons, List.not_mem_nil,
+          or_false] at hA
+        rcases hA with rfl | rfl | rfl | rfl <;> assumption)
+    hWA hBA hLA
+    (dmSlots_applied2 φ hvf hnat hpf hl1 hl2 hw1'.fvarsBelow
+      hw2'.fvarsBelow hd1 hd2)
+    hwE hbE hLE
+    (dmSlots_stmt (c := c) (value' := value') (H1 := H1) (H2 := H2)
+      φ hvf hnat hlE)
+    hvE ρ
+    (sat_four hcl2 hcl1 hclN hclN hs0 hs1 hs2 hs3)
+  obtain ⟨w, hw'⟩ := hw
+  exact eqSpine_eq m φ hEq ρ hNU hlm hrm hw'
+
+/-- **A one-hypothesis certificate, discharged**: at a frame
+satisfying its hypotheses, the pinned equation's two sides have equal
+interpretation. -/
+theorem dmCertEq1 {μ : CheckMode} {F : Nat} {env : Env}
+    (m : EnvS V env) (φ : Name → Nat) {c : Name} {value' : Expr}
+    (hEq : env.find? eqName = some eqA) (hneN : natName ≠ c)
+    (hvf : value'.hasFvar = false)
+    (hvb : value'.looseBVarsBounded 0 = true)
+    {h1 l r proof : Expr}
+    (hfacts : CertRunFacts μ env F c value'
+      ([h1], .app (.app (.app (.const eqName [.succ .zero])
+        (.const natName [])) l) r) proof)
+    (hl1 : dmLeavesOk h1 = true)
+    (hlL : dmLeavesOk l = true) (hlR : dmLeavesOk r = true)
+    (hw1 : Expr.wscopedB 2 h1 = true)
+    (hwL : Expr.wscopedB 4 l = true) (hwR : Expr.wscopedB 4 r = true)
+    (hb1 : h1.looseBVarsBounded 0 = true)
+    (hbL : l.looseBVarsBounded 0 = true)
+    (hbR : r.looseBVarsBounded 0 = true)
+    {natV H1 H2 lV rV : VExpr}
+    (hnat : denote m.cval env φ 4 (Expr.const natName []) = some natV)
+    (hd1 : denote m.cval env φ 4 (Expr.substConst0 c value' h1)
+      = some H1)
+    (hdl : denote m.cval env φ 4 (Expr.substConst0 c value' l)
+      = some lV)
+    (hdr : denote m.cval env φ 4 (Expr.substConst0 c value' r)
+      = some rV)
+    (hclN : VExpr.Closed natV) (hcl1 : VExpr.Closed H1)
+    (hcl2 : VExpr.Closed H2)
+    (ρ : Nat → V)
+    (hs0 : ρ 0 ∈ˢ interp V ρ H2) (hs1 : ρ 1 ∈ˢ interp V ρ H1)
+    (hs2 : ρ 2 ∈ˢ interp V ρ natV) (hs3 : ρ 3 ∈ˢ interp V ρ natV)
+    (hNU : interp V ρ natV ∈ˢ univ 1)
+    (hlm : interp V ρ lV ∈ˢ interp V ρ natV)
+    (hrm : interp V ρ rV ∈ˢ interp V ρ natV) :
+    interp V ρ lV = interp V ρ rV := by
+  obtain ⟨hguard, appliedA, tp, hann, hinf, hde⟩ := id hfacts
+  simp only [divModCertGuard, Bool.and_eq_true, Bool.not_eq_true'] at hguard
+  obtain ⟨⟨⟨⟨⟨hpb, hpf⟩, -⟩, -⟩, -⟩, -⟩ := hguard
+  -- the substituted hypothesis types
+  have hw1' : Expr.WScoped 2 (Expr.substConst0 c value' h1) :=
+    Expr.WScoped.of_wscopedB (wscopedB_substConst0 hvf h1 hw1)
+  have hb1' := looseBVarsBounded_substConst0 (n := c) hvb h1 hb1
+  obtain ⟨hWA, hBA⟩ := dmApplied1_frame hpf hpb hw1'
+  -- the applied term is leaf-bounded
+  have hLA : Expr.LeavesBounded (divModCertApplied
+      (Expr.substConstAll c value' proof)
+      [Expr.substConst0 c value' h1]) := by
+    intro lf hlf
+    rcases divModCertApplied_mem1 hpf hlf with rfl | rfl | rfl | hm
+    · rfl
+    · rfl
+    · exact hb1'
+    · exact dmLeavesOk_leavesBounded
+        (dmLeavesOk_substConst0 hvf hl1) lf hm
+  -- the statement's frame
+  have hnat' : denote m.cval env φ 4
+      (Expr.substConst0 c value' (Expr.const natName [])) = some natV := by
+    rwa [show Expr.substConst0 c value' (Expr.const natName [])
+        = Expr.const natName [] from by
+      simp only [Expr.substConst0]
+      rw [if_neg (fun hh => hneN hh.1)]]
+  have hvE := denote_eqSpine (cval := m.cval) (c := c) (value' := value')
+    φ hEq hnat' hdl hdr
+  have hlE : dmLeavesOk (Expr.app (.app (.app
+      (.const eqName [.succ .zero]) (.const natName [])) l) r) = true := by
+    simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append,
+      List.all_append, Bool.and_eq_true]
+    exact ⟨hlL, hlR⟩
+  have hwE : Expr.WScoped 4 (Expr.substConst0 c value'
+      (.app (.app (.app (.const eqName [.succ .zero])
+        (.const natName [])) l) r)) :=
+    Expr.WScoped.of_wscopedB (wscopedB_substConst0 hvf _
+      (by simp [Expr.wscopedB, hwL, hwR]))
+  have hbE : (Expr.substConst0 c value' (.app (.app (.app
+      (.const eqName [.succ .zero]) (.const natName [])) l) r)).looseBVarsBounded 0
+      = true :=
+    looseBVarsBounded_substConst0 hvb _
+      (by simp [Expr.looseBVarsBounded, hbL, hbR])
+  have hLE : Expr.LeavesBounded (Expr.substConst0 c value'
+      (.app (.app (.app (.const eqName [.succ .zero])
+        (.const natName [])) l) r)) :=
+    dmLeavesOk_leavesBounded (dmLeavesOk_substConst0 hvf hlE)
+  -- the certificate
+  have hw := certValueS m φ hfacts (Δ := dmCtx H1 H2 natV) rfl
+    (by intro A hA
+        simp only [dmCtx, List.mem_cons, List.not_mem_nil,
+          or_false] at hA
+        rcases hA with rfl | rfl | rfl | rfl <;> assumption)
+    hWA hBA hLA
+    (dmSlots_applied1 (H2 := H2) φ hvf hnat hpf hl1 hw1'.fvarsBelow hd1)
+    hwE hbE hLE
+    (dmSlots_stmt (c := c) (value' := value') (H1 := H1) (H2 := H2)
+      φ hvf hnat hlE)
+    hvE ρ
+    (sat_four hcl2 hcl1 hclN hclN hs0 hs1 hs2 hs3)
+  obtain ⟨w, hw'⟩ := hw
+  exact eqSpine_eq m φ hEq ρ hNU hlm hrm hw'
 
 end Setlec.SetR
