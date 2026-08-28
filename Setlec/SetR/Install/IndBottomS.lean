@@ -104,6 +104,12 @@ def IndBottomPlainS (V : Type w) [SetTheory V] : Prop :=
     {cdomsP : List Expr} {crestP : Expr}
     (_hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type
       = some (cdomsP, crestP))
+    {xFvsP : List Expr} {ldoms : Expr}
+    (_hopenXP : openPisAtFvars cnF crestP rP = some (xFvsP, ldoms))
+    (_hstripRhs : (rhsA.stripLams (rP + cnF)).isSome = true)
+    {ldomsL : List Expr} {lrest2 : Expr}
+    (_hinstLam : Expr.instLamsAt (fvsP ++ xFvsP) rhsA
+      = some (ldomsL, lrest2))
     -- the walks (D6-refined quantified-context packs, `Decl.lean`)
     (_hdeIdx : ∀ ψ' : Name → Nat, DefEqListW μ envS mS.cval ψ' (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
@@ -114,6 +120,8 @@ def IndBottomPlainS (V : Type w) [SetTheory V] : Prop :=
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
     (_hdePars : ∀ ψ' : Name → Nat, DefEqListW μ envS mS.cval ψ' (rP + cnF)
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP)
+    (_hdeLam : ∀ ψ' : Name → Nat, DefEqListW μ envS mS.cval ψ' (rP + cnF)
+      ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldomsL)
     (_hdeRhs : ∀ ψ' : Name → Nat, DefEqAtW μ envS mS.cval ψ' (rP + cnF)
       rhsS (Expr.mkAppN (rhsA.renameConsts f) fvs))
     (_hsidesTy : ∀ ψ' : Name → Nat,
@@ -228,6 +236,12 @@ def IndBottomNestedS (V : Type w) [SetTheory V] : Prop :=
       (pins.map (Expr.instSpine (fvsP.take rP) (rP - 1)))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls)
       = some (cdomsP, crestP))
+    {xFvsP : List Expr} {ldoms : Expr}
+    (_hopenXP : openPisAtFvars cnF crestP rP = some (xFvsP, ldoms))
+    (_hstripRhs : (rhsA.stripLams (rP + cnF)).isSome = true)
+    {ldomsL : List Expr} {lrest2 : Expr}
+    (_hinstLam : Expr.instLamsAt (fvsP ++ xFvsP) rhsA
+      = some (ldomsL, lrest2))
     -- the pins' typed walk (the nested pack's `TypedListW`)
     (_hTypedP : ∀ ψ' : Name → Nat, TypedListW μ envS mS.cval ψ' (rP + cnF)
       (pins.map (Expr.instSpine (fvsP.take rP) (rP - 1))) cdomsP)
@@ -238,6 +252,8 @@ def IndBottomNestedS (V : Type w) [SetTheory V] : Prop :=
       ((fvs.take rP).map Expr.fvarTypeD) rdoms)
     (_hdeFld : ∀ ψ' : Name → Nat, DefEqListW μ envS mS.cval ψ' (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
+    (_hdeLam : ∀ ψ' : Name → Nat, DefEqListW μ envS mS.cval ψ' (rP + cnF)
+      ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldomsL)
     (_hdeRhs : ∀ ψ' : Name → Nat, DefEqAtW μ envS mS.cval ψ' (rP + cnF)
       rhsS (Expr.mkAppN (rhsA.renameConsts f) fvs))
     (_hsidesTy : ∀ ψ' : Name → Nat,
