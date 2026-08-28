@@ -6519,3 +6519,55 @@ the block install's own former, whose `indBlockCaps.etaCtor` is a
 block member the member fold stores.  It is *interleaved* with the
 model construction there, so it is a re-derivation rather than a
 relocation; `Verify/DeclStores.lean` covers only `defn`/`thm`.
+
+### `EtaClosedS` never had to exist — and `OfReduceKeyS` threaded
+
+`EtaClosedS` is **deleted**.  It was the residue of `MemberEtaS`, and
+it dissolved the moment the obligation was stated at the right place.
+
+**The move.**  `EtaClosedS` was a standalone claim about `checkDecl`
+(later `DeclR`), so its proof would have had to re-derive, from
+scratch, every fact about what a block install stores — the member
+fold's entries, the recursor swap's shadowing, the projection and
+template folds' additions.  But `declIndS` *already holds all of
+them*: `hnonrecUp`, `indMembersR_mono`, `hidR`, `hIfilt`.  So the
+conclusion moved into `declIndS`:
+
+```
+DeclIndS V := … → EtaFamiliesClosed env → DeclIndR … →
+  Nonempty (EnvS V env₂) ∧ EtaFamiliesClosed env₂
+```
+
+and `declStepS` returns the same pair — the five non-inductive kinds in
+four lines each (`EtaFamiliesClosed.cons_nonind`, `hknd` vacuous
+because the stored entry is a `defnInfo`/`thmInfo`/`axiomInfo`), and
+the basis kind by `decide` on the pinned lists.  The fold carrier
+`EnvSOk` was already the right shape, so **not one binder moved**.
+
+*Rule: a side invariant that a step can establish about itself is not
+an obligation; it is a second conclusion.  State it where the facts
+are, not where the fold wants it.*
+
+**What the ind case actually needed** — four small V-free lemmas, and
+they are the honest inventory of "what a block install does to the
+former table":
+
+| lemma | says |
+|---|---|
+| `ExtEta` (+ `refl`/`trans`/`cons`, `Verify/EnvGuards.lean`) | non-recursor entries survive verbatim and no new former appears — closure transfers along it |
+| `indMembersR_indNew` | a former stored after the member fold is the base's, verbatim, or a block former carrying the fold's `caps` |
+| `indMembersR_ctorEntry` | the constructor member is stored with its arities |
+| `indRecsR_noInd`, `projInstallR_ext`, `templatesR_ext` | the three post-member phases add no former |
+
+`ExtEta`'s *keep* clause is restricted to non-recursor entries on
+purpose: the recursor swap replaces its own provisional entries, so
+verbatim preservation is false in general and true exactly where
+`EtaFamiliesClosed` reads (a capability constructor is a `ctorInfo`).
+
+**And `OfReduceKeyS` is now threaded**: the ripple that would have
+churned its signature is over, so `ofReduceKeyS` goes in at
+`declAxiomS` and `hofr` leaves the fourteen.
+
+**The fourteen now carry exactly two hypotheses**: `DivModPinS V` and
+`StdAxiomKeyS V`.  Every one of them still stands at
+`[propext, Classical.choice, Quot.sound]`.

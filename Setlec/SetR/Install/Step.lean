@@ -44,22 +44,52 @@ def DeclIndS (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} (m : EnvS V env),
     EtaFamiliesClosed env →
-    DeclIndR μ F env m.cval block env₂ → Nonempty (EnvS V env₂)
+    DeclIndR μ F env m.cval block env₂ →
+    Nonempty (EnvS V env₂) ∧ EtaFamiliesClosed env₂
 
-/-- **The declaration fold's eta side invariant**: checking one
-declaration keeps the stored eta families closed.
+/-- Does every pinned basis declaration that is an eta-capable
+former carry a reserved name?  Decidable, and `decide`d at each
+kind — the basis blocks are literal lists. -/
+def basisIndOk (l : List ConstantInfo) : Bool :=
+  l.all (fun ci => match ci with
+    | .indInfo _ caps => !caps.eta || reservedBasisNames.contains ci.name
+    | _ => true)
 
-Purely syntactic and `V`-free — it says nothing about a model.  It is
-what `MemberEtaS` turned into: the eta head at a member install is
-discharged in-fold (`memberEtaS`), and the *only* thing the fold could
-not supply itself was the fact that an already-stored eta-capable
-former's constructor is stored, which is exactly this invariant one
-declaration earlier.  The Model lane threads it in the same place
-(`Model/Consistency.lean`'s `checkDecl_sound`, second conjunct). -/
-def EtaClosedS : Prop :=
-  ∀ {μ : CheckMode} {F : Nat} {env env' : Env} {d : Declaration},
-    checkDecl μ (fueledOps μ F) env d = .ok env' →
-    EtaFamiliesClosed env → EtaFamiliesClosed env'
+/-- `basisIndOk` at one member. -/
+theorem basisIndOk_mem {l : List ConstantInfo} (h : basisIndOk l = true)
+    {ci : ConstantInfo} (hci : ci ∈ l) {cv : ConstantVal}
+    {caps : IndCaps} (heq : ci = .indInfo cv caps)
+    (hcape : caps.eta = true) :
+    reservedBasisNames.contains ci.name = true := by
+  have hm := List.all_eq_true.mp h ci hci
+  rw [heq] at hm ⊢
+  simp only [Bool.or_eq_true, Bool.not_eq_true'] at hm
+  rcases hm with hm | hm
+  · rw [hcape] at hm; exact nomatch hm
+  · exact hm
+
+/-- The pinned basis fold keeps the stored eta families closed: every
+pinned former it stores carries a reserved name. -/
+theorem basisInstallR_etaClosed :
+    ∀ (l : List ConstantInfo) {env env₂ : Env},
+      BasisInstallR env l env₂ → basisIndOk l = true →
+      EtaFamiliesClosed env → EtaFamiliesClosed env₂
+  | [], _, _, h, _, hE => by rw [h]; exact hE
+  | ci :: rest, env, env₂, h, hok, hE => by
+    obtain ⟨hfresh, htail⟩ := h
+    refine basisInstallR_etaClosed rest htail ?_ ?_
+    · have := List.all_eq_true.mp hok
+      exact List.all_eq_true.mpr fun x hx =>
+        this x (List.mem_cons_of_mem _ hx)
+    · exact EtaFamiliesClosed.cons_nonind hE
+        (Option.isNone_iff_eq_none.mp hfresh)
+        (fun cv caps heq hcape =>
+          basisIndOk_mem hok List.mem_cons_self heq hcape)
+
+/-- Every pinned basis block passes the former check, by computation. -/
+theorem basisIndOk_declsA (kind : BasisKind) :
+    basisIndOk kind.declsA = true := by
+  cases kind <;> decide
 
 /-- The declaration fold's carrier: a model together with the eta
 side invariant it needs one declaration later. -/
@@ -69,18 +99,45 @@ def EnvSOk (V : Type w) [SetTheory V] (env : Env) : Prop :=
 /-- **The per-declaration install**, by dispatch: a checked
 declaration of any kind extends the invariant. -/
 theorem declStepS (hdm : DivModPinS V) (hrp : ReducePinS V)
-    (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
+    (hstd : StdAxiomKeyS V)
     (hbas : DeclBasisS V) (hind : DeclIndS V)
     {μ : CheckMode} {F : Nat} {env env₂ : Env} {d : Declaration}
     (m : EnvS V env) (hE : EtaFamiliesClosed env)
     (h : DeclR μ F m.cval env d env₂) :
-    Nonempty (EnvS V env₂) := by
+    Nonempty (EnvS V env₂) ∧ EtaFamiliesClosed env₂ := by
   cases d with
-  | defnDecl cv value hint => exact declDefnS hdm m h
-  | thmDecl cv value => exact declThmS m h
-  | opaqueDecl cv value => exact declOpaqueS hrp m h
-  | axiomDecl cv => exact declAxiomS hstd hofr m h
-  | basisDecl kind => exact hbas m h
+  | defnDecl cv value hint =>
+    refine ⟨declDefnS hdm m h, ?_⟩
+    obtain ⟨type', value', hcv, -, rfl, -, -⟩ := h
+    exact EtaFamiliesClosed.cons_nonind hE
+      (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
+  | thmDecl cv value =>
+    refine ⟨declThmS m h, ?_⟩
+    obtain ⟨type', value', hcv, -, -, rfl⟩ := h
+    exact EtaFamiliesClosed.cons_nonind hE
+      (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
+  | opaqueDecl cv value =>
+    refine ⟨declOpaqueS hrp m h, ?_⟩
+    obtain ⟨type', value', hcv, -, rfl, -⟩ := h
+    exact EtaFamiliesClosed.cons_nonind hE
+      (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
+  | axiomDecl cv =>
+    refine ⟨declAxiomS hstd ofReduceKeyS m h, ?_⟩
+    obtain ⟨type', hcv, harm⟩ := h
+    have hfresh : env.find? cv.name = none :=
+      Option.isNone_iff_eq_none.mp hcv.1
+    rcases harm with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ |
+      ⟨-, -, -, -, -, -, -, rfl⟩
+    · exact EtaFamiliesClosed.cons_nonind hE hfresh
+        (fun _ _ heq => nomatch heq)
+    · exact EtaFamiliesClosed.cons_nonind hE hfresh
+        (fun _ _ heq => nomatch heq)
+    · exact EtaFamiliesClosed.cons_nonind hE hfresh
+        (fun _ _ heq => nomatch heq)
+    · exact hE
+  | basisDecl kind =>
+    exact ⟨hbas m h, basisInstallR_etaClosed kind.declsA h.2
+      (basisIndOk_declsA kind) hE⟩
   | indDecl block => exact hind m hE h
 
 end Setlec.SetR

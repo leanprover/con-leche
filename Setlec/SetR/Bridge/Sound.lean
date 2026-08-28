@@ -55,10 +55,9 @@ theorem checkDeclR_sound
     (fun hh => declIndRS memberKeyS m hE (by
       simpa [checkDecl, directParts?_none] using hh)) h
 
-theorem foldlM_R (hec : EtaClosedS)
+theorem foldlM_R
     {μ : CheckMode} {F : Nat}
-    (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
-    (hofr : OfReduceKeyS V) :
+    (hdm : DivModPinS V) (hstd : StdAxiomKeyS V) :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       EnvSOk V env →
       ds.foldlM (checkDecl μ (fueledOps μ F)) env = .ok env' →
@@ -73,9 +72,8 @@ theorem foldlM_R (hec : EtaClosedS)
     | ok env1 =>
       rw [hd] at h
       obtain ⟨⟨m⟩, hE⟩ := hm
-      exact foldlM_R hec hdm hstd hofr ds env1
-        ⟨declStepS hdm reducePinS hstd hofr declBasisS
-          (declIndS memberKeyS) m hE
-          (checkDeclR_sound m hE hd), hec hd hE⟩ h
+      exact foldlM_R hdm hstd ds env1
+        (declStepS hdm reducePinS hstd declBasisS
+          (declIndS memberKeyS) m hE (checkDeclR_sound m hE hd)) h
 
 end Setlec.SetR

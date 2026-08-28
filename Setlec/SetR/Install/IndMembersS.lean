@@ -644,6 +644,94 @@ theorem indMembersR_indEntry {μ : CheckMode} {F : Nat}
       | recInfo cv' mI rP rules => exact nomatch hmatch
       | projInfo e => exact nomatch hmatch
 
+/-- The constructor member's stored entry, with its arities. -/
+theorem indMembersR_ctorEntry {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {caps : IndCaps} :
+    ∀ (members : List ConstantInfo) {env : Env} {cval : TConstVal}
+      {env₂ : Env} {cval₂ : TConstVal},
+      IndMembersR μ F blockNames caps env cval members env₂ cval₂ →
+      ∀ (cv : ConstantVal) (nP nF : Nat),
+        ConstantInfo.ctorInfo cv nP nF ∈ members →
+        ∃ cvA : ConstantVal,
+          env₂.find? cv.name = some (.ctorInfo cvA nP nF) := by
+  intro members
+  induction members with
+  | nil =>
+    intro env cval env₂ cval₂ h cv nP nF hci
+    exact nomatch hci
+  | cons ci₀ rest ih =>
+    intro env cval env₂ cval₂ h cv nP nF hci
+    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+    have hnameA : cvA.name = ci₀.toConstantVal.name := by rw [hcvA]
+    rcases List.mem_cons.mp hci with heq | hci'
+    · subst heq
+      refine ⟨cvA, ?_⟩
+      rw [show cv.name = cvA.name from hnameA.symm]
+      exact indMembersR_mono rest hmatch _ _
+        (Env.find?_cons_self (.ctorInfo cvA nP nF) env)
+    · cases ci₀ with
+      | indInfo cv' caps' => exact ih hmatch cv nP nF hci'
+      | ctorInfo cv' nP' nF' => exact ih hmatch cv nP nF hci'
+      | axiomInfo cv' => exact nomatch hmatch
+      | defnInfo cv' v hint => exact nomatch hmatch
+      | thmInfo cv' v => exact nomatch hmatch
+      | recInfo cv' mI rP rules => exact nomatch hmatch
+      | projInfo e => exact nomatch hmatch
+
+/-- A former stored after the member fold is either one the base
+already had, verbatim, or a block former carrying the fold's
+capability record. -/
+theorem indMembersR_indNew {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {caps : IndCaps} :
+    ∀ (members : List ConstantInfo) {env : Env} {cval : TConstVal}
+      {env₂ : Env} {cval₂ : TConstVal},
+      IndMembersR μ F blockNames caps env cval members env₂ cval₂ →
+      ∀ (T : Name) (cvT : ConstantVal) (caps' : IndCaps),
+        env₂.find? T = some (.indInfo cvT caps') →
+        env.find? T = some (.indInfo cvT caps') ∨
+          (caps' = caps ∧ ∃ (cv : ConstantVal) (caps₂ : IndCaps),
+            ConstantInfo.indInfo cv caps₂ ∈ members ∧ cv.name = T) := by
+  intro members
+  induction members with
+  | nil =>
+    intro env cval env₂ cval₂ h T cvT caps' hf
+    obtain ⟨rfl, rfl⟩ := h
+    exact Or.inl hf
+  | cons ci₀ rest ih =>
+    intro env cval env₂ cval₂ h T cvT caps' hf
+    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+    have hnameA : cvA.name = ci₀.toConstantVal.name := by rw [hcvA]
+    cases ci₀ with
+    | indInfo cv' caps'' =>
+      rcases ih hmatch T cvT caps' hf with hf' | ⟨rfl, cv, caps₂,
+        hmem, hcvn⟩
+      · rw [Env.find?_cons] at hf'
+        split at hf'
+        · next he =>
+          obtain ⟨rfl, rfl⟩ :=
+            ConstantInfo.indInfo.inj (Option.some.inj hf')
+          exact Or.inr ⟨rfl, cv', caps'', List.mem_cons_self,
+            hnameA.symm.trans he⟩
+        · exact Or.inl hf'
+      · exact Or.inr ⟨rfl, cv, caps₂, List.mem_cons_of_mem _ hmem,
+          hcvn⟩
+    | ctorInfo cv' nP nF =>
+      rcases ih hmatch T cvT caps' hf with hf' | ⟨rfl, cv, caps₂,
+        hmem, hcvn⟩
+      · rw [Env.find?_cons] at hf'
+        split at hf'
+        · exact ConstantInfo.noConfusion (Option.some.inj hf')
+        · exact Or.inl hf'
+      · exact Or.inr ⟨rfl, cv, caps₂, List.mem_cons_of_mem _ hmem,
+          hcvn⟩
+    | axiomInfo cv' => exact nomatch hmatch
+    | defnInfo cv' v hint => exact nomatch hmatch
+    | thmInfo cv' v => exact nomatch hmatch
+    | recInfo cv' mI rP rules => exact nomatch hmatch
+    | projInfo e => exact nomatch hmatch
+
 /-- The fold's per-member eta data steps at a fresh, non-projection
 install: `EtaPins.step` for the pins, nothing for the (environment-free)
 constructor fact, and the name shape for the projection freshness. -/

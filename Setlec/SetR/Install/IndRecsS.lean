@@ -148,6 +148,71 @@ theorem indRecsR_nameGuards {μ : CheckMode} {F : Nat}
   · intro ci hci; exact nomatch hci
   · exact provisionRecsS_nameGuards recs hprov
 
+/-- The provisioning fold introduces no former. -/
+theorem provisionRecsR_noInd {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} :
+    ∀ (recs : List ConstantInfo) {envAcc : Env} {cval : TConstVal}
+      {envSelf : Env} {cvalSelf : TConstVal}
+      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
+      ProvisionRecsR μ F blockNames envAcc cval recs envSelf cvalSelf
+        checked →
+      ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+        envSelf.find? T = some (.indInfo cvT caps) →
+        envAcc.find? T = some (.indInfo cvT caps) := by
+  intro recs
+  induction recs with
+  | nil =>
+    intro envAcc cval envSelf cvalSelf checked h T cvT caps hf
+    obtain ⟨rfl, -, -⟩ := h
+    exact hf
+  | cons ci rest ih =>
+    intro envAcc cval envSelf cvalSelf checked h T cvT caps hf
+    obtain ⟨cvA, mI, rP, rules, rest', -, -, hrec, -⟩ := h
+    have h1 := ih hrec T cvT caps hf
+    rw [Env.find?_cons] at h1
+    split at h1
+    · exact ConstantInfo.noConfusion (Option.some.inj h1)
+    · exact h1
+
+/-- The install fold introduces no former. -/
+theorem indRecsFoldR_noInd {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {envBase envSelf : Env}
+    {cvalSelf : TConstVal} :
+    ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule))
+      {acc : Env} {cval : TConstVal} {out : Env} {cvalOut : TConstVal},
+      IndRecsR.IndRecsFoldR μ F blockNames envBase envSelf cvalSelf
+        acc cval checked out cvalOut →
+      ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+        out.find? T = some (.indInfo cvT caps) →
+        acc.find? T = some (.indInfo cvT caps) := by
+  intro checked
+  induction checked with
+  | nil =>
+    intro acc cval out cvalOut h T cvT caps hf
+    obtain ⟨rfl, -⟩ := h
+    exact hf
+  | cons c rest ih =>
+    intro acc cval out cvalOut h T cvT caps hf
+    obtain ⟨rules', -, htail⟩ := h
+    have h1 := ih htail T cvT caps hf
+    rw [Env.find?_cons] at h1
+    split at h1
+    · exact ConstantInfo.noConfusion (Option.some.inj h1)
+    · exact h1
+
+/-- The recursor phase introduces no former. -/
+theorem indRecsR_noInd {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {env₂ env₃ : Env}
+    {cval₂ cval₃ : TConstVal} {recs : List ConstantInfo}
+    (h : IndRecsR μ F blockNames env₂ cval₂ recs env₃ cval₃) :
+    ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+      env₃.find? T = some (.indInfo cvT caps) →
+      env₂.find? T = some (.indInfo cvT caps) := by
+  rcases h with ⟨-, rfl, -⟩ | ⟨-, -, envSelf, cvalSelf, checked, -,
+    hfold⟩
+  · exact fun _ _ _ hf => hf
+  · exact indRecsFoldR_noInd checked hfold
+
 /-- The install fold only extends the accumulator. -/
 theorem indRecsFoldR_mono {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {envBase envSelf : Env}

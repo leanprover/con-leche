@@ -50,6 +50,54 @@ theorem etaPins_empty {μ : CheckMode} {env : Env} {T : Name}
     {lps : List Name} : EtaPins μ env T lps {} :=
   ⟨fun h => absurd h (by decide), fun h => absurd h (by decide)⟩
 
+/-- The projection-function fold is an `ExtEta` extension: each step
+is either a no-op or one fresh `.recInfo` install. -/
+theorem projInstallR_ext {μ : CheckMode} {F : Nat}
+    {T ctorName : Name} {lps : List Name} {nP nF : Nat} :
+    ∀ (idxs : List Nat) {env' : Env} {cval : TConstVal} {env₄ : Env}
+      {cval₄ : TConstVal},
+      ProjInstallR μ F T ctorName lps nP nF env' cval idxs env₄ cval₄ →
+      ExtEta env' env₄ := by
+  intro idxs
+  induction idxs with
+  | nil =>
+    intro env' cval env₄ cval₄ h
+    obtain ⟨rfl, -⟩ := h
+    exact ExtEta.refl _
+  | cons i rest ih =>
+    intro env' cval env₄ cval₄ h
+    obtain ⟨env'', cval'', hstep, htail⟩ := h
+    refine ExtEta.trans ?_ (ih htail)
+    rcases hstep with ⟨hfn, -⟩ | ⟨-, rfl, -⟩
+    · obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, -, -, -, hfresh, -, -,
+        -, -, -, -, -, -, -, -, -, -, rfl⟩ := hfn
+      exact ExtEta.cons (Option.isNone_iff_eq_none.mp hfresh)
+        (fun _ _ hh => ConstantInfo.noConfusion hh)
+    · exact ExtEta.refl _
+
+/-- The elimination-template fold is an `ExtEta` extension. -/
+theorem templatesR_ext {T ctorName : Name} {lps : List Name}
+    {nP nF : Nat} :
+    ∀ (idxs : List Nat) {env' env₂ : Env},
+      DeclIndR.TemplatesR T ctorName lps nP nF env' idxs env₂ →
+      ExtEta env' env₂ := by
+  intro idxs
+  induction idxs with
+  | nil =>
+    intro env' env₂ h
+    rw [h]
+    exact ExtEta.refl _
+  | cons i rest ih =>
+    intro env' env₂ h
+    obtain ⟨env'', hstep, htail⟩ := h
+    refine ExtEta.trans ?_ (ih htail)
+    rcases hstep with rfl | ⟨entry, hst, hix, -, -, -, hfresh, rfl⟩
+    · exact ExtEta.refl _
+    · refine ExtEta.cons ?_ (fun _ _ hh => ConstantInfo.noConfusion hh)
+      show env'.find? (projFnName entry.structName entry.idx) = none
+      rw [hst, hix]
+      exact Option.isNone_iff_eq_none.mp hfresh
+
 set_option maxHeartbeats 3200000 in
 /-- **The modeled-inductive block install.** -/
 theorem declIndS (hkey : MemberKeyS V) : DeclIndS V := by
@@ -262,7 +310,25 @@ theorem declIndS (hkey : MemberKeyS V) : DeclIndS V := by
       rfl
     obtain ⟨m₃, -, -, -⟩ := projInstallS hTblock hbshape
       (List.range nF) m₂ hproj hinvR hI₂ hpinsR hCblockR hFieldsR
-    exact templatesS hTnres (List.range nF) m₃ htpl
+    refine ⟨templatesS hTnres (List.range nF) m₃ htpl, ?_⟩
+    -- the three post-member phases are `ExtEta`, so the only new
+    -- former is the block's own, whose constructor is a member
+    have hx : ExtEta envM env₂ :=
+      ExtEta.trans ⟨hnonrecUp, indRecsR_noInd hrecs⟩
+        (ExtEta.trans (projInstallR_ext (List.range nF) hproj)
+          (templatesR_ext (List.range nF) htpl))
+    have hCnon : ConstantInfo.ctorInfo cvC nP nF ∈ block.filter
+        (fun ci => match ci with
+          | .recInfo _ _ _ _ => false | _ => true) :=
+      List.mem_filter.mpr ⟨hCin, rfl⟩
+    intro T cvT' caps' hf he hr
+    rcases indMembersR_indNew _ hmem T cvT' caps'
+      (hx.2 T cvT' caps' hf) with hfE | ⟨rfl, -⟩
+    · obtain ⟨cvC', hfC⟩ := hE T cvT' caps' hfE he hr
+      exact ⟨cvC', hx.1 _ _ (indMembersR_mono _ hmem _ _ hfC)
+        (fun _ _ _ _ hh => nomatch hh)⟩
+    · obtain ⟨cvA', hfA⟩ := indMembersR_ctorEntry _ hmem cvC nP nF hCnon
+      exact ⟨cvA', hx.1 _ _ hfA (fun _ _ _ _ hh => nomatch hh)⟩
   · -- the generic arm: an empty capability record
     have hBP0 : BlockEtaPinned μ (block.map (·.name)) env :=
       fun n cvS capsS hnb hf _ =>
@@ -272,8 +338,15 @@ theorem declIndS (hkey : MemberKeyS V) : DeclIndS V := by
         ⟨fun h => absurd h (by decide), fun h => absurd h (by decide)⟩⟩)
       hmem (hI0gen hmem hrecs) hEC0 hBP0
     rw [← hm₁cval] at hrecs hI₁
-    obtain ⟨m₂, -, -, -, -, -⟩ := indRecsS hkey m₁ hI₁ hbnRec
+    obtain ⟨m₂, -, -, hnonrecUp, -, -⟩ := indRecsS hkey m₁ hI₁ hbnRec
       (hallGen hmem) hEC₁ hBP₁ hrecs
-    exact ⟨m₂⟩
+    refine ⟨⟨m₂⟩, ?_⟩
+    intro T cvT' caps' hf he hr
+    have hfM := indRecsR_noInd hrecs T cvT' caps' hf
+    rcases indMembersR_indNew _ hmem T cvT' caps' hfM with hfE | ⟨rfl, -⟩
+    · obtain ⟨cvC, hfC⟩ := hE T cvT' caps' hfE he hr
+      exact ⟨cvC, hnonrecUp _ _ (indMembersR_mono _ hmem _ _ hfC)
+        (fun _ _ _ _ hh => nomatch hh)⟩
+    · exact absurd he (by decide)
 
 end Setlec.SetR
