@@ -1538,3 +1538,88 @@ consumers (the iota bottoms' `heqlaw`) use only the computation clause
 the house rule it lands with its consumer, and its consumer is the
 unwritten eta-law derivation.  Recording it here so that pass starts
 from a solved design problem.
+
+## T5 c5 — finding 4's repair landed; the eta law lands with it (2026-08-28)
+
+### The repair, as approved
+
+`EqLawV`'s computation clause is now `eqVal_app₂`'s transpose — the
+**two-fold** application is the truth-set abstraction over the slot:
+
+```
+    ∀ ρ A a, ⟦A⟧ ∈ˢ univ (ψ uN) → ⟦a⟧ ∈ˢ ⟦A⟧ →
+      app (app ⟦cval eqName ψ⟧ ⟦A⟧) ⟦a⟧ = lamC ⟦A⟧ (fun y => eqv ⟦a⟧ y)
+```
+
+`EqLawV.app₃` recovers the earlier three-fold clause (one `app_lamC`),
+and `EqLawV.dom` is the new consequence — the two-fold application is a
+`lamC` with a non-`pt` value, so **anything the statement's own
+truthfulness offers it as an argument already inhabits the slot**.  The
+interface got *smaller*, not larger.
+
+**Classification, explicitly**: this is **not finding #1**.  No checker
+check is missing — the fact is derivable from the basis install's
+existing computation (`Model/Basis/Eq/Install.lean:77`); it is an
+interface field stated too weakly for a consumer its designer had not
+met.  Same class as `EnvR.rec_rhs_denotes`.
+
+`fireS` correspondingly takes the two sides' memberships as a
+quantified hypothesis — with the slot's universe fact, which its own
+rigidity block derives, handed to the caller — instead of
+`IotaSidesTyR`.  The certified route is factored out as `sidesMemS`,
+which the three iota bottoms call.  `fireS`'s `μ` became phantom and is
+gone.  **That factoring is what lets the eta law reuse `fireS` rather
+than mirror it**, and it is the general shape: a stage should take the
+*fact* its consumers differ on, not the certificate one of them
+happens to have.
+
+### `etaLawKeyS` (`Install/EtaLawS.lean`, 537 lines)
+
+`fireS` at `rP := caps.etaParams`, `cnF := 1`.  The statement's
+telescope is the model former's parameters followed by the major; its
+body is the pinned `Eq`-spine; the two sides are:
+
+* **left** (`.bvar 0`, the major) — free from `Sat`: `checkEtaThm`
+  pins the major's binder domain to `T._model p⃗`, which *is* the slot;
+* **right** (the fabricated constructor application) — `EqLawV.dom`
+  against the statement's own `AnnotOkV`, extracted at the third
+  application by `annotOkV_descend` + `AnnotOkV_app`.
+
+The two contexts are identified by `towerCtxEq` on `checkEtaThm`'s
+`domsMatchAux` (the statement's parameter domains are the model
+former's), and the public type former enters through `RenEqT.denote`.
+The final identification is `interp_mkAppN_map` + `interp_closed` +
+the three valuation identifications `hvT`/`hvC`/`hvP`.
+
+**The universe-cohabitation wall, dodged.**  The naive route to the
+fabricated side's membership — `mem_type` for `Eq` plus two
+`app_mem_piC` steps, then `piC_dom_unique` — dies because
+`pt ∈ˢ piC A (fun _ => univ 0)` *holds*: the proof point cohabits the
+Prop-valued function space, so a typing cannot separate `Eq α a` from
+`pt`.  `lamC`-rigidity separates them instead (the value is
+`truthVal _ ≠ pt`).  Worth flagging for #151: in a world where the
+wall goes away the naive route would work and `EqLawV` could stay at
+the three-fold clause.
+
+### Still open in c5: the unit law's value-vs-expression bridge
+
+`unitLawKeyS` is **not** written.  `UnitLawV` quantifies its two
+members as **values** (`x y : V`) while the whole firing apparatus is
+`VExpr`-spine-based (`TeleFitV`/`chainE`/`hfit.appN_val` apply the
+theorem's inhabitant along a spine of `VExpr`s).  `EtaLawV` does not
+hit this — its major is a `VExpr`.
+
+The bridge, priced: fire at the shifted valuation
+`ρ'' := cons y (cons x ρ)` with spine
+`zs'' := xs.map (·.liftN 2) ++ [.bvar 1, .bvar 0]`, so that
+`interp ρ'' (.bvar 1) = x` and `interp ρ'' (.bvar 0) = y` and
+`interp ρ'' (liftN 2 a) = interp ρ a` (`interp_liftN` + a
+`shiftE`-of-`cons` computation).  The one real cost is transporting the
+given fit's memberships from `chainE ρ (xs.take m)` to
+`chainE ρ'' (zs''.take m)`: the two valuations agree below `m` and
+diverge above it, so each tower domain needs `interp_congr_below`
+against its own `bvarsBelow m` (from `denote_bvarsBelow` on the
+binder's opened domain).  No `Sat`/`TeleFitV` transport lemma exists
+yet; that lemma — *`Sat` and `TeleFitV` are invariant under valuations
+agreeing below the context's depth* — is the piece to write, and it is
+reusable well beyond the unit law.
