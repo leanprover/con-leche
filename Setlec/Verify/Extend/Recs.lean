@@ -771,4 +771,104 @@ theorem checkIndRecs_mono {F : Nat} {blockNames : List Name}
   · rw [h₃]
     rfl
 
+/-! ## The congruences a shape-level swap induces
+
+Everything `denote` and the environment guards read is invariant under
+replacing a rule-less recursor's rule list, because they read the
+environment only through `find?`-`toConstantVal`.  Bundled here (task
+#148, T5 stage 3) so both lanes' swap transports consume one object;
+the TT lane's `EnvTT.swap` still carries an inline copy of these
+`have`s, which this supersedes for any future consumer. -/
+
+/-- The environment congruences of a shape-level rule-list swap. -/
+structure SwapCongr (env₀ env₃ : Env) : Prop where
+  /-- Stored level parameters are unchanged. -/
+  levelsEq : ∀ n, (env₀.find? n).map (fun ci => ci.toConstantVal.levelParams)
+    = (env₃.find? n).map (fun ci => ci.toConstantVal.levelParams)
+  /-- The set of stored names is unchanged. -/
+  isSomeEq : ∀ n, (env₀.find? n).isSome = (env₃.find? n).isSome
+  /-- The two literal guards are unchanged. -/
+  natEq : natLitSupported env₀ = natLitSupported env₃
+  strEq : strLitSupported env₀ = strLitSupported env₃
+  /-- The `Nat`-operation guards are unchanged. -/
+  guardEq : ∀ c, natOpGuard env₀ c = natOpGuard env₃ c
+  /-- A non-recursor lookup transports down. -/
+  findDown : ∀ (n : Name) (ci : ConstantInfo), env₃.find? n = some ci →
+    (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+    env₀.find? n = some ci
+  /-- …and up. -/
+  findUp : ∀ (n : Name) (ci : ConstantInfo), env₀.find? n = some ci →
+    (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+    env₃.find? n = some ci
+
+/-- A shape-level swap induces the congruences. -/
+theorem SwapShList.congr {consts₀ consts₃ : List ConstantInfo}
+    (hsw : SwapShList consts₀ consts₃) :
+    SwapCongr (Env.mk consts₀) (Env.mk consts₃) := by
+  have hcorr := swapSh_find?_corr hsw
+  have hchk : ∀ (chk : Option ConstantInfo → Bool),
+      (∀ cv mI rP rules rules',
+        chk (some (.recInfo cv mI rP rules)) =
+        chk (some (.recInfo cv mI rP rules'))) →
+      ∀ n, chk ((Env.mk consts₀).find? n) = chk ((Env.mk consts₃).find? n) := by
+    intro chk hins n
+    rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    · rw [heq]
+    · rw [h₀, h₃]
+      exact hins cv mI rP [] rules
+  have hnat : natLitSupported (Env.mk consts₀)
+      = natLitSupported (Env.mk consts₃) := by
+    unfold natLitSupported
+    rw [hchk natIndOk (fun _ _ _ _ _ => rfl) natName,
+      hchk natZeroOk (fun _ _ _ _ _ => rfl) natZeroName,
+      hchk natSuccOk (fun _ _ _ _ _ => rfl) natSuccName]
+  refine ⟨?_, ?_, hnat, ?_, ?_, ?_, ?_⟩
+  · intro n
+    rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    · rw [heq]
+    · rw [h₀, h₃]; rfl
+  · intro n
+    rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    · rw [heq]
+    · rw [h₀, h₃]; rfl
+  · unfold strLitSupported
+    rw [hnat,
+      hchk stringTyOk (fun _ _ _ _ _ => rfl) stringName,
+      hchk stringOfListTyOk (fun _ _ _ _ _ => rfl) stringOfListName,
+      hchk listTyOk (fun _ _ _ _ _ => rfl) listName,
+      hchk listNilTyOk (fun _ _ _ _ _ => rfl) listNilName,
+      hchk listConsTyOk (fun _ _ _ _ _ => rfl) listConsName,
+      hchk charTyOk (fun _ _ _ _ _ => rfl) charName,
+      hchk charOfNatTyOk (fun _ _ _ _ _ => rfl) charOfNatName]
+  · intro c
+    unfold natOpGuard
+    rw [hnat]
+    congr 1
+    · congr 1
+      refine congrArg (List.all (natOpDeps c)) (funext fun n => ?_)
+      rcases hcorr n with heq | ⟨cv2, a, b, c2, h₀, h₃, -⟩
+      · rw [heq]
+      · rw [h₀, h₃]
+    · split
+      · congr 1
+        · rcases hcorr boolTrueName with heq | ⟨cv2, a, b, c2, h₀, h₃, -⟩
+          · rw [heq]
+          · rw [h₀, h₃]; rfl
+        · rcases hcorr boolFalseName with heq | ⟨cv2, a, b, c2, h₀, h₃, -⟩
+          · rw [heq]
+          · rw [h₀, h₃]; rfl
+      · rfl
+  · intro n ci hf hnr
+    rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    · rw [← heq]; exact hf
+    · rw [h₃] at hf
+      obtain rfl := Option.some.inj hf
+      exact absurd rfl (hnr cv mI rP rules)
+  · intro n ci hf hnr
+    rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    · rw [heq]; exact hf
+    · rw [h₀] at hf
+      obtain rfl := Option.some.inj hf
+      exact absurd rfl (hnr cv mI rP [])
+
 end Setlec
