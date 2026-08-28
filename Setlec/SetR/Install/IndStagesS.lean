@@ -1000,32 +1000,23 @@ theorem sat_chain_mems {k : Nat} {T : VExpr} {Γ : List VExpr}
   rw [hval, henv]
   exact h1
 
-set_option maxHeartbeats 3200000 in
-/-- **The firing stage**: the checked equation, fired at the zipped
-chain — the theorem's inhabitant applied along the fit lands in the
-interpreted `Eq`-spine, the spine computes to the truth set through
-`eq_lawV` (its domain memberships from the sides pack and from graph
-rigidity of the pinned `Eq` former against the statement's own
-truthfulness), and `mem_eqv` reads the equation off. -/
-theorem fireS {μ : CheckMode} {env : Env} {cval : TConstVal}
+/-- **The certified sides' memberships**: the `checkIotaSidesTy` pack,
+fired at the satisfied statement context, puts both equation sides in
+the slot.  Factored out of `fireS` (task #148, T5 c5) because the
+eta/unit statements have **no** such pack — `checkEtaThm`/
+`checkUnitThm` run no side certification — and reach the same two
+memberships by `Eq`-slot rigidity instead (`EqLawV.dom`). -/
+theorem sidesMemS {μ : CheckMode} {env : Env} {cval : TConstVal}
     {ψ' : Name → Nat} (henv : EnvSHyp V env cval ψ')
-    (heqlaw : EqLawV V env cval)
-    (heqfE : env.find? eqName = some eqA)
     {rP cnF : Nat} {fvs : List Expr}
-    (_hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       ∃ nm ty, x = Expr.fvar i nm ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
-    {Tstmt : VExpr} {Γs : List VExpr} {Rbody : VExpr}
-    (htowerS : PiTele (rP + cnF) Tstmt Γs Rbody)
+    {Γs : List VExpr} (hΓslen : Γs.length = rP + cnF)
     (hdomsS0 : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       denote cval env ψ' i (Expr.fvarTypeD x)
         = some (Γs.getD (rP + cnF - 1 - i) default))
-    (hstmtAnnot : ∀ ρ0 : Nat → V, AnnotOkV V ρ0 Tstmt)
-    (hstmtInhab : ∀ ρ0 : Nat → V, ∃ pv : V, pv ∈ˢ interp V ρ0 Tstmt)
-    {tbody : Expr} {ℓA : Level} {αS lhsS rhsS : Expr}
-    (hRbody : denote cval env ψ' (rP + cnF) tbody = some Rbody)
-    (htbody : tbody = Expr.mkAppN (.const eqName [ℓA]) [αS, lhsS, rhsS])
+    {αS lhsS rhsS : Expr}
     (hsidesTy : IotaSidesTyR μ env cval ψ' (rP + cnF) αS lhsS rhsS)
     (hleafα : ∀ l ∈ αS.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
     (hltα : ∀ l ∈ αS.fvarLeaves, l.1 < rP + cnF)
@@ -1033,7 +1024,81 @@ theorem fireS {μ : CheckMode} {env : Env} {cval : TConstVal}
     (hltL : ∀ l ∈ lhsS.fvarLeaves, l.1 < rP + cnF)
     (hleafR : ∀ l ∈ rhsS.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
     (hltR : ∀ l ∈ rhsS.fvarLeaves, l.1 < rP + cnF)
-    {zs : List VExpr} {ρ : Nat → V} (hzslen : zs.length = rP + cnF)
+    {ρ0 : Nat → V} (hsat : Sat V Γs ρ0) :
+    ∀ vα vL vR,
+      denote cval env ψ' (rP + cnF) αS = some vα →
+      denote cval env ψ' (rP + cnF) lhsS = some vL →
+      denote cval env ψ' (rP + cnF) rhsS = some vR →
+      interp V ρ0 vL ∈ˢ interp V ρ0 vα ∧
+      interp V ρ0 vR ∈ˢ interp V ρ0 vα := by
+  intro vα vL vR hvα hvL hvR
+  obtain ⟨Av0, Lv0, Rv0, hAv0, hLv0, hRv0, hpacks⟩ := hsidesTy
+  obtain rfl : vα = Av0 := by
+    rw [hvα] at hAv0
+    exact Option.some.inj hAv0
+  obtain rfl : vL = Lv0 := by
+    rw [hvL] at hLv0
+    exact Option.some.inj hLv0
+  obtain rfl : vR = Rv0 := by
+    rw [hvR] at hRv0
+    exact Option.some.inj hRv0
+  have hent : ∀ i, i < rP + cnF →
+      Γs[rP + cnF - 1 - i]?
+        = some ((fun i => Γs.getD (rP + cnF - 1 - i) default) i) := by
+    intro i hi
+    show Γs[rP + cnF - 1 - i]?
+      = some (Γs.getD (rP + cnF - 1 - i) default)
+    rw [List.getD]
+    rcases hg : Γs[rP + cnF - 1 - i]? with _ | A
+    · rw [List.getElem?_eq_none_iff] at hg
+      omega
+    · rfl
+  have hctxα := ctxOkR_of_openers (μ := μ) henv.cval_closed hΓslen
+    hshapeS hwsFvs hdomsS0 hleafα hltα hent
+  have hctxL := ctxOkR_of_openers (μ := μ) henv.cval_closed hΓslen
+    hshapeS hwsFvs hdomsS0 hleafL hltL hent
+  have hctxR := ctxOkR_of_openers (μ := μ) henv.cval_closed hΓslen
+    hshapeS hwsFvs hdomsS0 hleafR hltR hent
+  obtain ⟨⟨tl, hInfL, hDeqL⟩, ⟨tr, hInfR, hDeqR⟩⟩ :=
+    hpacks Γs hctxα hctxL hctxR
+  constructor
+  · have h1 := (Infer.sound henv hInfL ρ0 hsat).2
+    have h2 := DefEq.sound henv hDeqL ρ0 hsat
+    rw [h2] at h1
+    exact h1
+  · have h1 := (Infer.sound henv hInfR ρ0 hsat).2
+    have h2 := DefEq.sound henv hDeqR ρ0 hsat
+    rw [h2] at h1
+    exact h1
+
+set_option maxHeartbeats 3200000 in
+/-- **The firing stage**: the checked equation, fired at the zipped
+chain — the theorem's inhabitant applied along the fit lands in the
+interpreted `Eq`-spine, the spine computes to the truth set through
+`eq_lawV` (its domain memberships from the sides pack and from graph
+rigidity of the pinned `Eq` former against the statement's own
+truthfulness), and `mem_eqv` reads the equation off. -/
+theorem fireS {env : Env} {cval : TConstVal}
+    {ψ' : Name → Nat} (henv : EnvSHyp V env cval ψ')
+    (heqlaw : EqLawV V env cval)
+    (heqfE : env.find? eqName = some eqA)
+    {rP cnF : Nat}
+    {Tstmt : VExpr} {Γs : List VExpr} {Rbody : VExpr}
+    (htowerS : PiTele (rP + cnF) Tstmt Γs Rbody)
+    (hstmtAnnot : ∀ ρ0 : Nat → V, AnnotOkV V ρ0 Tstmt)
+    (hstmtInhab : ∀ ρ0 : Nat → V, ∃ pv : V, pv ∈ˢ interp V ρ0 Tstmt)
+    {tbody : Expr} {ℓA : Level} {αS lhsS rhsS : Expr}
+    (hRbody : denote cval env ψ' (rP + cnF) tbody = some Rbody)
+    (htbody : tbody = Expr.mkAppN (.const eqName [ℓA]) [αS, lhsS, rhsS])
+    {zs : List VExpr} {ρ : Nat → V}
+    (hsides : ∀ vα vL vR,
+      denote cval env ψ' (rP + cnF) αS = some vα →
+      denote cval env ψ' (rP + cnF) lhsS = some vL →
+      denote cval env ψ' (rP + cnF) rhsS = some vR →
+      interp V (chainE V ρ zs) vα ∈ˢ univ (ℓA.eval ψ') →
+      interp V (chainE V ρ zs) vL ∈ˢ interp V (chainE V ρ zs) vα ∧
+      interp V (chainE V ρ zs) vR ∈ˢ interp V (chainE V ρ zs) vα)
+    (hzslen : zs.length = rP + cnF)
     (hsat : Sat V Γs (chainE V ρ zs))
     (hfit : TeleFitV V ρ Tstmt zs
       (VExpr.instSeq zs (rP + cnF - 1) Rbody)) :
@@ -1068,50 +1133,10 @@ theorem fireS {μ : CheckMode} {env : Env} {cval : TConstVal}
         = eqA.toConstantVal.levelParams.length from rfl)] at hvEq
     exact (Option.some.inj hvEq).symm
   -- the `Eq` law at the instantiation
-  obtain ⟨hnept, hlaw⟩ := heqlaw heqfE
+  have hnept := (heqlaw heqfE
+    (Level.substFn ψ' eqA.toConstantVal.levelParams [ℓA])).1
+  have hlaw := EqLawV.app₃ (V := V) heqlaw heqfE
     (Level.substFn ψ' eqA.toConstantVal.levelParams [ℓA])
-  -- the sides' membership facts at the full context
-  obtain ⟨Av0, Lv0, Rv0, hAv0, hLv0, hRv0, hpacks⟩ := hsidesTy
-  obtain rfl : vα = Av0 := by
-    rw [hvα] at hAv0
-    exact Option.some.inj hAv0
-  obtain rfl : vL = Lv0 := by
-    rw [hvL] at hLv0
-    exact Option.some.inj hLv0
-  obtain rfl : vR = Rv0 := by
-    rw [hvR] at hRv0
-    exact Option.some.inj hRv0
-  have hent : ∀ i, i < rP + cnF →
-      Γs[rP + cnF - 1 - i]?
-        = some ((fun i => Γs.getD (rP + cnF - 1 - i) default) i) := by
-    intro i hi
-    show Γs[rP + cnF - 1 - i]?
-      = some (Γs.getD (rP + cnF - 1 - i) default)
-    rw [List.getD]
-    rcases hg : Γs[rP + cnF - 1 - i]? with _ | A
-    · rw [List.getElem?_eq_none_iff] at hg
-      omega
-    · rfl
-  have hctxα := ctxOkR_of_openers (μ := μ) henv.cval_closed hΓslen
-    hshapeS hwsFvs hdomsS0 hleafα hltα hent
-  have hctxL := ctxOkR_of_openers (μ := μ) henv.cval_closed hΓslen
-    hshapeS hwsFvs hdomsS0 hleafL hltL hent
-  have hctxR := ctxOkR_of_openers (μ := μ) henv.cval_closed hΓslen
-    hshapeS hwsFvs hdomsS0 hleafR hltR hent
-  obtain ⟨⟨tl, hInfL, hDeqL⟩, ⟨tr, hInfR, hDeqR⟩⟩ :=
-    hpacks Γs hctxα hctxL hctxR
-  have hLmem : interp V (chainE V ρ zs) vL
-      ∈ˢ interp V (chainE V ρ zs) vα := by
-    have h1 := (Infer.sound henv hInfL (chainE V ρ zs) hsat).2
-    have h2 := DefEq.sound henv hDeqL (chainE V ρ zs) hsat
-    rw [h2] at h1
-    exact h1
-  have hRmem : interp V (chainE V ρ zs) vR
-      ∈ˢ interp V (chainE V ρ zs) vα := by
-    have h1 := (Infer.sound henv hInfR (chainE V ρ zs) hsat).2
-    have h2 := DefEq.sound henv hDeqR (chainE V ρ zs) hsat
-    rw [h2] at h1
-    exact h1
   -- the slot's universe membership, by graph rigidity
   have hdescend := annotOkV_descend (rP + cnF) htowerS ρ
     (zs.map (interp V ρ)) (by rw [List.length_map, hzslen])
@@ -1188,6 +1213,8 @@ theorem fireS {μ : CheckMode} {env : Env} {cval : TConstVal}
     rw [show (Level.substFn ψ' eqA.toConstantVal.levelParams [ℓA]) uN
         = ℓA.eval ψ' from rfl]
     exact hαIn
+  -- the sides' memberships, at the slot the rigidity just named
+  obtain ⟨hLmem, hRmem⟩ := hsides vα vL vR hvα hvL hvR hαuniv
   -- fire the theorem's inhabitant along the fit
   obtain ⟨pv, hpv⟩ := hstmtInhab ρ
   have happ := hfit.appN_val hpv

@@ -63,21 +63,70 @@ Stated here because their first consumers are T5's own install steps
 
 /-- **The pinned `Eq` block's fired law**, [set] form (design §2
 `eq_lawV`; the `EqLawTT` transpose with `Deq → interp`-equality and
-typing premises → memberships): once `Eq` is stored, a full spine over
-the stored constant interprets to the layer's truth-set former.
-Supplier: the basis install — `cval eqName` is the pinned
-eta-expansion over `eqE`, and the equation is three `app_lamC`
-firings, which is what the three membership premises feed. -/
+typing premises → memberships): once `Eq` is stored, the stored
+constant's **two-fold** application is the layer's truth-set
+abstraction over the slot.  Supplier: the basis install — `cval
+eqName` is the pinned eta-expansion over `eqE`, so this is
+`eqVal_app₂` (`Model/Basis/Eq/Install.lean:77`) transposed, and no
+fact beyond that install's own computation is assumed.
+
+**Restated at the two-fold application (finding 4, task #148 T5 c5).**
+The earlier form gave only the *three*-fold application's value, under
+**both** sides' memberships, plus a non-`pt` fact about the bare head.
+That is enough for the three iota bottoms — `checkIotaSidesTy`
+certifies their sides — but not for the eta/unit laws, whose
+**fabricated** side no `--set-model` check types: `checkEtaThm`/
+`checkUnitThm` are pure `Bool` shape matches.  The `lamC` form is what
+supplies it, by rigidity (`EqLawV.dom`), and the old form is recovered
+as `EqLawV.app₃`, so the interface got *smaller*, not larger.  This is
+**not** finding #1: no checker check is missing — the fact is
+derivable from the basis install's existing computation; it is an
+interface field stated too weakly for a consumer its designer had not
+met, the same class as `EnvR.rec_rhs_denotes`. -/
 def EqLawV (env : Env) (cval : TConstVal) : Prop :=
   env.find? eqName = some eqA →
   ∀ ψ : Name → Nat,
     (∀ ρ : Nat → V, interp V ρ (cval eqName ψ) ≠ pt) ∧
-    ∀ (ρ : Nat → V) (A a b : VExpr),
+    ∀ (ρ : Nat → V) (A a : VExpr),
       interp V ρ A ∈ˢ univ (ψ uN) →
       interp V ρ a ∈ˢ interp V ρ A →
-      interp V ρ b ∈ˢ interp V ρ A →
-      interp V ρ (VExpr.mkAppN (cval eqName ψ) [A, a, b])
-        = eqv (interp V ρ a) (interp V ρ b)
+      SetTheory.app
+          (SetTheory.app (interp V ρ (cval eqName ψ)) (interp V ρ A))
+          (interp V ρ a)
+        = lamC (interp V ρ A) (fun y => eqv (interp V ρ a) y)
+
+/-- **The full `Eq` spine's value** — the law's earlier statement,
+recovered by one `app_lamC`. -/
+theorem EqLawV.app₃ {env : Env} {cval : TConstVal}
+    (h : EqLawV V env cval) (hfind : env.find? eqName = some eqA)
+    (ψ : Name → Nat) (ρ : Nat → V) (A a b : VExpr)
+    (hA : interp V ρ A ∈ˢ univ (ψ uN))
+    (ha : interp V ρ a ∈ˢ interp V ρ A)
+    (hb : interp V ρ b ∈ˢ interp V ρ A) :
+    interp V ρ (VExpr.mkAppN (cval eqName ψ) [A, a, b])
+      = eqv (interp V ρ a) (interp V ρ b) := by
+  show interp V ρ (.app (.app (.app (cval eqName ψ) A) a) b) = _
+  rw [interp_app, interp_app, interp_app, (h hfind ψ).2 ρ A a hA ha,
+    SetTheory.app_lamC hb]
+
+/-- **The `Eq` slot's rigidity** (the eta/unit laws' fabricated side):
+the two-fold application is a `lamC` over the slot with a non-`pt`
+value, so anything the statement's own truthfulness offers it as an
+argument already inhabits the slot. -/
+theorem EqLawV.dom {env : Env} {cval : TConstVal}
+    (h : EqLawV V env cval) (hfind : env.find? eqName = some eqA)
+    (ψ : Name → Nat) (ρ : Nat → V) (A a : VExpr)
+    (hA : interp V ρ A ∈ˢ univ (ψ uN))
+    (ha : interp V ρ a ∈ˢ interp V ρ A)
+    {A' : V} {B' : V → V}
+    (hpi : SetTheory.app
+        (SetTheory.app (interp V ρ (cval eqName ψ)) (interp V ρ A))
+        (interp V ρ a) ∈ˢ piC A' B') :
+    ∀ y, y ∈ˢ A' → y ∈ˢ interp V ρ A := by
+  rw [(h hfind ψ).2 ρ A a hA ha] at hpi
+  refine SetTheory.lamC_dom_of_ne ?_ hpi
+  exact SetTheory.lamC_ne_pt_of_witness ha
+    (by unfold SetTheory.eqv; exact SetTheory.truthVal_ne_pt _)
 
 /-- **The compiler-trust opaques are the identity**, [set] form
 (`ReduceOpsOk` transpose with `val := interp ∘ cval`): the stored

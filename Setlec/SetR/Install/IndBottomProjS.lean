@@ -288,9 +288,12 @@ theorem indBottomProjS : IndBottomProjS V := by
   obtain ⟨hleafL, hltL⟩ := hargLeaf lhsS hmemL
   obtain ⟨hleafR, hltR⟩ := hargLeaf rhsS hmemR
   obtain ⟨vα, vL, vR, hvα, hvL, hvR, heqLR⟩ := fireS henv heqlaw heqfE
-    hfvslen hshapeS hwsFvs htowerS hdomsS0
+    htowerS
     (fun ρ0 => (hTstFacts ρ0).2) (fun ρ0 => (hTstFacts ρ0).1)
-    hRbodyDen htbody (hsidesTy _) hleafα hltα hleafL hltL hleafR hltR
+    hRbodyDen htbody
+    (fun vα vL vR h1 h2 h3 _ => sidesMemS henv hshapeS hwsFvs hΓslen
+      hdomsS0 (hsidesTy _) hleafα hltα hleafL hltL hleafR hltR hsat
+      vα vL vR h1 h2 h3)
     hzslen hsat hfitS
   -- ===== the plain fire's spine data (a projection fire is plain) ==
   have hsplen : (fvs.take cnP ++ fvs.drop rP).length = cnP + cnF := by
