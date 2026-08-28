@@ -1067,4 +1067,265 @@ theorem zipperS {μ : CheckMode} {env : Env} {cval : TConstVal}
     teleFitV_of_tower (rP + cnF) htowerS hzslen hallK⟩
 
 
+
+/-- The chain memberships, read back off the constructed satisfaction
+(the inverse of `sat_of_tower`, in `consChain` form — what the
+truthfulness descent consumes). -/
+theorem sat_chain_mems {k : Nat} {T : VExpr} {Γ : List VExpr}
+    {R : VExpr} (htower : PiTele k T Γ R) {ws : List VExpr}
+    {ρ : Nat → V} (hlen : ws.length = k)
+    (hsat : Sat V Γ (chainE V ρ ws)) :
+    ∀ n, n < k →
+      (ws.map (interp V ρ)).getD n SetTheory.empty
+        ∈ˢ interp V (consChain V ρ ((ws.map (interp V ρ)).take n))
+          (Γ.getD (k - 1 - n) default) := by
+  intro n hn
+  have hΓlen : Γ.length = k := htower.length
+  have hval : (ws.map (interp V ρ)).getD n SetTheory.empty
+      = interp V ρ (ws.getD n default) := by
+    rw [List.getD, List.getD, List.getElem?_map]
+    rcases hx : ws[n]? with _ | w
+    · rw [List.getElem?_eq_none_iff] at hx
+      omega
+    · rfl
+  have henv : consChain V ρ ((ws.map (interp V ρ)).take n)
+      = chainE V ρ (ws.take n) := by
+    rw [← List.map_take, consChain_map_interp]
+  have hg : Γ[k - 1 - n]? = some (Γ.getD (k - 1 - n) default) := by
+    rw [List.getD]
+    rcases hA : Γ[k - 1 - n]? with _ | A
+    · rw [List.getElem?_eq_none_iff] at hA
+      omega
+    · rfl
+  have h1 := hsat (k - 1 - n) _ hg
+  rw [chainE_lt (by omega),
+    show ws.length - 1 - (k - 1 - n) = n from by omega] at h1
+  rw [show (fun j => chainE V ρ ws (j + (k - 1 - n) + 1))
+      = chainE V ρ (ws.take (ws.length - 1 - (k - 1 - n))) from
+      chainE_tail (by omega),
+    show ws.length - 1 - (k - 1 - n) = n from by omega] at h1
+  rw [hval, henv]
+  exact h1
+
+set_option maxHeartbeats 3200000 in
+/-- **The firing stage**: the checked equation, fired at the zipped
+chain — the theorem's inhabitant applied along the fit lands in the
+interpreted `Eq`-spine, the spine computes to the truth set through
+`eq_lawV` (its domain memberships from the sides pack and from graph
+rigidity of the pinned `Eq` former against the statement's own
+truthfulness), and `mem_eqv` reads the equation off. -/
+theorem fireS {μ : CheckMode} {env : Env} {cval : TConstVal}
+    {ψ' : Name → Nat} (henv : EnvSHyp V env cval ψ')
+    (heqlaw : EqLawV V env cval)
+    (heqfE : env.find? eqName = some eqA)
+    {rP cnF : Nat} {fvs : List Expr}
+    (hfvslen : fvs.length = rP + cnF)
+    (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      ∃ nm ty, x = Expr.fvar i nm ty)
+    (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
+    {Tstmt : VExpr} {Γs : List VExpr} {Rbody : VExpr}
+    (htowerS : PiTele (rP + cnF) Tstmt Γs Rbody)
+    (hdomsS0 : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      denote cval env ψ' i (Expr.fvarTypeD x)
+        = some (Γs.getD (rP + cnF - 1 - i) default))
+    (hstmtAnnot : ∀ ρ0 : Nat → V, AnnotOkV V ρ0 Tstmt)
+    (hstmtInhab : ∀ ρ0 : Nat → V, ∃ pv : V, pv ∈ˢ interp V ρ0 Tstmt)
+    {tbody : Expr} {ℓA : Level} {αS lhsS rhsS : Expr}
+    (hRbody : denote cval env ψ' (rP + cnF) tbody = some Rbody)
+    (htbody : tbody = Expr.mkAppN (.const eqName [ℓA]) [αS, lhsS, rhsS])
+    (hsidesTy : IotaSidesTyR μ env cval ψ' (rP + cnF) αS lhsS rhsS)
+    (hleafα : ∀ l ∈ αS.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hltα : ∀ l ∈ αS.fvarLeaves, l.1 < rP + cnF)
+    (hleafL : ∀ l ∈ lhsS.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hltL : ∀ l ∈ lhsS.fvarLeaves, l.1 < rP + cnF)
+    (hleafR : ∀ l ∈ rhsS.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hltR : ∀ l ∈ rhsS.fvarLeaves, l.1 < rP + cnF)
+    {zs : List VExpr} {ρ : Nat → V} (hzslen : zs.length = rP + cnF)
+    (hsat : Sat V Γs (chainE V ρ zs))
+    (hfit : TeleFitV V ρ Tstmt zs
+      (VExpr.instSeq zs (rP + cnF - 1) Rbody)) :
+    ∃ vα vL vR,
+      denote cval env ψ' (rP + cnF) αS = some vα ∧
+      denote cval env ψ' (rP + cnF) lhsS = some vL ∧
+      denote cval env ψ' (rP + cnF) rhsS = some vR ∧
+      interp V (chainE V ρ zs) vL = interp V (chainE V ρ zs) vR := by
+  have hΓslen : Γs.length = rP + cnF := htowerS.length
+  -- read the equation spine apart
+  rw [htbody] at hRbody
+  obtain ⟨vEq, vs3, hvEq, hsp3, rfl⟩ := denote_mkAppN_inv hRbody
+  obtain ⟨vα, vL, vR, rfl, hvα, hvL, hvR⟩ : ∃ vα vL vR,
+      vs3 = [vα, vL, vR] ∧
+      denote cval env ψ' (rP + cnF) αS = some vα ∧
+      denote cval env ψ' (rP + cnF) lhsS = some vL ∧
+      denote cval env ψ' (rP + cnF) rhsS = some vR := by
+    cases hsp3 with
+    | cons hα htail =>
+      cases htail with
+      | cons hL htail2 =>
+        cases htail2 with
+        | cons hR htail3 =>
+          cases htail3 with
+          | nil => exact ⟨_, _, _, rfl, hα, hL, hR⟩
+  -- the head is the stored `Eq`'s valuation
+  have hvEq' : vEq = cval eqName
+      (Level.substFn ψ' eqA.toConstantVal.levelParams [ℓA]) := by
+    rw [denote_const, heqfE] at hvEq
+    dsimp only at hvEq
+    rw [if_pos (show ([ℓA] : List Level).length
+        = eqA.toConstantVal.levelParams.length from rfl)] at hvEq
+    exact (Option.some.inj hvEq).symm
+  -- the `Eq` law at the instantiation
+  obtain ⟨hnept, hlaw⟩ := heqlaw heqfE
+    (Level.substFn ψ' eqA.toConstantVal.levelParams [ℓA])
+  -- the sides' membership facts at the full context
+  obtain ⟨Av0, Lv0, Rv0, hAv0, hLv0, hRv0, hpacks⟩ := hsidesTy
+  obtain rfl : vα = Av0 := by
+    rw [hvα] at hAv0
+    exact Option.some.inj hAv0
+  obtain rfl : vL = Lv0 := by
+    rw [hvL] at hLv0
+    exact Option.some.inj hLv0
+  obtain rfl : vR = Rv0 := by
+    rw [hvR] at hRv0
+    exact Option.some.inj hRv0
+  have hent : ∀ i, i < rP + cnF →
+      Γs[rP + cnF - 1 - i]?
+        = some ((fun i => Γs.getD (rP + cnF - 1 - i) default) i) := by
+    intro i hi
+    show Γs[rP + cnF - 1 - i]?
+      = some (Γs.getD (rP + cnF - 1 - i) default)
+    rw [List.getD]
+    rcases hg : Γs[rP + cnF - 1 - i]? with _ | A
+    · rw [List.getElem?_eq_none_iff] at hg
+      omega
+    · rfl
+  have hctxα := ctxOkR_of_openers (μ := μ) henv.cval_closed hΓslen
+    hshapeS hwsFvs hdomsS0 hleafα hltα hent
+  have hctxL := ctxOkR_of_openers (μ := μ) henv.cval_closed hΓslen
+    hshapeS hwsFvs hdomsS0 hleafL hltL hent
+  have hctxR := ctxOkR_of_openers (μ := μ) henv.cval_closed hΓslen
+    hshapeS hwsFvs hdomsS0 hleafR hltR hent
+  obtain ⟨⟨tl, hInfL, hDeqL⟩, ⟨tr, hInfR, hDeqR⟩⟩ :=
+    hpacks Γs hctxα hctxL hctxR
+  have hLmem : interp V (chainE V ρ zs) vL
+      ∈ˢ interp V (chainE V ρ zs) vα := by
+    have h1 := (Infer.sound henv hInfL (chainE V ρ zs) hsat).2
+    have h2 := DefEq.sound henv hDeqL (chainE V ρ zs) hsat
+    rw [h2] at h1
+    exact h1
+  have hRmem : interp V (chainE V ρ zs) vR
+      ∈ˢ interp V (chainE V ρ zs) vα := by
+    have h1 := (Infer.sound henv hInfR (chainE V ρ zs) hsat).2
+    have h2 := DefEq.sound henv hDeqR (chainE V ρ zs) hsat
+    rw [h2] at h1
+    exact h1
+  -- the slot's universe membership, by graph rigidity
+  have hdescend := annotOkV_descend (rP + cnF) htowerS ρ
+    (zs.map (interp V ρ)) (by rw [List.length_map, hzslen])
+    (hstmtAnnot ρ) (sat_chain_mems htowerS hzslen hsat)
+  rw [consChain_map_interp] at hdescend
+  have hαuniv : interp V (chainE V ρ zs) vα
+      ∈ˢ univ ((Level.substFn ψ' eqA.toConstantVal.levelParams [ℓA])
+        uN) := by
+    rw [show VExpr.mkAppN vEq [vα, vL, vR]
+        = .app (.app (.app vEq vα) vL) vR from rfl] at hdescend
+    rw [AnnotOkV_app] at hdescend
+    have h1 := hdescend.1
+    rw [AnnotOkV_app] at h1
+    have h2 := h1.1
+    rw [AnnotOkV_app] at h2
+    obtain ⟨-, -, A, B, hEqIn, hαIn⟩ := h2
+    -- the pinned `Eq` type, instantiated and denoted
+    have hinst : eqA.toConstantVal.type.instantiateLevelParams
+        eqA.toConstantVal.levelParams [ℓA]
+        = .forallE (.str .anonymous "α") (.sort ℓA)
+            (.forallE (.str .anonymous "a") (.bvar 0)
+              (.forallE (.str .anonymous "b") (.bvar 1)
+                (.sort .zero) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩ := by
+      rfl
+    have hb1 : (Expr.forallE (.str .anonymous "a") (.bvar 0)
+        (.forallE (.str .anonymous "b") (.bvar 1)
+          (.sort .zero) ⟨.default⟩) ⟨.default⟩).instantiate1
+        (.fvar 0 (.str .anonymous "α") (.sort ℓA))
+        = .forallE (.str .anonymous "a")
+            (.fvar 0 (.str .anonymous "α") (.sort ℓA))
+            (.forallE (.str .anonymous "b")
+              (.fvar 0 (.str .anonymous "α") (.sort ℓA))
+              (.sort .zero) ⟨.default⟩) ⟨.default⟩ := by
+      rfl
+    have hb2 : (Expr.forallE (.str .anonymous "b")
+        (.fvar 0 (.str .anonymous "α") (.sort ℓA))
+        (.sort .zero) ⟨.default⟩).instantiate1
+        (.fvar 1 (.str .anonymous "a")
+          (.fvar 0 (.str .anonymous "α") (.sort ℓA)))
+        = .forallE (.str .anonymous "b")
+            (.fvar 0 (.str .anonymous "α") (.sort ℓA))
+            (.sort .zero) ⟨.default⟩ := by
+      rfl
+    have hb3 : (Expr.sort .zero).instantiate1
+        (.fvar 2 (.str .anonymous "b")
+          (.fvar 0 (.str .anonymous "α") (.sort ℓA))) = .sort .zero := by
+      rfl
+    have hTden : denoteClosed cval env ψ'
+        (eqA.toConstantVal.type.instantiateLevelParams
+          eqA.toConstantVal.levelParams [ℓA])
+        = some (.pi (.sort (ℓA.eval ψ'))
+            (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0)))) := by
+      show denote cval env ψ' 0 _ = _
+      rw [hinst, denote_forallE, denote_sort, hb1, denote_forallE,
+        denote_fvar, hb2, denote_forallE, denote_fvar, hb3,
+        denote_sort]
+      rfl
+    have hmem := henv.mem_type eqName eqA heqfE [ℓA] (by rfl)
+      _ hTden (chainE V ρ zs)
+    have hEqIn2 : interp V (chainE V ρ zs) vEq
+        ∈ˢ piC (univ (ℓA.eval ψ'))
+          (fun x => interp V (cons V x (chainE V ρ zs))
+            (VExpr.pi (.bvar 0) (.pi (.bvar 1) (.sort 0)))) := by
+      have h3 := hmem.1
+      rw [interp_pi, interp_sort] at h3
+      rw [hvEq']
+      exact h3
+    have hne : interp V (chainE V ρ zs) vEq ≠ pt := by
+      rw [hvEq']
+      exact hnept (chainE V ρ zs)
+    have hAeq : A = univ (ℓA.eval ψ') :=
+      piC_dom_unique hEqIn hEqIn2 hne
+    rw [hAeq] at hαIn
+    rw [show (Level.substFn ψ' eqA.toConstantVal.levelParams [ℓA]) uN
+        = ℓA.eval ψ' from rfl]
+    exact hαIn
+  -- fire the theorem's inhabitant along the fit
+  obtain ⟨pv, hpv⟩ := hstmtInhab ρ
+  have happ := hfit.appN_val hpv
+  -- the residual computes to the interpreted equation spine
+  have hEqcl : VExpr.Closed vEq := by
+    rw [hvEq']
+    exact henv.cval_closed _ _
+  have hresid : interp V ρ
+      (VExpr.instSeq zs (rP + cnF - 1) (VExpr.mkAppN vEq [vα, vL, vR]))
+      = eqv (interp V (chainE V ρ zs) vL)
+        (interp V (chainE V ρ zs) vR) := by
+    rw [show rP + cnF - 1 = zs.length - 1 from by rw [hzslen],
+      VExpr.instSeq_mkAppN,
+      VExpr.instSeq_eq_self_of_closed hEqcl]
+    have hlist : [vα, vL, vR].map (VExpr.instSeq zs (zs.length - 1))
+        = [VExpr.instSeq zs (zs.length - 1) vα,
+           VExpr.instSeq zs (zs.length - 1) vL,
+           VExpr.instSeq zs (zs.length - 1) vR] := rfl
+    rw [hlist, hvEq']
+    rw [hlaw ρ _ _ _ ?_ ?_ ?_]
+    · rw [interp_instSeq, interp_instSeq]
+    · rw [interp_instSeq]
+      rw [show (Level.substFn ψ' eqA.toConstantVal.levelParams [ℓA]) uN
+          = ℓA.eval ψ' from rfl]
+      exact hαuniv
+    · rw [interp_instSeq, interp_instSeq]
+      exact hLmem
+    · rw [interp_instSeq, interp_instSeq]
+      exact hRmem
+  rw [hresid] at happ
+  exact ⟨vα, vL, vR, hvα, hvL, hvR, mem_eqv happ⟩
+
+
 end Setlec.SetR
