@@ -190,4 +190,103 @@ theorem provisionRecsRS (hkey : MemberKeyS V) (heta : MemberEtaS V)
     | indInfo cv c | ctorInfo cv nP nF | projInfo e =>
       simp [provisionRecs, throw, throwThe, MonadExceptOf.throw] at h
 
+/-- **The projection-function fold, walked.**  `projInstallS`'
+induction with `projFnR_of` inserted at each step.
+
+Finding 8's scorecard put `ProjFnR` in the interleave column and the
+plain form confirms it from the other side: a `ProjFnR` at a
+*universally quantified* valuation is not provable at all (its rule
+front door and its sides pack are semantic), so the earlier
+`projInstallR_of`, parametric in that obligation, was vacuously
+premised — the assembly is the vacuity gate, and it fired here. -/
+theorem projInstallRS {μ : CheckMode} {F : Nat} {T ctorName : Name}
+    {lps : List Name} {nP nF : Nat} {blockNames : List Name}
+    (hTblock : blockNames.contains T = true)
+    (hbshape : ∀ n, blockNames.contains n = true →
+      n.isProjFnShape = false) :
+    ∀ (fields : List Nat) {env' : Env} (m : EnvS V env') {env₄ : Env},
+      fields.foldlM (installProjFnStep (m := CheckM) μ (fueledOps μ F)
+        T ctorName lps nP nF) env' = .ok env₄ →
+      ProjPhaseInvS T ctorName nF env' m.cval →
+      BlockInstalledTT blockNames env' m.cval →
+      (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+        EtaPins μ env' T cvT.levelParams capsT) →
+      (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+        capsT.eta = true → blockNames.contains capsT.etaCtor = true) →
+      (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+        capsT.eta = true → capsT.etaFields = nF) →
+      ∃ (cval₄ : TConstVal) (m₄ : EnvS V env₄),
+        ProjInstallR μ F T ctorName lps nP nF env' m.cval fields env₄
+          cval₄ ∧
+        m₄.cval = cval₄ ∧
+        ProjPhaseInvS T ctorName nF env₄ cval₄ ∧
+        BlockInstalledTT blockNames env₄ cval₄ := by
+  intro fields
+  induction fields with
+  | nil =>
+    intro env' m env₄ h hinv hIB hpinsT hCblock hFields
+    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨m.cval, m, ⟨rfl, rfl⟩, rfl, hinv, hIB⟩
+  | cons i rest ih =>
+    intro env' m env₄ h hinv hIB hpinsT hCblock hFields
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    revert h
+    cases hstep : installProjFnStep (m := CheckM) μ (fueledOps μ F) T
+        ctorName lps nP nF env' i with
+    | error e => intro h; exact nomatch h
+    | ok env'' => ?_
+    intro h
+    by_cases hm : (env'.find? (projModelName T i)).isSome = true
+    case neg =>
+      -- the skip branch: the step is the identity
+      have henv : env'' = env' := by
+        simp only [installProjFnStep, if_neg hm, pure, Except.pure,
+          Except.ok.injEq] at hstep
+        exact hstep.symm
+      subst henv
+      obtain ⟨cval₄, m₄, hrec, hm₄, hinv₄, hIB₄⟩ :=
+        ih m h hinv hIB hpinsT hCblock hFields
+      refine ⟨cval₄, m₄, ⟨env'', m.cval, Or.inr ⟨?_, rfl, rfl⟩,
+        hrec⟩, hm₄, hinv₄, hIB₄⟩
+      revert hm
+      cases (env''.find? (projModelName T i)) <;> simp
+    -- the install branch
+    have hchk : checkProjFn μ (fueledOps μ F) env' T ctorName lps nP
+        nF i = .ok env'' := by
+      simp only [installProjFnStep, if_pos hm] at hstep
+      exact hstep
+    have hR := projFnR_of m.toEnvR hchk
+    obtain ⟨m₁, hm₁cval, hinv₁, hIB₁⟩ :=
+      projFnS m hR hinv hIB hTblock hbshape hpinsT hCblock hFields
+    -- the block-level premises, re-established (`projInstallS`')
+    obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps,
+      hpnone, hTf, -, -, -, -, -, -, -, -, hilt, -, -, henv⟩ :=
+      id hR
+    have hfresh : env'.find? (projFnName T i) = none :=
+      Option.isNone_iff_eq_none.mp hpnone
+    have hTne : T ≠ projFnName T i := by
+      intro hh
+      rw [hh, hfresh] at hTf
+      exact nomatch hTf
+    have hdown : ∀ (cvT : ConstantVal) (capsT : IndCaps),
+        env''.find? T = some (.indInfo cvT capsT) →
+        env'.find? T = some (.indInfo cvT capsT) := by
+      intro cvT capsT hf
+      rw [henv, Env.find?_cons,
+        if_neg (fun hh => hTne hh.symm)] at hf
+      exact hf
+    obtain ⟨cval₄, m₄, hrec, hm₄, hinv₄, hIB₄⟩ :=
+      ih m₁ h hinv₁ hIB₁
+        (fun cvT capsT hf => by
+          rw [henv]
+          exact EtaPins.step (hpinsT cvT capsT (hdown cvT capsT hf))
+            hfresh)
+        (fun cvT capsT hf => hCblock cvT capsT (hdown cvT capsT hf))
+        (fun cvT capsT hf => hFields cvT capsT (hdown cvT capsT hf))
+    refine ⟨cval₄, m₄, ⟨env'', m₁.cval, Or.inl ⟨hR, hm₁cval⟩, ?_⟩,
+      hm₄, hinv₄, hIB₄⟩
+    exact hrec
+
+
 end Setlec.SetR

@@ -5069,3 +5069,42 @@ greedily over the comma; inside an anonymous constructor every
 
 With `iotaRulesR_of` the whole iota layer — the campaign's largest
 single rock — is closed.
+
+### Rock 2 landed — and the vacuity gate fired, exactly as designed
+
+`projFnR_of` (`checkProjFn → ProjFnR`, the last of the six `DeclR`
+front doors) and `projInstallRS` (the interleaved fold) are in.  Five
+stage inversions transcribe; the two semantic conjuncts were already
+machined:
+
+* the rule's front door is `checkProjRule`'s own depth-`0`
+  `inferTypeCore` verdict through `InferClaimsR` — the same three
+  lines as `iotaRuleR_of`'s;
+* the sides pack is `iotaSidesTyR_of`, fed by **`projStmtParts`**,
+  which turns the statement's *pin* into its opened spine and returns
+  it as a literal three-element list — so the `getD 0/1/2` slots
+  `IotaSidesTyR` names are its entries, and the membership side
+  conditions are `by simp`.
+
+One additive pin on the way: `checkProjTy_inv` was dropping the
+`(pty.stripPis (nP+1)).isSome` guard that `ProjFnR` records.  Four
+consumers, all taking a discard.
+
+**The vacuity gate fired.**  The earlier `projInstallR_of` was
+parametric in
+`hfn : ∀ {e e' cval i}, … → ProjFnR μ F e cval …` — a `ProjFnR` at a
+*universally quantified valuation*.  `ProjFnR`'s rule front door and
+sides pack are semantic, so no such thing is provable: the lemma was
+**vacuously premised**, and it compiled, and it sat in the tree.  It
+was caught by exactly the mechanism the record predicted — *the
+assembly is the vacuity gate for scaffolding*: `projFnR_of` needs an
+`EnvR e` and therefore cannot discharge `hfn`, so the obligation could
+not be closed and the lemma had to be retracted.  Finding 8's
+scorecard had already put `ProjFnR` in the interleave column; the
+plain form was written before the scorecard and never revisited.
+
+Worth stating as a check, since the backstop is late by construction:
+**a premise quantified over a valuation with no invariant attached is
+the signature of the vacuity trap** — an `EnvR`/`EnvS`-free `cval` in
+a hypothesis about a semantic relation should be read as "unprovable"
+on sight, not at assembly time.

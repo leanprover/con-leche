@@ -3,6 +3,7 @@ import Setlec.SetR.Install.Step
 import Setlec.Verify.IotaWalkInv
 import Setlec.Verify.Extend.Iota
 import Setlec.Verify.Denote.IndFrame
+import Setlec.Verify.Extend.Proj
 
 /-!
 # The declaration-level bridge (task #148, T6)
@@ -2254,45 +2255,99 @@ theorem templatesR_of {T ctorName : Name} {lps : List Name}
         simp only [pure, Except.pure, Except.ok.injEq] at hstep
         exact Or.inl hstep.symm
 
-/-- **The projection-function fold, inverted**, parametric in the
-per-field install's own inversion. -/
-theorem projInstallR_of {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat}
-    {T ctorName : Name} {lps : List Name} {nP nF : Nat}
-    (hfn : ∀ {e e' : Env} {cval : TConstVal} {i : Nat},
-      (e.find? (projModelName T i)).isSome = true →
-      installProjFnStep (m := CheckM) μ (fueledOps μ F) T ctorName lps
-        nP nF e i = .ok e' →
-      ProjFnR μ F e cval T ctorName lps nP nF i e') :
-    ∀ (l : List Nat) {env' env₄ : Env} {cval : TConstVal},
-      l.foldlM (installProjFnStep (m := CheckM) μ (fueledOps μ F) T
-        ctorName lps nP nF) env' = .ok env₄ →
-      ∃ cval₄, ProjInstallR μ F T ctorName lps nP nF env' cval l env₄
-        cval₄
-  | [], env', env₄, cval, h => by
-    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨cval, h.symm, rfl⟩
-  | i :: l, env', env₄, cval, h => by
-    simp only [List.foldlM, Bind.bind, Except.bind] at h
-    revert h
-    cases hstep : installProjFnStep (m := CheckM) μ (fueledOps μ F) T
-        ctorName lps nP nF env' i with
-    | error e => intro h; exact nomatch h
-    | ok env'' =>
-      intro h
-      by_cases hm : (env'.find? (projModelName T i)).isSome = true
-      · obtain ⟨cval₄, htail⟩ := projInstallR_of m hfn l
-          (cval := cvalWith cval (projFnName T i)
-            (fun ψ => cval (projModelName T i) ψ)) h
-        exact ⟨cval₄, _, _, Or.inl ⟨hfn hm hstep, rfl⟩, htail⟩
-      · obtain ⟨cval₄, htail⟩ :=
-          projInstallR_of m hfn l (cval := cval) h
-        refine ⟨cval₄, _, _, Or.inr ⟨?_, ?_, rfl⟩, htail⟩
-        · revert hm
-          cases (env'.find? (projModelName T i)) <;> simp
-        · simp only [installProjFnStep, if_neg hm, pure,
-            Except.pure, Except.ok.injEq] at hstep
-          exact hstep.symm
+set_option maxHeartbeats 2000000 in
+/-- **One projection-function install, bridged** (`checkProjFn`) —
+the last of the six `DeclR` front doors.  Five stage inversions
+transcribe; the two semantic conjuncts are the ones the campaign
+already has machinery for:
+
+* the rule's front door is `checkProjRule`'s own `inferTypeCore`
+  verdict at depth `0`, converted by `InferClaimsR` at the empty
+  context (`closed0_framesR`) — the same three lines as
+  `iotaRuleR_of`'s;
+* the `proj_i.iota` sides pack is `iotaSidesTyR_of`, fed by
+  `projStmtParts`, which turns the statement's *pin* into its opened
+  spine — a three-element list, so the `getD 0/1/2` slots the
+  relation names are literally its entries. -/
+theorem projFnR_of {env' env₁ : Env} (m : EnvR env') {μ : CheckMode}
+    {F : Nat} {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
+    (h : checkProjFn μ (fueledOps μ F) env' T ctorName lps nP nF i
+      = .ok env₁) :
+    ProjFnR μ F env' m.cval T ctorName lps nP nF i env₁ := by
+  obtain ⟨cvj, mcv, hlk, pty, hty, ⟨u0, hshape⟩, hilt, rhsA, hrule,
+    ⟨u, hio⟩, henv⟩ := checkProjFn_inv h
+  obtain ⟨mval, mhint, hctor, hfm, hmlps, hpnone, hTf, heqf⟩ :=
+    checkProjLookups_inv hlk
+  obtain ⟨hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1⟩ :=
+    checkProjTy_inv hty
+  obtain ⟨abinders, arest, cbindersR, cbody, hstripP, hCstrip,
+    hcbodyHead, hcbodyArity⟩ := checkProjShape_inv hshape
+  obtain ⟨raw, rbinders, cbindersR2, cbody2, hraw, hrawnf, hrawb,
+    hrawann, hrlp, hrres, hrhsb, hrhsnf, hrhsAstrip, hCstrip2,
+    hdomsR, fvsP, rest0, cdomsP, crestP, xFvs, crest2X, ldoms, lrestL,
+    hopenP, hcinstP, hdeP, hopenX, hlinst, hdeLam, rhsTy, hity⟩ :=
+    checkProjRule_inv hrule
+  obtain ⟨tcv, tval, sbinders, cbindersR3, cbody3, tySlot, ℓA,
+    hthmE, htlps, hCstrip3, hdomsS, hSstrip, fvsO, sbodyO, hopenO,
+    hsty1, hsty2, hsty3⟩ := checkProjIota_inv hio
+  have hcb2 : cbindersR2 = cbindersR :=
+    (Prod.mk.inj (Option.some.inj (hCstrip2.symm.trans hCstrip))).1
+  have hcb3 : cbindersR3 = cbindersR :=
+    (Prod.mk.inj (Option.some.inj (hCstrip3.symm.trans hCstrip))).1
+  rw [hcb2] at hdomsR
+  rw [hcb3] at hdomsS
+  refine ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps,
+    (by rw [hpnone]; rfl), hTf, heqf, hptyB, (by rw [hround]; simp),
+    hptyres, hptyb, hptyf, hptylp, hstrip1, hilt,
+    (by rw [hstripP]; rfl),
+    ⟨cbindersR, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsnf,
+      hrhsb, hrlp, hrres, ⟨rbinders, hrhsAstrip, ?_⟩, ?_,
+      tcv, tval, hthmE, htlps,
+      ⟨sbinders, ℓA, tySlot, hSstrip, ?_⟩, fvsO, sbodyO, hopenO, ?_⟩,
+    henv⟩
+  · -- the rule's domains are the constructor's
+    intro i0 b b' hlt hb hb'
+    exact domsMatchAux_inv hdomsR hlt (o₁ := 0) (o₂ := 0)
+      (by simpa using hb) (by simpa using hb')
+  · -- the rule's front door
+    intro φ
+    obtain ⟨-, -, -, ihi⟩ := checkBridge m φ F
+    obtain ⟨hw, hb, hL, hC⟩ :=
+      closed0_framesR (μ := μ) (cval := m.cval) (env := env')
+        (φ := φ) hrhsnf hrhsb
+    obtain ⟨v, tv, hv, -, T', hI, -⟩ := ihi hity hw hb hL hC
+    exact ⟨v, T', hv, hI⟩
+  · -- the statement's domains are the constructor's, renamed
+    intro i0 b b' hlt hb hb'
+    exact domsMatchAux_inv hdomsS hlt (o₁ := 0) (o₂ := 0)
+      (by simpa using hb) (by simpa using hb')
+  · -- the two equation sides' types
+    intro φ
+    obtain ⟨hwS0, hbS0, hLS0, TS, hTS0⟩ :=
+      storedType_pack m (φ := φ) hthmE 0
+    dsimp only [ConstantInfo.toConstantVal] at hwS0 hbS0 hLS0 hTS0
+    obtain ⟨hwB, hbB, hLB, vB, hvB⟩ :=
+      opener_body_pack_gen m (φ := φ) (D := nP + nF)
+        hwS0 hbS0 hLS0 hTS0 hopenO (by omega)
+    have hargs := spine_walk_pack m hwB hbB hLB hvB
+    obtain ⟨tl, hil, hdl⟩ := hsty1
+    obtain ⟨tr, hir, hdr⟩ := hsty2
+    obtain ⟨-, -, αS0, hargs3⟩ :=
+      projStmtParts hilt hbS0 hopenO hSstrip
+    rw [hargs3] at hargs hil hdl hir hdr ⊢
+    simp only [List.getD_cons_zero, List.getD_cons_succ] at hil hdl
+    simp only [List.getD_cons_zero, List.getD_cons_succ] at hir hdr ⊢
+    obtain ⟨hwα, hbα, hLα, vα, hvα⟩ := hargs αS0 (by simp)
+    obtain ⟨hwl, hbl, hLl, vl, hvl⟩ :=
+      hargs (Expr.mkAppN (.const (projModelName T i)
+        (lps.map .param)) (fvsO.take nP ++
+          [Expr.mkAppN (.const (ctorName.str "_model")
+            (cvj.levelParams.map .param))
+            (fvsO.take nP ++ fvsO.drop nP)])) (by simp)
+    obtain ⟨hwr, hbr, hLr, vr, hvr⟩ :=
+      hargs (fvsO.getD (nP + i) default) (by simp)
+    exact iotaSidesTyR_of m hwα hbα hLα hwl hbl hLl hwr hbr hLr
+      hvα hvl hvr hil hdl hir hdr
 
 /-! ## `basisDecl`
 
