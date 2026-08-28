@@ -247,6 +247,41 @@ theorem lam_eta {v : Nat} {A f : V} {B : V → V} (hf : f ∈ˢ pi v A B) :
     lam v A (fun x => app f x) = f :=
   lamC_eta hf
 
+/-- A non-`pt` product member is a genuine graph, and a graph's domain
+is recoverable from the set itself (its pairs' first components) — so
+membership in two products pins one domain (task #148 T5: the
+slot-sort recovery of the modeled-iota derivation, replacing the
+tt-only #146 check). -/
+theorem piC_dom_unique {A A' f : V} {B B' : V → V}
+    (h1 : f ∈ˢ piC A B) (h2 : f ∈ˢ piC A' B') (hne : f ≠ pt) :
+    A = A' := by
+  obtain ⟨g, hg, rfl⟩ := mem_piC.mp h1
+  have hgne : pcol A g = g := by
+    by_cases hc : ∀ x, x ∈ˢ A → app g x = pt
+    · exact absurd (pcol_of_forall hc) hne
+    · exact pcol_of_not hc
+  rw [hgne] at h2 hne
+  have hgA : g ∈ˢ piSet A B := hg
+  obtain ⟨g', hg', hgg'⟩ := mem_piC.mp h2
+  have hgA' : g ∈ˢ piSet A' B' := by
+    by_cases hc : ∀ x, x ∈ˢ A' → app g' x = pt
+    · rw [pcol_of_forall hc] at hgg'
+      exact absurd hgg' hne
+    · rw [pcol_of_not hc] at hgg'
+      rw [hgg']
+      exact hg'
+  obtain ⟨hsub, htot⟩ := mem_piSet.mp hgA
+  obtain ⟨hsub', htot'⟩ := mem_piSet.mp hgA'
+  refine ext fun x => ⟨fun hx => ?_, fun hx => ?_⟩
+  · obtain ⟨y, hy, -⟩ := htot x hx
+    obtain ⟨x2, hx2, y2, -, hp⟩ := mem_sigmaPairs.mp (hsub' _ hy)
+    obtain ⟨rfl, rfl⟩ := kpair_inj hp
+    exact hx2
+  · obtain ⟨y, hy, -⟩ := htot' x hx
+    obtain ⟨x2, hx2, y2, -, hp⟩ := mem_sigmaPairs.mp (hsub _ hy)
+    obtain ⟨rfl, rfl⟩ := kpair_inj hp
+    exact hx2
+
 /-- Function extensionality for product members: on-domain agreement is
 total agreement (off-domain the collapsed point and graphs differ —
 `pt` vs `∅` junk — but eta re-canonicalizes both sides). -/
