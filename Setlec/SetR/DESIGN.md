@@ -4503,3 +4503,50 @@ by two greps, and answering it before writing the 40-component
 witness is worth more than a partial witness would have been.  A
 stretch that converts an unknown into a citation is a stretch that
 did its job.
+
+## T6 — `stmtWalk_of` reaches one row, not three (correction #2)
+
+Transcribing `IotaThmR` validated **stub 1** — the parameter-domain
+walk is exactly `stmtWalk_of m hrecSelf hcvR hctorSelf hcvC hopenP
+(by omega) hcinstP hdeP`, and the whole witness above it elaborates
+with the recorded permutation.  Assembling **stub 2** corrected the
+walk table's pack assignments, which had been optimistic:
+
+`stmtWalk_of` was written against a *stored* subject
+(`storedType_pack` at a `find?`).  Rows 2 and 3 of `IotaWalksR`
+compare against `instPisAt` runs on **renamed** subjects
+(`cvA.type.renameConsts f`, `cvj.type.renameConsts f`), and row 2's
+left list is a `drop` of the opening rather than a `take`.  So
+`stmtWalk_of` serves the stub-1 row and no other; it is a convenience,
+not the entry point.
+
+**The entry point is `defEqListW_of` plus the three packs**, and the
+per-row work is supplying the two element packages.  That was always
+the design — `stmtWalk_of` over-specialised it, and the table
+recorded the over-specialisation as if it were coverage.
+
+### What the renamed rows need
+
+One package, `renamedType_pack`, mirroring `storedType_pack` through
+`denote_renameConsts`.  Its three frame conjuncts need
+`renameConsts` preservation:
+
+* `looseBVarsBounded` — **exists**
+  (`Verify/Denote/IndFrame.lean:1131`, `:2204`);
+* `WScoped` and the `fvarLeaves` index set — **do not**, and both are
+  short structural inductions (renaming touches constants, never
+  fvars or bvars; an fvar's *annotation* is renamed, which is exactly
+  why `LeavesBounded` survives by the `looseBVarsBounded` lemma).
+
+Per the relocation rule applied prospectively for the third time,
+those two belong in the shared tier beside their existing sibling,
+not in `SetR/` — their statements mention nothing lane-specific and
+the TT lane's own renamed walks will want them.
+
+*Method note.*  Two corrections to this file now, both from
+assembling rather than planning: the shape count (two → three) and
+the pack coverage (three rows → one).  Both were optimistic in the
+same direction, which is worth naming: **a table written while
+proving the easy row will overstate what that row's lemma covers.**
+Write coverage claims after the hard row, or write them as
+conjectures.

@@ -1,6 +1,7 @@
 import Setlec.SetR.Bridge.Main
 import Setlec.SetR.Install.Step
 import Setlec.Verify.IotaWalkInv
+import Setlec.Verify.Extend.Iota
 import Setlec.Verify.Denote.IndFrame
 
 /-!
