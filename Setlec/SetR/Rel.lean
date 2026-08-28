@@ -260,9 +260,12 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
   the bridge, as by the outer app recursion in the checker).  The
   nested parameter premise reuses `RecRulesTT`'s
   `openRev`/`instRevChain` spelling verbatim
-  (`Setlec/TTVerify/EnvTT.lean:230-237`); `rP ≤ mI` is a side condition
-  here (supplier: `EnvWF`, as `RecRulesTT`'s first conclusion) because
-  the weakening lemma needs the pin chain's arity. -/
+  (`Setlec/TTVerify/EnvTT.lean:230-237`); `rP ≤ mI` is a side
+  condition **guarded on `.nested` fires** (the 2026-08-28 D3
+  amendment: `EnvWF` concludes it only in the `.nested` branch, and
+  the weakening lemma needs it only there — the pin chain's arity;
+  soundness reads the unconditional fact off the install layer,
+  `RecRulesV`'s first conclusion, as `RecRulesTT` concludes it). -/
   | iota {Δ : List VExpr} {n : Name} {cv : ConstantVal} {mI rP : Nat}
       {rules : List RecRule} {rl : RecRule} {cvj : ConstantVal}
       {cnP cnF : Nat} {us usj : List Level}
@@ -273,7 +276,7 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       rules.find? (fun r' => r'.ctor == rl.ctor) = some rl →
       rl.fire ≠ .inert →
       env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
-      rP ≤ mI →
+      (∀ lvls pins, rl.fire = .nested lvls pins → rP ≤ mI) →
       xs.length = mI + 1 →
       ys.length = rl.ctorParams + rl.nfields →
       us.length = cv.levelParams.length →
