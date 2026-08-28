@@ -2938,6 +2938,81 @@ producer yet — that is T6 — so the refinement cost nothing.)
 Then the fold (`projInstallS`) threads `ProjPhaseInvS` +
 `BlockInstalledTT` over `List.range nF`, with the skip branch a no-op.
 
+## T5 stages 5–6 landed; what the `DeclIndS` assembly needs (2026-08-28)
+
+Stages 1–6 are done.  `Install/ProjInstallS.lean` holds
+`ProjPhaseInvS`, `projFwd_renameOkT`, `projPhaseInvS_cons`,
+`projFwd_model_self`, `projConsS`, `projFnS`, `projInstallS`,
+`templateVal`, `templateConsS`, `templatesS` — all sorry-free.
+
+### Two relation refinements landed with their consumers
+
+* **`ProjFnR` gained `checkProjIota`'s body match.**  The relation
+  stopped at the domain match and the sides pack, so the statement's
+  pinned `Eq`-spine — which the projection bottom needs, and which the
+  checker does pin — was simply absent.  D6 reserved that refinement
+  for its first consumer; `projFnS` is it.
+* **`TemplatesR` lost its valuation entirely.**  The other block folds
+  thread a `TConstVal` because their members *alias* their model
+  artifacts, a checker-side fact.  A template entry exists precisely
+  because the field has no artifact — nothing to alias — and the
+  relation as written (`∃ Vt, cval'' = cvalWith cval … Vt`) forced the
+  soundness side to model a valuation the relation had picked
+  *arbitrarily*, which is not provable.  Dropping it is simpler and
+  strictly more faithful: `installProjTemplate` never touches a value.
+  This is a **P2 instance in a new place**: the premise was read for
+  what it supplied (a valuation) and not for the fact that it
+  quantified the valuation existentially, i.e. universally for the
+  consumer.
+
+### The eta head, discharged three different ways
+
+Worth collecting, because each is cheaper than the last and none is
+the vacuity argument the T5 handoff predicted:
+
+| site | why |
+|---|---|
+| member fold | **forwarded** — needs assembly-level facts (stage 4) |
+| projection install | the head is a `.recInfo`, so the first two head disjuncts want an `.indInfo`/`.ctorInfo` and get a `.recInfo`; the surviving disjunct pins `T` and the index, and `etaLawKeyS` fires |
+| template install | the head is a `.projInfo`, so **every** `EtaFamilyStored` lookup finds the wrong kind |
+
+### The assembly's remaining work, precisely
+
+`declIndS` composes `indMembersS`, `indRecsS`, `projInstallS`,
+`templatesS`.  All four exist; what is missing is **monotonicity
+plumbing** the folds do not currently expose.  Enumerated:
+
+1. `BlockInstalledTT blockNames env cval` **at the start** — vacuous,
+   but only because no block name is stored in `env`, which is the
+   chain of `ConstantValR` freshness facts.  Needs a small lemma over
+   `IndMembersR`/`ProvisionRecsR`.
+2. `hbn` for both folds — pure list reasoning from
+   `blockNames = block.map (·.name)` and `block = nonrecs ++ recs`.
+3. `hall` for `indRecsS` — needs `indMembersS` to report *each
+   installed member is stored*.
+4. `hpinsT` at `envR` — `EtaPins` is built at `env` by
+   `checkEtaThm_inv`/`checkUnitThm_inv` (shared; the Model lane's
+   `hpinsT0` at `Extend/Decl.lean:161` is the pattern), then moved up
+   by `EtaPins.step` through the member conses and by
+   `EtaPins.transport` across the group swap.  **`indRecsS` should
+   return its `SwapCongr envSelf env₃`** — it already computes it.
+5. `hCblock`/`hFields` — `rfl` from `indBlockCaps`, once the stored
+   `T` is known to carry the fold's `caps`.
+6. `ProjPhaseInvS … envR cvalR` — the `T`/ctor conjuncts from
+   `BlockInstalledTT` at `envR`; the projection conjunct is vacuous by
+   `DeclIndR`'s own `(envR.find? (projFnName cvT.name j)).isNone`
+   conjunct.
+7. `hbshape` and `hTnres` — from each member's `ConstantValR`
+   (`isProjFnShape = false`, `reservedBasisNames.contains = false`).
+
+So the shape of the work is: **re-sign the four folds to report what
+they preserve**, then the assembly is bookkeeping.  The TT lane's
+`declIndTT` (`TTVerify/DeclIndDecl.lean:77`, ~1050 lines) is the
+template; expect the [set] one to be comparable.
+
+`DeclBasisS` is independent of all of this
+(`TTVerify/DeclBasis.lean` is its template).
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -2955,9 +3030,9 @@ needs.
 | `declIndS` 2 | **done** — `memberInstallS`, `indMembersS` (non-recursor members), `provisionRecsS` (rule-less recursors ⇒ `EnvS V envSelf`) |
 | `declIndS` 3 | **done** — `EnvS.swap` (3a), `iotaRuleS` (3b), `indRecsS` (3c) |
 | `declIndS` 4 | **done** — `memberUnitS` discharged; `MemberEtaS` forwarded to the assembly (see the stage-4 record) |
-| `declIndS` 5 | **5a landed** (`ProjPhaseInvS`, `projFwd_renameOkT`, `projProvisionS`); 5b (`projFnS` + the fold) scoped in "what `projFnS` still needs" |
-| `declIndS` 6 | **not started** — the elimination templates |
-| `DeclIndS` assembly | **not started** |
+| `declIndS` 5 | **done** — `projConsS`, `projFnS`, `projInstallS` |
+| `declIndS` 6 | **done** — `templateVal`, `templateConsS`, `templatesS`; `TemplatesR` re-signed valuation-free |
+| `DeclIndS` assembly | **not started, scoped** — see "the assembly's remaining work"; the folds must first report what they preserve |
 | `DeclBasisS` | **not started** — the basis install (the TT lane's `DeclBasis.lean` is the template) |
 
 Open obligations, all in the house pattern: `DeclBasisS`, `DeclIndS`,
