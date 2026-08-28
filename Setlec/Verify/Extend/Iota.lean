@@ -851,7 +851,19 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
     {cvA : ConstantVal} {mI rP j : Nat} {r r' : RecRule}
     (h : checkIotaRule mode (fueledOps mode F) env' env₀ f cvA.name cvA.levelParams
       cvA.type mI rP j r = .ok r') :
-    RuleChecked mode F env' env₀ f cvA mI rP j r' := by
+    RuleChecked mode F env' env₀ f cvA mI rP j r' ∧
+      -- task #148 T6: the input-to-output link, which `RuleChecked`
+      -- (stated over the *returned* rule alone) cannot carry: the
+      -- returned rule is the input with three fields replaced, and
+      -- the input's own right-hand side is the well-formed pre-image
+      -- of the annotated one.  The proof always knew this; the
+      -- statement now says so.
+      (RecRule.rhs r).hasFvar = false ∧
+      (RecRule.rhs r).looseBVarsBounded 0 = true ∧
+      (∃ cnP fire rhsA,
+        annotateCore mode env₀ F 0 (RecRule.rhs r) = .ok rhsA ∧
+        r' = {r with rhs := rhsA, ctorParams := cnP, fire := fire}) :=
+      by
   simp only [checkIotaRule, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
     Except.bind, pure, Except.pure] at h
@@ -918,7 +930,7 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
       simp only [Except.ok.injEq] at h
       subst h
       have hkit := checkIotaThm_inv (cvA := cvA) hthm
-      exact ⟨cvj, cnP, cnF, RecRule.rhs r, rhsTy, rbinders, rbody,
+      exact ⟨⟨cvj, cnP, cnF, RecRule.rhs r, rhsTy, rbinders, rbody,
         hfc, hnf, rfl, ⟨fun _ => hplain, fun _ => rfl⟩,
         fun lvls pins hf => RecRuleFire.noConfusion hf,
         hrfF, hrb, hann,
@@ -926,7 +938,7 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
           ((annotateCore_WScoped F _ hann
             (WScoped.of_not_hasFvar hrfF)).fvarsBelow),
         annotateCore_looseBVars F _ hann hrb, hrlp, hrres, hstripEq,
-        hity, fun _ => hkit⟩
+        hity, fun _ => hkit⟩, hrfF, hrb, ⟨cnP, _, rhsA, rfl, rfl⟩⟩
   case neg =>
     rw [if_neg hplain] at h
     revert h
@@ -941,7 +953,7 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
       rcases checkIotaThmN_inv (cvA := cvA) hthmN with hinert |
         ⟨lvls, pins, hfe, hshape, hkit⟩
       · subst hinert
-        exact ⟨cvj, cnP, cnF, RecRule.rhs r, rhsTy, rbinders, rbody,
+        exact ⟨⟨cvj, cnP, cnF, RecRule.rhs r, rhsTy, rbinders, rbody,
           hfc, hnf, rfl,
           ⟨fun hf => RecRuleFire.noConfusion hf,
             fun hc => absurd hc hplain⟩,
@@ -951,9 +963,10 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
             ((annotateCore_WScoped F _ hann
               (WScoped.of_not_hasFvar hrfF)).fvarsBelow),
           annotateCore_looseBVars F _ hann hrb, hrlp, hrres, hstripEq,
-          hity, fun hc => absurd hc hplain⟩
+          hity, fun hc => absurd hc hplain⟩, hrfF, hrb,
+          ⟨cnP, _, rhsA, rfl, rfl⟩⟩
       · subst hfe
-        refine ⟨cvj, cnP, cnF, RecRule.rhs r, rhsTy, rbinders, rbody,
+        refine ⟨⟨cvj, cnP, cnF, RecRule.rhs r, rhsTy, rbinders, rbody,
           hfc, hnf, rfl,
           ⟨fun hf => RecRuleFire.noConfusion hf,
             fun hc => absurd hc hplain⟩,
@@ -962,7 +975,8 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
             ((annotateCore_WScoped F _ hann
               (WScoped.of_not_hasFvar hrfF)).fvarsBelow),
           annotateCore_looseBVars F _ hann hrb, hrlp, hrres, hstripEq,
-          hity, fun hc => absurd hc hplain⟩
+          hity, fun hc => absurd hc hplain⟩, hrfF, hrb,
+          ⟨cnP, _, rhsA, rfl, rfl⟩⟩
         intro lvls' pins' hf
         obtain ⟨rfl, rfl⟩ := RecRuleFire.nested.inj
           (hf : RecRuleFire.nested lvls pins = .nested lvls' pins')
@@ -1010,7 +1024,7 @@ theorem checkIotaRules_inv {env' env₀ : Env} {f : Name → Name}
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hr'
       subst hr'
-      simpa using checkIotaRule_inv hr1
+      simpa using (checkIotaRule_inv hr1).1
     | succ k' =>
       simp only [List.getElem?_cons_succ] at hr'
       have hik := ih (j + 1) rest' hrest k' r' hr'
