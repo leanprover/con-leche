@@ -1373,3 +1373,49 @@ used that a `--set-model` run does not establish.
   `eqUpToNames` not `==`" record, cashed here).
 
 No finding-#1: every law derived from set-mode install checks.
+
+### What c4/c5 need (scoped while c3 was landing, not yet started)
+
+**c4 — the projection bottom.**  It is *not* an instantiation of the
+plain/nested stages, and the reason is worth recording so nobody starts
+down that path: the projection install runs a **different set of
+checks**.  `checkProjIota` (`Kernel/Modeled.lean:512-553`) pins the
+statement's telescope domains to the constructor's renamed ones
+**syntactically** (`domsMatchAux`) instead of walking them
+(`hdePre`/`hdeFld`), and the reduct is the rule λ-tower's β-contractum
+(`stripLams` to `.bvar (nF-1-i)`) instead of a `DefEqAtW` walk
+(`hdeRhs`).  So `zipperS`'s two inputs are unavailable and `reductS`'s
+one input is unavailable; the TT lane wrote a third zipper/point pair
+for exactly this reason (`IndBottomProj.lean` + `pointStageP`).  What
+*does* transfer: `fireS` (generic in `zs`), `annotS`/`annotMemS` (the
+lam-domain walk `checkDefEqList … ldoms` **is** run — `checkProjRule`'s
+second `checkDefEqList`), and all six stages' parameter-spine
+abstraction (a projection fire is `mI = rP = cnP`, so it is a *plain*
+spine).
+
+Before the proof, `ProjFnR` must be refined — this is D6's **reserved**
+refinement point, and its first consumer is exactly this bottom.  The
+faithful transposition, read off the checker:
+
+| source | to add to `ProjFnR` |
+|---|---|
+| `checkProjShape` (`CheckerBase.lean:234`) | `(pty.stripPis nP).isSome`; `cvj.type.stripPis (nP+nF) = some (cbinders, cbody)`; `cbody.getAppArgs.length = nP`; `∃ c us, cbody.getAppFn = .const c us` |
+| `checkProjRule` (`CheckerBase.lean:247`) | `Expr.pisToLams (nP+nF) cvj.type (.bvar (nF-1-i)) = some rhs` + its scoping; `rhsA`'s four wellformedness pins; `rhsA.stripLams (nP+nF) = some (rbinders, .bvar (nF-1-i))`; `domsMatchAux (fun _ e => e) rbinders cbindersR 0 0 (nP+nF)`; the two frame runs (`openPisAtFvars nP pty 0`, `instPisAt fvsP cvj.type`, `openPisAtFvars nF crestP nP`, `instLamsAt (fvsP ++ xFvs) rhsA`) and the **two** `DefEqListW`s over them; the rhs front door (`ops.inferType env' 0 rhsA`) |
+| `checkProjIota` (`Modeled.lean:512`) | `tcv.type.stripPis (nP+nF) = some (sbinders, sbody)`; `domsMatchAux (renameConsts (projFwd T ctorName nF)) sbinders cbindersR 0 0 (nP+nF)`; `sbody`'s four-app `Eq` shape with `lhsC == lhsS` (the canonical model spine) and `rhsC == .bvar (nF-1-i)` |
+
+The `IotaSlotSorted` premise the TT statement carries (`#146`) has **no**
+[set] counterpart — the plain bottom's `fireS` already recovers the
+slot's universe membership from the statement's own truthfulness plus
+`Eq`-former graph rigidity, and the projection bottom reuses `fireS`
+unchanged.
+
+**c5 — the eta/unit laws.**  The template is the *model*'s
+`modeled_caps_eta` (`Model/ModeledCaps.lean:134-…`, ~360 lines),
+transposed to `denote`: consume `EtaPins` (V-free, environment-derived
+— **not** a `Decl.lean` field), the `_model.eta` theorem's front doors,
+and the three public/model valuation identifications (`hvT`/`hvC`/`hvP`).
+No `#135/#136/#137` content enters: `EtaLawV`'s fabrication side is
+unconditioned, so the law is the statement's equation read at a
+`Sat`-constructed chain, exactly as `fireS` reads the iota equation.
+`UnitLawV` is the same shape with the two memberships in place of the
+fabrication.
