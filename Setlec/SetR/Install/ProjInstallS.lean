@@ -823,4 +823,68 @@ theorem projFnS {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     exact BlockInstalledTT.fresh_cons hIB hnotb hfresh
       (fun n ψ hn => congrFun (cvalWith_ne hn) ψ)
 
+set_option maxHeartbeats 1600000 in
+/-- **The projection-function fold.**  The skip branch is a no-op, so
+only the install branch moves anything; the block-level premises are
+re-established at each step from freshness (`EtaPins.step`) and the
+fact that a projection name is never a block name. -/
+theorem projInstallS {μ : CheckMode} {F : Nat} {T ctorName : Name}
+    {lps : List Name} {nP nF : Nat} {blockNames : List Name}
+    (hTblock : blockNames.contains T = true)
+    (hbshape : ∀ n, blockNames.contains n = true →
+      n.isProjFnShape = false) :
+    ∀ (fields : List Nat) {env' : Env} (m : EnvS V env')
+      {env₄ : Env} {cval₄ : TConstVal},
+      ProjInstallR μ F T ctorName lps nP nF env' m.cval fields env₄
+        cval₄ →
+      ProjPhaseInvS T ctorName nF env' m.cval →
+      BlockInstalledTT blockNames env' m.cval →
+      (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+        EtaPins μ env' T cvT.levelParams capsT) →
+      (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+        capsT.eta = true → blockNames.contains capsT.etaCtor = true) →
+      (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+        capsT.eta = true → capsT.etaFields = nF) →
+      ∃ m₄ : EnvS V env₄, m₄.cval = cval₄ ∧
+        ProjPhaseInvS T ctorName nF env₄ cval₄ ∧
+        BlockInstalledTT blockNames env₄ cval₄ := by
+  intro fields
+  induction fields with
+  | nil =>
+    intro env' m env₄ cval₄ h hinv hIB hpinsT hCblock hFields
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨m, rfl, hinv, hIB⟩
+  | cons i rest ih =>
+    intro env' m env₄ cval₄ h hinv hIB hpinsT hCblock hFields
+    obtain ⟨env'', cval'', hstep, hrec⟩ := h
+    rcases hstep with ⟨hR, rfl⟩ | ⟨hskip, rfl, rfl⟩
+    case inr => exact ih m hrec hinv hIB hpinsT hCblock hFields
+    -- the install branch
+    obtain ⟨m₁, hm₁cval, hinv₁, hIB₁⟩ :=
+      projFnS m hR hinv hIB hTblock hbshape hpinsT hCblock hFields
+    -- the block-level premises, re-established
+    obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps,
+      hpnone, hTf, -, -, -, -, -, -, -, -, hilt, -, -, henv⟩ := hR
+    have hfresh : env'.find? (projFnName T i) = none :=
+      Option.isNone_iff_eq_none.mp hpnone
+    have hTne : T ≠ projFnName T i := by
+      intro hh
+      rw [hh, hfresh] at hTf
+      exact nomatch hTf
+    have hdown : ∀ (cvT : ConstantVal) (capsT : IndCaps),
+        env''.find? T = some (.indInfo cvT capsT) →
+        env'.find? T = some (.indInfo cvT capsT) := by
+      intro cvT capsT hf
+      rw [henv, Env.find?_cons,
+        if_neg (fun hh => hTne hh.symm)] at hf
+      exact hf
+    refine ih m₁ (by rw [hm₁cval]; exact hrec)
+      hinv₁ hIB₁
+      (fun cvT capsT hf => by
+        rw [henv]
+        exact EtaPins.step (hpinsT cvT capsT (hdown cvT capsT hf))
+          hfresh)
+      (fun cvT capsT hf => hCblock cvT capsT (hdown cvT capsT hf))
+      (fun cvT capsT hf => hFields cvT capsT (hdown cvT capsT hf))
+
 end Setlec.SetR
