@@ -3981,3 +3981,43 @@ running valuation (it is the *checker's* fold, which has none), so the
 recursive call takes `h` unchanged — a `rw [hm₁cval] at h` there
 fails, and the reflex to "step everything" is what makes it look like
 the valuation threading has a hole when it does not.
+
+### T6 — the `indDecl` scorecard, and the two rocks left
+
+Applying the recognition rule to all four `indDecl` folds gives a
+clean discrimination, which is the finding's real payoff:
+
+| fold | front door at | verdict |
+|---|---|---|
+| `TemplatesR` | *none* | plain bridge (`templatesR_of`) |
+| `IndMembersR` | the accumulator | **interleave** (`indMembersRS`) |
+| `ProvisionRecsR` | the accumulator | **interleave** (`provisionRecsRS`) |
+| `IndRecsFoldR` → `IotaRulesR` | the fixed `envSelf` | plain bridge |
+| `ProjInstallR` → `ProjFnR` | the accumulator | **interleave** |
+
+`IndRecsFoldR` passes `envSelf`/`cvalSelf`, not the accumulator's, so
+one `EnvR envSelf` serves the whole rules fold; `ProjFnR` has
+`Infer μ env' cval φ [] Rv t` at the accumulator, so the projection
+fold is the last interleave.
+
+**What is left of the branch is two inversions**, and neither is
+orchestration:
+
+1. **`RuleChecked → IotaRuleR`** (non-interleaved, at `envSelf`).
+   `Verify/Extend/Iota.lean` already carries the syntactic content:
+   `checkIotaRules_inv` → `RuleChecked`, whose `PlainChecked` field is
+   `IotaThmR` in all but three respects — `PlainChecked` quantifies
+   the theorem's *name* existentially where `IotaThmR` pins it to
+   `(cvName._model).iota_j`; the shape comparisons are propositional
+   `=` there and Boolean `==` here; and `DefEqListOk` has to become
+   the relation's `DefEqL`, which is a `checkBridge` consumption at
+   the one `EnvR envSelf`.  The nested case (`NestedChecked` →
+   `IotaThmNR`) is the same three respects again.  Plus `IotaRuleR`'s
+   own `Infer`-at-`envSelf` conjunct, which is `constantValR_of`'s
+   inference step at the rule's annotated right-hand side.
+2. **`installProjFnStep → ProjFnR`** (interleaved, template
+   `indMembersRS`; the install side is `projFnS`).
+
+Then `declIndRS` assembles the five, `checkDeclR_sound` dispatches the
+six branches through `checkDeclR_of` and composes with `declStepS`,
+and the fold transposes `foldlM_TT`.
