@@ -2491,4 +2491,444 @@ theorem annotPFrameEqS {μ : CheckMode} {env : Env} {cval : TConstVal}
     rw [if_neg (by omega)] at h2
     exact hder Δ h1 h2
 
+
+set_option maxHeartbeats 6400000 in
+/-- **The layer memberships** (`annotS` stage 2): each fired-spine value
+inhabits the rule rhs's own λ-layer domain, denoted at its depth and
+read at the prefix chain — through the satisfied statement context, the
+per-position annotation identification, and the fired lam-domain walk.
+This is `lamTowerStepS`'s `hmem` input. -/
+theorem annotMemS {μ : CheckMode} {env : Env} {cval : TConstVal}
+    {ψ' : Name → Nat} (henv : EnvSHyp V env cval ψ')
+    {f : Name → Name} (hro : RenameOkT cval env f)
+    {rP cnP cnF : Nat} (hplainLe : cnP ≤ rP)
+    {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
+    (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      ∃ nm ty, x = Expr.fvar i nm ty)
+    (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
+    (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    {Γs : List VExpr} (hΓslen : Γs.length = rP + cnF)
+    (hdomsS0 : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      denote cval env ψ' i (Expr.fvarTypeD x)
+        = some (Γs.getD (rP + cnF - 1 - i) default))
+    {zs : List VExpr} (hzslen : zs.length = rP + cnF)
+    {ρ : Nat → V} (hsat : Sat V Γs (chainE V ρ zs))
+    {Tstmt Rstmt : VExpr}
+    (htowerS : PiTele (rP + cnF) Tstmt Γs Rstmt)
+    {tyA tyAR : Expr} (htyw : tyA.hasFvar = false)
+    (htyRw : tyAR.hasFvar = false) (hrenTy : RenEqT f tyA tyAR)
+    {fvsPl : List Expr} {restP : Expr}
+    (hopenP : openPisAtFvars rP tyA 0 = some (fvsPl, restP))
+    {cvjty cvjR : Expr} (hCvw : cvjty.hasFvar = false)
+    (hCvRw : cvjR.hasFvar = false) (hrenCvj : RenEqT f cvjty cvjR)
+    {cdomsP : List Expr} {crestP : Expr}
+    (hcinstP : Expr.instPisAt (fvsPl.take cnP) cvjty
+      = some (cdomsP, crestP))
+    {xFvsP : List Expr} {ldoms : Expr}
+    (hopenXP : openPisAtFvars cnF crestP rP = some (xFvsP, ldoms))
+    {rdoms : List Expr} {rrest : Expr}
+    (hrinst : Expr.instPisAt (fvs.take rP) tyAR = some (rdoms, rrest))
+    {cdoms : List Expr} {cres : Expr}
+    (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP) cvjR
+      = some (cdoms, cres))
+    {rhsA : Expr} (hrhsw : rhsA.hasFvar = false)
+    {ldomsL : List Expr} {lrest2 : Expr}
+    (hinstLam : Expr.instLamsAt (fvsPl ++ xFvsP) rhsA
+      = some (ldomsL, lrest2))
+    (hdePre : DefEqListW μ env cval ψ' (rP + cnF)
+      ((fvs.take rP).map Expr.fvarTypeD) rdoms)
+    (hdeFld : DefEqListW μ env cval ψ' (rP + cnF)
+      ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
+    (hdeLam : DefEqListW μ env cval ψ' (rP + cnF)
+      ((fvsPl ++ xFvsP).map Expr.fvarTypeD) ldomsL) :
+    ∀ k, k < rP + cnF →
+      ∃ Dk, denote cval env ψ' k (ldomsL.getD k default) = some Dk ∧
+        interp V ρ (zs.getD k default)
+          ∈ˢ interp V (chainE V ρ (zs.take k)) Dk := by
+  intro k hkK
+  have hcl' := henv.cval_closed
+  -- frame lengths and shapes
+  have hfvsPlen : fvsPl.length = rP := openPisAtFvars_length _ hopenP
+  have hxlen : xFvsP.length = cnF := openPisAtFvars_length _ hopenXP
+  have hPlen : (fvsPl ++ xFvsP).length = rP + cnF := by
+    rw [List.length_append, hfvsPlen, hxlen]
+  have hPshape : ∀ (i : Nat) (x : Expr), (fvsPl ++ xFvsP)[i]? = some x →
+      ∃ nm ty, x = Expr.fvar i nm ty := by
+    intro i x hx
+    rcases Nat.lt_or_ge i rP with hi | hi
+    · rw [List.getElem?_append_left (by rw [hfvsPlen]; exact hi)] at hx
+      obtain ⟨nm, ty, hx'⟩ := openPisAtFvars_index _ _ _ hopenP i x hx
+      exact ⟨nm, ty, by rw [hx', Nat.zero_add]⟩
+    · rw [List.getElem?_append_right (by rw [hfvsPlen]; exact hi),
+        hfvsPlen] at hx
+      obtain ⟨nm, ty, hx'⟩ :=
+        openPisAtFvars_index _ _ _ hopenXP (i - rP) x hx
+      exact ⟨nm, ty, by rw [hx', show rP + (i - rP) = i from by omega]⟩
+  -- frame scoping
+  have hwsPre0 := openPisAtFvars_WScoped rP tyA 0 hopenP
+    (Expr.WScoped.of_not_hasFvar htyw)
+  have hwsPre1 : ∀ x ∈ fvsPl, Expr.WScoped rP x := by
+    intro x hx
+    have h := hwsPre0.1 x hx
+    rw [Nat.zero_add] at h
+    exact h
+  have hwsCrest : Expr.WScoped rP crestP := by
+    have h := (instPisAt_WScoped (d := rP) (fvsPl.take cnP) cvjty hcinstP
+      (Expr.WScoped.of_not_hasFvar hCvw)
+      (fun a ha => hwsPre1 a (List.mem_of_mem_take ha))).2
+    exact h
+  have hwsX := openPisAtFvars_WScoped cnF crestP rP hopenXP hwsCrest
+  have hPws : ∀ x ∈ fvsPl ++ xFvsP, Expr.WScoped (rP + cnF) x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact Expr.WScoped.mono (by omega) (hwsPre1 x hx)
+    · exact hwsX.1 x hx
+  -- P-frame leaf closure
+  have hPleafClosed : ∀ l, (∃ x ∈ fvsPl ++ xFvsP, l ∈ x.fvarLeaves) →
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsPl ++ xFvsP := by
+    have hpre : ∀ l, (∃ x ∈ fvsPl, l ∈ x.fvarLeaves) →
+        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsPl := by
+      intro l ⟨x, hx, hl⟩
+      rcases openPisAtFvars_leaves _ hopenP l (Or.inr ⟨x, hx, hl⟩) with
+        h0 | h0
+      · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar htyw] at h0
+        exact nomatch h0
+      · exact h0
+    intro l ⟨x, hx, hl⟩
+    rcases List.mem_append.mp hx with hx' | hx'
+    · exact List.mem_append_left _ (hpre l ⟨x, hx', hl⟩)
+    · rcases openPisAtFvars_leaves _ hopenXP l (Or.inr ⟨x, hx', hl⟩) with
+        h0 | h0
+      · rcases instPisAt_leaves _ hcinstP l (Or.inr h0) with h1 | ⟨a, ha, hla⟩
+        · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hCvw] at h1
+          exact nomatch h1
+        · exact List.mem_append_left _
+            (hpre l ⟨a, List.mem_of_mem_take ha, hla⟩)
+      · exact List.mem_append_right _ h0
+  -- statement-frame facts
+  have hfvsLt : ∀ l : Nat × Name × Expr,
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs → l.1 < rP + cnF := by
+    intro l hl
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem hl
+    obtain ⟨nm', ty', heq⟩ := hshapeS q _ hq
+    have hql : q < fvs.length := (List.getElem?_eq_some_iff.mp hq).1
+    injection heq with h1 _
+    rw [h1]
+    rw [hfvslen] at hql
+    exact hql
+  have hent : ∀ i', i' < rP + cnF →
+      Γs[rP + cnF - 1 - i']? =
+        some (Γs.getD (rP + cnF - 1 - i') default) := by
+    intro i' hi'
+    rw [List.getD]
+    rcases hg : Γs[rP + cnF - 1 - i']? with _ | g
+    · rw [List.getElem?_eq_none_iff, hΓslen] at hg
+      omega
+    · rfl
+  have hCtxStmt : ∀ e : Expr,
+      (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs) →
+      CtxOkR μ cval env ψ' (rP + cnF) Γs e := by
+    intro e hleaf
+    exact ctxOkR_of_openers (μ := μ) hcl' hΓslen hshapeS hwsFvs
+      (fun i' x hx => hdomsS0 i' x hx) (n := rP + cnF) hleaf
+      (fun l hl => hfvsLt l (hleaf l hl)) hent
+  -- statement-frame contexts for the identification's subjects
+  have hleafStmtAnn : ∀ i, i < rP + cnF →
+      ∀ l ∈ (Expr.fvarTypeD (fvs.getD i default)).fvarLeaves,
+        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+    intro i hi l hl
+    rcases hfx : fvs[i]? with _ | fx
+    · rw [List.getElem?_eq_none_iff, hfvslen] at hfx
+      omega
+    obtain ⟨nm, ty, rfl⟩ := hshapeS i fx hfx
+    rw [List.getD, hfx] at hl
+    refine hleafClosed l ⟨_, List.mem_of_getElem? hfx, ?_⟩
+    rw [Expr.fvarLeaves]
+    exact List.mem_cons_of_mem _ hl
+  have hleafRdoms : ∀ i, i < rP →
+      ∀ l ∈ (rdoms.getD i default).fvarLeaves,
+        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+    intro i hi l hl
+    have hrlen : rdoms.length = rP := by
+      have h := instPisAt_length _ hrinst
+      rw [List.length_take, hfvslen] at h
+      omega
+    have hmem : rdoms.getD i default ∈ rdoms := by
+      rw [List.getD]
+      rcases hr : rdoms[i]? with _ | r
+      · rw [List.getElem?_eq_none_iff, hrlen] at hr
+        omega
+      · exact List.mem_of_getElem? hr
+    rcases instPisAt_leaves _ hrinst l (Or.inl ⟨_, hmem, hl⟩) with
+      h0 | ⟨a, ha, hla⟩
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar htyRw] at h0
+      exact nomatch h0
+    · exact hleafClosed l ⟨a, List.mem_of_mem_take ha, hla⟩
+  have hleafCdoms : ∀ i, i < cnP + cnF →
+      ∀ l ∈ (cdoms.getD i default).fvarLeaves,
+        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+    intro i hi l hl
+    have hclen : cdoms.length = cnP + cnF := by
+      have h := instPisAt_length _ hcinst
+      rw [List.length_append, List.length_take, List.length_drop,
+        hfvslen] at h
+      omega
+    have hmem : cdoms.getD i default ∈ cdoms := by
+      rw [List.getD]
+      rcases hr : cdoms[i]? with _ | r
+      · rw [List.getElem?_eq_none_iff, hclen] at hr
+        omega
+      · exact List.mem_of_getElem? hr
+    rcases instPisAt_leaves _ hcinst l (Or.inl ⟨_, hmem, hl⟩) with
+      h0 | ⟨a, ha, hla⟩
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hCvRw] at h0
+      exact nomatch h0
+    · rcases List.mem_append.mp ha with ha' | ha'
+      · exact hleafClosed l ⟨a, List.mem_of_mem_take ha', hla⟩
+      · exact hleafClosed l ⟨a, List.mem_of_mem_drop ha', hla⟩
+  -- the per-position identification, fired at the statement context
+  have hIdent := annotPFrameEqS (μ := μ) hro hplainLe hfvslen hshapeS
+    hrenTy hopenP hrenCvj hcinstP hopenXP hrinst hcinst hdePre hdeFld
+  have hIdentEq : ∀ i, i < rP + cnF →
+      ∃ Ai Bi,
+        denote cval env ψ' (rP + cnF)
+          (Expr.fvarTypeD (fvs.getD i default)) = some Ai ∧
+        denote cval env ψ' (rP + cnF)
+          (Expr.fvarTypeD ((fvsPl ++ xFvsP).getD i default)) = some Bi ∧
+        DefEq μ env cval ψ' Γs Ai Bi := by
+    intro i hi
+    obtain ⟨Ai, Bi, hAi, hBi, hder⟩ := hIdent i hi
+    refine ⟨Ai, Bi, hAi, hBi, hder Γs (hCtxStmt _ (hleafStmtAnn i hi)) ?_⟩
+    by_cases hip : i < rP
+    · rw [if_pos hip]
+      exact hCtxStmt _ (hleafRdoms i hip)
+    · rw [if_neg hip]
+      exact hCtxStmt _ (hleafCdoms (cnP + (i - rP)) (by omega))
+  -- the P-frame slack at the statement context
+  have hslackP : ∀ (i : Nat) (x : Expr), (fvsPl ++ xFvsP)[i]? = some x →
+      ∃ T, denote cval env ψ' (rP + cnF) (Expr.fvarTypeD x) = some T ∧
+        ∃ T', Infer μ env cval ψ' Γs
+            (.bvar (rP + cnF - 1 - i)) T' ∧
+          DefEq μ env cval ψ' Γs T' T := by
+    intro i x hxi
+    have hiK' : i < rP + cnF := by
+      have := (List.getElem?_eq_some_iff.mp hxi).1
+      rw [hPlen] at this
+      exact this
+    obtain ⟨Ai, Bi, hAi, hBi, hdefIB⟩ := hIdentEq i hiK'
+    have hxg : (fvsPl ++ xFvsP).getD i default = x := by
+      rw [List.getD, hxi]
+      rfl
+    rw [hxg] at hBi
+    refine ⟨Bi, hBi,
+      (Γs.getD (rP + cnF - 1 - i) default).liftN (rP + cnF - 1 - i + 1),
+      Infer.bvar (hent i hiK'), ?_⟩
+    -- the inferred slot is the statement annotation, lifted
+    rcases hfx : fvs[i]? with _ | fx
+    · rw [List.getElem?_eq_none_iff, hfvslen] at hfx
+      omega
+    obtain ⟨nm, ty, rfl⟩ := hshapeS i fx hfx
+    have hfb : Expr.fvarsBelow i ty := by
+      have hw := hwsFvs _ (List.mem_of_getElem? hfx)
+      have : i < rP + cnF ∧ Expr.WScoped i ty := by
+        simpa [Expr.WScoped] using hw
+      exact this.2.fvarsBelow
+    have hlift := denote_lift (cval := cval) (env := env) (φ := ψ') hcl'
+      (p := i) (e := ty) hfb (rP + cnF) (by omega)
+    have h0 := hdomsS0 i _ hfx
+    rw [show Expr.fvarTypeD (Expr.fvar i nm ty) = ty from rfl] at h0
+    rw [h0] at hlift
+    have hAi' : Ai = (Γs.getD (rP + cnF - 1 - i) default).liftN
+        (rP + cnF - i) := by
+      rw [show Expr.fvarTypeD (fvs.getD i default) = ty from by
+          rw [List.getD, hfx]
+          rfl, hlift] at hAi
+      exact (Option.some.inj hAi).symm
+    rw [show rP + cnF - 1 - i + 1 = rP + cnF - i from by omega, ← hAi']
+    exact hdefIB
+  -- the fired lam-domain walk at position `k`
+  obtain ⟨hwlenL, hwgetL⟩ := Forall2.length_getD hdeLam
+  have hslenL : ((fvsPl ++ xFvsP).map Expr.fvarTypeD).length
+      = rP + cnF := by
+    rw [List.length_map, hPlen]
+  have hdeK := hwgetL k default default (by rw [hslenL]; omega)
+  have hLsubL : ((fvsPl ++ xFvsP).map Expr.fvarTypeD).getD k default
+      = Expr.fvarTypeD ((fvsPl ++ xFvsP).getD k default) := by
+    rcases hp : (fvsPl ++ xFvsP)[k]? with _ | px
+    · rw [List.getElem?_eq_none_iff, hPlen] at hp
+      omega
+    · rw [List.getD, List.getElem?_map, hp, List.getD, hp]
+      rfl
+  rw [hLsubL] at hdeK
+  obtain ⟨Bk, Lk, hBkden, hLkden, hderL⟩ := hdeK
+  -- contexts for the lam walk's subjects (P-frame leaves)
+  have hldomsLen : ldomsL.length = rP + cnF := by
+    rw [instLamsAt_length _ hinstLam, hPlen]
+  have hLkg : ldomsL.getD k default ∈ ldomsL := by
+    rw [List.getD]
+    rcases hr : ldomsL[k]? with _ | r
+    · rw [List.getElem?_eq_none_iff, hldomsLen] at hr
+      omega
+    · exact List.mem_of_getElem? hr
+  have hleafLdom : ∀ l ∈ (ldomsL.getD k default).fvarLeaves,
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsPl ++ xFvsP := by
+    intro l hl
+    rcases instLamsAt_leaves _ hinstLam l (Or.inl ⟨_, hLkg, hl⟩) with
+      h0 | ⟨a, ha, hla⟩
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hrhsw] at h0
+      exact nomatch h0
+    · exact hPleafClosed l ⟨a, ha, hla⟩
+  have hleafPAnn : ∀ l ∈
+      (Expr.fvarTypeD ((fvsPl ++ xFvsP).getD k default)).fvarLeaves,
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsPl ++ xFvsP := by
+    intro l hl
+    rcases hp : (fvsPl ++ xFvsP)[k]? with _ | px
+    · rw [List.getElem?_eq_none_iff, hPlen] at hp
+      omega
+    obtain ⟨nm, ty, rfl⟩ := hPshape k px hp
+    rw [List.getD, hp] at hl
+    refine hPleafClosed l ⟨_, List.mem_of_getElem? hp, ?_⟩
+    rw [Expr.fvarLeaves]
+    exact List.mem_cons_of_mem _ hl
+  have hctxPA : CtxOkR μ cval env ψ' (rP + cnF) Γs
+      (Expr.fvarTypeD ((fvsPl ++ xFvsP).getD k default)) :=
+    ctxOkR_of_walked_openers hΓslen hPshape hPws hslackP hleafPAnn
+  have hctxPL : CtxOkR μ cval env ψ' (rP + cnF) Γs
+      (ldomsL.getD k default) :=
+    ctxOkR_of_walked_openers hΓslen hPshape hPws hslackP hleafLdom
+  have hdefL := hderL Γs hctxPA hctxPL
+  -- the low-depth denote of the layer domain
+  obtain ⟨mid, htkRun, hdropRun⟩ :=
+    instLamsAt_take (fvsPl ++ xFvsP) k hinstLam
+  have hfbLdom : Expr.fvarsBelow k (ldomsL.getD k default) := by
+    -- the drop run exposes the layer as the next binder's domain
+    have hdlen : ((fvsPl ++ xFvsP).drop k).length = rP + cnF - k := by
+      rw [List.length_drop, hPlen]
+    rcases hdp : (fvsPl ++ xFvsP).drop k with _ | ⟨x0, sp'⟩
+    · rw [hdp] at hdlen
+      simp at hdlen
+      omega
+    rw [hdp] at hdropRun
+    match mid, hdropRun with
+    | .lam nmM domM bodyM mM, hdropRun => ?_
+    simp only [Expr.instLamsAt] at hdropRun
+    cases h1 : Expr.instLamsAt sp' (bodyM.instantiate1 x0) with
+    | none => rw [h1] at hdropRun; exact nomatch hdropRun
+    | some p => ?_
+    rw [h1] at hdropRun
+    simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq]
+      at hdropRun
+    obtain ⟨hds, -⟩ := hdropRun
+    have hgd : ldomsL.getD k default = domM := by
+      have h2 : ldomsL[k]? = some domM := by
+        have h3 := congrArg (fun l => l[0]?) hds
+        simp only [List.getElem?_drop, Nat.add_zero,
+          List.getElem?_cons_zero] at h3
+        exact h3.symm
+      rw [List.getD, h2]
+      rfl
+    -- the take run's residual is scoped below `k`
+    refine Expr.fvarsBelow_of_fvarLeaves fun l hl => ?_
+    have hlM : l ∈ (Expr.lam nmM domM bodyM mM).fvarLeaves := by
+      rw [Expr.fvarLeaves]
+      rw [hgd] at hl
+      exact List.mem_append_left _ hl
+    rcases instLamsAt_leaves _ htkRun l (Or.inr hlM) with
+      h0 | ⟨a, ha, hla⟩
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hrhsw] at h0
+      exact nomatch h0
+    · obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
+      have hql : q < k := by
+        have := (List.getElem?_eq_some_iff.mp hq).1
+        rw [List.length_take, hPlen] at this
+        omega
+      rw [List.getElem?_take_of_lt hql] at hq
+      obtain ⟨nm, ty, rfl⟩ := hPshape q a hq
+      rw [Expr.fvarLeaves] at hla
+      rcases List.mem_cons.mp hla with rfl | hla'
+      · exact hql
+      · have hw := hPws _ (List.mem_of_getElem? hq)
+        have hwty : q < rP + cnF ∧ Expr.WScoped q ty := by
+          simpa [Expr.WScoped] using hw
+        have := Expr.fvarLeaves_lt_of_wscoped hwty.2 l hla'
+        omega
+  have hliftL := denote_lift (cval := cval) (env := env) (φ := ψ') hcl'
+    (p := k) (e := ldomsL.getD k default) hfbLdom (rP + cnF) (by omega)
+  rw [hLkden] at hliftL
+  rcases hDk : denote cval env ψ' k (ldomsL.getD k default) with _ | Dk
+  · rw [hDk] at hliftL
+    exact nomatch hliftL
+  rw [hDk] at hliftL
+  have hLkEq : Lk = Dk.liftN (rP + cnF - k) := Option.some.inj hliftL
+  refine ⟨Dk, rfl, ?_⟩
+  -- the satisfied context's membership at `k`
+  have hm := sat_chain_mems htowerS hzslen hsat k hkK
+  have hmv : (zs.map (interp V ρ)).getD k SetTheory.empty
+      = interp V ρ (zs.getD k default) := by
+    rw [List.getD, List.getD, List.getElem?_map]
+    rcases hx : zs[k]? with _ | w
+    · rw [List.getElem?_eq_none_iff, hzslen] at hx
+      omega
+    · rfl
+  have hmc : consChain V ρ ((zs.map (interp V ρ)).take k)
+      = chainE V ρ (zs.take k) := by
+    rw [← List.map_take, consChain_map_interp]
+  rw [hmv, hmc] at hm
+  -- the ambient-set equalities, composed
+  obtain ⟨Ak, Bk', hAk, hBk', hdefAB⟩ := hIdentEq k hkK
+  obtain rfl : Bk = Bk' := by
+    rw [hBkden] at hBk'
+    exact Option.some.inj hBk'
+  -- (1) the statement slot, lifted, is `Ak`
+  rcases hfx : fvs[k]? with _ | fx
+  · rw [List.getElem?_eq_none_iff, hfvslen] at hfx
+    omega
+  obtain ⟨nm, ty, rfl⟩ := hshapeS k fx hfx
+  have hfb : Expr.fvarsBelow k ty := by
+    have hw := hwsFvs _ (List.mem_of_getElem? hfx)
+    have : k < rP + cnF ∧ Expr.WScoped k ty := by
+      simpa [Expr.WScoped] using hw
+    exact this.2.fvarsBelow
+  have hlift := denote_lift (cval := cval) (env := env) (φ := ψ') hcl'
+    (p := k) (e := ty) hfb (rP + cnF) (by omega)
+  have h0 := hdomsS0 k _ hfx
+  rw [show Expr.fvarTypeD (Expr.fvar k nm ty) = ty from rfl] at h0
+  rw [h0] at hlift
+  have hAkEq : Ak = (Γs.getD (rP + cnF - 1 - k) default).liftN
+      (rP + cnF - k) := by
+    rw [show Expr.fvarTypeD (fvs.getD k default) = ty from by
+        rw [List.getD, hfx]
+        rfl, hlift] at hAk
+    exact (Option.some.inj hAk).symm
+  -- the lifted interp reads the truncated chain
+  have habs : ∀ X : VExpr,
+      interp V (chainE V ρ zs) (X.liftN (rP + cnF - k))
+        = interp V (chainE V ρ (zs.take k)) X := by
+    intro X
+    rw [interp_liftN, shiftE_chainE_take (by omega), hzslen,
+      show rP + cnF - (rP + cnF - k) = k from by omega]
+  -- interp equalities from the two fired walks
+  have hIAB : interp V (chainE V ρ zs) Ak = interp V (chainE V ρ zs) Bk :=
+    DefEq.sound henv hdefAB (chainE V ρ zs) hsat
+  have hIBL : interp V (chainE V ρ zs) Bk = interp V (chainE V ρ zs) Lk :=
+    DefEq.sound henv hdefL (chainE V ρ zs) hsat
+  -- compose
+  have hfinal : interp V (chainE V ρ (zs.take k))
+        (Γs.getD (rP + cnF - 1 - k) default)
+      = interp V (chainE V ρ (zs.take k)) Dk := by
+    calc interp V (chainE V ρ (zs.take k))
+          (Γs.getD (rP + cnF - 1 - k) default)
+        = interp V (chainE V ρ zs)
+            ((Γs.getD (rP + cnF - 1 - k) default).liftN
+              (rP + cnF - k)) := (habs _).symm
+      _ = interp V (chainE V ρ zs) Ak := by rw [← hAkEq]
+      _ = interp V (chainE V ρ zs) Bk := hIAB
+      _ = interp V (chainE V ρ zs) Lk := hIBL
+      _ = interp V (chainE V ρ zs) (Dk.liftN (rP + cnF - k)) := by
+          rw [← hLkEq]
+      _ = interp V (chainE V ρ (zs.take k)) Dk := habs _
+  rw [← hfinal]
+  exact hm
+
 end Setlec.SetR
