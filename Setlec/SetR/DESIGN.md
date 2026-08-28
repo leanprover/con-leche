@@ -667,3 +667,101 @@ expansion cases need `denoteClosed … (strLitToConstructor s)` — R7's own
 side condition — which is content the `Setlec/Verify/StrLitExpr.lean`
 tier should supply; the one-sided λ cases are D13 and so are held by
 Finding 1.
+
+## T3 — batches (a-rest) + (b) + the spine part of (d), against the settled shapes
+
+Repair A is transparent to everything T3 had already landed: batch (a)
+and batch (f) rebuilt **with no edit to any `Bridge/*` file** (verified
+by pre-flight against T4's amendment before it landed, and again after
+the merge).  The reason is worth one line, because it is the criterion
+for judging any future rule reshape: the bridge only ever *applies*
+`Red.{refl,trans,appFn,beta,zeta,natSucc,natOp1,natOp2}`,
+`Infer.{sort,bvar,const,litNat,litStr}` and
+`DefEq.{refl,symm,trans,ofRed}` in those batches — `Red.beta`'s premise
+pair was already infer+defeq, and R8–R10 have no `Infer` premise at all.
+A reshape of a *premise* is invisible to a clause that does not
+construct that rule.
+
+### Landed
+
+| file | content |
+|---|---|
+| `Bridge/InferStruct.lean` | `inferShapeR` / `inferSortR` (**the repair's whole bridge-side content**), `frame_openR`, and I6/I7/I8/I10 — `InferPiStepR`, `InferLamStepR`, `InferAppStepR`, `InferLetStepR` all discharged |
+| `Bridge/Spine.lean` | `denote_const_congrR`, `defEqL_of_defEqListR`, `frame_spineR`, and `DefEqSpineStepR` discharged (D7's second entry point) |
+
+`inferShapeR` is the measurement of repair A on this side: *one* lemma,
+six lines, used four times here and at every `Infer`+shape site of the
+remaining batches.  The slack composes with the reduction claim through
+`DefEq.ofRed`, which is precisely what the repair made possible.
+
+One more V-free relocation, verbatim: `substFn_of_evalEqList` from
+`TTVerify/DefEqStep.lean` to `Setlec/Verify/Level.lean` (a statement
+about levels alone; both lanes' same-head spine short-circuits need it).
+
+### FINDING 3 (blocking batches (c), (e) and the (g) rescues): the *doubled*-`Infer` premise chains do not compose either
+
+Repair A converted the `Red`-at-an-inferred-type premises.  It did not
+touch a second, smaller family that has the same defect for the same
+reason — flagged parenthetically in Finding 1's list ("D8 ×2, doubled
+`Infer`"; "R6 ×2, doubled `Infer`") and now hit head-on at batch (c).
+
+*The shape.*  Two rules chain `Infer` premises so that the **subject**
+of the second is the **type** produced by the first:
+
+```
+    D8 irrelProp : Infer Δ a ta → Infer Δ ta sta → DefEq Δ sta (.sort 0) → …
+    R6 projRed   : Infer Δ fv ta → Infer Δ ta tta → DefEq Δ tta (.sort _) → …
+                   Infer Δ P  te → Infer Δ te tte → DefEq Δ tte (.sort _) → …
+```
+
+The checker's corresponding moves are `ta ← infer a; sta ← infer ta`,
+so the bridge gets `Infer Δ ⟦a⟧ T₁` with `DefEq Δ T₁ ⟦ta⟧` from the
+first, and `Infer Δ ⟦ta⟧ T₂` with `DefEq Δ T₂ (.sort 0)` from the
+second — an `Infer` **at `⟦ta⟧`**, not at `T₁`.  The rule wants both at
+one `ta`, and the slack sits between them exactly as before.
+
+Mechanized at `proofIrrel`'s `Prop` branch: the clause elaborates up to
+the residual goal
+
+```
+    ∃ TA SA, Infer Δ va TA ∧ Infer Δ TA SA ∧ DefEq Δ SA (.sort 0)
+```
+
+from `hI1 : Infer Δ va T₁`, `hD1 : DefEq Δ T₁ vta`,
+`hI2 : Infer Δ vta T₂`, `hD2 : DefEq Δ T₂ (.sort 0)` — unreachable.
+The **one-linking-`DefEq`** version of the same goal,
+
+```
+    ∃ TA TA' SA, Infer Δ va TA ∧ DefEq Δ TA TA' ∧
+                 Infer Δ TA' SA ∧ DefEq Δ SA (.sort 0)
+```
+
+is `⟨T₁, vta, T₂, hI1, hD1, hI2, hD2⟩` — one line.  Both elaborated
+against the landed tier before this note was written.
+
+*Repair (proposed): insert the linking `DefEq`*, i.e. exactly repair A's
+move one premise earlier —
+
+```
+    D8 : Infer Δ a ta → DefEq Δ ta ta' → Infer Δ ta' sta →
+         DefEq Δ sta (.sort 0) → …           (and the same for b)
+    R6 : Infer Δ fv ta → DefEq Δ ta ta' → Infer Δ ta' tta → …  (×2)
+```
+
+**Soundness is free under T4's settled architecture**, and strictly
+cheaper than repair A was: `DefEq`-sound is *unconditional*
+(no `AnnotOkV` on either side), so the linking premise contributes only
+`⟦ta⟧ = ⟦ta'⟧`, and D8's chain becomes
+`⟦a⟧ ∈ ⟦ta⟧ = ⟦ta'⟧ ∈ ⟦sta⟧ = univ 0`, closed by `mem_univ_zero`
+exactly as `sortCert_pt` does today (`Model/Core/Claims.lean:225-262` —
+the model's own proof already threads the equality rather than an
+identity).  R6's two chains are the same statement at the field and at
+the subject.  No `AnnotOkV`, no new premise beyond the equation.
+
+*Scope.*  Four premise pairs in two rules.  Blocked until it lands:
+`ProofIrrelStepR` (batch c) and `ProjStepR` (batch e, via R6) directly;
+`DefEqStuckStepR` (batch d) because `stuckIrrel`'s cascade ends in
+`proofIrrel`; and `IotaStepR` (batch g) because R12/R14's
+proof-irrelevance premise is built through D8/D9.  Everything else in
+those batches is unaffected — D9, D10, D11, D12, D13, R11 and R13 all
+have single `Infer`+`DefEq` pairs and compose today.

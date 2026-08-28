@@ -239,7 +239,7 @@ theorem pairEtaCert_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
         have hsame : Level.substFn φ psigmaMkA.toConstantVal.levelParams us
             = Level.substFn φ psigmaMkA.toConstantVal.levelParams us' := by
           funext q
-          exact substFn_of_evalEqList _ (Level.isEquivList_sound hlev' φ) q
+          exact Level.substFn_of_evalEqList _ (Level.isEquivList_sound hlev' φ) q
         rw [hsame]
         have hpm : m.cval psigmaMkName
             (Level.substFn φ psigmaMkA.toConstantVal.levelParams us')

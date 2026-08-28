@@ -1,4 +1,5 @@
 import Setlec.TTVerify.ProjStep
+import Setlec.Verify.Level
 
 /-!
 # The `isDefEq` step of `CheckStepTT`
@@ -542,36 +543,10 @@ theorem defEqList_inv {env : Env} {fuel d : Nat} :
           have := hall ⟨j, by simpa using hj⟩
           simpa using this
 
-/-- Level lists with pointwise equal evaluations are indistinguishable
-to a substitution.  The checker compares levels with `Level.isEquiv`,
-which is sound for `eval` and nothing stronger, so this is exactly the
-form the spine short-circuit's soundness needs. -/
-theorem substFn_of_evalEqList {φ : Name → Nat} :
-    ∀ (ks : List Name) {us us' : List Level}, Level.EvalEqList φ us us' →
-      ∀ p, Level.substFn φ ks us p = Level.substFn φ ks us' p := by
-  intro ks
-  induction ks with
-  | nil =>
-    intro us us' h p
-    cases us <;> cases us' <;> simp [Level.substFn] <;> exact nomatch h
-  | cons k ks ih =>
-    intro us us' h p
-    cases us with
-    | nil => cases us' with
-      | nil => rfl
-      | cons _ _ => exact nomatch h
-    | cons u uss => cases us' with
-      | nil => exact nomatch h
-      | cons u' uss' =>
-        obtain ⟨h1, h2⟩ := h
-        simp only [Level.substFn]
-        split
-        · exact h1
-        · exact ih h2 p
 
 /-- **A constant at level-equivalent instantiations denotes the same
 term.**  `val_params` says a valuation reads only its own parameters;
-`substFn_of_evalEqList` says the two instantiations agree on all of
+`Level.substFn_of_evalEqList` says the two instantiations agree on all of
 them.  Consumed by the spine short-circuit and by the stuck block's
 constant leaf. -/
 theorem denote_const_congr {env : Env} (m : EnvTT env) (φ : Name → Nat)
@@ -590,7 +565,7 @@ theorem denote_const_congr {env : Env} (m : EnvTT env) (φ : Name → Nat)
       · rw [← Option.some.inj hva, ← Option.some.inj hvb]
         refine m.val_params n ci hf _ _ ?_
         intro p _
-        exact substFn_of_evalEqList _ (Level.isEquivList_sound hlev φ) p
+        exact Level.substFn_of_evalEqList _ (Level.isEquivList_sound hlev φ) p
       · exact nomatch hvb
     · exact nomatch hva
 

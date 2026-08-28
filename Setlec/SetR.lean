@@ -22,6 +22,8 @@ import Setlec.SetR.Bridge.Infer
 import Setlec.SetR.Bridge.DefEq
 import Setlec.SetR.Bridge.ReduceNat
 import Setlec.SetR.Bridge.Step
+import Setlec.SetR.Bridge.InferStruct
+import Setlec.SetR.Bridge.Spine
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family

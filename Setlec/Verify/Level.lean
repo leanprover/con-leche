@@ -339,4 +339,38 @@ theorem isNonZero_sound : ∀ {u : Level}, u.isNonZero = true → ∀ φ, u.eval
     · omega
   | param n => simp [isNonZero]
 
+
+/-! ## Substitution under pointwise-equal evaluations
+
+Relocated from `Setlec/TTVerify/DefEqStep.lean` (task #148, T3): the
+fact both lanes' same-head spine short-circuits need, and a statement
+about levels alone. -/
+
+/-- Level lists with pointwise equal evaluations are indistinguishable
+to a substitution.  The checker compares levels with `Level.isEquiv`,
+which is sound for `eval` and nothing stronger, so this is exactly the
+form the spine short-circuit's soundness needs. -/
+theorem substFn_of_evalEqList {φ : Name → Nat} :
+    ∀ (ks : List Name) {us us' : List Level}, EvalEqList φ us us' →
+      ∀ p, substFn φ ks us p = substFn φ ks us' p := by
+  intro ks
+  induction ks with
+  | nil =>
+    intro us us' h p
+    cases us <;> cases us' <;> simp [substFn] <;> exact nomatch h
+  | cons k ks ih =>
+    intro us us' h p
+    cases us with
+    | nil => cases us' with
+      | nil => rfl
+      | cons _ _ => exact nomatch h
+    | cons u uss => cases us' with
+      | nil => exact nomatch h
+      | cons u' uss' =>
+        obtain ⟨h1, h2⟩ := h
+        simp only [substFn]
+        split
+        · exact h1
+        · exact ih h2 p
+
 end Setlec.Level
