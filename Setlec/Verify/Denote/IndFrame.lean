@@ -1907,4 +1907,53 @@ theorem instLamsAt_denoteTele {cval : TConstVal} {env : Env}
               omega,
             List.getElem?_append_left (by rw [hΓlen]; omega)]
 
+
+/-- Leaves of an `instLamsAt` run come from the telescope or the
+spine (the λ mirror of `instPisAt_leaves`). -/
+theorem instLamsAt_leaves :
+    ∀ (as : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instLamsAt as ty = some (ds, rs) →
+      ∀ l, ((∃ x ∈ ds, l ∈ x.fvarLeaves) ∨ l ∈ rs.fvarLeaves) →
+        l ∈ ty.fvarLeaves ∨ ∃ a ∈ as, l ∈ a.fvarLeaves := by
+  intro as
+  induction as with
+  | nil =>
+    intro ty ds rs h l hl
+    simp only [Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    rcases hl with ⟨x, hx, -⟩ | hl
+    · exact nomatch hx
+    · exact Or.inl hl
+  | cons a as ih =>
+    intro ty ds rs h l hl
+    match ty, h with
+    | .lam n₁ d₁ b₁ m₁, h => ?_
+    simp only [Expr.instLamsAt] at h
+    cases h1 : Expr.instLamsAt as (b₁.instantiate1 a) with
+    | none => rw [h1] at h; exact nomatch h
+    | some p1 => ?_
+    rw [h1] at h
+    simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    have push : l ∈ (b₁.instantiate1 a).fvarLeaves →
+        l ∈ (Expr.lam n₁ d₁ b₁ m₁).fvarLeaves ∨
+          ∃ x ∈ a :: as, l ∈ x.fvarLeaves := by
+      intro hb
+      rcases Expr.fvarLeaves_instantiate1 b₁ 0 hb with hb' | hb'
+      · refine Or.inl ?_
+        rw [Expr.fvarLeaves]
+        exact List.mem_append_right _ hb'
+      · exact Or.inr ⟨a, List.mem_cons_self .., hb'⟩
+    rcases hl with ⟨x, hx, hlx⟩ | hl
+    · rcases List.mem_cons.mp hx with rfl | hx'
+      · refine Or.inl ?_
+        rw [Expr.fvarLeaves]
+        exact List.mem_append_left _ hlx
+      · rcases ih h1 l (Or.inl ⟨x, hx', hlx⟩) with h2 | ⟨b, hb, hlb⟩
+        · exact push h2
+        · exact Or.inr ⟨b, List.mem_cons_of_mem _ hb, hlb⟩
+    · rcases ih h1 l (Or.inr hl) with h2 | ⟨b, hb, hlb⟩
+      · exact push h2
+      · exact Or.inr ⟨b, List.mem_cons_of_mem _ hb, hlb⟩
+
 end Setlec.TTVerify
