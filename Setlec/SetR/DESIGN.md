@@ -4582,3 +4582,29 @@ Two mechanical notes, both of which cost round trips:
   resolve unambiguously.  Also: `lake env lean` type-checks a file
   without installing its `.olean`, so a consumer keeps seeing the old
   one — `lake build <module>` between the two edits.
+
+### T6 — `opener_walk_pack_gen`, and over-specialisation for the third time
+
+`IotaWalksR`'s λ-row opens an `instPisAt` **residual** (`crestP`) at
+depth `rP`, not a stored type at depth `0`, so `opener_walk_pack` does
+not reach it — the third instance of the same mistake, after
+`stmtWalk_of` (correction #2) and the two-shapes claim (correction #1).
+
+`opener_walk_pack_gen` takes the subject's own package and its opening
+depth.  It is not merely more general but **simpler**: the specialised
+proof used the subject's `hasFvar`-freeness to argue that every leaf
+of an opener's annotation must itself be an opener, where the general
+form just uses the subject's own `LeavesBounded` for that branch.
+
+*The habit, now with three instances.*  Each time I proved a lemma
+against the first site that needed it and then wrote down coverage for
+sites I had not tried.  The specialisation was never wrong — it was
+always *true of its site* — and that is exactly what makes it
+seductive.  The rule earned:
+
+> **Generalise at the second site, not the third.**  A lemma written
+> for one site and then claimed for others should either be
+> re-elaborated at the hardest remaining site before the claim is
+> recorded, or written with the site-specific inputs already
+> abstracted.  The second is usually cheaper, and — as here — often
+> yields the shorter proof.

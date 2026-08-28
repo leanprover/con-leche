@@ -774,6 +774,48 @@ theorem renamedType_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
     leavesBounded_renameConsts _ hL,
     v, by rw [denote_renameConsts hro]; exact hv⟩
 
+/-- **The openers' pack, generalised.**  `opener_walk_pack` assumed a
+*stored* subject opened at depth `0`; `IotaWalksR`'s λ-row opens an
+`instPisAt` **residual** at depth `rP`, so the specialised form does
+not reach it — the same over-specialisation `stmtWalk_of` showed.
+
+The general form takes the subject's own package.  It is also
+*simpler*: the specialised proof used the subject's `hasFvar`-freeness
+to argue that every leaf of an opener's annotation must itself be an
+opener, and here `hL` covers the subject's own leaves directly. -/
+theorem opener_walk_pack_gen {env : Env} (m : EnvR env)
+    {φ : Name → Nat} {e : Expr} {d₀ k D : Nat} {fvs : List Expr}
+    {body : Expr}
+    (hw : Expr.WScoped d₀ e) (hb : e.looseBVarsBounded 0 = true)
+    (hL : Expr.LeavesBounded e)
+    {T : VExpr} (hT : denote m.cval env φ d₀ e = some T)
+    (hopen : openPisAtFvars k e d₀ = some (fvs, body))
+    (hle : d₀ + k ≤ D) :
+    ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      Expr.WScoped D (Expr.fvarTypeD x) ∧
+      (Expr.fvarTypeD x).looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded (Expr.fvarTypeD x) ∧
+      ∃ v, denote m.cval env φ D (Expr.fvarTypeD x) = some v := by
+  intro i x hx
+  have hmem : x ∈ fvs := List.mem_of_getElem? hx
+  obtain ⟨-, hbfv⟩ := openPisAtFvars_bounded k hopen hb
+  obtain ⟨hwfv, -⟩ := openPisAtFvars_WScoped k e d₀ hopen hw
+  obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index k e d₀ hopen i x hx
+  have hwx := hwfv _ hmem
+  rw [Expr.WScoped] at hwx
+  obtain ⟨hlt, hwty⟩ := hwx
+  obtain ⟨Γ, R, -, -, hfvd⟩ := openPisAtFvars_denoteTele k hopen hT
+  refine ⟨Expr.WScoped.mono (by omega) hwty, hbfv _ hmem, ?_,
+    opener_denotes_at m hwty.fvarsBelow (by omega) (hfvd i _ hx)⟩
+  intro l hl
+  have hlx : l ∈ (Expr.fvar (d₀ + i) nm ty).fvarLeaves := by
+    simp only [Expr.fvarLeaves, Expr.fvarTypeD] at hl ⊢
+    exact List.mem_cons_of_mem _ hl
+  rcases openPisAtFvars_leaves k hopen l (Or.inr ⟨_, hmem, hlx⟩) with
+    h' | h'
+  · exact hL l h'
+  · exact hbfv _ h'
+
 /-! ## The comparison walks
 
 Every `iota_j` statement walk the checker runs is a `checkDefEqList`
