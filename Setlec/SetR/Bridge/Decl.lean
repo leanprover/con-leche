@@ -2025,6 +2025,123 @@ theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
         exact iotaSidesTyR_of m hwα hbα hLα hwl hbl hLl hwr hbr hLr
           hvα hvl hvr hil hdl hir hdr
 
+set_option maxHeartbeats 1600000 in
+/-- **One modeled recursor rule, bridged** (`checkIotaRule`).  The
+shape data comes from `checkIotaRule_inv`'s kit; the fire-mode
+dispatch runs on `RuleChecked`'s `plain ↔ recRulePlain` equivalence
+and its nested clause, into `iotaThmR_of` / `iotaThmNR_of`.
+
+The rule's annotated right-hand side denotes *because the fold
+inferred its type* — `RuleChecked` carries the verdict at depth `0`
+and `InferClaimsR` converts it at the empty context.  It is emphatically
+not `EnvR.rec_rhs_denotes`: the rules are being checked against the
+**provisional** environment, where they are not yet stored. -/
+theorem iotaRuleR_of {env' envSelf : Env} (m : EnvR envSelf)
+    {μ : CheckMode} {F : Nat} {f : Name → Name} {cvA : ConstantVal}
+    {mI rP j : Nat} {r r' : RecRule} {ciR : ConstantInfo}
+    (hrecSelf : envSelf.find? cvA.name = some ciR)
+    (hcvRR : ciR.toConstantVal = cvA)
+    (hro : RenameOkT m.cval envSelf f)
+    (htransfer : ∀ n ci, env'.find? n = some ci →
+      ∃ ci', envSelf.find? n = some ci' ∧
+        ci'.toConstantVal = ci.toConstantVal)
+    (h : checkIotaRule μ (fueledOps μ F) env' envSelf f cvA.name
+      cvA.levelParams cvA.type mI rP j r = .ok r') :
+    IotaRuleR μ F env' envSelf m.cval f cvA.name cvA.levelParams
+      cvA.type mI rP j r r' := by
+  obtain ⟨hkit, hrnf, hrb, cnP0, fire0, rhsA0, hann0, hr'eq,
+    hinert, hnestShape⟩ := checkIotaRule_inv (cvA := cvA) h
+  obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, hfc, hnf, hcp,
+    hplainIff, hnested, hrawnf, hrawb, hrawann, hrhsnf, hrhsb, hrlp,
+    hrres, hstripEq, hity, hplainKit⟩ := hkit
+  subst hr'eq
+  dsimp only at hfc hnf hcp hplainIff hnested hrhsnf hrhsb hplainKit
+  dsimp only at hrlp hrres hstripEq hity
+  subst hcp
+  -- the annotated right-hand side denotes, and infers, at the empty
+  -- context: the fold's own inference verdict, not a stored rule
+  have hRden : ∀ φ : Name → Nat, ∃ Rv t,
+      denoteClosed m.cval envSelf φ rhsA0 = some Rv ∧
+      Infer μ envSelf m.cval φ [] Rv t := by
+    intro φ
+    obtain ⟨-, -, -, ihi⟩ := checkBridge m φ F
+    obtain ⟨hw, hb, hL, hC⟩ :=
+      closed0_framesR (μ := μ) (cval := m.cval) (env := envSelf)
+        (φ := φ) hrhsnf hrhsb
+    obtain ⟨v, tv, hv, -, T', hI, -⟩ := ihi hity hw hb hL hC
+    exact ⟨v, T', hv, hI⟩
+  have hrhsDen : ∀ φ : Name → Nat,
+      ∃ V, denoteClosed m.cval envSelf φ rhsA0 = some V := by
+    intro φ
+    obtain ⟨Rv, t, hv, -⟩ := hRden φ
+    exact ⟨Rv, hv⟩
+  obtain ⟨ciC, hciC, hcvC⟩ := htransfer _ _ hfc
+  have hcvC' : ciC.toConstantVal = cvj := hcvC
+  refine ⟨cvj, cnP0, cnF, rhsA0, hfc, hnf, hrb, hrnf,
+    hann0, hrlp, hrres, (by rw [hstripEq]; rfl), hRden,
+    fire0, rfl, ?_⟩
+  by_cases hplain :
+      Expr.recRulePlain cvA.type mI rP cnP0 = true
+  · refine Or.inl ⟨hplain, hplainIff.mpr hplain, ?_⟩
+    exact iotaThmR_of m hrecSelf hcvRR hrhsnf hrhsb hrhsDen
+      hciC hcvC' hro htransfer (hplainKit hplain)
+  · have hplainF : Expr.recRulePlain cvA.type mI rP cnP0 = false := by
+      revert hplain
+      cases Expr.recRulePlain cvA.type mI rP cnP0 <;> simp
+    refine Or.inr ⟨hplainF, ?_⟩
+    cases hf : fire0 with
+    | plain =>
+      exact absurd (hplainIff.mp hf) (by rw [hplainF]; simp)
+    | inert => exact Or.inl ⟨rfl, hinert hf⟩
+    | nested lvls pins =>
+      refine Or.inr ⟨lvls, pins, rfl, ?_⟩
+      obtain ⟨-, -, -, -, -, hkitN⟩ := hnested lvls pins hf
+      exact iotaThmNR_of m hrecSelf hcvRR hrhsnf hrhsb hrhsDen
+        hciC hcvC' hro htransfer (hnestShape lvls pins hf) hkitN
+
+theorem iotaRulesR_of {env' envSelf : Env} (m : EnvR envSelf)
+    {μ : CheckMode} {F : Nat} {f : Name → Name} {cvA : ConstantVal}
+    {mI rP : Nat} {ciR : ConstantInfo}
+    (hrecSelf : envSelf.find? cvA.name = some ciR)
+    (hcvRR : ciR.toConstantVal = cvA)
+    (hro : RenameOkT m.cval envSelf f)
+    (htransfer : ∀ n ci, env'.find? n = some ci →
+      ∃ ci', envSelf.find? n = some ci' ∧
+        ci'.toConstantVal = ci.toConstantVal) :
+    ∀ (j : Nat) (rules rules' : List RecRule),
+      checkIotaRules μ (fueledOps μ F) env' envSelf f cvA.name
+        cvA.levelParams cvA.type mI rP j rules = .ok rules' →
+      IotaRulesR μ F env' envSelf m.cval f cvA.name cvA.levelParams
+        cvA.type mI rP j rules rules' := by
+  intro j rules
+  induction rules generalizing j with
+  | nil =>
+    intro rules' h
+    simp only [checkIotaRules, pure, Except.pure,
+      Except.ok.injEq] at h
+    exact h.symm
+  | cons r rest ih =>
+    intro rules' h
+    simp only [checkIotaRules, Bind.bind, Except.bind] at h
+    revert h
+    cases hr1 : checkIotaRule μ (fueledOps μ F) env' envSelf f
+        cvA.name cvA.levelParams cvA.type mI rP j r with
+    | error e => intro h; exact nomatch h
+    | ok r₁ => ?_
+    intro h
+    try dsimp only at h
+    revert h
+    cases hrest : checkIotaRules μ (fueledOps μ F) env' envSelf f
+        cvA.name cvA.levelParams cvA.type mI rP (j + 1) rest with
+    | error e => intro h; exact nomatch h
+    | ok rest' => ?_
+    intro h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨r₁, rest',
+      iotaRuleR_of m hrecSelf hcvRR hro htransfer hr1,
+      ih (j + 1) rest' hrest, rfl⟩
+
 /-- **`checkMemberVal`, bridged.** -/
 theorem memberValR_of {env' : Env} (m : EnvR env') {μ : CheckMode} {F :
   Nat} {blockNames : List Name}

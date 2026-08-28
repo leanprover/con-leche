@@ -5034,3 +5034,38 @@ premises and not on my own.  The cheap mechanical form: when a new
 premise mentions an environment variable, write down which of the
 caller's environments it is (`env`, `env₀`/provisional, `envSelf`,
 `env'`) *before* writing the signature.
+
+### The iota layer closes: `iotaRuleR_of` and the rules fold
+
+`IotaRuleR` is a relation between the *input* rule and the *returned*
+one, and `RuleChecked` is stated over the returned rule alone — so
+three facts the checker plainly establishes had been dropped by the
+inversions.  All three were landed **additively**, in the same tail on
+`checkIotaRule_inv`, with `RuleChecked` untouched (so the TT lane sees
+no change at all):
+
+1. the input-to-output link (`r' = {r with rhs, ctorParams, fire}`
+   and the raw rhs's well-formedness);
+2. `fire = .inert → nestedRuleShape … = none` — `checkIotaThmN`
+   returns `.inert` only from a `none` shape (a `some` shape whose
+   theorem then fails is a positive *decline*), which
+   `checkIotaThmN_inv`'s inert disjunct had not said;
+3. `fire = .nested lvls pins → nestedRuleShape … = some (lvls, pins)`
+   — `IotaThmNR`'s own first conjunct, which `RuleChecked` records
+   only in *decomposed* form.
+
+(3) is where the recorded rule earned its keep: the decomposition is
+enough to *rebuild* the shape verdict from `nestedRuleShape`'s guards,
+and that is precisely **a field to reconstruct**.  Pinning it was four
+lines; reconstructing it would have been a lemma about the checker's
+own control flow.
+
+**The `cases h : e` trap fired four times in this stretch alone** —
+each time the goal was rewritten and the honest witness was `rfl`, not
+the named hypothesis.  It is now the single most frequent error in the
+campaign.  Companion trap, new: `nomatch hc, fun …` parses `nomatch`
+greedily over the comma; inside an anonymous constructor every
+`nomatch` lambda needs parentheses.
+
+With `iotaRulesR_of` the whole iota layer — the campaign's largest
+single rock — is closed.

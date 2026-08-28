@@ -867,7 +867,10 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
         r' = {r with rhs := rhsA, ctorParams := cnP, fire := fire} ∧
         (fire = .inert →
           nestedRuleShape env' env₀ cvA.name cvA.levelParams
-            cvA.type mI rP cnP j = none)) := by
+            cvA.type mI rP cnP j = none) ∧
+        (∀ lvls pins, fire = .nested lvls pins →
+          nestedRuleShape env' env₀ cvA.name cvA.levelParams
+            cvA.type mI rP cnP j = some (lvls, pins))) := by
   simp only [checkIotaRule, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
     Except.bind, pure, Except.pure] at h
@@ -943,7 +946,8 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
             (WScoped.of_not_hasFvar hrfF)).fvarsBelow),
         annotateCore_looseBVars F _ hann hrb, hrlp, hrres, hstripEq,
         hity, fun _ => hkit⟩, hrfF, hrb,
-        ⟨cnP, _, rhsA, rfl, rfl, fun hc => nomatch hc⟩⟩
+        ⟨cnP, RecRuleFire.plain, rhsA, rfl, rfl,
+          ⟨(fun hc => nomatch hc), (fun _ _ hc => nomatch hc)⟩⟩⟩
   case neg =>
     rw [if_neg hplain] at h
     revert h
@@ -969,7 +973,8 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
               (WScoped.of_not_hasFvar hrfF)).fvarsBelow),
           annotateCore_looseBVars F _ hann hrb, hrlp, hrres, hstripEq,
           hity, fun hc => absurd hc hplain⟩, hrfF, hrb,
-          ⟨cnP, _, rhsA, rfl, rfl, fun _ => hnone⟩⟩
+          ⟨cnP, RecRuleFire.inert, rhsA, rfl, rfl,
+          ⟨(fun _ => hnone), (fun _ _ hc => nomatch hc)⟩⟩⟩
       · subst hfe
         refine ⟨⟨cvj, cnP, cnF, RecRule.rhs r, rhsTy, rbinders, rbody,
           hfc, hnf, rfl,
@@ -981,7 +986,10 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
               (WScoped.of_not_hasFvar hrfF)).fvarsBelow),
           annotateCore_looseBVars F _ hann hrb, hrlp, hrres, hstripEq,
           hity, fun hc => absurd hc hplain⟩, hrfF, hrb,
-          ⟨cnP, _, rhsA, rfl, rfl, fun hc => nomatch hc⟩⟩
+          ⟨cnP, RecRuleFire.nested lvls pins, rhsA, rfl, rfl,
+          ⟨(fun hc => nomatch hc), (fun lvls' pins' hc => by
+            obtain ⟨rfl, rfl⟩ := RecRuleFire.nested.inj hc
+            exact hshape)⟩⟩⟩
         intro lvls' pins' hf
         obtain ⟨rfl, rfl⟩ := RecRuleFire.nested.inj
           (hf : RecRuleFire.nested lvls pins = .nested lvls' pins')
