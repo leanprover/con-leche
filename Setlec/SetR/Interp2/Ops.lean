@@ -88,6 +88,43 @@ theorem lamR_congr {v : Nat} {A : V} {F F' : V → V}
   · rw [lamR_pos (Nat.pos_iff_ne_zero.mp hv), lamR_pos (Nat.pos_iff_ne_zero.mp hv)]
     exact graph_congr h
 
+/-! ## Zero-agreement
+
+`piR`/`lamR` read their numeral **only through the `v = 0` test**, so
+annotations that agree on zero-ness are interchangeable.  This is the
+pre-#100 `pi_congr_zero_agree`/`lam_congr_zero_agree` pair, and it is
+what lets a λ-tower carry its *result* sort at every binder rather than
+the exact `imax` fold: in `(a₁ : A₁) → … → (aₙ : Aₙ) → T` the sort of
+each suffix is `imax (…) r` with `r` the sort of `T`, and
+`imax x y = 0 ↔ y = 0`.  See `Interp2/Value.lean`'s annotation
+convention. -/
+
+theorem piR_zero_agree {v v' : Nat} (hz : v = 0 ↔ v' = 0) {A : V}
+    {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x = B' x) : piR v A B = piR v' A B' := by
+  by_cases hv : v = 0
+  · rw [hv, hz.mp hv]; exact piR_congr h
+  · have hv' : v' ≠ 0 := fun h0 => hv (hz.mpr h0)
+    rw [piR_pos hv, piR_pos hv']
+    exact piSet_congr h
+
+theorem lamR_zero_agree {v v' : Nat} (hz : v = 0 ↔ v' = 0) {A : V}
+    {F F' : V → V} (h : ∀ x, x ∈ˢ A → F x = F' x) : lamR v A F = lamR v' A F' := by
+  by_cases hv : v = 0
+  · rw [hv, hz.mp hv, lamR_zero, lamR_zero]
+  · have hv' : v' ≠ 0 := fun h0 => hv (hz.mpr h0)
+    rw [lamR_pos hv, lamR_pos hv']
+    exact graph_congr h
+
+/-- `imax`'s zero test is its codomain's — the arithmetic behind the
+tower convention. -/
+theorem imax_eq_zero_iff (x y : Nat) :
+    (if y = 0 then 0 else Nat.max x y) = 0 ↔ y = 0 := by
+  by_cases hy : y = 0
+  · simp [hy]
+  · rw [if_neg hy]
+    exact ⟨fun h => absurd (Nat.le_zero.mp (h ▸ Nat.le_max_right x y)) hy,
+      fun h => absurd h hy⟩
+
 /-! ## Introduction, elimination, beta, eta -/
 
 /-- Introduction: fibre-wise members abstract into the product.  At
@@ -99,6 +136,14 @@ theorem lamR_mem {v : Nat} {A : V} {F B : V → V}
     exact pt_mem_truthVal fun x hx => ⟨F x, hF x hx⟩
   · rw [lamR_pos (Nat.pos_iff_ne_zero.mp hv), piR_pos (Nat.pos_iff_ne_zero.mp hv)]
     exact graph_mem_piSet hF
+
+/-- Introduction across zero-agreeing annotations: a tower annotated
+with its result sort still inhabits the product annotated with the
+exact `imax`. -/
+theorem lamR_mem_zero_agree {v v' : Nat} (hz : v = 0 ↔ v' = 0) {A : V}
+    {F B : V → V} (hF : ∀ x, x ∈ˢ A → F x ∈ˢ B x) : lamR v A F ∈ˢ piR v' A B := by
+  rw [lamR_zero_agree hz (fun _ _ => rfl) (F' := F)]
+  exact lamR_mem hF
 
 /-- **Proof irrelevance at products**: inhabitants of a `Prop`-valued
 product are the canonical proof. -/

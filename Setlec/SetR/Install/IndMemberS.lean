@@ -30,7 +30,8 @@ theorem indMemberS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
     {cvA : ConstantVal}
     (hc₀name : c₀.name = cvA.name)
     (hkind : (∃ caps, c₀ = .indInfo cvA caps) ∨
-      (∃ nP nF, c₀ = .ctorInfo cvA nP nF))
+      (∃ nP nF, c₀ = .ctorInfo cvA nP nF) ∨
+      (∃ mI rP, c₀ = .recInfo cvA mI rP []))
     (hfresh : env.find? cvA.name = none)
     (hwf : EnvWF ⟨c₀ :: env.consts⟩)
     (hnres : reservedBasisNames.contains cvA.name = false)
@@ -65,23 +66,30 @@ theorem indMemberS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
     rw [hc₀name]; exact hfresh
   have hnres' : reservedBasisNames.contains c₀.name = false := by
     rw [hc₀name]; exact hnres
-  have hnrec : ∀ cv2 mI rP rules, c₀ ≠ .recInfo cv2 mI rP rules := by
-    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ <;>
-      intro cv2 mI rP rules heq <;> exact nomatch heq
+  -- the recursor case is *rule-less* (provisioning), so the two rule
+  -- head obligations are vacuous over an empty rule list
+  have hnorules : ∀ cv2 mI2 rP2 rules2, c₀ = .recInfo cv2 mI2 rP2 rules2 →
+      rules2 = [] := by
+    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+      intro cv2 mI2 rP2 rules2 heq
+    · exact nomatch heq
+    · exact nomatch heq
+    · injection heq with _ _ _ h4
+      exact h4.symm
   have hnproj : ∀ entry, c₀ ≠ .projInfo entry := by
-    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ <;>
+    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
       intro entry heq <;> exact nomatch heq
   have hndefn : ∀ cv2 v2 h2, c₀ ≠ .defnInfo cv2 v2 h2 := by
-    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ <;>
+    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
       intro cv2 v2 h2 heq <;> exact nomatch heq
   have hnthm : ∀ cv2 v2, c₀ ≠ .thmInfo cv2 v2 := by
-    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ <;>
+    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
       intro cv2 v2 heq <;> exact nomatch heq
   have hnax : ∀ cv2, c₀ ≠ .axiomInfo cv2 := by
-    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ <;>
+    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
       intro cv2 heq <;> exact nomatch heq
   have hlpsA : c₀.toConstantVal.levelParams = cvA.levelParams := by
-    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ <;> rfl
+    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;> rfl
   have hi : Installs env m.cval (cvalModeled m.cval cvA.name) c₀ :=
     Installs.of_fresh hfresh' (fun n hn => by
       rw [hc₀name] at hn
@@ -90,8 +98,12 @@ theorem indMemberS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
     (fun cv2 v2 h2 heq => absurd heq (hndefn cv2 v2 h2))
     (fun cv2 v2 heq => absurd heq (hnthm cv2 v2))
     ?_
-    (fun cv2 mI rP rules heq => absurd heq (hnrec cv2 mI rP rules))
-    (fun cv2 mI rP rules heq => absurd heq (hnrec cv2 mI rP rules))
+    (fun cv2 mI2 rP2 rules2 heq r hr => by
+      rw [hnorules cv2 mI2 rP2 rules2 heq] at hr
+      exact nomatch hr)
+    (fun cv2 mI2 rP2 rules2 heq rl hrl => by
+      rw [hnorules cv2 mI2 rP2 rules2 heq] at hrl
+      exact nomatch hrl)
     hheadEta hheadUnit
     (fun entry heq => absurd heq (hnproj entry))
     (fun _ entry heq => absurd heq (hnproj entry))
@@ -122,7 +134,8 @@ theorem indMemberS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
     obtain ⟨t, ht, hd⟩ := hkey φ
     refine ⟨t, ?_, ?_⟩
     · have h := hi.denoteUp (φ := φ) (e := cvA.type) ht
-      rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ <;> exact h
+      rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+        exact h
     · show ∀ ρ : Nat → V,
         interp V ρ (cvalWith m.cval cvA.name _ c₀.name φ)
           ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t
