@@ -208,4 +208,46 @@ theorem instPisAt_isSome_of_stripPis :
       simp only [Expr.instPisAt, Option.isSome_map]
       exact this
 
+/-! ## The rule-shape residue
+
+The four `V`-free facts about `recRulePlain` and `recFireComparands`
+that task #148's T1 relocation pass did not cover; both verified lanes'
+recursor-group installs read them, so they sit here rather than in
+either lane (relocated verbatim from
+`Setlec/TTVerify/DeclIndRecs.lean`, task #148 T5 stage 3). -/
+
+/-- A canonical rule's constructor parameters are among the recursor's
+prefix. -/
+theorem recRulePlain_leT {recTy : Expr} {mI rP cnP : Nat}
+    (h : Expr.recRulePlain recTy mI rP cnP = true) :
+    cnP ≤ rP := by
+  rw [Expr.recRulePlain, Bool.and_eq_true, Bool.and_eq_true] at h
+  exact of_decide_eq_true h.1.1
+
+/-- A canonical rule's prefix fits under the major's position. -/
+theorem recRulePlain_le_mIT {recTy : Expr} {mI rP cnP : Nat}
+    (h : Expr.recRulePlain recTy mI rP cnP = true) :
+    rP ≤ mI := by
+  rw [Expr.recRulePlain, Bool.and_eq_true, Bool.and_eq_true] at h
+  exact of_decide_eq_true h.1.2
+
+/-- The fire comparand levels of a plain rule. -/
+theorem recFireComparands_plain {rl : RecRule} {lps : List Name}
+    {us : List Level} {cvjLps : List Name} {args : List Expr} {rP : Nat}
+    (h : RecRule.fire rl = .plain) :
+    (recFireComparands rl lps us cvjLps args rP).1 =
+      cvjLps.map fun p => Level.subst lps us (.param p) := by
+  unfold recFireComparands
+  rw [h]
+
+/-- The fire comparand levels of a nested rule. -/
+theorem recFireComparands_nested {rl : RecRule} {lps : List Name}
+    {us : List Level} {cvjLps : List Name} {args : List Expr} {rP : Nat}
+    {lvls : List Level} {pins : List Expr}
+    (h : RecRule.fire rl = .nested lvls pins) :
+    (recFireComparands rl lps us cvjLps args rP).1 =
+      lvls.map (Level.subst lps us) := by
+  unfold recFireComparands
+  rw [h]
+
 end Setlec
