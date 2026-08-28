@@ -868,26 +868,34 @@ the six per-kind bridge obligations assemble into the whole
 dispatch itself is proved here because `checkDecl`'s body *is* the
 dispatch. -/
 theorem checkDeclR_of {μ : CheckMode} {F : Nat} {cval : TConstVal}
-    (hdefn : ∀ {env env₂ : Env} {cv : ConstantVal} {value : Expr}
+    {env env₂ : Env}
+    -- task #148 T6: the branch obligations are at **this** `env`.
+    -- Re-quantifying `env` inside them while `cval` stays fixed asks
+    -- for a semantic relation at a valuation unattached to the
+    -- environment it is about — the unattached-premise shape, which
+    -- no caller can discharge (it holds only at `m.cval` for `m`'s
+    -- own `env`).  The dispatch never needed the generality: it runs
+    -- at one environment.
+    (hdefn : ∀ {cv : ConstantVal} {value : Expr}
       {hint : ReducibilityHint},
       checkDecl μ (fueledOps μ F) env (.defnDecl cv value hint)
         = .ok env₂ → DeclDefnR μ F env cval cv value hint env₂)
-    (hthm : ∀ {env env₂ : Env} {cv : ConstantVal} {value : Expr},
+    (hthm : ∀ {cv : ConstantVal} {value : Expr},
       checkDecl μ (fueledOps μ F) env (.thmDecl cv value) = .ok env₂ →
       DeclThmR μ F env cval cv value env₂)
-    (hopaq : ∀ {env env₂ : Env} {cv : ConstantVal} {value : Expr},
+    (hopaq : ∀ {cv : ConstantVal} {value : Expr},
       checkDecl μ (fueledOps μ F) env (.opaqueDecl cv value) = .ok env₂ →
       DeclOpaqueR μ F env cval cv value env₂)
-    (hax : ∀ {env env₂ : Env} {cv : ConstantVal},
+    (hax : ∀ {cv : ConstantVal},
       checkDecl μ (fueledOps μ F) env (.axiomDecl cv) = .ok env₂ →
       DeclAxiomR μ F env cval cv env₂)
-    (hbas : ∀ {env env₂ : Env} {kind : BasisKind},
+    (hbas : ∀ {kind : BasisKind},
       checkDecl μ (fueledOps μ F) env (.basisDecl kind) = .ok env₂ →
       DeclBasisR env kind env₂)
-    (hind : ∀ {env env₂ : Env} {block : List ConstantInfo},
+    (hind : ∀ {block : List ConstantInfo},
       checkDecl μ (fueledOps μ F) env (.indDecl block) = .ok env₂ →
       DeclIndR μ F env cval block env₂)
-    {env env₂ : Env} {d : Declaration}
+    {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
     DeclR μ F cval env d env₂ := by
   cases d with

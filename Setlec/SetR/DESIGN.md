@@ -5262,3 +5262,52 @@ signature while both consumers were still moving.
 The `indDecl` branch is now bridged end to end.  What remains is
 `checkDeclR_sound` (the six-way dispatch), the `checkDecls` fold, and
 the fourteen.
+
+### The assembly: `checkDeclR_sound` and the fold — plus the trap's
+### third instance, in the dispatch itself
+
+`Setlec/SetR/Bridge/Sound.lean` closes the per-declaration route:
+`checkDeclR_sound` (six-way dispatch) and `foldlM_R` (the `checkDecls`
+fold, carrying `EnvS` along by `declStepS`).  It is the transpose of
+the TT lane's `checkDeclTT` / `foldlM_TT` pair, line for line.
+
+**The unattached-premise trap, third instance — and it was in
+`checkDeclR_of`.**  Its six branch obligations re-quantified `env`
+*inside* each hypothesis while `cval` stayed fixed at the theorem
+level:
+
+```
+(hdefn : ∀ {env env₂ …}, checkDecl … env (.defnDecl …) = .ok env₂ →
+   DeclDefnR μ F env cval …)
+```
+
+`DeclDefnR` contains `ConstantValR`, hence `Infer`, hence a semantic
+claim about a valuation that is *not* the one belonging to the
+quantified environment.  No caller can discharge it: `declDefnR` is
+proved at `m.cval` for `m`'s own `env`.  Found by trying to apply the
+dispatch, which is the structural backstop again — and, again, on a
+lemma that predated the rule.  The fix is one binder: the dispatch
+runs at **one** environment and never needed the generality.
+
+Three instances now, all the same shape and all pre-existing:
+`projInstallR_of`'s `hfn`, `checkDeclR_of`'s six, and (differently
+sourced) the recursor premise re-aimed two stretches ago.  The
+preemption is stated and now demonstrated: **an `EnvR`/`EnvS`-free
+valuation inside a hypothesis about a semantic relation is
+unprovable; the parameter/premise distinction is the whole test.**
+
+**A dependence made visible.**  `checkDecl`'s `indDecl` clause is not
+`checkIndDecl` — it first consults `directParts?`, whose
+direct-structure arm `DeclR` does not model.  The route is sound
+because `directStructsEnabled` is the compile-time constant `false`.
+That is now a *named* lemma, `directParts?_none`, discharged in
+exactly one place, so the audit can find the dependence instead of
+having it hide inside a `simp` set.  If the direct path is ever
+enabled (task #82's gate), this lemma is where the campaign breaks —
+by design.
+
+The three obligations left as named hypotheses (`NatEqsBridgeR`,
+`DivModPinBridgeR`, `ReducePinBridgeR`) are all stated **attached**:
+each quantifies over an `EnvS V env` and speaks at that `m`'s own
+valuation.  That is deliberate, and it is the rule above applied
+prospectively rather than retroactively for once.
