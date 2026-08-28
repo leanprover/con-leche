@@ -4162,3 +4162,35 @@ hypothesis.
 Revised remaining shape: rock 1 is now **entirely assembly** — the
 walks (`defEqListW_of` per element, fed by `stmtOpened_denotes`), the
 Bool-vs-Prop conversions, and the permuted-name rename.
+
+### The relocations were the point
+
+Eighteen relocations across the campaign, each recorded at the time as
+housekeeping.  They are not.  **They are why the [set] lane keeps
+finding its lemmas already built.**
+
+The pattern repeats too often to be luck: `inst_chain*` (#17) turned
+every recursor iota's substitution bookkeeping into a rewrite;
+`installBasisDecl_inv` (#18) made the basis-block bridge an induction
+with no lemma of its own; `TeleOpen`'s V-free parts (T1, extended in
+T5) plus `IndFrame`'s denote-tele machinery turned D6's
+quantified-context walk — recorded twice as "the last derivation with
+content" — into a composition of three existing lemmas.  Each
+relocation converted a *future derivation* into a *composition*, and
+the conversions compound: the walk layer collapsed to one lemma
+(`defEqAtW_of`) only because both the claims tier and the denote tier
+were already neutral ground.
+
+That is the campaign's quiet second thesis, alongside premise
+exactness: **a lemma in a lane-specific file is a lemma the other lane
+will re-derive; a lemma in the shared tier is a lemma the other lane
+will compose.**  The cost of relocating is one commit and a namespace
+decision; the cost of not relocating is paid later, at the width of
+whatever the second lane needs.
+
+The operational form, for the next campaign: when a lemma is proved in
+a lane-specific file and its statement mentions **nothing lane-specific**,
+relocate it *then* — not when the second consumer appears.  By the
+time the second consumer appears, the cheap moment has passed and the
+choice is between a duplication and a blast radius (finding 9's fork,
+exactly).
