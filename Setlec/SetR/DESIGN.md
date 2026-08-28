@@ -2017,10 +2017,65 @@ Three obligations stay named, their suppliers outside the fold:
   Deferring them is the TT lane's own choice (`checkIndMemberTT` takes
   them as hypotheses) and for the same reason.
 
-Remaining in `declIndS`: the recursor group (stage 3 — provisioning,
-then the install fold on the three iota bottoms), the capability
-record, the projection installs on `indBottomProjS`, and the
-templates; plus `DeclBasisS`.
+### `declIndS` stage 2b: the provisioning fold
+
+`indMemberS` was generalized to admit a **rule-less** `.recInfo` head:
+`EnvS.cons`'s two rule head obligations are vacuous over an *empty
+rule list* rather than by kind, which is exactly what the recursor
+provisioning installs.  The shared step is `memberInstallS`, and both
+folds are three lines each over it — `indMembersS` (the non-recursor
+members) and `provisionRecsS` (the group's recursors, yielding the
+**self** environment, its valuation, and the block invariant there).
+
+That self environment is the precondition for stage 3: the iota
+bottoms' walks live in `envSelf`, not in the accumulator, so the
+bottoms are applied at `EnvS V envSelf`.
+
+### Stage 3's architecture, settled before writing it (a near-miss worth recording)
+
+The obvious route — cons-fold the ruled recursors onto `env₂`, one
+`EnvS.cons` per recursor — is **wrong**, and it is worth saying why,
+because the cons-fold is what stages 1–2 condition you to reach for.
+At intermediate step `i` the accumulator holds recursors `1..i` but
+not `i+1..k`, while `IotaRuleR` only requires
+`rhsA.constsResolve envSelf = true` — the *self* environment, which
+holds all of them.  A rule right-hand side that mentions a sibling
+recursor therefore fails to denote at the intermediate accumulator,
+so `RecRulesV` — which is keyed on *every* stored `recInfo` — would be
+unprovable there and no intermediate `EnvS` exists.
+
+The TT lane does not cons-fold: it installs the group **by the
+rule-list swap** (`EnvTT.swap`, `TTVerify/EnvSwap.lean`).  Provision
+*all* recursors rule-less (that is `provisionRecsS`, landed), then
+replace each entry's `[]` by its checked `rules'`.  The environment's
+*names* never change, so `denote` and the valuation are untouched and
+the ordering problem does not arise.  `IndRecsFoldR`'s cons-fold from
+`env₂` produces exactly `envSelf` with the rule lists replaced (same
+order, same names), so the swap route matches the relation.
+
+What stage 3 therefore needs, in order:
+
+1. **`EnvS.swap`** — the `EnvTT.swap` transpose (~300 lines there).
+   Its V-free half is **already shared**: `SwapPairSh`, `SwapShList`,
+   `swapSh_find?_corr`, `ProvFacts.*` in
+   `Setlec/Verify/Extend/Recs.lean`.
+2. **`iotaRuleS`** — the per-rule bridge from `IotaRuleR` to
+   `RecRulesV.cons`'s `hhead` clause, firing `indBottomPlainS` on the
+   `.plain` branch and `indBottomNestedS` on the `.nested` one
+   (`.inert` is excluded by the clause's own premise).  Its glue is
+   available: `BlockInstalledTT.renameOkT` gives the bottoms' `hro`,
+   `Expr.recRulePlain`'s two `decide`s give `cnP ≤ rP` and `rP ≤ mI`,
+   `EnvWF` gives the syntactic guards, and `mS.mem_type` at the
+   `iota_j` theorem gives `hthm`.
+3. the group install over 1–2.
+
+Then: the capability record (stage 4, on `etaLawKeyS`/`unitLawKeyS`
+through `MemberEtaS`/`MemberUnitS`), the projection installs (stage 5,
+on `indBottomProjS`), the templates (stage 6 — note a template entry
+has no model artifact, so the install must *choose* its valuation; an
+inhabitant of `univ 0` such as `VExpr.eqE (.sort 0) .prf .prf` is
+truthful and closed, which is why `TemplatesR`'s step leaves the
+valuation existential), the `DeclIndS` assembly, and `DeclBasisS`.
 
 # Task #151 tier A — the sort-annotation pass
 
