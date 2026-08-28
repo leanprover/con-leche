@@ -1,6 +1,7 @@
 import Setlec.TTVerify.DeclBasis
 import Setlec.Verify.Extend.Iota
 import Setlec.Verify.Denote.TeleOpen
+import Setlec.Verify.Denote.IndFrame
 
 /-!
 # `DeclIndTT`: the modeled-inductive install
@@ -522,18 +523,7 @@ Done once here, at a shift `c`, because the unit statement uses it
 three times (the `x` domain at `c = 0`, the `y` domain at `c = 1`, the
 equation's type slot at `c = 2`) and the eta statement uses it again. -/
 
-/-- Indexing a list by its own `range` is mapping it. -/
-theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)
-    (g : α → β) :
-    (List.range xs.length).map (fun l => g (xs.getD l default)) = xs.map g := by
-  refine List.ext_getElem? ?_
-  intro i
-  rw [List.getElem?_map, List.getElem?_map]
-  rcases Nat.lt_or_ge i xs.length with h | h
-  · rw [List.getElem?_range h, List.getElem?_eq_getElem h]
-    simp [List.getD, List.getElem?_eq_getElem h]
-  · rw [List.getElem?_eq_none (by simp; omega), List.getElem?_eq_none h]
-    rfl
+/- `map_range_getD` relocated to `Setlec/Verify/Denote/IndFrame.lean`. -/
 
 /-- **The parameter tuple, opened and denoted.**  The `k`-th pinned
 parameter variable is the `k`-th opening variable, whose denotation at

@@ -20,6 +20,7 @@ import Setlec.SetR.Install.Value
 import Setlec.SetR.Install.ValueKinds
 import Setlec.SetR.Install.Axiom
 import Setlec.SetR.Install.ReducePin
+import Setlec.SetR.Install.IndBottomS
 import Setlec.SetR.Examples
 import Setlec.SetR.Bridge.Env
 import Setlec.SetR.Bridge.Claims
