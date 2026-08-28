@@ -3871,3 +3871,63 @@ Two notes for anyone reading the branch:
   line here because the error message ("expected type
   `Except.ok true = Except.ok true`") reads like a bug in the
   statement rather than the tactic doing its job.
+
+## FINDING 8 — the `indDecl` bridge cannot be unconditional (2026-08-28)
+
+`memberValR_of` lands (`checkMemberVal` = `checkConstantVal` plus four
+model-artifact inversions), and with it the shape of the remaining
+work became clear — and blocked.
+
+**The observation.**  The three front doors are now stated over
+`EnvR`, the weakest thing they use.  That sharpens the difficulty:
+`MemberValR μ F env'ₖ cval …` contains `ConstantValR`, whose last
+conjunct is `Infer μ env'ₖ cval φ [] Tv tT ∧ DefEq …`.  The only
+producer of `Infer` is `checkBridge`, which takes an `EnvR env'ₖ`.
+So producing `IndMembersR` **for the whole member list** requires an
+`EnvR` at every *intermediate* environment of the fold — and nothing
+in the campaign builds an `EnvR` for an extended environment except
+by projecting one out of an `EnvS`, which is what the *install* layer
+produces while consuming the very relation being built.
+
+The two tiers were designed to meet at `IndMembersR` (`indMembersS`
+takes the whole relation and returns `EnvS env₂`), and that meeting
+point is unreachable by either side alone.  The same holds for
+`IndRecsR` and for `ProjInstallR`'s `ProjFnR` steps; it does **not**
+hold for `TemplatesR` (no front door — a pure stored-data install,
+which is why `templatesR_of` inverted outright) nor for any of the
+five value/basis branches (one front door, at the *base*
+environment).
+
+**Two resolutions, and they differ in what they cost.**
+
+1. **Interleave, and output both.**  Walk each fold once, at every
+   step running `memberValR_of` at `m.toEnvR` and then the install's
+   own step (`memberInstallS`) to get the next `EnvS`; accumulate the
+   relation alongside.  The fold's conclusion is then
+   `∃ m₂ : EnvS V env₂, … ∧ IndMembersR …`, so `checkDeclR_of`,
+   `DeclR` and `declStepS` all stay usable unchanged and `DeclR`
+   keeps its design-instrument role (§6: the relations *are* the
+   certificate inventory).  Cost: the four folds' orchestration is
+   written twice — once in `declIndS` (T5), once in the bridge —
+   though every *sub*-theorem is reused.  Consequence for the
+   assembly: the `indDecl` branch's bridge is conditional on `EnvS`,
+   unlike the other five.
+2. **An `EnvR`-only install layer.**  Prove `EnvR`-preservation across
+   the member / provision / rule-swap / projection installs (ten
+   fields × four kinds), so the bridge walks the folds alone and
+   `declIndR` is unconditional like its five siblings.  Cost: a
+   parallel install layer for a strictly weaker invariant, whose
+   substantive field (`ty_denotes` at the extended environment) is
+   most of the work `mem_type`'s install already does.
+
+**Recommendation: (1).**  It is strictly less new proof, it reuses
+T5's install theorems rather than shadowing them with weaker twins,
+and the asymmetry it introduces is honest — the `indDecl` branch
+*is* the one whose relation quantifies over intermediate
+environments, and a bridge for it was never going to be as free of
+the invariant as the others.  (2) buys unconditionality for the ind
+branch at the price of maintaining two invariants that must be kept
+in step forever.
+
+Not taken here: this changes the shape of `checkDeclR_sound` (one
+branch invariant-conditional), which is an assembly-level decision.

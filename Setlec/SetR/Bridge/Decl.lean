@@ -87,8 +87,8 @@ theorem closed0_framesR {μ : CheckMode} {cval : TConstVal} {env : Env}
 /-- **`checkConstantVal`, bridged.**  Beside `ConstantValR` the caller
 gets the annotated type's two closedness facts, which every branch
 then needs for its own value front door and for `EnvWF`. -/
-theorem constantValR_of {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv cv' : ConstantVal}
+theorem constantValR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
+  Nat} {cv cv' : ConstantVal}
     (h : checkConstantVal (fueledOps μ F) env cv = .ok cv') :
     ∃ type', cv' = { cv with type := type' } ∧
       type'.hasFvar = false ∧ type'.looseBVarsBounded 0 = true ∧
@@ -104,7 +104,7 @@ theorem constantValR_of {V : Type w} [SetTheory V] {env : Env}
   refine ⟨type, rfl, htf, hbt',
     Option.isNone_iff_eq_none.mpr hfind, hres, hpsh, hnd, hlbt, hitf,
     hann, htp, htr, fun φ => ?_⟩
-  obtain ⟨-, ihw, -, ihi⟩ := checkBridge m.toEnvR φ F
+  obtain ⟨-, ihw, -, ihi⟩ := checkBridge m φ F
   obtain ⟨hwt, hbt, hLt, hCt⟩ :=
     closed0_framesR (μ := μ) (cval := m.cval) (env := env) (φ := φ)
       htf hbt'
@@ -124,8 +124,8 @@ theorem constantValR_of {V : Type w} [SetTheory V] {env : Env}
 lane's `value_key`, in the relation's own vocabulary: `Infer` of the
 value's denotation up to `DefEq`, then the checker's own
 `vtype ≡ type` verdict composed on. -/
-theorem valueFrontR_of {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+theorem valueFrontR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
+  Nat} {cv : ConstantVal}
     {value type' value' vtype : Expr}
     (htf : type'.hasFvar = false)
     (hbt' : type'.looseBVarsBounded 0 = true)
@@ -139,7 +139,7 @@ theorem valueFrontR_of {V : Type w} [SetTheory V] {env : Env}
     (hcv : ConstantValR μ F env m.cval cv type') :
     ValueFrontR μ F env m.cval cv value type' value' := by
   refine ⟨hlbv, hivf, hannv, hvp, hvr, fun φ => ?_⟩
-  obtain ⟨-, -, ihd, ihi⟩ := checkBridge m.toEnvR φ F
+  obtain ⟨-, -, ihd, ihi⟩ := checkBridge m φ F
   have hvf' : value'.hasFvar = false :=
     Expr.not_hasFvar_of_fvarsBelow_zero
       ((annotateCore_WScoped F value hannv
@@ -186,7 +186,7 @@ theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m.toEnvR hccv
   simp only [Pure.pure, Except.pure] at h
   cases hst2 : inferTypeCore μ env F 0 type with
   | error e => rw [hst2] at h; exact nomatch h
@@ -240,7 +240,8 @@ theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
   refine ⟨type, value', hcv, fun φ => ?_,
-    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde hcv,
+    valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+      hcv,
     h.symm⟩
   obtain ⟨-, ihw, -, ihi⟩ := checkBridge m.toEnvR φ F
   obtain ⟨hwt, hbt, hLt, hCt⟩ :=
@@ -276,7 +277,7 @@ theorem declAxiomR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cvA =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of m hccv
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of m.toEnvR hccv
   refine ⟨type, hcv, ?_⟩
   by_cases hstd : stdAxiomOk env { cv with type := type } = true
   · rw [if_pos hstd] at h
@@ -348,7 +349,7 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m.toEnvR hccv
   simp only [Pure.pure, Except.pure] at h
   by_cases hlbv : value.looseBVarsBounded 0 = true
   case neg => simp [hlbv] at h
@@ -383,7 +384,8 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
   refine ⟨type, value', hcv,
-    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde hcv,
+    valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+      hcv,
     ?_, ?_⟩
   · by_cases hro : reduceOpNames.contains cv.name = true
     · rw [if_pos hro] at h
@@ -435,7 +437,7 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m.toEnvR hccv
   simp only [Pure.pure, Except.pure] at h
   by_cases hlbv : value.looseBVarsBounded 0 = true
   case neg => simp [hlbv] at h
@@ -552,10 +554,67 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
         exact ⟨rfl, fun hc => absurd hc hno, fun hc => absurd hc hdn⟩
   obtain ⟨rfl, hnatK, hdmK⟩ := key
   exact ⟨type, value', hcv,
-    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde hcv,
+    valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+      hcv,
     rfl,
     fun hc => ⟨(hnatK hc).1, (hnatK hc).2.1, hnat (hnatK hc).2.2⟩,
     fun hc => hdm hc (hdmK hc)⟩
+
+/-! ## `indDecl`, the front half: the member fold
+
+`checkMemberVal` is `checkConstantVal` plus the model-artifact
+conjuncts, so `memberValR_of` is `constantValR_of` plus four
+inversions.  The fold's threaded valuation is **determined** —
+`cvalModeled` at each member — so the bridge chooses nothing; it only
+has to keep the recursion's `cval` in step with the environment. -/
+
+/-- **`checkMemberVal`, bridged.** -/
+theorem memberValR_of {env' : Env} (m : EnvR env') {μ : CheckMode} {F :
+  Nat} {blockNames : List Name}
+    {cv cvA : ConstantVal}
+    (h : checkMemberVal (m := CheckM) (fueledOps μ F) blockNames env' cv
+      = .ok cvA) :
+    MemberValR μ F env' m.cval blockNames cv cvA := by
+  simp only [checkMemberVal, Bind.bind, Except.bind] at h
+  cases hccv : checkConstantVal (fueledOps μ F) env' cv with
+  | error e => rw [hccv] at h; exact nomatch h
+  | ok cv' =>
+  rw [hccv] at h
+  try dsimp only at h
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of m hccv
+  by_cases hms : cv.name.isModelSuffix = true
+  · rw [if_pos hms] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  rw [if_neg hms] at h
+  have hmsF : cv.name.isModelSuffix = false := by
+    revert hms; cases cv.name.isModelSuffix <;> simp
+  revert h
+  cases hfm : env'.find? (cv.name.str "_model") with
+  | none => intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
+  | some ci =>
+    match ci with
+    | .defnInfo cvm mval hint =>
+      intro h
+      dsimp only at h
+      by_cases hlp : cvm.levelParams = cv.levelParams
+      · rw [if_pos hlp] at h
+        by_cases het : Expr.eqUpToNames
+            (type.renameConsts fun n =>
+              if blockNames.contains n then n.str "_model" else n)
+            cvm.type = true
+        · rw [if_pos het] at h
+          simp only [pure, Except.pure, Except.ok.injEq] at h
+          subst h
+          exact ⟨type, hcv, rfl, hmsF, cvm, mval, hint, hfm, hlp, het⟩
+        · rw [if_neg het] at h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+      · rw [if_neg hlp] at h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+    | .axiomInfo _ | .thmInfo _ _ | .indInfo _ _ | .ctorInfo _ _ _
+    | .recInfo _ _ _ _ | .projInfo _ =>
+      intro h
+      dsimp only at h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-! ## `indDecl`, the back half: the two projection-phase folds
 
