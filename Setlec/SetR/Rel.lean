@@ -160,7 +160,8 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
   (`Infer.const` overlaps app-shaped subjects), so the rule exposes
   them as a `Tele` walk over the constructor's denoted stored type —
   the same premise-exactness argument as repair A. -/
-  | projRed {Δ : List VExpr} {p P fv ta tta te tte TC restC : VExpr}
+  | projRed {Δ : List VExpr} {p P fv ta ta' tta te te' tte TC restC :
+        VExpr}
       {i : Nat} {sn : Name} {entry : ProjEntry} {ci : ConstantInfo}
       {us : List Level} {vs : List VExpr} :
       -- side conditions (V-free), read off the clause's guards
@@ -190,14 +191,17 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       -- instantiated field sort …  (`DefEq`, not `Red`: the checker
       -- whnfs its own inferred type; the bridge's infer-claim is up to
       -- `DefEq`, so the normalization premise absorbs the slack — the
-      -- 2026-08-27 amendment, `Setlec/SetR/DESIGN.md`)
+      -- 2026-08-27 amendment, `Setlec/SetR/DESIGN.md`.  The chained
+      -- `Infer`s carry a linking `DefEq` — finding 3, 2026-08-28.)
       Infer μ env cval φ Δ fv ta →
-      Infer μ env cval φ Δ ta tta →
+      DefEq μ env cval φ Δ ta ta' →
+      Infer μ env cval φ Δ ta' tta →
       DefEq μ env cval φ Δ tta
         (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)) →
       -- … and the subject's type's sort is the instantiated struct sort
       Infer μ env cval φ Δ P te →
-      Infer μ env cval φ Δ te tte →
+      DefEq μ env cval φ Δ te te' →
+      Infer μ env cval φ Δ te' tte →
       DefEq μ env cval φ Δ tte
         (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ)) →
       Red μ env cval φ Δ (.proj i p) fv
@@ -623,13 +627,21 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
       DefEq μ env cval φ Δ (VExpr.mkAppN h₁ as₁) (VExpr.mkAppN h₂ as₂)
   /-- D8: proof irrelevance, the `Prop` branch (`proofIrrel`,
   `Core.lean:782-792`): both sides' types' sorts are `Prop` (ground
-  `0` — `Level.isEquiv uT .zero` is absorbed by the denotation). -/
-  | irrelProp {Δ : List VExpr} {a b ta sta tb stb : VExpr} :
+  `0` — `Level.isEquiv uT .zero` is absorbed by the denotation).
+
+  The chained `Infer`s carry a linking `DefEq` (the 2026-08-28
+  amendment, T3's finding 3): the checker's second `infer` runs at the
+  first's *produced* type, and the bridge's infer-claim is up to
+  `DefEq`, so the slack sits between the two premises exactly as in
+  repair A. -/
+  | irrelProp {Δ : List VExpr} {a b ta ta' sta tb tb' stb : VExpr} :
       Infer μ env cval φ Δ a ta →
-      Infer μ env cval φ Δ ta sta →
+      DefEq μ env cval φ Δ ta ta' →
+      Infer μ env cval φ Δ ta' sta →
       DefEq μ env cval φ Δ sta (.sort 0) →
       Infer μ env cval φ Δ b tb →
-      Infer μ env cval φ Δ tb stb →
+      DefEq μ env cval φ Δ tb tb' →
+      Infer μ env cval φ Δ tb' stb →
       DefEq μ env cval φ Δ stb (.sort 0) →
       DefEq μ env cval φ Δ a b
   /-- D9: proof irrelevance, the unit branch (`proofIrrel`,

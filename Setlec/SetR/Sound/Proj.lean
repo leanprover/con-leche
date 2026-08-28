@@ -331,7 +331,7 @@ theorem sndInfProj (henv : EnvSHyp V env cval φ)
 /-! ### R6: native projection reduction -/
 
 theorem sndRedProjRed (henv : EnvSHyp V env cval φ)
-    {Δ : List VExpr} {p P fv ta tta te tte TC restC : VExpr}
+    {Δ : List VExpr} {p P fv ta ta' tta te te' tte TC restC : VExpr}
     {i : Nat} {sn : Name} {entry : ProjEntry} {ci : ConstantInfo}
     {us : List Level} {vs : List VExpr}
     (h1 : env.findProj? sn i = some entry) (h2 : entry.native = true)
@@ -350,19 +350,26 @@ theorem sndRedProjRed (henv : EnvSHyp V env cval φ)
     (_ : VExpr.Closed TC)
     (_ : Red μ env cval φ Δ p P)
     (_ : Tele μ env cval φ Δ TC vs restC)
-    (_ : Infer μ env cval φ Δ fv ta) (_ : Infer μ env cval φ Δ ta tta)
+    (_ : Infer μ env cval φ Δ fv ta)
+    (_ : DefEq μ env cval φ Δ ta ta')
+    (_ : Infer μ env cval φ Δ ta' tta)
     (_ : DefEq μ env cval φ Δ tta
       (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)))
-    (_ : Infer μ env cval φ Δ P te) (_ : Infer μ env cval φ Δ te tte)
+    (_ : Infer μ env cval φ Δ P te)
+    (_ : DefEq μ env cval φ Δ te te')
+    (_ : Infer μ env cval φ Δ te' tte)
     (_ : DefEq μ env cval φ Δ tte
       (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ)))
     (ihp : RedS V Δ p P)
     (ihTele : TeleS V Δ TC vs restC)
     (ihfv : InfS V Δ fv ta)
-    (ihta : InfS V Δ ta tta)
+    (ihlta : DeqS V Δ ta ta')
+    (ihta : InfS V Δ ta' tta)
     (ihtta : DeqS V Δ tta
       (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)))
-    (_ : InfS V Δ P te) (_ : InfS V Δ te tte)
+    (_ : InfS V Δ P te)
+    (_ : DeqS V Δ te te')
+    (_ : InfS V Δ te' tte)
     (_ : DeqS V Δ tte
       (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ))) :
     RedS V Δ (.proj i p) fv := by
@@ -447,7 +454,7 @@ theorem sndRedProjRed (henv : EnvSHyp V env cval φ)
     have hPpt : interp V ρ P = pt := by
       rw [hPv, psigmaMkV_zero hw, app_pt, app_pt, app_pt, app_pt]
     have hfpt : interp V ρ fv = pt := by
-      have hta : interp V ρ ta ∈ˢ (univ 0 : V) := by
+      have hta : interp V ρ ta' ∈ˢ (univ 0 : V) := by
         have h := ihtta ρ hΔ
         rw [interp_sort, hfsort] at h
         have h0 : (if i = 0 then Level.eval φ l0 else Level.eval φ l1)
@@ -461,7 +468,7 @@ theorem sndRedProjRed (henv : EnvSHyp V env cval φ)
           split <;> assumption
         rw [h0] at h
         exact h ▸ (ihta ρ hΔ).2
-      exact mem_univ_zero hta (ihfv ρ hΔ).2
+      exact mem_univ_zero hta ((ihlta ρ hΔ) ▸ (ihfv ρ hΔ).2)
     rw [hfpt]
     rcases hfv with ⟨rfl, -⟩ | ⟨rfl, -⟩
     · rw [interp_proj, if_pos rfl, hp_eq, hPpt, sfst_pt]

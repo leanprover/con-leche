@@ -248,7 +248,7 @@ private theorem wkRedZeta {Δ : List VExpr} {T v b : VExpr} :
   exact .zeta
 
 private theorem wkRedProjRed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
-    {Δ : List VExpr} {p P fv ta tta te tte TC restC : VExpr}
+    {Δ : List VExpr} {p P fv ta ta' tta te te' tte TC restC : VExpr}
     {i : Nat} {sn : Name} {entry : ProjEntry} {ci : ConstantInfo}
     {us : List Level} {vs : List VExpr}
     (h1 : env.findProj? sn i = some entry) (h2 : entry.native = true)
@@ -267,20 +267,26 @@ private theorem wkRedProjRed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (hTCc : VExpr.Closed TC)
     (_ : Red μ env cval φ Δ p P)
     (_ : Tele μ env cval φ Δ TC vs restC)
-    (_ : Infer μ env cval φ Δ fv ta) (_ : Infer μ env cval φ Δ ta tta)
+    (_ : Infer μ env cval φ Δ fv ta)
+    (_ : DefEq μ env cval φ Δ ta ta')
+    (_ : Infer μ env cval φ Δ ta' tta)
     (_ : DefEq μ env cval φ Δ tta
       (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)))
-    (_ : Infer μ env cval φ Δ P te) (_ : Infer μ env cval φ Δ te tte)
+    (_ : Infer μ env cval φ Δ P te)
+    (_ : DefEq μ env cval φ Δ te te')
+    (_ : Infer μ env cval φ Δ te' tte)
     (_ : DefEq μ env cval φ Δ tte
       (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ)))
     (ihp : RedW μ env cval φ Δ p P)
     (ihTele : TeleW μ env cval φ Δ TC vs restC)
     (ihfv : InfW μ env cval φ Δ fv ta)
-    (ihta : InfW μ env cval φ Δ ta tta)
+    (ihlta : DeqW μ env cval φ Δ ta ta')
+    (ihta : InfW μ env cval φ Δ ta' tta)
     (ihtta : DeqW μ env cval φ Δ tta
       (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)))
     (ihP : InfW μ env cval φ Δ P te)
-    (ihte : InfW μ env cval φ Δ te tte)
+    (ihlte : DeqW μ env cval φ Δ te te')
+    (ihte : InfW μ env cval φ Δ te' tte)
     (ihtte : DeqW μ env cval φ Δ tte
       (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ))) :
     RedW μ env cval φ Δ (.proj i p) fv := by
@@ -288,7 +294,7 @@ private theorem wkRedProjRed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
   refine Red.projRed (vs := vs.map (·.liftN n k))
     (restC := restC.liftN n k) h1 h2 h3
     (by simpa using h4) h5 h6 h7 ?_ ?_ hTC hTCc (ihp H) ?_ (ihfv H)
-    (ihta H) (ihtta H) (ihP H) (ihte H) (ihtte H)
+    (ihlta H) (ihta H) (ihtta H) (ihP H) (ihlte H) (ihte H) (ihtte H)
   · rw [h8, liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _)]
   · rw [List.getElem?_map, h9]
     rfl
@@ -848,22 +854,27 @@ private theorem wkDeqAppCong {Δ : List VExpr} {h₁ h₂ : VExpr}
   exact .appCong (by simpa using hlen) (ih1 HH) (ih2 HH)
 
 private theorem wkDeqIrrelProp {Δ : List VExpr}
-    {a b ta sta tb stb : VExpr}
+    {a b ta ta' sta tb tb' stb : VExpr}
     (_ : Infer μ env cval φ Δ a ta)
-    (_ : Infer μ env cval φ Δ ta sta)
+    (_ : DefEq μ env cval φ Δ ta ta')
+    (_ : Infer μ env cval φ Δ ta' sta)
     (_ : DefEq μ env cval φ Δ sta (.sort 0))
     (_ : Infer μ env cval φ Δ b tb)
-    (_ : Infer μ env cval φ Δ tb stb)
+    (_ : DefEq μ env cval φ Δ tb tb')
+    (_ : Infer μ env cval φ Δ tb' stb)
     (_ : DefEq μ env cval φ Δ stb (.sort 0))
     (ih1 : InfW μ env cval φ Δ a ta)
-    (ih2 : InfW μ env cval φ Δ ta sta)
+    (ih1' : DeqW μ env cval φ Δ ta ta')
+    (ih2 : InfW μ env cval φ Δ ta' sta)
     (ih3 : DeqW μ env cval φ Δ sta (.sort 0))
     (ih4 : InfW μ env cval φ Δ b tb)
-    (ih5 : InfW μ env cval φ Δ tb stb)
+    (ih4' : DeqW μ env cval φ Δ tb tb')
+    (ih5 : InfW μ env cval φ Δ tb' stb)
     (ih6 : DeqW μ env cval φ Δ stb (.sort 0)) :
     DeqW μ env cval φ Δ a b := by
   intro _ _ _ H
-  exact .irrelProp (ih1 H) (ih2 H) (ih3 H) (ih4 H) (ih5 H) (ih6 H)
+  exact .irrelProp (ih1 H) (ih1' H) (ih2 H) (ih3 H) (ih4 H) (ih4' H)
+    (ih5 H) (ih6 H)
 
 private theorem wkDeqIrrelUnit (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     {Δ : List VExpr} {a b ta tb : VExpr} {c₁ c₂ : Name}

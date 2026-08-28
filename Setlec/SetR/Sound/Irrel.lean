@@ -31,29 +31,37 @@ variable {μ : CheckMode} {env : Env} {cval : TConstVal} {φ : Name → Nat}
 
 /-- D8: proof irrelevance, the `Prop` branch.  Both sides' types'
 types are `Prop`; `mem_univ_zero` twice identifies both sides with the
-proof point. -/
-theorem sndDeqIrrelProp {Δ : List VExpr} {a b ta sta tb stb : VExpr}
+proof point (the chain threads the linking equality, exactly as the
+model's `sortCert_pt` threads it). -/
+theorem sndDeqIrrelProp {Δ : List VExpr}
+    {a b ta ta' sta tb tb' stb : VExpr}
     (_ : Infer μ env cval φ Δ a ta)
-    (_ : Infer μ env cval φ Δ ta sta)
+    (_ : DefEq μ env cval φ Δ ta ta')
+    (_ : Infer μ env cval φ Δ ta' sta)
     (_ : DefEq μ env cval φ Δ sta (.sort 0))
     (_ : Infer μ env cval φ Δ b tb)
-    (_ : Infer μ env cval φ Δ tb stb)
+    (_ : DefEq μ env cval φ Δ tb tb')
+    (_ : Infer μ env cval φ Δ tb' stb)
     (_ : DefEq μ env cval φ Δ stb (.sort 0))
-    (ih1 : InfS V Δ a ta) (ih2 : InfS V Δ ta sta)
-    (ih3 : DeqS V Δ sta (.sort 0))
-    (ih4 : InfS V Δ b tb) (ih5 : InfS V Δ tb stb)
-    (ih6 : DeqS V Δ stb (.sort 0)) :
+    (ih1 : InfS V Δ a ta) (ih1' : DeqS V Δ ta ta')
+    (ih2 : InfS V Δ ta' sta) (ih3 : DeqS V Δ sta (.sort 0))
+    (ih4 : InfS V Δ b tb) (ih4' : DeqS V Δ tb tb')
+    (ih5 : InfS V Δ tb' stb) (ih6 : DeqS V Δ stb (.sort 0)) :
     DeqS V Δ a b := by
   intro ρ hΔ
-  have hta : interp V ρ ta ∈ˢ (univ 0 : V) := by
+  have hta : interp V ρ ta' ∈ˢ (univ 0 : V) := by
     have h := ih3 ρ hΔ
     rw [interp_sort] at h
     exact h ▸ (ih2 ρ hΔ).2
-  have htb : interp V ρ tb ∈ˢ (univ 0 : V) := by
+  have htb : interp V ρ tb' ∈ˢ (univ 0 : V) := by
     have h := ih6 ρ hΔ
     rw [interp_sort] at h
     exact h ▸ (ih5 ρ hΔ).2
-  rw [mem_univ_zero hta (ih1 ρ hΔ).2, mem_univ_zero htb (ih4 ρ hΔ).2]
+  have hamem : interp V ρ a ∈ˢ interp V ρ ta' :=
+    (ih1' ρ hΔ) ▸ (ih1 ρ hΔ).2
+  have hbmem : interp V ρ b ∈ˢ interp V ρ tb' :=
+    (ih4' ρ hΔ) ▸ (ih4 ρ hΔ).2
+  rw [mem_univ_zero hta hamem, mem_univ_zero htb hbmem]
 
 /-- D9: proof irrelevance, the unit branch.  `unitLike_eq_punit` pins
 each side's head to `PUnit`; the pinned valuation interprets to
