@@ -299,7 +299,7 @@ theorem iotaRuleS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
         rw [← hCmlps]
         exact nestedLvlsLength hTst0 hopen hheadEq hargs3
           (eq_of_beq hlhead0) hlarity0
-          (Expr.ErasedEq.of_eqUpToNames hmaj0) hfCmE
+          hmaj0 hfCmE
       -- fire the nested bottom
       obtain ⟨Rv, hRvden, hRvlaw⟩ := indBottomNestedS (V := V) mS hro
         heqfS htyw htyb hfRnE hRmlps hfcS hfCmE hCmlps hCw hCb hClp
@@ -307,7 +307,7 @@ theorem iotaRuleS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
         (fun p hp => ⟨(hpinsWf0 p hp).1, (hpinsWf0 p hp).2.2.2⟩)
         hrhsAw hrhsAb hrhsKey hSw hSb hthm hopen hheadEq hargs3
         (eq_of_beq hlhead0) hlarity0 (eq_of_beq hlpre0)
-        (Expr.ErasedEq.of_eqUpToNames hmaj0) hCstrips'
+        hmaj0 hCstrips'
         hcinst hclen hrinst hopenP hcinstP hopenXP hstripRhs hinstLam
         hTypedP
         (fun ψ' => (hwalks ψ').1) (fun ψ' => (hwalks ψ').2.2.1)

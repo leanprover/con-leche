@@ -514,8 +514,16 @@ def IotaThmNR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
      (lhsS.getAppFn == Expr.const (f cvName) (lps.map .param)) = true ∧
      largs.length = mI + 1 ∧
      (largs.take rP == fvs.take rP) = true ∧
-     Expr.eqUpToNames (largs.getLastD (.bvar 0))
-       (Expr.mkAppN (.const (f r.ctor) lvls) (pinsF ++ xFvs)) = true ∧
+     -- task #148 T6: the *erasure* granularity, not `eqUpToNames`.
+     -- The checker tests the stronger `eqUpToNames` and
+     -- `checkIotaThmN_inv` weakens it (`ErasedEq.of_eqUpToNames`,
+     -- which is sound only in that direction — `eqUpToNames` still
+     -- compares `fvar` annotations, which `ErasedEq` drops), so
+     -- `NestedChecked` cannot supply the stronger form.  Nor is it
+     -- wanted: `IndBottomNestedS` takes this pin as `_hmaj` and the
+     -- soundness argument reads the major through `denote_erasedEq`.
+     Expr.ErasedEq (largs.getLastD (.bvar 0))
+       (Expr.mkAppN (.const (f r.ctor) lvls) (pinsF ++ xFvs)) ∧
      (∃ cbinders cbody0, cvj.type.stripPis (cnP + cnF)
         = some (cbinders, cbody0) ∧
        (match cbody0.getAppFn with
