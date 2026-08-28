@@ -270,12 +270,35 @@ theorem openPisAtFvars_ctxOkR (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
         exact this
       · exact hCfvs x hx'
 
-/-- **The canonical constant context.**  A context every entry of
-which is one closed valuation `A`, against an expression all of whose
-fvar leaves carry the *same* annotation denoting `A`.  This is
-`Decl.lean`'s "pinned `Nat` entries" case, and the sibling of
-`openPisAtFvars_ctxOkR`: canonical entries instead of an opening's
-own annotations. -/
+/-- **The pinned context, per slot.**  The general form: the entries
+need not agree, only each leaf's own annotation with the entry at that
+leaf's slot.  Stated `_gen` from the start (the pack policy) — the
+homogeneous case below is the corollary, and the div/mod
+certificates' `[H2, H1, natVR, natVR]` is the reason. -/
+theorem CtxOkR.pinnedCtx {d : Nat} {Δ : List VExpr} {e : Expr}
+    (hlen : Δ.length = d)
+    (hcl : ∀ A ∈ Δ, VExpr.Closed A)
+    (hslot : ∀ l ∈ e.fvarLeaves, l.1 < d ∧
+      Expr.fvarsBelow l.1 l.2.2 ∧
+      denote cval env φ d l.2.2
+        = some (Δ.getD (d - 1 - l.1) default)) :
+    CtxOkR μ cval env φ d Δ e := by
+  refine ⟨hlen, fun l hl => ?_⟩
+  obtain ⟨hlt, hfb, hden⟩ := hslot l hl
+  have hidx : d - 1 - l.1 < Δ.length := by rw [hlen]; omega
+  have hget : Δ[d - 1 - l.1]?
+      = some (Δ.getD (d - 1 - l.1) default) := by
+    rw [List.getD, List.getElem?_eq_getElem hidx]
+    rfl
+  have hAcl : VExpr.Closed (Δ.getD (d - 1 - l.1) default) :=
+    hcl _ (List.mem_of_getElem? hget)
+  refine ⟨hlt, hfb, _, hden, _, ?_, DefEq.refl⟩
+  have := Infer.bvar (μ := μ) (env := env) (cval := cval) (φ := φ) hget
+  rwa [VExpr.liftN_eq_self_of_closed hAcl] at this
+
+/-- **The canonical constant context** — `pinnedCtx`'s homogeneous
+case: every entry is one closed valuation `A`, and every leaf carries
+the same annotation denoting it. -/
 theorem CtxOkR.constCtx {d : Nat} {ty : Expr} {A : VExpr}
     {e : Expr}
     (hA : VExpr.Closed A)
@@ -283,18 +306,17 @@ theorem CtxOkR.constCtx {d : Nat} {ty : Expr} {A : VExpr}
     (htyfb : Expr.fvarsBelow 0 ty)
     (hleaves : ∀ l ∈ e.fvarLeaves, l.1 < d ∧ l.2.2 = ty) :
     CtxOkR μ cval env φ d (List.replicate d A) e := by
-  refine ⟨by rw [List.length_replicate], fun l hl => ?_⟩
+  refine CtxOkR.pinnedCtx (by rw [List.length_replicate])
+    (fun B hB => by
+      rw [List.eq_of_mem_replicate hB]; exact hA)
+    (fun l hl => ?_)
   obtain ⟨hlt, hlty⟩ := hleaves l hl
   have hfb : Expr.fvarsBelow l.1 l.2.2 := by
     rw [hlty]
     exact Expr.fvarsBelow_mono (Nat.zero_le _) htyfb
-  have hden : denote cval env φ d l.2.2 = some A := by
-    rw [hlty]; exact hty
-  refine ⟨hlt, hfb, A, hden, A, ?_, DefEq.refl⟩
-  have hget : (List.replicate d A)[d - 1 - l.1]? = some A := by
-    rw [List.getElem?_replicate]
-    rw [if_pos (show d - 1 - l.1 < d from by omega)]
-  have := Infer.bvar (μ := μ) (env := env) (cval := cval) (φ := φ) hget
-  rwa [VExpr.liftN_eq_self_of_closed hA] at this
+  refine ⟨hlt, hfb, ?_⟩
+  rw [hlty, hty, List.getD, List.getElem?_replicate,
+    if_pos (show d - 1 - l.1 < d from by omega)]
+  rfl
 
 end Setlec.SetR
