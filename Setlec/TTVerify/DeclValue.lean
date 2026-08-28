@@ -61,28 +61,9 @@ theorem checkConstantVal_invT {env : Env} {cv cv' : ConstantVal}
       cv' = { cv with type := type } :=
   checkConstantVal_inv h
 
-/-! ## The valuation an install chooses
-
-At a fresh name, by the value's denotation; everywhere else unchanged.
-`EnvTT`'s `defn_eq` field is what fixes this — there is no other
-function that could satisfy it. -/
-
-/-- Extend a valuation at one name by a closed expression's
-denotation. -/
-def cvalAt (cval : TConstVal) (env : Env) (n : Name) (value : Expr) :
-    TConstVal := fun c ψ =>
-  if c = n then (denoteClosed cval env ψ value).getD (cval c ψ)
-  else cval c ψ
-
-theorem cvalAt_ne {cval : TConstVal} {env : Env} {n : Name} {value : Expr}
-    {c : Name} (h : c ≠ n) : cvalAt cval env n value c = cval c := by
-  funext ψ; simp [cvalAt, h]
-
-theorem cvalAt_self {cval : TConstVal} {env : Env} {n : Name}
-    {value : Expr} {ψ : Name → Nat} {v : VExpr}
-    (h : denoteClosed cval env ψ value = some v) :
-    cvalAt cval env n value n ψ = v := by
-  simp [cvalAt, h]
+/-! `cvalAt` (the valuation an install chooses) relocated to
+`Setlec/Verify/Denote/Install.lean` (task #148, T5) — the [set] lane's
+install steps use the same function. -/
 
 /-! ## The shared install
 
