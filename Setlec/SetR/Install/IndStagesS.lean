@@ -591,7 +591,7 @@ theorem zipperS {μ : CheckMode} {env : Env} {cval : TConstVal}
       denote cval env ψ' i (Expr.fvarTypeD x)
         = some (Γs.getD (rP + cnF - 1 - i) default))
     {fvsP : List Expr} (hfvsPlen : fvsP.length = rP)
-    (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
+    (_hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     {TV : VExpr} {ΓP : List VExpr} {RP : VExpr}
     (htowerP : PiTele rP TV ΓP RP)
     (hdomsP0 : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
@@ -600,7 +600,7 @@ theorem zipperS {μ : CheckMode} {env : Env} {cval : TConstVal}
     (hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
       ∃ nm ty, x = Expr.fvar i nm ty)
     {tyAR : Expr} (htyRw : tyAR.hasFvar = false)
-    (htyRb : tyAR.looseBVarsBounded 0 = true)
+    (_htyRb : tyAR.looseBVarsBounded 0 = true)
     {rdoms : List Expr} {rrest : Expr}
     (hrinst : Expr.instPisAt (fvs.take rP) tyAR = some (rdoms, rrest))
     (hrenP : ∀ n, n < rP →
