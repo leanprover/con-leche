@@ -1601,9 +1601,12 @@ Prop-valued function space, so a typing cannot separate `Eq α a` from
 wall goes away the naive route would work and `EqLawV` could stay at
 the three-fold clause.
 
-### Still open in c5: the unit law's value-vs-expression bridge
+### c5 COMPLETE — the unit law's value-vs-expression bridge, built
 
-`unitLawKeyS` is **not** written.  `UnitLawV` quantifies its two
+`unitLawKeyS` landed with the bridge below.  The record of the problem
+is kept because the bridge is reusable.
+
+`UnitLawV` quantifies its two members as **values**  `UnitLawV` quantifies its two
 members as **values** (`x y : V`) while the whole firing apparatus is
 `VExpr`-spine-based (`TeleFitV`/`chainE`/`hfit.appN_val` apply the
 theorem's inhabitant along a spine of `VExpr`s).  `EtaLawV` does not
@@ -1620,6 +1623,24 @@ given fit's memberships from `chainE ρ (xs.take m)` to
 diverge above it, so each tower domain needs `interp_congr_below`
 against its own `bvarsBelow m` (from `denote_bvarsBelow` on the
 binder's opened domain).  No `Sat`/`TeleFitV` transport lemma exists
-yet; that lemma — *`Sat` and `TeleFitV` are invariant under valuations
-agreeing below the context's depth* — is the piece to write, and it is
-reusable well beyond the unit law.
+yet — and it turned out **not to be needed as a lemma**: the transport
+is one `interp_congr_below` per position against
+**`PiTele.bvarsBelow`**, the piece that *was* missing and is now in the
+shared tier:
+
+> a `∀`-tower's `i`-th domain, over a subject bounded by `d`, mentions
+> no de Bruijn index at or above `d + i`.
+
+That is the general fact behind "a context entry only reads the
+context below it", it is a 25-line induction on `PiTele`, and it is
+what any future *"fire this statement at a valuation my caller
+supplies"* obligation will want.  Recording the shape: **when two
+valuations agree below a context's depth, `PiTele.bvarsBelow` +
+`interp_congr_below` is the transport — no `Sat`/`TeleFitV`
+congruence lemma is required.**
+
+The unit law is otherwise *easier* than the eta law, and the reason is
+worth one line: **both** of its sides are frame variables (`.bvar 1`
+and `.bvar 0`), whose binder domains `checkUnitThm` pins to the family
+application — so `Sat` supplies both memberships and finding 4's
+rigidity is not needed at all.  Only the eta law fabricates a side.

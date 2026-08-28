@@ -1,7 +1,7 @@
 import Setlec.SetR.Install.IndStagesS
 
 /-!
-# The eta law, from the checked `_model.eta` theorem (task #148, T5 c5)
+# The eta and unit laws, from their checked artifacts (task #148, T5 c5)
 
 `etaLawKeyS` is the [set] transpose of `eta_rule_fold`
 (`Setlec/Model/EtaInstall.lean`): the checked `T._model.eta` theorem,
@@ -533,5 +533,370 @@ theorem etaLawKeyS : EtaLawKeyS V := by
   show [interp V (chainE V ρ (xs ++ [B])) (VExpr.bvar 0)]
     = [interp V ρ B]
   rw [hchainMajor]
+
+/-! ## The unit-like law
+
+`UnitLawV` quantifies its two members as **values** where the firing
+apparatus is `VExpr`-spine-based, so the statement is fired at the
+valuation `cons y (cons x ρ)` with the parameter spine lifted past the
+two new slots: `.bvar 1` and `.bvar 0` then *are* the two members.  The
+only real cost is that the given fit lives at `chainE ρ (xs.take m)`
+while the fired one lives at `chainE ρ'' (zs''.take m)` — two
+valuations that agree exactly below `m` — which `interp_congr_below`
+crosses against `PiTele.bvarsBelow`. -/
+
+/-- **The unit-law key**: the checked `T._model.unitlike` theorem's kit
+and the type former's identifications yield the stored family's fired
+`UnitLawV`. -/
+def UnitLawKeyS (V : Type w) [SetTheory V] : Prop :=
+  ∀ {envS : Env} (mS : EnvS V envS)
+    {T : Name} {cvT : ConstantVal} {caps : IndCaps}
+    {lps : List Name} {nP : Nat}
+    (_hlps : cvT.levelParams = lps)
+    (_hnP : caps.unitParams = nP)
+    {tcv : ConstantVal} {tval : Expr}
+    (_hthmE : envS.find? ((T.str "_model").str "unitlike")
+      = some (.thmInfo tcv tval))
+    (_htlps : tcv.levelParams = lps)
+    {cvmT : ConstantVal} {mvalT : Expr} {hmT : ReducibilityHint}
+    (_hTmE : envS.find? (T.str "_model")
+      = some (.defnInfo cvmT mvalT hmT))
+    (_hTmlps : cvmT.levelParams = lps)
+    (_heqfE : envS.find? eqName = some eqA)
+    {sbinders tbindersM : List (Name × Expr × BinderMeta)}
+    {sbody tbodyM tySlot : Expr} {ℓA : Level}
+    (_hSstrip : tcv.type.stripPis (nP + 2) = some (sbinders, sbody))
+    (_hTstrip : cvmT.type.stripPis nP = some (tbindersM, tbodyM))
+    (_hsdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
+      sbinders[k]? = some b → tbindersM[k]? = some b' →
+      b.2.1 = b'.2.1)
+    (_hxdom : ∃ nx mx, sbinders[nP]? = some (nx,
+      Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+        ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx))
+    (_hydom : ∃ ny my, sbinders[nP + 1]? = some (ny,
+      Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+        ((List.range nP).map fun k => Expr.bvar (nP - k)), my))
+    (_hsbody : sbody = Expr.mkAppN (.const eqName [ℓA])
+      [tySlot, .bvar 1, .bvar 0])
+    (_htySlot : tySlot = Expr.mkAppN (.const (T.str "_model")
+        (lps.map .param))
+      ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)))
+    (_hvT : ∀ ψ : Name → Nat, mS.cval T ψ = mS.cval (T.str "_model") ψ)
+    {fb : Name → Name} (_hroB : RenameOkT mS.cval envS fb)
+    (_hrenT : RenEqT fb cvT.type cvmT.type),
+    UnitLawV V envS mS.cval T cvT caps
+
+set_option maxHeartbeats 12800000 in
+theorem unitLawKeyS : UnitLawKeyS V := by
+  intro envS mS T cvT caps lps nP hlps hnP tcv tval hthmE htlps cvmT
+    mvalT hmT hTmE hTmlps heqfE sbinders tbindersM sbody tbodyM tySlot
+    ℓA hSstrip hTstrip hsdoms hxdom hydom hsbody htySlot hvT fb hroB
+    hrenT
+  subst hlps
+  intro φ' us ρ xs TV rest x y hlenX hTVden hfitT hx hy
+  rw [hnP] at hlenX
+  have hcl' := mS.cval_closed
+  have hvp : ValParams envS mS.cval := mS.val_params
+  obtain ⟨ψ', hψ'⟩ : ∃ ψ' : Name → Nat,
+      ψ' = Level.substFn φ' cvT.levelParams us := ⟨_, rfl⟩
+  rw [← hψ'] at hx hy
+  have henv := mS.toHyp ψ'
+  -- ===== the statement's front doors and tower =====
+  obtain ⟨Tst, hTstden, hTstFacts⟩ :=
+    mS.mem_type (.thmInfo tcv tval) (find?_mem hthmE) ψ'
+  have hTst0 : denote mS.cval envS ψ' 0 tcv.type = some Tst := hTstden
+  obtain ⟨Γs, Rbody, htowerS, hΓslen, hRbodyDen, hdomsS⟩ :=
+    stripPis_denoteTele (nP + 2) hSstrip hTst0
+  have hTV0 : denote mS.cval envS ψ' 0 cvmT.type = some TV := by
+    have h := hTVden
+    unfold denoteClosed at h
+    rw [denote_instLevels hvp] at h
+    rw [← hψ'] at h
+    rw [RenEqT.denote (cval := mS.cval) (env := envS) (φ := ψ')
+      hroB hrenT 0]
+    exact h
+  obtain ⟨Γm, Rm, htowerM, hΓmlen, hRmDen, hdomsM⟩ :=
+    stripPis_denoteTele nP hTstrip hTV0
+  obtain ⟨hTmw, -, -, hTmb, -⟩ := mS.wf _ (find?_mem hTmE)
+  have hTVcl : VExpr.Closed TV := denote_closed hcl' hTmw hTmb hTV0
+  have hΓsdrop : Γs.drop 2 = Γm := by
+    refine towerCtxEq (cval := mS.cval) (env := envS) (ψ := ψ')
+      (rbinders := sbinders.take nP) (cbinders := tbindersM)
+      (by rw [List.length_take, Expr.stripPis_length _ hSstrip]; omega)
+      (Expr.stripPis_length _ hTstrip)
+      (by rw [List.length_drop, hΓslen]; omega) hΓmlen ?_ hdomsM ?_
+    · intro i0 b hb
+      have hi0 : i0 < nP := by
+        have := (List.getElem?_eq_some_iff.mp hb).1
+        rw [List.length_take, Expr.stripPis_length _ hSstrip] at this
+        omega
+      rw [List.getElem?_take_of_lt hi0] at hb
+      rw [hdomsS i0 b hb]
+      congr 1
+      rw [List.getD, List.getD, List.getElem?_drop,
+        show 2 + (nP - 1 - i0) = nP + 2 - 1 - i0 from by omega]
+    · intro i0 b b' hi0 hb hb'
+      rw [List.getElem?_take_of_lt hi0] at hb
+      exact hsdoms i0 b b' hi0 hb hb'
+  -- ===== the fired spine, at the extended valuation =====
+  obtain ⟨ρ2, hρ2⟩ : ∃ ρ2 : Nat → V,
+      ρ2 = cons V y (cons V x ρ) := ⟨_, rfl⟩
+  have hshift : shiftE V 2 0 ρ2 = ρ := by
+    rw [hρ2, shiftE_zero]
+    funext i
+    rfl
+  have hlift : ∀ a : VExpr, interp V ρ2 (a.liftN 2) = interp V ρ a := by
+    intro a
+    rw [interp_liftN, hshift]
+  obtain ⟨zs, hzs⟩ : ∃ zs : List VExpr,
+      zs = xs.map (fun a => a.liftN 2) ++ [VExpr.bvar 1, VExpr.bvar 0] :=
+    ⟨_, rfl⟩
+  have hzslen : zs.length = nP + 2 := by
+    rw [hzs, List.length_append, List.length_map, hlenX]
+    rfl
+  have hzsPre : ∀ m, m < nP →
+      interp V ρ2 (zs.getD m default) = interp V ρ (xs.getD m default) := by
+    intro m hm
+    rw [hzs, List.getD, List.getElem?_append_left
+      (by rw [List.length_map, hlenX]; omega), List.getElem?_map]
+    rcases hxm : xs[m]? with _ | a
+    · rw [List.getElem?_eq_none_iff, hlenX] at hxm
+      omega
+    · rw [List.getD, hxm]
+      exact hlift a
+  have hzsX : interp V ρ2 (zs.getD nP default) = x := by
+    rw [hzs, List.getD, List.getElem?_append_right
+      (by rw [List.length_map, hlenX]; omega),
+      List.length_map, hlenX, Nat.sub_self]
+    show interp V ρ2 (VExpr.bvar 1) = x
+    rw [interp_bvar, hρ2]
+    rfl
+  have hzsY : interp V ρ2 (zs.getD (nP + 1) default) = y := by
+    rw [hzs, List.getD, List.getElem?_append_right
+      (by rw [List.length_map, hlenX]; omega),
+      List.length_map, hlenX,
+      show nP + 1 - nP = 1 from by omega]
+    show interp V ρ2 (VExpr.bvar 0) = y
+    rw [interp_bvar, hρ2]
+    rfl
+  have hchainAgree : ∀ m, m ≤ nP → ∀ j, j < m →
+      chainE V ρ2 (zs.take m) j = chainE V ρ (xs.take m) j := by
+    intro m hm j hj
+    have h1 : (zs.take m).length = m := by
+      rw [List.length_take, hzslen]
+      omega
+    have h2 : (xs.take m).length = m := by
+      rw [List.length_take, hlenX]
+      omega
+    rw [chainE_lt (by omega), chainE_lt (by omega), h1, h2,
+      show (zs.take m).getD (m - 1 - j) default
+        = zs.getD (m - 1 - j) default from by
+        rw [List.getD, List.getD, List.getElem?_take_of_lt (by omega)],
+      show (xs.take m).getD (m - 1 - j) default
+        = xs.getD (m - 1 - j) default from by
+        rw [List.getD, List.getD, List.getElem?_take_of_lt (by omega)]]
+    exact hzsPre _ (by omega)
+  -- the opened family application, denoted
+  have hconstDen : ∀ (c : Name) (ci : ConstantInfo) (d : Nat),
+      envS.find? c = some ci →
+      ci.toConstantVal.levelParams = cvT.levelParams →
+      denote mS.cval envS ψ' d
+          (Expr.const c (cvT.levelParams.map .param))
+        = some (mS.cval c ψ') := by
+    intro c ci d hf hlp
+    rw [denote_const, hf]
+    dsimp only
+    rw [if_pos (by rw [hlp, List.length_map]), hlp,
+      show Level.substFn ψ' cvT.levelParams
+          (cvT.levelParams.map .param) = ψ' from
+        funext fun _ => Level.substFn_map_param]
+  have hfamDen : ∀ m : Nat, nP ≤ m →
+      denote mS.cval envS ψ' (0 + m)
+          (Expr.instSeq (openFvars 0 m) (m - 1)
+            (Expr.mkAppN (.const (T.str "_model")
+              (cvT.levelParams.map .param))
+              ((List.range nP).map fun k => Expr.bvar (m - 1 - k))))
+        = some (VExpr.mkAppN (mS.cval (T.str "_model") ψ')
+            ((List.range nP).map fun k => VExpr.bvar (m - 1 - k))) := by
+    intro m hm
+    rw [Nat.zero_add, Expr.instSeq_mkAppN, List.map_map,
+      Expr.instSeq_eq_self _ _ rfl]
+    refine denote_mkAppN ?_ (hconstDen _ _ _ hTmE hTmlps)
+    refine DenoteSpine.map (fun k hk => ?_)
+    have hk' : k < nP := List.mem_range.mp hk
+    show denote mS.cval envS ψ' m
+        (Expr.instSeq (openFvars 0 m) (m - 1) (Expr.bvar (m - 1 - k)))
+      = some (VExpr.bvar (m - 1 - k))
+    have hhit := Expr.instSeq_bvar (openFvars 0 m) (m - 1) (m - 1 - k)
+      (openFvars_bounded 0 m) (by omega)
+      (by rw [openFvars_length]; omega)
+    rw [show m - 1 - (m - 1 - k) = k from by omega,
+      openFvars_getElem? (d := 0) (k := m) (i := k) (by omega)] at hhit
+    rw [← Option.some.inj hhit, denote_fvar,
+      show (0 : Nat) + k = k from by omega]
+  -- the family application at the parameters, read at any prefix chain
+  have hslotVal : ∀ (m : Nat), m ≤ nP + 2 → nP ≤ m →
+      interp V (chainE V ρ2 (zs.take m))
+        (VExpr.mkAppN (mS.cval (T.str "_model") ψ')
+          ((List.range nP).map fun k => VExpr.bvar (m - 1 - k)))
+        = interp V ρ (VExpr.mkAppN (mS.cval T ψ') xs) := by
+    intro m hm hnm
+    have hlen : (zs.take m).length = m := by
+      rw [List.length_take, hzslen]
+      omega
+    rw [interp_mkAppN_map, interp_mkAppN_map, hvT,
+      interp_closed V (hcl' (T.str "_model") ψ')
+        (chainE V ρ2 (zs.take m)) ρ]
+    refine congrArg _ ?_
+    refine List.ext_getElem (by simp [hlenX]) ?_
+    intro q h1 h2
+    have hq : q < nP := by simpa using h1
+    rw [List.getElem_map, List.getElem_map, List.getElem_range,
+      interp_bvar, chainE_lt (by rw [hlen]; omega), hlen,
+      show m - 1 - (m - 1 - q) = q from by omega,
+      show (zs.take m).getD q default = zs.getD q default from by
+        rw [List.getD, List.getD, List.getElem?_take_of_lt (by omega)],
+      hzsPre q hq, List.getD,
+      List.getElem?_eq_getElem (show q < xs.length from by omega),
+      List.getElem_map]
+    rfl
+  -- ===== the memberships of the fired spine =====
+  have hchainM := teleFitV_to_chain nP htowerM hlenX hfitT
+  obtain ⟨nx, mx, hxb⟩ := hxdom
+  obtain ⟨ny, my, hyb⟩ := hydom
+  have hΓsX : Γs.getD 1 default
+      = VExpr.mkAppN (mS.cval (T.str "_model") ψ')
+        ((List.range nP).map fun k => VExpr.bvar (nP - 1 - k)) := by
+    have hd := hdomsS nP _ hxb
+    dsimp only at hd
+    rw [show nP + 2 - 1 - nP = 1 from by omega] at hd
+    exact (Option.some.inj
+      ((hfamDen nP (Nat.le_refl _)).symm.trans hd)).symm
+  have hΓsY : Γs.getD 0 default
+      = VExpr.mkAppN (mS.cval (T.str "_model") ψ')
+        ((List.range nP).map fun k => VExpr.bvar (nP + 1 - 1 - k)) := by
+    have hd := hdomsS (nP + 1) _ hyb
+    dsimp only at hd
+    rw [show nP + 2 - 1 - (nP + 1) = 0 from by omega] at hd
+    exact (Option.some.inj
+      ((hfamDen (nP + 1) (by omega)).symm.trans hd)).symm
+  have hallK : ∀ m, m < nP + 2 →
+      interp V ρ2 (zs.getD m default)
+        ∈ˢ interp V (chainE V ρ2 (zs.take m))
+          (Γs.getD (nP + 2 - 1 - m) default) := by
+    intro m hm
+    rcases Nat.lt_or_ge m nP with hmn | hmn
+    · rw [hzsPre m hmn,
+        show nP + 2 - 1 - m = 2 + (nP - 1 - m) from by omega,
+        show Γs.getD (2 + (nP - 1 - m)) default
+            = (Γs.drop 2).getD (nP - 1 - m) default from by
+          rw [List.getD, List.getD, List.getElem?_drop],
+        hΓsdrop,
+        interp_congr_below V _ m (chainE V ρ2 (zs.take m))
+          (chainE V ρ (xs.take m))
+          (by
+            have h := PiTele.bvarsBelow htowerM hTVcl m hmn
+            rwa [Nat.zero_add] at h)
+          (fun j hj => hchainAgree m (by omega) j hj)]
+      exact hchainM m hmn
+    · rcases Nat.lt_or_ge m (nP + 1) with hmx | hmy
+      · rw [show m = nP from by omega, hzsX,
+          show nP + 2 - 1 - nP = 1 from by omega, hΓsX,
+          hslotVal nP (by omega) (Nat.le_refl _)]
+        exact hx
+      · rw [show m = nP + 1 from by omega, hzsY,
+          show nP + 2 - 1 - (nP + 1) = 0 from by omega, hΓsY,
+          hslotVal (nP + 1) (by omega) (by omega)]
+        exact hy
+  have hsat : Sat V Γs (chainE V ρ2 zs) :=
+    sat_of_tower htowerS hzslen hallK
+  have hfitS : TeleFitV V ρ2 Tst zs
+      (VExpr.instSeq zs (nP + 2 - 1) Rbody) :=
+    teleFitV_of_tower (nP + 2) htowerS hzslen hallK
+  -- ===== the opened body is the pinned `Eq` spine =====
+  rw [hsbody, Expr.instSeq_mkAppN, Nat.zero_add,
+    Expr.instSeq_eq_self (openFvars 0 (nP + 2)) (nP + 2 - 1)
+      (e := Expr.const eqName [ℓA]) rfl] at hRbodyDen
+  simp only [List.map_cons, List.map_nil] at hRbodyDen
+  have hbvarDen : ∀ j, j ≤ nP + 1 →
+      denote mS.cval envS ψ' (nP + 2)
+        (Expr.instSeq (openFvars 0 (nP + 2)) (nP + 2 - 1) (Expr.bvar j))
+        = some (VExpr.bvar j) := by
+    intro j hj
+    have hhit := Expr.instSeq_bvar (openFvars 0 (nP + 2)) (nP + 2 - 1) j
+      (openFvars_bounded 0 (nP + 2)) (by omega)
+      (by rw [openFvars_length]; omega)
+    rw [openFvars_getElem? (d := 0) (k := nP + 2)
+      (i := nP + 2 - 1 - j) (by omega)] at hhit
+    rw [← Option.some.inj hhit, denote_fvar,
+      show nP + 2 - 1 - (0 + (nP + 2 - 1 - j)) = j from by omega]
+  have hslotD : denote mS.cval envS ψ' (nP + 2)
+      (Expr.instSeq (openFvars 0 (nP + 2)) (nP + 2 - 1) tySlot)
+      = some (VExpr.mkAppN (mS.cval (T.str "_model") ψ')
+          ((List.range nP).map fun k => VExpr.bvar (nP + 2 - 1 - k))) := by
+    rw [htySlot]
+    have h := hfamDen (nP + 2) (by omega)
+    rw [Nat.zero_add] at h
+    exact h
+  have hztake : zs.take (nP + 2) = zs :=
+    List.take_of_length_le (by rw [hzslen]; omega)
+  -- ===== the sides' memberships =====
+  have hsides : ∀ vα vL vR,
+      denote mS.cval envS ψ' (nP + 2)
+        (Expr.instSeq (openFvars 0 (nP + 2)) (nP + 2 - 1) tySlot)
+        = some vα →
+      denote mS.cval envS ψ' (nP + 2)
+        (Expr.instSeq (openFvars 0 (nP + 2)) (nP + 2 - 1) (.bvar 1))
+        = some vL →
+      denote mS.cval envS ψ' (nP + 2)
+        (Expr.instSeq (openFvars 0 (nP + 2)) (nP + 2 - 1) (.bvar 0))
+        = some vR →
+      interp V (chainE V ρ2 zs) vα ∈ˢ univ (ℓA.eval ψ') →
+      interp V (chainE V ρ2 zs) vL ∈ˢ interp V (chainE V ρ2 zs) vα ∧
+      interp V (chainE V ρ2 zs) vR ∈ˢ interp V (chainE V ρ2 zs) vα := by
+    intro vα vL vR hvα hvL hvR _
+    obtain rfl : vα = VExpr.mkAppN (mS.cval (T.str "_model") ψ')
+        ((List.range nP).map fun k => VExpr.bvar (nP + 2 - 1 - k)) := by
+      rw [hslotD] at hvα
+      exact (Option.some.inj hvα).symm
+    obtain rfl : vL = VExpr.bvar 1 := by
+      rw [hbvarDen 1 (by omega)] at hvL
+      exact (Option.some.inj hvL).symm
+    obtain rfl : vR = VExpr.bvar 0 := by
+      rw [hbvarDen 0 (by omega)] at hvR
+      exact (Option.some.inj hvR).symm
+    have hslotFull : interp V (chainE V ρ2 zs)
+        (VExpr.mkAppN (mS.cval (T.str "_model") ψ')
+          ((List.range nP).map fun k => VExpr.bvar (nP + 2 - 1 - k)))
+        = interp V ρ (VExpr.mkAppN (mS.cval T ψ') xs) := by
+      have h := hslotVal (nP + 2) (Nat.le_refl _) (by omega)
+      rwa [hztake] at h
+    have hxv : interp V (chainE V ρ2 zs) (VExpr.bvar 1) = x := by
+      rw [interp_bvar, chainE_lt (by rw [hzslen]; omega), hzslen,
+        show nP + 2 - 1 - 1 = nP from by omega]
+      exact hzsX
+    have hyv : interp V (chainE V ρ2 zs) (VExpr.bvar 0) = y := by
+      rw [interp_bvar, chainE_lt (by rw [hzslen]; omega), hzslen,
+        show nP + 2 - 1 - 0 = nP + 1 from by omega]
+      exact hzsY
+    rw [hslotFull, hxv, hyv]
+    exact ⟨hx, hy⟩
+  -- ===== fire the checked equation =====
+  obtain ⟨vα, vL, vR, hvα, hvL, hvR, heqLR⟩ :=
+    fireS henv mS.eq_lawV heqfE htowerS
+      (fun ρ0 => (hTstFacts ρ0).2) (fun ρ0 => ⟨_, (hTstFacts ρ0).1⟩)
+      hRbodyDen rfl hsides hzslen hsat hfitS
+  obtain rfl : vL = VExpr.bvar 1 := by
+    rw [hbvarDen 1 (by omega)] at hvL
+    exact (Option.some.inj hvL).symm
+  obtain rfl : vR = VExpr.bvar 0 := by
+    rw [hbvarDen 0 (by omega)] at hvR
+    exact (Option.some.inj hvR).symm
+  rw [interp_bvar, interp_bvar, chainE_lt (by rw [hzslen]; omega),
+    chainE_lt (by rw [hzslen]; omega), hzslen,
+    show nP + 2 - 1 - 1 = nP from by omega,
+    show nP + 2 - 1 - 0 = nP + 1 from by omega] at heqLR
+  rw [← hzsX, ← hzsY]
+  exact heqLR
 
 end Setlec.SetR

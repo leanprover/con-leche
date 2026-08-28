@@ -1482,6 +1482,40 @@ theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
           rw [show (0 : Nat) + i0 = i0 from by omega] at h1
           exact h1
 
+/-- **A tower's domains are bounded by their own depth**: the `i`-th
+domain of a `∀`-tower over a subject bounded by `d` mentions no de
+Bruijn index at or above `d + i`.  (Task #148, T5 c5: what lets a
+context's interpretation be transported across two valuations that
+agree only *below* the context's depth — the unit law fires at a
+valuation extended by its two members.) -/
+theorem PiTele.bvarsBelow :
+    ∀ {k : Nat} {T : VExpr} {Γ : List VExpr} {R : VExpr},
+      PiTele k T Γ R → ∀ {d : Nat}, VExpr.bvarsBelow d T →
+      ∀ i, i < k → VExpr.bvarsBelow (d + i)
+        (Γ.getD (k - 1 - i) default) := by
+  intro k T Γ R h
+  induction h with
+  | nil => intro d _ i hi; exact nomatch hi
+  | @cons k A B R Γ hp ih =>
+    intro d hb i hi
+    have hbA : VExpr.bvarsBelow d A := hb.1
+    have hbB : VExpr.bvarsBelow (d + 1) B := hb.2
+    have hΓlen : Γ.length = k := hp.length
+    cases i with
+    | zero =>
+      rw [show k + 1 - 1 - 0 = k from by omega, List.getD,
+        List.getElem?_append_right (by rw [hΓlen]; omega), hΓlen,
+        Nat.sub_self]
+      exact hbA
+    | succ j =>
+      have hjk : j < k := by omega
+      rw [show k + 1 - 1 - (j + 1) = k - 1 - j from by omega, List.getD,
+        List.getElem?_append_left (by rw [hΓlen]; omega)]
+      have h1 := ih hbB j hjk
+      rw [List.getD] at h1
+      rw [show d + (j + 1) = d + 1 + j from by omega]
+      exact h1
+
 /-- A `PiTele` is determined by its arity and tower. -/
 theorem PiTele.det : ∀ {k : Nat} {T : VExpr} {Γ Γ' : List VExpr}
     {R R' : VExpr}, PiTele k T Γ R → PiTele k T Γ' R' →
