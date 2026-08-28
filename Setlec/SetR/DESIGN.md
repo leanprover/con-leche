@@ -4736,3 +4736,28 @@ the *scaffolding*.  The rule:
 Concretely for T6: `iotaThmR_of` is **not landed**, and will not be
 until the six rows are written.  Everything about them is traced; what
 is missing is the writing, and no signature trick substitutes for it.
+
+### …and the backstop that does exist
+
+Two additions to the near-miss record, both from the review:
+
+**1. The assembly is the vacuity gate for scaffolding.**  A
+false-premised helper cannot survive to the fourteen: the final
+theorems are hypothesis-free modulo `EnvS` and the mode
+configuration, and nobody downstream can discharge `False`.  So the
+*product* is structurally protected — the exposure window is exactly
+the interval in which a helper is claimed as "landed" while the
+assembly that would expose it is unwritten.  In a campaign whose
+cadence is per-stretch landings across compaction boundaries, that
+window is the whole working period, and the interim claims are what
+the coordinator reads.  The rule above closes precisely that window;
+it does not add a guarantee the endgame lacks.
+
+**2. Audit when the rule changes, not only when the code does.**
+Having written the rule, I re-checked every hypothesis I had
+parameterised across T6's stretches for a named discharger.  All
+clean — but they had been *unchecked*, which is a different state from
+*checked and clean*, and only the second is evidence.  A new rule
+applies retroactively to the work already done under its absence;
+running that pass is part of adopting the rule, not optional
+diligence.
