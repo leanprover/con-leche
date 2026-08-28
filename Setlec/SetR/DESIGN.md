@@ -3753,8 +3753,8 @@ construct an `EnvR` until the assembly did.
 
 ### T6 handoff — the ordered remainder
 
-1. **`ConstantValR` / `ValueFrontR` bridges** (the tier's bulk, and the
-   gate for four of the six branches).  Ingredients: `checkConstantVal_inv`
+1. ~~**`ConstantValR` / `ValueFrontR` bridges**~~ **LANDED** — the gate
+   for four of the six branches.  Ingredients: `checkConstantVal_inv`
    and `fueledOps_*` (`Verify/Extend/Inversions.lean`) for the syntactic
    conjuncts; `checkBridge` (`Bridge/Main.lean`) at `EnvS.toEnvR` for the
    `Infer`/`DefEq` conjuncts; the `denoteClosed` existentials come from
@@ -3787,3 +3787,30 @@ construct an `EnvR` until the assembly did.
    `not_mem_empty`.
 6. **Axiom audit** on all of them, then the checkpoint commit with BOTH
    lanes green.
+
+### T6 progress — the front doors are through
+
+`constantValR_of` and `valueFrontR_of` land in `Bridge/Decl.lean`, with
+`closed0_framesR`.  Both are the same script the TT lane's `value_key`
+runs, re-aimed at the relation family: `checkConstantVal_inv` (or the
+branch's own `annotate` inversion) for the syntactic conjuncts, then
+`checkBridge` at `EnvS.toEnvR` for the `Infer`/`DefEq` ones, at an
+arbitrary `φ`.
+
+Two shape notes for the branches that consume them:
+
+* `constantValR_of` returns the annotated type's **two closedness
+  facts** beside the relation — every branch needs them for its own
+  value front door and for `EnvWF`, and re-deriving them per branch is
+  the duplication the TT lane accumulated.
+* `valueFrontR_of` takes the `ConstantValR` as a hypothesis rather
+  than re-deriving the type's denotation: `ValueFrontR` asks for
+  `denoteClosed … type' = some Tv`, which is exactly what
+  `ConstantValR`'s own `∀ φ` component already produced.  Nothing in
+  the checker's value branch re-infers the type.
+
+The `thm` branch's extra conjunct (`DefEq … sT (.sort 0)`) is
+`ConstantValR`'s last component at `u.eval φ = 0`, and
+`Level.isEquiv_sound` (`Verify/Level.lean:314`) supplies that from the
+checker's `Level.isEquiv u .zero` guard — checked, so the branch is
+unblocked.
