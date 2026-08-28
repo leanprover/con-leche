@@ -351,10 +351,12 @@ install fold's accumulator is the provisioning's accumulator with some
 of the group's recursors already ruled, which is a swap
 correspondence (`FoldUpS`), never an inclusion. -/
 theorem indRecsFoldS {μ : CheckMode} {F : Nat} {blockNames : List Name}
-    {envSelf : Env} (mS : EnvS V envSelf)
+    {envSelf envBase : Env} (mS : EnvS V envSelf)
     (hIS : BlockInstalledTT blockNames envSelf mS.cval)
     (hro : RenameOkT mS.cval envSelf (fun n =>
-      if blockNames.contains n then n.str "_model" else n)) :
+      if blockNames.contains n then n.str "_model" else n))
+    (hupB : FoldUpS envBase envSelf)
+    (heqfB : envBase.find? eqName = some eqA) :
     ∀ (recs : List ConstantInfo) {envP envF env₃ : Env}
       {cvalF cval₃ : TConstVal}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
@@ -376,8 +378,8 @@ theorem indRecsFoldS {μ : CheckMode} {F : Nat} {blockNames : List Name}
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
       ProvisionRecsR μ F blockNames envP cvalF recs envSelf mS.cval
         checked →
-      IndRecsR.IndRecsFoldR μ F blockNames envSelf mS.cval envF cvalF
-        checked env₃ cval₃ →
+      IndRecsR.IndRecsFoldR μ F blockNames envBase envSelf mS.cval
+        envF cvalF checked env₃ cval₃ →
       SwapShList envSelf.consts env₃.consts ∧
       SwapNResS envSelf env₃ ∧
       mS.cval = cval₃ ∧
@@ -423,7 +425,7 @@ theorem indRecsFoldS {μ : CheckMode} {F : Nat} {blockNames : List Name}
       hcg.findUp eqName eqA heqP
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)
     -- this recursor's rules, fired
-    have hfacts := iotaRulesS mS rfl hro hIS hupF hbnA hselfA heqfF
+    have hfacts := iotaRulesS mS rfl hro hIS hupB hbnA hselfA heqfB
       0 rules rules' hiot
     -- the two accumulators advance in step
     have hfreshF : envF.find? cvA.name = none := by
@@ -604,7 +606,9 @@ theorem indRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
       · rw [if_neg hc]
   -- run the two folds in step
   obtain ⟨hswR, hnresR, rfl, hentR, hentF⟩ :=
-    indRecsFoldS mS hIS hro recs (SwapShList.of_eq env₂.consts)
+    indRecsFoldS mS hIS hro
+      (fun n ci hf => Or.inl (provisionRecsS_mono recs hprov n ci hf))
+      heqf recs (SwapShList.of_eq env₂.consts)
       (SwapNResS.of_eq env₂)
       (fun n ci hf => Or.inl (provisionRecsS_mono recs hprov n ci hf))
       (provisionRecsS_mono recs hprov) heqf

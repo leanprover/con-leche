@@ -5108,3 +5108,45 @@ Worth stating as a check, since the backstop is late by construction:
 the signature of the vacuity trap** — an `EnvR`/`EnvS`-free `cval` in
 a hypothesis about a semantic relation should be read as "unprovable"
 on sight, not at assembly time.
+
+### The vacuity sweep, and a base-environment correction
+
+**Sweep (clean).**  Applying the new early check — *a valuation with
+no invariant attached in a semantic hypothesis reads as unprovable on
+sight* — across `Setlec/SetR/*`: the only shape that matters is a
+**valuation bound *inside* a hypothesis**, not a valuation parameter
+of the theorem.  The discriminator is exactly what separated
+`projInstallR_of`'s `hfn : ∀ {e e' cval i}, …` (quantified inside, and
+so demanding the relation at *every* valuation) from `checkDeclR_of`'s
+`{cval}` (a theorem parameter the caller instantiates once at
+`m.cval`).  With that discriminator, the sweep over every `SetR`
+theorem binding a `TConstVal` returns **one hit and it is the one
+already retracted**; the `Install/*` helpers that take a `…R` relation
+at a free `cval` all conclude *syntactic* facts (freshness,
+monotonicity, name guards) and are P1-correct.
+
+**Correction found on the way into `indRecsRS`.**  `IndRecsFoldR`
+passed the running **accumulator** to `IotaRulesR`, but
+`checkIndRecs` runs every `checkIotaRules` at `env₂` — the fixed
+pre-group environment — and the accumulator only *collects* results.
+So the relation asked for a strengthening the checker does not
+deliver, and the bridge would have owed a monotonicity transport of
+`IotaRulesR`/`IotaRuleR`/`IotaThmR`/`IotaThmNR` along the accumulator.
+Worse, that transport is not even *true* without an extra pin: the
+inert branch needs `nestedRuleShape … = none` to survive, and
+`nestedRuleShape`'s only environment dependence is an `isSome` guard
+that a growing environment can flip.
+
+The previous stretch's rule decided it: **check which environment the
+consumer reads.**  `indRecsFoldS` consumes `IotaRulesR` only through
+`FoldUpS · envSelf` and `find? eqName`, both of which the *base*
+satisfies a fortiori.  So `IndRecsFoldR` now takes `envBase`
+explicitly and names it, `indRecsFoldS` takes `FoldUpS envBase
+envSelf` and the base's `Eq` lookup as fixed premises, and the
+accumulator keeps its real job — collecting the installed recursors.
+
+The general form is worth keeping beside the P2 line: **a fold's
+relation should name the environment its checker actually ran at, not
+the one its accumulator happens to be holding.**  The two coincide
+only at the first step, which is why this kind of slip survives every
+`nil`-case sanity check.

@@ -621,25 +621,31 @@ def IndRecsR (μ : CheckMode) (F : Nat)
    ∃ envSelf cvalSelf checked,
      ProvisionRecsR μ F blockNames env₂ cval₂ recs envSelf cvalSelf
        checked ∧
-     IndRecsFoldR μ F blockNames envSelf cvalSelf env₂ cval₂ checked
-       env₃ cval₃)
+     IndRecsFoldR μ F blockNames env₂ envSelf cvalSelf env₂ cval₂
+       checked env₃ cval₃)
 where
   /-- The install fold over the provisioned group.  The self
   environment and its valuation are the provisioning's output (the
   rules are checked against the whole group); the accumulator's
   valuation runs with the accumulator (finding 5, option 3). -/
-  IndRecsFoldR (μ : CheckMode) (F : Nat)
-      (blockNames : List Name) (envSelf : Env) (cvalSelf : TConstVal) :
+  IndRecsFoldR (μ : CheckMode) (F : Nat) (blockNames : List Name)
+      (envBase envSelf : Env) (cvalSelf : TConstVal) :
       Env → TConstVal → List (ConstantVal × Nat × Nat × List RecRule) →
       Env → TConstVal → Prop
     | acc, cval, [], out, cvalOut => out = acc ∧ cvalOut = cval
     | acc, cval, c :: rest, out, cvalOut =>
       ∃ rules',
-        IotaRulesR μ F acc envSelf cvalSelf
+        -- task #148 T6: the *base* environment, not the accumulator.
+        -- `checkIndRecs` runs every `checkIotaRules` at `env₂`; the
+        -- accumulator only collects the results.  Naming `acc` here
+        -- asked for a strengthening the checker does not deliver,
+        -- and the install consumes this only through `FoldUpS`,
+        -- which the base satisfies a fortiori.
+        IotaRulesR μ F envBase envSelf cvalSelf
           (fun n => if blockNames.contains n then n.str "_model" else n)
           c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
           rules' ∧
-        IndRecsFoldR μ F blockNames envSelf cvalSelf
+        IndRecsFoldR μ F blockNames envBase envSelf cvalSelf
           ⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩
           (cvalModeled cval c.1.name) rest out cvalOut
 
