@@ -1119,7 +1119,7 @@ theorem fireS {μ : CheckMode} {env : Env} {cval : TConstVal}
     (heqlaw : EqLawV V env cval)
     (heqfE : env.find? eqName = some eqA)
     {rP cnF : Nat} {fvs : List Expr}
-    (hfvslen : fvs.length = rP + cnF)
+    (_hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       ∃ nm ty, x = Expr.fvar i nm ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
