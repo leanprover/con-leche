@@ -52,9 +52,8 @@ theorem etaPins_empty {μ : CheckMode} {env : Env} {T : Name}
 
 set_option maxHeartbeats 3200000 in
 /-- **The modeled-inductive block install.** -/
-theorem declIndS (hkey : MemberKeyS V) (heta : MemberEtaS V) :
-    DeclIndS V := by
-  intro μ F env env₂ block m h
+theorem declIndS (hkey : MemberKeyS V) : DeclIndS V := by
+  intro μ F env env₂ block m hE h
   obtain ⟨hsplit, hmain⟩ := h
   -- list bookkeeping about the block's split
   have hbnAll : ∀ ci ∈ block,
@@ -70,9 +69,14 @@ theorem declIndS (hkey : MemberKeyS V) (heta : MemberEtaS V) :
       | .recInfo _ _ _ _ => true | _ => false),
       (block.map (·.name)).contains ci.name = true :=
     fun ci hci => hbnAll ci (List.mem_filter.mp hci).1
+  -- the eta side invariants at the base: the outside families are
+  -- closed by the fold's own invariant, and no block former is stored
+  -- yet (so the stored-pins invariant is vacuous)
+  have hEC0 : EtaFamiliesClosedO (block.map (·.name)) env :=
+    fun T cvT caps hf hcape hres _ => hE T cvT caps hf hcape hres
   -- the block invariant holds vacuously at the base: no block name is
   -- stored there, which is the two folds' freshness chains
-  have hI0gen : ∀ {caps : IndCaps} {envM envR : Env}
+  have hnostore : ∀ {caps : IndCaps} {envM envR : Env}
       {cvalM cvalR : TConstVal},
       IndMembersR μ F (block.map (·.name)) caps env m.cval
         (block.filter (fun ci => match ci with
@@ -80,9 +84,9 @@ theorem declIndS (hkey : MemberKeyS V) (heta : MemberEtaS V) :
       IndRecsR μ F (block.map (·.name)) envM cvalM
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => true | _ => false)) envR cvalR →
-      BlockInstalledTT (block.map (·.name)) env m.cval := by
+      ∀ n, (block.map (·.name)).contains n = true →
+        ∀ ci : ConstantInfo, env.find? n = some ci → False := by
     intro caps envM envR cvalM cvalR hmem hrecs n hn ci hf
-    exfalso
     have hmm : n ∈ block.map (·.name) := by simpa using hn
     obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmm
     rw [hsplit] at hci₀
@@ -92,6 +96,17 @@ theorem declIndS (hkey : MemberKeyS V) (heta : MemberEtaS V) :
     · have hup := indMembersR_mono _ hmem _ _ hf
       rw [indRecsR_fresh hrecs ci₀ hci₀] at hup
       exact nomatch hup
+  have hI0gen : ∀ {caps : IndCaps} {envM envR : Env}
+      {cvalM cvalR : TConstVal},
+      IndMembersR μ F (block.map (·.name)) caps env m.cval
+        (block.filter (fun ci => match ci with
+          | .recInfo _ _ _ _ => false | _ => true)) envM cvalM →
+      IndRecsR μ F (block.map (·.name)) envM cvalM
+        (block.filter (fun ci => match ci with
+          | .recInfo _ _ _ _ => true | _ => false)) envR cvalR →
+      BlockInstalledTT (block.map (·.name)) env m.cval :=
+    fun hmem hrecs n hn ci hf =>
+      absurd (hnostore hmem hrecs n hn ci hf) (fun h => h)
   -- every block name is stored after the member fold, or is a
   -- recursor the group installs
   have hallGen : ∀ {caps : IndCaps} {envM : Env} {cvalM : TConstVal},
@@ -152,17 +167,40 @@ theorem declIndS (hkey : MemberKeyS V) (heta : MemberEtaS V) :
       · exact (indRecsR_nameGuards hrecs ci₀ hx).1
     have hTnres : reservedBasisNames.contains cvT.name = false :=
       (indMembersR_nameGuards _ hmem _ hTnon).2
+    -- the run's projection freshness, pulled back to the base
+    have hmonoR : ∀ n, (env.find? n).isSome = true →
+        (envR.find? n).isSome = true := by
+      intro n hn
+      refine indRecsR_mono hrecs n ?_
+      rcases hf : env.find? n with _ | ci
+      · rw [hf] at hn; exact nomatch hn
+      · rw [indMembersR_mono _ hmem n ci hf]; rfl
+    have hpf0 : 0 < nF → env.find? (projFnName cvT.name 0) = none := by
+      intro h0
+      have hnone := List.all_eq_true.mp hprojFresh 0
+        (List.mem_range.mpr h0)
+      rcases hf : env.find? (projFnName cvT.name 0) with _ | ci
+      · rfl
+      · exfalso
+        have hs := hmonoR _ (by rw [hf]; rfl)
+        rcases hfR : envR.find? (projFnName cvT.name 0) with _ | ci'
+        · rw [hfR] at hs; exact nomatch hs
+        · rw [hfR] at hnone; exact nomatch hnone
+    have hBP0 : BlockEtaPinned μ (block.map (·.name)) env :=
+      fun n cvS capsS hnb hf _ =>
+        absurd (hnostore hmem hrecs n hnb _ hf) (fun h => h)
     -- the member fold
-    obtain ⟨m₁, hm₁cval, hI₁⟩ := indMembersS hkey heta _ m hbnNon
+    obtain ⟨m₁, hm₁cval, hI₁, hEC₁, hBP₁⟩ := indMembersS hkey _ m hbnNon
       (fun cv caps₂ hmm => by
         obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj
           (hsingle hIfilt (List.mem_filter.mp hmm).1 rfl)
-        exact etaPins_of_indBlockCaps)
-      hmem (hI0gen hmem hrecs)
+        exact ⟨etaPins_of_indBlockCaps, fun _ => hCblockN,
+          fun _ h0 => hpf0 h0⟩)
+      hmem (hI0gen hmem hrecs) hEC0 hBP0
     rw [← hm₁cval] at hrecs hI₁
     -- the recursor group
     obtain ⟨m₂, hm₂cval, hI₂, hnonrecUp, -, -⟩ :=
-      indRecsS hkey heta m₁ hI₁ hbnRec (hallGen hmem) hrecs
+      indRecsS hkey m₁ hI₁ hbnRec (hallGen hmem) hEC₁ hBP₁ hrecs
     rw [← hm₂cval] at hproj hI₂
     -- the stored former, identified
     have hidR : ∀ (cvT' : ConstantVal) (capsT' : IndCaps),
@@ -226,11 +264,16 @@ theorem declIndS (hkey : MemberKeyS V) (heta : MemberEtaS V) :
       (List.range nF) m₂ hproj hinvR hI₂ hpinsR hCblockR hFieldsR
     exact templatesS hTnres (List.range nF) m₃ htpl
   · -- the generic arm: an empty capability record
-    obtain ⟨m₁, hm₁cval, hI₁⟩ := indMembersS hkey heta _ m hbnNon
-      (fun cv caps₂ _ => etaPins_empty) hmem (hI0gen hmem hrecs)
+    have hBP0 : BlockEtaPinned μ (block.map (·.name)) env :=
+      fun n cvS capsS hnb hf _ =>
+        absurd (hnostore hmem hrecs n hnb _ hf) (fun h => h)
+    obtain ⟨m₁, hm₁cval, hI₁, hEC₁, hBP₁⟩ := indMembersS hkey _ m hbnNon
+      (fun cv caps₂ _ => ⟨etaPins_empty,
+        ⟨fun h => absurd h (by decide), fun h => absurd h (by decide)⟩⟩)
+      hmem (hI0gen hmem hrecs) hEC0 hBP0
     rw [← hm₁cval] at hrecs hI₁
-    obtain ⟨m₂, -, -, -, -, -⟩ := indRecsS hkey heta m₁ hI₁ hbnRec
-      (hallGen hmem) hrecs
+    obtain ⟨m₂, -, -, -, -, -⟩ := indRecsS hkey m₁ hI₁ hbnRec
+      (hallGen hmem) hEC₁ hBP₁ hrecs
     exact ⟨m₂⟩
 
 end Setlec.SetR

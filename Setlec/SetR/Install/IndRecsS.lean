@@ -148,6 +148,43 @@ theorem indRecsR_nameGuards {μ : CheckMode} {F : Nat}
   · intro ci hci; exact nomatch hci
   · exact provisionRecsS_nameGuards recs hprov
 
+/-- The install fold only extends the accumulator. -/
+theorem indRecsFoldR_mono {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {envBase envSelf : Env}
+    {cvalSelf : TConstVal} :
+    ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule))
+      {acc : Env} {cval : TConstVal} {out : Env} {cvalOut : TConstVal},
+      IndRecsR.IndRecsFoldR μ F blockNames envBase envSelf cvalSelf
+        acc cval checked out cvalOut →
+      ∀ n, (acc.find? n).isSome = true →
+        (out.find? n).isSome = true := by
+  intro checked
+  induction checked with
+  | nil =>
+    intro acc cval out cvalOut h n hn
+    obtain ⟨rfl, -⟩ := h
+    exact hn
+  | cons c rest ih =>
+    intro acc cval out cvalOut h n hn
+    obtain ⟨rules', -, htail⟩ := h
+    refine ih htail n ?_
+    rw [Env.find?_cons]
+    split
+    · rfl
+    · exact hn
+
+/-- The recursor group only extends the environment. -/
+theorem indRecsR_mono {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {env₂ env₃ : Env}
+    {cval₂ cval₃ : TConstVal} {recs : List ConstantInfo}
+    (h : IndRecsR μ F blockNames env₂ cval₂ recs env₃ cval₃) :
+    ∀ n, (env₂.find? n).isSome = true →
+      (env₃.find? n).isSome = true := by
+  rcases h with ⟨-, rfl, -⟩ | ⟨-, -, envSelf, cvalSelf, checked, -,
+    hfold⟩
+  · exact fun n hn => hn
+  · exact indRecsFoldR_mono checked hfold
+
 /-- No group member is stored before the group phase runs. -/
 theorem indRecsR_fresh {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
@@ -577,7 +614,7 @@ theorem RecRuleLawV.swapS {env₀ env₃ : Env} (hcg : SwapCongr env₀ env₃)
 
 set_option maxHeartbeats 3200000 in
 /-- **The recursor-group phase**: provision, fire, swap. -/
-theorem indRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
+theorem indRecsS (hkey : MemberKeyS V)
     {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo} {cval₃ : TConstVal}
@@ -585,6 +622,8 @@ theorem indRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true)
     (hall : ∀ n, blockNames.contains n = true →
       (env₂.find? n).isSome = true ∨ ∃ ci ∈ recs, ci.name = n)
+    (hEC : EtaFamiliesClosedO blockNames env₂)
+    (hBP : BlockEtaPinned μ blockNames env₂)
     (h : IndRecsR μ F blockNames env₂ m.cval recs env₃ cval₃) :
     ∃ m₃ : EnvS V env₃,
       m₃.cval = cval₃ ∧ BlockInstalledTT blockNames env₃ cval₃ ∧
@@ -602,8 +641,8 @@ theorem indRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
     hprov, hfold⟩
   · exact ⟨m, rfl, hI, fun n ci hf _ => hf, fun n hn => hn,
       fun ci hci => nomatch hci⟩
-  obtain ⟨mS, hmScval, hIS⟩ := provisionRecsS hkey heta recs m
-    hbn hprov hI
+  obtain ⟨mS, hmScval, hIS, -, -⟩ := provisionRecsS hkey recs m
+    hbn hprov hI hEC hBP
   rw [← hmScval] at hprov hfold hIS
   -- every block member is stored in the provisional environment
   have hnames : ∀ n, blockNames.contains n = true →

@@ -6432,3 +6432,90 @@ over `⟦Nonempty A⟧`, and `Model`'s `choiceVal` over `unitSet`/`empty`.
 `⟦Nonempty A⟧ = ¬¬A` by `prop_ext` (both live in `univ 0`) — the
 forward direction is `nonemptyVal_forces`, the backward one
 `nonemptyIntroVal_app₂_mem` plus `exists_mem_of_dneg`.
+
+### `MemberEtaS` retired — a threaded invariant, not a forwarded obligation
+
+`MemberEtaS` is **gone from the campaign's hypothesis list**, replaced
+by `memberEtaS`, an in-fold *theorem*.  What the fourteen carry in its
+place is `EtaClosedS`, which is a different animal: **`V`-free**, about
+`checkDecl` and `Env` only, with no `EnvS`, no `EtaLawV`, no valuation.
+The semantic content of the eta obligation is discharged; what remains
+is environment bookkeeping the Model lane already does.
+
+**The measurement was wrong twice, in the same direction.**  T6 sized
+this at "~260 lines of Model template", then corrected to "not
+dischargeable at its signature; an ~82-occurrence re-signing ripple".
+Both underestimated: the *signature* was not the blocker.  Reading the
+four rows of the §"not a member-fold discharge" table against what a
+fold can actually hold shows the live row is dischargeable in-fold —
+`EtaPins` is **already threaded** and carries `etaLawKeyS`'s entire
+premise list — and that the three dead rows die on facts that are
+invariants, not premises.
+
+**The three rows and their invariants:**
+
+| row | dies on |
+|---|---|
+| `projFnName T j = c₀.name` | the member's own `isProjFnShape = false` guard |
+| `T` stored *outside* the block, `caps.etaCtor = c₀.name` | `EtaFamiliesClosedO` — an outside former's constructor is already stored, and `c₀.name` is fresh |
+| `T` a block former, `etaFields > 0` | `BlockEtaPinned`'s third conjunct — the first projection is not stored, because the projection fold has not run |
+
+and the live row (`etaFields = 0`, the family completing at `T` or at
+its constructor) is `etaLawKeyS` with its projection premises vacuous —
+`memberUnitS`'s shape exactly.
+
+**`BlockEtaPinned` (new, `Verify/Extend/Iota.lean`)** is the piece the
+design was missing.  `EtaPins` speaks about the members *ahead* of the
+fold; the head obligation is about a family that may already be
+*behind* it.  So the fold needs a stored-side twin:
+
+```
+∀ n cvS capsS, blockNames.contains n → env.find? n = some (.indInfo cvS capsS) →
+  capsS.eta = true →
+  EtaPins mode env n cvS.levelParams capsS ∧
+    blockNames.contains capsS.etaCtor = true ∧
+    (0 < capsS.etaFields → env.find? (projFnName n 0) = none)
+```
+
+Three conjuncts, one per thing the discharge needs, all delivered
+*under* `capsS.eta = true` — which is what makes the generic
+(`caps = {}`) arm's supply vacuous instead of impossible.  **The
+freshness had to live inside this conjunction**: as a separate
+`BlockProjFresh` premise it was unconditional, and the generic arm
+could not supply it; as the third conjunct it is only ever asked for
+where the assembly's `hprojFresh` answers.  *Rule: an invariant's
+conditions belong where its consumer's hypotheses are, not beside it.*
+
+**What `EtaClosedS` costs and why it is not a regression.**  The
+outside-families row is the one fact a block fold provably cannot
+establish about itself: it is true one declaration earlier.  Threading
+it turns the fold's carrier into
+
+```
+def EnvSOk (V) [SetTheory V] (env : Env) : Prop :=
+  Nonempty (EnvS V env) ∧ EtaFamiliesClosed env
+```
+
+— a *bundle*, chosen over a second premise precisely because it keeps
+every fold's binder count unchanged (six folds across `Bridge/Sound`
+and `Main`, three of them state-carrying); only construction and
+consumption sites move.  The fourteen's public statements are
+untouched; `EtaClosedS` is a hypothesis exactly like the other four.
+
+**Landed:** `Verify/Extend/Iota.lean` (`BlockEtaPinned`,
+`projFnName_ne_of_shape`, `BlockEtaPinned.cons`),
+`Verify/Extend/Ind.lean` (`EtaFamiliesClosedO.cons`),
+`Install/IndRecsS.lean` (`indRecsFoldR_mono`, `indRecsR_mono` — the
+V-free monos that pull the run's projection freshness back to the
+block's base), `Install/IndMembersS.lean` (`memberEtaS`,
+`etaMemberData_step`), the threading through both lanes' four folds,
+and the two assemblies' base supplies.  `memberEtaS` stands at
+`[propext, Classical.choice, Quot.sound]`.
+
+**Open, and now purely syntactic:** `EtaClosedS`.  Its Model-lane twin
+is the second conjunct of `Model/Consistency.lean`'s `checkDecl_sound`
+— one `EtaFamiliesClosed.cons_nonind` per non-inductive branch, plus
+the block install's own former, whose `indBlockCaps.etaCtor` is a
+block member the member fold stores.  It is *interleaved* with the
+model construction there, so it is a re-derivation rather than a
+relocation; `Verify/DeclStores.lean` covers only `defn`/`thm`.

@@ -241,6 +241,24 @@ def BlockCapsPinned (blockNames : List Name) (caps : IndCaps)
     blockNames.contains n = true →
     env.find? n = some (.indInfo cvS capsS) → capsS = caps
 
+/-- The outside-families invariant steps at any fresh *block* install:
+a block name is never an outside former's name. -/
+theorem EtaFamiliesClosedO.cons {blockNames : List Name} {env : Env}
+    {c₀ : ConstantInfo} (h : EtaFamiliesClosedO blockNames env)
+    (hfresh : env.find? c₀.name = none)
+    (hbn : blockNames.contains c₀.name = true) :
+    EtaFamiliesClosedO blockNames ⟨c₀ :: env.consts⟩ := by
+  intro T cvT caps hfT hcape hres hTb
+  have hTne : T ≠ c₀.name := by
+    intro he
+    rw [he, hbn] at hTb
+    exact nomatch hTb
+  rw [Env.find?_cons, if_neg (fun hh => hTne hh.symm)] at hfT
+  obtain ⟨cvC, hfC⟩ := h T cvT caps hfT hcape hres hTb
+  exact ⟨cvC, by
+    rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
+    exact hfC⟩
+
 /-- The member fold only extends the environment: stored lookups stay
 stored. -/
 theorem checkIndFold_mono {blockNames : List Name} {caps : IndCaps} :

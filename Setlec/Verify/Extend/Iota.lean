@@ -1545,4 +1545,68 @@ theorem EtaPins.transport {env₁ env₂ : Env} {T : Name}
       tySlot, ℓA, hk _ _ _ hthm, h2, hkd _ _ _ _ hTm, h4,
       hke heqf, h6, h7, h8, h9, h10, h11, h12⟩
 
+
+/-! ## The block fold's eta side invariant
+
+`EtaPins` speaks about the members still *ahead* of a block fold; the
+eta head obligation at a member install is about a family that may
+already be stored, and about the run's projection freshness.  Both are
+`V`-free, both step at every install, and both are supplied at the
+assembly (`Setlec/SetR/DESIGN.md`, §"`MemberEtaS`: a threaded
+invariant, not a forwarded obligation"). -/
+
+/-- **Every stored eta-capable block former carries what its family's
+completion needs**: its `EtaPins`, a capability constructor that is
+itself a block member (so the block invariant's public/model
+identification reaches it), and — when it has fields — the freshness
+of its first projection, which is what makes a `etaFields > 0` family
+unable to complete before the projection fold runs. -/
+def BlockEtaPinned (mode : CheckMode) (blockNames : List Name)
+    (env : Env) : Prop :=
+  ∀ (n : Name) (cvS : ConstantVal) (capsS : IndCaps),
+    blockNames.contains n = true →
+    env.find? n = some (.indInfo cvS capsS) → capsS.eta = true →
+    EtaPins mode env n cvS.levelParams capsS ∧
+      blockNames.contains capsS.etaCtor = true ∧
+      (0 < capsS.etaFields → env.find? (projFnName n 0) = none)
+
+/-- A projection function's name is never a block member's: block
+members are guarded `isProjFnShape = false`. -/
+theorem projFnName_ne_of_shape {T n : Name} {j : Nat}
+    (h : n.isProjFnShape = false) : projFnName T j ≠ n := by
+  intro he
+  rw [← he] at h
+  simp [projFnName, Name.isProjFnShape] at h
+
+/-- The stored-pins invariant steps at any fresh install whose name is
+not projection-shaped, given the new member's own data when it is an
+eta-capable former. -/
+theorem BlockEtaPinned.cons {mode : CheckMode} {blockNames : List Name}
+    {env : Env} {c₀ : ConstantInfo}
+    (h : BlockEtaPinned mode blockNames env)
+    (hfresh : env.find? c₀.name = none)
+    (hshape : c₀.name.isProjFnShape = false)
+    (hnew : ∀ cvS capsS, c₀ = .indInfo cvS capsS → capsS.eta = true →
+      EtaPins mode env c₀.name cvS.levelParams capsS ∧
+        blockNames.contains capsS.etaCtor = true ∧
+        (0 < capsS.etaFields →
+          env.find? (projFnName c₀.name 0) = none)) :
+    BlockEtaPinned mode blockNames ⟨c₀ :: env.consts⟩ := by
+  have hup : ∀ n : Name, env.find? (projFnName n 0) = none →
+      (⟨c₀ :: env.consts⟩ : Env).find? (projFnName n 0) = none := by
+    intro n hn
+    rw [Env.find?_cons, if_neg (fun he =>
+      projFnName_ne_of_shape (T := n) (j := 0) hshape he.symm)]
+    exact hn
+  intro n cvS capsS hnb hf hcape
+  rw [Env.find?_cons] at hf
+  split at hf
+  · next he =>
+    obtain rfl : c₀ = .indInfo cvS capsS := Option.some.inj hf
+    obtain ⟨hp, hc, hj⟩ := hnew cvS capsS rfl hcape
+    exact ⟨he ▸ EtaPins.step hp hfresh, hc,
+      fun hlt => he ▸ hup _ (hj hlt)⟩
+  · obtain ⟨hp, hc, hj⟩ := h n cvS capsS hnb hf hcape
+    exact ⟨EtaPins.step hp hfresh, hc, fun hlt => hup n (hj hlt)⟩
+
 end Setlec

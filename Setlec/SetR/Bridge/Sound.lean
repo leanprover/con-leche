@@ -36,9 +36,10 @@ theorem directParts?_none (env : Env) (block : List ConstantInfo) :
   | none => rfl
   | some p => simp [directStructsEnabled]
 
-theorem checkDeclR_sound (heta : MemberEtaS V)
+theorem checkDeclR_sound
     {μ : CheckMode} {F : Nat}
-    {env env₂ : Env} (m : EnvS V env) {d : Declaration}
+    {env env₂ : Env} (m : EnvS V env) (hE : EtaFamiliesClosed env)
+    {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
     DeclR μ F m.cval env d env₂ :=
   checkDeclR_of
@@ -51,17 +52,17 @@ theorem checkDeclR_sound (heta : MemberEtaS V)
     -- (`directStructsEnabled = false`), so `checkDecl`'s `indDecl`
     -- clause *is* `checkIndDecl`.  The `DeclR` relation records the
     -- modeled path only, and this is where that is discharged.
-    (fun hh => declIndRS memberKeyS heta m (by
+    (fun hh => declIndRS memberKeyS m hE (by
       simpa [checkDecl, directParts?_none] using hh)) h
 
-theorem foldlM_R (heta : MemberEtaS V)
+theorem foldlM_R (hec : EtaClosedS)
     {μ : CheckMode} {F : Nat}
     (hdm : DivModPinS V) (hstd : StdAxiomKeyS V)
     (hofr : OfReduceKeyS V) :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
-      Nonempty (EnvS V env) →
+      EnvSOk V env →
       ds.foldlM (checkDecl μ (fueledOps μ F)) env = .ok env' →
-      Nonempty (EnvS V env')
+      EnvSOk V env'
   | [], _, _, hm, h => by
     simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ hm
@@ -71,10 +72,10 @@ theorem foldlM_R (heta : MemberEtaS V)
     | error e => rw [hd] at h; exact nomatch h
     | ok env1 =>
       rw [hd] at h
-      obtain ⟨m⟩ := hm
-      exact foldlM_R heta hdm hstd hofr ds env1
-        (declStepS hdm reducePinS hstd hofr declBasisS
-          (declIndS memberKeyS heta) m
-          (checkDeclR_sound heta m hd)) h
+      obtain ⟨⟨m⟩, hE⟩ := hm
+      exact foldlM_R hec hdm hstd hofr ds env1
+        ⟨declStepS hdm reducePinS hstd hofr declBasisS
+          (declIndS memberKeyS) m hE
+          (checkDeclR_sound m hE hd), hec hd hE⟩ h
 
 end Setlec.SetR
