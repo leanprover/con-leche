@@ -2931,4 +2931,105 @@ theorem annotMemS {μ : CheckMode} {env : Env} {cval : TConstVal}
   rw [← hfinal]
   exact hm
 
+
+set_option maxHeartbeats 1600000 in
+/-- **The truthfulness transport** (`annotS`): the applied rule rhs is
+hereditarily truthful — its λ-tower read through `instLamsAt_denoteTele`,
+the fired spine's layer memberships from `annotMemS`, and the descent
+by `lamTowerStepS`. -/
+theorem annotS {μ : CheckMode} {env : Env} {cval : TConstVal}
+    {ψ' : Name → Nat} (henv : EnvSHyp V env cval ψ')
+    {f : Name → Name} (hro : RenameOkT cval env f)
+    {rP cnP cnF : Nat} (hplainLe : cnP ≤ rP)
+    {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
+    (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      ∃ nm ty, x = Expr.fvar i nm ty)
+    (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
+    (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    {Γs : List VExpr} (hΓslen : Γs.length = rP + cnF)
+    (hdomsS0 : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      denote cval env ψ' i (Expr.fvarTypeD x)
+        = some (Γs.getD (rP + cnF - 1 - i) default))
+    {zs : List VExpr} (hzslen : zs.length = rP + cnF)
+    {ρ : Nat → V} (hsat : Sat V Γs (chainE V ρ zs))
+    {Tstmt Rstmt : VExpr}
+    (htowerS : PiTele (rP + cnF) Tstmt Γs Rstmt)
+    {tyA tyAR : Expr} (htyw : tyA.hasFvar = false)
+    (htyRw : tyAR.hasFvar = false) (hrenTy : RenEqT f tyA tyAR)
+    {fvsPl : List Expr} {restP : Expr}
+    (hopenP : openPisAtFvars rP tyA 0 = some (fvsPl, restP))
+    {cvjty cvjR : Expr} (hCvw : cvjty.hasFvar = false)
+    (hCvRw : cvjR.hasFvar = false) (hrenCvj : RenEqT f cvjty cvjR)
+    {cdomsP : List Expr} {crestP : Expr}
+    (hcinstP : Expr.instPisAt (fvsPl.take cnP) cvjty
+      = some (cdomsP, crestP))
+    {xFvsP : List Expr} {ldoms : Expr}
+    (hopenXP : openPisAtFvars cnF crestP rP = some (xFvsP, ldoms))
+    {rdoms : List Expr} {rrest : Expr}
+    (hrinst : Expr.instPisAt (fvs.take rP) tyAR = some (rdoms, rrest))
+    {cdoms : List Expr} {cres : Expr}
+    (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP) cvjR
+      = some (cdoms, cres))
+    {rhsA : Expr} (hrhsw : rhsA.hasFvar = false)
+    {ldomsL : List Expr} {lrest2 : Expr}
+    (hinstLam : Expr.instLamsAt (fvsPl ++ xFvsP) rhsA
+      = some (ldomsL, lrest2))
+    (hdePre : DefEqListW μ env cval ψ' (rP + cnF)
+      ((fvs.take rP).map Expr.fvarTypeD) rdoms)
+    (hdeFld : DefEqListW μ env cval ψ' (rP + cnF)
+      ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
+    (hdeLam : DefEqListW μ env cval ψ' (rP + cnF)
+      ((fvsPl ++ xFvsP).map Expr.fvarTypeD) ldomsL)
+    {RV : VExpr} (hRV : denote cval env ψ' 0 rhsA = some RV)
+    (hRVannot : AnnotOkV V ρ RV)
+    (hzsAnnot : ∀ w ∈ zs, AnnotOkV V ρ w) :
+    AnnotOkV V ρ (VExpr.mkAppN RV zs) := by
+  have hfvsPlen : fvsPl.length = rP := openPisAtFvars_length _ hopenP
+  have hxlen : xFvsP.length = cnF := openPisAtFvars_length _ hopenXP
+  have hPlen : (fvsPl ++ xFvsP).length = rP + cnF := by
+    rw [List.length_append, hfvsPlen, hxlen]
+  have hPshape : ∀ (i : Nat) (x : Expr), (fvsPl ++ xFvsP)[i]? = some x →
+      ∃ nm ty, x = Expr.fvar (0 + i) nm ty := by
+    intro i x hx
+    rcases Nat.lt_or_ge i rP with hi | hi
+    · rw [List.getElem?_append_left (by rw [hfvsPlen]; exact hi)] at hx
+      obtain ⟨nm, ty, hx'⟩ := openPisAtFvars_index _ _ _ hopenP i x hx
+      exact ⟨nm, ty, hx'⟩
+    · rw [List.getElem?_append_right (by rw [hfvsPlen]; exact hi),
+        hfvsPlen] at hx
+      obtain ⟨nm, ty, hx'⟩ :=
+        openPisAtFvars_index _ _ _ hopenXP (i - rP) x hx
+      exact ⟨nm, ty, by
+        rw [hx', show rP + (i - rP) = 0 + i from by omega]⟩
+  obtain ⟨Γlam, C, rfl, hΓlen, hrest, hdoms⟩ :=
+    instLamsAt_denoteTele (fvsPl ++ xFvsP) hinstLam hPshape hRV
+  rw [hPlen] at hΓlen
+  have hldomsLen : ldomsL.length = rP + cnF := by
+    rw [instLamsAt_length _ hinstLam, hPlen]
+  have hmem : ∀ k, k < rP + cnF →
+      interp V ρ (zs.getD k default)
+        ∈ˢ interp V (chainE V ρ (zs.take k))
+            (Γlam.getD (rP + cnF - 1 - k) default) := by
+    intro k hk
+    obtain ⟨Dk, hDkden, hmemk⟩ := annotMemS henv hro hplainLe hfvslen
+      hshapeS hwsFvs hleafClosed hΓslen hdomsS0 hzslen hsat htowerS
+      htyw htyRw hrenTy hopenP hCvw hCvRw hrenCvj hcinstP hopenXP
+      hrinst hcinst hrhsw hinstLam hdePre hdeFld hdeLam k hk
+    have hlx : ldomsL[k]? = some (ldomsL.getD k default) := by
+      rcases hr : ldomsL[k]? with _ | r
+      · rw [List.getElem?_eq_none_iff, hldomsLen] at hr
+        omega
+      · rw [List.getD, hr]
+        rfl
+    have hD2 := hdoms k _ hlx
+    rw [Nat.zero_add, hPlen, hDkden] at hD2
+    obtain rfl : Dk = Γlam.getD (rP + cnF - 1 - k) default :=
+      Option.some.inj hD2
+    exact hmemk
+  have hstep := lamTowerStepS (V := V) (C := C) (rP + cnF)
+    (Nat.le_refl _) hΓlen hzslen hmem
+  rw [List.take_of_length_le (by omega)] at hstep
+  exact hstep.2 hRVannot hzsAnnot
+
 end Setlec.SetR
