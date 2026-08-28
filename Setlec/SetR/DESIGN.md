@@ -5655,3 +5655,36 @@ Worth stating as the *positive* form of the searchlight rule:
 > **When a spec asks for something with no supplier, read the
 > consumers before building one.  A conjunct nobody reads is not a
 > gap in the machinery; it is a gap in the spec.**
+
+### SCOPING FINDING — "hypothesis-free" is not T6's to deliver alone
+
+Supplying the three install obligations that were *already proved*
+(`declBasisS`, `reducePinS`, `declIndS hkey heta` — carried as
+hypotheses by oversight) takes `no_proof_of_Empty_R` from nine to
+**six**.  Enumerating what is left makes the gate's real shape visible:
+
+| hypothesis | tier | status |
+|---|---|---|
+| `hdmR : DivModPinBridgeR` | **T6 (mine)** | open — the last bridge obligation |
+| `hkey : MemberKeyS` | T4/T5 install | open, named in this file since T5 |
+| `heta : MemberEtaS` | T4/T5 install | open (§"not a member-fold discharge") |
+| `hdm : DivModPinS` | T4/T5 install | open (`Install/Value.lean`) |
+| `hstd : StdAxiomKeyS` | T4/T5 install | open (`Install/Axiom.lean`) |
+| `hofr : OfReduceKeyS` | T4/T5 install | open (`Install/Axiom.lean`) |
+
+**Five of the six are not T6's.**  They are the install tier's own
+named obligations, recorded in this file since T5, and they are the
+difference between the `SetR` route and the Model route — whose
+`no_proof_of_Empty` *is* hypothesis-free because its install tier is
+complete.
+
+So the retirement gate as stated ("the `_R` family stands
+hypothesis-free") is a **T4/T5 + T6** milestone, not a T6 one.  T6 can
+close its own three bridge obligations — two are done — and can
+reduce the carried set to exactly the install tier's open list.  It
+cannot make that list empty.
+
+This is worth stating plainly rather than discovering at the
+checkpoint: **a gate phrased over a theorem's whole hypothesis list
+prices in every tier that theorem depends on.**  The gate is right;
+its owner is the campaign, not the stretch.
