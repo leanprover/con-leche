@@ -58,6 +58,7 @@ import Setlec.SetR.Bridge.Main
 import Setlec.SetR.Annot.Syntax
 import Setlec.SetR.Annot.Pass
 import Setlec.SetR.Annot.Kinding
+import Setlec.SetR.Annot.Validity
 import Setlec.SetR.Interp2.Univ
 import Setlec.SetR.Interp2.TierA
 import Setlec.SetR.Interp2.Graded

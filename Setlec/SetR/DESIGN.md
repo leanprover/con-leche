@@ -2608,3 +2608,122 @@ would freeze an install decision the relation has no business making.
 9. `EnvS.cons`'s obligation list is long and positional; `indMemberS`
    and `extendAxiomS` are the two worked patterns — copy the nearer
    one rather than re-deriving the order.
+
+## FINDING A5 (**blocking, campaign-level**) — B5′ is refuted: validity fails for `Infer` as landed, at I8
+
+Tier A's check of tier B's repair **B5′** (`Setlec/SetR/Annot/Validity.lean`).
+The proposal was to supply the λ codomain numeral from a metatheorem —
+
+> if `Infer Δ b B` then `B` has a sort: `∃ v, HasSort Δ B v`
+
+— with no I7 premise, no kernel change and no runtime cost.  **The
+metatheorem is false**, mechanized as `validity_refuted`, and the failing
+clause is **I8** (application), not the one the hazard note named.
+
+### The case map, mechanized where it is free
+
+| clause | status |
+|---|---|
+| I1 `sort`, I6 `pi` | **free** — `hasSort_sort` (the inferred type is a sort) |
+| I2 `bvar` | **free modulo a context invariant** — `CtxSorted`, maintained by `CtxSorted.cons` (M1's `weakenHead` + `liftN_liftN_add`); both proved |
+| I3 `const`, I4/I5 literals | **environment obligations** — the type front door runs `ensureSort` (`Kernel/Checker.lean:272,380`) and the literal guards pin `Nat`/`String`, so an `EnvS` field can expose them.  Not refuted; not needed, since I8 fails first |
+| **I7 `lam`** | **free — and it is B5′'s payoff, proved**: `hasSort_pi_of` builds `HasSort Δ (.pi A B) (imax u v)` from I6's own shape, with `v` delivered by validity's induction hypothesis at the body.  B5′'s architecture is right about the clause it was designed for |
+| **I8 `app`** | **REFUTED** |
+| I9 `proj` | not reached |
+| I10 `letE` | **free** — the type is the IH's, at `Infer Δ (b.inst v) B` |
+
+### Why I8 fails — and it is not the substitution hazard
+
+The hazard note predicted the obstacle would be substitution
+admissibility (which the family indeed lacks — finding A1).  Substitution
+is **necessary but not sufficient**, and the real wall sits one step
+earlier.  I8's conclusion type is `B.inst a`, where `B` comes from the
+premise `DefEq Δ tf (.pi A B)` — a **conversion**, not a derivation about
+`.pi A B`.  Before substituting one must obtain `HasSort (A :: Δ) B v`,
+and the only thing in hand is the induction hypothesis `HasSort Δ tf w`
+at the *converted* type.  Crossing from one to the other is `HasSort`
+crossing a `DefEq`, i.e. **the campaign's known-impossible move**: T3's
+"common root", T4's `AnnotOkV`-cannot-cross-`DefEq` record, and the
+reason repair C (`Infer.conv`) was rejected in the first place.
+`DefEq.symm` forces any one-directional preservation claim into a
+biconditional, and `DefEq.ofRed` + `Red.zeta` then relates a sorted term
+to an unsorted one in a single **premise-free** step.
+
+### The countermodel
+
+`junkTy = let (_ : prf) := prf; Sort 1`.  `Red.zeta` is premise-free, so
+`DefEq Δ (.sort 1) junkTy` holds in *every* environment and context
+(`defEq_junkTy`); at the **empty** environment `junkTy` is not inferable
+at all (`not_infer_junkTy`, via `infer_shape_empty` — I3 needs a lookup,
+I4/I5 need the literal guards), hence unsorted.  `DefEq.piCong` carries it
+into a codomain and I8 substitutes it into its own conclusion:
+
+```
+    Infer μ ∅ cval φ [Sort 0] ((λ (_ : Sort 0) => Sort 0) (bvar 0)) junkTy
+```
+
+with `junkTy` unsorted (`infer_cx` + `junkTy_unsorted`).  The context is
+sorted (`ctxSorted_cx`), the empty environment satisfies `EnvS.empty`, and
+the valuation may be taken to satisfy `CvalAnnot` — **the refutation
+survives every hypothesis validity could reasonably carry**.
+
+**What the counterexample really says** (`infer_cx_good`): the *same*
+subject also infers the perfectly sorted type `Sort 1`, by taking I8's
+conversion premise to be `DefEq.refl`.  The failure is not a bad term.  It
+is that `Infer`'s type slot is determined only **up to `DefEq`** — which
+is premise-exactly what the checker's `whnf`-then-match does — while
+`HasSort` is not `DefEq`-stable.  Stated generally, and this is the
+takeaway worth keeping:
+
+> **No property of an inferred type that is not `DefEq`-stable is a
+> theorem of this family.**  `hasSort_not_defEq_stable` is the instance;
+> validity is a corollary of it.
+
+### Scope, stated honestly
+
+This refutes validity **for the relation**, which is what B5′ needs (the
+annotation pass is a theorem about derivations, so a derivation without
+the property is a counterexample).  It does **not** show a `--set-model`
+run can *produce* that derivation: the bridge's image is a sub-family that
+nothing characterizes, and premise-exactness deliberately keeps the
+relation larger than the image (design §0).  A validity restricted to the
+image would need that characterization first — a new metatheory, not a
+lemma.
+
+### B5″ — the surviving variant, NOT checked, and the reason it may survive
+
+The refutation is specific to the *syntactic* sort fact.  Its semantic
+shadow
+
+```
+    SemValid : Infer Δ e T → ∃ v, ∀ ρ, Sat V Δ ρ → interp V ρ T ∈ˢ univ v
+```
+
+is **not** refuted by this counterexample, and cannot be: `⟦junkTy⟧ρ`
+*is* `univ 1` (zeta is invisible to `interp`, `interp_inst0`), so the
+counterexample is semantically well-sorted.  If tier C's graded soundness
+consumes the numeral as `⟦B⟧ρ ∈ˢ univ v` rather than as a derivation —
+which is what `HasSort.mem_univ` already delivers at every *justified*
+binder — then B5″ is the statement to check next, and B5′'s architecture
+survives with a semantic justification in place of a syntactic one.
+
+**Its own named hazard, before anyone starts**: I8 would need to recover a
+*fibre's* universe from the **product's** — `piC ⟦A⟧ B̂ ∈ˢ univ w` plus
+`⟦a⟧ ∈ˢ ⟦A⟧` giving `B̂ ⟦a⟧ ∈ˢ univ v`.  That implication is **false
+set-theoretically**: if any other fibre is empty then `piC ⟦A⟧ B̂ = ∅`,
+which inhabits `univ 0` no matter how large the fibre at `⟦a⟧` is.  So
+B5″ needs either a syntactic bound on `B` (an induction with a context
+bound, whose own base case `∃ v, ∀ ρ, Sat V [] ρ → ρ 0 ∈ˢ univ v` is
+false at the empty context) or a strengthening of I8's premises.  Not
+mechanized here — flagged so the next pass starts from a stated risk
+rather than discovering it.
+
+### Consequence
+
+Repairs A (kernel computation), B (read `v` off the λ's type), C
+(type-directed interpretation, refuted at B5), D (reduces to C) and now
+B5′ (validity) are all closed or refuted.  What remains on the table is
+B5″ above, or A — and A conflicts with the goal's no-new-checks clause.
+**Escalated to the user**, per the amendment protocol: this is a fork
+between reinstating a kernel check and a metatheory whose feasibility is
+unproved, and it is not a choice tier A should make silently.
