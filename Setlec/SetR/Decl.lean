@@ -64,36 +64,58 @@ def OpenCtxR (cval : TConstVal) (env : Env) (φ : Name → Nat) :
     ∃ Tv Δ', denote cval env φ d ty = some Tv ∧
       OpenCtxR cval env φ (d + 1) tys Δ' ∧ Δ = Δ' ++ [Tv]
 
-/-- One `checkDefEqList` walk at depth `d` over context `Δ`: both
-spines denote and are pointwise `DefEq`. -/
-def DefEqListW (μ : CheckMode) (env : Env) (cval : TConstVal)
-    (φ : Name → Nat) (d : Nat) (Δ : List VExpr) (as bs : List Expr) :
-    Prop :=
-  ∃ As Bs, DenoteL cval env φ d as As ∧ DenoteL cval env φ d bs Bs ∧
-    DefEqL μ env cval φ Δ As Bs
+/-- One positive-depth certified comparison, in the bridge's own
+quantified-context form (T5's D6 refinement — record in
+`Setlec/SetR/DESIGN.md`): both sides denote at the run's depth, and at
+**every** context correlating with the checker's frame per `CtxOkR`
+the denotations are `DefEq`.  The bridge's defeq claim is exactly
+`∀ Δ`-shaped, so one checker run yields every instance; the install
+derivation consumes them at *padded* contexts (`.sort 0` at slots the
+subjects do not touch — the [set] transpose of the TT lane's padding
+trick, `pt ∈ˢ univ 0` making the padded slots `Sat`-free). -/
+def DefEqAtW (μ : CheckMode) (env : Env) (cval : TConstVal)
+    (φ : Name → Nat) (d : Nat) (a b : Expr) : Prop :=
+  ∃ Av Bv, denote cval env φ d a = some Av ∧
+    denote cval env φ d b = some Bv ∧
+    ∀ Δ : List VExpr, CtxOkR μ cval env φ d Δ a →
+      CtxOkR μ cval env φ d Δ b →
+      DefEq μ env cval φ Δ Av Bv
 
-/-- One `checkTypedList` walk: each spine element's inferred type is
-`DefEq` to the corresponding domain's denotation. -/
-def TypedListW (μ : CheckMode) (env : Env) (cval : TConstVal)
-    (φ : Name → Nat) (d : Nat) (Δ : List VExpr) (es doms : List Expr) :
-    Prop :=
-  Forall2 (fun e dom => ∃ Ev Dv t,
-    denote cval env φ d e = some Ev ∧
+/-- One `checkDefEqList` walk at depth `d`: pointwise quantified
+comparisons (D6 refinement — see `DefEqAtW`). -/
+def DefEqListW (μ : CheckMode) (env : Env) (cval : TConstVal)
+    (φ : Name → Nat) (d : Nat) (as bs : List Expr) : Prop :=
+  Forall2 (DefEqAtW μ env cval φ d) as bs
+
+/-- One `checkTypedList` element: the spine element's inferred type is
+`DefEq` to the domain's denotation, at every correlating context (the
+inferred type is per-context — the bridge's slack). -/
+def TypedAtW (μ : CheckMode) (env : Env) (cval : TConstVal)
+    (φ : Name → Nat) (d : Nat) (e dom : Expr) : Prop :=
+  ∃ Ev Dv, denote cval env φ d e = some Ev ∧
     denote cval env φ d dom = some Dv ∧
-    Infer μ env cval φ Δ Ev t ∧ DefEq μ env cval φ Δ t Dv) es doms
+    ∀ Δ : List VExpr, CtxOkR μ cval env φ d Δ e →
+      CtxOkR μ cval env φ d Δ dom →
+      ∃ t, Infer μ env cval φ Δ Ev t ∧ DefEq μ env cval φ Δ t Dv
+
+/-- One `checkTypedList` walk (D6 refinement — see `TypedAtW`). -/
+def TypedListW (μ : CheckMode) (env : Env) (cval : TConstVal)
+    (φ : Name → Nat) (d : Nat) (es doms : List Expr) : Prop :=
+  Forall2 (TypedAtW μ env cval φ d) es doms
 
 /-- The `checkIotaSidesTy` pack at `--set-model` (no #146 slot-sort
 conjunct — tt-only): both equation sides infer types `DefEq` to the
-equation's type slot. -/
+equation's type slot, at every correlating context (D6 refinement). -/
 def IotaSidesTyR (μ : CheckMode) (env : Env) (cval : TConstVal)
-    (φ : Name → Nat) (d : Nat) (Δ : List VExpr)
-    (alphaS lhsS rhsS : Expr) : Prop :=
-  ∃ Av Lv Rv tl tr,
+    (φ : Name → Nat) (d : Nat) (alphaS lhsS rhsS : Expr) : Prop :=
+  ∃ Av Lv Rv,
     denote cval env φ d alphaS = some Av ∧
     denote cval env φ d lhsS = some Lv ∧
     denote cval env φ d rhsS = some Rv ∧
-    Infer μ env cval φ Δ Lv tl ∧ DefEq μ env cval φ Δ tl Av ∧
-    Infer μ env cval φ Δ Rv tr ∧ DefEq μ env cval φ Δ tr Av
+    ∀ Δ : List VExpr, CtxOkR μ cval env φ d Δ alphaS →
+      CtxOkR μ cval env φ d Δ lhsS → CtxOkR μ cval env φ d Δ rhsS →
+      (∃ tl, Infer μ env cval φ Δ Lv tl ∧ DefEq μ env cval φ Δ tl Av) ∧
+      (∃ tr, Infer μ env cval φ Δ Rv tr ∧ DefEq μ env cval φ Δ tr Av)
 
 /-- The stored `Nat` former's valuation (the level-monomorphic leaf
 every `Nat`-typed canonical context entry uses). -/
@@ -373,26 +395,20 @@ def ProvisionRecsR (μ : CheckMode) (F : Nat) (cval : TConstVal)
 `checkIotaThmN` after their structural pins: the index comparison, the
 field-domain comparison, the prefix-domain comparison, the rule-λ
 comparison, the rhs `DefEq`, and the sides-type pack — at every `φ`,
-over the canonical contexts of the model-side opening (`Δm`, from
-`fvs`) and the public-side opening (`Δp`, from `fvsP ++ xFvsP`),
-depth `rP + cnF` throughout. -/
+depth `rP + cnF` throughout, each in the quantified-context form (D6
+refinement: the pinned open contexts are the consumer's to build,
+padded as its `Sat`-construction needs). -/
 def IotaWalksR (μ : CheckMode) (envSelf : Env) (cval : TConstVal)
-    (depth : Nat) (fvs fvsP xFvsP : List Expr)
+    (depth : Nat)
     (idxL idxR domL domR preL preR lamL lamR : List Expr)
     (rhsS rhsApplied alphaS lhsS : Expr) : Prop :=
   ∀ φ : Name → Nat,
-    ∃ Δm Δp,
-      OpenCtxR cval envSelf φ 0 (fvs.map Expr.fvarTypeD) Δm ∧
-      OpenCtxR cval envSelf φ 0
-        ((fvsP ++ xFvsP).map Expr.fvarTypeD) Δp ∧
-      DefEqListW μ envSelf cval φ depth Δm idxL idxR ∧
-      DefEqListW μ envSelf cval φ depth Δm domL domR ∧
-      DefEqListW μ envSelf cval φ depth Δm preL preR ∧
-      DefEqListW μ envSelf cval φ depth Δp lamL lamR ∧
-      (∃ Rv Sv, denote cval envSelf φ depth rhsS = some Rv ∧
-        denote cval envSelf φ depth rhsApplied = some Sv ∧
-        DefEq μ envSelf cval φ Δm Rv Sv) ∧
-      IotaSidesTyR μ envSelf cval φ depth Δm alphaS lhsS rhsS
+    DefEqListW μ envSelf cval φ depth idxL idxR ∧
+    DefEqListW μ envSelf cval φ depth domL domR ∧
+    DefEqListW μ envSelf cval φ depth preL preR ∧
+    DefEqListW μ envSelf cval φ depth lamL lamR ∧
+    DefEqAtW μ envSelf cval φ depth rhsS rhsApplied ∧
+    IotaSidesTyR μ envSelf cval φ depth alphaS lhsS rhsS
 
 /-- A *canonical* rule's `iota_j` theorem pack — the transpose of
 `checkIotaThm` (`Modeled.lean:62-143`): the stored theorem's shape
@@ -432,12 +448,10 @@ def IotaThmR (μ : CheckMode) (_F : Nat) (env' envSelf : Env)
        ∃ ldomsL lrest2,
          Expr.instLamsAt (fvsP ++ xFvsP) rhsA = some (ldomsL, lrest2) ∧
          -- the public-side parameter-domain walk (`:130-131`)
-         (∀ φ : Name → Nat, ∃ Δp,
-           OpenCtxR cval envSelf φ 0
-             ((fvsP ++ xFvsP).map Expr.fvarTypeD) Δp ∧
-           DefEqListW μ envSelf cval φ depth Δp
+         (∀ φ : Name → Nat,
+           DefEqListW μ envSelf cval φ depth
              ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP) ∧
-         IotaWalksR μ envSelf cval depth fvs fvsP xFvsP
+         IotaWalksR μ envSelf cval depth
            ((largs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP)
            (xFvs.map Expr.fvarTypeD) (cdoms.drop cnP)
            ((fvs.take rP).map Expr.fvarTypeD) rdoms
@@ -502,13 +516,11 @@ def IotaThmNR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
        ∃ ldomsL lrest2,
          Expr.instLamsAt
            (fvsP ++ xFvsP) rhsA = some (ldomsL, lrest2) ∧
-         (∀ φ : Name → Nat, ∃ Δp,
-           OpenCtxR cval envSelf φ 0
-             ((fvsP ++ xFvsP).map Expr.fvarTypeD) Δp ∧
-           TypedListW μ envSelf cval φ depth Δp
+         (∀ φ : Name → Nat,
+           TypedListW μ envSelf cval φ depth
              (pins.map fun p =>
                Expr.instSpine (fvsP.take rP) (rP - 1) p) cdomsP) ∧
-         IotaWalksR μ envSelf cval depth fvs fvsP xFvsP
+         IotaWalksR μ envSelf cval depth
            ((largs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP)
            (xFvs.map Expr.fvarTypeD) (cdoms.drop cnP)
            ((fvs.take rP).map Expr.fvarTypeD) rdoms
@@ -620,9 +632,8 @@ def ProjFnR (μ : CheckMode) (_F : Nat) (env' : Env) (cval : TConstVal)
       tcv.levelParams = lps ∧
       ∃ fvsI sbodyO,
         openPisAtFvars (nP + nF) tcv.type 0 = some (fvsI, sbodyO) ∧
-        (∀ φ : Name → Nat, ∃ ΔI,
-          OpenCtxR cval env' φ 0 (fvsI.map Expr.fvarTypeD) ΔI ∧
-          IotaSidesTyR μ env' cval φ (nP + nF) ΔI
+        (∀ φ : Name → Nat,
+          IotaSidesTyR μ env' cval φ (nP + nF)
             (sbodyO.getAppArgs.getD 0 (.bvar 0))
             (sbodyO.getAppArgs.getD 1 (.bvar 0))
             (sbodyO.getAppArgs.getD 2 (.bvar 0)))) ∧
