@@ -71,6 +71,7 @@ import Setlec.SetR.Annot.Validity
 import Setlec.SetR.Interp2.Univ
 import Setlec.SetR.Interp2.TierA
 import Setlec.SetR.Interp2.Graded
+import Setlec.SetR.DivModPin
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family

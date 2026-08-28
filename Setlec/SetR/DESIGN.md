@@ -6618,3 +6618,49 @@ then `iff_forces_eq`, then the `¬¬`/`Nonempty` reconciliation).
 
 **Both are leaves**: proving either changes no signature, so partial
 work on them cannot break the tree — but it also cannot be sealed.
+
+### `DivModPinS`, the extract layer — and the reopen condition, answered
+
+`Setlec/SetR/DivModPin.lean` (354 lines) lands the layer between the
+checker's certificate verdict and the value equations.  All of it at
+`[propext, Classical.choice, Quot.sound]`.
+
+**The reopen condition is answered "no".**  T6 retired `DivModCertR`
+and recorded: *if `DivModPinS`'s discharge shows the certificate
+content wants first-class relational form, reintroduce it then.*  It
+does not.  The reason `ReducePinS` is 118 lines is that `ReducePinR`
+hands it a `DefEq` **relation** — one `DefEq.sound` and it is done —
+and the obvious inference was that div/mod needs the same.  But the
+missing step is not a relation, it is an **`EnvR`**: `checkBridge`
+turns the verdict's `annotateCore`/`inferTypeCore`/`isDefEqCore` runs
+into `Infer`/`DefEq` at any `EnvR`, and the install already holds one
+(`m.toEnvR`).  So `certValueS` does the bridging *in the discharge*,
+where the TT lane also put it, and `DeclR` stays as it is.
+
+*Rule: before reopening a statement for a consumer, check whether the
+consumer can reach the machinery itself.  A missing premise and an
+unimported lemma look identical from inside the proof.*
+
+The one architectural consequence worth naming: the file sits **above
+both tiers** (it imports `Bridge.Main` *and* `Install.Value`), because
+an install obligation whose content is a checker run is not an install
+lemma.  `Setlec/SetR.lean` is where it is wired in; nothing in either
+tier imports it back, so the layering is unchanged.
+
+**What is in it:**
+
+| piece | content |
+|---|---|
+| `certValueS` | one certificate run ⟹ the statement's interpretation is inhabited, via `InferClaimsR`/`DefEqClaimsR` at depth 4 and `Infer.sound`/`DefEq.sound` |
+| `fvarLeaves_substConst0`, `looseBVarsBounded_substConst0` | `substConst0` rewrites `const` nodes and **never enters an `fvar` annotation**, so a closed replacement moves no leaf — this is why the depth-4 frame survives the substitution unexamined |
+| `dmVal`, `denote_dmDep`, `denote_dmSelf` | the frame's valuation: dependencies at their storage, the pinned operation at the annotated stored value (`cvalAt_self`) |
+| `sat_four` | the `[H2, H1, natV, natV]` frame satisfied slot by slot |
+| `natOpTyPinned_binaryE`/`_unaryE`, `natOpCod_stored` | the pinned-type inversions (`log2` is the unary one) |
+| `dmBinMem`, `dmUnMem` | every operation the certificates mention is a function on the frame's `Nat` — the `Eq`-spine's side conditions |
+
+**Remaining (the clauses layer):** per statement, the `Eq`-spine's
+denotation and `EqLawV.app₃` + `eq_of_mem_eqv` to turn the inhabited
+truth set into the equation; then the nine operations' clause
+assembly.  `c ∈ natOpDeps c` for every div/mod op, so `divModEnvGuard`
+pins the operation's *own* type as well as its dependencies' — that is
+where `dmBinMem` gets its hypothesis for the self case.
