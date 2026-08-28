@@ -4907,3 +4907,55 @@ walks" before anyone read `nestedRuleShape`.  The discipline that
 works is the one applied here: **trace every input to a named
 supplier before writing a line, and let the one input that has no
 supplier be the stretch's stated risk.**
+
+### The pins' denotations: two spellings, two different sources
+
+The `IotaThmNR` trace's single open input turned out to be **two**
+inputs, and the second was invisible until the first was solved.  The
+nested pack's pins appear at two spellings:
+
+* `pinsP = pins.map (instSpine (fvsP.take rP) (rP-1))` — at the
+  *recursor type's* openers, unrenamed;
+* `pinsF = pins.map (instSpine (fvs.take rP) (rP-1) ∘ renameConsts f)`
+  — at the *statement's* openers, renamed.
+
+They are different expressions and neither denotation gives the other:
+`denote` returns `none` on a loose `.bvar` (`Verify/Denote.lean`'s
+catch-all clause), so there is no "denote the bare pin once and
+re-instantiate" route — the `instSpine` that closes the pin is
+load-bearing, and it closes it at two different spines.
+
+**`pinsP` denotes because the checker inferred its type.**
+`TypedListOk` gives the verdict; `denote_of_inferR` converts it, at a
+context built by `openPisAtFvars_ctxOkR` on `hopenP` (depth `rP`),
+covered onto the pin by `CtxOkR.of_cover` + `fvarLeaves_instSpine`,
+and lifted to the walk depth `rP + cnF` by `CtxOkR.weakenN`.
+
+**`pinsF` denotes because the statement's own major does.**  Nothing
+in `NestedChecked` infers a type for `pinsF` — but `hmaj` says the
+statement's major is `Expr.ErasedEq` to
+`mkAppN (.const (f r.ctor) lvls) (pinsF ++ xFvs)`, the major is a
+spine argument of `lhsS` (which denotes), and **`denote_erasedEq`
+already exists** (`Verify/Denote/Inst.lean:265`) — its own docstring
+says it: *the pin's tolerance and the denotation's blindness are the
+same set of syntax*.  So `spine_walk_pack` on `lhsS`, then
+`denote_erasedEq hmaj`, then `denote_mkAppN_inv`.
+
+The three *syntactic* facts are not `ErasedEq`-transportable (erasure
+forgets fvar annotations, `WScoped` does not), so they are taken
+directly at both spellings by `instSpine_pin_pack` — stated over an
+abstract spine, gen-first, because the second call site was known
+before the first was written.
+
+*The estimate, corrected once more.*  "One open input" was itself an
+undercount, for the same reason as the four before it: the two pin
+spellings are one *instance count* and two *shapes*.  The rule now has
+a fifth confirmation and a sharper form: **when the same object
+appears under two different instantiations, that is two inputs until
+you have produced the transport that makes it one.**  What saved the
+estimate was that both sources already existed — the campaign's
+lemmas keep turning out to be built, which is the inventory rule's
+positive half.
+
+`IotaThmNR` is now transcription: every input named, every supplier
+existing.

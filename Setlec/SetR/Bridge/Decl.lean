@@ -1126,6 +1126,31 @@ theorem defEqListW_of {env : Env} (m : EnvR env) {μ : CheckMode}
   | [], _ :: _, _, h => nomatch h
   | _ :: _, [], _, h => nomatch h
 
+/-- **A stored pin's three syntactic facts**, at the opener spine that
+closes it.  A pin is fvar-free and bounded by exactly the prefix's
+binder count (`nestedRuleShape_inv`), so instantiating it at that many
+openers closes it and leaves it scoped and leaf-bounded wherever the
+openers are.  Used at *both* pin spellings — the statement's openers
+(renamed) and the recursor type's (not) — which is why it is stated
+over an abstract spine. -/
+theorem instSpine_pin_pack {D : Nat} {sp : List Expr} {p : Expr}
+    (hnf : p.hasFvar = false)
+    (hbp : p.looseBVarsBounded sp.length = true)
+    (hsp : ∀ a ∈ sp, Expr.WScoped D a ∧
+      a.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded a) :
+    Expr.WScoped D (Expr.instSpine sp (sp.length - 1) p) ∧
+      (Expr.instSpine sp (sp.length - 1) p).looseBVarsBounded 0
+        = true ∧
+      Expr.LeavesBounded (Expr.instSpine sp (sp.length - 1) p) := by
+  refine ⟨instSpine_WScoped _ (Expr.WScoped.of_not_hasFvar hnf)
+      (fun a ha => (hsp a ha).1),
+    instSpine_closed (fun a ha => (hsp a ha).2.1) hbp, ?_⟩
+  intro l hl
+  rcases fvarLeaves_instSpine _ hl with h' | ⟨a, ha, hla⟩
+  · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hnf] at h'
+    exact nomatch h'
+  · exact (hsp a ha).2.2 l hla
+
 /-- **Inference success plus *any* context yields denotability.**  The
 campaign's only source of a denotation for an expression that is
 neither a stored type nor an opener nor built from them: a *pin*, for
