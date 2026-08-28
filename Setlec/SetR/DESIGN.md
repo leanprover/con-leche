@@ -4265,3 +4265,40 @@ delivers each opener's annotation at *its own* depth `i`, while the
 walks run at `depth = rP + cnF`.  Lifting is `denote_lift` (the same
 step `denote_closedExprR` takes).  Nothing else about the walks is
 open.
+
+### T6 — `iotaThmR_of`'s real signature
+
+`opener_denotes_at` lands: the depth crossing, in the definedness-only
+form the walks consume (`DefEqAtW` names its values existentially, so
+nothing needs the lifted value itself).
+
+Working the walks against the real statements turned up an interface
+detail that would waste a session if discovered mid-proof.
+**`iotaThmR_of` cannot take `PlainChecked` alone.**  Its two walks run
+at `envSelf` (`PlainChecked`'s `env₀`), but the data they need is
+looked up at `env'` (`PlainChecked`'s `env`):
+
+* the walk's right-hand lists are `instPisAt` runs on
+  `cvj.type` / `cvA.type`, and `instPisAt_denote_doms` needs those
+  *subjects to denote at `envSelf`* — which needs the constructor and
+  the recursor **stored in `envSelf`**;
+* `PlainChecked` only gives `env'.find? r.ctor = some (.ctorInfo cvj
+  cnP cnF)`.
+
+Both facts hold — `envSelf` is `env₂` (post-member-fold, so the
+constructor is in it) extended with the rule-less recursors (so `cvA`
+is in it), while `env'` is the *rules-fold accumulator* over the same
+base — but they are the **fold's** facts, not the per-rule inversion's.
+So the signature is
+
+    iotaThmR_of (m : EnvR envSelf)
+      (hctorSelf : envSelf.find? r.ctor = some (.ctorInfo cvj cnP cnF))
+      (hrecSelf  : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
+      (h : PlainChecked μ F env' envSelf f cvA mI rP cnP cnF j
+             { r with rhs := rhsA } cvj) : IotaThmR …
+
+and the caller (`indRecsRS`'s rules fold) supplies the two lookups
+from `ProvisionRecsR`'s output.  This is not a finding — nothing is
+mis-stated — but it is the difference between an inversion lemma and a
+fold-context lemma, and getting it wrong costs a rewrite of a
+40-component witness.

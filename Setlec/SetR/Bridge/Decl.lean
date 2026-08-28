@@ -605,6 +605,20 @@ theorem stmtOpened_denotes {env : Env} (m : EnvR env) {φ : Name → Nat}
   have h := hfv i x hx
   rwa [Nat.zero_add] at h
 
+/-- **The depth crossing.**  `openPisAtFvars` delivers the `i`-th
+opener's annotation denoted at *its own* depth `i`; every statement
+walk runs at the opening depth (`rP + cnF`).  `denote_lift` crosses
+the gap, and this is the form the walks consume it in — definedness
+only, since `DefEqAtW` names the value existentially. -/
+theorem opener_denotes_at {env : Env} (m : EnvR env) {φ : Name → Nat}
+    {i D : Nat} {e : Expr} {v : VExpr}
+    (hfb : Expr.fvarsBelow i e) (hle : i ≤ D)
+    (h : denote m.cval env φ i e = some v) :
+    ∃ w, denote m.cval env φ D e = some w := by
+  refine ⟨VExpr.liftN (D - i) v 0, ?_⟩
+  rw [denote_lift m.cval_closed hfb D hle, h]
+  rfl
+
 /-! ## The comparison walks
 
 Every `iota_j` statement walk the checker runs is a `checkDefEqList`
