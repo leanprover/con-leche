@@ -70,12 +70,14 @@ eta-expansion over `eqE`, and the equation is three `app_lamC`
 firings, which is what the three membership premises feed. -/
 def EqLawV (env : Env) (cval : TConstVal) : Prop :=
   env.find? eqName = some eqA →
-  ∀ (ψ : Name → Nat) (ρ : Nat → V) (A a b : VExpr),
-    interp V ρ A ∈ˢ univ (ψ uN) →
-    interp V ρ a ∈ˢ interp V ρ A →
-    interp V ρ b ∈ˢ interp V ρ A →
-    interp V ρ (VExpr.mkAppN (cval eqName ψ) [A, a, b])
-      = eqv (interp V ρ a) (interp V ρ b)
+  ∀ ψ : Name → Nat,
+    (∀ ρ : Nat → V, interp V ρ (cval eqName ψ) ≠ pt) ∧
+    ∀ (ρ : Nat → V) (A a b : VExpr),
+      interp V ρ A ∈ˢ univ (ψ uN) →
+      interp V ρ a ∈ˢ interp V ρ A →
+      interp V ρ b ∈ˢ interp V ρ A →
+      interp V ρ (VExpr.mkAppN (cval eqName ψ) [A, a, b])
+        = eqv (interp V ρ a) (interp V ρ b)
 
 /-- **The compiler-trust opaques are the identity**, [set] form
 (`ReduceOpsOk` transpose with `val := interp ∘ cval`): the stored
