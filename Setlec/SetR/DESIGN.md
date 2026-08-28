@@ -5540,3 +5540,45 @@ duplicating a grammar into the SetR tier.
 
 Recorded rather than started: a file split with a cross-lane consumer
 is not something to leave half-done at a session boundary.
+
+### Obligation 1 CLOSED — `certifyNatEqs` needs no hypothesis
+
+The relocation predicted the shape and the shape held.
+
+`Setlec/Verify/NatOpFrag.lean` now carries the V-free fragment
+characterisation (`natFragOk` and its fourteen companions); only
+`natFrag_subst_facts`, stated over an `EnvTT`, stayed behind.  The
+namespace is kept as `Setlec.TTVerify`, following the convention the
+TT lane already grew into for shared files
+(`Verify/Denote/SubstConst.lean` is `Setlec/Verify/*` in
+`Setlec.TTVerify` too), so **nothing downstream re-qualified** — the
+TT lane's certified theorems are byte-identical in their axiom
+dependencies and the tt-model sweep is unchanged.
+
+On top of it, three lemmas and one deletion:
+
+* `natEqFrame_of_frag` — `NatEqFrameR` from `natFragOk`, **one
+  structural induction over four constructors**, exactly as predicted;
+  no case analysis over `natOpNames` anywhere;
+* `natEqsBridge_of` — the semantic half (landed last stretch);
+* `natEqsR_of_certs` — the two joined, with the descent from the
+  post-insertion guard to the pre-insertion environment via
+  `storedNoLevels_of_cons` at the names `ne_of_mem_natOpNames`
+  separates from the operation.  That descent block is `natOpPinTT`'s,
+  line for line — the clearest possible evidence that the relocation
+  put the characterisation at the right height;
+* **`declDefnR`'s `hnat` is deleted.**  It is no longer a hypothesis
+  of anything: `declDefnR` discharges it internally, and
+  `NatEqsBridgeR` is gone from `checkDeclR_sound`,
+  `checkDecls_sound_R` and `no_proof_of_Empty_R`.
+
+`no_proof_of_Empty_R` is down from **eleven carried hypotheses to
+ten**, and the one removed was the first of the three the retirement
+gate names.
+
+*One structural note earned on the way.*  `opener_denotes_at` had to
+move earlier in `Bridge/Decl.lean` — the value branches now need it,
+and it had been sitting after them.  A seven-line lemma with no
+dependencies migrating upward is the cheapest kind of file-order
+change and is worth doing eagerly rather than threading a hypothesis
+around it.
