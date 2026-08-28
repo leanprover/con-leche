@@ -271,10 +271,156 @@ theorem indBottomPlainS : IndBottomPlainS V := by
     rw [List.length_append, List.length_take, List.length_drop, hlenX,
       hlenY]
     omega
-  obtain ⟨hsat, hfitS⟩ := zipperS (f := f) henv hrPmI hplainLe hlenX
-    hlenY hfvslen hshapeS hwsFvs hbFvs hleafClosed htowerS hdomsS0
+  -- the plain fire's spine data: the frame's own openers
+  have hsplen : (fvs.take cnP ++ fvs.drop rP).length = cnP + cnF := by
+    rw [List.length_append, List.length_take, List.length_drop, hfvslen]
+    omega
+  have hspIdx : ∀ (q : Nat) (x : Expr),
+      (fvs.take cnP ++ fvs.drop rP)[q]? = some x →
+      ∃ nm ty, x = Expr.fvar
+          (if q < cnP then q else rP + (q - cnP)) nm ty ∧
+        x ∈ fvs ∧ (if q < cnP then q else rP + (q - cnP))
+          < rP + (q + 1 - cnP) := by
+    intro q x hx
+    have hq : q < cnP + cnF := by
+      rcases Nat.lt_or_ge q (cnP + cnF) with h' | h'
+      · exact h'
+      · rw [List.getElem?_eq_none (by omega)] at hx
+        exact nomatch hx
+    by_cases hqc : q < cnP
+    · rw [List.getElem?_append_left
+        (by rw [List.length_take, hfvslen]; omega),
+        List.getElem?_take_of_lt hqc] at hx
+      obtain ⟨nm, ty, rfl⟩ := hshapeS q x hx
+      exact ⟨nm, ty, by rw [if_pos hqc], List.mem_of_getElem? hx,
+        by rw [if_pos hqc]; omega⟩
+    · rw [List.getElem?_append_right
+        (by rw [List.length_take, hfvslen]; omega),
+        List.length_take, hfvslen,
+        show min cnP (rP + cnF) = cnP from by omega,
+        List.getElem?_drop] at hx
+      obtain ⟨nm, ty, rfl⟩ := hshapeS (rP + (q - cnP)) x hx
+      exact ⟨nm, ty, by rw [if_neg hqc], List.mem_of_getElem? hx,
+        by rw [if_neg hqc]; omega⟩
+  have hspLeaf : ∀ (q : Nat) (x : Expr),
+      (fvs.take cnP ++ fvs.drop rP)[q]? = some x →
+      ∀ l ∈ x.fvarLeaves,
+        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP) := by
+    intro q x hx l hl
+    obtain ⟨nm, ty, rfl, hmem, hidx⟩ := hspIdx q x hx
+    rw [Expr.fvarLeaves] at hl
+    rcases List.mem_cons.mp hl with rfl | hl'
+    · exact ⟨hmem, hidx⟩
+    · have hwsty := hwsFvs _ hmem
+      have hwsty' : Expr.WScoped
+          (if q < cnP then q else rP + (q - cnP)) ty := by
+        have h' := hwsty
+        simp only [Expr.WScoped] at h'
+        exact h'.2
+      have hlt := Expr.fvarLeaves_lt_of_wscoped hwsty' l hl'
+      refine ⟨hleafClosed l ⟨_, hmem, ?_⟩, by omega⟩
+      rw [Expr.fvarLeaves]
+      exact List.mem_cons_of_mem _ hl'
+  have hspScope : ∀ (q : Nat) (x : Expr),
+      (fvs.take cnP ++ fvs.drop rP)[q]? = some x →
+      Expr.WScoped (rP + cnF) x ∧ x.looseBVarsBounded 0 = true := by
+    intro q x hx
+    obtain ⟨nm, ty, rfl, hmem, _⟩ := hspIdx q x hx
+    exact ⟨hwsFvs _ hmem, hbFvs _ hmem⟩
+  have hmixlen : (xs.take cnP ++ ys.drop cnP).length = cnP + cnF := by
+    rw [List.length_append, List.length_take, List.length_drop, hlenX,
+      hlenY]
+    omega
+  have hzsPre : ∀ n, n < rP →
+      (xs.take rP ++ ys.drop cnP).getD n default
+        = xs.getD n default := by
+    intro n hn
+    rw [List.getD, List.getElem?_append_left
+      (by rw [List.length_take, hlenX]; omega),
+      List.getElem?_take_of_lt hn]
+    rfl
+  have hzsFld : ∀ j, j < cnF →
+      (xs.take rP ++ ys.drop cnP).getD (rP + j) default
+        = ys.getD (cnP + j) default := by
+    intro j hj
+    rw [List.getD, List.getElem?_append_right
+      (by rw [List.length_take, hlenX]; omega),
+      List.length_take, hlenX, show min rP mI = rP from by omega,
+      List.getElem?_drop, show rP + j - rP = j from by omega]
+    rfl
+  have hmixsp : ∀ (q : Nat) (x : Expr),
+      (fvs.take cnP ++ fvs.drop rP)[q]? = some x →
+      ∃ w0, denote mS.cval envS (Level.substFn φ lps us) (rP + cnF) x
+          = some w0 ∧
+        (xs.take cnP ++ ys.drop cnP)[q]? = some (VExpr.instSeq
+          (xs.take rP ++ ys.drop cnP) (rP + cnF - 1) w0) := by
+    intro q x hx
+    have hq : q < cnP + cnF := by
+      rcases Nat.lt_or_ge q (cnP + cnF) with h' | h'
+      · exact h'
+      · rw [List.getElem?_eq_none (by omega)] at hx
+        exact nomatch hx
+    obtain ⟨nm, ty, rfl, hmem, _⟩ := hspIdx q x hx
+    have hidxK : (if q < cnP then q else rP + (q - cnP)) < rP + cnF := by
+      by_cases hqc : q < cnP
+      · rw [if_pos hqc]; omega
+      · rw [if_neg hqc]; omega
+    refine ⟨.bvar (rP + cnF - 1
+        - (if q < cnP then q else rP + (q - cnP))),
+      denote_fvar mS.cval envS (Level.substFn φ lps us) (rP + cnF)
+        _ nm ty, ?_⟩
+    rw [instSeq_bvar_full hidxK hzslen]
+    by_cases hqc : q < cnP
+    · rw [if_pos hqc, List.getElem?_append_left
+        (by rw [List.length_take, hlenX]; omega),
+        List.getElem?_take_of_lt hqc, hzsPre q (by omega), List.getD]
+      rcases hx0 : xs[q]? with _ | v
+      · rw [List.getElem?_eq_none_iff, hlenX] at hx0
+        omega
+      · rfl
+    · rw [if_neg hqc, List.getElem?_append_right
+        (by rw [List.length_take, hlenX]; omega),
+        List.length_take, hlenX, show min cnP mI = cnP from by omega,
+        List.getElem?_drop, show cnP + (q - cnP) = q from by omega,
+        hzsFld (q - cnP) (by omega),
+        show cnP + (q - cnP) = q from by omega, List.getD]
+      rcases hy0 : ys[q]? with _ | v
+      · rw [List.getElem?_eq_none_iff, hlenY] at hy0
+        omega
+      · rfl
+  have hmixFldEq : ∀ j, j < cnF →
+      (xs.take cnP ++ ys.drop cnP).getD (cnP + j) default
+        = ys.getD (cnP + j) default := by
+    intro j hj
+    rw [List.getD, List.getElem?_append_right
+      (by rw [List.length_take, hlenX]; omega),
+      List.length_take, hlenX, show min cnP mI = cnP from by omega,
+      List.getElem?_drop, show cnP + j - cnP = j from by omega]
+    rfl
+  have hmixPar : ∀ q, q < cnP →
+      interp V ρ ((xs.take cnP ++ ys.drop cnP).getD q default)
+        = interp V ρ (ys.getD q default) := by
+    intro q hq
+    have h0 : (xs.take cnP ++ ys.drop cnP).getD q default
+        = xs.getD q default := by
+      rw [List.getD, List.getD, List.getElem?_append_left
+        (by rw [List.length_take, hlenX]; omega),
+        List.getElem?_take_of_lt hq]
+    rw [h0]
+    exact (hpar q hq).symm
+  have hmixVal : ∀ q, q < cnP + cnF →
+      interp V ρ ((xs.take cnP ++ ys.drop cnP).getD q default)
+        = interp V ρ (ys.getD q default) := by
+    intro q hq
+    rcases Nat.lt_or_ge q cnP with hqc | hqc
+    · exact hmixPar q hqc
+    · rw [show q = cnP + (q - cnP) from by omega]
+      exact congrArg _ (hmixFldEq (q - cnP) (by omega))
+  obtain ⟨hsat, hfitS⟩ := zipperS (f := f) henv hrPmI hlenX
+    hlenY hfvslen hshapeS hwsFvs hleafClosed htowerS hdomsS0
     hfvsPlen hwsFvsP htowerP hdomsP0 hshapeP htyRw htyRb hrinst hrenP
-    hro hCwR hCbR hTVjK hTVjcl htowerJ hcinst hfitRpre hfitC hpar
+    hro hCwR hCbR hTVjK hTVjcl htowerJ hsplen hspLeaf hspScope hcinst
+    hmixlen hmixsp hmixFldEq hmixPar hfitRpre hfitC
     (hdePre _) (hdeFld _)
   -- ===== fire the checked equation =====
   have htbody : tbody
@@ -313,11 +459,36 @@ theorem indBottomPlainS : IndBottomPlainS V := by
     hΓslen hdomsS0 hrhsw hrhsb hRvden hvR hleafR hltR (hdeRhs _)
     hzslen hsat
   -- ===== the left side is the fired redex =====
-  have heqL := pointS (V := V) rfl henv hro mS.val_params rfl hrPmI
-    hplainLe hlenX hlenY husjlen hctorE hfCmE hCmlps hlev hfRnE hRmlps
-    hfvslen hshapeS hwsFvs hbFvs hleafClosed hΓslen hdomsS0 hsat hvL
-    hlhead hlarity hlpre hmaj hleafL hltL hCwR hCbR hTVjK hTVjcl
-    htowerJ hcinst hclen hRjdec hArgsClen (hdeIdx _) hfitC hidx hpar
+  -- the plain fire's major head: the parameter-mapped constructor
+  have hconstDenC : denote mS.cval envS (Level.substFn φ lps us)
+      (rP + cnF) (.const (f ctor) (cvj.levelParams.map .param))
+      = some (mS.cval ctor
+        (Level.substFn φ cvj.levelParams usj)) := by
+    have hctorLev : mS.cval ctor (Level.substFn φ cvj.levelParams usj)
+        = mS.cval ctor (Level.substFn φ lps us) := by
+      refine mS.val_params ctor _ hctorE _ _ ?_
+      intro p hp
+      exact hagree p hp
+    rw [denote_const, hfCmE]
+    dsimp only
+    rw [if_pos (by rw [hCmlps, List.length_map]), hCmlps,
+      show Level.substFn (Level.substFn φ lps us) cvj.levelParams
+          (cvj.levelParams.map .param)
+        = Level.substFn φ lps us from
+        funext fun _ => Level.substFn_map_param,
+      hro.2.2, hctorLev]
+  have heqL := pointS (V := V) rfl henv hro rfl hrPmI
+    hlenX hlenY hfRnE hRmlps
+    hfvslen hshapeS hwsFvs hΓslen hdomsS0 hsat hvL
+    hlhead hlarity hlpre
+    (show Expr.ErasedEq (lhsS.getAppArgs.getLastD (.bvar 0))
+        (Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
+          (fvs.take cnP ++ fvs.drop rP)) from by
+      rw [hmaj]
+      exact Expr.ErasedEq.rfl _)
+    hconstDenC hleafL hltL
+    hCwR hCbR hTVjK hTVjcl htowerJ hsplen hspLeaf hspScope hcinst hclen
+    hRjdec hArgsClen (hdeIdx _) hmixlen hmixsp hmixVal hfitC hidx
   refine ⟨heqL.symm.trans (heqLR.trans heqR), ?_⟩
   -- ===== the truthfulness transport =====
   intro hxsA hysA
@@ -326,13 +497,48 @@ theorem indBottomPlainS : IndBottomPlainS V := by
     rcases List.mem_append.mp hw with hw' | hw'
     · exact hxsA w (List.mem_of_mem_take hw')
     · exact hysA w (List.mem_of_mem_drop hw')
-  exact annotS henv hro hplainLe hfvslen hshapeS hwsFvs hleafClosed
+  -- the plain fire's parameter spines: the two frames' own prefixes
+  have hpsPlen : (fvsP.take cnP).length = cnP := by
+    rw [List.length_take, hfvsPlen]
+    omega
+  have hpsRlen : (fvs.take cnP).length = cnP := by
+    rw [List.length_take, hfvslen]
+    omega
+  have hpsRen : ∀ (i : Nat) (a a' : Expr), (fvsP.take cnP)[i]? = some a →
+      (fvs.take cnP)[i]? = some a' →
+      RenEqT f a a' := by
+    intro i a a' ha ha'
+    have hi : i < cnP := by
+      rcases Nat.lt_or_ge i cnP with h' | h'
+      · exact h'
+      · rw [List.getElem?_eq_none (by rw [hpsPlen]; omega)] at ha
+        exact nomatch ha
+    rw [List.getElem?_take_of_lt hi] at ha
+    rw [List.getElem?_take_of_lt hi] at ha'
+    obtain ⟨nm, ty, rfl⟩ := hshapeP i a ha
+    obtain ⟨nm', ty', rfl⟩ := hshapeS i a' ha'
+    exact RenEqT.fvar
+  have hpsPws : ∀ a ∈ fvsP.take cnP, Expr.WScoped rP a :=
+    fun a ha => hwsFvsP a (List.mem_of_mem_take ha)
+  have hpsPleaf : ∀ a ∈ fvsP.take cnP, ∀ l ∈ a.fvarLeaves,
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP := by
+    intro a ha l hl
+    rcases openPisAtFvars_leaves _ hopenP l
+      (Or.inr ⟨a, List.mem_of_mem_take ha, hl⟩) with h0 | h0
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar htyw] at h0
+      exact nomatch h0
+    · exact h0
+  have hpsRleaf : ∀ a ∈ fvs.take cnP, ∀ l ∈ a.fvarLeaves,
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs :=
+    fun a ha l hl => hleafClosed l ⟨a, List.mem_of_mem_take ha, hl⟩
+  exact annotS henv hro hfvslen hshapeS hwsFvs hleafClosed
     hΓslen hdomsS0 hzslen hsat htowerS htyw htyRw
     (show Expr.ErasedEq (tyA.renameConsts f) (tyA.renameConsts f) from
       Expr.ErasedEq.rfl _)
     hopenP hCw hCwR
     (show Expr.ErasedEq (cvj.type.renameConsts f)
         (cvj.type.renameConsts f) from Expr.ErasedEq.rfl _)
+    hpsPlen hpsRlen hpsRen hpsPws hpsPleaf hpsRleaf
     hcinstP hopenXP hrinst hcinst hrhsw hinstLam (hdePre _) (hdeFld _)
     (hdeLam _) hRvden (hRvFacts ρ).1 hzsAnnot
 
