@@ -5908,3 +5908,35 @@ Five of the fourteen now stand.  The `_S` and `_SP` drivers are the
 same shape with their own bridges (`checkDeclSharedF`, the
 parsed-index step over the store); the `_input` corollaries follow the
 Model lane's `foldlM_no_Empty_decl` pattern.
+
+### All three drivers land; nine of the fourteen stand
+
+The dead-branch rule paid twice more.  `Model/BridgeS.lean` (498
+lines, V-free) touched `DirectWF` only through
+`checkDirectStructS_run` and its projection helper — **179 lines whose
+only caller was the unreachable arm**.  Deleted, not narrowed; the
+file is now `Setlec/Verify/BridgeSDecl.lean`.  `checkDeclSPStep_run`
+and `checkDeclSPStep_inRange` came out of `Model/ConsistencyP.lean`
+into `Setlec/Verify/BridgePDecl.lean` the same way.
+
+Three folds, all first attempt:
+
+* `foldlM_RC` / `checkDeclsC_sound_R` / `no_proof_of_Empty_C_R`;
+* `foldlM_RS` / `checkDeclsS_sound_R` / `no_proof_of_Empty_S_R`;
+* `foldSP_R` / `checkDeclsSP_sound_R` / `no_proof_of_Empty_SP_R`.
+
+**The store invariant's supplier, named** (the same discipline as the
+environments'): `WFStore.wf` gives `st.raw.WF` **once, at the bundle**,
+and the fold threads `ISOKF`/`Ext` out of `checkDeclSPStep_run` — the
+residue is environment-free, so nothing about it depends on the model
+at all.  `Ext.refl` seeds it and `Ext.trans` carries it; there is no
+step at which the store invariant is re-derived, which is why the
+parsed-index fold is the same length as the other two.
+
+**Nine of the fourteen now stand**, every one at
+`[propext, Classical.choice, Quot.sound]` and every one carrying
+exactly the install tier's five.  The Model lane's `_C`, `_S` and
+`_SP` theorems re-verified unchanged through all three relocations.
+
+Remaining: the five `*_input` corollaries (the
+`foldlM_no_Empty_decl` pattern), then the install tier's five.

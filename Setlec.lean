@@ -46,7 +46,8 @@ import Setlec.Verify.BridgeS1
 import Setlec.Verify.BridgeS2
 import Setlec.Verify.BridgeS3
 import Setlec.Verify.BridgeS4
-import Setlec.Model.BridgeS
+import Setlec.Verify.BridgeSDecl
+import Setlec.Verify.BridgePDecl
 import Setlec.Model.ConsistencyS
 import Setlec.Verify.ParseP
 import Setlec.Verify.BridgeP

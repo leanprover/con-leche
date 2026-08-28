@@ -1,5 +1,5 @@
 import Setlec.Model.Consistency
-import Setlec.Model.BridgeS
+import Setlec.Verify.BridgeSDecl
 
 /-!
 # Consistency of the shared-state executable checker (task #51)
