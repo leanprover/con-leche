@@ -2308,3 +2308,108 @@ theorem of the tier (`erase_liftN`/`erase_inst` need only `propext`;
 `erase_mkAppN` and `ZetaEq.refl` need none); zero sorries; binary cone
 untouched (three proof-only modules in `SetlecSetR`, imported by
 nothing else).
+
+## T5 HANDOFF (2026-08-28) — state, plans, traps
+
+Written at a sealed boundary (tree clean, all gates green) rather than
+part-way into stage 3, per the session-length protocol.  Everything
+*done* is recorded above; this section is only what the next pass
+needs.
+
+### Exact remaining state
+
+| piece | state |
+|---|---|
+| c0–c5 | **done** — the three iota bottoms, the projection bottom, `etaLawKeyS`, `unitLawKeyS` |
+| `declStepS` | **done** — per-kind dispatch; the set is closed modulo `DeclBasisS`/`DeclIndS`, so **T6 can be written today** |
+| `declIndS` 1 | **done** — `indMemberS` (one member, at the model's valuation; admits a rule-less `.recInfo` head) |
+| `declIndS` 2 | **done** — `memberInstallS`, `indMembersS` (non-recursor members), `provisionRecsS` (rule-less recursors ⇒ `EnvS V envSelf`) |
+| `declIndS` 3 | **not started** — `EnvS.swap`, then `iotaRuleS`, then the group install (architecture recorded above; do **not** cons-fold) |
+| `declIndS` 4 | **not started** — the capability record |
+| `declIndS` 5 | **not started** — projection installs on `indBottomProjS` |
+| `declIndS` 6 | **not started** — the elimination templates |
+| `DeclIndS` assembly | **not started** |
+| `DeclBasisS` | **not started** — the basis install (the TT lane's `DeclBasis.lean` is the template) |
+
+Open obligations, all in the house pattern: `DeclBasisS`, `DeclIndS`,
+`MemberKeyS`, `MemberEtaS`, `MemberUnitS`, `DivModPinS`,
+`StdAxiomKeyS`, `OfReduceKeyS`.
+
+### The two named capability obligations: discharge plan
+
+They are **not** symmetric, and the difference is easy to miss.
+
+* **`MemberEtaS` is gated and therefore vacuous during both member
+  folds.**  Its premise `EtaFamilyStored ⟨c₀ :: env⟩ T caps` demands
+  the eta constructor stored *and* **every** `projFnName T j`
+  (`j < caps.etaFields`) stored as a `.recInfo`.  The member and
+  provisioning folds install only `.indInfo`/`.ctorInfo`/rule-less
+  `.recInfo` block members — never a projection function — so the
+  premise is false throughout and the obligation is discharged by
+  refuting it.  The refutation's own input is already in `DeclIndR`:
+  the conjunct `(List.range nF).all (fun j => (envR.find? (projFnName
+  cvT.name j)).isNone) = true`.  `MemberEtaS` only becomes *live* in
+  **stage 5**, at the projection install that completes the family,
+  and there it is `etaLawKeyS` — whose `hvP` is exactly the valuation
+  `ProjInstallR`'s step now records, `cval (projModelName T i)`.
+* **`MemberUnitS` is not gated** — its premise is just
+  `c₀ = .indInfo cv caps` with `caps.unitlike = true`, so it fires at
+  the family member's *own* install, inside the member fold.  Its
+  discharge is `unitLawKeyS`, and its inputs are available there:
+  invert `checkUnitThm`'s Boolean (which is what
+  `caps.unitlike = true` means, `caps := indBlockCaps μ env cvT cvC nP
+  nF`) into `UnitLawKeyS`'s statement pins; `hvT` is definitional
+  (`cvalModeled`'s `cvalWith_self`); `hrenT` is `MemberValR`'s
+  `eqUpToNames` pin read as `RenEqT` against the block renaming, whose
+  `RenameOkT` is `BlockInstalledTT.renameOkT`.
+
+So: **stage 4 is really "discharge `MemberUnitS` at the member fold and
+`MemberEtaS` at the projection fold"**, not a separate installer.
+
+### The template entries' valuation, and why `TemplatesR` leaves it existential
+
+A `.projInfo` template entry exists *precisely because* the field has
+no `T._model.proj_i` artifact — so, unlike every other block entry,
+there is no model valuation to copy and `cvalModeled` does not apply.
+`installProjTemplate` stores `ty := .sort .zero`, so
+`EnvS.cons`'s `htype` needs a valuation that is closed, truthful, and
+a member of `interp ρ (.sort 0) = univ 0`.  **`VExpr.eqE (.sort 0)
+.prf .prf`** is the intended choice: `eqv_mem_univ` gives the
+membership, `AnnotOkV`'s `eqE` clause is a leaf (so truthfulness is
+immediate), and it is closed.  The relation records only that the step
+is a fresh-name `cvalWith` extension — dictating the choice there
+would freeze an install decision the relation has no business making.
+
+### Working-memory traps (things that will bite)
+
+1. **Do not cons-fold the ruled recursors** — see the stage-3
+   architecture section.  `provisionRecsS` + `EnvS.swap` is the route.
+2. **The bottoms fire at `envSelf`, not at the accumulator.**  Their
+   walks (`IotaWalksR`) are stated at the provisioned environment.
+   That is why `provisionRecsS` hands back an `EnvS V envSelf`.
+3. **`indMemberS` returns `∃ m₂, m₂.cval = cvalModeled …`, not
+   `Nonempty`.**  Deliberate: the folds compose through the valuation
+   equation.  Do not "simplify" it back to `Nonempty` (the value
+   kinds' shape).
+4. **`fireS` no longer takes `IotaSidesTyR`.**  It takes the two
+   sides' memberships, quantified, with the slot's universe fact
+   handed to the caller; `sidesMemS` is the certified route the three
+   iota bottoms use.  A fourth firing site supplies memberships, by
+   whatever means it has.
+5. **`EqLawV` is stated at the *two*-fold application.**
+   `EqLawV.app₃` is the old three-fold form; `EqLawV.dom` is the
+   rigidity.  Do not re-derive either.
+6. **`pinnedDirectT eqName = none`** — `basis_pinned` says *nothing*
+   about `Eq`'s valuation.  Anyone reaching for a concrete `eqVal` in
+   the [set] lane must go through `EqLawV`.
+7. **No Mathlib**: `set` is unavailable — use
+   `obtain ⟨x, hx⟩ : ∃ x, x = e := ⟨_, rfl⟩`; `le_refl` is
+   `Nat.le_refl`; `List.map f [a,b,c]` does not reduce under `rw`
+   (`simp only [List.map_cons, List.map_nil]` first).
+8. **`obtain rfl : a = b` may eliminate the variable you still need**
+   when both sides are locals.  Use `have` + an explicit rewrite where
+   the other side is used later (this cost two debug cycles in c3 and
+   one in c5).
+9. `EnvS.cons`'s obligation list is long and positional; `indMemberS`
+   and `extendAxiomS` are the two worked patterns — copy the nearer
+   one rather than re-deriving the order.
