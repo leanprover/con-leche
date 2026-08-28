@@ -4623,17 +4623,33 @@ already saved one rewrite.
       (hctorSelf : envSelf.find? r.ctor  = some ciC)
       (hcvC      : ciC.toConstantVal = cvj)
       (htransfer : ∀ n ci, env'.find? n = some ci →
-                     (∀ cv a b rs, ci ≠ .recInfo cv a b rs) →
-                     envSelf.find? n = some ci)
+                     ∃ ci', envSelf.find? n = some ci' ∧
+                       ci'.toConstantVal = ci.toConstantVal)
       (h : PlainChecked μ F env' envSelf f cvA mI rP cnP cnF j
              { r with rhs := rhsA } cvj)
 
 `htransfer` is the new one, and it is why: `PlainChecked` finds the
 `iota_j` **statement** at `env'`, while the walks need its type to
-denote at `envSelf`.  A statement is a `defnInfo`/`thmInfo`, never a
-recursor, so the non-recursor transfer suffices — and that is exactly
-the property `indRecsS` already *concludes* for its own environment
-step (`Install/IndRecsS.lean:552`), so the rules fold has it to hand.
+denote at `envSelf`.
+
+**Corrected on first use.**  I first wrote it as *non-recursor
+verbatim* transfer, reasoning that a statement is a
+`defnInfo`/`thmInfo` and never a recursor.  That reasoning is sound
+about the *world* and useless about the *proof*: nothing in
+`PlainChecked` records the statement's kind, so the side condition
+cannot be discharged.  `Install/IotaRuleS.lean:135` already says what
+the right form is, in a comment: *"only the stored `ConstantVal`
+matters, so a swapped entry (were the statement's name a recursor's)
+serves just as well."*  So the transfer is of the **`ConstantVal`**,
+which holds for every kind — recursors included, since installing
+rules changes an entry's rules and not its `ConstantVal`.
+
+The lesson, and it is the fourth face of the same habit: *a premise
+justified by what is true of the data, rather than by what the
+hypotheses in scope can prove, is not a premise — it is a wish.*  The
+discipline caught it within the stretch this time (on first use, at
+the cost of one grep) rather than after a witness rewrite, which is
+the whole return on tracing before writing.
 
 **Why the third environment fact appears only now.**  The signature
 note recorded two (the constructor and recursor at `envSelf`) because
