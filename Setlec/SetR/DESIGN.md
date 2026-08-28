@@ -3025,6 +3025,83 @@ template; expect the [set] one to be comparable.
 `DeclBasisS` is independent of all of this
 (`TTVerify/DeclBasis.lean` is its template).
 
+## T5 — `declIndS` lands; the inventory T6 consumes (2026-08-28)
+
+`Install/DeclIndS.lean` discharges `DeclIndS`, the sixth and last
+per-kind obligation of `declStepS`'s dispatch.  With it, **everything
+in T5 except `DeclBasisS` is done.**
+
+### What the assembly needed, and where P1a paid
+
+Read the sibling lane first: `declIndTT` uses separate V-free
+monotonicity lemmas *about the checker run* rather than fold-returned
+facts.  In [set] the folds already compute the same information, so
+the analogues are relational and small — `indMembersR_mono`,
+`_stored`, `_fresh`, `_nameGuards`, `_indEntry`;
+`provisionRecsS_fresh`, `_nameGuards`; `indRecsR_fresh`,
+`_nameGuards` — plus `indRecsS` returning the non-recursor transport
+and `isSome` congruence it already had in scope.  That transport is
+**exactly** `EtaPins.transport`'s `hkeep` premise, which is why it was
+worth returning rather than re-deriving.
+
+`etaPins_of_indBlockCaps` is the one new ingredient: the capability
+record's two Booleans *are* `checkEtaThm`/`checkUnitThm`, so they
+invert to the artifacts' shape pins.  Paid once at the assembly, for
+the whole block.
+
+A trap worth naming: the block's two **singleton-filter pins cannot be
+consumed by writing their predicate out** — the `match`'s elaborated
+form differs from anything one types.  `hmemFil`/`hsingle` are generic
+in the predicate so unification takes the relation's own.
+
+### T6's interface: the open obligations, complete
+
+`declStepS` is proved from six; `declIndS` from two more.  What
+remains open, and nothing else:
+
+| obligation | where | note |
+|---|---|---|
+| `MemberKeyS` | `Install/IndMembersS.lean` | the block member's key: the model artifact inhabits the checked member's type |
+| `MemberEtaS` | `Install/IndMembersS.lean` | the eta head at a member install — **forwarded by design** (stage 4's record) |
+| `DivModPinS` | `Install/Value.lean` | |
+| `StdAxiomKeyS` | `Install/Axiom.lean` | |
+| `OfReduceKeyS` | `Install/Axiom.lean` | |
+| `DeclBasisS` | `Install/Step.lean` | the pinned basis blocks — see below |
+
+Proved in T5: `reducePinS`, `memberUnitS`, `etaLawKeyS`,
+`unitLawKeyS`, `indBottomPlainS`, `indBottomNestedS`,
+`indBottomProjS`, `declIndS`, and the per-kind value/axiom lemmas
+`declDefnS`/`declThmS`/`declOpaqueS`/`declAxiomS`.
+
+### `DeclBasisS`, scoped — **and there is no shortcut**
+
+`BasisInstallR` is trivial (a fold of fresh conses of the *pinned*
+declarations, `kind.declsA`), so the work is entirely `EnvS.cons`'s
+~20 obligations per pinned constant, over six kinds
+(`eqK`/`natK`/`psigmaK`/`punitK`/`emptyK`/`quotK`).  The TT lane's
+counterpart, `TTVerify/DeclBasis.lean`, is **4766 lines** — the
+largest file in the campaign.  Expect comparable, though the shared
+V-free backbone (`pinnedDirectT`, `BasisPinnedTT`, `ProjOkT`,
+`RecCtorsStored`) should take a real bite out of it.
+
+**The obvious shortcut does not exist, and it is worth recording why**
+so nobody spends a day on it.  One might hope to transport the *Model*
+lane's basis install (`Setlec/Model/*`), since `EnvS` and `EnvModel`
+are both set-model structures where `EnvTT` is a typing structure.
+They are not interchangeable in the needed direction:
+
+* `EnvModel.val : ConstVal V = Name → (Name → Nat) → V` — a set
+  **element**;
+* `EnvS.cval : TConstVal = Name → (Name → Nat) → VExpr` — a
+  **syntactic representative**, interpreted afterwards by `interp ρ`.
+
+`EnvS` is strictly finer: committing to a `VExpr` is what makes
+`AnnotOkV` and the `interp`-equalities statable at all.  From
+`val n φ : V` no `VExpr` can be recovered, so the transport runs
+`EnvS → EnvModel`, never back.  The pinned valuations must therefore
+be given as `VExpr`s — which is exactly what the shared
+`pinnedDirectT` already does, and which is the right starting point.
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -3044,8 +3121,8 @@ needs.
 | `declIndS` 4 | **done** — `memberUnitS` discharged; `MemberEtaS` forwarded to the assembly (see the stage-4 record) |
 | `declIndS` 5 | **done** — `projConsS`, `projFnS`, `projInstallS` |
 | `declIndS` 6 | **done** — `templateVal`, `templateConsS`, `templatesS`; `TemplatesR` re-signed valuation-free |
-| `DeclIndS` assembly | **not started, scoped** — see "the assembly's remaining work"; the folds must first report what they preserve |
-| `DeclBasisS` | **not started** — the basis install (the TT lane's `DeclBasis.lean` is the template) |
+| `DeclIndS` assembly | **done** — `Install/DeclIndS.lean` |
+| `DeclBasisS` | **not started; the only T5 piece left** — scoped above, incl. why the Model lane cannot be reused |
 
 Open obligations, all in the house pattern: `DeclBasisS`, `DeclIndS`,
 `MemberKeyS`, `MemberEtaS`, `MemberUnitS`, `DivModPinS`,
