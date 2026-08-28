@@ -49,6 +49,7 @@ import Setlec.Verify.BridgeS4
 import Setlec.Verify.BridgeSDecl
 import Setlec.Verify.BridgePDecl
 import Setlec.Verify.DeclStores
+import Setlec.Verify.OfReducePin
 import Setlec.Model.ConsistencyS
 import Setlec.Verify.ParseP
 import Setlec.Verify.BridgeP

@@ -280,12 +280,6 @@ theorem eraseNames_const_inv {e : Expr} {n : Name} {us : List Level}
     | exact h
     | exact nomatch h
 
-/-- `eraseNames` fixes a sort. -/
-theorem eraseNames_sort_inv {e : Expr} {u : Level}
-    (h : e.eraseNames = .sort u) : e = .sort u := by
-  cases e <;> simp only [Expr.eraseNames] at h <;> first
-    | exact h
-    | exact nomatch h
 
 /-- **`TrustCompilerKeyTT`, discharged.** -/
 theorem trustCompilerKeyTT : TrustCompilerKeyTT := by

@@ -6143,3 +6143,47 @@ fourteen entirely.
 
 Both errors this stretch were that: the mathematics was done and the
 statement could not receive it.
+
+### `OfReduceKeyS`: the sibling-lane file I did not know existed
+
+Applying the new sizing rule ("check the lane that will discharge it")
+sent me to `SetR` first, correctly — and finding nothing there, to the
+*siblings*, where **`Setlec/TTVerify/OfReduceKey.lean`** turned out to
+be a dedicated 355-line file for exactly this obligation.  My earlier
+calibration priced `Model/TrustAxioms.lean`'s `ofReduce_key` (~120
+lines) and never looked at the TT lane at all.
+
+**Landed this stretch: the V-free half, relocated.**
+`Setlec/Verify/OfReducePin.lean` now carries `ofReduce_elemTy`,
+`ofReducePin_type`, `reduceOpCv_type`, `reduceElem_sort`,
+`matchesPin_invT` and `eraseNames_sort_inv` — every shape fact about
+the two pinned axioms, all V-free (both differ only in their element
+type, so each is one `split`).  TT lane re-verified:
+`no_proof_of_Empty_TT_closed` and `ofReduceKeyTT` at the standard
+three, tt-model sweep identical.
+
+**The remaining construction, mapped.**  `denote_ofReducePin`
+(`TTVerify/OfReduceKey.lean:130`) computes the pinned type's
+denotation to
+`.pi E (.pi E (.pi (Eq E (op a) b) (Eq E a b)))` — the shape the
+witness is checked against — and uses its `EnvTT` only through
+`denote_const_nolevels`, so it restates over `EnvS` directly.  Then:
+
+* the witness is `λ a b h. h`, i.e. `.lam A₁ (.lam A₂ (.lam A₃
+  (.bvar 0)))` built from the *denoted type's own components*;
+* `AnnotOkV` of it follows from `AnnotOkV` of the type — the same
+  subterms — through `AnnotOkV_lam`/`AnnotOkV_pi`;
+* the membership is `lamC_mem` three times, and the innermost step is
+  the whole mathematical content: `interp A₃ = interp A₄`, because
+  `EqLawV.app₃` reduces both to `eqv`, and `EnvS.reduce_ops` gives
+  `app (cval op) x = x` for `x` in the element type.
+
+So the SetR delta over `ofReduceKeyTT` is exactly `HasType` →
+membership + `AnnotOkV`, and the `AnnotOkV` half is *free* once the
+type's is proved — which the conclusion demands anyway.
+
+**Sizing correction, third time on this obligation.**  ~120 lines
+(Model) → ~180 (TT witness) → and now: the TT witness *minus* its
+`HasType` bookkeeping *plus* `AnnotOkV`, over a relocated shape layer
+that is already done.  The lesson stands and sharpens: **check every
+lane before pricing, and price the delta, not the template.**
