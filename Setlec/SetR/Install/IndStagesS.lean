@@ -1328,4 +1328,171 @@ theorem fireS {μ : CheckMode} {env : Env} {cval : TConstVal}
   exact ⟨vα, vL, vR, hvα, hvL, hvR, mem_eqv happ⟩
 
 
+
+
+/-- Pointwise reading of a denoted spine. -/
+theorem denoteSpine_getElem?' {cval : TConstVal} {env : Env}
+    {φ : Name → Nat} {d : Nat} :
+    ∀ {as : List Expr} {vs : List VExpr},
+      DenoteSpine cval env φ d as vs →
+      ∀ (i : Nat) (x : Expr), as[i]? = some x →
+        ∃ v, vs[i]? = some v ∧ denote cval env φ d x = some v := by
+  intro as vs h
+  induction h with
+  | nil => intro i x hx; exact nomatch hx
+  | @cons a v as' vs' ha _ ih =>
+    intro i x hx
+    cases i with
+    | zero =>
+      obtain rfl : a = x := Option.some.inj hx
+      exact ⟨v, rfl, ha⟩
+    | succ j =>
+      obtain ⟨v', hv', hd⟩ := ih j x (by simpa using hx)
+      exact ⟨v', by simpa using hv', hd⟩
+
+set_option maxHeartbeats 1600000 in
+/-- **The reduct stage**: the statement's rhs equals the rule's own
+application at the fired spine — the rhs walk fired at the full
+context, the applied form's head running back to the closed rule
+denotation, and the opener spine reading off the chain. -/
+theorem reductS {μ : CheckMode} {env : Env} {cval : TConstVal}
+    {ψ' : Name → Nat} (henv : EnvSHyp V env cval ψ')
+    {f : Name → Name} (hro : RenameOkT cval env f)
+    {rP cnF : Nat} {fvs : List Expr}
+    (hfvslen : fvs.length = rP + cnF)
+    (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      ∃ nm ty, x = Expr.fvar i nm ty)
+    (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
+    (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    {Γs : List VExpr} (hΓslen : Γs.length = rP + cnF)
+    (hdomsS0 : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      denote cval env ψ' i (Expr.fvarTypeD x)
+        = some (Γs.getD (rP + cnF - 1 - i) default))
+    {rhsA : Expr} (hrhsw : rhsA.hasFvar = false)
+    (hrhsb : rhsA.looseBVarsBounded 0 = true)
+    {RV : VExpr} (hRV : denoteClosed cval env ψ' rhsA = some RV)
+    {rhsS : Expr} {vR : VExpr}
+    (hvR : denote cval env ψ' (rP + cnF) rhsS = some vR)
+    (hleafR : ∀ l ∈ rhsS.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hltR : ∀ l ∈ rhsS.fvarLeaves, l.1 < rP + cnF)
+    (hdeRhs : DefEqAtW μ env cval ψ' (rP + cnF) rhsS
+      (Expr.mkAppN (rhsA.renameConsts f) fvs))
+    {zs : List VExpr} {ρ : Nat → V} (hzslen : zs.length = rP + cnF)
+    (hsat : Sat V Γs (chainE V ρ zs)) :
+    interp V (chainE V ρ zs) vR = interp V ρ (VExpr.mkAppN RV zs) := by
+  obtain ⟨Av, Bv, hAv, hBv, hder⟩ := hdeRhs
+  obtain rfl : vR = Av := by
+    rw [hvR] at hAv
+    exact Option.some.inj hAv
+  -- the applied form's leaves and bounds
+  have hleafApp : ∀ l ∈ (Expr.mkAppN (rhsA.renameConsts f)
+      fvs).fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+    intro l hl
+    rcases fvarLeaves_mkAppN hl with hf | ⟨x, hx, hlx⟩
+    · exfalso
+      rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar
+        ((hasFvar_renameConsts f rhsA).trans hrhsw)] at hf
+      exact nomatch hf
+    · obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
+      obtain ⟨nm, ty, rfl⟩ := hshapeS q x hq
+      rw [Expr.fvarLeaves] at hlx
+      rcases List.mem_cons.mp hlx with rfl | hlx'
+      · exact hx
+      · exact hleafClosed l ⟨_, hx, by
+          rw [Expr.fvarLeaves]
+          exact List.mem_cons_of_mem _ hlx'⟩
+  have hltApp : ∀ l ∈ (Expr.mkAppN (rhsA.renameConsts f)
+      fvs).fvarLeaves, l.1 < rP + cnF := by
+    intro l hl
+    rcases fvarLeaves_mkAppN hl with hf | ⟨x, hx, hlx⟩
+    · exfalso
+      rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar
+        ((hasFvar_renameConsts f rhsA).trans hrhsw)] at hf
+      exact nomatch hf
+    · obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
+      have hqK : q < rP + cnF := by
+        rcases Nat.lt_or_ge q (rP + cnF) with h' | h'
+        · exact h'
+        · rw [List.getElem?_eq_none (by omega)] at hq
+          exact nomatch hq
+      obtain ⟨nm, ty, rfl⟩ := hshapeS q x hq
+      rw [Expr.fvarLeaves] at hlx
+      rcases List.mem_cons.mp hlx with rfl | hlx'
+      · exact hqK
+      · have hw := hwsFvs _ hx
+        have hw' : Expr.WScoped q ty := by
+          have h' := hw
+          simp only [Expr.WScoped] at h'
+          exact h'.2
+        have := Expr.fvarLeaves_lt_of_wscoped hw' l hlx'
+        omega
+  -- fire the walk at the full context
+  have hent : ∀ i, i < rP + cnF →
+      Γs[rP + cnF - 1 - i]?
+        = some ((fun i => Γs.getD (rP + cnF - 1 - i) default) i) := by
+    intro i hi
+    show Γs[rP + cnF - 1 - i]?
+      = some (Γs.getD (rP + cnF - 1 - i) default)
+    rw [List.getD]
+    rcases hg : Γs[rP + cnF - 1 - i]? with _ | A
+    · rw [List.getElem?_eq_none_iff] at hg
+      omega
+    · rfl
+  have hctxR := ctxOkR_of_openers (μ := μ) henv.cval_closed hΓslen
+    hshapeS hwsFvs hdomsS0 hleafR hltR hent
+  have hctxApp := ctxOkR_of_openers (μ := μ) henv.cval_closed hΓslen
+    hshapeS hwsFvs hdomsS0 hleafApp hltApp hent
+  have heq := DefEq.sound henv (hder Γs hctxR hctxApp)
+    (chainE V ρ zs) hsat
+  rw [heq]
+  -- decompose the applied form's denotation
+  obtain ⟨vhead, vsp, hvhead, hspine, rfl⟩ := denote_mkAppN_inv hBv
+  have hvhead' : RV = vhead := by
+    rw [denote_renameConsts hro rhsA (rP + cnF),
+      denote_depth_closed henv.cval_closed hrhsw hrhsb (rP + cnF)]
+      at hvhead
+    exact Option.some.inj (hRV.symm.trans hvhead)
+  subst hvhead'
+  -- the spine's values are the chain's
+  have hsplen : vsp.length = rP + cnF := by
+    have := hspine.length
+    omega
+  rw [interp_mkAppN_map, interp_mkAppN_map]
+  have hheadEq : interp V (chainE V ρ zs) RV = interp V ρ RV :=
+    interp_closed V (denote_closed henv.cval_closed hrhsw hrhsb hRV)
+      _ ρ
+  rw [hheadEq]
+  congr 1
+  -- pointwise: opener `i`'s value is the chain's slot
+  refine List.ext_getElem? fun i => ?_
+  rw [List.getElem?_map, List.getElem?_map]
+  rcases Nat.lt_or_ge i (rP + cnF) with hiK | hiK
+  · have hfi : ∃ x, fvs[i]? = some x := by
+      rcases hx : fvs[i]? with _ | x
+      · rw [List.getElem?_eq_none_iff] at hx
+        omega
+      · exact ⟨x, rfl⟩
+    obtain ⟨x, hx⟩ := hfi
+    obtain ⟨nm, ty, rfl⟩ := hshapeS i x hx
+    obtain ⟨v, hvspi, hdv⟩ := denoteSpine_getElem?' hspine i _ hx
+    rw [denote_fvar] at hdv
+    obtain rfl : VExpr.bvar (rP + cnF - 1 - i) = v :=
+      Option.some.inj hdv
+    have hzsi : ∃ z, zs[i]? = some z := by
+      rcases hz : zs[i]? with _ | z
+      · rw [List.getElem?_eq_none_iff] at hz
+        omega
+      · exact ⟨z, rfl⟩
+    obtain ⟨z, hz⟩ := hzsi
+    rw [hvspi, hz]
+    show some (interp V (chainE V ρ zs) (.bvar (rP + cnF - 1 - i)))
+      = some (interp V ρ z)
+    rw [interp_bvar, chainE_lt (by omega),
+      show zs.length - 1 - (rP + cnF - 1 - i) = i from by omega,
+      show zs.getD i default = z from by rw [List.getD, hz]; rfl]
+  · rw [List.getElem?_eq_none (by omega),
+      List.getElem?_eq_none (by omega)]
+    rfl
+
 end Setlec.SetR
