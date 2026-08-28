@@ -4474,3 +4474,32 @@ lists across three shapes:
     instPisAt_walk_pack  storedType_pack         shape 2 (domains)
     spine_walk_pack                              shape 3 (spines)
     stmtWalk_of                                  the common entry point
+
+### T6 — stub 2's last unknown, resolved
+
+Three of `IotaWalksR`'s six rows compare against `instPisAt` runs
+whose subject is **renamed**: `cvA.type.renameConsts f`,
+`cvj.type.renameConsts f`.  A renamed type is not a stored type, so
+`storedType_pack` does not reach it and the question was whether
+stub 2 hides another derivation.
+
+It does not.  `denote_renameConsts` (`Verify/Denote/Rename.lean:66`)
+gives `denote cval env φ d (e.renameConsts f) = denote cval env φ d e`
+outright, under `RenameOkT cval env f` — and that premise is **already
+built at exactly the site the bridge's rules fold will occupy**:
+`Install/IndRecsS.lean:575` constructs
+`RenameOkT mS.cval envSelf (fun n => …)` for the block renaming, with
+a generic producer in `Verify/Extend/Block.lean:119`.
+
+So every input to both stubs now exists, and `IotaThmR` is
+transcription against three recorded tables: the witness permutation,
+the six-row walk table, and the seven-lemma inventory.  The remaining
+per-row work is choosing which pack serves which side and projecting
+the `take`/`drop`/`++` variants — no new lemma, no new premise.
+
+*Method note.*  This stretch produced no code, and that was the right
+call: the question "does stub 2 hide another derivation?" is answered
+by two greps, and answering it before writing the 40-component
+witness is worth more than a partial witness would have been.  A
+stretch that converts an unknown into a citation is a stretch that
+did its job.
