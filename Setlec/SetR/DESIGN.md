@@ -5419,3 +5419,65 @@ What remains per obligation is now only its own **frame package** for
 the equation/certificate sides: the leaf and denotation facts of the
 generated pins, transported across `Expr.substConst0 c value'`.
 `WScoped` is already supplied (`natOpEquations_wscopedB`).
+
+### FINDING — the audit checked attachment and missed the *other*
+### quantifier
+
+Last stretch's audit cleared all three carried obligations on the
+attachment test.  Attempting the first discharge shows that test was
+**necessary and not sufficient**: two of the three are over-general in
+a *second* quantifier, and their conclusions assert things their
+hypotheses do not determine.
+
+* `NatEqsBridgeR` quantifies `{eqs}` freely and concludes
+  `NatEqsR … eqs`, which demands `denote … 2 eq.1 = some L`.  The
+  hypothesis is only `certifyNatEqs … = .ok true`, i.e. `isDefEqCore`
+  verdicts — and a verdict does **not** imply its subjects denote
+  (`DefEqClaimsR` takes the frame facts as *inputs*).  For arbitrary
+  `eqs` the claim is not warranted.
+* `DivModPinBridgeR` quantifies `{v}` freely and concludes
+  `DivModPinR … n v`, but `checkDivModPin ops env env' c` **does not
+  take a value** — it reads one out of `env'`.  So `v` is free in the
+  conclusion and absent from the hypothesis.  The same over-generality
+  is in `declDefnR`'s own `hdm`, which is where mine inherited it;
+  `DeclDefnR`'s conjunct correctly names the branch's `value'`.
+* `ReducePinBridgeR` is clean: its `value` appears in the
+  `checkReducePin` verdict.
+
+The test, in its sufficient form:
+
+> **An obligation is dischargeable only if every free variable of its
+> conclusion is determined by its hypotheses.**  Attachment (the
+> valuation) is one instance of this; `eqs` and `v` are two more, and
+> they hid behind it because attachment is the instance the campaign
+> had a name for.
+
+This is the trap family's fourth and fifth members, and — as with the
+first three — both compiled and both sat in the tree.
+
+### The right factoring, and the first discharge
+
+Rather than constrain `eqs` to the checker's own list (which drags the
+`natOpEquations` computation into the obligation), the bridge is split
+at the seam it already has:
+
+* **`NatEqFrameR`** — one side's frame package: the three syntactic
+  facts, the `Nat`-annotated-leaf shape, and the denotation;
+* **`natEqsBridge_of`** — *proved*: given a frame package for both
+  sides of every pair and `natName` stored at zero level parameters,
+  the `certifyNatEqs` verdict yields `NatEqsR`.  The context is
+  `CtxOkR.constCtx` at the pinned entries, and
+  `List.replicate 2 (natVR …)` unifies with `[natVR, natVR]`
+  definitionally, so the canonical-context lemma lands with no
+  adapter.
+
+So the **semantic half of the `Nat` obligation is discharged**, at
+exactly `[propext, Classical.choice, Quot.sound]`.  What remains is
+purely syntactic: `NatEqFrameR` for `natOpEquations`' substituted
+sides — a finite case analysis over `natOpNames` transported across
+`Expr.substConst0`, with `WScoped` already supplied by
+`natOpEquations_wscopedB`.  No semantic content, and it belongs in
+`declDefnR` where the equation list is known.
+
+The div/mod obligation needs the same split *plus* the `v`-freeness
+repair in `declDefnR`.
