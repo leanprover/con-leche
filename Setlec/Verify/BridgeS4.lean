@@ -528,7 +528,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
     · have hz1 : z.1 ∈ zipped.map Prod.fst := List.mem_map_of_mem hz
       obtain ⟨-, -, -, -, htyf, htyb, htlp, htres, -, -⟩ :=
         ProvFacts.mem_facts hProv z.1 hz1
-      have hkits := checkIotaRules_inv 0 _ _
+      have hkits0 := checkIotaRules_inv 0 _ _
         (RulesChain.mem_facts hchain z hz)
       refine constWF_intro' htyf htlp ?_ htyb
         (fun _ _ _ heq => nomatch heq) ?_
@@ -537,8 +537,9 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
       · intro cvR mI' rP' rules'' heq r hr
         injection heq with e1 e2 e3 e4
         subst e1; subst e2; subst e3; subst e4
+        obtain ⟨k, hk⟩ := List.getElem?_of_mem hr
         obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -,
-          hnest, -, -, -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
+          hnest, -, -, -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits0 k r hk
         refine ⟨hrf, hrlp, ?_, hrb, ?_⟩
         · rw [← Expr.constsResolve_congr hisoSome]
           exact hrres

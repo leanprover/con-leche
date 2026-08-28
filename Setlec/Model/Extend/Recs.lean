@@ -226,14 +226,14 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envS.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
-    (hkits : ∀ r' ∈ rules',
-      RuleChecked mode F env₂ envS f cvA mI rP r') :
+    (hkits : ∀ r' ∈ rules', ∃ j,
+      RuleChecked mode F env₂ envS f cvA mI rP j r') :
     RecMemberOk (V := V) env₃ mS.val
       (.recInfo cvA mI rP rules') := by
   intro cvR mI' rP' rules₀ hceq r hr
   injection hceq with e1 e2 e3 e4
   subst e1 e2 e3 e4
-  obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, hfc, hnf, hcp,
+  obtain ⟨jj, cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, hfc, hnf, hcp,
     hplIff, hnestK, hrawf,
     hrawb, hann, hrhsf, hrhsb, hrlp, hrres, hstripR, hity, hplainImp⟩ :=
     hkits r hr
@@ -314,7 +314,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
       hnestK lvls pins hfr
     obtain ⟨thmName, cvt, ci, fvs, tbody, ℓA, αS, lhsS, rhsS, cdoms,
       cres, rdoms, rrest, fvsP, restP, cdomsP, crestP, xFvsP, crest2,
-      ldoms, lrest, hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, hlhead,
+      ldoms, lrest, hfthm, hcvt, -, hlpt, hopen, hheadEq, hargs3, hlhead,
       hlarity, hlpre, hmaj, hCresHead, hcinst, hclen, hdeIdx, hdeFld,
       hrinst, hdePre, hopenP, hannP0, hcinstN0, htlP0, hopenX,
       hcrest2Len, hlinst, hdeLam, hdeRhs, hlhsTyC, hrhsTyC, -⟩ := hnck
@@ -479,7 +479,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
   have hkit := hplainImp hplain
   obtain ⟨thmName, cvt, ci, fvs, tbody, ℓA, αS, lhsS, rhsS, cdoms,
     cres, rdoms, rrest, fvsP, restP, cdomsP, crestP, xFvsP, crest2,
-    ldoms, lrest, hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, hlhead,
+    ldoms, lrest, hfthm, hcvt, -, hlpt, hopen, hheadEq, hargs3, hlhead,
     hlarity, hlpre, hmaj, hcstrip, hcinst, hclen, hdeIdx, hdeFld,
     hrinst, hdePre, hopenP, hcinstP, hdePars, hopenX, hlinst, hdeLam,
     hdeRhs, hlhsTyC, hrhsTyC, -⟩ := hkit
@@ -780,10 +780,11 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
     obtain ⟨hnres, hshape, hms, hbnc, htyf, htyb, htlp, htres, hmodel,
       hself⟩ := ProvFacts.mem_facts hProv z.1 hz1
     have hcir := RulesChain.mem_facts hchain z hz
-    have hkits : ∀ r' ∈ z.2, RuleChecked mode F env₂ envSelf (fun n =>
-        if blockNames.contains n then n.str "_model" else n)
-        z.1.1 z.1.2.1 z.1.2.2.1 r' :=
-      checkIotaRules_inv 0 _ _ hcir
+    have hkits : ∀ r' ∈ z.2, ∃ j, RuleChecked mode F env₂ envSelf
+        (fun n => if blockNames.contains n then n.str "_model" else n)
+        z.1.1 z.1.2.1 z.1.2.2.1 j r' := fun r' hr' => by
+      obtain ⟨k, hk⟩ := List.getElem?_of_mem hr'
+      exact ⟨_, checkIotaRules_inv 0 _ _ hcir k r' hk⟩
     refine Or.inr ⟨z.1.1, z.1.2.1, z.1.2.2.1,
       z.2, rfl, rfl, hnres, hshape, ?_, ?_, ?_⟩
     · -- ConstWF at the final environment
@@ -796,7 +797,7 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
       · intro cv2 mI2 rP2 rules2 heq r hr
         injection heq with e1 e2 e3 e4
         subst e1; subst e2; subst e3; subst e4
-        obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -,
+        obtain ⟨jj, cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -,
           hnestK, -, -, -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
         refine ⟨hrf, hrlp, ?_, hrb, ?_⟩
         · rw [← Expr.constsResolve_congr hisoSome]
@@ -811,7 +812,7 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
             exact p3
     · -- the rules' constructors are stored
       intro r hr
-      obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, hfc, -⟩ :=
+      obtain ⟨jj, cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, hfc, -⟩ :=
         hkits r hr
       refine ⟨cvj, cnP, cnF, ?_⟩
       refine hfindUp3 _ _ (ProvFacts.find?_preserved hProv _ _ hfc)

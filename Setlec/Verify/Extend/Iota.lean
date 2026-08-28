@@ -34,7 +34,7 @@ everything `modeled_rule_fold` consumes.  `env` is the environment the
 theorem is stored in, `env₀` the provisional one carrying the block's
 rule-less recursors (the definitional-equality checks ran there). -/
 def PlainChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
-    (cvA : ConstantVal) (mI rP cnP cnF : Nat) (r : RecRule)
+    (cvA : ConstantVal) (mI rP cnP cnF j : Nat) (r : RecRule)
     (cvj : ConstantVal) : Prop :=
   ∃ (thmName : Name) (cvt : ConstantVal) (ci : ConstantInfo)
     (fvs : List Expr) (tbody : Expr) (ℓA : Level) (αS lhsS rhsS : Expr)
@@ -44,6 +44,9 @@ def PlainChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → N
     (ldoms : List Expr) (lrest : Expr),
     env.find? thmName = some ci ∧
     ci.toConstantVal = cvt ∧
+    -- task #148 T6: the name the checker looked the statement up at,
+    -- recorded (the proof always knew it; the statement now says so)
+    thmName = (cvA.name.str "_model").str s!"iota_{j}" ∧
     cvt.levelParams = cvA.levelParams ∧
     openPisAtFvars (rP + cnF) cvt.type 0 = some (fvs, tbody) ∧
     tbody.getAppFn = .const eqName [ℓA] ∧
@@ -98,7 +101,7 @@ premises between the prefix and the major flow through exactly as on
 the plain path (the statement's index arguments are pinned against
 the constructor residual's canonical tuple). -/
 def NestedChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
-    (cvA : ConstantVal) (mI rP cnP cnF : Nat) (r : RecRule)
+    (cvA : ConstantVal) (mI rP cnP cnF j : Nat) (r : RecRule)
     (cvj : ConstantVal) (lvls : List Level) (pins : List Expr) : Prop :=
   ∃ (thmName : Name) (cvt : ConstantVal) (ci : ConstantInfo)
     (fvs : List Expr) (tbody : Expr) (ℓA : Level) (αS lhsS rhsS : Expr)
@@ -108,6 +111,9 @@ def NestedChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → 
     (ldoms : List Expr) (lrest : Expr),
     env.find? thmName = some ci ∧
     ci.toConstantVal = cvt ∧
+    -- task #148 T6: the name the checker looked the statement up at,
+    -- recorded (the proof always knew it; the statement now says so)
+    thmName = (cvA.name.str "_model").str s!"iota_{j}" ∧
     cvt.levelParams = cvA.levelParams ∧
     openPisAtFvars (rP + cnF) cvt.type 0 = some (fvs, tbody) ∧
     tbody.getAppFn = .const eqName [ℓA] ∧
@@ -172,7 +178,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
     {r : RecRule} {rhsA : Expr} {u : Unit}
     (h : checkIotaThm mode (fueledOps mode F) env' env₀ f cvA.name cvA.levelParams
       cvA.type mI rP j r cvj cnP cnF rhsA = .ok u) :
-    PlainChecked mode F env' env₀ f cvA mI rP cnP cnF
+    PlainChecked mode F env' env₀ f cvA mI rP cnP cnF j
       { r with rhs := rhsA } cvj := by
   simp only [checkIotaThm, checkIotaSidesTy, unwrapOr, Env.findCV?, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
@@ -372,7 +378,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
     exact ⟨(cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
       tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
       restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
-      hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
+      hfthm, hcvt, rfl, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
       eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
       checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
       checkDefEqList_inv hdq3, hopenP, hcinstP,
@@ -401,7 +407,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   exact ⟨(cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
     tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
     restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
-    hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
+    hfthm, hcvt, rfl, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
     eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
     checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
     checkDefEqList_inv hdq3, hopenP, hcinstP,
@@ -504,7 +510,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
     ∃ lvls pins, fire = .nested lvls pins ∧
       nestedRuleShape env' env₀ cvA.name cvA.levelParams cvA.type
         mI rP cnP j = some (lvls, pins) ∧
-      NestedChecked mode F env' env₀ f cvA mI rP cnP cnF
+      NestedChecked mode F env' env₀ f cvA mI rP cnP cnF j
         { r with rhs := rhsA } cvj lvls pins := by
   simp only [checkIotaThmN, checkIotaSidesTy] at h
   revert h
@@ -752,7 +758,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
           (cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
           tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
           restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
-          hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
+          hfthm, hcvt, rfl, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
           eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj,
           ⟨bsC0, cbody0, Dc, usc, hcstrip, hcheadEq⟩,
           hcinst, hclen,
@@ -786,7 +792,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         (cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
         tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
         restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
-        hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
+        hfthm, hcvt, rfl, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
         eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj,
         ⟨bsC0, cbody0, Dc, usc, hcstrip, hcheadEq⟩,
         hcinst, hclen,
@@ -803,7 +809,7 @@ before the recursor group's installation, `env₀` the provisional one
 with the block's rule-less recursors (in which the rule's right-hand
 side was annotated). -/
 def RuleChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
-    (cvA : ConstantVal) (mI rP : Nat) (r : RecRule) : Prop :=
+    (cvA : ConstantVal) (mI rP j : Nat) (r : RecRule) : Prop :=
   ∃ (cvj : ConstantVal) (cnP cnF : Nat) (raw rhsTy : Expr)
     (rbinders : List (Name × Expr × BinderMeta)) (rbody : Expr),
     env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) ∧
@@ -826,7 +832,8 @@ def RuleChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Na
             (List.range (mI - rP)).map
               (fun i => Expr.bvar (mI - rP - 1 - i))) ∧
       pins.length = cnP ∧
-      NestedChecked mode F env env₀ f cvA mI rP cnP cnF r cvj lvls pins) ∧
+      NestedChecked mode F env env₀ f cvA mI rP cnP cnF j r cvj lvls
+        pins) ∧
     raw.hasFvar = false ∧ raw.looseBVarsBounded 0 = true ∧
     annotateCore mode env₀ F 0 raw = .ok (RecRule.rhs r) ∧
     (RecRule.rhs r).hasFvar = false ∧
@@ -837,14 +844,14 @@ def RuleChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Na
       some (rbinders, rbody) ∧
     inferTypeCore mode env₀ F 0 (RecRule.rhs r) = .ok rhsTy ∧
     (Expr.recRulePlain cvA.type mI rP cnP = true →
-      PlainChecked mode F env env₀ f cvA mI rP cnP cnF r cvj)
+      PlainChecked mode F env env₀ f cvA mI rP cnP cnF j r cvj)
 
 /-- Invert one `checkIotaRule` run. -/
 theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
     {cvA : ConstantVal} {mI rP j : Nat} {r r' : RecRule}
     (h : checkIotaRule mode (fueledOps mode F) env' env₀ f cvA.name cvA.levelParams
       cvA.type mI rP j r = .ok r') :
-    RuleChecked mode F env' env₀ f cvA mI rP r' := by
+    RuleChecked mode F env' env₀ f cvA mI rP j r' := by
   simp only [checkIotaRule, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
     Except.bind, pure, Except.pure] at h
@@ -972,16 +979,17 @@ theorem checkIotaRules_inv {env' env₀ : Env} {f : Name → Name}
     ∀ (j : Nat) (rules rules' : List RecRule),
     checkIotaRules mode (fueledOps mode F) env' env₀ f cvA.name cvA.levelParams
       cvA.type mI rP j rules = .ok rules' →
-    ∀ r' ∈ rules', RuleChecked mode F env' env₀ f cvA mI rP r' := by
+    ∀ (k : Nat) (r' : RecRule), rules'[k]? = some r' →
+      RuleChecked mode F env' env₀ f cvA mI rP (j + k) r' := by
   intro j rules
   induction rules generalizing j with
   | nil =>
-    intro rules' h r' hr'
+    intro rules' h k r' hr'
     simp only [checkIotaRules, pure, Except.pure, Except.ok.injEq] at h
     subst h
-    exact nomatch hr'
+    simp at hr'
   | cons r rest ih =>
-    intro rules' h r' hr'
+    intro rules' h k r' hr'
     simp only [checkIotaRules, Bind.bind, Except.bind] at h
     revert h
     cases hr1 : checkIotaRule mode (fueledOps mode F) env' env₀ f cvA.name
@@ -998,10 +1006,15 @@ theorem checkIotaRules_inv {env' env₀ : Env} {f : Name → Name}
     intro h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
-    rw [List.mem_cons] at hr'
-    rcases hr' with rfl | hr'
-    · exact checkIotaRule_inv hr1
-    · exact ih (j + 1) rest' hrest r' hr'
+    cases k with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hr'
+      subst hr'
+      simpa using checkIotaRule_inv hr1
+    | succ k' =>
+      simp only [List.getElem?_cons_succ] at hr'
+      have hik := ih (j + 1) rest' hrest k' r' hr'
+      simpa [Nat.add_assoc, Nat.add_comm 1 k'] using hik
 
 set_option maxHeartbeats 1600000 in
 /-- The kernel-checked eta pins of a block's capability record,

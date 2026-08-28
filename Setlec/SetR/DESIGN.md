@@ -4074,5 +4074,29 @@ take `thmName` as a parameter and existentially quantifying it *at
 help — the pin has to be present where `checkIotaThm` established it,
 which is inside the per-rule inversion.
 
-Not taken: this is a shared-tier decision with cross-lane blast
-radius, escalated rather than absorbed.
+**DECIDED: option 1 — pin in the shared tier.**  The precedent check
+resolves it: this is not the campaign's first edit to shared-inversion
+statements the TT lane consumes (#135 and #146 threaded new conjuncts
+through these same inversions, `checkIotaThm_inv` included).  The
+class is established: *recording in the statement what the proof
+already establishes* is a strengthening no consumer can be harmed by.
+
+**Implemented — with one correction worth keeping.**  My first attempt
+*replaced* `∃ thmName ci, env.find? thmName = some ci ∧
+ci.toConstantVal = cvt` with `env.findCV? pinned = some cvt`.  That is
+not a strengthening: it deletes the `ConstantInfo`, which both lanes
+consume downstream (five sites broke with `Unknown identifier
+thmName`/`ci`/`hfthm`/`hcvt`).  The rule is exact and I violated it on
+the first pass: **one conjunct to DISCARD, never a field to
+reconstruct.**  The landed shape keeps all four and appends
+`thmName = (cvA.name.str "_model").str s!"iota_{j}"`.
+
+The genuinely new part — `RuleChecked` gaining `j`, consumed under
+`∀ r' ∈ rules'` — was mechanical after all: `checkIotaRules_inv`'s
+conclusion becomes `∀ k r', rules'[k]? = some r' → RuleChecked … (j+k)
+r'`, mirroring the checker's own loop accumulator, and each consumer
+boundary re-existentialises the index (`∀ r' ∈ rules', ∃ j,
+RuleChecked … j r'`) via `List.getElem?_of_mem`.  Consumers that never
+look at the index gained one `⟨jj, …⟩` binder; the one that is
+*about* a single rule (`ruleChecked_rhs_facts`) took `j` as a
+parameter instead.  Total: 8 files, all edits positional.
