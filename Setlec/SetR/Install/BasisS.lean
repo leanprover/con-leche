@@ -777,6 +777,110 @@ theorem extendPUnitRecS {env : Env} (m : EnvS V env)
               using hm
     · exact nomatch hr'
 
+/-! ## `Nat`
+
+Four constants, and the level question does not arise: `Nat.zero` and
+`Nat.succ` bind **no** level parameters, so a fired rule's `usj` is
+forced to `[]`.  `Nat.rec` is the block's content and the recipe's
+second application — two rules this time. -/
+
+/-- `Nat`, installed. -/
+theorem extendNatS {env : Env} (m : EnvS V env)
+    (hfresh : env.find? natName = none)
+    (hwf : EnvWF ⟨natA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨natA :: env.consts⟩,
+      m'.cval = cvalWith m.cval natA.name (fun _ => natT) := by
+  refine extendBasisS m (val := fun _ => natT)
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name natA = natName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) (fun _ _ _ => rfl)
+    (fun _ _ => trivial) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ
+    refine ⟨.sort 1, ?_, fun ρ =>
+      ⟨HasType.sound (V := V) HasType.const ρ (Sat_nil V ρ), trivial⟩⟩
+    rw [denoteClosed, show natA.toConstantVal.type
+      = Expr.sort (.succ .zero) from rfl, denote_sort]
+    rfl
+
+/-- `Nat.zero`, installed. -/
+theorem extendNatZeroS {env : Env} (m : EnvS V env)
+    (hN : env.find? natName = some natA)
+    (hfresh : env.find? natZeroName = none)
+    (hwf : EnvWF ⟨natZeroA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨natZeroA :: env.consts⟩,
+      m'.cval = cvalWith m.cval natZeroA.name (fun _ => natZeroT) := by
+  refine extendBasisS m (val := fun _ => natZeroT)
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name natZeroA = natZeroName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) (fun _ _ _ => rfl)
+    (fun _ _ => trivial) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ
+    refine ⟨natT, ?_, fun ρ =>
+      ⟨HasType.sound (V := V) HasType.const ρ (Sat_nil V ρ), trivial⟩⟩
+    rw [denoteClosed, show natZeroA.toConstantVal.type
+      = Expr.const natName [] from rfl]
+    refine denote_const_pinS m (by decide) hN rfl (by decide) ?_ 0
+    simp +decide [pinnedDirectT]
+    rfl
+
+/-- `Nat.succ`, installed. -/
+theorem extendNatSuccS {env : Env} (m : EnvS V env)
+    (hN : env.find? natName = some natA)
+    (hfresh : env.find? natSuccName = none)
+    (hwf : EnvWF ⟨natSuccA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨natSuccA :: env.consts⟩,
+      m'.cval = cvalWith m.cval natSuccA.name
+        (fun _ => VExpr.const .natSucc []) := by
+  have hNc : ∀ d : Nat, ∀ φ : Name → Nat,
+      denote (cvalWith m.cval natSuccA.name
+        (fun _ => VExpr.const .natSucc []))
+        ⟨natSuccA :: env.consts⟩ φ d (.const natName [])
+        = some natT := by
+    intro d φ
+    refine denote_const_pinS m (by decide) hN rfl (by decide) ?_ d
+    simp +decide [pinnedDirectT]
+    rfl
+  refine extendBasisS m (val := fun _ => VExpr.const .natSucc [])
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name natSuccA = natSuccName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) (fun _ _ _ => rfl)
+    (fun _ _ => trivial) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ
+    refine ⟨.pi natT natT, ?_, fun ρ =>
+      ⟨HasType.sound (V := V) HasType.const ρ (Sat_nil V ρ),
+        ⟨trivial, fun _ _ => trivial⟩⟩⟩
+    rw [denoteClosed, show natSuccA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "n") (.const natName [])
+          (.const natName []) { bi := .default } from rfl]
+    simp [denote_forallE, Expr.instantiate1, hNc]
+
 /-- **The `PUnit` block, installed.** -/
 theorem declBasisS_punitK {env env₂ : Env} (m : EnvS V env)
     (h : BasisInstallR env BasisKind.punitK.declsA env₂) :
