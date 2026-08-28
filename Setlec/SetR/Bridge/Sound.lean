@@ -1,4 +1,5 @@
 import Setlec.SetR.Bridge.DeclInd
+import Setlec.Verify.NatOpFrag
 
 /-!
 # The assembly (task #148, T6)
@@ -103,6 +104,108 @@ theorem natEqsBridge_of {env : Env} (m : EnvS V env) {μ : CheckMode}
       simp only [if_true] at h
       exact ih (fun q hq => hfr q (List.mem_cons_of_mem _ hq)) h eq
         heq' φ
+
+/-- **The fragment gives the frame package**, in one induction over
+`natFragOk`'s four constructors.  The operation `c` is the one being
+defined, so it is *not* stored: its occurrences are the ones
+`substConst0` replaces, and the substituted value's own facts stand in
+for them. -/
+theorem natEqFrame_of_frag {env : Env} (m : EnvS V env) {c : Name}
+    {v : Expr} (hvf : v.hasFvar = false)
+    (hvb : v.looseBVarsBounded 0 = true)
+    (hvd : ∀ φ : Name → Nat, ∃ V0, denote m.cval env φ 0 v = some V0) :
+    ∀ {e : Expr}, natFragOk env c e = true →
+      NatEqFrameR m.cval env (Expr.substConst0 c v e)
+  | .sort u, _ => by
+    rw [show Expr.substConst0 c v (Expr.sort u) = Expr.sort u from rfl]
+    refine ⟨by rw [Expr.WScoped]; trivial, rfl, ?_, ?_,
+      fun φ => ⟨_, by rw [denote_sort]⟩⟩
+    · intro l hl; simp [Expr.fvarLeaves] at hl
+    · intro l hl; simp [Expr.fvarLeaves] at hl
+  | .fvar i n ty, h => by
+    simp only [natFragOk, Bool.and_eq_true, Bool.or_eq_true,
+      decide_eq_true_eq, beq_iff_eq] at h
+    obtain ⟨hi, rfl⟩ := h
+    have hilt : i < 2 := by rcases hi with rfl | rfl <;> omega
+    rw [show Expr.substConst0 c v (Expr.fvar i n (.const natName []))
+      = Expr.fvar i n (.const natName []) from rfl]
+    refine ⟨?_, rfl, ?_, ?_, fun φ => ⟨_, by rw [denote_fvar]⟩⟩
+    · rw [Expr.WScoped]
+      exact ⟨hilt, by rw [Expr.WScoped]; trivial⟩
+    · intro l hl
+      rw [Expr.fvarLeaves] at hl
+      rcases List.mem_cons.mp hl with rfl | hl'
+      · rfl
+      · simp [Expr.fvarLeaves] at hl'
+    · intro l hl
+      rw [Expr.fvarLeaves] at hl
+      rcases List.mem_cons.mp hl with rfl | hl'
+      · exact ⟨hilt, rfl⟩
+      · simp [Expr.fvarLeaves] at hl'
+  | .const n us, h => by
+    rw [show Expr.substConst0 c v (Expr.const n us)
+      = (if n = c ∧ us = [] then v else Expr.const n us) from rfl]
+    by_cases hn : n = c ∧ us.isEmpty = true
+    · rw [if_pos (show n = c ∧ us = [] from
+        ⟨hn.1, List.isEmpty_iff.mp hn.2⟩)]
+      refine ⟨Expr.WScoped.mono (Nat.zero_le 2)
+          (Expr.WScoped.of_not_hasFvar hvf), hvb,
+        Expr.LeavesBounded.of_not_hasFvar hvf, ?_, fun φ => ?_⟩
+      · intro l hl
+        rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hvf] at hl
+        exact nomatch hl
+      · obtain ⟨V0, hV0⟩ := hvd φ
+        exact opener_denotes_at m.toEnvR
+          (Expr.WScoped.of_not_hasFvar hvf).fvarsBelow
+          (Nat.zero_le 2) hV0
+    · rw [if_neg (fun hh => hn ⟨hh.1, by rw [hh.2]; rfl⟩)]
+      simp only [natFragOk, Bool.or_eq_true, Bool.and_eq_true,
+        decide_eq_true_eq] at h
+      rcases h with h' | h'
+      · exact absurd h' hn
+      · refine ⟨by rw [Expr.WScoped]; trivial, rfl, ?_, ?_,
+          fun φ => ?_⟩
+        · intro l hl; simp [Expr.fvarLeaves] at hl
+        · intro l hl; simp [Expr.fvarLeaves] at hl
+        revert h'
+        cases hf : env.find? n with
+        | none => intro hx; exact nomatch hx
+        | some ci =>
+          intro hx
+          refine ⟨m.cval n (Level.substFn φ
+            ci.toConstantVal.levelParams us), ?_⟩
+          rw [denote_const, hf]
+          dsimp only
+          rw [if_pos (by simpa using hx)]
+  | .app f a, h => by
+    simp only [natFragOk, Bool.and_eq_true] at h
+    obtain ⟨hwf, hbf, hLf, hlf, hdf⟩ :=
+      natEqFrame_of_frag m hvf hvb hvd h.1
+    obtain ⟨hwa, hba, hLa, hla, hda⟩ :=
+      natEqFrame_of_frag m hvf hvb hvd h.2
+    rw [show Expr.substConst0 c v (Expr.app f a)
+      = Expr.app (Expr.substConst0 c v f) (Expr.substConst0 c v a)
+      from rfl]
+    refine ⟨by rw [Expr.WScoped]; exact ⟨hwf, hwa⟩, ?_, ?_, ?_,
+      fun φ => ?_⟩
+    · simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨hbf, hba⟩
+    · intro l hl
+      rw [Expr.fvarLeaves] at hl
+      rcases List.mem_append.mp hl with h' | h'
+      · exact hLf l h'
+      · exact hLa l h'
+    · intro l hl
+      rw [Expr.fvarLeaves] at hl
+      rcases List.mem_append.mp hl with h' | h'
+      · exact hlf l h'
+      · exact hla l h'
+    · obtain ⟨vf, hvf'⟩ := hdf φ
+      obtain ⟨va, hva'⟩ := hda φ
+      exact ⟨_, by rw [denote_app, hvf', hva']⟩
+  | .bvar _, h | .lam _ _ _ _, h | .forallE _ _ _ _, h
+  | .letE _ _ _ _, h | .proj _ _ _, h | .lit _, h => by
+    simp [natFragOk] at h
 
 def NatEqsBridgeR (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) :
     Prop :=
