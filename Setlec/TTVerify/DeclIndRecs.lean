@@ -33,40 +33,6 @@ were relocated to `Setlec/Verify/{EnvGuards,EnvPreds}.lean` by task
 #148's T1, and these two are the residue it did not cover.  The `recFireComparands` computations are what turn
 `RecMemberTT`'s level premise into the bottoms' spelling. -/
 
-/-- A canonical rule's constructor parameters are among the recursor's
-prefix. -/
-theorem recRulePlain_leT {recTy : Expr} {mI rP cnP : Nat}
-    (h : Expr.recRulePlain recTy mI rP cnP = true) :
-    cnP ≤ rP := by
-  rw [Expr.recRulePlain, Bool.and_eq_true, Bool.and_eq_true] at h
-  exact of_decide_eq_true h.1.1
-
-/-- A canonical rule's prefix fits under the major's position. -/
-theorem recRulePlain_le_mIT {recTy : Expr} {mI rP cnP : Nat}
-    (h : Expr.recRulePlain recTy mI rP cnP = true) :
-    rP ≤ mI := by
-  rw [Expr.recRulePlain, Bool.and_eq_true, Bool.and_eq_true] at h
-  exact of_decide_eq_true h.1.2
-
-/-- The fire comparand levels of a plain rule. -/
-theorem recFireComparands_plain {rl : RecRule} {lps : List Name}
-    {us : List Level} {cvjLps : List Name} {args : List Expr} {rP : Nat}
-    (h : RecRule.fire rl = .plain) :
-    (recFireComparands rl lps us cvjLps args rP).1 =
-      cvjLps.map fun p => Level.subst lps us (.param p) := by
-  unfold recFireComparands
-  rw [h]
-
-/-- The fire comparand levels of a nested rule. -/
-theorem recFireComparands_nested {rl : RecRule} {lps : List Name}
-    {us : List Level} {cvjLps : List Name} {args : List Expr} {rP : Nat}
-    {lvls : List Level} {pins : List Expr}
-    (h : RecRule.fire rl = .nested lvls pins) :
-    (recFireComparands rl lps us cvjLps args rP).1 =
-      lvls.map (Level.subst lps us) := by
-  unfold recFireComparands
-  rw [h]
-
 /-! ## The provisioning phase -/
 
 set_option maxHeartbeats 3200000 in
@@ -196,56 +162,6 @@ theorem provisionRecsTT {blockNames : List Name} :
       rw [hpresS n ψ hn₁, hcval₁, cvalAlias_ne hne]
     · exact ProvFacts.cons hfind0 hnres0 hpshape0 hms hbnA htyf htyb
         htlp htres ⟨cvm, mval, hmcvm, hfm, hlps, hrenf⟩ hchain
-
-/-! ## The stored levels' arity (the nested bottom's `hlvlsLen`)
-
-The checker never compares `lvls.length` against the constructor's
-level arity — the fact is forced *semantically*: the checked
-statement's major applies `f ctor` at `lvls`, the statement denotes
-(it is a stored, checked theorem), and `denote`'s `.const` clause is
-guarded on the stored arity.  Sealed per §23's house rule: the walk
-rewrites under `denote` terms. -/
-theorem nestedLvlsLength {cval : TConstVal} {env₀ : Env} {ψ : Name → Nat}
-    {stmtTy : Expr} {K : Nat} {fvs : List Expr} {tbody : Expr}
-    {ℓA : Level} {αS lhsS rhsS : Expr} {fRn fCtor : Name}
-    {lpsE lvls : List Level} {mI : Nat} {spN : List Expr}
-    {ciCm : ConstantInfo} {Tstmt : VExpr}
-    (hTstmt : denote cval env₀ ψ 0 stmtTy = some Tstmt)
-    (hopen : openPisAtFvars K stmtTy 0 = some (fvs, tbody))
-    (hheadEq : tbody.getAppFn = .const eqName [ℓA])
-    (hargs3 : tbody.getAppArgs = [αS, lhsS, rhsS])
-    (hlhead : lhsS.getAppFn = Expr.const fRn lpsE)
-    (hlarity : lhsS.getAppArgs.length = mI + 1)
-    (hmaj : Expr.ErasedEq (lhsS.getAppArgs.getLastD (.bvar 0))
-      (Expr.mkAppN (.const fCtor lvls) spN))
-    (hfCmE : env₀.find? fCtor = some ciCm) :
-    lvls.length = ciCm.toConstantVal.levelParams.length := by
-  obtain ⟨Γs, Rbody, htowerS, hRbody, -⟩ :=
-    openPisAtFvars_denoteTele K hopen hTstmt
-  rw [← Expr.mkAppN_getApp tbody, hheadEq, hargs3] at hRbody
-  obtain ⟨vf, vs, -, hsp, -⟩ := denote_mkAppN_inv hRbody
-  obtain ⟨vl, hvl⟩ : ∃ vl, denote cval env₀ ψ (0 + K) lhsS = some vl := by
-    cases hsp with
-    | cons hα hsp1 =>
-      cases hsp1 with
-      | cons hl hsp2 => exact ⟨_, hl⟩
-  rw [← Expr.mkAppN_getApp lhsS, hlhead] at hvl
-  obtain ⟨vh, vsl, -, hspL, -⟩ := denote_mkAppN_inv hvl
-  have hlt : mI < lhsS.getAppArgs.length := by omega
-  have hlast : lhsS.getAppArgs.getLastD (.bvar 0) =
-      lhsS.getAppArgs[mI]'hlt := by
-    rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?, hlarity,
-      Nat.add_sub_cancel]
-    simp [List.getElem?_eq_getElem hlt]
-  have hmajden := hspL.get ⟨mI, hlt⟩
-  simp only [Fin.getElem_fin] at hmajden
-  rw [← hlast, denote_erasedEq hmaj] at hmajden
-  obtain ⟨vc, vspn, hvc, -, -⟩ := denote_mkAppN_inv hmajden
-  rw [denote_const, hfCmE] at hvc
-  dsimp only at hvc
-  split at hvc
-  · next hlen => exact hlen
-  · exact nomatch hvc
 
 set_option maxHeartbeats 12800000 in
 /-- One installed recursor's fold obligations at the final environment,

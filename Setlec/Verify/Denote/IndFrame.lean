@@ -1774,6 +1774,60 @@ theorem towerCtxEq {cval : TConstVal} {env : Env} {ψ : Name → Nat}
   towerCtxEqD hrblen hcblen hΓβlen hΓclen hβdoms hcdoms
     (fun i0 b b' hi hb hb' => by rw [hrdomsEq i0 b b' hi hb hb'])
 
+/-! ## The stored levels' arity (the nested bottom's `hlvlsLen`)
+
+The checker never compares `lvls.length` against the constructor's
+level arity — the fact is forced *semantically*: the checked
+statement's major applies `f ctor` at `lvls`, the statement denotes
+(it is a stored, checked theorem), and `denote`'s `.const` clause is
+guarded on the stored arity.  Sealed per the house rule: the walk
+rewrites under `denote` terms.
+
+Relocated verbatim from `Setlec/TTVerify/DeclIndRecs.lean` (task #148,
+T5 stage 3b): the statement is about `denote` and a `TConstVal`, so
+both verified lanes' nested bottoms read it. -/
+theorem nestedLvlsLength {cval : TConstVal} {env₀ : Env} {ψ : Name → Nat}
+    {stmtTy : Expr} {K : Nat} {fvs : List Expr} {tbody : Expr}
+    {ℓA : Level} {αS lhsS rhsS : Expr} {fRn fCtor : Name}
+    {lpsE lvls : List Level} {mI : Nat} {spN : List Expr}
+    {ciCm : ConstantInfo} {Tstmt : VExpr}
+    (hTstmt : denote cval env₀ ψ 0 stmtTy = some Tstmt)
+    (hopen : openPisAtFvars K stmtTy 0 = some (fvs, tbody))
+    (hheadEq : tbody.getAppFn = .const eqName [ℓA])
+    (hargs3 : tbody.getAppArgs = [αS, lhsS, rhsS])
+    (hlhead : lhsS.getAppFn = Expr.const fRn lpsE)
+    (hlarity : lhsS.getAppArgs.length = mI + 1)
+    (hmaj : Expr.ErasedEq (lhsS.getAppArgs.getLastD (.bvar 0))
+      (Expr.mkAppN (.const fCtor lvls) spN))
+    (hfCmE : env₀.find? fCtor = some ciCm) :
+    lvls.length = ciCm.toConstantVal.levelParams.length := by
+  obtain ⟨Γs, Rbody, htowerS, hRbody, -⟩ :=
+    openPisAtFvars_denoteTele K hopen hTstmt
+  rw [← Expr.mkAppN_getApp tbody, hheadEq, hargs3] at hRbody
+  obtain ⟨vf, vs, -, hsp, -⟩ := denote_mkAppN_inv hRbody
+  obtain ⟨vl, hvl⟩ : ∃ vl, denote cval env₀ ψ (0 + K) lhsS = some vl := by
+    cases hsp with
+    | cons hα hsp1 =>
+      cases hsp1 with
+      | cons hl hsp2 => exact ⟨_, hl⟩
+  rw [← Expr.mkAppN_getApp lhsS, hlhead] at hvl
+  obtain ⟨vh, vsl, -, hspL, -⟩ := denote_mkAppN_inv hvl
+  have hlt : mI < lhsS.getAppArgs.length := by omega
+  have hlast : lhsS.getAppArgs.getLastD (.bvar 0) =
+      lhsS.getAppArgs[mI]'hlt := by
+    rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?, hlarity,
+      Nat.add_sub_cancel]
+    simp [List.getElem?_eq_getElem hlt]
+  have hmajden := hspL.get ⟨mI, hlt⟩
+  simp only [Fin.getElem_fin] at hmajden
+  rw [← hlast, denote_erasedEq hmaj] at hmajden
+  obtain ⟨vc, vspn, hvc, -, -⟩ := denote_mkAppN_inv hmajden
+  rw [denote_const, hfCmE] at hvc
+  dsimp only at hvc
+  split at hvc
+  · next hlen => exact hlen
+  · exact nomatch hvc
+
 /-- The fired-spine value of the projection field's bound variable
 (sealed). -/
 theorem projFieldValue {rP cnP cnF i : Nat} {xs ys : List VExpr}

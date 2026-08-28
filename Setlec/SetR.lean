@@ -33,6 +33,7 @@ import Setlec.SetR.Install.Step
 import Setlec.SetR.Install.IndMemberS
 import Setlec.SetR.Install.IndMembersS
 import Setlec.SetR.Install.SwapS
+import Setlec.SetR.Install.IotaRuleS
 import Setlec.SetR.Examples
 import Setlec.SetR.Bridge.Env
 import Setlec.SetR.Bridge.Claims
