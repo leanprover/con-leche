@@ -88,6 +88,21 @@ theorem Env.find?_cons {c : ConstantInfo} {env : Env} {n : Name} :
   · next h => simp_all
   · next h => simp_all
 
+/-- A cons finds its own head. -/
+theorem Env.find?_cons_self (c : ConstantInfo) (env : Env) :
+    Env.find? ⟨c :: env.consts⟩ c.name = some c := by
+  rw [Env.find?_cons, if_pos rfl]
+
+/-- A cons of a *fresh* head does not find anything new. -/
+theorem Env.find?_cons_of_fresh {c : ConstantInfo} {env : Env}
+    {n : Name} {ci : ConstantInfo} (hfresh : env.find? c.name = none)
+    (h : env.find? n = some ci) :
+    Env.find? ⟨c :: env.consts⟩ n = some ci := by
+  rw [Env.find?_cons]
+  split
+  · next heq => rw [heq, h] at hfresh; exact nomatch hfresh
+  · exact h
+
 /-- Extending the environment with a fresh constant does not change
 successful lookups. -/
 theorem Env.find?_cons_of_isSome {c : ConstantInfo} {env : Env} {n : Name}

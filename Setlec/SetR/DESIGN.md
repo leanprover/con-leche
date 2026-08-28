@@ -10,7 +10,7 @@ the design document does not say.  House practices are
 
 ## Promoted practices (binding here; candidates for §0/§25)
 
-Two rules earned promotion during T5 by recurring across unrelated
+Three rules earned promotion during T5 by recurring across unrelated
 stages.  They sit at the top of this file because they are checks to
 run *while designing*, not lessons to read afterwards.
 
@@ -24,6 +24,18 @@ but to premise the *helper* on the fields it actually uses:
 which helpers its own supplier will have to run; checking it when the
 supplier is written is already too late, because by then the helper's
 signature is load-bearing everywhere.
+
+**P1a — a practice tells you a route is closed; it does not tell you
+which of the open ones to take.**  P1 correctly ruled out consing the
+projection recursor with its rule (stage 5b).  The remedy taken —
+provision, fire, swap — was not merely more expensive than the right
+one (re-aim the helper *below*, at the model's own name); it was
+**blocked**, needing a transport nothing tools.  The failure was not a
+misread premise but *stopping at the first remedy*.  The concrete
+check: **before building around a closed route, read the sibling
+lane's record for the same obstacle.**  `TTVerify/DeclIndProj.lean`'s
+"Where the bottom runs" had the answer in prose, and both lanes'
+DESIGN files exist precisely so this lookup is cheap.
 
 **P2 — read a premise for the environment it quantifies over and the
 degenerate case it admits, not for the data it supplies.**  Three

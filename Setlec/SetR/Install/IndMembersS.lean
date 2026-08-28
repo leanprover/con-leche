@@ -224,6 +224,209 @@ theorem memberInstallS (hkey : MemberKeyS V) (heta : MemberEtaS V)
       rw [hc₀name] at hn
       exact congrFun (cvalWith_ne hn) ψ)
 
+/-! ## The member fold's syntactic residue
+
+The `DeclIndS` assembly needs to know what the fold *preserves*, not
+just that it produces a model.  These two are the [set] analogues of
+`checkIndFold_mono` / `checkIndMember_fold_names`
+(`Verify/Extend/Ind.lean`); they are V-free and prove by the same
+freshness chain `provisionRecsS_mono` uses. -/
+
+/-- The member fold only extends. -/
+theorem indMembersR_mono {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {caps : IndCaps} :
+    ∀ (members : List ConstantInfo) {env : Env} {cval : TConstVal}
+      {env₂ : Env} {cval₂ : TConstVal},
+      IndMembersR μ F blockNames caps env cval members env₂ cval₂ →
+      ∀ (n : Name) (ci : ConstantInfo),
+        env.find? n = some ci → env₂.find? n = some ci := by
+  intro members
+  induction members with
+  | nil =>
+    intro env cval env₂ cval₂ h n ci hf
+    obtain ⟨rfl, rfl⟩ := h
+    exact hf
+  | cons ci₀ rest ih =>
+    intro env cval env₂ cval₂ h n ci hf
+    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+    have hfresh : env.find? cvA.name = none := by
+      rw [show cvA.name = ci₀.toConstantVal.name by rw [hcvA]]
+      exact Option.isNone_iff_eq_none.mp hcv.1
+    cases ci₀ with
+    | indInfo cv caps' =>
+      exact ih hmatch n ci
+        (Env.find?_cons_of_fresh (c := .indInfo cvA caps) hfresh hf)
+    | ctorInfo cv nP nF =>
+      exact ih hmatch n ci
+        (Env.find?_cons_of_fresh (c := .ctorInfo cvA nP nF) hfresh hf)
+    | axiomInfo cv => exact nomatch hmatch
+    | defnInfo cv v hint => exact nomatch hmatch
+    | thmInfo cv v => exact nomatch hmatch
+    | recInfo cv mI rP rules => exact nomatch hmatch
+    | projInfo e => exact nomatch hmatch
+
+/-- Every member the fold walks is stored at its end. -/
+theorem indMembersR_stored {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {caps : IndCaps} :
+    ∀ (members : List ConstantInfo) {env : Env} {cval : TConstVal}
+      {env₂ : Env} {cval₂ : TConstVal},
+      IndMembersR μ F blockNames caps env cval members env₂ cval₂ →
+      ∀ ci ∈ members, (env₂.find? ci.name).isSome = true := by
+  intro members
+  induction members with
+  | nil =>
+    intro env cval env₂ cval₂ h ci hci
+    exact nomatch hci
+  | cons ci₀ rest ih =>
+    intro env cval env₂ cval₂ h ci hci
+    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+    have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
+    rcases List.mem_cons.mp hci with heq | hci'
+    · rw [heq, ← hnameA]
+      cases ci₀ with
+      | indInfo cv caps' =>
+        rw [show (env₂.find? cvA.name)
+            = some (ConstantInfo.indInfo cvA caps) from
+          indMembersR_mono rest hmatch _ _
+            (Env.find?_cons_self (.indInfo cvA caps) env)]
+        rfl
+      | ctorInfo cv nP nF =>
+        rw [show (env₂.find? cvA.name)
+            = some (ConstantInfo.ctorInfo cvA nP nF) from
+          indMembersR_mono rest hmatch _ _
+            (Env.find?_cons_self (.ctorInfo cvA nP nF) env)]
+        rfl
+      | axiomInfo cv => exact nomatch hmatch
+      | defnInfo cv v hint => exact nomatch hmatch
+      | thmInfo cv v => exact nomatch hmatch
+      | recInfo cv mI rP rules => exact nomatch hmatch
+      | projInfo e => exact nomatch hmatch
+    · cases ci₀ with
+      | indInfo cv caps' => exact ih hmatch ci hci'
+      | ctorInfo cv nP nF => exact ih hmatch ci hci'
+      | axiomInfo cv => exact nomatch hmatch
+      | defnInfo cv v hint => exact nomatch hmatch
+      | thmInfo cv v => exact nomatch hmatch
+      | recInfo cv mI rP rules => exact nomatch hmatch
+      | projInfo e => exact nomatch hmatch
+
+/-- No member is stored *before* the fold runs. -/
+theorem indMembersR_fresh {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {caps : IndCaps} :
+    ∀ (members : List ConstantInfo) {env : Env} {cval : TConstVal}
+      {env₂ : Env} {cval₂ : TConstVal},
+      IndMembersR μ F blockNames caps env cval members env₂ cval₂ →
+      ∀ ci ∈ members, env.find? ci.name = none := by
+  intro members
+  induction members with
+  | nil =>
+    intro env cval env₂ cval₂ h ci hci
+    exact nomatch hci
+  | cons ci₀ rest ih =>
+    intro env cval env₂ cval₂ h ci hci
+    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+    have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
+    have hfresh : env.find? cvA.name = none := by
+      rw [hnameA]
+      exact Option.isNone_iff_eq_none.mp hcv.1
+    rcases List.mem_cons.mp hci with heq | hci'
+    · rw [heq, ← hnameA]; exact hfresh
+    · -- a later member is fresh in the *accumulator*, hence here
+      rcases hf : env.find? ci.name with _ | ci₂
+      · rfl
+      · exfalso
+        cases ci₀ with
+        | indInfo cv caps' =>
+          have hnone := ih hmatch ci hci'
+          rw [Env.find?_cons_of_fresh (c := .indInfo cvA caps)
+            hfresh hf] at hnone
+          exact nomatch hnone
+        | ctorInfo cv nP nF =>
+          have hnone := ih hmatch ci hci'
+          rw [Env.find?_cons_of_fresh (c := .ctorInfo cvA nP nF)
+            hfresh hf] at hnone
+          exact nomatch hnone
+        | axiomInfo cv => exact nomatch hmatch
+        | defnInfo cv v hint => exact nomatch hmatch
+        | thmInfo cv v => exact nomatch hmatch
+        | recInfo cv mI rP rules => exact nomatch hmatch
+        | projInfo e => exact nomatch hmatch
+
+/-- Each member's name passes `ConstantValR`'s two name guards. -/
+theorem indMembersR_nameGuards {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {caps : IndCaps} :
+    ∀ (members : List ConstantInfo) {env : Env} {cval : TConstVal}
+      {env₂ : Env} {cval₂ : TConstVal},
+      IndMembersR μ F blockNames caps env cval members env₂ cval₂ →
+      ∀ ci ∈ members, ci.name.isProjFnShape = false ∧
+        reservedBasisNames.contains ci.name = false := by
+  intro members
+  induction members with
+  | nil =>
+    intro env cval env₂ cval₂ h ci hci
+    exact nomatch hci
+  | cons ci₀ rest ih =>
+    intro env cval env₂ cval₂ h ci hci
+    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨type', hcv, -, -⟩ := id hmv
+    rcases List.mem_cons.mp hci with heq | hci'
+    · rw [heq]
+      exact ⟨hcv.2.2.1, hcv.2.1⟩
+    · cases ci₀ with
+      | indInfo cv caps' => exact ih hmatch ci hci'
+      | ctorInfo cv nP nF => exact ih hmatch ci hci'
+      | axiomInfo cv => exact nomatch hmatch
+      | defnInfo cv v hint => exact nomatch hmatch
+      | thmInfo cv v => exact nomatch hmatch
+      | recInfo cv mI rP rules => exact nomatch hmatch
+      | projInfo e => exact nomatch hmatch
+
+/-- The former the fold walks is stored as an `.indInfo` at the
+*block's* capability record, under an annotated `ConstantVal` with the
+same name and level parameters. -/
+theorem indMembersR_indEntry {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {caps : IndCaps} :
+    ∀ (members : List ConstantInfo) {env : Env} {cval : TConstVal}
+      {env₂ : Env} {cval₂ : TConstVal},
+      IndMembersR μ F blockNames caps env cval members env₂ cval₂ →
+      ∀ (cv : ConstantVal) (caps₂ : IndCaps),
+        ConstantInfo.indInfo cv caps₂ ∈ members →
+        ∃ cvA : ConstantVal, cvA.name = cv.name ∧
+          cvA.levelParams = cv.levelParams ∧
+          env₂.find? cv.name = some (.indInfo cvA caps) := by
+  intro members
+  induction members with
+  | nil =>
+    intro env cval env₂ cval₂ h cv caps₂ hci
+    exact nomatch hci
+  | cons ci₀ rest ih =>
+    intro env cval env₂ cval₂ h cv caps₂ hci
+    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+    have hnameA : cvA.name = ci₀.toConstantVal.name := by rw [hcvA]
+    have hlpsA : cvA.levelParams = ci₀.toConstantVal.levelParams := by
+      rw [hcvA]
+    have hfresh : env.find? cvA.name = none := by
+      rw [hnameA]
+      exact Option.isNone_iff_eq_none.mp hcv.1
+    rcases List.mem_cons.mp hci with heq | hci'
+    · subst heq
+      refine ⟨cvA, hnameA, hlpsA, ?_⟩
+      rw [show cv.name = cvA.name from hnameA.symm]
+      exact indMembersR_mono rest hmatch _ _
+        (Env.find?_cons_self (.indInfo cvA caps) env)
+    · cases ci₀ with
+      | indInfo cv' caps' => exact ih hmatch cv caps₂ hci'
+      | ctorInfo cv' nP nF => exact ih hmatch cv caps₂ hci'
+      | axiomInfo cv' => exact nomatch hmatch
+      | defnInfo cv' v hint => exact nomatch hmatch
+      | thmInfo cv' v => exact nomatch hmatch
+      | recInfo cv' mI rP rules => exact nomatch hmatch
+      | projInfo e => exact nomatch hmatch
+
 /-- **The member fold**: the non-recursor block members install, the
 running valuation ends at the fold's, and the block invariant holds
 of the result. -/
