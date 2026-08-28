@@ -4194,3 +4194,43 @@ relocate it *then* — not when the second consumer appears.  By the
 time the second consumer appears, the cheap moment has passed and the
 choice is between a duplication and a blast radius (finding 9's fork,
 exactly).
+
+### T6 — the `IotaThmR` witness, validated
+
+The ~40-component witness was elaborated against the real statements
+with the two walk conjuncts stubbed.  **Everything else typechecks**,
+so the permutation table below is confirmed and the remaining
+assembly is exactly the two walks.
+
+Destructure `PlainChecked` in its own order:
+
+    thmName cvt ci fvs tbody ℓA αS lhsS rhsS cdoms cres rdoms rrest
+    fvsP restP cdomsP crestP xFvsP crest2 ldoms lrest
+    hfthm hcvt hpin hlpt hopen hheadEq hargs3 hlhead hlarity hlpre
+    hmaj hcstrip hcinst hclen hdeIdx hdeFld hrinst hdePre hopenP
+    hcinstP hdeP hopenX hlinst hdeLam hdeRhs hty1 hty2 hty3
+
+then `subst hpin` and give `IotaThmR`'s witnesses in **its** order:
+
+    cvt fvs tbody
+    cdoms cres rdoms fvsP cdomsP crestP xFvsP restP crest2 rrest
+    ldoms lrest
+
+i.e. the four permuted slots are `restP ↦ crest2`, `crest2 ↦ ldoms`,
+`rrest ↦ lrest`, `ldoms ↦ ldomsL` (and `lrest ↦ lrest2`).  Writing
+them in `PlainChecked`'s order typechecks *partway* and then fails
+deep in the walks, which is the worst place to discover it — hence
+the table.
+
+Three mechanical points that worked:
+
+* the `findCV?` conjunct is
+  `rw [Env.findCV?, hfthm, Option.map_some, hcvt]`;
+* `isEqHead tbody.getAppFn = true` and
+  `tbody.getAppArgs.length = 3` are `rw [hheadEq]; rfl` and
+  `rw [hargs3]; rfl`;
+* every Bool-vs-Prop conjunct is `by simpa using h…` — `simpa`
+  discharges the `beq_iff_eq` *and* reduces
+  `[αS, lhsS, rhsS].getD 1 (.bvar 0)` to `lhsS` in one step, which a
+  `rw` cannot (the `getD` blocks the rewrite's pattern match, and the
+  obvious `List.getD_cons_*` simp lemmas do not fire on it).
