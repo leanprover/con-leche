@@ -5481,3 +5481,62 @@ sides — a finite case analysis over `natOpNames` transported across
 
 The div/mod obligation needs the same split *plus* the `v`-freeness
 repair in `declDefnR`.
+
+### A named check can mask the unnamed instances of its own principle
+
+Worth its own line, because it is the *mechanism* behind the last
+finding rather than the finding itself.
+
+The campaign named **attachment** — "a valuation with no invariant
+attached in a semantic hypothesis reads as unprovable on sight" —
+after the trap's third instance.  The name made that instance cheap to
+check and, for the same reason, made it the *only* instance anyone
+checked.  `eqs` and `v` are the identical principle at a different
+variable, and both survived an audit that was looking hard, in the
+right place, at the right lemmas.
+
+> **When a check earns a name, re-derive the principle it came from
+> and enumerate the other variables it applies to.**  A named check is
+> a searchlight: it makes one spot bright and the rest darker.
+
+The general principle, which should now be the one carried:
+*every free variable of a conclusion must be determined by the
+hypotheses.*  Attachment is its instance at the valuation.
+
+### `NatEqFrameR`'s syntactic half: the characterisation exists, in
+### the other lane
+
+The remaining `Nat` work is `NatEqFrameR` for `natOpEquations`'
+substituted sides.  A seven-way case split over `natOpNames` is *not*
+the right shape, and does not need to be: the TT lane already
+characterised the fragment.
+
+`natFragOk` (`TTVerify/NatOpPin.lean:44`) is a four-constructor
+decidable grammar — `sort`; `fvar` at index `0`/`1` annotated
+`Nat`; `const` either the operation itself or stored at matching level
+arity; `app` — and `natOpEquations_frag` (`:204`) proves every
+equation side satisfies it from exactly the storage facts
+`natOpGuard` provides.  **`NatEqFrameR` from `natFragOk` is one
+structural induction over that grammar**, not a case analysis: the
+leaf-shape conjunct is the `fvar` clause verbatim, `LeavesBounded` is
+free (annotations are `.const natName []`), and the denotation is the
+`const` clause's arity match.
+
+**The obstacle is layering, and it is the relocation rule's exact
+case.**  `Setlec/SetR/*` must not import `Setlec/TTVerify/*` — the two
+routes are independent by design.  But the block is *V-free*:
+`natFragOk`, `shallowE_of_natFragOk`, `storedNoLevels`,
+`natFragOk_const`, `natFragOk_self`, `natOpEquations_frag`, the
+`storedNoLevels_*` helpers, `ne_of_mem_natOpNames`, and the four
+`natOpGuard_*` lemmas mention nothing lane-specific.  Only
+`natFrag_subst_facts` (`:73`) takes an `EnvTT`, and it stays.
+
+So the route is: **relocate the V-free block to `Setlec/Verify/`**
+(the TT lane imports `Verify`, so it keeps everything by re-export),
+then one induction.  That is the relocation thesis at its stated
+threshold — a second consumer, and a statement with nothing
+lane-specific in it — and it is the cheapest correct move rather than
+duplicating a grammar into the SetR tier.
+
+Recorded rather than started: a file split with a cross-lane consumer
+is not something to leave half-done at a session boundary.
