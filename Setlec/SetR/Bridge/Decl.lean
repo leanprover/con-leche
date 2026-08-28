@@ -1208,6 +1208,253 @@ inversions.  The fold's threaded valuation is **determined** —
 `cvalModeled` at each member — so the bridge chooses nothing; it only
 has to keep the recursion's `cval` in step with the environment. -/
 
+set_option maxHeartbeats 2000000 in
+/-- **A canonical rule's `iota_j` theorem, bridged** — the transpose
+of `checkIotaThm` at the *stored* environment.  The shape pins are
+pure equations on the destructured data and transcribe; the content is
+`IotaWalksR`'s six rows, and each row is one `defEqListW_of` (or
+`defEqAtW_of`) over a *left* package and a *right* package:
+
+* *index* — the statement's `lhs` spine against the ctor residual's
+  (`instPisAt_res_pack`, then `spine_walk_pack` on each);
+* *field* — the statement's openers' annotations against the renamed
+  ctor type's `instPisAt` domains;
+* *prefix* — the same openers, taken, against the renamed
+  *recursor* type's domains;
+* *λ* — the rule telescope's openers (two openings, appended)
+  against `instLamsAt`'s domains (`instLamsAt_walk_pack`);
+* *rhs* — the statement's `rhs` against the renamed rule rhs applied
+  to the whole opening (`mkAppN_walk_pack`);
+* *sides* — `iotaSidesTyR_of`.
+
+The recursor is taken at its **stored `recInfo`** rather than at a
+bare `ConstantInfo`: the λ-row needs the rule's right-hand side to
+*denote*, which is `EnvR.rec_rhs_denotes` and therefore needs the rule
+to be a stored fireable one.  That is not a strengthening of what the
+caller has — the iota fold walks exactly the stored rules. -/
+theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
+    {μ : CheckMode} {F : Nat} {f : Name → Name} {cvA cvj : ConstantVal}
+    {mI rP cnP cnF j : Nat} {r : RecRule} {rhsA : Expr}
+    {rules : List RecRule} {ciC : ConstantInfo}
+    (hrecSelf : envSelf.find? cvA.name
+      = some (.recInfo cvA mI rP rules))
+    (hrmem : { r with rhs := rhsA } ∈ rules)
+    (hfire : RecRule.fire { r with rhs := rhsA } ≠ .inert)
+    (hctorSelf : envSelf.find? r.ctor = some ciC)
+    (hcvC : ciC.toConstantVal = cvj)
+    (hro : RenameOkT m.cval envSelf f)
+    (htransfer : ∀ n ci, env'.find? n = some ci →
+      ∃ ci', envSelf.find? n = some ci' ∧
+        ci'.toConstantVal = ci.toConstantVal)
+    (h : PlainChecked μ F env' envSelf f cvA mI rP cnP cnF j
+      { r with rhs := rhsA } cvj) :
+    IotaThmR μ F env' envSelf m.cval f cvA.name cvA.levelParams
+      cvA.type mI rP j r cvj cnP cnF rhsA := by
+  obtain ⟨thmName, cvt, ci, fvs, tbody, ℓA, αS, lhsS, rhsS, cdoms, cres,
+    rdoms, rrest, fvsP, restP, cdomsP, crestP, xFvsP, crest2, ldoms,
+    lrest, hfthm, hcvt, hpin, hlpt, hopen, hheadEq, hargs3, hlhead,
+    hlarity, hlpre, hmaj, hcstrip, hcinst, hclen, hdeIdx, hdeFld,
+    hrinst, hdePre, hopenP, hcinstP, hdeP, hopenX, hlinst, hdeLam,
+    hdeRhs, hty1, hty2, hty3⟩ := h
+  subst hpin
+  have hcvRR : (ConstantInfo.recInfo cvA mI rP rules).toConstantVal
+      = cvA := rfl
+  refine ⟨cvt, fvs, tbody, ?_, hlpt, hopen, ?_, ?_, ?_⟩
+  · rw [Env.findCV?, hfthm, Option.map_some, hcvt]
+  · rw [hheadEq]; rfl
+  · rw [hargs3]; rfl
+  · rw [hargs3]
+    dsimp only
+    refine ⟨by simpa using hlhead, by simpa using hlarity,
+      by simpa using hlpre, by simpa using hmaj,
+      hcstrip, cdoms, cres, rdoms, fvsP, cdomsP, crestP, xFvsP, restP,
+      crest2, rrest, hcinst, hclen, hrinst, hopenP, hcinstP, hopenX,
+      ldoms, lrest, hlinst, fun φ => ?_, ?_⟩
+    · exact stmtWalk_of m hrecSelf hcvRR hctorSelf hcvC hopenP
+        (by omega) hcinstP hdeP
+    · intro φ
+      simp only [List.getD_cons_zero, List.getD_cons_succ]
+      ---------------------------------------------------------------
+      -- (a) the statement, transferred, and its opening at rP + cnF
+      ---------------------------------------------------------------
+      obtain ⟨ciT, hciT, hciTcv⟩ := htransfer _ _ hfthm
+      have hTty : ciT.toConstantVal.type = cvt.type := by
+        rw [hciTcv, hcvt]
+      obtain ⟨hwS0, hbS0, hLS0, TS, hTS0⟩ :=
+        storedType_pack m (φ := φ) hciT 0
+      rw [hTty] at hwS0 hbS0 hLS0 hTS0
+      have hstmt := opener_walk_pack_gen m (φ := φ) (D := rP + cnF)
+        hwS0 hbS0 hLS0 hTS0 hopen (by omega)
+      have hstmtF := opener_fvar_pack_gen m (φ := φ) (D := rP + cnF)
+        hwS0 hbS0 hLS0 hTS0 hopen (by omega)
+      obtain ⟨hwB, hbB, hLB, vB, hvB⟩ :=
+        opener_body_pack_gen m (φ := φ) (D := rP + cnF)
+          hwS0 hbS0 hLS0 hTS0 hopen (by omega)
+      have hargs := spine_walk_pack m hwB hbB hLB hvB
+      rw [hargs3] at hargs
+      obtain ⟨hwα, hbα, hLα, vα, hvα⟩ := hargs αS (by simp)
+      obtain ⟨hwl, hbl, hLl, vl, hvl⟩ := hargs lhsS (by simp)
+      obtain ⟨hwr, hbr, hLr, vr, hvr⟩ := hargs rhsS (by simp)
+      have hlhsA := spine_walk_pack m hwl hbl hLl hvl
+      ---------------------------------------------------------------
+      -- (b) the constructor type, renamed, at the statement's spine
+      ---------------------------------------------------------------
+      have hspF : ∀ a ∈ fvs.take cnP ++ fvs.drop rP,
+          Expr.WScoped (rP + cnF) a ∧
+          a.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded a ∧
+          ∃ v, denote m.cval envSelf φ (rP + cnF) a = some v := by
+        intro a ha
+        rcases List.mem_append.mp ha with h' | h'
+        · exact hstmtF a (List.mem_of_mem_take h')
+        · exact hstmtF a (List.mem_of_mem_drop h')
+      obtain ⟨hwC, hbC, hLC, TC, hTC⟩ :=
+        renamedType_pack m (φ := φ) hro hctorSelf (rP + cnF)
+      rw [hcvC] at hwC hbC hLC hTC
+      obtain ⟨hwCr, hbCr, hLCr, vCr, hvCr⟩ :=
+        instPisAt_res_pack m (φ := φ) hcinst hwC hbC hLC
+          (fun a ha => ⟨(hspF a ha).1, (hspF a ha).2.1,
+            (hspF a ha).2.2.1⟩)
+          (fun _ y hy => (hspF y (List.mem_of_getElem? hy)).2.2.2) hTC
+      have hcresA := spine_walk_pack m hwCr hbCr hLCr hvCr
+      have hcdoms := instPisAt_walk_pack m (φ := φ) hcinst hwC hbC hLC
+        (fun a ha => ⟨(hspF a ha).1, (hspF a ha).2.1,
+          (hspF a ha).2.2.1⟩)
+        (fun _ y hy => (hspF y (List.mem_of_getElem? hy)).2.2.2) hTC
+      ---------------------------------------------------------------
+      -- (c) the recursor type, at the statement's prefix (renamed)
+      --     and at its own opening (unrenamed)
+      ---------------------------------------------------------------
+      obtain ⟨hwA, hbA, hLA, TA, hTA⟩ :=
+        renamedType_pack m (φ := φ) hro hrecSelf (rP + cnF)
+      rw [hcvRR] at hwA hbA hLA hTA
+      have hrdoms := instPisAt_walk_pack m (φ := φ) hrinst hwA hbA hLA
+        (fun a ha => ⟨(hstmtF a (List.mem_of_mem_take ha)).1,
+          (hstmtF a (List.mem_of_mem_take ha)).2.1,
+          (hstmtF a (List.mem_of_mem_take ha)).2.2.1⟩)
+        (fun _ y hy =>
+          (hstmtF y (List.mem_of_mem_take
+            (List.mem_of_getElem? hy))).2.2.2) hTA
+      obtain ⟨hwA0, hbA0, hLA0, TA0, hTA0⟩ :=
+        storedType_pack m (φ := φ) hrecSelf 0
+      rw [hcvRR] at hwA0 hbA0 hLA0 hTA0
+      have hPF := opener_fvar_pack_gen m (φ := φ) (D := rP + cnF)
+        hwA0 hbA0 hLA0 hTA0 hopenP (by omega)
+      have hPFlow := opener_fvar_pack_gen m (φ := φ) (D := rP)
+        hwA0 hbA0 hLA0 hTA0 hopenP (by omega)
+      have hP := opener_walk_pack_gen m (φ := φ) (D := rP + cnF)
+        hwA0 hbA0 hLA0 hTA0 hopenP (by omega)
+      ---------------------------------------------------------------
+      -- (d) the public field residual, opened at rP
+      ---------------------------------------------------------------
+      obtain ⟨hwC0, hbC0, hLC0, TC0, hTC0⟩ :=
+        storedType_pack m (φ := φ) hctorSelf rP
+      rw [hcvC] at hwC0 hbC0 hLC0 hTC0
+      obtain ⟨hwX, hbX, hLX, vX, hvX⟩ :=
+        instPisAt_res_pack m (φ := φ) hcinstP hwC0 hbC0 hLC0
+          (fun a ha => ⟨(hPFlow a (List.mem_of_mem_take ha)).1,
+            (hPFlow a (List.mem_of_mem_take ha)).2.1,
+            (hPFlow a (List.mem_of_mem_take ha)).2.2.1⟩)
+          (fun _ y hy => (hPFlow y (List.mem_of_mem_take
+            (List.mem_of_getElem? hy))).2.2.2) hTC0
+      have hX := opener_walk_pack_gen m (φ := φ) (D := rP + cnF)
+        hwX hbX hLX hvX hopenX (by omega)
+      have hXF := opener_fvar_pack_gen m (φ := φ) (D := rP + cnF)
+        hwX hbX hLX hvX hopenX (by omega)
+      ---------------------------------------------------------------
+      -- (e) the rule's right-hand side, and its renamed application
+      ---------------------------------------------------------------
+      obtain ⟨hRnf, hRbd, VR, hVR⟩ := rhs_pack m (φ := φ) hrecSelf
+        hrmem hfire
+      have hlamSp : ∀ a ∈ fvsP ++ xFvsP,
+          Expr.WScoped (rP + cnF) a ∧
+          a.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded a ∧
+          ∃ v, denote m.cval envSelf φ (rP + cnF) a = some v := by
+        intro a ha
+        rcases List.mem_append.mp ha with h' | h'
+        · exact hPF a h'
+        · exact hXF a h'
+      have hlamShape : ∀ (i : Nat) (x : Expr),
+          (fvsP ++ xFvsP)[i]? = some x →
+          ∃ nm ty, x = Expr.fvar i nm ty := by
+        intro i x hx
+        have hlenP : fvsP.length = rP := openPisAtFvars_length rP hopenP
+        rcases Nat.lt_or_ge i rP with hlt | hge
+        · rw [List.getElem?_append_left (by omega)] at hx
+          obtain ⟨nm, ty, hxe⟩ :=
+            openPisAtFvars_index rP cvA.type 0 hopenP i x hx
+          exact ⟨nm, ty, by rw [hxe, Nat.zero_add]⟩
+        · rw [List.getElem?_append_right (by omega), hlenP] at hx
+          obtain ⟨nm, ty, hxe⟩ :=
+            openPisAtFvars_index cnF crestP rP hopenX (i - rP) x hx
+          refine ⟨nm, ty, ?_⟩
+          rw [hxe, show rP + (i - rP) = i from by omega]
+      have hldoms := instLamsAt_walk_pack m (φ := φ) (D := rP + cnF)
+        hlinst hlamShape
+        (Expr.WScoped.of_not_hasFvar hRnf) hRbd
+        (Expr.LeavesBounded.of_not_hasFvar hRnf)
+        (fun a ha => ⟨(hlamSp a ha).1, (hlamSp a ha).2.1,
+          (hlamSp a ha).2.2.1⟩) (hVR 0)
+        (by
+          rw [List.length_append,
+            openPisAtFvars_length rP hopenP,
+            openPisAtFvars_length cnF hopenX]
+          omega)
+
+      obtain ⟨hwRhs, hbRhs, hLRhs, vRhs, hvRhs⟩ :=
+        mkAppN_walk_pack m (φ := φ) (g := Expr.renameConsts f rhsA)
+          (as := fvs)
+          (wscoped_renameConsts _
+            (Expr.WScoped.mono (Nat.zero_le (rP + cnF))
+              (Expr.WScoped.of_not_hasFvar hRnf)))
+          (by rw [looseBVarsBounded_renameConsts]; exact hRbd)
+          (leavesBounded_renameConsts _
+            (Expr.LeavesBounded.of_not_hasFvar hRnf))
+          (fun a ha => hstmtF a ha)
+          (by rw [denote_renameConsts hro]; exact hVR (rP + cnF))
+      ---------------------------------------------------------------
+      -- the six rows
+      ---------------------------------------------------------------
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+      · -- 1. the index arguments against the residual's canonical tuple
+        refine defEqListW_of m _ _ (fun e he => ?_) hdeIdx
+        rcases List.mem_append.mp he with h' | h'
+        · exact hlhsA e (List.mem_of_mem_drop (List.mem_of_mem_take h'))
+        · exact hcresA e (List.mem_of_mem_drop h')
+      · -- 2. the field annotations against the constructor domains
+        refine defEqListW_of m _ _ (fun e he => ?_) hdeFld
+        rcases List.mem_append.mp he with h' | h'
+        · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
+          obtain ⟨i, hi⟩ :=
+            List.getElem?_of_mem (List.mem_of_mem_drop hx)
+          exact hstmt i x hi
+        · exact hcdoms e (List.mem_of_mem_drop h')
+      · -- 3. the prefix annotations against the recursor's domains
+        refine defEqListW_of m _ _ (fun e he => ?_) hdePre
+        rcases List.mem_append.mp he with h' | h'
+        · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
+          obtain ⟨i, hi⟩ :=
+            List.getElem?_of_mem (List.mem_of_mem_take hx)
+          exact hstmt i x hi
+        · exact hrdoms e h'
+      · -- 4. the rule telescope's annotations against its λ domains
+        refine defEqListW_of m _ _ (fun e he => ?_) hdeLam
+        rcases List.mem_append.mp he with h' | h'
+        · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
+          rcases List.mem_append.mp hx with h'' | h''
+          · obtain ⟨i, hi⟩ := List.getElem?_of_mem h''
+            exact hP i x hi
+          · obtain ⟨i, hi⟩ := List.getElem?_of_mem h''
+            exact hX i x hi
+        · exact hldoms e h'
+      · -- 5. the statement's right side against the applied rhs
+        exact defEqAtW_of m hwr hbr hLr hwRhs hbRhs hLRhs hvr hvRhs
+          hdeRhs
+      · -- 6. the two sides' types against the statement's `α`
+        obtain ⟨tl, hil, hdl⟩ := hty1
+        obtain ⟨tr, hir, hdr⟩ := hty2
+        exact iotaSidesTyR_of m hwα hbα hLα hwl hbl hLl hwr hbr hLr
+          hvα hvl hvr hil hdl hir hdr
+
 /-- **`checkMemberVal`, bridged.** -/
 theorem memberValR_of {env' : Env} (m : EnvR env') {μ : CheckMode} {F :
   Nat} {blockNames : List Name}

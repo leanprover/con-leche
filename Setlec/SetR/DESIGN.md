@@ -4787,3 +4787,65 @@ on the right side is absorbed by `List.mem_of_mem_drop`.
 
 Rows 3 (rec-param domains) and 4 (λ-row domains) are the same shape at
 different takes/drops; rows 1, 5, 6 remain.
+
+### `iotaThmR_of` landed whole — the six rows, and what they cost
+
+The lemma the vacuity rule held out of the repo is in, with no
+`sorry` and no unsatisfiable premise.  The final shape of the work:
+**six rows, five new packs, one retraction.**
+
+Each row is `defEqListW_of` (or `defEqAtW_of`) over a *left* package
+and a *right* package; the whole difficulty was that the campaign had
+built domain-side packs only, and four of the six rows want something
+else.  The packs added:
+
+| pack | what it packages | why the domains pack could not serve |
+|---|---|---|
+| `instPisAt_res_pack` | the `instPisAt` **residual** | every frame lemma computes it and the domains pack discards it |
+| `opener_body_pack_gen` | the **opened body** | ditto for the three opener frame lemmas |
+| `instLamsAt_walk_pack` | the λ **domains** | no λ-side pack existed at all |
+| `mkAppN_walk_pack` | a **built** spine | `spine_walk_pack` reads spines, it does not build them |
+| `rhs_pack` | a stored fireable rule's **rhs** | not a stored *type*, so `storedType_pack` misses it |
+
+Shared-tier support these needed, none of which existed in either
+lane: `instPisAt_denote_res`, `instLamsAt_bounded`,
+`instLamsAt_index_WScoped`.
+
+**The signature change the λ-row forced, and the rule in it.**  The
+λ-row needs `rhsA` to *denote*, which is `EnvR.rec_rhs_denotes`, which
+is stated at a stored `recInfo` and a stored fireable rule.  So
+`hrecSelf` was narrowed from a bare `ConstantInfo` lookup to
+`envSelf.find? cvA.name = some (.recInfo cvA mI rP rules)`, plus rule
+membership and non-inertness.  This is *not* the vacuity trap in
+disguise: the discharger was named before the premise was written (the
+iota fold walks exactly the stored rules, so it has all three).  The
+distinction worth keeping: **a premise is legitimate when you can name
+its supplier before you write it; it is a wish when you can only name
+what is true of the world.**
+
+*Two traps for the `_gen` family's users, both hit here:*
+
+1. **A depth premise that fails to `omega` is usually an inference
+   failure, not a false goal.**  `D` occurs only in the `_gen` packs'
+   *conclusions*, so at a `have` there is nothing to fix it and
+   `omega` is staring at a metavariable.  Supply `(D := …)`.  The same
+   shape bit again at `mkAppN_walk_pack`, where `g` and `as` are
+   determined only by the goal and an `obtain` has no goal: supply
+   `(g := …) (as := …)`.
+2. **The `hsp` premises are triples, the packs return quadruples.**
+   `instPisAt_walk_pack`/`instLamsAt_walk_pack` want
+   `WScoped ∧ bounded ∧ LeavesBounded` (the denotation travels
+   separately, indexed); a pack's output must be projected, not
+   passed.  Three of the five call sites needed this and all three
+   error messages were identical.
+
+**Retraction, recorded against myself.**  `CtxOkR.of_subset` was
+written into `CtxOkR.lean` and deleted minutes later — it has existed
+in `Bridge/Env.lean` since the bridge was built.  The inventory search
+that the campaign's own rules require *before writing any helper* was
+not run; nothing but the duplicate-declaration error caught it.  The
+five packs above were all inventory-checked first and all five were
+genuinely absent, so the practice works when applied — the failure was
+skipping it on the one helper that looked too small to be worth a
+grep.  **Size is not a reason to skip the inventory check; it is the
+best predictor that the helper already exists.**
