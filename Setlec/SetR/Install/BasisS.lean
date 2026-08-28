@@ -1689,7 +1689,8 @@ theorem denote_quotInd_constsS {env : Env} {ci : ConstantInfo}
         (.const quotName [w]) = some (VExpr.const .quot [w.eval φ])) ∧
     (∀ e : Nat,
       denote (cvalWith m.cval ci.name val) ⟨ci :: env.consts⟩ φ e
-        (.const quotMkName [w]) = some (VExpr.const .quotMk [w.eval φ])) := by
+        (.const quotMkName [w]) = some (VExpr.const .quotMk [w.eval
+          φ])) := by
   have hQv : ∀ ψ : Name → Nat,
       m.cval quotName ψ = VExpr.const .quot [ψ uN] := fun ψ =>
     cvalS_pinned m (by decide) (by rw [hQ]; rfl) ψ
@@ -1715,7 +1716,8 @@ theorem denote_quotInd_constsS {env : Env} {ci : ConstantInfo}
 /-- `Quot.mk`'s pinned type, denoted — the constructor telescope a fire
 site's `hfitC` is stated against. -/
 theorem denote_quotMk_typeS {env : Env} {ci : ConstantInfo}
-    (m : EnvS V env) {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat)
+    (m : EnvS V env) {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d :
+      Nat)
     (w : Level)
     (hQ : env.find? quotName = some quotA)
     (hM : env.find? quotMkName = some quotMkA)
@@ -1732,7 +1734,8 @@ theorem denote_quotMk_typeS {env : Env} {ci : ConstantInfo}
     simp [Level.subst, Level.subst.go, uN]
   have hsz : Level.subst [uN] [w] .zero = .zero := by
     simp [Level.subst]
-  obtain ⟨hQc, -⟩ := denote_quotInd_constsS m (val := val) φ w hQ hM hnQ hnM
+  obtain ⟨hQc, -⟩ := denote_quotInd_constsS m (val :=
+    val) φ w hQ hM hnQ hnM
   rw [show quotMkA.toConstantVal.type
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
           (Expr.forallE (Name.anonymous.str "r")
@@ -1745,7 +1748,8 @@ theorem denote_quotMk_typeS {env : Env} {ci : ConstantInfo}
             { bi := .default })
           { bi := .implicit } from rfl,
     show quotMkA.toConstantVal.levelParams = [uN] from rfl]
-  simp [Expr.instantiateLevelParams, hsu, hsz, denote_forallE, denote_sort,
+  simp [Expr.instantiateLevelParams, hsu, hsz, denote_forallE,
+    denote_sort,
     denote_app, denote_fvar, hQc, VExpr.mkAppN, Level.eval]
 
 /-- **`Quot.ind`'s pinned type, denoted at any depth and any level.** -/
@@ -1753,7 +1757,8 @@ theorem denote_quotInd_typeS {env : Env} (m : EnvS V env)
     {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w : Level)
     (hQ : env.find? quotName = some quotA)
     (hM : env.find? quotMkName = some quotMkA) :
-    denote (cvalWith m.cval quotIndA.name val) ⟨quotIndA :: env.consts⟩ φ d
+    denote (cvalWith m.cval quotIndA.name
+      val) ⟨quotIndA :: env.consts⟩ φ d
         (quotIndA.toConstantVal.type.instantiateLevelParams
           quotIndA.toConstantVal.levelParams [w])
       = some (.pi (.sort (w.eval φ))
@@ -1771,7 +1776,8 @@ theorem denote_quotInd_typeS {env : Env} (m : EnvS V env)
     simp [Level.subst, Level.subst.go, uN]
   have hsz : Level.subst [uN] [w] .zero = .zero := by
     simp [Level.subst]
-  obtain ⟨hQc, hMc⟩ := denote_quotInd_constsS m (ci := quotIndA) (val := val)
+  obtain ⟨hQc, hMc⟩ := denote_quotInd_constsS m (ci := quotIndA) (val :=
+    val)
     φ w hQ hM (by decide) (by decide)
   rw [show quotIndA.toConstantVal.type
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
@@ -1798,7 +1804,8 @@ theorem denote_quotInd_typeS {env : Env} (m : EnvS V env)
             { bi := .implicit })
           { bi := .implicit } from rfl,
     show quotIndA.toConstantVal.levelParams = [uN] from rfl]
-  simp [Expr.instantiateLevelParams, hsu, hsz, denote_forallE, denote_sort,
+  simp [Expr.instantiateLevelParams, hsu, hsz, denote_forallE,
+    denote_sort,
     denote_app, denote_fvar, hQc, hMc, VExpr.mkAppN, Level.eval]
 
 /-- `Quot.ind`'s single stored rule. -/
@@ -1811,7 +1818,8 @@ def quotIndRule : RecRule :=
             { bi := .default }) { bi := .default })
         (Expr.lam (Name.anonymous.str "β")
           (Expr.forallE (Name.anonymous.str "a")
-            (.app (.app (.const quotName [.param uN]) (.bvar 1)) (.bvar 0))
+            (.app (.app (.const quotName [.param uN]) (.bvar 1)) (.bvar
+              0))
             (.sort .zero) { bi := .default })
           (Expr.lam (Name.anonymous.str "mk")
             (Expr.forallE (Name.anonymous.str "a") (.bvar 2)
@@ -1834,7 +1842,8 @@ theorem quotIndA_eq :
 def quotIndRhsV (a : Nat) : VExpr :=
   .lam (.sort a)
     (.lam (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0)))
-      (.lam (.pi (VExpr.mkAppN (VExpr.const .quot [a]) [.bvar 1, .bvar 0])
+      (.lam (.pi (VExpr.mkAppN (VExpr.const .quot [a]) [.bvar 1, .bvar
+        0])
           (.sort 0))
         (.lam (.pi (.bvar 2)
             (.app (.bvar 1) (VExpr.mkAppN (VExpr.const .quotMk [a])
@@ -1845,7 +1854,8 @@ theorem denote_quotInd_rhsS {env : Env} (m : EnvS V env)
     {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w : Level)
     (hQ : env.find? quotName = some quotA)
     (hM : env.find? quotMkName = some quotMkA) :
-    denote (cvalWith m.cval quotIndA.name val) ⟨quotIndA :: env.consts⟩ φ d
+    denote (cvalWith m.cval quotIndA.name
+      val) ⟨quotIndA :: env.consts⟩ φ d
         ((RecRule.rhs quotIndRule).instantiateLevelParams
           quotIndA.toConstantVal.levelParams [w])
       = some (quotIndRhsV (w.eval φ)) := by
@@ -1853,11 +1863,13 @@ theorem denote_quotInd_rhsS {env : Env} (m : EnvS V env)
     simp [Level.subst, Level.subst.go, uN]
   have hsz : Level.subst [uN] [w] .zero = .zero := by
     simp [Level.subst]
-  obtain ⟨hQc, hMc⟩ := denote_quotInd_constsS m (ci := quotIndA) (val := val)
+  obtain ⟨hQc, hMc⟩ := denote_quotInd_constsS m (ci := quotIndA) (val :=
+    val)
     φ w hQ hM (by decide) (by decide)
   rw [show quotIndA.toConstantVal.levelParams = [uN] from rfl]
   simp only [quotIndRule]
-  simp [Expr.instantiateLevelParams, hsu, hsz, denote_lam, denote_forallE,
+  simp [Expr.instantiateLevelParams, hsu, hsz, denote_lam,
+    denote_forallE,
     denote_sort, denote_app, denote_fvar, hQc, hMc, quotIndRhsV,
     VExpr.mkAppN, Level.eval]
 
@@ -1985,7 +1997,8 @@ theorem extendQuotIndS {env : Env} (m : EnvS V env)
           (by simp +decide [pinnedDirectT])
         simp only [quotMkName, quotName] at hv
         rw [hv]
-        simp only [show Level.substFn φ quotMkA.toConstantVal.levelParams
+        simp only [show Level.substFn φ
+          quotMkA.toConstantVal.levelParams
           [v1] uN = Level.eval φ v1 from by
             rw [hlps]; simp [Level.substFn, uN], hlu]
       rw [hctorV] at hq
@@ -2032,10 +2045,12 @@ theorem extendQuotIndS {env : Env} (m : EnvS V env)
         have hRm : interp V ρ (quotIndRhsV (w.eval φ)) ∈ˢ
             piC (univ (w.eval φ)) (fun x1 =>
               piC (piC x1 (fun _ => piC x1 (fun _ => univ 0)))
-                (fun x2 => piC (piC (app (app (quotV V (w.eval φ)) x1) x2)
+                (fun x2 => piC (piC (app (app (quotV V (w.eval φ)) x1)
+                  x2)
                     (fun _ => univ 0))
                   (fun x3 => piC (piC x1 (fun z => app x3
-                        (app (app (app (quotMkV V (w.eval φ)) x1) x2) z)))
+                        (app (app (app (quotMkV V (w.eval φ)) x1) x2)
+                          z)))
                     (fun x4 => piC x1 (fun x5 => app x3
                       (app (app (app (quotMkV V (w.eval φ)) x1) x2)
                         x5)))))) := by
@@ -2075,7 +2090,8 @@ def quotLiftTyV (E : VExpr) (a b : Nat) : VExpr :=
       (.pi (.sort b)
         (.pi (.pi (.bvar 2) (.bvar 1))
           (.pi (quotInvV E (.bvar 3) (.bvar 2) (.bvar 1) (.bvar 0))
-            (.pi (VExpr.mkAppN (VExpr.const .quot [a]) [.bvar 4, .bvar 3])
+            (.pi (VExpr.mkAppN (VExpr.const .quot [a]) [.bvar 4, .bvar
+              3])
               (.bvar 3))))))
 
 /-- …and its rule's right-hand side, the same telescope returning
@@ -2090,9 +2106,11 @@ def quotLiftRhsV (E : VExpr) (a b : Nat) : VExpr :=
 
 /-- The pinned `Eq` former, denoted at the level `Quot.lift`'s stored
 type reads it at. -/
-theorem denote_quot_eqConstS {env : Env} {ci : ConstantInfo} (m : EnvS V env)
+theorem denote_quot_eqConstS {env : Env} {ci : ConstantInfo} (m : EnvS V
+  env)
     {val : (Name → Nat) → VExpr} (φ : Name → Nat) (w : Level)
-    (hE : env.find? eqName = some eqA) (hnE : ci.name ≠ eqName) (e : Nat) :
+    (hE : env.find? eqName = some eqA) (hnE : ci.name ≠ eqName) (e :
+      Nat) :
     denote (cvalWith m.cval ci.name val) ⟨ci :: env.consts⟩ φ e
         (.const eqName [w])
       = some (m.cval eqName (Level.substFn φ [uN] [w])) := by
@@ -2143,7 +2161,8 @@ theorem eqV_memS {env : Env} (m : EnvS V env)
 
 /-- Lifting past `k` fresh binders is invisible to `interp`. -/
 theorem interp_liftN_cons0 (n : Nat) (e : VExpr) (ρ : Nat → V) :
-    interp V ρ (VExpr.liftN n e 0) = interp V (fun i => ρ (i + n)) e := by
+    interp V ρ (VExpr.liftN n e 0) = interp V (fun i => ρ (i +
+      n)) e := by
   rw [interp_liftN, shiftE_zero]
 
 /-- **The bridge**: the stored `Eq` former's invariance premise and the
@@ -2182,7 +2201,8 @@ theorem quotInv_interpS {env : Env} (m : EnvS V env)
   have hy1 : cons V z (cons V y (cons V x ρ)) 1 ∈ˢ interp V ρ A := by
     simpa [cons] using hyA
   rw [interp_eqE,
-    EqLawV.app₃ (V := V) m.eq_lawV hE ψ (cons V z (cons V y (cons V x ρ)))
+    EqLawV.app₃ (V := V) m.eq_lawV hE ψ (cons V z (cons V y (cons V x
+      ρ)))
       (VExpr.liftN 3 B 0) (.app (VExpr.liftN 3 f 0) (.bvar 2))
       (.app (VExpr.liftN 3 f 0) (.bvar 1))
       (by rw [hB3]; exact hB)
@@ -2217,7 +2237,8 @@ theorem quotInv_annotS {env : Env} (m : EnvS V env)
       interp V (cons V x ρ) (VExpr.liftN 1 e 0) = interp V ρ e := by
     intro x e
     rw [interp_liftN_cons0]
-    have h : (fun i => cons V x ρ (i + 1)) = ρ := by funext i; simp [cons]
+    have h : (fun i => cons V x ρ (i +
+      1)) = ρ := by funext i; simp [cons]
     rw [h]
   have hi2 : ∀ (x y : V) (e : VExpr),
       interp V (cons V y (cons V x ρ)) (VExpr.liftN 2 e 0)
@@ -2232,12 +2253,14 @@ theorem quotInv_annotS {env : Env} (m : EnvS V env)
         = interp V ρ e := by
     intro x y z e
     rw [interp_liftN_cons0]
-    have h : (fun i => cons V z (cons V y (cons V x ρ)) (i + 3)) = ρ := by
+    have h : (fun i => cons V z (cons V y (cons V x ρ)) (i +
+      3)) = ρ := by
       funext i; simp [cons]
     rw [h]
   simp only [quotInvV]
   refine ⟨hAA, fun x hx => ?_⟩
-  refine ⟨(AnnotOkV_liftN (V := V) 1 A 0 _).mpr (by rw [hs1]; exact hAA),
+  refine ⟨(AnnotOkV_liftN (V := V) 1 A 0 _).mpr (by rw [hs1]; exact
+    hAA),
     fun y hy => ?_⟩
   rw [hi1] at hy
   refine ⟨?_, fun z _ => ?_⟩
@@ -2253,7 +2276,8 @@ theorem quotInv_annotS {env : Env} (m : EnvS V env)
         ∈ˢ interp V ρ A := by
       rw [interp_bvar]; simpa [cons] using hy
     simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_bvar]
-    exact ⟨⟨(AnnotOkV_liftN (V := V) 2 r 0 _).mpr (by rw [hs2]; exact hrA),
+    exact ⟨⟨(AnnotOkV_liftN (V := V) 2 r 0 _).mpr (by rw [hs2]; exact
+      hrA),
         trivial, _, _, hrm2, hx1⟩,
       trivial, _, _, app_mem_piC hrm2 hx1, hy0⟩
   · -- the `Eq` spine
@@ -2262,9 +2286,11 @@ theorem quotInv_annotS {env : Env} (m : EnvS V env)
     have hf3 : interp V (cons V z (cons V y (cons V x ρ)))
         (VExpr.liftN 3 f 0) ∈ˢ piC (interp V ρ A)
           (fun _ => interp V ρ B) := by rw [hi3 x y z f]; exact hf
-    have hx2 : interp V (cons V z (cons V y (cons V x ρ))) (VExpr.bvar 2)
+    have hx2 : interp V (cons V z (cons V y (cons V x ρ))) (VExpr.bvar
+      2)
         ∈ˢ interp V ρ A := by rw [interp_bvar]; simpa [cons] using hx
-    have hy1 : interp V (cons V z (cons V y (cons V x ρ))) (VExpr.bvar 1)
+    have hy1 : interp V (cons V z (cons V y (cons V x ρ))) (VExpr.bvar
+      1)
         ∈ˢ interp V ρ A := by rw [interp_bvar]; simpa [cons] using hy
     have hfx : interp V (cons V z (cons V y (cons V x ρ)))
         (.app (VExpr.liftN 3 f 0) (VExpr.bvar 2))
@@ -2284,7 +2310,8 @@ theorem quotInv_annotS {env : Env} (m : EnvS V env)
       (AnnotOkV_liftN (V := V) 3 f 0 _).mpr (by rw [hs3]; exact hfA)
     simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_bvar]
     exact ⟨⟨⟨m.annot_okV eqName ψ _,
-          (AnnotOkV_liftN (V := V) 3 B 0 _).mpr (by rw [hs3]; exact hBA),
+          (AnnotOkV_liftN (V := V) 3 B 0 _).mpr (by rw [hs3]; exact
+            hBA),
           _, _, hEm, hB3⟩,
         ⟨hfA3, trivial, _, _, hf3, hx2⟩,
         _, _, app_mem_piC hEm hB3, hfx⟩,
@@ -2293,11 +2320,13 @@ theorem quotInv_annotS {env : Env} (m : EnvS V env)
 
 /-- **`Quot.lift`'s pinned type, denoted.** -/
 theorem denote_quotLift_typeS {env : Env} (m : EnvS V env)
-    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w1 w2 : Level)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w1 w2 :
+      Level)
     (hQ : env.find? quotName = some quotA)
     (hM : env.find? quotMkName = some quotMkA)
     (hE : env.find? eqName = some eqA) :
-    denote (cvalWith m.cval quotLiftA.name val) ⟨quotLiftA :: env.consts⟩ φ d
+    denote (cvalWith m.cval quotLiftA.name
+      val) ⟨quotLiftA :: env.consts⟩ φ d
         (quotLiftA.toConstantVal.type.instantiateLevelParams
           quotLiftA.toConstantVal.levelParams [w1, w2])
       = some (quotLiftTyV (m.cval eqName (Level.substFn φ [uN] [w2]))
@@ -2308,9 +2337,11 @@ theorem denote_quotLift_typeS {env : Env} (m : EnvS V env)
     simp [Level.subst, Level.subst.go, uN, vN]
   have hsz : Level.subst [uN, vN] [w1, w2] .zero = .zero := by
     simp [Level.subst]
-  obtain ⟨hQc, -⟩ := denote_quotInd_constsS m (ci := quotLiftA) (val := val)
+  obtain ⟨hQc, -⟩ := denote_quotInd_constsS m (ci := quotLiftA) (val :=
+    val)
     φ w1 hQ hM (by decide) (by decide)
-  have hEc := denote_quot_eqConstS m (ci := quotLiftA) (val := val) φ w2 hE
+  have hEc := denote_quot_eqConstS m (ci := quotLiftA) (val :=
+    val) φ w2 hE
     (by decide)
   rw [show quotLiftA.toConstantVal.type
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
@@ -2320,7 +2351,8 @@ theorem denote_quotLift_typeS {env : Env} (m : EnvS V env)
                 { bi := .default }) { bi := .default })
             (Expr.forallE (Name.anonymous.str "β") (.sort (.param vN))
               (Expr.forallE (Name.anonymous.str "f")
-                (Expr.forallE (Name.anonymous.str "a") (.bvar 2) (.bvar 1)
+                (Expr.forallE (Name.anonymous.str "a") (.bvar 2) (.bvar
+                  1)
                   { bi := .default })
                 (Expr.forallE (Name.anonymous.str "a")
                   (Expr.forallE (Name.anonymous.str "a") (.bvar 3)
@@ -2343,7 +2375,8 @@ theorem denote_quotLift_typeS {env : Env} (m : EnvS V env)
           { bi := .implicit } from rfl,
     show quotLiftA.toConstantVal.levelParams = [uN, vN] from rfl]
   simp [Expr.instantiateLevelParams, hsu, hsv, hsz, denote_forallE,
-    denote_sort, denote_app, denote_fvar, hQc, hEc, quotLiftTyV, quotInvV,
+    denote_sort, denote_app, denote_fvar, hQc, hEc, quotLiftTyV,
+      quotInvV,
     VExpr.mkAppN, VExpr.liftN, Level.eval]
 
 /-- The pinned type, with the invariance premise named. -/
@@ -2450,13 +2483,16 @@ def quotLiftRule : RecRule :=
       { bi := .default } }
 
 theorem quotLiftA_eq :
-    quotLiftA = .recInfo quotLiftA.toConstantVal 5 5 [quotLiftRule] := rfl
+    quotLiftA = .recInfo quotLiftA.toConstantVal 5 5 [quotLiftRule] :=
+      rfl
 
 /-- **`Quot.lift`'s right-hand side, denoted.** -/
 theorem denote_quotLift_rhsS {env : Env} (m : EnvS V env)
-    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w1 w2 : Level)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w1 w2 :
+      Level)
     (hE : env.find? eqName = some eqA) :
-    denote (cvalWith m.cval quotLiftA.name val) ⟨quotLiftA :: env.consts⟩ φ d
+    denote (cvalWith m.cval quotLiftA.name
+      val) ⟨quotLiftA :: env.consts⟩ φ d
         ((RecRule.rhs quotLiftRule).instantiateLevelParams
           quotLiftA.toConstantVal.levelParams [w1, w2])
       = some (quotLiftRhsV (m.cval eqName (Level.substFn φ [uN] [w2]))
@@ -2467,7 +2503,8 @@ theorem denote_quotLift_rhsS {env : Env} (m : EnvS V env)
     simp [Level.subst, Level.subst.go, uN, vN]
   have hsz : Level.subst [uN, vN] [w1, w2] .zero = .zero := by
     simp [Level.subst]
-  have hEc := denote_quot_eqConstS m (ci := quotLiftA) (val := val) φ w2 hE
+  have hEc := denote_quot_eqConstS m (ci := quotLiftA) (val :=
+    val) φ w2 hE
     (by decide)
   rw [show quotLiftA.toConstantVal.levelParams = [uN, vN] from rfl]
   simp only [quotLiftRule]
@@ -2494,7 +2531,8 @@ theorem extendQuotLiftS {env : Env} (m : EnvS V env)
     (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
     (fun _ => by decide)
     (fun ψ t hp => by
-      rw [show ConstantInfo.name quotLiftA = quotLiftName from rfl] at hp
+      rw [show ConstantInfo.name quotLiftA = quotLiftName from
+        rfl] at hp
       simp +decide [pinnedDirectT] at hp
       exact hp)
     hfresh hwf (fun _ => trivial) ?_ (fun _ _ => trivial) ?_
@@ -2513,7 +2551,8 @@ theorem extendQuotLiftS {env : Env} (m : EnvS V env)
       (φ uN) (φ vN), ?_, fun ρ => ⟨?_, quotLiftTy_annotS m hE
         (Level.substFn φ [uN] [Level.param vN]) ρ (φ uN) (φ vN) rfl⟩⟩
     · rw [denoteClosed, ← Expr.instantiateLevelParams_self
-          quotLiftA.toConstantVal.levelParams quotLiftA.toConstantVal.type,
+          quotLiftA.toConstantVal.levelParams
+            quotLiftA.toConstantVal.type,
         show quotLiftA.toConstantVal.levelParams.map Level.param
           = [Level.param uN, Level.param vN] from rfl,
         denote_quotLift_typeS m φ 0 (.param uN) (.param vN) hQ hM hE]
@@ -2582,7 +2621,8 @@ theorem extendQuotLiftS {env : Env} (m : EnvS V env)
           (by simp +decide [pinnedDirectT])
         simp only [quotMkName, quotName] at hv
         rw [hv]
-        simp only [show Level.substFn φ quotMkA.toConstantVal.levelParams
+        simp only [show Level.substFn φ
+          quotMkA.toConstantVal.levelParams
           [v1] uN = Level.eval φ v1 from by
             rw [hlps]; simp [Level.substFn, uN], hlu]
       have hTVc := Option.some.inj (hTV.symm.trans
@@ -2627,7 +2667,8 @@ theorem extendQuotLiftS {env : Env} (m : EnvS V env)
         VExpr.mkAppN, interp_pi, interp_sort, interp_app, interp_const,
         bval, lv, List.getD_cons_zero,
         hliftc, hxa0, hxr0] at ha hr hb hf hq hya
-      have hbm : interp V ρ xb ∈ˢ univ (Level.substFn φ [uN] [w2] uN) := by
+      have hbm : interp V ρ xb ∈ˢ univ (Level.substFn φ [uN] [w2]
+        uN) := by
         simpa [Level.substFn, uN, Level.eval] using hb
       have hfm : interp V ρ xf ∈ˢ piC (interp V ρ xa)
           (fun _ => interp V ρ xb) := hf
@@ -2641,13 +2682,15 @@ theorem extendQuotLiftS {env : Env} (m : EnvS V env)
       have hlu2 : Level.substFn φ [Name.anonymous.str "u",
           Name.anonymous.str "v"] [w1, w2] vN = Level.eval φ w2 := by
         simp [Level.substFn, vN]
-      have hb1' : interp V (cons V (interp V ρ xf) (cons V (interp V ρ xb)
+      have hb1' : interp V (cons V (interp V ρ xf) (cons V (interp V ρ
+        xb)
             (cons V (interp V ρ xr) (cons V (interp V ρ xa) ρ))))
           (VExpr.bvar 1)
           ∈ˢ univ (Level.substFn φ [uN] [w2] uN) := by
         rw [interp_bvar]
         simpa [cons, Level.substFn, uN] using hb
-      have hb0' : interp V (cons V (interp V ρ xf) (cons V (interp V ρ xb)
+      have hb0' : interp V (cons V (interp V ρ xf) (cons V (interp V ρ
+        xb)
             (cons V (interp V ρ xr) (cons V (interp V ρ xa) ρ))))
           (VExpr.bvar 0)
           ∈ˢ piC (interp V (cons V (interp V ρ xf)
@@ -2801,7 +2844,8 @@ theorem quotSoundTy_interpS {env : Env} (m : EnvS V env)
     exact quotSet_mem_univ hal
   have hmk1 : interp V (cons V x5 (cons V x4 (cons V x3
         (cons V x2 (cons V x1 ρ)))))
-      (VExpr.mkAppN (VExpr.const .quotMk [a]) [.bvar 4, .bvar 3, .bvar 2])
+      (VExpr.mkAppN (VExpr.const .quotMk [a]) [.bvar 4, .bvar 3, .bvar
+        2])
       ∈ˢ interp V (cons V x5 (cons V x4 (cons V x3
         (cons V x2 (cons V x1 ρ)))))
       (VExpr.mkAppN (VExpr.const .quot [a]) [.bvar 4, .bvar 3]) := by
@@ -2811,7 +2855,8 @@ theorem quotSoundTy_interpS {env : Env} (m : EnvS V env)
     exact quotClass_mem h3'
   have hmk2 : interp V (cons V x5 (cons V x4 (cons V x3
         (cons V x2 (cons V x1 ρ)))))
-      (VExpr.mkAppN (VExpr.const .quotMk [a]) [.bvar 4, .bvar 3, .bvar 1])
+      (VExpr.mkAppN (VExpr.const .quotMk [a]) [.bvar 4, .bvar 3, .bvar
+        1])
       ∈ˢ interp V (cons V x5 (cons V x4 (cons V x3
         (cons V x2 (cons V x1 ρ)))))
       (VExpr.mkAppN (VExpr.const .quot [a]) [.bvar 4, .bvar 3]) := by
@@ -2857,7 +2902,8 @@ theorem quotSoundTy_annotS {env : Env} (m : EnvS V env)
     exact quotSet_mem_univ hal
   have hmk1 : interp V (cons V x5 (cons V x4 (cons V x3
         (cons V x2 (cons V x1 ρ)))))
-      (VExpr.mkAppN (VExpr.const .quotMk [a]) [.bvar 4, .bvar 3, .bvar 2])
+      (VExpr.mkAppN (VExpr.const .quotMk [a]) [.bvar 4, .bvar 3, .bvar
+        2])
       ∈ˢ interp V (cons V x5 (cons V x4 (cons V x3
         (cons V x2 (cons V x1 ρ)))))
       (VExpr.mkAppN (VExpr.const .quot [a]) [.bvar 4, .bvar 3]) := by
@@ -2867,7 +2913,8 @@ theorem quotSoundTy_annotS {env : Env} (m : EnvS V env)
     exact quotClass_mem h3'
   have hmk2 : interp V (cons V x5 (cons V x4 (cons V x3
         (cons V x2 (cons V x1 ρ)))))
-      (VExpr.mkAppN (VExpr.const .quotMk [a]) [.bvar 4, .bvar 3, .bvar 1])
+      (VExpr.mkAppN (VExpr.const .quotMk [a]) [.bvar 4, .bvar 3, .bvar
+        1])
       ∈ˢ interp V (cons V x5 (cons V x4 (cons V x3
         (cons V x2 (cons V x1 ρ)))))
       (VExpr.mkAppN (VExpr.const .quot [a]) [.bvar 4, .bvar 3]) := by
@@ -2899,7 +2946,8 @@ theorem denote_quotSound_typeS {env : Env} (m : EnvS V env)
     (hQ : env.find? quotName = some quotA)
     (hM : env.find? quotMkName = some quotMkA)
     (hE : env.find? eqName = some eqA) :
-    denote (cvalWith m.cval quotSoundA.name val) ⟨quotSoundA :: env.consts⟩ φ d
+    denote (cvalWith m.cval quotSoundA.name
+      val) ⟨quotSoundA :: env.consts⟩ φ d
         (quotSoundA.toConstantVal.type.instantiateLevelParams
           quotSoundA.toConstantVal.levelParams [w])
       = some (quotSoundTyV (m.cval eqName (Level.substFn φ [uN] [w]))
@@ -2908,9 +2956,11 @@ theorem denote_quotSound_typeS {env : Env} (m : EnvS V env)
     simp [Level.subst, Level.subst.go, uN]
   have hsz : Level.subst [uN] [w] .zero = .zero := by
     simp [Level.subst]
-  obtain ⟨hQc, hMc⟩ := denote_quotInd_constsS m (ci := quotSoundA) (val := val)
+  obtain ⟨hQc, hMc⟩ := denote_quotInd_constsS m (ci := quotSoundA) (val
+    := val)
     φ w hQ hM (by decide) (by decide)
-  have hEc := denote_quot_eqConstS m (ci := quotSoundA) (val := val) φ w hE
+  have hEc := denote_quot_eqConstS m (ci := quotSoundA) (val :=
+    val) φ w hE
     (by decide)
   rw [show quotSoundA.toConstantVal.type
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
@@ -2934,7 +2984,8 @@ theorem denote_quotSound_typeS {env : Env} (m : EnvS V env)
             { bi := .implicit })
           { bi := .implicit } from rfl,
     show quotSoundA.toConstantVal.levelParams = [uN] from rfl]
-  simp [Expr.instantiateLevelParams, hsu, hsz, denote_forallE, denote_sort,
+  simp [Expr.instantiateLevelParams, hsu, hsz, denote_forallE,
+    denote_sort,
     denote_app, denote_fvar, hQc, hMc, hEc, quotSoundTyV, VExpr.mkAppN,
     Level.eval]
 
@@ -2967,7 +3018,8 @@ theorem eqValT_closed (ψ : Name → Nat) : VExpr.Closed (eqValT ψ) := by
   exact ⟨trivial, by omega, by omega, by omega, by omega, by omega⟩
 
 /-- `Eq.refl`'s tower is closed. -/
-theorem eqReflValT_closed (ψ : Name → Nat) : VExpr.Closed (eqReflValT ψ) := by
+theorem eqReflValT_closed (ψ : Name → Nat) : VExpr.Closed (eqReflValT
+  ψ) := by
   simp only [eqReflValT, VExpr.Closed, VExpr.bvarsBelow]
   exact ⟨trivial, by omega, trivial⟩
 
@@ -2987,7 +3039,8 @@ def eqRecValT (ψ : Name → Nat) : VExpr :=
               (.bvar 2))))))
 
 /-- `Eq.rec`'s tower is closed. -/
-theorem eqRecValT_closed (ψ : Name → Nat) : VExpr.Closed (eqRecValT ψ) := by
+theorem eqRecValT_closed (ψ : Name → Nat) : VExpr.Closed (eqRecValT
+  ψ) := by
   simp only [eqRecValT, VExpr.Closed, VExpr.bvarsBelow, VExpr.mkAppN,
     eqValT, eqReflValT]
   repeat' apply And.intro
@@ -3032,7 +3085,8 @@ theorem eqValT_memS (ψ : Name → Nat) (ρ : Nat → V) :
 
 theorem eqValT_annotS (ψ : Name → Nat) (ρ : Nat → V) :
     AnnotOkV V ρ (eqValT ψ) := by
-  simp [eqValT, AnnotOkV_lam, AnnotOkV_eqE, AnnotOkV_bvar, AnnotOkV_sort]
+  simp [eqValT, AnnotOkV_lam, AnnotOkV_eqE, AnnotOkV_bvar,
+    AnnotOkV_sort]
 
 /-- The full spine's value. -/
 theorem eqValT_app₃S (ψ : Name → Nat) (ρ : Nat → V) (A a b : VExpr)
@@ -3273,9 +3327,11 @@ theorem extendEqS {env : Env} (m : EnvS V env)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq) ?_
   · intro φ₁ φ₂ hp
-    exact eqValT_congr (hp uN (by show uN ∈ [uN]; exact List.mem_cons_self))
+    exact eqValT_congr (hp uN (by show uN ∈ [uN]; exact
+      List.mem_cons_self))
   · intro φ
-    refine ⟨.pi (.sort (φ uN)) (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0))),
+    refine ⟨.pi (.sort (φ uN)) (.pi (.bvar 0) (.pi (.bvar 1) (.sort
+      0))),
       ?_, fun ρ => ⟨?_, by simp [AnnotOkV_pi]⟩⟩
     · rw [denoteClosed,
         show eqA.toConstantVal.type
@@ -3312,7 +3368,8 @@ theorem extendEqReflS {env : Env} (m : EnvS V env)
     simp only [show ([Level.param uN] : List Level).length
       = eqA.toConstantVal.levelParams.length from rfl, if_true]
     rw [cvalWith_ne (by decide),
-      show Level.substFn φ eqA.toConstantVal.levelParams [Level.param uN]
+      show Level.substFn φ eqA.toConstantVal.levelParams [Level.param
+        uN]
         = φ from Level.substFn_param_self φ [uN], hEv]
   refine extendBasisS m (val := eqReflValT)
     (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
@@ -3365,7 +3422,8 @@ theorem extendEqReflS {env : Env} (m : EnvS V env)
 The general form is the one `hheadRec` supplies at a fire site — depth
 `d`, the recursor's own `us` — and the install's own `htype` is its
 special case at depth `0` and the declaration's own parameters
-(`Level.substFn_param_self`).  Written once for the same reason `BetaSpine`
+(`Level.substFn_param_self`).  Written once for the same reason
+`BetaSpine`
 and the `instantiate1` kit were: every block needs exactly this
 shape. -/
 theorem denote_eqRec_typeS {env : Env} (m : EnvS V env)
@@ -3390,14 +3448,17 @@ theorem denote_eqRec_typeS {env : Env} (m : EnvS V env)
               (.pi (.bvar 3)
                 (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
                     [.bvar 4, .bvar 3, .bvar 0])
-                  (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))))))) := by
+                  (.app (.app (.bvar 3) (.bvar 1)) (.bvar
+                    0)))))))) := by
   have hsu : Level.subst [u1N, uN] [w1, w2] (.param uN) = w2 := by
     simp [Level.subst, Level.subst.go, uN, u1N]
   have hsu1 : Level.subst [u1N, uN] [w1, w2] (.param u1N) = w1 := by
     simp [Level.subst, Level.subst.go, u1N]
   have hEc : ∀ e : Nat,
-      denote (cvalWith m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
-        (.const eqName [w2]) = some (eqValT (Level.substFn φ [uN] [w2])) := by
+      denote (cvalWith m.cval eqRecA.name
+        val) ⟨eqRecA :: env.consts⟩ φ e
+        (.const eqName [w2]) = some (eqValT (Level.substFn φ [uN]
+          [w2])) := by
     intro e
     rw [denote_const, Env.find?_cons, if_neg (by decide), hE]
     simp only [show ([w2] : List Level).length
@@ -3405,7 +3466,8 @@ theorem denote_eqRec_typeS {env : Env} (m : EnvS V env)
     rw [cvalWith_ne (by decide), hEv]
     rfl
   have hRc : ∀ e : Nat,
-      denote (cvalWith m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
+      denote (cvalWith m.cval eqRecA.name
+        val) ⟨eqRecA :: env.consts⟩ φ e
         (.const eqReflName [w2])
         = some (eqReflValT (Level.substFn φ [uN] [w2])) := by
     intro e
@@ -3420,7 +3482,8 @@ theorem denote_eqRec_typeS {env : Env} (m : EnvS V env)
             (Expr.forallE (Name.anonymous.str "motive")
               (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
                 (Expr.forallE (Name.anonymous.str "t")
-                  (.app (.app (.app (.const eqName [.param uN]) (.bvar 2))
+                  (.app (.app (.app (.const eqName [.param uN]) (.bvar
+                    2))
                     (.bvar 1)) (.bvar 0))
                   (.sort (.param u1N)) { bi := .default })
                 { bi := .default })
@@ -3430,7 +3493,8 @@ theorem denote_eqRec_typeS {env : Env} (m : EnvS V env)
                     (.bvar 1)))
                 (Expr.forallE (Name.anonymous.str "b") (.bvar 3)
                   (Expr.forallE (Name.anonymous.str "t")
-                    (.app (.app (.app (.const eqName [.param uN]) (.bvar 4))
+                    (.app (.app (.app (.const eqName [.param uN]) (.bvar
+                      4))
                       (.bvar 3)) (.bvar 0))
                     (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))
                     { bi := .default })
@@ -3440,7 +3504,8 @@ theorem denote_eqRec_typeS {env : Env} (m : EnvS V env)
             { bi := .implicit })
           { bi := .implicit } from rfl,
     show eqRecA.toConstantVal.levelParams = [u1N, uN] from rfl]
-  simp [Expr.instantiateLevelParams, hsu, hsu1, denote_forallE, denote_sort,
+  simp [Expr.instantiateLevelParams, hsu, hsu1, denote_forallE,
+    denote_sort,
     denote_app, denote_fvar, hEc, hRc, VExpr.mkAppN]
 
 /-- `Eq.rec`'s single stored rule. -/
@@ -3495,8 +3560,10 @@ theorem denote_eqRec_rhsS {env : Env} (m : EnvS V env)
   have hsu1 : Level.subst [u1N, uN] [w1, w2] (.param u1N) = w1 := by
     simp [Level.subst, Level.subst.go, u1N]
   have hEc : ∀ e : Nat,
-      denote (cvalWith m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
-        (.const eqName [w2]) = some (eqValT (Level.substFn φ [uN] [w2])) := by
+      denote (cvalWith m.cval eqRecA.name
+        val) ⟨eqRecA :: env.consts⟩ φ e
+        (.const eqName [w2]) = some (eqValT (Level.substFn φ [uN]
+          [w2])) := by
     intro e
     rw [denote_const, Env.find?_cons, if_neg (by decide), hE]
     simp only [show ([w2] : List Level).length
@@ -3504,7 +3571,8 @@ theorem denote_eqRec_rhsS {env : Env} (m : EnvS V env)
     rw [cvalWith_ne (by decide), hEv]
     rfl
   have hRc : ∀ e : Nat,
-      denote (cvalWith m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
+      denote (cvalWith m.cval eqRecA.name
+        val) ⟨eqRecA :: env.consts⟩ φ e
         (.const eqReflName [w2])
         = some (eqReflValT (Level.substFn φ [uN] [w2])) := by
     intro e
@@ -3515,7 +3583,8 @@ theorem denote_eqRec_rhsS {env : Env} (m : EnvS V env)
     rfl
   rw [show eqRecA.toConstantVal.levelParams = [u1N, uN] from rfl]
   simp only [eqRecRule]
-  simp [Expr.instantiateLevelParams, hsu, hsu1, denote_lam, denote_forallE,
+  simp [Expr.instantiateLevelParams, hsu, hsu1, denote_lam,
+    denote_forallE,
     denote_sort, denote_app, denote_fvar, hEc, hRc, VExpr.mkAppN]
 
 set_option maxHeartbeats 1600000 in
@@ -3535,7 +3604,8 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
     (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
     (fun _ => by decide)
     (fun ψ t hp => by
-      rw [show ConstantInfo.name eqRecA = eqName.str "rec" from rfl] at hp
+      rw [show ConstantInfo.name eqRecA = eqName.str "rec" from
+        rfl] at hp
       simp +decide [pinnedDirectT] at hp)
     hfresh hwf (fun ψ => eqRecValT_closed ψ) ?_
     (fun ψ ρ => eqRecValT_annotS ψ ρ) ?_
@@ -3601,7 +3671,8 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
         match xs, hxs with
         | [a, b, c, e, f], _ => exact ⟨a, b, c, e, f, rfl⟩
       have hTVc := Option.some.inj (hTV.symm.trans
-        (denote_eqRec_typeS m (val := eqRecValT) φ 0 w1 w2 hE hR hEv hRv))
+        (denote_eqRec_typeS m (val := eqRecValT) φ 0 w1 w2 hE hR hEv
+          hRv))
       subst hTVc
       have hctor : cvalWith m.cval eqRecA.name eqRecValT
           ((Name.anonymous.str "Eq").str "refl")
@@ -3629,7 +3700,8 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
         VExpr.inst_eq_self_of_closed
           (eqValT_closed (Level.substFn φ [uN] [w2])),
         VExpr.inst_eq_self_of_closed
-          (eqReflValT_closed (Level.substFn φ [uN] [w2]))] at t1 t2 t3 t4 t5 t6
+          (eqReflValT_closed (Level.substFn φ [uN]
+            [w2]))] at t1 t2 t3 t4 t5 t6
       have hu2 : Level.substFn φ [Name.anonymous.str "u_1",
           Name.anonymous.str "u"] [w1, w2] uN = Level.eval φ w2 := by
         simp [Level.substFn, uN]
@@ -3648,9 +3720,11 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
         eqReflValT_congr (by rw [hu2, hψ2])
       have hA2g : interp V (cons V (interp V ρ xa) ρ) (VExpr.bvar 0)
           = interp V ρ xa := by simp [interp_bvar, cons]
-      have hA5g : interp V (cons V (interp V ρ xh) (cons V (interp V ρ xM)
+      have hA5g : interp V (cons V (interp V ρ xh) (cons V (interp V ρ
+        xM)
             (cons V (interp V ρ xv) (cons V (interp V ρ xa) ρ))))
-            (VExpr.bvar 3) = interp V ρ xa := by simp [interp_bvar, cons]
+            (VExpr.bvar 3) = interp V ρ xa := by simp [interp_bvar,
+              cons]
       -- the motive's space, in the layer's vocabulary
       have hA3t : interp V ρ (VExpr.pi xa
             (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
@@ -3663,7 +3737,8 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
         congr 1
         rw [eqValT_app₃S (Level.substFn φ [uN] [w2]) (cons V b ρ)
           (VExpr.liftN 1 xa 0) (VExpr.liftN 1 xv 0) (.bvar 0)
-          (by rw [interp_lift_cons (V := V) xa b ρ, hψ2]; simpa using t1)
+          (by rw [interp_lift_cons (V := V) xa b ρ, hψ2]; simpa using
+            t1)
           (by rw [interp_lift_cons (V := V) xv b ρ,
                 interp_lift_cons (V := V) xa b ρ]; exact t2)
           (by rw [interp_lift_cons (V := V) xa b ρ, interp_bvar]
@@ -3692,7 +3767,8 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
       have hA4t : interp V ρ (VExpr.app (.app xM xv)
             (VExpr.mkAppN (eqReflValT (Level.substFn φ [uN] [w2]))
               [xa, xv]))
-          = SetTheory.app (SetTheory.app (interp V ρ xM) (interp V ρ xv))
+          = SetTheory.app (SetTheory.app (interp V ρ xM) (interp V ρ
+            xv))
             pt := by
         rw [interp_app, interp_app,
           eqReflValT_app₂S (Level.substFn φ [uN] [w2]) ρ xa xv
@@ -3702,7 +3778,8 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
             (VExpr.app (.app (.bvar 0) (.bvar 1))
               (VExpr.mkAppN (eqReflValT (Level.substFn φ [uN] [w2]))
                 [.bvar 2, .bvar 1]))
-          = SetTheory.app (SetTheory.app (interp V ρ xM) (interp V ρ xv))
+          = SetTheory.app (SetTheory.app (interp V ρ xM) (interp V ρ
+            xv))
             pt := by
         rw [interp_app, interp_app,
           eqReflValT_app₂S (Level.substFn φ [uN] [w2]) _ (.bvar 2)
@@ -3776,7 +3853,8 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
             (VExpr.lam (.sort (Level.eval φ w2))
               (.lam (.bvar 0)
                 (.lam (.pi (.bvar 1)
-                    (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                    (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN]
+                      [w2]))
                         [.bvar 2, .bvar 1, .bvar 0])
                       (.sort (Level.eval φ w1))))
                   (.lam (.app (.app (.bvar 0) (.bvar 1))
@@ -3796,7 +3874,8 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
               (Level.substFn φ [uN] [w2])
               (cons V x3 (cons V x2 (cons V x1 ρ)))
             have hx1' : interp V (cons V x3 (cons V x2 (cons V x1 ρ)))
-                (VExpr.bvar 2) ∈ˢ univ (Level.substFn φ [uN] [w2] uN) := by
+                (VExpr.bvar 2) ∈ˢ univ (Level.substFn φ [uN] [w2]
+                  uN) := by
               rw [interp_bvar, hψ2]; simpa [cons] using h1
             have hx2' : interp V (cons V x3 (cons V x2 (cons V x1 ρ)))
                 (VExpr.bvar 1) ∈ˢ interp V (cons V x3 (cons V x2
@@ -3816,8 +3895,10 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
               rw [eqValT_app₃S (Level.substFn φ [uN] [w2]) _ (.bvar 2)
                 (.bvar 1) (.bvar 0)
                 (by rw [interp_bvar, hψ2]; simpa [cons] using h1)
-                (by rw [interp_bvar, interp_bvar]; simpa [cons] using h2)
-                (by rw [interp_bvar, interp_bvar]; simpa [cons] using h2)]
+                (by rw [interp_bvar, interp_bvar]; simpa [cons] using
+                  h2)
+                (by rw [interp_bvar, interp_bvar]; simpa [cons] using
+                  h2)]
               simp [interp_bvar, cons]
             have hx2b : x2 ∈ˢ interp V (cons V x2 (cons V x1 ρ))
                 (VExpr.bvar 1) := by simpa [interp_bvar, cons] using h2
@@ -3843,7 +3924,8 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
             (VExpr.lam (.sort (Level.eval φ w2))
               (.lam (.bvar 0)
                 (.lam (.pi (.bvar 1)
-                    (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN] [w2]))
+                    (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uN]
+                      [w2]))
                         [.bvar 2, .bvar 1, .bvar 0])
                       (.sort (Level.eval φ w1))))
                   (.lam (.app (.app (.bvar 0) (.bvar 1))
@@ -3909,7 +3991,8 @@ def psigmaRecValT (ψ : Name → Nat) : VExpr :=
 /-- The tower is closed. -/
 theorem psigmaRecValT_closed (ψ : Name → Nat) :
     VExpr.Closed (psigmaRecValT ψ) := by
-  simp only [psigmaRecValT, VExpr.Closed, VExpr.bvarsBelow, VExpr.mkAppN]
+  simp only [psigmaRecValT, VExpr.Closed, VExpr.bvarsBelow,
+    VExpr.mkAppN]
   repeat' apply And.intro
   all_goals first | trivial | omega
 
@@ -3962,7 +4045,8 @@ theorem denote_psigmaRec_typeS {env : Env} (m : EnvS V env)
       m.cval psigmaName ψ = VExpr.const .psigma [ψ uN, ψ vN])
     (hMv : ∀ ψ : Name → Nat,
       m.cval psigmaMkName ψ = VExpr.const .psigmaMk [ψ uN, ψ vN]) :
-    denote (cvalWith m.cval psigmaRecA.name val) ⟨psigmaRecA :: env.consts⟩ φ d
+    denote (cvalWith m.cval psigmaRecA.name
+      val) ⟨psigmaRecA :: env.consts⟩ φ d
         (psigmaRecA.toConstantVal.type.instantiateLevelParams
           psigmaRecA.toConstantVal.levelParams [w1, w2])
       = some (.pi (.sort (w1.eval φ))
@@ -3985,7 +4069,8 @@ theorem denote_psigmaRec_typeS {env : Env} (m : EnvS V env)
     simp [Level.subst, Level.subst.go, uN, vN]
   have hsz : Level.subst [uN, vN] [w1, w2] .zero = .zero := by
     simp [Level.subst]
-  obtain ⟨hPc, hMc⟩ := denote_psigmaRec_constsS m (val := val) φ w1 w2 hP hM
+  obtain ⟨hPc, hMc⟩ := denote_psigmaRec_constsS m (val :=
+    val) φ w1 w2 hP hM
     hPv hMv
   rw [show psigmaRecA.toConstantVal.type
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
@@ -4016,7 +4101,8 @@ theorem denote_psigmaRec_typeS {env : Env} (m : EnvS V env)
             { bi := .implicit })
           { bi := .implicit } from rfl,
     show psigmaRecA.toConstantVal.levelParams = [uN, vN] from rfl]
-  simp [Expr.instantiateLevelParams, hsu, hsv, denote_forallE, denote_sort,
+  simp [Expr.instantiateLevelParams, hsu, hsv, denote_forallE,
+    denote_sort,
     denote_app, denote_fvar, hPc, hMc, hsz, VExpr.mkAppN, Level.eval]
 
 /-- `PSigma'.mk`'s pinned type, denoted — the constructor telescope the
@@ -4030,7 +4116,8 @@ theorem denote_psigmaMk_typeS {env : Env} (m : EnvS V env)
       m.cval psigmaName ψ = VExpr.const .psigma [ψ uN, ψ vN])
     (hMv : ∀ ψ : Name → Nat,
       m.cval psigmaMkName ψ = VExpr.const .psigmaMk [ψ uN, ψ vN]) :
-    denote (cvalWith m.cval psigmaRecA.name val) ⟨psigmaRecA :: env.consts⟩ φ d
+    denote (cvalWith m.cval psigmaRecA.name
+      val) ⟨psigmaRecA :: env.consts⟩ φ d
         (psigmaMkA.toConstantVal.type.instantiateLevelParams
           psigmaMkA.toConstantVal.levelParams [w1, w2])
       = some (.pi (.sort (w1.eval φ))
@@ -4043,7 +4130,8 @@ theorem denote_psigmaMk_typeS {env : Env} (m : EnvS V env)
     simp [Level.subst, Level.subst.go, uN]
   have hsv : Level.subst [uN, vN] [w1, w2] (.param vN) = w2 := by
     simp [Level.subst, Level.subst.go, uN, vN]
-  obtain ⟨hPc, -⟩ := denote_psigmaRec_constsS m (val := val) φ w1 w2 hP hM
+  obtain ⟨hPc, -⟩ := denote_psigmaRec_constsS m (val :=
+    val) φ w1 w2 hP hM
     hPv hMv
   rw [show psigmaMkA.toConstantVal.type
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
@@ -4060,7 +4148,8 @@ theorem denote_psigmaMk_typeS {env : Env} (m : EnvS V env)
             { bi := .implicit })
           { bi := .implicit } from rfl,
     show psigmaMkA.toConstantVal.levelParams = [uN, vN] from rfl]
-  simp [Expr.instantiateLevelParams, hsu, hsv, denote_forallE, denote_sort,
+  simp [Expr.instantiateLevelParams, hsu, hsv, denote_forallE,
+    denote_sort,
     denote_app, denote_fvar, hPc, VExpr.mkAppN]
 
 /-- `PSigma'.rec`'s single stored rule. -/
@@ -4098,7 +4187,8 @@ def psigmaRecRule : RecRule :=
 
 /-- The stored declaration, with its rule named. -/
 theorem psigmaRecA_eq :
-    psigmaRecA = .recInfo psigmaRecA.toConstantVal 4 4 [psigmaRecRule] := rfl
+    psigmaRecA = .recInfo psigmaRecA.toConstantVal 4 4 [psigmaRecRule]
+      := rfl
 
 /-- `PSigma'.rec`'s rule right-hand side, denoted — named, because the
 iota proof has to hand it to `BetaSpine` as an explicit head. -/
@@ -4109,7 +4199,8 @@ def psigmaRecRhsV (a b : Nat) : VExpr :=
             [.bvar 1, .bvar 0]) (.sort 0))
         (.lam (.pi (.bvar 2)
             (.pi (.app (.bvar 2) (.bvar 0))
-              (.app (.bvar 2) (VExpr.mkAppN (VExpr.const .psigmaMk [a, b])
+              (.app (.bvar 2) (VExpr.mkAppN (VExpr.const .psigmaMk [a,
+                b])
                 [.bvar 4, .bvar 3, .bvar 1, .bvar 0]))))
           (.lam (.bvar 3)
             (.lam (.app (.bvar 3) (.bvar 0))
@@ -4125,7 +4216,8 @@ theorem denote_psigmaRec_rhsS {env : Env} (m : EnvS V env)
       m.cval psigmaName ψ = VExpr.const .psigma [ψ uN, ψ vN])
     (hMv : ∀ ψ : Name → Nat,
       m.cval psigmaMkName ψ = VExpr.const .psigmaMk [ψ uN, ψ vN]) :
-    denote (cvalWith m.cval psigmaRecA.name val) ⟨psigmaRecA :: env.consts⟩ φ d
+    denote (cvalWith m.cval psigmaRecA.name
+      val) ⟨psigmaRecA :: env.consts⟩ φ d
         ((RecRule.rhs psigmaRecRule).instantiateLevelParams
           psigmaRecA.toConstantVal.levelParams [w1, w2])
       = some (psigmaRecRhsV (w1.eval φ) (w2.eval φ)) := by
@@ -4135,11 +4227,13 @@ theorem denote_psigmaRec_rhsS {env : Env} (m : EnvS V env)
     simp [Level.subst, Level.subst.go, uN, vN]
   have hsz : Level.subst [uN, vN] [w1, w2] .zero = .zero := by
     simp [Level.subst]
-  obtain ⟨hPc, hMc⟩ := denote_psigmaRec_constsS m (val := val) φ w1 w2 hP hM
+  obtain ⟨hPc, hMc⟩ := denote_psigmaRec_constsS m (val :=
+    val) φ w1 w2 hP hM
     hPv hMv
   rw [show psigmaRecA.toConstantVal.levelParams = [uN, vN] from rfl]
   simp only [psigmaRecRule]
-  simp [Expr.instantiateLevelParams, hsu, hsv, denote_lam, denote_forallE,
+  simp [Expr.instantiateLevelParams, hsu, hsv, denote_lam,
+    denote_forallE,
     denote_sort, denote_app, denote_fvar, hPc, hMc, hsz, psigmaRecRhsV,
     VExpr.mkAppN, Level.eval]
 
@@ -4165,7 +4259,8 @@ theorem extendPSigmaS {env : Env} (m : EnvS V env)
     ∃ m' : EnvS V ⟨psigmaA :: env.consts⟩,
       m'.cval = cvalWith m.cval psigmaA.name
         (fun ψ => VExpr.const .psigma [ψ uN, ψ vN]) := by
-  refine extendBasisS m (val := fun ψ => VExpr.const .psigma [ψ uN, ψ vN])
+  refine extendBasisS m (val := fun ψ => VExpr.const .psigma [ψ uN, ψ
+    vN])
     (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
     (fun _ => by decide)
     (fun ψ t hp => by
@@ -4222,7 +4317,8 @@ theorem extendPSigmaMkS {env : Env} (m : EnvS V env)
     (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
     (fun _ => by decide)
     (fun ψ t hp => by
-      rw [show ConstantInfo.name psigmaMkA = psigmaMkName from rfl] at hp
+      rw [show ConstantInfo.name psigmaMkA = psigmaMkName from
+        rfl] at hp
       simp +decide [pinnedDirectT] at hp
       exact hp)
     hfresh hwf (fun _ => trivial) ?_ (fun _ _ => trivial) ?_
@@ -4254,7 +4350,8 @@ theorem extendPSigmaMkS {env : Env} (m : EnvS V env)
               { bi := .default })
             { bi := .implicit })
           { bi := .implicit } from rfl]
-    simp [denote_forallE, denote_sort, denote_app, denote_fvar, Level.eval,
+    simp [denote_forallE, denote_sort, denote_app, denote_fvar,
+      Level.eval,
       hPc]
     rfl
 
@@ -4262,14 +4359,16 @@ theorem extendPSigmaMkS {env : Env} (m : EnvS V env)
 def pairFstTyV (a b : Nat) : VExpr :=
   .pi (.sort a)
     (.pi (.pi (.bvar 0) (.sort b))
-      (.pi (VExpr.mkAppN (VExpr.const .psigma [a, b]) [.bvar 1, .bvar 0])
+      (.pi (VExpr.mkAppN (VExpr.const .psigma [a, b]) [.bvar 1, .bvar
+        0])
         (.bvar 2)))
 
 /-- `PSigma'.snd`'s denoted type. -/
 def pairSndTyV (a b : Nat) : VExpr :=
   .pi (.sort a)
     (.pi (.pi (.bvar 0) (.sort b))
-      (.pi (VExpr.mkAppN (VExpr.const .psigma [a, b]) [.bvar 1, .bvar 0])
+      (.pi (VExpr.mkAppN (VExpr.const .psigma [a, b]) [.bvar 1, .bvar
+        0])
         (.app (.bvar 1) (.proj 0 (.bvar 0)))))
 
 /-- **The projections' towers inhabit their pinned types** — the
@@ -4298,7 +4397,8 @@ theorem pairFst_memS (φ : Name → Nat) (ρ : Nat → V) :
     have hA' : A ∈ˢ (univ (φ uN) : V) := by simpa [interp_sort] using hA
     have hB' : B ∈ˢ piC A (fun _ => univ (φ vN)) := by
       simpa [interp_pi, interp_sort, interp_bvar, cons] using hB
-    simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_const, AnnotOkV_bvar,
+    simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_const,
+      AnnotOkV_bvar,
       interp_const, interp_bvar, cons]
     exact ⟨⟨trivial, trivial, _, _, hpv ρ, hA'⟩, trivial, _, _,
       app_mem_piC (hpv ρ) hA', hB'⟩
@@ -4323,14 +4423,16 @@ theorem pairSnd_memS (φ : Name → Nat) (ρ : Nat → V) :
   · simp only [pairSndTyV]
     refine ⟨trivial, fun A hA => ⟨⟨trivial, fun _ _ => trivial⟩,
       fun B hB => ⟨?_, fun p hp => ?_⟩⟩⟩
-    · have hA' : A ∈ˢ (univ (φ uN) : V) := by simpa [interp_sort] using hA
+    · have hA' : A ∈ˢ (univ (φ uN) :
+      V) := by simpa [interp_sort] using hA
       have hB' : B ∈ˢ piC A (fun _ => univ (φ vN)) := by
         simpa [interp_pi, interp_sort, interp_bvar, cons] using hB
       simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_const,
         AnnotOkV_bvar, interp_const, interp_bvar, cons]
       exact ⟨⟨trivial, trivial, _, _, hpv ρ, hA'⟩, trivial, _, _,
         app_mem_piC (hpv ρ) hA', hB'⟩
-    · have hA' : A ∈ˢ (univ (φ uN) : V) := by simpa [interp_sort] using hA
+    · have hA' : A ∈ˢ (univ (φ uN) :
+      V) := by simpa [interp_sort] using hA
       have hB' : B ∈ˢ piC A (fun _ => univ (φ vN)) := by
         simpa [interp_pi, interp_sort, interp_bvar, cons] using hB
       have hp' : p ∈ˢ sigmaSet (Nat.max (φ uN) (φ vN)) A
@@ -4340,7 +4442,8 @@ theorem pairSnd_memS (φ : Name → Nat) (ρ : Nat → V) :
           interp_bvar, cons, List.getD_cons_zero,
           List.getD_cons_succ] at h
         rwa [psigmaV_app V hA' hB'] at h
-      simp only [AnnotOkV_app, AnnotOkV_proj, AnnotOkV_bvar, interp_proj,
+      simp only [AnnotOkV_app, AnnotOkV_proj, AnnotOkV_bvar,
+        interp_proj,
         interp_bvar, cons, reduceIte]
       exact ⟨trivial, ⟨trivial, by omega, _, _, _, _, hp', hA',
           fun x hx => app_mem_piC hB' hx⟩,
@@ -4354,12 +4457,14 @@ theorem pairProjValT_annotS (i : Nat) (hi : i < 2) (φ : Name → Nat)
     fun B hB => ⟨?_, fun p hp => ?_⟩⟩⟩
   · have hpv := bval_mem_type V .psigma [φ uN, φ vN]
       (cons V B (cons V A ρ))
-    simp only [BConst.type, lv, List.getD_cons_zero, List.getD_cons_succ,
+    simp only [BConst.type, lv, List.getD_cons_zero,
+      List.getD_cons_succ,
       interp_pi, interp_sort, interp_bvar, interp_arrow, cons] at hpv
     have hA' : A ∈ˢ (univ (φ uN) : V) := by simpa [interp_sort] using hA
     have hB' : B ∈ˢ piC A (fun _ => univ (φ vN)) := by
       simpa [interp_pi, interp_sort, interp_bvar, cons] using hB
-    simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_const, AnnotOkV_bvar,
+    simp only [VExpr.mkAppN, AnnotOkV_app, AnnotOkV_const,
+      AnnotOkV_bvar,
       interp_const, interp_bvar, cons]
     exact ⟨⟨trivial, trivial, _, _, hpv, hA'⟩, trivial, _, _,
       app_mem_piC hpv hA', hB'⟩
@@ -4429,7 +4534,8 @@ theorem extendPairProjS {env : Env} (m : EnvS V env) {i : Nat}
     (fun _ heq => by rw [hci] at heq; exact nomatch heq)
     (fun hemp => by
       rw [hname] at hemp
-      exact absurd hemp (projFnName_ne_reserved (n := emptyName) (by decide)))
+      exact absurd hemp (projFnName_ne_reserved (n := emptyName) (by
+        decide)))
     (fun _ _ _ _ heq => by rw [hci] at heq; exact nomatch heq)
     (fun _ _ _ _ heq => by rw [hci] at heq; exact nomatch heq)
     (fun e heq _ => by
@@ -4442,7 +4548,8 @@ theorem extendPairProjS {env : Env} (m : EnvS V env) {i : Nat}
       exact he ▸ hnat)
     (fun heq => by
       rw [hname] at heq
-      exact absurd heq (projFnName_ne_reserved (n := eqName) (by decide)))
+      exact absurd heq (projFnName_ne_reserved (n := eqName) (by
+        decide)))
   case params =>
     intro φ₁ φ₂ hp
     rw [hlp] at hp
@@ -4459,7 +4566,8 @@ theorem extendPairProjS {env : Env} (m : EnvS V env) {i : Nat}
       rw [hC, Env.find?_cons, if_pos rfl, hci] at hfC; exact nomatch hfC
     · rw [hname] at hP'
       obtain rfl : T = psigmaName := (projFnName_inj hP').1
-      rw [show reservedBasisNames.contains psigmaName = true from by decide]
+      rw [show reservedBasisNames.contains psigmaName = true from by
+        decide]
         at hresT
       exact nomatch hresT
   case unit =>
@@ -4474,7 +4582,8 @@ theorem extendPairFstS {env : Env} (m : EnvS V env)
     (hwf : EnvWF ⟨pairFstA :: env.consts⟩) :
     ∃ m' : EnvS V ⟨pairFstA :: env.consts⟩,
       m'.cval = cvalWith m.cval pairFstA.name (pairProjValT 0) := by
-  refine extendPairProjS m rfl (Or.inl rfl) (by decide) (by omega) rfl rfl hP hM
+  refine extendPairProjS m rfl (Or.inl rfl) (by decide) (by
+    omega) rfl rfl hP hM
     hfresh hwf ?_
   intro φ
   have hPc : ∀ d : Nat,
@@ -4500,7 +4609,8 @@ theorem extendPairFstS {env : Env} (m : EnvS V env)
             (.bvar 2) { bi := .default })
           { bi := .implicit })
         { bi := .implicit } from rfl]
-  simp [denote_forallE, denote_sort, denote_app, denote_fvar, Level.eval,
+  simp [denote_forallE, denote_sort, denote_app, denote_fvar,
+    Level.eval,
     hPc, VExpr.mkAppN, pairFstTyV]
 
 /-- `PSigma'.snd`, installed. -/
@@ -4511,7 +4621,8 @@ theorem extendPairSndS {env : Env} (m : EnvS V env)
     (hwf : EnvWF ⟨pairSndA :: env.consts⟩) :
     ∃ m' : EnvS V ⟨pairSndA :: env.consts⟩,
       m'.cval = cvalWith m.cval pairSndA.name (pairProjValT 1) := by
-  refine extendPairProjS m rfl (Or.inr rfl) (by decide) (by omega) rfl rfl hP hM
+  refine extendPairProjS m rfl (Or.inr rfl) (by decide) (by
+    omega) rfl rfl hP hM
     hfresh hwf ?_
   intro φ
   have hPc : ∀ d : Nat,
@@ -4538,7 +4649,8 @@ theorem extendPairSndS {env : Env} (m : EnvS V env)
             { bi := .default })
           { bi := .implicit })
         { bi := .implicit } from rfl]
-  simp [denote_forallE, denote_sort, denote_app, denote_fvar, denote_proj,
+  simp [denote_forallE, denote_sort, denote_app, denote_fvar,
+    denote_proj,
     Expr.instantiate1, Level.eval, hPc, VExpr.mkAppN, pairSndTyV]
 
 /-- `PSigma'.rec`'s denoted type. -/
@@ -4696,12 +4808,14 @@ theorem psigmaRecValT_annotS (φ : Name → Nat) (ρ : Nat → V) :
       interp_bvar, cons, List.getD_cons_zero, List.getD_cons_succ] at h
     rwa [psigmaV_app V hA' hB'] at h
   have hsigma : ∀ j : Nat, j < 2 → AnnotOkV V (cons V p (cons V mk
-      (cons V M (cons V B (cons V A ρ))))) (VExpr.proj j (VExpr.bvar 0)) := by
+      (cons V M (cons V B (cons V A
+        ρ))))) (VExpr.proj j (VExpr.bvar 0)) := by
     intro j hj
     simp only [AnnotOkV_proj, AnnotOkV_bvar, interp_bvar, cons]
     exact ⟨trivial, hj, _, _, _, _, hp', hA',
       fun x hx => app_mem_piC hB' hx⟩
-  simp only [AnnotOkV_app, AnnotOkV_bvar, interp_proj, interp_bvar, cons,
+  simp only [AnnotOkV_app, AnnotOkV_bvar, interp_proj, interp_bvar,
+    cons,
     reduceIte]
   exact ⟨⟨trivial, hsigma 0 (by omega), _, _, hmk',
       sfst_mem V hA' hp'⟩,
@@ -4726,7 +4840,8 @@ theorem psigmaRecRhs_annotS (a b : Nat) (ρ : Nat → V) :
   have h5' : x5 ∈ˢ x1 := by simpa [interp_bvar, cons] using h5
   have h4' : x4 ∈ˢ piC x1 (fun y => piC (SetTheory.app x2 y)
       (fun z => SetTheory.app x3 (SetTheory.app (SetTheory.app
-        (SetTheory.app (SetTheory.app (psigmaMkV V a b) x1) x2) y) z))) := by
+        (SetTheory.app (SetTheory.app (psigmaMkV V a b) x1)
+          x2) y) z))) := by
     simpa [interp_pi, interp_app, interp_const, bval, lv, VExpr.mkAppN,
       interp_bvar, cons, List.getD_cons_zero,
       List.getD_cons_succ] using h4
@@ -4747,11 +4862,13 @@ theorem psigmaRecRhs_memS (a b : Nat) (ρ : Nat → V) :
               (fun _ => univ 0)) (fun x3 =>
             piC (piC x1 (fun y => piC (SetTheory.app x2 y) (fun z =>
                 SetTheory.app x3 (SetTheory.app (SetTheory.app
-                  (SetTheory.app (SetTheory.app (psigmaMkV V a b) x1) x2)
+                  (SetTheory.app (SetTheory.app (psigmaMkV V a b) x1)
+                    x2)
                   y) z)))) (fun _x4 =>
               piC x1 (fun x5 => piC (SetTheory.app x2 x5) (fun x6 =>
                 SetTheory.app x3 (SetTheory.app (SetTheory.app
-                  (SetTheory.app (SetTheory.app (psigmaMkV V a b) x1) x2)
+                  (SetTheory.app (SetTheory.app (psigmaMkV V a b) x1)
+                    x2)
                   x5) x6))))))) := by
   simp +decide only [psigmaRecRhsV, interp_lam, interp_pi, interp_sort,
     interp_bvar, interp_app, interp_const, cons, bval, lv, VExpr.mkAppN,
@@ -4782,7 +4899,8 @@ theorem extendPSigmaRecS {env : Env} (m : EnvS V env)
     (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
     (fun _ => by decide)
     (fun ψ t hp => by
-      rw [show ConstantInfo.name psigmaRecA = psigmaName.str "rec" from rfl]
+      rw [show ConstantInfo.name psigmaRecA = psigmaName.str "rec" from
+        rfl]
         at hp
       simp +decide [pinnedDirectT] at hp)
     hfresh hwf (fun ψ => psigmaRecValT_closed ψ) ?_
@@ -4803,10 +4921,12 @@ theorem extendPSigmaRecS {env : Env} (m : EnvS V env)
     refine ⟨psigmaRecTyV (φ uN) (φ vN), ?_,
       fun ρ => psigmaRecValT_memS φ ρ⟩
     rw [denoteClosed, ← Expr.instantiateLevelParams_self
-        psigmaRecA.toConstantVal.levelParams psigmaRecA.toConstantVal.type,
+        psigmaRecA.toConstantVal.levelParams
+          psigmaRecA.toConstantVal.type,
       show psigmaRecA.toConstantVal.levelParams.map Level.param
         = [Level.param uN, Level.param vN] from rfl,
-      denote_psigmaRec_typeS m φ 0 (.param uN) (.param vN) hP hM hPv hMv]
+      denote_psigmaRec_typeS m φ 0 (.param uN) (.param
+        vN) hP hM hPv hMv]
     rfl
   · -- the rule's constructor is stored
     intro cv mI rP rules heq
@@ -4827,7 +4947,8 @@ theorem extendPSigmaRecS {env : Env} (m : EnvS V env)
       obtain ⟨w1, w2, rfl⟩ : ∃ a b, us = [a, b] := by
         match us, hus with
         | [a, b], _ => exact ⟨a, b, rfl⟩
-      refine ⟨_, denote_psigmaRec_rhsS m (val := psigmaRecValT) φ 0 w1 w2
+      refine ⟨_, denote_psigmaRec_rhsS m (val :=
+        psigmaRecValT) φ 0 w1 w2
         hP hM hPv hMv, ?_⟩
       intro cvj cnP cnF hfj usj ρ xs ys TV TVj restR restC hxs hys
         husj hlev hplain hnested hidx hTV hTVj hR' hC
@@ -4861,7 +4982,8 @@ theorem extendPSigmaRecS {env : Env} (m : EnvS V env)
       have hctorV : cvalWith m.cval psigmaRecA.name psigmaRecValT
           ((Name.anonymous.str "PSigma'").str "mk")
           (Level.substFn φ psigmaMkA.toConstantVal.levelParams [v1, v2])
-          = VExpr.const .psigmaMk [Level.eval φ w1, Level.eval φ w2] := by
+          = VExpr.const .psigmaMk [Level.eval φ w1, Level.eval φ
+            w2] := by
         have hMv' := hMv
         simp only [psigmaMkName, psigmaName] at hMv'
         rw [cvalWith_ne (by decide), hMv']
@@ -4973,14 +5095,16 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
     (h : BasisInstallR env BasisKind.psigmaK.declsA env₁) :
     Nonempty (EnvS V env₁) := by
   rw [show BasisKind.psigmaK.declsA
-    = [psigmaA, psigmaMkA, psigmaRecA, pairFstA, pairSndA] from rfl] at h
+    = [psigmaA, psigmaMkA, psigmaRecA, pairFstA,
+      pairSndA] from rfl] at h
   obtain ⟨h1, h2, h3, h4, h5, hnil⟩ := h
   subst hnil
   have hwf1 : EnvWF ⟨psigmaA :: env.consts⟩ :=
     EnvWF.cons m.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩
-  obtain ⟨m1, -⟩ := extendPSigmaS m (Option.isNone_iff_eq_none.mp h1) hwf1
+  obtain ⟨m1, -⟩ := extendPSigmaS m (Option.isNone_iff_eq_none.mp
+    h1) hwf1
   have hP1 : (⟨psigmaA :: env.consts⟩ : Env).find? psigmaName
       = some psigmaA := by
     rw [Env.find?_cons]; exact if_pos rfl
@@ -4990,7 +5114,8 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
       (fun _ _ heq => nomatch heq)⟩
   case res2 =>
     show Expr.constsResolve _ psigmaMkA.toConstantVal.type = true
-    have hf : (⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env).find? psigmaName
+    have hf : (⟨psigmaMkA :: psigmaA :: env.consts⟩ :
+      Env).find? psigmaName
         = some psigmaA := by
       rw [Env.find?_cons, if_neg (by decide)]; exact hP1
     rw [show psigmaMkA.toConstantVal.type
@@ -5008,24 +5133,30 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
             { bi := .implicit })
           { bi := .implicit } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨m2, -⟩ := extendPSigmaMkS m1 hP1 (Option.isNone_iff_eq_none.mp h2) hwf2
-  have hP2 : (⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env).find? psigmaName
+  obtain ⟨m2, -⟩ := extendPSigmaMkS m1 hP1 (Option.isNone_iff_eq_none.mp
+    h2) hwf2
+  have hP2 : (⟨psigmaMkA :: psigmaA :: env.consts⟩ :
+    Env).find? psigmaName
       = some psigmaA := by
     rw [Env.find?_cons, if_neg (by decide)]; exact hP1
-  have hM2 : (⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env).find? psigmaMkName
+  have hM2 : (⟨psigmaMkA :: psigmaA :: env.consts⟩ :
+    Env).find? psigmaMkName
       = some psigmaMkA := by
     rw [Env.find?_cons]; exact if_pos rfl
-  -- the two valuations the recursor's install needs are the invariant's,
+  -- the two valuations the recursor's install needs are the
+  -- invariant's,
   -- not the chain's: both constants are pinned
   have hPv2 : ∀ ψ : Name → Nat,
-      m2.cval psigmaName ψ = VExpr.const .psigma [ψ uN, ψ vN] := fun ψ =>
+      m2.cval psigmaName ψ = VExpr.const .psigma [ψ uN, ψ
+        vN] := fun ψ =>
     cvalS_pinned m2 (by decide) (by rw [hP2]; rfl) ψ
       (by simp +decide [pinnedDirectT])
   have hMv2 : ∀ ψ : Name → Nat,
       m2.cval psigmaMkName ψ = VExpr.const .psigmaMk [ψ uN, ψ vN] :=
     fun ψ => cvalS_pinned m2 (by decide) (by rw [hM2]; rfl) ψ
       (by simp +decide [pinnedDirectT])
-  have hwf3 : EnvWF ⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :=
+  have hwf3 : EnvWF ⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩
+    :=
     EnvWF.cons hwf2 ⟨rfl, rfl, ?res3, rfl,
       (fun _ _ _ heq => nomatch heq), ?rec3,
       (fun _ _ heq => nomatch heq)⟩
@@ -5058,7 +5189,8 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
                       { bi := .default })
                     { bi := .default })
                   (Expr.forallE (Name.anonymous.str "t")
-                    (.app (.app (.const psigmaName [.param uN, .param vN])
+                    (.app (.app (.const psigmaName [.param uN, .param
+                      vN])
                       (.bvar 3)) (.bvar 2))
                     (.app (.bvar 2) (.bvar 0)) { bi := .default })
                   { bi := .default })
@@ -5083,7 +5215,8 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
         simp [Expr.constsResolve, psigmaRecRule, hfP, hfM], rfl,
         fun lvls pins heqf => nomatch heqf⟩
     · exact nomatch hr'
-  obtain ⟨m3, -⟩ := extendPSigmaRecS m2 hP2 hM2 hPv2 hMv2 (Option.isNone_iff_eq_none.mp h3) hwf3
+  obtain ⟨m3, -⟩ := extendPSigmaRecS m2 hP2 hM2 hPv2 hMv2
+    (Option.isNone_iff_eq_none.mp h3) hwf3
   have hP3 : (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ :
       Env).find? psigmaName = some psigmaA := by
     rw [Env.find?_cons, if_neg (by decide)]; exact hP2
@@ -5112,7 +5245,8 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
               { bi := .implicit })
             { bi := .implicit } from rfl]
     simp [Expr.constsResolve, hfP]
-  obtain ⟨m4, -⟩ := extendPairFstS m3 hP3 hM3 (Option.isNone_iff_eq_none.mp h4) hwf4
+  obtain ⟨m4, -⟩ := extendPairFstS m3 hP3 hM3
+    (Option.isNone_iff_eq_none.mp h4) hwf4
   have hP4 : (⟨pairFstA :: psigmaRecA :: psigmaMkA :: psigmaA ::
       env.consts⟩ : Env).find? psigmaName = some psigmaA := by
     rw [Env.find?_cons, if_neg (by decide)]; exact hP3
@@ -5127,7 +5261,8 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
   case res5 =>
     show Expr.constsResolve _ pairSndA.toConstantVal.type = true
     have hfP : (⟨pairSndA :: pairFstA :: psigmaRecA :: psigmaMkA ::
-        psigmaA :: env.consts⟩ : Env).find? psigmaName = some psigmaA := by
+        psigmaA :: env.consts⟩ : Env).find? psigmaName = some psigmaA :=
+          by
       rw [Env.find?_cons, if_neg (by decide)]; exact hP4
     rw [show pairSndA.toConstantVal.type
         = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
@@ -5137,11 +5272,13 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
               (Expr.forallE (Name.anonymous.str "t")
                 (.app (.app (.const psigmaName [.param uN, .param vN])
                   (.bvar 1)) (.bvar 0))
-                (.app (.bvar 1) (.proj psigmaName 0 (.bvar 0))) { bi := .default })
+                (.app (.bvar 1) (.proj psigmaName 0 (.bvar 0))) { bi :=
+                  .default })
               { bi := .implicit })
             { bi := .implicit } from rfl]
     simp [Expr.constsResolve, hfP]
-  obtain ⟨m5, -⟩ := extendPairSndS m4 hP4 hM4 (Option.isNone_iff_eq_none.mp h5) hwf5
+  obtain ⟨m5, -⟩ := extendPairSndS m4 hP4 hM4
+    (Option.isNone_iff_eq_none.mp h5) hwf5
   exact ⟨m5⟩
 
 /-- **The `Eq` block, installed.**  Two `BetaSpine`s meeting at the
@@ -5179,7 +5316,8 @@ theorem declBasisS_eqK {env env₁ : Env} (m : EnvS V env)
                 (.bvar 0)) (.bvar 0)) { bi := .default })
             { bi := .implicit } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨m2, hm2⟩ := extendEqReflS m1 hE1 hEv1 (Option.isNone_iff_eq_none.mp h2) hwf2
+  obtain ⟨m2, hm2⟩ := extendEqReflS m1 hE1 hEv1
+    (Option.isNone_iff_eq_none.mp h2) hwf2
   have hE2 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
       = some eqA := by
     rw [Env.find?_cons, if_neg (by decide)]; exact hE1
@@ -5190,7 +5328,8 @@ theorem declBasisS_eqK {env env₁ : Env} (m : EnvS V env)
     intro ψ
     rw [hm2, cvalWith_ne (by decide)]
     exact hEv1 ψ
-  have hRv2 : ∀ ψ : Name → Nat, m2.cval eqReflName ψ = eqReflValT ψ := by
+  have hRv2 : ∀ ψ : Name → Nat, m2.cval eqReflName ψ = eqReflValT ψ :=
+    by
     intro ψ; rw [hm2]; rfl
   have hwf3 : EnvWF ⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ :=
     EnvWF.cons hwf2 ⟨rfl, rfl, ?res3, rfl,
@@ -5198,18 +5337,21 @@ theorem declBasisS_eqK {env env₁ : Env} (m : EnvS V env)
       (fun _ _ heq => nomatch heq)⟩
   case res3 =>
     show Expr.constsResolve _ eqRecA.toConstantVal.type = true
-    have hfE : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
+    have hfE : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ :
+      Env).find? eqName
         = some eqA := by
       rw [Env.find?_cons, if_neg (by decide)]; exact hE2
     have hfR : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
         eqReflName = some eqReflA := by
       rw [Env.find?_cons, if_neg (by decide)]; exact hR2
-    rw [show eqRecA.toConstantVal.type = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+    rw [show eqRecA.toConstantVal.type = Expr.forallE
+      (Name.anonymous.str "α") (.sort (.param uN))
           (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
             (Expr.forallE (Name.anonymous.str "motive")
               (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
                 (Expr.forallE (Name.anonymous.str "t")
-                  (.app (.app (.app (.const eqName [.param uN]) (.bvar 2))
+                  (.app (.app (.app (.const eqName [.param uN]) (.bvar
+                    2))
                     (.bvar 1)) (.bvar 0))
                   (.sort (.param u1N)) { bi := .default })
                 { bi := .default })
@@ -5219,7 +5361,8 @@ theorem declBasisS_eqK {env env₁ : Env} (m : EnvS V env)
                     (.bvar 1)))
                 (Expr.forallE (Name.anonymous.str "b") (.bvar 3)
                   (Expr.forallE (Name.anonymous.str "t")
-                    (.app (.app (.app (.const eqName [.param uN]) (.bvar 4))
+                    (.app (.app (.app (.const eqName [.param uN]) (.bvar
+                      4))
                       (.bvar 3)) (.bvar 0))
                     (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))
                     { bi := .default })
@@ -5237,16 +5380,19 @@ theorem declBasisS_eqK {env env₁ : Env} (m : EnvS V env)
     rcases List.mem_cons.mp hr with rfl | hr'
     · refine ⟨rfl, ?_, ?_, rfl, fun lvls pins heqf => nomatch heqf⟩
       · subst h1'; rfl
-      · have hfE : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
+      · have hfE : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ :
+        Env).find?
             eqName = some eqA := by
           rw [Env.find?_cons, if_neg (by decide)]; exact hE2
-        have hfR : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
+        have hfR : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ :
+          Env).find?
             eqReflName = some eqReflA := by
           rw [Env.find?_cons, if_neg (by decide)]; exact hR2
         show Expr.constsResolve _ (RecRule.rhs eqRecRule) = true
         simp [Expr.constsResolve, eqRecRule, hfE, hfR]
     · exact nomatch hr'
-  obtain ⟨m3, -⟩ := extendEqRecS m2 hE2 hR2 hEv2 hRv2 (Option.isNone_iff_eq_none.mp h3) hwf3
+  obtain ⟨m3, -⟩ := extendEqRecS m2 hE2 hR2 hEv2 hRv2
+    (Option.isNone_iff_eq_none.mp h3) hwf3
   exact ⟨m3⟩
 
 /-- **`Quot.sound`, installed** — the block's stored *axiom*.  No
@@ -5306,7 +5452,8 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩
   obtain ⟨m1, -⟩ := extendQuotS m (Option.isNone_iff_eq_none.mp h1) hwf1
-  have hQ1 : (⟨quotA :: env.consts⟩ : Env).find? quotName = some quotA := by
+  have hQ1 : (⟨quotA :: env.consts⟩ :
+    Env).find? quotName = some quotA := by
     rw [Env.find?_cons]; exact if_pos rfl
   have hE1 : (⟨quotA :: env.consts⟩ : Env).find? eqName = some eqA := by
     rw [Env.find?_cons, if_neg (by decide)]; exact hE
@@ -5331,7 +5478,8 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
             { bi := .default })
           { bi := .implicit } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨m2, -⟩ := extendQuotMkS m1 hQ1 (Option.isNone_iff_eq_none.mp h2) hwf2
+  obtain ⟨m2, -⟩ := extendQuotMkS m1 hQ1 (Option.isNone_iff_eq_none.mp
+    h2) hwf2
   have hQ2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
     rw [Env.find?_cons, if_neg (by decide)]; exact hQ1
@@ -5347,10 +5495,12 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
       (fun _ _ heq => nomatch heq)⟩
   case res3 =>
     show Expr.constsResolve _ quotLiftA.toConstantVal.type = true
-    have hfQ : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ : Env).find?
+    have hfQ : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ :
+      Env).find?
         quotName = some quotA := by
       rw [Env.find?_cons, if_neg (by decide)]; exact hQ2
-    have hfE : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ : Env).find?
+    have hfE : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ :
+      Env).find?
         eqName = some eqA := by
       rw [Env.find?_cons, if_neg (by decide)]; exact hE2
     rw [show quotLiftA.toConstantVal.type
@@ -5361,7 +5511,8 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
                 { bi := .default }) { bi := .default })
             (Expr.forallE (Name.anonymous.str "β") (.sort (.param vN))
               (Expr.forallE (Name.anonymous.str "f")
-                (Expr.forallE (Name.anonymous.str "a") (.bvar 2) (.bvar 1)
+                (Expr.forallE (Name.anonymous.str "a") (.bvar 2) (.bvar
+                  1)
                   { bi := .default })
                 (Expr.forallE (Name.anonymous.str "a")
                   (Expr.forallE (Name.anonymous.str "a") (.bvar 3)
@@ -5387,10 +5538,12 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
     intro cv mI rP rules heq
     injection heq with h1' _ _ h4'
     subst h1'; subst h4'
-    have hfQ : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ : Env).find?
+    have hfQ : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ :
+      Env).find?
         quotName = some quotA := by
       rw [Env.find?_cons, if_neg (by decide)]; exact hQ2
-    have hfE : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ : Env).find?
+    have hfE : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ :
+      Env).find?
         eqName = some eqA := by
       rw [Env.find?_cons, if_neg (by decide)]; exact hE2
     intro r hr
@@ -5400,7 +5553,8 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
         simp [Expr.constsResolve, quotLiftRule, hfE], rfl,
         fun lvls pins heqf => nomatch heqf⟩
     · exact nomatch hr'
-  obtain ⟨m3, -⟩ := extendQuotLiftS m2 hQ2 hM2 hE2 (Option.isNone_iff_eq_none.mp h3) hwf3
+  obtain ⟨m3, -⟩ := extendQuotLiftS m2 hQ2 hM2 hE2
+    (Option.isNone_iff_eq_none.mp h3) hwf3
   have hQ3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ : Env).find?
       quotName = some quotA := by
     rw [Env.find?_cons, if_neg (by decide)]; exact hQ2
@@ -5465,7 +5619,8 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
         simp [Expr.constsResolve, quotIndRule, hfQ, hfM], rfl,
         fun lvls pins heqf => nomatch heqf⟩
     · exact nomatch hr'
-  obtain ⟨m4, -⟩ := extendQuotIndS m3 hQ3 hM3 (Option.isNone_iff_eq_none.mp h4) hwf4
+  obtain ⟨m4, -⟩ := extendQuotIndS m3 hQ3 hM3
+    (Option.isNone_iff_eq_none.mp h4) hwf4
   have hQ4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA ::
       env.consts⟩ : Env).find? quotName = some quotA := by
     rw [Env.find?_cons, if_neg (by decide)]; exact hQ3
@@ -5482,13 +5637,16 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
       (fun _ _ heq => nomatch heq)⟩
   case res5 =>
     show Expr.constsResolve _ quotSoundA.toConstantVal.type = true
-    have hfQ : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA :: quotA ::
+    have hfQ : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA :: quotA
+      ::
         env.consts⟩ : Env).find? quotName = some quotA := by
       rw [Env.find?_cons, if_neg (by decide)]; exact hQ4
-    have hfM : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA :: quotA ::
+    have hfM : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA :: quotA
+      ::
         env.consts⟩ : Env).find? quotMkName = some quotMkA := by
       rw [Env.find?_cons, if_neg (by decide)]; exact hM4
-    have hfE : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA :: quotA ::
+    have hfE : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA :: quotA
+      ::
         env.consts⟩ : Env).find? eqName = some eqA := by
       rw [Env.find?_cons, if_neg (by decide)]; exact hE4
     rw [show quotSoundA.toConstantVal.type
@@ -5513,7 +5671,8 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
             { bi := .implicit })
           { bi := .implicit } from rfl]
     simp [Expr.constsResolve, hfQ, hfM, hfE]
-  obtain ⟨m5, -⟩ := extendQuotSoundS m4 hQ4 hM4 hE4 (Option.isNone_iff_eq_none.mp h5) hwf5
+  obtain ⟨m5, -⟩ := extendQuotSoundS m4 hQ4 hM4 hE4
+    (Option.isNone_iff_eq_none.mp h5) hwf5
   exact ⟨m5⟩
 
 /-- **The `Nat` block, installed.** -/
