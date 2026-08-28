@@ -35,21 +35,6 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## The provisioning's syntactic residue -/
 
-/-- A cons finds its own head. -/
-theorem Env.find?_cons_self (c : ConstantInfo) (env : Env) :
-    Env.find? ⟨c :: env.consts⟩ c.name = some c := by
-  rw [Env.find?_cons, if_pos rfl]
-
-/-- A cons of a *fresh* head does not find anything new. -/
-theorem Env.find?_cons_of_fresh {c : ConstantInfo} {env : Env}
-    {n : Name} {ci : ConstantInfo} (hfresh : env.find? c.name = none)
-    (h : env.find? n = some ci) :
-    Env.find? ⟨c :: env.consts⟩ n = some ci := by
-  rw [Env.find?_cons]
-  split
-  · next heq => rw [heq, h] at hfresh; exact nomatch hfresh
-  · exact h
-
 /-- Provisioning only extends: every member's name is checked fresh
 (`ConstantValR`'s first conjunct), so earlier lookups survive. -/
 theorem provisionRecsS_mono {μ : CheckMode} {F : Nat}
@@ -94,6 +79,85 @@ theorem provisionRecsS_mem {μ : CheckMode} {F : Nat}
     intro envAcc cval envSelf cvalSelf checked h c hc
     obtain ⟨cvA, mI, rP, rules, rest', -, -, hprov', -⟩ := h
     exact ih hprov' c (List.mem_cons_of_mem _ hc)
+
+/-- No provisioned member is stored *before* the fold runs. -/
+theorem provisionRecsS_fresh {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} :
+    ∀ (recs : List ConstantInfo) {envAcc : Env} {cval : TConstVal}
+      {envSelf : Env} {cvalSelf : TConstVal}
+      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
+      ProvisionRecsR μ F blockNames envAcc cval recs envSelf cvalSelf
+        checked →
+      ∀ ci ∈ recs, envAcc.find? ci.name = none := by
+  intro recs
+  induction recs with
+  | nil =>
+    intro envAcc cval envSelf cvalSelf checked h ci hci
+    exact nomatch hci
+  | cons ci₀ rest ih =>
+    intro envAcc cval envSelf cvalSelf checked h ci hci
+    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hprov', -⟩ := h
+    obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+    have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
+    have hfresh : envAcc.find? cvA.name = none := by
+      rw [hnameA]
+      exact Option.isNone_iff_eq_none.mp hcv.1
+    rcases List.mem_cons.mp hci with heq | hci'
+    · rw [heq, ← hnameA]; exact hfresh
+    · rcases hf : envAcc.find? ci.name with _ | ci₂
+      · rfl
+      · exfalso
+        have hnone := ih hprov' ci hci'
+        rw [Env.find?_cons_of_fresh (c := .recInfo cvA mI rP [])
+          hfresh hf] at hnone
+        exact nomatch hnone
+
+/-- Each provisioned member's name passes the two name guards. -/
+theorem provisionRecsS_nameGuards {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} :
+    ∀ (recs : List ConstantInfo) {envAcc : Env} {cval : TConstVal}
+      {envSelf : Env} {cvalSelf : TConstVal}
+      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
+      ProvisionRecsR μ F blockNames envAcc cval recs envSelf cvalSelf
+        checked →
+      ∀ ci ∈ recs, ci.name.isProjFnShape = false ∧
+        reservedBasisNames.contains ci.name = false := by
+  intro recs
+  induction recs with
+  | nil =>
+    intro envAcc cval envSelf cvalSelf checked h ci hci
+    exact nomatch hci
+  | cons ci₀ rest ih =>
+    intro envAcc cval envSelf cvalSelf checked h ci hci
+    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hprov', -⟩ := h
+    obtain ⟨type', hcv, -, -⟩ := id hmv
+    rcases List.mem_cons.mp hci with heq | hci'
+    · rw [heq]
+      exact ⟨hcv.2.2.1, hcv.2.1⟩
+    · exact ih hprov' ci hci'
+
+/-- …and so does every group member's. -/
+theorem indRecsR_nameGuards {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {env₂ env₃ : Env}
+    {cval₂ cval₃ : TConstVal} {recs : List ConstantInfo}
+    (h : IndRecsR μ F blockNames env₂ cval₂ recs env₃ cval₃) :
+    ∀ ci ∈ recs, ci.name.isProjFnShape = false ∧
+      reservedBasisNames.contains ci.name = false := by
+  rcases h with ⟨rfl, -, -⟩ | ⟨-, -, envSelf, cvalSelf, checked,
+    hprov, -⟩
+  · intro ci hci; exact nomatch hci
+  · exact provisionRecsS_nameGuards recs hprov
+
+/-- No group member is stored before the group phase runs. -/
+theorem indRecsR_fresh {μ : CheckMode} {F : Nat}
+    {blockNames : List Name} {env₂ env₃ : Env}
+    {cval₂ cval₃ : TConstVal} {recs : List ConstantInfo}
+    (h : IndRecsR μ F blockNames env₂ cval₂ recs env₃ cval₃) :
+    ∀ ci ∈ recs, env₂.find? ci.name = none := by
+  rcases h with ⟨rfl, -, -⟩ | ⟨-, -, envSelf, cvalSelf, checked,
+    hprov, -⟩
+  · intro ci hci; exact nomatch hci
+  · exact provisionRecsS_fresh recs hprov
 
 /-- Every provisioned member is stored. -/
 theorem provisionRecsS_stored {μ : CheckMode} {F : Nat}
@@ -480,10 +544,21 @@ theorem indRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
       (env₂.find? n).isSome = true ∨ ∃ ci ∈ recs, ci.name = n)
     (h : IndRecsR μ F blockNames env₂ m.cval recs env₃ cval₃) :
     ∃ m₃ : EnvS V env₃,
-      m₃.cval = cval₃ ∧ BlockInstalledTT blockNames env₃ cval₃ := by
-  rcases h with ⟨-, rfl, rfl⟩ | ⟨-, heqf, envSelf, cvalSelf, checked,
+      m₃.cval = cval₃ ∧ BlockInstalledTT blockNames env₃ cval₃ ∧
+      -- what the group *preserves* (the `DeclIndS` assembly's
+      -- `EtaPins.transport` premise, and the projection phase's
+      -- lookups): a non-recursor entry survives verbatim, every
+      -- stored name stays stored, and the group's own members land
+      (∀ (n : Name) (ci : ConstantInfo), env₂.find? n = some ci →
+        (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+        env₃.find? n = some ci) ∧
+      (∀ n : Name,
+        (env₂.find? n).isSome = true → (env₃.find? n).isSome = true) ∧
+      (∀ ci ∈ recs, (env₃.find? ci.name).isSome = true) := by
+  rcases h with ⟨rfl, rfl, rfl⟩ | ⟨-, heqf, envSelf, cvalSelf, checked,
     hprov, hfold⟩
-  · exact ⟨m, rfl, hI⟩
+  · exact ⟨m, rfl, hI, fun n ci hf _ => hf, fun n hn => hn,
+      fun ci hci => nomatch hci⟩
   obtain ⟨mS, hmScval, hIS⟩ := provisionRecsS hkey heta recs m
     hbn hprov hI
   rw [← hmScval] at hprov hfold hIS
@@ -606,7 +681,17 @@ theorem indRecsS (hkey : MemberKeyS V) (heta : MemberEtaS V)
     · obtain ⟨-, -, -, -, -, -, hlaw⟩ := hfacts rl hrl
       rw [← Env.find?_name hf]
       exact RecRuleLawV.swapS hcg (hlaw hfire φ)
-  refine ⟨mS.swap hswR hwf₃ hctors₃ hrec₃ hnresR, rfl, ?_⟩
+  refine ⟨mS.swap hswR hwf₃ hctors₃ hrec₃ hnresR, rfl, ?_,
+    (fun n ci hf hnr => hcg.findUp n ci
+      (provisionRecsS_mono recs hprov n ci hf) hnr),
+    (fun n hn => by
+      rw [← hcg.isSomeEq n]
+      rcases hf : env₂.find? n with _ | ci
+      · rw [hf] at hn; exact nomatch hn
+      · rw [provisionRecsS_mono recs hprov n ci hf]; rfl),
+    (fun ci hci => by
+      rw [← hcg.isSomeEq ci.name]
+      exact provisionRecsS_stored recs hprov ci hci)⟩
   -- the block invariant survives the swap
   intro n hn ci₃ hf₃
   rcases swapSh_find?_corr hswR n with heq |
