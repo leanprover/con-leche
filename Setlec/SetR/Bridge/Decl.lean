@@ -702,6 +702,36 @@ theorem instPisAt_walk_pack {env : Env} (m : EnvR env)
         (hsp y (List.mem_of_getElem? hy)).2.1⟩)
       hwty.fvarsBelow hbty hT x hx
 
+/-- **The openers themselves**, packaged.  `instPisAt_walk_pack`'s
+spine hypothesis is about the opener *fvars*, not their annotations,
+so it needs this rather than `opener_walk_pack`.  Two of the four
+conjuncts are free (`looseBVarsBounded` is `true` at an `.fvar` by
+computation, and `denote_fvar` is unconditional); the other two are
+the same two frame lemmas. -/
+theorem opener_fvar_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
+    {cvt : ConstantVal} {k D : Nat} {fvs : List Expr} {tbody : Expr}
+    (hnf : cvt.type.hasFvar = false)
+    (hb : cvt.type.looseBVarsBounded 0 = true)
+    (hopen : openPisAtFvars k cvt.type 0 = some (fvs, tbody))
+    (hle : k ≤ D) :
+    ∀ x ∈ fvs, Expr.WScoped D x ∧ x.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded x ∧
+      ∃ v, denote m.cval env φ D x = some v := by
+  intro x hx
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hx
+  obtain ⟨-, hbfv⟩ := openPisAtFvars_bounded k hopen hb
+  obtain ⟨hwfv, -⟩ := openPisAtFvars_WScoped k cvt.type 0 hopen
+    (Expr.WScoped.of_not_hasFvar hnf)
+  obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index k cvt.type 0 hopen i x hi
+  refine ⟨Expr.WScoped.mono (by omega) (hwfv _ hx), rfl, ?_,
+    ⟨_, denote_fvar _ _ _ _ _ _ _⟩⟩
+  intro l hl
+  rcases openPisAtFvars_leaves k hopen l (Or.inr ⟨_, hx, hl⟩) with
+    h' | h'
+  · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hnf] at h'
+    exact nomatch h'
+  · exact hbfv _ h'
+
 /-! ## The comparison walks
 
 Every `iota_j` statement walk the checker runs is a `checkDefEqList`

@@ -4362,3 +4362,32 @@ the validated witness's two stubs.  `IotaThmNR` is the same against
 `NestedChecked` (whose extra content — the stored `lvls`/`pins`, the
 generalized major pin — is *syntactic*, so it adds witnesses, not
 walks).
+
+### Convergence file — the rock that dissolved
+
+Worth stating plainly, because it is the campaign's economy thesis at
+its cleanest and the shape recurs.
+
+The `iota_j` statement walks were, on the tally, six walks each
+needing per-element denotations and three frame facts on both sides —
+twelve lists, and the design doc's own risk register called this the
+campaign's big rock.  The walk layer closed at **four lemmas**:
+
+    defEqAtW_of          one comparison, from `DefEqClaimsR`
+    defEqListW_of        the list fold
+    opener_walk_pack     every walk's LEFT list   (all six)
+    instPisAt_walk_pack  every walk's RIGHT list  (all six)
+
+plus `opener_fvar_pack`, which supplies the right pack's *spine*
+hypothesis (the opener fvars themselves rather than their
+annotations — two of its four conjuncts are free by computation).
+
+Two packs cover twelve lists because **every statement walk compares
+the same two shapes**: a `(fvs…).map fvarTypeD` against an `instPisAt`
+output.  The rock was real when the tally was "six walks each needing
+everything"; it dissolved once the shape was named.
+
+That is the general lesson and it is not about walks: *a tally over
+instances is not an estimate — count the distinct shapes first.*  The
+same move retired the six copies `BasisChain` replaced (§14.4), the
+four `IndBottom` runs' shared statement walks, and now this.
