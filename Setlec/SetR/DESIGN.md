@@ -4021,3 +4021,58 @@ orchestration:
 Then `declIndRS` assembles the five, `checkDeclR_sound` dispatches the
 six branches through `checkDeclR_of` and composes with `declStepS`,
 and the fold transposes `foldlM_TT`.
+
+## FINDING 9 — rock 1's third respect is not a diff (2026-08-28)
+
+The three-respects decomposition of `RuleChecked → IotaRuleR` holds
+for two of the three.  The **name pin** does not, and the reason is
+worth stating exactly because it looked like the cheapest of the
+three.
+
+`IotaThmR`'s first conjunct is
+`env'.findCV? ((cvName.str "_model").str s!"iota_{j}") = some cvt` —
+the theorem looked up **by its pinned name**.  `PlainChecked`
+(`Verify/Extend/Iota.lean:36`) instead opens with
+`∃ thmName ci, env.find? thmName = some ci ∧ ci.toConstantVal = cvt`.
+`checkIotaThm_inv`'s *proof* instantiates that existential at the
+pinned name; its *statement* forgets it.  From outside, nothing
+identifies the two: no conjunct of `PlainChecked` determines
+`thmName`, so an additive "name lemma" proved alongside cannot be
+glued to it — the two lookups are about possibly-different names
+yielding possibly-different `ci`.
+
+**The pin is load-bearing**, so weakening `IotaThmR` is not available:
+`Install/IotaRuleS.lean:139` looks the statement up at exactly
+`(cvA.name._model).iota_j` in the *self* environment, to carry the
+stored theorem across the group's environment step.  That is the
+install side's own use, in T5-landed code.
+
+So the fork is:
+
+1. **Pin the name in the shared tier.**  `PlainChecked` gains the rule
+   index `j` and states the lookup at the pinned name.  But
+   `PlainChecked` is applied inside `RuleChecked`, which has no `j`,
+   and `RuleChecked` is consumed as `∀ r' ∈ rules', RuleChecked … r'`
+   by `checkIotaRules_inv` — so the conclusion's *shape* has to become
+   indexed, not just its arity.  Blast radius: 11 references over 7
+   files, spanning `Model/*` (retiring in T7) and `TTVerify/*` (kept).
+2. **Re-derive on the [set] side.**  A `checkIotaThm_invR` concluding
+   `IotaThmR` directly, reusing `checkIotaThm_inv`'s script with the
+   lookup left pinned — roughly 200 lines, duplicated against a shared
+   file, and the same again for `checkIotaThmN`/`IotaThmNR`.
+
+Neither is obviously right.  (1) is the anti-duplication answer the
+campaign has taken everywhere else (the front doors, the relocations),
+but it is the first change that reaches *into* the kept TT lane's
+consumed statements rather than merely relocating beside them.  (2)
+keeps both lanes untouched at the cost of the largest duplication the
+[set] tier would contain.
+
+A third reading worth ruling out explicitly: making `PlainChecked`
+take `thmName` as a parameter and existentially quantifying it *at
+`RuleChecked`* preserves today's information exactly, so it does not
+help — the pin has to be present where `checkIotaThm` established it,
+which is inside the per-rule inversion.
+
+Not taken: this is a shared-tier decision with cross-lane blast
+radius, escalated rather than absorbed.
