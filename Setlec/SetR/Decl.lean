@@ -215,10 +215,11 @@ def DivModPinR (μ : CheckMode) (F : Nat) (env env₂ : Env)
   divModPinGuard env c = true ∧
   divModCertsGuard env c value' = true ∧
   ∃ pinA, annotateCore μ env F 0 (divModDeclPin c) = .ok pinA ∧
-    (∀ φ : Name → Nat, ∃ V P,
-      denoteClosed cval env φ value' = some V ∧
-      denoteClosed cval env φ pinA = some P ∧
-      DefEq μ env cval φ [] V P) ∧
+    -- task #148 T6: the pin comparison is **not** recorded, for the
+    -- reason `ReducePinR` does not record its own — it is the
+    -- elaborator-drift gate, `DivModPinTT` does not record it either,
+    -- and the pin's denotation has no supplier.  The certificates
+    -- below carry the derivation-layer content.
     Forall2
       (fun (se : List Expr × Expr) (proof : Expr) =>
         DivModCertR μ F env cval c value' se.1 se.2 proof)

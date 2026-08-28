@@ -38,7 +38,8 @@ theorem directParts?_none (env : Env) (block : List ConstantInfo) :
 
 def DivModPinBridgeR (V : Type w) [SetTheory V] (μ : CheckMode)
     (F : Nat) : Prop :=
-  ∀ {env env' : Env} (m : EnvS V env) {n : Name} {v : Expr},
+  ∀ {env env' : Env} (m : EnvS V env) {n : Name} {value v : Expr},
+    annotateCore μ env F 0 value = .ok v →
     natDivModNames.contains n = true →
     checkDivModPin (m := CheckM) (fueledOps μ F) env env' n = .ok () →
     DivModPinR μ F env env' m.cval n v
@@ -50,7 +51,7 @@ theorem checkDeclR_sound (hkey : MemberKeyS V) (heta : MemberEtaS V)
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
     DeclR μ F m.cval env d env₂ :=
   checkDeclR_of
-    (fun hh => declDefnR m (fun hn hp => hdmR m hn hp) hh)
+    (fun hh => declDefnR m (fun ha hn hp => hdmR m ha hn hp) hh)
     (fun hh => declThmR m hh)
     (fun hh => declOpaqueR m hh)
     (fun hh => declAxiomR m hh)

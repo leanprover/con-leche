@@ -5688,3 +5688,51 @@ This is worth stating plainly rather than discovering at the
 checkpoint: **a gate phrased over a theorem's whole hypothesis list
 prices in every tier that theorem depends on.**  The gate is right;
 its owner is the campaign, not the stretch.
+
+### Div/mod: two repairs land, and the remainder is a genuine rock
+
+Two things were cheap and independently correct, so they landed first:
+
+* **the `v`-freeness repair.**  `hdm` now takes
+  `annotateCore μ env F 0 value = .ok v`, which *determines* `v`.
+  Left free, the conclusion asserted the pack for an arbitrary value,
+  which `checkDivModPin` cannot warrant — it takes no value and reads
+  one out of `env'`.  Consumers voted; `DeclDefnR`'s own conjunct
+  names the branch's `value'`.
+* **the pin conjunct is gone from `DivModPinR`**, for the reason
+  `ReducePinR`'s went: it is the elaborator-drift gate,
+  **`DivModPinTT` does not record it either**, and the pin's
+  denotation has no supplier.
+
+`checkDivModPin_inv` and `checkDivModCerts_inv` are **already in the
+shared tier** (`Verify/DivModInv.lean`) — no relocation needed, and
+they deliver the guards, the storage that determines `v`, the pin
+annotate, and `CertRuns (CertRunFacts …)`.
+
+**But the remainder is a rock, and for a reason the previous two did
+not have.**  For `Nat` and `reduce`, the TT lane's reusable content
+was *syntactic* (`natFragOk`, `checkReducePin_inv`) and therefore
+V-free and relocatable.  Div/mod's is not: `TTVerify/DivModPin.lean`'s
+machinery — `Frames4`, `dmCtx4`, `dmCtx4_x/y/h1/h2`, `frag_frames`,
+`cert_extractT` — is stated over `EnvTT`, `HasType` and the TT lane's
+own frame notion.  Only `certGuard_proof` and `natOpCod_shape` look
+relocatable.
+
+So `DivModCertR` needs, written fresh on the `SetR` side:
+
+1. a **heterogeneous** canonical-context lemma — `CtxOkR` at
+   `[H2, H1, natVR, natVR]`, where the two hypothesis slots carry
+   *different* annotations.  `CtxOkR.constCtx` is the homogeneous
+   case and does not reach it;
+2. frame packages for the certificate statements and the applied
+   proof at depth `4`, across `substConstAll`/`substConst0` — the
+   `natFragOk` story again but over a richer fragment (the statements
+   are `Eq.{1}` equations with `ble` guards, not a four-constructor
+   spine);
+3. the `Infer`-side transport, which `NatEqsR` did not need.
+
+**Sized honestly: comparable to `iotaThmR_of`.**  That is T6's last
+bridge obligation and its largest, and it is the one place where the
+sibling lane's work does *not* transpose — recorded because the
+inventory rule has been right so often that its exception deserves
+naming.

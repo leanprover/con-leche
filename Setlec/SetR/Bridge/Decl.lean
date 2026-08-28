@@ -772,7 +772,13 @@ the environment actually stores (`value'`), not over the stream's
 theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
     (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     {value : Expr} {hint : ReducibilityHint}
+    -- task #148 T6: `v` is **determined** by the annotate hypothesis.
+    -- Left free (as it was) the conclusion asserted the pack for an
+    -- arbitrary value, which `checkDivModPin` — it takes no value,
+    -- reading one out of `env'` — cannot warrant.  The consumers
+    -- voted: `DeclDefnR`'s own conjunct names the branch's `value'`.
     (hdm : ∀ {env' : Env} {v : Expr},
+      annotateCore μ env F 0 value = .ok v →
       natDivModNames.contains cv.name = true →
       checkDivModPin (m := CheckM) (fueledOps μ F) env env' cv.name
         = .ok () →
@@ -922,7 +928,7 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
           obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ
           exact ⟨Vv, hVv⟩)
         (hnatK hc).1 (hnatK hc).2.2⟩,
-    fun hc => hdm hc (hdmK hc)⟩
+    fun hc => hdm hannv hc (hdmK hc)⟩
 
 /-! ## The opened statement's frame
 
