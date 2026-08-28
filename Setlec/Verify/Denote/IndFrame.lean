@@ -1751,4 +1751,160 @@ theorem projRhsValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     hsh, denote_fvar] at hRden
   exact (Option.some.inj hRden).symm
 
+
+/-- `instLamsAt` returns one domain per argument. -/
+theorem instLamsAt_length :
+    ∀ (sp : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},
+      Expr.instLamsAt sp e = some (ds, rest) → ds.length = sp.length := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro e ds rest h
+    simp only [Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    rfl
+  | cons a sp ih =>
+    intro e ds rest h
+    match e, h with
+    | .lam nm dom body mb, h =>
+      simp only [Expr.instLamsAt] at h
+      cases h1 : Expr.instLamsAt sp (body.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p =>
+        rw [h1] at h
+        simp only [Option.map_some, Option.some.injEq,
+          Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp [ih h1]
+
+/-- Composition of two `instPisAt` runs: walking `as ++ bs` is walking
+`as`, then `bs` on the residual. -/
+theorem Expr.instPisAt_append :
+    ∀ (as : List Expr) {bs : List Expr} {ty : Expr} {ds ds2 : List Expr}
+      {rs rs2 : Expr},
+      Expr.instPisAt as ty = some (ds, rs) →
+      Expr.instPisAt bs rs = some (ds2, rs2) →
+      Expr.instPisAt (as ++ bs) ty = some (ds ++ ds2, rs2) := by
+  intro as
+  induction as with
+  | nil =>
+    intro bs ty ds ds2 rs rs2 h h2
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simpa using h2
+  | cons a as ih =>
+    intro bs ty ds ds2 rs rs2 h h2
+    match ty, h with
+    | .forallE nm dom body mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt as (body.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p =>
+        rw [h1] at h
+        simp only [Option.map_some, Option.some.injEq,
+          Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        show (Expr.instPisAt (as ++ bs) (body.instantiate1 a)).map _ = _
+        rw [ih h1 h2]
+        rfl
+
+/-- **The λ-telescope's denotation, read through an `instLamsAt` run at
+shaped openers**: the value is a `lamCtx` tower whose layers are the
+run's progressively-instantiated domains, denoted at their own depths,
+and whose core is the residual's denotation — `denote` reads neither an
+opener's name nor its annotation, so any same-index opener spine
+produces the same tower. -/
+theorem instLamsAt_denoteTele {cval : TConstVal} {env : Env}
+    {ψ : Name → Nat} :
+    ∀ (sp : List Expr) {e : Expr} {j : Nat} {ds : List Expr}
+      {rest : Expr} {Vv : VExpr},
+      Expr.instLamsAt sp e = some (ds, rest) →
+      (∀ (i : Nat) (x : Expr), sp[i]? = some x →
+        ∃ nm ty, x = Expr.fvar (j + i) nm ty) →
+      denote cval env ψ j e = some Vv →
+      ∃ (Γ : List VExpr) (C : VExpr),
+        Vv = lamCtx Γ C ∧ Γ.length = sp.length ∧
+        denote cval env ψ (j + sp.length) rest = some C ∧
+        ∀ (i0 : Nat) (x : Expr), ds[i0]? = some x →
+          denote cval env ψ (j + i0) x =
+            some (Γ.getD (sp.length - 1 - i0) default) := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro e j ds rest Vv h _ hV
+    simp only [Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨[], Vv, rfl, rfl, hV, fun i0 x hx => nomatch hx⟩
+  | cons a sp ih =>
+    intro e j ds rest Vv h hshape hV
+    match e, h with
+    | .lam nm dom bodyE mb, h =>
+      simp only [Expr.instLamsAt] at h
+      cases h1 : Expr.instLamsAt sp (bodyE.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p => ?_
+      rw [h1] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      rw [denote_lam] at hV
+      cases hA : denote cval env ψ j dom with
+      | none => rw [hA] at hV; exact nomatch hV
+      | some A => ?_
+      rw [hA] at hV
+      cases hB : denote cval env ψ (j + 1)
+          (bodyE.instantiate1 (.fvar j nm dom)) with
+      | none => rw [hB] at hV; exact nomatch hV
+      | some Bv => ?_
+      rw [hB] at hV
+      obtain rfl : Vv = .lam A Bv := (Option.some.inj hV).symm
+      -- the head opener's shape
+      obtain ⟨nmA, tyA, rfl⟩ := hshape 0 a rfl
+      -- re-open at the run's opener (denote-irrelevant)
+      have hB' : denote cval env ψ (j + 1)
+          (bodyE.instantiate1 (.fvar (j + 0) nmA tyA)) = some Bv := by
+        rw [denote_erasedEq (Expr.ErasedEq.instantiate1
+          (Expr.ErasedEq.rfl bodyE)
+          (show Expr.ErasedEq (.fvar (j + 0) nmA tyA)
+            (.fvar j nm dom) from by constructor)) (j + 1)]
+        exact hB
+      have hshape' : ∀ (i : Nat) (x : Expr), sp[i]? = some x →
+          ∃ nm' ty', x = Expr.fvar (j + 1 + i) nm' ty' := by
+        intro i x hx
+        obtain ⟨nm', ty', hx'⟩ := hshape (i + 1) x (by simpa using hx)
+        exact ⟨nm', ty', by rw [hx']; congr 1; omega⟩
+      obtain ⟨Γ', C, rfl, hΓlen, hrest, hdoms⟩ := ih h1 hshape' hB'
+      have hdslen : p.1.length = sp.length := instLamsAt_length sp h1
+      refine ⟨Γ' ++ [A], C, ?_, ?_, ?_, ?_⟩
+      · rw [lamCtx_snoc]
+      · simp [hΓlen]
+      · simp only [List.length_cons]
+        rw [show j + (sp.length + 1) = j + 1 + sp.length from by omega]
+        exact hrest
+      · intro i0 x hx
+        simp only [List.length_cons]
+        cases i0 with
+        | zero =>
+          obtain rfl : dom = x := Option.some.inj hx
+          rw [Nat.add_zero, hA]
+          congr 1
+          rw [show sp.length + 1 - 1 - 0 = Γ'.length from by
+            rw [hΓlen]; omega]
+          rw [List.getD, List.getElem?_append_right (Nat.le_refl _),
+            Nat.sub_self]
+          rfl
+        | succ i =>
+          have hx' : p.1[i]? = some x := by simpa using hx
+          have hi : i < sp.length := by
+            have := (List.getElem?_eq_some_iff.mp hx').1
+            rw [instLamsAt_length sp h1] at this
+            exact this
+          have h2 := hdoms i x hx'
+          rw [show j + (i + 1) = j + 1 + i from by omega]
+          rw [h2]
+          congr 1
+          rw [List.getD, List.getD,
+            show sp.length + 1 - 1 - (i + 1) = sp.length - 1 - i from by
+              omega,
+            List.getElem?_append_left (by rw [hΓlen]; omega)]
+
 end Setlec.TTVerify
