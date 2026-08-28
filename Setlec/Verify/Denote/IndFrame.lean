@@ -1217,6 +1217,69 @@ theorem instPisAt_fvar_denote_defined {cval : TConstVal} {env : Env}
         (Expr.fvarsBelow_instantiate1_gen hwsa.fvarsBelow 0 hfb'.2)
         (Expr.looseBVarsBounded_instantiate1_gen hba hb'.2) hTI
 
+/-- **Every domain an `instPisAt` run collects denotes**, when the
+subject does — the list half of `instPisAt_fvar_denote_defined`, and
+what the `iota_j` statement walks need per element (task #148, T6:
+`DefEqAtW` asserts its two denotations exist, where `DefEqClaimsR`
+takes them as inputs). -/
+theorem instPisAt_denote_doms {cval : TConstVal} {env : Env}
+    {ψ : Name → Nat} (hcl : ∀ n ψ', VExpr.Closed (cval n ψ')) :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instPisAt sp ty = some (ds, rs) →
+      ∀ {D : Nat},
+      (∀ (j : Nat) (x : Expr), sp[j]? = some x →
+        (∃ w, denote cval env ψ D x = some w) ∧ Expr.WScoped D x ∧
+          x.looseBVarsBounded 0 = true) →
+      Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
+      ∀ {T : VExpr}, denote cval env ψ D ty = some T →
+      ∀ d ∈ ds, ∃ v, denote cval env ψ D d = some v := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro ty ds rs h D _ _ _ T hT
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact fun d hd => nomatch hd
+  | cons a sp ih =>
+    intro ty ds rs h D hsp hfb hb T hT
+    obtain ⟨⟨w0, hw0⟩, hwsa, hba⟩ := hsp 0 a rfl
+    match ty, h with
+    | .forallE nmT dom body mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p => ?_
+      rw [h1] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      have hfb' : Expr.fvarsBelow D dom ∧ Expr.fvarsBelow D body := hfb
+      have hb' : dom.looseBVarsBounded 0 = true ∧
+          body.looseBVarsBounded 1 = true := by
+        revert hb
+        simp [Expr.looseBVarsBounded]
+      rw [denote_forallE] at hT
+      cases hA : denote cval env ψ D dom with
+      | none => rw [hA] at hT; exact nomatch hT
+      | some A => ?_
+      rw [hA] at hT
+      cases hB : denote cval env ψ (D + 1)
+          (body.instantiate1 (.fvar D nmT dom)) with
+      | none => rw [hB] at hT; exact nomatch hT
+      | some B => ?_
+      have hTI : denote cval env ψ D (body.instantiate1 a)
+          = some (B.inst w0 0) := by
+        rw [denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+          hw0 0, hB]
+        rfl
+      intro d hd
+      rcases List.mem_cons.mp hd with rfl | hd'
+      · exact ⟨A, hA⟩
+      · refine ih h1
+          (fun j x hx => hsp (j + 1) x (by simpa using hx))
+          (Expr.fvarsBelow_instantiate1_gen hwsa.fvarsBelow 0
+            hfb'.2)
+          (Expr.looseBVarsBounded_instantiate1_gen hba hb'.2) hTI d hd'
+
 /-- A nonempty tower's head domain is its context's outermost entry. -/
 theorem PiTele.head : ∀ {k : Nat} {T : VExpr} {Γ : List VExpr} {R : VExpr},
     PiTele (k + 1) T Γ R →

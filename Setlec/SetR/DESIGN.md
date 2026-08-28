@@ -4234,3 +4234,34 @@ Three mechanical points that worked:
   `[αS, lhsS, rhsS].getD 1 (.bvar 0)` to `lhsS` in one step, which a
   `rw` cannot (the `getD` blocks the rewrite's pattern match, and the
   obvious `List.getD_cons_*` simp lemmas do not fire on it).
+
+### T6 — the last missing piece, and where it went
+
+`instPisAt_denote_doms` (`Verify/Denote/IndFrame.lean`): every domain
+an `instPisAt` run collects denotes, when the subject does.  It is the
+list half of `instPisAt_fvar_denote_defined` — the same induction,
+returning the `dom` each step already denotes instead of discarding
+it — and it was the one fact the walks needed that nothing supplied.
+
+It went into the **shared tier**, not into `SetR/`, on the relocation
+thesis's operational form: its statement mentions `Expr.instPisAt`,
+`denote` and nothing lane-specific, so the cheap moment to place it
+neutrally is now, while it has one consumer, not later when the TT
+lane's own walks want it.
+
+With it, **every input the two walk conjuncts need now exists**:
+
+| walk input | source |
+|---|---|
+| opened body denotes | `stmtOpened_denotes` |
+| each opener's annotation denotes | `stmtOpened_denotes` |
+| each `instPisAt` domain denotes | `instPisAt_denote_doms` |
+| each `instPisAt` residual denotes | `instPisAt_fvar_denote_defined` |
+| frames (`WScoped`/bounded/`LeavesBounded`) | `instPisAt_leaves`, `instPisAt_bounded`, `closed0_framesR` |
+| the comparison itself | `defEqAtW_of` / `defEqListW_of` |
+
+The one remaining mechanical concern is **depth**: `openPisAtFvars`
+delivers each opener's annotation at *its own* depth `i`, while the
+walks run at `depth = rP + cnF`.  Lifting is `denote_lift` (the same
+step `denote_closedExprR` takes).  Nothing else about the walks is
+open.
