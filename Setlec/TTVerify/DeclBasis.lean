@@ -273,36 +273,6 @@ theorem denote_const_pin {env : Env} (m : EnvTT env) {ci₀ ci : ConstantInfo}
   rw [cvalSet_ne (Ne.symm hne)]
   exact congrArg some (cval_pinned m hres (by rw [hf]; rfl) _ hpin)
 
-/-! ### `instantiate1`, constructor by constructor
-
-`denote` opens every binder with `instantiate1` at cut `0`, so a basis
-type's computation walks it once per node.  Unfolding the definition
-leaves a decidable `if` at each `bvar`; these equations let `simp` take
-the step without ever producing one. -/
-
-@[simp] theorem Expr.instantiate1_bvar (i : Nat) (v : Expr) (d : Nat) :
-    (Expr.bvar i).instantiate1 v d =
-      if i = d then v else if i > d then .bvar (i - 1) else .bvar i := rfl
-@[simp] theorem Expr.instantiate1_const (n : Name) (us : List Level)
-    (v : Expr) (d : Nat) : (Expr.const n us).instantiate1 v d = .const n us :=
-  rfl
-@[simp] theorem Expr.instantiate1_sort (u : Level) (v : Expr) (d : Nat) :
-    (Expr.sort u).instantiate1 v d = .sort u := rfl
-@[simp] theorem Expr.instantiate1_fvar (i : Nat) (n : Name) (ty v : Expr)
-    (d : Nat) : (Expr.fvar i n ty).instantiate1 v d = .fvar i n ty := rfl
-@[simp] theorem Expr.instantiate1_app (f a v : Expr) (d : Nat) :
-    (Expr.app f a).instantiate1 v d
-      = .app (f.instantiate1 v d) (a.instantiate1 v d) := rfl
-@[simp] theorem Expr.instantiate1_forallE (n : Name) (ty body v : Expr)
-    (bi : BinderMeta) (d : Nat) :
-    (Expr.forallE n ty body bi).instantiate1 v d
-      = .forallE n (ty.instantiate1 v d) (body.instantiate1 v (d + 1)) bi := rfl
-@[simp] theorem Expr.instantiate1_lam (n : Name) (ty body v : Expr)
-    (bi : BinderMeta) (d : Nat) :
-    (Expr.lam n ty body bi).instantiate1 v d
-      = .lam n (ty.instantiate1 v d) (body.instantiate1 v (d + 1)) bi := rfl
-
-
 /-! ### The reserved case, factored
 
 Twenty of the twenty-two pinned constants have **reserved** names, and

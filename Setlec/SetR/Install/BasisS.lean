@@ -83,6 +83,27 @@ theorem cvalS_pinned {env : Env} (m : EnvS V env) {n : Name}
   | none => rw [hf] at hst; exact nomatch hst
   | some ci => exact (m.basis_pinned n ci hf hres).2 t ψ hpin
 
+/-- A pinned constant already stored denotes to its pin: if the name a
+type mentions is a *reserved* one already stored, the constant just
+installed by this block resolves in the extended environment, its
+level list has the declared length, and its valuation is its pin. -/
+theorem denote_const_pinS {env : Env} (m : EnvS V env)
+    {ci₀ ci : ConstantInfo} {n : Name} {us : List Level} {t : VExpr}
+    {φ : Name → Nat} {val : (Name → Nat) → VExpr}
+    (hne : ci₀.name ≠ n)
+    (hf : env.find? n = some ci)
+    (hlen : us.length = ci.toConstantVal.levelParams.length)
+    (hres : reservedBasisNames.contains n = true)
+    (hpin : pinnedDirectT n
+      (Level.substFn φ ci.toConstantVal.levelParams us) = some t)
+    (d : Nat) :
+    denote (cvalWith m.cval ci₀.name val) ⟨ci₀ :: env.consts⟩ φ d
+      (.const n us) = some t := by
+  rw [denote_const, Env.find?_cons, if_neg hne, hf]
+  simp only [if_pos hlen]
+  rw [cvalWith_ne (Ne.symm hne)]
+  exact congrArg some (cvalS_pinned m hres (by rw [hf]; rfl) _ hpin)
+
 /-! ## The per-constant install -/
 
 set_option maxHeartbeats 1600000 in
@@ -338,5 +359,74 @@ theorem declBasisS_emptyK {env env₂ : Env} (m : EnvS V env)
   obtain ⟨m2, -⟩ := extendEmptyRecS m1 (by rw [hm1] at *; exact hE)
     (Option.isNone_iff_eq_none.mp h2) hwf2
   exact ⟨m2⟩
+
+/-! ## `PUnit`
+
+The first block with a rule, and the smallest one that exercises the
+whole of `hheadRec`. -/
+
+/-- `PUnit`, installed. -/
+theorem extendPUnitS {env : Env} (m : EnvS V env)
+    (hfresh : env.find? punitName = none)
+    (hwf : EnvWF ⟨punitA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨punitA :: env.consts⟩,
+      m'.cval = cvalWith m.cval punitA.name
+        (fun ψ => punitT (ψ uN)) := by
+  refine extendBasisS m (val := fun ψ => punitT (ψ uN))
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name punitA = punitName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ (fun _ _ => trivial) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
+  · intro φ
+    refine ⟨.sort (φ uN), ?_, fun ρ => ?_⟩
+    · rw [denoteClosed, show punitA.toConstantVal.type
+        = Expr.sort (.param uN) from rfl, denote_sort]
+      rfl
+    · exact ⟨HasType.sound (V := V) HasType.const ρ (Sat_nil V ρ),
+        trivial⟩
+
+/-- `PUnit.unit`, installed. -/
+theorem extendPUnitUnitS {env : Env} (m : EnvS V env)
+    (hP : env.find? punitName = some punitA)
+    (hfresh : env.find? punitUnitName = none)
+    (hwf : EnvWF ⟨punitUnitA :: env.consts⟩) :
+    ∃ m' : EnvS V ⟨punitUnitA :: env.consts⟩,
+      m'.cval = cvalWith m.cval punitUnitA.name
+        (fun ψ => punitUnitT (ψ uN)) := by
+  refine extendBasisS m (val := fun ψ => punitUnitT (ψ uN))
+    (basisEtaVacuousS m (by decide)) (basisUnitVacuousS m (by decide))
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name punitUnitA = punitUnitName
+        from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) ?_ (fun _ _ => trivial) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ₁ φ₂ hp
+    rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
+  · intro φ
+    refine ⟨punitT (φ uN), ?_, fun ρ => ?_⟩
+    · rw [denoteClosed, show punitUnitA.toConstantVal.type
+        = Expr.const punitName [.param uN] from rfl]
+      refine denote_const_pinS m (by decide) hP rfl (by decide) ?_ 0
+      simp +decide [pinnedDirectT]
+      rfl
+    · exact ⟨HasType.sound (V := V) HasType.const ρ (Sat_nil V ρ),
+        trivial⟩
 
 end Setlec.SetR

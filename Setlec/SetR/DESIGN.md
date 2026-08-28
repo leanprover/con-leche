@@ -3152,6 +3152,77 @@ remaining piece and is properly several sessions; the per-block
 sub-stage discipline (one block, landed with the battery) is what
 keeps it tractable.
 
+## `DeclBasisS` continued: `PUnit`'s non-recursor half, and the two
+levers the next pass should pull first (2026-08-28)
+
+Landed on top of the `Empty` pilot: `denote_const_pinS` (a pinned
+constant already stored denotes to its pin), `extendPUnitS`,
+`extendPUnitUnitS`.  Both compiled first try — the non-recursor
+constants are now a rote pattern.
+
+### Lever 1 (found, used): the layer's iota laws are **value**
+equations
+
+`punitRecV_app`, `natRecV_app`, `psigmaV_app`, … in
+`TT/Semantics/Value.lean` take *membership* hypotheses and conclude
+`app (app … ) … = …` as an equation between elements.  Membership is
+the [set] lane's currency, so a recursor's `hheadRec` reads its iota
+law straight off one of these and β-reduces the reduct with
+`app_lamC`.  The TT lane instead assembles a `Deq` chain out of typing
+rules and cannot use them.  **This is where the campaign's "[set] is
+half the size" constant comes from**, and it applies to recursor
+content only — the earlier measurement (`Empty` at 1.1×) stands for
+type computations.
+
+### Lever 2 (identified, NOT yet built): `AnnotOkV_bconst_type`
+
+`EnvS.cons`'s `htype` wants `AnnotOkV ρ t` beside the membership, and
+for every pinned constant `t` is `BConst.type c us`.  So **one lemma
+kills that obligation for the whole basis**:
+
+```
+theorem AnnotOkV_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
+    AnnotOkV V ρ (BConst.type c us)
+```
+
+It is true and mostly automatic.  A `cases c` followed by
+`simp only [BConst.type, arrow, AnnotOkV_*, interp_*, …]` and a
+`repeat' first | trivial | exact ⟨_, _, ‹_›, ‹_›⟩ | … | apply And.intro
+| intro _` loop closes all but **24 goals, confined to six
+constants** — `natRec`, `psigmaMk`, `quotMk`, `quotLift`, `quotInd`,
+`quotSound`.  Every residual goal has the same shape:
+
+```
+∃ A B, <bval c us, or a partial application of one> ∈ˢ piC A B ∧ <arg> ∈ˢ A
+```
+
+and the fact that discharges it is **`bval_mem_type`**
+(`TT/Semantics/ConstOk.lean:245`), `bval V c us ∈ˢ interp V ρ
+(BConst.type c us)`, composed with `app_mem_piC` once per application
+already consumed.  Two blind attempts at a generic closer (`exact
+⟨_, _, bval_mem_type _ _ _, ‹_›⟩` and a `simpa … using` variant) both
+failed to fire, almost certainly because the `∃ A B` metavariables are
+not solved through `interp (BConst.type …)`'s unfolding.  **Do not
+guess a third**: write the six cases out, `show`-ing the `piC` form
+explicitly.  That is perhaps forty lines and it unblocks every
+remaining constant's `htype`.
+
+### Order for the next pass
+
+1. `AnnotOkV_bconst_type` (six explicit cases) — unblocks all `htype`s.
+2. `extendPUnitRecS` — the lane's first recursor; its `hheadRec` is
+   `punitRecV_app` plus two `app_lamC` β-steps, and its `AnnotOkV`
+   transport conjunct is `TeleFitV.appN_annot`
+   (`SetR/AnnotOkV.lean:333`), which is the factory for exactly that.
+   Land the `PUnit` block.
+3. `Nat`, `Quot`, `Eq`, `PSigma'`, the `Eq`-bridged families — in that
+   order (increasing recursor complexity), one block per landing.
+
+Two more relocations came with this pass: `projFnName_ne_reserved` to
+`Verify/EnvGuards.lean` (thirteenth) and the `Expr.instantiate1_*`
+simp set to `Verify/Subst.lean` (fourteenth) — both V-free, both
+needed by each lane's basis file.
+
 ## T5 HANDOFF (2026-08-28) — state, plans, traps
 
 Written at a sealed boundary (tree clean, all gates green) rather than
@@ -3172,7 +3243,7 @@ needs.
 | `declIndS` 5 | **done** — `projConsS`, `projFnS`, `projInstallS` |
 | `declIndS` 6 | **done** — `templateVal`, `templateConsS`, `templatesS`; `TemplatesR` re-signed valuation-free |
 | `DeclIndS` assembly | **done** — `Install/DeclIndS.lean` |
-| `DeclBasisS` | **in progress** — infrastructure + `Empty` landed; five blocks left (see the pilot's measurement) |
+| `DeclBasisS` | **in progress** — infrastructure, `Empty`, and `PUnit`'s two non-recursor constants landed; see "the two levers" for the next pass |
 
 Open obligations, all in the house pattern: `DeclBasisS`, `DeclIndS`,
 `MemberKeyS`, `MemberEtaS`, `MemberUnitS`, `DivModPinS`,
