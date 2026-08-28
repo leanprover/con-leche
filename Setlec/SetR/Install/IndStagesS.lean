@@ -2106,4 +2106,181 @@ theorem pointS {μ : CheckMode} {env : Env} {cval : TConstVal}
         omega)]
     rfl
 
+
+/-! ## The truthfulness-transport machinery (`annotS`)
+
+The [set] transpose of the model's `closeLamsAt_fold`/`annotOk_spine`
+pair: the reduct's per-application `AnnotOkV` packages come from the
+rule rhs's *own* λ-tower (read through `instLamsAt_denoteTele`), whose
+layer domains the fired lam-domain walk identifies with the satisfied
+context — each partial application is then a `lamC` over a domain the
+next value inhabits, and `lamC_mem_upair` supplies the `piC` package.
+-/
+
+theorem chainE_nil (ρ : Nat → V) : chainE V ρ [] = ρ := by
+  funext j
+  rw [chainE_ge (by simp), List.length_nil, Nat.sub_zero]
+
+theorem chainE_snoc (ρ : Nat → V) (ws : List VExpr) (w : VExpr) :
+    chainE V ρ (ws ++ [w]) = cons V (interp V ρ w) (chainE V ρ ws) := by
+  funext j
+  have hlen : (ws ++ [w]).length = ws.length + 1 := by
+    rw [List.length_append, List.length_cons, List.length_nil]
+  cases j with
+  | zero =>
+    rw [show cons V (interp V ρ w) (chainE V ρ ws) 0
+        = interp V ρ w from rfl,
+      chainE_lt (by rw [hlen]; omega), hlen,
+      show ws.length + 1 - 1 - 0 = ws.length from by omega, List.getD,
+      List.getElem?_append_right (Nat.le_refl _), Nat.sub_self]
+    rfl
+  | succ j =>
+    rw [show cons V (interp V ρ w) (chainE V ρ ws) (j + 1)
+      = chainE V ρ ws j from rfl]
+    rcases Nat.lt_or_ge j ws.length with hj | hj
+    · rw [chainE_lt (by rw [hlen]; omega), chainE_lt hj, hlen,
+        show ws.length + 1 - 1 - (j + 1) = ws.length - 1 - j from by
+          omega, List.getD, List.getD,
+        List.getElem?_append_left (by omega)]
+    · rw [chainE_ge (by rw [hlen]; omega), chainE_ge hj, hlen,
+        show j + 1 - (ws.length + 1) = j - ws.length from by omega]
+
+/-- Shifting the full chain by `m` is the chain of the prefix. -/
+theorem shiftE_chainE_take {ρ : Nat → V} {zs : List VExpr} {m : Nat}
+    (hm : m ≤ zs.length) :
+    shiftE V m 0 (chainE V ρ zs)
+      = chainE V ρ (zs.take (zs.length - m)) := by
+  funext j
+  have htk : (zs.take (zs.length - m)).length = zs.length - m := by
+    rw [List.length_take]
+    omega
+  show chainE V ρ zs (if j < 0 then j else j + m) = _
+  rw [if_neg (by omega)]
+  rcases Nat.lt_or_ge j (zs.length - m) with hj | hj
+  · rw [chainE_lt (by omega), chainE_lt (by rw [htk]; exact hj), htk,
+      List.getD, List.getD,
+      List.getElem?_take_of_lt (show zs.length - m - 1 - j
+        < zs.length - m from by omega),
+      show zs.length - 1 - (j + m) = zs.length - m - 1 - j from by omega]
+  · rw [chainE_ge (by omega), chainE_ge (by rw [htk]; exact hj), htk,
+      show j + m - zs.length = j - (zs.length - m) from by omega]
+
+theorem VExpr.mkAppN_snoc :
+    ∀ (as : List VExpr) (f b : VExpr),
+      VExpr.mkAppN f (as ++ [b]) = .app (VExpr.mkAppN f as) b := by
+  intro as
+  induction as with
+  | nil => intro f b; rfl
+  | cons a as ih => intro f b; exact ih (.app f a) b
+
+/-- `ctxOkR_of_openers` with the `Infer`-up-to-`DefEq` slack supplied
+per opener — the builder for subjects living on a *different* frame
+than the context's own (the P-frame walk subjects fired at the
+statement context): the caller composes the annotation walks into the
+per-position `DefEq`. -/
+theorem ctxOkR_of_walked_openers {μ : CheckMode} {cval : TConstVal}
+    {env : Env} {φ : Name → Nat}
+    {k : Nat} {fvs' : List Expr} {Δ' : List VExpr}
+    (hΔlen : Δ'.length = k)
+    (hshape : ∀ (i : Nat) (x : Expr), fvs'[i]? = some x →
+      ∃ nm ty, x = Expr.fvar i nm ty)
+    (hws : ∀ x ∈ fvs', Expr.WScoped k x)
+    (hslack : ∀ (i : Nat) (x : Expr), fvs'[i]? = some x →
+      ∃ T, denote cval env φ k (Expr.fvarTypeD x) = some T ∧
+        ∃ T', Infer μ env cval φ Δ' (.bvar (k - 1 - i)) T' ∧
+          DefEq μ env cval φ Δ' T' T)
+    {e : Expr}
+    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs') :
+    CtxOkR μ cval env φ k Δ' e := by
+  refine ⟨hΔlen, ?_⟩
+  intro l hl
+  have hmem := hleaf l hl
+  obtain ⟨pos, hpos⟩ := List.getElem?_of_mem hmem
+  obtain ⟨nm, ty, hx⟩ := hshape pos _ hpos
+  obtain ⟨h1, h2, h3⟩ : l.1 = pos ∧ l.2.1 = nm ∧ l.2.2 = ty := by
+    injection hx with a b c
+    exact ⟨a, b, c⟩
+  subst h1 h2 h3
+  have hw := hws _ (List.mem_of_getElem? hpos)
+  have hwty : l.1 < k ∧ Expr.WScoped l.1 l.2.2 := by
+    simpa [Expr.WScoped] using hw
+  obtain ⟨T, hT, hslk⟩ := hslack l.1 _ hpos
+  exact ⟨hwty.1, hwty.2.fvarsBelow, T, hT, hslk⟩
+
+set_option maxHeartbeats 800000 in
+/-- **The λ-tower descent**: applying an interpreted λ-tower along
+values that inhabit its layer domains (each at the prefix chain) walks
+the tower by β — the partial application *is* the next layer's `lamC`
+— and assembles the application's hereditary truthfulness, each `piC`
+package by `lamC_mem_upair`. -/
+theorem lamTowerStepS :
+    ∀ (n : Nat) {K : Nat} (_hn : n ≤ K) {Γl : List VExpr} {C : VExpr}
+      (hΓ : Γl.length = K) {ws : List VExpr} (hw : ws.length = K)
+      {ρ : Nat → V}
+      (hmem : ∀ k, k < K → interp V ρ (ws.getD k default)
+        ∈ˢ interp V (chainE V ρ (ws.take k))
+            (Γl.getD (K - 1 - k) default)),
+      interp V ρ (VExpr.mkAppN (lamCtx Γl C) (ws.take n))
+        = interp V (chainE V ρ (ws.take n))
+            (lamCtx (Γl.take (K - n)) C) ∧
+      (AnnotOkV V ρ (lamCtx Γl C) → (∀ w ∈ ws, AnnotOkV V ρ w) →
+        AnnotOkV V ρ (VExpr.mkAppN (lamCtx Γl C) (ws.take n))) := by
+  intro n
+  induction n with
+  | zero =>
+    intro K hn Γl C _hΓ ws _hw ρ _hmem
+    rw [List.take_zero, Nat.sub_zero, chainE_nil,
+      List.take_of_length_le (by omega)]
+    exact ⟨rfl, fun hL _ => hL⟩
+  | succ n ih =>
+    intro K hn Γl C hΓ ws hw ρ hmem
+    have hnK : n < K := by omega
+    obtain ⟨heq, hann⟩ := ih (by omega) hΓ hw hmem
+    have hwn : ws[n]? = some (ws.getD n default) := by
+      rcases hx : ws[n]? with _ | x
+      · rw [List.getElem?_eq_none_iff, hw] at hx
+        omega
+      · rw [List.getD, hx]
+        rfl
+    have htk : ws.take (n + 1) = ws.take n ++ [ws.getD n default] := by
+      rw [List.take_add_one, hwn]
+      rfl
+    have hΓn : Γl[K - n - 1]? = some (Γl.getD (K - 1 - n) default) := by
+      rw [show K - 1 - n = K - n - 1 from by omega]
+      rcases hx : Γl[K - n - 1]? with _ | x
+      · rw [List.getElem?_eq_none_iff, hΓ] at hx
+        omega
+      · rw [List.getD, hx]
+        rfl
+    have hΓtk : Γl.take (K - n) = Γl.take (K - n - 1)
+        ++ [Γl.getD (K - 1 - n) default] := by
+      rw [show K - n = (K - n - 1) + 1 from by omega, List.take_add_one,
+        hΓn]
+      rfl
+    have hval : interp V ρ (VExpr.mkAppN (lamCtx Γl C) (ws.take n))
+        = lamC (interp V (chainE V ρ (ws.take n))
+              (Γl.getD (K - 1 - n) default))
+            (fun x => interp V (cons V x (chainE V ρ (ws.take n)))
+              (lamCtx (Γl.take (K - n - 1)) C)) := by
+      rw [heq, hΓtk, lamCtx_snoc, interp_lam]
+    have hwmem : ws.getD n default ∈ ws := by
+      have := hwn
+      exact List.mem_of_getElem? this
+    refine ⟨?_, ?_⟩
+    · rw [htk, VExpr.mkAppN_snoc, interp_app, hval,
+        app_lamC (hmem n hnK), chainE_snoc,
+        show K - (n + 1) = K - n - 1 from by omega]
+    · intro hL hws
+      rw [htk, VExpr.mkAppN_snoc, AnnotOkV_app]
+      refine ⟨hann hL hws, hws _ hwmem,
+        interp V (chainE V ρ (ws.take n)) (Γl.getD (K - 1 - n) default),
+        fun x => upair
+          (interp V (cons V x (chainE V ρ (ws.take n)))
+            (lamCtx (Γl.take (K - n - 1)) C))
+          (interp V (cons V x (chainE V ρ (ws.take n)))
+            (lamCtx (Γl.take (K - n - 1)) C)),
+        ?_, hmem n hnK⟩
+      rw [hval]
+      exact lamC_mem_upair _ _
+
 end Setlec.SetR
