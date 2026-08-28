@@ -304,7 +304,7 @@ theorem iota_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         frame_declTypeR (cval := m.cval) (φ := φ) (mode := mode) m.wf hfcj usj d
           hC.1
       obtain ⟨R, hR0⟩ := m.rec_rhs_denotes _ _ _ _ _ hfrec r
-        (List.mem_of_find?_eq_some hrfind) us φ
+        (List.mem_of_find?_eq_some hrfind) hfire us φ hlenU
       obtain ⟨-, -, -, -, -, hrec', -⟩ := m.wf _ (find?_mem hfrec)
       obtain ⟨hRnf, -, -, hRbd, -⟩ := hrec' cv mI rP rules rfl r
         (List.mem_of_find?_eq_some hrfind)
@@ -364,7 +364,8 @@ theorem iota_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           (hspRes.drop r.ctorParams) hspIdx
       -- the length disjunct
       have hlenDisj : mI = rP ∨ cargs.length = r.ctorParams + (mI - rP) := by
-        have hle := m.rec_params_le _ _ _ _ _ hfrec
+        have hle := m.rec_params_le _ _ _ _ _ hfrec r
+          (List.mem_of_find?_eq_some hrfind) hfire
         have hlen := hDefI.length_eq
         rw [List.length_drop, List.length_drop, List.length_take,
           hspx.length, hlenA] at hlen
@@ -386,7 +387,8 @@ theorem iota_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           (by rw [hspy.length, hlenM]) hlenU hlenUj hstripR hstripC ?_
           hTV0 hTVc hTVj0 hTVjc hR0 hRc rfl
           (hR₀.trans hR₁) hRm ?_ ?_ hteleR hteleC rfl hlenDisj hDefI
-        · exact fun lvls pins hn => m.rec_params_le _ _ _ _ _ hfrec
+        · exact fun lvls pins hn => m.rec_params_le _ _ _ _ _ hfrec r
+            (List.mem_of_find?_eq_some hrfind) hfire
         · rw [recFireComparands_fst_nil] at hlev; exact hlev
         · -- the `.plain` comparands
           intro hp

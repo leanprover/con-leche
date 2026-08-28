@@ -60,6 +60,7 @@ import Setlec.SetR.Bridge.ProjRed
 import Setlec.SetR.Bridge.Major
 import Setlec.SetR.Bridge.Iota
 import Setlec.SetR.Bridge.Main
+import Setlec.SetR.Bridge.Decl
 import Setlec.SetR.Annot.Syntax
 import Setlec.SetR.Annot.Pass
 import Setlec.SetR.Annot.Kinding

@@ -3694,3 +3694,59 @@ valuations) or a bespoke membership/truthfulness pair (for tower
 valuations).  The *iotas* do not transpose at all and are written
 natively: normalise the `TeleFitV` entries with the `inst_chain`/
 `inst_absorb` set plus `interp_*`, then `app_lamC` down both sides.
+
+
+## T6 — the assembly opens; FINDING 7 (2026-08-28)
+
+### What T6 needs, surveyed
+
+`checkDeclR_of` (the dispatch) and `declStepS` (the `DeclR → EnvS`
+step) both already exist.  What the assembly is missing is the **six
+per-kind bridges** `checkDecl … = .ok env₂ → Decl*R …`: none of
+`DeclDefnR`, `DeclThmR`, `DeclOpaqueR`, `DeclAxiomR`, `DeclBasisR`,
+`DeclIndR` had a producer.  Their sub-relations `ConstantValR` and
+`ValueFrontR` are likewise consumed in the install tier and produced
+nowhere, so the value-kind bridges are the tier's bulk; `Bridge/Main`'s
+`checkBridge` supplies their `Infer`/`DefEq` components, and
+`Verify/Extend/Inversions.lean`'s `checkConstantVal_inv` their
+syntactic ones.
+
+Landed here: relocation #18 (`installBasisDecl_inv` from
+`TTVerify/DeclBasis.lean` to `Verify/Extend/Inversions.lean` — both
+lanes invert the same fold), `foldlM_installBasisDecl_invR`,
+`declBasisR` (the `basisDecl` bridge), and `EnvS.toEnvR`.
+
+### FINDING 7 — `EnvR`'s recursor fields were unsuppliable
+
+Building `EnvS.toEnvR` — the projection the whole assembly runs
+through — exposed that two `EnvR` fields were stated more strongly
+than `EnvS` can supply:
+
+* `rec_rhs_denotes` quantified over **all** rules and **all** level
+  lists; `EnvS.rec_rules` (`RecRulesV`) speaks only of rules with
+  `fire ≠ .inert`, and only at `us.length = cv.levelParams.length`.
+* `rec_params_le` concluded `rP ≤ mI` from the recursor's *lookup
+  alone*; `RecRulesV` yields it only inside `RecRuleLawV`, i.e. again
+  only for a non-inert rule.
+
+Both field docstrings asserted "`EnvS.rec_rules` carries it" — the
+record failing against its own author, P2's signature failure mode,
+for the third time in the campaign.
+
+**Why the repair is narrowing, not a new field.**  `Empty.rec` stores
+**no rules at all**, so no install could ever supply an unguarded
+`rP ≤ mI`; a new unguarded `EnvS` field would have been owed by every
+install for a fact nothing consumes.  And both fields are consumed at
+exactly one site — the iota fire path in `Bridge/Iota.lean` — where
+the fired rule, `hfire : rl.fire ≠ .inert` and the level-length split
+`hlenU` are all already in scope.  So the fields were narrowed to
+their consumption; `EnvR` had no supplier yet, so nothing else moved,
+and the three use sites take three extra arguments each.
+
+**The check this earns**, beside P1's ("check when a field is ADDED,
+which helpers its supplier must run"): *when a structure's field
+docstring names its intended supplier, elaborate the projection
+against that supplier before the structure is frozen.*  `EnvR` was
+frozen in T3 with the supplier named in prose and unbuilt; the
+mismatch survived T4 and T5 untouched because nothing had reason to
+construct an `EnvR` until the assembly did.

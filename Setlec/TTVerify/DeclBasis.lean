@@ -44,24 +44,6 @@ inductive BasisChain : Env → List ConstantInfo → Env → Prop
       BasisChain ⟨ci :: env.consts⟩ l env₂ →
       BasisChain env (ci :: l) env₂
 
-/-- One pinned install, inverted. -/
-theorem installBasisDecl_inv {env env₁ : Env} {ci : ConstantInfo}
-    (h : installBasisDecl (m := CheckM) env ci = .ok env₁) :
-    env.find? ci.name = none ∧ env₁ = ⟨ci :: env.consts⟩ := by
-  unfold installBasisDecl at h
-  revert h
-  cases hf : env.find? ci.name with
-  | none =>
-    intro h
-    simp only [Option.isNone_none, if_true, pure, Except.pure,
-      Except.ok.injEq] at h
-    exact ⟨rfl, h.symm⟩
-  | some ci' =>
-    intro h
-    simp only [Option.isNone_some, Bool.false_eq_true, if_false,
-      throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
-    exact nomatch h
-
 /-- **The fold, inverted.**  The one lemma the model's six copies
 replace. -/
 theorem foldlM_installBasisDecl_inv :
