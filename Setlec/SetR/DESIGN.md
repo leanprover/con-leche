@@ -10,7 +10,7 @@ the design document does not say.  House practices are
 
 ## Promoted practices (binding here; candidates for §0/§25)
 
-Three rules earned promotion during T5 by recurring across unrelated
+Four rules earned promotion during T5 by recurring across unrelated
 stages.  They sit at the top of this file because they are checks to
 run *while designing*, not lessons to read afterwards.
 
@@ -56,6 +56,28 @@ freeze, name (a) the environment each of its lookups is at, (b) what
 it says when its numeric parameters are `0`, and (c) what it says when
 its `IndCaps`/`ConstantVal` arguments are abstract rather than the
 checker's output.
+
+**P3 — truthfulness does not transport along an interpretation
+equality.**  The `Eq` bridge (`quotInv_interpS`) proves
+`interp ρ (quotInvV E …) = interp ρ (quotInvT …)`, and that moves
+*memberships* across but nothing else: `AnnotOkV` is defined by
+recursion on the `VExpr`, so the two sides have genuinely different
+truthfulness obligations and the bridged one needs its own package
+(`quotInv_annotS`).  The check is mechanical: **whenever a `htype`
+obligation is discharged by rewriting the denoted type, ask separately
+who supplies `AnnotOkV` of the type you actually stored.**  When the
+answer needs more than the laws in the bundle, look for a *membership*
+already in it before proposing a new field — `EnvS.mem_type` at the
+stored constant was the whole answer here (`eqV_memS`), and the
+worry that `EqLawV` was too weak was a failure to read the bundle.
+
+*Corollary of P2, worth its own line:* **read the annotated
+declaration, not the raw pin.**  `eqBasis`/`quotBasis` show
+`Eq.rec`/`Quot.ind` rules that differ from the `eqRecA`/`quotIndA` the
+installer actually stores (`.inert` vs `.plain`); a block docstring
+written from the raw pin claimed two vacuous iota obligations that
+were not vacuous at all.  The declaration under `…A` is the one the
+proofs are about.
 
 ## T2 inventory (this tier, as landed)
 
@@ -3610,3 +3632,65 @@ its codomain sort, under `CheckMode.verified`.  The full resolution
 trail is in the main `DESIGN.md`'s section *"The λ-rule computes its
 codomain sort"*; this note exists only so the fork above is not read as
 still open.
+
+
+## T5 COMPLETE (2026-08-28) — the basis blocks, and `DeclBasisS`
+
+`DeclBasisS` is discharged.  With it the T5 inventory is closed: every
+obligation `declStepS` takes that T5 owned is now a theorem, and the
+interface T6 inherits is exactly
+
+    MemberKeyS   MemberEtaS   DivModPinS   StdAxiomKeyS   OfReduceKeyS
+
+(`ReducePinS`, `DeclIndS` and `DeclBasisS` are supplied).
+
+### The five blocks, and what each cost
+
+`Setlec/SetR/Install/BasisS.lean` installs `Empty`, `PUnit`, `Nat`,
+`Quot`, `Eq` and `PSigma'` — one `declBasisS_*K` per kind, dispatched
+by `declBasisS`.  The campaign-wide ratio held: the *recursor* content
+is roughly half the TT lane's, because a layer value equation replaces
+a `Deq` chain; the *type* content is slightly more, because `AnnotOkV`
+has no TT counterpart.
+
+Where the two lanes diverge most:
+
+* **`Quot.ind`** — proof irrelevance.  `bval .quotInd = pt` collapses
+  the fired side by `app_pt`; the reduct sits in the motive's fibre,
+  which the motive's own membership puts in `univ 0`; `mem_univ_zero`
+  equates them.  The TT lane assembles `HasType.proofIrrel` and a
+  β-spine.
+* **`Eq.rec`** — a member of `eqv a b` *is* a proof that `a = b`
+  (`mem_eqv`) and *is* `pt` (`mem_univ_zero` on `eqv_mem_univ`), so
+  the transport is two rewrites where TT needs `proofIrrel` plus a
+  `congrApp` pair.
+* **`Eq`** — `EqLawV` is discharged *from the tower*: two `app_lamC`s
+  for the equation, `lamC_ne_pt_of_witness` at the unit proposition
+  for the rigidity clause.
+* **`PSigma'.rec`** — the block's eta law in disguise: the motive must
+  land at the constructor spine where the tower supplies the two
+  projections, and `psigmaEta_law` closes exactly that gap.
+* **`Quot.lift`/`Quot.sound`** — the `Eq` bridge (P3 above), the only
+  place where the stored type and the layer's own type differ.
+
+### Relocations
+
+Relocation #17 (`inst_chain1..4`, `inst_absorb21..54`) moved from
+`TTVerify/DeclBasis.lean` to `Verify/Denote/SubstAlgebra.lean`, in the
+`Setlec.TT` namespace so both lanes see them unqualified.  A
+substitution identity is shared tier, not lane-local: both lanes'
+recursor iotas walk the same telescopes and both need the same
+cancellations.
+
+### The transposition recipe, as it finally stood
+
+Depth-arbitrary `denote_*` helpers transpose with **zero edits** under
+`EnvTT → EnvS V`, `cvalSet → cvalWith` (plus the `S` suffix on names
+already taken).  The install skeletons transpose with three edits:
+drop TT's residual argument, insert `hannot` between `hparams` and
+`htype`, and replace the `HasType` obligation with the pair
+`⟨HasType.sound … , AnnotOkV_bconst_type …⟩` (for pinned-constant
+valuations) or a bespoke membership/truthfulness pair (for tower
+valuations).  The *iotas* do not transpose at all and are written
+natively: normalise the `TeleFitV` entries with the `inst_chain`/
+`inst_absorb` set plus `interp_*`, then `app_lamC` down both sides.

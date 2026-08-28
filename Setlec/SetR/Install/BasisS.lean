@@ -5740,4 +5740,24 @@ theorem declBasisS_punitK {env env₂ : Env} (m : EnvS V env)
     (Option.isNone_iff_eq_none.mp h3) hwf3
   exact ⟨m3⟩
 
+/-! ## The dispatch
+
+`checkDecl`'s `basisDecl` case is a guard and a fold; `DeclBasisR`
+packages both, so the transpose is one block lemma per kind and
+nothing else — which is why the five blocks above are each a
+*theorem* rather than a case of one long proof. -/
+
+/-- **`DeclBasisS`, discharged** (task #148, T5): a checked basis
+declaration extends the [set] invariant. -/
+theorem declBasisS : DeclBasisS V := by
+  intro env env₂ kind m h
+  obtain ⟨hEq, hchain⟩ := h
+  cases kind with
+  | eqK => exact declBasisS_eqK m hchain
+  | natK => exact declBasisS_natK m hchain
+  | psigmaK => exact declBasisS_psigmaK m hchain
+  | punitK => exact declBasisS_punitK m hchain
+  | emptyK => exact declBasisS_emptyK m hchain
+  | quotK => exact declBasisS_quotK m (hEq rfl) hchain
+
 end Setlec.SetR
