@@ -6708,3 +6708,60 @@ operations' clause blocks.  Each clause supplies `dmCertEq*` with two
 denotations and two memberships and reads off the equation;
 `DivModClausesV`'s conjuncts are the same `app`-chains, so the match
 is structural.
+
+### `DivModPinS`: the fragment evaluator, and the frame
+
+`Setlec/SetR/DivModPin.lean` is 1324 lines, all at
+`[propext, Classical.choice, Quot.sound]`.  Two more layers landed.
+
+**`dmEvalV` — denote *and* evaluate in one step, so no clause ever
+names a `VExpr`.**  The first design had each clause compute its two
+sides' denotations explicitly and then transport the equation onto
+`DivModClausesV`'s `app`-chains.  That is nine blocks × two sides ×
+a `VExpr` spelled out by hand.  Instead:
+
+```
+dmFragOk c ns : Expr → Bool          -- the statements' grammar
+dmEvalV V val x y : Expr → V         -- its value
+dmDenEval : dmFragOk … e → ∃ eV, denote … (subst e) = some eV ∧
+              ∀ ρ₄, interp ρ₄ eV = dmEvalV V val (ρ₄ 3) (ρ₄ 2) e
+```
+
+and `dmEvalV` of `op2 x y` *is* `app (app (val c) x) y` — the very
+chain `DivModClausesV` is written in.  So a clause denotes its sides
+by `dmDenEval … (by decide)` and the match against the clause is
+definitional.
+
+*Rule: when two layers are written in the same shape by construction
+(here: the certificate statements and the semantic clauses, both built
+from one vocabulary), evaluate into that shape rather than transporting
+between two spellings of it.*
+
+**`dmFrameS` — the obligation's whole preamble, as one theorem.**  The
+guards give it all: `natLitSupported` for `Nat`/`zero`/`succ`,
+`natOpStoredOk` at each dependency for the function-space memberships,
+and — because `c ∈ natOpDeps c` for every pin-certified operation —
+the operation's *own* pinned type, which is where `dmSelfMem` gets its
+hypothesis.  `Nat.ble` is a dependency of all nine, and it is the only
+route by which `Bool` enters the frame at all (`natOpCod_ble`).
+
+Two frictions worth recording:
+
+* **`Nat.log2` is unary.**  Every other pin-certified operation is
+  binary, and the frame's type conjunct had to become a disjunction
+  because of it — the `decide` that would have ruled the unary case
+  out is the one that fired and proved the *opposite*.  The checker's
+  own `natOpTyPinned` has the same split; the model side had simply
+  not needed to look.
+* **`cases h : env.find? n` rewrites the goal** — fired again, in
+  `natOpCod_stored`.  Sixth occurrence in the campaign; the witness is
+  `rfl`, never the named hypothesis.
+
+**What remains of `DivModPinS`** is the nine clause blocks.  Each is:
+`dmDenEval` the two sides, `dmCertEq1`/`dmCertEq2` for the equation,
+`dmFrameS`'s memberships for the side conditions, and `pt_mem_eqv_self`
+for the guard slot.  One friction is known in advance: the blocks need
+`cv.name` *concrete* (the statements and `divModCertStmts` only
+compute then), so the proof should generalise `cv.name` to a variable
+before `rcases`ing `natDivModNames` — otherwise `subst` has nothing to
+act on.
