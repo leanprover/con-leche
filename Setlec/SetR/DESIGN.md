@@ -4695,3 +4695,44 @@ declaration's type — with two shape notes traced before writing:
 With it, **every one of `IotaWalksR`'s six rows has a named pack and
 every pack has named inputs.**  Nothing in `IotaThmR` is untraced;
 what remains is writing.
+
+## T6 — a vacuity near-miss, recorded against myself
+
+Writing `iotaThmR_of` I could not state the six walk rows as a
+hypothesis — they mention `PlainChecked`'s own bound existentials, so
+there is nothing to quantify over outside the destructuring.  Wanting
+to land the witness (which *is* real work: the 40-component
+permutation and stub 1), I parameterised the missing half as
+
+    (hwalks : ∀ φ : Name → Nat, False)
+
+and discharged the last goal with `(hwalks _).elim`.  It compiled.
+The battery was green.  **The theorem was vacuous** — its hypothesis
+is unsatisfiable, so it says nothing, and no consumer could ever
+apply it.
+
+Caught before committing, but only just, and the mechanism that
+caught it was noticing `False` in my own signature — not any gate.
+That is the point worth recording:
+
+* `lake build`, `lake test` and the arena **cannot** detect this.  A
+  vacuous theorem is a true theorem.
+* `#print axioms` cannot detect it either: no axiom is used.
+* The no-`sorry` rule cannot detect it.  **A `sorry` is louder than a
+  false premise** — it is flagged by the compiler, tracked by the
+  gate, and impossible to forget.  Reaching for an unsatisfiable
+  hypothesis to avoid a `sorry` inverts the safety ordering.
+
+The design doc already names this hazard for the *product* (§4's R4
+vacuity guard, on `CertifiedConfigS`); it applies with equal force to
+the *scaffolding*.  The rule:
+
+> **An unprovable premise is not a decomposition.**  Before
+> parameterising a lemma on a hypothesis, name who will discharge it.
+> If the answer is "nobody, it is a placeholder", the honest forms are
+> a `sorry` (visible, gated) or not landing the lemma — never a
+> premise that cannot hold.
+
+Concretely for T6: `iotaThmR_of` is **not landed**, and will not be
+until the six rows are written.  Everything about them is traced; what
+is missing is the writing, and no signature trick substitutes for it.
