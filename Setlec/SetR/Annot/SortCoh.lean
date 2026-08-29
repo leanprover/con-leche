@@ -1344,4 +1344,239 @@ def NatSortVacuity (μ : CheckMode) (env : Env) : Prop :=
       = .ok (.sort ℓ) →
     False
 
+/-! ## The dual shell
+
+The primitive after the liveness revert: dual-success (A), by
+budget-only cert-loop induction.  Six named hypotheses route what
+later seals discharge; every other case reads both GIVEN runs — no
+case constructs a run reality has not exhibited.  Ruled and recorded:
+**dominance checks certify direction, not provability.** -/
+
+/-- Spine routing, dual form (graded unknown #1): a same-head
+level-and-spine congruence with both subjects' sort convergences
+given forces numeral agreement. -/
+def SpineSortAgree (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :=
+  ∀ {fc l d ga la gb lb f₁ f₂ : Nat} {a b a' b' : Expr}
+    {ℓa ℓb : Level},
+    Setlec.defeqLoop μ (Setlec.pureFns μ env fc) env d l a b
+      = .ok true →
+    whnfCore μ env f₁ d a = .ok a' →
+    whnfCore μ env f₂ d b = .ok b' →
+    Setlec.defeqSpine (Setlec.pureFns μ env fc) env d a' b'
+      = .ok true →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la a
+      = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb b
+      = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
+/-- **The dual-(A) shell**: `EnsureSortAgreeR` from the obligations
+and the routed hypotheses. -/
+theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
+    {φ : Name → Nat}
+    (hm : KnotFuelMono μ env) (hI : WhnfCoreIdem μ env)
+    (hP : ProbeSortVacuity μ env) (hR : RescueSortVacuity μ env)
+    (hE : EtaSortVacuity μ env) (hN : NatSortVacuity μ env)
+    (hS : SpineSortAgree μ env φ) :
+    EnsureSortAgreeR μ env φ := by
+  have hdet := KnotFuelDet_of_mono hm
+  have main : ∀ (fc L : Nat) {d : Nat} {a b : Expr},
+      Setlec.defeqLoop μ (Setlec.pureFns μ env fc) env d L a b
+        = .ok true →
+      ∀ {ga la gb lb : Nat} {ℓa ℓb : Level},
+        Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la a
+          = .ok (.sort ℓa) →
+        Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb b
+          = .ok (.sort ℓb) →
+        ℓa.eval φ = ℓb.eval φ := by
+    intro fc L
+    induction L with
+    | zero => intro d a b hc; exact nomatch hc
+    | succ l ih =>
+      intro d a b hc ga la gb lb ℓa ℓb ha hb
+      have hc0 := hc
+      rw [defeqLoop_succ] at hc
+      rcases defeqStep_decompose hc with rfl | ⟨a', b', hwa, hwb, hcert⟩
+      · rw [Setlec.Expr.sort.inj (whnfLoop_det hm ha hb)]
+      cases la with
+      | zero => exact nomatch ha
+      | succ la' =>
+      cases lb with
+      | zero => exact nomatch hb
+      | succ lb' =>
+      have haD := ha
+      rw [whnfLoop_succ] at haD
+      obtain ⟨a₁, hwca, htriA⟩ := whnfStep_decompose haD
+      obtain rfl : a' = a₁ :=
+        (hdet.2.2.1 (hwca : whnfCore μ env ga d a = .ok a₁)
+          (hwa : whnfCore μ env fc d a = .ok a')).symm
+      have hbD := hb
+      rw [whnfLoop_succ] at hbD
+      obtain ⟨b₁, hwcb, htriB⟩ := whnfStep_decompose hbD
+      obtain rfl : b' = b₁ :=
+        (hdet.2.2.1 (hwcb : whnfCore μ env gb d b = .ok b₁)
+          (hwb : whnfCore μ env fc d b = .ok b')).symm
+      cases hcert with
+      | syn =>
+        rw [Setlec.Expr.sort.inj
+          (whnfLoop_det hm ha (loop_align hm hb hwb hwa))]
+      | irrel _ _ hpi => exact (hP hwa hpi ha).elim
+      | natL _ _ a₂ hrn hk =>
+        exact (hN hc0 hwa hwb (Or.inl hrn) ha).elim
+      | natR _ _ b₂ hrnA hrnB hk =>
+        have hb₂ : Setlec.whnfLoop (Setlec.pureFns μ env gb) env d
+            lb' b₂ = .ok (.sort ℓb) := by
+          rcases htriB with ⟨y, hry, hkyb⟩ | ⟨hry, y, huy, hkyb⟩ |
+            ⟨hry, hudy, hstop⟩
+          · have h1 := hm.2.2.2.2 (Nat.le_max_left gb fc) hry
+            have h2 := hm.2.2.2.2 (Nat.le_max_right gb fc) hrnB
+            rw [h1] at h2
+            obtain rfl : b₂ = y :=
+              (Option.some.inj (Except.ok.inj h2)).symm
+            exact hkyb
+          · have h1 := hm.2.2.2.2 (Nat.le_max_left gb fc) hry
+            have h2 := hm.2.2.2.2 (Nat.le_max_right gb fc) hrnB
+            rw [h1] at h2; exact nomatch h2
+          · have h1 := hm.2.2.2.2 (Nat.le_max_left gb fc) hry
+            have h2 := hm.2.2.2.2 (Nat.le_max_right gb fc) hrnB
+            rw [h1] at h2; exact nomatch h2
+        rcases htriA with ⟨x, hrx, hkx⟩ | ⟨hrga, x, hux, hkx⟩ |
+          ⟨hrga, huda, hstop⟩
+        · have h1 := hm.2.2.2.2 (Nat.le_max_left ga fc) hrx
+          have h2 := hm.2.2.2.2 (Nat.le_max_right ga fc) hrnA
+          rw [h1] at h2; exact nomatch h2
+        · have hA : Setlec.whnfLoop (Setlec.pureFns μ env ga) env d
+              (la' + 1) a' = .ok (.sort ℓa) := by
+            rw [whnfLoop_succ]
+            exact whnfStep_assemble_delta (hI hwa) hrga hux hkx
+          exact ih hk hA hb₂
+        · obtain rfl := hstop
+          have hA : Setlec.whnfLoop (Setlec.pureFns μ env ga) env d
+              1 (.sort ℓa) = .ok (.sort ℓa) := by
+            rw [whnfLoop_succ]
+            exact whnfStep_assemble_stuck (hI hwa) reduceNat_sort
+              unfoldDefinition_sort
+          exact ih hk hA hb₂
+      | deltaL _ _ a₂ hu hk =>
+        have hb' := loop_align hm hb hwb
+          (hI hwb : whnfCore μ env fc d b' = .ok b')
+        rcases htriA with ⟨x, hrx, hkx⟩ | ⟨hrga, x, hux, hkx⟩ |
+          ⟨hrga, huda, hstop⟩
+        · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+        · rw [hu] at hux
+          obtain rfl : a₂ = x := Option.some.inj hux
+          exact ih hk hkx hb'
+        · rw [hu] at huda; exact nomatch huda
+      | deltaR _ _ b₂ hu hk =>
+        rcases htriB with ⟨y, hry, hkyb⟩ | ⟨hrgb, y, huy, hkyb⟩ |
+          ⟨hrgb, hudb, hstop⟩
+        · exact (hN hc0 hwa hwb (Or.inr hry) ha).elim
+        · rw [hu] at huy
+          obtain rfl : b₂ = y := Option.some.inj huy
+          rcases htriA with ⟨x, hrx, hkx⟩ | ⟨hrga, x, hux, hkx⟩ |
+            ⟨hrga, huda, hstop⟩
+          · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+          · have hA : Setlec.whnfLoop (Setlec.pureFns μ env ga) env d
+                (la' + 1) a' = .ok (.sort ℓa) := by
+              rw [whnfLoop_succ]
+              exact whnfStep_assemble_delta (hI hwa) hrga hux hkx
+            exact ih hk hA hkyb
+          · obtain rfl := hstop
+            have hA : Setlec.whnfLoop (Setlec.pureFns μ env ga) env d
+                1 (.sort ℓa) = .ok (.sort ℓa) := by
+              rw [whnfLoop_succ]
+              exact whnfStep_assemble_stuck (hI hwa) reduceNat_sort
+                unfoldDefinition_sort
+            exact ih hk hA hkyb
+        · rw [hu] at hudb; exact nomatch hudb
+      | deltaB _ _ a₂ b₂ hua hub hk =>
+        rcases htriA with ⟨x, hrx, hkx⟩ | ⟨hrga, x, hux, hkx⟩ |
+          ⟨hrga, huda, hstop⟩
+        · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+        · rw [hua] at hux
+          obtain rfl : a₂ = x := Option.some.inj hux
+          rcases htriB with ⟨y, hry, hkyb⟩ | ⟨hrgb, y, huy, hkyb⟩ |
+            ⟨hrgb, hudb, hstop⟩
+          · exact (hN hc0 hwa hwb (Or.inr hry) ha).elim
+          · rw [hub] at huy
+            obtain rfl : b₂ = y := Option.some.inj huy
+            exact ih hk hkx hkyb
+          · rw [hub] at hudb; exact nomatch hudb
+        · rw [hua] at huda; exact nomatch huda
+      | spine _ _ hs => exact hS hc0 hwa hwb hs ha hb
+      | sorts u v hiseq =>
+        have h1 := loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_sort) unfoldDefinition_sort
+        have h2 := loop_stuck_out hm hb hwb
+          (fun _ => reduceNat_sort) unfoldDefinition_sort
+        obtain rfl := Setlec.Expr.sort.inj h1
+        obtain rfl := Setlec.Expr.sort.inj h2
+        exact Level.isEquiv_sound hiseq φ
+      | lits lt =>
+        exact nomatch (loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_lit) unfoldDefinition_lit)
+      | natZeroL =>
+        exact nomatch (loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_lit) unfoldDefinition_lit)
+      | natZeroR hua =>
+        exact nomatch (loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_const)
+          (unfoldDefinition_none_of_not_unfoldable hua))
+      | natSuccL n x hd =>
+        exact nomatch (loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_lit) unfoldDefinition_lit)
+      | natSuccR n x hua hd =>
+        rcases htriA with ⟨x', hrx, hkx⟩ | ⟨hrga, x', hux, hkx⟩ |
+          ⟨hrga, huda, hstop⟩
+        · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+        · rw [unfoldDefinition_none_of_not_unfoldable hua] at hux
+          exact nomatch hux
+        · exact nomatch hstop
+      | strL st cO usO x hd =>
+        exact nomatch (loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_lit) unfoldDefinition_lit)
+      | strR st cO usO x hua hd =>
+        rcases htriA with ⟨x', hrx, hkx⟩ | ⟨hrga, x', hux, hkx⟩ |
+          ⟨hrga, huda, hstop⟩
+        · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+        · rw [unfoldDefinition_none_of_not_unfoldable hua] at hux
+          exact nomatch hux
+        · exact nomatch hstop
+      | fvars i n₁ n₂ ty₁ ty₂ =>
+        exact nomatch (loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_fvar) unfoldDefinition_fvar)
+      | consts n us us' hua hiseq =>
+        exact nomatch (loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_const)
+          (unfoldDefinition_none_of_not_unfoldable hua))
+      | piCong n₁ n₂ ty₁ ty₂ body₁ body₂ m₁ m₂ hd hbody =>
+        exact nomatch (loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_forallE) unfoldDefinition_forallE)
+      | lamCong n₁ n₂ ty₁ ty₂ body₁ body₂ m₁ m₂ hd hbody =>
+        exact nomatch (loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_lam) unfoldDefinition_lam)
+      | appCong f₁ a₁ f₂ a₂ hua hlen hdf hdl =>
+        rcases htriA with ⟨x', hrx, hkx⟩ | ⟨hrga, x', hux, hkx⟩ |
+          ⟨hrga, huda, hstop⟩
+        · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+        · rw [unfoldDefinition_none_of_not_unfoldable hua] at hux
+          exact nomatch hux
+        · exact nomatch hstop
+      | projCong s₁ s₂ i e₁ e₂ hd =>
+        exact nomatch (loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_proj) unfoldDefinition_proj)
+      | etaL n₁ ty₁ body₁ m₁ b₂ he =>
+        exact nomatch (loop_stuck_out hm ha hwa
+          (fun _ => reduceNat_lam) unfoldDefinition_lam)
+      | etaR _ _ _ _ _ he => exact (hE hwa he ha).elim
+      | rescue _ _ hsi => exact (hR hwa hsi ha).elim
+  intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwsa hba hLa hwsb hbb hLb hp h₁ h₂
+  cases fc with
+  | zero => exact nomatch hc
+  | succ fc =>
+    rw [Setlec.isDefEqCore_succ] at hc
+    obtain ⟨ga, la, -, hla⟩ := whnf_peel h₁
+    obtain ⟨gb, lb, -, hlb⟩ := whnf_peel h₂
+    exact main fc Setlec.defeqLoopFuel hc hla hlb
+
 end Setlec.SetR.Interp2

@@ -8557,3 +8557,42 @@ no liveness).  `NatSortVacuity` remains as stated; the b-side
 `reduceNat` unknowns that motivated its cert-inclusive form now
 resolve through the dual form's given-run facts instead, so its
 discharger's scope may shrink at the re-attempt.
+
+### THE DUAL SHELL LANDS: `ensureSortAgreeR_of` proved
+
+The (A) primitive closes.  `Annot/SortCoh.lean`:
+`ensureSortAgreeR_of` derives `EnsureSortAgreeR` — a certified pair
+whose members both whnf to literal sorts has equal numerals — from
+the two obligations and five routings:
+
+    KnotFuelMono, WhnfCoreIdem,
+    ProbeSortVacuity, RescueSortVacuity, EtaSortVacuity,
+    NatSortVacuity, SpineSortAgree (dual form, defined this seal)
+
+by one budget-only induction over the cert loop, dispatching all
+twenty-five `PostCoreCert` constructors exactly per the supplier
+map: `inl`/`syn` by determinism/replay; `sorts` by two
+`loop_stuck_out` collisions + `isEquiv_sound`; eleven det-vacuous
+structural cases by one-line stuck-collisions (the app/const-headed
+five using their carried head facts + the unfoldable-false lemma and
+`NatSortVacuity` for their nat legs); the four re-entry constructors
+by reading both GIVEN runs' trichotomies — nat legs det-contradicted
+or `NatSortVacuity`-routed, delta legs det-aligned into the loop IH,
+terminal legs rebuilt as one-step stuck runs via `WhnfCoreIdem`; the
+PSS cases routed.  No case constructs a run reality has not
+exhibited; no wrapping (the IH consumes loop-level runs directly).
+
+Recorded as ruled: **dominance checks certify direction, not
+provability** — and the liveness finding sits beside the currency
+ladder as its mirror (premises weaker than the leaf consumes are
+vacuous; conclusions stronger than the runs can witness are liveness
+claims).
+
+**Remaining for the branch** (each its own seal): the discharge tier
+— `KnotFuelMono` (oracle-extension induction), `WhnfCoreIdem`
+(body-level induction), the three PSS vacuities (the chain-transport
+machinery: (F)/S2 dual forms), `NatSortVacuity` (the
+`natOpResult_shape` chase + the Bool-ctor inertness question),
+`SpineSortAgree` (graded unknown #1) — then (B)'s shell on the same
+pattern, the (F) species with run-mirror constructions, and the
+`SortSubstStable` leaf wiring.
