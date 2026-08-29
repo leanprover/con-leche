@@ -26,31 +26,29 @@ each naming the theorem family that depends on it. -/
 -- #148 bridge.
 #guard (default : CheckMode) == .setModel
 
--- The seven-check gate wiring (the TT lane's `CertifiedConfigTT`
--- conjunct `mode = .ttModel` and the set lane's vacuous implications
--- both read `CheckMode.ttChecks`): on exactly at `.ttModel`.
+-- The seven-check gate is OFF at every mode since task #148 T7b: the
+-- declarative lane that turned it on (and its `.ttModel` value) was
+-- deleted with the mode.  The gated call sites are kept, statically
+-- unreachable; these guards are what would notice a mode being added
+-- back without the lane that justifies it.
 #guard CheckMode.ttChecks .setModel == false
-#guard CheckMode.ttChecks .ttModel == true
 #guard CheckMode.ttChecks .noModel == false
 
 -- The λ-codomain-sort gate (task #152, `inferBody`'s `.lam` clause):
--- ON in both verified lanes — the set lane's annotation pass reads the
+-- ON in the verified lane — the set lane's annotation pass reads the
 -- fact off `inferTypeCore_lam_inv`'s `mode.verified = true → …`
 -- conjunct, so compiling this `false` at `.setModel` would make that
 -- conjunct vacuous — and OFF at `.noModel`, which is the
 -- official-parity lane (the reference kernel's `infer_lambda` does not
 -- sort-check the body's type).
 #guard CheckMode.verified .setModel == true
-#guard CheckMode.verified .ttModel == true
 #guard CheckMode.verified .noModel == false
 
 -- The direct simple-structure master switch ships OFF since task #148
 -- T0b (it shipped ON from #119/#120 until 2026-08-27).  BOTH verified
--- lanes assume the switched-off configuration: the TT bridge premises
--- it explicitly (`CertifiedConfigTT`'s `directStructsEnabled = false`
--- conjunct, now dischargeable by `rfl` at the shipped build), and the
--- upcoming #148 set-lane relation family covers no direct-install
--- rule, so a set-lane theorem stated at the default mode would be
+-- lanes assumed the switched-off configuration; the set lane's
+-- relation family covers no direct-install rule, so a set-lane theorem
+-- stated at the default mode would be
 -- VACUOUS-BY-FALSE-HYPOTHESIS (risk R4) if this were compiled `true`.
 -- Flipping it back is therefore a verification-scope change, not a
 -- configuration tweak — this guard makes the flip fail `lake test`.

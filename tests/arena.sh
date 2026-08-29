@@ -23,26 +23,26 @@
 # the second-binary harness (tests/build-direct-off.sh) went with them.
 # The pre-flip codes are recorded in the two expectation files.
 #
-# THE THREE-MODE SWEEPS (task #147).  The checker has one three-valued
-# mode: `--set-model` (the default — the surface the set model proves,
-# the seven TT-lane checks off), `--tt-model` (the seven on — the
-# pre-#147 certified behavior), and `--no-model` (the unverified lane:
+# THE MODE SWEEP (task #147; one mode fewer since #148 T7b).  The
+# checker has one two-valued mode: `--set-model` (the default — the
+# surface the set model proves) and `--no-model` (the unverified lane:
 # checking-mode front door, infer-only internals, no certificate
 # families; it absorbs the retired --yolo/SETLEC_NO_PROOF_CERTS and
-# --infer-only/SETLEC_INFER_ONLY).  The certified sections run at the
-# default (`--set-model`); afterwards both suites run again
+# --infer-only/SETLEC_INFER_ONLY).  `--tt-model` selected the seven
+# TT-lane checks for the declarative verification lane; that lane was
+# deleted at #148 T7b and the flag is a hard error now, so its sweep —
+# which had claimed and shown byte-identity with the default on every
+# fixture — went with it.  The certified sections run at the default
+# (`--set-model`); afterwards both suites run again
 #
-#   * with `--tt-model`, against the SAME expectations — the seven
-#     checks all landed byte-identical on every fixture, so any
-#     mismatch here is a finding, printed as TT-MODEL DIVERGENCE; and
 #   * with `--no-model`, against the certified expectations plus the
 #     recorded overrides in tests/no-model-expected.txt (the successor
 #     of tests/yolo-expected.txt — see that file's header for what may
 #     be recorded: partial-stack divergences of the unverified lane,
 #     each with the defect it stops or starts detecting differently).
 #
-# `--no-sweeps` skips both extra passes for a tight edit loop; a
-# landing gate runs them.
+# `--no-sweeps` skips the extra pass for a tight edit loop; a landing
+# gate runs it.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -89,16 +89,15 @@ if [ -f "$NM_EXPECTED" ]; then
   done < "$NM_EXPECTED"
 fi
 
-# SWEEP is `cert` for the default (--set-model) pass, `tt` for the
-# --tt-model pass and `nomodel` for the --no-model pass; it selects the
-# mode flag, the override table and the failure wording.
+# SWEEP is `cert` for the default (--set-model) pass and `nomodel` for
+# the --no-model pass; it selects the mode flag, the override table and
+# the failure wording.
 SWEEP=cert
 MODEFLAG=""
 
 # Resolve $want for one fixture: the certified expectation, overridden
 # in the no-model sweep if tests/no-model-expected.txt records a
-# divergence (the tt-model sweep takes the certified expectations
-# unmodified — byte-identity is the claim).
+# divergence.
 resolve() { # <expectation-field> <suite> <fixture> <mode>
   want=$1
   want_src=certified
@@ -114,7 +113,6 @@ resolve() { # <expectation-field> <suite> <fixture> <mode>
 # the certified one unless overridden), so it is worded as such.
 mismatch() { # <prefix> <fixture> <want> <got>
   case "$SWEEP" in
-    tt) echo "TT-MODEL DIVERGENCE $2: $want_src expects exit $3, --tt-model got $4";;
     nomodel) echo "NO-MODEL DIVERGENCE $2: $want_src expects exit $3, --no-model got $4";;
     *) echo "$1 $2: expected exit $3, got $4";;
   esac
@@ -271,8 +269,7 @@ mode_case() {
   fi
 }
 mode_case 0 --set-model "$SPLIT_GOOD"              # the default, spelled out
-mode_case 0 --tt-model "$SPLIT_GOOD"               # TT-lane checks on: accepts
-mode_case 1 --tt-model "$SPLIT_BAD"                # …and still rejects
+mode_case 3 --tt-model "$SPLIT_GOOD"               # retired flag: hard error
 mode_case 0 --no-model "$SPLIT_GOOD"               # unverified lane: accepts
 mode_case 1 --no-model "$SPLIT_BAD"                # front door still rejects
 mode_case 3 --no-model --install-only "$SPLIT_GOOD" # + split driver: refused
@@ -296,24 +293,10 @@ else
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
 
-# The mode sweeps (task #147): both suites again with `--tt-model`
-# (identical expectations — byte-identity is the claim) and with
-# `--no-model` (certified expectations plus the recorded overrides in
+# The mode sweep (task #147): both suites again with `--no-model`
+# (certified expectations plus the recorded overrides in
 # tests/no-model-expected.txt).  See the header.
 if [ "$MODE_SWEEPS" = on ]; then
-  SWEEP=tt
-  MODEFLAG=--tt-model
-  tt_fail_before=$fail
-  arena_half
-  tt_arena=$arena_checked
-  e2e_half
-  if [ "$fail" = "$tt_fail_before" ]; then
-    echo "tt-model sweep: $tt_arena arena + $e2e_total e2e identical to default"
-  else
-    echo "tt-model sweep: DIVERGED — see the lines above (a divergence" \
-         "between --tt-model and the default is a FINDING, task #147)"
-  fi
-
   SWEEP=nomodel
   MODEFLAG=--no-model
   nm_fail_before=$fail

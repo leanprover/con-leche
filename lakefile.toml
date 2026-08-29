@@ -1,5 +1,5 @@
 name = "setlec"
-defaultTargets = ["Setlec", "SetlecTT", "SetlecTTV", "SetlecSetR", "setlec"]
+defaultTargets = ["Setlec", "SetlecTT", "SetlecSetR", "setlec"]
 testDriver = "SetlecTests"
 
 # The pin-generator's certificate theorems (Setlec/PinGen/Certs.lean) are
@@ -24,14 +24,6 @@ extraDepTargets = ["SetlecPinCerts"]
 [[lean_lib]]
 name = "SetlecTT"
 roots = ["Setlec.TT"]
-
-# The TTVerify bridge (task #119): the denotation of a real `Env`+`Expr`
-# into the declarative layer, the transposed environment invariant, and
-# the acceptance theorem.  Imports `Setlec` and `SetlecTT`; nothing in
-# the checker imports it back.
-[[lean_lib]]
-name = "SetlecTTV"
-roots = ["Setlec.TTVerify"]
 
 # The mode-indexed algorithmic relation family (task #148): the
 # `Red`/`Infer`/`DefEq`/`Tele`/`DefEqL` mutual family on the env-free TT

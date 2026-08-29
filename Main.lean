@@ -230,7 +230,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
     if (← IO.getEnv "SETLEC_INFER_ONLY") == some "1" then
       IO.eprintln "setlec: SETLEC_INFER_ONLY is retired; the infer-only \
         internal discipline is part of the --no-model mode, and the \
-        certified modes are --set-model (default) and --tt-model \
+        certified mode is --set-model, the default \
         (see DESIGN.md, task #147)"
       return 3
     if mode == .noModel && split?.isSome then
@@ -245,9 +245,9 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
     -- SETLEC_TIER_BRACKET measurement knob is retired — its modes and
     -- their measurements are recorded in DESIGN.md (reproducible at
     -- the pre-flip commit 2794be4).
-    -- Task #147: `--set-model`/`--tt-model` run the certified drivers
-    -- at the given mode (the seven TT-lane checks off/on);
-    -- `--no-model` runs the unverified lane
+    -- Task #147: `--set-model` runs the certified drivers
+    -- (`--tt-model` was retired with the declarative lane at #148
+    -- T7b); `--no-model` runs the unverified lane
     -- (Setlec/Kernel/CheckerNC.lean — checking-mode front door over
     -- the cert-skipping internals).
     let stepF :=
@@ -355,7 +355,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
         try IO.FS.removeFile path catch _ => pure ()
 
 def usage : String := String.intercalate "\n" [
-  "usage: setlec [--set-model|--tt-model|--no-model] [--pre]",
+  "usage: setlec [--set-model|--no-model] [--pre]",
   "              [--install-only] [--check-range A:B] FILE.ndjson",
   "",
   "  --set-model       the default: the verified checker, the surface",
@@ -363,9 +363,6 @@ def usage : String := String.intercalate "\n" [
   "                    The seven TT-lane checks (tasks #126/#129/#130/",
   "                    #135/#136/#137/#146) are off; every always-on",
   "                    certificate family runs",
-  "  --tt-model        the verified checker with the seven TT-lane",
-  "                    checks on — the surface the type-theoretic",
-  "                    bridge (Setlec/TTVerify) is about",
   "  --no-model        the unverified lane: full checking-mode front",
   "                    door per declaration (official-kernel parity),",
   "                    infer-only internal re-derivations, and no",
@@ -409,15 +406,18 @@ structure Args where
 def parseArgs : List String → Args → Args
   | [], a => a
   | "--set-model" :: rest, a => parseArgs rest { a with mode := .setModel }
-  | "--tt-model" :: rest, a => parseArgs rest { a with mode := .ttModel }
+  | "--tt-model" :: _, a =>
+    { a with bad := some "--tt-model is retired; the declarative \
+        verification lane it selected was deleted with the mode, and \
+        the certified mode is --set-model (default) (task #148 T7b)" }
   | "--no-model" :: rest, a => parseArgs rest { a with mode := .noModel }
   | "--yolo" :: _, a =>
     { a with bad := some "--yolo is retired; the cert-skipping lane is \
         --no-model (checking-mode front door included, task #147)" }
   | "--infer-only" :: _, a =>
     { a with bad := some "--infer-only is retired; its discipline is part \
-        of --no-model, and the certified modes are --set-model (default) \
-        and --tt-model (task #147)" }
+        of --no-model, and the certified mode is --set-model \
+        (default) (task #147)" }
   | "--pre" :: rest, a => parseArgs rest { a with pre := true }
   | "--install-only" :: rest, a =>
     parseArgs rest { a with split? := some (0, some 0) }
@@ -439,7 +439,6 @@ def childArgs (a : Args) (file : String) : Array String :=
   #[file]
     ++ (match a.mode with
         | .setModel => #[]
-        | .ttModel => #["--tt-model"]
         | .noModel => #["--no-model"])
     ++ (if a.pre then #["--pre"] else #[])
     ++ (match a.split? with
@@ -452,8 +451,9 @@ def main (args : List String) : IO UInt32 := do
   if args.contains "--help" then
     IO.println usage
     return 0
-  -- `--set-model`/`--tt-model`/`--no-model`: the three-mode setting
-  -- (task #147), validated here once and threaded as configuration.
+  -- `--set-model`/`--no-model`: the mode setting (task #147; two
+  -- modes since #148 T7b), validated here once and threaded as
+  -- configuration.
   -- `--pre`: the input is already-preprocessed lean-inductive-models
   -- output (explicit user assertion — the checker never sniffs input
   -- content for it); skips the `needsPreprocess` scan and the

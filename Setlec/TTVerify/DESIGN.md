@@ -1,3 +1,17 @@
+> **RETIRED — the code this document designs was deleted at task #148
+> T7b (2026-08-29), by user ruling ("TT tier and direct set model
+> removed").  `Setlec/TTVerify/*.lean` — 50 files, 33,808 lines — is
+> gone, together with the `--tt-model` mode it was stated at and the
+> `SetlecTTV` library target.  The replacement surface is the fourteen
+> `*_R` theorems of `Setlec/SetR/Main.lean`.**
+>
+> **This file is deliberately kept.**  Its §0 and §25 are the project's
+> *house practices*, declared binding by `Setlec/SetR/DESIGN.md`, and
+> twenty-odd findings elsewhere in the tree cite its sections by number.
+> Deleting a lane's code does not delete what building it taught; the
+> paths in the prose below now name files that no longer exist, and
+> should be read as the citations they are.
+
 # The TTVerify bridge (task #119)
 
 > "No new stream-ordering invariant.  Nothing here changes to how the

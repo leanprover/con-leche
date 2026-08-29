@@ -7103,3 +7103,68 @@ a dangling pointer in a past-tense provenance note is a citation.*
 `[propext, Classical.choice, Quot.sound]` (previous §).  Battery after
 the deletion: build warning-free, `lake test`, arena 90/92, e2e 72/72,
 split 11/11, mode flags 10/10, both sweeps as expected, zero sorries.
+
+## T7b — the declarative lane and its mode
+
+By user ruling ("TT tier and direct set model removed") the declarative
+verification lane goes too.  **`Setlec/TTVerify/*.lean`: 50 files,
+33,808 lines**, plus the `SetlecTTV` library target and the
+`--tt-model` mode it was stated at.
+
+**The cut was made at the dependency boundary, not the folder name.**
+The measurement, in order:
+
+| piece | verdict | why |
+|---|---|---|
+| `Setlec/TTVerify/*.lean` | **deleted** | nothing outside imported it; the fourteen `*_R` are the replacement |
+| `Setlec/TT/Nat/*`, `TT/Nat.lean`, `TT/Examples.lean` | **deleted** | the layer's own demonstrations; reachable only from the `SetlecTT` umbrella |
+| `Setlec/TT/Semantics/Consistency.lean` | **deleted** | the declarative lane's own consistency theorem — its consumer was the lane |
+| `Setlec/TT/Deq.lean` | **deleted** | one code consumer left (`denote_beta_step`), itself TT-lane-only |
+| `Setlec/Verify/Denote/Weaken.lean`, `Setlec/Verify/Extend/Decl.lean` | **deleted** | made unreachable by the `TTVerify` deletion |
+| `Setlec/Verify/Denote/Tele.lean` | **split** | `TeleTyped`/`VTeleTyped` (typed walk, lane-only) out; `DenoteSpine` + `denote_mkAppN*` (34 + 28 SetR call sites) kept |
+| `Setlec/Verify/Denote/HasTypeSubst.lean` | **split** | the `HasType.weakenN`/`weakenHead`/`instN`/`instantiate` battery out; `LiftCtx`/`InstCtx` kept — `Setlec/SetR/Weaken.lean` imports the file for them |
+| **`Setlec/TT/Judgment.lean` (`HasType`)** | **STAYS** | see below |
+| `TT/{Syntax,Subst,Const}`, `TT/Semantics/{Value,Interp,ConstOk,Soundness}` | **stay** | `VExpr`, `interp`, `bval`, `BConst`, `Sat`, `HasType.sound` |
+
+**The declarative rule layer stays, and the reason is a measurement,
+not a preference.**  The instruction was to cut `HasType`/`Deq` *if its
+only remaining consumers were the TT lane and the tt-model config*.  Its
+consumers are not: **`Setlec/SetR/Install/BasisS.lean` uses
+`HasType.const` and `HasType.sound` at seventeen sites** — that pair is
+how each basis constant's membership in its own denoted type is
+obtained, and `HasType.sound` is proved by induction over *every*
+constructor of `HasType`, so the inductive cannot be thinned either.
+`Deq` had no such consumer and went.  The condition was conditional and
+the condition was false; the boundary is where the consumers put it.
+
+*Rule: a deletion order that names folders will cut in the wrong place.
+Name the consumers, measure them, and let the boundary fall where the
+measurement says — then write down which way each file went and why,
+because "we kept `Setlec/TT/*`" is not a record and "SetR calls
+`HasType.const` seventeen times" is.*
+
+**The mode.**  `CheckMode` loses its `.ttModel` arm and is two-valued;
+`--tt-model` joins `--yolo` and `--infer-only` as a hard error (exit 3),
+with a message naming what happened to it.  `CheckMode.ttChecks` is now
+constantly `false`.
+
+**The seven gated checks are kept, statically unreachable.**  Deleting
+them would touch `Setlec/Kernel/{Core,Modeled,CheckerS}.lean` and every
+proof that mentions the gate, in a commit whose subject is retiring a
+*verification* tier.  They stay as reviewed code behind one accessor,
+which is also the single place a future lane would turn them back on.
+Their removal is a kernel change and belongs in its own commit.
+
+**`Setlec/TTVerify/DESIGN.md` is kept, code deleted.**  Its §0 and §25
+are the project's house practices, declared binding by this file, and
+twenty-two references across the tree cite its sections by number.  A
+tombstone header says the code is gone and the paths in the prose are
+citations.  *Deleting a lane's code does not delete what building it
+taught.*
+
+**Battery:** build warning-free (279 jobs, from 424 before T7),
+`lake test`, arena 90/92, e2e 72/72, split 11/11, mode flags **9/9**
+(the two `--tt-model` cases became one hard-error case), no-model sweep
+as expected; the tt-model sweep left the battery with the mode.  Zero
+sorries; the fourteen `*_R` unchanged at
+`[propext, Classical.choice, Quot.sound]`.
