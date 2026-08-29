@@ -9299,3 +9299,44 @@ supplies the three preservers from `WhnfCoreClaimsR` /
 Next: the (B) shell on the settled shape (its own motive copies the
 `Q`-thread; PSS-one-level-up vacuities first, congruence tier
 after).
+
+### (B)'s dual shell LANDED — first-pass, on the settled motive
+
+`sortOfAgreeRQ_of` proves `SortOfAgreeRQ` (the `Q`-enriched (B)
+claim; `sortOfAgreeR_of` recovers the slot-free `SortOfAgreeR` at
+`Q := True`) by the same budget-only cert-loop induction as (A), at
+the type level — the motive threads `SubjInv` per side + concrete
+cross-`PairedLeaves` (via the `PairedPreserve*F` species, now
+consumed) + the abstract `Q`-slot.  The whole 25-case induction
+compiled first-pass: with `sortOfLE_step_core/delta/nat` (the
+transport species' sort instances) and `sortOfLE_sort_out`, every
+base is determinism or arithmetic and every re-entry is a
+composition.
+
+Map corrections landed with the build:
+
+* `etaL`/`etaR`/`lamCong` all die on ONE routing —
+  `LamTySortVacuity` (a λ's inferred type is a `∀`, never a sort);
+  the eta cert is not even consumed.  The predicted Θ-motive tier
+  thus shrinks to `piCong` alone among the binder cases.
+* `natL`/`natR` are plain re-entries through the nat transport
+  species — not vacuities (the transported fact rides the step
+  uniformly; the earlier vacuity reading was the (A) habit).
+* `natZeroR` routes through the SAME `NatZeroTySortAgree` as
+  `natZeroL`, flipped (`.symm`) — no orientation duplication needed
+  where there is no run payload; `natSuccL/R` and `strL/R` keep
+  split Props (their cert runs cannot be flipped).
+
+(B)'s routing inventory (each at its own seal):
+`ProbeTySortVacuity` / `RescueTySortVacuity` (the type-level PSS
+duals — probe/eta reuse the landed collision skeleton with det in
+place of the loop collide; rescue's a-directed legs need the
+ctor-type telescope shape, an env-tier fact flagged at the map),
+`LamTySortVacuity` (infer-lam extraction + forallE-stuck),
+`NatZeroTySortAgree` / `NatSuccL/RTySortAgree` / `StrL/RTySortAgree`
+(basis pins), `FvarTySortAgree` (cross-pairing + name-blind infer),
+`ConstTySortAgree` (the spine core's argless sibling),
+`SpineTySortAgree` / `PiCongTySortAgree` / `AppCongTySortAgree` /
+`ProjCongTySortAgree` (the graded congruence tier, `Q`-carrying —
+same supplier-tier question as `DeltaSpineSortAgree`, presumably the
+same model-tier answer).

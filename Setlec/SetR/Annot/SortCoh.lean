@@ -5113,6 +5113,369 @@ theorem ensureSortAgreeR_of_core {φ : Name → Nat}
     (spineSortAgree_of (Q := Q) (knotFuelMono μ env) hB hIC hQC hQs
       hD)
 
+/-! ## (B)'s dual shell — `sortOfE` agreement on the same decomposition
+
+The type-level dual of the (A) shell, on the settled motive shape
+(`SubjInv` per side + concrete cross-`PairedLeaves` + the abstract
+`Q`-slot).  Bases and re-entries are proved here (determinism,
+arithmetic, and the transport species); the congruence tier and the
+type-level vacuities are the named routings below, each at its own
+seal.  Three map corrections landed with the build: `etaL`/`etaR`/
+`lamCong` all die on `LamTySortVacuity` (a λ's inferred type is a
+`∀`, never a sort — the eta cert is not even consumed), and
+`natL`/`natR` are plain re-entries through the nat transport species,
+not vacuities. -/
+
+/-- `SortOfLE` transports across a head-normalization step (the
+(F-core) sort instance). -/
+theorem sortOfLE_step_core {φ : Name → Nat}
+    (hTC : TypeTransportCoreF μ env) {f d : Nat} {e e' : Expr}
+    {u : Nat} (hwc : whnfCore μ env f d e = .ok e') (hI : SubjInv d e)
+    (h : SortOfLE μ env φ d e u) : SortOfLE μ env φ d e' u := by
+  obtain ⟨ℓ, hW, hev⟩ := sortOfLE_iff_typeWhnfLE.1 h
+  exact sortOfLE_iff_typeWhnfLE.2 ⟨ℓ, hTC hwc hI hW, hev⟩
+
+/-- `SortOfLE` transports across one unfolding ((F-δ) sort
+instance). -/
+theorem sortOfLE_step_delta {φ : Name → Nat}
+    (hTD : TypeTransportDeltaF μ env) {d : Nat} {e e' : Expr}
+    {u : Nat} (hud : Setlec.unfoldDefinition env e = some e')
+    (hI : SubjInv d e)
+    (h : SortOfLE μ env φ d e u) : SortOfLE μ env φ d e' u := by
+  obtain ⟨ℓ, hW, hev⟩ := sortOfLE_iff_typeWhnfLE.1 h
+  exact sortOfLE_iff_typeWhnfLE.2 ⟨ℓ, hTD hud hI hW, hev⟩
+
+/-- `SortOfLE` transports across one literal-acceleration step
+((F-nat) sort instance). -/
+theorem sortOfLE_step_nat {φ : Name → Nat}
+    (hTN : TypeTransportNatF μ env) {f d : Nat} {e e' : Expr}
+    {u : Nat}
+    (hrn : Setlec.reduceNat (Setlec.pureFns μ env f) env d e
+      = .ok (some e'))
+    (hI : SubjInv d e)
+    (h : SortOfLE μ env φ d e u) : SortOfLE μ env φ d e' u := by
+  obtain ⟨ℓ, hW, hev⟩ := sortOfLE_iff_typeWhnfLE.1 h
+  exact sortOfLE_iff_typeWhnfLE.2 ⟨ℓ, hTN hrn hI hW, hev⟩
+
+/-- A successful loop-level sort computation on a literal sort is
+the successor numeral. -/
+theorem sortOfLE_sort_out {φ : Name → Nat} (hm : KnotFuelMono μ env)
+    {d : Nat} {w : Level} {u : Nat}
+    (h : SortOfLE μ env φ d (.sort w) u) : u = w.eval φ + 1 := by
+  obtain ⟨ℓ, hW, hev⟩ := sortOfLE_iff_typeWhnfLE.1 h
+  obtain rfl : ℓ = .succ w :=
+    Setlec.Expr.sort.inj (TypeWhnfLE_det hm hW typeWhnfLE_sort)
+  exact hev.symm
+
+/-! ### (B)'s routed hypotheses (each at its own seal) -/
+
+/-- Type-level probe vacuity: a `proofIrrel`-certified subject's
+type never whnf-converges to a literal sort. -/
+def ProbeTySortVacuity (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {g d : Nat} {a' b' : Expr} {ℓ : Level},
+    SubjInv d a' →
+    Setlec.proofIrrel (Setlec.pureFns μ env g) env d a' b' = .ok true →
+    TypeWhnfLE μ env d a' (.sort ℓ) → False
+
+/-- Type-level rescue vacuity, five-way as before. -/
+def RescueTySortVacuity (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {g d : Nat} {a' b' : Expr} {ℓ : Level},
+    SubjInv d a' →
+    Setlec.stuckIrrel μ (Setlec.pureFns μ env g) env d a' b'
+      = .ok true →
+    TypeWhnfLE μ env d a' (.sort ℓ) → False
+
+/-- A λ's inferred type is a `∀`, never a sort — kills `etaL`,
+`etaR` and `lamCong` without reading their certs. -/
+def LamTySortVacuity (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {d : Nat} {n : Name} {ty body : Expr} {m : Setlec.BinderMeta}
+    {ℓ : Level},
+    TypeWhnfLE μ env d (.lam n ty body m) (.sort ℓ) → False
+
+/-- Mixed terminal: the `Nat` literal against the stored zero. -/
+def NatZeroTySortAgree (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {d u v : Nat},
+    SortOfLE μ env φ d (.lit (.natVal 0)) u →
+    SortOfLE μ env φ d (.const Setlec.natZeroName []) v → u = v
+
+/-- Mixed terminal: successor packing, literal side left. -/
+def NatSuccLTySortAgree (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {g d u v n : Nat} {x : Expr},
+    (Setlec.pureFns μ env g).defeq d (.lit (.natVal n)) x = .ok true →
+    SortOfLE μ env φ d (.lit (.natVal (n + 1))) u →
+    SortOfLE μ env φ d (.app (.const Setlec.natSuccName []) x) v →
+    u = v
+
+/-- Mixed terminal: successor packing, literal side right. -/
+def NatSuccRTySortAgree (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {g d u v n : Nat} {x : Expr},
+    Setlec.unfoldableHead env
+      (.app (.const Setlec.natSuccName []) x) = false →
+    (Setlec.pureFns μ env g).defeq d x (.lit (.natVal n)) = .ok true →
+    SortOfLE μ env φ d (.app (.const Setlec.natSuccName []) x) u →
+    SortOfLE μ env φ d (.lit (.natVal (n + 1))) v → u = v
+
+/-- Mixed terminal: the string literal against a stuck app. -/
+def StrLTySortAgree (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {g d u v : Nat} {st : String} {cO : Name} {usO : List Level}
+    {x : Expr},
+    (Setlec.pureFns μ env g).defeq d (Setlec.strLitToConstructor st)
+      (.app (.const cO usO) x) = .ok true →
+    SortOfLE μ env φ d (.lit (.strVal st)) u →
+    SortOfLE μ env φ d (.app (.const cO usO) x) v → u = v
+
+/-- Mixed terminal: the stuck app against the string literal. -/
+def StrRTySortAgree (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {g d u v : Nat} {st : String} {cO : Name} {usO : List Level}
+    {x : Expr},
+    Setlec.unfoldableHead env (.app (.const cO usO) x) = false →
+    (Setlec.pureFns μ env g).defeq d (.app (.const cO usO) x)
+      (Setlec.strLitToConstructor st) = .ok true →
+    SortOfLE μ env φ d (.app (.const cO usO) x) u →
+    SortOfLE μ env φ d (.lit (.strVal st)) v → u = v
+
+/-- The `fvars` leaf: same index, own annotations — cross-pairing
+pins the annotations equal, and `infer` is name-blind. -/
+def FvarTySortAgree (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {d u v i : Nat} {n₁ n₂ : Name} {ty₁ ty₂ : Expr},
+    SubjInv d (.fvar i n₁ ty₁) → SubjInv d (.fvar i n₂ ty₂) →
+    PairedLeaves (.fvar i n₁ ty₁) (.fvar i n₂ ty₂) →
+    SortOfLE μ env φ d (.fvar i n₁ ty₁) u →
+    SortOfLE μ env φ d (.fvar i n₂ ty₂) v → u = v
+
+/-- The `consts` leaf: one stored type at two equivalent level
+instantiations — the spine core's argless sibling. -/
+def ConstTySortAgree (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {d u v : Nat} {n : Name} {us us' : List Level},
+    Setlec.unfoldableHead env (.const n us) = false →
+    Level.isEquivList us us' = some true →
+    SortOfLE μ env φ d (.const n us) u →
+    SortOfLE μ env φ d (.const n us') v → u = v
+
+/-- The spine's type-level agreement (`Q`-carrying, like its (A)
+sibling). -/
+def SpineTySortAgree (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {g d u v : Nat} {a' b' : Expr},
+    SubjInv d a' → SubjInv d b' → Q d a' b' →
+    Setlec.defeqSpine (Setlec.pureFns μ env g) env d a' b'
+      = .ok true →
+    SortOfLE μ env φ d a' u → SortOfLE μ env φ d b' v → u = v
+
+/-- The `∀`-congruence tier (the Θ-motive proper; `Q`-carrying). -/
+def PiCongTySortAgree (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {g d u v : Nat} {n₁ n₂ : Name} {ty₁ ty₂ body₁ body₂ : Expr}
+    {m₁ m₂ : Setlec.BinderMeta},
+    SubjInv d (.forallE n₁ ty₁ body₁ m₁) →
+    SubjInv d (.forallE n₂ ty₂ body₂ m₂) →
+    PairedLeaves (.forallE n₁ ty₁ body₁ m₁)
+      (.forallE n₂ ty₂ body₂ m₂) →
+    Q d (.forallE n₁ ty₁ body₁ m₁) (.forallE n₂ ty₂ body₂ m₂) →
+    (Setlec.pureFns μ env g).defeq d ty₁ ty₂ = .ok true →
+    (Setlec.pureFns μ env g).defeq (d + 1)
+      (body₁.instantiate1 (.fvar d n₁ ty₁))
+      (body₂.instantiate1 (.fvar d n₂ ty₂)) = .ok true →
+    SortOfLE μ env φ d (.forallE n₁ ty₁ body₁ m₁) u →
+    SortOfLE μ env φ d (.forallE n₂ ty₂ body₂ m₂) v → u = v
+
+/-- The application-congruence tier (`Q`-carrying). -/
+def AppCongTySortAgree (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {g d u v : Nat} {f₁ a₁ f₂ a₂ : Expr},
+    SubjInv d (.app f₁ a₁) → SubjInv d (.app f₂ a₂) →
+    PairedLeaves (.app f₁ a₁) (.app f₂ a₂) →
+    Q d (.app f₁ a₁) (.app f₂ a₂) →
+    Setlec.unfoldableHead env (.app f₁ a₁) = false →
+    (Expr.app f₁ a₁).getAppArgs.length =
+      (Expr.app f₂ a₂).getAppArgs.length →
+    (Setlec.pureFns μ env g).defeq d (Expr.app f₁ a₁).getAppFn
+      (Expr.app f₂ a₂).getAppFn = .ok true →
+    Setlec.defEqList (Setlec.pureFns μ env g) env d
+      (Expr.app f₁ a₁).getAppArgs (Expr.app f₂ a₂).getAppArgs
+      = .ok true →
+    SortOfLE μ env φ d (.app f₁ a₁) u →
+    SortOfLE μ env φ d (.app f₂ a₂) v → u = v
+
+/-- The projection-congruence tier (`Q`-carrying). -/
+def ProjCongTySortAgree (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {g d u v i : Nat} {s₁ s₂ : Name} {e₁ e₂ : Expr},
+    SubjInv d (.proj s₁ i e₁) → SubjInv d (.proj s₂ i e₂) →
+    PairedLeaves (.proj s₁ i e₁) (.proj s₂ i e₂) →
+    Q d (.proj s₁ i e₁) (.proj s₂ i e₂) →
+    (Setlec.pureFns μ env g).defeq d e₁ e₂ = .ok true →
+    SortOfLE μ env φ d (.proj s₁ i e₁) u →
+    SortOfLE μ env φ d (.proj s₂ i e₂) v → u = v
+
+/-- The `Q`-enriched (B) claim; `SortOfAgreeR` is its `Q := True`
+instance. -/
+def SortOfAgreeRQ (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc d : Nat} {a b : Expr} {f₁ f₂ : Nat} {u v : Nat},
+    isDefEqCore μ env fc d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    PairedLeaves a b →
+    Q d a b →
+    sortOfE μ env φ f₁ d a = some u →
+    sortOfE μ env φ f₂ d b = some v →
+    u = v
+
+/-- **(B)'s dual shell**: `SortOfAgreeRQ` from the transport species,
+the three supply chains, and the routed hypotheses — the same
+budget-only cert-loop induction as (A), at the type level. -/
+theorem sortOfAgreeRQ_of {φ : Name → Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hm : KnotFuelMono μ env)
+    (hTC : TypeTransportCoreF μ env) (hTD : TypeTransportDeltaF μ env)
+    (hTN : TypeTransportNatF μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
+    (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
+    (hQN : QPreserveNatF μ env Q)
+    (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
+    (hP : ProbeTySortVacuity μ env) (hR : RescueTySortVacuity μ env)
+    (hLam : LamTySortVacuity μ env)
+    (hZ : NatZeroTySortAgree μ env φ)
+    (hSL : NatSuccLTySortAgree μ env φ)
+    (hSR : NatSuccRTySortAgree μ env φ)
+    (hStL : StrLTySortAgree μ env φ) (hStR : StrRTySortAgree μ env φ)
+    (hF : FvarTySortAgree μ env φ) (hK : ConstTySortAgree μ env φ)
+    (hSp : SpineTySortAgree μ env φ Q)
+    (hPi : PiCongTySortAgree μ env φ Q)
+    (hAp : AppCongTySortAgree μ env φ Q)
+    (hPj : ProjCongTySortAgree μ env φ Q) :
+    SortOfAgreeRQ μ env φ Q := by
+  have main : ∀ (fc L : Nat) {d : Nat} {a b : Expr},
+      Setlec.defeqLoop μ (Setlec.pureFns μ env fc) env d L a b
+        = .ok true →
+      SubjInv d a → SubjInv d b → PairedLeaves a b → Q d a b →
+      ∀ {u v : Nat}, SortOfLE μ env φ d a u →
+        SortOfLE μ env φ d b v → u = v := by
+    intro fc L
+    induction L with
+    | zero => intro d a b hc; exact nomatch hc
+    | succ l ih =>
+      intro d a b hc hIa hIb hPab hQab u v hu hv
+      rw [defeqLoop_succ] at hc
+      rcases defeqStep_decompose hc with rfl | ⟨a', b', hwa, hwb, hcert⟩
+      · exact SortOfLE_det hm hu hv
+      have hIa' := hIC hwa hIa
+      have hIb' := hIC hwb hIb
+      have hu' := sortOfLE_step_core hTC hwa hIa hu
+      have hv' := sortOfLE_step_core hTC hwb hIb hv
+      have hPab' : PairedLeaves a' b' :=
+        ((hLC hwb ((hLC hwa hPab).symm)).symm)
+      have hQab' : Q d a' b' := hQs (hQC hwb (hQs (hQC hwa hQab)))
+      cases hcert with
+      | syn => exact SortOfLE_det hm hu' hv'
+      | irrel _ _ hpi =>
+        obtain ⟨ℓ, hW, -⟩ := sortOfLE_iff_typeWhnfLE.1 hu'
+        exact (hP hIa' hpi hW).elim
+      | natL _ _ a₂ hrn hk =>
+        exact ih hk (hIN hrn hIa') hIb' (hLN hrn hPab')
+          (hQN hrn hQab') (sortOfLE_step_nat hTN hrn hIa' hu') hv'
+      | natR _ _ b₂ hrnA hrnB hk =>
+        exact ih hk hIa' (hIN hrnB hIb')
+          ((hLN hrnB hPab'.symm).symm)
+          (hQs (hQN hrnB (hQs hQab'))) hu'
+          (sortOfLE_step_nat hTN hrnB hIb' hv')
+      | deltaL _ _ a₂ hud hk =>
+        exact ih hk (hID hud hIa') hIb' (hLD hud hPab')
+          (hQD hud hQab') (sortOfLE_step_delta hTD hud hIa' hu') hv'
+      | deltaR _ _ b₂ hud hk =>
+        exact ih hk hIa' (hID hud hIb')
+          ((hLD hud hPab'.symm).symm)
+          (hQs (hQD hud (hQs hQab'))) hu'
+          (sortOfLE_step_delta hTD hud hIb' hv')
+      | deltaB _ _ a₂ b₂ hua hub hk =>
+        exact ih hk (hID hua hIa') (hID hub hIb')
+          ((hLD hub ((hLD hua hPab').symm)).symm)
+          (hQs (hQD hub (hQs (hQD hua hQab'))))
+          (sortOfLE_step_delta hTD hua hIa' hu')
+          (sortOfLE_step_delta hTD hub hIb' hv')
+      | spine _ _ hs => exact hSp hIa' hIb' hQab' hs hu' hv'
+      | sorts u' v' hiseq =>
+        rw [sortOfLE_sort_out hm hu', sortOfLE_sort_out hm hv',
+          Level.isEquiv_sound hiseq φ]
+      | lits _ => exact SortOfLE_det hm hu' hv'
+      | natZeroL => exact hZ hu' hv'
+      | natZeroR _ => exact (hZ hv' hu').symm
+      | natSuccL n x hd => exact hSL hd hu' hv'
+      | natSuccR n x hua hd => exact hSR hua hd hu' hv'
+      | strL st cO usO x hd => exact hStL hd hu' hv'
+      | strR st cO usO x hua hd => exact hStR hua hd hu' hv'
+      | fvars i n₁ n₂ ty₁ ty₂ => exact hF hIa' hIb' hPab' hu' hv'
+      | consts n us us' hua hiseq => exact hK hua hiseq hu' hv'
+      | piCong n₁ n₂ ty₁ ty₂ body₁ body₂ m₁ m₂ hd hbody =>
+        exact hPi hIa' hIb' hPab' hQab' hd hbody hu' hv'
+      | lamCong n₁ n₂ ty₁ ty₂ body₁ body₂ m₁ m₂ hd hbody =>
+        obtain ⟨ℓ, hW, -⟩ := sortOfLE_iff_typeWhnfLE.1 hu'
+        exact (hLam hW).elim
+      | appCong f₁ a₁ f₂ a₂ hua hlen hdf hdl =>
+        exact hAp hIa' hIb' hPab' hQab' hua hlen hdf hdl hu' hv'
+      | projCong s₁ s₂ i e₁ e₂ hd =>
+        exact hPj hIa' hIb' hPab' hQab' hd hu' hv'
+      | etaL n₁ ty₁ body₁ m₁ b₂ he =>
+        obtain ⟨ℓ, hW, -⟩ := sortOfLE_iff_typeWhnfLE.1 hu'
+        exact (hLam hW).elim
+      | etaR _ n₂ ty₂ body₂ m₂ he =>
+        obtain ⟨ℓ, hW, -⟩ := sortOfLE_iff_typeWhnfLE.1 hv'
+        exact (hLam hW).elim
+      | rescue _ _ hsi =>
+        obtain ⟨ℓ, hW, -⟩ := sortOfLE_iff_typeWhnfLE.1 hu'
+        exact (hR hIa' hsi hW).elim
+  intro fc d a b f₁ f₂ u v hc hwsa hba hLa hwsb hbb hLb hp hQ h₁ h₂
+  cases fc with
+  | zero => exact nomatch hc
+  | succ fc =>
+    rw [Setlec.isDefEqCore_succ] at hc
+    exact main fc Setlec.defeqLoopFuel hc
+      (SubjInv.of_pair hwsa hba hLa hp)
+      (SubjInv.of_pair_right hwsb hbb hLb hp) hp hQ
+      (SortOfLE_of_run h₁) (SortOfLE_of_run h₂)
+
+/-- The slot-free (B) shell: `SortOfAgreeR` as the `Q := True`
+instance. -/
+theorem sortOfAgreeR_of {φ : Name → Nat}
+    (hm : KnotFuelMono μ env)
+    (hTC : TypeTransportCoreF μ env) (hTD : TypeTransportDeltaF μ env)
+    (hTN : TypeTransportNatF μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
+    (hP : ProbeTySortVacuity μ env) (hR : RescueTySortVacuity μ env)
+    (hLam : LamTySortVacuity μ env)
+    (hZ : NatZeroTySortAgree μ env φ)
+    (hSL : NatSuccLTySortAgree μ env φ)
+    (hSR : NatSuccRTySortAgree μ env φ)
+    (hStL : StrLTySortAgree μ env φ) (hStR : StrRTySortAgree μ env φ)
+    (hF : FvarTySortAgree μ env φ) (hK : ConstTySortAgree μ env φ)
+    (hSp : SpineTySortAgree μ env φ fun _ _ _ => True)
+    (hPi : PiCongTySortAgree μ env φ fun _ _ _ => True)
+    (hAp : AppCongTySortAgree μ env φ fun _ _ _ => True)
+    (hPj : ProjCongTySortAgree μ env φ fun _ _ _ => True) :
+    SortOfAgreeR μ env φ := by
+  intro fc d a b f₁ f₂ u v hc hwsa hba hLa hwsb hbb hLb hp h₁ h₂
+  exact sortOfAgreeRQ_of (Q := fun _ _ _ => True) hm hTC hTD hTN
+    hIC hID hIN hLC hLD hLN
+    (fun _ h => h) (fun _ h => h) (fun _ h => h) (fun h => h)
+    hP hR hLam hZ hSL hSR hStL hStR hF hK hSp hPi hAp hPj
+    hc hwsa hba hLa hwsb hbb hLb hp trivial h₁ h₂
+
 end Discharge
 
 end Setlec.SetR.Interp2
