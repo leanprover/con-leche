@@ -7308,3 +7308,21 @@ collapse broke:
 Feasibility pilots to mechanize first (B5-style, before any motive is
 re-signed): the graded beta step at both product kinds, and the
 slot-pinning lemma at a positive-codomain telescope.
+
+## Second soundness, seal 1 — `AnnotOk2` with its metatheory and the graded β step
+
+`Annot/Ok2.lean`: the invariant as architected (kinded app slots, the
+λ fibre package at the node's own annotation), its clause equations,
+the substitution pair (`AnnotOk2_liftN`/`AnnotOk2_inst` — the
+`AnnotOkV` proofs transposed verbatim onto `Interp2/Kit.lean`'s
+rewrites; the two upgraded components ride the same congruences), the
+β/ζ form `AnnotOk2_inst0`, and the capstone:
+
+    AnnotOk2_beta_pos : v ≠ 0 → AnnotOk2 ρ (.app (.lam v A b) a) →
+      ⟦.app (.lam v A b) a⟧ = ⟦b.inst a⟧ ∧ AnnotOk2 ρ (b.inst a)
+
+— **both `RedS2` conjuncts of the β case from the subject's invariant
+alone, no argument re-check**, at a provably-positive codomain kind.
+The family-2 removal's core theorem, now in full (Pilot's
+`graded_beta_pos` was its value-level kernel).  The kind-`0` residue
+stands per #49/#73.
