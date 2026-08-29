@@ -8892,3 +8892,34 @@ certified against a nat-stepping right" — structurally a sibling of
 the (A) shell (same budget-only descent, terminal cases colliding
 nat-shapes with sort-shapes).  The discharge seal should build it on
 the shell's skeleton.
+
+### The nat routing DISCHARGED — and the right disjunct dissolved first
+
+Setting up the discharge found one more simplification before any
+induction was built: **the right disjunct dissolves** — the dual
+shell holds the *given run of each side*, so the routing restates
+one-sided (`NatStepNoSort`: core-fact + nat-step + sort-run on one
+subject → `False`, cert dropped entirely) and every `.inr` site
+applies it with the b-side's own run.  The scoped cert-loop
+induction was never needed; the run-mirror principle deleted it
+before it was written — fourth deletion of this kind.
+
+Landed and proved: `NatStepNoSort` (+ shell re-sited),
+`BoolCtorsInert` (the ledgered env fact, exactly the two
+delta-inertness equations the chase consumes),
+`whnfCore_lit_run`/`whnfCore_const_run` (value-branch runs),
+`natOpResult_shape` (a by_cases chain — `split_ifs` is Mathlib-only
+and iterated `split` melts on the Name-eq instances; recorded as a
+recipe note), `reduceNat_some_shape` (outputs are literals or the
+two `Bool` constants), and the discharge
+
+    theorem natStepNoSort_of : BoolCtorsInert env → NatStepNoSort μ env
+
+— the given run's own trichotomy at the head-normal form:
+delta/terminal legs collide with the nat-step by determinism; the
+nat leg's target is a literal or `Bool` constant, all whnf-inert
+(the `Bool` legs by the env fact), colliding with the literal-sort
+convergence.  `ensureSortAgreeR_of_pss` re-states the shell on the
+three PSS routings + spine + the env fact.
+
+Remaining routings: the PSS trio, `SpineSortAgree`.

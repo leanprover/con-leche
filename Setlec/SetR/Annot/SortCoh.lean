@@ -1326,25 +1326,18 @@ def EtaSortVacuity (μ : CheckMode) (env : Env) : Prop :=
       = .ok (.sort ℓ) →
     False
 
-/-- Nat-chase routing: a subject certified against — or itself — a
-nat-steppable head cannot whnf-converge to a literal sort (nat steps
-produce literals and `Bool` constants, which are sort-free).  The
-cert run is included so the discharger has the full configuration;
-both sides are covered by the disjunction. -/
-def NatSortVacuity (μ : CheckMode) (env : Env) : Prop :=
-  ∀ {fc l d g g' la f₁ f₂ : Nat} {a b a' b' x : Expr} {ℓ : Level},
-    Setlec.defeqLoop μ (Setlec.pureFns μ env fc) env d l a b
-      = .ok true →
-    whnfCore μ env f₁ d a = .ok a' →
-    whnfCore μ env f₂ d b = .ok b' →
-    (Setlec.reduceNat (Setlec.pureFns μ env g) env d a'
-        = .ok (some x) ∨
-     Setlec.reduceNat (Setlec.pureFns μ env g) env d b'
-        = .ok (some x)) →
-    Setlec.whnfLoop (Setlec.pureFns μ env g') env d la a
+/-- Nat-chase routing, one-sided (the right disjunct of the earlier
+form dissolved: the dual shell holds the *given run of each side*, so
+the hypothesis applies per side with that side's own run — the
+run-mirror principle; no cert-loop induction needed): a subject whose
+head-normal form nat-steps cannot whnf-converge to a literal sort. -/
+def NatStepNoSort (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {g g' l f d : Nat} {e e' x : Expr} {ℓ : Level},
+    whnfCore μ env f d e = .ok e' →
+    Setlec.reduceNat (Setlec.pureFns μ env g) env d e' = .ok (some x) →
+    Setlec.whnfLoop (Setlec.pureFns μ env g') env d l e
       = .ok (.sort ℓ) →
     False
-
 /-! ## Run positivity and terminal extraction -/
 
 /-- Successful runs consume fuel: the zero-fuel knot throws. -/
@@ -1598,7 +1591,7 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
     {φ : Name → Nat}
     (hm : KnotFuelMono μ env)
     (hP : ProbeSortVacuity μ env) (hR : RescueSortVacuity μ env)
-    (hE : EtaSortVacuity μ env) (hN : NatSortVacuity μ env)
+    (hE : EtaSortVacuity μ env) (hN : NatStepNoSort μ env)
     (hS : SpineSortAgree μ env φ) :
     EnsureSortAgreeR μ env φ := by
   have hdet := KnotFuelDet_of_mono hm
@@ -1644,7 +1637,7 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
           (whnfLoop_det hm ha (loop_align hm hb hwb hwa))]
       | irrel _ _ hpi => exact (hP hwa hpi ha).elim
       | natL _ _ a₂ hrn hk =>
-        exact (hN hc0 hwa hwb (Or.inl hrn) ha).elim
+        exact (hN hwa hrn ha).elim
       | natR _ _ b₂ hrnA hrnB hk =>
         have hb₂ : Setlec.whnfLoop (Setlec.pureFns μ env gb) env d
             lb' b₂ = .ok (.sort ℓb) := by
@@ -1697,7 +1690,7 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
         have hb' := loop_align hm hb hwb hbcore
         rcases htriA with ⟨x, hrx, hkx⟩ | ⟨hrga, x, hux, hkx⟩ |
           ⟨hrga, huda, hstop⟩
-        · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+        · exact (hN hwa hrx ha).elim
         · rw [hu] at hux
           obtain rfl : a₂ = x := Option.some.inj hux
           exact ih hk hkx hb'
@@ -1705,12 +1698,12 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
       | deltaR _ _ b₂ hu hk =>
         rcases htriB with ⟨y, hry, hkyb⟩ | ⟨hrgb, y, huy, hkyb⟩ |
           ⟨hrgb, hudb, hstop⟩
-        · exact (hN hc0 hwa hwb (Or.inr hry) ha).elim
+        · exact (hN hwb hry hb).elim
         · rw [hu] at huy
           obtain rfl : b₂ = y := Option.some.inj huy
           rcases htriA with ⟨x, hrx, hkx⟩ | ⟨hrga, x, hux, hkx⟩ |
             ⟨hrga, huda, hstop⟩
-          · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+          · exact (hN hwa hrx ha).elim
           · have hA : Setlec.whnfLoop (Setlec.pureFns μ env (max fc ga))
                 env d (la' + 1) a' = .ok (.sort ℓa) := by
               rw [whnfLoop_succ]
@@ -1733,12 +1726,12 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
       | deltaB _ _ a₂ b₂ hua hub hk =>
         rcases htriA with ⟨x, hrx, hkx⟩ | ⟨hrga, x, hux, hkx⟩ |
           ⟨hrga, huda, hstop⟩
-        · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+        · exact (hN hwa hrx ha).elim
         · rw [hua] at hux
           obtain rfl : a₂ = x := Option.some.inj hux
           rcases htriB with ⟨y, hry, hkyb⟩ | ⟨hrgb, y, huy, hkyb⟩ |
             ⟨hrgb, hudb, hstop⟩
-          · exact (hN hc0 hwa hwb (Or.inr hry) ha).elim
+          · exact (hN hwb hry hb).elim
           · rw [hub] at huy
             obtain rfl : b₂ = y := Option.some.inj huy
             exact ih hk hkx hkyb
@@ -1769,7 +1762,7 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
       | natSuccR n x hua hd =>
         rcases htriA with ⟨x', hrx, hkx⟩ | ⟨hrga, x', hux, hkx⟩ |
           ⟨hrga, huda, hstop⟩
-        · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+        · exact (hN hwa hrx ha).elim
         · rw [unfoldDefinition_none_of_not_unfoldable hua] at hux
           exact nomatch hux
         · exact nomatch hstop
@@ -1779,7 +1772,7 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
       | strR st cO usO x hua hd =>
         rcases htriA with ⟨x', hrx, hkx⟩ | ⟨hrga, x', hux, hkx⟩ |
           ⟨hrga, huda, hstop⟩
-        · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+        · exact (hN hwa hrx ha).elim
         · rw [unfoldDefinition_none_of_not_unfoldable hua] at hux
           exact nomatch hux
         · exact nomatch hstop
@@ -1799,7 +1792,7 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
       | appCong f₁ a₁ f₂ a₂ hua hlen hdf hdl =>
         rcases htriA with ⟨x', hrx, hkx⟩ | ⟨hrga, x', hux, hkx⟩ |
           ⟨hrga, huda, hstop⟩
-        · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
+        · exact (hN hwa hrx ha).elim
         · rw [unfoldDefinition_none_of_not_unfoldable hua] at hux
           exact nomatch hux
         · exact nomatch hstop
@@ -4051,9 +4044,272 @@ slots.) -/
 theorem ensureSortAgreeR_of_vacuities {μ : CheckMode} {env : Env}
     {φ : Name → Nat}
     (hP : ProbeSortVacuity μ env) (hR : RescueSortVacuity μ env)
-    (hE : EtaSortVacuity μ env) (hN : NatSortVacuity μ env)
+    (hE : EtaSortVacuity μ env) (hN : NatStepNoSort μ env)
     (hS : SpineSortAgree μ env φ) :
     EnsureSortAgreeR μ env φ :=
   ensureSortAgreeR_of (knotFuelMono μ env) hP hR hE hN hS
+
+/-! ## The nat-chase discharge -/
+
+/-- The env-side fact the chase needs (ledger; install-tier supplier):
+the comparison ops' output constants are delta-inert. -/
+def BoolCtorsInert (env : Env) : Prop :=
+  Setlec.unfoldDefinition env (.const Setlec.boolTrueName []) = none ∧
+  Setlec.unfoldDefinition env (.const Setlec.boolFalseName []) = none
+
+/-- Literals re-core to themselves (value branch). -/
+theorem whnfCore_lit_run {μ : CheckMode} {env : Env} {f d : Nat}
+    {l : Setlec.Literal} (hf : 1 ≤ f) :
+    whnfCore μ env f d (.lit l) = .ok (.lit l) := by
+  cases f with
+  | zero => exact nomatch hf
+  | succ f => rw [Setlec.whnfCore_succ]; rfl
+
+/-- Constants re-core to themselves (value branch). -/
+theorem whnfCore_const_run {μ : CheckMode} {env : Env} {f d : Nat}
+    {n : Name} {us : List Level} (hf : 1 ≤ f) :
+    whnfCore μ env f d (.const n us) = .ok (.const n us) := by
+  cases f with
+  | zero => exact nomatch hf
+  | succ f => rw [Setlec.whnfCore_succ]; rfl
+
+/-- `natOpResult` outputs are literals or the two `Bool` constants. -/
+theorem natOpResult_shape {c : Name} {a b : Nat} {e : Expr}
+    (h : Setlec.natOpResult c a b = some e) :
+    (∃ n, e = .lit (.natVal n)) ∨
+      e = .const Setlec.boolTrueName [] ∨
+      e = .const Setlec.boolFalseName [] := by
+  rw [Setlec.natOpResult.eq_def] at h
+  by_cases h1 : c = Setlec.natPredName
+  · rw [if_pos h1] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h1] at h
+  by_cases h2 : c = Setlec.natAddName
+  · rw [if_pos h2] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h2] at h
+  by_cases h3 : c = Setlec.natSubName
+  · rw [if_pos h3] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h3] at h
+  by_cases h4 : c = Setlec.natMulName
+  · rw [if_pos h4] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h4] at h
+  by_cases h5 : c = Setlec.natPowName
+  · rw [if_pos h5] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h5] at h
+  by_cases h6 : c = Setlec.natDivName
+  · rw [if_pos h6] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h6] at h
+  by_cases h7 : c = Setlec.natModName
+  · rw [if_pos h7] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h7] at h
+  by_cases h8 : c = Setlec.natGcdName
+  · rw [if_pos h8] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h8] at h
+  by_cases h9 : c = Setlec.natLandName
+  · rw [if_pos h9] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h9] at h
+  by_cases h10 : c = Setlec.natLorName
+  · rw [if_pos h10] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h10] at h
+  by_cases h11 : c = Setlec.natXorName
+  · rw [if_pos h11] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h11] at h
+  by_cases h12 : c = Setlec.natShiftLeftName
+  · rw [if_pos h12] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h12] at h
+  by_cases h13 : c = Setlec.natShiftRightName
+  · rw [if_pos h13] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h13] at h
+  by_cases h14 : c = Setlec.natLog2Name
+  · rw [if_pos h14] at h
+    exact .inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h14] at h
+  by_cases hbeq : c = Setlec.natBeqName
+  · rw [if_pos hbeq] at h
+    by_cases hab : a = b
+    · rw [if_pos hab] at h
+      exact .inr (.inl (Option.some.inj h).symm)
+    · rw [if_neg hab] at h
+      exact .inr (.inr (Option.some.inj h).symm)
+  rw [if_neg hbeq] at h
+  by_cases hble : c = Setlec.natBleName
+  · rw [if_pos hble] at h
+    by_cases hab : a ≤ b
+    · rw [if_pos hab] at h
+      exact .inr (.inl (Option.some.inj h).symm)
+    · rw [if_neg hab] at h
+      exact .inr (.inr (Option.some.inj h).symm)
+  rw [if_neg hble] at h
+  exact nomatch h
+
+/-- `reduceNat`'s rewrites are literals or the two `Bool`
+constants. -/
+theorem reduceNat_some_shape {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM} {d : Nat} {e x : Expr}
+    (h : Setlec.reduceNat r env d e = .ok (some x)) :
+    (∃ n, x = .lit (.natVal n)) ∨
+      x = .const Setlec.boolTrueName [] ∨
+      x = .const Setlec.boolFalseName [] := by
+  unfold Setlec.reduceNat at h
+  split at h
+  · next c a =>
+    by_cases h1 : c = Setlec.natSuccName ∧ Setlec.natLitSupported env
+    · rw [if_pos h1] at h
+      simp only [Bind.bind, Except.bind] at h
+      cases hw : r.whnf d a with
+      | error err => rw [hw] at h; exact nomatch h
+      | ok w =>
+        rw [hw] at h
+        simp only [] at h
+        split at h
+        · next n heq =>
+          obtain rfl := (Option.some.inj (Except.ok.inj h)).symm
+          exact .inl ⟨_, rfl⟩
+        · exact nomatch h
+    · rw [if_neg h1] at h
+      by_cases h2 : c = Setlec.natPredName ∧
+          Setlec.natOpGuard env c = true
+      · rw [if_pos h2] at h
+        simp only [Bind.bind, Except.bind] at h
+        cases hw : r.whnf d a with
+        | error err => rw [hw] at h; exact nomatch h
+        | ok w =>
+          rw [hw] at h
+          simp only [] at h
+          split at h
+          · next n heq => exact natOpResult_shape (Except.ok.inj h)
+          · exact nomatch h
+      · rw [if_neg h2] at h
+        by_cases h3 : c = Setlec.natLog2Name ∧
+            Setlec.natOpGuard env c = true
+        · rw [if_pos h3] at h
+          simp only [Bind.bind, Except.bind] at h
+          cases hw : r.whnf d a with
+          | error err => rw [hw] at h; exact nomatch h
+          | ok w =>
+            rw [hw] at h
+            simp only [] at h
+            split at h
+            · next n heq => exact natOpResult_shape (Except.ok.inj h)
+            · exact nomatch h
+        · rw [if_neg h3] at h
+          by_cases h4 : c = Setlec.natLog2Name ∧
+              Setlec.natLitSupported env
+          · rw [if_pos h4] at h
+            simp only [Bind.bind, Except.bind] at h
+            cases hw : r.whnf d a with
+            | error err => rw [hw] at h; exact nomatch h
+            | ok w =>
+              rw [hw] at h
+              simp only [] at h
+              split at h
+              · next n heq => exact nomatch h
+              · exact nomatch h
+          · rw [if_neg h4] at h
+            exact nomatch h
+  · next c a b =>
+    by_cases h1 : (c = Setlec.natAddName ∨ c = Setlec.natSubName ∨
+        c = Setlec.natMulName ∨ c = Setlec.natPowName ∨
+        c = Setlec.natBeqName ∨ c = Setlec.natBleName ∨
+        c = Setlec.natDivName ∨ c = Setlec.natModName ∨
+        c = Setlec.natGcdName ∨ c = Setlec.natLandName ∨
+        c = Setlec.natLorName ∨ c = Setlec.natXorName ∨
+        c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName) ∧
+        Setlec.natOpGuard env c = true
+    · rw [if_pos h1] at h
+      simp only [Bind.bind, Except.bind] at h
+      cases hwa : r.whnf d a with
+      | error err => rw [hwa] at h; exact nomatch h
+      | ok wa =>
+        rw [hwa] at h
+        simp only [] at h
+        cases hwb : r.whnf d b with
+        | error err => rw [hwb] at h; exact nomatch h
+        | ok wb =>
+          rw [hwb] at h
+          simp only [] at h
+          split at h
+          · next n₁ n₂ heq₁ heq₂ =>
+            exact natOpResult_shape (Except.ok.inj h)
+          all_goals exact nomatch h
+    · rw [if_neg h1] at h
+      by_cases h2 : Setlec.natOpWfNames.contains c ∧
+          Setlec.natLitSupported env
+      · rw [if_pos h2] at h
+        simp only [Bind.bind, Except.bind] at h
+        cases hwa : r.whnf d a with
+        | error err => rw [hwa] at h; exact nomatch h
+        | ok wa =>
+          rw [hwa] at h
+          simp only [] at h
+          cases hwb : r.whnf d b with
+          | error err => rw [hwb] at h; exact nomatch h
+          | ok wb =>
+            rw [hwb] at h
+            simp only [] at h
+            split at h
+            all_goals exact nomatch h
+      · rw [if_neg h2] at h
+        exact nomatch h
+  · exact nomatch h
+
+/-- **The `NatStepNoSort` discharge** (with the env fact
+hypothesized): the nat step's target is a literal or `Bool` constant,
+all of which are whnf-inert — colliding with the given
+literal-sort convergence. -/
+theorem natStepNoSort_of {μ : CheckMode} {env : Env}
+    (hB : BoolCtorsInert env) : NatStepNoSort μ env := by
+  intro g g' l f d e e' x ℓ hwc hrn hrun
+  have hdet := knotFuelDet μ env
+  have hm := knotFuelMono μ env
+  cases l with
+  | zero => exact nomatch hrun
+  | succ l =>
+  rw [whnfLoop_succ] at hrun
+  obtain ⟨e₁, hwc', htri⟩ := whnfStep_decompose hrun
+  obtain rfl : e' = e₁ :=
+    (hdet.2.2.1 (hwc' : whnfCore μ env g' d e = .ok e₁) hwc).symm
+  rcases htri with ⟨y, hry, hk⟩ | ⟨hry, y, huy, hk⟩ | ⟨hry, huy, hstop⟩
+  · have h1 := hm.2.2.2.2 (Nat.le_max_left g' g) hry
+    have h2 := hm.2.2.2.2 (Nat.le_max_right g' g) hrn
+    rw [h1] at h2
+    obtain rfl : y = x := Option.some.inj (Except.ok.inj h2)
+    rcases reduceNat_some_shape hry with ⟨n, rfl⟩ | rfl | rfl
+    · exact nomatch (loop_stuck_out hm hk
+        (whnfCore_lit_run (Nat.le_refl 1))
+        (fun _ => reduceNat_lit) unfoldDefinition_lit)
+    · exact nomatch (loop_stuck_out hm hk
+        (whnfCore_const_run (Nat.le_refl 1))
+        (fun _ => reduceNat_const) hB.1)
+    · exact nomatch (loop_stuck_out hm hk
+        (whnfCore_const_run (Nat.le_refl 1))
+        (fun _ => reduceNat_const) hB.2)
+  · have h1 := hm.2.2.2.2 (Nat.le_max_left g' g) hry
+    have h2 := hm.2.2.2.2 (Nat.le_max_right g' g) hrn
+    rw [h1] at h2; exact nomatch h2
+  · have h1 := hm.2.2.2.2 (Nat.le_max_left g' g) hry
+    have h2 := hm.2.2.2.2 (Nat.le_max_right g' g) hrn
+    rw [h1] at h2; exact nomatch h2
+
+/-- The shell, nat routing discharged: conditioned on the three PSS
+routings, the spine unknown, and the env fact. -/
+theorem ensureSortAgreeR_of_pss {μ : CheckMode} {env : Env}
+    {φ : Name → Nat} (hB : BoolCtorsInert env)
+    (hP : ProbeSortVacuity μ env) (hR : RescueSortVacuity μ env)
+    (hE : EtaSortVacuity μ env) (hS : SpineSortAgree μ env φ) :
+    EnsureSortAgreeR μ env φ :=
+  ensureSortAgreeR_of_vacuities hP hR hE (natStepNoSort_of hB) hS
 
 end Setlec.SetR.Interp2
