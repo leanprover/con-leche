@@ -120,6 +120,25 @@ theorem ofConv {Δ : List VExpr} {A tA tA' : VExpr} {u : Nat}
 
 end HasSort
 
+/-- A type has sort `v` **up to conversion** — the task-#152-shaped
+fact, and the only `DefEq`-stable spelling (finding A5:
+`HasSort` itself is not `DefEq`-stable, so a cached certificate about
+a checker-computed comparand must carry its link).  `B'` is the
+checker's own body type; `B` is the derivation's. -/
+def HasSortC (μ : CheckMode) (env : Env) (cval : TConstVal)
+    (φ : Name → Nat) (Δ : List VExpr) (B : VExpr) (v : Nat) : Prop :=
+  ∃ B', DefEq μ env cval φ Δ B B' ∧ HasSort μ env cval φ Δ B' v
+
+namespace HasSortC
+
+variable {μ : CheckMode} {env : Env} {cval : TConstVal} {φ : Name → Nat}
+
+theorem ofHasSort {Δ : List VExpr} {B : VExpr} {v : Nat}
+    (h : HasSort μ env cval φ Δ B v) : HasSortC μ env cval φ Δ B v :=
+  ⟨B, DefEq.refl, h⟩
+
+end HasSortC
+
 /-! ## Erasure up to zeta
 
 The pass's erase contract.  `ZetaEq e e'` says `e'` is `e` with some
@@ -184,12 +203,19 @@ inductive Annotates (μ : CheckMode) (env : Env) (cval : TConstVal)
   | app {Δ : List VExpr} {f a : VExpr} {fa aa : AVExpr} :
       Annotates μ env cval φ Δ f fa → Annotates μ env cval φ Δ a aa →
       Annotates μ env cval φ Δ (.app f a) (.app fa aa)
-  /-- I7's cached premise: the domain's sort. -/
-  | lam {Δ : List VExpr} {A b : VExpr} {Aa ba : AVExpr} {u : Nat} :
-      HasSort μ env cval φ Δ A u →
+  /-- I7's cached premise, post-#152: the **codomain** sort — the
+  numeral tier B's `interp2` dispatches on (F4).  The body's type is
+  named by its own `Infer` premise and its sort is carried up to
+  conversion (`HasSortC`), which is exactly the shape the amended I7
+  supplies at the chain's innermost binder and `hasSortC_pi_of`
+  propagates outward.  The domain's sort is no longer cached: no
+  consumer reads it (the A3 ruling's follow-up, taken here). -/
+  | lam {Δ : List VExpr} {A b B : VExpr} {Aa ba : AVExpr} {v : Nat} :
+      Infer μ env cval φ (A :: Δ) b B →
+      HasSortC μ env cval φ (A :: Δ) B v →
       Annotates μ env cval φ Δ A Aa →
       Annotates μ env cval φ (A :: Δ) b ba →
-      Annotates μ env cval φ Δ (.lam A b) (.lam u Aa ba)
+      Annotates μ env cval φ Δ (.lam A b) (.lam v Aa ba)
   /-- I6's two cached premises: the domain's and the opened body's
   sorts. -/
   | pi {Δ : List VExpr} {A B : VExpr} {Aa Ba : AVExpr} {u v : Nat} :
@@ -226,7 +252,7 @@ theorem zetaEq {Δ : List VExpr} {e : VExpr} {ea : AVExpr}
   | sort => exact .sort
   | const => exact .const
   | app _ _ ihf iha => exact .app ihf iha
-  | lam _ _ _ ihA ihb => exact .lam ihA ihb
+  | lam _ _ _ _ ihA ihb => exact .lam ihA ihb
   | pi _ _ _ _ ihA ihB => exact .pi ihA ihB
   | zeta _ ih => exact .zeta ih
   | eqE _ _ _ ihT iha ihb => exact .eqE ihT iha ihb
@@ -298,8 +324,15 @@ discharges. -/
 The `AnnotOkV`-analogue: the [set] shadow of `EnvSHyp.annot_okV`. -/
 def CvalAnnot (μ : CheckMode) (env : Env) (cval : TConstVal)
     (φ : Name → Nat) : Prop :=
-  ∀ (n : Name) (ψ : Name → Nat) (Δ : List VExpr),
-    ∃ ea, Annotates μ env cval φ Δ (cval n ψ) ea
+  (∀ (n : Name) (ψ : Name → Nat) (Δ : List VExpr),
+    ∃ ea, Annotates μ env cval φ Δ (cval n ψ) ea) ∧
+  -- λ-shaped stored valuations have sorted types (front-door
+  -- `ensureSort`; the field a future `EnvS` component discharges,
+  -- like the annotation clause above)
+  (∀ (n : Name) (ψ : Name → Nat) (Δ : List VExpr) (T : VExpr),
+    μ.verified = true → (cval n ψ).isLam = true →
+    Infer μ env cval φ Δ (cval n ψ) T →
+    ∃ v, HasSortC μ env cval φ Δ T v)
 
 namespace CvalAnnot
 
@@ -309,17 +342,17 @@ variable {μ : CheckMode} {env : Env} {cval : TConstVal} {φ : Name → Nat}
 theorem natLitV (h : CvalAnnot μ env cval φ) (Δ : List VExpr) (n : Nat) :
     ∃ ea, Annotates μ env cval φ Δ (Setlec.SetR.natLitV cval φ n) ea := by
   simp only [Setlec.SetR.natLitV]
-  exact Annotates.natLitT (h _ _ Δ) (h _ _ Δ) n
+  exact Annotates.natLitT (h.1 _ _ Δ) (h.1 _ _ Δ) n
 
 /-- I5's subject. -/
 theorem strLitT (h : CvalAnnot μ env cval φ) (Δ : List VExpr) (s : String) :
     ∃ ea, Annotates μ env cval φ Δ (Setlec.TTVerify.strLitT cval env φ s) ea := by
   simp only [Setlec.TTVerify.strLitT]
-  exact Annotates.app_exists (h _ _ Δ)
+  exact Annotates.app_exists (h.1 _ _ Δ)
     (Annotates.charListT
-      (Annotates.app_exists (h _ _ Δ) (h _ _ Δ))
-      (Annotates.app_exists (h _ _ Δ) (h _ _ Δ))
-      (h _ _ Δ) (h _ _ Δ) (h _ _ Δ) s.toList)
+      (Annotates.app_exists (h.1 _ _ Δ) (h.1 _ _ Δ))
+      (Annotates.app_exists (h.1 _ _ Δ) (h.1 _ _ Δ))
+      (h.1 _ _ Δ) (h.1 _ _ Δ) (h.1 _ _ Δ) s.toList)
 
 end CvalAnnot
 
@@ -353,15 +386,32 @@ section Existence
 
 variable {μ : CheckMode} {env : Env} {cval : TConstVal} {φ : Name → Nat}
 
-/-- **The existence theorem for `Infer`**: the subject of an inference
-has an annotation, all of whose binder sorts are justified by
-sub-derivations of that very inference. -/
-theorem Infer.annotates (hcv : CvalAnnot μ env cval φ) {Δ : List VExpr}
+/-- The λ-chain sort propagation (`hasSort_pi_of`'s `HasSortC` form):
+what the amended I7 supplies at the innermost binder, this carries to
+the enclosing binders. -/
+theorem hasSortC_pi_of {Δ : List VExpr} {A B tA : VExpr} {u v : Nat}
+    (hA : Infer μ env cval φ Δ A tA)
+    (hu : DefEq μ env cval φ Δ tA (.sort u))
+    (hB : HasSortC μ env cval φ (A :: Δ) B v) :
+    HasSortC μ env cval φ Δ (.pi A B) (imax u v) := by
+  obtain ⟨B', hlink, tB, hBI, hBD⟩ := hB
+  exact ⟨.pi A B', DefEq.piCong DefEq.refl hlink,
+    .sort (imax u v), Infer.pi hA hu hBI hBD, DefEq.refl⟩
+
+/-- **The existence theorem for `Infer`** (verified mode): the subject
+of an inference has an annotation, all of whose binder numerals are
+justified by sub-derivations of that very inference — codomain sorts
+by the amended I7's own premises at chain-innermost binders and by the
+`hasSortC_pi_of` induction at the outer ones. -/
+theorem Infer.annotates (hver : μ.verified = true)
+    (hcv : CvalAnnot μ env cval φ) {Δ : List VExpr}
     {e T : VExpr} (h : Infer μ env cval φ Δ e T) :
     ∃ ea, Annotates μ env cval φ Δ e ea := by
-  refine Infer.rec
+  refine (Infer.rec
     (motive_1 := fun _ _ _ _ => True)
-    (motive_2 := fun Δ e _ _ => ∃ ea, Annotates μ env cval φ Δ e ea)
+    (motive_2 := fun Δ e T _ =>
+      (∃ ea, Annotates μ env cval φ Δ e ea) ∧
+      (e.isLam = true → ∃ v, HasSortC μ env cval φ Δ T v))
     (motive_3 := fun _ _ _ _ => True)
     (motive_4 := fun Δ _ as _ _ =>
       ∀ a ∈ as, ∃ aa, Annotates μ env cval φ Δ a aa)
@@ -371,52 +421,78 @@ theorem Infer.annotates (hcv : CvalAnnot μ env cval φ) {Δ : List VExpr}
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
     ?_ ?_
     ?_ ?_
-    h
+    h).1
   all_goals try (intros; exact trivial)
   -- I1 `sort`
   · intros
-    exact ⟨.sort _, .sort⟩
+    exact ⟨⟨.sort _, .sort⟩, fun hl => nomatch hl⟩
   -- I2 `bvar`
   · intros
-    exact ⟨.bvar _, .bvar⟩
+    exact ⟨⟨.bvar _, .bvar⟩, fun hl => nomatch hl⟩
   -- I3 `const`
   · intros
-    exact hcv _ _ _
+    rename_i hf hlen hden hcl
+    exact ⟨hcv.1 _ _ _, fun hl =>
+      hcv.2 _ _ _ _ hver hl (Infer.const hf hlen hden hcl)⟩
   -- I4 `litNat`
   · intros
-    exact hcv.natLitV _ _
+    rename_i n hsup
+    refine ⟨hcv.natLitV _ _, fun hl => ?_⟩
+    have h0 : natLitV cval φ 0
+        = cval natZeroName (Level.substFn φ [] []) := rfl
+    cases n with
+    | zero =>
+      rw [h0] at hl
+      exact hcv.2 natZeroName _ _ _ hver hl (h0 ▸ Infer.litNat hsup)
+    | succ m =>
+      simp only [natLitV, Setlec.TTVerify.natLitT, VExpr.isLam] at hl
+      exact nomatch hl
   -- I5 `litStr`
   · intros
-    exact hcv.strLitT _ _
+    refine ⟨hcv.strLitT _ _, fun hl => ?_⟩
+    simp only [Setlec.TTVerify.strLitT, VExpr.isLam] at hl
+    exact nomatch hl
   -- I6 `pi`
   · intros
     rename_i hA hu hB hv ihA _ ihB _
-    obtain ⟨Aa, hAa⟩ := ihA
-    obtain ⟨Ba, hBa⟩ := ihB
-    exact ⟨.pi _ _ Aa Ba, .pi ⟨_, hA, hu⟩ ⟨_, hB, hv⟩ hAa hBa⟩
-  -- I7 `lam`
+    obtain ⟨Aa, hAa⟩ := ihA.1
+    obtain ⟨Ba, hBa⟩ := ihB.1
+    exact ⟨⟨.pi _ _ Aa Ba, .pi ⟨_, hA, hu⟩ ⟨_, hB, hv⟩ hAa hBa⟩,
+      fun hl => nomatch hl⟩
+  -- I7 `lam`: the codomain sort — from the amended rule's own
+  -- premises at the chain's innermost binder, from the body's
+  -- induction hypothesis at the outer ones
   · intros
-    rename_i hA hu _ _ _ _ ihA _ ihb _ _ _
-    obtain ⟨Aa, hAa⟩ := ihA
-    obtain ⟨ba, hba⟩ := ihb
-    exact ⟨.lam _ Aa ba, .lam ⟨_, hA, hu⟩ hAa hba⟩
+    rename_i Δ' A b _ B _ _ _ _ hA hu hb hlink hIB hIv ihA _ ihb _ _ _
+    obtain ⟨Aa, hAa⟩ := ihA.1
+    obtain ⟨ba, hba⟩ := ihb.1
+    have hSC : ∃ v', HasSortC μ env cval φ (A :: Δ') B v' := by
+      by_cases hbl : b.isLam = true
+      · exact ihb.2 hbl
+      · have hbl' : b.isLam = false := by
+          simpa using hbl
+        exact ⟨_, ⟨_, hlink hver hbl',
+          _, hIB hver hbl', hIv hver hbl'⟩⟩
+    obtain ⟨v', hSCv⟩ := hSC
+    exact ⟨⟨.lam v' Aa ba, .lam hb hSCv hAa hba⟩,
+      fun _ => ⟨_, hasSortC_pi_of hA hu hSCv⟩⟩
   -- I8 `app`
   · intros
     rename_i ihf _ iha _
-    obtain ⟨fa, hfa⟩ := ihf
-    obtain ⟨aa, haa⟩ := iha
-    exact ⟨.app fa aa, .app hfa haa⟩
+    obtain ⟨fa, hfa⟩ := ihf.1
+    obtain ⟨aa, haa⟩ := iha.1
+    exact ⟨⟨.app fa aa, .app hfa haa⟩, fun hl => nomatch hl⟩
   -- I9 `proj`
   · intros
     rename_i ihp _
-    obtain ⟨pa, hpa⟩ := ihp
-    exact ⟨.proj _ pa, .proj hpa⟩
+    obtain ⟨pa, hpa⟩ := ihp.1
+    exact ⟨⟨.proj _ pa, .proj hpa⟩, fun hl => nomatch hl⟩
   -- I10 `letE` — the zeta clause: the derivation certifies the
   -- contractum, and that annotation *is* the let node's
   · intros
     rename_i ihb
-    obtain ⟨ba, hba⟩ := ihb
-    exact ⟨ba, .zeta hba⟩
+    obtain ⟨ba, hba⟩ := ihb.1
+    exact ⟨⟨ba, .zeta hba⟩, fun hl => nomatch hl⟩
   -- `Tele.nil`
   · intros
     rename_i ha
@@ -425,12 +501,13 @@ theorem Infer.annotates (hcv : CvalAnnot μ env cval φ) {Δ : List VExpr}
   · intros
     rename_i iha _ ihs x hx
     rcases List.mem_cons.mp hx with rfl | hx
-    · exact iha
+    · exact iha.1
     · exact ihs x hx
 
 /-- **The existence theorem for `Tele`**: every certified spine argument
 has an annotation. -/
-theorem Tele.annotates (hcv : CvalAnnot μ env cval φ) {Δ : List VExpr}
+theorem Tele.annotates (hver : μ.verified = true)
+    (hcv : CvalAnnot μ env cval φ) {Δ : List VExpr}
     {T : VExpr} {as : List VExpr} {rest : VExpr}
     (h : Tele μ env cval φ Δ T as rest) :
     ∀ a ∈ as, ∃ aa, Annotates μ env cval φ Δ a aa := by
@@ -441,7 +518,7 @@ theorem Tele.annotates (hcv : CvalAnnot μ env cval φ) {Δ : List VExpr}
     | cons ha _ htail =>
       intro x hx
       rcases List.mem_cons.mp hx with rfl | hx
-      · exact ha.annotates hcv
+      · exact ha.annotates hver hcv
       · exact ih htail x hx
 
 end Existence
