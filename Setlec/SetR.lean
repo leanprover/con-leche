@@ -76,6 +76,7 @@ import Setlec.SetR.Annot.Ok2
 import Setlec.SetR.Annot.Spine2
 import Setlec.SetR.Annot.EnvS2
 import Setlec.SetR.Annot.Canon
+import Setlec.SetR.Annot.SimSubst
 import Setlec.SetR.DivModPin
 import Setlec.SetR.StdAxiomKey
 

@@ -7602,3 +7602,31 @@ the next arc, sized like a bridge tier, to be resourced knowingly
 rather than discovered mid-proof.  No instability counterexample
 exists or is expected; the STOP condition was tripped by *cost
 structure*, not by refutation.
+
+## The simulation arc, opened — the STATEMENT seal (constraint 1)
+
+`Annot/SimSubst.lean`: the determinism lemmas (stated early per the
+arc's third constraint — trivial, load-bearing: every UoI the
+relation-level route needed is a rewrite here) and
+**`SortSubstStable`**, the arc's target, consumer-exact and
+trap-tested before any induction:
+
+* *fuel* — defused by hypothesizing both computations' successes at
+  one fuel (no monotonicity consumed);
+* *branch divergence* — the conclusion is numeral equality through
+  the relation's `DefEq` join, never an output-image equation;
+* *unsatisfiable contexts* — **the quantifier decision**: the
+  conclusion holds under `Sat V Δv ρ` only, because the consumer
+  (`Claims2`) is semantic and the relation deliberately has no
+  confluence theorem — `sort_rigid` closes the sort leg exactly
+  there;
+* *the named proof risk* — the case work must keep both sides
+  run-backed; comparing a synthetic substituted derivation to the
+  substituted run is uniqueness-of-inference ground, and reaching for
+  it is the arc's STOP condition.
+
+The statement quantifies the β site's own run facts (the argument's
+infer + defeq — the cert every β site has), the bridge-standard
+syntactic guards, and the context correspondence.  Sealed alone for
+review before the induction (knot-natural boundaries per the
+`checkStepR` decomposition follow).
