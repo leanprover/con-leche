@@ -10,12 +10,27 @@ even the official kernel, together with a machine-checked consistency proof:
 This document records the design decisions. It was distilled from the initial
 project prompt and is updated as decisions evolve.
 
-**See also** `Setlec/TT/DESIGN.md` — the declarative type-theory layer
-(task #74). It is a *separate module hierarchy* with its own design record:
-`Setlec/TT/{Syntax,Subst,Const,Judgment}` import nothing from the checker, and
-`Setlec/TT/Semantics/*` import only `Setlec/SetTheory/*`. Nothing here imports
-it yet; it is the intended future target of the checker's verification, with a
-bridge (denotation of a real `Env`+`Expr` into `VExpr`) still to be built.
+**Where the consistency proof lives** (since task #148 T7, 2026-08-29):
+`Setlec/SetR/*`, whose fourteen `*_R` theorems — `checkDecls_sound_R`,
+`no_proof_of_Empty{,_input}{,_C,_S,_SP}_R`, `checkDecl_sound_R`,
+`no_constant_of_Empty_R` — stand hypothesis-free at exactly
+`[propext, Classical.choice, Quot.sound]`. Its design record is
+`Setlec/SetR/DESIGN.md`.
+
+**Two tiers were retired at T7/T7b, by user ruling.** The direct `Expr`
+set model and its consistency proof (`Setlec/Model/*`, 83 files / 62,992
+lines, invariant `EnvModel`) and the declarative verification lane
+(`Setlec/TTVerify/*`, 50 files / 33,808 lines, invariant `EnvTT`) are
+deleted, together with the `--tt-model` mode the second was stated at.
+The `Setlec/SetR/*` theorems replace both, claim for claim. Prose
+references to those paths elsewhere in this document are historical
+citations. `Setlec/TTVerify/DESIGN.md` is deliberately kept (its §0/§25
+are the house practices); so is the declarative layer
+`Setlec/TT/{Syntax,Subst,Const,Judgment}` + `Setlec/TT/Semantics/*`,
+because `Setlec/SetR/*` consumes `VExpr`, `interp`, `bval` and
+`HasType.const`/`HasType.sound` — see `Setlec/SetR/DESIGN.md` "T7b" for
+the consumer measurement that fixed that boundary. Its design record is
+`Setlec/TT/DESIGN.md`.
 
 **Project goal** (set 2026-08-19): the lean kernel arena *tutorial* tests
 (except those involving custom axioms) are accepted by the checker, and the
@@ -198,7 +213,7 @@ three stay declined by design under the axiom ceiling.
 
 * **Strict layering**: implementation code (`Setlec/Kernel/*`, `Main.lean`)
   must not depend on any module from the theory/verification part
-  (`Setlec/SetTheory/*`, `Setlec/Model/*`, `Setlec/Verify/*`). The
+  (`Setlec/SetTheory/*`, `Setlec/SetR/*`, `Setlec/Verify/*`). The
   verification imports the implementation, never the other way around.
 * Verification is **extrinsic**: alongside each checker function there is a
   certifying variant producing the model-level fact
