@@ -1285,17 +1285,12 @@ chain-transport / PSS seal; nat: the `natOpResult` shape-chase
 seal).  All are consumed by `sortLinkAcrossCertE_of` (the shell,
 next seal). -/
 
-/-- `whnfCore` outputs are head-normal: re-normalizing **at the same
-fuel** is the identity.  Carried obligation (ledger).
-
-Same-fuel by necessity (the discharge scoping caught the ∀-fuel form
-as FALSE): a fuel-`0` rerun always errors, and an iota-stuck rerun
-re-fires the original's own certificate sub-runs, which need the
-original's fuel.  At the same fuel the rerun *mirrors* the original's
-sub-runs call for call; larger fuels come from `KnotFuelMono`. -/
-def WhnfCoreIdem (μ : CheckMode) (env : Env) : Prop :=
-  ∀ {f d : Nat} {e e' : Expr},
-    whnfCore μ env f d e = .ok e' → whnfCore μ env f d e' = .ok e'
+/- `WhnfCoreIdem` was DELETED (R-a ruling): refuted at the strLit
+corner — `projLitToCtor` routes through the stored `String.ofList`,
+a program the stream author controls, so whnfCore outputs are not
+normal forms with respect to whnfCore in any fuel form.  Its
+consumers use `whnfCore_reidem_const` (run-threaded, shape-
+conditioned) and `whnfCore_sort_run` instead. -/
 
 /-- PSS routing: a `proofIrrel`-certified subject cannot
 whnf-converge to a literal sort. -/
@@ -1350,6 +1345,227 @@ def NatSortVacuity (μ : CheckMode) (env : Env) : Prop :=
       = .ok (.sort ℓ) →
     False
 
+/-! ## Run positivity and terminal extraction -/
+
+/-- Successful runs consume fuel: the zero-fuel knot throws. -/
+theorem whnfCore_pos {μ : CheckMode} {env : Env} {f d : Nat}
+    {e e' : Expr} (h : whnfCore μ env f d e = .ok e') : 1 ≤ f := by
+  cases f with
+  | zero => exact nomatch h
+  | succ f => exact Nat.le_add_left 1 f
+
+/-- **Terminal-step extraction**: a successful reduction loop ends
+with a stuck step — its output is a `whnfCore` output at the loop's
+own knot, with the literal no-step facts.  (The whnf-idem half of the
+discharge reruns exactly these.) -/
+theorem whnfLoop_final {env : Env} {r : Setlec.CoreFns Setlec.CheckM}
+    {d : Nat} : ∀ {l : Nat} {e s : Expr},
+    Setlec.whnfLoop r env d l e = .ok s →
+    ∃ x, r.whnfCore d x = .ok s ∧
+      Setlec.reduceNat r env d s = .ok none ∧
+      Setlec.unfoldDefinition env s = none := by
+  intro l
+  induction l with
+  | zero => intro e s h; exact nomatch h
+  | succ l ih =>
+    intro e s h
+    rw [whnfLoop_succ] at h
+    obtain ⟨e₁, hwc, hrest⟩ := whnfStep_decompose h
+    rcases hrest with ⟨e₂, _, hk⟩ | ⟨_, e₂, _, hk⟩ | ⟨hrn, hud, rfl⟩
+    · exact ih hk
+    · exact ih hk
+    · exact ⟨e, hwc, hrn, hud⟩
+
+
+/-! ## R-a: run-threaded partial re-idem (the `WhnfCoreIdem` deletion)
+
+The obligation is gone (refuted at the strLit corner — DESIGN).  What
+the shell's sites actually need: a whnfCore output the *surrounding
+facts show const-headed* re-cores to itself (the proj-strLit path is
+excluded by the shape, so no stored program is ever re-run), plus the
+sort-value case directly.  The shape is derivable at every site from
+the leg's own facts (`reduceNat`-some and `unfoldDefinition`-some
+force const heads). -/
+
+/-- A step target of `unfoldDefinition` is const-headed. -/
+theorem unfoldDefinition_some_head {env : Env} {e x : Expr}
+    (h : Setlec.unfoldDefinition env e = some x) :
+    ∃ n us, e.getAppFn = Setlec.Expr.const n us := by
+  unfold Setlec.unfoldDefinition at h
+  split at h
+  · next n us heq => exact ⟨n, us, heq⟩
+  · exact nomatch h
+
+/-- A subject `reduceNat` rewrites is const-headed. -/
+theorem reduceNat_some_head {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM} {d : Nat} {e x : Expr}
+    (h : Setlec.reduceNat r env d e = .ok (some x)) :
+    ∃ n us, e.getAppFn = Setlec.Expr.const n us := by
+  unfold Setlec.reduceNat at h
+  split at h
+  · next c a => exact ⟨c, [], rfl⟩
+  · next c a b => exact ⟨c, [], rfl⟩
+  · exact nomatch h
+
+/-- Sorts re-core to themselves (value branch). -/
+theorem whnfCore_sort_run {μ : CheckMode} {env : Env} {f d : Nat}
+    {ℓ : Level} (hf : 1 ≤ f) :
+    whnfCore μ env f d (.sort ℓ) = .ok (.sort ℓ) := by
+  cases f with
+  | zero => exact nomatch hf
+  | succ f => rw [Setlec.whnfCore_succ]; rfl
+
+/-- **Run-threaded partial re-idem**: a whnfCore output that is
+const-headed re-cores to itself at the same fuel — by induction on
+the producing run, re-firing the run's own `iotaRec`/cert facts.  The
+proj branches are excluded by the shape, so the strLit corner (the
+refutation) is never entered. -/
+theorem whnfCore_reidem_const {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) :
+    ∀ {f d : Nat} {e e' : Expr} {n : Name} {us : List Level},
+      whnfCore μ env f d e = .ok e' →
+      e'.getAppFn = Setlec.Expr.const n us →
+      whnfCore μ env f d e' = .ok e' := by
+  intro f
+  induction f with
+  | zero => intro d e e' n us h _; exact nomatch h
+  | succ f ih =>
+    intro d e e' n us h hshape
+    rw [Setlec.whnfCore_succ] at h
+    unfold Setlec.whnfCoreBody at h
+    split at h
+    · -- sort
+      obtain rfl : Expr.sort _ = e' := Except.ok.inj h
+      exact nomatch hshape
+    · -- fvar
+      obtain rfl : Expr.fvar _ _ _ = e' := Except.ok.inj h
+      exact nomatch hshape
+    · -- forallE
+      obtain rfl : Expr.forallE _ _ _ _ = e' := Except.ok.inj h
+      exact nomatch hshape
+    · -- lam
+      obtain rfl : Expr.lam _ _ _ _ = e' := Except.ok.inj h
+      exact nomatch hshape
+    · -- const
+      next n' us' =>
+      obtain rfl : Expr.const n' us' = e' := Except.ok.inj h
+      rw [Setlec.whnfCore_succ]
+      rfl
+    · -- lit
+      obtain rfl : Expr.lit _ = e' := Except.ok.inj h
+      exact nomatch hshape
+    · -- app
+      next f₀ a₀ =>
+      cases hwf : (Setlec.pureFns μ env f).whnfCore d f₀ with
+      | error err => rw [hwf] at h; exact nomatch h
+      | ok fw =>
+      rw [hwf] at h
+      simp only [Bind.bind, Except.bind] at h
+      split at h
+      · -- beta path (fw is a λ)
+        next n₁ ty₁ body₁ mb₁ =>
+        cases hinf : (Setlec.pureFns μ env f).infer d a₀ with
+        | error err => rw [hinf] at h; exact nomatch h
+        | ok ta =>
+        rw [hinf] at h
+        simp only [] at h
+        cases hdq : (Setlec.pureFns μ env f).defeq d ta ty₁ with
+        | error err => rw [hdq] at h; exact nomatch h
+        | ok c =>
+        rw [hdq] at h
+        simp only [] at h
+        cases c with
+        | true =>
+          simp only [if_true] at h
+          exact hm.2.2.1 (Nat.le_succ f) (ih h hshape)
+        | false =>
+          simp only [Bool.false_eq_true, if_false] at h
+          obtain rfl : Expr.app (.lam n₁ ty₁ body₁ mb₁) a₀ = e' :=
+            Except.ok.inj h
+          exact nomatch hshape
+      · -- iota path (fw not a λ)
+        rename_i hnelam
+        cases hio : Setlec.iotaRec μ (Setlec.pureFns μ env f) env d
+            (.app fw a₀) with
+        | error err => rw [hio] at h; exact nomatch h
+        | ok o =>
+        rw [hio] at h
+        simp only [] at h
+        cases o with
+        | some e₂ =>
+          exact hm.2.2.1 (Nat.le_succ f) (ih h hshape)
+        | none =>
+          obtain rfl : Expr.app fw a₀ = e' := Except.ok.inj h
+          have hfwshape : fw.getAppFn = Setlec.Expr.const n us := hshape
+          have hfw' := ih hwf hfwshape
+          rw [Setlec.whnfCore_succ]
+          simp only [Setlec.whnfCoreBody, Bind.bind, Except.bind]
+          rw [show (Setlec.pureFns μ env f).whnfCore d fw
+              = .ok fw from hfw']
+          split
+          · next heq => exact nomatch heq
+          · next v heq =>
+            obtain rfl : fw = v := Except.ok.inj heq
+            split
+            · next => exact (hnelam _ _ _ _ rfl).elim
+            · rw [hio]
+              rfl
+    · -- proj
+      next sn i pe =>
+      cases hw1 : (Setlec.pureFns μ env f).whnf d pe with
+      | error err => rw [hw1] at h; exact nomatch h
+      | ok w =>
+      rw [hw1] at h
+      simp only [Bind.bind, Except.bind] at h
+      cases hplc : Setlec.projLitToCtor (Setlec.pureFns μ env f) env
+          d w with
+      | error err => rw [hplc] at h; exact nomatch h
+      | ok w₂ =>
+      rw [hplc] at h
+      simp only [] at h
+      split at h
+      · next entry hfind =>
+        split at h
+        · next c us₂ hfn =>
+          split at h
+          · next hguard =>
+            cases hpc : Setlec.projCert (Setlec.pureFns μ env f) env d
+                w₂ i _ _ entry.numParams with
+            | error err => rw [hpc] at h; exact nomatch h
+            | ok pc =>
+            rw [hpc] at h
+            cases pc with
+            | true =>
+              simp only [if_true] at h
+              cases htc : (if μ.ttChecks then Setlec.projTeleCert
+                  (Setlec.pureFns μ env f) env d c us₂
+                  w₂.getAppArgs else pure true) with
+              | error err => rw [htc] at h; exact nomatch h
+              | ok tc =>
+              rw [htc] at h
+              cases tc with
+              | true =>
+                simp only [if_true] at h
+                exact hm.2.2.1 (Nat.le_succ f) (ih h hshape)
+              | false =>
+                simp only [Bool.false_eq_true, if_false] at h
+                obtain rfl : Expr.proj sn i w₂ = e' := Except.ok.inj h
+                exact nomatch hshape
+            | false =>
+              simp only [Bool.false_eq_true, if_false] at h
+              obtain rfl : Expr.proj sn i w₂ = e' := Except.ok.inj h
+              exact nomatch hshape
+          · obtain rfl : Expr.proj sn i w₂ = e' := Except.ok.inj h
+            exact nomatch hshape
+        · obtain rfl : Expr.proj sn i w₂ = e' := Except.ok.inj h
+          exact nomatch hshape
+      · obtain rfl : Expr.proj sn i w₂ = e' := Except.ok.inj h
+        exact nomatch hshape
+    · -- letE
+      exact hm.2.2.1 (Nat.le_succ f) (ih h hshape)
+    · -- bvar
+      exact nomatch h
+
 /-! ## The dual shell
 
 The primitive after the liveness revert: dual-success (A), by
@@ -1380,7 +1596,7 @@ def SpineSortAgree (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :=
 and the routed hypotheses. -/
 theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
     {φ : Name → Nat}
-    (hm : KnotFuelMono μ env) (hI : WhnfCoreIdem μ env)
+    (hm : KnotFuelMono μ env)
     (hP : ProbeSortVacuity μ env) (hR : RescueSortVacuity μ env)
     (hE : EtaSortVacuity μ env) (hN : NatSortVacuity μ env)
     (hS : SpineSortAgree μ env φ) :
@@ -1454,8 +1670,10 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
         · have hA : Setlec.whnfLoop (Setlec.pureFns μ env (max fc ga))
               env d (la' + 1) a' = .ok (.sort ℓa) := by
             rw [whnfLoop_succ]
+            obtain ⟨nh, ush, hhd⟩ := unfoldDefinition_some_head hux
             exact whnfStep_assemble_delta
-              (hm.2.2.1 (Nat.le_max_left fc ga) (hI hwa))
+              (hm.2.2.1 (Nat.le_max_left fc ga)
+                (whnfCore_reidem_const hm hwa hhd))
               (hm.2.2.2.2 (Nat.le_max_right fc ga) hrga) hux
               (whnfLoop_r_mono hm (Nat.le_max_right fc ga) hkx)
           exact ih hk hA hb₂
@@ -1463,12 +1681,20 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
           have hA : Setlec.whnfLoop (Setlec.pureFns μ env fc) env d
               1 (.sort ℓa) = .ok (.sort ℓa) := by
             rw [whnfLoop_succ]
-            exact whnfStep_assemble_stuck (hI hwa) reduceNat_sort
+            exact whnfStep_assemble_stuck
+              (whnfCore_sort_run (whnfCore_pos hwa)) reduceNat_sort
               unfoldDefinition_sort
           exact ih hk hA hb₂
       | deltaL _ _ a₂ hu hk =>
-        have hb' := loop_align hm hb hwb
-          (hI hwb : whnfCore μ env fc d b' = .ok b')
+        have hbcore : whnfCore μ env fc d b' = .ok b' := by
+          rcases htriB with ⟨y, hry, -⟩ | ⟨-, y, huy, -⟩ | ⟨-, -, hstopB⟩
+          · obtain ⟨nh, ush, hhd⟩ := reduceNat_some_head hry
+            exact whnfCore_reidem_const hm hwb hhd
+          · obtain ⟨nh, ush, hhd⟩ := unfoldDefinition_some_head huy
+            exact whnfCore_reidem_const hm hwb hhd
+          · obtain rfl := hstopB
+            exact whnfCore_sort_run (whnfCore_pos hwb)
+        have hb' := loop_align hm hb hwb hbcore
         rcases htriA with ⟨x, hrx, hkx⟩ | ⟨hrga, x, hux, hkx⟩ |
           ⟨hrga, huda, hstop⟩
         · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
@@ -1488,8 +1714,10 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
           · have hA : Setlec.whnfLoop (Setlec.pureFns μ env (max fc ga))
                 env d (la' + 1) a' = .ok (.sort ℓa) := by
               rw [whnfLoop_succ]
+              obtain ⟨nh, ush, hhd⟩ := unfoldDefinition_some_head hux
               exact whnfStep_assemble_delta
-                (hm.2.2.1 (Nat.le_max_left fc ga) (hI hwa))
+                (hm.2.2.1 (Nat.le_max_left fc ga)
+                  (whnfCore_reidem_const hm hwa hhd))
                 (hm.2.2.2.2 (Nat.le_max_right fc ga) hrga) hux
                 (whnfLoop_r_mono hm (Nat.le_max_right fc ga) hkx)
             exact ih hk hA hkyb
@@ -1497,7 +1725,8 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
             have hA : Setlec.whnfLoop (Setlec.pureFns μ env fc) env d
                 1 (.sort ℓa) = .ok (.sort ℓa) := by
               rw [whnfLoop_succ]
-              exact whnfStep_assemble_stuck (hI hwa) reduceNat_sort
+              exact whnfStep_assemble_stuck
+                (whnfCore_sort_run (whnfCore_pos hwa)) reduceNat_sort
                 unfoldDefinition_sort
             exact ih hk hA hkyb
         · rw [hu] at hudb; exact nomatch hudb
@@ -1591,35 +1820,5 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
     obtain ⟨gb, lb, -, hlb⟩ := whnf_peel h₂
     exact main fc Setlec.defeqLoopFuel hc hla hlb
 
-/-! ## Discharge ingredients for `WhnfCoreIdem` -/
-
-/-- Successful runs consume fuel: the zero-fuel knot throws. -/
-theorem whnfCore_pos {μ : CheckMode} {env : Env} {f d : Nat}
-    {e e' : Expr} (h : whnfCore μ env f d e = .ok e') : 1 ≤ f := by
-  cases f with
-  | zero => exact nomatch h
-  | succ f => exact Nat.le_add_left 1 f
-
-/-- **Terminal-step extraction**: a successful reduction loop ends
-with a stuck step — its output is a `whnfCore` output at the loop's
-own knot, with the literal no-step facts.  (The whnf-idem half of the
-discharge reruns exactly these.) -/
-theorem whnfLoop_final {env : Env} {r : Setlec.CoreFns Setlec.CheckM}
-    {d : Nat} : ∀ {l : Nat} {e s : Expr},
-    Setlec.whnfLoop r env d l e = .ok s →
-    ∃ x, r.whnfCore d x = .ok s ∧
-      Setlec.reduceNat r env d s = .ok none ∧
-      Setlec.unfoldDefinition env s = none := by
-  intro l
-  induction l with
-  | zero => intro e s h; exact nomatch h
-  | succ l ih =>
-    intro e s h
-    rw [whnfLoop_succ] at h
-    obtain ⟨e₁, hwc, hrest⟩ := whnfStep_decompose h
-    rcases hrest with ⟨e₂, _, hk⟩ | ⟨_, e₂, _, hk⟩ | ⟨hrn, hud, rfl⟩
-    · exact ih hk
-    · exact ih hk
-    · exact ⟨e, hwc, hrn, hud⟩
 
 end Setlec.SetR.Interp2

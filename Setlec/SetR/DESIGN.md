@@ -8694,3 +8694,34 @@ as the liveness revert deleted blind construction.  The count of
 caught-undischargeable statements stands at four; all four were
 caught by supplier-side scoping before any consumer relied on a
 discharge.
+
+### R-a executed: `WhnfCoreIdem` deleted; the shell rides run-threaded re-idem
+
+`Annot/SortCoh.lean`: the obligation is gone from the ledger (a
+tombstone comment holds the refutation sketch so no fuel form of
+idempotence returns).  In its place, proved:
+
+* `unfoldDefinition_some_head` / `reduceNat_some_head` — a step
+  target of either is **const-headed** (read off their match
+  patterns);
+* `whnfCore_sort_run` — sorts re-core to themselves (value branch);
+* **`whnfCore_reidem_const`** — a whnfCore output that is
+  const-headed re-cores to itself at the same fuel, by induction on
+  the *producing* run: value branches close by shape; β/ι/ζ-success
+  outputs are recursive outputs (IH + mono); the β-certfail and
+  ι-stuck reruns re-fire the original run's own `infer`/`defeq`/
+  `iotaRec` facts verbatim; every proj branch is excluded by the
+  const-head shape, so the strLit path — the refutation — is never
+  entered.  `KnotFuelMono` is the only obligation consumed.
+
+The shell (`ensureSortAgreeR_of`) lost its `hI` hypothesis: the four
+assemble sites derive the const-head shape from their own leg's fact
+(`unfold`-some at delta legs; the terminal legs are literal sorts via
+`whnfCore_sort_run` + `whnfCore_pos`), and `deltaL` now derives its
+`b'`-core fact per leg of the *given* b-run's trichotomy (nat-some /
+unfold-some ⇒ const-headed ⇒ re-idem; terminal ⇒ sort).  Every fact
+the shell consumes is now either an obligation (`KnotFuelMono`), a
+routed vacuity, or something a given run exhibited.
+
+Remaining discharge tier: `KnotFuelMono`, the three PSS vacuities,
+`NatSortVacuity`, `SpineSortAgree`.
