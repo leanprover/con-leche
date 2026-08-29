@@ -7258,6 +7258,7 @@ they do not become eleventh-hour surprises.  Suppliers are all
 | `CvalAnnot` clause 1 — every stored valuation annotates | `Annot/Pass.lean`, since tier A | install-time: valuations are denoted checked terms |
 | `CvalAnnot` clause 2 — λ-shaped stored valuations have sorted types | `Annot/Pass.lean`, this seal | front-door `ensureSort` (`Checker.lean:272,380`) |
 | `Infer.annotates`/`Tele.annotates` are verified-mode | consumers must hold `μ.verified` | free at `--set-model` |
+| `InferFuelDet` — cross-fuel determinism of `inferTypeCore` | `Annot/SimSubst.lean`, `betaCert_discharge`'s explicit hypothesis (v3 seal) | its own seal: fuel-monotonicity of `coreKnot` by oracle-extension induction — clean because `Kernel/Core.lean` has no tryCatch/orElse; NOTE the banked `*_det` lemmas are *same-fuel only*, do not double-count them |
 
 ## FINDING (filed, not chased): `--no-model` exits 3 on the Std.Time cone
 
@@ -7833,3 +7834,28 @@ sharpens accordingly: the slot package must thread *run evidence*
   (the knot decrements per recursion level, never through results),
   so the induction itself never crosses fuels; only the discharge
   does.
+
+### The v3 rewrite, sealed — and the coordinator's second record (verbatim, as directed)
+
+> "Refutation 2 caught YOUR sealed correction, and my review approved
+> that correction — the ladder's second rung got past both of us, and
+> only the trace-before-statement discipline caught it."
+
+Recorded next to the first, as ruled: neither author review nor
+coordinator review caught rung 2; the *mechanical* discipline (trace
+the base case before the premise reaches the statement) did.  The
+discipline, not the reviewer, is the safeguard.
+
+The rewrite itself (`Annot/SimSubst.lean`): `SortSubstStable` carries
+the v3 premise — `∀ fuel' {ta}, inferTypeCore … a = .ok ta →
+∃ fuelc, isDefEqCore … ta ty = .ok true`; `betaCert_discharge` became
+*purely syntactic* (site cert + `InferFuelDet`, four lines — the
+semantic machinery of the refuted discharge chains went with the
+rungs it served); `InferFuelDet` is the ledger's new carried
+obligation (entry above, with the same-fuel-only caveat on the banked
+determinism lemmas and the no-catch feasibility fact).  Next per the
+approved order: the mechanized countermodel seal (one family, both
+rungs, guarding the final statement), then the induction with the
+defeq-branch first as the named load-bearing risk — STOP condition
+standing: a defeq rule that certifies across a sort boundary is the
+finding of the whole arc.

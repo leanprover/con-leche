@@ -2,8 +2,6 @@ import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.Kinding
 import Setlec.SetR.Annot.EnvS2
 import Setlec.SetR.CtxOkR
-import Setlec.SetR.Bridge.Claims
-import Setlec.SetR.Sound.Main
 import Setlec.Verify.InferLeaves
 
 /-!
@@ -48,18 +46,21 @@ valuation**.
   work must keep both sides run-backed (the simulation invariant
   relates runs to runs, with the relation's `DefEq` only as the
   join), or the hostile ground resurfaces — the arc's STOP condition.
-* **Supplier circularity** (the refinement, post-seal review): the β
-  premise as first sealed was the *run cert* — the argument's
-  inference plus the domain `defeq` — which is exactly the pair of
-  walks rank 2 removes.  Not circular (two-phase structure: migration
-  proves the current checker, removal re-proves gated cases), but
-  phase two would have needed a variant theorem.  Refined to the
-  **semantic form**: the argument's interpretation is a member of the
-  domain's interpretation at satisfying valuations.  Today's supplier
-  is the run cert, discharged by `betaCert_discharge` below
-  (claims-bridge → soundness → membership); the post-removal supplier
-  is the invariant's slot package (`AnnotOk2_redex_fits`).  One
-  theorem, both phases; the supplier swaps under it.
+* **Supplier circularity, and the currency ladder** (two refutation
+  seals — DESIGN, "REFUTATION"/"SECOND REFUTATION"): the β premise as
+  first sealed was the site's *run cert* — supplier-committed, since
+  rank 2 removes those walks.  Two successive semantic weakenings both
+  fell to one countermodel family (sort-blind carriers: unit-likes at
+  `Prop` and `Type 1` sharing `{pt}`): *membership* pins the element,
+  not the type; *type-level interp equality* pins the carrier, not
+  the sort.  The *relational* form dies at `DefEq.trans`'s runless
+  middle.  The surviving currency is **v3**: existence of a
+  certifying defeq *run* — run-shaped yet supplier-swappable (phase
+  one: the site's cert via `betaCert_discharge` + `InferFuelDet`;
+  phase two: the primary typing walk's app-site verdict, which is
+  typing itself and never removed).  The countermodel is excluded
+  because the checker *rejects* its pair: equal shadows, no
+  certifying run.
 
 ## Determinism, stated early
 
@@ -74,7 +75,6 @@ namespace Setlec.SetR.Interp2
 open Setlec.TT Setlec.TTVerify
 open Setlec.SetR
 open Setlec (CheckMode Env Expr Name inferTypeCore whnf)
-open SetTheory
 
 /-! ## Determinism -/
 
@@ -143,63 +143,54 @@ def SortSubstStable (V : Type w) [SetTheory V] : Prop :=
     CtxOkR μ mS.cval env φ d Δv ty →
     ∀ {tyv : VExpr}, denote mS.cval env φ d ty = some tyv →
     ∀ {av : VExpr}, denote mS.cval env φ d a = some av →
-    -- **the β premise, semantic form** (supplier-neutral): the
-    -- argument inhabits the opener's domain at satisfying valuations.
-    -- Today's supplier is the run cert (`betaCert_discharge` below);
-    -- the post-removal supplier is the invariant's slot package
-    -- (`AnnotOk2_redex_fits`/`graded_beta_pos`).  One theorem, both
-    -- phases; the supplier swaps under it.
-    (∀ ρ : Nat → V, Sat V Δv ρ → interp V ρ av ∈ˢ interp V ρ tyv) →
+    -- **the β premise, v3** (the surviving rung of the currency
+    -- ladder — DESIGN, "SECOND REFUTATION"): every inferred type of
+    -- the argument is run-certified convertible to the domain.
+    -- Run-shaped yet supplier-swappable: phase one supplies the β
+    -- site's own cert (`betaCert_discharge` below, via
+    -- fuel-determinism); phase two supplies the primary typing
+    -- walk's app-site verdict — typing itself, never removed.  The
+    -- semantic rungs below this one (membership, type-level interp
+    -- equality) are refuted by the sort-blind-carrier countermodel;
+    -- the relational rung dies at `DefEq.trans`'s runless middle.
+    (∀ (fuel' : Nat) {ta : Expr},
+      inferTypeCore μ env fuel' d a = .ok ta →
+        ∃ fuelc, Setlec.isDefEqCore μ env fuelc d ta ty = .ok true) →
     -- the conclusion: numeral agreement at satisfying valuations
     ∀ ρ : Nat → V, Sat V Δv ρ → v = v'
 
-/-- **The current checker's discharge of the semantic β premise**: the
-run cert every β site has today — the argument's inference and the
-domain `defeq` — bridged and sounded, yields the membership.  This is
-the phase-one supplier; rank 2's removal retires this lemma's use at
-gated sites, never the premise. -/
-theorem betaCert_discharge {V : Type w} [SetTheory V]
-    {μ : CheckMode} {env : Env} (m : EnvR env)
-    (φ : Name → Nat) {fuel : Nat}
-    (henv : EnvSHyp V env m.cval φ)
-    (ihd : DefEqClaimsR μ m φ fuel) (ihi : InferClaimsR μ m φ fuel)
-    {d : Nat} {ty a ta : Expr} {Δv : List VExpr}
+/-- **Cross-fuel determinism of inference**, named as the explicit
+hypothesis the phase-one discharge carries until the knot's
+fuel-monotonicity induction lands (carried-obligations ledger; the
+`CheckStepR` precedent — hypothesize the step, prove it in batches).
+The banked `inferTypeCore_det` above is *same-fuel only*; this is new
+work, clean because `Setlec/Kernel/Core.lean` contains no
+tryCatch/orElse — the bodies never backtrack through errors. -/
+def InferFuelDet (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {f₁ f₂ d : Nat} {e t₁ t₂ : Expr},
+    inferTypeCore μ env f₁ d e = .ok t₁ →
+    inferTypeCore μ env f₂ d e = .ok t₂ → t₁ = t₂
+
+/-- **The current checker's discharge of the v3 β premise**: the run
+cert every β site has today — the argument's inference and the domain
+`defeq` at the site's own fuel — supplies "every inferred type of the
+argument is run-certified convertible to the domain", with
+`InferFuelDet` linking the site's `ta` to the arbitrary-fuel one.
+Purely syntactic: the semantic machinery of the earlier (refuted)
+discharge chains is gone with the rungs it served.  This is the
+phase-one supplier; the phase-two supplier is the primary typing
+walk's app-site verdict — rank 2 retires this lemma's use at gated
+sites, never the premise. -/
+theorem betaCert_discharge {μ : CheckMode} {env : Env}
+    {fuel d : Nat} {ty a ta : Expr}
+    (hdet : InferFuelDet μ env)
     (hinf : inferTypeCore μ env fuel d a = .ok ta)
-    (hdefeq : Setlec.isDefEqCore μ env fuel d ta ty = .ok true)
-    (hwsa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
-    (hLa : Expr.LeavesBounded a)
-    (hwst : Expr.WScoped d ty) (hbt : ty.looseBVarsBounded 0 = true)
-    (hLt : Expr.LeavesBounded ty)
-    (hCa : CtxOkR μ m.cval env φ d Δv a)
-    (hCt : CtxOkR μ m.cval env φ d Δv ty)
-    {tyv : VExpr} (hty : denote m.cval env φ d ty = some tyv)
-    {av : VExpr} (hav : denote m.cval env φ d a = some av) :
-    ∀ ρ : Nat → V, Sat V Δv ρ → interp V ρ av ∈ˢ interp V ρ tyv := by
-  intro ρ hρ
-  -- bridge the inference run
-  obtain ⟨av', tav, hav', htav, T', hIT', hDT'⟩ :=
-    ihi hinf hwsa hba hLa hCa
-  obtain rfl : av = av' := by
-    rw [hav] at hav'
-    exact Option.some.inj hav'
-  -- the inferred type's own guards, for the defeq run
-  have hwsta : Expr.WScoped d ta :=
-    Setlec.inferTypeCore_WScoped m.wf fuel hinf hwsa
-  have hbta : ta.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.wf fuel hinf hwsa hba hLa
-  have hLta : Expr.LeavesBounded ta := fun l hl =>
-    hLa l (Setlec.inferTypeCore_fvarLeaves m.wf fuel hinf hwsa l hl)
-  have hCta : CtxOkR μ m.cval env φ d Δv ta :=
-    CtxOkR.of_subset
-      (fun l hl => Setlec.inferTypeCore_fvarLeaves m.wf fuel hinf hwsa l hl)
-      hCa
-  -- bridge the defeq run
-  have hD := ihd hdefeq hwsta hbta hLta hwst hbt hLt hCta hCt htav hty
-  -- sound both: the membership transports along the equality chain
-  have hmem := (Infer.sound henv hIT' ρ hρ).2
-  have h1 := DefEq.sound henv hDT' ρ hρ
-  have h2 := DefEq.sound henv hD ρ hρ
-  rw [h1, h2] at hmem
-  exact hmem
+    (hdefeq : Setlec.isDefEqCore μ env fuel d ta ty = .ok true) :
+    ∀ (fuel' : Nat) {ta' : Expr},
+      inferTypeCore μ env fuel' d a = .ok ta' →
+        ∃ fuelc, Setlec.isDefEqCore μ env fuelc d ta' ty = .ok true := by
+  intro fuel' ta' hinf'
+  obtain rfl : ta' = ta := hdet hinf' hinf
+  exact ⟨fuel, hdefeq⟩
 
 end Setlec.SetR.Interp2
