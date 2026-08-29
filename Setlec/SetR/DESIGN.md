@@ -8785,3 +8785,19 @@ proof), or a `fun_cases`-driven case tree (the toolchain has
 `pairEtaCert`, `structEtaCertWith`/`structEtaCert`,
 `structUnitCert`, `stuckIrrel`, `litMajorToCtor`, `majorToCtor`,
 `iotaRec`.
+
+### KnotFuelMono batch 2b-ii, part 2: the recipe settled; the eta/unit tier proved
+
+**The compound-pattern recipe is settled** (tried `split` first per
+the ruling; it won): `split at h` substitutes variable-scrutinee
+matches on *both* sides and resolves compound patterns natively
+(non-variable scrutinees yield equations, extra binder at the
+pattern); guards need goal-side `rw [if_pos/neg]`; oracle calls stay
+the cases-lift pattern with `simp only []` for branch-entry iota;
+`ite`-wrapped oracle calls go `by_cases` on the condition with
+`rw … at h ⊢`.  Proved on it: `pairEtaCert_mono`,
+`structUnitCert_mono`, `structEtaCertWith_mono` (the largest cert),
+`structEtaCert_mono`, `stuckIrrel_mono` (the six-probe cascade),
+`litMajorToCtor_mono`.  Remaining in the helper tier: `majorToCtor`,
+`iotaRec`; then the bodies, defeq step/loop, knot chain, public
+projection.

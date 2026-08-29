@@ -2381,6 +2381,336 @@ theorem structEtaProjCerts_mono (hs : CoreSub r₁ r₂) {d : Nat}
       | ctorInfo cv na nb => exact h
       | projInfo entry => exact h
 
+/-- `pairEtaCert` respects the order (the split-both-sides recipe:
+`split at h` handles compound patterns natively; the goal's matches
+split into equation branches that unify with `h`'s or contradict). -/
+theorem pairEtaCert_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
+    {d : Nat} {a b : Expr} {v : Bool}
+    (h : Setlec.pairEtaCert μ r₁ env d a b = .ok v) :
+    Setlec.pairEtaCert μ r₂ env d a b = .ok v := by
+  unfold Setlec.pairEtaCert at h ⊢
+  split at h
+  · next c us pα pβ s₁ s₂ =>
+    split at h
+    · next cvm heq =>
+      simp only [Bind.bind, Except.bind] at h ⊢
+      cases h1 : r₁.infer d b with
+      | error err => rw [h1] at h; exact nomatch h
+      | ok tb =>
+      rw [h1] at h; rw [hs.2.2.1 h1]
+      simp only [] at h ⊢
+      cases h2 : r₁.whnf d tb with
+      | error err => rw [h2] at h; exact nomatch h
+      | ok w =>
+      rw [h2] at h; rw [hs.2.1 h2]
+      simp only [] at h ⊢
+      split at h
+      · next c' us' A B =>
+        split at h
+        · next heq2 =>
+          split at h
+          · next cvr mI rP rr heq3 =>
+            split at h
+            · next hg =>
+              rw [if_pos hg]
+              cases h3 : Setlec.liftFueled "level comparison"
+                  (Level.isEquivList us us') (m := Setlec.CheckM) with
+              | error err => rw [h3] at h; exact nomatch h
+              | ok c₃ =>
+              rw [h3] at h
+              simp only [] at h ⊢
+              split at h
+              · next hc₃ =>
+                rw [if_pos hc₃]
+                cases h4 : r₁.defeq d pα A with
+                | error err => rw [h4] at h; exact nomatch h
+                | ok c₄ =>
+                rw [h4] at h; rw [hs.2.2.2.1 h4]
+                simp only [] at h ⊢
+                split at h
+                · next hc₄ =>
+                  rw [if_pos hc₄]
+                  cases h5 : r₁.defeq d pβ B with
+                  | error err => rw [h5] at h; exact nomatch h
+                  | ok c₅ =>
+                  rw [h5] at h; rw [hs.2.2.2.1 h5]
+                  simp only [] at h ⊢
+                  split at h
+                  · next hc₅ =>
+                    rw [if_pos hc₅]
+                    cases h6 : r₁.defeq d s₁ (.proj c' 0 b) with
+                    | error err => rw [h6] at h; exact nomatch h
+                    | ok c₆ =>
+                    rw [h6] at h; rw [hs.2.2.2.1 h6]
+                    simp only [] at h ⊢
+                    split at h
+                    · next hc₆ =>
+                      rw [if_pos hc₆]
+                      cases h7 : r₁.defeq d s₂ (.proj c' 1 b) with
+                      | error err => rw [h7] at h; exact nomatch h
+                      | ok c₇ =>
+                      rw [h7] at h; rw [hs.2.2.2.1 h7]
+                      simp only [] at h ⊢
+                      split at h
+                      · next hc₇ =>
+                        rw [if_pos hc₇]
+                        split at h
+                        · next htt =>
+                          rw [if_pos htt]
+                          split at h
+                          · next entry heq4 =>
+                            exact projParamCert_mono hs h
+                          · exact h
+                        · next htt =>
+                          rw [if_neg htt]
+                          exact h
+                      · next hc₇ => rw [if_neg hc₇]; exact h
+                    · next hc₆ => rw [if_neg hc₆]; exact h
+                  · next hc₅ => rw [if_neg hc₅]; exact h
+                · next hc₄ => rw [if_neg hc₄]; exact h
+              · next hc₃ => rw [if_neg hc₃]; exact h
+            · next hg => rw [if_neg hg]; exact h
+          · next =>
+            exact h
+        · next =>
+          exact h
+      · next => exact h
+    · next =>
+      exact h
+  · next => exact h
+
+/-- `structUnitCert` respects the order. -/
+theorem structUnitCert_mono (hs : CoreSub r₁ r₂) {d : Nat}
+    {a b : Expr} {v : Bool}
+    (h : Setlec.structUnitCert r₁ env d a b = .ok v) :
+    Setlec.structUnitCert r₂ env d a b = .ok v := by
+  unfold Setlec.structUnitCert at h ⊢
+  simp only [Bind.bind, Except.bind] at h ⊢
+  cases h1 : r₁.infer d a with
+  | error err => rw [h1] at h; exact nomatch h
+  | ok ta =>
+  rw [h1] at h; rw [hs.2.2.1 h1]
+  simp only [] at h ⊢
+  cases h2 : r₁.whnf d ta with
+  | error err => rw [h2] at h; exact nomatch h
+  | ok wta =>
+  rw [h2] at h; rw [hs.2.1 h2]
+  simp only [] at h ⊢
+  split at h
+  · next T us' =>
+    split at h
+    · next cvT caps heq =>
+      split at h
+      · next hg =>
+        rw [if_pos hg]
+        cases h3 : r₁.infer d b with
+        | error err => rw [h3] at h; exact nomatch h
+        | ok tb =>
+        rw [h3] at h; rw [hs.2.2.1 h3]
+        simp only [] at h ⊢
+        cases h4 : r₁.whnf d tb with
+        | error err => rw [h4] at h; exact nomatch h
+        | ok wtb =>
+        rw [h4] at h; rw [hs.2.1 h4]
+        simp only [] at h ⊢
+        cases h5 : r₁.defeq d wta wtb with
+        | error err => rw [h5] at h; exact nomatch h
+        | ok c₅ =>
+        rw [h5] at h; rw [hs.2.2.2.1 h5]
+        simp only [] at h ⊢
+        cases c₅ with
+        | true => exact iotaCerts_mono hs h
+        | false => exact h
+      · next hg => rw [if_neg hg]; exact h
+    · next => exact h
+  · next => exact h
+
+/-- `structEtaCertWith` respects the order. -/
+theorem structEtaCertWith_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
+    {d : Nat} {a b wtb : Expr} {v : Bool}
+    (h : Setlec.structEtaCertWith μ r₁ env d a b wtb = .ok v) :
+    Setlec.structEtaCertWith μ r₂ env d a b wtb = .ok v := by
+  unfold Setlec.structEtaCertWith at h ⊢
+  split at h
+  · next c us hga =>
+    split at h
+    · next cvc cnP cnF heq =>
+      split at h
+      · next hlen =>
+        rw [if_pos hlen]
+        split at h
+        · next T us' hgb =>
+          split at h
+          · next cvT caps heq2 =>
+            split at h
+            · next hg =>
+              rw [if_pos hg]
+              simp only [Bind.bind, Except.bind] at h ⊢
+              cases h3 : Setlec.liftFueled "level comparison"
+                  (Level.isEquivList us us') (m := Setlec.CheckM) with
+              | error err => rw [h3] at h; exact nomatch h
+              | ok c₃ =>
+              rw [h3] at h
+              simp only [] at h ⊢
+              split at h
+              · next hc₃ =>
+                rw [if_pos hc₃]
+                cases h4 : Setlec.iotaCerts r₁ env d
+                    (cvT.type.instantiateLevelParams cvT.levelParams
+                      us') wtb.getAppArgs with
+                | error err => rw [h4] at h; exact nomatch h
+                | ok c₄ =>
+                rw [h4] at h; rw [iotaCerts_mono hs h4]
+                simp only [] at h ⊢
+                split at h
+                · next hc₄ =>
+                  rw [if_pos hc₄]
+                  cases h5 : Setlec.structEtaProjCerts r₁ env d T us'
+                      wtb.getAppArgs b cvT.levelParams
+                      (List.range cnF) with
+                  | error err => rw [h5] at h; exact nomatch h
+                  | ok c₅ =>
+                  rw [h5] at h; rw [structEtaProjCerts_mono hs h5]
+                  simp only [] at h ⊢
+                  split at h
+                  · next hc₅ =>
+                    rw [if_pos hc₅]
+                    cases h6 : Setlec.defEqList r₁ env d
+                        (a.getAppArgs.take cnP) wtb.getAppArgs with
+                    | error err => rw [h6] at h; exact nomatch h
+                    | ok c₆ =>
+                    rw [h6] at h; rw [defEqList_mono hs h6]
+                    simp only [] at h ⊢
+                    split at h
+                    · next hc₆ =>
+                      rw [if_pos hc₆]
+                      by_cases htt : μ.ttChecks = true
+                      · rw [if_pos htt] at h ⊢
+                        cases h7 : Setlec.iotaCerts r₁ env d
+                            (cvc.type.instantiateLevelParams
+                              cvc.levelParams us)
+                            (wtb.getAppArgs ++
+                              (List.range cnF).map fun i =>
+                                Expr.mkAppN
+                                  (.const (Setlec.projFnName T i) us')
+                                  (wtb.getAppArgs ++ [b])) with
+                        | error err => rw [h7] at h; exact nomatch h
+                        | ok c₇ =>
+                        rw [h7] at h; rw [iotaCerts_mono hs h7]
+                        simp only [] at h ⊢
+                        cases c₇ with
+                        | true => exact defEqList_mono hs h
+                        | false => exact h
+                      · rw [if_neg htt] at h ⊢
+                        exact defEqList_mono hs
+                          (by simpa [pure, Except.pure] using h)
+                    · next hc₆ => rw [if_neg hc₆]; exact h
+                  · next hc₅ => rw [if_neg hc₅]; exact h
+                · next hc₄ => rw [if_neg hc₄]; exact h
+              · next hc₃ => rw [if_neg hc₃]; exact h
+            · next hg => rw [if_neg hg]; exact h
+          · next => exact h
+        · next => exact h
+      · next hlen => rw [if_neg hlen]; exact h
+    · next => exact h
+  · next => exact h
+
+/-- `structEtaCert` respects the order. -/
+theorem structEtaCert_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
+    {d : Nat} {a b : Expr} {v : Bool}
+    (h : Setlec.structEtaCert μ r₁ env d a b = .ok v) :
+    Setlec.structEtaCert μ r₂ env d a b = .ok v := by
+  unfold Setlec.structEtaCert at h ⊢
+  simp only [Bind.bind, Except.bind] at h ⊢
+  cases h1 : r₁.infer d b with
+  | error err => rw [h1] at h; exact nomatch h
+  | ok tb =>
+  rw [h1] at h; rw [hs.2.2.1 h1]
+  simp only [] at h ⊢
+  cases h2 : r₁.whnf d tb with
+  | error err => rw [h2] at h; exact nomatch h
+  | ok wtb =>
+  rw [h2] at h; rw [hs.2.1 h2]
+  simp only [] at h ⊢
+  exact structEtaCertWith_mono hs h
+
+/-- `stuckIrrel` respects the order. -/
+theorem stuckIrrel_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
+    {d : Nat} {a b : Expr} {v : Bool}
+    (h : Setlec.stuckIrrel μ r₁ env d a b = .ok v) :
+    Setlec.stuckIrrel μ r₂ env d a b = .ok v := by
+  unfold Setlec.stuckIrrel at h ⊢
+  simp only [Bind.bind, Except.bind] at h ⊢
+  cases h1 : Setlec.pairEtaCert μ r₁ env d a b with
+  | error err => rw [h1] at h; exact nomatch h
+  | ok c₁ =>
+  rw [h1] at h; rw [pairEtaCert_mono hs h1]
+  simp only [] at h ⊢
+  cases c₁ with
+  | true => exact h
+  | false =>
+  cases h2 : Setlec.pairEtaCert μ r₁ env d b a with
+  | error err => rw [h2] at h; exact nomatch h
+  | ok c₂ =>
+  rw [h2] at h; rw [pairEtaCert_mono hs h2]
+  simp only [] at h ⊢
+  cases c₂ with
+  | true => exact h
+  | false =>
+  cases h3 : Setlec.structEtaCert μ r₁ env d a b with
+  | error err => rw [h3] at h; exact nomatch h
+  | ok c₃ =>
+  rw [h3] at h; rw [structEtaCert_mono hs h3]
+  simp only [] at h ⊢
+  cases c₃ with
+  | true => exact h
+  | false =>
+  cases h4 : Setlec.structEtaCert μ r₁ env d b a with
+  | error err => rw [h4] at h; exact nomatch h
+  | ok c₄ =>
+  rw [h4] at h; rw [structEtaCert_mono hs h4]
+  simp only [] at h ⊢
+  cases c₄ with
+  | true => exact h
+  | false =>
+  cases h5 : Setlec.structUnitCert r₁ env d a b with
+  | error err => rw [h5] at h; exact nomatch h
+  | ok c₅ =>
+  rw [h5] at h; rw [structUnitCert_mono hs h5]
+  simp only [] at h ⊢
+  cases c₅ with
+  | true => exact h
+  | false => exact proofIrrel_mono hs h
+
+/-- `litMajorToCtor` respects the order. -/
+theorem litMajorToCtor_mono (hs : CoreSub r₁ r₂) {d : Nat}
+    {e x : Expr}
+    (h : Setlec.litMajorToCtor r₁ env d e = .ok x) :
+    Setlec.litMajorToCtor r₂ env d e = .ok x := by
+  cases e with
+  | lit l =>
+    cases l with
+    | strVal s =>
+      unfold Setlec.litMajorToCtor at h ⊢
+      simp only [] at h ⊢
+      by_cases hsup : Setlec.strLitSupported env = true
+      · rw [if_pos hsup] at h
+        rw [if_pos hsup]
+        exact hs.2.1 h
+      · rw [if_neg hsup] at h
+        rw [if_neg hsup]
+        exact h
+    | natVal n => exact h
+  | sort u => exact h
+  | fvar i n ty => exact h
+  | app f a => exact h
+  | lam n ty b m => exact h
+  | letE n ty v' b => exact h
+  | proj s i e' => exact h
+  | const n us => exact h
+  | forallE n ty b bi => exact h
+  | bvar i => exact h
+
 end MonoHelpers2
 
 end Setlec.SetR.Interp2
