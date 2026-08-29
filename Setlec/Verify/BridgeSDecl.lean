@@ -9,11 +9,11 @@ The tail of the per-declaration composition whose `V`-free bulk is
 simple-structure install (task #82) and the two drivers above it,
 `checkIndOrDirectSF_run` and `checkDeclSharedF_bridge`.
 
-This is in `Setlec/Model/*` for exactly one reason: the direct path's
-inversions (`checkDirect{Ind,Ctor,Rule,Proj}_inv`) live in
-`Setlec/Model/DirectDecl.lean`, reached through `Setlec/Model/DirectWF.lean`.
-Nothing here mentions `V` either — when the direct path is retired (§4
-of the #148 design), the whole file folds into
+This lived in the retired `Setlec/Model/*` for exactly one reason: the
+direct path's inversions (`checkDirect{Ind,Ctor,Rule,Proj}_inv`) lived
+in `Setlec/Model/DirectDecl.lean`.  It was relocated here at task #148
+T6 and the tier was deleted at T7; nothing here mentions `V`, so when
+the direct path itself is retired the whole file folds into
 `Setlec/Verify/BridgeS4.lean`.
 
 One name changed in the split, and only because a private helper cannot
@@ -37,7 +37,7 @@ open Expr EStore
 (`checkDirectProjsS_run`, `checkDirectStructS_run`) lived here and is
 **deleted**: `directStructsEnabled = false` makes the arm that called
 it unreachable, and `directParts?_none` collapses that arm at one
-`rw`.  Deleting it is what removes this file's last dependence on
+`rw`.  Deleting it is what removed this file's last dependence on the retired
 `Setlec/Model/*` and lets it serve both soundness routes
 (task #148 T6). -/
 

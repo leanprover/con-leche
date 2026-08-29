@@ -7055,3 +7055,51 @@ bind `V` through the `(hstd : StdAxiomKeyS V)` hypothesis.  With the
 hypothesis gone their statements no longer mention `V`, so it becomes
 an explicit leading binder — exactly the Model lane's
 `no_proof_of_Empty (V : Type u) [SetTheory V]` shape.
+
+## T7 — the retirement
+
+`Setlec/Model/*` is deleted: **83 files, 62,992 lines**, the direct
+`Expr` set model and its consistency proof.  The root `Setlec.lean`
+drops its sixteen `Setlec.Model.*` imports; `lake build` goes from 424
+jobs to 341.
+
+**The tier was a leaf.**  A reachability scan over the import graph
+from all eight roots (`Setlec.lean`, `Setlec/TT.lean`,
+`Setlec/TTVerify.lean`, `Setlec/SetR.lean`, `Setlec/PinGen/Certs.lean`,
+`Main.lean`, `AnnotateBasis.lean`, `tests/SetlecTests.lean`) found
+**nothing** outside `Setlec/Model/` importing it but the root umbrella,
+and **no module made dead by the deletion** — every genuinely shared,
+`V`-free piece had already been relocated to `Setlec/Verify/*` by tasks
+#123 and #148 T1/T6, which is what made the cut a one-line edit rather
+than a salvage operation.
+
+*Rule: the cost of a retirement is paid before it, in the relocations.
+A tier that can be deleted by removing its imports was already
+retired; the commit only records it.*
+
+**What the deletion costs, stated plainly.**  The direct
+simple-structure install (`Setlec/Kernel/Direct.lean`,
+`directStructsEnabled`) had its set model only in
+`Setlec/Model/Direct*.lean`.  That switch has shipped `false` since
+T0b by user ruling, and both surviving lanes reason about the shipped
+configuration, so **no verdict changes and no theorem weakens** — but
+the direct path's recognition layer and install arm are now *unmodeled
+code behind a `false` switch*, pending their own deletion.  The
+comments in `Setlec/Kernel/Direct.lean` and `Setlec/Kernel/Checker.lean`
+say so.
+
+**Doc pointers.**  Fourteen present-tense references to `Setlec/Model/*`
+(the "Verification: …" headers in `Setlec/Kernel/*`, the "the
+consistency chain covers" claims, `CLAUDE.md`'s layering rule) were
+repointed to `Setlec.SetR.*`.  The ~120 *provenance* references
+("relocated from `Setlec/Model/Extend/Ind.lean`, task #123") were left
+alone: they are the campaign's record of where a lemma came from, and
+rewriting them would erase the history that justifies the file
+boundaries.  *A dangling pointer in a present-tense claim is a defect;
+a dangling pointer in a past-tense provenance note is a citation.*
+
+**The replacement surface** is the fourteen `*_R` theorems of
+`Setlec/SetR/Main.lean`, all hypothesis-free at
+`[propext, Classical.choice, Quot.sound]` (previous §).  Battery after
+the deletion: build warning-free, `lake test`, arena 90/92, e2e 72/72,
+split 11/11, mode flags 10/10, both sweeps as expected, zero sorries.

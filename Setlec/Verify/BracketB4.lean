@@ -17,7 +17,7 @@ tier-two snapshot (`Setlec/Kernel/CheckerS.lean`: `openSnapshotM`,
   `checkThmValPB4_sim`, `checkOpaqueValPB4_sim` and the dispatcher
   `checkDeclSP_sim` — the bracketed drivers simulate the same generic
   fueled `checkDecl` as the unbracketed ones, so the consistency chain
-  (`Setlec/Model/ConsistencyP.lean`) covers the default binary.
+  (`Setlec.SetR.checkDeclsSP_sound_R`) covers the default binary.
 
 The bracket seams are not store extensions (`Ext` carries the tier
 flag and the tier-two prefix), so the walks compose the raw table

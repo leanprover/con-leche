@@ -26,8 +26,8 @@ boolean checks for what is proven to hold):
   happen anyway), and each body passes only well-scoped arguments to
   its recursive calls.
 * The environment half (`EnvWF`) is a hypothesis of the bridge,
-  threaded from the environment model invariant (`EnvModel.wf`)
-  through `Setlec/Verify/Bridge.lean` / `Setlec/Model/BridgeWF.lean` —
+  threaded from the environment invariant (`EnvS.wf`) through
+  `Setlec/Verify/Bridge.lean` / `Setlec/Verify/BridgeWFDecl.lean` —
   the checker only ever calls the core on environments it built
   itself.
 

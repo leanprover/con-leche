@@ -13,8 +13,8 @@ checks against the `_model.iota_j` theorems, the capability checks
 installs.  The core checker (`Setlec/Kernel/Core.lean`,
 `TypeChecker*`) never imports this module; `Setlec/Kernel/Checker.lean`
 consumes it for `checkDecl`'s `indDecl` arm.  Verification:
-`Setlec/Model/Extend/*`, `Setlec/Model/IndInstall.lean`,
-`Setlec/Model/ModeledCaps.lean`.
+`Setlec/SetR/Install/*` and `Setlec/Verify/Extend/*` (set route),
+`Setlec/TTVerify/DeclInd*.lean` (declarative route).
 -/
 
 namespace Setlec

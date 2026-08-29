@@ -10,7 +10,8 @@ over a list of declarations, starting from the empty environment.  The
 entry-point records (`CheckerOps` and its instantiations) and the
 common `checkConstantVal` live in `Setlec/Kernel/CheckerBase.lean`;
 the modeled-inductive install in `Setlec/Kernel/Modeled.lean`.
-Verification: `Setlec.Verify.*` and `Setlec.Model.Consistency`.
+Verification: `Setlec.Verify.*`, `Setlec.SetR.Main` (the set route)
+and `Setlec.TTVerify.Main` (the declarative route).
 -/
 
 namespace Setlec
@@ -22,8 +23,9 @@ variable (mode : CheckMode)
 
 A block recognised by `directParts?` (`Setlec/Kernel/Direct.lean`)
 installs *directly*: no `_model` artifact is consumed, and the
-set-theoretic model is constructed from the constructor telescope
-(`Setlec/Model/DirectTower.lean`).  What is left for this layer are the
+set-theoretic model was constructed from the constructor telescope by
+the retired direct model (`Setlec/Model/*`, deleted at task #148 T7;
+the route ships `false`).  What is left for this layer are the
 reference checks that need inference and definitional equality — the
 per-field universe bound and the definitional pins of the recursor's
 binder domains against the constructor's.
@@ -322,7 +324,8 @@ recursors in the `projFnName` slot family, *not* the Prop-fallback
 elimination templates, which cannot express a dependent field's
 projection; see DESIGN.md, "Projections compose with the existing
 table").  No `_model` artifact is read and none is written; the model
-is constructed at install (`Setlec/Model/Direct*.lean`).  Recognition
+was constructed at install by the retired direct model (deleted at
+task #148 T7; the route ships `false`).  Recognition
 happened in `directParts?`; everything here is a genuine check of the
 declaration, so a failure is a verdict, not a fall-through. -/
 def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :

@@ -28,9 +28,10 @@ their own fuel.  The official kernel's *infer-only* mode is deferred
 until the refinement bridge's fuel-determinism machinery lands
 (DESIGN.md).
 
-Verification: `Setlec.Model.TypeChecker` (claims), `Setlec.Verify.*`
-(inversions), both stated against the bodies with hypotheses about the
-record and discharged by one induction at the knot.
+Verification: `Setlec.SetR.*` and `Setlec.TTVerify.*` (claims),
+`Setlec.Verify.*` (inversions), both stated against the bodies with
+hypotheses about the record and discharged by one induction at the
+knot.
 -/
 
 namespace Setlec

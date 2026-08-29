@@ -7,7 +7,7 @@ import Setlec.Kernel.CheckerS
 (`Setlec/Kernel/CheckerS.lean`) interleave installation and checking:
 each declaration is checked against the environment as it stood before
 it and then pushed.  That is the only shape the consistency chain
-(`Setlec/Model/ConsistencyP.lean`) covers, and it is what the binary
+(`Setlec.SetR.checkDeclsSP_sound_R`) covers, and it is what the binary
 runs by default.
 
 For *investigating* a large stream the interleaving is a nuisance: to

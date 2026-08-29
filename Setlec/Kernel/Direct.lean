@@ -7,8 +7,9 @@ A **simple structure** is a non-recursive, single-constructor,
 index-free inductive with a provably nonzero result sort — parameters
 and dependent fields allowed.  Such a block needs no preprocessor
 `_model` artifact: its set-theoretic model is the iterated dependent
-pair over the field types (`Setlec/Model/DirectTower.lean`), so the
-kernel installs it *directly*, from the reference checks alone.
+pair over the field types (modeled by the retired `Setlec/Model/*`,
+deleted at task #148 T7), so the kernel installs it *directly*, from
+the reference checks alone.
 
 This module holds the **pure** recognition layer.  It is a conservative
 filter: a block that does not match falls through to the modeled path
@@ -271,10 +272,11 @@ The switch exists because a verification lane denotes a stored
 inductive through its checked `_model` artifacts, of which a directly
 installed structure has none; the TTVerify bridge's theorems are stated
 for the switched-off configuration (`CertifiedConfigTT`), and the
-set-lane relation family of task #148 will be too.  Nothing about the
-direct path is deleted — its recognition layer, its install
-(`Setlec/Kernel/Checker.lean`) and its set-theoretic model
-(`Setlec/Model/Direct*.lean`) all stay proved either way.
+set-lane relation family of task #148 will be too.  At the time of the flip nothing
+about the direct path was deleted; **its set-theoretic model went with
+`Setlec/Model/*` at task #148 T7**, so the recognition layer and the
+install (`Setlec/Kernel/Checker.lean`) are now unmodeled code behind a
+`false` switch, pending their own deletion.
 
 **Ships `false` since task #148 T0b (2026-08-27), by user ruling that
 direct-install structures are optional/removable.**  Both verified

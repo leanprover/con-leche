@@ -12,9 +12,10 @@ iteration protocol. Keep it up to date when decisions change.
 * No `sorry`s on master; no new axioms. Consistency proofs stay parametric in
   the `SetTheory` interface.
 * Layering: implementation (`Setlec/Kernel/*`, `Main.lean`) must never import
-  theory/verification modules (`Setlec/SetTheory/*`, `Setlec/Model/*`,
+  theory/verification modules (`Setlec/SetTheory/*`, `Setlec/SetR/*`,
   `Setlec/Verify/*`). Proofs about kernel functions go in `Setlec/Verify/*`;
-  the set-theoretic model and consistency in `Setlec/Model/*`.
+  the set-theoretic model and consistency in `Setlec/SetR/*` (the
+  direct `Setlec/Model/*` tier was retired at task #148 T7).
   Exception (2026-08-24): a *self-contained* verification of a data
   structure (e.g. the arena's WF — invariants + preservation proofs
   importing no other Model/Verify modules) may live with, and be

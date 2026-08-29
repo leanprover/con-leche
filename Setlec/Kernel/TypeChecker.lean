@@ -5,7 +5,8 @@ import Setlec.Kernel.Core
 
 The core bodies (`Setlec.Kernel.Core`) tied together at `CheckM`, with
 no memoization: this instance is the **specification** — all semantic
-verification (`Setlec/Model/*`, `Setlec/Verify/*`) reasons about these
+verification (`Setlec/SetR/*`, `Setlec/TTVerify/*`, `Setlec/Verify/*`)
+reasons about these
 fueled entry points, and the refinement bridge (see DESIGN.md) carries
 every claim over to the memoized instance the checker executes
 (`Setlec.Kernel.TypeCheckerC`).

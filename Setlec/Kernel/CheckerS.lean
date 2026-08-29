@@ -22,7 +22,7 @@ environment-independent: denotations mention no environment) and the
 name index survive.  There is no runtime environment comparison; the
 adequacy of the flush points is what the bridge proves
 (`Setlec/Verify/SimS.lean`, `Setlec/Verify/BridgeS*.lean`,
-`Setlec/Model/ConsistencyS.lean`).
+`Setlec.SetR.checkDeclsS_sound_R`).
 
 The environment *index* (`FEnv`) is built once per declaration and
 maintained across the provisional environments by `FEnv.push` — the
@@ -1630,7 +1630,7 @@ promotion remaps only tier-two expression nodes (the level/name bases
 are the harvest-time table sizes — every reference is below them and
 kept).  Opaques store no value, so nothing is promoted.  Verified:
 `Setlec/Verify/BracketB4.lean` (the seam theory and the driver walks),
-consumed by the consistency chain in `Setlec/Model/ConsistencyP.lean`.
+consumed by the consistency chain at `Setlec.SetR.checkDeclsSP_sound_R`.
 -/
 
 /-- Promote a snapshot index into the ambient (retained) store. -/

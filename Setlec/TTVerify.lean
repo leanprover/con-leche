@@ -73,6 +73,6 @@ Layering: this hierarchy may import `Setlec/TT/*`, `Setlec/Kernel/*`
 and `Setlec/Verify/*`.  The checker never imports it, and
 `Setlec/TT/*` stays checker-free — every adaptation lives here.
 
-Both verification paths coexist: nothing in `Setlec/Model/*` is
+Both verification paths coexist: nothing in `Setlec/SetR/*` is
 replaced or weakened by this one.
 -/

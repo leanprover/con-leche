@@ -17,10 +17,11 @@ only: every intermediate environment the declaration checker calls the
 core operations at (the block-install fold's, the provisional recursor
 self, the projection-install fold's) is shown well-formed from the
 checker's own guards, using the syntactic inversions of
-`Setlec/Model/Extend`.  There is **no runtime well-formedness check**
-anywhere — the consistency layer (`Setlec/Model/ConsistencyC.lean`)
-supplies `EnvWF` of the input environment from the environment model
-(`EnvModel.wf`), which `checkDecl_sound` preserves.
+`Setlec/Verify/Extend/*`.  There is **no runtime well-formedness
+check** anywhere — the consistency layer
+(`Setlec.SetR.checkDeclsC_sound_R`) supplies `EnvWF` of the input
+environment from the environment invariant (`EnvS.wf`), which
+`checkDecl_sound_R` preserves.
 -/
 
 set_option linter.unusedSimpArgs false
