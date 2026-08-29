@@ -6976,3 +6976,82 @@ The transposition is `m.val n ψ ↦ interp V ρ (m.cval n ψ)` throughout,
 plus the `AnnotOkV` packages the Model lane does not carry.  Neither
 argument needs the recursor's *iota* rule — only its typing — which is
 what keeps them independent of the inductive install.
+
+### `StdAxiomKeyS` closes — and the fourteen are hypothesis-free
+
+The last obligation is gone.  Both halves landed in
+`Setlec/SetR/StdAxiomKey.lean` (724 lines), `stdAxiomKeyS` threads at
+`declStepS` in `Bridge/Sound.lean` and `Main.lean`, and every one of
+the fourteen now stands with **no named hypothesis** at exactly
+`[propext, Classical.choice, Quot.sound]`.
+
+**The transposition was three times smaller than the Model source,
+and the reason is `piC`.**  `Model/StdAxioms.lean`'s two forcing
+arguments spend most of their length on *universe scaffolding*: the
+leveled `app_mem`/`lam_mem`/`pi0_mem_univ0` each carry a
+codomain-membership side condition, so eliminating down a four-step
+recursor telescope costs four nested `pi_mem_univ` obligations
+(`hMS`, `hminorU`, `htail`, and the `r1`–`r5` chain that threads
+them).  The `SetR` lane interprets every `VExpr.pi` to the
+*level-free* `piC`, whose `app_mem_piC`, `lamC_mem` and `app_lamC`
+have **no side conditions at all** — so `iff_forces_eqS` is
+`app_mem_piC` five times in a row and `nonemptyVal_forcesS` is four,
+with no scaffolding whatsoever.  315 + 245 Model lines became 67 + 34.
+
+*Rule: when a lane's formers drop an index the source lane carried,
+re-derive the proof rather than transposing it; the index is usually
+paying for side conditions the new lane does not owe.*
+
+**The witnesses are the layer's own constants, and that is what makes
+the keys short.**  `Vf ψ = .const .propext []` and
+`.const .choice [ψ uN]`: closedness, level-invariance and `AnnotOkV`
+are then `trivial`/`rfl`/one `rw`, and only the *membership* obligation
+does work.  The Model lane, having no `VExpr` layer to borrow from,
+has to build `propextVal`/`choiceVal` by hand.
+
+**The `¬¬`/`Nonempty` reconciliation did not resist — it was a
+`prop_ext`.**  `bval .choice us = choiceV V u` abstracts over the
+layer's double negation `piC (piC A fun _ => empty) fun _ => empty`,
+while the checker's pin abstracts over the stored `app NE A`, and
+`lamC_mem` needs the two domains *equal*, not merely equi-inhabited.
+They are equal: both are propositions (`piC_prop_mem_univZero`,
+`nonemptyVal_app_memS`), and both are `pt`-inhabited exactly when `A`
+is — left to right by `exists_mem_of_dneg` + `nonemptyIntroVal_app₂_memS`
++ `mem_univ_zero`, right to left by `nonemptyVal_forcesS` and the
+observation that over an inhabited `A` the domain `piC A fun _ => empty`
+is empty, so the product is vacuously `pt`-inhabited.  `dneg_eq_nonemptyS`
+is the whole reconciliation, eleven lines.
+
+*Rule: when two lanes name the same proposition differently, check
+whether the ambient theory can prove the two names denote the same
+**set** before building a transport between them.  In a `Prop`-as-
+subsingleton model, `prop_ext` turns a bi-implication into an equation,
+and an equation is what the formers' congruence rules want.*
+
+**One shared-tier statement grew.**  `nonempty_shapes` returned the
+`Nonempty` former's `levelParams` but not its type; the set lane needs
+the type to compute the former's denotation (the TT lane never did).
+The conjunct was added in `Setlec/Verify/StdAxiomPin.lean` and the one
+TT consumer destructures it away.  *A shared inversion lemma states
+what its consumers need; a lane that needs more is a reason to widen
+it, not to restate it locally.*
+
+**Two frictions worth keeping:**
+
+* **The `some` may already be gone.**  `denote_*` computations that
+  reduce under a full `simp` (rather than `simp only`) arrive as
+  `<literal> = t`, not `some <literal> = some t`; `obtain rfl := ht`
+  works where `obtain rfl := Option.some.inj ht` fails with a
+  `subst`-shaped error that reads like a malformed proof.
+* **A `def`-named constant blocks `denote_const_nolevelsS`.**  The
+  rewrite is stated at `iffName`/`nonemptyName`; the goal, after
+  `simp` has unfolded the pinned declaration, holds
+  `Name.anonymous.str "Iff"`.  The fix is to state the const
+  denotation as a `have` and `simp only [iffName] at` *it*, then feed
+  it to the main `simp` — the same recipe `denote_propext_typeS` uses.
+
+**Signature note.**  The eight `False`-concluding theorems used to
+bind `V` through the `(hstd : StdAxiomKeyS V)` hypothesis.  With the
+hypothesis gone their statements no longer mention `V`, so it becomes
+an explicit leading binder — exactly the Model lane's
+`no_proof_of_Empty (V : Type u) [SetTheory V]` shape.

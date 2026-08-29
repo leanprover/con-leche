@@ -2,6 +2,7 @@ import Setlec.SetR.Bridge.DeclInd
 import Setlec.SetR.DivModPin
 import Setlec.SetR.Install.ReducePin
 import Setlec.SetR.Install.BasisS
+import Setlec.SetR.StdAxiomKey
 
 /-!
 # The assembly (task #148, T6)
@@ -58,7 +59,7 @@ theorem checkDeclR_sound
 
 theorem foldlM_R
     {μ : CheckMode} {F : Nat}
-    (hstd : StdAxiomKeyS V) :
+     :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       EnvSOk V env →
       ds.foldlM (checkDecl μ (fueledOps μ F)) env = .ok env' →
@@ -73,8 +74,8 @@ theorem foldlM_R
     | ok env1 =>
       rw [hd] at h
       obtain ⟨⟨m⟩, hE⟩ := hm
-      exact foldlM_R hstd ds env1
-        (declStepS divModPinS reducePinS hstd declBasisS
+      exact foldlM_R ds env1
+        (declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
           (declIndS memberKeyS) m hE (checkDeclR_sound m hE hd)) h
 
 end Setlec.SetR

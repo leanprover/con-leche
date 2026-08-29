@@ -77,7 +77,8 @@ theorem iff_shapes {env : Env} {cvA : ConstantVal}
 theorem nonempty_shapes {env : Env} {cvA : ConstantVal}
     (h : stdAxiomOk env cvA = true) (hc : cvA.name = choiceName) :
     (∃ cvN caps, env.find? nonemptyName = some (.indInfo cvN caps) ∧
-      cvN.levelParams = nonemptyA.toConstantVal.levelParams) ∧
+      cvN.levelParams = nonemptyA.toConstantVal.levelParams ∧
+      cvN.type.eraseNames = nonemptyA.toConstantVal.type.eraseNames) ∧
     (∃ cvNi, env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1) ∧
       cvNi.levelParams = nonemptyIntroA.toConstantVal.levelParams ∧
       cvNi.type.eraseNames = nonemptyIntroA.toConstantVal.type.eraseNames) ∧
@@ -95,7 +96,11 @@ theorem nonempty_shapes {env : Env} {cvA : ConstantVal}
     | some ci =>
       rw [hf] at hN
       cases ci with
-      | indInfo cvN caps => exact ⟨cvN, caps, rfl, (matchesPin_invT hN).2⟩
+      | indInfo cvN caps =>
+        refine ⟨cvN, caps, rfl, (matchesPin_invT hN).2, ?_⟩
+        simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+          beq_iff_eq] at hN
+        exact hN.2
       | _ => exact nomatch hN
   · cases hf : env.find? nonemptyIntroName with
     | none => rw [hf] at hNi; exact nomatch hNi

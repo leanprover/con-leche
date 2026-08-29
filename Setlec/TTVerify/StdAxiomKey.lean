@@ -913,7 +913,7 @@ theorem choice_body {env : Env} (m : EnvTT env)
 /-- **`ChoiceKeyTT`, discharged.** -/
 theorem choiceKeyTT : ChoiceKeyTT := by
   intro env m cvA hok hc hfresh
-  obtain ⟨⟨cvN, caps, hfN, hlpN⟩, ⟨cvNi, hfNi, hlpNi, htyNi⟩,
+  obtain ⟨⟨cvN, caps, hfN, hlpN, -⟩, ⟨cvNi, hfNi, hlpNi, htyNi⟩,
     ⟨cvNr, mI, rP, rules, hfNr, hlpNr, htyNr⟩, hmpA⟩ :=
     nonempty_shapes hok hc
   have hlpA : cvA.levelParams = choiceA.levelParams :=
