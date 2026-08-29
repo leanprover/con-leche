@@ -8422,3 +8422,21 @@ outputs of `natOpResult` are delta-inert only if the Bool ctors are
 stored as ctors — whether `natOpGuard` pins that, or an env
 hypothesis must join the (A-T) claims, is decided when the case is
 written.
+
+### (A-T) case tier: the vacuity workhorse and the replay, proved
+
+`Annot/SortCoh.lean`: `loop_stuck_out` — if the subject's whnfCore
+output is inert (the shape facts say no nat step, no unfolding), the
+given loop run *ends there*; every det-vacuous structural case of the
+(A-T) induction closes by colliding this with the given literal-sort
+output (a `forallE`/`lam`/`fvar`/`proj`/`const`-shaped normal form is
+not a sort).  `loop_align` — the syn-splice: two subjects with one
+whnfCore output share every continuation, so the given run replays on
+the other subject at a lifted knot fuel, same budget (decompose,
+det-align the head, reassemble each trichotomy branch with the mono
+obligation).  These two plus the shape facts and `isEquiv_sound` are
+the complete supplier set for the shell's proved tier (syn, sorts,
+and all det-vacuous structural constructors); what remains for the
+shell seal is the induction plumbing (guard preservation through
+re-entries), the re-entry cases themselves, and the PSS-routed
+hypotheses (probe/rescue/etaR).

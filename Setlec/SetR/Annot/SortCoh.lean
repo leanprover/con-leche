@@ -1178,4 +1178,67 @@ theorem unfoldDefinition_lit {l : Setlec.Literal} :
 
 end Shapes
 
+/-! ## The (A-T) case tier — the vacuity workhorse and the replay
+
+`loop_stuck_out` closes every det-vacuous structural case in one
+move: the given run's own first step is read against the shape facts,
+so a subject whose whnfCore output is inert *is* the run's output —
+colliding with the given literal-sort output.  `loop_align` is the
+syn-splice: two subjects with one whnfCore output share every
+continuation, so the given run replays on the other subject. -/
+
+/-- If the subject's whnfCore output is inert (no nat step, no
+unfolding), the loop run ends there. -/
+theorem loop_stuck_out {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) {g l d f : Nat} {a s a' : Expr}
+    (h : Setlec.whnfLoop (Setlec.pureFns μ env g) env d l a = .ok s)
+    (hwc : whnfCore μ env f d a = .ok a')
+    (hrn : ∀ g' : Nat,
+      Setlec.reduceNat (Setlec.pureFns μ env g') env d a' = .ok none)
+    (hud : Setlec.unfoldDefinition env a' = none) : s = a' := by
+  cases l with
+  | zero => exact nomatch h
+  | succ l =>
+    rw [whnfLoop_succ] at h
+    obtain ⟨e₁, hwc', hrest⟩ := whnfStep_decompose h
+    obtain rfl : e₁ = a' :=
+      (KnotFuelDet_of_mono hm).2.2.1
+        (hwc' : whnfCore μ env g d a = .ok e₁) hwc
+    rcases hrest with ⟨e₂, hrn', _⟩ | ⟨_, e₂, hud', _⟩ | ⟨_, _, rfl⟩
+    · rw [hrn g] at hrn'; exact nomatch (Except.ok.inj hrn')
+    · rw [hud] at hud'; exact nomatch hud'
+    · rfl
+
+/-- **The replay**: if `b` whnfCores to the same head-normal form as
+`a`, the given loop run on `a` reproduces on `b` (at a lifted knot
+fuel, same budget). -/
+theorem loop_align {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) {g l d f₁ f₂ : Nat} {a b s a₁ : Expr}
+    (h : Setlec.whnfLoop (Setlec.pureFns μ env g) env d l a = .ok s)
+    (hwa : whnfCore μ env f₁ d a = .ok a₁)
+    (hwb : whnfCore μ env f₂ d b = .ok a₁) :
+    Setlec.whnfLoop (Setlec.pureFns μ env (max g f₂)) env d l b
+      = .ok s := by
+  cases l with
+  | zero => exact nomatch h
+  | succ l =>
+    rw [whnfLoop_succ] at h
+    rw [whnfLoop_succ]
+    obtain ⟨e₁, hwc', hrest⟩ := whnfStep_decompose h
+    obtain rfl : a₁ = e₁ :=
+      ((KnotFuelDet_of_mono hm).2.2.1
+        (hwc' : whnfCore μ env g d a = .ok e₁) hwa).symm
+    have hwb' : (Setlec.pureFns μ env (max g f₂)).whnfCore d b
+        = .ok a₁ :=
+      hm.2.2.1 (Nat.le_max_right g f₂) hwb
+    rcases hrest with ⟨e₂, hrn, hk⟩ | ⟨hrn, e₂, hud, hk⟩ | ⟨hrn, hud, rfl⟩
+    · exact whnfStep_assemble_nat hwb'
+        (hm.2.2.2.2 (Nat.le_max_left g f₂) hrn)
+        (whnfLoop_r_mono hm (Nat.le_max_left g f₂) hk)
+    · exact whnfStep_assemble_delta hwb'
+        (hm.2.2.2.2 (Nat.le_max_left g f₂) hrn) hud
+        (whnfLoop_r_mono hm (Nat.le_max_left g f₂) hk)
+    · exact whnfStep_assemble_stuck hwb'
+        (hm.2.2.2.2 (Nat.le_max_left g f₂) hrn) hud
+
 end Setlec.SetR.Interp2
