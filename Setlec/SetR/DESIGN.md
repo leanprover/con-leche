@@ -9143,3 +9143,116 @@ soundness gives sort agreement of certified pairs, the lean4lean
 route, supplied where `EnsureSortAgreeR`'s consumer already lives;
 (iii) install-tier restriction — nothing natural.  The branch
 primitive is otherwise fully discharged.
+
+### The core's supplier RULED: grade (ii), the model tier
+
+The ruling, with the reasoning recorded so the record shows why this
+does not contradict the premise ladder: the ladder refuted
+interp-equality → sort agreement for general TYPES (the sort-blind
+carrier countermodel); `DeltaSpineSortAgree`'s conclusion is about
+literal SORTS, where interp is injective (`univ_inj` — the same fact
+that carried Tier A's unique kinding).  The route: certified pair →
+`DefEqClaimsR` soundness → interp equality; both continuations
+converge to literal sorts with interp preserved along the chain
+(`WhnfClaimsR`, `denote_delta_step`) → `univ u = univ v` →
+`univ_inj` → numerals equal.  The countermodel is consistent: it had
+equal shadows and NO certifying run.  (ii) works precisely where the
+ladder said semantics fails elsewhere.  (i) is evidenced empty (the
+`G`-example: args' cert runs at fresh budgets, β regrowth — no
+decreasing measure); (iii) would be a parity violation.  V-freedom
+of the shell is unaffected: the core rides out as a hypothesis like
+`BoolCtorsInert` and discharges at the consumer where `EnvS` lives.
+
+### FINDING: the claims do not thread denote facts to internal spine subjects
+
+The pre-build check the ruling required, run against the actual
+suppliers by name (`Setlec/SetR/Bridge/Claims.lean`):
+
+* `DefEqClaimsR` and `WhnfClaimsR`/`WhnfCoreClaimsR` are
+  **conditional** on the subject denoting (`∀ {v}, denote … = some v
+  → …`) and on `CtxOkR` at a context Δ;
+* only `InferClaimsR` **establishes** denotedness — and it needs an
+  `inferTypeCore` run plus `CtxOkR` plus the guards;
+* `DeltaSpineSortAgree` carries none of these: no infer runs, no
+  `CtxOkR`, no Δ, no denote facts — `SubjInv` is syntactic.
+
+The internal spine-case subjects are multi-head-step descendants of
+the consumer's framed pair, but the shell's motive does not record
+that descent — so the core, as a closed `∀` over bare runs, is NOT
+dischargeable at the model tier today.  The denotability premise-wish
+the ruling warned about is real; reported, not patched.
+
+**Repair direction (for ruling, not built):** an abstract invariant
+slot.  The `SubjInv` thread is the template: make the shell
+parametric in `P : Expr → Prop` (depth is FIXED along the shell —
+subjects evolve by head steps only, so no depth-evolution in `P`),
+with three P-preservation hypotheses (suppliers at the consumer:
+`WhnfCoreClaimsR` for core steps, `denote_delta_step` for δ —
+"the reduct denotes identically" — and the literal/`Bool` denotes
+for nat), entry through a P-enriched (A)-variant
+(`EnsureSortAgreeRP`), and the spine core receiving `P a'`/`P b'`.
+The consumer instantiates `P := denote-and-CtxOkR-at-its-Δ`;
+V-freedom is preserved by parametricity (the induction never
+inspects `P`).  The P-free `EnsureSortAgreeR` returns as the
+`P := True` instance.
+
+### Two framings recorded (user exchange, via coordinator)
+
+* **The trans-free framing, explicit**: a checker run IS a
+  derivation in the trans-free algorithmic calculus (reduce
+  left/right, congruence, leaves); the relation family keeps `trans`
+  for soundness where interp-equality makes it free.  The back-phase
+  minimization gets a pointer here: name the trans-free relation
+  formally when that phase opens.
+* **The typed-conversion framing**: this coherence family
+  establishes exactly the "defeq preserves same-sortedness along its
+  own recursion" invariant.  An up-front sort check in the checker
+  is barred by parity/no-new-checks; assuming the invariant would
+  not shorten the proof — its preservation IS the induction.
+
+### (B)'s dual-pattern case map (scoped before any induction)
+
+`sortOfE e = some u` unpacks to an infer run + a whnf-to-literal-sort
+run on the inferred type + `eval` (`TypeWhnfLE e (.sort ℓ)` with
+`u = ℓ.eval φ` — `sortOfLE_iff_typeWhnfLE`).  The 25-case read of
+the (A) decomposition, at the type level:
+
+* **Bases**: `syn` (`sortOfE_fuelDet`); `sorts`
+  (`sortOfE_sort_out` + `Level.isEquiv_sound` — arithmetic); `lits`
+  (identical subjects — det, no env fact needed).
+* **Re-entries** (`natL/R`, `deltaL/R/B`): sortOfE stability across
+  the head rewrite = the transport species' sort instances
+  (`TypeTransport*F` via the bridge) + budget recursion — (A)'s
+  skeleton verbatim.
+* **PSS certs** (`irrel`/`rescue`/`etaR`): vacuities one level up —
+  a PSS-certified subject has no successful `sortOfE`; the landed
+  collision machinery discharges them (e.g. irrel: transport
+  `TypeWhnfLE a (.sort ℓu)` one core step, `ta`'s chain pins
+  `uT = .succ ℓu`, `isEquiv uT 0` refuted by eval arithmetic; eta:
+  `forallE` vs sort clash; rescue: the five-way as before).
+* **The congruence tier — (B)'s real content**, each a named routing
+  at its own seal:
+  - `fvars` (same index, own annotations): needs `ty₁ = ty₂` from
+    **cross-pairing**.  DISCOVERY: the (A)-thread's `SubjInv` split
+    (self-pairing per side) deliberately dropped the cross form —
+    harmless in (A) where `fvars` is shape-vacuous, load-bearing in
+    (B).  (B)'s thread must carry `PairedLeaves a b` in pair form,
+    preserved along both sides' head steps jointly (leaf sets only
+    shrink along whnfCore/δ/nat — same preservation species tier).
+  - `consts` (same head, equiv levels, non-unfoldable): one stored
+    type at two equiv level instantiations — level-subst congruence
+    of whnf-to-sort runs; `DeltaSpineSortAgree`'s argless sibling.
+  - `spine` / `appCong`: recursion through the application clause's
+    pi-walk — the spine-core tier.
+  - `piCong`/`lamCong`: subterm recursion with binder opening — the
+    Θ-motive proper (each side opens with its OWN domain; the paired
+    zone carries the domain sub-cert).
+  - mixed nat/str terminals (`natZeroR` etc.): both types are the
+    same basis const (`Nat`/`String`); vacuous or det modulo a
+    basis-type delta-inertness env fact (`BoolCtorsInert`'s sibling;
+    named if/when a case needs it).
+
+**Statement-shape consequence, for the ruling**: (B)'s shell wants
+(1) the pair-form `PairedLeaves` thread and (2) plausibly the same
+abstract `P`-slot as the spine repair — both touch the motive.  Rule
+on both before the (B) build so the motive is threaded once.
