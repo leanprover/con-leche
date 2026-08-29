@@ -4442,4 +4442,453 @@ theorem ensureSortAgreeR_of_pss {μ : CheckMode} {env : Env}
   ensureSortAgreeR_of_vacuities hIC hID hIN hP hR hE
     (natStepNoSort_of hB) hS
 
+/-! ## The trio discharge tier
+
+The recorded recipe, mechanized: the loop assembly
+(`typeTransportLoopF_of`), the collision engine
+(`typeWhnfLE_collide` — spine fact at the head-normal form of a
+sort-converging subject is pinned to the successor sort), and the
+ctor-headed route (`ctorHead_no_sort` — no spine: nat continuation is
+`NatStepNoSort` verbatim, δ is refuted by the ctor head, stuck
+collides an app head with `.sort`). -/
+
+section Discharge
+variable {μ : CheckMode} {env : Env}
+
+/-- The loop assembly: chain transport from the step species plus the
+invariant supply chain, by one budget induction. -/
+theorem typeTransportLoopF_of
+    (hTC : TypeTransportCoreF μ env) (hTD : TypeTransportDeltaF μ env)
+    (hTN : TypeTransportNatF μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env) :
+    TypeTransportLoopF μ env := by
+  intro g l
+  induction l with
+  | zero => intro d e s w h; exact nomatch h
+  | succ l ih =>
+    intro d e s w h hI hT
+    rw [whnfLoop_succ] at h
+    obtain ⟨e₁, hwcg, htri⟩ := whnfStep_decompose h
+    have hwc : whnfCore μ env g d e = .ok e₁ := hwcg
+    have hI₁ := hIC hwc hI
+    have hT₁ := hTC hwc hI hT
+    rcases htri with ⟨x, hrn, hk⟩ | ⟨hrn, x, hud, hk⟩ | ⟨hrn, hud, rfl⟩
+    · exact ih hk (hIN hrn hI₁) (hTN hrn hI₁ hT₁)
+    · exact ih hk (hID hud hI₁) (hTD hud hI₁ hT₁)
+    · exact hT₁
+
+/-- The collision engine. -/
+theorem typeWhnfLE_collide (hm : KnotFuelMono μ env)
+    (hT : TypeTransportLoopF μ env)
+    (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env)
+    {g l f d : Nat} {a a' w : Expr} {ℓ : Level}
+    (hI : SubjInv d a)
+    (hwc : whnfCore μ env f d a = .ok a')
+    (hloop : Setlec.whnfLoop (Setlec.pureFns μ env g) env d l a
+      = .ok (.sort ℓ))
+    (hW : TypeWhnfLE μ env d a' w) : w = .sort (.succ ℓ) := by
+  cases l with
+  | zero => exact nomatch hloop
+  | succ l =>
+    rw [whnfLoop_succ] at hloop
+    obtain ⟨a₁, hwcg, htri⟩ := whnfStep_decompose hloop
+    obtain rfl : a' = a₁ :=
+      ((KnotFuelDet_of_mono hm).2.2.1
+        (hwcg : whnfCore μ env g d a = .ok a₁) hwc).symm
+    have hI₁ : SubjInv d a' := hIC hwc hI
+    rcases htri with ⟨x, hrn, hk⟩ | ⟨hrn, x, hud, hk⟩ | ⟨hrn, hud, rfl⟩
+    · exact TypeWhnfLE_det hm
+        (hT hk (hIN hrn hI₁) (hTN hrn hI₁ hW)) typeWhnfLE_sort
+    · exact TypeWhnfLE_det hm
+        (hT hk (hID hud hI₁) (hTD hud hI₁ hW)) typeWhnfLE_sort
+    · exact TypeWhnfLE_det hm hW typeWhnfLE_sort
+
+/-- Constructor heads never unfold. -/
+theorem unfoldDefinition_ctor_none {c : Name} {us : List Level}
+    {e : Expr} {cv : Setlec.ConstantVal} {nP nF : Nat}
+    (hhd : e.getAppFn = .const c us)
+    (hf : env.find? c = some (.ctorInfo cv nP nF)) :
+    Setlec.unfoldDefinition env e = none := by
+  simp only [Setlec.unfoldDefinition, hhd, hf]
+
+/-- The ctor-headed route: a head-normal form with a stored-inert
+constant head never continues to a sort. -/
+theorem ctorHead_no_sort (hm : KnotFuelMono μ env)
+    (hN : NatStepNoSort μ env)
+    {g l f d : Nat} {a a' : Expr} {c : Name} {us : List Level}
+    {ℓ : Level}
+    (hwc : whnfCore μ env f d a = .ok a')
+    (hloop : Setlec.whnfLoop (Setlec.pureFns μ env g) env d l a
+      = .ok (.sort ℓ))
+    (hhd : a'.getAppFn = .const c us)
+    (hud : Setlec.unfoldDefinition env a' = none) : False := by
+  have h0 := hloop
+  cases l with
+  | zero => exact nomatch hloop
+  | succ l =>
+    rw [whnfLoop_succ] at hloop
+    obtain ⟨a₁, hwcg, htri⟩ := whnfStep_decompose hloop
+    obtain rfl : a' = a₁ :=
+      ((KnotFuelDet_of_mono hm).2.2.1
+        (hwcg : whnfCore μ env g d a = .ok a₁) hwc).symm
+    rcases htri with ⟨x, hrn, hk⟩ | ⟨hrn, x, hud', hk⟩ | ⟨hrn, hud', rfl⟩
+    · exact hN hwc hrn h0
+    · rw [hud] at hud'; exact nomatch hud'
+    · simp [Setlec.Expr.getAppFn] at hhd
+
+/-- Literal sorts are never unit-like (computation leaf). -/
+theorem isUnitLikeTy_sort {ℓ : Level} :
+    Setlec.isUnitLikeTy env (.sort ℓ) = false := rfl
+
+/-- **Eta routing discharged** (against the spine): `etaCert`'s own
+`whnf (infer a')` run lands at a `∀`, which the collision engine pins
+to the successor sort — shape clash. -/
+theorem etaSortVacuity_of (hm : KnotFuelMono μ env)
+    (hT : TypeTransportLoopF μ env)
+    (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env) :
+    EtaSortVacuity μ env := by
+  intro g g' l f d a a' n ty body m ℓ hI hwc hcert hloop
+  unfold Setlec.etaCert at hcert
+  simp only [Bind.bind, Except.bind] at hcert
+  cases hinf : (Setlec.pureFns μ env g).infer d a' with
+  | error err => rw [hinf] at hcert; exact nomatch hcert
+  | ok tb =>
+  rw [hinf] at hcert
+  simp only [] at hcert
+  cases hw : (Setlec.pureFns μ env g).whnf d tb with
+  | error err => rw [hw] at hcert; exact nomatch hcert
+  | ok wtb =>
+  rw [hw] at hcert
+  simp only [] at hcert
+  split at hcert
+  · next n₂ ty₂ body₂ m₂ =>
+    obtain ⟨gw, lw, -, hlw⟩ :=
+      whnf_peel (hw : whnf μ env g d tb = .ok (.forallE n₂ ty₂ body₂ m₂))
+    have hW : TypeWhnfLE μ env d a' (.forallE n₂ ty₂ body₂ m₂) :=
+      ⟨g, tb, hinf, gw, lw, hlw⟩
+    exact nomatch (typeWhnfLE_collide hm hT hTD hTN hIC hID hIN
+      hI hwc hloop hW)
+  · exact nomatch hcert
+
+/-- **Probe routing discharged** (the double spine): the unit check's
+own `whnf ta` run collides to the successor sort, killing the unit
+branch by computation (`isUnitLikeTy_sort`); the sort branch's
+level-2 fact `TypeWhnfLE ta (.sort uT)` transports along `ta`'s own
+whnf chain (entered through `InvPreserveInferF`) onto the successor
+sort, pinning `uT` to a double successor — refuting the cert's
+`isEquiv uT 0` through `Level.isEquiv_sound`. -/
+theorem proofIrrel_no_sort (hm : KnotFuelMono μ env)
+    (hT : TypeTransportLoopF μ env)
+    (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env) (hInf : InvPreserveInferF μ env)
+    {g g' l f d : Nat} {a a' b' : Expr} {ℓ : Level}
+    (hI : SubjInv d a)
+    (hwc : whnfCore μ env f d a = .ok a')
+    (hpi : Setlec.proofIrrel (Setlec.pureFns μ env g) env d a' b'
+      = .ok true)
+    (hloop : Setlec.whnfLoop (Setlec.pureFns μ env g') env d l a
+      = .ok (.sort ℓ)) : False := by
+  unfold Setlec.proofIrrel at hpi
+  simp only [Bind.bind, Except.bind] at hpi
+  cases hinfa : (Setlec.pureFns μ env g).infer d a' with
+  | error err => rw [hinfa] at hpi; exact nomatch hpi
+  | ok ta =>
+  rw [hinfa] at hpi
+  simp only [] at hpi
+  cases hwta : (Setlec.pureFns μ env g).whnf d ta with
+  | error err => rw [hwta] at hpi; exact nomatch hpi
+  | ok wta =>
+  rw [hwta] at hpi
+  simp only [] at hpi
+  have hW1 : TypeWhnfLE μ env d a' wta := by
+    obtain ⟨gw, lw, -, hlw⟩ :=
+      whnf_peel (hwta : whnf μ env g d ta = .ok wta)
+    exact ⟨g, ta, hinfa, gw, lw, hlw⟩
+  obtain rfl : wta = .sort (.succ ℓ) :=
+    typeWhnfLE_collide hm hT hTD hTN hIC hID hIN hI hwc hloop hW1
+  rw [isUnitLikeTy_sort, if_neg Bool.false_ne_true] at hpi
+  cases hinfta : (Setlec.pureFns μ env g).infer d ta with
+  | error err => rw [hinfta] at hpi; exact nomatch hpi
+  | ok sa =>
+  rw [hinfta] at hpi
+  simp only [] at hpi
+  cases hwsa : (Setlec.pureFns μ env g).whnf d sa with
+  | error err => rw [hwsa] at hpi; exact nomatch hpi
+  | ok wsa =>
+  rw [hwsa] at hpi
+  simp only [] at hpi
+  split at hpi
+  · next uT =>
+    -- the second spine application, along `ta`'s own whnf chain
+    have hIta : SubjInv d ta := hInf hinfa (hIC hwc hI)
+    have hW2 : TypeWhnfLE μ env d ta (.sort uT) := by
+      obtain ⟨gs, ls, -, hls⟩ :=
+        whnf_peel (hwsa : whnf μ env g d sa = .ok (.sort uT))
+      exact ⟨g, sa, hinfta, gs, ls, hls⟩
+    obtain ⟨gt, lt, -, hlt⟩ :=
+      whnf_peel (hwta : whnf μ env g d ta = .ok (.sort (.succ ℓ)))
+    have hW3 : TypeWhnfLE μ env d (.sort (.succ ℓ)) (.sort uT) :=
+      hT hlt hIta hW2
+    obtain rfl : uT = .succ (.succ ℓ) :=
+      Setlec.Expr.sort.inj (TypeWhnfLE_det hm hW3 typeWhnfLE_sort)
+    cases hlift : Setlec.liftFueled "level comparison"
+        (Level.isEquiv (.succ (.succ ℓ)) .zero)
+        (m := Setlec.CheckM) with
+    | error err => rw [hlift] at hpi; exact nomatch hpi
+    | ok okA =>
+    rw [hlift] at hpi
+    simp only [] at hpi
+    rw [Setlec.liftFueled.eq_def] at hlift
+    split at hlift
+    · next okA' hEq =>
+      obtain rfl : okA' = okA := by
+        simpa [pure, Except.pure] using hlift
+      cases okA' with
+      | true =>
+        have hev := Level.isEquiv_sound hEq (fun _ => 0)
+        simp only [Setlec.Level.eval] at hev
+        omega
+      | false =>
+        -- the b-side walk: every terminal returns `false` or throws
+        cases hinfb : (Setlec.pureFns μ env g).infer d b' with
+        | error err => rw [hinfb] at hpi; exact nomatch hpi
+        | ok tb =>
+        rw [hinfb] at hpi
+        simp only [] at hpi
+        cases hinftb : (Setlec.pureFns μ env g).infer d tb with
+        | error err => rw [hinftb] at hpi; exact nomatch hpi
+        | ok sb =>
+        rw [hinftb] at hpi
+        simp only [] at hpi
+        cases hwsb : (Setlec.pureFns μ env g).whnf d sb with
+        | error err => rw [hwsb] at hpi; exact nomatch hpi
+        | ok wsb =>
+        rw [hwsb] at hpi
+        simp only [] at hpi
+        split at hpi
+        · next vT =>
+          cases hliftB : Setlec.liftFueled "level comparison"
+              (Level.isEquiv vT .zero) (m := Setlec.CheckM) with
+          | error err => rw [hliftB] at hpi; exact nomatch hpi
+          | ok okB => rw [hliftB] at hpi; exact nomatch hpi
+        · exact nomatch hpi
+    · exact nomatch hlift
+  · exact nomatch hpi
+
+/-- **Rescue routing discharged**: the five-way read of `stuckIrrel`.
+The a-directed pair/struct-eta branches need no spine (the subject is
+ctor-headed — `ctorHead_no_sort`); the b-directed branches and the
+unit cert collide a const-app-headed `w` with the successor sort; the
+fallback is the probe (`proofIrrel_no_sort`). -/
+theorem rescueSortVacuity_of (hm : KnotFuelMono μ env)
+    (hT : TypeTransportLoopF μ env)
+    (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env) (hInf : InvPreserveInferF μ env)
+    (hN : NatStepNoSort μ env) :
+    RescueSortVacuity μ env := by
+  intro g g' l f d a a' b' ℓ hI hwc hsi hloop
+  unfold Setlec.stuckIrrel at hsi
+  simp only [Bind.bind, Except.bind] at hsi
+  -- branch 1: pairEtaCert a' b' (a-directed; ctor-headed route)
+  cases h1 : Setlec.pairEtaCert μ (Setlec.pureFns μ env g) env d a' b' with
+  | error err => rw [h1] at hsi; exact nomatch hsi
+  | ok c1 =>
+  rw [h1] at hsi
+  simp only [] at hsi
+  cases c1 with
+  | true =>
+    unfold Setlec.pairEtaCert at h1
+    split at h1
+    · next c us pα pβ s₁ s₂ =>
+      split at h1
+      · next _cvm hfind =>
+        exact ctorHead_no_sort hm hN hwc hloop
+          (show Setlec.Expr.getAppFn _ = .const c us from rfl)
+          (unfoldDefinition_ctor_none rfl hfind)
+      · exact nomatch h1
+    · exact nomatch h1
+  | false =>
+  rw [if_neg Bool.false_ne_true] at hsi
+  -- branch 2: pairEtaCert b' a' (b-directed; spine)
+  cases h2 : Setlec.pairEtaCert μ (Setlec.pureFns μ env g) env d b' a' with
+  | error err => rw [h2] at hsi; exact nomatch hsi
+  | ok c2 =>
+  rw [h2] at hsi
+  simp only [] at hsi
+  cases c2 with
+  | true =>
+    unfold Setlec.pairEtaCert at h2
+    simp only [Bind.bind, Except.bind] at h2
+    split at h2
+    · next cB usB pαB pβB s₁B s₂B =>
+      split at h2
+      · next _cvmB hfindB =>
+        cases hinf2 : (Setlec.pureFns μ env g).infer d a' with
+        | error err => rw [hinf2] at h2; exact nomatch h2
+        | ok tb =>
+        rw [hinf2] at h2
+        simp only [] at h2
+        cases hw2 : (Setlec.pureFns μ env g).whnf d tb with
+        | error err => rw [hw2] at h2; exact nomatch h2
+        | ok wtb =>
+        rw [hw2] at h2
+        simp only [] at h2
+        split at h2
+        · next c' us' A B =>
+          obtain ⟨gw, lw, -, hlw⟩ :=
+            whnf_peel (hw2 : whnf μ env g d tb = .ok _)
+          exact nomatch (typeWhnfLE_collide hm hT hTD hTN hIC hID hIN
+            hI hwc hloop (⟨g, tb, hinf2, gw, lw, hlw⟩ :
+              TypeWhnfLE μ env d a' _))
+        · exact nomatch h2
+      · exact nomatch h2
+    · exact nomatch h2
+  | false =>
+  rw [if_neg Bool.false_ne_true] at hsi
+  -- branch 3: structEtaCert a' b' (a-directed; ctor-headed route)
+  cases h3 : Setlec.structEtaCert μ (Setlec.pureFns μ env g) env d a' b' with
+  | error err => rw [h3] at hsi; exact nomatch hsi
+  | ok c3 =>
+  rw [h3] at hsi
+  simp only [] at hsi
+  cases c3 with
+  | true =>
+    unfold Setlec.structEtaCert at h3
+    simp only [Bind.bind, Except.bind] at h3
+    cases hinf3 : (Setlec.pureFns μ env g).infer d b' with
+    | error err => rw [hinf3] at h3; exact nomatch h3
+    | ok tb =>
+    rw [hinf3] at h3
+    simp only [] at h3
+    cases hw3 : (Setlec.pureFns μ env g).whnf d tb with
+    | error err => rw [hw3] at h3; exact nomatch h3
+    | ok wtb =>
+    rw [hw3] at h3
+    simp only [] at h3
+    unfold Setlec.structEtaCertWith at h3
+    split at h3
+    · next c us heqa =>
+      split at h3
+      · next cvc cnP cnF hfinda =>
+        exact ctorHead_no_sort hm hN hwc hloop heqa
+          (unfoldDefinition_ctor_none heqa hfinda)
+      · exact nomatch h3
+    · exact nomatch h3
+  | false =>
+  rw [if_neg Bool.false_ne_true] at hsi
+  -- branch 4: structEtaCert b' a' (b-directed; spine)
+  cases h4 : Setlec.structEtaCert μ (Setlec.pureFns μ env g) env d b' a' with
+  | error err => rw [h4] at hsi; exact nomatch hsi
+  | ok c4 =>
+  rw [h4] at hsi
+  simp only [] at hsi
+  cases c4 with
+  | true =>
+    unfold Setlec.structEtaCert at h4
+    simp only [Bind.bind, Except.bind] at h4
+    cases hinf4 : (Setlec.pureFns μ env g).infer d a' with
+    | error err => rw [hinf4] at h4; exact nomatch h4
+    | ok tb =>
+    rw [hinf4] at h4
+    simp only [] at h4
+    cases hw4 : (Setlec.pureFns μ env g).whnf d tb with
+    | error err => rw [hw4] at h4; exact nomatch h4
+    | ok wtb =>
+    rw [hw4] at h4
+    simp only [] at h4
+    obtain rfl : wtb = .sort (.succ ℓ) := by
+      obtain ⟨gw, lw, -, hlw⟩ :=
+        whnf_peel (hw4 : whnf μ env g d tb = .ok wtb)
+      exact typeWhnfLE_collide hm hT hTD hTN hIC hID hIN
+        hI hwc hloop ⟨g, tb, hinf4, gw, lw, hlw⟩
+    unfold Setlec.structEtaCertWith at h4
+    split at h4
+    · next cB usB heqb =>
+      split at h4
+      · next cvcB cnPB cnFB hfindb =>
+        split at h4
+        · split at h4
+          · next T us' heqw => exact nomatch heqw
+          · exact nomatch h4
+        · exact nomatch h4
+      · exact nomatch h4
+    · exact nomatch h4
+  | false =>
+  rw [if_neg Bool.false_ne_true] at hsi
+  -- branch 5: structUnitCert (spine at the unit type's const head)
+  cases h5 : Setlec.structUnitCert (Setlec.pureFns μ env g) env d a' b' with
+  | error err => rw [h5] at hsi; exact nomatch hsi
+  | ok c5 =>
+  rw [h5] at hsi
+  simp only [] at hsi
+  cases c5 with
+  | true =>
+    unfold Setlec.structUnitCert at h5
+    simp only [Bind.bind, Except.bind] at h5
+    cases hinf5 : (Setlec.pureFns μ env g).infer d a' with
+    | error err => rw [hinf5] at h5; exact nomatch h5
+    | ok ta =>
+    rw [hinf5] at h5
+    simp only [] at h5
+    cases hw5 : (Setlec.pureFns μ env g).whnf d ta with
+    | error err => rw [hw5] at h5; exact nomatch h5
+    | ok wta =>
+    rw [hw5] at h5
+    simp only [] at h5
+    obtain rfl : wta = .sort (.succ ℓ) := by
+      obtain ⟨gw, lw, -, hlw⟩ :=
+        whnf_peel (hw5 : whnf μ env g d ta = .ok wta)
+      exact typeWhnfLE_collide hm hT hTD hTN hIC hID hIN
+        hI hwc hloop ⟨g, ta, hinf5, gw, lw, hlw⟩
+    split at h5
+    · next T us' heqw => exact nomatch heqw
+    · exact nomatch h5
+  | false =>
+  rw [if_neg Bool.false_ne_true] at hsi
+  -- branch 6: the proofIrrel fallback = the probe
+  exact proofIrrel_no_sort hm hT hTD hTN hIC hID hIN hInf
+    hI hwc hsi hloop
+
+/-- The probe routing, packaged. -/
+theorem probeSortVacuity_of (hm : KnotFuelMono μ env)
+    (hT : TypeTransportLoopF μ env)
+    (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env) (hInf : InvPreserveInferF μ env) :
+    ProbeSortVacuity μ env := by
+  intro g g' l f d a a' b' ℓ hI hwc hpi hloop
+  exact proofIrrel_no_sort hm hT hTD hTN hIC hID hIN hInf
+    hI hwc hpi hloop
+
+/-- **The shell against the species tier**: `EnsureSortAgreeR` from
+the env fact, the invariant supply chain, the three transport step
+species, and the spine routing.  The PSS trio is discharged — the
+branch's remaining unknowns are (F)-species-shaped plus
+`SpineSortAgree`. -/
+theorem ensureSortAgreeR_of_species {φ : Name → Nat}
+    (hB : BoolCtorsInert env)
+    (hTC : TypeTransportCoreF μ env) (hTD : TypeTransportDeltaF μ env)
+    (hTN : TypeTransportNatF μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env) (hInf : InvPreserveInferF μ env)
+    (hS : SpineSortAgree μ env φ) :
+    EnsureSortAgreeR μ env φ :=
+  have hm : KnotFuelMono μ env := knotFuelMono μ env
+  have hT : TypeTransportLoopF μ env :=
+    typeTransportLoopF_of hTC hTD hTN hIC hID hIN
+  ensureSortAgreeR_of_pss hB hIC hID hIN
+    (probeSortVacuity_of hm hT hTD hTN hIC hID hIN hInf)
+    (rescueSortVacuity_of hm hT hTD hTN hIC hID hIN hInf
+      (natStepNoSort_of hB))
+    (etaSortVacuity_of hm hT hTD hTN hIC hID hIN) hS
+
+end Discharge
+
 end Setlec.SetR.Interp2

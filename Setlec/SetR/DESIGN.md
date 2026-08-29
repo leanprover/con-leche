@@ -9050,3 +9050,48 @@ recorded recipe.  Leaf inventory update: the isEquiv-succ-zero
 refutation already exists as `Level.isEquiv_sound` (gives
 `uT.eval φ = 0` against `eval (succ _) = _ + 1`); only the
 `isUnitLikeTy env (.sort _) = false` computation leaf remains new.
+
+### The PSS trio DISCHARGED — the branch's routings are now species-shaped
+
+The recorded recipe held under mechanization, with one welcome
+simplification and no statement-level surprises:
+
+* `typeTransportLoopF_of` — the loop assembly, one budget induction
+  over `whnfStep_decompose`; it needs **no determinism** (`hm`
+  dropped from its statement: transport is forward-only along the
+  given run).
+* `typeWhnfLE_collide` — the collision engine: one-step decompose +
+  det-align, then the step species carry the fact to the
+  continuation subject (a genuine `whnfLoop` run at smaller budget)
+  and `TypeTransportLoopF` lands it at `.sort ℓ`; the stuck leg
+  needs no transport at all.  All three legs end at
+  `typeWhnfLE_sort` + `TypeWhnfLE_det`.
+* `ctorHead_no_sort` + `unfoldDefinition_ctor_none` — the no-spine
+  route (nat continuation is `NatStepNoSort` verbatim, δ refuted by
+  the ctor head, stuck collides shapes).
+* `etaSortVacuity_of` — first-try landing of the extraction pattern
+  (unfold + bind-simp + cases-with-rw + `split at`).
+* `proofIrrel_no_sort` / `probeSortVacuity_of` — the double spine as
+  mapped: the unit check's own run collides via `isUnitLikeTy_sort`
+  (killing the unit branch before it forks), the sort branch pins
+  `uT = .succ (.succ ℓ)` through the second transport (entered via
+  `InvPreserveInferF`) and refutes `isEquiv uT 0` by
+  `Level.isEquiv_sound` at the zero valuation.  The `okA = false`
+  leg is a pure b-side walk to `.ok false ≠ .ok true`.  Recipe note:
+  `liftFueled` results are cased as `CheckM` values first
+  (`cases h : liftFueled … (m := CheckM)`), then `liftFueled.eq_def`
+  + `split` recovers the `isEquiv = some _` equation — splitting
+  `hpi` directly grabs the outer `Except.bind` match instead.
+* `rescueSortVacuity_of` — the five-way read; the a-directed
+  branches took the no-spine route, the b-directed and unit branches
+  the collide route (where `split` had already reduced
+  `(.sort _).getAppFn`, the arm equation is a bare constructor
+  clash — `nomatch`, not a `getAppFn` simp), the fallback is the
+  probe lemma.
+
+**`ensureSortAgreeR_of_species`** restates the shell at the new
+frontier: `EnsureSortAgreeR` from `BoolCtorsInert` + the three
+`InvPreserve*F` + `InvPreserveInferF` + the three transport step
+species + `SpineSortAgree`.  The trio is no longer a routing — every
+remaining unknown of the defeq branch is either an (F) step species,
+an invariant preserver, an env fact, or `SpineSortAgree`.
