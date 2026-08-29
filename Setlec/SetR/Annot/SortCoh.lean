@@ -1285,11 +1285,17 @@ chain-transport / PSS seal; nat: the `natOpResult` shape-chase
 seal).  All are consumed by `sortLinkAcrossCertE_of` (the shell,
 next seal). -/
 
-/-- `whnfCore` outputs are head-normal: re-normalizing is the
-identity.  Carried obligation (ledger). -/
+/-- `whnfCore` outputs are head-normal: re-normalizing **at the same
+fuel** is the identity.  Carried obligation (ledger).
+
+Same-fuel by necessity (the discharge scoping caught the ∀-fuel form
+as FALSE): a fuel-`0` rerun always errors, and an iota-stuck rerun
+re-fires the original's own certificate sub-runs, which need the
+original's fuel.  At the same fuel the rerun *mirrors* the original's
+sub-runs call for call; larger fuels come from `KnotFuelMono`. -/
 def WhnfCoreIdem (μ : CheckMode) (env : Env) : Prop :=
-  ∀ {f f' d : Nat} {e e' : Expr},
-    whnfCore μ env f d e = .ok e' → whnfCore μ env f' d e' = .ok e'
+  ∀ {f d : Nat} {e e' : Expr},
+    whnfCore μ env f d e = .ok e' → whnfCore μ env f d e' = .ok e'
 
 /-- PSS routing: a `proofIrrel`-certified subject cannot
 whnf-converge to a literal sort. -/
@@ -1445,13 +1451,16 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
         · have h1 := hm.2.2.2.2 (Nat.le_max_left ga fc) hrx
           have h2 := hm.2.2.2.2 (Nat.le_max_right ga fc) hrnA
           rw [h1] at h2; exact nomatch h2
-        · have hA : Setlec.whnfLoop (Setlec.pureFns μ env ga) env d
-              (la' + 1) a' = .ok (.sort ℓa) := by
+        · have hA : Setlec.whnfLoop (Setlec.pureFns μ env (max fc ga))
+              env d (la' + 1) a' = .ok (.sort ℓa) := by
             rw [whnfLoop_succ]
-            exact whnfStep_assemble_delta (hI hwa) hrga hux hkx
+            exact whnfStep_assemble_delta
+              (hm.2.2.1 (Nat.le_max_left fc ga) (hI hwa))
+              (hm.2.2.2.2 (Nat.le_max_right fc ga) hrga) hux
+              (whnfLoop_r_mono hm (Nat.le_max_right fc ga) hkx)
           exact ih hk hA hb₂
         · obtain rfl := hstop
-          have hA : Setlec.whnfLoop (Setlec.pureFns μ env ga) env d
+          have hA : Setlec.whnfLoop (Setlec.pureFns μ env fc) env d
               1 (.sort ℓa) = .ok (.sort ℓa) := by
             rw [whnfLoop_succ]
             exact whnfStep_assemble_stuck (hI hwa) reduceNat_sort
@@ -1476,13 +1485,16 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
           rcases htriA with ⟨x, hrx, hkx⟩ | ⟨hrga, x, hux, hkx⟩ |
             ⟨hrga, huda, hstop⟩
           · exact (hN hc0 hwa hwb (Or.inl hrx) ha).elim
-          · have hA : Setlec.whnfLoop (Setlec.pureFns μ env ga) env d
-                (la' + 1) a' = .ok (.sort ℓa) := by
+          · have hA : Setlec.whnfLoop (Setlec.pureFns μ env (max fc ga))
+                env d (la' + 1) a' = .ok (.sort ℓa) := by
               rw [whnfLoop_succ]
-              exact whnfStep_assemble_delta (hI hwa) hrga hux hkx
+              exact whnfStep_assemble_delta
+                (hm.2.2.1 (Nat.le_max_left fc ga) (hI hwa))
+                (hm.2.2.2.2 (Nat.le_max_right fc ga) hrga) hux
+                (whnfLoop_r_mono hm (Nat.le_max_right fc ga) hkx)
             exact ih hk hA hkyb
           · obtain rfl := hstop
-            have hA : Setlec.whnfLoop (Setlec.pureFns μ env ga) env d
+            have hA : Setlec.whnfLoop (Setlec.pureFns μ env fc) env d
                 1 (.sort ℓa) = .ok (.sort ℓa) := by
               rw [whnfLoop_succ]
               exact whnfStep_assemble_stuck (hI hwa) reduceNat_sort
@@ -1578,5 +1590,36 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
     obtain ⟨ga, la, -, hla⟩ := whnf_peel h₁
     obtain ⟨gb, lb, -, hlb⟩ := whnf_peel h₂
     exact main fc Setlec.defeqLoopFuel hc hla hlb
+
+/-! ## Discharge ingredients for `WhnfCoreIdem` -/
+
+/-- Successful runs consume fuel: the zero-fuel knot throws. -/
+theorem whnfCore_pos {μ : CheckMode} {env : Env} {f d : Nat}
+    {e e' : Expr} (h : whnfCore μ env f d e = .ok e') : 1 ≤ f := by
+  cases f with
+  | zero => exact nomatch h
+  | succ f => exact Nat.le_add_left 1 f
+
+/-- **Terminal-step extraction**: a successful reduction loop ends
+with a stuck step — its output is a `whnfCore` output at the loop's
+own knot, with the literal no-step facts.  (The whnf-idem half of the
+discharge reruns exactly these.) -/
+theorem whnfLoop_final {env : Env} {r : Setlec.CoreFns Setlec.CheckM}
+    {d : Nat} : ∀ {l : Nat} {e s : Expr},
+    Setlec.whnfLoop r env d l e = .ok s →
+    ∃ x, r.whnfCore d x = .ok s ∧
+      Setlec.reduceNat r env d s = .ok none ∧
+      Setlec.unfoldDefinition env s = none := by
+  intro l
+  induction l with
+  | zero => intro e s h; exact nomatch h
+  | succ l ih =>
+    intro e s h
+    rw [whnfLoop_succ] at h
+    obtain ⟨e₁, hwc, hrest⟩ := whnfStep_decompose h
+    rcases hrest with ⟨e₂, _, hk⟩ | ⟨_, e₂, _, hk⟩ | ⟨hrn, hud, rfl⟩
+    · exact ih hk
+    · exact ih hk
+    · exact ⟨e, hwc, hrn, hud⟩
 
 end Setlec.SetR.Interp2

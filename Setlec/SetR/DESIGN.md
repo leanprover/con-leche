@@ -8596,3 +8596,43 @@ machinery: (F)/S2 dual forms), `NatSortVacuity` (the
 `SpineSortAgree` (graded unknown #1) — then (B)'s shell on the same
 pattern, the (F) species with run-mirror constructions, and the
 `SortSubstStable` leaf wiring.
+
+### WhnfCoreIdem corrected to same-fuel; discharge mapped
+
+Scoping the discharge caught the landed obligation as **false**: a
+fuel-`0` rerun always errors, and an iota-stuck rerun re-fires the
+original's certificate sub-runs, which need the original's fuel — so
+∀-fuel idempotence is unprovable in principle, and the dual shell was
+consuming a false hypothesis (vacuously true, useless).  Corrected
+immediately: `WhnfCoreIdem` is **same-fuel** (`whnfCore f d e = .ok
+e' → whnfCore f d e' = .ok e'`) — at the same fuel the rerun
+*mirrors* the original call for call — with larger fuels via
+`KnotFuelMono`.  The shell's four assemble sites now lift the idem
+fact and its co-pieces to `max fc ga` (mono + `whnfLoop_r_mono`);
+`deltaL`'s ascription was already same-fuel.  Third instance of
+execution-catches-overclaim, recorded with the other two.
+
+**The discharge map** (next seal): one strong induction on `f`
+proving core-idem and whnf-idem mutually —
+
+* value shapes: rerun takes the value branch (`whnfCore_pos` on the
+  original's sub-run supplies the fuel bound);
+* β/ι/ζ-success: the output is a recursive run's output at `f-1` —
+  IH + mono;
+* β-certfail / ι-stuck: the rerun's cert/`iotaRec` calls are
+  *literally the original's calls* — rewrite with the original run's
+  own internal facts (no determinism needed);
+* proj-stuck: the rerun's `whnf` is on a whnf-output — whnf-idem at
+  `f-1`, which is `whnfLoop_final` (landed: terminal-step
+  extraction) + core-idem at the loop's knot + a one-step terminal
+  reassembly;
+* the strLit-scrutinee corner: `projLitToCtor` reruns `whnf` on a
+  `strLitToConstructor` spine; bounded chase (left spine is two
+  nodes; `whnfCore` does no delta; `iotaRec` none via the
+  `strLitSupported` storage facts; `reduceNat` none by name
+  mismatch);
+* `KnotFuelMono` is a sibling hypothesis of the discharge (its own
+  oracle-extension discharge is independent — no cycle).
+
+Landed this seal: the corrected statement, the shell patch,
+`whnfCore_pos`, `whnfLoop_final`.
