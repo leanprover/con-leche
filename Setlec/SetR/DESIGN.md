@@ -6898,3 +6898,45 @@ memberships (`hselfMem`, `hdepBin`, `hbleMem`, `hzeroMem`,
 `hsuccMem`, `hctorMem` are all in `dmFrameS`), and read off
 `DivModClausesV`.  `Nat.div`/`Nat.mod`'s first certificate has two
 hypotheses and wants the `dmCertEq2` twin of `dmClause1S`.
+
+### `DivModPinS` CLOSED — one hypothesis left
+
+`Setlec/SetR/DivModPin.lean` is 2879 lines; `divModPinS` stands at
+`[propext, Classical.choice, Quot.sound]` and is threaded at
+`declStepS`, so **`hdm` has left the fourteen**.  They now carry
+exactly one hypothesis: `StdAxiomKeyS V`.
+
+**The nine blocks cost almost nothing, because the shape was right.**
+Once `dmClause1S` existed, seven of the nine operations were *generated
+mechanically* — same skeleton, differing only in the certificate-proof
+list, the dependency abbreviations, and four membership terms per
+clause — and compiled with **zero errors on the first splice**.  That
+is the payoff of the definitional-evaluation decision: `dmEvalV` of a
+statement side *is* the `app`-chain `DivModClausesV` is written in, so
+a clause never bridges two spellings.
+
+*Rule: when a proof splits into `n` near-identical cases, the measure
+of whether the shared lemma is right is whether the cases can be
+written out mechanically. Seven-of-nine first-try is the shape being
+right; a case that needs thought is a premise in the wrong place.*
+
+**Three frictions worth keeping:**
+
+* **`decide` cannot evaluate a well-founded definition.**
+  `Expr.wscopedB`, `Expr.fvarLeaves` (hence `dmLeavesOk`) are
+  `termination_by` definitions, so `by decide` fails on them however
+  literal the argument is; `by simp [Expr.wscopedB]` /
+  `by simp [dmLeavesOk, Expr.fvarLeaves]` go through the equation
+  lemmas and succeed.  `dmFragOk` and `looseBVarsBounded` are
+  structural and `decide` fine.  **The tactic that works is a fact
+  about the definition's recursion, not about the goal's size.**
+* **`reduceIte` will not fire on `natModName = natDivName`**: those
+  are `def`s, so the `Decidable` instance does not reduce without
+  unfolding them.  `if_neg (show ¬(natModName = natDivName) from by
+  decide)` as a simp argument does — `decide` unfolds, `reduceIte`
+  does not.  This is why `Nat.div`/`Nat.mod` needed a different
+  dispatch line from the other seven.
+* 124 unused-simp-argument warnings, from the thirty-four membership
+  steps each wanting a slightly different lemma set: the file takes
+  `set_option linter.unusedSimpArgs false`, exactly as
+  `Setlec/TTVerify/DivModPin.lean` does and for the same reason.

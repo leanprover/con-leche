@@ -62,6 +62,12 @@ it against `DivModClausesV` — where the match is definitional, because
 `dmEvalV` computes the same `app`-chain.
 -/
 
+-- The nine operations' clause blocks need slightly different lemma
+-- sets at each of their thirty-four membership steps, and the
+-- difference is not stable under editing: the same escape
+-- `Setlec/TTVerify/DivModPin.lean` takes, for the same reason.
+set_option linter.unusedSimpArgs false
+
 namespace Setlec.SetR
 open Setlec.TT Setlec.TTVerify SetTheory
 universe w
@@ -1794,4 +1800,1081 @@ theorem dmClause1S {μ : CheckMode} {F : Nat} {env : Env}
   rw [hle, hre, hvalFun] at heq
   exact heq
 
+set_option maxHeartbeats 12800000 in
+/-- **A two-hypothesis guarded div/mod clause, discharged** —
+`Nat.div`/`Nat.mod`'s recursive certificate. -/
+theorem dmClause2S {μ : CheckMode} {F : Nat} {env : Env}
+    (m : EnvS V env) {cv : ConstantVal} {type' value value' : Expr}
+    {hint : ReducibilityHint} {c : Name}
+    (hmem : cv.name ∈ natDivModNames)
+    (hvfr : ValueFrontR μ F env m.cval cv value type' value')
+    (hgenv : divModEnvGuard ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩
+      value' hint :: env.consts⟩ cv.name = true)
+    (hc : cv.name = c)
+    (φ : Name → Nat) (ρ : Nat → V) (xx yy : V)
+    (hxx : xx ∈ˢ interp V ρ (cvalAt m.cval env cv.name value' natName
+      (Level.substFn φ ([] : List Name) ([] : List Level))))
+    (hyy : yy ∈ˢ interp V ρ (cvalAt m.cval env cv.name value' natName
+      (Level.substFn φ ([] : List Name) ([] : List Level)))) :
+    ∀ gl gr gl2e gr2e lhs rhs proof : Expr,
+      CertRunFacts μ env F c value'
+        ([Expr.app (.app (.app (.const eqName [.succ .zero])
+            (.const boolName [])) gl) gr,
+          Expr.app (.app (.app (.const eqName [.succ .zero])
+            (.const boolName [])) gl2e) gr2e],
+         Expr.app (.app (.app (.const eqName [.succ .zero])
+            (.const natName [])) lhs) rhs) proof →
+      dmFragOk c (natOpDeps c ++ [natSuccName, natZeroName,
+        boolTrueName, boolFalseName]) gl = true →
+      dmFragOk c (natOpDeps c ++ [natSuccName, natZeroName,
+        boolTrueName, boolFalseName]) gr = true →
+      dmFragOk c (natOpDeps c ++ [natSuccName, natZeroName,
+        boolTrueName, boolFalseName]) lhs = true →
+      dmFragOk c (natOpDeps c ++ [natSuccName, natZeroName,
+        boolTrueName, boolFalseName]) rhs = true →
+      Expr.wscopedB 2 (Expr.app (.app (.app
+        (.const eqName [.succ .zero]) (.const boolName [])) gl) gr)
+        = true →
+      Expr.wscopedB 3 (Expr.app (.app (.app
+        (.const eqName [.succ .zero]) (.const boolName [])) gl2e) gr2e)
+        = true →
+      dmFragOk c (natOpDeps c ++ [natSuccName, natZeroName,
+        boolTrueName, boolFalseName]) gl2e = true →
+      dmFragOk c (natOpDeps c ++ [natSuccName, natZeroName,
+        boolTrueName, boolFalseName]) gr2e = true →
+      (Expr.app (.app (.app (.const eqName [.succ .zero])
+        (.const boolName [])) gl2e) gr2e).looseBVarsBounded 0 = true →
+      dmLeavesOk (Expr.app (.app (.app (.const eqName [.succ .zero])
+        (.const boolName [])) gl2e) gr2e) = true →
+      (dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy gl2e
+          ∈ˢ interp V ρ (m.cval boolName φ)) →
+      (dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy gr2e
+          ∈ˢ interp V ρ (m.cval boolName φ)) →
+      dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy gl2e
+        = dmEvalV V (fun n => interp V ρ
+          (dmVal m.cval env c value' φ n)) xx yy gr2e →
+      Expr.wscopedB 4 lhs = true → Expr.wscopedB 4 rhs = true →
+      (Expr.app (.app (.app (.const eqName [.succ .zero])
+        (.const boolName [])) gl) gr).looseBVarsBounded 0 = true →
+      lhs.looseBVarsBounded 0 = true →
+      rhs.looseBVarsBounded 0 = true →
+      dmLeavesOk (Expr.app (.app (.app (.const eqName [.succ .zero])
+        (.const boolName [])) gl) gr) = true →
+      dmLeavesOk lhs = true → dmLeavesOk rhs = true →
+      (dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy lhs
+          ∈ˢ interp V ρ (m.cval natName φ)) →
+      (dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy rhs
+          ∈ˢ interp V ρ (m.cval natName φ)) →
+      (dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy gl
+          ∈ˢ interp V ρ (m.cval boolName φ)) →
+      (dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy gr
+          ∈ˢ interp V ρ (m.cval boolName φ)) →
+      dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy gl
+        = dmEvalV V (fun n => interp V ρ
+          (dmVal m.cval env c value' φ n)) xx yy gr →
+      dmEvalV V (fun n => interp V ρ
+        (dmVal m.cval env c value' φ n)) xx yy lhs
+        = dmEvalV V (fun n => interp V ρ
+          (dmVal m.cval env c value' φ n)) xx yy rhs := by
+  obtain ⟨ciN, ciB, Vc, hfN, hlpN, hfB, hlpB, hEqE, hVc, hvalSelf,
+    hvalNat, hNU, hBU, hbleMem, hdepBin, htyOwn, hstore, hctorMem,
+    hzeroMem, hsuccMem⟩ := dmFrameS m hmem hvfr hgenv φ
+  obtain ⟨hvlb, hvhf, hannv, -, -, -⟩ := id hvfr
+  obtain ⟨hvf', hbv'⟩ := annotate_syntax hannv hvhf hvlb
+  have hclN : VExpr.Closed (m.cval natName φ) := m.cval_closed _ _
+  have hnatDen : ∀ d : Nat, denote m.cval env φ d
+      (Expr.const natName []) = some (m.cval natName φ) :=
+    fun d => denote_const_nolevelsS hfN hlpN φ d
+  have hneAll : ∀ n ∈ ([natName, boolName] : List Name),
+      n ≠ cv.name := by
+    intro n hn
+    simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+      or_false] at hmem hn
+    rcases hmem with h|h|h|h|h|h|h|h|h <;>
+      rcases hn with rfl|rfl <;> (rw [h]; decide)
+  have hvalDep : ∀ n : Name, n ≠ cv.name →
+      dmVal m.cval env cv.name value' φ n = m.cval n φ := by
+    intro n hn
+    rw [dmVal, show cvalAt m.cval env cv.name value' n = m.cval n
+      from cvalAt_ne hn,
+      show Level.substFn φ ([] : List Name) ([] : List Level) = φ
+      from funext fun _ => rfl]
+  have hboolDen : ∀ d : Nat, denote m.cval env φ d
+      (Expr.substConst0 cv.name value' (Expr.const boolName []))
+      = some (m.cval boolName φ) := by
+    intro d
+    rw [denote_dmDep φ hfB hlpB (hneAll _ (by simp)) d,
+      hvalDep _ (hneAll _ (by simp))]
+  rw [hvalNat] at hxx hyy
+  -- the frame's valuations are closed, hence environment-independent
+  have hdmCl : ∀ n : Name,
+      VExpr.Closed (dmVal m.cval env cv.name value' φ n) := by
+    intro n
+    by_cases hn : n = cv.name
+    · subst hn
+      rw [hvalSelf]
+      exact denote_closed m.cval_closed hvf' hbv' hVc
+    · rw [hvalDep n hn]
+      exact m.cval_closed _ _
+  have hdmInv : ∀ (n : Name) (ρ' : Nat → V),
+      interp V ρ' (dmVal m.cval env cv.name value' φ n)
+        = interp V ρ (dmVal m.cval env cv.name value' φ n) :=
+    fun n ρ' => interp_closed V (hdmCl n) ρ' ρ
+  -- the operation itself is a function on the frame's `Nat`
+  have hselfMem : (∃ nm nm2 mb mb2, type' = Expr.forallE nm
+        (.const natName [])
+        (.forallE nm2 (.const natName []) (.const natName []) mb2) mb) →
+      ∀ (ρ' : Nat → V) (a b : V),
+        a ∈ˢ interp V ρ' (m.cval natName φ) →
+        b ∈ˢ interp V ρ' (m.cval natName φ) →
+        SetTheory.app (SetTheory.app (interp V ρ' Vc) a) b
+          ∈ˢ interp V ρ' (m.cval natName φ) := by
+    rintro ⟨nm, nm2, mb, mb2, hty⟩ ρ' a b ha hb
+    exact dmSelfMem m φ hvfr hty hfN hlpN hfN hlpN hVc ρ' ha hb
+  rw [hc] at hmem hvalSelf hstore hdepBin hvalDep hdmCl hdmInv hneAll hboolDen htyOwn
+  intro gl gr gl2e gr2e lhs rhs proof hfacts hfgl hfgr hflhs hfrhs hwH
+    hwH2 hfgl2 hfgr2 hbH2 hlH2 hmgl2 hmgr2 hguard2 hwL hwR
+    hbH hbL hbR hlH hlL hlR hmL hmR hmgl hmgr hguard
+  have hpf : (Expr.substConstAll c value' proof).hasFvar = false := by
+    have hg := hfacts.1
+    simp only [divModCertGuard, Bool.and_eq_true,
+      Bool.not_eq_true'] at hg
+    exact hg.1.1.1.1.2
+  obtain ⟨glV, hgld, hgle⟩ := dmDenEval m φ (d := 4) m.cval_closed
+    hvf' hbv' hVc hstore gl hfgl
+  obtain ⟨grV, hgrd, hgre⟩ := dmDenEval m φ (d := 4) m.cval_closed
+    hvf' hbv' hVc hstore gr hfgr
+  obtain ⟨lV, hld, hle⟩ := dmDenEval m φ (d := 4) m.cval_closed
+    hvf' hbv' hVc hstore lhs hflhs
+  obtain ⟨rV, hrd, hre⟩ := dmDenEval m φ (d := 4) m.cval_closed
+    hvf' hbv' hVc hstore rhs hfrhs
+  obtain ⟨gl2, hgl2, hgle2⟩ := dmDenEval m φ (d := 2) m.cval_closed
+    hvf' hbv' hVc hstore gl hfgl
+  obtain ⟨gr2, hgr2, hgre2⟩ := dmDenEval m φ (d := 2) m.cval_closed
+    hvf' hbv' hVc hstore gr hfgr
+  obtain ⟨gl3, hgl3, hgle3⟩ := dmDenEval m φ (d := 3) m.cval_closed
+    hvf' hbv' hVc hstore gl2e hfgl2
+  obtain ⟨gr3, hgr3, hgre3⟩ := dmDenEval m φ (d := 3) m.cval_closed
+    hvf' hbv' hVc hstore gr2e hfgr2
+  have hH2 := denote_eqSpine (cval := m.cval) (c := c)
+    (value' := value') φ hEqE (hboolDen 3) hgl3 hgr3
+  have hfb2 : Expr.fvarsBelow 3 (Expr.substConst0 c value'
+      (Expr.app (.app (.app (.const eqName [.succ .zero])
+        (.const boolName [])) gl2e) gr2e)) :=
+    Expr.WScoped.fvarsBelow
+      (Expr.WScoped.of_wscopedB (wscopedB_substConst0 hvf' _ hwH2))
+  have hH1 := denote_eqSpine (cval := m.cval) (c := c)
+    (value' := value') φ hEqE (hboolDen 2) hgl2 hgr2
+  have hfb1 : Expr.fvarsBelow 2 (Expr.substConst0 c value'
+      (Expr.app (.app (.app (.const eqName [.succ .zero])
+        (.const boolName [])) gl) gr)) :=
+    Expr.WScoped.fvarsBelow
+      (Expr.WScoped.of_wscopedB (wscopedB_substConst0 hvf' _ hwH))
+  have hlE : dmLeavesOk (Expr.app (.app (.app
+      (.const eqName [.succ .zero]) (.const natName [])) lhs) rhs)
+      = true := by
+    simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append,
+      List.all_append, Bool.and_eq_true]
+    exact ⟨hlL, hlR⟩
+  have hCA := dmCtxOk_applied2 (μ := μ) φ
+    m.cval_closed hvf' hclN (hnatDen 4) hpf hlH hlH2 hfb1 hfb2 hH1
+    hH2
+  have hCE := dmCtxOk_stmt (μ := μ) (c := c) (value' := value')
+    (H1 := VExpr.mkAppN (m.cval eqName (Level.substFn φ
+      eqA.toConstantVal.levelParams [Level.zero.succ]))
+      [m.cval boolName φ, gl2, gr2])
+    (H2 := VExpr.mkAppN (m.cval eqName (Level.substFn φ
+      eqA.toConstantVal.levelParams [Level.zero.succ]))
+      [m.cval boolName φ, gl3, gr3])
+    φ hvf' hclN (hnatDen 4) hlE
+  -- the frame's valuation, at the four-entry environment
+  have hvalFun : ∀ ρ' : Nat → V, (fun n => interp V ρ'
+      (dmVal m.cval env c value' φ n))
+      = (fun n => interp V ρ (dmVal m.cval env c value' φ n)) :=
+    fun ρ' => funext fun n => hdmInv n ρ'
+  -- the hypothesis slot is inhabited by the guard
+  have hsat := sat_dm (A0 := _) (A1 := _)
+    (natV := m.cval natName φ) (ρ := ρ) (a := pt) (b := pt)
+    (yy := yy) (xx := xx) hclN
+    (by
+      rw [EqLawV.app₃ V m.eq_lawV hEqE
+        (Level.substFn φ eqA.toConstantVal.levelParams
+          [Level.zero.succ]) (cons V pt (cons V yy (cons V xx ρ)))
+        (m.cval boolName φ) gl3 gr3
+        (by rw [eqSubst_uN]; exact hBU _)
+        (by
+          rw [hgle3, hvalFun,
+            interp_closed V (m.cval_closed boolName φ) _ ρ]
+          exact hmgl2)
+        (by
+          rw [hgre3, hvalFun,
+            interp_closed V (m.cval_closed boolName φ) _ ρ]
+          exact hmgr2)]
+      rw [hgle3, hgre3, hvalFun]
+      show pt ∈ˢ eqv (dmEvalV V (fun n => interp V ρ
+          (dmVal m.cval env c value' φ n)) xx yy gl2e)
+        (dmEvalV V (fun n => interp V ρ
+          (dmVal m.cval env c value' φ n)) xx yy gr2e)
+      rw [hguard2]
+      exact pt_mem_eqv_self _)
+    (by
+      rw [EqLawV.app₃ V m.eq_lawV hEqE
+        (Level.substFn φ eqA.toConstantVal.levelParams
+          [Level.zero.succ]) (cons V yy (cons V xx ρ))
+        (m.cval boolName φ) gl2 gr2
+        (by rw [eqSubst_uN]; exact hBU _)
+        (by
+          rw [hgle2, hvalFun,
+            interp_closed V (m.cval_closed boolName φ) _ ρ]
+          exact hmgl)
+        (by
+          rw [hgre2, hvalFun,
+            interp_closed V (m.cval_closed boolName φ) _ ρ]
+          exact hmgr)]
+      rw [hgle2, hgre2, hvalFun]
+      show pt ∈ˢ eqv (dmEvalV V (fun n => interp V ρ
+          (dmVal m.cval env c value' φ n)) xx yy gl)
+        (dmEvalV V (fun n => interp V ρ
+          (dmVal m.cval env c value' φ n)) xx yy gr)
+      rw [hguard]
+      exact pt_mem_eqv_self _)
+    (by rw [interp_closed V hclN _ ρ]; exact hyy)
+    (by rw [interp_closed V hclN _ ρ]; exact hxx)
+  have heq := dmCertEq2 m φ hEqE (hneAll _ (by simp)) hvf' hbv'
+    hfacts hlH hlH2 hlL hlR hwH hwH2 hwL hwR hbH hbH2 hbL hbR
+    (hnatDen 4) hld hrd hCA hCE
+    _ hsat (hNU _)
+    (by rw [hle, hvalFun, interp_closed V hclN _ ρ]; exact hmL)
+    (by rw [hre, hvalFun, interp_closed V hclN _ ρ]; exact hmR)
+  rw [hle, hre, hvalFun] at heq
+  exact heq
+
+/-! ## The install obligation -/
+
+set_option maxHeartbeats 12800000 in
+/-- **`DivModPinS`, discharged.** -/
+theorem divModPinS : DivModPinS V := by
+  intro μ F env m cv type' value value' hint hmem hfresh hcv hvfr hpin
+  obtain ⟨hgenv, hgpin, hgcerts, pinA, hannP, hcerts⟩ := hpin
+  refine ⟨?_, ?_⟩
+  · simp only [divModEnvGuard, Bool.and_eq_true] at hgenv
+    exact hgenv.1.1.1.1
+  intro φ ρ xx yy hxx hyy
+  obtain ⟨ciN, ciB, Vc, hfN, hlpN, hfB, hlpB, hEqE, hVc, hvalSelf,
+    hvalNat, hNU, hBU, hbleMem, hdepBin, htyOwn, hstore, hctorMem,
+    hzeroMem, hsuccMem⟩ := dmFrameS m hmem hvfr hgenv φ
+  obtain ⟨hvlb, hvhf, hannv, -, -, -⟩ := id hvfr
+  obtain ⟨hvf', hbv'⟩ := annotate_syntax hannv hvhf hvlb
+  have hxx' : xx ∈ˢ interp V ρ (m.cval natName φ) := by
+    rwa [hvalNat] at hxx
+  have hyy' : yy ∈ˢ interp V ρ (m.cval natName φ) := by
+    rwa [hvalNat] at hyy
+  have hselfMem : (∃ nm nm2 mb mb2, type' = Expr.forallE nm
+        (.const natName [])
+        (.forallE nm2 (.const natName []) (.const natName []) mb2) mb) →
+      ∀ (ρ' : Nat → V) (a b : V),
+        a ∈ˢ interp V ρ' (m.cval natName φ) →
+        b ∈ˢ interp V ρ' (m.cval natName φ) →
+        SetTheory.app (SetTheory.app (interp V ρ' Vc) a) b
+          ∈ˢ interp V ρ' (m.cval natName φ) := by
+    rintro ⟨nm, nm2, mb, mb2, hty⟩ ρ' a b ha hb
+    exact dmSelfMem m φ hvfr hty hfN hlpN hfN hlpN hVc ρ' ha hb
+  have hunMem : (∃ nm mb, type' = Expr.forallE nm (.const natName [])
+        (.const natName []) mb) →
+      ∀ (ρ' : Nat → V) (a : V),
+        a ∈ˢ interp V ρ' (m.cval natName φ) →
+        SetTheory.app (interp V ρ' Vc) a
+          ∈ˢ interp V ρ' (m.cval natName φ) := by
+    rintro ⟨nm, mb, hty⟩ ρ' a ha
+    obtain ⟨-, -, -, -, -, hfront⟩ := hvfr
+    obtain ⟨Tv, Vv', tv, hTv, hVv', hInf, hDeq⟩ := hfront φ
+    obtain rfl : Vv' = Vc := by
+      rw [hVv'] at hVc; exact Option.some.inj hVc
+    rw [hty, denoteClosed] at hTv
+    simp only [denote_forallE, denote_const_nolevelsS hfN hlpN,
+      Expr.instantiate1] at hTv
+    obtain rfl := Option.some.inj hTv
+    have h1 := (Infer.sound (m.toHyp φ) hInf ρ' (Sat_nil V ρ')).2
+    rw [DefEq.sound (m.toHyp φ) hDeq ρ' (Sat_nil V ρ')] at h1
+    rw [interp_pi, show (fun a : V => interp V (cons V a ρ')
+          (m.cval natName φ))
+        = (fun _ : V => interp V ρ' (m.cval natName φ)) from by
+      funext a
+      exact interp_closed V (m.cval_closed natName φ) _ ρ'] at h1
+    exact app_mem_piC h1 ha
+  have hc : cv.name = cv.name := rfl
+  obtain ⟨c, hcname⟩ : ∃ c, cv.name = c := ⟨_, rfl⟩
+  rw [hcname] at hmem hcerts hvalSelf htyOwn hdepBin hstore ⊢
+  have hVs : interp V ρ (dmVal m.cval env c value' φ c)
+      = interp V ρ Vc := by rw [hvalSelf]
+  have hVd : ∀ n : Name, n ≠ c →
+      interp V ρ (dmVal m.cval env c value' φ n)
+        = interp V ρ (m.cval n φ) := by
+    intro n hn
+    rw [dmVal, show cvalAt m.cval env c value' n = m.cval n
+      from cvalAt_ne hn,
+      show Level.substFn φ ([] : List Name) ([] : List Level) = φ
+      from funext fun _ => rfl]
+  have hmem0 := hmem
+  simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+    or_false] at hmem
+  have hruns := checkDivModCerts_inv hcerts
+  rcases hmem with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
+  · -- `Nat.div`
+    simp only [divModCertStmts, divModCertProofs, natDivCertProofs,
+      reduceIte,
+      if_pos (show natDivName = natDivName from rfl)] at hruns
+    cases hruns with
+    | cons f1 r1 =>
+      cases r1 with
+      | cons f2 r2 =>
+        cases r2 with
+        | cons f3 r3 =>
+          have hop := hselfMem (htyOwn.1 (by decide)) ρ
+          have hone := hsuccMem ρ _ (hzeroMem ρ)
+          have hVble := hVd natBleName (by decide)
+          have hVsucc := hVd natSuccName (by decide)
+          have hVzero := hVd natZeroName (by decide)
+          have hVT := hVd boolTrueName (by decide)
+          have hVF := hVd boolFalseName (by decide)
+          have hsub := hdepBin natSubName (by decide) (by decide) (by decide) (by decide) ρ
+          have hVsub := hVd natSubName (by decide)
+          simp only [DivModClausesV, if_true, reduceIte,
+            if_pos (show natDivName = natDivName from rfl)]
+          refine ⟨fun hg hg2 => ?_, fun hg => ?_, fun hg => ?_⟩
+          · have h := dmClause2S m (by rw [hcname]; exact hmem0) hvfr hgenv
+              hcname φ ρ xx yy hxx hyy _ _ _ _ _ _ _ f1
+              (by decide) (by decide) (by decide) (by decide)
+              (by simp [Expr.wscopedB])
+              (by simp [Expr.wscopedB])
+              (by decide) (by decide)
+              (by decide)
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVsucc, hVzero]
+                  exact hbleMem ρ _ yy hone hyy')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVT]
+                  exact hctorMem boolTrueName (Or.inl rfl) ρ)
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVsucc, hVzero, hVT]
+                  exact hg2)
+              (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+              (by decide) (by decide) (by decide)
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVs]
+                  exact hop xx yy hxx' hyy')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVs, hVsub, hVsucc]
+                  exact hsuccMem ρ _ (hop _ yy (hsub xx yy hxx' hyy') hyy'))
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble]
+                  exact hbleMem ρ yy xx hyy' hxx')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVT]
+                  exact hctorMem boolTrueName (Or.inl rfl) ρ)
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVT]
+                  exact hg)
+            simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+              using h
+          · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+              hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
+              (by decide) (by decide) (by decide) (by decide)
+              (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+              (by simp [Expr.wscopedB])
+              (by decide) (by decide) (by decide)
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVs]
+                  exact hop xx yy hxx' hyy')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVzero]
+                  exact hzeroMem ρ)
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble]
+                  exact hbleMem ρ yy xx hyy' hxx')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVF]
+                  exact hctorMem boolFalseName (Or.inr rfl) ρ)
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVF]
+                  exact hg)
+            simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+              using h
+          · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+              hcname φ ρ xx yy hxx hyy _ _ _ _ _ f3
+              (by decide) (by decide) (by decide) (by decide)
+              (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+              (by simp [Expr.wscopedB])
+              (by decide) (by decide) (by decide)
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVs]
+                  exact hop xx yy hxx' hyy')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVzero]
+                  exact hzeroMem ρ)
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVsucc, hVzero]
+                  exact hbleMem ρ _ yy hone hyy')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVF]
+                  exact hctorMem boolFalseName (Or.inr rfl) ρ)
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVsucc, hVzero, hVF]
+                  exact hg)
+            simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+              using h
+  · -- `Nat.mod`
+    simp only [divModCertStmts, divModCertProofs, natModCertProofs,
+      reduceIte,
+      if_neg (show ¬(natModName = natDivName) from by decide)]
+      at hruns
+    cases hruns with
+    | cons f1 r1 =>
+      cases r1 with
+      | cons f2 r2 =>
+        cases r2 with
+        | cons f3 r3 =>
+          have hop := hselfMem (htyOwn.1 (by decide)) ρ
+          have hone := hsuccMem ρ _ (hzeroMem ρ)
+          have hVble := hVd natBleName (by decide)
+          have hVsucc := hVd natSuccName (by decide)
+          have hVzero := hVd natZeroName (by decide)
+          have hVT := hVd boolTrueName (by decide)
+          have hVF := hVd boolFalseName (by decide)
+          have hsub := hdepBin natSubName (by decide) (by decide) (by decide) (by decide) ρ
+          have hVsub := hVd natSubName (by decide)
+          simp only [DivModClausesV, if_true, reduceIte,
+            if_neg (show ¬(natModName = natDivName) from by decide)]
+          refine ⟨fun hg hg2 => ?_, fun hg => ?_, fun hg => ?_⟩
+          · have h := dmClause2S m (by rw [hcname]; exact hmem0) hvfr hgenv
+              hcname φ ρ xx yy hxx hyy _ _ _ _ _ _ _ f1
+              (by decide) (by decide) (by decide) (by decide)
+              (by simp [Expr.wscopedB])
+              (by simp [Expr.wscopedB])
+              (by decide) (by decide)
+              (by decide)
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVsucc, hVzero]
+                  exact hbleMem ρ _ yy hone hyy')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVT]
+                  exact hctorMem boolTrueName (Or.inl rfl) ρ)
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVsucc, hVzero, hVT]
+                  exact hg2)
+              (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+              (by decide) (by decide) (by decide)
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVs]
+                  exact hop xx yy hxx' hyy')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVs, hVsub]
+                  exact hop _ yy (hsub xx yy hxx' hyy') hyy')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble]
+                  exact hbleMem ρ yy xx hyy' hxx')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVT]
+                  exact hctorMem boolTrueName (Or.inl rfl) ρ)
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVT]
+                  exact hg)
+            simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+              using h
+          · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+              hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
+              (by decide) (by decide) (by decide) (by decide)
+              (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+              (by simp [Expr.wscopedB])
+              (by decide) (by decide) (by decide)
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVs]
+                  exact hop xx yy hxx' hyy')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte]
+                  exact hxx')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble]
+                  exact hbleMem ρ yy xx hyy' hxx')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVF]
+                  exact hctorMem boolFalseName (Or.inr rfl) ρ)
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVF]
+                  exact hg)
+            simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+              using h
+          · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+              hcname φ ρ xx yy hxx hyy _ _ _ _ _ f3
+              (by decide) (by decide) (by decide) (by decide)
+              (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+              (by simp [Expr.wscopedB])
+              (by decide) (by decide) (by decide)
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp [dmLeavesOk, Expr.fvarLeaves])
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVs]
+                  exact hop xx yy hxx' hyy')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte]
+                  exact hxx')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVsucc, hVzero]
+                  exact hbleMem ρ _ yy hone hyy')
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVF]
+                  exact hctorMem boolFalseName (Or.inr rfl) ρ)
+              (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                    reduceIte, hVble, hVsucc, hVzero, hVF]
+                  exact hg)
+            simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+              using h
+  · -- `Nat.gcd`
+    simp only [divModCertStmts, divModCertProofs, natGcdCertProofs,
+      reduceIte] at hruns
+    cases hruns with
+    | cons f1 r1 =>
+      cases r1 with
+      | cons f2 r2 =>
+        have hop := hselfMem (htyOwn.1 (by decide)) ρ
+        have hone := hsuccMem ρ _ (hzeroMem ρ)
+        have htwo := hsuccMem ρ _ hone
+        have hVble := hVd natBleName (by decide)
+        have hVsucc := hVd natSuccName (by decide)
+        have hVzero := hVd natZeroName (by decide)
+        have hVT := hVd boolTrueName (by decide)
+        have hVF := hVd boolFalseName (by decide)
+        have hmod := hdepBin natModName (by decide) (by decide) (by decide) (by decide) ρ
+        have hVmod := hVd natModName (by decide)
+        simp only [DivModClausesV, if_true, reduceIte]
+        refine ⟨fun hg => ?_, fun hg => ?_⟩
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs, hVmod]
+                exact hop _ xx (hmod yy xx hyy' hxx') hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ xx hone hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVT]
+                exact hctorMem boolTrueName (Or.inl rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVT]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte]
+                exact hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ xx hone hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVF]
+                exact hctorMem boolFalseName (Or.inr rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVF]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+  · -- `Nat.land`
+    simp only [divModCertStmts, divModCertProofs, natLandCertProofs,
+      reduceIte] at hruns
+    cases hruns with
+    | cons f1 r1 =>
+      cases r1 with
+      | cons f2 r2 =>
+        have hop := hselfMem (htyOwn.1 (by decide)) ρ
+        have hone := hsuccMem ρ _ (hzeroMem ρ)
+        have htwo := hsuccMem ρ _ hone
+        have hVble := hVd natBleName (by decide)
+        have hVsucc := hVd natSuccName (by decide)
+        have hVzero := hVd natZeroName (by decide)
+        have hVT := hVd boolTrueName (by decide)
+        have hVF := hVd boolFalseName (by decide)
+        have hadd := hdepBin natAddName (by decide) (by decide) (by decide) (by decide) ρ
+        have hmul := hdepBin natMulName (by decide) (by decide) (by decide) (by decide) ρ
+        have hdiv := hdepBin natDivName (by decide) (by decide) (by decide) (by decide) ρ
+        have hmod := hdepBin natModName (by decide) (by decide) (by decide) (by decide) ρ
+        have hVadd := hVd natAddName (by decide)
+        have hVmul := hVd natMulName (by decide)
+        have hVdiv := hVd natDivName (by decide)
+        have hVmod := hVd natModName (by decide)
+        simp only [DivModClausesV, if_true, reduceIte]
+        refine ⟨fun hg => ?_, fun hg => ?_⟩
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs, hVadd, hVmul, hVdiv, hVmod, hVsucc, hVzero]
+                exact hadd _ _ (hmul _ _ htwo (hop _ _ (hdiv xx _ hxx' htwo) (hdiv yy _ hyy' htwo))) (hmul _ _ (hmod xx _ hxx' htwo) (hmod yy _ hyy' htwo)))
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ xx hone hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVT]
+                exact hctorMem boolTrueName (Or.inl rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVT]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVzero]
+                exact hzeroMem ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ xx hone hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVF]
+                exact hctorMem boolFalseName (Or.inr rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVF]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+  · -- `Nat.lor`
+    simp only [divModCertStmts, divModCertProofs, natLorCertProofs,
+      reduceIte] at hruns
+    cases hruns with
+    | cons f1 r1 =>
+      cases r1 with
+      | cons f2 r2 =>
+        have hop := hselfMem (htyOwn.1 (by decide)) ρ
+        have hone := hsuccMem ρ _ (hzeroMem ρ)
+        have htwo := hsuccMem ρ _ hone
+        have hVble := hVd natBleName (by decide)
+        have hVsucc := hVd natSuccName (by decide)
+        have hVzero := hVd natZeroName (by decide)
+        have hVT := hVd boolTrueName (by decide)
+        have hVF := hVd boolFalseName (by decide)
+        have hadd := hdepBin natAddName (by decide) (by decide) (by decide) (by decide) ρ
+        have hmul := hdepBin natMulName (by decide) (by decide) (by decide) (by decide) ρ
+        have hdiv := hdepBin natDivName (by decide) (by decide) (by decide) (by decide) ρ
+        have hmod := hdepBin natModName (by decide) (by decide) (by decide) (by decide) ρ
+        have hsub := hdepBin natSubName (by decide) (by decide) (by decide) (by decide) ρ
+        have hVadd := hVd natAddName (by decide)
+        have hVmul := hVd natMulName (by decide)
+        have hVdiv := hVd natDivName (by decide)
+        have hVmod := hVd natModName (by decide)
+        have hVsub := hVd natSubName (by decide)
+        simp only [DivModClausesV, if_true, reduceIte]
+        refine ⟨fun hg => ?_, fun hg => ?_⟩
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs, hVadd, hVmul, hVdiv, hVmod, hVsucc, hVzero, hVsub]
+                exact hadd _ _ (hmul _ _ htwo (hop _ _ (hdiv xx _ hxx' htwo) (hdiv yy _ hyy' htwo))) (hsub _ _ (hadd _ _ (hmod xx _ hxx' htwo) (hmod yy _ hyy' htwo)) (hmul _ _ (hmod xx _ hxx' htwo) (hmod yy _ hyy' htwo))))
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ xx hone hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVT]
+                exact hctorMem boolTrueName (Or.inl rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVT]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte]
+                exact hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ xx hone hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVF]
+                exact hctorMem boolFalseName (Or.inr rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVF]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+  · -- `Nat.xor`
+    simp only [divModCertStmts, divModCertProofs, natXorCertProofs,
+      reduceIte] at hruns
+    cases hruns with
+    | cons f1 r1 =>
+      cases r1 with
+      | cons f2 r2 =>
+        have hop := hselfMem (htyOwn.1 (by decide)) ρ
+        have hone := hsuccMem ρ _ (hzeroMem ρ)
+        have htwo := hsuccMem ρ _ hone
+        have hVble := hVd natBleName (by decide)
+        have hVsucc := hVd natSuccName (by decide)
+        have hVzero := hVd natZeroName (by decide)
+        have hVT := hVd boolTrueName (by decide)
+        have hVF := hVd boolFalseName (by decide)
+        have hadd := hdepBin natAddName (by decide) (by decide) (by decide) (by decide) ρ
+        have hmul := hdepBin natMulName (by decide) (by decide) (by decide) (by decide) ρ
+        have hdiv := hdepBin natDivName (by decide) (by decide) (by decide) (by decide) ρ
+        have hmod := hdepBin natModName (by decide) (by decide) (by decide) (by decide) ρ
+        have hVadd := hVd natAddName (by decide)
+        have hVmul := hVd natMulName (by decide)
+        have hVdiv := hVd natDivName (by decide)
+        have hVmod := hVd natModName (by decide)
+        simp only [DivModClausesV, if_true, reduceIte]
+        refine ⟨fun hg => ?_, fun hg => ?_⟩
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs, hVadd, hVmul, hVdiv, hVmod, hVsucc, hVzero]
+                exact hadd _ _ (hmul _ _ htwo (hop _ _ (hdiv xx _ hxx' htwo) (hdiv yy _ hyy' htwo))) (hmod _ _ (hadd _ _ (hmod xx _ hxx' htwo) (hmod yy _ hyy' htwo)) htwo))
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ xx hone hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVT]
+                exact hctorMem boolTrueName (Or.inl rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVT]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte]
+                exact hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ xx hone hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVF]
+                exact hctorMem boolFalseName (Or.inr rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVF]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+  · -- `Nat.shiftLeft`
+    simp only [divModCertStmts, divModCertProofs, natShiftLeftCertProofs,
+      reduceIte] at hruns
+    cases hruns with
+    | cons f1 r1 =>
+      cases r1 with
+      | cons f2 r2 =>
+        have hop := hselfMem (htyOwn.1 (by decide)) ρ
+        have hone := hsuccMem ρ _ (hzeroMem ρ)
+        have htwo := hsuccMem ρ _ hone
+        have hVble := hVd natBleName (by decide)
+        have hVsucc := hVd natSuccName (by decide)
+        have hVzero := hVd natZeroName (by decide)
+        have hVT := hVd boolTrueName (by decide)
+        have hVF := hVd boolFalseName (by decide)
+        have hmul := hdepBin natMulName (by decide) (by decide) (by decide) (by decide) ρ
+        have hsub := hdepBin natSubName (by decide) (by decide) (by decide) (by decide) ρ
+        have hVmul := hVd natMulName (by decide)
+        have hVsub := hVd natSubName (by decide)
+        simp only [DivModClausesV, if_true, reduceIte]
+        refine ⟨fun hg => ?_, fun hg => ?_⟩
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs, hVmul, hVsub, hVsucc, hVzero]
+                exact hop _ _ (hmul _ xx htwo hxx') (hsub yy _ hyy' hone))
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ yy hone hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVT]
+                exact hctorMem boolTrueName (Or.inl rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVT]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte]
+                exact hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ yy hone hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVF]
+                exact hctorMem boolFalseName (Or.inr rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVF]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+  · -- `Nat.shiftRight`
+    simp only [divModCertStmts, divModCertProofs, natShiftRightCertProofs,
+      reduceIte] at hruns
+    cases hruns with
+    | cons f1 r1 =>
+      cases r1 with
+      | cons f2 r2 =>
+        have hop := hselfMem (htyOwn.1 (by decide)) ρ
+        have hone := hsuccMem ρ _ (hzeroMem ρ)
+        have htwo := hsuccMem ρ _ hone
+        have hVble := hVd natBleName (by decide)
+        have hVsucc := hVd natSuccName (by decide)
+        have hVzero := hVd natZeroName (by decide)
+        have hVT := hVd boolTrueName (by decide)
+        have hVF := hVd boolFalseName (by decide)
+        have hdiv := hdepBin natDivName (by decide) (by decide) (by decide) (by decide) ρ
+        have hsub := hdepBin natSubName (by decide) (by decide) (by decide) (by decide) ρ
+        have hVdiv := hVd natDivName (by decide)
+        have hVsub := hVd natSubName (by decide)
+        simp only [DivModClausesV, if_true, reduceIte]
+        refine ⟨fun hg => ?_, fun hg => ?_⟩
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs, hVdiv, hVsub, hVsucc, hVzero]
+                exact hdiv _ _ (hop xx _ hxx' (hsub yy _ hyy' hone)) htwo)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ yy hone hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVT]
+                exact hctorMem boolTrueName (Or.inl rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVT]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hop xx yy hxx' hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte]
+                exact hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ yy hone hyy')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVF]
+                exact hctorMem boolFalseName (Or.inr rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVF]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+  · -- `Nat.log2`
+    simp only [divModCertStmts, divModCertProofs, natLog2CertProofs,
+      reduceIte] at hruns
+    cases hruns with
+    | cons f1 r1 =>
+      cases r1 with
+      | cons f2 r2 =>
+        have hun := hunMem (htyOwn.2 rfl) ρ
+        have hone := hsuccMem ρ _ (hzeroMem ρ)
+        have htwo := hsuccMem ρ _ hone
+        have hVble := hVd natBleName (by decide)
+        have hVsucc := hVd natSuccName (by decide)
+        have hVzero := hVd natZeroName (by decide)
+        have hVT := hVd boolTrueName (by decide)
+        have hVF := hVd boolFalseName (by decide)
+        have hdiv := hdepBin natDivName (by decide) (by decide) (by decide) (by decide) ρ
+        have hVdiv := hVd natDivName (by decide)
+        simp only [DivModClausesV, if_true, reduceIte]
+        refine ⟨fun hg => ?_, fun hg => ?_⟩
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hun xx hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs, hVdiv, hVsucc, hVzero]
+                exact hsuccMem ρ _ (hun _ (hdiv xx _ hxx' htwo)))
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ xx htwo hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVT]
+                exact hctorMem boolTrueName (Or.inl rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVT]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
+            hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
+            (by decide) (by decide) (by decide) (by decide)
+            (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
+            (by simp [Expr.wscopedB])
+            (by decide) (by decide) (by decide)
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp [dmLeavesOk, Expr.fvarLeaves])
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVs]
+                exact hun xx hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVzero]
+                exact hzeroMem ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero]
+                exact hbleMem ρ _ xx htwo hxx')
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVF]
+                exact hctorMem boolFalseName (Or.inr rfl) ρ)
+            (by simp only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+                  reduceIte, hVble, hVsucc, hVzero, hVF]
+                exact hg)
+          simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
+            using h
 end Setlec.SetR
+
