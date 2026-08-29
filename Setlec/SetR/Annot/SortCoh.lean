@@ -5701,6 +5701,115 @@ theorem probeTySortVacuity_of (hm : KnotFuelMono μ env)
     · exact nomatch hlift
   · exact nomatch hpi
 
+/-! ## The summit statement: the certified-pair eval-sort simulation
+
+**Lineage** (the arc closing its own loop): the module docstring's
+trap list said from the start "(C)'s β case is
+`SortSubstStable`-shaped and `SortSubstStable`'s leaf is (B)-shaped
+— one mutual induction".  After the w-general species' refutation,
+every surviving agreement consumer (the spine core, (B)'s
+re-entries, the congruence routings) converges on exactly that one
+induction; `CertZip` and the two claims below are its statement.
+
+**The relation**: lockstep pairs — one template at two
+`isEquiv`-linked level instantiations, with `defEqList`-certified
+leaves.  The `cert` leaf carries a GIVEN `isDefEqCore` run at knot
+fuel `fc` — the relation's index and the mutual induction's primary
+measure component (a leaf cert always sits at strictly smaller knot
+fuel than the claim run that exposed it: `isDefEqCore (fc+1)` opens
+to `defeqLoop` over `pureFns fc`, whose cert fields run at `fc`).
+
+**The claims are dual-success eval currency throughout**: both runs
+GIVEN, conclusions are `eval`-equalities — no liveness, no
+constructed runs, no syntactic level identity (the refutation's
+seeds are absorbed: isEquiv slack by eval, proofIrrel stuck slack by
+never claiming output identity).
+
+**Audit records (statement-tier, before any case work — DESIGN
+carries the full versions)**:
+* the zip tier is `Q`-FREE — the syntactic route displaced the model
+  tier for agreements, so leaf recursion consumes the (A)/(B) claims
+  at `Q := True` (no descent obligation); `Q`'s surviving consumer
+  is the semantic trio alone;
+* leaf recursion needs the (A)-claim's cross-`PairedLeaves` at the
+  leaf pair, so the claims carry `PairedLeaves s t` (and the (A)
+  motive gains the concrete pairing thread at the collapse seal —
+  (B)'s motive is the proved pattern);
+* the measure is lexicographic
+  [env declaration index, cert knot fuel `fc`, run budgets]:
+  δ-template linking recurses through INSTALL certs, which live at
+  the env prefix — the outer layer needs env-indexed claims and
+  prefix transport (`Extend/Transport` is the named supplier);
+* β-closure of the zip is shape-restricted and sufficient: whnf
+  β-reduces only at the head, where a zip head-λ is a template pair
+  (contractum = template body with the arg zip substituted at
+  substituAND positions — leaves are never substituted INTO) or a
+  `cert` leaf (decomposed by the (A)-machinery at smaller `fc`);
+  asymmetric stages (one side's redex cert fails) are disciplined by
+  the GIVEN runs (a stuck non-sort output contradicts the run). -/
+
+/-- The lockstep relation.  Generated minimally for the audited
+consumers: syntactic identity, certified leaves (at knot fuel `fc`),
+level slack at exactly the two level-carrying nodes, and structural
+congruence (what `instantiateLevelParams` crosses) — the
+"one template, two instantiations, certified leaves" pairs are
+derivable, not primitive. -/
+inductive CertZip (μ : CheckMode) (env : Env) (fc d : Nat) :
+    Expr → Expr → Prop
+  | refl (e : Expr) : CertZip μ env fc d e e
+  | cert (a b : Expr) :
+      isDefEqCore μ env fc d a b = .ok true →
+      CertZip μ env fc d a b
+  | sortSlack (u v : Level) : Level.isEquiv u v = some true →
+      CertZip μ env fc d (.sort u) (.sort v)
+  | constSlack (n : Name) (us us' : List Level) :
+      Level.isEquivList us us' = some true →
+      CertZip μ env fc d (.const n us) (.const n us')
+  | app (f₁ a₁ f₂ a₂ : Expr) :
+      CertZip μ env fc d f₁ f₂ → CertZip μ env fc d a₁ a₂ →
+      CertZip μ env fc d (.app f₁ a₁) (.app f₂ a₂)
+  | lam (n : Name) (ty₁ ty₂ body₁ body₂ : Expr)
+      (m : Setlec.BinderMeta) :
+      CertZip μ env fc d ty₁ ty₂ → CertZip μ env fc d body₁ body₂ →
+      CertZip μ env fc d (.lam n ty₁ body₁ m) (.lam n ty₂ body₂ m)
+  | forallE (n : Name) (ty₁ ty₂ body₁ body₂ : Expr)
+      (m : Setlec.BinderMeta) :
+      CertZip μ env fc d ty₁ ty₂ → CertZip μ env fc d body₁ body₂ →
+      CertZip μ env fc d (.forallE n ty₁ body₁ m)
+        (.forallE n ty₂ body₂ m)
+  | letE (n : Name) (ty₁ ty₂ v₁ v₂ body₁ body₂ : Expr) :
+      CertZip μ env fc d ty₁ ty₂ → CertZip μ env fc d v₁ v₂ →
+      CertZip μ env fc d body₁ body₂ →
+      CertZip μ env fc d (.letE n ty₁ v₁ body₁)
+        (.letE n ty₂ v₂ body₂)
+  | proj (s : Name) (i : Nat) (e₁ e₂ : Expr) :
+      CertZip μ env fc d e₁ e₂ →
+      CertZip μ env fc d (.proj s i e₁) (.proj s i e₂)
+
+/-- **Summit claim, subject form**: zipped pairs whose members'
+whnf chains both reach literal sorts have eval-equal levels.  The
+spine core and (A)'s remaining routings collapse onto this. -/
+def ZipWhnfSortAgree (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {fc d ga la gb lb : Nat} {s t : Expr} {ℓa ℓb : Level},
+    CertZip μ env fc d s t →
+    SubjInv d s → SubjInv d t → PairedLeaves s t →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la s
+      = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb t
+      = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
+/-- **Summit claim, type form**: zipped pairs on which both sort
+computations succeed have equal numerals.  (B)'s re-entries and the
+congruence routings collapse onto this. -/
+def ZipSortOfAgree (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {fc d : Nat} {s t : Expr} {u v : Nat},
+    CertZip μ env fc d s t →
+    SubjInv d s → SubjInv d t → PairedLeaves s t →
+    SortOfLE μ env φ d s u → SortOfLE μ env φ d t v → u = v
+
 /-- The slot-free (B) shell: `SortOfAgreeR` as the `Q := True`
 instance. -/
 theorem sortOfAgreeR_of {φ : Name → Nat}

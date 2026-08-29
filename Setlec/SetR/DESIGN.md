@@ -9539,3 +9539,73 @@ not landed (two of three shapes fail their consumer analysis).
 Recipe note: an `intro _`-anonymized hypothesis gets REVERTED by a
 later `split at`, shifting the `next` binder assignment off by one —
 name absorbed premises `_hQv`-style, never bare `_`.
+
+### The summit STATED: `CertZip` + the two eval-sort simulation claims
+
+Per the ruling, one statement seal, checks first.  Landed:
+`CertZip μ env fc d` (lockstep relation: `refl`, `cert` leaves at
+knot fuel `fc`, sort/const level slack, structural congruence over
+exactly the nodes `instantiateLevelParams` crosses — "one template,
+two instantiations, certified leaves" derivable, not primitive) and
+the dual-success claims `ZipWhnfSortAgree` (subject form — the spine
+core and (A)'s remaining routings collapse onto it) and
+`ZipSortOfAgree` (type form — (B)'s re-entries and the congruence
+routings collapse onto it).
+
+**Lineage recorded**: the module docstring's one-mutual-induction
+prognosis ("(C)'s β is SortSubstStable-shaped, SortSubstStable's
+leaf is (B)-shaped") is the survivor of the refutation — the claims
+above are its statement, arrived at by elimination.
+
+**Pre-build check (run before writing, against the clauses)**:
+* isEquiv slack — absorbed (conclusions are eval-equalities; both
+  w-species falsifiers pass these statements);
+* proofIrrel stuck slack — absorbed (no output-identity claims);
+* liveness — none (dual-success throughout; the given runs also
+  discipline asymmetric lockstep stages: a side whose redex cert
+  fails goes stuck non-sort, contradicting its own given run);
+* fuel scales — every run at its own fuel; `fc` indexes only the
+  leaf certs (trap-family quantifier pattern);
+* β-closure — shape-audited: whnf β-reduces at the head only; a zip
+  head-λ is a template pair (contractum = body with the arg zip at
+  substituAND positions — cert leaves are never substituted INTO)
+  or a `cert` leaf (decomposed by the (A)-machinery at smaller
+  `fc`).  The general zip substitution lemma is NOT claimed (cert
+  leaves under substituted binders would break it); only the
+  head-shape instances are needed.
+
+**Measure audit (before any case work)**: lexicographic
+**[env declaration index, cert knot fuel `fc`, run budgets]**.
+* `fc` decreases at every leaf exposure: `isDefEqCore (fc+1)` opens
+  to `defeqLoop` over `pureFns fc`, whose cert fields
+  (`defEqList`, `piCong`'s sub-certs, …) run at `fc` — read off
+  `isDefEqCore_succ`/`defeqLoop_succ`.  This is the mutual knot's
+  universal decrease: (A)/(B) at `fc+1` consume zip claims whose
+  leaves sit at `fc`, and vice versa.
+* Run budgets decrease along lockstep decomposition of the given
+  loop runs (the (A)-shell's own induction pattern).
+* The δ-template link (same head unfolds one stored value; its
+  install cert relates value-type to declared type) recurses through
+  a cert that lives at the ENV PREFIX — the outer layer needs
+  env-indexed claims plus prefix transport of runs and claims;
+  named supplier: `Extend/Transport` (`extend_fresh` /
+  `extend_rec_swap`).  This is the audit's one structural finding:
+  the collapse seals must state the zip claims env-parametric (or
+  thread an env-prefix hypothesis) before the δ case is built.
+* The zip tier is `Q`-free: agreements went syntactic, so leaf
+  recursion consumes (A)/(B) at `Q := True` — no `Q`-descent
+  obligation anywhere; `Q`'s only surviving consumer is the
+  semantic trio.
+* Leaf recursion needs cross-`PairedLeaves` at the leaf pair; the
+  claims carry `PairedLeaves s t`, and the (A)-shell's motive gains
+  the concrete pairing thread at the collapse seal ((B)'s motive is
+  the proved pattern; the preserver species already exist).
+
+**The collapse map (next seals, in dependency order)**: (1) the
+env-index layer decision (env-parametric restatement vs prefix
+hypothesis — coordinator input wanted); (2) `defEqList` per-arg
+extraction + the template-instantiation zip theorem
+(`v[us] zip v[us']`); (3) `DeltaSpineSortAgree` from
+`ZipWhnfSortAgree`; (4) (B)'s re-entries and congruence routings
+from `ZipSortOfAgree`; (5) the zip claims' own mutual induction —
+the summit's case work, LAST, on the audited measure.
