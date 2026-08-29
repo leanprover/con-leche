@@ -7246,3 +7246,65 @@ install-time sort annotations plus the redex's own annotated slots,
 after which the two `iotaCertsI` calls go mode-dead with zero new
 checks.  Rank 2 (beta, 25–48 %) and rank 3 (internal per-argument,
 ~9 %) ride the same theorem.
+
+## Tier C carried obligations — the visible ledger
+
+Per the merge review: obligations this lane takes on hypotheses, so
+they do not become eleventh-hour surprises.  Suppliers are all
+`EnvS`-shaped (install-time facts a future `EnvS` component exposes):
+
+| obligation | where taken | supplier class |
+|---|---|---|
+| `CvalAnnot` clause 1 — every stored valuation annotates | `Annot/Pass.lean`, since tier A | install-time: valuations are denoted checked terms |
+| `CvalAnnot` clause 2 — λ-shaped stored valuations have sorted types | `Annot/Pass.lean`, this seal | front-door `ensureSort` (`Checker.lean:272,380`) |
+| `Infer.annotates`/`Tele.annotates` are verified-mode | consumers must hold `μ.verified` | free at `--set-model` |
+
+## FINDING (filed, not chased): `--no-model` exits 3 on the Std.Time cone
+
+`_tmp/certprof-151/std-nm-0.*`: `--no-model --pre pre2.ndjson` with
+`SETLEC_FUEL=200000` dies at 491.9 G instructions, exit 3, empty
+stdout/stderr.  The verified lane accepts the same stream in every
+masked configuration.  Task-worthy (a silent internal error in the
+parity lane); does not gate this lane.
+
+## The second soundness — architecture, settled before mechanizing
+
+The removals' soundness is **the #49 design resurrected over the
+two-regime semantics** — domain determination at provably-positive
+slots, a possibly-Prop residue — made sound by exactly what #100's
+collapse broke:
+
+* **`AnnotOk2`** (on `AVExpr`, hereditary, semantic — so it transports
+  across reduction like `AnnotOkV`, sidestepping A2 for the invariant
+  itself): the `AnnotOkV` clauses over `interp2`, with two upgrades —
+  the app slot's package `∃ v A B, ⟦f⟧ ∈ piR v A B ∧ ⟦a⟧ ∈ A` carries
+  the product **kind**, and the λ clause carries the **fibre package**
+  (`∃ B̂, ∀ x ∈ ⟦A⟧, ⟦b⟧(x) ∈ B̂ x` graded by the node's own `v`).
+* **The pinning chain**: at a *positive-kind* product a member is a
+  graph and graphs determine domains (`mem_piR_pos`,
+  `piR_dom_unique` — no side condition), so an app-slot membership
+  *pins* the λ/telescope domain even when the **slot's own type is a
+  proposition** — what matters is the kind of the *remaining
+  telescope*, `imax`-folded, i.e. ultimately the codomain's kind.
+* **The residue is codomain-`Prop`, exactly #49's**: at a `Prop`-kind
+  product nothing pins the domain (the truth value forgets it), and
+  `⟦reduct⟧ = pt` needs the argument membership.  Removals therefore
+  land as **O(1) kind gates**, not unconditional deletions:
+  – beta: skip the argument re-check when the λ's codomain kind is
+    provably nonzero (the #152-computed sort, which must then reach
+    the reduction site — mechanism to be priced: stored annotation vs
+    recompute);
+  – iota telescopes: skip both walks when the **instantiated motive
+    sort** is provably nonzero (`Level.isNonZero`, one evaluation per
+    fire — the telescope's slot kinds are static in the stored,
+    install-sort-checked recursor type).  `Prop`-motive fires keep the
+    walks.
+* **Graded conclusions**: reduction/defeq interp2-equalities become
+  conditional on the subject's `AnnotOk2` (the model's iota equality
+  is genuinely membership-conditional — off-domain, the recursor
+  value's junk and the rule tower's junk differ), threaded from the
+  front door exactly as `AnnotOkV` is today.
+
+Feasibility pilots to mechanize first (B5-style, before any motive is
+re-signed): the graded beta step at both product kinds, and the
+slot-pinning lemma at a positive-codomain telescope.
