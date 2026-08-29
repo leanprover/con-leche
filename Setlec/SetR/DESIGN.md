@@ -8636,3 +8636,61 @@ proving core-idem and whnf-idem mutually —
 
 Landed this seal: the corrected statement, the shell patch,
 `whnfCore_pos`, `whnfLoop_final`.
+
+### STOP: the strLit corner refutes `WhnfCoreIdem` outright (fourth catch)
+
+The discharge induction opened at the named watch-point, and the
+corner did not resist the map — it refuted the obligation.  Same-fuel
+included:
+
+**The refutation.**  `projLitToCtor` on a string-literal scrutinee
+runs `whnf (strLitToConstructor s)`, and that chain **delta-unfolds
+the stored `String.ofList`** — whose body an accepted env may choose
+adversarially: `strLitSupported` checks the support declarations'
+presence and types, and `fun l => if … then "boom" else "zap"`
+typechecks.  With a body that maps `"hi" ↦ "boom" ↦ "zap"`, the
+original run on `.proj sn i pe` (where `whnf pe = "hi"`) outputs
+`.proj sn i "boom"`; the rerun re-enters `projLitToCtor` on the
+`"boom"` literal and outputs `.proj sn i "zap"`.  Re-normalizing is
+*not* the identity: the proj-scrutinee's literal re-expansion is a
+genuine second reduction step that `whnfCore` outputs can still
+contain.  (The natVal analogue is harmless — `reduceNat` packs nat
+literals canonically; the strVal path routes through a *stored
+program*.)
+
+**Why the map missed it**: the "bounded chase" assumed the ctor-form
+chain was delta-inert; it is not — `String.ofList` is a definition,
+and the `whnf` loop unfolds it.  The corner is not adversarial-only
+in shape: any env where the expansion is not literal-idempotent
+breaks it.
+
+**Repair space** (for the ruling; no discharge work until the
+obligation is re-stated):
+
+* **R-a — restrict the obligation to the consumers' shapes.**  The
+  shell consumes idem only to *rebuild one-step stuck runs* on
+  `a'`/`b'` at the assemble/align sites.  What those sites truly
+  need is weaker than idempotence: "`whnfCore f d a' = .ok x` for
+  *some* `x` the surrounding facts identify" — in every shell use the
+  surrounding case *also* holds `reduceNat`/`unfold` facts about
+  `a'`, and for proj-strLit shapes the given run's own next step
+  provides the continuation.  Candidate: replace `WhnfCoreIdem` by
+  the site-shaped fact "a whnfCore output re-normalizes to *a value
+  the same run's suffix processes*", i.e. thread the given run
+  instead of an idem oracle — the run-mirror principle applied once
+  more.
+* **R-b — idem modulo proj-relit**: state idempotence with an
+  explicit disjunct for the `.proj`-with-literal-scrutinee shape.
+  Pollutes every consumer; the shell's four sites would need the
+  disjunct discharged anyway — R-a subsumes it.
+* **R-c — env-side pinning** of the `String.ofList` body
+  (checker/install change): barred-adjacent (reference kernels do
+  not pin it; the strategy ruling protects reduction behavior, and
+  install-side strengthening would decline real streams).
+
+Recommendation: **R-a** — re-derive the shell's four assemble/align
+sites against run-threaded facts and delete the obligation, exactly
+as the liveness revert deleted blind construction.  The count of
+caught-undischargeable statements stands at four; all four were
+caught by supplier-side scoping before any consumer relied on a
+discharge.
