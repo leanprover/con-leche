@@ -8192,3 +8192,68 @@ pi-congruence machinery gets its dry run at the cheapest claim), then
 S1 in the order (F-nat) (vacuity template), (F-core) non-β cases,
 (F-core).β (the pairing construction — the arc's summit), (F-δ)
 (after (E) + the install field), then S2 (mechanical), then S3.
+
+### STOP: Keystone 1 overclaimed — the hoisted probe re-entangles (A) with transport
+
+Opening S0, the first case trace refuted part of the sealed audit.
+The det-vacuity argument for (A)'s stuck cases is sound only for the
+*structural endgame* fallbacks, which run on fully-whnf-stuck
+subjects (there the subject's own whnf run must end at the stuck form
+— determinism — so a non-sort stuck form contradicts the
+whnf-to-sort hypothesis).  But **`defeqStep` hoists `proofIrrel`
+before lazy delta** (mirroring the official kernel — a probe order,
+not a Setlec quirk, and reduction-strategy changes are barred by the
+standing ruling): the probe runs on *mid-chain* subjects that may
+still delta/nat-step onward to a literal sort.  For those, nothing in
+the probe's runs contradicts the whnf-to-sort hypothesis by
+determinism alone — the contradiction ("a `Prop`-typed subject
+cannot whnf-converge to a literal sort") requires transporting the
+probe's own `sortOfE`-shaped facts along the subject's remaining
+chain.  That is S2 machinery: **(A) is not standalone; the hoisted
+probe is a genuine (A)↔(F) entanglement.**
+
+The vacuity's true content, named: **Prop/Sort separation (PSS)** —
+`proofIrrel`-style `Prop`-typing runs and a whnf-to-literal-sort run
+on one subject are jointly absurd.  Its discharge is *one-shot* (no
+regress): S2-transport the probe's `sortOfE(ta) = 0` along `ta`'s
+chain to the literal end, where `sortOfE_sort_out` computes
+`eval ℓ + 1` — `0 = eval ℓ + 1` is absurd.  But routed through the
+sealed design it is formally circular: (F).β's *top* consumed (A) on
+a **constructed** cert, whose own probe case is PSS again, at
+unbounded (∃-fuel) components.
+
+**Repair (δ), proposed** — three coupled changes that make the
+circle a well-founded joint induction:
+
+1. **Move the cert consumption from the top to the leaves.**  The
+   pairing's correspondence invariant carries **constructed
+   chain-links** (each corresponding type pair comes with built
+   whnf-convergence to same-eval sorts) instead of cert runs; the
+   site certs are consumed *immediately at the leaves* via (A)
+   instances whose components — the cert's own fuel, the annotation
+   chains — are **subtrees of the walk hypotheses**, never
+   constructed.
+2. **Mutualize J0 = {(A), the (F) species, the chain assembly} in
+   one fueled joint induction** with measure = the sum of the
+   *fueled hypothesis components*, under a strict **subtree
+   discipline**: every fueled component of every consumed instance
+   is a subtree of some hypothesis component.  (A)'s probe case
+   consumes chain-transport instances at subtree fuels of its own
+   `f₁`; (F).β consumes leaf-(A) at subtree components of the walk;
+   re-entries drop loop budgets at fixed sums.
+3. **∃-fuel is for outputs only.**  Transports still *produce*
+   `SortOfEE`/chain-link facts fuel-free (hole 2 stays dissolved —
+   produced facts are consumed solely by determinism-style lemmas
+   and terminal cases, never inducted into); but every *hypothesis*
+   of a J0-internal claim stays fueled so the sum measure is real.
+
+S3 = (B) is unchanged (consumes J0 as theorems).  The strata
+S0/S1/S2 collapse into J0 — the summit is bigger than the audit
+hoped, but the measure is honest: the previous design's fatal arrows
+((F).β's constructed-cert top-read; PSS's ∃-fuel erasure) are both
+removed *by construction*, not by measure cleverness.
+
+Sealed as a finding for the ruling before any case work consumes the
+corrected design; the (F)/(A) statements as landed are untouched
+(repair δ changes proof architecture and the internal claim forms,
+not the public statements).
