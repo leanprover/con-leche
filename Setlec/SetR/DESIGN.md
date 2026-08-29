@@ -7168,3 +7168,81 @@ taught.*
 as expected; the tt-model sweep left the battery with the mode.  Zero
 sorries; the fourteen `*_R` unchanged at
 `[propext, Classical.choice, Quot.sound]`.
+
+# Task #151 tier C — the cert-tax lane (phase 2, first seal)
+
+## The certificate-cost decomposition at `--set-model` (data in `_tmp/certprof-151/`)
+
+The #141 stack (`instrumentation.patch`, rebased over the T7/T7b tree,
+never landed) re-run on the lane the user pays — `--set-model`, not
+the retired infer-only lane.  `perf stat` instructions:u; verdicts
+identical in every masked configuration (all accept, same counts).
+Families: 0 iota recursor telescope, 1 iota constructor telescope,
+2 per-redex beta argument re-check, 8 `projCert`, 9 iota comparand
+lists, 11 the per-argument application check (masking 11 skips it
+*everywhere*, front door included — those runs are measurement
+artifacts, never verdicts).
+
+| config | init-prelude (3653 decls) | Std.Time cone (6390 decls) |
+|---|---|---|
+| baseline `--set-model` | 32.57 G | 1564.9 G |
+| mask 0 (iota rec tele) | −1.2 % | −3.2 % |
+| mask 1 (iota ctor tele) | −0.26 % | −0.65 % |
+| mask 2 (beta) | −8.3 % | −16.1 % |
+| mask 8 (projCert) | −0.08 % | — |
+| mask 9 (comparands) | −0.16 % | — |
+| mask {0,1,2,8,9} — all cert families | **19.00 G (−41.7 %)** | **260.9 G (−83.3 %)** |
+| mask 11 too | 11.43 G | 51.4 G |
+| `--no-model` | 16.04 G | (run aborted, exit 3 — unmeasured) |
+
+Readings.  (a) The tax on init-prelude is 16.5 G = 50.8 % of the
+verified run; the five certificate families jointly are 82 % of it,
+wildly superadditive over the singles (2.7 G summed) — certified
+reducts feed later certificates, the #141 amplification reproduced on
+this lane and stronger.  (b) On the recursor-heavy Std.Time cone the
+five families are **five-sixths of the entire verified run**.  (c) The
+internal per-argument application share ≈ (mask-families) −
+(`--no-model`) ≈ 3.0 G ≈ 9 % on init-prelude; the front-door share
+(≈ `--no-model` − mask-all ≈ 4.6 G) is official-shared, not tax.
+(d) Post-#100 every family runs *unconditionally* (the #49/#71
+possibly-Prop gates are unsound-to-model under the domain-relative
+collapse — `CoreI.lean:1613,1666`), which is exactly what the
+collapse-free two-regime semantics re-justifies: under `piR`/`lamR`,
+positive-regime members **are** graphs and `piR_dom_unique` carries no
+side condition, so the #49 domain-determination argument returns,
+strengthened, at every annotated slot.
+
+## The I7 amendment, landed (steps 1–2 of the proof chain)
+
+I7 carries the #152 chain-guarded codomain-sort premises,
+premise-exact (see the rule's docstring): `μ.verified → ¬b.isLam →`
+a `DefEq`-link to the checker's own computed body type `B'`, its
+inference, and the sort fact — `B'`/`tB`/`v` unconstrained when the
+guard does not fire.  The link premise is the A5 lesson applied:
+`HasSort` is not `DefEq`-stable, so the fact is stated at the
+checker's own comparand.  Discharged in `infer_lam_claimR` from the
+#152 inversion conjunct + `inferSortR`; `checkStepR` stays proved with
+no other bridge clause touched.  `Annotates.lam` caches the codomain
+numeral through `HasSortC`; `Infer.annotates` is verified-mode with
+the `(∃ ea, Annotates) ∧ (isLam → ∃ v, HasSortC)` motive and the
+`hasSortC_pi_of` chain induction; `CvalAnnot` gains the λ-shaped-leaf
+sort clause (an `EnvS`-shaped obligation, supplier later).  The
+`AVExpr` swap is done: `Interp2/Syntax.lean` deleted, `interp2`
+dispatches on `Annot/Syntax.lean`'s node, whose `lam` numeral is now
+the codomain sort — F4 closed.
+
+## What remains on this lane (the second soundness), stated before starting
+
+The removals consume a soundness of the checker against `interp2`
+over annotated derivations.  Its shape is constrained by the recorded
+hazards: A2 (annotations do not cross `Red` — the statement follows
+checker-computed facts, i.e. it lives at the bridge/claims level, not
+as a transport over the bare relation), A4 (kinds thread through
+shared inferred types, never read back from memberships), B5″ (a
+fibre's universe is not recoverable from the product's — slot sorts
+are data).  Rank 1 (iota telescopes, 7–15 %) is the pilot: the `Tele`
+premises of R11 must be re-supplied from the stored recursor type's
+install-time sort annotations plus the redex's own annotated slots,
+after which the two `iotaCertsI` calls go mode-dead with zero new
+checks.  Rank 2 (beta, 25–48 %) and rank 3 (internal per-argument,
+~9 %) ride the same theorem.
