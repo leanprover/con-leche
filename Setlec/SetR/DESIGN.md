@@ -7543,3 +7543,62 @@ cast, and the catch-all clause's equation only fires through
 `denote2.eq_def`).  With coherence (definitional) and erasure (this
 law), the canonical annotation is a genuine annotation-valued section
 of `denote`; what remains of R1 is **stability alone**.
+
+## The stability metatheorem — the semantic backbone, the decomposition, and a cost-structure FINDING (escalated)
+
+**The backbone** (user exchange, folded in as instructed): every rule
+the checker fires — iota, eta, β, proof-irrelevance, every defeq step
+— is an equation at a **single common carrier** `T`: same carrier,
+same sort.  For ground monomorphized levels `Sort u ≡ Sort v` iff
+`u = v`, so **sorts are genuine invariants of defeq classes even
+though type shapes are not**.  ("Modeled rules only relate data" is
+false — large elimination makes the carrier itself `Type u` — but
+"same-sorted on both sides, always" is a theorem of the rule format,
+needs no install check, and survives large elimination.)  Mechanized
+kernel: `sort_rigid` (`Annot/Kinding.lean`) — definitionally equal
+sorts are equal at any satisfying valuation, one line over
+`sortFact_unique`.  This is also the data-vs-`Prop` division of labor
+of the regime split: rigidity at positive kinds replaces
+Π-injectivity; `Prop` keeps its walks.
+
+**The decomposition, worked to its base.**  Stability =
+"`denote2` commutes with the checker's β-substitution at the
+numerals": for each interior λ, the sort computed on the opened body
+equals the sort computed on the substituted body.  Working the chain:
+
+1. sorts of `DefEq` types are equal (`sort_rigid` — done);
+2. the two computed types are `DefEq` — needs **M2**, substitution
+   for the relation family, up-to-`DefEq`, mutual over
+   `Red`/`Infer`/`DefEq`/`Tele`/`DefEqL` (M1/`Weaken.lean` is the
+   template; `InstCtx` and its lookup lemmas already exist in
+   `Verify/Denote/HasTypeSubst.lean`; the up-to-`DefEq` conclusion is
+   what dodges finding A1 — no `HasSort` crosses anything);
+3. linking the substituted run's own inference to M2's output needs
+   **uniqueness of inference up to `DefEq`** — whose I8 case needs
+   **Π-injectivity up to `DefEq`**, which the relation does not have
+   and whose semantic form the B5 record refutes at `Prop`.
+
+**The FINDING**: the relation-level route to stability costs
+M2 + UoI + Π-injectivity — the third being exactly the ground the
+campaign's records mark as hostile.  The **run-level route** avoids
+all three: uniqueness of inference is *determinism of the checker's
+own function* (free), and stability becomes a substitution
+**simulation over the checker's functions** — `inferTypeCore`/`whnf`
+outputs on substitution-related inputs are `DefEq`, with the sort leg
+closed by `sort_rigid` and the carrier backbone.  This is
+Bridge-scale mechanization (a mutual induction over the knot,
+`checkStepR`-shaped), with no refutation expected: determinism plus
+ground levels plus same-carrier leave nowhere for a sort to move.
+
+The triangle that forces this (recorded so nobody re-walks it):
+descended annotations lose coherence at defeq leaves (WALL 3);
+canonical annotations need stability; stability at the relation level
+needs Π-injectivity.  Canonical + run-level simulation is the unique
+consistent corner.
+
+**Escalation**: the stability seal therefore lands in two parts —
+this analysis (with `sort_rigid`) now, and the simulation campaign as
+the next arc, sized like a bridge tier, to be resourced knowingly
+rather than discovered mid-proof.  No instability counterexample
+exists or is expected; the STOP condition was tripped by *cost
+structure*, not by refutation.

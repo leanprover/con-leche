@@ -180,6 +180,17 @@ theorem Annotates.interp_erase {Δ : List VExpr} {e : VExpr} {ea : AVExpr}
     interp V ρ ea.erase = interp V ρ e :=
   (h.zetaEq.interp_eq ρ).symm
 
+/-- **Sort rigidity** — the stability metatheorem's semantic backbone,
+as a lemma: definitionally equal sorts are equal, at any satisfying
+valuation.  For ground monomorphized levels `Sort u ≡ Sort v` iff
+`u = v`: sorts are genuine invariants of defeq classes even though
+type shapes are not. -/
+theorem sort_rigid (henv : EnvSHyp V env cval φ)
+    {Δ : List VExpr} {u v : Nat}
+    (h : DefEq μ env cval φ Δ (.sort u) (.sort v))
+    {ρ : Nat → V} (hρ : Sat V Δ ρ) : u = v :=
+  sortFact_unique henv (DefEq.refl (v := .sort u)) h hρ
+
 end Kinding
 
 end Setlec.SetR
