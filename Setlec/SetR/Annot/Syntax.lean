@@ -75,7 +75,9 @@ inductive AVExpr where
   | const (c : BConst) (us : List Nat)
   /-- application -/
   | app (f a : AVExpr)
-  /-- `fun (_ : ty) => body`, with `ty`'s sort `u` -/
+  /-- `fun (_ : ty) => body`, where `body`'s **type** has sort `u` —
+  the codomain numeral `interp2` dispatches on (tier B's F4; the
+  #152 resolution made it derivable, and `Annotates.lam` caches it) -/
   | lam (u : Nat) (ty body : AVExpr)
   /-- `(_ : ty) → body`, with `ty`'s sort `u` and `body`'s sort `v` -/
   | pi (u v : Nat) (ty body : AVExpr)

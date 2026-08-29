@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.Syntax
+import Setlec.SetR.Annot.Syntax
 import Setlec.SetR.Interp2.Value
 
 /-!
