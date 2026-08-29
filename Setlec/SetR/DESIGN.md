@@ -8861,3 +8861,34 @@ consumer.
 Remaining discharge tier for the branch: the three PSS vacuities,
 `NatSortVacuity`, `SpineSortAgree` — then (B)'s shell, the (F)
 species, the `SortSubstStable` leaf wiring.
+
+### NatSortVacuity scoping: the Bool-ctor question decided (negatively) by `natOpGuard`'s own text
+
+Read before the chase, as ruled.  `natOpGuard` checks, for the
+comparison ops, only that `env.find? boolTrueName` /
+`boolFalseName` exist with **empty level parameters** — `some ci =>
+ci.toConstantVal.levelParams.isEmpty` accepts *any* constant kind.
+An accepted env may store `Bool` as an axiom of type `Sort 1`
+(passing `natOpCod`'s shape check) and `Bool.true` as a
+level-monomorphic *definition* — which typechecks, passes the guard,
+and makes `natOpResult`'s bool-constant outputs **delta-unfoldable**:
+the "bool-consts are terminal" leg of the nat chase fails, the
+unfolding routes through a stored program, and the strLit-corner
+shape returns.
+
+**Consequence**: `NatSortVacuity`'s discharge needs an env-side
+fact.  Ledger entry: `BoolCtorsInert env` (the comparison-op outputs'
+constants are stored as constructors, hence delta-inert), named
+supplier: the install tier — for envs whose `Bool` arrived as an
+inductive block the ctors are `ctorInfo` and duplicate-name installs
+are rejected; the obligation is discharged per-env alongside
+`DeltaSortLinked`.  The arithmetic-op leg (literal outputs) needs no
+such fact.
+
+**Also scoped**: the right disjunct of `NatSortVacuity` (the b-side
+nat-step under an a-side sort convergence) is not a lemma chain but
+a cert-loop induction of its own — "a sort-converging left is never
+certified against a nat-stepping right" — structurally a sibling of
+the (A) shell (same budget-only descent, terminal cases colliding
+nat-shapes with sort-shapes).  The discharge seal should build it on
+the shell's skeleton.
