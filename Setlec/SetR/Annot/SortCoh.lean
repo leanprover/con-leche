@@ -692,6 +692,331 @@ theorem whnf_of_loop {μ : CheckMode} {env : Env} {f d l : Nat}
     whnf μ env (f + 1) d e = .ok s :=
   whnfLoop_budget_mono hl h
 
+/-! ## The cert-loop decomposition — `defeqStep`'s certifying paths
+
+The machine-checked form of the case map: one constructor per
+certifying path of `defeqStep`, on the *post-whnfCore* pair (the
+whnfCore facts are stated once, in `defeqStep_decompose`).  The
+`rescue` constructor absorbs every `stuckIrrel` fallback site — the
+body always passes the case's own scrutinees, i.e. the post-whnfCore
+pair verbatim.  Hint/guard data that no consumer reads
+(`unfoldableHead`, `headHint`, the string-support guard) is dropped:
+constructors are deliberately *weaker* than their branches, which is
+sound for a decomposition. -/
+
+inductive PostCoreCert (μ : CheckMode) (env : Env)
+    (r : Setlec.CoreFns Setlec.CheckM)
+    (k : Expr → Expr → Setlec.CheckM Bool) (d : Nat) :
+    Expr → Expr → Prop
+  | syn (e : Expr) : PostCoreCert μ env r k d e e
+  | irrel (a b : Expr) :
+      Setlec.proofIrrel r env d a b = .ok true →
+      PostCoreCert μ env r k d a b
+  | natL (a b a₂ : Expr) :
+      Setlec.reduceNat r env d a = .ok (some a₂) →
+      k a₂ b = .ok true → PostCoreCert μ env r k d a b
+  | natR (a b b₂ : Expr) :
+      Setlec.reduceNat r env d b = .ok (some b₂) →
+      k a b₂ = .ok true → PostCoreCert μ env r k d a b
+  | deltaL (a b a₂ : Expr) :
+      Setlec.unfoldDefinition env a = some a₂ →
+      k a₂ b = .ok true → PostCoreCert μ env r k d a b
+  | deltaR (a b b₂ : Expr) :
+      Setlec.unfoldDefinition env b = some b₂ →
+      k a b₂ = .ok true → PostCoreCert μ env r k d a b
+  | deltaB (a b a₂ b₂ : Expr) :
+      Setlec.unfoldDefinition env a = some a₂ →
+      Setlec.unfoldDefinition env b = some b₂ →
+      k a₂ b₂ = .ok true → PostCoreCert μ env r k d a b
+  | spine (a b : Expr) :
+      Setlec.defeqSpine r env d a b = .ok true →
+      PostCoreCert μ env r k d a b
+  | sorts (u v : Level) : Level.isEquiv u v = some true →
+      PostCoreCert μ env r k d (.sort u) (.sort v)
+  | lits (l : Setlec.Literal) :
+      PostCoreCert μ env r k d (.lit l) (.lit l)
+  | natZeroL : PostCoreCert μ env r k d
+      (.lit (.natVal 0)) (.const Setlec.natZeroName [])
+  | natZeroR : PostCoreCert μ env r k d
+      (.const Setlec.natZeroName []) (.lit (.natVal 0))
+  | natSuccL (n : Nat) (x : Expr) :
+      r.defeq d (.lit (.natVal n)) x = .ok true →
+      PostCoreCert μ env r k d (.lit (.natVal (n + 1)))
+        (.app (.const Setlec.natSuccName []) x)
+  | natSuccR (n : Nat) (x : Expr) :
+      r.defeq d x (.lit (.natVal n)) = .ok true →
+      PostCoreCert μ env r k d
+        (.app (.const Setlec.natSuccName []) x)
+        (.lit (.natVal (n + 1)))
+  | strL (st : String) (cO : Name) (usO : List Level) (x : Expr) :
+      r.defeq d (Setlec.strLitToConstructor st)
+        (.app (.const cO usO) x) = .ok true →
+      PostCoreCert μ env r k d (.lit (.strVal st))
+        (.app (.const cO usO) x)
+  | strR (st : String) (cO : Name) (usO : List Level) (x : Expr) :
+      r.defeq d (.app (.const cO usO) x)
+        (Setlec.strLitToConstructor st) = .ok true →
+      PostCoreCert μ env r k d (.app (.const cO usO) x)
+        (.lit (.strVal st))
+  | fvars (i : Nat) (n₁ n₂ : Name) (ty₁ ty₂ : Expr) :
+      PostCoreCert μ env r k d (.fvar i n₁ ty₁) (.fvar i n₂ ty₂)
+  | consts (n : Name) (us us' : List Level) :
+      Level.isEquivList us us' = some true →
+      PostCoreCert μ env r k d (.const n us) (.const n us')
+  | piCong (n₁ n₂ : Name) (ty₁ ty₂ body₁ body₂ : Expr)
+      (m₁ m₂ : Setlec.BinderMeta) :
+      r.defeq d ty₁ ty₂ = .ok true →
+      r.defeq (d + 1) (body₁.instantiate1 (.fvar d n₁ ty₁))
+        (body₂.instantiate1 (.fvar d n₂ ty₂)) = .ok true →
+      PostCoreCert μ env r k d (.forallE n₁ ty₁ body₁ m₁)
+        (.forallE n₂ ty₂ body₂ m₂)
+  | lamCong (n₁ n₂ : Name) (ty₁ ty₂ body₁ body₂ : Expr)
+      (m₁ m₂ : Setlec.BinderMeta) :
+      r.defeq d ty₁ ty₂ = .ok true →
+      r.defeq (d + 1) (body₁.instantiate1 (.fvar d n₁ ty₁))
+        (body₂.instantiate1 (.fvar d n₂ ty₂)) = .ok true →
+      PostCoreCert μ env r k d (.lam n₁ ty₁ body₁ m₁)
+        (.lam n₂ ty₂ body₂ m₂)
+  | appCong (f₁ a₁ f₂ a₂ : Expr) :
+      (Expr.app f₁ a₁).getAppArgs.length =
+        (Expr.app f₂ a₂).getAppArgs.length →
+      r.defeq d (Expr.app f₁ a₁).getAppFn
+        (Expr.app f₂ a₂).getAppFn = .ok true →
+      Setlec.defEqList r env d (Expr.app f₁ a₁).getAppArgs
+        (Expr.app f₂ a₂).getAppArgs = .ok true →
+      PostCoreCert μ env r k d (.app f₁ a₁) (.app f₂ a₂)
+  | projCong (s₁ s₂ : Name) (i : Nat) (e₁ e₂ : Expr) :
+      r.defeq d e₁ e₂ = .ok true →
+      PostCoreCert μ env r k d (.proj s₁ i e₁) (.proj s₂ i e₂)
+  | etaL (n₁ : Name) (ty₁ body₁ : Expr) (m₁ : Setlec.BinderMeta)
+      (b : Expr) :
+      Setlec.etaCert r env d n₁ ty₁ body₁ m₁ b = .ok true →
+      PostCoreCert μ env r k d (.lam n₁ ty₁ body₁ m₁) b
+  | etaR (a : Expr) (n₂ : Name) (ty₂ body₂ : Expr)
+      (m₂ : Setlec.BinderMeta) :
+      Setlec.etaCert r env d n₂ ty₂ body₂ m₂ a = .ok true →
+      PostCoreCert μ env r k d a (.lam n₂ ty₂ body₂ m₂)
+  | rescue (a b : Expr) :
+      Setlec.stuckIrrel μ r env d a b = .ok true →
+      PostCoreCert μ env r k d a b
+
+/-- **Decompose a certifying `defeqStep`**: either the syntactic fast
+path fired, or the post-whnfCore pair certifies by one of the
+`PostCoreCert` paths. -/
+theorem defeqStep_decompose {μ : CheckMode} {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM}
+    {k : Expr → Expr → Setlec.CheckM Bool} {d : Nat} {a b : Expr}
+    (h : Setlec.defeqStep μ r env d k a b = .ok true) :
+    a = b ∨ ∃ a' b',
+      r.whnfCore d a = .ok a' ∧ r.whnfCore d b = .ok b' ∧
+        PostCoreCert μ env r k d a' b' := by
+  unfold Setlec.defeqStep at h
+  simp only [Bind.bind, Except.bind] at h
+  split at h
+  · next hab => exact .inl (eq_of_beq hab)
+  next hab =>
+  split at h
+  · exact nomatch h
+  next a' hwa =>
+  split at h
+  · exact nomatch h
+  next b' hwb =>
+  refine .inr ⟨a', b', hwa, hwb, ?_⟩
+  split at h
+  · next hab' => obtain rfl := eq_of_beq hab'; exact .syn a'
+  next hab' =>
+  split at h
+  · exact nomatch h
+  next c hpi =>
+  split at h
+  · next hc => exact .irrel a' b' (hc ▸ hpi)
+  next hc =>
+  split at h
+  · exact nomatch h
+  next oa hra =>
+  split at h
+  case _ a₂ =>
+    -- literal acceleration, left: the guard must have been live
+    split at hra
+    · exact .natL a' b' a₂ hra h
+    · exact nomatch hra
+  split at h
+  · exact nomatch h
+  next ob hrb =>
+  split at h
+  case _ b₂ =>
+    split at hrb
+    · exact .natR a' b' b₂ hrb h
+    · exact nomatch hrb
+  clear hra hrb
+  split at h
+  -- (true, false): unfold left
+  case _ hua hub =>
+    split at h
+    · next a₂ hu => exact .deltaL a' b' a₂ hu h
+    · exact nomatch h
+  -- (false, true): unfold right
+  case _ hua hub =>
+    split at h
+    · next b₂ hu => exact .deltaR a' b' b₂ hu h
+    · exact nomatch h
+  -- (true, true): hints, spine, both-sided unfolds
+  case _ hua hub =>
+    split at h
+    · split at h
+      · next a₂ hu => exact .deltaL a' b' a₂ hu h
+      · exact nomatch h
+    split at h
+    · split at h
+      · next b₂ hu => exact .deltaR a' b' b₂ hu h
+      · exact nomatch h
+    split at h
+    · split at h
+      · exact nomatch h
+      next c' hs =>
+      split at h
+      · next hc' => exact .spine a' b' (hc' ▸ hs)
+      next hc' =>
+      split at h
+      · next a₂ b₂ hu₁ hu₂ => exact .deltaB a' b' a₂ b₂ hu₁ hu₂ h
+      · exact nomatch h
+    · split at h
+      · next a₂ b₂ hu₁ hu₂ => exact .deltaB a' b' a₂ b₂ hu₁ hu₂ h
+      · exact nomatch h
+  -- (false, false): the structural endgame
+  case _ hua hub =>
+    split at h
+    case _ u v => -- sorts
+      rw [Setlec.liftFueled.eq_def] at h
+      split at h
+      · next c'' hiseq =>
+        cases c'' with
+        | true => exact .sorts u v hiseq
+        | false => exact nomatch h
+      · exact nomatch h
+    case _ l₁ l₂ => -- lits
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      obtain rfl := eq_of_beq h
+      exact .lits l₁
+    case _ n c us => -- natLit vs const
+      split at h
+      · next hc'' =>
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        obtain rfl : n = 0 := by simpa using eq_of_beq h
+        obtain ⟨rfl, rfl⟩ := hc''
+        exact .natZeroL
+      · exact .rescue _ _ h
+    case _ c us n => -- const vs natLit
+      split at h
+      · next hc'' =>
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        obtain rfl : n = 0 := by simpa using eq_of_beq h
+        obtain ⟨rfl, rfl⟩ := hc''
+        exact .natZeroR
+      · exact .rescue _ _ h
+    case _ nn f x => -- natLit vs app
+      split at h
+      · next m c'' =>
+        split at h
+        · next hc'' => subst hc''; exact .natSuccL m x h
+        · exact .rescue _ _ h
+      · exact .rescue _ _ h
+    case _ f x nn => -- app vs natLit
+      split at h
+      · next m c'' =>
+        split at h
+        · next hc'' => subst hc''; exact .natSuccR m x h
+        · exact .rescue _ _ h
+      · exact .rescue _ _ h
+    case _ st cO usO x => -- strLit vs app
+      split at h
+      · exact .strL st cO usO x h
+      · exact .rescue _ _ h
+    case _ cO usO x st => -- app vs strLit
+      split at h
+      · exact .strR st cO usO x h
+      · exact .rescue _ _ h
+    case _ i n₁ ty₁ j n₂ ty₂ => -- fvars
+      split at h
+      · next hij => obtain rfl := eq_of_beq hij
+                    exact .fvars i n₁ n₂ ty₁ ty₂
+      · exact .rescue _ _ h
+    case _ n us n' us' => -- consts
+      split at h
+      · next hn =>
+        subst hn
+        split at h
+        · exact nomatch h
+        next c'' hlift =>
+        rw [Setlec.liftFueled.eq_def] at hlift
+        split at hlift
+        · next aa hiseq =>
+          obtain rfl : aa = c'' := Except.ok.inj hlift
+          split at h
+          · next hc'' => exact .consts n us us' (hc'' ▸ hiseq)
+          · exact .rescue _ _ h
+        · exact nomatch hlift
+      · exact .rescue _ _ h
+    case _ n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ => -- pi congruence
+      split at h
+      · exact nomatch h
+      next c'' hd =>
+      split at h
+      · next hc'' =>
+        exact .piCong n₁ n₂ ty₁ ty₂ body₁ body₂ m₁ m₂ (hc'' ▸ hd) h
+      · exact nomatch h
+    case _ n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ => -- lam congruence
+      split at h
+      · exact nomatch h
+      next c'' hd =>
+      split at h
+      · next hc'' =>
+        exact .lamCong n₁ n₂ ty₁ ty₂ body₁ body₂ m₁ m₂ (hc'' ▸ hd) h
+      · exact nomatch h
+    case _ f₁ a₁ f₂ a₂ => -- app congruence
+      split at h
+      · next hlen =>
+        split at h
+        · exact nomatch h
+        next c'' hdf =>
+        split at h
+        · next hc'' =>
+          split at h
+          · exact nomatch h
+          next c₃ hdl =>
+          split at h
+          · next hc₃ =>
+            exact .appCong f₁ a₁ f₂ a₂ hlen (hc'' ▸ hdf) (hc₃ ▸ hdl)
+          · exact .rescue _ _ h
+        · exact .rescue _ _ h
+      · exact .rescue _ _ h
+    case _ s₁ i₁ e₁ s₂ i₂ e₂ => -- proj congruence
+      split at h
+      · next hi =>
+        obtain rfl := eq_of_beq hi
+        split at h
+        · exact nomatch h
+        next c'' hd =>
+        split at h
+        · next hc'' => exact .projCong s₁ s₂ i₁ e₁ e₂ (hc'' ▸ hd)
+        · exact .rescue _ _ h
+      · exact .rescue _ _ h
+    next => -- one-sided lam, left
+      split at h
+      · exact nomatch h
+      next c'' he =>
+      split at h
+      · next hc'' => exact .etaL _ _ _ _ _ (hc'' ▸ he)
+      · exact .rescue _ _ h
+    next => -- one-sided lam, right
+      split at h
+      · exact nomatch h
+      next c'' he =>
+      split at h
+      · next hc'' => exact .etaR _ _ _ _ _ (hc'' ▸ he)
+      · exact .rescue _ _ h
+    case _ => exact .rescue _ _ h
+
 /-- **The unit-like vacuity pattern**: a subject cannot both have a
 unit-like type (the `proofIrrel`/rescue branch's certifying run) and
 a sort-successful run (whose type whnfs to a literal sort) — the two

@@ -8356,3 +8356,30 @@ the bodies); `reduceNat` joins the obligation because the assembly
 lemmas glue its runs across knot levels too.  Existing
 `KnotFuelDet`-consuming lemmas stay as stated — consumers hold
 `KnotFuelMono` and project.
+
+### (A-T) ingredient batch 2: the cert-loop decomposition, machine-checked
+
+`Annot/SortCoh.lean`: `PostCoreCert` — the case map as a datatype, one
+constructor per certifying path of `defeqStep` on the post-whnfCore
+pair — and `defeqStep_decompose`, proved: a certifying step is the
+syntactic fast path or one of the twenty-four constructors, with the
+whnfCore facts stated once.  Design points that materialized in the
+mechanization:
+
+* the `rescue` constructor absorbs every `stuckIrrel` fallback site —
+  the body always passes the case's own scrutinees, i.e. the
+  post-whnfCore pair verbatim, so ten-odd branches collapse to one;
+* hint/guard data no consumer reads (`unfoldableHead`, `headHint`,
+  the string-support and `hasFvar` guards) is deliberately dropped:
+  constructors are *weaker* than their branches, sound for a
+  decomposition;
+* the body agreed with the sealed case map everywhere — no doc-fix
+  needed; the two liftFueled sites (sort-sort, const-const levels)
+  carry their `Option`-level facts (`isEquiv`/`isEquivList
+  = some true`), which is the shape `Level.isEquiv_sound` consumes.
+
+The shell next: (A-T)'s cert-loop induction over
+`defeqLoop_succ`/`defeqStep_decompose`, terminal cases first
+(syntactic via `KnotFuelDet`, sorts via `isEquiv_sound` +
+`whnf_sort_out`, det-vacuous structural endgame), the probe and
+delta/nat re-entries routed per the J0 audit.
