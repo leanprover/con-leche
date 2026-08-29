@@ -469,6 +469,57 @@ def SortTransportWhnfF (μ : CheckMode) (env : Env)
     Expr.LeavesBounded e → PairedLeaves e e →
     SortOfEE μ env φ d e u → SortOfEE μ env φ d e' u
 
+/-! ## Repair δ: the chain-link correspondence and the (A-T) primitive
+
+The pairing's correspondence invariant carries **chain-links** — a
+conditional, ∃-fuel convergence fact — instead of cert runs, and the
+site certs are consumed *at the leaves* through the transport form of
+(A).  Dual-success (A) becomes a corollary (`EnsureSortAgreeR_of_link`
+below); the internal fueled forms and the joint measure
+(lexicographic on (Σ knot fuels, Σ loop budgets) of fueled
+hypotheses) are the DESIGN "J0" record. -/
+
+/-- **The chain-link**: if the left type whnf-converges to a literal
+sort, the right one does too, with the same numeral.  The ∃-fuel
+*output* form the correspondence carries (repair δ: outputs are
+fuel-free, so links never enter a measure). -/
+def SortLinkE (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (d : Nat) (t t' : Expr) : Prop :=
+  ∀ {f : Nat} {ℓ : Level}, whnf μ env f d t = .ok (.sort ℓ) →
+    ∃ f' ℓ', whnf μ env f' d t' = .ok (.sort ℓ') ∧
+      ℓ'.eval φ = ℓ.eval φ
+
+/-- **(A-T), the family's true primitive**: a certified conversion
+*transports* whnf-to-sort success across itself, numeral intact.
+Consumed at the pairing's leaves (site cert + the opened side's
+chain) and by the `proofIrrel`/eta vacuities (det-collision of the
+constructed run with the probe's own run). -/
+def SortLinkAcrossCertE (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {fc d : Nat} {a b : Expr},
+    isDefEqCore μ env fc d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    PairedLeaves a b →
+    SortLinkE μ env φ d a b
+
+/-- Dual-success (A) is a corollary of the transport primitive: link
+the left run across the cert, then collide with the given right run
+(`KnotFuelDet`).  The statement-level consistency check that (A-T)
+is stated strong enough. -/
+theorem EnsureSortAgreeR_of_link {μ : CheckMode} {env : Env}
+    {φ : Name → Nat} (hdet : KnotFuelDet μ env)
+    (hAT : SortLinkAcrossCertE μ env φ) :
+    EnsureSortAgreeR μ env φ := by
+  intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwa hba hLa hwb hbb hLb hp h₁ h₂
+  obtain ⟨f', ℓ', hw', hev⟩ :=
+    hAT hc hwa hba hLa hwb hbb hLb hp h₁
+  have hs : Expr.sort ℓ' = Expr.sort ℓ₂ := hdet.2.1 hw' h₂
+  obtain rfl : ℓ' = ℓ₂ := Setlec.Expr.sort.inj hs
+  exact hev.symm
+
 /-- **The unit-like vacuity pattern**: a subject cannot both have a
 unit-like type (the `proofIrrel`/rescue branch's certifying run) and
 a sort-successful run (whose type whnfs to a literal sort) — the two

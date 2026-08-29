@@ -8257,3 +8257,76 @@ Sealed as a finding for the ruling before any case work consumes the
 corrected design; the (F)/(A) statements as landed are untouched
 (repair δ changes proof architecture and the internal claim forms,
 not the public statements).
+
+### J0 under repair δ: the internal forms, and the audit that the probe case tried first
+
+For the record, as ruled: **the circle was purely architectural — the
+mathematics (one-shot PSS discharge, no regress) was never in
+doubt.**
+
+**The forms** (`Annot/SortCoh.lean`): `SortLinkE` — the chain-link
+the pairing correspondence carries: *conditional*, one-directional,
+∃-fuel-output ("if the left type whnf-converges to a literal sort,
+the right does too, same numeral").  Conditional because most
+corresponding type pairs in a walk are not sort-convergent at all;
+one-directional because the pairing builds side 2 from side 1 and the
+top-read goes the same way.  **(A-T)** `SortLinkAcrossCertE` — the
+family's true primitive: a certified conversion transports
+whnf-to-sort success across itself.  Dual-success (A) is now a
+corollary (`EnsureSortAgreeR_of_link`, proved: link the left run
+across, collide with the right run by `KnotFuelDet`) — the
+statement-level check that (A-T) is stated strong enough.
+
+**The joint measure**: lexicographic on (Σ knot fuels, Σ loop
+budgets) of the *fueled hypothesis* runs of an instance.  ∃-fuel
+outputs and fuel-free env facts are exempt (never inducted into).
+
+**The audit — probe case first**, as directed (the case that broke
+audits one and two):
+
+* **(A-T).probe** (hoisted `proofIrrel`, mid-chain): consumes one
+  chain-assembly instance whose fueled hypotheses are (i) the given
+  whnf run's *suffix* (same knot component, smaller loop budget) and
+  (ii) the probe's own `sortOfE` pieces (subtrees of the cert, knot
+  strictly smaller).  Knot-sum strictly drops.  **Passes.**
+* (A-T) loop re-entries (post whnfCore/δ/nat): cert budget drops;
+  the given run is untouched or decomposed to its own suffix.
+  Knot-sum equal, budget-sum drops.  Passes.
+* (A-T) structural cases: no congruence descent at all — a stuck
+  non-sort form collides with the given run by determinism; the
+  eta case collides the probe's whnf-to-∀ with a constructed
+  whnf-to-sort on the same expression (the PSS pattern, subtree
+  components).  Passes.
+* (F-core).β: structural descent on the given walk's tree; the
+  leaves consume (A-T) at the site cert + annotation chains — all
+  subtrees of walk hypotheses (leaves-not-top, repair δ change 1).
+  Knot-sum drops.  Passes.
+* (F-core) non-β, (F-nat): cert threads are subtrees of the step
+  run or of the `sortOfE` pieces.  Passes.
+* **(F-δ)**: the install cert is *not* a subtree of anything — the
+  resolution is that the env invariant field stores the fuel-free
+  **consequence** (`DeltaSortLinked env`: per stored definition, the
+  ∃-fuel sort-link between declared-type and value-type residuals),
+  not the raw cert run.  J0 consumes the field without measure
+  impact; the field is discharged in the install tier *after* J0 is
+  a ∀-theorem, by (A-T) applied to each install cert.  No cycle:
+  J0 consumes the field, never its discharge.  Passes.
+* Chain assembly: `whnf`-loop induction, budget-sum drops per step,
+  step species consumed as within-J0 arrows at subtree components.
+  Passes.
+
+**Every arrow drops the measure or goes to an exempt fact.  The
+audit passes.**  S3 = (B) is outside J0 and unchanged: it consumes
+J0 as theorems, and its own loop induction is (cert fuel, budget)
+with ∃-fuel side facts.
+
+`DeltaSortLinked`'s precise shape (the residual-application form) is
+defined at the (F-δ) seal, where `unfoldDefinition`'s exact output
+dictates it; it joins the ledger now as the install-tier obligation
+replacing the raw install-cert field idea.
+
+**Attack order, updated**: (A-T) first — it is the primitive, its
+probe case is the audited one, and its cert-loop induction is the
+smallest complete member; then the chain assembly (mechanical), then
+(F-nat), (F-core) non-β, (F-core).β (the summit), (E), (F-δ), then
+S3 = (B), then the `SortSubstStable` leaf wiring.
