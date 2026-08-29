@@ -72,6 +72,7 @@ import Setlec.SetR.Interp2.Univ
 import Setlec.SetR.Interp2.TierA
 import Setlec.SetR.Interp2.Graded
 import Setlec.SetR.DivModPin
+import Setlec.SetR.StdAxiomKey
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family

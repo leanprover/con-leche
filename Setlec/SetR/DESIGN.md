@@ -6940,3 +6940,39 @@ right; a case that needs thought is a premise in the wrong place.*
   steps each wanting a slightly different lemma set: the file takes
   `set_option linter.unusedSimpArgs false`, exactly as
   `Setlec/TTVerify/DivModPin.lean` does and for the same reason.
+
+### `StdAxiomKeyS` begun — the relocation, and the split
+
+Two pieces landed.
+
+**Relocated to the shared tier** (`Setlec/Verify/StdAxiomPin.lean`,
+128 lines): `iff_shapes` and `nonempty_shapes`, `stdAxiomOk`'s two
+branch inversions.  They are pure `Env`/`Bool` reasoning — no
+valuation, no typing judgement — so task #123's criterion puts them in
+`Verify`, and both lanes read them.  Verbatim; the TT lane now imports
+them and is 989 lines instead of 1096.
+
+The six `denote_*_type` computations were **not** relocated.  They use
+their lane's `denote_const_nolevels`, which lives on each side, and the
+set lane needs `interp`-level facts the TT ones do not produce — so
+moving them would mean moving a third lemma and editing a closed lane
+for a shape neither side would share.  *Relocate what is the same, not
+what merely looks alike.*
+
+**`Setlec/SetR/StdAxiomKey.lean`** carries the split (`PropextKeyS`,
+`ChoiceKeyS`, `stdAxiomKeyS_of`) and `denote_propext_typeS`, which
+transposes from the TT lane unchanged over a bare `cval`.
+
+**What remains is exactly the two forcing arguments**, and they are
+where the Model lane's weight is:
+
+| piece | Model source | ≈ lines |
+|---|---|---|
+| `iff_forces_eq` + `iffVal_app₂_mem`, `iffIntroVal_app₄_mem`, `iffRecVal_mem` | `Model/StdAxioms.lean:129–443` | 315 |
+| `nonemptyVal_forces` + its three supports | `:523–768` | 245 |
+| the two keys and their `AnnotOkV` | new | 120 |
+
+The transposition is `m.val n ψ ↦ interp V ρ (m.cval n ψ)` throughout,
+plus the `AnnotOkV` packages the Model lane does not carry.  Neither
+argument needs the recursor's *iota* rule — only its typing — which is
+what keeps them independent of the inductive install.
