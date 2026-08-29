@@ -389,137 +389,6 @@ theorem sortOfE_sort_out {μ : CheckMode} {env : Env} {φ : Name → Nat}
       rw [hw] at h
       simpa [Except.toOption, Level.eval] using h.symm
 
-/-! ## ∃-fuel run facts and the (F) transport species (R3 ruling)
-
-The ceiling measure died on manufactured runs (DESIGN, "STOP: the
-ceiling measure fails").  The repair: state side facts **fuel-free**
-(`∃ f, run f = …` — functional by `KnotFuelDet`), so they never enter
-a measure, and add the missing claim species **(F): forward
-transport** — a reduction step plus a successful sort computation on
-the redex yields a successful sort computation on the reduct *with
-the same numeral*.  (F) is the sort-level fragment of subject
-reduction this arc has been circling — the campaign's original
-prognosis ("a narrow, level-data-only fragment of SR") given its
-precise formal identity.  The stratified measure audit that makes the
-family well-founded is the DESIGN "audit under R3" record. -/
-
-/-- A successful sort computation at some fuel — fuel-free
-(functional by `KnotFuelDet`, `SortOfEE_det`). -/
-def SortOfEE (μ : CheckMode) (env : Env) (φ : Name → Nat)
-    (d : Nat) (e : Expr) (u : Nat) : Prop :=
-  ∃ f, sortOfE μ env φ f d e = some u
-
-/-- A certified conversion at some fuel — the v3 premise's shape. -/
-def DefEqE (μ : CheckMode) (env : Env) (d : Nat) (a b : Expr) : Prop :=
-  ∃ f, isDefEqCore μ env f d a b = .ok true
-
-theorem SortOfEE_det {μ : CheckMode} {env : Env} {φ : Name → Nat}
-    (hdet : KnotFuelDet μ env) {d : Nat} {e : Expr} {u v : Nat}
-    (h₁ : SortOfEE μ env φ d e u) (h₂ : SortOfEE μ env φ d e v) :
-    u = v := by
-  obtain ⟨f₁, h₁⟩ := h₁
-  obtain ⟨f₂, h₂⟩ := h₂
-  exact sortOfE_fuelDet hdet h₁ h₂
-
-/-- **(F-core)**: one head-normalization step transports the sort
-computation forward, numeral intact.  The β case is the substitution
-pairing in constructive form (the walk on the substituted body is
-*built* from the opened walk plus the site's own cert pieces — the
-correspondence travels as cert runs, never as sort agreements). -/
-def SortTransportWhnfCoreF (μ : CheckMode) (env : Env)
-    (φ : Name → Nat) : Prop :=
-  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
-    whnfCore μ env f d e = .ok e' →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e → PairedLeaves e e →
-    SortOfEE μ env φ d e u → SortOfEE μ env φ d e' u
-
-/-- **(F-δ)**: one definition unfolding transports the sort
-computation forward — threading the *install-time* cert (the value
-was checked against the declared type when the definition entered the
-env). -/
-def SortTransportDeltaF (μ : CheckMode) (env : Env)
-    (φ : Name → Nat) : Prop :=
-  ∀ {d : Nat} {e e' : Expr} {u : Nat},
-    unfoldDefinition env e = some e' →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e → PairedLeaves e e →
-    SortOfEE μ env φ d e u → SortOfEE μ env φ d e' u
-
-/-- **(F-nat)**: one literal-acceleration step — expected vacuous
-(the subjects are `Nat` elements, whose type never whnfs to a sort),
-but stated as transport so the loop assembly is uniform. -/
-def SortTransportNatF (μ : CheckMode) (env : Env)
-    (φ : Name → Nat) : Prop :=
-  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
-    Setlec.reduceNat (Setlec.pureFns μ env f) env d e = .ok (some e') →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e → PairedLeaves e e →
-    SortOfEE μ env φ d e u → SortOfEE μ env φ d e' u
-
-/-- **(C\*-E)**: the whole-`whnf`-chain transport, ∃-fuel spelling —
-assembled from the three step species by `whnf`-loop induction
-(stratum S2); supersedes `SortOfWhnfStableAt`'s role, which stays as
-a dual-success corollary (compose with `SortOfEE_det`). -/
-def SortTransportWhnfF (μ : CheckMode) (env : Env)
-    (φ : Name → Nat) : Prop :=
-  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
-    whnf μ env f d e = .ok e' →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e → PairedLeaves e e →
-    SortOfEE μ env φ d e u → SortOfEE μ env φ d e' u
-
-/-! ## Repair δ: the chain-link correspondence and the (A-T) primitive
-
-The pairing's correspondence invariant carries **chain-links** — a
-conditional, ∃-fuel convergence fact — instead of cert runs, and the
-site certs are consumed *at the leaves* through the transport form of
-(A).  Dual-success (A) becomes a corollary (`EnsureSortAgreeR_of_link`
-below); the internal fueled forms and the joint measure
-(lexicographic on (Σ knot fuels, Σ loop budgets) of fueled
-hypotheses) are the DESIGN "J0" record. -/
-
-/-- **The chain-link**: if the left type whnf-converges to a literal
-sort, the right one does too, with the same numeral.  The ∃-fuel
-*output* form the correspondence carries (repair δ: outputs are
-fuel-free, so links never enter a measure). -/
-def SortLinkE (μ : CheckMode) (env : Env) (φ : Name → Nat)
-    (d : Nat) (t t' : Expr) : Prop :=
-  ∀ {f : Nat} {ℓ : Level}, whnf μ env f d t = .ok (.sort ℓ) →
-    ∃ f' ℓ', whnf μ env f' d t' = .ok (.sort ℓ') ∧
-      ℓ'.eval φ = ℓ.eval φ
-
-/-- **(A-T), the family's true primitive**: a certified conversion
-*transports* whnf-to-sort success across itself, numeral intact.
-Consumed at the pairing's leaves (site cert + the opened side's
-chain) and by the `proofIrrel`/eta vacuities (det-collision of the
-constructed run with the probe's own run). -/
-def SortLinkAcrossCertE (μ : CheckMode) (env : Env)
-    (φ : Name → Nat) : Prop :=
-  ∀ {fc d : Nat} {a b : Expr},
-    isDefEqCore μ env fc d a b = .ok true →
-    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded a →
-    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded b →
-    PairedLeaves a b →
-    SortLinkE μ env φ d a b
-
-/-- Dual-success (A) is a corollary of the transport primitive: link
-the left run across the cert, then collide with the given right run
-(`KnotFuelDet`).  The statement-level consistency check that (A-T)
-is stated strong enough. -/
-theorem EnsureSortAgreeR_of_link {μ : CheckMode} {env : Env}
-    {φ : Name → Nat} (hdet : KnotFuelDet μ env)
-    (hAT : SortLinkAcrossCertE μ env φ) :
-    EnsureSortAgreeR μ env φ := by
-  intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwa hba hLa hwb hbb hLb hp h₁ h₂
-  obtain ⟨f', ℓ', hw', hev⟩ :=
-    hAT hc hwa hba hLa hwb hbb hLb hp h₁
-  have hs : Expr.sort ℓ' = Expr.sort ℓ₂ := hdet.2.1 hw' h₂
-  obtain rfl : ℓ' = ℓ₂ := Setlec.Expr.sort.inj hs
-  exact hev.symm
-
 /-! ## The run algebra — loop decomposition and assembly
 
 The (A-T) induction's first ingredient batch.  Decomposition reads a
@@ -1017,6 +886,237 @@ theorem defeqStep_decompose {μ : CheckMode} {env : Env}
       · exact .rescue _ _ h
     case _ => exact .rescue _ _ h
 
+/-- Loop-level `whnf` runs are monotone in the knot fuel (given the
+obligation): lift every piece and reassemble at the same budget. -/
+theorem whnfLoop_r_mono {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) {g g' d : Nat} (hg : g ≤ g') :
+    ∀ {l : Nat} {e s : Expr},
+      Setlec.whnfLoop (Setlec.pureFns μ env g) env d l e = .ok s →
+      Setlec.whnfLoop (Setlec.pureFns μ env g') env d l e = .ok s := by
+  intro l
+  induction l with
+  | zero => intro e s h; exact nomatch h
+  | succ l ih =>
+    intro e s h
+    rw [whnfLoop_succ] at h
+    rw [whnfLoop_succ]
+    obtain ⟨e₁, hwc, hrest⟩ := whnfStep_decompose h
+    have hwc' : (Setlec.pureFns μ env g').whnfCore d e = .ok e₁ :=
+      hm.2.2.1 hg (hwc : whnfCore μ env g d e = .ok e₁)
+    rcases hrest with ⟨e₂, hrn, hk⟩ | ⟨hrn, e₂, hud, hk⟩ | ⟨hrn, hud, rfl⟩
+    · exact whnfStep_assemble_nat hwc' (hm.2.2.2.2 hg hrn) (ih hk)
+    · exact whnfStep_assemble_delta hwc' (hm.2.2.2.2 hg hrn) hud (ih hk)
+    · exact whnfStep_assemble_stuck hwc' (hm.2.2.2.2 hg hrn) hud
+
+/-- Two loop-level runs on one subject agree (lift to common fuel and
+budget, then read off). -/
+theorem whnfLoop_det {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) {g₁ g₂ l₁ l₂ d : Nat} {e s₁ s₂ : Expr}
+    (h₁ : Setlec.whnfLoop (Setlec.pureFns μ env g₁) env d l₁ e = .ok s₁)
+    (h₂ : Setlec.whnfLoop (Setlec.pureFns μ env g₂) env d l₂ e = .ok s₂) :
+    s₁ = s₂ := by
+  have k₁ := whnfLoop_budget_mono (Nat.le_max_left l₁ l₂)
+    (whnfLoop_r_mono hm (Nat.le_max_left g₁ g₂) h₁)
+  have k₂ := whnfLoop_budget_mono (Nat.le_max_right l₁ l₂)
+    (whnfLoop_r_mono hm (Nat.le_max_right g₁ g₂) h₂)
+  rw [k₁] at k₂
+  exact Except.ok.inj k₂
+
+/-- Peel a whole `whnf` run to the loop (the given-run direction;
+fuel `0` runs cannot succeed). -/
+theorem whnf_peel {μ : CheckMode} {env : Env} {f d : Nat}
+    {e s : Expr} (h : whnf μ env f d e = .ok s) :
+    ∃ g l, Setlec.whnfLoop (Setlec.pureFns μ env g) env d l e = .ok s := by
+  cases f with
+  | zero => exact nomatch h
+  | succ f => exact ⟨f, Setlec.whnfLoopFuel, h⟩
+
+/-! ## ∃-fuel run facts and the (F) transport species (R3 ruling)
+
+The ceiling measure died on manufactured runs (DESIGN, "STOP: the
+ceiling measure fails").  The repair: state side facts **fuel-free**
+(`∃ f, run f = …` — functional by `KnotFuelDet`), so they never enter
+a measure, and add the missing claim species **(F): forward
+transport** — a reduction step plus a successful sort computation on
+the redex yields a successful sort computation on the reduct *with
+the same numeral*.  (F) is the sort-level fragment of subject
+reduction this arc has been circling — the campaign's original
+prognosis ("a narrow, level-data-only fragment of SR") given its
+precise formal identity.  The stratified measure audit that makes the
+family well-founded is the DESIGN "audit under R3" record. -/
+
+/-- A successful sort computation at some fuel — fuel-free
+(functional by `KnotFuelDet`, `SortOfEE_det`). -/
+def SortOfEE (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (d : Nat) (e : Expr) (u : Nat) : Prop :=
+  ∃ f, sortOfE μ env φ f d e = some u
+
+/-- A certified conversion at some fuel — the v3 premise's shape. -/
+def DefEqE (μ : CheckMode) (env : Env) (d : Nat) (a b : Expr) : Prop :=
+  ∃ f, isDefEqCore μ env f d a b = .ok true
+
+theorem SortOfEE_det {μ : CheckMode} {env : Env} {φ : Name → Nat}
+    (hdet : KnotFuelDet μ env) {d : Nat} {e : Expr} {u v : Nat}
+    (h₁ : SortOfEE μ env φ d e u) (h₂ : SortOfEE μ env φ d e v) :
+    u = v := by
+  obtain ⟨f₁, h₁⟩ := h₁
+  obtain ⟨f₂, h₂⟩ := h₂
+  exact sortOfE_fuelDet hdet h₁ h₂
+
+/-- The loop-level sort computation — the internal form constructed
+runs take (the budget-edge finding: whole-`whnf` conclusions are
+false at the fixed budget's edge, so constructed sort computations
+carry their own loop budget). -/
+def SortOfLE (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (d : Nat) (e : Expr) (u : Nat) : Prop :=
+  ∃ ft t, inferTypeCore μ env ft d e = .ok t ∧
+    ∃ g l ℓ, Setlec.whnfLoop (Setlec.pureFns μ env g) env d l t
+        = .ok (.sort ℓ) ∧
+      ℓ.eval φ = u
+
+/-- A given (whole-`whnf`) sort computation peels to the loop form. -/
+theorem SortOfLE_of_run {μ : CheckMode} {env : Env} {φ : Name → Nat}
+    {f d : Nat} {e : Expr} {u : Nat}
+    (h : sortOfE μ env φ f d e = some u) : SortOfLE μ env φ d e u := by
+  unfold sortOfE at h
+  cases hi : inferTypeCore μ env f d e with
+  | error => rw [hi] at h; exact nomatch h
+  | ok t =>
+    rw [hi] at h
+    simp only [Except.toOption] at h
+    cases hw : whnf μ env f d t with
+    | error => rw [hw] at h; exact nomatch h
+    | ok w =>
+      rw [hw] at h
+      split at h
+      · next ℓ heq =>
+        obtain rfl : w = .sort ℓ := by
+          simpa [Except.toOption] using heq
+        obtain ⟨g, l, hl⟩ := whnf_peel hw
+        exact ⟨f, t, hi, g, l, ℓ, hl, Option.some.inj h⟩
+      · exact nomatch h
+
+/-- Loop-level sort computations on one subject agree. -/
+theorem SortOfLE_det {μ : CheckMode} {env : Env} {φ : Name → Nat}
+    (hm : KnotFuelMono μ env) {d : Nat} {e : Expr} {u v : Nat}
+    (h₁ : SortOfLE μ env φ d e u) (h₂ : SortOfLE μ env φ d e v) :
+    u = v := by
+  obtain ⟨ft₁, t₁, hi₁, g₁, l₁, ℓ₁, hl₁, hev₁⟩ := h₁
+  obtain ⟨ft₂, t₂, hi₂, g₂, l₂, ℓ₂, hl₂, hev₂⟩ := h₂
+  obtain rfl : t₁ = t₂ := (KnotFuelDet_of_mono hm).1 hi₁ hi₂
+  have hs : Expr.sort ℓ₁ = Expr.sort ℓ₂ := whnfLoop_det hm hl₁ hl₂
+  obtain rfl : ℓ₁ = ℓ₂ := Setlec.Expr.sort.inj hs
+  rw [← hev₁, ← hev₂]
+
+/-- **(F-core)**: one head-normalization step transports the sort
+computation forward, numeral intact.  The β case is the substitution
+pairing in constructive form (the walk on the substituted body is
+*built* from the opened walk plus the site's own cert pieces — the
+correspondence travels as cert runs, never as sort agreements). -/
+def SortTransportWhnfCoreF (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
+    whnfCore μ env f d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e → PairedLeaves e e →
+    SortOfLE μ env φ d e u → SortOfLE μ env φ d e' u
+
+/-- **(F-δ)**: one definition unfolding transports the sort
+computation forward — threading the *install-time* cert (the value
+was checked against the declared type when the definition entered the
+env). -/
+def SortTransportDeltaF (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {d : Nat} {e e' : Expr} {u : Nat},
+    unfoldDefinition env e = some e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e → PairedLeaves e e →
+    SortOfLE μ env φ d e u → SortOfLE μ env φ d e' u
+
+/-- **(F-nat)**: one literal-acceleration step — expected vacuous
+(the subjects are `Nat` elements, whose type never whnfs to a sort),
+but stated as transport so the loop assembly is uniform. -/
+def SortTransportNatF (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
+    Setlec.reduceNat (Setlec.pureFns μ env f) env d e = .ok (some e') →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e → PairedLeaves e e →
+    SortOfLE μ env φ d e u → SortOfLE μ env φ d e' u
+
+/-- **(C\*-E)**: the whole-`whnf`-chain transport, ∃-fuel spelling —
+assembled from the three step species by `whnf`-loop induction
+(stratum S2); supersedes `SortOfWhnfStableAt`'s role, which stays as
+a dual-success corollary (compose with `SortOfEE_det`). -/
+def SortTransportWhnfF (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
+    whnf μ env f d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e → PairedLeaves e e →
+    SortOfEE μ env φ d e u → SortOfEE μ env φ d e' u
+
+/-! ## Repair δ: the chain-link correspondence and the (A-T) primitive
+
+The pairing's correspondence invariant carries **chain-links** — a
+conditional, ∃-fuel convergence fact — instead of cert runs, and the
+site certs are consumed *at the leaves* through the transport form of
+(A).  Dual-success (A) becomes a corollary (`EnsureSortAgreeR_of_link`
+below); the internal fueled forms and the joint measure
+(lexicographic on (Σ knot fuels, Σ loop budgets) of fueled
+hypotheses) are the DESIGN "J0" record. -/
+
+/-- **The chain-link**: if the left type whnf-converges to a literal
+sort, the right one does too, with the same numeral.  The ∃-run
+*output* form the correspondence carries (repair δ: outputs are
+fuel-free, so links never enter a measure).
+
+**Loop-level, by necessity** (the budget-edge finding): `whnf`'s
+internal step budget is a *fixed constant*, so a constructed run one
+step longer than a maximal given run cannot be wrapped back into
+`whnf` — a whole-`whnf` conclusion is false at the edge.  Constructed
+runs therefore live at the loop, with the knot fuel *and* the budget
+existential; consumers collide them with given `whnf` runs through
+`whnfLoop_det` below. -/
+def SortLinkE (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (d : Nat) (t t' : Expr) : Prop :=
+  ∀ {f : Nat} {ℓ : Level}, whnf μ env f d t = .ok (.sort ℓ) →
+    ∃ g l ℓ', Setlec.whnfLoop (Setlec.pureFns μ env g) env d l t'
+        = .ok (.sort ℓ') ∧
+      ℓ'.eval φ = ℓ.eval φ
+
+/-- **(A-T), the family's true primitive**: a certified conversion
+*transports* whnf-to-sort success across itself, numeral intact.
+Consumed at the pairing's leaves (site cert + the opened side's
+chain) and by the `proofIrrel`/eta vacuities (det-collision of the
+constructed run with the probe's own run). -/
+def SortLinkAcrossCertE (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {fc d : Nat} {a b : Expr},
+    isDefEqCore μ env fc d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    PairedLeaves a b →
+    SortLinkE μ env φ d a b
+
+/-- Dual-success (A) is a corollary of the transport primitive: link
+the left run across the cert, then collide with the given right run
+(`KnotFuelDet`).  The statement-level consistency check that (A-T)
+is stated strong enough. -/
+theorem EnsureSortAgreeR_of_link {μ : CheckMode} {env : Env}
+    {φ : Name → Nat} (hm : KnotFuelMono μ env)
+    (hAT : SortLinkAcrossCertE μ env φ) :
+    EnsureSortAgreeR μ env φ := by
+  intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwa hba hLa hwb hbb hLb hp h₁ h₂
+  obtain ⟨g, l, ℓ', hw', hev⟩ :=
+    hAT hc hwa hba hLa hwb hbb hLb hp h₁
+  obtain ⟨g₂, l₂', h₂'⟩ := whnf_peel h₂
+  have hs : Expr.sort ℓ' = Expr.sort ℓ₂ := whnfLoop_det hm hw' h₂'
+  obtain rfl : ℓ' = ℓ₂ := Setlec.Expr.sort.inj hs
+  exact hev.symm
+
 /-- **The unit-like vacuity pattern**: a subject cannot both have a
 unit-like type (the `proofIrrel`/rescue branch's certifying run) and
 a sort-successful run (whose type whnfs to a literal sort) — the two
@@ -1032,5 +1132,50 @@ theorem unitBranch_absurd {μ : CheckMode} {env : Env}
   obtain rfl : ta = ta' := hdet.1 h1 h3
   obtain rfl : tw = .sort ℓ := hdet.2.1 h2 h4
   exact nomatch hu
+
+/-! ## Shape facts for the vacuity chases
+
+`reduceNat` rewrites only the two nat-op application shapes and
+`unfoldDefinition` only const-headed terms, so on every other shape
+both are `none` by computation — the det-vacuity chases read the
+given run's own step against these. -/
+
+section Shapes
+variable {μ : CheckMode} {env : Env}
+variable {r : Setlec.CoreFns Setlec.CheckM} {d : Nat}
+
+theorem reduceNat_sort {ℓ : Level} :
+    Setlec.reduceNat r env d (.sort ℓ) = .ok none := rfl
+theorem reduceNat_const {n : Name} {us : List Level} :
+    Setlec.reduceNat r env d (.const n us) = .ok none := rfl
+theorem reduceNat_forallE {n : Name} {ty b : Expr}
+    {m : Setlec.BinderMeta} :
+    Setlec.reduceNat r env d (.forallE n ty b m) = .ok none := rfl
+theorem reduceNat_lam {n : Name} {ty b : Expr}
+    {m : Setlec.BinderMeta} :
+    Setlec.reduceNat r env d (.lam n ty b m) = .ok none := rfl
+theorem reduceNat_fvar {i : Nat} {n : Name} {ty : Expr} :
+    Setlec.reduceNat r env d (.fvar i n ty) = .ok none := rfl
+theorem reduceNat_proj {s : Name} {i : Nat} {e : Expr} :
+    Setlec.reduceNat r env d (.proj s i e) = .ok none := rfl
+theorem reduceNat_lit {l : Setlec.Literal} :
+    Setlec.reduceNat r env d (.lit l) = .ok none := rfl
+
+theorem unfoldDefinition_sort {ℓ : Level} :
+    Setlec.unfoldDefinition env (.sort ℓ) = none := rfl
+theorem unfoldDefinition_forallE {n : Name} {ty b : Expr}
+    {m : Setlec.BinderMeta} :
+    Setlec.unfoldDefinition env (.forallE n ty b m) = none := rfl
+theorem unfoldDefinition_lam {n : Name} {ty b : Expr}
+    {m : Setlec.BinderMeta} :
+    Setlec.unfoldDefinition env (.lam n ty b m) = none := rfl
+theorem unfoldDefinition_fvar {i : Nat} {n : Name} {ty : Expr} :
+    Setlec.unfoldDefinition env (.fvar i n ty) = none := rfl
+theorem unfoldDefinition_proj {s : Name} {i : Nat} {e : Expr} :
+    Setlec.unfoldDefinition env (.proj s i e) = none := rfl
+theorem unfoldDefinition_lit {l : Setlec.Literal} :
+    Setlec.unfoldDefinition env (.lit l) = none := rfl
+
+end Shapes
 
 end Setlec.SetR.Interp2

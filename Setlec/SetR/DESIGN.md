@@ -8383,3 +8383,42 @@ The shell next: (A-T)'s cert-loop induction over
 (syntactic via `KnotFuelDet`, sorts via `isEquiv_sound` +
 `whnf_sort_out`, det-vacuous structural endgame), the probe and
 delta/nat re-entries routed per the J0 audit.
+
+### The budget-edge finding: constructed runs live at the loop
+
+Opening the shell, the assembly combinators surfaced a statement flaw
+before any case consumed it: **`whnf`'s internal step budget is a
+fixed constant** (`whnfLoopFuel`), so a constructed run one step
+longer than a maximal given run cannot be wrapped back into `whnf` —
+a whole-`whnf` ∃-run conclusion (`SortLinkE`, the (F) species'
+`SortOfEE` outputs) is *false at the budget edge*: prepending a step
+to a chain that used its entire budget overflows, and no knot fuel
+buys more budget.  Given runs are unaffected (they are hypotheses);
+only *constructed* runs hit the edge.
+
+**The amendment, landed** (`Annot/SortCoh.lean`): internal ∃-run
+forms go **loop-level**, carrying both existentials — knot fuel *and*
+budget: `SortLinkE` now concludes a `whnfLoop` run; the new
+`SortOfLE` (loop-level sort computation) replaces `SortOfEE` in all
+four (F)-species hypotheses *and* conclusions (uniformity: a
+transport's output must be consumable as the next transport's
+input).  The public boundary is untouched — public claims' hypotheses
+are given whole-`whnf`/`sortOfE` runs (peeled inward via `whnf_peel`
+/ `SortOfLE_of_run`), and public conclusions are numeral equalities,
+never constructed runs.  Colliding a constructed loop run with a
+given run goes through the new `whnfLoop_det` (r-mono + budget-mono
++ same-fuel injection), with `whnfLoop_r_mono` proved from
+`KnotFuelMono` by decompose-and-reassemble.
+`EnsureSortAgreeR_of_link` re-proved against the amended link (it now
+takes `KnotFuelMono`, not just determinism).
+
+Also landed: the rfl-tier shape facts (`reduceNat_*` /
+`unfoldDefinition_*` on the seven non-reducible shapes) — the
+det-vacuity chases read the given run's own step against these.
+Deferred to the shell seal: `unfoldDefinition_none_of_not_unfoldable`
+and `natOpResult_shape` (the two non-rfl characterizations), and the
+open question flagged for the appCong chase: the bool-constant
+outputs of `natOpResult` are delta-inert only if the Bool ctors are
+stored as ctors — whether `natOpGuard` pins that, or an env
+hypothesis must join the (A-T) claims, is decided when the case is
+written.
