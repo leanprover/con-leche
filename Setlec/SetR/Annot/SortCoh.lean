@@ -954,7 +954,10 @@ the same numeral*.  (F) is the sort-level fragment of subject
 reduction this arc has been circling — the campaign's original
 prognosis ("a narrow, level-data-only fragment of SR") given its
 precise formal identity.  The stratified measure audit that makes the
-family well-founded is the DESIGN "audit under R3" record. -/
+family well-founded is the DESIGN "audit under R3" record.  (The
+spine seal later generalized the transported fact from sort numerals
+to arbitrary `w` — see "The transport spine" below; the numeral forms
+here remain as the spine's sort instances.) -/
 
 /-- A successful sort computation at some fuel — fuel-free
 (functional by `KnotFuelDet`, `SortOfEE_det`). -/
@@ -1019,53 +1022,149 @@ theorem SortOfLE_det {μ : CheckMode} {env : Env} {φ : Name → Nat}
   obtain rfl : ℓ₁ = ℓ₂ := Setlec.Expr.sort.inj hs
   rw [← hev₁, ← hev₂]
 
-/-- **(F-core)**: one head-normalization step transports the sort
-computation forward, numeral intact.  The β case is the substitution
-pairing in constructive form (the walk on the substituted body is
-*built* from the opened walk plus the site's own cert pieces — the
-correspondence travels as cert runs, never as sort agreements). -/
-def SortTransportWhnfCoreF (μ : CheckMode) (env : Env)
-    (φ : Name → Nat) : Prop :=
-  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
-    whnfCore μ env f d e = .ok e' →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e → PairedLeaves e e →
-    SortOfLE μ env φ d e u → SortOfLE μ env φ d e' u
+/-! ### The transport spine (the trio + (F) currency, `_gen`-first)
 
-/-- **(F-δ)**: one definition unfolding transports the sort
-computation forward — threading the *install-time* cert (the value
-was checked against the declared type when the definition entered the
-env). -/
-def SortTransportDeltaF (μ : CheckMode) (env : Env)
-    (φ : Name → Nat) : Prop :=
-  ∀ {d : Nat} {e e' : Expr} {u : Nat},
-    unfoldDefinition env e = some e' →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e → PairedLeaves e e →
-    SortOfLE μ env φ d e u → SortOfLE μ env φ d e' u
+**Ruling — the transported fact is `w`-general.**  Reading the trio's
+cert bodies fixed the collision shapes: the rescue/eta collisions are
+*shape* collisions — a struct-const- or `∀`-headed `w` against the
+chain end's `.sort`-shaped one, by determinism — and the probe's sort
+branch applies the spine a *second* time, along the type's own whnf
+chain, at a sort whose level is not the subject's.  A sort-numeral
+spine serves neither; both consumers (the trio and the (F) run-mirror
+constructions) want the same `w`-uniform statement, so it is stated
+once.  `SortOfLE` is its sort instance (`sortOfLE_iff_typeWhnfLE`).
+The sort-numeral species `SortTransport*F` this block replaces were
+unconsumed; DESIGN records the supersession and the trio's discharge
+map against the spine. -/
 
-/-- **(F-nat)**: one literal-acceleration step — expected vacuous
-(the subjects are `Nat` elements, whose type never whnfs to a sort),
-but stated as transport so the loop assembly is uniform. -/
-def SortTransportNatF (μ : CheckMode) (env : Env)
-    (φ : Name → Nat) : Prop :=
-  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
+/-- The spine's transported fact: the subject's inferred type
+whnf-converges to `w` — loop-level (budget-edge discipline), fuel-free
+(functional by `KnotFuelMono`, `TypeWhnfLE_det`), valuation-free (`w`
+is carried syntactically). -/
+def TypeWhnfLE (μ : CheckMode) (env : Env) (d : Nat) (e w : Expr) :
+    Prop :=
+  ∃ ft t, inferTypeCore μ env ft d e = .ok t ∧
+    ∃ g l, Setlec.whnfLoop (Setlec.pureFns μ env g) env d l t = .ok w
+
+/-- Spine facts on one subject agree. -/
+theorem TypeWhnfLE_det {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) {d : Nat} {e w₁ w₂ : Expr}
+    (h₁ : TypeWhnfLE μ env d e w₁) (h₂ : TypeWhnfLE μ env d e w₂) :
+    w₁ = w₂ := by
+  obtain ⟨ft₁, t₁, hi₁, g₁, l₁, hl₁⟩ := h₁
+  obtain ⟨ft₂, t₂, hi₂, g₂, l₂, hl₂⟩ := h₂
+  obtain rfl : t₁ = t₂ := (KnotFuelDet_of_mono hm).1 hi₁ hi₂
+  exact whnfLoop_det hm hl₁ hl₂
+
+/-- The constructible chain-end fact: a literal sort's type
+whnf-converges to the successor sort.  Every trio collision bottoms
+out against this through `TypeWhnfLE_det`. -/
+theorem typeWhnfLE_sort {μ : CheckMode} {env : Env} {d : Nat}
+    {ℓ : Level} :
+    TypeWhnfLE μ env d (.sort ℓ) (.sort (.succ ℓ)) := by
+  have hi : inferTypeCore μ env (0 + 1) d (.sort ℓ)
+      = .ok (.sort (.succ ℓ)) := by
+    rw [Setlec.inferTypeCore_succ]; rfl
+  obtain ⟨g, l, -, hl⟩ :=
+    whnf_peel (Setlec.whnf_sort (mode := μ) env 0 d (.succ ℓ))
+  exact ⟨0 + 1, _, hi, g, l, hl⟩
+
+/-- `SortOfLE` is the spine's sort instance. -/
+theorem sortOfLE_iff_typeWhnfLE {μ : CheckMode} {env : Env}
+    {φ : Name → Nat} {d : Nat} {e : Expr} {u : Nat} :
+    SortOfLE μ env φ d e u ↔
+      ∃ ℓ, TypeWhnfLE μ env d e (.sort ℓ) ∧ ℓ.eval φ = u := by
+  constructor
+  · rintro ⟨ft, t, hi, g, l, ℓ, hl, hev⟩
+    exact ⟨ℓ, ⟨ft, t, hi, g, l, hl⟩, hev⟩
+  · rintro ⟨ℓ, ⟨ft, t, hi, g, l, hl⟩, hev⟩
+    exact ⟨ft, t, hi, g, l, ℓ, hl, hev⟩
+
+/-- The subject-invariant package the spine threads: the
+bridge-standard syntactic guards plus *self*-pairing.  It travels as
+a premise by necessity: `infer`'s `fvar` leaf reads its own
+annotation only — no cross-leaf check — so no run ever certifies
+pairing (refutation by reading; DESIGN).  Supplied at the shell's
+entry from `EnsureSortAgreeR`'s own guards (`SubjInv.of_pair`),
+preserved along head steps by the `InvPreserve*F` species. -/
+def SubjInv (d : Nat) (e : Expr) : Prop :=
+  Expr.WScoped d e ∧ e.looseBVarsBounded 0 = true ∧
+    Expr.LeavesBounded e ∧ PairedLeaves e e
+
+/-- Self-pairing restricts from any pairing: the package for one side
+of a certified pair. -/
+theorem SubjInv.of_pair {d : Nat} {a b : Expr}
+    (h₁ : Expr.WScoped d a) (h₂ : a.looseBVarsBounded 0 = true)
+    (h₃ : Expr.LeavesBounded a) (hp : PairedLeaves a b) :
+    SubjInv d a :=
+  ⟨h₁, h₂, h₃, fun l hl l' hl' heq =>
+    hp l (List.mem_append_left _ ((List.mem_append.1 hl).elim id id))
+      l' (List.mem_append_left _ ((List.mem_append.1 hl').elim id id))
+      heq⟩
+
+/-- **(F-core)**: one head-normalization step transports the spine
+fact forward, `w` intact.  The β case is the substitution pairing in
+constructive form (the walk on the substituted body is *built* from
+the opened walk plus the site's own cert pieces — the correspondence
+travels as cert runs, never as sort agreements). -/
+def TypeTransportCoreF (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {f d : Nat} {e e' w : Expr},
+    whnfCore μ env f d e = .ok e' → SubjInv d e →
+    TypeWhnfLE μ env d e w → TypeWhnfLE μ env d e' w
+
+/-- **(F-δ)**: one definition unfolding transports the spine fact
+forward — threading the *install-time* cert (the value was checked
+against the declared type when the definition entered the env);
+`DeltaSortLinked`'s territory. -/
+def TypeTransportDeltaF (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {d : Nat} {e e' w : Expr},
+    Setlec.unfoldDefinition env e = some e' → SubjInv d e →
+    TypeWhnfLE μ env d e w → TypeWhnfLE μ env d e' w
+
+/-- **(F-nat)**: one literal-acceleration step — expected vacuous on
+sort-bound chains (the subjects are `Nat`/`Bool` elements), but
+stated as transport so the loop assembly is uniform. -/
+def TypeTransportNatF (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {f d : Nat} {e e' w : Expr},
     Setlec.reduceNat (Setlec.pureFns μ env f) env d e = .ok (some e') →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e → PairedLeaves e e →
-    SortOfLE μ env φ d e u → SortOfLE μ env φ d e' u
+    SubjInv d e →
+    TypeWhnfLE μ env d e w → TypeWhnfLE μ env d e' w
 
-/-- **(C\*-E)**: the whole-`whnf`-chain transport, ∃-fuel spelling —
-assembled from the three step species by `whnf`-loop induction
-(stratum S2); supersedes `SortOfWhnfStableAt`'s role, which stays as
-a dual-success corollary (compose with `SortOfEE_det`). -/
-def SortTransportWhnfF (μ : CheckMode) (env : Env)
-    (φ : Name → Nat) : Prop :=
-  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
-    whnf μ env f d e = .ok e' →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e → PairedLeaves e e →
-    SortOfEE μ env φ d e u → SortOfEE μ env φ d e' u
+/-- Invariant preservation along a head-normalization step — the
+spine's supply chain (with the δ/nat/infer siblings below). -/
+def InvPreserveCoreF (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {f d : Nat} {e e' : Expr},
+    whnfCore μ env f d e = .ok e' → SubjInv d e → SubjInv d e'
+
+/-- Invariant preservation along one unfolding (stored values are
+closed — the env-tier fact this species will thread). -/
+def InvPreserveDeltaF (env : Env) : Prop :=
+  ∀ {d : Nat} {e e' : Expr},
+    Setlec.unfoldDefinition env e = some e' → SubjInv d e → SubjInv d e'
+
+/-- Invariant preservation along one literal-acceleration step. -/
+def InvPreserveNatF (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {f d : Nat} {e e' : Expr},
+    Setlec.reduceNat (Setlec.pureFns μ env f) env d e = .ok (some e') →
+    SubjInv d e → SubjInv d e'
+
+/-- Invariant transfer to an inferred type — the probe discharge's
+entry to the *type's* whnf chain (its second spine application). -/
+def InvPreserveInferF (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {f d : Nat} {e t : Expr},
+    inferTypeCore μ env f d e = .ok t → SubjInv d e → SubjInv d t
+
+/-- **(C\*-L)**: the whole-chain transport at loop level — assembled
+from the three step species plus the `InvPreserve*` supply chain by
+one loop induction (supersedes the whole-`whnf` (C\*-E) spelling;
+that form returns as a corollary through `whnf_peel` when a consumer
+holds a whole-`whnf` run).  Its conclusion sits at the loop's
+*output*, which is where every trio collision reads it. -/
+def TypeTransportLoopF (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {g l d : Nat} {e s w : Expr},
+    Setlec.whnfLoop (Setlec.pureFns μ env g) env d l e = .ok s →
+    SubjInv d e →
+    TypeWhnfLE μ env d e w → TypeWhnfLE μ env d s w
 
 /-! ## Repair δ: the chain-link correspondence and the (A-T) primitive
 

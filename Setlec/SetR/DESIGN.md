@@ -8923,3 +8923,103 @@ convergence.  `ensureSortAgreeR_of_pss` re-states the shell on the
 three PSS routings + spine + the env fact.
 
 Remaining routings: the PSS trio, `SpineSortAgree`.
+
+### The transport spine, mapped once (`_gen`-first)
+
+The granted map: state the spine's lemmas at the generality the (F)
+species' run-mirror constructions want — the second consumer is
+already known, which is the `_gen`-first condition.  Reading the
+trio's cert bodies before freezing anything settled the generality.
+
+**Ruling — the transported fact is `w`-general**, not sort-numeral:
+
+    TypeWhnfLE μ env d e w :=
+      ∃ ft t, inferTypeCore … e = .ok t ∧
+        ∃ g l, whnfLoop … t = .ok w
+
+(loop-level per the budget-edge discipline; `φ`-free — `w` travels
+syntactically).  Three forcing reads: `etaCert` matches
+`whnf (infer b)` against `.forallE …`; `stuckIrrel`'s b-directed
+branches match it against const-app heads (`pairEtaCert`'s
+`.app (.app (.const c' _) A) B`, `structEtaCert`'s `wtb`,
+`structUnitCert`'s `wta`); `proofIrrel`'s sort branch needs the
+spine **twice**, the second time at a sort whose level is not the
+subject's.  All collide by `TypeWhnfLE_det` against the constructible
+chain-end fact `typeWhnfLE_sort : TypeWhnfLE d (.sort ℓ)
+(.sort (.succ ℓ))` — shape collisions for rescue/eta, a level
+collision for the probe.  A sort-numeral spine serves none of them;
+`SortOfLE` is the spine's sort instance (`sortOfLE_iff_typeWhnfLE`).
+The unconsumed `SortTransport*F` species were superseded in place by
+
+* `TypeTransportCoreF` / `TypeTransportDeltaF` / `TypeTransportNatF`
+  — the step species, `w`-uniform, premised on `SubjInv` (below);
+  (F-core).β remains the summit (the constructive substitution
+  pairing);
+* `TypeTransportLoopF` — (C\*-L), the whole-chain transport at loop
+  level, assembled later from the step species by one loop induction;
+  its conclusion sits at the loop's *output*, where every trio
+  collision reads it; the whole-`whnf` (C\*-E) spelling returns as a
+  `whnf_peel` corollary when needed.
+
+**Finding (premise necessity, refutation by reading)**: `infer`'s
+`fvar` leaf returns its own annotation with no cross-leaf check, so
+*no run ever certifies pairing* — the syntactic package cannot be
+recovered from reality's exhibits and must travel as a premise.
+`SubjInv d e` names it (guards + self-pairing); `SubjInv.of_pair`
+restricts it from a pair's `PairedLeaves`.
+
+**Finding (the supply chain is head-step-thin)**: the shell's `main`
+induction is budget-only with a scoping-free motive, so it holds no
+`SubjInv` at the routing sites today.  But its subjects evolve by
+*head steps only* — congruence descent is routed wholesale to
+`SpineSortAgree`, never recursed by `main` — so threading costs a
+per-step preservation species set, not a descent apparatus:
+`InvPreserveCoreF` / `InvPreserveDeltaF` (will thread an env
+value-closedness fact — install tier, sibling of `BoolCtorsInert`,
+named at its seal) / `InvPreserveNatF`, plus `InvPreserveInferF`
+(invariant transfer to an inferred type — the probe's entry to the
+type's own chain).  Next seal: amend the trio to carry `SubjInv` on
+the subject, re-thread `main`'s motive with `SubjInv` both sides
+(entry from `EnsureSortAgreeR`'s own guards via `SubjInv.of_pair`),
+and let `ensureSortAgreeR_of_pss` take the `InvPreserve*` species as
+hypotheses — obligations with named suppliers, per the ledger rule.
+
+**The trio's discharge map against the spine** (the uniform recipe):
+extract `TypeWhnfLE a' w` with the branch's shape from the cert;
+decompose the given loop run one step and det-align its core output
+with the given `a'`; stuck leg — the run ends at `a'`, so
+`a' = .sort ℓ` and the collision is direct; nat/δ legs — the step
+species carry the fact to the continuation subject, whose run is a
+genuine `whnfLoop` run at smaller budget, so `TypeTransportLoopF`
+lands `TypeWhnfLE (.sort ℓ) w`, and `typeWhnfLE_sort` +
+`TypeWhnfLE_det` force `w = .sort (.succ ℓ)` — then the branch's
+shape refutes it.  Per routing:
+
+* `EtaSortVacuity`: `w = .forallE …` — `nomatch`.
+* `RescueSortVacuity`, five-way read of `stuckIrrel`: the a-directed
+  `pairEtaCert`/`structEtaCert` branches need **no spine** — the
+  subject is ctor-app-headed, so a nat-stepping continuation is
+  `NatStepNoSort` verbatim and an inert one is `loop_stuck_out`
+  colliding an app head with `.sort`; the b-directed branches and
+  `structUnitCert` are shape collisions at const-app-headed `w`; the
+  fallback is `proofIrrel` = the probe reasoning.
+* `ProbeSortVacuity`, unit branch: the unit check's own `whnf ta`
+  run is the extraction; the collision needs an
+  `isUnitLikeTy env (.sort _) = false` computation leaf
+  (`unitBranch_absurd`'s det route does not apply — no second
+  sort-run is given here).  Sort branch, the **double spine**:
+  (1) subject chain forces `whnf ta = w₁ = .sort (.succ ℓ)`;
+  (2) peel `ta`'s own whnf run, enter with `SubjInv` via
+  `InvPreserveInferF`, and transport the cert's
+  `TypeWhnfLE ta (.sort uT)` along it — `typeWhnfLE_sort` +
+  det force `uT`'s syntactic successor shape, refuting the cert's
+  `Level.isEquiv uT .zero = ok true` through a level-arithmetic
+  leaf (isEquiv-succ-zero refutation, named at the discharge seal).
+  The double application is why `w`-generality is load-bearing
+  *inside* the trio, not only for (F).
+
+Landed and proved this seal: `TypeWhnfLE`, `TypeWhnfLE_det`,
+`typeWhnfLE_sort`, `sortOfLE_iff_typeWhnfLE`, `SubjInv`,
+`SubjInv.of_pair`; the species restated (statements only, as
+before).  Remaining routings unchanged: the PSS trio,
+`SpineSortAgree`; new supplier tier: the `InvPreserve*` species.
