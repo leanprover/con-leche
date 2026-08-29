@@ -39,6 +39,8 @@ example : Infer μ env cval φ []
     have hb : Infer μ env cval φ [(.sort 1)] (.bvar 0)
         ((VExpr.sort 1).liftN 1) := Infer.bvar rfl
     exact Infer.lam Infer.sort DefEq.refl (by simpa using hb)
+      (fun _ _ => DefEq.refl) (fun _ _ => Infer.sort)
+      (fun _ _ => DefEq.refl)
   have h : Infer μ env cval φ []
       (.app (.lam (.sort 1) (.bvar 0)) (.sort 0))
       ((VExpr.sort 1).inst (.sort 0)) :=

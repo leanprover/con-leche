@@ -62,6 +62,17 @@ namespace Setlec.SetR
 open Setlec.TT
 open Setlec.TTVerify
 
+/-- Is the term a λ?  The task-#152 chain guard (`!body.isLam`),
+`VExpr`-level: the check fires once per λ-chain, at the innermost
+binder, and I7's codomain premise is guarded the same way. -/
+def _root_.Setlec.TT.VExpr.isLam : VExpr → Bool
+  | .lam .. => true
+  | _ => false
+
+@[simp] theorem _root_.Setlec.TT.VExpr.isLam_liftN (e : VExpr)
+    (n k : Nat) : (e.liftN n k).isLam = e.isLam := by
+  cases e <;> rfl
+
 /-! ## Term-level helpers
 
 Transposes of the checker's spine builders.  Searched against the T1
@@ -532,12 +543,28 @@ inductive Infer (μ : CheckMode) (env : Env) (cval : TConstVal)
       Infer μ env cval φ (A :: Δ) B tB →
       DefEq μ env cval φ (A :: Δ) tB (.sort v) →
       Infer μ env cval φ Δ (.pi A B) (.sort (imax u v))
-  /-- I7: λ (`Core.lean:1588-1600`): the domain must be a type; the
-  body's type is read back under the binder. -/
-  | lam {Δ : List VExpr} {A b tA B : VExpr} {u : Nat} :
+  /-- I7: λ: the domain must be a type; the body's type is read back
+  under the binder.  **Task-#152 amendment (#151 tier C)**: at the
+  verified mode the checker also sort-checks the λ-chain's body type,
+  once per chain at the innermost binder (`!body.isLam`); the premise
+  is guarded exactly the same way, with the sort data (`B'`, `tB`,
+  `v`) unconstrained when the guard does not fire.  The sort fact is
+  stated at the checker's *own* computed body type `B'`, `DefEq`-linked
+  to the third premise's `B` — `Infer`'s type slot is determined only
+  up to `DefEq` (finding A5), so demanding the derivation at `B`
+  itself would not be premise-exact.  Inner binders recover
+  their codomain sorts by `hasSort_pi_of` induction along the chain
+  (`Setlec/SetR/Annot/Validity.lean`). -/
+  | lam {Δ : List VExpr} {A b tA B B' tB : VExpr} {u v : Nat} :
       Infer μ env cval φ Δ A tA →
       DefEq μ env cval φ Δ tA (.sort u) →
       Infer μ env cval φ (A :: Δ) b B →
+      (μ.verified = true → b.isLam = false →
+        DefEq μ env cval φ (A :: Δ) B B') →
+      (μ.verified = true → b.isLam = false →
+        Infer μ env cval φ (A :: Δ) B' tB) →
+      (μ.verified = true → b.isLam = false →
+        DefEq μ env cval φ (A :: Δ) tB (.sort v)) →
       Infer μ env cval φ Δ (.lam A b) (.pi A B)
   /-- I8: application (`Core.lean:1601-1613`), with the per-argument
   re-check — always on at `--set-model`. -/

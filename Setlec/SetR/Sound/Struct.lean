@@ -139,12 +139,24 @@ theorem sndInfPi {Δ : List VExpr} {A B tA tB : VExpr} {u v : Nat}
   · rw [interp_pi, interp_sort]
     exact piC_mem_univ hAu hfib
 
-theorem sndInfLam {Δ : List VExpr} {A b tA B : VExpr} {u : Nat}
+theorem sndInfLam {Δ : List VExpr} {A b tA B B' tB : VExpr} {u v : Nat}
     (_ : Infer μ env cval φ Δ A tA)
     (_ : DefEq μ env cval φ Δ tA (.sort u))
     (_ : Infer μ env cval φ (A :: Δ) b B)
+    (_ : μ.verified = true → b.isLam = false →
+      DefEq μ env cval φ (A :: Δ) B B')
+    (_ : μ.verified = true → b.isLam = false →
+      Infer μ env cval φ (A :: Δ) B' tB)
+    (_ : μ.verified = true → b.isLam = false →
+      DefEq μ env cval φ (A :: Δ) tB (.sort v))
     (ihA : InfS V Δ A tA) (_ihtA : DeqS V Δ tA (.sort u))
-    (ihb : InfS V (A :: Δ) b B) :
+    (ihb : InfS V (A :: Δ) b B)
+    (_ihL : μ.verified = true → b.isLam = false →
+      DeqS V (A :: Δ) B B')
+    (_ihB : μ.verified = true → b.isLam = false →
+      InfS V (A :: Δ) B' tB)
+    (_ihv : μ.verified = true → b.isLam = false →
+      DeqS V (A :: Δ) tB (.sort v)) :
     InfS V Δ (.lam A b) (.pi A B) := by
   intro ρ hΔ
   obtain ⟨hAok, -⟩ := ihA ρ hΔ

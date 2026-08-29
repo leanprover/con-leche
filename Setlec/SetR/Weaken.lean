@@ -723,16 +723,39 @@ private theorem wkInfPi {Δ : List VExpr} {A B tA tB : VExpr} {u v : Nat}
   intro _ _ _ H
   exact .pi (ihA H) (ihtA H) (ihB (H.succ _)) (ihtB (H.succ _))
 
-private theorem wkInfLam {Δ : List VExpr} {A b tA B : VExpr} {u : Nat}
+private theorem wkInfLam {Δ : List VExpr} {A b tA B B' tB : VExpr}
+    {u v : Nat}
     (_ : Infer μ env cval φ Δ A tA)
     (_ : DefEq μ env cval φ Δ tA (.sort u))
     (_ : Infer μ env cval φ (A :: Δ) b B)
+    (_ : μ.verified = true → b.isLam = false →
+      DefEq μ env cval φ (A :: Δ) B B')
+    (_ : μ.verified = true → b.isLam = false →
+      Infer μ env cval φ (A :: Δ) B' tB)
+    (_ : μ.verified = true → b.isLam = false →
+      DefEq μ env cval φ (A :: Δ) tB (.sort v))
     (ihA : InfW μ env cval φ Δ A tA)
     (ihtA : DeqW μ env cval φ Δ tA (.sort u))
-    (ihb : InfW μ env cval φ (A :: Δ) b B) :
+    (ihb : InfW μ env cval φ (A :: Δ) b B)
+    (ihL : μ.verified = true → b.isLam = false →
+      DeqW μ env cval φ (A :: Δ) B B')
+    (ihB : μ.verified = true → b.isLam = false →
+      InfW μ env cval φ (A :: Δ) B' tB)
+    (ihv : μ.verified = true → b.isLam = false →
+      DeqW μ env cval φ (A :: Δ) tB (.sort v)) :
     InfW μ env cval φ Δ (.lam A b) (.pi A B) := by
-  intro _ _ _ H
-  exact .lam (ihA H) (ihtA H) (ihb (H.succ _))
+  intro n k _ H
+  refine .lam (B' := B'.liftN n (k + 1)) (tB := tB.liftN n (k + 1))
+    (v := v) (ihA H) (ihtA H) (ihb (H.succ _)) ?_ ?_ ?_
+  · intro hv hnl
+    rw [VExpr.isLam_liftN] at hnl
+    exact ihL hv hnl (H.succ _)
+  · intro hv hnl
+    rw [VExpr.isLam_liftN] at hnl
+    exact ihB hv hnl (H.succ _)
+  · intro hv hnl
+    rw [VExpr.isLam_liftN] at hnl
+    exact ihv hv hnl (H.succ _)
 
 private theorem wkInfApp {Δ : List VExpr} {f a tf A B ta : VExpr}
     (_ : Infer μ env cval φ Δ f tf)

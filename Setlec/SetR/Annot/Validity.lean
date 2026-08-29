@@ -288,6 +288,8 @@ def cxFun : VExpr := .lam (.sort 0) (.sort 0)
 theorem infer_cxFun :
     Infer μ Env.empty cval φ cxCtx cxFun (.pi (.sort 0) (.sort 1)) :=
   Infer.lam Infer.sort DefEq.refl Infer.sort
+    (fun _ _ => DefEq.refl) (fun _ _ => Infer.sort)
+    (fun _ _ => DefEq.refl)
 
 /-- **The counterexample.**  A well-formed `Infer` derivation, in a sorted
 context at the empty environment, whose inferred type has no sort. -/

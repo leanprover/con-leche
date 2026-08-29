@@ -172,6 +172,32 @@ leaf discipline gives, since the inferred type's leaves are a subset of
 the opened body's and its only leaf at index `d` is the one the opening
 inserted. -/
 
+/-- Opening a λ-shaped body keeps it λ-shaped, and so does `denote`:
+the task-#152 chain guard crosses from the checker's raw body to the
+relation's denoted one. -/
+private theorem denote_opened_isLam {cval : TConstVal} {env : Env}
+    {φ : Name → Nat} {body x : Expr} {d : Nat} {v : VExpr}
+    (hbl : body.isLam = true)
+    (hden : denote cval env φ d (body.instantiate1 x) = some v) :
+    v.isLam = true := by
+  cases body <;> simp [Expr.isLam] at hbl
+  next n ty b mb =>
+    rw [show Expr.instantiate1 (.lam n ty b mb) x
+        = .lam n (ty.instantiate1 x) (b.instantiate1 x 1) mb from rfl,
+      denote_lam] at hden
+    rcases h1 : denote cval env φ d (ty.instantiate1 x) with _ | A
+    · rw [h1] at hden
+      exact nomatch hden
+    rw [h1] at hden
+    rcases h2 : denote cval env φ (d + 1)
+        (((b.instantiate1 x 1)).instantiate1
+          (.fvar d n (ty.instantiate1 x))) with _ | bv
+    · rw [h2] at hden
+      exact nomatch hden
+    rw [h2] at hden
+    obtain rfl : v = .lam A bv := (Option.some.inj hden).symm
+    rfl
+
 /-- `.lam` infers by `Infer.lam`. -/
 theorem infer_lam_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
@@ -187,7 +213,7 @@ theorem infer_lam_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
       denote m.cval env φ d t = some tv ∧
       ∃ T', Infer mode env m.cval φ Δ v T' ∧
         DefEq mode env m.cval φ Δ T' tv := by
-  obtain ⟨tty, u, bt, hty, hwu, hbt, -, rfl⟩ := inferTypeCore_lam_inv h
+  obtain ⟨tty, u, bt, hty, hwu, hbt, h152, rfl⟩ := inferTypeCore_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLty : Expr.LeavesBounded ty := fun l hl =>
@@ -224,7 +250,35 @@ theorem infer_lam_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
     inferTypeCore_looseBVars m.wf fuel hbt hwopen hbopen hLopen
   have hround : (bt.abstract1 d).instantiate1 (.fvar d n ty) = bt :=
     abstract1_instantiate1 bt 0 hcons hbtb
-  refine ⟨.lam A B, .pi A vbt, ?_, ?_, _, Infer.lam hAI' hAD' hBI, ?_⟩
+  -- the task-#152 codomain-sort premises (#151 tier C): live exactly
+  -- when the checker ran the chain check
+  have hlamI : Infer mode env m.cval φ Δ (.lam A B) (.pi A TB) := by
+    by_cases hver : mode.verified = true
+    · by_cases hbl : body.isLam = true
+      · have hBlam : B.isLam = true := denote_opened_isLam hbl hB
+        exact Infer.lam (B' := .sort 0) (tB := .sort 0) (v := 0)
+          hAI' hAD' hBI
+          (fun _ hnl => absurd hBlam (by rw [hnl]; exact Bool.noConfusion))
+          (fun _ hnl => absurd hBlam (by rw [hnl]; exact Bool.noConfusion))
+          (fun _ hnl => absurd hBlam (by rw [hnl]; exact Bool.noConfusion))
+      · obtain ⟨btt, v', hbtt, hwv⟩ :=
+          h152 hver (by simpa using hbl)
+        have hwsbt : Expr.WScoped (d + 1) bt :=
+          inferTypeCore_WScoped m.wf fuel hbt hwopen
+        have hLbt : Expr.LeavesBounded bt := fun l hl =>
+          hLopen l (inferTypeCore_fvarLeaves m.wf fuel hbt hwopen l hl)
+        have hCbt : CtxOkR mode m.cval env φ (d + 1) (A :: Δ) bt :=
+          CtxOkR.of_subset
+            (fun l hl => inferTypeCore_fvarLeaves m.wf fuel hbt hwopen l hl)
+            hCopen
+        obtain ⟨tB', hIB', hDB'⟩ := inferSortR m φ ihw ihi hbtt hwv
+          hwsbt hbtb hLbt hCbt hvbt
+        exact Infer.lam hAI' hAD' hBI (fun _ _ => hBD)
+          (fun _ _ => hIB') (fun _ _ => hDB')
+    · exact Infer.lam (B' := .sort 0) (tB := .sort 0) (v := 0)
+        hAI' hAD' hBI (fun hv _ => absurd hv hver)
+        (fun hv _ => absurd hv hver) (fun hv _ => absurd hv hver)
+  refine ⟨.lam A B, .pi A vbt, ?_, ?_, _, hlamI, ?_⟩
   · rw [denote_lam, hA, hB]
   · rw [denote_forallE, hA, hround, hvbt]
   · exact DefEq.piCong DefEq.refl hBD

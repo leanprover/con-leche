@@ -396,7 +396,7 @@ theorem Infer.annotates (hcv : CvalAnnot μ env cval φ) {Δ : List VExpr}
     exact ⟨.pi _ _ Aa Ba, .pi ⟨_, hA, hu⟩ ⟨_, hB, hv⟩ hAa hBa⟩
   -- I7 `lam`
   · intros
-    rename_i hA hu _ ihA _ ihb
+    rename_i hA hu _ _ _ _ ihA _ ihb _ _ _
     obtain ⟨Aa, hAa⟩ := ihA
     obtain ⟨ba, hba⟩ := ihb
     exact ⟨.lam _ Aa ba, .lam ⟨_, hA, hu⟩ hAa hba⟩
