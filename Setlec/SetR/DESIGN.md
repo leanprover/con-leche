@@ -7529,3 +7529,17 @@ with `Option.bind` unfolds; pick one and stick to it) and the
 **stability metatheorem** — canonicity survives the checker's own
 substitutions and reductions.  STOP condition stands: a genuine
 instability counterexample is a design finding, not a proof gap.
+
+## R1 part 2 — the erasure law
+
+`denote2_erase` (`Annot/Canon.lean`): a successful canonical
+annotation erases to the denotation, **exactly** — no ζ slack, since
+`denote2`'s `letE` clause is structural — under the valuation link
+(`∀ n ψ, (acval n ψ).erase = cval n ψ`, an `EnvS2`-shaped fact).
+Proved by `denote2.induct` over the do-style clauses (15 cases; the
+style decision recorded last seal held up — the two friction points
+worth keeping: a do-bind that must be `rw`-穿 needs a defeq `replace`
+cast, and the catch-all clause's equation only fires through
+`denote2.eq_def`).  With coherence (definitional) and erasure (this
+law), the canonical annotation is a genuine annotation-valued section
+of `denote`; what remains of R1 is **stability alone**.
