@@ -4867,6 +4867,80 @@ theorem probeSortVacuity_of (hm : KnotFuelMono μ env)
   exact proofIrrel_no_sort hm hT hTD hTN hIC hID hIN hInf
     hI hwc hpi hloop
 
+/-! ### The spine routing, reduced to its both-δ core
+
+The `defeqSpine` scoping map (graded-unknown discipline): a `true`
+verdict pins both subjects const-headed with the *same* head `n`,
+equal arg counts, `isEquivList`-equivalent levels, and pointwise
+`defEqList`-certified args.  On a sort-converging subject the loop's
+stuck leg clashes with the const head and the nat leg is
+`NatStepNoSort` verbatim — so both sides take δ steps, unfolding the
+*same stored value* at equivalent levels with certified args.  That
+both-δ residue is the routing's irreducible core, named below; the
+reduction `spineSortAgree_of` is proved here, the core's supplier is
+graded (DESIGN — it embeds certified-pair convergence at argument
+positions, not level bookkeeping). -/
+
+/-- **The both-δ core** (graded unknown #1, reduced form): a
+same-head `defeqSpine`-certified pair whose two unfoldings'
+continuation chains reach literal sorts has equal numerals. -/
+def DeltaSpineSortAgree (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {fc d ga la gb lb : Nat} {a' b' xa xb : Expr} {ℓa ℓb : Level},
+    SubjInv d a' → SubjInv d b' →
+    Setlec.defeqSpine (Setlec.pureFns μ env fc) env d a' b'
+      = .ok true →
+    Setlec.unfoldDefinition env a' = some xa →
+    Setlec.unfoldDefinition env b' = some xb →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la xa
+      = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb xb
+      = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
+/-- **The spine routing reduced**: `SpineSortAgree` from the both-δ
+core — the stuck legs clash with `defeqSpine`'s const heads, the nat
+legs are `NatStepNoSort`, the δ-δ leg is the core with `SubjInv`
+carried across the whnfCore step. -/
+theorem spineSortAgree_of {φ : Name → Nat} (hm : KnotFuelMono μ env)
+    (hB : BoolCtorsInert env) (hIC : InvPreserveCoreF μ env)
+    (hD : DeltaSpineSortAgree μ env φ) :
+    SpineSortAgree μ env φ := by
+  have hN : NatStepNoSort μ env := natStepNoSort_of hB
+  intro fc l d ga la gb lb f₁ f₂ a b a' b' ℓa ℓb hIa hIb hc hwa hwb
+    hs ha hb
+  cases la with
+  | zero => exact nomatch ha
+  | succ la' =>
+  cases lb with
+  | zero => exact nomatch hb
+  | succ lb' =>
+  have haD := ha
+  rw [whnfLoop_succ] at haD
+  obtain ⟨a₁, hwca, htriA⟩ := whnfStep_decompose haD
+  obtain rfl : a' = a₁ :=
+    ((KnotFuelDet_of_mono hm).2.2.1
+      (hwca : whnfCore μ env ga d a = .ok a₁) hwa).symm
+  have hbD := hb
+  rw [whnfLoop_succ] at hbD
+  obtain ⟨b₁, hwcb, htriB⟩ := whnfStep_decompose hbD
+  obtain rfl : b' = b₁ :=
+    ((KnotFuelDet_of_mono hm).2.2.1
+      (hwcb : whnfCore μ env gb d b = .ok b₁) hwb).symm
+  rcases htriA with ⟨x, hrx, -⟩ | ⟨-, xa, hux, hkx⟩ | ⟨-, -, hstopA⟩
+  · exact (hN hwa hrx ha).elim
+  · rcases htriB with ⟨y, hry, -⟩ | ⟨-, xb, huy, hky⟩ | ⟨-, -, hstopB⟩
+    · exact (hN hwb hry hb).elim
+    · exact hD (hIC hwa hIa) (hIC hwb hIb) hs hux huy hkx hky
+    · obtain rfl := hstopB
+      unfold Setlec.defeqSpine at hs
+      split at hs
+      · exact nomatch hs
+      · exact nomatch hs
+  · obtain rfl := hstopA
+    unfold Setlec.defeqSpine at hs
+    exact nomatch hs
+
 /-- **The shell against the species tier**: `EnsureSortAgreeR` from
 the env fact, the invariant supply chain, the three transport step
 species, and the spine routing.  The PSS trio is discharged — the
@@ -4888,6 +4962,21 @@ theorem ensureSortAgreeR_of_species {φ : Name → Nat}
     (rescueSortVacuity_of hm hT hTD hTN hIC hID hIN hInf
       (natStepNoSort_of hB))
     (etaSortVacuity_of hm hT hTD hTN hIC hID hIN) hS
+
+/-- **The branch primitive at its irreducibles**: `EnsureSortAgreeR`
+from the env fact, the three transport step species, the four
+invariant preservers, and the both-δ spine core.  Everything else on
+the defeq branch is discharged. -/
+theorem ensureSortAgreeR_of_core {φ : Name → Nat}
+    (hB : BoolCtorsInert env)
+    (hTC : TypeTransportCoreF μ env) (hTD : TypeTransportDeltaF μ env)
+    (hTN : TypeTransportNatF μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env) (hInf : InvPreserveInferF μ env)
+    (hD : DeltaSpineSortAgree μ env φ) :
+    EnsureSortAgreeR μ env φ :=
+  ensureSortAgreeR_of_species hB hTC hTD hTN hIC hID hIN hInf
+    (spineSortAgree_of (knotFuelMono μ env) hB hIC hD)
 
 end Discharge
 

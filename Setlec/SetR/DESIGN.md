@@ -9095,3 +9095,51 @@ frontier: `EnsureSortAgreeR` from `BoolCtorsInert` + the three
 species + `SpineSortAgree`.  The trio is no longer a routing — every
 remaining unknown of the defeq branch is either an (F) step species,
 an invariant preserver, an env fact, or `SpineSortAgree`.
+
+### SpineSortAgree reduced to its both-δ core — the graded unknown scoped
+
+The `defeqSpine` case-structure map, before any induction (the
+graded-unknown discipline): a `true` verdict pins both subjects
+const-headed with the **same head `n`**, equal arg counts,
+`isEquivList`-equivalent levels, and pointwise `defEqList`-certified
+args.  On a sort-converging subject the loop's legs at the
+head-normal form read off:
+
+* stuck — the output is the literal sort, clashing with the const
+  head (`defeqSpine`'s own match reduces to `pure false`);
+* nat — `NatStepNoSort` **verbatim** (third reuse of that routing's
+  one-sided form);
+* δ — the only live leg: `unfoldDefinition` on the *same* `n` on
+  both sides, so both continuations are instantiations of **one
+  stored value** at equivalent levels with certified args.
+
+`DeltaSpineSortAgree` names that residue (stated exactly as reality
+exhibits it: the `defeqSpine` run + both unfold facts + both
+continuation loop runs + `SubjInv` at the head-normal forms — no
+decomposition baked in); `spineSortAgree_of` proves the reduction
+(`hm`, `BoolCtorsInert`, `InvPreserveCoreF`, core ⇒
+`SpineSortAgree`).  `ensureSortAgreeR_of_core` restates the branch
+primitive at its irreducibles: env fact + three transport step
+species + four preservers + the both-δ core.
+
+**The core's identity (the graded part — supplier ruling needed).**
+It is *not* level bookkeeping: term args never enter level data, but
+the whnf **path** of the instantiated value can consume argument
+values (types compute).  Hard instance: `def G (b : Bool) := cond b
+Prop (Type 0)` — `G a ≡ G b` via the spine fires with certified
+`a ≡ b`, and the two continuations reach `.sort 0` vs `.sort 1`
+*unless* the certified pair converges to the same `Bool`
+constructor.  So the core embeds **certified-pair convergence at
+argument positions** — (A)-shaped strength, one template
+instantiation down.  No decreasing syntactic measure identified: the
+args' cert runs sit at fresh `defeqBody` budgets (no descent), and
+the template's β-unfolding regrows subjects.  Non-vacuous even in
+the benign direction (`def T := Prop`, `T ≡ T` by spine: both
+continuations reach `.sort 0` — agreement there is by determinism,
+but the general case is not).  Candidate supplier tiers, for the
+ruling: (i) syntactic with a new measure — none found, this map is
+the evidence; (ii) the model/certified tier — semantic defeq
+soundness gives sort agreement of certified pairs, the lean4lean
+route, supplied where `EnsureSortAgreeR`'s consumer already lives;
+(iii) install-tier restriction — nothing natural.  The branch
+primitive is otherwise fully discharged.
