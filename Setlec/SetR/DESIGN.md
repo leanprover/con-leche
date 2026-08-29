@@ -9340,3 +9340,64 @@ ctor-type telescope shape, an env-tier fact flagged at the map),
 `ProjCongTySortAgree` (the graded congruence tier, `Q`-carrying —
 same supplier-tier question as `DeltaSpineSortAgree`, presumably the
 same model-tier answer).
+
+### Three (B) routings discharged; the congruence tier UNHELD (no cumulativity)
+
+**Discharged this seal** (with the shape helpers
+`whnfCore_forallE_run`, `inferTypeCore_lam_out`,
+`inferTypeCore_fvar_out`):
+
+* `lamTySortVacuity_of` — a λ infers to a `∀` (every success path of
+  the clause), and `∀`s are whnf-inert (`loop_stuck_out`).
+* `fvarTySortAgree_of` — cross-pairing pins the annotations equal
+  (the leaf is the head of its own `fvarLeaves`), `infer` reads the
+  annotation name-blind, `whnfLoop_det` finishes.  The `SubjInv`
+  premises went unused — kept in the Prop for uniformity.
+* `probeTySortVacuity_of` — the (A) double spine with `TypeWhnfLE_det`
+  in place of the loop collide; `uT` pins to the SINGLE successor.
+
+**The no-cumulativity finding (the coordinator's check, decisive —
+the branch's load-bearing fact).**  Two lines of the checker:
+`inferBody`'s sort clause is literally `.sort u ↦ .sort (.succ u)`
+(Core.lean:1550), and the only sort-sort comparison anywhere is
+`Level.isEquiv`, never `≤` (Core.lean:1816) — no cumulativity.
+Consequently a family's codomain sort is one level expression,
+computed at the fvar-opened body with no term arguments in sight;
+every fibre inhabits it; a fibre reducing to `Sort ℓ` forces
+`ℓ + 1 =` that expression.  **The result sort is pinned by the
+head's declared codomain, uniformly in arguments.**
+
+*Correction (retraction of the "hard instance")*: the `G`-example
+(`cond b Prop (Type 0)`) is REJECTED at the app clause —
+`isEquiv 1 2 = false` — so it never installs; the earlier ledger
+entry's countermodel-flavored reading of the core is wrong.  What
+the `G`-search DID establish survives as the measure verdict's
+scope: no decreasing measure over run fuel and subject size — the
+unhold adds the measure the search could not see, the
+**environment's declaration index** (a stored head's declared type
+mentions only earlier constants).
+
+**The core's discharge chain, traced on landed machinery**
+(`TypeTransportLoopF` + `typeWhnfLE_sort` + `TypeWhnfLE_det` +
+`isEquivList` soundness), down to two ledger-shaped gaps:
+
+* **Gap 1** — `DeltaSortLinked` strengthened to *two instantiations*:
+  for stored `G` at arity `n`, `inferTypeCore`'s result whnf-sort is
+  one level expression in `us`, not args; install-tier discharge
+  route, with the declaration-index measure in view.  The (F-δ) seal
+  moves EARLIER — its shape is now load-bearing for the core, not
+  just the transport.
+* **Gap 2 (landed this seal)** — `DeltaSpineSortAgree` restated
+  dual-success: the sort runs are premises ON `a'`/`b'` (the (A-T)
+  liveness pattern), and `spineSortAgree_of` assembles them in its
+  both-δ leg (spine const heads → `whnfCore_reidem_const` →
+  `whnfStep_assemble_delta`); the `xa`/`xb` unfold premises are gone
+  — the discharge reads the δ steps off the runs.
+
+Also per the unhold: A5 does not apply to this route
+(`inferTypeCore` is a function; `KnotFuelDet` kills the type-slot
+freedom that killed the relation-level version), and the graded
+congruence tier (`Const`/`Spine`/`PiCong`/`AppCong` +
+`ProjCong`) presumably follows the same fixed-codomain pattern —
+each to be CHECKED against it at its seal, not assumed.  No
+semantic supplier, no tagged model needed for the core.

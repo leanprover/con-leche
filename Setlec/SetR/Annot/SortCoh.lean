@@ -4999,23 +4999,26 @@ reduction `spineSortAgree_of` is proved here, the core's supplier is
 graded (DESIGN — it embeds certified-pair convergence at argument
 positions, not level bookkeeping). -/
 
-/-- **The both-δ core** (graded unknown #1, reduced form): a
-same-head `defeqSpine`-certified pair whose two unfoldings'
-continuation chains reach literal sorts has equal numerals.  Carries
-the abstract pair slot `Q` at the head-normal forms — the model-tier
-discharge instantiates it at its denote/`CtxOkR` frame (the supplier
-ruling + the threading finding's repair). -/
+/-- **The both-δ core** (graded unknown #1, reduced form, restated
+dual-success per the unhold's Gap 2): a same-head
+`defeqSpine`-certified pair whose members' own chains reach literal
+sorts has equal numerals.  The sort runs are stated ON `a'`/`b'` (the
+(A-T) liveness pattern — the consumer assembles them from its
+decomposition; the discharge reads the δ steps off the runs), and
+the no-cumulativity finding fixes the discharge route: both sides'
+type-sorts are ONE level expression in `us`/`us'` (Gap 1 =
+`DeltaSortLinked` at two-instantiation strength), transported along
+each run by `TypeTransportLoopF`, pinned by `typeWhnfLE_sort` + det,
+and equated by `isEquivList` soundness. -/
 def DeltaSpineSortAgree (μ : CheckMode) (env : Env)
     (φ : Name → Nat) (Q : Nat → Expr → Expr → Prop) : Prop :=
-  ∀ {fc d ga la gb lb : Nat} {a' b' xa xb : Expr} {ℓa ℓb : Level},
+  ∀ {fc d ga la gb lb : Nat} {a' b' : Expr} {ℓa ℓb : Level},
     SubjInv d a' → SubjInv d b' → Q d a' b' →
     Setlec.defeqSpine (Setlec.pureFns μ env fc) env d a' b'
       = .ok true →
-    Setlec.unfoldDefinition env a' = some xa →
-    Setlec.unfoldDefinition env b' = some xb →
-    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la xa
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la a'
       = .ok (.sort ℓa) →
-    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb xb
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb b'
       = .ok (.sort ℓb) →
     ℓa.eval φ = ℓb.eval φ
 
@@ -5051,12 +5054,48 @@ theorem spineSortAgree_of {φ : Name → Nat}
   obtain rfl : b' = b₁ :=
     ((KnotFuelDet_of_mono hm).2.2.1
       (hwcb : whnfCore μ env gb d b = .ok b₁) hwb).symm
-  rcases htriA with ⟨x, hrx, -⟩ | ⟨-, xa, hux, hkx⟩ | ⟨-, -, hstopA⟩
+  rcases htriA with ⟨x, hrx, -⟩ | ⟨hrga, xa, hux, hkx⟩ |
+    ⟨-, -, hstopA⟩
   · exact (hN hwa hrx ha).elim
-  · rcases htriB with ⟨y, hry, -⟩ | ⟨-, xb, huy, hky⟩ | ⟨-, -, hstopB⟩
+  · rcases htriB with ⟨y, hry, -⟩ | ⟨hrgb, xb, huy, hky⟩ |
+      ⟨-, -, hstopB⟩
     · exact (hN hwb hry hb).elim
-    · exact hD (hIC hwa hIa) (hIC hwb hIb)
-        (hQs (hQC hwb (hQs (hQC hwa hQab)))) hs hux huy hkx hky
+    · -- both-δ: assemble the dual-success runs on `a'`/`b'` (the
+      -- spine cert's const heads make whnfCore re-idem) and hand
+      -- the core its inputs.
+      obtain ⟨na, usa, heqa⟩ : ∃ n us, a'.getAppFn = .const n us := by
+        have hs' := hs
+        unfold Setlec.defeqSpine at hs'
+        split at hs'
+        · next n us heq => exact ⟨n, us, heq⟩
+        · exact nomatch hs'
+      obtain ⟨nb, usb, heqb⟩ : ∃ n us, b'.getAppFn = .const n us := by
+        have hs' := hs
+        unfold Setlec.defeqSpine at hs'
+        split at hs'
+        · next n us heq =>
+          split at hs'
+          · next n' us' heq' => exact ⟨n', us', heq'⟩
+          · exact nomatch hs'
+        · exact nomatch hs'
+      have ha' : Setlec.whnfLoop (Setlec.pureFns μ env (max f₁ ga))
+          env d (la' + 1) a' = .ok (.sort ℓa) := by
+        rw [whnfLoop_succ]
+        exact whnfStep_assemble_delta
+          (hm.2.2.1 (Nat.le_max_left f₁ ga)
+            (whnfCore_reidem_const hm hwa heqa))
+          (hm.2.2.2.2 (Nat.le_max_right f₁ ga) hrga) hux
+          (whnfLoop_r_mono hm (Nat.le_max_right f₁ ga) hkx)
+      have hb' : Setlec.whnfLoop (Setlec.pureFns μ env (max f₂ gb))
+          env d (lb' + 1) b' = .ok (.sort ℓb) := by
+        rw [whnfLoop_succ]
+        exact whnfStep_assemble_delta
+          (hm.2.2.1 (Nat.le_max_left f₂ gb)
+            (whnfCore_reidem_const hm hwb heqb))
+          (hm.2.2.2.2 (Nat.le_max_right f₂ gb) hrgb) huy
+          (whnfLoop_r_mono hm (Nat.le_max_right f₂ gb) hky)
+      exact hD (hIC hwa hIa) (hIC hwb hIb)
+        (hQs (hQC hwb (hQs (hQC hwa hQab)))) hs ha' hb'
     · obtain rfl := hstopB
       unfold Setlec.defeqSpine at hs
       split at hs
@@ -5446,6 +5485,205 @@ theorem sortOfAgreeRQ_of {φ : Name → Nat}
       (SubjInv.of_pair hwsa hba hLa hp)
       (SubjInv.of_pair_right hwsb hbb hLb hp) hp hQ
       (SortOfLE_of_run h₁) (SortOfLE_of_run h₂)
+
+/-! ### (B)'s mechanizable discharges: λ, fvar, probe -/
+
+/-- `whnfCore` is the identity on `∀`s (value branch). -/
+theorem whnfCore_forallE_run {μ : CheckMode} {env : Env} {f d : Nat}
+    {n : Name} {ty body : Expr} {m : Setlec.BinderMeta} (hf : 1 ≤ f) :
+    whnfCore μ env f d (.forallE n ty body m)
+      = .ok (.forallE n ty body m) := by
+  cases f with
+  | zero => exact nomatch hf
+  | succ f => rw [Setlec.whnfCore_succ]; rfl
+
+/-- Inference on a `λ` only ever returns a `∀` with the λ's own
+domain and meta (the clause's every success path). -/
+theorem inferTypeCore_lam_out {μ : CheckMode} {env : Env} {f d : Nat}
+    {n : Name} {ty body : Expr} {m : Setlec.BinderMeta} {t : Expr}
+    (h : inferTypeCore μ env f d (.lam n ty body m) = .ok t) :
+    ∃ bt, t = .forallE n ty bt m := by
+  cases f with
+  | zero => exact nomatch h
+  | succ f =>
+    rw [Setlec.inferTypeCore_succ] at h
+    unfold Setlec.inferBody at h
+    simp only [Setlec.viewM, Setlec.Expr.view, Bind.bind, Except.bind,
+      pure, Except.pure] at h
+    cases h1 : (Setlec.pureFns μ env f).infer d ty with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok tty =>
+    rw [h1] at h
+    simp only [] at h
+    cases h2 : (Setlec.pureFns μ env f).whnf d tty with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok wty =>
+    rw [h2] at h
+    simp only [] at h
+    split at h
+    · cases h3 : (Setlec.pureFns μ env f).infer (d + 1)
+          (body.instantiate1 (.fvar d n ty)) with
+      | error err => rw [h3] at h; exact nomatch h
+      | ok bt =>
+      rw [h3] at h
+      simp only [] at h
+      split at h
+      · cases h4 : (Setlec.pureFns μ env f).infer (d + 1) bt with
+        | error err => rw [h4] at h; exact nomatch h
+        | ok btt =>
+        rw [h4] at h
+        simp only [] at h
+        cases h5 : Setlec.ensureSort (Setlec.pureFns μ env f) env
+            (d + 1) btt with
+        | error err => rw [h5] at h; exact nomatch h
+        | ok s =>
+        rw [h5] at h
+        exact ⟨bt.abstract1 d, (Except.ok.inj h).symm⟩
+      · exact ⟨bt.abstract1 d, (Except.ok.inj h).symm⟩
+    · exact nomatch h
+
+/-- Inference on an `fvar` leaf is name-blind: it returns the stored
+annotation. -/
+theorem inferTypeCore_fvar_out {μ : CheckMode} {env : Env} {f d : Nat}
+    {i : Nat} {n : Name} {ty t : Expr}
+    (h : inferTypeCore μ env f d (.fvar i n ty) = .ok t) : t = ty := by
+  cases f with
+  | zero => exact nomatch h
+  | succ f =>
+    rw [Setlec.inferTypeCore_succ] at h
+    unfold Setlec.inferBody at h
+    simp only [Setlec.viewM, Setlec.Expr.view, Bind.bind, Except.bind,
+      pure, Except.pure] at h
+    split at h
+    · exact (Except.ok.inj h).symm
+    · exact nomatch h
+
+/-- **λ vacuity discharged**: a λ infers to a `∀`, and `∀`s are
+whnf-inert — never a sort. -/
+theorem lamTySortVacuity_of (hm : KnotFuelMono μ env) :
+    LamTySortVacuity μ env := by
+  intro d n ty body m ℓ hW
+  obtain ⟨ft, t, hi, g, l, hl⟩ := hW
+  obtain ⟨bt, rfl⟩ := inferTypeCore_lam_out hi
+  exact nomatch (loop_stuck_out hm hl
+    (whnfCore_forallE_run (μ := μ) (env := env) (d := d)
+      (Nat.le_refl 1))
+    (fun _ => reduceNat_forallE) unfoldDefinition_forallE)
+
+/-- **The fvar leaf discharged**: cross-pairing pins the two
+annotations equal, and `infer` reads the annotation name-blind, so
+both sort computations run on one type. -/
+theorem fvarTySortAgree_of (hm : KnotFuelMono μ env)
+    {φ : Name → Nat} : FvarTySortAgree μ env φ := by
+  intro d u v i n₁ n₂ ty₁ ty₂ _ _ hp hu hv
+  have hty : ty₁ = ty₂ :=
+    hp (i, n₁, ty₁)
+      (List.mem_append_left _ (by simp [Setlec.Expr.fvarLeaves]))
+      (i, n₂, ty₂)
+      (List.mem_append_right _ (by simp [Setlec.Expr.fvarLeaves]))
+      rfl
+  obtain ⟨f₁, t₁, hi₁, g₁, l₁, ℓ₁, hl₁, hev₁⟩ := hu
+  obtain ⟨f₂, t₂, hi₂, g₂, l₂, ℓ₂, hl₂, hev₂⟩ := hv
+  obtain rfl : t₁ = ty₁ := inferTypeCore_fvar_out hi₁
+  obtain rfl : t₂ = ty₂ := inferTypeCore_fvar_out hi₂
+  subst hty
+  obtain rfl : ℓ₁ = ℓ₂ :=
+    Setlec.Expr.sort.inj (whnfLoop_det hm hl₁ hl₂)
+  rw [← hev₁, ← hev₂]
+
+/-- **The type-level probe vacuity discharged** — the (A) double
+spine with determinism in place of the loop collide: the cert's own
+unit-check run det-collides with the given type-sort fact, the sort
+branch pins `uT` to the single successor through the second
+transport, and `Level.isEquiv_sound` refutes at the zero
+valuation. -/
+theorem probeTySortVacuity_of (hm : KnotFuelMono μ env)
+    (hT : TypeTransportLoopF μ env) (hInf : InvPreserveInferF μ env) :
+    ProbeTySortVacuity μ env := by
+  intro g d a' b' ℓ hIa' hpi hW
+  unfold Setlec.proofIrrel at hpi
+  simp only [Bind.bind, Except.bind] at hpi
+  cases hinfa : (Setlec.pureFns μ env g).infer d a' with
+  | error err => rw [hinfa] at hpi; exact nomatch hpi
+  | ok ta =>
+  rw [hinfa] at hpi
+  simp only [] at hpi
+  cases hwta : (Setlec.pureFns μ env g).whnf d ta with
+  | error err => rw [hwta] at hpi; exact nomatch hpi
+  | ok wta =>
+  rw [hwta] at hpi
+  simp only [] at hpi
+  have hW1 : TypeWhnfLE μ env d a' wta := by
+    obtain ⟨gw, lw, -, hlw⟩ :=
+      whnf_peel (hwta : whnf μ env g d ta = .ok wta)
+    exact ⟨g, ta, hinfa, gw, lw, hlw⟩
+  obtain rfl : wta = .sort ℓ := TypeWhnfLE_det hm hW1 hW
+  rw [isUnitLikeTy_sort, if_neg Bool.false_ne_true] at hpi
+  cases hinfta : (Setlec.pureFns μ env g).infer d ta with
+  | error err => rw [hinfta] at hpi; exact nomatch hpi
+  | ok sa =>
+  rw [hinfta] at hpi
+  simp only [] at hpi
+  cases hwsa : (Setlec.pureFns μ env g).whnf d sa with
+  | error err => rw [hwsa] at hpi; exact nomatch hpi
+  | ok wsa =>
+  rw [hwsa] at hpi
+  simp only [] at hpi
+  split at hpi
+  · next uT =>
+    have hIta : SubjInv d ta := hInf hinfa hIa'
+    have hW2 : TypeWhnfLE μ env d ta (.sort uT) := by
+      obtain ⟨gs, ls, -, hls⟩ :=
+        whnf_peel (hwsa : whnf μ env g d sa = .ok (.sort uT))
+      exact ⟨g, sa, hinfta, gs, ls, hls⟩
+    obtain ⟨gt, lt, -, hlt⟩ :=
+      whnf_peel (hwta : whnf μ env g d ta = .ok (.sort ℓ))
+    have hW3 : TypeWhnfLE μ env d (.sort ℓ) (.sort uT) :=
+      hT hlt hIta hW2
+    obtain rfl : uT = .succ ℓ :=
+      Setlec.Expr.sort.inj (TypeWhnfLE_det hm hW3 typeWhnfLE_sort)
+    cases hlift : Setlec.liftFueled "level comparison"
+        (Level.isEquiv (.succ ℓ) .zero)
+        (m := Setlec.CheckM) with
+    | error err => rw [hlift] at hpi; exact nomatch hpi
+    | ok okA =>
+    rw [hlift] at hpi
+    simp only [] at hpi
+    rw [Setlec.liftFueled.eq_def] at hlift
+    split at hlift
+    · next okA' hEq =>
+      obtain rfl : okA' = okA := by
+        simpa [pure, Except.pure] using hlift
+      cases okA' with
+      | true =>
+        have hev := Level.isEquiv_sound hEq (fun _ => 0)
+        simp only [Setlec.Level.eval] at hev
+        omega
+      | false =>
+        cases hinfb : (Setlec.pureFns μ env g).infer d b' with
+        | error err => rw [hinfb] at hpi; exact nomatch hpi
+        | ok tb =>
+        rw [hinfb] at hpi
+        simp only [] at hpi
+        cases hinftb : (Setlec.pureFns μ env g).infer d tb with
+        | error err => rw [hinftb] at hpi; exact nomatch hpi
+        | ok sb =>
+        rw [hinftb] at hpi
+        simp only [] at hpi
+        cases hwsb : (Setlec.pureFns μ env g).whnf d sb with
+        | error err => rw [hwsb] at hpi; exact nomatch hpi
+        | ok wsb =>
+        rw [hwsb] at hpi
+        simp only [] at hpi
+        split at hpi
+        · next vT =>
+          cases hliftB : Setlec.liftFueled "level comparison"
+              (Level.isEquiv vT .zero) (m := Setlec.CheckM) with
+          | error err => rw [hliftB] at hpi; exact nomatch hpi
+          | ok okB => rw [hliftB] at hpi; exact nomatch hpi
+        · exact nomatch hpi
+    · exact nomatch hlift
+  · exact nomatch hpi
 
 /-- The slot-free (B) shell: `SortOfAgreeR` as the `Q := True`
 instance. -/
