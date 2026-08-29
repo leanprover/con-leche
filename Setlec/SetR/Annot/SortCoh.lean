@@ -2987,6 +2987,549 @@ theorem iotaRec_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
     · next => exact h
   · next => exact h
 
+/-- `projFieldDom` respects the order. -/
+theorem projFieldDom_mono (hs : CoreSub r₁ r₂) {d : Nat}
+    {sp : Bool} {sn : Name} {e' : Expr} :
+    ∀ {k j : Nat} {tel x : Expr},
+      Setlec.projFieldDom r₁ env d sp sn e' j k tel = .ok x →
+      Setlec.projFieldDom r₂ env d sp sn e' j k tel = .ok x := by
+  intro k
+  induction k with
+  | zero => intro j tel x h; cases tel <;> exact h
+  | succ k ih =>
+    intro j tel x h
+    cases tel with
+    | forallE nm dom rest bi =>
+      unfold Setlec.projFieldDom at h ⊢
+      by_cases hb : rest.looseBVarsBounded 0 = true
+      · rw [if_pos hb] at h ⊢
+        exact ih h
+      · rw [if_neg hb] at h ⊢
+        by_cases hsp : sp = true
+        · rw [if_pos hsp] at h ⊢
+          simp only [Bind.bind, Except.bind] at h ⊢
+          cases h1 : Setlec.isPropType r₁ env d dom with
+          | error err => rw [h1] at h; exact nomatch h
+          | ok b =>
+          rw [h1] at h; rw [isPropType_mono hs h1]
+          simp only [] at h ⊢
+          cases b with
+          | true => exact ih (by simpa using h)
+          | false => exact h
+        · rw [if_neg hsp] at h ⊢
+          exact ih (by simpa [Bind.bind, Except.bind] using h)
+    | sort u => exact h
+    | fvar i n ty => exact h
+    | app f a => exact h
+    | lam n ty b m => exact h
+    | letE n ty v b => exact h
+    | proj s i e => exact h
+    | lit l => exact h
+    | const n us => exact h
+    | bvar i => exact h
+
+/-- `annotateProjRec` respects the order. -/
+theorem annotateProjRec_mono (hs : CoreSub r₁ r₂) {d : Nat}
+    {entry : Setlec.ProjEntry} {i : Nat} {te e' : Expr}
+    {us : List Level} {x : Expr}
+    (h : Setlec.annotateProjRec r₁ env d entry i te e' us = .ok x) :
+    Setlec.annotateProjRec r₂ env d entry i te e' us = .ok x := by
+  unfold Setlec.annotateProjRec at h ⊢
+  dsimp only [] at h ⊢
+  split at h
+  · next cvC nc cnF heq =>
+    split at h
+    · next hlen =>
+      rw [if_pos hlen]
+      split at h
+      · next tel heq2 =>
+        cases h1 : Setlec.isPropType r₁ env d te with
+        | error err => rw [h1] at h; exact nomatch h
+        | ok sp =>
+        rw [h1] at h; rw [isPropType_mono hs h1]
+        simp only [Bind.bind, Except.bind] at h ⊢
+        cases h2 : Setlec.projFieldDom r₁ env d sp entry.structName e'
+            0 i tel with
+        | error err => rw [h2] at h; exact nomatch h
+        | ok fi =>
+        rw [h2] at h; rw [projFieldDom_mono hs h2]
+        simp only [] at h ⊢
+        split at h
+        · next minor heq3 =>
+          cases h3 : r₁.annotate d fi with
+          | error err => rw [h3] at h; exact nomatch h
+          | ok fi' =>
+          rw [h3] at h; rw [hs.2.2.2.2 h3]
+          simp only [] at h ⊢
+          cases h4 : r₁.infer d fi' with
+          | error err => rw [h4] at h; exact nomatch h
+          | ok tfi =>
+          rw [h4] at h; rw [hs.2.2.1 h4]
+          simp only [] at h ⊢
+          cases h5 : Setlec.ensureSort r₁ env d tfi with
+          | error err => rw [h5] at h; exact nomatch h
+          | ok sfi =>
+          rw [h5] at h; rw [ensureSort_mono hs h5]
+          simp only [] at h ⊢
+          by_cases hsp : sp = true
+          · rw [if_pos hsp] at h ⊢
+            cases h6 : Setlec.liftFueled "level comparison"
+                (Level.isEquiv sfi Level.zero)
+                (m := Setlec.CheckM) with
+            | error err => rw [h6] at h; exact nomatch h
+            | ok c₆ =>
+            rw [h6] at h
+            simp only [] at h ⊢
+            cases c₆ with
+            | false => exact h
+            | true =>
+            simp only [if_true] at h ⊢
+            split at h
+            · next hre =>
+              rw [if_pos hre]
+              split at h
+              · next hg => rw [if_pos hg]; exact hs.2.2.2.2 h
+              · next hg => rw [if_neg hg]; exact h
+            · next hre =>
+              rw [if_neg hre]
+              split at h
+              · next hg => rw [if_pos hg]; exact hs.2.2.2.2 h
+              · next hg => rw [if_neg hg]; exact h
+          · rw [if_neg hsp] at h ⊢
+            split at h
+            · next hre =>
+              rw [if_pos hre]
+              split at h
+              · next hg =>
+                rw [if_pos hg]
+                exact hs.2.2.2.2 (by simpa using h)
+              · next hg => rw [if_neg hg]; exact h
+            · next hre =>
+              rw [if_neg hre]
+              split at h
+              · next hg =>
+                rw [if_pos hg]
+                exact hs.2.2.2.2 (by simpa using h)
+              · next hg => rw [if_neg hg]; exact h
+        · next => exact h
+      · next => exact h
+    · next hlen => rw [if_neg hlen]; exact h
+  · next => exact h
+
+/-- `annotateProjElim` respects the order. -/
+theorem annotateProjElim_mono (hs : CoreSub r₁ r₂) {d : Nat}
+    {sn : Name} {i : Nat} {te e' x : Expr}
+    (h : Setlec.annotateProjElim r₁ env d sn i te e' = .ok x) :
+    Setlec.annotateProjElim r₂ env d sn i te e' = .ok x := by
+  unfold Setlec.annotateProjElim at h ⊢
+  split at h
+  · next T us hga =>
+    by_cases hT : T = sn
+    · rw [if_pos hT] at h ⊢
+      split at h
+      · next cvp mi rp rules heq =>
+        split at h
+        · next hlen =>
+          rw [if_pos hlen]
+          dsimp only [] at h ⊢
+          split at h
+          · next hg =>
+            rw [if_pos hg]
+            exact hs.2.2.2.2 h
+          · next hg => rw [if_neg hg]; exact h
+        · next hlen => rw [if_neg hlen]; exact h
+      · next entry heq =>
+        split at h
+        · next hnat => exact nomatch h
+        · next hnat =>
+          rw [if_neg hnat]
+          exact annotateProjRec_mono hs h
+      · next => exact h
+    · rw [if_neg hT] at h ⊢
+      exact h
+  · next => exact h
+
+/-- `annotateBody` respects the order. -/
+theorem annotateBody_mono (hs : CoreSub r₁ r₂) {d : Nat} {e x : Expr}
+    (h : Setlec.annotateBody r₁ env d e = .ok x) :
+    Setlec.annotateBody r₂ env d e = .ok x := by
+  unfold Setlec.annotateBody at h ⊢
+  cases e with
+  | bvar i => exact h
+  | fvar idx n ty => exact h
+  | sort u => exact h
+  | const n us => exact h
+  | lit l => cases l <;> exact h
+  | app f a =>
+    simp only [Bind.bind, Except.bind] at h ⊢
+    cases h1 : r₁.annotate d f with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok f' =>
+    rw [h1] at h; rw [hs.2.2.2.2 h1]
+    simp only [] at h ⊢
+    cases h2 : r₁.annotate d a with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok a' =>
+    rw [h2] at h; rw [hs.2.2.2.2 h2]
+    simp only [] at h ⊢
+    exact h
+  | forallE n ty body mb =>
+    simp only [Bind.bind, Except.bind] at h ⊢
+    cases h1 : r₁.annotate d ty with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok ty' =>
+    rw [h1] at h; rw [hs.2.2.2.2 h1]
+    simp only [] at h ⊢
+    cases h2 : r₁.annotate (d + 1)
+        (body.instantiate1 (.fvar d n ty')) with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok body' =>
+    rw [h2] at h; rw [hs.2.2.2.2 h2]
+    simp only [] at h ⊢
+    exact h
+  | lam n ty body mb =>
+    simp only [Bind.bind, Except.bind] at h ⊢
+    cases h1 : r₁.annotate d ty with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok ty' =>
+    rw [h1] at h; rw [hs.2.2.2.2 h1]
+    simp only [] at h ⊢
+    cases h2 : r₁.annotate (d + 1)
+        (body.instantiate1 (.fvar d n ty')) with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok body' =>
+    rw [h2] at h; rw [hs.2.2.2.2 h2]
+    simp only [] at h ⊢
+    exact h
+  | letE nm ty v b =>
+    simp only [Bind.bind, Except.bind] at h ⊢
+    cases h1 : r₁.annotate d ty with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok ty' =>
+    rw [h1] at h; rw [hs.2.2.2.2 h1]
+    simp only [] at h ⊢
+    cases h2 : r₁.infer d ty' with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok tty =>
+    rw [h2] at h; rw [hs.2.2.1 h2]
+    simp only [] at h ⊢
+    cases h3 : Setlec.ensureSort r₁ env d tty with
+    | error err => rw [h3] at h; exact nomatch h
+    | ok s =>
+    rw [h3] at h; rw [ensureSort_mono hs h3]
+    simp only [] at h ⊢
+    cases h4 : r₁.annotate d v with
+    | error err => rw [h4] at h; exact nomatch h
+    | ok v' =>
+    rw [h4] at h; rw [hs.2.2.2.2 h4]
+    simp only [] at h ⊢
+    cases h5 : r₁.infer d v' with
+    | error err => rw [h5] at h; exact nomatch h
+    | ok tv =>
+    rw [h5] at h; rw [hs.2.2.1 h5]
+    simp only [] at h ⊢
+    cases h6 : r₁.defeq d tv ty' with
+    | error err => rw [h6] at h; exact nomatch h
+    | ok c₆ =>
+    rw [h6] at h; rw [hs.2.2.2.1 h6]
+    simp only [] at h ⊢
+    cases c₆ with
+    | false => exact h
+    | true => exact hs.2.2.2.2 (by simpa using h)
+  | proj sn i pe =>
+    simp only [Bind.bind, Except.bind] at h ⊢
+    cases h1 : r₁.annotate d pe with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok e' =>
+    rw [h1] at h; rw [hs.2.2.2.2 h1]
+    simp only [] at h ⊢
+    cases h2 : r₁.infer d e' with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok te₀ =>
+    rw [h2] at h; rw [hs.2.2.1 h2]
+    simp only [] at h ⊢
+    cases h3 : r₁.whnf d te₀ with
+    | error err => rw [h3] at h; exact nomatch h
+    | ok te =>
+    rw [h3] at h; rw [hs.2.1 h3]
+    simp only [] at h ⊢
+    split at h
+    · next T tus hga =>
+      split at h
+      · next entry heq =>
+        split at h
+        · next hnat =>
+          rw [if_pos hnat]
+          split at h
+          · next hlen =>
+            rw [if_pos hlen]
+            exact h
+          · next hlen => rw [if_neg hlen]; exact nomatch h
+        · next hnat =>
+          rw [if_neg hnat]
+          exact annotateProjElim_mono hs h
+      · next heq => exact annotateProjElim_mono hs h
+    · next => exact annotateProjElim_mono hs h
+
+/-- `whnfCoreBody` respects the order. -/
+theorem whnfCoreBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
+    {d : Nat} {e x : Expr}
+    (h : Setlec.whnfCoreBody μ r₁ env d e = .ok x) :
+    Setlec.whnfCoreBody μ r₂ env d e = .ok x := by
+  unfold Setlec.whnfCoreBody at h ⊢
+  cases e with
+  | sort u => exact h
+  | fvar idx n ty => exact h
+  | forallE n ty body bi => exact h
+  | lam n ty body mb => exact h
+  | const n us => exact h
+  | lit l => exact h
+  | bvar i => exact h
+  | app f a =>
+    simp only [Bind.bind, Except.bind] at h ⊢
+    cases h1 : r₁.whnfCore d f with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok fw =>
+    rw [h1] at h; rw [hs.1 h1]
+    simp only [] at h ⊢
+    split at h
+    · next n₁ ty₁ body₁ mb₁ =>
+      cases h2 : r₁.infer d a with
+      | error err => rw [h2] at h; exact nomatch h
+      | ok ta =>
+      rw [h2] at h; rw [hs.2.2.1 h2]
+      simp only [] at h ⊢
+      cases h3 : r₁.defeq d ta ty₁ with
+      | error err => rw [h3] at h; exact nomatch h
+      | ok c₃ =>
+      rw [h3] at h; rw [hs.2.2.2.1 h3]
+      simp only [] at h ⊢
+      cases c₃ with
+      | true => exact hs.1 (by simpa using h)
+      | false => exact h
+    · next =>
+      cases h2 : Setlec.iotaRec μ r₁ env d (.app fw a) with
+      | error err => rw [h2] at h; exact nomatch h
+      | ok o =>
+      rw [h2] at h; rw [iotaRec_mono hs h2]
+      simp only [] at h ⊢
+      cases o with
+      | some e₂ => exact hs.1 h
+      | none => exact h
+  | letE nm ty v b =>
+    exact hs.1 h
+  | proj sn i pe =>
+    simp only [Bind.bind, Except.bind] at h ⊢
+    cases h1 : r₁.whnf d pe with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok w =>
+    rw [h1] at h; rw [hs.2.1 h1]
+    simp only [] at h ⊢
+    cases h2 : Setlec.projLitToCtor r₁ env d w with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok w₂ =>
+    rw [h2] at h; rw [projLitToCtor_mono hs h2]
+    simp only [] at h ⊢
+    split at h
+    · next entry heq =>
+      split at h
+      · next c us hga =>
+        split at h
+        · next hg =>
+          rw [if_pos hg]
+          cases h3 : Setlec.projCert r₁ env d w₂ i
+              (Level.subst entry.levelParams us entry.fieldSort)
+              (Level.subst entry.levelParams us entry.structSort)
+              entry.numParams with
+          | error err => rw [h3] at h; exact nomatch h
+          | ok c₃ =>
+          rw [h3] at h; rw [projCert_mono hs h3]
+          simp only [] at h ⊢
+          cases c₃ with
+          | false => exact h
+          | true =>
+          simp only [if_true] at h ⊢
+          by_cases htt : μ.ttChecks = true
+          · rw [if_pos htt] at h ⊢
+            cases h4 : Setlec.projTeleCert r₁ env d c us
+                w₂.getAppArgs with
+            | error err => rw [h4] at h; exact nomatch h
+            | ok c₄ =>
+            rw [h4] at h; rw [projTeleCert_mono hs h4]
+            simp only [] at h ⊢
+            cases c₄ with
+            | true => exact hs.1 h
+            | false => exact h
+          · rw [if_neg htt] at h ⊢
+            exact hs.1 (by simpa [pure, Except.pure] using h)
+        · next hg => rw [if_neg hg]; exact h
+      · next => exact h
+    · next => exact h
+
+/-- `inferBody` respects the order. -/
+theorem inferBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
+    {d : Nat} {e x : Expr}
+    (h : Setlec.inferBody μ r₁ env d e = .ok x) :
+    Setlec.inferBody μ r₂ env d e = .ok x := by
+  unfold Setlec.inferBody at h ⊢
+  simp only [Setlec.viewM, Setlec.Expr.view, Bind.bind, Except.bind,
+    pure, Except.pure] at h ⊢
+  cases e with
+  | sort u => exact h
+  | fvar idx n ty => exact h
+  | const n us => exact h
+  | lit l => cases l <;> exact h
+  | bvar i => exact h
+  | forallE n ty body mb =>
+    simp only [] at h ⊢
+    cases h1 : r₁.infer d ty with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok tty =>
+    rw [h1] at h; rw [hs.2.2.1 h1]
+    simp only [] at h ⊢
+    cases h2 : r₁.whnf d tty with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok w =>
+    rw [h2] at h; rw [hs.2.1 h2]
+    simp only [] at h ⊢
+    split at h
+    · next u =>
+      cases h3 : r₁.infer (d + 1)
+          (body.instantiate1 (.fvar d n ty)) with
+      | error err => rw [h3] at h; exact nomatch h
+      | ok tb =>
+      rw [h3] at h; rw [hs.2.2.1 h3]
+      simp only [] at h ⊢
+      cases h4 : Setlec.ensureSort r₁ env (d + 1) tb with
+      | error err => rw [h4] at h; exact nomatch h
+      | ok v' =>
+      rw [h4] at h; rw [ensureSort_mono hs h4]
+      simp only [] at h ⊢
+      exact h
+    · next => exact h
+  | lam n ty body mb =>
+    simp only [] at h ⊢
+    cases h1 : r₁.infer d ty with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok tty =>
+    rw [h1] at h; rw [hs.2.2.1 h1]
+    simp only [] at h ⊢
+    cases h2 : r₁.whnf d tty with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok w =>
+    rw [h2] at h; rw [hs.2.1 h2]
+    simp only [] at h ⊢
+    split at h
+    · next u =>
+      cases h3 : r₁.infer (d + 1)
+          (body.instantiate1 (.fvar d n ty)) with
+      | error err => rw [h3] at h; exact nomatch h
+      | ok bt =>
+      rw [h3] at h; rw [hs.2.2.1 h3]
+      simp only [] at h ⊢
+      by_cases hv : (μ.verified && !body.isLam) = true
+      · rw [if_pos hv] at h ⊢
+        cases h4 : r₁.infer (d + 1) bt with
+        | error err => rw [h4] at h; exact nomatch h
+        | ok btt =>
+        rw [h4] at h; rw [hs.2.2.1 h4]
+        simp only [] at h ⊢
+        cases h5 : Setlec.ensureSort r₁ env (d + 1) btt with
+        | error err => rw [h5] at h; exact nomatch h
+        | ok s5 =>
+        rw [h5] at h; rw [ensureSort_mono hs h5]
+        simp only [] at h ⊢
+        exact h
+      · rw [if_neg hv] at h ⊢
+        exact h
+    · next => exact h
+  | app f a =>
+    simp only [] at h ⊢
+    cases h1 : r₁.infer d f with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok tf =>
+    rw [h1] at h; rw [hs.2.2.1 h1]
+    simp only [] at h ⊢
+    cases h2 : r₁.whnf d tf with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok w =>
+    rw [h2] at h; rw [hs.2.1 h2]
+    simp only [] at h ⊢
+    split at h
+    · next n₁ ty₁ body₁ mt =>
+      cases h3 : r₁.infer d a with
+      | error err => rw [h3] at h; exact nomatch h
+      | ok ta =>
+      rw [h3] at h; rw [hs.2.2.1 h3]
+      simp only [] at h ⊢
+      cases h4 : r₁.defeq d ta ty₁ with
+      | error err => rw [h4] at h; exact nomatch h
+      | ok c₄ =>
+      rw [h4] at h; rw [hs.2.2.2.1 h4]
+      simp only [] at h ⊢
+      cases c₄ with
+      | true => simpa using h
+      | false => exact h
+    · next => exact h
+  | proj sn i pe =>
+    simp only [] at h ⊢
+    cases h1 : r₁.infer d pe with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok tpe =>
+    rw [h1] at h; rw [hs.2.2.1 h1]
+    simp only [] at h ⊢
+    cases h2 : r₁.whnf d tpe with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok te =>
+    rw [h2] at h; rw [hs.2.1 h2]
+    simp only [] at h ⊢
+    split at h
+    · next T us hga =>
+      split at h
+      · next entry heq =>
+        split at h
+        · next hg =>
+          rw [if_pos hg]
+          by_cases htt : μ.ttChecks = true
+          · rw [if_pos htt] at h ⊢
+            cases h3 : Setlec.projParamCert r₁ env d entry us
+                te.getAppArgs with
+            | error err => rw [h3] at h; exact nomatch h
+            | ok c₃ =>
+            rw [h3] at h; rw [projParamCert_mono hs h3]
+            simp only [] at h ⊢
+            exact h
+          · rw [if_neg htt] at h ⊢
+            exact h
+        · next hg => rw [if_neg hg]; exact h
+      · next => exact h
+    · next => exact h
+  | letE nm ty v b =>
+    simp only [] at h ⊢
+    cases h1 : r₁.infer d ty with
+    | error err => rw [h1] at h; exact nomatch h
+    | ok tty =>
+    rw [h1] at h; rw [hs.2.2.1 h1]
+    simp only [] at h ⊢
+    cases h2 : Setlec.ensureSort r₁ env d tty with
+    | error err => rw [h2] at h; exact nomatch h
+    | ok s2 =>
+    rw [h2] at h; rw [ensureSort_mono hs h2]
+    simp only [] at h ⊢
+    cases h3 : r₁.infer d v with
+    | error err => rw [h3] at h; exact nomatch h
+    | ok tv =>
+    rw [h3] at h; rw [hs.2.2.1 h3]
+    simp only [] at h ⊢
+    cases h4 : r₁.defeq d tv ty with
+    | error err => rw [h4] at h; exact nomatch h
+    | ok c₄ =>
+    rw [h4] at h; rw [hs.2.2.2.1 h4]
+    simp only [] at h ⊢
+    cases c₄ with
+    | true => exact hs.2.2.1 (by simpa using h)
+    | false => exact h
+
 end MonoHelpers2
 
 end Setlec.SetR.Interp2

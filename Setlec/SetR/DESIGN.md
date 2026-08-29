@@ -8816,3 +8816,19 @@ its loops, `defeqStep`/`defeqLoop`, the knot chain by fuel-gap
 induction, and the public projection — at which point
 **`KnotFuelMono` lands as a theorem**: the shell's last wide
 obligation, from which half the ledger projects.
+
+### KnotFuelMono: the annotate cluster and three bodies
+
+Proved: `projFieldDom_mono` (telescope recursion with the Prop
+checks), `annotateProjRec_mono` (the template-projection rewriter —
+the deepest cascade of the cluster: isPropType, field domain, the
+annotate/infer/ensureSort chain, the Prop restriction, the
+recExtraLevel and scope-guard ites), `annotateProjElim_mono`,
+`annotateBody_mono` (all nine clauses — the one body previously
+unread on this arc; its structure held no surprises beyond routing
+through the projection-elimination cluster, which was read and
+proved first), `whnfCoreBody_mono`, and `inferBody_mono` (all
+clauses, including the verified-mode λ codomain check and the proj
+table dispatch).  Remaining: `defeqStep`/`defeqLoop` (the last
+cascade), `whnfBody` (trivial via `whnfLoop_mono`), the knot chain,
+and the public projection — the seal at which `KnotFuelMono` lands.
