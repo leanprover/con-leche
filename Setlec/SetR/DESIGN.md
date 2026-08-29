@@ -7630,3 +7630,47 @@ infer + defeq — the cert every β site has), the bridge-standard
 syntactic guards, and the context correspondence.  Sealed alone for
 review before the induction (knot-natural boundaries per the
 `checkStepR` decomposition follow).
+
+### The β-premise refinement — theorems consume facts; removals change suppliers
+
+Post-seal review caught a supplier problem in the statement above: the
+β premise as sealed was the **run cert itself** — `inferTypeCore` on
+the argument plus `isDefEqCore` against the domain — which is
+precisely the pair of walks **rank 2 removes**.  The user's question:
+is that circular?  Answer: no, because the campaign is two-phase
+(migration proves the twelve for the *current* checker, whose runs
+contain the certs; removal re-proves the gated cases with the
+invariant as supplier) — but phase two would have needed a *variant*
+of the theorem with a different premise, i.e. the statement was
+supplier-committed.
+
+**The refinement** (before any case work baked it in):
+`SortSubstStable`'s β premise is now the run cert's *semantic
+content* —
+
+> the argument's interpretation is a member of the domain's
+> interpretation at satisfying valuations of the context
+> (`∀ ρ, Sat V Δv ρ → interp V ρ av ∈ˢ interp V ρ tyv`)
+
+— and the run cert is demoted to **one discharge lemma**,
+`betaCert_discharge`: run facts + claims (`InferClaimsR`,
+`DefEqClaimsR`) bridge to derivations, `Infer.sound`/`DefEq.sound`
+sound them, and the membership transports along the `DefEq`
+interpretation-equality chain.  Today's consumer composes the lemma in
+front of the theorem and is unaffected; the post-removal consumer
+discharges the same premise from the invariant's slot package
+(`AnnotOk2_redex_fits`'s per-slot membership at positive kind,
+`AnnotOk2`'s app clause at kind 0).  One theorem serves both phases;
+the supplier swaps under it.
+
+This is the clean statement of the whole removal architecture, worth
+recording once at full generality: **theorems consume facts, not the
+walks that produced them; a removal never changes a theorem, it
+changes the supplier of a premise.**  Every rank of the roadmap is an
+instance — rank 1 swaps the iota telescope certs for `PosShape` +
+`slotChain_fits`, rank 2 swaps the β cert for the slot package, rank 3
+swaps the per-arg check for the spine chain.  Stating premises
+semantically (Sat-conditioned membership/equality, never
+`.ok`-equations of the walks slated for removal) is what makes the
+swap a local re-proof of a discharge lemma instead of a re-statement
+of the metatheorem.

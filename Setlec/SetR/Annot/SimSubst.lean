@@ -2,6 +2,8 @@ import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.Kinding
 import Setlec.SetR.Annot.EnvS2
 import Setlec.SetR.CtxOkR
+import Setlec.SetR.Bridge.Claims
+import Setlec.SetR.Sound.Main
 import Setlec.Verify.InferLeaves
 
 /-!
@@ -46,6 +48,18 @@ valuation**.
   work must keep both sides run-backed (the simulation invariant
   relates runs to runs, with the relation's `DefEq` only as the
   join), or the hostile ground resurfaces — the arc's STOP condition.
+* **Supplier circularity** (the refinement, post-seal review): the β
+  premise as first sealed was the *run cert* — the argument's
+  inference plus the domain `defeq` — which is exactly the pair of
+  walks rank 2 removes.  Not circular (two-phase structure: migration
+  proves the current checker, removal re-proves gated cases), but
+  phase two would have needed a variant theorem.  Refined to the
+  **semantic form**: the argument's interpretation is a member of the
+  domain's interpretation at satisfying valuations.  Today's supplier
+  is the run cert, discharged by `betaCert_discharge` below
+  (claims-bridge → soundness → membership); the post-removal supplier
+  is the invariant's slot package (`AnnotOk2_redex_fits`).  One
+  theorem, both phases; the supplier swaps under it.
 
 ## Determinism, stated early
 
@@ -60,6 +74,7 @@ namespace Setlec.SetR.Interp2
 open Setlec.TT Setlec.TTVerify
 open Setlec.SetR
 open Setlec (CheckMode Env Expr Name inferTypeCore whnf)
+open SetTheory
 
 /-! ## Determinism -/
 
@@ -111,10 +126,6 @@ def SortSubstStable (V : Type w) [SetTheory V] : Prop :=
     {fuel d : Nat} {n : Name} {ty body a : Expr} {Δv : List VExpr}
     {v v' : Nat},
     μ.verified = true →
-    -- the β site's own run facts
-    ∀ {ta : Expr},
-    inferTypeCore μ env fuel d a = .ok ta →
-    Setlec.isDefEqCore μ env fuel d ta ty = .ok true →
     -- the two sort computations, both successful at one fuel
     lamSortE μ env φ fuel (d + 1)
       (body.instantiate1 (.fvar d n ty)) = some v →
@@ -131,7 +142,64 @@ def SortSubstStable (V : Type w) [SetTheory V] : Prop :=
     CtxOkR μ mS.cval env φ d Δv a →
     CtxOkR μ mS.cval env φ d Δv ty →
     ∀ {tyv : VExpr}, denote mS.cval env φ d ty = some tyv →
+    ∀ {av : VExpr}, denote mS.cval env φ d a = some av →
+    -- **the β premise, semantic form** (supplier-neutral): the
+    -- argument inhabits the opener's domain at satisfying valuations.
+    -- Today's supplier is the run cert (`betaCert_discharge` below);
+    -- the post-removal supplier is the invariant's slot package
+    -- (`AnnotOk2_redex_fits`/`graded_beta_pos`).  One theorem, both
+    -- phases; the supplier swaps under it.
+    (∀ ρ : Nat → V, Sat V Δv ρ → interp V ρ av ∈ˢ interp V ρ tyv) →
     -- the conclusion: numeral agreement at satisfying valuations
     ∀ ρ : Nat → V, Sat V Δv ρ → v = v'
+
+/-- **The current checker's discharge of the semantic β premise**: the
+run cert every β site has today — the argument's inference and the
+domain `defeq` — bridged and sounded, yields the membership.  This is
+the phase-one supplier; rank 2's removal retires this lemma's use at
+gated sites, never the premise. -/
+theorem betaCert_discharge {V : Type w} [SetTheory V]
+    {μ : CheckMode} {env : Env} (m : EnvR env)
+    (φ : Name → Nat) {fuel : Nat}
+    (henv : EnvSHyp V env m.cval φ)
+    (ihd : DefEqClaimsR μ m φ fuel) (ihi : InferClaimsR μ m φ fuel)
+    {d : Nat} {ty a ta : Expr} {Δv : List VExpr}
+    (hinf : inferTypeCore μ env fuel d a = .ok ta)
+    (hdefeq : Setlec.isDefEqCore μ env fuel d ta ty = .ok true)
+    (hwsa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a)
+    (hwst : Expr.WScoped d ty) (hbt : ty.looseBVarsBounded 0 = true)
+    (hLt : Expr.LeavesBounded ty)
+    (hCa : CtxOkR μ m.cval env φ d Δv a)
+    (hCt : CtxOkR μ m.cval env φ d Δv ty)
+    {tyv : VExpr} (hty : denote m.cval env φ d ty = some tyv)
+    {av : VExpr} (hav : denote m.cval env φ d a = some av) :
+    ∀ ρ : Nat → V, Sat V Δv ρ → interp V ρ av ∈ˢ interp V ρ tyv := by
+  intro ρ hρ
+  -- bridge the inference run
+  obtain ⟨av', tav, hav', htav, T', hIT', hDT'⟩ :=
+    ihi hinf hwsa hba hLa hCa
+  obtain rfl : av = av' := by
+    rw [hav] at hav'
+    exact Option.some.inj hav'
+  -- the inferred type's own guards, for the defeq run
+  have hwsta : Expr.WScoped d ta :=
+    Setlec.inferTypeCore_WScoped m.wf fuel hinf hwsa
+  have hbta : ta.looseBVarsBounded 0 = true :=
+    Setlec.inferTypeCore_looseBVars m.wf fuel hinf hwsa hba hLa
+  have hLta : Expr.LeavesBounded ta := fun l hl =>
+    hLa l (Setlec.inferTypeCore_fvarLeaves m.wf fuel hinf hwsa l hl)
+  have hCta : CtxOkR μ m.cval env φ d Δv ta :=
+    CtxOkR.of_subset
+      (fun l hl => Setlec.inferTypeCore_fvarLeaves m.wf fuel hinf hwsa l hl)
+      hCa
+  -- bridge the defeq run
+  have hD := ihd hdefeq hwsta hbta hLta hwst hbt hLt hCta hCt htav hty
+  -- sound both: the membership transports along the equality chain
+  have hmem := (Infer.sound henv hIT' ρ hρ).2
+  have h1 := DefEq.sound henv hDT' ρ hρ
+  have h2 := DefEq.sound henv hD ρ hρ
+  rw [h1, h2] at hmem
+  exact hmem
 
 end Setlec.SetR.Interp2
