@@ -74,6 +74,7 @@ import Setlec.SetR.Interp2.Graded
 import Setlec.SetR.Interp2.Pilot
 import Setlec.SetR.Annot.Ok2
 import Setlec.SetR.Annot.Spine2
+import Setlec.SetR.Annot.EnvS2
 import Setlec.SetR.DivModPin
 import Setlec.SetR.StdAxiomKey
 

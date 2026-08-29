@@ -7416,3 +7416,42 @@ repeat.
 5. Rank 2 (β behind the #152-sort delivery — the stored-annotation
    vs recompute pricing decision, taken then), rank 3 (internal
    per-argument), rank 4 sweep-up (proj, proof-irrel chains).
+
+## Migration step 1 — `EnvS2` core (`Annot/EnvS2.lean`), and two motive-design walls settled
+
+`EnvS2` lands by **containment** (holds the collapse-lane `EnvS`; its
+V-free syntactic fields serve both stacks during the migration — the
+scaffolding, not the end state), with the core interp2 fields:
+`cval_annot` (the two `CvalAnnot` clauses become environment fields,
+closing the carried-obligations ledger's supplier question),
+`annot_ok2` (justified valuation annotations are interp2-truthful),
+and `mem_type2` (conditional on the type-side annotation — vacuous
+where none exists, exact where the consumer holds one).  `RecRulesV2`
+deliberately absent until its supplier states it.  `CtxAnn`/`Sat2`
+land beside it (the annotated context and its satisfaction, with
+`Sat2_nil`/`Sat2_cons`/`CtxAnn.get`), plus `EnvS2.empty`.
+
+**Two walls found shaping the graded motives, both routing to the
+run-level formulation A2 already ruled:**
+
+1. *Relation-level `RedS2` cannot produce reduct annotations*: β's
+   reduct annotation `ba.inst aa` needs substitution admissibility
+   for `Annotates` (each cached `HasSortC` under `inst`), which the
+   family lacks by finding A1 — only weakening (M1) exists.
+2. *Relation-level `DeqS2` cannot chain without coherence*: two
+   justified annotations of one term may differ in their λ numerals
+   (A4: no cross-tree coherence), so `interp2`-values of independently
+   chosen annotations are not interchangeable without an
+   `annot_coherence` theorem (provable only at satisfying `ρ` via
+   `sortFact_unique`, and needing uniqueness-of-inference — new
+   M-level metatheory).
+
+Both dissolve at the **run level**: the bridge claims thread *one*
+annotation per term along a checker run (each term's annotation
+produced where the checker's own facts justify it, consumed by the
+per-step graded lemmas), so no annotation ever crosses a bare `Red`
+and no two annotations of one term ever meet.  The second soundness's
+claims are therefore run-indexed (the `WhnfClaims`/`InferClaims`
+pattern with interp2-semantic conclusions), not a re-signing of the
+relation's mutual induction — the relation remains the bridge's
+factoring device for the *checker-shape* content, as designed.
