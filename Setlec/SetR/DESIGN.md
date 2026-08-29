@@ -7326,3 +7326,21 @@ alone, no argument re-check**, at a provably-positive codomain kind.
 The family-2 removal's core theorem, now in full (Pilot's
 `graded_beta_pos` was its value-level kernel).  The kind-`0` residue
 stands per #49/#73.
+
+## Second soundness, seal 2 — the spine chain and the pinning fold
+
+`Annot/Spine2.lean`, the family-0/1 core theorem set: `SlotChain` (the
+subject side — read off the redex's own `AnnotOk2` by
+`AnnotOk2_spine_slots`), `PosShape` (the stored-type side — the
+telescope value peels in the graph regime; install-time data, the
+O(1) motive-kind gate at runtime), `TeleFit2` (the value-level kinded
+fit with `fold_mem`), and
+
+    slotChain_fits : f ∈ T → SlotChain f as → PosShape T |as| →
+      ∃ T', TeleFit2 T as T' ∧ foldl app f as ∈ T'
+
+— every domain membership of the walk recovered by graph rigidity
+(`piR_dom_unique`), `Prop`-typed slots included, since what matters is
+the *product's* kind.  `AnnotOk2_redex_fits` packages the composite as
+the exact interface seal 3's iota case consumes: subject invariant in,
+telescope fit and residual membership out, no runtime walk anywhere.
