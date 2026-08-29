@@ -7990,3 +7990,55 @@ that seal — flagged here so it does not arrive as a surprise.
 **Retired**: the "identical fuels" lemma idea — every run is
 quantified at its own fuel and all same-syntax links go through
 `KnotFuelDet`, so no fuel alignment discipline is needed anywhere.
+
+### Defeq-branch, seal 2: the ceiling induction + base ingredients (and two case-map corrections)
+
+**Case-map corrections** (from reading the fallbacks' actual runs —
+the map's `proofIrrel` row was wrong twice over):
+
+* `proofIrrel` has **two** certifying branches.  The *unit-like*
+  branch (both types whnf to a unit-like constant) is vacuous via
+  `KnotFuelDet` alone: the sort run's `whnf(ta) = .sort ℓ` and the
+  cert run's unit-like output are one output, and `.sort` is not
+  const-headed (`unitBranch_absurd`, landed).  The *Prop-sorted*
+  branch runs **no defeq sub-run between the two types** — it only
+  checks each side's type-of-type is `Sort 0` — so there is nothing
+  to hand an (A)-style IH.  It closes by vacuity through **(C\*)**:
+  a subject whose type both whnfs to a literal sort and is
+  `Prop`-sorted contradicts its own whnf chain (`sortOfE` of
+  `.sort ℓ` is `eval ℓ + 1 ≥ 1`, but the cert run computes `0` for
+  the same chain).  (C\*) — whole-`whnf`-chain sort stability — is
+  therefore promoted to a first-class family member
+  (`SortOfWhnfStableAt`); the same routing serves the K/unit/
+  struct-eta rescue fallbacks, whose certifying runs also whnf the
+  subjects' types to non-sort shapes.
+* Consequence for supplier order: the "vacuous" rows are *not* below
+  the base — they sit above (C)/(C-δ)/(C\*).  The truly standalone
+  base is: the level lemma (`Level.isEquiv_sound`, banked), the
+  syntactic cases (`sortOfE_fuelDet`), and the sort-sort arithmetic
+  (`sortOfE_sort_out`).
+
+**The ceiling induction** (the well-foundedness discovery, resolved
+before any case consumed a broken measure): the claims reference each
+other at **unrelated fuels** — a `(B)` instance about a cert at fuel 3
+may consume `(C*)` facts about sort runs at fuel 10⁶, so no single
+run's fuel can carry the mutual induction.  The measure is the
+**ceiling** `N` bounding *every* quantified run fuel
+(`SortCohAt μ env φ N`, a five-field Prop structure), under strong
+induction on `N`: cross-claim consumptions are about sub-runs at
+strictly smaller fuels (the knot decrements per level) and drop the
+ceiling; lazy-delta/whnf **loop** re-entries keep every fuel and
+decrease only the loop budget — the loop-internal motive
+(`defeqLoop`/`whnfLoop`-level claims, lexicographically inside the
+ceiling) is the next design piece, to be built with the first
+congruence case.  The public claims are the `∀ N` closures
+(`*_of_at`).  This subsumes and replaces the earlier "lexicographic
+(knot fuel, loop budget)" sketch, which was measured against a single
+run and would not have covered the cross-claim fuel independence.
+
+**Landed ingredients** (`Annot/SortCoh.lean`): the ceilinged family +
+bundle + closures; `sortOfE_fuelDet` (cross-fuel determinism of the
+sort computation, `KnotFuelDet`-powered); `inferTypeCore_sort_out` /
+`whnf_sort_out` / `sortOfE_sort_out` (the sort-sort base's run
+equations and arithmetic); `unitBranch_absurd` (the unit-like vacuity
+pattern, the template for the rescue fallbacks' cases).

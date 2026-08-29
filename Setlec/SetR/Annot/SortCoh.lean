@@ -1,5 +1,6 @@
 import Setlec.SetR.Annot.Canon
 import Setlec.Verify.InferLeaves
+import Setlec.Verify.BinderLoop
 
 /-!
 # Run-level sort coherence — the defeq-branch claim family (task #151 tier C)
@@ -178,5 +179,230 @@ def SortOfDeltaStableR (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :
     sortOfE μ env φ f₁ d e = some u →
     sortOfE μ env φ f₂ d e' = some v →
     u = v
+
+/-! ## The ceilinged family — the induction's actual subject
+
+The claims reference each other at **unrelated fuels** (a `(B)` case
+about a cert at fuel 3 may consume `(C*)` facts about sort runs at
+fuel 10⁶), so no single run's fuel can carry the induction.  The
+measure is the **ceiling** `N` — an upper bound on *every* quantified
+run fuel — under strong induction: every cross-claim consumption is
+about sub-runs at strictly smaller fuels (the knot decrements per
+level), so it drops the ceiling; a lazy-delta or whnf *loop* re-entry
+keeps every run fuel and decreases only the loop budget, handled by
+the loop-internal motive (designed with the first congruence case).
+The public claims are the `∀ N` closures (`*_of_at` below). -/
+
+/-- `(A)` at ceiling `N`. -/
+def EnsureSortAgreeAt (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (N : Nat) : Prop :=
+  ∀ {fc d : Nat} {a b : Expr} {f₁ f₂ : Nat} {ℓ₁ ℓ₂ : Level},
+    fc ≤ N → f₁ ≤ N → f₂ ≤ N →
+    isDefEqCore μ env fc d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    PairedLeaves a b →
+    whnf μ env f₁ d a = .ok (.sort ℓ₁) →
+    whnf μ env f₂ d b = .ok (.sort ℓ₂) →
+    ℓ₁.eval φ = ℓ₂.eval φ
+
+/-- `(B)` at ceiling `N`. -/
+def SortOfAgreeAt (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (N : Nat) : Prop :=
+  ∀ {fc d : Nat} {a b : Expr} {f₁ f₂ : Nat} {u v : Nat},
+    fc ≤ N → f₁ ≤ N → f₂ ≤ N →
+    isDefEqCore μ env fc d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    PairedLeaves a b →
+    sortOfE μ env φ f₁ d a = some u →
+    sortOfE μ env φ f₂ d b = some v →
+    u = v
+
+/-- `(C)` at ceiling `N`. -/
+def SortOfWhnfCoreStableAt (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (N : Nat) : Prop :=
+  ∀ {f d : Nat} {e e' : Expr} {f₁ f₂ : Nat} {u v : Nat},
+    f ≤ N → f₁ ≤ N → f₂ ≤ N →
+    whnfCore μ env f d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    PairedLeaves e e →
+    sortOfE μ env φ f₁ d e = some u →
+    sortOfE μ env φ f₂ d e' = some v →
+    u = v
+
+/-- `(C-δ)` at ceiling `N` (the unfolding itself is fuel-free; the
+sort runs carry the ceiling). -/
+def SortOfDeltaStableAt (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (N : Nat) : Prop :=
+  ∀ {d : Nat} {e e' : Expr} {f₁ f₂ : Nat} {u v : Nat},
+    f₁ ≤ N → f₂ ≤ N →
+    unfoldDefinition env e = some e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    PairedLeaves e e →
+    sortOfE μ env φ f₁ d e = some u →
+    sortOfE μ env φ f₂ d e' = some v →
+    u = v
+
+/-- `(C*)` at ceiling `N` — the whole-`whnf`-chain composition of
+`(C)`/`(C-δ)`, promoted to a first-class family member: the
+`proofIrrel` Prop-branch's vacuity consumes exactly this (a subject
+whose type both whnfs to a literal sort *and* is `Prop`-sorted would
+contradict its own chain — DESIGN, defeq-branch corrections). -/
+def SortOfWhnfStableAt (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (N : Nat) : Prop :=
+  ∀ {f d : Nat} {e e' : Expr} {f₁ f₂ : Nat} {u v : Nat},
+    f ≤ N → f₁ ≤ N → f₂ ≤ N →
+    whnf μ env f d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    PairedLeaves e e →
+    sortOfE μ env φ f₁ d e = some u →
+    sortOfE μ env φ f₂ d e' = some v →
+    u = v
+
+/-- The bundle the strong induction proves at each ceiling. -/
+structure SortCohAt (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (N : Nat) : Prop where
+  ensure : EnsureSortAgreeAt μ env φ N
+  sortOf : SortOfAgreeAt μ env φ N
+  whnfCoreStable : SortOfWhnfCoreStableAt μ env φ N
+  deltaStable : SortOfDeltaStableAt μ env φ N
+  whnfStable : SortOfWhnfStableAt μ env φ N
+
+/-! The `∀ N` closures give back the public claims (instantiate the
+ceiling at the maximum of the run fuels in play). -/
+
+theorem EnsureSortAgreeR_of_at {μ : CheckMode} {env : Env}
+    {φ : Name → Nat} (h : ∀ N, SortCohAt μ env φ N) :
+    EnsureSortAgreeR μ env φ :=
+  fun {fc _ _ _ f₁ f₂ _ _} hc hwa hba hLa hwb hbb hLb hp h₁ h₂ =>
+    (h (max fc (max f₁ f₂))).ensure
+      (Nat.le_max_left _ _)
+      (Nat.le_trans (Nat.le_max_left _ _) (Nat.le_max_right _ _))
+      (Nat.le_trans (Nat.le_max_right _ _) (Nat.le_max_right _ _))
+      hc hwa hba hLa hwb hbb hLb hp h₁ h₂
+
+theorem SortOfAgreeR_of_at {μ : CheckMode} {env : Env}
+    {φ : Name → Nat} (h : ∀ N, SortCohAt μ env φ N) :
+    SortOfAgreeR μ env φ :=
+  fun {fc _ _ _ f₁ f₂ _ _} hc hwa hba hLa hwb hbb hLb hp h₁ h₂ =>
+    (h (max fc (max f₁ f₂))).sortOf
+      (Nat.le_max_left _ _)
+      (Nat.le_trans (Nat.le_max_left _ _) (Nat.le_max_right _ _))
+      (Nat.le_trans (Nat.le_max_right _ _) (Nat.le_max_right _ _))
+      hc hwa hba hLa hwb hbb hLb hp h₁ h₂
+
+theorem SortOfWhnfCoreStableR_of_at {μ : CheckMode} {env : Env}
+    {φ : Name → Nat} (h : ∀ N, SortCohAt μ env φ N) :
+    SortOfWhnfCoreStableR μ env φ :=
+  fun {f _ _ _ f₁ f₂ _ _} hr hw hb hL hp h₁ h₂ =>
+    (h (max f (max f₁ f₂))).whnfCoreStable
+      (Nat.le_max_left _ _)
+      (Nat.le_trans (Nat.le_max_left _ _) (Nat.le_max_right _ _))
+      (Nat.le_trans (Nat.le_max_right _ _) (Nat.le_max_right _ _))
+      hr hw hb hL hp h₁ h₂
+
+theorem SortOfDeltaStableR_of_at {μ : CheckMode} {env : Env}
+    {φ : Name → Nat} (h : ∀ N, SortCohAt μ env φ N) :
+    SortOfDeltaStableR μ env φ :=
+  fun {_ _ _ f₁ f₂ _ _} hr hw hb hL hp h₁ h₂ =>
+    (h (max f₁ f₂)).deltaStable
+      (Nat.le_max_left _ _) (Nat.le_max_right _ _)
+      hr hw hb hL hp h₁ h₂
+
+/-! ## Standalone case ingredients
+
+Everything below is `KnotFuelDet`-powered and independent of the
+induction — the base and vacuity material the step consumes. -/
+
+/-- `sortOfE` is cross-fuel deterministic (given the knot is). -/
+theorem sortOfE_fuelDet {μ : CheckMode} {env : Env} {φ : Name → Nat}
+    (hdet : KnotFuelDet μ env) {f₁ f₂ d : Nat} {e : Expr} {u v : Nat}
+    (h₁ : sortOfE μ env φ f₁ d e = some u)
+    (h₂ : sortOfE μ env φ f₂ d e = some v) : u = v := by
+  unfold sortOfE at h₁ h₂
+  cases hi₁ : inferTypeCore μ env f₁ d e with
+  | error => rw [hi₁] at h₁; exact nomatch h₁
+  | ok t₁ =>
+    cases hi₂ : inferTypeCore μ env f₂ d e with
+    | error => rw [hi₂] at h₂; exact nomatch h₂
+    | ok t₂ =>
+      obtain rfl : t₁ = t₂ := hdet.1 hi₁ hi₂
+      rw [hi₁] at h₁; rw [hi₂] at h₂
+      simp only [Except.toOption] at h₁ h₂
+      cases hw₁ : whnf μ env f₁ d t₁ with
+      | error => rw [hw₁] at h₁; exact nomatch h₁
+      | ok w₁ =>
+        cases hw₂ : whnf μ env f₂ d t₁ with
+        | error => rw [hw₂] at h₂; exact nomatch h₂
+        | ok w₂ =>
+          obtain rfl : w₁ = w₂ := hdet.2.1 hw₁ hw₂
+          rw [hw₁] at h₁; rw [hw₂] at h₂
+          cases w₁ <;> simp_all
+
+/-- An inference on a literal sort can only return its successor
+sort (the clause is fuel-free). -/
+theorem inferTypeCore_sort_out {μ : CheckMode} {env : Env}
+    {f d : Nat} {ℓ : Level} {t : Expr}
+    (h : inferTypeCore μ env f d (.sort ℓ) = .ok t) :
+    t = .sort (.succ ℓ) := by
+  cases f with
+  | zero => exact nomatch h
+  | succ f =>
+    rw [Setlec.inferTypeCore_succ] at h
+    simp only [Setlec.inferBody, Setlec.viewM, Setlec.Expr.view,
+      Bind.bind, Except.bind, pure, Except.pure,
+      Except.ok.injEq] at h
+    exact h.symm
+
+/-- A `whnf` run on a literal sort returns it (via `whnf_sort` +
+cross-fuel determinism). -/
+theorem whnf_sort_out {μ : CheckMode} {env : Env}
+    (hdet : KnotFuelDet μ env) {f d : Nat} {ℓ : Level} {t : Expr}
+    (h : whnf μ env f d (.sort ℓ) = .ok t) : t = .sort ℓ :=
+  hdet.2.1 h (Setlec.whnf_sort (mode := μ) env 0 d ℓ)
+
+/-- A successful `sortOfE` on a literal sort computes the successor
+numeral — the sort-sort base's arithmetic half. -/
+theorem sortOfE_sort_out {μ : CheckMode} {env : Env} {φ : Name → Nat}
+    (hdet : KnotFuelDet μ env) {f d : Nat} {ℓ : Level} {u : Nat}
+    (h : sortOfE μ env φ f d (.sort ℓ) = some u) :
+    u = ℓ.eval φ + 1 := by
+  unfold sortOfE at h
+  cases hi : inferTypeCore μ env f d (.sort ℓ) with
+  | error => rw [hi] at h; exact nomatch h
+  | ok t =>
+    obtain rfl := inferTypeCore_sort_out hi
+    rw [hi] at h
+    simp only [Except.toOption] at h
+    cases hw : whnf μ env f d (.sort (.succ ℓ)) with
+    | error => rw [hw] at h; exact nomatch h
+    | ok w =>
+      obtain rfl := whnf_sort_out hdet hw
+      rw [hw] at h
+      simpa [Except.toOption, Level.eval] using h.symm
+
+/-- **The unit-like vacuity pattern**: a subject cannot both have a
+unit-like type (the `proofIrrel`/rescue branch's certifying run) and
+a sort-successful run (whose type whnfs to a literal sort) — the two
+whnf outputs are one output, and a `.sort` is not const-headed. -/
+theorem unitBranch_absurd {μ : CheckMode} {env : Env}
+    (hdet : KnotFuelDet μ env) {d fa fw fa' fw' : Nat}
+    {a ta ta' tw : Expr} {ℓ : Level}
+    (h1 : inferTypeCore μ env fa d a = .ok ta)
+    (h2 : whnf μ env fw d ta = .ok tw)
+    (hu : Setlec.isUnitLikeTy env tw = true)
+    (h3 : inferTypeCore μ env fa' d a = .ok ta')
+    (h4 : whnf μ env fw' d ta' = .ok (.sort ℓ)) : False := by
+  obtain rfl : ta = ta' := hdet.1 h1 h3
+  obtain rfl : tw = .sort ℓ := hdet.2.1 h2 h4
+  exact nomatch hu
 
 end Setlec.SetR.Interp2
