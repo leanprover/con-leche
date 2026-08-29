@@ -9023,3 +9023,30 @@ Landed and proved this seal: `TypeWhnfLE`, `TypeWhnfLE_det`,
 `SubjInv.of_pair`; the species restated (statements only, as
 before).  Remaining routings unchanged: the PSS trio,
 `SpineSortAgree`; new supplier tier: the `InvPreserve*` species.
+
+### SubjInv threaded: the trio amended, the shell re-threaded
+
+The supply chain landed exactly as sized — head-step-thin.  The trio
+and `SpineSortAgree` now carry `SubjInv` on their subjects (premise
+first, package style); `main`'s motive carries it both sides; the
+entry restricts it from `EnsureSortAgreeR`'s own guards
+(`SubjInv.of_pair` / `.of_pair_right` — the right-side restriction
+landed with the thread); every re-entry site derives the successor
+package from the three preservers (`hIC`/`hID`/`hIN` — nat re-entries
+compose core-then-nat, δ re-entries core-then-δ; the natR stuck leg's
+package specializes through the `a' = .sort` substitution untouched).
+`ensureSortAgreeR_of`, `_of_vacuities`, `_of_pss` gained the three
+`InvPreserve*F` hypotheses — ledgered obligations, suppliers = their
+own discharge seals (`InvPreserveInferF` is not a shell hypothesis;
+it enters at the probe's discharge only).  The whole re-thread
+compiled first-pass: no case needed descent preservation, confirming
+the head-step-only reading of `main`'s subject evolution.
+
+Discharge-tier map (next): `typeTransportLoopF_of` (the loop
+assembly from step species + preservers, `loop_stuck_out`'s
+skeleton), then `etaSortVacuity_of` / `rescueSortVacuity_of` /
+`probeSortVacuity_of` reducing the trio to the (F) species per the
+recorded recipe.  Leaf inventory update: the isEquiv-succ-zero
+refutation already exists as `Level.isEquiv_sound` (gives
+`uT.eval φ = 0` against `eval (succ _) = _ + 1`); only the
+`isUnitLikeTy env (.sort _) = false` computation leaf remains new.
