@@ -389,6 +389,86 @@ theorem sortOfE_sort_out {μ : CheckMode} {env : Env} {φ : Name → Nat}
       rw [hw] at h
       simpa [Except.toOption, Level.eval] using h.symm
 
+/-! ## ∃-fuel run facts and the (F) transport species (R3 ruling)
+
+The ceiling measure died on manufactured runs (DESIGN, "STOP: the
+ceiling measure fails").  The repair: state side facts **fuel-free**
+(`∃ f, run f = …` — functional by `KnotFuelDet`), so they never enter
+a measure, and add the missing claim species **(F): forward
+transport** — a reduction step plus a successful sort computation on
+the redex yields a successful sort computation on the reduct *with
+the same numeral*.  (F) is the sort-level fragment of subject
+reduction this arc has been circling — the campaign's original
+prognosis ("a narrow, level-data-only fragment of SR") given its
+precise formal identity.  The stratified measure audit that makes the
+family well-founded is the DESIGN "audit under R3" record. -/
+
+/-- A successful sort computation at some fuel — fuel-free
+(functional by `KnotFuelDet`, `SortOfEE_det`). -/
+def SortOfEE (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (d : Nat) (e : Expr) (u : Nat) : Prop :=
+  ∃ f, sortOfE μ env φ f d e = some u
+
+/-- A certified conversion at some fuel — the v3 premise's shape. -/
+def DefEqE (μ : CheckMode) (env : Env) (d : Nat) (a b : Expr) : Prop :=
+  ∃ f, isDefEqCore μ env f d a b = .ok true
+
+theorem SortOfEE_det {μ : CheckMode} {env : Env} {φ : Name → Nat}
+    (hdet : KnotFuelDet μ env) {d : Nat} {e : Expr} {u v : Nat}
+    (h₁ : SortOfEE μ env φ d e u) (h₂ : SortOfEE μ env φ d e v) :
+    u = v := by
+  obtain ⟨f₁, h₁⟩ := h₁
+  obtain ⟨f₂, h₂⟩ := h₂
+  exact sortOfE_fuelDet hdet h₁ h₂
+
+/-- **(F-core)**: one head-normalization step transports the sort
+computation forward, numeral intact.  The β case is the substitution
+pairing in constructive form (the walk on the substituted body is
+*built* from the opened walk plus the site's own cert pieces — the
+correspondence travels as cert runs, never as sort agreements). -/
+def SortTransportWhnfCoreF (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
+    whnfCore μ env f d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e → PairedLeaves e e →
+    SortOfEE μ env φ d e u → SortOfEE μ env φ d e' u
+
+/-- **(F-δ)**: one definition unfolding transports the sort
+computation forward — threading the *install-time* cert (the value
+was checked against the declared type when the definition entered the
+env). -/
+def SortTransportDeltaF (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {d : Nat} {e e' : Expr} {u : Nat},
+    unfoldDefinition env e = some e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e → PairedLeaves e e →
+    SortOfEE μ env φ d e u → SortOfEE μ env φ d e' u
+
+/-- **(F-nat)**: one literal-acceleration step — expected vacuous
+(the subjects are `Nat` elements, whose type never whnfs to a sort),
+but stated as transport so the loop assembly is uniform. -/
+def SortTransportNatF (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
+    Setlec.reduceNat (Setlec.pureFns μ env f) env d e = .ok (some e') →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e → PairedLeaves e e →
+    SortOfEE μ env φ d e u → SortOfEE μ env φ d e' u
+
+/-- **(C\*-E)**: the whole-`whnf`-chain transport, ∃-fuel spelling —
+assembled from the three step species by `whnf`-loop induction
+(stratum S2); supersedes `SortOfWhnfStableAt`'s role, which stays as
+a dual-success corollary (compose with `SortOfEE_det`). -/
+def SortTransportWhnfF (μ : CheckMode) (env : Env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {f d : Nat} {e e' : Expr} {u : Nat},
+    whnf μ env f d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e → PairedLeaves e e →
+    SortOfEE μ env φ d e u → SortOfEE μ env φ d e' u
+
 /-- **The unit-like vacuity pattern**: a subject cannot both have a
 unit-like type (the `proofIrrel`/rescue branch's certifying run) and
 a sort-successful run (whose type whnfs to a literal sort) — the two

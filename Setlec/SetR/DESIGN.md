@@ -8105,3 +8105,90 @@ re-sealed):
 The sealed `SortCohAt` definitions stay (they are the dual-success
 claims R3 keeps); what is withdrawn is the ceiling induction's
 *justification* and the plan to assemble the shell on it.
+
+### The audit under R3 — the measure re-check PASSES, on a four-stratum design
+
+R3 executed (`Annot/SortCoh.lean`: `SortOfEE`/`DefEqE` ∃-fuel facts,
+`SortOfEE_det`, and the (F) species `SortTransportWhnfCoreF` /
+`SortTransportDeltaF` / `SortTransportNatF`, with `SortTransportWhnfF`
+as the (C\*-E) chain form).  The first obligation — every arrow drops
+a distinguished-run measure — was re-derived from scratch, and it
+**passes**, because of two facts found during the re-check:
+
+**Keystone 1: (A) is standalone — stratum S0.**  (A)'s
+whnf-to-literal-sort hypotheses never need (F): a whnf run
+*self-decomposes* along its own loop (`whnfLoop l e = .ok s` with the
+first step known gives `∃ l' < l`, a loop run on the intermediate — a
+subtree, pure run-algebra), and cross-fuel `KnotFuelDet` aligns the
+cert loop's own `whnfCore` outputs with the given runs' first steps.
+Better: (A)'s *structural* stuck cases are vacuous by determinism —
+a stuck pi/app/fvar whnfs to itself, and the given run says it whnfs
+to a literal sort; the two outputs are one output.  So (A)'s live
+endgame is only syntactic / sort-sort (the ground level lemma) / the
+descent cases, and its induction is (cert fuel, cert-loop budget)
+with no cross-claim arrow at all.
+
+**Keystone 2: the constructive pairing needs no leaf-(B).**  In
+(F-core)'s β case the substituted walk is *built* by structural
+induction on the given opened walk, and the correspondence between
+the two walks' output types travels as **cert runs** (`DefEqE`), not
+as sort agreements: at the spliced-argument leaf the built walk's
+piece is the site's own `infer(a) = ta` run and the correspondence
+cert is the β cert itself — exactly the v3 premise's two components.
+Only at the *top* of the construction is the numeral read off, via
+(A) applied to the constructed correspondence cert — a downward
+arrow into S0, where constructed instances cost nothing because S0
+is already a ∀-quantified theorem.
+
+**The strata** (each claim inducts on its own distinguished run;
+cross-claim arrows go only downward to proven strata, so constructed
+instances never meet a measure):
+
+* **S0 — (A)** `EnsureSortAgreeR/At`: cert-loop induction; run
+  algebra + `KnotFuelDet` + `Level.isEquiv_sound`; no cross-claim
+  arrows.
+* **S1 — the (F) species**: per-step structural inductions.  (F-core)
+  β = the constructive pairing (consumes S0 + the site cert pieces);
+  ι/proj/ζ analogous with their own cert threads; (F-δ) consumes the
+  install cert (env-invariant field to be added) + env-extension run
+  stability; (F-nat) vacuous.  Same-claim descent only on subtrees.
+* **S2 — (C\*-E)** `SortTransportWhnfF`: `whnf`-loop induction
+  consuming S1 as theorems; the old dual-success (C)/(C-δ)/(C\*)
+  forms become corollaries (S1/S2 + `SortOfEE_det`).
+* **S3 — (B)** `SortOfAgreeR`: cert-loop induction on (cert fuel,
+  loop budget) *only* — the sort facts are ∃-fuel, so the measure
+  crisis dissolves: loop re-entries after transport drop the budget
+  regardless of constructed witness sizes (witnesses are consumed
+  solely by `SortOfEE_det`-style lemmas and terminal cases, never by
+  induction); sub-certs drop the cert fuel; every other arrow goes
+  down to S0–S2.
+
+The old holes, re-examined by name: hole 1 ((B)→(C-family) keeping
+the ceiling) is gone because S0–S2 are theorems before S3 starts,
+not mutual claims; hole 2 (manufactured intermediates above any
+ceiling) is gone because ∃-fuel facts carry no fuel into any measure
+and transports *produce* them rather than demand them.  The
+`proofIrrel` regress discharges in S3 via S2 on the cert-side chain
+(both endpoint facts exist — the cert run supplies `sortOfE`-shaped
+pieces, the literal-sort endpoint is constructible at explicit fuel).
+
+**Lineage** (as ruled): (F) is where the campaign's original
+prognosis — "a narrow, level-data-only fragment of subject
+reduction, far weaker than the metatheory the design avoids" — gets
+its precise formal identity.  The arc circled it three times (the
+currency ladder's run rung, the (C\*) promotion, the measure
+refutation) before it landed as a statement; each circling narrowed
+it, and what remains is exactly level data: one step, one numeral,
+carried forward.
+
+**Enabling obligations joining the ledger** (each its own seal, all
+V-free): (E) env-extension run stability (a run over a prefix env
+reproduces over the extended env — append-only, duplicate-checked
+`find?`); the install-cert env-invariant field ((F-δ)'s supplier);
+`KnotFuelDet` (already entered).
+
+**Attack order from here**: S0 first (it is also where the fvar/Θ and
+pi-congruence machinery gets its dry run at the cheapest claim), then
+S1 in the order (F-nat) (vacuity template), (F-core) non-β cases,
+(F-core).β (the pairing construction — the arc's summit), (F-δ)
+(after (E) + the install field), then S2 (mechanical), then S3.
