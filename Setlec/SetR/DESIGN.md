@@ -9401,3 +9401,72 @@ congruence tier (`Const`/`Spine`/`PiCong`/`AppCong` +
 `ProjCong`) presumably follows the same fixed-codomain pattern —
 each to be CHECKED against it at its seal, not assumed.  No
 semantic supplier, no tagged model needed for the core.
+
+### STOP: the w-general (F) species are REFUTABLE — currency finding
+
+Preparing the resequenced (F-δ) seal, the species statements were
+checked against construction before any discharge was built.  Both
+step species fail, by the same seed: **certified-defeq sorts carry
+`isEquiv`-related, syntactically DISTINCT levels** (the sort-sort
+case is `Level.isEquiv u v`, Core.lean:1816 — the no-cumulativity
+finding's own citation, read in the other direction).
+
+*Falsifier, (F-δ)* — `def f : Sort (max u v) := PUnit.{max v u}`
+(install cert: `isEquiv (max v u) (max u v) = true`, accepted).
+`e := f`-const: `infer e` = the stored type `.sort (max u v)`,
+whnf-inert, so `TypeWhnfLE e (.sort (max u v))`.
+`e' := unfold e = PUnit.{max v u}`: `infer e' = .sort (max v u)`,
+whnf-inert — by `TypeWhnfLE_det`, `e'` reaches ONLY
+`.sort (max v u) ≠ .sort (max u v)`.  `TypeTransportDeltaF` is
+false.
+
+*Falsifier, (F-core).β* — `e := (fun x : Sort (max u v) => x)
+PUnit.{max v u}`: the redex certifies (`isEquiv` at the domain),
+`whnfCore e = PUnit.{max v u} = e'`; `infer e` = the codomain
+instantiation `.sort (max u v)`; `infer e'` = `.sort (max v u)`.
+Traced against the real clauses (lam clause's opened-body
+annotation, app clause's residual).  `TypeTransportCoreF` is false.
+Both falsifiers are arena-realizable (level params + a `PUnit`-like
+stored constant).  A second, non-sort seed exists: proofIrrel-slack
+stuck forms (`P x h₁` vs `P x h₂`) — so even a
+level-equivalence-weakened conclusion (`∃ w', LevelEq w w' ∧ …`) is
+false; the truthful conclusion relation degenerates to
+certified-defeq-of-whnfs, the currency this arc rejected as
+circular.
+
+**What survives (master holds NO false theorems).**  The refuted
+objects are `def`s (hypotheses); every consuming theorem is a valid
+conditional: both shells (`ensureSortAgreeRQ_of`,
+`sortOfAgreeRQ_of` — their inductions consume the species only
+through routed hypotheses), the trio discharges,
+`typeWhnfLE_collide`, `typeTransportLoopF_of`, the wrapper chains.
+What is dead is the DISCHARGE ROUTE: the species can never be
+supplied, so the tower cannot close as currently conditioned.
+The three (B) discharges that avoid the species (`lam`, `fvar`)
+stand on their own; `probeTySortVacuity_of` and the (A) trio
+discharges are conditionals awaiting the repair.
+
+**Repair space (for ruling — the currency must be re-chosen).**
+The consumers' true needs split:
+
+1. *Eval-level agreements* (the core, the sorts cases, the probe's
+   second spine): the honest species shape is **dual-success eval
+   currency pinned by install templates** — per-subject facts
+   "IF sort-of succeeds on a `G`-headed subject, its value is
+   `template_G[us].eval φ`" (`DeltaSortLinked`, exactly Gap 1),
+   with neighboring templates eval-linked by the install cert under
+   the **declaration-index measure**, and β linking through the
+   arg-cert — the mutual knot at eval currency (the module
+   docstring's original prognosis: one mutual induction with
+   (B)-shaped leaves).  Intermediate subjects need no exhibited
+   runs: pinning is per-head, not per-run.
+2. *Shape collisions* (the trio's first spine application): the
+   transported-shape route is dead; the surviving candidates are
+   (a) per-head pinning again — a cert-exhibited `forallE`-shaped
+   whnf-of-infer at `a'` vs the chain-end's sort-success, linked by
+   definedness/shape agreement along the chain (needs a
+   definedness-agreement component whose truth is unassessed), or
+   (b) the semantic tier for the trio alone.
+
+No code changed at this seal; the (F-δ) seal is HELD pending the
+currency ruling.
