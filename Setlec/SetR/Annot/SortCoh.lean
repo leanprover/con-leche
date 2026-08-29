@@ -1466,9 +1466,10 @@ conditioned) and `whnfCore_sort_run` instead. -/
 
 /-- PSS routing: a `proofIrrel`-certified subject cannot
 whnf-converge to a literal sort. -/
-def ProbeSortVacuity (μ : CheckMode) (env : Env) : Prop :=
+def ProbeSortVacuity (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {g g' l f d : Nat} {a a' b' : Expr} {ℓ : Level},
-    SubjInv d a →
+    SubjInv d a → Q d a' b' →
     whnfCore μ env f d a = .ok a' →
     Setlec.proofIrrel (Setlec.pureFns μ env g) env d a' b' = .ok true →
     Setlec.whnfLoop (Setlec.pureFns μ env g') env d l a
@@ -1478,9 +1479,10 @@ def ProbeSortVacuity (μ : CheckMode) (env : Env) : Prop :=
 /-- PSS routing: a rescue-certified subject (pair-eta, struct-eta,
 unit, or the irrelevance fallback) cannot whnf-converge to a literal
 sort. -/
-def RescueSortVacuity (μ : CheckMode) (env : Env) : Prop :=
+def RescueSortVacuity (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {g g' l f d : Nat} {a a' b' : Expr} {ℓ : Level},
-    SubjInv d a →
+    SubjInv d a → Q d a' b' →
     whnfCore μ env f d a = .ok a' →
     Setlec.stuckIrrel μ (Setlec.pureFns μ env g) env d a' b'
       = .ok true →
@@ -1490,10 +1492,11 @@ def RescueSortVacuity (μ : CheckMode) (env : Env) : Prop :=
 
 /-- PSS routing: an eta-certified (function-typed) subject cannot
 whnf-converge to a literal sort. -/
-def EtaSortVacuity (μ : CheckMode) (env : Env) : Prop :=
+def EtaSortVacuity (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {g g' l f d : Nat} {a a' : Expr} {n : Name} {ty body : Expr}
     {m : Setlec.BinderMeta} {ℓ : Level},
-    SubjInv d a →
+    SubjInv d a → Q d a' (.lam n ty body m) →
     whnfCore μ env f d a = .ok a' →
     Setlec.etaCert (Setlec.pureFns μ env g) env d n ty body m a'
       = .ok true →
@@ -1797,8 +1800,8 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
     (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
     (hQN : QPreserveNatF μ env Q)
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
-    (hP : ProbeSortVacuity μ env) (hR : RescueSortVacuity μ env)
-    (hE : EtaSortVacuity μ env) (hN : NatStepNoSort μ env)
+    (hP : ProbeSortVacuity μ env Q) (hR : RescueSortVacuity μ env Q)
+    (hE : EtaSortVacuity μ env Q) (hN : NatStepNoSort μ env)
     (hS : SpineSortAgree μ env φ Q) :
     EnsureSortAgreeRQ μ env φ Q := by
   have hdet := KnotFuelDet_of_mono hm
@@ -1843,7 +1846,9 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
       | syn =>
         rw [Setlec.Expr.sort.inj
           (whnfLoop_det hm ha (loop_align hm hb hwb hwa))]
-      | irrel _ _ hpi => exact (hP hIa hwa hpi ha).elim
+      | irrel _ _ hpi =>
+        exact (hP hIa (hQs (hQC hwb (hQs (hQC hwa hQab)))) hwa hpi
+          ha).elim
       | natL _ _ a₂ hrn hk =>
         exact (hN hwa hrn ha).elim
       | natR _ _ b₂ hrnA hrnB hk =>
@@ -2017,8 +2022,12 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
       | etaL n₁ ty₁ body₁ m₁ b₂ he =>
         exact nomatch (loop_stuck_out hm ha hwa
           (fun _ => reduceNat_lam) unfoldDefinition_lam)
-      | etaR _ _ _ _ _ he => exact (hE hIa hwa he ha).elim
-      | rescue _ _ hsi => exact (hR hIa hwa hsi ha).elim
+      | etaR _ _ _ _ _ he =>
+        exact (hE hIa (hQs (hQC hwb (hQs (hQC hwa hQab)))) hwa he
+          ha).elim
+      | rescue _ _ hsi =>
+        exact (hR hIa (hQs (hQC hwb (hQs (hQC hwa hQab)))) hwa hsi
+          ha).elim
   intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwsa hba hLa hwsb hbb hLb hp hQ h₁ h₂
   cases fc with
   | zero => exact nomatch hc
@@ -2037,8 +2046,10 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
     (hm : KnotFuelMono μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
     (hIN : InvPreserveNatF μ env)
-    (hP : ProbeSortVacuity μ env) (hR : RescueSortVacuity μ env)
-    (hE : EtaSortVacuity μ env) (hN : NatStepNoSort μ env)
+    (hP : ProbeSortVacuity μ env fun _ _ _ => True)
+    (hR : RescueSortVacuity μ env fun _ _ _ => True)
+    (hE : EtaSortVacuity μ env fun _ _ _ => True)
+    (hN : NatStepNoSort μ env)
     (hS : SpineSortAgree μ env φ fun _ _ _ => True) :
     EnsureSortAgreeR μ env φ := by
   intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwsa hba hLa hwsb hbb hLb hp h₁ h₂
@@ -4281,8 +4292,8 @@ theorem ensureSortAgreeR_of_vacuities {μ : CheckMode} {env : Env}
     (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
     (hQN : QPreserveNatF μ env Q)
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
-    (hP : ProbeSortVacuity μ env) (hR : RescueSortVacuity μ env)
-    (hE : EtaSortVacuity μ env) (hN : NatStepNoSort μ env)
+    (hP : ProbeSortVacuity μ env Q) (hR : RescueSortVacuity μ env Q)
+    (hE : EtaSortVacuity μ env Q) (hN : NatStepNoSort μ env)
     (hS : SpineSortAgree μ env φ Q) :
     EnsureSortAgreeRQ μ env φ Q :=
   ensureSortAgreeRQ_of (Q := Q) (knotFuelMono μ env) hIC hID hIN
@@ -4554,8 +4565,8 @@ theorem ensureSortAgreeR_of_pss {μ : CheckMode} {env : Env}
     (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
     (hQN : QPreserveNatF μ env Q)
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
-    (hP : ProbeSortVacuity μ env) (hR : RescueSortVacuity μ env)
-    (hE : EtaSortVacuity μ env) (hS : SpineSortAgree μ env φ Q) :
+    (hP : ProbeSortVacuity μ env Q) (hR : RescueSortVacuity μ env Q)
+    (hE : EtaSortVacuity μ env Q) (hS : SpineSortAgree μ env φ Q) :
     EnsureSortAgreeRQ μ env φ Q :=
   ensureSortAgreeR_of_vacuities (Q := Q) hIC hID hIN hQC hQD hQN hQs
     hP hR hE (natStepNoSort_of hB) hS
@@ -4668,9 +4679,9 @@ theorem etaSortVacuity_of (hm : KnotFuelMono μ env)
     (hT : TypeTransportLoopF μ env)
     (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
-    (hIN : InvPreserveNatF μ env) :
-    EtaSortVacuity μ env := by
-  intro g g' l f d a a' n ty body m ℓ hI hwc hcert hloop
+    (hIN : InvPreserveNatF μ env) {Q : Nat → Expr → Expr → Prop} :
+    EtaSortVacuity μ env Q := by
+  intro g g' l f d a a' n ty body m ℓ hI _hQv hwc hcert hloop
   unfold Setlec.etaCert at hcert
   simp only [Bind.bind, Except.bind] at hcert
   cases hinf : (Setlec.pureFns μ env g).infer d a' with
@@ -4809,9 +4820,9 @@ theorem rescueSortVacuity_of (hm : KnotFuelMono μ env)
     (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
     (hIN : InvPreserveNatF μ env) (hInf : InvPreserveInferF μ env)
-    (hN : NatStepNoSort μ env) :
-    RescueSortVacuity μ env := by
-  intro g g' l f d a a' b' ℓ hI hwc hsi hloop
+    (hN : NatStepNoSort μ env) {Q : Nat → Expr → Expr → Prop} :
+    RescueSortVacuity μ env Q := by
+  intro g g' l f d a a' b' ℓ hI _hQv hwc hsi hloop
   unfold Setlec.stuckIrrel at hsi
   simp only [Bind.bind, Except.bind] at hsi
   -- branch 1: pairEtaCert a' b' (a-directed; ctor-headed route)
@@ -4979,9 +4990,10 @@ theorem probeSortVacuity_of (hm : KnotFuelMono μ env)
     (hT : TypeTransportLoopF μ env)
     (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
-    (hIN : InvPreserveNatF μ env) (hInf : InvPreserveInferF μ env) :
-    ProbeSortVacuity μ env := by
-  intro g g' l f d a a' b' ℓ hI hwc hpi hloop
+    (hIN : InvPreserveNatF μ env) (hInf : InvPreserveInferF μ env)
+    {Q : Nat → Expr → Expr → Prop} :
+    ProbeSortVacuity μ env Q := by
+  intro g g' l f d a a' b' ℓ hI _hQv hwc hpi hloop
   exact proofIrrel_no_sort hm hT hTD hTN hIC hID hIN hInf
     hI hwc hpi hloop
 
@@ -5210,16 +5222,18 @@ theorem sortOfLE_sort_out {φ : Name → Nat} (hm : KnotFuelMono μ env)
 
 /-- Type-level probe vacuity: a `proofIrrel`-certified subject's
 type never whnf-converges to a literal sort. -/
-def ProbeTySortVacuity (μ : CheckMode) (env : Env) : Prop :=
+def ProbeTySortVacuity (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {g d : Nat} {a' b' : Expr} {ℓ : Level},
-    SubjInv d a' →
+    SubjInv d a' → Q d a' b' →
     Setlec.proofIrrel (Setlec.pureFns μ env g) env d a' b' = .ok true →
     TypeWhnfLE μ env d a' (.sort ℓ) → False
 
 /-- Type-level rescue vacuity, five-way as before. -/
-def RescueTySortVacuity (μ : CheckMode) (env : Env) : Prop :=
+def RescueTySortVacuity (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {g d : Nat} {a' b' : Expr} {ℓ : Level},
-    SubjInv d a' →
+    SubjInv d a' → Q d a' b' →
     Setlec.stuckIrrel μ (Setlec.pureFns μ env g) env d a' b'
       = .ok true →
     TypeWhnfLE μ env d a' (.sort ℓ) → False
@@ -5385,7 +5399,8 @@ theorem sortOfAgreeRQ_of {φ : Name → Nat}
     (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
     (hQN : QPreserveNatF μ env Q)
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
-    (hP : ProbeTySortVacuity μ env) (hR : RescueTySortVacuity μ env)
+    (hP : ProbeTySortVacuity μ env Q)
+    (hR : RescueTySortVacuity μ env Q)
     (hLam : LamTySortVacuity μ env)
     (hZ : NatZeroTySortAgree μ env φ)
     (hSL : NatSuccLTySortAgree μ env φ)
@@ -5422,7 +5437,7 @@ theorem sortOfAgreeRQ_of {φ : Name → Nat}
       | syn => exact SortOfLE_det hm hu' hv'
       | irrel _ _ hpi =>
         obtain ⟨ℓ, hW, -⟩ := sortOfLE_iff_typeWhnfLE.1 hu'
-        exact (hP hIa' hpi hW).elim
+        exact (hP hIa' hQab' hpi hW).elim
       | natL _ _ a₂ hrn hk =>
         exact ih hk (hIN hrn hIa') hIb' (hLN hrn hPab')
           (hQN hrn hQab') (sortOfLE_step_nat hTN hrn hIa' hu') hv'
@@ -5475,7 +5490,7 @@ theorem sortOfAgreeRQ_of {φ : Name → Nat}
         exact (hLam hW).elim
       | rescue _ _ hsi =>
         obtain ⟨ℓ, hW, -⟩ := sortOfLE_iff_typeWhnfLE.1 hu'
-        exact (hR hIa' hsi hW).elim
+        exact (hR hIa' hQab' hsi hW).elim
   intro fc d a b f₁ f₂ u v hc hwsa hba hLa hwsb hbb hLb hp hQ h₁ h₂
   cases fc with
   | zero => exact nomatch hc
@@ -5598,9 +5613,10 @@ branch pins `uT` to the single successor through the second
 transport, and `Level.isEquiv_sound` refutes at the zero
 valuation. -/
 theorem probeTySortVacuity_of (hm : KnotFuelMono μ env)
-    (hT : TypeTransportLoopF μ env) (hInf : InvPreserveInferF μ env) :
-    ProbeTySortVacuity μ env := by
-  intro g d a' b' ℓ hIa' hpi hW
+    (hT : TypeTransportLoopF μ env) (hInf : InvPreserveInferF μ env)
+    {Q : Nat → Expr → Expr → Prop} :
+    ProbeTySortVacuity μ env Q := by
+  intro g d a' b' ℓ hIa' _hQv hpi hW
   unfold Setlec.proofIrrel at hpi
   simp only [Bind.bind, Except.bind] at hpi
   cases hinfa : (Setlec.pureFns μ env g).infer d a' with
@@ -5695,7 +5711,8 @@ theorem sortOfAgreeR_of {φ : Name → Nat}
     (hIN : InvPreserveNatF μ env)
     (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
     (hLN : PairedPreserveNatF μ env)
-    (hP : ProbeTySortVacuity μ env) (hR : RescueTySortVacuity μ env)
+    (hP : ProbeTySortVacuity μ env fun _ _ _ => True)
+    (hR : RescueTySortVacuity μ env fun _ _ _ => True)
     (hLam : LamTySortVacuity μ env)
     (hZ : NatZeroTySortAgree μ env φ)
     (hSL : NatSuccLTySortAgree μ env φ)

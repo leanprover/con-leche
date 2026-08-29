@@ -9470,3 +9470,72 @@ The consumers' true needs split:
 
 No code changed at this seal; the (F-δ) seal is HELD pending the
 currency ruling.
+
+### Currency ruling recorded; the semantic-trio statement pass landed
+
+**Standing practice (coordinator's permanence ruling)**: *check the
+species against construction before building the discharge* — run
+the statement against the actual clauses and known slack seeds
+(isEquiv level slack, proofIrrel stuck slack, fuel liveness) the way
+the trap family is run against quantifier patterns.  It has now paid
+three times (WhnfCoreIdem, the denote threading, the w-general
+species).
+
+**The ruling**: (1) eval currency for the agreement consumers —
+dual-success, pinned per head by install templates
+(`DeltaSortLinked`: "if sort-of succeeds on a `G`-headed subject,
+its value evals to `template_G[us]` at `φ`"), neighbors linked by
+install certs under the declaration-index measure, β through the
+arg-cert; syntactic level identity was never the right invariant,
+eval at `φ` is.  (2) The trio goes SEMANTIC through the landed
+`Q`-slot: its content — a proposition cannot be a universe — is
+`univ (ℓ+1) ∉`-the-`Prop`-fibre, no sort-blindness issue.
+
+**Landed this seal (statements only)**: the five vacuity Props
+(`Probe/Rescue/EtaSortVacuity`, `Probe/RescueTySortVacuity`) carry
+the `Q`-frame at their cert pair (`Q d a' b'`; eta at
+`Q d a' (.lam …)`); both shells supply it from the threaded slot
+(one preserver composition per site); the landed syntactic
+discharges absorb the premise (`∀ Q` — they never read it) so
+master keeps compiling; the True instances update.  Inventory for
+the semantic discharge seal: `univ_inj`, `mem_univ_zero`,
+`univ_mem_univ` present (`SetTheory/Derive/Univ.lean`); the missing
+one-lemma is `univ`-vs-`pt` separation — check `PtFresh.lean` first
+(the #109 machinery is the natural supplier).
+
+**Construction-check results on the eval-species candidates**
+(the ruled pre-build check, run BEFORE stating them — three shapes
+examined, none landed yet):
+
+* *Step-agreement* (dual-success per step): TRUE-looking (both
+  falsifiers pass at eval; installability forces branch sorts
+  eval-equal — the no-cumulativity finding closes the type-level
+  `cond` hole: distinct-sort branches don't fit one `Sort α`
+  without cumulativity), but it does NOT COMPOSE along chains —
+  intermediate successes are unexhibited.
+* *Loop-form dual-success*: TRUE-looking as a primitive (discharged
+  by a pinning induction that carries the pin, not the success),
+  but INSUFFICIENT alone for the spine core — `sort-of a'` success
+  is not among the core's premises.
+* *Success-preserving forward transport*: BARRED — it is whnf
+  termination on a defeq type, normalization strength.
+
+**Consequence (finding, for the ruling on the next statement)**:
+the (B) shell's re-entry legs consumed `sortOfLE_step_*` (derived
+from the refuted species) — (B)'s discharge route is dead too, and
+forward-success transport cannot be repaired at any currency.  All
+remaining agreement consumers (the spine core, (B)'s re-entries,
+`Const/Spine/PiCong/AppCong/ProjCong`) converge on ONE summit
+statement: **the certified-pair eval-sort simulation** — a lockstep
+relation on [same template, defEqList-certified args,
+isEquivList-linked levels] pairs, stepping by δ (same stored value —
+install cert links templates under the declaration-index measure),
+β (the arg-cert), nat, and arg-head exposure (recursion into the
+(A)/(B) claims at the certified arg pair — the mutual knot, with
+the cert run GIVEN).  Proposal: state the simulation once, at its
+own seal, with the pre-build check; the piecemeal step species are
+not landed (two of three shapes fail their consumer analysis).
+
+Recipe note: an `intro _`-anonymized hypothesis gets REVERTED by a
+later `split at`, shifting the `next` binder assignment off by one —
+name absorbed premises `_hQv`-style, never bare `_`.
