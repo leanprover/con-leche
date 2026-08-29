@@ -936,10 +936,11 @@ theorem whnfLoop_det {μ : CheckMode} {env : Env}
 fuel `0` runs cannot succeed). -/
 theorem whnf_peel {μ : CheckMode} {env : Env} {f d : Nat}
     {e s : Expr} (h : whnf μ env f d e = .ok s) :
-    ∃ g l, Setlec.whnfLoop (Setlec.pureFns μ env g) env d l e = .ok s := by
+    ∃ g l, l ≤ Setlec.whnfLoopFuel ∧
+      Setlec.whnfLoop (Setlec.pureFns μ env g) env d l e = .ok s := by
   cases f with
   | zero => exact nomatch h
-  | succ f => exact ⟨f, Setlec.whnfLoopFuel, h⟩
+  | succ f => exact ⟨f, Setlec.whnfLoopFuel, Nat.le_refl _, h⟩
 
 /-! ## ∃-fuel run facts and the (F) transport species (R3 ruling)
 
@@ -1002,7 +1003,7 @@ theorem SortOfLE_of_run {μ : CheckMode} {env : Env} {φ : Name → Nat}
       · next ℓ heq =>
         obtain rfl : w = .sort ℓ := by
           simpa [Except.toOption] using heq
-        obtain ⟨g, l, hl⟩ := whnf_peel hw
+        obtain ⟨g, l, -, hl⟩ := whnf_peel hw
         exact ⟨f, t, hi, g, l, ℓ, hl, Option.some.inj h⟩
       · exact nomatch h
 
@@ -1122,7 +1123,7 @@ theorem EnsureSortAgreeR_of_link {μ : CheckMode} {env : Env}
   intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwa hba hLa hwb hbb hLb hp h₁ h₂
   obtain ⟨g, l, ℓ', hw', hev⟩ :=
     hAT hc hwa hba hLa hwb hbb hLb hp h₁
-  obtain ⟨g₂, l₂', h₂'⟩ := whnf_peel h₂
+  obtain ⟨g₂, l₂', -, h₂'⟩ := whnf_peel h₂
   have hs : Expr.sort ℓ' = Expr.sort ℓ₂ := whnfLoop_det hm hw' h₂'
   obtain rfl : ℓ' = ℓ₂ := Setlec.Expr.sort.inj hs
   exact hev.symm

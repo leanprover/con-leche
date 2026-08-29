@@ -8509,3 +8509,51 @@ trichotomy-of-the-given-run: nat-legs to `NatSortVacuity` or the
 (loop-level outputs, uncapped budgets — the amendment paying off),
 terminal legs to stuck-collisions; `irrel`/`rescue`/`etaR` to the
 PSS routings; `etaL` det-vacuous (its left subject is the λ).
+
+### STOP: the shell refuted (A-T)'s liveness half; the primitive reverts to dual-success (A)
+
+Executing the shell, the `deltaR` b-side prepend refused: the
+constructed run on `b` must pass through `reduceNat(b')`, for which
+**no run fact exists** — and its error leg makes the conclusion a
+*liveness* claim: `SortLinkE`'s "∃ a run on the other side" demands
+that `b`'s chain terminate, which the runs cannot supply (fuel exists
+precisely because termination is unproven; a `b` whose argument
+chains exhaust every fuel refutes the ∃ outright, even though the
+configuration is semantically fine).  **(A-T) — transport with a
+blindly-constructed other side — over-claims.**  The dominance check
+(`EnsureSortAgreeR_of_link`) proved (A-T) ⇒ (A) and seduced the
+design into taking the stronger form as primitive; the shell's
+execution is what exposed that the strength is *unprovable*, not
+merely unconsumed.
+
+**The audit of consumers says the liveness was never needed:**
+
+* the leaf ((`SortSubstStable`'s (B)-instance) has BOTH sort runs
+  given — dual-success suffices;
+* the vacuity dischargers collide constructed runs with GIVEN runs —
+  the constructions there mirror given runs step by step
+  (fuel-bounded by them), never blind;
+* (F).β's top-read under repair δ consumes leaf-(A) — dual — and its
+  own constructions are simulations of the given walk, again
+  run-mirrors.
+
+**The revert**: the branch's primitive is dual-success **(A)**
+(`EnsureSortAgreeAt`-shaped, both runs hypothesized, numeral
+equality concluded).  Under the dual form every re-entry threads
+from the two *given* runs: the b-side legs come from `b`'s own run's
+decomposition (real facts, det-aligned with the cert's), the a'-runs
+from `WhnfCoreIdem`-fed `loop_align` on the given a-run, and no case
+constructs a run reality hasn't already exhibited.  `SortLinkE` and
+`SortLinkAcrossCertE` stay as *definitions* (with
+`EnsureSortAgreeR_of_link` documenting the dominance direction), but
+nothing takes them as proof obligations; the shell to be built is
+`EnsureSortAgree`'s.  The scaffold and the (liveness-shaped)
+`SpineSortLink` were reverted unlanded; the spine routing will be
+restated dual at the shell re-attempt.  The `whnf_peel` budget-bound
+strengthening (needed regardless) is kept.
+
+The vacuity-hypothesis Props are unaffected (they conclude `False`,
+no liveness).  `NatSortVacuity` remains as stated; the b-side
+`reduceNat` unknowns that motivated its cert-inclusive form now
+resolve through the dual form's given-run facts instead, so its
+discharger's scope may shrink at the re-attempt.
