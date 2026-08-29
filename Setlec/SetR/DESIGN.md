@@ -8042,3 +8042,66 @@ sort computation, `KnotFuelDet`-powered); `inferTypeCore_sort_out` /
 `whnf_sort_out` / `sortOfE_sort_out` (the sort-sort base's run
 equations and arithmetic); `unitBranch_absurd` (the unit-like vacuity
 pattern, the template for the rescue fallbacks' cases).
+
+### STOP: the ceiling measure fails the reference-graph check (defeq-branch wall)
+
+Assembling the loop-internal motive, the first act was to re-derive
+every cross-claim consumption against the ceiling measure before
+writing a case.  Two holes, the second fatal to the measure as sealed:
+
+1. **(B) → (C-family) keeps the ceiling.**  The post-whnfCore case of
+   (B) consumes a (C)-instance at `(fc−1, f₁, f₂)`: the cert
+   component drops but the *sort runs are passed through unchanged*,
+   and when they dominate the max, the consumed instance's ceiling
+   equals `N`.  The sealed justification ("cross-claim consumptions
+   drop the ceiling") is wrong for every arrow that forwards the sort
+   runs.  On its own this might be repairable by ordering the claims
+   within a ceiling (the cycle `(B)→(C)→(B)` composes to a strict
+   drop) — but:
+2. **(C\*) must manufacture intermediate runs, at unbounded fuels.**
+   Composing (C) along a whnf chain needs `sortOfE` runs on the
+   *intermediate* reducts — and nothing ran them.  Exhibiting one is
+   a success-construction whose fuel is built, not bounded: a
+   constructed fuel can exceed **any** ceiling, so the consumed
+   instance sits *above* `N`.  No max-based (nor sum-based — same
+   hole) measure over hypothesized fuels survives manufactured runs.
+
+**The regress that forced the issue** (why (C\*) cannot be dodged):
+the `proofIrrel` Prop-branch vacuity needs "`SP` whnfs to a literal
+sort" to contradict "`SP` is `Prop`-sorted" — but linking
+`infer(SP)` across `SP`'s reduction is (C\*) again, one level up
+(`ta` → `SP` → …).  The discharge never bottoms out at run facts
+alone; it needs either reduction-transport of the sort computation or
+the model.
+
+**Repair space** (for the ruling; no case work until the measure is
+re-sealed):
+
+* **R1 — ∃-fuel runs + distinguished-run induction.**  Restate the
+  family over fuel-free run predicates (`∃ f, run f = .ok x` —
+  functional by `KnotFuelDet`), and induct per claim on its one
+  *distinguished* run (the cert for (A)/(B); the reduction run for
+  the C-family; the walk pair for the infer-branch), consuming other
+  facts only as ∃-fuel side facts or via IHs on subtrees of the
+  distinguished run.  Fuel arithmetic disappears into ∃.
+* **R2 — semantic routing for the vacuities.**  Keep dual-success
+  claims; discharge the proofIrrel/rescue vacuities through the
+  existing twelve's claims + model (`univ`-regularity).  Cost: the
+  claims become `EnvS`-conditioned — the V-freedom centerpiece is
+  lost, and the statements change shape.
+* **R3 (recommended) — the forward-transport claim species.**  Keep
+  the V-free dual-success claims; add the missing species: **(F)**
+  one-step *success transport* — a reduction step plus a successful
+  sort computation on the redex yields an ∃-fuel successful sort
+  computation on the reduct *with the same numeral* (β's instance is
+  the constructive form of the substitution pairing; δ's threads the
+  install cert).  (C\*) then iterates (F) forward and closes against
+  the given endpoint run by `sortOfE_fuelDet` — no manufactured
+  ceilings, no model.  The measure re-check under R3 (does every
+  arrow now drop a distinguished-run measure?) is the re-seal's first
+  obligation, per the escalation rule: the new claim species gets its
+  own statement seal before any case consumes it.
+
+The sealed `SortCohAt` definitions stay (they are the dual-success
+claims R3 keeps); what is withdrawn is the ceiling induction's
+*justification* and the plan to assemble the shell on it.
