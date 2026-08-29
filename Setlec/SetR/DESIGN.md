@@ -8832,3 +8832,32 @@ clauses, including the verified-mode λ codomain check and the proj
 table dispatch).  Remaining: `defeqStep`/`defeqLoop` (the last
 cascade), `whnfBody` (trivial via `whnfLoop_mono`), the knot chain,
 and the public projection — the seal at which `KnotFuelMono` lands.
+
+## KNOTFUELMONO LANDS AS A THEOREM
+
+The shell's last wide obligation is discharged.  The final seal:
+`defeqStep_mono` (the last cascade — syntactic paths, both guarded
+probes, the full lazy-delta ladder, the fifteen-branch structural
+endgame, every cert routed through its proved mono), `defeqLoop_mono`
+(budget induction), `CoreSub.trans`, `coreSub_succ` (one knot level:
+the five bodies at their proved monos; fuel-0 vacuous),
+`coreSub_le` (the fuel-gap chain), and
+
+    theorem knotFuelMono (μ : CheckMode) (env : Env) : KnotFuelMono μ env
+    theorem knotFuelDet  (μ : CheckMode) (env : Env) : KnotFuelDet μ env
+
+**The projection sweep — every lemma that hypothesized the
+obligation now closes with the theorem in its slot**, verified by
+the landed instantiation `ensureSortAgreeR_of_vacuities` (the dual
+shell conditioned on the five routings alone) and by the slots
+enumerated there: `whnfCore_reidem_const`, `whnfLoop_r_mono`,
+`whnfLoop_det`, `loop_stuck_out`, `loop_align`, `whnf_sort_out`,
+`sortOfE_sort_out`, `sortOfE_fuelDet`, `unitBranch_absurd`,
+`SortOfLE_det`, `EnsureSortAgreeR_of_link`.  The ledger entry closes;
+`InferFuelDet` (the v3 discharge's hypothesis in
+`betaCert_discharge`) is `(knotFuelDet μ env).1`-projectable at its
+consumer.
+
+Remaining discharge tier for the branch: the three PSS vacuities,
+`NatSortVacuity`, `SpineSortAgree` — then (B)'s shell, the (F)
+species, the `SortSubstStable` leaf wiring.

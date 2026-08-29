@@ -3530,6 +3530,530 @@ theorem inferBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
     | true => exact hs.2.2.1 (by simpa using h)
     | false => exact h
 
+/-- `defeqStep` respects the order — the last cascade. -/
+theorem defeqStep_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
+    {d : Nat} {k₁ k₂ : Expr → Expr → Setlec.CheckM Bool}
+    (hk : ∀ {a b : Expr} {v : Bool},
+      k₁ a b = .ok v → k₂ a b = .ok v)
+    {a b : Expr} {v : Bool}
+    (h : Setlec.defeqStep μ r₁ env d k₁ a b = .ok v) :
+    Setlec.defeqStep μ r₂ env d k₂ a b = .ok v := by
+  unfold Setlec.defeqStep at h ⊢
+  by_cases hab : (a == b) = true
+  · rw [if_pos hab] at h ⊢; exact h
+  rw [if_neg hab] at h ⊢
+  simp only [Bind.bind, Except.bind] at h ⊢
+  cases hwa : r₁.whnfCore d a with
+  | error err => rw [hwa] at h; exact nomatch h
+  | ok a' =>
+  rw [hwa] at h; rw [hs.1 hwa]
+  simp only [] at h ⊢
+  cases hwb : r₁.whnfCore d b with
+  | error err => rw [hwb] at h; exact nomatch h
+  | ok b' =>
+  rw [hwb] at h; rw [hs.1 hwb]
+  simp only [] at h ⊢
+  by_cases hab' : (a' == b') = true
+  · rw [if_pos hab'] at h ⊢; exact h
+  rw [if_neg hab'] at h ⊢
+  cases hpi : Setlec.proofIrrel r₁ env d a' b' with
+  | error err => rw [hpi] at h; exact nomatch h
+  | ok cpi =>
+  rw [hpi] at h; rw [proofIrrel_mono hs hpi]
+  simp only [] at h ⊢
+  cases cpi with
+  | true => exact h
+  | false =>
+  simp only [Bool.false_eq_true, if_false] at h ⊢
+  by_cases hg : (!a'.hasFvar && !b'.hasFvar) = true
+  · rw [if_pos hg] at h ⊢
+    cases hra : Setlec.reduceNat r₁ env d a' with
+    | error err => rw [hra] at h; exact nomatch h
+    | ok oa =>
+    rw [hra] at h; rw [reduceNat_mono hs hra]
+    simp only [] at h ⊢
+    cases oa with
+    | some a₂ => exact hk h
+    | none =>
+    rw [if_pos hg] at h ⊢
+    cases hrb : Setlec.reduceNat r₁ env d b' with
+    | error err => rw [hrb] at h; exact nomatch h
+    | ok ob =>
+    rw [hrb] at h; rw [reduceNat_mono hs hrb]
+    simp only [] at h ⊢
+    cases ob with
+    | some b₂ => exact hk h
+    | none =>
+      cases hua : Setlec.unfoldableHead env a' <;>
+        cases hub : Setlec.unfoldableHead env b' <;>
+        rw [hua, hub] at h <;> simp only [] at h ⊢
+      case true.false =>
+        cases hud : Setlec.unfoldDefinition env a' with
+        | some a₂ => rw [hud] at h; exact hk h
+        | none => rw [hud] at h; exact h
+      case false.true =>
+        cases hud : Setlec.unfoldDefinition env b' with
+        | some b₂ => rw [hud] at h; exact hk h
+        | none => rw [hud] at h; exact h
+      case true.true =>
+        by_cases hlt1 : (Setlec.headHint env b').lt
+            (Setlec.headHint env a') = true
+        · rw [if_pos hlt1] at h ⊢
+          cases hud : Setlec.unfoldDefinition env a' with
+          | some a₂ => rw [hud] at h; exact hk h
+          | none => rw [hud] at h; exact h
+        rw [if_neg hlt1] at h ⊢
+        by_cases hlt2 : (Setlec.headHint env a').lt
+            (Setlec.headHint env b') = true
+        · rw [if_pos hlt2] at h ⊢
+          cases hud : Setlec.unfoldDefinition env b' with
+          | some b₂ => rw [hud] at h; exact hk h
+          | none => rw [hud] at h; exact h
+        rw [if_neg hlt2] at h ⊢
+        by_cases hsr : ((Setlec.headHint env a').sameRegular
+            (Setlec.headHint env b') && Setlec.sameConstHeads a' b') = true
+        · rw [if_pos hsr] at h ⊢
+          cases hsp : Setlec.defeqSpine r₁ env d a' b' with
+          | error err => rw [hsp] at h; exact nomatch h
+          | ok csp =>
+          rw [hsp] at h; rw [defeqSpine_mono hs hsp]
+          simp only [] at h ⊢
+          cases csp with
+          | true => exact h
+          | false =>
+          simp only [Bool.false_eq_true, if_false] at h ⊢
+          cases hud1 : Setlec.unfoldDefinition env a' with
+          | none => rw [hud1] at h; cases hud2 : Setlec.unfoldDefinition env b' <;> rw [hud2] at h <;> exact h
+          | some a₂ =>
+          rw [hud1] at h
+          cases hud2 : Setlec.unfoldDefinition env b' with
+          | some b₂ => rw [hud2] at h; exact hk h
+          | none => rw [hud2] at h; exact h
+        · rw [if_neg hsr] at h ⊢
+          cases hud1 : Setlec.unfoldDefinition env a' with
+          | none => rw [hud1] at h; cases hud2 : Setlec.unfoldDefinition env b' <;> rw [hud2] at h <;> exact h
+          | some a₂ =>
+          rw [hud1] at h
+          cases hud2 : Setlec.unfoldDefinition env b' with
+          | some b₂ => rw [hud2] at h; exact hk h
+          | none => rw [hud2] at h; exact h
+      case false.false =>
+        split at h
+        · next u v' => exact h
+        · next l₁ l₂ => exact h
+        · next n c us =>
+          by_cases hc : (c = Setlec.natZeroName ∧ us = [])
+          · rw [if_pos hc] at h ⊢; exact h
+          · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+        · next c us n =>
+          by_cases hc : (c = Setlec.natZeroName ∧ us = [])
+          · rw [if_pos hc] at h ⊢; exact h
+          · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+        · next nn f x =>
+          split at h
+          · next m c =>
+            by_cases hc : c = Setlec.natSuccName
+            · rw [if_pos hc] at h ⊢; exact hs.2.2.2.1 h
+            · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+          · next => exact stuckIrrel_mono hs h
+        · next f x nn =>
+          split at h
+          · next m c =>
+            by_cases hc : c = Setlec.natSuccName
+            · rw [if_pos hc] at h ⊢; exact hs.2.2.2.1 h
+            · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+          · next => exact stuckIrrel_mono hs h
+        · next st cO usO x =>
+          by_cases hc : (cO = Setlec.stringOfListName ∧ usO = [] ∧
+              Setlec.strLitSupported env)
+          · rw [if_pos hc] at h ⊢; exact hs.2.2.2.1 h
+          · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+        · next cO usO x st =>
+          by_cases hc : (cO = Setlec.stringOfListName ∧ usO = [] ∧
+              Setlec.strLitSupported env)
+          · rw [if_pos hc] at h ⊢; exact hs.2.2.2.1 h
+          · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+        · next i n₁ ty₁ j n₂ ty₂ =>
+          by_cases hij : (i == j) = true
+          · rw [if_pos hij] at h ⊢; exact h
+          · rw [if_neg hij] at h ⊢; exact stuckIrrel_mono hs h
+        · next n us n' us' =>
+          by_cases hn : n = n'
+          · rw [if_pos hn] at h ⊢
+            cases hle : Setlec.liftFueled "level comparison"
+                (Level.isEquivList us us') (m := Setlec.CheckM) with
+            | error err => rw [hle] at h; exact nomatch h
+            | ok cle =>
+            rw [hle] at h
+            simp only [] at h ⊢
+            cases cle with
+            | true => exact h
+            | false => exact stuckIrrel_mono hs h
+          · rw [if_neg hn] at h ⊢; exact stuckIrrel_mono hs h
+        · next n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ =>
+          cases hd1 : r₁.defeq d ty₁ ty₂ with
+          | error err => rw [hd1] at h; exact nomatch h
+          | ok c₁ =>
+          rw [hd1] at h; rw [hs.2.2.2.1 hd1]
+          simp only [] at h ⊢
+          cases c₁ with
+          | false => exact h
+          | true => exact hs.2.2.2.1 (by simpa using h)
+        · next n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ =>
+          cases hd1 : r₁.defeq d ty₁ ty₂ with
+          | error err => rw [hd1] at h; exact nomatch h
+          | ok c₁ =>
+          rw [hd1] at h; rw [hs.2.2.2.1 hd1]
+          simp only [] at h ⊢
+          cases c₁ with
+          | false => exact h
+          | true => exact hs.2.2.2.1 (by simpa using h)
+        · next f₁ a₁ f₂ a₂ =>
+          by_cases hlen : (Expr.app f₁ a₁).getAppArgs.length =
+              (Expr.app f₂ a₂).getAppArgs.length
+          · rw [if_pos hlen] at h ⊢
+            cases hdf : r₁.defeq d (Expr.app f₁ a₁).getAppFn
+                (Expr.app f₂ a₂).getAppFn with
+            | error err => rw [hdf] at h; exact nomatch h
+            | ok cdf =>
+            rw [hdf] at h; rw [hs.2.2.2.1 hdf]
+            simp only [] at h ⊢
+            cases cdf with
+            | false =>
+              simp only [Bool.false_eq_true, if_false] at h ⊢
+              exact stuckIrrel_mono hs h
+            | true =>
+            simp only [if_true] at h ⊢
+            cases hdl : Setlec.defEqList r₁ env d
+                (Expr.app f₁ a₁).getAppArgs
+                (Expr.app f₂ a₂).getAppArgs with
+            | error err => rw [hdl] at h; exact nomatch h
+            | ok cdl =>
+            rw [hdl] at h; rw [defEqList_mono hs hdl]
+            simp only [] at h ⊢
+            cases cdl with
+            | true => exact h
+            | false => exact stuckIrrel_mono hs h
+          · rw [if_neg hlen] at h ⊢; exact stuckIrrel_mono hs h
+        · next s₁ i₁ e₁ s₂ i₂ e₂ =>
+          by_cases hij : (i₁ == i₂) = true
+          · rw [if_pos hij] at h ⊢
+            cases hd1 : r₁.defeq d e₁ e₂ with
+            | error err => rw [hd1] at h; exact nomatch h
+            | ok c₁ =>
+            rw [hd1] at h; rw [hs.2.2.2.1 hd1]
+            simp only [] at h ⊢
+            cases c₁ with
+            | true => exact h
+            | false => exact stuckIrrel_mono hs h
+          · rw [if_neg hij] at h ⊢; exact stuckIrrel_mono hs h
+        · next =>
+          split at h
+          · exact nomatch h
+          · next ce he =>
+            rw [etaCert_mono hs he]
+            cases ce with
+            | true => exact h
+            | false => exact stuckIrrel_mono hs h
+        · next =>
+          split at h
+          · exact nomatch h
+          · next ce he =>
+            rw [etaCert_mono hs he]
+            cases ce with
+            | true => exact h
+            | false => exact stuckIrrel_mono hs h
+        · next => exact stuckIrrel_mono hs h
+  · rw [if_neg hg] at h ⊢
+    rw [if_neg hg] at h ⊢
+    simp only [pure, Except.pure] at h ⊢
+    cases hua : Setlec.unfoldableHead env a' <;>
+      cases hub : Setlec.unfoldableHead env b' <;>
+      rw [hua, hub] at h <;> simp only [] at h ⊢
+    case true.false =>
+      cases hud : Setlec.unfoldDefinition env a' with
+      | some a₂ => rw [hud] at h; exact hk h
+      | none => rw [hud] at h; exact h
+    case false.true =>
+      cases hud : Setlec.unfoldDefinition env b' with
+      | some b₂ => rw [hud] at h; exact hk h
+      | none => rw [hud] at h; exact h
+    case true.true =>
+      by_cases hlt1 : (Setlec.headHint env b').lt
+          (Setlec.headHint env a') = true
+      · rw [if_pos hlt1] at h ⊢
+        cases hud : Setlec.unfoldDefinition env a' with
+        | some a₂ => rw [hud] at h; exact hk h
+        | none => rw [hud] at h; exact h
+      rw [if_neg hlt1] at h ⊢
+      by_cases hlt2 : (Setlec.headHint env a').lt
+          (Setlec.headHint env b') = true
+      · rw [if_pos hlt2] at h ⊢
+        cases hud : Setlec.unfoldDefinition env b' with
+        | some b₂ => rw [hud] at h; exact hk h
+        | none => rw [hud] at h; exact h
+      rw [if_neg hlt2] at h ⊢
+      by_cases hsr : ((Setlec.headHint env a').sameRegular
+          (Setlec.headHint env b') && Setlec.sameConstHeads a' b') = true
+      · rw [if_pos hsr] at h ⊢
+        cases hsp : Setlec.defeqSpine r₁ env d a' b' with
+        | error err => rw [hsp] at h; exact nomatch h
+        | ok csp =>
+        rw [hsp] at h; rw [defeqSpine_mono hs hsp]
+        simp only [] at h ⊢
+        cases csp with
+        | true => exact h
+        | false =>
+        simp only [Bool.false_eq_true, if_false] at h ⊢
+        cases hud1 : Setlec.unfoldDefinition env a' with
+        | none => rw [hud1] at h; cases hud2 : Setlec.unfoldDefinition env b' <;> rw [hud2] at h <;> exact h
+        | some a₂ =>
+        rw [hud1] at h
+        cases hud2 : Setlec.unfoldDefinition env b' with
+        | some b₂ => rw [hud2] at h; exact hk h
+        | none => rw [hud2] at h; exact h
+      · rw [if_neg hsr] at h ⊢
+        cases hud1 : Setlec.unfoldDefinition env a' with
+        | none => rw [hud1] at h; cases hud2 : Setlec.unfoldDefinition env b' <;> rw [hud2] at h <;> exact h
+        | some a₂ =>
+        rw [hud1] at h
+        cases hud2 : Setlec.unfoldDefinition env b' with
+        | some b₂ => rw [hud2] at h; exact hk h
+        | none => rw [hud2] at h; exact h
+    case false.false =>
+      split at h
+      · next u v' => exact h
+      · next l₁ l₂ => exact h
+      · next n c us =>
+        by_cases hc : (c = Setlec.natZeroName ∧ us = [])
+        · rw [if_pos hc] at h ⊢; exact h
+        · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+      · next c us n =>
+        by_cases hc : (c = Setlec.natZeroName ∧ us = [])
+        · rw [if_pos hc] at h ⊢; exact h
+        · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+      · next nn f x =>
+        split at h
+        · next m c =>
+          by_cases hc : c = Setlec.natSuccName
+          · rw [if_pos hc] at h ⊢; exact hs.2.2.2.1 h
+          · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+        · next => exact stuckIrrel_mono hs h
+      · next f x nn =>
+        split at h
+        · next m c =>
+          by_cases hc : c = Setlec.natSuccName
+          · rw [if_pos hc] at h ⊢; exact hs.2.2.2.1 h
+          · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+        · next => exact stuckIrrel_mono hs h
+      · next st cO usO x =>
+        by_cases hc : (cO = Setlec.stringOfListName ∧ usO = [] ∧
+            Setlec.strLitSupported env)
+        · rw [if_pos hc] at h ⊢; exact hs.2.2.2.1 h
+        · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+      · next cO usO x st =>
+        by_cases hc : (cO = Setlec.stringOfListName ∧ usO = [] ∧
+            Setlec.strLitSupported env)
+        · rw [if_pos hc] at h ⊢; exact hs.2.2.2.1 h
+        · rw [if_neg hc] at h ⊢; exact stuckIrrel_mono hs h
+      · next i n₁ ty₁ j n₂ ty₂ =>
+        by_cases hij : (i == j) = true
+        · rw [if_pos hij] at h ⊢; exact h
+        · rw [if_neg hij] at h ⊢; exact stuckIrrel_mono hs h
+      · next n us n' us' =>
+        by_cases hn : n = n'
+        · rw [if_pos hn] at h ⊢
+          cases hle : Setlec.liftFueled "level comparison"
+              (Level.isEquivList us us') (m := Setlec.CheckM) with
+          | error err => rw [hle] at h; exact nomatch h
+          | ok cle =>
+          rw [hle] at h
+          simp only [] at h ⊢
+          cases cle with
+          | true => exact h
+          | false => exact stuckIrrel_mono hs h
+        · rw [if_neg hn] at h ⊢; exact stuckIrrel_mono hs h
+      · next n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ =>
+        cases hd1 : r₁.defeq d ty₁ ty₂ with
+        | error err => rw [hd1] at h; exact nomatch h
+        | ok c₁ =>
+        rw [hd1] at h; rw [hs.2.2.2.1 hd1]
+        simp only [] at h ⊢
+        cases c₁ with
+        | false => exact h
+        | true => exact hs.2.2.2.1 (by simpa using h)
+      · next n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ =>
+        cases hd1 : r₁.defeq d ty₁ ty₂ with
+        | error err => rw [hd1] at h; exact nomatch h
+        | ok c₁ =>
+        rw [hd1] at h; rw [hs.2.2.2.1 hd1]
+        simp only [] at h ⊢
+        cases c₁ with
+        | false => exact h
+        | true => exact hs.2.2.2.1 (by simpa using h)
+      · next f₁ a₁ f₂ a₂ =>
+        by_cases hlen : (Expr.app f₁ a₁).getAppArgs.length =
+            (Expr.app f₂ a₂).getAppArgs.length
+        · rw [if_pos hlen] at h ⊢
+          cases hdf : r₁.defeq d (Expr.app f₁ a₁).getAppFn
+              (Expr.app f₂ a₂).getAppFn with
+          | error err => rw [hdf] at h; exact nomatch h
+          | ok cdf =>
+          rw [hdf] at h; rw [hs.2.2.2.1 hdf]
+          simp only [] at h ⊢
+          cases cdf with
+          | false =>
+            simp only [Bool.false_eq_true, if_false] at h ⊢
+            exact stuckIrrel_mono hs h
+          | true =>
+          simp only [if_true] at h ⊢
+          cases hdl : Setlec.defEqList r₁ env d
+              (Expr.app f₁ a₁).getAppArgs
+              (Expr.app f₂ a₂).getAppArgs with
+          | error err => rw [hdl] at h; exact nomatch h
+          | ok cdl =>
+          rw [hdl] at h; rw [defEqList_mono hs hdl]
+          simp only [] at h ⊢
+          cases cdl with
+          | true => exact h
+          | false => exact stuckIrrel_mono hs h
+        · rw [if_neg hlen] at h ⊢; exact stuckIrrel_mono hs h
+      · next s₁ i₁ e₁ s₂ i₂ e₂ =>
+        by_cases hij : (i₁ == i₂) = true
+        · rw [if_pos hij] at h ⊢
+          cases hd1 : r₁.defeq d e₁ e₂ with
+          | error err => rw [hd1] at h; exact nomatch h
+          | ok c₁ =>
+          rw [hd1] at h; rw [hs.2.2.2.1 hd1]
+          simp only [] at h ⊢
+          cases c₁ with
+          | true => exact h
+          | false => exact stuckIrrel_mono hs h
+        · rw [if_neg hij] at h ⊢; exact stuckIrrel_mono hs h
+      · next =>
+        split at h
+        · exact nomatch h
+        · next ce he =>
+          rw [etaCert_mono hs he]
+          cases ce with
+          | true => exact h
+          | false => exact stuckIrrel_mono hs h
+      · next =>
+        split at h
+        · exact nomatch h
+        · next ce he =>
+          rw [etaCert_mono hs he]
+          cases ce with
+          | true => exact h
+          | false => exact stuckIrrel_mono hs h
+      · next => exact stuckIrrel_mono hs h
+
+/-- `defeqLoop` respects the order at every budget. -/
+theorem defeqLoop_mono {μ : CheckMode} (hs : CoreSub r₁ r₂) {d : Nat} :
+    ∀ {l : Nat} {a b : Expr} {v : Bool},
+      Setlec.defeqLoop μ r₁ env d l a b = .ok v →
+      Setlec.defeqLoop μ r₂ env d l a b = .ok v := by
+  intro l
+  induction l with
+  | zero => intro a b v h; exact nomatch h
+  | succ l ih =>
+    intro a b v h
+    rw [defeqLoop_succ] at h
+    rw [defeqLoop_succ]
+    exact defeqStep_mono hs (fun hk => ih hk) h
+
 end MonoHelpers2
+
+/-! ## The knot chain and the public projection -/
+
+/-- `CoreSub` is transitive. -/
+theorem CoreSub.trans {r₁ r₂ r₃ : Setlec.CoreFns Setlec.CheckM}
+    (h₁ : CoreSub r₁ r₂) (h₂ : CoreSub r₂ r₃) : CoreSub r₁ r₃ :=
+  ⟨fun h => h₂.1 (h₁.1 h),
+   fun h => h₂.2.1 (h₁.2.1 h),
+   fun h => h₂.2.2.1 (h₁.2.2.1 h),
+   fun h => h₂.2.2.2.1 (h₁.2.2.2.1 h),
+   fun h => h₂.2.2.2.2 (h₁.2.2.2.2 h)⟩
+
+/-- One knot level: the oracle at fuel `f` extends into fuel `f+1`. -/
+theorem coreSub_succ (μ : CheckMode) (env : Env) :
+    ∀ f : Nat, CoreSub (Setlec.pureFns μ env f)
+      (Setlec.pureFns μ env (f + 1)) := by
+  intro f
+  induction f with
+  | zero =>
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · intro d e x h; exact nomatch h
+    · intro d e x h; exact nomatch h
+    · intro d e x h; exact nomatch h
+    · intro d a b v h; exact nomatch h
+    · intro d e x h; exact nomatch h
+  | succ f ih =>
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · intro d e x h
+      exact whnfCoreBody_mono ih h
+    · intro d e x h
+      exact whnfLoop_mono ih h
+    · intro d e x h
+      exact inferBody_mono ih h
+    · intro d a b v h
+      exact defeqLoop_mono ih h
+    · intro d e x h
+      exact annotateBody_mono ih h
+
+/-- The chain: fuel-gap induction. -/
+theorem coreSub_le (μ : CheckMode) (env : Env) :
+    ∀ {f f' : Nat}, f ≤ f' →
+      CoreSub (Setlec.pureFns μ env f) (Setlec.pureFns μ env f') := by
+  intro f f' hle
+  induction f' with
+  | zero =>
+    obtain rfl : f = 0 := Nat.le_zero.mp hle
+    exact ⟨fun h => h, fun h => h, fun h => h, fun h => h, fun h => h⟩
+  | succ f' ih =>
+    rcases Nat.lt_or_ge f (f' + 1) with hlt | hge
+    · exact CoreSub.trans (ih (Nat.lt_succ_iff.mp hlt))
+        (coreSub_succ μ env f')
+    · obtain rfl : f = f' + 1 := Nat.le_antisymm hle hge
+      exact ⟨fun h => h, fun h => h, fun h => h, fun h => h, fun h => h⟩
+
+/-- **`KnotFuelMono` LANDS**: the carried obligation is a theorem.
+Every lemma that hypothesized it — the dual shell
+(`ensureSortAgreeR_of`), the run-threaded re-idem
+(`whnfCore_reidem_const`), the loop algebra (`whnfLoop_r_mono`,
+`whnfLoop_det`, `loop_stuck_out`, `loop_align`), the cross-fuel sort
+determinism (`sortOfE_fuelDet` via `KnotFuelDet_of_mono`) — now
+closes with this theorem in the slot. -/
+theorem knotFuelMono (μ : CheckMode) (env : Env) : KnotFuelMono μ env := by
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · intro f f' d e t hle h
+    exact (coreSub_le μ env hle).2.2.1 h
+  · intro f f' d e t hle h
+    exact (coreSub_le μ env hle).2.1 h
+  · intro f f' d e t hle h
+    exact (coreSub_le μ env hle).1 h
+  · intro f f' d a b v hle h
+    exact (coreSub_le μ env hle).2.2.2.1 h
+  · intro f f' d e o hle h
+    exact reduceNat_mono (coreSub_le μ env hle) h
+
+/-- The determinism corollary, now unconditional. -/
+theorem knotFuelDet (μ : CheckMode) (env : Env) : KnotFuelDet μ env :=
+  KnotFuelDet_of_mono (knotFuelMono μ env)
+
+/-- **The payoff**: the dual shell conditioned on the five routings
+alone — the wide obligation's slot is filled by the theorem.  (The
+same instantiation closes `whnfCore_reidem_const`, `whnfLoop_r_mono`,
+`whnfLoop_det`, `loop_stuck_out`, `loop_align`, `whnf_sort_out`,
+`sortOfE_sort_out`, `sortOfE_fuelDet`, `unitBranch_absurd`,
+`SortOfLE_det`, and `EnsureSortAgreeR_of_link` at their `hm`/`hdet`
+slots.) -/
+theorem ensureSortAgreeR_of_vacuities {μ : CheckMode} {env : Env}
+    {φ : Name → Nat}
+    (hP : ProbeSortVacuity μ env) (hR : RescueSortVacuity μ env)
+    (hE : EtaSortVacuity μ env) (hN : NatSortVacuity μ env)
+    (hS : SpineSortAgree μ env φ) :
+    EnsureSortAgreeR μ env φ :=
+  ensureSortAgreeR_of (knotFuelMono μ env) hP hR hE hN hS
 
 end Setlec.SetR.Interp2
