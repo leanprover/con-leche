@@ -8745,3 +8745,16 @@ the decompose or a direct chase), then the knot chain
 (`Sub (coreKnot f) (coreKnot f')` by induction) and the public
 `KnotFuelMono` projection.  The shell's contract taxonomy stands: an
 obligation, a routed vacuity, or a given-run exhibit — nothing else.
+
+### KnotFuelMono discharge, batch 2a: cert helpers, first half
+
+Proved (`Annot/SortCoh.lean`): `iotaCerts_mono` (telescope/argument
+recursion), `defeqSpine_mono`, `projTeleCert_mono`,
+`projLitToCtor_mono`, `isPropType_mono` (the `annotate` field's one
+consumer, confirming the five-field order).  All by the established
+success-chase: case the oracle runs, lift by the order, transfer the
+r-free guards verbatim.  Remaining for 2b: `projCert`, `proofIrrel`,
+`etaCert`, the pair/struct eta and unit certs, `stuckIrrel`,
+`majorToCtor`, `iotaRec` (largest, decomposes onto `defEqList`/
+`iotaCerts`/levels).  Then the bodies, the step/loop layer for defeq,
+the knot chain, the public projection.

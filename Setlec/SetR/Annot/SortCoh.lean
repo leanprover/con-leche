@@ -1995,4 +1995,169 @@ theorem whnfLoop_mono (hs : CoreSub r₁ r₂) {d : Nat} :
 
 end MonoHelpers
 
+/-! ## Batch 2a: the cert-helper tier -/
+
+section MonoHelpers2
+variable {env : Env} {r₁ r₂ : Setlec.CoreFns Setlec.CheckM}
+
+/-- `iotaCerts` respects the order. -/
+theorem iotaCerts_mono (hs : CoreSub r₁ r₂) {d : Nat} :
+    ∀ {args : List Expr} {ty : Expr} {v : Bool},
+      Setlec.iotaCerts r₁ env d ty args = .ok v →
+      Setlec.iotaCerts r₂ env d ty args = .ok v := by
+  intro args
+  induction args with
+  | nil => intro ty v h; exact h
+  | cons a rest ih =>
+    intro ty v h
+    cases ty with
+    | forallE n dom body bi =>
+      unfold Setlec.iotaCerts at h ⊢
+      simp only [Bind.bind, Except.bind] at h ⊢
+      cases hi : r₁.infer d a with
+      | error err => rw [hi] at h; exact nomatch h
+      | ok ta =>
+        rw [hi] at h
+        rw [hs.2.2.1 hi]
+        simp only [] at h ⊢
+        cases hd : r₁.defeq d ta dom with
+        | error err => rw [hd] at h; exact nomatch h
+        | ok c =>
+          rw [hd] at h
+          rw [hs.2.2.2.1 hd]
+          simp only [] at h ⊢
+          cases c with
+          | true => simpa using ih (by simpa using h)
+          | false => exact h
+    | sort u => exact h
+    | fvar i n ty => exact h
+    | app f a' => exact h
+    | lam n ty b m => exact h
+    | letE n ty v' b => exact h
+    | proj s i e => exact h
+    | lit l => exact h
+    | const n us => exact h
+    | bvar i => exact h
+
+/-- `defeqSpine` respects the order. -/
+theorem defeqSpine_mono (hs : CoreSub r₁ r₂) {d : Nat}
+    {a b : Expr} {v : Bool}
+    (h : Setlec.defeqSpine r₁ env d a b = .ok v) :
+    Setlec.defeqSpine r₂ env d a b = .ok v := by
+  unfold Setlec.defeqSpine at h ⊢
+  cases hga : a.getAppFn with
+  | const n us =>
+    rw [hga] at h
+    cases hgb : b.getAppFn with
+    | const n' us' =>
+      rw [hgb] at h
+      simp only [] at h ⊢
+      by_cases hcond : n = n' ∧
+          a.getAppArgs.length = b.getAppArgs.length
+      · rw [if_pos hcond] at h ⊢
+        cases hle : Level.isEquivList us us' with
+        | some c =>
+          rw [hle] at h
+          cases c with
+          | true => exact defEqList_mono hs (by simpa using h)
+          | false => exact h
+        | none => rw [hle] at h; exact h
+      · rw [if_neg hcond] at h ⊢; exact h
+    | sort u => rw [hgb] at h; exact h
+    | fvar i nm ty => rw [hgb] at h; exact h
+    | forallE nm ty bd bi => rw [hgb] at h; exact h
+    | lam nm ty bd m => rw [hgb] at h; exact h
+    | letE nm ty vl bd => rw [hgb] at h; exact h
+    | app f x => rw [hgb] at h; exact h
+    | proj s i e => rw [hgb] at h; exact h
+    | lit l => rw [hgb] at h; exact h
+    | bvar i => rw [hgb] at h; exact h
+  | sort u => rw [hga] at h; exact h
+  | fvar i nm ty => rw [hga] at h; exact h
+  | forallE nm ty bd bi => rw [hga] at h; exact h
+  | lam nm ty bd m => rw [hga] at h; exact h
+  | letE nm ty vl bd => rw [hga] at h; exact h
+  | app f x => rw [hga] at h; exact h
+  | proj s i e => rw [hga] at h; exact h
+  | lit l => rw [hga] at h; exact h
+  | bvar i => rw [hga] at h; exact h
+
+/-- `projTeleCert` respects the order. -/
+theorem projTeleCert_mono (hs : CoreSub r₁ r₂) {d : Nat}
+    {c : Name} {us : List Level} {args : List Expr} {v : Bool}
+    (h : Setlec.projTeleCert r₁ env d c us args = .ok v) :
+    Setlec.projTeleCert r₂ env d c us args = .ok v := by
+  unfold Setlec.projTeleCert at h ⊢
+  cases hf : env.find? c with
+  | none => rw [hf] at h; exact h
+  | some ci =>
+    rw [hf] at h
+    cases ci with
+    | ctorInfo cvj na nb => exact iotaCerts_mono hs h
+    | axiomInfo cv => exact h
+    | defnInfo cv vl hint => exact h
+    | thmInfo cv vl => exact h
+    | indInfo cv caps => exact h
+    | recInfo cv mi rp rules => exact h
+    | projInfo entry => exact h
+
+/-- `projLitToCtor` respects the order. -/
+theorem projLitToCtor_mono (hs : CoreSub r₁ r₂) {d : Nat}
+    {e x : Expr}
+    (h : Setlec.projLitToCtor r₁ env d e = .ok x) :
+    Setlec.projLitToCtor r₂ env d e = .ok x := by
+  cases e with
+  | lit l =>
+    cases l with
+    | strVal s =>
+      unfold Setlec.projLitToCtor at h ⊢
+      simp only [] at h ⊢
+      by_cases hsup : Setlec.strLitSupported env = true
+      · rw [if_pos hsup] at h
+        rw [if_pos hsup]
+        exact hs.2.1 h
+      · rw [if_neg hsup] at h
+        rw [if_neg hsup]
+        exact h
+    | natVal n => exact h
+  | sort u => exact h
+  | fvar i n ty => exact h
+  | app f a => exact h
+  | lam n ty b m => exact h
+  | letE n ty v' b => exact h
+  | proj s i e' => exact h
+  | const n us => exact h
+  | forallE n ty b bi => exact h
+  | bvar i => exact h
+
+/-- `isPropType` respects the order (the `annotate` field's one
+consumer). -/
+theorem isPropType_mono (hs : CoreSub r₁ r₂) {d : Nat} {ty : Expr}
+    {v : Bool} (h : Setlec.isPropType r₁ env d ty = .ok v) :
+    Setlec.isPropType r₂ env d ty = .ok v := by
+  unfold Setlec.isPropType at h ⊢
+  simp only [Bind.bind, Except.bind] at h ⊢
+  cases han : r₁.annotate d ty with
+  | error err => rw [han] at h; exact nomatch h
+  | ok ty' =>
+    rw [han] at h
+    rw [hs.2.2.2.2 han]
+    simp only [] at h ⊢
+    cases hi : r₁.infer d ty' with
+    | error err => rw [hi] at h; exact nomatch h
+    | ok t =>
+      rw [hi] at h
+      rw [hs.2.2.1 hi]
+      simp only [] at h ⊢
+      cases hes : Setlec.ensureSort r₁ env d t with
+      | error err => rw [hes] at h; exact nomatch h
+      | ok s =>
+        rw [hes] at h
+        rw [ensureSort_mono hs hes]
+        simp only [] at h ⊢
+        exact h
+
+
+end MonoHelpers2
+
 end Setlec.SetR.Interp2
