@@ -7674,3 +7674,78 @@ semantically (Sat-conditioned membership/equality, never
 `.ok`-equations of the walks slated for removal) is what makes the
 swap a local re-proof of a discharge lemma instead of a re-statement
 of the metatheorem.
+
+### REFUTATION: the membership form of the β premise is too weak (whnfCore-branch pre-work STOP)
+
+Sealed one grant later, before any induction case work, tracing the
+paired induction's leaf against the refined premise refuted the
+*specific semantic form* chosen above.  The principle stands; the
+currency was wrong.
+
+**Where the premise is consumed.**  `lamSortE` is *two* chained infer
+runs: `infer(body) = bt`, then `sortOfE(bt)` = `infer(bt) = t`,
+`whnf(t) = .sort ℓ`.  The paired induction walks the first infer on
+inst-image subjects.  At the substituted `fvar d` leaf, side 1's
+inferred type is the annotation `ty` itself (`inferBody`'s `.fvar`
+clause returns it verbatim) and side 2's is `ta` — the checker's own
+inferred type of the argument.  Every downstream fact — including the
+*second* infer, which computes the sort **of** these types — flows
+from that pair.  So the leaf needs the two *types* linked:
+
+> `∀ ρ, Sat V Δv ρ → interp V ρ ⟦ta⟧ = interp V ρ ⟦ty⟧`
+
+— interp-**equality of the argument's inferred type with the domain**.
+That is the run cert's full semantic content (`DefEqClaimsR` +
+`DefEq.sound` give exactly it).  The membership
+`interp av ∈ˢ interp tyv` is what `betaCert_discharge` *derived from*
+that equality and then discarded — strictly weaker.
+
+**The countermodel (the gap is real, not proof-technical).**  Take
+`body = bvar 0`, so the two `lamSortE` subjects are `fvar d n ty` and
+`a` themselves.  Let `ty` be a unit-like inductive pinned at `Type 1`
+and `a` an inhabitant of a unit-like at `Prop` (or `Nat` vs a
+`Type 1` ℕ-clone).  If the model gives the two carriers the same set —
+unit-likes at any sort plausibly all model as `{pt}`, and the
+inductive carrier construction is sort-blind — then the membership
+premise holds (`pt ∈ˢ {pt}` at every valuation, closed context, `Sat`
+trivial), both runs succeed, and the conclusion fails:
+side 1 computes `sortOfE(ty) = 2`, side 2 `sortOfE(ta) = 0`.
+Cumulativity is the root cause: membership in a type pins the
+element, never the type's sort — `HasSort.mem_univ`'s own recorded
+caveat, now biting the premise itself.  (Not mechanized; realizes
+against the `SetTheory` interface given any instance whose unit-like
+installs share the carrier.  Mechanization would be parametric in `V`
+via the unit-like install lemmas if the coordinator wants it banked.)
+
+**Why the run-fact form was never circular-in-danger here**: with the
+original premise the leaf is discharged by bridging the cert itself;
+the induction never re-derives it.  The refinement's *goal* (supplier
+neutrality) is right; the *currency* must be the type-level equality.
+
+**Proposed corrected premise** (semantic, supplier-swappable,
+leaf-exact):
+
+    ∀ (fuel' : Nat) {ta : Expr}, inferTypeCore μ env fuel' d a = .ok ta →
+      ∀ {tav}, denote mS.cval env φ d ta = some tav →
+        ∀ ρ, Sat V Δv ρ → interp V ρ tav = interp V ρ tyv
+
+quantified over **all** fuels so the induction's occurrence-walks (the
+substituted `a` is re-inferred wherever the walk meets it, at varying
+remaining fuel) consume it directly; the fuel-linking burden then
+lives in the *discharge lemma* (one standard fuel-determinism lemma
+for `inferTypeCore`, proved once), not in the metatheorem.  Phase-one
+discharge: `DefEqClaimsR` + `DefEq.sound` + fuel-determinism —
+*simpler* than the membership chain.  Occurrences at deeper depths
+link by a depth-irrelevance lemma for `WScoped d` subjects (standard;
+to be proved with the leaf case).
+
+**The phase-two blade (design fork, flagged not solved).**  The
+`AnnotOk2` app slot carries memberships only (`⟦f⟧ ∈ piR v A B ∧
+⟦a⟧ ∈ A`).  By the countermodel, *no* membership package can supply
+the corrected premise — post-removal the slot must carry the
+domain-fit as a type-level equality fact (e.g. the primary typing
+walk's `defeq(ta, dom)` verdict, threaded to the redex as an interp
+equality), or rank 2's removal has no supplier for the β premise at
+all.  This is a finding about the rank-2 design, discovered two seals
+early — exactly what stating the premise before the case work was
+for.
