@@ -8330,3 +8330,29 @@ probe case is the audited one, and its cert-loop induction is the
 smallest complete member; then the chain assembly (mechanical), then
 (F-nat), (F-core) non-β, (F-core).β (the summit), (E), (F-δ), then
 S3 = (B), then the `SortSubstStable` leaf wiring.
+
+### (A-T) ingredient batch 1: run algebra landed; the ledger obligation is MONOTONICITY
+
+`Annot/SortCoh.lean`: `whnfStep_decompose` (read a successful loop
+step apart: whnfCore prefix, then the nat/δ/stuck trichotomy),
+`whnfStep_assemble_nat/_delta/_stuck` (the goal-directed inverses),
+`whnfLoop_succ`/`defeqLoop_succ` (definitional unfoldings),
+`whnfLoop_budget_mono` (**provable with no obligation** — the
+continuation is in tail position, so a shorter successful loop
+replays inside a longer one), `whnf_to_loop`/`whnf_of_loop` (peel and
+wrap between the public runs and the loop-internal forms).
+
+**Ledger correction**: the carried obligation is `KnotFuelMono`
+(cross-fuel *monotonicity*, five entry points + `reduceNat`), not
+`KnotFuelDet` — determinism is its corollary
+(`KnotFuelDet_of_mono`, proved: lift both runs to the max and read
+them off each other).  Assembly is why monotonicity is unavoidable:
+the probe/eta vacuities glue pieces from *different* runs (cert-side
+whnfCore steps, given-run suffixes) into one constructed `whnf` run,
+and a loop's sub-calls all go through one `r` — every piece must be
+lifted to a common knot fuel first.  The planned discharge is
+unchanged (oracle-extension induction over `coreKnot`, no catches in
+the bodies); `reduceNat` joins the obligation because the assembly
+lemmas glue its runs across knot levels too.  Existing
+`KnotFuelDet`-consuming lemmas stay as stated — consumers hold
+`KnotFuelMono` and project.

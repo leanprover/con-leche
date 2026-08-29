@@ -520,6 +520,178 @@ theorem EnsureSortAgreeR_of_link {μ : CheckMode} {env : Env}
   obtain rfl : ℓ' = ℓ₂ := Setlec.Expr.sort.inj hs
   exact hev.symm
 
+/-! ## The run algebra — loop decomposition and assembly
+
+The (A-T) induction's first ingredient batch.  Decomposition reads a
+given `whnf` run apart at its first step (aligning it with the cert
+loop's own `whnfCore` by determinism); assembly builds `whnf` runs
+from pieces (the probe/eta vacuities construct the colliding run).
+Assembly is why the ledger obligation must be **monotonicity**, not
+determinism: pieces from different runs live at different knot
+fuels, and gluing them into one loop needs every sub-call at one
+`r` — lift all pieces to the maximum.  Determinism is monotonicity's
+corollary (`KnotFuelDet_of_mono`). -/
+
+/-- **Cross-fuel monotonicity of the knot** — the carried-obligations
+ledger entry, corrected shape (supersedes carrying `KnotFuelDet`
+directly; determinism follows).  Success at a fuel is success at
+every larger fuel, same output.  `reduceNat` is included because the
+assembly lemmas glue its runs across knot levels too. -/
+def KnotFuelMono (μ : CheckMode) (env : Env) : Prop :=
+  (∀ {f f' d : Nat} {e t : Expr}, f ≤ f' →
+    inferTypeCore μ env f d e = .ok t →
+    inferTypeCore μ env f' d e = .ok t) ∧
+  (∀ {f f' d : Nat} {e t : Expr}, f ≤ f' →
+    whnf μ env f d e = .ok t → whnf μ env f' d e = .ok t) ∧
+  (∀ {f f' d : Nat} {e t : Expr}, f ≤ f' →
+    whnfCore μ env f d e = .ok t → whnfCore μ env f' d e = .ok t) ∧
+  (∀ {f f' d : Nat} {a b : Expr} {v : Bool}, f ≤ f' →
+    isDefEqCore μ env f d a b = .ok v →
+    isDefEqCore μ env f' d a b = .ok v) ∧
+  (∀ {f f' d : Nat} {e : Expr} {o : Option Expr}, f ≤ f' →
+    Setlec.reduceNat (Setlec.pureFns μ env f) env d e = .ok o →
+    Setlec.reduceNat (Setlec.pureFns μ env f') env d e = .ok o)
+
+/-- Determinism is monotonicity's corollary: lift both runs to the
+maximum fuel and read them off each other. -/
+theorem KnotFuelDet_of_mono {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) : KnotFuelDet μ env := by
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro f₁ f₂ d e t₁ t₂ h₁ h₂
+    have g₁ := hm.1 (Nat.le_max_left f₁ f₂) h₁
+    have g₂ := hm.1 (Nat.le_max_right f₁ f₂) h₂
+    rw [g₁] at g₂; exact Except.ok.inj g₂
+  · intro f₁ f₂ d e t₁ t₂ h₁ h₂
+    have g₁ := hm.2.1 (Nat.le_max_left f₁ f₂) h₁
+    have g₂ := hm.2.1 (Nat.le_max_right f₁ f₂) h₂
+    rw [g₁] at g₂; exact Except.ok.inj g₂
+  · intro f₁ f₂ d e t₁ t₂ h₁ h₂
+    have g₁ := hm.2.2.1 (Nat.le_max_left f₁ f₂) h₁
+    have g₂ := hm.2.2.1 (Nat.le_max_right f₁ f₂) h₂
+    rw [g₁] at g₂; exact Except.ok.inj g₂
+  · intro f₁ f₂ d a b v₁ v₂ h₁ h₂
+    have g₁ := hm.2.2.2.1 (Nat.le_max_left f₁ f₂) h₁
+    have g₂ := hm.2.2.2.1 (Nat.le_max_right f₁ f₂) h₂
+    rw [g₁] at g₂; exact Except.ok.inj g₂
+
+/-- Decompose one reduction-loop step of a successful run. -/
+theorem whnfStep_decompose {env : Env} {r : Setlec.CoreFns Setlec.CheckM}
+    {d : Nat} {k : Expr → Setlec.CheckM Expr} {e s : Expr}
+    (h : Setlec.whnfStep r env d k e = .ok s) :
+    ∃ e₁, r.whnfCore d e = .ok e₁ ∧
+      ((∃ e₂, Setlec.reduceNat r env d e₁ = .ok (some e₂) ∧
+          k e₂ = .ok s) ∨
+       (Setlec.reduceNat r env d e₁ = .ok none ∧
+         ∃ e₂, Setlec.unfoldDefinition env e₁ = some e₂ ∧
+           k e₂ = .ok s) ∨
+       (Setlec.reduceNat r env d e₁ = .ok none ∧
+         Setlec.unfoldDefinition env e₁ = none ∧ s = e₁)) := by
+  unfold Setlec.whnfStep at h
+  simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+  split at h
+  · exact nomatch h
+  · next e₁ hwc =>
+    split at h
+    · exact nomatch h
+    · next o hrn =>
+      match o, h with
+      | some e₂, h => exact ⟨e₁, hwc, .inl ⟨e₂, hrn, h⟩⟩
+      | none, h =>
+        cases hud : Setlec.unfoldDefinition env e₁ with
+        | some e₂ =>
+          rw [hud] at h
+          exact ⟨e₁, hwc, .inr (.inl ⟨hrn, e₂, hud, h⟩)⟩
+        | none =>
+          rw [hud] at h
+          exact ⟨e₁, hwc, .inr (.inr ⟨hrn, hud,
+            (Except.ok.inj h).symm⟩)⟩
+
+/-- Assemble a step from a literal-acceleration continuation. -/
+theorem whnfStep_assemble_nat {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM} {d : Nat}
+    {k : Expr → Setlec.CheckM Expr} {e e₁ e₂ s : Expr}
+    (hwc : r.whnfCore d e = .ok e₁)
+    (hrn : Setlec.reduceNat r env d e₁ = .ok (some e₂))
+    (hk : k e₂ = .ok s) :
+    Setlec.whnfStep r env d k e = .ok s := by
+  unfold Setlec.whnfStep
+  simp only [Bind.bind, Except.bind, hwc, hrn]
+  exact hk
+
+/-- Assemble a step from an unfolding continuation. -/
+theorem whnfStep_assemble_delta {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM} {d : Nat}
+    {k : Expr → Setlec.CheckM Expr} {e e₁ e₂ s : Expr}
+    (hwc : r.whnfCore d e = .ok e₁)
+    (hrn : Setlec.reduceNat r env d e₁ = .ok none)
+    (hud : Setlec.unfoldDefinition env e₁ = some e₂)
+    (hk : k e₂ = .ok s) :
+    Setlec.whnfStep r env d k e = .ok s := by
+  unfold Setlec.whnfStep
+  simp only [Bind.bind, Except.bind, hwc, hrn, hud]
+  exact hk
+
+/-- Assemble a terminal (stuck) step. -/
+theorem whnfStep_assemble_stuck {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM} {d : Nat}
+    {k : Expr → Setlec.CheckM Expr} {e e₁ : Expr}
+    (hwc : r.whnfCore d e = .ok e₁)
+    (hrn : Setlec.reduceNat r env d e₁ = .ok none)
+    (hud : Setlec.unfoldDefinition env e₁ = none) :
+    Setlec.whnfStep r env d k e = .ok e₁ := by
+  unfold Setlec.whnfStep
+  simp only [Bind.bind, Except.bind, hwc, hrn, hud]
+  rfl
+
+/-- The loop unfolds one step (definitional). -/
+theorem whnfLoop_succ {env : Env} {r : Setlec.CoreFns Setlec.CheckM}
+    {d l : Nat} {e : Expr} :
+    Setlec.whnfLoop r env d (l + 1) e =
+      Setlec.whnfStep r env d (Setlec.whnfLoop r env d l) e := rfl
+
+/-- The defeq loop unfolds one step (definitional). -/
+theorem defeqLoop_succ {μ : CheckMode} {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM} {d l : Nat} {a b : Expr} :
+    Setlec.defeqLoop μ r env d (l + 1) a b =
+      Setlec.defeqStep μ r env d (Setlec.defeqLoop μ r env d l) a b := rfl
+
+/-- **Loop-budget monotonicity** — provable without any obligation:
+the continuation sits in tail position, so a shorter successful loop
+replays inside a longer one. -/
+theorem whnfLoop_budget_mono {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM} {d : Nat} :
+    ∀ {l l' : Nat} {e s : Expr}, l ≤ l' →
+      Setlec.whnfLoop r env d l e = .ok s →
+      Setlec.whnfLoop r env d l' e = .ok s := by
+  intro l
+  induction l with
+  | zero => intro l' e s _ h; exact nomatch h
+  | succ l ih =>
+    intro l' e s hle h
+    obtain ⟨l'', rfl⟩ : ∃ l'', l' = l'' + 1 := ⟨l' - 1, by omega⟩
+    rw [whnfLoop_succ] at h
+    rw [whnfLoop_succ]
+    obtain ⟨e₁, hwc, hrest⟩ := whnfStep_decompose h
+    rcases hrest with ⟨e₂, hrn, hk⟩ | ⟨hrn, e₂, hud, hk⟩ | ⟨hrn, hud, rfl⟩
+    · exact whnfStep_assemble_nat hwc hrn (ih (by omega) hk)
+    · exact whnfStep_assemble_delta hwc hrn hud (ih (by omega) hk)
+    · exact whnfStep_assemble_stuck hwc hrn hud
+
+/-- Peel a `whnf` run to its loop form (the internal shape the (A-T)
+induction speaks). -/
+theorem whnf_to_loop {μ : CheckMode} {env : Env} {f d : Nat}
+    {e s : Expr} (h : whnf μ env (f + 1) d e = .ok s) :
+    Setlec.whnfLoop (Setlec.pureFns μ env f) env d
+      Setlec.whnfLoopFuel e = .ok s := h
+
+/-- Wrap a loop run back into a `whnf` run (budget monotonicity into
+the loop's own budget). -/
+theorem whnf_of_loop {μ : CheckMode} {env : Env} {f d l : Nat}
+    {e s : Expr} (hl : l ≤ Setlec.whnfLoopFuel)
+    (h : Setlec.whnfLoop (Setlec.pureFns μ env f) env d l e = .ok s) :
+    whnf μ env (f + 1) d e = .ok s :=
+  whnfLoop_budget_mono hl h
+
 /-- **The unit-like vacuity pattern**: a subject cannot both have a
 unit-like type (the `proofIrrel`/rescue branch's certifying run) and
 a sort-successful run (whose type whnfs to a literal sort) — the two
