@@ -7455,3 +7455,49 @@ claims are therefore run-indexed (the `WhnfClaims`/`InferClaims`
 pattern with interp2-semantic conclusions), not a re-signing of the
 relation's mutual induction — the relation remains the bridge's
 factoring device for the *checker-shape* content, as designed.
+
+## WALL 3 (**open, escalated**) — defeq-leaf annotation coherence
+
+Shaping `DefEqClaims2` surfaced the migration's crux.  The checker's
+definitional equality concludes at a **syntactic** leaf: both sides
+reduce to the same `VExpr`.  Under the collapse that closes the
+soundness case trivially (`interp` is annotation-free).  Under
+`interp2` it does not: the two annotation threads meeting at the leaf
+may disagree in their binder numerals, and **numeral disagreement is
+semantically real** — `lamR 0 A F = pt` while `lamR v A F` (`v ≠ 0`)
+is a graph, so `.lam 0 Aa prf` and `.lam 5 Aa prf` are `AnnotOk2`
+annotations of one term with different `interp2` values.  `AnnotOk2`
+alone cannot pin numerals (the fibre package is satisfiable at both
+regimes for proof-valued bodies), and A4 forbids reading numerals back
+from memberships.  This is F4's flexibility biting at the leaf: the
+term-directed two-regime interpretation makes syntactic equality
+insufficient for semantic equality.
+
+**Resolution space, priced but not chosen** (this is a fork like A5's,
+not a call this lane makes silently):
+
+* **R1 — canonical annotations**: define the numeral assignment as a
+  *function* of (env, context types, term) — the sort the checker's
+  own deterministic computation (#152's) would produce — and make the
+  threading invariant "the annotation is the canonical one".  Two
+  threads at one leaf then agree definitionally.  The cost is the
+  stability metatheorem: canonicity must survive the checker's own
+  substitutions and reductions (sort-level substitution stability — a
+  sort-fragment of subject reduction, much weaker than the full
+  metatheory the annotation design avoids, but new).
+* **R2 — recompute at the leaf**: a runtime sort computation per
+  defeq leaf re-synchronizes the numerals.  Anti-goal: it re-taxes
+  the hot path the campaign is removing.
+* **R3 — uniqueness-of-inference + justification threading**: pin
+  numerals derivationally (`sortFact_unique_of_conv` at satisfying
+  `ρ`); needs inference uniqueness up to `DefEq` (syntax-directed,
+  but I8's conversion slack needs Π-injectivity-up-to-`DefEq`) *and*
+  justification surviving reduction, which wall 1 blocks.  Likely
+  subsumed by R1.
+
+The groundwork landed this seal is resolution-independent: the
+threading currency's congruences (`ZetaEq.liftN`/`ZetaEq.inst`, the
+`SubstAlgebra` commutations at the ζ cases) and the β residue
+companion (`AnnotOk2_beta_zero` — kind-0 β with the retained check's
+membership fact).  The `Claims2` definitions are deliberately **not**
+landed: their shape is exactly what the fork decides.

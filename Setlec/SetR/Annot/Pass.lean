@@ -1,4 +1,5 @@
 import Setlec.SetR.Annot.Syntax
+import Setlec.Verify.Denote.SubstAlgebra
 import Setlec.SetR.Rel
 
 /-!
@@ -182,6 +183,95 @@ theorem ZetaEq.refl : ∀ e : VExpr, ZetaEq e e := by
   | eqE T a b ihT iha ihb => exact .eqE ihT iha ihb
   | proj i e ih => exact .proj ih
   | prf => exact .prf
+
+
+/-! ### `ZetaEq` under the substitution kit
+
+The congruences the run-level threading needs: the (term, annotation)
+pair's structural link (`ZetaEq e ea.erase`) survives lifting and
+instantiation.  Purely syntactic — the `zeta` cases are the
+`SubstAlgebra` commutations. -/
+
+theorem ZetaEq.liftN :
+    ∀ {e e' : VExpr}, ZetaEq e e' →
+      ∀ (n k : Nat), ZetaEq (e.liftN n k) (e'.liftN n k) := by
+  intro e e' h
+  induction h with
+  | bvar => intro n k; rw [VExpr.liftN_bvar]; split <;> exact .bvar
+  | sort => intro n k; exact .sort
+  | const => intro n k; exact .const
+  | prf => intro n k; exact .prf
+  | app _ _ ihf iha =>
+    intro n k
+    exact .app (ihf n k) (iha n k)
+  | lam _ _ ihA ihb =>
+    intro n k
+    exact .lam (ihA n k) (ihb n (k + 1))
+  | pi _ _ ihA ihB =>
+    intro n k
+    exact .pi (ihA n k) (ihB n (k + 1))
+  | letE _ _ _ ihT ihv ihb =>
+    intro n k
+    exact .letE (ihT n k) (ihv n k) (ihb n (k + 1))
+  | eqE _ _ _ ihT iha ihb =>
+    intro n k
+    exact .eqE (ihT n k) (iha n k) (ihb n k)
+  | proj _ ih =>
+    intro n k
+    exact .proj (ih n k)
+  | @zeta T v b e2 _ ih =>
+    intro n k
+    refine .zeta ?_
+    have h1 := ih n k
+    rwa [VExpr.liftN_inst_comm b (Nat.zero_le k) v n,
+      Nat.sub_zero] at h1
+
+theorem ZetaEq.inst :
+    ∀ {e e' : VExpr}, ZetaEq e e' →
+      ∀ {a a' : VExpr}, ZetaEq a a' →
+      ∀ (k : Nat), ZetaEq (e.inst a k) (e'.inst a' k) := by
+  intro e e' h
+  induction h with
+  | @bvar i =>
+    intro a a' ha k
+    show ZetaEq
+      (if i < k then .bvar i
+       else if i = k then VExpr.liftN k a else .bvar (i - 1))
+      (if i < k then .bvar i
+       else if i = k then VExpr.liftN k a' else .bvar (i - 1))
+    by_cases h1 : i < k
+    · simp only [if_pos h1]; exact .bvar
+    · by_cases h2 : i = k
+      · simp only [if_neg h1, if_pos h2]
+        exact ha.liftN k 0
+      · simp only [if_neg h1, if_neg h2]; exact .bvar
+  | sort => intro a a' ha k; exact .sort
+  | const => intro a a' ha k; exact .const
+  | prf => intro a a' ha k; exact .prf
+  | app _ _ ihf ihb =>
+    intro a a' ha k
+    exact .app (ihf ha k) (ihb ha k)
+  | lam _ _ ihA ihb =>
+    intro a a' ha k
+    exact .lam (ihA ha k) (ihb ha (k + 1))
+  | pi _ _ ihA ihB =>
+    intro a a' ha k
+    exact .pi (ihA ha k) (ihB ha (k + 1))
+  | letE _ _ _ ihT ihv ihb =>
+    intro a a' ha k
+    exact .letE (ihT ha k) (ihv ha k) (ihb ha (k + 1))
+  | eqE _ _ _ ihT ihx ihy =>
+    intro a a' ha k
+    exact .eqE (ihT ha k) (ihx ha k) (ihy ha k)
+  | proj _ ih =>
+    intro a a' ha k
+    exact .proj (ih ha k)
+  | @zeta T v b e2 _ ih =>
+    intro a a' ha k
+    refine .zeta ?_
+    have h1 := ih ha k
+    rwa [VExpr.inst_inst_comm b (Nat.zero_le k) a v,
+      Nat.sub_zero] at h1
 
 /-! ## The annotation relation -/
 

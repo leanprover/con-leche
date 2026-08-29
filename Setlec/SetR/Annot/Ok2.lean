@@ -284,4 +284,21 @@ theorem AnnotOk2_zeta {T v b : AVExpr} {ρ : Nat → V}
   · rw [interp2_letE, interp2_inst0]
   · exact (AnnotOk2_inst0 V hv).mpr hb
 
+/-- The graded β step at kind `0` — the residue side: with the
+argument membership supplied (the retained `Prop`-codomain runtime
+check's fact), the equality holds because both sides are the canonical
+proof, and the transport is the hereditary component. -/
+theorem AnnotOk2_beta_zero {A b a : AVExpr} {ρ : Nat → V}
+    (h : AnnotOk2 V ρ (.app (.lam 0 A b) a))
+    (hmem : interp2 V ρ a ∈ˢ interp2 V ρ A) :
+    interp2 V ρ (.app (.lam 0 A b) a) = interp2 V ρ (b.inst a) ∧
+    AnnotOk2 V ρ (b.inst a) := by
+  rw [AnnotOk2_app] at h
+  obtain ⟨hlam, ha, -⟩ := h
+  rw [AnnotOk2_lam] at hlam
+  obtain ⟨-, hbody, B, hfib, hz⟩ := hlam
+  refine ⟨?_, (AnnotOk2_inst0 V ha).mpr (hbody _ hmem)⟩
+  rw [interp2_app, interp2_lam, lamR_zero, app_pt, interp2_inst0]
+  exact (eq_pt_of_mem_univZero (hz rfl _ hmem) (hfib _ hmem)).symm
+
 end Setlec.SetR.Interp2
