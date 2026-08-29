@@ -607,13 +607,17 @@ inductive PostCoreCert (μ : CheckMode) (env : Env)
       PostCoreCert μ env r k d (.lit l) (.lit l)
   | natZeroL : PostCoreCert μ env r k d
       (.lit (.natVal 0)) (.const Setlec.natZeroName [])
-  | natZeroR : PostCoreCert μ env r k d
-      (.const Setlec.natZeroName []) (.lit (.natVal 0))
+  | natZeroR :
+      Setlec.unfoldableHead env (.const Setlec.natZeroName []) = false →
+      PostCoreCert μ env r k d
+        (.const Setlec.natZeroName []) (.lit (.natVal 0))
   | natSuccL (n : Nat) (x : Expr) :
       r.defeq d (.lit (.natVal n)) x = .ok true →
       PostCoreCert μ env r k d (.lit (.natVal (n + 1)))
         (.app (.const Setlec.natSuccName []) x)
   | natSuccR (n : Nat) (x : Expr) :
+      Setlec.unfoldableHead env
+        (.app (.const Setlec.natSuccName []) x) = false →
       r.defeq d x (.lit (.natVal n)) = .ok true →
       PostCoreCert μ env r k d
         (.app (.const Setlec.natSuccName []) x)
@@ -624,6 +628,7 @@ inductive PostCoreCert (μ : CheckMode) (env : Env)
       PostCoreCert μ env r k d (.lit (.strVal st))
         (.app (.const cO usO) x)
   | strR (st : String) (cO : Name) (usO : List Level) (x : Expr) :
+      Setlec.unfoldableHead env (.app (.const cO usO) x) = false →
       r.defeq d (.app (.const cO usO) x)
         (Setlec.strLitToConstructor st) = .ok true →
       PostCoreCert μ env r k d (.app (.const cO usO) x)
@@ -631,6 +636,7 @@ inductive PostCoreCert (μ : CheckMode) (env : Env)
   | fvars (i : Nat) (n₁ n₂ : Name) (ty₁ ty₂ : Expr) :
       PostCoreCert μ env r k d (.fvar i n₁ ty₁) (.fvar i n₂ ty₂)
   | consts (n : Name) (us us' : List Level) :
+      Setlec.unfoldableHead env (.const n us) = false →
       Level.isEquivList us us' = some true →
       PostCoreCert μ env r k d (.const n us) (.const n us')
   | piCong (n₁ n₂ : Name) (ty₁ ty₂ body₁ body₂ : Expr)
@@ -648,6 +654,7 @@ inductive PostCoreCert (μ : CheckMode) (env : Env)
       PostCoreCert μ env r k d (.lam n₁ ty₁ body₁ m₁)
         (.lam n₂ ty₂ body₂ m₂)
   | appCong (f₁ a₁ f₂ a₂ : Expr) :
+      Setlec.unfoldableHead env (.app f₁ a₁) = false →
       (Expr.app f₁ a₁).getAppArgs.length =
         (Expr.app f₂ a₂).getAppArgs.length →
       r.defeq d (Expr.app f₁ a₁).getAppFn
@@ -784,7 +791,7 @@ theorem defeqStep_decompose {μ : CheckMode} {env : Env}
         simp only [pure, Except.pure, Except.ok.injEq] at h
         obtain rfl : n = 0 := by simpa using eq_of_beq h
         obtain ⟨rfl, rfl⟩ := hc''
-        exact .natZeroR
+        exact .natZeroR hua
       · exact .rescue _ _ h
     case _ nn f x => -- natLit vs app
       split at h
@@ -797,7 +804,7 @@ theorem defeqStep_decompose {μ : CheckMode} {env : Env}
       split at h
       · next m c'' =>
         split at h
-        · next hc'' => subst hc''; exact .natSuccR m x h
+        · next hc'' => subst hc''; exact .natSuccR m x hua h
         · exact .rescue _ _ h
       · exact .rescue _ _ h
     case _ st cO usO x => -- strLit vs app
@@ -806,7 +813,7 @@ theorem defeqStep_decompose {μ : CheckMode} {env : Env}
       · exact .rescue _ _ h
     case _ cO usO x st => -- app vs strLit
       split at h
-      · exact .strR st cO usO x h
+      · exact .strR st cO usO x hua h
       · exact .rescue _ _ h
     case _ i n₁ ty₁ j n₂ ty₂ => -- fvars
       split at h
@@ -825,7 +832,7 @@ theorem defeqStep_decompose {μ : CheckMode} {env : Env}
         · next aa hiseq =>
           obtain rfl : aa = c'' := Except.ok.inj hlift
           split at h
-          · next hc'' => exact .consts n us us' (hc'' ▸ hiseq)
+          · next hc'' => exact .consts n us us' hua (hc'' ▸ hiseq)
           · exact .rescue _ _ h
         · exact nomatch hlift
       · exact .rescue _ _ h
@@ -858,7 +865,7 @@ theorem defeqStep_decompose {μ : CheckMode} {env : Env}
           next c₃ hdl =>
           split at h
           · next hc₃ =>
-            exact .appCong f₁ a₁ f₂ a₂ hlen (hc'' ▸ hdf) (hc₃ ▸ hdl)
+            exact .appCong f₁ a₁ f₂ a₂ hua hlen (hc'' ▸ hdf) (hc₃ ▸ hdl)
           · exact .rescue _ _ h
         · exact .rescue _ _ h
       · exact .rescue _ _ h
@@ -1243,5 +1250,97 @@ theorem loop_align {μ : CheckMode} {env : Env}
         (whnfLoop_r_mono hm (Nat.le_max_left g f₂) hk)
     · exact whnfStep_assemble_stuck hwb'
         (hm.2.2.2.2 (Nat.le_max_left g f₂) hrn) hud
+
+/-- A non-unfoldable head yields no unfolding (the `isSome` relation
+the body comment states, in the direction the vacuities read). -/
+theorem unfoldDefinition_none_of_not_unfoldable {env : Env} {e : Expr}
+    (h : Setlec.unfoldableHead env e = false) :
+    Setlec.unfoldDefinition env e = none := by
+  unfold Setlec.unfoldableHead at h
+  unfold Setlec.unfoldDefinition
+  split at h
+  · next n us heq =>
+    cases hf : env.find? n with
+    | none => rfl
+    | some ci =>
+      rw [hf] at h
+      cases ci with
+      | defnInfo cv value hint =>
+        exact if_neg (by simpa using h)
+      | thmInfo cv value =>
+        exact if_neg (by simpa using h)
+      | axiomInfo cv => rfl
+      | indInfo cv caps => rfl
+      | ctorInfo cv a b => rfl
+      | recInfo cv a b c => rfl
+      | projInfo entry => rfl
+  · rfl
+
+/-! ## The shell's named hypotheses (the ledger's routing points)
+
+`WhnfCoreIdem` and the four vacuity routings — each discharged at its
+own seal (idempotence: body-level induction; probe/rescue/eta: the
+chain-transport / PSS seal; nat: the `natOpResult` shape-chase
+seal).  All are consumed by `sortLinkAcrossCertE_of` (the shell,
+next seal). -/
+
+/-- `whnfCore` outputs are head-normal: re-normalizing is the
+identity.  Carried obligation (ledger). -/
+def WhnfCoreIdem (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {f f' d : Nat} {e e' : Expr},
+    whnfCore μ env f d e = .ok e' → whnfCore μ env f' d e' = .ok e'
+
+/-- PSS routing: a `proofIrrel`-certified subject cannot
+whnf-converge to a literal sort. -/
+def ProbeSortVacuity (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {g g' l f d : Nat} {a a' b' : Expr} {ℓ : Level},
+    whnfCore μ env f d a = .ok a' →
+    Setlec.proofIrrel (Setlec.pureFns μ env g) env d a' b' = .ok true →
+    Setlec.whnfLoop (Setlec.pureFns μ env g') env d l a
+      = .ok (.sort ℓ) →
+    False
+
+/-- PSS routing: a rescue-certified subject (pair-eta, struct-eta,
+unit, or the irrelevance fallback) cannot whnf-converge to a literal
+sort. -/
+def RescueSortVacuity (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {g g' l f d : Nat} {a a' b' : Expr} {ℓ : Level},
+    whnfCore μ env f d a = .ok a' →
+    Setlec.stuckIrrel μ (Setlec.pureFns μ env g) env d a' b'
+      = .ok true →
+    Setlec.whnfLoop (Setlec.pureFns μ env g') env d l a
+      = .ok (.sort ℓ) →
+    False
+
+/-- PSS routing: an eta-certified (function-typed) subject cannot
+whnf-converge to a literal sort. -/
+def EtaSortVacuity (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {g g' l f d : Nat} {a a' : Expr} {n : Name} {ty body : Expr}
+    {m : Setlec.BinderMeta} {ℓ : Level},
+    whnfCore μ env f d a = .ok a' →
+    Setlec.etaCert (Setlec.pureFns μ env g) env d n ty body m a'
+      = .ok true →
+    Setlec.whnfLoop (Setlec.pureFns μ env g') env d l a
+      = .ok (.sort ℓ) →
+    False
+
+/-- Nat-chase routing: a subject certified against — or itself — a
+nat-steppable head cannot whnf-converge to a literal sort (nat steps
+produce literals and `Bool` constants, which are sort-free).  The
+cert run is included so the discharger has the full configuration;
+both sides are covered by the disjunction. -/
+def NatSortVacuity (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {fc l d g g' la f₁ f₂ : Nat} {a b a' b' x : Expr} {ℓ : Level},
+    Setlec.defeqLoop μ (Setlec.pureFns μ env fc) env d l a b
+      = .ok true →
+    whnfCore μ env f₁ d a = .ok a' →
+    whnfCore μ env f₂ d b = .ok b' →
+    (Setlec.reduceNat (Setlec.pureFns μ env g) env d a'
+        = .ok (some x) ∨
+     Setlec.reduceNat (Setlec.pureFns μ env g) env d b'
+        = .ok (some x)) →
+    Setlec.whnfLoop (Setlec.pureFns μ env g') env d la a
+      = .ok (.sort ℓ) →
+    False
 
 end Setlec.SetR.Interp2

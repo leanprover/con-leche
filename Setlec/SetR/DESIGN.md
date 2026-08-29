@@ -8477,3 +8477,35 @@ written (reported per the no-silent-hypotheses rule):
    lits/bool-consts, which never converge to sorts) — the deferred
    `natOpResult_shape` supplies it, and the Bool-ctor inertness
    question lands there.
+
+### Shell ingredients complete: head facts, the unfoldable-false lemma, the named hypotheses
+
+Final ingredient pass before the shell (`Annot/SortCoh.lean`):
+
+* **Five endgame constructors amended** with the branch's
+  `unfoldableHead env a = false` fact (`natZeroR`, `natSuccR`,
+  `strR`, `consts`, `appCong` — the const/app-headed left subjects,
+  whose det-vacuities need the no-unfolding leg that shape-rfl cannot
+  give); decompose re-proved.
+* `unfoldDefinition_none_of_not_unfoldable` — the deferred direction
+  of the `isSome` relation, proved.
+* **The shell's five named hypotheses defined**: `WhnfCoreIdem` (the
+  ledger obligation), `ProbeSortVacuity` / `RescueSortVacuity` /
+  `EtaSortVacuity` (the PSS routings, each carrying the whnfCore
+  alignment fact so the discharger has the full configuration), and
+  `NatSortVacuity` (the nat-chase routing, cert run included,
+  both sides in one disjunction — it also covers `natL` entirely:
+  a cert whose left side nat-steps has a sort-free left subject, so
+  the natL case needs no IH at all).
+
+The shell (`sortLinkAcrossCertE_of`, next seal) consumes: `inl`/
+`syn` via reuse/`loop_align`; sorts via `loop_stuck_out` + assembly +
+`isEquiv_sound`; all det-vacuous structural constructors via
+`loop_stuck_out` (+ the new head facts for const/app-headed lefts);
+`natL` via `NatSortVacuity`; `natR`/`deltaL`/`deltaR`/`deltaB` via
+trichotomy-of-the-given-run: nat-legs to `NatSortVacuity` or the
+`natR` det-contradiction, aligned delta legs to the loop-IH with
+`loop_align`+`WhnfCoreIdem` constructions and assemble-prepends
+(loop-level outputs, uncapped budgets — the amendment paying off),
+terminal legs to stuck-collisions; `irrel`/`rescue`/`etaR` to the
+PSS routings; `etaL` det-vacuous (its left subject is the λ).
