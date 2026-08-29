@@ -2158,6 +2158,177 @@ theorem isPropType_mono (hs : CoreSub r₁ r₂) {d : Nat} {ty : Expr}
         exact h
 
 
+/-- `projCert` respects the order. -/
+theorem projCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {e₂ : Expr}
+    {i : Nat} {fl sl : Level} {nP : Nat} {v : Bool}
+    (h : Setlec.projCert r₁ env d e₂ i fl sl nP = .ok v) :
+    Setlec.projCert r₂ env d e₂ i fl sl nP = .ok v := by
+  unfold Setlec.projCert at h ⊢
+  simp only [Bind.bind, Except.bind] at h ⊢
+  cases h1 : r₁.infer d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) with
+  | error err => rw [h1] at h; exact nomatch h
+  | ok ta =>
+  rw [h1] at h; rw [hs.2.2.1 h1]
+  simp only [] at h ⊢
+  cases h2 : r₁.infer d ta with
+  | error err => rw [h2] at h; exact nomatch h
+  | ok tta =>
+  rw [h2] at h; rw [hs.2.2.1 h2]
+  simp only [] at h ⊢
+  cases h3 : r₁.whnf d tta with
+  | error err => rw [h3] at h; exact nomatch h
+  | ok w =>
+  rw [h3] at h; rw [hs.2.1 h3]
+  simp only [] at h ⊢
+  cases w with
+  | sort uT =>
+    simp only [] at h ⊢
+    cases h4 : Setlec.liftFueled "level comparison"
+        (Level.isEquiv uT fl) (m := Setlec.CheckM) with
+    | error err => rw [h4] at h; exact nomatch h
+    | ok okT =>
+    rw [h4] at h
+    simp only [] at h ⊢
+    cases h5 : r₁.infer d e₂ with
+    | error err => rw [h5] at h; exact nomatch h
+    | ok te =>
+    rw [h5] at h; rw [hs.2.2.1 h5]
+    simp only [] at h ⊢
+    cases h6 : r₁.infer d te with
+    | error err => rw [h6] at h; exact nomatch h
+    | ok tte =>
+    rw [h6] at h; rw [hs.2.2.1 h6]
+    simp only [] at h ⊢
+    cases h7 : r₁.whnf d tte with
+    | error err => rw [h7] at h; exact nomatch h
+    | ok w₂ =>
+    rw [h7] at h; rw [hs.2.1 h7]
+    simp only [] at h ⊢
+    exact h
+  | fvar i' n ty => exact h
+  | app f a => exact h
+  | lam n ty b m => exact h
+  | letE n ty v' b => exact h
+  | proj s i' e => exact h
+  | lit l => exact h
+  | const n us => exact h
+  | forallE n ty b bi => exact h
+  | bvar i' => exact h
+
+
+/-- `proofIrrel` respects the order. -/
+theorem proofIrrel_mono (hs : CoreSub r₁ r₂) {d : Nat} {a b : Expr}
+    {v : Bool} (h : Setlec.proofIrrel r₁ env d a b = .ok v) :
+    Setlec.proofIrrel r₂ env d a b = .ok v := by
+  unfold Setlec.proofIrrel at h ⊢
+  simp only [Bind.bind, Except.bind] at h ⊢
+  cases h1 : r₁.infer d a with
+  | error err => rw [h1] at h; exact nomatch h
+  | ok ta =>
+  rw [h1] at h; rw [hs.2.2.1 h1]
+  simp only [] at h ⊢
+  cases h2 : r₁.whnf d ta with
+  | error err => rw [h2] at h; exact nomatch h
+  | ok wa =>
+  rw [h2] at h; rw [hs.2.1 h2]
+  simp only [] at h ⊢
+  by_cases hu : Setlec.isUnitLikeTy env wa = true
+  · rw [if_pos hu] at h ⊢
+    cases h3 : r₁.infer d b with
+    | error err => rw [h3] at h; exact nomatch h
+    | ok tb =>
+    rw [h3] at h; rw [hs.2.2.1 h3]
+    simp only [] at h ⊢
+    cases h4 : r₁.whnf d tb with
+    | error err => rw [h4] at h; exact nomatch h
+    | ok wb =>
+    rw [h4] at h; rw [hs.2.1 h4]
+    simp only [] at h ⊢
+    exact h
+  · rw [if_neg hu] at h ⊢
+    cases h3 : r₁.infer d ta with
+    | error err => rw [h3] at h; exact nomatch h
+    | ok tta =>
+    rw [h3] at h; rw [hs.2.2.1 h3]
+    simp only [] at h ⊢
+    cases h4 : r₁.whnf d tta with
+    | error err => rw [h4] at h; exact nomatch h
+    | ok w =>
+    rw [h4] at h; rw [hs.2.1 h4]
+    simp only [] at h ⊢
+    cases w with
+    | sort uT =>
+      simp only [] at h ⊢
+      cases h5 : Setlec.liftFueled "level comparison"
+          (Level.isEquiv uT Level.zero) (m := Setlec.CheckM) with
+      | error err => rw [h5] at h; exact nomatch h
+      | ok okA =>
+      rw [h5] at h
+      simp only [] at h ⊢
+      cases h6 : r₁.infer d b with
+      | error err => rw [h6] at h; exact nomatch h
+      | ok tb =>
+      rw [h6] at h; rw [hs.2.2.1 h6]
+      simp only [] at h ⊢
+      cases h7 : r₁.infer d tb with
+      | error err => rw [h7] at h; exact nomatch h
+      | ok ttb =>
+      rw [h7] at h; rw [hs.2.2.1 h7]
+      simp only [] at h ⊢
+      cases h8 : r₁.whnf d ttb with
+      | error err => rw [h8] at h; exact nomatch h
+      | ok w₂ =>
+      rw [h8] at h; rw [hs.2.1 h8]
+      simp only [] at h ⊢
+      exact h
+    | fvar i' n ty => exact h
+    | app f a' => exact h
+    | lam n ty b' m => exact h
+    | letE n ty v' b' => exact h
+    | proj s i' e => exact h
+    | lit l => exact h
+    | const n us => exact h
+    | forallE n ty b' bi => exact h
+    | bvar i' => exact h
+
+/-- `etaCert` respects the order. -/
+theorem etaCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {n₁ : Name}
+    {ty₁ body₁ : Expr} {m₁ : Setlec.BinderMeta} {b : Expr} {v : Bool}
+    (h : Setlec.etaCert r₁ env d n₁ ty₁ body₁ m₁ b = .ok v) :
+    Setlec.etaCert r₂ env d n₁ ty₁ body₁ m₁ b = .ok v := by
+  unfold Setlec.etaCert at h ⊢
+  simp only [Bind.bind, Except.bind] at h ⊢
+  cases h1 : r₁.infer d b with
+  | error err => rw [h1] at h; exact nomatch h
+  | ok tb =>
+  rw [h1] at h; rw [hs.2.2.1 h1]
+  simp only [] at h ⊢
+  cases h2 : r₁.whnf d tb with
+  | error err => rw [h2] at h; exact nomatch h
+  | ok w =>
+  rw [h2] at h; rw [hs.2.1 h2]
+  simp only [] at h ⊢
+  cases w with
+  | forallE n₂ ty₂ bd₂ m₂ =>
+    simp only [] at h ⊢
+    cases h3 : r₁.defeq d ty₂ ty₁ with
+    | error err => rw [h3] at h; exact nomatch h
+    | ok c =>
+    rw [h3] at h; rw [hs.2.2.2.1 h3]
+    simp only [] at h ⊢
+    cases c with
+    | true => exact hs.2.2.2.1 h
+    | false => exact h
+  | sort u => exact h
+  | fvar i' n ty => exact h
+  | app f a' => exact h
+  | lam n ty b' m => exact h
+  | letE n ty v' b' => exact h
+  | proj s i' e => exact h
+  | lit l => exact h
+  | const n us => exact h
+  | bvar i' => exact h
+
 end MonoHelpers2
 
 end Setlec.SetR.Interp2

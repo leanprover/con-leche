@@ -8758,3 +8758,13 @@ r-free guards verbatim.  Remaining for 2b: `projCert`, `proofIrrel`,
 `majorToCtor`, `iotaRec` (largest, decomposes onto `defEqList`/
 `iotaCerts`/levels).  Then the bodies, the step/loop layer for defeq,
 the knot chain, the public projection.
+
+### KnotFuelMono discharge, batch 2b-i: the inference-shaped certs
+
+Proved: `projCert_mono`, `proofIrrel_mono`, `etaCert_mono` — the
+three certs whose bodies are infer/whnf cascades with sort-matches.
+Same success-chase; the only new wrinkle was tactical (branch-entry
+iota via bare `simp only []` where the bind-lemmas have nothing left
+to do).  Remaining 2b-ii: the pair/struct eta and unit certs,
+`stuckIrrel`, `majorToCtor`, `iotaRec`; then the bodies, defeq
+step/loop, knot chain, public projection.
