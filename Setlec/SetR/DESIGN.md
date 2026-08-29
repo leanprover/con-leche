@@ -8725,3 +8725,23 @@ routed vacuity, or something a given run exhibited.
 
 Remaining discharge tier: `KnotFuelMono`, the three PSS vacuities,
 `NatSortVacuity`, `SpineSortAgree`.
+
+### KnotFuelMono discharge, batch 1: the oracle order and the helper tier
+
+`Annot/SortCoh.lean`: `CoreSub` — success-extension between oracles,
+all five fields (`annotate` included: the bodies reach it through
+`isPropType`, even though the public obligation omits it) — and the
+helper tier, proved: `ensureSort_mono`, `defEqList_mono`,
+`reduceNat_mono` (sequential `by_cases` down its if-chains; the only
+oracle use is `whnf` on the arguments), `whnfStep_mono` (decompose,
+lift, reassemble — the run algebra reused verbatim), `whnfLoop_mono`
+(budget induction over `whnfStep_mono`).
+
+Remaining batches: the cert helpers (`iotaCerts`, `defeqSpine`,
+`proofIrrel`, `projCert`/`projTeleCert`, the eta/unit certs,
+`projLitToCtor`, `iotaRec`, `majorToCtor`, `isPropType`), the four
+bodies + `annotateBody` and its loops, `defeqStep`/`defeqLoop` (via
+the decompose or a direct chase), then the knot chain
+(`Sub (coreKnot f) (coreKnot f')` by induction) and the public
+`KnotFuelMono` projection.  The shell's contract taxonomy stands: an
+obligation, a routed vacuity, or a given-run exhibit — nothing else.

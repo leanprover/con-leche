@@ -1821,4 +1821,178 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
     exact main fc Setlec.defeqLoopFuel hc hla hlb
 
 
+/-! ## `KnotFuelMono` discharge, batch 1: the oracle order and the helper tier
+
+The obligation discharges by oracle-extension induction over
+`coreKnot`: define success-extension between oracles, show every
+body and helper respects it, chain up the knot.  Batch 1: the order
+and the helpers below the bodies.  (`annotate` is in the order — the
+bodies reach it through `isPropType` — even though the public
+obligation omits it.) -/
+
+/-- Success-extension: every successful call of `r₁` is reproduced
+verbatim by `r₂`, on all five fields. -/
+def CoreSub (r₁ r₂ : Setlec.CoreFns Setlec.CheckM) : Prop :=
+  (∀ {d : Nat} {e x : Expr},
+    r₁.whnfCore d e = .ok x → r₂.whnfCore d e = .ok x) ∧
+  (∀ {d : Nat} {e x : Expr},
+    r₁.whnf d e = .ok x → r₂.whnf d e = .ok x) ∧
+  (∀ {d : Nat} {e x : Expr},
+    r₁.infer d e = .ok x → r₂.infer d e = .ok x) ∧
+  (∀ {d : Nat} {a b : Expr} {v : Bool},
+    r₁.defeq d a b = .ok v → r₂.defeq d a b = .ok v) ∧
+  (∀ {d : Nat} {e x : Expr},
+    r₁.annotate d e = .ok x → r₂.annotate d e = .ok x)
+
+section MonoHelpers
+variable {env : Env} {r₁ r₂ : Setlec.CoreFns Setlec.CheckM}
+
+/-- `ensureSort` respects the order. -/
+theorem ensureSort_mono (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
+    {u : Level} (h : Setlec.ensureSort r₁ env d e = .ok u) :
+    Setlec.ensureSort r₂ env d e = .ok u := by
+  unfold Setlec.ensureSort at h ⊢
+  simp only [Bind.bind, Except.bind] at h ⊢
+  cases hw : r₁.whnf d e with
+  | error err => rw [hw] at h; exact nomatch h
+  | ok w =>
+    rw [hw] at h
+    rw [hs.2.1 hw]
+    exact h
+
+/-- `defEqList` respects the order. -/
+theorem defEqList_mono (hs : CoreSub r₁ r₂) {d : Nat} :
+    ∀ {as bs : List Expr} {v : Bool},
+      Setlec.defEqList r₁ env d as bs = .ok v →
+      Setlec.defEqList r₂ env d as bs = .ok v := by
+  intro as
+  induction as with
+  | nil => intro bs v h; cases bs <;> exact h
+  | cons a as ih =>
+    intro bs v h
+    cases bs with
+    | nil => exact h
+    | cons b bs =>
+      unfold Setlec.defEqList at h ⊢
+      simp only [Bind.bind, Except.bind] at h ⊢
+      cases hd : r₁.defeq d a b with
+      | error err => rw [hd] at h; exact nomatch h
+      | ok c =>
+        rw [hd] at h
+        rw [hs.2.2.2.1 hd]
+        cases c with
+        | true => simpa using ih (by simpa using h)
+        | false => exact h
+
+/-- `reduceNat` respects the order (its only oracle use is whnf on
+the arguments). -/
+theorem reduceNat_mono (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
+    {o : Option Expr}
+    (h : Setlec.reduceNat r₁ env d e = .ok o) :
+    Setlec.reduceNat r₂ env d e = .ok o := by
+  unfold Setlec.reduceNat at h ⊢
+  split at h
+  · -- unary shape `.app (.const c []) a`
+    next c a =>
+    by_cases h1 : c = Setlec.natSuccName ∧ Setlec.natLitSupported env
+    · rw [if_pos h1] at h ⊢
+      simp only [Bind.bind, Except.bind] at h ⊢
+      cases hw : r₁.whnf d a with
+      | error err => rw [hw] at h; exact nomatch h
+      | ok w => rw [hw] at h; rw [hs.2.1 hw]; exact h
+    · rw [if_neg h1] at h ⊢
+      by_cases h2 : c = Setlec.natPredName ∧
+          Setlec.natOpGuard env c = true
+      · rw [if_pos h2] at h ⊢
+        simp only [Bind.bind, Except.bind] at h ⊢
+        cases hw : r₁.whnf d a with
+        | error err => rw [hw] at h; exact nomatch h
+        | ok w => rw [hw] at h; rw [hs.2.1 hw]; exact h
+      · rw [if_neg h2] at h ⊢
+        by_cases h3 : c = Setlec.natLog2Name ∧
+            Setlec.natOpGuard env c = true
+        · rw [if_pos h3] at h ⊢
+          simp only [Bind.bind, Except.bind] at h ⊢
+          cases hw : r₁.whnf d a with
+          | error err => rw [hw] at h; exact nomatch h
+          | ok w => rw [hw] at h; rw [hs.2.1 hw]; exact h
+        · rw [if_neg h3] at h ⊢
+          by_cases h4 : c = Setlec.natLog2Name ∧
+              Setlec.natLitSupported env
+          · rw [if_pos h4] at h ⊢
+            simp only [Bind.bind, Except.bind] at h ⊢
+            cases hw : r₁.whnf d a with
+            | error err => rw [hw] at h; exact nomatch h
+            | ok w => rw [hw] at h; rw [hs.2.1 hw]; exact h
+          · rw [if_neg h4] at h ⊢
+            exact h
+  · -- binary shape `.app (.app (.const c []) a) b`
+    next c a b =>
+    by_cases h1 : (c = Setlec.natAddName ∨ c = Setlec.natSubName ∨
+        c = Setlec.natMulName ∨ c = Setlec.natPowName ∨
+        c = Setlec.natBeqName ∨ c = Setlec.natBleName ∨
+        c = Setlec.natDivName ∨ c = Setlec.natModName ∨
+        c = Setlec.natGcdName ∨ c = Setlec.natLandName ∨
+        c = Setlec.natLorName ∨ c = Setlec.natXorName ∨
+        c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName) ∧
+        Setlec.natOpGuard env c = true
+    · rw [if_pos h1] at h ⊢
+      simp only [Bind.bind, Except.bind] at h ⊢
+      cases hwa : r₁.whnf d a with
+      | error err => rw [hwa] at h; exact nomatch h
+      | ok wa =>
+        rw [hwa] at h
+        rw [hs.2.1 hwa]
+        cases hwb : r₁.whnf d b with
+        | error err => rw [hwb] at h; exact nomatch h
+        | ok wb => rw [hwb] at h; rw [hs.2.1 hwb]; exact h
+    · rw [if_neg h1] at h ⊢
+      by_cases h2 : Setlec.natOpWfNames.contains c ∧
+          Setlec.natLitSupported env
+      · rw [if_pos h2] at h ⊢
+        simp only [Bind.bind, Except.bind] at h ⊢
+        cases hwa : r₁.whnf d a with
+        | error err => rw [hwa] at h; exact nomatch h
+        | ok wa =>
+          rw [hwa] at h
+          rw [hs.2.1 hwa]
+          cases hwb : r₁.whnf d b with
+          | error err => rw [hwb] at h; exact nomatch h
+          | ok wb => rw [hwb] at h; rw [hs.2.1 hwb]; exact h
+      · rw [if_neg h2] at h ⊢
+        exact h
+  · -- inert shapes
+    exact h
+
+/-- `whnfStep` respects the order (decompose, lift, reassemble). -/
+theorem whnfStep_mono (hs : CoreSub r₁ r₂) {d : Nat}
+    {k₁ k₂ : Expr → Setlec.CheckM Expr}
+    (hk : ∀ {e s : Expr}, k₁ e = .ok s → k₂ e = .ok s)
+    {e s : Expr} (h : Setlec.whnfStep r₁ env d k₁ e = .ok s) :
+    Setlec.whnfStep r₂ env d k₂ e = .ok s := by
+  obtain ⟨e₁, hwc, hrest⟩ := whnfStep_decompose h
+  rcases hrest with ⟨e₂, hrn, hkk⟩ | ⟨hrn, e₂, hud, hkk⟩ | ⟨hrn, hud, rfl⟩
+  · exact whnfStep_assemble_nat (hs.1 hwc) (reduceNat_mono hs hrn)
+      (hk hkk)
+  · exact whnfStep_assemble_delta (hs.1 hwc) (reduceNat_mono hs hrn)
+      hud (hk hkk)
+  · exact whnfStep_assemble_stuck (hs.1 hwc) (reduceNat_mono hs hrn)
+      hud
+
+/-- `whnfLoop` respects the order at every budget. -/
+theorem whnfLoop_mono (hs : CoreSub r₁ r₂) {d : Nat} :
+    ∀ {l : Nat} {e s : Expr},
+      Setlec.whnfLoop r₁ env d l e = .ok s →
+      Setlec.whnfLoop r₂ env d l e = .ok s := by
+  intro l
+  induction l with
+  | zero => intro e s h; exact nomatch h
+  | succ l ih =>
+    intro e s h
+    rw [whnfLoop_succ] at h
+    rw [whnfLoop_succ]
+    exact whnfStep_mono hs (fun hk => ih hk) h
+
+end MonoHelpers
+
 end Setlec.SetR.Interp2
