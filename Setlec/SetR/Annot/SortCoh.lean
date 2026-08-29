@@ -585,6 +585,7 @@ inductive PostCoreCert (μ : CheckMode) (env : Env)
       Setlec.reduceNat r env d a = .ok (some a₂) →
       k a₂ b = .ok true → PostCoreCert μ env r k d a b
   | natR (a b b₂ : Expr) :
+      Setlec.reduceNat r env d a = .ok none →
       Setlec.reduceNat r env d b = .ok (some b₂) →
       k a b₂ = .ok true → PostCoreCert μ env r k d a b
   | deltaL (a b a₂ : Expr) :
@@ -715,7 +716,9 @@ theorem defeqStep_decompose {μ : CheckMode} {env : Env}
   split at h
   case _ b₂ =>
     split at hrb
-    · exact .natR a' b' b₂ hrb h
+    · next hg =>
+      rw [if_pos hg] at hra
+      exact .natR a' b' b₂ hra hrb h
     · exact nomatch hrb
   clear hra hrb
   split at h

@@ -8440,3 +8440,40 @@ and all det-vacuous structural constructors); what remains for the
 shell seal is the induction plumbing (guard preservation through
 re-entries), the re-entry cases themselves, and the PSS-routed
 hypotheses (probe/rescue/etaR).
+
+### Shell plumbing, first contact: two findings, one strengthening
+
+Assembling the (A-T) shell surfaced three facts before any case was
+written (reported per the no-silent-hypotheses rule):
+
+1. **The guards are dead weight in (A-T)** — a pleasant finding: no
+   case supplier consumes `WScoped`/`looseBVars`/`LeavesBounded`/
+   `PairedLeaves` (syn is `loop_align`, sorts is
+   `loop_stuck_out` + assembly, the vacuities are shape-collisions,
+   and (A-T) never descends into sub-certs, so there is no
+   `whnfPres_*` threading at all).  The internal loop claim drops
+   them; the public statement keeps them for interface stability.
+   Consequently the (A-T) induction is on the **loop budget alone**
+   (no knot-fuel induction: no sub-cert descent).
+2. **`natR` was under-informative** — the re-entry analysis needs the
+   cert's own first-probe outcome.  Strengthened (constructor +
+   decompose re-proof): `natR` now carries
+   `reduceNat r env d a = .ok none`, derived in the decompose from
+   the shared `hasFvar` guard — the second probe firing proves the
+   guard true, so the first probe's `none` is the genuine function
+   value.  (`deltaR` cannot be analogously strengthened: the
+   `true.true` hint-ordered right-unfold has an unfoldable left
+   subject; reverted after the mechanization said so.)
+3. **`WhnfCoreIdem` joins the ledger** — the R-side re-entries
+   (natR/deltaR/deltaB-with-divergence) pair an *unchanged post-core
+   subject* with the given run, and building a run "on `a'`" needs
+   `whnfCore` idempotence
+   (`whnfCore f d e = .ok e' → whnfCore f' d e' = .ok e'` — true:
+   outputs are head-normal; body-level induction over
+   `whnfCoreBody`, sized like the decompose seal).  Carried as a
+   named obligation with `KnotFuelMono`; its own discharge seal.
+   Where the given run *nat-steps past* the cert's pair, the case is
+   instead vacuous by the nat-shape chase (nat outputs are
+   lits/bool-consts, which never converge to sorts) — the deferred
+   `natOpResult_shape` supplies it, and the Bool-ctor inertness
+   question lands there.
