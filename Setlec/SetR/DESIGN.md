@@ -9256,3 +9256,46 @@ the (A) decomposition, at the type level:
 (1) the pair-form `PairedLeaves` thread and (2) plausibly the same
 abstract `P`-slot as the spine repair — both touch the motive.  Rule
 on both before the (B) build so the motive is threaded once.
+
+### The joint motive pass LANDED — one binary slot serves both rulings
+
+Refinement over the ruled P-slot, recorded with its justification:
+the shell is parametric in a **binary** invariant
+`Q : Nat → Expr → Expr → Prop` on the compared pair, with three
+*left*-step preservers (`QPreserveCoreF/DeltaF/NatF`) plus a
+symmetry hypothesis — steps touch one side at a time, so right-side
+steps ride symmetry (both ruled instances are symmetric: the denote
+frame is `Q := P×P`, cross-pairing is `PairedLeaves`).  One slot
+subsumes both ruled threads AND avoids a hypothesis regression: the
+`Q := True` instance recovers the slot-free `EnsureSortAgreeR` with
+*trivial* preservers (`fun _ h => h`), whereas threading
+`PairedLeaves` concretely would have taxed the slot-free claim with
+real pairing-preserver obligations it never uses.
+
+Landed: `EnsureSortAgreeRQ` (the `Q`-enriched claim),
+`ensureSortAgreeRQ_of` (the re-threaded shell — `Q` enters from the
+claim's own premise and steps by preserver-plus-symmetry
+compositions at every re-entry site; compiled with the motive edit
+plus mechanical site compositions, the second first-pass re-thread),
+`ensureSortAgreeR_of` (the `True` instance), the `Q`-parametric
+chain (`_of_vacuities`/`_of_pss`/`_of_species`/`_of_core`,
+`spineSortAgree_of`), `SpineSortAgree`/`DeltaSpineSortAgree` with
+`Q` at pre-core/head-normal subjects respectively,
+`PairedLeaves.symm`, and the pairing preserver species
+(`PairedPreserveCoreF/DeltaF/NatF` — (B)'s `fvars` suppliers,
+discharged alongside the `InvPreserve*F` suppliers whose
+self-pairing legs prove the same leaf-shrinking).
+
+Recipe note: implicit-`Q` wrapper calls mis-unify (higher-order
+imitation picks a projection solution from the symmetry
+hypothesis's swapped occurrence) — pin `(Q := Q)` explicitly at
+every chained call.
+
+The model-tier core discharge now has its channel: the consumer
+instantiates `Q d a b := denotes-and-CtxOkR-in-frame for both`,
+supplies the three preservers from `WhnfCoreClaimsR` /
+`denote_delta_step` / the literal-`Bool` denotes, and
+`DeltaSpineSortAgree` receives the frame at the head-normal forms.
+Next: the (B) shell on the settled shape (its own motive copies the
+`Q`-thread; PSS-one-level-up vacuities first, congruence tier
+after).
