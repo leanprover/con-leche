@@ -2329,6 +2329,58 @@ theorem etaCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {n₁ : Name}
   | const n us => exact h
   | bvar i' => exact h
 
+/-- `projParamCert` respects the order (an `iotaCerts` wrapper). -/
+theorem projParamCert_mono (hs : CoreSub r₁ r₂) {d : Nat}
+    {entry : Setlec.ProjEntry} {us : List Level} {ps : List Expr}
+    {v : Bool}
+    (h : Setlec.projParamCert r₁ env d entry us ps = .ok v) :
+    Setlec.projParamCert r₂ env d entry us ps = .ok v :=
+  iotaCerts_mono hs h
+
+/-- `structEtaProjCerts` respects the order. -/
+theorem structEtaProjCerts_mono (hs : CoreSub r₁ r₂) {d : Nat}
+    {T : Name} {us' : List Level} {targs : List Expr} {b : Expr}
+    {lpsT : List Name} :
+    ∀ {idxs : List Nat} {v : Bool},
+      Setlec.structEtaProjCerts r₁ env d T us' targs b lpsT idxs
+        = .ok v →
+      Setlec.structEtaProjCerts r₂ env d T us' targs b lpsT idxs
+        = .ok v := by
+  intro idxs
+  induction idxs with
+  | nil => intro v h; exact h
+  | cons i rest ih =>
+    intro v h
+    unfold Setlec.structEtaProjCerts at h ⊢
+    cases hf : env.find? (Setlec.projFnName T i) with
+    | none => rw [hf] at h; exact h
+    | some ci =>
+      rw [hf] at h
+      cases ci with
+      | recInfo cvp mi rp rules =>
+        simp only [] at h ⊢
+        by_cases hg : cvp.levelParams = lpsT ∧
+            (cvp.type.stripPis (targs.length + 1)).isSome = true
+        · rw [if_pos hg] at h ⊢
+          simp only [Bind.bind, Except.bind] at h ⊢
+          cases hic : Setlec.iotaCerts r₁ env d
+              (cvp.type.instantiateLevelParams cvp.levelParams us')
+              (targs ++ [b]) with
+          | error err => rw [hic] at h; exact nomatch h
+          | ok c =>
+          rw [hic] at h; rw [iotaCerts_mono hs hic]
+          simp only [] at h ⊢
+          cases c with
+          | true => exact ih h
+          | false => exact h
+        · rw [if_neg hg] at h ⊢; exact h
+      | axiomInfo cv => exact h
+      | defnInfo cv vl hint => exact h
+      | thmInfo cv vl => exact h
+      | indInfo cv caps => exact h
+      | ctorInfo cv na nb => exact h
+      | projInfo entry => exact h
+
 end MonoHelpers2
 
 end Setlec.SetR.Interp2

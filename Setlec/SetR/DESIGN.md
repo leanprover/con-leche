@@ -8768,3 +8768,20 @@ iota via bare `simp only []` where the bind-lemmas have nothing left
 to do).  Remaining 2b-ii: the pair/struct eta and unit certs,
 `stuckIrrel`, `majorToCtor`, `iotaRec`; then the bodies, defeq
 step/loop, knot chain, public projection.
+
+### KnotFuelMono batch 2b-ii, part 1 — and a tactical finding
+
+Proved: `projParamCert_mono` (the `iotaCerts` wrapper),
+`structEtaProjCerts_mono` (index-list recursion).  **Tactical
+finding**, reported before it costs more: the deep-compound-pattern
+certs (`pairEtaCert`'s `some (.recInfo _ mI rP [rr])`-style matches)
+resist the established recipe — after `cases`-substitution the
+*goal*-side match over a nested pattern reduces neither by
+`simp only []` nor `dsimp`, so `rw [if_pos …]` cannot reach the
+guard.  Candidate recipes for the next seal: goal-side `split` with
+equation branches (worked on concrete scrutinees in the re-idem
+proof), or a `fun_cases`-driven case tree (the toolchain has
+`fun_induction`; `Verify/Level.lean` uses it).  Remaining 2b-ii:
+`pairEtaCert`, `structEtaCertWith`/`structEtaCert`,
+`structUnitCert`, `stuckIrrel`, `litMajorToCtor`, `majorToCtor`,
+`iotaRec`.
