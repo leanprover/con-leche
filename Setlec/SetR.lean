@@ -71,6 +71,7 @@ import Setlec.SetR.Annot.Validity
 import Setlec.SetR.Interp2.Univ
 import Setlec.SetR.Interp2.TierA
 import Setlec.SetR.Interp2.Graded
+import Setlec.SetR.Interp2.Pilot
 import Setlec.SetR.DivModPin
 import Setlec.SetR.StdAxiomKey
 
