@@ -7501,3 +7501,31 @@ threading currency's congruences (`ZetaEq.liftN`/`ZetaEq.inst`, the
 companion (`AnnotOk2_beta_zero` — kind-0 β with the retained check's
 membership fact).  The `Claims2` definitions are deliberately **not**
 landed: their shape is exactly what the fork decides.
+
+## R1 taken — canonical annotations; `denote2` lands (WALL 3's resolution, part 1)
+
+The fork was decided R1 (coordinator's call from the standing rulings,
+user override open): R2 re-taxes the hot path, R3 is blocked by wall 1
+and needs the Π-injectivity route; R1 makes coherence the determinism
+of a computation the checker already embodies, over **ground
+numerals** (levels are ground `Nat`s throughout TT — the sort-level
+stability fragment stays first-order where full SR is refuted).
+
+`Annot/Canon.lean`: **`denote2`** — `denote` fused with the checker's
+own sort computation (`sortOfE` = infer, whnf to a sort, evaluate;
+`lamSortE` = the #152 fact per node), constant leaves from the
+canonical annotated valuation `acval` (fixed at install, `EnvS2`-side),
+literal spines annotated (`natLitT2`/`charListT2`).  A metatheory-level
+function — the #100-stage-6 annotate pass resurrected proof-side, zero
+runtime cost — so **coherence is definitional**: two threads at one
+(env, depth, term) carry the same numerals because there is one
+function value.
+
+Next seal, alone (the load-bearing piece): the **erasure law**
+(`denote2` erases to `denote` under the valuation link — mechanical;
+note the functional-induction gotcha: match-style clause bodies split
+`denote2.induct` into ~37 branch-conditioned cases, do-style keeps 15
+with `Option.bind` unfolds; pick one and stick to it) and the
+**stability metatheorem** — canonicity survives the checker's own
+substitutions and reductions.  STOP condition stands: a genuine
+instability counterexample is a design finding, not a proof gap.
