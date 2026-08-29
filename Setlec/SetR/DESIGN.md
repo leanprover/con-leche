@@ -7749,3 +7749,87 @@ equality), or rank 2's removal has no supplier for the β premise at
 all.  This is a finding about the rank-2 design, discovered two seals
 early — exactly what stating the premise before the case work was
 for.
+
+### The ruling, and the coordinator's record (verbatim, as directed)
+
+> "My directive gave you the wrong currency and your trap discipline
+> caught it before a single case consumed it — that sequence,
+> directive included, belongs in the DESIGN record verbatim."
+
+And the rule the episode produced, recorded at full generality: **when
+a discharge lemma discards a stronger fact to satisfy a premise, the
+premise is under-stated — check what the supplier naturally
+produces.**  (`betaCert_discharge` derived the type-level equality
+from `DefEq.sound` and threw it away to conclude the membership; the
+supplier's natural product was the run verdict itself, and each
+weakening below it loses something the induction needs.)
+
+### SECOND REFUTATION: the corrected (interp-equality) premise falls to the SAME countermodel
+
+Executing the adopted correction, the base-case trace (`body =
+bvar 0`, where the conclusion demands `sortOfE(ty) = sortOfE(ta)`
+outright) refuted it before it reached the statement: **the sealed
+finding's own countermodel satisfies the sealed finding's own
+proposed fix.**  Unit-likes at `Prop` and `Type 1` with the shared
+carrier `{pt}`: `interp ⟦ta⟧ = interp ⟦ty⟧` holds at every valuation
+— carriers equal is precisely the countermodel's construction — while
+the checker computes sorts `0` vs `2`.  Interp-equality of types is
+sort-blind; this is cumulativity one rung up the same ladder.
+
+**The full ladder**, each rung refuted by the one countermodel family
+or by architecture:
+
+1. *membership* (`interp av ∈ˢ interp tyv`) — refuted: pins the
+   element, not the type (first refutation).
+2. *type-level interp equality* (`interp ⟦ta⟧ = interp ⟦tyv⟧`) —
+   refuted: pins the carrier, not the sort (this refutation).
+3. *relational conversion* (`DefEq Δv ⟦ta⟧ ⟦ty⟧`) — phase-one
+   dischargeable (`DefEqClaimsR` bridges the cert), but the leaf
+   cannot consume it: linking the sort facts of `DefEq`-related
+   subjects is uniqueness-of-inference ground (semantic route dead by
+   cumulativity, relational route deliberately absent), and an
+   induction over the *derivation* dies at `DefEq.trans` — the middle
+   term has no run, hence no sort computation to pair.
+4. **the run itself** — the surviving currency.  The defeq *run's
+   recursion tree* pairs the two syntaxes step by step, and every
+   node of it is run-backed on both sides; it is the only object that
+   crosses the cumulativity gap without UoI.
+
+**Premise v3** (proposed; the statement rewrite waits for this
+ruling):
+
+    ∀ (fuel' : Nat) {ta : Expr},
+      inferTypeCore μ env fuel' d a = .ok ta →
+        ∃ fuelc, Setlec.isDefEqCore μ env fuelc d ta ty = .ok true
+
+— *every inferred type of the argument is run-certified convertible
+to the domain*.  Run-shaped, and still supplier-swappable, which
+dissolves the apparent conflict with the removal architecture: the
+FACT is "some certifying run exists", not "the β site performed it".
+Phase one supplies the site's own cert (plus fuel-determinism to link
+`ta` across fuels); phase two supplies the **primary typing walk's**
+app-site defeq — the walk that is never removed, because it is the
+typing judgment itself, not a certificate.  The phase-two blade
+sharpens accordingly: the slot package must thread *run evidence*
+(the primary verdict), not any semantic shadow of it.
+
+**Consequences for the branch plan:**
+
+* The **defeq-branch is load-bearing**, not a no-op: the leaf's
+  workhorse is the paired induction over the certifying defeq run —
+  "a true defeq run plus sort-computation runs on both arguments
+  forces numeral agreement at `Sat`".  That is the arc's remaining
+  provability risk, named before case work.
+* **Fuel-determinism of the knot** is the phase-one discharge's
+  enabler (site cert at one fuel, premise quantifies all fuels).
+  Feasibility fact banked: `Setlec/Kernel/Core.lean` contains **no
+  tryCatch/orElse anywhere** — the bodies never backtrack through
+  errors, so success-monotonicity in fuel is clean and mechanical
+  (oracle-extension induction over `coreKnot`).  Sized bridge-batch;
+  its own seal.  Until it lands, the discharge lemma takes the
+  determinism as an explicit hypothesis (the `CheckStepR` precedent:
+  hypothesize the step, prove it in batches).
+* Paired positions in the two runs always sit at **identical fuels**
+  (the knot decrements per recursion level, never through results),
+  so the induction itself never crosses fuels; only the discharge
+  does.
