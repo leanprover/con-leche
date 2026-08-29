@@ -78,6 +78,7 @@ import Setlec.SetR.Annot.EnvS2
 import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.SimSubst
 import Setlec.SetR.Annot.PremiseLadder
+import Setlec.SetR.Annot.SortCoh
 import Setlec.SetR.DivModPin
 import Setlec.SetR.StdAxiomKey
 

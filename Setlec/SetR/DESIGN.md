@@ -7895,3 +7895,98 @@ Mechanization facts worth reusing:
   `SortSubstStable` with only the premise swapped — if the
   statement's shape ever changes, re-sync them or the guard guards
   nothing.
+
+## The defeq-branch, opened — the claim-family STATEMENT seal
+
+`Annot/SortCoh.lean`: run-level sort coherence, the arc's load-bearing
+branch, stated alone and trap-tested before any case work (the
+discipline that has now caught three premise defects in this arc).
+Four claims — **(A)** `EnsureSortAgreeR` (certified pair, both whnf to
+literal sorts, numerals equal), **(B)** `SortOfAgreeR` (the target:
+certified pair, both `sortOfE` runs succeed, numerals equal — the
+exact shape `SortSubstStable`'s leaf consumes on the `ta`/`ty` pair),
+**(C)** `SortOfWhnfCoreStableR` (one-sided: sort of the type survives
+a whnfCore step), **(C-δ)** `SortOfDeltaStableR` (survives one
+unfolding) — plus `KnotFuelDet` (the ledger obligation, knot-wide
+form) and `PairedLeaves` (the ambient one-annotation-per-index
+discipline, syntactic).
+
+**The centerpiece: valuation-freedom.**  The claims never mention
+`V`/`interp`/`Sat`.  The relation needed `Sat`-conditioning because it
+has no confluence theorem; the runs have no such freedom — the checker
+certifies `.sort u ≡ .sort v` only through the ground level
+comparison.  Run-level sort coherence is syntax + arithmetic.  This
+also dissolves the empty-domain binder problem that would have sunk a
+`Sat`-conditioned induction at `pi`-congruence descents (no satisfying
+valuation of an empty domain, yet inner numerals feed outer `imax`es):
+with no valuation anywhere, binder descent is free.
+
+**The case map of `defeqStep`** (trap-test evidence; every certifying
+path classified):
+
+| path | class | supplier |
+|---|---|---|
+| syntactic `a == b` | live | `KnotFuelDet` (same syntax, two fuels) |
+| post-whnfCore `a' == b'` | live | (C) both sides + `KnotFuelDet` |
+| `proofIrrel` | vacuous | subject's type is `Prop`-sorted, so it cannot whnf to a literal sort (`ℓ+1 = 0` impossible); vacuity crosses fuel scales → `KnotFuelDet` |
+| `reduceNat` re-entry | vacuous-or-(C) | subjects are `Nat` elements (type `Nat` is not a sort); the re-entry itself rides (C) |
+| lazy-delta one-sided/both | live | (C-δ) + loop IH |
+| `defeqSpine` same-head | live | **the app/spine unknown** (below) |
+| `.sort`/`.sort` level compare | live, the base | ground `isEquiv → eval` lemma |
+| literal cases (nat/str/ctor) | vacuous | element-level subjects |
+| `fvar i == fvar j`, `i = j` | live | `PairedLeaves` (annotations identical) → same computation, `KnotFuelDet`; inside descents, the Θ motive + (A) on the annotation pair |
+| `forallE` congruence | live, the main case | (B) on the domain pair (sub-cert at `f-1`) + (B) on the opened-body pair (`infer`'s ∀ clause computes `.sort (.imax u v)` from exactly (B)-shaped sub-facts) |
+| `lam` congruence | vacuous | subject's type is a Π, not a sort |
+| app/app stuck congruence | live | **the app/spine unknown** |
+| proj/proj stuck congruence | live | **the proj unknown** |
+| eta (one-sided λ) | vacuous | function subjects |
+| `stuckIrrel` fallbacks (K/unit/struct-eta) | vacuous | element/proof subjects |
+
+**The Θ motive** (internal to the induction; the statement exposes
+only `PairedLeaves`): congruence descent opens with *each side's own*
+domain, so the paired zone's indices map to annotation *pairs*.  The
+motive carries, per opened index: the pair, its certifying sub-run
+(the domain premise, a call at knot fuel `f-1`), and the
+induction-grade agreement fact — extended at every descent from the
+domain IH.  Well-founded lexicographically on (knot fuel, lazy-delta
+loop budget); the domain cert is one knot level down, so the
+extension is IH-fed, never circular.
+
+**The mutual knot is real, as granted**: (C)'s β case is
+`SortSubstStable`-shaped (redex type vs substituted-body type — the
+whnfCore branch is where the substitution simulation re-enters), and
+`SortSubstStable`'s leaf is (B) — one mutual induction, three
+branches, sealed at knot-natural boundaries.
+
+**Named unknowns, graded** (to be attacked in this order, each its
+own seal, STOP with the case if one genuinely fails):
+
+1. *app/spine congruence* (defeqSpine + stuck app/app): `sortOfE` of
+   a stuck application destructures `whnf(infer f)` into a Π and
+   returns `B.inst a`-shaped types; pairing the two sides needs a
+   run-level type-join for the certified heads.  Same-const heads
+   with eval-equal levels (defeqSpine) share one declared type, which
+   should pin the pairing; the general app/app case is the branch's
+   hardest and may need a further claim (run-level "certified
+   subjects' inferred types are certifiable") — if so, that claim
+   gets its own statement seal before any case consumes it.
+2. *delta install-threading* (C-δ): the unfolding's sort agreement
+   rides the install-time cert (`checkDecl` ran `infer(value)` +
+   `defeq(tv, ty)` when the definition entered the env); needs an
+   env-level invariant field exposing that run fact (EnvWF-adjacent,
+   V-free) — an install-tier addition, designed when (C-δ) is
+   attacked.
+3. *proj congruence*: projection types via `piResidual` peeling;
+   expected to follow the app pattern.
+
+**Anticipated `SortSubstStable` amendment** (recorded now, applied
+when its leaf case lands): its guard set carries `CtxOkR` (denoted
+discipline) but the leaf's (B) instance needs the *syntactic*
+discipline (`PairedLeaves ta ty`), which the consumer has because a
+walk opens each index once (`Expr.LeafCond` shape).  A
+`PairedLeaves`-style hypothesis will be added to the statement at
+that seal — flagged here so it does not arrive as a surprise.
+
+**Retired**: the "identical fuels" lemma idea — every run is
+quantified at its own fuel and all same-syntax links go through
+`KnotFuelDet`, so no fuel alignment discipline is needed anywhere.
