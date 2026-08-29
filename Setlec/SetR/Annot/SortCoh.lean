@@ -2711,6 +2711,282 @@ theorem litMajorToCtor_mono (hs : CoreSub r₁ r₂) {d : Nat}
   | forallE n ty b bi => exact h
   | bvar i => exact h
 
+/-- `majorToCtor` respects the order. -/
+theorem majorToCtor_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
+    {d : Nat} {recName : Name} {rules : List Setlec.RecRule}
+    {major x : Expr}
+    (h : Setlec.majorToCtor μ r₁ env d recName rules major = .ok x) :
+    Setlec.majorToCtor μ r₂ env d recName rules major = .ok x := by
+  unfold Setlec.majorToCtor at h ⊢
+  by_cases hca : Setlec.isCtorApp env major = true
+  · rw [if_pos hca] at h ⊢; exact h
+  rw [if_neg hca] at h ⊢
+  split at h
+  · next rl =>
+    split at h
+    · next cvj cnP cnF heq =>
+      split at h
+      · next T tus heq2 =>
+        split at h
+        · next cvT caps heq3 =>
+          by_cases hK : caps.ruleK = true ∧ cnF = 0
+          · rw [if_pos hK] at h ⊢
+            simp only [Bind.bind, Except.bind] at h ⊢
+            cases h1 : r₁.infer d major with
+            | error err => rw [h1] at h; exact nomatch h
+            | ok tm =>
+            rw [h1] at h; rw [hs.2.2.1 h1]
+            simp only [] at h ⊢
+            cases h2 : r₁.whnf d tm with
+            | error err => rw [h2] at h; exact nomatch h
+            | ok tmaj =>
+            rw [h2] at h; rw [hs.2.1 h2]
+            simp only [] at h ⊢
+            split at h
+            · next T' ust heq4 =>
+              split at h
+              · next hg1 =>
+                rw [if_pos hg1]
+                split at h
+                · next hg2 =>
+                  rw [if_pos hg2]
+                  split at h
+                  · next hg3 =>
+                    rw [if_pos hg3]
+                    cases h3 : Setlec.iotaCerts r₁ env d
+                        (cvj.type.instantiateLevelParams
+                          cvj.levelParams ust)
+                        (tmaj.getAppArgs.take cnP) with
+                    | error err => rw [h3] at h; exact nomatch h
+                    | ok c₃ =>
+                    rw [h3] at h; rw [iotaCerts_mono hs h3]
+                    simp only [] at h ⊢
+                    cases c₃ with
+                    | false => exact h
+                    | true =>
+                    simp only [if_true] at h ⊢
+                    cases h4 : r₁.infer d (Expr.mkAppN
+                        (.const rl.ctor ust)
+                        (tmaj.getAppArgs.take cnP)) with
+                    | error err => rw [h4] at h; exact nomatch h
+                    | ok tf =>
+                    rw [h4] at h; rw [hs.2.2.1 h4]
+                    simp only [] at h ⊢
+                    cases h5 : r₁.defeq d tmaj tf with
+                    | error err => rw [h5] at h; exact nomatch h
+                    | ok c₅ =>
+                    rw [h5] at h; rw [hs.2.2.2.1 h5]
+                    simp only [] at h ⊢
+                    cases c₅ with
+                    | false => exact h
+                    | true =>
+                    simp only [if_true] at h ⊢
+                    cases h6 : Setlec.proofIrrel r₁ env d
+                        (Expr.mkAppN (.const rl.ctor ust)
+                          (tmaj.getAppArgs.take cnP)) major with
+                    | error err => rw [h6] at h; exact nomatch h
+                    | ok c₆ =>
+                    rw [h6] at h; rw [proofIrrel_mono hs h6]
+                    simp only [] at h ⊢
+                    exact h
+                  · next hg3 => rw [if_neg hg3]; exact h
+                · next hg2 => rw [if_neg hg2]; exact h
+              · next hg1 => rw [if_neg hg1]; exact h
+            · next => exact h
+          · rw [if_neg hK] at h ⊢
+            by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
+                Setlec.Name.isProjFnShape recName = false
+            · rw [if_pos hE] at h ⊢
+              simp only [Bind.bind, Except.bind] at h ⊢
+              cases h1 : r₁.infer d major with
+              | error err => rw [h1] at h; exact nomatch h
+              | ok tm =>
+              rw [h1] at h; rw [hs.2.2.1 h1]
+              simp only [] at h ⊢
+              cases h2 : r₁.whnf d tm with
+              | error err => rw [h2] at h; exact nomatch h
+              | ok tmaj =>
+              rw [h2] at h; rw [hs.2.1 h2]
+              simp only [] at h ⊢
+              split at h
+              · next T' ust heq4 =>
+                split at h
+                · next hg1 =>
+                  rw [if_pos hg1]
+                  split at h
+                  · next hg2 =>
+                    rw [if_pos hg2]
+                    split at h
+                    · next hg3 =>
+                      rw [if_pos hg3]
+                      cases h3 : Setlec.iotaCerts r₁ env d
+                          (cvj.type.instantiateLevelParams
+                            cvj.levelParams ust)
+                          (Setlec.etaFabArgs T ust tmaj.getAppArgs
+                            major caps.etaFields) with
+                      | error err => rw [h3] at h; exact nomatch h
+                      | ok c₃ =>
+                      rw [h3] at h; rw [iotaCerts_mono hs h3]
+                      simp only [] at h ⊢
+                      cases c₃ with
+                      | false => exact h
+                      | true =>
+                      simp only [if_true] at h ⊢
+                      cases h4 : Setlec.structEtaCertWith μ r₁ env d
+                          (Expr.mkAppN (.const caps.etaCtor ust)
+                            (Setlec.etaFabArgs T ust tmaj.getAppArgs
+                              major caps.etaFields)) major tmaj with
+                      | error err => rw [h4] at h; exact nomatch h
+                      | ok c₄ =>
+                      rw [h4] at h; rw [structEtaCertWith_mono hs h4]
+                      simp only [] at h ⊢
+                      cases c₄ with
+                      | true => exact h
+                      | false =>
+                      simp only [Bool.false_eq_true, if_false] at h ⊢
+                      split at h
+                      · next hg4 =>
+                        rw [if_pos hg4]
+                        cases h5 : Setlec.proofIrrel r₁ env d
+                            (Expr.mkAppN (.const caps.etaCtor ust)
+                              (Setlec.etaFabArgs T ust
+                                tmaj.getAppArgs major
+                                caps.etaFields)) major with
+                        | error err => rw [h5] at h; exact nomatch h
+                        | ok c₅ =>
+                        rw [h5] at h; rw [proofIrrel_mono hs h5]
+                        simp only [] at h ⊢
+                        exact h
+                      · next hg4 => rw [if_neg hg4]; exact h
+                    · next hg3 => rw [if_neg hg3]; exact h
+                  · next hg2 => rw [if_neg hg2]; exact h
+                · next hg1 => rw [if_neg hg1]; exact h
+              · next => exact h
+            · rw [if_neg hE] at h ⊢
+              exact h
+        · next => exact h
+      · next => exact h
+    · next => exact h
+  · next => exact h
+
+/-- `iotaRec` respects the order — the last helper. -/
+theorem iotaRec_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
+    {d : Nat} {e : Expr} {o : Option Expr}
+    (h : Setlec.iotaRec μ r₁ env d e = .ok o) :
+    Setlec.iotaRec μ r₂ env d e = .ok o := by
+  unfold Setlec.iotaRec at h ⊢
+  split at h
+  · next c us hga =>
+    split at h
+    · next cv mI rP rules heq =>
+      dsimp only [] at h ⊢
+      split at h
+      · next hlen =>
+        rw [if_pos hlen]
+        simp only [Bind.bind, Except.bind] at h ⊢
+        cases h1 : r₁.whnf d (e.getAppArgs.getD mI (.bvar 0)) with
+        | error err => rw [h1] at h; exact nomatch h
+        | ok major₀ =>
+        rw [h1] at h; rw [hs.2.1 h1]
+        simp only [] at h ⊢
+        cases h2 : Setlec.litMajorToCtor r₁ env d major₀ with
+        | error err => rw [h2] at h; exact nomatch h
+        | ok major₁ =>
+        rw [h2] at h; rw [litMajorToCtor_mono hs h2]
+        simp only [] at h ⊢
+        cases h3 : Setlec.majorToCtor μ r₁ env d c rules major₁ with
+        | error err => rw [h3] at h; exact nomatch h
+        | ok major =>
+        rw [h3] at h; rw [majorToCtor_mono hs h3]
+        simp only [] at h ⊢
+        split at h
+        · next cj usj hgm =>
+          split at h
+          · next cvj na nb heq2 =>
+            split at h
+            · next rl heq3 =>
+              split at h
+              · next hlen2 =>
+                rw [if_pos hlen2]
+                split at h
+                · next hinert => exact nomatch h
+                · next hinert =>
+                  rw [if_neg hinert]
+                  split at h
+                  · next hg2 =>
+                    rw [if_pos hg2]
+                    cases h4 : Setlec.liftFueled "level comparison"
+                        (Level.isEquivList usj
+                          (Setlec.recFireComparands rl cv.levelParams
+                            us cvj.levelParams e.getAppArgs rP).1)
+                        (m := Setlec.CheckM) with
+                    | error err => rw [h4] at h; exact nomatch h
+                    | ok c₄ =>
+                    rw [h4] at h
+                    simp only [] at h ⊢
+                    cases c₄ with
+                    | false => exact h
+                    | true =>
+                    simp only [if_true] at h ⊢
+                    cases h5 : Setlec.defEqList r₁ env d
+                        (major.getAppArgs.take rl.ctorParams)
+                        (Setlec.recFireComparands rl cv.levelParams
+                          us cvj.levelParams e.getAppArgs rP).2 with
+                    | error err => rw [h5] at h; exact nomatch h
+                    | ok c₅ =>
+                    rw [h5] at h; rw [defEqList_mono hs h5]
+                    simp only [] at h ⊢
+                    cases c₅ with
+                    | false => exact h
+                    | true =>
+                    simp only [if_true] at h ⊢
+                    cases h6 : Setlec.iotaCerts r₁ env d
+                        (cv.type.instantiateLevelParams cv.levelParams
+                          us)
+                        (e.getAppArgs.take mI ++ [major]) with
+                    | error err => rw [h6] at h; exact nomatch h
+                    | ok c₆ =>
+                    rw [h6] at h; rw [iotaCerts_mono hs h6]
+                    simp only [] at h ⊢
+                    cases c₆ with
+                    | false => exact h
+                    | true =>
+                    simp only [if_true] at h ⊢
+                    cases h7 : Setlec.iotaCerts r₁ env d
+                        (cvj.type.instantiateLevelParams
+                          cvj.levelParams usj)
+                        major.getAppArgs with
+                    | error err => rw [h7] at h; exact nomatch h
+                    | ok c₇ =>
+                    rw [h7] at h; rw [iotaCerts_mono hs h7]
+                    simp only [] at h ⊢
+                    cases c₇ with
+                    | false => exact h
+                    | true =>
+                    simp only [if_true] at h ⊢
+                    split at h
+                    · next cbody residual heq4 heq5 =>
+                      split at h
+                      · next hcb =>
+                        cases h8 : Setlec.defEqList r₁ env d
+                            (residual.getAppArgs.drop rl.ctorParams)
+                            ((e.getAppArgs.take mI).drop rP) with
+                        | error err => rw [h8] at h; exact nomatch h
+                        | ok c₈ =>
+                        rw [h8] at h; rw [defEqList_mono hs h8]
+                        simp only [] at h ⊢
+                        exact h
+                      · next => exact h
+                    · next => exact h
+                  · next hg2 => rw [if_neg hg2]; exact h
+              · next hlen2 => rw [if_neg hlen2]; exact h
+            · next => exact h
+          · next => exact h
+        · next => exact h
+      · next hlen => rw [if_neg hlen]; exact h
+    · next => exact h
+  · next => exact h
+
 end MonoHelpers2
 
 end Setlec.SetR.Interp2

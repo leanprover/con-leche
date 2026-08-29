@@ -8801,3 +8801,18 @@ the cases-lift pattern with `simp only []` for branch-entry iota;
 `litMajorToCtor_mono`.  Remaining in the helper tier: `majorToCtor`,
 `iotaRec`; then the bodies, defeq step/loop, knot chain, public
 projection.
+
+### KnotFuelMono: the helper tier is COMPLETE
+
+`majorToCtor_mono` (both rescue branches: K and eta, each a guarded
+infer/whnf/iotaCerts/cert cascade) and `iotaRec_mono` (the recursor
+fire path end to end: major whnf, literal conversion, rescue, rule
+lookup, the inert throw, comparand levels/params, both telescope
+certificates, the index-residual check) close the tier.  Every
+r-consuming helper of the knot now has a monotonicity lemma; the
+recipe handled both without novelty (two `dsimp`/`simp` placement
+adjustments only).  Remaining: the four bodies + `annotateBody` and
+its loops, `defeqStep`/`defeqLoop`, the knot chain by fuel-gap
+induction, and the public projection — at which point
+**`KnotFuelMono` lands as a theorem**: the shell's last wide
+obligation, from which half the ledger projects.
