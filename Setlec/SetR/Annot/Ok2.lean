@@ -271,4 +271,17 @@ theorem AnnotOk2_beta_pos {v : Nat} (hv : v ≠ 0) {A b a : AVExpr}
   · rw [interp2_app, interp2_lam, app_lamR_pos hv haA, interp2_inst0]
   · exact (AnnotOk2_inst0 V ha).mpr (hbody _ haA)
 
+/-- The graded ζ step — both conjuncts, no premises beyond the
+subject's invariant (ζ is annotation-free: `interp2`'s `letE` clause
+is already the contractum's reading). -/
+theorem AnnotOk2_zeta {T v b : AVExpr} {ρ : Nat → V}
+    (h : AnnotOk2 V ρ (.letE T v b)) :
+    interp2 V ρ (.letE T v b) = interp2 V ρ (b.inst v) ∧
+    AnnotOk2 V ρ (b.inst v) := by
+  rw [AnnotOk2_letE] at h
+  obtain ⟨-, hv, hb⟩ := h
+  refine ⟨?_, ?_⟩
+  · rw [interp2_letE, interp2_inst0]
+  · exact (AnnotOk2_inst0 V hv).mpr hb
+
 end Setlec.SetR.Interp2

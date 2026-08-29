@@ -7344,3 +7344,75 @@ fit with `fold_mem`), and
 the *product's* kind.  `AnnotOk2_redex_fits` packages the composite as
 the exact interface seal 3's iota case consumes: subject invariant in,
 telescope fit and residual membership out, no runtime walk anywhere.
+
+## Second soundness, seal 3 — FINDING (blocking for rank 1's checker change), the assembly architecture, and the graded ζ step
+
+### FINDING: the rank-1 checker change cannot ride the collapse lane
+
+The plan had rank 1 (the `iotaCertsI` calls behind a
+`Level.isNonZero` motive gate at `mode.verified`) executing after the
+motive re-signing.  **It cannot land while the twelve consistency
+theorems are proved over the collapse interpretation**, and the reason
+is mechanizable, not scheduling:
+
+* At a gated-off (positive-motive) fire, the bridge loses the `Tele`
+  premises, so `sndRedIota` must recover the fits from the subject's
+  invariant.  Over `interp2` that is seal 2's `AnnotOk2_redex_fits`.
+* Over the **collapse** lane it is unrecoverable: `AnnotOkV`'s app
+  slots are kind-less (`piC` carries no regime index), and
+  `piC_dom_unique` needs `f ≠ pt` — which is not dischargeable, since
+  `pt` inhabits positive-kind collapsed products whenever the fibres
+  contain `pt` and the domain is nonempty (the all-`pt` graph
+  collapses), and on empty domains every `lamC` is `pt` (`lamC_empty`,
+  the #100 countermodel).  The domain-relative collapse destroys
+  domain determination in exactly the cases the gate opens.
+
+**Consequence**: the rank-1 (and rank-2) checker changes gate on
+migrating the consistency surface — the twelve `Main.lean` theorems —
+from `interp` to `interp2`.  The *measured payoff is already banked*
+(`_tmp/certprof-151`: families 0+1 = −1.5 % init-prelude / −3.9 %
+Std.Time single-mask, −41.7 % / −83.3 % for the family joint); the
+landing is a proof milestone, not a measurement one.
+
+### The assembly architecture: per-step graded lemmas + an annotated environment, no monolithic re-signing
+
+The second soundness does **not** re-sign the 44-case mutual induction
+wholesale.  Per A2's resolution (the statement follows
+checker-computed facts):
+
+* each reduction step gets a **graded step lemma on `AVExpr`** —
+  β (`AnnotOk2_beta_pos`, seal 1), ζ (`AnnotOk2_zeta`, this seal),
+  iota (consuming `AnnotOk2_redex_fits` + the stored rule's fired law
+  over `interp2`), proj, and the rescues;
+* the **environment invariant** (`EnvS2`, the migration's spine)
+  stores, per constant, an annotation of its value and type with
+  `AnnotOk2`/membership facts over `interp2` — every term the checker
+  builds is then assembled from annotated pieces by
+  annotation-preserving operations (`AVExpr.inst`/`mkAppN`; the
+  metatheory of seal 1);
+* the bridge-level claims maintain "the current term erases an
+  annotated term carrying `AnnotOk2`" along runs and compose the step
+  lemmas — annotations never cross a bare `Red`, they follow the run.
+
+The fired-law premise (`RecRulesV2`) must be **stated by its
+supplier** — the T5 install content re-derived over `interp2`
+(`EnvS2`, the bottoms, `EqLawV2`, `bval2` towers — `Interp2/Value.lean`
+already exists) — not guessed at the consumer; writing it
+consumer-side first was the T5 near-miss this campaign should not
+repeat.
+
+### Migration roadmap (the remaining seals)
+
+1. `EnvS2` core: the annotated-environment invariant, `CvalAnnot`'s
+   two clauses become fields, `mem_type` over `interp2`.
+2. The install tier over `interp2` (basis blocks on `bval2`,
+   `EqLawV2`, the iota bottoms via seal 2's interfaces — the T5
+   transposition recipe, third lane).
+3. The soundness tier: the graded step lemmas assembled along the
+   bridge claims; the twelve re-proved over `interp2`.
+4. **Rank 1 executes** (checker change: `iotaCertsI` behind the
+   motive-kind gate, riding `AnnotOk2_redex_fits` + the migrated
+   bottoms), measured against `_tmp/certprof-151`.
+5. Rank 2 (β behind the #152-sort delivery — the stored-annotation
+   vs recompute pricing decision, taken then), rank 3 (internal
+   per-argument), rank 4 sweep-up (proj, proof-irrel chains).
