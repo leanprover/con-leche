@@ -7859,3 +7859,39 @@ rungs, guarding the final statement), then the induction with the
 defeq-branch first as the named load-bearing risk — STOP condition
 standing: a defeq rule that certifies across a sort boundary is the
 finding of the whole arc.
+
+### The countermodel, banked mechanized (`Annot/PremiseLadder.lean`)
+
+The two dead rungs are now proofs of `False`, parametric in `V`:
+`SortSubstStable_mem_refuted` and `SortSubstStable_interpEq_refuted`
+(`∀ V [SetTheory V], ¬ rung`), each at exactly the three standard
+axioms.  The countermodel got *simpler* than the design sketch — no
+custom inductives needed: the pinned basis' own `PUnit` **is** the
+sort-blind carrier family.  Its valuation is level-uniform
+(`pinnedDirectT`: `cval PUnit ψ = punitT (ψ u)`,
+`interp (punitT u) = unitSet` for every `u`), so
+`ty := PUnit.{2}`, `a := PUnit.unit.{0}`, `body := .bvar 0` satisfies
+both refuted premises at every valuation while the checker computes
+`2` vs `0` — and the v3 premise correctly fails
+(`defeq(PUnit.{0}, PUnit.{2})` is `false`; equal shadows, no
+certifying run).
+
+Mechanization facts worth reusing:
+
+* the env is built by the *actual checker* (`checkDecls` on
+  `[.basisDecl .punitK]`) and its model by the *actual acceptance
+  theorem* (`checkDecls_sound_R`) — the refutation exercises the real
+  pipeline end to end;
+* one decided probe carries every env-dependent fact; checker runs
+  evaluate in the kernel via **`decide +kernel`** — plain `decide`
+  stalls because `whnfLoopFuel` is `@[irreducible]` and the
+  elaborator respects reducibility while the kernel does not (a
+  standing gotcha for any future in-proof evaluation of `whnf`-path
+  functions);
+* WF-recursive `Bool`/`List` helpers (`wscopedB`, `fvarLeaves`) do
+  not reduce definitionally — evaluate them by `simp` with their
+  equation lemmas, not `decide`;
+* the rung statements are verbatim mirrors of the sealed
+  `SortSubstStable` with only the premise swapped — if the
+  statement's shape ever changes, re-sync them or the guard guards
+  nothing.
