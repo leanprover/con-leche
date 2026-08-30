@@ -16333,3 +16333,113 @@ underscored has surfaced that.
    field for four seals. **Closing it by building an `EnvS2U` at a
    non-empty environment is the batch's first job.**
 3. **Tombstones.** A file added, none edited; tree green at 335 jobs.
+
+### Seal 38 — a non-empty `EnvS2U` exists; and the keys hit a missing tier
+
+**Section 1 succeeded, and it was the right thing to do first.**
+`probeEnvS2U` (`Interp2/EnvS2UNe.lean`) is an `EnvS2U` at a
+**non-empty** environment — one axiom of type `.sort .zero`, named
+with a `.num` so every disequality against the tree's `.str`-shaped
+reserved names is one constructor comparison.
+
+**No field failed.** `acval_defn`/`acval_thm` are vacuous *for the
+right reason* — nothing of that kind stored, rather than nothing
+stored at all — and `mem_type2` is **genuinely exercised**:
+`probe_denote2_type` proves its premise is met at every mode, fuel and
+valuation, so the field is not skipped. The four-seal masking shape is
+closed.
+
+Honest limit, recorded in the file: the stored type is sort-shaped, so
+no binder numeral is computed and **`sortOfE` never runs**. The basis
+block is the next probe up. *A first inhabitant that exercises one
+field is not an inhabitant that exercises the structure.*
+
+Route note: `EnvS.cons` directly, **not** `extendAxiomS` — the latter
+returns `Nonempty`, and `acval_erase` must *name* `base.cval`. R6 said
+`Nonempty` is fine for *consuming*; constructing is where it bites.
+
+#### `Denote2EnvExtend` is proved — and my seal-35 fit check was wrong about the direction
+
+`denote2_envExtend` closes over all fifteen `denote2.induct` cases.
+Two findings came with it, and the first is a correction to this
+junction.
+
+**Finding 1 — the direction had already inverted, one seal before I
+checked it.** `EnvExtendStable` lifts **forward**: prefix success
+reproduced at the extension. But seal 34's uniqueness ruling put
+`denote2` into the **premises** of `mem_type2`/`acval_defn`/
+`acval_thm`, so transporting an old constant's field to `env₂` needs
+**env₂-run ⇒ env₀-run** — *backward*. An equation needs both
+directions, so no composition of a one-directional (E) can prove it.
+
+**Seal 35 matched `denote2`'s calls to (E)'s conjuncts and never
+checked the direction** — which the ruling I had made one seal earlier
+had already inverted. `EnvExtendReflect` names the missing half.
+*Rule: when a ruling changes which side of an implication a fact sits
+on, every downstream fit check is invalidated, including ones already
+performed.*
+
+**Finding 2 — mechanized refutation.**
+`denote2EnvExtend_lit_refuted`: the statement is **false** at
+`Env.empty → natLitEnv`, at a pair where `FindPreserved` — the
+supplier I named for exactly that clause — *does* hold.
+`ConstsBound` grades a literal by its `| _ => True` catch-all, while
+`denote2`'s literal clauses are gated on
+`natLitSupported`/`strLitSupported`, and `find?`-monotonicity runs the
+wrong way. `LitGuardsAgree` names the repair, and
+`litGuardsAgree_probe` shows it holds at section 1's non-degenerate
+extension, so it is not a diagonal-only hypothesis.
+
+Both are **exposure** requests on the Θ lane in the `InferOutputBound`
+pattern — named `def`s, not assumptions. The kernel's own
+`whnf`/`infer`/`annotate` consult the same guards, so an extension
+flipping one very likely breaks (E) too: the facts almost certainly
+exist inside its discharge already.
+
+#### Section 3: the keys hit a tier that does not exist
+
+**None of the three discharged, and the reason is one thing.**
+`interp2_ne_interp_erase` is now a *theorem*: `interp2 V ρ ea ≠
+interp V ρ ea.erase`, at the #100 countermodel's own witness.
+
+**So seal 34's prices were v1 prices.** "`ReducePinS` — one
+`DefEq.sound`"; "`MemberKeyS` — pure transport". There *is* no
+transport. **A v1 key's proof is a shape, never a plan** — and this
+junction wrote both of those prices down as if it were.
+
+* **`ReducePin2`** — blocked on a **missing whole soundness**.
+  `ReducePinR`'s certificate is a *derivation*, and its only soundness
+  is `DefEq.sound` over `interp`. **Over `interp2` there is no
+  relation-level soundness at all**: that lane is a checker-run
+  development. Landed instead: `reducePin2_witness`, the conclusion
+  satisfied non-vacuously, with `reducePin2_domain_ne` guarding the
+  empty-domain trap that would have made the witness worthless.
+* **`MemberBlock2`** — the existence conjunct is `Denote2Total`'s wall
+  (parked, seal 33). Seal 37's `∃ F' ≥ F` slack is over the *fuel*;
+  the obstruction is `sortOfE` succeeding **at all**. Landed:
+  `memberBlock2_probe`, the key's first genuine instance, at section
+  1's `Prop`-typed axiom — which puts the wall exactly one binder
+  away.
+* **`DeclStep2`** — vacuity closed by section 1, transport supplied by
+  section 2; the new constant's `mem_type2` *is* `MemberBlock2`, so it
+  is blocked there and nowhere else.
+
+#### The finding that outranks the batch
+
+**The interp2 migration replaced the bridge but not the relation
+tier, and the install keys live on the relation tier.** v1 has both a
+relational development (`Rel.lean` + `Sound/*`) and a checker-run
+bridge; interp2 has only the second. Every key's V content is proved
+on v1 through relational soundness, and there is no interp2
+counterpart to route through.
+
+**This is a decision above the batch**, and it is stated here rather
+than taken: build a relation-level soundness over `interp2` — which
+duplicates the whole `Sound/*` tier — or **re-route the keys through
+the checker-run claims**, making them conditional on the same residue
+set the rest of the lane already carries.
+
+The second is coherent with the lane as built: `checkSound2*` is
+already conditional on `CheckStep2*`, so keys conditional on the same
+residues add no new kind of assumption. But it is a scope ruling, not
+a lemma.
