@@ -7180,11 +7180,12 @@ theorem whnfCore_app_decompose {μ : CheckMode} {env : Env}
           inferTypeCore μ env g d x = .ok ta ∧
           isDefEqCore μ env g d ta ty = .ok false ∧
           s = .app f' x) ∨
-       ((∃ e'', Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
+       ((∀ n ty body mb, f' ≠ .lam n ty body mb) ∧
+        ((∃ e'', Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
             (.app f' x) = .ok (some e'') ∧
           whnfCore μ env g d e'' = .ok s) ∨
-        (Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
-            (.app f' x) = .ok none ∧ s = .app f' x))) := by
+         (Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
+            (.app f' x) = .ok none ∧ s = .app f' x)))) := by
   rw [Setlec.whnfCore_succ] at h
   unfold Setlec.whnfCoreBody at h
   simp only [Bind.bind, Except.bind] at h
@@ -7214,16 +7215,136 @@ theorem whnfCore_app_decompose {μ : CheckMode} {env : Env}
       rw [if_neg Bool.false_ne_true] at h
       exact .inr (.inl ⟨n, ty, body, mb, ta, rfl, hinf, hdq,
         (Except.ok.inj h).symm⟩)
-  · cases hio : Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
+  · next hne =>
+    cases hio : Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
         (.app f' x) with
     | error err => rw [hio] at h; exact nomatch h
     | ok o =>
     rw [hio] at h
     simp only [] at h
     cases o with
-    | some e'' => exact .inr (.inr (.inl ⟨e'', rfl, h⟩))
+    | some e'' =>
+      exact .inr (.inr ⟨fun n ty body mb heq => hne n ty body mb heq,
+        .inl ⟨e'', rfl, h⟩⟩)
     | none =>
-      exact .inr (.inr (.inr ⟨rfl, (Except.ok.inj h).symm⟩))
+      exact .inr (.inr ⟨fun n ty body mb heq => hne n ty body mb heq,
+        .inr ⟨rfl, (Except.ok.inj h).symm⟩⟩)
+
+/-- **The app-layer assemble** (the decompose's inverse): a head run
+plus a leg package build the layer's core run at joined fuel.  The
+connecting runs of re-based seams are assembled with this — the
+seam's own head run replaces the original's, the original legs are
+reused verbatim. -/
+theorem whnfCore_app_assemble {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) {g gl d : Nat} {P y h' s : Expr}
+    (hh : whnfCore μ env g d P = .ok h')
+    (hlegs :
+      (∃ n ty body mb ta,
+          h' = .lam n ty body mb ∧
+          inferTypeCore μ env gl d y = .ok ta ∧
+          isDefEqCore μ env gl d ta ty = .ok true ∧
+          whnfCore μ env gl d (body.instantiate1 y) = .ok s) ∨
+      (∃ n ty body mb ta,
+          h' = .lam n ty body mb ∧
+          inferTypeCore μ env gl d y = .ok ta ∧
+          isDefEqCore μ env gl d ta ty = .ok false ∧
+          s = .app h' y) ∨
+      ((∀ n ty body mb, h' ≠ .lam n ty body mb) ∧
+       ((∃ e'', Setlec.iotaRec μ (Setlec.pureFns μ env gl) env d
+            (.app h' y) = .ok (some e'') ∧
+          whnfCore μ env gl d e'' = .ok s) ∨
+        (Setlec.iotaRec μ (Setlec.pureFns μ env gl) env d
+            (.app h' y) = .ok none ∧ s = .app h' y)))) :
+    whnfCore μ env (max g gl + 1) d (.app P y) = .ok s := by
+  have hh' : (Setlec.pureFns μ env (max g gl)).whnfCore d P
+      = .ok h' :=
+    hm.2.2.1 (Nat.le_max_left g gl) hh
+  rw [show whnfCore μ env (max g gl + 1) d (.app P y)
+      = Setlec.whnfCoreBody μ (Setlec.pureFns μ env (max g gl)) env d
+        (.app P y) from Setlec.whnfCore_succ ..]
+  unfold Setlec.whnfCoreBody
+  simp only [Bind.bind, Except.bind]
+  rw [hh']
+  simp only []
+  rcases hlegs with ⟨n, ty, body, mb, ta, rfl, hinf, hdq, hrun⟩ |
+    ⟨n, ty, body, mb, ta, rfl, hinf, hdq, rfl⟩ | ⟨hnl, hio⟩
+  · simp only []
+    rw [show (Setlec.pureFns μ env (max g gl)).infer d y = .ok ta
+      from hm.1 (Nat.le_max_right g gl) hinf]
+    simp only []
+    rw [show (Setlec.pureFns μ env (max g gl)).defeq d ta ty
+        = .ok true
+      from hm.2.2.2.1 (Nat.le_max_right g gl) hdq]
+    simp only []
+    rw [if_pos trivial]
+    exact hm.2.2.1 (Nat.le_max_right g gl) hrun
+  · simp only []
+    rw [show (Setlec.pureFns μ env (max g gl)).infer d y = .ok ta
+      from hm.1 (Nat.le_max_right g gl) hinf]
+    simp only []
+    rw [show (Setlec.pureFns μ env (max g gl)).defeq d ta ty
+        = .ok false
+      from hm.2.2.2.1 (Nat.le_max_right g gl) hdq]
+    simp only []
+    rw [if_neg Bool.false_ne_true]
+    rfl
+  · rcases hio with ⟨e'', hio, hrun⟩ | ⟨hio, rfl⟩
+    · have hioG := iotaRec_mono
+        (coreSub_le μ env (Nat.le_max_right g gl)) hio
+      have hrunG : (Setlec.pureFns μ env (max g gl)).whnfCore d e''
+          = .ok s :=
+        hm.2.2.1 (Nat.le_max_right g gl) hrun
+      cases h' with
+      | lam n2 ty2 b2 m2 => exact absurd rfl (hnl n2 ty2 b2 m2)
+      | bvar i =>
+        simp only []; rw [hioG]
+        simp only []; exact hrunG
+      | fvar i n2 ty2 =>
+        simp only []; rw [hioG]
+        simp only []; exact hrunG
+      | sort u0 =>
+        simp only []; rw [hioG]
+        simp only []; exact hrunG
+      | const n2 us2 =>
+        simp only []; rw [hioG]
+        simp only []; exact hrunG
+      | app p q =>
+        simp only []; rw [hioG]
+        simp only []; exact hrunG
+      | forallE n2 ty2 b2 m2 =>
+        simp only []; rw [hioG]
+        simp only []; exact hrunG
+      | letE n2 ty2 v2 b2 =>
+        simp only []; rw [hioG]
+        simp only []; exact hrunG
+      | lit l =>
+        simp only []; rw [hioG]
+        simp only []; exact hrunG
+      | proj sn i e0 =>
+        simp only []; rw [hioG]
+        simp only []; exact hrunG
+    · have hioG := iotaRec_mono
+        (coreSub_le μ env (Nat.le_max_right g gl)) hio
+      cases h' with
+      | lam n2 ty2 b2 m2 => exact absurd rfl (hnl n2 ty2 b2 m2)
+      | bvar i =>
+        simp only []; rw [hioG]; rfl
+      | fvar i n2 ty2 =>
+        simp only []; rw [hioG]; rfl
+      | sort u0 =>
+        simp only []; rw [hioG]; rfl
+      | const n2 us2 =>
+        simp only []; rw [hioG]; rfl
+      | app p q =>
+        simp only []; rw [hioG]; rfl
+      | forallE n2 ty2 b2 m2 =>
+        simp only []; rw [hioG]; rfl
+      | letE n2 ty2 v2 b2 =>
+        simp only []; rw [hioG]; rfl
+      | lit l =>
+        simp only []; rw [hioG]; rfl
+      | proj sn i e0 =>
+        simp only []; rw [hioG]; rfl
 
 /-- Zeta is one knot level down (the letE analog of the app
 decomposition). -/
@@ -8629,6 +8750,26 @@ def QPreserveZetaF (_env : Env) (Q : Nat → Expr → Expr → Prop) : Prop :=
     Q d (Setlec.Expr.mkAppN (.letE n ty v b) as) c →
     Q d (Setlec.Expr.mkAppN (b.instantiate1 v) as) c
 
+/-- `Q` survives completing the head's whnfCore under a spine (the
+carrier's head re-basing steps; at `FrameQ` this discharges through
+the claims' core preservation — whnfCore preserves denotation —
+spine-composed). -/
+def QPreserveHeadF (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {g d : Nat} {P F c : Expr} {as : List Expr},
+    whnfCore μ env g d P = .ok F →
+    Q d (Setlec.Expr.mkAppN P as) c →
+    Q d (Setlec.Expr.mkAppN F as) c
+
+/-- whnfCore introduces no fvar leaves (the supplier is a Verify-tier
+mutual induction over the core family, `StoredWF`-backed: stored
+rule/definition values are fvar-free, and every contraction
+substitutes existing subterms). -/
+def LeavesSubCoreF (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {g d : Nat} {e e' : Expr},
+    whnfCore μ env g d e = .ok e' →
+    ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves
+
 /-! ### The seam datatype and its app-lift (the coreLock design) -/
 
 /-- **The liftable seams**: the configurations the layer-peeling
@@ -8980,6 +9121,16 @@ theorem looseBVarsBounded_mkAppN_parts {k : Nat} :
     · exact happ.2
     · exact hargs a' ha'
 
+/-- A head's leaf subset spreads over the spine. -/
+theorem head_leaves_sub {P F : Expr} {as : List Expr}
+    (hsub : ∀ l ∈ F.fvarLeaves, l ∈ P.fvarLeaves) :
+    ∀ l ∈ (Setlec.Expr.mkAppN F as).fvarLeaves,
+      l ∈ (Setlec.Expr.mkAppN P as).fvarLeaves := by
+  intro l hl
+  rcases fvarLeaves_mkAppN_cases hl with h | ⟨a', ha', hl'⟩
+  · exact mem_fvarLeaves_mkAppN_head (hsub l h)
+  · exact mem_fvarLeaves_mkAppN_arg ha' hl'
+
 /-- One β-step's leaf subset (spine form). -/
 theorem beta_leaves_sub {n : Name} {ty b a : Expr}
     {m : Setlec.BinderMeta} {as : List Expr} :
@@ -9014,9 +9165,13 @@ theorem zeta_leaves_sub {n : Name} {ty v b : Expr} {as : List Expr} :
               (.inr h'))))
   · exact mem_fvarLeaves_mkAppN_arg ha' hl'
 
-/-- **The contraction trace**: spine-positioned β/zeta chains
-(transitive by construction; the constructors match the two
-contraction species' shapes exactly). -/
+/-- **The reduction trace**: spine-positioned β/zeta chains plus
+head-whnf re-basing steps (transitive by construction; the
+contraction constructors match the two contraction species' shapes
+exactly, the head constructor matches `QPreserveHeadF`'s).  The
+head steps are what the peel's ZipPack outcome erases — a refl
+bottom swallows arbitrary whnfCore history — so seam subjects
+reached past such a bottom need them. -/
 inductive Contracts (μ : CheckMode) (env : Env) (d : Nat) :
     Expr → Expr → Prop
   | refl (e : Expr) : Contracts μ env d e e
@@ -9033,11 +9188,16 @@ inductive Contracts (μ : CheckMode) (env : Env) (d : Nat) :
         (Setlec.Expr.mkAppN (b.instantiate1 v) as) w) :
       Contracts μ env d
         (Setlec.Expr.mkAppN (.letE n ty v b) as) w
+  | head (P F : Expr) (as : List Expr) (g : Nat) {w : Expr}
+      (hr : whnfCore μ env g d P = .ok F)
+      (hrest : Contracts μ env d (Setlec.Expr.mkAppN F as) w) :
+      Contracts μ env d (Setlec.Expr.mkAppN P as) w
 
 /-- Q rides the trace. -/
 theorem Contracts.q_transport {μ : CheckMode} {env : Env} {d : Nat}
     {Q : Nat → Expr → Expr → Prop}
     (hQB : QPreserveBetaF μ env Q) (hQZ : QPreserveZetaF env Q)
+    (hQH : QPreserveHeadF μ env Q)
     {u w c : Expr} (h : Contracts μ env d u w) :
     Q d u c → Q d w c := by
   induction h with
@@ -9046,9 +9206,12 @@ theorem Contracts.q_transport {μ : CheckMode} {env : Env} {d : Nat}
     exact fun hq => ih (hQB hinf hdq hq)
   | zeta n ty v b as hrest ih =>
     exact fun hq => ih (hQZ hq)
+  | head P F as g hr hrest ih =>
+    exact fun hq => ih (hQH hr hq)
 
 /-- The trace only shrinks the leaf set. -/
 theorem Contracts.leaves_sub {μ : CheckMode} {env : Env} {d : Nat}
+    (hLS : LeavesSubCoreF μ env)
     {u w : Expr} (h : Contracts μ env d u w) :
     ∀ l ∈ w.fvarLeaves, l ∈ u.fvarLeaves := by
   induction h with
@@ -9057,10 +9220,13 @@ theorem Contracts.leaves_sub {μ : CheckMode} {env : Env} {d : Nat}
     exact fun l hl => beta_leaves_sub l (ih l hl)
   | zeta n ty v b as hrest ih =>
     exact fun l hl => zeta_leaves_sub l (ih l hl)
+  | head P F as g hr hrest ih =>
+    exact fun l hl => head_leaves_sub (hLS hr) l (ih l hl)
 
 /-- `SubjInv` rides the trace (the substitution kit at each step;
 self-pairing restricts through the leaf subset). -/
 theorem Contracts.subjInv {μ : CheckMode} {env : Env} {d : Nat}
+    (hIC : InvPreserveCoreF μ env) (hLS : LeavesSubCoreF μ env)
     {u w : Expr} (h : Contracts μ env d u w)
     (hI : SubjInv d u) : SubjInv d w := by
   induction h with
@@ -9107,21 +9273,47 @@ theorem Contracts.subjInv {μ : CheckMode} {env : Env} {d : Nat}
           (hl.elim id id))))
         l' (List.mem_append.2 (.inl (zeta_leaves_sub l'
           (hl'.elim id id)))) heq
+  | head P F as g hr hrest ih =>
+    refine ih ?_
+    obtain ⟨hw, hb, hL, hp⟩ := hI
+    obtain ⟨hwP, hwargs⟩ := wScoped_mkAppN_parts hw
+    obtain ⟨hbP, hbargs⟩ := looseBVarsBounded_mkAppN_parts hb
+    have hIP : SubjInv d P :=
+      ⟨hwP, hbP,
+        fun l hl => hL l (mem_fvarLeaves_mkAppN_head hl),
+        fun l hl l' hl' heq => hp l
+          (List.mem_append.2 (.inl (mem_fvarLeaves_mkAppN_head
+            ((List.mem_append.1 hl).elim id id))))
+          l' (List.mem_append.2 (.inl (mem_fvarLeaves_mkAppN_head
+            ((List.mem_append.1 hl').elim id id)))) heq⟩
+    have hIF : SubjInv d F := hIC hr hIP
+    have hsub : ∀ l ∈ (Setlec.Expr.mkAppN F as).fvarLeaves,
+        l ∈ (Setlec.Expr.mkAppN P as).fvarLeaves :=
+      head_leaves_sub (hLS hr)
+    refine ⟨?_, ?_, ?_, ?_⟩
+    · exact wScoped_mkAppN_build hIF.1 hwargs
+    · exact looseBVarsBounded_mkAppN_build hIF.2.1 hbargs
+    · exact fun l hl => hL l (hsub l hl)
+    · intro l hl l' hl' heq
+      rw [List.mem_append] at hl hl'
+      exact hp l
+        (List.mem_append.2 (.inl (hsub l (hl.elim id id))))
+        l' (List.mem_append.2 (.inl (hsub l' (hl'.elim id id)))) heq
 
 /-- Cross-pairing rides two traces (through the leaf subsets). -/
 theorem Contracts.pairing {μ : CheckMode} {env : Env} {d : Nat}
-    {u v w₁ w₂ : Expr}
+    (hLS : LeavesSubCoreF μ env) {u v w₁ w₂ : Expr}
     (h₁ : Contracts μ env d u w₁) (h₂ : Contracts μ env d v w₂)
     (hp : PairedLeaves u v) : PairedLeaves w₁ w₂ := by
   intro l hl l' hl' heq
   rw [List.mem_append] at hl hl'
   refine hp l ?_ l' ?_ heq
   · exact List.mem_append.2
-      (hl.elim (fun h => .inl (h₁.leaves_sub l h))
-        (fun h => .inr (h₂.leaves_sub l h)))
+      (hl.elim (fun h => .inl (h₁.leaves_sub hLS l h))
+        (fun h => .inr (h₂.leaves_sub hLS l h)))
   · exact List.mem_append.2
-      (hl'.elim (fun h => .inl (h₁.leaves_sub l' h))
-        (fun h => .inr (h₂.leaves_sub l' h)))
+      (hl'.elim (fun h => .inl (h₁.leaves_sub hLS l' h))
+        (fun h => .inr (h₂.leaves_sub hLS l' h)))
 
 /-- Traces lift through app-layers (the contraction site keeps its
 spine position under one more argument). -/
@@ -9148,6 +9340,13 @@ theorem Contracts.app_lift {μ : CheckMode} {env : Env} {d : Nat}
     rw [show Setlec.Expr.mkAppN (b.instantiate1 v) (as ++ [y])
       = Expr.app (Setlec.Expr.mkAppN (b.instantiate1 v) as) y
       from mkAppN_append_one]
+    exact ih
+  | head P F as g hr hrest ih =>
+    rw [show Expr.app (Setlec.Expr.mkAppN P as) y
+      = Setlec.Expr.mkAppN P (as ++ [y]) from mkAppN_append_one.symm]
+    refine Contracts.head P F (as ++ [y]) g hr ?_
+    rw [show Setlec.Expr.mkAppN F (as ++ [y])
+      = Expr.app (Setlec.Expr.mkAppN F as) y from mkAppN_append_one]
     exact ih
 
 end Discharge

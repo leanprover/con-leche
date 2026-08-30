@@ -10552,3 +10552,67 @@ disjunct is `∃ w₁ w₂ c₁ c₂, [core runs landing at (u',v')] ∧
 Contracts u w₁ ∧ Contracts v w₂ ∧ CoreSeam w₁ w₂` — the top
 loop-aligns via the connecting runs and re-derives the conversion
 package from the traces.  Next seal: coreLock's induction.
+
+### FINDING: the seam set was not closed — refl bottoms swallow head-whnf history; the carrier gains head re-basing
+
+`coreLock`'s granted pre-build check (fourth round) refuted the
+peeling design's closure claim ("view-heads propagate; the seam set
+is closed").  The counter-configuration: the peel's head-recursion
+bottoms at a **refl** node (`u`'s head equals `v`'s syntactically),
+which returns ZipPack by determinism — but the head's whnfCore run
+may contain iota steps, so the pack ERASES whnf history.  When the
+outer layer's legs then iota-fire (real: shared recursor-headed
+whnf-output `F` with zipped, differing final args; a cert-blob
+major even makes the fire MIXED), the natural seam subjects
+`(.app F y₁, .app F y₂)` are whnf-reachable but not
+contraction-reachable: `Contracts` spans only spine β/ζ, so
+NEITHER disjunct of the frozen conclusion applies.  Also refuted en
+route: a bare-const refl bottom over a recursor cannot return an
+eagerly-shaped seam instead (same reachability gap), and
+whnfCore-output idempotence as a rescue pulls in mutual whnf/unfold
+idempotence — rejected.
+
+**The repair (landed this seal)** — the carrier is the honest fix:
+`Contracts` gains a spine-positioned **head re-basing** constructor
+(`head : whnfCore g d P = .ok F → Contracts (mkAppN F as) w →
+Contracts (mkAppN P as) w`).  Every transport re-proved:
+* `q_transport` threads NEW species **`QPreserveHeadF`** (Q survives
+  completing the head's whnfCore under a spine; FrameQ supplier =
+  the claims' core preservation, spine-composed);
+* `leaves_sub`/`pairing` thread NEW species **`LeavesSubCoreF`**
+  (whnfCore introduces no fvar leaves; supplier = a Verify-tier
+  mutual induction over the core family, StoredWF-backed — its own
+  seal, obligation ledgered);
+* `subjInv` threads `InvPreserveCoreF` + `LeavesSubCoreF` (head
+  invariants via the landed spine part/build kit + leaf-subset
+  restriction of the pairing);
+* `app_lift` unchanged in hypotheses (`head` keeps its spine
+  position under one more argument);
+* `head_leaves_sub` (a head's leaf subset spreads over the spine).
+
+**Supporting bricks (landed)**: `whnfCore_app_decompose` amended —
+the iota legs now carry the deferred not-λ fact (the split's
+catch-all disequalities, free); **`whnfCore_app_assemble`** (the
+decompose's inverse: head run + leg package → the layer's run at
+`max`-joined fuel +1; `KnotFuelMono` lifts every leg run, iotaRec
+via `iotaRec_mono`+`coreSub_le`; the ten-shape pattern for the
+variable-head iota legs).  Re-based seam connecting runs are
+assembled with this: the seam's own head run replaces the
+original's, the original legs are reused verbatim.
+
+**Effect on `coreLock`**: statement UNCHANGED in shape — the seam
+disjunct's traces are now strong enough to reach every collision:
+heads-ZipPack + iota legs exit as `recHead`/`certHead` seams at
+head-re-based subjects (trace = one `head` step + `app_lift`;
+connecting run = assemble of the pack's own head runs... the
+ZipPack outcome must therefore ALSO return the head runs it
+consumed — the induction takes them from the decompose directly,
+no conclusion change).  Mixed iota fire exits via the same
+`recHead` seam (shape-based, fire-agnostic — `ZipIotaCase` at the
+top is where fire analysis lives).  β-cert-mixed exits `deadL/R`
+(the stuck output is app-of-λ-headed: non-const, non-λ, non-sort;
+self-sustaining by fuel monotonicity of the failing defeq).
+Q-descent through app (`Q d (.app P y) (.app R z) → Q d P R`) is
+still expected as one more routed species at the induction — named
+next seal.  STOP-boundary seal: the induction itself waits for the
+ratifying grant.
