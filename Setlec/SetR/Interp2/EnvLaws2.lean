@@ -161,6 +161,54 @@ def ProjPairV2 (μ : CheckMode) (env : Env)
         interp2 V ρ (.proj i pa)
           = if i = 0 then interp2 V ρ fa else interp2 V ρ sa
 
+/-! ## `IotaIndexPin2` — the third option, priced
+
+Seal 22 left the choice between a full transpose and a minimal law
+hanging on one bounded question: *can `IotaIndexPin2` be stated at
+all, given that `TeleFit2`'s residual is a bare `V`?*
+
+**Answered, and seal 22's framing was wrong in an instructive way.**
+
+*The squashing countermodel does apply — to any `V`-side
+formulation.* Task #107's witness (`T._model := fun _ => PUnit'`,
+field `{v // v = p}`, `proj_0 := fun p _ => ⟨p, rfl⟩` — iota and eta
+both provable, every install check passing, contradictory forced
+values) says a bare `V` does not determine a destructor. Distinct
+constructor spines interpret to equal values, so **no `V`-side fact
+recovers a spine.** A pin stated about `TeleFit2`'s residual is
+therefore not merely hard, it is not statable.
+
+*But the pin was never a `V`-side fact in v1 either.*
+`IotaIndexPinV` decomposes `restC` **syntactically** — `restC` is a
+`VExpr`, because `TeleFitV` is `VExpr`-indexed — and only then
+compares `interp` of the pieces. So the faithful transpose is an
+**`AVExpr` fact**, not a workaround for the squash but the same
+construction one currency over. `AVExpr.mkAppN` exists
+(`Annot/Syntax.lean:162`); `interp2_mkAppN` and `denote2_mkAppN_swap`
+exist.
+
+*The tension worth recording:* `TeleFit2`'s value-level design is a
+genuine improvement over v1 — `AnnotOk2_redex_fits` derives fits from
+the subject's `AnnotOk2` with **no runtime walk** — and it is
+*precisely* that choice which removes the syntactic residual the pin
+needs. The resolution is that the two serve different jobs: fits
+guard **memberships**, where value-level is right; the pin guards
+**index agreement**, where syntax-level is right. They should not
+share a residual.
+
+Stated, not frozen: the residual's source is still open (an
+`AVExpr`-indexed fit beside `TeleFit2`, or the consumer's own
+decomposition through `denote2_mkAppN_swap`), and the three
+grep-negative gaps are unbuilt. -/
+def IotaIndexPin2 (ρ : Nat → V) (restC : AVExpr) (cnP mI rP : Nat)
+    (xs : List AVExpr) : Prop :=
+  ∃ (H : AVExpr) (cargs : List AVExpr),
+    restC = AVExpr.mkAppN H cargs ∧
+    (mI = rP ∨ cargs.length = cnP + (mI - rP)) ∧
+    ∀ i, i < mI - rP →
+      interp2 V ρ (cargs.getD (cnP + i) default)
+        = interp2 V ρ (xs.getD (rP + i) default)
+
 /-! ## The queue
 
 These three join the five install keys (`DivModPinS`, `ReducePinS`,

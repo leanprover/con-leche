@@ -15311,3 +15311,70 @@ the RHS-denotation conjunct survives in both options.
 nested parameter premise is carried), and the `AnnotOk2` spine-assembly
 lemma (needed by option (i)'s truthfulness conjunct). All three
 grep-negative, all three flagged as such rather than asserted absent.
+
+### Seal 23 — the bounded question answered: the pin is statable on annotated syntax
+
+Decided against the recorded evidence first, as directed, and the
+answer **corrects seal 22 rather than confirming it**.
+
+**The squashing countermodel does apply — to any `V`-side
+formulation.** Task #107's witness (`T._model := fun _ => PUnit'`,
+field `{v // v = p}`, `proj_0 := fun p _ => ⟨p, rfl⟩`: iota *and* eta
+provable, every install check passing, contradictory forced values)
+says a bare `V` does not determine a destructor. Distinct constructor
+spines interpret to equal values, so **no `V`-side fact can recover a
+spine.** A pin stated about `TeleFit2`'s bare-`V` residual is not
+merely hard — it is not statable. Seal 22 was right that far.
+
+**But it does not force the minimal law, because the pin was never a
+`V`-side fact in v1.** `IotaIndexPinV` decomposes `restC`
+**syntactically** — `restC : VExpr`, because `TeleFitV` is
+`VExpr`-indexed — and only then compares `interp` of the pieces. So
+the faithful transpose is an **`AVExpr` fact**: not a workaround for
+the squash, but the same construction one currency over.
+`IotaIndexPin2` is now stated in `Interp2/EnvLaws2.lean`, and it
+compiles. `AVExpr.mkAppN`, `interp2_mkAppN` and `denote2_mkAppN_swap`
+all exist.
+
+**Correcting seal 22:** *"`IotaIndexPinV` has no `interp2` counterpart
+at all"* was wrong as written. It has none **as a fact about
+`TeleFit2`'s residual**, which is what the map examined — and that
+narrower claim is true and is the useful one. The general claim came
+from reading the map's verdict as being about the pin rather than
+about the place the map looked for it.
+
+*Rule: when a map reports "no counterpart", ask what it searched. A
+counterpart absent from one currency may be present in another that
+the consumer already holds.*
+
+#### The design tension, recorded because it will recur
+
+`TeleFit2`'s value-level design is a genuine improvement over v1 —
+`AnnotOk2_redex_fits` derives fits from the subject's `AnnotOk2` with
+**no runtime walk** — and it is *precisely* that choice which removes
+the syntactic residual the pin needs. Both are right; they serve
+different jobs. **Fits guard memberships, where value-level is
+correct; the pin guards index agreement, where syntax-level is
+correct. They must not share a residual.**
+
+#### Consequences for the ruling
+
+The two-way choice reopens as a three-way one, and **the full
+transpose is back on the table** — the obstacle seal 22 recorded as
+fatal is not. Not yet ruled, because two things must land first, and
+both were already owed:
+
+1. **The residual's source.** Either an `AVExpr`-indexed fit beside
+   `TeleFit2` (v1's `TeleFitV`, transposed) or the consumer's own
+   decomposition through `denote2_mkAppN_swap`. The second is
+   cheaper and is where the consumer's facts already live —
+   `iotaRec` itself checks index agreement syntactically
+   (`defEqList (residual.getAppArgs.drop ctorParams) …`).
+2. **The three grep-negative gaps**, supplier-named or built before
+   the freeze: `AVExpr.bvarsBelow`, `AVExpr.instRevChain` (needed
+   only if the nested parameter premise is carried), and the
+   `AnnotOk2` spine-assembly lemma (the `TeleFitV.appN_annot`
+   analogue) that the truthfulness conjunct needs.
+
+`Denote2InstLevels` proceeds unaffected: the RHS-denotation conjunct
+survives in every option.
