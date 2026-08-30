@@ -10168,3 +10168,43 @@ unbuilt suppliers); (4) `StoredWF` + `BoolCtorsInert` install
 discharges; (5) the (B) type-form map (`ZipSortOfAgree`'s own
 skeleton on the same architecture).  Nothing else remains on the
 defeq branch.
+
+### ZipAppCase opened: the discharge's induction structure resolved
+
+The pre-discharge analysis (run before any case work, as practiced)
+settled the one open structural question — **where the β leg's
+measure decrease lives**:
+
+* The β contracta's loop runs assemble at the SAME [knot, loop]
+  budgets as the app's (the tri pieces cannot be lowered), so the
+  claim may NOT recurse at the contracta via `ZipBelow` — that leg
+  would not decrease.
+* The resolution: the wrapper's discharge is ONE claim-shaped
+  induction over **[the head-zip derivation structure, the knot
+  fuel of the given whnfCore runs]**, analyzing the whnfCore-app
+  clause inline.  The internal core runs (head normalization,
+  contracta) sit at knot `ga-1` (`whnfCore_succ`) — the knot pays
+  for β exactly as the measure audit said — and `ZipBelow` is
+  consumed only at the TRI legs (nat/δ continuations at `la-1`,
+  the loop component) and the Θ/cert exits (the fc component).
+  Zip-out for the contracta is `certZip_instantiate1 hx` at
+  refl-heads (one body, two zipped args — the lemma built for
+  exactly this), and leg-local elsewhere.
+* The head-zip derivation-case map: `.cert` → `ZipCertSpineCase`
+  at `as = [x₁]` (the mkAppN-singleton massage); `.refl` →
+  det-synchronized analysis (same head normalization both sides;
+  β by instantiate1-zip; iota by the mapped lockstep; stuck by the
+  shape clash); `.app` (nested spines) → the induction recurses on
+  the head zip (structurally smaller derivation); `.constSlack` →
+  the iota/δ legs at same-name heads; other constructors are
+  shape-vacuous heads (sortSlack/fvar/lam/forallE/letE/proj heads:
+  the app's whnfCore leaves them stuck or reduces past them
+  symmetrically — each a small leg).
+* Leg-local extraction lemmas to build at the discharge seals (the
+  sanctioned deferred tier): the whnfCore-app run's internal
+  decomposition (head-run + cert-if + contractum-run extraction,
+  the house cases-with-rw pattern at `whnfCoreBody`), and the
+  per-shape infer lemmas where the eta rescue needs them.
+
+The discharge campaign proceeds from this structure; nothing about
+it is unmapped.
