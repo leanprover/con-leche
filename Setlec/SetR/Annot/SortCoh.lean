@@ -1784,6 +1784,25 @@ def EnsureSortAgreeRQ (μ : CheckMode) (env : Env) (φ : Name → Nat)
     whnf μ env f₂ d b = .ok (.sort ℓ₂) →
     ℓ₁.eval φ = ℓ₂.eval φ
 
+/-- The spine handler at a fixed knot fuel — the one seam between
+the cert-loop template and its two consumers (the (A)-shell's
+`SpineSortAgree` instance; the summit's zip-and-recurse). -/
+def SpineHandler (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) (fc : Nat) : Prop :=
+  ∀ {l d ga la gb lb f₁ f₂ : Nat} {a b a' b' : Expr} {ℓa ℓb : Level},
+    SubjInv d a → SubjInv d b → PairedLeaves a b → Q d a b →
+    Setlec.defeqLoop μ (Setlec.pureFns μ env fc) env d l a b
+      = .ok true →
+    whnfCore μ env f₁ d a = .ok a' →
+    whnfCore μ env f₂ d b = .ok b' →
+    Setlec.defeqSpine (Setlec.pureFns μ env fc) env d a' b'
+      = .ok true →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la a
+      = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb b
+      = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
 /-- **The dual-(A) shell**: `EnsureSortAgreeRQ` from the obligations
 and the routed hypotheses.  The `SubjInv` package enters from the
 claim's own guards (`SubjInv.of_pair`/`.of_pair_right`) and travels
@@ -1791,8 +1810,14 @@ along the loop's head steps by the `InvPreserve*F` supply chain;
 the abstract pair slot `Q` enters from the claim's `Q`-premise and
 travels by the `QPreserve*F` chain plus symmetry — subjects here
 evolve by head steps only (congruence routes wholesale to
-`SpineSortAgree`), so no descent preservation is needed. -/
-theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
+the spine handler), so no descent preservation is needed.
+
+**The cert-loop template, extracted** (fixed knot fuel `fc`; the
+spine handler is a per-`fc` hypothesis, so both the (A)-shell and the
+summit's cert case consume ONE proof — the shell instantiates it with
+`SpineSortAgree`, the summit with the zip construction feeding
+`ZipBelow` at the decreased cert fuel). -/
+theorem certLoop_sortAgree {μ : CheckMode} {env : Env}
     {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
     (hm : KnotFuelMono μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
@@ -1804,10 +1829,8 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
     (hP : ProbeSortVacuity μ env Q) (hR : RescueSortVacuity μ env Q)
     (hE : EtaSortVacuity μ env Q) (hN : NatStepNoSort μ env)
-    (hS : SpineSortAgree μ env φ Q) :
-    EnsureSortAgreeRQ μ env φ Q := by
-  have hdet := KnotFuelDet_of_mono hm
-  have main : ∀ (fc L : Nat) {d : Nat} {a b : Expr},
+    (fc : Nat) (hSp : SpineHandler μ env φ Q fc) :
+    ∀ (L : Nat) {d : Nat} {a b : Expr},
       Setlec.defeqLoop μ (Setlec.pureFns μ env fc) env d L a b
         = .ok true →
       SubjInv d a → SubjInv d b → PairedLeaves a b → Q d a b →
@@ -1817,8 +1840,9 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
         Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb b
           = .ok (.sort ℓb) →
         ℓa.eval φ = ℓb.eval φ := by
-    intro fc L
-    induction L with
+  have hdet := KnotFuelDet_of_mono hm
+  intro L
+  induction L with
     | zero => intro d a b hc; exact nomatch hc
     | succ l ih =>
       intro d a b hc hIa hIb hPab hQab ga la gb lb ℓa ℓb ha hb
@@ -1966,7 +1990,7 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
           · rw [hub] at hudb; exact nomatch hudb
         · rw [hua] at huda; exact nomatch huda
       | spine _ _ hs =>
-        exact hS hIa hIb hPab hQab hc0 hwa hwb hs ha hb
+        exact hSp hIa hIb hPab hQab hc0 hwa hwb hs ha hb
       | sorts u v hiseq =>
         have h1 := loop_stuck_out hm ha hwa
           (fun _ => reduceNat_sort) unfoldDefinition_sort
@@ -2037,6 +2061,21 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
       | rescue _ _ hsi =>
         exact (hR hIa (hQs (hQC hwb (hQs (hQC hwa hQab)))) hwa hsi
           ha).elim
+/-- **The dual-(A) shell** on the extracted template. -/
+theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
+    {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
+    (hm : KnotFuelMono μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
+    (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
+    (hQN : QPreserveNatF μ env Q)
+    (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
+    (hP : ProbeSortVacuity μ env Q) (hR : RescueSortVacuity μ env Q)
+    (hE : EtaSortVacuity μ env Q) (hN : NatStepNoSort μ env)
+    (hS : SpineSortAgree μ env φ Q) :
+    EnsureSortAgreeRQ μ env φ Q := by
   intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwsa hba hLa hwsb hbb hLb hp hQ h₁ h₂
   cases fc with
   | zero => exact nomatch hc
@@ -2044,7 +2083,13 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
     rw [Setlec.isDefEqCore_succ] at hc
     obtain ⟨ga, la, -, hla⟩ := whnf_peel h₁
     obtain ⟨gb, lb, -, hlb⟩ := whnf_peel h₂
-    exact main fc Setlec.defeqLoopFuel hc
+    have hSp : SpineHandler μ env φ Q fc := by
+      intro l d ga la gb lb f₁ f₂ a b a' b' ℓa ℓb
+        hIa hIb hPab hQab hc0 hwa hwb hs ha hb
+      exact hS hIa hIb hPab hQab hc0 hwa hwb hs ha hb
+    exact certLoop_sortAgree (φ := φ) (Q := Q) hm hIC hID hIN
+      hLC hLD hLN hQC hQD hQN
+      hQs hP hR hE hN fc hSp Setlec.defeqLoopFuel hc
       (SubjInv.of_pair hwsa hba hLa hp)
       (SubjInv.of_pair_right hwsb hbb hLb hp) hp hQ hla hlb
 
@@ -6407,10 +6452,10 @@ theorem getAppArgs_bounded : ∀ {e : Expr},
 whnf chains both reach literal sorts have eval-equal levels.  The
 spine core and (A)'s remaining routings collapse onto this. -/
 def ZipWhnfSortAgree (μ : CheckMode) (env : Env)
-    (φ : Name → Nat) : Prop :=
+    (φ : Name → Nat) (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {s t : Expr} {ℓa ℓb : Level},
     CertZip μ env fc d s t →
-    SubjInv d s → SubjInv d t → PairedLeaves s t →
+    SubjInv d s → SubjInv d t → PairedLeaves s t → Q d s t →
     Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la s
       = .ok (.sort ℓa) →
     Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb t
@@ -6421,10 +6466,10 @@ def ZipWhnfSortAgree (μ : CheckMode) (env : Env)
 computations succeed have equal numerals.  (B)'s re-entries and the
 congruence routings collapse onto this. -/
 def ZipSortOfAgree (μ : CheckMode) (env : Env)
-    (φ : Name → Nat) : Prop :=
+    (φ : Name → Nat) (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d : Nat} {s t : Expr} {u v : Nat},
     CertZip μ env fc d s t →
-    SubjInv d s → SubjInv d t → PairedLeaves s t →
+    SubjInv d s → SubjInv d t → PairedLeaves s t → Q d s t →
     SortOfLE μ env φ d s u → SortOfLE μ env φ d t v → u = v
 
 /-! ### The summit skeleton (build order, step 2)
@@ -6445,11 +6490,11 @@ reached). -/
 lexicographically: smaller cert fuel, or equal fuel and smaller
 loop-budget sum. -/
 def ZipBelow (μ : CheckMode) (env : Env) (φ : Name → Nat)
-    (fc r : Nat) : Prop :=
+    (Q : Nat → Expr → Expr → Prop) (fc r : Nat) : Prop :=
   ∀ {fc' d ga la gb lb : Nat} {s t : Expr} {ℓa ℓb : Level},
     (fc' < fc ∨ (fc' = fc ∧ la + lb < r)) →
     CertZip μ env fc' d s t →
-    SubjInv d s → SubjInv d t → PairedLeaves s t →
+    SubjInv d s → SubjInv d t → PairedLeaves s t → Q d s t →
     Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la s
       = .ok (.sort ℓa) →
     Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb t
@@ -6470,12 +6515,13 @@ def StoredWF (env : Env) : Prop :=
 /-- **Routed: the cert case** (the shells' template — a certified
 pair with both sort convergences, the recursion available strictly
 below). -/
-def ZipCertCase (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :=
+def ZipCertCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {a b : Expr} {ℓa ℓb : Level},
-    ZipBelow μ env φ fc (la + lb) →
+    ZipBelow μ env φ Q fc (la + lb) →
     a.looseBVarsBounded 0 = true → b.looseBVarsBounded 0 = true →
     isDefEqCore μ env fc d a b = .ok true →
-    SubjInv d a → SubjInv d b → PairedLeaves a b →
+    SubjInv d a → SubjInv d b → PairedLeaves a b → Q d a b →
     Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la a
       = .ok (.sort ℓa) →
     Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb b
@@ -6485,12 +6531,14 @@ def ZipCertCase (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :=
 /-- **Routed: the constSlack both-δ case** (same head at eval-equal
 levels; the continuations are `certZip_instantiate` zips of one
 stored value, `StoredWF` supplying their invariants). -/
-def ZipConstCase (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :=
+def ZipConstCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {n : Name} {us us' : List Level}
     {ℓa ℓb : Level},
-    ZipBelow μ env φ fc (la + lb) →
+    ZipBelow μ env φ Q fc (la + lb) →
     (∀ φ' : Name → Nat,
       us.map (Level.eval φ') = us'.map (Level.eval φ')) →
+    Q d (.const n us) (.const n us') →
     Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la (.const n us)
       = .ok (.sort ℓa) →
     Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb (.const n us')
@@ -6500,12 +6548,14 @@ def ZipConstCase (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :=
 /-- **Routed: the app sim root** (the knot-fuel tier; the cert-headed
 sub-case is the mutual knot with binder opening — full pre-build
 treatment at its seal). -/
-def ZipAppCase (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :=
+def ZipAppCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {f₁ x₁ f₂ x₂ : Expr} {ℓa ℓb : Level},
-    ZipBelow μ env φ fc (la + lb) →
+    ZipBelow μ env φ Q fc (la + lb) →
     CertZip μ env fc d f₁ f₂ → CertZip μ env fc d x₁ x₂ →
     SubjInv d (.app f₁ x₁) → SubjInv d (.app f₂ x₂) →
     PairedLeaves (.app f₁ x₁) (.app f₂ x₂) →
+    Q d (.app f₁ x₁) (.app f₂ x₂) →
     Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la (.app f₁ x₁)
       = .ok (.sort ℓa) →
     Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb (.app f₂ x₂)
@@ -6514,14 +6564,16 @@ def ZipAppCase (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :=
 
 /-- **Routed: the letE sim root** (lockstep zeta through
 `certZip_subst`, inside the knot-fuel tier). -/
-def ZipLetECase (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :=
+def ZipLetECase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {n : Name}
     {ty₁ ty₂ v₁ v₂ b₁ b₂ : Expr} {ℓa ℓb : Level},
-    ZipBelow μ env φ fc (la + lb) →
+    ZipBelow μ env φ Q fc (la + lb) →
     CertZip μ env fc d ty₁ ty₂ → CertZip μ env fc d v₁ v₂ →
     CertZip μ env fc d b₁ b₂ →
     SubjInv d (.letE n ty₁ v₁ b₁) → SubjInv d (.letE n ty₂ v₂ b₂) →
     PairedLeaves (.letE n ty₁ v₁ b₁) (.letE n ty₂ v₂ b₂) →
+    Q d (.letE n ty₁ v₁ b₁) (.letE n ty₂ v₂ b₂) →
     Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
       (.letE n ty₁ v₁ b₁) = .ok (.sort ℓa) →
     Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
@@ -6531,13 +6583,15 @@ def ZipLetECase (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :=
 /-- **Routed: the proj sim root** (whnf-of-scrutinee lockstep +
 `projLitToCtor` + the structural rule; its seal carries the
 struct-name-slack audit flagged at the map). -/
-def ZipProjCase (μ : CheckMode) (env : Env) (φ : Name → Nat) : Prop :=
+def ZipProjCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb i : Nat} {sn : Name} {e₁ e₂ : Expr}
     {ℓa ℓb : Level},
-    ZipBelow μ env φ fc (la + lb) →
+    ZipBelow μ env φ Q fc (la + lb) →
     CertZip μ env fc d e₁ e₂ →
     SubjInv d (.proj sn i e₁) → SubjInv d (.proj sn i e₂) →
     PairedLeaves (.proj sn i e₁) (.proj sn i e₂) →
+    Q d (.proj sn i e₁) (.proj sn i e₂) →
     Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
       (.proj sn i e₁) = .ok (.sort ℓa) →
     Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
@@ -6564,15 +6618,16 @@ theorem whnfCore_lam_run {μ : CheckMode} {env : Env} {f d : Nat}
 cases, by the one lexicographic induction; the determinism, stuck
 and slack cases are inline. -/
 theorem zipWhnfSortAgree_of {φ : Name → Nat}
+    {Q : Nat → Expr → Expr → Prop}
     (hm : KnotFuelMono μ env)
-    (hCert : ZipCertCase μ env φ) (hConst : ZipConstCase μ env φ)
-    (hApp : ZipAppCase μ env φ) (hLet : ZipLetECase μ env φ)
-    (hProj : ZipProjCase μ env φ) :
-    ZipWhnfSortAgree μ env φ := by
+    (hCert : ZipCertCase μ env φ Q) (hConst : ZipConstCase μ env φ Q)
+    (hApp : ZipAppCase μ env φ Q) (hLet : ZipLetECase μ env φ Q)
+    (hProj : ZipProjCase μ env φ Q) :
+    ZipWhnfSortAgree μ env φ Q := by
   have main : ∀ fc r {d ga la gb lb : Nat} {s t : Expr}
       {ℓa ℓb : Level}, la + lb ≤ r →
       CertZip μ env fc d s t →
-      SubjInv d s → SubjInv d t → PairedLeaves s t →
+      SubjInv d s → SubjInv d t → PairedLeaves s t → Q d s t →
       Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la s
         = .ok (.sort ℓa) →
       Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb t
@@ -6584,23 +6639,23 @@ theorem zipWhnfSortAgree_of {φ : Name → Nat}
     intro r
     induction r with
     | zero =>
-      intro d ga la gb lb s t ℓa ℓb hle hz hIs hIt hp ha hb
+      intro d ga la gb lb s t ℓa ℓb hle hz hIs hIt hp hQ ha hb
       obtain rfl : la = 0 := by omega
       exact nomatch ha
     | succ r ihr =>
-      intro d ga la gb lb s t ℓa ℓb hle hz hIs hIt hp ha hb
-      have below : ZipBelow μ env φ fc (la + lb) := by
+      intro d ga la gb lb s t ℓa ℓb hle hz hIs hIt hp hQ ha hb
+      have below : ZipBelow μ env φ Q fc (la + lb) := by
         intro fc' d' ga' la' gb' lb' s' t' ℓa' ℓb' hlt hz' hIs' hIt'
-          hp' ha' hb'
+          hp' hQ' ha' hb'
         rcases hlt with hlt | ⟨rfl, hlt⟩
         · exact ihfc fc' hlt (la' + lb') (Nat.le_refl _) hz' hIs'
-            hIt' hp' ha' hb'
-        · exact ihr (by omega) hz' hIs' hIt' hp' ha' hb'
+            hIt' hp' hQ' ha' hb'
+        · exact ihr (by omega) hz' hIs' hIt' hp' hQ' ha' hb'
       cases hz with
       | refl e =>
         rw [Setlec.Expr.sort.inj (whnfLoop_det hm ha hb)]
       | cert a b hba hbb hc =>
-        exact hCert below hba hbb hc hIs hIt hp ha hb
+        exact hCert below hba hbb hc hIs hIt hp hQ ha hb
       | sortSlack u v hev =>
         have h1 : Expr.sort ℓa = Expr.sort u :=
           loop_stuck_out hm ha (whnfCore_sort_run (Nat.le_refl 1))
@@ -6610,7 +6665,7 @@ theorem zipWhnfSortAgree_of {φ : Name → Nat}
             (fun _ => reduceNat_sort) unfoldDefinition_sort
         rw [Setlec.Expr.sort.inj h1, Setlec.Expr.sort.inj h2]
         exact hev φ
-      | constSlack n us us' hev => exact hConst below hev ha hb
+      | constSlack n us us' hev => exact hConst below hev hQ ha hb
       | fvar i nm ty₁ ty₂ hty =>
         exact nomatch (loop_stuck_out hm ha
           (whnfCore_fvar_run (Nat.le_refl 1))
@@ -6624,13 +6679,139 @@ theorem zipWhnfSortAgree_of {φ : Name → Nat}
           (whnfCore_forallE_run (Nat.le_refl 1))
           (fun _ => reduceNat_forallE) unfoldDefinition_forallE)
       | letE n ty₁ ty₂ v₁ v₂ b₁ b₂ hty hval hbody =>
-        exact hLet below hty hval hbody hIs hIt hp ha hb
+        exact hLet below hty hval hbody hIs hIt hp hQ ha hb
       | app f₁ x₁ f₂ x₂ hf hx =>
-        exact hApp below hf hx hIs hIt hp ha hb
+        exact hApp below hf hx hIs hIt hp hQ ha hb
       | proj sn i e₁ e₂ he =>
-        exact hProj below he hIs hIt hp ha hb
-  intro fc d ga la gb lb s t ℓa ℓb hz hIs hIt hp ha hb
-  exact main fc (la + lb) (Nat.le_refl _) hz hIs hIt hp ha hb
+        exact hProj below he hIs hIt hp hQ ha hb
+  intro fc d ga la gb lb s t ℓa ℓb hz hIs hIt hp hQ ha hb
+  exact main fc (la + lb) (Nat.le_refl _) hz hIs hIt hp hQ ha hb
+
+/-- **The cert case DISCHARGED** (build step 3): the extracted
+cert-loop template, with the spine handler zipping the post-core
+pair (`constSlack` head through `isEquivList` soundness, `.cert`
+leaves through `defEqList_extract`, dual-success runs assembled from
+the spine's const heads) and feeding `ZipBelow` at the strictly
+smaller cert fuel. -/
+theorem zipCertCase_of {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
+    (hm : KnotFuelMono μ env) (hB : BoolCtorsInert env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
+    (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
+    (hQN : QPreserveNatF μ env Q)
+    (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
+    (hP : ProbeSortVacuity μ env Q) (hR : RescueSortVacuity μ env Q)
+    (hE : EtaSortVacuity μ env Q) :
+    ZipCertCase μ env φ Q := by
+  have hN : NatStepNoSort μ env := natStepNoSort_of hB
+  intro fc d ga la gb lb a b ℓa ℓb below hba hbb hc hIa hIb hp hQ ha hb
+  cases fc with
+  | zero => exact nomatch hc
+  | succ fc =>
+  rw [Setlec.isDefEqCore_succ] at hc
+  have hSp : SpineHandler μ env φ Q fc := by
+    intro l d' ga' la' gb' lb' f₁ f₂ a0 b0 a' b' ℓa' ℓb'
+      hIa' hIb' hPab' hQab' hc0 hwa hwb hs ha' hb'
+    cases la' with
+    | zero => exact nomatch ha'
+    | succ la'' =>
+    cases lb' with
+    | zero => exact nomatch hb'
+    | succ lb'' =>
+    have haD := ha'
+    rw [whnfLoop_succ] at haD
+    obtain ⟨a₁, hwca, htriA⟩ := whnfStep_decompose haD
+    obtain rfl : a' = a₁ :=
+      ((KnotFuelDet_of_mono hm).2.2.1
+        (hwca : whnfCore μ env ga' d' a0 = .ok a₁) hwa).symm
+    have hbD := hb'
+    rw [whnfLoop_succ] at hbD
+    obtain ⟨b₁, hwcb, htriB⟩ := whnfStep_decompose hbD
+    obtain rfl : b' = b₁ :=
+      ((KnotFuelDet_of_mono hm).2.2.1
+        (hwcb : whnfCore μ env gb' d' b0 = .ok b₁) hwb).symm
+    rcases htriA with ⟨x, hrx, -⟩ | ⟨hrga, xa, hux, hkx⟩ |
+      ⟨-, -, hstopA⟩
+    · exact (hN hwa hrx ha').elim
+    · rcases htriB with ⟨y, hry, -⟩ | ⟨hrgb, xb, huy, hky⟩ |
+        ⟨-, -, hstopB⟩
+      · exact (hN hwb hry hb').elim
+      · obtain ⟨na, usa, heqa⟩ : ∃ n us,
+            a'.getAppFn = .const n us := by
+          have hs' := hs
+          unfold Setlec.defeqSpine at hs'
+          split at hs'
+          · next n us heq => exact ⟨n, us, heq⟩
+          · exact nomatch hs'
+        obtain ⟨nb, usb, heqb⟩ : ∃ n us,
+            b'.getAppFn = .const n us := by
+          have hs' := hs
+          unfold Setlec.defeqSpine at hs'
+          split at hs'
+          · next n us heq =>
+            split at hs'
+            · next n' us' heq' => exact ⟨n', us', heq'⟩
+            · exact nomatch hs'
+          · exact nomatch hs'
+        have hA : Setlec.whnfLoop (Setlec.pureFns μ env (max f₁ ga'))
+            env d' (la'' + 1) a' = .ok (.sort ℓa') := by
+          rw [whnfLoop_succ]
+          exact whnfStep_assemble_delta
+            (hm.2.2.1 (Nat.le_max_left f₁ ga')
+              (whnfCore_reidem_const hm hwa heqa))
+            (hm.2.2.2.2 (Nat.le_max_right f₁ ga') hrga) hux
+            (whnfLoop_r_mono hm (Nat.le_max_right f₁ ga') hkx)
+        have hB2 : Setlec.whnfLoop (Setlec.pureFns μ env (max f₂ gb'))
+            env d' (lb'' + 1) b' = .ok (.sort ℓb') := by
+          rw [whnfLoop_succ]
+          exact whnfStep_assemble_delta
+            (hm.2.2.1 (Nat.le_max_left f₂ gb')
+              (whnfCore_reidem_const hm hwb heqb))
+            (hm.2.2.2.2 (Nat.le_max_right f₂ gb') hrgb) huy
+            (whnfLoop_r_mono hm (Nat.le_max_right f₂ gb') hky)
+        have hIa2 := hIC hwa hIa'
+        have hIb2 := hIC hwb hIb'
+        unfold Setlec.defeqSpine at hs
+        split at hs
+        · next n us heqa2 =>
+          split at hs
+          · next n' us' heqb2 =>
+            split at hs
+            · next hcond =>
+              obtain ⟨rfl, hlen⟩ := hcond
+              split at hs
+              · next heql =>
+                obtain ⟨hlen', hcerts⟩ := defEqList_extract hs
+                have hzip : CertZip μ env fc d' a' b' := by
+                  rw [← Setlec.Expr.mkAppN_getApp a',
+                    ← Setlec.Expr.mkAppN_getApp b', heqa2, heqb2]
+                  exact certZip_mkAppN
+                    (.constSlack n us us' fun φ' =>
+                      evalEqList_map
+                        (Setlec.Level.isEquivList_sound heql φ'))
+                    hlen' (getAppArgs_bounded hIa2.2.1)
+                    (getAppArgs_bounded hIb2.2.1) hcerts
+                exact below (Or.inl (Nat.lt_succ_self fc)) hzip
+                  hIa2 hIb2
+                  ((hLC hwb ((hLC hwa hPab').symm)).symm)
+                  (hQs (hQC hwb (hQs (hQC hwa hQab')))) hA hB2
+              · exact nomatch hs
+            · exact nomatch hs
+          · exact nomatch hs
+        · exact nomatch hs
+      · obtain rfl := hstopB
+        unfold Setlec.defeqSpine at hs
+        split at hs
+        · exact nomatch hs
+        · exact nomatch hs
+    · obtain rfl := hstopA
+      unfold Setlec.defeqSpine at hs
+      exact nomatch hs
+  exact certLoop_sortAgree (φ := φ) (Q := Q) hm hIC hID hIN
+    hLC hLD hLN hQC hQD hQN hQs hP hR hE hN fc hSp
+    Setlec.defeqLoopFuel hc hIa hIb hp hQ ha hb
 
 /-- **The both-δ core COLLAPSED onto the summit**: the spine facts
 zip the pair (head by `constSlack` through `isEquivList` soundness,
@@ -6638,9 +6819,9 @@ args as `.cert` leaves through `defEqList_extract`), and
 `ZipWhnfSortAgree` concludes. -/
 theorem deltaSpineSortAgree_of {φ : Name → Nat}
     {Q : Nat → Expr → Expr → Prop}
-    (hZ : ZipWhnfSortAgree μ env φ) :
+    (hZ : ZipWhnfSortAgree μ env φ Q) :
     DeltaSpineSortAgree μ env φ Q := by
-  intro fc d ga la gb lb a' b' ℓa ℓb hIa hIb hPab _hQ hs hla hlb
+  intro fc d ga la gb lb a' b' ℓa ℓb hIa hIb hPab hQ hs hla hlb
   unfold Setlec.defeqSpine at hs
   split at hs
   · next n us heqa =>
@@ -6660,7 +6841,7 @@ theorem deltaSpineSortAgree_of {φ : Name → Nat}
                 evalEqList_map (Setlec.Level.isEquivList_sound heql φ'))
               hlen' (getAppArgs_bounded hIa.2.1)
               (getAppArgs_bounded hIb.2.1) hcerts
-          exact hZ hzip hIa hIb hPab hla hlb
+          exact hZ hzip hIa hIb hPab hQ hla hlb
         · exact nomatch hs
       · exact nomatch hs
     · exact nomatch hs
@@ -6682,7 +6863,7 @@ theorem ensureSortAgreeR_of_summit {φ : Name → Nat}
     (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
     (hQN : QPreserveNatF μ env Q)
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
-    (hZ : ZipWhnfSortAgree μ env φ) :
+    (hZ : ZipWhnfSortAgree μ env φ Q) :
     EnsureSortAgreeRQ μ env φ Q :=
   have hD : DeltaSpineSortAgree μ env φ Q :=
     deltaSpineSortAgree_of (φ := φ) (Q := Q) hZ
@@ -6703,24 +6884,24 @@ with leaf certs at strictly smaller knot fuel feeding the ih). -/
 `ZipWhnfSortAgree` alone, via the `.cert` leaf. -/
 theorem ensureSortAgreeRQ_of_zip {φ : Name → Nat}
     {Q : Nat → Expr → Expr → Prop}
-    (hZ : ZipWhnfSortAgree μ env φ) :
+    (hZ : ZipWhnfSortAgree μ env φ Q) :
     EnsureSortAgreeRQ μ env φ Q := by
-  intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwsa hba hLa hwsb hbb hLb hp _hQ
+  intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwsa hba hLa hwsb hbb hLb hp hQ
     h₁ h₂
   obtain ⟨ga, la, -, hla⟩ := whnf_peel h₁
   obtain ⟨gb, lb, -, hlb⟩ := whnf_peel h₂
   exact hZ (.cert a b hba hbb hc) (SubjInv.of_pair hwsa hba hLa hp)
-    (SubjInv.of_pair_right hwsb hbb hLb hp) hp hla hlb
+    (SubjInv.of_pair_right hwsb hbb hLb hp) hp hQ hla hlb
 
 /-- **(B) collapses onto the summit**: `SortOfAgreeRQ` from
 `ZipSortOfAgree` alone, via the `.cert` leaf. -/
 theorem sortOfAgreeRQ_of_zip {φ : Name → Nat}
     {Q : Nat → Expr → Expr → Prop}
-    (hZ : ZipSortOfAgree μ env φ) :
+    (hZ : ZipSortOfAgree μ env φ Q) :
     SortOfAgreeRQ μ env φ Q := by
-  intro fc d a b f₁ f₂ u v hc hwsa hba hLa hwsb hbb hLb hp _hQ h₁ h₂
+  intro fc d a b f₁ f₂ u v hc hwsa hba hLa hwsb hbb hLb hp hQ h₁ h₂
   exact hZ (.cert a b hba hbb hc) (SubjInv.of_pair hwsa hba hLa hp)
-    (SubjInv.of_pair_right hwsb hbb hLb hp) hp
+    (SubjInv.of_pair_right hwsb hbb hLb hp) hp hQ
     (SortOfLE_of_run h₁) (SortOfLE_of_run h₂)
 
 /-- The slot-free (B) shell: `SortOfAgreeR` as the `Q := True`

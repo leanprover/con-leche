@@ -9929,3 +9929,38 @@ vacuous via their lit/stuck sides — the proposed packing-slack
 constructors were killed by their own check); the app-with-cert-HEAD
 sub-case is the mutual knot with binder opening (the Θ tier),
 flagged for full treatment at its seal.
+
+### Summit build, tier 3: the cert case DISCHARGED on the extracted template
+
+The audit correction first (the pre-build check firing on my own
+audit): **the "zip tier is Q-free" claim was WRONG** — the trio legs
+INSIDE the cert case need the vacuity Props, whose only discharge
+route is semantic (FrameQ), so the summit tower threads Q after all.
+The saving grace, verified before amending: the landed preservers
+cover every Q-evolution the summit performs (both-δ = two left-δs +
+symm; β and zeta ride `QPreserveCoreF` because they happen inside
+whnfCore; no new species).  The claims, `ZipBelow`, the five case
+Props, the skeleton, and the collapse corollaries are all
+Q-threaded; the corollaries got CLEANER (the public claims' Q now
+lines up with the summit's instead of being absorbed).
+
+Then the refactor that prevented ~200 lines of duplication: the
+(A)-shell's `main` is extracted as **`certLoop_sortAgree`** — the
+cert-loop template at a fixed knot fuel, with the spine handler as
+the named-def hypothesis `SpineHandler μ env φ Q fc` (the def
+wrapper defeats the implicit-∀ eager-opening disease; raw-∀
+parameter types get opened at application sites — recipe confirmed
+a third time, now with the fix of naming the seam).  The shell
+consumes it with `hS`; **`zipCertCase_of`** consumes it with the
+zip-and-recurse handler: post-core heads from the spine cert,
+dual-success runs assembled via `whnfCore_reidem_const` +
+`whnfStep_assemble_delta`, the pair zipped (`constSlack` head,
+`.cert` leaves from `defEqList_extract`, closedness from
+`getAppArgs_bounded`), and `ZipBelow` fed at `Or.inl
+(Nat.lt_succ_self fc)` — the cert-fuel decrease, exactly the
+measure's primary component.  Compiled first-pass.
+
+**The summit's remaining obligations**: `ZipConstCase` (StoredWF
+kit), the three sim roots (`ZipApp`/`ZipLetE`/`ZipProjCase` — iota
+with full treatment), the vacuity Props (semantic tier), and the
+env facts.
