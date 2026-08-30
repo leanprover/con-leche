@@ -12619,3 +12619,16 @@ but the bare-tower facts are `ConstOk.lean`'s (v1) and have no interp2
 analogue.  So entry item 2 is "port `ConstOk.lean` (267 lines) onto
 `piR`", not "invent an argument": sized, and with every case's target
 already written down here.
+
+### The corrected architecture's map tier SEALED (`ThetaRel.lean`)
+
+Landed (compiled): `certZip_mono` (fuel lift — congruence-arm
+argument zips at the run's knot lift to the tier, keeping spines
+un-nested), `ThetaRel` (zip / packed / same — the traveling
+currency; knot decoupled from the tier per round three),
+`ThetaCoreSeam` (the landed `CoreSeam` shape with `ThetaRel`
+material at head rows, dead rows verbatim, plus the `alignSeam` row
+carrying the E4 seams outward), `ThetaCoreOut`, and the
+`ThetaCoreLockF` claim (inline induction over the runs' knot sum;
+zip rows delegate to the landed `coreLock`).  Next: the θ-coreLock
+discharge, then the loop tier, then the tie and the consumers.
