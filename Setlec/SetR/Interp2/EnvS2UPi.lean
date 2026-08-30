@@ -179,6 +179,125 @@ theorem piProbe_annotOk2 (ρ : Nat → V) :
     exact hx
   · intro h; exact nomatch h
 
+/-! ## `CvalAnnot` at the probe — the λ-shape conjunct's ingredients
+
+`EnvS2U.cval_annot` (restored: seal 40 recorded its absence as an
+omission) has two conjuncts, and at *this* probe neither is vacuous.
+The first needs an `Annotates` derivation for the stored λ, which
+carries an `Infer` and a `HasSortC` premise.  The second needs the
+converse direction: **every** type the relation infers for the stored
+λ must be sorted — and since `Infer`'s type slot is pinned only up to
+`DefEq` (`Annot/Validity.lean`, finding A5), that is an *inversion*,
+not a computation.
+
+The inversion is stated with a generalized subject, exactly as
+`infer_shape_empty` is and for the same reason: `Infer.const`'s
+subject is `cval n ψ`, an application, so `cases` at a fixed λ cannot
+decide it.  What refutes I3 here is not the empty environment but the
+stored name — `piProbe_find_eq` — and that is the difference the
+non-empty probe pays for. -/
+
+theorem piProbeCval_at (ψ : Name → Nat) :
+    piProbeCval piProbeName ψ = VExpr.lam (.sort 0) (.bvar 0) :=
+  piProbeCval_head ψ
+
+theorem piProbeEnv_find_self :
+    piProbeEnv.find? piProbeName = some piProbeCi := rfl
+
+/-- The probe environment stores exactly one name, so I3's lookup
+premise names it. -/
+theorem piProbe_find_eq {n : Name} {ci : ConstantInfo}
+    (h : piProbeEnv.find? n = some ci) :
+    n = piProbeName ∧ ci = piProbeCi := by
+  by_cases hn : n = piProbeName
+  · subst hn
+    rw [piProbeEnv_find_self] at h
+    exact ⟨rfl, (Option.some.inj h).symm⟩
+  · rw [piProbeEnv_find_ne hn] at h
+    exact nomatch h
+
+/-- The stored type's closed denotation, in the spelling I3's third
+premise uses.  `piProbeTy` mentions no level parameter, so the
+instantiation is the identity at every `us`. -/
+theorem piProbe_denoteClosed_ty (φ : Name → Nat) (us : List Level) :
+    denoteClosed piProbeCval piProbeEnv φ
+      (piProbeCi.toConstantVal.type.instantiateLevelParams
+        piProbeCi.toConstantVal.levelParams us)
+      = some (.pi (.sort 0) (.sort 0)) := by
+  rw [show piProbeCi.toConstantVal.type.instantiateLevelParams
+      piProbeCi.toConstantVal.levelParams us = piProbeTy from rfl,
+    denoteClosed, piProbeTy, denote, Expr.instantiate1_sort]
+  simp [Setlec.Level.eval]
+
+/-- **I2's inversion at the probe.**  The only clause whose subject is
+a `.bvar` is I2 — I3's subject is the stored λ, and the two literal
+clauses are guarded off by the environment. -/
+theorem piProbe_infer_bvar0 {μ : CheckMode} {φ : Name → Nat}
+    {Δ : List VExpr} {A e B : VExpr}
+    (h : Infer μ piProbeEnv piProbeCval φ (A :: Δ) e B)
+    (he : e = .bvar 0) : B = A.liftN 1 := by
+  cases h with
+  | bvar hi =>
+    injection he with hi0
+    subst hi0
+    simp only [List.getElem?_cons_zero, Option.some.injEq] at hi
+    subst hi
+    rfl
+  | const hfind =>
+    obtain ⟨rfl, rfl⟩ := piProbe_find_eq hfind
+    rw [piProbeCval_at] at he
+    exact nomatch he
+  | litNat hsup => exact absurd hsup (by decide)
+  | litStr hsup => exact absurd hsup (by decide)
+  | sort | pi | lam | app | proj | letE => exact nomatch he
+
+/-- **The λ-shape conjunct's content.**  Whatever type the relation
+infers for the stored λ, it is `Sort 0 → Sort 0`: I7 pins the domain
+and reads the codomain off I2, and I3 pins it to the stored type's
+denotation.  The two agree, which is what makes the obligation
+dischargeable at all. -/
+theorem piProbe_infer_lam {μ : CheckMode} {φ : Name → Nat}
+    {Δ : List VExpr} {e T : VExpr}
+    (h : Infer μ piProbeEnv piProbeCval φ Δ e T)
+    (he : e = .lam (.sort 0) (.bvar 0)) :
+    T = .pi (.sort 0) (.sort 0) := by
+  cases h with
+  | lam _ _ hb =>
+    injection he with hA hb'
+    subst hA
+    subst hb'
+    rw [piProbe_infer_bvar0 hb rfl]
+    rfl
+  | const hfind _ hden =>
+    obtain ⟨rfl, rfl⟩ := piProbe_find_eq hfind
+    rw [piProbe_denoteClosed_ty] at hden
+    exact (Option.some.inj hden).symm
+  | litNat hsup => exact absurd hsup (by decide)
+  | litStr hsup => exact absurd hsup (by decide)
+  | sort | bvar | pi | app | proj | letE => exact nomatch he
+
+/-- `Sort 0 → Sort 0` is sorted — the fact the λ-shape conjunct
+delivers, by I6 over I1 twice. -/
+theorem piProbe_hasSortC_ty {μ : CheckMode} {φ : Name → Nat}
+    {Δ : List VExpr} :
+    ∃ v, HasSortC μ piProbeEnv piProbeCval φ Δ
+      (.pi (.sort 0) (.sort 0)) v :=
+  ⟨imax 1 1, HasSortC.ofHasSort
+    ⟨.sort (imax 1 1),
+      Infer.pi Infer.sort DefEq.refl Infer.sort DefEq.refl,
+      DefEq.refl⟩⟩
+
+/-- The stored λ annotates, at every context — the first conjunct's
+subject at the installed name.  The codomain numeral `1` is I7's
+cached premise: the body's type is `Sort 0`, whose sort is `1`. -/
+theorem piProbe_annotates_lam (μ : CheckMode) (φ : Name → Nat)
+    (Δ : List VExpr) :
+    Annotates μ piProbeEnv piProbeCval φ Δ
+      (.lam (.sort 0) (.bvar 0)) (.lam 1 (.sort 0) (.bvar 0)) :=
+  .lam (B := .sort 0) (Infer.bvar (A := .sort 0) rfl)
+    (HasSortC.ofHasSort ⟨.sort 1, Infer.sort, DefEq.refl⟩)
+    .sort .bvar
+
 /-! ## The collapse-lane invariant at the probe -/
 
 /-- The probe's `EnvS`.  The install assembler again, but with a
@@ -244,6 +363,54 @@ def piProbeEnvS : EnvS V piProbeEnv := by
     · rw [show (⟨piProbeCi :: Env.empty.consts⟩ : Env) = piProbeEnv
         from rfl, piProbeEnv_find_ne hn] at hf
       exact nomatch hf
+
+/-- The probe's collapse-lane valuation, read off the assembler. -/
+theorem piProbeEnvS_cval : (piProbeEnvS V).cval = piProbeCval := rfl
+
+/-- **`EnvS2`'s tenth field at the λ-leaf probe** — `cval_annot`, and
+the one place in this campaign where its **λ-shape conjunct is not
+vacuous**.  `EnvS2.empty` and `probeEnvS_cvalAnnot` both discharge
+that conjunct by having no λ-shaped stored valuation; here the stored
+leaf *is* a λ, so the obligation has to be met: every type the
+relation infers for `fun (_ : Sort 0) => _` must be sorted.
+
+It is met, and the two clauses that can infer a type for the stored
+leaf agree on it — I7 reads the codomain off I2, I3 reads it off the
+stored type's denotation, and both give `Sort 0 → Sort 0`.  That
+agreement is not automatic: it is the probe's install contract
+(`piProbeCval` inhabits `piProbeTy`) showing up on the relational
+side.
+
+Stated standalone for the reason `probeEnvS_cvalAnnot` is: the field
+is not on `EnvS2U` yet, and the obstruction is `declStep2_of_axiom`
+rather than either probe (`EnvS2U.lean`'s module docstring). -/
+theorem piProbeEnvS_cvalAnnot (μ : CheckMode) (φ : Name → Nat) :
+    CvalAnnot μ piProbeEnv (piProbeEnvS V).cval φ := by
+  rw [piProbeEnvS_cval]
+  refine ⟨fun n ψ Δ => ?_, ?_⟩
+  · by_cases hn : n = piProbeName
+    · subst hn
+      rw [piProbeCval_at]
+      exact ⟨_, piProbe_annotates_lam μ φ Δ⟩
+    · rw [piProbeCval_ne hn]
+      exact ⟨.const .empty [0], .const⟩
+  · intro n ψ Δ T _ hlam hinf
+    by_cases hn : n = piProbeName
+    · subst hn
+      rw [piProbeCval_at] at hinf
+      rw [piProbe_infer_lam hinf rfl]
+      exact piProbe_hasSortC_ty
+    · rw [piProbeCval_ne hn] at hlam
+      exact absurd hlam (by simp [emptyT, VExpr.isLam])
+
+/-- **The conjunct really is non-vacuous here.**  The stored leaf is
+λ-shaped, so the second clause's guard fires — the check that
+distinguishes "met" from "dodged", and the difference from both
+`EnvS2.empty` and the first probe. -/
+theorem piProbeCval_isLam (ψ : Name → Nat) :
+    (piProbeCval piProbeName ψ).isLam = true := by
+  rw [piProbeCval_at]
+  rfl
 
 /-! ## The uniqueness-form invariant at the probe -/
 

@@ -33,6 +33,37 @@ truth, not a new bet.
 
 In exactly one place: generation six's `Exists2E` factors. That is the
 point of the ruling — existence owed once, not twice.
+
+## The tenth field, and why it is still not here
+
+Seal 40 recorded that dropping `EnvS2`'s `cval_annot` was an omission
+in writing this freeze rather than a ruling, and owed its restoration.
+**Restoring it is one line here and one in `EnvS2.toU`, and it does
+not land** — not because of the probes (both discharge it: see
+`probeEnvS_cvalAnnot` and `piProbeEnvS_cvalAnnot`, which are exactly
+the field at the two probes' valuations, ready to be spliced in), but
+because of the *third* `EnvS2U` construction site.
+
+`Keys2Cond.lean`'s `declStep2_of_axiom` builds an `EnvS2U` at a fresh
+axiom install, and it cannot supply the field from its hypotheses.
+Two independent reasons, both statement-level:
+
+* the fresh name's collapse-lane valuation `hbase.cval cvA.name` is
+  **unconstrained** by the theorem's premises — `MemberBlock2` is a
+  membership fact, `EnvS` has no annotation field — and a valuation
+  can fail `CvalAnnot`: `Infer` has no `.prf` clause
+  (`Annot/Validity.lean`'s `not_infer_prf`), so a leaf like
+  `.lam .prf .prf` has no `Annotates` derivation at all;
+* the *old* names' `CvalAnnot` sits at `env`, and moving it to the
+  extended environment is an **environment weakening for `Annotates`
+  / `Infer` / `DefEq`**, which the tree does not have anywhere — the
+  `denote2` lane's `denote2_envExtend` has no relational counterpart.
+
+So the restoration needs a new hypothesis on `declStep2_of_axiom`
+(a `CvalAnnot` supplier at the extended environment), and that is a
+statement change to a file this batch may not touch.  Recorded here so
+the next attempt does not re-discover it at the probes, which are not
+where the obstruction is.
 -/
 
 namespace Setlec.SetR.Interp2

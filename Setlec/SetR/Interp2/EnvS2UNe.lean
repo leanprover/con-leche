@@ -130,6 +130,37 @@ def probeEnvS : EnvS V probeEnv := by
         from rfl, probeEnv_find_ne hn] at hf
       exact nomatch hf
 
+/-- The probe's collapse-lane valuation, read off the assembler: the
+install did not move it, so it is `EnvS.empty`'s leaf at every name.
+Named rather than inlined because `cval_annot` rewrites with it — a
+`simp` set that unfolds `probeEnvS` cannot get there, since the
+assembler is applied to twenty arguments. -/
+theorem probeEnvS_cval : (probeEnvS V).cval = fun _ _ => emptyT 0 :=
+  rfl
+
+/-- **`EnvS2`'s tenth field at the probe** — `cval_annot`, whose
+absence from `EnvS2U` seal 40 recorded as an omission.  Stated
+standalone because the field is not (yet) on the structure: it is
+`cval_annot := probeEnvS_cvalAnnot V` verbatim once it is, and the
+obstruction to putting it there is `declStep2_of_axiom`, not this
+probe (`EnvS2U.lean`'s module docstring).
+
+Both conjuncts are met by *absence of a λ*: the install did not move
+the valuation, so every leaf is the empty type's constant, which
+annotates by `Annotates.const` and is not λ-shaped.  That is the
+**same** discharge `EnvS2.empty` uses, and it is honest here only
+because the probe's one stored constant happens to keep the empty
+valuation — `piProbeEnvS_cvalAnnot` is where the λ-shape conjunct has
+to be met rather than dodged. -/
+theorem probeEnvS_cvalAnnot (μ : CheckMode) (φ : Name → Nat) :
+    CvalAnnot μ probeEnv (probeEnvS V).cval φ := by
+  refine ⟨fun n ψ Δ => ⟨.const .empty [0], ?_⟩, ?_⟩
+  · rw [probeEnvS_cval]
+    exact .const
+  · intro n ψ Δ T _ hlam _
+    rw [probeEnvS_cval] at hlam
+    exact absurd hlam (by simp [emptyT, VExpr.isLam])
+
 /-! ## The uniqueness-form invariant at the probe -/
 
 /-- **A non-empty `EnvS2U`.**  The annotated valuation is the same
