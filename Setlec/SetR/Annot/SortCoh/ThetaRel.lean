@@ -64,6 +64,8 @@ inductive ThetaRel (μ : CheckMode) (env : Env) (T : Nat) :
       (hT : TelescopeRel μ env T d Γ)
       (hfc : fc' ≤ T + 1)
       (hz : CertZip μ env fc' (d + Γ.length) A₁ A₂)
+      (hC₁ : SubjInv (d + Γ.length) A₁)
+      (hC₂ : SubjInv (d + Γ.length) A₂)
       (hlen : sp₁.length = sp₂.length)
       (hsp : ∀ i (h₁ : i < sp₁.length) (h₂ : i < sp₂.length),
         ThetaRel μ env T d sp₁[i] sp₂[i]) :
@@ -76,6 +78,8 @@ inductive ThetaRel (μ : CheckMode) (env : Env) (T : Nat) :
       (hk : k ≤ T)
       (hrun : Setlec.defeqLoop μ (Setlec.pureFns μ env k) env
         (d + Γ.length) L C₁ C₂ = .ok true)
+      (hC₁ : SubjInv (d + Γ.length) C₁)
+      (hC₂ : SubjInv (d + Γ.length) C₂)
       (hlen : sp₁.length = sp₂.length)
       (hsp : ∀ i (h₁ : i < sp₁.length) (h₂ : i < sp₂.length),
         ThetaRel μ env T d sp₁[i] sp₂[i]) :
@@ -85,6 +89,7 @@ inductive ThetaRel (μ : CheckMode) (env : Env) (T : Nat) :
   | sameCore {d : Nat} {Γ : List ThetaEntry} {P : Expr}
       {sp₁ sp₂ : List Expr}
       (hT : TelescopeRel μ env T d Γ)
+      (hP : SubjInv (d + Γ.length) P)
       (hlen : sp₁.length = sp₂.length)
       (hsp : ∀ i (h₁ : i < sp₁.length) (h₂ : i < sp₂.length),
         ThetaRel μ env T d sp₁[i] sp₂[i]) :
@@ -99,7 +104,7 @@ inductive TelescopeRel (μ : CheckMode) (env : Env) (T : Nat) :
   | nil {d : Nat} : TelescopeRel μ env T d []
   | cons {d : Nat} {t : ThetaEntry} {Γ : List ThetaEntry}
       (hz : ThetaRel μ env T d t.a₁ t.a₂)
-      (hd : isDefEqCore μ env (T + 1) d t.ty₁ t.ty₂ = .ok true)
+      (hd : ThetaRel μ env T d t.ty₁ t.ty₂)
       (hI₁ : SubjInv d t.a₁) (hI₂ : SubjInv d t.a₂)
       (hp : PairedLeaves t.a₁ t.a₂)
       (rest : TelescopeRel μ env T (d + 1) Γ) :
@@ -108,20 +113,11 @@ end
 
 /-- A bare zip is `zipCore` at the empty telescope and spine. -/
 theorem ThetaRel.ofZip {T d fc' : Nat} {a b : Expr}
-    (hfc : fc' ≤ T + 1) (hz : CertZip μ env fc' d a b) :
+    (hfc : fc' ≤ T + 1) (hz : CertZip μ env fc' d a b)
+    (hI₁ : SubjInv d a) (hI₂ : SubjInv d b) :
     ThetaRel μ env T d a b :=
   ThetaRel.zipCore (Γ := []) (sp₁ := []) (sp₂ := [])
-    .nil hfc hz rfl (fun i h₁ h₂ => absurd h₁ (by simp))
-
-/-- `TelescopeOk` embeds (zips become `.zip` rows). -/
-theorem TelescopeRel.of_ok {T : Nat} :
-    ∀ {Γ : List ThetaEntry} {d : Nat},
-      TelescopeOk μ env T d Γ → TelescopeRel μ env T d Γ
-  | [], _ => fun _ => .nil
-  | _ :: _, _ => fun h =>
-    .cons (ThetaRel.ofZip (Nat.le_refl (T + 1)) h.1) h.2.1
-      h.2.2.1 h.2.2.2.1 h.2.2.2.2.1
-      (TelescopeRel.of_ok h.2.2.2.2.2)
+    .nil hfc hz hI₁ hI₂ rfl (fun i h₁ h₂ => absurd h₁ (by simp))
 
 /-- Bounded images under a Θ telescope (LEFT). -/
 theorem thetaRel_bounded₁ {T : Nat} :
@@ -246,8 +242,7 @@ theorem TelescopeRel.append {T : Nat} {t : ThetaEntry} :
     ∀ {Γ : List ThetaEntry} {d : Nat},
       TelescopeRel μ env T d Γ →
       ThetaRel μ env T (d + Γ.length) t.a₁ t.a₂ →
-      isDefEqCore μ env (T + 1) (d + Γ.length) t.ty₁ t.ty₂
-        = .ok true →
+      ThetaRel μ env T (d + Γ.length) t.ty₁ t.ty₂ →
       SubjInv (d + Γ.length) t.a₁ →
       SubjInv (d + Γ.length) t.a₂ →
       PairedLeaves t.a₁ t.a₂ →
@@ -324,10 +319,10 @@ def ThetaCoreOut (μ : CheckMode) (env : Env) (T d : Nat)
     (g₁ g₂ : Nat) (u v u' v' : Expr) : Prop :=
   (ThetaRel μ env T d u' v' ∧ SubjInv d u' ∧ SubjInv d v' ∧
     PairedLeaves u' v') ∨
-  (∃ w₁ w₂ c₁ c₂, c₁ ≤ g₁ ∧ c₂ ≤ g₂ ∧
+  (∃ w₁ w₂ c₁ c₂ G₁ G₂, c₁ ≤ g₁ ∧ c₂ ≤ g₂ ∧
     whnfCore μ env c₁ d w₁ = .ok u' ∧
     whnfCore μ env c₂ d w₂ = .ok v' ∧
-    Contracts μ env d u w₁ ∧ Contracts μ env d v w₂ ∧
+    RawReach μ env d G₁ u w₁ ∧ RawReach μ env d G₂ v w₂ ∧
     ThetaCoreSeam μ env T d w₁ w₂)
 
 /-- **The θ core lock claim** (statement tier; the discharge is the
@@ -750,6 +745,156 @@ theorem thetaSubst₂_proj {d : Nat} {sn : Name} {i : Nat}
       = _
     rw [thetaSubst₂_proj (Γ := Γ')]
     rfl
+
+/-- Below-zone `fvar`s are θ-invariant (neither `abstract1` at a
+higher index nor `instantiate1` touches an `fvar` node). -/
+theorem thetaSubst₁_fvar_below :
+    ∀ {Γ : List ThetaEntry} {d j : Nat} {n : Name} {ty : Expr},
+      j < d →
+      thetaSubst₁ d Γ (.fvar j n ty) = .fvar j n ty
+  | [], _, _, _, _ => fun _ => rfl
+  | t :: Γ', d, j, n, ty => fun hj => by
+    show substAK d 0 t.a₁ (thetaSubst₁ (d + 1) Γ' (.fvar j n ty))
+      = _
+    rw [thetaSubst₁_fvar_below (Γ := Γ') (by omega : j < d + 1)]
+    unfold substAK
+    simp only [Setlec.Expr.abstract1]
+    rw [if_neg (by omega : j ≠ d)]
+    rfl
+
+/-- RIGHT-side version. -/
+theorem thetaSubst₂_fvar_below :
+    ∀ {Γ : List ThetaEntry} {d j : Nat} {n : Name} {ty : Expr},
+      j < d →
+      thetaSubst₂ d Γ (.fvar j n ty) = .fvar j n ty
+  | [], _, _, _, _ => fun _ => rfl
+  | t :: Γ', d, j, n, ty => fun hj => by
+    show substAK d 0 t.a₂ (thetaSubst₂ (d + 1) Γ' (.fvar j n ty))
+      = _
+    rw [thetaSubst₂_fvar_below (Γ := Γ') (by omega : j < d + 1)]
+    unfold substAK
+    simp only [Setlec.Expr.abstract1]
+    rw [if_neg (by omega : j ≠ d)]
+    rfl
+
+/-- In-zone `fvar`s resolve to the entry's argument under the
+PREFIX telescope (LEFT). -/
+theorem thetaSubst₁_fvar_inzone :
+    ∀ {Γ : List ThetaEntry} {d k : Nat} {n : Name} {ty : Expr}
+      (hk : k < Γ.length),
+      thetaSubst₁ d Γ (.fvar (d + k) n ty)
+        = thetaSubst₁ d (Γ.take k) Γ[k].a₁
+  | [], _, k, _, _ => fun hk => absurd hk (by simp)
+  | t :: Γ', d, 0, n, ty => fun hk => by
+    show substAK d 0 t.a₁
+      (thetaSubst₁ (d + 1) Γ' (.fvar (d + 0) n ty)) = _
+    rw [thetaSubst₁_fvar_below (Γ := Γ')
+      (by omega : d + 0 < d + 1)]
+    show ((Expr.fvar (d + 0) n ty).abstract1 d 0).instantiate1
+      t.a₁ 0 = _
+    simp only [Setlec.Expr.abstract1]
+    rw [if_pos (by omega : d + 0 = d)]
+    rfl
+  | t :: Γ', d, (k' + 1), n, ty => fun hk => by
+    show substAK d 0 t.a₁
+      (thetaSubst₁ (d + 1) Γ' (.fvar (d + (k' + 1)) n ty)) = _
+    have heq : d + (k' + 1) = (d + 1) + k' := by omega
+    rw [heq, thetaSubst₁_fvar_inzone (Γ := Γ') (d := d + 1)
+      (by simpa using Nat.lt_of_succ_lt_succ hk)]
+    rfl
+
+/-- RIGHT-side version. -/
+theorem thetaSubst₂_fvar_inzone :
+    ∀ {Γ : List ThetaEntry} {d k : Nat} {n : Name} {ty : Expr}
+      (hk : k < Γ.length),
+      thetaSubst₂ d Γ (.fvar (d + k) n ty)
+        = thetaSubst₂ d (Γ.take k) Γ[k].a₂
+  | [], _, k, _, _ => fun hk => absurd hk (by simp)
+  | t :: Γ', d, 0, n, ty => fun hk => by
+    show substAK d 0 t.a₂
+      (thetaSubst₂ (d + 1) Γ' (.fvar (d + 0) n ty)) = _
+    rw [thetaSubst₂_fvar_below (Γ := Γ')
+      (by omega : d + 0 < d + 1)]
+    show ((Expr.fvar (d + 0) n ty).abstract1 d 0).instantiate1
+      t.a₂ 0 = _
+    simp only [Setlec.Expr.abstract1]
+    rw [if_pos (by omega : d + 0 = d)]
+    rfl
+  | t :: Γ', d, (k' + 1), n, ty => fun hk => by
+    show substAK d 0 t.a₂
+      (thetaSubst₂ (d + 1) Γ' (.fvar (d + (k' + 1)) n ty)) = _
+    have heq : d + (k' + 1) = (d + 1) + k' := by omega
+    rw [heq, thetaSubst₂_fvar_inzone (Γ := Γ') (d := d + 1)
+      (by simpa using Nat.lt_of_succ_lt_succ hk)]
+    rfl
+
+/-- Telescope images compose over concatenation (LEFT). -/
+theorem thetaSubst₁_concat :
+    ∀ {Γ₁ Γ₂ : List ThetaEntry} {d : Nat} {e : Expr},
+      thetaSubst₁ d (Γ₁ ++ Γ₂) e
+        = thetaSubst₁ d Γ₁ (thetaSubst₁ (d + Γ₁.length) Γ₂ e)
+  | [], Γ₂, d, e => by
+    show thetaSubst₁ d Γ₂ e = thetaSubst₁ (d + 0) Γ₂ e
+    rfl
+  | t :: Γ₁', Γ₂, d, e => by
+    show substAK d 0 t.a₁ (thetaSubst₁ (d + 1) (Γ₁' ++ Γ₂) e) = _
+    rw [thetaSubst₁_concat (Γ₁ := Γ₁')]
+    have heq : (d + 1) + Γ₁'.length = d + (Γ₁'.length + 1) := by
+      omega
+    rw [heq]
+    rfl
+
+/-- Telescope images compose over concatenation (RIGHT). -/
+theorem thetaSubst₂_concat :
+    ∀ {Γ₁ Γ₂ : List ThetaEntry} {d : Nat} {e : Expr},
+      thetaSubst₂ d (Γ₁ ++ Γ₂) e
+        = thetaSubst₂ d Γ₁ (thetaSubst₂ (d + Γ₁.length) Γ₂ e)
+  | [], Γ₂, d, e => by
+    show thetaSubst₂ d Γ₂ e = thetaSubst₂ (d + 0) Γ₂ e
+    rfl
+  | t :: Γ₁', Γ₂, d, e => by
+    show substAK d 0 t.a₂ (thetaSubst₂ (d + 1) (Γ₁' ++ Γ₂) e) = _
+    rw [thetaSubst₂_concat (Γ₁ := Γ₁')]
+    have heq : (d + 1) + Γ₁'.length = d + (Γ₁'.length + 1) := by
+      omega
+    rw [heq]
+    rfl
+
+/-- Telescopes concatenate. -/
+theorem TelescopeRel.concat {T : Nat} :
+    ∀ {Γ₁ Γ₂ : List ThetaEntry} {d : Nat},
+      TelescopeRel μ env T d Γ₁ →
+      TelescopeRel μ env T (d + Γ₁.length) Γ₂ →
+      TelescopeRel μ env T d (Γ₁ ++ Γ₂)
+  | [], Γ₂, d => fun _ h₂ => by
+    show TelescopeRel μ env T d Γ₂
+    have : d + ([] : List ThetaEntry).length = d := by simp
+    rw [this] at h₂
+    exact h₂
+  | t :: Γ₁', Γ₂, d => fun h₁ h₂ => by
+    cases h₁ with
+    | cons hz hd hI₁ hI₂ hp hΓ' =>
+      refine .cons hz hd hI₁ hI₂ hp
+        (TelescopeRel.concat hΓ' ?_)
+      have heq : d + (t :: Γ₁').length
+          = (d + 1) + Γ₁'.length := by
+        simp [List.length_cons]
+        omega
+      rw [heq] at h₂
+      exact h₂
+
+/-- Head congruence lifts a trace through a spine. -/
+theorem RawReach.mkAppN_left {d G : Nat} {f f' : Expr} :
+    ∀ (as : List Expr),
+      RawReach μ env d G f f' →
+      RawReach μ env d G (Setlec.Expr.mkAppN f as)
+        (Setlec.Expr.mkAppN f' as)
+  | [], h => h
+  | a :: as, h => by
+    show RawReach μ env d G
+      (Setlec.Expr.mkAppN (.app f a) as)
+      (Setlec.Expr.mkAppN (.app f' a) as)
+    exact RawReach.mkAppN_left as (.appL a h (.refl _))
 
 end Discharge
 

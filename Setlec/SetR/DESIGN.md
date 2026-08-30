@@ -12930,3 +12930,21 @@ fourteen non-fold theorems; "twelve" undercounts by excluding
 `checkDecl_sound_R` and `no_constant_of_Empty_R` — the two that are not
 in the 4×3 driver grid.  **Fourteen is right**; the roadmap's "twelve"
 should be read as "the twelve driver-grid ones".
+
+### Row invariants, the Raw currency, and the resolution kit sealed
+
+Amendments from the `runCore` pre-build, all compiled warning-free:
+the rows carry their cores' `SubjInv` (E1's inputs at the inner
+depth); `TelescopeRel.cons`'s domain fact is Θ-typed (the zipped-λ
+push's tys are zips, not certs; the loop-tier annotation-reads will
+consume the rel form); `ThetaCoreOut`'s rebase disjunct carries
+`RawReach` (the E-currency — the aligned points live on the raw
+image traces, not the gated `Contracts` paths); `ofZip` takes the
+`SubjInv` pair; `of_ok` deleted (the consumers' telescopes are
+empty — `.nil` suffices at every entry point).  New kit:
+`thetaSubst₁/₂_fvar_below` (θ-invariance below the zone),
+`thetaSubst₁/₂_fvar_inzone` (in-zone resolution to the entry's
+argument under the PREFIX telescope), `thetaSubst₁/₂_concat` +
+`TelescopeRel.concat` (telescope composition — the in-zone
+re-expression's spine), and `RawReach.mkAppN_left` (head-congruence
+spine lift).  Battery green, axioms 12/12.
