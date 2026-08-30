@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.Keys2Bundle
+import Setlec.SetR.Interp2.EmptyPin2
 
 /-!
 # The install step over `interp2`: the `cons` shape, and the value kinds

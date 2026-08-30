@@ -78,11 +78,12 @@ discharges outright.*
   with an already-unconditional conclusion is worth exactly that much
   and no more.
 * `no_constant_of_Empty_R2` is the tier's own statement of the
-  emptiness fact, and its proof is `no_constant_of_Empty_R` at
-  `m.base`: the `Empty` content is the collapse lane's, and the swap
-  does not re-derive it over `interp2`.  There is no `empty_pinned`
-  counterpart at the annotated tier, so a genuinely interp2-side
-  proof is not available and is not claimed.
+  emptiness fact, **and its proof is now interp2-side**: `mem_type2`
+  supplies the membership and `acval_empty_pinned` the leaf.  Seal
+  51 read the missing `empty_pinned` counterpart as a missing field;
+  the check (`EmptyPin2.lean`) found it is a *consequence* —
+  `acval_erase` plus the collapse-lane pin plus erasure injectivity
+  at the constant clause.  No `EnvS2U` field was added.
 -/
 
 namespace Setlec.SetR
@@ -90,7 +91,7 @@ namespace Setlec.SetR
 open Setlec.TT Setlec.TTVerify SetTheory EStore Expr
 open Setlec.SetR.Interp2 (EnvS2U DeclValue2S DeclAxiom2S DeclBasis2S
   DeclInd2S ValueResidues2 Denote2BodyOfRun leafEq_defn denote2
-  declStep2_of_valueResidues)
+  declStep2_of_valueResidues no_constant_of_Empty_2)
 
 universe w
 variable {V : Type w} [SetTheory V]
@@ -229,13 +230,18 @@ theorem EnvS2UOk.empty (V : Type w) [SetTheory V] :
 
 /-! ## The swap, theorem by theorem -/
 
-/-- **`no_constant_of_Empty_R`, over `EnvS2U`.**  The emptiness
-content is the collapse lane's, read off `base`; what the swap
-changes is the carrier the hypothesis names. -/
+/-- **`no_constant_of_Empty_R`, over `EnvS2U` — and now over
+`interp2`.**  Seal 51 recorded this as a stall: the proof was v1's at
+`m.base`, so the annotated valuation played no part.  It does now.
+The membership is `mem_type2`, the leaf is pinned by `acval_erase`
+plus `EnvS.empty_pinned` plus erasure injectivity at the constant
+clause (`EmptyPin2.lean`), and only the pin itself is still the
+collapse lane's — which no annotated field could replace, since
+`acval` is *defined* to erase to the pinned valuation. -/
 theorem no_constant_of_Empty_R2 {env : Env} (m : EnvS2U V env)
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False :=
-  no_constant_of_Empty_R m.base c hc hty
+  no_constant_of_Empty_2 m c hc hty
 
 /-- **`checkDecl_sound_R`, over `EnvS2U`.**  One checked declaration
 extends the annotated invariant. -/

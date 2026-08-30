@@ -115,6 +115,7 @@ import Setlec.SetR.Interp2.Denote2Extend
 import Setlec.SetR.Interp2.Keys2Probe
 import Setlec.SetR.Interp2.Keys2Cond
 import Setlec.SetR.Interp2.Keys2Bundle
+import Setlec.SetR.Interp2.EmptyPin2
 import Setlec.SetR.Interp2.Step2Cons
 import Setlec.SetR.Interp2.EnvLaws2
 import Setlec.SetR.Interp2.Capstone2C
