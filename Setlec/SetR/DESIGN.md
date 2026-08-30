@@ -11050,3 +11050,55 @@ Next: the proj/iota discharges ride loopLock (`LoopProjStep` /
 `LoopIotaStep`, each at its own seal with its own pre-build map —
 iota's includes the leg-local infer-lockstep lemmas for the K/eta
 rescue rows); then Θ's dedicated read-phase arc.
+
+### LoopProjStep pre-build map (the discharge follows at its own seal)
+
+**The organizing fact — stuck-proj deadness at every level**: a
+proj-headed state never moves (no δ — the head is not a const; no
+nat; the spine above a stuck proj is iota-inert), so
+* at any SORT-premised top, every stuck-proj configuration is
+  vacuous by the side's own run (this also fixes
+  `ZipProjHeadCase`'s eventual top discharge: its subjects' loops
+  reach sorts, so the proj MUST fire or die — the top is
+  LoopProjStep-shaped with the deadness simplifications); and
+* inside LoopProjStep, MIXED proj-fire exits dead seams directly:
+  the stuck side's output is proj-headed — non-const, non-λ,
+  non-sort — `deadL`/`deadR` at the raw subjects with the
+  mono-stable given runs.
+
+**The discharge plan**:
+1. **Bottom first** (the `.proj sn i e₁ / e₂` pair): both sides'
+   proj-core steps invert (`whnf_proj_inv`); the scrutinee whnfs
+   run at KNOT MINUS ONE — recurse through `LoopBelow` on the
+   zipped scrutinees (premise zip; invariants descend
+   structurally).  On the scrutinee pack: `projLit` sync (refl-lits
+   agree; a cert-blob side is not syntactically a literal, so
+   lit-vs-blob divergence lands in fire divergence below; the
+   strLit expansion re-enters whnf at the same knot−1 — `below`
+   covers it).  Fire conditions are DETERMINISTIC in
+   `(env, sn, i, e₃')`: zipped ctor-headed scrutinee-whnfs with
+   refl/constSlack heads share the ctor name and sync; cert-headed
+   scrutinee-whnfs are never syntactically ctor-headed — no fire —
+   stuck — dead.  Both-fire: the fields are `getD` of zipped
+   spines (zipped), their continuations are CORE runs at knot−1 —
+   **coreLock on the field pair** (standalone, fuel-parametric).
+   Scrutinee seams/splits bubble out re-based (`LoopReaches.core`
+   prefixes).
+2. **Spines** (`as ≠ []`, the seam-lifted arguments): resolve the
+   bottom as above, then REBASE to `(mkAppN h₁ as, mkAppN h₂ bs)`:
+   stuck bottoms make the whole spine inert
+   (`whnfCore_mkAppN_inert`-family) — pack directly on the rebuilt
+   proj-zip + arg zips; fired bottoms hand the rebased pair to
+   **coreLock** (per-layer run assembly from the original legs, the
+   coreLock-consumer pattern).  Nested proj-seams from the rebased
+   call RETURN as seams — no recursion: the top converts them by
+   deadness.
+3. Measure audit: all below-entries at knot−1 (scrutinees, strLit
+   re-entries); field continuations via coreLock (no bar); no
+   loop-budget descent needed anywhere in the discharge.
+
+Surfaces to have in hand at the build (all previously read):
+`whnf_proj_inv`'s full conjunct list (incl. `projCertP` and the
+ttChecks-conditional lane — both per-side gates, dual-success),
+`projLitToCtorP_inv`, the `whnfCore_mkAppN_inert` family, and the
+decompose/assemble pair.
