@@ -363,38 +363,61 @@ infer at all.  So neither key has a defeq run for route (ii) to cash;
 their membership content is model-side, and the claims reach only the
 `AnnotOk2` conjunct.  That is what the theorem below routes. -/
 
+/-- The stored type's frame facts, all four read off `EnvWF` — the
+shape both keys below open with. -/
+theorem storedType_frames2 (m : EnvS2U V env) {c : ConstantInfo}
+    (hc : c ∈ env.consts) :
+    Expr.WScoped 0 c.toConstantVal.type ∧
+      c.toConstantVal.type.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded c.toConstantVal.type ∧
+      c.toConstantVal.type.fvarLeaves = [] := by
+  obtain ⟨hfv, -, -, hb, -⟩ := m.base.wf c hc
+  have hnil : c.toConstantVal.type.fvarLeaves = [] :=
+    Expr.fvarLeaves_eq_nil_of_not_hasFvar hfv
+  exact ⟨Expr.WScoped.of_not_hasFvar hfv, hb,
+    fun l hl => absurd (hnil ▸ hl) (by simp), hnil⟩
+
 /-- **`MemberBlock2` at an already-stored constant.**  Membership from
 the environment's own `mem_type2`; truthfulness from `InferClaims2U`
-applied to the install's `ensureSort` run on the stored type; the
+applied to the install's `inferType` run on the stored type; the
 existence conjunct from the given annotation, with the fuel slack
 supplied by `denote2_fuelMono`.
 
-The inferred type is taken as a literal `.sort`, which is what
-`ensureSort` guarantees at every stored type — and it is what makes
-the claim's *other* dual-success premise free, since `denote2` answers
-on a sort at every fuel. -/
-theorem memberBlock2_of_stored (m : EnvS2U V env) {fuel F₀ : Nat}
-    {ψ : Name → Nat} {c : ConstantInfo} {ta : AVExpr} {u : Level}
+**The run premise is the front door's own, not a fused one.**
+`checkConstantVal` (`Kernel/CheckerBase.lean:88-89`) infers the type
+to an *intermediate* `stype` and only then `ensureSort`s it, so
+`inferTypeCore … = .ok (.sort u)` — the shape this key demanded until
+seal 48 — is strictly stronger than anything the checker produces.
+Taking `stype` instead makes the premise dischargeable from
+`ConstantValR`'s exposed chain, and costs exactly one thing: the
+literal-sort form supplied the claim's *other* dual-success premise
+for free (`denote2` answers on a sort at every fuel), and at an
+arbitrary `stype` it must be supplied — `hsty` below.
+
+`hsty` is `Denote2TotalR`'s content at this run (`Dual2E.lean`), i.e.
+the same parked existence residue as `hta`, one term further along;
+`memberBlock2_of_checkStep` names it as the factor it is.  The
+`ensureSort` half of the chain is **not** consumed here: `MemberBlock2`
+asks only for the subject's `AnnotOk2`, and nothing in it turns on the
+inferred type being — or reducing to — a sort. -/
+theorem memberBlock2_of_stored (m : EnvS2U V env) {fuel F₀ F₁ : Nat}
+    {ψ : Name → Nat} {c : ConstantInfo} {ta sa : AVExpr}
+    {stype : Expr}
     (hinf : InferClaims2U μ m ψ fuel)
     (hc : c ∈ env.consts)
     (hrun : inferTypeCore μ env fuel 0 c.toConstantVal.type
-      = .ok (.sort u))
+      = .ok stype)
+    (hsty : denote2 μ m.acval env ψ F₁ 0 stype = some sa)
     (hta : denote2 μ m.acval env ψ F₀ 0 c.toConstantVal.type
       = some ta) :
     MemberBlock2 V μ env m.acval ψ c.toConstantVal := by
-  obtain ⟨hfv, -, -, hb, -⟩ := m.base.wf c hc
-  have hws : Expr.WScoped 0 c.toConstantVal.type :=
-    Expr.WScoped.of_not_hasFvar hfv
-  have hnil : c.toConstantVal.type.fvarLeaves = [] :=
-    Expr.fvarLeaves_eq_nil_of_not_hasFvar hfv
-  have hL : Expr.LeavesBounded c.toConstantVal.type := by
-    intro l hl; rw [hnil] at hl; exact absurd hl (by simp)
+  obtain ⟨hws, hb, hL, hnil⟩ := storedType_frames2 m hc
   intro F
   refine ⟨max F F₀, ta, Nat.le_max_left _ _,
     denote2_fuelMono (Nat.le_max_right _ _) 0 _ hta, fun ρ => ?_⟩
   refine ⟨m.mem_type2 μ ψ F₀ c hc ta hta ρ, ?_⟩
   exact (hinf hrun hws hb hL (CtxOk2DU.of_closed hnil) hta
-    (denote2_sort m.acval F₀ 0 u)).1 ρ (Sat2_nil V ρ)
+    hsty).1 ρ (Sat2_nil V ρ)
 
 /-- **The key at a stored type with a binder** — `memberBlock2_probe`
 one binder further out, and unconditional.  Section 2's probe is the
@@ -573,21 +596,31 @@ theorem reducePin2_of_checkStep (m : EnvS2U V env) {fuel F : Nat}
     hvb hva hfits hrun
 
 /-- **`MemberBlock2`, landed.**  Cost after the landing: membership in
-the environment, the type front door's `inferType`/`ensureSort` run,
-and the stored type's annotation.  The three syntactic premises the
-key used to carry are now read off `EnvS.wf`, and nothing else
-remains — in particular the `AnnotOk2` conjunct is entirely the
-claim's. -/
+the environment, the type front door's own `inferType` run, the
+stored type's annotation — and `InferExists2E`, the inference
+existence factor (`Dual2E.lean`), which is what supplies the
+annotation of the run's *result*.  The three syntactic premises the
+key used to carry are now read off `EnvS.wf`, and the `AnnotOk2`
+conjunct is entirely the claim's.
+
+`hex` is named rather than inlined because it is the honest leftover:
+`ConstantValR`'s exposed chain discharges `hrun` on the nose, and
+`hex` is the one premise the front door does **not** supply. -/
 theorem memberBlock2_of_checkStep (m : EnvS2U V env) {fuel F₀ : Nat}
-    {ψ : Name → Nat} {c : ConstantInfo} {ta : AVExpr} {u : Level}
+    {ψ : Name → Nat} {c : ConstantInfo} {ta : AVExpr} {stype : Expr}
     (h : CheckStep2E μ V)
+    (hex : InferExists2E μ m ψ fuel)
     (hc : c ∈ env.consts)
     (hrun : inferTypeCore μ env fuel 0 c.toConstantVal.type
-      = .ok (.sort u))
+      = .ok stype)
     (hta : denote2 μ m.acval env ψ F₀ 0 c.toConstantVal.type
       = some ta) :
     MemberBlock2 V μ env m.acval ψ c.toConstantVal :=
-  memberBlock2_of_stored m (claims2U_of_2E h ψ fuel).2.2.2 hc hrun hta
+  let f := storedType_frames2 m hc
+  let e := hex hrun f.1 f.2.1 f.2.2.1
+    (CtxOk2DU.of_closed f.2.2.2) hta
+  memberBlock2_of_stored m (claims2U_of_2E h ψ fuel).2.2.2 hc hrun
+    e.choose_spec.choose_spec.2 hta
 
 /-! ## The three sweeps
 
@@ -604,11 +637,15 @@ tree rather than only in a seal.
   its pinned type `∀ n : Elem, Elem` must annotate for `mem_type2` to
   yield the `piR` membership.  Nothing else is semantic.
 * `memberBlock2_of_checkStep` — stops at `hta` (`Denote2Total` at the
-  stored type) and at `hrun`.  **`hrun` is the same exposure gap item
-  2 names**: `ConstantValR` records the `annotateCore` call and the
-  *relational* front door, never `checkConstantVal`'s own
-  `inferType`/`ensureSort` run, so today the caller must supply a run
-  the install made and discarded.
+  stored type) and at `hex` (`InferExists2E`).  **`hrun` no longer
+  stops it**: `ConstantValR` now records `checkConstantVal`'s own run
+  chain, and the chain's first half discharges `hrun` on the nose.
+  What the exposure does *not* close is `hex` — the annotation of the
+  run's *result*, which is `Denote2TotalR`'s repair and is parked
+  independently of anything the front door records.  The chain's
+  `ensureSort` half is not consumed at all: reaching `MemberBlock2`'s
+  `AnnotOk2` never asks what the inferred type reduces to, so
+  `WhnfClaims2U` — the cost seal 48 predicted — buys nothing here.
 * `declStep2_of_axiom` — stops at `hext` (`Denote2EnvExtend`, frozen
   on Θ), `hmem` (`MemberBlock2` at the new axiom, which is the
   install-tier half seal 40 measured), and `hbase`.  The `hbound`
