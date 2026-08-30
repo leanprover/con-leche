@@ -16507,3 +16507,46 @@ leave two tiers misaligned.
 against every statement that quantifies over it, in the same seal. I
 froze `EnvS2U` at seal 36 and did not, and the circularity surfaced
 two seals later when a consumer tried to use both.*
+
+### Cross-lane: both (E) exposure requests landed
+
+The Θ lane has landed both amendments (`f1ab6dc` on `agent/cert-tax`;
+reaching master with that lane's next grant). Pure statement exposure
+— no discharge triggered on their side, and nothing in this lane
+changes shape.
+
+1. **The full backward block.** On `ConstsBound`-`env₀` subjects the
+   extension's runs reproduce **at `env₀`**, for all five families —
+   the `env₂ → env₀` direction seal 38's Finding 1 showed the
+   uniqueness-form premises need, and which no composition of the
+   original forward-only (E) could supply.
+2. **Literal-guard agreement**, as three conjuncts: both
+   literal-support equalities plus pointwise `natOpGuard`. Demanded
+   **outright** — *an extension may not flip a guard* — on the strength
+   of `denote2EnvExtend_lit_refuted`.
+
+**Three local hypotheses now have landing dates rather than
+believers**, all in the `InferOutputBound` pattern:
+
+| local `def` | file | becomes |
+|---|---|---|
+| `InferOutputBound` | `Keys2.lean` | (E)'s `inferTypeCore` output conjunct |
+| `EnvExtendReflect` | `Denote2Extend.lean` | (E)'s backward block |
+| `LitGuardsAgree` | `Denote2Extend.lean` | (E)'s guard-agreement conjuncts |
+
+All three are **scheduled for deletion, not for proof**. They exist
+only so this lane compiles in the interval.
+
+*Three for three: every cross-lane gap this arc named as an exposure
+request — a fact the other lane's discharge already held — came back
+as a statement amendment rather than a build. The pattern is worth
+stating as a rule: **when a needed fact is one another lane already
+proves internally, ask for exposure before costing a proof.** Seal 35
+turned a Step2-quarter-sized build into a one-conjunct amendment that
+way; seal 38's two did the same.*
+
+**Discipline note:** the running batch was told to keep using the
+local stand-ins even where the amended (E) would be easier, and to
+record where it would have helped. Swapping mid-batch would leave the
+tree uncompilable until the Θ merge lands — *a dependency with a
+landing date is still not a dependency you build against today.*
