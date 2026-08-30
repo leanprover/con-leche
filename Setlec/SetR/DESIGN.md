@@ -14421,3 +14421,87 @@ establishable at install, and whether `Denote2InstLevels` is true at
 all. The second question now has a concrete attack — find a
 declaration whose `piResultIsProp` branch flips under level
 instantiation, or prove it cannot.
+
+### Seal 13 — the `openCong` gate proves; and the ρ-quantifier finding
+
+Seal 11's family-wide move was gated on one lemma. **It proves.**
+`CtxOk2.openCong` (`Step2/Dispatch.lean`), plus the trivial
+`CtxOk2.of_fvarLeaves_nil` twin. All axioms exactly the three standard.
+
+**`CtxOk2Open` is not a residue at all — it is a premise-free
+theorem.** `ctxOk2Open_of` (`Step2/CtxOk2OpenD.lean`). The trap-check
+DESIGN flagged as owed came back on both dimensions: the *fuel*
+dimension goes **clean, not vacuous** (the residue asserts no `denote2`
+success its consumer does not hand it — `denote2_weaken_top` is an
+equation uniform in `F`, and its two obligations are the `sortOfE`
+shift equations, also uniform), and the *depth* dimension — the part
+nobody had tested — is discharged because `denote2_shiftFrom`'s three
+side conditions are all already available.
+
+**And the reason the third one is available is worth its own line.**
+`CtxOk2.wScoped`: **`CtxOk2` already carries its own scoping.** Its
+leaf package gives `l.1 < d ∧ fvarsBelow l.1 l.2.2` *hereditarily*
+(`Expr.fvarLeaves` descends into annotations), which unrolls to
+`Expr.WScoped d e`. The `fvar` case is the content: the leaf's own
+`fvarsBelow idx ty` is what lets the recursion drop from `d` to `idx`,
+which a plain `fvarsBelow d` cannot. So `openCong` and `openS` need no
+scoping premises, and `CtxOk2Open` is satisfiable *as stated*, with
+neither `WScoped` it omits. *A predicate written for one purpose was
+already strong enough for another; nobody had unrolled it.*
+
+#### The ρ-quantifier: the grading is in the wrong scope
+
+`hdom` is free at all five congruence sites — literally
+`DefEqClaims2B`'s conclusion partially applied before its `ρ`. The two
+`AnnotOk2` are **not**. `DefEqClaims2B` takes them *under* `∀ ρ`, so a
+site that has already done `intro ρ hρ hokA hokB` holds them at **one**
+valuation; `CtxOk2` is a `∀ ρ` statement about the *extended* context
+and needs them at every satisfying one.
+
+**This is not an artifact of the proof.** `not_openCongLocal` is a
+**premise-free refutation** of the ρ-local lemma — `d = 1`,
+`Δa = [⟪Sort 1⟫]`, `ta₂ = .bvar 0`, `ta₁ = ⟪Sort 0⟫`: they agree at
+`ρ ≡ univ 0`, and the extended context's leaf link at `ρ ≡ ∅` demands
+`∅ = univ 0`, hence `∅ ∈ˢ ∅`. Even with the left domain fully
+certified. *The problem is the quantifier, not the grading.*
+
+`AnnotOk2.hoist_pi`/`hoist_lam` show the repair self-propagates: the
+hoisted node fact splits into the domain's hoisted form and the
+codomain's hoisted form in the extended context — exactly the pair the
+recursive call needs.
+
+#### The blast radius, audited at the junction
+
+The request was to hoist `DefEqClaims2B`'s two `AnnotOk2` above its
+`∀ ρ`. The worker verified the congruence consumer and correctly
+flagged the rest as unaudited. **Audited here, and it propagates —
+which is the seal-9 rule firing for the fourth time:**
+
+* `betaCert2P_of_claims` (`Whnf.lean`) takes its `AnnotOk2 ρ tya` from
+  **`BetaCert2P`'s own ρ-local premise**, so `BetaCert2P` must hoist
+  too. Its other one comes from `TypeOk2`, which is already all-ρ and
+  costs nothing.
+* `infer_app_claim2A`'s `hdom` takes `AnnotOk2 ρ Aa` from the
+  **reduction claim's graded output at one ρ** (`hredf ρ hρ …`). So
+  `WhnfCoreClaims2B`/`WhnfClaims2B` must hoist as well — their
+  conclusion `∀ ρ, Sat2 → AnnotOk2 ρ ea → (… ∧ AnnotOk2 ρ ea')` is
+  ρ-local on both sides.
+
+So the change is **all four claims plus `BetaCert2P`**, not
+`DefEqClaims2B` alone. Consistent with the rule and with the three
+previous times a repair was scoped to one claim and had to be widened.
+
+**Not made now, deliberately.** It is a four-claim statement change and
+this campaign's own evidence is that such a change must be
+re-discharged in parallel by the quarters, not applied at the junction
+and hoped through — every one of the three refuted generations was
+refuted by a consumer. It is the next campaign step, and it is now
+fully specified: the shape, the mechanized proof that the weaker form
+is false, the propagation set, and the fact that the repair
+self-propagates at the congruences.
+
+**Standing after this seal.** Seal 11's move is unblocked at four of
+its five reading sites and specified at the fifth. `CtxOk2Open` is off
+the residue list. The eight capstone residues stand at: one discharged
+(`Delta2B`, modulo `AcvalDefnInst`), three blocked on missing `interp2`
+environment laws, one on the `SortSubstStable` lane, and three open.
