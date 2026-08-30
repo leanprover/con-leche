@@ -8376,6 +8376,259 @@ theorem zipConstHeadCase_of {φ : Name → Nat}
         rw [hpq] at hstopA
         exact nomatch hstopA
 
+/-! ### The substitution-transport kit (core lemmas) -/
+
+/-- Loose-bvar bounds are monotone. -/
+theorem looseBVarsBounded_mono : ∀ {e : Expr} {j k : Nat}, j ≤ k →
+    e.looseBVarsBounded j = true → e.looseBVarsBounded k = true := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro j k hjk h
+    simp only [Setlec.Expr.looseBVarsBounded,
+      decide_eq_true_eq] at h ⊢
+    omega
+  | fvar idx n ty ih => intro j k hjk h; rfl
+  | sort u => intro j k hjk h; rfl
+  | const n us => intro j k hjk h; rfl
+  | app f a ihf iha =>
+    intro j k hjk h
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at h ⊢
+    exact ⟨ihf hjk h.1, iha hjk h.2⟩
+  | lam n ty body m iht ihb =>
+    intro j k hjk h
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at h ⊢
+    exact ⟨iht hjk h.1, ihb (Nat.succ_le_succ hjk) h.2⟩
+  | forallE n ty body m iht ihb =>
+    intro j k hjk h
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at h ⊢
+    exact ⟨iht hjk h.1, ihb (Nat.succ_le_succ hjk) h.2⟩
+  | letE n ty val body iht ihv ihb =>
+    intro j k hjk h
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at h ⊢
+    obtain ⟨⟨h1, h2⟩, h3⟩ := h
+    exact ⟨⟨iht hjk h1, ihv hjk h2⟩, ihb (Nat.succ_le_succ hjk) h3⟩
+  | lit l => intro j k hjk h; rfl
+  | proj sn i e ih =>
+    intro j k hjk h
+    simp only [Setlec.Expr.looseBVarsBounded] at h ⊢
+    exact ih hjk h
+
+/-- Substitution transports well-scopedness (fvars and their
+annotations pass through untouched; the plugged argument brings its
+own). -/
+theorem wScoped_instantiate1 {d : Nat} {a : Expr}
+    (ha : Expr.WScoped d a) :
+    ∀ {b : Expr} {k : Nat}, Expr.WScoped d b →
+      Expr.WScoped d (b.instantiate1 a k) := by
+  intro b
+  induction b with
+  | bvar i =>
+    intro k hb
+    simp only [Setlec.Expr.instantiate1]
+    by_cases h : i = k
+    · rw [if_pos h]; exact ha
+    · rw [if_neg h]
+      by_cases h2 : i > k <;> simp [h2, Setlec.Expr.WScoped]
+  | fvar idx n ty ih => intro k hb; exact hb
+  | sort u => intro k hb; exact hb
+  | const n us => intro k hb; exact hb
+  | app f a' ihf iha' =>
+    intro k hb
+    simp only [Setlec.Expr.WScoped] at hb
+    simp only [Setlec.Expr.instantiate1, Setlec.Expr.WScoped]
+    exact ⟨ihf hb.1, iha' hb.2⟩
+  | lam n ty body m iht ihb =>
+    intro k hb
+    simp only [Setlec.Expr.WScoped] at hb
+    simp only [Setlec.Expr.instantiate1, Setlec.Expr.WScoped]
+    exact ⟨iht hb.1, ihb hb.2⟩
+  | forallE n ty body m iht ihb =>
+    intro k hb
+    simp only [Setlec.Expr.WScoped] at hb
+    simp only [Setlec.Expr.instantiate1, Setlec.Expr.WScoped]
+    exact ⟨iht hb.1, ihb hb.2⟩
+  | letE n ty val body iht ihv ihb =>
+    intro k hb
+    simp only [Setlec.Expr.WScoped] at hb
+    simp only [Setlec.Expr.instantiate1, Setlec.Expr.WScoped]
+    exact ⟨iht hb.1, ihv hb.2.1, ihb hb.2.2⟩
+  | lit l => intro k hb; exact hb
+  | proj sn i e ih =>
+    intro k hb
+    simp only [Setlec.Expr.WScoped] at hb
+    simp only [Setlec.Expr.instantiate1, Setlec.Expr.WScoped]
+    exact ih hb
+
+/-- Substitution of a closed argument transports the bvar bound down
+one binder. -/
+theorem looseBVarsBounded_instantiate1 {a : Expr}
+    (ha : a.looseBVarsBounded 0 = true) :
+    ∀ {b : Expr} {k : Nat}, b.looseBVarsBounded (k + 1) = true →
+      (b.instantiate1 a k).looseBVarsBounded k = true := by
+  intro b
+  induction b with
+  | bvar i =>
+    intro k hb
+    simp only [Setlec.Expr.looseBVarsBounded,
+      decide_eq_true_eq] at hb
+    simp only [Setlec.Expr.instantiate1]
+    by_cases h : i = k
+    · rw [if_pos h]
+      exact looseBVarsBounded_mono (Nat.zero_le k) ha
+    · rw [if_neg h]
+      have h2 : ¬ i > k := by omega
+      rw [if_neg h2]
+      simp only [Setlec.Expr.looseBVarsBounded, decide_eq_true_eq]
+      omega
+  | fvar idx n ty ih => intro k hb; rfl
+  | sort u => intro k hb; rfl
+  | const n us => intro k hb; rfl
+  | app f a' ihf iha' =>
+    intro k hb
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Setlec.Expr.instantiate1,
+      Setlec.Expr.looseBVarsBounded, ihf hb.1, iha' hb.2,
+      Bool.and_self]
+  | lam n ty body m iht ihb =>
+    intro k hb
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Setlec.Expr.instantiate1,
+      Setlec.Expr.looseBVarsBounded, iht hb.1, ihb hb.2,
+      Bool.and_self]
+  | forallE n ty body m iht ihb =>
+    intro k hb
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Setlec.Expr.instantiate1,
+      Setlec.Expr.looseBVarsBounded, iht hb.1, ihb hb.2,
+      Bool.and_self]
+  | letE n ty val body iht ihv ihb =>
+    intro k hb
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    obtain ⟨⟨h1, h2⟩, h3⟩ := hb
+    simp only [Setlec.Expr.instantiate1,
+      Setlec.Expr.looseBVarsBounded, iht h1, ihv h2, ihb h3,
+      Bool.and_self]
+  | lit l => intro k hb; rfl
+  | proj sn i e ih =>
+    intro k hb
+    simp only [Setlec.Expr.looseBVarsBounded] at hb
+    simp only [Setlec.Expr.instantiate1,
+      Setlec.Expr.looseBVarsBounded, ih hb]
+
+/-- Substitution introduces no fvar leaves beyond the body's and the
+argument's. -/
+theorem fvarLeaves_instantiate1_mem {a : Expr} :
+    ∀ {b : Expr} {k : Nat},
+      ∀ l ∈ (b.instantiate1 a k).fvarLeaves,
+        l ∈ b.fvarLeaves ∨ l ∈ a.fvarLeaves := by
+  intro b
+  induction b with
+  | bvar i =>
+    intro k l hl
+    simp only [Setlec.Expr.instantiate1] at hl
+    by_cases h : i = k
+    · rw [if_pos h] at hl; exact .inr hl
+    · rw [if_neg h] at hl
+      by_cases h2 : i > k
+      · rw [if_pos h2] at hl
+        simp [Setlec.Expr.fvarLeaves] at hl
+      · rw [if_neg h2] at hl
+        simp [Setlec.Expr.fvarLeaves] at hl
+  | fvar idx n ty ih => intro k l hl; exact .inl hl
+  | sort u => intro k l hl; exact .inl hl
+  | const n us => intro k l hl; exact .inl hl
+  | app f a' ihf iha' =>
+    intro k l hl
+    simp only [Setlec.Expr.instantiate1,
+      Setlec.Expr.fvarLeaves] at hl
+    simp only [Setlec.Expr.fvarLeaves]
+    rcases List.mem_append.1 hl with h | h
+    · rcases ihf _ h with h' | h'
+      · exact .inl (List.mem_append.2 (.inl h'))
+      · exact .inr h'
+    · rcases iha' _ h with h' | h'
+      · exact .inl (List.mem_append.2 (.inr h'))
+      · exact .inr h'
+  | lam n ty body m iht ihb =>
+    intro k l hl
+    simp only [Setlec.Expr.instantiate1,
+      Setlec.Expr.fvarLeaves] at hl
+    simp only [Setlec.Expr.fvarLeaves]
+    rcases List.mem_append.1 hl with h | h
+    · rcases iht _ h with h' | h'
+      · exact .inl (List.mem_append.2 (.inl h'))
+      · exact .inr h'
+    · rcases ihb _ h with h' | h'
+      · exact .inl (List.mem_append.2 (.inr h'))
+      · exact .inr h'
+  | forallE n ty body m iht ihb =>
+    intro k l hl
+    simp only [Setlec.Expr.instantiate1,
+      Setlec.Expr.fvarLeaves] at hl
+    simp only [Setlec.Expr.fvarLeaves]
+    rcases List.mem_append.1 hl with h | h
+    · rcases iht _ h with h' | h'
+      · exact .inl (List.mem_append.2 (.inl h'))
+      · exact .inr h'
+    · rcases ihb _ h with h' | h'
+      · exact .inl (List.mem_append.2 (.inr h'))
+      · exact .inr h'
+  | letE n ty val body iht ihv ihb =>
+    intro k l hl
+    simp only [Setlec.Expr.instantiate1,
+      Setlec.Expr.fvarLeaves] at hl
+    simp only [Setlec.Expr.fvarLeaves]
+    rcases List.mem_append.1 hl with h | h
+    · rcases List.mem_append.1 h with h2 | h2
+      · rcases iht _ h2 with h' | h'
+        · exact .inl (List.mem_append.2 (.inl
+            (List.mem_append.2 (.inl h'))))
+        · exact .inr h'
+      · rcases ihv _ h2 with h' | h'
+        · exact .inl (List.mem_append.2 (.inl
+            (List.mem_append.2 (.inr h'))))
+        · exact .inr h'
+    · rcases ihb _ h with h' | h'
+      · exact .inl (List.mem_append.2 (.inr h'))
+      · exact .inr h'
+  | lit l' => intro k l hl; exact .inl hl
+  | proj sn i e ih =>
+    intro k l hl
+    simp only [Setlec.Expr.instantiate1,
+      Setlec.Expr.fvarLeaves] at hl
+    simp only [Setlec.Expr.fvarLeaves]
+    exact ih _ hl
+
+/-- `Q` survives a left-side certified β-contraction (the contractum
+is not a whnfCore output, so the three step preservers cannot serve;
+at `FrameQ` this discharges through the claims' β `Red` step — the
+cert premise is exactly the rule's — plus the substitution kit for
+the guards). -/
+def QPreserveBetaF (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {g d : Nat} {n : Name} {ty b a ta c : Expr}
+    {m : Setlec.BinderMeta} {as : List Expr},
+    inferTypeCore μ env g d a = .ok ta →
+    isDefEqCore μ env g d ta ty = .ok true →
+    Q d (Setlec.Expr.mkAppN (.app (.lam n ty b m) a) as) c →
+    Q d (Setlec.Expr.mkAppN (b.instantiate1 a) as) c
+
+/-- `Q` survives a left-side zeta-contraction (`ZetaEq.interp_eq` is
+the named `FrameQ`-side supplier). -/
+def QPreserveZetaF (_env : Env) (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {d : Nat} {n : Name} {ty v b c : Expr} {as : List Expr},
+    Q d (Setlec.Expr.mkAppN (.letE n ty v b) as) c →
+    Q d (Setlec.Expr.mkAppN (b.instantiate1 v) as) c
+
 end Discharge
 
 end Setlec.SetR.Interp2

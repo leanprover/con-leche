@@ -10432,3 +10432,23 @@ statements (+ shells/wrapper threading if the inner lemma's exits
 need them — check at build) → the reassociation → the inner lemma →
 the λ/letE-head discharges.  The letE head rides the same inner
 lemma (zeta = the β case at its own clause).
+
+### Substitution kit core + the two contraction species LANDED
+
+The tier's first two build-order steps, proved:
+
+* `looseBVarsBounded_mono`, `wScoped_instantiate1` (fvars and their
+  annotations pass through untouched; the plugged argument brings
+  its own scoping), `looseBVarsBounded_instantiate1` (closed
+  argument, bound drops one binder), `fvarLeaves_instantiate1_mem`
+  (no leaves beyond the body's and the argument's) — the syntactic
+  transport for `SubjInv`/pairing at contracta.
+* `QPreserveBetaF` (carrying the β-cert premises — exactly the
+  claims' β-rule premises, the FrameQ supplier's shape) and
+  `QPreserveZetaF` (`ZetaEq.interp_eq` the named supplier) —
+  additive hypotheses of the coming inner lemma and λ/letE
+  discharges only; no shell re-threading.
+
+Next: the reassociation (`whnfCore_lam_spine_decompose`), then the
+fixed-context knot-only inner lemma, then the λ/letE-head
+discharges.
