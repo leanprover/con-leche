@@ -13694,8 +13694,8 @@ binder (`denote2_one_lam`, `denote2_one_forallE`).  No hypothesis, no
 run, no choice of `V` is involved:
 
 ```
-envS2_defn_lam_refuted : EnvS2 V env →
-  ∀ μ φ, .defnInfo cv (.lam n ty body mb) hint ∈ env.consts → False
+acvalDefnUniform_lam_refuted : AcvalDefnUniform acval →
+  .defnInfo cv (.lam n ty body mb) hint ∈ env.consts → False
 ```
 
 `EnvS2.empty` is not evidence against this — `env.consts = []` makes
@@ -13750,3 +13750,33 @@ acval_defn : … ∈ env.consts → ∀ F, ∃ F', F ≤ F' ∧
 * *An acceptance test proves the witness it was built from is dead,
   and nothing more.*  Seal 6's test passed and the statement was still
   false.  Next time, hunt a second witness before sealing.
+
+
+**Repaired in the same seal.**  `EnvS2`'s two fields now read
+
+```
+acval_defn : … ∈ env.consts → ∀ F, ∃ F', F ≤ F' ∧
+  denote2 μ acval env φ F' 0 value = some (acval cv.name φ)
+```
+
+and `Interp2/Claims2B.lean` carries `WhnfCoreClaims2B`/`WhnfClaims2B`
+in the matching shape, with `CheckStep2B`, `checkSound2B` and the four
+routed quarters.  `DefEqClaims2A` and `InferClaims2A` are reused
+verbatim — neither was refuted.  `Loop.lean`'s two delta lemmas are
+re-pointed.  The refutations are kept by restating the old field
+shapes as `AcvalDefnUniform`/`AcvalThmUniform`, so the evidence
+survives its own repair.
+
+**The generative rule, now stated once and applied everywhere.**
+
+> A shape that asserts `denote2 … F … e = some _` as a **conclusion**,
+> for an `F` its consumer may choose, is false unless `e` is a leaf.
+
+Applied across the family: the reduction claims asserted success for
+the *reduct*, `acval_defn` for a definition's *body* — neither a leaf,
+both false.  Shapes asserting `denote2` success as a **hypothesis**
+are safe, going vacuous at low fuel rather than false; `CtxOk2` and
+`mem_type2` are of that kind and survive.  `CtxOk2` is additionally
+**monotone** in its fuel via `denote2_fuelMono`, which is what lets a
+recursing clause carry the context up to the `F'` the corrected claims
+hand back.

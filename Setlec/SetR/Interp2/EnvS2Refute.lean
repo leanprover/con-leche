@@ -2,9 +2,15 @@ import Setlec.SetR.Interp2.Claims2A
 import Setlec.SetR.Interp2.Step2.Whnf
 
 /-!
-# STOP — `EnvS2` is unsatisfiable at every realistic environment
+# STOP 2 — the shapes that demand `denote2` success at every fuel
 
-`EnvS2.acval_defn` and `EnvS2.acval_thm` are **equations demanding
+**Repaired since; this file is the evidence.**  `EnvS2`'s two offending
+fields now carry the existential form, so the refutations below are
+stated against the *old* shapes, restated here as
+`AcvalDefnUniform`/`AcvalThmUniform`.  A refutation that disappears
+when its subject is fixed leaves no record that the fix was needed.
+
+`EnvS2.acval_defn` and `EnvS2.acval_thm` *were* **equations demanding
 success, universally quantified over the annotation fuel**:
 
 ```
@@ -58,13 +64,28 @@ repair R1 freed the annotation fuel `F` but still demands the
 **reduct's** annotation at that same `F`, and reduction can produce a
 term needing more fuel than the subject did — the delta exit turns a
 `.const` leaf (annotates at fuel `1`) into a `λ` body (does not).
-`whnfClaims2A_delta_refuted` below is the conditional witness.
+`whnfClaims2A_delta_refuted` below is the conditional witness, and
+`Interp2/Claims2B.lean` is the correction: the reduct's annotation at
+some `F' ≥ F`, with `denote2_fuelMono` carrying the subject's own
+annotation up to `F'` unchanged so composition still works.
 
-So the reduction claims need R3's treatment too: the reduct's
-annotation at some `F' ≥ F`, with `denote2_fuelMono` carrying the
-subject's own annotation up to `F'` unchanged so composition still
-works.  *R1 and R3 are one repair, and applying it to three of the
-four claims and not the fourth was the mistake.*
+*R1 and R3 are one repair, and applying it to three of the four claims
+and not the fourth was the mistake.*
+
+## The generative rule
+
+Both defects, and nothing else in the family, fall out of one test:
+
+> A shape that asserts `denote2 … F … e = some _` as a **conclusion**,
+> for an `F` its consumer may choose, is false unless `e` is a leaf.
+
+`denote2`'s binder clauses call `sortOfE`/`lamSortE`, which need a
+`whnf` run and so cannot return at fuel `1`.  Applied deliberately:
+the reduction claims asserted success for the *reduct*; `acval_defn`
+asserted it for a definition's *body*; neither is a leaf.  Shapes that
+assert `denote2` success as a **hypothesis** are safe — they merely go
+vacuous at low fuel, which weakens the statement rather than falsifying
+it.  `CtxOk2` and `mem_type2` are of that kind, and survive.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -78,39 +99,70 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {φ : Name → Nat}
 
-/-- **`EnvS2` has no λ-bodied definitions.**  Unconditional: no run,
-no annotation hypothesis, no choice of `V`. -/
-theorem envS2_defn_lam_refuted {env : Env} (m : EnvS2 V env)
-    (μ : CheckMode) (φ : Name → Nat)
+/-! ## The refuted shapes, restated
+
+`EnvS2`'s two fields have since been repaired to the existential form
+(`Setlec/SetR/Annot/EnvS2.lean`).  The refutations are kept, and to
+keep them the *old* shapes are restated here as standalone
+predicates — a refutation that vanishes when its subject is fixed
+leaves no evidence that the fix was necessary. -/
+
+/-- The old `acval_defn`: the body's annotation demanded at **every**
+fuel. -/
+def AcvalDefnUniform {env : Env}
+    (acval : Name → (Name → Nat) → AVExpr) : Prop :=
+  ∀ (μ : CheckMode) (φ : Name → Nat) (fuel : Nat)
+    (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+    ConstantInfo.defnInfo cv value hint ∈ env.consts →
+    denote2 μ acval env φ fuel 0 value = some (acval cv.name φ)
+
+/-- The old `acval_thm`, ditto. -/
+def AcvalThmUniform {env : Env}
+    (acval : Name → (Name → Nat) → AVExpr) : Prop :=
+  ∀ (μ : CheckMode) (φ : Name → Nat) (fuel : Nat)
+    (cv : ConstantVal) (value : Expr),
+    ConstantInfo.thmInfo cv value ∈ env.consts →
+    denote2 μ acval env φ fuel 0 value = some (acval cv.name φ)
+
+/-- **The old field admits no λ-bodied definition.**  Unconditional:
+no run, no annotation hypothesis, no choice of `V`. -/
+theorem acvalDefnUniform_lam_refuted {env : Env}
+    {acval : Name → (Name → Nat) → AVExpr}
+    (h : AcvalDefnUniform (env := env) acval)
     {cv : ConstantVal} {n : Name} {ty body : Expr} {mb : BinderMeta}
     {hint : ReducibilityHint}
     (hc : ConstantInfo.defnInfo cv (.lam n ty body mb) hint
       ∈ env.consts) : False := by
-  have h := m.acval_defn μ φ 1 cv (.lam n ty body mb) hint hc
-  rw [denote2_one_lam] at h
-  exact nomatch h
+  have h1 := h Setlec.CheckMode.noModel (fun _ => 0) 1 cv
+    (.lam n ty body mb) hint hc
+  rw [denote2_one_lam] at h1
+  exact nomatch h1
 
-/-- Ditto for `∀`-bodied definitions (a type abbreviation). -/
-theorem envS2_defn_pi_refuted {env : Env} (m : EnvS2 V env)
-    (μ : CheckMode) (φ : Name → Nat)
+/-- Ditto for a `∀`-bodied definition (a type abbreviation). -/
+theorem acvalDefnUniform_pi_refuted {env : Env}
+    {acval : Name → (Name → Nat) → AVExpr}
+    (h : AcvalDefnUniform (env := env) acval)
     {cv : ConstantVal} {n : Name} {ty body : Expr} {mb : BinderMeta}
     {hint : ReducibilityHint}
     (hc : ConstantInfo.defnInfo cv (.forallE n ty body mb) hint
       ∈ env.consts) : False := by
-  have h := m.acval_defn μ φ 1 cv (.forallE n ty body mb) hint hc
-  rw [denote2_one_forallE] at h
-  exact nomatch h
+  have h1 := h Setlec.CheckMode.noModel (fun _ => 0) 1 cv
+    (.forallE n ty body mb) hint hc
+  rw [denote2_one_forallE] at h1
+  exact nomatch h1
 
-/-- Ditto for a theorem whose proof term is a `λ` — i.e. the proof of
-any implication or any universally quantified statement. -/
-theorem envS2_thm_lam_refuted {env : Env} (m : EnvS2 V env)
-    (μ : CheckMode) (φ : Name → Nat)
+/-- Ditto for a theorem whose proof term is a `λ` — the proof of any
+implication or any universally quantified statement. -/
+theorem acvalThmUniform_lam_refuted {env : Env}
+    {acval : Name → (Name → Nat) → AVExpr}
+    (h : AcvalThmUniform (env := env) acval)
     {cv : ConstantVal} {n : Name} {ty body : Expr} {mb : BinderMeta}
     (hc : ConstantInfo.thmInfo cv (.lam n ty body mb)
       ∈ env.consts) : False := by
-  have h := m.acval_thm μ φ 1 cv (.lam n ty body mb) hc
-  rw [denote2_one_lam] at h
-  exact nomatch h
+  have h1 := h Setlec.CheckMode.noModel (fun _ => 0) 1 cv
+    (.lam n ty body mb) hc
+  rw [denote2_one_lam] at h1
+  exact nomatch h1
 
 /-- **The matching defect in the amended reduction claim.**  Whenever
 `whnf` takes its delta exit from a constant to a `λ`-shaped body, and
