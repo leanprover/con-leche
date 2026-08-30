@@ -10208,3 +10208,11 @@ measure decrease lives**:
 
 The discharge campaign proceeds from this structure; nothing about
 it is unmapped.
+
+Addendum, same seal family: `whnfCore_app_decompose` LANDED — the
+four-way internal decomposition (fired β with the argument cert /
+stuck β / fired iota / stuck iota, head run at knot `g`).  The
+house extraction pattern; the `cases hio :` goal-substitution recipe
+made the equation components `rfl`.  The not-lam fact of the iota
+legs is deliberately not carried (deferred to need — re-derivable
+from the zip's shape analysis if a leg wants it).

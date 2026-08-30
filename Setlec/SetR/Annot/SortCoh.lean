@@ -7142,6 +7142,70 @@ def ZipCertSpineCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
       (Setlec.Expr.mkAppN f₂ bs) = .ok (.sort ℓb) →
     ℓa.eval φ = ℓb.eval φ
 
+/-- **The whnfCore-app internal decomposition** (the discharge
+campaign's first brick): every success on an application splits into
+the head's core run at knot `g` plus exactly one of the four
+continuations — fired β (with the argument cert), stuck β (cert
+false), fired iota, or stuck iota. -/
+theorem whnfCore_app_decompose {μ : CheckMode} {env : Env}
+    {g d : Nat} {f x s : Expr}
+    (h : whnfCore μ env (g + 1) d (.app f x) = .ok s) :
+    ∃ f', whnfCore μ env g d f = .ok f' ∧
+      ((∃ n ty body m ta,
+          f' = .lam n ty body m ∧
+          inferTypeCore μ env g d x = .ok ta ∧
+          isDefEqCore μ env g d ta ty = .ok true ∧
+          whnfCore μ env g d (body.instantiate1 x) = .ok s) ∨
+       (∃ n ty body m ta,
+          f' = .lam n ty body m ∧
+          inferTypeCore μ env g d x = .ok ta ∧
+          isDefEqCore μ env g d ta ty = .ok false ∧
+          s = .app f' x) ∨
+       ((∃ e'', Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
+            (.app f' x) = .ok (some e'') ∧
+          whnfCore μ env g d e'' = .ok s) ∨
+        (Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
+            (.app f' x) = .ok none ∧ s = .app f' x))) := by
+  rw [Setlec.whnfCore_succ] at h
+  unfold Setlec.whnfCoreBody at h
+  simp only [Bind.bind, Except.bind] at h
+  cases hwf : (Setlec.pureFns μ env g).whnfCore d f with
+  | error err => rw [hwf] at h; exact nomatch h
+  | ok f' =>
+  rw [hwf] at h
+  simp only [] at h
+  refine ⟨f', hwf, ?_⟩
+  split at h
+  · next n ty body mb =>
+    cases hinf : (Setlec.pureFns μ env g).infer d x with
+    | error err => rw [hinf] at h; exact nomatch h
+    | ok ta =>
+    rw [hinf] at h
+    simp only [] at h
+    cases hdq : (Setlec.pureFns μ env g).defeq d ta ty with
+    | error err => rw [hdq] at h; exact nomatch h
+    | ok c =>
+    rw [hdq] at h
+    simp only [] at h
+    cases c with
+    | true =>
+      rw [if_pos rfl] at h
+      exact .inl ⟨n, ty, body, mb, ta, rfl, hinf, hdq, h⟩
+    | false =>
+      rw [if_neg Bool.false_ne_true] at h
+      exact .inr (.inl ⟨n, ty, body, mb, ta, rfl, hinf, hdq,
+        (Except.ok.inj h).symm⟩)
+  · cases hio : Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
+        (.app f' x) with
+    | error err => rw [hio] at h; exact nomatch h
+    | ok o =>
+    rw [hio] at h
+    simp only [] at h
+    cases o with
+    | some e'' => exact .inr (.inr (.inl ⟨e'', rfl, h⟩))
+    | none =>
+      exact .inr (.inr (.inr ⟨rfl, (Except.ok.inj h).symm⟩))
+
 /-- **The both-δ core COLLAPSED onto the summit**: the spine facts
 zip the pair (head by `constSlack` through `isEquivList` soundness,
 args as `.cert` leaves through `defEqList_extract`), and
