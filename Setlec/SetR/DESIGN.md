@@ -10,7 +10,7 @@ the design document does not say.  House practices are
 
 ## Promoted practices (binding here; candidates for §0/§25)
 
-Four rules earned promotion during T5 by recurring across unrelated
+Five rules earned promotion by recurring across unrelated
 stages.  They sit at the top of this file because they are checks to
 run *while designing*, not lessons to read afterwards.
 
@@ -78,6 +78,38 @@ installer actually stores (`.inert` vs `.plain`); a block docstring
 written from the raw pin claimed two vacuous iota obligations that
 were not vacuous at all.  The declaration under `…A` is the one the
 proofs are about.
+
+**P4 — this campaign's leverage comes from facts the model makes
+available, not from objects the syntax makes constructible.**  Promoted
+after two independently-proposed architectural alternatives died on
+exactly this axis, neither of them for the reason its proposer
+expected:
+
+* the **tagged model** (pair every value with its ground level, so
+  `interp` determines sort) would have supplied real facts — the
+  refutations that forced the annotation architecture all use one
+  device, a carrier shared across two levels, and tagging removes it.
+  It died because the *syntax* already carries the sort more
+  fundamentally: `denote2`'s `lamSortE` computes the λ codomain
+  numeral at the empty domain, where no value can be read at all.
+  Redundant-by-annotations, not wrong.
+* the **ETT target** (`HasType` as the soundness skeleton) would have
+  supplied a shorter model half — `HasType.sound` is 262 landed lines
+  against the `Sound/*` tier's 4,295.  It died because the
+  certificate-removal campaign's whole engine is *semantic recovery*
+  (`piR_dom_unique`'s graph rigidity replacing a deleted runtime
+  check), and a bridge into a declarative theory needs **derivations**,
+  which rigidity cannot manufacture.  Its advertised win — "`AnnotOk`
+  has no counterpart in the layer" — is precisely the absence that
+  makes the removals impossible there.
+
+So: **test a proposed alternative against P4 before pricing it.**  Ask
+what it makes *derivable* that is not derivable now, and whether the
+consumers need a fact or an object.  An alternative that only relocates
+where the sort information lives, or that trades a semantic invariant
+for a syntactic one, is not an alternative — it is the same design
+paying different rent.  Both memos are in this file; both cost
+estimates were sound and both were beside the point.
 
 ## T2 inventory (this tier, as landed)
 
