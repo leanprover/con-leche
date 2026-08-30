@@ -1196,7 +1196,27 @@ claim family should take the context in both currencies (a
 `CtxOk2 ∧ CtxOkR` conjunction), or `WhnfClaims2B`/`DefEqClaims2A`
 should move to `CtxOk2` as `InferClaims2A` did.  Seal 6 recorded the
 asymmetry as evidence; this is the first consumer to *pay* for it, and
-the finding is that the asymmetry is not payable. -/
+the finding is that the asymmetry is not payable.
+
+**Settled: refuted** (`Step2/CtxOk2RRefute.lean`, `not_ctxOk2R` —
+`¬ CtxOk2R m μ φ` at *every* `m`, `μ`, `φ`, on the three standard
+axioms).  The mechanized reason is cheaper than the relational one
+above and does not need it: `CtxOk2` guards its leaf agreement by
+`Sat2`, satisfaction in the **annotated** currency, while `CtxOkR` is
+a derivation whose only semantic reading is `Sat` in the **collapse**
+currency — and the two currencies disagree about inhabitation at an
+empty-domain λ (`lamR_pos_empty` gives `∅`, `lamC_empty` gives `pt`;
+the #100 countermodel).  At `Δa = [⟪fun (_ : Empty) => Prop⟫]` the
+`CtxOk2` hypothesis is free and `CtxOkR` still owes an
+`Infer`/`DefEq` pair, which `Infer.sound`/`DefEq.sound` turn into
+`ptTag ∈ˢ univ 0`.  `ctxOk2R_refuted_nonvacuous` repeats it with the
+`interp2` agreement holding for every `ρ`, so vacuity is not the
+whole story: `⟪Empty⟫` and `⟪fun (_ : Empty) => Prop⟫` are equal over
+`interp2` and different over `interp`.
+
+The trap-checks do **not** fire here: `CtxOkR` mentions `denote`, not
+`denote2`, so the smallest-fuel test has nothing to bite on, and the
+refutation is uniform in `F`. -/
 def CtxOk2R {env : Env} (m : EnvS2 V env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ {F d : Nat} {Δa : List AVExpr} {e : Expr},
