@@ -14505,3 +14505,47 @@ its five reading sites and specified at the fifth. `CtxOk2Open` is off
 the residue list. The eight capstone residues stand at: one discharged
 (`Delta2B`, modulo `AcvalDefnInst`), three blocked on missing `interp2`
 environment laws, one on the `SortSubstStable` lane, and three open.
+
+### Seal 14 — statement generation four: the grading hoisted above `ρ`
+
+`Interp2/Claims2C.lean`. Every `AnnotOk2` a claim **takes** or
+**gives** moves above the `∀ ρ`; the `interp2` equalities and the
+membership stay per-valuation, being genuinely per-valuation facts.
+
+**The first generation change in this arc that fixes an insufficiency
+rather than a falsehood.** `Claims2` and `Claims2A` were refuted;
+`Claims2B` is not. It is merely too weak to supply
+`CtxOk2.openCong` — and `not_openCongLocal` proves premise-free that
+no ρ-local congruence lemma exists to supply instead, even with the
+left domain fully certified. *The problem is the quantifier, not the
+grading.* Recording the distinction because "superseded" and "refuted"
+have been the same word too often in this campaign.
+
+**`InferClaims2C` is also extended**, not merely hoisted: it now
+delivers the returned type's `AnnotOk2` beside the subject's. That is
+seal 8's open question answered from two independent sites
+(`infer_app_claim2A`, `betaCert2P_of_claims`), and it retires the
+inference quarter's `TypeOk2` residue.
+
+**Direction, so the quarters know what they are being handed.** Each
+claim's `AnnotOk2` premises became ρ-uniform, so each claim is
+*weaker*: producers prove less, consumers get less. The two claims
+that also deliver an `AnnotOk2` deliver it ρ-uniformly, which is
+stronger on the output side. Net: the reduction and inference quarters
+owe more at their conclusions and are owed more at their hypotheses;
+the defeq quarter is purely relieved. **That asymmetry is the point** —
+it is what lets a congruence site hand `openCong` the ρ-uniform pair
+it provably cannot obtain otherwise.
+
+**One change per generation.** Seal 11's context-currency move
+(`CtxOkR` → `CtxOk2` in all four claims) is decided and specified but
+is *not* in this generation. Bundling two independent statement
+changes is how an integration break stops being localizable, and this
+campaign already paid for one mid-flight change. The context move is
+generation five.
+
+**Re-discharged in parallel, not sequentially.** Four workers, one per
+quarter, concurrently — because every one of the three refuted
+generations was refuted by a *consumer*, never by inspection, and
+sequential discharge would find the same defects one at a time after
+the statement had already been built on.
