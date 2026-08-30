@@ -5786,6 +5786,69 @@ inductive CertZip (μ : CheckMode) (env : Env) (fc d : Nat) :
       CertZip μ env fc d e₁ e₂ →
       CertZip μ env fc d (.proj s i e₁) (.proj s i e₂)
 
+/-! ### (E): env-extension run stability — the third install-tier fact
+
+The env-layer ruling: the zip claims stay single-env; the δ-link's
+install cert (which ran at the env PREFIX of its declaration) is
+transported FORWARD by (E).  Stated with the pre-build check
+(DESIGN): success-lifting survives every env-consulting clause —
+`find?` agrees on prefix names (`FindPreserved`; supplier:
+duplicate-name installs are rejected, no shadowing), presence guards
+(`natLitSupported`/`strLitSupported`/`natOpGuard`) are
+`find?`-monotone and env₀-success pins them `true`, and the run's
+reachable name set stays inside env₀ given the subject premise
+(`ConstsBound`) plus stored-material closure (env₀'s stored exprs
+are themselves bound — install-tier, fixed in clause form at the
+discharge seal).  `ConstsBound`'s supplier for BOTH declared types
+and values is the one install traversal: install typechecks every
+declaration, inference visits every const leaf, and unknown
+constants throw; recursor-rule right-hand sides ride the RecRulesOk
+fold facts.  Discharge = the `CoreSub`-pattern oracle-extension
+induction (the `KnotFuelMono` precedent), with the internal motive
+strengthened by output-boundness. -/
+
+/-- Every constant the expression mentions is bound in `env₀`
+(hereditarily through annotations, like the leaf machinery). -/
+def ConstsBound (env₀ : Env) : Expr → Prop
+  | .const n _ => (env₀.find? n).isSome = true
+  | .app f a => ConstsBound env₀ f ∧ ConstsBound env₀ a
+  | .lam _ ty b _ => ConstsBound env₀ ty ∧ ConstsBound env₀ b
+  | .forallE _ ty b _ => ConstsBound env₀ ty ∧ ConstsBound env₀ b
+  | .letE _ t v b =>
+      ConstsBound env₀ t ∧ ConstsBound env₀ v ∧ ConstsBound env₀ b
+  | .proj _ _ e => ConstsBound env₀ e
+  | .fvar _ _ ty => ConstsBound env₀ ty
+  | _ => True
+termination_by e => e.sizeF
+decreasing_by all_goals first
+  | (simp [Setlec.Expr.sizeF]; omega)
+  | simp [Setlec.Expr.sizeF]
+
+/-- The extension is conservative on the prefix: every stored lookup
+survives verbatim (no shadowing — duplicate installs are
+rejected). -/
+def FindPreserved (env₀ env : Env) : Prop :=
+  ∀ {n : Name} {ci : Setlec.ConstantInfo},
+    env₀.find? n = some ci → env.find? n = some ci
+
+/-- **(E)**: successful runs on prefix-bound subjects are reproduced
+verbatim at the extended env, knot-wide (the `CoreSub` field set). -/
+def EnvExtendStable (μ : CheckMode) (env₀ env : Env) : Prop :=
+  (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
+    whnfCore μ env₀ f d e = .ok x → whnfCore μ env f d e = .ok x) ∧
+  (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
+    whnf μ env₀ f d e = .ok x → whnf μ env f d e = .ok x) ∧
+  (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
+    inferTypeCore μ env₀ f d e = .ok x →
+    inferTypeCore μ env f d e = .ok x) ∧
+  (∀ {f d : Nat} {a b : Expr} {v : Bool},
+    ConstsBound env₀ a → ConstsBound env₀ b →
+    isDefEqCore μ env₀ f d a b = .ok v →
+    isDefEqCore μ env f d a b = .ok v) ∧
+  (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
+    Setlec.annotateCore μ env₀ f d e = .ok x →
+    Setlec.annotateCore μ env f d e = .ok x)
+
 /-- **Summit claim, subject form**: zipped pairs whose members'
 whnf chains both reach literal sorts have eval-equal levels.  The
 spine core and (A)'s remaining routings collapse onto this. -/

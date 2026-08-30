@@ -9609,3 +9609,48 @@ extraction + the template-instantiation zip theorem
 `ZipWhnfSortAgree`; (4) (B)'s re-entries and congruence routings
 from `ZipSortOfAgree`; (5) the zip claims' own mutual induction —
 the summit's case work, LAST, on the audited measure.
+
+### (E) STATED — env-extension run stability, the third install-tier fact
+
+The env-layer ruling recorded: claims stay single-env (the
+campaign's environment rule — state facts at the env the checker ran
+them at; env-parametric restatement would churn the landed tier);
+the δ-link's prefix install cert transports FORWARD via (E).
+
+Landed (statements): `ConstsBound env₀ e` (every mentioned constant
+bound in the prefix, hereditary through annotations — the `sizeF`
+WF pattern), `FindPreserved env₀ env` (conservative extension),
+`EnvExtendStable μ env₀ env` (knot-wide success-lifting on
+prefix-bound subjects, the `CoreSub` field set including
+`annotateCore` — `isPropType` reaches it).
+
+**Pre-build check (run before writing)**: every env-consulting
+clause classified —
+* `find?` sites agree on prefix names by `FindPreserved`
+  (supplier: duplicate-name installs rejected — no shadowing);
+* presence guards (`natLitSupported`/`strLitSupported`/
+  `natOpGuard`/`isUnitLikeTy`/`reservedBasisNames`) are
+  `find?`-monotone or static; an env₀-SUCCESS pins them, so
+  success-lifting never sees a guard flip (the flip direction only
+  strands failures, which (E) does not lift);
+* stuckness sites (`unfoldDefinition … = none` inside loop legs)
+  agree because the run's reachable name set stays inside env₀:
+  subject consts by the `ConstsBound` premise, stored-material
+  consts by the env closure fact (its exact clause form — which
+  `ConstantInfo` fields carry exprs — is fixed at the discharge
+  seal, read off the induction's own sites);
+* no clause consults the env wholesale.
+
+**Premise suppliers named** (the ruling's explicit check):
+`ConstsBound` for declared TYPES and for VALUES has ONE supplier —
+the install traversal (install typechecks every declaration;
+inference visits every const leaf; unknown constants throw), so
+type-boundness is not a separate fact; recursor-rule RHSs ride the
+RecRulesOk fold facts; fvar-closedness (the earlier ledgered
+value-closedness) remains a SEPARATE fact for a different consumer
+(δ leaf preservation).  Discharge route: the `CoreSub`-pattern
+oracle-extension induction (the `KnotFuelMono` precedent, batched
+the same way), internal motive strengthened with output-boundness.
+(E) joins `DeltaSortLinked` and `BoolCtorsInert` as install-tier
+obligations: discharged once, consumed wherever a prefix cert needs
+lifting.
