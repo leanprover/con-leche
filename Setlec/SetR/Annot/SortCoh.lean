@@ -6102,6 +6102,40 @@ theorem ensureSortAgreeR_of_summit {φ : Name → Nat}
   ensureSortAgreeR_of_core (Q := Q) hB hTC hTD hTN hIC hID hIN hInf
     hLC hLD hLN hQC hQD hQN hQs hD
 
+/-! ### The public claims collapse onto the summit
+
+The `.cert` leaf absorbs the entire top level: a certified pair IS a
+zipped pair, so both public claims are one-line corollaries of the
+summit claims.  The landed 25-case shells are thereby superseded as
+DISCHARGE routes — but not deleted: their case work is the summit
+induction's `.cert`-case template (the mutual knot's design: the
+summit's cert case decomposes the cert run exactly as the shells do,
+with leaf certs at strictly smaller knot fuel feeding the ih). -/
+
+/-- **(A) collapses onto the summit**: `EnsureSortAgreeRQ` from
+`ZipWhnfSortAgree` alone, via the `.cert` leaf. -/
+theorem ensureSortAgreeRQ_of_zip {φ : Name → Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hZ : ZipWhnfSortAgree μ env φ) :
+    EnsureSortAgreeRQ μ env φ Q := by
+  intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwsa hba hLa hwsb hbb hLb hp _hQ
+    h₁ h₂
+  obtain ⟨ga, la, -, hla⟩ := whnf_peel h₁
+  obtain ⟨gb, lb, -, hlb⟩ := whnf_peel h₂
+  exact hZ (.cert a b hc) (SubjInv.of_pair hwsa hba hLa hp)
+    (SubjInv.of_pair_right hwsb hbb hLb hp) hp hla hlb
+
+/-- **(B) collapses onto the summit**: `SortOfAgreeRQ` from
+`ZipSortOfAgree` alone, via the `.cert` leaf. -/
+theorem sortOfAgreeRQ_of_zip {φ : Name → Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hZ : ZipSortOfAgree μ env φ) :
+    SortOfAgreeRQ μ env φ Q := by
+  intro fc d a b f₁ f₂ u v hc hwsa hba hLa hwsb hbb hLb hp _hQ h₁ h₂
+  exact hZ (.cert a b hc) (SubjInv.of_pair hwsa hba hLa hp)
+    (SubjInv.of_pair_right hwsb hbb hLb hp) hp
+    (SortOfLE_of_run h₁) (SortOfLE_of_run h₂)
+
 /-- The slot-free (B) shell: `SortOfAgreeR` as the `Q := True`
 instance. -/
 theorem sortOfAgreeR_of {φ : Name → Nat}

@@ -9717,3 +9717,28 @@ Remaining on the defeq branch: the semantic trio discharge (Q-frame
 collapse onto `ZipSortOfAgree`, and the install-tier facts
 (`BoolCtorsInert`, `DeltaSortLinked`-shape inside the summit's δ
 case via (E), the preserver suppliers).
+
+### The public claims COLLAPSE onto the summit — the consumer set is final
+
+The (B)-tier surgery turned out maximal: the `.cert` leaf absorbs
+the entire top level.  A certified pair IS a zipped pair, so
+`ensureSortAgreeRQ_of_zip` and `sortOfAgreeRQ_of_zip` derive both
+public claims from the summit claims alone (one-liners; the (A)
+entry peels its `whnf` runs to loop form; `Q` is absorbed — the zip
+tier is Q-free as audited).
+
+The landed 25-case shells are thereby SUPERSEDED as discharge routes
+but deliberately kept: their case work is the summit induction's
+`.cert`-case template.  The mutual knot's final shape: the summit
+induction's `.cert` case decomposes the cert run exactly as the
+shells do (defeqStep decomposition, re-entries by head steps,
+vacuity routings, spine-to-zip), with every leaf cert at strictly
+smaller knot fuel feeding the induction hypothesis — no separate
+(A)/(B) claims in the mutual recursion at all.  The refuted
+transport species and the dead `sortOfLE_step_*` instances now sit
+ONLY inside superseded conditionals.
+
+Summit consumer set, FINAL: `ZipWhnfSortAgree` + `ZipSortOfAgree`
+serve everything downstream (`SortSubstStable`'s leaf via (B),
+`EnsureSortAgreeR`'s consumers via (A), the trio's semantic
+discharge stays on the (A)-shell's Q-channel as ruled).
