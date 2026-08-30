@@ -1,5 +1,6 @@
 import Setlec.SetR.Interp2.Claims2U
 import Setlec.SetR.Interp2.EnvS2UPi
+import Setlec.SetR.Interp2.EnvS2UDef
 import Setlec.SetR.Interp2.Denote2Extend
 import Setlec.SetR.Interp2.Step2.DefEqRun
 import Setlec.SetR.Interp2.Keys2Probe
@@ -410,6 +411,58 @@ theorem declStep2_of_axiom (m : EnvS2U V env) {cvA : ConstantVal}
       rw [acvalWith_ne (hne _ h)]
       exact m.mem_type2 ν ψ fuel c h ta hta ρ
 
+/-! ## Supplying the claims the three theorems above consume
+
+Each key here is conditional on a `…2U` claim **at the install's own
+`EnvS2U`** — the currency was already re-pointed at seal 40, so
+nothing above consumes a `…2E` claim through a bridge.  What was
+missing is the *supplier*.
+
+`checkSound2U` would give all four, but it needs `CheckStep2U`, and
+`checkStep2U_of_2E` buys that only from `EnvS2UInImage` **at every
+environment at once**.  The keys never needed that quantifier: each
+is stated at a single `m`, so the *pointwise* residue suffices — and
+`envS2UInImage_of_bodies` (`EnvS2UDef.lean`) reduces even the
+pointwise residue to `CvalAnnot` plus annotation-existence at the
+stored bodies.
+
+That is what the re-point of the four quarters was to have made
+unnecessary, and it is not a substitute for it: the residue is still
+carried, only now at one environment and in a form an install can
+attempt. -/
+
+/-- **The four claims at one `EnvS2U`.**  The `Iff.rfl` bridges of
+`Claims2U.lean` are what make the conclusion the `…2U` family while
+the proof is `checkSound2E`. -/
+theorem claims2U_of_2E {m : EnvS2U V env} (h : CheckStep2E μ V)
+    (hb : EnvS2UInImage V m) (ψ : Name → Nat) (fuel : Nat) :
+    WhnfCoreClaims2U μ m ψ fuel ∧ WhnfClaims2U μ m ψ fuel ∧
+      DefEqClaims2U μ m ψ fuel ∧ InferClaims2U μ m ψ fuel := by
+  obtain ⟨m', rfl⟩ := hb
+  exact checkSound2E h m' ψ fuel
+
+/-- …with the residue in the concrete form `envS2UInImage_iff` shows
+is exact. -/
+theorem claims2U_of_bodies (m : EnvS2U V env) (h : CheckStep2E μ V)
+    (hann : ∀ (ν : CheckMode) (χ : Name → Nat),
+      CvalAnnot ν env m.base.cval χ)
+    (hbod : ∀ (ν : CheckMode) (χ : Name → Nat),
+      Denote2Bodies V m ν χ) (ψ : Name → Nat) (fuel : Nat) :
+    WhnfCoreClaims2U μ m ψ fuel ∧ WhnfClaims2U μ m ψ fuel ∧
+      DefEqClaims2U μ m ψ fuel ∧ InferClaims2U μ m ψ fuel :=
+  claims2U_of_2E h (envS2UInImage_of_bodies V m hann hbod) ψ fuel
+
+/-- **The two claims this file's keys consume, at an environment that
+stores a definition.**  Both earlier probes are axiom-only, so before
+`EnvS2UDef.lean` the keys' claim premises were only ever inhabited at
+environments where `acval_defn` says nothing. -/
+theorem claims2U_lamDef (h : CheckStep2E μ V) (ψ : Name → Nat)
+    (fuel : Nat) :
+    DefEqClaims2U μ (lamDefEnvS2U V) ψ fuel ∧
+      InferClaims2U μ (lamDefEnvS2U V) ψ fuel :=
+  let c := claims2U_of_2E h (lamDefEnvS2U_inImage V) ψ fuel
+  ⟨c.2.2.1, c.2.2.2⟩
+
 /-! ## The three sweeps
 
 **1. Smallest fuel.** `memberBlock2_of_stored` is the only theorem
@@ -423,7 +476,10 @@ file adds is satisfiable at a non-empty domain;
 annotation the checker has to compute; `nonempty_envS2U_piProbe`
 (section 2) inhabits `DeclStep2`'s subject one binder past the first
 probe.  The claims themselves are inhabited at every `EnvS2` by
-`checkSound2E` and the `Iff.rfl` bridges of `Claims2U.lean`.
+`checkSound2E` and the `Iff.rfl` bridges of `Claims2U.lean`, and
+`claims2U_lamDef` inhabits the two *this file* consumes at an
+environment that stores a **definition** — where `acval_defn` is not
+vacuous, which no axiom-only probe could witness.
 
 **3. Tombstones.** Files added, none edited. -/
 
