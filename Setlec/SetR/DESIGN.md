@@ -9964,3 +9964,37 @@ measure's primary component.  Compiled first-pass.
 kit), the three sim roots (`ZipApp`/`ZipLetE`/`ZipProjCase` — iota
 with full treatment), the vacuity Props (semantic tier), and the
 env facts.
+
+### Summit build, tier 4: the constSlack case DISCHARGED (StoredWF kit)
+
+The supply kit, all proved: `instL_fvarLeaves_nil` /
+`instL_looseBVarsBounded` (level instantiation creates no fvar
+leaves and touches no bvars), `wScoped_of_fvarLeaves_nil` /
+`subjInv_of_nil` / `pairedLeaves_of_nil` (the fvar-free `SubjInv`
+package), and `unfoldDefinition_const_both` — both instantiations of
+a same-head δ unfold TOGETHER (the guard reads only the length,
+which the eval premise pins via map-length), yielding the one stored
+value and both instantiation forms.
+
+`zipConstCase_of` then discharges the case: decompose both given
+runs one step (det-align against `whnfCore_const_run`); the nat legs
+die on `reduceNat_const`, the stuck legs on the sort-vs-const clash;
+in the both-δ leg the continuations are `certZip_instantiate` zips
+of ONE stored value, with invariants from the kit (`StoredWF` the
+consumed env fact), `Q` stepped by two left-δs + symmetry, and
+`ZipBelow` fed at `Or.inr` — same cert fuel, strictly smaller
+loop-budget sum, exactly the measure's second component.  The
+cross-legs (one side unfolds, the other stuck) are killed by the
+both-unfold lemma.
+
+WF-def recipe consolidated (cost three rounds): `getAppFn`/
+`getAppArgs`/`mkAppN`/`fvarLeaves`/`WScoped`/`instantiateLevelParams`
+never reduce by `rfl`/`nomatch` — close leaf goals with their
+equation-lemma simps, reduce literal-scrutinee matches with
+`simp only []` after every `rw [hf] at`, and remember `cases hf :`
+substitutes the goal (third confirmation), so find?-equation
+components become `rfl`.
+
+**Summit remaining**: the three sim roots (`ZipApp`/`ZipLetE`/
+`ZipProjCase` — iota's full pre-build treatment when reached), the
+semantic vacuities, `StoredWF`+`BoolCtorsInert` install discharges.

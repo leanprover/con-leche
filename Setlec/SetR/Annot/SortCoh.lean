@@ -6813,6 +6813,281 @@ theorem zipCertCase_of {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
     hLC hLD hLN hQC hQD hQN hQs hP hR hE hN fc hSp
     Setlec.defeqLoopFuel hc hIa hIb hp hQ ha hb
 
+/-! ### The StoredWF supply kit (instantiation preservation) -/
+
+/-- Level instantiation creates no fvar leaves. -/
+theorem instL_fvarLeaves_nil {lps : List Name} {us : List Level} :
+    ∀ {e : Expr}, e.fvarLeaves = [] →
+      (e.instantiateLevelParams lps us).fvarLeaves = [] := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro h
+    simp [Setlec.Expr.instantiateLevelParams, Setlec.Expr.fvarLeaves]
+  | fvar idx n ty ih =>
+    intro h
+    simp [Setlec.Expr.fvarLeaves] at h
+  | sort u =>
+    intro h
+    simp [Setlec.Expr.instantiateLevelParams, Setlec.Expr.fvarLeaves]
+  | const n vs =>
+    intro h
+    simp [Setlec.Expr.instantiateLevelParams, Setlec.Expr.fvarLeaves]
+  | app f a ihf iha =>
+    intro h
+    simp only [Setlec.Expr.fvarLeaves, List.append_eq_nil_iff] at h
+    simp only [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.fvarLeaves, ihf h.1, iha h.2, List.append_nil]
+  | lam n ty body m iht ihb =>
+    intro h
+    simp only [Setlec.Expr.fvarLeaves, List.append_eq_nil_iff] at h
+    simp only [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.fvarLeaves, iht h.1, ihb h.2, List.append_nil]
+  | forallE n ty body m iht ihb =>
+    intro h
+    simp only [Setlec.Expr.fvarLeaves, List.append_eq_nil_iff] at h
+    simp only [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.fvarLeaves, iht h.1, ihb h.2, List.append_nil]
+  | letE n ty val body iht ihv ihb =>
+    intro h
+    simp only [Setlec.Expr.fvarLeaves, List.append_eq_nil_iff] at h
+    obtain ⟨⟨h1, h2⟩, h3⟩ := h
+    simp only [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.fvarLeaves, iht h1, ihv h2, ihb h3,
+      List.append_nil]
+  | lit l =>
+    intro h
+    simp [Setlec.Expr.instantiateLevelParams, Setlec.Expr.fvarLeaves]
+  | proj sn i e ih =>
+    intro h
+    simp only [Setlec.Expr.fvarLeaves] at h
+    simp only [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.fvarLeaves, ih h]
+
+/-- Level instantiation touches no bvars. -/
+theorem instL_looseBVarsBounded {lps : List Name} {us : List Level} :
+    ∀ {e : Expr} {k : Nat}, e.looseBVarsBounded k = true →
+      (e.instantiateLevelParams lps us).looseBVarsBounded k = true := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k h
+    simpa [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.looseBVarsBounded] using h
+  | fvar idx n ty ih =>
+    intro k h
+    simp [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.looseBVarsBounded]
+  | sort u =>
+    intro k h
+    simp [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.looseBVarsBounded]
+  | const n vs =>
+    intro k h
+    simp [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.looseBVarsBounded]
+  | app f a ihf iha =>
+    intro k h
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.looseBVarsBounded, ihf h.1, iha h.2,
+      Bool.and_self]
+  | lam n ty body m iht ihb =>
+    intro k h
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.looseBVarsBounded, iht h.1, ihb h.2,
+      Bool.and_self]
+  | forallE n ty body m iht ihb =>
+    intro k h
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.looseBVarsBounded, iht h.1, ihb h.2,
+      Bool.and_self]
+  | letE n ty val body iht ihv ihb =>
+    intro k h
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    obtain ⟨⟨h1, h2⟩, h3⟩ := h
+    simp only [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.looseBVarsBounded, iht h1, ihv h2, ihb h3,
+      Bool.and_self]
+  | lit l =>
+    intro k h
+    simp [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.looseBVarsBounded]
+  | proj sn i e ih =>
+    intro k h
+    simp only [Setlec.Expr.looseBVarsBounded] at h
+    simp only [Setlec.Expr.instantiateLevelParams,
+      Setlec.Expr.looseBVarsBounded, ih h]
+
+/-- Fvar-leaf-free expressions are well-scoped at any depth. -/
+theorem wScoped_of_fvarLeaves_nil :
+    ∀ {e : Expr} {d : Nat}, e.fvarLeaves = [] → Expr.WScoped d e := by
+  intro e
+  induction e with
+  | bvar i => intro d h; simp [Setlec.Expr.WScoped]
+  | fvar idx n ty ih =>
+    intro d h
+    simp [Setlec.Expr.fvarLeaves] at h
+  | sort u => intro d h; simp [Setlec.Expr.WScoped]
+  | const n vs => intro d h; simp [Setlec.Expr.WScoped]
+  | app f a ihf iha =>
+    intro d h
+    simp only [Setlec.Expr.fvarLeaves, List.append_eq_nil_iff] at h
+    simp only [Setlec.Expr.WScoped]
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam n ty body m iht ihb =>
+    intro d h
+    simp only [Setlec.Expr.fvarLeaves, List.append_eq_nil_iff] at h
+    simp only [Setlec.Expr.WScoped]
+    exact ⟨iht h.1, ihb h.2⟩
+  | forallE n ty body m iht ihb =>
+    intro d h
+    simp only [Setlec.Expr.fvarLeaves, List.append_eq_nil_iff] at h
+    simp only [Setlec.Expr.WScoped]
+    exact ⟨iht h.1, ihb h.2⟩
+  | letE n ty val body iht ihv ihb =>
+    intro d h
+    simp only [Setlec.Expr.fvarLeaves, List.append_eq_nil_iff] at h
+    obtain ⟨⟨h1, h2⟩, h3⟩ := h
+    simp only [Setlec.Expr.WScoped]
+    exact ⟨iht h1, ihv h2, ihb h3⟩
+  | lit l => intro d h; simp [Setlec.Expr.WScoped]
+  | proj sn i e ih =>
+    intro d h
+    simp only [Setlec.Expr.fvarLeaves] at h
+    simp only [Setlec.Expr.WScoped]
+    exact ih h
+
+/-- The `SubjInv` package for an fvar-leaf-free, bvar-closed
+expression. -/
+theorem subjInv_of_nil {e : Expr} {d : Nat}
+    (h1 : e.fvarLeaves = []) (h2 : e.looseBVarsBounded 0 = true) :
+    SubjInv d e :=
+  ⟨wScoped_of_fvarLeaves_nil h1, h2,
+    fun l hl => absurd hl (by rw [h1]; exact List.not_mem_nil),
+    fun l hl => absurd hl (by
+      rw [List.mem_append, h1] at hl
+      exact absurd (hl.elim id id) List.not_mem_nil)⟩
+
+/-- Pairing is vacuous on fvar-leaf-free pairs. -/
+theorem pairedLeaves_of_nil {a b : Expr}
+    (h1 : a.fvarLeaves = []) (h2 : b.fvarLeaves = []) :
+    PairedLeaves a b := by
+  intro l hl
+  rw [h1, h2] at hl
+  exact absurd hl List.not_mem_nil
+
+/-- Both instantiations of a same-head δ unfold together (the guard
+reads only the length). -/
+theorem unfoldDefinition_const_both {env : Env} {n : Name}
+    {us us' : List Level} {xa : Expr}
+    (hlen : us.length = us'.length)
+    (hux : Setlec.unfoldDefinition env (.const n us) = some xa) :
+    ∃ cv value, xa
+        = Setlec.Expr.instantiateLevelParams cv.levelParams us value ∧
+      Setlec.unfoldDefinition env (.const n us')
+        = some (Setlec.Expr.instantiateLevelParams
+            cv.levelParams us' value) ∧
+      ((∃ hint, env.find? n = some (.defnInfo cv value hint)) ∨
+        env.find? n = some (.thmInfo cv value)) := by
+  unfold Setlec.unfoldDefinition at hux
+  simp only [Setlec.Expr.getAppFn] at hux
+  cases hf : env.find? n with
+  | none => rw [hf] at hux; exact nomatch hux
+  | some ci =>
+    rw [hf] at hux
+    cases ci with
+    | defnInfo cv value hint =>
+      simp only [] at hux
+      by_cases hl : us.length = cv.levelParams.length
+      · rw [if_pos hl] at hux
+        refine ⟨cv, value, ?_, ?_, .inl ⟨hint, rfl⟩⟩
+        · have h2 := Option.some.inj hux
+          simp only [Setlec.Expr.getAppArgs,
+            Setlec.Expr.mkAppN] at h2
+          exact h2.symm
+        · simp only [Setlec.unfoldDefinition, Setlec.Expr.getAppFn,
+            hf]
+          rw [if_pos (hlen ▸ hl)]
+          simp [Setlec.Expr.getAppArgs, Setlec.Expr.mkAppN]
+      · rw [if_neg hl] at hux; exact nomatch hux
+    | thmInfo cv value =>
+      simp only [] at hux
+      by_cases hl : us.length = cv.levelParams.length
+      · rw [if_pos hl] at hux
+        refine ⟨cv, value, ?_, ?_, .inr rfl⟩
+        · have h2 := Option.some.inj hux
+          simp only [Setlec.Expr.getAppArgs,
+            Setlec.Expr.mkAppN] at h2
+          exact h2.symm
+        · simp only [Setlec.unfoldDefinition, Setlec.Expr.getAppFn,
+            hf]
+          rw [if_pos (hlen ▸ hl)]
+          simp [Setlec.Expr.getAppArgs, Setlec.Expr.mkAppN]
+      · rw [if_neg hl] at hux; exact nomatch hux
+    | axiomInfo cv => exact nomatch hux
+    | indInfo cv caps => exact nomatch hux
+    | ctorInfo cv a b => exact nomatch hux
+    | recInfo cv a b c => exact nomatch hux
+    | projInfo entry => exact nomatch hux
+
+/-- **The constSlack case DISCHARGED** (both-δ of one stored value):
+the two sides unfold together, the continuations are
+`certZip_instantiate` zips with the `StoredWF` package, and the
+recursion runs at the same cert fuel with a smaller loop-budget
+sum. -/
+theorem zipConstCase_of {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
+    (hm : KnotFuelMono μ env) (hSW : StoredWF env)
+    (hQD : QPreserveDeltaF env Q)
+    (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a) :
+    ZipConstCase μ env φ Q := by
+  intro fc d ga la gb lb n us us' ℓa ℓb below hev hQ ha hb
+  have hlen : us.length = us'.length := by
+    have := congrArg List.length (hev fun _ => 0)
+    simpa using this
+  cases la with
+  | zero => exact nomatch ha
+  | succ la' =>
+  cases lb with
+  | zero => exact nomatch hb
+  | succ lb' =>
+  have haD := ha
+  rw [whnfLoop_succ] at haD
+  obtain ⟨a₁, hwca, htriA⟩ := whnfStep_decompose haD
+  obtain rfl : a₁ = .const n us :=
+    (KnotFuelDet_of_mono hm).2.2.1
+      (hwca : whnfCore μ env ga d (.const n us) = .ok a₁)
+      (whnfCore_const_run (Nat.le_refl 1))
+  have hbD := hb
+  rw [whnfLoop_succ] at hbD
+  obtain ⟨b₁, hwcb, htriB⟩ := whnfStep_decompose hbD
+  obtain rfl : b₁ = .const n us' :=
+    (KnotFuelDet_of_mono hm).2.2.1
+      (hwcb : whnfCore μ env gb d (.const n us') = .ok b₁)
+      (whnfCore_const_run (Nat.le_refl 1))
+  rcases htriA with ⟨x, hrx, -⟩ | ⟨-, xa, hux, hkx⟩ | ⟨-, -, hstopA⟩
+  · exact nomatch hrx
+  · obtain ⟨cv, value, rfl, huy', hstore⟩ :=
+      unfoldDefinition_const_both hlen hux
+    obtain ⟨hnil, hbnd, -⟩ := hSW hstore
+    rcases htriB with ⟨y, hry, -⟩ | ⟨-, xb, huy, hky⟩ | ⟨-, hudb, -⟩
+    · exact nomatch hry
+    · rw [huy'] at huy
+      obtain rfl := (Option.some.inj huy).symm
+      exact below (Or.inr ⟨rfl, by omega⟩)
+        (certZip_instantiate hev value)
+        (subjInv_of_nil (instL_fvarLeaves_nil hnil)
+          (instL_looseBVarsBounded hbnd))
+        (subjInv_of_nil (instL_fvarLeaves_nil hnil)
+          (instL_looseBVarsBounded hbnd))
+        (pairedLeaves_of_nil (instL_fvarLeaves_nil hnil)
+          (instL_fvarLeaves_nil hnil))
+        (hQs (hQD huy' (hQs (hQD hux hQ)))) hkx hky
+    · rw [huy'] at hudb; exact nomatch hudb
+  · exact nomatch hstopA
+
 /-- **The both-δ core COLLAPSED onto the summit**: the spine facts
 zip the pair (head by `constSlack` through `isEquivList` soundness,
 args as `.cert` leaves through `defEqList_extract`), and
