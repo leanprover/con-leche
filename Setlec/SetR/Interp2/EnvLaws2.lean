@@ -79,6 +79,25 @@ def NatOpsV2 (μ : CheckMode) (env : Env)
           = interp2 V (cons y (cons x ρ)) R
 
 /-- **Law 2 — the fired modeled-iota rule, over `interp2`.**
+
+**INSUFFICIENT AS DRAFTED — do not build on this (seal 22).** The map
+found that this transposes about six lines of `RecRuleLawV`'s
+fifty-five and **omits the fired equality entirely**. Its consumer
+`IotaStep2C`/`IotaStep2D` concludes an `interp2` equality, and nothing
+in the tier other than that equality can supply it. So this law as
+written does not discharge the residue it was drafted for.
+
+Two further corrections. The third conjunct is **not**
+`RecRuleLawV`'s truthfulness transport, which is conditional and lands
+on the *applied reduct*; it is the transpose of the install bottoms'
+own *input* `_hrhsKey`, an unconditional fact about the bare `R`. And
+the claim below that "only the interpretation moves" is false for two
+conjuncts: `TeleFitV` becomes `TeleFit2`, a **currency change**
+(`V`-valued and kinded, not `VExpr`-indexed), and `IotaIndexPinV` has
+**no counterpart at all**.
+
+Kept, unfrozen and unconsumed, as the record of what a
+consumer-derived draft misses.
 Consumer: `IotaStep2B`.
 
 This is the slot the campaign has been calling `RecRulesV2` since the

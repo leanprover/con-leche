@@ -15219,3 +15219,95 @@ and the Θ lane — where there is no shared statement to converge on.
 minus the erasure — is landed. The one proof in generation five that
 did not get easier named its own missing supplier, which is the most
 useful thing a hard proof can do.
+
+### Seal 22 — the `RecRulesV2` map: the draft is insufficient, and mapping caught it
+
+Mapped before freezing, on the instruction that this was the
+least-mapped item on the campaign. **It was, and the draft would have
+wasted a serial batch.**
+
+**The headline: `RecRulesV2` as drafted at seal 15 omits the fired
+equality entirely.** It transposes about six lines of `RecRuleLawV`'s
+fifty-five — `rP ≤ mI`, the level-instantiated RHS denotation, and a
+truthfulness conjunct — and carries **no** constructor lookup, no
+spine arities, no level comparand, no plain/nested parameter premises,
+no index pin, no telescope fits, and **no `interp2` equality between
+the recursor spine and the reduct spine**. Its consumer
+`IotaStep2C`/`IotaStep2D` concludes exactly that equality, and nothing
+else in the tier can supply it. *A law drafted from its consumer's
+signature, without reading its supplier, missed the one conjunct the
+consumer exists to consume.*
+
+**Second correction: the third conjunct is misattributed.**
+`RecRuleLawV`'s truthfulness conjunct is *conditional* and lands on
+the **applied reduct** `mkAppN R (xs.take rP ++ ys.drop cnP)`. The
+draft's is unconditional and about the bare `R` — which is the
+transpose of the install bottoms' own **input** `_hrhsKey`
+(`Install/IndBottomS.lean:73/200/359`), not of the law's output.
+Plausibly establishable; simply a different statement.
+
+**Third: the draft's own docstring was wrong about the cost.** It said
+"only the interpretation moves". Two conjuncts contradict that —
+`TeleFitV` → `TeleFit2` is a **currency change** (`V`-valued and
+kinded, not `VExpr`-indexed), and `IotaIndexPinV` has **no `interp2`
+counterpart at all**, because it decomposes the constructor residual
+*syntactically* (`restC = mkAppN H cargs`) while `TeleFit2`'s residual
+is a bare `V` with no spine to destructure.
+
+The draft is marked **INSUFFICIENT** in its own docstring and left
+unfrozen and unconsumed, as the record of what a consumer-derived
+draft misses.
+
+#### What the map settled that is not a problem
+
+* **The fuel slack costs nothing on identification.** `denote2_fuelMono`
+  lets a consumer holding `denote2 … F₀ … = some ea'` and the law's
+  `denote2 … F' … = some R` join at `max` and conclude `ea' = R` —
+  precisely v1's move at `Sound/Iota.lean:174`.
+* **Granularity is per rule**, not per `(φ, us)`; `rP ≤ mI` sits ahead
+  of both quantifiers.
+* **The indexed nested-aux machinery is establishment-only.**
+  `eqUpToNames`, the const-head certificate and the `checkAnnotList`
+  fixed point appear as premises of `IndBottomNestedS` and in the
+  checker — **never in the law**. Only one conjunct is
+  nested-specific, and its `rP`-context spelling is task #105's
+  lowering already visible in v1's statement.
+* **`TeleFit2` is an improvement, not just a port.**
+  `AnnotOk2_redex_fits` derives the fit from the subject's `AnnotOk2`
+  plus a `PosShape`, with **no runtime walk** — better than v1's
+  `TeleS` route.
+
+#### The decision, and the bounded question it hangs on
+
+Two coherent statements exist and the draft is neither:
+
+* **(i) the full transpose** — carry all twelve conjuncts. Cost:
+  invent `IotaIndexPin2`, move the fits to `TeleFit2`, and supply an
+  `AnnotOk2` spine-assembly lemma (the `TeleFitV.appN_annot`
+  analogue), **which the map could not find in the tree**;
+* **(ii) the minimal law plus a separate equality obligation** stated
+  at the *reduct* rather than at the rule. This has a precedent in
+  this codebase: v1's `EnvR` deliberately narrowed its two
+  rule-derived fields to their consumption for exactly this reason
+  (`Bridge/Decl.lean:36-51`).
+
+**Not ruled now.** T5 points at (i) — a fired-law premise belongs to
+its supplier — but (i) requires `IotaIndexPin2`, and the map's finding
+is that the structure it decomposes *does not exist* on the `interp2`
+side. So the choice reduces to one bounded question, in the shape seal
+18 established for exactly this situation:
+
+> **Can `IotaIndexPin2` be stated at all, given that `TeleFit2`'s
+> residual is a bare `V` with no spine structure?**
+
+If yes, (i). If no, (ii) is forced and the equality moves to the
+reduct. Queued as the next install-tier item, ahead of the statement
+freeze — and **`Denote2InstLevels` is unaffected either way**, since
+the RHS-denotation conjunct survives in both options.
+
+#### Three named gaps the map flagged, unverified
+
+`AVExpr.bvarsBelow` and `AVExpr.instRevChain` (needed only if the
+nested parameter premise is carried), and the `AnnotOk2` spine-assembly
+lemma (needed by option (i)'s truthfulness conjunct). All three
+grep-negative, all three flagged as such rather than asserted absent.
