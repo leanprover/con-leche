@@ -16550,3 +16550,78 @@ local stand-ins even where the amended (E) would be easier, and to
 record where it would have helped. Swapping mid-batch would leave the
 tree uncompilable until the Θ merge lands — *a dependency with a
 landing date is still not a dependency you build against today.*
+
+### Seal 40 — the re-point holds; route (ii)'s reach is not uniform
+
+Three sections, all landed (`Claims2U.lean`, `EnvS2UPi.lean`,
+`Keys2Cond.lean`), tree green at 341 jobs.
+
+**Section 1 — the re-point went through, and the STOP measurement was
+taken rather than assumed.** `m.acval_defn`/`m.acval_thm` are consumed
+by **exactly four lemmas** in the whole Step2 development, and **none
+is a claim discharge** — all four are lemmas *about* the residue
+`AcvalDefnInst`. So no quarter needs the existential field and seal
+34's ruling does complete into the claims. The four bridges are
+`Iff.rfl`: at an `EnvS2` the re-pointed claim **is** the generation-six
+claim as a proposition, not merely a consequence.
+
+Casualty, recorded at its site: `acvalDefnInst_of_instLevels` does not
+survive — it read *existence* out of `EnvS2.acval_defn`, and
+uniqueness has none to give.
+
+**Section 2 — the probe walks into the wall and survives.**
+`piProbeEnvS2U`: a single pi-typed axiom (the basis block was not
+needed). `sortOfE` genuinely runs, and the check that distinguishes it
+from the first probe is that **`mem_type2`'s premise is not met at
+every fuel** — `none` at 0 and at 1 (the fact that made
+`EnvS2.acval_defn`'s original shape false at STOP 2), first succeeding
+at 2. *The field is exercised through a checker run rather than past
+one.* Still unexercised and named rather than assumed: the domain is a
+sort, so a stored type whose domain is a stored *constant* needs a
+second constant.
+
+#### The finding that outranks the section: route (ii)'s reach is not uniform
+
+The install's own runs are the bridge for `ReducePin2` —
+`checkReducePin` genuinely runs `isDefEq`, and `DefEqClaims2U` cashes
+it. **They are not for `MemberKeyS`/`StdAxiomKeyS`.** `MemberValR`'s
+model-counterpart pin is `Expr.eqUpToNames`, a **syntactic rename
+check rather than a checker verdict**, and a standard axiom has **no
+value to infer at all**. Neither key has a defeq run for the claims to
+cash.
+
+So (ii) closes `ReducePin2` and the **truthfulness half** of the
+member keys, and leaves their **membership half** exactly where seal
+38 left it — their content is model-side, and the claims reach only
+the `AnnotOk2` conjunct. *Both the recommendation and the ruling
+assumed uniform reach; it is not uniform, and the non-uniformity is a
+property of what the install actually runs.*
+
+#### `CheckStep2U` — and `cval_annot` was an omission of mine
+
+`CheckStep2U` is strictly stronger than `CheckStep2E` and has no
+derivation from the current quarters. Two causes, and **one is my
+error**: `EnvS2U` (seal 36) **drops `cval_annot`**, and that was an
+omission in writing the freeze, not a ruling. It is half the gap.
+
+**Restoration attempted and not landed.** Adding the field back is one
+line; supplying it at `probeEnvS2U` is not — the empty environment's
+recipe does not transfer, because the λ-shape obligation there is
+discharged by *having no stored constants*, while the probe has one
+whose valuation is `emptyT 0`. Three attempts, then reverted rather
+than pursued: the finding is worth more than the fix, and the fix
+belongs in a batch that can take the probes with it.
+
+**Owed, in order:** restore `cval_annot` to `EnvS2U`, re-supply it at
+both probes, then re-measure whether `CheckStep2U` becomes derivable —
+since the *other* half of the gap (the two `denote2` fields) is
+already measured as unneeded by any quarter.
+
+Until then: everything conditional on `…2U` at an **arbitrary**
+`EnvS2U` is conditional on more than the lane owes. At an `EnvS2` —
+and so at both probes — it is free.
+
+*Rule: when a freeze drops a field, say whether it was ruled or
+merely omitted. Seal 36 listed nine fields and did not say which of
+`EnvS2`'s ten it was declining; four seals later a consumer paid for
+the ambiguity.*
