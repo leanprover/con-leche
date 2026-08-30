@@ -9767,3 +9767,94 @@ for the collision, and the preservers riding `WhnfCoreClaimsR` /
 theorems and the preservers are the semantic-trio proof seals,
 scheduled after the summit induction per the granted order (the
 summit does not consume them).
+
+### THE SUMMIT MAP (sealed alone — it surfaced findings)
+
+The full case-structure scoping map for `ZipWhnfSortAgree`'s
+induction, drawn before any case work, with the measure audit
+instantiated against the actual motive and the reference-graph
+stress test run.  Two findings landed as statement amendments with
+this seal; the rest is the build map.
+
+**Finding 1 (amendment, landed): `.cert` carries closedness.**  The
+β case substitutes into zip derivations; a cert leaf's run does not
+survive substitution — UNLESS the leaf pair is bvar-closed, in which
+case `instantiate1` leaves it verbatim (closed subterms are
+untouched, no shifting).  So `.cert` now demands
+`looseBVarsBounded 0` both sides; every consumer had the fact in
+hand (the public-claim guards; spine args via the new
+`getAppArgs_bounded`).  With it, whnf's depth-stability closes the
+original cliff completely: whnf never enters binders, so an
+under-binder cert leaf surfaces only through β at the SAME depth,
+verbatim.
+
+**Finding 2 (map): the two substitution lemmas.**  The β case needs
+(i) `certZip_instantiate1`: one template body, two closed zipped
+args — `CertZip a₁ a₂ → CertZip (e.instantiate1 a₁)
+(e.instantiate1 a₂)` (structural on `e`; the `refl` leaf of a body
+zip does NOT survive substitution — this lemma is what replaces it);
+(ii) the full form `CertZip body₁ body₂ → CertZip a₁ a₂ →
+CertZip (body₁[a₁]) (body₂[a₂])` (induction on the body zip;
+`refl` case = (i); `cert` case = verbatim by closedness).
+
+**The case map** (`CertZip.rec` × the dual given runs):
+* `refl` — `whnfLoop_det` (base).
+* `sortSlack` — both runs stuck at the sorts (`loop_stuck_out`),
+  `hev φ` (base).
+* `cert a b _ _ hc` — THE SHELLS' TEMPLATE: `hc` at `fc+1` opens to
+  the defeqLoop decomposition; re-entries by given-run surgery;
+  vacuities routed (the trio Props stay hypotheses — semantic
+  tier); nat via `natStepNoSort_of`; terminal shape cases vacuous
+  by `loop_stuck_out`; **spine** = `deltaSpineSortAgree_of`'s zip
+  construction feeding the ih at `fc` (< `fc+1` ✓).
+* `constSlack` — both sides step identically: `whnfCore_const_run`,
+  `reduceNat_const`; unfold: SAME head, so both unfold or both
+  stick (the length guards agree via `hev`'s map-length); both-δ
+  continuations are `certZip_instantiate` zips of ONE stored value
+  (`hev` ✓) — recurse at same `fc`, smaller loop budgets.
+  **(E)'s δ-link consumer DISSOLVED in the subject form**: same-head
+  δ needs no install cert — the zip replaces the pinning route.
+  ((E) stays on the ledger for the type form / other consumers,
+  re-audited when `ZipSortOfAgree` is mapped.)  Needs the env fact
+  `StoredWF` (stored values closed + leaf-free) for the
+  continuations' `SubjInv`/pairing — the already-ledgered family,
+  consumed directly here.
+* `fvar` — both stuck (fvar is whnfCore-inert, `reduceNat_fvar`,
+  `unfoldDefinition_fvar`) — never reaches a sort: vacuous.
+* `lam`/`forallE`/`letE`(?)/`proj`(?) at TOP level — lam/forallE
+  stuck-shape vacuous; letE reduces by zeta (lockstep — zipped
+  bodies/values substitute by Finding 2); proj recurses through the
+  proj clause (the simulation tier).
+* `app` — THE SIMULATION TIER: whnfCore on zipped apps, lockstep
+  through the body's clauses at knot fuel `ga-1` (the internal
+  `r`-calls run one knot level down — `whnfCore_succ` — which is
+  what pays for β-regrowth).  Sub-clauses to route as named
+  obligations at their own seals: β (Finding 2 + each side's own
+  arg-cert, asymmetry disciplined by the given runs), iotaRec
+  lockstep (recursor-headed zipped spines CAN reach sorts —
+  Type-valued recursor applications — so the iota lockstep is
+  load-bearing; big sub-map: rule lookup same-recursor, majorToCtor,
+  K/structure rescues), proj/projLitToCtor lockstep, and the
+  stuck-output collision legs.
+
+**The measure, stress-tested** (the ceiling lesson):
+lexicographic **[cert fuel `fc`, knot fuels `ga+gb`, loop budgets
+`la+lb`, zip structure]**.  Per case: cert/spine — `fc` ↓ (runs may
+be reassembled at grown knot fuel: lex absorbs); constSlack both-δ —
+`fc` =, knot =, loop ↓; simulation recursion — knot ↓ (internal
+calls at `ga-1`; β-regrowth paid HERE — the fueled knot exists for
+exactly this); congruence descent inside one whnfCore call — zip
+structure ↓ at equal fuels.  No manufactured runs anywhere: every
+consumed run is given, decomposed-from-given, or
+assembled-from-decomposed (the landed spine pattern).  The
+reference-graph test finds no cycle: the only cross-references are
+cert→zip (fc ↓) and zip→zip (later components ↓).
+
+**Build order at natural boundaries**: (1) the substitution lemmas
+(Finding 2); (2) the outer skeleton (refl/sortSlack/fvar/lam/forallE
+bases + the constSlack case, with the simulation and cert cases
+routed as named Props); (3) the `.cert` case on the shells'
+template; (4) the simulation tier clause by clause (β, then proj,
+then iota — each its own seal); (5) `ZipSortOfAgree` mapped
+separately after the subject form lands (its infer-level simulation
+is a different walk).

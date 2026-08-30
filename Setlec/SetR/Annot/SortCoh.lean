@@ -5781,6 +5781,7 @@ inductive CertZip (μ : CheckMode) (env : Env) (fc d : Nat) :
     Expr → Expr → Prop
   | refl (e : Expr) : CertZip μ env fc d e e
   | cert (a b : Expr) :
+      a.looseBVarsBounded 0 = true → b.looseBVarsBounded 0 = true →
       isDefEqCore μ env fc d a b = .ok true →
       CertZip μ env fc d a b
   | sortSlack (u v : Level) :
@@ -5996,6 +5997,8 @@ theorem certZip_mkAppN {μ : CheckMode} {env : Env} {fc d : Nat} :
     ∀ {as bs : List Expr} {f₁ f₂ : Expr},
       CertZip μ env fc d f₁ f₂ →
       as.length = bs.length →
+      (∀ x ∈ as, x.looseBVarsBounded 0 = true) →
+      (∀ x ∈ bs, x.looseBVarsBounded 0 = true) →
       (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
         isDefEqCore μ env fc d as[i] bs[i] = .ok true) →
       CertZip μ env fc d (Setlec.Expr.mkAppN f₁ as)
@@ -6003,24 +6006,56 @@ theorem certZip_mkAppN {μ : CheckMode} {env : Env} {fc d : Nat} :
   intro as
   induction as with
   | nil =>
-    intro bs f₁ f₂ hz hlen hcert
+    intro bs f₁ f₂ hz hlen hba hbb hcert
     cases bs with
     | nil => exact hz
     | cons b bs => exact nomatch hlen
   | cons a as ih =>
-    intro bs f₁ f₂ hz hlen hcert
+    intro bs f₁ f₂ hz hlen hba hbb hcert
     cases bs with
     | nil => exact nomatch hlen
     | cons b bs =>
       simp only [Setlec.Expr.mkAppN]
       exact ih
         (.app _ _ _ _ hz
-          (.cert _ _ (hcert 0 (Nat.zero_lt_succ _) (Nat.zero_lt_succ _))))
+          (.cert _ _ (hba a (List.mem_cons_self ..))
+            (hbb b (List.mem_cons_self ..))
+            (hcert 0 (Nat.zero_lt_succ _) (Nat.zero_lt_succ _))))
         (by simpa using hlen)
+        (fun x hx => hba x (List.mem_cons_of_mem _ hx))
+        (fun x hx => hbb x (List.mem_cons_of_mem _ hx))
         (fun i h₁ h₂ =>
           hcert (i + 1)
             (by simp only [List.length_cons]; omega)
             (by simp only [List.length_cons]; omega))
+
+/-- Spine arguments of a bvar-closed expression are bvar-closed. -/
+theorem getAppArgs_bounded : ∀ {e : Expr},
+    e.looseBVarsBounded 0 = true →
+    ∀ x ∈ e.getAppArgs, x.looseBVarsBounded 0 = true := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro h x hx
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Setlec.Expr.getAppArgs] at hx
+    rcases List.mem_append.1 hx with hx | hx
+    · exact ihf h.1 x hx
+    · simp only [List.mem_singleton] at hx
+      exact hx ▸ h.2
+  | bvar i => intro h x hx; simp [Setlec.Expr.getAppArgs] at hx
+  | fvar i n ty ih => intro h x hx; simp [Setlec.Expr.getAppArgs] at hx
+  | sort u => intro h x hx; simp [Setlec.Expr.getAppArgs] at hx
+  | const n us => intro h x hx; simp [Setlec.Expr.getAppArgs] at hx
+  | lam n ty body m iht ihb =>
+    intro h x hx; simp [Setlec.Expr.getAppArgs] at hx
+  | forallE n ty body m iht ihb =>
+    intro h x hx; simp [Setlec.Expr.getAppArgs] at hx
+  | letE n ty val body iht ihv ihb =>
+    intro h x hx; simp [Setlec.Expr.getAppArgs] at hx
+  | lit l => intro h x hx; simp [Setlec.Expr.getAppArgs] at hx
+  | proj sn i pe ih =>
+    intro h x hx; simp [Setlec.Expr.getAppArgs] at hx
 
 /-- **Summit claim, subject form**: zipped pairs whose members'
 whnf chains both reach literal sorts have eval-equal levels.  The
@@ -6072,7 +6107,8 @@ theorem deltaSpineSortAgree_of {φ : Name → Nat}
             exact certZip_mkAppN
               (.constSlack n us us' fun φ' =>
                 evalEqList_map (Setlec.Level.isEquivList_sound heql φ'))
-              hlen' hcerts
+              hlen' (getAppArgs_bounded hIa.2.1)
+              (getAppArgs_bounded hIb.2.1) hcerts
           exact hZ hzip hIa hIb hPab hla hlb
         · exact nomatch hs
       · exact nomatch hs
@@ -6122,7 +6158,7 @@ theorem ensureSortAgreeRQ_of_zip {φ : Name → Nat}
     h₁ h₂
   obtain ⟨ga, la, -, hla⟩ := whnf_peel h₁
   obtain ⟨gb, lb, -, hlb⟩ := whnf_peel h₂
-  exact hZ (.cert a b hc) (SubjInv.of_pair hwsa hba hLa hp)
+  exact hZ (.cert a b hba hbb hc) (SubjInv.of_pair hwsa hba hLa hp)
     (SubjInv.of_pair_right hwsb hbb hLb hp) hp hla hlb
 
 /-- **(B) collapses onto the summit**: `SortOfAgreeRQ` from
@@ -6132,7 +6168,7 @@ theorem sortOfAgreeRQ_of_zip {φ : Name → Nat}
     (hZ : ZipSortOfAgree μ env φ) :
     SortOfAgreeRQ μ env φ Q := by
   intro fc d a b f₁ f₂ u v hc hwsa hba hLa hwsb hbb hLb hp _hQ h₁ h₂
-  exact hZ (.cert a b hc) (SubjInv.of_pair hwsa hba hLa hp)
+  exact hZ (.cert a b hba hbb hc) (SubjInv.of_pair hwsa hba hLa hp)
     (SubjInv.of_pair_right hwsb hbb hLb hp) hp
     (SortOfLE_of_run h₁) (SortOfLE_of_run h₂)
 
