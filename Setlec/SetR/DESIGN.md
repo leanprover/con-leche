@@ -14927,3 +14927,80 @@ the **recipe book** — including the kit inventory, now published in
 `Step2/Dispatch.lean`'s module docstring with a *check here before
 writing a helper* banner and the two shapes that are false by design.
 One worker proves down the list. One review, one grant.
+
+### Seal 20 — generation five frozen; the recipe book for the serial batch
+
+`Interp2/CtxOk2D.lean` and `Interp2/Claims2D.lean`, both compiling.
+This is the **freeze**: statements, worked examples, and the book
+below. One serial worker proves down the list from here.
+
+**The statements.** `CtxOk2D := CtxOk2 ∧ CtxOk2Ann` — a new definition
+with a bridge, never an edit, because the tombstone witnesses
+construct `CtxOk2` concretely (ruling 2). Then `Claims2D` carries
+`CtxOk2D` in **all four** claims, retiring the `CtxOkR`/`CtxOk2` seam
+that `not_ctxOk2R` proved uncrossable. The ρ-hoist and the fuel slack
+are untouched: **one change per generation.**
+
+**The forced shape change:** `CtxOk2D` is indexed by `F` and `CtxOkR`
+was not, so in the three claims that took the context *before*
+`∀ {F}`, it moves *inside* — the shape `InferClaims2C` already had.
+Mechanical, but every consumer sees it.
+
+#### The recipe book
+
+*The transport recipe*, worked twice in `CtxOk2D.lean`: split the
+conjunction, apply both halves, reassemble. **Two traps, both of which
+caught the junction writing the examples:**
+
+1. **The `CtxOk2Ann` half often needs the `CtxOk2` half as well** —
+   `CtxOk2Ann.fuelMono` takes *three* arguments, reading definedness
+   out of the `CtxOk2` package to know which `tya` the leaf denotes
+   to. About half the list is like this.
+2. **The two halves' argument orders differ, unpredictably.** Read
+   each signature; do not pattern-match on the first arrangement that
+   type-checks in the other half.
+
+*The kit inventory* is published in `Step2/Dispatch.lean`'s module
+docstring — 44 entries, grouped, under a **check here before writing a
+helper** banner. Seven collisions this campaign say the check is
+worth it.
+
+*The false-by-design shapes*, in the same banner and worth more than
+the 44 real entries: **no `letE` binder splitter** (`AnnotOk2`'s `letE`
+clause reads the body at the *value's* point, while `Sat2 (T :: Δa)`
+only constrains the head to *inhabit* `T`; `hoist_zeta` is the usable
+form and the one the checker needs) and **no unconditional `of_lam`**
+(the λ's fibre is a genuinely per-valuation fact with no hereditary
+source). *A worker warned off a wrong shape saves a refutation round.*
+
+*The `toC`-bridge technique* (seal 16): when a generation change is a
+**weakening**, land each new residue with a proof that the old shape
+implies it. A weakening of an already-audited statement cannot become
+false, so it **inherits the old audit** and needs no fresh refutation
+hunt. Generation five is a *strengthening* of the context hypothesis,
+so this does **not** apply here — and saying so is the point of having
+the rule.
+
+*The trap-checks*, in the order they earn their keep:
+* **smallest fuel** — a shape asserting `denote2 … F … e = some _` as
+  a **conclusion**, at a consumer-chosen `F`, is false unless `e`
+  carries no `.forallE`/`.lam` node. Caught three statements.
+* **and its caveat (seal 11)** — it came back *clean* for `CtxOk2R`,
+  which was false anyway for a semantic reason. **A clean trap-check
+  is not a clean bill of health.**
+* **satisfiability** — a refutation and a satisfiability witness are
+  different results and a repair needs both. Check the positive
+  direction in the very case that killed the old shape
+  (`denote2_two_lam`, `acvalDefnInst_noParams`).
+* **vacuity** — an instance where `Sat2` is unsatisfiable proves
+  nothing. Only a *currency disagreement* is decisive (seal 11's
+  `⟪Empty⟫` discipline).
+
+*The standing rules*: family-wide is the **starting assumption** for
+any repair to a mutually-recursive family, and an exemption needs an
+argument that survives the other repairs in the same seal (four
+instances). A fired-law premise belongs to its **supplier**, never
+guessed consumer-side (T5) — three `EnvS2` fields have been added this
+way. A vacuous `Prop` with a good name is worse than none. Refutations
+are **preserved across their own repair** by restating the refuted
+shape as a standalone `def`.

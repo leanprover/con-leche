@@ -98,6 +98,8 @@ import Setlec.SetR.Interp2.Claims2A
 import Setlec.SetR.Interp2.EnvS2Refute
 import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Interp2.Claims2C
+import Setlec.SetR.Interp2.CtxOk2D
+import Setlec.SetR.Interp2.Claims2D
 import Setlec.SetR.Interp2.EnvLaws2
 import Setlec.SetR.Interp2.Capstone2C
 import Setlec.SetR.Interp2.Capstone
