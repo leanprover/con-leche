@@ -10873,3 +10873,31 @@ with the full pre-build treatment, then its induction) BEFORE the
 proj and iota discharges, which then ride it the way λ/letE rode
 coreLock; Θ can proceed independently (the defeq-run walk — the
 certLoop template family) in either position.
+
+### Θ route-check: the semantic shortcut re-barred by the centerpiece
+
+Opening `ZipCertSpineCase`'s map, the pre-build check asked whether
+the Θ-motive collapses semantically (zip → interp-equality by
+congruence + cert-node `DefEq.sound`, loop preservation, then
+`univ_inj` — all suppliers exist, `FrameQ` carries the premises).
+The RECORD answers: the claim-family's centerpiece is
+**valuation-freedom** — a `Sat`-conditioned route dies at
+pi-congruence binder descents (the empty-domain problem: no
+satisfying valuation extends into an empty domain, yet inner
+numerals feed outer `imax`es), which is also the #100 countermodel
+family (empty-domain `lamC = pt`).  The trio's semantic ruling
+covers VACUITY exits only (contradictions need no under-binder
+valuations); positive equalities stay syntactic.  Do not retry.
+
+The Θ syntactic map's known shape (for its dedicated arc): the
+heads' defeq-run walk (certLoop-style, run-mirror det-sync against
+the spine's own core steps) interleaved with the spine's β through
+the head lam-towers; the crux is the recorded substitution
+simulation (opened-body defeq at `d+1` vs instantiated
+continuations — the `SortSubstStable` family, whose leaf is (B)),
+with `certLoop_sortAgree` for (A)-shaped leaves (its own congruence
+rows were vacuous because (A)'s subjects whnf to sorts — Θ's HEADS
+whnf to λ-towers, so the lam/lam row goes live for the first time).
+Θ's map requires the certLoop internals, the (C) claims, and the
+`SortSubstStable` surface read in full before the statement work —
+a dedicated arc, not an inline continuation.
