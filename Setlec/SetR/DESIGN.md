@@ -13678,3 +13678,75 @@ defers really does exist one fuel up.
 * *Four independent discharges are a statement's real proofreaders.*
   Two of the four found R1 without seeing each other's work; the
   convergence is what made the amendment safe to write at once.
+
+### STOP 2 — `EnvS2` is unsatisfiable, and R1 was applied to three claims out of four
+
+Found while surveying the *next* campaign item (the fourteen's
+conclusion swap), before any of its work was done.  Mechanized in
+`Interp2/EnvS2Refute.lean`; four compiling witnesses.
+
+**`EnvS2.acval_defn` and `EnvS2.acval_thm` are false at every
+environment that stores a λ-bodied definition or a λ-shaped proof** —
+that is, every environment past `Env.empty`.  Both fields are
+*equations demanding success*, universally quantified over the
+annotation fuel, and `denote2` at fuel `1` returns `none` on every
+binder (`denote2_one_lam`, `denote2_one_forallE`).  No hypothesis, no
+run, no choice of `V` is involved:
+
+```
+envS2_defn_lam_refuted : EnvS2 V env →
+  ∀ μ φ, .defnInfo cv (.lam n ty body mb) hint ∈ env.consts → False
+```
+
+`EnvS2.empty` is not evidence against this — `env.consts = []` makes
+both fields vacuous.  **The one witness in the landed set had no
+constants in it**, exactly the masking that hid the `InferClaims2`
+defect one seal ago.
+
+Consequence: the migration item *"swap the fourteen's conclusion to
+`Nonempty (EnvS2 V env')`"* is not merely unproved but **unprovable**
+as the structure stands.  The install layer cannot be at fault, and
+work spent there would have been wasted.
+
+**And the same argument refutes `WhnfClaims2A`**
+(`whnfClaims2A_delta_refuted`).  R1 freed the annotation fuel `F` but
+still demanded the *reduct's* annotation at that same `F` — and
+reduction can produce a term needing more fuel than the subject did:
+the delta exit turns a `.const` leaf (annotates at fuel `1`) into a
+`λ` body (does not).  R1 and R3 are **one repair**, and applying it to
+the inference claim while leaving the reduction claims at a fixed `F`
+was the error.  Seal 6's acceptance test could not catch this: it
+tested the witness it was built from, and this is a different witness.
+
+**The corrected shapes.**  Reduction claims take R3's form —
+
+```
+∀ {F ea}, denote2 … F d e = some ea →
+  ∃ F' ea', F ≤ F' ∧ denote2 … F' d e' = some ea' ∧
+    ∀ ρ, Sat2 → AnnotOk2 ρ ea →
+      interp2 ρ ea = interp2 ρ ea' ∧ AnnotOk2 ρ ea'
+```
+
+— composing left-to-right (the next link consumes `ea'` at `F'`), with
+`denote2_fuelMono` carrying any subject annotation *up* to a common
+fuel.  `DefEqClaims2A` needs no change: it produces no reduct.  The
+`EnvS2` fields become R3-shaped too, which supplies the delta exit both
+halves of what it now owes:
+
+```
+acval_defn : … ∈ env.consts → ∀ F, ∃ F', F ≤ F' ∧
+  denote2 μ acval env φ F' 0 value = some (acval cv.name φ)
+```
+
+**Rules earned.**
+* *A structure field that is an equation demanding success must be
+  checked at the smallest fuel it admits, exactly like a claim.*  The
+  smallest-fuel rule was recorded one seal ago for claims and not
+  carried across to environment invariants.
+* *When a repair is applied to some of a family and not the rest,
+  the exemption needs an argument.*  `DefEqClaims2A`'s exemption had
+  one (it produces no reduct, and `DeqS`'s grading is load-bearing);
+  the reduction claims' did not — they simply were not re-examined.
+* *An acceptance test proves the witness it was built from is dead,
+  and nothing more.*  Seal 6's test passed and the statement was still
+  false.  Next time, hunt a second witness before sealing.
