@@ -11740,3 +11740,49 @@ treatment.  Next: the walk's induction, in seals at the arm-group
 boundaries (vacuous arms; δ/nat re-entries; the rebased-pair
 group; the push; the fvar leaf), then the five consumer
 discharges.
+
+### STOP-FINDING at the walk's push case: the det-sync breaks one level in — the engine is the substitution simulation itself
+
+The pre-build check on the induction's first round, run against the
+push case as directed:
+
+**At depth zero the certLoop det-sync works** — the run and the
+loops whnfCore the SAME heads, and `KnotFuelDet` aligns them across
+fuels.  **One push in, it breaks**: the run processes the OPENED
+cores (fvar-form) while the loops process the SUBSTITUTED ones —
+different terms, no determinism to invoke.  The walk's per-step
+relation IS the substitution simulation, not a bookkeeping detail:
+the treatment's phrase "det carries the loops" is correct only for
+the δ/nat re-entries at matching terms; the push-descended rounds
+need a genuinely new engine.
+
+**The engine (zip-side, honoring the SortCohAt trap)**:
+`whnfCore_subst_sim` — the substituted image of an opened core-run
+is itself core-reachable:
+  `whnfCore g (d+1) C = .ok C'` →
+  the loops' runs on `(C.abstract1 d).instantiate1 a`-forms factor
+  through `(C'.abstract1 d).instantiate1 a` (a core run exists from
+  the substituted source to the substituted image, at bounded
+  fuel).
+One-directional (forward: the opened run's steps MAP under
+substitution — β/ζ commute with fvar-substitution by the landed
+`instantiate`/`abstract` algebra; ι fires map because
+fvar-substitution preserves constructor heads; the substituted side
+may reduce FURTHER — the unlocked `.app (fvar d) x → .app a x`
+redexes — which is exactly why only the forward direction is
+claimed and why the walk then re-decomposes the loops' actual
+runs from the image point by determinism).  Scale: a
+`LeavesPres`-class mutual induction (whnfCore/whnf/iotaRec under
+substitution) with the per-step commutation lemmas as its kit —
+the substitution simulation the record always said "re-enters the
+knot", now in its zip-side form, with the loops' own runs (never
+re-runs) closing each step.
+
+**Amended arc order (ratification requested)**: (0) the
+commutation kit (β/ζ/ι single-step under `abstract1`/
+`instantiate1` — syntactic, per-step seals) → (1)
+`whnfCore_subst_sim` (the mutual induction, its own map seal
+first) → (2) the walk's induction per the sealed groups, with the
+push case consuming the simulation → (3) the five depth-zero
+consumers.  The vacuous-arm group can proceed in parallel with (0)
+if sequencing favors it — it consumes nothing new.
