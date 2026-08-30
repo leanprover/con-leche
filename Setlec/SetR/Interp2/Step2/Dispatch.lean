@@ -1538,47 +1538,6 @@ theorem annotOk2_of_denote2_const {F d : Nat} {n : Name}
       exact m.acval_ok2 _ _ ρ
     · exact nomatch h
 
-/-- **I1C (`.sort`), re-pointed.**  Free: both annotations are
-`.sort`s. -/
-theorem infer_sort_claim2C {d : Nat} {u : Level} {t : Expr}
-    {Δa : List AVExpr} {F : Nat} {ea : AVExpr}
-    (h : inferTypeCore μ env (fuel + 1) d (.sort u) = .ok t)
-    (hea : denote2 μ m.acval env φ F d (.sort u) = some ea) :
-    ∃ F' ta, F ≤ F' ∧
-      denote2 μ m.acval env φ F' d t = some ta ∧
-      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
-      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
-      ∀ ρ : Nat → V, Sat2 V Δa ρ →
-        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  rw [Setlec.inferTypeCore_succ] at h
-  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
-    Except.bind, Except.ok.injEq] at h
-  subst h
-  rw [denote2] at hea
-  obtain rfl : ea = .sort (u.eval φ) := (Option.some.inj hea).symm
-  refine ⟨F, .sort (u.eval φ + 1), Nat.le_refl F, ?_,
-    fun ρ _ => by simp, fun ρ _ => by simp, ?_⟩
-  · rw [denote2]; simp [Level.eval]
-  · intro ρ _
-    simpa [Level.eval] using sound_sort V ρ (u.eval φ)
-
-/-- **I3C (`.bvar`), re-pointed.**  Outside the fragment; vacuous at
-every fuel and every `F`. -/
-theorem infer_bvar_claim2C {d i : Nat} {t : Expr}
-    {Δa : List AVExpr} {F : Nat} {ea : AVExpr}
-    (h : inferTypeCore μ env (fuel + 1) d (.bvar i) = .ok t)
-    (_hea : denote2 μ m.acval env φ F d (.bvar i) = some ea) :
-    ∃ F' ta, F ≤ F' ∧
-      denote2 μ m.acval env φ F' d t = some ta ∧
-      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
-      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
-      ∀ ρ : Nat → V, Sat2 V Δa ρ →
-        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  rw [Setlec.inferTypeCore_succ] at h
-  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
-    Except.bind] at h
-  simp [throw, throwThe, MonadExceptOf.throw] at h
-
 /-! ### STOP — `CtxOk2` does not carry the leaf annotation's grading
 
 `InferClaims2C`'s new conjunct asks, at `.fvar`, for
@@ -1602,38 +1561,6 @@ check that it survives the kit; the change itself is a junction
 decision, not a consumer's, because three quarters build on `CtxOk2`
 concurrently. -/
 
-/-- **I2C (`.fvar`), re-pointed — BLOCKED on one hypothesis.**  Every
-part but the returned type's grading is the sealed clause
-re-associated; `hokTy` is the part `CtxOk2` cannot supply. -/
-theorem infer_fvar_claim2C {d idx : Nat} {n : Name} {ty t : Expr}
-    {Δa : List AVExpr} {F : Nat} {ea : AVExpr}
-    (hC : CtxOk2 m μ φ F d Δa (.fvar idx n ty))
-    (hokTy : ∀ tya : AVExpr,
-      denote2 μ m.acval env φ F d ty = some tya →
-      ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ tya)
-    (h : inferTypeCore μ env (fuel + 1) d (.fvar idx n ty) = .ok t)
-    (hea : denote2 μ m.acval env φ F d (.fvar idx n ty) = some ea) :
-    ∃ F' ta, F ≤ F' ∧
-      denote2 μ m.acval env φ F' d t = some ta ∧
-      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
-      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
-      ∀ ρ : Nat → V, Sat2 V Δa ρ →
-        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tya, Aa, hden, hi, hlink⟩ := CtxOk2.fvar_leaf hC
-  rw [denote2] at hea
-  obtain rfl : ea = .bvar (d - 1 - idx) := (Option.some.inj hea).symm
-  rw [Setlec.inferTypeCore_succ] at h
-  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
-    Except.bind] at h
-  split at h
-  · simp only [Except.ok.injEq] at h
-    subst h
-    refine ⟨F, tya, Nat.le_refl F, hden, fun ρ _ => by simp,
-      hokTy tya hden, fun ρ hρ => ?_⟩
-    rw [interp2_bvar, hlink ρ hρ]
-    exact hρ (d - 1 - idx) Aa hi
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
-
 /-! ### The proposed supplier, checked
 
 `CtxOk2Ann` is the fourth leaf conjunct, stated **beside** `CtxOk2`
@@ -1641,6 +1568,25 @@ rather than inside it so that nothing built against the current
 `CtxOk2` breaks while the junction decides.  What follows is the
 evidence a strengthening is supposed to come with: it survives every
 constructor in the kit, and it is inhabited beyond vacuity. -/
+
+/-! ## The three dispatch clauses live in `Step2/InferQ.lean`
+
+Re-pointed to `InferClaims2C` here *and* in the inference quarter,
+simultaneously — the **fifth** collision of this campaign and the first
+caused by the junction rather than by the workers: both briefs listed
+these three clauses, so both quarters owned them.
+
+The inference quarter's copies are kept because they are wired into
+`inferStep2C_of`; these were unwired duplicates.  The two differed only
+in how they package the missing truthfulness at `.fvar` — a per-call
+`hokTy` premise here, the routed `CtxAnn2` residue there — and the
+routed form is what the assembly consumes.
+
+`CtxOk2Ann` below is retained: it is the same fact at the *predicate*
+granularity rather than the residue's, and it carries the survival kit
+(`fvar_leaf`, `of_subset`, `fuelMono`, `weakenTop`, `openCong`,
+`openS`) that a fourth leaf conjunct would need.  Unifying it with
+`CtxAnn2` is generation five's, alongside the conjunct itself. -/
 
 /-- **The proposed fourth conjunct of `CtxOk2`.**  Quantified over
 `tya` rather than carrying its own existential, so it composes with

@@ -14753,3 +14753,87 @@ was the import edge plus one deletion.
 *Four instances now. The cost is one deletion each time; the benefit is
 two independent checks of the same statement — on this occasion, two
 independent proofs of it.*
+
+### Seal 18 — generation four complete; three rulings
+
+All four quarters landed and merged; `Interp2/Capstone2C.lean` proves
+`checkStep2C_of_quarters : CheckStep2C μ V` from the routed residues
+alone. **The decomposition closes at generation four**, and the
+generation's own purpose is separately established: the `∀`/`λ`
+congruences can discharge `CtxOk2.openCong`, which
+`not_openCongLocal` proves no ρ-local claim could supply.
+
+#### Ruling 1 — the dedupe, adjudicated
+
+Seven collisions this campaign, three of them in this generation.
+Direction settled by one criterion: **the copy that is wired into a
+capstone deliverable wins; the supplier's kit wins over a local copy.**
+
+| pair | kept | reason |
+|---|---|---|
+| `whnfCore_package2C` | `Whnf.lean` | byte-identical; import edge added so `DefEqRun` can see it |
+| `infer_{sort,bvar,fvar}_claim2C` | `InferQ.lean` | wired into `inferStep2C_of`; `Dispatch`'s were unwired |
+| `AnnotOk2.hoist_app`/`hoist_proj` | `Dispatch.lean` | supplier's kit is where the others look |
+| `Sat2_cons_congr` / `Sat2.head_congr` | `Dispatch.lean` | same |
+
+**The fifth collision was the junction's fault, not the workers'** —
+both the dispatch and inference briefs listed the same three clauses,
+so both quarters owned them. Worth recording: six of the seven were
+convergent discovery, which is cheap and even useful; the one that was
+a scoping error is the one to avoid.
+
+**Mitigation adopted:** `Step2/Dispatch.lean`'s kit is now the
+published inventory, and its module docstring carries the list. Future
+briefs must point at it and say *check here before writing a helper*.
+
+#### Ruling 2 — generation five is new-definition-plus-bridge
+
+Accepted as the dispatch quarter states it. Sites constructing
+`CtxOk2` from scratch would owe the fourth conjunct, and all are cheap
+(`by simp` on `.sort` leaves) **except the tombstone witnesses**
+(`CtxOk2RRefute`, `not_openCongLocal`), which construct `CtxOk2`
+concretely and are **untouchable** under the refutation-preservation
+practice. So generation five must introduce a new definition and
+bridge, never edit `CtxOk2` in place. `CtxOk2Ann`'s stated-beside
+shape is already correct, and its kit battery
+(`weakenTop`/`openCong`/`openS`/`of_subset`/`fuelMono`) is mechanized.
+
+*This is the first time the refutation-preservation practice has
+constrained a future design rather than merely recorded a past one.
+The cost is real and worth paying: a tombstone that can be edited to
+suit a later definition is not a tombstone.*
+
+#### Ruling 3 — proceed on the structural argument; the countermodel is queued as a **bounded** check
+
+The question is whether `CtxOk2 → CtxOk2Ann` is derivable, i.e.
+whether the fourth conjunct is genuinely independent. Two quarters
+argue structurally that it is not derivable; neither has a
+countermodel. Seal 11's rule says a derivation gap is not a
+refutation.
+
+**Ruled: generation five proceeds without banking the countermodel**,
+for two reasons that distinguish this from seal 11.
+
+1. **The risk profile is inverted.** At seal 11, proceeding risked
+   building on a *false* statement. Here, if the conjunct turns out
+   derivable, the cost is a *redundant premise* — construction sites
+   owe something they could have proved. Wasteful, never unsound.
+2. **The inference quarter's analysis says the countermodel is
+   parametrically unbuildable**: a witness needs an annotation whose
+   `AnnotOk2` fails while its interpretation is inhabited, and those
+   failures sit at `app`/`proj` nodes where the interpretation is
+   `SetTheory.app`/`sfst` of junk — which the `SetTheory` interface
+   constrains in **neither** direction. Demanding a countermodel that
+   provably cannot exist parametrically would block indefinitely.
+
+**But the gap is not simply waved through.** The open-ended hunt is
+replaced by a *decidable* question about the interface, which the
+dispatch quarter's attack sketch already isolates: **is
+`¬ (univ 0 ∈ˢ piR v A B)` derivable from `SetTheory`?** If it is not,
+that underivability *is* the confirmation that the gap is genuine and
+parametric rather than a missing proof — and it is a bounded check on
+a fixed interface, not a search. Queued as such.
+
+*Rule: when a refutation is argued to be parametrically impossible,
+replace the demand for a countermodel with a bounded question about
+the interface that would have to supply it.*

@@ -99,6 +99,7 @@ import Setlec.SetR.Interp2.EnvS2Refute
 import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Interp2.Claims2C
 import Setlec.SetR.Interp2.EnvLaws2
+import Setlec.SetR.Interp2.Capstone2C
 import Setlec.SetR.Interp2.Capstone
 import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.SimSubst

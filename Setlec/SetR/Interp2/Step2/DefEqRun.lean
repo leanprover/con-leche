@@ -2503,41 +2503,20 @@ nothing else. -/
 
 /-! ### The two transports the hoist needs -/
 
-/-- **Moving a satisfying valuation across the two domains.**  A
-congruence recurses on the bodies in the *left* domain's context
-`ta₁ :: Δa`, while `AnnotOk2.hoist_pi`/`hoist_lam` hand the right
-codomain's hoisted fact over `ta₂ :: Δa`.  The domain equality moves
-it, and it is available ρ-uniformly precisely because it is
-`DefEqClaims2C`'s conclusion before its own `ρ` — which is what makes
-the hoist self-propagating rather than merely restated. -/
-theorem Sat2_cons_congr {Δa : List AVExpr} {Aa Ba : AVExpr}
-    {ρ : Nat → V}
-    (hdom : ∀ σ : Nat → V, Sat2 V Δa σ →
-      interp2 V σ Aa = interp2 V σ Ba)
-    (hρ : Sat2 V (Aa :: Δa) ρ) : Sat2 V (Ba :: Δa) ρ := by
-  intro i Ca hi
-  cases i with
-  | zero =>
-    obtain rfl : Ba = Ca := by simpa using hi
-    show ρ 0 ∈ˢ interp2 V (fun j => ρ (j + 1)) Ba
-    rw [← hdom _ (Sat2_tail hρ)]
-    exact hρ 0 Aa rfl
-  | succ i => exact hρ (i + 1) Ca (by simpa using hi)
+/-! ### The head transfer lives in `Step2/Dispatch.lean`
 
-/-- The `app` twin of `AnnotOk2.hoist_pi`, for the two `Nat.succ`
-orders. -/
-theorem AnnotOk2.hoist_app {Δa : List AVExpr} {f a : AVExpr}
-    (h : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ (.app f a)) :
-    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ f) ∧
-      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ a) :=
-  ⟨fun ρ hρ => ((AnnotOk2_app V ρ f a) ▸ h ρ hρ).1,
-    fun ρ hρ => ((AnnotOk2_app V ρ f a) ▸ h ρ hρ).2.1⟩
+`Sat2_cons_congr` was written here and `Sat2.head_congr` in the
+supplier's kit, with identical statements — the **seventh** collision
+of this campaign and the third in this file alone.  Deleted here; the
+kit is in this file's import closure. -/
 
-/-- The `proj` twin, for the stuck projection congruence. -/
-theorem AnnotOk2.hoist_proj {Δa : List AVExpr} {i : Nat} {e : AVExpr}
-    (h : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ (.proj i e)) :
-    ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ e :=
-  fun ρ hρ => ((AnnotOk2_proj V ρ i e) ▸ h ρ hρ).1
+/-! ### `AnnotOk2.hoist_app` / `hoist_proj` live in `Step2/Dispatch.lean`
+
+Added here for the stuck block and, simultaneously, to the supplier's
+hoist kit — the **sixth** collision of this campaign.  The kit is the
+right home: it is where `hoist_pi`/`hoist_lam` already lived and where
+the other quarters look.  Deleted here; `Dispatch.lean` is in this
+file's import closure. -/
 
 /-! ### The loop and its continuation, hoisted -/
 
@@ -2987,7 +2966,7 @@ hoist costs the congruences nothing beyond one transport.
 
 That transport is the only new step in the whole quarter.
 `hoist_pi hokB` gives the right codomain over `ta₂ :: Δa`, and the
-recursion happens over `ta₁ :: Δa`; `Sat2_cons_congr` moves it across
+recursion happens over `ta₁ :: Δa`; `Sat2.head_congr` moves it across
 the domain equality, which is itself ρ-uniform because it is `ihd`'s
 conclusion before its `ρ`.  The `…A` lane did the same move at a single
 valuation (`hoB₂ x (hdom ▸ hx)`); hoisting it changes the transport's
@@ -3052,7 +3031,7 @@ theorem binder_congr2C {m : EnvS2 V env} {fuel F : Nat}
     (Expr.WScoped.instantiate1 hwt₂ 0 hwb₂)
     (Setlec.looseBVarsBounded_instantiate1 bd₂ 0 hbb₂) (fun l hl => ?_)
     hCo₁ hCo₂ hva₁ hva₂ hoB₁
-    (fun σ hσ => hoB₂ σ (Sat2_cons_congr hdom hσ)) (cons x ρ)
+    (fun σ hσ => hoB₂ σ (Sat2.head_congr hdom hσ)) (cons x ρ)
     (Sat2_cons V hρ hx)
   rcases Expr.fvarLeaves_instantiate1 bd₂ 0 hl with h2 | h2
   · exact hLb₂ l h2
