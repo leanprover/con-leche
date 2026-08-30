@@ -7,6 +7,7 @@ import Setlec.SetR.Annot.SortCoh.Theta
 import Setlec.SetR.Annot.SortCoh.SubstSim
 import Setlec.SetR.Annot.SortCoh.Align
 import Setlec.SetR.Annot.SortCoh.ThetaRel
+import Setlec.SetR.Annot.SortCoh.Species
 
 /-!
 # Run-level sort coherence — the umbrella (task #151 tier C)

@@ -13105,6 +13105,106 @@ largest single remaining item on the lane — larger than everything
 steps 1–2 contained.  Sized, not started; every clause now knows what
 it consumes.
 
+### Species suppliers, batch 1 (`Species.lean`)
+
+Discharged from the landed Verify batteries (`EnvWF`-parametric,
+warning-free): `leavesSubCoreF_of`, `invPreserve{Core,Delta,Nat}F_of`,
+`pairedPreserve{Core,Delta,Nat}F_of`, `invPreserveProjFireF_of`,
+`pairedPreserveProjFireF_of`, `storedWF_of` — riding
+`SubjInv.step`/`PairedLeaves.sub_left`/`LeavesBounded.sub`
+(leaf-subset monotonicity) plus the scoped/bounded preservation
+family; the projection fire's facts-free leaf chain
+(`projFire_field_leaves`) threads the conversion rows without
+scrutinee facts.  `knotFuelMono` and `natStepNoSort_of` were already
+landed.  Remaining named leaves on the two-obligation path: the
+`Q`-family (discharges at the consumer's concrete `Q`),
+`BoolCtorsInert` (install fact), `TypeTransport{Core,Delta,Nat}F`
+(the checker's infer-subject-reduction — its own tier), the Θ docket.
+
+### Refinement three: the Θ relation as DATA (`ThetaRelD` triple)
+
+The composition-generalized motive hit positivity: the analysis
+motive needs the outer telescope's per-entry analyses as a premise,
+which self-references the motive (negative occurrence — no
+inductive pack can carry it), and every Nat-measure attempt
+re-inflates at the in-zone reset (round three's lesson, now at the
+mechanization tier).  The one certain resolution: the relation
+becomes Type-valued data — the mutual triple
+`ThetaRelD`/`ThetaRelsD`/`TelescopeRelD` (spines as the list
+inductive so `sizeOf` counts them), with the Prop wrappers
+`ThetaRel`/`TelescopeRel` (`Nonempty`) keeping every statement
+unchanged.  The discharge recurses well-foundedly on
+`(N, sizeOf rel-bundle, L, row-weight)`: the in-zone chase descends
+to the looked-up entry's SUB-TERM; pushes and peels descend the
+knot sum; the run's δ/nat arms descend `L`; the syn hop descends
+the manual row-weight (run > same).  Kit ported to the data forms
+(`TelescopeRelD.append/concat`, the bounded/WScoped/lam-beta
+family); `ThetaRelsD.length_eq/get` bridge to the Prop shapes.
+Battery green, axioms 12/12.
+
+## #151 junction feedback holding pen (fold into consumer-tier pre-builds)
+
+From the consumer lane's Claims2 refutation work (2026-08-30), two
+statement-level findings that MUST enter the pre-build checks of the
+affected seals before their statements freeze:
+
+1. **SortSubstStable needs a sortOfE twin.**  SortSubstStable is
+   stated for `lamSortE`, but denote2's pi clause needs the same
+   substitution-stability for `sortOfE`, which has no statement
+   anywhere in the tree.  When the leaf-wiring/consumer work reaches
+   SortSubstStable, state the sortOfE twin alongside — same proof
+   skeleton at the other entry point is the expectation, but verify,
+   don't assume.
+2. **.lam granularity/mode mismatch.**  denote2 calls `lamSortE` per
+   λ NODE; `inferBody` runs it once per CHAIN and only at
+   `mode.verified` (never at noModel).  The consumer lane repairs its
+   side with a mode quantifier.  GATE: check the depth-zero
+   sort-agreement consumers' statements (ZipCertSpineCase tie,
+   ProjSplitSortAgree, IotaMajorSortAgree, EtaRescueSortAgree, and
+   the ZipWhnfSortAgree/ZipSortOfAgree assembly) for per-node facts
+   sourced from per-chain checker runs; if any, the same granularity
+   gap applies.
+
+## #151 refinement four: liftCore + Based (the push-entry depth repair)
+
+FINDING (2026-08-30, layer pre-build): the banked push recipe ("entry
+hz := sp-rel[0]") glossed a depth mismatch — `TelescopeRelD.append`'s
+entry slot at position |Γc| demands a relation at depth d+|Γc|, but
+push arguments (outer-spine elements) carry relations at the BASE
+depth d.  Depth-weakening of ThetaRelD is NOT subject-preserving
+(θ-substitution levels move with the index), so no weakenD exists.
+
+REPAIR (additive, measure re-verified):
+* New row `ThetaRelD.liftCore {d₀ d} (hle : d₀ ≤ d) (rel at d₀)
+  (scope + bvar facts on the endpoints) (hsp : spine at d)` with
+  subject `mkAppN u sp` — a base-scoped core presented at a deeper
+  slot.  Push entries (hz and the ty-slot hd) wrap base relations.
+* `wt (liftCore) = 1 + wt rel + wt hsp`; the analyzer's wrapper arm
+  re-enters at prefix `Γo.take (d₀ − d)` (empty in the standard
+  d₀ = base case), strict wt drop via the wrapper node.
+* The wrapper arm needs d₀ ≥ the frame base; sub-base wrappers are
+  unreachable in the real pipeline but not excluded by the type —
+  hence the `Based β` invariant trio (mutual Prop over the data:
+  rows recurse, wrapper clause adds β ≤ d₀), threaded as premises
+  through ThetaIH/analyzers and carried by ThetaCoreOut's rel
+  branch (`BasedRel`) and the seam rows' relation slots.
+  Preservation battery: castD/castE, takeD/lookup, concat, appendR,
+  underTele/imageRels, extendSp, append, ofZip.
+* `underTele` stays Based-free: its wrapper arm splits on d₀ ≤ d
+  (direct re-wrap) vs d < d₀ (recurse under the take-(d₀−d) prefix);
+  needs thetaSubstᵢ_take_of_scoped (suffix-idle images, via _concat
+  + _scoped_id).
+* rowW/rowL deleted (CPS architecture made the delegation-hop
+  measure obsolete; W/L live as per-theorem constants now).
+
+Also banked this stretch: mutual-WF theorems over the data trio are
+NON-VIABLE for the discharge (decreasing goals replay tactic-cases
+contexts with non-defeq inaccessible copies of case fields; probe5
+evidence) — the CPS-IH architecture (single WF thetaAnalyze,
+match-style; plain content analyzers taking ThetaIH; ThetaIH.shrink
+makes any sub-budget re-entry an N-drop) is the ratified replacement
+and compiles end-to-end.  Data-valued `have` is defeq-opaque: inline
+data terms at omega/defeq-sensitive sites (three incidents).
 ## The `CheckStep2` discharge — the induction's map (campaign seal 0)
 
 ### The measure, taken from the checker rather than invented
