@@ -10773,3 +10773,45 @@ through the loop); (iii) `whnf_proj_inv` collapses the stuck
 reasons, so the proj-stuck case must re-drive the body manually
 (deterministic reads reproduce the same failure; fire sub-branches
 conclude by the core IH directly).
+
+### FINDING: CoreIdemF re-ledgered a refuted obligation; deleted — consumers repaired onto the R-a family
+
+Opening `CoreIdemF`'s supplier build, the pre-build check ran into
+the strLit corner — and then into the RECORD: the identical
+obligation (`WhnfCoreIdem`) was refuted OUTRIGHT on this branch
+(fourth catch, R-a executed, tombstone at the deletion site): an
+accepted env's `String.ofList` body makes the proj-scrutinee
+literal re-expansion a genuine second reduction step
+("hi" ↦ "boom" ↦ "zap"), so no fuel form of whnfCore idempotence
+holds.  `CoreIdemF` had been introduced two seals ago as the head
+re-basing's connecting-run supplier WITHOUT checking the tombstone
+— the count of caught-undischargeable statements is now FIVE, and
+this one was caught at the supplier seal before any discharge
+relied on it, but AFTER two consumers landed on the hypothesis.
+Lesson recorded: a new obligation's pre-build check must include a
+TOMBSTONE SWEEP of the ledger (the refutation was recorded in this
+very file and in a source comment).
+
+**The repair (this seal)** — `CoreIdemF` deleted (tombstone left at
+its site); every consumer re-derives its head self-run from
+surrounding shape facts, exactly the landed R-a pattern:
+* coreLock's certExit takes the two head self-runs as premises;
+  β-side heads are λ-values (`whnfCore_lam_run` — already landed in
+  the R-a era, rediscovered), iota-fire sides are const-headed (new
+  `iotaRec_some_head`, the none-lemma's contrapositive) →
+  `whnfCore_reidem_const`;
+* iota-none sides split on the head: const → reidem; NON-const →
+  the branch exits `deadR`/`deadL` at the raw subjects instead (the
+  stuck output is non-const-headed, non-λ, non-sort — the top
+  contradicts it with the sort premise), which is exactly where the
+  strLit-corner shapes land — the refutation's reach is absorbed by
+  the dead seams;
+* zipHeadDispatch's pack-side loop re-assembles derive the output
+  self-run from the TRI: nat leg dead (`NatStepNoSort`), δ leg
+  const-headed (`unfoldDefinition_some_head` → reidem), stop leg a
+  sort value (`whnfCore_sort_run`) — no idempotence anywhere.
+
+Both suppliers are now closed: `LeavesSubCoreF` by
+`whnfPres_leaves`, the idem SLOT by deletion + shape-guarded
+re-derivation.  The carrier and dispatch hypothesis lists shrink by
+one.

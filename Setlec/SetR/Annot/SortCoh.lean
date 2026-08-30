@@ -8784,16 +8784,28 @@ def QDescendAppF (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {d : Nat} {P y R z : Expr},
     Q d (.app P y) (.app R z) → Q d P R
 
-/-- whnfCore is idempotent on its outputs (the head re-basing's
-connecting-run supplier: a re-based seam subject carries a
-completed head, and the assemble needs that head to re-run to
-itself.  Supplier: a Verify-tier mutual induction over the core
-family — inert shapes re-run by `pure`, stuck legs re-pin by fuel
-monotonicity, contractum outputs recurse one level down; its own
-seal, obligation ledgered). -/
-def CoreIdemF (μ : CheckMode) (env : Env) : Prop :=
-  ∀ {g d : Nat} {e e' : Expr},
-    whnfCore μ env g d e = .ok e' → whnfCore μ env g d e' = .ok e'
+/- TOMBSTONE (do not restate): `CoreIdemF` — whnfCore idempotence on
+outputs — briefly re-entered the ledger here as the head re-basing's
+connecting-run supplier, and was caught at its supplier seal against
+the STANDING refutation (`WhnfCoreIdem`, the strLit corner: an
+accepted env's `String.ofList` body makes the proj-scrutinee literal
+re-expansion a genuine second reduction step).  The consumers ride
+the R-a family instead: iota fires and δ-steps force const heads
+(`iotaRec_some_head` / `unfoldDefinition_some_head` →
+`whnfCore_reidem_const`), β-side heads are λ-values
+(`whnfCore_lam_run`), sort stops are values (`whnfCore_sort_run`),
+and non-const stuck sides exit dead seams. -/
+
+/-- An iota fire's subject is const-headed. -/
+theorem iotaRec_some_head {μ : CheckMode} {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM} {d : Nat} {e x : Expr}
+    (h : Setlec.iotaRec μ r env d e = .ok (some x)) :
+    ∃ n us, e.getAppFn = Setlec.Expr.const n us := by
+  by_cases hc : ∃ n us, e.getAppFn = Setlec.Expr.const n us
+  · exact hc
+  · rw [iotaRec_none_of_fn_not_const
+        (fun n us hh => hc ⟨n, us, hh⟩)] at h
+    exact nomatch h
 
 /-! ### The seam datatype and its app-lift (the coreLock design) -/
 
@@ -9670,7 +9682,6 @@ theorem coreLock {μ : CheckMode} {env : Env}
     (hQZ : QPreserveZetaF env Q)
     (hQH : QPreserveHeadF μ env Q)
     (hLS : LeavesSubCoreF μ env)
-    (hID : CoreIdemF μ env)
     (hQs : ∀ {d' : Nat} {a b : Expr}, Q d' a b → Q d' b a)
     (hQA : QDescendAppF Q) :
     ∀ (N : Nat) {g₁ g₂ fc d : Nat} {u v u' v' : Expr},
@@ -9818,7 +9829,9 @@ theorem coreLock {μ : CheckMode} {env : Env}
       ⟨w₁h, w₂h, c₁, c₂, hb₁, hb₂, hw₁, hw₂, ht₁, ht₂, hsm⟩
     · -- pack: the legs matrix
       -- the uniform cert-head exit (any legs)
-      have certExit : F₁.looseBVarsBounded 0 = true →
+      have certExit : whnfCore μ env gp d F₁ = .ok F₁ →
+          whnfCore μ env gr d F₂ = .ok F₂ →
+          F₁.looseBVarsBounded 0 = true →
           F₂.looseBVarsBounded 0 = true →
           isDefEqCore μ env fc d F₁ F₂ = .ok true →
           (CertZip μ env fc d u' v' ∧ SubjInv d u' ∧ SubjInv d v' ∧
@@ -9829,11 +9842,11 @@ theorem coreLock {μ : CheckMode} {env : Env}
             Contracts μ env d (.app f₁ a₁) w₁ ∧
             Contracts μ env d (.app f₂ a₂) w₂ ∧
             CoreSeam μ env fc d w₁ w₂) := by
-        intro hba hbb hc
+        intro hS₁ hS₂ hba hbb hc
         exact .inr ⟨.app F₁ a₁, .app F₂ a₂,
           max gp gp + 1, max gr gr + 1, (by omega), (by omega),
-          whnfCore_app_assemble hm (hID hh₁) legs₁,
-          whnfCore_app_assemble hm (hID hh₂) legs₂,
+          whnfCore_app_assemble hm hS₁ legs₁,
+          whnfCore_app_assemble hm hS₂ legs₂,
           Contracts.head f₁ F₁ [a₁] gp hh₁ (.refl _),
           Contracts.head f₂ F₂ [a₂] gr hh₂ (.refl _),
           CoreSeam.certHead F₁ F₂ [a₁] [a₂] hba hbb hc rfl
@@ -9901,7 +9914,9 @@ theorem coreLock {μ : CheckMode} {env : Env}
                 hsm⟩
           cases hzF with
           | refl _ => exact betaRec (.refl b₁)
-          | cert _ _ hba hbb hc => exact certExit hba hbb hc
+          | cert _ _ hba hbb hc =>
+            exact certExit (whnfCore_lam_run (whnfCore_pos hh₁))
+              (whnfCore_lam_run (whnfCore_pos hh₂)) hba hbb hc
           | lam _ _ _ _ _ _ hty hbody => exact betaRec hbody
         · -- right side stuck at a failed β-cert: dead on the right
           exact .inr ⟨.app f₁ a₁, .app f₂ a₂, gp + 1, gr + 1,
@@ -9915,7 +9930,25 @@ theorem coreLock {μ : CheckMode} {env : Env}
         · -- left λ against a right iota package: cert node forced
           cases hzF with
           | refl _ => exact absurd rfl (hnl₂ n₁ ty₁ b₁ m₁)
-          | cert _ _ hba hbb hc => exact certExit hba hbb hc
+          | cert _ _ hba hbb hc =>
+            rcases hio₂ with ⟨e₂'', hio₂s, hrun₂'⟩ | ⟨hio₂n, rfl⟩
+            · obtain ⟨n2, us2, hhd₂⟩ := iotaRec_some_head hio₂s
+              exact certExit (whnfCore_lam_run (whnfCore_pos hh₁))
+                (whnfCore_reidem_const hm hh₂ hhd₂) hba hbb hc
+            · by_cases hc2 : ∃ n' us',
+                  F₂.getAppFn = Setlec.Expr.const n' us'
+              · obtain ⟨n2, us2, hhd₂⟩ := hc2
+                exact certExit (whnfCore_lam_run (whnfCore_pos hh₁))
+                  (whnfCore_reidem_const hm hh₂ hhd₂) hba hbb hc
+              · exact .inr ⟨.app f₁ a₁, .app f₂ a₂, gp + 1, gr + 1,
+                  Nat.le_refl _, Nat.le_refl _, h₁, h₂,
+                  .refl _, .refl _,
+                  CoreSeam.deadR (.app f₁ a₁) (.app f₂ a₂)
+                    (.app F₂ a₂) (gr + 1)
+                    (fun g hg => hm.2.2.1 hg h₂)
+                    (fun p q hh => hc2 ⟨p, q, hh⟩)
+                    (fun _ _ _ _ hh => nomatch hh)
+                    (fun _ hh => nomatch hh)⟩
           | lam _ _ ty₂' _ b₂' _ hty hbody =>
             exact absurd rfl (hnl₂ n₁ ty₂' b₂' m₁)
       · -- left side stuck at a failed β-cert: dead on the left
@@ -9935,7 +9968,25 @@ theorem coreLock {μ : CheckMode} {env : Env}
         · -- right λ against a left iota package: cert node forced
           cases hzF with
           | refl _ => exact absurd rfl (hnl₁ n₂ ty₂ b₂ m₂)
-          | cert _ _ hba hbb hc => exact certExit hba hbb hc
+          | cert _ _ hba hbb hc =>
+            rcases hio₁ with ⟨e₁'', hio₁s, hrun₁'⟩ | ⟨hio₁n, rfl⟩
+            · obtain ⟨n1, us1, hhd₁⟩ := iotaRec_some_head hio₁s
+              exact certExit (whnfCore_reidem_const hm hh₁ hhd₁)
+                (whnfCore_lam_run (whnfCore_pos hh₂)) hba hbb hc
+            · by_cases hc1 : ∃ n' us',
+                  F₁.getAppFn = Setlec.Expr.const n' us'
+              · obtain ⟨n1, us1, hhd₁⟩ := hc1
+                exact certExit (whnfCore_reidem_const hm hh₁ hhd₁)
+                  (whnfCore_lam_run (whnfCore_pos hh₂)) hba hbb hc
+              · exact .inr ⟨.app f₁ a₁, .app f₂ a₂, gp + 1, gr + 1,
+                  Nat.le_refl _, Nat.le_refl _, h₁, h₂,
+                  .refl _, .refl _,
+                  CoreSeam.deadL (.app f₁ a₁) (.app f₂ a₂)
+                    (.app F₁ a₁) (gp + 1)
+                    (fun g hg => hm.2.2.1 hg h₁)
+                    (fun p q hh => hc1 ⟨p, q, hh⟩)
+                    (fun _ _ _ _ hh => nomatch hh)
+                    (fun _ hh => nomatch hh)⟩
           | lam _ ty₁' _ b₁' _ _ hty hbody =>
             exact absurd rfl (hnl₁ n₂ ty₁' b₁' m₂)
         · -- right side stuck at a failed β-cert: dead on the right
@@ -9949,41 +10000,74 @@ theorem coreLock {μ : CheckMode} {env : Env}
               (fun _ h => nomatch h)⟩
         · -- both iota packages
           rcases hio₁ with ⟨e₁'', hio₁s, hrun₁'⟩ | ⟨hio₁n, rfl⟩
-          · rcases hio₂ with ⟨e₂'', hio₂s, hrun₂'⟩ | ⟨hio₂n, rfl⟩
-            · exact .inr ⟨.app F₁ a₁, .app F₂ a₂,
+          · obtain ⟨n1, us1, hhd₁⟩ := iotaRec_some_head hio₁s
+            have hS₁ : whnfCore μ env gp d F₁ = .ok F₁ :=
+              whnfCore_reidem_const hm hh₁ hhd₁
+            rcases hio₂ with ⟨e₂'', hio₂s, hrun₂'⟩ | ⟨hio₂n, rfl⟩
+            · obtain ⟨n2, us2, hhd₂⟩ := iotaRec_some_head hio₂s
+              exact .inr ⟨.app F₁ a₁, .app F₂ a₂,
                 max gp gp + 1, max gr gr + 1,
                 (by omega), (by omega),
-                whnfCore_app_assemble hm (hID hh₁)
+                whnfCore_app_assemble hm hS₁
                   (.inr (.inr ⟨hnl₁, .inl ⟨e₁'', hio₁s, hrun₁'⟩⟩)),
-                whnfCore_app_assemble hm (hID hh₂)
+                whnfCore_app_assemble hm
+                  (whnfCore_reidem_const hm hh₂ hhd₂)
                   (.inr (.inr ⟨hnl₂, .inl ⟨e₂'', hio₂s, hrun₂'⟩⟩)),
                 Contracts.head f₁ F₁ [a₁] gp hh₁ (.refl _),
                 Contracts.head f₂ F₂ [a₂] gr hh₂ (.refl _),
                 zip_stuck_spine_exit (g₁' := gp) (g₂' := gr)
                   hzF hza (.inl ⟨e₁'', hio₁s⟩)⟩
-            · exact .inr ⟨.app F₁ a₁, .app F₂ a₂,
-                max gp gp + 1, max gr gr + 1,
-                (by omega), (by omega),
-                whnfCore_app_assemble hm (hID hh₁)
-                  (.inr (.inr ⟨hnl₁, .inl ⟨e₁'', hio₁s, hrun₁'⟩⟩)),
-                whnfCore_app_assemble hm (hID hh₂)
-                  (.inr (.inr ⟨hnl₂, .inr ⟨hio₂n, rfl⟩⟩)),
-                Contracts.head f₁ F₁ [a₁] gp hh₁ (.refl _),
-                Contracts.head f₂ F₂ [a₂] gr hh₂ (.refl _),
-                zip_stuck_spine_exit (g₁' := gp) (g₂' := gr)
-                  hzF hza (.inl ⟨e₁'', hio₁s⟩)⟩
+            · by_cases hc2 : ∃ n' us',
+                  F₂.getAppFn = Setlec.Expr.const n' us'
+              · obtain ⟨n2, us2, hhd₂⟩ := hc2
+                exact .inr ⟨.app F₁ a₁, .app F₂ a₂,
+                  max gp gp + 1, max gr gr + 1,
+                  (by omega), (by omega),
+                  whnfCore_app_assemble hm hS₁
+                    (.inr (.inr ⟨hnl₁, .inl ⟨e₁'', hio₁s, hrun₁'⟩⟩)),
+                  whnfCore_app_assemble hm
+                    (whnfCore_reidem_const hm hh₂ hhd₂)
+                    (.inr (.inr ⟨hnl₂, .inr ⟨hio₂n, rfl⟩⟩)),
+                  Contracts.head f₁ F₁ [a₁] gp hh₁ (.refl _),
+                  Contracts.head f₂ F₂ [a₂] gr hh₂ (.refl _),
+                  zip_stuck_spine_exit (g₁' := gp) (g₂' := gr)
+                    hzF hza (.inl ⟨e₁'', hio₁s⟩)⟩
+              · exact .inr ⟨.app f₁ a₁, .app f₂ a₂, gp + 1, gr + 1,
+                  Nat.le_refl _, Nat.le_refl _, h₁, h₂,
+                  .refl _, .refl _,
+                  CoreSeam.deadR (.app f₁ a₁) (.app f₂ a₂)
+                    (.app F₂ a₂) (gr + 1)
+                    (fun g hg => hm.2.2.1 hg h₂)
+                    (fun p q hh => hc2 ⟨p, q, hh⟩)
+                    (fun _ _ _ _ hh => nomatch hh)
+                    (fun _ hh => nomatch hh)⟩
           · rcases hio₂ with ⟨e₂'', hio₂s, hrun₂'⟩ | ⟨hio₂n, rfl⟩
-            · exact .inr ⟨.app F₁ a₁, .app F₂ a₂,
-                max gp gp + 1, max gr gr + 1,
-                (by omega), (by omega),
-                whnfCore_app_assemble hm (hID hh₁)
-                  (.inr (.inr ⟨hnl₁, .inr ⟨hio₁n, rfl⟩⟩)),
-                whnfCore_app_assemble hm (hID hh₂)
-                  (.inr (.inr ⟨hnl₂, .inl ⟨e₂'', hio₂s, hrun₂'⟩⟩)),
-                Contracts.head f₁ F₁ [a₁] gp hh₁ (.refl _),
-                Contracts.head f₂ F₂ [a₂] gr hh₂ (.refl _),
-                zip_stuck_spine_exit (g₁' := gp) (g₂' := gr)
-                  hzF hza (.inr ⟨e₂'', hio₂s⟩)⟩
+            · obtain ⟨n2, us2, hhd₂⟩ := iotaRec_some_head hio₂s
+              by_cases hc1 : ∃ n' us',
+                  F₁.getAppFn = Setlec.Expr.const n' us'
+              · obtain ⟨n1, us1, hhd₁⟩ := hc1
+                exact .inr ⟨.app F₁ a₁, .app F₂ a₂,
+                  max gp gp + 1, max gr gr + 1,
+                  (by omega), (by omega),
+                  whnfCore_app_assemble hm
+                    (whnfCore_reidem_const hm hh₁ hhd₁)
+                    (.inr (.inr ⟨hnl₁, .inr ⟨hio₁n, rfl⟩⟩)),
+                  whnfCore_app_assemble hm
+                    (whnfCore_reidem_const hm hh₂ hhd₂)
+                    (.inr (.inr ⟨hnl₂, .inl ⟨e₂'', hio₂s, hrun₂'⟩⟩)),
+                  Contracts.head f₁ F₁ [a₁] gp hh₁ (.refl _),
+                  Contracts.head f₂ F₂ [a₂] gr hh₂ (.refl _),
+                  zip_stuck_spine_exit (g₁' := gp) (g₂' := gr)
+                    hzF hza (.inr ⟨e₂'', hio₂s⟩)⟩
+              · exact .inr ⟨.app f₁ a₁, .app f₂ a₂, gp + 1, gr + 1,
+                  Nat.le_refl _, Nat.le_refl _, h₁, h₂,
+                  .refl _, .refl _,
+                  CoreSeam.deadL (.app f₁ a₁) (.app f₂ a₂)
+                    (.app F₁ a₁) (gp + 1)
+                    (fun g hg => hm.2.2.1 hg h₁)
+                    (fun p q hh => hc1 ⟨p, q, hh⟩)
+                    (fun _ _ _ _ hh => nomatch hh)
+                    (fun _ hh => nomatch hh)⟩
             · -- both inert: the pair stays zipped
               exact .inl ⟨.app F₁ a₁ F₂ a₂ hzF hza,
                 hIu', hIv', hP', hQ'⟩
@@ -10079,7 +10163,6 @@ theorem zipHeadDispatch {φ : Name → Nat}
     (hQZ : QPreserveZetaF env Q)
     (hQH : QPreserveHeadF μ env Q)
     (hLS : LeavesSubCoreF μ env)
-    (hIDem : CoreIdemF μ env)
     (hQs : ∀ {d' : Nat} {a b : Expr}, Q d' a b → Q d' b a)
     (hQA : QDescendAppF Q)
     (hΘ : ZipCertSpineCase μ env φ Q)
@@ -10139,15 +10222,29 @@ theorem zipHeadDispatch {φ : Name → Nat}
   have belowFc : ZipBelowFc μ env φ Q fc :=
     fun hlt hz' hIs hIt hp' hq' hla hlb =>
       below (Or.inl hlt) hz' hIs hIt hp' hq' hla hlb
-  rcases @coreLock μ env Q hm hIC hLC hQC hQB hQZ hQH hLS hIDem
+  rcases @coreLock μ env Q hm hIC hLC hQC hQB hQZ hQH hLS
       (fun {d'} {a b} h => hQs h) (fun {d'} {P} {y} {R} {z} h => hQA h)
       (ga + gb) ga gb fc d X₁ X₂ e₁ e₂
       (Nat.le_refl _) hz hI₁ hI₂ hp hQ hwca' hwcb' with
     ⟨hzE, hIe₁, hIe₂, hpE, hQE⟩ |
     ⟨w₁, w₂, c₁, c₂, hcb₁, hcb₂, hr₁, hr₂, ht₁, ht₂, hsm⟩
   · -- the pack: classify the zipped outputs by the spine view
-    have ha' := stepA (hIDem hwca')
-    have hb' := stepB (hIDem hwcb')
+    have hcoreA : whnfCore μ env ga d e₁ = .ok e₁ := by
+      rcases triA with ⟨x, hrx, -⟩ | ⟨-, x, hud, -⟩ | ⟨-, -, hstop⟩
+      · exact (hN hwca' hrx ha).elim
+      · obtain ⟨n0, us0, hhd⟩ := unfoldDefinition_some_head hud
+        exact whnfCore_reidem_const hm hwca' hhd
+      · rw [← hstop]
+        exact whnfCore_sort_run (whnfCore_pos hwca')
+    have hcoreB : whnfCore μ env gb d e₂ = .ok e₂ := by
+      rcases triB with ⟨y, hry, -⟩ | ⟨-, y, hud, -⟩ | ⟨-, -, hstop⟩
+      · exact (hN hwcb' hry hb).elim
+      · obtain ⟨n0, us0, hhd⟩ := unfoldDefinition_some_head hud
+        exact whnfCore_reidem_const hm hwcb' hhd
+      · rw [← hstop]
+        exact whnfCore_sort_run (whnfCore_pos hwcb')
+    have ha' := stepA hcoreA
+    have hb' := stepB hcoreB
     obtain ⟨H₁, H₂, cs, ds, rfl, rfl, hlenv, hargsv, hheadv⟩ :=
       certZip_app_view hzE
     rcases hheadv with ⟨hba, hbb, hc⟩ | ⟨hne₁, hne₂, hzH⟩
@@ -10343,7 +10440,6 @@ theorem zipLamHeadCase_of {φ : Name → Nat}
     (hQZ : QPreserveZetaF env Q)
     (hQH : QPreserveHeadF μ env Q)
     (hLS : LeavesSubCoreF μ env)
-    (hIDem : CoreIdemF μ env)
     (hQs : ∀ {d' : Nat} {a b : Expr}, Q d' a b → Q d' b a)
     (hQA : QDescendAppF Q)
     (hΘ : ZipCertSpineCase μ env φ Q)
@@ -10354,7 +10450,7 @@ theorem zipLamHeadCase_of {φ : Name → Nat}
   intro fc d ga la gb lb n ty₁ ty₂ b₁ b₂ m as bs ℓa ℓb below hty
     hbody hlen hargs hIs hIt hp hQ ha hb
   exact zipHeadDispatch (φ := φ) (Q := Q) hm hB hIC hLC hQC hQB
-    hQZ hQH hLS hIDem
+    hQZ hQH hLS
     (fun {d'} {a b} h => hQs h) (fun {d'} {P} {y} {R} {z} h => hQA h)
     hΘ hConst hIo hProj
     (fun {fc'} {d'} {ga'} {la₀} {gb'} {lb₀} {s'} {t'} {ℓa'} {ℓb'}
@@ -10375,7 +10471,6 @@ theorem zipLetEHeadCase_of {φ : Name → Nat}
     (hQZ : QPreserveZetaF env Q)
     (hQH : QPreserveHeadF μ env Q)
     (hLS : LeavesSubCoreF μ env)
-    (hIDem : CoreIdemF μ env)
     (hQs : ∀ {d' : Nat} {a b : Expr}, Q d' a b → Q d' b a)
     (hQA : QDescendAppF Q)
     (hΘ : ZipCertSpineCase μ env φ Q)
@@ -10386,7 +10481,7 @@ theorem zipLetEHeadCase_of {φ : Name → Nat}
   intro fc d ga la gb lb n ty₁ ty₂ v₁ v₂ b₁ b₂ as bs ℓa ℓb below
     hty hval hbody hlen hargs hIs hIt hp hQ ha hb
   exact zipHeadDispatch (φ := φ) (Q := Q) hm hB hIC hLC hQC hQB
-    hQZ hQH hLS hIDem
+    hQZ hQH hLS
     (fun {d'} {a b} h => hQs h) (fun {d'} {P} {y} {R} {z} h => hQA h)
     hΘ hConst hIo hProj
     (fun {fc'} {d'} {ga'} {la₀} {gb'} {lb₀} {s'} {t'} {ℓa'} {ℓb'}
