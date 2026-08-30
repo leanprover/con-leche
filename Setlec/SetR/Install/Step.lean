@@ -13,7 +13,9 @@ named here.
 
 The `Nonempty` conclusion is `EnvS`'s own convention (a `Prop` carrying
 a `TConstVal`, so its inhabitant is data the fold never needs to
-name); the obligations follow the house pattern of `DivModPinS` /
+name) — the three value kinds now conclude the *named* extension plus
+its valuation agreement, and this dispatch forgets both, because v1
+genuinely does not need them and the interp2 tier does; the obligations follow the house pattern of `DivModPinS` /
 `StdAxiomKeyS` — stated where their consumer is, discharged where
 their supplier is.
 -/
@@ -107,17 +109,17 @@ theorem declStepS (hdm : DivModPinS V) (hrp : ReducePinS V)
     Nonempty (EnvS V env₂) ∧ EtaFamiliesClosed env₂ := by
   cases d with
   | defnDecl cv value hint =>
-    refine ⟨declDefnS hdm m h, ?_⟩
+    refine ⟨⟨(declDefnS hdm m h).choose⟩, ?_⟩
     obtain ⟨type', value', hcv, -, rfl, -, -⟩ := h
     exact EtaFamiliesClosed.cons_nonind hE
       (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
   | thmDecl cv value =>
-    refine ⟨declThmS m h, ?_⟩
+    refine ⟨⟨(declThmS m h).choose⟩, ?_⟩
     obtain ⟨type', value', hcv, -, -, rfl⟩ := h
     exact EtaFamiliesClosed.cons_nonind hE
       (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
   | opaqueDecl cv value =>
-    refine ⟨declOpaqueS hrp m h, ?_⟩
+    refine ⟨⟨(declOpaqueS hrp m h).choose⟩, ?_⟩
     obtain ⟨type', value', hcv, -, rfl, -⟩ := h
     exact EtaFamiliesClosed.cons_nonind hE
       (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)

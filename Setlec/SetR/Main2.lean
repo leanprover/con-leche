@@ -1,5 +1,5 @@
 import Setlec.SetR.Main
-import Setlec.SetR.Interp2.Keys2Bundle
+import Setlec.SetR.Interp2.Step2Cons
 
 /-!
 # The fourteen's conditional swap — the same results over `EnvS2U`
@@ -46,6 +46,25 @@ is `CheckStep2E` behind it; per seals 39 and 50 both discharge at
 junction closure, and until then every statement below says "if the
 install lane lands, the fourteen swap" and nothing stronger.
 
+## What is no longer a hypothesis
+
+`declStep2All_of` **proves the dispatch** from four per-kind install
+obligations (`Step2Cons.lean`), so `DeclStep2All` is not one opaque
+residue any more.  What is left of it, split by kind:
+
+| kind | reduces to | inhabited? |
+|---|---|---|
+| tolerated axiom | nothing — `env₂ = env` | **yes**, here |
+| `def` | `Denote2BodyOfRun` + `ValueResidues2` | no |
+| `theorem`, `opaque` | the same, plus `hleaf` at `opaque` | no |
+| stored axiom | `DeclStep2Residues` | no |
+| basis, `indDecl` | nothing in this tree | no |
+
+*A relocation with a finer grain is still a relocation; what stops it
+being only that is the tolerated branch, `declStep2_defn`'s
+collapse-lane inputs, and the two body clauses `declStep2_of_value`
+discharges outright.*
+
 ## What the swap actually buys, per theorem
 
 * The four `checkDecls*_sound_R2` and `checkDecl_sound_R2` conclude a
@@ -69,7 +88,9 @@ install lane lands, the fourteen swap" and nothing stronger.
 namespace Setlec.SetR
 
 open Setlec.TT Setlec.TTVerify SetTheory EStore Expr
-open Setlec.SetR.Interp2 (EnvS2U)
+open Setlec.SetR.Interp2 (EnvS2U DeclValue2S DeclAxiom2S DeclBasis2S
+  DeclInd2S ValueResidues2 Denote2BodyOfRun leafEq_defn denote2
+  declStep2_of_valueResidues)
 
 universe w
 variable {V : Type w} [SetTheory V]
@@ -100,6 +121,100 @@ def DeclStep2All (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
     EtaFamiliesClosed env →
     DeclR μ F m.base.cval env d env₂ →
     Nonempty (EnvS2U V env₂)
+
+/-- **The dispatch, proved.**  `DeclStep2All` from the four install
+obligations `Step2Cons.lean` names, exactly as `declStepS` proves v1's
+dispatch from its five: `DeclR`'s six clauses *are* the dispatch, so
+this half of the residue is not a hypothesis and never was.
+
+Two things are settled here rather than assumed:
+
+* **`def`, `theorem` and `opaque` share one obligation.**  They differ
+  only in which `ConstantInfo` they store and in whether that
+  `ConstantInfo` has a body to identify, and `DeclValue2S` is stated
+  at the stored `c₀` with those two body clauses as premises.
+* **The axiom kind's tolerated branch is discharged.**  A tolerated
+  axiom installs nothing (`env₂ = env`), so the given `EnvS2U`
+  answers for it — the one branch of the six kinds that needs no
+  install at all.
+
+*What remains uninhabited is the four obligations, not the dispatch.*
+`DeclValue2S` reduces to `declStep2_of_value`'s residues,
+`DeclAxiom2S` to `DeclStep2Residues`; `DeclBasis2S` and `DeclInd2S`
+have no interp2 counterpart in this tree at all. -/
+theorem declStep2All_of {μ : CheckMode} (hval : DeclValue2S V μ)
+    (hax : DeclAxiom2S V μ) (hbas : DeclBasis2S V)
+    (hind : DeclInd2S V μ) : DeclStep2All V μ := by
+  intro F env env₂ d m hE h
+  cases d with
+  | defnDecl cv value hint =>
+    obtain ⟨type', value', hcv, hvfr, rfl, -, -⟩ := h
+    exact hval m hcv hvfr rfl
+      (fun cv2 v2 h2 heq => by
+        simp only [ConstantInfo.defnInfo.injEq] at heq
+        exact heq.2.1)
+      (fun cv2 v2 heq => nomatch heq)
+  | thmDecl cv value =>
+    obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := h
+    exact hval m hcv hvfr rfl (fun cv2 v2 h2 heq => nomatch heq)
+      (fun cv2 v2 heq => by
+        simp only [ConstantInfo.thmInfo.injEq] at heq
+        exact heq.2)
+  | opaqueDecl cv value =>
+    obtain ⟨type', value', hcv, hvfr, rfl, -⟩ := h
+    exact hval m hcv hvfr rfl (fun cv2 v2 h2 heq => nomatch heq)
+      (fun cv2 v2 heq => nomatch heq)
+  | axiomDecl cv =>
+    obtain ⟨type', hcv, harm⟩ := h
+    rcases harm with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ |
+      ⟨-, -, -, -, -, -, -, rfl⟩
+    · exact hax m hcv
+    · exact hax m hcv
+    · exact hax m hcv
+    · exact ⟨m⟩
+  | basisDecl kind => exact hbas ⟨m⟩ h
+  | indDecl block => exact hind m hE h
+
+/-- **The `def` kind, on the interp2 residues alone.**  Every
+collapse-lane input is v1's own and none of them is assumed:
+
+* the extension **and its valuation agreement** come from `declDefnS`,
+  which now exposes both (the `Nonempty` conclusion hid the agreement,
+  and `acval_erase` cannot be stated without it);
+* the leaf equation at the extension is `EnvS.defn_eq`, free;
+* freshness is `ConstantValR`'s first conjunct;
+* the new leaf itself is named by the run `ValueFrontR` exposes.
+
+So the `def` kind's whole remaining cost is `Denote2BodyOfRun` at the
+prefix and `ValueResidues2`'s six fields.  **Neither is inhabited**,
+so this is a reduction and not yet an install — but it is a reduction
+to six named things rather than to the kind as a whole. -/
+theorem declStep2_defn (hdm : DivModPinS V) {μ : CheckMode} {F : Nat}
+    {env : Env} {cv : ConstantVal} {value type' value' : Expr}
+    {hint : ReducibilityHint} (m : EnvS2U V env)
+    (h : DeclDefnR μ F env m.base.cval cv value hint
+      ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+        env.consts⟩)
+    (hcvR : ConstantValR μ F env m.base.cval cv type')
+    (hvf : ValueFrontR μ F env m.base.cval cv value type' value')
+    (hrun : ∀ ψ : Name → Nat, Denote2BodyOfRun μ env m.acval ψ)
+    (hres : ∀ A : (Name → Nat) → AVExpr,
+      (∀ ψ : Name → Nat, ∃ F' : Nat,
+        denote2 μ m.acval env ψ F' 0 value' = some (A ψ)) →
+      ValueResidues2 V μ m
+        (.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
+        value' A) :
+    Nonempty (EnvS2U V
+      ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+        env.consts⟩) := by
+  obtain ⟨hbase, hag⟩ := declDefnS hdm m.base h
+  exact declStep2_of_valueResidues m
+    (Option.isNone_iff_eq_none.mp hcvR.1) hvf hrun hbase hag
+    (leafEq_defn hbase)
+    (fun cv2 v2 h2 heq => by
+      simp only [ConstantInfo.defnInfo.injEq] at heq
+      exact heq.2.1)
+    (fun cv2 v2 heq => nomatch heq) hres
 
 /-- The annotated fold's carrier — `EnvSOk` one tier up.  The eta
 side invariant is V-free and is **not** re-proved here: it comes from

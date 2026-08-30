@@ -83,7 +83,14 @@ theorem valueKeyS {μ : CheckMode} {F : Nat} {env : Env}
 /-! ## The shared install -/
 
 /-- **The value-carrying install** — transpose of `extendValueTT`,
-consuming the [set] key.  The family-law and reservation refutations
+consuming the [set] key.
+
+**The conclusion names the extension and its agreement**, not just
+`Nonempty`.  A `Nonempty` is a one-way door: the interp2 tier's
+`acval_erase` is an equation against `m'.cval`, so it cannot even be
+*stated* against a witness the install threw away.  The agreement is
+`Installs.ag` at the install's own `cvalAt` leaf, so exposing it costs
+one term.  The family-law and reservation refutations
 are discharged internally from the kind disequalities (the TT lane
 repeats them per kind); the two `Nat` pin clauses and the
 compiler-trust clause stay parameters, because each kind discharges
@@ -149,7 +156,8 @@ theorem extendValueS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
           SetTheory.app
             (interp V ρ (cvalAt m.cval env name value c₀.name ψ)) x
             = x) :
-    Nonempty (EnvS V ⟨c₀ :: env.consts⟩) := by
+    ∃ m' : EnvS V ⟨c₀ :: env.consts⟩,
+      ∀ n, n ≠ name → m.cval n = m'.cval n := by
   have hfresh' : env.find? c₀.name = none := by rw [hc₀name]; exact hfresh
   have hi : Installs env m.cval (cvalAt m.cval env name value) c₀ :=
     Installs.of_fresh hfresh' (fun n hn => by
@@ -161,7 +169,8 @@ theorem extendValueS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
     (fun cv2 caps heq => absurd heq (hc₀nind cv2 caps))
     (fun entry heq => absurd heq (hc₀nproj entry))
     (fun _ entry heq => absurd heq (hc₀nproj entry))
-    ?_ ?_ hheadNat hheadDivMod hheadReduce⟩
+    ?_ ?_ hheadNat hheadDivMod hheadReduce,
+    fun n hn => (cvalAt_ne hn).symm⟩
   · -- the new valuation is closed
     intro ψ
     obtain ⟨v, t, hv, -, -⟩ := hkey ψ

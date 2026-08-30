@@ -82,11 +82,13 @@ theorem sat_two {A : VExpr} (hA : VExpr.Closed A) {ρ : Nat → V} {x y : V}
 
 /-! ## `theorem` -/
 
-/-- A checked `theorem` extends the invariant. -/
+/-- A checked `theorem` extends the invariant, **with the extension's
+valuation agreement exposed** — see `extendValueS`'s docstring for why
+`Nonempty` alone is not usable one tier up. -/
 theorem declThmS {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {cv : ConstantVal} {value : Expr} (m : EnvS V env)
     (h : DeclThmR μ F env m.cval cv value env₂) :
-    Nonempty (EnvS V env₂) := by
+    ∃ m' : EnvS V env₂, ∀ n, n ≠ cv.name → m.cval n = m'.cval n := by
   obtain ⟨type', value', hcv, hprop, hvfr, rfl⟩ := h
   obtain ⟨hfind, hres, hpshape, hnd, hlbt, hitf, hann, htp, htr, hfrontT⟩ :=
     hcv
@@ -123,11 +125,11 @@ theorem declThmS {μ : CheckMode} {F : Nat} {env env₂ : Env}
 /-! ## `opaque` -/
 
 /-- A checked `opaque` extends the invariant, given the compiler-trust
-obligation. -/
+obligation; the extension's valuation agreement is exposed. -/
 theorem declOpaqueS (hrp : ReducePinS V) {μ : CheckMode} {F : Nat}
     {env env₂ : Env} {cv : ConstantVal} {value : Expr} (m : EnvS V env)
     (h : DeclOpaqueR μ F env m.cval cv value env₂) :
-    Nonempty (EnvS V env₂) := by
+    ∃ m' : EnvS V env₂, ∀ n, n ≠ cv.name → m.cval n = m'.cval n := by
   obtain ⟨type', value', hcv, hvfr, rfl, hred⟩ := h
   obtain ⟨hfind, hres, hpshape, hnd, hlbt, hitf, hann, htp, htr, hfrontT⟩ :=
     hcv
@@ -171,12 +173,12 @@ theorem declOpaqueS (hrp : ReducePinS V) {μ : CheckMode} {F : Nat}
 
 /-- A checked `def` extends the invariant, given the div/mod
 obligation; the structural-`Nat` recurrence clause is discharged
-inline. -/
+inline, and the extension's valuation agreement is exposed. -/
 theorem declDefnS (hdm : DivModPinS V) {μ : CheckMode} {F : Nat}
     {env env₂ : Env} {cv : ConstantVal} {value : Expr}
     {hint : ReducibilityHint} (m : EnvS V env)
     (h : DeclDefnR μ F env m.cval cv value hint env₂) :
-    Nonempty (EnvS V env₂) := by
+    ∃ m' : EnvS V env₂, ∀ n, n ≠ cv.name → m.cval n = m'.cval n := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := h
   obtain ⟨hfind, hres, hpshape, hnd, hlbt, hitf, hann, htp, htr, hfrontT⟩ :=
     hcv

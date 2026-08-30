@@ -937,6 +937,30 @@ def Denote2BodyOfRun (μ : CheckMode) (env : Env)
     ∃ (F' : Nat) (ra : AVExpr),
       denote2 μ acval env φ F' 0 value = some ra
 
+/-- **The new declaration's body, as the front door left it**:
+prefix-bound, and a term the checker inferred a type for.
+
+*Supplied by* `ValueFrontR` — its `constsResolve` conjunct gives the
+first half through `constsBound_of_constsResolve`, and seal 49's
+exposed run gives the second.  Both halves are **inhabited from real
+runs**; nothing here is a residue.
+
+Named because `Denote2BodiesStep` was missing it: the step's
+conclusion is about the body `c₀` stores, and `Denote2BodyOfRun` is
+keyed on a *run*, which no other premise of that statement produced. -/
+def NewBodyFrontR (μ : CheckMode) (env : Env) (c₀ : ConstantInfo) :
+    Prop :=
+  (∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+      c₀ = ConstantInfo.defnInfo cv value hint →
+      ConstsBound env value ∧
+        ∃ (t : Expr) (F : Nat),
+          Setlec.inferTypeCore μ env F 0 value = .ok t) ∧
+    ∀ (cv : ConstantVal) (value : Expr),
+      c₀ = ConstantInfo.thmInfo cv value →
+      ConstsBound env value ∧
+        ∃ (t : Expr) (F : Nat),
+          Setlec.inferTypeCore μ env F 0 value = .ok t
+
 /-- **The fold's step.**  `Denote2Bodies` at the extension follows from
 `Denote2Bodies` at the prefix, the extension's own transport, and the
 front-door fact at the one new body.
@@ -954,18 +978,24 @@ did not originally give.
 environments must carry the transport, or it is a wish with a
 signature.*
 
-Stated rather than proved: the *old* bodies need
-`Denote2EnvExtend` (`Denote2Extend.lean`, whose own residues are the
-frozen-on-Θ (E) hypotheses), and the *new* body needs
-`Denote2BodyOfRun` at a run `DeclStep2`'s premises must expose. **If
-the front-door run's existence is not visible where `DeclStep2` can
-see it, that is an exposure request on whatever holds it** — the
-practiced pattern, three for three this arc — and not a rebuild. -/
+**Amended a second time, and this one was a missing premise rather
+than a missing transport.**  As left at seal 47 the statement was
+still not provable: its conclusion is about the body `c₀` *stores*,
+while `Denote2BodyOfRun` is keyed on a **run**, and no premise
+produced one at that body — nor said the body was prefix-bound, which
+the transport needs.  `NewBodyFrontR` is now the third premise, and
+with it the step is **proved** (`denote2BodiesStep_holds`) rather than
+carried.
+
+*Rule, one turn of the same screw: a step lemma must carry not only
+the transport but the fact its supplier is keyed on.  Seal 47 named
+the run in prose and took neither.* -/
 def Denote2BodiesStep (μ : CheckMode) (env : Env)
     (acval : Name → (Name → Nat) → AVExpr) (φ : Name → Nat)
     (c₀ : ConstantInfo) : Prop :=
   Denote2BodyOfRun μ env acval φ →
     Denote2EnvExtend μ env ⟨c₀ :: env.consts⟩ acval φ →
+    NewBodyFrontR μ env c₀ →
     (∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
       c₀ = ConstantInfo.defnInfo cv value hint →
       ∃ (F : Nat) (ra : AVExpr),
@@ -974,6 +1004,30 @@ def Denote2BodiesStep (μ : CheckMode) (env : Env)
       c₀ = ConstantInfo.thmInfo cv value →
       ∃ (F : Nat) (ra : AVExpr),
         denote2 μ acval ⟨c₀ :: env.consts⟩ φ F 0 value = some ra
+
+/-- **The step, established.**  Both halves are the same three moves:
+the front door's run gives the body an annotation at the **prefix**
+(`Denote2BodyOfRun`), and the transport carries it to the extension
+(`Denote2EnvExtend`, at the body's own prefix-boundness).
+
+*Inhabitation, precisely*: this theorem is unconditional, so
+`Denote2BodiesStep` is **no longer a residue**.  What its two
+premises cost is unchanged — `Denote2BodyOfRun` is seal 33's parked
+existence at a run's subject, `Denote2EnvExtend` is frozen on Θ — but
+the *step* is not a third thing to discharge. -/
+theorem denote2BodiesStep_holds (μ : CheckMode) (env : Env)
+    (acval : Name → (Name → Nat) → AVExpr) (φ : Name → Nat)
+    (c₀ : ConstantInfo) : Denote2BodiesStep μ env acval φ c₀ := by
+  intro hrun hext hfront
+  constructor
+  · intro cv value hint heq
+    obtain ⟨hcb, t, F, hinf⟩ := hfront.1 cv value hint heq
+    obtain ⟨F', ra, hra⟩ := hrun value t F hinf
+    exact ⟨F', ra, by rw [← hext F' 0 value hcb]; exact hra⟩
+  · intro cv value heq
+    obtain ⟨hcb, t, F, hinf⟩ := hfront.2 cv value heq
+    obtain ⟨F', ra, hra⟩ := hrun value t F hinf
+    exact ⟨F', ra, by rw [← hext F' 0 value hcb]; exact hra⟩
 
 /-! ## The supplier check, run — and the verdict is NOT VISIBLE
 
@@ -1082,6 +1136,13 @@ remainder is the failure mode this campaign keeps catching.
    give at all).  The docstring above
    names both suppliers in prose; the statement takes neither as a
    premise.  Amending it is a statement change and is not made here.
+
+   **Settled since.**  Seal 47 took the transport as a premise and
+   that was still not enough — the run itself was missing, and so was
+   the body's prefix-boundness.  With `NewBodyFrontR` added the step
+   is proved outright (`denote2BodiesStep_holds`), and both of its
+   halves are supplied by `ValueFrontR`.  *Two amendments to reach a
+   provable statement, each found by trying to write the proof.*
 2. **`memberBlock2_of_stored`'s `hrun` is stronger than the front
    door.**  It demands `inferTypeCore … type = .ok (.sort u)` — the
    inferred type *literally* a sort — whereas `checkConstantVal` only
