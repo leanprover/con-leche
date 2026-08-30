@@ -12144,3 +12144,99 @@ facts; possibly an arena-reality-guided restriction finding).  The
 alternative (amending `ThetaWalkClaim` to carry image-side head
 facts) merely relocates the same seam.  STOP — reporting before
 building either.
+
+### The consumer seal — two amendments, and the λ row's good news
+
+Opening the interp2-consumer lane (arc steps 4–5, hypothesis-first,
+in parallel with Θ) began with the brief's pre-build check: every
+field of the Claims2 interface must have a named supplier in the
+coherence tier's landed or frozen statements.  Two failed, both
+repaired here; one row came back better than designed.
+
+**AMENDMENT 1 — the currency seam (`Annot/EnvS2.lean`).**
+`annot_ok2`/`mem_type2` landed at migration step 1, stated over the
+`Annotates` *relation*, **before** R1 took canonical annotations.
+They cannot serve `denote2`, and the obstruction is structural rather
+than a missing lemma: `Annotates` has no structural `letE` clause —
+only `zeta`, so it annotates the ζ-reduct — while `denote2`'s `letE`
+clause *is* structural, and so is `denote`'s
+(`Setlec/Verify/Denote.lean`).  **For any subject carrying a `let`, a
+`denote2` output is not an `Annotates` annotation of the same term,
+and no bridging theorem between the two can exist as they are
+stated.**
+
+The seam was invisible for a reason worth keeping: it is *vacuous on
+the environment side* — stored terms carry no `letE` today, the
+checker zeta-expands at annotation time — and bites only on **subject**
+terms, which is exactly what `Claims2` quantifies over.  `denote2` also
+had **zero consumers tree-wide**, so the two currencies had never met.
+
+Repaired by option 1 (the ruling): `EnvS2` gains `acval`,
+`acval_erase` (`denote2_erase`'s hypothesis), `acval_ok2` and a
+`denote2`-shaped `mem_type2`.  Restated in place rather than
+additively — the consumer sweep found `Annot/SimSubst.lean` *imports*
+`EnvS2` without using it, and nothing else references the fields at
+all.  `cval_annot` stays: it closes a named ledger obligation about
+the relation and is not in the seam.  `EnvS2.empty` re-discharged
+(`acval_erase` is `rfl`; the empty `acval` is the same `.const .empty
+[0]` leaf one level up).
+
+*Rule: when a resolution changes a tier's currency, the fields stated
+in the old one are not merely stale — check whether the two currencies
+can denote the same object at all before assuming a bridge exists.*
+
+**AMENDMENT 2 — the app slot's kind-`0` asymmetry (`Annot/Ok2.lean`).**
+`AnnotOk2`'s λ clause carried a kind-`0` fibre component; its app
+clause did not.  That is a gap, not a saving: `app_mem_piR` needs
+exactly `v = 0 → ∀ x ∈ˢ A, B x ∈ˢ univZero`, the slot's `B` is
+∃-bound so no handle survives extraction, and the truth-value route
+does not substitute — an inhabited `piR 0 A B` gives only that
+`B ⟦a⟧` is *inhabited*, never that its inhabitant is `pt`.  That is
+**finding B5's wall re-appearing in the membership formulation**, and
+at kind `0` the app case could not close from the invariant at all.
+
+Why it survived three consumers: `graded_beta_pos` and
+`AnnotOk2_beta_pos` require positivity, and `AnnotOk2_beta_zero` takes
+the missing fact as an explicit `hmem`.  *A clause whose only
+consumers are guarded by the very hypothesis that hides its gap will
+not be found by its consumers.*
+
+Established, not assumed, in the same seal: `appSlot_of_pi` /
+`AnnotOk2_app_of` build the slot — new component included — from the
+**annotated `Π`'s own codomain sort fact**, supplier
+`HasSort.mem_univ` (`Annot/Kinding.lean`) at the `Π`'s numeral: the
+same route `Annotates.lam`'s cached `HasSortC` already takes for the λ
+clause.  The two binder clauses are symmetric again.  `SlotChain`
+(`Annot/Spine2.lean`) strengthened in step so `AnnotOk2_spine_slots`
+reads the slot off unchanged; `slotChain_fits` carries and drops the
+new component (it uses positivity only); the `liftN`/`inst`
+congruences ride the existing rewrites, because the component mentions
+only the ∃-bound `v`, `A`, `B` and so is invariant under the
+environment change.
+
+**THE λ ROW CLOSES, AND THE EMPTY-DOMAIN CASE IS FREE.**  The brief's
+primary test was whether interp2's λ case closes from the interface
+including the empty-domain row.  It does, and for a simpler reason
+than the design anticipated: `lamR_mem` has no premise beyond the
+fibre facts, and at `⟦A⟧ = ∅` *both* the fibre membership and the
+kind-`0` fibre condition are vacuous.  So the empty-domain row needs
+**no semantic fact about the annotation whatsoever — only the numeral,
+which is in the term.**  No validity machinery is involved, which is
+just as well: `ValidInfer` is refuted (`Annot/Validity.lean`,
+`validity_refuted`), so the B5′ route the brief named is not available
+and is not needed.  The actual supplier of the λ numeral is
+`Annotates.lam`'s cached `HasSortC`, two-regime as `Infer.lam` is:
+direct at the innermost binder of a chain (#152's guarded premises,
+stated at the checker's own `B'` and `DefEq`-linked, per finding A5),
+by `hasSortC_pi_of` induction at inner binders.
+
+**Ledgered for the record, from the same sweep:**
+
+* `SortSubstStable` (`Annot/SimSubst.lean`) takes `mS : EnvS V env` —
+  the **collapse-lane** invariant, not `EnvS2`.  Re-signing it to the
+  `EnvS2` world belongs to the leaf wiring.
+* `Claims2` should name the **two frozen zip obligations**
+  (`ZipWhnfSortAgree`, `ZipSortOfAgree`, via `ensureSortAgreeRQ_of_zip`
+  / `sortOfAgreeRQ_of_zip`), not the fifteen-hypothesis shells — the
+  discharge tier already reduced both public claims to one obligation
+  each.

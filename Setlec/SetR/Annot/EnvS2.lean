@@ -1,5 +1,6 @@
 import Setlec.SetR.Annot.Spine2
 import Setlec.SetR.Annot.Pass
+import Setlec.SetR.Annot.Canon
 import Setlec.SetR.EnvS
 
 /-!
@@ -13,13 +14,40 @@ interp2-side fields.  When the twelve stand over `interp2` the
 collapse fields retire and the survivors inline — the containment is
 the migration's scaffolding, not its end state.
 
-Core fields this seal: the **annotation clauses as fields** (the tier-C
+Core fields: the **annotation clauses as fields** (the tier-C
 carried-obligations ledger's two `CvalAnnot` clauses, now supplied by
-the environment rather than hypothesized), the interp2 truthfulness of
-justified valuation annotations, and the interp2 membership fact
-(`mem_type2`) in the conditional-on-type-annotation form.  The
+the environment rather than hypothesized), the canonical annotated
+valuation `acval` with its erasure link, the interp2 truthfulness of
+its leaves, and the interp2 membership fact (`mem_type2`).  The
 recursor law (`RecRulesV2`) is deliberately **absent**: it is stated
 by its supplier when the bottoms migrate (the T5 rule).
+
+## The currency amendment (the consumer seal's finding)
+
+`annot_ok2`/`mem_type2` were first stated over the `Annotates`
+*relation*, because this module landed at migration step 1 — before R1
+took canonical annotations.  **They could not serve `denote2`, and the
+obstruction is structural, not a missing lemma**: `Annotates` has no
+structural `letE` clause (only `zeta`, so it annotates the ζ-reduct),
+while `denote2`'s `letE` clause *is* structural and `denote` is
+structural there too (`Setlec/Verify/Denote.lean`).  So for any subject
+carrying a `let`, a `denote2` output is **not** an `Annotates`
+annotation of the same term, and no bridging theorem between the two
+can exist as they are stated.
+
+The seam was invisible because it is vacuous on *this* side — stored
+terms carry no `letE` today (the checker zeta-expands at annotation
+time) — and bites only on **subject** terms, which is exactly what
+`Claims2` quantifies over.  Hence the amendment: the two fields are
+restated in the `denote2` currency (`acval_ok2`, `mem_type2`), where
+coherence is the determinism of a function and a stored leaf has
+exactly one annotation.  `cval_annot` stays as it is: it closes a
+*named ledger obligation* about the relation and is not in the seam.
+
+*Rule: when a resolution changes the currency of a tier, the fields
+that were stated in the old one are not merely stale — check whether
+the two currencies can still denote the same object at all before
+assuming a bridge exists.*
 
 Alongside: `CtxAnn`/`Sat2` — the annotated context and its
 satisfaction, the context currency of the graded soundness in either
@@ -103,31 +131,38 @@ structure EnvS2 (env : Env) where
   question in the direction it named) -/
   cval_annot : ∀ (μ : CheckMode) (φ : Name → Nat),
     CvalAnnot μ env base.cval φ
-  /-- every justified annotation of a stored valuation is truthful
-  over `interp2` — `annot_okV`'s successor -/
-  annot_ok2 : ∀ (μ : CheckMode) (φ : Name → Nat) (Δ : List VExpr)
-    (n : Name) (ψ : Name → Nat) (ea : AVExpr),
-    Annotates μ env base.cval φ Δ (base.cval n ψ) ea →
-    ∀ ρ : Nat → V, AnnotOk2 V ρ ea
-  /-- every stored constant inhabits its denoted type over `interp2`,
-  through any justified annotations of the value and the type —
-  `mem_type`'s successor, conditional on the type-side annotation
-  (vacuous where none exists, exact where the consumer holds one) -/
-  mem_type2 : ∀ (μ : CheckMode) (φ : Name → Nat),
-    ∀ c ∈ env.consts, ∀ t,
-    denoteClosed base.cval env φ c.toConstantVal.type = some t →
-    ∀ (Δ : List VExpr) (ea ta : AVExpr),
-    Annotates μ env base.cval φ Δ (base.cval c.name φ) ea →
-    Annotates μ env base.cval φ Δ t ta →
-    ∀ ρ : Nat → V, interp2 V ρ ea ∈ˢ interp2 V ρ ta
+  /-- **the canonical annotated valuation** — the annotated leaf each
+  stored constant contributes to `denote2`.  An install-fixed object,
+  which is what makes annotation coherence the *determinism of a
+  function* rather than a relational invariant (R1, WALL 3's
+  resolution) -/
+  acval : Name → (Name → Nat) → AVExpr
+  /-- `acval` erases to the collapse-lane valuation: `denote2_erase`'s
+  hypothesis, i.e. exactly what makes a canonical annotation an
+  annotation *of* the denotation -/
+  acval_erase : ∀ (n : Name) (ψ : Name → Nat),
+    (acval n ψ).erase = base.cval n ψ
+  /-- every canonical valuation leaf is truthful over `interp2` —
+  `annot_okV`'s successor.  Quantifying over `Annotates` (this field's
+  shape before this seal) collapses here: in the `denote2` currency a
+  stored leaf has exactly *one* annotation, namely `acval n ψ` -/
+  acval_ok2 : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
+    AnnotOk2 V ρ (acval n ψ)
+  /-- every stored constant inhabits its canonically-annotated type
+  over `interp2` — `mem_type`'s successor in the `denote2` currency -/
+  mem_type2 : ∀ (μ : CheckMode) (φ : Name → Nat) (fuel : Nat),
+    ∀ c ∈ env.consts, ∀ ta : AVExpr,
+    denote2 μ acval env φ fuel 0 c.toConstantVal.type = some ta →
+    ∀ ρ : Nat → V, interp2 V ρ (acval c.name φ) ∈ˢ interp2 V ρ ta
 
 namespace EnvS2
 
 /-- The empty environment's invariant: the empty `cval` is the bare
 `.const .empty [0]` leaf at every name — it annotates by
-`Annotates.const`, every annotation of it *is* that constructor
-(syntax-directed inversion), truthfulness is the constant clause's
-`True`, and the membership field is vacuous over `env.consts = []`. -/
+`Annotates.const`, its canonical annotation is the same constructor one
+level up (so `acval_erase` is `rfl`), truthfulness is the constant
+clause's `True`, and the membership field is vacuous over
+`env.consts = []`. -/
 noncomputable def empty : EnvS2 V Env.empty where
   base := EnvS.empty V
   cval_annot := by
@@ -135,12 +170,11 @@ noncomputable def empty : EnvS2 V Env.empty where
     refine ⟨fun n ψ Δ => ⟨.const .empty [0], .const⟩, ?_⟩
     intro n ψ Δ T _ hlam _
     exact absurd hlam (by simp [EnvS.empty, emptyT, VExpr.isLam])
-  annot_ok2 := by
-    intro μ φ Δ n ψ ea h ρ
-    cases h
-    simp
+  acval := fun _ _ => .const .empty [0]
+  acval_erase := fun _ _ => rfl
+  acval_ok2 := fun _ _ _ => by simp
   mem_type2 := by
-    intro μ φ c hc
+    intro μ φ fuel c hc
     cases hc
 
 end EnvS2

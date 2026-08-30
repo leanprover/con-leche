@@ -10,9 +10,10 @@ with the two upgrades the removal campaign stands on (the architecture
 record in `Setlec/SetR/DESIGN.md`, validated by `Interp2/Pilot.lean`):
 
 * **the application slot carries the product kind** —
-  `∃ v A B, ⟦f⟧ ∈ piR v A B ∧ ⟦a⟧ ∈ A` — so at a provably-positive
-  kind the membership *pins* the domain (`piR_dom_unique`, no side
-  condition) and the runtime argument re-check becomes derivable;
+  `∃ v A B, ⟦f⟧ ∈ piR v A B ∧ ⟦a⟧ ∈ A ∧ (v = 0 → fibres are truth
+  values)` — so at a provably-positive kind the membership *pins* the
+  domain (`piR_dom_unique`, no side condition) and the runtime argument
+  re-check becomes derivable;
 * **the λ clause carries the fibre package at the node's own
   annotation** — `∃ B, (∀ x ∈ ⟦A⟧, ⟦b⟧ ∈ B x) ∧ (v = 0 → fibres are
   truth values)` — the semantic content of `Annotates.lam`'s cached
@@ -27,6 +28,39 @@ The substitution metatheory is the `AnnotOkV` pair, verbatim modulo
 `interp → interp2` and the two extra clause components (which only
 mention `interp2` of the clause's own subterms, so they ride the same
 rewrites).
+
+## The app clause's kind-`0` amendment (the consumer seal)
+
+The app slot first landed **without** its kind-`0` fibre component,
+while the λ clause carried the identically-shaped one.  The asymmetry
+was a gap, not a saving: `app_mem_piR` (`Interp2/Ops.lean`) needs
+exactly `v = 0 → ∀ x ∈ˢ A, B x ∈ˢ univZero` to conclude
+`app ⟦f⟧ ⟦a⟧ ∈ˢ B ⟦a⟧`, the slot's `B` is existentially bound so no
+handle on it survives extraction, and the truth-value route does not
+substitute: an inhabited `piR 0 A B` gives only that `B ⟦a⟧` is
+*inhabited*, never that its inhabitant is `pt` (finding B5's wall, in
+the membership formulation).  So at kind `0` the app case could not
+close from the invariant at all.
+
+`graded_beta_pos` and `AnnotOk2_beta_pos` never saw it because they
+require positivity, and `AnnotOk2_beta_zero` takes the missing fact as
+an explicit `hmem` — which is why the gap survived three consumers.
+
+**Established, not assumed**: `appSlot_of_pi` / `AnnotOk2_app_of`
+below build the slot — new component included — from the *annotated*
+`Π`'s own codomain sort fact, whose supplier is `HasSort.mem_univ`
+(`Annot/Kinding.lean`) at the `Π`'s numeral, the same route the λ
+clause's component already takes.  The two binder clauses are
+symmetric again.
+
+**Consumers of the strengthened clause**, all re-proved at this seal:
+`AnnotOk2_liftN` / `AnnotOk2_inst` (the component mentions only the
+∃-bound `v`, `A`, `B`, so it is invariant under the environment change
+and rides the existing rewrites); `AnnotOk2_beta_pos` and
+`AnnotOk2_beta_zero` (destructuring only); and, in `Annot/Spine2.lean`,
+`SlotChain` — strengthened in step so `AnnotOk2_spine_slots` still
+reads the slot off unchanged, with `slotChain_fits` carrying and
+dropping the new component (it uses positivity only).
 -/
 
 namespace Setlec.SetR.Interp2
@@ -53,7 +87,8 @@ def AnnotOk2 : (Nat → V) → AVExpr → Prop
   | ρ, .app f a =>
     AnnotOk2 ρ f ∧ AnnotOk2 ρ a ∧
     ∃ (v : Nat) (A : V) (B : V → V),
-      interp2 V ρ f ∈ˢ piR v A B ∧ interp2 V ρ a ∈ˢ A
+      interp2 V ρ f ∈ˢ piR v A B ∧ interp2 V ρ a ∈ˢ A ∧
+      (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))
   | ρ, .letE T v b =>
     AnnotOk2 ρ T ∧ AnnotOk2 ρ v ∧
     AnnotOk2 (cons (interp2 V ρ v) ρ) b
@@ -96,7 +131,8 @@ theorem AnnotOk2_app (ρ : Nat → V) (f a : AVExpr) :
     AnnotOk2 V ρ (.app f a) =
       (AnnotOk2 V ρ f ∧ AnnotOk2 V ρ a ∧
         ∃ (v : Nat) (A : V) (B : V → V),
-          interp2 V ρ f ∈ˢ piR v A B ∧ interp2 V ρ a ∈ˢ A) := by
+          interp2 V ρ f ∈ˢ piR v A B ∧ interp2 V ρ a ∈ˢ A ∧
+          (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))) := by
   rw [AnnotOk2]
 theorem AnnotOk2_letE (ρ : Nat → V) (T v b : AVExpr) :
     AnnotOk2 V ρ (.letE T v b) =
@@ -248,7 +284,7 @@ theorem AnnotOk2_beta_pos {v : Nat} (hv : v ≠ 0) {A b a : AVExpr}
     interp2 V ρ (.app (.lam v A b) a) = interp2 V ρ (b.inst a) ∧
     AnnotOk2 V ρ (b.inst a) := by
   rw [AnnotOk2_app] at h
-  obtain ⟨hlam, ha, v', A', B', hslot, hmem⟩ := h
+  obtain ⟨hlam, ha, v', A', B', hslot, hmem, -⟩ := h
   rw [AnnotOk2_lam] at hlam
   obtain ⟨-, hbody, B, hfib, -⟩ := hlam
   -- the slot's product is in the graph regime: the λ is not `pt`
@@ -300,5 +336,47 @@ theorem AnnotOk2_beta_zero {A b a : AVExpr} {ρ : Nat → V}
   refine ⟨?_, (AnnotOk2_inst0 V ha).mpr (hbody _ hmem)⟩
   rw [interp2_app, interp2_lam, lamR_zero, app_pt, interp2_inst0]
   exact (eq_pt_of_mem_univZero (hz rfl _ hmem) (hfib _ hmem)).symm
+
+/-! ## The app slot's establishment
+
+The clause's kind-`0` fibre component (added at the consumer seal —
+see the module docstring) is not a wish: it is exactly what an
+*annotated* `Π` hands over at the application site.  Stated at the
+value level in `Interp2/Pilot.lean`'s style, so the supplier is a
+theorem before the clause that consumes it is relied on. -/
+
+/-- **The app slot, established from the function type's own
+annotation.**  Given the function in an annotated `Π`'s
+interpretation, the argument in its domain, and the `Π`'s *codomain
+sort fact at kind `0`*, the slot follows — new component included.
+
+The codomain premise's supplier is `HasSort.mem_univ`
+(`Setlec/SetR/Annot/Kinding.lean`) at the `Π`'s own numeral `v`,
+which is the same route `Annotates.lam`'s cached `HasSortC` takes for
+the λ clause's identically-shaped component.  So the two binder
+clauses are symmetric, which is what the amendment restores. -/
+theorem appSlot_of_pi {u v : Nat} {ρ : Nat → V} {f a Aa Ba : AVExpr}
+    (hf : interp2 V ρ f ∈ˢ interp2 V ρ (.pi u v Aa Ba))
+    (ha : interp2 V ρ a ∈ˢ interp2 V ρ Aa)
+    (hcod : v = 0 → ∀ x, x ∈ˢ interp2 V ρ Aa →
+      interp2 V (cons x ρ) Ba ∈ˢ (univZero : V)) :
+    ∃ (v' : Nat) (A : V) (B : V → V),
+      interp2 V ρ f ∈ˢ piR v' A B ∧ interp2 V ρ a ∈ˢ A ∧
+      (v' = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) := by
+  rw [interp2_pi] at hf
+  exact ⟨v, interp2 V ρ Aa, fun x => interp2 V (cons x ρ) Ba,
+    hf, ha, hcod⟩
+
+/-- The full app-clause establishment: the hereditary halves plus the
+slot.  This is the shape `Claims2`'s `app` case will discharge. -/
+theorem AnnotOk2_app_of {u v : Nat} {ρ : Nat → V} {f a Aa Ba : AVExpr}
+    (hokf : AnnotOk2 V ρ f) (hoka : AnnotOk2 V ρ a)
+    (hf : interp2 V ρ f ∈ˢ interp2 V ρ (.pi u v Aa Ba))
+    (ha : interp2 V ρ a ∈ˢ interp2 V ρ Aa)
+    (hcod : v = 0 → ∀ x, x ∈ˢ interp2 V ρ Aa →
+      interp2 V (cons x ρ) Ba ∈ˢ (univZero : V)) :
+    AnnotOk2 V ρ (.app f a) := by
+  rw [AnnotOk2_app]
+  exact ⟨hokf, hoka, appSlot_of_pi V hf ha hcod⟩
 
 end Setlec.SetR.Interp2
