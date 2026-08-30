@@ -15911,3 +15911,94 @@ Under production discipline the danger was asserting too much and the
 smallest-fuel rule caught it; under dual success the danger is
 asserting nothing, and the vacuity probe is the one that earns its
 keep.*
+
+### Seal 32 — generation six is a factorisation, not a localization; `Denote2Total` named the wrong side
+
+The re-discharge came back with the generation's **intended payoff
+refuted**, and the error was the junction's twice over.
+
+#### `Denote2Total` cannot discharge `.app`, and the reason is structural
+
+```
+Denote2Total := ∀ F d e t, inferTypeCore μ env F d e = .ok t →
+                  ∃ F' ea, denote2 … F' d e = some ea
+```
+
+**The conclusion is about `e`, the run's *subject*. `t` is bound and
+does not occur in it.** All three annotations `.app` consumes are on
+the other side: `tf` (the *result* of `infer f`), the `whnf` reduct's
+`.pi`, and `tya` (the *result* of `infer a`). Seal 30 said `.app`
+"holds `inferTypeCore … = .ok tf` and the `whnf` run" — true, and
+irrelevant: **holding a run yields the subject's annotation, and every
+term `.app` needs is a run's output.** At `.app` the subject's
+annotation is already a premise of `InferClaims2E`, so the supplier
+adds nothing at all there.
+
+**And the count was wrong too.** `.app` needs **three** annotations,
+not the two seal 30 named — the argument's inferred type is a third,
+consumed by the defeq claim. `Denote2Total` supplies **zero** of them.
+
+* **Two of the three are a one-word repair**, `e ↦ t`: landed as
+  `Denote2TotalR`, with `inferExists2E_of_totalR` proving it discharges
+  the inference existence factor outright.
+* **The third is not repairable by any run-conditioned law.** The `.pi`
+  annotation needs `sortOfE` at the ∀'s domain *and* its opened body;
+  `inferBody`'s `.app` branch (`Kernel/Core.lean:1621-1633`) runs
+  `infer f`, `whnf tf`, `infer a`, `defeq` and **no sort computation on
+  either**, and the ∀ is the subject of no later run. *There is nothing
+  to condition on.* It can come only from a reduction-preservation
+  fact — which today exists only inside generation five's own
+  induction.
+
+#### What generation six actually is
+
+Mechanized both directions, at all four claims (`Interp2/Dual2E.lean`):
+
+```
+Claims2D  ⟺  Claims2E  ∧  Exists2E
+```
+
+**A factorisation, not a localization.** Agreement goes to the `…2E`
+claims; existence goes to three named factors (`WhnfCoreExists2E`,
+`WhnfExists2E`, `InferExists2E`) — **which are still discharged only by
+generation five's induction, carrying the same predictions
+internally.** So seal 29's stated goal, *existence localized to where
+runs are given*, did **not** happen. Any consumer needing to know a
+reduct annotates is exactly where it started.
+
+**What did survive is real and worth keeping:** the `…2E` claims are
+genuinely free of the fuel-sensitive `sortOfE` prediction seal 28
+refuted, and that is what makes them transportable across level
+substitution. The capstone lands on **exactly generation five's fifteen
+residues — none added, none retired.**
+
+#### Three findings from the discharge
+
+* **The free claim is not the free quarter.** `DefEqClaims2E` was free
+  as predicted (a fuel split at `F' := F`, six lines). The *quarter*
+  was not: `defeqStep_claim2D` consumes `ihwc : WhnfCoreClaims2D`, so
+  `defEqStep2E_of` still needs `WhnfCoreExists2E`.
+* **`checkStep2E_of_quarters` does not use `CheckStep2E`'s own four
+  hypotheses at all** — it routes through `checkSound2D`. That is a
+  smell the routed variant exists to answer, and it is recorded rather
+  than hidden.
+* **No clause closed vacuously**, checked: every `…2E` claim is proved
+  *from* its `…2D` counterpart, so it inherits that content wherever it
+  holds. The vacuity risk this generation introduced did not
+  materialize.
+
+#### `Denote2Total`'s own status, and a collision with seal 10
+
+Not proved and not refuted; the attempt stopped when `.app` priced
+negative. But its provability is doubtful for an independent reason:
+it needs `lamSortE` defined at every λ node, and the checker computes
+that **only under `mode.verified`, and only at the innermost binder of
+a λ chain** (task #152). **Seal 10 withdrew `μ.verified` from the
+claims to recover the `.noModel` lane** — so a supplier that needs it
+would reintroduce exactly what that seal removed. Flagged, not
+resolved.
+
+*Rule: when a supplier is priced against a consumer, check which side
+of the run each needed object sits on. "The consumer holds the run" is
+not the same as "the consumer holds the annotation", and the
+difference is invisible until the clause is written out.*
