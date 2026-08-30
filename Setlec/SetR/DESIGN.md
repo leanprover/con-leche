@@ -17269,3 +17269,65 @@ is supplied from a real binder at `valueFrontR_of`, and is not
 `rfl`-provable. The D6 flag stands as an honest note that no discharge
 has exercised its quantifiers yet — *which is a smaller claim than
 "unconsumed field", and the two must not be conflated.*
+
+### Seal 51 — the milestone: the keys bundled, and all fourteen swaps stated
+
+Build green at **345 jobs**, `lake test` 133/133, battery **90/92**
+with e2e 72/72 and the no-model sweep unchanged.
+
+**v1's fourteen are byte-identical** — `git diff` on `Main.lean` is
+**empty**, verified at the junction, and every one of them still
+verifies on exactly the three standard axioms. The swaps read
+`EnvS2U.base`; they never re-prove.
+
+**Item 1 — `Interp2/Keys2Bundle.lean`.** `installKeys2_of_residues`
+concludes `ReducePin2 ∧ MemberBlock2 ∧ DeclStep2` from **one**
+structure whose every field carries provenance and a discharge date:
+`CheckStep2E` shared, then 7 + 5 + 9 per-key residues.
+**Mode-generic** — no `μ.verified` anywhere.
+
+**Item 2 — `Main2.lean`. All fourteen go**, including the four
+`_input_` forms via new `foldlM_no_Empty_R2/RC2/RS2` and a re-run SP
+induction. Five carry a **stronger carrier** than their v1 twins.
+
+#### The honest reading, which the theorem count would otherwise obscure
+
+The worker flagged this rather than letting fourteen green theorems
+speak for themselves, and it is the part that matters:
+
+**`CheckStep2E`, `EnvExtendStable`, `Denote2EnvExtend` and
+`DeclStep2All` are all uninhabited, so no item-2 statement is usable
+today.** `EnvExtendStable` in particular has **no supplier anywhere in
+the tree** — grep-confirmed. That is exactly what seal 39's
+*"conditional now, unconditional at junction closure"* looks like
+written down.
+
+What **is** inhabited, from real runs: `ConstantValR`
+(`constantValR_of`, a conjunct of four of `DeclR`'s six kinds),
+`ReduceOpFits2`, `EnvS2UOk V Env.empty`, and the syntactic fields.
+**The fold's base case is inhabited for real**, so it does not start
+vacuous.
+
+**Three stalls recorded rather than smoothed:**
+
+1. **Item 2's condition is not literally item 1's hypothesis set, and
+   could not be.** Item 1's `MemberBlock2` lands at a constant already
+   in the *prefix*; `declStep2_of_axiom` needs it at the **new** name
+   in the extension — which needs the `EnvS2U` the step is building.
+   So `DeclStep2All` is a **separate named residue**, with its
+   docstring recording that item 1 closes three of the five inputs
+   v1's dispatch consumes (`DeclBasisS`/`DeclIndS` have no interp2
+   counterpart at all; `DivModPinS` only a draft). *Calling item 2
+   "conditional on item 1" would have been the loose statement.*
+2. **`no_constant_of_Empty_R2` has no interp2-side proof** — there is
+   no `empty_pinned` counterpart at the annotated tier, so the Empty
+   content is the collapse lane's, read off `base`. Stated as such.
+3. **The eight `no_proof_of_Empty*_R2` conclude `False`, which v1
+   proves *unconditionally*.** Their content is **the route, not the
+   fact**, and the file says so.
+
+*Rule: when a milestone is a statement rather than a proof, the
+inhabitation table is the deliverable and the theorem count is
+decoration. Fourteen conditional theorems over four uninhabited
+residues is a map of the remaining work, and saying so is what keeps
+it one.*
