@@ -1,4 +1,13 @@
-import Setlec.SetR.Interp2.EnvS2Refute
+import Setlec.SetR.Interp2.Claims2A
+
+/-
+`Claims2A`, not `EnvS2Refute`: the refutation file imports
+`Step2.Whnf`, and the head-normalisation quarter must be able to *name*
+`WhnfCoreStep2B`/`WhnfClaims2B` from inside the file that proves them.
+`EnvS2Refute` is referenced below only in prose.  (Found by the whnf
+quarter, which was blocked by the cycle; the file is otherwise
+unchanged.)
+-/
 
 /-!
 # `Claims2`, corrected — R1 and R3 unified (migration step 3, seal 7)

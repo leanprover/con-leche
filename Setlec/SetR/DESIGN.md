@@ -13818,3 +13818,53 @@ This is also the first time in the arc that a campaign's central
 obligation was tested against its supplier *before* the campaign
 opened rather than at its end.  That is the cheap version of the
 lesson STOP 2 taught expensively.
+
+### The fuel-slack law, sharpened by the head-normalisation quarter
+
+The rule STOP 2 recorded — *"…false unless `e` is a leaf"* — is
+correct but coarse.  The whnf quarter supplied the exact version, and
+it is checkable directly against `Annot/Canon.lean`:
+
+> **`denote2` consumes fuel at `.forallE` and `.lam` nodes and nowhere
+> else.**  Those two clauses call `sortOfE`/`lamSortE`; every other
+> clause is either a leaf or a structural recursion at the same fuel.
+
+Hence the precise law:
+
+> A reduct needs `F' > F` **iff it contains a binder node the
+> subject's annotation did not already pay for.**
+
+That is strictly more informative than the leaf formulation — it says
+*where* the cost is, so a clause can be classified by inspection
+instead of by attempting the proof.  The quarter's classification:
+
+| exit | slack | note |
+|---|---|---|
+| the six leaves, `.bvar`, stuck exits | none | no binder node in the reduct |
+| **literal acceleration** | **none** | `reduceNat`'s reducts are closed on leaves by construction — fuel-free verbatim |
+| delta | `∃ F' ≥ F` | **`Delta2` as stated is refuted** — λ-bodied stored definition, same witness family as `acvalDefnUniform_lam_refuted` |
+| `.proj` | `∃ F' ≥ F` | refuted by any structure with a function field — every bundled class |
+| iota | `∃ F' ≥ F` | premise reachable, no witness built |
+| β / ζ (`Denote2Inst1`) | `∃ F' ≥ F` | structurally must need it; no refutation built, and said so rather than implying one |
+
+**The statement needed no further change.**  `∃ F', F ≤ F' ∧ …`
+already admits `F' = F`, so the fuel-preserving exits discharge it
+without slack and the others use it.  Recording this explicitly
+because the temptation was to add a second, tighter claim shape for
+the fuel-preserving clauses; that would have bought nothing and split
+the family.
+
+Three composition facts, confirmed against the corrected claims:
+
+* chaining reductions is `le_trans` and nothing else;
+* `denote2_fuelMono` returns **the same `AVExpr`**, so the grading (R2)
+  and the slack (R1/R3) do not interact — raising a fuel cannot
+  invalidate an `AnnotOk2` already in hand;
+* `DefEqClaims2A` staying ungraded *and* same-fuel is right **from the
+  consumer's side too**, not only because it is what was proved.
+
+And the answer to the question the amendment most needed: **no clause
+requires any fixed relation between the run's fuel and the annotation
+fuel.**  The two are independent throughout, `F ≤ F'` is exact, and
+the slack never points downward.  That is what makes `Claims2B` a
+statement rather than a guess.
