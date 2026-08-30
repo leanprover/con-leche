@@ -12511,3 +12511,72 @@ but the bare-tower facts are `ConstOk.lean`'s (v1) and have no interp2
 analogue.  So entry item 2 is "port `ConstOk.lean` (267 lines) onto
 `piR`", not "invent an argument": sized, and with every case's target
 already written down here.
+
+### Migration step 2, entry item 2 — the capstone port, thirteen of eighteen
+
+`Setlec/SetR/Interp2/BasisOk.lean`: `ConstOk.lean`'s per-constant
+memberships ported onto `piR`/`lamR` and `BConst.type2`.  **Thirteen
+cases land; five resist, each for a different and nameable reason.**
+
+Landed: `nat`, `natZero`, `natSucc`, `natRec`, `punit`, `punitUnit`,
+`punitRec`, `empty`, `emptyRec`, `psigma`, `quot`, `quotMk`, `choice`.
+
+**The port pattern held exactly as probed** — `show` the value at its
+tower, `simp only` with `type2` + the smart constructors + the
+`interp2` clause equations (which reduces the type to the tower's own
+space, the payoff of having read the numeral convention off
+`Value.lean` rather than choosing one), then `lamR_mem` down the
+binders.  Three cases were *cheaper* than v1: `lamR_mem` carries no
+universe side condition where `lamC_mem` needed `app_mem`'s codomain
+premise, and `Empty.rec` is a **graph** here rather than `pt`
+(`emptyRecV2 = lamR v … (lamR v ∅ …)`), so its case is two `lamR_mem`s
+over a vacuous domain instead of v1's `pt_mem_piC_iff` argument.
+
+**Two frictions worth reusing.**  `Nat.succ`'s wrinkle transposes
+verbatim — `type2`'s step premise mentions the *value* `natSuccV2`
+while `natStepSpace2` is written with the operator `natsucc`, and they
+agree on `ω`, which is v1's `natStepSpace_eq` restated
+(`natStepSpace2_eq`); it is needed under two binders, so the natRec
+case goes through an explicit `interp2_type_natRec` equation built
+with `piR_congr`, exactly as v1 built its `interp_type_natRec` with
+`congr 1`/`funext`.  And a singleton level list needs normalising:
+`quotT2 u` emits `.const .quot [u]`, whose `bval2` is
+`quotV2 (lv [u] 0)`, so `lv` and `List.getD_cons_zero` join the simp
+set or the rewrite misses.
+
+**FINDING — `psigmaMk` resists, and the reason is a value-level
+decision made two seals ago.**  v1's proof is four `lamC_mem`s then a
+split on `max u v = 0`, and it works because `psigmaMkV`'s *body*
+carries an explicit `if max u v = 0 then pt else spair a b` tag.
+`psigmaMkV2` deliberately dropped that tag — "the annotation already
+squashes the whole tower at `0`" — so the innermost `lamR_mem`
+obligation becomes `spair a b ∈ˢ sigmaSet 0 A B'`, which is **false**
+(`spair a b ≠ pt`, and a kind-`0` `sigmaSet` is a truth value).
+
+The statement is still true: at `max u v = 0` the whole tower *is*
+`pt`, and the truth-value chain is inhabited — over an empty `A` the
+`piR 0 A …` layer is vacuous, and over an inhabited one `pt_mem_sigma`
+supplies the witness.  But the argument has to be a **top-level case
+split with a direct `piR_zero`/`truthVal` chain**, not `lamR_mem`.
+
+*Rule: dropping a value-level regime tag does not remove the kind-`0`
+argument, it MOVES it — from the leaf, where a pointwise lemma
+discharges it, to the root, where the whole tower's inhabitation has
+to be exhibited.  The saving is real (the definition is smaller) and
+the cost is real (the proof is no longer pointwise); price both when
+the tag goes.*
+
+**The remaining four, with what each needs:**
+
+* `quotLift` — six binders; mechanical but long, wants `quotLiftR_mem`
+  plus the invariance premise unpacked by `quotInv_of_mem2`;
+* `quotInd`, `quotSound`, `propext` — the `pt`-valued propositions (the
+  flagged hard tail): each needs its proposition shown **inhabited**,
+  not merely typed, so the `piR 0` truth-value form replaces v1's
+  `pt_mem_piC_iff` chains.
+
+No STOP: every one of the five has a supplier in hand, and the two
+shapes needed (`psigmaMk`'s root-level split, the tail's inhabitation
+chains) are both writable against `piR_zero` as it stands.  The
+capstone `bval2_mem_type` itself waits on all eighteen, so the `const`
+row stays deferred until they land.
