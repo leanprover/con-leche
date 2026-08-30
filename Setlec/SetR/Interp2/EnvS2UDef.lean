@@ -960,4 +960,123 @@ def Denote2BodiesStep (μ : CheckMode) (env : Env)
       ∃ (F : Nat) (ra : AVExpr),
         denote2 μ acval ⟨c₀ :: env.consts⟩ φ F 0 value = some ra
 
+/-! ## The supplier check, run — and the verdict is NOT VISIBLE
+
+Seal 45 froze `Denote2BodiesStep` with a standing instruction: run the
+pre-build supplier check first, and *if the front-door run's existence
+is not visible where `DeclStep2` can see it, that is an exposure
+request rather than a rebuild*.  The check was run against the actual
+install path, and the answer is **not visible**.  Nothing below is
+proved here, by that instruction.
+
+### The fact is true, and it is held three times over
+
+The claim behind the relocation holds exactly as seal 44 stated it.
+`checkDefnVal` (`Setlec/Kernel/Checker.lean:361`) annotates the value
+and then runs
+
+```
+let vtype ← ops.inferType env 0 value
+```
+
+on the **annotated** value — which is the term that gets stored — at
+the **pre-install** environment.  `checkThmVal` and `checkOpaqueVal`
+run the same line.  So every stored body really is a term the front
+door inferred a type for, and `Denote2BodyOfRun`'s premise is met at
+the install for the one new declaration.
+
+The bridge holds it in a named binder: `valueFrontR_of`
+(`Setlec/SetR/Bridge/Decl.lean:134`) takes
+
+```
+(hvt : inferTypeCore μ env F 0 value' = .ok vtype)
+```
+
+as an explicit hypothesis.  Its type-side twin `constantValR_of`
+(`:97`) takes the whole `checkConstantVal` run and obtains `hst`
+(`inferTypeCore` on the annotated type) and `hsort` (`ensureSort` on
+its output) from `checkConstantVal_inv`.
+
+### …and it is dropped at exactly one place
+
+`ValueFrontR` (`Setlec/SetR/Decl.lean:152`) records **five syntactic
+conjuncts and one relational front door**, and no run:
+`annotateCore μ env F 0 value = .ok value'` is the only checker call
+in it.  `ConstantValR` (`:132`) is the same shape.  `hvt`, `hst` and
+`hsort` are consumed into the `Infer`/`DefEq` conjunct and never
+re-emitted.
+
+Downstream the fact is simply absent.  `extendValueS`
+(`Setlec/SetR/Install/Value.lean:91`) consumes `ValueFrontR` through
+`valueKeyS`; `EnvS.cons` (`Setlec/SetR/Install/Cons.lean:454`) states
+every one of its obligations in `denote`/`interp` vocabulary.  A grep
+for `inferTypeCore` across `Decl.lean` and all of `Install/` returns
+**nothing**.
+
+**And `annotateCore` is not a substitute.**  Since task #100 stage 6,
+`annotateBody`'s `forallE` and `lam` clauses are purely structural
+(`Setlec/Kernel/Core.lean:2097-2107`) — they compute no sort and run
+no `infer`.  So the one run `ValueFrontR` *does* expose says nothing
+about the binder sorts `denote2` needs, and restating
+`Denote2BodyOfRun` over `annotateCore` would trade a true premise for
+a useless one.
+
+### The exposure request
+
+**Held by:** `valueFrontR_of`'s binder `hvt`
+(`Setlec/SetR/Bridge/Decl.lean:144`) and, on the type side,
+`checkConstantVal_inv`'s `hst`/`hsort` at `constantValR_of`.
+
+**Conjunct that would expose it**, added to `ValueFrontR`
+(`Setlec/SetR/Decl.lean:152`):
+
+```
+(∃ vtype, inferTypeCore μ env F 0 value' = .ok vtype) ∧
+```
+
+supplied at `valueFrontR_of` by `⟨vtype, hvt⟩` — the binder is already
+in scope, so the producer side is a pair, not a proof.  The type-side
+twin, wanted by `memberBlock2_of_stored`'s `hrun` for the *same*
+reason, is added to `ConstantValR` (`:132`):
+
+```
+(∃ stype u, inferTypeCore μ env F 0 type' = .ok stype ∧
+  ensureSortCore μ env F 0 stype = .ok u) ∧
+```
+
+Both are pure strengthenings of a pack; the cost is that every
+positional destructuring of the two relations moves
+(`Install/Value.lean:55`, `:74`, four sites in `DivModPin.lean`, and
+the per-kind assemblies in `Bridge/Decl.lean`).  Neither file is this
+worker's to edit.
+
+### Two things the exposure would still not close
+
+Recorded against interest, because a request that undersells its own
+remainder is the failure mode this campaign keeps catching.
+
+1. **`Denote2BodiesStep` is unprovable as stated, exposure or not.**
+   Its only premise is `Denote2BodyOfRun` *at the prefix* `env`,
+   while its conclusion is a `denote2` success at the **extension**
+   `⟨c₀ :: env.consts⟩`.  Nothing in the statement bridges the two,
+   and `Denote2EnvExtend` — the object that would — is itself
+   undischarged (`Denote2Extend.lean`, whose
+   `denote2EnvExtend_lit_refuted` shows its literal clause is *false*
+   without a guard agreement the Θ lane has not published; the same
+   file's finding 1 shows the equation needs a direction (E) does not
+   give at all).  The docstring above
+   names both suppliers in prose; the statement takes neither as a
+   premise.  Amending it is a statement change and is not made here.
+2. **`memberBlock2_of_stored`'s `hrun` is stronger than the front
+   door.**  It demands `inferTypeCore … type = .ok (.sort u)` — the
+   inferred type *literally* a sort — whereas `checkConstantVal` only
+   `ensureSort`s the output, i.e. whnfs it to a sort.  The exposed
+   conjunct above would therefore still not apply on the nose; the
+   key would need the claim at a non-sort inferred type, where its
+   second dual-success premise stops being free.
+
+*The pattern goes four for four: the front door had the fact, the
+pack transposed it away, and the consumer three tiers down is the one
+that noticed.* -/
+
 end Setlec.SetR.Interp2
