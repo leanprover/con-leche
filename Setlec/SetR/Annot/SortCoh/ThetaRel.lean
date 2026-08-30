@@ -1741,6 +1741,129 @@ decreasing_by
   all_goals try omega
 end
 
+/-! ### The E3 trace over the data telescope (the run tier's
+mirror: only the entry `SubjInv` fields are consumed, so the
+`TelescopeOk` version ports directly). -/
+
+theorem thetaRelD_trace₁ {env : Env} (henv : EnvWF env) {T : Nat} :
+    ∀ {Γ : List ThetaEntry} {d G : Nat} {X Y : Expr},
+      TelescopeRelD μ env T d Γ →
+      RawReach μ env (d + Γ.length) G X Y →
+      X.looseBVarsBounded 0 = true →
+      Expr.WScoped (d + Γ.length) X →
+      RawReach μ env d G (thetaSubst₁ d Γ X) (thetaSubst₁ d Γ Y)
+  | [], d, G, X, Y => fun _ h _ _ => h
+  | t :: Γ', d, G, X, Y => fun hΓ h hb hw => by
+    cases hΓ with
+    | cons hz hd hI₁ hI₂ hp hΓ' =>
+    have heq : (d + 1) + Γ'.length = d + (t :: Γ').length := by
+      simp [List.length_cons]
+      omega
+    have h' : RawReach μ env ((d + 1) + Γ'.length) G X Y := by
+      rw [heq]
+      exact h
+    have hw' : Expr.WScoped ((d + 1) + Γ'.length) X := by
+      rw [heq]
+      exact hw
+    have hin := thetaRelD_trace₁ henv hΓ' h' hb hw'
+    show RawReach μ env d G
+      (substAK d 0 t.a₁ (thetaSubst₁ (d + 1) Γ' X))
+      (substAK d 0 t.a₁ (thetaSubst₁ (d + 1) Γ' Y))
+    refine RawReach.image henv hin hI₁.2.1 hI₁.1 ?_ ?_
+    · exact thetaRel_bounded₁ hΓ' hb
+    · exact thetaRel_WScoped₁ hΓ' hw'
+
+/-- RIGHT-side version. -/
+theorem thetaRelD_trace₂ {env : Env} (henv : EnvWF env) {T : Nat} :
+    ∀ {Γ : List ThetaEntry} {d G : Nat} {X Y : Expr},
+      TelescopeRelD μ env T d Γ →
+      RawReach μ env (d + Γ.length) G X Y →
+      X.looseBVarsBounded 0 = true →
+      Expr.WScoped (d + Γ.length) X →
+      RawReach μ env d G (thetaSubst₂ d Γ X) (thetaSubst₂ d Γ Y)
+  | [], d, G, X, Y => fun _ h _ _ => h
+  | t :: Γ', d, G, X, Y => fun hΓ h hb hw => by
+    cases hΓ with
+    | cons hz hd hI₁ hI₂ hp hΓ' =>
+    have heq : (d + 1) + Γ'.length = d + (t :: Γ').length := by
+      simp [List.length_cons]
+      omega
+    have h' : RawReach μ env ((d + 1) + Γ'.length) G X Y := by
+      rw [heq]
+      exact h
+    have hw' : Expr.WScoped ((d + 1) + Γ'.length) X := by
+      rw [heq]
+      exact hw
+    have hin := thetaRelD_trace₂ henv hΓ' h' hb hw'
+    show RawReach μ env d G
+      (substAK d 0 t.a₂ (thetaSubst₂ (d + 1) Γ' X))
+      (substAK d 0 t.a₂ (thetaSubst₂ (d + 1) Γ' Y))
+    refine RawReach.image henv hin hI₂.2.1 hI₂.1 ?_ ?_
+    · exact thetaRel_bounded₂ hΓ' hb
+    · exact thetaRel_WScoped₂ hΓ' hw'
+
+/-- **The frame trace** (LEFT): a core-level trace mirrored onto
+the frame-composed subject (inner telescope, inner spine, outer
+telescope, outer spine). -/
+theorem theta_frame_trace₁ {env : Env} (henv : EnvWF env)
+    {T : Nat} {d G : Nat} {Γo Γ : List ThetaEntry}
+    (hΓo : TelescopeRelD μ env T d Γo)
+    (hT : TelescopeRelD μ env T (d + Γo.length) Γ)
+    {C C' : Expr} {sp esp : List Expr}
+    (h : RawReach μ env (d + Γo.length + Γ.length) G C C')
+    (hb : C.looseBVarsBounded 0 = true)
+    (hw : Expr.WScoped (d + Γo.length + Γ.length) C)
+    (hbs : (Setlec.Expr.mkAppN
+      (thetaSubst₁ (d + Γo.length) Γ C) sp).looseBVarsBounded 0
+        = true)
+    (hws : Expr.WScoped (d + Γo.length)
+      (Setlec.Expr.mkAppN (thetaSubst₁ (d + Γo.length) Γ C) sp)) :
+    RawReach μ env d G
+      (Setlec.Expr.mkAppN (thetaSubst₁ d Γo (Setlec.Expr.mkAppN
+        (thetaSubst₁ (d + Γo.length) Γ C) sp)) esp)
+      (Setlec.Expr.mkAppN (thetaSubst₁ d Γo (Setlec.Expr.mkAppN
+        (thetaSubst₁ (d + Γo.length) Γ C') sp)) esp) := by
+  have h1 : RawReach μ env (d + Γo.length) G
+      (thetaSubst₁ (d + Γo.length) Γ C)
+      (thetaSubst₁ (d + Γo.length) Γ C') :=
+    thetaRelD_trace₁ henv hT h hb hw
+  have h2 : RawReach μ env (d + Γo.length) G
+      (Setlec.Expr.mkAppN (thetaSubst₁ (d + Γo.length) Γ C) sp)
+      (Setlec.Expr.mkAppN (thetaSubst₁ (d + Γo.length) Γ C') sp) :=
+    RawReach.mkAppN_left sp h1
+  have h3 := thetaRelD_trace₁ henv hΓo h2 hbs hws
+  exact RawReach.mkAppN_left esp h3
+
+/-- RIGHT-side version. -/
+theorem theta_frame_trace₂ {env : Env} (henv : EnvWF env)
+    {T : Nat} {d G : Nat} {Γo Γ : List ThetaEntry}
+    (hΓo : TelescopeRelD μ env T d Γo)
+    (hT : TelescopeRelD μ env T (d + Γo.length) Γ)
+    {C C' : Expr} {sp esp : List Expr}
+    (h : RawReach μ env (d + Γo.length + Γ.length) G C C')
+    (hb : C.looseBVarsBounded 0 = true)
+    (hw : Expr.WScoped (d + Γo.length + Γ.length) C)
+    (hbs : (Setlec.Expr.mkAppN
+      (thetaSubst₂ (d + Γo.length) Γ C) sp).looseBVarsBounded 0
+        = true)
+    (hws : Expr.WScoped (d + Γo.length)
+      (Setlec.Expr.mkAppN (thetaSubst₂ (d + Γo.length) Γ C) sp)) :
+    RawReach μ env d G
+      (Setlec.Expr.mkAppN (thetaSubst₂ d Γo (Setlec.Expr.mkAppN
+        (thetaSubst₂ (d + Γo.length) Γ C) sp)) esp)
+      (Setlec.Expr.mkAppN (thetaSubst₂ d Γo (Setlec.Expr.mkAppN
+        (thetaSubst₂ (d + Γo.length) Γ C') sp)) esp) := by
+  have h1 : RawReach μ env (d + Γo.length) G
+      (thetaSubst₂ (d + Γo.length) Γ C)
+      (thetaSubst₂ (d + Γo.length) Γ C') :=
+    thetaRelD_trace₂ henv hT h hb hw
+  have h2 : RawReach μ env (d + Γo.length) G
+      (Setlec.Expr.mkAppN (thetaSubst₂ (d + Γo.length) Γ C) sp)
+      (Setlec.Expr.mkAppN (thetaSubst₂ (d + Γo.length) Γ C') sp) :=
+    RawReach.mkAppN_left sp h1
+  have h3 := thetaRelD_trace₂ henv hΓo h2 hbs hws
+  exact RawReach.mkAppN_left esp h3
+
 end Discharge
 
 end Setlec.SetR.Interp2
