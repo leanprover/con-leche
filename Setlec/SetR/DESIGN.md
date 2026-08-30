@@ -10084,3 +10084,46 @@ args + zipped major-fields, PROVIDED the major-whnf lockstep
 identical programs (refl-zips through det).  `majorToCtor` (K and
 structure-eta rescues) still unread — its lockstep map is the next
 session's first read, before the workhorse statements are frozen.
+
+### The majorToCtor lockstep read — the last unread surface, mapped
+
+Read in full before freezing (the record's rule).  Findings for the
+workhorse statements:
+
+* **K-rescue and 0-field eta fires are major-INDEPENDENT**: both
+  rescues fabricate 0-field constructors, so `margs.drop ctorParams
+  = []` and the fired output is `mkAppN (rhs[us]) (args.take rP)` —
+  the recursor's own zipped prefix only.  The hardest-looking
+  rescue cases contribute NOTHING to the output zip beyond
+  `certZip_instantiate` + the already-zipped spine.  (The rescue's
+  internal certs — proofIrrel, the fabrication defeq, iotaCerts —
+  run per side; dual-success needs no cross-side facts from them.)
+* **Field-ful eta rescue**: the fired output's fields are
+  projection-function applications TO THE MAJORS (`etaFabArgs`), so
+  the output zip needs the major zip (congruence) AND the level
+  instantiations `ust₁/ust₂` from the two `whnf (infer major)`
+  runs — for congruence-zipped majors this rides the INFER lockstep;
+  for cert-leaf majors it is the Θ seam (same family as cert heads).
+* **Asymmetric divergence is vacuous by the stuck side's own run**:
+  if one side rescues/fires and the other stays stuck, the stuck
+  side's whnfStep ends at a recursor-headed app (iotaRec none,
+  recursors never δ-unfold) — a non-sort loop output contradicting
+  its given sort run.  The lockstep need only handle symmetric
+  progress; every asymmetry exits vacuously.  (The audited
+  "given runs discipline asymmetric stages" principle, now doing
+  the rescues' work.)
+* **The INFER lockstep joins the family**: `majorToCtor` and the
+  eta fields consume `whnf (infer major)` on zipped majors, so the
+  workhorse family mirrors the knot: lockstep Props for whnfCore,
+  whnf/loop, infer (and iotaRec/majorToCtor as internal lemmas),
+  all claim-shaped, all at the three-component measure, cert seams
+  exiting to Θ.  This was always the summit's true form — the (B)
+  map's "infer preserves zip" question and the sim tier's funnel
+  are the same object.
+
+**The workhorse statement freeze is next** (fresh runway): the
+family's Props, the Θ-Prop (claim-shaped, cert-seam premises), the
+vacuity-by-stuck-side inline pattern, and the audit against this
+completed surface.  Everything below the freeze is enumerated:
+three wrapper discharges, the semantic vacuities, `StoredWF` +
+`BoolCtorsInert` install discharges, and the (B)-type-form map.
