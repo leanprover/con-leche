@@ -161,6 +161,40 @@ def ProjPairV2 (μ : CheckMode) (env : Env)
         interp2 V ρ (.proj i pa)
           = if i = 0 then interp2 V ρ fa else interp2 V ρ sa
 
+/-- **The existence supplier generation six needs**, and the outcome of
+pricing its `.app` clause.
+
+Generation six's specification said existence would be *"localized to
+the declaration level, where checked declarations genuinely supply the
+runs"*. Pricing `.app` first, as instructed, shows **that is not
+enough**: `infer_app_claim2D` consumes two annotations — the head's
+inferred type `tfa` and the `whnf`'d `∀`'s `pa` — and **both are
+intermediate terms computed during checking, neither a declaration**.
+Under generation six both become premises, so `.app` must supply them,
+and a declaration-scoped supply cannot.
+
+**The repair keeps the discipline rather than abandoning it.** Make
+the supply *run-conditioned* instead of declaration-scoped: an
+annotation exists for any term the checker **successfully ran on**.
+That is itself a dual-success statement — it conditions on a given
+run and predicts nothing — so it is legitimate exactly where a budget
+hypothesis was not.
+
+Why it should be provable: a successful `inferTypeCore` on `e` visits
+every binder node of `e`, so each `sortOfE`/`lamSortE` the annotation
+needs is a run that already succeeded at *some* fuel; `knotFuelMono`
+lifts each to a common maximum over the finitely many nodes. That is
+the shape of the proof, not a proof.
+
+Named, not frozen: the fuel is existential (`denote2` on a binder
+cannot answer at fuel `1`), and the smallest-fuel rule is therefore
+satisfied by construction rather than by luck. -/
+def Denote2Total (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) : Prop :=
+  ∀ (F d : Nat) (e t : Expr),
+    Setlec.inferTypeCore μ env F d e = .ok t →
+    ∃ F' ea, denote2 μ m.acval env φ F' d e = some ea
+
 /-! ## `IotaIndexPin2` — the third option, priced
 
 Seal 22 left the choice between a full transpose and a minimal law

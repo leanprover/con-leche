@@ -15794,3 +15794,66 @@ junction. It is now specified enough to be that batch's brief.
 which side the statement currently promises to deliver. A family that
 produces the very premise you meant to condition on cannot adopt the
 discipline without first moving the production somewhere it is given.*
+
+### Seal 30 — pricing `.app` first changed generation six's specification
+
+Step (1) of the authorized order was to price the `.app` clause before
+freezing anything. **It did not pass as specified, and the pricing paid
+for itself immediately.**
+
+`infer_app_claim2D` consumes **two** annotations to reach the `∀`'s
+domain — the head's inferred type `tfa` and the `whnf`'d `∀`'s `pa` —
+and under generation six *both become premises* rather than the
+claims' existential conclusions. Read at `InferQ.lean:2599–2604`:
+both currently arrive from `ihi` and `ihw`.
+
+**Neither is a declaration.** Both are intermediate terms computed
+during checking. So the specification's phrase — *existence localized
+to the declaration level, where checked declarations genuinely supply
+the runs* — **cannot supply `.app`**, and a freeze on that wording
+would have STOPped at the first clause discharged.
+
+#### The repair keeps the discipline instead of abandoning it
+
+Make the existence supply **run-conditioned** rather than
+declaration-scoped: an annotation exists for any term the checker
+**successfully ran on**. Stated as `Denote2Total`
+(`Interp2/EnvLaws2.lean`):
+
+```
+∀ F d e t, inferTypeCore μ env F d e = .ok t →
+  ∃ F' ea, denote2 μ m.acval env φ F' d e = some ea
+```
+
+This is **itself a dual-success statement** — it conditions on a given
+run and predicts nothing — so it is legitimate in exactly the place a
+budget hypothesis was not. And `.app` *does* hold what it needs: it
+has `htf : inferTypeCore … = .ok tf` for the head's type, and the
+`whnf` run for the `∀`.
+
+Why it should be provable, as a shape and not a claim: a successful
+`inferTypeCore` on `e` visits every binder node of `e`, so each
+`sortOfE`/`lamSortE` the annotation needs is a run that already
+succeeded at *some* fuel, and `knotFuelMono` lifts each to a common
+maximum over the finitely many nodes.
+
+The fuel is existential, so the smallest-fuel rule is satisfied **by
+construction rather than by luck** — `denote2` on a binder cannot
+answer at fuel `1`, and nothing here asks it to.
+
+#### Status of the authorized order
+
+* **(1) price `.app` — done, and it amended the specification.**
+  Generation six proceeds, with existence supplied by `Denote2Total`
+  rather than by declaration scope.
+* (2) the freeze — **not yet**, and it must now be written against the
+  amended supply. The three sweeps the order requires (vacuity probe,
+  smallest-fuel check, tombstone sweep) apply to the frozen text when
+  it exists.
+* (3) the serial re-discharge — behind (2).
+
+*Rule: price the named risk before freezing, and price it against the
+specification's actual words. "Existence at the declaration level" and
+"existence for anything the checker ran on" differ by exactly the two
+annotations the hardest clause needs, and only writing the clause out
+shows it.*
