@@ -17104,3 +17104,65 @@ against interest:
 *That second point is the more useful one: an exposure request that
 would land and still not close its consumer is worth knowing about
 before it is filed.*
+
+### Seal 48 — the pre-landing verification comes back NEGATIVE
+
+Directive (1) was to reshape the exposure to the front door's actual
+output chain and **re-verify the consumer applies on the nose before
+landing anything.** Done, and **it does not apply.** Nothing was
+landed.
+
+**The front door's actual chain** (`Kernel/CheckerBase.lean:88-89`):
+
+```
+let stype ← ops.inferType env 0 type
+let _u   ← ops.ensureSort env 0 stype
+```
+
+So what `checkConstantVal` genuinely produces is **two facts**:
+
+* `inferTypeCore μ env F 0 type = .ok stype`, and
+* `ensureSortCore μ env F 0 stype = .ok u`
+
+— **not** `inferTypeCore … = .ok (.sort u)`. `ensureSort` *whnfs* its
+input; the inferred type need not **be** a sort, only reduce to one.
+
+**`memberBlock2_of_stored`'s `hrun` demands the fused literal**
+(`Keys2Cond.lean:380`). Against the honest chain it would be handed
+`stype` and a separate reduction, and **the consumer does not apply.**
+So the exposure alone was never going to close it — which is precisely
+what seal 47 flagged and what this check was ordered to confirm before
+anything was filed.
+
+**Both sides must be reshaped, not just the supplier.** And the
+consumer's reshape has a cost worth naming in advance: with the chain
+in place, `memberBlock2_of_stored` needs **`WhnfClaims2U` alongside
+`InferClaims2U`** — because reaching the sort now goes through a
+`whnf` step the fused form had hidden inside its own hypothesis. *A
+premise that fuses two runs hides the second claim its discharge will
+need.*
+
+**Design, to be built and verified together:**
+
+* **Exposure**, on `ConstantValR` (`SetR/Decl.lean:132`):
+  `(∃ stype u, inferTypeCore μ env F 0 type' = .ok stype ∧
+  ensureSortCore μ env F 0 stype = .ok u)`, supplied at
+  `constantValR_of` from the facts `checkConstantVal_inv` already
+  yields — **a pair of pairs, not a proof.** The value-side twin on
+  `ValueFrontR` for `Denote2BodyOfRun`.
+* **Consumer**, `memberBlock2_of_stored`: take the chain, and take
+  both claims.
+
+**Directive (2) noted and adopted**: `Bridge/Decl.lean` and
+`SetR/Decl.lean` are this lane's surface, not the Θ worker's (whose
+active tree is `SortCoh/ThetaRel`). This is an ordinary edit under the
+battery-confirms-the-other-cone protocol, **not** a cross-lane
+request — so the pattern's fourth instance is filed by the lane that
+needs it.
+
+**Directive (3) noted**: `Denote2EnvExtend` stays frozen-on-Θ until
+their sorry-free prefix lands.
+
+*Rule: verify the consumer against the reshaped supplier before
+filing, not after. The check cost one reading of `CheckerBase.lean`
+and would have cost a landed-and-useless conjunct.*
