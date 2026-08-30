@@ -11150,3 +11150,36 @@ Consumer impact: loopLock passes splits through unchanged (its
 walk never inspects them); the sort-premised tops treat ProjSplit
 like the seams they already route to Θ.  The amendment is
 conclusion-widening only — no landed proof weakens.
+
+### The amended kit LANDED (ProjSplitOut + two companion amendments)
+
+The ratified `ProjSplitOut` landed as specified (original subjects,
+premise runs, dual-fire progress marker, arg zips and scrutinee
+pack carried for the Θ-consumer, `g ≤ f` bounds included), with
+`LoopLockOut` widened to four disjuncts and `LoopLockOut.prepend`
+extended.  Two companion gaps surfaced by the discharge's continued
+pre-build, sealed together (ratification-at-seal):
+
+* **The step Props lacked `l₁ + l₂ ≤ R`** — their discharges' tail
+  work (the tri analysis after field/residual composition) recurses
+  through `below` at equal knot and DECREASED LOOP budget, which
+  the frozen premises could not license.  Added to both;
+  loopLock's call sites supply it from their own `hR`.
+* **The carrier gains a `projFire` step** — the sync path's
+  mid-state seams (from coreLock on the rebased field-spine pair)
+  are reachable from the subjects only THROUGH the fire, and the
+  head-constructor history repeats exactly: the carrier records
+  what the walk actually did.  The step carries the full fire
+  bundle (scrutinee whnf, `projLit`, table entry, bounds, field
+  run); three new species thread the transports —
+  **`QPreserveProjFireF`** (supplier: the model's projection law on
+  the whnf'd constructor form + the claims' whnf preservation),
+  **`InvPreserveProjFireF`** / **`PairedPreserveProjFireF`**
+  (suppliers: the whnf/core preservation and leaf-subset families,
+  `EnvWF`-backed, own seals beside `LeavesSubCoreF`'s).
+
+All mechanical consumers rebuilt first-pass; loopLock's proof
+unchanged except the two `hR`-threads and the split re-nesting.
+Next seal: the `whnfCore_proj_spine_inv` inversion (reverse-spine
+induction, nil-disjunct + dead-arm residual per the map) and the
+LoopProjStep discharge on the now-complete kit.

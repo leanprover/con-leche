@@ -10442,6 +10442,63 @@ tier never descends cert fuel), and the two routed step Props
 coreLock's recHead/projHead seams are UNPACKED through them, since
 no sort premise exists at scrutinee/major level). -/
 
+/-- `Q` survives a projection fire (scrutinee whnf'd, field
+extracted, spine kept; at `FrameQ` this is the model's projection
+law on the whnf'd constructor form — the models-public-interface
+theorems — composed with the claims' whnf preservation). -/
+def QPreserveProjFireF (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {g d i : Nat} {sn : Name} {e w e₃ h' c : Expr}
+    {entry : Setlec.ProjEntry} {us : List Level} {as : List Expr},
+    whnf μ env g d e = .ok w →
+    Setlec.projLitToCtorP μ env g d w = .ok e₃ →
+    e₃.getAppFn = .const entry.ctor us →
+    env.findProj? sn i = some entry →
+    entry.native = true →
+    i < entry.numFields →
+    e₃.getAppArgs.length = entry.numParams + entry.numFields →
+    whnfCore μ env g d
+      (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0))
+      = .ok h' →
+    Q d (Setlec.Expr.mkAppN (.proj sn i e) as) c →
+    Q d (Setlec.Expr.mkAppN h' as) c
+
+/-- The subject package survives a projection fire (supplier: the
+whnf/core preservation family, `EnvWF`-backed, own seal). -/
+def InvPreserveProjFireF (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {g d i : Nat} {sn : Name} {e w e₃ h' : Expr}
+    {entry : Setlec.ProjEntry} {us : List Level} {as : List Expr},
+    whnf μ env g d e = .ok w →
+    Setlec.projLitToCtorP μ env g d w = .ok e₃ →
+    e₃.getAppFn = .const entry.ctor us →
+    env.findProj? sn i = some entry →
+    entry.native = true →
+    i < entry.numFields →
+    e₃.getAppArgs.length = entry.numParams + entry.numFields →
+    whnfCore μ env g d
+      (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0))
+      = .ok h' →
+    SubjInv d (Setlec.Expr.mkAppN (.proj sn i e) as) →
+    SubjInv d (Setlec.Expr.mkAppN h' as)
+
+/-- Cross-pairing survives a projection fire (left slot; supplier:
+the whnf/core leaf-subset family). -/
+def PairedPreserveProjFireF (μ : CheckMode) (env : Env) : Prop :=
+  ∀ {g d i : Nat} {sn : Name} {e w e₃ h' c : Expr}
+    {entry : Setlec.ProjEntry} {us : List Level} {as : List Expr},
+    whnf μ env g d e = .ok w →
+    Setlec.projLitToCtorP μ env g d w = .ok e₃ →
+    e₃.getAppFn = .const entry.ctor us →
+    env.findProj? sn i = some entry →
+    entry.native = true →
+    i < entry.numFields →
+    e₃.getAppArgs.length = entry.numParams + entry.numFields →
+    whnfCore μ env g d
+      (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0))
+      = .ok h' →
+    PairedLeaves (Setlec.Expr.mkAppN (.proj sn i e) as) c →
+    PairedLeaves (Setlec.Expr.mkAppN h' as) c
+
 /-- **The loop-level carrier**: reachability by whole-subject loop
 steps (full core runs, δ, nat) and embedded contraction traces. -/
 inductive LoopReaches (μ : CheckMode) (env : Env) (d : Nat) :
@@ -10459,6 +10516,23 @@ inductive LoopReaches (μ : CheckMode) (env : Env) (d : Nat) :
       (rest : LoopReaches μ env d s' w) : LoopReaches μ env d s w
   | contract {s t w : Expr} (h : Contracts μ env d s t)
       (rest : LoopReaches μ env d t w) : LoopReaches μ env d s w
+  | projFire (sn : Name) (i g : Nat) (e w e₃ h' : Expr)
+      (entry : Setlec.ProjEntry) (us : List Level)
+      (as : List Expr) {t : Expr}
+      (hw : whnf μ env g d e = .ok w)
+      (hlit : Setlec.projLitToCtorP μ env g d w = .ok e₃)
+      (hfn : e₃.getAppFn = .const entry.ctor us)
+      (hf : env.findProj? sn i = some entry)
+      (hnat : entry.native = true)
+      (hi : i < entry.numFields)
+      (hlen : e₃.getAppArgs.length
+        = entry.numParams + entry.numFields)
+      (hfield : whnfCore μ env g d
+        (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0))
+        = .ok h')
+      (rest : LoopReaches μ env d (Setlec.Expr.mkAppN h' as) t) :
+      LoopReaches μ env d
+        (Setlec.Expr.mkAppN (.proj sn i e) as) t
 
 /-- Reachability composes. -/
 theorem LoopReaches.trans {μ : CheckMode} {env : Env} {d : Nat}
@@ -10470,6 +10544,10 @@ theorem LoopReaches.trans {μ : CheckMode} {env : Env} {d : Nat}
   | delta h rest ih => exact .delta h (ih h₂)
   | nat g h rest ih => exact .nat g h (ih h₂)
   | contract h rest ih => exact .contract h (ih h₂)
+  | projFire sn i g e w e₃ h' entry us as hw hlit hfn hf hnat hi
+      hlen hfield rest ih =>
+    exact .projFire sn i g e w e₃ h' entry us as hw hlit hfn hf
+      hnat hi hlen hfield (ih h₂)
 
 /-- Q rides the loop carrier (the nine step preservers). -/
 theorem LoopReaches.q_transport {μ : CheckMode} {env : Env} {d : Nat}
@@ -10478,6 +10556,7 @@ theorem LoopReaches.q_transport {μ : CheckMode} {env : Env} {d : Nat}
     (hQN : QPreserveNatF μ env Q)
     (hQB : QPreserveBetaF μ env Q) (hQZ : QPreserveZetaF env Q)
     (hQH : QPreserveHeadF μ env Q)
+    (hQP : QPreserveProjFireF μ env Q)
     {u w c : Expr} (h : LoopReaches μ env d u w) :
     Q d u c → Q d w c := by
   induction h with
@@ -10487,11 +10566,15 @@ theorem LoopReaches.q_transport {μ : CheckMode} {env : Env} {d : Nat}
   | nat g h rest ih => exact fun hq => ih (hQN h hq)
   | contract h rest ih =>
     exact fun hq => ih (h.q_transport hQB hQZ hQH hq)
+  | projFire sn i g e w e₃ h' entry us as hw hlit hfn hf hnat hi
+      hlen hfield rest ih =>
+    exact fun hq => ih (hQP hw hlit hfn hf hnat hi hlen hfield hq)
 
 /-- `SubjInv` rides the loop carrier. -/
 theorem LoopReaches.subjInv {μ : CheckMode} {env : Env} {d : Nat}
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
     (hIN : InvPreserveNatF μ env) (hLS : LeavesSubCoreF μ env)
+    (hIP : InvPreserveProjFireF μ env)
     {u w : Expr} (h : LoopReaches μ env d u w)
     (hI : SubjInv d u) : SubjInv d w := by
   induction h with
@@ -10500,6 +10583,9 @@ theorem LoopReaches.subjInv {μ : CheckMode} {env : Env} {d : Nat}
   | delta h rest ih => exact ih (hID h hI)
   | nat g h rest ih => exact ih (hIN h hI)
   | contract h rest ih => exact ih (h.subjInv hIC hLS hI)
+  | projFire sn i g e w e₃ h' entry us as hw hlit hfn hf hnat hi
+      hlen hfield rest ih =>
+    exact ih (hIP hw hlit hfn hf hnat hi hlen hfield hI)
 
 /-- Cross-pairing rides the carrier one side at a time (left-slot
 species; the embedded contraction uses a refl other-trace). -/
@@ -10507,6 +10593,7 @@ theorem LoopReaches.pairing_left {μ : CheckMode} {env : Env}
     {d : Nat}
     (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
     (hLN : PairedPreserveNatF μ env) (hLS : LeavesSubCoreF μ env)
+    (hLP : PairedPreserveProjFireF μ env)
     {u w c : Expr} (h : LoopReaches μ env d u w) :
     PairedLeaves u c → PairedLeaves w c := by
   induction h with
@@ -10516,6 +10603,9 @@ theorem LoopReaches.pairing_left {μ : CheckMode} {env : Env}
   | nat g h rest ih => exact fun hp => ih (hLN h hp)
   | contract h rest ih =>
     exact fun hp => ih (Contracts.pairing hLS h (.refl c) hp)
+  | projFire sn i g e w e₃ h' entry us as hw hlit hfn hf hnat hi
+      hlen hfield rest ih =>
+    exact fun hp => ih (hLP hw hlit hfn hf hnat hi hlen hfield hp)
 
 /-- **The loop seam pack**: a `CoreSeam` at loop-reachable
 subjects, with connecting loop runs at bounded knot fuels. -/
@@ -10557,15 +10647,51 @@ def NatSplitOut (μ : CheckMode) (env : Env)
     Setlec.whnfLoop (Setlec.pureFns μ env c₂) env d l₂ p₂
       = .ok v'
 
+/-- **The proj split** (the second Θ-deferral channel, ratified):
+both projections fire — pinning both heads to the entry's
+constructor — but the whnf'd-scrutinee pack's cert layer swallows
+the field position, so the fields relate only through the cert.
+Everything sits at the ORIGINAL subjects (premise-reachable,
+premise runs — nothing rebased, honoring both bars), progress-
+marked by the DUAL FIRE data.  The Θ-arc owns the conversion. -/
+def ProjSplitOut (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) (fc d : Nat)
+    (u v u' v' : Expr) (f₁ f₂ : Nat) : Prop :=
+  ∃ (sn : Name) (i : Nat) (e₁ e₂ w₁ w₂ e₃₁ e₃₂ : Expr)
+    (as bs : List Expr) (g₁ g₂ c₁ c₂ l₁ l₂ : Nat),
+    c₁ ≤ f₁ ∧ c₂ ≤ f₂ ∧ g₁ ≤ f₁ ∧ g₂ ≤ f₂ ∧
+    LoopReaches μ env d u
+      (Setlec.Expr.mkAppN (.proj sn i e₁) as) ∧
+    LoopReaches μ env d v
+      (Setlec.Expr.mkAppN (.proj sn i e₂) bs) ∧
+    CertZip μ env fc d e₁ e₂ ∧
+    as.length = bs.length ∧
+    (∀ j (h₁ : j < as.length) (h₂ : j < bs.length),
+      CertZip μ env fc d as[j] bs[j]) ∧
+    whnf μ env g₁ d e₁ = .ok w₁ ∧ whnf μ env g₂ d e₂ = .ok w₂ ∧
+    CertZip μ env fc d w₁ w₂ ∧ SubjInv d w₁ ∧ SubjInv d w₂ ∧
+    PairedLeaves w₁ w₂ ∧ Q d w₁ w₂ ∧
+    Setlec.projLitToCtorP μ env g₁ d w₁ = .ok e₃₁ ∧
+    Setlec.projLitToCtorP μ env g₂ d w₂ = .ok e₃₂ ∧
+    (∃ us₁ entry₁, e₃₁.getAppFn = .const entry₁.ctor us₁ ∧
+      env.findProj? sn i = some entry₁ ∧ entry₁.native = true) ∧
+    (∃ us₂ entry₂, e₃₂.getAppFn = .const entry₂.ctor us₂ ∧
+      env.findProj? sn i = some entry₂ ∧ entry₂.native = true) ∧
+    Setlec.whnfLoop (Setlec.pureFns μ env c₁) env d l₁
+      (Setlec.Expr.mkAppN (.proj sn i e₁) as) = .ok u' ∧
+    Setlec.whnfLoop (Setlec.pureFns μ env c₂) env d l₂
+      (Setlec.Expr.mkAppN (.proj sn i e₂) bs) = .ok v'
+
 /-- **loopLock's conclusion**: outputs zipped with the invariants,
-or a re-based seam, or the nat split. -/
+or a re-based seam, or one of the two Θ-deferral splits. -/
 def LoopLockOut (μ : CheckMode) (env : Env)
     (Q : Nat → Expr → Expr → Prop) (fc d : Nat)
     (u v u' v' : Expr) (f₁ f₂ : Nat) : Prop :=
   (CertZip μ env fc d u' v' ∧ SubjInv d u' ∧ SubjInv d v' ∧
     PairedLeaves u' v' ∧ Q d u' v') ∨
   LoopSeamOut μ env fc d u v u' v' f₁ f₂ ∨
-  NatSplitOut μ env Q fc d u v u' v' f₁ f₂
+  NatSplitOut μ env Q fc d u v u' v' f₁ f₂ ∨
+  ProjSplitOut μ env Q fc d u v u' v' f₁ f₂
 
 /-- **The loop recursion bar**: knot-fuel sum strictly below, or
 equal with the loop-budget sum strictly below.  `fc` is fixed —
@@ -10597,7 +10723,7 @@ def LoopIotaStep (μ : CheckMode) (env : Env)
     {us us' : List Level} {as bs : List Expr}
     {u v u' v' : Expr},
     LoopBelow μ env Q fc N R →
-    f₁ + f₂ ≤ N →
+    f₁ + f₂ ≤ N → l₁ + l₂ ≤ R →
     env.find? n = some (.recInfo cv mI rP rules) →
     (∀ φ' : Name → Nat,
       us.map (Level.eval φ') = us'.map (Level.eval φ')) →
@@ -10628,7 +10754,7 @@ def LoopProjStep (μ : CheckMode) (env : Env)
   ∀ {fc N R f₁ f₂ l₁ l₂ d i : Nat} {sn : Name} {e₁ e₂ : Expr}
     {as bs : List Expr} {u v u' v' : Expr},
     LoopBelow μ env Q fc N R →
-    f₁ + f₂ ≤ N →
+    f₁ + f₂ ≤ N → l₁ + l₂ ≤ R →
     CertZip μ env fc d e₁ e₂ →
     as.length = bs.length →
     (∀ j (h₁ : j < as.length) (h₂ : j < bs.length),
@@ -10658,12 +10784,18 @@ theorem LoopLockOut.prepend {μ : CheckMode} {env : Env}
   rcases h with hpack | ⟨w₁, w₂, c₁, c₂, l₁, l₂, hb₁, hb₂, hr₁, hr₂,
       ht₁, ht₂, hsm⟩ |
     ⟨p₁, p₂, t₁, t₂, g₁, g₂, gn₁, gn₂, o₁, o₂, c₁, c₂, l₁, l₂,
-      hb₁, hb₂, hp₁, hp₂, hrest⟩
+      hb₁, hb₂, hp₁, hp₂, hrest⟩ |
+    ⟨sn, i, e₁, e₂, w₁, w₂, e₃₁, e₃₂, as, bs, g₁, g₂, c₁, c₂,
+      l₁, l₂, hb₁, hb₂, hg₁, hg₂, hp₁, hp₂, hrest⟩
   · exact .inl hpack
   · exact .inr (.inl ⟨w₁, w₂, c₁, c₂, l₁, l₂, hb₁, hb₂, hr₁, hr₂,
       r₁.trans ht₁, r₂.trans ht₂, hsm⟩)
-  · exact .inr (.inr ⟨p₁, p₂, t₁, t₂, g₁, g₂, gn₁, gn₂, o₁, o₂,
-      c₁, c₂, l₁, l₂, hb₁, hb₂, r₁.trans hp₁, r₂.trans hp₂, hrest⟩)
+  · exact .inr (.inr (.inl ⟨p₁, p₂, t₁, t₂, g₁, g₂, gn₁, gn₂,
+      o₁, o₂, c₁, c₂, l₁, l₂, hb₁, hb₂, r₁.trans hp₁,
+      r₂.trans hp₂, hrest⟩))
+  · exact .inr (.inr (.inr ⟨sn, i, e₁, e₂, w₁, w₂, e₃₁, e₃₂,
+      as, bs, g₁, g₂, c₁, c₂, l₁, l₂, hb₁, hb₂, hg₁, hg₂,
+      r₁.trans hp₁, r₂.trans hp₂, hrest⟩))
 
 /-- A whnfCore output either re-cores to itself at the producing
 fuel, or is dead-stuck (non-const-headed, non-λ, non-sort) — the
@@ -10809,10 +10941,10 @@ theorem loopLock {μ : CheckMode} {env : Env}
         (o₁.isSome = true ∨ o₂.isSome = true) →
         LoopLockOut μ env Q fc d u v u' v' f₁ f₂ :=
       fun o₁ o₂ hn₁ hn₂ hmark =>
-        .inr (.inr ⟨u, v, t₁, t₂, f₁, f₂, f₁, f₂, o₁, o₂, f₁, f₂,
-          l₁' + 1, l₂' + 1, Nat.le_refl _, Nat.le_refl _,
+        .inr (.inr (.inl ⟨u, v, t₁, t₂, f₁, f₂, f₁, f₂, o₁, o₂,
+          f₁, f₂, l₁' + 1, l₂' + 1, Nat.le_refl _, Nat.le_refl _,
           .refl _, .refl _, hzT, hIt₁, hIt₂, hPt, hQt,
-          hwc₁', hwc₂', hn₁, hn₂, hmark, h₁, h₂⟩)
+          hwc₁', hwc₂', hn₁, hn₂, hmark, h₁, h₂⟩))
     rcases triA with ⟨x₁, hrn₁, hk₁⟩ | ⟨hrnn₁, x₁, hux₁, hk₁⟩ |
       ⟨hrnn₁, hud₁, hstop₁⟩
     · -- A nat fire
@@ -11184,11 +11316,11 @@ theorem loopLock {μ : CheckMode} {env : Env}
         .contract ht₁ (.refl _), .contract ht₂ (.refl _),
         CoreSeam.certHead F₁ F₂ as bs hba hbb hc hlen hargs⟩)
     | recHead n cv mI rP rules us us' as bs hf hev hlen hargs =>
-      exact hIo below hN hf hev hlen hargs hIw₁ hIw₂ hpw hQw
+      exact hIo below hN hR hf hev hlen hargs hIw₁ hIw₂ hpw hQw
         (.contract ht₁ (.refl _)) (.contract ht₂ (.refl _))
         runA runB
     | projHead sn i pe₁ pe₂ as bs he hlen hargs =>
-      exact hPr below hN he hlen hargs hIw₁ hIw₂ hpw hQw
+      exact hPr below hN hR he hlen hargs hIw₁ hIw₂ hpw hQw
         (.contract ht₁ (.refl _)) (.contract ht₂ (.refl _))
         runA runB
     | deadL _ _ u'd bnd hrun hnc hnl hns =>
