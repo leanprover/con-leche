@@ -144,9 +144,12 @@ structure EnvS2UM (μ : CheckMode) (env : Env) where
 
 /-- **The bridge, and the direction is the whole point.**  The
 mode-indexed form is a *weakening*, so an all-mode invariant supplies
-one at every mode by dropping the quantifier.  The converse does not
-hold and is not wanted: it is exactly the mode crossing seal 52 found
-unsuppliable. -/
+one at every mode by dropping the quantifier.
+
+The converse is **not claimed false** — no countermodel is exhibited
+here — but nothing supplies it: recovering the all-mode fields from
+one mode's is exactly the crossing `Denote2ModeAgree`
+(`Step2Cons.lean`) names, and the front door makes one run. -/
 def EnvS2U.toM {env : Env} (m : EnvS2U V env) (μ : CheckMode) :
     EnvS2UM V μ env where
   base := m.base
