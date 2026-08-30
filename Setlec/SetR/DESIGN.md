@@ -12144,3 +12144,32 @@ facts; possibly an arena-reality-guided restriction finding).  The
 alternative (amending `ThetaWalkClaim` to carry image-side head
 facts) merely relocates the same seam.  STOP — reporting before
 building either.
+
+### E4 map SEALED per R1 (`Align.lean`)
+
+Landed (compiled): `DeadCore` (three shapes — lam-headed spine,
+proj-headed, recursor spine at ≥ mI+1 args; shape-only, per the
+treatment's two consumer routes), `LitResidue` (the actual parks at
+a literal, the trace already converted — consumers re-run their own
+conversion by determinism), `IotaFireSeam` (both sides fire with
+different results; result-inequality is the progress marker; the
+claimed provenance, remaining trace and actual continuation carried
+whole — defensively general so any fire-alignment hole routes here
+with evidence instead of blocking), `NatGrindSeam` (dead-parked
+argument + declined `reduceNat` + the guard-guaranteed unfolding's
+continuation, both arities in one pack), the two out-disjunctions
+(`CoreAlignOut`/`LoopAlignOut`) and claims (`CoreAlignF`/
+`LoopAlignF` — trace vs actual run, mutual at iota majors and proj
+scrutinees vs whnfStep cores).
+
+**Discharge plan** (the treatment's supplier list): structural
+induction on the trace, runs universally quantified per arm; the
+actual's decompositions via `whnfCore_app_decompose`/
+`whnf_proj_inv`/`iotaRec_inv`/`whnfStep_decompose`/
+`reduceNat_decompose`; assemblies via `whnfCore_app_assemble` (+ a
+new proj assembly), `iotaRec_mono`, `whnfLoop_det`, `KnotFuelMono`;
+dead exits via `loop_dead_exit` + `unfoldDefinition_none_of_recInfo`
++ NEW suppliers: `whnfCore_lam` identity, a letE run extractor,
+`iotaRec` none-of-overlength, `reduceNat` none-of-dead-shapes (the
+nat-guard/recInfo disjointness).  Chaining: aligned outputs re-enter
+the next arm's decomposition; seams propagate outward unchanged.
