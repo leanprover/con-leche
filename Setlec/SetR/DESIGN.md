@@ -10616,3 +10616,67 @@ Q-descent through app (`Q d (.app P y) (.app R z) → Q d P R`) is
 still expected as one more routed species at the induction — named
 next seal.  STOP-boundary seal: the induction itself waits for the
 ratifying grant.
+
+### coreLock LANDED (the layer-peeling lockstep, first full pass)
+
+The Q-descent species checked and named first: **`QDescendAppF`**
+(`Q d (.app P y) (.app R z) → Q d P R`; at `FrameQ` the frame is
+per-side structural — a defined application has defined parts).
+One more species surfaced at the same pre-build check:
+**`CoreIdemF`** (whnfCore idempotent on its outputs) — the
+cert/rec seam exits re-base to `(.app F₁ a₁, .app F₂ a₂)` with
+completed heads, and the connecting-run assemble needs the head to
+re-run to itself.  Supplier: a Verify-tier mutual induction over
+the core family (inert shapes re-run by `pure`, stuck legs re-pin
+by fuel monotonicity, contractum outputs recurse one level down);
+its own seal, ledgered beside `LeavesSubCoreF`'s.
+
+**`coreLock`** proved by `Nat.strongRecOn` on the fuel sum, eleven
+zip-node cases:
+* refl → determinism pack; cert/proj → flatten seam at the raw
+  subjects (empty spines, refl traces, the original runs);
+* sort/const/fvar/λ/∀-nodes → `whnfCore_inert` pack (new helper:
+  ten-shape identity on non-redex subjects; the body's bvar arm
+  THROWS — bvar is an error shape, not inert — recorded);
+* letE → zeta at one knot level (`whnfCore_letE_step`), contracta
+  invariants via the carrier transports on one-step prefix traces,
+  recurse, re-base the returned traces by constructor composition;
+* app → peel: decompose both, recurse on the heads.  Head-seam:
+  lift (assemble with the seam's connecting run + `app_lift` +
+  `coreSeam_lift_app`).  Head-pack: the legs matrix — β/β recurse
+  on `certZip_subst` contracta (prefix = head-step + β-step, the
+  cert data from the legs); any failed β-cert side → `deadL/R`
+  (mono-stable original run; the stuck output is λ-headed-app:
+  non-const, non-λ, non-sort); λ-vs-iota → cert node forced (refl
+  and λ-nodes refute the iota side's not-λ fact) → certHead;
+  iota/iota with any fire → **`zip_stuck_spine_exit`** (new: walks
+  `certZip_app_view` to the first cert layer → `certHead`, or a
+  shared-name const head → `recHead` under `recInfo` /
+  `absurd_rec_fire` otherwise, every non-const head shape refuting
+  the fire); both-inert → app-node pack.
+* The four invariants at the outputs are derived ONCE from the
+  landed preservers (outputs are whnfCore outputs) — every pack
+  case returns the same free package; only the zip varies.  The
+  head-pack's own invariants are consumed nowhere: only its zip.
+
+Helper kit landed with it: `pairedLeaves_mono` (pairing restricts
+along leaf subsets), `subjInv_app`, `mem_fvarLeaves_app_left/right`,
+`zip_args_append` (the flatten seams' append step, extracted),
+`getAppFn_of_not_app`, `absurd_rec_fire`.
+
+Mechanization notes (recurring-lesson additions): `cases` on a zip
+whose subjects are pre-existing fvars or literal components
+SUBSUMES the corresponding constructor fields — bind them `_` and
+reference the outer names (bit three times: `refl`/`cert`/λ-node
+arms); a parenthesized multiline `by`-block inside an anonymous
+constructor must keep its continuation indented past the `by` —
+prefer `refine ⟨?_, …⟩` + trailing tactics.
+
+Open obligations after this seal (suppliers named): the λ/letE-head
+discharges riding coreLock (decompose the loop once, ZipPack feeds
+the tri analysis at the loop decrease, seams convert at the top via
+`hΘ`/`ZipIotaCase`/`ZipProjHeadCase`/dead-contradiction with the
+carrier transports); the `CoreIdemF` + `LeavesSubCoreF` Verify-tier
+suppliers; the `QPreserveHeadF`/`QDescendAppF`/β/ζ FrameQ suppliers;
+iota's full map (`ZipIotaCase`); proj head; Θ; the semantic trio;
+the install facts; the (B) type-form map.
