@@ -15633,3 +15633,89 @@ the `…W` forms directly without it.
 *Rule: enumerate a seam from the function's own clause list and the
 primitive's own call sites. An enumeration driven by attacks
 terminates when imagination does.*
+
+### Seal 28 — the seam is not uniformly one-directional, and the congruence is false
+
+The checklist came back and **three of the freeze's predictions were
+wrong**. Recording them first, because they are the finding.
+
+**1. The congruence is FALSE, by fuel — and "check the fuel first" was
+the right instruction.** `Level.isEquiv`'s `simplify` fast path does
+**not** cover every `some true`: `max u v` against `max v u` is kept
+apart (`combining` is not syntactically commutative) and decided by two
+three-step `leq` runs. Substituting `u ↦ succ^10000 zero` leaves the
+fast path closed and makes the first `leqCore` recursion peel more
+`succ`s than `Level.defaultFuel` has units. `not_isEquivSubstMono`,
+`not_isEquivListSubstMono`. The verdict goes to **`none`**, never to
+`some false` — the third outcome the binary framing hides, exactly as
+seal 27 flagged.
+
+**2. The checklist did not collapse.** Seal 27 predicted ten sites
+falling to one congruence. Actual: **4 settled, 8 settled only up to
+the `none` channel, 1 not settled.** `IsEquivZeroSubstMono` is **true**
+— and *not* a corollary of the congruence, for an independent reason
+worth keeping: `isEquiv l .zero = some true` can only come from the
+fast path, because a `leq` round trip answering `true` forces
+`eval φ l = 0` at every assignment, and such a level is one `simplify`
+collapses syntactically. So the hypothesis is equivalent to
+`Level.isZero`. `Level.subst ks vs .zero = .zero` was never needed.
+
+**3. The frozen table had two errors of its own.**
+
+* **Three sites are in a *mapped* shape the freeze did not state.**
+  `projCert` and `iotaRec` compare against a **stored** level read at
+  the subject's level args, so instantiation maps the substitution
+  over `us` — `subst ps (ws.map (subst ks vs)) r`, which is the shape
+  `piResultNeverZero_map_subst` already had. Stated, refuted
+  (`not_isEquivSubstMonoMapped`), replaced.
+* **`defeqSpine` reads its guard without `liftFueled`** —
+  `| some true => … | _ => pure false`. There `none` is
+  indistinguishable from `some false`, so the guard genuinely goes
+  **`true → false`** under substitution (`spineGuard_flips_to_false`),
+  while the rest of the family goes `false → true`.
+
+  **So the seam is not uniformly one-directional**, which seal 27
+  asserted it would be. Twelve sites route `none` through
+  `liftFueled`'s internal error; one swallows it.
+
+#### What replaces the refuted lemmas
+
+`isEquiv_subst_eval`, `isEquivList_subst_evalEq`,
+`isEquiv_subst_eval_mapped` — the substituted pairs still **evaluate**
+equal at every assignment, unconditionally, with no fuel in the
+statement. *That is the monotonicity, in the only currency `isEquiv`'s
+soundness speaks.* Plus `isEquiv_subst_ne_false` — the verdict never
+becomes `false` — conditional on one new named residue,
+`LeqFalseComplete` (`leqCore`'s `false` verdicts are correct; about
+the level procedure alone). `Verify/Level.lean` proves only the `true`
+direction, by design; this seam needs the other.
+
+#### The correction that matters most for the plan
+
+**`LeqFalseComplete` does not repair the crossing.** The crossing is
+*uninstantiated success ⟹ instantiated success*, so what must be
+excluded is the instantiated run doing **less** — which is precisely
+what the fuel gap does. The residue only buys the verdict reading, and
+what that rules out is the "diverges irreconcilably" STOP.
+
+**An unconditional `WhnfInstLevelsUpTo` therefore needs a *budget
+hypothesis* on the instantiating levels, which nothing in the tree
+carries** — and `defeqSpine` needs more than a budget, because its
+fallback is a *different reduction path* rather than an abort. Seal
+26 set `WhnfInstLevelsUpTo` as the discharge target; that target is
+**not unconditionally reachable**, and the next statement must carry a
+budget or restrict the substitutions.
+
+#### Not a soundness hole, and the exposure is bounded
+
+**Every failure mode makes the checker do *less*, never accept more.**
+A `none` becomes an internal error at twelve sites and a skipped
+short-circuit at the thirteenth; neither admits a term. And the
+refutation's witness needs a level of `succ`-depth ≈ 10⁴ — carriable
+by an input stream, produced by no realistic one.
+
+*Rule earned: when a guard's decision procedure is fuelled, "which way
+does it flip" is the wrong question. Ask which way it flips **and**
+whether it can fail to decide — and then ask, per call site, whether
+the caller can tell those apart.* Twelve of thirteen here cannot tell
+`none` from an error; one cannot tell it from `false`.
