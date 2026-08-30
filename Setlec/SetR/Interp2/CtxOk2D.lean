@@ -332,6 +332,65 @@ theorem openS {F d : Nat} {Δa : List AVExpr} {n : Name}
   ⟨CtxOk2.openS ht.1 hb.1 hty ht.1.wScoped.fvarsBelow,
     CtxOk2Ann.openS hb.1 ht.1 hb.2 ht.2 hty hok⟩
 
+/-! ## The strengthening's own checks
+
+`CtxOk2` and `CtxOk2Ann` each came with a non-vacuity witness
+(`ctxAnn2_nonvacuous` in `Step2/InferQ.lean`, the closing `example` of
+`Step2/Dispatch.lean`) but at *different* instances — `⟪Sort 0⟫` and
+`⟪Sort 1⟫ — so neither is a witness for the conjunction.  The
+conjunction needs its own, and here it is: depth `1`, where the
+`.fvar` clause actually fires and where neither half is free, over a
+context that **has** a satisfying valuation.
+
+Both parts matter and for different reasons.  Without the `Sat2`
+witness the instance would be an artifact of an unsatisfiable
+hypothesis — seal 11's `⟪Empty⟫` discipline, in the direction that
+would flatter the statement.  Without depth `1` it would prove
+nothing: both halves are free at depth `0`. -/
+
+/-- **`CtxOk2D` is inhabited beyond vacuity**, at depth `1`, over a
+satisfiable context. -/
+theorem nonvacuous {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) (F : Nat) (nm : Name) :
+    CtxOk2D m μ φ F 1 [AVExpr.sort 0] (.fvar 0 nm (.sort .zero)) ∧
+      Sat2 V [AVExpr.sort 0] (fun _ => empty) := by
+  refine ⟨⟨⟨rfl, fun l hl => ?_⟩, fun l hl tya hden ρ _ => ?_⟩, ?_⟩
+  · simp only [Expr.fvarLeaves, List.mem_singleton] at hl
+    subst hl
+    exact ⟨by omega, trivial, .sort 0, .sort 0,
+      by rw [denote2]; rfl, rfl, fun _ _ => rfl⟩
+  · simp only [Expr.fvarLeaves, List.mem_singleton] at hl
+    subst hl
+    rw [denote2] at hden
+    obtain rfl : AVExpr.sort 0 = tya := Option.some.inj hden
+    simp
+  · intro i Aa hi
+    cases i with
+    | zero =>
+      obtain rfl : AVExpr.sort 0 = Aa := by simpa using hi
+      simpa using empty_mem_univ (V := V) 0
+    | succ i => simp at hi
+
+/-! ### The smallest-fuel test, and what it does *not* say
+
+`CtxOk2D` inherits `CtxOk2`'s verdict verbatim: it is **empty at
+`F = 1`** for any subject carrying a binder node, because the leaf
+package asserts `denote2 … F … l.2.2 = some tya` and `denote2`'s
+binder clauses run the checker at that fuel.  The fourth conjunct
+neither adds to that nor repairs it — it is quantified *over* the
+`tya` the third names, so it is free exactly where the third is empty.
+
+The consequence is a real one and belongs on the record: `Claims2D`
+carries `CtxOk2D` in the **three claims that previously took
+`CtxOkR`**, and `CtxOkR` is fuel-free.  So at small `F` and binder-
+carrying subjects those three claims are *weaker* than their `…C`
+counterparts.  That is not new — `InferClaims2C` has had the property
+since seal 6 — and it is harmless at the point of consumption, where
+the depth is `0` and `CtxOk2D.nil` is free at every fuel.  But it is
+the one place generation five makes a claim weaker rather than
+stronger, and a later worker who instantiates the claims at a
+consumer-chosen small `F` needs to know it. -/
+
 end CtxOk2D
 
 /-- **`CtxOk2.open`'s transpose**, kept under its sealed name.  Stated

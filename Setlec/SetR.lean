@@ -102,6 +102,7 @@ import Setlec.SetR.Interp2.CtxOk2D
 import Setlec.SetR.Interp2.Claims2D
 import Setlec.SetR.Interp2.EnvLaws2
 import Setlec.SetR.Interp2.Capstone2C
+import Setlec.SetR.Interp2.Capstone2D
 import Setlec.SetR.Interp2.Capstone
 import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.SimSubst

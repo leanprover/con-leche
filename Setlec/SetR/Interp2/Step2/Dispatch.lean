@@ -52,6 +52,12 @@ generation-four shape: takes `DefEqClaims2C`'s conclusion directly),
 
 *Leaf grading.* `annotOk2_of_denote2_const`.
 
+*Generation five.* The whole of the above is lifted to `CtxOk2D`
+(`Interp2/CtxOk2D.lean`) — same names, same order, `CtxOk2D.` in place
+of `CtxOk2.`.  **Check there first if you are working against
+`Claims2D`.** Three entries take one extra argument in the lifted
+form, the domain's hoisted grading: `open`, `openS`, `openCongC`.
+
 **Two shapes are deliberately absent because they are false**, and are
 documented at their sites: there is **no `letE` binder splitter**
 (`AnnotOk2`'s `letE` clause reads the body at the *value's* point,
