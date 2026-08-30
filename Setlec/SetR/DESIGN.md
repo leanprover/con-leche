@@ -10216,3 +10216,19 @@ house extraction pattern; the `cases hio :` goal-substitution recipe
 made the equation components `rfl`.  The not-lam fact of the iota
 legs is deliberately not carried (deferred to need — re-derivable
 from the zip's shape analysis if a leg wants it).
+
+### ZipAppCase brick 2: the fc-only contract + the zeta step
+
+Preparing the inner induction, the cert-leg analysis found
+`ZipCertCase`'s below-parameter stronger than its proof consumes:
+`zipCertCase_of` feeds ONLY strictly-smaller cert fuel (the spine's
+`Or.inl`), so demanding the full three-component contract blocked
+consumers sitting at unrelated knot/loop positions (the inner
+cert-leg assembles loop runs at budgets EXCEEDING its caller's).
+Landed: `ZipBelowFc` (the fc-only contract), `ZipCertCase` weakened
+to it (weaker premise = stronger Prop; the discharge unchanged
+modulo the wrapper), the skeleton supplying it by restriction.  Any
+consumer at any measure position can now invoke the cert machinery
+on an assembled certified pair — the inner induction's cert leg is
+unblocked.  Plus `whnfCore_letE_step` (zeta is one knot level down,
+an `Iff.rfl` through `whnfCore_succ`).

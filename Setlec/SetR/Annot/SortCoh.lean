@@ -6513,13 +6513,29 @@ def StoredWF (env : Env) : Prop :=
     value.fvarLeaves = [] ∧ value.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded value
 
+/-- The fc-only recursion contract (what the cert case actually
+consumes — its spine feeds strictly smaller cert fuel, nothing
+else; consumers can therefore supply it from ANY measure
+position). -/
+def ZipBelowFc (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) (fc : Nat) : Prop :=
+  ∀ {fc' d ga la gb lb : Nat} {s t : Expr} {ℓa ℓb : Level},
+    fc' < fc →
+    CertZip μ env fc' d s t →
+    SubjInv d s → SubjInv d t → PairedLeaves s t → Q d s t →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la s
+      = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb t
+      = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
 /-- **Routed: the cert case** (the shells' template — a certified
-pair with both sort convergences, the recursion available strictly
-below). -/
+pair with both sort convergences, the recursion available at
+strictly smaller cert fuel). -/
 def ZipCertCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
     (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {a b : Expr} {ℓa ℓb : Level},
-    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
+    ZipBelowFc μ env φ Q fc →
     a.looseBVarsBounded 0 = true → b.looseBVarsBounded 0 = true →
     isDefEqCore μ env fc d a b = .ok true →
     SubjInv d a → SubjInv d b → PairedLeaves a b → Q d a b →
@@ -6663,7 +6679,10 @@ theorem zipWhnfSortAgree_of {φ : Name → Nat}
       | refl e =>
         rw [Setlec.Expr.sort.inj (whnfLoop_det hm ha hb)]
       | cert a b hba hbb hc =>
-        exact hCert below hba hbb hc hIs hIt hp hQ ha hb
+        exact hCert
+          (fun hlt hz' hIs' hIt' hp' hQ' ha' hb' =>
+            below (Or.inl hlt) hz' hIs' hIt' hp' hQ' ha' hb')
+          hba hbb hc hIs hIt hp hQ ha hb
       | sortSlack u v hev =>
         have h1 : Expr.sort ℓa = Expr.sort u :=
           loop_stuck_out hm ha (whnfCore_sort_run (Nat.le_refl 1))
@@ -6802,7 +6821,7 @@ theorem zipCertCase_of {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
                         (Setlec.Level.isEquivList_sound heql φ'))
                     hlen' (getAppArgs_bounded hIa2.2.1)
                     (getAppArgs_bounded hIb2.2.1) hcerts
-                exact below (Or.inl (Nat.lt_succ_self fc)) hzip
+                exact below (Nat.lt_succ_self fc) hzip
                   hIa2 hIb2
                   ((hLC hwb ((hLC hwa hPab').symm)).symm)
                   (hQs (hQC hwb (hQs (hQC hwa hQab')))) hA hB2
@@ -7205,6 +7224,15 @@ theorem whnfCore_app_decompose {μ : CheckMode} {env : Env}
     | some e'' => exact .inr (.inr (.inl ⟨e'', rfl, h⟩))
     | none =>
       exact .inr (.inr (.inr ⟨rfl, (Except.ok.inj h).symm⟩))
+
+/-- Zeta is one knot level down (the letE analog of the app
+decomposition). -/
+theorem whnfCore_letE_step {μ : CheckMode} {env : Env}
+    {g d : Nat} {n : Name} {ty v b s : Expr} :
+    whnfCore μ env (g + 1) d (.letE n ty v b) = .ok s ↔
+    whnfCore μ env g d (b.instantiate1 v) = .ok s := by
+  rw [Setlec.whnfCore_succ]
+  exact Iff.rfl
 
 /-- **The both-δ core COLLAPSED onto the summit**: the spine facts
 zip the pair (head by `constSlack` through `isEquivList` soundness,
