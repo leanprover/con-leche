@@ -88,6 +88,7 @@ import Setlec.SetR.Interp2.Step2.StrLit
 import Setlec.SetR.Interp2.Step2.Dispatch
 import Setlec.SetR.Interp2.Step2.Routed
 import Setlec.SetR.Interp2.Step2.Levels
+import Setlec.SetR.Interp2.Step2.LevelsInst
 import Setlec.SetR.Interp2.Step2.Whnf
 import Setlec.SetR.Interp2.Step2.DefEqRun
 import Setlec.SetR.Interp2.Step2.Fuel
