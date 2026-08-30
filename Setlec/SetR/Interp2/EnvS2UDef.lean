@@ -1155,4 +1155,26 @@ remainder is the failure mode this campaign keeps catching.
 pack transposed it away, and the consumer three tiers down is the one
 that noticed.* -/
 
+/-! ## The mode-indexed invariant, exhibited where it has content
+
+Seal 53's de-generalization (`EnvS2UM`, `Annot/EnvS2U.lean`) is a
+weakening, so both probes above carry over by `EnvS2U.toM`.  What
+makes that worth recording is *where* they carry over: at
+environments that **store a definition**, so the mode-indexed
+`acval_defn` is not discharged by an absent premise.  A form
+exhibited only at `Env.empty` would be exactly the vacuity exposure
+`Keys2.lean`'s third sweep warned about. -/
+
+/-- The definition probe, mode-indexed. -/
+noncomputable def defProbeEnvS2UM (μ : CheckMode) :
+    EnvS2UM V μ defProbeEnv :=
+  EnvS2U.toM V (defProbeEnvS2U V) μ
+
+/-- The λ-bodied definition probe, mode-indexed — the environment
+whose stored body is the shape that refuted `EnvS2.acval_defn`'s
+original form. -/
+noncomputable def lamDefEnvS2UM (μ : CheckMode) :
+    EnvS2UM V μ lamDefEnv :=
+  EnvS2U.toM V (lamDefEnvS2U V) μ
+
 end Setlec.SetR.Interp2

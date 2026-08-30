@@ -177,7 +177,20 @@ a mode's output, and `EnvS2U`'s two body fields ask about all modes.
 `denote2_agree_same` below, so this is **not** a vacuous `Prop`; the
 open part is exactly the mode crossing.  Nothing in this tree supplies
 it, and no exposure on the checker side can — the front door makes one
-run, in one mode. -/
+run, in one mode.
+
+**TOMBSTONE (seal 53): dissolved by de-generalization, not supplied.**
+The demand is *withdrawn*, not met.  Seal 53 measured that no consumer
+of `acval_defn`/`acval_thm` ever reads the field outside its own mode,
+so the all-mode quantification was gratuitous; `EnvS2UM`
+(`Annot/EnvS2U.lean`) indexes the two fields to the install's mode and
+the mode-indexed lane below carries **no** `Denote2ModeAgree` premise
+anywhere — `hback` closes by `denote2_agree_same`, the very instance
+that told this residue apart from a vacuous `Prop`.
+
+The definition stays, un-weakened, because the *all-mode* lane
+(`declStep2_of_value`) still consumes it and nothing here supplies it
+there. -/
 def Denote2ModeAgree (μ : CheckMode) (env : Env)
     (acval : Name → (Name → Nat) → AVExpr) (value : Expr) : Prop :=
   ∀ (ν : CheckMode) (ψ : Name → Nat) (F F' : Nat) (ra ra' : AVExpr),
@@ -480,5 +493,300 @@ def DeclInd2S (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
     EtaFamiliesClosed env →
     DeclIndR μ F env m.base.cval block env₂ →
     Nonempty (EnvS2U V env₂)
+
+/-! ## The mode-indexed lane — seal 53's ruling, landed
+
+Everything below is the lane above at `EnvS2UM` (`Annot/EnvS2U.lean`),
+i.e. with the two `denote2` body fields asking only about the
+install's own mode.  Two differences, and both are the point:
+
+* `declStep2M_of_cons` takes `hdefnA`/`hthmA` at `μ` alone, because
+  that is all the target field asks for;
+* `declStep2M_of_value` therefore needs **no** mode residue —
+  `denote2_agree_same` closes what `Denote2ModeAgree` was carrying,
+  and `ValueResidues2M` has five fields where `ValueResidues2` has
+  six.
+
+Nothing else moved: `hext`, `hmem` and `mem_type2` stay all-mode,
+since seal 53's measurement was about the two body fields and not
+about them. -/
+
+/-- `DeclStep2` (`Keys2.lean`) at the mode-indexed invariant. -/
+def DeclStep2M (V : Type w) [SetTheory V] (μ : CheckMode)
+    (env₂ : Env) : Prop :=
+  Nonempty (EnvS2UM V μ env₂)
+
+/-- **`declStep2_of_cons` at one mode.**  The proof is that one with
+the mode binder of the two body clauses dropped; the `mem_type2`
+branch is untouched because that field did not move. -/
+theorem declStep2M_of_cons (m : EnvS2UM V μ env) {c₀ : ConstantInfo}
+    {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
+    (hag : ∀ n, n ≠ c₀.name → m.base.cval n = hbase.cval n)
+    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
+    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
+    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
+      A ψ₁ = A ψ₂)
+    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ))
+    (hext : ∀ (ν : CheckMode) (ψ : Name → Nat),
+      Denote2EnvExtend ν env ⟨c₀ :: env.consts⟩
+        (acvalWith m.acval c₀.name A) ψ)
+    (hmem : ∀ (ν : CheckMode) (ψ : Name → Nat),
+      MemberBlock2 V ν ⟨c₀ :: env.consts⟩
+        (acvalWith m.acval c₀.name A) ψ c₀.toConstantVal)
+    (hdefnA : ∀ (ψ : Name → Nat) (F : Nat)
+      (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+      ConstantInfo.defnInfo cv value hint = c₀ →
+      ∀ {ra : AVExpr},
+        denote2 μ (acvalWith m.acval c₀.name A)
+          ⟨c₀ :: env.consts⟩ ψ F 0 value = some ra → ra = A ψ)
+    (hthmA : ∀ (ψ : Name → Nat) (F : Nat)
+      (cv : ConstantVal) (value : Expr),
+      ConstantInfo.thmInfo cv value = c₀ →
+      ∀ {ra : AVExpr},
+        denote2 μ (acvalWith m.acval c₀.name A)
+          ⟨c₀ :: env.consts⟩ ψ F 0 value = some ra → ra = A ψ) :
+    DeclStep2M V μ ⟨c₀ :: env.consts⟩ := by
+  have hbound := envWF_constsBound m.base.wf
+  have hne : ∀ c ∈ env.consts, c.name ≠ c₀.name := by
+    have h0 := hfresh
+    rw [Env.find?, List.find?_eq_none] at h0
+    intro c hc h
+    exact h0 c hc (by simp [h])
+  have hcomp : ∀ (ν : CheckMode) (ψ : Name → Nat) (F d : Nat)
+      (e : Expr), ConstsBound env e →
+      denote2 ν (acvalWith m.acval c₀.name A)
+          ⟨c₀ :: env.consts⟩ ψ F d e
+        = denote2 ν m.acval env ψ F d e := by
+    intro ν ψ F d e hcb
+    rw [← hext ν ψ F d e hcb, denote2_acvalWith_fresh hfresh d e]
+  refine ⟨{
+    base := hbase
+    acval := acvalWith m.acval c₀.name A
+    acval_erase := ?_
+    acval_closed := acvalWith_closed m.acval_closed hAclosed
+    acval_params := acvalWith_params m.acval_params hAparams
+    acval_ok2 := acvalWith_ok2 m.acval_ok2 hAok
+    acval_defn := ?_
+    acval_thm := ?_
+    mem_type2 := ?_ }⟩
+  · -- `acval_erase`
+    intro n ψ
+    by_cases hn : n = c₀.name
+    · subst hn; rw [acvalWith_self]; exact hAerase ψ
+    · rw [acvalWith_ne hn, m.acval_erase, hag n hn]
+  · -- `acval_defn`, at `μ` only
+    intro ψ F cv value hint hc ra hra
+    rcases List.mem_cons.mp hc with h | h
+    · rw [show cv.name = c₀.name from
+        congrArg ConstantInfo.name h, acvalWith_self]
+      exact hdefnA ψ F cv value hint h hra
+    · rw [hcomp μ ψ F 0 value ((hbound _ h).2.1 cv value hint rfl)]
+        at hra
+      rw [acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
+      exact m.acval_defn ψ F cv value hint h hra
+  · -- `acval_thm`, at `μ` only
+    intro ψ F cv value hc ra hra
+    rcases List.mem_cons.mp hc with h | h
+    · rw [show cv.name = c₀.name from
+        congrArg ConstantInfo.name h, acvalWith_self]
+      exact hthmA ψ F cv value h hra
+    · rw [hcomp μ ψ F 0 value ((hbound _ h).2.2 cv value rfl)] at hra
+      rw [acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
+      exact m.acval_thm ψ F cv value h hra
+  · -- `mem_type2`, still at every mode
+    intro ν ψ fuel c hc ta hta ρ
+    rcases List.mem_cons.mp hc with h | h
+    · subst h
+      obtain ⟨F', ta', hle, hden', hall⟩ := hmem ν ψ fuel
+      obtain rfl : ta = ta' :=
+        Option.some.inj
+          ((denote2_fuelMono hle 0 _ hta).symm.trans hden')
+      exact (hall ρ).1
+    · rw [hcomp ν ψ fuel 0 _ (hbound _ h).1] at hta
+      rw [acvalWith_ne (hne _ h)]
+      exact m.mem_type2 ν ψ fuel c h ta hta ρ
+
+/-- **`declStep2_of_axiom` (`Keys2Cond.lean`) at one mode**, and here
+it is a corollary rather than a second proof: a stored axiom is
+neither a `def` nor a `thm`, so the two body premises are `nomatch`. -/
+theorem declStep2M_of_axiom (m : EnvS2UM V μ env) {cvA : ConstantVal}
+    {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? cvA.name = none)
+    (hbase : EnvS V ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩)
+    (hag : ∀ n, n ≠ cvA.name → m.base.cval n = hbase.cval n)
+    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval cvA.name ψ)
+    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
+    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ cvA.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂)
+    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ))
+    (hext : ∀ (ν : CheckMode) (ψ : Name → Nat),
+      Denote2EnvExtend ν env
+        ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩
+        (acvalWith m.acval cvA.name A) ψ)
+    (hmem : ∀ (ν : CheckMode) (ψ : Name → Nat),
+      MemberBlock2 V ν ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩
+        (acvalWith m.acval cvA.name A) ψ cvA) :
+    DeclStep2M V μ ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩ :=
+  declStep2M_of_cons m hfresh hbase hag hAerase hAclosed hAparams
+    hAok hext hmem (fun _ _ _ _ _ heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq)
+
+/-- **`declStep2_of_value` at one mode, and the mode residue is
+gone.**  Where the all-mode version had to cross from the front
+door's `μ` to an arbitrary `ν` — and carried `Denote2ModeAgree` to do
+it — this one identifies two runs *in the same mode*, which is
+`denote2_agree_same`. -/
+theorem declStep2M_of_value (m : EnvS2UM V μ env) {c₀ : ConstantInfo}
+    {value' : Expr} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hcb : ConstsBound env value')
+    (hA : ∀ ψ : Name → Nat, ∃ F : Nat,
+      denote2 μ m.acval env ψ F 0 value' = some (A ψ))
+    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
+    (hag : ∀ n, n ≠ c₀.name → m.base.cval n = hbase.cval n)
+    (hleaf : ∀ ψ : Name → Nat,
+      denoteClosed hbase.cval ⟨c₀ :: env.consts⟩ ψ value'
+        = some (hbase.cval c₀.name ψ))
+    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
+    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
+      A ψ₁ = A ψ₂)
+    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ))
+    (hext : ∀ (ν : CheckMode) (ψ : Name → Nat),
+      Denote2EnvExtend ν env ⟨c₀ :: env.consts⟩
+        (acvalWith m.acval c₀.name A) ψ)
+    (hmem : ∀ (ν : CheckMode) (ψ : Name → Nat),
+      MemberBlock2 V ν ⟨c₀ :: env.consts⟩
+        (acvalWith m.acval c₀.name A) ψ c₀.toConstantVal)
+    (hdb : ∀ (cv2 : ConstantVal) (v2 : Expr) (h2 : ReducibilityHint),
+      ConstantInfo.defnInfo cv2 v2 h2 = c₀ → v2 = value')
+    (htb : ∀ (cv2 : ConstantVal) (v2 : Expr),
+      ConstantInfo.thmInfo cv2 v2 = c₀ → v2 = value') :
+    DeclStep2M V μ ⟨c₀ :: env.consts⟩ := by
+  have hback : ∀ (ψ : Name → Nat) (F : Nat) {ra : AVExpr},
+      denote2 μ (acvalWith m.acval c₀.name A)
+        ⟨c₀ :: env.consts⟩ ψ F 0 value' = some ra → ra = A ψ := by
+    intro ψ F ra hra
+    rw [← hext μ ψ F 0 value' hcb,
+      denote2_acvalWith_fresh hfresh 0 value'] at hra
+    obtain ⟨F₀, hF₀⟩ := hA ψ
+    exact (denote2_agree_same hF₀ hra).symm
+  refine declStep2M_of_cons m hfresh hbase hag ?_ hAclosed hAparams
+    hAok hext hmem ?_ ?_
+  · -- `hAerase`
+    intro ψ
+    obtain ⟨F, hF⟩ := hA ψ
+    have hup := (Installs.of_fresh hfresh hag).denoteUp
+      (denote2_erase m.acval_erase 0 value' hF)
+    exact Option.some.inj (hup.symm.trans (hleaf ψ))
+  · -- `hdefnA`
+    intro ψ F cv value hint hc ra hra
+    obtain rfl := hdb cv value hint hc
+    exact hback ψ F hra
+  · -- `hthmA`
+    intro ψ F cv value hc ra hra
+    obtain rfl := htb cv value hc
+    exact hback ψ F hra
+
+/-- **What a value install still owes, at one mode.**
+`ValueResidues2` minus `modeAgree`: seal 53's de-generalization
+removes that field outright, and no other field changes. -/
+structure ValueResidues2M (V : Type w) [SetTheory V] (μ : CheckMode)
+    {env : Env} (m : EnvS2UM V μ env) (c₀ : ConstantInfo)
+    (A : (Name → Nat) → AVExpr) where
+  /-- The new leaf is closed.  *Provenance*: `denote2`'s output on a
+  closed subject; v1's twin is `denote_closed`. -/
+  closed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ
+  /-- …reads only its own level parameters.  *Provenance*: v1's
+  `denote_params_ext`. -/
+  params : ∀ ψ₁ ψ₂ : Name → Nat,
+    (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂
+  /-- …and is truthful.  *Provenance*: the claims' `InferClaims2U`. -/
+  ok2 : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ)
+  /-- `denote2` is stable across the install.  **Frozen on Θ.** -/
+  extend : ∀ (ν : CheckMode) (ψ : Name → Nat),
+    Denote2EnvExtend ν env ⟨c₀ :: env.consts⟩
+      (acvalWith m.acval c₀.name A) ψ
+  /-- `MemberBlock2` at the new constant. -/
+  newMember : ∀ (ν : CheckMode) (ψ : Name → Nat),
+    MemberBlock2 V ν ⟨c₀ :: env.consts⟩
+      (acvalWith m.acval c₀.name A) ψ c₀.toConstantVal
+
+/-- **The value kinds' reduction at one mode, assembled.**  Same as
+`declStep2_of_valueResidues` with a five-field remainder. -/
+theorem declStep2M_of_valueResidues (m : EnvS2UM V μ env)
+    {c₀ : ConstantInfo} {F : Nat} {cv : ConstantVal}
+    {value type' value' : Expr}
+    (hfresh : env.find? c₀.name = none)
+    (hvf : ValueFrontR μ F env m.base.cval cv value type' value')
+    (hrun : ∀ ψ : Name → Nat, Denote2BodyOfRun μ env m.acval ψ)
+    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
+    (hag : ∀ n, n ≠ c₀.name → m.base.cval n = hbase.cval n)
+    (hleaf : ∀ ψ : Name → Nat,
+      denoteClosed hbase.cval ⟨c₀ :: env.consts⟩ ψ value'
+        = some (hbase.cval c₀.name ψ))
+    (hdb : ∀ (cv2 : ConstantVal) (v2 : Expr) (h2 : ReducibilityHint),
+      ConstantInfo.defnInfo cv2 v2 h2 = c₀ → v2 = value')
+    (htb : ∀ (cv2 : ConstantVal) (v2 : Expr),
+      ConstantInfo.thmInfo cv2 v2 = c₀ → v2 = value')
+    (hres : ∀ A : (Name → Nat) → AVExpr,
+      (∀ ψ : Name → Nat, ∃ F' : Nat,
+        denote2 μ m.acval env ψ F' 0 value' = some (A ψ)) →
+      ValueResidues2M V μ m c₀ A) :
+    DeclStep2M V μ ⟨c₀ :: env.consts⟩ := by
+  obtain ⟨A, hA⟩ := exists_leaf_of_valueFrontR hrun hvf
+  obtain ⟨hcl, hpa, hok, hex, hme⟩ := hres A hA
+  exact declStep2M_of_value m hfresh (constsBound_of_valueFrontR hvf)
+    hA hbase hag hleaf hcl hpa hok hex hme hdb htb
+
+/-! ### The six kinds' obligations at one mode
+
+The four obligations, transposed.  Each is its all-mode twin with
+`EnvS2U` replaced by `EnvS2UM V μ` on **both** sides — which is what
+"the index threads for free" means, and it is checked here rather
+than asserted. -/
+
+/-- **The value kinds' install obligation, at one mode.**  *Reduces
+to*: `declStep2M_of_value`'s residue list, which is
+`ValueResidues2M` — five fields, not six. -/
+def DeclValue2SM (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
+  ∀ {F : Nat} {env : Env} {cv : ConstantVal}
+    {value type' value' : Expr} {c₀ : ConstantInfo}
+    (m : EnvS2UM V μ env),
+    ConstantValR μ F env m.base.cval cv type' →
+    ValueFrontR μ F env m.base.cval cv value type' value' →
+    c₀.toConstantVal = ⟨cv.name, cv.levelParams, type'⟩ →
+    (∀ (cv2 : ConstantVal) (v2 : Expr) (h2 : ReducibilityHint),
+      ConstantInfo.defnInfo cv2 v2 h2 = c₀ → v2 = value') →
+    (∀ (cv2 : ConstantVal) (v2 : Expr),
+      ConstantInfo.thmInfo cv2 v2 = c₀ → v2 = value') →
+    DeclStep2M V μ ⟨c₀ :: env.consts⟩
+
+/-- **The axiom kind's install obligation, at one mode.** -/
+def DeclAxiom2SM (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
+  ∀ {F : Nat} {env : Env} {cv : ConstantVal} {type' : Expr}
+    (m : EnvS2UM V μ env),
+    ConstantValR μ F env m.base.cval cv type' →
+    DeclStep2M V μ
+      ⟨ConstantInfo.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts⟩
+
+/-- **The pinned basis blocks' install obligation, at one mode.** -/
+def DeclBasis2SM (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
+  ∀ {env env₂ : Env} {kind : BasisKind},
+    Nonempty (EnvS2UM V μ env) → DeclBasisR env kind env₂ →
+    Nonempty (EnvS2UM V μ env₂)
+
+/-- **The modeled-inductive blocks' install obligation, at one
+mode.** -/
+def DeclInd2SM (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
+  ∀ {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
+    (m : EnvS2UM V μ env),
+    EtaFamiliesClosed env →
+    DeclIndR μ F env m.base.cval block env₂ →
+    Nonempty (EnvS2UM V μ env₂)
 
 end Setlec.SetR.Interp2

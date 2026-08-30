@@ -92,6 +92,9 @@ open Setlec.TT Setlec.TTVerify SetTheory EStore Expr
 open Setlec.SetR.Interp2 (EnvS2U DeclValue2S DeclAxiom2S DeclBasis2S
   DeclInd2S ValueResidues2 Denote2BodyOfRun leafEq_defn denote2
   declStep2_of_valueResidues no_constant_of_Empty_2)
+open Setlec.SetR.Interp2 (EnvS2UM DeclValue2SM DeclAxiom2SM
+  DeclBasis2SM DeclInd2SM ValueResidues2M
+  declStep2M_of_valueResidues)
 
 universe w
 variable {V : Type w} [SetTheory V]
@@ -210,6 +213,93 @@ theorem declStep2_defn (hdm : DivModPinS V) {μ : CheckMode} {F : Nat}
         env.consts⟩) := by
   obtain ⟨hbase, hag⟩ := declDefnS hdm m.base h
   exact declStep2_of_valueResidues m
+    (Option.isNone_iff_eq_none.mp hcvR.1) hvf hrun hbase hag
+    (leafEq_defn hbase)
+    (fun cv2 v2 h2 heq => by
+      simp only [ConstantInfo.defnInfo.injEq] at heq
+      exact heq.2.1)
+    (fun cv2 v2 heq => nomatch heq) hres
+
+/-! ## The mode-indexed lane
+
+Seal 53's de-generalization, threaded through the dispatch.  Nothing
+here is a new argument: `declStep2AllM_of` is `declStep2All_of`'s
+proof verbatim at `EnvS2UM V μ`, and that is the check — the ruling
+said the index threads for free because the fourteen already quantify
+`μ` outermost, and this is where that is verified rather than
+asserted. -/
+
+/-- **`DeclStep2All` at the mode-indexed invariant.**  The mode is
+still quantified exactly as in `declStepS`; what changed is that the
+invariant on both sides is the one a single checker run can supply. -/
+def DeclStep2AllM (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
+  ∀ {F : Nat} {env env₂ : Env} {d : Declaration}
+    (m : EnvS2UM V μ env),
+    EtaFamiliesClosed env →
+    DeclR μ F m.base.cval env d env₂ →
+    Nonempty (EnvS2UM V μ env₂)
+
+/-- **The dispatch at one mode, proved.**  `declStep2All_of`'s proof
+verbatim: `DeclR`'s six clauses are the dispatch, and the mode index
+is inert in every one of them. -/
+theorem declStep2AllM_of {μ : CheckMode} (hval : DeclValue2SM V μ)
+    (hax : DeclAxiom2SM V μ) (hbas : DeclBasis2SM V μ)
+    (hind : DeclInd2SM V μ) : DeclStep2AllM V μ := by
+  intro F env env₂ d m hE h
+  cases d with
+  | defnDecl cv value hint =>
+    obtain ⟨type', value', hcv, hvfr, rfl, -, -⟩ := h
+    exact hval m hcv hvfr rfl
+      (fun cv2 v2 h2 heq => by
+        simp only [ConstantInfo.defnInfo.injEq] at heq
+        exact heq.2.1)
+      (fun cv2 v2 heq => nomatch heq)
+  | thmDecl cv value =>
+    obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := h
+    exact hval m hcv hvfr rfl (fun cv2 v2 h2 heq => nomatch heq)
+      (fun cv2 v2 heq => by
+        simp only [ConstantInfo.thmInfo.injEq] at heq
+        exact heq.2)
+  | opaqueDecl cv value =>
+    obtain ⟨type', value', hcv, hvfr, rfl, -⟩ := h
+    exact hval m hcv hvfr rfl (fun cv2 v2 h2 heq => nomatch heq)
+      (fun cv2 v2 heq => nomatch heq)
+  | axiomDecl cv =>
+    obtain ⟨type', hcv, harm⟩ := h
+    rcases harm with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ |
+      ⟨-, -, -, -, -, -, -, rfl⟩
+    · exact hax m hcv
+    · exact hax m hcv
+    · exact hax m hcv
+    · exact ⟨m⟩
+  | basisDecl kind => exact hbas ⟨m⟩ h
+  | indDecl block => exact hind m hE h
+
+/-- **The `def` kind at one mode, and the residue is five.**
+`declStep2_defn` with `EnvS2UM` in place of `EnvS2U`: every
+collapse-lane input is still v1's own, `Denote2BodyOfRun` is still
+owed at the prefix, and what is left of the annotated side is
+`ValueResidues2M` — `ValueResidues2` **minus `modeAgree`**, which the
+de-generalization removed rather than supplied. -/
+theorem declStep2M_defn (hdm : DivModPinS V) {μ : CheckMode} {F : Nat}
+    {env : Env} {cv : ConstantVal} {value type' value' : Expr}
+    {hint : ReducibilityHint} (m : EnvS2UM V μ env)
+    (h : DeclDefnR μ F env m.base.cval cv value hint
+      ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+        env.consts⟩)
+    (hcvR : ConstantValR μ F env m.base.cval cv type')
+    (hvf : ValueFrontR μ F env m.base.cval cv value type' value')
+    (hrun : ∀ ψ : Name → Nat, Denote2BodyOfRun μ env m.acval ψ)
+    (hres : ∀ A : (Name → Nat) → AVExpr,
+      (∀ ψ : Name → Nat, ∃ F' : Nat,
+        denote2 μ m.acval env ψ F' 0 value' = some (A ψ)) →
+      ValueResidues2M V μ m
+        (.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint) A) :
+    Nonempty (EnvS2UM V μ
+      ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+        env.consts⟩) := by
+  obtain ⟨hbase, hag⟩ := declDefnS hdm m.base h
+  exact declStep2M_of_valueResidues m
     (Option.isNone_iff_eq_none.mp hcvR.1) hvf hrun hbase hag
     (leafEq_defn hbase)
     (fun cv2 v2 h2 heq => by
