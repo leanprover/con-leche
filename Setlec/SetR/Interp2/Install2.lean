@@ -41,9 +41,11 @@ survey's supplier requests.
 
 namespace Setlec.SetR.Interp2
 
-open Setlec.TT Setlec.TTVerify
+open Setlec.TT Setlec.TTVerify SetTheory
 open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name natLitSupported strLitSupported)
+
+universe w
 
 /-! ## The one-name update -/
 
@@ -233,5 +235,35 @@ theorem acvalWith_params {acval : Name → (Name → Nat) → AVExpr}
   · rw [if_neg hm] at hf
     rw [acvalWith_ne (fun hh => hm hh.symm)]
     exact h m ci hf ψ₁ ψ₂ hp
+
+/-! ## The one semantic field that extends for free
+
+`acval_ok2` is one of the two `EnvS2` fields that mention `V` at all,
+and it is the one that carries no environment index: it is a fact
+about each leaf on its own.  So its extension asks the install for
+exactly the new leaf's truthfulness and nothing more.
+
+Its partner `mem_type2` does **not** extend here, and the reason is
+worth the contrast: `mem_type2` conditions on a `denote2` run of the
+constant's *type* **in the extended environment**, so its transport
+needs the run-stability fact this file names as missing, not a case
+split. -/
+
+/-- `acval_ok2` extends. -/
+theorem acvalWith_ok2 {V : Type w} [SetTheory V]
+    {acval : Name → (Name → Nat) → AVExpr} {n : Name}
+    {A : (Name → Nat) → AVExpr}
+    (h : ∀ (m : Name) (ψ : Name → Nat) (ρ : Nat → V),
+      AnnotOk2 V ρ (acval m ψ))
+    (hA : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ)) :
+    ∀ (m : Name) (ψ : Name → Nat) (ρ : Nat → V),
+      AnnotOk2 V ρ (acvalWith acval n A m ψ) := by
+  intro m ψ ρ
+  by_cases hm : m = n
+  · subst hm
+    rw [acvalWith_self]
+    exact hA ψ ρ
+  · rw [acvalWith_ne hm]
+    exact h m ψ ρ
 
 end Setlec.SetR.Interp2
