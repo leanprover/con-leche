@@ -13395,3 +13395,77 @@ it applies to *every* basis-constant head the tier-B block wants —
 them as arguments.  Whoever wires the literal clauses into the
 dispatch pays it once, at the `acval`-side supplier, for all eight
 heads at once.
+### Discharge campaign, seal 5 — TWO STOPs, both quarters past them
+
+`WhnfCoreStep2` and `WhnfStep2`, run against `Bridge/WhnfCore.lean`.
+The case split transferred verbatim — it is the same checker — and the
+sealed *statements* did not.
+
+**STOP 1 (mechanically refuted): the annotation's fuel is tied to the
+checker's.**  All four claims of `Claims2` read the subject's
+annotation at `denote2 … fuel …`, the same numeral that indexes the
+checker call.  The knot decrements that numeral and every reduction
+clause recurses, so the step from `fuel` to `fuel + 1` must move a
+`denote2` fact *down* to `fuel` before the induction hypothesis will
+take it.  That move is `Denote2FuelDown` and it is **false**:
+`denote2` is `denote` fused with the checker's own sort computation,
+so no binder has an annotation until the fuel suffices to run
+`inferTypeCore` and `whnf`.  `denote2_fuelDown_false` exhibits it at
+the smallest witness — at fuel `1` the reduction loop cannot take its
+first `whnfCore` step (`whnf_one_error`), so `sortOfE` is `none`
+everywhere and no `∀`/`λ` annotates at all (`denote2_one_forallE`,
+`denote2_one_lam`), while at fuel `2` the smallest closed `∀` does
+(`denote2_two_forallE`).  Unconditional in mode, environment, level
+assignment and annotated valuation.
+
+The defect is in **all four claims**, not this quarter's two.  Seals
+1–4 did not meet it because the clauses they landed
+(`infer_sort_claim2`, `infer_fvar_claim2`, `infer_bvar_claim2`) are
+exactly the three that do not recurse.
+
+*The repair is a strengthening and one binder wide*: quantify the
+annotation fuel **inside** the claim, independent of the checker's
+(`WhnfCoreClaims2F` / `WhnfClaims2F`).  Every recursive use then
+instantiates the induction hypothesis at the goal's own `F` and no
+fuel moves.  `WhnfCoreClaims2F.toClaims2` checks the repaired claim
+still implies the sealed one, so nothing downstream loses;
+`whnfCore_letE_claim2F` is the checked evidence that repair 1 is the
+whole of STOP 1 at a recursing clause.
+
+**STOP 2: the `interp2` equality is stated ungraded.**  `Claims2`
+concludes `interp2 ρ ea = interp2 ρ ea' ∧ (AnnotOk2 ρ ea → AnnotOk2 ρ
+ea')` — the equality *outside* the premise.  The quarter's own Tier-A
+suppliers do not have that shape: `AnnotOk2_zeta`,
+`AnnotOk2_beta_pos` and `AnnotOk2_beta_zero` conclude
+`eq ∧ AnnotOk2 ρ ea'` **from** `AnnotOk2 ρ ea`.  For ζ the difference
+is harmless (`whnfStep2_zeta_eq` proves the ζ equality premise-free).
+For β it is not: `interp2_beta_pos` needs `⟦a⟧ ∈ˢ ⟦A⟧` (off the domain
+`app` is the canonical junk `∅`), which the clause's own certificate
+supplies; but `interp2_beta_zero` needs the λ's whole fibre package,
+i.e. `AnnotOk2` of the redex's head, and `whnfCoreBody` never infers
+the head — it whnf's it.  So the kind-`0` β branch has no supplier for
+the ungraded equality.  *The repair is a weakening, and it is the
+shape the suppliers already have*: move the equality inside the
+premise (`WhnfCoreClaims2R` / `WhnfClaims2R`).
+
+**Both quarters are discharged past both STOPs.**  In the repaired
+currency, `whnfCore_claims2R` closes all nine `whnfCoreBody` cases and
+`whnf_claims2R` closes the loop by induction on `whnfLoopFuel` (never
+on the knot's `fuel` — the map's discipline, and it held).  The
+residues are named at the checker's own function boundaries and none
+is this seal's to state: `IotaStep2` (the migrating iota bottoms',
+per the T5 rule), `ProjStep2` and `ReduceNatStep2` (v1's `ProjStepR`
+/ `ReduceNatStepR` transposed), `Denote2Inst1` (the `SortSubstStable`
+lane's; v1's `denote_beta`), `Delta2` (an annotated `mkAppN`
+inversion) and `BetaCert2` (the inference and defeq quarters, once
+they are repaired too).  The six leaves and `.bvar` are closed at the
+**sealed** shape, needing neither repair.
+
+*Rule: when a claim fuses a checker-computed object into its
+statement, the object's own fuel must be quantified separately from
+the checker's — the knot decrements one and not the other.  And a
+claim's conclusion should be read off the suppliers it names, not
+written first and matched later.*
+
+Awaiting the ruling on both repairs; neither is wired into
+`Claims2.lean`, for the seal-3 reason.

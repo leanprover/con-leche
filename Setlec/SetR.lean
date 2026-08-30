@@ -87,6 +87,7 @@ import Setlec.SetR.Interp2.Step2.Lit
 import Setlec.SetR.Interp2.Step2.StrLit
 import Setlec.SetR.Interp2.Step2.Dispatch
 import Setlec.SetR.Interp2.Step2.Routed
+import Setlec.SetR.Interp2.Step2.Whnf
 import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.SimSubst
 import Setlec.SetR.Annot.PremiseLadder
