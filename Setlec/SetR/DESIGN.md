@@ -10815,3 +10815,61 @@ Both suppliers are now closed: `LeavesSubCoreF` by
 `whnfPres_leaves`, the idem SLOT by deletion + shape-guarded
 re-derivation.  The carrier and dispatch hypothesis lists shrink by
 one.
+
+### Retroactive tombstone sweep (ratified rule, applied once) + the proj/iota shared map
+
+**Sweep result: CLEAN.**  Every live routed Prop and species checked
+against the recorded refutations: all level-linking premises are
+eval-form (the currency ruling; no isEquiv-producible forms); no
+routed Prop promises zip-out (all conclude eval-equality — the Θ
+zip-out refutation); the shells' primitives are dual-success (the
+liveness refutation); `PairedLeaves` is everywhere a premise, never
+run-derived (the fvar-leaf reading); the (A)-premise ladder's
+refuted forms (membership / interp-equality) appear in no live
+statement — cert premises are `isDefEqCore` runs; and after the
+CoreIdemF repair no idempotence obligation exists anywhere (the two
+remaining `WhnfCoreIdem` mentions are the tombstones themselves).
+
+**The proj-head pre-build map — a structural dependency finding.**
+`ZipProjHeadCase`'s discharge needs the whnf-outputs of the ZIPPED
+SCRUTINEES related — and `ZipIotaCase`'s needs the same for the
+zipped MAJORS (`iotaRec` whnfs the major internally).  Neither is
+`below`-reachable (scrutinees/majors land at ctor spines, not
+sorts) and neither is coreLock-reachable (the chains are LOOP-level:
+core+δ+nat).  The shared missing piece is **`loopLock`** — the
+whnf-loop lockstep riding coreLock:
+
+* subjects zipped + both whnf runs → outputs ZIPPED ∨ a re-based
+  liftable seam ∨ a dead side;
+* measure: knot-fuel sum, strong induction (the internal scrutinee/
+  major whnfs run at knot fuel MINUS ONE — `whnf_proj_inv` pins
+  this — so the recursion strictly decreases; loop steps within one
+  knot level iterate on the loop budget);
+* per loop step: coreLock on the core part; δ-steps sync by
+  name-determinism (`unfoldDefinition_spine_both`) or exit Θ-seams
+  at cert heads; nat steps are dead under sort premises
+  (`NatStepNoSort`) and, at the loop-lockstep's own level,
+  MIXED nat fire on zipped-but-unequal literal args is the one
+  genuine wall — absorbed because the consumers are sort-premised
+  downstream (below).
+
+**Mixed-fire deadness closes the cascade** (the audit that makes
+proj and iota dischargeable at all): a side whose proj/iota fire
+FAILS lands proj-headed / recursor-headed stuck; the loop cannot
+move it (recursors and proj heads neither unfold nor nat-fire), so
+that side's loop never reaches a sort — the top's sort premise
+refutes it.  So mixed fire is ALWAYS vacuous at the sort-premised
+tops; the only real synchronization content is BOTH-fire, where
+zipped ctor-spine majors force the SAME constructor name (ctor-head
+zip nodes are refl/constSlack — same name — or cert, which exits a
+Θ-seam), hence the same rule, shared RHS, zipped trailing args.
+Audit obligations surfaced (suppliers to name at the discharge
+seals): recursor consts never unfold (`recInfo` stores no value)
+and never nat-fire (the nat-op guards pin the stored KIND);
+proj-headed outputs likewise.
+
+**Proposed order** (for the ruling): `loopLock` (statement seal
+with the full pre-build treatment, then its induction) BEFORE the
+proj and iota discharges, which then ride it the way λ/letE rode
+coreLock; Θ can proceed independently (the defeq-run walk — the
+certLoop template family) in either position.
