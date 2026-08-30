@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.Step2.Loop
+import Setlec.SetR.Interp2.Step2.Levels
 import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Bridge.WhnfCore
 
@@ -1651,5 +1652,302 @@ theorem whnfStep2B_of
     WhnfStep2B μ V :=
   fun env m φ fuel ihwc _ _ _ =>
     whnf_claims2B m ihwc (hnat env m φ fuel) (hdelta env m φ)
+
+/-! # `Delta2B`, discharged — and what it turned out to cost
+
+The residue's own docstring says the annotation does not move and
+"only the fuel does".  That is right, and it is not the whole bill:
+`unfoldDefinition` does not hand the loop `value`, it hands it
+`value.instantiateLevelParams cv.levelParams us` under a spine, at the
+subject's depth.  `EnvS2.acval_defn` speaks about `value`, at depth
+`0`, under a *substituted assignment*.  Three crossings, and only two
+of them are algebra:
+
+* the spine — `denote2_mkAppN_swap` (`Step2/Levels.lean`), landed;
+* depth `0` → `d` — `denote2_depth_of_closed` (ditto), on
+  `denote2_shiftFrom` + `EnvS2.acval_closed`, landed;
+* `φ` versus `Level.substFn φ …` — **`Denote2InstLevels`**, a
+  **residue**.
+
+The third is v1's `denote_instLevels`, which is one induction over
+`denote` — and is *not* one induction over `denote2`, because
+`denote2`'s binder clauses run `inferTypeCore`/`whnf` on the term
+itself: the two sides of the crossing are two runs of the checker on
+two different terms.  See `Step2/Levels.lean`'s docstring for the
+argument in full.
+
+So the delta exit is routed to **one** obligation, in either of two
+equivalent forms:
+
+* `AcvalDefnInst` below — the shape the exit consumes, and the shape
+  `EnvS2.acval_defn`/`acval_thm` would take if the junction chose to
+  restate them at the *instantiated* value (a strict strengthening:
+  the current fields are its identity-substitution instance).  With
+  that field, `delta2B_of` discharges `Delta2B` outright and nothing
+  else is owed.
+* `Denote2InstLevels` — the general crossing, which supplies
+  `AcvalDefnInst` from the fields as they stand
+  (`acvalDefnInst_of_instLevels`), and which every other consumer of a
+  stored value's annotation will need too.
+
+Either way the *rest* of the delta exit is now theorem, not residue. -/
+
+/-- **The unfolding supplier the delta exit actually consumes**: the
+stored value's canonical annotation after the head's levels have been
+substituted *into* it, which is the term `unfoldDefinition` builds.
+Both unfoldable kinds (`defnInfo`, `thmInfo`) in one premise, exactly
+as `unfoldDefinition`'s two branches differ only in the field that
+supplies the value.
+
+Not refutable by the smallest-fuel test: the fuel is existential, in
+`EnvS2.acval_defn`'s own repaired shape. -/
+def AcvalDefnInst (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {F : Nat} {cv : ConstantVal} {value : Expr} {us : List Level},
+    ((∃ hint : ReducibilityHint,
+        ConstantInfo.defnInfo cv value hint ∈ env.consts) ∨
+      ConstantInfo.thmInfo cv value ∈ env.consts) →
+    us.length = cv.levelParams.length →
+    ∃ F', F ≤ F' ∧
+      denote2 μ m.acval env φ F' 0
+          (value.instantiateLevelParams cv.levelParams us)
+        = some (m.acval cv.name (Level.substFn φ cv.levelParams us))
+
+/-- Substituting every level parameter by itself does not move the
+assignment — the `Level.substFn` twin of `Level.subst_param_self`
+(`Verify/InstLevels.lean`), which is where it belongs if anything else
+ever wants it. -/
+theorem substFn_param_self (ψ : Name → Nat) (ks : List Name) :
+    Level.substFn ψ ks (ks.map Level.param) = ψ := by
+  funext n
+  have h : Level.subst.go ks (ks.map Level.param) n = .param n :=
+    Level.subst_param_self ks (.param n)
+  rw [← Level.eval_subst_go, h, Level.eval]
+
+/-- **The proposed field is a strengthening, not a different
+statement**: `EnvS2.acval_defn`'s current shape is its
+identity-substitution instance, so adopting `AcvalDefnInst` in its
+place loses nothing.  (The campaign's rule: a repair needs the
+positive check as well as the negative one.  This is the "nothing is
+lost" half; the "it is satisfiable at a real environment" half is the
+install layer's and is not testable here.) -/
+theorem acval_defn_of_acvalDefnInst (m : EnvS2 V env)
+    (hdi : AcvalDefnInst μ m φ) (F : Nat) (cv : ConstantVal)
+    (value : Expr) (hint : ReducibilityHint)
+    (hmem : ConstantInfo.defnInfo cv value hint ∈ env.consts) :
+    ∃ F', F ≤ F' ∧
+      denote2 μ m.acval env φ F' 0 value
+        = some (m.acval cv.name φ) := by
+  have h := hdi (F := F) (us := cv.levelParams.map Level.param)
+    (Or.inl ⟨hint, hmem⟩) (by simp)
+  rwa [Expr.instantiateLevelParams_self, substFn_param_self] at h
+
+/-- The two forms of the obligation, related: the general level
+crossing turns the fields as they stand into the shape the exit
+consumes. -/
+theorem acvalDefnInst_of_instLevels (m : EnvS2 V env)
+    (hil : Denote2InstLevels μ m) : AcvalDefnInst μ m φ := by
+  intro F cv value us hmem hlen
+  obtain ⟨F₁, hle₁, h₁⟩ :
+      ∃ F₁, F ≤ F₁ ∧
+        denote2 μ m.acval env (Level.substFn φ cv.levelParams us) F₁ 0
+            value
+          = some (m.acval cv.name
+            (Level.substFn φ cv.levelParams us)) := by
+    rcases hmem with ⟨hint, hm⟩ | hm
+    · exact m.acval_defn μ _ F cv value hint hm
+    · exact m.acval_thm μ _ F cv value hm
+  obtain ⟨F₂, hle₂, h₂⟩ :=
+    hil φ cv.levelParams us F₁ 0 value _ h₁
+  exact ⟨F₂, Nat.le_trans hle₁ hle₂, h₂⟩
+
+/-- The shared core of `unfoldDefinition`'s two branches — v1's
+`delta_coreR` (`Bridge/WhnfCore.lean`) transposed, with the two
+crossings v1 does not have to make. -/
+private theorem delta2B_core (m : EnvS2 V env)
+    {d F : Nat} {e : Expr} {n : Name} {us : List Level}
+    {ci : ConstantInfo} {cv : ConstantVal} {value : Expr}
+    {ea : AVExpr}
+    (hfn : e.getAppFn = .const n us)
+    (hfind : env.find? n = some ci)
+    (hcvt : ci.toConstantVal = cv)
+    (hlen : us.length = cv.levelParams.length)
+    (hnofv : value.hasFvar = false)
+    (hval : ∃ F₁, F ≤ F₁ ∧
+      denote2 μ m.acval env φ F₁ 0
+          (value.instantiateLevelParams cv.levelParams us)
+        = some (m.acval ci.name (Level.substFn φ cv.levelParams us)))
+    (hea : denote2 μ m.acval env φ F d e = some ea) :
+    ∃ F', F ≤ F' ∧
+      denote2 μ m.acval env φ F' d
+          (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+            e.getAppArgs)
+        = some ea := by
+  obtain ⟨F₁, hle, hv0⟩ := hval
+  obtain rfl : ci.name = n := by
+    rw [Env.find?] at hfind
+    have := List.find?_some hfind
+    simpa using this
+  refine ⟨F₁, hle, ?_⟩
+  have he : Expr.mkAppN e.getAppFn e.getAppArgs = e :=
+    Expr.mkAppN_getApp e
+  rw [← he] at hea
+  refine denote2_mkAppN_swap e.getAppArgs hle ?_ hea
+  intro fa hfa
+  rw [hfn, denote2, hfind] at hfa
+  simp only [hcvt] at hfa
+  rw [if_pos hlen] at hfa
+  obtain rfl : fa = m.acval ci.name
+      (Level.substFn φ cv.levelParams us) := (Option.some.inj hfa).symm
+  exact denote2_depth_of_closed m.base.wf m.acval_closed
+    (by rw [Expr.hasFvar_instantiateLevelParams]; exact hnofv)
+    (fun k => m.acval_closed _ _ k) hv0 d
+
+/-- **`Delta2B`, discharged** from the single obligation above.  The
+spine, the depth and the frame are theorems; the level crossing is the
+whole of what remains. -/
+theorem delta2B_of (m : EnvS2 V env) (hdi : AcvalDefnInst μ m φ) :
+    Delta2B μ m φ := by
+  intro d e e' F ea hud hea
+  rw [unfoldDefinition] at hud
+  split at hud
+  · next n us hfn =>
+    split at hud
+    · next cv value hint hfind =>
+      split at hud
+      · next hlen =>
+        obtain rfl : e' = Expr.mkAppN
+            (value.instantiateLevelParams cv.levelParams us)
+            e.getAppArgs := (Option.some.inj hud).symm
+        exact delta2B_core m hfn hfind rfl hlen
+          (by obtain ⟨-, -, -, -, hd, -⟩ :=
+                m.base.wf _ (find?_mem hfind)
+              exact (hd cv value hint rfl).1)
+          (hdi (Or.inl ⟨hint, find?_mem hfind⟩) hlen) hea
+      · exact nomatch hud
+    · next cv value hfind =>
+      split at hud
+      · next hlen =>
+        obtain rfl : e' = Expr.mkAppN
+            (value.instantiateLevelParams cv.levelParams us)
+            e.getAppArgs := (Option.some.inj hud).symm
+        exact delta2B_core m hfn hfind rfl hlen
+          (by obtain ⟨-, -, -, -, -, -, ht⟩ :=
+                m.base.wf _ (find?_mem hfind)
+              exact (ht cv value rfl).1)
+          (hdi (Or.inr (find?_mem hfind)) hlen) hea
+      · exact nomatch hud
+    · exact nomatch hud
+  · exact nomatch hud
+
+/-! # `BetaCert2`, and the seam it lands on
+
+`whnfCoreStep2B_of` is handed all four induction hypotheses and uses
+one; the β certificate is what would consume two of the other three.
+So the question worth asking before treating `BetaCert2` as a residue
+is whether it is a residue at all, or merely `InferClaims2A` and
+`DefEqClaims2B` composed at the site where the checker already ran
+both (`whnfCoreBody`'s β branch runs `inferTypeCore` on the argument
+and `isDefEqCore` against the λ's domain — that *is* the certificate).
+
+**It is the composition, and the composition does not close.**
+`betaCert2P_of_claims` below is that composition with every input the
+derivation needs made an explicit premise, so the residue's remaining
+content is exactly the gap between `BetaCert2P` and `BetaCert2`.
+`BetaCert2P` adds three premises and the theorem consumes one further
+input; of those four, **one** is a seam and the rest are bookkeeping:
+
+* `μ.verified = true` — the consumer has it (`whnfCore_claims2B`
+  binds it from `WhnfCoreClaims2B`);
+* `AnnotOk2 ρ tya` — the consumer has it (below);
+* `CtxOk2 m μ φ F d Δa a` — **the consumer does not have it**;
+* `TypeOk2` (the theorem's `htok`) — a residue of the inference
+  quarter, not of this one.
+
+The last two are the two the inference quarter had already met from
+its own side:
+
+1. **The context currency.**  `InferClaims2A` reads `CtxOk2` (a
+   `denote2` fact plus an `interp2` equation per `fvar` leaf); this
+   quarter holds `CtxOkR` on erasures, whose leaf package is a
+   *derivation*, `∃ T', Infer … ∧ DefEq …`.  The bridge is `CtxOk2R`
+   (`Step2/InferQ.lean`), stated there and believed false.  **The β
+   certificate is a second, independent consumer of it** — the seam is
+   not the inference `.app` clause's alone, and the repair both sites
+   need is the same one (the context currency made uniform across the
+   four claims, which was the dispatch quarter's original proposal).
+2. **The inferred type's truthfulness.**  `DefEqClaims2B` is graded on
+   *both* sides (STOP 3) and `InferClaims2A` concludes `AnnotOk2` of
+   the term it typed, never of the type it returned.  That is the
+   inference quarter's `TypeOk2`, and it answers the question seal 8
+   left open — *"whether `InferClaims2A`'s conclusion needs extending
+   is asked against a site that can point at it"*: **yes, and this is
+   a second such site.**  (Written out as a premise here rather than
+   imported: `TypeOk2` lives in the inference quarter's file, and two
+   declarations of one statement is the integration cost seal 9
+   measured.)
+
+The λ domain's own truthfulness is **not** a gap: at the call site the
+consumer holds `AnnotOk2 ρ (.app (.lam v tya ba) aa)`, and
+`AnnotOk2_lam`'s first conjunct is `AnnotOk2 ρ tya`.  It is a premise
+below for bookkeeping, not a residue.
+
+Deliberately **not** wired into `whnfCore_app_claim2B`: `BetaCert2P`
+carries a premise the consumer cannot supply, and a residue discharged
+by weakening it past its consumer is worse than an open one. -/
+
+/-- `BetaCert2` with the two seam premises made explicit — the shape
+the two claims actually compose to.  `BetaCert2` is this with
+`CtxOk2` and the domain's `AnnotOk2` removed; the first of those is
+`CtxOk2R`'s content and the reason this is not a discharge. -/
+def BetaCert2P (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {F : Nat}
+    {aa tya : AVExpr},
+    μ.verified = true →
+    inferTypeCore μ env fuel d a = .ok ta →
+    Setlec.isDefEqCore μ env fuel d ta ty = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a →
+    Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded ty →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) ty →
+    CtxOk2 m μ φ F d Δa a →
+    denote2 μ m.acval env φ F d a = some aa →
+    denote2 μ m.acval env φ F d ty = some tya →
+    ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ tya →
+      interp2 V ρ aa ∈ˢ interp2 V ρ tya
+
+/-- **The β certificate is the two claims composed** — the inference
+claim types the argument, the defeq claim moves the interpretation
+from the inferred type to the λ's domain, and the membership rides
+across.  `htok` is the inference quarter's `TypeOk2`, written out
+because it lives in that quarter's file. -/
+theorem betaCert2P_of_claims (m : EnvS2 V env) {fuel : Nat}
+    (htok : ∀ {F f d : Nat} {e t : Expr} {Δa : List AVExpr}
+      {ta : AVExpr},
+      inferTypeCore μ env f d e = .ok t →
+      CtxOk2 m μ φ F d Δa e →
+      denote2 μ m.acval env φ F d t = some ta →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta)
+    (ihd : DefEqClaims2B μ m φ fuel) (ihi : InferClaims2A μ m φ fuel) :
+    BetaCert2P μ m φ fuel := by
+  intro d Δa a ty ta F aa tya hv hta hde hwa hba hLa hCa hwty hbty
+    hLty hCty hC2 haa htya ρ hρ hoktya
+  obtain ⟨F', ta', hle, hta', hcon⟩ := ihi hv hta hwa hba hLa hC2 haa
+  have hwta : Expr.WScoped d ta :=
+    Setlec.inferTypeCore_WScoped m.base.wf fuel hta hwa
+  have hbta : ta.looseBVarsBounded 0 = true :=
+    Setlec.inferTypeCore_looseBVars m.base.wf fuel hta hwa hba hLa
+  have hsub := Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hta hwa
+  have hLta : Expr.LeavesBounded ta := fun l hl => hLa l (hsub l hl)
+  have hCta : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) ta :=
+    CtxOkR.of_subset hsub hCa
+  have hokta : AnnotOk2 V ρ ta' :=
+    htok hta (CtxOk2.fuelMono hle hC2) hta' ρ hρ
+  have heq := ihd hv hde hwta hbta hLta hwty hbty hLty hCta hCty hta'
+    (denote2_fuelMono hle d ty htya) ρ hρ hokta hoktya
+  exact heq ▸ (hcon ρ hρ).2
 
 end Setlec.SetR.Interp2
