@@ -13120,3 +13120,24 @@ landed.  Remaining named leaves on the two-obligation path: the
 `Q`-family (discharges at the consumer's concrete `Q`),
 `BoolCtorsInert` (install fact), `TypeTransport{Core,Delta,Nat}F`
 (the checker's infer-subject-reduction — its own tier), the Θ docket.
+
+### Refinement three: the Θ relation as DATA (`ThetaRelD` triple)
+
+The composition-generalized motive hit positivity: the analysis
+motive needs the outer telescope's per-entry analyses as a premise,
+which self-references the motive (negative occurrence — no
+inductive pack can carry it), and every Nat-measure attempt
+re-inflates at the in-zone reset (round three's lesson, now at the
+mechanization tier).  The one certain resolution: the relation
+becomes Type-valued data — the mutual triple
+`ThetaRelD`/`ThetaRelsD`/`TelescopeRelD` (spines as the list
+inductive so `sizeOf` counts them), with the Prop wrappers
+`ThetaRel`/`TelescopeRel` (`Nonempty`) keeping every statement
+unchanged.  The discharge recurses well-foundedly on
+`(N, sizeOf rel-bundle, L, row-weight)`: the in-zone chase descends
+to the looked-up entry's SUB-TERM; pushes and peels descend the
+knot sum; the run's δ/nat arms descend `L`; the syn hop descends
+the manual row-weight (run > same).  Kit ported to the data forms
+(`TelescopeRelD.append/concat`, the bounded/WScoped/lam-beta
+family); `ThetaRelsD.length_eq/get` bridge to the Prop shapes.
+Battery green, axioms 12/12.
