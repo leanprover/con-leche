@@ -11407,3 +11407,35 @@ budgets are unrelated to it).  All direct sites bound by `le_refl`,
 recursion sites by the weakening — the invariant held everywhere,
 now recorded everywhere.  Design axiom restated: every run a pack
 ships, ships with BOTH fuel bounds from the start.
+
+### zipProjHeadCase_of DISCHARGED; the audit fact moved INTO the type
+
+Building the top discharge, `cases` demanded the projHead-seam arm
+the walk never produces — the prose audit could not discharge a
+syntactic obligation.  The honest fix: **`LoopSeam`**, the
+loop-tier seam type with exactly four constructors
+(certHead/recHead/deadL/deadR, payloads verbatim), replacing
+`CoreSeam` in `LoopSeamOut` — the audit fact is now A TYPE, and
+top consumers never face their own shape by construction.  All
+loop-tier shipping sites re-tagged mechanically; coreLock keeps
+`CoreSeam` (its projHead constructor is exactly what loopLock
+unpacks).
+
+`zipProjHeadCase_of` then landed on the frozen map: loopLock on
+the subject pair; pack → `certZip_sorts_eval`; certHead → `hΘ`
+with the carrier-transported invariants (`(Q := Q)` pins on the
+transports — the HO-unification guard, again) and the connecting
+sort-runs; recHead → `hIota` at **`ZipBelow.weaken`** (new: the
+bar weakens to smaller measures by omega over the shipped bounds —
+the budget surgery's direct payoff); dead seams → decompose + det
++ `loop_dead_exit`; natSplit → `NatStepNoSort` on the marked side
+(`Option.isSome_iff_exists`); projSplit → the new routed
+**`ProjSplitSortAgree`** (the Θ-family's second docket item,
+payload-verbatim premises at sort-landing suffix runs).
+
+**Milestone**: all four flat-spine head cases
+(const/λ/letE/proj) now have their discharges.  The summit's
+remaining routed obligations: `ZipCertSpineCase` (Θ),
+`ZipIotaCase` (the major recursion), `ProjSplitSortAgree` (Θ's
+docket) — plus the trio, the species suppliers, the install facts,
+and (B).
