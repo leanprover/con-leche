@@ -12463,6 +12463,114 @@ cannot even **state** is not a gap in the design — it is a missing
 former, and formers belong to the tier that owns the objects.  Check
 which of the two you have before calling STOP.*
 
+### The wall ruling executed: (C)-audit, (B)-audit, the audited architecture (map seal)
+
+**(C)-audit result — condition (i) answered by the measure, not by
+E4.**  Sweep of every E4 aligned-output construction site: the
+loop-tier aligned assemblies reuse the input run's own budget shape
+(`⟨g, l+1⟩` at the step, `l₂ ≤ l` through the pendings) — the
+core-tier alignment consumes CORE steps, which the loop budget does
+not count, so strictness is genuinely unavailable at those sites
+(zero-loop-step by construction).  Under the audited measure below
+the strict form is also UNNECESSARY: no image-pair consumer needs
+budget decrease.  E4 stands unamended; the axiom's extension
+("every consumed step recorded as a strict decrease") is satisfied
+vacuously at the loop tier and structurally by the new measure
+elsewhere.
+
+**(A) rejected, with reason (per the ruling)**: a `CertZip` θ-arm
+would carry the image of a certified pair as a zip arm — usable
+only if certificates transported under substitution, which is the
+wall itself relocated into the relation.
+
+**(B)-audit — the full reference graph and the audited measure.**
+The finding that dissolves the wall: **the in-zone-fvar recursion
+shortens the telescope** — an entry's argument pair is substituted
+by the PREFIX entries only, so its walk/zip instances run at
+`|Γ'| < |Γ|`.  With that slot the graph closes:
+
+* Claims: the WALK (run-form, `ThetaWalkClaim`, unchanged) and the
+  new **θ-zip walker** (`ThetaZipWalkClaim`, map-sealed compiled):
+  spines over telescope-images of a ZIPPED pair at zip-fuel
+  `fcz ≤ fcK + 1`.  The syn-walker collapsed into the zip walker
+  (refl is a zip).  At `Γ = []` the zip walker's cert-arm IS
+  `ZipCertSpineCase`'s data — the depth-zero consumers are its
+  instances.
+* Measure (proof-internal, lexicographic):
+  `[rank, |Γ|, phase, zip-structure∕L, loop-budgets]` with
+  `rank(walk at fcK) := fcK + 1`, `rank(zip walker) := fcz`,
+  `phase(zip walker) = 2 > phase(walk) = 1`.
+* The audited transitions: walk's δ/nat re-entries → same prefix,
+  `L−1` ✓; the push → `rank−1` (the opened-body run one knot down;
+  `Γ` grows under the dominant drop) ✓; walk's syn → zip walker at
+  refl, `fcz := 0` (refl-zips are rank-free) — rank drops ✓; walk's
+  congruence arms (appCong/spine/consts) → zip walker at
+  `fcz = fcK` (the run's OWN `defEqList`/head certs sit at the
+  run's knot) — rank drops ✓; walk's in-zone fvar → zip walker at
+  `fcz = fcK + 1` (TelescopeOk's tier), equal rank, `|Γ'| < |Γ|` ✓;
+  zip walker's cert-arm → walk at `fcK := fcz − 1` (the unfold),
+  equal rank, phase drops ✓; zip walker's structural/loop-step
+  re-entries → its inner slots (the landed ZipApp-discharge's
+  [zip-structure, knot] pattern) ✓.
+* Supply re-verified: pushed entries' argument pairs are the walk's
+  own spine zips; congruence-arm zips come from the run's own
+  certificates one knot down; no loop-gate certs anywhere.
+
+The verified positives from the wall report carry over unchanged
+(post-core syn reduces by E3+E4 to same-`P` core-normal images;
+sort/λ/Π/lit/below-zone-fvar discharge or refute cleanly).  Next:
+ratification of the audited architecture, then the mutual discharge
+in arm-group seals, then the depth-zero consumers as zip-walker
+instances.
+
+### The (B)-audit, round three: the sealed measure OVERTURNED — the audit's own full strength (STOP)
+
+Extending the audit past the transition table to (a) the PUSHED
+telescope's tier supply and (b) the re-entry loops' assembly knots
+falsifies the `[rank, |Γ|, phase, …]` measure sealed one commit ago:
+
+1. **Tier/knot decoupling is forced.**  `ThetaWalkClaim` couples the
+   run's knot and `TelescopeOk`'s tier (both `fcK`).  The push drops
+   the knot but CANNOT re-tier the old entries' certificates down
+   (no fuel down-transport), and the pushed entry's certs arrive at
+   the ORIGINAL tier (the spine zips).  So the telescope tier is a
+   GLOBAL constant `T` of each summit entry and the knot descends
+   independently — the frozen claim needs the two-fuel form.
+2. **Pushes and in-zone entries trade `|Γ|` against the knot in
+   opposite directions** — push: knot−1, `|Γ|`+1; in-zone: `|Γ|`
+   strictly down, knot reset up to `T`.  No lexicographic order on
+   (knot, `|Γ|`) covers both, and the growth is not potential-
+   boundable (in-zone resets can re-grow past any prior state).
+3. **The only globally descending currency is the GIVEN loops' own
+   structure** — and the zip tier's landed ZipAppCase seal already
+   recorded the exact discipline: "the claim must NOT recurse at
+   the contracta — that leg would not decrease; the knot pays for β
+   inline at `ga−1`".  The β-fires the push chases are CORE-internal
+   to ONE `whnfStep` of the given loops: their processing must be
+   INLINE down the loops' core runs (knot-descending), never a walk
+   re-entry; the δ/nat re-entries descend the loop budgets; the
+   cert exits descend `fc`.  The walk's real measure is ZipBelow's
+   own `[fc, ga+gb, la+lb]` — the original bar — with the telescope
+   as TRAVELING DATA (the defeq-run data consumed in sync with the
+   inline core-walk), not a measure slot.
+
+**Corrected architecture sketch (for ratification)**: the summit
+discharge is an inline-processing induction in the ZipAppCase
+style — primary on the loops' knots (`ga+gb`), the defeq-run data
+(`PostCoreCert` at the current opened depth) traveling as a
+hypothesis pack alongside the telescope; the E3/E4 engines align
+the loops' actual core steps with the run's θ-images per layer;
+zip-material exits through ZipBelow (fc-descent at cert exits,
+budget-descent at δ/nat); the in-zone-fvar leaves exit through the
+telescope pack's own zips at the SAME ZipBelow bar (their loops are
+sub-runs at strictly smaller knots — the argument whnfs sit inside
+iota/nat processing one knot down).  `ThetaZipWalkClaim` (beec972)
+survives as the ENTRY-SHAPE (the consumers' interface) but its
+discharge rides the corrected induction, not the overturned
+measure.  The beec972 measure section is TOMBSTONED by this entry
+(the tombstone-sweep rule applies: no future obligation may cite
+`[rank, |Γ|, phase]`).  STOP — reporting before any arm code.
+
 ### Migration step 2, entry item 1 — `BConst.type2` (the annotated basis types)
 
 `Setlec/SetR/Interp2/BasisType.lean`: the first of the two suppliers
