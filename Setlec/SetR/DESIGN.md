@@ -11851,3 +11851,35 @@ lemma in this codebase's fvar-annotated setting.  Its statement
 k = substAK d k a (b.instantiate1 v k)` for closed `d`-fresh `a`
 and closed `v`.  Next seal: that induction, then the ι composite
 (structural, `mkAppN`-distribution based), then the subst-sim map.
+
+### The β/ζ composite SEALED (the direct de Bruijn induction)
+
+Landed (compiled, warning-free, zero sorries): `substAK_cursor`
+(cursor-independence: `substAK d k a v = substAK d k' a v` for `v`
+with loose bvars bounded by `j ≤ k, k'` — the retargeting lemma the
+binder arms need to move the plugged value's cursor under a binder)
+and `substAK_instantiate1` (the composite itself, exactly the frozen
+statement).  Two findings from the induction:
+
+* **The freshness hypothesis fell off.**  The composite needs only
+  `a.looseBVarsBounded 0` (and closed `v`); `d`-freshness of the
+  argument is NOT required — the `fvar d` arm closes because closed
+  `a` is `instantiate1`-invariant at any cursor
+  (`Setlec.Expr.instantiate1_eq_self` + `looseBVarsBounded_mono`),
+  regardless of whether `a` mentions `d`.  The walk still supplies
+  freshness (its arguments are `substAK`-invariant spine members),
+  but the lemma is the standard one.
+* **Mechanization**: the kernel's `if`-normal forms are UNSTABLE
+  across elaboration passes (`x = x` conditions sometimes decide to
+  `True`, sometimes stay literal; `rw` fires on one side only when
+  the two sides' branches differ).  The robust pattern used
+  throughout: `have`-ascribed equations with concrete `if`-goals
+  discharged by `simp`/`omega`-backed `if_neg`/`if_pos`, plus
+  `simp only [if_neg h]` (not `rw`) when both sides carry the same
+  condition.  Structural arms are `show`-distributed (substAK is
+  rfl-structural) + IHs, binder arms retarget via `substAK_cursor
+  hvb (Nat.zero_le _) (Nat.zero_le _)`.
+
+Next: the ι composite (fire-image under `substAK` — ctor-head
+stability + closed rule RHS + `mkAppN` distribution; needs
+`substAK_mkAppN`), then `whnfCore_subst_sim`'s map + induction.

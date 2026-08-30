@@ -12742,6 +12742,199 @@ theorem abstract1_instantiate1_comm {d : Nat} {X : Expr}
     simp only [Setlec.Expr.abstract1, Setlec.Expr.instantiate1]
     rw [ih k]
 
+/-- The substitution's cursor is immaterial above the term's bvar
+bound (closed values substitute the same at any cursor). -/
+theorem substAK_cursor {d : Nat} {a : Expr} :
+    ∀ {v : Expr} {j k k' : Nat},
+      v.looseBVarsBounded j = true → j ≤ k → j ≤ k' →
+      substAK d k a v = substAK d k' a v := by
+  intro v
+  induction v with
+  | bvar i =>
+    intro j k k' hb hk hk'
+    simp only [Setlec.Expr.looseBVarsBounded,
+      decide_eq_true_eq] at hb
+    simp only [substAK, Setlec.Expr.abstract1,
+      Setlec.Expr.instantiate1]
+    rw [if_neg (by omega : ¬ (i = k)),
+      if_neg (by omega : ¬ (i > k)),
+      if_neg (by omega : ¬ (i = k')),
+      if_neg (by omega : ¬ (i > k'))]
+  | fvar idx n ty ih =>
+    intro j k k' hb hk hk'
+    simp only [substAK, Setlec.Expr.abstract1]
+    by_cases h : idx = d
+    · rw [if_pos h, if_pos h]
+      simp [Setlec.Expr.instantiate1]
+    · rw [if_neg h, if_neg h]
+      rfl
+  | sort u => intro j k k' hb hk hk'; rfl
+  | const n us => intro j k k' hb hk hk'; rfl
+  | lit l => intro j k k' hb hk hk'; rfl
+  | app f x ihf ihx =>
+    intro j k k' hb hk hk'
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    show Expr.app (substAK d k a f) (substAK d k a x)
+        = Expr.app (substAK d k' a f) (substAK d k' a x)
+    rw [ihf hb.1 hk hk', ihx hb.2 hk hk']
+  | lam n ty b m ihty ihb =>
+    intro j k k' hb hk hk'
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    show Expr.lam n (substAK d k a ty) (substAK d (k + 1) a b) m
+        = Expr.lam n (substAK d k' a ty) (substAK d (k' + 1) a b) m
+    rw [ihty hb.1 hk hk',
+      ihb hb.2 (Nat.succ_le_succ hk) (Nat.succ_le_succ hk')]
+  | forallE n ty b m ihty ihb =>
+    intro j k k' hb hk hk'
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    show Expr.forallE n (substAK d k a ty)
+        (substAK d (k + 1) a b) m
+        = Expr.forallE n (substAK d k' a ty)
+          (substAK d (k' + 1) a b) m
+    rw [ihty hb.1 hk hk',
+      ihb hb.2 (Nat.succ_le_succ hk) (Nat.succ_le_succ hk')]
+  | letE n ty v' b ihty ihv ihb =>
+    intro j k k' hb hk hk'
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    show Expr.letE n (substAK d k a ty) (substAK d k a v')
+        (substAK d (k + 1) a b)
+        = Expr.letE n (substAK d k' a ty) (substAK d k' a v')
+          (substAK d (k' + 1) a b)
+    rw [ihty hb.1.1 hk hk', ihv hb.1.2 hk hk',
+      ihb hb.2 (Nat.succ_le_succ hk) (Nat.succ_le_succ hk')]
+  | proj sn i e ih =>
+    intro j k k' hb hk hk'
+    simp only [Setlec.Expr.looseBVarsBounded] at hb
+    show Expr.proj sn i (substAK d k a e)
+        = Expr.proj sn i (substAK d k' a e)
+    rw [ih hb hk hk']
+
+/-- **The β/ζ composite** (the direct de Bruijn induction): the
+telescope substitution commutes with one contraction — serves β
+(where the value is additionally `substAK`-invariant) and ζ. -/
+theorem substAK_instantiate1 {d : Nat} {a : Expr}
+    (hab : a.looseBVarsBounded 0 = true)
+    {v : Expr} (hvb : v.looseBVarsBounded 0 = true) :
+    ∀ (b : Expr) (k : Nat),
+      (substAK d (k + 1) a b).instantiate1 (substAK d k a v) k
+        = substAK d k a (b.instantiate1 v k) := by
+  intro b
+  induction b with
+  | bvar i =>
+    intro k
+    simp only [substAK, Setlec.Expr.abstract1,
+      Setlec.Expr.instantiate1]
+    by_cases h1 : i = k
+    · subst h1
+      rw [if_neg (by omega : ¬ (i = i + 1)),
+        if_neg (by omega : ¬ (i > i + 1))]
+      simp [Setlec.Expr.instantiate1]
+    · by_cases h2 : i = k + 1
+      · subst h2
+        have e1 : (if k + 1 = k + 1 then a
+            else if k + 1 > k + 1 then Expr.bvar (k + 1 - 1)
+            else Expr.bvar (k + 1)) = a := by simp
+        have e2 : (if k + 1 = k then v
+            else if k + 1 > k then Expr.bvar (k + 1 - 1)
+            else Expr.bvar (k + 1)) = Expr.bvar k := by
+          rw [if_neg (by omega : ¬ (k + 1 = k)),
+            if_pos (by omega : k + 1 > k)]
+          rfl
+        rw [e1, e2,
+          show ((Expr.bvar k).abstract1 d k) = Expr.bvar k
+            from rfl,
+          show (Expr.bvar k).instantiate1 a k = a from by
+            simp [Setlec.Expr.instantiate1]]
+        exact Setlec.Expr.instantiate1_eq_self
+          (looseBVarsBounded_mono (Nat.zero_le _) hab)
+      · by_cases h3 : i > k
+        · rw [if_neg h2, if_pos (by omega : i > k + 1),
+            if_neg h1, if_pos h3]
+          simp only [Setlec.Expr.instantiate1,
+            Setlec.Expr.abstract1]
+          simp only [if_neg (show ¬ (i - 1 = k) from by omega)]
+        · rw [if_neg h2, if_neg (by omega : ¬ (i > k + 1)),
+            if_neg h1, if_neg h3]
+          simp only [Setlec.Expr.instantiate1,
+            Setlec.Expr.abstract1]
+          simp only [if_neg h1, if_neg h3]
+  | fvar idx n ty ih =>
+    intro k
+    simp only [substAK, Setlec.Expr.abstract1,
+      Setlec.Expr.instantiate1]
+    by_cases h : idx = d
+    · rw [if_pos h, if_pos h]
+      simp only [Setlec.Expr.instantiate1]
+      rw [if_pos trivial, if_pos trivial]
+      exact Setlec.Expr.instantiate1_eq_self
+        (looseBVarsBounded_mono (Nat.zero_le _) hab)
+    · rw [if_neg h, if_neg h]
+      rfl
+  | sort u => intro k; rfl
+  | const n us => intro k; rfl
+  | lit l => intro k; rfl
+  | app f x ihf ihx =>
+    intro k
+    show Expr.app
+        ((substAK d (k + 1) a f).instantiate1 (substAK d k a v) k)
+        ((substAK d (k + 1) a x).instantiate1 (substAK d k a v) k)
+      = Expr.app (substAK d k a (f.instantiate1 v k))
+        (substAK d k a (x.instantiate1 v k))
+    rw [ihf k, ihx k]
+  | lam n ty b m ihty ihb =>
+    intro k
+    show Expr.lam n
+        ((substAK d (k + 1) a ty).instantiate1
+          (substAK d k a v) k)
+        ((substAK d (k + 2) a b).instantiate1
+          (substAK d k a v) (k + 1)) m
+      = Expr.lam n (substAK d k a (ty.instantiate1 v k))
+        (substAK d (k + 1) a (b.instantiate1 v (k + 1))) m
+    rw [ihty k]
+    rw [show substAK d k a v = substAK d (k + 1) a v from
+      substAK_cursor hvb (Nat.zero_le _) (Nat.zero_le _)]
+    rw [ihb (k + 1)]
+  | forallE n ty b m ihty ihb =>
+    intro k
+    show Expr.forallE n
+        ((substAK d (k + 1) a ty).instantiate1
+          (substAK d k a v) k)
+        ((substAK d (k + 2) a b).instantiate1
+          (substAK d k a v) (k + 1)) m
+      = Expr.forallE n (substAK d k a (ty.instantiate1 v k))
+        (substAK d (k + 1) a (b.instantiate1 v (k + 1))) m
+    rw [ihty k]
+    rw [show substAK d k a v = substAK d (k + 1) a v from
+      substAK_cursor hvb (Nat.zero_le _) (Nat.zero_le _)]
+    rw [ihb (k + 1)]
+  | letE n ty v' b ihty ihv ihb =>
+    intro k
+    show Expr.letE n
+        ((substAK d (k + 1) a ty).instantiate1
+          (substAK d k a v) k)
+        ((substAK d (k + 1) a v').instantiate1
+          (substAK d k a v) k)
+        ((substAK d (k + 2) a b).instantiate1
+          (substAK d k a v) (k + 1))
+      = Expr.letE n (substAK d k a (ty.instantiate1 v k))
+        (substAK d k a (v'.instantiate1 v k))
+        (substAK d (k + 1) a (b.instantiate1 v (k + 1)))
+    rw [ihty k, ihv k]
+    rw [show substAK d k a v = substAK d (k + 1) a v from
+      substAK_cursor hvb (Nat.zero_le _) (Nat.zero_le _)]
+    rw [ihb (k + 1)]
+  | proj sn i e ih =>
+    intro k
+    show Expr.proj sn i
+        ((substAK d (k + 1) a e).instantiate1
+          (substAK d k a v) k)
+      = Expr.proj sn i (substAK d k a (e.instantiate1 v k))
+    rw [ih k]
+
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/
 theorem zipLamHeadCase_of {φ : Name → Nat}
