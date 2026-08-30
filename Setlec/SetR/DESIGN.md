@@ -17230,3 +17230,42 @@ was filed for, and the consumer still does not close.* That is not a
 failure of the pattern — it is the difference between "the supplier
 was missing" and "the supplier was one of several missing things",
 which only writing the composition reveals.
+
+### Seal 50 — perspective: the two leftovers ARE the priced residue set
+
+A reframing that changes what seal 49's negative gate means, recorded
+because the raw reading is misleading.
+
+**Neither leftover is a new obstruction.** Both are the residue set
+that scope ruling (ii) — seal 39 — already priced:
+
+* **`InferExists2E`** is a **generation-six factorization residue**
+  (seal 32), dischargeable through the claims exactly as the
+  conditional-keys design intends. The key composition consuming it
+  **conditionally is the adopted sequencing, not a shortfall.**
+* **`EnvExtendStable`** is the **known frozen-on-Θ transport**,
+  unblocking when that lane's sorry-free prefix lands.
+
+So seal 49's gate is negative *against an unconditional reading* and
+**exactly on target against the conditional one**, which is the one
+ruling (ii) adopted. The milestone was never "the keys close
+outright"; it is **"the keys close on precisely these named
+residues"**, with the unconditional forms following at junction
+closure — the sequencing recorded at seal 39 and unchanged since:
+
+> conditional now; unconditional at junction closure when the zips,
+> `SortSubstStable`, `RecRulesV2` and the remaining residues discharge;
+> **v1's fourteen untouched and hypothesis-free throughout.**
+
+*Rule: a gate's verdict is only meaningful against the reading its
+ruling adopted. "Does not close" and "does not close unconditionally"
+are different results, and the second is what a conditional design
+predicts.*
+
+**And `ValueFrontR`'s twin is a frozen supply, not a vacuous `Prop`.**
+The distinction is the one this campaign's own slot-versus-hypothesis
+rule draws: it has a **named future consumer** (`Denote2BodyOfRun`),
+is supplied from a real binder at `valueFrontR_of`, and is not
+`rfl`-provable. The D6 flag stands as an honest note that no discharge
+has exercised its quantifiers yet — *which is a smaller claim than
+"unconsumed field", and the two must not be conflated.*
