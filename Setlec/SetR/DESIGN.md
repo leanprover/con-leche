@@ -17166,3 +17166,67 @@ their sorry-free prefix lands.
 *Rule: verify the consumer against the reshaped supplier before
 filing, not after. The check cost one reading of `CheckerBase.lean`
 and would have cost a landed-and-useless conjunct.*
+
+### Seal 49 — the exposure lands; the gate is negative again; seal 48's predicted cost was wrong
+
+Build green at 343 jobs, `lake test` clean, battery **90/92** with e2e
+72/72 and the no-model sweep unchanged — so the other lane's cone
+through `SetR/Decl.lean` and `Bridge/Decl.lean` is intact.
+
+**Item 1 — landed, mechanical at every site.** `ConstantValR` gains the
+chain, `ValueFrontR` the single-run twin, supplied at `Bridge/Decl.lean`
+as `⟨stype, u, hst, hsort⟩` and `⟨vtype, hvt⟩` — **pairs, not proofs**,
+exactly as seal 47 measured. *My site list was short again*: six
+`DivModPin` sites, not four, plus three in `Bridge/Decl.lean` I did not
+name.
+
+**Item 2 — seal 48's predicted cost was wrong, and the worker probed
+rather than believing me.** I predicted the reshaped consumer would
+need **`WhnfClaims2U` alongside `InferClaims2U`**. It needs neither:
+`MemberBlock2` asks only for the *subject's* `AnnotOk2`, and **nothing
+in the route turns on what the inferred type is or reduces to.** The
+`ensureSort` half of the chain I designed is **consumed nowhere.**
+
+What the fused literal sort was *actually* doing was supplying the
+claim's **other dual-success premise** for free, via `denote2_sort`. At
+an arbitrary `stype` that annotation must come from somewhere — and
+that somewhere is `InferExists2E`, not a whnf claim.
+
+*Rule: when a fused premise is split, ask what each half was buying.
+I assumed the sort was buying its own reduction; it was buying an
+**annotation**.*
+
+**Item 3 — the gate is negative, with two leftovers rather than one.**
+`memberBlock2_of_constantValR` compiles and exhibits the composition,
+so the reading is precise:
+
+* **`hrun` applies on the nose** — a real closure. The old fused
+  premise was un-dischargeable **in principle**, because
+  `checkConstantVal` never produces `.ok (.sort u)`.
+* **Leftover 1 — `EnvExtendStable`, which I did not anticipate.**
+  `ConstantValR` says the name is **fresh at `env₀`**; the key needs
+  `c ∈ env.consts` at `env`. **The composition crosses an
+  environment.** It is the *forward* direction, so Θ's
+  `EnvExtendStable` is the right shape, and its `ConstsBound` side
+  condition is free from `ConstantValR`'s own `constsResolve` via
+  `constsBound_of_constsResolve`.
+
+  **This is seal 47's own prefix/extension rule biting a second time**
+  — *"a step lemma whose premise and conclusion live at different
+  environments must carry the transport"* — and I wrote that rule two
+  seals ago and still designed a composition that ignored it.
+* **Leftover 2 — `InferExists2E`**, beyond the reach of *any*
+  checker-side exposure: **no run the front door makes says the
+  inferred type annotates.**
+
+**Recorded stall, honest under D6:** `ValueFrontR`'s new twin has **no
+consumer in this tree** — it was filed for `Denote2BodyOfRun`, which
+lives in another lane. It is supplied from a real binder and is not
+`rfl`-provable, but **no discharge has exercised its quantifiers.**
+
+*The exposure pattern's fourth instance therefore lands with a
+qualification the first three did not have: it closed the premise it
+was filed for, and the consumer still does not close.* That is not a
+failure of the pattern — it is the difference between "the supplier
+was missing" and "the supplier was one of several missing things",
+which only writing the composition reveals.
