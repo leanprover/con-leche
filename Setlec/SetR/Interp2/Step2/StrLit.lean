@@ -157,4 +157,85 @@ theorem strLit_facts2 {ρ : Nat → V}
   · rw [interp2_app]
     exact app_mem_piR_pos Nat.one_ne_zero hofList hclm
 
+/-! ## Re-pointed to `Claims2A` (seal 6)
+
+As in `Step2/Lit.lean`: `charList_facts2` and `strLit_facts2` mention
+no fuel, no `denote2` and no mode, so all four repairs pass straight
+through them.  The clause below is the part that had to move.
+-/
+
+open Setlec (CheckMode Env Expr Name Level inferTypeCore inferBody
+  viewM strLitSupported)
+
+variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
+
+/-- **I11A (`.lit strVal`), amended.**  The checker returns
+`.const String []`, a **fuel-free** `acval` leaf, so `F' = F` here too:
+the whole literal layer leaves R3's slack unspent, and the two
+witnesses that forced R3 (`.const`, `.fvar`) really are the only ones.
+
+The six heads stay **abstract**, with `hea` saying only that `denote2`
+emits the spine over them.  That is a change from `Step2/Lit.lean`,
+where they are spelled concretely so that `EnvS2.acval_ok2` can
+discharge the truthfulness side, and the reason is structural: `nilA`
+and `consA` are `List.nil`/`List.cons` **already applied to `Char`**,
+so they are `.app` nodes, not stored leaves, and `acval_ok2` cannot
+reach them — their `AnnotOk2` is an `AnnotOk2_app` needing the very
+membership facts this clause takes as premises.  Abstracting is
+therefore not laziness but the honest shape; a consumer holding the
+concrete heads instantiates `_hea` by the `denote2` equation.
+
+`_hea` is carried and **not consumed**: with the subject's annotation
+spelled out in the conclusion there is nothing left for it to say, and
+the clause's whole content is on the type side.  It stays in the
+statement because it is what pins this lemma to its subject — the same
+reason the amended `.bvar` clause carries one. -/
+theorem infer_strLit_claim2A (m : EnvS2 V env) {d F : Nat} {s : String}
+    {t : Expr} {Δa : List AVExpr}
+    {nilA consA ofNatA ofListA za sa natA charA lcA strA : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t)
+    (_hea : denote2 μ m.acval env φ F d (.lit (.strVal s))
+      = some (.app ofListA
+          (charListT2 nilA consA ofNatA za sa s.toList)))
+    (hty : denote2 μ m.acval env φ F d (.const Setlec.stringName [])
+      = some strA)
+    (hokz : ∀ ρ : Nat → V, AnnotOk2 V ρ za)
+    (hoks : ∀ ρ : Nat → V, AnnotOk2 V ρ sa)
+    (hokNil : ∀ ρ : Nat → V, AnnotOk2 V ρ nilA)
+    (hokCons : ∀ ρ : Nat → V, AnnotOk2 V ρ consA)
+    (hokOfNat : ∀ ρ : Nat → V, AnnotOk2 V ρ ofNatA)
+    (hokOfList : ∀ ρ : Nat → V, AnnotOk2 V ρ ofListA)
+    (hz : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ za ∈ˢ interp2 V ρ natA)
+    (hsucc : ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ sa
+      ∈ˢ piR 1 (interp2 V ρ natA) fun _ => interp2 V ρ natA)
+    (hnil : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ nilA ∈ˢ interp2 V ρ lcA)
+    (hcons : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ consA ∈ˢ piR 1 (interp2 V ρ charA)
+        fun _ => piR 1 (interp2 V ρ lcA) fun _ => interp2 V ρ lcA)
+    (hofNat : ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ ofNatA
+      ∈ˢ piR 1 (interp2 V ρ natA) fun _ => interp2 V ρ charA)
+    (hofList : ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ ofListA
+      ∈ˢ piR 1 (interp2 V ρ lcA) fun _ => interp2 V ρ strA) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        AnnotOk2 V ρ (.app ofListA
+            (charListT2 nilA consA ofNatA za sa s.toList)) ∧
+          interp2 V ρ (.app ofListA
+            (charListT2 nilA consA ofNatA za sa s.toList))
+            ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
+    Except.bind] at h
+  split at h
+  · simp only [Except.ok.injEq] at h
+    subst h
+    refine ⟨F, strA, Nat.le_refl F, hty, fun ρ hρ => ?_⟩
+    exact strLit_facts2 (hokz ρ) (hoks ρ) (hz ρ hρ) (hsucc ρ hρ)
+      (hokNil ρ) (hokCons ρ) (hokOfNat ρ) (hokOfList ρ) (hnil ρ hρ)
+      (hcons ρ hρ) (hofNat ρ hρ) (hofList ρ hρ) s
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+
 end Setlec.SetR.Interp2
