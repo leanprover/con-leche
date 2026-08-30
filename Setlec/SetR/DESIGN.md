@@ -17331,3 +17331,78 @@ inhabitation table is the deliverable and the theorem count is
 decoration. Fourteen conditional theorems over four uninhabited
 residues is a map of the remaining work, and saying so is what keeps
 it one.*
+
+### Seal 52 — `empty_pinned` closed cheaply; `DeclStep2All` relocated, not inhabited
+
+Build **347 jobs** warning-free, `lake test` clean, battery **90/92**
+with e2e 72/72 and the no-model sweep unchanged. **v1's fourteen
+byte-identical** (`git diff` on `Main.lean` empty) and all on the three
+standard axioms.
+
+#### Item 2 — the check paid, and no field was needed
+
+**`acval_erase` + `empty_pinned` already determine the annotated
+side**, for a reason the brief did not name: **`erase` is injective at
+the constant clause.** A `VExpr` constant has exactly one `AVExpr`
+source, because that clause carries no annotation to forget. So the
+leaf *is* `.const .empty [u]`, and `interp2` values it by `bval2`.
+
+**And the standing refutation does not bite.**
+`interp2_ne_interp_erase` — the theorem that `interp2 ≠ interp ∘ erase`
+— has an **empty-domain λ** as its countermodel, i.e. a *binder*
+disagreement. At a constant leaf both readings are `bval`/`bval2` at
+the same `BConst`, and at `.empty` both are the empty set. *A
+refutation's reach is its countermodel's shape, not its headline.*
+
+Seal 51's stall 2 is **closed**: `no_constant_of_Empty_R2`'s membership
+is now `mem_type2` over `interp2`. Only the pin itself is still
+`base`'s — which no annotated field could replace, since `acval` is
+*defined* to erase to the pinned valuation.
+
+#### Item 1 — relocation with a finer grain, stated as such
+
+**`DeclStep2All` is not inhabited**, and the worker said so under D6
+rather than letting the landing imply otherwise. What is *not*
+relocation: the **dispatch itself** (`declStep2All_of`), the
+tolerated-axiom branch, `hAerase`, `hdefnA`/`hthmA` — **the first
+consumer of seal 49's exposure** — and `denote2BodiesStep_holds`,
+which is now **unconditional**, so `Denote2BodiesStep` stops being a
+residue.
+
+Genuinely inhabited among `declStep2_defn`'s premises: `DivModPinS`
+(proved in tree), `DeclDefnR` (from real runs), `ConstantValR` and
+`ValueFrontR`. Not: `Denote2BodyOfRun` and `ValueResidues2`'s six.
+
+#### Three findings, one of them a correction of mine
+
+* **My `DeclStep2Residues` claim was overstated.** I wrote that
+  `baseExt`/`cvalAgree` "discharge today, wherever v1's axiom install
+  runs". They do not: **`declStepS`'s `Nonempty` conclusion is a
+  one-way door**, and `acval_erase` is an equation against a witness
+  the install discarded. Fixed for the value kinds by strengthening
+  `extendValueS` and the kind lemmas to expose the extension *plus its
+  agreement*; `declStepS` keeps its signature. **The axiom kind is not
+  fixed** — `declAxiomS` picks its leaf through `StdAxiomKeyS`, not
+  canonically.
+* **New obstruction — the mode gap.** `EnvS2U.acval_defn`/`acval_thm`
+  quantify over **every** `CheckMode`; the front door ran in **one**,
+  and `denote2` reads the mode through `sortOfE`/`lamSortE`. Named
+  `Denote2ModeAgree`, with its same-mode instance proved so it is not
+  a vacuous `Prop`. **No supplier anywhere — and no checker-side
+  exposure can produce one**, since the missing runs were never made.
+* **`Denote2BodiesStep` needed a *second* amendment.** Seal 47 added
+  the transport and it was *still* unprovable: the run its supplier is
+  keyed on, and the body's prefix-boundness, were not premises either.
+  *Amending a statement once does not make it right; it makes it
+  righter.*
+
+#### The actionable residue: two of six are not junction-blocked
+
+`ValueResidues2.closed` and `.params` want `denote2` twins of v1's
+`denote_closed` and `denote_params_ext`, and **the tree simply has
+neither.** That is a next batch, not a junction wait — the first item
+in a while that is neither blocked on Θ nor on the fifteen.
+
+Also open: `hleaf` is free only at `def`/`theorem` (at `opaque` v1
+stores an axiom and keeps no equation), and `DeclValue2S` covers the
+`def` kind only.
