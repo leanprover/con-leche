@@ -106,6 +106,7 @@ import Setlec.SetR.Interp2.Claims2E
 import Setlec.SetR.Interp2.EnvS2U
 import Setlec.SetR.Interp2.EnvS2UNe
 import Setlec.SetR.Interp2.Claims2U
+import Setlec.SetR.Interp2.EnvS2UPi
 import Setlec.SetR.Interp2.Keys2
 import Setlec.SetR.Interp2.Denote2Extend
 import Setlec.SetR.Interp2.Keys2Probe
