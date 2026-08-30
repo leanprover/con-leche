@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.Step2.Loop
+import Setlec.SetR.Interp2.Step2.Levels
 import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Bridge.WhnfCore
 
@@ -1653,5 +1654,163 @@ theorem whnfStep2B_of
     WhnfStep2B μ V :=
   fun env m φ fuel ihwc _ _ _ =>
     whnf_claims2B m ihwc (hnat env m φ fuel) (hdelta env m φ)
+
+/-! # `Delta2B`, discharged — and what it turned out to cost
+
+The residue's own docstring says the annotation does not move and
+"only the fuel does".  That is right, and it is not the whole bill:
+`unfoldDefinition` does not hand the loop `value`, it hands it
+`value.instantiateLevelParams cv.levelParams us` under a spine, at the
+subject's depth.  `EnvS2.acval_defn` speaks about `value`, at depth
+`0`, under a *substituted assignment*.  Three crossings, and only two
+of them are algebra:
+
+| crossing | supplier | status |
+|---|---|---|
+| the spine | `denote2_mkAppN_swap` (`Step2/Levels.lean`) | landed here |
+| depth `0` → `d` | `denote2_depth_of_closed` (ditto), on `denote2_shiftFrom` + `EnvS2.acval_closed` | landed here |
+| `φ` vs `Level.substFn φ …` | **`Denote2InstLevels`** | **residue** |
+
+The third is v1's `denote_instLevels`, which is one induction over
+`denote` — and is *not* one induction over `denote2`, because
+`denote2`'s binder clauses run `inferTypeCore`/`whnf` on the term
+itself: the two sides of the crossing are two runs of the checker on
+two different terms.  See `Step2/Levels.lean`'s docstring for the
+argument in full.
+
+So the delta exit is routed to **one** obligation, in either of two
+equivalent forms:
+
+* `AcvalDefnInst` below — the shape the exit consumes, and the shape
+  `EnvS2.acval_defn`/`acval_thm` would take if the junction chose to
+  restate them at the *instantiated* value (a strict strengthening:
+  the current fields are its identity-substitution instance).  With
+  that field, `delta2B_of` discharges `Delta2B` outright and nothing
+  else is owed.
+* `Denote2InstLevels` — the general crossing, which supplies
+  `AcvalDefnInst` from the fields as they stand
+  (`acvalDefnInst_of_instLevels`), and which every other consumer of a
+  stored value's annotation will need too.
+
+Either way the *rest* of the delta exit is now theorem, not residue. -/
+
+/-- **The unfolding supplier the delta exit actually consumes**: the
+stored value's canonical annotation after the head's levels have been
+substituted *into* it, which is the term `unfoldDefinition` builds.
+Both unfoldable kinds (`defnInfo`, `thmInfo`) in one premise, exactly
+as `unfoldDefinition`'s two branches differ only in the field that
+supplies the value.
+
+Not refutable by the smallest-fuel test: the fuel is existential, in
+`EnvS2.acval_defn`'s own repaired shape. -/
+def AcvalDefnInst (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {F : Nat} {cv : ConstantVal} {value : Expr} {us : List Level},
+    ((∃ hint : ReducibilityHint,
+        ConstantInfo.defnInfo cv value hint ∈ env.consts) ∨
+      ConstantInfo.thmInfo cv value ∈ env.consts) →
+    us.length = cv.levelParams.length →
+    ∃ F', F ≤ F' ∧
+      denote2 μ m.acval env φ F' 0
+          (value.instantiateLevelParams cv.levelParams us)
+        = some (m.acval cv.name (Level.substFn φ cv.levelParams us))
+
+/-- The two forms of the obligation, related: the general level
+crossing turns the fields as they stand into the shape the exit
+consumes. -/
+theorem acvalDefnInst_of_instLevels (m : EnvS2 V env)
+    (hil : Denote2InstLevels μ m) : AcvalDefnInst μ m φ := by
+  intro F cv value us hmem hlen
+  obtain ⟨F₁, hle₁, h₁⟩ :
+      ∃ F₁, F ≤ F₁ ∧
+        denote2 μ m.acval env (Level.substFn φ cv.levelParams us) F₁ 0
+            value
+          = some (m.acval cv.name
+            (Level.substFn φ cv.levelParams us)) := by
+    rcases hmem with ⟨hint, hm⟩ | hm
+    · exact m.acval_defn μ _ F cv value hint hm
+    · exact m.acval_thm μ _ F cv value hm
+  obtain ⟨F₂, hle₂, h₂⟩ :=
+    hil φ cv.levelParams us F₁ 0 value _ h₁
+  exact ⟨F₂, Nat.le_trans hle₁ hle₂, h₂⟩
+
+/-- The shared core of `unfoldDefinition`'s two branches — v1's
+`delta_coreR` (`Bridge/WhnfCore.lean`) transposed, with the two
+crossings v1 does not have to make. -/
+private theorem delta2B_core (m : EnvS2 V env)
+    {d F : Nat} {e : Expr} {n : Name} {us : List Level}
+    {ci : ConstantInfo} {cv : ConstantVal} {value : Expr}
+    {ea : AVExpr}
+    (hfn : e.getAppFn = .const n us)
+    (hfind : env.find? n = some ci)
+    (hcvt : ci.toConstantVal = cv)
+    (hlen : us.length = cv.levelParams.length)
+    (hnofv : value.hasFvar = false)
+    (hval : ∃ F₁, F ≤ F₁ ∧
+      denote2 μ m.acval env φ F₁ 0
+          (value.instantiateLevelParams cv.levelParams us)
+        = some (m.acval ci.name (Level.substFn φ cv.levelParams us)))
+    (hea : denote2 μ m.acval env φ F d e = some ea) :
+    ∃ F', F ≤ F' ∧
+      denote2 μ m.acval env φ F' d
+          (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+            e.getAppArgs)
+        = some ea := by
+  obtain ⟨F₁, hle, hv0⟩ := hval
+  obtain rfl : ci.name = n := by
+    rw [Env.find?] at hfind
+    have := List.find?_some hfind
+    simpa using this
+  refine ⟨F₁, hle, ?_⟩
+  have he : Expr.mkAppN e.getAppFn e.getAppArgs = e :=
+    Expr.mkAppN_getApp e
+  rw [← he] at hea
+  refine denote2_mkAppN_swap e.getAppArgs hle ?_ hea
+  intro fa hfa
+  rw [hfn, denote2, hfind] at hfa
+  simp only [hcvt] at hfa
+  rw [if_pos hlen] at hfa
+  obtain rfl : fa = m.acval ci.name
+      (Level.substFn φ cv.levelParams us) := (Option.some.inj hfa).symm
+  exact denote2_depth_of_closed m.base.wf m.acval_closed
+    (by rw [Expr.hasFvar_instantiateLevelParams]; exact hnofv)
+    (fun k => m.acval_closed _ _ k) hv0 d
+
+/-- **`Delta2B`, discharged** from the single obligation above.  The
+spine, the depth and the frame are theorems; the level crossing is the
+whole of what remains. -/
+theorem delta2B_of (m : EnvS2 V env) (hdi : AcvalDefnInst μ m φ) :
+    Delta2B μ m φ := by
+  intro d e e' F ea hud hea
+  rw [unfoldDefinition] at hud
+  split at hud
+  · next n us hfn =>
+    split at hud
+    · next cv value hint hfind =>
+      split at hud
+      · next hlen =>
+        obtain rfl : e' = Expr.mkAppN
+            (value.instantiateLevelParams cv.levelParams us)
+            e.getAppArgs := (Option.some.inj hud).symm
+        exact delta2B_core m hfn hfind rfl hlen
+          (by obtain ⟨-, -, -, -, hd, -⟩ :=
+                m.base.wf _ (find?_mem hfind)
+              exact (hd cv value hint rfl).1)
+          (hdi (Or.inl ⟨hint, find?_mem hfind⟩) hlen) hea
+      · exact nomatch hud
+    · next cv value hfind =>
+      split at hud
+      · next hlen =>
+        obtain rfl : e' = Expr.mkAppN
+            (value.instantiateLevelParams cv.levelParams us)
+            e.getAppArgs := (Option.some.inj hud).symm
+        exact delta2B_core m hfn hfind rfl hlen
+          (by obtain ⟨-, -, -, -, -, -, ht⟩ :=
+                m.base.wf _ (find?_mem hfind)
+              exact (ht cv value rfl).1)
+          (hdi (Or.inr (find?_mem hfind)) hlen) hea
+      · exact nomatch hud
+    · exact nomatch hud
+  · exact nomatch hud
 
 end Setlec.SetR.Interp2
