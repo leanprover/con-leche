@@ -109,6 +109,7 @@ import Setlec.SetR.Interp2.Capstone2D
 import Setlec.SetR.Interp2.Dual2E
 import Setlec.SetR.Interp2.Capstone2E
 import Setlec.SetR.Interp2.Capstone
+import Setlec.SetR.Interp2.Install2
 import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.SimSubst
 import Setlec.SetR.Annot.PremiseLadder
