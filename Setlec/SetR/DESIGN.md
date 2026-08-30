@@ -14658,3 +14658,98 @@ inside the `discharge` worktree, so they nested under it rather than
 sitting beside it. Harmless to git, but the briefs' paths were wrong
 and each worker had to find its own tree. Create worktrees from the
 repository root.
+
+### Seal 17 — generation four's defeq and inference quarters
+
+Both landed green, both on exactly the three standard axioms, neither
+requesting a statement change. Three of four quarters are in.
+
+**Generation four's central purpose is validated.**
+`binder_ctxOk2_openCong` discharges `CtxOk2.openCong` **from
+`DefEqClaims2C` and nothing else**: `hok₁`/`hok₂` *are* the claim's two
+hoisted premises verbatim, and `hdom` *is* its conclusion with `ρ` and
+`Sat2` still abstracted. The quantifier obstacle `not_openCongLocal`
+identified is gone.
+
+The quarter also checked the thing nobody asked it to:
+`binder_ctxOk2_openCong_sat` verifies the remaining premises are
+**jointly meetable** at a concrete one-binder instance, so the lemma is
+not an implication out of contradictory hypotheses. *That check is now
+being run unprompted by workers, which is the practice propagating on
+its own.*
+
+**One new idea, and it is the self-propagation made explicit.**
+`Sat2_cons_congr`: `hoist_pi`/`hoist_lam` deliver the *right*
+codomain's hoisted fact over `ta₂ :: Δa`, while the congruence recurses
+over `ta₁ :: Δa`. The domain equality moves it — and is available
+ρ-uniformly *precisely because it is the claim's own conclusion before
+its `ρ`*. The `…A` lane made the same move at one valuation; hoisting
+changed its shape, not its content.
+
+**`TypeOk2` is retired outright**, confirmed from the second quarter:
+`InferInputs2C` sheds the field. Its three uses were all in `.app`, and
+all three are now the induction hypothesis's own new conjunct, at the
+same annotation and fuel — arriving ρ-uniform, which is what the
+hoisted claims demand and what `TypeOk2` had been supplying only
+*coincidentally*. The extension is what makes it non-coincidental.
+
+**The honest qualification, from both quarters independently.**
+`binder_ctxOk2_openCong` takes *both* context currencies, because
+generation four moved the quantifier and not the currency. That seam is
+now the **only** thing between the congruence proofs and firing
+`CtxOk2.openCong` in place of `CtxOkR.openCong`. Generation five.
+
+#### The `.fvar` finding — a supplier request, not a residue
+
+The inference quarter's `.fvar` clause **cannot** deliver the returned
+type's `AnnotOk2`. `CtxOk2`'s leaf package carries definedness, the
+context index and an `interp2` equation — **and no truthfulness**, and
+nothing recovers it: `Sat2` gives *inhabitation* of context entries,
+never `AnnotOk2`; the leaf link is an equation between interpretations
+and `AnnotOk2` is not an `interp2` invariant (#100); and the clause
+performs no run on `ty`, so no IH applies.
+
+Routed as `CtxAnn2` at the exact granularity a **fourth component of
+`CtxOk2`'s leaf package** would have, so it can move verbatim — the
+`CtxOk2Open` → `CtxOk2.openS` precedent. Claimed to self-propagate:
+the new head leaf's annotation is `ta.liftN 1 0`, whose `AnnotOk2` is
+`AnnotOk2_liftN` of the domain's ρ-uniform `AnnotOk2`, which generation
+four now supplies at every binder site.
+
+**A methodological result worth more than the residue.** The quarter
+attempted to refute `CtxAnn2` and reports it **does not go through
+parametrically** — and says *why*, which is the useful part. A witness
+needs a leaf annotation whose `AnnotOk2` fails while its interpretation
+is *inhabited* (else `Sat2` dies and the instance is vacuous — seal
+11's `⟪Empty⟫` discipline, applied unprompted). The `AnnotOk2` failures
+`denote2` can actually produce sit at `app`/`proj` nodes, and there the
+interpretation is `SetTheory.app`/`sfst` of junk, which the `SetTheory`
+interface constrains in **neither** direction. So it is parametrically
+neither provable nor refutable: *a genuine statement about the
+supplier, not a theorem waiting to be found.* Recorded as prose
+analysis and explicitly not mechanized — which is the right label for
+it.
+
+#### Corrections to the junction's briefs, both from workers
+
+* The three payments the inference quarter owed are **not** "all in
+  residues you already own", as I wrote. Two are (`ConstType2C`,
+  `BetaCross2C`); the third is the *supplier's* `CtxOk2`. The quarter's
+  own seal-7 assessment had this right and my summary of it did not.
+* `BetaCross2C` turns the truthfulness transport into a
+  **biconditional** — `.letE` uses it forwards, `.app` backwards, now
+  that the substituted annotation is the *returned type*. The sealed
+  `BetaCross2` had both directions and `BetaCross2A` dropped one; this
+  buys it back rather than inventing anything.
+
+#### The fourth collision, and the starkest
+
+`whnfCore_package2C` was written **byte-identically** by the whnf and
+defeq quarters, independently. Not merely the same name — the same
+lemma, the same statement, two proofs. `DefEqRun` could not see
+`Whnf`'s copy because the quarters are *siblings, not stacked*; the fix
+was the import edge plus one deletion.
+
+*Four instances now. The cost is one deletion each time; the benefit is
+two independent checks of the same statement — on this occasion, two
+independent proofs of it.*
