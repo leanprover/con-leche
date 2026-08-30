@@ -53,6 +53,33 @@ hides, and it is the thing to check first.
 | `defeqSpine` | 1694 | `isEquivList` | list congruence |
 | `defeqStep` | 1816, 1858 | `isEquiv`, `isEquivList` | congruence, list |
 | `isPropType` | 1944 | `isEquiv _ .zero` | zero-test corollary |
+
+## Amendment: the checklist was worked, and it did not collapse
+
+Verdicts, in the order the work was done (each section below carries
+the argument):
+
+1. **`IsEquivSubstMono` is FALSE** (`not_isEquivSubstMono`).  The fuel
+   risk this file named first is *real*: the `simplify` fast path does
+   not cover every `some true`, and on a pair it does not cover,
+   substitution can push the `leq` calls past `Level.defaultFuel`.
+   The conclusion is `none` — a decidability gap, not a flip.
+2. **`IsEquivListSubstMono` is FALSE** (`not_isEquivListSubstMono`),
+   by the same witness at length one.
+3. **`IsEquivZeroSubstMono` is TRUE** (`isEquivZeroSubstMono`), and
+   *not* as a corollary of 1: `isEquiv _ .zero` can only be `some
+   true` through the fast path, so the zero-tests never touch the
+   fuel at all.
+4. Checking the sites turned up two things the table above got wrong:
+   three of them (`iotaRec` 1311, `projCert` 1371/1376) are in the
+   **mapped** shape, which none of the three frozen statements has;
+   and `defeqSpine` 1694 reads its guard **without `liftFueled`**, so
+   there the gap is a `false` branch and the guard genuinely flips
+   `true → false` (`spineGuard_flips_to_false`).
+
+Final tally: **four of the thirteen settled** (the three zero-tests
+plus `majorToCtor`), eight settled only up to the `none` channel, one
+(`defeqSpine`) not settled.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -350,5 +377,348 @@ The converse — that substitution cannot turn `some false` into
 Every guard here is expected to be one-directional in the same
 direction, and a proof of the converse would contradict landed
 results. -/
+
+/-! ## What survives item 1: the semantic monotonicity, unconditional
+
+`Level.isEquiv`'s `some true` is sound for `Level.eval`
+(`isEquiv_sound`) and nothing stronger, and *evaluation* commutes with
+substitution on the nose (`eval_subst`).  So the ten sites' guards are
+monotone in the only currency the checker's own soundness proofs read
+— it is the **decision** that is not, and only through the `none`
+channel. -/
+
+/-- **The substituted pair still evaluates equal, at every
+assignment.**  Unconditional; no fuel anywhere in the statement. -/
+theorem isEquiv_subst_eval (ks : List Name) (vs : List Level)
+    {l r : Level} (h : Level.isEquiv l r = some true)
+    (φ : Name → Nat) :
+    Level.eval φ (Level.subst ks vs l)
+      = Level.eval φ (Level.subst ks vs r) := by
+  rw [Level.eval_subst, Level.eval_subst]
+  exact Level.isEquiv_sound h _
+
+private theorem evalEqList_subst (ks : List Name) (vs : List Level)
+    (φ : Name → Nat) :
+    ∀ {ls rs : List Level},
+      Level.EvalEqList (Level.substFn φ ks vs) ls rs →
+      Level.EvalEqList φ (ls.map (Level.subst ks vs))
+        (rs.map (Level.subst ks vs)) := by
+  intro ls
+  induction ls with
+  | nil =>
+    intro rs h
+    cases rs with
+    | nil => trivial
+    | cons r rs => exact nomatch h
+  | cons l ls ih =>
+    intro rs h
+    cases rs with
+    | nil => exact nomatch h
+    | cons r rs =>
+      obtain ⟨h1, h2⟩ :
+        Level.eval (Level.substFn φ ks vs) l
+            = Level.eval (Level.substFn φ ks vs) r ∧
+          Level.EvalEqList (Level.substFn φ ks vs) ls rs := h
+      refine ⟨?_, ih h2⟩
+      rw [Level.eval_subst, Level.eval_subst]
+      exact h1
+
+/-- The list form of the same, in `EvalEqList` — the currency
+`isEquivList_sound` hands out. -/
+theorem isEquivList_subst_evalEq (ks : List Name) (vs : List Level)
+    {ls rs : List Level} (h : Level.isEquivList ls rs = some true)
+    (φ : Name → Nat) :
+    Level.EvalEqList φ (ls.map (Level.subst ks vs))
+      (rs.map (Level.subst ks vs)) :=
+  evalEqList_subst ks vs φ
+    (Level.isEquivList_sound h (Level.substFn φ ks vs))
+
+/-! ## The usable repair, and its one residue
+
+A `none` is an internal error the checker turns into a throw, not a
+verdict; what a simulation argument between an uninstantiated and an
+instantiated run must exclude is the guard answering **`false`** where
+it answered `true`.  That statement *is* provable — from the semantic
+monotonicity above plus one fact about `Level.leqCore` alone:
+**a `some false` verdict is correct**.
+
+That fact is not in the tree.  `Setlec/Verify/Level.lean` proves the
+`true` direction only, by design ("a `false` verdict leads to
+rejection, which needs no justification").  Under this seam it is
+needed after all, and it is stated here rather than assumed.
+
+**Where a proof of it would have to do work** (recorded so the next
+worker does not rediscover it): `Level.rest`'s rows
+`.param _, .max x y` and `.zero, .max x y` answer `false` only when
+*both* recursive calls do, so the proof must turn two separate
+counter-assignments into one — and `Level.eval` is monotone in the
+assignment, so the pointwise maximum moves both sides the wrong way.
+Every other row is a one-line semantic argument.
+
+**Trap-check, and its limit.**  `LeqFalseComplete` asserts a negative
+conclusion from a `leqCore` success, so the smallest-fuel test
+applies: at `fuel = 0` `leqCore` is `none`, the hypothesis is
+unsatisfiable, and the instance is **vacuous** — the test says
+nothing.  Seal 11's caveat, again. -/
+
+/-- **The residue: `leqCore`'s `false` verdicts are correct.**  A
+statement about the level decision procedure alone — no substitution,
+no seam, no environment.  Open. -/
+def LeqFalseComplete : Prop :=
+  ∀ (fuel : Nat) (l r : Level) (diff : Int),
+    Level.leqCore fuel l r diff = some false → ¬ Level.Sem l r diff
+
+private theorem sem_simplify_of_eval {a b : Level}
+    (h : ∀ φ, Level.eval φ a = Level.eval φ b) :
+    Level.Sem (Level.simplify a) (Level.simplify b) 0 := by
+  intro φ
+  rw [Level.eval_simplify, Level.eval_simplify, h φ]
+  omega
+
+/-- **A pair that evaluates equal is never decided `false`** — given
+the residue.  Both branches of `isEquiv`'s `else` are `leq` calls, and
+each contradicts the evaluation equality through
+`LeqFalseComplete`. -/
+theorem isEquiv_ne_false_of_eval (hc : LeqFalseComplete) {a b : Level}
+    (h : ∀ φ, Level.eval φ a = Level.eval φ b) :
+    Level.isEquiv a b ≠ some false := by
+  intro hf
+  by_cases hss : Level.simplify a = Level.simplify b
+  · rw [Level.isEquiv, if_pos hss] at hf; exact nomatch hf
+  rw [Level.isEquiv, if_neg hss] at hf
+  cases hlr : Level.leq a b with
+  | none => rw [hlr] at hf; exact nomatch hf
+  | some bl =>
+    cases bl with
+    | false =>
+      have hq : Level.leq a b = some false := hlr
+      rw [Level.leq] at hq
+      exact hc _ _ _ _ hq (sem_simplify_of_eval h)
+    | true =>
+      rw [hlr] at hf
+      have hq : Level.leq b a = some false := by
+        simpa using hf
+      rw [Level.leq] at hq
+      exact hc _ _ _ _ hq
+        (sem_simplify_of_eval fun φ => (h φ).symm)
+
+/-- **The checklist's usable form for the ten sites.**  Substitution
+never turns a level guard's `true` into a `false`; the only thing it
+can do is exhaust the fuel.  Conditional on the one residue. -/
+theorem isEquiv_subst_ne_false (hc : LeqFalseComplete)
+    (ks : List Name) (vs : List Level) {l r : Level}
+    (h : Level.isEquiv l r = some true) :
+    Level.isEquiv (Level.subst ks vs l) (Level.subst ks vs r)
+      ≠ some false :=
+  isEquiv_ne_false_of_eval hc (isEquiv_subst_eval ks vs h)
+
+/-! ## The three sites the frozen statements do not even *fit*
+
+Checking the table site by site turned up a shape error in it, not
+only a truth-value.  At `iotaRec` (1311) and `projCert` (1371, 1376)
+the two comparands are **not** both subject-side:
+
+* `projCert` is called with
+  `Level.subst entry.levelParams us entry.fieldSort` (and the same at
+  `structSort`), where `entry.fieldSort` is *stored* and `us` are the
+  scrutinee's level arguments;
+* `iotaRec` compares `usj` against `recFireComparands`' first
+  component, which is `lvls.map (Level.subst lps us)` or
+  `cvjLps.map fun p => Level.subst lps us (.param p)`.
+
+Instantiating the subject maps `Level.subst ks vs` over `us`, so the
+right-hand comparand becomes `Level.subst ps (ws.map (Level.subst ks
+vs)) r` — **not** `Level.subst ks vs (Level.subst ps ws r)`.  That is
+the shape `piResultNeverZero_map_subst` and `isNeverZero_subst_map`
+already have, and the frozen `IsEquivSubstMono` does not.  So those
+three sites were never covered by the statement that was supposed to
+settle them, independently of item 1's refutation.
+
+The mapped statements are given here, refuted (they specialise to the
+direct ones at `ws = ps.map .param`), and replaced by the semantic
+form, which needs the two alignment facts the call sites check. -/
+
+/-- The mapped congruence — the shape `projCert`'s two sites read. -/
+def IsEquivSubstMonoMapped : Prop :=
+  ∀ (ks : List Name) (vs : List Level) (ps : List Name)
+    (ws : List Level) (l r : Level),
+    Level.isEquiv l (Level.subst ps ws r) = some true →
+    Level.isEquiv (Level.subst ks vs l)
+        (Level.subst ps (ws.map (Level.subst ks vs)) r) = some true
+
+/-- The mapped list congruence — the shape `iotaRec`'s site reads. -/
+def IsEquivListSubstMonoMapped : Prop :=
+  ∀ (ks : List Name) (vs : List Level) (ps : List Name)
+    (ws : List Level) (ls rs : List Level),
+    Level.isEquivList ls (rs.map (Level.subst ps ws)) = some true →
+    Level.isEquivList (ls.map (Level.subst ks vs))
+        (rs.map (Level.subst ps (ws.map (Level.subst ks vs))))
+      = some true
+
+/-- **The mapped forms are false too**, and for the same reason: at
+`ws = ps.map .param` the substitution `Level.subst ps ws` is the
+identity on the witness, so the mapped statement specialises to the
+direct one. -/
+theorem not_isEquivSubstMonoMapped : ¬ IsEquivSubstMonoMapped := by
+  intro h
+  have hid : Level.subst [seamA] [Level.param seamA]
+      (.max (.param seamB) (.param seamA))
+      = .max (.param seamB) (.param seamA) := by
+    simp [Level.subst, Level.subst.go]
+  have hw := h [seamA] [succN (9999 + 1)] [seamA] [.param seamA]
+    (.max (.param seamA) (.param seamB))
+    (.max (.param seamB) (.param seamA))
+    (by rw [hid]; exact isEquiv_swap _ _ seamAB)
+  rw [show Level.subst [seamA] [succN (9999 + 1)]
+      (.max (.param seamA) (.param seamB))
+      = .max (succN (9999 + 1)) (.param seamB) from by
+        simp [Level.subst, Level.subst.go, seamAB],
+    show Level.subst [seamA]
+        ([Level.param seamA].map
+          (Level.subst [seamA] [succN (9999 + 1)]))
+        (.max (.param seamB) (.param seamA))
+      = .max (.param seamB) (succN (9999 + 1)) from by
+        simp [Level.subst, Level.subst.go, seamAB],
+    isEquiv_swapN_none 9999 seamB (by decide)] at hw
+  exact nomatch hw
+
+/-- **The mapped semantic monotonicity**, which is what the three
+sites actually get.  The two hypotheses are exactly what the call
+sites check: `us.length = entry.levelParams.length` is tested inline
+at `projCert`'s caller, and a stored sort's parameters lying among the
+declaration's own `levelParams` is an environment invariant. -/
+theorem isEquiv_subst_eval_mapped (ks : List Name) (vs : List Level)
+    {ps : List Name} {ws : List Level} {l r : Level}
+    (hlen : ws.length = ps.length)
+    (hdef : r.allParamsDefined ps = true)
+    (h : Level.isEquiv l (Level.subst ps ws r) = some true)
+    (φ : Name → Nat) :
+    Level.eval φ (Level.subst ks vs l)
+      = Level.eval φ
+        (Level.subst ps (ws.map (Level.subst ks vs)) r) := by
+  rw [Level.eval_subst, Level.eval_subst,
+    Level.isEquiv_sound h (Level.substFn φ ks vs), Level.eval_subst]
+  exact Level.eval_ext hdef
+    (fun p hp => (Level.substFn_map_subst hlen hp).symm)
+
+/-! ## One site reads the gap as a verdict, not as an error
+
+Twelve of the thirteen sites take their guard through `liftFueled`
+(`Kernel/Core.lean:105`), which turns a `none` into
+`throw (.internal "fuel exhausted: level comparison")` — the run
+aborts, and no verdict is produced.  **`defeqSpine` (1694) does
+not**:
+
+```
+match Level.isEquivList us us' with
+| some true => defEqList r env depth a.getAppArgs b.getAppArgs
+| _ => pure false
+```
+
+so there `none` is *indistinguishable from `some false`* — the
+short-circuit is skipped and the caller falls back to unfolding both
+sides.  At that one site the substituted run therefore takes a
+**different branch** rather than erroring out, and the branch is final
+whenever neither side unfolds (a constructor, an inductive, a
+recursor).  So the guard as the site reads it does go `true → false`
+under substitution, while `piResultNeverZero_flips` has the same
+family going `false → true` elsewhere: taken together the seam is
+**not** uniformly one-directional.
+
+This is worth stating as a Bool, because `isEquiv_subst_ne_false`
+(the usable repair) does **not** cover it: that repair excludes
+`some false`, and here the branch is chosen by `≠ some true`. -/
+
+/-- The guard exactly as `defeqSpine` reads it — `none` collapsed
+into the `false` branch. -/
+private def spineGuard (ls rs : List Level) : Bool :=
+  match Level.isEquivList ls rs with
+  | some true => true
+  | _ => false
+
+/-- **The `defeqSpine` guard flips `true → false` under
+substitution.**  Not through a `some false` verdict — through the
+fuel gap, which that site reads as `false`.  Same witness as item
+2. -/
+theorem spineGuard_flips_to_false :
+    spineGuard [.max (.param seamA) (.param seamB)]
+        [.max (.param seamB) (.param seamA)] = true ∧
+      spineGuard
+        ([Level.max (.param seamA) (.param seamB)].map
+          (Level.subst [seamA] [succN (9999 + 1)]))
+        ([Level.max (.param seamB) (.param seamA)].map
+          (Level.subst [seamA] [succN (9999 + 1)])) = false := by
+  constructor
+  · rw [spineGuard, Level.isEquivList, isEquiv_swap _ _ seamAB]
+    rfl
+  · rw [show ([Level.max (.param seamA) (.param seamB)].map
+        (Level.subst [seamA] [succN (9999 + 1)]))
+      = [Level.max (succN (9999 + 1)) (.param seamB)] from by
+        simp [Level.subst, Level.subst.go, seamAB],
+      show ([Level.max (.param seamB) (.param seamA)].map
+        (Level.subst [seamA] [succN (9999 + 1)]))
+      = [Level.max (.param seamB) (succN (9999 + 1))] from by
+        simp [Level.subst, Level.subst.go, seamAB]]
+    rw [spineGuard, Level.isEquivList,
+      isEquiv_swapN_none 9999 seamB (by decide)]
+    rfl
+
+/-! ## The thirteen sites, checked
+
+| function | site | shape | verdict |
+|---|---|---|---|
+| `proofIrrel` | 786 | `isEquiv _ .zero` | **settled** (item 3) |
+| `proofIrrel` | 790 | `isEquiv _ .zero` | **settled** (item 3) |
+| `pairEtaCert` | 856 | `isEquivList` direct | refuted (item 2) |
+| `structEtaCertWith` | 940 | `isEquivList` direct | refuted (item 2) |
+| `majorToCtor` | 1153 | `piResultNeverZero` | settled (seal 19) |
+| `iotaRec` | 1311 | `isEquivList` **mapped** | refuted; wrong shape |
+| `projCert` | 1371 | `isEquiv` **mapped** | refuted; wrong shape |
+| `projCert` | 1376 | `isEquiv` **mapped** | refuted; wrong shape |
+| `defeqSpine` | 1694 | `isEquivList` direct | refuted; **flips** |
+| `defeqStep` | 1816 | `isEquiv` direct | refuted (item 1) |
+| `defeqStep` | 1858 | `isEquivList` direct | refuted (item 2) |
+| `isPropType` | 1944 | `isEquiv _ .zero` | **settled** (item 3) |
+
+"Direct" means both comparands are subject-side, so instantiation
+substitutes both; "mapped" means the right one is a stored level read
+at the subject's level arguments, so instantiation maps the
+substitution over those arguments instead.
+
+**So four of the thirteen are settled outright** (the three zero-tests
+and `majorToCtor`), eight are settled only up to the `none` channel,
+and one — `defeqSpine` — is not settled at all, because there the
+`none` *is* the `false` branch (`spineGuard_flips_to_false`).
+
+For the eight: they still *evaluate* equal after substitution
+(`isEquiv_subst_eval`, `isEquivList_subst_evalEq`,
+`isEquiv_subst_eval_mapped` — all unconditional), and they never
+answer `false` given `LeqFalseComplete`.  Their failure mode is a
+`throw (.internal …)`, i.e. exit 3, never a wrong verdict.
+
+**What this does to the discharge target, stated without slack.**  The
+crossing is an implication *uninstantiated success ⟹ instantiated
+success*, so what it must exclude is the instantiated run doing
+**less**.  The fuel gap does exactly that: it is not a harmless side
+channel but a counterexample generator for the implication itself, at
+nine of the thirteen sites.  Two consequences, and neither is what
+seal 27 expected:
+
+* **`LeqFalseComplete` does not repair the crossing.**  It says the
+  substituted guard never answers `false`; it says nothing about
+  `none`, and at the eight `liftFueled` sites `none` aborts the run.
+  What it buys is the *verdict* reading — the two runs never reach
+  contradictory answers — which is what rules out the "diverges
+  irreconcilably" STOP.  An unconditional `WhnfInstLevelsUpTo` needs a
+  **budget hypothesis** (the instantiating levels stay inside
+  `Level.defaultFuel`), which no statement in the tree carries today.
+* **`defeqSpine` needs more than a budget.**  There the fallback is a
+  different *reduction path*, not an abort, so even with the residue
+  the two runs can end at different reducts.  That is where the next
+  piece of work belongs.
+
+None of it is a soundness hole: every failure mode here makes the
+checker do *less* (throw, or reject), never accept more.  It is the
+crossing's own direction that the gap is on the wrong side of. -/
 
 end Setlec.SetR.Interp2
