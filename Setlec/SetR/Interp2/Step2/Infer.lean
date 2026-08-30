@@ -144,4 +144,58 @@ theorem inferStep2_projSnd {ρ : Nat → V} {ea : AVExpr}
       Bf (sfst (interp2 V ρ ea)) ∈ˢ (univ v : V) :=
   sound_proj_snd V hok
 
+/-! ## Seal 6/7 — what the amendment did to this layer
+
+**Nothing, and that is the finding worth recording.**  Eight of the
+ten rows above (`pi`, `lam`, `app`, `letE`, the two `proj`s, and the
+two hereditary halves they carry) mention **no fuel at all**: they are
+`Interp2/Skeleton.lean`'s rows at the clause's own inputs, and the
+amended claims changed only *which fuel* an input is available at, not
+what the input is.  So `InferQ.lean`'s re-pointed clauses consume the
+same rows, and the layer is fuel-agnostic by construction.
+
+The two leaf rows are pinned at fuel `0` for no reason but the
+spelling — `denote2`'s `sort` and `fvar` equations do not read the
+fuel — so their fuel-general twins are below.  They are what a clause
+holding a subject's annotation at the amended claim's arbitrary `F`
+consumes.
+
+*Rule, for the next amendment: a statement layer that names no fuel
+survives a fuel repair untouched.  The cost of the repairs landed one
+layer up, at the clauses, and one layer down, in the residues — never
+here.*
+-/
+
+/-- **`.sort`, at any annotation fuel.**  `inferStep2_sort` with the
+`0` freed; `denote2`'s `sort` equation is fuel-free. -/
+theorem inferStep2_sortF (m : EnvS2 V env) {F d : Nat} {u : Level}
+    {Δa : List AVExpr} :
+    ∀ {ea ta : AVExpr},
+      denote2 μ m.acval env φ F d (.sort u) = some ea →
+      denote2 μ m.acval env φ F d (.sort (.succ u)) = some ta →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        AnnotOk2 V ρ ea ∧ interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  intro ea ta hea hta ρ _
+  rw [denote2] at hea hta
+  obtain rfl := Option.some.inj hea
+  obtain rfl := Option.some.inj hta
+  simpa [Level.eval] using sound_sort V ρ (u.eval φ)
+
+/-- **`.fvar`, at any annotation fuel.**  `inferStep2_fvar` with the
+`0` freed; `denote2`'s `fvar` equation returns the de Bruijn index and
+does not recurse into the annotation, so no fuel is read. -/
+theorem inferStep2_fvarF (m : EnvS2 V env) {F d idx : Nat} {n : Name}
+    {ty : Expr} {Δa : List AVExpr} {Aa : AVExpr}
+    (hi : Δa[d - 1 - idx]? = some Aa) :
+    ∀ {ea : AVExpr},
+      denote2 μ m.acval env φ F d (.fvar idx n ty) = some ea →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        AnnotOk2 V ρ ea ∧
+          ρ (d - 1 - idx)
+            ∈ˢ interp2 V (fun j => ρ (j + (d - 1 - idx) + 1)) Aa := by
+  intro ea hea ρ hρ
+  rw [denote2] at hea
+  obtain rfl := Option.some.inj hea
+  exact sound_bvar V hρ hi
+
 end Setlec.SetR.Interp2
