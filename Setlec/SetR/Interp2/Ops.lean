@@ -151,6 +151,22 @@ theorem eq_pt_of_mem_piR_zero {A f : V} {B : V → V} (hf : f ∈ˢ piR 0 A B) :
     f = pt := by
   rw [piR_zero] at hf; exact eq_pt_of_mem_truthVal hf
 
+/-- **Squash-regime introduction from inhabitation.**  At `v = 0` the
+product is a truth value, so membership of the canonical proof needs
+only that every fibre is *inhabited* — strictly weaker than
+`lamR_mem`'s pointwise `F x ∈ˢ B x`, and the form every tower whose
+value carries no regime tag has to use at kind `0`
+(`Interp2/BasisOk.lean`, the `psigmaMk` finding). -/
+theorem pt_mem_piR_zero {A : V} {B : V → V}
+    (h : ∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) : (pt : V) ∈ˢ piR 0 A B := by
+  rw [piR_zero]; exact pt_mem_truthVal h
+
+/-- The pointwise form, matching the collapse lane's
+`pt_mem_piC_iff.mpr` so the `pt`-valued towers port line for line. -/
+theorem pt_mem_piR_zero_of {A : V} {B : V → V}
+    (h : ∀ x, x ∈ˢ A → (pt : V) ∈ˢ B x) : (pt : V) ∈ˢ piR 0 A B :=
+  pt_mem_piR_zero fun x hx => ⟨pt, h x hx⟩
+
 /-- Elimination.  The fibre premise is needed only at `v = 0`, where
 the fibres must be truth values. -/
 theorem app_mem_piR {v : Nat} {A f a : V} {B : V → V}

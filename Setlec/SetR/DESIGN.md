@@ -10,7 +10,7 @@ the design document does not say.  House practices are
 
 ## Promoted practices (binding here; candidates for §0/§25)
 
-Five rules earned promotion by recurring across unrelated
+Six rules earned promotion by recurring across unrelated
 stages.  They sit at the top of this file because they are checks to
 run *while designing*, not lessons to read afterwards.
 
@@ -110,6 +110,26 @@ where the sort information lives, or that trades a semantic invariant
 for a syntactic one, is not an alternative — it is the same design
 paying different rent.  Both memos are in this file; both cost
 estimates were sound and both were beside the point.
+
+**P5 — a witness law and an inhabitation law are different lemmas, and
+a regime tag decides which one a proof needs.**  `lamR_mem` is a
+*witness* law: it concludes `lamR v A F ∈ˢ piR v A B` from the
+pointwise `∀ x ∈ˢ A, F x ∈ˢ B x`.  At `v = 0` the product is a truth
+value, and what membership of the canonical proof actually needs is
+only that each fibre is **inhabited** — strictly weaker.  While a
+tower's *value* carries an explicit `if v = 0 then pt` tag the
+distinction never surfaces, because the leaf discharges pointwise;
+delete the tag (as `psigmaMkV2` did, correctly, since the annotation
+squashes the tower anyway) and the kind-`0` argument **moves from the
+leaf to the root**, where only the inhabitation law will do.
+
+The concrete check, and it is cheap: **when a value-level regime tag
+goes, look for the weaker introduction law before assuming the proof
+transposes.**  Here it did not exist — `pt_mem_piR_zero` had to be
+added to `Interp2/Ops.lean` — and once it did, it served `psigmaMk`
+*and* all three `pt`-valued propositions, which had looked like a
+separate "inhabitation tail" and were in fact the same missing lemma.
+Cost of finding it late: one seal.  Cost of the rule: one line.
 
 ## T2 inventory (this tier, as landed)
 
@@ -12673,3 +12693,240 @@ the roundtrip facts).  All warning-free; battery green, axioms
 12/12.  The `same`/`packed` analyses now have every structural
 ingredient; next: `thetaSame_core` (one layer per invocation,
 recursion through the claim at strictly smaller knot sums).
+
+### Migration step 2, entry item 2 — the capstone port, thirteen of eighteen
+
+`Setlec/SetR/Interp2/BasisOk.lean`: `ConstOk.lean`'s per-constant
+memberships ported onto `piR`/`lamR` and `BConst.type2`.  **Thirteen
+cases land; five resist, each for a different and nameable reason.**
+
+Landed: `nat`, `natZero`, `natSucc`, `natRec`, `punit`, `punitUnit`,
+`punitRec`, `empty`, `emptyRec`, `psigma`, `quot`, `quotMk`, `choice`.
+
+**The port pattern held exactly as probed** — `show` the value at its
+tower, `simp only` with `type2` + the smart constructors + the
+`interp2` clause equations (which reduces the type to the tower's own
+space, the payoff of having read the numeral convention off
+`Value.lean` rather than choosing one), then `lamR_mem` down the
+binders.  Three cases were *cheaper* than v1: `lamR_mem` carries no
+universe side condition where `lamC_mem` needed `app_mem`'s codomain
+premise, and `Empty.rec` is a **graph** here rather than `pt`
+(`emptyRecV2 = lamR v … (lamR v ∅ …)`), so its case is two `lamR_mem`s
+over a vacuous domain instead of v1's `pt_mem_piC_iff` argument.
+
+**Two frictions worth reusing.**  `Nat.succ`'s wrinkle transposes
+verbatim — `type2`'s step premise mentions the *value* `natSuccV2`
+while `natStepSpace2` is written with the operator `natsucc`, and they
+agree on `ω`, which is v1's `natStepSpace_eq` restated
+(`natStepSpace2_eq`); it is needed under two binders, so the natRec
+case goes through an explicit `interp2_type_natRec` equation built
+with `piR_congr`, exactly as v1 built its `interp_type_natRec` with
+`congr 1`/`funext`.  And a singleton level list needs normalising:
+`quotT2 u` emits `.const .quot [u]`, whose `bval2` is
+`quotV2 (lv [u] 0)`, so `lv` and `List.getD_cons_zero` join the simp
+set or the rewrite misses.
+
+**FINDING — `psigmaMk` resists, and the reason is a value-level
+decision made two seals ago.**  v1's proof is four `lamC_mem`s then a
+split on `max u v = 0`, and it works because `psigmaMkV`'s *body*
+carries an explicit `if max u v = 0 then pt else spair a b` tag.
+`psigmaMkV2` deliberately dropped that tag — "the annotation already
+squashes the whole tower at `0`" — so the innermost `lamR_mem`
+obligation becomes `spair a b ∈ˢ sigmaSet 0 A B'`, which is **false**
+(`spair a b ≠ pt`, and a kind-`0` `sigmaSet` is a truth value).
+
+The statement is still true: at `max u v = 0` the whole tower *is*
+`pt`, and the truth-value chain is inhabited — over an empty `A` the
+`piR 0 A …` layer is vacuous, and over an inhabited one `pt_mem_sigma`
+supplies the witness.  But the argument has to be a **top-level case
+split with a direct `piR_zero`/`truthVal` chain**, not `lamR_mem`.
+
+*Rule: dropping a value-level regime tag does not remove the kind-`0`
+argument, it MOVES it — from the leaf, where a pointwise lemma
+discharges it, to the root, where the whole tower's inhabitation has
+to be exhibited.  The saving is real (the definition is smaller) and
+the cost is real (the proof is no longer pointwise); price both when
+the tag goes.*
+
+**The remaining four, with what each needs:**
+
+* `quotLift` — six binders; mechanical but long, wants `quotLiftR_mem`
+  plus the invariance premise unpacked by `quotInv_of_mem2`;
+* `quotInd`, `quotSound`, `propext` — the `pt`-valued propositions (the
+  flagged hard tail): each needs its proposition shown **inhabited**,
+  not merely typed, so the `piR 0` truth-value form replaces v1's
+  `pt_mem_piC_iff` chains.
+
+No STOP: every one of the five has a supplier in hand, and the two
+shapes needed (`psigmaMk`'s root-level split, the tail's inhabitation
+chains) are both writable against `piR_zero` as it stands.  The
+capstone `bval2_mem_type` itself waits on all eighteen, so the `const`
+row stays deferred until they land.
+
+### Step 2 entry item 2 COMPLETE — and the skeleton stands at ten of ten
+
+The five that resisted are in, `bval2_mem_type` closes over all
+eighteen, and `Skeleton.sound_const` — deferred at its own seal for
+want of a supplier, not a proof — is now two facts wide.  **Deliverable
+(2) covers ten `AVExpr` formers of ten.**
+
+**`psigmaMk`, by the root split the finding predicted.**  Exactly as
+mapped: `by_cases` on `Nat.max u v = 0`; the positive branch is v1's
+four pointwise `lamR_mem`s with `spair_mem`; the zero branch rewrites
+the tower to `pt` and exhibits *inhabitation* down four levels.  That
+needed one general lemma the collapse lane had and this one did not —
+`pt_mem_piR_zero` (`Interp2/Ops.lean`): at `v = 0` the product is a
+truth value, so membership of the canonical proof needs only that each
+fibre is **inhabited**, strictly weaker than `lamR_mem`'s pointwise
+`F x ∈ˢ B x`.  Its pointwise wrapper `pt_mem_piR_zero_of` is the
+line-for-line stand-in for the collapse lane's `pt_mem_piC_iff.mpr`.
+
+*The finding's rule, now paid for: dropping a value-level regime tag
+moves the kind-`0` argument from leaf to root.  The missing lemma was
+the shape of the move — `lamR_mem` is a **witness** law, and what the
+root needs is an **inhabitation** law.  When a tag goes, check that the
+weaker law exists before assuming the proof transposes.*
+
+**The other four went as sized.**  `quotLift`: five `lamR_mem`s and
+`quotLiftR_mem`, whose kind-`0` fibre premise comes from the third
+binder (`B ∈ˢ univ v`, and `univ 0 = univZero`) — nothing new.  The
+`pt`-valued propositions (`quotInd`, `quotSound`, `propext`) ported
+line for line off v1 once `pt_mem_piR_zero_of` existed, which is the
+whole content of "the inhabitation tail": the arguments were never the
+difficulty, the missing introduction law was.
+
+**Two frictions banked for the next porter.**  A `have` with an
+explicit type ascription written in `lv us 0` will not `rw` against a
+goal carrying `us.getD 0 0` — drop the ascription and let it infer.
+And `quotInd`'s minor-premise fibre condition must be rewritten through
+`quotMkV2_app` *before* `app_mem_piR_pos` fires, because the invariant
+states the fibre at the constructor's **value** while the motive
+membership is about its `quotClass` **reduct**.
+
+**The `const` row consumes nothing from the interface** — a built-in is
+a closed leaf, so no context, no valuation, no hereditary premise.
+That is why it could be written last and still cost one line, and it is
+a small confirmation that the interface's shape was right: the row that
+needed the most *machinery* needed the least *interface*.
+
+## Migration step 3 — the map, before any statement
+
+Opening step 3 with the map the brief asked for: what the consistency
+surface's re-proof over `interp2` actually consumes, sized against what
+exists.  **The map's headline is a correction**, and it is the reason
+the map was worth doing first.
+
+### The correction: step 3 is not a re-proof of the forty-four
+
+The roadmap line reads "the soundness tier: the graded step lemmas
+assembled along the bridge claims; the twelve re-proved over
+`interp2`", and it is easy to read the second clause as "restate
+`Sound/*` with `interp → interp2`".  **That is not possible, and not
+because it is hard.**
+
+`Sound/Motives.lean`'s five motives quantify `VExpr`:
+
+    RedS (Δ : List VExpr) (v w : VExpr) : Prop :=
+      ∀ ρ, Sat V Δ ρ → interp V ρ v = interp V ρ w ∧ (AnnotOkV … v → …)
+
+while `interp2 : (Nat → V) → AVExpr → V` is over the *annotated*
+syntax, and the relations (`Rel.lean`) are over `VExpr` too — so the
+mutual recursor's motives must be.  Bridging would need a
+`VExpr → AVExpr` map, and **there is none, by design**: `Annotates` is
+a *relation* (`List VExpr → VExpr → AVExpr → Prop`) whose whole
+difficulty was that a term has many annotations (WALL 3), and `denote2`
+is a *function* but from `Expr`, not `VExpr`.  A bare `VExpr` has no
+canonical annotation, and manufacturing one is exactly the problem R1
+solved by refusing to.
+
+The architecture record already says this in its own words — "the
+second soundness does **not** re-sign the 44-case mutual induction
+wholesale… the bridge-level claims maintain 'the current term erases an
+annotated term carrying `AnnotOk2`' along runs and compose the step
+lemmas — annotations never cross a bare `Red`, they follow the run."
+The map's contribution is to show that this is *forced*, not preferred,
+and to price what follows from it.
+
+### What follows: `Sound/*` is not migrated at all
+
+**The 4,295 lines of `Sound/*` stay where they are, serving the
+collapse lane, until that lane retires.**  Step 3 builds a *parallel*
+run-level structure rather than a translation of this one.  The
+sizing this produces is the good news of the map:
+
+| tier | lines | step 3's demand |
+|---|---|---|
+| `Bridge/*` | 9,525 | **none** — `EnvR`-only, "no `SetTheory`, no membership, no interpretation"; `CheckStepR` is discharged (`checkStepR`, `Bridge/Main.lean:35`) and stays discharged |
+| `Sound/*` | 4,295 | **none** — not translated; see above |
+| `Install/*` | 18,749 | **the work**: the five keys `declStepS` takes, re-proved over `interp2` |
+| `Interp2/*` + `Annot/*` | ~5,900 | the substrate, largely built (steps 1–2 landed `EnvS2`, `denote2`, `AnnotOk2`, the skeleton, `BConst.type2`, `bval2_mem_type`) |
+
+### The spine, traced
+
+`checkDecls_sound_R` → `foldlM_R` → two things per declaration:
+`checkDeclR_sound` (the bridge half) and `declStepS` (the install
+half).  **The model enters at exactly two points**, and neither is in
+the bridge:
+
+* `declIndRS`'s `MemberKeyS` — the first statement in the spine that
+  mentions `interp` at all;
+* `declStepS`'s five keys — `DivModPinS`, `ReducePinS`,
+  `StdAxiomKeyS`, `DeclBasisS`, `DeclIndS` — every one `EnvS`-attached
+  and all but two mentioning `interp` directly.
+
+So "the twelve re-proved over `interp2`" reduces to: **re-prove the
+five keys and `MemberKeyS` over `interp2`, and restate the fourteen's
+conclusion from `Nonempty (EnvS V env')` to `Nonempty (EnvS2 V env')`.**
+Everything else in the spine is either V-free or already migrated.
+
+`Sound/*` is the *install tier's* supplier, not the fourteen's — the
+keys consume `Infer.sound`/`DefEq.sound`, the fourteen do not.  That is
+why replacing what the keys consume (with `Claims2`) is the whole job,
+and why the 44 minors never appear in it.
+
+### What `Claims2` must be
+
+The run-level analogue of `Bridge/Claims.lean`'s four claims, over
+`denote2` outputs rather than `denote` outputs, composed from the
+**per-former skeleton rows** (`Interp2/Skeleton.lean`, ten of ten as of
+arc step 4) plus the graded step lemmas (`AnnotOk2_beta_pos`,
+`AnnotOk2_zeta`, `AnnotOk2_redex_fits`).  Its inputs, named:
+
+| input | source | status |
+|---|---|---|
+| the ten former rows | `Interp2/Skeleton.lean` | landed |
+| β / ζ / redex-fits step lemmas | `Annot/Ok2.lean`, `Annot/Spine2.lean` | landed |
+| the basis capstone | `Interp2/BasisOk.lean` | landed |
+| `denote2` + erasure law | `Annot/Canon.lean` | landed |
+| `EnvS2` fields | `Annot/EnvS2.lean` | landed (containment scaffolding) |
+| **`denote2` fuel-invariance** | `knotFuelMono`/`KnotFuelDet_of_mono` | supplier landed, **lemma not stated** |
+| **`SortSubstStable`** (v3) | `Annot/SimSubst.lean` | frozen; `Claims2` is its consumer |
+| **`ZipWhnfSortAgree` / `ZipSortOfAgree`** | `SortCoh/Discharge.lean` | frozen — the two obligations the Θ lane discharges |
+| **`RecRulesV2`** | — | **no definition anywhere**; deliberately absent under the T5 rule |
+
+### The one gap that feeds back into Θ, stated now
+
+`RecRulesV2` is the only input with **no supplier and no statement**.
+It is deliberate — "stated by its supplier when the bottoms migrate" —
+but it is also unavoidable: `declStepS` installs inductives, so the
+spine passes through iota, so `Claims2`'s iota row needs the fired law.
+`Claims2` must therefore carry it as an **opaque named slot**, exactly
+as `Skeleton.sound_const` carried its absence before `BConst.type2` and
+`bval2_mem_type` existed.
+
+*What this means for Θ, while its consumers are still adjustable:*
+nothing Θ produces can discharge `RecRulesV2` — it is install-tier
+content, not coherence content — but Θ's two frozen zip obligations
+**are** `Claims2` inputs, and `Claims2` should name those two rather
+than the fifteen-hypothesis shells (`ensureSortAgreeRQ_of_zip` /
+`sortOfAgreeRQ_of_zip` already reduce both public claims to one
+obligation each).  That is the ledger entry from the consumer side.
+
+### A terminology correction for the record
+
+The migration sections say "the twelve"; the T6/T7 sections and
+`Main.lean`'s own docstring say "the fourteen".  `Main.lean` has
+fourteen non-fold theorems; "twelve" undercounts by excluding
+`checkDecl_sound_R` and `no_constant_of_Empty_R` — the two that are not
+in the 4×3 driver grid.  **Fourteen is right**; the roadmap's "twelve"
+should be read as "the twelve driver-grid ones".
