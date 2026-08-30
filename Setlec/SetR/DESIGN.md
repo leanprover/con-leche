@@ -10522,3 +10522,33 @@ conclusion is `ZipPack(u',v')` (invariants free from the landed
 preservers, since outputs ARE whnfCore outputs) ∨ the seam
 re-based via connecting core runs (`∃ w₁ w₂ …` for the zeta/β
 chain steps, so the top can `loop_align`).
+
+### The contraction trace LANDED (Contracts + full transport kit)
+
+The pre-build check on `coreLock`'s final statement found the last
+carrier problem: Q and the invariants cannot transport through
+app-CONSTRUCTION at seam-return time (no species covers building an
+app around a seam subject).  The honest carrier is the contraction
+TRACE: every descent the peel performs is a β/zeta at a spine-head
+position — exactly the two contraction species' shapes — so the
+seam-pack carries `Contracts u w₁ ∧ Contracts v w₂` and the TOP
+re-derives everything from its own facts:
+
+* `Contracts` (refl/beta/zeta, spine-positioned, transitive by
+  construction; the β constructor carries the cert runs);
+* `Contracts.q_transport` (via `QPreserveBetaF`/`ZetaF`),
+  `.leaves_sub` (the trace only shrinks leaves — via the one-step
+  `beta_leaves_sub`/`zeta_leaves_sub`), `.subjInv` (the
+  substitution kit at each step, self-pairing restricting through
+  the subset), `.pairing` (cross-pairing through both subsets),
+  `.app_lift` (the contraction site keeps its spine position under
+  one more argument — `mkAppN_append_one` juggling);
+* the spine-fold helpers (`mem_fvarLeaves_mkAppN_head/arg`,
+  `fvarLeaves_mkAppN_cases`, `wScoped_mkAppN_build/parts`,
+  `looseBVarsBounded_mkAppN_build/parts`).
+
+`coreLock`'s final statement is now fully determined: the seam
+disjunct is `∃ w₁ w₂ c₁ c₂, [core runs landing at (u',v')] ∧
+Contracts u w₁ ∧ Contracts v w₂ ∧ CoreSeam w₁ w₂` — the top
+loop-aligns via the connecting runs and re-derives the conversion
+package from the traces.  Next seal: coreLock's induction.

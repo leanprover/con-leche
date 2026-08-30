@@ -8864,6 +8864,292 @@ theorem coreSeam_lift_app {μ : CheckMode} {env : Env} {fc d : Nat}
     · intro n ty body m h; exact nomatch h
     · intro ℓ h; exact nomatch h
 
+/-! ### Spine-fold invariant helpers (the trace-transport kit) -/
+
+/-- Head leaves persist into the spine. -/
+theorem mem_fvarLeaves_mkAppN_head {l : Nat × Name × Expr} :
+    ∀ {as : List Expr} {F : Expr}, l ∈ F.fvarLeaves →
+      l ∈ (Setlec.Expr.mkAppN F as).fvarLeaves := by
+  intro as
+  induction as with
+  | nil => intro F h; exact h
+  | cons a as ih =>
+    intro F h
+    exact ih (F := .app F a)
+      (by simp only [Setlec.Expr.fvarLeaves]
+          exact List.mem_append.2 (.inl h))
+
+/-- Argument leaves persist into the spine. -/
+theorem mem_fvarLeaves_mkAppN_arg {l : Nat × Name × Expr} :
+    ∀ {as : List Expr} {F a : Expr}, a ∈ as → l ∈ a.fvarLeaves →
+      l ∈ (Setlec.Expr.mkAppN F as).fvarLeaves := by
+  intro as
+  induction as with
+  | nil => intro F a h; exact absurd h List.not_mem_nil
+  | cons a' as ih =>
+    intro F a h hl
+    rcases List.mem_cons.1 h with rfl | h
+    · exact mem_fvarLeaves_mkAppN_head (F := .app F a)
+        (by simp only [Setlec.Expr.fvarLeaves]
+            exact List.mem_append.2 (.inr hl))
+    · exact ih h hl
+
+/-- Spine leaves come from the head or an argument. -/
+theorem fvarLeaves_mkAppN_cases {l : Nat × Name × Expr} :
+    ∀ {as : List Expr} {F : Expr},
+      l ∈ (Setlec.Expr.mkAppN F as).fvarLeaves →
+      l ∈ F.fvarLeaves ∨ ∃ a ∈ as, l ∈ a.fvarLeaves := by
+  intro as
+  induction as with
+  | nil => intro F h; exact .inl h
+  | cons a as ih =>
+    intro F h
+    rcases ih (F := .app F a) h with h' | ⟨a', ha', hl'⟩
+    · simp only [Setlec.Expr.fvarLeaves] at h'
+      rcases List.mem_append.1 h' with h'' | h''
+      · exact .inl h''
+      · exact .inr ⟨a, List.mem_cons_self .., h''⟩
+    · exact .inr ⟨a', List.mem_cons_of_mem _ ha', hl'⟩
+
+/-- Build well-scopedness of a spine from its parts. -/
+theorem wScoped_mkAppN_build {d : Nat} :
+    ∀ {as : List Expr} {F : Expr}, Expr.WScoped d F →
+      (∀ a ∈ as, Expr.WScoped d a) →
+      Expr.WScoped d (Setlec.Expr.mkAppN F as) := by
+  intro as
+  induction as with
+  | nil => intro F hF _; exact hF
+  | cons a as ih =>
+    intro F hF hargs
+    exact ih (F := .app F a)
+      (by simp only [Setlec.Expr.WScoped]
+          exact ⟨hF, hargs a (List.mem_cons_self ..)⟩)
+      (fun a' ha' => hargs a' (List.mem_cons_of_mem _ ha'))
+
+/-- Decompose well-scopedness of a spine into its parts. -/
+theorem wScoped_mkAppN_parts {d : Nat} :
+    ∀ {as : List Expr} {F : Expr},
+      Expr.WScoped d (Setlec.Expr.mkAppN F as) →
+      Expr.WScoped d F ∧ ∀ a ∈ as, Expr.WScoped d a := by
+  intro as
+  induction as with
+  | nil => intro F h; exact ⟨h, fun a ha => absurd ha List.not_mem_nil⟩
+  | cons a as ih =>
+    intro F h
+    obtain ⟨happ, hargs⟩ := ih (F := .app F a) h
+    simp only [Setlec.Expr.WScoped] at happ
+    refine ⟨happ.1, ?_⟩
+    intro a' ha'
+    rcases List.mem_cons.1 ha' with rfl | ha'
+    · exact happ.2
+    · exact hargs a' ha'
+
+/-- Build the bvar bound of a spine from its parts. -/
+theorem looseBVarsBounded_mkAppN_build {k : Nat} :
+    ∀ {as : List Expr} {F : Expr}, F.looseBVarsBounded k = true →
+      (∀ a ∈ as, a.looseBVarsBounded k = true) →
+      (Setlec.Expr.mkAppN F as).looseBVarsBounded k = true := by
+  intro as
+  induction as with
+  | nil => intro F hF _; exact hF
+  | cons a as ih =>
+    intro F hF hargs
+    exact ih (F := .app F a)
+      (by simp only [Setlec.Expr.looseBVarsBounded,
+            Bool.and_eq_true]
+          exact ⟨hF, hargs a (List.mem_cons_self ..)⟩)
+      (fun a' ha' => hargs a' (List.mem_cons_of_mem _ ha'))
+
+/-- Decompose the bvar bound of a spine into its parts. -/
+theorem looseBVarsBounded_mkAppN_parts {k : Nat} :
+    ∀ {as : List Expr} {F : Expr},
+      (Setlec.Expr.mkAppN F as).looseBVarsBounded k = true →
+      F.looseBVarsBounded k = true ∧
+        ∀ a ∈ as, a.looseBVarsBounded k = true := by
+  intro as
+  induction as with
+  | nil => intro F h; exact ⟨h, fun a ha => absurd ha List.not_mem_nil⟩
+  | cons a as ih =>
+    intro F h
+    obtain ⟨happ, hargs⟩ := ih (F := .app F a) h
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at happ
+    refine ⟨happ.1, ?_⟩
+    intro a' ha'
+    rcases List.mem_cons.1 ha' with rfl | ha'
+    · exact happ.2
+    · exact hargs a' ha'
+
+/-- One β-step's leaf subset (spine form). -/
+theorem beta_leaves_sub {n : Name} {ty b a : Expr}
+    {m : Setlec.BinderMeta} {as : List Expr} :
+    ∀ l ∈ (Setlec.Expr.mkAppN (b.instantiate1 a) as).fvarLeaves,
+      l ∈ (Setlec.Expr.mkAppN (.app (.lam n ty b m) a) as).fvarLeaves
+    := by
+  intro l hl
+  rcases fvarLeaves_mkAppN_cases hl with h | ⟨a', ha', hl'⟩
+  · rcases fvarLeaves_instantiate1_mem _ h with h' | h'
+    · exact mem_fvarLeaves_mkAppN_head
+        (by simp only [Setlec.Expr.fvarLeaves]
+            exact List.mem_append.2 (.inl (List.mem_append.2
+              (.inr h'))))
+    · exact mem_fvarLeaves_mkAppN_head
+        (by simp only [Setlec.Expr.fvarLeaves]
+            exact List.mem_append.2 (.inr h'))
+  · exact mem_fvarLeaves_mkAppN_arg ha' hl'
+
+/-- One zeta-step's leaf subset (spine form). -/
+theorem zeta_leaves_sub {n : Name} {ty v b : Expr} {as : List Expr} :
+    ∀ l ∈ (Setlec.Expr.mkAppN (b.instantiate1 v) as).fvarLeaves,
+      l ∈ (Setlec.Expr.mkAppN (.letE n ty v b) as).fvarLeaves := by
+  intro l hl
+  rcases fvarLeaves_mkAppN_cases hl with h | ⟨a', ha', hl'⟩
+  · rcases fvarLeaves_instantiate1_mem _ h with h' | h'
+    · exact mem_fvarLeaves_mkAppN_head
+        (by simp only [Setlec.Expr.fvarLeaves]
+            exact List.mem_append.2 (.inr h'))
+    · exact mem_fvarLeaves_mkAppN_head
+        (by simp only [Setlec.Expr.fvarLeaves]
+            exact List.mem_append.2 (.inl (List.mem_append.2
+              (.inr h'))))
+  · exact mem_fvarLeaves_mkAppN_arg ha' hl'
+
+/-- **The contraction trace**: spine-positioned β/zeta chains
+(transitive by construction; the constructors match the two
+contraction species' shapes exactly). -/
+inductive Contracts (μ : CheckMode) (env : Env) (d : Nat) :
+    Expr → Expr → Prop
+  | refl (e : Expr) : Contracts μ env d e e
+  | beta (n : Name) (ty b a ta : Expr) (m : Setlec.BinderMeta)
+      (as : List Expr) (g : Nat) {w : Expr}
+      (hinf : inferTypeCore μ env g d a = .ok ta)
+      (hdq : isDefEqCore μ env g d ta ty = .ok true)
+      (hrest : Contracts μ env d
+        (Setlec.Expr.mkAppN (b.instantiate1 a) as) w) :
+      Contracts μ env d
+        (Setlec.Expr.mkAppN (.app (.lam n ty b m) a) as) w
+  | zeta (n : Name) (ty v b : Expr) (as : List Expr) {w : Expr}
+      (hrest : Contracts μ env d
+        (Setlec.Expr.mkAppN (b.instantiate1 v) as) w) :
+      Contracts μ env d
+        (Setlec.Expr.mkAppN (.letE n ty v b) as) w
+
+/-- Q rides the trace. -/
+theorem Contracts.q_transport {μ : CheckMode} {env : Env} {d : Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hQB : QPreserveBetaF μ env Q) (hQZ : QPreserveZetaF env Q)
+    {u w c : Expr} (h : Contracts μ env d u w) :
+    Q d u c → Q d w c := by
+  induction h with
+  | refl e => exact id
+  | beta n ty b a ta m as g hinf hdq hrest ih =>
+    exact fun hq => ih (hQB hinf hdq hq)
+  | zeta n ty v b as hrest ih =>
+    exact fun hq => ih (hQZ hq)
+
+/-- The trace only shrinks the leaf set. -/
+theorem Contracts.leaves_sub {μ : CheckMode} {env : Env} {d : Nat}
+    {u w : Expr} (h : Contracts μ env d u w) :
+    ∀ l ∈ w.fvarLeaves, l ∈ u.fvarLeaves := by
+  induction h with
+  | refl e => exact fun l hl => hl
+  | beta n ty b a ta m as g hinf hdq hrest ih =>
+    exact fun l hl => beta_leaves_sub l (ih l hl)
+  | zeta n ty v b as hrest ih =>
+    exact fun l hl => zeta_leaves_sub l (ih l hl)
+
+/-- `SubjInv` rides the trace (the substitution kit at each step;
+self-pairing restricts through the leaf subset). -/
+theorem Contracts.subjInv {μ : CheckMode} {env : Env} {d : Nat}
+    {u w : Expr} (h : Contracts μ env d u w)
+    (hI : SubjInv d u) : SubjInv d w := by
+  induction h with
+  | refl e => exact hI
+  | beta n ty b a ta m as g hinf hdq hrest ih =>
+    refine ih ?_
+    obtain ⟨hw, hb, hL, hp⟩ := hI
+    obtain ⟨hwapp, hwargs⟩ := wScoped_mkAppN_parts hw
+    obtain ⟨hbapp, hbargs⟩ := looseBVarsBounded_mkAppN_parts hb
+    simp only [Setlec.Expr.WScoped] at hwapp
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hbapp
+    refine ⟨?_, ?_, ?_, ?_⟩
+    · exact wScoped_mkAppN_build
+        (wScoped_instantiate1 hwapp.2 hwapp.1.2) hwargs
+    · exact looseBVarsBounded_mkAppN_build
+        (looseBVarsBounded_instantiate1 hbapp.2 hbapp.1.2) hbargs
+    · exact fun l hl => hL l (beta_leaves_sub l hl)
+    · intro l hl l' hl' heq
+      rw [List.mem_append] at hl hl'
+      exact hp l
+        (List.mem_append.2 (.inl (beta_leaves_sub l
+          (hl.elim id id))))
+        l' (List.mem_append.2 (.inl (beta_leaves_sub l'
+          (hl'.elim id id)))) heq
+  | zeta n ty v b as hrest ih =>
+    refine ih ?_
+    obtain ⟨hw, hb, hL, hp⟩ := hI
+    obtain ⟨hwlet, hwargs⟩ := wScoped_mkAppN_parts hw
+    obtain ⟨hblet, hbargs⟩ := looseBVarsBounded_mkAppN_parts hb
+    simp only [Setlec.Expr.WScoped] at hwlet
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hblet
+    refine ⟨?_, ?_, ?_, ?_⟩
+    · exact wScoped_mkAppN_build
+        (wScoped_instantiate1 hwlet.2.1 hwlet.2.2) hwargs
+    · exact looseBVarsBounded_mkAppN_build
+        (looseBVarsBounded_instantiate1 hblet.1.2 hblet.2) hbargs
+    · exact fun l hl => hL l (zeta_leaves_sub l hl)
+    · intro l hl l' hl' heq
+      rw [List.mem_append] at hl hl'
+      exact hp l
+        (List.mem_append.2 (.inl (zeta_leaves_sub l
+          (hl.elim id id))))
+        l' (List.mem_append.2 (.inl (zeta_leaves_sub l'
+          (hl'.elim id id)))) heq
+
+/-- Cross-pairing rides two traces (through the leaf subsets). -/
+theorem Contracts.pairing {μ : CheckMode} {env : Env} {d : Nat}
+    {u v w₁ w₂ : Expr}
+    (h₁ : Contracts μ env d u w₁) (h₂ : Contracts μ env d v w₂)
+    (hp : PairedLeaves u v) : PairedLeaves w₁ w₂ := by
+  intro l hl l' hl' heq
+  rw [List.mem_append] at hl hl'
+  refine hp l ?_ l' ?_ heq
+  · exact List.mem_append.2
+      (hl.elim (fun h => .inl (h₁.leaves_sub l h))
+        (fun h => .inr (h₂.leaves_sub l h)))
+  · exact List.mem_append.2
+      (hl'.elim (fun h => .inl (h₁.leaves_sub l' h))
+        (fun h => .inr (h₂.leaves_sub l' h)))
+
+/-- Traces lift through app-layers (the contraction site keeps its
+spine position under one more argument). -/
+theorem Contracts.app_lift {μ : CheckMode} {env : Env} {d : Nat}
+    {u w y : Expr} (h : Contracts μ env d u w) :
+    Contracts μ env d (.app u y) (.app w y) := by
+  induction h with
+  | refl e => exact .refl _
+  | beta n ty b a ta m as g hinf hdq hrest ih =>
+    rw [show Expr.app (Setlec.Expr.mkAppN
+        (.app (.lam n ty b m) a) as) y
+      = Setlec.Expr.mkAppN (.app (.lam n ty b m) a) (as ++ [y])
+      from mkAppN_append_one.symm]
+    refine Contracts.beta n ty b a ta m (as ++ [y]) g hinf hdq ?_
+    rw [show Setlec.Expr.mkAppN (b.instantiate1 a) (as ++ [y])
+      = Expr.app (Setlec.Expr.mkAppN (b.instantiate1 a) as) y
+      from mkAppN_append_one]
+    exact ih
+  | zeta n ty v b as hrest ih =>
+    rw [show Expr.app (Setlec.Expr.mkAppN (.letE n ty v b) as) y
+      = Setlec.Expr.mkAppN (.letE n ty v b) (as ++ [y])
+      from mkAppN_append_one.symm]
+    refine Contracts.zeta n ty v b (as ++ [y]) ?_
+    rw [show Setlec.Expr.mkAppN (b.instantiate1 v) (as ++ [y])
+      = Expr.app (Setlec.Expr.mkAppN (b.instantiate1 v) as) y
+      from mkAppN_append_one]
+    exact ih
+
 end Discharge
 
 end Setlec.SetR.Interp2
