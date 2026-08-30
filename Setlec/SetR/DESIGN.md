@@ -13891,7 +13891,7 @@ in the positive direction, in the very case that killed the old one:
 results, and a repair needs both.*  "Not refuted" is not "usable" —
 `Claims2` was not refuted for five seals.
 
-### R4 is not free for the fourteen — the swap is not a swap
+### R4 is not free for the fourteen — the swap is not a swap [RETRACTED, seal 10]
 
 Repair R4 (`μ.verified = true` on the claims) was ledgered as costless
 "at `--set-model`".  Checked against the fourteen, it is not, and the
@@ -14111,7 +14111,7 @@ statement early or not at all.* Adopting STOP 3 mid-flight was right
 (the alternative was four quarters closing against a false claim), but
 it was not free.
 
-### R4 may be removable, and that would recover `.noModel`
+### R4 may be removable, and that would recover `.noModel` [SETTLED, seal 10: it is]
 
 The infer quarter reports **`μ.verified = true` is not what fixed the
 `.lam` clause** — `lamSortE_runs` reads the #152 codomain run out of
@@ -14150,3 +14150,73 @@ The pattern is now explicit enough to state as a rule:
 *Rule: when a repair changes one claim of a mutually-recursive family,
 the default is to change all of them; an exemption needs an argument
 that survives the other repairs in the same seal.*
+
+
+### Seal 10 — R4 withdrawn, and a retraction of my own reasoning
+
+**R4 is removed from all four claims. The `.noModel` lane comes back.**
+Verified: `CheckStep2B`, `checkSound2B`, `checkStep2B_of_quarters` and
+`checkSound2B_of_quarters` are mode-generic again, and I checked the
+payoff directly rather than taking it on report — `noModel_step`
+instantiates the capstone at `CheckMode.noModel` and elaborates, with
+`CheckMode.noModel.verified = false` by `rfl` beside it.
+
+**The strongest form the evidence could take:** the removal was green
+on the *first* compile, and the diff contains **no line where a proof
+step was rewritten** — only deleted binders and deleted arguments.
+Eleven Prop-level premise lines, eleven theorem binders, ~48 intro and
+application sites, and not one tactic changed. R4 was a fixed point of
+the induction and nothing else: the claims carried it only so that
+they could pass it to themselves.
+
+**I have to retract the reason, not only the conclusion.** Seal 8 said
+the `.noModel` restriction was *forced* — "a kernel design decision
+(parity) surfacing as a model-lane boundary", and "nothing in the run
+establishes the sort it reads, so the claims are not provable there
+and no amount of work makes them so". The second half is **false**,
+and checkable in five lines of `Annot/Canon.lean`:
+
+```
+def lamSortE mode env φ fuel d body :=
+  match (inferTypeCore mode env fuel d body).toOption with
+  | none => none
+  | some bt => sortOfE mode env φ fuel d bt
+```
+
+`lamSortE` is not a readback of the checker's run. It performs
+`denote2`'s **own** `inferTypeCore` and `sortOfE` runs, at the
+annotation fuel, entirely independently of whether `inferBody`
+executed the task-#152 codomain check during the run under test. So
+once R1/R3 moved the subject's annotation to the hypothesis side, the
+λ node's sort numeral arrives as a hypothesis *carrying its own two
+runs with it*, and no clause anywhere asks that the checker have
+checked it. The granularity mismatch R4 was invented for stopped
+existing at seal 7 and nobody noticed for three seals.
+
+**Not vacuous, which is the check that makes the answer worth having.**
+`.noModel` runs strictly *fewer* checks, so `inferTypeCore` succeeds at
+least as often and `denote2` at `.noModel` is if anything *more*
+defined than at the verified modes — confirmed by instantiating
+`denote2_two_lam` there. And the soundness burden did not migrate: what
+still has to hold is that `lamSortE`'s numeral is semantically right,
+which is `SortSem2`, a routed residue stated over `sortOfE`, already
+mode-generic and untouched by any of this. R4 was never buying a part
+of it.
+
+**What `.noModel` actually costs** is a *harder residue discharge* —
+its inference runs check less, so `SortSem2` and its neighbours have
+less to lean on there — not an unstatable claim. That is a real cost
+and it lands on the residues, where it can be measured.
+
+**Rules earned.**
+* *A premise that only ever feeds itself is a fixed point, and fixed
+  points are removable until proven otherwise.* R4 survived three
+  seals because every clause could point at another clause that
+  "needed" it.
+* *When you record that something is impossible, record the mechanism,
+  because the mechanism is what gets falsified.* Seal 8's conclusion
+  was wrong only because its mechanism was wrong, and the mechanism
+  was checkable in one function definition. Had I written "R4 is
+  needed because X" and checked X, this would have been a one-seal
+  detour instead of three.
+* *A spike is a discharge when its diff shows no tactic changed.*
