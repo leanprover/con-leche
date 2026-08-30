@@ -49,6 +49,28 @@ checker run, a claim, or syntax.
   constants' fields move by `denote2_envExtend`, and the new
   constant's `mem_type2` is `MemberBlock2`.
 
+## What the re-point bought, and what it did not
+
+Seal 46 re-pointed the quarters, so `checkSound2E` applies at the
+install's own `EnvS2U` and no bridge residue is carried.  Two things
+follow, and only two:
+
+* the keys land on `CheckStep2E` directly
+  (`reducePin2_of_checkStep`, `memberBlock2_of_checkStep`) — the
+  claim premises stop being objects a caller must build;
+* the *syntactic* premises three of the keys carried are read off
+  `EnvS.wf` instead (`constsBound_of_constsResolve`,
+  `envWF_constsBound`), which retires four premises outright.
+
+What it did **not** buy is any `denote2`-existence fact.  Every
+remaining premise of every key below is either a checker run, a
+syntactic side condition the invariant does not carry, or
+`Denote2Total` at a named subject — and the last kind is exactly the
+residue seal 33 parked.  Seal 40's non-uniformity stands: the member
+keys' membership half is install-tier supplied, because `MemberValR`
+pins by `Expr.eqUpToNames` and a standard axiom has no value to
+infer.
+
 ## Vacuity — the check this file most needs
 
 A key discharged from premises that cannot be met says nothing.  Each
@@ -84,6 +106,77 @@ theorem acval_interp2_closed (m : EnvS2U V env) (n : Name)
     interp2 V ρ (m.acval n ψ) = interp2 V ρ' (m.acval n ψ) :=
   interp2_closed V
     (by rw [m.acval_erase]; exact m.base.cval_closed n ψ) ρ ρ'
+
+/-! ## What the environment invariant already supplies
+
+Three of the keys' premises below were carried because nobody had
+checked `EnvWF` for them.  `ConstsBound` is `Expr.constsResolve` read
+as a proposition, *weakened* at the literal and projection clauses
+(where it is the `| _ => True` catch-all), so the invariant's own
+`constsResolve` conjunct implies it — and `EnvS.wf` carries that
+conjunct for every stored type and every stored `def`/`thm` body.
+
+This is the opposite verdict to seal 44's: `EnvWF` is purely
+syntactic, so it cannot supply the *run* facts `Denote2Bodies` wants,
+but it does supply every *syntactic* one, and the keys were paying for
+those twice. -/
+
+/-- `constsResolve` is the decidable form of `ConstsBound`, and
+strictly stronger: it additionally pins the literal-support block and
+a projection's structure name. -/
+theorem constsBound_of_constsResolve {env₀ : Env} :
+    ∀ e : Expr,
+      Expr.constsResolve env₀ e = true → ConstsBound env₀ e := by
+  intro e
+  induction e with
+  | bvar i => intro _; simp
+  | sort u => intro _; simp
+  | lit l => intro _; simp
+  | const n us =>
+    intro h
+    rw [constsBound_const]
+    simpa [Expr.constsResolve] using h
+  | fvar idx n ty ih =>
+    intro h
+    rw [constsBound_fvar]
+    exact ih (by simpa [Expr.constsResolve] using h)
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    exact constsBound_app.mpr ⟨ihf h.1, iha h.2⟩
+  | lam n ty b mb ihty ihb =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    exact constsBound_lam.mpr ⟨ihty h.1, ihb h.2⟩
+  | forallE n ty b mb ihty ihb =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    exact constsBound_forallE.mpr ⟨ihty h.1, ihb h.2⟩
+  | letE n ty v b ihty ihv ihb =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    exact constsBound_letE.mpr ⟨ihty h.1.1, ihv h.1.2, ihb h.2⟩
+  | proj s i e ihe =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    exact constsBound_proj.mpr (ihe h.2)
+
+/-- **`declStep2_of_axiom`'s `hbound` premise, from the invariant.**
+Every stored type and every stored `def`/`thm` body is prefix-bound,
+because `ConstWF` says it resolves. -/
+theorem envWF_constsBound {env : Env} (hwf : EnvWF env) :
+    ∀ c ∈ env.consts,
+      ConstsBound env c.toConstantVal.type ∧
+      (∀ cv value hint, c = .defnInfo cv value hint →
+        ConstsBound env value) ∧
+      (∀ cv value, c = .thmInfo cv value → ConstsBound env value) := by
+  intro c hc
+  obtain ⟨-, -, hty, -, hdefn, -, hthm⟩ := hwf c hc
+  exact ⟨constsBound_of_constsResolve _ hty,
+    fun cv value hint heq =>
+      constsBound_of_constsResolve _ (hdefn cv value hint heq).2.2.1,
+    fun cv value heq =>
+      constsBound_of_constsResolve _ (hthm cv value heq).2.2.1⟩
 
 /-! ## `ReducePin2` -/
 
@@ -285,12 +378,14 @@ theorem memberBlock2_of_stored (m : EnvS2U V env) {fuel F₀ : Nat}
     (hc : c ∈ env.consts)
     (hrun : inferTypeCore μ env fuel 0 c.toConstantVal.type
       = .ok (.sort u))
-    (hws : Expr.WScoped 0 c.toConstantVal.type)
-    (hb : c.toConstantVal.type.looseBVarsBounded 0 = true)
-    (hnil : c.toConstantVal.type.fvarLeaves = [])
     (hta : denote2 μ m.acval env ψ F₀ 0 c.toConstantVal.type
       = some ta) :
     MemberBlock2 V μ env m.acval ψ c.toConstantVal := by
+  obtain ⟨hfv, -, -, hb, -⟩ := m.base.wf c hc
+  have hws : Expr.WScoped 0 c.toConstantVal.type :=
+    Expr.WScoped.of_not_hasFvar hfv
+  have hnil : c.toConstantVal.type.fvarLeaves = [] :=
+    Expr.fvarLeaves_eq_nil_of_not_hasFvar hfv
   have hL : Expr.LeavesBounded c.toConstantVal.type := by
     intro l hl; rw [hnil] at hl; exact absurd hl (by simp)
   intro F
@@ -344,15 +439,12 @@ theorem declStep2_of_axiom (m : EnvS2U V env) {cvA : ConstantVal}
       Denote2EnvExtend ν env
         ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩
         (acvalWith m.acval cvA.name A) ψ)
-    (hbound : ∀ c ∈ env.consts,
-      ConstsBound env c.toConstantVal.type ∧
-      (∀ cv value hint, c = .defnInfo cv value hint →
-        ConstsBound env value) ∧
-      (∀ cv value, c = .thmInfo cv value → ConstsBound env value))
     (hmem : ∀ (ν : CheckMode) (ψ : Name → Nat),
       MemberBlock2 V ν ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩
         (acvalWith m.acval cvA.name A) ψ cvA) :
     DeclStep2 V ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩ := by
+  -- the prefix-boundness of the stored material is the invariant's
+  have hbound := envWF_constsBound m.base.wf
   -- no stored constant carries the fresh name
   have hne : ∀ c ∈ env.consts, c.name ≠ cvA.name := by
     have h0 := hfresh
@@ -451,12 +543,75 @@ theorem claims2U_lamDef (h : CheckStep2E μ V) (ψ : Name → Nat)
   let c := claims2U_of_2E (m := lamDefEnvS2U V) h ψ fuel
   ⟨c.2.2.1, c.2.2.2⟩
 
+/-! ### The keys at the lane's single named residue
+
+With the quarters re-pointed there is nothing between a key and
+`CheckStep2E` — the hypothesis `Capstone2E` assembles from the fifteen
+residues.  These two corollaries are the landing: neither carries a
+claim a caller has to build, and what is left in each premise list is
+the honest cost, itemised at the stopping report below. -/
+
+/-- **`ReducePin2`, landed.**  Cost after the landing: the install's
+own `isDefEq` run, `valA`'s two syntactic guards, the element
+constant's lookup and monomorphism — and the two `denote2` facts
+(`hva`, `hfits`) that are `Denote2Total` at the operation's value and
+at its pinned type. -/
+theorem reducePin2_of_checkStep (m : EnvS2U V env) {fuel F : Nat}
+    {c : Name} {valA : Expr} {ciE : ConstantInfo}
+    (h : CheckStep2E μ V)
+    (hfE : env.find? (reduceElemName c) = some ciE)
+    (hlpE : ciE.toConstantVal.levelParams = [])
+    (hvf : valA.hasFvar = false)
+    (hvb : valA.looseBVarsBounded 0 = true)
+    (hva : denote2 μ m.acval env φ F 1 valA = some (m.acval c φ))
+    (hfits : ReduceOpFits2 V m.acval φ c)
+    (hrun : isDefEqCore μ env fuel 1
+      (.app valA (reduceCertVar c)) (reduceCertVar c) = .ok true) :
+    ReducePin2 V env m.acval φ c :=
+  reducePin2_of_claims m (claims2U_of_2E h φ fuel).2.2.1 hfE hlpE hvf
+    hvb hva hfits hrun
+
+/-- **`MemberBlock2`, landed.**  Cost after the landing: membership in
+the environment, the type front door's `inferType`/`ensureSort` run,
+and the stored type's annotation.  The three syntactic premises the
+key used to carry are now read off `EnvS.wf`, and nothing else
+remains — in particular the `AnnotOk2` conjunct is entirely the
+claim's. -/
+theorem memberBlock2_of_checkStep (m : EnvS2U V env) {fuel F₀ : Nat}
+    {ψ : Name → Nat} {c : ConstantInfo} {ta : AVExpr} {u : Level}
+    (h : CheckStep2E μ V)
+    (hc : c ∈ env.consts)
+    (hrun : inferTypeCore μ env fuel 0 c.toConstantVal.type
+      = .ok (.sort u))
+    (hta : denote2 μ m.acval env ψ F₀ 0 c.toConstantVal.type
+      = some ta) :
+    MemberBlock2 V μ env m.acval ψ c.toConstantVal :=
+  memberBlock2_of_stored m (claims2U_of_2E h ψ fuel).2.2.2 hc hrun hta
+
 /-! ## The three sweeps
 
 **1. Smallest fuel.** `memberBlock2_of_stored` is the only theorem
 here whose conclusion asserts a `denote2` success, and it asserts one
 it was given, at a fuel it chooses (`max F F₀`).  `ReducePin2` and
 `DeclStep2` assert none.
+
+**1a. Where each key stops.**  Recorded here so the report is in the
+tree rather than only in a seal.
+
+* `reducePin2_of_checkStep` — stops at `hva` and `hfits`, both
+  `Denote2Total`: the operation's annotated value must annotate, and
+  its pinned type `∀ n : Elem, Elem` must annotate for `mem_type2` to
+  yield the `piR` membership.  Nothing else is semantic.
+* `memberBlock2_of_checkStep` — stops at `hta` (`Denote2Total` at the
+  stored type) and at `hrun`.  **`hrun` is the same exposure gap item
+  2 names**: `ConstantValR` records the `annotateCore` call and the
+  *relational* front door, never `checkConstantVal`'s own
+  `inferType`/`ensureSort` run, so today the caller must supply a run
+  the install made and discarded.
+* `declStep2_of_axiom` — stops at `hext` (`Denote2EnvExtend`, frozen
+  on Θ), `hmem` (`MemberBlock2` at the new axiom, which is the
+  install-tier half seal 40 measured), and `hbase`.  The `hbound`
+  premise is gone.
 
 **2. Vacuity.** `reduceOpFits2_witness` shows the one premise this
 file adds is satisfiable at a non-empty domain;
