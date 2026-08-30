@@ -156,6 +156,24 @@ structure EnvS2 (env : Env) where
   what the consumers actually rewrite with. -/
   acval_closed : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
     (acval n ψ).liftN 1 k = acval n ψ
+  /-- **the canonical valuation reads only its own level
+  parameters** — the `acval` transpose of `EnvS.val_params`.
+
+  Named by the defeq quarter as `AcvalParams2` and correctly
+  identified there as *a missing environment field, not a missing
+  proof*: it is the sole ingredient of `denote_const_congrR` beyond
+  `Level.isEquivList` soundness, and the `const`/`const` case of
+  `isDefEqCore` cannot close without it.  T5 — the premise belongs to
+  its supplier.
+
+  Syntactic, like `acval_closed`: an equation between two `acval`
+  readings with no `denote2` in it, so the smallest-fuel hazard that
+  refuted `acval_defn` cannot reach it. -/
+  acval_params : ∀ (n : Name) (ci : ConstantInfo),
+    env.find? n = some ci →
+    ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
+      acval n ψ₁ = acval n ψ₂
   /-- every canonical valuation leaf is truthful over `interp2` —
   `annot_okV`'s successor.  Quantifying over `Annotates` (this field's
   shape before this seal) collapses here: in the `denote2` currency a
@@ -214,6 +232,7 @@ noncomputable def empty : EnvS2 V Env.empty where
   acval_erase := fun _ _ => rfl
   acval_ok2 := fun _ _ _ => by simp
   acval_closed := fun _ _ _ => rfl
+  acval_params := fun _ _ _ _ _ _ => rfl
   acval_defn := by intro μ φ F cv value hint hc; cases hc
   acval_thm := by intro μ φ F cv value hc; cases hc
   mem_type2 := by

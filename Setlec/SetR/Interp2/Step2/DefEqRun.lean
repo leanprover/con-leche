@@ -818,6 +818,15 @@ def AcvalParams2 {env : Env} (m : EnvS2 V env) : Prop :=
       (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
       m.acval n ψ₁ = m.acval n ψ₂
 
+/-- **Residue 8 is discharged.**  `EnvS2.acval_params` was added to
+the structure for exactly this — the quarter's own diagnosis was that
+the gap is a missing *field*, not a missing proof, and it was right.
+Kept as a named theorem rather than inlined so that
+`defEqStep2BP_of`'s hypothesis list can shed it without the reader
+losing the trail. -/
+theorem acvalParams2 {env : Env} (m : EnvS2 V env) : AcvalParams2 m :=
+  m.acval_params
+
 /-- **Residue 9 — the binder codomain numerals agree.**
 
 `deqStep2_piCong`/`deqStep2_lamCong` are stated at a **shared**
