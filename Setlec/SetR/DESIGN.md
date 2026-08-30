@@ -14837,3 +14837,93 @@ a fixed interface, not a search. Queued as such.
 *Rule: when a refutation is argued to be parametrically impossible,
 replace the demand for a countermodel with a bounded question about
 the interface that would have to supply it.*
+
+### Seal 19 — `Denote2InstLevels`: not settled, but seal 12's attack is closed
+
+Reported honestly as **not settled**, with no proof or refutation
+manufactured. What changed is the *shape* of the open question, and
+that is worth more than a verdict would have been if forced.
+
+**Seal 12's concrete attack is closed and should stop being treated as
+a live refutation lead.**
+
+* **`piResultIsProp` is not in the seam.** Its two call sites
+  (`Kernel/Modeled.lean:723`, `Kernel/CheckerS.lean:305`) both compute
+  `IndCaps` **at install, on a stored inductive's own type**. A
+  subject's level instantiation never touches a stored type, so the
+  `ruleK` capability a run reads is *identical* on both sides of the
+  crossing. As a function it is level-sensitive
+  (`piResultIsProp_flips`, mechanized) — which is presumably how it
+  reached seal 12's list. **The call sites are what make it inert, and
+  seal 12 looked at the function.**
+* **`piResultNeverZero` is in the seam, does flip, and flips
+  one-directionally.** `piResultNeverZero_flips` is a genuine
+  `false → true` witness; `piResultNeverZero_map_subst` shows `true`
+  can **never** become `false`. So instantiation can make the
+  structure-eta/K rescue fire where it did not, and can never lose
+  one — the *safe* direction for the statement as written.
+
+**The crossing is now algebra plus two checker statements.**
+`denote2_instLevels_of : SortOfEInstLevels → LamSortEInstLevels →
+Denote2InstLevels`, with the `denote2` side **fully discharged** —
+including `.const` and both literal clauses, via `EnvS2.acval_params`.
+What remains, `InferInstLevels` and `WhnfSortInstLevels`, mention no
+`denote2`, no `V`, no `EnvS2` and no valuation.
+
+**That last point is the methodological gain.** `Denote2InstLevels`
+quantifies over an `EnvS2 V env`, and the only one the tree exhibits is
+`EnvS2.empty` — so **no counterexample could be built against it at
+all** before the install tier lands. The primitives quantify over a
+bare `Env`, so they are refutable *today*. *Factoring an unfalsifiable
+statement into falsifiable ones is progress even when nothing is
+proved.*
+
+**A statement-design finding, tied to the guard result.** The obvious
+primitive — "`whnf` commutes with instantiation, as an equality on
+reducts" — **should not be assumed**: the rescue flip is precisely a
+reason for the instantiated run to reduce *further*. No witness was
+built, so it is recorded as *expect false*, not refuted.
+`WhnfSortInstLevels` restricts to runs landing on a `.sort`, which the
+flip cannot reach because a sort is terminal for `whnf` — the monotone
+direction of the flip is what makes the narrow form immune to the
+objection that condemns the general one.
+
+The other obvious refutation is closed by design: a binder carrying a
+stale sort annotation is impossible, because task #100 left
+`BinderMeta` holding a `BinderInfo` and nothing else. **There is no
+level inside an `Expr` that instantiation fails to reach.**
+
+**Status of `RecRulesV2`: not cleared.** It still rests on an open
+metatheorem — but one a worker can now attack or kill, which was the
+whole point of putting it first. Seal 15's ordering holds.
+
+**Trap-check, reported against interest:** all four new `Prop`s go
+**vacuous** at `F = 1`, not clean, and the file says so. Per seal 11
+that is worth nothing as a bill of health.
+
+### Dispatch policy amendment — no parallel fan-out within a batch
+
+**User ruling, effective now.** Parallel workers stay *between*
+independent workstreams; **within** a proof batch, one Opus worker
+proves the list **serially**. Same token cost, and the worker
+accumulates recipes from proof to proof — this campaign's largest rate
+lever — while eliminating what the fan-out demonstrably cost:
+
+* **seven convergent-duplicate pairs**, two byte-identical, each
+  needing a dedupe adjudication at the fold;
+* one collision caused by the *junction's* own scoping error, two
+  briefs listing the same three clauses;
+* messages routed to workers about facts a serial worker would simply
+  have had.
+
+Against that, the fan-out's benefit was real but narrower than it
+looked: the three refuted generations were each caught by *a*
+consumer, and a serial worker is still a consumer. **Concurrency was
+not what made the refutations happen; discharging was.**
+
+**The pattern from generation five onward.** The junction freezes: the
+statements, a **worked example** (one member of the list, proved), and
+the **recipe book** — including the kit inventory, now published in
+`Step2/Dispatch.lean`'s module docstring with a *check here before
+writing a helper* banner and the two shapes that are false by design.
+One worker proves down the list. One review, one grant.
