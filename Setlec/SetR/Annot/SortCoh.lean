@@ -12248,6 +12248,289 @@ def EtaRescueSortAgree (μ : CheckMode) (env : Env) (φ : Name → Nat)
       = .ok (.sort ℓb) →
     ℓa.eval φ = ℓb.eval φ
 
+/-- `getD` at an in-bounds index is `getElem`. -/
+theorem getD_eq_getElem' {α : Type _} {l : List α} {i : Nat}
+    {dflt : α} (h : i < l.length) : l.getD i dflt = l[i] := by
+  simp [List.getD, List.getElem?_eq_getElem h]
+
+/-- Spines compose over list append. -/
+theorem mkAppN_append {F : Expr} : ∀ (xs ys : List Expr),
+    Setlec.Expr.mkAppN F (xs ++ ys)
+      = Setlec.Expr.mkAppN (Setlec.Expr.mkAppN F xs) ys := by
+  intro xs
+  induction xs generalizing F with
+  | nil => intro ys; rfl
+  | cons x xs ih =>
+    intro ys
+    exact ih (F := .app F x) ys
+
+/-- `Q` descends to an app-node pair's arguments (the descent
+family's third member; `FrameQ` per-side structural). -/
+def QDescendArgF (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {d : Nat} {P y R z : Expr},
+    Q d (.app P y) (.app R z) → Q d y z
+
+/-- The subject package descends to a spine argument. -/
+theorem subjInv_spine_arg {d : Nat} {H a : Expr} {as : List Expr}
+    (h : SubjInv d (Setlec.Expr.mkAppN H as)) (ha : a ∈ as) :
+    SubjInv d a := by
+  obtain ⟨hw, hb, hL, hp⟩ := h
+  obtain ⟨-, hwargs⟩ := wScoped_mkAppN_parts hw
+  obtain ⟨-, hbargs⟩ := looseBVarsBounded_mkAppN_parts hb
+  exact ⟨hwargs a ha, hbargs a ha,
+    fun l hl => hL l (mem_fvarLeaves_mkAppN_arg ha hl),
+    pairedLeaves_mono (fun l hl => mem_fvarLeaves_mkAppN_arg ha hl)
+      (fun l hl => mem_fvarLeaves_mkAppN_arg ha hl) hp⟩
+
+set_option maxHeartbeats 800000 in
+/-- **The iota top case DISCHARGED** (the minimal discharge, the
+proj pattern): stuck sides die by their own tri; both-fired
+supplies the majors' loopLock analysis and FORWARDS everything to
+the routed `IotaMajorSortAgree` — the sync algebra lives at Θ's
+arc, which holds the same data plus the claim-level facts. -/
+theorem zipIotaCase_of {φ : Name → Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hm : KnotFuelMono μ env) (hB : BoolCtorsInert env)
+    (hIC : InvPreserveCoreF μ env) (hIDl : InvPreserveDeltaF env)
+    (hLC : PairedPreserveCoreF μ env)
+    (hLD : PairedPreserveDeltaF env)
+    (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
+    (hQB : QPreserveBetaF μ env Q) (hQZ : QPreserveZetaF env Q)
+    (hQH : QPreserveHeadF μ env Q)
+    (hLS : LeavesSubCoreF μ env)
+    (hQs : ∀ {d' : Nat} {a b : Expr}, Q d' a b → Q d' b a)
+    (hQA : QDescendAppF Q) (hQPd : QDescendProjF Q)
+    (hQAr : QDescendArgF Q)
+    (hIM : IotaMajorSortAgree μ env φ Q) :
+    ZipIotaCase μ env φ Q := by
+  have hN : NatStepNoSort μ env := natStepNoSort_of hB
+  intro fc d ga la gb lb mI rP n us us' cv rules as bs ℓa ℓb hf
+    below hev hlen hargs hIs hIt hp hQ ha hb
+  cases la with
+  | zero => exact nomatch ha
+  | succ la' =>
+  cases lb with
+  | zero => exact nomatch hb
+  | succ lb' =>
+  have haD := ha
+  rw [whnfLoop_succ] at haD
+  obtain ⟨t₁, hwc₁, triA⟩ := whnfStep_decompose haD
+  have hbD := hb
+  rw [whnfLoop_succ] at hbD
+  obtain ⟨t₂, hwc₂, triB⟩ := whnfStep_decompose hbD
+  have hwc₁' : whnfCore μ env ga d
+      (Setlec.Expr.mkAppN (.const n us) as) = .ok t₁ := hwc₁
+  have hwc₂' : whnfCore μ env gb d
+      (Setlec.Expr.mkAppN (.const n us') bs) = .ok t₂ := hwc₂
+  have stuckKill₁ : t₁ = Setlec.Expr.mkAppN (.const n us) as →
+      Level.eval φ ℓa = Level.eval φ ℓb := by
+    intro heq
+    subst heq
+    rcases triA with ⟨x, hrx, -⟩ | ⟨-, x, hud, -⟩ | ⟨-, -, hstop⟩
+    · exact (hN hwc₁' hrx ha).elim
+    · rw [unfoldDefinition_none_of_recInfo
+        (show (Setlec.Expr.mkAppN (.const n us) as).getAppFn
+            = Setlec.Expr.const n us by
+          rw [Setlec.Expr.getAppFn_mkAppN]; rfl) hf] at hud
+      exact nomatch hud
+    · cases as with
+      | nil => exact nomatch hstop
+      | cons a as' =>
+        obtain ⟨p, q, hpq⟩ := mkAppN_cons_app
+          (F := Expr.const n us) (a := a) (as := as')
+        rw [hpq] at hstop
+        exact nomatch hstop
+  have stuckKill₂ : t₂ = Setlec.Expr.mkAppN (.const n us') bs →
+      Level.eval φ ℓa = Level.eval φ ℓb := by
+    intro heq
+    subst heq
+    rcases triB with ⟨x, hrx, -⟩ | ⟨-, x, hud, -⟩ | ⟨-, -, hstop⟩
+    · exact (hN hwc₂' hrx hb).elim
+    · rw [unfoldDefinition_none_of_recInfo
+        (show (Setlec.Expr.mkAppN (.const n us') bs).getAppFn
+            = Setlec.Expr.const n us' by
+          rw [Setlec.Expr.getAppFn_mkAppN]; rfl) hf] at hud
+      exact nomatch hud
+    · cases bs with
+      | nil => exact nomatch hstop
+      | cons b bs' =>
+        obtain ⟨p, q, hpq⟩ := mkAppN_cons_app
+          (F := Expr.const n us') (a := b) (as := bs')
+        rw [hpq] at hstop
+        exact nomatch hstop
+  rcases whnfCore_rec_spine_inv hm hwc₁' with heq₁ |
+    ⟨pre₁, post₁, g₁, e₁'', h₁', heq₁, hg₁, hio₁, hcont₁, hres₁⟩
+  · exact stuckKill₁ heq₁
+  rcases whnfCore_rec_spine_inv hm hwc₂' with heq₂ |
+    ⟨pre₂, post₂, g₂, e₂'', h₂', heq₂, hg₂, hio₂, hcont₂, hres₂⟩
+  · exact stuckKill₂ heq₂
+  subst heq₁
+  subst heq₂
+  -- invert the fires for lengths and majors
+  obtain ⟨c₁, us₁, cv₁, mI₁, rP₁, rules₁, major₀₁, major₁₁, major₁,
+    cj₁, usj₁, cvj₁, cnP₁, cnF₁, r₁, -, -, -, -, -, hfn₁, hfc₁,
+    hlenp₁, hmaj₁, -⟩ := iotaRec_inv (show Setlec.iotaRecP μ env g₁ d
+      (Setlec.Expr.mkAppN (.const n us) pre₁) = .ok (some e₁'')
+      from hio₁)
+  obtain ⟨c₂, us₂, cv₂, mI₂, rP₂, rules₂, major₀₂, major₁₂, major₂,
+    cj₂, usj₂, cvj₂, cnP₂, cnF₂, r₂, -, -, -, -, -, hfn₂, hfc₂,
+    hlenp₂, hmaj₂, -⟩ := iotaRec_inv (show Setlec.iotaRecP μ env g₂ d
+      (Setlec.Expr.mkAppN (.const n us') pre₂) = .ok (some e₂'')
+      from hio₂)
+  -- identify the recursor
+  rw [Setlec.Expr.getAppFn_mkAppN,
+    show (Expr.const n us).getAppFn = Expr.const n us from rfl]
+    at hfn₁
+  rw [Setlec.Expr.getAppFn_mkAppN,
+    show (Expr.const n us').getAppFn = Expr.const n us' from rfl]
+    at hfn₂
+  have hcn₁ : c₁ = n := by cases hfn₁; rfl
+  have hcn₂ : c₂ = n := by cases hfn₂; rfl
+  rw [hcn₁, hf] at hfc₁
+  rw [hcn₂, hf] at hfc₂
+  have hmI₁e : mI₁ = mI := by cases hfc₁; rfl
+  have hmI₂e : mI₂ = mI := by cases hfc₂; rfl
+  rw [hmI₁e] at hlenp₁ hmaj₁
+  rw [hmI₂e] at hlenp₂ hmaj₂
+  -- prefix lengths
+  rw [Setlec.Expr.getAppArgs_mkAppN,
+    show (Expr.const n us).getAppArgs = ([] : List Expr) from rfl,
+    List.nil_append] at hlenp₁ hmaj₁
+  rw [Setlec.Expr.getAppArgs_mkAppN,
+    show (Expr.const n us').getAppArgs = ([] : List Expr) from rfl,
+    List.nil_append] at hlenp₂ hmaj₂
+  have hlenpre : pre₁.length = pre₂.length := by
+    rw [hlenp₁, hlenp₂]
+  have hlenas : (pre₁ ++ post₁).length = (pre₂ ++ post₂).length :=
+    hlen
+  have hlenpost : post₁.length = post₂.length := by
+    simp only [List.length_append] at hlenas
+    omega
+  -- component zips
+  have hzpre : ∀ i (h₁ : i < pre₁.length) (h₂ : i < pre₂.length),
+      CertZip μ env fc d pre₁[i] pre₂[i] := by
+    intro i h₁ h₂
+    have hi₁ : i < (pre₁ ++ post₁).length := by
+      simp only [List.length_append]; omega
+    have hi₂ : i < (pre₂ ++ post₂).length := by
+      simp only [List.length_append]; omega
+    have e1 := List.getElem_append_left (bs := post₁) h₁
+      (h' := hi₁)
+    have e2 := List.getElem_append_left (bs := post₂) h₂
+      (h' := hi₂)
+    rw [← e1, ← e2]
+    exact hargs i hi₁ hi₂
+  have hzpost : ∀ i (h₁ : i < post₁.length)
+      (h₂ : i < post₂.length),
+      CertZip μ env fc d post₁[i] post₂[i] := by
+    intro i h₁ h₂
+    have hi₁ : pre₁.length + i < (pre₁ ++ post₁).length := by
+      simp only [List.length_append]; omega
+    have hi₂ : pre₁.length + i < (pre₂ ++ post₂).length := by
+      simp only [List.length_append]; omega
+    have h := hargs (pre₁.length + i) hi₁ hi₂
+    rw [List.getElem_append_right (Nat.le_add_right _ _)] at h
+    rw [List.getElem_append_right (by omega)] at h
+    simpa [Nat.add_sub_cancel_left, hlenpre] using h
+  -- the majors
+  have hmIlt₁ : mI < pre₁.length := by omega
+  have hmIlt₂ : mI < pre₂.length := by omega
+  have hmemmaj₁ : pre₁.getD mI (.bvar 0) ∈ pre₁ ++ post₁ := by
+    rw [getD_eq_getElem' hmIlt₁]
+    exact List.mem_append_left _ (List.getElem_mem _)
+  have hmemmaj₂ : pre₂.getD mI (.bvar 0) ∈ pre₂ ++ post₂ := by
+    rw [getD_eq_getElem' hmIlt₂]
+    exact List.mem_append_left _ (List.getElem_mem _)
+  have hImaj₁ : SubjInv d (pre₁.getD mI (.bvar 0)) :=
+    subjInv_spine_arg hIs hmemmaj₁
+  have hImaj₂ : SubjInv d (pre₂.getD mI (.bvar 0)) :=
+    subjInv_spine_arg hIt hmemmaj₂
+  have hpmaj : PairedLeaves (pre₁.getD mI (.bvar 0))
+      (pre₂.getD mI (.bvar 0)) :=
+    pairedLeaves_mono
+      (fun l hl => mem_fvarLeaves_mkAppN_arg hmemmaj₁ hl)
+      (fun l hl => mem_fvarLeaves_mkAppN_arg hmemmaj₂ hl) hp
+  have hzmaj : CertZip μ env fc d (pre₁.getD mI (.bvar 0))
+      (pre₂.getD mI (.bvar 0)) := by
+    rw [getD_eq_getElem' hmIlt₁, getD_eq_getElem' hmIlt₂]
+    exact hzpre mI hmIlt₁ hmIlt₂
+  -- Q at the majors: strip the posts, then the last-arg descent
+  have hQmaj : Q d (pre₁.getD mI (.bvar 0))
+      (pre₂.getD mI (.bvar 0)) := by
+    have hQpre : Q d (Setlec.Expr.mkAppN (.const n us) pre₁)
+        (Setlec.Expr.mkAppN (.const n us') pre₂) := by
+      have h1 := hQ
+      rw [mkAppN_append (F := Expr.const n us) pre₁ post₁,
+        mkAppN_append (F := Expr.const n us') pre₂ post₂] at h1
+      exact qDescend_mkAppN (Q := Q) hQA post₁.length
+        (Nat.le_refl _) hlenpost h1
+    obtain ⟨pre₁', m₁, hpre₁⟩ : ∃ l x, pre₁ = l ++ [x] := by
+      rcases List.eq_nil_or_concat pre₁ with rfl | ⟨l, x, hx⟩
+      · exact absurd hmIlt₁ (by simp)
+      · exact ⟨l, x, by rw [hx, List.concat_eq_append]⟩
+    obtain ⟨pre₂', m₂, hpre₂⟩ : ∃ l x, pre₂ = l ++ [x] := by
+      rcases List.eq_nil_or_concat pre₂ with rfl | ⟨l, x, hx⟩
+      · exact absurd hmIlt₂ (by simp)
+      · exact ⟨l, x, by rw [hx, List.concat_eq_append]⟩
+    have hm₁ : pre₁.getD mI (.bvar 0) = m₁ := by
+      rw [getD_eq_getElem' hmIlt₁]
+      subst hpre₁
+      have : mI = pre₁'.length := by
+        simp only [List.length_append, List.length_cons,
+          List.length_nil] at hlenp₁
+        omega
+      subst this
+      exact getElem_append_last _ _
+    have hm₂ : pre₂.getD mI (.bvar 0) = m₂ := by
+      rw [getD_eq_getElem' hmIlt₂]
+      subst hpre₂
+      have : mI = pre₂'.length := by
+        simp only [List.length_append, List.length_cons,
+          List.length_nil] at hlenp₂
+        omega
+      subst this
+      exact getElem_append_last _ _
+    rw [hm₁, hm₂]
+    rw [hpre₁, hpre₂] at hQpre
+    rw [show Setlec.Expr.mkAppN (.const n us) (pre₁' ++ [m₁])
+        = Expr.app (Setlec.Expr.mkAppN (.const n us) pre₁') m₁
+      from mkAppN_append_one,
+      show Setlec.Expr.mkAppN (.const n us') (pre₂' ++ [m₂])
+        = Expr.app (Setlec.Expr.mkAppN (.const n us') pre₂') m₂
+      from mkAppN_append_one] at hQpre
+    exact hQAr hQpre
+  -- the majors' loop analysis
+  cases hg₁' : g₁ with
+  | zero => rw [hg₁'] at hmaj₁; exact nomatch hmaj₁
+  | succ gA =>
+  cases hg₂' : g₂ with
+  | zero => rw [hg₂'] at hmaj₂; exact nomatch hmaj₂
+  | succ gB =>
+  subst hg₁'
+  subst hg₂'
+  have hl₁ : Setlec.whnfLoop (Setlec.pureFns μ env gA) env d
+      Setlec.whnfLoopFuel (pre₁.getD mI (.bvar 0))
+      = .ok major₀₁ := hmaj₁
+  have hl₂ : Setlec.whnfLoop (Setlec.pureFns μ env gB) env d
+      Setlec.whnfLoopFuel (pre₂.getD mI (.bvar 0))
+      = .ok major₀₂ := hmaj₂
+  have hout := loopLock (μ := μ) (env := env) (Q := Q) hm hIC hIDl
+    hLC hLD hQC hQD hQB hQZ hQH hLS
+    (fun {d'} {a b} h => hQs h)
+    (fun {d'} {P} {y} {Rz} {z} h => hQA h)
+    (loopIotaStep_of (μ := μ) (env := env) (Q := Q))
+    (loopProjStep_of (μ := μ) (env := env) (Q := Q) hm
+      (fun {d'} {P} {y} {Rz} {z} h => hQA h)
+      (fun {d'} {ia} {ib} {sna} {snb} {a} {b} h =>
+        hQPd (d := d') (i := ia) (i' := ib) (sn := sna)
+          (sn' := snb) (a := a) (b := b) h))
+    (gA + gB) (Setlec.whnfLoopFuel + Setlec.whnfLoopFuel)
+    (Nat.le_refl _) (Nat.le_refl _)
+    hzmaj hImaj₁ hImaj₂ hpmaj hQmaj hl₁ hl₂
+  exact hIM below hf hev hlenpre hzpre hlenpost hzpost hIs hIt
+    hp hQ (by omega) (by omega) hio₁ hio₂ (by omega) (by omega)
+    hmaj₁ hmaj₂ hout ha hb
+
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/
 theorem zipLamHeadCase_of {φ : Name → Nat}

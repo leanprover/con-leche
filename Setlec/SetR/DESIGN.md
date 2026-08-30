@@ -11524,3 +11524,36 @@ nat-split + iota-major conversions + the eta-rescue lockstep.
 Next: `zipIotaCase_of` on the map (stuck-kills by tri; both-fired
 via the rec-spine inversion + majors' loopLock; identity/K rows
 local; eta row and non-pack majors routed).
+
+### zipIotaCase_of DISCHARGED — the last summit-routed discharge outside Θ
+
+The minimal discharge on the proj pattern, landed:
+* **stuck sides die by their own tri** exactly as mapped (nat →
+  `NatStepNoSort`; δ → `unfoldDefinition_none_of_recInfo` off the
+  spine head; stop → sort-vs-spine shape, nil and cons arms);
+* **both-fired**: the rec-spine inversions identify the recursor
+  (getAppFn + find? determinism, direction-controlled rewrites —
+  `subst` on `c₁ = n` ate `n`, banked), extract the prefix lengths
+  (`mI + 1`, so the major is the prefix's LAST element), build the
+  pre/post/major zips from the subject zips (`getElem_append_left`
+  / `getElem_append_right` with a simpa-normalization — index
+  rewrites inside `getElem` are motive-dependent, use the equation
+  form at the hypothesis then simp the indices), descend the
+  invariants (`subjInv_spine_arg`) and Q (post-strip via
+  `qDescend_mkAppN` + the new **`QDescendArgF`** at the last
+  argument), run **loopLock on the zipped majors** at the fire's
+  own knot fuels, and FORWARD everything to `IotaMajorSortAgree`.
+
+New kit: `getD_eq_getElem'`, `mkAppN_append`, `QDescendArgF` (the
+descent family's third member), `subjInv_spine_arg`.
+
+**MILESTONE — the sim tier is closed outside Θ's arc.**  Every
+summit-routed Prop now has a discharge except the five on Θ's
+final docket: the cert-spine motive (`ZipCertSpineCase`), the
+proj-split / nat-split? (nat is consumed inline by the tops) /
+iota-major conversions (`ProjSplitSortAgree`,
+`IotaMajorSortAgree`), and the eta-rescue lockstep
+(`EtaRescueSortAgree`).  Beside Θ: the semantic trio, the species
+suppliers (projFire trio + FrameQ family), the install facts
+(`StoredWF`, `BoolCtorsInert`, (E)), and the (B) type-form map.
+Θ's read phase opens next per the approved sequence.
