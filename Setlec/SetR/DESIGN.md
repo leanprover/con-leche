@@ -12632,3 +12632,27 @@ carrying the E4 seams outward), `ThetaCoreOut`, and the
 `ThetaCoreLockF` claim (inline induction over the runs' knot sum;
 zip rows delegate to the landed `coreLock`).  Next: the θ-coreLock
 discharge, then the loop tier, then the tie and the consumers.
+
+### The θ computation kit + THE PUSH ALGEBRA sealed
+
+Landed in `ThetaRel.lean` (all compiled, zero sorries):
+* the θ-image computation family (`thetaSubst₁/₂` on sorts, consts,
+  lits, apps, Π-shapes, projs, spines — the leaf-invariances and
+  distributions the same/packed analyses read);
+* `instantiate1_abstract1_fresh` — the REVERSE roundtrip
+  (abstracting a fresh opening recovers a bounded body; the missing
+  half of the open/close algebra);
+* `thetaSubst₁/₂_append` + `TelescopeOk.append` (the push's
+  telescope extension folds);
+* `thetaSubst₁/₂_scoped_id` (outer-scoped closed terms are
+  θ-invariant — spine args in particular);
+* `thetaSubst₁/₂_lam_beta` (the λ-image's shape with its β
+  composite through the whole telescope); and
+* **`thetaSubst₁_push`** — the arc's deepest single equality: the
+  θ-append image of the OPENED body equals the actual β-contractum
+  (`append` fold + reverse roundtrip + `lam_beta` + `scoped_id`).
+  The inline push case now reduces to bookkeeping.
+Also: `ThetaCoreSeam` gained the `certHead` row with `ThetaRel`
+arguments (the congruence exits' shape), and `alignSeam` carries
+its trace ceiling.  Next: the `same`-row core analysis
+(`thetaSame_core`), then the packed tier and `thetaCoreLock`.
