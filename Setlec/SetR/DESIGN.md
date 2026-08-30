@@ -11786,3 +11786,41 @@ first) → (2) the walk's induction per the sealed groups, with the
 push case consuming the simulation → (3) the five depth-zero
 consumers.  The vacuous-arm group can proceed in parallel with (0)
 if sequencing favors it — it consumes nothing new.
+
+### The commutation kit: inventory finding — the algebraic core is LANDED
+
+The kit's map, taken by inventory of `Verify/Subst.lean` +
+`Verify/Abstract.lean` before writing anything:
+
+**Already landed** (the substitution simulation's algebraic core):
+* `instantiate1_instantiate1` — the double-substitution
+  commutation (closed substituends, index-side-conditioned): the β
+  step's commutation with the telescope substitution IS this
+  lemma, composed;
+* `mkAppN_instantiate1` — spine distribution (the ι fire's
+  reduct-shape under substitution);
+* `abstract1_instantiate1` — the open/close roundtrip under
+  `fvarConsistent` (the telescope's `substA d a := (·.abstract1 d)
+  .instantiate1 a` collapses on opened material by exactly this);
+* the bounds/scoping transports (`looseBVarsBounded_abstract1`,
+  `WScoped.abstract1`, `fvarConsistent_abstract1/instantiate1`)
+  and the `instSeq`/`liftLooseBVars` families.
+
+**To write** (bounded, syntactic):
+* the `substA`-distribution family over constructors (abstract1
+  and instantiate1 are both structural — per-constructor
+  one-liners);
+* the three per-step commutations as COMPOSITES: β (contractum
+  image via `instantiate1_instantiate1` under the closedness of
+  telescope arguments — `TelescopeOk` carries `SubjInv`, whose
+  `looseBVarsBounded 0` is the lemma's side condition, BY DESIGN);
+  ζ (same shape); ι (fire image: ctor heads and spine shapes are
+  `substA`-stable structurally, the rule RHS is closed so its
+  image is itself, `mkAppN_instantiate1` distributes the reduct);
+* the cert-leg stability for the β legs (the substituted infer/
+  defeq runs are NOT claimed — the subst-sim's forward factoring
+  only maps REDUCTION steps; the β-cert gates on the substituted
+  side come from the loops' own decomposed runs, by determinism —
+  the design's never-re-run discipline).
+
+The subst-sim map seal follows with these composites as its kit.
