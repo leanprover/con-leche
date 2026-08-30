@@ -622,6 +622,72 @@ theorem memberBlock2_of_checkStep (m : EnvS2U V env) {fuel F₀ : Nat}
   memberBlock2_of_stored m (claims2U_of_2E h ψ fuel).2.2.2 hc hrun
     e.choose_spec.choose_spec.2 hta
 
+/-! ### The gate: does the exposure's consumer apply on the nose?
+
+The composition below is the check itself, run as a theorem rather
+than asserted in prose.  It takes `ConstantValR` **at the environment
+the front door ran in** and produces `MemberBlock2` at an environment
+that stores the constant, and every premise it needs beyond those two
+is visible in its signature.
+
+**Verdict: the run premise applies on the nose; two obligations
+remain, and neither is supplied by the front door.**
+
+1. `hE : EnvExtendStable μ env₀ env` — the *environment* crossing.
+   `checkConstantVal` runs at the prefix; the key needs the run where
+   the constant is already stored.  This is the forward direction, so
+   the Θ lane's named hypothesis is the right shape, and its
+   `ConstsBound` side condition is free — `ConstantValR`'s own
+   `constsResolve` conjunct gives it.  A *named* hypothesis, still not
+   a proved one.
+2. `hex : InferExists2E μ m ψ fuel` — the annotation of the run's
+   *result*.  Parked independently (`Dual2E.lean`), and not something
+   any amount of exposure on the checker side can produce.
+
+What the exposure **did** close is `hrun`: before it, the key demanded
+`inferTypeCore … = .ok (.sort u)`, which `checkConstantVal` never
+produces at all, so no supplier could have discharged it.  The chain's
+first half discharges it exactly.  Its `ensureSort` half is unused
+here, and `WhnfClaims2U` — seal 48's predicted cost — is not needed:
+`MemberBlock2` asks for the subject's `AnnotOk2` and never for what
+the inferred type reduces to. -/
+theorem memberBlock2_of_constantValR (m : EnvS2U V env) {env₀ : Env}
+    {fuel F₀ : Nat} {ψ : Name → Nat} {c : ConstantInfo}
+    {cval : TConstVal} {cv : ConstantVal} {ta : AVExpr}
+    (h : CheckStep2E μ V)
+    (hex : InferExists2E μ m ψ fuel)
+    (hE : EnvExtendStable μ env₀ env)
+    (hcv : ConstantValR μ fuel env₀ cval cv c.toConstantVal.type)
+    (hc : c ∈ env.consts)
+    (hta : denote2 μ m.acval env ψ F₀ 0 c.toConstantVal.type
+      = some ta) :
+    MemberBlock2 V μ env m.acval ψ c.toConstantVal := by
+  obtain ⟨stype, -, hrun, -⟩ := hcv.2.2.2.2.2.2.2.2.2.1
+  exact memberBlock2_of_checkStep m h hex hc
+    (hE.2.2.1
+      (constsBound_of_constsResolve _ hcv.2.2.2.2.2.2.2.2.1) hrun)
+    hta
+
+/-- **The `env₀ = env` reading, for contrast.**  With no environment
+crossing the transport disappears and the exposed chain feeds `hrun`
+with nothing in between — which isolates `hex` as the *only* residue
+the exposure leaves.  The hypothesis pair is contradictory at a
+non-fresh name (`ConstantValR`'s first conjunct says `cv.name` is
+absent), so this is a shape check on the discharge, not a usable
+key: it is stated at an arbitrary `cv`, and `c` need not be `cv`. -/
+theorem memberBlock2_of_constantValR_same (m : EnvS2U V env)
+    {fuel F₀ : Nat} {ψ : Name → Nat} {c : ConstantInfo}
+    {cval : TConstVal} {cv : ConstantVal} {ta : AVExpr}
+    (h : CheckStep2E μ V)
+    (hex : InferExists2E μ m ψ fuel)
+    (hcv : ConstantValR μ fuel env cval cv c.toConstantVal.type)
+    (hc : c ∈ env.consts)
+    (hta : denote2 μ m.acval env ψ F₀ 0 c.toConstantVal.type
+      = some ta) :
+    MemberBlock2 V μ env m.acval ψ c.toConstantVal := by
+  obtain ⟨stype, -, hrun, -⟩ := hcv.2.2.2.2.2.2.2.2.2.1
+  exact memberBlock2_of_checkStep m h hex hc hrun hta
+
 /-! ## The three sweeps
 
 **1. Smallest fuel.** `memberBlock2_of_stored` is the only theorem
@@ -661,6 +727,13 @@ probe.  The claims themselves are inhabited at every `EnvS2` by
 `claims2U_lamDef` inhabits the two *this file* consumes at an
 environment that stores a **definition** — where `acval_defn` is not
 vacuous, which no axiom-only probe could witness.
+
+`memberBlock2_of_constantValR`'s premise pair is *not* contradictory:
+`ConstantValR` speaks about `cv`, which is fresh at `env₀`, while the
+key's `c` is stored at the extension — a prefix/extension pair, which
+is the shape every install produces.  The `_same` variant is a shape
+check only, and says so at its docstring: it needs `cv ≠ c` to be
+inhabited, and is stated at an arbitrary `cv`.
 
 **3. Tombstones.** Files added, none edited. -/
 
