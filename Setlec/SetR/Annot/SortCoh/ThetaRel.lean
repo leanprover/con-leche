@@ -52,17 +52,25 @@ theorem certZip_mono (hm : KnotFuelMono μ env)
   | proj s i e₁ e₂ he ih => exact .proj s i e₁ e₂ ih
 
 mutual
-/-- **The Θ relation** at telescope tier `T`, depth `d`: the
-traveling currency of the corrected architecture — spines and
-telescope arguments are themselves Θ-related (the nesting the
-same-λ push forces; zips embed via `.zip`). -/
+/-- **The Θ relation** at telescope tier `T` (round two — the rows
+telescope-general, closing the in-zone and zipped-λ cases): a pair
+is Θ-related when both sides are telescope images of zip-related,
+run-related, or SHARED cores over Θ-related spines.  The plain zip
+is `zipCore` at the empty telescope and spine. -/
 inductive ThetaRel (μ : CheckMode) (env : Env) (T : Nat) :
     Nat → Expr → Expr → Prop
-  | zip {d fc' : Nat} {a b : Expr}
+  | zipCore {d : Nat} {Γ : List ThetaEntry} {fc' : Nat}
+      {A₁ A₂ : Expr} {sp₁ sp₂ : List Expr}
+      (hT : TelescopeRel μ env T d Γ)
       (hfc : fc' ≤ T + 1)
-      (hz : CertZip μ env fc' d a b) :
-      ThetaRel μ env T d a b
-  | packed {d : Nat} {Γ : List ThetaEntry} {k L : Nat}
+      (hz : CertZip μ env fc' (d + Γ.length) A₁ A₂)
+      (hlen : sp₁.length = sp₂.length)
+      (hsp : ∀ i (h₁ : i < sp₁.length) (h₂ : i < sp₂.length),
+        ThetaRel μ env T d sp₁[i] sp₂[i]) :
+      ThetaRel μ env T d
+        (Setlec.Expr.mkAppN (thetaSubst₁ d Γ A₁) sp₁)
+        (Setlec.Expr.mkAppN (thetaSubst₂ d Γ A₂) sp₂)
+  | runCore {d : Nat} {Γ : List ThetaEntry} {k L : Nat}
       {C₁ C₂ : Expr} {sp₁ sp₂ : List Expr}
       (hT : TelescopeRel μ env T d Γ)
       (hk : k ≤ T)
@@ -74,7 +82,7 @@ inductive ThetaRel (μ : CheckMode) (env : Env) (T : Nat) :
       ThetaRel μ env T d
         (Setlec.Expr.mkAppN (thetaSubst₁ d Γ C₁) sp₁)
         (Setlec.Expr.mkAppN (thetaSubst₂ d Γ C₂) sp₂)
-  | same {d : Nat} {Γ : List ThetaEntry} {P : Expr}
+  | sameCore {d : Nat} {Γ : List ThetaEntry} {P : Expr}
       {sp₁ sp₂ : List Expr}
       (hT : TelescopeRel μ env T d Γ)
       (hlen : sp₁.length = sp₂.length)
@@ -85,8 +93,7 @@ inductive ThetaRel (μ : CheckMode) (env : Env) (T : Nat) :
         (Setlec.Expr.mkAppN (thetaSubst₂ d Γ P) sp₂)
 
 /-- **The Θ telescope**: per-entry facts with Θ-related argument
-pairs (the domain fact and the subject packages as in
-`TelescopeOk`). -/
+pairs. -/
 inductive TelescopeRel (μ : CheckMode) (env : Env) (T : Nat) :
     Nat → List ThetaEntry → Prop
   | nil {d : Nat} : TelescopeRel μ env T d []
@@ -99,14 +106,22 @@ inductive TelescopeRel (μ : CheckMode) (env : Env) (T : Nat) :
       TelescopeRel μ env T d (t :: Γ)
 end
 
+/-- A bare zip is `zipCore` at the empty telescope and spine. -/
+theorem ThetaRel.ofZip {T d fc' : Nat} {a b : Expr}
+    (hfc : fc' ≤ T + 1) (hz : CertZip μ env fc' d a b) :
+    ThetaRel μ env T d a b :=
+  ThetaRel.zipCore (Γ := []) (sp₁ := []) (sp₂ := [])
+    .nil hfc hz rfl (fun i h₁ h₂ => absurd h₁ (by simp))
+
 /-- `TelescopeOk` embeds (zips become `.zip` rows). -/
 theorem TelescopeRel.of_ok {T : Nat} :
     ∀ {Γ : List ThetaEntry} {d : Nat},
       TelescopeOk μ env T d Γ → TelescopeRel μ env T d Γ
   | [], _ => fun _ => .nil
   | _ :: _, _ => fun h =>
-    .cons (.zip (Nat.le_refl (T + 1)) h.1) h.2.1 h.2.2.1 h.2.2.2.1
-      h.2.2.2.2.1 (TelescopeRel.of_ok h.2.2.2.2.2)
+    .cons (ThetaRel.ofZip (Nat.le_refl (T + 1)) h.1) h.2.1
+      h.2.2.1 h.2.2.2.1 h.2.2.2.2.1
+      (TelescopeRel.of_ok h.2.2.2.2.2)
 
 /-- Bounded images under a Θ telescope (LEFT). -/
 theorem thetaRel_bounded₁ {T : Nat} :
