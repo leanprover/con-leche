@@ -14220,3 +14220,109 @@ and it lands on the residues, where it can be measured.
   needed because X" and checked X, this would have been a one-seal
   detour instead of three.
 * *A spike is a discharge when its diff shows no tactic changed.*
+
+### Seal 11 — `CtxOk2R` is false, and the family-wide `CtxOk2` question is resolved
+
+`Interp2/Step2/CtxOk2RRefute.lean`. The headline is **premise-free**:
+
+```
+not_ctxOk2R : ∀ (m : EnvS2 V env) (μ : CheckMode) (φ : Name → Nat),
+  ¬ CtxOk2R m μ φ
+```
+
+No environment shape, no fuel, no mode, no level assignment, no side
+condition. Restated as `CtxOk2RShape` so it survives any repair of the
+original, per the `AcvalDefnUniform` pattern.
+
+**The reason is not the one anyone expected.** The suspicion was the
+relational wall — deriving `∃ T', Infer … ∧ DefEq …` from an `interp2`
+equation. The actual reason is structural and cheaper: `CtxOk2` states
+its leaf agreement under `Sat2` (annotated currency); `CtxOkR`'s only
+semantic reading is via `Sat` (collapse currency); and **the two
+currencies disagree about which contexts are inhabited**, exactly at an
+empty-domain λ. That is the **#100 countermodel**, named in
+`lamR_pos_empty`'s own docstring:
+
+* `interp2 ⟪fun (_ : Empty) => Prop⟫ = ∅` — at `v ≠ 0` the annotation
+  decides, not the vacuous value test;
+* `interp ⟪fun (_ : Empty) => Prop⟫.erase = pt`.
+
+At `d = 1`, `Δa = [emptyLamA]`, subject `.fvar 0 n Prop`: `Sat2` is
+unsatisfiable so `CtxOk2` holds for free, while `CtxOkR` still owes an
+`Infer`/`DefEq` pair that `Infer.sound`/`DefEq.sound` turn into
+`ptTag ∈ˢ univ 0` at `ρ ≡ ptTag`, where `Sat` *is* satisfiable.
+
+The discipline that forced honesty here: an *honest* `⟪Empty⟫` entry
+does **not** refute — empty in both currencies, so `Sat` dies too and
+soundness says nothing. **Only a currency disagreement is decisive.**
+And `ctxOk2R_refuted_nonvacuous` shows it is not a vacuity artifact:
+the same contradiction with the `interp2` agreement holding for every
+`ρ` unconditionally.
+
+**The smallest-fuel test did not fire, and that is worth recording.**
+`CtxOkR` asserts `denote` (fuel-free), and `CtxOk2`'s `denote2`
+obligation sits in a hypothesis. The refutation is uniform in `F`. The
+trap that caught three statements did not catch this one; the argument
+had to be semantic. *A trap-check that comes back clean is not a
+clean bill of health.*
+
+#### The resolution, under the family-wide rule
+
+Measured, not guessed — kit *uses*, not occurrences (the hypothesis is
+threaded on ~120 lines and almost none look at it):
+
+| use | Whnf | DefEqRun | `CtxOk2` supplies it? |
+|---|---|---|---|
+| `of_subset` | 10 | 24 | yes |
+| leaf re-assembly | 7 | 0 | yes (`of_cover`/`length`) |
+| `of_fvarLeaves_nil` | 0 | 8 | needs a one-line twin |
+| `openCong` | 0 | 5 | **no — the one real reader** |
+
+**41 of 54 are pure `fvarLeaves` re-plumbing; 8 need a one-liner; 5
+are a genuine read.** All five are `CtxOkR.openCong` at the `∀`/`λ`
+congruences, where the checker opens each side's body with its own
+annotation, so the second body sits in a context whose head is the
+*left* domain while the opened variable's annotation denotes the
+*right* one. `CtxOkR` absorbs that with a bare `DefEq A₁ A₂`.
+
+Under the rule adopted at seal 9 — *an exemption needs an argument
+that survives the other repairs in the same seal* — **the exemption
+does not survive.** The annotated `openCong` is available:
+`DefEqClaims2B`'s conclusion *is* the domains' `interp2` equality. It
+is available only **graded**, under `AnnotOk2` of both domains — but
+those are the same two facts `DefEqClaims2B` already takes at top
+level. So the repair converts one bare `DefEq` premise into a graded
+semantic one at five sites, and is plausibly payable at all five.
+
+**Decision: all four claims move to `CtxOk2`.**
+
+**The alternative I considered and rejected.** The refutation is
+admitted *purely* because `CtxOk2` puts no well-formedness condition
+on `Δa` — no `CtxAnn`, no `AnnotOk2` — and the refuting `Δa` is not
+one `CtxOk2.open` could build from a checker-accepted subject (a λ is
+not a `Sort`, so it is not a binder domain). So a second repair
+exists: strengthen `CtxOk2`'s `Δa` and the bridge might become true.
+Rejected, for two reasons. It is speculative — "might", and it would
+need its own refutation hunt. And it keeps two currencies mixed at the
+seam, whereas the currency mismatch itself
+(`interp2 ⟪λ(_:Empty).Prop⟫ = ∅` vs `interp …⟫.erase = pt`) remains a
+live fact about *any* statement spanning both lanes. Moving to
+`CtxOk2` removes the seam; strengthening `CtxOk2` only removes this
+counterexample to it.
+
+*Distinction to keep: `CtxOk2R` is false **as stated**. Whether a
+strengthened `CtxOk2` could support some bridge is untested, and
+choosing the family-wide move means we never have to find out.*
+
+#### Open, and named so it is not lost
+
+**`CtxOk2Open` has not had its trap-check.** Its conclusion asserts
+`denote2 … F (d+1) …` for annotations only hypothesised at
+`denote2 … F d …`, and `denote2`'s binder clauses call
+`sortOfE … F d`, which runs the checker *at that depth*. The
+hypotheses demand the same successes at the same fuel, so the
+smallest-fuel test likely goes vacuous rather than false — but the
+**depth** shift is the untested part, and `denote2_shiftFrom` carries
+side conditions. Owner: whoever discharges `CtxOk2Open`. Flagged by
+the refutation's author, who correctly declined to test a residue
+outside their brief.
