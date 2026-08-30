@@ -237,6 +237,34 @@ theorem not_isEquivSubstMono : ¬ IsEquivSubstMono := by
     isEquiv_swapN_none 9999 seamB (by decide)] at hw
   exact nomatch hw
 
+/-! ## Item 2: the list form falls with it, at length one
+
+`Level.isEquivList` is a pointwise fold over `Level.isEquiv` with the
+same `Option` plumbing, so a one-element list transports both halves
+of the item-1 witness without any new content.  Stated separately
+because six of the thirteen sites read the list form and none of them
+would be settled by the scalar refutation alone. -/
+
+/-- **STOP: the list form is false too.**  Same witness, at length
+one; the `none` propagates through the fold's bind. -/
+theorem not_isEquivListSubstMono : ¬ IsEquivListSubstMono := by
+  intro h
+  have hw := h [seamA] [succN (9999 + 1)]
+    [.max (.param seamA) (.param seamB)]
+    [.max (.param seamB) (.param seamA)]
+    (by simp [Level.isEquivList, isEquiv_swap _ _ seamAB])
+  rw [show ([Level.max (.param seamA) (.param seamB)].map
+        (Level.subst [seamA] [succN (9999 + 1)]))
+      = [Level.max (succN (9999 + 1)) (.param seamB)] from by
+        simp [Level.subst, Level.subst.go, seamAB],
+    show ([Level.max (.param seamB) (.param seamA)].map
+        (Level.subst [seamA] [succN (9999 + 1)]))
+      = [Level.max (.param seamB) (succN (9999 + 1))] from by
+        simp [Level.subst, Level.subst.go, seamAB]] at hw
+  rw [Level.isEquivList, isEquiv_swapN_none 9999 seamB (by decide)]
+    at hw
+  exact nomatch hw
+
 /-! ## What is deliberately *not* stated
 
 The converse — that substitution cannot turn `some false` into
