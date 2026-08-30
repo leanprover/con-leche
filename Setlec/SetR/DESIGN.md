@@ -16625,3 +16625,89 @@ and so at both probes — it is free.
 merely omitted. Seal 36 listed nine fields and did not say which of
 `EnvS2`'s ten it was declining; four seals later a consumer paid for
 the ambiguity.*
+
+### Seal 41 — `cval_annot` was never the gap; the real one is the structure parameter
+
+The owed sequence came back and **refuted seal 40's diagnosis of my own
+omission.** I called `cval_annot` *"half the gap"*. It is **none of
+it.**
+
+**Item 3, checked rather than reasoned: `EnvS2.cval_annot` is
+projected nowhere in the tree.** Its only supplier is `EnvS2.empty`;
+`Annot/Pass.lean`'s two existence theorems take `CvalAnnot` as an
+*explicit hypothesis*, not off an `EnvS2`. So restoring it removes an
+asymmetry between the structures and **no obstruction at all**.
+
+**The real gap is not about fields.** The four `…Step2E_of` and all
+**fifteen** residues `Capstone2E` assembles are stated
+`∀ (env) (m : EnvS2 V env)` — so the quarters **cannot be applied at
+an `EnvS2U` at any field set**. What is needed is an `EnvS2` at the
+`EnvS2U` in hand with the **same `acval`** (the claims are stated at
+`m.acval`; a different valuation is useless). `EnvS2UInImage` names
+exactly that and `checkStep2U_of_2E` cashes it.
+
+**And the bridge must not be closed.** The residue inside
+`EnvS2UInImage` is the two `denote2` fields *in the direction
+uniqueness cannot supply* — `Denote2Total`'s wall at stored bodies,
+which is the obstruction seal 34 introduced uniqueness to escape.
+`acval_defn_uniq_lam_ok` is the standing witness that uniqueness holds
+precisely where existence fails. **Closing the bridge would undo the
+ruling.**
+
+**The route that does work**, and it is a statement change rather than
+a proof: **re-point the four quarters to `EnvS2U`**, as `Claims2U`
+re-pointed the claims — licensed by seal 40's four-lemma measurement
+(no quarter reads the existential fields), touching `Claims2E.lean`
+and `Capstone2E.lean`. `whnfStep2_delta_U`/`whnfStep2_delta_thm_U`
+already exist, and `whnfStep2_delta` itself currently has **no
+consumer**.
+
+#### Item 1 — it does not land, and the probes were not why
+
+The two one-liners are right; the tree fails at **one** place —
+`declStep2_of_axiom`, a **third `EnvS2U` construction site** that
+neither seal 40 nor the brief had in view. Two statement-level
+reasons, both real:
+
+* the fresh name's collapse-lane valuation is **unconstrained** by the
+  premises (`MemberBlock2` is a membership fact; `EnvS` has no
+  annotation field), and a valuation genuinely can fail `CvalAnnot` —
+  `Infer` has **no `.prf` clause**, so a leaf like `.lam .prf .prf`
+  has no `Annotates` derivation at all;
+* the old names' `CvalAnnot` sits at the pre-install environment, and
+  transporting it needs **environment weakening for
+  `Annotates`/`Infer`/`DefEq`**, which exists nowhere.
+  `denote2_envExtend` has no relational counterpart.
+
+Said-and-stopped rather than edited a forbidden file. *My brief named
+two construction sites; there were three. A count of construction
+sites is a thing to measure, not to remember.*
+
+#### Item 2 — both probes discharged, and the λ-shape conjunct is met
+
+My self-diagnosis was right that it *is* the empty recipe — and wrong
+about why it failed. No `simp` set reaches it because `probeEnvS` is
+**the assembler applied to twenty arguments**; `probeEnvS_cval … :=
+rfl` is what gets there, and the conjunct then closes.
+
+**`piProbeEnvS_cvalAnnot` is the batch's real content, and the
+λ-shape conjunct is met rather than dodged** — non-vacuity recorded as
+`piProbeCval_isLam`, not asserted. Meeting it is an **inversion** of
+`Infer` at a fixed λ subject, not a computation, because `Infer`'s
+type slot is pinned only up to `DefEq`. The finding inside it: **I7
+and I3 infer the same type** for the stored leaf, one reading the
+codomain off I2 and the other off the stored type's denotation. *That
+agreement is the probe's install contract surfacing on the relational
+side; had they disagreed the conjunct would have been unmeetable.*
+
+#### The probes' honest limit, restated one level up
+
+Both lift to `EnvS2` on the nose — but the two `denote2` fields agree
+there **only because neither environment stores a `defnInfo` or
+`thmInfo`**. So **no axiom-only probe can exercise the residue.** The
+next probe up needs a stored *definition*, and that is where
+`EnvS2UInImage` stops being free.
+
+*Rule: when a diagnosis names a cause, check the cause is consumed
+anywhere before calling it the gap. `cval_annot` was absent, and
+absent things look causal.*
