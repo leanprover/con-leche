@@ -1,6 +1,6 @@
 import Setlec.SetR.Interp2.Step2.Routed
 import Setlec.SetR.Interp2.Step2.DefEq
-import Setlec.SetR.Interp2.Claims2A
+import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Bridge.Decl
 
 /-!
@@ -140,10 +140,16 @@ theorem denote2_lam (acval : Name → (Name → Nat) → AVExpr)
         some (.lam v ta ba)) := by
   rw [denote2]
 
-theorem denote2_bvar (acval : Name → (Name → Nat) → AVExpr)
-    (fuel d i : Nat) :
-    denote2 μ acval env φ fuel d (.bvar i) = none := by
-  simp [denote2]
+/- **`denote2_bvar` used to be stated here** and is not any more — the
+one deletion in this file, recorded rather than silent.  Importing
+`Claims2B` (seal 7) puts this file and `Step2/Whnf.lean` in one scope
+for the first time, and that file states the *identical* lemma under
+the *identical* name (`Step2/Whnf.lean:319`); Lean rejects the
+duplicate, and rejects `private` shadowing of it too.  Nothing
+referenced this copy — it was unused even here — and the content
+survives verbatim in the other quarter, so no statement is lost.  The
+duplication is an integration finding: two quarters, written in
+parallel, named the same `denote2` clause lemma. -/
 
 theorem denote2_natLit {acval : Name → (Name → Nat) → AVExpr}
     {fuel d n : Nat} (hg : Setlec.natLitSupported env = true) :
@@ -1369,30 +1375,13 @@ R2 established about β at kind `0`; and the binder congruences pay for
 them from the node's own `AnnotOk2` (`AnnotOk2_pi`/`AnnotOk2_lam`),
 which is why the seven blocks go through unchanged otherwise. -/
 
-/-- The corrected head-normalisation shape (STOP 2): the reduct's
-annotation lives at some `F' ≥ F`, the equality is graded by the
-subject's `AnnotOk2`.  A quarter-local name for `WhnfCoreClaims2B`,
-which lands in `Claims2A.lean` (not this agent's file);
-`whnfCoreRed2_of_A` shows the sealed `WhnfCoreClaims2A` implies it, so
-the discharge below runs against whichever the junction settles on. -/
-def WhnfCoreRed2 (μ : CheckMode) {env : Env} (m : EnvS2 V env)
-    (φ : Name → Nat) (fuel : Nat) : Prop :=
-  ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
-    μ.verified = true →
-    whnfCore μ env fuel d e = .ok e' →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e →
-    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e →
-    ∀ {F : Nat} {ea : AVExpr},
-      denote2 μ m.acval env φ F d e = some ea →
-      ∃ F' ea', F ≤ F' ∧
-        denote2 μ m.acval env φ F' d e' = some ea' ∧
-        ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea →
-          interp2 V ρ ea = interp2 V ρ ea' ∧ AnnotOk2 V ρ ea'
-
-/-- The sealed shape implies the corrected one (`F' := F`). -/
-theorem whnfCoreRed2_of_A {m : EnvS2 V env} {fuel : Nat}
-    (h : WhnfCoreClaims2A μ m φ fuel) : WhnfCoreRed2 μ m φ fuel := by
+/-- The sealed (refuted) head-normalisation shape implies the
+corrected one at `F' := F`.  Kept so the discharge below, which is
+written against `WhnfCoreClaims2B`, can also be driven from a
+`WhnfCoreClaims2A` if the junction ever wants it. -/
+theorem whnfCoreClaims2B_of_A {m : EnvS2 V env} {fuel : Nat}
+    (h : WhnfCoreClaims2A μ m φ fuel) :
+    WhnfCoreClaims2B μ m φ fuel := by
   intro d e e' Δa hv hw hws hb hLb hC F ea hd
   obtain ⟨ea', hd', hR⟩ := h hv hw hws hb hLb hC hd
   exact ⟨F, ea', Nat.le_refl F, hd', hR⟩
@@ -1501,5 +1490,358 @@ theorem defeq_claims2A {m : EnvS2 V env} {fuel : Nat}
   rw [Setlec.isDefEqCore_succ, defeqBody] at h
   exact defeqLoop_cont2A hstep hv defeqLoopFuel d h hwa hba hLa hwb
     hbb hLb hCa hCb hda hdb
+
+/-! ### The step's obligations, re-quantified
+
+Every residue that mentions an annotation gets `F` as its own binder.
+The two that produce a *reduct* get R3's `∃ F' ≥ F` on top, because the
+repaired `acval_defn` cannot promise a definition's body at the head's
+own fuel — the residues inherit STOP 2 exactly where the claims do.
+The five that only *compare* take each subject's `AnnotOk2`, matching
+the currency `DefEqClaims2AP` is stated in. -/
+
+/-- **Residue 2, amended — the delta identity.**  Unfolding a
+definition head does not move the canonical annotation; what STOP 2
+adds is that the body may need more fuel to annotate than the head did,
+which is `EnvS2.acval_defn`'s repaired shape at depth `0`.  The
+*checker's* fuel does not appear at all — a simplification R1 makes
+visible, since the old statement only ever mentioned it to index the
+annotation. -/
+def Denote2Delta2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) : Prop :=
+  ∀ {F d : Nat} {x y : Expr} {xa : AVExpr},
+    Setlec.unfoldDefinition env x = some y →
+    denote2 μ m.acval env φ F d x = some xa →
+    ∃ F', F ≤ F' ∧ denote2 μ m.acval env φ F' d y = some xa
+
+/-- **Residue 3, amended — the hoisted proof irrelevance.** -/
+def ProofIrrel2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
+    Setlec.proofIrrelP μ env fuel d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) b →
+    ∀ {F : Nat} {aa ba : AVExpr},
+      denote2 μ m.acval env φ F d a = some aa →
+      denote2 μ m.acval env φ F d b = some ba →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        AnnotOk2 V ρ aa → AnnotOk2 V ρ ba →
+        interp2 V ρ aa = interp2 V ρ ba
+
+/-- **Residue 4, amended — the literal acceleration.**  A reduct, so
+R3's slack; and the continuation needs the reduct's `AnnotOk2`, so the
+equality is graded exactly like a reduction claim's. -/
+def ReduceNat2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e e₂ : Expr} {Δa : List AVExpr} {F : Nat}
+    {ea : AVExpr},
+    Setlec.reduceNatP μ env fuel d e = .ok (some e₂) →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e →
+    denote2 μ m.acval env φ F d e = some ea →
+    ∃ F' ea₂, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d e₂ = some ea₂ ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea →
+        interp2 V ρ ea = interp2 V ρ ea₂ ∧ AnnotOk2 V ρ ea₂) ∧
+      Expr.WScoped d e₂ ∧ e₂.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded e₂ ∧
+      CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e₂
+
+/-- **Residue 5, amended — the same-head spine short-circuit.** -/
+def DefEqSpine2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
+    Setlec.defeqSpineP μ env fuel d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) b →
+    ∀ {F : Nat} {aa ba : AVExpr},
+      denote2 μ m.acval env φ F d a = some aa →
+      denote2 μ m.acval env φ F d b = some ba →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        AnnotOk2 V ρ aa → AnnotOk2 V ρ ba →
+        interp2 V ρ aa = interp2 V ρ ba
+
+/-- **The stuck configuration**, amended.  The two subjects arrive at
+one annotation fuel because the step joins the two reducts at `max`
+before entering the block. -/
+def DefEqStuck2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δa : List AVExpr} {k : Expr → Expr → CheckM Bool}
+    {a b a' b' : Expr},
+    defeqStep μ (pureFns μ env fuel) env d k a b = .ok true →
+    μ.verified = true →
+    (a == b) = false →
+    whnfCore μ env fuel d a = .ok a' →
+    whnfCore μ env fuel d b = .ok b' →
+    (a' == b') = false →
+    Setlec.proofIrrelP μ env fuel d a' b' = .ok false →
+    (if !a'.hasFvar && !b'.hasFvar then
+      Setlec.reduceNatP μ env fuel d a' else pure none) = .ok none →
+    (if !a'.hasFvar && !b'.hasFvar then
+      Setlec.reduceNatP μ env fuel d b' else pure none) = .ok none →
+    Setlec.unfoldableHead env a' = false →
+    Setlec.unfoldableHead env b' = false →
+    Expr.WScoped d a' → a'.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a' →
+    Expr.WScoped d b' → b'.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b' →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a' →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) b' →
+    ∀ {F : Nat} {aa' ba' : AVExpr},
+      denote2 μ m.acval env φ F d a' = some aa' →
+      denote2 μ m.acval env φ F d b' = some ba' →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        AnnotOk2 V ρ aa' → AnnotOk2 V ρ ba' →
+        interp2 V ρ aa' = interp2 V ρ ba'
+
+/-! ### The two packages, amended -/
+
+/-- The frame conditions of a `whnfCore` reduct, its annotation **at
+the reduct's own fuel**, and the graded interpretation equality. -/
+theorem whnfCore_package2A {m : EnvS2 V env} {fuel F d : Nat}
+    {Δa : List AVExpr} {a a' : Expr} {aa : AVExpr}
+    (ihwc : WhnfCoreClaims2B μ m φ fuel) (hv : μ.verified = true)
+    (hw : whnfCore μ env fuel d a = .ok a')
+    (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded a)
+    (hC : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a)
+    (hda : denote2 μ m.acval env φ F d a = some aa) :
+    ∃ F' aa', F ≤ F' ∧
+      denote2 μ m.acval env φ F' d a' = some aa' ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ aa →
+        interp2 V ρ aa = interp2 V ρ aa' ∧ AnnotOk2 V ρ aa') ∧
+      Expr.WScoped d a' ∧ a'.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded a' ∧
+      CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a' := by
+  obtain ⟨F', aa', hle, hda', hR⟩ := ihwc hv hw hws hb hLb hC hda
+  exact ⟨F', aa', hle, hda', hR,
+    whnfCore_WScoped m.base.wf fuel hw hws,
+    whnfCore_looseBVars m.base.wf fuel hw hb,
+    fun l hl => hLb l (whnfCore_fvarLeaves m.base.wf fuel hw l hl),
+    CtxOkR.of_subset (whnfCore_fvarLeaves m.base.wf fuel hw) hC⟩
+
+/-- Unfolding one side and continuing.  The annotation is *the same*
+`AVExpr` — which is why the delta branches need no `AnnotOk2` transport
+at all, the subject's own serves the reduct — but it may live one fuel
+up, and the other side is lifted to meet it. -/
+theorem delta_package2A {m : EnvS2 V env}
+    (hdel : Denote2Delta2A μ m φ)
+    {F d : Nat} {Δa : List AVExpr} {x y : Expr} {xa : AVExpr}
+    (hu : Setlec.unfoldDefinition env x = some y)
+    (hws : Expr.WScoped d x) (hb : x.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded x)
+    (hC : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) x)
+    (hx : denote2 μ m.acval env φ F d x = some xa) :
+    ∃ F', F ≤ F' ∧ denote2 μ m.acval env φ F' d y = some xa ∧
+      Expr.WScoped d y ∧ y.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded y ∧
+      CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) y := by
+  obtain ⟨F', hle, hy⟩ := hdel hu hx
+  exact ⟨F', hle, hy, unfoldDefinition_WScoped m.base.wf hu hws,
+    unfoldDefinition_looseBVars m.base.wf hu hb,
+    fun l hl => hLb l (unfoldDefinition_fvarLeaves m.base.wf hu l hl),
+    CtxOkR.of_subset (unfoldDefinition_fvarLeaves m.base.wf hu) hC⟩
+
+/-- **`DefEqStepAt2A`**, modulo the five obligations above.  The proof
+is the sealed one with two additions: the two reducts are joined at
+`max` (`denote2_fuelMono`, same annotation), and the subject's
+`AnnotOk2` is spent at the two `whnfCore` rewrites to buy the reducts'.
+Every later block is served by the reducts' `AnnotOk2` — including all
+four delta branches, where the annotation does not move at all. -/
+theorem defeqStep_claim2A {m : EnvS2 V env} {fuel : Nat}
+    (ihwc : WhnfCoreClaims2B μ m φ fuel)
+    (hdel : Denote2Delta2A μ m φ)
+    (hnat : ReduceNat2A μ m φ fuel) (hpi : ProofIrrel2A μ m φ fuel)
+    (hstk : DefEqStuck2A μ m φ fuel)
+    (hspine : DefEqSpine2A μ m φ fuel) :
+    DefEqStepAt2A μ m φ fuel := by
+  intro d k hk hv a b Δa h hwa hba hLa hwb hbb hLb hCa hCb F aa ba
+    hda hdb ρ hρ hokA hokB
+  have h0 := h
+  simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
+    Setlec.proofIrrel_fold, Setlec.reduceNat_fold,
+    Setlec.defeqSpine_fold, Setlec.stuckIrrel_fold,
+    Setlec.defeq_def] at h
+  split at h
+  · -- the syntactic fast path
+    next hab =>
+    obtain rfl : a = b := eq_of_beq hab
+    obtain rfl : aa = ba := by
+      rw [hda] at hdb; exact Option.some.inj hdb
+    rfl
+  · cases hwca : whnfCore μ env fuel d a with
+    | error err => rw [hwca] at h; exact nomatch h
+    | ok a' =>
+    rw [hwca] at h
+    dsimp only at h
+    cases hwcb : whnfCore μ env fuel d b with
+    | error err => rw [hwcb] at h; exact nomatch h
+    | ok b' =>
+    rw [hwcb] at h
+    dsimp only at h
+    obtain ⟨Fa, aa', hFa, hda0, hEa, hwa', hba', hLa', hCa'⟩ :=
+      whnfCore_package2A ihwc hv hwca hwa hba hLa hCa hda
+    obtain ⟨Fb, ba', hFb, hdb0, hEb, hwb', hbb', hLb', hCb'⟩ :=
+      whnfCore_package2A ihwc hv hwcb hwb hbb hLb hCb hdb
+    obtain ⟨hEA, hokA'⟩ := hEa ρ hρ hokA
+    obtain ⟨hEB, hokB'⟩ := hEb ρ hρ hokB
+    -- the two reducts, joined at one fuel; the annotations do not move
+    have hda' : denote2 μ m.acval env φ (max Fa Fb) d a' = some aa' :=
+      denote2_fuelMono (Nat.le_max_left Fa Fb) d a' hda0
+    have hdb' : denote2 μ m.acval env φ (max Fa Fb) d b' = some ba' :=
+      denote2_fuelMono (Nat.le_max_right Fa Fb) d b' hdb0
+    -- from here every verdict is the middle equation
+    suffices hmid : interp2 V ρ aa' = interp2 V ρ ba' from
+      (hEA.trans hmid).trans hEB.symm
+    clear hEA hEB hEa hEb hda hdb hda0 hdb0 hokA hokB
+    split at h
+    · next hab' =>
+      obtain rfl : a' = b' := eq_of_beq hab'
+      obtain rfl : aa' = ba' := by
+        rw [hda'] at hdb'; exact Option.some.inj hdb'
+      rfl
+    · cases hir : Setlec.proofIrrelP μ env fuel d a' b' with
+      | error err => rw [hir] at h; exact nomatch h
+      | ok r =>
+      rw [hir] at h
+      dsimp only at h
+      cases r with
+      | true =>
+        exact hpi hir hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hda'
+          hdb' ρ hρ hokA' hokB'
+      | false =>
+        cases hna : (if !a'.hasFvar && !b'.hasFvar then
+            Setlec.reduceNatP μ env fuel d a' else pure none) with
+        | error err => rw [hna] at h; exact nomatch h
+        | ok o₁ =>
+        rw [hna] at h
+        dsimp only at h
+        match o₁, hna, h with
+        | some a₂, hna, h =>
+          have hred : Setlec.reduceNatP μ env fuel d a'
+              = .ok (some a₂) := by
+            split at hna
+            · exact hna
+            · exact nomatch hna
+          obtain ⟨F₂, w, hle₂, hw, hEw, hw2, hb2, hL2, hC2⟩ :=
+            hnat hred hwa' hba' hLa' hCa' hda'
+          obtain ⟨hEw1, hokw⟩ := hEw ρ hρ hokA'
+          exact hEw1.trans
+            (hk h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hw
+              (denote2_fuelMono hle₂ d b' hdb') ρ hρ hokw hokB')
+        | none, hna, h =>
+        dsimp only at h
+        cases hnb : (if !a'.hasFvar && !b'.hasFvar then
+            Setlec.reduceNatP μ env fuel d b' else pure none) with
+        | error err => rw [hnb] at h; exact nomatch h
+        | ok o₂ =>
+        rw [hnb] at h
+        dsimp only at h
+        match o₂, hnb, h with
+        | some b₂, hnb, h =>
+          have hred : Setlec.reduceNatP μ env fuel d b'
+              = .ok (some b₂) := by
+            split at hnb
+            · exact hnb
+            · exact nomatch hnb
+          obtain ⟨F₂, w, hle₂, hw, hEw, hw2, hb2, hL2, hC2⟩ :=
+            hnat hred hwb' hbb' hLb' hCb' hdb'
+          obtain ⟨hEw1, hokw⟩ := hEw ρ hρ hokB'
+          exact (hk h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2
+            (denote2_fuelMono hle₂ d a' hda') hw ρ hρ hokA'
+            hokw).trans hEw1.symm
+        | none, hnb, h =>
+        cases hha : Setlec.unfoldableHead env a' <;>
+          cases hhb : Setlec.unfoldableHead env b' <;>
+          rw [hha, hhb] at h <;> dsimp only at h
+        · -- neither head unfolds: the stuck configuration
+          exact hstk h0 hv (by simpa using ‹¬(a == b) = true›) hwca
+            hwcb (by simpa using ‹¬(a' == b') = true›) hir hna hnb
+            hha hhb hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hda'
+            hdb' ρ hρ hokA' hokB'
+        · cases hub : Setlec.unfoldDefinition env b' with
+          | none => rw [hub] at h; exact nomatch h
+          | some b₂ =>
+            rw [hub] at h
+            obtain ⟨F₂, hle₂, hd2, hw2, hb2, hL2, hC2⟩ :=
+              delta_package2A hdel hub hwb' hbb' hLb' hCb' hdb'
+            exact hk h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2
+              (denote2_fuelMono hle₂ d a' hda') hd2 ρ hρ hokA' hokB'
+        · cases hua : Setlec.unfoldDefinition env a' with
+          | none => rw [hua] at h; exact nomatch h
+          | some a₂ =>
+            rw [hua] at h
+            obtain ⟨F₂, hle₂, hd2, hw2, hb2, hL2, hC2⟩ :=
+              delta_package2A hdel hua hwa' hba' hLa' hCa' hda'
+            exact hk h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hd2
+              (denote2_fuelMono hle₂ d b' hdb') ρ hρ hokA' hokB'
+        · have hboth : ∀ {x : CheckM Bool},
+              (match Setlec.unfoldDefinition env a',
+                  Setlec.unfoldDefinition env b' with
+                | some a₂, some b₂ => k a₂ b₂
+                | _, _ => pure false) = .ok true →
+              interp2 V ρ aa' = interp2 V ρ ba' := by
+            intro x hbb2
+            cases hua : Setlec.unfoldDefinition env a' with
+            | none => rw [hua] at hbb2; exact nomatch hbb2
+            | some a₂ =>
+            cases hub : Setlec.unfoldDefinition env b' with
+            | none => rw [hua, hub] at hbb2; exact nomatch hbb2
+            | some b₂ =>
+              rw [hua, hub] at hbb2
+              obtain ⟨FA, hleA, hdA, hwA, hbA, hLA, hCA⟩ :=
+                delta_package2A hdel hua hwa' hba' hLa' hCa' hda'
+              obtain ⟨FB, hleB, hdB, hwB, hbB, hLB, hCB⟩ :=
+                delta_package2A hdel hub hwb' hbb' hLb' hCb' hdb'
+              exact hk hbb2 hwA hbA hLA hwB hbB hLB hCA hCB
+                (denote2_fuelMono (Nat.le_max_left FA FB) d a₂ hdA)
+                (denote2_fuelMono (Nat.le_max_right FA FB) d b₂ hdB)
+                ρ hρ hokA' hokB'
+          cases hlt1 : Setlec.ReducibilityHint.lt
+              (Setlec.headHint env b') (Setlec.headHint env a') <;>
+            rw [hlt1] at h
+          · cases hlt2 : Setlec.ReducibilityHint.lt
+                (Setlec.headHint env a') (Setlec.headHint env b') <;>
+              rw [hlt2] at h
+            · cases hsr : (Setlec.ReducibilityHint.sameRegular
+                    (Setlec.headHint env a') (Setlec.headHint env b') &&
+                  Setlec.sameConstHeads a' b') <;> rw [hsr] at h
+              · exact hboth (x := pure false) h
+              · cases hsp : Setlec.defeqSpineP μ env fuel d a' b' with
+                | error err => rw [hsp] at h; exact nomatch h
+                | ok r' =>
+                rw [hsp] at h
+                dsimp only at h
+                cases r' with
+                | true =>
+                  exact hspine hsp hwa' hba' hLa' hwb' hbb' hLb'
+                    hCa' hCb' hda' hdb' ρ hρ hokA' hokB'
+                | false => exact hboth (x := pure false) h
+            · cases hub : Setlec.unfoldDefinition env b' with
+              | none => rw [hub] at h; exact nomatch h
+              | some b₂ =>
+                rw [hub] at h
+                obtain ⟨F₂, hle₂, hd2, hw2, hb2, hL2, hC2⟩ :=
+                  delta_package2A hdel hub hwb' hbb' hLb' hCb' hdb'
+                exact hk h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2
+                  (denote2_fuelMono hle₂ d a' hda') hd2 ρ hρ hokA'
+                  hokB'
+          · cases hua : Setlec.unfoldDefinition env a' with
+            | none => rw [hua] at h; exact nomatch h
+            | some a₂ =>
+              rw [hua] at h
+              obtain ⟨F₂, hle₂, hd2, hw2, hb2, hL2, hC2⟩ :=
+                delta_package2A hdel hua hwa' hba' hLa' hCa' hda'
+              exact hk h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hd2
+                (denote2_fuelMono hle₂ d b' hdb') ρ hρ hokA' hokB'
 
 end Setlec.SetR.Interp2
