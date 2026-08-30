@@ -13205,3 +13205,1825 @@ match-style; plain content analyzers taking ThetaIH; ThetaIH.shrink
 makes any sub-budget re-entry an N-drop) is the ratified replacement
 and compiles end-to-end.  Data-valued `have` is defeq-opaque: inline
 data terms at omega/defeq-sensitive sites (three incidents).
+## The `CheckStep2` discharge — the induction's map (campaign seal 0)
+
+### The measure, taken from the checker rather than invented
+
+Two nested layers, and the discipline is one sentence:
+**depth-increasing recursion goes through the IH at `fuel`;
+depth-preserving iteration goes through the continuation at `budget`.**
+
+* Every body takes `(r : CoreFns m)` and **never calls itself**.  A sub-
+  result through `r` runs at `fuel - 1`, so a clause at `fuel + 1`
+  reaches it by *applying an IH* — no sub-induction.
+* `whnf` and `isDefEqCore` are loops on a **separate private budget**
+  (`whnfLoopFuel = defeqLoopFuel = 100000`, `@[irreducible]`), taken
+  through an abstracted continuation `k`.  Delta chains and literal
+  acceleration are *iteration*, not knot recursion (task #106).  Each
+  loop gets one `induction budget`, with `k`'s contract named as a
+  `Prop` — the checker's own continuation-passing factoring, mirrored.
+
+### Case structure, against the actual decompositions
+
+| body | cases | notes |
+|---|---|---|
+| `inferBody` | **11** — sort, fvar, const, lit nat, lit str, forallE, lam, app, proj, letE, bvar | `.bvar` throws; dispatch is on `ExprView` |
+| `whnfCoreBody` | **9** — 6 leaves, `.app` (β / ι / stuck), `.proj` (1 reducing, **5 stuck exits**), `.letE` (ζ), `.bvar` | no delta at this level |
+| `whnfStep` | **3 exits** — literal, delta, fixpoint | order: whnfCore → reduceNat → delta |
+| `defeqStep` | **7 blocks**; block 7 (structural congruence) has **17 cases**, and its fallthrough `stuckIrrel` has **6 arms** | `defeqSpine` is the same-head short-circuit inside the lazy-delta block; a `false` there is never final |
+
+**Mode gating is nearly free.**  Exactly five gated sites in
+`Core.lean`.  Four are `ttChecks`, which is **constantly `false`** since
+T7b — so those `.proj`/eta sites discharge by the ungated path.  Only
+`inferBody`'s λ-codomain check (`Core.lean:1615`, `mode.verified &&
+!body.isLam`) is genuinely two-valued and needs a case split; it fires
+**once per λ chain, at the innermost binder**.
+
+### Per-clause consumption, and the priority order
+
+**Tier A — consumes only LANDED suppliers (no Θ dependency).**  Start
+here, per the economy directive.
+
+| clause | consumes |
+|---|---|
+| infer `.sort` / `.fvar` / `.letE` | `sound_sort` / `sound_bvar` / `sound_letE` |
+| infer `.const` | `EnvS2.acval_ok2`, `mem_type2` |
+| infer `.forallE` / `.lam` / `.app` / `.proj` | `sound_pi` / `sound_lam` / `sound_app` / `sound_proj_*` |
+| whnfCore leaves, `.letE` (ζ) | `denote2` clause equations, `AnnotOk2_zeta` |
+| whnfCore `.app` β | `AnnotOk2_beta_pos` / `_beta_zero` |
+| whnfCore `.proj` | `sound_proj_*`, the five stuck exits are identity |
+| whnf loop, delta step | the reduct denotes **identically** — no new fact |
+| defeq structural congruences | `interp2` clause equations + the IHs |
+
+**Tier B — the literal block.**  infer `.lit natVal` / `.lit strVal`,
+`reduceNat`'s two arms, and the `.lit` congruence cases.  Unblocked by
+`interp2_closed` (seal 2); a **transposition batch** of
+`Sound/{Lit,NatOps,NatOpsWf}`'s 2,227 lines, not new argument.
+
+**Tier C — conditional by design.**
+* **iota** (`whnfCore`'s `.app` ι sub-case, and the rescues) — enters
+  through `Step2Inputs.rec_rules2`, the **named slot**.  This is the
+  one seam where the T5 rule binds: the fired law is stated by the
+  migrating bottoms, never here.
+* **β's sort premise** — `SortSubstStable`, whose own suppliers are
+  Θ's two zip obligations.  Carried as `Step2Inputs.subst_stable`;
+  the clause is written conditional and closes when Θ lands.
+
+### The shape to follow (v1's, which works)
+
+1. four claims + step `Prop` + fuel induction — **landed**
+   (`Claims2.lean`);
+2. frame packages once, `whnfCore_packageR`-style (IH output + frame in
+   one `obtain`);
+3. per quarter, **one dispatch lemma matching the checker's own case
+   split**, with every non-local clause a named `…Step2 : Prop` stated
+   **at a checker function boundary**, never mid-body;
+4. loops get `induction budget` with the continuation's contract named;
+5. discharge bottom-up along a **linear import chain**, one obligation
+   per file, so the assembler is a dozen-line `exact`.
+
+### Sizing, honestly
+
+v1's `CheckStepR` tier is **5,964 lines**: ~77% per-clause case work,
+~8% frame plumbing, ~15% assembly — and very unevenly spread (`Stuck`
+520, `Iota` 550, `ReduceNat` 483 are 26% between them).  The interp2
+analogue should come in **somewhat under** that: it produces semantic
+facts rather than relation derivations (no `Red`/`Infer` construction
+plumbing), and the ten per-former rows are already landed.  Estimate
+**3,500–5,000 lines across 8–12 seals**.  Tier A is the majority of it
+and depends on nothing outstanding.
+
+### Discharge campaign, seal 1 — the four quarters' Tier A clauses
+
+`Interp2/Step2/{Infer,WhnfCore,DefEq,Loop}.lean`: the per-clause lemmas
+each dispatch will consume, for every Tier A branch.  All compile; the
+battery is unchanged; 305 jobs warning-free.
+
+**Infer** — the leaves (`.sort`, `.fvar`) discharge from `denote2`'s
+own clause equations plus the matching skeleton row, with no IH at all;
+the structural clauses (`.forallE`, `.lam`, `.app`, `.letE`, `.proj`)
+are stated over the rows' *inputs* rather than over `inferBody`'s
+spelling, so the dispatch owns the run and the clauses stay independent
+of it.
+
+**WhnfCore** — two shapes cover eight of nine cases.  `whnfStep2_id`
+is the identity shape and serves **eleven** branches (six leaves, five
+stuck `.proj` exits); ζ and both β kinds are the graded step lemmas,
+which conclude the claim's two conjuncts exactly.  ι is Tier C.
+
+**DefEq** — the equivalence and the congruences, all pure
+interpretation algebra, plus proof irrelevance and η.  `symm`/`trans`
+are one-liners precisely because `DefEqClaims2` is unconditional in
+truthfulness, the grading inherited from `DeqS`.
+
+**The delta exit turned out to need an environment field, and it is
+added.**  `EnvS2` gains `acval_defn` and `acval_thm` — the `denote2`
+successors of `EnvS.defn_eq`/`thm_ok`.  v1 records the same fact as
+"the reduct denotes *identically*"; here it must be a field rather than
+a lemma, because `denote2` reads `acval` where `denote` read `cval`.
+With it the loop's delta exit is free: the unfolded body's canonical
+annotation **is** the constant's own leaf, so the step moves neither
+the interpretation nor the invariant.  `EnvS2.empty` re-discharged
+(vacuous over `env.consts = []`).
+
+**FINDING — a named contract that proves by `rfl` is not a contract.**
+The map instructed naming the loop's continuation contract at the
+function boundary, following v1.  Written out it was
+`interp2 ρ ea = interp2 ρ ea ∧ (AnnotOk2 ρ ea → AnnotOk2 ρ ea)` —
+`⟨rfl, id⟩`, i.e. nothing.  **Deleted before landing.**
+
+The instruction was right for v1 and wrong here, and the difference is
+instructive: v1's loop must *construct a `Red` derivation*, so its
+continuation genuinely owes something at each budget step.
+`WhnfClaims2` concludes an **equality and a transport**, and the loop
+moves the subject without moving either — every budget step is the
+identity on the claim.  The content is entirely in the three exits'
+step facts; the budget recursion is bookkeeping and belongs inside the
+dispatch.
+
+*Rule: when transposing a proof architecture, check whether the thing
+the original carried still has content in the new currency before
+giving it a name.  A vacuous `Prop` with a good name is worse than no
+`Prop`, because it looks discharged.*
+
+**Ledgered from the map, as directed**: four of the five mode-gated
+sites in `Core.lean` are `ttChecks`, **constantly `false` since T7b**,
+so the `.proj`/eta gates discharge by the ungated path and cost the
+campaign nothing.  Only `inferBody`'s λ-codomain check
+(`Core.lean:1615`, `mode.verified && !body.isLam`) is genuinely
+two-valued, and it fires once per λ chain at the innermost binder.
+
+### Discharge campaign, seal 2 — the dispatch keystone validated, Tier B piloted
+
+Two claims from the campaign map tested against reality; both hold.
+
+**The dispatch transfers verbatim.**  `infer_sort_claim2`
+(`Interp2/Step2/Dispatch.lean`) is v1's `infer_sort_claimR` with the
+conclusion swapped to the annotated currency, and **the unfolding
+recipe is unchanged** — `rw [inferTypeCore_succ]` then
+`simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
+Except.bind, Except.ok.injEq]`.  It compiled first try.
+
+That is the campaign's keystone risk retired: the *checker* is the same
+function on both lanes, so the case-splitting machinery — which is
+where a bridge's bulk and its fiddliness live — is shared.  Only what a
+clause produces afterwards differs, and that is exactly the part the
+skeleton rows already supply.  **The remaining ten `inferBody` clauses,
+and the other three quarters' dispatches, are grind against a validated
+template rather than an open problem.**
+
+**Tier B is transposition, as priced.**  `natLit_facts2`
+(`Interp2/Step2/Lit.lean`) is `Sound/Lit.lean`'s `natLit_facts` onto
+`piR`/`AnnotOk2`/`interp2` and `denote2`'s own numeral spine
+(`natLitT2` — the same former the `.lit natVal` clause emits).  It
+compiled first try and came out **shorter than v1**: `Nat → Nat` sits
+at result sort `1`, so the successor's product is in the graph regime,
+`app_mem_piR_pos` applies with no fibre premise, and the app slot's
+kind-`0` component is vacuous.  v1 needed `app_mem_piC` and the
+collapse's side conditions at the same spot.
+
+One structuring choice worth copying through the batch: the numeral
+induction takes the two head facts as **explicit arguments** rather
+than re-deriving them, because they are one `mem_type2` chain shared by
+every numeral.  v1 factors the same way (`natHeads_facts` out of
+`natLit_facts`), and the factoring is what keeps the induction free of
+the literal guards' inversion plumbing.
+
+**State of the campaign.**  Landed: the map, the four quarters' Tier A
+clause lemmas, `EnvS2`'s two delta fields, the Tier B pilot, the
+dispatch keystone.  Remaining and now fully templated: the other ten
+infer clauses, the three other dispatches, the rest of Tier B
+(`strLit_facts` is its bulk at ~394 v1 lines), then the five install
+keys and the fourteen's conclusion swap.  Tier C (iota via the named
+slot, β's sort premise via `SortSubstStable`) stays conditional by
+design.
+
+### Discharge campaign, seal 3 — STOP: the `.fvar` clause refutes `Claims2`'s hypothesis side
+
+Running the infer clauses against the validated template, the second
+one stopped the batch.
+
+**What broke.**  `Claims2` was sealed with the context correspondence
+*reused rather than re-invented*: `CtxOkR` at the **erasures**
+(`Δa.map AVExpr.erase`), on the reasoning that it is a function of the
+annotated context and so needs no new relation.  That reasoning was
+checked against the *conclusion* side, which never wants more.  The
+`.fvar` clause reads the context, and wants two things `CtxOkR` states
+only relationally:
+
+1. **definedness** — that the leaf's annotation has a `denote2` at all.
+   `CtxOkR`'s leaf package gives `denote cval env φ d ty = some T`; the
+   annotated denotation is a *different function* and its definedness
+   does not follow;
+2. **the leaf-to-entry link** — the claim needs
+   `ρ k ∈ˢ interp2 ρ tya`, while `Sat2` offers
+   `ρ k ∈ˢ interp2 (fun j => ρ (j+k+1)) Aa`.  `CtxOkR` bridges the
+   corresponding v1 gap with `∃ T', Infer … ∧ DefEq … T' T` — a
+   **relational** package — and turning that `DefEq` into an `interp2`
+   equality is exactly the move the step-3 map proved does not exist.
+
+So the erasure route is sound for the conclusion and insufficient for
+the hypothesis, and the difference surfaces at **one clause out of
+eleven** — the only one that reads the context rather than passing it
+along.
+
+*Rule: a hypothesis reused from another currency is only as good as the
+weakest clause that reads it.  Check the clause that reads the context,
+not the ones that merely thread it.*
+
+**Landed anyway, so the stop costs nothing.**  `infer_fvar_claim2`
+takes both facts explicitly and compiles, so it is usable the moment a
+supplier exists; `infer_bvar_claim2` (the throw) is closed outright.
+
+**The repair, stated and checked but deliberately NOT wired.**
+`CtxOk2` is `CtxOkR`'s leaf package transposed — per leaf, the
+annotation denotes under `denote2`, and its interpretation agrees with
+the context entry read in the entry's own tail context, the second
+conjunct being the semantic fact directly where `CtxOkR` had the
+relational one.  `CtxOk2.fvar_leaf` proves it supplies exactly what the
+clause takes, so the repair is *checked rather than asserted*.
+
+It is not wired in because substituting it for
+`CtxOkR (Δa.map erase)` changes **`Claims2`'s sealed statement** in all
+four claims — a junction decision, not a consumer's.  The change is one
+edit and touches no other clause: the other ten pass the context along
+without reading it.  Awaiting the ruling.
+
+### Tier B, the `String` half — and where its head facts must come from
+
+`charList_facts2`/`strLit_facts2`
+(`Interp2/Step2/StrLit.lean`) transpose `Sound/Lit.lean`'s
+`strLit_facts` — v1's ~394-line bulk — onto `piR`/`AnnotOk2`/`interp2`
+and `denote2`'s own character-list spine (`charListT2`).  They
+compiled first try, at **~55 proof lines**, and the pricing held
+exactly as `natLit_facts2` predicted: `Char`, `List Char`, `String`
+and `Nat` are all `Type`-level, so every product in the spine is in
+the graph regime, `app_mem_piR_pos` applies with no fibre premise at
+each of the four application sites, and all four `AnnotOk2` app slots'
+kind-`0` components are vacuous.  v1 needed `TeleFitV.appN` /
+`appN_annot` telescope walks with per-argument
+`VExpr.inst_eq_self_of_closed` bookkeeping for the same four steps.
+
+**The "five lemmas" claim, confirmed and sharpened.**  The block was
+priced as touching the interpretation through `interp_app`,
+`interp_bvar`, `interp_sort`, `interp_pi`, `interp_closed` only.  With
+the heads as arguments the transposed core needs **just
+`interp2_app`** — `bvar`/`sort`/`pi`/`closed` occur in v1 *only*
+inside the head-fact derivations (`hnilOk`, `hconsOk`, `hAppDomOk`,
+`hCharU`, `hListMem`), which are now the hypothesis boundary.  Nothing
+else in the block was interpretation-sensitive.
+
+**The finding: the head facts are not a `denote2` computation.**  In
+v1 the heads come from `EnvS.mem_type` aimed at a `denote`-computed
+type, and that computation is *determined* by `strLitSupported`'s
+syntactic inversion because `denote`'s `forallE` clause is
+numeral-free.  `denote2`'s `forallE` clause is not: it calls
+`sortOfE` (= `inferTypeCore` then `whnf` then `Level.eval`) on the
+stored domain and body.  `strLitSupported` pins the stored *type
+shapes* and says nothing about what the checker's own inference
+returns on them, so no annotated type `ta` can be exhibited from the
+guard alone and `EnvS2.mem_type2` cannot be aimed.
+
+So for the annotated lane the supplier of a stored constant's head
+fact is **the annotation pass, not a `denote2` evaluation**:
+`Annotates`/`HasSort` for the stored type, plus the numeral-agreement
+laws (`piR_zero_agree`) to reconcile whatever numerals `sortOfE`
+produced with the `1`s the membership statements use.  This is a
+structural difference between the lanes, not a gap in this seal, and
+it applies to *every* basis-constant head the tier-B block wants —
+`natLit_facts2`'s two heads included, which is why both files take
+them as arguments.  Whoever wires the literal clauses into the
+dispatch pays it once, at the `acval`-side supplier, for all eight
+heads at once.
+### Discharge campaign, seal 5 — TWO STOPs, both quarters past them
+
+`WhnfCoreStep2` and `WhnfStep2`, run against `Bridge/WhnfCore.lean`.
+The case split transferred verbatim — it is the same checker — and the
+sealed *statements* did not.
+
+**STOP 1 (mechanically refuted): the annotation's fuel is tied to the
+checker's.**  All four claims of `Claims2` read the subject's
+annotation at `denote2 … fuel …`, the same numeral that indexes the
+checker call.  The knot decrements that numeral and every reduction
+clause recurses, so the step from `fuel` to `fuel + 1` must move a
+`denote2` fact *down* to `fuel` before the induction hypothesis will
+take it.  That move is `Denote2FuelDown` and it is **false**:
+`denote2` is `denote` fused with the checker's own sort computation,
+so no binder has an annotation until the fuel suffices to run
+`inferTypeCore` and `whnf`.  `denote2_fuelDown_false` exhibits it at
+the smallest witness — at fuel `1` the reduction loop cannot take its
+first `whnfCore` step (`whnf_one_error`), so `sortOfE` is `none`
+everywhere and no `∀`/`λ` annotates at all (`denote2_one_forallE`,
+`denote2_one_lam`), while at fuel `2` the smallest closed `∀` does
+(`denote2_two_forallE`).  Unconditional in mode, environment, level
+assignment and annotated valuation.
+
+The defect is in **all four claims**, not this quarter's two.  Seals
+1–4 did not meet it because the clauses they landed
+(`infer_sort_claim2`, `infer_fvar_claim2`, `infer_bvar_claim2`) are
+exactly the three that do not recurse.
+
+*The repair is a strengthening and one binder wide*: quantify the
+annotation fuel **inside** the claim, independent of the checker's
+(`WhnfCoreClaims2F` / `WhnfClaims2F`).  Every recursive use then
+instantiates the induction hypothesis at the goal's own `F` and no
+fuel moves.  `WhnfCoreClaims2F.toClaims2` checks the repaired claim
+still implies the sealed one, so nothing downstream loses;
+`whnfCore_letE_claim2F` is the checked evidence that repair 1 is the
+whole of STOP 1 at a recursing clause.
+
+**STOP 2: the `interp2` equality is stated ungraded.**  `Claims2`
+concludes `interp2 ρ ea = interp2 ρ ea' ∧ (AnnotOk2 ρ ea → AnnotOk2 ρ
+ea')` — the equality *outside* the premise.  The quarter's own Tier-A
+suppliers do not have that shape: `AnnotOk2_zeta`,
+`AnnotOk2_beta_pos` and `AnnotOk2_beta_zero` conclude
+`eq ∧ AnnotOk2 ρ ea'` **from** `AnnotOk2 ρ ea`.  For ζ the difference
+is harmless (`whnfStep2_zeta_eq` proves the ζ equality premise-free).
+For β it is not: `interp2_beta_pos` needs `⟦a⟧ ∈ˢ ⟦A⟧` (off the domain
+`app` is the canonical junk `∅`), which the clause's own certificate
+supplies; but `interp2_beta_zero` needs the λ's whole fibre package,
+i.e. `AnnotOk2` of the redex's head, and `whnfCoreBody` never infers
+the head — it whnf's it.  So the kind-`0` β branch has no supplier for
+the ungraded equality.  *The repair is a weakening, and it is the
+shape the suppliers already have*: move the equality inside the
+premise (`WhnfCoreClaims2R` / `WhnfClaims2R`).
+
+**Both quarters are discharged past both STOPs.**  In the repaired
+currency, `whnfCore_claims2R` closes all nine `whnfCoreBody` cases and
+`whnf_claims2R` closes the loop by induction on `whnfLoopFuel` (never
+on the knot's `fuel` — the map's discipline, and it held).  The
+residues are named at the checker's own function boundaries and none
+is this seal's to state: `IotaStep2` (the migrating iota bottoms',
+per the T5 rule), `ProjStep2` and `ReduceNatStep2` (v1's `ProjStepR`
+/ `ReduceNatStepR` transposed), `Denote2Inst1` (the `SortSubstStable`
+lane's; v1's `denote_beta`), `Delta2` (an annotated `mkAppN`
+inversion) and `BetaCert2` (the inference and defeq quarters, once
+they are repaired too).  The six leaves and `.bvar` are closed at the
+**sealed** shape, needing neither repair.
+
+*Rule: when a claim fuses a checker-computed object into its
+statement, the object's own fuel must be quantified separately from
+the checker's — the knot decrements one and not the other.  And a
+claim's conclusion should be read off the suppliers it names, not
+written first and matched later.*
+
+Awaiting the ruling on both repairs; neither is wired into
+`Claims2.lean`, for the seal-3 reason.
+
+### Discharge campaign, fold-in — `Claims2` is refuted twice, by two independent discharges
+
+Three of four parallel quarters delivered.  Two of them, working from
+different checker functions and never seeing each other's work,
+**independently stated the same obligation, under the same name, and
+one of them refuted it**.  That is the strongest evidence available
+that the defect is in `Claims2` and not in a proof strategy.
+
+**DEFECT 1 — the annotation's fuel is tied to the checker's.**  All
+four claims read the subject through `denote2 … fuel …`, the same
+numeral that indexes the checker call.  The knot decrements it, so a
+recursing clause must move a `denote2` fact from `fuel + 1` down to
+`fuel`.  `denote2_fuelDown_false` proves that move impossible —
+unconditionally in mode, environment, level assignment and annotated
+valuation.  The witness chain is of independent interest: at fuel `1`
+the reduction loop cannot take its first `whnfCore` step, so `sortOfE`
+is `none` everywhere and **no binder annotates at all**, while at fuel
+`2` the smallest closed `∀` does.
+
+Seals 1–4 never met it because the only clauses landed by then —
+`.sort`, `.fvar`, `.bvar` — are exactly the three that do not recurse.
+*A statement can survive every clause that does not exercise it; the
+first recursing clause is the test.*
+
+Repair: quantify the annotation fuel **independently** of the
+checker's (`∀ {F}, denote2 … F d e = some ea → …`).  A strengthening,
+one binder wide; `WhnfCoreClaims2F.toClaims2` checks nothing downstream
+loses.
+
+**DEFECT 2 — the equality is stated ungraded, against this file's own
+architecture.**  `Claims2` concludes `interp2 ρ ea = interp2 ρ ea' ∧
+(AnnotOk2 ρ ea → AnnotOk2 ρ ea')`, with the equality *outside* the
+premise.  The architecture record above (§"the second soundness —
+architecture", **Graded conclusions**) says the opposite, and says why:
+*"reduction/defeq interp2-equalities become conditional on the
+subject's `AnnotOk2` … the model's iota equality is genuinely
+membership-conditional — off-domain, the recursor value's junk and the
+rule tower's junk differ."*
+
+The suppliers were built to the record, not to the seal:
+`AnnotOk2_zeta`, `AnnotOk2_beta_pos`, `AnnotOk2_beta_zero` all conclude
+`eq ∧ AnnotOk2 ρ ea'` **from** `AnnotOk2 ρ ea`.  β at kind `0` is where
+it bites for real — off-domain `app` is the canonical junk `∅`, so the
+ungraded equality is false there.
+
+*Rule: when a seal and an earlier architecture note disagree, the note
+is not stale until someone has re-argued it.  Check the record before
+stating, not after the first refutation.*
+
+**What is discharged past both defects.**  `whnfCore_claims2R` (all
+nine `whnfCoreBody` cases), `whnf_claims2R` (the loop, by induction on
+`whnfLoopFuel` — the map's measure discipline held exactly),
+`defeqStep_claim2` (all seven blocks, transferred *verbatim* from
+`Bridge/DefEq.lean` and compiled first try), `defeqStuck_claim2` (10 of
+17 stuck cases), `defeq_claims2`, and Tier B's `String` half
+(`strLit_facts2`, 160 lines against v1's ~394, no residues).
+
+**Two findings for the junction, from the defeq quarter:**
+
+* **Relational facts flow into the annotated lane for free.**
+  `checkBridge` is a theorem at every `EnvR`, `EnvS2` contains an
+  `EnvS`, and `EnvS.toEnvR` converts — so a `DefEq` *premise* is one
+  line away.  The seal-3 STOP is therefore **one-directional**: only
+  `DefEq → interp2` is blocked, not `→ DefEq`.  Worth knowing before
+  anyone over-reads that note.
+* **The Θ lane does not reach the binder congruences.**
+  `SortOfAgreeR` carries `PairedLeaves a b`, but `defeqStep` opens
+  `∀`/`λ` congruences with *each side's own* annotation, so the opened
+  bodies carry `(d, n₁, ty₁)` and `(d, n₂, ty₂)` and `PairedLeaves`
+  fails at index `d` — precisely where the congruence needs it.  The
+  shared-numeral agreement `deqStep2_piCong`/`lamCong` demand is **not**
+  a `SortOfAgreeR` instance and cannot be routed to `zip_sortOf`.  No
+  other consumer has hit this.
+
+**Also surfaced**: `AcvalParams2`, the `acval` twin of
+`EnvS.val_params` — a missing `EnvS2` **field**, not a missing proof;
+and `Delta2`, which corrects seal 1's "the delta exit is free":
+`acval_defn` gives the *body*'s annotation, but the loop unfolds a
+*spine*, and the body-to-spine step needs an annotated `mkAppN`
+inversion this lane does not have.
+
+### CAMPAIGN STOP — `CheckStep2` is FALSE as sealed, not merely hard
+
+The fourth quarter closed the case on `Claims2`.  `InferClaims2` is not
+under-supplied; it is **refuted**, and `CheckStep2` with it.
+
+`inferClaims2_one_refuted` (`Step2/InferQ.lean`): given a stored
+constant whose type is a `∀` — i.e. **every realistic environment** —
+`¬ InferClaims2 μ m φ 1`.  The chain is mechanical:
+`whnf_one_not_ok` (at fuel 1 the loop runs `whnfCore` at fuel 0, which
+throws, so **no** `whnf` at fuel 1 ever succeeds) ⇒ `sortOfE_one = none`
+⇒ `denote2_one_forallE = none`; while `inferTypeCore μ env 1 0
+(.const n us)` succeeds outright.  So the claim demands a `denote2` the
+fuel cannot produce.
+
+And that propagates all the way up.  Checked, not argued:
+
+    inferClaims2_one_refuted m hf hlen hpi
+      (checkSound2 hstep m φ 1).2.2.2  :  False
+
+compiles from `hstep : CheckStep2 μ V`.  `CheckStep2`'s hypotheses at
+`fuel = 0` are the vacuous fuel-zero claims `checkSound2` already
+proves, and its conclusion contains the refuted `InferClaims2 μ m φ 1`.
+**The statement I sealed cannot be proved by anyone.**
+
+Why `.const` and `.fvar` are the witnesses, and why nothing earlier
+caught it: a clause that *recurses* pays for its returned type's
+annotation with its own run; `.sort` and the literals return shapes
+`denote2` handles with no run at all.  `.const` and `.fvar` are in
+neither position — they recurse into nothing yet return a type
+`inferBody` merely **reads** (the stored declaration; the leaf's
+annotation), whose `denote2` is a knot computation at the claim's own
+fuel.  Seals 1–4 landed exactly `.sort`, `.fvar`, `.bvar`, and `.fvar`
+was already stopped for an unrelated reason, so the one witness in the
+landed set was masked by a different defect.
+
+*Rule: a claim that quantifies a fuel must be checked at the smallest
+fuel, not the generic one.  Every defect this campaign found lives at
+`fuel ≤ 1`, and none of them is visible in the `∀ fuel` reading.*
+
+**Four independent defects in one sealed statement**, found by four
+discharges that did not see each other:
+
+| # | defect | found by |
+|---|---|---|
+| 1 | the annotation's fuel tied to the checker's (`denote2_fuelDown_false`) | whnf **and** defeq, convergently |
+| 2 | the `interp2` equality stated ungraded, against this file's own architecture note | whnf |
+| 3 | `InferClaims2` false at fuel 1 ⇒ `CheckStep2` false | infer |
+| 4 | `CtxOkR`-on-erasures cannot serve the `.fvar` clause (`CtxOk2`) | seal 3 |
+
+Defect 3 subsumes the *shape* of 1: both are the fuel index, and the
+repair is the same — quantify the annotation's fuel independently of
+the checker's, made harmless downstream by **`denote2_fuelMono`, which
+is a theorem** (`knotFuelMono` landed unconditionally after `Claims2`
+was sealed), not an input.  `Step2Inputs.infer_fuel_det` can be retired
+for this purpose.
+
+**Nothing is lost.**  Every quarter is discharged *past* its defects in
+a repaired currency, stated and checked: `whnfCore_claims2R`,
+`whnf_claims2R`, `defeqStep_claim2` (all seven blocks, transferred
+verbatim from `Bridge/DefEq.lean`), `defeq_claims2`, `inferStep2_of`
+(which localises the falsity in one visible field, `ConstType2`), the
+`.forallE` clause outright, and Tier B whole.  313 jobs, battery
+identical to baseline, axioms exactly the three throughout.
+
+**Four corrections to my own briefs and seals**, worth more than the
+proofs they came with:
+
+* `Bridge/Infer.lean`'s prose is **stale** — it calls the five
+  structural clauses "named `Prop`s pending a finding".
+  `Bridge/InferStruct.lean` (472 lines) discharges I6/I7/I8/I10 and is
+  the working reference.  I pointed the discharge at the wrong file.
+* the unfolding recipe was needed far less than the map claimed:
+  `Verify/InferLemmas.lean` already carries
+  `inferTypeCore_{forall,lam,app,letE,proj,const}_inv`.
+* **`SortSubstStable` is one lemma short of the β crossing** — it is
+  stated for `lamSortE` only, and `denote2`'s `pi` clause under a
+  substituted body needs the same stability for `sortOfE`, which has no
+  statement anywhere.  A gap in the Θ lane's own deliverable.
+* **the `.lam` chain-granularity mismatch**: `denote2` calls
+  `lamSortE` per λ *node*; `inferBody` runs it once per λ *chain* and
+  only at `mode.verified` — at `.noModel`, at no node at all.
+  `InferStep2` is stated for all `μ`, so this is a real quantifier
+  mismatch, not a proof difficulty.
+
+### Seal 6 — the amended `Claims2` (`Interp2/Claims2A.lean`)
+
+The four defects the parallel discharges found are folded into one
+amended statement.  The sealed `Claims2`/`Routed` shapes stay in the
+tree as the tombstone until the last quarter has migrated off them;
+they are **refuted**, and nothing new may be pointed at them.
+
+| # | repair | found by | why it was invisible |
+|---|--------|----------|----------------------|
+| R1 | the annotation's fuel `F` is its own binder | whnf **and** defeq, independently | only a *recursing* clause has to move a `denote2` fact down a decrement; the landed seals were `.sort`/`.fvar`/`.bvar` |
+| R2 | the reduction equalities are graded by `AnnotOk2 ea` | whnf | β at kind `0` is the only counterexample and no landed seal reached β |
+| R3 | the inferred type's annotation lives at some `F' ≥ F` | infer (mechanized) | `.const`/`.fvar` neither recurse nor return run-free shapes — the single masked witness |
+| R4 | claims stated at `μ.verified = true` | infer | `denote2` asks `lamSortE` per λ *node*, `inferBody` per λ *chain* |
+
+`DefEqClaims2A` is deliberately left **ungraded** — that is the shape
+the defeq quarter actually proved across all seven blocks, and it is
+`DeqS`'s grading, which `symm`/`trans` depend on.  Symmetry between the
+four claims would have been invention; the asymmetry is the evidence.
+Likewise only `InferClaims2A` takes `CtxOk2`: its `.fvar` clause is the
+only one that *reads* the context rather than threading it.
+
+`Step2Inputs.infer_fuel_det` is retired for its stated purpose:
+`denote2_fuelMono` (`Step2/Fuel.lean`) is a theorem.
+
+**Acceptance test, run and recorded** in `Claims2A.lean`'s header: the
+refutation transplanted verbatim onto `InferClaims2A` no longer
+elaborates, failing precisely at the repaired slot, with the two
+hypothetical inputs supplied so no other step can be the cause.
+`denote2_two_forallE` supplies the positive half — the annotation R3
+defers really does exist one fuel up.
+
+**Rules earned, joining the trap family.**
+* *A claim that quantifies a fuel must be checked at the smallest fuel
+  it admits.*  All four defects live at `fuel ≤ 1`.
+* *When a seal and an earlier architecture note disagree, the note is
+  not stale until someone has re-argued it.*  R2 was written down
+  before the seal and simply lost.
+* *A hypothesis borrowed from another currency is only as good as the
+  weakest clause that reads it.*  R4 and the `CtxOk2` split are both
+  this rule.
+* *Four independent discharges are a statement's real proofreaders.*
+  Two of the four found R1 without seeing each other's work; the
+  convergence is what made the amendment safe to write at once.
+
+### STOP 2 — `EnvS2` is unsatisfiable, and R1 was applied to three claims out of four
+
+Found while surveying the *next* campaign item (the fourteen's
+conclusion swap), before any of its work was done.  Mechanized in
+`Interp2/EnvS2Refute.lean`; four compiling witnesses.
+
+**`EnvS2.acval_defn` and `EnvS2.acval_thm` are false at every
+environment that stores a λ-bodied definition or a λ-shaped proof** —
+that is, every environment past `Env.empty`.  Both fields are
+*equations demanding success*, universally quantified over the
+annotation fuel, and `denote2` at fuel `1` returns `none` on every
+binder (`denote2_one_lam`, `denote2_one_forallE`).  No hypothesis, no
+run, no choice of `V` is involved:
+
+```
+acvalDefnUniform_lam_refuted : AcvalDefnUniform acval →
+  .defnInfo cv (.lam n ty body mb) hint ∈ env.consts → False
+```
+
+`EnvS2.empty` is not evidence against this — `env.consts = []` makes
+both fields vacuous.  **The one witness in the landed set had no
+constants in it**, exactly the masking that hid the `InferClaims2`
+defect one seal ago.
+
+Consequence: the migration item *"swap the fourteen's conclusion to
+`Nonempty (EnvS2 V env')`"* is not merely unproved but **unprovable**
+as the structure stands.  The install layer cannot be at fault, and
+work spent there would have been wasted.
+
+**And the same argument refutes `WhnfClaims2A`**
+(`whnfClaims2A_delta_refuted`).  R1 freed the annotation fuel `F` but
+still demanded the *reduct's* annotation at that same `F` — and
+reduction can produce a term needing more fuel than the subject did:
+the delta exit turns a `.const` leaf (annotates at fuel `1`) into a
+`λ` body (does not).  R1 and R3 are **one repair**, and applying it to
+the inference claim while leaving the reduction claims at a fixed `F`
+was the error.  Seal 6's acceptance test could not catch this: it
+tested the witness it was built from, and this is a different witness.
+
+**The corrected shapes.**  Reduction claims take R3's form —
+
+```
+∀ {F ea}, denote2 … F d e = some ea →
+  ∃ F' ea', F ≤ F' ∧ denote2 … F' d e' = some ea' ∧
+    ∀ ρ, Sat2 → AnnotOk2 ρ ea →
+      interp2 ρ ea = interp2 ρ ea' ∧ AnnotOk2 ρ ea'
+```
+
+— composing left-to-right (the next link consumes `ea'` at `F'`), with
+`denote2_fuelMono` carrying any subject annotation *up* to a common
+fuel.  `DefEqClaims2A` needs no change: it produces no reduct.  The
+`EnvS2` fields become R3-shaped too, which supplies the delta exit both
+halves of what it now owes:
+
+```
+acval_defn : … ∈ env.consts → ∀ F, ∃ F', F ≤ F' ∧
+  denote2 μ acval env φ F' 0 value = some (acval cv.name φ)
+```
+
+**Rules earned.**
+* *A structure field that is an equation demanding success must be
+  checked at the smallest fuel it admits, exactly like a claim.*  The
+  smallest-fuel rule was recorded one seal ago for claims and not
+  carried across to environment invariants.
+* *When a repair is applied to some of a family and not the rest,
+  the exemption needs an argument.*  `DefEqClaims2A`'s exemption had
+  one (it produces no reduct, and `DeqS`'s grading is load-bearing);
+  the reduction claims' did not — they simply were not re-examined.
+* *An acceptance test proves the witness it was built from is dead,
+  and nothing more.*  Seal 6's test passed and the statement was still
+  false.  Next time, hunt a second witness before sealing.
+
+
+**Repaired in the same seal.**  `EnvS2`'s two fields now read
+
+```
+acval_defn : … ∈ env.consts → ∀ F, ∃ F', F ≤ F' ∧
+  denote2 μ acval env φ F' 0 value = some (acval cv.name φ)
+```
+
+and `Interp2/Claims2B.lean` carries `WhnfCoreClaims2B`/`WhnfClaims2B`
+in the matching shape, with `CheckStep2B`, `checkSound2B` and the four
+routed quarters.  `DefEqClaims2A` and `InferClaims2A` are reused
+verbatim — neither was refuted.  `Loop.lean`'s two delta lemmas are
+re-pointed.  The refutations are kept by restating the old field
+shapes as `AcvalDefnUniform`/`AcvalThmUniform`, so the evidence
+survives its own repair.
+
+**The generative rule, now stated once and applied everywhere.**
+
+> A shape that asserts `denote2 … F … e = some _` as a **conclusion**,
+> for an `F` its consumer may choose, is false unless `e` is a leaf.
+
+Applied across the family: the reduction claims asserted success for
+the *reduct*, `acval_defn` for a definition's *body* — neither a leaf,
+both false.  Shapes asserting `denote2` success as a **hypothesis**
+are safe, going vacuous at low fuel rather than false; `CtxOk2` and
+`mem_type2` are of that kind and survive.  `CtxOk2` is additionally
+**monotone** in its fuel via `denote2_fuelMono`, which is what lets a
+recursing clause carry the context up to the `F'` the corrected claims
+hand back.
+
+### The next campaign's gate, checked before opening it
+
+STOP 2 killed the fourteen's conclusion swap as it stood.  Before
+re-opening it, the question worth answering is whether the *repaired*
+`acval_defn` is establishable at install — because if it is not, the
+campaign is dead again and no amount of install-layer work helps.
+
+It is, and the install layer already has the hook.  `EnvS.defn_eq` is
+established (`Install/Value.lean`) by **defining** the valuation at the
+new name to be the body's denotation — `cvalAt m.cval env name value` —
+with the install key's `hkey ψ` supplying `∃ v t, denote … value =
+some v ∧ …`, i.e. an *existence* hypothesis that the body denotes at
+all.  The `interp2` analogue is the same move one level up: define
+`acval` at the new name to be the body's annotated denotation, with an
+`hkey2` supplying `∃ F' v, denote2 μ acval env φ F' 0 value = some v`.
+
+So the repaired field's existential slots into the slot the
+architecture already has.  The new content is one extra existential
+quantifier in the install key, not a new theory.  Two details that
+make this work and are worth having written down:
+
+* **`denote2`'s fuel is not a recursion budget.**  It is passed
+  *unchanged* to every recursive call and exists only to run
+  `sortOfE`/`lamSortE`, which need `inferTypeCore`/`whnf` runs
+  (`Annot/Canon.lean`).  So "some fuel" means "large enough for the
+  deepest sort computation in this term", and a checked declaration's
+  own successful runs are the natural source.
+* **No global fuel is needed.**  `acval_defn` is `∀ F, ∃ F' ≥ F, …`
+  per definition and per query, so different declarations may need
+  different fuels.  `acval` itself is fuel-free — it is the value, not
+  the computation — which is what keeps the structure's fields
+  independent of any one budget.
+
+This is also the first time in the arc that a campaign's central
+obligation was tested against its supplier *before* the campaign
+opened rather than at its end.  That is the cheap version of the
+lesson STOP 2 taught expensively.
+
+### The fuel-slack law, sharpened by the head-normalisation quarter
+
+The rule STOP 2 recorded — *"…false unless `e` is a leaf"* — is
+correct but coarse.  The whnf quarter supplied the exact version, and
+it is checkable directly against `Annot/Canon.lean`:
+
+> **`denote2` consumes fuel at `.forallE` and `.lam` nodes and nowhere
+> else.**  Those two clauses call `sortOfE`/`lamSortE`; every other
+> clause is either a leaf or a structural recursion at the same fuel.
+
+Hence the precise law:
+
+> A reduct needs `F' > F` **iff it contains a binder node the
+> subject's annotation did not already pay for.**
+
+That is strictly more informative than the leaf formulation — it says
+*where* the cost is, so a clause can be classified by inspection
+instead of by attempting the proof.  The quarter's classification:
+
+| exit | slack | note |
+|---|---|---|
+| the six leaves, `.bvar`, stuck exits | none | no binder node in the reduct |
+| **literal acceleration** | **none** | `reduceNat`'s reducts are closed on leaves by construction — fuel-free verbatim |
+| delta | `∃ F' ≥ F` | **`Delta2` as stated is refuted** — λ-bodied stored definition, same witness family as `acvalDefnUniform_lam_refuted` |
+| `.proj` | `∃ F' ≥ F` | refuted by any structure with a function field — every bundled class |
+| iota | `∃ F' ≥ F` | premise reachable, no witness built |
+| β / ζ (`Denote2Inst1`) | `∃ F' ≥ F` | structurally must need it; no refutation built, and said so rather than implying one |
+
+**The statement needed no further change.**  `∃ F', F ≤ F' ∧ …`
+already admits `F' = F`, so the fuel-preserving exits discharge it
+without slack and the others use it.  Recording this explicitly
+because the temptation was to add a second, tighter claim shape for
+the fuel-preserving clauses; that would have bought nothing and split
+the family.
+
+Three composition facts, confirmed against the corrected claims:
+
+* chaining reductions is `le_trans` and nothing else;
+* `denote2_fuelMono` returns **the same `AVExpr`**, so the grading (R2)
+  and the slack (R1/R3) do not interact — raising a fuel cannot
+  invalidate an `AnnotOk2` already in hand;
+* `DefEqClaims2A` staying ungraded *and* same-fuel is right **from the
+  consumer's side too**, not only because it is what was proved.
+
+And the answer to the question the amendment most needed: **no clause
+requires any fixed relation between the run's fuel and the annotation
+fuel.**  The two are independent throughout, `F ≤ F'` is exact, and
+the slack never points downward.  That is what makes `Claims2B` a
+statement rather than a guess.
+
+### The positive half, checked rather than assumed
+
+STOP 2 proved the old `EnvS2` fields false.  That is only half a
+result: a repair that is merely *not refuted* may still be
+unsatisfiable, and this arc has now been burned twice by exactly that
+— `EnvS2.empty` had no constants, and seal 6's acceptance test killed
+only the witness it was built from.  So the repaired field was tested
+in the positive direction, in the very case that killed the old one:
+
+* `denote2_two_lam` — the counterpart of `denote2_one_lam`.  The λ
+  that fuel `1` cannot annotate, fuel `2` can.  Exact analogue of
+  `denote2_two_forallE`, which played this role for R3.
+* `acval_defn_repaired_sat` — the repaired field's *own shape*, at an
+  arbitrary demanded fuel `F`, satisfied by a λ-bodied definition via
+  `F' = max F 2` and `denote2_fuelMono`.  Stated over the field's form
+  rather than a convenient special case, so it is the repair under
+  test and not a weaker cousin.
+
+*Rule: a refutation and a satisfiability witness are two different
+results, and a repair needs both.*  "Not refuted" is not "usable" —
+`Claims2` was not refuted for five seals.
+
+### R4 is not free for the fourteen — the swap is not a swap [RETRACTED, seal 10]
+
+Repair R4 (`μ.verified = true` on the claims) was ledgered as costless
+"at `--set-model`".  Checked against the fourteen, it is not, and the
+next campaign's framing has to change accordingly.
+
+**All fourteen `*_R` theorems in `SetR/Main.lean` are mode-generic** —
+every one binds `{μ : CheckMode}` with no constraint.  `CheckStep2B`
+and its claims hold only at `μ.verified = true`, and
+`CheckMode.verified` is `false` at exactly `.noModel`
+(`Kernel/Env.lean`).  So a conclusion swapped from
+`Nonempty (EnvS V env')` to `Nonempty (EnvS2 V env')` would be
+**strictly narrower than the theorem it replaces**, silently dropping
+the `.noModel` lane — which is a live, tested mode (the arena's
+no-model sweep, 138 arena + 72 e2e).
+
+**And the restriction is forced, not a proof weakness.**  `.noModel`
+is the official-parity lane, and task #152's λ codomain-sort check is
+deliberately *not* run there because the reference kernel's
+`infer_lambda` does not run it.  `denote2` still *computes* at
+`.noModel` — `lamSortE` is a function, not a check — but nothing in
+the run establishes the sort it reads, so the claims are not provable
+there and no amount of work makes them so.  This is a kernel design
+decision (parity) surfacing as a model-lane boundary.
+
+Consequences for the queued campaign, which should open with this
+rather than discover it:
+
+* the item is **not** "swap the fourteen's conclusion".  It is *add* an
+  `EnvS2` conclusion at verified modes, keeping the `EnvS` one, or
+  state the interp2 fourteen with `μ.verified = true` as a hypothesis;
+* **the v1 lane is not retired by this migration.**  `.noModel`
+  keeps it permanently, for the same reason the TT bridge is
+  permanent — a lane that exists to match the reference kernel cannot
+  be replaced by one that checks more than the reference kernel does;
+* the `interp`/`interp2` containment (`EnvS2.base : EnvS V env`) is
+  therefore load-bearing in the long run, not migration scaffolding.
+
+*Rule: when a repair adds a hypothesis, check it against the
+statements the campaign is ultimately for, not only against the
+clauses that motivated it.*  R4 was adopted to fix a λ-clause
+granularity mismatch and its cost only appears fourteen theorems
+downstream.
+
+### Fold-in checklist for the four quarters, and one null result
+
+**The sweep came back clean where it matters.**  Applying STOP 2's
+rule to the whole `Annot` layer — the tier I own — turns up nothing
+else: `EnvS2`'s two repaired fields are existential, `mem_type2` and
+`Canon.lean`'s success facts are hypothesis-position, and `CvalAnnot`
+is stated over `Annotates`, which is relational and fuel-free and so
+cannot have the defect at all.  Recording the null result because it
+bounds where a STOP 3 could come from: not here, and not in the
+claims — only in the quarters' own residues, which is where the four
+per-owner lists were sent.
+
+**Cleanup owed once all four quarters land** (not done now, because
+three are in flight):
+
+* `Step2/Routed.lean:55` — `checkStep2_of` concludes the **refuted**
+  `CheckStep2`.  It is not unsound (its hypotheses are themselves
+  unprovable), but it is exactly the hazard this campaign keeps
+  writing down: *a vacuous thing with a good name looks discharged.*
+  Delete `Routed.lean` and the `*Step2`/`*Step2A` quarter defs once
+  `checkStep2B_of` has real inputs.
+* Keep `Claims2.lean` and `Claims2A.lean` **only** for their
+  refutations and lineage prose; delete their `CheckStep2`/`CheckStep2A`
+  and `checkSound2`/`checkSound2A`, which nothing should ever point at
+  again.
+* The `# CheckStep2, …` docstring headers across the nine `Step2`
+  files should say `CheckStep2B`.  Cosmetic, but the file headers are
+  how the next reader decides which generation is live, and two dead
+  generations are already one too many.
+
+### STOP 3 — `DefEqClaims2A`'s exemption from R2, and my reasoning error
+
+Found by the defeq quarter. **`DefEqClaims2A` left ungraded is not
+provable.** The exemption I wrote at seal 7 — *"it produces no reduct,
+so it needs no slack and no grading"* — is right about **production**
+and wrong about **consumption**: `defeqStep`'s first move is to
+`whnfCore` both sides, which consumes the now-graded reduction claims,
+and at those two sites the quarter holds no `AnnotOk2` for either
+subject and cannot manufacture one (`denote2` performs no membership
+check at an `app` node; `WScoped`/`looseBVarsBounded`/`LeavesBounded`/
+`CtxOkR` are all syntactic).
+
+I had given the reduction claims' exemption from R3 a second look one
+seal earlier and explicitly *declined* to give defeq's the same, on
+the grounds that its asymmetry "was what the quarter actually proved".
+That was evidence about the sealed statement, not about the corrected
+one — and the correction is exactly what invalidated it.
+
+`DefEqClaims2B` (in `Claims2B.lean`, the quarter's `DefEqClaims2AP`
+verbatim) is now canonical, and `CheckStep2B` and all four routed
+quarters are stated with it: the induction cannot close with an
+ungraded hypothesis and a graded conclusion, so the family had to
+become uniform rather than the defeq slot staying special. The two
+`AnnotOk2` are **premises, never conclusions**, so none crosses an
+equality and `deqStep2_symm`/`deqStep2_trans` stay one-liners — which
+is what the original exemption was protecting, and it turns out not to
+have needed the exemption to get it.
+
+*Rule: an asymmetry justified by "this is what was proved" expires the
+moment the thing it was proved against is corrected.*
+
+**Confirmed by the fold:** the whnf quarter's two deliverables still
+compile with the *weaker* graded IH, so they never needed defeq's
+ungraded strength. The asymmetry bought nothing at any consumer.
+
+### Seal 8 — the four quarters folded in
+
+All four re-points landed, reviewed, merged; build green (316 jobs,
+zero warnings), no `sorry`, axioms exactly the three standard, battery
+90/92 with e2e 72/72 and the no-model sweep unchanged.
+
+| quarter | deliverable | own refutations found |
+|---|---|---|
+| whnf | `whnfCoreStep2B_of`, `whnfStep2B_of` | `delta2_refuted`, `projStep2_refuted` |
+| defeq | `defEqStep2BP_of` → `defEqStep2B_of` | STOP 3 (above) |
+| dispatch | `infer_{sort,fvar,bvar}_claim2A`, literals, the `CtxOk2` kit | `ctxOk2_one_forallE_leaf_false` |
+| infer | in flight | — |
+
+**Three results worth keeping from the quarters' reports.**
+
+* **The rule's two-sidedness, stated properly by the dispatch
+  quarter:** *the smallest-fuel test is about which side of the arrow
+  the success-demanding equation is on.* They mechanized both halves
+  for `CtxOk2` — `ctxOk2_one_forallE_leaf_false` (empty at `F = 1`
+  for a ∀-typed leaf) **and** `ctxOk2_zero_inhabited` (holds at every
+  fuel at depth 0) — rather than reporting the negative alone. That is
+  the practice this campaign has been converging on, arrived at
+  independently.
+* **R3's slack is unspent in the whole dispatch and literal layer.**
+  `.fvar` — the clause that *forced* `CtxOk2` — takes `F' = F`,
+  because it reads the context at the claim's own fuel. `.const`
+  spends the slack because its type comes from the environment, not
+  from a hypothesis about the context. R4's `μ.verified` is unused
+  there too. Both premises were kept and the non-use documented as
+  evidence.
+* **`denote2`'s depth-shift law exists and was nearly free.** There was
+  reason to fear it could not: `denote` depends on depth only through
+  its `fvar` clause, while `denote2` also calls the *checker* at that
+  depth. `Setlec.shiftClaims` (`Verify/Deep.lean`), landed for the
+  memo cache's depth-free keys, is exactly the bisimulation needed.
+
+**T5 applied, and one field added.** The dispatch quarter carried
+`hacl : ∀ n ψ k, (acval n ψ).liftN 1 k = acval n ψ` as an explicit
+premise for want of a supplier. It now has one: `EnvS2.acval_closed`,
+the transpose of `EnvS.cval_closed`. Syntactic — no `denote2` in it —
+so unlike the two fields STOP 2 refuted it cannot go false at a small
+fuel, and it is `rfl` at `EnvS2.empty`. Deliberately *not* a new
+`AVExpr.Closed` predicate: the lifting equation is what consumers
+rewrite with.
+
+**Two integration findings from writing four files in parallel.**
+`DefEqRun.lean` and `Step2/Whnf.lean` both declared `denote2_bvar`
+with identical statements (resolved by deletion); `denote2_sort` is
+the same pair between `Whnf.lean` and `InferQ.lean`, latent only
+because `InferQ` is not yet in the import closure. *Parallel quarters
+converge on the same helper names, and the collision surfaces at
+integration rather than at authoring.*
+
+**Open at the junction, for the infer quarter:** a consumer of the
+defeq claim must now supply `AnnotOk2` for the two **types** it
+compares. `InferClaims2A` delivers it for the *subject* and says
+nothing about the returned type. Whether `InferClaims2A`'s conclusion
+needs extending is asked of the infer quarter against a site it can
+point at — not adopted by symmetry.
+
+### Seal 9 — the capstone: `CheckStep2B` follows from eight residues
+
+`Interp2/Capstone.lean`: `checkStep2B_of_quarters` and
+`checkSound2B_of_quarters`. Every hypothesis is a **named routed
+residue** owned by one quarter; none is a claim about the checker's
+runs, and none is discharged there. What this establishes is that the
+*decomposition closes* — the remaining work is a finite list of named
+obligations rather than an open question about the shape of the
+induction.
+
+Residues: `Denote2Inst1B`, `BetaCert2`, `IotaStep2B`, `ProjStep2B`
+(whnfCore); `ReduceNatStep2`, `Delta2B` (the loop); `DefEqStep2BP`
+(defeq's ten); `InferInputs2A` (infer's).
+
+**Three generations were needed** — `Claims2` → `Claims2A` →
+`Claims2B` — and each was refuted by a **consumer**, never by
+inspection. The consumers were the four quarters running in parallel
+against the statement. That is the transferable result of this arc:
+*a statement seal is validated by discharging it in parallel from
+several directions, not by reviewing it.* Every one of the three
+defects was invisible to the seal's own author and obvious to the
+quarter that had to pay for it.
+
+### The integration cost of parallel authoring, measured
+
+Four quarters written simultaneously against a moving statement cost
+**three name collisions and one stale-signature break**, all surfacing
+at the fold and none at authoring:
+
+* `denote2_bvar` — declared identically in `DefEqRun` and `Whnf`;
+* `denote2_sort`, `sortOfE_one`, `denote2_one_forallE` — `InferQ` vs
+  `Whnf`, latent until `Claims2B` entered the closure; renamed
+  `…Q`/`…_at_one` by the infer quarter on request;
+* `infer_natLit_claim2A` — written twice, by the dispatch and infer
+  quarters, same conclusion. The dispatch copy took four explicit
+  membership premises; the infer copy bundles one routed `NatHeads2`
+  and derives the returned type's annotation from the support guard.
+  **Kept the infer copy** (strictly stronger, and the one the assembly
+  calls); deleted the dispatch copy.
+* `infer_app_claim2A` took `ihd : DefEqClaims2A` because it was
+  written before STOP 3 was adopted mid-flight. Repaired at the fold
+  by paying the two `AnnotOk2` premises — `TypeOk2` for the argument
+  type, `AnnotOk2_pi` on R2's own output for the domain. **Cost:
+  nothing new**, exactly as the infer quarter predicted.
+
+*Rule: a mid-flight statement change costs one integration break per
+consumer, and the break is silent until the fold — so change the
+statement early or not at all.* Adopting STOP 3 mid-flight was right
+(the alternative was four quarters closing against a false claim), but
+it was not free.
+
+### R4 may be removable, and that would recover `.noModel` [SETTLED, seal 10: it is]
+
+The infer quarter reports **`μ.verified = true` is not what fixed the
+`.lam` clause** — `lamSortE_runs` reads the #152 codomain run out of
+the hypothesis annotation, so the chain-granularity mismatch dissolves
+under R1/R3 and `LamCodSort2` is retired outright. R4 is now consumed
+*only to pass to the induction hypothesis*, which needs it only
+because the claims carry it.
+
+That is a fixed point that may be removable: if no clause uses R4 for
+anything but threading, dropping it from all four claims should
+succeed. Worth doing, because R4 is what costs the fourteen the
+`.noModel` lane (recorded above) — removing it would recover the
+mode-generic conclusion the migration was assumed to preserve.
+
+**Not attempted here**, and deliberately: the claim family has been
+refuted three times, twice by a repair applied to part of it. A fourth
+statement change goes through the same parallel discharge as the other
+three, not through a plausibility argument at the junction.
+
+### Still open at the junction: `CtxOk2R` is believed false
+
+The infer quarter's `.app` clause consumes `CtxOk2` (from
+`InferClaims2A`) **and** `CtxOkR`-on-erasures (from `WhnfClaims2B` and
+`DefEqClaims2B`), so it needs a bridge, and `CtxOk2R` — stated, not
+proved, and believed false — is that bridge. It would need an
+`∃ T', Infer … ∧ DefEq …` derivation out of an `interp2` equation:
+the "no `VExpr → AVExpr`" wall, in the direction seal 3 did not test.
+
+The repair is statement-level and belongs here, not to a quarter: the
+dispatch quarter's original proposal was to substitute `CtxOk2` for
+`CtxOkR` in **all four** claims, and only `InferClaims2A` was changed.
+That is the *third* time in this arc a repair was applied to part of
+the family and not the rest — the same error as R2/R3 and as STOP 3.
+The pattern is now explicit enough to state as a rule:
+
+*Rule: when a repair changes one claim of a mutually-recursive family,
+the default is to change all of them; an exemption needs an argument
+that survives the other repairs in the same seal.*
+
+
+### Seal 10 — R4 withdrawn, and a retraction of my own reasoning
+
+**R4 is removed from all four claims. The `.noModel` lane comes back.**
+Verified: `CheckStep2B`, `checkSound2B`, `checkStep2B_of_quarters` and
+`checkSound2B_of_quarters` are mode-generic again, and I checked the
+payoff directly rather than taking it on report — `noModel_step`
+instantiates the capstone at `CheckMode.noModel` and elaborates, with
+`CheckMode.noModel.verified = false` by `rfl` beside it.
+
+**The strongest form the evidence could take:** the removal was green
+on the *first* compile, and the diff contains **no line where a proof
+step was rewritten** — only deleted binders and deleted arguments.
+Eleven Prop-level premise lines, eleven theorem binders, ~48 intro and
+application sites, and not one tactic changed. R4 was a fixed point of
+the induction and nothing else: the claims carried it only so that
+they could pass it to themselves.
+
+**I have to retract the reason, not only the conclusion.** Seal 8 said
+the `.noModel` restriction was *forced* — "a kernel design decision
+(parity) surfacing as a model-lane boundary", and "nothing in the run
+establishes the sort it reads, so the claims are not provable there
+and no amount of work makes them so". The second half is **false**,
+and checkable in five lines of `Annot/Canon.lean`:
+
+```
+def lamSortE mode env φ fuel d body :=
+  match (inferTypeCore mode env fuel d body).toOption with
+  | none => none
+  | some bt => sortOfE mode env φ fuel d bt
+```
+
+`lamSortE` is not a readback of the checker's run. It performs
+`denote2`'s **own** `inferTypeCore` and `sortOfE` runs, at the
+annotation fuel, entirely independently of whether `inferBody`
+executed the task-#152 codomain check during the run under test. So
+once R1/R3 moved the subject's annotation to the hypothesis side, the
+λ node's sort numeral arrives as a hypothesis *carrying its own two
+runs with it*, and no clause anywhere asks that the checker have
+checked it. The granularity mismatch R4 was invented for stopped
+existing at seal 7 and nobody noticed for three seals.
+
+**Not vacuous, which is the check that makes the answer worth having.**
+`.noModel` runs strictly *fewer* checks, so `inferTypeCore` succeeds at
+least as often and `denote2` at `.noModel` is if anything *more*
+defined than at the verified modes — confirmed by instantiating
+`denote2_two_lam` there. And the soundness burden did not migrate: what
+still has to hold is that `lamSortE`'s numeral is semantically right,
+which is `SortSem2`, a routed residue stated over `sortOfE`, already
+mode-generic and untouched by any of this. R4 was never buying a part
+of it.
+
+**What `.noModel` actually costs** is a *harder residue discharge* —
+its inference runs check less, so `SortSem2` and its neighbours have
+less to lean on there — not an unstatable claim. That is a real cost
+and it lands on the residues, where it can be measured.
+
+**Rules earned.**
+* *A premise that only ever feeds itself is a fixed point, and fixed
+  points are removable until proven otherwise.* R4 survived three
+  seals because every clause could point at another clause that
+  "needed" it.
+* *When you record that something is impossible, record the mechanism,
+  because the mechanism is what gets falsified.* Seal 8's conclusion
+  was wrong only because its mechanism was wrong, and the mechanism
+  was checkable in one function definition. Had I written "R4 is
+  needed because X" and checked X, this would have been a one-seal
+  detour instead of three.
+* *A spike is a discharge when its diff shows no tactic changed.*
+
+### Seal 11 — `CtxOk2R` is false, and the family-wide `CtxOk2` question is resolved
+
+`Interp2/Step2/CtxOk2RRefute.lean`. The headline is **premise-free**:
+
+```
+not_ctxOk2R : ∀ (m : EnvS2 V env) (μ : CheckMode) (φ : Name → Nat),
+  ¬ CtxOk2R m μ φ
+```
+
+No environment shape, no fuel, no mode, no level assignment, no side
+condition. Restated as `CtxOk2RShape` so it survives any repair of the
+original, per the `AcvalDefnUniform` pattern.
+
+**The reason is not the one anyone expected.** The suspicion was the
+relational wall — deriving `∃ T', Infer … ∧ DefEq …` from an `interp2`
+equation. The actual reason is structural and cheaper: `CtxOk2` states
+its leaf agreement under `Sat2` (annotated currency); `CtxOkR`'s only
+semantic reading is via `Sat` (collapse currency); and **the two
+currencies disagree about which contexts are inhabited**, exactly at an
+empty-domain λ. That is the **#100 countermodel**, named in
+`lamR_pos_empty`'s own docstring:
+
+* `interp2 ⟪fun (_ : Empty) => Prop⟫ = ∅` — at `v ≠ 0` the annotation
+  decides, not the vacuous value test;
+* `interp ⟪fun (_ : Empty) => Prop⟫.erase = pt`.
+
+At `d = 1`, `Δa = [emptyLamA]`, subject `.fvar 0 n Prop`: `Sat2` is
+unsatisfiable so `CtxOk2` holds for free, while `CtxOkR` still owes an
+`Infer`/`DefEq` pair that `Infer.sound`/`DefEq.sound` turn into
+`ptTag ∈ˢ univ 0` at `ρ ≡ ptTag`, where `Sat` *is* satisfiable.
+
+The discipline that forced honesty here: an *honest* `⟪Empty⟫` entry
+does **not** refute — empty in both currencies, so `Sat` dies too and
+soundness says nothing. **Only a currency disagreement is decisive.**
+And `ctxOk2R_refuted_nonvacuous` shows it is not a vacuity artifact:
+the same contradiction with the `interp2` agreement holding for every
+`ρ` unconditionally.
+
+**The smallest-fuel test did not fire, and that is worth recording.**
+`CtxOkR` asserts `denote` (fuel-free), and `CtxOk2`'s `denote2`
+obligation sits in a hypothesis. The refutation is uniform in `F`. The
+trap that caught three statements did not catch this one; the argument
+had to be semantic. *A trap-check that comes back clean is not a
+clean bill of health.*
+
+#### The resolution, under the family-wide rule
+
+Measured, not guessed — kit *uses*, not occurrences (the hypothesis is
+threaded on ~120 lines and almost none look at it):
+
+| use | Whnf | DefEqRun | `CtxOk2` supplies it? |
+|---|---|---|---|
+| `of_subset` | 10 | 24 | yes |
+| leaf re-assembly | 7 | 0 | yes (`of_cover`/`length`) |
+| `of_fvarLeaves_nil` | 0 | 8 | needs a one-line twin |
+| `openCong` | 0 | 5 | **no — the one real reader** |
+
+**41 of 54 are pure `fvarLeaves` re-plumbing; 8 need a one-liner; 5
+are a genuine read.** All five are `CtxOkR.openCong` at the `∀`/`λ`
+congruences, where the checker opens each side's body with its own
+annotation, so the second body sits in a context whose head is the
+*left* domain while the opened variable's annotation denotes the
+*right* one. `CtxOkR` absorbs that with a bare `DefEq A₁ A₂`.
+
+Under the rule adopted at seal 9 — *an exemption needs an argument
+that survives the other repairs in the same seal* — **the exemption
+does not survive.** The annotated `openCong` is available:
+`DefEqClaims2B`'s conclusion *is* the domains' `interp2` equality. It
+is available only **graded**, under `AnnotOk2` of both domains — but
+those are the same two facts `DefEqClaims2B` already takes at top
+level. So the repair converts one bare `DefEq` premise into a graded
+semantic one at five sites, and is plausibly payable at all five.
+
+**Decision: all four claims move to `CtxOk2`.**
+
+**The alternative I considered and rejected.** The refutation is
+admitted *purely* because `CtxOk2` puts no well-formedness condition
+on `Δa` — no `CtxAnn`, no `AnnotOk2` — and the refuting `Δa` is not
+one `CtxOk2.open` could build from a checker-accepted subject (a λ is
+not a `Sort`, so it is not a binder domain). So a second repair
+exists: strengthen `CtxOk2`'s `Δa` and the bridge might become true.
+Rejected, for two reasons. It is speculative — "might", and it would
+need its own refutation hunt. And it keeps two currencies mixed at the
+seam, whereas the currency mismatch itself
+(`interp2 ⟪λ(_:Empty).Prop⟫ = ∅` vs `interp …⟫.erase = pt`) remains a
+live fact about *any* statement spanning both lanes. Moving to
+`CtxOk2` removes the seam; strengthening `CtxOk2` only removes this
+counterexample to it.
+
+*Distinction to keep: `CtxOk2R` is false **as stated**. Whether a
+strengthened `CtxOk2` could support some bridge is untested, and
+choosing the family-wide move means we never have to find out.*
+
+#### Open, and named so it is not lost
+
+**`CtxOk2Open` has not had its trap-check.** Its conclusion asserts
+`denote2 … F (d+1) …` for annotations only hypothesised at
+`denote2 … F d …`, and `denote2`'s binder clauses call
+`sortOfE … F d`, which runs the checker *at that depth*. The
+hypotheses demand the same successes at the same fuel, so the
+smallest-fuel test likely goes vacuous rather than false — but the
+**depth** shift is the untested part, and `denote2_shiftFrom` carries
+side conditions. Owner: whoever discharges `CtxOk2Open`. Flagged by
+the refutation's author, who correctly declined to test a residue
+outside their brief.
+
+### Seal 12 — the residue batch: one discharged, three blocked on missing `interp2` laws
+
+`Delta2B` is **discharged modulo one obligation** (`delta2B_of`). The
+residue's own docstring said "the annotation does not move, only the
+fuel does" — right, and not the whole bill. `unfoldDefinition` hands
+the loop `value.instantiateLevelParams cv.levelParams us`, under a
+spine, at the subject's depth, while `EnvS2.acval_defn` speaks about
+`value`, at depth `0`, under a *substituted* assignment. **Three
+crossings**, of which two are now theorems in a new reusable module
+`Interp2/Step2/Levels.lean`: `denote2_mkAppN_swap` (head swap under a
+spine, fuel free to move up) and `denote2_depth_of_closed`.
+
+**The third crossing is not a clean induction, and that is the finding.**
+On v1 it is `denote_instLevels`, one induction, because `denote` reads
+the level assignment only at `.sort` and `.const`. **`denote2` reads it
+there *and* through `sortOfE`/`lamSortE`, which are checker runs** — so
+at every binder node the crossing relates two *runs* on two different
+terms. It is a metatheorem about the checker, the level-side twin of
+`shiftClaims`, and it has no counterpart in the tree. Named
+`Denote2InstLevels`.
+
+**Three of eight residues are blocked on missing environment laws, not
+on proofs.** This is the batch's most valuable output:
+
+* **`ReduceNatStep2` is not the cheap one.** Its fuel half was settled
+  (`natOpResult_leaf`); its *semantic* conjunct has **no supplier**.
+  `EnvS.nat_ops : NatOpsV` is stated over `denote`/`interp`/`cval`, and
+  `EnvS2` has no `interp2` counterpart — the erasure link cannot carry
+  it, because `interp2` is the two-regime annotation-driven
+  interpretation, not `interp ∘ erase`. v1 escapes by concluding a
+  `Red` whose soundness consumes `nat_ops` elsewhere; the interp2
+  claims conclude the equality directly, so the law must be present.
+* **`ProjStep2B` and `IotaStep2B` are the same class** — the fired
+  modeled-iota law and the native-pair projection law, neither of
+  which exists over `interp2`.
+
+By T5 these belong to their suppliers, exactly as `RecRulesV2` is
+deliberately absent from `EnvS2` today. *The interp2 migration's real
+remaining cost is a set of environment laws, not a set of proofs.*
+
+**`BetaCert2` produced a result worth more than its discharge.**
+`betaCert2P_of_claims` composes `InferClaims2A` and `DefEqClaims2B`
+into the β certificate, and needs exactly one thing the quarter cannot
+build: `CtxOk2` on the argument, from `CtxOkR`-on-erasures. So:
+
+* **`CtxOk2R` has a second, independent consumer.** The seam is not
+  the inference `.app` clause's alone, and both sites want the same
+  repair — the context currency made uniform, which seal 11 already
+  decided. Two independent confirmations of one statement change.
+* **Seal 8's open question is answered from a second site**: yes,
+  `InferClaims2A`'s conclusion needs extending to carry the returned
+  type's `AnnotOk2`, because `DefEqClaims2B` is graded on both sides.
+
+Deliberately **not** wired in: `BetaCert2P` adds a premise its
+consumer cannot supply, and weakening `BetaCert2` to fit would have
+been the failure mode this campaign keeps naming.
+
+#### The `AcvalDefnInst` request: accepted in principle, with the cost stated
+
+The batch recommends restating `EnvS2.acval_defn`/`acval_thm` at the
+*instantiated* value (`AcvalDefnInst`), which discharges `Delta2B`
+outright. It is a verified **strengthening** — the current fields are
+its identity-substitution instance
+(`acval_defn_of_acvalDefnInst`, `substFn_param_self`) — so nothing
+downstream is lost.
+
+**Checked at the junction before accepting, per the standing rule that
+a strengthening must also be shown inhabited:**
+`acvalDefnInst_noParams` derives the proposed shape from the *existing*
+fields at any declaration with no level parameters. So it is satisfiable
+well beyond `EnvS2.empty`'s vacuity, and only genuinely
+level-parametric declarations need new content.
+
+**But it relocates rather than removes the obligation, and that must be
+on the record.** Defining `acval c ψ` as the body's denotation under
+`ψ` makes the field ask precisely `Denote2InstLevels` at the install
+site. The batch preferred relocation because it doubts the metatheorem
+is true at all — `piResultIsProp`/`piResultNeverZero` (`Kernel/Core.lean`)
+make the structure-eta rescue and the irrelevance branch
+**level-sensitive**, so a run genuinely can change behaviour under
+instantiation. No witness either way; flagged as a risk, not a
+refutation, and correctly so.
+
+Relocation is still the right move — the install layer knows the
+declaration was *checked* and chooses `acval` itself, neither of which
+the delta exit has. **Adoption deferred until the `openCong` worker
+lands**, because a fifth `EnvS2` change while an agent is mid-flight is
+exactly the silent integration break seal 9 made a rule about.
+
+**Named as the install campaign's gate:** whether `AcvalDefnInst` is
+establishable at install, and whether `Denote2InstLevels` is true at
+all. The second question now has a concrete attack — find a
+declaration whose `piResultIsProp` branch flips under level
+instantiation, or prove it cannot.
+
+### Seal 13 — the `openCong` gate proves; and the ρ-quantifier finding
+
+Seal 11's family-wide move was gated on one lemma. **It proves.**
+`CtxOk2.openCong` (`Step2/Dispatch.lean`), plus the trivial
+`CtxOk2.of_fvarLeaves_nil` twin. All axioms exactly the three standard.
+
+**`CtxOk2Open` is not a residue at all — it is a premise-free
+theorem.** `ctxOk2Open_of` (`Step2/CtxOk2OpenD.lean`). The trap-check
+DESIGN flagged as owed came back on both dimensions: the *fuel*
+dimension goes **clean, not vacuous** (the residue asserts no `denote2`
+success its consumer does not hand it — `denote2_weaken_top` is an
+equation uniform in `F`, and its two obligations are the `sortOfE`
+shift equations, also uniform), and the *depth* dimension — the part
+nobody had tested — is discharged because `denote2_shiftFrom`'s three
+side conditions are all already available.
+
+**And the reason the third one is available is worth its own line.**
+`CtxOk2.wScoped`: **`CtxOk2` already carries its own scoping.** Its
+leaf package gives `l.1 < d ∧ fvarsBelow l.1 l.2.2` *hereditarily*
+(`Expr.fvarLeaves` descends into annotations), which unrolls to
+`Expr.WScoped d e`. The `fvar` case is the content: the leaf's own
+`fvarsBelow idx ty` is what lets the recursion drop from `d` to `idx`,
+which a plain `fvarsBelow d` cannot. So `openCong` and `openS` need no
+scoping premises, and `CtxOk2Open` is satisfiable *as stated*, with
+neither `WScoped` it omits. *A predicate written for one purpose was
+already strong enough for another; nobody had unrolled it.*
+
+#### The ρ-quantifier: the grading is in the wrong scope
+
+`hdom` is free at all five congruence sites — literally
+`DefEqClaims2B`'s conclusion partially applied before its `ρ`. The two
+`AnnotOk2` are **not**. `DefEqClaims2B` takes them *under* `∀ ρ`, so a
+site that has already done `intro ρ hρ hokA hokB` holds them at **one**
+valuation; `CtxOk2` is a `∀ ρ` statement about the *extended* context
+and needs them at every satisfying one.
+
+**This is not an artifact of the proof.** `not_openCongLocal` is a
+**premise-free refutation** of the ρ-local lemma — `d = 1`,
+`Δa = [⟪Sort 1⟫]`, `ta₂ = .bvar 0`, `ta₁ = ⟪Sort 0⟫`: they agree at
+`ρ ≡ univ 0`, and the extended context's leaf link at `ρ ≡ ∅` demands
+`∅ = univ 0`, hence `∅ ∈ˢ ∅`. Even with the left domain fully
+certified. *The problem is the quantifier, not the grading.*
+
+`AnnotOk2.hoist_pi`/`hoist_lam` show the repair self-propagates: the
+hoisted node fact splits into the domain's hoisted form and the
+codomain's hoisted form in the extended context — exactly the pair the
+recursive call needs.
+
+#### The blast radius, audited at the junction
+
+The request was to hoist `DefEqClaims2B`'s two `AnnotOk2` above its
+`∀ ρ`. The worker verified the congruence consumer and correctly
+flagged the rest as unaudited. **Audited here, and it propagates —
+which is the seal-9 rule firing for the fourth time:**
+
+* `betaCert2P_of_claims` (`Whnf.lean`) takes its `AnnotOk2 ρ tya` from
+  **`BetaCert2P`'s own ρ-local premise**, so `BetaCert2P` must hoist
+  too. Its other one comes from `TypeOk2`, which is already all-ρ and
+  costs nothing.
+* `infer_app_claim2A`'s `hdom` takes `AnnotOk2 ρ Aa` from the
+  **reduction claim's graded output at one ρ** (`hredf ρ hρ …`). So
+  `WhnfCoreClaims2B`/`WhnfClaims2B` must hoist as well — their
+  conclusion `∀ ρ, Sat2 → AnnotOk2 ρ ea → (… ∧ AnnotOk2 ρ ea')` is
+  ρ-local on both sides.
+
+So the change is **all four claims plus `BetaCert2P`**, not
+`DefEqClaims2B` alone. Consistent with the rule and with the three
+previous times a repair was scoped to one claim and had to be widened.
+
+**Not made now, deliberately.** It is a four-claim statement change and
+this campaign's own evidence is that such a change must be
+re-discharged in parallel by the quarters, not applied at the junction
+and hoped through — every one of the three refuted generations was
+refuted by a consumer. It is the next campaign step, and it is now
+fully specified: the shape, the mechanized proof that the weaker form
+is false, the propagation set, and the fact that the repair
+self-propagates at the congruences.
+
+**Standing after this seal.** Seal 11's move is unblocked at four of
+its five reading sites and specified at the fifth. `CtxOk2Open` is off
+the residue list. The eight capstone residues stand at: one discharged
+(`Delta2B`, modulo `AcvalDefnInst`), three blocked on missing `interp2`
+environment laws, one on the `SortSubstStable` lane, and three open.
+
+### Seal 14 — statement generation four: the grading hoisted above `ρ`
+
+`Interp2/Claims2C.lean`. Every `AnnotOk2` a claim **takes** or
+**gives** moves above the `∀ ρ`; the `interp2` equalities and the
+membership stay per-valuation, being genuinely per-valuation facts.
+
+**The first generation change in this arc that fixes an insufficiency
+rather than a falsehood.** `Claims2` and `Claims2A` were refuted;
+`Claims2B` is not. It is merely too weak to supply
+`CtxOk2.openCong` — and `not_openCongLocal` proves premise-free that
+no ρ-local congruence lemma exists to supply instead, even with the
+left domain fully certified. *The problem is the quantifier, not the
+grading.* Recording the distinction because "superseded" and "refuted"
+have been the same word too often in this campaign.
+
+**`InferClaims2C` is also extended**, not merely hoisted: it now
+delivers the returned type's `AnnotOk2` beside the subject's. That is
+seal 8's open question answered from two independent sites
+(`infer_app_claim2A`, `betaCert2P_of_claims`), and it retires the
+inference quarter's `TypeOk2` residue.
+
+**Direction, so the quarters know what they are being handed.** Each
+claim's `AnnotOk2` premises became ρ-uniform, so each claim is
+*weaker*: producers prove less, consumers get less. The two claims
+that also deliver an `AnnotOk2` deliver it ρ-uniformly, which is
+stronger on the output side. Net: the reduction and inference quarters
+owe more at their conclusions and are owed more at their hypotheses;
+the defeq quarter is purely relieved. **That asymmetry is the point** —
+it is what lets a congruence site hand `openCong` the ρ-uniform pair
+it provably cannot obtain otherwise.
+
+**One change per generation.** Seal 11's context-currency move
+(`CtxOkR` → `CtxOk2` in all four claims) is decided and specified but
+is *not* in this generation. Bundling two independent statement
+changes is how an integration break stops being localizable, and this
+campaign already paid for one mid-flight change. The context move is
+generation five.
+
+**Re-discharged in parallel, not sequentially.** Four workers, one per
+quarter, concurrently — because every one of the three refuted
+generations was refuted by a *consumer*, never by inspection, and
+sequential discharge would find the same defects one at a time after
+the statement had already been built on.
+
+### Seal 15 — the three missing `interp2` environment laws, stated and queued
+
+`Interp2/EnvLaws2.lean`. Seal 12's finding turned into statements:
+`NatOpsV2`, `RecRulesV2`, `ProjPairV2` — the suppliers for
+`ReduceNatStep2`, `IotaStep2B` and `ProjStep2B`, which are blocked on
+**laws that do not exist**, not on proofs.
+
+**Stated as first drafts, and labelled as such in the file.** They are
+deliberately *not* wired into `EnvS2`. This campaign's evidence is
+that a statement is validated by the consumer that discharges it —
+three `Claims2` generations were refuted, every one by a consumer,
+never by inspection — so each law is derived from what its residue
+visibly needs, with the v1 sentence as the guide, and each is expected
+to move before adoption. The path is the one `AcvalParams2` took:
+`Prop` here, diagnosed by its consumer, promoted to an `EnvS2` field
+when the install tier can establish it. **T5: every one names its
+install-tier supplier in its docstring**, and in each case it is an
+existing `EnvS.cons` obligation (`hheadNat`, `hheadRec`,
+`hheadProj`/`hheadProjPair`).
+
+**The trap-check applied in advance.** Each law asserts a `denote2`
+success as a conclusion, and a recursor RHS or a `Nat` equation may
+carry a binder — so all three are stated with the existential fuel
+slack seals 7 and 12 established, never at a caller-chosen fuel. Seal
+11's caveat stands: passing this check is not a clean bill of health.
+
+**One of the three is honestly weaker than the others**, and the file
+says so. `ProjPairV2` has **no v1 sentence to transpose** — v1's
+`ProjOkT` is purely syntactic and says nothing semantic — so it is
+derived from the consumer alone. Its scope is the *native* pair only,
+per the standing `proj-unification-limits` finding that modeled types
+can never get first-class `.proj`.
+
+**Ordering the evidence suggests**, recorded in the file:
+
+1. **`Denote2InstLevels` first.** `RecRulesV2` takes its RHS at
+   `instantiateLevelParams`, so it meets seal 12's open metatheorem
+   head-on — the *same* crossing that blocks the delta exit. Settling
+   it once serves both, and seal 12 recorded a live doubt that it is
+   true at all (`piResultIsProp`/`piResultNeverZero` make a run
+   level-sensitive). **If it is false, `RecRulesV2` as drafted is the
+   wrong statement**, which is precisely why it goes first.
+2. `NatOpsV2` — most complete v1 counterpart, supplier obligation
+   already exists.
+3. `ProjPairV2` — least settled.
+
+These three join the five install keys and `MemberKeyS` as the
+install-tier campaign.
+
+### Seal 16 — generation four, the head-normalisation quarter (and a correction)
+
+`whnfCoreStep2C_of` and `whnfStep2C_of`, both proved, both on exactly
+the three standard axioms. **No statement change and no `EnvS2` field
+requested** — generation four is sufficient for this quarter, and it
+built first try.
+
+**Correction to the junction's own briefing.** I told the four workers
+that the reduction and inference quarters are "on the paying side" of
+the ρ-hoist and the defeq quarter is relieved. For the reduction
+quarter that is **wrong, and structurally so**: `whnfCore` **never
+opens a binder** — `.forallE` and `.lam` are two of its six *leaf*
+cases — so `Δa` is constant through every clause and every loop
+iteration, and the extended-context pair is never asked for.
+
+Consequently `AnnotOk2.hoist_pi`/`hoist_lam` were **not used and not
+needed** here. What each clause needs is a *component* of the node
+fact at the **same** `Δa` (`AnnotOk2_app.1`, `AnnotOk2_zeta.2`,
+`AnnotOk2_beta_pos/zero.2`), and every one is already a pointwise
+implication, so pushing it under `∀ ρ` is literally
+`fun ρ hρ => …`.
+
+*The hoist is free exactly where the recursion does not change the
+context; `hoist_*` is the price of the sites that do — the
+congruences.* So generation four's cost is not "reduction and
+inference pay, defeq is relieved"; it is **"whoever changes the
+context pays"**, which is a different and smaller set. Recorded
+because the junction's cost model was wrong in a way that would have
+mis-scoped the next generation too.
+
+**`TypeOk2` is gone, not relocated.** `betaCert2PC_of_claims` takes no
+`htok` at all: the `…B` composition needed an explicit stand-in for
+the inference quarter's residue because `InferClaims2A` concluded
+`AnnotOk2` of the subject and never of the returned type.
+`InferClaims2C` delivers both, ρ-uniformly, which is exactly the shape
+`DefEqClaims2C` takes. **Seal 8's open question is now paid back from
+the second site DESIGN named for it.**
+
+**A methodological point worth keeping.** The three hoisted residues
+(`IotaStep2C`, `ProjStep2C`, `ReduceNatStep2C`) each land with a
+`toC` bridge proving the *existing* `…B` residue implies it. So the
+hoist **weakens** what suppliers owe and strengthens nothing — and *a
+weakening of an already-audited statement cannot become false*, so the
+three need no fresh refutation hunt. That is the cheapest form of
+trap-check available and it should be the default whenever a
+generation change is a weakening: **prove the bridge from the old
+shape, and inherit its audit.**
+
+`BetaCert2PC` is deliberately still **not** wired into
+`whnfCore_app_claim2C`: it needs `CtxOk2` where the `.app` clause has
+only `CtxOkR`-on-erasures, which is seal 11's context-currency move,
+i.e. generation five. `BetaCert2` remains the residue the quarter
+routes through.
+
+*Hygiene note:* the four generation-four worktrees were created from
+inside the `discharge` worktree, so they nested under it rather than
+sitting beside it. Harmless to git, but the briefs' paths were wrong
+and each worker had to find its own tree. Create worktrees from the
+repository root.
+
+### Seal 17 — generation four's defeq and inference quarters
+
+Both landed green, both on exactly the three standard axioms, neither
+requesting a statement change. Three of four quarters are in.
+
+**Generation four's central purpose is validated.**
+`binder_ctxOk2_openCong` discharges `CtxOk2.openCong` **from
+`DefEqClaims2C` and nothing else**: `hok₁`/`hok₂` *are* the claim's two
+hoisted premises verbatim, and `hdom` *is* its conclusion with `ρ` and
+`Sat2` still abstracted. The quantifier obstacle `not_openCongLocal`
+identified is gone.
+
+The quarter also checked the thing nobody asked it to:
+`binder_ctxOk2_openCong_sat` verifies the remaining premises are
+**jointly meetable** at a concrete one-binder instance, so the lemma is
+not an implication out of contradictory hypotheses. *That check is now
+being run unprompted by workers, which is the practice propagating on
+its own.*
+
+**One new idea, and it is the self-propagation made explicit.**
+`Sat2_cons_congr`: `hoist_pi`/`hoist_lam` deliver the *right*
+codomain's hoisted fact over `ta₂ :: Δa`, while the congruence recurses
+over `ta₁ :: Δa`. The domain equality moves it — and is available
+ρ-uniformly *precisely because it is the claim's own conclusion before
+its `ρ`*. The `…A` lane made the same move at one valuation; hoisting
+changed its shape, not its content.
+
+**`TypeOk2` is retired outright**, confirmed from the second quarter:
+`InferInputs2C` sheds the field. Its three uses were all in `.app`, and
+all three are now the induction hypothesis's own new conjunct, at the
+same annotation and fuel — arriving ρ-uniform, which is what the
+hoisted claims demand and what `TypeOk2` had been supplying only
+*coincidentally*. The extension is what makes it non-coincidental.
+
+**The honest qualification, from both quarters independently.**
+`binder_ctxOk2_openCong` takes *both* context currencies, because
+generation four moved the quantifier and not the currency. That seam is
+now the **only** thing between the congruence proofs and firing
+`CtxOk2.openCong` in place of `CtxOkR.openCong`. Generation five.
+
+#### The `.fvar` finding — a supplier request, not a residue
+
+The inference quarter's `.fvar` clause **cannot** deliver the returned
+type's `AnnotOk2`. `CtxOk2`'s leaf package carries definedness, the
+context index and an `interp2` equation — **and no truthfulness**, and
+nothing recovers it: `Sat2` gives *inhabitation* of context entries,
+never `AnnotOk2`; the leaf link is an equation between interpretations
+and `AnnotOk2` is not an `interp2` invariant (#100); and the clause
+performs no run on `ty`, so no IH applies.
+
+Routed as `CtxAnn2` at the exact granularity a **fourth component of
+`CtxOk2`'s leaf package** would have, so it can move verbatim — the
+`CtxOk2Open` → `CtxOk2.openS` precedent. Claimed to self-propagate:
+the new head leaf's annotation is `ta.liftN 1 0`, whose `AnnotOk2` is
+`AnnotOk2_liftN` of the domain's ρ-uniform `AnnotOk2`, which generation
+four now supplies at every binder site.
+
+**A methodological result worth more than the residue.** The quarter
+attempted to refute `CtxAnn2` and reports it **does not go through
+parametrically** — and says *why*, which is the useful part. A witness
+needs a leaf annotation whose `AnnotOk2` fails while its interpretation
+is *inhabited* (else `Sat2` dies and the instance is vacuous — seal
+11's `⟪Empty⟫` discipline, applied unprompted). The `AnnotOk2` failures
+`denote2` can actually produce sit at `app`/`proj` nodes, and there the
+interpretation is `SetTheory.app`/`sfst` of junk, which the `SetTheory`
+interface constrains in **neither** direction. So it is parametrically
+neither provable nor refutable: *a genuine statement about the
+supplier, not a theorem waiting to be found.* Recorded as prose
+analysis and explicitly not mechanized — which is the right label for
+it.
+
+#### Corrections to the junction's briefs, both from workers
+
+* The three payments the inference quarter owed are **not** "all in
+  residues you already own", as I wrote. Two are (`ConstType2C`,
+  `BetaCross2C`); the third is the *supplier's* `CtxOk2`. The quarter's
+  own seal-7 assessment had this right and my summary of it did not.
+* `BetaCross2C` turns the truthfulness transport into a
+  **biconditional** — `.letE` uses it forwards, `.app` backwards, now
+  that the substituted annotation is the *returned type*. The sealed
+  `BetaCross2` had both directions and `BetaCross2A` dropped one; this
+  buys it back rather than inventing anything.
+
+#### The fourth collision, and the starkest
+
+`whnfCore_package2C` was written **byte-identically** by the whnf and
+defeq quarters, independently. Not merely the same name — the same
+lemma, the same statement, two proofs. `DefEqRun` could not see
+`Whnf`'s copy because the quarters are *siblings, not stacked*; the fix
+was the import edge plus one deletion.
+
+*Four instances now. The cost is one deletion each time; the benefit is
+two independent checks of the same statement — on this occasion, two
+independent proofs of it.*
+
+### Seal 18 — generation four complete; three rulings
+
+All four quarters landed and merged; `Interp2/Capstone2C.lean` proves
+`checkStep2C_of_quarters : CheckStep2C μ V` from the routed residues
+alone. **The decomposition closes at generation four**, and the
+generation's own purpose is separately established: the `∀`/`λ`
+congruences can discharge `CtxOk2.openCong`, which
+`not_openCongLocal` proves no ρ-local claim could supply.
+
+#### Ruling 1 — the dedupe, adjudicated
+
+Seven collisions this campaign, three of them in this generation.
+Direction settled by one criterion: **the copy that is wired into a
+capstone deliverable wins; the supplier's kit wins over a local copy.**
+
+| pair | kept | reason |
+|---|---|---|
+| `whnfCore_package2C` | `Whnf.lean` | byte-identical; import edge added so `DefEqRun` can see it |
+| `infer_{sort,bvar,fvar}_claim2C` | `InferQ.lean` | wired into `inferStep2C_of`; `Dispatch`'s were unwired |
+| `AnnotOk2.hoist_app`/`hoist_proj` | `Dispatch.lean` | supplier's kit is where the others look |
+| `Sat2_cons_congr` / `Sat2.head_congr` | `Dispatch.lean` | same |
+
+**The fifth collision was the junction's fault, not the workers'** —
+both the dispatch and inference briefs listed the same three clauses,
+so both quarters owned them. Worth recording: six of the seven were
+convergent discovery, which is cheap and even useful; the one that was
+a scoping error is the one to avoid.
+
+**Mitigation adopted:** `Step2/Dispatch.lean`'s kit is now the
+published inventory, and its module docstring carries the list. Future
+briefs must point at it and say *check here before writing a helper*.
+
+#### Ruling 2 — generation five is new-definition-plus-bridge
+
+Accepted as the dispatch quarter states it. Sites constructing
+`CtxOk2` from scratch would owe the fourth conjunct, and all are cheap
+(`by simp` on `.sort` leaves) **except the tombstone witnesses**
+(`CtxOk2RRefute`, `not_openCongLocal`), which construct `CtxOk2`
+concretely and are **untouchable** under the refutation-preservation
+practice. So generation five must introduce a new definition and
+bridge, never edit `CtxOk2` in place. `CtxOk2Ann`'s stated-beside
+shape is already correct, and its kit battery
+(`weakenTop`/`openCong`/`openS`/`of_subset`/`fuelMono`) is mechanized.
+
+*This is the first time the refutation-preservation practice has
+constrained a future design rather than merely recorded a past one.
+The cost is real and worth paying: a tombstone that can be edited to
+suit a later definition is not a tombstone.*
+
+#### Ruling 3 — proceed on the structural argument; the countermodel is queued as a **bounded** check
+
+The question is whether `CtxOk2 → CtxOk2Ann` is derivable, i.e.
+whether the fourth conjunct is genuinely independent. Two quarters
+argue structurally that it is not derivable; neither has a
+countermodel. Seal 11's rule says a derivation gap is not a
+refutation.
+
+**Ruled: generation five proceeds without banking the countermodel**,
+for two reasons that distinguish this from seal 11.
+
+1. **The risk profile is inverted.** At seal 11, proceeding risked
+   building on a *false* statement. Here, if the conjunct turns out
+   derivable, the cost is a *redundant premise* — construction sites
+   owe something they could have proved. Wasteful, never unsound.
+2. **The inference quarter's analysis says the countermodel is
+   parametrically unbuildable**: a witness needs an annotation whose
+   `AnnotOk2` fails while its interpretation is inhabited, and those
+   failures sit at `app`/`proj` nodes where the interpretation is
+   `SetTheory.app`/`sfst` of junk — which the `SetTheory` interface
+   constrains in **neither** direction. Demanding a countermodel that
+   provably cannot exist parametrically would block indefinitely.
+
+**But the gap is not simply waved through.** The open-ended hunt is
+replaced by a *decidable* question about the interface, which the
+dispatch quarter's attack sketch already isolates: **is
+`¬ (univ 0 ∈ˢ piR v A B)` derivable from `SetTheory`?** If it is not,
+that underivability *is* the confirmation that the gap is genuine and
+parametric rather than a missing proof — and it is a bounded check on
+a fixed interface, not a search. Queued as such.
+
+*Rule: when a refutation is argued to be parametrically impossible,
+replace the demand for a countermodel with a bounded question about
+the interface that would have to supply it.*
+
+### Seal 19 — `Denote2InstLevels`: not settled, but seal 12's attack is closed
+
+Reported honestly as **not settled**, with no proof or refutation
+manufactured. What changed is the *shape* of the open question, and
+that is worth more than a verdict would have been if forced.
+
+**Seal 12's concrete attack is closed and should stop being treated as
+a live refutation lead.**
+
+* **`piResultIsProp` is not in the seam.** Its two call sites
+  (`Kernel/Modeled.lean:723`, `Kernel/CheckerS.lean:305`) both compute
+  `IndCaps` **at install, on a stored inductive's own type**. A
+  subject's level instantiation never touches a stored type, so the
+  `ruleK` capability a run reads is *identical* on both sides of the
+  crossing. As a function it is level-sensitive
+  (`piResultIsProp_flips`, mechanized) — which is presumably how it
+  reached seal 12's list. **The call sites are what make it inert, and
+  seal 12 looked at the function.**
+* **`piResultNeverZero` is in the seam, does flip, and flips
+  one-directionally.** `piResultNeverZero_flips` is a genuine
+  `false → true` witness; `piResultNeverZero_map_subst` shows `true`
+  can **never** become `false`. So instantiation can make the
+  structure-eta/K rescue fire where it did not, and can never lose
+  one — the *safe* direction for the statement as written.
+
+**The crossing is now algebra plus two checker statements.**
+`denote2_instLevels_of : SortOfEInstLevels → LamSortEInstLevels →
+Denote2InstLevels`, with the `denote2` side **fully discharged** —
+including `.const` and both literal clauses, via `EnvS2.acval_params`.
+What remains, `InferInstLevels` and `WhnfSortInstLevels`, mention no
+`denote2`, no `V`, no `EnvS2` and no valuation.
+
+**That last point is the methodological gain.** `Denote2InstLevels`
+quantifies over an `EnvS2 V env`, and the only one the tree exhibits is
+`EnvS2.empty` — so **no counterexample could be built against it at
+all** before the install tier lands. The primitives quantify over a
+bare `Env`, so they are refutable *today*. *Factoring an unfalsifiable
+statement into falsifiable ones is progress even when nothing is
+proved.*
+
+**A statement-design finding, tied to the guard result.** The obvious
+primitive — "`whnf` commutes with instantiation, as an equality on
+reducts" — **should not be assumed**: the rescue flip is precisely a
+reason for the instantiated run to reduce *further*. No witness was
+built, so it is recorded as *expect false*, not refuted.
+`WhnfSortInstLevels` restricts to runs landing on a `.sort`, which the
+flip cannot reach because a sort is terminal for `whnf` — the monotone
+direction of the flip is what makes the narrow form immune to the
+objection that condemns the general one.
+
+The other obvious refutation is closed by design: a binder carrying a
+stale sort annotation is impossible, because task #100 left
+`BinderMeta` holding a `BinderInfo` and nothing else. **There is no
+level inside an `Expr` that instantiation fails to reach.**
+
+**Status of `RecRulesV2`: not cleared.** It still rests on an open
+metatheorem — but one a worker can now attack or kill, which was the
+whole point of putting it first. Seal 15's ordering holds.
+
+**Trap-check, reported against interest:** all four new `Prop`s go
+**vacuous** at `F = 1`, not clean, and the file says so. Per seal 11
+that is worth nothing as a bill of health.
+
+### Dispatch policy amendment — no parallel fan-out within a batch
+
+**User ruling, effective now.** Parallel workers stay *between*
+independent workstreams; **within** a proof batch, one Opus worker
+proves the list **serially**. Same token cost, and the worker
+accumulates recipes from proof to proof — this campaign's largest rate
+lever — while eliminating what the fan-out demonstrably cost:
+
+* **seven convergent-duplicate pairs**, two byte-identical, each
+  needing a dedupe adjudication at the fold;
+* one collision caused by the *junction's* own scoping error, two
+  briefs listing the same three clauses;
+* messages routed to workers about facts a serial worker would simply
+  have had.
+
+Against that, the fan-out's benefit was real but narrower than it
+looked: the three refuted generations were each caught by *a*
+consumer, and a serial worker is still a consumer. **Concurrency was
+not what made the refutations happen; discharging was.**
+
+**The pattern from generation five onward.** The junction freezes: the
+statements, a **worked example** (one member of the list, proved), and
+the **recipe book** — including the kit inventory, now published in
+`Step2/Dispatch.lean`'s module docstring with a *check here before
+writing a helper* banner and the two shapes that are false by design.
+One worker proves down the list. One review, one grant.

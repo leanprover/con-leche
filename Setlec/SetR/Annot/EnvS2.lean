@@ -142,12 +142,70 @@ structure EnvS2 (env : Env) where
   annotation *of* the denotation -/
   acval_erase : ∀ (n : Name) (ψ : Name → Nat),
     (acval n ψ).erase = base.cval n ψ
+  /-- every canonical valuation leaf is **closed**, in the only form
+  `AVExpr` can say it: lifting is the identity at every cut.  The
+  transpose of `EnvS.cval_closed`, and the field the dispatch quarter's
+  context-threading lemmas (`CtxOk2.open`, `CtxOk2.weakenTop`) were
+  carrying as an explicit `hacl` premise for want of a supplier — T5:
+  a fired-law premise belongs to the supplier, not to every consumer.
+
+  Note this field is *syntactic*, a condition on an install-fixed
+  object with no `denote2` in it, so unlike the two STOP 2 refuted it
+  cannot go false at a small fuel.  `AVExpr` has no `Closed` predicate
+  and this deliberately does not add one — the lifting equation is
+  what the consumers actually rewrite with. -/
+  acval_closed : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+    (acval n ψ).liftN 1 k = acval n ψ
+  /-- **the canonical valuation reads only its own level
+  parameters** — the `acval` transpose of `EnvS.val_params`.
+
+  Named by the defeq quarter as `AcvalParams2` and correctly
+  identified there as *a missing environment field, not a missing
+  proof*: it is the sole ingredient of `denote_const_congrR` beyond
+  `Level.isEquivList` soundness, and the `const`/`const` case of
+  `isDefEqCore` cannot close without it.  T5 — the premise belongs to
+  its supplier.
+
+  Syntactic, like `acval_closed`: an equation between two `acval`
+  readings with no `denote2` in it, so the smallest-fuel hazard that
+  refuted `acval_defn` cannot reach it. -/
+  acval_params : ∀ (n : Name) (ci : ConstantInfo),
+    env.find? n = some ci →
+    ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
+      acval n ψ₁ = acval n ψ₂
   /-- every canonical valuation leaf is truthful over `interp2` —
   `annot_okV`'s successor.  Quantifying over `Annotates` (this field's
   shape before this seal) collapses here: in the `denote2` currency a
   stored leaf has exactly *one* annotation, namely `acval n ψ` -/
   acval_ok2 : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
     AnnotOk2 V ρ (acval n ψ)
+  /-- every definition is canonically annotated by its body — the
+  `denote2` successor of `EnvS.defn_eq`, and what makes the reduction
+  loop's **delta step** free: the unfolded term's canonical annotation
+  *is* the constant's own leaf, so the step moves neither the
+  interpretation nor the invariant.
+
+  The annotation is produced at a fuel `F' ≥ F` of the *supplier's*
+  choosing, not at every fuel.  Demanding every fuel makes the field
+  **false** — `denote2` returns `none` on binders at fuel `1`, so a
+  single λ-bodied definition would empty the structure
+  (`envS2_defn_lam_refuted`).  The existential form is what the delta
+  exit actually consumes, and it composes with the reduction claims'
+  own `F ≤ F'` slack -/
+  acval_defn : ∀ (μ : CheckMode) (φ : Name → Nat) (F : Nat)
+    (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+    ConstantInfo.defnInfo cv value hint ∈ env.consts →
+    ∃ F', F ≤ F' ∧
+      denote2 μ acval env φ F' 0 value = some (acval cv.name φ)
+  /-- ditto for theorems (`EnvS.thm_ok`'s successor), in the same
+  existential form and for the same reason — a proof of any implication
+  is a `λ` (`envS2_thm_lam_refuted`) -/
+  acval_thm : ∀ (μ : CheckMode) (φ : Name → Nat) (F : Nat)
+    (cv : ConstantVal) (value : Expr),
+    ConstantInfo.thmInfo cv value ∈ env.consts →
+    ∃ F', F ≤ F' ∧
+      denote2 μ acval env φ F' 0 value = some (acval cv.name φ)
   /-- every stored constant inhabits its canonically-annotated type
   over `interp2` — `mem_type`'s successor in the `denote2` currency -/
   mem_type2 : ∀ (μ : CheckMode) (φ : Name → Nat) (fuel : Nat),
@@ -173,6 +231,10 @@ noncomputable def empty : EnvS2 V Env.empty where
   acval := fun _ _ => .const .empty [0]
   acval_erase := fun _ _ => rfl
   acval_ok2 := fun _ _ _ => by simp
+  acval_closed := fun _ _ _ => rfl
+  acval_params := fun _ _ _ _ _ _ => rfl
+  acval_defn := by intro μ φ F cv value hint hc; cases hc
+  acval_thm := by intro μ φ F cv value hc; cases hc
   mem_type2 := by
     intro μ φ fuel c hc
     cases hc
