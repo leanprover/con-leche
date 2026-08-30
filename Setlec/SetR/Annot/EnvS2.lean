@@ -148,6 +148,20 @@ structure EnvS2 (env : Env) where
   stored leaf has exactly *one* annotation, namely `acval n ψ` -/
   acval_ok2 : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
     AnnotOk2 V ρ (acval n ψ)
+  /-- every definition is canonically annotated by its body — the
+  `denote2` successor of `EnvS.defn_eq`, and what makes the reduction
+  loop's **delta step** free: the unfolded term's canonical annotation
+  *is* the constant's own leaf, so the step moves neither the
+  interpretation nor the invariant -/
+  acval_defn : ∀ (μ : CheckMode) (φ : Name → Nat) (fuel : Nat)
+    (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+    ConstantInfo.defnInfo cv value hint ∈ env.consts →
+    denote2 μ acval env φ fuel 0 value = some (acval cv.name φ)
+  /-- ditto for theorems (`EnvS.thm_ok`'s successor) -/
+  acval_thm : ∀ (μ : CheckMode) (φ : Name → Nat) (fuel : Nat)
+    (cv : ConstantVal) (value : Expr),
+    ConstantInfo.thmInfo cv value ∈ env.consts →
+    denote2 μ acval env φ fuel 0 value = some (acval cv.name φ)
   /-- every stored constant inhabits its canonically-annotated type
   over `interp2` — `mem_type`'s successor in the `denote2` currency -/
   mem_type2 : ∀ (μ : CheckMode) (φ : Name → Nat) (fuel : Nat),
@@ -173,6 +187,8 @@ noncomputable def empty : EnvS2 V Env.empty where
   acval := fun _ _ => .const .empty [0]
   acval_erase := fun _ _ => rfl
   acval_ok2 := fun _ _ _ => by simp
+  acval_defn := by intro μ φ fuel cv value hint hc; cases hc
+  acval_thm := by intro μ φ fuel cv value hc; cases hc
   mem_type2 := by
     intro μ φ fuel c hc
     cases hc

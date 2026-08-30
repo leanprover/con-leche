@@ -79,6 +79,10 @@ import Setlec.SetR.Interp2.BasisType
 import Setlec.SetR.Interp2.BasisOk
 import Setlec.SetR.Interp2.Skeleton
 import Setlec.SetR.Interp2.Claims2
+import Setlec.SetR.Interp2.Step2.Infer
+import Setlec.SetR.Interp2.Step2.WhnfCore
+import Setlec.SetR.Interp2.Step2.DefEq
+import Setlec.SetR.Interp2.Step2.Loop
 import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.SimSubst
 import Setlec.SetR.Annot.PremiseLadder

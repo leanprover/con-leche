@@ -13192,3 +13192,63 @@ facts rather than relation derivations (no `Red`/`Infer` construction
 plumbing), and the ten per-former rows are already landed.  Estimate
 **3,500–5,000 lines across 8–12 seals**.  Tier A is the majority of it
 and depends on nothing outstanding.
+
+### Discharge campaign, seal 1 — the four quarters' Tier A clauses
+
+`Interp2/Step2/{Infer,WhnfCore,DefEq,Loop}.lean`: the per-clause lemmas
+each dispatch will consume, for every Tier A branch.  All compile; the
+battery is unchanged; 305 jobs warning-free.
+
+**Infer** — the leaves (`.sort`, `.fvar`) discharge from `denote2`'s
+own clause equations plus the matching skeleton row, with no IH at all;
+the structural clauses (`.forallE`, `.lam`, `.app`, `.letE`, `.proj`)
+are stated over the rows' *inputs* rather than over `inferBody`'s
+spelling, so the dispatch owns the run and the clauses stay independent
+of it.
+
+**WhnfCore** — two shapes cover eight of nine cases.  `whnfStep2_id`
+is the identity shape and serves **eleven** branches (six leaves, five
+stuck `.proj` exits); ζ and both β kinds are the graded step lemmas,
+which conclude the claim's two conjuncts exactly.  ι is Tier C.
+
+**DefEq** — the equivalence and the congruences, all pure
+interpretation algebra, plus proof irrelevance and η.  `symm`/`trans`
+are one-liners precisely because `DefEqClaims2` is unconditional in
+truthfulness, the grading inherited from `DeqS`.
+
+**The delta exit turned out to need an environment field, and it is
+added.**  `EnvS2` gains `acval_defn` and `acval_thm` — the `denote2`
+successors of `EnvS.defn_eq`/`thm_ok`.  v1 records the same fact as
+"the reduct denotes *identically*"; here it must be a field rather than
+a lemma, because `denote2` reads `acval` where `denote` read `cval`.
+With it the loop's delta exit is free: the unfolded body's canonical
+annotation **is** the constant's own leaf, so the step moves neither
+the interpretation nor the invariant.  `EnvS2.empty` re-discharged
+(vacuous over `env.consts = []`).
+
+**FINDING — a named contract that proves by `rfl` is not a contract.**
+The map instructed naming the loop's continuation contract at the
+function boundary, following v1.  Written out it was
+`interp2 ρ ea = interp2 ρ ea ∧ (AnnotOk2 ρ ea → AnnotOk2 ρ ea)` —
+`⟨rfl, id⟩`, i.e. nothing.  **Deleted before landing.**
+
+The instruction was right for v1 and wrong here, and the difference is
+instructive: v1's loop must *construct a `Red` derivation*, so its
+continuation genuinely owes something at each budget step.
+`WhnfClaims2` concludes an **equality and a transport**, and the loop
+moves the subject without moving either — every budget step is the
+identity on the claim.  The content is entirely in the three exits'
+step facts; the budget recursion is bookkeeping and belongs inside the
+dispatch.
+
+*Rule: when transposing a proof architecture, check whether the thing
+the original carried still has content in the new currency before
+giving it a name.  A vacuous `Prop` with a good name is worse than no
+`Prop`, because it looks discharged.*
+
+**Ledgered from the map, as directed**: four of the five mode-gated
+sites in `Core.lean` are `ttChecks`, **constantly `false` since T7b**,
+so the `.proj`/eta gates discharge by the ungated path and cost the
+campaign nothing.  Only `inferBody`'s λ-codomain check
+(`Core.lean:1615`, `mode.verified && !body.isLam`) is genuinely
+two-valued, and it fires once per λ chain at the innermost binder.
