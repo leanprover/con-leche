@@ -10452,3 +10452,48 @@ The tier's first two build-order steps, proved:
 Next: the reassociation (`whnfCore_lam_spine_decompose`), then the
 fixed-context knot-only inner lemma, then the λ/letE-head
 discharges.
+
+### CORRECTION: the fixed-context inner lemma fails at spine-β; the peeling design replaces it
+
+Building the reassociation, the fuel count refuted the previous map
+seal's resolution: the reassembled contractum-SPINE run lands at
+**equal** fuel, not one less — the innermost contractum-core does
+sit one level down, but every spine layer's legs ran at their
+original fuels and fuel only transfers upward, so the reassembled
+top pins at `G`.  The knot-only fixed-context induction therefore
+does not decrease at spine-β (it was correct only for bare
+redexes).  Third measure lesson on this branch: reassociation never
+decreases fuel; only PEELING does.
+
+**The corrected design — `coreLock`, the layer-peeling lockstep**:
+strong induction on the PAIR'S core-run fuel sum; subjects peeled
+one app-layer at a time (never reassociated):
+
+* subject pair `(.app P₁ y₁, .app P₂ y₂)`: head-runs at `g-1`
+  (the app-decompose) → recurse on the HEAD pair (strict decrease)
+  → head-outputs ZIPPED (the lemma's own conclusion) → case on the
+  zipped outputs' shapes;
+* both heads λ (the zip gives them CONGRUENT — lam-zip or refl):
+  β-certs per side; both fired → contracta are `certZip_subst`
+  zips of the ZIPPED lam components at the (possibly different)
+  args, with runs at one less fuel (the decompose's fired leg) →
+  recurse (strict decrease).  Mixed/stuck: seam-lift;
+* conclusion is DISJUNCTIVE: `ZipPack(u',v')` (outputs zipped +
+  invariants) ∨ a LIFTABLE SEAM — cert-headed flatten (Θ-shape),
+  recursor-headed flatten (iota-shape), or a stuck-side witness;
+  every seam lifts through app-layers because VIEW-HEADS PROPAGATE
+  (the outer pair's flattened head is the inner pair's), so the
+  top-level caller — which holds the loop runs — converts seams to
+  `hΘ`/`ZipIotaCase`/vacuity;
+* whnfCore has NO δ (δ is the loop's step), so the only in-core
+  actions are β/iota/zeta/proj — the seam set is closed.
+
+The λ/letE-head discharges then decompose their loop runs once and
+run `coreLock` on the first core step; the ZipPack outcome feeds
+the fixed tri analysis (`ZipBelow` at the loop decrease), the seams
+dispatch at the top.  `whnfCore_lam_spine_decompose` is NOT needed
+(a reassociation artifact of the dead design); the landed
+`whnfCore_app_decompose` is exactly the peeling tool.
+
+Next seal: the seam datatype + `coreLock`'s statement with the
+full pre-build check, then its induction.
