@@ -213,8 +213,11 @@ structure DeclStep2Residues (V : Type w) [SetTheory V] {env : Env}
   counterpart by `Expr.eqUpToNames`, a syntactic rename check, and a
   standard axiom has no value to infer, so **no key at the prefix
   supplies this**.  *Discharges*: with the interp2 install of the
-  standard-axiom and member blocks.  **Inhabited** at a probe
-  environment by `memberBlock2_piProbe`. -/
+  standard-axiom and member blocks.  *Inhabitation, precisely*: the
+  **predicate** `MemberBlock2` is inhabited at a probe environment
+  (`memberBlock2_piProbe`); this field's own instance — at the fresh
+  axiom, in the extension, at every mode — is **not** inhabited
+  anywhere in this tree. -/
   newMember : ∀ (ν : CheckMode) (ψ : Name → Nat),
     MemberBlock2 V ν ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩
       (acvalWith m.acval cvA.name A) ψ cvA
