@@ -13297,3 +13297,54 @@ infer clauses, the three other dispatches, the rest of Tier B
 keys and the fourteen's conclusion swap.  Tier C (iota via the named
 slot, β's sort premise via `SortSubstStable`) stays conditional by
 design.
+
+### Discharge campaign, seal 3 — STOP: the `.fvar` clause refutes `Claims2`'s hypothesis side
+
+Running the infer clauses against the validated template, the second
+one stopped the batch.
+
+**What broke.**  `Claims2` was sealed with the context correspondence
+*reused rather than re-invented*: `CtxOkR` at the **erasures**
+(`Δa.map AVExpr.erase`), on the reasoning that it is a function of the
+annotated context and so needs no new relation.  That reasoning was
+checked against the *conclusion* side, which never wants more.  The
+`.fvar` clause reads the context, and wants two things `CtxOkR` states
+only relationally:
+
+1. **definedness** — that the leaf's annotation has a `denote2` at all.
+   `CtxOkR`'s leaf package gives `denote cval env φ d ty = some T`; the
+   annotated denotation is a *different function* and its definedness
+   does not follow;
+2. **the leaf-to-entry link** — the claim needs
+   `ρ k ∈ˢ interp2 ρ tya`, while `Sat2` offers
+   `ρ k ∈ˢ interp2 (fun j => ρ (j+k+1)) Aa`.  `CtxOkR` bridges the
+   corresponding v1 gap with `∃ T', Infer … ∧ DefEq … T' T` — a
+   **relational** package — and turning that `DefEq` into an `interp2`
+   equality is exactly the move the step-3 map proved does not exist.
+
+So the erasure route is sound for the conclusion and insufficient for
+the hypothesis, and the difference surfaces at **one clause out of
+eleven** — the only one that reads the context rather than passing it
+along.
+
+*Rule: a hypothesis reused from another currency is only as good as the
+weakest clause that reads it.  Check the clause that reads the context,
+not the ones that merely thread it.*
+
+**Landed anyway, so the stop costs nothing.**  `infer_fvar_claim2`
+takes both facts explicitly and compiles, so it is usable the moment a
+supplier exists; `infer_bvar_claim2` (the throw) is closed outright.
+
+**The repair, stated and checked but deliberately NOT wired.**
+`CtxOk2` is `CtxOkR`'s leaf package transposed — per leaf, the
+annotation denotes under `denote2`, and its interpretation agrees with
+the context entry read in the entry's own tail context, the second
+conjunct being the semantic fact directly where `CtxOkR` had the
+relational one.  `CtxOk2.fvar_leaf` proves it supplies exactly what the
+clause takes, so the repair is *checked rather than asserted*.
+
+It is not wired in because substituting it for
+`CtxOkR (Δa.map erase)` changes **`Claims2`'s sealed statement** in all
+four claims — a junction decision, not a consumer's.  The change is one
+edit and touches no other clause: the other ten pass the context along
+without reading it.  Awaiting the ruling.
