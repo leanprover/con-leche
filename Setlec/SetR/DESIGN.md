@@ -13104,3 +13104,19 @@ step-3 map's headline, in its local form).  So the discharge is
 largest single remaining item on the lane — larger than everything
 steps 1–2 contained.  Sized, not started; every clause now knows what
 it consumes.
+
+### Species suppliers, batch 1 (`Species.lean`)
+
+Discharged from the landed Verify batteries (`EnvWF`-parametric,
+warning-free): `leavesSubCoreF_of`, `invPreserve{Core,Delta,Nat}F_of`,
+`pairedPreserve{Core,Delta,Nat}F_of`, `invPreserveProjFireF_of`,
+`pairedPreserveProjFireF_of`, `storedWF_of` — riding
+`SubjInv.step`/`PairedLeaves.sub_left`/`LeavesBounded.sub`
+(leaf-subset monotonicity) plus the scoped/bounded preservation
+family; the projection fire's facts-free leaf chain
+(`projFire_field_leaves`) threads the conversion rows without
+scrutinee facts.  `knotFuelMono` and `natStepNoSort_of` were already
+landed.  Remaining named leaves on the two-obligation path: the
+`Q`-family (discharges at the consumer's concrete `Q`),
+`BoolCtorsInert` (install fact), `TypeTransport{Core,Delta,Nat}F`
+(the checker's infer-subject-reduction — its own tier), the Θ docket.
