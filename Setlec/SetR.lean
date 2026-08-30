@@ -91,6 +91,7 @@ import Setlec.SetR.Interp2.Step2.Whnf
 import Setlec.SetR.Interp2.Step2.DefEqRun
 import Setlec.SetR.Interp2.Step2.Fuel
 import Setlec.SetR.Interp2.Step2.InferQ
+import Setlec.SetR.Interp2.Step2.CtxOk2RRefute
 import Setlec.SetR.Interp2.Claims2A
 import Setlec.SetR.Interp2.EnvS2Refute
 import Setlec.SetR.Interp2.Claims2B
