@@ -265,6 +265,83 @@ theorem not_isEquivListSubstMono : ¬ IsEquivListSubstMono := by
     at hw
   exact nomatch hw
 
+/-! ## Item 3: the zero-tests are TRUE, and they never touch the fuel
+
+The three `isEquiv _ .zero` sites survive, and the reason is not that
+the general congruence "nearly" works: it is that **`isEquiv _ .zero`
+can only be `some true` through the fast path**.  If the `leq` round
+trip answers `true` for `l ≤ 0`, then `leqCore_sound` already forces
+`Level.eval φ l = 0` at every `φ`, and a level that evaluates to `0`
+everywhere is one `simplify` collapses to `.zero` syntactically
+(`simplify_eq_zero_of_eval`, by induction: `zero` and `param` are the
+only leaves, and `param` is nonzero at the constant-one assignment).
+So the hypothesis is *equivalent* to `Level.isZero l`, which is
+`simplify`-only, and substitution preserves it semantically.
+
+This is the shape the brief's first question was about, confirmed on
+the one family where it holds: the fast path does cover every `some
+true` — for the zero-tests, and for them only. -/
+
+/-- The constant-one assignment: strictly positive on every parameter,
+which is all the argument needs. -/
+private def oneFn : Name → Nat := fun _ => 1
+
+/-- **A level that evaluates to `0` at the constant-one assignment is
+`simplify`d to `.zero` syntactically.**  The converse of
+`eval_simplify` on the one value where `simplify` is complete. -/
+private theorem simplify_eq_zero_of_eval :
+    ∀ l : Level, Level.eval oneFn l = 0 → Level.simplify l = .zero := by
+  intro l
+  induction l with
+  | zero => intro _; rfl
+  | succ l _ => intro h; simp [Level.eval] at h
+  | param n => intro h; simp [Level.eval, oneFn] at h
+  | max a b iha ihb =>
+    intro h
+    simp only [Level.eval, Nat.max_eq_zero_iff] at h
+    rw [Level.simplify, iha h.1, ihb h.2]
+    rfl
+  | imax a b _ ihb =>
+    intro h
+    simp only [Level.eval] at h
+    have hb : Level.eval oneFn b = 0 := by
+      by_cases hne : Level.eval oneFn b = 0
+      · exact hne
+      · rw [if_neg hne] at h
+        simp only [Nat.max_eq_zero_iff] at h
+        exact absurd h.2 hne
+    simp [Level.simplify, ihb hb]
+
+/-- **The zero-test corollary holds.**  Three of the thirteen sites —
+`proofIrrel`'s two and `isPropType`'s one — are settled by it.
+Note that `Level.subst ks vs .zero = .zero` is not even needed: the
+statement carries the literal `.zero` on the right, and the proof goes
+through the fast path, which reads `Level.simplify .zero = .zero`. -/
+theorem isEquivZeroSubstMono : IsEquivZeroSubstMono := by
+  intro ks vs l h
+  have hz : Level.simplify (Level.subst ks vs l) = .zero := by
+    refine simplify_eq_zero_of_eval _ ?_
+    rw [Level.eval_subst]
+    simpa [Level.eval] using
+      Level.isEquiv_sound h (Level.substFn oneFn ks vs)
+  rw [Level.isEquiv, if_pos (by rw [hz]; rfl)]
+  rfl
+
+/-- **Non-vacuity check for item 3.**  `isEquivZeroSubstMono` would be
+worthless if its hypothesis were satisfiable only at levels a
+substitution cannot move; here is one it does move — `imax a 0` is
+`some true` against `.zero`, and stays so at `a ↦ 1`, where the
+*substituted* level is a different term.  (Not a bill of health, per
+seal 11; just a check that the lemma is not empty.) -/
+private theorem isEquivZero_moved :
+    Level.isEquiv (.imax (.param seamA) .zero) .zero = some true ∧
+      Level.isEquiv
+        (Level.subst [seamA] [.succ .zero]
+          (.imax (.param seamA) .zero)) .zero = some true := by
+  refine ⟨?_, isEquivZeroSubstMono _ _ _ ?_⟩ <;>
+    · rw [Level.isEquiv, if_pos (by simp [Level.simplify])]
+      rfl
+
 /-! ## What is deliberately *not* stated
 
 The converse — that substitution cannot turn `some false` into
