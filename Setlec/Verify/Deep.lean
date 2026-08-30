@@ -2035,7 +2035,7 @@ private theorem whnfCore_step (henv : EnvWF env)
 /-- The reduction *loop* commutes with the shift, by induction on its
 own step budget (task #106); the per-step head normalization comes
 from the knot hypothesis `ih`. -/
-private theorem whnfLoop_shift (henv : EnvWF env)
+theorem whnfLoop_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) :
     ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
       whnfLoop (pureFns mode env fuel) env (d + 1) n (shiftFrom p e) =

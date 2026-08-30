@@ -134,6 +134,8 @@ inductive RawReach (μ : CheckMode) (env : Env) (d G : Nat) :
       (hTi : env.find? T = some (.indInfo cvT caps))
       (hK : caps.ruleK = true)
       (hml : (targs.take cnP).length = rl.ctorParams + rl.nfields)
+      (htb : ∀ z ∈ targs.take cnP, z.looseBVarsBounded 0 = true)
+      (htw : ∀ z ∈ targs.take cnP, Expr.WScoped d z)
       (rest : RawReach μ env d G
         (Setlec.Expr.mkAppN
           (rl.rhs.instantiateLevelParams cv.levelParams us)
@@ -158,6 +160,8 @@ inductive RawReach (μ : CheckMode) (env : Env) (d G : Nat) :
       (hec : rl.ctor = caps.etaCtor)
       (hml : (Setlec.etaFabArgs T ust targs M caps.etaFields).length
         = rl.ctorParams + rl.nfields)
+      (htb : ∀ z ∈ targs, z.looseBVarsBounded 0 = true)
+      (htw : ∀ z ∈ targs, Expr.WScoped d z)
       (rest : RawReach μ env d G
         (Setlec.Expr.mkAppN
           (rl.rhs.instantiateLevelParams cv.levelParams us)
@@ -208,13 +212,14 @@ theorem RawReach.trans {μ : CheckMode} {env : Env} {d G : Nat}
     exact fun h₂ => .iotaPlain c us cv mI rP rules rl cj usj hfn hc
       hlen hM hMfn hrl hml hnin (ihr h₂)
   | iotaK c us cv mI rP rl cvj cnP T usT cvT caps targs hfn hc hlen
-      hM hcj hT hTi hK hml rest ihM ihr =>
+      hM hcj hT hTi hK hml htb htw rest ihM ihr =>
     exact fun h₂ => .iotaK c us cv mI rP rl cvj cnP T usT cvT caps
-      targs hfn hc hlen hM hcj hT hTi hK hml (ihr h₂)
+      targs hfn hc hlen hM hcj hT hTi hK hml htb htw (ihr h₂)
   | iotaEta c us ust cv mI rP rl cvj cnP cnF T usT cvT caps targs
-      hfn hc hlen hM hcj hT hTi heta hec hml rest ihM ihr =>
+      hfn hc hlen hM hcj hT hTi heta hec hml htb htw rest ihM ihr =>
     exact fun h₂ => .iotaEta c us ust cv mI rP rl cvj cnP cnF T usT
-      cvT caps targs hfn hc hlen hM hcj hT hTi heta hec hml (ihr h₂)
+      cvT caps targs hfn hc hlen hM hcj hT hTi heta hec hml htb htw
+      (ihr h₂)
   | projFire sn i entry us hf hfn hnat hi hlenE rest ih =>
     exact fun h₂ => .projFire sn i entry us hf hfn hnat hi hlenE
       (ih h₂)
@@ -244,13 +249,13 @@ theorem RawReach.mono_budget {μ : CheckMode} {env : Env}
     exact .iotaPlain c us cv mI rP rules rl cj usj hfn hc hlen ih₁
       hMfn hrl hml hnin ih₂
   | iotaK c us cv mI rP rl cvj cnP T usT cvT caps targs hfn hc hlen
-      hM hcj hT hTi hK hml rest ih₁ ih₂ =>
+      hM hcj hT hTi hK hml htb htw rest ih₁ ih₂ =>
     exact .iotaK c us cv mI rP rl cvj cnP T usT cvT caps targs hfn
-      hc hlen ih₁ hcj hT hTi hK hml ih₂
+      hc hlen ih₁ hcj hT hTi hK hml htb htw ih₂
   | iotaEta c us ust cv mI rP rl cvj cnP cnF T usT cvT caps targs
-      hfn hc hlen hM hcj hT hTi heta hec hml rest ih₁ ih₂ =>
+      hfn hc hlen hM hcj hT hTi heta hec hml htb htw rest ih₁ ih₂ =>
     exact .iotaEta c us ust cv mI rP rl cvj cnP cnF T usT cvT caps
-      targs hfn hc hlen ih₁ hcj hT hTi heta hec hml ih₂
+      targs hfn hc hlen ih₁ hcj hT hTi heta hec hml htb htw ih₂
   | projFire sn i entry us hf hfn hnat hi hlenE rest ih =>
     exact .projFire sn i entry us hf hfn hnat hi hlenE ih
 
@@ -886,6 +891,21 @@ theorem substSim_loop_succ {env : Env} {fuel : Nat}
         (ihl hab hwa heb₂ hwe₂ hcont))
     · exact htr₁
 
+/-- The telescope substitution preserves the loose-bvar bound. -/
+theorem substAK_bounded {d k : Nat} {a e : Expr}
+    (hab : a.looseBVarsBounded 0 = true)
+    (he : e.looseBVarsBounded k = true) :
+    (substAK d k a e).looseBVarsBounded k = true :=
+  Setlec.Expr.looseBVarsBounded_instantiate1_gen hab
+    (Setlec.looseBVarsBounded_abstract1 e k he)
+
+/-- The telescope substitution lands one scope down. -/
+theorem substAK_WScoped {d k : Nat} {a e : Expr}
+    (hwa : Expr.WScoped d a) (hwe : Expr.WScoped (d + 1) e) :
+    Expr.WScoped d (substAK d k a e) :=
+  Setlec.Expr.WScoped.instantiate1_gen hwa k
+    (Setlec.WScoped.abstract1 k hwe)
+
 /-- `substAK` is the identity on closed, `fvar`-free terms. -/
 theorem substAK_eq_self_of_closed {d k : Nat} {a e : Expr}
     (hfv : e.hasFvar = false)
@@ -1274,7 +1294,7 @@ theorem substSim_core_succ {env : Env} {fuel : Nat}
             cvT caps (tmaj.getAppArgs.map (substAK d 0 a))
             (M := substAK d 0 a major₁) (w := substAK d 0 a e')
             (substAK_getAppFn_const hifn) hifc ?_ ?_ hcj' hT' hTi'
-            hK ?_ ?_
+            hK ?_ ?_ ?_ ?_
           · rw [show ((substAK d 0 a f').app
                 (substAK d 0 a x)).getAppArgs
               = (Expr.app f' x).getAppArgs.map (substAK d 0 a) from
@@ -1287,6 +1307,17 @@ theorem substSim_core_succ {env : Env} {fuel : Nat}
             exact htrM
           · rw [← List.map_take, List.length_map, ← hma]
             exact himl
+          · intro z hz
+            rw [← List.map_take, ← hma] at hz
+            obtain ⟨z₀, hz₀, rfl⟩ := List.mem_map.mp hz
+            exact substAK_bounded hab
+              (Setlec.looseBVarsBounded_getAppArgs hbnd z₀ hz₀)
+          · intro z hz
+            rw [← List.map_take, ← hma] at hz
+            obtain ⟨z₀, hz₀, rfl⟩ := List.mem_map.mp hz
+            exact substAK_WScoped hwa
+              (Setlec.Expr.WScoped.getAppArgs
+                (Setlec.Expr.WScoped.of_wscopedB hwsc) z₀ hz₀)
           · rw [show ((substAK d 0 a f').app
                 (substAK d 0 a x)).getAppArgs
               = (Expr.app f' x).getAppArgs.map (substAK d 0 a) from
@@ -1305,7 +1336,7 @@ theorem substSim_core_succ {env : Env} {fuel : Nat}
             (tmaj.getAppArgs.map (substAK d 0 a))
             (M := substAK d 0 a major₁) (w := substAK d 0 a e')
             (substAK_getAppFn_const hifn) hifc ?_ ?_ hcj' hT' hTi'
-            heta hec ?_ ?_
+            heta hec ?_ ?_ ?_ ?_
           · rw [show ((substAK d 0 a f').app
                 (substAK d 0 a x)).getAppArgs
               = (Expr.app f' x).getAppArgs.map (substAK d 0 a) from
@@ -1318,6 +1349,23 @@ theorem substSim_core_succ {env : Env} {fuel : Nat}
             exact htrM
           · rw [← substAK_etaFabArgs, List.length_map, ← hma]
             exact himl
+          · intro z hz
+            obtain ⟨z₀, hz₀, rfl⟩ := List.mem_map.mp hz
+            have hz₀' : z₀ ∈ major.getAppArgs := by
+              rw [hma]
+              unfold Setlec.etaFabArgs
+              exact List.mem_append_left _ hz₀
+            exact substAK_bounded hab
+              (Setlec.looseBVarsBounded_getAppArgs hbnd z₀ hz₀')
+          · intro z hz
+            obtain ⟨z₀, hz₀, rfl⟩ := List.mem_map.mp hz
+            have hz₀' : z₀ ∈ major.getAppArgs := by
+              rw [hma]
+              unfold Setlec.etaFabArgs
+              exact List.mem_append_left _ hz₀
+            exact substAK_WScoped hwa
+              (Setlec.Expr.WScoped.getAppArgs
+                (Setlec.Expr.WScoped.of_wscopedB hwsc) z₀ hz₀')
           · rw [show ((substAK d 0 a f').app
                 (substAK d 0 a x)).getAppArgs
               = (Expr.app f' x).getAppArgs.map (substAK d 0 a) from
@@ -1469,6 +1517,878 @@ theorem zipLetEHeadCase_of {φ : Name → Nat}
       below hmes hz' hIs' hIt' hp' hq' hla hlb)
     (certZip_mkAppN_zips (.letE n ty₁ ty₂ v₁ v₂ b₁ b₂ hty hval
       hbody) hlen hargs) hIs hIt hp hQ ha hb
+
+/-! #### The identity embeddings (runs as gate-free traces)
+
+A depth-`d` run on a well-scoped subject embeds as a `RawReach`
+trace at the SAME depth with zero new inductions: shift the run one
+depth up (the discharged `ShiftClaims` battery; `shiftFrom d` is the
+identity on `WScoped d` material), apply the simulation with a dummy
+closed argument, and collapse both `substAK`s by `substAK_eq_self`
+(the subject is `d`-fresh).  The push's telescope trace is these
+embeddings composed with `RawReach.image` over `Γ`. -/
+
+/-- Explicit-budget loops preserve the closedness package. -/
+theorem whnfLoop_pres {env : Env} (henv : EnvWF env) {g : Nat} :
+    ∀ (l : Nat) {d : Nat} {e e' : Expr},
+      Setlec.whnfLoop (Setlec.pureFns μ env g) env d l e = .ok e' →
+      e.looseBVarsBounded 0 = true → Expr.WScoped d e →
+      e'.looseBVarsBounded 0 = true ∧ Expr.WScoped d e' := by
+  intro l
+  induction l with
+  | zero => intro d e e' h; exact nomatch h
+  | succ l ih =>
+    intro d e e' h heb hwe
+    obtain ⟨e₁, hwc, hcase⟩ := whnfStep_decompose h
+    rw [Setlec.whnfCore_def] at hwc
+    have heb₁ : e₁.looseBVarsBounded 0 = true :=
+      Setlec.whnfCore_looseBVars (mode := μ) henv g hwc heb
+    have hwe₁ : Expr.WScoped d e₁ :=
+      Setlec.whnfCore_WScoped (mode := μ) henv g hwc hwe
+    rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hud, hcont⟩ |
+      ⟨-, -, rfl⟩
+    · rw [Setlec.reduceNat_fold] at hrn
+      have he₂ := Setlec.reduceNat_inv (mode := μ) hrn
+      refine ih hcont ?_ ?_
+      · rcases he₂ with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;> rfl
+      · exact Setlec.Expr.WScoped.of_not_hasFvar (by
+          rcases he₂ with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;> rfl)
+    · obtain ⟨heb₂, hwe₂⟩ := unfoldDefinition_pres henv hud heb₁ hwe₁
+      exact ih hcont heb₂ hwe₂
+    · exact ⟨heb₁, hwe₁⟩
+
+/-- A `whnfCore` run embeds as a trace at its own depth. -/
+theorem whnfCore_toRawReach {env : Env} (henv : EnvWF env)
+    {g d : Nat} {e e' : Expr}
+    (heb : e.looseBVarsBounded 0 = true) (hwe : Expr.WScoped d e)
+    (h : whnfCore μ env g d e = .ok e') :
+    RawReach μ env d g e e' := by
+  have hwe' : Expr.WScoped d e' :=
+    Setlec.whnfCore_WScoped (mode := μ) henv g h hwe
+  have heb' : e'.looseBVarsBounded 0 = true :=
+    Setlec.whnfCore_looseBVars (mode := μ) henv g h heb
+  have hup : whnfCore μ env g (d + 1) e = .ok e' := by
+    have hsc := (Setlec.shiftClaims (mode := μ) (env := env) henv
+      g).whnfCore (p := d) (Nat.le_refl d) hwe
+    rw [Setlec.Expr.shiftFrom_eq_self
+      (Setlec.Expr.WScoped.fvarsBelow hwe), h] at hsc
+    simpa [Except.map, Setlec.Expr.shiftFrom_eq_self
+      (Setlec.Expr.WScoped.fvarsBelow hwe')] using hsc
+  have hsim := (substSimClaims henv g).core (d := d)
+    (a := Expr.sort .zero) rfl
+    (Setlec.Expr.WScoped.of_not_hasFvar rfl) heb
+    (Setlec.Expr.WScoped.mono (Nat.le_succ d) hwe) hup
+  rwa [substAK_eq_self (fun l hl => Nat.ne_of_lt
+      (Setlec.Expr.fvarLeaves_lt_of_wscoped hwe l hl)) heb,
+    substAK_eq_self (fun l hl => Nat.ne_of_lt
+      (Setlec.Expr.fvarLeaves_lt_of_wscoped hwe' l hl)) heb']
+    at hsim
+
+/-- An explicit-budget loop run embeds as a trace at its own depth. -/
+theorem whnfLoop_toRawReach {env : Env} (henv : EnvWF env)
+    {g l d : Nat} {e e' : Expr}
+    (heb : e.looseBVarsBounded 0 = true) (hwe : Expr.WScoped d e)
+    (h : Setlec.whnfLoop (Setlec.pureFns μ env g) env d l e
+      = .ok e') :
+    RawReach μ env d g e e' := by
+  obtain ⟨heb', hwe'⟩ := whnfLoop_pres henv l h heb hwe
+  have hup : Setlec.whnfLoop (Setlec.pureFns μ env g) env (d + 1) l
+      e = .ok e' := by
+    have hsc := Setlec.whnfLoop_shift (mode := μ) henv
+      (Setlec.shiftClaims henv g) l (Nat.le_refl d) hwe
+    rw [Setlec.Expr.shiftFrom_eq_self
+      (Setlec.Expr.WScoped.fvarsBelow hwe), h] at hsc
+    simpa [Except.map, Setlec.Expr.shiftFrom_eq_self
+      (Setlec.Expr.WScoped.fvarsBelow hwe')] using hsc
+  have hsim := (substSimClaims henv g).loop (d := d)
+    (a := Expr.sort .zero) rfl
+    (Setlec.Expr.WScoped.of_not_hasFvar rfl) heb
+    (Setlec.Expr.WScoped.mono (Nat.le_succ d) hwe) hup
+  rwa [substAK_eq_self (fun l' hl => Nat.ne_of_lt
+      (Setlec.Expr.fvarLeaves_lt_of_wscoped hwe l' hl)) heb,
+    substAK_eq_self (fun l' hl => Nat.ne_of_lt
+      (Setlec.Expr.fvarLeaves_lt_of_wscoped hwe' l' hl)) heb']
+    at hsim
+
+/-! #### The trace-preservation and trace-image tier (E2) -/
+
+/-- A closed whnf input yields a closed output (leaves route). -/
+theorem whnf_closed_out_fvarfree {env : Env} (henv : EnvWF env)
+    {g dd : Nat} {e t : Expr} (hfv : e.hasFvar = false)
+    (h : whnf μ env g dd e = .ok t) : t.hasFvar = false := by
+  apply not_hasFvar_of_fvarLeaves_nil
+  have hsub := Setlec.whnf_leaves (mode := μ) henv g h
+  rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hfv] at hsub
+  cases hl : t.fvarLeaves with
+  | nil => rfl
+  | cons z zs =>
+    exact absurd (hsub z (by rw [hl]; exact List.mem_cons_self))
+      List.not_mem_nil
+
+/-- `natOpResult` reducts are literals or `Bool` constructors. -/
+theorem natOpResult_closed {c : Name} {n₁ n₂ : Nat} {res : Expr}
+    (h : Setlec.natOpResult c n₁ n₂ = some res) :
+    res.hasFvar = false ∧ res.looseBVarsBounded 0 = true := by
+  delta Setlec.natOpResult at h
+  by_cases h0 : c = Setlec.natPredName
+  · rw [if_pos h0] at h
+    obtain rfl := Option.some.inj h
+    exact ⟨rfl, rfl⟩
+  · rw [if_neg h0] at h
+    by_cases h1 : c = Setlec.natAddName
+    · rw [if_pos h1] at h
+      obtain rfl := Option.some.inj h
+      exact ⟨rfl, rfl⟩
+    · rw [if_neg h1] at h
+      by_cases h2 : c = Setlec.natSubName
+      · rw [if_pos h2] at h
+        obtain rfl := Option.some.inj h
+        exact ⟨rfl, rfl⟩
+      · rw [if_neg h2] at h
+        by_cases h3 : c = Setlec.natMulName
+        · rw [if_pos h3] at h
+          obtain rfl := Option.some.inj h
+          exact ⟨rfl, rfl⟩
+        · rw [if_neg h3] at h
+          by_cases h4 : c = Setlec.natPowName
+          · rw [if_pos h4] at h
+            obtain rfl := Option.some.inj h
+            exact ⟨rfl, rfl⟩
+          · rw [if_neg h4] at h
+            by_cases h5 : c = Setlec.natDivName
+            · rw [if_pos h5] at h
+              obtain rfl := Option.some.inj h
+              exact ⟨rfl, rfl⟩
+            · rw [if_neg h5] at h
+              by_cases h6 : c = Setlec.natModName
+              · rw [if_pos h6] at h
+                obtain rfl := Option.some.inj h
+                exact ⟨rfl, rfl⟩
+              · rw [if_neg h6] at h
+                by_cases h7 : c = Setlec.natGcdName
+                · rw [if_pos h7] at h
+                  obtain rfl := Option.some.inj h
+                  exact ⟨rfl, rfl⟩
+                · rw [if_neg h7] at h
+                  by_cases h8 : c = Setlec.natLandName
+                  · rw [if_pos h8] at h
+                    obtain rfl := Option.some.inj h
+                    exact ⟨rfl, rfl⟩
+                  · rw [if_neg h8] at h
+                    by_cases h9 : c = Setlec.natLorName
+                    · rw [if_pos h9] at h
+                      obtain rfl := Option.some.inj h
+                      exact ⟨rfl, rfl⟩
+                    · rw [if_neg h9] at h
+                      by_cases h10 : c = Setlec.natXorName
+                      · rw [if_pos h10] at h
+                        obtain rfl := Option.some.inj h
+                        exact ⟨rfl, rfl⟩
+                      · rw [if_neg h10] at h
+                        by_cases h11 : c = Setlec.natShiftLeftName
+                        · rw [if_pos h11] at h
+                          obtain rfl := Option.some.inj h
+                          exact ⟨rfl, rfl⟩
+                        · rw [if_neg h11] at h
+                          by_cases h12 : c = Setlec.natShiftRightName
+                          · rw [if_pos h12] at h
+                            obtain rfl := Option.some.inj h
+                            exact ⟨rfl, rfl⟩
+                          · rw [if_neg h12] at h
+                            by_cases h13 : c = Setlec.natLog2Name
+                            · rw [if_pos h13] at h
+                              obtain rfl := Option.some.inj h
+                              exact ⟨rfl, rfl⟩
+                            · rw [if_neg h13] at h
+                              by_cases h14 : c = Setlec.natBeqName
+                              · rw [if_pos h14] at h
+                                obtain rfl := Option.some.inj h
+                                exact ⟨rfl, rfl⟩
+                              · rw [if_neg h14] at h
+                                by_cases h15 : c = Setlec.natBleName
+                                · rw [if_pos h15] at h
+                                  obtain rfl := Option.some.inj h
+                                  exact ⟨rfl, rfl⟩
+                                · rw [if_neg h15] at h
+                                  simp at h
+
+/-- The closedness package travels along a gate-free trace. -/
+theorem RawReach.pres {env : Env} (henv : EnvWF env)
+    {d G : Nat} {X Y : Expr} (h : RawReach μ env d G X Y) :
+    X.looseBVarsBounded 0 = true → Expr.WScoped d X →
+    Y.looseBVarsBounded 0 = true ∧ Expr.WScoped d Y := by
+  induction h with
+  | refl e => exact fun hb hw => ⟨hb, hw⟩
+  | appL x h rest ihh ihr =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Expr.WScoped] at hw
+    obtain ⟨hfb', hfw'⟩ := ihh hb.1 hw.1
+    refine ihr ?_ ?_
+    · simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨hfb', hb.2⟩
+    · simp only [Expr.WScoped]
+      exact ⟨hfw', hw.2⟩
+  | projC sn i h rest ihh ihr =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded] at hb
+    simp only [Expr.WScoped] at hw
+    obtain ⟨hb', hw'⟩ := ihh hb hw
+    refine ihr ?_ ?_
+    · simpa only [Setlec.Expr.looseBVarsBounded] using hb'
+    · simpa only [Expr.WScoped] using hw'
+  | beta n ty b x m rest ih =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Expr.WScoped] at hw
+    exact ih
+      (Setlec.Expr.looseBVarsBounded_instantiate1_gen hb.2
+        hb.1.2)
+      (Setlec.Expr.WScoped.instantiate1_gen hw.2 0 hw.1.2)
+  | zeta n ty v b rest ih =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Expr.WScoped] at hw
+    exact ih
+      (Setlec.Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
+      (Setlec.Expr.WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+  | litNat e rest ih =>
+    intro hb hw
+    rcases litToCtorIfNat_cases env e with hid | ⟨n, rfl, hconv⟩
+    · refine ih ?_ ?_
+      · rw [hid]; exact hb
+      · rw [hid]; exact hw
+    · refine ih ?_ ?_
+      · rw [hconv]; exact (natLitToConstructor_closed n).2
+      · rw [hconv]
+        exact Setlec.Expr.WScoped.of_not_hasFvar
+          (natLitToConstructor_closed n).1
+  | litStr s g hg hs hr rest ih =>
+    intro hb hw
+    exact ih
+      (Setlec.whnf_looseBVars (mode := μ) henv g hr
+        (strLitToConstructor_bounded s))
+      (Setlec.Expr.WScoped.of_not_hasFvar
+        (whnf_closed_out_fvarfree henv
+          (strLitToConstructor_not_hasFvar s) hr))
+  | delta hu rest ih =>
+    intro hb hw
+    obtain ⟨hb', hw'⟩ := unfoldDefinition_pres henv hu hb hw
+    exact ih hb' hw'
+  | natSucc x n hs hx hnl rest ihx ihr =>
+    intro hb hw
+    exact ihr rfl (Setlec.Expr.WScoped.of_not_hasFvar rfl)
+  | natU1 c x n hc hg hx hnl hres rest ihx ihr =>
+    intro hb hw
+    exact ihr (natOpResult_closed hres).2
+      (Setlec.Expr.WScoped.of_not_hasFvar (natOpResult_closed hres).1)
+  | natB c x y n₁ n₂ hc hg hx hy hnx hny hres rest ihx ihy ihr =>
+    intro hb hw
+    exact ihr (natOpResult_closed hres).2
+      (Setlec.Expr.WScoped.of_not_hasFvar (natOpResult_closed hres).1)
+  | iotaPlain c us cv mI rP rules rl cj usj hfn hc hlen hM hMfn hrl
+      hml hnin rest ihM ihr =>
+    intro hb hw
+    obtain ⟨hMb, hMw⟩ := ihM
+      (Setlec.looseBVarsBounded_getAppArgs hb _
+        (Setlec.getD_mem (by rw [hlen]; omega)))
+      (Setlec.Expr.WScoped.getAppArgs hw _
+        (Setlec.getD_mem (by rw [hlen]; omega)))
+    obtain ⟨-, -, -, -, -, hrec, -⟩ := henv _ (Setlec.find?_mem hc)
+    obtain ⟨hrfv, -, -, hrb, -⟩ := hrec cv mI rP rules rfl rl
+      (List.mem_of_find?_eq_some hrl)
+    refine ihr (Setlec.looseBVarsBounded_mkAppN
+      (by rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+          exact hrb) ?_)
+      (Setlec.Expr.WScoped.mkAppN
+        (Setlec.Expr.WScoped.of_not_hasFvar (by
+          rw [Setlec.Expr.hasFvar_instantiateLevelParams]
+          exact hrfv)) ?_)
+    · intro z hz
+      rcases List.mem_append.mp hz with hz | hz
+      · exact Setlec.looseBVarsBounded_getAppArgs hb _
+          (List.take_subset _ _ hz)
+      · exact Setlec.looseBVarsBounded_getAppArgs hMb _
+          (List.drop_subset _ _ hz)
+    · intro z hz
+      rcases List.mem_append.mp hz with hz | hz
+      · exact Setlec.Expr.WScoped.getAppArgs hw _
+          (List.take_subset _ _ hz)
+      · exact Setlec.Expr.WScoped.getAppArgs hMw _
+          (List.drop_subset _ _ hz)
+  | iotaK c us cv mI rP rl cvj cnP T usT cvT caps targs hfn hc hlen
+      hM hcj hT hTi hK hml htb htw rest ihM ihr =>
+    intro hb hw
+    obtain ⟨-, -, -, -, -, hrec, -⟩ := henv _ (Setlec.find?_mem hc)
+    obtain ⟨hrfv, -, -, hrb, -⟩ := hrec cv mI rP [rl] rfl rl
+      List.mem_cons_self
+    refine ihr (Setlec.looseBVarsBounded_mkAppN
+      (by rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+          exact hrb) ?_)
+      (Setlec.Expr.WScoped.mkAppN
+        (Setlec.Expr.WScoped.of_not_hasFvar (by
+          rw [Setlec.Expr.hasFvar_instantiateLevelParams]
+          exact hrfv)) ?_)
+    · intro z hz
+      rcases List.mem_append.mp hz with hz | hz
+      · exact Setlec.looseBVarsBounded_getAppArgs hb _
+          (List.take_subset _ _ hz)
+      · exact htb _ (List.drop_subset _ _ hz)
+    · intro z hz
+      rcases List.mem_append.mp hz with hz | hz
+      · exact Setlec.Expr.WScoped.getAppArgs hw _
+          (List.take_subset _ _ hz)
+      · exact htw _ (List.drop_subset _ _ hz)
+  | iotaEta c us ust cv mI rP rl cvj cnP cnF T usT cvT caps targs
+      hfn hc hlen hM hcj hT hTi heta hec hml htb htw rest ihM ihr =>
+    intro hb hw
+    obtain ⟨hMb, hMw⟩ := ihM
+      (Setlec.looseBVarsBounded_getAppArgs hb _
+        (Setlec.getD_mem (by rw [hlen]; omega)))
+      (Setlec.Expr.WScoped.getAppArgs hw _
+        (Setlec.getD_mem (by rw [hlen]; omega)))
+    obtain ⟨-, -, -, -, -, hrec, -⟩ := henv _ (Setlec.find?_mem hc)
+    obtain ⟨hrfv, -, -, hrb, -⟩ := hrec cv mI rP [rl] rfl rl
+      List.mem_cons_self
+    refine ihr (Setlec.looseBVarsBounded_mkAppN
+      (by rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+          exact hrb) ?_)
+      (Setlec.Expr.WScoped.mkAppN
+        (Setlec.Expr.WScoped.of_not_hasFvar (by
+          rw [Setlec.Expr.hasFvar_instantiateLevelParams]
+          exact hrfv)) ?_)
+    · intro z hz
+      rcases List.mem_append.mp hz with hz | hz
+      · exact Setlec.looseBVarsBounded_getAppArgs hb _
+          (List.take_subset _ _ hz)
+      · have hz' := List.drop_subset _ _ hz
+        unfold Setlec.etaFabArgs at hz'
+        rcases List.mem_append.mp hz' with hz' | hz'
+        · exact htb z hz'
+        · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hz'
+          refine Setlec.looseBVarsBounded_mkAppN rfl ?_
+          intro y hy
+          rcases List.mem_append.mp hy with hy | hy
+          · exact htb y hy
+          · rw [List.mem_singleton] at hy
+            exact hy ▸ hMb
+    · intro z hz
+      rcases List.mem_append.mp hz with hz | hz
+      · exact Setlec.Expr.WScoped.getAppArgs hw _
+          (List.take_subset _ _ hz)
+      · have hz' := List.drop_subset _ _ hz
+        unfold Setlec.etaFabArgs at hz'
+        rcases List.mem_append.mp hz' with hz' | hz'
+        · exact htw z hz'
+        · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hz'
+          refine Setlec.Expr.WScoped.mkAppN
+            (Setlec.Expr.WScoped.of_not_hasFvar rfl) ?_
+          intro y hy
+          rcases List.mem_append.mp hy with hy | hy
+          · exact htw y hy
+          · rw [List.mem_singleton] at hy
+            exact hy ▸ hMw
+  | projFire sn i entry us hf hfn hnat hi hlenE rest ihr =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded] at hb
+    simp only [Expr.WScoped] at hw
+    exact ihr
+      (Setlec.looseBVarsBounded_getAppArgs hb _
+        (Setlec.getD_mem (by rw [hlenE]; omega)))
+      (Setlec.Expr.WScoped.getAppArgs hw _
+        (Setlec.getD_mem (by rw [hlenE]; omega)))
+
+set_option maxHeartbeats 1600000 in
+/-- **The trace image**: a gate-free trace at depth `d + 1` maps
+under the one-binder telescope substitution to a trace at depth `d`
+— the lemma that iterates the simulation over the Θ telescope. -/
+theorem RawReach.image {env : Env} (henv : EnvWF env)
+    {d G : Nat} {X Y : Expr} (h : RawReach μ env (d + 1) G X Y)
+    {a : Expr} (hab : a.looseBVarsBounded 0 = true)
+    (hwa : Expr.WScoped d a) :
+    X.looseBVarsBounded 0 = true → Expr.WScoped (d + 1) X →
+    RawReach μ env d G (substAK d 0 a X) (substAK d 0 a Y) := by
+  induction h with
+  | refl e => exact fun _ _ => .refl _
+  | appL x h rest ihh ihr =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Expr.WScoped] at hw
+    obtain ⟨hfb', hfw'⟩ := RawReach.pres henv h hb.1 hw.1
+    show RawReach μ env d G
+      (.app (substAK d 0 a _) (substAK d 0 a x)) _
+    refine RawReach.appL _ (ihh hb.1 hw.1) ?_
+    exact ihr
+      (by simp only [Setlec.Expr.looseBVarsBounded,
+            Bool.and_eq_true]
+          exact ⟨hfb', hb.2⟩)
+      (by simp only [Expr.WScoped]
+          exact ⟨hfw', hw.2⟩)
+  | projC sn i h rest ihh ihr =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded] at hb
+    simp only [Expr.WScoped] at hw
+    obtain ⟨hb', hw'⟩ := RawReach.pres henv h hb hw
+    show RawReach μ env d G (.proj sn i (substAK d 0 a _)) _
+    refine RawReach.projC sn i (ihh hb hw) ?_
+    exact ihr
+      (by simpa only [Setlec.Expr.looseBVarsBounded] using hb')
+      (by simpa only [Expr.WScoped] using hw')
+  | beta n ty b x m rest ih =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Expr.WScoped] at hw
+    show RawReach μ env d G
+      (.app (.lam n (substAK d 0 a ty) (substAK d 1 a b) m)
+        (substAK d 0 a x)) _
+    refine RawReach.beta _ _ _ _ _ ?_
+    rw [show (substAK d 1 a b).instantiate1 (substAK d 0 a x)
+        = substAK d 0 a (b.instantiate1 x) from
+      substAK_instantiate1 hab hb.2 b 0]
+    exact ih
+      (Setlec.Expr.looseBVarsBounded_instantiate1_gen hb.2 hb.1.2)
+      (Setlec.Expr.WScoped.instantiate1_gen hw.2 0 hw.1.2)
+  | zeta n ty v b rest ih =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Expr.WScoped] at hw
+    show RawReach μ env d G
+      (.letE n (substAK d 0 a ty) (substAK d 0 a v)
+        (substAK d 1 a b)) _
+    refine RawReach.zeta _ _ _ _ ?_
+    rw [show (substAK d 1 a b).instantiate1 (substAK d 0 a v)
+        = substAK d 0 a (b.instantiate1 v) from
+      substAK_instantiate1 hab hb.1.2 b 0]
+    exact ih
+      (Setlec.Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
+      (Setlec.Expr.WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+  | litNat e rest ih =>
+    intro hb hw
+    rcases litToCtorIfNat_cases env e with hid | ⟨n, rfl, hconv⟩
+    · rw [show Setlec.litToCtorIfNat env e = e from hid] at ih
+      exact ih hb hw
+    · refine RawReach.litNat (.lit (.natVal n)) ?_
+      rw [show substAK d 0 a (Setlec.litToCtorIfNat env
+            (.lit (.natVal n)))
+          = Setlec.litToCtorIfNat env (.lit (.natVal n)) from
+        substAK_eq_self_of_closed
+          (by rw [hconv]; exact (natLitToConstructor_closed n).1)
+          (by rw [hconv]
+              exact (natLitToConstructor_closed n).2)] at ih
+      exact ih
+        (by rw [hconv]; exact (natLitToConstructor_closed n).2)
+        (by rw [hconv]
+            exact Setlec.Expr.WScoped.of_not_hasFvar
+              (natLitToConstructor_closed n).1)
+  | litStr s g hg hs hr rest ih =>
+    intro hb hw
+    have hbt := Setlec.whnf_looseBVars (mode := μ) henv g hr
+      (strLitToConstructor_bounded s)
+    have hft := whnf_closed_out_fvarfree henv
+      (strLitToConstructor_not_hasFvar s) hr
+    refine RawReach.litStr s g hg hs
+      (whnf_closed_depth_down henv
+        (strLitToConstructor_not_hasFvar s) hr) ?_
+    rw [show substAK d 0 a _ = _ from
+      substAK_eq_self_of_closed hft hbt] at ih
+    exact ih hbt (Setlec.Expr.WScoped.of_not_hasFvar hft)
+  | delta hu rest ih =>
+    intro hb hw
+    obtain ⟨hb', hw'⟩ := unfoldDefinition_pres henv hu hb hw
+    exact RawReach.delta (substAK_unfoldDefinition henv hu)
+      (ih hb' hw')
+  | natSucc x n hs hx hnl rest ihx ihr =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Expr.WScoped] at hw
+    show RawReach μ env d G
+      (.app (.const Setlec.natSuccName []) (substAK d 0 a x)) _
+    refine RawReach.natSucc _ n hs (ihx hb.2 hw.2)
+      (by rw [substAK_of_rawNatLit hnl]; exact hnl) ?_
+    rw [show substAK d 0 a (Expr.lit (.natVal (n + 1)))
+        = Expr.lit (.natVal (n + 1)) from rfl] at ihr
+    exact ihr rfl (Setlec.Expr.WScoped.of_not_hasFvar rfl)
+  | natU1 c x n hc hg hx hnl hres rest ihx ihr =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Expr.WScoped] at hw
+    show RawReach μ env d G
+      (.app (.const c []) (substAK d 0 a x)) _
+    refine RawReach.natU1 c _ n hc hg (ihx hb.2 hw.2)
+      (by rw [substAK_of_rawNatLit hnl]; exact hnl) hres ?_
+    rw [show substAK d 0 a _ = _ from
+      substAK_eq_self_of_closed (natOpResult_closed hres).1
+        (natOpResult_closed hres).2] at ihr
+    exact ihr (natOpResult_closed hres).2
+      (Setlec.Expr.WScoped.of_not_hasFvar
+        (natOpResult_closed hres).1)
+  | natB c x y n₁ n₂ hc hg hx hy hnx hny hres rest ihx ihy ihr =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at hb
+    simp only [Expr.WScoped] at hw
+    show RawReach μ env d G
+      (.app (.app (.const c []) (substAK d 0 a x))
+        (substAK d 0 a y)) _
+    refine RawReach.natB c _ _ n₁ n₂ hc hg
+      (ihx hb.1.2 hw.1.2) (ihy hb.2 hw.2)
+      (by rw [substAK_of_rawNatLit hnx]; exact hnx)
+      (by rw [substAK_of_rawNatLit hny]; exact hny) hres ?_
+    rw [show substAK d 0 a _ = _ from
+      substAK_eq_self_of_closed (natOpResult_closed hres).1
+        (natOpResult_closed hres).2] at ihr
+    exact ihr (natOpResult_closed hres).2
+      (Setlec.Expr.WScoped.of_not_hasFvar
+        (natOpResult_closed hres).1)
+  | iotaPlain c us cv mI rP rules rl cj usj hfn hc hlen hM hMfn hrl
+      hml hnin rest ihM ihr =>
+    intro hb hw
+    obtain ⟨hMb, hMw⟩ := RawReach.pres henv hM
+      (Setlec.looseBVarsBounded_getAppArgs hb _
+        (Setlec.getD_mem (by rw [hlen]; omega)))
+      (Setlec.Expr.WScoped.getAppArgs hw _
+        (Setlec.getD_mem (by rw [hlen]; omega)))
+    obtain ⟨-, -, -, -, -, hrec, -⟩ := henv _ (Setlec.find?_mem hc)
+    obtain ⟨hrfv, -, -, hrb, -⟩ := hrec cv mI rP rules rfl rl
+      (List.mem_of_find?_eq_some hrl)
+    rename_i e' M' w'
+    refine RawReach.iotaPlain c us cv mI rP rules rl cj usj
+      (M := substAK d 0 a M') (w := substAK d 0 a w')
+      (substAK_getAppFn_const hfn) hc ?_ ?_
+      (substAK_getAppFn_const hMfn) hrl ?_ hnin ?_
+    · rw [substAK_getAppArgs_const hfn, List.length_map]
+      exact hlen
+    · rw [substAK_getAppArgs_const hfn,
+        getD_map_lt (by rw [hlen]; omega)]
+      exact ihM
+        (Setlec.looseBVarsBounded_getAppArgs hb _
+          (Setlec.getD_mem (by rw [hlen]; omega)))
+        (Setlec.Expr.WScoped.getAppArgs hw _
+          (Setlec.getD_mem (by rw [hlen]; omega)))
+    · rw [substAK_getAppArgs_const hMfn, List.length_map]
+      exact hml
+    · rw [substAK_getAppArgs_const hfn,
+        substAK_getAppArgs_const hMfn]
+      rw [substAK_mkAppN,
+        substAK_eq_self_of_closed
+          (e := rl.rhs.instantiateLevelParams cv.levelParams us)
+          (by rw [Setlec.Expr.hasFvar_instantiateLevelParams]
+              exact hrfv)
+          (by
+            rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+            exact hrb)] at ihr
+      simp only [List.map_append, List.map_take, List.map_drop]
+        at ihr
+      refine ihr (Setlec.looseBVarsBounded_mkAppN
+        (by rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+            exact hrb) ?_)
+        (Setlec.Expr.WScoped.mkAppN
+          (Setlec.Expr.WScoped.of_not_hasFvar (by
+            rw [Setlec.Expr.hasFvar_instantiateLevelParams]
+            exact hrfv)) ?_)
+      · intro z hz
+        rcases List.mem_append.mp hz with hz | hz
+        · exact Setlec.looseBVarsBounded_getAppArgs hb _
+            (List.take_subset _ _ hz)
+        · exact Setlec.looseBVarsBounded_getAppArgs hMb _
+            (List.drop_subset _ _ hz)
+      · intro z hz
+        rcases List.mem_append.mp hz with hz | hz
+        · exact Setlec.Expr.WScoped.getAppArgs hw _
+            (List.take_subset _ _ hz)
+        · exact Setlec.Expr.WScoped.getAppArgs hMw _
+            (List.drop_subset _ _ hz)
+  | iotaK c us cv mI rP rl cvj cnP T usT cvT caps targs hfn hc hlen
+      hM hcj hT hTi hK hml htb htw rest ihM ihr =>
+    intro hb hw
+    obtain ⟨-, -, -, -, -, hrec, -⟩ := henv _ (Setlec.find?_mem hc)
+    obtain ⟨hrfv, -, -, hrb, -⟩ := hrec cv mI rP [rl] rfl rl
+      List.mem_cons_self
+    rename_i e' M' w'
+    refine RawReach.iotaK c us cv mI rP rl cvj cnP T usT cvT caps
+      (targs.map (substAK d 0 a))
+      (M := substAK d 0 a M') (w := substAK d 0 a w')
+      (substAK_getAppFn_const hfn) hc ?_ ?_ hcj hT hTi hK ?_ ?_ ?_
+      ?_
+    · rw [substAK_getAppArgs_const hfn, List.length_map]
+      exact hlen
+    · rw [substAK_getAppArgs_const hfn,
+        getD_map_lt (by rw [hlen]; omega)]
+      exact ihM
+        (Setlec.looseBVarsBounded_getAppArgs hb _
+          (Setlec.getD_mem (by rw [hlen]; omega)))
+        (Setlec.Expr.WScoped.getAppArgs hw _
+          (Setlec.getD_mem (by rw [hlen]; omega)))
+    · rw [← List.map_take, List.length_map]
+      exact hml
+    · intro z hz
+      rw [← List.map_take] at hz
+      obtain ⟨z₀, hz₀, rfl⟩ := List.mem_map.mp hz
+      exact substAK_bounded hab (htb z₀ hz₀)
+    · intro z hz
+      rw [← List.map_take] at hz
+      obtain ⟨z₀, hz₀, rfl⟩ := List.mem_map.mp hz
+      exact substAK_WScoped hwa (htw z₀ hz₀)
+    · rw [substAK_getAppArgs_const hfn]
+      rw [substAK_mkAppN,
+        substAK_eq_self_of_closed
+          (e := rl.rhs.instantiateLevelParams cv.levelParams us)
+          (by rw [Setlec.Expr.hasFvar_instantiateLevelParams]
+              exact hrfv)
+          (by
+            rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+            exact hrb)] at ihr
+      simp only [List.map_append, List.map_take, List.map_drop]
+        at ihr
+      refine ihr (Setlec.looseBVarsBounded_mkAppN
+        (by rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+            exact hrb) ?_)
+        (Setlec.Expr.WScoped.mkAppN
+          (Setlec.Expr.WScoped.of_not_hasFvar (by
+            rw [Setlec.Expr.hasFvar_instantiateLevelParams]
+            exact hrfv)) ?_)
+      · intro z hz
+        rcases List.mem_append.mp hz with hz | hz
+        · exact Setlec.looseBVarsBounded_getAppArgs hb _
+            (List.take_subset _ _ hz)
+        · exact htb _ (List.drop_subset _ _ hz)
+      · intro z hz
+        rcases List.mem_append.mp hz with hz | hz
+        · exact Setlec.Expr.WScoped.getAppArgs hw _
+            (List.take_subset _ _ hz)
+        · exact htw _ (List.drop_subset _ _ hz)
+  | iotaEta c us ust cv mI rP rl cvj cnP cnF T usT cvT caps targs
+      hfn hc hlen hM hcj hT hTi heta hec hml htb htw rest ihM ihr =>
+    intro hb hw
+    rename_i e' M' w'
+    obtain ⟨hMb, hMw⟩ := RawReach.pres henv hM
+      (Setlec.looseBVarsBounded_getAppArgs hb _
+        (Setlec.getD_mem (by rw [hlen]; omega)))
+      (Setlec.Expr.WScoped.getAppArgs hw _
+        (Setlec.getD_mem (by rw [hlen]; omega)))
+    obtain ⟨-, -, -, -, -, hrec, -⟩ := henv _ (Setlec.find?_mem hc)
+    obtain ⟨hrfv, -, -, hrb, -⟩ := hrec cv mI rP [rl] rfl rl
+      List.mem_cons_self
+    have hfabB : ∀ z ∈ Setlec.etaFabArgs T ust targs M'
+        caps.etaFields, z.looseBVarsBounded 0 = true := by
+      intro z hz
+      unfold Setlec.etaFabArgs at hz
+      rcases List.mem_append.mp hz with hz | hz
+      · exact htb z hz
+      · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hz
+        refine Setlec.looseBVarsBounded_mkAppN rfl ?_
+        intro y hy
+        rcases List.mem_append.mp hy with hy | hy
+        · exact htb y hy
+        · rw [List.mem_singleton] at hy
+          exact hy ▸ hMb
+    have hfabW : ∀ z ∈ Setlec.etaFabArgs T ust targs M'
+        caps.etaFields, Expr.WScoped (d + 1) z := by
+      intro z hz
+      unfold Setlec.etaFabArgs at hz
+      rcases List.mem_append.mp hz with hz | hz
+      · exact htw z hz
+      · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hz
+        refine Setlec.Expr.WScoped.mkAppN
+          (Setlec.Expr.WScoped.of_not_hasFvar rfl) ?_
+        intro y hy
+        rcases List.mem_append.mp hy with hy | hy
+        · exact htw y hy
+        · rw [List.mem_singleton] at hy
+          exact hy ▸ hMw
+    refine RawReach.iotaEta c us ust cv mI rP rl cvj cnP cnF T usT
+      cvT caps (targs.map (substAK d 0 a))
+      (M := substAK d 0 a M') (w := substAK d 0 a w')
+      (substAK_getAppFn_const hfn) hc ?_ ?_ hcj hT hTi heta hec ?_
+      ?_ ?_ ?_
+    · rw [substAK_getAppArgs_const hfn, List.length_map]
+      exact hlen
+    · rw [substAK_getAppArgs_const hfn,
+        getD_map_lt (by rw [hlen]; omega)]
+      exact ihM
+        (Setlec.looseBVarsBounded_getAppArgs hb _
+          (Setlec.getD_mem (by rw [hlen]; omega)))
+        (Setlec.Expr.WScoped.getAppArgs hw _
+          (Setlec.getD_mem (by rw [hlen]; omega)))
+    · rw [← substAK_etaFabArgs, List.length_map]
+      exact hml
+    · intro z hz
+      obtain ⟨z₀, hz₀, rfl⟩ := List.mem_map.mp hz
+      exact substAK_bounded hab (htb z₀ hz₀)
+    · intro z hz
+      obtain ⟨z₀, hz₀, rfl⟩ := List.mem_map.mp hz
+      exact substAK_WScoped hwa (htw z₀ hz₀)
+    · rw [substAK_getAppArgs_const hfn, ← substAK_etaFabArgs]
+      rw [substAK_mkAppN,
+        substAK_eq_self_of_closed
+          (e := rl.rhs.instantiateLevelParams cv.levelParams us)
+          (by rw [Setlec.Expr.hasFvar_instantiateLevelParams]
+              exact hrfv)
+          (by
+            rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+            exact hrb)] at ihr
+      simp only [List.map_append, List.map_take, List.map_drop]
+        at ihr
+      refine ihr (Setlec.looseBVarsBounded_mkAppN
+        (by rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+            exact hrb) ?_)
+        (Setlec.Expr.WScoped.mkAppN
+          (Setlec.Expr.WScoped.of_not_hasFvar (by
+            rw [Setlec.Expr.hasFvar_instantiateLevelParams]
+            exact hrfv)) ?_)
+      · intro z hz
+        rcases List.mem_append.mp hz with hz | hz
+        · exact Setlec.looseBVarsBounded_getAppArgs hb _
+            (List.take_subset _ _ hz)
+        · exact hfabB _ (List.drop_subset _ _ hz)
+      · intro z hz
+        rcases List.mem_append.mp hz with hz | hz
+        · exact Setlec.Expr.WScoped.getAppArgs hw _
+            (List.take_subset _ _ hz)
+        · exact hfabW _ (List.drop_subset _ _ hz)
+  | projFire sn i entry us hf hfn hnat hi hlenE rest ihr =>
+    intro hb hw
+    simp only [Setlec.Expr.looseBVarsBounded] at hb
+    simp only [Expr.WScoped] at hw
+    show RawReach μ env d G (.proj sn i (substAK d 0 a _)) _
+    refine RawReach.projFire sn i entry us hf
+      (substAK_getAppFn_const hfn) hnat hi ?_ ?_
+    · rw [substAK_getAppArgs_const hfn, List.length_map]
+      exact hlenE
+    · rw [substAK_getAppArgs_const hfn,
+        getD_map_lt (by rw [hlenE]; omega)]
+      exact ihr
+        (Setlec.looseBVarsBounded_getAppArgs hb _
+          (Setlec.getD_mem (by rw [hlenE]; omega)))
+        (Setlec.Expr.WScoped.getAppArgs hw _
+          (Setlec.getD_mem (by rw [hlenE]; omega)))
+
+/-- The LEFT telescope substitution preserves local closedness. -/
+theorem thetaSubst_bounded₁ {μ : CheckMode} {env : Env} {fcK : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {X : Expr},
+      TelescopeOk μ env fcK d Γ →
+      X.looseBVarsBounded 0 = true →
+      (thetaSubst₁ d Γ X).looseBVarsBounded 0 = true
+  | [], d, X => fun _ hb => hb
+  | t :: Γ', d, X => fun hΓ hb => by
+    obtain ⟨-, -, hI₁, -, -, hΓ'⟩ := hΓ
+    exact substAK_bounded hI₁.2.1 (thetaSubst_bounded₁ hΓ' hb)
+
+/-- The RIGHT telescope substitution preserves local closedness. -/
+theorem thetaSubst_bounded₂ {μ : CheckMode} {env : Env} {fcK : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {X : Expr},
+      TelescopeOk μ env fcK d Γ →
+      X.looseBVarsBounded 0 = true →
+      (thetaSubst₂ d Γ X).looseBVarsBounded 0 = true
+  | [], d, X => fun _ hb => hb
+  | t :: Γ', d, X => fun hΓ hb => by
+    obtain ⟨-, -, -, hI₂, -, hΓ'⟩ := hΓ
+    exact substAK_bounded hI₂.2.1 (thetaSubst_bounded₂ hΓ' hb)
+
+/-- The LEFT telescope substitution lands at the outer scope. -/
+theorem thetaSubst_WScoped₁ {μ : CheckMode} {env : Env} {fcK : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {X : Expr},
+      TelescopeOk μ env fcK d Γ →
+      Expr.WScoped (d + Γ.length) X →
+      Expr.WScoped d (thetaSubst₁ d Γ X)
+  | [], d, X => fun _ hw => hw
+  | t :: Γ', d, X => fun hΓ hw => by
+    obtain ⟨-, -, hI₁, -, -, hΓ'⟩ := hΓ
+    refine substAK_WScoped hI₁.1 ?_
+    refine thetaSubst_WScoped₁ hΓ' ?_
+    have heq : (d + 1) + Γ'.length = d + (t :: Γ').length := by
+      simp [List.length_cons]
+      omega
+    rw [heq]
+    exact hw
+
+/-- The RIGHT telescope substitution lands at the outer scope. -/
+theorem thetaSubst_WScoped₂ {μ : CheckMode} {env : Env} {fcK : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {X : Expr},
+      TelescopeOk μ env fcK d Γ →
+      Expr.WScoped (d + Γ.length) X →
+      Expr.WScoped d (thetaSubst₂ d Γ X)
+  | [], d, X => fun _ hw => hw
+  | t :: Γ', d, X => fun hΓ hw => by
+    obtain ⟨-, -, -, hI₂, -, hΓ'⟩ := hΓ
+    refine substAK_WScoped hI₂.1 ?_
+    refine thetaSubst_WScoped₂ hΓ' ?_
+    have heq : (d + 1) + Γ'.length = d + (t :: Γ').length := by
+      simp [List.length_cons]
+      omega
+    rw [heq]
+    exact hw
+
+/-! #### The telescope trace (E3): traces map down the Θ telescope -/
+
+/-- A trace at the telescope's inner depth maps under the LEFT
+telescope substitution to a trace at the outer depth (fold of
+`RawReach.image` over `Γ`; the arguments' packages come from
+`TelescopeOk`). -/
+theorem thetaSubst₁_trace {env : Env} (henv : EnvWF env)
+    {fcK : Nat} :
+    ∀ {Γ : List ThetaEntry} {d G : Nat} {X Y : Expr},
+      TelescopeOk μ env fcK d Γ →
+      RawReach μ env (d + Γ.length) G X Y →
+      X.looseBVarsBounded 0 = true →
+      Expr.WScoped (d + Γ.length) X →
+      RawReach μ env d G (thetaSubst₁ d Γ X) (thetaSubst₁ d Γ Y)
+  | [], d, G, X, Y => fun _ h _ _ => h
+  | t :: Γ', d, G, X, Y => fun hΓ h hb hw => by
+    obtain ⟨-, -, hI₁, -, -, hΓ'⟩ := hΓ
+    have heq : (d + 1) + Γ'.length = d + (t :: Γ').length := by
+      simp [List.length_cons]
+      omega
+    have h' : RawReach μ env ((d + 1) + Γ'.length) G X Y := by
+      rw [heq]
+      exact h
+    have hw' : Expr.WScoped ((d + 1) + Γ'.length) X := by
+      rw [heq]
+      exact hw
+    have hin := thetaSubst₁_trace henv hΓ' h' hb hw'
+    show RawReach μ env d G
+      (substAK d 0 t.a₁ (thetaSubst₁ (d + 1) Γ' X))
+      (substAK d 0 t.a₁ (thetaSubst₁ (d + 1) Γ' Y))
+    refine RawReach.image henv hin hI₁.2.1 hI₁.1 ?_ ?_
+    · exact thetaSubst_bounded₁ hΓ' hb
+    · exact thetaSubst_WScoped₁ hΓ' hw'
+
+/-- The RIGHT-side telescope trace. -/
+theorem thetaSubst₂_trace {env : Env} (henv : EnvWF env)
+    {fcK : Nat} :
+    ∀ {Γ : List ThetaEntry} {d G : Nat} {X Y : Expr},
+      TelescopeOk μ env fcK d Γ →
+      RawReach μ env (d + Γ.length) G X Y →
+      X.looseBVarsBounded 0 = true →
+      Expr.WScoped (d + Γ.length) X →
+      RawReach μ env d G (thetaSubst₂ d Γ X) (thetaSubst₂ d Γ Y)
+  | [], d, G, X, Y => fun _ h _ _ => h
+  | t :: Γ', d, G, X, Y => fun hΓ h hb hw => by
+    obtain ⟨-, -, -, hI₂, -, hΓ'⟩ := hΓ
+    have heq : (d + 1) + Γ'.length = d + (t :: Γ').length := by
+      simp [List.length_cons]
+      omega
+    have h' : RawReach μ env ((d + 1) + Γ'.length) G X Y := by
+      rw [heq]
+      exact h
+    have hw' : Expr.WScoped ((d + 1) + Γ'.length) X := by
+      rw [heq]
+      exact hw
+    have hin := thetaSubst₂_trace henv hΓ' h' hb hw'
+    show RawReach μ env d G
+      (substAK d 0 t.a₂ (thetaSubst₂ (d + 1) Γ' X))
+      (substAK d 0 t.a₂ (thetaSubst₂ (d + 1) Γ' Y))
+    refine RawReach.image henv hin hI₂.2.1 hI₂.1 ?_ ?_
+    · exact thetaSubst_bounded₂ hΓ' hb
+    · exact thetaSubst_WScoped₂ hΓ' hw'
 
 end Discharge
 

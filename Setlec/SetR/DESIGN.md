@@ -12039,3 +12039,44 @@ two `open`s, and (from `Discharge` on) `section Discharge` with its
 `{μ} {env}` variables.  Zero statement changes; zero relocation
 warnings (the V-freedom convention and linear structure meant no
 re-derivations surfaced).  Battery green, axioms 12/12.
+
+### The Θ engine tier E1–E3 SEALED (embeddings, trace image, telescope trace)
+
+Three engines land between the simulation and the walk:
+
+* **E1 — the identity embeddings** (`whnfCore_toRawReach`,
+  `whnfLoop_toRawReach`, with `whnfLoop_pres` as their preservation
+  supplier): a depth-`d` run embeds as a trace at its own depth with
+  ZERO new inductions — shift the run one depth up (the `ShiftClaims`
+  battery; `Setlec.whnfLoop_shift` de-privatized in `Deep.lean`, a
+  one-word visibility change), apply the simulation at a dummy closed
+  argument, collapse both `substAK`s by `substAK_eq_self` (the
+  subject is `d`-fresh).  The shift battery pays a second time.
+* **E2 — the trace tier**: `RawReach.pres` (the closedness package
+  travels along gate-free traces) and `RawReach.image` (a trace at
+  `d + 1` maps under one `substAK` to a trace at `d`) — the map
+  AMENDED en route: the rescue rows (`iotaK`/`iotaEta`) now carry
+  their fabrication spines' closedness (`htb`/`htw`), supplied in
+  the sim's discharge from `majorToCtor`'s own scope guards (the
+  fabrication's `wscopedB`/`looseBVarsBounded` checks — no infer
+  preservation needed, hence no `LeavesBounded` threading).
+  Suppliers: `whnf_closed_out_fvarfree`, `natOpResult_closed`
+  (`delta` + scripted 16-way `by_cases`; `unfold` diverges on the
+  if-chain — banked), `substAK_bounded`/`substAK_WScoped`.
+* **E3 — the telescope trace** (`thetaSubst₁_trace`/`₂` +
+  positional bounded/WScoped folds): a trace at the telescope's
+  inner depth maps down the whole `Γ` (fold of E2 over the entries,
+  packages from `TelescopeOk`).
+
+With E1–E3 and `substSimClaims`, the walk's per-arm image
+machinery is complete; the remaining engine is E4 — the rebase
+(sort-successful loops transported along traces, the forcing sweep)
+— whose map seal is next, with the iota-divergence seam treatment
+at full strength.
+
+Note: the session restart cleared the scratchpad's axiom-sweep
+file; rebuilt covering the four `no_proof_of_Empty*_R` mains plus
+eight branch summits (coreLock, loopLock, certLoop_sortAgree,
+zipProjHeadCase_of, substSimClaims, RawReach.image,
+thetaSubst₁_trace, whnfLoop_toRawReach) — 12/12 at exactly the
+three standard axioms.
