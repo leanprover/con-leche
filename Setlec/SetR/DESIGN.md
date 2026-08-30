@@ -12688,3 +12688,49 @@ shapes needed (`psigmaMk`'s root-level split, the tail's inhabitation
 chains) are both writable against `piR_zero` as it stands.  The
 capstone `bval2_mem_type` itself waits on all eighteen, so the `const`
 row stays deferred until they land.
+
+### Step 2 entry item 2 COMPLETE — and the skeleton stands at ten of ten
+
+The five that resisted are in, `bval2_mem_type` closes over all
+eighteen, and `Skeleton.sound_const` — deferred at its own seal for
+want of a supplier, not a proof — is now two facts wide.  **Deliverable
+(2) covers ten `AVExpr` formers of ten.**
+
+**`psigmaMk`, by the root split the finding predicted.**  Exactly as
+mapped: `by_cases` on `Nat.max u v = 0`; the positive branch is v1's
+four pointwise `lamR_mem`s with `spair_mem`; the zero branch rewrites
+the tower to `pt` and exhibits *inhabitation* down four levels.  That
+needed one general lemma the collapse lane had and this one did not —
+`pt_mem_piR_zero` (`Interp2/Ops.lean`): at `v = 0` the product is a
+truth value, so membership of the canonical proof needs only that each
+fibre is **inhabited**, strictly weaker than `lamR_mem`'s pointwise
+`F x ∈ˢ B x`.  Its pointwise wrapper `pt_mem_piR_zero_of` is the
+line-for-line stand-in for the collapse lane's `pt_mem_piC_iff.mpr`.
+
+*The finding's rule, now paid for: dropping a value-level regime tag
+moves the kind-`0` argument from leaf to root.  The missing lemma was
+the shape of the move — `lamR_mem` is a **witness** law, and what the
+root needs is an **inhabitation** law.  When a tag goes, check that the
+weaker law exists before assuming the proof transposes.*
+
+**The other four went as sized.**  `quotLift`: five `lamR_mem`s and
+`quotLiftR_mem`, whose kind-`0` fibre premise comes from the third
+binder (`B ∈ˢ univ v`, and `univ 0 = univZero`) — nothing new.  The
+`pt`-valued propositions (`quotInd`, `quotSound`, `propext`) ported
+line for line off v1 once `pt_mem_piR_zero_of` existed, which is the
+whole content of "the inhabitation tail": the arguments were never the
+difficulty, the missing introduction law was.
+
+**Two frictions banked for the next porter.**  A `have` with an
+explicit type ascription written in `lv us 0` will not `rw` against a
+goal carrying `us.getD 0 0` — drop the ascription and let it infer.
+And `quotInd`'s minor-premise fibre condition must be rewritten through
+`quotMkV2_app` *before* `app_mem_piR_pos` fires, because the invariant
+states the fibre at the constructor's **value** while the motive
+membership is about its `quotClass` **reduct**.
+
+**The `const` row consumes nothing from the interface** — a built-in is
+a closed leaf, so no context, no valuation, no hereditary premise.
+That is why it could be written last and still cost one line, and it is
+a small confirmation that the interface's shape was right: the row that
+needed the most *machinery* needed the least *interface*.

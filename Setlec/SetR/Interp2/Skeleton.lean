@@ -1,6 +1,7 @@
 import Setlec.SetR.Annot.Ok2
 import Setlec.SetR.Annot.EnvS2
 import Setlec.SetR.Interp2.Univ
+import Setlec.SetR.Interp2.BasisOk
 
 /-!
 # The second soundness's per-former skeleton (task #151, arc step 4)
@@ -52,27 +53,22 @@ supplier, and the truth-value route gives only that the fibre is
 inhabited.  The amendment is what makes the app row a theorem rather
 than a residue.
 
-## The `const` row is DEFERRED, and deliberately not stated here
+## The `const` row, closed
 
-Nine of the ten `AVExpr` formers have rows below.  `.const` does not,
-and the reason is a missing *supplier*, not a missing proof:
+It was deferred at the first seal for a supplier reason, not a proof
+reason: `BConst.type` yields a `VExpr` and `denote2` maps
+`Expr → AVExpr`, so a built-in's *annotated* type could not be written
+at all, and there was no `interp2` analogue of `ConstOk.lean`'s
+capstone.  Migration step 2 supplied both — `BConst.type2`
+(`Interp2/BasisType.lean`, with `type2_erase` for faithfulness) and
+`bval2_mem_type` (`Interp2/BasisOk.lean`, all eighteen constants) — so
+`sound_const` is now two facts wide and the skeleton covers **ten
+formers of ten**.
 
-* there is no annotated built-in type former — no
-  `BConst.type2 : BConst → List Nat → AVExpr`.  `BConst.type` produces
-  a `VExpr`, and `denote2` maps `Expr → AVExpr`, so it does not apply
-  to it.  Without that former the row's conclusion cannot even be
-  *written*;
-* and there is no `bval2_mem_type` — the `interp2` analogue of
-  `Setlec/TT/Semantics/ConstOk.lean`'s `bval_mem_type`.
-  `Interp2/Value.lean` has the per-constant application laws and the
-  towers' own membership facts, but not the capstone.
-
-Both belong to **migration step 2** (the install tier over `interp2`:
-basis blocks on `bval2`, `EqLawV2`, the iota bottoms).  Writing either
-here would be the T5 near-miss the campaign has ruled against — a
-premise guessed at the consumer instead of stated by its supplier — so
-the row waits.  Ledgered, with those two names, as step 2's entry
-condition for this file.
+Worth keeping: the row consumes *nothing* from the interface.  A
+built-in is a closed leaf, so it needs no context, no valuation and no
+hereditary premise — which is why it could be the last row written and
+still cost one line.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -190,6 +186,19 @@ theorem app_mem_of_slot {ρ : Nat → V} {fa aa : AVExpr}
   rw [AnnotOk2_app] at hok
   obtain ⟨-, -, v, A, B, hf, ha, hz⟩ := hok
   exact ⟨B, by rw [interp2_app]; exact app_mem_piR hf ha hz⟩
+
+/-! ## The `const` row -/
+
+/-- **`const`.**  Interface facts: the basis capstone
+(`bval2_mem_type`) and nothing else — a built-in is a closed leaf, so
+its row needs no context, no valuation and no hereditary premise.  With
+this the skeleton covers **ten formers of ten**. -/
+theorem sound_const (ρ : Nat → V) (c : Setlec.TT.BConst)
+    (us : List Nat) :
+    AnnotOk2 V ρ (.const c us) ∧
+      interp2 V ρ (.const c us)
+        ∈ˢ interp2 V ρ (BConst.type2 c us) :=
+  ⟨by simp, bval2_mem_type V c us ρ⟩
 
 /-! ## The remaining structural rows -/
 
