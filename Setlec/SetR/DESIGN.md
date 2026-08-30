@@ -11883,3 +11883,18 @@ statement).  Two findings from the induction:
 Next: the ι composite (fire-image under `substAK` — ctor-head
 stability + closed rule RHS + `mkAppN` distribution; needs
 `substAK_mkAppN`), then `whnfCore_subst_sim`'s map + induction.
+
+### The ι composite SEALED — the commutation kit is COMPLETE
+
+Landed: `mkAppN_abstract1` (spine distribution under abstraction)
+and `substAK_mkAppN` (the telescope substitution distributes over
+`mkAppN` — the ι fire result, `mkAppN` of the rule RHS over
+`args.take rP ++ margs.drop ctorParams`, maps to the fire on the
+mapped spine; the RHS's own invariance is `substAK_eq_self` on the
+env-stored closed term, applied at the sim's site where EnvWF
+supplies closedness).  List surgery on the spine parts is
+`List.map_take`/`map_drop`/`map_append` at the consumer.  The kit
+now holds: `abstract1_eq_self`, `substAK_eq_self`,
+`abstract1_instantiate1_comm`, `substAK_cursor`,
+`substAK_instantiate1`, `mkAppN_abstract1`, `substAK_mkAppN`.
+Next: `whnfCore_subst_sim`'s map seal, then its induction.

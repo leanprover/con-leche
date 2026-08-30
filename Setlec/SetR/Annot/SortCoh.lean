@@ -12935,6 +12935,37 @@ theorem substAK_instantiate1 {d : Nat} {a : Expr}
       = Expr.proj sn i (substAK d k a (e.instantiate1 v k))
     rw [ih k]
 
+/-- `mkAppN` distributes under `abstract1` (companion to
+`mkAppN_instantiate1`; together they give `substAK_mkAppN`). -/
+theorem mkAppN_abstract1 {d : Nat} :
+    ∀ (args : List Expr) (h : Expr) (k : Nat),
+      (Expr.mkAppN h args).abstract1 d k =
+        Expr.mkAppN (h.abstract1 d k)
+          (args.map (·.abstract1 d k)) := by
+  intro args
+  induction args with
+  | nil => intro h k; rfl
+  | cons x xs ih =>
+    intro h k
+    show (Expr.mkAppN (.app h x) xs).abstract1 d k = _
+    rw [ih (.app h x) k]
+    rfl
+
+/-- **The ι composite's distribution law**: `substAK` distributes
+over spines — the iota fire result (`mkAppN` of the closed rule RHS
+over spine parts) maps under the telescope substitution to the fire
+on the mapped spine (the RHS itself is `substAK`-invariant by
+`substAK_eq_self` on env-stored closed terms). -/
+theorem substAK_mkAppN {d k : Nat} {a : Expr} (h : Expr)
+    (args : List Expr) :
+    substAK d k a (Expr.mkAppN h args)
+      = Expr.mkAppN (substAK d k a h)
+          (args.map (substAK d k a)) := by
+  unfold substAK
+  rw [mkAppN_abstract1, Setlec.Expr.mkAppN_instantiate1,
+    List.map_map]
+  rfl
+
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/
 theorem zipLamHeadCase_of {φ : Name → Nat}
