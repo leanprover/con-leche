@@ -11978,3 +11978,44 @@ Preservation suppliers located, all landed: `whnfCore_looseBVars` /
 (carries the fabrication's scope-guard facts), `reduceNat_inv`,
 `projLitToCtorP_inv`.  Nothing new to prove on the preservation
 tier.  Next: the induction itself.
+
+### `substSimClaims` DISCHARGED — the substitution simulation lands
+
+The deepest theorem of the arc is sealed: `substSimClaims (henv :
+EnvWF env) : ∀ fuel, SubstSimClaims μ env fuel` — every tier
+(`core`/`whnf`/`loop`) at every knot fuel, by the `LeavesPres`-class
+fuel induction with the ratified tier order (whnf from predecessor
+loop; core from the body walk; loop by budget induction consuming
+same-fuel core+whnf).  The clause walk landed exactly per the map's
+table: trivial arms `refl`; ζ/β through `substAK_instantiate1`;
+the app head through `appL`; iota through `iotaRec_inv` +
+`substSim_major_trace` (the slot's whnf trace + `litNat`/`litStr`
+conversion steps, the string expansion transported one depth down
+through the discharged shift battery) + the three fire rows off
+`majorToCtor_inv` (plain via image spines; K and eta via the
+fabrication existentials — `hma` re-expressing the fab's spine, the
+`rl'`-singleton `find?` collapse, `substAK_etaFabArgs` for the eta
+fields); proj through `whnf_proj_inv` + `projC`/`projFire`; the nat
+rows through the new `reduceNat_decompose`; delta through
+`substAK_unfoldDefinition` + the new `unfoldDefinition_pres`.
+Preservation rode entirely on landed suppliers
+(`whnfCore_looseBVars`/`whnf_looseBVars`, `whnfCore_WScoped`/
+`whnf_WScoped`, `whnf_leaves`) plus the new `litMajor_pres` /
+`litToCtorIfNat_cases`.
+
+**Mechanization notes banked**: constructor bullets against reduced
+subjects need `show … from`-coerced rewrite equations (the goal
+holds `.app (sA f') (sA x)`, the lemma speaks of `substAK … (.app
+f' x)` — defeq, but `rw` is syntactic); deferred `?_` premises
+leave relation endpoints (`M`) unconstrained — pin them with
+explicit `(M := …)`; `rw [h] at h₁ h₂` fails on the first
+hypothesis without an occurrence — list only carriers; a spliced
+`python s.index` end-anchor MUST be searched from the start offset
+(a first-occurrence match duplicated 10k lines mid-session —
+excised by line surgery; scripts now assert anchors).
+
+One editorial note: the K/eta rows needed NO ctorInfo unification
+at all — the fire result depends only on the rule's own counts and
+the fabrication spine, so the planned injection machinery was
+deleted rather than repaired.  Next per the coordinator: the
+mechanical SortCoh split seal, then the walk's induction.
