@@ -12754,3 +12754,125 @@ a closed leaf, so no context, no valuation, no hereditary premise.
 That is why it could be written last and still cost one line, and it is
 a small confirmation that the interface's shape was right: the row that
 needed the most *machinery* needed the least *interface*.
+
+## Migration step 3 — the map, before any statement
+
+Opening step 3 with the map the brief asked for: what the consistency
+surface's re-proof over `interp2` actually consumes, sized against what
+exists.  **The map's headline is a correction**, and it is the reason
+the map was worth doing first.
+
+### The correction: step 3 is not a re-proof of the forty-four
+
+The roadmap line reads "the soundness tier: the graded step lemmas
+assembled along the bridge claims; the twelve re-proved over
+`interp2`", and it is easy to read the second clause as "restate
+`Sound/*` with `interp → interp2`".  **That is not possible, and not
+because it is hard.**
+
+`Sound/Motives.lean`'s five motives quantify `VExpr`:
+
+    RedS (Δ : List VExpr) (v w : VExpr) : Prop :=
+      ∀ ρ, Sat V Δ ρ → interp V ρ v = interp V ρ w ∧ (AnnotOkV … v → …)
+
+while `interp2 : (Nat → V) → AVExpr → V` is over the *annotated*
+syntax, and the relations (`Rel.lean`) are over `VExpr` too — so the
+mutual recursor's motives must be.  Bridging would need a
+`VExpr → AVExpr` map, and **there is none, by design**: `Annotates` is
+a *relation* (`List VExpr → VExpr → AVExpr → Prop`) whose whole
+difficulty was that a term has many annotations (WALL 3), and `denote2`
+is a *function* but from `Expr`, not `VExpr`.  A bare `VExpr` has no
+canonical annotation, and manufacturing one is exactly the problem R1
+solved by refusing to.
+
+The architecture record already says this in its own words — "the
+second soundness does **not** re-sign the 44-case mutual induction
+wholesale… the bridge-level claims maintain 'the current term erases an
+annotated term carrying `AnnotOk2`' along runs and compose the step
+lemmas — annotations never cross a bare `Red`, they follow the run."
+The map's contribution is to show that this is *forced*, not preferred,
+and to price what follows from it.
+
+### What follows: `Sound/*` is not migrated at all
+
+**The 4,295 lines of `Sound/*` stay where they are, serving the
+collapse lane, until that lane retires.**  Step 3 builds a *parallel*
+run-level structure rather than a translation of this one.  The
+sizing this produces is the good news of the map:
+
+| tier | lines | step 3's demand |
+|---|---|---|
+| `Bridge/*` | 9,525 | **none** — `EnvR`-only, "no `SetTheory`, no membership, no interpretation"; `CheckStepR` is discharged (`checkStepR`, `Bridge/Main.lean:35`) and stays discharged |
+| `Sound/*` | 4,295 | **none** — not translated; see above |
+| `Install/*` | 18,749 | **the work**: the five keys `declStepS` takes, re-proved over `interp2` |
+| `Interp2/*` + `Annot/*` | ~5,900 | the substrate, largely built (steps 1–2 landed `EnvS2`, `denote2`, `AnnotOk2`, the skeleton, `BConst.type2`, `bval2_mem_type`) |
+
+### The spine, traced
+
+`checkDecls_sound_R` → `foldlM_R` → two things per declaration:
+`checkDeclR_sound` (the bridge half) and `declStepS` (the install
+half).  **The model enters at exactly two points**, and neither is in
+the bridge:
+
+* `declIndRS`'s `MemberKeyS` — the first statement in the spine that
+  mentions `interp` at all;
+* `declStepS`'s five keys — `DivModPinS`, `ReducePinS`,
+  `StdAxiomKeyS`, `DeclBasisS`, `DeclIndS` — every one `EnvS`-attached
+  and all but two mentioning `interp` directly.
+
+So "the twelve re-proved over `interp2`" reduces to: **re-prove the
+five keys and `MemberKeyS` over `interp2`, and restate the fourteen's
+conclusion from `Nonempty (EnvS V env')` to `Nonempty (EnvS2 V env')`.**
+Everything else in the spine is either V-free or already migrated.
+
+`Sound/*` is the *install tier's* supplier, not the fourteen's — the
+keys consume `Infer.sound`/`DefEq.sound`, the fourteen do not.  That is
+why replacing what the keys consume (with `Claims2`) is the whole job,
+and why the 44 minors never appear in it.
+
+### What `Claims2` must be
+
+The run-level analogue of `Bridge/Claims.lean`'s four claims, over
+`denote2` outputs rather than `denote` outputs, composed from the
+**per-former skeleton rows** (`Interp2/Skeleton.lean`, ten of ten as of
+arc step 4) plus the graded step lemmas (`AnnotOk2_beta_pos`,
+`AnnotOk2_zeta`, `AnnotOk2_redex_fits`).  Its inputs, named:
+
+| input | source | status |
+|---|---|---|
+| the ten former rows | `Interp2/Skeleton.lean` | landed |
+| β / ζ / redex-fits step lemmas | `Annot/Ok2.lean`, `Annot/Spine2.lean` | landed |
+| the basis capstone | `Interp2/BasisOk.lean` | landed |
+| `denote2` + erasure law | `Annot/Canon.lean` | landed |
+| `EnvS2` fields | `Annot/EnvS2.lean` | landed (containment scaffolding) |
+| **`denote2` fuel-invariance** | `knotFuelMono`/`KnotFuelDet_of_mono` | supplier landed, **lemma not stated** |
+| **`SortSubstStable`** (v3) | `Annot/SimSubst.lean` | frozen; `Claims2` is its consumer |
+| **`ZipWhnfSortAgree` / `ZipSortOfAgree`** | `SortCoh/Discharge.lean` | frozen — the two obligations the Θ lane discharges |
+| **`RecRulesV2`** | — | **no definition anywhere**; deliberately absent under the T5 rule |
+
+### The one gap that feeds back into Θ, stated now
+
+`RecRulesV2` is the only input with **no supplier and no statement**.
+It is deliberate — "stated by its supplier when the bottoms migrate" —
+but it is also unavoidable: `declStepS` installs inductives, so the
+spine passes through iota, so `Claims2`'s iota row needs the fired law.
+`Claims2` must therefore carry it as an **opaque named slot**, exactly
+as `Skeleton.sound_const` carried its absence before `BConst.type2` and
+`bval2_mem_type` existed.
+
+*What this means for Θ, while its consumers are still adjustable:*
+nothing Θ produces can discharge `RecRulesV2` — it is install-tier
+content, not coherence content — but Θ's two frozen zip obligations
+**are** `Claims2` inputs, and `Claims2` should name those two rather
+than the fifteen-hypothesis shells (`ensureSortAgreeRQ_of_zip` /
+`sortOfAgreeRQ_of_zip` already reduce both public claims to one
+obligation each).  That is the ledger entry from the consumer side.
+
+### A terminology correction for the record
+
+The migration sections say "the twelve"; the T6/T7 sections and
+`Main.lean`'s own docstring say "the fourteen".  `Main.lean` has
+fourteen non-fold theorems; "twelve" undercounts by excluding
+`checkDecl_sound_R` and `no_constant_of_Empty_R` — the two that are not
+in the 4×3 driver grid.  **Fourteen is right**; the roadmap's "twelve"
+should be read as "the twelve driver-grid ones".
