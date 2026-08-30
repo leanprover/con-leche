@@ -113,6 +113,7 @@ import Setlec.SetR.Interp2.Keys2
 import Setlec.SetR.Interp2.Denote2Extend
 import Setlec.SetR.Interp2.Keys2Probe
 import Setlec.SetR.Interp2.Keys2Cond
+import Setlec.SetR.Interp2.Keys2Bundle
 import Setlec.SetR.Interp2.EnvLaws2
 import Setlec.SetR.Interp2.Capstone2C
 import Setlec.SetR.Interp2.Capstone2D
