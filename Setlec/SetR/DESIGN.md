@@ -16859,3 +16859,59 @@ at a single `m`, so the *pointwise* `EnvS2UInImage` suffices
 And `claims2U_lamDef` inhabits the keys' claim premises at an
 environment that **stores a definition** — before item 2, those
 premises were only ever inhabited where `acval_defn` says nothing.
+
+### Seal 44 — the endgame lead: STOP with the gap; and the file split lands
+
+**Directive (2) first, and it does not close.** The lead was: if
+`denote2` differs from `denote` only at the binder clauses, and
+`EnvS.defn_eq` already forces every stored body to `denote`, then
+`Denote2Bodies` might follow from `EnvS`'s own fields — dissolving the
+entire residue.
+
+**Pre-build supplier check, against the front door's actual facts:**
+
+`EnvS`'s only well-formedness field is `wf : EnvWF env`, and
+`ConstWF` (`Verify/EnvWF.lean:35`) is **purely syntactic** —
+`hasFvar`, `allLevelParamsDefined`, `constsResolve`,
+`looseBVarsBounded`, and the same four for a definition's value and a
+recursor's rule right-hand sides. **No `inferTypeCore`, no
+`ensureSort`, no `whnf`. No `EnvS` field records that any run
+succeeded.**
+
+So the front door *had* the fact — it ran the checker — and **`EnvS`
+does not carry it.** `Denote2Bodies` does **not** follow from `EnvS`'s
+fields, and the residue does not dissolve. STOP with the gap, as
+directed.
+
+**But the relocation is favourable, and that is the useful half.**
+`Denote2Bodies` quantifies over **stored** bodies only — each one the
+front door actually checked — where `Denote2Total` (parked, seal 33)
+quantified over arbitrary terms and hit a wall at `.app`'s `∀`, which
+**no later run has as its subject**. Stored bodies have runs; that `∀`
+had none. So the residue is *establishable at install*, and is a
+strictly smaller obligation than the one it replaced.
+
+*Rule: "the front door established it" is not the same as "the
+invariant records it". Check which fields exist, not which facts were
+once true.*
+
+#### The file split, landed
+
+`Annot/EnvS2U.lean` now holds the **structure**; `Interp2/EnvS2U.lean`
+keeps `EnvS2.toU` and the `acval_defn_uniq_lam_ok` probe, the only two
+things that wanted `Step2/Whnf`'s cone.
+
+This dissolves seal 43's blocker: `EnvS2U` was **strictly downstream
+of the four quarters** it must be re-pointed into (`EnvS2U` →
+`Step2/Whnf` → `Dual2E` → `Claims2E`, rejected outright). Confirmed
+unblocked by elaborating `Claims2E` and `Annot/EnvS2U` together and
+naming `EnvS2U` — it resolves.
+
+Gates: build green at **343 jobs**, warning-free; battery **90/92**
+with e2e 72/72, split driver 11/11, mode flags 9/9 and the no-model
+sweep unchanged — **the other lane's cone is intact.**
+
+The 528-occurrence re-point is now *enabled* but not *done*: it
+remains a proof change at every application site, and that is the next
+batch, with the pointwise-bridge simplification riding on it either
+way.
