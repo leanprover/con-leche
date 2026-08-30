@@ -13055,3 +13055,91 @@ step-3 map's headline, in its local form).  So the discharge is
 largest single remaining item on the lane — larger than everything
 steps 1–2 contained.  Sized, not started; every clause now knows what
 it consumes.
+
+## The `CheckStep2` discharge — the induction's map (campaign seal 0)
+
+### The measure, taken from the checker rather than invented
+
+Two nested layers, and the discipline is one sentence:
+**depth-increasing recursion goes through the IH at `fuel`;
+depth-preserving iteration goes through the continuation at `budget`.**
+
+* Every body takes `(r : CoreFns m)` and **never calls itself**.  A sub-
+  result through `r` runs at `fuel - 1`, so a clause at `fuel + 1`
+  reaches it by *applying an IH* — no sub-induction.
+* `whnf` and `isDefEqCore` are loops on a **separate private budget**
+  (`whnfLoopFuel = defeqLoopFuel = 100000`, `@[irreducible]`), taken
+  through an abstracted continuation `k`.  Delta chains and literal
+  acceleration are *iteration*, not knot recursion (task #106).  Each
+  loop gets one `induction budget`, with `k`'s contract named as a
+  `Prop` — the checker's own continuation-passing factoring, mirrored.
+
+### Case structure, against the actual decompositions
+
+| body | cases | notes |
+|---|---|---|
+| `inferBody` | **11** — sort, fvar, const, lit nat, lit str, forallE, lam, app, proj, letE, bvar | `.bvar` throws; dispatch is on `ExprView` |
+| `whnfCoreBody` | **9** — 6 leaves, `.app` (β / ι / stuck), `.proj` (1 reducing, **5 stuck exits**), `.letE` (ζ), `.bvar` | no delta at this level |
+| `whnfStep` | **3 exits** — literal, delta, fixpoint | order: whnfCore → reduceNat → delta |
+| `defeqStep` | **7 blocks**; block 7 (structural congruence) has **17 cases**, and its fallthrough `stuckIrrel` has **6 arms** | `defeqSpine` is the same-head short-circuit inside the lazy-delta block; a `false` there is never final |
+
+**Mode gating is nearly free.**  Exactly five gated sites in
+`Core.lean`.  Four are `ttChecks`, which is **constantly `false`** since
+T7b — so those `.proj`/eta sites discharge by the ungated path.  Only
+`inferBody`'s λ-codomain check (`Core.lean:1615`, `mode.verified &&
+!body.isLam`) is genuinely two-valued and needs a case split; it fires
+**once per λ chain, at the innermost binder**.
+
+### Per-clause consumption, and the priority order
+
+**Tier A — consumes only LANDED suppliers (no Θ dependency).**  Start
+here, per the economy directive.
+
+| clause | consumes |
+|---|---|
+| infer `.sort` / `.fvar` / `.letE` | `sound_sort` / `sound_bvar` / `sound_letE` |
+| infer `.const` | `EnvS2.acval_ok2`, `mem_type2` |
+| infer `.forallE` / `.lam` / `.app` / `.proj` | `sound_pi` / `sound_lam` / `sound_app` / `sound_proj_*` |
+| whnfCore leaves, `.letE` (ζ) | `denote2` clause equations, `AnnotOk2_zeta` |
+| whnfCore `.app` β | `AnnotOk2_beta_pos` / `_beta_zero` |
+| whnfCore `.proj` | `sound_proj_*`, the five stuck exits are identity |
+| whnf loop, delta step | the reduct denotes **identically** — no new fact |
+| defeq structural congruences | `interp2` clause equations + the IHs |
+
+**Tier B — the literal block.**  infer `.lit natVal` / `.lit strVal`,
+`reduceNat`'s two arms, and the `.lit` congruence cases.  Unblocked by
+`interp2_closed` (seal 2); a **transposition batch** of
+`Sound/{Lit,NatOps,NatOpsWf}`'s 2,227 lines, not new argument.
+
+**Tier C — conditional by design.**
+* **iota** (`whnfCore`'s `.app` ι sub-case, and the rescues) — enters
+  through `Step2Inputs.rec_rules2`, the **named slot**.  This is the
+  one seam where the T5 rule binds: the fired law is stated by the
+  migrating bottoms, never here.
+* **β's sort premise** — `SortSubstStable`, whose own suppliers are
+  Θ's two zip obligations.  Carried as `Step2Inputs.subst_stable`;
+  the clause is written conditional and closes when Θ lands.
+
+### The shape to follow (v1's, which works)
+
+1. four claims + step `Prop` + fuel induction — **landed**
+   (`Claims2.lean`);
+2. frame packages once, `whnfCore_packageR`-style (IH output + frame in
+   one `obtain`);
+3. per quarter, **one dispatch lemma matching the checker's own case
+   split**, with every non-local clause a named `…Step2 : Prop` stated
+   **at a checker function boundary**, never mid-body;
+4. loops get `induction budget` with the continuation's contract named;
+5. discharge bottom-up along a **linear import chain**, one obligation
+   per file, so the assembler is a dozen-line `exact`.
+
+### Sizing, honestly
+
+v1's `CheckStepR` tier is **5,964 lines**: ~77% per-clause case work,
+~8% frame plumbing, ~15% assembly — and very unevenly spread (`Stuck`
+520, `Iota` 550, `ReduceNat` 483 are 26% between them).  The interp2
+analogue should come in **somewhat under** that: it produces semantic
+facts rather than relation derivations (no `Red`/`Infer` construction
+plumbing), and the ten per-former rows are already landed.  Estimate
+**3,500–5,000 lines across 8–12 seals**.  Tier A is the majority of it
+and depends on nothing outstanding.
