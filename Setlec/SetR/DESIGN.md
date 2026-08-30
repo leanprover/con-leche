@@ -13469,3 +13469,84 @@ written first and matched later.*
 
 Awaiting the ruling on both repairs; neither is wired into
 `Claims2.lean`, for the seal-3 reason.
+
+### Discharge campaign, fold-in — `Claims2` is refuted twice, by two independent discharges
+
+Three of four parallel quarters delivered.  Two of them, working from
+different checker functions and never seeing each other's work,
+**independently stated the same obligation, under the same name, and
+one of them refuted it**.  That is the strongest evidence available
+that the defect is in `Claims2` and not in a proof strategy.
+
+**DEFECT 1 — the annotation's fuel is tied to the checker's.**  All
+four claims read the subject through `denote2 … fuel …`, the same
+numeral that indexes the checker call.  The knot decrements it, so a
+recursing clause must move a `denote2` fact from `fuel + 1` down to
+`fuel`.  `denote2_fuelDown_false` proves that move impossible —
+unconditionally in mode, environment, level assignment and annotated
+valuation.  The witness chain is of independent interest: at fuel `1`
+the reduction loop cannot take its first `whnfCore` step, so `sortOfE`
+is `none` everywhere and **no binder annotates at all**, while at fuel
+`2` the smallest closed `∀` does.
+
+Seals 1–4 never met it because the only clauses landed by then —
+`.sort`, `.fvar`, `.bvar` — are exactly the three that do not recurse.
+*A statement can survive every clause that does not exercise it; the
+first recursing clause is the test.*
+
+Repair: quantify the annotation fuel **independently** of the
+checker's (`∀ {F}, denote2 … F d e = some ea → …`).  A strengthening,
+one binder wide; `WhnfCoreClaims2F.toClaims2` checks nothing downstream
+loses.
+
+**DEFECT 2 — the equality is stated ungraded, against this file's own
+architecture.**  `Claims2` concludes `interp2 ρ ea = interp2 ρ ea' ∧
+(AnnotOk2 ρ ea → AnnotOk2 ρ ea')`, with the equality *outside* the
+premise.  The architecture record above (§"the second soundness —
+architecture", **Graded conclusions**) says the opposite, and says why:
+*"reduction/defeq interp2-equalities become conditional on the
+subject's `AnnotOk2` … the model's iota equality is genuinely
+membership-conditional — off-domain, the recursor value's junk and the
+rule tower's junk differ."*
+
+The suppliers were built to the record, not to the seal:
+`AnnotOk2_zeta`, `AnnotOk2_beta_pos`, `AnnotOk2_beta_zero` all conclude
+`eq ∧ AnnotOk2 ρ ea'` **from** `AnnotOk2 ρ ea`.  β at kind `0` is where
+it bites for real — off-domain `app` is the canonical junk `∅`, so the
+ungraded equality is false there.
+
+*Rule: when a seal and an earlier architecture note disagree, the note
+is not stale until someone has re-argued it.  Check the record before
+stating, not after the first refutation.*
+
+**What is discharged past both defects.**  `whnfCore_claims2R` (all
+nine `whnfCoreBody` cases), `whnf_claims2R` (the loop, by induction on
+`whnfLoopFuel` — the map's measure discipline held exactly),
+`defeqStep_claim2` (all seven blocks, transferred *verbatim* from
+`Bridge/DefEq.lean` and compiled first try), `defeqStuck_claim2` (10 of
+17 stuck cases), `defeq_claims2`, and Tier B's `String` half
+(`strLit_facts2`, 160 lines against v1's ~394, no residues).
+
+**Two findings for the junction, from the defeq quarter:**
+
+* **Relational facts flow into the annotated lane for free.**
+  `checkBridge` is a theorem at every `EnvR`, `EnvS2` contains an
+  `EnvS`, and `EnvS.toEnvR` converts — so a `DefEq` *premise* is one
+  line away.  The seal-3 STOP is therefore **one-directional**: only
+  `DefEq → interp2` is blocked, not `→ DefEq`.  Worth knowing before
+  anyone over-reads that note.
+* **The Θ lane does not reach the binder congruences.**
+  `SortOfAgreeR` carries `PairedLeaves a b`, but `defeqStep` opens
+  `∀`/`λ` congruences with *each side's own* annotation, so the opened
+  bodies carry `(d, n₁, ty₁)` and `(d, n₂, ty₂)` and `PairedLeaves`
+  fails at index `d` — precisely where the congruence needs it.  The
+  shared-numeral agreement `deqStep2_piCong`/`lamCong` demand is **not**
+  a `SortOfAgreeR` instance and cannot be routed to `zip_sortOf`.  No
+  other consumer has hit this.
+
+**Also surfaced**: `AcvalParams2`, the `acval` twin of
+`EnvS.val_params` — a missing `EnvS2` **field**, not a missing proof;
+and `Delta2`, which corrects seal 1's "the delta exit is free":
+`acval_defn` gives the *body*'s annotation, but the loop unfolds a
+*spine*, and the body-to-spine step needs an annotated `mkAppN`
+inversion this lane does not have.

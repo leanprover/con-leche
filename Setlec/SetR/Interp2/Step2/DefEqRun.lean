@@ -52,7 +52,7 @@ and `proj` congruences.
    while every sub-claim reads them through `denote2 … fuel`, so the
    step needs `denote2` to survive one step *down* the ladder; the
    upward direction is a theorem (`knotFuelMono`), the downward one is
-   refutable at small fuel.  See `Denote2FuelDown`.
+   refutable at small fuel.  See `Denote2FuelDownM`.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -316,7 +316,15 @@ consumer's.
 
 It is consumed **once**, at the top of `defeq_claims2`; everything
 inside the loop runs at `fuel` throughout. -/
-def Denote2FuelDown (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+/-- **Note (fold-in).**  `Step2/Whnf.lean` states the same obligation
+independently, over a bare `acval` rather than an `EnvS2`, and
+*refutes* it (`denote2_fuelDown_false`).  The two were written by
+separate discharges that never saw each other and arrived at the same
+statement — which is the strongest evidence available that the fuel
+index is a real defect in `Claims2` and not an artefact of one
+quarter's proof strategy.  Kept under a distinct name only to avoid the
+clash; the repair (re-indexing `Claims2`) retires both. -/
+def Denote2FuelDownM (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ (d : Nat) (e : Expr) {ea : AVExpr},
     denote2 μ m.acval env φ (fuel + 1) d e = some ea →
@@ -386,7 +394,7 @@ theorem defeqLoop_cont2 {m : EnvS2 V env} {fuel : Nat}
 /-- **`DefEqClaims2` at `fuel + 1`**, modulo the step and the fuel
 index. -/
 theorem defeq_claims2 {m : EnvS2 V env} {fuel : Nat}
-    (hfd : Denote2FuelDown μ m φ fuel)
+    (hfd : Denote2FuelDownM μ m φ fuel)
     (hstep : DefEqStepAt2 μ m φ fuel) :
     DefEqClaims2 μ m φ (fuel + 1) := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb hCa hCb aa ba hda hdb
@@ -1286,7 +1294,7 @@ orders, `fvar`/`fvar`, `const`/`const`, and the `∀`, `λ` and `proj`
 congruences. -/
 theorem defeqStep2_of
     (hfd : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
-      (fuel : Nat), Denote2FuelDown μ m φ fuel)
+      (fuel : Nat), Denote2FuelDownM μ m φ fuel)
     (hdel : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
       (fuel : Nat), Denote2Delta2 μ m φ fuel)
     (hnat : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
