@@ -11824,3 +11824,30 @@ The kit's map, taken by inventory of `Verify/Subst.lean` +
   the design's never-re-run discipline).
 
 The subst-sim map seal follows with these composites as its kit.
+
+### Commutation kit, part 1 LANDED; the β/ζ composite needs the direct induction
+
+Landed (compiled, warning-free): `substAK` (the one-binder
+close-and-plug), `abstract1_eq_self` (identity on `d`-fresh terms —
+the freshness supplied at the walk by `fvarLeaves_lt_of_wscoped`),
+`substAK_eq_self` (**the spine arguments are `substAK`-INVARIANT**
+— the substitution acts only on the cores, a real simplification
+for every walk case), and `abstract1_instantiate1_comm` (abstraction
+commutes with instantiation by a `d`-fresh argument, cursor-shift
+form).
+
+**Finding at the β/ζ composite** (`substAK_instantiate1`): the
+composition route through the landed pieces does NOT assemble — the
+middle form plugs the VALUE'S IMAGE where the target has the value,
+and `instantiate1_instantiate1`'s closedness side condition fails
+on abstracted terms (`v.abstract1` carries the introduced bvar).
+A draft with placeholder gaps was written and WITHDRAWN before
+commit (the no-sorry rule enforced at the working tree).  The
+composite needs its own DIRECT structural induction — one pass over
+the body with the bvar/fvar index arithmetic handling the
+general (non-fresh) value, the standard de Bruijn substitution
+lemma in this codebase's fvar-annotated setting.  Its statement
+(unchanged): `(substAK d (k+1) a b).instantiate1 (substAK d k a v)
+k = substAK d k a (b.instantiate1 v k)` for closed `d`-fresh `a`
+and closed `v`.  Next seal: that induction, then the ι composite
+(structural, `mkAppN`-distribution based), then the subst-sim map.

@@ -12606,6 +12606,142 @@ def ThetaWalkClaim (μ : CheckMode) (env : Env) (φ : Name → Nat)
       = .ok (.sort ℓb) →
     ℓa.eval φ = ℓb.eval φ
 
+/-! ### The commutation kit (the subst-sim's per-step algebra) -/
+
+/-- The telescope's one-binder substitution at cursor `k`: close
+the opened fvar `d` to `bvar k`, then plug the argument there. -/
+def substAK (d k : Nat) (a e : Expr) : Expr :=
+  (e.abstract1 d k).instantiate1 a k
+
+/-- `abstract1` is the identity on `d`-fresh terms (supplied by
+`fvarLeaves_lt_of_wscoped` at the telescope's depths). -/
+theorem abstract1_eq_self :
+    ∀ {e : Expr} {d k : Nat},
+      (∀ l ∈ e.fvarLeaves, l.1 ≠ d) → e.abstract1 d k = e := by
+  intro e
+  induction e with
+  | bvar i => intro d k h; rfl
+  | fvar idx n ty ih =>
+    intro d k h
+    have hne : idx ≠ d := h (idx, n, ty)
+      (by simp [Setlec.Expr.fvarLeaves])
+    simp [Setlec.Expr.abstract1, hne]
+  | sort u => intro d k h; rfl
+  | const n us => intro d k h; rfl
+  | lit l => intro d k h; rfl
+  | app f x ihf ihx =>
+    intro d k h
+    simp only [Setlec.Expr.abstract1]
+    rw [ihf (fun l hl => h l (by
+        simp only [Setlec.Expr.fvarLeaves]
+        exact List.mem_append.2 (.inl hl))),
+      ihx (fun l hl => h l (by
+        simp only [Setlec.Expr.fvarLeaves]
+        exact List.mem_append.2 (.inr hl)))]
+  | lam n ty b m ihty ihb =>
+    intro d k h
+    simp only [Setlec.Expr.abstract1]
+    rw [ihty (fun l hl => h l (by
+        simp only [Setlec.Expr.fvarLeaves]
+        exact List.mem_append.2 (.inl hl))),
+      ihb (fun l hl => h l (by
+        simp only [Setlec.Expr.fvarLeaves]
+        exact List.mem_append.2 (.inr hl)))]
+  | forallE n ty b m ihty ihb =>
+    intro d k h
+    simp only [Setlec.Expr.abstract1]
+    rw [ihty (fun l hl => h l (by
+        simp only [Setlec.Expr.fvarLeaves]
+        exact List.mem_append.2 (.inl hl))),
+      ihb (fun l hl => h l (by
+        simp only [Setlec.Expr.fvarLeaves]
+        exact List.mem_append.2 (.inr hl)))]
+  | letE n ty v b ihty ihv ihb =>
+    intro d k h
+    simp only [Setlec.Expr.abstract1]
+    rw [ihty (fun l hl => h l (by
+        simp only [Setlec.Expr.fvarLeaves]
+        exact List.mem_append.2 (.inl (List.mem_append.2
+          (.inl hl))))),
+      ihv (fun l hl => h l (by
+        simp only [Setlec.Expr.fvarLeaves]
+        exact List.mem_append.2 (.inl (List.mem_append.2
+          (.inr hl))))),
+      ihb (fun l hl => h l (by
+        simp only [Setlec.Expr.fvarLeaves]
+        exact List.mem_append.2 (.inr hl)))]
+  | proj sn i e ih =>
+    intro d k h
+    simp only [Setlec.Expr.abstract1]
+    rw [ih (fun l hl => h l (by
+      simpa [Setlec.Expr.fvarLeaves] using hl))]
+
+/-- The substitution collapses on `d`-fresh, cursor-bounded terms
+(the spine arguments are `substAK`-INVARIANT — the substitution
+acts only on the cores). -/
+theorem substAK_eq_self {d k : Nat} {a e : Expr}
+    (hfresh : ∀ l ∈ e.fvarLeaves, l.1 ≠ d)
+    (hb : e.looseBVarsBounded k = true) :
+    substAK d k a e = e := by
+  unfold substAK
+  rw [abstract1_eq_self hfresh]
+  exact Setlec.Expr.instantiate1_eq_self hb
+
+/-- Abstraction commutes with instantiation by a `d`-fresh, closed
+argument (the cursor-shift form; the β/ζ composite's core). -/
+theorem abstract1_instantiate1_comm {d : Nat} {X : Expr}
+    (hXf : ∀ l ∈ X.fvarLeaves, l.1 ≠ d) :
+    ∀ (e : Expr) (k : Nat),
+      (e.abstract1 d (k + 1)).instantiate1 X k
+        = (e.instantiate1 X k).abstract1 d k := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k
+    simp only [Setlec.Expr.abstract1, Setlec.Expr.instantiate1]
+    by_cases h1 : i = k
+    · rw [if_pos h1]
+      exact (abstract1_eq_self hXf).symm
+    · rw [if_neg h1]
+      by_cases h2 : i > k
+      · rw [if_pos h2]; rfl
+      · rw [if_neg h2]; rfl
+  | fvar idx n ty ih =>
+    intro k
+    simp only [Setlec.Expr.abstract1, Setlec.Expr.instantiate1]
+    by_cases h1 : idx = d
+    · rw [if_pos h1]
+      simp only [Setlec.Expr.instantiate1]
+      rw [if_neg (by omega : ¬ (k + 1 = k)),
+        if_pos (by omega : k + 1 > k)]
+      simp [h1]
+    · rw [if_neg h1]
+      simp only [Setlec.Expr.instantiate1]
+      rw [if_neg h1]
+  | sort u => intro k; rfl
+  | const n us => intro k; rfl
+  | lit l => intro k; rfl
+  | app f x ihf ihx =>
+    intro k
+    simp only [Setlec.Expr.abstract1, Setlec.Expr.instantiate1]
+    rw [ihf k, ihx k]
+  | lam n ty b m ihty ihb =>
+    intro k
+    simp only [Setlec.Expr.abstract1, Setlec.Expr.instantiate1]
+    rw [ihty k, ihb (k + 1)]
+  | forallE n ty b m ihty ihb =>
+    intro k
+    simp only [Setlec.Expr.abstract1, Setlec.Expr.instantiate1]
+    rw [ihty k, ihb (k + 1)]
+  | letE n ty v b ihty ihv ihb =>
+    intro k
+    simp only [Setlec.Expr.abstract1, Setlec.Expr.instantiate1]
+    rw [ihty k, ihv k, ihb (k + 1)]
+  | proj sn i e ih =>
+    intro k
+    simp only [Setlec.Expr.abstract1, Setlec.Expr.instantiate1]
+    rw [ih k]
+
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/
 theorem zipLamHeadCase_of {φ : Name → Nat}
