@@ -9890,3 +9890,42 @@ decomposition of both given runs against the zip, with the
 zip-preservation step Props (`ZipWhnfCoreStep` etc.) and the cert
 case routed; then the cert case on the shells' template; then the
 simulation clauses (iota with the full pre-build treatment).
+
+### Summit build, tier 2: THE SKELETON LANDED
+
+`zipWhnfSortAgree_of` proves the summit claim from five routed case
+Props, by the one lexicographic induction (outer `Nat.strongRecOn`
+on the cert fuel, inner on the loop-budget sum), with `ZipBelow` as
+the continuation contract (the house's continuation pattern — the
+recursion travels as a premise, so the cases seal separately WITHOUT
+sorries or claim-level circularity).
+
+Inline and proved: `refl` (determinism), `sortSlack` (both runs
+stuck at the literal sorts + the eval premise), and the stuck-shape
+vacuities `fvar`/`lam`/`forallE` (one-sided `loop_stuck_out` with
+the two new value-branch run lemmas `whnfCore_fvar_run`/
+`whnfCore_lam_run`; `lit` rides `refl`).
+
+Routed (each with `ZipBelow μ env φ fc (la+lb)` as premise):
+* `ZipCertCase` — the shells' template (build step 3);
+* `ZipConstCase` — the both-δ same-template case; its supply kit is
+  the newly-STATED `StoredWF env` (stored defn/thm values fvar-free,
+  bvar-closed, leaf-bounded — the ledgered value-closedness family
+  in the form the summit reads) plus three instantiation-
+  preservation lemmas (fvarLeaves/looseBVars/LeavesBounded under
+  `instantiateLevelParams`);
+* `ZipAppCase` / `ZipLetECase` / `ZipProjCase` — the sim roots (the
+  knot-fuel tier; letE joined the sim because whnfCore zetas on
+  demand — `r.whnfCore (b.instantiate1 v)` at one knot level down).
+
+Pre-build check results folded into the routing shapes: a uniform
+`ZipWhnfCoreSim` over all zips is UNPROVABLE (cert-headed pairs'
+whnfCore outputs are not zip-able without constructing runs — the
+run-mirror bar), so the sim is rooted per shape and the cert case
+goes through the template; the cert case's own output-pair analysis
+needs NO zip extension (syn→refl, sorts→sortSlack, spine→the landed
+construction, consts→constSlack; fvars/lams/pis/packing pairs all
+vacuous via their lit/stuck sides — the proposed packing-slack
+constructors were killed by their own check); the app-with-cert-HEAD
+sub-case is the mutual knot with binder opening (the Θ tier),
+flagged for full treatment at its seal.
