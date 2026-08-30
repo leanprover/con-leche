@@ -1,6 +1,7 @@
 import Setlec.SetR.Interp2.Step2.Routed
 import Setlec.SetR.Interp2.Step2.Fuel
 import Setlec.SetR.Interp2.Claims2B
+import Setlec.SetR.Interp2.Claims2C
 import Setlec.SetR.Bridge.InferStruct
 
 /-!
@@ -1926,5 +1927,846 @@ This quarter's recommendation is to make it, because `TypeOk2` is the
 *weakest-motivated* of the four new residues — it is assumed about
 every inferred type at every fuel, whereas the three payments above are
 each local to one clause. -/
+
+/-! # Seal 14 — generation four: the returned type's grading
+
+`InferClaims2C` (`Interp2/Claims2C.lean`) is the first generation in
+this arc that **extends** the inference claim rather than only
+re-quantifying it: beside the subject's `AnnotOk2` it now delivers the
+**returned type's**, ρ-uniformly.  That is seal 8's open question,
+answered from two consuming sites (`infer_app_claim2A`,
+`betaCert2P_of_claims`).
+
+Everything above stays as the `…A`/`…B` tombstones.  What follows is
+the same eleven clauses once more, against the hoisted claims.
+
+## The ledger of the extension, clause by clause
+
+The "question back" note at the end of the `…B` lane predicted eight
+free clauses and three payments.  **It was right about all three, and
+about all three prices** — including the one that is *not* a residue
+of this quarter: it said, correctly, that `.fvar` would need "an
+`AnnotOk2` component — a change in the *supplier's* file".
+
+| clause | the returned type's `AnnotOk2` |
+|---|---|
+| `.sort`, `.forallE` | a sort: `True` |
+| `.bvar` | vacuous |
+| `.lit (.natVal _)` | an `acval` leaf: `acval_ok2` |
+| `.lam` | `AnnotOk2_pi` of `SortSem2`'s domain fact and the IH |
+| `.letE` | the IH's own new conjunct, verbatim |
+| `.lit (.strVal _)`, `.proj` | routed; the residue carries it |
+| `.const` | **paid**: one conjunct in `ConstType2C` |
+| `.app` | **paid**: `BetaCross2C` transports truthfulness both ways |
+| `.fvar` | **paid, and not by a residue of this quarter** — below |
+
+## What the extension buys, which is more than it costs
+
+`TypeOk2` is **retired**, and `InferInputs2C` sheds the field.  It was
+assumed about *every* inferred type at *every* fuel; the `.app` clause
+consumed it three times — twice to grade the reduction claim, once to
+grade the defeq claim — and all three uses are now the induction
+hypothesis's own new conjunct, at the same annotation and the same
+fuel.  Together with the hoist, both graded consumers are fed
+**ρ-uniformly**, which is precisely what a ρ-local claim could not do.
+
+## FINDING — `.fvar`'s payment is a `CtxOk2` component, not a residue
+
+The `.fvar` clause returns the leaf's **own** annotation `tya`, and
+`CtxOk2`'s leaf package carries three things — definedness of `tya`,
+the context index, and an `interp2` equation — and **no
+truthfulness**.  Nothing in the clause recovers it:
+
+* `Sat2` supplies *inhabitation* of each context entry, never
+  `AnnotOk2` of it — the same gap `CtxOk2.openCong`'s consumer note
+  records one binder up;
+* the leaf's link is an equation between *interpretations*, and
+  `AnnotOk2` is not an `interp2` invariant — the #100 currency lesson,
+  mechanized as `ctxOk2R_refuted_nonvacuous`;
+* the clause performs no run on `ty`, so no induction hypothesis
+  applies to it.
+
+So the honest repair is a **fourth component of `CtxOk2`'s leaf
+package**, in the supplier's file (`Step2/Dispatch.lean`).  It
+self-propagates exactly as the hoist does: at `CtxOk2.open`/`openS`/
+`openCong` the new head leaf's annotation is `ta.liftN 1 0`, whose
+`AnnotOk2` is `AnnotOk2_liftN` of the *domain's* ρ-uniform `AnnotOk2`
+— which is exactly what generation four makes available at every
+binder site.  Until that change lands the fact is routed here as
+`CtxAnn2`, stated at the granularity the component would have so that
+it can be moved verbatim (the `CtxOk2Open` precedent, which became
+`CtxOk2.openS` unchanged).
+-/
+
+/-- **The `.fvar` clause's payment** — `CtxOk2`'s missing fourth leaf
+component, routed.  A leaf's annotation is truthful at every valuation
+satisfying the context.
+
+Stated over `CtxOk2` rather than as a standalone fact on purpose: an
+unconditional "every `denote2` is truthful" is *false* (`denote2`
+performs no membership check at an `app` node), and the conditional
+form is what a strengthened `CtxOk2` would hand its reader.
+
+**The trap-checks, and what they do and do not say.**  The
+smallest-fuel test has nothing to bite on: the statement is uniform in
+`F` and asserts no `denote2` success its consumer does not hand it —
+the same clean-but-uninformative result seal 11 recorded for
+`CtxOk2R`, and the same warning applies.  Non-vacuity *is* checked
+(`ctxAnn2_nonvacuous` below): the hypothesis package is jointly
+satisfiable at `d = 1` with a satisfiable `Sat2`.
+
+**Refutation attempted, and it does not go through parametrically** —
+recorded because the attempt is informative.  A witness needs a leaf
+annotation whose `AnnotOk2` fails while its interpretation is
+*inhabited* (else `Sat2` dies and the instance is vacuous, the honest
+half of seal 11's `⟪Empty⟫` discipline).  The `AnnotOk2` failures
+`denote2` can actually produce are at `app` and `proj` nodes — a λ
+node's fibre is free at positive kind (`unitSet`) and its kind is the
+checker's own `lamSortE`, never a chosen `0` — and there the
+interpretation is `SetTheory.app`/`sfst` of junk, which the `SetTheory`
+interface constrains **in neither direction**.  So the residue is
+parametrically neither provable nor refutable; it is a genuine
+statement about the *supplier*, which is the finding above. -/
+def CtxAnn2 {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) : Prop :=
+  ∀ {F d idx : Nat} {n : Name} {ty : Expr} {Δa : List AVExpr}
+    {tya : AVExpr},
+    CtxOk2 m μ φ F d Δa (.fvar idx n ty) →
+    denote2 μ m.acval env φ F d ty = some tya →
+    ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ tya
+
+/-- **`CtxAnn2` is not vacuous.**  Its three hypotheses are jointly
+satisfiable at a depth where the `.fvar` clause actually fires, with a
+`Sat2` that *has* a witness — so the residue is a real obligation and
+not a `Sat2`-unsatisfiability artifact. -/
+theorem ctxAnn2_nonvacuous {env : Env} (m : EnvS2 V env)
+    (μ : CheckMode) (φ : Name → Nat) (F : Nat) (nm : Name) :
+    CtxOk2 m μ φ F 1 [AVExpr.sort 0]
+        (.fvar 0 nm (.sort .zero)) ∧
+      denote2 μ m.acval env φ F 1 (.sort .zero)
+        = some (AVExpr.sort 0) ∧
+      Sat2 V [AVExpr.sort 0] (fun _ => empty) := by
+  refine ⟨⟨rfl, fun l hl => ?_⟩, by rw [denote2]; rfl, ?_⟩
+  · simp only [Expr.fvarLeaves, List.mem_singleton] at hl
+    subst hl
+    exact ⟨by omega, trivial, .sort 0, .sort 0,
+      by rw [denote2]; rfl, rfl, fun _ _ => rfl⟩
+  · intro i Aa hi
+    cases i with
+    | zero =>
+      obtain rfl : AVExpr.sort 0 = Aa := by simpa using hi
+      simpa using empty_mem_univ (V := V) 0
+    | succ i => simp at hi
+
+/-- **The `const` clause's residue, extended.**  `ConstType2A` plus
+the returned type's truthfulness, in the same unguarded `∀ ρ` shape as
+its membership conjunct — the stored type's annotation is closed, so
+no context enters. -/
+def ConstType2C {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) : Prop :=
+  ∀ (F d : Nat) (n : Name) (ci : Setlec.ConstantInfo) (us : List Level),
+    env.find? n = some ci →
+    us.length = ci.toConstantVal.levelParams.length →
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d
+        (ci.toConstantVal.type.instantiateLevelParams
+          ci.toConstantVal.levelParams us) = some ta ∧
+      (∀ ρ : Nat → V, AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V,
+        interp2 V ρ (m.acval n
+            (Level.substFn φ ci.toConstantVal.levelParams us))
+          ∈ˢ interp2 V ρ ta
+
+/-- **The β crossing, extended.**  `BetaCross2A` with its truthfulness
+transport turned into a biconditional.  `.letE` uses it forwards (the
+substituted annotation is the *subject*, the descended one is what
+`sound_letE` reads); `.app` uses it backwards (the substituted
+annotation is the *returned type*, and its truthfulness is now owed).
+The sealed `BetaCross2` already had both directions, in the shape of
+two separate implications; this is the same content on one crossing. -/
+def BetaCross2C {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) : Prop :=
+  ∀ {F d : Nat} {n : Name} {ty b a : Expr} {Δa : List AVExpr}
+    {aa ba : AVExpr},
+    denote2 μ m.acval env φ F d a = some aa →
+    denote2 μ m.acval env φ F (d + 1)
+      (b.instantiate1 (.fvar d n ty)) = some ba →
+    ∃ F' ra, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d (b.instantiate1 a) = some ra ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ra = interp2 V ρ (ba.inst aa) ∧
+        (AnnotOk2 V ρ ra ↔ AnnotOk2 V ρ (ba.inst aa))
+
+/-- The `String`-literal clause, extended. -/
+def InferStrLitStep2C {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d F : Nat} {s : String} {t : Expr} {Δa : List AVExpr}
+    {ea : AVExpr},
+    inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t →
+    denote2 μ m.acval env φ F d (.lit (.strVal s)) = some ea →
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta
+
+/-- The projection clause, extended. -/
+def InferProjStep2C {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d i F : Nat} {sn : Name} {pe t : Expr} {Δa : List AVExpr}
+    {ea : AVExpr},
+    inferTypeCore μ env (fuel + 1) d (.proj sn i pe) = .ok t →
+    Expr.WScoped d (.proj sn i pe) →
+    (Expr.proj sn i pe).looseBVarsBounded 0 = true →
+    Expr.LeavesBounded (.proj sn i pe) →
+    CtxOk2 m μ φ F d Δa (.proj sn i pe) →
+    denote2 μ m.acval env φ F d (.proj sn i pe) = some ea →
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta
+
+/-! ### The three leaf clauses -/
+
+/-- **`.sort`, extended.**  The returned type is `.sort (u + 1)` and
+`AnnotOk2` of a sort is `True`: free. -/
+theorem infer_sort_claim2C (m : EnvS2 V env) {d : Nat} {u : Level}
+    {t : Expr} {Δa : List AVExpr} {F : Nat} {ea : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.sort u) = .ok t)
+    (hea : denote2 μ m.acval env φ F d (.sort u) = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [Setlec.inferBody, Setlec.viewM, Expr.view, pure,
+    Except.pure, Bind.bind, Except.bind, Except.ok.injEq] at h
+  subst h
+  rw [denote2] at hea
+  obtain rfl : ea = .sort (u.eval φ) := (Option.some.inj hea).symm
+  refine ⟨F, .sort (u.eval φ + 1), Nat.le_refl F, ?_,
+    fun _ _ => by simp, fun _ _ => by simp, ?_⟩
+  · rw [denote2]; simp [Level.eval]
+  · intro ρ _
+    exact (sound_sort V ρ (u.eval φ)).2
+
+/-- **`.bvar`, extended.**  Outside the fragment: the checker throws. -/
+theorem infer_bvar_claim2C (m : EnvS2 V env) {d i : Nat} {t : Expr}
+    {Δa : List AVExpr} {F : Nat} {ea : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.bvar i) = .ok t)
+    (_hea : denote2 μ m.acval env φ F d (.bvar i) = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [Setlec.inferBody, Setlec.viewM, Expr.view, pure,
+    Except.pure, Bind.bind, Except.bind] at h
+  simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- **`.fvar`, extended — and the one clause that pays outside its own
+ledger.**  Everything but the new conjunct is `infer_fvar_claim2A`;
+the new conjunct is `CtxAnn2`, the leaf-package component `CtxOk2`
+does not have. -/
+theorem infer_fvar_claim2C (m : EnvS2 V env) (hann : CtxAnn2 m μ φ)
+    {d idx : Nat} {n : Name} {ty t : Expr} {Δa : List AVExpr}
+    {F : Nat} {ea : AVExpr}
+    (hC : CtxOk2 m μ φ F d Δa (.fvar idx n ty))
+    (h : inferTypeCore μ env (fuel + 1) d (.fvar idx n ty) = .ok t)
+    (hea : denote2 μ m.acval env φ F d (.fvar idx n ty) = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  obtain ⟨tya, Aa, hden, hi, hlink⟩ := CtxOk2.fvar_leaf hC
+  rw [denote2] at hea
+  obtain rfl : ea = .bvar (d - 1 - idx) := (Option.some.inj hea).symm
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [Setlec.inferBody, Setlec.viewM, Expr.view, pure,
+    Except.pure, Bind.bind, Except.bind] at h
+  split at h
+  · simp only [Except.ok.injEq] at h
+    subst h
+    refine ⟨F, tya, Nat.le_refl F, hden, fun _ _ => by simp,
+      hann hC hden, ?_⟩
+    intro ρ hρ
+    rw [interp2_bvar, hlink ρ hρ]
+    exact hρ (d - 1 - idx) Aa hi
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-! ### The two constant-shaped clauses -/
+
+/-- **`.const`, extended.**  The residue answers with the conjunct. -/
+theorem infer_const_claim2C (m : EnvS2 V env) (hct : ConstType2C m μ φ)
+    {d F : Nat} {n : Name} {us : List Level} {t : Expr}
+    {Δa : List AVExpr} {ea : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.const n us) = .ok t)
+    (hea : denote2 μ m.acval env φ F d (.const n us) = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [Setlec.inferBody, Setlec.viewM, Expr.view, pure,
+    Except.pure, Bind.bind, Except.bind] at h
+  cases hf : env.find? n with
+  | none =>
+    rw [hf] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
+  | some ci =>
+    rw [hf] at h
+    dsimp only at h
+    split at h
+    · next hlen =>
+      simp only [Except.ok.injEq] at h
+      subst h
+      rw [denote2, hf] at hea
+      dsimp only at hea
+      rw [if_pos hlen] at hea
+      obtain rfl : ea = m.acval n
+          (Level.substFn φ ci.toConstantVal.levelParams us) :=
+        (Option.some.inj hea).symm
+      obtain ⟨F', ta, hle, hta, hok, hmem⟩ := hct F d n ci us hf hlen
+      exact ⟨F', ta, hle, hta, fun ρ _ => m.acval_ok2 n _ ρ,
+        fun ρ _ => hok ρ, fun ρ _ => hmem ρ⟩
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- **`.lit (.natVal k)`, extended.**  The returned type's annotation
+is the `Nat` leaf's `acval`, so its truthfulness is `acval_ok2` — free
+and already in the clause. -/
+theorem infer_natLit_claim2C (m : EnvS2 V env) (hnh : NatHeads2 m φ)
+    {d k F : Nat} {t : Expr} {Δa : List AVExpr} {ea : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t)
+    (hea : denote2 μ m.acval env φ F d (.lit (.natVal k)) = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [Setlec.inferBody, Setlec.viewM, Expr.view, pure,
+    Except.pure, Bind.bind, Except.bind] at h
+  split at h
+  · next hg =>
+    simp only [Except.ok.injEq] at h
+    subst h
+    have hgt : Setlec.natLitSupported env = true := by simpa using hg
+    rw [denote2, if_pos hgt] at hea
+    obtain rfl : ea = natLitT2
+        (m.acval natZeroName (Level.substFn φ [] []))
+        (m.acval natSuccName (Level.substFn φ [] [])) k :=
+      (Option.some.inj hea).symm
+    cases hf : env.find? natName with
+    | none =>
+      simp only [Setlec.natLitSupported, Bool.and_eq_true] at hgt
+      obtain ⟨⟨h1, -⟩, -⟩ := hgt
+      rw [hf] at h1
+      exact nomatch h1
+    | some ci =>
+      have hlp : ci.toConstantVal.levelParams = [] :=
+        natName_levelParams_nil hgt hf
+      have hrow : ∀ ρ : Nat → V,
+          AnnotOk2 V ρ (natLitT2
+              (m.acval natZeroName (Level.substFn φ [] []))
+              (m.acval natSuccName (Level.substFn φ [] [])) k) ∧
+            interp2 V ρ (natLitT2
+                (m.acval natZeroName (Level.substFn φ [] []))
+                (m.acval natSuccName (Level.substFn φ [] [])) k)
+              ∈ˢ interp2 V ρ
+                (m.acval natName (Level.substFn φ [] [])) :=
+        fun ρ => natLit_facts2 (m.acval_ok2 _ _ ρ) (m.acval_ok2 _ _ ρ)
+          (hnh hgt ρ).1 (hnh hgt ρ).2 k
+      refine ⟨F, m.acval natName (Level.substFn φ [] []),
+        Nat.le_refl F, ?_, fun ρ _ => (hrow ρ).1,
+        fun ρ _ => m.acval_ok2 _ _ ρ, fun ρ _ => (hrow ρ).2⟩
+      rw [denote2, hf]
+      dsimp only
+      rw [if_pos (by simp [hlp]), hlp]
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-! ### `.forallE` — still free -/
+
+/-- **`.forallE`, extended.**  The returned type is a sort. -/
+theorem infer_forallE_claim2C (m : EnvS2 V env) (hss : SortSem2 m μ φ)
+    (hop : CtxOk2Open m μ φ) {d F : Nat} {n : Name}
+    {ty body t : Expr} {mb : BinderMeta} {Δa : List AVExpr}
+    {ea : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.forallE n ty body mb)
+      = .ok t)
+    (hws : Expr.WScoped d (.forallE n ty body mb))
+    (hC : CtxOk2 m μ φ F d Δa (.forallE n ty body mb))
+    (hea : denote2 μ m.acval env φ F d (.forallE n ty body mb)
+      = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  obtain ⟨tty, u, bt, vv, hty, hwu, hbt, hens, rfl⟩ :=
+    Setlec.inferTypeCore_forall_inv h
+  simp only [Expr.WScoped] at hws
+  rw [denote2] at hea
+  rcases hta : denote2 μ m.acval env φ F d ty with _ | ta
+  · rw [hta] at hea; exact nomatch hea
+  rw [hta] at hea
+  rcases hba : denote2 μ m.acval env φ F (d + 1)
+      (body.instantiate1 (.fvar d n ty)) with _ | ba
+  · rw [hba] at hea; exact nomatch hea
+  rw [hba] at hea
+  rcases hu : sortOfE μ env φ F d ty with _ | u0
+  · rw [hu] at hea; exact nomatch hea
+  rw [hu] at hea
+  rcases hv : sortOfE μ env φ F (d + 1)
+      (body.instantiate1 (.fvar d n ty)) with _ | v0
+  · rw [hv] at hea; exact nomatch hea
+  rw [hv] at hea
+  obtain rfl : ea = .pi u0 v0 ta ba := (Option.some.inj hea).symm
+  obtain rfl : u0 = u.eval φ :=
+    sortOfE_crossFuel hu (sortOfE_of_run hty hwu)
+  obtain rfl : v0 = vv.eval φ :=
+    sortOfE_crossFuel hv
+      (sortOfE_of_run hbt (Setlec.ensureSortCore_inv hens))
+  have hCop := hop (n := n) hC.forallE_ty hC.forallE_body hta
+    hws.1.fvarsBelow
+  have hrow : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      AnnotOk2 V ρ (AVExpr.pi (u.eval φ) (vv.eval φ) ta ba) ∧
+        interp2 V ρ (.pi (u.eval φ) (vv.eval φ) ta ba)
+          ∈ˢ interp2 V ρ
+            (.sort (Setlec.TT.imax (u.eval φ) (vv.eval φ))) := by
+    intro ρ hρ
+    have hdom := hss hC.forallE_ty hu hta ρ hρ
+    have hcod : ∀ x, x ∈ˢ interp2 V ρ ta →
+        AnnotOk2 V (cons x ρ) ba ∧
+          interp2 V (cons x ρ) ba ∈ˢ (univ (vv.eval φ) : V) :=
+      fun x hx => hss hCop hv hba (cons x ρ) (Sat2_cons V hρ hx)
+    exact sound_pi V hdom.1 (fun x hx => (hcod x hx).1) hdom.2
+      (fun x hx => (hcod x hx).2)
+  exact ⟨F, .sort (Setlec.TT.imax (u.eval φ) (vv.eval φ)),
+    Nat.le_refl F, by rw [denote2_sortQ]; rfl,
+    fun ρ hρ => (hrow ρ hρ).1, fun _ _ => by simp,
+    fun ρ hρ => (hrow ρ hρ).2⟩
+
+/-! ### `.lam` — free by induction -/
+
+/-- **`.lam`, extended.**  The returned type is the `∀` whose domain
+is the λ's own and whose codomain is the body's inferred type, so
+`AnnotOk2_pi` splits the obligation into `SortSem2`'s domain fact —
+already in the clause — and the induction hypothesis's new conjunct at
+`ta :: Δa`, which `Sat2_cons` transports.  **Free.** -/
+theorem infer_lam_claim2C (m : EnvS2 V env) (hss : SortSem2 m μ φ)
+    (hop : CtxOk2Open m μ φ) {d F : Nat} {n : Name}
+    {ty body t : Expr} {mb : BinderMeta} {Δa : List AVExpr}
+    {ea : AVExpr} (ihi : InferClaims2C μ m φ fuel)
+    (h : inferTypeCore μ env (fuel + 1) d (.lam n ty body mb) = .ok t)
+    (hws : Expr.WScoped d (.lam n ty body mb))
+    (hb : (Expr.lam n ty body mb).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.lam n ty body mb))
+    (hC : CtxOk2 m μ φ F d Δa (.lam n ty body mb))
+    (hea : denote2 μ m.acval env φ F d (.lam n ty body mb) = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  obtain ⟨tty, u, bt, hty, hwu, hbt, -, rfl⟩ :=
+    Setlec.inferTypeCore_lam_inv h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLty : Expr.LeavesBounded ty := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLbody : Expr.LeavesBounded body := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  rw [denote2] at hea
+  rcases hta : denote2 μ m.acval env φ F d ty with _ | ta
+  · rw [hta] at hea; exact nomatch hea
+  rw [hta] at hea
+  rcases hba : denote2 μ m.acval env φ F (d + 1)
+      (body.instantiate1 (.fvar d n ty)) with _ | ba
+  · rw [hba] at hea; exact nomatch hea
+  rw [hba] at hea
+  rcases hv : lamSortE μ env φ F (d + 1)
+      (body.instantiate1 (.fvar d n ty)) with _ | v0
+  · rw [hv] at hea; exact nomatch hea
+  rw [hv] at hea
+  obtain rfl : ea = .lam v0 ta ba := (Option.some.inj hea).symm
+  have hsv : sortOfE μ env φ F (d + 1) bt = some v0 := by
+    obtain ⟨bt0, hbt0, hs0⟩ := lamSortE_runs hv
+    rwa [infer_crossFuel hbt0 hbt] at hs0
+  obtain ⟨hwopen, hbopen, hLopen⟩ :=
+    frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
+  have hCop := hop (n := n) hC.lam_ty hC.lam_body hta hws.1.fvarsBelow
+  obtain ⟨F1, tbt, hle1, htbt, hrowE, hrowT, hrowM⟩ :=
+    ihi hbt hwopen hbopen hLopen hCop hba
+  have hleaf :
+      Expr.LeafCond d n ty (body.instantiate1 (.fvar d n ty)) := by
+    intro l hl hd
+    rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+    · exact absurd hd (by
+        have := Expr.fvarLeaves_lt_of_wscoped hws.2 l h2
+        omega)
+    · rw [Expr.fvarLeaves] at h2
+      rcases List.mem_cons.mp h2 with rfl | h3
+      · exact ⟨rfl, rfl⟩
+      · exact absurd hd (by
+          have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
+          omega)
+  have hcons : Expr.fvarConsistent d n ty bt :=
+    Expr.fvarConsistent_of_leafCond bt (fun l hl =>
+      hleaf l (inferTypeCore_fvarLeaves m.base.wf fuel hbt hwopen l hl))
+  have hbtb : bt.looseBVarsBounded 0 = true :=
+    inferTypeCore_looseBVars m.base.wf fuel hbt hwopen hbopen hLopen
+  have hround : (bt.abstract1 d).instantiate1 (.fvar d n ty) = bt :=
+    abstract1_instantiate1 bt 0 hcons hbtb
+  have hF1 : F1 ≤ F1 + fuel := Nat.le_add_right F1 fuel
+  have hFF : F ≤ F1 + fuel := Nat.le_trans hle1 hF1
+  have hfl : fuel ≤ F1 + fuel := Nat.le_add_left fuel F1
+  have hdomS := hss (Δa := Δa)
+    (CtxOk2.fuelMono (Nat.le_add_right F fuel) hC.lam_ty)
+    (sortOfE_fuelMono (φ := φ) (Nat.le_add_left fuel F)
+      (sortOfE_of_run hty hwu))
+    (denote2_fuelMono (Nat.le_add_right F fuel) d ty hta)
+  have hCbt : CtxOk2 m μ φ (F1 + fuel) (d + 1) (ta :: Δa) bt :=
+    (CtxOk2.fuelMono hFF hCop).of_subset
+      (inferTypeCore_fvarLeaves m.base.wf fuel hbt hwopen)
+  have hrow : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      AnnotOk2 V ρ (AVExpr.lam v0 ta ba) ∧
+        interp2 V ρ (.lam v0 ta ba)
+          ∈ˢ interp2 V ρ (.pi (u.eval φ) v0 ta tbt) := by
+    intro ρ hρ
+    have hcodS : ∀ x, x ∈ˢ interp2 V ρ ta →
+        interp2 V (cons x ρ) tbt ∈ˢ (univ v0 : V) :=
+      fun x hx => (hss hCbt (sortOfE_fuelMono (φ := φ) hFF hsv)
+        (denote2_fuelMono hF1 (d + 1) bt htbt) (cons x ρ)
+        (Sat2_cons V hρ hx)).2
+    refine sound_lam V (hdomS ρ hρ).1 (fun x hx => ?_) (fun x hx => ?_)
+      (fun h0 x hx => ?_)
+    · exact hrowE (cons x ρ) (Sat2_cons V hρ hx)
+    · exact hrowM (cons x ρ) (Sat2_cons V hρ hx)
+    · exact univ_zero (V := V) ▸ h0 ▸ hcodS x hx
+  refine ⟨F1 + fuel, .pi (u.eval φ) v0 ta tbt, hFF, ?_,
+    fun ρ hρ => (hrow ρ hρ).1, ?_, fun ρ hρ => (hrow ρ hρ).2⟩
+  · rw [denote2, denote2_fuelMono hFF d ty hta, hround,
+      denote2_fuelMono hF1 (d + 1) bt htbt,
+      sortOfE_fuelMono (φ := φ) hfl (sortOfE_of_run hty hwu),
+      sortOfE_fuelMono (φ := φ) hFF hsv]
+    rfl
+  · intro ρ hρ
+    rw [AnnotOk2_pi]
+    exact ⟨(hdomS ρ hρ).1,
+      fun x hx => hrowT (cons x ρ) (Sat2_cons V hρ hx)⟩
+
+/-! ### `.letE` — free by induction -/
+
+/-- **`.letE`, extended.**  The returned type *is* the body's inferred
+type, at the same depth and the same context, so the new conjunct is
+the induction hypothesis's own, verbatim.  **Free.** -/
+theorem infer_letE_claim2C (m : EnvS2 V env)
+    (hbeta : BetaCross2C m μ φ) {d F : Nat} {n : Name}
+    {ty val b t : Expr} {Δa : List AVExpr} {ea : AVExpr}
+    (ihi : InferClaims2C μ m φ fuel)
+    (h : inferTypeCore μ env (fuel + 1) d (.letE n ty val b) = .ok t)
+    (hws : Expr.WScoped d (.letE n ty val b))
+    (hb : (Expr.letE n ty val b).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.letE n ty val b))
+    (hC : CtxOk2 m μ φ F d Δa (.letE n ty val b))
+    (hea : denote2 μ m.acval env φ F d (.letE n ty val b) = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  obtain ⟨tty, sv, tvv, hty, -, hvv, -, hbody⟩ :=
+    Setlec.inferTypeCore_letE_inv h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLty : Expr.LeavesBounded ty := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLval : Expr.LeavesBounded val := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hwred : Expr.WScoped d (b.instantiate1 val) :=
+    Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2
+  have hbred : (b.instantiate1 val).looseBVarsBounded 0 = true :=
+    Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2
+  have hLred : Expr.LeavesBounded (b.instantiate1 val) := fun l hl => by
+    rcases Expr.fvarLeaves_instantiate1 b 0 hl with h2 | h2
+    · exact hLb l (by simp [Expr.fvarLeaves, h2])
+    · exact hLval l h2
+  have hCred : CtxOk2 m μ φ F d Δa (b.instantiate1 val) := by
+    refine ⟨hC.1, fun l hl => ?_⟩
+    rcases Expr.fvarLeaves_instantiate1 b 0 hl with h2 | h2
+    · exact hC.letE_body.2 l h2
+    · exact hC.letE_val.2 l h2
+  rw [denote2] at hea
+  rcases hta : denote2 μ m.acval env φ F d ty with _ | ta
+  · rw [hta] at hea; exact nomatch hea
+  rw [hta] at hea
+  rcases hva : denote2 μ m.acval env φ F d val with _ | va
+  · rw [hva] at hea; exact nomatch hea
+  rw [hva] at hea
+  rcases hba : denote2 μ m.acval env φ F (d + 1)
+      (b.instantiate1 (.fvar d n ty)) with _ | ba
+  · rw [hba] at hea; exact nomatch hea
+  rw [hba] at hea
+  obtain rfl : ea = .letE ta va ba := (Option.some.inj hea).symm
+  obtain ⟨Ft, tta, -, -, hrowTE, -, -⟩ :=
+    ihi hty hws.1 hb.1.1 hLty hC.letE_ty hta
+  obtain ⟨Fv, tva, -, -, hrowVE, -, -⟩ :=
+    ihi hvv hws.2.1 hb.1.2 hLval hC.letE_val hva
+  obtain ⟨F2, ra, hle2, hra, hcross⟩ := hbeta (Δa := Δa) hva hba
+  obtain ⟨F3, tbv, hle3, htbv, hrowBE, hrowBT, hrowBM⟩ :=
+    ihi hbody hwred hbred hLred
+      (CtxOk2.fuelMono hle2 hCred) hra
+  refine ⟨F3, tbv, Nat.le_trans hle2 hle3, htbv, ?_, hrowBT, ?_⟩
+  · intro ρ hρ
+    have hokv := hrowVE ρ hρ
+    have hokba : AnnotOk2 V (cons (interp2 V ρ va) ρ) ba :=
+      (AnnotOk2_inst0 V hokv).mp ((hcross ρ hρ).2.mp (hrowBE ρ hρ))
+    rw [AnnotOk2_letE]
+    exact ⟨hrowTE ρ hρ, hokv, hokba⟩
+  · intro ρ hρ
+    rw [interp2_letE, ← interp2_inst0, ← (hcross ρ hρ).1]
+    exact hrowBM ρ hρ
+
+/-! ### `.app` — the clause the extension both taxes and relieves
+
+Three things change here, and the balance is strongly in the
+extension's favour.
+
+* **`TypeOk2` is gone.**  Its three uses — `AnnotOk2` of the head's
+  inferred type (twice, to grade `WhnfClaims2C`) and of the argument's
+  (once, to grade `DefEqClaims2C`) — are the induction hypothesis's
+  new conjunct.  And they are now **ρ-uniform**, which the hoisted
+  reduction and defeq claims require and a ρ-local fact could not
+  supply.
+* **`AnnotOk2.hoist_pi`** splits the reduct's ρ-uniform truthfulness
+  into the domain's (over `Δa`, for the defeq premise) and the
+  codomain's (over `Aa :: Δa`, for the returned type).
+* **The payment.**  The returned type is the crossed annotation `ra`,
+  and the codomain's truthfulness lands on `Ba.inst aa` — so the
+  crossing must carry truthfulness *back*, which is why `BetaCross2C`
+  is a biconditional.  The sealed `BetaCross2` had both directions;
+  `BetaCross2A` dropped one, and this buys it back. -/
+
+theorem infer_app_claim2C (m : EnvS2 V env) (hss : SortSem2 m μ φ)
+    (hop : CtxOk2Open m μ φ) (hcr : CtxOk2R m μ φ)
+    (hbeta : BetaCross2C m μ φ)
+    {d F : Nat} {f a t : Expr} {Δa : List AVExpr} {ea : AVExpr}
+    (ihw : WhnfClaims2C μ m φ fuel)
+    (ihd : DefEqClaims2C μ m φ fuel) (ihi : InferClaims2C μ m φ fuel)
+    (h : inferTypeCore μ env (fuel + 1) d (.app f a) = .ok t)
+    (hws : Expr.WScoped d (.app f a))
+    (hb : (Expr.app f a).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.app f a))
+    (hC : CtxOk2 m μ φ F d Δa (.app f a))
+    (hea : denote2 μ m.acval env φ F d (.app f a) = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  obtain ⟨tf, n', ty', body', mb', htf, hwf, rfl, tya, hta, hde⟩ :=
+    Setlec.inferTypeCore_app_inv h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLf : Expr.LeavesBounded f := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLa : Expr.LeavesBounded a := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  rw [denote2] at hea
+  rcases hfa : denote2 μ m.acval env φ F d f with _ | fa
+  · rw [hfa] at hea; exact nomatch hea
+  rw [hfa] at hea
+  rcases haa : denote2 μ m.acval env φ F d a with _ | aa
+  · rw [haa] at hea; exact nomatch hea
+  rw [haa] at hea
+  obtain rfl : ea = .app fa aa := (Option.some.inj hea).symm
+  obtain ⟨F1, tfa, hle1, htfa, hrowfE, hrowfT, hrowfM⟩ :=
+    ihi htf hws.1 hb.1 hLf hC.app_fn hfa
+  obtain ⟨htfw, htfb, htfL, htfC⟩ :=
+    frame_inferR m.base.wf htf hws.1 hb.1 hLf (hcr hC.app_fn)
+  obtain ⟨G, pa, hleG, hpa, hokpa, hredf⟩ :=
+    ihw hwf htfw htfb htfL htfC htfa hrowfT
+  have hle1G : F ≤ G := Nat.le_trans hle1 hleG
+  have hwfe : Expr.WScoped d (Expr.forallE n' ty' body' mb') :=
+    whnf_WScoped m.base.wf fuel hwf htfw
+  have hbfe : (Expr.forallE n' ty' body' mb').looseBVarsBounded 0
+      = true := whnf_looseBVars m.base.wf fuel hwf htfb
+  have hLfe : Expr.LeavesBounded (.forallE n' ty' body' mb') :=
+    fun l hl => htfL l (whnf_fvarLeaves m.base.wf fuel hwf l hl)
+  have hCfe : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase)
+      (.forallE n' ty' body' mb') :=
+    CtxOkR.of_subset (whnf_fvarLeaves m.base.wf fuel hwf) htfC
+  simp only [Expr.WScoped] at hwfe
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbfe
+  have hLty' : Expr.LeavesBounded ty' := fun l hl =>
+    hLfe l (by simp [Expr.fvarLeaves, hl])
+  have hCty' : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) ty' :=
+    CtxOkR.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hCfe
+  rw [denote2] at hpa
+  rcases hAa : denote2 μ m.acval env φ G d ty' with _ | Aa
+  · rw [hAa] at hpa; exact nomatch hpa
+  rw [hAa] at hpa
+  rcases hBa : denote2 μ m.acval env φ G (d + 1)
+      (body'.instantiate1 (.fvar d n' ty')) with _ | Ba
+  · rw [hBa] at hpa; exact nomatch hpa
+  rw [hBa] at hpa
+  rcases hu' : sortOfE μ env φ G d ty' with _ | u'
+  · rw [hu'] at hpa; exact nomatch hpa
+  rw [hu'] at hpa
+  rcases hv' : sortOfE μ env φ G (d + 1)
+      (body'.instantiate1 (.fvar d n' ty')) with _ | v'
+  · rw [hv'] at hpa; exact nomatch hpa
+  rw [hv'] at hpa
+  obtain rfl : pa = .pi u' v' Aa Ba := (Option.some.inj hpa).symm
+  -- the hoist: the reduct's ρ-uniform truthfulness, split
+  obtain ⟨hokAa, hokBa⟩ := AnnotOk2.hoist_pi hokpa
+  obtain ⟨F2, taa, hle2, htaa, hrowaE, hrowaT, hrowaM⟩ :=
+    ihi hta hws.2 hb.2 hLa hC.app_arg haa
+  obtain ⟨htaw, htab, htaL, htaC⟩ :=
+    frame_inferR m.base.wf hta hws.2 hb.2 hLa (hcr hC.app_arg)
+  -- the defeq claim's two graded premises: the argument type's from
+  -- the induction hypothesis's new conjunct (this is what retires
+  -- `TypeOk2`), the domain's from the hoist
+  have hdom : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ taa = interp2 V ρ Aa :=
+    ihd hde htaw htab htaL hwfe.1 hbfe.1 hLty' htaC hCty'
+      (denote2_fuelMono (Nat.le_add_right F2 G) d tya htaa)
+      (denote2_fuelMono (Nat.le_add_left G F2) d ty' hAa)
+      hrowaT hokAa
+  have hCf : CtxOk2 m μ φ G d Δa f := CtxOk2.fuelMono hle1G hC.app_fn
+  have hCpi : CtxOk2 m μ φ G d Δa (.forallE n' ty' body' mb') :=
+    (hCf.of_subset
+      (inferTypeCore_fvarLeaves m.base.wf fuel htf hws.1)).of_subset
+      (whnf_fvarLeaves m.base.wf fuel hwf)
+  have hCop := hop (n := n') hCpi.forallE_ty hCpi.forallE_body hAa
+    hwfe.1.fvarsBelow
+  obtain ⟨F3, ra, hle3, hra, hcross⟩ :=
+    hbeta (Δa := Δa) (denote2_fuelMono hle1G d a haa) hBa
+  have ha2 : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ aa ∈ˢ interp2 V ρ Aa := by
+    intro ρ hρ
+    rw [← hdom ρ hρ]
+    exact hrowaM ρ hρ
+  have hf2 : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ fa ∈ˢ interp2 V ρ (.pi u' v' Aa Ba) := by
+    intro ρ hρ
+    rw [← hredf ρ hρ]
+    exact hrowfM ρ hρ
+  have hcod0 : ∀ ρ : Nat → V, Sat2 V Δa ρ → v' = 0 →
+      ∀ x, x ∈ˢ interp2 V ρ Aa →
+        interp2 V (cons x ρ) Ba ∈ˢ (univZero : V) := by
+    intro ρ hρ h0 x hx
+    have hmem := (hss hCop hv' hBa (cons x ρ) (Sat2_cons V hρ hx)).2
+    rw [h0] at hmem
+    exact univ_zero (V := V) ▸ hmem
+  -- the returned type's truthfulness: the codomain's hoisted form at
+  -- the argument's value, carried back across the crossing
+  have hokra : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ra := by
+    intro ρ hρ
+    refine (hcross ρ hρ).2.mpr ((AnnotOk2_inst0 V (hrowaE ρ hρ)).mpr ?_)
+    exact hokBa (cons (interp2 V ρ aa) ρ)
+      (Sat2_cons V hρ (ha2 ρ hρ))
+  refine ⟨F3, ra, Nat.le_trans hle1G hle3, hra, ?_, hokra, ?_⟩
+  · intro ρ hρ
+    exact (sound_app V (hrowfE ρ hρ) (hrowaE ρ hρ) (hf2 ρ hρ)
+      (ha2 ρ hρ) (hcod0 ρ hρ)).1
+  · intro ρ hρ
+    rw [(hcross ρ hρ).1]
+    exact (sound_app V (hrowfE ρ hρ) (hrowaE ρ hρ) (hf2 ρ hρ)
+      (ha2 ρ hρ) (hcod0 ρ hρ)).2
+
+/-! ### The assembly, generation four
+
+`InferInputs2A` had nine fields.  **`type_ok` is gone** — the claim
+now delivers what it assumed.  `const_ty`, `beta`, `str_lit` and
+`proj` are extended with the new conjunct; `nat_heads`, `sort_sem`,
+`ctx_R` and `ctx_open` are unchanged.  **`ctx_ann` is new**, and it is
+not the extension's price but the supplier's: see the FINDING above. -/
+
+/-- **The quarter's routed inputs**, generation four. -/
+structure InferInputs2C (V : Type w) [SetTheory V] (μ : CheckMode) :
+    Prop where
+  /-- I3: the stored type's annotation, at a fuel of its own choosing,
+  now carrying its truthfulness -/
+  const_ty : ∀ {env : Env} (m : EnvS2 V env) (φ : Name → Nat),
+    ConstType2C m μ φ
+  /-- I4: the two numeral head facts (unchanged) -/
+  nat_heads : ∀ {env : Env} (m : EnvS2 V env) (φ : Name → Nat),
+    NatHeads2 m φ
+  /-- I5: the `String`-literal clause -/
+  str_lit : ∀ {env : Env} (m : EnvS2 V env) (φ : Name → Nat)
+    (fuel : Nat), InferStrLitStep2C m μ φ fuel
+  /-- I8/I10: the β crossing, transporting truthfulness both ways -/
+  beta : ∀ {env : Env} (m : EnvS2 V env) (φ : Name → Nat),
+    BetaCross2C m μ φ
+  /-- I9: the projection clause -/
+  proj : ∀ {env : Env} (m : EnvS2 V env) (φ : Name → Nat)
+    (fuel : Nat), InferProjStep2C m μ φ fuel
+  /-- the sort fact at an annotation fuel off the induction -/
+  sort_sem : ∀ {env : Env} (m : EnvS2 V env) (φ : Name → Nat),
+    SortSem2 m μ φ
+  /-- **refuted** (`not_ctxOk2R`): the context in the other currency.
+  Generation five's context move is what removes it. -/
+  ctx_R : ∀ {env : Env} (m : EnvS2 V env) (φ : Name → Nat),
+    CtxOk2R m μ φ
+  /-- `CtxOkR.open`'s twin (a theorem: `CtxOk2.openS`) -/
+  ctx_open : ∀ {env : Env} (m : EnvS2 V env) (φ : Name → Nat),
+    CtxOk2Open m μ φ
+  /-- **new, and it belongs to the supplier**: `CtxOk2`'s missing
+  fourth leaf component -/
+  ctx_ann : ∀ {env : Env} (m : EnvS2 V env) (φ : Name → Nat),
+    CtxAnn2 m μ φ
+
+/-- **`InferStep2C`, modulo the routed inputs.**  Eleven `Expr`
+shapes, one line each, against the hoisted and extended claim.
+
+Four clauses still close with no residue of their own: `.sort`,
+`.bvar`, `.forallE` and `.lam`.  `.fvar` has left that list — not
+because the clause got harder, but because the *claim* now asks for a
+fact `CtxOk2` does not carry. -/
+theorem inferStep2C_of (h : InferInputs2C V μ) : InferStep2C μ V := by
+  intro env m φ fuel _ihwc ihw ihd ihi
+  intro d e t Δa hrun hws hb hLb F ea hC hea
+  match e, hrun, hws, hb, hLb, hC, hea with
+  | .sort u, hrun, _, _, _, _, hea =>
+    exact infer_sort_claim2C m hrun hea
+  | .bvar i, hrun, _, _, _, _, hea =>
+    exact infer_bvar_claim2C m hrun hea
+  | .fvar idx nm ty, hrun, _, _, _, hC, hea =>
+    exact infer_fvar_claim2C m (h.ctx_ann m φ) hC hrun hea
+  | .const nm us, hrun, _, _, _, _, hea =>
+    exact infer_const_claim2C m (h.const_ty m φ) hrun hea
+  | .lit (.natVal k), hrun, _, _, _, _, hea =>
+    exact infer_natLit_claim2C m (h.nat_heads m φ) hrun hea
+  | .lit (.strVal s), hrun, _, _, _, _, hea =>
+    exact h.str_lit m φ fuel hrun hea
+  | .forallE nm ty body mb, hrun, hws, _, _, hC, hea =>
+    exact infer_forallE_claim2C m (h.sort_sem m φ) (h.ctx_open m φ)
+      hrun hws hC hea
+  | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
+    exact infer_lam_claim2C m (h.sort_sem m φ) (h.ctx_open m φ) ihi
+      hrun hws hb hLb hC hea
+  | .app f a, hrun, hws, hb, hLb, hC, hea =>
+    exact infer_app_claim2C m (h.sort_sem m φ) (h.ctx_open m φ)
+      (h.ctx_R m φ) (h.beta m φ) ihw ihd ihi hrun hws hb hLb hC hea
+  | .letE nm ty val b, hrun, hws, hb, hLb, hC, hea =>
+    exact infer_letE_claim2C m (h.beta m φ) ihi hrun hws hb hLb hC hea
+  | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
+    exact h.proj m φ fuel hrun hws hb hLb hC hea
 
 end Setlec.SetR.Interp2
