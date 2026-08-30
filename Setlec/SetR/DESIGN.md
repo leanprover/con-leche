@@ -13550,3 +13550,87 @@ and `Delta2`, which corrects seal 1's "the delta exit is free":
 `acval_defn` gives the *body*'s annotation, but the loop unfolds a
 *spine*, and the body-to-spine step needs an annotated `mkAppN`
 inversion this lane does not have.
+
+### CAMPAIGN STOP — `CheckStep2` is FALSE as sealed, not merely hard
+
+The fourth quarter closed the case on `Claims2`.  `InferClaims2` is not
+under-supplied; it is **refuted**, and `CheckStep2` with it.
+
+`inferClaims2_one_refuted` (`Step2/InferQ.lean`): given a stored
+constant whose type is a `∀` — i.e. **every realistic environment** —
+`¬ InferClaims2 μ m φ 1`.  The chain is mechanical:
+`whnf_one_not_ok` (at fuel 1 the loop runs `whnfCore` at fuel 0, which
+throws, so **no** `whnf` at fuel 1 ever succeeds) ⇒ `sortOfE_one = none`
+⇒ `denote2_one_forallE = none`; while `inferTypeCore μ env 1 0
+(.const n us)` succeeds outright.  So the claim demands a `denote2` the
+fuel cannot produce.
+
+And that propagates all the way up.  Checked, not argued:
+
+    inferClaims2_one_refuted m hf hlen hpi
+      (checkSound2 hstep m φ 1).2.2.2  :  False
+
+compiles from `hstep : CheckStep2 μ V`.  `CheckStep2`'s hypotheses at
+`fuel = 0` are the vacuous fuel-zero claims `checkSound2` already
+proves, and its conclusion contains the refuted `InferClaims2 μ m φ 1`.
+**The statement I sealed cannot be proved by anyone.**
+
+Why `.const` and `.fvar` are the witnesses, and why nothing earlier
+caught it: a clause that *recurses* pays for its returned type's
+annotation with its own run; `.sort` and the literals return shapes
+`denote2` handles with no run at all.  `.const` and `.fvar` are in
+neither position — they recurse into nothing yet return a type
+`inferBody` merely **reads** (the stored declaration; the leaf's
+annotation), whose `denote2` is a knot computation at the claim's own
+fuel.  Seals 1–4 landed exactly `.sort`, `.fvar`, `.bvar`, and `.fvar`
+was already stopped for an unrelated reason, so the one witness in the
+landed set was masked by a different defect.
+
+*Rule: a claim that quantifies a fuel must be checked at the smallest
+fuel, not the generic one.  Every defect this campaign found lives at
+`fuel ≤ 1`, and none of them is visible in the `∀ fuel` reading.*
+
+**Four independent defects in one sealed statement**, found by four
+discharges that did not see each other:
+
+| # | defect | found by |
+|---|---|---|
+| 1 | the annotation's fuel tied to the checker's (`denote2_fuelDown_false`) | whnf **and** defeq, convergently |
+| 2 | the `interp2` equality stated ungraded, against this file's own architecture note | whnf |
+| 3 | `InferClaims2` false at fuel 1 ⇒ `CheckStep2` false | infer |
+| 4 | `CtxOkR`-on-erasures cannot serve the `.fvar` clause (`CtxOk2`) | seal 3 |
+
+Defect 3 subsumes the *shape* of 1: both are the fuel index, and the
+repair is the same — quantify the annotation's fuel independently of
+the checker's, made harmless downstream by **`denote2_fuelMono`, which
+is a theorem** (`knotFuelMono` landed unconditionally after `Claims2`
+was sealed), not an input.  `Step2Inputs.infer_fuel_det` can be retired
+for this purpose.
+
+**Nothing is lost.**  Every quarter is discharged *past* its defects in
+a repaired currency, stated and checked: `whnfCore_claims2R`,
+`whnf_claims2R`, `defeqStep_claim2` (all seven blocks, transferred
+verbatim from `Bridge/DefEq.lean`), `defeq_claims2`, `inferStep2_of`
+(which localises the falsity in one visible field, `ConstType2`), the
+`.forallE` clause outright, and Tier B whole.  313 jobs, battery
+identical to baseline, axioms exactly the three throughout.
+
+**Four corrections to my own briefs and seals**, worth more than the
+proofs they came with:
+
+* `Bridge/Infer.lean`'s prose is **stale** — it calls the five
+  structural clauses "named `Prop`s pending a finding".
+  `Bridge/InferStruct.lean` (472 lines) discharges I6/I7/I8/I10 and is
+  the working reference.  I pointed the discharge at the wrong file.
+* the unfolding recipe was needed far less than the map claimed:
+  `Verify/InferLemmas.lean` already carries
+  `inferTypeCore_{forall,lam,app,letE,proj,const}_inv`.
+* **`SortSubstStable` is one lemma short of the β crossing** — it is
+  stated for `lamSortE` only, and `denote2`'s `pi` clause under a
+  substituted body needs the same stability for `sortOfE`, which has no
+  statement anywhere.  A gap in the Θ lane's own deliverable.
+* **the `.lam` chain-granularity mismatch**: `denote2` calls
+  `lamSortE` per λ *node*; `inferBody` runs it once per λ *chain* and
+  only at `mode.verified` — at `.noModel`, at no node at all.
+  `InferStep2` is stated for all `μ`, so this is a real quantifier
+  mismatch, not a proof difficulty.
