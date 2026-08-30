@@ -12222,3 +12222,54 @@ part-file, zero sorries).  Architecture as ratified-and-refined:
 
 Next: the walk's arm groups — the push consuming `substSimClaims` +
 `thetaSubst₁_trace` + `alignAt` — then the depth-zero consumers.
+
+### The walk's pre-build, round two: the θ-image-of-cert wall (STOP)
+
+With E1–E4 landed, the walk's arm-group pre-build (run at full
+strength on the syn/congruence group before any code) finds the
+frozen treatment's recipe incomplete:
+
+**The wall.**  The syn arm's "certZip_subst folded over Γ" builds
+the θ-image zip of a SHARED core — sound at one telescope level
+(the abstracted cores coincide, `certZip_subst` with a refl body
+does everything).  At two-plus levels the fold must map a zip whose
+`.cert` arms (the deeper entries' certified argument pairs, which
+may mention outer opened fvars — arena-real dependent arguments)
+under `substAK` — and certificates do not transport under
+substitution (the det-sync break, again).  `CertZip` has no arm for
+the θ-image of a certified pair; the images are certified at NO
+fuel.
+
+**The measure edge.**  The natural resolution — recurse the WALK on
+image-cert pairs (unfold the cert to its `defeqLoop` run) — lands
+at the SAME `fcK` (TelescopeOk's certs sit at `fcK + 1`, whose
+unfold is knot `fcK`) with a fresh `L`, outside the `[fcK, L]`
+measure.  Re-indexing TelescopeOk's certs one tier down restores
+the measure but breaks supply symmetry questions that need their
+own audit.  ZipBelow-consumption instead requires SUM-STRICT budget
+decrease, which the E4-rebased runs (bounded `≤`, not `<`) do not
+provide on their own.
+
+**Verified positives from the same pre-build**: the pushed entries'
+argument pairs are the walk's OWN spine zips (no loop-gate certs
+needed — supply confirmed); the post-core syn case reduces by
+E3+E4 to same-`P` images with `P` core-normal, where the
+sort/λ/Π/lit/below-zone-fvar cases all discharge or refute cleanly
+— the wall is EXACTLY the in-zone-fvar and nested-cert-argument
+corners.
+
+**Options for ratification**:
+(A) a `CertZip` θ-arm (the image-of-cert constructor) — zip-tier
+ripple: every discharged zip consumer gains an arm, each routing to
+a Θ-shaped hypothesis (mechanical but wide);
+(B) walk-side mutual: state the image-pair walker as a SEPARATE
+claim proven mutually with the walk, its cert-leaves recursing
+through a REVISED measure ([fcK, L] ↦ [fcK, telescope-weight, L] or
+TelescopeOk re-indexed at `fcK`);
+(C) strengthen E4's aligned outputs to STRICT budget decrease where
+a step was consumed (auditable: the aligned assembly reuses the
+actual's continuation, one step shorter) — unlocking
+ZipBelow-consumption for the image-pairs at equal fuel.
+Leaning (C)+(B-measure-audit): (C) is a bounded E4 amendment in the
+axiom's spirit; with strict decrease the image-cert pairs flow
+through ZipBelow exactly like every other zip.  STOP — reporting.
