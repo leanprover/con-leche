@@ -13634,3 +13634,47 @@ proofs they came with:
   only at `mode.verified` — at `.noModel`, at no node at all.
   `InferStep2` is stated for all `μ`, so this is a real quantifier
   mismatch, not a proof difficulty.
+
+### Seal 6 — the amended `Claims2` (`Interp2/Claims2A.lean`)
+
+The four defects the parallel discharges found are folded into one
+amended statement.  The sealed `Claims2`/`Routed` shapes stay in the
+tree as the tombstone until the last quarter has migrated off them;
+they are **refuted**, and nothing new may be pointed at them.
+
+| # | repair | found by | why it was invisible |
+|---|--------|----------|----------------------|
+| R1 | the annotation's fuel `F` is its own binder | whnf **and** defeq, independently | only a *recursing* clause has to move a `denote2` fact down a decrement; the landed seals were `.sort`/`.fvar`/`.bvar` |
+| R2 | the reduction equalities are graded by `AnnotOk2 ea` | whnf | β at kind `0` is the only counterexample and no landed seal reached β |
+| R3 | the inferred type's annotation lives at some `F' ≥ F` | infer (mechanized) | `.const`/`.fvar` neither recurse nor return run-free shapes — the single masked witness |
+| R4 | claims stated at `μ.verified = true` | infer | `denote2` asks `lamSortE` per λ *node*, `inferBody` per λ *chain* |
+
+`DefEqClaims2A` is deliberately left **ungraded** — that is the shape
+the defeq quarter actually proved across all seven blocks, and it is
+`DeqS`'s grading, which `symm`/`trans` depend on.  Symmetry between the
+four claims would have been invention; the asymmetry is the evidence.
+Likewise only `InferClaims2A` takes `CtxOk2`: its `.fvar` clause is the
+only one that *reads* the context rather than threading it.
+
+`Step2Inputs.infer_fuel_det` is retired for its stated purpose:
+`denote2_fuelMono` (`Step2/Fuel.lean`) is a theorem.
+
+**Acceptance test, run and recorded** in `Claims2A.lean`'s header: the
+refutation transplanted verbatim onto `InferClaims2A` no longer
+elaborates, failing precisely at the repaired slot, with the two
+hypothetical inputs supplied so no other step can be the cause.
+`denote2_two_forallE` supplies the positive half — the annotation R3
+defers really does exist one fuel up.
+
+**Rules earned, joining the trap family.**
+* *A claim that quantifies a fuel must be checked at the smallest fuel
+  it admits.*  All four defects live at `fuel ≤ 1`.
+* *When a seal and an earlier architecture note disagree, the note is
+  not stale until someone has re-argued it.*  R2 was written down
+  before the seal and simply lost.
+* *A hypothesis borrowed from another currency is only as good as the
+  weakest clause that reads it.*  R4 and the `CtxOk2` split are both
+  this rule.
+* *Four independent discharges are a statement's real proofreaders.*
+  Two of the four found R1 without seeing each other's work; the
+  convergence is what made the amendment safe to write at once.
