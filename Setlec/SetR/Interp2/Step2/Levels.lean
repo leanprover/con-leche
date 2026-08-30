@@ -893,6 +893,23 @@ they are already load-bearing:
 
 **`μ.verified` is not used anywhere in this file**, by any of the four
 new statements or their proofs — everything here is mode-generic, as
-seal 10 requires.  The mode `μ` is threaded and never inspected. -/
+seal 10 requires.  The mode `μ` is threaded and never inspected.
+
+## Amendment: the two primitives were settled, and both are FALSE
+
+`Step2/LevelsInst.lean` settles `InferInstLevels` and
+`WhnfSortInstLevels` as stated above, and both are **refuted**:
+`not_inferInstLevels`, `not_whnfSortInstLevels`.  Neither carries an
+environment hypothesis, and a stored constant whose expression mentions
+a level parameter outside its own `levelParams` — legal for a bare
+`Env`, impossible for a checked one — defeats both.  `sortOfE` falls
+with them (`not_sortOfEInstLevels`), so the gap is in the *factoring*,
+not only in the primitives.
+
+The repair is `EnvWF`, which `Denote2InstLevels`' own `EnvS2` already
+carries (`m.base.wf`): `denote2_instLevels_ofW` re-derives everything
+here from the `…W` forms, so `denote2_instLevels_of` and the whole
+algebraic half of this file stand unchanged.  The `…W` forms are open;
+the crossing is **not** closed. -/
 
 end Setlec.SetR.Interp2
