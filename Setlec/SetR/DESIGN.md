@@ -10386,3 +10386,49 @@ The δ and nat-op legs, landed on the kit:
 **Frontier: {Θ, iota, λ-head, letE-head, proj-head}** + the trio +
 install facts.  The iota seal's pre-build treatment is next-largest;
 λ/letE/proj are smaller.
+
+### λ-head map: the β measure gap and its resolution (finding)
+
+The λ head is NOT a quick brick — the pre-build analysis found a
+real structural gap and its resolution:
+
+**The gap.**  After the innermost β fires, the natural recursion at
+the contractum-spine pair decreases NOTHING in `ZipBelow`'s
+[fc, knot, loop]: the aligned loop runs keep the original loop
+budget AND the original knot (the tri pieces on the fixed outputs
+run at `pureFns ga` and cannot be lowered); spine length is not
+viable either (re-viewing the contractum regrows the spine — β
+regrowth in spine form).
+
+**The resolution** — the originally-designed inner lemma returns,
+now with its precise role: a FIXED-CONTEXT knot-only induction.
+Fix the loop decomposition once (outputs `(e₁,e₂)`, the tri, the
+`la-1` continuations); the inner lemma speaks of zipped pairs whose
+whnfCore runs land at exactly `(e₁,e₂)`, and inducts on the SUM OF
+THE CORE-RUN FUELS alone: β/zeta-contractions recurse at
+`(g₁-1, g₂-1)` (the contractum core runs are constructible one knot
+level down — the reassociation), cert-heads ASSEMBLE loop runs from
+the fixed tri and exit to `hΘ` (hypothesis-level, no measure), δ
+legs exit through `ZipBelow`'s loop component (the continuations at
+`la-1`), stuck shapes exit through the fixed tri analysis.  The
+loop-level and core-level measures never mix — that was the error
+in both previous attempts.
+
+**New obligations surfaced** (suppliers named):
+* the substitution-transport kit — `SubjInv`/`PairedLeaves` under
+  `instantiate1` and spine-folding (syntactic lemmas, provable);
+* **`QPreserveBetaF`/`QPreserveZetaF`** — β/zeta-contraction
+  preservers for the Q-slot (genuinely NEW species: the landed
+  three cover only completed whnfCore outputs, and the contractum
+  is not an output; at FrameQ they discharge through the claims'
+  `Red` steps — denote is preserved along β/zeta reductions — so
+  the suppliers exist at the consumer);
+* `whnfCore_lam_spine_decompose` — the single-subject reassociation
+  (fired-β leg reconstructs the contractum-spine's core run at
+  `g-1`; stuck leg pins the spine).
+
+Build order for the tier: the substitution kit → the new species
+statements (+ shells/wrapper threading if the inner lemma's exits
+need them — check at build) → the reassociation → the inner lemma →
+the λ/letE-head discharges.  The letE head rides the same inner
+lemma (zeta = the β case at its own clause).
