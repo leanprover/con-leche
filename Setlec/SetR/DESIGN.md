@@ -12173,3 +12173,52 @@ dead exits via `loop_dead_exit` + `unfoldDefinition_none_of_recInfo`
 `iotaRec` none-of-overlength, `reduceNat` none-of-dead-shapes (the
 nat-guard/recInfo disjointness).  Chaining: aligned outputs re-enter
 the next arm's decomposition; seams propagate outward unchanged.
+
+### E4 DISCHARGED — the alignment engine lands (`alignAt`)
+
+`alignAt (henv : EnvWF env) (hm : KnotFuelMono μ env)
+(hPC : ProjCtorWF env) : ∀ g, CoreAlignAt μ env g ∧ LoopAlignAt μ
+env g` — the rebase/forcing engine, discharged in full (1,359-line
+part-file, zero sorries).  Architecture as ratified-and-refined:
+
+* **The by_cases simplification** (the discharge's key find): at
+  every fire node the engine DECIDES result-equality (`Expr` has
+  `DecidableEq`) — equal fires chain, unequal fires route to the
+  seam with full evidence.  No major-merging, no fire-alignment
+  reasoning in the engine at all; the seams absorb exactly the
+  divergences the STOP-finding taxonomized.
+* **The knot measure**: strong induction on the input run's knot
+  fuel (scrutinee whnfs and internal continuations sit one fuel
+  down in the inversions — the kernel's own discipline); the loop
+  tier at each fuel by budget induction consuming the same-fuel
+  core tier.  The mutual (core ↔ loop at scrutinees vs whnfStep
+  cores) is well-founded on (knot, budget) — no trace-structural
+  mutual needed: `coreAlign_step` inducts on the trace with
+  fuel-IHs; `loopAlign_step` never cases the trace (pendings carry
+  the peeled data, so the budget IH consumes them wholesale).
+* **The pending rows** (map amendment, the erased-residue trap's
+  resolution): `PendingDelta`/`PendingNat`/`LitResidue` carry the
+  loop-tier work a core run parks at (with `PendingNat` carrying
+  the non-recursor fact its guard derived — needed for the fired
+  refutations); the loop tier consumes them (its own delta is the
+  same unfolding by purity; its nat outcome is decided against the
+  claim).  `DeadCore` gained the lit-headed-spine row; `NatSeam`
+  the fired-vs-claimed-delta and over-application rows; `ProjSeam`
+  the nat-packing row.  Fuel bounds on the aligned outputs (the
+  axiom's fourth instance) made the appL chain measure-clean:
+  the head aligns at `g-1`, assembles at `≤ g`.
+* **Suppliers landed en route**: `unfoldDefinition_inv`/`_app`,
+  `whnfCore_nonrec_id` (const-headed non-recursor runs are the
+  identity — the spine inversion's fired disjunct refuted through
+  `iotaRec_fired_head`), `whnfCore_proj_congr` (the proj clause's
+  tail is a function of the scrutinee's whnf — same-fuel congruence
+  by double unfolding), `whnf_lit_id` (two knot levels),
+  `iotaRec_none_of_arglen`/`_of_dead`, `DeadCore.app`/`.not_lam`,
+  `natLitSupported_succ_not_rec`, `natOpGuard_not_rec` (the op is
+  its own dependency; 16-way name analysis by `decide`),
+  `LoopAlignOut.weaken_l`.
+* `ProjCtorWF` (projection-table constructors are stored
+  constructors) joins the install-facts docket beside `StoredWF`.
+
+Next: the walk's arm groups — the push consuming `substSimClaims` +
+`thetaSubst₁_trace` + `alignAt` — then the depth-zero consumers.
