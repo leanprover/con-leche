@@ -11734,6 +11734,29 @@ theorem loopProjStep_of {μ : CheckMode} {env : Env}
          hout hlit₁ hlit₂ ⟨us₁, entry₁, hfn₁, hf₁, hnat₁⟩
          ⟨us₂, entry₂, hfn₂, hf₂, hnat₂⟩ h₁ h₂))
 
+/-- **The loop-level iota step DISCHARGED** (the map's dissolution
+finding): the routed premises are EXACTLY `CoreSeam.recHead`'s
+payload, so the honest loop-tier answer is the seam itself — legal,
+terminal, and non-circular, because the seam's consumer is the
+SORT-PREMISED top (`ZipIotaCase`'s own discharge), a different
+Prop with strictly more facts: deadness for mixed fire, `below` at
+the loop decrease for synced fire, and the Θ-arc for cert-swallowed
+majors.  No iota split channel exists because none is needed —
+rec-spine pairs carry a rich seam where proj-stuck pairs were
+dead-shaped-poor; the channels are not parallel because the seams
+are not. -/
+theorem loopIotaStep_of {μ : CheckMode} {env : Env}
+    {Q : Nat → Expr → Expr → Prop} :
+    LoopIotaStep μ env Q := by
+  intro fc N R f₁ f₂ l₁ l₂ d mI rP n cv rules us us' as bs
+    u v u' v' below hN hR hf hev hlen hargs hIs hIt hp hQ
+    hre₁ hre₂ h₁ h₂
+  exact .seam ⟨Setlec.Expr.mkAppN (.const n us) as,
+    Setlec.Expr.mkAppN (.const n us') bs, f₁, f₂, l₁, l₂,
+    Nat.le_refl _, Nat.le_refl _, h₁, h₂, hre₁, hre₂,
+    CoreSeam.recHead n cv mI rP rules us us' as bs hf hev
+      hlen hargs⟩
+
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/
 theorem zipLamHeadCase_of {φ : Name → Nat}

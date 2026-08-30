@@ -11275,3 +11275,37 @@ discharged at the loop level (`hPr` supplied); next: iota's map
 with its parallel nested channel (`LoopIotaStep`), then Θ's read
 phase — the Θ-arc's docket now holds the two splits' conversions
 beside the cert-spine motive.
+
+### Iota's map: the parallel-channel constraint dissolves; LoopIotaStep DISCHARGED
+
+The map's pre-build walk resolved the frozen constraint by
+DISSOLUTION: `LoopIotaStep`'s routed premises are exactly
+`CoreSeam.recHead`'s payload (find? recInfo, eval-linked levels,
+pairwise arg zips, the reaches, the premise runs), so the honest
+loop-tier discharge is **the seam itself** — a one-liner, legal
+and terminal, and non-circular because the seam's consumer is the
+SORT-PREMISED top (`ZipIotaCase`'s own discharge, a different
+Prop): there, mixed fire dies by deadness (stuck rec-spines never
+reach sorts — recursors neither unfold nor nat-fire), synced fire
+recurses on the zipped MAJORS through `ZipBelow` at the loop
+decrease (majors are pairwise-zipped args — even easier than
+proj's scrutinees), and cert-swallowed majors go to the Θ-arc.
+
+**Why no iota split channel exists**: proj needed `ProjSplitOut`
+because proj-STUCK pairs are dead-shaped-POOR (the seam family had
+nothing to carry the fire data), while rec-spine pairs have the
+RICH `recHead` seam that carries everything the top needs.  The
+channels are not parallel because the seams are not — the frozen
+constraint is discharged by this finding, not by construction.
+
+**Milestone**: both step Props are supplied (`loopProjStep_of`,
+`loopIotaStep_of`) — loopLock is closed END-TO-END at the loop
+tier, modulo the ledgered species suppliers.  The remaining
+defeq-branch docket: the two sort-premised top discharges
+(`ZipProjHeadCase` riding loopLock + the proj split;
+`ZipIotaCase` riding loopLock + the major recursion), Θ's
+read-phase arc (docket: the cert-spine motive, the two split
+conversions, cert-swallowed majors/scrutinees), the semantic trio,
+the species suppliers (`LeavesSubCoreF` ✓ done; the projFire trio,
+the FrameQ suppliers, the preserver families), the install facts,
+and the (B) type-form map.
