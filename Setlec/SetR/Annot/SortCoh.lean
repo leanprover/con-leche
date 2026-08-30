@@ -7373,6 +7373,109 @@ theorem certZip_app_view {μ : CheckMode} {env : Env} {fc d : Nat} :
       Or.inr ⟨(fun p q h => nomatch h), (fun p q h => nomatch h),
         CertZip.proj _ _ _ _ he⟩⟩
 
+/-- **The flat-spine leg** (the campaign's one remaining sim
+routing): a NON-application head zip over pointwise-zipped spines,
+both sort convergences given.  Every non-cert-headed shape funnels
+here through the view — including empty-spine letE/proj/congruence
+pairs — and its discharge is the F-driven analysis (refl heads
+det-synchronized, lam-congruence β through `certZip_subst`,
+constSlack through the iota/δ lockstep, shape-stuck vacuities). -/
+def ZipSpineFlatCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc d ga la gb lb : Nat} {F₁ F₂ : Expr} {as bs : List Expr}
+    {ℓa ℓb : Level},
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
+    (∀ p q, F₁ ≠ .app p q) → (∀ p q, F₂ ≠ .app p q) →
+    CertZip μ env fc d F₁ F₂ →
+    as.length = bs.length →
+    (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+      CertZip μ env fc d as[i] bs[i]) →
+    SubjInv d (Setlec.Expr.mkAppN F₁ as) →
+    SubjInv d (Setlec.Expr.mkAppN F₂ bs) →
+    PairedLeaves (Setlec.Expr.mkAppN F₁ as)
+      (Setlec.Expr.mkAppN F₂ bs) →
+    Q d (Setlec.Expr.mkAppN F₁ as) (Setlec.Expr.mkAppN F₂ bs) →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN F₁ as) = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
+      (Setlec.Expr.mkAppN F₂ bs) = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
+/-- **The app wrapper DISCHARGED**: view, then dispatch — cert heads
+to the Θ seam, everything else to the flat-spine leg. -/
+theorem zipAppCase_of {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
+    (hΘ : ZipCertSpineCase μ env φ Q)
+    (hSpine : ZipSpineFlatCase μ env φ Q) :
+    ZipAppCase μ env φ Q := by
+  intro fc d ga la gb lb f₁ x₁ f₂ x₂ ℓa ℓb below hf hx hIs hIt hp
+    hQ ha hb
+  obtain ⟨F₁, F₂, as, bs, hu, hv, hlen, hargs, hhead⟩ :=
+    certZip_app_view (CertZip.app f₁ x₁ f₂ x₂ hf hx)
+  rw [hu] at hIs ha
+  rw [hv] at hIt hb
+  rw [hu, hv] at hp hQ
+  rcases hhead with ⟨hba, hbb, hc⟩ | ⟨hne₁, hne₂, hFz⟩
+  · exact hΘ
+      (fun hlt hz' hIs' hIt' hp' hQ' ha' hb' =>
+        below (Or.inl hlt) hz' hIs' hIt' hp' hQ' ha' hb')
+      hba hbb hc hlen hargs hIs hIt hp hQ ha hb
+  · exact hSpine below hne₁ hne₂ hFz hlen hargs hIs hIt hp hQ ha hb
+
+/-- **The letE wrapper DISCHARGED**: a letE pair is a non-app head
+with an empty spine — straight to the flat-spine leg. -/
+theorem zipLetECase_of {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
+    (hSpine : ZipSpineFlatCase μ env φ Q) :
+    ZipLetECase μ env φ Q := by
+  intro fc d ga la gb lb n ty₁ ty₂ v₁ v₂ b₁ b₂ ℓa ℓb below hty hval
+    hbody hIs hIt hp hQ ha hb
+  exact hSpine (F₁ := .letE n ty₁ v₁ b₁) (F₂ := .letE n ty₂ v₂ b₂)
+    (as := []) (bs := []) below
+    (fun p q h => nomatch h) (fun p q h => nomatch h)
+    (CertZip.letE _ _ _ _ _ _ _ hty hval hbody) rfl
+    (fun i h₁ _ => absurd h₁ (Nat.not_lt_zero i))
+    hIs hIt hp hQ ha hb
+
+/-- **The proj wrapper DISCHARGED**: likewise a bare non-app head. -/
+theorem zipProjCase_of {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
+    (hSpine : ZipSpineFlatCase μ env φ Q) :
+    ZipProjCase μ env φ Q := by
+  intro fc d ga la gb lb i sn e₁ e₂ ℓa ℓb below he hIs hIt hp hQ
+    ha hb
+  exact hSpine (F₁ := .proj sn i e₁) (F₂ := .proj sn i e₂)
+    (as := []) (bs := []) below
+    (fun p q h => nomatch h) (fun p q h => nomatch h)
+    (CertZip.proj _ _ _ _ he) rfl
+    (fun j h₁ _ => absurd h₁ (Nat.not_lt_zero j))
+    hIs hIt hp hQ ha hb
+
+/-- **The summit at its two sim obligations**: `ZipWhnfSortAgree`
+from the Θ seam and the flat-spine leg (plus the trio's Q-frame
+vacuities and the env facts).  Every structural case is
+discharged. -/
+theorem zipWhnfSortAgree_of_two {φ : Name → Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hm : KnotFuelMono μ env) (hB : BoolCtorsInert env)
+    (hSW : StoredWF env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
+    (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
+    (hQN : QPreserveNatF μ env Q)
+    (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
+    (hP : ProbeSortVacuity μ env Q) (hR : RescueSortVacuity μ env Q)
+    (hE : EtaSortVacuity μ env Q)
+    (hΘ : ZipCertSpineCase μ env φ Q)
+    (hSpine : ZipSpineFlatCase μ env φ Q) :
+    ZipWhnfSortAgree μ env φ Q :=
+  zipWhnfSortAgree_of (φ := φ) (Q := Q) hm
+    (zipCertCase_of (φ := φ) (Q := Q) hm hB hIC hID hIN hLC hLD hLN
+      hQC hQD hQN hQs hP hR hE)
+    (zipConstCase_of (φ := φ) (Q := Q) hm hSW hQD hQs)
+    (zipAppCase_of (φ := φ) (Q := Q) hΘ hSpine)
+    (zipLetECase_of (φ := φ) (Q := Q) hSpine)
+    (zipProjCase_of (φ := φ) (Q := Q) hSpine)
+
 /-- **The both-δ core COLLAPSED onto the summit**: the spine facts
 zip the pair (head by `constSlack` through `isEquivList` soundness,
 args as `.cert` leaves through `defEqList_extract`), and

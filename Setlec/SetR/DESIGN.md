@@ -10258,3 +10258,40 @@ The inner induction now has every brick: the four-way decomposition,
 the spine view, `certZip_subst`/`_instantiate1`, the fc-only cert
 exit, the zeta step, the sorts terminal.  Next seal: the induction
 itself.
+
+### The three wrappers DISCHARGED — the summit at TWO sim obligations
+
+Designing the inner induction top-down produced the final collapse
+before any induction was built: **every non-cert wrapper is
+view-plus-dispatch.**  A letE or proj pair is a NON-application head
+with an empty spine in the flattened view, and an app pair's view
+exposes either a cert head (→ Θ) or a non-app head over a spine — so
+one final routed Prop covers everything:
+
+* `ZipSpineFlatCase` — the flat-spine leg: a non-app head zip over
+  pointwise-zipped spines with both sort convergences.  Its
+  discharge is the F-driven analysis (refl heads det-synchronized;
+  lam-congruence β through `certZip_subst`; constSlack through the
+  iota/δ lockstep — where the iota map lives; shape-stuck
+  vacuities).
+* `zipAppCase_of` = view + rw + dispatch (cert head → `hΘ` with the
+  wrapper's own runs — no assembly needed at the root; else →
+  `hSpine`).  `zipLetECase_of` / `zipProjCase_of` = one dispatch
+  each at the empty spine.  The planned inner induction DISSOLVED
+  into the flat-spine leg's future discharge — no nested motive was
+  ever built.
+* `zipWhnfSortAgree_of_two` — the frontier composite: the summit
+  from {Θ, flat-spine} + the trio's Q-frame vacuities + the env
+  facts + the preservers.  Every structural case of the summit
+  skeleton is now discharged.
+
+Elaboration recipes reconfirmed: pin `(F₁ := …)` when not-app
+lambdas elaborate before unification pins the head; pin
+`(φ := φ) (Q := Q)` at every chained composite.
+
+**The defeq branch's remaining obligations, final form**:
+`ZipSpineFlatCase` (the F-driven spine analysis — iota's full
+treatment lives here), `ZipCertSpineCase` (the Θ motive), the
+semantic trio (frame route, zero unbuilt suppliers), `StoredWF` +
+`BoolCtorsInert` (install tier), the preserver/transport suppliers,
+and the (B) type-form map.
