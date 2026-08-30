@@ -13934,3 +13934,33 @@ statements the campaign is ultimately for, not only against the
 clauses that motivated it.*  R4 was adopted to fix a λ-clause
 granularity mismatch and its cost only appears fourteen theorems
 downstream.
+
+### Fold-in checklist for the four quarters, and one null result
+
+**The sweep came back clean where it matters.**  Applying STOP 2's
+rule to the whole `Annot` layer — the tier I own — turns up nothing
+else: `EnvS2`'s two repaired fields are existential, `mem_type2` and
+`Canon.lean`'s success facts are hypothesis-position, and `CvalAnnot`
+is stated over `Annotates`, which is relational and fuel-free and so
+cannot have the defect at all.  Recording the null result because it
+bounds where a STOP 3 could come from: not here, and not in the
+claims — only in the quarters' own residues, which is where the four
+per-owner lists were sent.
+
+**Cleanup owed once all four quarters land** (not done now, because
+three are in flight):
+
+* `Step2/Routed.lean:55` — `checkStep2_of` concludes the **refuted**
+  `CheckStep2`.  It is not unsound (its hypotheses are themselves
+  unprovable), but it is exactly the hazard this campaign keeps
+  writing down: *a vacuous thing with a good name looks discharged.*
+  Delete `Routed.lean` and the `*Step2`/`*Step2A` quarter defs once
+  `checkStep2B_of` has real inputs.
+* Keep `Claims2.lean` and `Claims2A.lean` **only** for their
+  refutations and lineage prose; delete their `CheckStep2`/`CheckStep2A`
+  and `checkSound2`/`checkSound2A`, which nothing should ever point at
+  again.
+* The `# CheckStep2, …` docstring headers across the nine `Step2`
+  files should say `CheckStep2B`.  Cosmetic, but the file headers are
+  how the next reader decides which generation is live, and two dead
+  generations are already one too many.
