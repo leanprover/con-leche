@@ -58,9 +58,10 @@ follow, and only two:
 * the keys land on `CheckStep2E` directly
   (`reducePin2_of_checkStep`, `memberBlock2_of_checkStep`) — the
   claim premises stop being objects a caller must build;
-* the *syntactic* premises three of the keys carried are read off
+* the *syntactic* premises two of the keys carried are read off
   `EnvS.wf` instead (`constsBound_of_constsResolve`,
-  `envWF_constsBound`), which retires four premises outright.
+  `envWF_constsBound`) — three at `memberBlock2_of_stored` and
+  `hbound` at `declStep2_of_axiom`, four premises retired outright.
 
 What it did **not** buy is any `denote2`-existence fact.  Every
 remaining premise of every key below is either a checker run, a
