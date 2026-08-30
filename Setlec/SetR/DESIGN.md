@@ -12931,6 +12931,55 @@ fourteen non-fold theorems; "twelve" undercounts by excluding
 in the 4×3 driver grid.  **Fourteen is right**; the roadmap's "twelve"
 should be read as "the twelve driver-grid ones".
 
+### Row invariants, the Raw currency, and the resolution kit sealed
+
+Amendments from the `runCore` pre-build, all compiled warning-free:
+the rows carry their cores' `SubjInv` (E1's inputs at the inner
+depth); `TelescopeRel.cons`'s domain fact is Θ-typed (the zipped-λ
+push's tys are zips, not certs; the loop-tier annotation-reads will
+consume the rel form); `ThetaCoreOut`'s rebase disjunct carries
+`RawReach` (the E-currency — the aligned points live on the raw
+image traces, not the gated `Contracts` paths); `ofZip` takes the
+`SubjInv` pair; `of_ok` deleted (the consumers' telescopes are
+empty — `.nil` suffices at every entry point).  New kit:
+`thetaSubst₁/₂_fvar_below` (θ-invariance below the zone),
+`thetaSubst₁/₂_fvar_inzone` (in-zone resolution to the entry's
+argument under the PREFIX telescope), `thetaSubst₁/₂_concat` +
+`TelescopeRel.concat` (telescope composition — the in-zone
+re-expression's spine), and `RawReach.mkAppN_left` (head-congruence
+spine lift).  Battery green, axioms 12/12.
+
+### The discharge's mechanization strategy: the composition-generalized motive
+
+The last hard nut, cracked at pre-build: the in-zone `fvar` chase
+(head resolves to an entry's argument pair, whose own rel may again
+be in-zone-headed) is well-founded on the REL-DERIVATION structure
+— entries reference strictly OUTER entries — but naive re-entry
+rebuilds the rel (concat-composed), losing structural descent, and
+Prop-inductives carry no size.  The resolution needs NO new indices:
+
+**Induct structurally on the mutual `ThetaRel`/`TelescopeRel`
+derivation with a composition-generalized motive** —
+`M(d, u, v) := ∀ (d₀, Γout) with d₀ + |Γout| = d, ∀ extra spines
+and runs on the further-imaged pair (θ-imaging composes by
+`thetaSubst_concat`), the core out holds` — so the in-zone case
+applies the ENTRY's hz-IH at the composed outer telescope (a
+structural sub-derivation through the mutual induction's per-field
+IHs), while all spine/β/continuation recursion routes through the
+outer strong induction on the runs' knot sum (the spine-peel's
+descent).  Measure: [N strong, rel-derivation structural] — no
+weights, no fuel, no Type-valued reification.
+
+Remaining discharge inventory (fully de-risked, mechanization
+volume only): the three row-analyses under the motive (head-shape
+cases × the PostCoreCert arms at `runCore`, with the landed
+suppliers: the θ computation kit, the push algebra, E1–E4, the
+in-zone resolution, `whnfCore_nonrec_id`/dead machinery), then the
+loop tier (pre-build owed for the seam-to-sort conversions), the
+sort-agreement tie, and the four depth-zero consumers (junction
+note: the two frozen zip obligations flag prominently for the other
+lane's Claims2 when those land).
+
 ### Step 3, seal 1 — `Claims2` stated (`Interp2/Claims2.lean`)
 
 The four run-level claims in the annotated currency, the mutual fuel
