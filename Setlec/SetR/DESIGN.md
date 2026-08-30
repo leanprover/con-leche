@@ -13348,3 +13348,50 @@ It is not wired in because substituting it for
 four claims — a junction decision, not a consumer's.  The change is one
 edit and touches no other clause: the other ten pass the context along
 without reading it.  Awaiting the ruling.
+
+### Tier B, the `String` half — and where its head facts must come from
+
+`charList_facts2`/`strLit_facts2`
+(`Interp2/Step2/StrLit.lean`) transpose `Sound/Lit.lean`'s
+`strLit_facts` — v1's ~394-line bulk — onto `piR`/`AnnotOk2`/`interp2`
+and `denote2`'s own character-list spine (`charListT2`).  They
+compiled first try, at **~55 proof lines**, and the pricing held
+exactly as `natLit_facts2` predicted: `Char`, `List Char`, `String`
+and `Nat` are all `Type`-level, so every product in the spine is in
+the graph regime, `app_mem_piR_pos` applies with no fibre premise at
+each of the four application sites, and all four `AnnotOk2` app slots'
+kind-`0` components are vacuous.  v1 needed `TeleFitV.appN` /
+`appN_annot` telescope walks with per-argument
+`VExpr.inst_eq_self_of_closed` bookkeeping for the same four steps.
+
+**The "five lemmas" claim, confirmed and sharpened.**  The block was
+priced as touching the interpretation through `interp_app`,
+`interp_bvar`, `interp_sort`, `interp_pi`, `interp_closed` only.  With
+the heads as arguments the transposed core needs **just
+`interp2_app`** — `bvar`/`sort`/`pi`/`closed` occur in v1 *only*
+inside the head-fact derivations (`hnilOk`, `hconsOk`, `hAppDomOk`,
+`hCharU`, `hListMem`), which are now the hypothesis boundary.  Nothing
+else in the block was interpretation-sensitive.
+
+**The finding: the head facts are not a `denote2` computation.**  In
+v1 the heads come from `EnvS.mem_type` aimed at a `denote`-computed
+type, and that computation is *determined* by `strLitSupported`'s
+syntactic inversion because `denote`'s `forallE` clause is
+numeral-free.  `denote2`'s `forallE` clause is not: it calls
+`sortOfE` (= `inferTypeCore` then `whnf` then `Level.eval`) on the
+stored domain and body.  `strLitSupported` pins the stored *type
+shapes* and says nothing about what the checker's own inference
+returns on them, so no annotated type `ta` can be exhibited from the
+guard alone and `EnvS2.mem_type2` cannot be aimed.
+
+So for the annotated lane the supplier of a stored constant's head
+fact is **the annotation pass, not a `denote2` evaluation**:
+`Annotates`/`HasSort` for the stored type, plus the numeral-agreement
+laws (`piR_zero_agree`) to reconcile whatever numerals `sortOfE`
+produced with the `1`s the membership statements use.  This is a
+structural difference between the lanes, not a gap in this seal, and
+it applies to *every* basis-constant head the tier-B block wants —
+`natLit_facts2`'s two heads included, which is why both files take
+them as arguments.  Whoever wires the literal clauses into the
+dispatch pays it once, at the `acval`-side supplier, for all eight
+heads at once.
