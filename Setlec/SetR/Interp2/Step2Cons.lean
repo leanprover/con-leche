@@ -1,5 +1,7 @@
 import Setlec.SetR.Interp2.Keys2Bundle
 import Setlec.SetR.Interp2.EmptyPin2
+import Setlec.SetR.Interp2.Denote2Closed
+import Setlec.SetR.Install.ValueKinds
 
 /-!
 # The install step over `interp2`: the `cons` shape, and the value kinds
@@ -504,8 +506,9 @@ install's own mode.  Two differences, and both are the point:
   that is all the target field asks for;
 * `declStep2M_of_value` therefore needs **no** mode residue —
   `denote2_agree_same` closes what `Denote2ModeAgree` was carrying,
-  and `ValueResidues2M` has five fields where `ValueResidues2` has
-  six.
+  and `ValueResidues2M` has four fields where `ValueResidues2` has
+  six — the sixth, `closed`, is *proved* here rather than removed
+  (`valueLeaf_closed`, on `Denote2Closed.lean`'s twin).
 
 Nothing else moved: `hext`, `hmem` and `mem_type2` stay all-mode,
 since seal 53's measurement was about the two body fields and not
@@ -692,16 +695,33 @@ theorem declStep2M_of_value (m : EnvS2UM V μ env) {c₀ : ConstantInfo}
     exact hback ψ F hra
 
 /-- **What a value install still owes, at one mode.**
-`ValueResidues2` minus `modeAgree`: seal 53's de-generalization
-removes that field outright, and no other field changes. -/
+`ValueResidues2`'s six fields **minus two**:
+
+* `modeAgree` — removed by seal 53's de-generalization, i.e. the
+  demand was withdrawn rather than met;
+* `closed` — **discharged**, not removed: `denote2_closed`
+  (`Denote2Closed.lean`) proves it from the front door's own
+  syntactic conjuncts, and `declStep2M_of_valueResidues` spends them.
+
+What is left is four. -/
 structure ValueResidues2M (V : Type w) [SetTheory V] (μ : CheckMode)
     {env : Env} (m : EnvS2UM V μ env) (c₀ : ConstantInfo)
     (A : (Name → Nat) → AVExpr) where
-  /-- The new leaf is closed.  *Provenance*: `denote2`'s output on a
-  closed subject; v1's twin is `denote_closed`. -/
-  closed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ
-  /-- …reads only its own level parameters.  *Provenance*: v1's
-  `denote_params_ext`. -/
+  /-- The new leaf reads only its own level parameters.
+  *Provenance*: v1's `denote_params_ext`.
+
+  **Still open, and the twin does not transpose.**  `denote2_closed`
+  went through `denote2_erase`, because closedness is a fact about
+  the *erasure*.  This one is not: `denote2`'s binder clauses carry
+  `sortOfE`/`lamSortE` numerals, which are `Level.eval ψ` of a level
+  the checker computed from an **inferred type** — precisely the
+  slots `erase` forgets.  Making `A ψ₁ = A ψ₂` would need every such
+  level's parameters to lie in `c₀`'s, i.e. a metatheorem saying
+  `inferTypeCore`/`whnf` introduce no level parameter the subject
+  does not have.  The tree has no such statement, and this is the
+  same clause, in the same two constructors, at which
+  `Denote2InstLevels` (`Step2/Levels.lean`) is a residue rather than
+  a theorem. -/
   params : ∀ ψ₁ ψ₂ : Name → Nat,
     (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂
   /-- …and is truthful.  *Provenance*: the claims' `InferClaims2U`. -/
@@ -715,8 +735,27 @@ structure ValueResidues2M (V : Type w) [SetTheory V] (μ : CheckMode)
     MemberBlock2 V ν ⟨c₀ :: env.consts⟩
       (acvalWith m.acval c₀.name A) ψ c₀.toConstantVal
 
-/-- **The value kinds' reduction at one mode, assembled.**  Same as
-`declStep2_of_valueResidues` with a five-field remainder. -/
+/-- **The new leaf is closed, proved.**  `ValueResidues2.closed`'s
+discharge: the front door's `value` is closed and fvar-free, the
+annotator preserves both (`annotate_syntax`), and `denote2_closed`
+turns a closed subject's run into a lift-invariant leaf.  The
+valuation premise is the invariant's own `acval_erase` composed with
+`EnvS.cval_closed`. -/
+theorem valueLeaf_closed (m : EnvS2UM V μ env) {F : Nat}
+    {cv : ConstantVal} {value type' value' : Expr}
+    {A : (Name → Nat) → AVExpr}
+    (hvf : ValueFrontR μ F env m.base.cval cv value type' value')
+    (hA : ∀ ψ : Name → Nat, ∃ F' : Nat,
+      denote2 μ m.acval env ψ F' 0 value' = some (A ψ))
+    (ψ : Name → Nat) (k : Nat) : (A ψ).liftN 1 k = A ψ := by
+  obtain ⟨F', hF'⟩ := hA ψ
+  obtain ⟨hfv, hbd⟩ := annotate_syntax hvf.2.2.1 hvf.2.1 hvf.1
+  exact denote2_closed m.acval_erase m.base.cval_closed hfv hbd hF' 1 k
+
+/-- **The value kinds' reduction at one mode, assembled.**
+`declStep2_of_valueResidues` with a **four**-field remainder: the
+mode residue is gone by de-generalization and the leaf's closedness
+is proved here from the front door's own conjuncts. -/
 theorem declStep2M_of_valueResidues (m : EnvS2UM V μ env)
     {c₀ : ConstantInfo} {F : Nat} {cv : ConstantVal}
     {value type' value' : Expr}
@@ -738,9 +777,10 @@ theorem declStep2M_of_valueResidues (m : EnvS2UM V μ env)
       ValueResidues2M V μ m c₀ A) :
     DeclStep2M V μ ⟨c₀ :: env.consts⟩ := by
   obtain ⟨A, hA⟩ := exists_leaf_of_valueFrontR hrun hvf
-  obtain ⟨hcl, hpa, hok, hex, hme⟩ := hres A hA
+  obtain ⟨hpa, hok, hex, hme⟩ := hres A hA
   exact declStep2M_of_value m hfresh (constsBound_of_valueFrontR hvf)
-    hA hbase hag hleaf hcl hpa hok hex hme hdb htb
+    hA hbase hag hleaf (valueLeaf_closed m hvf hA) hpa hok hex hme
+    hdb htb
 
 /-! ### The six kinds' obligations at one mode
 
@@ -751,7 +791,7 @@ than asserted. -/
 
 /-- **The value kinds' install obligation, at one mode.**  *Reduces
 to*: `declStep2M_of_value`'s residue list, which is
-`ValueResidues2M` — five fields, not six. -/
+`ValueResidues2M` — four fields, not six. -/
 def DeclValue2SM (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {F : Nat} {env : Env} {cv : ConstantVal}
     {value type' value' : Expr} {c₀ : ConstantInfo}

@@ -275,12 +275,13 @@ theorem declStep2AllM_of {μ : CheckMode} (hval : DeclValue2SM V μ)
   | basisDecl kind => exact hbas ⟨m⟩ h
   | indDecl block => exact hind m hE h
 
-/-- **The `def` kind at one mode, and the residue is five.**
+/-- **The `def` kind at one mode, and the residue is four.**
 `declStep2_defn` with `EnvS2UM` in place of `EnvS2U`: every
 collapse-lane input is still v1's own, `Denote2BodyOfRun` is still
 owed at the prefix, and what is left of the annotated side is
-`ValueResidues2M` — `ValueResidues2` **minus `modeAgree`**, which the
-de-generalization removed rather than supplied. -/
+`ValueResidues2M` — `ValueResidues2` minus `modeAgree` (whose demand
+seal 53 withdrew) and minus `closed` (which `denote2_closed` proves
+from the front door's own syntactic conjuncts). -/
 theorem declStep2M_defn (hdm : DivModPinS V) {μ : CheckMode} {F : Nat}
     {env : Env} {cv : ConstantVal} {value type' value' : Expr}
     {hint : ReducibilityHint} (m : EnvS2UM V μ env)
