@@ -16770,3 +16770,92 @@ Then the conditional keys land on the re-pointed quarters.
 *Rule: a field nobody projects is not a gap to fill but a field to
 delete — and the obstructions to supplying it are not findings about
 the design, only invoices for the mistake.*
+
+### Seal 43 — both definition probes lift; the residue is characterised exactly
+
+**Item 2 is the batch, and its headline is a biconditional**
+(`Interp2/EnvS2UDef.lean`):
+
+```
+EnvS2UInImage V m ↔ ∀ μ φ, CvalAnnot μ env m.base.cval φ ∧
+                            Denote2Bodies V m μ φ
+```
+
+Both directions proved. `Denote2Bodies` says only that **some** fuel
+annotates each stored body. So **uniqueness supplies the
+identification half of the existential field for free**, and the
+entire residue is `Denote2Total` at the stored bodies — *and nothing
+else*.
+
+That is the mechanized form of "uniqueness holds precisely where
+existence fails", which seal 34 predicted and nothing had exhibited.
+**And it relocates the parting**: it is **not** at `defnInfo`, and
+**not** at λ-bodied definitions.
+
+* `defProbe` (`def _ : Sort 1 := Sort 0`) — binder-free value, so
+  `acval_defn`'s premise is met at **every** fuel and the leaf is
+  *forced*, not chosen. **Lifts.**
+* `lamDef` (`def _ : ∀ _ : Sort 0, Sort 1 := fun _ => Sort 0`) — the
+  λ-bodied case, where `denote2_one_lam` (the fact that refuted the
+  original field) makes the premise unmeetable below fuel `2`, and the
+  annotation exists only through a `lamSortE` run. `CvalAnnot`'s
+  λ-shape conjunct is non-vacuous here, and seal 42's I7/I3 agreement
+  repeats. **Lifts too.**
+
+**Honest limit, recorded in the file rather than smoothed over.**
+`denote2` differs from `denote` only at the two binder clauses, and
+`EnvS.defn_eq` already forces every stored body to `denote`. So a
+separating witness needs a stored body whose binder sorts **no** fuel
+computes — and every well-typed body computes them. Not exhibited, and
+the file says so instead of claiming the residue closed.
+
+*That is a strong hint about the endgame: if every well-typed stored
+body computes its binder sorts, `Denote2Bodies` may follow from
+`EnvS`'s own fields rather than needing `Denote2Total`.* Named as the
+place to look; not claimed.
+
+**A nuance worth keeping straight.** `CvalAnnot` appears in the
+biconditional — yet seal 42 withdrew `cval_annot` as a field nothing
+projects. Both are right: **the field was vacuous, the predicate is
+load-bearing.** Withdrawing a field is not withdrawing its proposition.
+
+#### Item 1 — stopped, and my authorization was wrong twice
+
+I authorized the quarters' re-point as *"statement changes in two
+files, not proofs."* **Both halves were wrong**, and the worker
+measured rather than argued:
+
+* **An import cycle.** `EnvS2U.lean` imports `Step2/Whnf.lean` →
+  `Dual2E.lean` → `Claims2E.lean`. So **`EnvS2U` sits strictly
+  downstream of the four quarters it would be re-pointed into**, and
+  the import is rejected outright.
+* **It does not stop at two files.** 528 occurrences of `EnvS2 V`
+  across 30 files under `Interp2/`; the four `…Step2E_of` proofs and
+  all fifteen residues are `∀ (m : EnvS2 V env)`, so at every
+  application site it is a **proof** change.
+
+Seal 41 was right that the gap is the structure parameter; what is new
+is that **the fix cannot be localized.** The unblocking move is a file
+split: `EnvS2U`'s *structure* needs only `Annot/EnvS2`'s cone, and its
+`Step2/Whnf` import is used solely by `EnvS2.toU` and the
+`acval_defn_uniq_lam_ok` probe — both of which can live downstream in
+a second file. That is an edit to a forbidden file, so the worker
+said-and-stopped.
+
+*Rule: before authorizing a re-point as "a statement change", count
+the occurrences and check the import direction. I did neither, and the
+authorization named the wrong two files.*
+
+#### Item 3 — the keys already consumed `…2U`
+
+There was no bridge to remove: `reducePin2_of_claims`,
+`memberBlock2_of_stored` and `declStep2_of_axiom` have taken the `…2U`
+claims since seal 40. What was missing was the **supplier**, and the
+simplification found is that **the keys never needed
+`checkStep2U_of_2E`'s `∀ env, ∀ m` hypothesis** — each key is stated
+at a single `m`, so the *pointwise* `EnvS2UInImage` suffices
+(`claims2U_of_2E`, `claims2U_of_bodies`).
+
+And `claims2U_lamDef` inhabits the keys' claim premises at an
+environment that **stores a definition** — before item 2, those
+premises were only ever inhabited where `acval_defn` says nothing.
