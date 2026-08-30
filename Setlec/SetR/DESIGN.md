@@ -16443,3 +16443,67 @@ The second is coherent with the lane as built: `checkSound2*` is
 already conditional on `CheckStep2*`, so keys conditional on the same
 residues add no new kind of assumption. But it is a scope ruling, not
 a lemma.
+
+### Seal 39 — scope ruling (ii) adopted; and the seam it exposes
+
+**Ruled: the keys re-route through the checker-run claims, conditional
+on the residue set.** Not merely because relational soundness over
+`interp2` would be expensive — **that door is closed, not costly.**
+The step-3 map already found it: relational soundness over `interp2`
+needs motives over `AVExpr` that the `VExpr`-quantified relation
+cannot state, and R1 refused the map that would bridge them. **Building
+a second relational tier over annotated syntax would be a new
+campaign, not a duplication** — which is a materially different reason
+from the one I offered, and the stronger one.
+
+(ii) is the architecture's own grain: the annotated lane is
+**run-level by design**, `checkSound2*` is already conditional on
+exactly these residues, and the keys inherit **no new *kind* of
+assumption**.
+
+#### The sequencing, recorded explicitly
+
+* **Now** — the keys are conditional on the residue set, exactly as
+  `checkSound2*` is.
+* **At junction closure** — when the two zips, `SortSubstStable`,
+  `RecRulesV2` and the remaining residues discharge, the conditionals
+  discharge with them and **the fourteen over `EnvS2U` stand
+  hypothesis-free.**
+* **Throughout** — **v1's fourteen are untouched.** They are
+  hypothesis-free today and remain so; nothing in this lane weakens
+  the standing result.
+
+#### The seam the ruling exposes, found before restating anything
+
+Route (ii) makes the keys conditional on the claims. **The claims are
+stated over `EnvS2 V env` — the *existential* fields — while the
+environment tier is now `EnvS2U`, the uniqueness form.** `Loop.lean`'s
+delta exits consume `m.acval_defn`/`m.acval_thm` in the existential
+form at lines 53 and 61.
+
+So route (ii) cannot be taken as the claims stand: it would make the
+keys conditional on an `EnvS2`, whose existential fields are
+`Denote2Total`'s wall — **the very obstruction the uniqueness ruling
+escaped.** That is circular, and I created the circle at seal 36 by
+freezing the environment tier without re-pointing the claims'
+parameter.
+
+**The resolution is the completion of seal 34's own ruling, not a new
+one.** That seal said the uniqueness form *"completes generation six
+into the environment tier"*; the claims' structure parameter is the
+seam between the two tiers, and re-pointing it from `EnvS2` to
+`EnvS2U` is what completing it means. It is coherent precisely because
+generation six made the delta exit take the reduct's annotation as a
+**premise** — so it needs only uniqueness.
+
+**This is not a generation seven.** Seal 33 closed the statement tier
+against *shape* changes forced by consumer refutation. The claims'
+content is unchanged here; only the structure parameter weakens, and
+it weakens to the tier that was already ruled. Recording the
+distinction because "no generation seven" must not become a reason to
+leave two tiers misaligned.
+
+*Rule: a freeze that changes one tier's structure must be checked
+against every statement that quantifies over it, in the same seal. I
+froze `EnvS2U` at seal 36 and did not, and the circularity surfaced
+two seals later when a consumer tried to use both.*
