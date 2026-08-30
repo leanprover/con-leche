@@ -11365,3 +11365,28 @@ in full first); the projSplit conversion; the natSplit conversion
 at the loop-consumers; cert-swallowed majors/scrutinees.  Supplier
 seals that precede the top discharges: the projFire transport trio
 and the remaining preserver/descent FrameQ suppliers.
+
+### FINDING at zipProjHeadCase_of: the seam-budget bounds gap (the knot-bounds history, loop-budget edition)
+
+The recHead-seam conversion hands `hIota` (ZipIotaCase) the seam's
+connecting runs — whose knot fuels are ALWAYS maxed (`c := f`,
+`le_refl` at every direct seam site) — so the `ZipBelow` the
+consumer must be given sits at `(c₁+c₂, l₁ˢ+l₂ˢ)` with
+`c₁+c₂ = ga+gb`, and the measure translation from the premise
+`ZipBelow (ga+gb) (la+lb)` needs `l₁ˢ+l₂ˢ ≤ la+lb` — which HOLDS
+at every construction site (refl at direct sites, strict descent
+at recursion sites via the δδ `below`-calls) but is NOT RECORDED:
+`LoopLockOut` carries no budget indices, so the invariant cannot
+even be stated about the out.
+
+**The repair (ratification requested)**: extend `LoopLockOut` with
+two budget indices `(l₁ l₂)` — the call's loop budgets — and add
+`l ≤ l`-bounds to the seam and both splits, mirroring the ratified
+knot-bounds amendment exactly (whose sites all carried the
+invariant unrecorded too, and whose payoff was the same: `below`
+passes to consumers without measure drift).  `LoopBelow`, the step
+Props, `prepend`, and loopLock's construction sites extend
+mechanically (refl at direct sites; `Nat.le_succ_of_le`/`le_trans`
+at pass-throughs; budget-mono never needed).  Third instance of
+the same lesson: EVERY run a pack ships must ship with its fuel
+bounds, knot AND budget, from the start.
