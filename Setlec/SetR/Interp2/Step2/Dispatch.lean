@@ -867,7 +867,357 @@ It is discharged for `EnvS2.empty` by `rfl` (`acval = .const .empty
 [0]`), and it is a *syntactic* condition on an install-fixed object, so
 unlike the fields STOP 2 refuted it carries no fuel and cannot go false
 at a small one.  If `EnvS2` is being reshaped anyway, this is the field
-to add; until then every consumer of `CtxOk2.open` passes it along. -/
+to add; until then every consumer of `CtxOk2.open` passes it along.
+
+**Landed (seal 8): `EnvS2.acval_closed` is that field.**  The kit below
+therefore takes neither `henv` nor `hacl` — it reads `m.base.wf` and
+`m.acval_closed` out of the structure.  `CtxOk2.open` above keeps its
+explicit premises because its signature is already cited. -/
+
+/-! ## The seal-11 kit — what the family-wide move to `CtxOk2` needs
+
+`CtxOk2R` is false premise-free (`Step2/CtxOk2RRefute.lean`), so all
+four claims take `CtxOk2` and the 54 `CtxOkR` uses in `Step2/Whnf.lean`
+and `Step2/DefEqRun.lean` must re-point.  41 are pure `fvarLeaves`
+re-plumbing the kit above already covers.  The rest are here. -/
+
+/-- A closed expression's context correspondence is free.  Transpose of
+`CtxOkR.of_fvarLeaves_nil` (`Bridge/Stuck.lean`), which is used at
+eight sites in `DefEqRun.lean`.  Contentless: with no leaves there is
+no package to build. -/
+theorem CtxOk2.of_fvarLeaves_nil {F d : Nat} {Δa : List AVExpr}
+    {e : Expr} (hlen : Δa.length = d) (h : e.fvarLeaves = []) :
+    CtxOk2 m μ φ F d Δa e :=
+  ⟨hlen, fun l hl => by rw [h] at hl; exact absurd hl (by simp)⟩
+
+/-! ### `CtxOk2` already carries its own scoping
+
+The two lemmas below are why the kit needs no `WScoped` premises: the
+leaf package's *syntactic* half — `l.1 < d` and
+`Expr.fvarsBelow l.1 l.2.2` at every leaf, **hereditarily**, since
+`Expr.fvarLeaves` descends into annotations — is exactly `WScoped`
+unrolled.  Established here so that `CtxOk2.openCong` and
+`CtxOk2.openS` can take a `CtxOk2` where `CtxOkR.open`'s transpose
+takes a scoping hypothesis. -/
+
+/-- Leafwise index bounds give the direct bound. -/
+private theorem fvarsBelow_of_leaves : ∀ (e : Expr) {d : Nat},
+    (∀ l ∈ e.fvarLeaves, l.1 < d) → Expr.fvarsBelow d e := by
+  intro e
+  induction e with
+  | fvar idx n ty ih =>
+    intro d h
+    exact h (idx, n, ty) (by simp [Setlec.Expr.fvarLeaves])
+  | app f a ihf iha =>
+    intro d h
+    exact ⟨ihf (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl])),
+      iha (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl]))⟩
+  | lam _ ty b _ iht ihb =>
+    intro d h
+    exact ⟨iht (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl])),
+      ihb (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl]))⟩
+  | forallE _ ty b _ iht ihb =>
+    intro d h
+    exact ⟨iht (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl])),
+      ihb (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl]))⟩
+  | letE _ t v b iht ihv ihb =>
+    intro d h
+    exact ⟨iht (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl])),
+      ihv (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl])),
+      ihb (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl]))⟩
+  | proj _ _ e ih =>
+    intro d h
+    exact ih (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl]))
+  | _ => intro d _; trivial
+
+/-- Leafwise annotation bounds upgrade a direct bound to `WScoped`.
+The `fvar` case is the whole content: the *leaf's own*
+`fvarsBelow idx ty` is what lets the recursion drop from `d` to `idx`,
+which a plain `fvarsBelow d` hypothesis could not do. -/
+private theorem wScoped_of_leaves : ∀ (e : Expr) {d : Nat},
+    Expr.fvarsBelow d e →
+    (∀ l ∈ e.fvarLeaves, Expr.fvarsBelow l.1 l.2.2) →
+    Expr.WScoped d e := by
+  intro e
+  induction e with
+  | fvar idx n ty ih =>
+    intro d hfb h
+    rw [Setlec.Expr.WScoped]
+    refine ⟨hfb, ih (h (idx, n, ty) (by simp [Setlec.Expr.fvarLeaves]))
+      (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl]))⟩
+  | app f a ihf iha =>
+    intro d hfb h
+    rw [Setlec.Expr.WScoped]
+    exact ⟨ihf hfb.1
+        (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl])),
+      iha hfb.2
+        (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl]))⟩
+  | lam _ ty b _ iht ihb =>
+    intro d hfb h
+    rw [Setlec.Expr.WScoped]
+    exact ⟨iht hfb.1
+        (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl])),
+      ihb hfb.2
+        (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl]))⟩
+  | forallE _ ty b _ iht ihb =>
+    intro d hfb h
+    rw [Setlec.Expr.WScoped]
+    exact ⟨iht hfb.1
+        (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl])),
+      ihb hfb.2
+        (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl]))⟩
+  | letE _ t v b iht ihv ihb =>
+    intro d hfb h
+    rw [Setlec.Expr.WScoped]
+    exact ⟨iht hfb.1
+        (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl])),
+      ihv hfb.2.1
+        (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl])),
+      ihb hfb.2.2
+        (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl]))⟩
+  | proj _ _ e ih =>
+    intro d hfb h
+    rw [Setlec.Expr.WScoped]
+    exact ih hfb
+      (fun l hl => h l (by simp [Setlec.Expr.fvarLeaves, hl]))
+  | _ => intro d _ _; rw [Setlec.Expr.WScoped]; trivial
+
+/-- **`CtxOk2` implies well-scopedness.**  Not a convenience: it is
+what makes the two opening lemmas below take no scoping premise, and
+what makes `CtxOk2Open` (`Step2/InferQ.lean`) satisfiable *as stated*,
+with neither `WScoped` hypothesis it omits. -/
+theorem CtxOk2.wScoped {F d : Nat} {Δa : List AVExpr} {e : Expr}
+    (hC : CtxOk2 m μ φ F d Δa e) : Expr.WScoped d e :=
+  wScoped_of_leaves e
+    (fvarsBelow_of_leaves e (fun l hl => (hC.2 l hl).1))
+    (fun l hl => (hC.2 l hl).2.1)
+
+/-- **`CtxOk2Open`'s body, verbatim** (`Step2/InferQ.lean`), as a
+theorem.  The residue's own premises suffice: `EnvWF` is `m.base.wf`,
+`hacl` is `m.acval_closed`, and the two `WScoped` hypotheses
+`CtxOk2.open` asks for are `CtxOk2.wScoped` of the two contexts it is
+already handed.  The `fvarsBelow` argument is then redundant; it is
+kept so the signature matches the residue. -/
+theorem CtxOk2.openS {F d : Nat} {Δa : List AVExpr} {n : Name}
+    {ty body : Expr} {ta : AVExpr}
+    (ht : CtxOk2 m μ φ F d Δa ty) (hb : CtxOk2 m μ φ F d Δa body)
+    (hty : denote2 μ m.acval env φ F d ty = some ta)
+    (_hfb : Expr.fvarsBelow d ty) :
+    CtxOk2 m μ φ F (d + 1) (ta :: Δa)
+      (body.instantiate1 (.fvar d n ty)) :=
+  CtxOk2.open m.base.wf m.acval_closed hb ht hb.wScoped ht.wScoped hty
+
+/-- **Opening a binder congruence, annotated.**  The transpose of
+`CtxOkR.openCong` (`Bridge/DefEq.lean`), and the one genuine *read* of
+the context hypothesis among the 54 `CtxOkR` uses the seal-11 move has
+to re-point.
+
+At a `∀`/`λ` congruence `defeqStep` opens each side's body with **its
+own** annotation, so the right body sits in a context whose head is the
+**left** domain `ta₁` while the opened variable's annotation denotes
+the **right** one `ta₂`.  `CtxOkR` absorbs that with a bare
+`DefEq A₁ A₂`; here the currency is `interp2` and the premise is the
+domains' semantic agreement, stated **graded** — `hdom` is
+`DefEqClaims2B`'s conclusion, partially applied.
+
+`hok₁`/`hok₂` are the grading, and they are quantified over `ρ` for the
+same reason `CtxOk2`'s own leaf link is: the new leaf's obligation must
+hold at *every* valuation satisfying the extended context, not at the
+one the caller happens to hold.  See the consumer note below — this is
+where the move is not free. -/
+theorem CtxOk2.openCong {F d : Nat} {Δa : List AVExpr}
+    {body ty : Expr} {n : Name} {ta₁ ta₂ : AVExpr}
+    (hb : CtxOk2 m μ φ F d Δa body) (ht : CtxOk2 m μ φ F d Δa ty)
+    (hty : denote2 μ m.acval env φ F d ty = some ta₂)
+    (hok₁ : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta₁)
+    (hok₂ : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta₂)
+    (hdom : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta₁ →
+      AnnotOk2 V ρ ta₂ → interp2 V ρ ta₁ = interp2 V ρ ta₂) :
+    CtxOk2 m μ φ F (d + 1) (ta₁ :: Δa)
+      (body.instantiate1 (.fvar d n ty)) := by
+  have henv := m.base.wf
+  have hacl := m.acval_closed
+  have hwb : Expr.WScoped d body := hb.wScoped
+  have hwt : Expr.WScoped d ty := ht.wScoped
+  refine ⟨by simp [hb.1], fun l hl => ?_⟩
+  rcases Setlec.Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+  · exact (CtxOk2.weakenTop (Ba := ta₁) henv hacl hwb hb).2 l hl'
+  · rw [Setlec.Expr.fvarLeaves] at hl'
+    rcases List.mem_cons.mp hl' with rfl | hl''
+    · refine ⟨by omega, hwt.fvarsBelow, ta₂.liftN 1 0, ta₁, ?_, ?_, ?_⟩
+      · rw [denote2_weaken_top henv hacl hwt, hty]
+        rfl
+      · rw [show d + 1 - 1 - d = 0 from by omega]
+        rfl
+      · intro ρ hρ
+        have hρ' : Sat2 V Δa (fun j => ρ (j + 1)) := Sat2_tail hρ
+        show interp2 V ρ (AVExpr.liftN 1 ta₂ 0)
+          = interp2 V (fun j => ρ (j + (d + 1 - 1 - d) + 1)) ta₁
+        rw [show d + 1 - 1 - d = 0 from by omega,
+          show AVExpr.liftN 1 ta₂ 0 = ta₂.lift from rfl,
+          interp2_lift (V := V) ta₂ ρ]
+        exact (hdom _ hρ' (hok₁ _ hρ') (hok₂ _ hρ')).symm
+    · exact (CtxOk2.weakenTop (Ba := ta₁) henv hacl hwt ht).2 l hl''
+
+/-! ### Consumer note: the grading is `∀ ρ`; `DefEqClaims2B`'s is not
+
+`hdom` is free at the five congruence sites — it is exactly
+`ihd hdt … hta₁ hta₂`, `DefEqClaims2B`'s conclusion before its `ρ`.
+`hok₁`/`hok₂` are **not**: `DefEqClaims2B` takes its two `AnnotOk2`
+*under* `∀ ρ`, so a site that has run `intro ρ hρ hokA hokB` holds them
+at one valuation only, while `CtxOk2` — being a `∀ ρ` statement about
+the *extended* context — asks for them at every valuation satisfying
+`Δa`.
+
+That gap is not closable inside this lemma, and it is not an artifact
+of how `openCong` is stated: the new leaf's link is
+`interp2 ρ' (ta₂.lift) = interp2 (ρ' ∘ (· + 1)) ta₁` for every `ρ'`
+with `Sat2 (ta₁ :: Δa) ρ'`, and `Sat2` supplies only inhabitation of
+the head, never truthfulness of it.  Reported at the junction; the
+cheap repair is to **hoist** `DefEqClaims2B`'s two `AnnotOk2` above its
+`∀ ρ`, which is self-propagating at the congruence (the node's hoisted
+`AnnotOk2_pi`/`AnnotOk2_lam` split gives the domain's hoisted form
+directly, and the codomain's at `cons x ρ` is `Sat2`'s own cons). -/
+
+/-! ### Both halves of the grading question, mechanized
+
+The negative half first: the ρ-local grading is not merely too weak
+for the proof above, it makes the lemma **false**.  Then the positive
+half: the hoist is self-propagating, so the repair the negative half
+forces costs the congruences nothing. -/
+
+/-- **`CtxOk2.openCong` with the grading localized to one valuation** —
+`DefEqClaims2B`'s `AnnotOk2`/equality package exactly as a site holds
+it after `intro ρ hρ hokA hokB`.  Both domains are fully certified
+(`ty₁` carries its own `denote2` *and* `CtxOk2`), so this is as strong
+a shape as a congruence site could ask for. -/
+def OpenCongLocal {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) : Prop :=
+  ∀ {F d : Nat} {Δa : List AVExpr} {body ty ty₁ : Expr} {n : Name}
+    {ta₁ ta₂ : AVExpr},
+    CtxOk2 m μ φ F d Δa body → CtxOk2 m μ φ F d Δa ty →
+    CtxOk2 m μ φ F d Δa ty₁ →
+    denote2 μ m.acval env φ F d ty = some ta₂ →
+    denote2 μ m.acval env φ F d ty₁ = some ta₁ →
+    (∃ ρ : Nat → V, Sat2 V Δa ρ ∧ AnnotOk2 V ρ ta₁ ∧
+      AnnotOk2 V ρ ta₂ ∧ interp2 V ρ ta₁ = interp2 V ρ ta₂) →
+    CtxOk2 m μ φ F (d + 1) (ta₁ :: Δa)
+      (body.instantiate1 (.fvar d n ty))
+
+/-- **The ρ-local grading is refuted, premise-free.**  No environment
+shape, no fuel, no mode, no level assignment.
+
+The witness is one binder deep and needs no `#100` subtlety: at
+`d = 1`, `Δa = [⟪Sort 1⟫]`, the right domain is the context variable
+(`ta₂ = .bvar 0`, ρ-dependent) and the left is `⟪Sort 0⟫` (closed).
+They agree at `ρ ≡ univ 0`, which is the one valuation the site holds.
+The extended context's leaf link, however, is quantified over *every*
+`ρ` satisfying `[⟪Sort 0⟫, ⟪Sort 1⟫]`, and at `ρ ≡ ∅` — legitimate,
+since `∅ ∈ˢ univ n` — it demands `∅ = univ 0`, whence `∅ ∈ˢ ∅`.
+
+*This is why `CtxOk2.openCong`'s `hok₁`/`hok₂` are `∀ ρ`, and why the
+family-wide move needs `DefEqClaims2B`'s two `AnnotOk2` hoisted above
+its `∀ ρ`.  The grading is not the problem; the quantifier is.* -/
+theorem not_openCongLocal {env : Env} (m : EnvS2 V env)
+    (μ : CheckMode) (φ : Name → Nat) : ¬ OpenCongLocal m μ φ := by
+  intro h
+  have hlen : ([AVExpr.sort 1] : List AVExpr).length = 1 := rfl
+  have hb : CtxOk2 m μ φ 1 1 [AVExpr.sort 1] (.bvar 0) :=
+    CtxOk2.of_fvarLeaves_nil hlen (by simp [Setlec.Expr.fvarLeaves])
+  have ht₁ : CtxOk2 m μ φ 1 1 [AVExpr.sort 1] (.sort .zero) :=
+    CtxOk2.of_fvarLeaves_nil hlen (by simp [Setlec.Expr.fvarLeaves])
+  have ht : CtxOk2 m μ φ 1 1 [AVExpr.sort 1]
+      (.fvar 0 .anonymous (.sort (.succ .zero))) := by
+    refine ⟨hlen, fun l hl => ?_⟩
+    simp only [Setlec.Expr.fvarLeaves, List.mem_singleton] at hl
+    subst hl
+    exact ⟨by omega, trivial, .sort 1, .sort 1,
+      by rw [denote2]; rfl, rfl, fun _ _ => rfl⟩
+  have hty : denote2 μ m.acval env φ 1 1
+      (.fvar 0 .anonymous (.sort (.succ .zero)))
+      = some (AVExpr.bvar 0) := by rw [denote2]
+  have hty₁ : denote2 μ m.acval env φ 1 1 (.sort .zero)
+      = some (AVExpr.sort 0) := by rw [denote2]; rfl
+  have hex : ∃ ρ : Nat → V, Sat2 V [AVExpr.sort 1] ρ ∧
+      AnnotOk2 V ρ (.sort 0) ∧ AnnotOk2 V ρ (.bvar 0) ∧
+      interp2 V ρ (.sort 0) = interp2 V ρ (.bvar 0) := by
+    refine ⟨fun _ => univ 0, ?_, by simp, by simp, by simp⟩
+    intro i Aa hi
+    cases i with
+    | zero =>
+      obtain rfl : AVExpr.sort 1 = Aa := by simpa using hi
+      simpa using univ_mem_univ (V := V) 0
+    | succ i => simp at hi
+  obtain ⟨-, hleaf⟩ :=
+    h (n := .anonymous) hb ht ht₁ hty hty₁ hex
+  obtain ⟨-, -, tya, Aa, h1, h2, h3⟩ :=
+    hleaf (1, .anonymous, .fvar 0 .anonymous (.sort (.succ .zero)))
+      (by simp [Setlec.Expr.fvarLeaves])
+  rw [denote2] at h1
+  obtain rfl : AVExpr.bvar 1 = tya := Option.some.inj h1
+  obtain rfl : AVExpr.sort 0 = Aa := Option.some.inj h2
+  have hsat : Sat2 V [AVExpr.sort 0, AVExpr.sort 1]
+      (fun _ => empty) := by
+    intro i Aa hi
+    cases i with
+    | zero =>
+      obtain rfl : AVExpr.sort 0 = Aa := by simpa using hi
+      simpa using empty_mem_univ (V := V) 0
+    | succ i =>
+      cases i with
+      | zero =>
+        obtain rfl : AVExpr.sort 1 = Aa := by simpa using hi
+        simpa using empty_mem_univ (V := V) 1
+      | succ i => simp at hi
+  have hbad : (empty : V) = univ 0 := by
+    have := h3 (fun _ => empty) hsat
+    simpa using this
+  exact not_mem_empty (V := V) empty (hbad ▸ empty_mem_univ (V := V) 0)
+
+/-- **The positive half: the hoist is self-propagating at a `∀`.**  A
+hoisted `AnnotOk2` of the node gives the domain's hoisted form and the
+codomain's *in the extended context*, which is exactly the pair the
+recursive call needs.  So paying the repair at the congruence costs
+nothing beyond restating it. -/
+theorem AnnotOk2.hoist_pi {Δa : List AVExpr} {u v : Nat} {A B : AVExpr}
+    (h : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ (.pi u v A B)) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ A) ∧
+      (∀ ρ : Nat → V, Sat2 V (A :: Δa) ρ → AnnotOk2 V ρ B) := by
+  refine ⟨fun ρ hρ => ((AnnotOk2_pi V ρ u v A B) ▸ h ρ hρ).1,
+    fun ρ hρ => ?_⟩
+  have hcons : cons (ρ 0) (fun j => ρ (j + 1)) = ρ := by
+    funext i; cases i with | zero => rfl | succ i => rfl
+  have := ((AnnotOk2_pi V _ u v A B) ▸ h _ (Sat2_tail hρ)).2
+    (ρ 0) (hρ 0 A rfl)
+  rwa [hcons] at this
+
+/-- **`CtxOk2.openCong`'s premises are jointly satisfiable** — the
+lemma is not a vacuous one whose `∀ ρ` grading no instance can meet.
+The diagonal at a sort: both domains are `⟪Sort 0⟫`, whose `AnnotOk2`
+is free at every valuation. -/
+example (m : EnvS2 V env) (μ : CheckMode) (φ : Name → Nat)
+    (nm : Name) :
+    CtxOk2 m μ φ 1 1 [AVExpr.sort 0]
+      ((Expr.bvar 0).instantiate1 (.fvar 0 nm (.sort .zero))) :=
+  CtxOk2.openCong (ta₁ := .sort 0)
+    (CtxOk2.of_fvarLeaves_nil rfl (by simp [Setlec.Expr.fvarLeaves]))
+    (CtxOk2.of_fvarLeaves_nil rfl (by simp [Setlec.Expr.fvarLeaves]))
+    (by rw [denote2]; rfl) (fun _ _ => by simp) (fun _ _ => by simp)
+    (fun _ _ _ _ => rfl)
+
+/-- The same at a `λ`, where the node's second component has the same
+shape.  Together these cover all five congruence sites. -/
+theorem AnnotOk2.hoist_lam {Δa : List AVExpr} {v : Nat} {A b : AVExpr}
+    (h : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ (.lam v A b)) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ A) ∧
+      (∀ ρ : Nat → V, Sat2 V (A :: Δa) ρ → AnnotOk2 V ρ b) := by
+  refine ⟨fun ρ hρ => ((AnnotOk2_lam V ρ v A b) ▸ h ρ hρ).1,
+    fun ρ hρ => ?_⟩
+  have hcons : cons (ρ 0) (fun j => ρ (j + 1)) = ρ := by
+    funext i; cases i with | zero => rfl | succ i => rfl
+  have := ((AnnotOk2_lam V _ v A b) ▸ h _ (Sat2_tail hρ)).2.1
+    (ρ 0) (hρ 0 A rfl)
+  rwa [hcons] at this
 
 end Amended
 
