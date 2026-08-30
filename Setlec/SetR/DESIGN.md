@@ -11102,3 +11102,51 @@ Surfaces to have in hand at the build (all previously read):
 ttChecks-conditional lane — both per-side gates, dual-success),
 `projLitToCtorP_inv`, the `whnfCore_mkAppN_inert` family, and the
 decompose/assemble pair.
+
+### FINDING at the LoopProjStep build: the cert-swallowed field forces a second Θ-deferral channel
+
+The discharge's pre-build check, walking the both-fire path against
+the actual fire conditions, found one corner the sealed
+`LoopLockOut` cannot express:
+
+**The corner.**  Both projections fire (both `getAppFn e₃ᵢ = const
+entry.ctor` — the fire pins BOTH heads to the SAME constructor), but
+the whnf'd-scrutinee pack's zip is cert-rooted with the cert layer
+ABOVE the field position: the spine view's pairwise-zipped zone
+does not reach `nP + i`, so the two extracted fields are related
+only through the swallowing cert.  Every exit is barred:
+* fields not zipped → no coreLock;
+* returning the premise projHead seam → regress (the top's
+  conversion is this very discharge, no measure moves);
+* a REBASED seam or split (at `.proj sn i w'`-subjects) is doubly
+  barred: the carrier has no under-proj step (transports cannot
+  reach it), and runs from rebased proj-subjects require
+  scrutinee-whnf idempotence — the REFUTED WhnfCoreIdem family, in
+  its exact home territory (the tombstone rule, honored again).
+
+**The sync path narrows but survives**: when the cert layer sits at
+the HEAD (or the zip is refl/constSlack/structural), the fire pins
+same-name ctor heads, the fields fall in the pairwise zone, and
+both-fire hands zipped fields' core runs at knot−1 to coreLock —
+as mapped.  Also banked: refl-equal literal scrutinees expand to
+the SAME `strLitToConstructor` term, so the expansions' whnfs
+DET-agree across fuels — no `below` call, no Q at the expansion
+(the Q-gap that route would have opened never opens).
+
+**The repair (ratification requested)**: `LoopLockOut` gains a
+fourth disjunct — **`ProjSplitOut`**, the second Θ-deferral channel
+beside the nat split, progress-marked by the DUAL FIRE data: the
+original subjects (premise-reachable, premise runs — nothing
+rebased), `sn`/`i`, the whnf'd-scrutinee pair with its pack
+(zip + invariants), both `projLit` outcomes, and both fire
+condition bundles.  The Θ-arc owns its conversion (the swallowing
+cert IS the Θ-walk's subject), exactly as the record already
+assigns cert-leaf majors/scrutinees to the Θ family.
+`LoopIotaStep`'s cert-leaf-major corner will demand the same
+channel; its precise shape lands at iota's own map seal so the two
+splits stay parallel.
+
+Consumer impact: loopLock passes splits through unchanged (its
+walk never inspects them); the sort-premised tops treat ProjSplit
+like the seams they already route to Θ.  The amendment is
+conclusion-widening only — no landed proof weakens.
