@@ -37,9 +37,10 @@ annotates at fuel `1`, into a `λ` body, which does not.
 
 Everything else stands: the grading by `AnnotOk2` of the subject (R2),
 the `μ.verified = true` quantifier (R4), `InferClaims2A` unchanged,
-and `DefEqClaims2A` unchanged and *ungraded* — it produces no reduct,
-so it needs no slack, and `DeqS`'s grading is load-bearing for
-`symm`/`trans`.
+and `DefEqClaims2A` **superseded by `DefEqClaims2B`** — see STOP 3 at its
+definition below.  Its exemption from R2 was reasoned from what defeq
+*produces*; the defeq quarter showed the cost is in what it
+*consumes*.
 
 ## Why the slack composes
 
@@ -96,21 +97,54 @@ def WhnfClaims2B (μ : CheckMode) {env : Env} (m : EnvS2 V env)
         ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea →
           interp2 V ρ ea = interp2 V ρ ea' ∧ AnnotOk2 V ρ ea'
 
-/-- The corrected step. `DefEqClaims2A` and `InferClaims2A` are reused
-verbatim — neither was refuted. -/
+/-- **Definitional equality, graded.**  STOP 3: `DefEqClaims2A` was
+exempted from R2 on the grounds that defeq *produces* no reduct, so it
+needs neither slack nor grading.  That is right about production and
+wrong about consumption — `defeqStep`'s **first move** is to `whnfCore`
+both sides, which consumes the now-graded reduction claims, and at
+those two sites the quarter holds no `AnnotOk2` for either subject and
+cannot manufacture one (`denote2` performs no membership check at an
+`app` node; the scoping predicates are all syntactic).
+
+The two `AnnotOk2` are **premises**, never conclusions.  So none of
+them crosses an equality, and `deqStep2_symm`/`deqStep2_trans`
+(`Step2/DefEq.lean`) stay one-liners — which is what the original
+exemption was protecting and what it turns out not to have needed. -/
+def DefEqClaims2B (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
+    μ.verified = true →
+    Setlec.isDefEqCore μ env fuel d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) b →
+    ∀ {F : Nat} {aa ba : AVExpr},
+      denote2 μ m.acval env φ F d a = some aa →
+      denote2 μ m.acval env φ F d b = some ba →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        AnnotOk2 V ρ aa → AnnotOk2 V ρ ba →
+        interp2 V ρ aa = interp2 V ρ ba
+
+/-- The corrected step.  `InferClaims2A` is reused verbatim — it was
+never refuted and R3 was already its shape.  The defeq slot carries
+`DefEqClaims2B` (STOP 3): the induction cannot close with an ungraded
+hypothesis and a graded conclusion, so all four claims are uniform. -/
 def CheckStep2B (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2B μ m φ fuel → WhnfClaims2B μ m φ fuel →
-    DefEqClaims2A μ m φ fuel → InferClaims2A μ m φ fuel →
+    DefEqClaims2B μ m φ fuel → InferClaims2A μ m φ fuel →
     WhnfCoreClaims2B μ m φ (fuel + 1) ∧ WhnfClaims2B μ m φ (fuel + 1) ∧
-      DefEqClaims2A μ m φ (fuel + 1) ∧ InferClaims2A μ m φ (fuel + 1)
+      DefEqClaims2B μ m φ (fuel + 1) ∧ InferClaims2A μ m φ (fuel + 1)
 
 /-- The corrected induction. -/
 theorem checkSound2B {μ : CheckMode} {env : Env}
     (hstep : CheckStep2B μ V) (m : EnvS2 V env) (φ : Name → Nat) :
     ∀ fuel : Nat,
       WhnfCoreClaims2B μ m φ fuel ∧ WhnfClaims2B μ m φ fuel ∧
-        DefEqClaims2A μ m φ fuel ∧ InferClaims2A μ m φ fuel := by
+        DefEqClaims2B μ m φ fuel ∧ InferClaims2A μ m φ fuel := by
   intro fuel
   induction fuel with
   | zero =>
@@ -137,29 +171,29 @@ theorem checkSound2B {μ : CheckMode} {env : Env}
 def InferStep2B (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2B μ m φ fuel → WhnfClaims2B μ m φ fuel →
-    DefEqClaims2A μ m φ fuel → InferClaims2A μ m φ fuel →
+    DefEqClaims2B μ m φ fuel → InferClaims2A μ m φ fuel →
     InferClaims2A μ m φ (fuel + 1)
 
 /-- The head-normalisation quarter. -/
 def WhnfCoreStep2B (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2B μ m φ fuel → WhnfClaims2B μ m φ fuel →
-    DefEqClaims2A μ m φ fuel → InferClaims2A μ m φ fuel →
+    DefEqClaims2B μ m φ fuel → InferClaims2A μ m φ fuel →
     WhnfCoreClaims2B μ m φ (fuel + 1)
 
 /-- The reduction loop. -/
 def WhnfStep2B (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2B μ m φ fuel → WhnfClaims2B μ m φ fuel →
-    DefEqClaims2A μ m φ fuel → InferClaims2A μ m φ fuel →
+    DefEqClaims2B μ m φ fuel → InferClaims2A μ m φ fuel →
     WhnfClaims2B μ m φ (fuel + 1)
 
 /-- The definitional-equality quarter. -/
 def DefEqStep2B (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2B μ m φ fuel → WhnfClaims2B μ m φ fuel →
-    DefEqClaims2A μ m φ fuel → InferClaims2A μ m φ fuel →
-    DefEqClaims2A μ m φ (fuel + 1)
+    DefEqClaims2B μ m φ fuel → InferClaims2A μ m φ fuel →
+    DefEqClaims2B μ m φ (fuel + 1)
 
 /-- **The corrected assembly.** -/
 theorem checkStep2B_of {μ : CheckMode} {V : Type w} [SetTheory V]

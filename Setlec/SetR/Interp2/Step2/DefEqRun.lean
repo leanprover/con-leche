@@ -2445,4 +2445,23 @@ theorem defEqStep2B_toAP (h : DefEqStep2BP μ V) :
   intro env m φ fuel ihwc ihw ihd ihi
   exact h env m φ fuel ihwc ihw (defEqClaims2AP_of_A ihd) ihi
 
+/-! ## The fold-in: `DefEqClaims2AP` is the canonical claim
+
+STOP 3 was adopted.  `Claims2B.lean` now carries this quarter's graded
+statement as `DefEqClaims2B`, verbatim, and `CheckStep2B` and the four
+routed quarters are stated with it — the induction cannot close with
+an ungraded hypothesis and a graded conclusion, so the family had to
+become uniform rather than the defeq slot staying special.
+
+The two names are the same statement, so the bridge is definitional
+and the quarter's deliverable *is* the canonical one.  Kept as an
+explicit theorem rather than a `rfl`-alias so that a future change to
+either statement fails here, loudly, instead of silently re-pointing
+the assembly. -/
+
+/-- The quarter's deliverable, at the canonical claim. -/
+theorem defEqStep2B_of (h : DefEqStep2BP μ V) : DefEqStep2B μ V := by
+  intro env m φ fuel ihwc ihw ihd ihi
+  exact h env m φ fuel ihwc ihw ihd ihi
+
 end Setlec.SetR.Interp2
