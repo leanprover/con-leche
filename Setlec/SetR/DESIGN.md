@@ -13890,3 +13890,47 @@ in the positive direction, in the very case that killed the old one:
 *Rule: a refutation and a satisfiability witness are two different
 results, and a repair needs both.*  "Not refuted" is not "usable" —
 `Claims2` was not refuted for five seals.
+
+### R4 is not free for the fourteen — the swap is not a swap
+
+Repair R4 (`μ.verified = true` on the claims) was ledgered as costless
+"at `--set-model`".  Checked against the fourteen, it is not, and the
+next campaign's framing has to change accordingly.
+
+**All fourteen `*_R` theorems in `SetR/Main.lean` are mode-generic** —
+every one binds `{μ : CheckMode}` with no constraint.  `CheckStep2B`
+and its claims hold only at `μ.verified = true`, and
+`CheckMode.verified` is `false` at exactly `.noModel`
+(`Kernel/Env.lean`).  So a conclusion swapped from
+`Nonempty (EnvS V env')` to `Nonempty (EnvS2 V env')` would be
+**strictly narrower than the theorem it replaces**, silently dropping
+the `.noModel` lane — which is a live, tested mode (the arena's
+no-model sweep, 138 arena + 72 e2e).
+
+**And the restriction is forced, not a proof weakness.**  `.noModel`
+is the official-parity lane, and task #152's λ codomain-sort check is
+deliberately *not* run there because the reference kernel's
+`infer_lambda` does not run it.  `denote2` still *computes* at
+`.noModel` — `lamSortE` is a function, not a check — but nothing in
+the run establishes the sort it reads, so the claims are not provable
+there and no amount of work makes them so.  This is a kernel design
+decision (parity) surfacing as a model-lane boundary.
+
+Consequences for the queued campaign, which should open with this
+rather than discover it:
+
+* the item is **not** "swap the fourteen's conclusion".  It is *add* an
+  `EnvS2` conclusion at verified modes, keeping the `EnvS` one, or
+  state the interp2 fourteen with `μ.verified = true` as a hypothesis;
+* **the v1 lane is not retired by this migration.**  `.noModel`
+  keeps it permanently, for the same reason the TT bridge is
+  permanent — a lane that exists to match the reference kernel cannot
+  be replaced by one that checks more than the reference kernel does;
+* the `interp`/`interp2` containment (`EnvS2.base : EnvS V env`) is
+  therefore load-bearing in the long run, not migration scaffolding.
+
+*Rule: when a repair adds a hypothesis, check it against the
+statements the campaign is ultimately for, not only against the
+clauses that motivated it.*  R4 was adopted to fix a λ-clause
+granularity mismatch and its cost only appears fourteen theorems
+downstream.
