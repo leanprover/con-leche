@@ -904,4 +904,60 @@ find one, and says so rather than claiming the residue is closed:
 what it establishes is that the residue is `Denote2Total` at the
 stored bodies and **nothing else**. -/
 
+/-! ## Establishing `Denote2Bodies` at an install step
+
+Seal 44 stopped the endgame lead with its gap: `EnvS`'s only
+well-formedness field is `EnvWF`, which is **purely syntactic**, so no
+`EnvS` field records that any checker run succeeded. `Denote2Bodies`
+does not follow from the invariant.
+
+**But it is establishable per declaration**, and that is the whole
+point of the relocation. The residue moved from `Denote2Total`'s
+run-less `∀` — an object **no later run has as its subject** — to
+**stored bodies, every one of which the front door demonstrably ran
+on.** The statement below is the supplier that turns that observation
+into an obligation an install can meet.
+
+`Denote2TotalR` (`EnvLaws2.lean`) is the same family: run-conditioned
+existence, naming the run's *output*. This one names the body, which
+is the run's *subject*, so it is the `.const`-side twin rather than a
+re-run of seal 30's error. -/
+
+/-- **The front door's fact, as a supplier**: a body the checker
+successfully inferred a type for has an annotation at some fuel.
+
+Run-conditioned, so it predicts nothing — the discipline seal 33
+parked `Denote2Total` for failing. Depth `0`, because a stored body is
+closed. -/
+def Denote2BodyOfRun (μ : CheckMode) (env : Env)
+    (acval : Name → (Name → Nat) → AVExpr) (φ : Name → Nat) : Prop :=
+  ∀ (value t : Expr) (F : Nat),
+    Setlec.inferTypeCore μ env F 0 value = .ok t →
+    ∃ (F' : Nat) (ra : AVExpr),
+      denote2 μ acval env φ F' 0 value = some ra
+
+/-- **The fold's step.**  `Denote2Bodies` at the extension follows from
+`Denote2Bodies` at the prefix, the extension's own transport, and the
+front-door fact at the one new body.
+
+Stated rather than proved: the *old* bodies need
+`Denote2EnvExtend` (`Denote2Extend.lean`, whose own residues are the
+frozen-on-Θ (E) hypotheses), and the *new* body needs
+`Denote2BodyOfRun` at a run `DeclStep2`'s premises must expose. **If
+the front-door run's existence is not visible where `DeclStep2` can
+see it, that is an exposure request on whatever holds it** — the
+practiced pattern, three for three this arc — and not a rebuild. -/
+def Denote2BodiesStep (μ : CheckMode) (env : Env)
+    (acval : Name → (Name → Nat) → AVExpr) (φ : Name → Nat)
+    (c₀ : ConstantInfo) : Prop :=
+  Denote2BodyOfRun μ env acval φ →
+    (∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+      c₀ = ConstantInfo.defnInfo cv value hint →
+      ∃ (F : Nat) (ra : AVExpr),
+        denote2 μ acval ⟨c₀ :: env.consts⟩ φ F 0 value = some ra) ∧
+    ∀ (cv : ConstantVal) (value : Expr),
+      c₀ = ConstantInfo.thmInfo cv value →
+      ∃ (F : Nat) (ra : AVExpr),
+        denote2 μ acval ⟨c₀ :: env.consts⟩ φ F 0 value = some ra
+
 end Setlec.SetR.Interp2

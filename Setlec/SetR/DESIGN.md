@@ -16915,3 +16915,51 @@ The 528-occurrence re-point is now *enabled* but not *done*: it
 remains a proof change at every application site, and that is the next
 batch, with the pointwise-bridge simplification riding on it either
 way.
+
+### Seal 45 — the re-point scoped, and `Denote2Bodies`' supplier stated
+
+**(a) The 528 figure is not the batch.** Measured by file:
+
+| live lane | sites | | tombstoned | sites |
+|---|---|---|---|---|
+| `Step2/DefEqRun` | 141 | | `Capstone2C/2D`, `Capstone` | 42 |
+| `Step2/Whnf` | 97 | | `Claims2A/2C/2D` | 30 |
+| `Step2/InferQ` | 83 | | | |
+| `Capstone2E` | 29 | | | |
+| `Dual2E`, `Claims2E` | 27 | | | |
+| `Dispatch`, `Levels` | 19 | | | |
+
+**The superseded generations need nothing** — they are tombstones and
+must stay as they are. The live scope is ≈396, and **321 of it is the
+three quarter files**.
+
+**Judged uniform enough for a serial worker.** The per-site edit is a
+binder type change, and seal 40's measurement is the licence: no
+quarter reads `acval_defn`/`acval_thm`, whose only four consumers are
+lemmas *about* the residue. The four exceptions are known by name and
+go in the brief.
+
+**(b) `Denote2Bodies`' supplier, stated** (`EnvS2UDef.lean`):
+
+* `Denote2BodyOfRun` — *a body the checker successfully inferred a
+  type for has an annotation at some fuel*. **Run-conditioned, so it
+  predicts nothing** — the discipline seal 33 parked `Denote2Total`
+  for failing.
+* `Denote2BodiesStep` — the fold's step: `Denote2Bodies` at the
+  extension from the prefix's, the extension's transport
+  (`Denote2EnvExtend`), and the front-door fact at the one new body.
+
+**Why this is not seal 30's error repeated.** `Denote2Total` named the
+run's **subject** where its consumer needed **outputs**.
+`Denote2BodyOfRun` names the body — which *is* the run's subject — and
+its consumer is `Denote2Bodies`, which asks about stored bodies. The
+`.const`-side twin of `Denote2TotalR`, not a re-run of the mistake.
+
+*And the relocation is what makes it plausible at all: the residue
+moved from an object **no later run has as its subject** to objects
+**every one of which the front door demonstrably ran on.***
+
+Stated, not proved: if the front-door run's existence is not visible
+where `DeclStep2` can see it, **that is an exposure request** on
+whatever holds it — the pattern that has gone three for three this arc
+— and not a rebuild.
