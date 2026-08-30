@@ -56,4 +56,26 @@ theorem ctxOk2Open_of {env : Env} (m : EnvS2 V env) (μ : CheckMode)
     (φ : Name → Nat) : CtxOk2Open m μ φ :=
   fun ht hb hty hfb => CtxOk2.openS ht hb hty hfb
 
+/-! ## Generation four leaves this residue alone — and names its twin
+
+`CtxOk2Open` mentions no `AnnotOk2` at all: it is a statement about
+`denote2` and the leaf package's three conjuncts, so the hoist above
+`ρ` passes straight through it and the theorem above still stands
+verbatim.
+
+What generation four *does* add is a **second** obligation at the same
+site, and it is recorded here because this file is the residue's
+ledger.  `InferClaims2C` now delivers the returned type's `AnnotOk2`,
+and at the `.fvar` clause the returned type is the leaf's own
+annotation — a fact `CtxOk2`'s package does not carry
+(`Step2/Dispatch.lean`, the STOP before `infer_fvar_claim2C`).  The
+proposed fourth conjunct is `CtxOk2Ann`, and its opening lemma is
+`CtxOk2Ann.openS`, whose signature mirrors `CtxOk2.openS` with one
+extra premise: the domain's own hoisted grading, which every
+congruence site already holds.
+
+So *if* the junction adopts the strengthening, this residue's
+discharge becomes the pair `⟨CtxOk2.openS, CtxOk2Ann.openS⟩` and
+nothing above changes. -/
+
 end Setlec.SetR.Interp2
