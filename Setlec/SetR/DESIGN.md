@@ -12272,3 +12272,64 @@ by `hasSortC_pi_of` induction at inner binders.
   / `sortOfAgreeRQ_of_zip`), not the fifteen-hypothesis shells — the
   discharge tier already reduced both public claims to one obligation
   each.
+
+### Arc step 4 — the second soundness's per-former skeleton
+
+`Setlec/SetR/Interp2/Skeleton.lean`: the `interp2` soundness's case
+statements, one per `AVExpr` former, each stated over exactly the facts
+the frozen interface carries.  **Nine of ten formers close; the tenth
+is deferred to its supplier.**
+
+| row | interface facts consumed | status |
+|---|---|---|
+| `sort` | none | ✓ `univ_mem_univ` |
+| `prf` | type is a `Prop`, and inhabited | ✓ proof irrelevance is definitional |
+| `bvar` | `Sat2` | ✓ |
+| `pi` | domain at `u`, codomain at `v`, both hereditary halves | ✓ `piR_mem_univ`, the `imax` rule *exactly* |
+| `lam` | body's membership, kind-`0` fibre condition, hereditary halves | ✓ **no empty-domain side condition** |
+| `app` | function at an annotated `Π`, argument in the domain, the `Π`'s kind-`0` fibre condition | ✓ **at both kinds** |
+| `letE` | body's two facts at the substituted value | ✓ ζ is an identity, not a step |
+| `eqE` | the two sides' hereditary halves | ✓ `eqv_mem_univ` |
+| `proj 0/1` | the subject's `Σ`-package — i.e. the invariant alone | ✓ (`sfst_mem_gen`/`ssnd_mem_gen`, the general-fibre forms) |
+| `const` | — | **DEFERRED**, see below |
+
+**The app row is the amendment's dividend.**  `sound_app` closes at
+*both* kinds and `app_mem_of_slot` closes from the **invariant alone**.
+Neither was possible before the app clause gained its kind-`0` fibre
+component at the consumer seal: `app_mem_piR`'s `hB0` had no supplier,
+and the truth-value route yields only that the fibre is *inhabited*.
+The clause repair turned the app row from a `Prop`-codomain residue
+into a theorem — which is the single most consequential thing this seal
+records, because rank-2/3's removals all land on that row.
+
+**The λ row's freedom, now mechanized.**  `sound_lam` has no
+empty-domain hypothesis and needs no validity metatheorem: `lamR_mem`'s
+premise is a `∀ x ∈ˢ ⟦A⟧`, vacuous at `⟦A⟧ = ∅`, and so is the kind-`0`
+fibre condition.  The numeral still *matters* semantically
+(`lamR 0 ∅ F = pt` versus `lamR 1 ∅ F = ∅`) but it comes from the
+**term**, and no semantic fact about it is needed to close the case.
+This is why `ValidInfer`'s refutation does not block the consumer lane
+— the brief's "B5′-style validity" route is neither available nor
+required.  The `Π`'s domain numeral is likewise free: `interp2`'s `pi`
+clause discards it, so the row holds at every annotation of the domain.
+
+**The `const` row is DEFERRED, and deliberately not stated.**  Two
+suppliers are missing, and both are migration step 2's:
+
+* no annotated built-in type former — no
+  `BConst.type2 : BConst → List Nat → AVExpr`.  `BConst.type` yields a
+  `VExpr` and `denote2` maps `Expr → AVExpr`, so it does not apply.
+  **Without it the row's conclusion cannot be written at all**;
+* no `bval2_mem_type` — `Interp2/Value.lean` has every per-constant
+  application law and the towers' own memberships, but not
+  `ConstOk.lean`'s capstone over `interp2`.
+
+Writing either here would be the T5 near-miss the campaign has ruled
+against — a premise guessed at the consumer rather than stated by its
+supplier.  So the row waits, ledgered with those two names as step 2's
+entry condition for this file.
+
+*Rule, a corollary of the supplier rule worth its own line: a case you
+cannot even **state** is not a gap in the design — it is a missing
+former, and formers belong to the tier that owns the objects.  Check
+which of the two you have before calling STOP.*
