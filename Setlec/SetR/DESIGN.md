@@ -13780,3 +13780,41 @@ are safe, going vacuous at low fuel rather than false; `CtxOk2` and
 **monotone** in its fuel via `denote2_fuelMono`, which is what lets a
 recursing clause carry the context up to the `F'` the corrected claims
 hand back.
+
+### The next campaign's gate, checked before opening it
+
+STOP 2 killed the fourteen's conclusion swap as it stood.  Before
+re-opening it, the question worth answering is whether the *repaired*
+`acval_defn` is establishable at install — because if it is not, the
+campaign is dead again and no amount of install-layer work helps.
+
+It is, and the install layer already has the hook.  `EnvS.defn_eq` is
+established (`Install/Value.lean`) by **defining** the valuation at the
+new name to be the body's denotation — `cvalAt m.cval env name value` —
+with the install key's `hkey ψ` supplying `∃ v t, denote … value =
+some v ∧ …`, i.e. an *existence* hypothesis that the body denotes at
+all.  The `interp2` analogue is the same move one level up: define
+`acval` at the new name to be the body's annotated denotation, with an
+`hkey2` supplying `∃ F' v, denote2 μ acval env φ F' 0 value = some v`.
+
+So the repaired field's existential slots into the slot the
+architecture already has.  The new content is one extra existential
+quantifier in the install key, not a new theory.  Two details that
+make this work and are worth having written down:
+
+* **`denote2`'s fuel is not a recursion budget.**  It is passed
+  *unchanged* to every recursive call and exists only to run
+  `sortOfE`/`lamSortE`, which need `inferTypeCore`/`whnf` runs
+  (`Annot/Canon.lean`).  So "some fuel" means "large enough for the
+  deepest sort computation in this term", and a checked declaration's
+  own successful runs are the natural source.
+* **No global fuel is needed.**  `acval_defn` is `∀ F, ∃ F' ≥ F, …`
+  per definition and per query, so different declarations may need
+  different fuels.  `acval` itself is fuel-free — it is the value, not
+  the computation — which is what keeps the structure's fields
+  independent of any one budget.
+
+This is also the first time in the arc that a campaign's central
+obligation was tested against its supplier *before* the campaign
+opened rather than at its end.  That is the cheap version of the
+lesson STOP 2 taught expensively.
