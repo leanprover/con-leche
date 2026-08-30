@@ -10497,3 +10497,28 @@ dispatch at the top.  `whnfCore_lam_spine_decompose` is NOT needed
 
 Next seal: the seam datatype + `coreLock`'s statement with the
 full pre-build check, then its induction.
+
+### The seam datatype LANDED (coreLock's exit structure)
+
+`CoreSeam μ env fc d` — five constructors, each pre-build-checked
+for liftability and top-convertibility:
+* `certHead`/`recHead`/`projHead` — the flatten seams (spines over a
+  certified pair / a recursor at eval-linked levels / a zipped proj
+  head), converting at the top via `hΘ`/`ZipIotaCase`/
+  `ZipProjHeadCase` with the caller's loop runs;
+* `deadL`/`deadR` — the self-sustaining stuck packages (a core run
+  to an output whose head is non-const, non-λ, non-sort — the tri
+  nones and the loop-stuck follow, contradicting the side's given
+  sort run).
+
+`dead_step` (an app over a dead-stuck head is itself dead-stuck —
+the ten-shape pattern once more) and **`coreSeam_lift_app`** —
+seams lift through app-layers: the flatten seams append the
+argument zip (the landed index helpers), the dead seams take one
+`dead_step`.  All first-pass.
+
+Next: `coreLock`'s statement + induction — the disjunctive
+conclusion is `ZipPack(u',v')` (invariants free from the landed
+preservers, since outputs ARE whnfCore outputs) ∨ the seam
+re-based via connecting core runs (`∃ w₁ w₂ …` for the zeta/β
+chain steps, so the top can `loop_align`).

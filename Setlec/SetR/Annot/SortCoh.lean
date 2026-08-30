@@ -8629,6 +8629,241 @@ def QPreserveZetaF (_env : Env) (Q : Nat → Expr → Expr → Prop) : Prop :=
     Q d (Setlec.Expr.mkAppN (.letE n ty v b) as) c →
     Q d (Setlec.Expr.mkAppN (b.instantiate1 v) as) c
 
+/-! ### The seam datatype and its app-lift (the coreLock design) -/
+
+/-- **The liftable seams**: the configurations the layer-peeling
+lockstep cannot zip through, each convertible by the top-level
+caller (which holds the loop runs) and each liftable through an
+app-layer because view-heads propagate.  `deadL`/`deadR` carry a
+self-sustaining stuck package (run + head-shape data) so the lift
+is one derivation step. -/
+inductive CoreSeam (μ : CheckMode) (env : Env) (fc d : Nat) :
+    Expr → Expr → Prop
+  | certHead (F₁ F₂ : Expr) (as bs : List Expr)
+      (hba : F₁.looseBVarsBounded 0 = true)
+      (hbb : F₂.looseBVarsBounded 0 = true)
+      (hc : isDefEqCore μ env fc d F₁ F₂ = .ok true)
+      (hlen : as.length = bs.length)
+      (hargs : ∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+        CertZip μ env fc d as[i] bs[i]) :
+      CoreSeam μ env fc d (Setlec.Expr.mkAppN F₁ as)
+        (Setlec.Expr.mkAppN F₂ bs)
+  | recHead (n : Name) (cv : Setlec.ConstantVal) (mI rP : Nat)
+      (rules : List Setlec.RecRule) (us us' : List Level)
+      (as bs : List Expr)
+      (hf : env.find? n = some (.recInfo cv mI rP rules))
+      (hev : ∀ φ' : Name → Nat,
+        us.map (Level.eval φ') = us'.map (Level.eval φ'))
+      (hlen : as.length = bs.length)
+      (hargs : ∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+        CertZip μ env fc d as[i] bs[i]) :
+      CoreSeam μ env fc d (Setlec.Expr.mkAppN (.const n us) as)
+        (Setlec.Expr.mkAppN (.const n us') bs)
+  | projHead (sn : Name) (i : Nat) (e₁ e₂ : Expr) (as bs : List Expr)
+      (he : CertZip μ env fc d e₁ e₂)
+      (hlen : as.length = bs.length)
+      (hargs : ∀ j (h₁ : j < as.length) (h₂ : j < bs.length),
+        CertZip μ env fc d as[j] bs[j]) :
+      CoreSeam μ env fc d (Setlec.Expr.mkAppN (.proj sn i e₁) as)
+        (Setlec.Expr.mkAppN (.proj sn i e₂) bs)
+  | deadL (u v u' : Expr) (b : Nat)
+      (hrun : ∀ g, b ≤ g → whnfCore μ env g d u = .ok u')
+      (hnc : ∀ p q, u'.getAppFn ≠ .const p q)
+      (hnl : ∀ n ty body m, u' ≠ .lam n ty body m)
+      (hns : ∀ ℓ, u' ≠ .sort ℓ) :
+      CoreSeam μ env fc d u v
+  | deadR (u v v' : Expr) (b : Nat)
+      (hrun : ∀ g, b ≤ g → whnfCore μ env g d v = .ok v')
+      (hnc : ∀ p q, v'.getAppFn ≠ .const p q)
+      (hnl : ∀ n ty body m, v' ≠ .lam n ty body m)
+      (hns : ∀ ℓ, v' ≠ .sort ℓ) :
+      CoreSeam μ env fc d u v
+
+/-- One stuck derivation step for the dead seams' lift: an app over
+a dead-stuck head is itself dead-stuck. -/
+theorem dead_step {μ : CheckMode} {env : Env} {d : Nat}
+    {u u' y : Expr} {b : Nat}
+    (hrun : ∀ g, b ≤ g → whnfCore μ env g d u = .ok u')
+    (hnc : ∀ p q, u'.getAppFn ≠ .const p q)
+    (hnl : ∀ n ty body m, u' ≠ .lam n ty body m) :
+    ∀ g, b + 1 ≤ g → whnfCore μ env g d (.app u y)
+      = .ok (.app u' y) := by
+  intro g hg
+  cases g with
+  | zero => exact absurd hg (by omega)
+  | succ g' =>
+  rw [show whnfCore μ env (g' + 1) d (.app u y)
+      = Setlec.whnfCoreBody μ (Setlec.pureFns μ env g') env d
+        (.app u y) from Setlec.whnfCore_succ ..]
+  have hiota : Setlec.iotaRec μ (Setlec.pureFns μ env g') env d
+      (.app u' y) = .ok none :=
+    iotaRec_none_of_fn_not_const
+      (by intro p q hh
+          exact hnc p q
+            ((show (Expr.app u' y).getAppFn = u'.getAppFn
+              from rfl) ▸ hh))
+  have hu : (Setlec.pureFns μ env g').whnfCore d u = .ok u' :=
+    hrun g' (by omega)
+  cases u' with
+  | lam n ty body m => exact absurd rfl (hnl n ty body m)
+  | const p q =>
+    exact absurd (show (Expr.const p q).getAppFn = Expr.const p q
+      from rfl) (hnc p q)
+  | bvar i =>
+    unfold Setlec.whnfCoreBody
+    simp only [Bind.bind, Except.bind]
+    rw [hu]
+    simp only []
+    rw [hiota]
+    rfl
+  | fvar i n ty =>
+    unfold Setlec.whnfCoreBody
+    simp only [Bind.bind, Except.bind]
+    rw [hu]
+    simp only []
+    rw [hiota]
+    rfl
+  | sort u₀ =>
+    unfold Setlec.whnfCoreBody
+    simp only [Bind.bind, Except.bind]
+    rw [hu]
+    simp only []
+    rw [hiota]
+    rfl
+  | forallE n ty body m =>
+    unfold Setlec.whnfCoreBody
+    simp only [Bind.bind, Except.bind]
+    rw [hu]
+    simp only []
+    rw [hiota]
+    rfl
+  | letE n ty v b' =>
+    unfold Setlec.whnfCoreBody
+    simp only [Bind.bind, Except.bind]
+    rw [hu]
+    simp only []
+    rw [hiota]
+    rfl
+  | lit l =>
+    unfold Setlec.whnfCoreBody
+    simp only [Bind.bind, Except.bind]
+    rw [hu]
+    simp only []
+    rw [hiota]
+    rfl
+  | proj sn i e =>
+    unfold Setlec.whnfCoreBody
+    simp only [Bind.bind, Except.bind]
+    rw [hu]
+    simp only []
+    rw [hiota]
+    rfl
+  | app p q =>
+    unfold Setlec.whnfCoreBody
+    simp only [Bind.bind, Except.bind]
+    rw [hu]
+    simp only []
+    rw [hiota]
+    rfl
+
+/-- **Seams lift through app-layers** (view-heads propagate; the
+flatten seams append the argument zip, the dead seams take one
+stuck derivation step). -/
+theorem coreSeam_lift_app {μ : CheckMode} {env : Env} {fc d : Nat}
+    {P₁ P₂ y₁ y₂ : Expr}
+    (hz : CertZip μ env fc d y₁ y₂)
+    (hs : CoreSeam μ env fc d P₁ P₂) :
+    CoreSeam μ env fc d (.app P₁ y₁) (.app P₂ y₂) := by
+  cases hs with
+  | certHead F₁ F₂ as bs hba hbb hc hlen hargs =>
+    rw [show Expr.app (Setlec.Expr.mkAppN F₁ as) y₁
+        = Setlec.Expr.mkAppN F₁ (as ++ [y₁]) from
+      mkAppN_append_one.symm,
+      show Expr.app (Setlec.Expr.mkAppN F₂ bs) y₂
+        = Setlec.Expr.mkAppN F₂ (bs ++ [y₂]) from
+      mkAppN_append_one.symm]
+    refine CoreSeam.certHead F₁ F₂ (as ++ [y₁]) (bs ++ [y₂])
+      hba hbb hc (by simp [hlen]) ?_
+    intro i hi₁ hi₂
+    by_cases hlt : i < as.length
+    · have hlt₂ : i < bs.length := hlen ▸ hlt
+      rw [getElem_append_left' as [y₁] i hlt,
+        getElem_append_left' bs [y₂] i hlt₂]
+      exact hargs i hlt hlt₂
+    · have hi : i = as.length := by
+        simp only [List.length_append, List.length_cons,
+          List.length_nil] at hi₁
+        omega
+      subst hi
+      rw [getElem_append_last as y₁]
+      simp only [hlen]
+      rw [getElem_append_last bs y₂]
+      exact hz
+  | recHead n cv mI rP rules us us' as bs hf hev hlen hargs =>
+    rw [show Expr.app (Setlec.Expr.mkAppN (.const n us) as) y₁
+        = Setlec.Expr.mkAppN (.const n us) (as ++ [y₁]) from
+      mkAppN_append_one.symm,
+      show Expr.app (Setlec.Expr.mkAppN (.const n us') bs) y₂
+        = Setlec.Expr.mkAppN (.const n us') (bs ++ [y₂]) from
+      mkAppN_append_one.symm]
+    refine CoreSeam.recHead n cv mI rP rules us us'
+      (as ++ [y₁]) (bs ++ [y₂]) hf hev (by simp [hlen]) ?_
+    intro i hi₁ hi₂
+    by_cases hlt : i < as.length
+    · have hlt₂ : i < bs.length := hlen ▸ hlt
+      rw [getElem_append_left' as [y₁] i hlt,
+        getElem_append_left' bs [y₂] i hlt₂]
+      exact hargs i hlt hlt₂
+    · have hi : i = as.length := by
+        simp only [List.length_append, List.length_cons,
+          List.length_nil] at hi₁
+        omega
+      subst hi
+      rw [getElem_append_last as y₁]
+      simp only [hlen]
+      rw [getElem_append_last bs y₂]
+      exact hz
+  | projHead sn i e₁ e₂ as bs he hlen hargs =>
+    rw [show Expr.app (Setlec.Expr.mkAppN (.proj sn i e₁) as) y₁
+        = Setlec.Expr.mkAppN (.proj sn i e₁) (as ++ [y₁]) from
+      mkAppN_append_one.symm,
+      show Expr.app (Setlec.Expr.mkAppN (.proj sn i e₂) bs) y₂
+        = Setlec.Expr.mkAppN (.proj sn i e₂) (bs ++ [y₂]) from
+      mkAppN_append_one.symm]
+    refine CoreSeam.projHead sn i e₁ e₂ (as ++ [y₁]) (bs ++ [y₂])
+      he (by simp [hlen]) ?_
+    intro j hj₁ hj₂
+    by_cases hlt : j < as.length
+    · have hlt₂ : j < bs.length := hlen ▸ hlt
+      rw [getElem_append_left' as [y₁] j hlt,
+        getElem_append_left' bs [y₂] j hlt₂]
+      exact hargs j hlt hlt₂
+    · have hj : j = as.length := by
+        simp only [List.length_append, List.length_cons,
+          List.length_nil] at hj₁
+        omega
+      subst hj
+      rw [getElem_append_last as y₁]
+      simp only [hlen]
+      rw [getElem_append_last bs y₂]
+      exact hz
+  | deadL u v u' b hrun hnc hnl hns =>
+    refine CoreSeam.deadL _ _ (.app u' y₁) (b + 1)
+      (dead_step hrun hnc hnl) ?_ ?_ ?_
+    · intro p q h
+      exact hnc p q
+        ((show (Expr.app u' y₁).getAppFn = u'.getAppFn from rfl) ▸ h)
+    · intro n ty body m h; exact nomatch h
+    · intro ℓ h; exact nomatch h
+  | deadR u v v' b hrun hnc hnl hns =>
+    refine CoreSeam.deadR _ _ (.app v' y₂) (b + 1)
+      (dead_step hrun hnc hnl) ?_ ?_ ?_
+    · intro p q h
+      exact hnc p q
+        ((show (Expr.app v' y₂).getAppFn = v'.getAppFn from rfl) ▸ h)
+    · intro n ty body m h; exact nomatch h
+    · intro ℓ h; exact nomatch h
+
 end Discharge
 
 end Setlec.SetR.Interp2
