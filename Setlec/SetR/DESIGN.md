@@ -11497,3 +11497,30 @@ layer where the legs' iota-some IS the fire).  Plus
 off the match).  Two fixes only (a drafting leftover and the
 append-assoc direction).  Next: the three routed Props with their
 pre-checks, then `zipIotaCase_of` on the map.
+
+### The two routed Props LANDED — and the K row needs NO infer-lockstep
+
+Statement-sealing the routed Props surfaced a finding that halves
+the deferred obligation: **the K-rescue row discharges locally.**
+`majorToCtor`'s K gate requires `cnF = 0` — the constructor has no
+fields — so the fired reduct's field segment
+(`major.getAppArgs.drop ctorParams`) is EMPTY on both sides
+regardless of which side fabricated: K-reducts depend only on the
+SPINE arguments (zipped by premise), and the single-rule gate
+(`rules = [rl]`) pins the same rule on both sides (an
+identity-side's ctor must be in the rules list, hence `rl.ctor`).
+Multi-rule recursors never rescue (the `[rl]` match gate), so the
+pack-sync path covers them.  **Only the eta row carries the
+infer-lockstep** — its fabricated params come from
+`whnf (infer major)`'s spine — and `EtaRescueSortAgree` is stated
+with exactly that data (the infer runs as premises: the lockstep
+enters here and NOWHERE else, sharper than the map predicted).
+
+`IotaMajorSortAgree` landed with the self-similar payload (the
+major-level `LoopLockOut` verbatim + both fires as runs, consumers
+invert) and the full subject package.  Both Props first-pass.
+Θ's docket final form: the cert-spine motive + proj-split +
+nat-split + iota-major conversions + the eta-rescue lockstep.
+Next: `zipIotaCase_of` on the map (stuck-kills by tri; both-fired
+via the rec-spine inversion + majors' loopLock; identity/K rows
+local; eta row and non-pack majors routed).

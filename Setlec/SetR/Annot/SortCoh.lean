@@ -12166,6 +12166,88 @@ theorem whnfCore_rec_spine_inv {μ : CheckMode} {env : Env}
               · exact fun _ _ _ _ hh => nomatch hh
               · exact fun _ hh => nomatch hh
 
+/-- **Routed: the iota-major conversion** (the Θ-family's third
+docket item, the self-similar interface a third time): the shared
+recursor's data, both fires as runs (consumers invert), the zipped
+majors' whnfs with the major-level out VERBATIM, the subject spine
+zips and invariants, and the sort runs — concluding the claim.
+Discharged at Θ's arc. -/
+def IotaMajorSortAgree (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc d ga la gb lb g₁ g₂ gm₁ gm₂ gp₁ gp₂ gl₁ gl₂ mI rP : Nat}
+    {n : Name} {cv : Setlec.ConstantVal}
+    {rules : List Setlec.RecRule} {us us' : List Level}
+    {pre₁ pre₂ post₁ post₂ : List Expr}
+    {e₁'' e₂'' w₁ w₂ : Expr} {ℓa ℓb : Level},
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
+    env.find? n = some (.recInfo cv mI rP rules) →
+    (∀ φ' : Name → Nat,
+      us.map (Level.eval φ') = us'.map (Level.eval φ')) →
+    pre₁.length = pre₂.length →
+    (∀ i (h₁ : i < pre₁.length) (h₂ : i < pre₂.length),
+      CertZip μ env fc d pre₁[i] pre₂[i]) →
+    post₁.length = post₂.length →
+    (∀ i (h₁ : i < post₁.length) (h₂ : i < post₂.length),
+      CertZip μ env fc d post₁[i] post₂[i]) →
+    SubjInv d (Setlec.Expr.mkAppN (.const n us) (pre₁ ++ post₁)) →
+    SubjInv d (Setlec.Expr.mkAppN (.const n us') (pre₂ ++ post₂)) →
+    PairedLeaves (Setlec.Expr.mkAppN (.const n us) (pre₁ ++ post₁))
+      (Setlec.Expr.mkAppN (.const n us') (pre₂ ++ post₂)) →
+    Q d (Setlec.Expr.mkAppN (.const n us) (pre₁ ++ post₁))
+      (Setlec.Expr.mkAppN (.const n us') (pre₂ ++ post₂)) →
+    g₁ ≤ ga → g₂ ≤ gb →
+    Setlec.iotaRec μ (Setlec.pureFns μ env g₁) env d
+      (Setlec.Expr.mkAppN (.const n us) pre₁) = .ok (some e₁'') →
+    Setlec.iotaRec μ (Setlec.pureFns μ env g₂) env d
+      (Setlec.Expr.mkAppN (.const n us') pre₂) = .ok (some e₂'') →
+    gm₁ ≤ ga → gm₂ ≤ gb →
+    whnf μ env gm₁ d (pre₁.getD mI (.bvar 0)) = .ok w₁ →
+    whnf μ env gm₂ d (pre₂.getD mI (.bvar 0)) = .ok w₂ →
+    LoopLockOut μ env Q fc d (pre₁.getD mI (.bvar 0))
+      (pre₂.getD mI (.bvar 0)) w₁ w₂ gp₁ gp₂ gl₁ gl₂ →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN (.const n us) (pre₁ ++ post₁))
+      = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
+      (Setlec.Expr.mkAppN (.const n us') (pre₂ ++ post₂))
+      = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
+/-- **Routed: the eta-rescue conversion** (the ONE row carrying the
+deferred infer-lockstep; the K row needs none — its `cnF = 0` gate
+kills the field-dependence, so K-reducts depend only on zipped
+spine args, and the single-rule gate pins the rule on both sides).
+Premises: both sides' rescue data as runs (`whnf (infer major)`
+included — the infer-lockstep enters here and nowhere else), the
+subject payload, the sort runs. -/
+def EtaRescueSortAgree (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc d ga la gb lb g₁ g₂ mI rP : Nat} {n : Name}
+    {cv : Setlec.ConstantVal} {rules : List Setlec.RecRule}
+    {us us' : List Level} {pre₁ pre₂ post₁ post₂ : List Expr}
+    {maj₁ maj₂ tmaj₁ tmaj₂ : Expr} {ℓa ℓb : Level},
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
+    env.find? n = some (.recInfo cv mI rP rules) →
+    (∀ φ' : Name → Nat,
+      us.map (Level.eval φ') = us'.map (Level.eval φ')) →
+    pre₁.length = pre₂.length →
+    (∀ i (h₁ : i < pre₁.length) (h₂ : i < pre₂.length),
+      CertZip μ env fc d pre₁[i] pre₂[i]) →
+    post₁.length = post₂.length →
+    (∀ i (h₁ : i < post₁.length) (h₂ : i < post₂.length),
+      CertZip μ env fc d post₁[i] post₂[i]) →
+    CertZip μ env fc d maj₁ maj₂ →
+    g₁ ≤ ga → g₂ ≤ gb →
+    inferTypeCore μ env g₁ d maj₁ = .ok tmaj₁ →
+    inferTypeCore μ env g₂ d maj₂ = .ok tmaj₂ →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN (.const n us) (pre₁ ++ post₁))
+      = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
+      (Setlec.Expr.mkAppN (.const n us') (pre₂ ++ post₂))
+      = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/
 theorem zipLamHeadCase_of {φ : Name → Nat}
