@@ -10743,3 +10743,33 @@ semantic trio, `CoreIdemF`/`LeavesSubCoreF` Verify-tier suppliers,
 the FrameQ suppliers (`QPreserveHeadF`/`QDescendAppF`/β/ζ),
 `StoredWF`/`BoolCtorsInert`/(E) install facts, the preserver
 suppliers, the (B) type-form map.
+
+### LeavesSubCoreF supplier LANDED (Verify/LeavesPres.lean)
+
+The established pattern paid at full value: `whnfPres_leaves`
+mirrors `whnfPres_WScoped` clause by clause (the mutual fuel
+induction over whnfCore+whnf), and the existing inversions turned
+out to be LEAVES-AWARE already — `majorToCtor_inv`'s fallback
+carries `major'.fvarLeaves.all (contains major.fvarLeaves)` in its
+statement, so the major chain transports without new inversion
+work.  New leaves bricks: `natLitToConstructor_leaves_nil` /
+`strLitToConstructor_leaves_nil` (the WScoped-at-depth-0 trick via
+`fvarLeaves_lt_of_wscoped`), `litToCtorIfNat_leaves`,
+`unfoldDefinition_leaves` (stored values closed, `EnvWF`).
+Essentially first-pass (one simp-shape fix).  SortCoh consumes it
+as `leavesSubCore_of (henv : EnvWF env) : LeavesSubCoreF μ env` —
+the head re-basing carrier's leaf transport is now supplied.
+
+CoreIdemF's pre-build map (recorded before its build): core side
+rides `whnfCore_app_decompose`/`_assemble` at EXACT fuel (head-run
+idem via the fuel-level IH, legs replayed verbatim — deterministic
+reads); β/iota/zeta contractum outputs recurse one level down +
+mono.  Surfaced corners: (i) the whnf side needs the loop TERMINAL
+extraction (the landed SortCoh lemma family) + `whnfLoopFuel` as a
+successor; (ii) the proj-stuck re-run needs projLitToCtor
+idempotence, whose strVal-expansion arm needs "whnf of a
+ctor-headed spine is not a string literal" (ctor-head inertness
+through the loop); (iii) `whnf_proj_inv` collapses the stuck
+reasons, so the proj-stuck case must re-drive the body manually
+(deterministic reads reproduce the same failure; fire sub-branches
+conclude by the core IH directly).

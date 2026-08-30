@@ -1,5 +1,6 @@
 import Setlec.SetR.Annot.Canon
 import Setlec.Verify.InferLeaves
+import Setlec.Verify.LeavesPres
 import Setlec.Verify.BinderLoop
 
 /-!
@@ -8769,6 +8770,12 @@ def LeavesSubCoreF (μ : CheckMode) (env : Env) : Prop :=
   ∀ {g d : Nat} {e e' : Expr},
     whnfCore μ env g d e = .ok e' →
     ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves
+
+/-- `LeavesSubCoreF`'s supplier: the Verify-tier mutual fuel
+induction (`whnfPres_leaves`), under environment well-formedness. -/
+theorem leavesSubCore_of (henv : Setlec.EnvWF env) :
+    LeavesSubCoreF μ env :=
+  fun h => Setlec.whnfCore_leaves henv _ h
 
 /-- `Q` descends through an app-node pair (the peel's head
 recursion; at `FrameQ` the frame is per-side structural — a
