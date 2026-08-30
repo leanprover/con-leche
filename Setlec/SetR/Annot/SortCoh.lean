@@ -7976,6 +7976,208 @@ theorem zipWhnfSortAgree_of_heads {φ : Name → Nat}
     (zipSpineFlatCase_of (φ := φ) (Q := Q) hm hΘ hConst hLam hLetE
       hProj)
 
+/-! ### The const head: δ and nat-op legs (iota routed) -/
+
+/-- A non-recursor const head never iota-fires. -/
+theorem iotaRec_none_of_not_rec {μ : CheckMode} {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM} {d : Nat} {e : Expr}
+    {n : Name} {us : List Level}
+    (hfn : e.getAppFn = .const n us)
+    (hnr : ∀ cv mI rP rules,
+      env.find? n ≠ some (.recInfo cv mI rP rules)) :
+    Setlec.iotaRec μ r env d e = .ok none := by
+  unfold Setlec.iotaRec
+  split
+  · next n' us' heq =>
+    rw [hfn] at heq
+    obtain ⟨rfl, rfl⟩ : n = n' ∧ us = us' := by
+      cases heq; exact ⟨rfl, rfl⟩
+    cases hf : env.find? n with
+    | none => rfl
+    | some ci =>
+      cases ci with
+      | recInfo cv mI rP rules => exact absurd hf (hnr cv mI rP rules)
+      | axiomInfo cv => rfl
+      | defnInfo cv value hint => rfl
+      | thmInfo cv value => rfl
+      | indInfo cv caps => rfl
+      | ctorInfo cv a b => rfl
+      | projInfo entry => rfl
+  · rfl
+
+/-- A non-recursor const head keeps its whole spine
+whnfCore-stuck. -/
+theorem whnfCore_mkAppN_const_inert {μ : CheckMode} {env : Env}
+    {d : Nat} {n : Name} {us : List Level}
+    (hnr : ∀ cv mI rP rules,
+      env.find? n ≠ some (.recInfo cv mI rP rules)) :
+    ∀ (as : List Expr) {g : Nat}, 1 + as.length ≤ g →
+      whnfCore μ env g d (Setlec.Expr.mkAppN (.const n us) as)
+        = .ok (Setlec.Expr.mkAppN (.const n us) as) := by
+  have main : ∀ (as : List Expr) {F : Expr} {hd : Nat},
+      F.getAppFn = .const n us →
+      (∀ g, hd ≤ g → whnfCore μ env g d F = .ok F) →
+      (∀ n' ty body m, F ≠ .lam n' ty body m) →
+      ∀ {g : Nat}, hd + as.length ≤ g →
+        whnfCore μ env g d (Setlec.Expr.mkAppN F as)
+          = .ok (Setlec.Expr.mkAppN F as) := by
+    intro as
+    induction as with
+    | nil =>
+      intro F hd hfn hF _ g hg
+      exact hF g (by simpa using hg)
+    | cons a as ih =>
+      intro F hd hfn hF hnl g hg
+      show whnfCore μ env g d
+        (Setlec.Expr.mkAppN (.app F a) as) = _
+      refine ih (F := .app F a) (hd := hd + 1)
+        ((show (Expr.app F a).getAppFn = F.getAppFn from rfl).trans
+          hfn) ?_ ?_ ?_
+      · intro g' hg'
+        cases g' with
+        | zero => exact absurd hg' (by omega)
+        | succ g'' =>
+          rw [show whnfCore μ env (g'' + 1) d (.app F a)
+              = Setlec.whnfCoreBody μ (Setlec.pureFns μ env g'')
+                env d (.app F a) from Setlec.whnfCore_succ ..]
+          have hiota : Setlec.iotaRec μ (Setlec.pureFns μ env g'')
+              env d (.app F a) = .ok none :=
+            iotaRec_none_of_not_rec
+              ((show (Expr.app F a).getAppFn = F.getAppFn
+                from rfl).trans hfn) hnr
+          have hFrun : (Setlec.pureFns μ env g'').whnfCore d F
+              = .ok F := hF g'' (by omega)
+          cases F with
+          | lam n' ty body m => exact absurd rfl (hnl n' ty body m)
+          | const n' us' =>
+            unfold Setlec.whnfCoreBody
+            simp only [Bind.bind, Except.bind]
+            rw [hFrun]
+            simp only []
+            rw [hiota]
+            rfl
+          | app p q =>
+            unfold Setlec.whnfCoreBody
+            simp only [Bind.bind, Except.bind]
+            rw [hFrun]
+            simp only []
+            rw [hiota]
+            rfl
+          | bvar i => exact nomatch hfn
+          | fvar i n' ty => exact nomatch hfn
+          | sort u => exact nomatch hfn
+          | forallE n' ty body m => exact nomatch hfn
+          | letE n' ty v b => exact nomatch hfn
+          | lit l => exact nomatch hfn
+          | proj sn i e => exact nomatch hfn
+      · intro n' ty body m h; exact nomatch h
+      · simp only [List.length_cons] at hg ⊢
+        omega
+  intro as g hg
+  exact main as
+    (show (Expr.const n us).getAppFn = Expr.const n us from rfl)
+    (fun g' hg' => whnfCore_const_run hg')
+    (fun _ _ _ _ h => nomatch h) hg
+
+/-- Both instantiated spines of a same-head δ unfold together. -/
+theorem unfoldDefinition_spine_both {env : Env} {n : Name}
+    {us us' : List Level} {as bs : List Expr} {xa : Expr}
+    (hlen : us.length = us'.length)
+    (hux : Setlec.unfoldDefinition env
+      (Setlec.Expr.mkAppN (.const n us) as) = some xa) :
+    ∃ cv value,
+      xa = Setlec.Expr.mkAppN
+        (Setlec.Expr.instantiateLevelParams cv.levelParams us value)
+        as ∧
+      Setlec.unfoldDefinition env
+        (Setlec.Expr.mkAppN (.const n us') bs)
+        = some (Setlec.Expr.mkAppN
+          (Setlec.Expr.instantiateLevelParams cv.levelParams us'
+            value) bs) ∧
+      ((∃ hint, env.find? n = some (.defnInfo cv value hint)) ∨
+        env.find? n = some (.thmInfo cv value)) := by
+  unfold Setlec.unfoldDefinition at hux
+  rw [Setlec.Expr.getAppFn_mkAppN,
+    show (Expr.const n us).getAppFn = Expr.const n us from rfl]
+    at hux
+  simp only [] at hux
+  cases hf : env.find? n with
+  | none => rw [hf] at hux; exact nomatch hux
+  | some ci =>
+    rw [hf] at hux
+    cases ci with
+    | defnInfo cv value hint =>
+      simp only [] at hux
+      by_cases hl : us.length = cv.levelParams.length
+      · rw [if_pos hl] at hux
+        refine ⟨cv, value, ?_, ?_, .inl ⟨hint, rfl⟩⟩
+        · have h2 := Option.some.inj hux
+          rw [Setlec.Expr.getAppArgs_mkAppN,
+            show (Expr.const n us).getAppArgs = ([] : List Expr)
+              from rfl, List.nil_append] at h2
+          exact h2.symm
+        · simp only [Setlec.unfoldDefinition,
+            Setlec.Expr.getAppFn_mkAppN]
+          rw [show (Expr.const n us').getAppFn = Expr.const n us'
+            from rfl]
+          simp only [hf]
+          rw [if_pos (hlen ▸ hl)]
+          rw [Setlec.Expr.getAppArgs_mkAppN,
+            show (Expr.const n us').getAppArgs = ([] : List Expr)
+              from rfl, List.nil_append]
+      · rw [if_neg hl] at hux; exact nomatch hux
+    | thmInfo cv value =>
+      simp only [] at hux
+      by_cases hl : us.length = cv.levelParams.length
+      · rw [if_pos hl] at hux
+        refine ⟨cv, value, ?_, ?_, .inr rfl⟩
+        · have h2 := Option.some.inj hux
+          rw [Setlec.Expr.getAppArgs_mkAppN,
+            show (Expr.const n us).getAppArgs = ([] : List Expr)
+              from rfl, List.nil_append] at h2
+          exact h2.symm
+        · simp only [Setlec.unfoldDefinition,
+            Setlec.Expr.getAppFn_mkAppN]
+          rw [show (Expr.const n us').getAppFn = Expr.const n us'
+            from rfl]
+          simp only [hf]
+          rw [if_pos (hlen ▸ hl)]
+          rw [Setlec.Expr.getAppArgs_mkAppN,
+            show (Expr.const n us').getAppArgs = ([] : List Expr)
+              from rfl, List.nil_append]
+      · rw [if_neg hl] at hux; exact nomatch hux
+    | axiomInfo cv => exact nomatch hux
+    | indInfo cv caps => exact nomatch hux
+    | ctorInfo cv a b => exact nomatch hux
+    | recInfo cv a b c => exact nomatch hux
+    | projInfo entry => exact nomatch hux
+
+/-- **Routed: the iota case** (recursor-headed spines at eval-linked
+levels — the standing full treatment at its seal). -/
+def ZipIotaCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc d ga la gb lb mI rP : Nat} {n : Name} {us us' : List Level}
+    {cv : Setlec.ConstantVal} {rules : List Setlec.RecRule}
+    {as bs : List Expr} {ℓa ℓb : Level},
+    env.find? n = some (.recInfo cv mI rP rules) →
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
+    (∀ φ' : Name → Nat,
+      us.map (Level.eval φ') = us'.map (Level.eval φ')) →
+    as.length = bs.length →
+    (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+      CertZip μ env fc d as[i] bs[i]) →
+    SubjInv d (Setlec.Expr.mkAppN (.const n us) as) →
+    SubjInv d (Setlec.Expr.mkAppN (.const n us') bs) →
+    PairedLeaves (Setlec.Expr.mkAppN (.const n us) as)
+      (Setlec.Expr.mkAppN (.const n us') bs) →
+    Q d (Setlec.Expr.mkAppN (.const n us) as)
+      (Setlec.Expr.mkAppN (.const n us') bs) →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN (.const n us) as) = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
+      (Setlec.Expr.mkAppN (.const n us') bs) = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
 /-- **The both-δ core COLLAPSED onto the summit**: the spine facts
 zip the pair (head by `constSlack` through `isEquivList` soundness,
 args as `.cert` leaves through `defEqList_extract`), and
@@ -8096,6 +8298,83 @@ theorem sortOfAgreeR_of {φ : Name → Nat}
     (fun _ h => h) (fun _ h => h) (fun _ h => h) (fun h => h)
     hP hR hLam hZ hSL hSR hStL hStR hF hK hSp hPi hAp hPj
     hc hwsa hba hLa hwsb hbb hLb hp trivial h₁ h₂
+
+/-- **The const head DISCHARGED to iota**: non-recursor heads are
+inert (nat steps die on `NatStepNoSort`, δ unfolds together into
+zipped instantiations, stuck outputs clash with the sorts); recursor
+heads route to `ZipIotaCase`. -/
+theorem zipConstHeadCase_of {φ : Name → Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hm : KnotFuelMono μ env) (hB : BoolCtorsInert env)
+    (hID : InvPreserveDeltaF env) (hLD : PairedPreserveDeltaF env)
+    (hQD : QPreserveDeltaF env Q)
+    (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
+    (hIota : ZipIotaCase μ env φ Q) :
+    ZipConstHeadCase μ env φ Q := by
+  have hN : NatStepNoSort μ env := natStepNoSort_of hB
+  intro fc d ga la gb lb n us us' as bs ℓa ℓb below hev hlen hargs
+    hIs hIt hp hQ ha hb
+  by_cases hrec : ∃ cv mI rP rules,
+      env.find? n = some (.recInfo cv mI rP rules)
+  · obtain ⟨cv, mI, rP, rules, hf⟩ := hrec
+    exact hIota hf below hev hlen hargs hIs hIt hp hQ ha hb
+  · have hnr : ∀ cv mI rP rules,
+        env.find? n ≠ some (.recInfo cv mI rP rules) :=
+      fun cv mI rP rules hf => hrec ⟨cv, mI, rP, rules, hf⟩
+    have hnr' : ∀ cv mI rP rules,
+        env.find? n ≠ some (.recInfo cv mI rP rules) := hnr
+    have hlen' : us.length = us'.length := by
+      have := congrArg List.length (hev fun _ => 0)
+      simpa using this
+    have hstuckA := whnfCore_mkAppN_const_inert (μ := μ) (d := d)
+      (us := us) hnr as (Nat.le_refl _)
+    have hstuckB := whnfCore_mkAppN_const_inert (μ := μ) (d := d)
+      (us := us') hnr bs (Nat.le_refl _)
+    cases la with
+    | zero => exact nomatch ha
+    | succ la' =>
+    cases lb with
+    | zero => exact nomatch hb
+    | succ lb' =>
+    have haD := ha
+    rw [whnfLoop_succ] at haD
+    obtain ⟨e₁, hwca, htriA⟩ := whnfStep_decompose haD
+    obtain rfl : e₁ = Setlec.Expr.mkAppN (.const n us) as :=
+      (KnotFuelDet_of_mono hm).2.2.1
+        (hwca : whnfCore μ env ga d _ = .ok e₁) hstuckA
+    have hbD := hb
+    rw [whnfLoop_succ] at hbD
+    obtain ⟨e₂, hwcb, htriB⟩ := whnfStep_decompose hbD
+    obtain rfl : e₂ = Setlec.Expr.mkAppN (.const n us') bs :=
+      (KnotFuelDet_of_mono hm).2.2.1
+        (hwcb : whnfCore μ env gb d _ = .ok e₂) hstuckB
+    rcases htriA with ⟨x, hrx, -⟩ | ⟨hrga, xa, hux, hkx⟩ |
+      ⟨-, -, hstopA⟩
+    · exact (hN hstuckA hrx ha).elim
+    · obtain ⟨cv, value, rfl, huy', hstore⟩ :=
+        unfoldDefinition_spine_both (us' := us') (bs := bs)
+          hlen' hux
+      rcases htriB with ⟨y, hry, -⟩ | ⟨hrgb, xb, huy, hky⟩ |
+        ⟨-, hudb, -⟩
+      · exact (hN hstuckB hry hb).elim
+      · rw [huy'] at huy
+        obtain rfl := (Option.some.inj huy).symm
+        exact below (Or.inr ⟨rfl, Or.inr ⟨rfl, by omega⟩⟩)
+          (certZip_mkAppN_zips (certZip_instantiate hev value)
+            hlen hargs)
+          (hID hux hIs) (hID huy' hIt)
+          ((hLD huy' ((hLD hux hp).symm)).symm)
+          (hQs (hQD huy' (hQs (hQD hux hQ)))) hkx hky
+      · rw [huy'] at hudb; exact nomatch hudb
+    · cases as with
+      | nil =>
+        simp only [Setlec.Expr.mkAppN] at hstopA
+        exact nomatch hstopA
+      | cons a as' =>
+        obtain ⟨p, q, hpq⟩ := mkAppN_cons_app
+          (F := Expr.const n us) (a := a) (as := as')
+        rw [hpq] at hstopA
+        exact nomatch hstopA
 
 end Discharge
 

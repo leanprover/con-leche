@@ -10360,3 +10360,29 @@ discharges — const (δ via the both-unfold spine extension +
 treatment; nat-op fired-side vacuities), λ (reassociation +
 spine-length induction), letE (knot-paid zeta + re-view), proj (the
 clause walk) — plus Θ, the semantic trio, and the install facts.
+
+### The const head DISCHARGED to iota
+
+The δ and nat-op legs, landed on the kit:
+
+* `iotaRec_none_of_not_rec` (non-recursor const heads never fire),
+  `whnfCore_mkAppN_const_inert` (a non-recursor const head keeps its
+  spine whnfCore-stuck — the inert induction generalized to carry
+  the head's `getAppFn` fact), `unfoldDefinition_spine_both` (the
+  both-unfold lemma at spine level: `getAppFn_mkAppN` +
+  `getAppArgs_mkAppN` reduce the spine's view, then the const
+  version's argument verbatim).
+* `ZipIotaCase` — the routed iota Prop (recursor-headed spines at
+  eval-linked levels, the `recInfo` fact as premise; the standing
+  full treatment at its seal).
+* `zipConstHeadCase_of`: recursor heads route to iota; non-recursor
+  heads — nat legs die on `NatStepNoSort` (the spine IS the
+  head-normal form), δ legs unfold together into
+  `certZip_mkAppN_zips`-zipped instantiated spines with the
+  preservers carrying the invariants and `ZipBelow` at the loop
+  decrease, stuck legs clash with the sorts (nil by `mkAppN`
+  reduction, cons by the app shape).  First-pass.
+
+**Frontier: {Θ, iota, λ-head, letE-head, proj-head}** + the trio +
+install facts.  The iota seal's pre-build treatment is next-largest;
+λ/letE/proj are smaller.
