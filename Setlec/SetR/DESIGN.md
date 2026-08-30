@@ -12876,3 +12876,66 @@ fourteen non-fold theorems; "twelve" undercounts by excluding
 `checkDecl_sound_R` and `no_constant_of_Empty_R` — the two that are not
 in the 4×3 driver grid.  **Fourteen is right**; the roadmap's "twelve"
 should be read as "the twelve driver-grid ones".
+
+### Step 3, seal 1 — `Claims2` stated (`Interp2/Claims2.lean`)
+
+The four run-level claims in the annotated currency, the mutual fuel
+induction `checkSound2` with its `zero` case closed, and the discharge's
+named inputs as a bundle.  Hypothesis-first, `CheckStepR`'s precedent
+throughout: `CheckStep2` is a bare `Prop` and `checkSound2` takes it.
+
+**Two simplifications the annotated currency buys**, both worth having
+on the record because they make the claims *smaller* than v1's:
+
+* **the `∃ T'` slack disappears.**  `InferClaimsR` must conclude "some
+  `T'` with `Infer … T'` and `DefEq … T' tv`", because an on-the-nose
+  inference claim cannot serve a binder congruence (design §0
+  decision 1).  `InferClaims2`'s conclusion is *semantic* — a
+  membership — and `DefEq` slack is absorbed by `DefEqClaims2`'s own
+  equality, so it concludes directly at the inferred type's
+  annotation.  The slack was a *relational* artefact and does not
+  survive the move to interpretations;
+* **the context correspondence is reused, not re-invented.**  The
+  hypothesis side stays `CtxOkR` at the **erasures**
+  (`Δa.map AVExpr.erase`) — a *function* of the annotated context, so
+  no new relation and no appeal to `Annotates`, whose
+  many-annotations problem is exactly what R1 removed.  Inventing a
+  `CtxOkR2` was the obvious move and would have been the wrong one.
+
+**The ledgered `EnvS` seam is closed, and by scaffolding that was
+already there.**  `SortSubstStable` takes `mS : EnvS V env` — the
+collapse-lane invariant — which the consumer seal flagged as needing
+re-signing to the `EnvS2` world.  It does not: `EnvS2` holds an `EnvS`
+in its `base` field by containment, so `m.base` supplies it verbatim.
+*A seam noticed early was retired by a decision taken earlier still.*
+
+**`Step2Inputs` makes the supplier ledger mechanical.**  Rather than
+prose, the inputs a `CheckStep2` discharge will consume are a
+structure, and the three *kinds* are the point:
+
+* `subst_stable` — frozen, and `Claims2` is its named consumer;
+* `zip_whnf` / `zip_sortOf` — **the two zip obligations themselves**,
+  not the fifteen-hypothesis shells: `ensureSortAgreeRQ_of_zip` and
+  `sortOfAgreeRQ_of_zip` already reduce both public claims to one
+  obligation each, so naming the shells would over-state what the
+  consumer needs.  This is the Θ-junction entry from the consumer
+  side;
+* `infer_fuel_det` — scheduled, supplier landed (`knotFuelMono`);
+* `rec_rules2` — **an opaque `Prop` parameter**.  `declStepS` installs
+  inductives, so the spine passes through iota, so the discharge needs
+  the fired modeled-iota law over `interp2`; by the T5 rule that
+  premise belongs to the iota bottoms when they migrate, and writing it
+  consumer-side is the near-miss this campaign has ruled against.  The
+  `Skeleton.sound_const` precedent exactly — carry the absence, name
+  it, and let the supplier state it.
+
+*Rule worth keeping from the shape of this bundle: **a named slot and a
+frozen hypothesis are different things and should not be spelled the
+same way.**  A frozen hypothesis has a statement someone else will
+prove; a named slot has no statement yet, and writing one would bind
+the supplier to the consumer's guess.  Making the first a field of a
+known `Prop` and the second an opaque parameter keeps the difference
+visible at the use site.*
+
+Next: `CheckStep2`'s discharge, clause by clause, and the five install
+keys over `interp2` in dependency order.
