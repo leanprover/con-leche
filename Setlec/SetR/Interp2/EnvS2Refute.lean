@@ -186,4 +186,45 @@ theorem whnfClaims2A_delta_refuted {env : Env} (m : EnvS2 V env)
   rw [denote2_one_lam] at hea'
   exact nomatch hea'
 
+/-! ## Is the repair satisfiable in the very case that killed it?
+
+The repaired field is only worth having if a λ-bodied definition can
+now actually satisfy it.  This arc has been burned twice by a witness
+that was vacuous — `EnvS2.empty` has no constants, and seal 6's
+acceptance test only killed the witness it was built from — so the
+positive direction gets checked explicitly rather than assumed.
+
+`denote2_two_lam` is the counterpart of `denote2_one_lam`: the λ that
+fuel `1` cannot annotate, fuel `2` can.  It is the exact analogue of
+`denote2_two_forallE`, which played this role for R3. -/
+
+/-- **The smallest λ annotates at fuel `2`.**  `lamSortE` needs an
+`inferTypeCore` run and a `sortOfE` run; both return at fuel `2`. -/
+theorem denote2_two_lam {acval : Name → (Name → Nat) → AVExpr}
+    (d : Nat) (n : Name) (mb : BinderMeta) :
+    denote2 μ acval env φ 2 d
+        (.lam n (.sort .zero) (.sort .zero) mb)
+      = some (.lam 2 (.sort 0) (.sort 0)) := by
+  rw [denote2, Expr.instantiate1_sort, denote2_two_sort,
+    denote2_two_sort]
+  rw [lamSortE, infer_two_sort]
+  simp only [Except.toOption]
+  rw [sortOfE_two_sort]
+  simp [Level.eval]
+
+/-- **The repaired field is satisfiable for a λ-bodied definition** —
+the shape `acvalDefnUniform_lam_refuted` proves impossible for the old
+one.  Stated over the *field's* form, at an arbitrary demanded fuel,
+so it is the repair that is being tested and not a special case. -/
+theorem acval_defn_repaired_sat {acval : Name → (Name → Nat) → AVExpr}
+    {c : Name} {n : Name} {mb : BinderMeta}
+    (hac : acval c φ = .lam 2 (.sort 0) (.sort 0)) (F : Nat) :
+    ∃ F', F ≤ F' ∧
+      denote2 μ acval env φ F' 0
+        (.lam n (.sort .zero) (.sort .zero) mb) = some (acval c φ) := by
+  refine ⟨max F 2, Nat.le_max_left _ _, ?_⟩
+  rw [hac]
+  exact denote2_fuelMono (Nat.le_max_right F 2) 0 _
+    (denote2_two_lam 0 n mb)
+
 end Setlec.SetR.Interp2

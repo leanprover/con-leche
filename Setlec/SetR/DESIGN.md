@@ -13868,3 +13868,25 @@ requires any fixed relation between the run's fuel and the annotation
 fuel.**  The two are independent throughout, `F ≤ F'` is exact, and
 the slack never points downward.  That is what makes `Claims2B` a
 statement rather than a guess.
+
+### The positive half, checked rather than assumed
+
+STOP 2 proved the old `EnvS2` fields false.  That is only half a
+result: a repair that is merely *not refuted* may still be
+unsatisfiable, and this arc has now been burned twice by exactly that
+— `EnvS2.empty` had no constants, and seal 6's acceptance test killed
+only the witness it was built from.  So the repaired field was tested
+in the positive direction, in the very case that killed the old one:
+
+* `denote2_two_lam` — the counterpart of `denote2_one_lam`.  The λ
+  that fuel `1` cannot annotate, fuel `2` can.  Exact analogue of
+  `denote2_two_forallE`, which played this role for R3.
+* `acval_defn_repaired_sat` — the repaired field's *own shape*, at an
+  arbitrary demanded fuel `F`, satisfied by a λ-bodied definition via
+  `F' = max F 2` and `denote2_fuelMono`.  Stated over the field's form
+  rather than a convenient special case, so it is the repair under
+  test and not a weaker cousin.
+
+*Rule: a refutation and a satisfiability witness are two different
+results, and a repair needs both.*  "Not refuted" is not "usable" —
+`Claims2` was not refuted for five seals.
