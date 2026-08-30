@@ -12531,6 +12531,81 @@ theorem zipIotaCase_of {φ : Name → Nat}
     hp hQ (by omega) (by omega) hio₁ hio₂ (by omega) (by omega)
     hmaj₁ hmaj₂ hout ha hb
 
+/-! ### The Θ walk (the summit statement, frozen per the treatment) -/
+
+/-- One opened binder of the Θ telescope: the two binder names, the
+ANNOTATION PAIR (each side opened with its own domain — the kernel's
+`.fvar d nᵢ tyᵢ` discipline), and the ARGUMENT PAIR the subject
+loops β-substituted where the run opened an fvar. -/
+structure ThetaEntry where
+  n₁ : Name
+  n₂ : Name
+  ty₁ : Expr
+  ty₂ : Expr
+  a₁ : Expr
+  a₂ : Expr
+
+/-- Left-side telescope substitution: close each opened fvar
+(innermost first — the tail is deeper) and plug the loop's actual
+argument. -/
+def thetaSubst₁ : Nat → List ThetaEntry → Expr → Expr
+  | _, [], e => e
+  | d, t :: Γ, e =>
+    ((thetaSubst₁ (d + 1) Γ e).abstract1 d).instantiate1 t.a₁
+
+/-- Right-side telescope substitution. -/
+def thetaSubst₂ : Nat → List ThetaEntry → Expr → Expr
+  | _, [], e => e
+  | d, t :: Γ, e =>
+    ((thetaSubst₂ (d + 1) Γ e).abstract1 d).instantiate1 t.a₂
+
+/-- The telescope's per-entry facts, entry `j` at depth `d + j`:
+the argument zip, the domain fact (the run's own `hd` at the
+entry's depth — the knot's defeq is `isDefEqCore` one fuel up),
+and the arguments' subject packages. -/
+def TelescopeOk (μ : CheckMode) (env : Env) (fcK : Nat) :
+    Nat → List ThetaEntry → Prop
+  | _, [] => True
+  | d, t :: Γ =>
+    CertZip μ env (fcK + 1) d t.a₁ t.a₂ ∧
+    isDefEqCore μ env (fcK + 1) d t.ty₁ t.ty₂ = .ok true ∧
+    SubjInv d t.a₁ ∧ SubjInv d t.a₂ ∧
+    PairedLeaves t.a₁ t.a₂ ∧
+    TelescopeOk μ env fcK (d + 1) Γ
+
+/-- **The Θ walk's claim** (the summit): a pair of spines over
+telescope-substituted, run-related cores, both loops reaching
+sorts, agrees on the sort numerals.  At telescope depth zero with
+`fcK := fc − 1`, `L := defeqLoopFuel` this is `ZipCertSpineCase`'s
+data via `isDefEqCore`'s unfold; the four docket conversions are
+its other consumers.  The walk's own recursion is the `[fcK, L]`
+lex (pushes descend the knot; re-entries descend the budget); the
+bar is for the rebased-pair conversions' zip-tier work. -/
+def ThetaWalkClaim (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ (fcK L : Nat) {d ga la gb lb : Nat} {Γ : List ThetaEntry}
+    {C₁ C₂ : Expr} {sp₁ sp₂ : List Expr} {ℓa ℓb : Level},
+    ZipBelow μ env φ Q (fcK + 1) (ga + gb) (la + lb) →
+    TelescopeOk μ env fcK d Γ →
+    Setlec.defeqLoop μ (Setlec.pureFns μ env fcK) env
+      (d + Γ.length) L C₁ C₂ = .ok true →
+    sp₁.length = sp₂.length →
+    (∀ i (h₁ : i < sp₁.length) (h₂ : i < sp₂.length),
+      CertZip μ env (fcK + 1) d sp₁[i] sp₂[i]) →
+    SubjInv d (Setlec.Expr.mkAppN (thetaSubst₁ d Γ C₁) sp₁) →
+    SubjInv d (Setlec.Expr.mkAppN (thetaSubst₂ d Γ C₂) sp₂) →
+    PairedLeaves (Setlec.Expr.mkAppN (thetaSubst₁ d Γ C₁) sp₁)
+      (Setlec.Expr.mkAppN (thetaSubst₂ d Γ C₂) sp₂) →
+    Q d (Setlec.Expr.mkAppN (thetaSubst₁ d Γ C₁) sp₁)
+      (Setlec.Expr.mkAppN (thetaSubst₂ d Γ C₂) sp₂) →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN (thetaSubst₁ d Γ C₁) sp₁)
+      = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
+      (Setlec.Expr.mkAppN (thetaSubst₂ d Γ C₂) sp₂)
+      = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/
 theorem zipLamHeadCase_of {φ : Name → Nat}

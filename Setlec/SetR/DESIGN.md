@@ -11724,3 +11724,19 @@ walk's statement as a def (`ThetaWalkClaim`), then the induction in
 seals at the arm-group boundaries (vacuous arms first, δ/nat
 re-entries, the rebased-pair group, the push, the fvar leaf), then
 the five consumer discharges.
+
+### The Θ walk's statement FROZEN (first-pass)
+
+`ThetaEntry` (names + annotation pair + argument pair),
+`thetaSubst₁/₂` (innermost-first close-and-plug over the landed
+`abstract1`/`instantiate1` algebra), `TelescopeOk` (per-entry: the
+argument zip and the domain fact at `fcK + 1` — the knot's defeq
+one fuel up, matching the run's own `hd` bookkeeping — plus the
+arguments' subject packages), and `ThetaWalkClaim` (the summit:
+spines over telescope-substituted run-related cores, both loops at
+sorts, eval-equality; the bar at `fcK + 1` for the rebased-pair
+conversions).  All compiled first-pass against the sealed
+treatment.  Next: the walk's induction, in seals at the arm-group
+boundaries (vacuous arms; δ/nat re-entries; the rebased-pair
+group; the push; the fvar leaf), then the five consumer
+discharges.
