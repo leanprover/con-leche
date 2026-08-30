@@ -12019,3 +12019,23 @@ at all — the fire result depends only on the rule's own counts and
 the fabrication spine, so the planned injection machinery was
 deleted rather than repaired.  Next per the coordinator: the
 mechanical SortCoh split seal, then the walk's induction.
+
+### SortCoh SPLIT (mechanical seal, pure motion)
+
+`SortCoh.lean` (14,425 lines) split into seven part-files under
+`Setlec/SetR/Annot/SortCoh/` with a 17-line umbrella preserving the
+historical module name (downstream imports untouched: `SortCohFrame`,
+`SetR`).  Cut at the actual dependency seams (file order = import
+order = the original top-down order): `Claims` (det obligation,
+leaf discipline, claim + ceilinged families, run algebra, cert-loop
+decomposition, transports, (A-T), R-a, dual shell, 2119 lines),
+`Mono` (mono batches, knot chain, nat-chase, 2533), `Discharge`
+(trio tier, (B), summit skeleton + StoredWF/flat-spine kits, 3883),
+`CoreLock` (substitution-transport kit, seams, coreLock, loop
+dispatch, 1951), `LoopLock` (lockstep tier + zip head cases, 2124),
+`Theta` (walk statement + commutation kit, 456), `SubstSim` (map +
+helpers + induction, 1475).  Each part re-opens the namespace, the
+two `open`s, and (from `Discharge` on) `section Discharge` with its
+`{μ} {env}` variables.  Zero statement changes; zero relocation
+warnings (the V-freedom convention and linear structure meant no
+re-derivations surfaced).  Battery green, axioms 12/12.
