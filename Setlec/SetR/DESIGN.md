@@ -16050,3 +16050,105 @@ would be the first, and this campaign has no evidence that works.
 
 **Everything now defers to the keys**, which are the goal's critical
 path.
+
+### Seal 34 — the keys survey: the keys are not the bottleneck
+
+The batch was briefed survey-first with my expectation stated as a
+hypothesis to test. **It came back "the right instinct pointed at the
+wrong object"** — which is the most useful form a wrong expectation can
+take.
+
+**Every premise of all six keys is V-free**, without exception. But
+that is not the measurement that sizes the work: each key's V content
+is entirely in its *conclusion*, and the conclusion is the point of a
+key. The measurement that decides the batch is one level up — **the
+`EnvS2`-over-`EnvS` delta is nine fields, and only two mention `V`**
+(`acval_ok2`, `mem_type2`).
+
+**The surprise worth flagging: `acval_defn`/`acval_thm` are V-free but
+not free.** `denote2 : Expr → Option AVExpr` has no `V` in it, so those
+two fields are **syntactic obligations about the checker's own runs**,
+not semantic ones. That is where the difficulty is, and it is not
+semantic difficulty. *A survey that had only asked "which conjuncts
+mention `V`" would have called this tier cheap.*
+
+#### The two blockers, both upstream of every key
+
+* **R1 — checker-run stability under environment extension.** `denote2`
+  runs `inferTypeCore`/`whnf` **in `env`**, so carrying an old
+  constant's `acval_defn`/`acval_thm`/`mem_type2` into `env₂` needs a
+  run-stability lemma. **It does not exist**, and v1 needs no analogue
+  because `denote` touches `env` only through `find?`. Believed true, of
+  a size comparable to a Step2 quarter. *The gap is invisible from the
+  v1 side, which is why no earlier seal saw it.*
+* **R2 — annotation existence for a checked declaration's body.**
+  Needed to *choose* `acval` at defn/thm installs. This is
+  `Denote2Total`'s wall again — and an `EnvS2` **field is a conclusion,
+  so it cannot escape by dual success the way the claims did.**
+
+Both bite **before the semantics, not in it**, and both bite the two
+cheapest keys (`ReducePinS`, one `DefEq.sound`; `MemberKeyS`, pure
+transport) identically — so there is no easy one to pick off first.
+
+#### Ruling on R2: adopt the uniqueness form
+
+Three exits were offered. **(a) prove it** — parked at seal 33, for
+`Denote2Total`'s wall and the `mode.verified` collision with seal 10's
+withdrawal. **(b) a named input-level hypothesis** — this makes the
+fourteen conditional on an unverified assumption, and the campaign
+takes that route only when nothing else exists. **(c) restate
+`acval_defn`/`acval_thm` dual-success** — *if* the value annotates,
+the annotation is the constant's leaf.
+
+**Ruled: (c).** Three reasons, and the first is the strongest:
+
+1. **It completes generation six into the environment tier.**
+   Generation six moved the *claims* to dual success; the *fields*
+   should follow. Existence is then owed in exactly one place —
+   `Exists2E` — instead of two.
+2. **STOP 2 already identified this and then chose otherwise.** That
+   seal's own text reads: *"what the delta exit actually needs is
+   uniqueness, not existence at every fuel"* — and the repair adopted
+   was the existential anyway. The uniqueness form is not a new idea;
+   it is the one that was already correct.
+3. **The consumer check passes in the current currency.**
+   `Delta2B`/`AcvalDefnInst` consume the existential, but their `…2E`
+   counterparts take annotations as *premises*, which is where
+   generation six put them.
+
+**This does not reopen the statement tier.** Seal 33 closed
+`Claims2*`; `EnvS2`'s fields are the environment tier, and the ruling
+moves that tier into alignment with the closed one.
+
+#### Three further requests, recorded
+
+* **R3 — `NatOpsV2` is incomplete for its own named consumer**, and it
+  is seal 22's failure mode exactly: it quantifies the seven
+  `natOpNames`, while `reduceNat` accelerates all nine
+  `natDivModNames` too, and the two sets are **disjoint**. A `DivModV2`
+  is owed beside it. **Caught by mapping, not by discharge — twice now
+  for drafted laws.**
+* **R5 — `EnvS2` has no counterpart for six `EnvS` fields**
+  (`rec_rules`, `caps_ok`, `nat_ops`, `div_mod`, `reduce_ops`,
+  `proj_ok`). Until it is ruled whether those join `EnvS2` or stay on
+  the v1 side via `base`, **`DeclBasisS`/`DeclIndS` cannot even be
+  stated** in interp2 form.
+* **R6 — `Nonempty` hides the produced `cval`**, which
+  `EnvS2.acval_erase` must name. A Σ-valued restatement is needed, in a
+  5900-line proof, and should be a deliberate decision.
+
+#### What landed, and one piece of discipline worth copying
+
+`Interp2/Install2.lean`: `acvalWith` and its congruences, four of the
+nine delta fields' extension steps, and **`denote2_acval_congr` — the
+lemma v1 never needed.** `denote` reads `cval` at any name; `denote2`
+reads `acval` only where the environment stores something. Stated as an
+*equation*, so the two runs are `none` together — **an install must not
+silently assume an annotation exists.**
+
+And: the batch **committed no statement drafts of the six keys**, on
+the grounds that with no install-tier consumer able to attempt a
+discharge, a named `Prop` would be precisely seal 20's *"vacuous `Prop`
+with a good name, worse than none"*. That is the rule applied against
+the batch's own apparent productivity, which is the hardest direction
+to apply it in.
