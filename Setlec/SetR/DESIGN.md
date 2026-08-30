@@ -15182,3 +15182,40 @@ alongside `frame_appArg2D` which the worker did write.
    *Rule: a recipe-book check that cannot be performed must be
    reported as not performed. The book is a checklist, not a
    certificate.*
+
+### The dispatch rule's evidence base — measured, both patterns
+
+Recorded side by side, because the rule now rests on numbers rather
+than argument. Comparable amounts of work: generation four (fan-out,
+four concurrent workers) and generation five (serial, one worker).
+
+| | gen 4, fan-out | gen 5, serial |
+|---|---|---|
+| workers | 4 concurrent | 1 |
+| convergent-duplicate pairs | **7** (2 byte-identical) | **0** |
+| dedupe adjudications at the fold | 7 | 0 |
+| collisions caused by junction scoping error | 1 | 0 |
+| mid-flight messages to workers about shared facts | 6 | 0 |
+| integration breaks at the fold | 3 | 0 |
+| chunks compiling on first build | not tracked | **all** |
+| proof difficulty over the batch | flat | **monotonically decreasing** |
+| statement changes requested | 0 | 0 |
+| refuted statements caught | 0 | 0 |
+
+**The safety property is unchanged, which is the load-bearing point.**
+Across this campaign every refuted statement was caught by *a consumer
+discharging it* — never by inspection, never by concurrency. A serial
+worker is still a consumer. Generations four and five each caught
+zero, because by then the statements were right; the three that were
+wrong (`Claims2`, `Claims2A`, and `EnvS2`'s two fields) were caught by
+discharge attempts under **both** dispatch patterns.
+
+*So: concurrency bought nothing on safety and cost seven duplicates and
+three integration breaks. Serial buys the recipe curve for free.*
+Parallelism stays only **between** independent workstreams — this lane
+and the Θ lane — where there is no shared statement to converge on.
+
+**And the kit gap is closed.** `CtxOk2D.frame_infer2D` — `frame_inferR`
+minus the erasure — is landed. The one proof in generation five that
+did not get easier named its own missing supplier, which is the most
+useful thing a hard proof can do.

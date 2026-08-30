@@ -87,6 +87,27 @@ theorem fuelMono {F F' d : Nat} {Δa : List AVExpr} {e : Expr}
     CtxOk2D m μ φ F' d Δa e :=
   ⟨CtxOk2.fuelMono hle h.1, CtxOk2Ann.fuelMono hle h.1 h.2⟩
 
+/-- **The frame bundle in the new currency** — `frame_inferR` minus the
+erasure.  Generation five's one proof that did *not* get easier
+(`infer_app_claim2D`) had to re-derive these three by hand, because
+`frame_inferR` bundles them with a `CtxOkR` the single-currency lane
+does not want.  Named here rather than left as a recurring three-line
+paste: the proof that did not get easier named its own missing
+supplier, which is the most useful thing a hard proof can do. -/
+theorem frame_infer2D (hwf : Setlec.EnvWF env) {fuel d F : Nat}
+    {Δa : List AVExpr} {e t : Expr}
+    (h : Setlec.inferTypeCore μ env fuel d e = .ok t)
+    (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e) (hC : CtxOk2D m μ φ F d Δa e) :
+    Expr.WScoped d t ∧ t.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded t ∧ CtxOk2D m μ φ F d Δa t :=
+  ⟨Setlec.inferTypeCore_WScoped hwf fuel h hws,
+    Setlec.inferTypeCore_looseBVars hwf fuel h hws hb hLb,
+    fun l hl =>
+      hLb l (Setlec.inferTypeCore_fvarLeaves hwf fuel h hws l hl),
+    CtxOk2D.of_subset hC
+      (Setlec.inferTypeCore_fvarLeaves hwf fuel h hws)⟩
+
 /-! ## The list — the serial batch's first section
 
 Each is `⟨CtxOk2.X …, CtxOk2Ann.X …⟩` where both halves exist, and the
