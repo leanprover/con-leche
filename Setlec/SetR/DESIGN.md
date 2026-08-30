@@ -10,7 +10,7 @@ the design document does not say.  House practices are
 
 ## Promoted practices (binding here; candidates for §0/§25)
 
-Four rules earned promotion during T5 by recurring across unrelated
+Five rules earned promotion by recurring across unrelated
 stages.  They sit at the top of this file because they are checks to
 run *while designing*, not lessons to read afterwards.
 
@@ -78,6 +78,38 @@ installer actually stores (`.inert` vs `.plain`); a block docstring
 written from the raw pin claimed two vacuous iota obligations that
 were not vacuous at all.  The declaration under `…A` is the one the
 proofs are about.
+
+**P4 — this campaign's leverage comes from facts the model makes
+available, not from objects the syntax makes constructible.**  Promoted
+after two independently-proposed architectural alternatives died on
+exactly this axis, neither of them for the reason its proposer
+expected:
+
+* the **tagged model** (pair every value with its ground level, so
+  `interp` determines sort) would have supplied real facts — the
+  refutations that forced the annotation architecture all use one
+  device, a carrier shared across two levels, and tagging removes it.
+  It died because the *syntax* already carries the sort more
+  fundamentally: `denote2`'s `lamSortE` computes the λ codomain
+  numeral at the empty domain, where no value can be read at all.
+  Redundant-by-annotations, not wrong.
+* the **ETT target** (`HasType` as the soundness skeleton) would have
+  supplied a shorter model half — `HasType.sound` is 262 landed lines
+  against the `Sound/*` tier's 4,295.  It died because the
+  certificate-removal campaign's whole engine is *semantic recovery*
+  (`piR_dom_unique`'s graph rigidity replacing a deleted runtime
+  check), and a bridge into a declarative theory needs **derivations**,
+  which rigidity cannot manufacture.  Its advertised win — "`AnnotOk`
+  has no counterpart in the layer" — is precisely the absence that
+  makes the removals impossible there.
+
+So: **test a proposed alternative against P4 before pricing it.**  Ask
+what it makes *derivable* that is not derivable now, and whether the
+consumers need a fact or an object.  An alternative that only relocates
+where the sort information lives, or that trades a semantic invariant
+for a syntactic one, is not an alternative — it is the same design
+paying different rent.  Both memos are in this file; both cost
+estimates were sound and both were beside the point.
 
 ## T2 inventory (this tier, as landed)
 
@@ -12273,3 +12305,160 @@ ZipBelow-consumption for the image-pairs at equal fuel.
 Leaning (C)+(B-measure-audit): (C) is a bounded E4 amendment in the
 axiom's spirit; with strict decrease the image-cert pairs flow
 through ZipBelow exactly like every other zip.  STOP — reporting.
+
+### The consumer seal — two amendments, and the λ row's good news
+
+Opening the interp2-consumer lane (arc steps 4–5, hypothesis-first,
+in parallel with Θ) began with the brief's pre-build check: every
+field of the Claims2 interface must have a named supplier in the
+coherence tier's landed or frozen statements.  Two failed, both
+repaired here; one row came back better than designed.
+
+**AMENDMENT 1 — the currency seam (`Annot/EnvS2.lean`).**
+`annot_ok2`/`mem_type2` landed at migration step 1, stated over the
+`Annotates` *relation*, **before** R1 took canonical annotations.
+They cannot serve `denote2`, and the obstruction is structural rather
+than a missing lemma: `Annotates` has no structural `letE` clause —
+only `zeta`, so it annotates the ζ-reduct — while `denote2`'s `letE`
+clause *is* structural, and so is `denote`'s
+(`Setlec/Verify/Denote.lean`).  **For any subject carrying a `let`, a
+`denote2` output is not an `Annotates` annotation of the same term,
+and no bridging theorem between the two can exist as they are
+stated.**
+
+The seam was invisible for a reason worth keeping: it is *vacuous on
+the environment side* — stored terms carry no `letE` today, the
+checker zeta-expands at annotation time — and bites only on **subject**
+terms, which is exactly what `Claims2` quantifies over.  `denote2` also
+had **zero consumers tree-wide**, so the two currencies had never met.
+
+Repaired by option 1 (the ruling): `EnvS2` gains `acval`,
+`acval_erase` (`denote2_erase`'s hypothesis), `acval_ok2` and a
+`denote2`-shaped `mem_type2`.  Restated in place rather than
+additively — the consumer sweep found `Annot/SimSubst.lean` *imports*
+`EnvS2` without using it, and nothing else references the fields at
+all.  `cval_annot` stays: it closes a named ledger obligation about
+the relation and is not in the seam.  `EnvS2.empty` re-discharged
+(`acval_erase` is `rfl`; the empty `acval` is the same `.const .empty
+[0]` leaf one level up).
+
+*Rule: when a resolution changes a tier's currency, the fields stated
+in the old one are not merely stale — check whether the two currencies
+can denote the same object at all before assuming a bridge exists.*
+
+**AMENDMENT 2 — the app slot's kind-`0` asymmetry (`Annot/Ok2.lean`).**
+`AnnotOk2`'s λ clause carried a kind-`0` fibre component; its app
+clause did not.  That is a gap, not a saving: `app_mem_piR` needs
+exactly `v = 0 → ∀ x ∈ˢ A, B x ∈ˢ univZero`, the slot's `B` is
+∃-bound so no handle survives extraction, and the truth-value route
+does not substitute — an inhabited `piR 0 A B` gives only that
+`B ⟦a⟧` is *inhabited*, never that its inhabitant is `pt`.  That is
+**finding B5's wall re-appearing in the membership formulation**, and
+at kind `0` the app case could not close from the invariant at all.
+
+Why it survived three consumers: `graded_beta_pos` and
+`AnnotOk2_beta_pos` require positivity, and `AnnotOk2_beta_zero` takes
+the missing fact as an explicit `hmem`.  *A clause whose only
+consumers are guarded by the very hypothesis that hides its gap will
+not be found by its consumers.*
+
+Established, not assumed, in the same seal: `appSlot_of_pi` /
+`AnnotOk2_app_of` build the slot — new component included — from the
+**annotated `Π`'s own codomain sort fact**, supplier
+`HasSort.mem_univ` (`Annot/Kinding.lean`) at the `Π`'s numeral: the
+same route `Annotates.lam`'s cached `HasSortC` already takes for the λ
+clause.  The two binder clauses are symmetric again.  `SlotChain`
+(`Annot/Spine2.lean`) strengthened in step so `AnnotOk2_spine_slots`
+reads the slot off unchanged; `slotChain_fits` carries and drops the
+new component (it uses positivity only); the `liftN`/`inst`
+congruences ride the existing rewrites, because the component mentions
+only the ∃-bound `v`, `A`, `B` and so is invariant under the
+environment change.
+
+**THE λ ROW CLOSES, AND THE EMPTY-DOMAIN CASE IS FREE.**  The brief's
+primary test was whether interp2's λ case closes from the interface
+including the empty-domain row.  It does, and for a simpler reason
+than the design anticipated: `lamR_mem` has no premise beyond the
+fibre facts, and at `⟦A⟧ = ∅` *both* the fibre membership and the
+kind-`0` fibre condition are vacuous.  So the empty-domain row needs
+**no semantic fact about the annotation whatsoever — only the numeral,
+which is in the term.**  No validity machinery is involved, which is
+just as well: `ValidInfer` is refuted (`Annot/Validity.lean`,
+`validity_refuted`), so the B5′ route the brief named is not available
+and is not needed.  The actual supplier of the λ numeral is
+`Annotates.lam`'s cached `HasSortC`, two-regime as `Infer.lam` is:
+direct at the innermost binder of a chain (#152's guarded premises,
+stated at the checker's own `B'` and `DefEq`-linked, per finding A5),
+by `hasSortC_pi_of` induction at inner binders.
+
+**Ledgered for the record, from the same sweep:**
+
+* `SortSubstStable` (`Annot/SimSubst.lean`) takes `mS : EnvS V env` —
+  the **collapse-lane** invariant, not `EnvS2`.  Re-signing it to the
+  `EnvS2` world belongs to the leaf wiring.
+* `Claims2` should name the **two frozen zip obligations**
+  (`ZipWhnfSortAgree`, `ZipSortOfAgree`, via `ensureSortAgreeRQ_of_zip`
+  / `sortOfAgreeRQ_of_zip`), not the fifteen-hypothesis shells — the
+  discharge tier already reduced both public claims to one obligation
+  each.
+
+### Arc step 4 — the second soundness's per-former skeleton
+
+`Setlec/SetR/Interp2/Skeleton.lean`: the `interp2` soundness's case
+statements, one per `AVExpr` former, each stated over exactly the facts
+the frozen interface carries.  **Nine of ten formers close; the tenth
+is deferred to its supplier.**
+
+| row | interface facts consumed | status |
+|---|---|---|
+| `sort` | none | ✓ `univ_mem_univ` |
+| `prf` | type is a `Prop`, and inhabited | ✓ proof irrelevance is definitional |
+| `bvar` | `Sat2` | ✓ |
+| `pi` | domain at `u`, codomain at `v`, both hereditary halves | ✓ `piR_mem_univ`, the `imax` rule *exactly* |
+| `lam` | body's membership, kind-`0` fibre condition, hereditary halves | ✓ **no empty-domain side condition** |
+| `app` | function at an annotated `Π`, argument in the domain, the `Π`'s kind-`0` fibre condition | ✓ **at both kinds** |
+| `letE` | body's two facts at the substituted value | ✓ ζ is an identity, not a step |
+| `eqE` | the two sides' hereditary halves | ✓ `eqv_mem_univ` |
+| `proj 0/1` | the subject's `Σ`-package — i.e. the invariant alone | ✓ (`sfst_mem_gen`/`ssnd_mem_gen`, the general-fibre forms) |
+| `const` | — | **DEFERRED**, see below |
+
+**The app row is the amendment's dividend.**  `sound_app` closes at
+*both* kinds and `app_mem_of_slot` closes from the **invariant alone**.
+Neither was possible before the app clause gained its kind-`0` fibre
+component at the consumer seal: `app_mem_piR`'s `hB0` had no supplier,
+and the truth-value route yields only that the fibre is *inhabited*.
+The clause repair turned the app row from a `Prop`-codomain residue
+into a theorem — which is the single most consequential thing this seal
+records, because rank-2/3's removals all land on that row.
+
+**The λ row's freedom, now mechanized.**  `sound_lam` has no
+empty-domain hypothesis and needs no validity metatheorem: `lamR_mem`'s
+premise is a `∀ x ∈ˢ ⟦A⟧`, vacuous at `⟦A⟧ = ∅`, and so is the kind-`0`
+fibre condition.  The numeral still *matters* semantically
+(`lamR 0 ∅ F = pt` versus `lamR 1 ∅ F = ∅`) but it comes from the
+**term**, and no semantic fact about it is needed to close the case.
+This is why `ValidInfer`'s refutation does not block the consumer lane
+— the brief's "B5′-style validity" route is neither available nor
+required.  The `Π`'s domain numeral is likewise free: `interp2`'s `pi`
+clause discards it, so the row holds at every annotation of the domain.
+
+**The `const` row is DEFERRED, and deliberately not stated.**  Two
+suppliers are missing, and both are migration step 2's:
+
+* no annotated built-in type former — no
+  `BConst.type2 : BConst → List Nat → AVExpr`.  `BConst.type` yields a
+  `VExpr` and `denote2` maps `Expr → AVExpr`, so it does not apply.
+  **Without it the row's conclusion cannot be written at all**;
+* no `bval2_mem_type` — `Interp2/Value.lean` has every per-constant
+  application law and the towers' own memberships, but not
+  `ConstOk.lean`'s capstone over `interp2`.
+
+Writing either here would be the T5 near-miss the campaign has ruled
+against — a premise guessed at the consumer rather than stated by its
+supplier.  So the row waits, ledgered with those two names as step 2's
+entry condition for this file.
+
+*Rule, a corollary of the supplier rule worth its own line: a case you
+cannot even **state** is not a gap in the design — it is a missing
+former, and formers belong to the tier that owns the objects.  Check
+which of the two you have before calling STOP.*

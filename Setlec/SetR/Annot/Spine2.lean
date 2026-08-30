@@ -37,7 +37,8 @@ kinded package for the next argument. -/
 def SlotChain : V → List V → Prop
   | _, [] => True
   | f, a :: rest =>
-    (∃ (v : Nat) (A : V) (B : V → V), f ∈ˢ piR v A B ∧ a ∈ˢ A) ∧
+    (∃ (v : Nat) (A : V) (B : V → V), f ∈ˢ piR v A B ∧ a ∈ˢ A ∧
+      (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))) ∧
     SlotChain (app f a) rest
 
 /-- The stored-type side: the value peels `n` binders, every product
@@ -83,7 +84,7 @@ theorem slotChain_fits :
     exact ⟨T, .nil, hf⟩
   | cons a as ih =>
     intro T f hf hchain hshape
-    obtain ⟨⟨v', A', B', hslot, ha'⟩, hchain'⟩ := hchain
+    obtain ⟨⟨v', A', B', hslot, ha', -⟩, hchain'⟩ := hchain
     cases hshape with
     | @succ v A B _ hv hfib =>
       -- the slot's product is in the graph regime: `f` is not `pt`
