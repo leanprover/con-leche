@@ -1391,8 +1391,8 @@ written against `WhnfCoreClaims2B`, can also be driven from a
 theorem whnfCoreClaims2B_of_A {m : EnvS2 V env} {fuel : Nat}
     (h : WhnfCoreClaims2A μ m φ fuel) :
     WhnfCoreClaims2B μ m φ fuel := by
-  intro d e e' Δa hv hw hws hb hLb hC F ea hd
-  obtain ⟨ea', hd', hR⟩ := h hv hw hws hb hLb hC hd
+  intro d e e' Δa hw hws hb hLb hC F ea hd
+  obtain ⟨ea', hd', hR⟩ := h hw hws hb hLb hC hd
   exact ⟨F, ea', Nat.le_refl F, hd', hR⟩
 
 /-- **The claim this quarter can deliver.**  `DefEqClaims2A` with each
@@ -1401,7 +1401,6 @@ subject's `AnnotOk2` as a premise — the price of R2, paid at the two
 def DefEqClaims2AP (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
-    μ.verified = true →
     isDefEqCore μ env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
@@ -1421,9 +1420,9 @@ free.  Stated so the two currencies are related in the tree and the
 junction can see exactly what the grading costs. -/
 theorem defEqClaims2AP_of_A {m : EnvS2 V env} {fuel : Nat}
     (h : DefEqClaims2A μ m φ fuel) : DefEqClaims2AP μ m φ fuel := by
-  intro d a b Δa hv hr hwa hba hLa hwb hbb hLb hCa hCb F aa ba hda hdb
+  intro d a b Δa hr hwa hba hLa hwb hbb hLb hCa hCb F aa ba hda hdb
     ρ hρ _ _
-  exact h hv hr hwa hba hLa hwb hbb hLb hCa hCb hda hdb ρ hρ
+  exact h hr hwa hba hLa hwb hbb hLb hCa hCb hda hdb ρ hρ
 
 /-! ### The loop and its continuation, amended -/
 
@@ -1447,12 +1446,13 @@ def DefEqCont2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
         AnnotOk2 V ρ aa → AnnotOk2 V ρ ba →
         interp2 V ρ aa = interp2 V ρ ba
 
-/-- **One iteration**, amended.  `μ.verified` moves inside because the
-loop induction below quantifies nothing else. -/
+/-- **One iteration**, amended.  (Seal 6's `μ.verified` premise sat
+here too; the R4 spike deleted it — it was only threaded on to the
+loop induction below.) -/
 def DefEqStepAt2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {k : Expr → Expr → CheckM Bool},
-    DefEqCont2A μ m φ d k → μ.verified = true →
+    DefEqCont2A μ m φ d k →
     ∀ {a b : Expr} {Δa : List AVExpr},
       defeqStep μ (pureFns μ env fuel) env d k a b = .ok true →
       Expr.WScoped d a → a.looseBVarsBounded 0 = true →
@@ -1473,7 +1473,7 @@ recursion is still on the **private budget** (`defeqLoopFuel` is
 `@[irreducible]` and the loop does not touch the knot's fuel); the
 amendment changed the payload, not the discipline. -/
 theorem defeqLoop_cont2A {m : EnvS2 V env} {fuel : Nat}
-    (hstep : DefEqStepAt2A μ m φ fuel) (hv : μ.verified = true) :
+    (hstep : DefEqStepAt2A μ m φ fuel) :
     ∀ (budget d : Nat),
       DefEqCont2A μ m φ d
         (defeqLoop μ (pureFns μ env fuel) env d budget) := by
@@ -1486,7 +1486,7 @@ theorem defeqLoop_cont2A {m : EnvS2 V env} {fuel : Nat}
   | succ budget ih =>
     intro d a b Δa h
     rw [defeqLoop] at h
-    exact hstep (ih d) hv h
+    exact hstep (ih d) h
 
 /-- **`DefEqClaims2AP` at `fuel + 1`**, modulo the step — and modulo
 *nothing else*.  Compare `defeq_claims2`: the fuel-down residue is
@@ -1495,9 +1495,9 @@ at.  This is R1's whole payoff, in two lines. -/
 theorem defeq_claims2A {m : EnvS2 V env} {fuel : Nat}
     (hstep : DefEqStepAt2A μ m φ fuel) :
     DefEqClaims2AP μ m φ (fuel + 1) := by
-  intro d a b Δa hv h hwa hba hLa hwb hbb hLb hCa hCb F aa ba hda hdb
+  intro d a b Δa h hwa hba hLa hwb hbb hLb hCa hCb F aa ba hda hdb
   rw [Setlec.isDefEqCore_succ, defeqBody] at h
-  exact defeqLoop_cont2A hstep hv defeqLoopFuel d h hwa hba hLa hwb
+  exact defeqLoop_cont2A hstep defeqLoopFuel d h hwa hba hLa hwb
     hbb hLb hCa hCb hda hdb
 
 /-! ### The step's obligations, re-quantified
@@ -1587,7 +1587,6 @@ def DefEqStuck2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
   ∀ {d : Nat} {Δa : List AVExpr} {k : Expr → Expr → CheckM Bool}
     {a b a' b' : Expr},
     defeqStep μ (pureFns μ env fuel) env d k a b = .ok true →
-    μ.verified = true →
     (a == b) = false →
     whnfCore μ env fuel d a = .ok a' →
     whnfCore μ env fuel d b = .ok b' →
@@ -1618,7 +1617,7 @@ def DefEqStuck2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 the reduct's own fuel**, and the graded interpretation equality. -/
 theorem whnfCore_package2A {m : EnvS2 V env} {fuel F d : Nat}
     {Δa : List AVExpr} {a a' : Expr} {aa : AVExpr}
-    (ihwc : WhnfCoreClaims2B μ m φ fuel) (hv : μ.verified = true)
+    (ihwc : WhnfCoreClaims2B μ m φ fuel)
     (hw : whnfCore μ env fuel d a = .ok a')
     (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded a)
@@ -1631,7 +1630,7 @@ theorem whnfCore_package2A {m : EnvS2 V env} {fuel F d : Nat}
       Expr.WScoped d a' ∧ a'.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded a' ∧
       CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a' := by
-  obtain ⟨F', aa', hle, hda', hR⟩ := ihwc hv hw hws hb hLb hC hda
+  obtain ⟨F', aa', hle, hda', hR⟩ := ihwc hw hws hb hLb hC hda
   exact ⟨F', aa', hle, hda', hR,
     whnfCore_WScoped m.base.wf fuel hw hws,
     whnfCore_looseBVars m.base.wf fuel hw hb,
@@ -1673,7 +1672,7 @@ theorem defeqStep_claim2A {m : EnvS2 V env} {fuel : Nat}
     (hstk : DefEqStuck2A μ m φ fuel)
     (hspine : DefEqSpine2A μ m φ fuel) :
     DefEqStepAt2A μ m φ fuel := by
-  intro d k hk hv a b Δa h hwa hba hLa hwb hbb hLb hCa hCb F aa ba
+  intro d k hk a b Δa h hwa hba hLa hwb hbb hLb hCa hCb F aa ba
     hda hdb ρ hρ hokA hokB
   have h0 := h
   simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
@@ -1698,9 +1697,9 @@ theorem defeqStep_claim2A {m : EnvS2 V env} {fuel : Nat}
     rw [hwcb] at h
     dsimp only at h
     obtain ⟨Fa, aa', hFa, hda0, hEa, hwa', hba', hLa', hCa'⟩ :=
-      whnfCore_package2A ihwc hv hwca hwa hba hLa hCa hda
+      whnfCore_package2A ihwc hwca hwa hba hLa hCa hda
     obtain ⟨Fb, ba', hFb, hdb0, hEb, hwb', hbb', hLb', hCb'⟩ :=
-      whnfCore_package2A ihwc hv hwcb hwb hbb hLb hCb hdb
+      whnfCore_package2A ihwc hwcb hwb hbb hLb hCb hdb
     obtain ⟨hEA, hokA'⟩ := hEa ρ hρ hokA
     obtain ⟨hEB, hokB'⟩ := hEb ρ hρ hokB
     -- the two reducts, joined at one fuel; the annotations do not move
@@ -1773,7 +1772,7 @@ theorem defeqStep_claim2A {m : EnvS2 V env} {fuel : Nat}
           cases hhb : Setlec.unfoldableHead env b' <;>
           rw [hha, hhb] at h <;> dsimp only at h
         · -- neither head unfolds: the stuck configuration
-          exact hstk h0 hv (by simpa using ‹¬(a == b) = true›) hwca
+          exact hstk h0 (by simpa using ‹¬(a == b) = true›) hwca
             hwcb (by simpa using ‹¬(a' == b') = true›) hir hna hnb
             hha hhb hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hda'
             hdb' ρ hρ hokA' hokB'
@@ -1961,7 +1960,7 @@ nothing: the codomain's truthfulness is already *in* the node's.  The
 right-hand body is read at the left domain's value set, so the domain
 equality is proved first and transports the membership. -/
 theorem binder_congr2A {m : EnvS2 V env} {fuel F : Nat}
-    (ihd : DefEqClaims2AP μ m φ fuel) (hv : μ.verified = true)
+    (ihd : DefEqClaims2AP μ m φ fuel)
     {d : Nat} {Δa : List AVExpr} {n₁ n₂ : Name}
     {ty₁ bd₁ ty₂ bd₂ : Expr} {ta₁ ba₁ ta₂ ba₂ : AVExpr}
     (hdt : isDefEqCore μ env fuel d ty₁ ty₂ = .ok true)
@@ -2010,11 +2009,11 @@ theorem binder_congr2A {m : EnvS2 V env} {fuel F : Nat}
       (bd₂.instantiate1 (.fvar d n₂ ty₂)) :=
     CtxOkR.openCong (n := n₂) hcl hCb₂ hCt₂ hAe₂ hwt₂.fvarsBelow hDA
   have hdom : interp2 V ρ ta₁ = interp2 V ρ ta₂ :=
-    ihd hv hdt hwt₁ hbt₁ hLt₁ hwt₂ hbt₂ hLt₂ hCt₁ hCt₂ hta₁ hta₂
+    ihd hdt hwt₁ hbt₁ hLt₁ hwt₂ hbt₂ hLt₂ hCt₁ hCt₂ hta₁ hta₂
       ρ hρ hoT₁ hoT₂
   refine ⟨hdom, ?_⟩
   intro x hx
-  refine ihd (Δa := ta₁ :: Δa) hv hdd hwo₁ hbo₁ hLo₁
+  refine ihd (Δa := ta₁ :: Δa) hdd hwo₁ hbo₁ hLo₁
     (Expr.WScoped.instantiate1 hwt₂ 0 hwb₂)
     (Setlec.looseBVarsBounded_instantiate1 bd₂ 0 hbb₂) (fun l hl => ?_)
     hCo₁ hCo₂ hva₁ hva₂ (cons x ρ) (Sat2_cons V hρ hx) (hoB₁ x hx)
@@ -2041,7 +2040,6 @@ theorem defeqStuck_claim2A {m : EnvS2 V env} {fuel F : Nat}
     ∀ {d : Nat} {Δa : List AVExpr} {k : Expr → Expr → CheckM Bool}
       {a b a' b' : Expr},
       defeqStep μ (pureFns μ env fuel) env d k a b = .ok true →
-      μ.verified = true →
       (a == b) = false →
       whnfCore μ env fuel d a = .ok a' →
       whnfCore μ env fuel d b = .ok b' →
@@ -2065,7 +2063,7 @@ theorem defeqStuck_claim2A {m : EnvS2 V env} {fuel F : Nat}
         ∀ ρ : Nat → V, Sat2 V Δa ρ →
           AnnotOk2 V ρ aa' → AnnotOk2 V ρ ba' →
           interp2 V ρ aa' = interp2 V ρ ba' := by
-  intro d Δa _k a b a' b' h hv hab hwca hwcb hab' hir hna hnb hha hhb
+  intro d Δa _k a b a' b' h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb hCa hCb aa' ba' hda hdb ρ hρ hokA hokB
   simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
     Setlec.proofIrrel_fold, Setlec.reduceNat_fold,
@@ -2150,7 +2148,7 @@ theorem defeqStuck_claim2A {m : EnvS2 V env} {fuel F : Nat}
         simp only [natLitT2, AnnotOk2_app] at hokA
         rw [AnnotOk2_app] at hokB
         exact deqStep2_appCong rfl
-          (ihd hv h (Expr.WScoped.of_not_hasFvar rfl) rfl
+          (ihd h (Expr.WScoped.of_not_hasFvar rfl) rfl
             (Expr.LeavesBounded.of_not_hasFvar rfl) hwx hbx hLx
             (CtxOkR.of_fvarLeaves_nil hCa.1 (by simp [Expr.fvarLeaves]))
             hCx (denote2_natLit hg) hxa ρ hρ hokA.2.1 hokB.2.1)
@@ -2170,7 +2168,7 @@ theorem defeqStuck_claim2A {m : EnvS2 V env} {fuel F : Nat}
         rw [AnnotOk2_app] at hokA
         simp only [natLitT2, AnnotOk2_app] at hokB
         exact deqStep2_appCong rfl
-          (ihd hv h hwx hbx hLx (Expr.WScoped.of_not_hasFvar rfl) rfl
+          (ihd h hwx hbx hLx (Expr.WScoped.of_not_hasFvar rfl) rfl
             (Expr.LeavesBounded.of_not_hasFvar rfl) hCx
             (CtxOkR.of_fvarLeaves_nil hCb.1 (by simp [Expr.fvarLeaves]))
             hxa (denote2_natLit hg) ρ hρ hokA.2.1 hokB.2.1)
@@ -2182,7 +2180,7 @@ theorem defeqStuck_claim2A {m : EnvS2 V env} {fuel F : Nat}
     · next hcond =>
       obtain ⟨rfl, rfl, hg⟩ := hcond
       obtain ⟨hdc, hwc, hbc, hLc, hnil⟩ := hstr F d st hg hda
-      exact ihd hv h hwc hbc hLc hwb hbb hLb
+      exact ihd h hwc hbc hLc hwb hbb hLb
         (CtxOkR.of_fvarLeaves_nil hCa.1 hnil) hCb hdc hdb ρ hρ hokA
         hokB
     · exact hfall h
@@ -2192,7 +2190,7 @@ theorem defeqStuck_claim2A {m : EnvS2 V env} {fuel F : Nat}
     · next hcond =>
       obtain ⟨rfl, rfl, hg⟩ := hcond
       obtain ⟨hdc, hwc, hbc, hLc, hnil⟩ := hstr F d st hg hdb
-      exact ihd hv h hwa hba hLa hwc hbc hLc hCa
+      exact ihd h hwa hba hLa hwc hbc hLc hCa
         (CtxOkR.of_fvarLeaves_nil hCb.1 hnil) hda hdc ρ hρ hokA hokB
     · exact hfall h
   -- 9: the same de Bruijn level
@@ -2241,7 +2239,7 @@ theorem defeqStuck_claim2A {m : EnvS2 V env} {fuel F : Nat}
         denote2_forallE_inv hdb
       obtain rfl : v₁ = v₂ := hbs.1 h hv₁ hv₂
       rw [AnnotOk2_pi] at hokA hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2A ihd hv hdt h
+      obtain ⟨hDA, hDB⟩ := binder_congr2A ihd hdt h
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -2274,7 +2272,7 @@ theorem defeqStuck_claim2A {m : EnvS2 V env} {fuel F : Nat}
         denote2_lam_inv hdb
       obtain rfl : v₁ = v₂ := hbs.2 h hv₁ hv₂
       rw [AnnotOk2_lam] at hokA hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2A ihd hv hdt h
+      obtain ⟨hDA, hDB⟩ := binder_congr2A ihd hdt h
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -2332,7 +2330,7 @@ theorem defeqStuck_claim2A {m : EnvS2 V env} {fuel F : Nat}
         simp only [Expr.WScoped] at hwa hwb
         simp only [Expr.looseBVarsBounded] at hba hbb
         rw [AnnotOk2_proj] at hokA hokB
-        exact deqStep2_projCong (ihd hv hde hwa hba
+        exact deqStep2_projCong (ihd hde hwa hba
           (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
           hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
           (CtxOkR.of_subset
@@ -2423,11 +2421,11 @@ theorem defEqStep2BP_of
   intro env m φ fuel ihwc _ihw ihd _ihi
   refine defeq_claims2A (defeqStep_claim2A ihwc (hdel env m φ)
     (hnat env m φ fuel) (hpi env m φ fuel) ?_ (hspine env m φ fuel))
-  intro d Δa k a b a' b' h hv hab hwca hwcb hab' hir hna hnb hha hhb
+  intro d Δa k a b a' b' h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb hCa hCb F aa' ba' hda hdb
   exact defeqStuck_claim2A ihd (hsi env m φ fuel) (hstr env m φ)
     (hap env m) (hbs env φ fuel F) (happ env m φ fuel)
-    (heta env m φ fuel) h hv hab hwca hwcb hab' hir hna hnb hha hhb
+    (heta env m φ fuel) h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb hCa hCb hda hdb
 
 /-- **The gap, localised in two premises.**  Feed the quarter the

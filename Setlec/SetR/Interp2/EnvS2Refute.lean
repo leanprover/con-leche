@@ -173,7 +173,6 @@ both of which any real environment supplies. -/
 theorem whnfClaims2A_delta_refuted {env : Env} (m : EnvS2 V env)
     {fuel d : Nat} {e : Expr} {Δa : List AVExpr} {ea : AVExpr}
     {n : Name} {ty body : Expr} {mb : BinderMeta}
-    (hv : μ.verified = true)
     (hrun : whnf μ env fuel d e = .ok (.lam n ty body mb))
     (hsc : Expr.WScoped d e) (hlb : e.looseBVarsBounded 0 = true)
     (hlv : Expr.LeavesBounded e)
@@ -182,7 +181,7 @@ theorem whnfClaims2A_delta_refuted {env : Env} (m : EnvS2 V env)
     ¬ WhnfClaims2A μ m φ fuel := by
   intro hclaim
   obtain ⟨ea', hea', -⟩ :=
-    hclaim hv hrun hsc hlb hlv hctx hea
+    hclaim hrun hsc hlb hlv hctx hea
   rw [denote2_one_lam] at hea'
   exact nomatch hea'
 

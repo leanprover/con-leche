@@ -36,7 +36,7 @@ the subject did — the delta exit turns a `.const` leaf, which
 annotates at fuel `1`, into a `λ` body, which does not.
 
 Everything else stands: the grading by `AnnotOk2` of the subject (R2),
-the `μ.verified = true` quantifier (R4), `InferClaims2A` unchanged,
+`InferClaims2A` unchanged,
 and `DefEqClaims2A` **superseded by `DefEqClaims2B`** — see STOP 3 at its
 definition below.  Its exemption from R2 was reasoned from what defeq
 *produces*; the defeq quarter showed the cost is in what it
@@ -52,6 +52,15 @@ subject alongside its inferred type — `denote2_fuelMono`
 slack only ever points *up*, which is why `F ≤ F'` and not an
 unconstrained fuel: an unconstrained one would not compose, and a
 fixed one is false.
+
+## The R4 spike (this branch only)
+
+R4's `μ.verified = true` has been deleted from all four claims (and
+from `DefEqClaims2AP`/`DefEqStepAt2A`/`DefEqStuck2A`, which carried it
+in sympathy).  It was pure threading — see the withdrawal note in
+`Claims2A.lean`.  The four claims, `CheckStep2B`, `checkSound2B` and
+the capstone are therefore mode-generic again, and instantiate at
+`.noModel`.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -69,7 +78,6 @@ variable {V : Type w} [SetTheory V]
 def WhnfCoreClaims2B (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
-    μ.verified = true →
     whnfCore μ env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
@@ -85,7 +93,6 @@ def WhnfCoreClaims2B (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 def WhnfClaims2B (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
-    μ.verified = true →
     whnf μ env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
@@ -113,7 +120,6 @@ exemption was protecting and what it turns out not to have needed. -/
 def DefEqClaims2B (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
-    μ.verified = true →
     Setlec.isDefEqCore μ env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
@@ -149,16 +155,16 @@ theorem checkSound2B {μ : CheckMode} {env : Env}
   induction fuel with
   | zero =>
     refine ⟨?_, ?_, ?_, ?_⟩
-    · intro d e e' Δa _ h
+    · intro d e e' Δa h
       rw [Setlec.whnfCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d e e' Δa _ h
+    · intro d e e' Δa h
       rw [Setlec.whnf_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d a b Δa _ h
+    · intro d a b Δa h
       rw [Setlec.isDefEqCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d e t Δa _ h
+    · intro d e t Δa h
       rw [Setlec.inferTypeCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
   | succ fuel ih =>

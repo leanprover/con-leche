@@ -1277,7 +1277,7 @@ so lifting an annotation never disturbs the grading premise. -/
 /-- `whnfCore_package2R` with the slack. -/
 theorem whnfCore_package2B (m : EnvS2 V env) {fuel d F : Nat}
     {Δa : List AVExpr} {a a' : Expr} {aa : AVExpr}
-    (hv : μ.verified = true) (ihwc : WhnfCoreClaims2B μ m φ fuel)
+    (ihwc : WhnfCoreClaims2B μ m φ fuel)
     (hw : whnfCore μ env fuel d a = .ok a')
     (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded a)
@@ -1290,7 +1290,7 @@ theorem whnfCore_package2B (m : EnvS2 V env) {fuel d F : Nat}
       Expr.WScoped d a' ∧ a'.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded a' ∧
       CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a' := by
-  obtain ⟨F', aa', hle, haa', hD⟩ := ihwc hv hw hws hb hLb hC haa
+  obtain ⟨F', aa', hle, haa', hD⟩ := ihwc hw hws hb hLb hC haa
   exact ⟨F', aa', hle, haa', hD, whnfCore_WScoped m.base.wf fuel hw hws,
     whnfCore_looseBVars m.base.wf fuel hw hb,
     fun l hl => hLb l (whnfCore_fvarLeaves m.base.wf fuel hw l hl),
@@ -1302,7 +1302,6 @@ theorem whnfCore_letE_claim2B (m : EnvS2 V env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (ihwc : WhnfCoreClaims2B μ m φ fuel)
     {d : Nat} {nn : Name} {tt vv bb e' : Expr} {Δa : List AVExpr}
-    (hv : μ.verified = true)
     (h : whnfCore μ env (fuel + 1) d (.letE nn tt vv bb) = .ok e')
     (hws : Expr.WScoped d (.letE nn tt vv bb))
     (hb : (Expr.letE nn tt vv bb).looseBVarsBounded 0 = true)
@@ -1349,7 +1348,7 @@ theorem whnfCore_letE_claim2B (m : EnvS2 V env) {fuel : Nat}
     · exact hC.2 l (by simp [Expr.fvarLeaves, h2])
   obtain ⟨F₁, hle₁, hred⟩ := hinst hta hva hba
   obtain ⟨F₂, ea', hle₂, hea', hstep⟩ :=
-    ihwc hv h hwred hbred hLred hCred hred
+    ihwc h hwred hbred hLred hCred hred
   refine ⟨F₂, ea', Nat.le_trans hle₁ hle₂, hea', fun ρ hρ =>
     step2_trans (fun hok => ?_) (hstep ρ hρ)⟩
   exact AnnotOk2_zeta V hok
@@ -1363,7 +1362,6 @@ theorem whnfCore_app_claim2B (m : EnvS2 V env) {fuel : Nat}
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2B μ m φ fuel)
     (ihwc : WhnfCoreClaims2B μ m φ fuel)
     {d : Nat} {f a e' : Expr} {Δa : List AVExpr}
-    (hv : μ.verified = true)
     (h : whnfCore μ env (fuel + 1) d (.app f a) = .ok e')
     (hws : Expr.WScoped d (.app f a))
     (hb : (Expr.app f a).looseBVarsBounded 0 = true)
@@ -1396,7 +1394,7 @@ theorem whnfCore_app_claim2B (m : EnvS2 V env) {fuel : Nat}
   obtain rfl : ea = .app fa aa := (Option.some.inj hea).symm
   obtain ⟨f', hwf, hcase⟩ := Setlec.whnf_app_inv h
   obtain ⟨F₁, fa', hle₁, hfa', hDf, hwf', hbf', hLf', hCf'⟩ :=
-    whnfCore_package2B m hv ihwc hwf hws.1 hb.1 hLf hCf hfa
+    whnfCore_package2B m ihwc hwf hws.1 hb.1 hLf hCf hfa
   have haa₁ : denote2 μ m.acval env φ F₁ d a = some aa :=
     denote2_fuelMono hle₁ d a haa
   have hiapp : denote2 μ m.acval env φ F₁ d (.app f' a)
@@ -1470,7 +1468,7 @@ theorem whnfCore_app_claim2B (m : EnvS2 V env) {fuel : Nat}
       · exact hCa.2 l h2
     obtain ⟨F₂, hle₂, hred⟩ := hinst htya haa₁ hbb
     obtain ⟨F₃, ea', hle₃, hea', hD⟩ :=
-      ihwc hv hbeta hwred hbred hLred hCred hred
+      ihwc hbeta hwred hbred hLred hCred hred
     refine ⟨F₃, ea', Nat.le_trans hle₁
       (Nat.le_trans hle₂ hle₃), hea', fun ρ hρ =>
         step2_trans (hDapp ρ hρ) ?_⟩
@@ -1485,7 +1483,7 @@ theorem whnfCore_app_claim2B (m : EnvS2 V env) {fuel : Nat}
     obtain ⟨F₂, ea₂, hle₂, hea₂, hstep, hwe, hbe, hLe, hCe⟩ :=
       hiota hio hwapp hbapp hLapp hCapp hiapp
     obtain ⟨F₃, ea', hle₃, hea', hD⟩ :=
-      ihwc hv hwe'' hwe hbe hLe hCe hea₂
+      ihwc hwe'' hwe hbe hLe hCe hea₂
     exact ⟨F₃, ea', Nat.le_trans hle₁ (Nat.le_trans hle₂ hle₃),
       hea', fun ρ hρ =>
         step2_trans (step2_trans (hDapp ρ hρ) (hstep ρ hρ))
@@ -1502,7 +1500,7 @@ theorem whnfCore_claims2B (m : EnvS2 V env) {fuel : Nat}
     (hproj : ProjStep2B μ m φ fuel)
     (ihwc : WhnfCoreClaims2B μ m φ fuel) :
     WhnfCoreClaims2B μ m φ (fuel + 1) := by
-  intro d e e' Δa hv h hws hb hLb hC F ea hea
+  intro d e e' Δa h hws hb hLb hC F ea hea
   match e with
   | .sort u =>
     obtain ⟨ea', hea', hD⟩ :=
@@ -1536,9 +1534,9 @@ theorem whnfCore_claims2B (m : EnvS2 V env) {fuel : Nat}
       ⟨(hD ρ hρ).1, (hD ρ hρ).2 hok⟩⟩
   | .bvar i => rw [denote2_bvar] at hea; exact nomatch hea
   | .letE nn tt vv bb =>
-    exact whnfCore_letE_claim2B m hinst ihwc hv h hws hb hLb hC hea
+    exact whnfCore_letE_claim2B m hinst ihwc h hws hb hLb hC hea
   | .app f a =>
-    exact whnfCore_app_claim2B m hinst hcert hiota ihwc hv h hws hb
+    exact whnfCore_app_claim2B m hinst hcert hiota ihwc h hws hb
       hLb hC hea
   | .proj sn i pe => exact hproj h hws hb hLb hC hea
 
@@ -1564,7 +1562,7 @@ accumulates `F ≤ F₁ ≤ F₂ ≤ …` by `Nat.le_trans` and nothing else; th
 existential is unbounded, so the chain's length costs nothing.
 `ReduceNatStep2` enters **unchanged** — `natOpResult_leaf` is why. -/
 theorem whnfLoop_claim2B (m : EnvS2 V env) {fuel : Nat}
-    (hv : μ.verified = true) (ihwc : WhnfCoreClaims2B μ m φ fuel)
+    (ihwc : WhnfCoreClaims2B μ m φ fuel)
     (hnat : ReduceNatStep2 μ m φ fuel) (hdelta : Delta2B μ m φ) :
     ∀ (budget : Nat) {d : Nat} {Δa : List AVExpr} {e e' : Expr},
       whnfLoop (pureFns μ env fuel) env d budget e = .ok e' →
@@ -1593,7 +1591,7 @@ theorem whnfLoop_claim2B (m : EnvS2 V env) {fuel : Nat}
     rw [hwc] at h
     dsimp only at h
     obtain ⟨F₁, ea₁, hle₁, hea₁, hD₁, hws₁, hb₁, hLb₁, hC₁⟩ :=
-      whnfCore_package2B m hv ihwc hwc hws hb hLb hC hea
+      whnfCore_package2B m ihwc hwc hws hb hLb hC hea
     cases hrn : reduceNatP μ env fuel d e₁ with
     | error err =>
       rw [Setlec.reduceNat_fold] at h; rw [hrn] at h; exact nomatch h
@@ -1636,9 +1634,9 @@ theorem whnf_claims2B (m : EnvS2 V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2B μ m φ fuel)
     (hnat : ReduceNatStep2 μ m φ fuel) (hdelta : Delta2B μ m φ) :
     WhnfClaims2B μ m φ (fuel + 1) := by
-  intro d e e' Δa hv h hws hb hLb hC F ea hea
+  intro d e e' Δa h hws hb hLb hC F ea hea
   rw [Setlec.whnf_succ, whnfBody] at h
-  exact whnfLoop_claim2B m hv ihwc hnat hdelta whnfLoopFuel h hws hb
+  exact whnfLoop_claim2B m ihwc hnat hdelta whnfLoopFuel h hws hb
     hLb hC hea
 
 /-- **`WhnfStep2B`, routed.**  The loop's deliverable.  It needs

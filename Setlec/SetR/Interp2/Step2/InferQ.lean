@@ -1424,14 +1424,17 @@ or a node where the checker skips the run, `denote2` returns `none`
 and the claim is vacuous there.
 
 Worth stating plainly because seal 6 attributed this repair to R4:
-**`μ.verified = true` is not what fixed the λ clause.**  It is
-consumed here only to pass on to the induction hypothesis. -/
+**`μ.verified = true` is not what fixed the λ clause.**  It was
+consumed here only to pass on to the induction hypothesis, and the R4
+spike therefore deleted it from the claims and from this signature.
+`lamSortE` is `denote2`'s **own** `inferTypeCore`/`sortOfE` pair, not
+a readback of the checker's #152 run, so the clause never depended on
+the mode having made that check. -/
 
 theorem infer_lam_claim2A (m : EnvS2 V env) (hss : SortSem2 m μ φ)
     (hop : CtxOk2Open m μ φ) {d F : Nat} {n : Name}
     {ty body t : Expr} {mb : BinderMeta} {Δa : List AVExpr}
-    {ea : AVExpr} (hvf : μ.verified = true)
-    (ihi : InferClaims2A μ m φ fuel)
+    {ea : AVExpr} (ihi : InferClaims2A μ m φ fuel)
     (h : inferTypeCore μ env (fuel + 1) d (.lam n ty body mb) = .ok t)
     (hws : Expr.WScoped d (.lam n ty body mb))
     (hb : (Expr.lam n ty body mb).looseBVarsBounded 0 = true)
@@ -1472,7 +1475,7 @@ theorem infer_lam_claim2A (m : EnvS2 V env) (hss : SortSem2 m μ φ)
     frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
   have hCop := hop (n := n) hC.lam_ty hC.lam_body hta hws.1.fvarsBelow
   obtain ⟨F1, tbt, hle1, htbt, hrow⟩ :=
-    ihi hvf hbt hwopen hbopen hLopen hCop hba
+    ihi hbt hwopen hbopen hLopen hCop hba
   -- the abstraction round trip, verbatim from the sealed clause
   have hleaf :
       Expr.LeafCond d n ty (body.instantiate1 (.fvar d n ty)) := by
@@ -1537,7 +1540,7 @@ dead. -/
 theorem infer_letE_claim2A (m : EnvS2 V env)
     (hbeta : BetaCross2A m μ φ) {d F : Nat} {n : Name}
     {ty val b t : Expr} {Δa : List AVExpr} {ea : AVExpr}
-    (hvf : μ.verified = true) (ihi : InferClaims2A μ m φ fuel)
+    (ihi : InferClaims2A μ m φ fuel)
     (h : inferTypeCore μ env (fuel + 1) d (.letE n ty val b) = .ok t)
     (hws : Expr.WScoped d (.letE n ty val b))
     (hb : (Expr.letE n ty val b).looseBVarsBounded 0 = true)
@@ -1584,12 +1587,12 @@ theorem infer_letE_claim2A (m : EnvS2 V env)
   obtain rfl : ea = .letE ta va ba := (Option.some.inj hea).symm
   -- the three sub-inferences
   obtain ⟨Ft, tta, -, -, hrowT⟩ :=
-    ihi hvf hty hws.1 hb.1.1 hLty hC.letE_ty hta
+    ihi hty hws.1 hb.1.1 hLty hC.letE_ty hta
   obtain ⟨Fv, tva, -, -, hrowV⟩ :=
-    ihi hvf hvv hws.2.1 hb.1.2 hLval hC.letE_val hva
+    ihi hvv hws.2.1 hb.1.2 hLval hC.letE_val hva
   obtain ⟨F2, ra, hle2, hra, hcross⟩ := hbeta (Δa := Δa) hva hba
   obtain ⟨F3, tbv, hle3, htbv, hrowB⟩ :=
-    ihi hvf hbody hwred hbred hLred
+    ihi hbody hwred hbred hLred
       (CtxOk2.fuelMono hle2 hCred) hra
   refine ⟨F3, tbv, Nat.le_trans hle2 hle3, htbv, ?_⟩
   intro ρ hρ
@@ -1629,7 +1632,7 @@ theorem infer_app_claim2A (m : EnvS2 V env) (hss : SortSem2 m μ φ)
     (hop : CtxOk2Open m μ φ) (hcr : CtxOk2R m μ φ)
     (htok : TypeOk2 m μ φ) (hbeta : BetaCross2A m μ φ)
     {d F : Nat} {f a t : Expr} {Δa : List AVExpr} {ea : AVExpr}
-    (hvf : μ.verified = true) (ihw : WhnfClaims2B μ m φ fuel)
+    (ihw : WhnfClaims2B μ m φ fuel)
     (ihd : DefEqClaims2B μ m φ fuel) (ihi : InferClaims2A μ m φ fuel)
     (h : inferTypeCore μ env (fuel + 1) d (.app f a) = .ok t)
     (hws : Expr.WScoped d (.app f a))
@@ -1660,11 +1663,11 @@ theorem infer_app_claim2A (m : EnvS2 V env) (hss : SortSem2 m μ φ)
   obtain rfl : ea = .app fa aa := (Option.some.inj hea).symm
   -- the head, and its type reduced to the `∀`
   obtain ⟨F1, tfa, hle1, htfa, hrowf⟩ :=
-    ihi hvf htf hws.1 hb.1 hLf hC.app_fn hfa
+    ihi htf hws.1 hb.1 hLf hC.app_fn hfa
   obtain ⟨htfw, htfb, htfL, htfC⟩ :=
     frame_inferR m.base.wf htf hws.1 hb.1 hLf (hcr hC.app_fn)
   obtain ⟨G, pa, hleG, hpa, hredf⟩ :=
-    ihw hvf hwf htfw htfb htfL htfC htfa
+    ihw hwf htfw htfb htfL htfC htfa
   have hle1G : F ≤ G := Nat.le_trans hle1 hleG
   -- the `∀`'s frame conditions
   have hwfe : Expr.WScoped d (Expr.forallE n' ty' body' mb') :=
@@ -1702,7 +1705,7 @@ theorem infer_app_claim2A (m : EnvS2 V env) (hss : SortSem2 m μ φ)
   obtain rfl : pa = .pi u' v' Aa Ba := (Option.some.inj hpa).symm
   -- the argument, and its certificate against the domain
   obtain ⟨F2, taa, hle2, htaa, hrowa⟩ :=
-    ihi hvf hta hws.2 hb.2 hLa hC.app_arg haa
+    ihi hta hws.2 hb.2 hLa hC.app_arg haa
   obtain ⟨htaw, htab, htaL, htaC⟩ :=
     frame_inferR m.base.wf hta hws.2 hb.2 hLa (hcr hC.app_arg)
   -- STOP 3: the defeq claim is graded, so its two `AnnotOk2`
@@ -1721,7 +1724,7 @@ theorem infer_app_claim2A (m : EnvS2 V env) (hss : SortSem2 m μ φ)
       htok hta (CtxOk2.fuelMono hle2 hC.app_arg) htaa ρ hρ
     have hokA : AnnotOk2 V ρ Aa := by
       rw [AnnotOk2_pi] at hpiOk; exact hpiOk.1
-    exact ihd hvf hde htaw htab htaL hwfe.1 hbfe.1 hLty' htaC hCty'
+    exact ihd hde htaw htab htaL hwfe.1 hbfe.1 hLty' htaC hCty'
       (denote2_fuelMono (Nat.le_add_right F2 G) d tya htaa)
       (denote2_fuelMono (Nat.le_add_left G F2) d ty' hAa) ρ hρ
       hokta hokA
@@ -1809,7 +1812,7 @@ Four clauses close with **no residue of their own**: `.sort`, `.bvar`,
 (which now needs no induction hypothesis either). -/
 theorem inferStep2B_of (h : InferInputs2A V μ) : InferStep2B μ V := by
   intro env m φ fuel _ihwc ihw ihd ihi
-  intro d e t Δa hvf hrun hws hb hLb F ea hC hea
+  intro d e t Δa hrun hws hb hLb F ea hC hea
   match e, hrun, hws, hb, hLb, hC, hea with
   | .sort u, hrun, _, _, _, _, hea => exact infer_sort_claim2A hrun hea
   | .bvar i, hrun, _, _, _, _, hea => exact infer_bvar_claim2A hrun hea
@@ -1825,14 +1828,14 @@ theorem inferStep2B_of (h : InferInputs2A V μ) : InferStep2B μ V := by
     exact infer_forallE_claim2A m (h.sort_sem m φ) (h.ctx_open m φ)
       hrun hws hC hea
   | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
-    exact infer_lam_claim2A m (h.sort_sem m φ) (h.ctx_open m φ) hvf ihi
+    exact infer_lam_claim2A m (h.sort_sem m φ) (h.ctx_open m φ) ihi
       hrun hws hb hLb hC hea
   | .app f a, hrun, hws, hb, hLb, hC, hea =>
     exact infer_app_claim2A m (h.sort_sem m φ) (h.ctx_open m φ)
-      (h.ctx_R m φ) (h.type_ok m φ) (h.beta m φ) hvf ihw ihd ihi hrun
+      (h.ctx_R m φ) (h.type_ok m φ) (h.beta m φ) ihw ihd ihi hrun
       hws hb hLb hC hea
   | .letE nm ty val b, hrun, hws, hb, hLb, hC, hea =>
-    exact infer_letE_claim2A m (h.beta m φ) hvf ihi hrun hws hb hLb hC
+    exact infer_letE_claim2A m (h.beta m φ) ihi hrun hws hb hLb hC
       hea
   | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
     exact h.proj m φ fuel hrun hws hb hLb hC hea

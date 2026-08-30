@@ -45,12 +45,20 @@ knot computation.  So the claim takes the subject's annotation at any
 `F` and produces the type's at some `F' ≥ F`; `denote2_fuelMono` lifts
 the subject to `F'`, so both are available together.
 
-**R4 — the claims are stated at the verified modes.**  `denote2`'s λ
-clause calls `lamSortE` per λ *node*; `inferBody` runs it once per λ
-*chain* and only at `mode.verified` — at `.noModel`, at no node at all.
-A quantifier mismatch, not a proof difficulty.  `μ.verified = true` is
-already the tier-C ledger's condition for `Infer.annotates`, and free
-at `--set-model`.
+**R4 — WITHDRAWN on this branch (the R4 spike).**  Seal 6 added
+`μ.verified = true` to all four claims to fix an apparent granularity
+mismatch: `denote2`'s λ clause calls `lamSortE` per λ *node* while
+`inferBody` runs the #152 codomain check once per λ *chain* and only
+at `mode.verified`.  R1/R3 dissolved that mismatch — the λ node's
+`lamSortE` is a hypothesis, and `lamSortE_runs` reads its own
+`inferTypeCore`/`sortOfE` runs back out of it, so *the annotation
+pass never consults the checker's #152 check at all*.  The premise
+was thereafter consumed only to pass to the induction hypothesis,
+which needed it only because the claims carried it.  Deleting it from
+all four claims here costs nothing: every occurrence in the four
+quarters was a binder or an argument, no tactic changed, and the
+claims — hence `checkSound2B_of_quarters` — are now mode-generic
+again, so the `.noModel` lane is back.
 
 ## The acceptance test (run, recorded)
 
@@ -103,7 +111,6 @@ variable {V : Type w} [SetTheory V]
 def WhnfCoreClaims2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
-    μ.verified = true →
     whnfCore μ env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
@@ -118,7 +125,6 @@ def WhnfCoreClaims2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 def WhnfClaims2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
-    μ.verified = true →
     whnf μ env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
@@ -134,7 +140,6 @@ shape the quarter proved and `DeqS`'s grading. -/
 def DefEqClaims2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
-    μ.verified = true →
     isDefEqCore μ env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
@@ -152,7 +157,6 @@ def DefEqClaims2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 def InferClaims2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
-    μ.verified = true →
     inferTypeCore μ env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
@@ -182,16 +186,16 @@ theorem checkSound2A {μ : CheckMode} {env : Env}
   induction fuel with
   | zero =>
     refine ⟨?_, ?_, ?_, ?_⟩
-    · intro d e e' Δa _ h
+    · intro d e e' Δa h
       rw [Setlec.whnfCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d e e' Δa _ h
+    · intro d e e' Δa h
       rw [Setlec.whnf_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d a b Δa _ h
+    · intro d a b Δa h
       rw [Setlec.isDefEqCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d e t Δa _ h
+    · intro d e t Δa h
       rw [Setlec.inferTypeCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
   | succ fuel ih =>
