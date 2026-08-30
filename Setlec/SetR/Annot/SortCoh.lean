@@ -7144,7 +7144,7 @@ def ZipCertSpineCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
     (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {f₁ f₂ : Expr} {as bs : List Expr}
     {ℓa ℓb : Level},
-    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
+    ZipBelowFc μ env φ Q fc →
     f₁.looseBVarsBounded 0 = true → f₂.looseBVarsBounded 0 = true →
     isDefEqCore μ env fc d f₁ f₂ = .ok true →
     as.length = bs.length →
@@ -7233,6 +7233,145 @@ theorem whnfCore_letE_step {μ : CheckMode} {env : Env}
     whnfCore μ env g d (b.instantiate1 v) = .ok s := by
   rw [Setlec.whnfCore_succ]
   exact Iff.rfl
+
+/-- `getAppFn` outputs are never applications. -/
+theorem getAppFn_not_app : ∀ {e p q : Expr},
+    e.getAppFn ≠ .app p q := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro p q h
+    rw [show (Expr.app f a).getAppFn = f.getAppFn from rfl] at h
+    exact ihf h
+  | bvar i => intro p q h; simp [Setlec.Expr.getAppFn] at h
+  | fvar idx n ty ih => intro p q h; simp [Setlec.Expr.getAppFn] at h
+  | sort u => intro p q h; simp [Setlec.Expr.getAppFn] at h
+  | const n us => intro p q h; simp [Setlec.Expr.getAppFn] at h
+  | lam n ty body m iht ihb =>
+    intro p q h; simp [Setlec.Expr.getAppFn] at h
+  | forallE n ty body m iht ihb =>
+    intro p q h; simp [Setlec.Expr.getAppFn] at h
+  | letE n ty val body iht ihv ihb =>
+    intro p q h; simp [Setlec.Expr.getAppFn] at h
+  | lit l => intro p q h; simp [Setlec.Expr.getAppFn] at h
+  | proj sn i e ih => intro p q h; simp [Setlec.Expr.getAppFn] at h
+
+/-- One-step spine extension of the fold. -/
+theorem mkAppN_append_one {f a : Expr} : ∀ {as : List Expr},
+    Setlec.Expr.mkAppN f (as ++ [a])
+      = .app (Setlec.Expr.mkAppN f as) a := by
+  intro as
+  induction as generalizing f with
+  | nil => rfl
+  | cons b bs ih =>
+    show Setlec.Expr.mkAppN (.app f b) (bs ++ [a]) = _
+    rw [ih]
+    rfl
+
+/-- Left-part indexing of an appended singleton (self-contained; the
+core lemma names shift across toolchains). -/
+theorem getElem_append_left' {α : Type _} :
+    ∀ (l₁ l₂ : List α) (i : Nat) (h : i < l₁.length)
+      {h' : i < (l₁ ++ l₂).length},
+      (l₁ ++ l₂)[i]'h' = l₁[i]'h
+  | _ :: _, _, 0, _, _ => rfl
+  | _ :: xs, l₂, i + 1, h, _ =>
+    getElem_append_left' xs l₂ i (Nat.lt_of_succ_lt_succ h)
+  | [], _, i, h, _ => absurd h (Nat.not_lt_zero i)
+
+/-- The appended element sits at the old length. -/
+theorem getElem_append_last {α : Type _} :
+    ∀ (l : List α) (a : α) {h : l.length < (l ++ [a]).length},
+      (l ++ [a])[l.length]'h = a
+  | [], _, _ => rfl
+  | _ :: xs, a, _ => getElem_append_last xs a
+
+/-- **The spine view**: every zip flattens to a head zip over
+pointwise-zipped argument lists, where the head is either a
+certified pair (possibly app-shaped — the Θ seam's territory) or a
+non-application zip node (the case analysis' terminating heads). -/
+theorem certZip_app_view {μ : CheckMode} {env : Env} {fc d : Nat} :
+    ∀ {u v : Expr}, CertZip μ env fc d u v →
+    ∃ (F₁ F₂ : Expr) (as bs : List Expr),
+      u = Setlec.Expr.mkAppN F₁ as ∧ v = Setlec.Expr.mkAppN F₂ bs ∧
+      as.length = bs.length ∧
+      (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+        CertZip μ env fc d as[i] bs[i]) ∧
+      ((F₁.looseBVarsBounded 0 = true ∧ F₂.looseBVarsBounded 0 = true ∧
+        isDefEqCore μ env fc d F₁ F₂ = .ok true) ∨
+       ((∀ p q, F₁ ≠ .app p q) ∧ (∀ p q, F₂ ≠ .app p q) ∧
+        CertZip μ env fc d F₁ F₂)) := by
+  intro u v hz
+  induction hz with
+  | app h₁ y₁ h₂ y₂ hh hy ihh ihy =>
+    obtain ⟨F₁, F₂, as, bs, rfl, rfl, hlen, hargs, hhead⟩ := ihh
+    refine ⟨F₁, F₂, as ++ [y₁], bs ++ [y₂], ?_, ?_, ?_, ?_, hhead⟩
+    · rw [mkAppN_append_one]
+    · rw [mkAppN_append_one]
+    · simp [hlen]
+    · intro i hi₁ hi₂
+      by_cases hlt : i < as.length
+      · have hlt₂ : i < bs.length := hlen ▸ hlt
+        rw [getElem_append_left' as [y₁] i hlt,
+          getElem_append_left' bs [y₂] i hlt₂]
+        exact hargs i hlt hlt₂
+      · have hi : i = as.length := by
+          simp only [List.length_append, List.length_cons,
+            List.length_nil] at hi₁
+          omega
+        subst hi
+        rw [getElem_append_last as y₁]
+        simp only [hlen]
+        rw [getElem_append_last bs y₂]
+        exact hy
+  | cert a b hba hbb hc =>
+    exact ⟨a, b, [], [], rfl, rfl, rfl,
+      (fun i h₁ _ => absurd h₁ (Nat.not_lt_zero i)),
+      Or.inl ⟨hba, hbb, hc⟩⟩
+  | refl e =>
+    exact ⟨e.getAppFn, e.getAppFn, e.getAppArgs, e.getAppArgs,
+      (Setlec.Expr.mkAppN_getApp e).symm,
+      (Setlec.Expr.mkAppN_getApp e).symm, rfl,
+      (fun i h₁ h₂ => CertZip.refl _),
+      Or.inr ⟨(fun p q => getAppFn_not_app),
+        (fun p q => getAppFn_not_app), CertZip.refl _⟩⟩
+  | sortSlack w x hev =>
+    exact ⟨.sort w, .sort x, [], [], rfl, rfl, rfl,
+      (fun i h₁ _ => absurd h₁ (Nat.not_lt_zero i)),
+      Or.inr ⟨(fun p q h => nomatch h), (fun p q h => nomatch h),
+        CertZip.sortSlack _ _ hev⟩⟩
+  | constSlack n us us' hev =>
+    exact ⟨.const n us, .const n us', [], [], rfl, rfl, rfl,
+      (fun i h₁ _ => absurd h₁ (Nat.not_lt_zero i)),
+      Or.inr ⟨(fun p q h => nomatch h), (fun p q h => nomatch h),
+        CertZip.constSlack _ _ _ hev⟩⟩
+  | fvar i n ty₁ ty₂ hty ihty =>
+    exact ⟨.fvar i n ty₁, .fvar i n ty₂, [], [], rfl, rfl, rfl,
+      (fun j h₁ _ => absurd h₁ (Nat.not_lt_zero j)),
+      Or.inr ⟨(fun p q h => nomatch h), (fun p q h => nomatch h),
+        CertZip.fvar _ _ _ _ hty⟩⟩
+  | lam n ty₁ ty₂ b₁ b₂ m hty hbody ihty ihbody =>
+    exact ⟨.lam n ty₁ b₁ m, .lam n ty₂ b₂ m, [], [], rfl, rfl, rfl,
+      (fun i h₁ _ => absurd h₁ (Nat.not_lt_zero i)),
+      Or.inr ⟨(fun p q h => nomatch h), (fun p q h => nomatch h),
+        CertZip.lam _ _ _ _ _ _ hty hbody⟩⟩
+  | forallE n ty₁ ty₂ b₁ b₂ m hty hbody ihty ihbody =>
+    exact ⟨.forallE n ty₁ b₁ m, .forallE n ty₂ b₂ m, [], [], rfl,
+      rfl, rfl,
+      (fun i h₁ _ => absurd h₁ (Nat.not_lt_zero i)),
+      Or.inr ⟨(fun p q h => nomatch h), (fun p q h => nomatch h),
+        CertZip.forallE _ _ _ _ _ _ hty hbody⟩⟩
+  | letE n ty₁ ty₂ v₁ v₂ b₁ b₂ hty hval hbody ihty ihval ihbody =>
+    exact ⟨.letE n ty₁ v₁ b₁, .letE n ty₂ v₂ b₂, [], [], rfl, rfl,
+      rfl,
+      (fun i h₁ _ => absurd h₁ (Nat.not_lt_zero i)),
+      Or.inr ⟨(fun p q h => nomatch h), (fun p q h => nomatch h),
+        CertZip.letE _ _ _ _ _ _ _ hty hval hbody⟩⟩
+  | proj sn i e₁ e₂ he ihe =>
+    exact ⟨.proj sn i e₁, .proj sn i e₂, [], [], rfl, rfl, rfl,
+      (fun j h₁ _ => absurd h₁ (Nat.not_lt_zero j)),
+      Or.inr ⟨(fun p q h => nomatch h), (fun p q h => nomatch h),
+        CertZip.proj _ _ _ _ he⟩⟩
 
 /-- **The both-δ core COLLAPSED onto the summit**: the spine facts
 zip the pair (head by `constSlack` through `isEquivList` soundness,

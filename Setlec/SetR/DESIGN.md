@@ -10232,3 +10232,29 @@ consumer at any measure position can now invoke the cert machinery
 on an assembled certified pair — the inner induction's cert leg is
 unblocked.  Plus `whnfCore_letE_step` (zeta is one knot level down,
 an `Iff.rfl` through `whnfCore_succ`).
+
+### ZipAppCase brick 3: the spine view + the Θ contract aligned
+
+`certZip_app_view` LANDED: every zip flattens to a head zip over
+pointwise-zipped argument lists, the head either a certified pair
+(possibly app-shaped — Θ's territory) or a NON-application zip node
+(refl-of-getAppFn, slack, or congruence — the terminating heads for
+the inner induction's case analysis).  With it, the inner
+induction's app case dissolves: nested app-zips never need their own
+case — the analysis always works on the flattened view, whose head
+cases are exactly {refl, cert→Θ, constSlack→iota/δ,
+lam-congruence→β via `certZip_subst`, shape-stuck}.  Supporting kit:
+`getAppFn_not_app`, `mkAppN_append_one`, and the self-contained
+append-indexing helpers (`getElem_append_left'`/`getElem_append_last`
+— core lemma names shift across toolchains, so the two five-liners
+are cheaper than name roulette).  `ZipCertSpineCase`'s below also
+weakened to `ZipBelowFc`, aligned with the cert case.
+
+Recipe: inside anonymous constructors, ALWAYS parenthesize lambda
+components — an unparenthesized `fun … => body, next, …` swallows
+the following components into a tuple body (cost one round).
+
+The inner induction now has every brick: the four-way decomposition,
+the spine view, `certZip_subst`/`_instantiate1`, the fc-only cert
+exit, the zeta step, the sorts terminal.  Next seal: the induction
+itself.
