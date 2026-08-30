@@ -10428,6 +10428,225 @@ theorem zipHeadDispatch {φ : Name → Nat}
       obtain rfl := Except.ok.inj h2
       exact loop_dead_exit hN hwcb' hb triB hnc hns
 
+/-! ### The loop-level lockstep tier (loopLock's statement kit)
+
+The whnf-loop lockstep the proj/iota discharges ride (the mapped
+arc): the carrier `LoopReaches` (loop steps compose the nine landed
+preservers — no new species), the out-shapes (`LoopLockOut`:
+pack ∨ re-based seam ∨ nat split — the nat tier is wholesale
+Θ-family, deferred as raw data with a PROGRESS MARKER so the
+disjunct cannot be satisfied vacuously), the recursion bar
+`LoopBelow` (knot-sum then loop-budget-sum; `fc` fixed — the loop
+tier never descends cert fuel), and the two routed step Props
+(`LoopIotaStep`/`LoopProjStep`, each discharged at its own seal —
+coreLock's recHead/projHead seams are UNPACKED through them, since
+no sort premise exists at scrutinee/major level). -/
+
+/-- **The loop-level carrier**: reachability by whole-subject loop
+steps (full core runs, δ, nat) and embedded contraction traces. -/
+inductive LoopReaches (μ : CheckMode) (env : Env) (d : Nat) :
+    Expr → Expr → Prop
+  | refl (e : Expr) : LoopReaches μ env d e e
+  | core (g : Nat) {s s' w : Expr}
+      (h : whnfCore μ env g d s = .ok s')
+      (rest : LoopReaches μ env d s' w) : LoopReaches μ env d s w
+  | delta {s s' w : Expr}
+      (h : Setlec.unfoldDefinition env s = some s')
+      (rest : LoopReaches μ env d s' w) : LoopReaches μ env d s w
+  | nat (g : Nat) {s s' w : Expr}
+      (h : Setlec.reduceNat (Setlec.pureFns μ env g) env d s
+        = .ok (some s'))
+      (rest : LoopReaches μ env d s' w) : LoopReaches μ env d s w
+  | contract {s t w : Expr} (h : Contracts μ env d s t)
+      (rest : LoopReaches μ env d t w) : LoopReaches μ env d s w
+
+/-- Reachability composes. -/
+theorem LoopReaches.trans {μ : CheckMode} {env : Env} {d : Nat}
+    {u w x : Expr} (h₁ : LoopReaches μ env d u w)
+    (h₂ : LoopReaches μ env d w x) : LoopReaches μ env d u x := by
+  induction h₁ with
+  | refl e => exact h₂
+  | core g h rest ih => exact .core g h (ih h₂)
+  | delta h rest ih => exact .delta h (ih h₂)
+  | nat g h rest ih => exact .nat g h (ih h₂)
+  | contract h rest ih => exact .contract h (ih h₂)
+
+/-- Q rides the loop carrier (the nine step preservers). -/
+theorem LoopReaches.q_transport {μ : CheckMode} {env : Env} {d : Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
+    (hQN : QPreserveNatF μ env Q)
+    (hQB : QPreserveBetaF μ env Q) (hQZ : QPreserveZetaF env Q)
+    (hQH : QPreserveHeadF μ env Q)
+    {u w c : Expr} (h : LoopReaches μ env d u w) :
+    Q d u c → Q d w c := by
+  induction h with
+  | refl e => exact id
+  | core g h rest ih => exact fun hq => ih (hQC h hq)
+  | delta h rest ih => exact fun hq => ih (hQD h hq)
+  | nat g h rest ih => exact fun hq => ih (hQN h hq)
+  | contract h rest ih =>
+    exact fun hq => ih (h.q_transport hQB hQZ hQH hq)
+
+/-- `SubjInv` rides the loop carrier. -/
+theorem LoopReaches.subjInv {μ : CheckMode} {env : Env} {d : Nat}
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env) (hLS : LeavesSubCoreF μ env)
+    {u w : Expr} (h : LoopReaches μ env d u w)
+    (hI : SubjInv d u) : SubjInv d w := by
+  induction h with
+  | refl e => exact hI
+  | core g h rest ih => exact ih (hIC h hI)
+  | delta h rest ih => exact ih (hID h hI)
+  | nat g h rest ih => exact ih (hIN h hI)
+  | contract h rest ih => exact ih (h.subjInv hIC hLS hI)
+
+/-- Cross-pairing rides the carrier one side at a time (left-slot
+species; the embedded contraction uses a refl other-trace). -/
+theorem LoopReaches.pairing_left {μ : CheckMode} {env : Env}
+    {d : Nat}
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env) (hLS : LeavesSubCoreF μ env)
+    {u w c : Expr} (h : LoopReaches μ env d u w) :
+    PairedLeaves u c → PairedLeaves w c := by
+  induction h with
+  | refl e => exact id
+  | core g h rest ih => exact fun hp => ih (hLC h hp)
+  | delta h rest ih => exact fun hp => ih (hLD h hp)
+  | nat g h rest ih => exact fun hp => ih (hLN h hp)
+  | contract h rest ih =>
+    exact fun hp => ih (Contracts.pairing hLS h (.refl c) hp)
+
+/-- **The loop seam pack**: a `CoreSeam` at loop-reachable
+subjects, with connecting loop runs at bounded knot fuels. -/
+def LoopSeamOut (μ : CheckMode) (env : Env) (fc d : Nat)
+    (u v u' v' : Expr) (f₁ f₂ : Nat) : Prop :=
+  ∃ w₁ w₂ c₁ c₂ l₁ l₂, c₁ ≤ f₁ ∧ c₂ ≤ f₂ ∧
+    Setlec.whnfLoop (Setlec.pureFns μ env c₁) env d l₁ w₁
+      = .ok u' ∧
+    Setlec.whnfLoop (Setlec.pureFns μ env c₂) env d l₂ w₂
+      = .ok v' ∧
+    LoopReaches μ env d u w₁ ∧ LoopReaches μ env d v w₂ ∧
+    CoreSeam μ env fc d w₁ w₂
+
+/-- **The nat split** (the Θ-family deferral, PROGRESS-MARKED): a
+last-synced zipped pair whose next core outputs carry at least one
+`reduceNat` fire — value divergence between zipped sides traces to
+buried certs, so the loop tier hands the raw data to the consumers
+(sort-premised tops kill the fired side by `NatStepNoSort`;
+scrutinee/major consumers route through their own cert's Θ-funnel).
+The `isSome` marker is what keeps this disjunct from absorbing the
+whole theorem vacuously. -/
+def NatSplitOut (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) (fc d : Nat)
+    (u v u' v' : Expr) (f₁ f₂ : Nat) : Prop :=
+  ∃ p₁ p₂ t₁ t₂ g₁ g₂ gn₁ gn₂ o₁ o₂ c₁ c₂ l₁ l₂,
+    c₁ ≤ f₁ ∧ c₂ ≤ f₂ ∧
+    LoopReaches μ env d u p₁ ∧ LoopReaches μ env d v p₂ ∧
+    CertZip μ env fc d t₁ t₂ ∧ SubjInv d t₁ ∧ SubjInv d t₂ ∧
+    PairedLeaves t₁ t₂ ∧ Q d t₁ t₂ ∧
+    whnfCore μ env g₁ d p₁ = .ok t₁ ∧
+    whnfCore μ env g₂ d p₂ = .ok t₂ ∧
+    Setlec.reduceNat (Setlec.pureFns μ env gn₁) env d t₁
+      = .ok o₁ ∧
+    Setlec.reduceNat (Setlec.pureFns μ env gn₂) env d t₂
+      = .ok o₂ ∧
+    (o₁.isSome = true ∨ o₂.isSome = true) ∧
+    Setlec.whnfLoop (Setlec.pureFns μ env c₁) env d l₁ p₁
+      = .ok u' ∧
+    Setlec.whnfLoop (Setlec.pureFns μ env c₂) env d l₂ p₂
+      = .ok v'
+
+/-- **loopLock's conclusion**: outputs zipped with the invariants,
+or a re-based seam, or the nat split. -/
+def LoopLockOut (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) (fc d : Nat)
+    (u v u' v' : Expr) (f₁ f₂ : Nat) : Prop :=
+  (CertZip μ env fc d u' v' ∧ SubjInv d u' ∧ SubjInv d v' ∧
+    PairedLeaves u' v' ∧ Q d u' v') ∨
+  LoopSeamOut μ env fc d u v u' v' f₁ f₂ ∨
+  NatSplitOut μ env Q fc d u v u' v' f₁ f₂
+
+/-- **The loop recursion bar**: knot-fuel sum strictly below, or
+equal with the loop-budget sum strictly below.  `fc` is fixed —
+the loop tier never descends cert fuel (Θ-funnels exit as seams). -/
+def LoopBelow (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) (fc N R : Nat) : Prop :=
+  ∀ {f₁ f₂ l₁ l₂ d : Nat} {u v u' v' : Expr},
+    (f₁ + f₂ < N ∨ (f₁ + f₂ = N ∧ l₁ + l₂ < R)) →
+    CertZip μ env fc d u v → SubjInv d u → SubjInv d v →
+    PairedLeaves u v → Q d u v →
+    Setlec.whnfLoop (Setlec.pureFns μ env f₁) env d l₁ u
+      = .ok u' →
+    Setlec.whnfLoop (Setlec.pureFns μ env f₂) env d l₂ v
+      = .ok v' →
+    LoopLockOut μ env Q fc d u v u' v' f₁ f₂
+
+/-- **Routed: the loop-level iota step** (unpacking coreLock's
+recHead seams — no sort premise exists at major level, so rec-spine
+pairs must actually sync: zipped majors recurse through `LoopBelow`
+at knot minus one, fires match by ctor-name determinism, the K/eta
+rescue rows scope their infer-lockstep lemmas leg-locally at the
+discharge; divergence exits Θ-seams or the nat split).  Premises:
+the shaped pair with its core runs, reachability from the loop
+subjects, and the suffix loop runs. -/
+def LoopIotaStep (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc N R f₁ f₂ l₁ l₂ d mI rP : Nat} {n : Name}
+    {cv : Setlec.ConstantVal} {rules : List Setlec.RecRule}
+    {us us' : List Level} {as bs : List Expr}
+    {u v u' v' r₁ r₂ : Expr},
+    LoopBelow μ env Q fc N R →
+    f₁ + f₂ ≤ N →
+    env.find? n = some (.recInfo cv mI rP rules) →
+    (∀ φ' : Name → Nat,
+      us.map (Level.eval φ') = us'.map (Level.eval φ')) →
+    as.length = bs.length →
+    (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+      CertZip μ env fc d as[i] bs[i]) →
+    SubjInv d (Setlec.Expr.mkAppN (.const n us) as) →
+    SubjInv d (Setlec.Expr.mkAppN (.const n us') bs) →
+    PairedLeaves (Setlec.Expr.mkAppN (.const n us) as)
+      (Setlec.Expr.mkAppN (.const n us') bs) →
+    Q d (Setlec.Expr.mkAppN (.const n us) as)
+      (Setlec.Expr.mkAppN (.const n us') bs) →
+    LoopReaches μ env d u (Setlec.Expr.mkAppN (.const n us) as) →
+    LoopReaches μ env d v (Setlec.Expr.mkAppN (.const n us') bs) →
+    Setlec.whnfLoop (Setlec.pureFns μ env f₁) env d l₁
+      (Setlec.Expr.mkAppN (.const n us) as) = .ok u' →
+    Setlec.whnfLoop (Setlec.pureFns μ env f₂) env d l₂
+      (Setlec.Expr.mkAppN (.const n us') bs) = .ok v' →
+    LoopLockOut μ env Q fc d u v u' v' f₁ f₂
+
+/-- **Routed: the loop-level proj step** (unpacking coreLock's
+projHead seams: the scrutinees' whnfs run at knot minus one —
+`whnf_proj_inv` pins it — so the zipped scrutinees recurse through
+`LoopBelow`; fire sync by table+ctor determinism, stuck sides
+rebuild, divergence exits Θ-seams or the nat split). -/
+def LoopProjStep (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc N R f₁ f₂ l₁ l₂ d i : Nat} {sn : Name} {e₁ e₂ : Expr}
+    {as bs : List Expr} {u v u' v' : Expr},
+    LoopBelow μ env Q fc N R →
+    f₁ + f₂ ≤ N →
+    CertZip μ env fc d e₁ e₂ →
+    as.length = bs.length →
+    (∀ j (h₁ : j < as.length) (h₂ : j < bs.length),
+      CertZip μ env fc d as[j] bs[j]) →
+    SubjInv d (Setlec.Expr.mkAppN (.proj sn i e₁) as) →
+    SubjInv d (Setlec.Expr.mkAppN (.proj sn i e₂) bs) →
+    PairedLeaves (Setlec.Expr.mkAppN (.proj sn i e₁) as)
+      (Setlec.Expr.mkAppN (.proj sn i e₂) bs) →
+    Q d (Setlec.Expr.mkAppN (.proj sn i e₁) as)
+      (Setlec.Expr.mkAppN (.proj sn i e₂) bs) →
+    LoopReaches μ env d u (Setlec.Expr.mkAppN (.proj sn i e₁) as) →
+    LoopReaches μ env d v (Setlec.Expr.mkAppN (.proj sn i e₂) bs) →
+    Setlec.whnfLoop (Setlec.pureFns μ env f₁) env d l₁
+      (Setlec.Expr.mkAppN (.proj sn i e₁) as) = .ok u' →
+    Setlec.whnfLoop (Setlec.pureFns μ env f₂) env d l₂
+      (Setlec.Expr.mkAppN (.proj sn i e₂) bs) = .ok v' →
+    LoopLockOut μ env Q fc d u v u' v' f₁ f₂
+
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/
 theorem zipLamHeadCase_of {φ : Name → Nat}

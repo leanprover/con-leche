@@ -10956,3 +10956,52 @@ Sequence within the arc: majorToCtor/K/eta read → `LoopReaches` +
 transports + `LoopBelow` + the two routed Props + `loopLock`'s
 statement (one seal) → the induction (next seal) → proj/iota
 discharges ride it.
+
+### loopLock statement kit LANDED (carrier, out-shapes, bar, routed Props)
+
+Following the map (majorToCtor's K/eta rows read first: both
+rescues run `whnf (infer major)` — the infer-lockstep question is
+the DISCHARGE's business, leg-local per the deferred-to-need
+ruling; the Props' premises stay run-shaped).  Landed, first-pass:
+
+* **`LoopReaches`** — refl / full-core-step / δ / nat / embedded
+  `Contracts`; `trans`, `q_transport` (six preservers),
+  `subjInv` (three + `LeavesSubCoreF`), `pairing_left` (left-slot
+  species; the contract case uses a refl other-trace).  No new
+  species anywhere.
+* **`LoopSeamOut`** — `CoreSeam` at loop-reachable subjects,
+  connecting LOOP runs at bounded knot fuels (the coreLock
+  fuel-bound lesson applied from the start; loop budgets need no
+  bounds — `whnfLoop_budget_mono` exists).
+* **`NatSplitOut`** — the Θ-family deferral with the PROGRESS
+  MARKER (`o₁.isSome ∨ o₂.isSome`): the trap-family check ran —
+  without the marker the disjunct absorbs the theorem vacuously.
+  Carries the pre-core states (reachable), the synced zipped pair,
+  both core runs, both `reduceNat` outcomes, and the suffix loop
+  runs FROM THE PRE-CORE STATES (so sort-premised consumers get
+  `NatStepNoSort`'s exact premises without any idempotence).
+* **`LoopLockOut`** = pack (zip + the four invariants) ∨ seam ∨
+  nat split; **`LoopBelow`** = knot-sum then loop-budget-sum, `fc`
+  FIXED (the loop tier never descends cert fuel).
+* **`LoopIotaStep` / `LoopProjStep`** — the routed step Props:
+  shaped pair + component zips + invariants + reachability from
+  the loop subjects + suffix loop runs + `LoopBelow` →
+  `LoopLockOut`.  Both conclude at the FULL loop context (the
+  walk hands everything over; the Props call `below` on their own
+  continuations), which keeps loopLock's induction a pure walk.
+
+**loopLock's theorem statement, frozen for the next seal**:
+hypotheses = `hm hB hIC hID hIN hLC hLD hLN hQC hQD hQN hQB hQZ
+hQH hLS hQs hQA` + `hIo : LoopIotaStep` + `hPr : LoopProjStep`;
+then `∀ (N R : Nat) {f₁ f₂ l₁ l₂ fc d u v u' v'}, f₁+f₂ ≤ N →
+l₁+l₂ ≤ R → CertZip → SubjInv both → PairedLeaves → Q → both
+whnfLoop runs → LoopLockOut`.  Induction: strongRecOn N, inner
+strongRecOn R; per loop step: decompose both sides
+(`whnfStep_decompose`), coreLock on the core parts (pack → tri;
+seam → unpack recHead/projHead through `hIo`/`hPr`, carry
+certHead/dead out re-based, natSplit n/a at core level); tri:
+both-stuck → pack out; δδ → spine_both sync (same-name) or
+certHead seam (cert layer) or the one guard-determinism audit;
+mixed δ vs stuck → name-determinism contradiction; any nat some →
+NatSplitOut with the walk's own facts.  Consumers enter at knot
+minus one (`whnf_proj_inv` / `iotaRec_inv` fuels).
