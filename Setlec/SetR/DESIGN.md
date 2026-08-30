@@ -11183,3 +11183,28 @@ unchanged except the two `hR`-threads and the split re-nesting.
 Next seal: the `whnfCore_proj_spine_inv` inversion (reverse-spine
 induction, nil-disjunct + dead-arm residual per the map) and the
 LoopProjStep discharge on the now-complete kit.
+
+### The proj-spine inversion LANDED (+ two small kit pieces)
+
+`whnfCore_proj_spine_inv` — a core run on a projection-headed spine
+factors through the scrutinee's whnf (at a bounded smaller knot)
+and the projection decision: stuck (the rebuilt spine — the layer
+legs are FORCED iota-none, β refuted by `mkAppN_ne_lam`, iota fires
+refuted by the proj head), or fired with the field's run and a
+TRI-DISJUNCTIVE residual — a run at bounded fuel, the empty spine
+(`t = h'` directly), or a DEAD SHAPE (the layer over a dead field
+output stays dead) — the nil/dead disjuncts dodging every
+idempotence exactly as mapped.  Proof: strong induction on the
+spine length with the concat split (`List.eq_nil_or_concat`;
+`List.reverseRecOn` is not in this toolchain), the layer composed
+by `whnfCore_app_decompose`/`_assemble` and
+`whnfCore_self_or_dead`.  Mechanization notes: the β-legs carry
+FIVE existentials (`ta` included — three pattern repairs); the
+`(H := shape)` pin defeats the meta-lambda trap where by-wrapping
+did not; assemble outputs are `max`-fueled — promise `max f' f' + 1`
+with an omega bound, not `f' + 1`.
+
+Also landed: `mkAppN_ne_lam` (the value-shape family's last gap)
+and `QDescendProjF` (the descent family's second member, foreseen
+at the build map — `FrameQ` is per-side structural).  Next: the
+LoopProjStep discharge proper on the complete kit.
