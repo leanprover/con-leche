@@ -43,7 +43,7 @@ a proof nor a refutation is delivered here.  What is delivered:
    and no valuation in them.  Everything else in the crossing is
    algebra, and it is discharged.
 3. **A refutation is now possible at all.**  `Denote2InstLevels`
-   quantifies over an `EnvS2 V env`; the only one the tree exhibits is
+   quantifies over an `EnvS2U V env`; the only one the tree exhibits is
    `EnvS2.empty`, so no counterexample could be built against it until
    the install tier lands.  The two primitives quantify over a bare
    `Env`, so they can be refuted by a hand-built environment today.
@@ -204,7 +204,7 @@ Stated as the implication the delta exit consumes rather than as v1's
 equality, because instantiation can make a run succeed that did not,
 and with `Claims2B`'s own `∃ F' ≥ F` slack, because the instantiated
 term's sort computations are not the ones the hypothesis paid for. -/
-def Denote2InstLevels (μ : CheckMode) {env : Env} (m : EnvS2 V env) :
+def Denote2InstLevels (μ : CheckMode) {env : Env} (m : EnvS2U V env) :
     Prop :=
   ∀ (φ : Name → Nat) (ks : List Name) (us : List Level) (F d : Nat)
     (e : Expr) (ea : AVExpr),
@@ -383,7 +383,7 @@ instantiation*, packaged at the granularity `denote2` consumes it —
 with no `denote2`, no `V`, no `EnvS2` and no valuation in them.
 
 That last point is the practically important one.  `Denote2InstLevels`
-quantifies over an `EnvS2 V env`, and the only `EnvS2` the tree can
+quantifies over an `EnvS2U V env`, and the only `EnvS2` the tree can
 exhibit today is `EnvS2.empty`; a counterexample needs a rich
 environment, so the statement **cannot be refuted at all** until the
 install tier lands.  `SortOfEInstLevels` has no such guard: it is a
@@ -521,7 +521,7 @@ annotated valuation. -/
 
 /-- A stored slot with no level parameters is valued independently of
 the assignment. -/
-private theorem acval_isEmpty (m : EnvS2 V env) {n : Name}
+private theorem acval_isEmpty (m : EnvS2U V env) {n : Name}
     {ci : ConstantInfo} (hf : env.find? n = some ci)
     (he : ci.toConstantVal.levelParams.isEmpty = true)
     (ψ₁ ψ₂ : Name → Nat) : m.acval n ψ₁ = m.acval n ψ₂ := by
@@ -533,7 +533,7 @@ private theorem acval_isEmpty (m : EnvS2 V env) {n : Name}
 /-- A one-parameter slot substituted at `Level.zero` is valued
 independently of the assignment: the substitution overrides the only
 parameter the valuation may read. -/
-private theorem acval_oneParam (m : EnvS2 V env) {n : Name}
+private theorem acval_oneParam (m : EnvS2U V env) {n : Name}
     {ci : ConstantInfo} (hf : env.find? n = some ci)
     (hlen : ci.toConstantVal.levelParams.length = 1)
     (ψ₁ ψ₂ : Name → Nat) :
@@ -551,7 +551,7 @@ private theorem acval_oneParam (m : EnvS2 V env) {n : Name}
   · simp [hlen]
 
 /-- The scalar literal-support slots, read off their shape guards. -/
-private theorem acval_scalar (m : EnvS2 V env) (nm : Name)
+private theorem acval_scalar (m : EnvS2U V env) (nm : Name)
     (f : Option ConstantInfo → Bool) (hfok : f (env.find? nm) = true)
     (hnone : f none = false)
     (hshape : ∀ ci, f (some ci) = true →
@@ -564,7 +564,7 @@ private theorem acval_scalar (m : EnvS2 V env) (nm : Name)
     exact acval_isEmpty m hx (hshape ci hfok) _ _
 
 /-- The two one-parameter literal-support slots. -/
-private theorem acval_one (m : EnvS2 V env) (nm : Name)
+private theorem acval_one (m : EnvS2U V env) (nm : Name)
     (f : Option ConstantInfo → Bool) (hfok : f (env.find? nm) = true)
     (hnone : f none = false)
     (hshape : ∀ ci, f (some ci) = true →
@@ -583,7 +583,7 @@ private theorem acval_one (m : EnvS2 V env) (nm : Name)
     exact acval_oneParam m hx (hshape ci hfok) _ _
 
 /-- The `Nat`-literal leaves are assignment-independent. -/
-private theorem acval_natPair (m : EnvS2 V env)
+private theorem acval_natPair (m : EnvS2U V env)
     (hg : Setlec.natLitSupported env = true) (ψ₁ ψ₂ : Name → Nat) :
     m.acval natZeroName ψ₁ = m.acval natZeroName ψ₂ ∧
       m.acval natSuccName ψ₁ = m.acval natSuccName ψ₂ := by
@@ -615,7 +615,7 @@ clause `denote_instLevels`, with `EnvS2.acval_params` where v1 has
 This is the file's main deliverable: the crossing is not partly
 algebraic and partly a metatheorem, it is **entirely** the metatheorem
 about `sortOfE`/`lamSortE` plus algebra that is now discharged. -/
-theorem denote2_instLevels_of (m : EnvS2 V env)
+theorem denote2_instLevels_of (m : EnvS2U V env)
     (hs : SortOfEInstLevels μ env) (hl : LamSortEInstLevels μ env) :
     Denote2InstLevels μ m := by
   intro φ ks us F d e

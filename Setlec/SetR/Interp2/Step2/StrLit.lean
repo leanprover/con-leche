@@ -191,7 +191,7 @@ spelled out in the conclusion there is nothing left for it to say, and
 the clause's whole content is on the type side.  It stays in the
 statement because it is what pins this lemma to its subject — the same
 reason the amended `.bvar` clause carries one. -/
-theorem infer_strLit_claim2A (m : EnvS2 V env) {d F : Nat} {s : String}
+theorem infer_strLit_claim2A (m : EnvS2U V env) {d F : Nat} {s : String}
     {t : Expr} {Δa : List AVExpr}
     {nilA consA ofNatA ofListA za sa natA charA lcA strA : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t)
@@ -252,7 +252,7 @@ for the extension, which is what the lemma below records. -/
 re-associated into `Claims2C`'s three conjuncts, with the new one
 (`AnnotOk2` of the returned type) free from `acval_ok2`.  `F' = F`
 still: nothing in this clause spends R3's slack. -/
-theorem infer_strLit_claim2C (m : EnvS2 V env) {d F : Nat} {s : String}
+theorem infer_strLit_claim2C (m : EnvS2U V env) {d F : Nat} {s : String}
     {t : Expr} {Δa : List AVExpr}
     {nilA consA ofNatA ofListA za sa natA charA lcA strA : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t)

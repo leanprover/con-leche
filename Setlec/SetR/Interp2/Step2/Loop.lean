@@ -42,6 +42,15 @@ universe w
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
 
+/-! ## The two lemmas below keep their `EnvS2` binder
+
+They are two of the four consumers of `acval_defn`/`acval_thm` seal 40
+counted, and the only ones that read the fields' **existence**.  The
+uniqueness form has none to give, so they do not move with the lane;
+`whnfStep2_delta_U`/`whnfStep2_delta_thm_U` (`Claims2U.lean`) are the
+uniqueness transposes.  Neither has a consumer — the delta exit the
+loop actually runs takes `Delta2B` — so nothing downstream noticed. -/
+
 /-- **The delta exit is free.**  A definition's body carries the
 constant's own canonical annotation, so unfolding it changes no
 `interp2` value and no `AnnotOk2`. -/

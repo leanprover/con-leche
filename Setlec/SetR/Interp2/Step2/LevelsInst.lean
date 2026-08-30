@@ -32,7 +32,7 @@ statement the delta exit consumes directly.
 ## What survives, and why the repair is free
 
 `EnvWF` — and the consumer **already has it**.  `Denote2InstLevels` is
-stated over an `EnvS2 V env`, whose `base : EnvS V env` carries a
+stated over an `EnvS2U V env`, whose `base : EnvS V env` carries a
 `wf : EnvWF env` field.  So the factoring, not the metatheorem, is what
 dropped the hypothesis; adding it back costs the consumer nothing.
 
@@ -387,7 +387,7 @@ theorem not_sortOfEInstLevels (μ : CheckMode) :
 /-! ## Part 2 — the repair, and the whole chain re-derived through it
 
 The missing hypothesis is `EnvWF`, and the consumer already holds it:
-`Denote2InstLevels` is stated over an `EnvS2 V env`, whose
+`Denote2InstLevels` is stated over an `EnvS2U V env`, whose
 `base : EnvS V env` carries `wf : EnvWF env`.  So the `…W` forms below
 cost the consumer nothing, and `denote2_instLevels_ofW` re-derives the
 crossing from them with the same proof `Step2/Levels.lean` already
@@ -427,7 +427,7 @@ variable {V : Type w} [SetTheory V]
 The `EnvWF` the refutations exposed as missing is read off the
 consumer's own `EnvS2`, so the repair is invisible downstream: this is
 `denote2_instLevels_of` with `m.base.wf` threaded. -/
-theorem denote2_instLevels_ofW {env : Env} (m : EnvS2 V env)
+theorem denote2_instLevels_ofW {env : Env} (m : EnvS2U V env)
     (hs : SortOfEInstLevelsW μ env) (hl : LamSortEInstLevelsW μ env) :
     Denote2InstLevels μ m :=
   denote2_instLevels_of m (hs m.base.wf) (hl m.base.wf)

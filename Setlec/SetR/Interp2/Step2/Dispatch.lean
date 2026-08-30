@@ -1,3 +1,4 @@
+import Setlec.SetR.Annot.EnvS2U
 import Setlec.SetR.Interp2.Step2.Lit
 import Setlec.SetR.Interp2.Step2.Fuel
 
@@ -82,7 +83,7 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
 
 /-- **I1 (`.sort`).**  The clause returns `.sort (.succ u)` outright,
 `denote2` evaluates both levels, and the row is `sound_sort`. -/
-theorem infer_sort_claim2 (m : EnvS2 V env) {d : Nat} {u : Level}
+theorem infer_sort_claim2 (m : EnvS2U V env) {d : Nat} {u : Level}
     {t : Expr} {Δa : List AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.sort u) = .ok t) :
     ∃ ea ta,
@@ -105,7 +106,7 @@ claim needs two facts about it that `Claims2`'s hypothesis side does
 not carry — see this file's closing note.  Both are taken explicitly
 here, in exactly the shape a context correspondence in the annotated
 currency would supply, so the clause is usable the moment one exists. -/
-theorem infer_fvar_claim2 (m : EnvS2 V env) {d idx : Nat} {n : Name}
+theorem infer_fvar_claim2 (m : EnvS2U V env) {d idx : Nat} {n : Name}
     {ty t : Expr} {Δa : List AVExpr} {Aa tya : AVExpr}
     (hi : Δa[d - 1 - idx]? = some Aa)
     (h : inferTypeCore μ env (fuel + 1) d (.fvar idx n ty) = .ok t)
@@ -133,7 +134,7 @@ theorem infer_fvar_claim2 (m : EnvS2 V env) {d idx : Nat} {n : Name}
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `bvar` is outside the fragment: the checker throws. -/
-theorem infer_bvar_claim2 (m : EnvS2 V env) {d i : Nat} {t : Expr}
+theorem infer_bvar_claim2 (m : EnvS2U V env) {d i : Nat} {t : Expr}
     {Δa : List AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.bvar i) = .ok t) :
     ∃ ea ta,
@@ -193,7 +194,7 @@ Substituting this for `CtxOkR (Δa.map erase)` in all four claims closes
 `infer_fvar_claim2` by supplying both of its explicit hypotheses, and
 touches no other clause — the other ten pass the context along without
 reading it. -/
-def CtxOk2 {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+def CtxOk2 {env : Env} (m : EnvS2U V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel d : Nat) (Δa : List AVExpr) (e : Expr) :
     Prop :=
   Δa.length = d ∧
@@ -207,7 +208,7 @@ def CtxOk2 {env : Env} (m : EnvS2 V env) (μ : CheckMode)
 
 /-- `CtxOk2` supplies exactly what `infer_fvar_claim2` takes
 explicitly — the repair's correctness, checked rather than asserted. -/
-theorem CtxOk2.fvar_leaf {env : Env} {m : EnvS2 V env} {μ : CheckMode}
+theorem CtxOk2.fvar_leaf {env : Env} {m : EnvS2U V env} {μ : CheckMode}
     {φ : Name → Nat} {fuel d idx : Nat} {n : Name} {ty : Expr}
     {Δa : List AVExpr}
     (hC : CtxOk2 m μ φ fuel d Δa (.fvar idx n ty)) :
@@ -249,7 +250,7 @@ section Amended
 open Setlec (BinderMeta whnf whnfBody whnfLoop whnfStep whnfLoopFuel
   pureFns whnfCore)
 
-variable {m : EnvS2 V env}
+variable {m : EnvS2U V env}
 
 /-! ## The `CtxOk2` kit — stated by the supplier (T5)
 
@@ -1164,7 +1165,7 @@ forces costs the congruences nothing. -/
 it after `intro ρ hρ hokA hokB`.  Both domains are fully certified
 (`ty₁` carries its own `denote2` *and* `CtxOk2`), so this is as strong
 a shape as a congruence site could ask for. -/
-def OpenCongLocal {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+def OpenCongLocal {env : Env} (m : EnvS2U V env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ {F d : Nat} {Δa : List AVExpr} {body ty ty₁ : Expr} {n : Name}
     {ta₁ ta₂ : AVExpr},
@@ -1191,7 +1192,7 @@ since `∅ ∈ˢ univ n` — it demands `∅ = univ 0`, whence `∅ ∈ˢ ∅`.
 *This is why `CtxOk2.openCong`'s `hok₁`/`hok₂` are `∀ ρ`, and why the
 family-wide move needs `DefEqClaims2B`'s two `AnnotOk2` hoisted above
 its `∀ ρ`.  The grading is not the problem; the quantifier is.* -/
-theorem not_openCongLocal {env : Env} (m : EnvS2 V env)
+theorem not_openCongLocal {env : Env} (m : EnvS2U V env)
     (μ : CheckMode) (φ : Name → Nat) : ¬ OpenCongLocal m μ φ := by
   intro h
   have hlen : ([AVExpr.sort 1] : List AVExpr).length = 1 := rfl
@@ -1268,7 +1269,7 @@ theorem AnnotOk2.hoist_pi {Δa : List AVExpr} {u v : Nat} {A B : AVExpr}
 lemma is not a vacuous one whose `∀ ρ` grading no instance can meet.
 The diagonal at a sort: both domains are `⟪Sort 0⟫`, whose `AnnotOk2`
 is free at every valuation. -/
-example (m : EnvS2 V env) (μ : CheckMode) (φ : Name → Nat)
+example (m : EnvS2U V env) (μ : CheckMode) (φ : Name → Nat)
     (nm : Name) :
     CtxOk2 m μ φ 1 1 [AVExpr.sort 0]
       ((Expr.bvar 0).instantiate1 (.fvar 0 nm (.sort .zero))) :=
@@ -1644,7 +1645,7 @@ granularity rather than the residue's, and it carries the survival kit
 /-- **The proposed fourth conjunct of `CtxOk2`.**  Quantified over
 `tya` rather than carrying its own existential, so it composes with
 `CtxOk2`'s package by `denote2`'s functionality. -/
-def CtxOk2Ann {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+def CtxOk2Ann {env : Env} (m : EnvS2U V env) (μ : CheckMode)
     (φ : Name → Nat) (F d : Nat) (Δa : List AVExpr) (e : Expr) :
     Prop :=
   ∀ l ∈ e.fvarLeaves, ∀ tya : AVExpr,

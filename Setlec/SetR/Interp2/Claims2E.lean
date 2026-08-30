@@ -37,6 +37,32 @@ coincidence: defeq is the one claim that never produced a reduct, and
 seal 14 recorded it as "purely relieved" by the hoist. *The claim that
 needed no change is the one that was already dual-success.*
 
+## Re-pointed to `EnvS2U`
+
+The structure parameter is now `EnvS2U` — seal 42's authorization,
+carried out.  Clause for clause the claims are unchanged; only the
+binder moved, which `Claims2U.lean`'s `Iff.rfl` bridges still check.
+
+**And the re-point could not stop at the live lane.**  Measured, not
+argued: the superseded generations `Claims2A`/`2C`/`2D` apply
+`CtxOk2`/`CtxOk2D` — predicates that live in the *live* files
+`Step2/Dispatch.lean` and `Interp2/CtxOk2D.lean` — to their own
+`EnvS2` binder, so re-pointing the predicate breaks the tombstone;
+and every generation-six quarter proof (`whnfCoreStep2E_of` and its
+three siblings) goes `claims2D_of_2E` → `…Step2D_of` →
+`…Claims2E_of_2D`, i.e. through generation five **at the same `m`**.
+Since there is no map `EnvS2U → EnvS2` — that map is exactly
+`EnvS2UInImage`, which stays open by ruling — generation five had to
+move with generation six.  A `Coe (EnvS2 …) (EnvS2U …)` does not
+rescue the tombstones either: at those sites the expected type is
+`EnvS2U ?V ?env`, and Lean does not insert coercions against a
+metavariable-headed expectation.
+
+The tombstoned generations therefore carry `EnvS2U` binders now.
+Nothing else about them changed, and their refutations are not
+weakened: each is `∀ m, ¬ …`, so widening `m`'s type from `EnvS2` to
+`EnvS2U` makes them refute *more*.
+
 ## Fuel ordering, dropped
 
 Generations three through five carried `F ≤ F'` because the reduct's
@@ -58,7 +84,7 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-- Head normalisation, dual success. -/
-def WhnfCoreClaims2E (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def WhnfCoreClaims2E (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -74,7 +100,7 @@ def WhnfCoreClaims2E (μ : CheckMode) {env : Env} (m : EnvS2 V env)
           interp2 V ρ ea = interp2 V ρ ea'
 
 /-- The reduction loop, dual success. -/
-def WhnfClaims2E (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def WhnfClaims2E (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnf μ env fuel d e = .ok e' →
@@ -91,7 +117,7 @@ def WhnfClaims2E (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 
 /-- Definitional equality — **unchanged from generation five** except
 for the fuel split, because it was already dual-success. -/
-def DefEqClaims2E (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def DefEqClaims2E (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.isDefEqCore μ env fuel d a b = .ok true →
@@ -110,7 +136,7 @@ def DefEqClaims2E (μ : CheckMode) {env : Env} (m : EnvS2 V env)
         interp2 V ρ aa = interp2 V ρ ba
 
 /-- Inference, dual success. -/
-def InferClaims2E (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def InferClaims2E (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
     inferTypeCore μ env fuel d e = .ok t →
@@ -127,7 +153,7 @@ def InferClaims2E (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 
 /-- The generation-six step. -/
 def CheckStep2E (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2E μ m φ fuel → WhnfClaims2E μ m φ fuel →
     DefEqClaims2E μ m φ fuel → InferClaims2E μ m φ fuel →
     WhnfCoreClaims2E μ m φ (fuel + 1) ∧ WhnfClaims2E μ m φ (fuel + 1) ∧
@@ -135,7 +161,7 @@ def CheckStep2E (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 
 /-- The generation-six induction. -/
 theorem checkSound2E {μ : CheckMode} {env : Env}
-    (hstep : CheckStep2E μ V) (m : EnvS2 V env) (φ : Name → Nat) :
+    (hstep : CheckStep2E μ V) (m : EnvS2U V env) (φ : Name → Nat) :
     ∀ fuel : Nat,
       WhnfCoreClaims2E μ m φ fuel ∧ WhnfClaims2E μ m φ fuel ∧
         DefEqClaims2E μ m φ fuel ∧ InferClaims2E μ m φ fuel := by
@@ -186,7 +212,7 @@ Deliberately at `.sort`: it is the one shape whose `whnfCore` and
 `denote2` both answer without a run, so the probe tests the *premise
 set*, not the checker's cooperation. -/
 theorem claims2E_premises_inhabited {μ : CheckMode} {env : Env}
-    (m : EnvS2 V env) (φ : Name → Nat) (fuel F F' : Nat) :
+    (m : EnvS2U V env) (φ : Name → Nat) (fuel F F' : Nat) :
     whnfCore μ env (fuel + 1) 0 (.sort .zero) = .ok (.sort .zero) ∧
       CtxOk2D m μ φ F 0 [] (.sort .zero) ∧
       denote2 μ m.acval env φ F 0 (.sort .zero) = some (.sort 0) ∧
@@ -203,25 +229,25 @@ theorem claims2E_premises_inhabited {μ : CheckMode} {env : Env}
 /-! ## The routed quarters -/
 
 def InferStep2E (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2E μ m φ fuel → WhnfClaims2E μ m φ fuel →
     DefEqClaims2E μ m φ fuel → InferClaims2E μ m φ fuel →
     InferClaims2E μ m φ (fuel + 1)
 
 def WhnfCoreStep2E (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2E μ m φ fuel → WhnfClaims2E μ m φ fuel →
     DefEqClaims2E μ m φ fuel → InferClaims2E μ m φ fuel →
     WhnfCoreClaims2E μ m φ (fuel + 1)
 
 def WhnfStep2E (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2E μ m φ fuel → WhnfClaims2E μ m φ fuel →
     DefEqClaims2E μ m φ fuel → InferClaims2E μ m φ fuel →
     WhnfClaims2E μ m φ (fuel + 1)
 
 def DefEqStep2E (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2E μ m φ fuel → WhnfClaims2E μ m φ fuel →
     DefEqClaims2E μ m φ fuel → InferClaims2E μ m φ fuel →
     DefEqClaims2E μ m φ (fuel + 1)

@@ -48,13 +48,13 @@ open Setlec (CheckMode Env Expr Name)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {env : Env} {m : EnvS2 V env}
+variable {V : Type w} [SetTheory V] {env : Env} {m : EnvS2U V env}
 variable {μ : CheckMode} {φ : Name → Nat}
 
 /-- **The context predicate, with truthfulness.**  `CtxOk2` plus the
 fourth leaf conjunct, as a conjunction so that `CtxOk2` itself is
 untouched. -/
-def CtxOk2D (m : EnvS2 V env) (μ : CheckMode) (φ : Name → Nat)
+def CtxOk2D (m : EnvS2U V env) (μ : CheckMode) (φ : Name → Nat)
     (F d : Nat) (Δa : List AVExpr) (e : Expr) : Prop :=
   CtxOk2 m μ φ F d Δa e ∧ CtxOk2Ann m μ φ F d Δa e
 
@@ -371,7 +371,7 @@ nothing: both halves are free at depth `0`. -/
 
 /-- **`CtxOk2D` is inhabited beyond vacuity**, at depth `1`, over a
 satisfiable context. -/
-theorem nonvacuous {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+theorem nonvacuous {env : Env} (m : EnvS2U V env) (μ : CheckMode)
     (φ : Name → Nat) (F : Nat) (nm : Name) :
     CtxOk2D m μ φ F 1 [AVExpr.sort 0] (.fvar 0 nm (.sort .zero)) ∧
       Sat2 V [AVExpr.sort 0] (fun _ => empty) := by

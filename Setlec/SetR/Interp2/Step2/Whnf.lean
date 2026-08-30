@@ -250,7 +250,7 @@ truthfulness, which is the shape `AnnotOk2_zeta` /
 weakening and has no `toClaims2`. -/
 
 /-- Repair 1 for the `whnfCore` claim. -/
-def WhnfCoreClaims2F (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def WhnfCoreClaims2F (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -265,7 +265,7 @@ def WhnfCoreClaims2F (μ : CheckMode) {env : Env} (m : EnvS2 V env)
           (AnnotOk2 V ρ ea → AnnotOk2 V ρ ea')
 
 /-- Repair 1 for the loop claim. -/
-def WhnfClaims2F (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def WhnfClaims2F (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnf μ env fuel d e = .ok e' →
@@ -281,20 +281,20 @@ def WhnfClaims2F (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 
 /-- Repair 1 loses nothing: the sealed claim is the `F := fuel`
 instance. -/
-theorem WhnfCoreClaims2F.toClaims2 {m : EnvS2 V env} {fuel : Nat}
+theorem WhnfCoreClaims2F.toClaims2 {m : EnvS2U V env} {fuel : Nat}
     (h : WhnfCoreClaims2F μ m φ fuel) :
     WhnfCoreClaims2 μ m φ fuel := by
   intro d e e' Δa hr hw hb hL hC ea hea
   exact h hr hw hb hL hC hea
 
-theorem WhnfClaims2F.toClaims2 {m : EnvS2 V env} {fuel : Nat}
+theorem WhnfClaims2F.toClaims2 {m : EnvS2U V env} {fuel : Nat}
     (h : WhnfClaims2F μ m φ fuel) : WhnfClaims2 μ m φ fuel := by
   intro d e e' Δa hr hw hb hL hC ea hea
   exact h hr hw hb hL hC hea
 
 /-- Repairs 1 **and** 2 for the `whnfCore` claim: the graded
 conclusion the Tier-A step lemmas actually deliver. -/
-def WhnfCoreClaims2R (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def WhnfCoreClaims2R (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -308,7 +308,7 @@ def WhnfCoreClaims2R (μ : CheckMode) {env : Env} (m : EnvS2 V env)
           interp2 V ρ ea = interp2 V ρ ea' ∧ AnnotOk2 V ρ ea'
 
 /-- Repairs 1 and 2 for the loop claim. -/
-def WhnfClaims2R (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def WhnfClaims2R (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnf μ env fuel d e = .ok e' →
@@ -336,7 +336,7 @@ theorem denote2_bvar {acval : Name → (Name → Nat) → AVExpr}
   rw [denote2.eq_def]
 
 /-- **The `.bvar` clause.**  Vacuous on the annotation side. -/
-theorem whnfCore_bvar_claim2 (m : EnvS2 V env) {F d i : Nat}
+theorem whnfCore_bvar_claim2 (m : EnvS2U V env) {F d i : Nat}
     {ea : AVExpr}
     (hea : denote2 μ m.acval env φ F d (.bvar i) = some ea) :
     False := by
@@ -345,7 +345,7 @@ theorem whnfCore_bvar_claim2 (m : EnvS2 V env) {F d i : Nat}
 /-- **The six leaf clauses**, at the sealed conclusion shape and at an
 arbitrary annotation fuel — so this lemma serves `WhnfCoreClaims2`,
 `WhnfCoreClaims2F` and `WhnfCoreClaims2R` alike. -/
-theorem whnfCore_leaf_claim2 (m : EnvS2 V env) {F fuel d : Nat}
+theorem whnfCore_leaf_claim2 (m : EnvS2U V env) {F fuel d : Nat}
     {e e' : Expr} {Δa : List AVExpr} {ea : AVExpr}
     (hleaf : (∃ u, e = .sort u) ∨ (∃ idx n ty, e = .fvar idx n ty) ∨
       (∃ n ty body bi, e = .forallE n ty body bi) ∨
@@ -419,7 +419,7 @@ def Denote2Inst1 (μ : CheckMode)
 repair 1 is the whole of STOP 1 at this clause: the induction
 hypothesis is used at the goal's own `F`, no fuel moves, and the only
 outside input is `Denote2Inst1`. -/
-theorem whnfCore_letE_claim2F (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_letE_claim2F (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1 μ m.acval env φ)
     (ihwc : WhnfCoreClaims2F μ m φ fuel)
     {d : Nat} {nn : Name} {tt vv bb e' : Expr} {Δa : List AVExpr}
@@ -478,7 +478,7 @@ theorem whnfCore_letE_claim2F (m : EnvS2 V env) {fuel : Nat}
 
 /-- The ζ clause again, in the graded currency the assembly runs
 in. -/
-theorem whnfCore_letE_claim2R (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_letE_claim2R (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1 μ m.acval env φ)
     (ihwc : WhnfCoreClaims2R μ m φ fuel)
     {d : Nat} {nn : Name} {tt vv bb e' : Expr} {Δa : List AVExpr}
@@ -543,7 +543,7 @@ recursive `whnfCore` call needs, and moves the interpretation only as
 the fired modeled-iota law over `interp2` allows.  That law is the
 migrating iota bottoms' to state (the T5 rule), so this consumer only
 names the shape it will be used at. -/
-def IotaStep2 (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def IotaStep2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e'' : Expr} {Δa : List AVExpr},
     iotaRecP μ env fuel d e = .ok (some e'') →
@@ -564,7 +564,7 @@ reason `ProjStepR` records: the clause whnf's its scrutinee and
 expands string literals before the table is consulted, so a
 reduct-granular obligation would leave two unproved steps outside it
 rather than one inside. -/
-def ProjStep2 (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def ProjStep2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {sn : Name} {i : Nat} {pe e' : Expr}
     {Δa : List AVExpr},
@@ -582,7 +582,7 @@ def ProjStep2 (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 
 /-- **The literal-acceleration obligation** — the loop's first exit,
 whose `Nat`-op machinery is not transposed to `interp2` yet. -/
-def ReduceNatStep2 (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def ReduceNatStep2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e₂ : Expr} {Δa : List AVExpr},
     reduceNatP μ env fuel d e = .ok (some e₂) →
@@ -604,7 +604,7 @@ the unfolded body carries the constant's own canonical annotation
 from the body's annotation to the applied spine's needs the annotated
 `mkAppN` inversion that the v1 lane has as `denote_mkAppN_inv` and
 this one does not.  Named rather than guessed. -/
-def Delta2 (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def Delta2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {F : Nat} {ea : AVExpr},
     unfoldDefinition env e = some e' →
@@ -625,7 +625,7 @@ This closes `WhnfStep2`'s content modulo its two named residues. -/
 
 /-- `whnfCore_packageR`'s transpose: the reduct's annotation fact
 together with the frame conditions the loop's next iteration needs. -/
-theorem whnfCore_package2R (m : EnvS2 V env) {fuel d F : Nat}
+theorem whnfCore_package2R (m : EnvS2U V env) {fuel d F : Nat}
     {Δa : List AVExpr} {a a' : Expr} {aa : AVExpr}
     (ihwc : WhnfCoreClaims2R μ m φ fuel)
     (hw : whnfCore μ env fuel d a = .ok a')
@@ -647,7 +647,7 @@ theorem whnfCore_package2R (m : EnvS2 V env) {fuel d F : Nat}
 
 /-- **The budget induction.**  Every iteration of the reduction loop
 moves the annotated interpretation only as the three exits allow. -/
-theorem whnfLoop_claim2R (m : EnvS2 V env) {fuel : Nat}
+theorem whnfLoop_claim2R (m : EnvS2U V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2R μ m φ fuel)
     (hnat : ReduceNatStep2 μ m φ fuel) (hdelta : Delta2 μ m φ) :
     ∀ (budget : Nat) {d : Nat} {Δa : List AVExpr} {e e' : Expr},
@@ -713,7 +713,7 @@ theorem whnfLoop_claim2R (m : EnvS2 V env) {fuel : Nat}
 
 /-- **`WhnfClaims2R` at `fuel + 1`** — the loop run at its own budget;
 `whnfBody` *is* the loop. -/
-theorem whnf_claims2R (m : EnvS2 V env) {fuel : Nat}
+theorem whnf_claims2R (m : EnvS2U V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2R μ m φ fuel)
     (hnat : ReduceNatStep2 μ m φ fuel) (hdelta : Delta2 μ m φ) :
     WhnfClaims2R μ m φ (fuel + 1) := by
@@ -727,11 +727,11 @@ loop needs neither the defeq nor the inference claim (`whnf_claimsR`
 records the same), so the quarter is exactly: the `whnfCore` claim at
 `fuel`, plus the two named exits. -/
 theorem whnfStep2R_of
-    (hnat : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hnat : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), ReduceNatStep2 μ m φ fuel)
-    (hdelta : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+    (hdelta : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
       Delta2 μ m φ) :
-    ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+    ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
       WhnfCoreClaims2R μ m φ fuel → WhnfClaims2R μ m φ (fuel + 1) :=
   fun env m φ fuel ihwc =>
     whnf_claims2R m ihwc (hnat env m φ fuel) (hdelta env m φ)
@@ -755,7 +755,7 @@ the clause boundary rather than guessed. -/
 Supplier: the inference and defeq quarters under repair 1; v1's
 counterpart is the `ihi`/`ihd` composition inside
 `denote_beta_stepR`. -/
-def BetaCert2 (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def BetaCert2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {F : Nat}
     {aa tya : AVExpr},
@@ -774,7 +774,7 @@ def BetaCert2 (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 
 /-- **The `.app` clause of the `whnfCore` quarter**, in the repaired
 currency. -/
-theorem whnfCore_app_claim2R (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_app_claim2R (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1 μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2 μ m φ fuel)
     (ihwc : WhnfCoreClaims2R μ m φ fuel)
@@ -907,7 +907,7 @@ needs `Denote2Inst1`; `.app` needs that plus `BetaCert2` and
 
 /-- **The `WhnfCoreStep2` quarter, routed**, in the repaired
 currency. -/
-theorem whnfCore_claims2R (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_claims2R (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1 μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2 μ m φ fuel)
     (hproj : ProjStep2 μ m φ fuel)
@@ -958,15 +958,15 @@ repaired currency: the four residues plus the induction hypothesis.
 (The defeq and inference claims are not consumed — the β certificate
 is what would consume them, and it is `BetaCert2`.) -/
 theorem whnfCoreStep2R_of
-    (hinst : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+    (hinst : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
       Denote2Inst1 μ m.acval env φ)
-    (hcert : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hcert : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), BetaCert2 μ m φ fuel)
-    (hiota : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hiota : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), IotaStep2 μ m φ fuel)
-    (hproj : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hproj : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), ProjStep2 μ m φ fuel) :
-    ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+    ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
       WhnfCoreClaims2R μ m φ fuel →
         WhnfCoreClaims2R μ m φ (fuel + 1) :=
   fun env m φ fuel ihwc =>
@@ -1075,7 +1075,7 @@ The two that need **no** change:
 is the stored λ body, which `denote2_one_lam` says has no annotation
 there at all.  The same witness as `acvalDefnUniform_lam_refuted`, one
 level further out: repairing `EnvS2` did not repair this. -/
-theorem delta2_refuted (m : EnvS2 V env) {n n' : Name}
+theorem delta2_refuted (m : EnvS2U V env) {n n' : Name}
     {us : List Level} {cv : ConstantVal} {ty body : Expr}
     {mb : BinderMeta} {hint : ReducibilityHint}
     (hf : env.find? n
@@ -1100,7 +1100,7 @@ theorem delta2_refuted (m : EnvS2 V env) {n n' : Name}
 /-- **`ProjStep2` is false**, by the same criterion and a run any
 bundled structure supplies: `.proj sn i pe` with `pe` a constant
 annotates at fuel `1`, and a function-valued field does not. -/
-theorem projStep2_refuted (m : EnvS2 V env) {fuel d i : Nat}
+theorem projStep2_refuted (m : EnvS2U V env) {fuel d i : Nat}
     {sn n' : Name} {pe ty body : Expr} {mb : BinderMeta}
     {Δa : List AVExpr} {ea : AVExpr}
     (hrun : whnfCore μ env (fuel + 1) d (.proj sn i pe)
@@ -1224,7 +1224,7 @@ def Denote2Inst1B (μ : CheckMode)
 /-- `IotaStep2` with the slack: a fired rule's RHS may carry binder
 nodes the major's spine did not, and the spine can be all leaves
 (`Nat.rec M z s (Nat.succ Nat.zero)` annotates at fuel `1`). -/
-def IotaStep2B (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def IotaStep2B (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e'' : Expr} {Δa : List AVExpr},
     iotaRecP μ env fuel d e = .ok (some e'') →
@@ -1242,7 +1242,7 @@ def IotaStep2B (μ : CheckMode) {env : Env} (m : EnvS2 V env)
         CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e''
 
 /-- `ProjStep2` with the slack — `projStep2_refuted` is why. -/
-def ProjStep2B (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def ProjStep2B (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {sn : Name} {i : Nat} {pe e' : Expr}
     {Δa : List AVExpr},
@@ -1263,7 +1263,7 @@ def ProjStep2B (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 itself does not move: the unfolded body carries the constant's own
 leaf (`EnvS2.acval_defn`, in its repaired existential form).  Only the
 fuel does. -/
-def Delta2B (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def Delta2B (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {F : Nat} {ea : AVExpr},
     unfoldDefinition env e = some e' →
@@ -1279,7 +1279,7 @@ through.  The interpretation-level reasoning is untouched — the
 so lifting an annotation never disturbs the grading premise. -/
 
 /-- `whnfCore_package2R` with the slack. -/
-theorem whnfCore_package2B (m : EnvS2 V env) {fuel d F : Nat}
+theorem whnfCore_package2B (m : EnvS2U V env) {fuel d F : Nat}
     {Δa : List AVExpr} {a a' : Expr} {aa : AVExpr}
     (ihwc : WhnfCoreClaims2B μ m φ fuel)
     (hw : whnfCore μ env fuel d a = .ok a')
@@ -1302,7 +1302,7 @@ theorem whnfCore_package2B (m : EnvS2 V env) {fuel d F : Nat}
 
 /-- **The ζ clause**, corrected: `Denote2Inst1B` moves the fuel once,
 the induction hypothesis once more, and `Nat.le_trans` composes. -/
-theorem whnfCore_letE_claim2B (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_letE_claim2B (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (ihwc : WhnfCoreClaims2B μ m φ fuel)
     {d : Nat} {nn : Name} {tt vv bb e' : Expr} {Δa : List AVExpr}
@@ -1361,7 +1361,7 @@ theorem whnfCore_letE_claim2B (m : EnvS2 V env) {fuel : Nat}
 reduction moves the fuel first in all three, and `denote2_fuelMono`
 carries the *argument's* annotation up to meet it — unchanged, so the
 grading premise survives. -/
-theorem whnfCore_app_claim2B (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_app_claim2B (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2B μ m φ fuel)
     (ihwc : WhnfCoreClaims2B μ m φ fuel)
@@ -1498,7 +1498,7 @@ theorem whnfCore_app_claim2B (m : EnvS2 V env) {fuel : Nat}
 /-- **`WhnfCoreClaims2B` at `fuel + 1`** — the nine cases.  The seven
 that take `F' = F` do so through `whnfCore_leaf_claim2`, reused
 verbatim from the `…R` lane: they were never wrong. -/
-theorem whnfCore_claims2B (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_claims2B (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2B μ m φ fuel)
     (hproj : ProjStep2B μ m φ fuel)
@@ -1548,13 +1548,13 @@ theorem whnfCore_claims2B (m : EnvS2 V env) {fuel : Nat}
 `Claims2B.lean`.  The defeq and inference claims are not consumed —
 `BetaCert2` is what would consume them, and it is a residue. -/
 theorem whnfCoreStep2B_of
-    (hinst : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+    (hinst : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
-    (hcert : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hcert : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), BetaCert2 μ m φ fuel)
-    (hiota : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hiota : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), IotaStep2B μ m φ fuel)
-    (hproj : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hproj : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), ProjStep2B μ m φ fuel) :
     WhnfCoreStep2B μ V :=
   fun env m φ fuel ihwc _ _ _ =>
@@ -1565,7 +1565,7 @@ theorem whnfCoreStep2B_of
 accumulates `F ≤ F₁ ≤ F₂ ≤ …` by `Nat.le_trans` and nothing else; the
 existential is unbounded, so the chain's length costs nothing.
 `ReduceNatStep2` enters **unchanged** — `natOpResult_leaf` is why. -/
-theorem whnfLoop_claim2B (m : EnvS2 V env) {fuel : Nat}
+theorem whnfLoop_claim2B (m : EnvS2U V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2B μ m φ fuel)
     (hnat : ReduceNatStep2 μ m φ fuel) (hdelta : Delta2B μ m φ) :
     ∀ (budget : Nat) {d : Nat} {Δa : List AVExpr} {e e' : Expr},
@@ -1634,7 +1634,7 @@ theorem whnfLoop_claim2B (m : EnvS2 V env) {fuel : Nat}
             step2_trans (hD₁ ρ hρ) (hD₃ ρ hρ)⟩
 
 /-- **`WhnfClaims2B` at `fuel + 1`.** -/
-theorem whnf_claims2B (m : EnvS2 V env) {fuel : Nat}
+theorem whnf_claims2B (m : EnvS2U V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2B μ m φ fuel)
     (hnat : ReduceNatStep2 μ m φ fuel) (hdelta : Delta2B μ m φ) :
     WhnfClaims2B μ m φ (fuel + 1) := by
@@ -1648,9 +1648,9 @@ neither the defeq nor the inference claim, and — this is the finding
 worth carrying — it needs `ReduceNatStep2` **unchanged**: literal
 acceleration is the one exit whose reduct is always a leaf. -/
 theorem whnfStep2B_of
-    (hnat : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hnat : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), ReduceNatStep2 μ m φ fuel)
-    (hdelta : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+    (hdelta : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
       Delta2B μ m φ) :
     WhnfStep2B μ V :=
   fun env m φ fuel ihwc _ _ _ =>
@@ -1704,7 +1704,7 @@ supplies the value.
 
 Not refutable by the smallest-fuel test: the fuel is existential, in
 `EnvS2.acval_defn`'s own repaired shape. -/
-def AcvalDefnInst (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def AcvalDefnInst (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) : Prop :=
   ∀ {F : Nat} {cv : ConstantVal} {value : Expr} {us : List Level},
     ((∃ hint : ReducibilityHint,
@@ -1772,7 +1772,7 @@ place loses nothing.  (The campaign's rule: a repair needs the
 positive check as well as the negative one.  This is the "nothing is
 lost" half; the "it is satisfiable at a real environment" half is the
 install layer's and is not testable here.) -/
-theorem acval_defn_of_acvalDefnInst (m : EnvS2 V env)
+theorem acval_defn_of_acvalDefnInst (m : EnvS2U V env)
     (hdi : AcvalDefnInst μ m φ) (F : Nat) (cv : ConstantVal)
     (value : Expr) (hint : ReducibilityHint)
     (hmem : ConstantInfo.defnInfo cv value hint ∈ env.consts) :
@@ -1783,29 +1783,22 @@ theorem acval_defn_of_acvalDefnInst (m : EnvS2 V env)
     (Or.inl ⟨hint, hmem⟩) (by simp)
   rwa [Expr.instantiateLevelParams_self, substFn_param_self] at h
 
-/-- The two forms of the obligation, related: the general level
-crossing turns the fields as they stand into the shape the exit
-consumes. -/
-theorem acvalDefnInst_of_instLevels (m : EnvS2 V env)
-    (hil : Denote2InstLevels μ m) : AcvalDefnInst μ m φ := by
-  intro F cv value us hmem hlen
-  obtain ⟨F₁, hle₁, h₁⟩ :
-      ∃ F₁, F ≤ F₁ ∧
-        denote2 μ m.acval env (Level.substFn φ cv.levelParams us) F₁ 0
-            value
-          = some (m.acval cv.name
-            (Level.substFn φ cv.levelParams us)) := by
-    rcases hmem with ⟨hint, hm⟩ | hm
-    · exact m.acval_defn μ _ F cv value hint hm
-    · exact m.acval_thm μ _ F cv value hm
-  obtain ⟨F₂, hle₂, h₂⟩ :=
-    hil φ cv.levelParams us F₁ 0 value _ h₁
-  exact ⟨F₂, Nat.le_trans hle₁ hle₂, h₂⟩
+/-! **`acvalDefnInst_of_instLevels` does not survive the
+re-point, and its death was predicted.**  It derived
+`AcvalDefnInst` from `Denote2InstLevels` by reading
+*existence* out of `EnvS2.acval_defn`; `EnvS2U`'s field is
+an identification and has no existence to give.  Seal 40
+recorded the casualty at its site before the re-point ran,
+and the measurement confirms it: this is the only one of the
+four `acval_defn`/`acval_thm` consumers that cannot be
+restated.  The surviving half is `acvalDefnInstU_noParams`
+(`Claims2U.lean`), and `acvalDefnInst_noParams` just above
+keeps its `EnvS2` statement unchanged. -/
 
 /-- The shared core of `unfoldDefinition`'s two branches — v1's
 `delta_coreR` (`Bridge/WhnfCore.lean`) transposed, with the two
 crossings v1 does not have to make. -/
-private theorem delta2B_core (m : EnvS2 V env)
+private theorem delta2B_core (m : EnvS2U V env)
     {d F : Nat} {e : Expr} {n : Name} {us : List Level}
     {ci : ConstantInfo} {cv : ConstantVal} {value : Expr}
     {ea : AVExpr}
@@ -1847,7 +1840,7 @@ private theorem delta2B_core (m : EnvS2 V env)
 /-- **`Delta2B`, discharged** from the single obligation above.  The
 spine, the depth and the frame are theorems; the level crossing is the
 whole of what remains. -/
-theorem delta2B_of (m : EnvS2 V env) (hdi : AcvalDefnInst μ m φ) :
+theorem delta2B_of (m : EnvS2U V env) (hdi : AcvalDefnInst μ m φ) :
     Delta2B μ m φ := by
   intro d e e' F ea hud hea
   rw [unfoldDefinition] at hud
@@ -1941,7 +1934,7 @@ by weakening it past its consumer is worse than an open one. -/
 the two claims actually compose to.  `BetaCert2` is this with
 `CtxOk2` and the domain's `AnnotOk2` removed; the first of those is
 `CtxOk2R`'s content and the reason this is not a discharge. -/
-def BetaCert2P (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def BetaCert2P (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {F : Nat}
     {aa tya : AVExpr},
@@ -1964,7 +1957,7 @@ claim types the argument, the defeq claim moves the interpretation
 from the inferred type to the λ's domain, and the membership rides
 across.  `htok` is the inference quarter's `TypeOk2`, written out
 because it lives in that quarter's file. -/
-theorem betaCert2P_of_claims (m : EnvS2 V env) {fuel : Nat}
+theorem betaCert2P_of_claims (m : EnvS2U V env) {fuel : Nat}
     (htok : ∀ {F f d : Nat} {e t : Expr} {Δa : List AVExpr}
       {ta : AVExpr},
       inferTypeCore μ env f d e = .ok t →
@@ -2068,7 +2061,7 @@ one question — *does the residue mention `AnnotOk2` at all?*
   proving the existing residue implies it. -/
 
 /-- `IotaStep2B`, hoisted. -/
-def IotaStep2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def IotaStep2C (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e'' : Expr} {Δa : List AVExpr},
     iotaRecP μ env fuel d e = .ok (some e'') →
@@ -2087,7 +2080,7 @@ def IotaStep2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
         Expr.LeavesBounded e'' ∧
         CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e''
 
-theorem IotaStep2B.toC {m : EnvS2 V env} {fuel : Nat}
+theorem IotaStep2B.toC {m : EnvS2U V env} {fuel : Nat}
     (h : IotaStep2B μ m φ fuel) : IotaStep2C μ m φ fuel := by
   intro d e e'' Δa hio hws hb hLb hC F ea hea hok
   obtain ⟨F', ea', hle, hea', hD, hf⟩ := h hio hws hb hLb hC hea
@@ -2095,7 +2088,7 @@ theorem IotaStep2B.toC {m : EnvS2 V env} {fuel : Nat}
     (step2C_of_graded hok hD).2, hf⟩
 
 /-- `ProjStep2B`, hoisted. -/
-def ProjStep2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def ProjStep2C (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {sn : Name} {i : Nat} {pe e' : Expr}
     {Δa : List AVExpr},
@@ -2114,7 +2107,7 @@ def ProjStep2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
         ∀ ρ : Nat → V, Sat2 V Δa ρ →
           interp2 V ρ ea = interp2 V ρ ea'
 
-theorem ProjStep2B.toC {m : EnvS2 V env} {fuel : Nat}
+theorem ProjStep2B.toC {m : EnvS2U V env} {fuel : Nat}
     (h : ProjStep2B μ m φ fuel) : ProjStep2C μ m φ fuel := by
   intro d sn i pe e' Δa hr hws hb hLb hC F ea hea hok
   obtain ⟨F', ea', hle, hea', hD⟩ := h hr hws hb hLb hC hea
@@ -2123,7 +2116,7 @@ theorem ProjStep2B.toC {m : EnvS2 V env} {fuel : Nat}
 
 /-- `ReduceNatStep2`, hoisted.  The fuel still does not move
 (`natOpResult_leaf`); only the grading does. -/
-def ReduceNatStep2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def ReduceNatStep2C (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e₂ : Expr} {Δa : List AVExpr},
     reduceNatP μ env fuel d e = .ok (some e₂) →
@@ -2141,7 +2134,7 @@ def ReduceNatStep2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
         Expr.LeavesBounded e₂ ∧
         CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e₂
 
-theorem ReduceNatStep2.toC {m : EnvS2 V env} {fuel : Nat}
+theorem ReduceNatStep2.toC {m : EnvS2U V env} {fuel : Nat}
     (h : ReduceNatStep2 μ m φ fuel) : ReduceNatStep2C μ m φ fuel := by
   intro d e e₂ Δa hrn hws hb hLb hC F ea hea hok
   obtain ⟨ea', hea', hD, hf⟩ := h hrn hws hb hLb hC hea
@@ -2152,7 +2145,7 @@ theorem ReduceNatStep2.toC {m : EnvS2 V env} {fuel : Nat}
 
 /-- `whnfCore_package2B`, hoisted: the reduct's uniform invariant, its
 per-valuation equality, and the frame conditions. -/
-theorem whnfCore_package2C (m : EnvS2 V env) {fuel d F : Nat}
+theorem whnfCore_package2C (m : EnvS2U V env) {fuel d F : Nat}
     {Δa : List AVExpr} {a a' : Expr} {aa : AVExpr}
     (ihwc : WhnfCoreClaims2C μ m φ fuel)
     (hw : whnfCore μ env fuel d a = .ok a')
@@ -2180,7 +2173,7 @@ theorem whnfCore_package2C (m : EnvS2 V env) {fuel d F : Nat}
 /-- **The ζ clause, hoisted.**  Free: `AnnotOk2_zeta` is a pointwise
 implication, so its second conjunct pushes under the `∀ ρ` verbatim
 and its first is the equality's left half. -/
-theorem whnfCore_letE_claim2C (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_letE_claim2C (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (ihwc : WhnfCoreClaims2C μ m φ fuel)
     {d : Nat} {nn : Name} {tt vv bb e' : Expr} {Δa : List AVExpr}
@@ -2243,7 +2236,7 @@ only recursive call whose subject fact has to be manufactured, and
 sub-cases then differ only in how the reduct's uniform invariant is
 obtained: from `AnnotOk2_beta_*` (β), from `IotaStep2C` (ι), or not at
 all (stuck). -/
-theorem whnfCore_app_claim2C (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_app_claim2C (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2C μ m φ fuel)
     (ihwc : WhnfCoreClaims2C μ m φ fuel)
@@ -2394,7 +2387,7 @@ theorem whnfCore_app_claim2C (m : EnvS2 V env) {fuel : Nat}
 `F' = F` cases still go through `whnfCore_leaf_claim2`, reused
 verbatim from the `…R` lane: the subject *is* the reduct there, so the
 hoisted invariant is the premise itself. -/
-theorem whnfCore_claims2C (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_claims2C (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2C μ m φ fuel)
     (hproj : ProjStep2C μ m φ fuel)
@@ -2445,13 +2438,13 @@ generation four.**  Same four residues as the `…B` lane, three of them
 hoisted and `BetaCert2` unchanged; the defeq and inference claims are
 still not consumed here. -/
 theorem whnfCoreStep2C_of
-    (hinst : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+    (hinst : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
-    (hcert : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hcert : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), BetaCert2 μ m φ fuel)
-    (hiota : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hiota : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), IotaStep2C μ m φ fuel)
-    (hproj : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hproj : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), ProjStep2C μ m φ fuel) :
     WhnfCoreStep2C μ V :=
   fun env m φ fuel ihwc _ _ _ =>
@@ -2461,7 +2454,7 @@ theorem whnfCoreStep2C_of
 /-- **The budget induction, hoisted.**  `Delta2B` enters unchanged —
 it moves the fuel and not the annotation, so the subject's uniform
 invariant is literally the reduct's. -/
-theorem whnfLoop_claim2C (m : EnvS2 V env) {fuel : Nat}
+theorem whnfLoop_claim2C (m : EnvS2U V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2C μ m φ fuel)
     (hnat : ReduceNatStep2C μ m φ fuel) (hdelta : Delta2B μ m φ) :
     ∀ (budget : Nat) {d : Nat} {Δa : List AVExpr} {e e' : Expr},
@@ -2533,7 +2526,7 @@ theorem whnfLoop_claim2C (m : EnvS2 V env) {fuel : Nat}
           interp2C_trans heq₁ heq'⟩
 
 /-- **`WhnfClaims2C` at `fuel + 1`.** -/
-theorem whnf_claims2C (m : EnvS2 V env) {fuel : Nat}
+theorem whnf_claims2C (m : EnvS2U V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2C μ m φ fuel)
     (hnat : ReduceNatStep2C μ m φ fuel) (hdelta : Delta2B μ m φ) :
     WhnfClaims2C μ m φ (fuel + 1) := by
@@ -2545,9 +2538,9 @@ theorem whnf_claims2C (m : EnvS2 V env) {fuel : Nat}
 /-- **`whnfStep2C_of` — the reduction loop against generation four.**
 Still no defeq and no inference claim; still `Delta2B` unchanged. -/
 theorem whnfStep2C_of
-    (hnat : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hnat : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), ReduceNatStep2C μ m φ fuel)
-    (hdelta : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+    (hdelta : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
       Delta2B μ m φ) :
     WhnfStep2C μ V :=
   fun env m φ fuel ihwc _ _ _ =>
@@ -2577,7 +2570,7 @@ therefore still the residue the quarter actually routes through, and
 `whnfCore_app_claim2C`. -/
 
 /-- `BetaCert2P` with its `AnnotOk2` above the `∀ ρ`. -/
-def BetaCert2PC (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def BetaCert2PC (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {F : Nat}
     {aa tya : AVExpr},
@@ -2600,7 +2593,7 @@ def BetaCert2PC (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 composition is now `htok`-free: `InferClaims2C` hands over the
 returned type's `AnnotOk2` ρ-uniformly, which is exactly the shape
 `DefEqClaims2C` takes. -/
-theorem betaCert2PC_of_claims (m : EnvS2 V env) {fuel : Nat}
+theorem betaCert2PC_of_claims (m : EnvS2U V env) {fuel : Nat}
     (ihd : DefEqClaims2C μ m φ fuel)
     (ihi : InferClaims2C μ m φ fuel) :
     BetaCert2PC μ m φ fuel := by
@@ -2626,7 +2619,7 @@ Anything that proved `BetaCert2P` proves `BetaCert2PC`: apply the
 nothing, and `betaCert2PC_of_claims` above is a strictly better
 discharge than `betaCert2P_of_claims` — one fewer premise, and the
 premise it drops was a named residue. -/
-theorem BetaCert2P.toC {m : EnvS2 V env} {fuel : Nat}
+theorem BetaCert2P.toC {m : EnvS2U V env} {fuel : Nat}
     (h : BetaCert2P μ m φ fuel) : BetaCert2PC μ m φ fuel :=
   fun hta hde hwa hba hLa hCa hwty hbty hLty hCty hC2 haa htya
     hoktya ρ hρ =>
@@ -2657,7 +2650,7 @@ therefore routes **three** residues where the `…C` lane routed four.
 -/
 
 /-- `IotaStep2C` in the single currency. -/
-def IotaStep2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def IotaStep2D (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e'' : Expr} {Δa : List AVExpr},
     iotaRecP μ env fuel d e = .ok (some e'') →
@@ -2676,7 +2669,7 @@ def IotaStep2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
         Expr.LeavesBounded e'' ∧ CtxOk2D m μ φ F' d Δa e''
 
 /-- `ProjStep2C` in the single currency. -/
-def ProjStep2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def ProjStep2D (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {sn : Name} {i : Nat} {pe e' : Expr}
     {Δa : List AVExpr},
@@ -2696,7 +2689,7 @@ def ProjStep2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 
 /-- `ReduceNatStep2C` in the single currency.  The fuel still does not
 move, so the context comes back at the fuel it went in at. -/
-def ReduceNatStep2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def ReduceNatStep2D (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e₂ : Expr} {Δa : List AVExpr},
     reduceNatP μ env fuel d e = .ok (some e₂) →
@@ -2716,7 +2709,7 @@ def ReduceNatStep2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 /-- `BetaCert2` in the single currency — stated so that the discharge
 below has something to be a discharge *of*, and so that the shape is
 on the record beside its `…C` predecessor. -/
-def BetaCert2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def BetaCert2D (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {F : Nat}
     {aa tya : AVExpr},
@@ -2745,7 +2738,7 @@ The two context obligations the composition creates are kit moves and
 nothing else: the inferred type `ta`'s context is the subject's
 restricted along `inferTypeCore_fvarLeaves`, and the ascribed type
 `ty`'s is its own, raised to the inferred type's fuel. -/
-theorem betaCert2D_of_claims (m : EnvS2 V env) {fuel : Nat}
+theorem betaCert2D_of_claims (m : EnvS2U V env) {fuel : Nat}
     (ihd : DefEqClaims2D μ m φ fuel)
     (ihi : InferClaims2D μ m φ fuel) :
     BetaCert2D μ m φ fuel := by
@@ -2772,7 +2765,7 @@ theorem betaCert2D_of_claims (m : EnvS2 V env) {fuel : Nat}
 conjunct: the reduct's context is the subject's, **raised to the
 reduct's own fuel** and then restricted along
 `whnfCore_fvarLeaves`. -/
-theorem whnfCore_package2D (m : EnvS2 V env) {fuel d F : Nat}
+theorem whnfCore_package2D (m : EnvS2U V env) {fuel d F : Nat}
     {Δa : List AVExpr} {a a' : Expr} {aa : AVExpr}
     (ihwc : WhnfCoreClaims2D μ m φ fuel)
     (hw : whnfCore μ env fuel d a = .ok a')
@@ -2800,7 +2793,7 @@ theorem whnfCore_package2D (m : EnvS2 V env) {fuel d F : Nat}
 has no leaf the subject did not have, so the context is `of_subset`
 after one `fuelMono` — the same two-step the `…C` lane spelled out by
 hand against `CtxOkR`. -/
-theorem whnfCore_letE_claim2D (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_letE_claim2D (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (ihwc : WhnfCoreClaims2D μ m φ fuel)
     {d : Nat} {nn : Name} {tt vv bb e' : Expr} {Δa : List AVExpr}
@@ -2859,7 +2852,7 @@ kit call: `app_fn`/`app_arg` down, `app` back up at the head's new
 fuel, `of_subset` into the β reduct.  The certificate `hcert` now
 reads the *same* context hypothesis the clause holds — that is the
 whole of what generation five changes here. -/
-theorem whnfCore_app_claim2D (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_app_claim2D (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2D μ m φ fuel) (hiota : IotaStep2D μ m φ fuel)
     (ihwc : WhnfCoreClaims2D μ m φ fuel)
@@ -2995,7 +2988,7 @@ theorem whnfCore_app_claim2D (m : EnvS2 V env) {fuel : Nat}
     exact ⟨F₁, _, hle₁, hiapp, hokapp, heqapp⟩
 
 /-- **`WhnfCoreClaims2D` at `fuel + 1`** — the nine cases. -/
-theorem whnfCore_claims2D (m : EnvS2 V env) {fuel : Nat}
+theorem whnfCore_claims2D (m : EnvS2U V env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2D μ m φ fuel) (hiota : IotaStep2D μ m φ fuel)
     (hproj : ProjStep2D μ m φ fuel)
@@ -3046,11 +3039,11 @@ generation five.**  Three routed residues, not four: `BetaCert2D` is
 built from the defeq and inference claims the quarter is already
 handed. -/
 theorem whnfCoreStep2D_of
-    (hinst : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+    (hinst : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
-    (hiota : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hiota : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), IotaStep2D μ m φ fuel)
-    (hproj : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hproj : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), ProjStep2D μ m φ fuel) :
     WhnfCoreStep2D μ V :=
   fun env m φ fuel ihwc _ ihd ihi =>
@@ -3061,7 +3054,7 @@ theorem whnfCoreStep2D_of
 /-- **The budget induction, in one currency.**  `Delta2B` enters
 unchanged — it moves the fuel and not the annotation — but the context
 must now be moved with it, which is the δ branch's one new line. -/
-theorem whnfLoop_claim2D (m : EnvS2 V env) {fuel : Nat}
+theorem whnfLoop_claim2D (m : EnvS2U V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2D μ m φ fuel)
     (hnat : ReduceNatStep2D μ m φ fuel) (hdelta : Delta2B μ m φ) :
     ∀ (budget : Nat) {d : Nat} {Δa : List AVExpr} {e e' : Expr},
@@ -3133,7 +3126,7 @@ theorem whnfLoop_claim2D (m : EnvS2 V env) {fuel : Nat}
           interp2C_trans heq₁ heq'⟩
 
 /-- **`WhnfClaims2D` at `fuel + 1`.** -/
-theorem whnf_claims2D (m : EnvS2 V env) {fuel : Nat}
+theorem whnf_claims2D (m : EnvS2U V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2D μ m φ fuel)
     (hnat : ReduceNatStep2D μ m φ fuel) (hdelta : Delta2B μ m φ) :
     WhnfClaims2D μ m φ (fuel + 1) := by
@@ -3144,9 +3137,9 @@ theorem whnf_claims2D (m : EnvS2 V env) {fuel : Nat}
 
 /-- **`whnfStep2D_of` — the reduction loop against generation five.** -/
 theorem whnfStep2D_of
-    (hnat : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hnat : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), ReduceNatStep2D μ m φ fuel)
-    (hdelta : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+    (hdelta : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
       Delta2B μ m φ) :
     WhnfStep2D μ V :=
   fun env m φ fuel ihwc _ _ _ =>
@@ -3184,13 +3177,13 @@ produced an annotation.  The bundle is passed whole for uniformity. -/
 /-- **`whnfCoreStep2E_of` — the head-normalisation quarter against
 generation six**, with the existence factor handed back. -/
 theorem whnfCoreStep2E_of
-    (hex : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hex : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), Exists2E μ m φ fuel)
-    (hinst : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+    (hinst : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
-    (hiota : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hiota : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), IotaStep2D μ m φ fuel)
-    (hproj : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hproj : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), ProjStep2D μ m φ fuel) :
     WhnfCoreStep2E μ V := by
   intro env m φ fuel ihwc ihw ihd ihi
@@ -3201,11 +3194,11 @@ theorem whnfCoreStep2E_of
 
 /-- **`whnfStep2E_of` — the reduction loop against generation six.** -/
 theorem whnfStep2E_of
-    (hex : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hex : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), Exists2E μ m φ fuel)
-    (hnat : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+    (hnat : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
       (fuel : Nat), ReduceNatStep2D μ m φ fuel)
-    (hdelta : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+    (hdelta : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
       Delta2B μ m φ) :
     WhnfStep2E μ V := by
   intro env m φ fuel ihwc ihw ihd ihi

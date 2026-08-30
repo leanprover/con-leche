@@ -52,7 +52,7 @@ variable {V : Type w} [SetTheory V]
 
 /-- **`CtxOk2Open` is discharged.**  No environment shape, no fuel
 condition, no mode, no level assignment, and no extra premise. -/
-theorem ctxOk2Open_of {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+theorem ctxOk2Open_of {env : Env} (m : EnvS2U V env) (μ : CheckMode)
     (φ : Name → Nat) : CtxOk2Open m μ φ :=
   fun ht hb hty hfb => CtxOk2.openS ht hb hty hfb
 
@@ -97,7 +97,7 @@ lane, which takes **no** `ctx_open` field at all. -/
 
 /-- `CtxOk2Open` in the new currency, with the premise the fourth
 conjunct adds. -/
-def CtxOk2OpenD {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+def CtxOk2OpenD {env : Env} (m : EnvS2U V env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ {F d : Nat} {Δa : List AVExpr} {n : Name} {ty body : Expr}
     {ta : AVExpr},
@@ -110,7 +110,7 @@ def CtxOk2OpenD {env : Env} (m : EnvS2 V env) (μ : CheckMode)
 /-- **`CtxOk2OpenD` is discharged**, and the `Expr.fvarsBelow`
 argument `CtxOk2Open` carried is gone too: `CtxOk2D` contains its own
 scoping. -/
-theorem ctxOk2OpenD_of {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+theorem ctxOk2OpenD_of {env : Env} (m : EnvS2U V env) (μ : CheckMode)
     (φ : Name → Nat) : CtxOk2OpenD m μ φ :=
   fun ht hb hty hok => CtxOk2D.openS ht hb hty hok
 
