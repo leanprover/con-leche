@@ -12570,3 +12570,52 @@ discharge rides the corrected induction, not the overturned
 measure.  The beec972 measure section is TOMBSTONED by this entry
 (the tombstone-sweep rule applies: no future obligation may cite
 `[rank, |Γ|, phase]`).  STOP — reporting before any arm code.
+
+### Migration step 2, entry item 1 — `BConst.type2` (the annotated basis types)
+
+`Setlec/SetR/Interp2/BasisType.lean`: the first of the two suppliers
+the skeleton's `const` row waits on.  `BConst.type` yields a `VExpr`
+and `denote2` maps `Expr → AVExpr`, so neither can produce a built-in's
+*annotated* type — the former has to exist on its own, and now does,
+for all eighteen constants.
+
+**The annotation convention was inherited, not invented**, which is the
+point: `Interp2/Value.lean` had already fixed it for the value side —
+every binder's codomain slot carries the tower's **result sort** `r`
+(sound because `piR`/`lamR` read the numeral only through `v = 0`, and
+`imax x y = 0 ↔ y = 0`), every domain slot carries the domain's
+**exact** sort (because `AnnotOk2`'s binder clauses and
+`Skeleton.sound_pi` read it).  The two sides must agree numeral for
+numeral or the capstone cannot typecheck, so the former was written by
+reading the towers off `Value.lean` rather than by re-deriving them:
+`natSucc` at `r = 1`, `natRec` at `u`, `punitRec`/`emptyRec` at `v`,
+`psigma` at `max u v + 1`, `psigmaMk` at `max u v`, `quot` at `u + 1`,
+`quotMk` at `u`, `quotLift` at `v`, `choice` at `u`, and
+`quotInd`/`quotSound`/`propext` at `0` (their values are `pt`; their
+types are propositions).
+
+**One trap, named because it is easy to get backwards.**  A codomain
+slot holds the sort of `B` *as a type*, so a codomain `.sort k` gets
+`k + 1`, never `k`.  That is why `A → Prop` annotates as
+`.pi u 1 A (.sort 0)` and is a **type** of sort `max u 1`, not a
+proposition — exactly what `relSpace2` says.  Getting this wrong would
+have made every quotient row silently Prop-valued.
+
+**Faithfulness is checked, not asserted**: `type2_erase` proves
+`(type2 c us).erase = BConst.type c us` on the nose, all eighteen cases
+by one `simp`.  So the former adds annotations and nothing else, and a
+*numeral* error is the only thing this file can get wrong — which is
+precisely what entry item 2 will test.
+
+**Entry item 2 is confirmed mechanical in shape.**  Probed before
+sealing, on three constants across the difficulty range: the pattern
+`simp only [BConst.type2, <smart constructors>, interp2_*]` reduces
+`interp2 ρ (type2 c us)` to the tower's own space, after which the
+existing membership lemma closes it (`natSuccV2_mem`,
+`omega_mem_univ_succ`, `unitSet_mem_univ`).  What remains for
+`bval2_mem_type` is that most **tower** memberships do not yet exist —
+`Value.lean` has the application laws and the applied-form memberships,
+but the bare-tower facts are `ConstOk.lean`'s (v1) and have no interp2
+analogue.  So entry item 2 is "port `ConstOk.lean` (267 lines) onto
+`piR`", not "invent an argument": sized, and with every case's target
+already written down here.
