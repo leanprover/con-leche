@@ -10,7 +10,7 @@ the design document does not say.  House practices are
 
 ## Promoted practices (binding here; candidates for §0/§25)
 
-Five rules earned promotion by recurring across unrelated
+Six rules earned promotion by recurring across unrelated
 stages.  They sit at the top of this file because they are checks to
 run *while designing*, not lessons to read afterwards.
 
@@ -110,6 +110,26 @@ where the sort information lives, or that trades a semantic invariant
 for a syntactic one, is not an alternative — it is the same design
 paying different rent.  Both memos are in this file; both cost
 estimates were sound and both were beside the point.
+
+**P5 — a witness law and an inhabitation law are different lemmas, and
+a regime tag decides which one a proof needs.**  `lamR_mem` is a
+*witness* law: it concludes `lamR v A F ∈ˢ piR v A B` from the
+pointwise `∀ x ∈ˢ A, F x ∈ˢ B x`.  At `v = 0` the product is a truth
+value, and what membership of the canonical proof actually needs is
+only that each fibre is **inhabited** — strictly weaker.  While a
+tower's *value* carries an explicit `if v = 0 then pt` tag the
+distinction never surfaces, because the leaf discharges pointwise;
+delete the tag (as `psigmaMkV2` did, correctly, since the annotation
+squashes the tower anyway) and the kind-`0` argument **moves from the
+leaf to the root**, where only the inhabitation law will do.
+
+The concrete check, and it is cheap: **when a value-level regime tag
+goes, look for the weaker introduction law before assuming the proof
+transposes.**  Here it did not exist — `pt_mem_piR_zero` had to be
+added to `Interp2/Ops.lean` — and once it did, it served `psigmaMk`
+*and* all three `pt`-valued propositions, which had looked like a
+separate "inhabitation tail" and were in fact the same missing lemma.
+Cost of finding it late: one seal.  Cost of the rule: one line.
 
 ## T2 inventory (this tier, as landed)
 
