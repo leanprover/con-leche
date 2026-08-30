@@ -16963,3 +16963,75 @@ Stated, not proved: if the front-door run's existence is not visible
 where `DeclStep2` can see it, **that is an exposure request** on
 whatever holds it — the pattern that has gone three for three this arc
 — and not a rebuild.
+
+### Seal 46 — the live lane is re-pointed; the scope deviation is ACCEPTED
+
+516 sites, **515 mechanical**. Build green at 343 jobs, `lake test`
+clean, battery **90/92** with e2e 72/72 and the no-model sweep
+unchanged.
+
+**Seal 40's measurement was confirmed exactly: the four predicted
+exceptions were the only ones. There is no fifth.** A four-lemma count
+taken six seals earlier predicted a 516-site mechanical change to the
+lemma. *That is what a measurement is worth compared to an
+impression.*
+
+| exception | disposition |
+|---|---|
+| `whnfStep2_delta`, `whnfStep2_delta_thm` | kept at `EnvS2` (read existence) |
+| `acvalDefnInst_noParams` | kept at `EnvS2` — conclusion spelled out, so it still typechecks |
+| `acvalDefnInst_of_instLevels` | **deleted** — both hypothesis and conclusion moved to `EnvS2U`, so it cannot be *stated*, exactly as seal 40 predicted |
+
+All four are consumerless; nothing downstream noticed.
+
+#### The finding: my brief was wrong, and the tombstones could not stay behind
+
+I wrote that the superseded generations *"need nothing"*. **False**,
+for two independent reasons, either alone fatal:
+
+1. `Claims2A/2C/2D` **apply `CtxOk2`/`CtxOk2D` to their own `EnvS2`
+   binder**, and those predicates live in the *live* files that moved.
+   The `Coe (EnvS2 …) (EnvS2U …)` escape was **tested, not assumed**:
+   it does not fire, because Lean will not insert a coercion against a
+   metavariable-headed expected type.
+2. All four `…Step2E_of` **factor through generation five at the same
+   `m`**, and `Capstone2E` derives everything from `checkSound2D`.
+   Given an arbitrary `EnvS2U` there is no `EnvS2` to hand them — that
+   map is exactly `EnvS2UInImage`, which stays open by ruling.
+
+My scope table also **under-counted by 15 live sites** across five
+files I did not list.
+
+**Ruled: the deviation is accepted.** The tombstone-preservation
+practice exists to stop a refutation being *weakened*; widening its
+quantifier does the **opposite**. Verified at the junction rather than
+taken on report: `not_ctxOk2R` now reads
+`∀ (m : EnvS2U V env) μ φ, ¬ CtxOk2R m μ φ` — and since `EnvS2U` is
+the weaker structure there are *more* of them, so the statement is
+**strictly stronger**, with the old form recovered through `toU`. Same
+for `whnfClaims2A_delta_refuted`. Both verify on the standard axioms.
+
+*Rule: a tombstone may be strengthened, never weakened. Widening the
+class it quantifies over is strengthening — check the direction before
+invoking the practice.*
+
+#### The bridge residue drops out; the bridge does not
+
+`checkStep2U_of_2E` no longer takes `EnvS2UInImage`, and the keys
+carry no pointwise residue. **`EnvS2UInImage`, `envS2UInImage_iff` and
+both probes stand untouched — seal 34 is intact.**
+
+**Two riders, both recorded in-tree and both against interest:**
+
+* **The obligation moved; it did not vanish.** The fifteen residues
+  are now demanded at *every* `EnvS2U` — a strictly larger class than
+  the `toU`-image — so they became harder to discharge by exactly the
+  amount the claims seam became easier. **Seal 32's finding again: a
+  factorisation, not a localization.** None of the fifteen is
+  discharged in this tree today.
+* **`Claims2U`'s copies are now degenerate** — `…Claims2U` and
+  `…Claims2E` are the same definitions twice, so the `Iff.rfl` bridges
+  are `rfl` between identical texts and the two `checkStep2*_of_*`
+  are the identity. Flagged by the worker under my own rule about
+  `rfl`-provable Props. **Ruled: keep as drift checks now, retire at
+  the cleanup seal** alongside `EnvS2.cval_annot`.
