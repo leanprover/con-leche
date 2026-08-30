@@ -9681,3 +9681,39 @@ concrete cross-pairing thread ((B)'s proved pattern, the
 `deltaSpineSortAgree_of` collapses the core onto
 `ZipWhnfSortAgree` (mkAppN zip fold + `certZip_instantiate` at the
 head + `.cert` leaves from `defEqList_extract`).
+
+### The both-δ core COLLAPSED onto the summit
+
+The flagged mechanical amendment landed first: the (A)-motive now
+threads concrete cross-`PairedLeaves` ((B)'s proved pattern — the
+`PairedPreserve*F` species as hypotheses of the whole (A) chain,
+uniform with (B); `SpineSortAgree`/`DeltaSpineSortAgree` carry the
+pairing at pre-core/head-normal subjects; `spineSortAgree_of` steps
+it with `hLC` + symm).  Then the collapse:
+
+* `evalEqList_map` — `isEquivList` soundness in the map form
+  `constSlack` consumes;
+* `certZip_mkAppN` — the spine fold (zipped head + pointwise `.cert`
+  leaves stays zipped; the cons-getElem coercions are definitional,
+  no simp);
+* `deltaSpineSortAgree_of` — **the core discharged**: the spine
+  facts zip the pair (`mkAppN_getApp` reconstruction, `constSlack`
+  head, `defEqList_extract` leaves) and `ZipWhnfSortAgree`
+  concludes.  Q is absorbed (`_hQv` — the zip tier is Q-free as
+  audited).
+* `ensureSortAgreeR_of_summit` — the frontier composite: the (A)
+  primitive with the spine leg live modulo the summit claim.  (The
+  trio legs still route through the refuted transport species
+  pending the semantic discharge — tracked in the composite's
+  docstring.)
+
+Recipe note (three rounds): implicit-∀ Props eta-expand and
+mis-instantiate at BOTH ends of an application — pin `(φ := φ)`
+`(Q := Q)` at the producer AND the consumer, and ascribe
+intermediate `have`s.
+
+Remaining on the defeq branch: the semantic trio discharge (Q-frame
++ univ separation), the summit induction itself, the (B)-tier
+collapse onto `ZipSortOfAgree`, and the install-tier facts
+(`BoolCtorsInert`, `DeltaSortLinked`-shape inside the summit's δ
+case via (E), the preserver suppliers).

@@ -1753,7 +1753,7 @@ def SpineSortAgree (μ : CheckMode) (env : Env) (φ : Name → Nat)
     (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc l d ga la gb lb f₁ f₂ : Nat} {a b a' b' : Expr}
     {ℓa ℓb : Level},
-    SubjInv d a → SubjInv d b → Q d a b →
+    SubjInv d a → SubjInv d b → PairedLeaves a b → Q d a b →
     Setlec.defeqLoop μ (Setlec.pureFns μ env fc) env d l a b
       = .ok true →
     whnfCore μ env f₁ d a = .ok a' →
@@ -1797,6 +1797,8 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
     (hm : KnotFuelMono μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
     (hIN : InvPreserveNatF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
     (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
     (hQN : QPreserveNatF μ env Q)
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
@@ -1808,7 +1810,7 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
   have main : ∀ (fc L : Nat) {d : Nat} {a b : Expr},
       Setlec.defeqLoop μ (Setlec.pureFns μ env fc) env d L a b
         = .ok true →
-      SubjInv d a → SubjInv d b → Q d a b →
+      SubjInv d a → SubjInv d b → PairedLeaves a b → Q d a b →
       ∀ {ga la gb lb : Nat} {ℓa ℓb : Level},
         Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la a
           = .ok (.sort ℓa) →
@@ -1819,7 +1821,7 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
     induction L with
     | zero => intro d a b hc; exact nomatch hc
     | succ l ih =>
-      intro d a b hc hIa hIb hQab ga la gb lb ℓa ℓb ha hb
+      intro d a b hc hIa hIb hPab hQab ga la gb lb ℓa ℓb ha hb
       have hc0 := hc
       rw [defeqLoop_succ] at hc
       rcases defeqStep_decompose hc with rfl | ⟨a', b', hwa, hwb, hcert⟩
@@ -1883,6 +1885,7 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
               (hm.2.2.2.2 (Nat.le_max_right fc ga) hrga) hux
               (whnfLoop_r_mono hm (Nat.le_max_right fc ga) hkx)
           exact ih hk (hIC hwa hIa) (hIN hrnB (hIC hwb hIb))
+            ((hLN hrnB (hLC hwb ((hLC hwa hPab).symm))).symm)
             (hQs (hQN hrnB (hQC hwb (hQs (hQC hwa hQab))))) hA hb₂
         · obtain rfl := hstop
           have hA : Setlec.whnfLoop (Setlec.pureFns μ env fc) env d
@@ -1892,6 +1895,7 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
               (whnfCore_sort_run (whnfCore_pos hwa)) reduceNat_sort
               unfoldDefinition_sort
           exact ih hk (hIC hwa hIa) (hIN hrnB (hIC hwb hIb))
+            ((hLN hrnB (hLC hwb ((hLC hwa hPab).symm))).symm)
             (hQs (hQN hrnB (hQC hwb (hQs (hQC hwa hQab))))) hA hb₂
       | deltaL _ _ a₂ hu hk =>
         have hbcore : whnfCore μ env fc d b' = .ok b' := by
@@ -1909,6 +1913,7 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
         · rw [hu] at hux
           obtain rfl : a₂ = x := Option.some.inj hux
           exact ih hk (hID hu (hIC hwa hIa)) (hIC hwb hIb)
+            ((hLC hwb ((hLD hu (hLC hwa hPab)).symm)).symm)
             (hQs (hQC hwb (hQs (hQD hu (hQC hwa hQab))))) hkx hb'
         · rw [hu] at huda; exact nomatch huda
       | deltaR _ _ b₂ hu hk =>
@@ -1930,6 +1935,7 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
                 (hm.2.2.2.2 (Nat.le_max_right fc ga) hrga) hux
                 (whnfLoop_r_mono hm (Nat.le_max_right fc ga) hkx)
             exact ih hk (hIC hwa hIa) (hID hu (hIC hwb hIb))
+              ((hLD hu (hLC hwb ((hLC hwa hPab).symm))).symm)
               (hQs (hQD hu (hQC hwb (hQs (hQC hwa hQab))))) hA hkyb
           · obtain rfl := hstop
             have hA : Setlec.whnfLoop (Setlec.pureFns μ env fc) env d
@@ -1939,6 +1945,7 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
                 (whnfCore_sort_run (whnfCore_pos hwa)) reduceNat_sort
                 unfoldDefinition_sort
             exact ih hk (hIC hwa hIa) (hID hu (hIC hwb hIb))
+              ((hLD hu (hLC hwb ((hLC hwa hPab).symm))).symm)
               (hQs (hQD hu (hQC hwb (hQs (hQC hwa hQab))))) hA hkyb
         · rw [hu] at hudb; exact nomatch hudb
       | deltaB _ _ a₂ b₂ hua hub hk =>
@@ -1953,11 +1960,13 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
           · rw [hub] at huy
             obtain rfl : b₂ = y := Option.some.inj huy
             exact ih hk (hID hua (hIC hwa hIa)) (hID hub (hIC hwb hIb))
+              ((hLD hub (hLC hwb ((hLD hua (hLC hwa hPab)).symm))).symm)
               (hQs (hQD hub (hQC hwb (hQs (hQD hua (hQC hwa hQab))))))
               hkx hkyb
           · rw [hub] at hudb; exact nomatch hudb
         · rw [hua] at huda; exact nomatch huda
-      | spine _ _ hs => exact hS hIa hIb hQab hc0 hwa hwb hs ha hb
+      | spine _ _ hs =>
+        exact hS hIa hIb hPab hQab hc0 hwa hwb hs ha hb
       | sorts u v hiseq =>
         have h1 := loop_stuck_out hm ha hwa
           (fun _ => reduceNat_sort) unfoldDefinition_sort
@@ -2037,7 +2046,7 @@ theorem ensureSortAgreeRQ_of {μ : CheckMode} {env : Env}
     obtain ⟨gb, lb, -, hlb⟩ := whnf_peel h₂
     exact main fc Setlec.defeqLoopFuel hc
       (SubjInv.of_pair hwsa hba hLa hp)
-      (SubjInv.of_pair_right hwsb hbb hLb hp) hQ hla hlb
+      (SubjInv.of_pair_right hwsb hbb hLb hp) hp hQ hla hlb
 
 /-- The slot-free shell: `EnsureSortAgreeR` as the `Q := True`
 instance — trivial slot preservers, no hypothesis regression. -/
@@ -2046,6 +2055,8 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
     (hm : KnotFuelMono μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
     (hIN : InvPreserveNatF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
     (hP : ProbeSortVacuity μ env fun _ _ _ => True)
     (hR : RescueSortVacuity μ env fun _ _ _ => True)
     (hE : EtaSortVacuity μ env fun _ _ _ => True)
@@ -2054,6 +2065,7 @@ theorem ensureSortAgreeR_of {μ : CheckMode} {env : Env}
     EnsureSortAgreeR μ env φ := by
   intro fc d a b f₁ f₂ ℓ₁ ℓ₂ hc hwsa hba hLa hwsb hbb hLb hp h₁ h₂
   exact ensureSortAgreeRQ_of (Q := fun _ _ _ => True) hm hIC hID hIN
+    hLC hLD hLN
     (fun _ h => h) (fun _ h => h) (fun _ h => h) (fun h => h)
     hP hR hE hN hS hc hwsa hba hLa hwsb hbb hLb hp trivial h₁ h₂
 
@@ -4289,6 +4301,8 @@ theorem ensureSortAgreeR_of_vacuities {μ : CheckMode} {env : Env}
     {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
     (hIN : InvPreserveNatF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
     (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
     (hQN : QPreserveNatF μ env Q)
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
@@ -4297,7 +4311,7 @@ theorem ensureSortAgreeR_of_vacuities {μ : CheckMode} {env : Env}
     (hS : SpineSortAgree μ env φ Q) :
     EnsureSortAgreeRQ μ env φ Q :=
   ensureSortAgreeRQ_of (Q := Q) (knotFuelMono μ env) hIC hID hIN
-    hQC hQD hQN hQs hP hR hE hN hS
+    hLC hLD hLN hQC hQD hQN hQs hP hR hE hN hS
 
 /-! ## The nat-chase discharge -/
 
@@ -4562,14 +4576,16 @@ theorem ensureSortAgreeR_of_pss {μ : CheckMode} {env : Env}
     (hB : BoolCtorsInert env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
     (hIN : InvPreserveNatF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
     (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
     (hQN : QPreserveNatF μ env Q)
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
     (hP : ProbeSortVacuity μ env Q) (hR : RescueSortVacuity μ env Q)
     (hE : EtaSortVacuity μ env Q) (hS : SpineSortAgree μ env φ Q) :
     EnsureSortAgreeRQ μ env φ Q :=
-  ensureSortAgreeR_of_vacuities (Q := Q) hIC hID hIN hQC hQD hQN hQs
-    hP hR hE (natStepNoSort_of hB) hS
+  ensureSortAgreeR_of_vacuities (Q := Q) hIC hID hIN hLC hLD hLN
+    hQC hQD hQN hQs hP hR hE (natStepNoSort_of hB) hS
 
 /-! ## The trio discharge tier
 
@@ -5025,7 +5041,7 @@ and equated by `isEquivList` soundness. -/
 def DeltaSpineSortAgree (μ : CheckMode) (env : Env)
     (φ : Name → Nat) (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {a' b' : Expr} {ℓa ℓb : Level},
-    SubjInv d a' → SubjInv d b' → Q d a' b' →
+    SubjInv d a' → SubjInv d b' → PairedLeaves a' b' → Q d a' b' →
     Setlec.defeqSpine (Setlec.pureFns μ env fc) env d a' b'
       = .ok true →
     Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la a'
@@ -5041,13 +5057,14 @@ carried across the whnfCore step. -/
 theorem spineSortAgree_of {φ : Name → Nat}
     {Q : Nat → Expr → Expr → Prop} (hm : KnotFuelMono μ env)
     (hB : BoolCtorsInert env) (hIC : InvPreserveCoreF μ env)
+    (hLC : PairedPreserveCoreF μ env)
     (hQC : QPreserveCoreF μ env Q)
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
     (hD : DeltaSpineSortAgree μ env φ Q) :
     SpineSortAgree μ env φ Q := by
   have hN : NatStepNoSort μ env := natStepNoSort_of hB
-  intro fc l d ga la gb lb f₁ f₂ a b a' b' ℓa ℓb hIa hIb hQab hc
-    hwa hwb hs ha hb
+  intro fc l d ga la gb lb f₁ f₂ a b a' b' ℓa ℓb hIa hIb hPab hQab
+    hc hwa hwb hs ha hb
   cases la with
   | zero => exact nomatch ha
   | succ la' =>
@@ -5107,6 +5124,7 @@ theorem spineSortAgree_of {φ : Name → Nat}
           (hm.2.2.2.2 (Nat.le_max_right f₂ gb) hrgb) huy
           (whnfLoop_r_mono hm (Nat.le_max_right f₂ gb) hky)
       exact hD (hIC hwa hIa) (hIC hwb hIb)
+        ((hLC hwb ((hLC hwa hPab).symm)).symm)
         (hQs (hQC hwb (hQs (hQC hwa hQab)))) hs ha' hb'
     · obtain rfl := hstopB
       unfold Setlec.defeqSpine at hs
@@ -5129,6 +5147,8 @@ theorem ensureSortAgreeR_of_species {φ : Name → Nat}
     (hTN : TypeTransportNatF μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
     (hIN : InvPreserveNatF μ env) (hInf : InvPreserveInferF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
     (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
     (hQN : QPreserveNatF μ env Q)
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
@@ -5137,7 +5157,8 @@ theorem ensureSortAgreeR_of_species {φ : Name → Nat}
   have hm : KnotFuelMono μ env := knotFuelMono μ env
   have hT : TypeTransportLoopF μ env :=
     typeTransportLoopF_of hTC hTD hTN hIC hID hIN
-  ensureSortAgreeR_of_pss (Q := Q) hB hIC hID hIN hQC hQD hQN hQs
+  ensureSortAgreeR_of_pss (Q := Q) hB hIC hID hIN hLC hLD hLN
+    hQC hQD hQN hQs
     (probeSortVacuity_of hm hT hTD hTN hIC hID hIN hInf)
     (rescueSortVacuity_of hm hT hTD hTN hIC hID hIN hInf
       (natStepNoSort_of hB))
@@ -5154,15 +5175,17 @@ theorem ensureSortAgreeR_of_core {φ : Name → Nat}
     (hTN : TypeTransportNatF μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
     (hIN : InvPreserveNatF μ env) (hInf : InvPreserveInferF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
     (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
     (hQN : QPreserveNatF μ env Q)
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
     (hD : DeltaSpineSortAgree μ env φ Q) :
     EnsureSortAgreeRQ μ env φ Q :=
   ensureSortAgreeR_of_species (Q := Q) hB hTC hTD hTN hIC hID hIN
-    hInf hQC hQD hQN hQs
-    (spineSortAgree_of (Q := Q) (knotFuelMono μ env) hB hIC hQC hQs
-      hD)
+    hInf hLC hLD hLN hQC hQD hQN hQs
+    (spineSortAgree_of (Q := Q) (knotFuelMono μ env) hB hIC hLC hQC
+      hQs hD)
 
 /-! ## (B)'s dual shell — `sortOfE` agreement on the same decomposition
 
@@ -5954,6 +5977,51 @@ theorem defEqList_extract {r : Setlec.CoreFns Setlec.CheckM}
           | succ i =>
             simpa using hall i (by simpa using h₁) (by simpa using h₂)
 
+/-- `EvalEqList` as a map equality (the bridge from `isEquivList`
+soundness to `constSlack`'s premise). -/
+theorem evalEqList_map {φ : Name → Nat} :
+    ∀ {us vs : List Level}, Setlec.Level.EvalEqList φ us vs →
+      us.map (Level.eval φ) = vs.map (Level.eval φ)
+  | [], [], _ => rfl
+  | u :: us, v :: vs, h => by
+    obtain ⟨h1, h2⟩ := h
+    simp only [List.map]
+    rw [h1, evalEqList_map h2]
+  | [], _ :: _, h => h.elim
+  | _ :: _, [], h => h.elim
+
+/-- Zip a spine fold: a zipped head applied to pointwise-certified
+argument lists stays zipped. -/
+theorem certZip_mkAppN {μ : CheckMode} {env : Env} {fc d : Nat} :
+    ∀ {as bs : List Expr} {f₁ f₂ : Expr},
+      CertZip μ env fc d f₁ f₂ →
+      as.length = bs.length →
+      (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+        isDefEqCore μ env fc d as[i] bs[i] = .ok true) →
+      CertZip μ env fc d (Setlec.Expr.mkAppN f₁ as)
+        (Setlec.Expr.mkAppN f₂ bs) := by
+  intro as
+  induction as with
+  | nil =>
+    intro bs f₁ f₂ hz hlen hcert
+    cases bs with
+    | nil => exact hz
+    | cons b bs => exact nomatch hlen
+  | cons a as ih =>
+    intro bs f₁ f₂ hz hlen hcert
+    cases bs with
+    | nil => exact nomatch hlen
+    | cons b bs =>
+      simp only [Setlec.Expr.mkAppN]
+      exact ih
+        (.app _ _ _ _ hz
+          (.cert _ _ (hcert 0 (Nat.zero_lt_succ _) (Nat.zero_lt_succ _))))
+        (by simpa using hlen)
+        (fun i h₁ h₂ =>
+          hcert (i + 1)
+            (by simp only [List.length_cons]; omega)
+            (by simp only [List.length_cons]; omega))
+
 /-- **Summit claim, subject form**: zipped pairs whose members'
 whnf chains both reach literal sorts have eval-equal levels.  The
 spine core and (A)'s remaining routings collapse onto this. -/
@@ -5977,6 +6045,62 @@ def ZipSortOfAgree (μ : CheckMode) (env : Env)
     CertZip μ env fc d s t →
     SubjInv d s → SubjInv d t → PairedLeaves s t →
     SortOfLE μ env φ d s u → SortOfLE μ env φ d t v → u = v
+
+/-- **The both-δ core COLLAPSED onto the summit**: the spine facts
+zip the pair (head by `constSlack` through `isEquivList` soundness,
+args as `.cert` leaves through `defEqList_extract`), and
+`ZipWhnfSortAgree` concludes. -/
+theorem deltaSpineSortAgree_of {φ : Name → Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hZ : ZipWhnfSortAgree μ env φ) :
+    DeltaSpineSortAgree μ env φ Q := by
+  intro fc d ga la gb lb a' b' ℓa ℓb hIa hIb hPab _hQ hs hla hlb
+  unfold Setlec.defeqSpine at hs
+  split at hs
+  · next n us heqa =>
+    split at hs
+    · next n' us' heqb =>
+      split at hs
+      · next hcond =>
+        obtain ⟨rfl, hlen⟩ := hcond
+        split at hs
+        · next heql =>
+          obtain ⟨hlen', hcerts⟩ := defEqList_extract hs
+          have hzip : CertZip μ env fc d a' b' := by
+            rw [← Setlec.Expr.mkAppN_getApp a',
+              ← Setlec.Expr.mkAppN_getApp b', heqa, heqb]
+            exact certZip_mkAppN
+              (.constSlack n us us' fun φ' =>
+                evalEqList_map (Setlec.Level.isEquivList_sound heql φ'))
+              hlen' hcerts
+          exact hZ hzip hIa hIb hPab hla hlb
+        · exact nomatch hs
+      · exact nomatch hs
+    · exact nomatch hs
+  · exact nomatch hs
+
+/-- **The branch primitive at the summit**: `EnsureSortAgreeRQ` with
+the spine core discharged onto `ZipWhnfSortAgree`.  (The trio legs
+still route through the refuted transport species pending the
+semantic discharge — this composite tracks the live frontier.) -/
+theorem ensureSortAgreeR_of_summit {φ : Name → Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hB : BoolCtorsInert env)
+    (hTC : TypeTransportCoreF μ env) (hTD : TypeTransportDeltaF μ env)
+    (hTN : TypeTransportNatF μ env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env) (hInf : InvPreserveInferF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
+    (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
+    (hQN : QPreserveNatF μ env Q)
+    (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
+    (hZ : ZipWhnfSortAgree μ env φ) :
+    EnsureSortAgreeRQ μ env φ Q :=
+  have hD : DeltaSpineSortAgree μ env φ Q :=
+    deltaSpineSortAgree_of (φ := φ) (Q := Q) hZ
+  ensureSortAgreeR_of_core (Q := Q) hB hTC hTD hTN hIC hID hIN hInf
+    hLC hLD hLN hQC hQD hQN hQs hD
 
 /-- The slot-free (B) shell: `SortOfAgreeR` as the `Q := True`
 instance. -/
