@@ -154,7 +154,20 @@ noncomputable def EnvS2U.empty : EnvS2U V Env.empty :=
 Not "is there *some* `EnvS2` here" — the claims are stated at
 `m.acval`, so a witness with a different canonical valuation is no
 use.  The equation is what makes the residue usable, and it is what
-`checkStep2U_of_2E` (`Claims2U.lean`) consumes. -/
+`checkStep2U_of_2E` (`Claims2U.lean`) consumes.
+
+**This bridge stays OPEN by ruling (seal 42), and closing it would
+undo seal 34.**  Its residue is the two `denote2` fields *in the
+direction uniqueness cannot supply* — `Denote2Total`'s wall at stored
+bodies, which is exactly the obstruction the uniqueness form was
+introduced to escape.  `acval_defn_uniq_lam_ok` is the standing
+witness that uniqueness holds precisely where existence fails.
+
+It is **exhibited**, not merely named: `probeEnvS2`/`piProbeEnvS2`
+lift both probes on the nose.  But both lift only because neither
+environment stores a `defnInfo` or `thmInfo` — **no axiom-only probe
+can exercise the residue.**  The stored-definition probe is where this
+stops being free, which is the point of building it. -/
 def EnvS2UInImage {env : Env} (m : EnvS2U V env) : Prop :=
   ∃ m' : EnvS2 V env, EnvS2.toU V m' = m
 

@@ -16711,3 +16711,62 @@ next probe up needs a stored *definition*, and that is where
 *Rule: when a diagnosis names a cause, check the cause is consumed
 anywhere before calling it the gap. `cval_annot` was absent, and
 absent things look causal.*
+
+### Seal 42 — rulings: `cval_annot` withdrawn, the quarters' re-point authorized
+
+**(a) Item 1 is WITHDRAWN, not retried.** The absent-things-look-causal
+rule cuts sharper than my report asked. `cval_annot` is **projected
+nowhere**, supplied only by `EnvS2.empty`, and the consumers that want
+its content take `CvalAnnot` as an **explicit hypothesis**
+(`Annot/Pass.lean`) — the textbook *vacuous field with a good name*,
+which this campaign's own no-unconsumed-fields discipline says not to
+carry.
+
+So: **do not restore it at `EnvS2U`**, and **`EnvS2`'s own copy is
+flagged for deletion** at the next cleanup seal, with `Pass.lean`'s
+hypothesis-style consumers noted as the correct pattern.
+
+*This dissolves the third construction site's obstructions entirely —
+they were the cost of supplying a field nothing reads.* The seal-40
+"restoration owed" line is void.
+
+**Both third-site findings are ledgered as knowledge**, since they are
+true regardless and were paid for:
+
+* **A fresh name's collapse-lane valuation genuinely can escape
+  `CvalAnnot`.** `Infer` has **no `.prf` clause**
+  (`Annot/Validity.lean`'s `not_infer_prf`), so a leaf like
+  `.lam .prf .prf` has no `Annotates` derivation at all. Any future
+  field asserting annotation of an *arbitrary* stored valuation is
+  false for this reason.
+* **The relational environment-weakening family is absent** —
+  `Annotates`/`Infer`/`DefEq` under cons-extension. `denote2_envExtend`
+  has no relational counterpart. **Known-absent with a named route**: a
+  bounded structural induction with `find?`-monotone premises, the
+  shape (E) already has on the run side. **Built on demand only.**
+
+**(b) The four quarters' re-point to `EnvS2U` is authorized** — the
+same license as `Claims2U`'s: seal 40's four-lemma measurement showed
+no quarter reads the existential fields. Statement changes in
+`Claims2E.lean` and `Capstone2E.lean`, not proofs.
+
+**The `EnvS2UInImage` bridge stays OPEN**, and its docstring now says
+why: closing it would undo seal 34, because its residue is
+`Denote2Total`'s wall in the direction uniqueness cannot supply. The
+docstring also records the limit — both probes lift *only* because
+neither stores a `defnInfo`, so **no axiom-only probe exercises the
+residue.**
+
+**(c) Ledger line: I7 and I3 infer the same type** for the pi-probe's
+stored leaf — one reading the codomain off I2, the other off the
+stored type's denotation. *The install contract surfacing on the
+relational side; had they disagreed, the λ-shape conjunct would have
+been unmeetable.*
+
+**(d) Next probe: the stored-definition probe** — the one that
+actually exercises `EnvS2UInImage`'s residue, per the limit above.
+Then the conditional keys land on the re-pointed quarters.
+
+*Rule: a field nobody projects is not a gap to fill but a field to
+delete — and the obstructions to supplying it are not findings about
+the design, only invoices for the mistake.*
