@@ -9742,3 +9742,28 @@ Summit consumer set, FINAL: `ZipWhnfSortAgree` + `ZipSortOfAgree`
 serve everything downstream (`SortSubstStable`'s leaf via (B),
 `EnsureSortAgreeR`'s consumers via (A), the trio's semantic
 discharge stays on the (A)-shell's Q-channel as ruled).
+
+### The semantic trio's frame STATED (`SortCohFrame.lean`)
+
+`PtFresh` checked first, as directed: `univ_ne_pt` already exists
+(PtFresh.lean:116) — the "one-lemma gap" was in the tree before the
+seal opened.  The new `V`-carrying module (SortCoh stays `V`-free)
+lands `FrameSide`/`FrameQ` — the consumer's `Q`-slot instantiation:
+per side, the bridge-standard guards SELF-CARRIED (pre-build check:
+the `QPreserve*F` species pass no `SubjInv`, so a frame that needs
+guards for its own preservation must travel with them — no shell
+re-touch), the context correspondence at the consumer's `Δv`, and
+denotability; `frameQ_symm` proved (the slot's symmetry
+requirement, by construction).
+
+The discharge route recorded with every supplier named:
+`checkBridge` (unconditional given `EnvR` — the claims are
+AVAILABLE, not hypothetical; a decisive simplification found by the
+reconnaissance), loop-to-whnf lifting via `whnfLoop_budget_mono` +
+`whnf_of_loop`, `DefEq.sound`/`Infer.sound` at `(ρ, hSat)`
+parameters (at `d = 0`, `Sat_nil`), `mem_univ_zero` + `univ_ne_pt`
+for the collision, and the preservers riding `WhnfCoreClaimsR` /
+`denote_delta_step` / literal-`Bool` denotes.  The three discharge
+theorems and the preservers are the semantic-trio proof seals,
+scheduled after the summit induction per the granted order (the
+summit does not consume them).
