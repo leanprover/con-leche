@@ -12177,6 +12177,135 @@ alternative (amending `ThetaWalkClaim` to carry image-side head
 facts) merely relocates the same seam.  STOP — reporting before
 building either.
 
+### E4 map SEALED per R1 (`Align.lean`)
+
+Landed (compiled): `DeadCore` (three shapes — lam-headed spine,
+proj-headed, recursor spine at ≥ mI+1 args; shape-only, per the
+treatment's two consumer routes), `LitResidue` (the actual parks at
+a literal, the trace already converted — consumers re-run their own
+conversion by determinism), `IotaFireSeam` (both sides fire with
+different results; result-inequality is the progress marker; the
+claimed provenance, remaining trace and actual continuation carried
+whole — defensively general so any fire-alignment hole routes here
+with evidence instead of blocking), `NatGrindSeam` (dead-parked
+argument + declined `reduceNat` + the guard-guaranteed unfolding's
+continuation, both arities in one pack), the two out-disjunctions
+(`CoreAlignOut`/`LoopAlignOut`) and claims (`CoreAlignF`/
+`LoopAlignF` — trace vs actual run, mutual at iota majors and proj
+scrutinees vs whnfStep cores).
+
+**Discharge plan** (the treatment's supplier list): structural
+induction on the trace, runs universally quantified per arm; the
+actual's decompositions via `whnfCore_app_decompose`/
+`whnf_proj_inv`/`iotaRec_inv`/`whnfStep_decompose`/
+`reduceNat_decompose`; assemblies via `whnfCore_app_assemble` (+ a
+new proj assembly), `iotaRec_mono`, `whnfLoop_det`, `KnotFuelMono`;
+dead exits via `loop_dead_exit` + `unfoldDefinition_none_of_recInfo`
++ NEW suppliers: `whnfCore_lam` identity, a letE run extractor,
+`iotaRec` none-of-overlength, `reduceNat` none-of-dead-shapes (the
+nat-guard/recInfo disjointness).  Chaining: aligned outputs re-enter
+the next arm's decomposition; seams propagate outward unchanged.
+
+### E4 DISCHARGED — the alignment engine lands (`alignAt`)
+
+`alignAt (henv : EnvWF env) (hm : KnotFuelMono μ env)
+(hPC : ProjCtorWF env) : ∀ g, CoreAlignAt μ env g ∧ LoopAlignAt μ
+env g` — the rebase/forcing engine, discharged in full (1,359-line
+part-file, zero sorries).  Architecture as ratified-and-refined:
+
+* **The by_cases simplification** (the discharge's key find): at
+  every fire node the engine DECIDES result-equality (`Expr` has
+  `DecidableEq`) — equal fires chain, unequal fires route to the
+  seam with full evidence.  No major-merging, no fire-alignment
+  reasoning in the engine at all; the seams absorb exactly the
+  divergences the STOP-finding taxonomized.
+* **The knot measure**: strong induction on the input run's knot
+  fuel (scrutinee whnfs and internal continuations sit one fuel
+  down in the inversions — the kernel's own discipline); the loop
+  tier at each fuel by budget induction consuming the same-fuel
+  core tier.  The mutual (core ↔ loop at scrutinees vs whnfStep
+  cores) is well-founded on (knot, budget) — no trace-structural
+  mutual needed: `coreAlign_step` inducts on the trace with
+  fuel-IHs; `loopAlign_step` never cases the trace (pendings carry
+  the peeled data, so the budget IH consumes them wholesale).
+* **The pending rows** (map amendment, the erased-residue trap's
+  resolution): `PendingDelta`/`PendingNat`/`LitResidue` carry the
+  loop-tier work a core run parks at (with `PendingNat` carrying
+  the non-recursor fact its guard derived — needed for the fired
+  refutations); the loop tier consumes them (its own delta is the
+  same unfolding by purity; its nat outcome is decided against the
+  claim).  `DeadCore` gained the lit-headed-spine row; `NatSeam`
+  the fired-vs-claimed-delta and over-application rows; `ProjSeam`
+  the nat-packing row.  Fuel bounds on the aligned outputs (the
+  axiom's fourth instance) made the appL chain measure-clean:
+  the head aligns at `g-1`, assembles at `≤ g`.
+* **Suppliers landed en route**: `unfoldDefinition_inv`/`_app`,
+  `whnfCore_nonrec_id` (const-headed non-recursor runs are the
+  identity — the spine inversion's fired disjunct refuted through
+  `iotaRec_fired_head`), `whnfCore_proj_congr` (the proj clause's
+  tail is a function of the scrutinee's whnf — same-fuel congruence
+  by double unfolding), `whnf_lit_id` (two knot levels),
+  `iotaRec_none_of_arglen`/`_of_dead`, `DeadCore.app`/`.not_lam`,
+  `natLitSupported_succ_not_rec`, `natOpGuard_not_rec` (the op is
+  its own dependency; 16-way name analysis by `decide`),
+  `LoopAlignOut.weaken_l`.
+* `ProjCtorWF` (projection-table constructors are stored
+  constructors) joins the install-facts docket beside `StoredWF`.
+
+Next: the walk's arm groups — the push consuming `substSimClaims` +
+`thetaSubst₁_trace` + `alignAt` — then the depth-zero consumers.
+
+### The walk's pre-build, round two: the θ-image-of-cert wall (STOP)
+
+With E1–E4 landed, the walk's arm-group pre-build (run at full
+strength on the syn/congruence group before any code) finds the
+frozen treatment's recipe incomplete:
+
+**The wall.**  The syn arm's "certZip_subst folded over Γ" builds
+the θ-image zip of a SHARED core — sound at one telescope level
+(the abstracted cores coincide, `certZip_subst` with a refl body
+does everything).  At two-plus levels the fold must map a zip whose
+`.cert` arms (the deeper entries' certified argument pairs, which
+may mention outer opened fvars — arena-real dependent arguments)
+under `substAK` — and certificates do not transport under
+substitution (the det-sync break, again).  `CertZip` has no arm for
+the θ-image of a certified pair; the images are certified at NO
+fuel.
+
+**The measure edge.**  The natural resolution — recurse the WALK on
+image-cert pairs (unfold the cert to its `defeqLoop` run) — lands
+at the SAME `fcK` (TelescopeOk's certs sit at `fcK + 1`, whose
+unfold is knot `fcK`) with a fresh `L`, outside the `[fcK, L]`
+measure.  Re-indexing TelescopeOk's certs one tier down restores
+the measure but breaks supply symmetry questions that need their
+own audit.  ZipBelow-consumption instead requires SUM-STRICT budget
+decrease, which the E4-rebased runs (bounded `≤`, not `<`) do not
+provide on their own.
+
+**Verified positives from the same pre-build**: the pushed entries'
+argument pairs are the walk's OWN spine zips (no loop-gate certs
+needed — supply confirmed); the post-core syn case reduces by
+E3+E4 to same-`P` images with `P` core-normal, where the
+sort/λ/Π/lit/below-zone-fvar cases all discharge or refute cleanly
+— the wall is EXACTLY the in-zone-fvar and nested-cert-argument
+corners.
+
+**Options for ratification**:
+(A) a `CertZip` θ-arm (the image-of-cert constructor) — zip-tier
+ripple: every discharged zip consumer gains an arm, each routing to
+a Θ-shaped hypothesis (mechanical but wide);
+(B) walk-side mutual: state the image-pair walker as a SEPARATE
+claim proven mutually with the walk, its cert-leaves recursing
+through a REVISED measure ([fcK, L] ↦ [fcK, telescope-weight, L] or
+TelescopeOk re-indexed at `fcK`);
+(C) strengthen E4's aligned outputs to STRICT budget decrease where
+a step was consumed (auditable: the aligned assembly reuses the
+actual's continuation, one step shorter) — unlocking
+ZipBelow-consumption for the image-pairs at equal fuel.
+Leaning (C)+(B-measure-audit): (C) is a bounded E4 amendment in the
+axiom's spirit; with strict decrease the image-cert pairs flow
+through ZipBelow exactly like every other zip.  STOP — reporting.
+
 ### The consumer seal — two amendments, and the λ row's good news
 
 Opening the interp2-consumer lane (arc steps 4–5, hypothesis-first,
