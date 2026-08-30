@@ -17406,3 +17406,49 @@ in a while that is neither blocked on Θ nor on the fifteen.
 Also open: `hleaf` is free only at `def`/`theorem` (at `opaque` v1
 stores an axiom and keeps no equation), and `DeclValue2S` covers the
 `def` kind only.
+
+### Seal 53 — the mode gap dissolves by de-generalization; measured, not argued
+
+Directive: measure the premise before treating `Denote2ModeAgree` as an
+obstruction. **Measured. The prior was right.**
+
+**Every consumer of `acval_defn`/`acval_thm` reads at its own `μ`.**
+There are four, all in `EnvS2UDef.lean`, and in each the mode is
+introduced by the consumer's own goal and passed straight through:
+
+* `envS2UInImage_iff`'s two (`:367`, `:372`) — `intro μ φ F …` then
+  `m.acval_defn μ φ F₀ …`;
+* `bodies_of_envS2UInImage`'s two (`:384`, `:387`) — the theorem's own
+  binder `(μ : CheckMode)`, then `m'.acval_defn μ φ 0 …`.
+
+**No consumer crosses modes. None ever asks the field at a mode other
+than the one it is working in.**
+
+So the obstruction was never in the consumers — it was in the
+**supply**: the field demands *all* modes and the front door ran in
+*one*. And since nothing needs all modes, **the all-mode
+quantification was gratuitous generality.**
+
+**Ruled: mode-index the invariant's `denote2` fields to the install
+mode.** `EnvS2U` at `μ`. The fourteen already quantify `μ` outermost,
+so the index threads for free, and **`Denote2ModeAgree` is tombstoned
+as dissolved-by-de-generalization** — no supplier needed, because the
+demand is withdrawn.
+
+*This is the fuel-quantification lesson transposed to the mode axis:
+**check the statement at the smallest instance its consumers actually
+use.** Seals 6 and 28 caught claims false at fuel 1 that no consumer
+needed below fuel 2; this is the same error one axis over, and the
+same fix — quantify what is used, not what is expressible.*
+
+**Rider, so the re-index is scoped honestly:** it ripples.
+`Denote2Bodies` and `envS2UInImage_iff` currently quantify `∀ μ φ` on
+both sides; single-mode fields make that shape single-mode too. The
+change is a *weakening* of the fields — strictly easier to establish,
+with consumers unaffected as long as each uses the install's own `μ`,
+which the measurement says they all do.
+
+**The axiom-kind `baseExt` gap stays ledgered** with seal 52's
+one-way-door diagnosis: `declAxiomS` picks its leaf through
+`StdAxiomKeyS`, not canonically, so the value kinds' strengthening does
+not reach it.
