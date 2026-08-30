@@ -224,6 +224,15 @@ theorem CtxOk2.fuelMono {F F' d : Nat} {Δa : List AVExpr} {e : Expr}
   obtain ⟨hlt, hfb, tya, Aa, h1, h2, h3⟩ := hC.2 l hl
   exact ⟨hlt, hfb, tya, Aa, denote2_fuelMono hle d l.2.2 h1, h2, h3⟩
 
+/-- `CtxOk2.fuelMono` under the name the other quarters were promised.
+Kept as a separate declaration rather than a rename because the sealed
+name is already cited in this file's prose; they are the same
+theorem. -/
+theorem CtxOk2.mono {F F' d : Nat} {Δa : List AVExpr} {e : Expr}
+    (hle : F ≤ F') (h : CtxOk2 m μ φ F d Δa e) :
+    CtxOk2 m μ φ F' d Δa e :=
+  CtxOk2.fuelMono hle h
+
 /-- At depth `0` there is nothing to constrain — the shape every
 declaration-level statement uses.  Transpose of `CtxOkR.nil`. -/
 theorem CtxOk2.nil {F : Nat} {e : Expr} (h : e.fvarLeaves = []) :
@@ -494,6 +503,371 @@ theorem infer_bvar_claim2A {d i : Nat} {t : Expr}
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
     Except.bind] at h
   simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-! ## Threading through a binder — `denote2`'s depth shift
+
+The ten clauses that do not read the context still have to *extend* it:
+the `.forallE`/`.lam`/`.letE` branches call the claim at `d + 1` over
+`Aa :: Δa` on `body.instantiate1 (.fvar d n ty)`.  `CtxOkR` has this as
+`CtxOkR.open`; `CtxOk2` needs the same, and the step it needs is
+**`denote2`'s depth shift** — the exact analogue of
+`denote_weaken_top` (`Setlec/Verify/Denote/Shift.lean`).
+
+It did not exist, and there was a reason to fear it could not: `denote`
+depends on the depth only through its `fvar` clause, while `denote2`
+also calls `sortOfE`/`lamSortE`, i.e. the **checker** at that depth.
+So the annotated shift needs the checker to be depth-stable, which is
+a much larger fact than anything on the `denote` side.
+
+It is available.  `Setlec.shiftClaims` (`Setlec/Verify/Deep.lean`) is
+exactly the bisimulation — a run at depth `d` on `e` against the run at
+depth `d + 1` on `e.shiftFrom p` — landed for the memo cache's
+depth-free keys.  The two lemmas below are its `sortOfE`/`lamSortE`
+corollaries, and `denote2_shiftFrom` is then `denote_shiftFrom`'s
+recursion with those two rewrites added at the binder clauses.
+
+*Finding: the annotated lane's depth shift costs nothing new — the
+checker half was paid for by the cache and the sort computations sit
+directly on it.  The one genuinely new premise is on the valuation
+(`hacl` below), and it is `denote_shiftFrom`'s `hcl` transposed.* -/
+
+variable {acval : Name → (Name → Nat) → AVExpr}
+
+/-- `sortOfE` is depth-stable under the fvar shift: the run is
+(`shiftClaims`), and a `.sort` is its own shift. -/
+theorem sortOfE_shiftFrom (henv : Setlec.EnvWF env) {f p d : Nat}
+    (hpd : p ≤ d) {e : Expr} (hw : Expr.WScoped d e) :
+    sortOfE μ env φ f (d + 1) (e.shiftFrom p)
+      = sortOfE μ env φ f d e := by
+  have hI := (Setlec.shiftClaims (mode := μ) henv f).infer hpd hw
+  unfold sortOfE
+  rw [hI]
+  cases hi : inferTypeCore μ env f d e with
+  | error err => rfl
+  | ok t =>
+    have hwt : Expr.WScoped d t :=
+      Setlec.inferTypeCore_WScoped henv f hi hw
+    have hW := (Setlec.shiftClaims (mode := μ) henv f).whnf hpd hwt
+    simp only [Except.toOption, Except.map]
+    rw [hW]
+    cases hwh : whnf μ env f d t with
+    | error err => rfl
+    | ok w =>
+      simp only [Except.map]
+      cases w <;> try rfl
+      · next idx nm ty' =>
+        have hfv : Expr.shiftFrom p (.fvar idx nm ty')
+            = .fvar (if idx ≥ p then idx + 1 else idx) nm
+              (if idx ≥ p then Expr.shiftFrom p ty' else ty') := by
+          simp only [Setlec.Expr.shiftFrom]; split <;> rfl
+        rw [hfv]
+
+/-- `lamSortE` is depth-stable: an inference then a `sortOfE`. -/
+theorem lamSortE_shiftFrom (henv : Setlec.EnvWF env) {f p d : Nat}
+    (hpd : p ≤ d) {e : Expr} (hw : Expr.WScoped d e) :
+    lamSortE μ env φ f (d + 1) (e.shiftFrom p)
+      = lamSortE μ env φ f d e := by
+  have hI := (Setlec.shiftClaims (mode := μ) henv f).infer hpd hw
+  unfold lamSortE
+  rw [hI]
+  cases hi : inferTypeCore μ env f d e with
+  | error err => rfl
+  | ok t =>
+    have hwt : Expr.WScoped d t :=
+      Setlec.inferTypeCore_WScoped henv f hi hw
+    simp only [Except.toOption, Except.map]
+    exact sortOfE_shiftFrom henv hpd hwt
+
+/-- The `Nat`-literal spine is lift-invariant when its two heads
+are. -/
+private theorem natLitT2_liftN {za sa : AVExpr} {k : Nat}
+    (hz : za.liftN 1 k = za) (hs : sa.liftN 1 k = sa) :
+    ∀ n : Nat, (natLitT2 za sa n).liftN 1 k = natLitT2 za sa n := by
+  intro n
+  induction n with
+  | zero => exact hz
+  | succ n ih =>
+    show (AVExpr.app sa (natLitT2 za sa n)).liftN 1 k = _
+    rw [AVExpr.liftN_app, hs, ih]
+    rfl
+
+/-- Ditto the character-list spine. -/
+private theorem charListT2_liftN {nilA consA ofNatA za sa : AVExpr}
+    {k : Nat} (hn : nilA.liftN 1 k = nilA)
+    (hc : consA.liftN 1 k = consA) (ho : ofNatA.liftN 1 k = ofNatA)
+    (hz : za.liftN 1 k = za) (hs : sa.liftN 1 k = sa) :
+    ∀ cs : List Char,
+      (charListT2 nilA consA ofNatA za sa cs).liftN 1 k
+        = charListT2 nilA consA ofNatA za sa cs := by
+  intro cs
+  induction cs with
+  | nil => exact hn
+  | cons c cs ih =>
+    show (AVExpr.app (.app consA (.app ofNatA _)) _).liftN 1 k = _
+    rw [AVExpr.liftN_app, AVExpr.liftN_app, AVExpr.liftN_app, hc, ho,
+      natLitT2_liftN hz hs, ih]
+    rfl
+
+/-- **`denote2`'s depth shift.**  `denote_shiftFrom`'s recursion
+(`Setlec/Verify/Denote/Shift.lean`) with the two sort computations
+rewritten by `sortOfE_shiftFrom`/`lamSortE_shiftFrom`.
+
+Generalized over the *cut* `p` for the same reason v1 is: the binder
+clause compares `denote2 (d+2) (body.instantiate1 (.fvar (d+1) …))`
+with `denote2 (d+1) (body.instantiate1 (.fvar d …))`, two genuinely
+different expressions, related by `Expr.shiftFrom d`.
+
+`hacl` is `denote_shiftFrom`'s `hcl` transposed: the stored annotated
+leaves must be lift-invariant.  It is an explicit premise, not an
+`EnvS2` field, because `EnvS2` has none — see the supplier note after
+`CtxOk2.open`. -/
+theorem denote2_shiftFrom (henv : Setlec.EnvWF env)
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (acval n ψ).liftN 1 k = acval n ψ) {f p : Nat} :
+    ∀ (e : Expr) (d : Nat), p ≤ d → Expr.WScoped d e →
+      denote2 μ acval env φ f (d + 1) (e.shiftFrom p) =
+        (denote2 μ acval env φ f d e).map (AVExpr.liftN 1 · (d - p))
+  | .bvar i, d, _, _ => by
+    have h1 : denote2 μ acval env φ f (d + 1) (.bvar i) = none := by
+      rw [denote2.eq_def]
+    have h2 : denote2 μ acval env φ f d (.bvar i) = none := by
+      rw [denote2.eq_def]
+    simp [Setlec.Expr.shiftFrom, h1, h2]
+  | .sort u, d, _, _ => by
+    simp only [Setlec.Expr.shiftFrom, denote2, Option.map_some]
+    rfl
+  | .const n us, d, _, _ => by
+    simp only [Setlec.Expr.shiftFrom, denote2]
+    cases env.find? n with
+    | none => rfl
+    | some ci =>
+      dsimp only
+      split
+      · simp only [Option.map_some, hacl]
+      · rfl
+  | .fvar idx n ty, d, hpd, hw => by
+    rw [Setlec.Expr.WScoped] at hw
+    have hlt : idx < d := hw.1
+    simp only [Setlec.Expr.shiftFrom]
+    split
+    · next hge =>
+      rw [denote2, denote2, Option.map_some, AVExpr.liftN_bvar,
+        if_pos (show d - 1 - idx < d - p by omega),
+        show d + 1 - 1 - (idx + 1) = d - 1 - idx from by omega]
+    · next hge =>
+      rw [denote2, denote2, Option.map_some, AVExpr.liftN_bvar,
+        if_neg (show ¬ d - 1 - idx < d - p by omega),
+        show d + 1 - 1 - idx = d - 1 - idx + 1 from by omega]
+  | .app fe a, d, hpd, hw => by
+    rw [Setlec.Expr.WScoped] at hw
+    simp only [Setlec.Expr.shiftFrom, denote2]
+    rw [denote2_shiftFrom henv hacl fe d hpd hw.1,
+      denote2_shiftFrom henv hacl a d hpd hw.2]
+    cases denote2 μ acval env φ f d fe <;>
+      cases denote2 μ acval env φ f d a <;> rfl
+  | .forallE n ty body mb, d, hpd, hw => by
+    rw [Setlec.Expr.WScoped] at hw
+    have hwb : Expr.WScoped (d + 1)
+        (body.instantiate1 (.fvar d n ty)) :=
+      Setlec.Expr.WScoped.instantiate1 hw.1 0 hw.2
+    simp only [Setlec.Expr.shiftFrom, denote2]
+    rw [← Setlec.Expr.shiftFrom_instantiate1 hpd body 0,
+      denote2_shiftFrom henv hacl ty d hpd hw.1,
+      denote2_shiftFrom henv hacl (body.instantiate1 (.fvar d n ty))
+        (d + 1) (by omega) hwb,
+      sortOfE_shiftFrom henv hpd hw.1,
+      sortOfE_shiftFrom (p := p) henv (by omega) hwb,
+      show d + 1 - p = d - p + 1 from by omega]
+    cases denote2 μ acval env φ f d ty with
+    | none => rfl
+    | some ta =>
+      cases denote2 μ acval env φ f (d + 1)
+          (body.instantiate1 (.fvar d n ty)) with
+      | none => rfl
+      | some ba =>
+        cases sortOfE μ env φ f d ty with
+        | none => rfl
+        | some u =>
+          cases sortOfE μ env φ f (d + 1)
+              (body.instantiate1 (.fvar d n ty)) with
+          | none => rfl
+          | some v => rfl
+  | .lam n ty body mb, d, hpd, hw => by
+    rw [Setlec.Expr.WScoped] at hw
+    have hwb : Expr.WScoped (d + 1)
+        (body.instantiate1 (.fvar d n ty)) :=
+      Setlec.Expr.WScoped.instantiate1 hw.1 0 hw.2
+    simp only [Setlec.Expr.shiftFrom, denote2]
+    rw [← Setlec.Expr.shiftFrom_instantiate1 hpd body 0,
+      denote2_shiftFrom henv hacl ty d hpd hw.1,
+      denote2_shiftFrom henv hacl (body.instantiate1 (.fvar d n ty))
+        (d + 1) (by omega) hwb,
+      lamSortE_shiftFrom (p := p) henv (by omega) hwb,
+      show d + 1 - p = d - p + 1 from by omega]
+    cases denote2 μ acval env φ f d ty with
+    | none => rfl
+    | some ta =>
+      cases denote2 μ acval env φ f (d + 1)
+          (body.instantiate1 (.fvar d n ty)) with
+      | none => rfl
+      | some ba =>
+        cases lamSortE μ env φ f (d + 1)
+            (body.instantiate1 (.fvar d n ty)) with
+        | none => rfl
+        | some v => rfl
+  | .letE n ty val body, d, hpd, hw => by
+    rw [Setlec.Expr.WScoped] at hw
+    have hwb : Expr.WScoped (d + 1)
+        (body.instantiate1 (.fvar d n ty)) :=
+      Setlec.Expr.WScoped.instantiate1 hw.1 0 hw.2.2
+    simp only [Setlec.Expr.shiftFrom, denote2]
+    rw [← Setlec.Expr.shiftFrom_instantiate1 hpd body 0,
+      denote2_shiftFrom henv hacl ty d hpd hw.1,
+      denote2_shiftFrom henv hacl val d hpd hw.2.1,
+      denote2_shiftFrom henv hacl (body.instantiate1 (.fvar d n ty))
+        (d + 1) (by omega) hwb,
+      show d + 1 - p = d - p + 1 from by omega]
+    cases denote2 μ acval env φ f d ty with
+    | none => rfl
+    | some ta =>
+      cases denote2 μ acval env φ f d val with
+      | none => rfl
+      | some va =>
+        cases denote2 μ acval env φ f (d + 1)
+            (body.instantiate1 (.fvar d n ty)) with
+        | none => rfl
+        | some ba => rfl
+  | .proj sn i e, d, hpd, hw => by
+    rw [Setlec.Expr.WScoped] at hw
+    simp only [Setlec.Expr.shiftFrom, denote2]
+    rw [denote2_shiftFrom henv hacl e d hpd hw]
+    cases denote2 μ acval env φ f d e with
+    | none => rfl
+    | some ea =>
+      simp only [Option.map_some]
+      split
+      · rfl
+      · rfl
+  | .lit (.natVal k), d, _, _ => by
+    simp only [Setlec.Expr.shiftFrom, denote2]
+    split
+    · simp only [Option.map_some]
+      rw [natLitT2_liftN (hacl _ _ _) (hacl _ _ _)]
+    · rfl
+  | .lit (.strVal s), d, _, _ => by
+    simp only [Setlec.Expr.shiftFrom, denote2]
+    split
+    · simp only [Option.map_some]
+      refine congrArg some ?_
+      symm
+      rw [AVExpr.liftN_app, hacl,
+        charListT2_liftN (by rw [AVExpr.liftN_app, hacl, hacl])
+          (by rw [AVExpr.liftN_app, hacl, hacl]) (hacl _ _ _)
+          (hacl _ _ _) (hacl _ _ _)]
+    · rfl
+termination_by e => e.sizeB
+decreasing_by
+  all_goals first
+  | (simp [Setlec.Expr.sizeB]; omega)
+  | (rw [Setlec.Expr.sizeB_instantiate1 _ rfl]
+     simp [Setlec.Expr.sizeB]; omega)
+  | (simp [Setlec.Expr.sizeB])
+
+/-- **One level of weakening.**  `denote_weaken_top`'s transpose: a
+`d`-scoped term denoted at `d + 1` is its depth-`d` annotation,
+lifted. -/
+theorem denote2_weaken_top (henv : Setlec.EnvWF env)
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (acval n ψ).liftN 1 k = acval n ψ) {f d : Nat} {e : Expr}
+    (hw : Expr.WScoped d e) :
+    denote2 μ acval env φ f (d + 1) e
+      = (denote2 μ acval env φ f d e).map (AVExpr.liftN 1 · 0) := by
+  have h := denote2_shiftFrom (μ := μ) (φ := φ) (f := f) henv hacl
+    (p := d) e d (Nat.le_refl d) hw
+  rw [Setlec.Expr.shiftFrom_eq_self hw.fvarsBelow, Nat.sub_self] at h
+  exact h
+
+/-- The tail of a satisfying valuation satisfies the tail context —
+`Sat2_cons`'s inverse, and what every weakening step consumes. -/
+theorem Sat2_tail {Δa : List AVExpr} {Ba : AVExpr} {ρ : Nat → V}
+    (hρ : Sat2 V (Ba :: Δa) ρ) : Sat2 V Δa (fun j => ρ (j + 1)) := by
+  intro i Aa hi
+  exact hρ (i + 1) Aa (by simpa using hi)
+
+/-- **Weakening the context correspondence by one binder.**  Every
+leaf of an already-scoped subject survives one more binder: its
+annotation lifts (`denote2_weaken_top`), its slot moves up by the new
+head, and `Sat2_tail` carries the link.  Transpose of
+`CtxOkR.weakenTop`. -/
+theorem CtxOk2.weakenTop (henv : Setlec.EnvWF env)
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (m.acval n ψ).liftN 1 k = m.acval n ψ)
+    {F d : Nat} {Δa : List AVExpr} {Ba : AVExpr} {e : Expr}
+    (hw : Expr.WScoped d e) (hC : CtxOk2 m μ φ F d Δa e) :
+    CtxOk2 m μ φ F (d + 1) (Ba :: Δa) e := by
+  refine ⟨by simp [hC.1], fun l hl => ?_⟩
+  obtain ⟨hlt, hfb, tya, Aa, hden, hi, hlink⟩ := hC.2 l hl
+  have hwl : Expr.WScoped d l.2.2 :=
+    (Setlec.Expr.WScoped_leaves e hw l hl).2.mono (by omega)
+  refine ⟨by omega, hfb, tya.liftN 1 0, Aa, ?_, ?_, ?_⟩
+  · rw [denote2_weaken_top henv hacl hwl, hden]
+    rfl
+  · rw [show d + 1 - 1 - l.1 = (d - 1 - l.1) + 1 from by omega]
+    simpa using hi
+  · intro ρ hρ
+    rw [show d + 1 - 1 - l.1 = d - 1 - l.1 + 1 from by omega,
+      show AVExpr.liftN 1 tya 0 = tya.lift from rfl,
+      interp2_lift (V := V) tya ρ, hlink _ (Sat2_tail hρ)]
+    congr 1
+
+/-- **Opening a binder extends the context correspondence.**  The new
+head of `Δa` is the binder's own annotation, so the new leaf's package
+is `denote2_weaken_top` plus `interp2_lift` — `Sat2`'s tail convention
+matches the lift exactly, with no index arithmetic left over.
+Transpose of `CtxOkR.open`, and the lemma the `.forallE`/`.lam`/`.letE`
+clauses of every quarter need to reach their recursive call. -/
+theorem CtxOk2.open (henv : Setlec.EnvWF env)
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (m.acval n ψ).liftN 1 k = m.acval n ψ)
+    {F d : Nat} {Δa : List AVExpr} {body ty : Expr} {n : Name}
+    {ta : AVExpr}
+    (hb : CtxOk2 m μ φ F d Δa body) (ht : CtxOk2 m μ φ F d Δa ty)
+    (hwb : Expr.WScoped d body) (hwt : Expr.WScoped d ty)
+    (hty : denote2 μ m.acval env φ F d ty = some ta) :
+    CtxOk2 m μ φ F (d + 1) (ta :: Δa)
+      (body.instantiate1 (.fvar d n ty)) := by
+  refine ⟨by simp [hb.1], fun l hl => ?_⟩
+  rcases Setlec.Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+  · exact (CtxOk2.weakenTop (Ba := ta) henv hacl hwb hb).2 l hl'
+  · rw [Setlec.Expr.fvarLeaves] at hl'
+    rcases List.mem_cons.mp hl' with rfl | hl''
+    · refine ⟨by omega, hwt.fvarsBelow, ta.liftN 1 0, ta, ?_, ?_, ?_⟩
+      · rw [denote2_weaken_top henv hacl hwt, hty]
+        rfl
+      · rw [show d + 1 - 1 - d = 0 from by omega]
+        rfl
+      · intro ρ _
+        show interp2 V ρ (AVExpr.liftN 1 ta 0)
+          = interp2 V (fun j => ρ (j + (d + 1 - 1 - d) + 1)) ta
+        rw [show d + 1 - 1 - d = 0 from by omega,
+          show AVExpr.liftN 1 ta 0 = ta.lift from rfl,
+          interp2_lift (V := V) ta ρ]
+    · exact (CtxOk2.weakenTop (Ba := ta) henv hacl hwt ht).2 l hl''
+
+/-! ### Supplier note: `hacl` wants to be an `EnvS2` field
+
+`denote2_shiftFrom` and everything above it carry
+`hacl : ∀ n ψ k, (acval n ψ).liftN 1 k = acval n ψ` as an explicit
+premise.  That is `denote_shiftFrom`'s `hcl : ∀ n ψ, VExpr.Closed
+(cval n ψ)` transposed, and it is taken the same way v1 takes it — at
+the consumer, not from the structure — because **`EnvS2` has no
+closedness field for `acval` and `AVExpr` has no `Closed` predicate**.
+
+It is discharged for `EnvS2.empty` by `rfl` (`acval = .const .empty
+[0]`), and it is a *syntactic* condition on an install-fixed object, so
+unlike the fields STOP 2 refuted it carries no fuel and cannot go false
+at a small one.  If `EnvS2` is being reshaped anyway, this is the field
+to add; until then every consumer of `CtxOk2.open` passes it along. -/
 
 end Amended
 

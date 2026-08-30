@@ -57,4 +57,26 @@ theorem checkStep2_of {μ : CheckMode} {V : Type w} [SetTheory V]
   exact ⟨hwc env m φ fuel h1 h2 h3 h4, hw env m φ fuel h1 h2 h3 h4,
     hd env m φ fuel h1 h2 h3 h4, hi env m φ fuel h1 h2 h3 h4⟩
 
+/-! ## Pointer: the four Props above are the SEALED shapes
+
+They are kept as the tombstone and nothing new may be aimed at them.
+`CheckStep2` is refuted (`inferClaims2_one_refuted`,
+`Step2/InferQ.lean`), and so is every quarter that concludes one of its
+claims.
+
+The live routing lives **upstream of the discharges and downstream of
+this file**, so it cannot be re-exported here — this module is imported
+by the amendments, not the other way round:
+
+* `Interp2/Claims2A.lean` — `InferStep2A`, `WhnfCoreStep2A`,
+  `WhnfStep2A`, `DefEqStep2A`, `checkStep2A_of` (seal 6: R1–R4);
+* `Interp2/Claims2B.lean` — the reduction quarters again, corrected
+  (seal 7: the reduct's annotation lives at its own `F' ≥ F`, because
+  the delta exit turns a `.const` leaf into a `λ` body).
+
+The dispatch layer this file routes has been re-pointed in place:
+`Step2/Dispatch.lean`'s `Amended` section, `Step2/Lit.lean`'s and
+`Step2/StrLit.lean`'s tails.  The sealed clause lemmas stay beside
+them, likewise as tombstones. -/
+
 end Setlec.SetR.Interp2
