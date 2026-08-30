@@ -13,6 +13,53 @@ The unfolding recipe is v1's, verbatim — `rw [inferTypeCore_succ]` then
 `simp only [inferBody, viewM, Expr.view, …]` — and it transfers
 unchanged, because the *checker* is the same function; only what the
 clause then produces differs.
+
+## THE KIT INVENTORY — check here before writing a helper
+
+This file is the **supplier** for every quarter. Seven times in this
+campaign two quarters wrote the same helper independently, twice with
+byte-identical statements. If you need a fact about `CtxOk2`, `Sat2`
+or hoisted `AnnotOk2`, **it is probably already below.**
+
+*Context predicate.* `CtxOk2`; `CtxOk2Ann` (the proposed fourth leaf
+conjunct, stated beside — see generation five).
+
+*Context — reading and restriction.* `fvar_leaf`, `fvar_ty`, `length`,
+`nil`, `of_fvarLeaves_nil`, `of_cover`, `of_subset`, `wScoped`
+(`CtxOk2` carries its own scoping — do not add a `WScoped` premise).
+
+*Context — structural projections.* `app`, `app_fn`, `app_arg`,
+`forallE_ty`, `forallE_body`, `lam_ty`, `lam_body`, `letE_ty`,
+`letE_val`, `letE_body`, `proj_arg`.
+
+*Context — fuel and depth.* `fuelMono`, `mono`, `weakenTop`,
+`denote2_shiftFrom`, `denote2_weaken_top`.
+
+*Context — binder opening.* `open`, `openS`, **`openCongC`** (the
+generation-four shape: takes `DefEqClaims2C`'s conclusion directly),
+`openCong` (generation-three shape, kept because prose cites it).
+
+*`AnnotOk2` splitters, hoisted.* `hoist_pi`, `hoist_lam`, `hoist_app`,
+`hoist_letE`, `hoist_proj`, `hoist_eqE`, `hoist_beta_pos`,
+`hoist_zeta`.
+
+*`AnnotOk2` converses* (generation four made the claims *deliver* a
+ρ-uniform `AnnotOk2`, so these are newly owed): `of_pi`, `of_lam`,
+`of_app`, `of_letE`, `of_letE_raw`, `of_proj`, `of_eqE`.
+
+*Context transfer across a domain equality.* `Sat2.head_congr`,
+`AnnotOk2.hoist_head_congr`, `AnnotOk2.hoist_lift`.
+
+*Leaf grading.* `annotOk2_of_denote2_const`.
+
+**Two shapes are deliberately absent because they are false**, and are
+documented at their sites: there is **no `letE` binder splitter**
+(`AnnotOk2`'s `letE` clause reads the body at the *value's* point,
+while `Sat2 (T :: Δa)` only constrains the head to *inhabit* `T`;
+`hoist_zeta` is the usable form and the one the checker needs), and
+**no unconditional `of_lam`** (the λ's fibre component is a genuinely
+per-valuation fact with no hereditary source). If you find yourself
+wanting either, you have the wrong shape, not a missing lemma.
 -/
 
 namespace Setlec.SetR.Interp2
