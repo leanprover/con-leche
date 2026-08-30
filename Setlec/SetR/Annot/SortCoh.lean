@@ -10647,51 +10647,56 @@ def NatSplitOut (μ : CheckMode) (env : Env)
     Setlec.whnfLoop (Setlec.pureFns μ env c₂) env d l₂ p₂
       = .ok v'
 
-/-- **The proj split** (the second Θ-deferral channel, ratified):
-both projections fire — pinning both heads to the entry's
-constructor — but the whnf'd-scrutinee pack's cert layer swallows
-the field position, so the fields relate only through the cert.
-Everything sits at the ORIGINAL subjects (premise-reachable,
-premise runs — nothing rebased, honoring both bars), progress-
-marked by the DUAL FIRE data.  The Θ-arc owns the conversion. -/
-def ProjSplitOut (μ : CheckMode) (env : Env)
-    (Q : Nat → Expr → Expr → Prop) (fc d : Nat)
-    (u v u' v' : Expr) (f₁ f₂ : Nat) : Prop :=
-  ∃ (sn : Name) (i : Nat) (e₁ e₂ w₁ w₂ e₃₁ e₃₂ : Expr)
-    (as bs : List Expr) (g₁ g₂ c₁ c₂ l₁ l₂ : Nat),
-    c₁ ≤ f₁ ∧ c₂ ≤ f₂ ∧ g₁ ≤ f₁ ∧ g₂ ≤ f₂ ∧
-    LoopReaches μ env d u
-      (Setlec.Expr.mkAppN (.proj sn i e₁) as) ∧
-    LoopReaches μ env d v
-      (Setlec.Expr.mkAppN (.proj sn i e₂) bs) ∧
-    CertZip μ env fc d e₁ e₂ ∧
-    as.length = bs.length ∧
-    (∀ j (h₁ : j < as.length) (h₂ : j < bs.length),
-      CertZip μ env fc d as[j] bs[j]) ∧
-    whnf μ env g₁ d e₁ = .ok w₁ ∧ whnf μ env g₂ d e₂ = .ok w₂ ∧
-    CertZip μ env fc d w₁ w₂ ∧ SubjInv d w₁ ∧ SubjInv d w₂ ∧
-    PairedLeaves w₁ w₂ ∧ Q d w₁ w₂ ∧
-    Setlec.projLitToCtorP μ env g₁ d w₁ = .ok e₃₁ ∧
-    Setlec.projLitToCtorP μ env g₂ d w₂ = .ok e₃₂ ∧
-    (∃ us₁ entry₁, e₃₁.getAppFn = .const entry₁.ctor us₁ ∧
-      env.findProj? sn i = some entry₁ ∧ entry₁.native = true) ∧
-    (∃ us₂ entry₂, e₃₂.getAppFn = .const entry₂.ctor us₂ ∧
-      env.findProj? sn i = some entry₂ ∧ entry₂.native = true) ∧
-    Setlec.whnfLoop (Setlec.pureFns μ env c₁) env d l₁
-      (Setlec.Expr.mkAppN (.proj sn i e₁) as) = .ok u' ∧
-    Setlec.whnfLoop (Setlec.pureFns μ env c₂) env d l₂
-      (Setlec.Expr.mkAppN (.proj sn i e₂) bs) = .ok v'
-
-/-- **loopLock's conclusion**: outputs zipped with the invariants,
-or a re-based seam, or one of the two Θ-deferral splits. -/
-def LoopLockOut (μ : CheckMode) (env : Env)
-    (Q : Nat → Expr → Expr → Prop) (fc d : Nat)
-    (u v u' v' : Expr) (f₁ f₂ : Nat) : Prop :=
-  (CertZip μ env fc d u' v' ∧ SubjInv d u' ∧ SubjInv d v' ∧
-    PairedLeaves u' v' ∧ Q d u' v') ∨
-  LoopSeamOut μ env fc d u v u' v' f₁ f₂ ∨
-  NatSplitOut μ env Q fc d u v u' v' f₁ f₂ ∨
-  ProjSplitOut μ env Q fc d u v u' v' f₁ f₂
+/-- **loopLock's conclusion** (the ratified self-similar shape): a
+strictly-positive inductive — outputs zipped with the invariants, a
+re-based seam, the nat split, or the proj split whose midsection
+NESTS the scrutinee-level out (the discharge forwards whatever the
+scrutinee analysis produced; the Θ-arc consumes it whole).  The
+dual-fire marker keeps the proj split progress-marked. -/
+inductive LoopLockOut (μ : CheckMode) (env : Env)
+    (Q : Nat → Expr → Expr → Prop) (fc d : Nat) :
+    Expr → Expr → Expr → Expr → Nat → Nat → Prop
+  | pack {u v u' v' : Expr} {f₁ f₂ : Nat}
+      (hz : CertZip μ env fc d u' v') (hI₁ : SubjInv d u')
+      (hI₂ : SubjInv d v') (hp : PairedLeaves u' v')
+      (hq : Q d u' v') :
+      LoopLockOut μ env Q fc d u v u' v' f₁ f₂
+  | seam {u v u' v' : Expr} {f₁ f₂ : Nat}
+      (h : LoopSeamOut μ env fc d u v u' v' f₁ f₂) :
+      LoopLockOut μ env Q fc d u v u' v' f₁ f₂
+  | natSplit {u v u' v' : Expr} {f₁ f₂ : Nat}
+      (h : NatSplitOut μ env Q fc d u v u' v' f₁ f₂) :
+      LoopLockOut μ env Q fc d u v u' v' f₁ f₂
+  | projSplit {u v u' v' : Expr} {f₁ f₂ : Nat}
+      (sn : Name) (i : Nat) (e₁ e₂ w₁ w₂ e₃₁ e₃₂ : Expr)
+      (as bs : List Expr) (g₁ g₂ gp₁ gp₂ c₁ c₂ l₁ l₂ : Nat)
+      (hb₁ : c₁ ≤ f₁) (hb₂ : c₂ ≤ f₂)
+      (hg₁ : g₁ ≤ f₁) (hg₂ : g₂ ≤ f₂)
+      (hgp₁ : gp₁ ≤ f₁) (hgp₂ : gp₂ ≤ f₂)
+      (hr₁ : LoopReaches μ env d u
+        (Setlec.Expr.mkAppN (.proj sn i e₁) as))
+      (hr₂ : LoopReaches μ env d v
+        (Setlec.Expr.mkAppN (.proj sn i e₂) bs))
+      (hze : CertZip μ env fc d e₁ e₂)
+      (hlen : as.length = bs.length)
+      (hargs : ∀ j (h₁ : j < as.length) (h₂ : j < bs.length),
+        CertZip μ env fc d as[j] bs[j])
+      (hw₁ : whnf μ env g₁ d e₁ = .ok w₁)
+      (hw₂ : whnf μ env g₂ d e₂ = .ok w₂)
+      (hnested : LoopLockOut μ env Q fc d e₁ e₂ w₁ w₂ gp₁ gp₂)
+      (hlit₁ : Setlec.projLitToCtorP μ env g₁ d w₁ = .ok e₃₁)
+      (hlit₂ : Setlec.projLitToCtorP μ env g₂ d w₂ = .ok e₃₂)
+      (hfire₁ : ∃ us₁ entry₁,
+        e₃₁.getAppFn = Setlec.Expr.const entry₁.ctor us₁ ∧
+        env.findProj? sn i = some entry₁ ∧ entry₁.native = true)
+      (hfire₂ : ∃ us₂ entry₂,
+        e₃₂.getAppFn = Setlec.Expr.const entry₂.ctor us₂ ∧
+        env.findProj? sn i = some entry₂ ∧ entry₂.native = true)
+      (hrun₁ : Setlec.whnfLoop (Setlec.pureFns μ env c₁) env d l₁
+        (Setlec.Expr.mkAppN (.proj sn i e₁) as) = .ok u')
+      (hrun₂ : Setlec.whnfLoop (Setlec.pureFns μ env c₂) env d l₂
+        (Setlec.Expr.mkAppN (.proj sn i e₂) bs) = .ok v') :
+      LoopLockOut μ env Q fc d u v u' v' f₁ f₂
 
 /-- **The loop recursion bar**: knot-fuel sum strictly below, or
 equal with the loop-budget sum strictly below.  `fc` is fixed —
@@ -10774,28 +10779,34 @@ def LoopProjStep (μ : CheckMode) (env : Env)
     LoopLockOut μ env Q fc d u v u' v' f₁ f₂
 
 /-- `LoopLockOut` re-bases along reachability prefixes (the pack is
-output-only; the seam and split compose their traces). -/
+output-only; the seam and splits compose their traces; the proj
+split's NESTED out is scrutinee-level and untouched). -/
 theorem LoopLockOut.prepend {μ : CheckMode} {env : Env}
     {Q : Nat → Expr → Expr → Prop} {fc d : Nat}
     {u v x₁ x₂ u' v' : Expr} {f₁ f₂ : Nat}
     (r₁ : LoopReaches μ env d u x₁) (r₂ : LoopReaches μ env d v x₂)
     (h : LoopLockOut μ env Q fc d x₁ x₂ u' v' f₁ f₂) :
     LoopLockOut μ env Q fc d u v u' v' f₁ f₂ := by
-  rcases h with hpack | ⟨w₁, w₂, c₁, c₂, l₁, l₂, hb₁, hb₂, hr₁, hr₂,
-      ht₁, ht₂, hsm⟩ |
-    ⟨p₁, p₂, t₁, t₂, g₁, g₂, gn₁, gn₂, o₁, o₂, c₁, c₂, l₁, l₂,
-      hb₁, hb₂, hp₁, hp₂, hrest⟩ |
-    ⟨sn, i, e₁, e₂, w₁, w₂, e₃₁, e₃₂, as, bs, g₁, g₂, c₁, c₂,
-      l₁, l₂, hb₁, hb₂, hg₁, hg₂, hp₁, hp₂, hrest⟩
-  · exact .inl hpack
-  · exact .inr (.inl ⟨w₁, w₂, c₁, c₂, l₁, l₂, hb₁, hb₂, hr₁, hr₂,
-      r₁.trans ht₁, r₂.trans ht₂, hsm⟩)
-  · exact .inr (.inr (.inl ⟨p₁, p₂, t₁, t₂, g₁, g₂, gn₁, gn₂,
-      o₁, o₂, c₁, c₂, l₁, l₂, hb₁, hb₂, r₁.trans hp₁,
-      r₂.trans hp₂, hrest⟩))
-  · exact .inr (.inr (.inr ⟨sn, i, e₁, e₂, w₁, w₂, e₃₁, e₃₂,
-      as, bs, g₁, g₂, c₁, c₂, l₁, l₂, hb₁, hb₂, hg₁, hg₂,
-      r₁.trans hp₁, r₂.trans hp₂, hrest⟩))
+  cases h with
+  | pack hz hI₁ hI₂ hp hq => exact .pack hz hI₁ hI₂ hp hq
+  | seam h =>
+    obtain ⟨w₁, w₂, c₁, c₂, l₁, l₂, hb₁, hb₂, hrn₁, hrn₂,
+      ht₁, ht₂, hsm⟩ := h
+    exact .seam ⟨w₁, w₂, c₁, c₂, l₁, l₂, hb₁, hb₂, hrn₁, hrn₂,
+      r₁.trans ht₁, r₂.trans ht₂, hsm⟩
+  | natSplit h =>
+    obtain ⟨p₁, p₂, t₁, t₂, g₁, g₂, gn₁, gn₂, o₁, o₂, c₁, c₂,
+      l₁, l₂, hb₁, hb₂, hp₁, hp₂, hrest⟩ := h
+    exact .natSplit ⟨p₁, p₂, t₁, t₂, g₁, g₂, gn₁, gn₂, o₁, o₂,
+      c₁, c₂, l₁, l₂, hb₁, hb₂, r₁.trans hp₁, r₂.trans hp₂, hrest⟩
+  | projSplit sn i e₁ e₂ w₁ w₂ e₃₁ e₃₂ as bs g₁ g₂ gp₁ gp₂ c₁ c₂
+      l₁ l₂ hb₁ hb₂ hg₁ hg₂ hgp₁ hgp₂ hr₁' hr₂' hze hlen hargs
+      hw₁ hw₂ hnested hlit₁ hlit₂ hfire₁ hfire₂ hrn₁ hrn₂ =>
+    exact .projSplit sn i e₁ e₂ w₁ w₂ e₃₁ e₃₂ as bs g₁ g₂ gp₁ gp₂
+      c₁ c₂ l₁ l₂ hb₁ hb₂ hg₁ hg₂ hgp₁ hgp₂ (r₁.trans hr₁')
+      (r₂.trans hr₂') hze hlen hargs hw₁ hw₂ hnested hlit₁ hlit₂
+      hfire₁ hfire₂ hrn₁ hrn₂
+
 
 /-- A whnfCore output either re-cores to itself at the producing
 fuel, or is dead-stuck (non-const-headed, non-λ, non-sort) — the
@@ -10941,10 +10952,10 @@ theorem loopLock {μ : CheckMode} {env : Env}
         (o₁.isSome = true ∨ o₂.isSome = true) →
         LoopLockOut μ env Q fc d u v u' v' f₁ f₂ :=
       fun o₁ o₂ hn₁ hn₂ hmark =>
-        .inr (.inr (.inl ⟨u, v, t₁, t₂, f₁, f₂, f₁, f₂, o₁, o₂,
+        .natSplit ⟨u, v, t₁, t₂, f₁, f₂, f₁, f₂, o₁, o₂,
           f₁, f₂, l₁' + 1, l₂' + 1, Nat.le_refl _, Nat.le_refl _,
           .refl _, .refl _, hzT, hIt₁, hIt₂, hPt, hQt,
-          hwc₁', hwc₂', hn₁, hn₂, hmark, h₁, h₂⟩))
+          hwc₁', hwc₂', hn₁, hn₂, hmark, h₁, h₂⟩
     rcases triA with ⟨x₁, hrn₁, hk₁⟩ | ⟨hrnn₁, x₁, hux₁, hk₁⟩ |
       ⟨hrnn₁, hud₁, hstop₁⟩
     · -- A nat fire
@@ -10967,13 +10978,13 @@ theorem loopLock {μ : CheckMode} {env : Env}
           intro hba hbb hc
           obtain ⟨n₁, us₁, hhd₁⟩ := unfoldDefinition_some_head hux₁
           obtain ⟨n₂', us₂', hhd₂⟩ := unfoldDefinition_some_head hux₂
-          refine .inr (.inl ⟨Setlec.Expr.mkAppN H₁ cs,
+          refine LoopLockOut.seam ⟨Setlec.Expr.mkAppN H₁ cs,
             Setlec.Expr.mkAppN H₂ ds, f₁, f₂, l₁' + 1, l₂' + 1,
             Nat.le_refl _, Nat.le_refl _,
             stepA (whnfCore_reidem_const hm hwc₁' hhd₁),
             stepB (whnfCore_reidem_const hm hwc₂' hhd₂),
             .core f₁ hwc₁' (.refl _), .core f₂ hwc₂' (.refl _),
-            CoreSeam.certHead H₁ H₂ cs ds hba hbb hc hlenv hargsv⟩)
+            CoreSeam.certHead H₁ H₂ cs ds hba hbb hc hlenv hargsv⟩
         rcases hheadv with ⟨hba, hbb, hc⟩ | ⟨hne₁, hne₂, hzH⟩
         · exact certSeam hba hbb hc
         · have deltaConst : ∀ {n : Name} {us us' : List Level},
@@ -11087,19 +11098,19 @@ theorem loopLock {μ : CheckMode} {env : Env}
           obtain ⟨n₁, us₁, hhd₁⟩ := unfoldDefinition_some_head hux₁
           rcases whnfCore_self_or_dead hm hwc₂' with hS₂ |
             ⟨hnc, hnl, hns⟩
-          · exact .inr (.inl ⟨Setlec.Expr.mkAppN H₁ cs,
+          · exact LoopLockOut.seam ⟨Setlec.Expr.mkAppN H₁ cs,
               Setlec.Expr.mkAppN H₂ ds, f₁, f₂, l₁' + 1, l₂' + 1,
               Nat.le_refl _, Nat.le_refl _,
               stepA (whnfCore_reidem_const hm hwc₁' hhd₁),
               stepB hS₂,
               .core f₁ hwc₁' (.refl _), .core f₂ hwc₂' (.refl _),
               CoreSeam.certHead H₁ H₂ cs ds hba hbb hc hlenv
-                hargsv⟩)
-          · exact .inr (.inl ⟨u, v, f₁, f₂, l₁' + 1, l₂' + 1,
+                hargsv⟩
+          · exact LoopLockOut.seam ⟨u, v, f₁, f₂, l₁' + 1, l₂' + 1,
               Nat.le_refl _, Nat.le_refl _, h₁, h₂,
               .refl _, .refl _,
               CoreSeam.deadR u v (Setlec.Expr.mkAppN H₂ ds) f₂
-                (fun g hg => hm.2.2.1 hg hwc₂') hnc hnl hns⟩)
+                (fun g hg => hm.2.2.1 hg hwc₂') hnc hnl hns⟩
         rcases hheadv with ⟨hba, hbb, hc⟩ | ⟨hne₁, hne₂, hzH⟩
         · exact certSeam hba hbb hc
         · have deltaBoth : ∀ {n : Name} {us us' : List Level},
@@ -11199,19 +11210,19 @@ theorem loopLock {μ : CheckMode} {env : Env}
           obtain ⟨n₂', us₂', hhd₂⟩ := unfoldDefinition_some_head hux₂
           rcases whnfCore_self_or_dead hm hwc₁' with hS₁ |
             ⟨hnc, hnl, hns⟩
-          · exact .inr (.inl ⟨Setlec.Expr.mkAppN H₁ cs,
+          · exact LoopLockOut.seam ⟨Setlec.Expr.mkAppN H₁ cs,
               Setlec.Expr.mkAppN H₂ ds, f₁, f₂, l₁' + 1, l₂' + 1,
               Nat.le_refl _, Nat.le_refl _,
               stepA hS₁,
               stepB (whnfCore_reidem_const hm hwc₂' hhd₂),
               .core f₁ hwc₁' (.refl _), .core f₂ hwc₂' (.refl _),
               CoreSeam.certHead H₁ H₂ cs ds hba hbb hc hlenv
-                hargsv⟩)
-          · exact .inr (.inl ⟨u, v, f₁, f₂, l₁' + 1, l₂' + 1,
+                hargsv⟩
+          · exact LoopLockOut.seam ⟨u, v, f₁, f₂, l₁' + 1, l₂' + 1,
               Nat.le_refl _, Nat.le_refl _, h₁, h₂,
               .refl _, .refl _,
               CoreSeam.deadL u v (Setlec.Expr.mkAppN H₁ cs) f₁
-                (fun g hg => hm.2.2.1 hg hwc₁') hnc hnl hns⟩)
+                (fun g hg => hm.2.2.1 hg hwc₁') hnc hnl hns⟩
         rcases hheadv with ⟨hba, hbb, hc⟩ | ⟨hne₁, hne₂, hzH⟩
         · exact certSeam hba hbb hc
         · have deltaBoth : ∀ {n : Name} {us us' : List Level},
@@ -11297,7 +11308,7 @@ theorem loopLock {μ : CheckMode} {env : Env}
       · -- both stuck: pack out
         subst hstop₁
         subst hstop₂
-        exact .inl ⟨hzT, hIt₁, hIt₂, hPt, hQt⟩
+        exact .pack hzT hIt₁ hIt₂ hPt hQt
   · -- seam from the core step
     have hIw₁ : SubjInv d w₁ := ht₁.subjInv hIC hLS hIu
     have hIw₂ : SubjInv d w₂ := ht₂.subjInv hIC hLS hIv
@@ -11310,11 +11321,11 @@ theorem loopLock {μ : CheckMode} {env : Env}
     have runB := stepB (hm.2.2.1 hcb₂ hr₂)
     cases hsm with
     | certHead F₁ F₂ as bs hba hbb hc hlen hargs =>
-      exact .inr (.inl ⟨Setlec.Expr.mkAppN F₁ as,
+      exact LoopLockOut.seam ⟨Setlec.Expr.mkAppN F₁ as,
         Setlec.Expr.mkAppN F₂ bs, f₁, f₂, l₁' + 1, l₂' + 1,
         Nat.le_refl _, Nat.le_refl _, runA, runB,
         .contract ht₁ (.refl _), .contract ht₂ (.refl _),
-        CoreSeam.certHead F₁ F₂ as bs hba hbb hc hlen hargs⟩)
+        CoreSeam.certHead F₁ F₂ as bs hba hbb hc hlen hargs⟩
     | recHead n cv mI rP rules us us' as bs hf hev hlen hargs =>
       exact hIo below hN hR hf hev hlen hargs hIw₁ hIw₂ hpw hQw
         (.contract ht₁ (.refl _)) (.contract ht₂ (.refl _))
@@ -11324,15 +11335,15 @@ theorem loopLock {μ : CheckMode} {env : Env}
         (.contract ht₁ (.refl _)) (.contract ht₂ (.refl _))
         runA runB
     | deadL _ _ u'd bnd hrun hnc hnl hns =>
-      exact .inr (.inl ⟨w₁, w₂, f₁, f₂, l₁' + 1, l₂' + 1,
+      exact LoopLockOut.seam ⟨w₁, w₂, f₁, f₂, l₁' + 1, l₂' + 1,
         Nat.le_refl _, Nat.le_refl _, runA, runB,
         .contract ht₁ (.refl _), .contract ht₂ (.refl _),
-        CoreSeam.deadL w₁ w₂ u'd bnd hrun hnc hnl hns⟩)
+        CoreSeam.deadL w₁ w₂ u'd bnd hrun hnc hnl hns⟩
     | deadR _ _ v'd bnd hrun hnc hnl hns =>
-      exact .inr (.inl ⟨w₁, w₂, f₁, f₂, l₁' + 1, l₂' + 1,
+      exact LoopLockOut.seam ⟨w₁, w₂, f₁, f₂, l₁' + 1, l₂' + 1,
         Nat.le_refl _, Nat.le_refl _, runA, runB,
         .contract ht₁ (.refl _), .contract ht₂ (.refl _),
-        CoreSeam.deadR w₁ w₂ v'd bnd hrun hnc hnl hns⟩)
+        CoreSeam.deadR w₁ w₂ v'd bnd hrun hnc hnl hns⟩
 
 /-- A spine over a non-λ head is never a λ. -/
 theorem mkAppN_ne_lam {H : Expr}
@@ -11537,6 +11548,191 @@ theorem whnfCore_proj_spine_inv {μ : CheckMode} {env : Env}
               · exact fun p' q' hh => hnc p' q' hh
               · exact fun _ _ _ _ hh => nomatch hh
               · exact fun _ hh => nomatch hh
+
+/-- `Q` descends a spine to its head (repeated app descent over
+equal-length argument lists). -/
+theorem qDescend_mkAppN {Q : Nat → Expr → Expr → Prop}
+    (hQA : QDescendAppF Q) :
+    ∀ (n : Nat) {as bs : List Expr} {d : Nat} {P R : Expr},
+      as.length ≤ n → as.length = bs.length →
+      Q d (Setlec.Expr.mkAppN P as) (Setlec.Expr.mkAppN R bs) →
+      Q d P R := by
+  intro n
+  induction n with
+  | zero =>
+    intro as bs d P R hlen0 hlen hq
+    obtain rfl : as = [] := List.eq_nil_of_length_eq_zero
+      (Nat.le_zero.mp hlen0)
+    obtain rfl : bs = [] := List.eq_nil_of_length_eq_zero hlen.symm
+    exact hq
+  | succ n ihn =>
+    intro as bs d P R hlenn hlen hq
+    rcases List.eq_nil_or_concat as with rfl | ⟨as₀, a, rfl⟩
+    · obtain rfl : bs = [] := List.eq_nil_of_length_eq_zero hlen.symm
+      exact hq
+    · rcases List.eq_nil_or_concat bs with rfl | ⟨bs₀, b, rfl⟩
+      · rw [List.concat_eq_append] at hlen
+        simp at hlen
+      · simp only [List.concat_eq_append] at hlenn hlen hq
+        rw [show Setlec.Expr.mkAppN P (as₀ ++ [a])
+            = Expr.app (Setlec.Expr.mkAppN P as₀) a
+          from mkAppN_append_one,
+          show Setlec.Expr.mkAppN R (bs₀ ++ [b])
+            = Expr.app (Setlec.Expr.mkAppN R bs₀) b
+          from mkAppN_append_one] at hq
+        have hlen' : as₀.length = bs₀.length := by
+          simp only [List.length_append, List.length_cons,
+            List.length_nil] at hlen
+          omega
+        have hlen₀ : as₀.length ≤ n := by
+          simp only [List.length_append, List.length_cons,
+            List.length_nil] at hlenn
+          omega
+        exact ihn hlen₀ hlen' (hQA hq)
+
+/-- The subject package descends a spine to its head. -/
+theorem subjInv_spine_head {d : Nat} {H : Expr} {as : List Expr}
+    (h : SubjInv d (Setlec.Expr.mkAppN H as)) : SubjInv d H := by
+  obtain ⟨hw, hb, hL, hp⟩ := h
+  obtain ⟨hwH, -⟩ := wScoped_mkAppN_parts hw
+  obtain ⟨hbH, -⟩ := looseBVarsBounded_mkAppN_parts hb
+  exact ⟨hwH, hbH,
+    fun l hl => hL l (mem_fvarLeaves_mkAppN_head hl),
+    pairedLeaves_mono (fun l hl => mem_fvarLeaves_mkAppN_head hl)
+      (fun l hl => mem_fvarLeaves_mkAppN_head hl) hp⟩
+
+/-- A scrutinee leaf is a proj leaf. -/
+theorem mem_fvarLeaves_proj {sn : Name} {i : Nat} {e : Expr} :
+    ∀ l ∈ e.fvarLeaves, l ∈ (Expr.proj sn i e).fvarLeaves := by
+  intro l hl
+  simpa [Setlec.Expr.fvarLeaves] using hl
+
+/-- The subject package descends through a proj node. -/
+theorem subjInv_proj {d : Nat} {sn : Name} {i : Nat} {e : Expr}
+    (h : SubjInv d (.proj sn i e)) : SubjInv d e := by
+  obtain ⟨hw, hb, hL, hp⟩ := h
+  simp only [Setlec.Expr.WScoped] at hw
+  simp only [Setlec.Expr.looseBVarsBounded] at hb
+  exact ⟨hw, hb, fun l hl => hL l (mem_fvarLeaves_proj l hl),
+    pairedLeaves_mono mem_fvarLeaves_proj mem_fvarLeaves_proj hp⟩
+
+/-- **The loop-level proj step DISCHARGED** (the minimal discharge
+on the self-similar shape): a stuck or dead-residual side exits a
+dead seam at the raw subjects; both-fire recurses on the zipped
+scrutinees at knot minus one and FORWARDS the analysis' out inside
+the proj split — the split is the interface, and the sync work
+belongs to its sort-premised consumers, which hold strictly more
+facts. -/
+theorem loopProjStep_of {μ : CheckMode} {env : Env}
+    {Q : Nat → Expr → Expr → Prop}
+    (hm : KnotFuelMono μ env)
+    (hQA : QDescendAppF Q) (hQPd : QDescendProjF Q) :
+    LoopProjStep μ env Q := by
+  intro fc N R f₁ f₂ l₁ l₂ d i sn e₁ e₂ as bs u v u' v' below hN hR
+    hze hlen hargs hI₁ hI₂ hp hQ hre₁ hre₂ h₁ h₂
+  cases l₁ with
+  | zero => exact nomatch h₁
+  | succ l₁' =>
+  cases l₂ with
+  | zero => exact nomatch h₂
+  | succ l₂' =>
+  have haD := h₁
+  rw [whnfLoop_succ] at haD
+  obtain ⟨t₁, hwc₁, triA⟩ := whnfStep_decompose haD
+  have hbD := h₂
+  rw [whnfLoop_succ] at hbD
+  obtain ⟨t₂, hwc₂, triB⟩ := whnfStep_decompose hbD
+  have hwc₁' : whnfCore μ env f₁ d
+      (Setlec.Expr.mkAppN (.proj sn i e₁) as) = .ok t₁ := hwc₁
+  have hwc₂' : whnfCore μ env f₂ d
+      (Setlec.Expr.mkAppN (.proj sn i e₂) bs) = .ok t₂ := hwc₂
+  -- dead exits, shared
+  have deadLExit : (∀ p' q', t₁.getAppFn ≠ Setlec.Expr.const p' q') →
+      (∀ n' ty' b' m', t₁ ≠ .lam n' ty' b' m') →
+      (∀ ℓ, t₁ ≠ .sort ℓ) →
+      LoopLockOut μ env Q fc d u v u' v' f₁ f₂ := by
+    intro hnc hnl hns
+    exact .seam ⟨Setlec.Expr.mkAppN (.proj sn i e₁) as,
+      Setlec.Expr.mkAppN (.proj sn i e₂) bs, f₁, f₂,
+      l₁' + 1, l₂' + 1, Nat.le_refl _, Nat.le_refl _, h₁, h₂,
+      hre₁, hre₂,
+      CoreSeam.deadL _ _ t₁ f₁ (fun g hg => hm.2.2.1 hg hwc₁')
+        hnc hnl hns⟩
+  have deadRExit : (∀ p' q', t₂.getAppFn ≠ Setlec.Expr.const p' q') →
+      (∀ n' ty' b' m', t₂ ≠ .lam n' ty' b' m') →
+      (∀ ℓ, t₂ ≠ .sort ℓ) →
+      LoopLockOut μ env Q fc d u v u' v' f₁ f₂ := by
+    intro hnc hnl hns
+    exact .seam ⟨Setlec.Expr.mkAppN (.proj sn i e₁) as,
+      Setlec.Expr.mkAppN (.proj sn i e₂) bs, f₁, f₂,
+      l₁' + 1, l₂' + 1, Nat.le_refl _, Nat.le_refl _, h₁, h₂,
+      hre₁, hre₂,
+      CoreSeam.deadR _ _ t₂ f₂ (fun g hg => hm.2.2.1 hg hwc₂')
+        hnc hnl hns⟩
+  obtain ⟨g₁, w₁, e₃₁, hg₁, hw₁, hlit₁, hcase₁⟩ :=
+    whnfCore_proj_spine_inv hm hwc₁'
+  obtain ⟨g₂, w₂, e₃₂, hg₂, hw₂, hlit₂, hcase₂⟩ :=
+    whnfCore_proj_spine_inv hm hwc₂'
+  rcases hcase₁ with rfl |
+    ⟨us₁, entry₁, h₁', hfn₁, hf₁, hnat₁, hi₁, hlen₁, hred₁, hres₁⟩
+  · -- side 1 stuck: dead-shaped output
+    exact deadLExit
+      (mkAppN_fn_ne_const (not_const_getAppFn_of_shape
+        (e := Expr.proj sn i e₃₁)
+        (fun _ _ hh => nomatch hh) (fun _ _ hh => nomatch hh)))
+      (mkAppN_ne_lam (H := Expr.proj sn i e₃₁)
+        (fun _ _ _ _ hh => nomatch hh))
+      (mkAppN_ne_sort (H := Expr.proj sn i e₃₁)
+        (fun _ hh => nomatch hh))
+  · rcases hres₁ with ⟨-, -⟩ | ⟨-, -, -⟩ | ⟨hnc₁, hnl₁, hns₁⟩
+    case inr.inr => exact deadLExit hnc₁ hnl₁ hns₁
+    all_goals
+    rcases hcase₂ with rfl |
+      ⟨us₂, entry₂, h₂', hfn₂, hf₂, hnat₂, hi₂, hlen₂, hred₂, hres₂⟩
+    case inl =>
+      exact deadRExit
+        (mkAppN_fn_ne_const (not_const_getAppFn_of_shape
+          (e := Expr.proj sn i e₃₂)
+          (fun _ _ hh => nomatch hh) (fun _ _ hh => nomatch hh)))
+        (mkAppN_ne_lam (H := Expr.proj sn i e₃₂)
+          (fun _ _ _ _ hh => nomatch hh))
+        (mkAppN_ne_sort (H := Expr.proj sn i e₃₂)
+          (fun _ hh => nomatch hh))
+    all_goals
+    rcases hres₂ with ⟨-, -⟩ | ⟨-, -, -⟩ | ⟨hnc₂, hnl₂, hns₂⟩
+    case inr.inr => exact deadRExit hnc₂ hnl₂ hns₂
+    all_goals (
+    -- both fired: recurse on the scrutinees and forward
+    first
+    | (have hIe₁ : SubjInv d e₁ := subjInv_proj (subjInv_spine_head hI₁)
+       have hIe₂ : SubjInv d e₂ := subjInv_proj (subjInv_spine_head hI₂)
+       have hpe : PairedLeaves e₁ e₂ :=
+         pairedLeaves_mono
+           (fun l hl => mem_fvarLeaves_mkAppN_head
+             (mem_fvarLeaves_proj l hl))
+           (fun l hl => mem_fvarLeaves_mkAppN_head
+             (mem_fvarLeaves_proj l hl)) hp
+       have hQe : Q d e₁ e₂ :=
+         hQPd (qDescend_mkAppN (Q := Q) hQA as.length
+           (Nat.le_refl _) hlen hQ)
+       cases g₁ with
+       | zero => exact nomatch hw₁
+       | succ gA =>
+       cases g₂ with
+       | zero => exact nomatch hw₂
+       | succ gB =>
+       have hl₁ : Setlec.whnfLoop (Setlec.pureFns μ env gA) env d
+           Setlec.whnfLoopFuel e₁ = .ok w₁ := hw₁
+       have hl₂ : Setlec.whnfLoop (Setlec.pureFns μ env gB) env d
+           Setlec.whnfLoopFuel e₂ = .ok w₂ := hw₂
+       have hout := below (Or.inl (by omega)) hze hIe₁ hIe₂ hpe hQe
+         hl₁ hl₂
+       exact .projSplit sn i e₁ e₂ w₁ w₂ e₃₁ e₃₂ as bs
+         (gA + 1) (gB + 1) gA gB f₁ f₂ (l₁' + 1) (l₂' + 1)
+         (Nat.le_refl _) (Nat.le_refl _) (by omega) (by omega)
+         (by omega) (by omega) hre₁ hre₂ hze hlen hargs hw₁ hw₂
+         hout hlit₁ hlit₂ ⟨us₁, entry₁, hfn₁, hf₁, hnat₁⟩
+         ⟨us₂, entry₂, hfn₂, hf₂, hnat₂⟩ h₁ h₂))
 
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/

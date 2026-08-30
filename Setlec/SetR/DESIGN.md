@@ -11243,3 +11243,35 @@ their exact current payloads (mechanical re-nesting for the landed
 loopLock and prepend); the iota split, when shaped at its map
 seal, nests the MAJOR-level out the same way — the two channels
 stay parallel by construction.
+
+### The self-similar kit LANDED; LoopProjStep DISCHARGED
+
+**The restructure (ratified)**: `LoopLockOut` is now a
+strictly-positive inductive — `pack` / `seam` / `natSplit` wrap the
+unchanged payloads, `projSplit` nests the scrutinee-level out in
+place of the pack midsection.  `prepend` rewritten (the nested out
+is scrutinee-level and untouched); loopLock's eleven construction
+sites re-nested mechanically (one first attempt at a global textual
+swap hit UNRELATED disjunction sites and was reverted — construction
+-site swaps must be theorem-scoped, recorded as a mechanization
+rule).
+
+**`loopProjStep_of`** — the minimal discharge on the self-similar
+shape, THREE hypotheses only (`hm`, `QDescendAppF`,
+`QDescendProjF`):
+* a stuck side or dead residual exits a dead seam at the raw
+  subjects (shape facts by the `(e := shape)` pins);
+* both-fire descends the invariants (new `qDescend_mkAppN` — the
+  equal-length double-concat induction — plus `subjInv_spine_head`,
+  `subjInv_proj`, `mem_fvarLeaves_proj`), converts the scrutinee
+  whnfs to loop form, recurses through `below` at knot minus one,
+  and FORWARDS the out inside `.projSplit` — the split is the
+  interface; the sync work (view, field zips, coreLock) belongs to
+  the split's sort-premised consumers, which hold strictly more
+  facts.  No preserver species enter at all.
+
+The λ/letE/proj trio of loop-tier obligations is now two-thirds
+discharged at the loop level (`hPr` supplied); next: iota's map
+with its parallel nested channel (`LoopIotaStep`), then Θ's read
+phase — the Θ-arc's docket now holds the two splits' conversions
+beside the cert-spine motive.
