@@ -14598,3 +14598,63 @@ can never get first-class `.proj`.
 
 These three join the five install keys and `MemberKeyS` as the
 install-tier campaign.
+
+### Seal 16 — generation four, the head-normalisation quarter (and a correction)
+
+`whnfCoreStep2C_of` and `whnfStep2C_of`, both proved, both on exactly
+the three standard axioms. **No statement change and no `EnvS2` field
+requested** — generation four is sufficient for this quarter, and it
+built first try.
+
+**Correction to the junction's own briefing.** I told the four workers
+that the reduction and inference quarters are "on the paying side" of
+the ρ-hoist and the defeq quarter is relieved. For the reduction
+quarter that is **wrong, and structurally so**: `whnfCore` **never
+opens a binder** — `.forallE` and `.lam` are two of its six *leaf*
+cases — so `Δa` is constant through every clause and every loop
+iteration, and the extended-context pair is never asked for.
+
+Consequently `AnnotOk2.hoist_pi`/`hoist_lam` were **not used and not
+needed** here. What each clause needs is a *component* of the node
+fact at the **same** `Δa` (`AnnotOk2_app.1`, `AnnotOk2_zeta.2`,
+`AnnotOk2_beta_pos/zero.2`), and every one is already a pointwise
+implication, so pushing it under `∀ ρ` is literally
+`fun ρ hρ => …`.
+
+*The hoist is free exactly where the recursion does not change the
+context; `hoist_*` is the price of the sites that do — the
+congruences.* So generation four's cost is not "reduction and
+inference pay, defeq is relieved"; it is **"whoever changes the
+context pays"**, which is a different and smaller set. Recorded
+because the junction's cost model was wrong in a way that would have
+mis-scoped the next generation too.
+
+**`TypeOk2` is gone, not relocated.** `betaCert2PC_of_claims` takes no
+`htok` at all: the `…B` composition needed an explicit stand-in for
+the inference quarter's residue because `InferClaims2A` concluded
+`AnnotOk2` of the subject and never of the returned type.
+`InferClaims2C` delivers both, ρ-uniformly, which is exactly the shape
+`DefEqClaims2C` takes. **Seal 8's open question is now paid back from
+the second site DESIGN named for it.**
+
+**A methodological point worth keeping.** The three hoisted residues
+(`IotaStep2C`, `ProjStep2C`, `ReduceNatStep2C`) each land with a
+`toC` bridge proving the *existing* `…B` residue implies it. So the
+hoist **weakens** what suppliers owe and strengthens nothing — and *a
+weakening of an already-audited statement cannot become false*, so the
+three need no fresh refutation hunt. That is the cheapest form of
+trap-check available and it should be the default whenever a
+generation change is a weakening: **prove the bridge from the old
+shape, and inherit its audit.**
+
+`BetaCert2PC` is deliberately still **not** wired into
+`whnfCore_app_claim2C`: it needs `CtxOk2` where the `.app` clause has
+only `CtxOkR`-on-erasures, which is seal 11's context-currency move,
+i.e. generation five. `BetaCert2` remains the residue the quarter
+routes through.
+
+*Hygiene note:* the four generation-four worktrees were created from
+inside the `discharge` worktree, so they nested under it rather than
+sitting beside it. Harmless to git, but the briefs' paths were wrong
+and each worker had to find its own tree. Create worktrees from the
+repository root.
