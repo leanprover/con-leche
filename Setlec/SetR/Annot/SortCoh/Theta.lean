@@ -91,6 +91,40 @@ def ThetaWalkClaim (μ : CheckMode) (env : Env) (φ : Name → Nat)
       = .ok (.sort ℓb) →
     ℓa.eval φ = ℓb.eval φ
 
+/-- **The θ-zip walk claim** (the audited architecture's second
+summit phase, map-sealed after the θ-image-of-cert wall ruling):
+spines over telescope-images of a ZIPPED pair — the walk proper is
+its cert-arm's run-form; the syn/congruence material enters through
+refl/`fcz`-lowered zips.  The audited measure (proof-internal):
+`[rank, |Γ|, phase, zip-structure/L, budgets]` with `rank :=
+max fcz (fcK+1)`-flavored bookkeeping recorded in DESIGN — the
+in-zone-fvar recursion drops `|Γ|` at equal rank; the cert-arm
+drops phase at equal rank; pushes drop the rank. -/
+def ThetaZipWalkClaim (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ (fcz fcK : Nat) {d ga la gb lb : Nat} {Γ : List ThetaEntry}
+    {A₁ A₂ : Expr} {sp₁ sp₂ : List Expr} {ℓa ℓb : Level},
+    ZipBelow μ env φ Q (fcK + 1) (ga + gb) (la + lb) →
+    fcz ≤ fcK + 1 →
+    TelescopeOk μ env fcK d Γ →
+    CertZip μ env fcz (d + Γ.length) A₁ A₂ →
+    sp₁.length = sp₂.length →
+    (∀ i (h₁ : i < sp₁.length) (h₂ : i < sp₂.length),
+      CertZip μ env (fcK + 1) d sp₁[i] sp₂[i]) →
+    SubjInv d (Setlec.Expr.mkAppN (thetaSubst₁ d Γ A₁) sp₁) →
+    SubjInv d (Setlec.Expr.mkAppN (thetaSubst₂ d Γ A₂) sp₂) →
+    PairedLeaves (Setlec.Expr.mkAppN (thetaSubst₁ d Γ A₁) sp₁)
+      (Setlec.Expr.mkAppN (thetaSubst₂ d Γ A₂) sp₂) →
+    Q d (Setlec.Expr.mkAppN (thetaSubst₁ d Γ A₁) sp₁)
+      (Setlec.Expr.mkAppN (thetaSubst₂ d Γ A₂) sp₂) →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN (thetaSubst₁ d Γ A₁) sp₁)
+      = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
+      (Setlec.Expr.mkAppN (thetaSubst₂ d Γ A₂) sp₂)
+      = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
 /-! ### The commutation kit (the subst-sim's per-step algebra) -/
 
 /-- The telescope's one-binder substitution at cursor `k`: close

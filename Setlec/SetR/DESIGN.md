@@ -12462,3 +12462,63 @@ entry condition for this file.
 cannot even **state** is not a gap in the design — it is a missing
 former, and formers belong to the tier that owns the objects.  Check
 which of the two you have before calling STOP.*
+
+### The wall ruling executed: (C)-audit, (B)-audit, the audited architecture (map seal)
+
+**(C)-audit result — condition (i) answered by the measure, not by
+E4.**  Sweep of every E4 aligned-output construction site: the
+loop-tier aligned assemblies reuse the input run's own budget shape
+(`⟨g, l+1⟩` at the step, `l₂ ≤ l` through the pendings) — the
+core-tier alignment consumes CORE steps, which the loop budget does
+not count, so strictness is genuinely unavailable at those sites
+(zero-loop-step by construction).  Under the audited measure below
+the strict form is also UNNECESSARY: no image-pair consumer needs
+budget decrease.  E4 stands unamended; the axiom's extension
+("every consumed step recorded as a strict decrease") is satisfied
+vacuously at the loop tier and structurally by the new measure
+elsewhere.
+
+**(A) rejected, with reason (per the ruling)**: a `CertZip` θ-arm
+would carry the image of a certified pair as a zip arm — usable
+only if certificates transported under substitution, which is the
+wall itself relocated into the relation.
+
+**(B)-audit — the full reference graph and the audited measure.**
+The finding that dissolves the wall: **the in-zone-fvar recursion
+shortens the telescope** — an entry's argument pair is substituted
+by the PREFIX entries only, so its walk/zip instances run at
+`|Γ'| < |Γ|`.  With that slot the graph closes:
+
+* Claims: the WALK (run-form, `ThetaWalkClaim`, unchanged) and the
+  new **θ-zip walker** (`ThetaZipWalkClaim`, map-sealed compiled):
+  spines over telescope-images of a ZIPPED pair at zip-fuel
+  `fcz ≤ fcK + 1`.  The syn-walker collapsed into the zip walker
+  (refl is a zip).  At `Γ = []` the zip walker's cert-arm IS
+  `ZipCertSpineCase`'s data — the depth-zero consumers are its
+  instances.
+* Measure (proof-internal, lexicographic):
+  `[rank, |Γ|, phase, zip-structure∕L, loop-budgets]` with
+  `rank(walk at fcK) := fcK + 1`, `rank(zip walker) := fcz`,
+  `phase(zip walker) = 2 > phase(walk) = 1`.
+* The audited transitions: walk's δ/nat re-entries → same prefix,
+  `L−1` ✓; the push → `rank−1` (the opened-body run one knot down;
+  `Γ` grows under the dominant drop) ✓; walk's syn → zip walker at
+  refl, `fcz := 0` (refl-zips are rank-free) — rank drops ✓; walk's
+  congruence arms (appCong/spine/consts) → zip walker at
+  `fcz = fcK` (the run's OWN `defEqList`/head certs sit at the
+  run's knot) — rank drops ✓; walk's in-zone fvar → zip walker at
+  `fcz = fcK + 1` (TelescopeOk's tier), equal rank, `|Γ'| < |Γ|` ✓;
+  zip walker's cert-arm → walk at `fcK := fcz − 1` (the unfold),
+  equal rank, phase drops ✓; zip walker's structural/loop-step
+  re-entries → its inner slots (the landed ZipApp-discharge's
+  [zip-structure, knot] pattern) ✓.
+* Supply re-verified: pushed entries' argument pairs are the walk's
+  own spine zips; congruence-arm zips come from the run's own
+  certificates one knot down; no loop-gate certs anywhere.
+
+The verified positives from the wall report carry over unchanged
+(post-core syn reduces by E3+E4 to same-`P` core-normal images;
+sort/λ/Π/lit/below-zone-fvar discharge or refute cleanly).  Next:
+ratification of the audited architecture, then the mutual discharge
+in arm-group seals, then the depth-zero consumers as zip-walker
+instances.
