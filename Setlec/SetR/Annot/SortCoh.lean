@@ -12966,6 +12966,275 @@ theorem substAK_mkAppN {d k : Nat} {a : Expr} (h : Expr)
     List.map_map]
   rfl
 
+/-! ### The substitution simulation (the Θ push's engine): map seal
+
+The det-sync break one push in (the run processes *opened* cores, the
+loops *substituted* ones) is answered by a forward-only simulation:
+the substituted image of an opened core/loop run is itself reachable
+by GATE-FREE reduction steps.  `RawReach` is that image trace — it
+mirrors the kernel's clause structure (head congruence, β/ζ at the
+node, the two literal conversions, δ, the nat rows, the three iota
+rows, the projection fire) but carries **no certificate gates**
+(infer/defeq/level checks): the walk re-decomposes the loops' actual
+runs from the image point by determinism, and a sort-successful run
+*forces* every gate along the trace (a stuck non-sort endpoint
+contradicts the success).  The relation is budget-indexed (`G`
+ceilings the one carried run — the string-literal expansion's closed
+whnf — honoring the both-fuel-bounds design axiom; consumption is
+det-only, so a ceiling plus weakening suffices).  The rescue rows
+(K/eta) carry their fabrication data existentially (`ust`, `targs`
+are infer-derived on the opened side — "only eta carries
+infer-lockstep"; the sort-level seam is `EtaRescueSortAgree`'s).
+There is deliberately NO free argument-position congruence: a
+gratuitous argument step would break the endpoint's syntactic
+agreement with the actual run — majors reach only *inside* the iota
+rows, where the fire consumes them. -/
+inductive RawReach (μ : CheckMode) (env : Env) (d G : Nat) :
+    Expr → Expr → Prop
+  | refl (e : Expr) : RawReach μ env d G e e
+  | appL {f f' : Expr} (x : Expr) {w : Expr}
+      (h : RawReach μ env d G f f')
+      (rest : RawReach μ env d G (.app f' x) w) :
+      RawReach μ env d G (.app f x) w
+  | projC (sn : Name) (i : Nat) {pe pe' w : Expr}
+      (h : RawReach μ env d G pe pe')
+      (rest : RawReach μ env d G (.proj sn i pe') w) :
+      RawReach μ env d G (.proj sn i pe) w
+  | beta (n : Name) (ty b x : Expr) (m : Setlec.BinderMeta)
+      {w : Expr}
+      (rest : RawReach μ env d G (b.instantiate1 x) w) :
+      RawReach μ env d G (.app (.lam n ty b m) x) w
+  | zeta (n : Name) (ty v b : Expr) {w : Expr}
+      (rest : RawReach μ env d G (b.instantiate1 v) w) :
+      RawReach μ env d G (.letE n ty v b) w
+  | litNat (e : Expr) {w : Expr}
+      (rest : RawReach μ env d G (Setlec.litToCtorIfNat env e) w) :
+      RawReach μ env d G e w
+  | litStr (s : String) (g : Nat) {t w : Expr}
+      (hg : g ≤ G)
+      (hs : Setlec.strLitSupported env = true)
+      (hr : whnf μ env g d (Setlec.strLitToConstructor s) = .ok t)
+      (rest : RawReach μ env d G t w) :
+      RawReach μ env d G (.lit (.strVal s)) w
+  | delta {e e' w : Expr}
+      (h : unfoldDefinition env e = some e')
+      (rest : RawReach μ env d G e' w) : RawReach μ env d G e w
+  | natSucc (x : Expr) {ax : Expr} (n : Nat) {w : Expr}
+      (hs : Setlec.natLitSupported env = true)
+      (hx : RawReach μ env d G x ax)
+      (hnl : Setlec.rawNatLit? ax = some n)
+      (rest : RawReach μ env d G (.lit (.natVal (n + 1))) w) :
+      RawReach μ env d G (.app (.const Setlec.natSuccName []) x) w
+  | natU1 (c : Name) (x : Expr) {ax : Expr} (n : Nat) {res w : Expr}
+      (hc : c = Setlec.natPredName ∨ c = Setlec.natLog2Name)
+      (hg : Setlec.natOpGuard env c = true)
+      (hx : RawReach μ env d G x ax)
+      (hnl : Setlec.rawNatLit? ax = some n)
+      (hres : Setlec.natOpResult c n 0 = some res)
+      (rest : RawReach μ env d G res w) :
+      RawReach μ env d G (.app (.const c []) x) w
+  | natB (c : Name) (x y : Expr) {ax ay : Expr} (n₁ n₂ : Nat)
+      {res w : Expr}
+      (hc : c = Setlec.natAddName ∨ c = Setlec.natSubName ∨
+        c = Setlec.natMulName ∨ c = Setlec.natPowName ∨
+        c = Setlec.natBeqName ∨ c = Setlec.natBleName ∨
+        c = Setlec.natDivName ∨ c = Setlec.natModName ∨
+        c = Setlec.natGcdName ∨ c = Setlec.natLandName ∨
+        c = Setlec.natLorName ∨ c = Setlec.natXorName ∨
+        c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName)
+      (hg : Setlec.natOpGuard env c = true)
+      (hx : RawReach μ env d G x ax)
+      (hy : RawReach μ env d G y ay)
+      (hnx : Setlec.rawNatLit? ax = some n₁)
+      (hny : Setlec.rawNatLit? ay = some n₂)
+      (hres : Setlec.natOpResult c n₁ n₂ = some res)
+      (rest : RawReach μ env d G res w) :
+      RawReach μ env d G (.app (.app (.const c []) x) y) w
+  | iotaPlain (c : Name) (us : List Level) {e : Expr}
+      (cv : Setlec.ConstantVal) (mI rP : Nat)
+      (rules : List Setlec.RecRule) (rl : Setlec.RecRule)
+      (cj : Name) (usj : List Level) {M w : Expr}
+      (hfn : e.getAppFn = .const c us)
+      (hc : env.find? c = some (.recInfo cv mI rP rules))
+      (hlen : e.getAppArgs.length = mI + 1)
+      (hM : RawReach μ env d G (e.getAppArgs.getD mI (.bvar 0)) M)
+      (hMfn : M.getAppFn = .const cj usj)
+      (hrl : rules.find? (fun r' => r'.ctor == cj) = some rl)
+      (hml : M.getAppArgs.length = rl.ctorParams + rl.nfields)
+      (hnin : rl.fire ≠ .inert)
+      (rest : RawReach μ env d G
+        (Setlec.Expr.mkAppN
+          (rl.rhs.instantiateLevelParams cv.levelParams us)
+          (e.getAppArgs.take rP
+            ++ M.getAppArgs.drop rl.ctorParams)) w) :
+      RawReach μ env d G e w
+  | iotaK (c : Name) (us : List Level) {e : Expr}
+      (cv : Setlec.ConstantVal) (mI rP : Nat)
+      (rl : Setlec.RecRule)
+      (cvj : Setlec.ConstantVal) (cnP : Nat)
+      (T : Name) (usT : List Level)
+      (cvT : Setlec.ConstantVal) (caps : Setlec.IndCaps)
+      (targs : List Expr) {M w : Expr}
+      (hfn : e.getAppFn = .const c us)
+      (hc : env.find? c = some (.recInfo cv mI rP [rl]))
+      (hlen : e.getAppArgs.length = mI + 1)
+      (hM : RawReach μ env d G (e.getAppArgs.getD mI (.bvar 0)) M)
+      (hcj : env.find? rl.ctor = some (.ctorInfo cvj cnP 0))
+      (hT : cvj.type.piResult.getAppFn = .const T usT)
+      (hTi : env.find? T = some (.indInfo cvT caps))
+      (hK : caps.ruleK = true)
+      (hml : (targs.take cnP).length = rl.ctorParams + rl.nfields)
+      (rest : RawReach μ env d G
+        (Setlec.Expr.mkAppN
+          (rl.rhs.instantiateLevelParams cv.levelParams us)
+          (e.getAppArgs.take rP
+            ++ (targs.take cnP).drop rl.ctorParams)) w) :
+      RawReach μ env d G e w
+  | iotaEta (c : Name) (us ust : List Level) {e : Expr}
+      (cv : Setlec.ConstantVal) (mI rP : Nat)
+      (rl : Setlec.RecRule)
+      (cvj : Setlec.ConstantVal) (cnP cnF : Nat)
+      (T : Name) (usT : List Level)
+      (cvT : Setlec.ConstantVal) (caps : Setlec.IndCaps)
+      (targs : List Expr) {M w : Expr}
+      (hfn : e.getAppFn = .const c us)
+      (hc : env.find? c = some (.recInfo cv mI rP [rl]))
+      (hlen : e.getAppArgs.length = mI + 1)
+      (hM : RawReach μ env d G (e.getAppArgs.getD mI (.bvar 0)) M)
+      (hcj : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF))
+      (hT : cvj.type.piResult.getAppFn = .const T usT)
+      (hTi : env.find? T = some (.indInfo cvT caps))
+      (heta : caps.eta = true)
+      (hec : rl.ctor = caps.etaCtor)
+      (hml : (Setlec.etaFabArgs T ust targs M caps.etaFields).length
+        = rl.ctorParams + rl.nfields)
+      (rest : RawReach μ env d G
+        (Setlec.Expr.mkAppN
+          (rl.rhs.instantiateLevelParams cv.levelParams us)
+          (e.getAppArgs.take rP
+            ++ (Setlec.etaFabArgs T ust targs M caps.etaFields).drop
+              rl.ctorParams)) w) :
+      RawReach μ env d G e w
+  | projFire (sn : Name) (i : Nat) {E w : Expr}
+      (entry : Setlec.ProjEntry) (us : List Level)
+      (hf : env.findProj? sn i = some entry)
+      (hfn : E.getAppFn = .const entry.ctor us)
+      (hnat : entry.native = true)
+      (hi : i < entry.numFields)
+      (hlenE : E.getAppArgs.length
+        = entry.numParams + entry.numFields)
+      (rest : RawReach μ env d G
+        (E.getAppArgs.getD (entry.numParams + i) (.bvar 0)) w) :
+      RawReach μ env d G (.proj sn i E) w
+
+/-- The image trace composes. -/
+theorem RawReach.trans {μ : CheckMode} {env : Env} {d G : Nat}
+    {u v x : Expr} (h₁ : RawReach μ env d G u v)
+    (h₂ : RawReach μ env d G v x) : RawReach μ env d G u x := by
+  revert h₂
+  induction h₁ with
+  | refl e => exact fun h₂ => h₂
+  | appL xa h rest ihh ihr =>
+    exact fun h₂ => .appL xa h (ihr h₂)
+  | projC sn i h rest ihh ihr =>
+    exact fun h₂ => .projC sn i h (ihr h₂)
+  | beta n ty b xa m rest ih =>
+    exact fun h₂ => .beta n ty b xa m (ih h₂)
+  | zeta n ty v' b rest ih =>
+    exact fun h₂ => .zeta n ty v' b (ih h₂)
+  | litNat e rest ih => exact fun h₂ => .litNat e (ih h₂)
+  | litStr s g hg hs hr rest ih =>
+    exact fun h₂ => .litStr s g hg hs hr (ih h₂)
+  | delta h rest ih => exact fun h₂ => .delta h (ih h₂)
+  | natSucc xa n hs hx hnl rest ihx ihr =>
+    exact fun h₂ => .natSucc xa n hs hx hnl (ihr h₂)
+  | natU1 c xa n hc hg hx hnl hres rest ihx ihr =>
+    exact fun h₂ => .natU1 c xa n hc hg hx hnl hres (ihr h₂)
+  | natB c xa ya n₁ n₂ hc hg hx hy hnx hny hres rest ihx ihy ihr =>
+    exact fun h₂ => .natB c xa ya n₁ n₂ hc hg hx hy hnx hny hres
+      (ihr h₂)
+  | iotaPlain c us cv mI rP rules rl cj usj hfn hc hlen hM hMfn hrl
+      hml hnin rest ihM ihr =>
+    exact fun h₂ => .iotaPlain c us cv mI rP rules rl cj usj hfn hc
+      hlen hM hMfn hrl hml hnin (ihr h₂)
+  | iotaK c us cv mI rP rl cvj cnP T usT cvT caps targs hfn hc hlen
+      hM hcj hT hTi hK hml rest ihM ihr =>
+    exact fun h₂ => .iotaK c us cv mI rP rl cvj cnP T usT cvT caps
+      targs hfn hc hlen hM hcj hT hTi hK hml (ihr h₂)
+  | iotaEta c us ust cv mI rP rl cvj cnP cnF T usT cvT caps targs
+      hfn hc hlen hM hcj hT hTi heta hec hml rest ihM ihr =>
+    exact fun h₂ => .iotaEta c us ust cv mI rP rl cvj cnP cnF T usT
+      cvT caps targs hfn hc hlen hM hcj hT hTi heta hec hml (ihr h₂)
+  | projFire sn i entry us hf hfn hnat hi hlenE rest ih =>
+    exact fun h₂ => .projFire sn i entry us hf hfn hnat hi hlenE
+      (ih h₂)
+
+/-- The budget ceiling weakens. -/
+theorem RawReach.mono_budget {μ : CheckMode} {env : Env}
+    {d G G' : Nat} (hG : G ≤ G') {u v : Expr}
+    (h : RawReach μ env d G u v) : RawReach μ env d G' u v := by
+  induction h with
+  | refl e => exact .refl e
+  | appL x h rest ih₁ ih₂ => exact .appL x ih₁ ih₂
+  | projC sn i h rest ih₁ ih₂ => exact .projC sn i ih₁ ih₂
+  | beta n ty b x m rest ih => exact .beta n ty b x m ih
+  | zeta n ty v b rest ih => exact .zeta n ty v b ih
+  | litNat e rest ih => exact .litNat e ih
+  | litStr s g hg hs hr rest ih =>
+    exact .litStr s g (Nat.le_trans hg hG) hs hr ih
+  | delta h rest ih => exact .delta h ih
+  | natSucc x n hs hx hnl rest ih₁ ih₂ =>
+    exact .natSucc x n hs ih₁ hnl ih₂
+  | natU1 c x n hc hg hx hnl hres rest ih₁ ih₂ =>
+    exact .natU1 c x n hc hg ih₁ hnl hres ih₂
+  | natB c x y n₁ n₂ hc hg hx hy hnx hny hres rest ih₁ ih₂ ih₃ =>
+    exact .natB c x y n₁ n₂ hc hg ih₁ ih₂ hnx hny hres ih₃
+  | iotaPlain c us cv mI rP rules rl cj usj hfn hc hlen hM hMfn hrl
+      hml hnin rest ih₁ ih₂ =>
+    exact .iotaPlain c us cv mI rP rules rl cj usj hfn hc hlen ih₁
+      hMfn hrl hml hnin ih₂
+  | iotaK c us cv mI rP rl cvj cnP T usT cvT caps targs hfn hc hlen
+      hM hcj hT hTi hK hml rest ih₁ ih₂ =>
+    exact .iotaK c us cv mI rP rl cvj cnP T usT cvT caps targs hfn
+      hc hlen ih₁ hcj hT hTi hK hml ih₂
+  | iotaEta c us ust cv mI rP rl cvj cnP cnF T usT cvT caps targs
+      hfn hc hlen hM hcj hT hTi heta hec hml rest ih₁ ih₂ =>
+    exact .iotaEta c us ust cv mI rP rl cvj cnP cnF T usT cvT caps
+      targs hfn hc hlen ih₁ hcj hT hTi heta hec hml ih₂
+  | projFire sn i entry us hf hfn hnat hi hlenE rest ih =>
+    exact .projFire sn i entry us hf hfn hnat hi hlenE ih
+
+/-- **The core simulation claim** at one knot fuel: a depth-`(d+1)`
+`whnfCore` run on an opened, locally closed subject maps — under the
+one-binder telescope substitution at cursor 0 — to a gate-free image
+trace at depth `d`, ceilinged by the run's own knot fuel. -/
+def WhnfCoreSubstSimF (μ : CheckMode) (env : Env)
+    (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {a e e' : Expr},
+    a.looseBVarsBounded 0 = true → Expr.WScoped d a →
+    e.looseBVarsBounded 0 = true → Expr.WScoped (d + 1) e →
+    whnfCore μ env fuel (d + 1) e = .ok e' →
+    RawReach μ env d fuel (substAK d 0 a e) (substAK d 0 a e')
+
+/-- **The loop simulation claim** at one knot fuel (any loop
+budget): a depth-`(d+1)` `whnfLoop` run maps to the gate-free image
+trace at depth `d`. -/
+def WhnfLoopSubstSimF (μ : CheckMode) (env : Env)
+    (fuel : Nat) : Prop :=
+  ∀ {d l : Nat} {a e e' : Expr},
+    a.looseBVarsBounded 0 = true → Expr.WScoped d a →
+    e.looseBVarsBounded 0 = true → Expr.WScoped (d + 1) e →
+    Setlec.whnfLoop (Setlec.pureFns μ env fuel) env (d + 1) l e
+      = .ok e' →
+    RawReach μ env d fuel (substAK d 0 a e) (substAK d 0 a e')
+
+/-- The substitution simulation, both tiers at one knot fuel (the
+`ShiftClaims` pattern; the mutual induction discharges both). -/
+structure SubstSimClaims (μ : CheckMode) (env : Env)
+    (fuel : Nat) : Prop where
+  core : WhnfCoreSubstSimF μ env fuel
+  loop : WhnfLoopSubstSimF μ env fuel
+
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/
 theorem zipLamHeadCase_of {φ : Name → Nat}

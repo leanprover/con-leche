@@ -11898,3 +11898,60 @@ now holds: `abstract1_eq_self`, `substAK_eq_self`,
 `abstract1_instantiate1_comm`, `substAK_cursor`,
 `substAK_instantiate1`, `mkAppN_abstract1`, `substAK_mkAppN`.
 Next: `whnfCore_subst_sim`'s map seal, then its induction.
+
+### `whnfCore_subst_sim` MAP SEALED — `RawReach` + the two claims
+
+Landed (compiled): `RawReach μ env d G` (the gate-free image trace,
+16 constructors), `RawReach.trans`, `RawReach.mono_budget`,
+`WhnfCoreSubstSimF` / `WhnfLoopSubstSimF` (cursor-0 `substAK` images
+of depth-`(d+1)` runs are traced at depth `d`, ceilinged by the
+run's knot fuel), `SubstSimClaims` (the `ShiftClaims`-pattern pair).
+
+**The clause table** (opened kernel behavior → trace constructor):
+leaf clauses → `refl` (incl. the `fvar d` head: both images are `a`,
+the image may reduce FURTHER — the forward-only clause); `letE` →
+`zeta`; app head-run → `appL` + IH; fired β → `beta` via
+`substAK_instantiate1` (stuck β = congruence-only endpoint — no gate
+in the trace); iota → the three fire rows with the major's own trace
+NESTED (whnf sim + `litNat`/`litStr` conversions), the fire's image
+via `substAK_mkAppN` + `substAK_eq_self` on the closed rule RHS
+(`EnvWF`); proj → `projC` + `projFire`; loop tier adds `delta`
+(image commutes — `substAK_unfoldDefinition`, a kit addition owed at
+the induction) and the three nat rows (arg traces nested; op names,
+guards, `natOpResult` all term-independent).
+
+**Treatment decisions (frozen):**
+* **No certificate gates in the trace** — the det-sync break's
+  resolution.  The walk holds a sort-successful actual run; at every
+  point where the trace claims a step the actual run's gate refused,
+  the actual endpoint is head-stuck non-sort (`loop_dead_exit`,
+  `unfoldDefinition_none_of_recInfo`) — contradiction.  Gate facts
+  therefore never appear as constructor premises; env-syntactic,
+  term-independent facts (lookups, counts, caps flags, op names,
+  guards) DO, because the forcing side needs them to align the
+  actual run's dispatch.
+* **No free argument-position congruence** — a gratuitous argument
+  step would break the endpoint's syntactic agreement with the
+  actual run (whose stuck spines are returned verbatim).  Majors
+  reach only inside the iota rows.  REBASE-CRITICAL.
+* **Rescue rows carry fabrication data existentially** (`ust`,
+  `targs` are infer-derived opened-side; the sim plugs their
+  images).  K's field segment is emptied by `cnF = 0` at the
+  consumers (StoredWF's `ctorParams = cnP`); eta's fields ride
+  `etaFabArgs` verbatim — the residual infer-lockstep seam is
+  `EtaRescueSortAgree`'s, exactly as routed.
+* **Budget ceiling `G`**: the one carried run (`litStr`'s closed
+  whnf of the string expansion) ships under `g ≤ G` with
+  `mono_budget` — the both-fuel-bounds axiom honored in ceiling
+  form; consumption is det-only (`KnotFuelDet`), never re-assembly.
+  The sim produces the depth-`d` run from the opened depth-`(d+1)`
+  one via the DISCHARGED `ShiftClaims` battery (Deep.lean 2837) +
+  `shiftFrom`-identity on fvar-free terms + `whnfPres_leaves`.
+* **Trap sweep**: SortCohAt phantom untouched; the WhnfCoreIdem
+  tombstone not consumed; strategy-superset rule inapplicable
+  (proof-side relation, not checker strategy); k = 0 specialization
+  is sound — `whnfCore`/`whnf` never reduce under binders, so no
+  cursor bump ever occurs on the subject path.
+
+Next: the induction (`LeavesPres` skeleton, fuel-indexed; per-fuel
+`SubstSimClaims`), with `substAK_unfoldDefinition` sealed en route.
