@@ -3311,4 +3311,45 @@ theorem inferStep2D_of (h : InferInputs2D V μ) : InferStep2D μ V := by
   | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
     exact h.proj m φ fuel hrun hws hb hLb hC hea
 
+
+/-! ## `CtxAnn2`, retired — the fourth conjunct's receipt
+
+Seal 17's FINDING (above, at `CtxAnn2`) said the `.fvar` clause's
+missing fact was **not a residue of this quarter** but a missing
+component of the *supplier's* `CtxOk2`.  `CtxOk2D` adds it.  What
+follows is the receipt: the same statement, with `CtxOk2D` in place of
+`CtxOk2`, is a **theorem, premise-free**.
+
+*What this does and does not establish.*  It is true by construction —
+`CtxOk2D`'s fourth conjunct is `CtxOk2Ann`, and `CtxAnn2` is that
+conjunct read at one leaf — so on its own it is bookkeeping.  The
+content is elsewhere and is already landed:
+
+1. the conjunct **survives every constructor in the kit**
+   (`CtxOk2Ann`'s survival lemmas in `Step2/Dispatch.lean`, lifted to
+   `CtxOk2D` in `Interp2/CtxOk2D.lean`) — so adding it costs no site a
+   new obligation;
+2. the conjunct is **not vacuous** (`CtxOk2D.nonvacuous`), so the
+   retirement is not an artifact of an empty hypothesis;
+3. `inferStep2D_of` closes with **no `ctx_ann` field**, which is the
+   only evidence that actually matters.
+
+Stated anyway, because a retired residue that no declaration mentions
+is a retirement nobody can check. -/
+
+/-- `CtxAnn2` in the new currency. -/
+def CtxAnn2D {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) : Prop :=
+  ∀ {F d idx : Nat} {n : Name} {ty : Expr} {Δa : List AVExpr}
+    {tya : AVExpr},
+    CtxOk2D m μ φ F d Δa (.fvar idx n ty) →
+    denote2 μ m.acval env φ F d ty = some tya →
+    ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ tya
+
+/-- **The residue is discharged.**  No environment shape, no fuel
+condition, no mode, no level assignment, no extra premise. -/
+theorem ctxAnn2D_of {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) : CtxAnn2D m μ φ :=
+  fun hC hden => CtxOk2Ann.fvar_leaf hC.toAnn _ hden
+
 end Setlec.SetR.Interp2

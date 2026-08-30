@@ -78,4 +78,40 @@ So *if* the junction adopts the strengthening, this residue's
 discharge becomes the pair `⟨CtxOk2.openS, CtxOk2Ann.openS⟩` and
 nothing above changes. -/
 
+/-! ## Generation five: the prediction, closed
+
+The junction did adopt the strengthening (`CtxOk2D`), and the
+discharge below is the pair the note above named, in that order and
+with nothing else.  The **one** thing the note did not predict is the
+extra premise: `CtxOk2Ann.openS` reads the domain's hoisted grading,
+because the opened variable's annotation *is* the domain and the
+fourth conjunct has to say something about it.  So `CtxOk2OpenD`
+carries a hypothesis `CtxOk2Open` does not.
+
+That is not a weakening of the residue past its consumers.  The three
+sites that open a binder in the inference quarter — `.forallE`,
+`.lam`, `.app` — each already compute it: the first two from
+`SortSem2`'s own conclusion, the third from `AnnotOk2.hoist_pi` of the
+reduct.  All three are wired in `Step2/InferQ.lean`'s generation-five
+lane, which takes **no** `ctx_open` field at all. -/
+
+/-- `CtxOk2Open` in the new currency, with the premise the fourth
+conjunct adds. -/
+def CtxOk2OpenD {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) : Prop :=
+  ∀ {F d : Nat} {Δa : List AVExpr} {n : Name} {ty body : Expr}
+    {ta : AVExpr},
+    CtxOk2D m μ φ F d Δa ty → CtxOk2D m μ φ F d Δa body →
+    denote2 μ m.acval env φ F d ty = some ta →
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) →
+    CtxOk2D m μ φ F (d + 1) (ta :: Δa)
+      (body.instantiate1 (.fvar d n ty))
+
+/-- **`CtxOk2OpenD` is discharged**, and the `Expr.fvarsBelow`
+argument `CtxOk2Open` carried is gone too: `CtxOk2D` contains its own
+scoping. -/
+theorem ctxOk2OpenD_of {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) : CtxOk2OpenD m μ φ :=
+  fun ht hb hty hok => CtxOk2D.openS ht hb hty hok
+
 end Setlec.SetR.Interp2
