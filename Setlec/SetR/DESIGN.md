@@ -11619,3 +11619,108 @@ itself.
 seal, full pre-build treatment with the trap-list above), the walk
 (the induction, likely several seals at knot-natural boundaries),
 then the four docket discharges as consumers.
+
+### The Θ walk: full pre-build treatment (the summit statement design)
+
+**The telescope.**  An entry per opened binder, innermost last:
+`ThetaEntry := ⟨n₁ n₂ : Name, ty₁ ty₂ a₁ a₂ : Expr⟩` — the two
+binder names, the ANNOTATION PAIR (each side's own domain — the
+kernel opens with `.fvar d nᵢ tyᵢ`), and the ARGUMENT PAIR the
+subject loops β-substituted where the run opened an fvar.  The
+per-entry facts (carried as a `TelescopeOk fcK d` predicate over
+the list, entry `j` at depth `d + j`):
+* `CertZip fcK d a₁ a₂` (the argument zip — from the β-legs'
+  positions in the original spines),
+* `isDefEqCore (fcK+1) (d+j) ty₁ ty₂ = .ok true`-form domain fact
+  (the run's own `hd` at the entry's depth; fuel bookkeeping: the
+  opened runs sit at the walk's knot, one below the consumer's fc),
+* `SubjInv` of both arguments, and the argument-side invariants.
+
+**The subject form.**  The walk relates
+`X₁ = mkAppN (subst₁ Γ C₁) sp₁` to `X₂ = mkAppN (subst₂ Γ C₂) sp₂`
+where `substᵢ Γ` folds `instantiate1` of the `aᵢ`s over the
+telescope (innermost first) and `C₁ C₂` are the OPENED cores the
+pending defeq run relates: `defeqLoop μ (pureFns fcK) env (d + |Γ|)
+L C₁ C₂ = .ok true`, with `sp₁ sp₂` pairwise-zipped.  At depth
+zero this is exactly `ZipCertSpineCase`'s data with
+`fcK := fc − 1`, `L := defeqLoopFuel` (from `isDefEqCore`'s
+unfold).
+
+**The measure**: lex `[fcK, L]` — pushes (lamCong under β) descend
+`fcK` (the opened run sits at the knot one down, read off the
+kernel's own fuel discipline); the lazy-delta/nat re-entries (`k`
+at `L−1`) descend `L`; the subject loops' budgets descend WITH the
+re-entries by the certLoop det-sync discipline and are carried as
+premises, not measure slots.
+
+**The walk's conclusion**: eval-equality of the sort numerals — no
+disjuncts, no seams, no deferrals (the four docket items are its
+CONSUMERS, not exits).
+
+**Arm plan against `PostCoreCert`** (the 22 arms; det-sync of the
+run's whnfCore pair with the loops' current core step first, per
+certLoop):
+* `syn` → the cores agree syntactically: the subject pair becomes
+  same-core spines with zipped telescope images — the loops
+  continue on det-equal material up to the substitutions and
+  zipped spines; handled by the zip tier through loopLock on the
+  REBASED pair (zips: refl-core + telescope-image zips — the
+  images of a SHARED core under zipped substitutions zip by
+  `certZip_subst` folded over Γ) and the landed conversion
+  patterns.
+* `irrel`, `etaL/R`, `stuckIrrel` family, `rescue` → the landed
+  vacuity trio + `NatStepNoSort`, exactly certLoop's exits.
+* `natL/R` → `NatStepNoSort` under the sort premises.
+* `deltaL/R/B` → the loops δ-sync by name-determinism
+  (`spine_both`) and the walk re-enters at `L−1`.
+* `sorts` → cores are sorts: the spines must be empty (a sort
+  under application is loop-dead) and the telescope images of
+  sorts are sorts — conclude by `isEquiv` soundness.
+* `consts`/`spine`/`appCong` → the same-head congruence data
+  (`defEqList_extract`) feeds the zip construction; continue
+  through loopLock on the rebased pair as at `syn`.
+* `piCong` → cores are Π's: under application the loops are dead
+  (Π is a value); with empty spines the loops END at the Π's — but
+  the sort premise forces sorts — dead unless spines empty AND the
+  cores ARE the outputs — then sort-vs-Π refutes.  VACUOUS both
+  ways (the (A)-pattern).
+* `lamCong` → THE PUSH: with non-empty spines the loops β-fire the
+  first spine argument into the opened body; push
+  `⟨n₁,n₂,ty₁,ty₂,a₁,a₂⟩`, recurse on the opened-body run at
+  `fcK − 1` with the remaining spines; with empty spines the loops
+  end at λ's — sort-vs-λ refutes (vacuous).
+* `fvars` → cores are the SAME fvar index: if inside the telescope
+  zone, the index resolves to an ANNOTATION PAIR and the loops
+  read the annotations — the (A) claim on the annotation pair
+  (DISCHARGED, `ensureSortAgreeRQ_of`) concludes; below the zone
+  the annotations are literally paired by `PairedLeaves`.
+* `lits`/`natZero*/natSucc*/str*` → literal cores never reach
+  sorts under the loops — vacuous by shape.
+* `projCong` → stuck-proj deadness (the recorded organizing fact).
+
+**The trap-list, run**:
+1. No vacuity absorption (single positive conclusion).
+2. No zip-out promise (eval-conclusion only — the refuted shape
+   avoided).
+3. Premises producible at all five consumers (depth-0 checked
+   against each routed Prop's data; the splits' cert nodes unfold
+   to `defeqLoop` runs by `isDefEqCore`'s definition).
+4. Measure instantiated: `[fcK, L]`, pushes descend slot 1 by the
+   kernel's own knot discipline; no loop-budget slot needed (det
+   carries the loops).
+5. Joint satisfiability: depth-0 = any accepted cert-headed spine;
+   pushed states = β-firing spines (arena-real).
+6. Tombstone sweep: no idempotence anywhere (det against the
+   loops' OWN runs, the certLoop discipline); no
+   `SortCohAt`/`SortSubstStable`/(C) dependence (the read's trap);
+   eval-currency throughout; pairing enters as premise
+   (the telescope IS the paired discipline); no w-general species;
+   no `WhnfCoreIdem` shape.
+7. Exits are all landed suppliers (vacuity trio, `NatStepNoSort`,
+   `defEqList_extract`, loopLock + conversions, (A)); no new seams.
+
+**Freeze order**: `ThetaEntry`/`TelescopeOk`/`substᵢ` defs + the
+walk's statement as a def (`ThetaWalkClaim`), then the induction in
+seals at the arm-group boundaries (vacuous arms first, δ/nat
+re-entries, the rebased-pair group, the push, the fvar leaf), then
+the five consumer discharges.
