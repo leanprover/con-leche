@@ -127,8 +127,14 @@ def natVR (cval : TConstVal) (φ : Name → Nat) : VExpr :=
 
 /-- The `checkConstantVal` pack (`Setlec/Kernel/CheckerBase.lean:70-90`):
 freshness/reservation/level guards, the annotated type's syntactic
-guards, and the type front door (`infer` + `ensureSort` at `Δ = []`,
-every `φ`). -/
+guards, **the front door's own two-step run chain**, and the type
+front door (`infer` + `ensureSort` at `Δ = []`, every `φ`).
+
+The run-chain conjunct is the front door's *literal* output
+(`CheckerBase.lean:88-89`): `inferType` names an intermediate `stype`
+and `ensureSort` only whnfs it — the inferred type need not **be** a
+sort.  Recording the fused `.ok (.sort u)` would be recording
+something the checker does not produce (seal 48). -/
 def ConstantValR (μ : CheckMode) (F : Nat) (env : Env)
     (cval : TConstVal) (cv : ConstantVal) (type' : Expr) : Prop :=
   (env.find? cv.name).isNone = true ∧
@@ -140,6 +146,8 @@ def ConstantValR (μ : CheckMode) (F : Nat) (env : Env)
   annotateCore μ env F 0 cv.type = .ok type' ∧
   type'.allLevelParamsDefined cv.levelParams = true ∧
   type'.constsResolve env = true ∧
+  (∃ stype u, inferTypeCore μ env F 0 type' = .ok stype ∧
+    ensureSortCore μ env F 0 stype = .ok u) ∧
   ∀ φ : Name → Nat,
     ∃ Tv tT u, denoteClosed cval env φ type' = some Tv ∧
       Infer μ env cval φ [] Tv tT ∧
@@ -147,8 +155,13 @@ def ConstantValR (μ : CheckMode) (F : Nat) (env : Env)
 
 /-- The value front door shared by `defn`/`thm`/`opaque`
 (`checkDefnVal`/`checkThmVal`/`checkOpaqueVal`'s common core): the
-value's syntactic guards, its annotate output, and its inference
-against the annotated type at `Δ = []`, every `φ`. -/
+value's syntactic guards, its annotate output, **the branch's own
+`inferType` run on the annotated value**, and its inference against
+the annotated type at `Δ = []`, every `φ`.
+
+The run conjunct is the twin of `ConstantValR`'s: the value side runs
+`inferType` and then compares by `isDefEq`, so there is one run to
+name, not a chain (seal 47). -/
 def ValueFrontR (μ : CheckMode) (F : Nat) (env : Env)
     (cval : TConstVal) (cv : ConstantVal) (value : Expr)
     (type' value' : Expr) : Prop :=
@@ -157,6 +170,7 @@ def ValueFrontR (μ : CheckMode) (F : Nat) (env : Env)
   annotateCore μ env F 0 value = .ok value' ∧
   value'.allLevelParamsDefined cv.levelParams = true ∧
   value'.constsResolve env = true ∧
+  (∃ vtype, inferTypeCore μ env F 0 value' = .ok vtype) ∧
   ∀ φ : Name → Nat,
     ∃ Tv Vv tv, denoteClosed cval env φ type' = some Tv ∧
       denoteClosed cval env φ value' = some Vv ∧

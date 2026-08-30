@@ -52,7 +52,7 @@ theorem typeFrontS {μ : CheckMode} {F : Nat} {env : Env}
     (hcv : ConstantValR μ F env m.cval cv type') (φ : Name → Nat) :
     ∃ Tv, denoteClosed m.cval env φ type' = some Tv ∧
       ∀ ρ : Nat → V, AnnotOkV V ρ Tv := by
-  obtain ⟨-, -, -, -, -, -, -, -, -, hfront⟩ := hcv
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, hfront⟩ := hcv
   obtain ⟨Tv, tT, u, hden, hInf, -⟩ := hfront φ
   exact ⟨Tv, hden, fun ρ =>
     (Infer.sound (m.toHyp φ) hInf ρ (Sat_nil V ρ)).1⟩
@@ -71,7 +71,7 @@ theorem valueKeyS {μ : CheckMode} {F : Nat} {env : Env}
         AnnotOkV V ρ Vv ∧ interp V ρ Vv ∈ˢ interp V ρ Tv ∧
         AnnotOkV V ρ Tv := by
   obtain ⟨Tv, hTv, hTannot⟩ := typeFrontS m hcv φ
-  obtain ⟨-, -, -, -, -, hfront⟩ := hvf
+  obtain ⟨-, -, -, -, -, -, hfront⟩ := hvf
   obtain ⟨Tv', Vv, tv, hTv', hVv, hInf, hDeq⟩ := hfront φ
   rw [hTv] at hTv'
   obtain rfl := Option.some.inj hTv'

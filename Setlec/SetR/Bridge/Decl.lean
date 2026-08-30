@@ -110,7 +110,7 @@ theorem constantValR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
     annotateCore_looseBVars F cv.type hann hlbt
   refine ⟨type, rfl, htf, hbt',
     Option.isNone_iff_eq_none.mpr hfind, hres, hpsh, hnd, hlbt, hitf,
-    hann, htp, htr, fun φ => ?_⟩
+    hann, htp, htr, ⟨stype, u, hst, hsort⟩, fun φ => ?_⟩
   obtain ⟨-, ihw, -, ihi⟩ := checkBridge m φ F
   obtain ⟨hwt, hbt, hLt, hCt⟩ :=
     closed0_framesR (μ := μ) (cval := m.cval) (env := env) (φ := φ)
@@ -145,7 +145,7 @@ theorem valueFrontR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
     (hde : isDefEqCore μ env F 0 vtype type' = .ok true)
     (hcv : ConstantValR μ F env m.cval cv type') :
     ValueFrontR μ F env m.cval cv value type' value' := by
-  refine ⟨hlbv, hivf, hannv, hvp, hvr, fun φ => ?_⟩
+  refine ⟨hlbv, hivf, hannv, hvp, hvr, ⟨vtype, hvt⟩, fun φ => ?_⟩
   obtain ⟨-, -, ihd, ihi⟩ := checkBridge m φ F
   have hvf' : value'.hasFvar = false :=
     Expr.not_hasFvar_of_fvarsBelow_zero
@@ -161,7 +161,7 @@ theorem valueFrontR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
       htf hbt'
   obtain ⟨Vv, vt, hVv, hvt', T', hI, hD⟩ := ihi hvt hwv hbv hLv hCv
   obtain ⟨Tv, -, -, hTv, -, -⟩ :=
-    hcv.2.2.2.2.2.2.2.2.2 φ
+    hcv.2.2.2.2.2.2.2.2.2.2 φ
   obtain ⟨hwvt, hbvt, hLvt, hCvt⟩ :=
     closed0_framesR (μ := μ) (cval := m.cval) (env := env) (φ := φ)
       (Expr.not_hasFvar_of_fvarsBelow_zero
@@ -782,7 +782,7 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
         annotateCore_looseBVars F value hann hlbv, fun φ => ?_⟩
       obtain rfl : a = value' := by
         rw [hannv] at hann; exact (Except.ok.inj hann).symm
-      obtain ⟨-, -, -, -, -, hf⟩ :=
+      obtain ⟨-, -, -, -, -, -, hf⟩ :=
         valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt
           hde hcv
       obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ
@@ -934,7 +934,7 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
             (Expr.WScoped.of_not_hasFvar hivf')).fvarsBelow))
         (annotateCore_looseBVars F value hannv hlbv)
         (fun φ => by
-          obtain ⟨-, -, -, -, -, hf⟩ :=
+          obtain ⟨-, -, -, -, -, -, hf⟩ :=
             valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr
               hvt hde hcv
           obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ

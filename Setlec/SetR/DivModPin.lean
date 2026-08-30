@@ -910,7 +910,7 @@ theorem dmSelfMem {μ : CheckMode} {F : Nat} {env : Env}
     (hy : y ∈ˢ interp V ρ (m.cval natName φ)) :
     SetTheory.app (SetTheory.app (interp V ρ Vv) x) y
       ∈ˢ interp V ρ (m.cval cn φ) := by
-  obtain ⟨-, -, -, -, -, hfront⟩ := hvfr
+  obtain ⟨-, -, -, -, -, -, hfront⟩ := hvfr
   obtain ⟨Tv, Vv', tv, hTv, hVv', hInf, hDeq⟩ := hfront φ
   obtain rfl : Vv' = Vv := by rw [hVv'] at hVv; exact Option.some.inj hVv
   rw [hty, denoteClosed] at hTv
@@ -1362,7 +1362,7 @@ theorem dmFrameS {μ : CheckMode} {F : Nat} {env : Env} (m : EnvS V env)
     subst hcodN
     exact dmBinMem m φ hfn htyn hfN hlpN hfN hlpN ρ' ha hb
   -- the value front door: the checked value's own denotation
-  obtain ⟨hvlb, hvhf, hannv, -, -, hfront⟩ := id hvfr
+  obtain ⟨hvlb, hvhf, hannv, -, -, -, hfront⟩ := id hvfr
   obtain ⟨Tv, Vc, tv, hTv, hVc, hInfV, hDeqV⟩ := hfront φ
   obtain ⟨hvf', hbv'⟩ := annotate_syntax hannv hvhf hvlb
   have hdenSelf : ∀ d : Nat, denote m.cval env φ d
@@ -1666,7 +1666,7 @@ theorem dmClause1S {μ : CheckMode} {F : Nat} {env : Env}
   obtain ⟨ciN, ciB, Vc, hfN, hlpN, hfB, hlpB, hEqE, hVc, hvalSelf,
     hvalNat, hNU, hBU, hbleMem, hdepBin, htyOwn, hstore, hctorMem,
     hzeroMem, hsuccMem⟩ := dmFrameS m hmem hvfr hgenv φ
-  obtain ⟨hvlb, hvhf, hannv, -, -, -⟩ := id hvfr
+  obtain ⟨hvlb, hvhf, hannv, -, -, -, -⟩ := id hvfr
   obtain ⟨hvf', hbv'⟩ := annotate_syntax hannv hvhf hvlb
   have hclN : VExpr.Closed (m.cval natName φ) := m.cval_closed _ _
   have hnatDen : ∀ d : Nat, denote m.cval env φ d
@@ -1887,7 +1887,7 @@ theorem dmClause2S {μ : CheckMode} {F : Nat} {env : Env}
   obtain ⟨ciN, ciB, Vc, hfN, hlpN, hfB, hlpB, hEqE, hVc, hvalSelf,
     hvalNat, hNU, hBU, hbleMem, hdepBin, htyOwn, hstore, hctorMem,
     hzeroMem, hsuccMem⟩ := dmFrameS m hmem hvfr hgenv φ
-  obtain ⟨hvlb, hvhf, hannv, -, -, -⟩ := id hvfr
+  obtain ⟨hvlb, hvhf, hannv, -, -, -, -⟩ := id hvfr
   obtain ⟨hvf', hbv'⟩ := annotate_syntax hannv hvhf hvlb
   have hclN : VExpr.Closed (m.cval natName φ) := m.cval_closed _ _
   have hnatDen : ∀ d : Nat, denote m.cval env φ d
@@ -2071,7 +2071,7 @@ theorem divModPinS : DivModPinS V := by
   obtain ⟨ciN, ciB, Vc, hfN, hlpN, hfB, hlpB, hEqE, hVc, hvalSelf,
     hvalNat, hNU, hBU, hbleMem, hdepBin, htyOwn, hstore, hctorMem,
     hzeroMem, hsuccMem⟩ := dmFrameS m hmem hvfr hgenv φ
-  obtain ⟨hvlb, hvhf, hannv, -, -, -⟩ := id hvfr
+  obtain ⟨hvlb, hvhf, hannv, -, -, -, -⟩ := id hvfr
   obtain ⟨hvf', hbv'⟩ := annotate_syntax hannv hvhf hvlb
   have hxx' : xx ∈ˢ interp V ρ (m.cval natName φ) := by
     rwa [hvalNat] at hxx
@@ -2094,7 +2094,7 @@ theorem divModPinS : DivModPinS V := by
         SetTheory.app (interp V ρ' Vc) a
           ∈ˢ interp V ρ' (m.cval natName φ) := by
     rintro ⟨nm, mb, hty⟩ ρ' a ha
-    obtain ⟨-, -, -, -, -, hfront⟩ := hvfr
+    obtain ⟨-, -, -, -, -, -, hfront⟩ := hvfr
     obtain ⟨Tv, Vv', tv, hTv, hVv', hInf, hDeq⟩ := hfront φ
     obtain rfl : Vv' = Vc := by
       rw [hVv'] at hVc; exact Option.some.inj hVc
