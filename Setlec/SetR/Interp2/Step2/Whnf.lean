@@ -1813,4 +1813,114 @@ theorem delta2B_of (m : EnvS2 V env) (hdi : AcvalDefnInst μ m φ) :
     · exact nomatch hud
   · exact nomatch hud
 
+/-! # `BetaCert2`, and the seam it lands on
+
+`whnfCoreStep2B_of` is handed all four induction hypotheses and uses
+one; the β certificate is what would consume two of the other three.
+So the question worth asking before treating `BetaCert2` as a residue
+is whether it is a residue at all, or merely `InferClaims2A` and
+`DefEqClaims2B` composed at the site where the checker already ran
+both (`whnfCoreBody`'s β branch runs `inferTypeCore` on the argument
+and `isDefEqCore` against the λ's domain — that *is* the certificate).
+
+**It is the composition, and the composition does not close.**
+`betaCert2P_of_claims` below is that composition with every input the
+derivation needs made an explicit premise, so the residue's remaining
+content is exactly the gap between `BetaCert2P` and `BetaCert2`.
+`BetaCert2P` adds three premises and the theorem consumes one further
+input; of those four, **one** is a seam and the rest are bookkeeping:
+
+* `μ.verified = true` — the consumer has it (`whnfCore_claims2B`
+  binds it from `WhnfCoreClaims2B`);
+* `AnnotOk2 ρ tya` — the consumer has it (below);
+* `CtxOk2 m μ φ F d Δa a` — **the consumer does not have it**;
+* `TypeOk2` (the theorem's `htok`) — a residue of the inference
+  quarter, not of this one.
+
+The last two are the two the inference quarter had already met from
+its own side:
+
+1. **The context currency.**  `InferClaims2A` reads `CtxOk2` (a
+   `denote2` fact plus an `interp2` equation per `fvar` leaf); this
+   quarter holds `CtxOkR` on erasures, whose leaf package is a
+   *derivation*, `∃ T', Infer … ∧ DefEq …`.  The bridge is `CtxOk2R`
+   (`Step2/InferQ.lean`), stated there and believed false.  **The β
+   certificate is a second, independent consumer of it** — the seam is
+   not the inference `.app` clause's alone, and the repair both sites
+   need is the same one (the context currency made uniform across the
+   four claims, which was the dispatch quarter's original proposal).
+2. **The inferred type's truthfulness.**  `DefEqClaims2B` is graded on
+   *both* sides (STOP 3) and `InferClaims2A` concludes `AnnotOk2` of
+   the term it typed, never of the type it returned.  That is the
+   inference quarter's `TypeOk2`, and it answers the question seal 8
+   left open — *"whether `InferClaims2A`'s conclusion needs extending
+   is asked against a site that can point at it"*: **yes, and this is
+   a second such site.**  (Written out as a premise here rather than
+   imported: `TypeOk2` lives in the inference quarter's file, and two
+   declarations of one statement is the integration cost seal 9
+   measured.)
+
+The λ domain's own truthfulness is **not** a gap: at the call site the
+consumer holds `AnnotOk2 ρ (.app (.lam v tya ba) aa)`, and
+`AnnotOk2_lam`'s first conjunct is `AnnotOk2 ρ tya`.  It is a premise
+below for bookkeeping, not a residue.
+
+Deliberately **not** wired into `whnfCore_app_claim2B`: `BetaCert2P`
+carries a premise the consumer cannot supply, and a residue discharged
+by weakening it past its consumer is worse than an open one. -/
+
+/-- `BetaCert2` with the two seam premises made explicit — the shape
+the two claims actually compose to.  `BetaCert2` is this with
+`CtxOk2` and the domain's `AnnotOk2` removed; the first of those is
+`CtxOk2R`'s content and the reason this is not a discharge. -/
+def BetaCert2P (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {F : Nat}
+    {aa tya : AVExpr},
+    μ.verified = true →
+    inferTypeCore μ env fuel d a = .ok ta →
+    Setlec.isDefEqCore μ env fuel d ta ty = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a →
+    Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded ty →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) ty →
+    CtxOk2 m μ φ F d Δa a →
+    denote2 μ m.acval env φ F d a = some aa →
+    denote2 μ m.acval env φ F d ty = some tya →
+    ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ tya →
+      interp2 V ρ aa ∈ˢ interp2 V ρ tya
+
+/-- **The β certificate is the two claims composed** — the inference
+claim types the argument, the defeq claim moves the interpretation
+from the inferred type to the λ's domain, and the membership rides
+across.  `htok` is the inference quarter's `TypeOk2`, written out
+because it lives in that quarter's file. -/
+theorem betaCert2P_of_claims (m : EnvS2 V env) {fuel : Nat}
+    (htok : ∀ {F f d : Nat} {e t : Expr} {Δa : List AVExpr}
+      {ta : AVExpr},
+      inferTypeCore μ env f d e = .ok t →
+      CtxOk2 m μ φ F d Δa e →
+      denote2 μ m.acval env φ F d t = some ta →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta)
+    (ihd : DefEqClaims2B μ m φ fuel) (ihi : InferClaims2A μ m φ fuel) :
+    BetaCert2P μ m φ fuel := by
+  intro d Δa a ty ta F aa tya hv hta hde hwa hba hLa hCa hwty hbty
+    hLty hCty hC2 haa htya ρ hρ hoktya
+  obtain ⟨F', ta', hle, hta', hcon⟩ := ihi hv hta hwa hba hLa hC2 haa
+  have hwta : Expr.WScoped d ta :=
+    Setlec.inferTypeCore_WScoped m.base.wf fuel hta hwa
+  have hbta : ta.looseBVarsBounded 0 = true :=
+    Setlec.inferTypeCore_looseBVars m.base.wf fuel hta hwa hba hLa
+  have hsub := Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hta hwa
+  have hLta : Expr.LeavesBounded ta := fun l hl => hLa l (hsub l hl)
+  have hCta : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) ta :=
+    CtxOkR.of_subset hsub hCa
+  have hokta : AnnotOk2 V ρ ta' :=
+    htok hta (CtxOk2.fuelMono hle hC2) hta' ρ hρ
+  have heq := ihd hv hde hwta hbta hLta hwty hbty hLty hCta hCty hta'
+    (denote2_fuelMono hle d ty htya) ρ hρ hokta hoktya
+  exact heq ▸ (hcon ρ hρ).2
+
 end Setlec.SetR.Interp2
