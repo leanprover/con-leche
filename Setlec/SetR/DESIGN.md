@@ -10324,3 +10324,39 @@ extension + `certZip_mkAppN_zips` + `ZipBelow` at loop-decrease),
 the β-chain (reassociation + spine-length induction), iota
 (the standing full treatment), letE-under-spine zeta, proj, and the
 nat-op fired-side vacuities.
+
+### The flat-spine leg DISCHARGED to its four head cases
+
+The mechanical stretch, batched per the grant.  Landed and proved:
+
+* `mkAppN_cons_app` (nonempty spines are app-shaped),
+  `mkAppN_bounded_head` (the head inherits the bvar bound), and
+  `spine_inert_out` — the inert-spine loop terminal (one call
+  packages `whnfCore_mkAppN_inert` + the three none-lemmas into
+  `loop_stuck_out`).
+* The four routed head Props: `ZipConstHeadCase` (δ/iota/nat-op —
+  the iota lockstep's home), `ZipLamHeadCase` (the β-chain),
+  `ZipLetEHeadCase` (zeta under application), `ZipProjHeadCase`
+  (the proj walk).
+* `zipSpineFlatCase_of` — the flat-spine leg discharged: cert heads
+  to Θ; const/λ/letE/proj heads (both congruence-zipped and
+  refl-headed, the latter dispatching with `CertZip.refl`
+  components) to the four Props; sortSlack terminal at empty spines
+  (eval), and ALL stuck-shape legs (sort/fvar/forallE/lit-headed,
+  cong and refl alike) vacuous by `spine_inert_out` + the
+  cons-shape clash; bvar heads refuted by the bounded-0 guard.
+* `zipWhnfSortAgree_of_heads` — the frontier composite: the summit
+  from {Θ, const-head, λ-head, letE-head, proj-head} + vacuities +
+  env facts + preservers.
+
+Elaboration notes: `refl`'s constructor argument is index-determined
+(bind `_`, case on the subject variable); qualify constructor
+literals on `show`-RHS positions (dot-notation loses the expected
+type there).
+
+**The sim tier's remaining surface**: exactly the four head-case
+discharges — const (δ via the both-unfold spine extension +
+`certZip_mkAppN_zips` + ZipBelow; iota with the standing full
+treatment; nat-op fired-side vacuities), λ (reassociation +
+spine-length induction), letE (knot-paid zeta + re-view), proj (the
+clause walk) — plus Θ, the semantic trio, and the install facts.

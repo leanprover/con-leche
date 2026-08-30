@@ -7647,6 +7647,335 @@ theorem whnfCore_mkAppN_inert {μ : CheckMode} {env : Env} {d : Nat} :
     · simp only [List.length_cons] at hg ⊢
       omega
 
+/-- Nonempty spines are application-shaped. -/
+theorem mkAppN_cons_app {F a : Expr} : ∀ {as : List Expr},
+    ∃ p q, Setlec.Expr.mkAppN F (a :: as) = .app p q := by
+  intro as
+  induction as generalizing F a with
+  | nil => exact ⟨F, a, rfl⟩
+  | cons b bs ih => exact ih (F := .app F a) (a := b)
+
+/-- The spine head inherits the bvar bound. -/
+theorem mkAppN_bounded_head {k : Nat} : ∀ {as : List Expr} {F : Expr},
+    (Setlec.Expr.mkAppN F as).looseBVarsBounded k = true →
+    F.looseBVarsBounded k = true := by
+  intro as
+  induction as with
+  | nil => intro F h; exact h
+  | cons a as ih =>
+    intro F h
+    have := ih (F := .app F a) h
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true]
+      at this
+    exact this.1
+
+/-- **The inert-spine loop terminal**: an inert head pins the loop
+output to the spine itself. -/
+theorem spine_inert_out {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) {d ga la : Nat} {F : Expr}
+    {as : List Expr} {ℓ : Level}
+    (hF : ∀ g, 1 ≤ g → whnfCore μ env g d F = .ok F)
+    (hnl : ∀ n ty body m, F ≠ .lam n ty body m)
+    (hnc : ∀ n us, F.getAppFn ≠ .const n us)
+    (hloop : Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN F as) = .ok (.sort ℓ)) :
+    Expr.sort ℓ = Setlec.Expr.mkAppN F as := by
+  have hncS : ∀ n us,
+      (Setlec.Expr.mkAppN F as).getAppFn ≠ .const n us := by
+    intro n us h
+    exact hnc n us (Setlec.Expr.getAppFn_mkAppN as F ▸ h)
+  exact loop_stuck_out hm hloop
+    (whnfCore_mkAppN_inert as (hd := 1) hF hnl hnc (Nat.le_refl _))
+    (fun _ => reduceNat_none_of_fn_not_const hncS)
+    (unfoldDefinition_none_of_fn_not_const hncS)
+
+/-! ### The routed head cases of the flat-spine leg -/
+
+/-- Const-headed spines at eval-linked levels (δ, iota — the iota
+lockstep's home — and the nat-op vacuities). -/
+def ZipConstHeadCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc d ga la gb lb : Nat} {n : Name} {us us' : List Level}
+    {as bs : List Expr} {ℓa ℓb : Level},
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
+    (∀ φ' : Name → Nat,
+      us.map (Level.eval φ') = us'.map (Level.eval φ')) →
+    as.length = bs.length →
+    (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+      CertZip μ env fc d as[i] bs[i]) →
+    SubjInv d (Setlec.Expr.mkAppN (.const n us) as) →
+    SubjInv d (Setlec.Expr.mkAppN (.const n us') bs) →
+    PairedLeaves (Setlec.Expr.mkAppN (.const n us) as)
+      (Setlec.Expr.mkAppN (.const n us') bs) →
+    Q d (Setlec.Expr.mkAppN (.const n us) as)
+      (Setlec.Expr.mkAppN (.const n us') bs) →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN (.const n us) as) = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
+      (Setlec.Expr.mkAppN (.const n us') bs) = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
+/-- λ-headed spines (the β-chain: reassociation + spine-length
+induction). -/
+def ZipLamHeadCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc d ga la gb lb : Nat} {n : Name} {ty₁ ty₂ b₁ b₂ : Expr}
+    {m : Setlec.BinderMeta} {as bs : List Expr} {ℓa ℓb : Level},
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
+    CertZip μ env fc d ty₁ ty₂ → CertZip μ env fc d b₁ b₂ →
+    as.length = bs.length →
+    (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+      CertZip μ env fc d as[i] bs[i]) →
+    SubjInv d (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m) as) →
+    SubjInv d (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m) bs) →
+    PairedLeaves (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m) as)
+      (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m) bs) →
+    Q d (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m) as)
+      (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m) bs) →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m) as) = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
+      (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m) bs) = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
+/-- letE-headed spines (zeta under application, knot-paid). -/
+def ZipLetEHeadCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc d ga la gb lb : Nat} {n : Name}
+    {ty₁ ty₂ v₁ v₂ b₁ b₂ : Expr} {as bs : List Expr} {ℓa ℓb : Level},
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
+    CertZip μ env fc d ty₁ ty₂ → CertZip μ env fc d v₁ v₂ →
+    CertZip μ env fc d b₁ b₂ →
+    as.length = bs.length →
+    (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+      CertZip μ env fc d as[i] bs[i]) →
+    SubjInv d (Setlec.Expr.mkAppN (.letE n ty₁ v₁ b₁) as) →
+    SubjInv d (Setlec.Expr.mkAppN (.letE n ty₂ v₂ b₂) bs) →
+    PairedLeaves (Setlec.Expr.mkAppN (.letE n ty₁ v₁ b₁) as)
+      (Setlec.Expr.mkAppN (.letE n ty₂ v₂ b₂) bs) →
+    Q d (Setlec.Expr.mkAppN (.letE n ty₁ v₁ b₁) as)
+      (Setlec.Expr.mkAppN (.letE n ty₂ v₂ b₂) bs) →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN (.letE n ty₁ v₁ b₁) as) = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
+      (Setlec.Expr.mkAppN (.letE n ty₂ v₂ b₂) bs) = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
+/-- proj-headed spines (the proj clause's walk; the struct-name
+slack audit lives at its seal). -/
+def ZipProjHeadCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc d ga la gb lb i : Nat} {sn : Name} {e₁ e₂ : Expr}
+    {as bs : List Expr} {ℓa ℓb : Level},
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
+    CertZip μ env fc d e₁ e₂ →
+    as.length = bs.length →
+    (∀ j (h₁ : j < as.length) (h₂ : j < bs.length),
+      CertZip μ env fc d as[j] bs[j]) →
+    SubjInv d (Setlec.Expr.mkAppN (.proj sn i e₁) as) →
+    SubjInv d (Setlec.Expr.mkAppN (.proj sn i e₂) bs) →
+    PairedLeaves (Setlec.Expr.mkAppN (.proj sn i e₁) as)
+      (Setlec.Expr.mkAppN (.proj sn i e₂) bs) →
+    Q d (Setlec.Expr.mkAppN (.proj sn i e₁) as)
+      (Setlec.Expr.mkAppN (.proj sn i e₂) bs) →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN (.proj sn i e₁) as) = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
+      (Setlec.Expr.mkAppN (.proj sn i e₂) bs) = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
+/-- **The flat-spine leg DISCHARGED to its four head cases**: the
+stuck-shape and terminal legs inline (the bases kit), cert heads to
+Θ, const/λ/letE/proj heads routed. -/
+theorem zipSpineFlatCase_of {φ : Name → Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hm : KnotFuelMono μ env)
+    (hΘ : ZipCertSpineCase μ env φ Q)
+    (hConst : ZipConstHeadCase μ env φ Q)
+    (hLam : ZipLamHeadCase μ env φ Q)
+    (hLetE : ZipLetEHeadCase μ env φ Q)
+    (hProj : ZipProjHeadCase μ env φ Q) :
+    ZipSpineFlatCase μ env φ Q := by
+  intro fc d ga la gb lb F₁ F₂ as bs ℓa ℓb below hne₁ hne₂ hFz hlen
+    hargs hIs hIt hp hQ ha hb
+  cases hFz with
+  | app p₁ q₁ p₂ q₂ hp' hq' => exact absurd rfl (hne₁ p₁ q₁)
+  | cert a b hba hbb hc =>
+    exact hΘ
+      (fun hlt hz' hIs' hIt' hp' hQ' ha' hb' =>
+        below (Or.inl hlt) hz' hIs' hIt' hp' hQ' ha' hb')
+      hba hbb hc hlen hargs hIs hIt hp hQ ha hb
+  | constSlack n us us' hev =>
+    exact hConst below hev hlen hargs hIs hIt hp hQ ha hb
+  | lam n ty₁ ty₂ b₁ b₂ m hty hbody =>
+    exact hLam below hty hbody hlen hargs hIs hIt hp hQ ha hb
+  | letE n ty₁ ty₂ v₁ v₂ b₁ b₂ hty hval hbody =>
+    exact hLetE below hty hval hbody hlen hargs hIs hIt hp hQ ha hb
+  | proj sn i e₁ e₂ he =>
+    exact hProj below he hlen hargs hIs hIt hp hQ ha hb
+  | sortSlack u v hev =>
+    have h1 := spine_inert_out hm (F := .sort u) (as := as)
+      (fun g hg => whnfCore_sort_run hg)
+      (fun _ _ _ _ h => nomatch h)
+      (fun n' us' h => nomatch
+        ((show (Expr.sort u).getAppFn = Expr.sort u from rfl) ▸ h)) ha
+    have h2 := spine_inert_out hm (F := .sort v) (as := bs)
+      (fun g hg => whnfCore_sort_run hg)
+      (fun _ _ _ _ h => nomatch h)
+      (fun n' us' h => nomatch
+        ((show (Expr.sort v).getAppFn = Expr.sort v from rfl) ▸ h)) hb
+    cases as with
+    | nil =>
+      cases bs with
+      | cons b bs => exact nomatch hlen
+      | nil =>
+        rw [Setlec.Expr.sort.inj h1, Setlec.Expr.sort.inj h2]
+        exact hev φ
+    | cons a as' =>
+      obtain ⟨p, q, hpq⟩ :=
+        mkAppN_cons_app (F := Expr.sort u) (a := a) (as := as')
+      rw [hpq] at h1
+      exact nomatch h1
+  | fvar i n ty₁ ty₂ hty =>
+    have h1 := spine_inert_out hm (F := .fvar i n ty₁) (as := as)
+      (fun g hg => whnfCore_fvar_run hg)
+      (fun _ _ _ _ h => nomatch h)
+      (fun n' us' h => nomatch
+        ((show (Expr.fvar i n ty₁).getAppFn = Expr.fvar i n ty₁
+          from rfl) ▸ h)) ha
+    cases as with
+    | nil => exact nomatch h1
+    | cons a as' =>
+      obtain ⟨p, q, hpq⟩ :=
+        mkAppN_cons_app (F := Expr.fvar i n ty₁) (a := a) (as := as')
+      rw [hpq] at h1
+      exact nomatch h1
+  | forallE n ty₁ ty₂ b₁ b₂ m hty hbody =>
+    have h1 := spine_inert_out hm (F := .forallE n ty₁ b₁ m)
+      (as := as)
+      (fun g hg => whnfCore_forallE_run hg)
+      (fun _ _ _ _ h => nomatch h)
+      (fun n' us' h => nomatch
+        ((show (Expr.forallE n ty₁ b₁ m).getAppFn
+          = Expr.forallE n ty₁ b₁ m from rfl) ▸ h)) ha
+    cases as with
+    | nil => exact nomatch h1
+    | cons a as' =>
+      obtain ⟨p, q, hpq⟩ := mkAppN_cons_app
+        (F := Expr.forallE n ty₁ b₁ m) (a := a) (as := as')
+      rw [hpq] at h1
+      exact nomatch h1
+  | refl _ =>
+    cases F₁ with
+    | app p q => exact absurd rfl (hne₁ p q)
+    | bvar i =>
+      have hbd := mkAppN_bounded_head (k := 0) hIs.2.1
+      simp [Setlec.Expr.looseBVarsBounded] at hbd
+    | const n us =>
+      exact hConst below (fun _ => rfl) hlen hargs hIs hIt hp hQ
+        ha hb
+    | lam n ty b m =>
+      exact hLam below (CertZip.refl ty) (CertZip.refl b) hlen hargs
+        hIs hIt hp hQ ha hb
+    | letE n ty v b =>
+      exact hLetE below (CertZip.refl ty) (CertZip.refl v)
+        (CertZip.refl b) hlen hargs hIs hIt hp hQ ha hb
+    | proj sn i e =>
+      exact hProj below (CertZip.refl e) hlen hargs hIs hIt hp hQ
+        ha hb
+    | sort u =>
+      have h1 := spine_inert_out hm (F := .sort u) (as := as)
+        (fun g hg => whnfCore_sort_run hg)
+        (fun _ _ _ _ h => nomatch h)
+        (fun n' us' h => nomatch
+          ((show (Expr.sort u).getAppFn = Expr.sort u from rfl) ▸ h)) ha
+      have h2 := spine_inert_out hm (F := .sort u) (as := bs)
+        (fun g hg => whnfCore_sort_run hg)
+        (fun _ _ _ _ h => nomatch h)
+        (fun n' us' h => nomatch
+          ((show (Expr.sort u).getAppFn = Expr.sort u from rfl) ▸ h)) hb
+      cases as with
+      | nil =>
+        cases bs with
+        | cons b bs => exact nomatch hlen
+        | nil =>
+          rw [Setlec.Expr.sort.inj h1, Setlec.Expr.sort.inj h2]
+      | cons a as' =>
+        obtain ⟨p, q, hpq⟩ :=
+          mkAppN_cons_app (F := Expr.sort u) (a := a) (as := as')
+        rw [hpq] at h1
+        exact nomatch h1
+    | fvar i n ty =>
+      have h1 := spine_inert_out hm (F := .fvar i n ty) (as := as)
+        (fun g hg => whnfCore_fvar_run hg)
+        (fun _ _ _ _ h => nomatch h)
+        (fun n' us' h => nomatch
+          ((show (Expr.fvar i n ty).getAppFn = Expr.fvar i n ty
+            from rfl) ▸ h)) ha
+      cases as with
+      | nil => exact nomatch h1
+      | cons a as' =>
+        obtain ⟨p, q, hpq⟩ :=
+          mkAppN_cons_app (F := Expr.fvar i n ty) (a := a) (as := as')
+        rw [hpq] at h1
+        exact nomatch h1
+    | lit l =>
+      have h1 := spine_inert_out hm (F := .lit l) (as := as)
+        (fun g hg => whnfCore_lit_run hg)
+        (fun _ _ _ _ h => nomatch h)
+        (fun n' us' h => nomatch
+          ((show (Expr.lit l).getAppFn = Expr.lit l from rfl) ▸ h)) ha
+      cases as with
+      | nil => exact nomatch h1
+      | cons a as' =>
+        obtain ⟨p, q, hpq⟩ :=
+          mkAppN_cons_app (F := Expr.lit l) (a := a) (as := as')
+        rw [hpq] at h1
+        exact nomatch h1
+    | forallE n ty b m =>
+      have h1 := spine_inert_out hm (F := .forallE n ty b m)
+        (as := as)
+        (fun g hg => whnfCore_forallE_run hg)
+        (fun _ _ _ _ h => nomatch h)
+        (fun n' us' h => nomatch
+          ((show (Expr.forallE n ty b m).getAppFn
+            = Expr.forallE n ty b m from rfl) ▸ h)) ha
+      cases as with
+      | nil => exact nomatch h1
+      | cons a as' =>
+        obtain ⟨p, q, hpq⟩ := mkAppN_cons_app
+          (F := Expr.forallE n ty b m) (a := a) (as := as')
+        rw [hpq] at h1
+        exact nomatch h1
+
+/-- **The summit at its head cases**: `ZipWhnfSortAgree` from the Θ
+seam and the four head cases (const/λ/letE/proj), plus the trio's
+Q-frame vacuities and the env facts.  The flat-spine leg is
+dissolved. -/
+theorem zipWhnfSortAgree_of_heads {φ : Name → Nat}
+    {Q : Nat → Expr → Expr → Prop}
+    (hm : KnotFuelMono μ env) (hB : BoolCtorsInert env)
+    (hSW : StoredWF env)
+    (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
+    (hIN : InvPreserveNatF μ env)
+    (hLC : PairedPreserveCoreF μ env) (hLD : PairedPreserveDeltaF env)
+    (hLN : PairedPreserveNatF μ env)
+    (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
+    (hQN : QPreserveNatF μ env Q)
+    (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
+    (hP : ProbeSortVacuity μ env Q) (hR : RescueSortVacuity μ env Q)
+    (hE : EtaSortVacuity μ env Q)
+    (hΘ : ZipCertSpineCase μ env φ Q)
+    (hConst : ZipConstHeadCase μ env φ Q)
+    (hLam : ZipLamHeadCase μ env φ Q)
+    (hLetE : ZipLetEHeadCase μ env φ Q)
+    (hProj : ZipProjHeadCase μ env φ Q) :
+    ZipWhnfSortAgree μ env φ Q :=
+  zipWhnfSortAgree_of_two (φ := φ) (Q := Q) hm hB hSW hIC hID hIN
+    hLC hLD hLN hQC hQD hQN hQs hP hR hE hΘ
+    (zipSpineFlatCase_of (φ := φ) (Q := Q) hm hΘ hConst hLam hLetE
+      hProj)
+
 /-- **The both-δ core COLLAPSED onto the summit**: the spine facts
 zip the pair (head by `constSlack` through `isEquivList` soundness,
 args as `.cert` leaves through `defEqList_extract`), and
