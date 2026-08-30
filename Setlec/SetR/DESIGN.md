@@ -15004,3 +15004,81 @@ guessed consumer-side (T5) — three `EnvS2` fields have been added this
 way. A vacuous `Prop` with a good name is worse than none. Refutations
 are **preserved across their own repair** by restating the refuted
 shape as a standalone `def`.
+
+### Seal 21 — generation five discharged; the serial pattern's first trial
+
+All four sections landed in **one serial batch**: the `CtxOk2D` kit
+lift (24 entries), the four quarters, `Capstone2D.lean`, and the
+retirements. **2489 insertions, 0 deletions** — the `…C` lane and
+every tombstone byte-identical. Build green (326 jobs), `lake test`
+green, battery 90/92 with e2e 72/72 and the no-model sweep unchanged,
+axioms exactly the three standard, no `sorry`.
+
+**What generation five bought, measured rather than asserted:**
+
+| | gen 4 | gen 5 |
+|---|---|---|
+| capstone residues | 17 | **15** |
+| `InferInputs` fields | 9 | **6** |
+| whnfCore routed residues | 4 | **3** |
+
+* **`BetaCert2` is discharged, not re-routed** (`betaCert2D_of_claims`).
+  Seal 14 predicted exactly this — *"that is seal 11's move and it is
+  generation five"* — and it came out true.
+* **`CtxOk2R` is gone from `InferInputs2D`**: the field whose docstring
+  said `not_ctxOk2R` refutes it. Its four uses are now `fuelMono` +
+  `of_subset` of a hypothesis the clause already holds.
+* `binder_congr2D` builds both opened contexts with
+  `openS`/`openCongC`; the `…C` version needed `denote2_erase` twice,
+  `defeqR_at`, `frame_openR` and `CtxOkR.openCong`. Seven lines to two.
+* `infer_forallE_claim2D` **sheds its `WScoped` premise** — the `…C`
+  lane carried it only to feed `CtxOk2Open`'s `fvarsBelow`.
+
+#### The serial pattern: the prediction held
+
+**Proofs got monotonically easier, and every chunk compiled on the
+first `lake build`.** Section 1's `of_subset` reflex made every
+structural projection in sections 2–4 a one-liner, and
+`fuelMono + of_subset` became the single idiom for ~25 fuel joins. The
+three largest proofs were the *easiest relative to size*, because by
+then the plumbing was mechanical. That is the recipe-accumulation
+effect the amendment was adopted for, visible in a single batch.
+
+Against the fan-out's ledger for the same amount of work: **zero
+duplicate pairs, zero dedupe adjudications, zero misrouted messages.**
+
+The one proof that did *not* get easier is worth naming:
+`infer_app_claim2D`, the only place frame conditions had to be
+re-derived by hand, because `frame_inferR` bundles them with a
+`CtxOkR` the new lane does not want. **A `frame_infer2D` in the
+supplier would have saved it** — that is the kit gap this batch found,
+alongside `frame_appArg2D` which the worker did write.
+
+#### Two findings recorded against interest
+
+1. **Generation five *weakens* three claims at small fuel.** `CtxOkR`
+   is fuel-free; `CtxOk2D` inherits `CtxOk2`'s emptiness at `F = 1` for
+   binder-carrying subjects. So `WhnfCoreClaims2D`/`WhnfClaims2D`/
+   `DefEqClaims2D` are weaker than their `…C` counterparts there.
+   `InferClaims2C` has had this since seal 6 and it is harmless at the
+   consumption point (depth `0`, where `CtxOk2D.nil` is free at every
+   fuel) — but this is the one respect in which the generation
+   weakens rather than strengthens, and it is written into
+   `CtxOk2D.lean` because a consumer instantiating at a small `F` must
+   know.
+
+2. **One recipe-book check could not be performed, and was not
+   faked.** The book says: check satisfiability *in the very case that
+   killed the old shape*. `CtxOk2R` died of a **disagreement between
+   two currencies** at the #100 empty-domain λ. With one currency
+   there is no second party to disagree, so **no corresponding
+   positive instance exists** — the structural answer is that the seam
+   is absent, not that it is now crossable. `CtxOk2D.nonvacuous` is
+   supplied instead, at depth 1 over a *satisfiable* context, and it
+   had to be built fresh: the two halves' existing witnesses sit at
+   different instances (`Sort 0` vs `Sort 1`) and so were not a
+   witness for the conjunction.
+
+   *Rule: a recipe-book check that cannot be performed must be
+   reported as not performed. The book is a checklist, not a
+   certificate.*
