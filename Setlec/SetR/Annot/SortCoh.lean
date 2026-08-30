@@ -7111,6 +7111,37 @@ theorem certZip_sorts_eval {μ : CheckMode} {env : Env}
   | sortSlack _ _ hev => exact hev φ
   | cert _ _ _ _ hc => exact isDefEqCore_sorts_eval hm hc
 
+/-- **The Θ seam, frozen** (the one routed hard case of the sim
+tier): a cert-related head pair under pointwise-zipped spines, both
+sort convergences given, the recursion available strictly below.
+Subsumes β-under-cert-head, the exposed-argument mutual knot, and
+the eta-rescue-on-cert-major seam (`as = []` is `ZipCertCase`'s
+content, already discharged — this Prop's obligation is the
+nonempty-spine tier).  Its discharge is the binder-opening
+machinery: the head cert's `lamCong` decomposition relates OPENED
+bodies at `d+1`, and connecting the substituted-with-args forms is
+the Θ-motive apparatus the module docstring promised. -/
+def ZipCertSpineCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
+    (Q : Nat → Expr → Expr → Prop) : Prop :=
+  ∀ {fc d ga la gb lb : Nat} {f₁ f₂ : Expr} {as bs : List Expr}
+    {ℓa ℓb : Level},
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
+    f₁.looseBVarsBounded 0 = true → f₂.looseBVarsBounded 0 = true →
+    isDefEqCore μ env fc d f₁ f₂ = .ok true →
+    as.length = bs.length →
+    (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+      CertZip μ env fc d as[i] bs[i]) →
+    SubjInv d (Setlec.Expr.mkAppN f₁ as) →
+    SubjInv d (Setlec.Expr.mkAppN f₂ bs) →
+    PairedLeaves (Setlec.Expr.mkAppN f₁ as)
+      (Setlec.Expr.mkAppN f₂ bs) →
+    Q d (Setlec.Expr.mkAppN f₁ as) (Setlec.Expr.mkAppN f₂ bs) →
+    Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
+      (Setlec.Expr.mkAppN f₁ as) = .ok (.sort ℓa) →
+    Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
+      (Setlec.Expr.mkAppN f₂ bs) = .ok (.sort ℓb) →
+    ℓa.eval φ = ℓb.eval φ
+
 /-- **The both-δ core COLLAPSED onto the summit**: the spine facts
 zip the pair (head by `constSlack` through `isEquivList` soundness,
 args as `.cert` leaves through `defEqList_extract`), and

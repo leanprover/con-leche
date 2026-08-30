@@ -10127,3 +10127,44 @@ vacuity-by-stuck-side inline pattern, and the audit against this
 completed surface.  Everything below the freeze is enumerated:
 three wrapper discharges, the semantic vacuities, `StoredWF` +
 `BoolCtorsInert` install discharges, and the (B)-type-form map.
+
+### The workhorse FROZEN: claim-shaped throughout, one Θ seam
+
+The freeze, audited against the completed surface.  The architecture
+that survived every check:
+
+* **No separate lockstep-Prop family is needed.**  The B-vs-cert
+  split (cert-free zips admit zip-out; cert leaves do not) is
+  performed by `cases` on the zip DERIVATION inside the wrapper
+  discharges — a stratified `CertZipB` inductive was drafted and
+  discarded (it would only duplicate the constructors; the
+  derivation analysis is free).  Zip-out exists LEG-LOCALLY (a
+  lemma per symmetric leg), never as a standing claim — the two
+  refutations (uniform sim; routed zip-out past cert heads) fixed
+  this shape, and the guard-verdict question (`isNeverZero` on
+  eval-equal instantiations — read, neither refuted nor needed)
+  confirms it: asymmetric legs are vacuous by the stuck side's
+  given run at the CLAIM level, so verdict-invariance never needs
+  proving.
+* **`ZipCertSpineCase` LANDED** — the one routed hard case: a
+  cert-related head pair under pointwise-zipped spines, dual
+  sort convergences, `ZipBelow` in hand.  `as = []` is
+  `ZipCertCase` (discharged); the nonempty tier is the Θ-motive
+  obligation (opened-body certs at `d+1` vs substituted forms —
+  the binder-opening apparatus).
+* **The infer-lockstep statements are deferred to need**: the
+  wrapper discharges will state their per-shape infer lemmas
+  leg-locally with their own pre-checks (the eta-rescue and
+  app-clause consumers), rather than freezing a refutable general
+  form.
+
+**The branch's complete remaining ledger, in dependency order**:
+(1) the three wrapper discharges (`ZipApp`/`ZipLetE`/`ZipProjCase`)
+— derivation-cased, B-legs by leg-local zip-out + `ZipBelow`,
+cert-legs to `ZipCertSpineCase`, iota/majorToCtor by the mapped
+lockstep with per-side guards; (2) `ZipCertSpineCase`'s Θ-motive
+discharge; (3) the semantic vacuities (`SortCohFrame`'s route, zero
+unbuilt suppliers); (4) `StoredWF` + `BoolCtorsInert` install
+discharges; (5) the (B) type-form map (`ZipSortOfAgree`'s own
+skeleton on the same architecture).  Nothing else remains on the
+defeq branch.
