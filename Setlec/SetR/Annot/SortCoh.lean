@@ -7088,6 +7088,20 @@ theorem zipConstCase_of {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
     · rw [huy'] at hudb; exact nomatch hudb
   · exact nomatch hstopA
 
+/-- **Zip inversion at two literal sorts** (the sim tier's terminal):
+only `refl`, `sortSlack` and `cert` can relate two sorts, and each
+forces eval-equal levels (`cert` through the landed
+`isDefEqCore_sorts_eval`). -/
+theorem certZip_sorts_eval {μ : CheckMode} {env : Env}
+    {φ : Name → Nat} (hm : KnotFuelMono μ env)
+    {fc d : Nat} {u v : Level}
+    (hz : CertZip μ env fc d (.sort u) (.sort v)) :
+    u.eval φ = v.eval φ := by
+  cases hz with
+  | refl _ => rfl
+  | sortSlack _ _ hev => exact hev φ
+  | cert _ _ _ _ hc => exact isDefEqCore_sorts_eval hm hc
+
 /-- **The both-δ core COLLAPSED onto the summit**: the spine facts
 zip the pair (head by `constSlack` through `isEquivList` soundness,
 args as `.cert` leaves through `defEqList_extract`), and

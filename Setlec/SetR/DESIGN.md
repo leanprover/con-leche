@@ -9998,3 +9998,49 @@ components become `rfl`.
 **Summit remaining**: the three sim roots (`ZipApp`/`ZipLetE`/
 `ZipProjCase` — iota's full pre-build treatment when reached), the
 semantic vacuities, `StoredWF`+`BoolCtorsInert` install discharges.
+
+### Sim-tier map: the three roots FUNNEL into one workhorse (finding)
+
+Opening `ZipLetECase` per the granted order, the pre-build check
+found the map's root-by-root framing wrong: **the sim tier does not
+decompose by root**.  The letE contractum `b[v]` (a `certZip_subst`
+zip) is an ARBITRARY zip shape — including cert-headed apps — so the
+letE case needs the same whnfCore lockstep as the app root; proj
+likewise funnels through it (the scrutinee's whnf + the table
+steps).  The three routed cases are thin wrappers over ONE
+workhorse:
+
+**The workhorse (to be stated with the full pre-build treatment —
+next session's charter)**: the whnfCore lockstep on zipped pairs,
+its own induction on the KNOT fuel of the given runs (the map's
+"fueled knot pays for β-regrowth" insight), zip-in / zip-out on the
+head-normal outputs, THEN the loop-level tri-analysis on zipped
+head-normal pairs (nat/δ/stuck agreement by shape) feeding
+`ZipBelow` at the smaller loop budget (`Or.inr` — the la-decrease
+happens at the LOOP layer, not inside the workhorse).  Its terminal
+collision is `certZip_sorts_eval` (LANDED this seal: only
+`refl`/`sortSlack`/`cert` relate two literal sorts, the last through
+`isDefEqCore_sorts_eval`; eight constructors eliminated by index
+unification).
+
+**The workhorse's audited hard cases** (the pre-build inventory for
+its statement seal):
+* cert-headed redexes (an app/letE position whose head zip is
+  `.cert`) — whnfCore outputs of cert-related heads are not
+  zip-able without decomposing the CERT (the mutual knot with
+  binder opening; PostCoreCert's lamCong exposes opened-body certs
+  — the Θ tier).  The workhorse's statement must route this as its
+  own named case (disjunctive conclusion or a routed Prop), NOT
+  claim totality over all zips (that shape was already killed once).
+* the iota lockstep (recursor-headed zipped spines) — the full
+  pre-build treatment as directed: iotaRec's clause surface
+  (rule lookup at the same head, majorToCtor, K/structure rescues,
+  projLitToCtor), the nat-op porosity in lockstep, and the
+  struct-name slack flagged at the proj map.
+* zeta inside the lockstep = `certZip_subst` + recursion at knot-1
+  (measure ✓).
+
+The letE/app/proj case Props stay as stated (they are the correct
+seams); their discharges wait on the workhorse.  Next in order:
+the workhorse statement seal (with the Θ/iota maps), then the three
+wrapper discharges, then the semantic vacuities and install facts.
