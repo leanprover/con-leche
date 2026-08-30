@@ -16217,3 +16217,63 @@ R5 and R6 join the environment-tier freeze; the freeze carries the
 nine-field delta in the **uniqueness form** (seal 34), R5's six
 missing fields, and R6's `cval` naming. Then the three sweeps on the
 frozen text, then the keys become statable and the serial batch runs.
+
+### Seal 36 — the environment tier frozen: `EnvS2U`, and R6 was a non-problem
+
+`Interp2/EnvS2U.lean`. The nine-field delta in the **uniqueness form**
+seal 34 ruled, as a **new structure with a bridge** rather than an edit
+— seal 18's precedent, and here it also keeps the older claim lanes
+green, since they consume the existential fields. `EnvS2.toU` shows
+`EnvS2U` is strictly weaker: the existential field identifies any other
+annotation by `denote2_fuelMono` plus functionality.
+
+#### R6 was a non-problem, and checking cost ten minutes
+
+The keys survey reported that `Nonempty (EnvS V env₂)` hides the
+produced `cval`, so `DeclBasisS`/`DeclIndS` would need a **Σ-valued
+restatement inside a 5900-line proof**. **They do not.** `Nonempty`
+eliminates into `Prop`, and `Nonempty (EnvS2U V env₂)` *is* a `Prop`,
+so `obtain ⟨m⟩` yields the witness and the extra fields are built
+against it. Verified by elaboration before the freeze was written.
+
+*A reported obstacle whose remedy costs a 5900-line edit is worth ten
+minutes of checking before it is believed.* R6 is withdrawn.
+
+#### R5, ruled on the survey's own discipline
+
+**A field is added when a consumer can attempt its discharge, and not
+before.**
+
+* `proj_ok` — `ProjOkT` is syntactic and V-free; `base` carries it.
+  **No counterpart is ever owed.**
+* `rec_rules`, `nat_ops`, `div_mod` — interp2 consumers exist and the
+  laws are drafted (`RecRulesV2`, still **INSUFFICIENT**; `NatOpsV2`;
+  `DivModV2`). These three join once their laws settle.
+* `caps_ok`, `reduce_ops` — **no interp2 consumer exists**;
+  `reduce_ops` has one consumer in the entire tree and it is
+  install-tier-internal. Adding either now is seal 20's *"vacuous
+  `Prop` with a good name"*.
+
+#### The three sweeps
+
+1. **Smallest fuel — satisfied by construction.** No field asserts a
+   `denote2` success as a *conclusion*; every `denote2` sits in a
+   premise. That is the whole content of the uniqueness ruling.
+2. **Vacuity — and this is the first time the check could be run as
+   the recipe book writes it.** Seals 21 and 25 could not perform
+   *"check satisfiability in the very case that killed the old
+   shape"*, because their repairs excluded the killing case by
+   construction. Here the killing case — a λ-bodied definition, which
+   `acvalDefnUniform_lam_refuted` used — **is still admissible**; only
+   the obligation at it changed. `acval_defn_uniq_lam_ok` shows the
+   uniqueness form survives there, and for the right reason: the
+   premise fails, so the obligation is *discharged* rather than
+   contradicted.
+3. **Tombstones — swept.** A file added, none edited; tree green at
+   334 jobs, no `sorry`, `acvalDefnUniform_lam_refuted` and the rest
+   verifying unchanged on the standard axioms.
+
+*Rule: a repair that weakens an assertion to an implication can be
+tested at the exact witness that refuted the original — and should be,
+because that is the one case where the old and new shapes are known to
+differ.*
