@@ -13228,12 +13228,205 @@ def WhnfLoopSubstSimF (μ : CheckMode) (env : Env)
       = .ok e' →
     RawReach μ env d fuel (substAK d 0 a e) (substAK d 0 a e')
 
-/-- The substitution simulation, both tiers at one knot fuel (the
-`ShiftClaims` pattern; the mutual induction discharges both). -/
+/-- **The entry-point simulation claim** at one knot fuel (map
+amendment at the induction's pre-build: the knot's bodies see the
+predecessor record, so the core body's internal `r.whnf` runs are
+`whnf`-at-`fuel` — the loop claim alone does not cover them). -/
+def WhnfSubstSimF (μ : CheckMode) (env : Env)
+    (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {a e e' : Expr},
+    a.looseBVarsBounded 0 = true → Expr.WScoped d a →
+    e.looseBVarsBounded 0 = true → Expr.WScoped (d + 1) e →
+    whnf μ env fuel (d + 1) e = .ok e' →
+    RawReach μ env d fuel (substAK d 0 a e) (substAK d 0 a e')
+
+/-- The substitution simulation, all tiers at one knot fuel (the
+`ShiftClaims` pattern; the mutual induction discharges the three in
+order — `whnf` from the predecessor's loop, `core` from the body,
+`loop` from `core` and `whnf` at the same fuel). -/
 structure SubstSimClaims (μ : CheckMode) (env : Env)
     (fuel : Nat) : Prop where
   core : WhnfCoreSubstSimF μ env fuel
+  whnf : WhnfSubstSimF μ env fuel
   loop : WhnfLoopSubstSimF μ env fuel
+
+/-! #### The sim's helper kit (spine images, unfolding, closed-run
+depth transport) -/
+
+/-- A term with no reachable `fvar` leaves has no `fvar` at all. -/
+theorem not_hasFvar_of_fvarLeaves_nil :
+    ∀ {e : Expr}, e.fvarLeaves = [] → e.hasFvar = false := by
+  intro e
+  induction e <;>
+    simp_all [Setlec.Expr.fvarLeaves, Setlec.Expr.hasFvar,
+      List.append_eq_nil_iff]
+
+/-- The telescope substitution on a const-headed spine: same head,
+mapped arguments. -/
+theorem substAK_of_const_head {d k : Nat} {a e : Expr} {c : Name}
+    {us : List Level} (hfn : e.getAppFn = .const c us) :
+    substAK d k a e
+      = Setlec.Expr.mkAppN (.const c us)
+          (e.getAppArgs.map (substAK d k a)) := by
+  have he := (Setlec.Expr.mkAppN_getApp e).symm
+  rw [hfn] at he
+  rw [he, substAK_mkAppN, Setlec.Expr.getAppArgs_mkAppN]
+  rfl
+
+/-- The image spine's head. -/
+theorem substAK_getAppFn_const {d k : Nat} {a e : Expr} {c : Name}
+    {us : List Level} (hfn : e.getAppFn = .const c us) :
+    (substAK d k a e).getAppFn = .const c us := by
+  rw [substAK_of_const_head hfn, Setlec.Expr.getAppFn_mkAppN]
+  rfl
+
+/-- The image spine's arguments. -/
+theorem substAK_getAppArgs_const {d k : Nat} {a e : Expr} {c : Name}
+    {us : List Level} (hfn : e.getAppFn = .const c us) :
+    (substAK d k a e).getAppArgs
+      = e.getAppArgs.map (substAK d k a) := by
+  rw [substAK_of_const_head hfn, Setlec.Expr.getAppArgs_mkAppN]
+  rfl
+
+/-- Delta commutes with the telescope substitution: the head constant
+and the stored (closed) value are invariant, the spine maps. -/
+theorem substAK_unfoldDefinition {env : Env} (henv : EnvWF env)
+    {e e₂ : Expr} {d k : Nat} {a : Expr}
+    (h : unfoldDefinition env e = some e₂) :
+    unfoldDefinition env (substAK d k a e)
+      = some (substAK d k a e₂) := by
+  unfold Setlec.unfoldDefinition at h
+  revert h
+  match hfn : e.getAppFn with
+  | .const n us => ?_
+  | .bvar _ | .fvar _ _ _ | .sort _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; exact nomatch h
+  intro h
+  dsimp only at h
+  have himg : unfoldDefinition env (substAK d k a e)
+      = match env.find? n with
+        | some (.defnInfo cv value _) =>
+          if us.length = cv.levelParams.length then
+            some (Setlec.Expr.mkAppN
+              (value.instantiateLevelParams cv.levelParams us)
+              (substAK d k a e).getAppArgs)
+          else none
+        | some (.thmInfo cv value) =>
+          if us.length = cv.levelParams.length then
+            some (Setlec.Expr.mkAppN
+              (value.instantiateLevelParams cv.levelParams us)
+              (substAK d k a e).getAppArgs)
+          else none
+        | _ => none := by
+    unfold Setlec.unfoldDefinition
+    rw [substAK_getAppFn_const hfn]
+    rfl
+  revert h
+  match hf : env.find? n with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+  | some (.thmInfo cv value) =>
+    intro h
+    dsimp only at h
+    revert h
+    split
+    next hlen =>
+      intro h
+      simp only [Option.some.injEq] at h
+      subst h
+      obtain ⟨-, -, -, -, -, -, hval⟩ :=
+        henv _ (Setlec.find?_mem hf)
+      obtain ⟨hvc, -, -, hvb⟩ := hval cv value rfl
+      rw [himg, hf]
+      dsimp only
+      rw [if_pos hlen, substAK_getAppArgs_const hfn, substAK_mkAppN]
+      rw [substAK_eq_self
+        (by
+          rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar (by
+            rw [Setlec.Expr.hasFvar_instantiateLevelParams]
+            exact hvc)]
+          exact fun l hl => absurd hl List.not_mem_nil)
+        (by
+          rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+          exact looseBVarsBounded_mono (Nat.zero_le _) hvb)]
+    next => intro h; exact nomatch h
+  | some (.defnInfo cv value hint) =>
+    intro h
+    dsimp only at h
+    revert h
+    split
+    next hlen =>
+      intro h
+      simp only [Option.some.injEq] at h
+      subst h
+      obtain ⟨-, -, -, -, hval, -⟩ :=
+        henv _ (Setlec.find?_mem hf)
+      obtain ⟨hvc, -, -, hvb⟩ := hval cv value hint rfl
+      rw [himg, hf]
+      dsimp only
+      rw [if_pos hlen, substAK_getAppArgs_const hfn, substAK_mkAppN]
+      rw [substAK_eq_self
+        (by
+          rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar (by
+            rw [Setlec.Expr.hasFvar_instantiateLevelParams]
+            exact hvc)]
+          exact fun l hl => absurd hl List.not_mem_nil)
+        (by
+          rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+          exact looseBVarsBounded_mono (Nat.zero_le _) hvb)]
+    next => intro h; exact nomatch h
+
+/-- The eta fabrication maps componentwise under the substitution. -/
+theorem substAK_etaFabArgs {d k : Nat} {a : Expr} (T : Name)
+    (ust : List Level) (targs : List Expr) (M : Expr) (nF : Nat) :
+    (Setlec.etaFabArgs T ust targs M nF).map (substAK d k a)
+      = Setlec.etaFabArgs T ust (targs.map (substAK d k a))
+          (substAK d k a M) nF := by
+  unfold Setlec.etaFabArgs
+  rw [List.map_append, List.map_map]
+  congr 1
+  apply List.map_congr_left
+  intro j _
+  show substAK d k a
+      (Setlec.Expr.mkAppN (.const (Setlec.projFnName T j) ust)
+        (targs ++ [M])) = _
+  rw [substAK_mkAppN, List.map_append]
+  rfl
+
+/-- A closed run transports one depth down (the discharged
+`ShiftClaims` battery at `shiftFrom 0` = identity on `fvar`-free
+terms). -/
+theorem whnf_closed_depth_down {env : Env} (henv : EnvWF env)
+    {g d : Nat} {e t : Expr} (hfv : e.hasFvar = false)
+    (h : whnf μ env g (d + 1) e = .ok t) :
+    whnf μ env g d e = .ok t := by
+  have hsc := (Setlec.shiftClaims (mode := μ) (env := env) henv
+    g).whnf (p := 0) (Nat.zero_le d) (e := e)
+    (Setlec.Expr.WScoped.of_not_hasFvar hfv)
+  rw [Setlec.Expr.shiftFrom_eq_self_of_not_hasFvar hfv, h] at hsc
+  cases hw : whnf μ env g d e with
+  | error err =>
+    rw [hw] at hsc
+    exact nomatch hsc
+  | ok t' =>
+    rw [hw] at hsc
+    simp only [Except.map, Except.ok.injEq] at hsc
+    have hfv' : t'.hasFvar = false := by
+      apply not_hasFvar_of_fvarLeaves_nil
+      have hsub := Setlec.whnf_leaves (mode := μ) henv g hw
+      rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hfv] at hsub
+      cases hl : t'.fvarLeaves with
+      | nil => rfl
+      | cons x xs =>
+        exact absurd (hsub x (by rw [hl]; exact List.mem_cons_self))
+          List.not_mem_nil
+    rw [Setlec.Expr.shiftFrom_eq_self_of_not_hasFvar hfv'] at hsc
+    rw [hsc]
 
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/

@@ -11955,3 +11955,26 @@ guards, `natOpResult` all term-independent).
 
 Next: the induction (`LeavesPres` skeleton, fuel-indexed; per-fuel
 `SubstSimClaims`), with `substAK_unfoldDefinition` sealed en route.
+
+### Sim map AMENDED (`whnf` tier) + the helper kit sealed
+
+Pre-build on the induction found the knot-tier gap: the core body's
+internal `r.whnf` runs are `whnf`-at-`fuel` (the predecessor
+record), which neither the core nor the loop claim covers —
+`WhnfSubstSimF` added, `SubstSimClaims` now three-tiered with the
+discharge order `whnf` (from predecessor loop) → `core` (body) →
+`loop` (from same-fuel `core`+`whnf`).  Helpers landed:
+`not_hasFvar_of_fvarLeaves_nil`, `substAK_of_const_head` /
+`substAK_getAppFn_const` / `substAK_getAppArgs_const` (image
+spines), `substAK_unfoldDefinition` (delta commutes; closed stored
+values via `EnvWF` + `instantiateLevelParams` transports),
+`substAK_etaFabArgs`, and `whnf_closed_depth_down` (the DISCHARGED
+`ShiftClaims` battery at `shiftFrom 0`-identity on fvar-free terms +
+`whnf_leaves` — the transport the `litStr` trace rows ride).
+Preservation suppliers located, all landed: `whnfCore_looseBVars` /
+`whnf_looseBVars` (InferLeaves), `whnfPres_WScoped`,
+`whnfCore_leaves`/`whnf_leaves`; inversion suppliers:
+`whnf_app_inv`, `whnf_proj_inv`, `iotaRec_inv`, `majorToCtor_inv`
+(carries the fabrication's scope-guard facts), `reduceNat_inv`,
+`projLitToCtorP_inv`.  Nothing new to prove on the preservation
+tier.  Next: the induction itself.
