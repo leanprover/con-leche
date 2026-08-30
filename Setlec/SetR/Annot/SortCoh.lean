@@ -6029,6 +6029,352 @@ theorem certZip_mkAppN {μ : CheckMode} {env : Env} {fc d : Nat} :
             (by simp only [List.length_cons]; omega)
             (by simp only [List.length_cons]; omega))
 
+/-- Substitution leaves bounded expressions verbatim (all loose
+bvars below `j ≤ k` — the closed-cert-leaf case's engine). -/
+theorem instantiate1_bounded : ∀ {x v : Expr} {j k : Nat},
+    x.looseBVarsBounded j = true → j ≤ k →
+    x.instantiate1 v k = x := by
+  intro x
+  induction x with
+  | bvar i =>
+    intro v j k h hjk
+    simp only [Setlec.Expr.looseBVarsBounded,
+      decide_eq_true_eq] at h
+    simp only [Setlec.Expr.instantiate1]
+    rw [if_neg (by omega), if_neg (by omega)]
+  | fvar idx n ty ih => intro v j k h hjk; rfl
+  | sort u => intro v j k h hjk; rfl
+  | const n us => intro v j k h hjk; rfl
+  | app f a ihf iha =>
+    intro v j k h hjk
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Setlec.Expr.instantiate1, ihf h.1 hjk, iha h.2 hjk]
+  | lam n ty body m iht ihb =>
+    intro v j k h hjk
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Setlec.Expr.instantiate1, iht h.1 hjk,
+      ihb h.2 (Nat.succ_le_succ hjk)]
+  | forallE n ty body m iht ihb =>
+    intro v j k h hjk
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Setlec.Expr.instantiate1, iht h.1 hjk,
+      ihb h.2 (Nat.succ_le_succ hjk)]
+  | letE n ty val body iht ihv ihb =>
+    intro v j k h hjk
+    simp only [Setlec.Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Setlec.Expr.instantiate1, iht h.1.1 hjk,
+      ihv h.1.2 hjk, ihb h.2 (Nat.succ_le_succ hjk)]
+  | lit l => intro v j k h hjk; rfl
+  | proj s i e ih =>
+    intro v j k h hjk
+    simp only [Setlec.Expr.looseBVarsBounded] at h
+    simp only [Setlec.Expr.instantiate1, ih h hjk]
+
+/-- **Substitution lemma (i)**: one template, two zipped args — the
+`refl`-leaf replacement (a `refl` body does not survive
+substitution; this is what it becomes). -/
+theorem certZip_instantiate1 {μ : CheckMode} {env : Env} {fc d : Nat}
+    {a₁ a₂ : Expr} (hz : CertZip μ env fc d a₁ a₂) :
+    ∀ (e : Expr) (k : Nat),
+      CertZip μ env fc d (e.instantiate1 a₁ k)
+        (e.instantiate1 a₂ k) := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k
+    simp only [Setlec.Expr.instantiate1]
+    by_cases h : i = k
+    · rw [if_pos h, if_pos h]; exact hz
+    · rw [if_neg h, if_neg h]
+      by_cases h2 : i > k <;> exact .refl _
+  | fvar idx n ty ih => intro k; exact .refl _
+  | sort u => intro k; exact .refl _
+  | const n us => intro k; exact .refl _
+  | app f a ihf iha =>
+    intro k
+    simp only [Setlec.Expr.instantiate1]
+    exact .app _ _ _ _ (ihf k) (iha k)
+  | lam n ty body m iht ihb =>
+    intro k
+    simp only [Setlec.Expr.instantiate1]
+    exact .lam _ _ _ _ _ _ (iht k) (ihb (k + 1))
+  | forallE n ty body m iht ihb =>
+    intro k
+    simp only [Setlec.Expr.instantiate1]
+    exact .forallE _ _ _ _ _ _ (iht k) (ihb (k + 1))
+  | letE n ty val body iht ihv ihb =>
+    intro k
+    simp only [Setlec.Expr.instantiate1]
+    exact .letE _ _ _ _ _ _ _ (iht k) (ihv k) (ihb (k + 1))
+  | lit l => intro k; exact .refl _
+  | proj s i e ih =>
+    intro k
+    simp only [Setlec.Expr.instantiate1]
+    exact .proj _ _ _ _ (ih k)
+
+/-- **Substitution lemma (ii)**: zipped bodies at zipped args stay
+zipped — `refl` leaves by (i), `cert` leaves verbatim by closedness
+(the summit map's Finding 1), congruence structurally.  The β case's
+engine. -/
+theorem certZip_subst {μ : CheckMode} {env : Env} {fc d : Nat}
+    {a₁ a₂ : Expr} (ha : CertZip μ env fc d a₁ a₂) :
+    ∀ {body₁ body₂ : Expr}, CertZip μ env fc d body₁ body₂ →
+    ∀ k : Nat,
+      CertZip μ env fc d (body₁.instantiate1 a₁ k)
+        (body₂.instantiate1 a₂ k) := by
+  intro body₁ body₂ hb
+  induction hb with
+  | refl e => intro k; exact certZip_instantiate1 ha e k
+  | cert x y hbx hby hc =>
+    intro k
+    rw [instantiate1_bounded hbx (Nat.zero_le k),
+      instantiate1_bounded hby (Nat.zero_le k)]
+    exact .cert _ _ hbx hby hc
+  | sortSlack u v hev => intro k; exact .sortSlack _ _ hev
+  | constSlack n us us' hev => intro k; exact .constSlack _ _ _ hev
+  | fvar i n ty₁ ty₂ hty ih => intro k; exact .fvar _ _ _ _ hty
+  | app f₁ x₁ f₂ x₂ hf hx ihf ihx =>
+    intro k
+    simp only [Setlec.Expr.instantiate1]
+    exact .app _ _ _ _ (ihf k) (ihx k)
+  | lam n ty₁ ty₂ b₁ b₂ m hty hbody iht ihb =>
+    intro k
+    simp only [Setlec.Expr.instantiate1]
+    exact .lam _ _ _ _ _ _ (iht k) (ihb (k + 1))
+  | forallE n ty₁ ty₂ b₁ b₂ m hty hbody iht ihb =>
+    intro k
+    simp only [Setlec.Expr.instantiate1]
+    exact .forallE _ _ _ _ _ _ (iht k) (ihb (k + 1))
+  | letE n ty₁ ty₂ v₁ v₂ b₁ b₂ hty hval hbody iht ihv ihb =>
+    intro k
+    simp only [Setlec.Expr.instantiate1]
+    exact .letE _ _ _ _ _ _ _ (iht k) (ihv k) (ihb (k + 1))
+  | proj s i e₁ e₂ he ih =>
+    intro k
+    simp only [Setlec.Expr.instantiate1]
+    exact .proj _ _ _ _ (ih k)
+
+/-- `proofIrrel` never certifies two literal sorts: the subject's
+type-chain pins `uT` to a double successor, refuting the `Prop`
+check by eval arithmetic (the probe walk, at literal subjects). -/
+theorem proofIrrel_sorts_absurd {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) {g d : Nat} {u v : Level}
+    (hpi : Setlec.proofIrrel (Setlec.pureFns μ env g) env d
+      (.sort u) (.sort v) = .ok true) : False := by
+  have hdet := KnotFuelDet_of_mono hm
+  unfold Setlec.proofIrrel at hpi
+  simp only [Bind.bind, Except.bind] at hpi
+  cases hinfa : (Setlec.pureFns μ env g).infer d (.sort u) with
+  | error err => rw [hinfa] at hpi; exact nomatch hpi
+  | ok ta =>
+  rw [hinfa] at hpi
+  simp only [] at hpi
+  obtain rfl : ta = .sort (.succ u) := inferTypeCore_sort_out hinfa
+  cases hwta : (Setlec.pureFns μ env g).whnf d (.sort (.succ u)) with
+  | error err => rw [hwta] at hpi; exact nomatch hpi
+  | ok wta =>
+  rw [hwta] at hpi
+  simp only [] at hpi
+  obtain rfl : wta = .sort (.succ u) := whnf_sort_out hdet hwta
+  rw [isUnitLikeTy_sort, if_neg Bool.false_ne_true] at hpi
+  cases hinfta : (Setlec.pureFns μ env g).infer d (.sort (.succ u)) with
+  | error err => rw [hinfta] at hpi; exact nomatch hpi
+  | ok sa =>
+  rw [hinfta] at hpi
+  simp only [] at hpi
+  obtain rfl : sa = .sort (.succ (.succ u)) :=
+    inferTypeCore_sort_out hinfta
+  cases hwsa : (Setlec.pureFns μ env g).whnf d
+      (.sort (.succ (.succ u))) with
+  | error err => rw [hwsa] at hpi; exact nomatch hpi
+  | ok wsa =>
+  rw [hwsa] at hpi
+  simp only [] at hpi
+  obtain rfl : wsa = .sort (.succ (.succ u)) := whnf_sort_out hdet hwsa
+  simp only [] at hpi
+  cases hlift : Setlec.liftFueled "level comparison"
+      (Level.isEquiv (.succ (.succ u)) .zero)
+      (m := Setlec.CheckM) with
+  | error err => rw [hlift] at hpi; exact nomatch hpi
+  | ok okA =>
+  rw [hlift] at hpi
+  simp only [] at hpi
+  rw [Setlec.liftFueled.eq_def] at hlift
+  split at hlift
+  · next okA' hEq =>
+    obtain rfl : okA' = okA := by
+      simpa [pure, Except.pure] using hlift
+    cases okA' with
+    | true =>
+      have hev := Level.isEquiv_sound hEq (fun _ => 0)
+      simp only [Setlec.Level.eval] at hev
+      omega
+    | false =>
+      cases hinfb : (Setlec.pureFns μ env g).infer d (.sort v) with
+      | error err => rw [hinfb] at hpi; exact nomatch hpi
+      | ok tb =>
+      rw [hinfb] at hpi
+      simp only [] at hpi
+      cases hinftb : (Setlec.pureFns μ env g).infer d tb with
+      | error err => rw [hinftb] at hpi; exact nomatch hpi
+      | ok sb =>
+      rw [hinftb] at hpi
+      simp only [] at hpi
+      cases hwsb : (Setlec.pureFns μ env g).whnf d sb with
+      | error err => rw [hwsb] at hpi; exact nomatch hpi
+      | ok wsb =>
+      rw [hwsb] at hpi
+      simp only [] at hpi
+      split at hpi
+      · next vT =>
+        cases hliftB : Setlec.liftFueled "level comparison"
+            (Level.isEquiv vT .zero) (m := Setlec.CheckM) with
+        | error err => rw [hliftB] at hpi; exact nomatch hpi
+        | ok okB => rw [hliftB] at hpi; exact nomatch hpi
+      · exact nomatch hpi
+  · exact nomatch hlift
+
+/-- `stuckIrrel` never certifies two literal sorts (the five-way
+walk at literal subjects; the fallback is
+`proofIrrel_sorts_absurd`). -/
+theorem stuckIrrel_sorts_absurd {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) {g d : Nat} {u v : Level}
+    (hsi : Setlec.stuckIrrel μ (Setlec.pureFns μ env g) env d
+      (.sort u) (.sort v) = .ok true) : False := by
+  have hdet := KnotFuelDet_of_mono hm
+  unfold Setlec.stuckIrrel at hsi
+  simp only [Bind.bind, Except.bind] at hsi
+  cases h1 : Setlec.pairEtaCert μ (Setlec.pureFns μ env g) env d
+      (.sort u) (.sort v) with
+  | error err => rw [h1] at hsi; exact nomatch hsi
+  | ok c1 =>
+  rw [h1] at hsi
+  simp only [] at hsi
+  cases c1 with
+  | true => unfold Setlec.pairEtaCert at h1; exact nomatch h1
+  | false =>
+  rw [if_neg Bool.false_ne_true] at hsi
+  cases h2 : Setlec.pairEtaCert μ (Setlec.pureFns μ env g) env d
+      (.sort v) (.sort u) with
+  | error err => rw [h2] at hsi; exact nomatch hsi
+  | ok c2 =>
+  rw [h2] at hsi
+  simp only [] at hsi
+  cases c2 with
+  | true => unfold Setlec.pairEtaCert at h2; exact nomatch h2
+  | false =>
+  rw [if_neg Bool.false_ne_true] at hsi
+  cases h3 : Setlec.structEtaCert μ (Setlec.pureFns μ env g) env d
+      (.sort u) (.sort v) with
+  | error err => rw [h3] at hsi; exact nomatch hsi
+  | ok c3 =>
+  rw [h3] at hsi
+  simp only [] at hsi
+  cases c3 with
+  | true =>
+    unfold Setlec.structEtaCert at h3
+    simp only [Bind.bind, Except.bind] at h3
+    cases hinf3 : (Setlec.pureFns μ env g).infer d (.sort v) with
+    | error err => rw [hinf3] at h3; exact nomatch h3
+    | ok tb =>
+    rw [hinf3] at h3
+    simp only [] at h3
+    cases hw3 : (Setlec.pureFns μ env g).whnf d tb with
+    | error err => rw [hw3] at h3; exact nomatch h3
+    | ok wtb =>
+    rw [hw3] at h3
+    simp only [] at h3
+    unfold Setlec.structEtaCertWith at h3
+    exact nomatch h3
+  | false =>
+  rw [if_neg Bool.false_ne_true] at hsi
+  cases h4 : Setlec.structEtaCert μ (Setlec.pureFns μ env g) env d
+      (.sort v) (.sort u) with
+  | error err => rw [h4] at hsi; exact nomatch hsi
+  | ok c4 =>
+  rw [h4] at hsi
+  simp only [] at hsi
+  cases c4 with
+  | true =>
+    unfold Setlec.structEtaCert at h4
+    simp only [Bind.bind, Except.bind] at h4
+    cases hinf4 : (Setlec.pureFns μ env g).infer d (.sort u) with
+    | error err => rw [hinf4] at h4; exact nomatch h4
+    | ok tb =>
+    rw [hinf4] at h4
+    simp only [] at h4
+    cases hw4 : (Setlec.pureFns μ env g).whnf d tb with
+    | error err => rw [hw4] at h4; exact nomatch h4
+    | ok wtb =>
+    rw [hw4] at h4
+    simp only [] at h4
+    unfold Setlec.structEtaCertWith at h4
+    exact nomatch h4
+  | false =>
+  rw [if_neg Bool.false_ne_true] at hsi
+  cases h5 : Setlec.structUnitCert (Setlec.pureFns μ env g) env d
+      (.sort u) (.sort v) with
+  | error err => rw [h5] at hsi; exact nomatch hsi
+  | ok c5 =>
+  rw [h5] at hsi
+  simp only [] at hsi
+  cases c5 with
+  | true =>
+    unfold Setlec.structUnitCert at h5
+    simp only [Bind.bind, Except.bind] at h5
+    cases hinf5 : (Setlec.pureFns μ env g).infer d (.sort u) with
+    | error err => rw [hinf5] at h5; exact nomatch h5
+    | ok ta =>
+    rw [hinf5] at h5
+    simp only [] at h5
+    obtain rfl : ta = .sort (.succ u) := inferTypeCore_sort_out hinf5
+    cases hw5 : (Setlec.pureFns μ env g).whnf d (.sort (.succ u)) with
+    | error err => rw [hw5] at h5; exact nomatch h5
+    | ok wta =>
+    rw [hw5] at h5
+    simp only [] at h5
+    obtain rfl : wta = .sort (.succ u) := whnf_sort_out hdet hw5
+    exact nomatch h5
+  | false =>
+  rw [if_neg Bool.false_ne_true] at hsi
+  exact proofIrrel_sorts_absurd hm hsi
+
+/-- **The sort-sort cert inversion** (the summit's stuck-stuck
+terminal and the cert case's base): a certified pair of literal
+sorts has eval-equal levels. -/
+theorem isDefEqCore_sorts_eval {μ : CheckMode} {env : Env}
+    {φ : Name → Nat} (hm : KnotFuelMono μ env)
+    {fc d : Nat} {u v : Level}
+    (h : isDefEqCore μ env fc d (.sort u) (.sort v) = .ok true) :
+    u.eval φ = v.eval φ := by
+  have hdet := KnotFuelDet_of_mono hm
+  cases fc with
+  | zero => exact nomatch h
+  | succ fc =>
+  rw [Setlec.isDefEqCore_succ] at h
+  obtain ⟨L, hL⟩ := Setlec.defeqLoopFuel_succ
+  unfold Setlec.defeqBody at h
+  rw [hL, defeqLoop_succ] at h
+  rcases defeqStep_decompose h with heq | ⟨a', b', hwa, hwb, hcert⟩
+  · rw [Setlec.Expr.sort.inj heq]
+  · obtain rfl : a' = .sort u :=
+      hdet.2.2.1 hwa (whnfCore_sort_run (whnfCore_pos hwa))
+    obtain rfl : b' = .sort v :=
+      hdet.2.2.1 hwb (whnfCore_sort_run (whnfCore_pos hwb))
+    cases hcert with
+    | syn => rfl
+    | irrel _ _ hpi => exact (proofIrrel_sorts_absurd hm hpi).elim
+    | natL _ _ a₂ hrn hk => exact nomatch hrn
+    | natR _ _ b₂ hrnA hrnB hk => exact nomatch hrnB
+    | deltaL _ _ a₂ hu hk => exact nomatch hu
+    | deltaR _ _ b₂ hu hk => exact nomatch hu
+    | deltaB _ _ a₂ b₂ hua hub hk => exact nomatch hua
+    | spine _ _ hs =>
+      unfold Setlec.defeqSpine at hs
+      exact nomatch hs
+    | sorts _ _ hiseq => exact Level.isEquiv_sound hiseq φ
+    | rescue _ _ hsi => exact (stuckIrrel_sorts_absurd hm hsi).elim
+
 /-- Spine arguments of a bvar-closed expression are bvar-closed. -/
 theorem getAppArgs_bounded : ∀ {e : Expr},
     e.looseBVarsBounded 0 = true →

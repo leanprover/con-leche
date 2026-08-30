@@ -9858,3 +9858,35 @@ template; (4) the simulation tier clause by clause (β, then proj,
 then iota — each its own seal); (5) `ZipSortOfAgree` mapped
 separately after the subject form lands (its infer-level simulation
 is a different walk).
+
+### Summit build, tier 1: substitution pair + the sort-sort inversion
+
+Build-order steps 1 and (part of) 2, landed and proved:
+
+* `instantiate1_bounded` — substitution leaves bounded expressions
+  verbatim (`j ≤ k` generalization for the binder crossings); the
+  closed-cert-leaf engine.
+* `certZip_instantiate1` — Finding 2(i): one template, two zipped
+  closed args (structural; the `refl`-leaf replacement).
+* `certZip_subst` — Finding 2(ii): zipped bodies at zipped args stay
+  zipped, by induction on the body zip (`refl` by (i), `cert`
+  verbatim by closedness — Finding 1 paying off exactly as mapped,
+  congruence structurally; `fvar` is free because `instantiate1`
+  leaves annotations untouched).  The β case's engine is done.
+* `proofIrrel_sorts_absurd` / `stuckIrrel_sorts_absurd` — the
+  probe/rescue walks at literal-sort subjects (the house extraction
+  patterns; the five-way walk collapses fast because literal
+  scrutinees pre-reduce every shape match).
+* `isDefEqCore_sorts_eval` — **the sort-sort cert inversion**: a
+  certified pair of literal sorts has eval-equal levels.  The
+  decomposition needed only 10 arms — the other 15 `PostCoreCert`
+  constructors are eliminated by index unification on the
+  literal-sort pair (shape-mismatched indices never produce goals).
+  This is the summit's stuck-stuck terminal AND the cert case's
+  base.
+
+Next per the build order: the outer skeleton — the loop-step
+decomposition of both given runs against the zip, with the
+zip-preservation step Props (`ZipWhnfCoreStep` etc.) and the cert
+case routed; then the cert case on the shells' template; then the
+simulation clauses (iota with the full pre-build treatment).
