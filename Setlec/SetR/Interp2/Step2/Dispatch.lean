@@ -1500,6 +1500,263 @@ example :
     AnnotOk2.of_pi (fun _ _ => by simp) (fun _ _ => by simp)
   exact ⟨hpi _ sat2_sort0_empty, (AnnotOk2.hoist_pi hpi).1⟩
 
+/-! ## The clauses, re-pointed to `Claims2C`
+
+`InferClaims2C` splits the old single `∀ ρ, Sat2 → AnnotOk2 ea ∧ …`
+into **three** ρ-uniform conjuncts: the subject's grading, the
+*returned type's* grading (new this generation — it is what retires
+`TypeOk2`), and the membership.  The first and third are the sealed
+conclusion re-associated; the second is the new obligation, and it is
+the one worth auditing clause by clause.
+
+* **`.sort`** — free.  The returned type is `.sort (u.eval φ + 1)` and
+  the `sort` clause of `AnnotOk2` is `True`.
+* **`.bvar`** — free, and vacuously: the checker throws.
+* **`.fvar`** — **not free.**  See the STOP note below. -/
+
+/-- **A `.const`'s annotation is an `acval` leaf**, hence truthful at
+every valuation.  `denote2`'s `const` clause emits
+`acval n (substFn …)` or nothing, and `EnvS2.acval_ok2` grades every
+such leaf unconditionally — no `Sat2` spent, no fuel condition.
+
+Stated here rather than at a clause because *every* quarter's clauses
+whose returned type is a stored constant (`.const`, the two literal
+clauses, the recursor and projection exits) need exactly this for
+`InferClaims2C`'s new conjunct. -/
+theorem annotOk2_of_denote2_const {F d : Nat} {n : Name}
+    {us : List Level} {ta : AVExpr}
+    (h : denote2 μ m.acval env φ F d (.const n us) = some ta)
+    (ρ : Nat → V) : AnnotOk2 V ρ ta := by
+  rw [denote2] at h
+  cases hf : env.find? n with
+  | none => rw [hf] at h; exact nomatch h
+  | some ci =>
+    rw [hf] at h
+    dsimp only at h
+    split at h
+    · obtain rfl := Option.some.inj h
+      exact m.acval_ok2 _ _ ρ
+    · exact nomatch h
+
+/-- **I1C (`.sort`), re-pointed.**  Free: both annotations are
+`.sort`s. -/
+theorem infer_sort_claim2C {d : Nat} {u : Level} {t : Expr}
+    {Δa : List AVExpr} {F : Nat} {ea : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.sort u) = .ok t)
+    (hea : denote2 μ m.acval env φ F d (.sort u) = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
+    Except.bind, Except.ok.injEq] at h
+  subst h
+  rw [denote2] at hea
+  obtain rfl : ea = .sort (u.eval φ) := (Option.some.inj hea).symm
+  refine ⟨F, .sort (u.eval φ + 1), Nat.le_refl F, ?_,
+    fun ρ _ => by simp, fun ρ _ => by simp, ?_⟩
+  · rw [denote2]; simp [Level.eval]
+  · intro ρ _
+    simpa [Level.eval] using sound_sort V ρ (u.eval φ)
+
+/-- **I3C (`.bvar`), re-pointed.**  Outside the fragment; vacuous at
+every fuel and every `F`. -/
+theorem infer_bvar_claim2C {d i : Nat} {t : Expr}
+    {Δa : List AVExpr} {F : Nat} {ea : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.bvar i) = .ok t)
+    (_hea : denote2 μ m.acval env φ F d (.bvar i) = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
+    Except.bind] at h
+  simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-! ### STOP — `CtxOk2` does not carry the leaf annotation's grading
+
+`InferClaims2C`'s new conjunct asks, at `.fvar`, for
+`∀ ρ, Sat2 V Δa ρ → AnnotOk2 V ρ tya`, where `tya` is the leaf's own
+annotation and `t = ty` is the leaf's own type.  The clause's only
+source for anything about `tya` is `CtxOk2`, and its leaf package has
+exactly three conjuncts: **definedness** (`denote2 … = some tya`), the
+**slot** (`Δa[d-1-l.1]? = some Aa`) and the **link**
+(`interp2 ρ tya = interp2 (ρ ∘ (· + k + 1)) Aa`).  Truthfulness is not
+among them, and it does not follow from the link: `AnnotOk2` is a
+hereditary structural predicate, and an `interp2` *value* determines
+nothing about it — that is the same wall `TypeOk2` was written to name.
+
+So the generation-four extension is **free at `.sort` and `.bvar` and
+not free at `.fvar`**, and the deficit is on the supplier side, in
+this file's own `CtxOk2`.  The clause below takes the fact explicitly,
+in exactly the shape a fourth `CtxOk2` conjunct would supply — the same
+device, and for the same reason, as the sealed `infer_fvar_claim2`
+above.  `CtxOk2Ann` names the proposed conjunct and the lemmas after it
+check that it survives the kit; the change itself is a junction
+decision, not a consumer's, because three quarters build on `CtxOk2`
+concurrently. -/
+
+/-- **I2C (`.fvar`), re-pointed — BLOCKED on one hypothesis.**  Every
+part but the returned type's grading is the sealed clause
+re-associated; `hokTy` is the part `CtxOk2` cannot supply. -/
+theorem infer_fvar_claim2C {d idx : Nat} {n : Name} {ty t : Expr}
+    {Δa : List AVExpr} {F : Nat} {ea : AVExpr}
+    (hC : CtxOk2 m μ φ F d Δa (.fvar idx n ty))
+    (hokTy : ∀ tya : AVExpr,
+      denote2 μ m.acval env φ F d ty = some tya →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ tya)
+    (h : inferTypeCore μ env (fuel + 1) d (.fvar idx n ty) = .ok t)
+    (hea : denote2 μ m.acval env φ F d (.fvar idx n ty) = some ea) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  obtain ⟨tya, Aa, hden, hi, hlink⟩ := CtxOk2.fvar_leaf hC
+  rw [denote2] at hea
+  obtain rfl : ea = .bvar (d - 1 - idx) := (Option.some.inj hea).symm
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
+    Except.bind] at h
+  split at h
+  · simp only [Except.ok.injEq] at h
+    subst h
+    refine ⟨F, tya, Nat.le_refl F, hden, fun ρ _ => by simp,
+      hokTy tya hden, fun ρ hρ => ?_⟩
+    rw [interp2_bvar, hlink ρ hρ]
+    exact hρ (d - 1 - idx) Aa hi
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-! ### The proposed supplier, checked
+
+`CtxOk2Ann` is the fourth leaf conjunct, stated **beside** `CtxOk2`
+rather than inside it so that nothing built against the current
+`CtxOk2` breaks while the junction decides.  What follows is the
+evidence a strengthening is supposed to come with: it survives every
+constructor in the kit, and it is inhabited beyond vacuity. -/
+
+/-- **The proposed fourth conjunct of `CtxOk2`.**  Quantified over
+`tya` rather than carrying its own existential, so it composes with
+`CtxOk2`'s package by `denote2`'s functionality. -/
+def CtxOk2Ann {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+    (φ : Name → Nat) (F d : Nat) (Δa : List AVExpr) (e : Expr) :
+    Prop :=
+  ∀ l ∈ e.fvarLeaves, ∀ tya : AVExpr,
+    denote2 μ m.acval env φ F d l.2.2 = some tya →
+    ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ tya
+
+/-- What the `.fvar` clause takes, read off the proposed conjunct — so
+`infer_fvar_claim2C`'s `hokTy` really is this and nothing more. -/
+theorem CtxOk2Ann.fvar_leaf {F d idx : Nat} {Δa : List AVExpr}
+    {n : Name} {ty : Expr}
+    (hA : CtxOk2Ann m μ φ F d Δa (.fvar idx n ty)) :
+    ∀ tya : AVExpr, denote2 μ m.acval env φ F d ty = some tya →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ tya :=
+  hA (idx, n, ty) (by simp [Expr.fvarLeaves])
+
+/-- Restriction, exactly as `CtxOk2.of_subset`. -/
+theorem CtxOk2Ann.of_subset {F d : Nat} {Δa : List AVExpr}
+    {e e' : Expr} (hA : CtxOk2Ann m μ φ F d Δa e)
+    (hsub : ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves) :
+    CtxOk2Ann m μ φ F d Δa e' :=
+  fun l hl => hA l (hsub l hl)
+
+/-- No leaves, nothing to say. -/
+theorem CtxOk2Ann.of_fvarLeaves_nil {F d : Nat} {Δa : List AVExpr}
+    {e : Expr} (h : e.fvarLeaves = []) :
+    CtxOk2Ann m μ φ F d Δa e :=
+  fun l hl => by rw [h] at hl; exact absurd hl (by simp)
+
+/-- Fuel monotonicity, on the pair: the leaf's annotation at the
+higher fuel *is* the one at the lower, by `denote2_fuelMono` and
+functionality, so the grading transports unchanged. -/
+theorem CtxOk2Ann.fuelMono {F F' d : Nat} {Δa : List AVExpr}
+    {e : Expr} (hle : F ≤ F') (hC : CtxOk2 m μ φ F d Δa e)
+    (hA : CtxOk2Ann m μ φ F d Δa e) :
+    CtxOk2Ann m μ φ F' d Δa e := by
+  intro l hl tya hden ρ hρ
+  obtain ⟨-, -, tya₀, -, hden₀, -, -⟩ := hC.2 l hl
+  have h' := denote2_fuelMono hle d l.2.2 hden₀
+  rw [h'] at hden
+  obtain rfl : tya₀ = tya := Option.some.inj hden
+  exact hA l hl tya₀ hden₀ ρ hρ
+
+/-- **Weakening by one binder.**  The leaf annotations lift, so the
+grading is `AnnotOk2.hoist_lift` of the old one. -/
+theorem CtxOk2Ann.weakenTop {F d : Nat} {Δa : List AVExpr}
+    {Ba : AVExpr} {e : Expr} (hC : CtxOk2 m μ φ F d Δa e)
+    (hA : CtxOk2Ann m μ φ F d Δa e) (hw : Expr.WScoped d e) :
+    CtxOk2Ann m μ φ F (d + 1) (Ba :: Δa) e := by
+  intro l hl tya hden
+  obtain ⟨hlt, -, tya₀, -, hden₀, -, -⟩ := hC.2 l hl
+  have hwl : Expr.WScoped d l.2.2 :=
+    (Setlec.Expr.WScoped_leaves e hw l hl).2.mono (by omega)
+  rw [denote2_weaken_top m.base.wf m.acval_closed hwl, hden₀] at hden
+  obtain rfl : AVExpr.liftN 1 tya₀ 0 = tya := Option.some.inj hden
+  exact AnnotOk2.hoist_lift (X := Ba) (hA l hl tya₀ hden₀)
+
+/-- **Opening a binder congruence.**  The new leaf's annotation is the
+*right* domain lifted, and its grading is `hok₂` — which
+`CtxOk2.openCong` already takes and `DefEqClaims2C` already supplies as
+one of its two hoisted premises.  So the proposed conjunct costs the
+congruence sites **nothing new**: this is the self-propagation
+argument, applied to the strengthening rather than to the claim. -/
+theorem CtxOk2Ann.openCong {F d : Nat} {Δa : List AVExpr}
+    {body ty : Expr} {n : Name} {ta₁ ta₂ : AVExpr}
+    (hb : CtxOk2 m μ φ F d Δa body) (ht : CtxOk2 m μ φ F d Δa ty)
+    (hAb : CtxOk2Ann m μ φ F d Δa body)
+    (hAt : CtxOk2Ann m μ φ F d Δa ty)
+    (hty : denote2 μ m.acval env φ F d ty = some ta₂)
+    (hok₂ : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta₂) :
+    CtxOk2Ann m μ φ F (d + 1) (ta₁ :: Δa)
+      (body.instantiate1 (.fvar d n ty)) := by
+  intro l hl tya hden
+  rcases Setlec.Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+  · exact CtxOk2Ann.weakenTop (Ba := ta₁) hb hAb hb.wScoped l hl'
+      tya hden
+  · rw [Setlec.Expr.fvarLeaves] at hl'
+    rcases List.mem_cons.mp hl' with rfl | hl''
+    · rw [denote2_weaken_top m.base.wf m.acval_closed ht.wScoped,
+        hty] at hden
+      obtain rfl : AVExpr.liftN 1 ta₂ 0 = tya := Option.some.inj hden
+      exact AnnotOk2.hoist_lift (X := ta₁) hok₂
+    · exact CtxOk2Ann.weakenTop (Ba := ta₁) ht hAt ht.wScoped l hl''
+        tya hden
+
+/-- The non-congruence opening: the same lemma at `ta₁ = ta₂`, which
+is the shape `CtxOk2.openS`/`CtxOk2.open` produce. -/
+theorem CtxOk2Ann.openS {F d : Nat} {Δa : List AVExpr}
+    {body ty : Expr} {n : Name} {ta : AVExpr}
+    (hb : CtxOk2 m μ φ F d Δa body) (ht : CtxOk2 m μ φ F d Δa ty)
+    (hAb : CtxOk2Ann m μ φ F d Δa body)
+    (hAt : CtxOk2Ann m μ φ F d Δa ty)
+    (hty : denote2 μ m.acval env φ F d ty = some ta)
+    (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) :
+    CtxOk2Ann m μ φ F (d + 1) (ta :: Δa)
+      (body.instantiate1 (.fvar d n ty)) :=
+  CtxOk2Ann.openCong (ta₁ := ta) hb ht hAb hAt hty hok
+
+/-- **Inhabited beyond vacuity**, the check a strengthening owes: at
+depth `1` over a satisfiable context, with a real `fvar` leaf whose
+annotation is a `Sort`.  (`CtxOk2Ann` at depth `0` is free for the same
+reason `CtxOk2` is, so the depth-`0` witness would prove nothing.) -/
+example (nm : Name) :
+    CtxOk2Ann m μ φ 1 1 [AVExpr.sort 1]
+      (.fvar 0 nm (.sort (.succ .zero))) := by
+  intro l hl tya hden ρ _
+  simp only [Setlec.Expr.fvarLeaves, List.mem_singleton] at hl
+  subst hl
+  rw [denote2] at hden
+  obtain rfl : AVExpr.sort 1 = tya := Option.some.inj hden
+  simp
+
 end Amended
 
 end Setlec.SetR.Interp2

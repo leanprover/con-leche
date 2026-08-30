@@ -99,7 +99,20 @@ copy is deleted rather than renamed.
 
 Third instance of the same integration finding: parallel quarters
 converge on the same helper *names* as well as the same content, and
-the collision surfaces at the fold rather than at authoring. -/
+the collision surfaces at the fold rather than at authoring.
+
+## Generation four costs this file nothing
+
+`Claims2C` hoists every `AnnotOk2` above the `∀ ρ` and makes
+`InferClaims2C` deliver the *returned type's* grading too.
+`natLit_facts2` states both of its conclusions at a single, arbitrary
+`ρ` with no `Sat2` in sight, so hoisting it is `fun ρ hρ => …` and the
+statement does not move — the same reason seal 6's four repairs passed
+through it.  The returned type is `.const Nat []`, whose grading is
+`annotOk2_of_denote2_const` (`Step2/Dispatch.lean`) from
+`EnvS2.acval_ok2`, so the new conjunct is free at the numeral clause as
+well; the clause itself lives in `Step2/InferQ.lean` and is the
+inference quarter's to re-point. -/
 
 
 end Setlec.SetR.Interp2

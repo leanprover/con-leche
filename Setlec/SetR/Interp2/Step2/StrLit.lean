@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.Step2.Lit
+import Setlec.SetR.Interp2.Step2.Dispatch
 
 /-!
 # `CheckStep2`, the literal clauses — the `String` half
@@ -236,6 +237,77 @@ theorem infer_strLit_claim2A (m : EnvS2 V env) {d F : Nat} {s : String}
     exact strLit_facts2 (hokz ρ) (hoks ρ) (hz ρ hρ) (hsucc ρ hρ)
       (hokNil ρ) (hokCons ρ) (hokOfNat ρ) (hokOfList ρ) (hnil ρ hρ)
       (hcons ρ hρ) (hofNat ρ hρ) (hofList ρ hρ) s
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-! ## Re-pointed to `Claims2C` (seal 14)
+
+`InferClaims2C` asks for the **returned type's** `AnnotOk2` alongside
+the subject's, ρ-uniformly.  For this clause the returned type is
+`.const String []`, whose annotation `denote2` reads straight out of
+the canonical valuation — so `EnvS2.acval_ok2` discharges it, at every
+`ρ`, with no `Sat2` spent.  The literal layer therefore pays nothing
+for the extension, which is what the lemma below records. -/
+
+/-- **I11C (`.lit strVal`), re-pointed.**  The sealed conclusion
+re-associated into `Claims2C`'s three conjuncts, with the new one
+(`AnnotOk2` of the returned type) free from `acval_ok2`.  `F' = F`
+still: nothing in this clause spends R3's slack. -/
+theorem infer_strLit_claim2C (m : EnvS2 V env) {d F : Nat} {s : String}
+    {t : Expr} {Δa : List AVExpr}
+    {nilA consA ofNatA ofListA za sa natA charA lcA strA : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t)
+    (_hea : denote2 μ m.acval env φ F d (.lit (.strVal s))
+      = some (.app ofListA
+          (charListT2 nilA consA ofNatA za sa s.toList)))
+    (hty : denote2 μ m.acval env φ F d (.const Setlec.stringName [])
+      = some strA)
+    (hokz : ∀ ρ : Nat → V, AnnotOk2 V ρ za)
+    (hoks : ∀ ρ : Nat → V, AnnotOk2 V ρ sa)
+    (hokNil : ∀ ρ : Nat → V, AnnotOk2 V ρ nilA)
+    (hokCons : ∀ ρ : Nat → V, AnnotOk2 V ρ consA)
+    (hokOfNat : ∀ ρ : Nat → V, AnnotOk2 V ρ ofNatA)
+    (hokOfList : ∀ ρ : Nat → V, AnnotOk2 V ρ ofListA)
+    (hz : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ za ∈ˢ interp2 V ρ natA)
+    (hsucc : ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ sa
+      ∈ˢ piR 1 (interp2 V ρ natA) fun _ => interp2 V ρ natA)
+    (hnil : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ nilA ∈ˢ interp2 V ρ lcA)
+    (hcons : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ consA ∈ˢ piR 1 (interp2 V ρ charA)
+        fun _ => piR 1 (interp2 V ρ lcA) fun _ => interp2 V ρ lcA)
+    (hofNat : ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ ofNatA
+      ∈ˢ piR 1 (interp2 V ρ natA) fun _ => interp2 V ρ charA)
+    (hofList : ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ ofListA
+      ∈ˢ piR 1 (interp2 V ρ lcA) fun _ => interp2 V ρ strA) :
+    ∃ F' ta, F ≤ F' ∧
+      denote2 μ m.acval env φ F' d t = some ta ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ →
+        AnnotOk2 V ρ (.app ofListA
+          (charListT2 nilA consA ofNatA za sa s.toList))) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ (.app ofListA
+          (charListT2 nilA consA ofNatA za sa s.toList))
+          ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
+    Except.bind] at h
+  split at h
+  · simp only [Except.ok.injEq] at h
+    subst h
+    have hfacts : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        AnnotOk2 V ρ (.app ofListA
+            (charListT2 nilA consA ofNatA za sa s.toList)) ∧
+          interp2 V ρ (.app ofListA
+            (charListT2 nilA consA ofNatA za sa s.toList))
+            ∈ˢ interp2 V ρ strA := fun ρ hρ =>
+      strLit_facts2 (hokz ρ) (hoks ρ) (hz ρ hρ) (hsucc ρ hρ)
+        (hokNil ρ) (hokCons ρ) (hokOfNat ρ) (hokOfList ρ) (hnil ρ hρ)
+        (hcons ρ hρ) (hofNat ρ hρ) (hofList ρ hρ) s
+    exact ⟨F, strA, Nat.le_refl F, hty, fun ρ hρ => (hfacts ρ hρ).1,
+      fun ρ _ => annotOk2_of_denote2_const hty ρ,
+      fun ρ hρ => (hfacts ρ hρ).2⟩
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 end Setlec.SetR.Interp2
