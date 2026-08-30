@@ -15454,3 +15454,103 @@ cheaper option so much as the *faithful* one.
 Gaps 1 and 2 are conditional on a conjunct that may not be carried;
 gap 3 is conditional on the full transpose. **None blocks
 `Denote2InstLevels`**, which proceeds next.
+
+### Seal 25 — both `InstLevels` primitives are false; the factoring dropped a hypothesis
+
+Settled, mechanized, in `Interp2/Step2/LevelsInst.lean`. **Both are
+false as stated — and for a hygiene reason, not the deep one.**
+
+They quantify over a **bare `Env`** with no well-formedness side
+condition, and that alone kills them: a stored constant with
+`levelParams = []` whose stored expression mentions a level parameter
+anyway is legal input to both and **impossible for a checked
+environment** (`ConstWF.allLevelParamsDefined`). `not_whnfSortInstLevels`
+stores a definition whose *value* is `Sort escP`; `not_inferInstLevels`
+an axiom whose *type* is — one clause earlier, same shape. The subject
+carries no level, so instantiation has nothing to act on, while every
+run answers the escaped sort. Joined across fuels with `knotFuelMono`,
+so they hold at every `F'`.
+
+`not_sortOfEInstLevels` shows the escape is **not an artefact of the
+factoring**: it reaches the statement the delta exit consumes directly.
+
+**The repair is free, and the finding is where the hypothesis went.**
+`Denote2InstLevels` is stated over an `EnvS2 V env`, whose
+`base : EnvS V env` carries `wf : EnvWF env`. **The factoring, not the
+metatheorem, dropped it.** The `…W` forms re-derive the entire chain
+with `m.base.wf` threaded and `denote2_instLevels_of` stands unchanged
+— nothing downstream moves.
+
+*Rule: when a statement is factored into primitives, check that every
+hypothesis the original carried is still reachable in each piece. A
+primitive that quantifies more widely than its parent is not a
+weaker lemma, it is a different and possibly false one.*
+
+**The satisfiability discipline was applied without being asked**, and
+correctly: `escEnvT_not_wf`/`escEnvV_not_wf` show the witnesses do not
+refute the *repair*, and `envWF_empty` shows the repaired hypothesis is
+reachable, so the `…W` forms are not vacuous.
+
+**Sort-terminality held, and is now a theorem.**
+`whnfSortInstLevels_of_upTo`: at a `.sort` reduct the *simulation*
+form (`WhnfInstLevelsUpTo` — instantiated subject and substituted
+reduct share a common head normal form) collapses to the narrow one,
+because a sort is its own whnf. `Levels.lean`'s informal argument,
+mechanized. **`WhnfInstLevelsUpTo` is the shape a discharge should aim
+at.**
+
+#### Correcting seal 19: the suspect list was not exhaustive
+
+Seal 19 recorded that seal 12's attack was closed — `piResultIsProp`
+out of the seam, `piResultNeverZero` in it but flipping only the safe
+way. **A third level-sensitive guard exists and neither seal named
+it**: `whnfCore`'s **beta certificate**. It is in the seam, and unlike
+the other two it needs **no environment and no inductives** —
+`(fun _ : Sort p => Prop) (x : Prop)` is stuck at the parameter and
+beta-reduces at `p := 0`, because `Level.isEquiv 0 p = false` while
+`Level.isEquiv 0 0 = true`. Mechanized as `betaCertLevel_flips`.
+
+*Seal 19 said "the concrete attack is closed", which was true, and I
+let it read as "the seam is mapped", which was not. Closing an attack
+is not enumerating a seam.*
+
+#### The suggested order inverts for the discharge
+
+`WhnfSortInstLevels`-first was right for **refutation** — the witness
+shape transferred and the second statement fell to a one-line `rfl`
+plus a copy of the same fuel join. It is **wrong for discharge**:
+`InferInstLevels`' `.app` clause needs `whnf` to commute at a
+`.forallE`, and its `.proj` clause at a const-headed application —
+arbitrary reducts, i.e. the *general* form. **Primitive 1 cannot be
+discharged from primitive 2**; it needs `WhnfInstLevelsUpTo`.
+
+#### Reported as not done
+
+Lifting the beta-cert flip to two `whnf` runs — which would refute the
+**general** form in the *empty* environment and so survive `EnvWF` — was
+not carried out. Evaluation shows the stuck redex on one side and
+`Prop` on the other; **an evaluation is not a proof and was not offered
+as one.** The obstacle is named: `Level.isEquiv` does not reduce
+definitionally under the literal `Level.defaultFuel`, so a run-level
+proof must thread three hand-proved `isEquiv` values through
+`proofIrrel`'s nested runs and three `@[irreducible]` fuel peels. The
+general form under `EnvWF` stays **expect false**, with a named
+candidate witness and a mechanized guard.
+
+**`Denote2InstLevels` does not close.** Seal 12's metatheorem stays
+open — but its residue is now two `EnvWF`-carrying statements instead
+of two bare-`Env` ones that were false.
+
+#### A refinement to the recipe book, from its second failure
+
+The book's *"check satisfiability in the very case that killed the old
+shape"* could not be performed here either — the killing case is an
+environment `ConstWF` forbids, so **no repaired instance exists at
+it**. That is now twice (seal 21 was the first), and the pattern is
+clear enough to state:
+
+*When a repair works by adding a well-formedness hypothesis, the
+killing case is excluded by construction and the check is structurally
+unavailable. Supply instead: (a) that the witnesses do not refute the
+repair, and (b) that the repaired hypothesis is reachable. Both were
+supplied here.*
