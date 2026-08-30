@@ -12656,3 +12656,20 @@ Also: `ThetaCoreSeam` gained the `certHead` row with `ThetaRel`
 arguments (the congruence exits' shape), and `alignSeam` carries
 its trace ceiling.  Next: the `same`-row core analysis
 (`thetaSame_core`), then the packed tier and `thetaCoreLock`.
+
+### The Θ relation MUTUALIZED (the same-λ push's forcing)
+
+The `same`-row pre-build found the last structural constraint: a
+shared-λ head fired against REL-related spine arguments pushes an
+entry whose argument pair is Θ-related, not certificate-zipped — so
+the telescope's argument relation must itself be `ThetaRel`.
+Landed: the mutual pair `ThetaRel`/`TelescopeRel` (spines and
+telescope arguments Θ-related; zips embed via `.zip`, and
+`TelescopeRel.of_ok` embeds the claims' `TelescopeOk`), the kit
+ported (`thetaRel_bounded₁/₂`, `thetaRel_WScoped₁/₂`,
+`thetaRel_lam_beta₁/₂`, `TelescopeRel.append`), and
+`thetaSubst₁_push` trimmed to its true inputs (the β composite +
+the roundtrip facts).  All warning-free; battery green, axioms
+12/12.  The `same`/`packed` analyses now have every structural
+ingredient; next: `thetaSame_core` (one layer per invocation,
+recursion through the claim at strictly smaller knot sums).

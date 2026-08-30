@@ -51,34 +51,202 @@ theorem certZip_mono (hm : KnotFuelMono μ env)
     exact .letE n ty₁ ty₂ v₁ v₂ b₁ b₂ iht ihv ihb
   | proj s i e₁ e₂ he ih => exact .proj s i e₁ e₂ ih
 
+mutual
 /-- **The Θ relation** at telescope tier `T`, depth `d`: the
-traveling currency of the corrected architecture. -/
-inductive ThetaRel (μ : CheckMode) (env : Env) (T d : Nat) :
-    Expr → Expr → Prop
-  | zip {fc' : Nat} {a b : Expr}
+traveling currency of the corrected architecture — spines and
+telescope arguments are themselves Θ-related (the nesting the
+same-λ push forces; zips embed via `.zip`). -/
+inductive ThetaRel (μ : CheckMode) (env : Env) (T : Nat) :
+    Nat → Expr → Expr → Prop
+  | zip {d fc' : Nat} {a b : Expr}
       (hfc : fc' ≤ T + 1)
       (hz : CertZip μ env fc' d a b) :
       ThetaRel μ env T d a b
-  | packed {Γ : List ThetaEntry} {k L : Nat} {C₁ C₂ : Expr}
-      {sp₁ sp₂ : List Expr}
-      (hT : TelescopeOk μ env T d Γ)
+  | packed {d : Nat} {Γ : List ThetaEntry} {k L : Nat}
+      {C₁ C₂ : Expr} {sp₁ sp₂ : List Expr}
+      (hT : TelescopeRel μ env T d Γ)
       (hk : k ≤ T)
       (hrun : Setlec.defeqLoop μ (Setlec.pureFns μ env k) env
         (d + Γ.length) L C₁ C₂ = .ok true)
       (hlen : sp₁.length = sp₂.length)
       (hsp : ∀ i (h₁ : i < sp₁.length) (h₂ : i < sp₂.length),
-        CertZip μ env (T + 1) d sp₁[i] sp₂[i]) :
+        ThetaRel μ env T d sp₁[i] sp₂[i]) :
       ThetaRel μ env T d
         (Setlec.Expr.mkAppN (thetaSubst₁ d Γ C₁) sp₁)
         (Setlec.Expr.mkAppN (thetaSubst₂ d Γ C₂) sp₂)
-  | same {Γ : List ThetaEntry} {P : Expr} {sp₁ sp₂ : List Expr}
-      (hT : TelescopeOk μ env T d Γ)
+  | same {d : Nat} {Γ : List ThetaEntry} {P : Expr}
+      {sp₁ sp₂ : List Expr}
+      (hT : TelescopeRel μ env T d Γ)
       (hlen : sp₁.length = sp₂.length)
       (hsp : ∀ i (h₁ : i < sp₁.length) (h₂ : i < sp₂.length),
-        CertZip μ env (T + 1) d sp₁[i] sp₂[i]) :
+        ThetaRel μ env T d sp₁[i] sp₂[i]) :
       ThetaRel μ env T d
         (Setlec.Expr.mkAppN (thetaSubst₁ d Γ P) sp₁)
         (Setlec.Expr.mkAppN (thetaSubst₂ d Γ P) sp₂)
+
+/-- **The Θ telescope**: per-entry facts with Θ-related argument
+pairs (the domain fact and the subject packages as in
+`TelescopeOk`). -/
+inductive TelescopeRel (μ : CheckMode) (env : Env) (T : Nat) :
+    Nat → List ThetaEntry → Prop
+  | nil {d : Nat} : TelescopeRel μ env T d []
+  | cons {d : Nat} {t : ThetaEntry} {Γ : List ThetaEntry}
+      (hz : ThetaRel μ env T d t.a₁ t.a₂)
+      (hd : isDefEqCore μ env (T + 1) d t.ty₁ t.ty₂ = .ok true)
+      (hI₁ : SubjInv d t.a₁) (hI₂ : SubjInv d t.a₂)
+      (hp : PairedLeaves t.a₁ t.a₂)
+      (rest : TelescopeRel μ env T (d + 1) Γ) :
+      TelescopeRel μ env T d (t :: Γ)
+end
+
+/-- `TelescopeOk` embeds (zips become `.zip` rows). -/
+theorem TelescopeRel.of_ok {T : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat},
+      TelescopeOk μ env T d Γ → TelescopeRel μ env T d Γ
+  | [], _ => fun _ => .nil
+  | _ :: _, _ => fun h =>
+    .cons (.zip (Nat.le_refl (T + 1)) h.1) h.2.1 h.2.2.1 h.2.2.2.1
+      h.2.2.2.2.1 (TelescopeRel.of_ok h.2.2.2.2.2)
+
+/-- Bounded images under a Θ telescope (LEFT). -/
+theorem thetaRel_bounded₁ {T : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {X : Expr},
+      TelescopeRel μ env T d Γ →
+      X.looseBVarsBounded 0 = true →
+      (thetaSubst₁ d Γ X).looseBVarsBounded 0 = true
+  | [], _, _ => fun _ hb => hb
+  | t :: Γ', d, X => fun hΓ hb => by
+    cases hΓ with
+    | cons hz hd hI₁ hI₂ hp hΓ' =>
+      exact substAK_bounded hI₁.2.1 (thetaRel_bounded₁ hΓ' hb)
+
+/-- Bounded images under a Θ telescope (RIGHT). -/
+theorem thetaRel_bounded₂ {T : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {X : Expr},
+      TelescopeRel μ env T d Γ →
+      X.looseBVarsBounded 0 = true →
+      (thetaSubst₂ d Γ X).looseBVarsBounded 0 = true
+  | [], _, _ => fun _ hb => hb
+  | t :: Γ', d, X => fun hΓ hb => by
+    cases hΓ with
+    | cons hz hd hI₁ hI₂ hp hΓ' =>
+      exact substAK_bounded hI₂.2.1 (thetaRel_bounded₂ hΓ' hb)
+
+/-- Scoped images under a Θ telescope (LEFT). -/
+theorem thetaRel_WScoped₁ {T : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {X : Expr},
+      TelescopeRel μ env T d Γ →
+      Expr.WScoped (d + Γ.length) X →
+      Expr.WScoped d (thetaSubst₁ d Γ X)
+  | [], _, _ => fun _ hw => hw
+  | t :: Γ', d, X => fun hΓ hw => by
+    cases hΓ with
+    | cons hz hd hI₁ hI₂ hp hΓ' =>
+      refine substAK_WScoped hI₁.1 ?_
+      refine thetaRel_WScoped₁ hΓ' ?_
+      have heq : (d + 1) + Γ'.length = d + (t :: Γ').length := by
+        simp [List.length_cons]
+        omega
+      rw [heq]
+      exact hw
+
+/-- Scoped images under a Θ telescope (RIGHT). -/
+theorem thetaRel_WScoped₂ {T : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {X : Expr},
+      TelescopeRel μ env T d Γ →
+      Expr.WScoped (d + Γ.length) X →
+      Expr.WScoped d (thetaSubst₂ d Γ X)
+  | [], _, _ => fun _ hw => hw
+  | t :: Γ', d, X => fun hΓ hw => by
+    cases hΓ with
+    | cons hz hd hI₁ hI₂ hp hΓ' =>
+      refine substAK_WScoped hI₂.1 ?_
+      refine thetaRel_WScoped₂ hΓ' ?_
+      have heq : (d + 1) + Γ'.length = d + (t :: Γ').length := by
+        simp [List.length_cons]
+        omega
+      rw [heq]
+      exact hw
+
+/-- The λ-image's shape and β composite over a Θ telescope
+(LEFT). -/
+theorem thetaRel_lam_beta₁ {T : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {n : Name} {ty b : Expr}
+      {m : Setlec.BinderMeta},
+      TelescopeRel μ env T d Γ →
+      ∃ TY B, thetaSubst₁ d Γ (.lam n ty b m) = .lam n TY B m ∧
+        ∀ x, x.looseBVarsBounded 0 = true →
+          B.instantiate1 (thetaSubst₁ d Γ x)
+            = thetaSubst₁ d Γ (b.instantiate1 x)
+  | [], d, n, ty, b, m => fun _ => ⟨ty, b, rfl, fun x hx => rfl⟩
+  | t :: Γ', d, n, ty, b, m => fun hΓ => by
+    cases hΓ with
+    | cons hz hd hI₁ hI₂ hp hΓ' =>
+    obtain ⟨TY', B', hshape, hbeta⟩ :=
+      thetaRel_lam_beta₁ (Γ := Γ') (d := d + 1) (n := n)
+        (ty := ty) (b := b) (m := m) hΓ'
+    refine ⟨substAK d 0 t.a₁ TY', substAK d 1 t.a₁ B', ?_, ?_⟩
+    · show substAK d 0 t.a₁
+        (thetaSubst₁ (d + 1) Γ' (.lam n ty b m)) = _
+      rw [hshape]
+      rfl
+    · intro x hx
+      show (substAK d 1 t.a₁ B').instantiate1
+        (substAK d 0 t.a₁ (thetaSubst₁ (d + 1) Γ' x)) = _
+      rw [substAK_instantiate1 hI₁.2.1
+        (thetaRel_bounded₁ hΓ' hx) B' 0, hbeta x hx]
+      rfl
+
+/-- The λ-image's shape and β composite over a Θ telescope
+(RIGHT). -/
+theorem thetaRel_lam_beta₂ {T : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {n : Name} {ty b : Expr}
+      {m : Setlec.BinderMeta},
+      TelescopeRel μ env T d Γ →
+      ∃ TY B, thetaSubst₂ d Γ (.lam n ty b m) = .lam n TY B m ∧
+        ∀ x, x.looseBVarsBounded 0 = true →
+          B.instantiate1 (thetaSubst₂ d Γ x)
+            = thetaSubst₂ d Γ (b.instantiate1 x)
+  | [], d, n, ty, b, m => fun _ => ⟨ty, b, rfl, fun x hx => rfl⟩
+  | t :: Γ', d, n, ty, b, m => fun hΓ => by
+    cases hΓ with
+    | cons hz hd hI₁ hI₂ hp hΓ' =>
+    obtain ⟨TY', B', hshape, hbeta⟩ :=
+      thetaRel_lam_beta₂ (Γ := Γ') (d := d + 1) (n := n)
+        (ty := ty) (b := b) (m := m) hΓ'
+    refine ⟨substAK d 0 t.a₂ TY', substAK d 1 t.a₂ B', ?_, ?_⟩
+    · show substAK d 0 t.a₂
+        (thetaSubst₂ (d + 1) Γ' (.lam n ty b m)) = _
+      rw [hshape]
+      rfl
+    · intro x hx
+      show (substAK d 1 t.a₂ B').instantiate1
+        (substAK d 0 t.a₂ (thetaSubst₂ (d + 1) Γ' x)) = _
+      rw [substAK_instantiate1 hI₂.2.1
+        (thetaRel_bounded₂ hΓ' hx) B' 0, hbeta x hx]
+      rfl
+
+/-- The Θ telescope extends (the push's entry). -/
+theorem TelescopeRel.append {T : Nat} {t : ThetaEntry} :
+    ∀ {Γ : List ThetaEntry} {d : Nat},
+      TelescopeRel μ env T d Γ →
+      ThetaRel μ env T (d + Γ.length) t.a₁ t.a₂ →
+      isDefEqCore μ env (T + 1) (d + Γ.length) t.ty₁ t.ty₂
+        = .ok true →
+      SubjInv (d + Γ.length) t.a₁ →
+      SubjInv (d + Γ.length) t.a₂ →
+      PairedLeaves t.a₁ t.a₂ →
+      TelescopeRel μ env T d (Γ ++ [t])
+  | [], d => fun _ hz hd hI₁ hI₂ hp =>
+    .cons hz hd hI₁ hI₂ hp .nil
+  | t' :: Γ', d => fun hΓ hz hd hI₁ hI₂ hp => by
+    cases hΓ with
+    | cons hz' hd' hI₁' hI₂' hp' hΓ'' =>
+      have heq : (d + 1) + Γ'.length = d + (Γ'.length + 1) := by
+        omega
+      exact .cons hz' hd' hI₁' hI₂' hp'
+        (TelescopeRel.append hΓ'' (heq ▸ hz) (heq ▸ hd)
+          (heq ▸ hI₁) (heq ▸ hI₂) hp)
 
 /-- **The θ core seam** — the landed `CoreSeam`'s shape with
 `ThetaRel` material at the head rows (the dead rows verbatim). -/
@@ -464,11 +632,9 @@ theorem thetaSubst₂_lam_beta {T : Nat} :
 
 /-- **The push algebra** (LEFT): the θ-image of the pushed opened
 body IS the actual β-contractum. -/
-theorem thetaSubst₁_push {T : Nat} {Γ : List ThetaEntry} {d : Nat}
-    {n : Name} {ty b TY B x : Expr} {m : Setlec.BinderMeta}
+theorem thetaSubst₁_push {Γ : List ThetaEntry} {d : Nat}
+    {b B x : Expr}
     {t : ThetaEntry}
-    (_hΓ : TelescopeOk μ env T d Γ)
-    (_hshape : thetaSubst₁ d Γ (.lam n ty b m) = .lam n TY B m)
     (hbeta : ∀ y, y.looseBVarsBounded 0 = true →
       B.instantiate1 (thetaSubst₁ d Γ y)
         = thetaSubst₁ d Γ (b.instantiate1 y))
