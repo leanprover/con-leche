@@ -10901,3 +10901,58 @@ whnf to λ-towers, so the lam/lam row goes live for the first time).
 Θ's map requires the certLoop internals, the (C) claims, and the
 `SortSubstStable` surface read in full before the statement work —
 a dedicated arc, not an inline continuation.
+
+### loopLock pre-build treatment: the map (statement to follow the majorToCtor read)
+
+The ruling's audits, folded in and extended; three
+structure-determining findings:
+
+**1. The nat tier is WHOLESALE Θ-family, not just mixed fire.**
+Even dual `reduceNat` fires diverge syntactically: the fired
+outputs' values agree only through the enclosing cert (a blob
+grinding to a literal inside `reduceNat`'s own arg-whnfs, which run
+at the SAME knot fuel — no measure descent into them exists).
+Value divergence between zipped sides enters ONLY through cert
+nodes (refl-rooted pairs are fuel-det-synchronized; slack nodes
+carry no Nat content), so every nat-tier divergence traces to a
+buried cert.  loopLock therefore does not resolve the nat tier: its
+conclusion carries a **natSplit disjunct** — the zipped pre-fire
+pair, both `reduceNat` outcomes, both continuation runs, no
+relation claimed — and the consumers route it: proj-scrutinees dead
+(Nat has no native projections), iota-majors through the Θ-funnel
+their cert already owns.
+
+**2. coreLock's recHead/projHead seams must be UNPACKED inside
+loopLock, not carried out.**  At scrutinee/major level no sort
+premise exists, so the fire-agnostic deferral that served the
+sort-premised tops is not available: rec-spine pairs must actually
+sync (recurse on the zipped majors — `iotaRec`'s internal major
+whnf runs at knot fuel MINUS ONE, `iotaRec_inv` pins it, so the
+knot-sum measure covers the recursion), fire by ctor-name
+determinism on zipped ctor outputs, and diverge only into
+Θ-funnels or dead data.  Same for proj (scrutinee-of-scrutinee at
+knot−1 via `whnf_proj_inv`).
+
+**3. The skeleton pattern applies a third time.**  loopLock =
+`LoopBelow` (knot-sum, loop-budget-sum lex bar) + routed step Props
+`LoopIotaStep` / `LoopProjStep` (each taking `LoopBelow`,
+discharged at iota's / proj's own seals), with the δ tier internal
+(same-name heads: `unfoldDefinition_spine_both`, name-determinism
+makes mixed δ contradictory pending one guard-determinism audit;
+cert-layer heads: certHead seams), the nat tier as natSplit, and
+the carrier **`LoopReaches`** (refl / full-core-step / δ-step /
+nat-step / embedded `Contracts`) whose transports compose the NINE
+landed step preservers — no new species.
+
+**Prerequisite before the statement freezes** (unread-surfaces rule,
+full strength): `majorToCtor`'s K- and eta-rescue rows and the
+`litMajorToCtor` surface, read in full — `LoopIotaStep`'s statement
+quantifies over exactly that machinery ("Field-ful eta rescue"
+consumes `whnf (infer major)` — the deferred infer-lockstep
+question lives THERE and must be scoped into the Prop's premises,
+not discovered inside its discharge).
+
+Sequence within the arc: majorToCtor/K/eta read → `LoopReaches` +
+transports + `LoopBelow` + the two routed Props + `loopLock`'s
+statement (one seal) → the induction (next seal) → proj/iota
+discharges ride it.
