@@ -2,6 +2,7 @@ import Setlec.SetR.Interp2.Step2.Loop
 import Setlec.SetR.Interp2.Step2.Levels
 import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Interp2.Claims2C
+import Setlec.SetR.Interp2.Claims2D
 import Setlec.SetR.Bridge.WhnfCore
 
 /-!
@@ -2630,5 +2631,524 @@ theorem BetaCert2P.toC {m : EnvS2 V env} {fuel : Nat}
     hoktya ρ hρ =>
     h hta hde hwa hba hLa hCa hwty hbty hLty hCty hC2 haa htya ρ hρ
       (hoktya ρ hρ)
+
+
+/-! # Generation five — the head-normalisation quarter, one currency
+
+`Claims2D` replaces `CtxOkR`-on-erasures by `CtxOk2D` in all four
+claims.  For this quarter the change is almost entirely **plumbing**:
+of the context uses below, none is a *read* — the `whnfCore` cases
+that look at a leaf are `whnfCore_leaf_claim2`, which takes no context
+at all and is reused verbatim from the `…R` lane.  What the move costs
+is that the context is now indexed by the annotation fuel, so every
+place the fuel steps up (`whnfCore_package2D`, the δ branch, the ι
+branch) has to step the context up with `CtxOk2D.fuelMono` — which is
+the one lemma seal 6 predicted R1/R3 would make unavoidable.
+
+**What it buys, here, is `BetaCert2`.**  The β site's argument
+certificate was the residue seal 14 could not discharge: the
+composition `inferTypeCore` ⨟ `isDefEqCore` needed
+`CtxOk2 m μ φ F d Δa a` for the inference claim and `CtxOkR` for the
+defeq claim *at the same site*, and `not_ctxOk2R` says no bridge
+exists.  Under one currency both claims read the same hypothesis, and
+`betaCert2D_of_claims` below discharges it outright.  The quarter
+therefore routes **three** residues where the `…C` lane routed four.
+-/
+
+/-- `IotaStep2C` in the single currency. -/
+def IotaStep2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e e'' : Expr} {Δa : List AVExpr},
+    iotaRecP μ env fuel d e = .ok (some e'') →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    ∀ {F : Nat} {ea : AVExpr},
+      CtxOk2D m μ φ F d Δa e →
+      denote2 μ m.acval env φ F d e = some ea →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) →
+      ∃ F' ea', F ≤ F' ∧
+        denote2 μ m.acval env φ F' d e'' = some ea' ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ →
+          interp2 V ρ ea = interp2 V ρ ea') ∧
+        Expr.WScoped d e'' ∧ e''.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded e'' ∧ CtxOk2D m μ φ F' d Δa e''
+
+/-- `ProjStep2C` in the single currency. -/
+def ProjStep2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {sn : Name} {i : Nat} {pe e' : Expr}
+    {Δa : List AVExpr},
+    whnfCore μ env (fuel + 1) d (.proj sn i pe) = .ok e' →
+    Expr.WScoped d (.proj sn i pe) →
+    (Expr.proj sn i pe).looseBVarsBounded 0 = true →
+    Expr.LeavesBounded (.proj sn i pe) →
+    ∀ {F : Nat} {ea : AVExpr},
+      CtxOk2D m μ φ F d Δa (.proj sn i pe) →
+      denote2 μ m.acval env φ F d (.proj sn i pe) = some ea →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) →
+      ∃ F' ea', F ≤ F' ∧
+        denote2 μ m.acval env φ F' d e' = some ea' ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+        ∀ ρ : Nat → V, Sat2 V Δa ρ →
+          interp2 V ρ ea = interp2 V ρ ea'
+
+/-- `ReduceNatStep2C` in the single currency.  The fuel still does not
+move, so the context comes back at the fuel it went in at. -/
+def ReduceNatStep2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e e₂ : Expr} {Δa : List AVExpr},
+    reduceNatP μ env fuel d e = .ok (some e₂) →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    ∀ {F : Nat} {ea : AVExpr},
+      CtxOk2D m μ φ F d Δa e →
+      denote2 μ m.acval env φ F d e = some ea →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) →
+      ∃ ea', denote2 μ m.acval env φ F d e₂ = some ea' ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ →
+          interp2 V ρ ea = interp2 V ρ ea') ∧
+        Expr.WScoped d e₂ ∧ e₂.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded e₂ ∧ CtxOk2D m μ φ F d Δa e₂
+
+/-- `BetaCert2` in the single currency — stated so that the discharge
+below has something to be a discharge *of*, and so that the shape is
+on the record beside its `…C` predecessor. -/
+def BetaCert2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {F : Nat}
+    {aa tya : AVExpr},
+    inferTypeCore μ env fuel d a = .ok ta →
+    Setlec.isDefEqCore μ env fuel d ta ty = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded ty →
+    CtxOk2D m μ φ F d Δa a →
+    CtxOk2D m μ φ F d Δa ty →
+    denote2 μ m.acval env φ F d a = some aa →
+    denote2 μ m.acval env φ F d ty = some tya →
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ tya) →
+    ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ aa ∈ˢ interp2 V ρ tya
+
+/-- **The β certificate, discharged.**  `betaCert2PC_of_claims` had to
+stop here: it composed the two hoisted claims but could not deliver
+the *context*, because the inference claim read `CtxOk2` and the defeq
+claim read `CtxOkR` and `not_ctxOk2R` forbids the bridge.  Under
+`Claims2D` there is one hypothesis and both claims read it, so the
+composition closes.
+
+The two context obligations the composition creates are kit moves and
+nothing else: the inferred type `ta`'s context is the subject's
+restricted along `inferTypeCore_fvarLeaves`, and the ascribed type
+`ty`'s is its own, raised to the inferred type's fuel. -/
+theorem betaCert2D_of_claims (m : EnvS2 V env) {fuel : Nat}
+    (ihd : DefEqClaims2D μ m φ fuel)
+    (ihi : InferClaims2D μ m φ fuel) :
+    BetaCert2D μ m φ fuel := by
+  intro d Δa a ty ta F aa tya hta hde hwa hba hLa hwty hbty hLty
+    hCa hCty haa htya hoktya ρ hρ
+  obtain ⟨F', ta', hle, hta', -, hokta, hcon⟩ :=
+    ihi hta hwa hba hLa hCa haa
+  have hwta : Expr.WScoped d ta :=
+    Setlec.inferTypeCore_WScoped m.base.wf fuel hta hwa
+  have hbta : ta.looseBVarsBounded 0 = true :=
+    Setlec.inferTypeCore_looseBVars m.base.wf fuel hta hwa hba hLa
+  have hsub := Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hta hwa
+  have hLta : Expr.LeavesBounded ta := fun l hl => hLa l (hsub l hl)
+  have hCta : CtxOk2D m μ φ F' d Δa ta :=
+    (CtxOk2D.fuelMono hle hCa).of_subset hsub
+  have heq := ihd hde hwta hbta hLta hwty hbty hLty hCta
+    (CtxOk2D.fuelMono hle hCty) hta'
+    (denote2_fuelMono hle d ty htya) hokta hoktya ρ hρ
+  exact heq ▸ hcon ρ hρ
+
+/-! ## The nine cases, in one currency -/
+
+/-- `whnfCore_package2C`'s transpose.  The one new step is the last
+conjunct: the reduct's context is the subject's, **raised to the
+reduct's own fuel** and then restricted along
+`whnfCore_fvarLeaves`. -/
+theorem whnfCore_package2D (m : EnvS2 V env) {fuel d F : Nat}
+    {Δa : List AVExpr} {a a' : Expr} {aa : AVExpr}
+    (ihwc : WhnfCoreClaims2D μ m φ fuel)
+    (hw : whnfCore μ env fuel d a = .ok a')
+    (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded a) (hC : CtxOk2D m μ φ F d Δa a)
+    (haa : denote2 μ m.acval env φ F d a = some aa)
+    (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ aa) :
+    ∃ F' aa', F ≤ F' ∧
+      denote2 μ m.acval env φ F' d a' = some aa' ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ aa') ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ aa = interp2 V ρ aa') ∧
+      Expr.WScoped d a' ∧ a'.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded a' ∧ CtxOk2D m μ φ F' d Δa a' := by
+  obtain ⟨F', aa', hle, haa', hok', heq⟩ :=
+    ihwc hw hws hb hLb hC haa hok
+  exact ⟨F', aa', hle, haa', hok', heq,
+    whnfCore_WScoped m.base.wf fuel hw hws,
+    whnfCore_looseBVars m.base.wf fuel hw hb,
+    fun l hl => hLb l (whnfCore_fvarLeaves m.base.wf fuel hw l hl),
+    (CtxOk2D.fuelMono hle hC).of_subset
+      (whnfCore_fvarLeaves m.base.wf fuel hw)⟩
+
+/-- **The ζ clause, in one currency.**  The reduct `bb.instantiate1 vv`
+has no leaf the subject did not have, so the context is `of_subset`
+after one `fuelMono` — the same two-step the `…C` lane spelled out by
+hand against `CtxOkR`. -/
+theorem whnfCore_letE_claim2D (m : EnvS2 V env) {fuel : Nat}
+    (hinst : Denote2Inst1B μ m.acval env φ)
+    (ihwc : WhnfCoreClaims2D μ m φ fuel)
+    {d : Nat} {nn : Name} {tt vv bb e' : Expr} {Δa : List AVExpr}
+    (h : whnfCore μ env (fuel + 1) d (.letE nn tt vv bb) = .ok e')
+    (hws : Expr.WScoped d (.letE nn tt vv bb))
+    (hb : (Expr.letE nn tt vv bb).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.letE nn tt vv bb))
+    {F : Nat} {ea : AVExpr}
+    (hC : CtxOk2D m μ φ F d Δa (.letE nn tt vv bb))
+    (hea : denote2 μ m.acval env φ F d (.letE nn tt vv bb)
+      = some ea)
+    (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) :
+    ∃ F' ea', F ≤ F' ∧
+      denote2 μ m.acval env φ F' d e' = some ea' ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea = interp2 V ρ ea' := by
+  rw [Setlec.whnfCore_succ] at h
+  simp only [Setlec.whnfCoreBody, Setlec.whnfCore_def] at h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  rw [denote2] at hea
+  rcases hta : denote2 μ m.acval env φ F d tt with _ | ta
+  · rw [hta] at hea; exact nomatch hea
+  rw [hta] at hea
+  rcases hva : denote2 μ m.acval env φ F d vv with _ | va
+  · rw [hva] at hea; exact nomatch hea
+  rw [hva] at hea
+  rcases hba : denote2 μ m.acval env φ F (d + 1)
+      (bb.instantiate1 (.fvar d nn tt)) with _ | ba
+  · rw [hba] at hea; exact nomatch hea
+  rw [hba] at hea
+  obtain rfl : ea = .letE ta va ba := (Option.some.inj hea).symm
+  have hsubred : ∀ l ∈ (bb.instantiate1 vv).fvarLeaves,
+      l ∈ (Expr.letE nn tt vv bb).fvarLeaves := by
+    intro l hl
+    rcases Expr.fvarLeaves_instantiate1 bb 0 hl with h2 | h2
+    · simp [Expr.fvarLeaves, h2]
+    · simp [Expr.fvarLeaves, h2]
+  have hwred : Expr.WScoped d (bb.instantiate1 vv) :=
+    Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2
+  have hbred : (bb.instantiate1 vv).looseBVarsBounded 0 = true :=
+    Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2
+  have hLred : Expr.LeavesBounded (bb.instantiate1 vv) :=
+    fun l hl => hLb l (hsubred l hl)
+  obtain ⟨F₁, hle₁, hred⟩ := hinst hta hva hba
+  obtain ⟨F₂, ea', hle₂, hea', hok', heq'⟩ :=
+    ihwc h hwred hbred hLred
+      ((CtxOk2D.fuelMono hle₁ hC).of_subset hsubred) hred
+      (fun ρ hρ => (AnnotOk2_zeta V (hok ρ hρ)).2)
+  exact ⟨F₂, ea', Nat.le_trans hle₁ hle₂, hea', hok',
+    fun ρ hρ => ((AnnotOk2_zeta V (hok ρ hρ)).1).trans (heq' ρ hρ)⟩
+
+/-- **The `.app` clause, in one currency.**  Every context move is a
+kit call: `app_fn`/`app_arg` down, `app` back up at the head's new
+fuel, `of_subset` into the β reduct.  The certificate `hcert` now
+reads the *same* context hypothesis the clause holds — that is the
+whole of what generation five changes here. -/
+theorem whnfCore_app_claim2D (m : EnvS2 V env) {fuel : Nat}
+    (hinst : Denote2Inst1B μ m.acval env φ)
+    (hcert : BetaCert2D μ m φ fuel) (hiota : IotaStep2D μ m φ fuel)
+    (ihwc : WhnfCoreClaims2D μ m φ fuel)
+    {d : Nat} {f a e' : Expr} {Δa : List AVExpr}
+    (h : whnfCore μ env (fuel + 1) d (.app f a) = .ok e')
+    (hws : Expr.WScoped d (.app f a))
+    (hb : (Expr.app f a).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.app f a))
+    {F : Nat} {ea : AVExpr}
+    (hC : CtxOk2D m μ φ F d Δa (.app f a))
+    (hea : denote2 μ m.acval env φ F d (.app f a) = some ea)
+    (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) :
+    ∃ F' ea', F ≤ F' ∧
+      denote2 μ m.acval env φ F' d e' = some ea' ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea = interp2 V ρ ea' := by
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLf : Expr.LeavesBounded f := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLa : Expr.LeavesBounded a := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hCf : CtxOk2D m μ φ F d Δa f := hC.app_fn
+  have hCa : CtxOk2D m μ φ F d Δa a := hC.app_arg
+  rw [denote2] at hea
+  rcases hfa : denote2 μ m.acval env φ F d f with _ | fa
+  · rw [hfa] at hea; exact nomatch hea
+  rw [hfa] at hea
+  rcases haa : denote2 μ m.acval env φ F d a with _ | aa
+  · rw [haa] at hea; exact nomatch hea
+  rw [haa] at hea
+  obtain rfl : ea = .app fa aa := (Option.some.inj hea).symm
+  have hokf : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ fa := by
+    intro ρ hρ
+    have hx := hok ρ hρ
+    rw [AnnotOk2_app] at hx
+    exact hx.1
+  obtain ⟨f', hwf, hcase⟩ := Setlec.whnf_app_inv h
+  obtain ⟨F₁, fa', hle₁, hfa', hokf', heqf, hwf', hbf', hLf',
+    hCf'⟩ :=
+    whnfCore_package2D m ihwc hwf hws.1 hb.1 hLf hCf hfa hokf
+  have haa₁ : denote2 μ m.acval env φ F₁ d a = some aa :=
+    denote2_fuelMono hle₁ d a haa
+  have hCa₁ : CtxOk2D m μ φ F₁ d Δa a := CtxOk2D.fuelMono hle₁ hCa
+  have hiapp : denote2 μ m.acval env φ F₁ d (.app f' a)
+      = some (.app fa' aa) := by rw [denote2, hfa', haa₁]; rfl
+  have hokapp : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      AnnotOk2 V ρ (.app fa' aa) := by
+    intro ρ hρ
+    have hx := hok ρ hρ
+    rw [AnnotOk2_app] at hx
+    obtain ⟨-, hoka, v', A, B, h1, h2, h3⟩ := hx
+    rw [AnnotOk2_app]
+    exact ⟨hokf' ρ hρ, hoka, v', A, B, (heqf ρ hρ) ▸ h1, h2, h3⟩
+  have heqapp : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ (.app fa aa) = interp2 V ρ (.app fa' aa) := by
+    intro ρ hρ
+    rw [interp2_app, interp2_app, heqf ρ hρ]
+  have hwapp : Expr.WScoped d (.app f' a) := by
+    simp only [Expr.WScoped]; exact ⟨hwf', hws.2⟩
+  have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨hbf', hb.2⟩
+  have hLapp : Expr.LeavesBounded (.app f' a) := fun l hl => by
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact hLf' l hl
+    · exact hLa l hl
+  have hCapp : CtxOk2D m μ φ F₁ d Δa (.app f' a) :=
+    CtxOk2D.app hCf' hCa₁
+  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, ta, hta, hde⟩ |
+    ⟨e'', hio, hwe''⟩ | rfl
+  · -- β
+    rw [denote2] at hfa'
+    rcases htya : denote2 μ m.acval env φ F₁ d ty with _ | tya
+    · rw [htya] at hfa'; exact nomatch hfa'
+    rw [htya] at hfa'
+    rcases hbb : denote2 μ m.acval env φ F₁ (d + 1)
+        (body.instantiate1 (.fvar d n ty)) with _ | ba
+    · rw [hbb] at hfa'; exact nomatch hfa'
+    rw [hbb] at hfa'
+    rcases hkind : lamSortE μ env φ F₁ (d + 1)
+        (body.instantiate1 (.fvar d n ty)) with _ | v
+    · rw [hkind] at hfa'; exact nomatch hfa'
+    rw [hkind] at hfa'
+    obtain rfl : fa' = .lam v tya ba := (Option.some.inj hfa').symm
+    simp only [Expr.WScoped] at hwf'
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbf'
+    have hLty : Expr.LeavesBounded ty := fun l hl =>
+      hLf' l (by simp [Expr.fvarLeaves, hl])
+    have hCty : CtxOk2D m μ φ F₁ d Δa ty := hCf'.lam_ty
+    have hwred : Expr.WScoped d (body.instantiate1 a) :=
+      Expr.WScoped.instantiate1_gen hws.2 0 hwf'.2
+    have hbred : (body.instantiate1 a).looseBVarsBounded 0 = true :=
+      Expr.looseBVarsBounded_instantiate1_gen hb.2 hbf'.2
+    have hsubred : ∀ l ∈ (body.instantiate1 a).fvarLeaves,
+        l ∈ (Expr.app (.lam n ty body mm) a).fvarLeaves := by
+      intro l hl
+      rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+      · simp [Expr.fvarLeaves, h2]
+      · simp [Expr.fvarLeaves, h2]
+    have hLred : Expr.LeavesBounded (body.instantiate1 a) :=
+      fun l hl => hLapp l (hsubred l hl)
+    have hstep : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ (.app (.lam v tya ba) aa)
+            = interp2 V ρ (ba.inst aa) ∧
+          AnnotOk2 V ρ (ba.inst aa) := by
+      intro ρ hρ
+      by_cases hz : v = 0
+      · subst hz
+        exact AnnotOk2_beta_zero V (hokapp ρ hρ)
+          (hcert hta hde hws.2 hb.2 hLa hwf'.1 hbf'.1 hLty hCa₁
+            hCty haa₁ htya (AnnotOk2.hoist_lam hokf').1 ρ hρ)
+      · exact AnnotOk2_beta_pos V hz (hokapp ρ hρ)
+    obtain ⟨F₂, hle₂, hred⟩ := hinst htya haa₁ hbb
+    obtain ⟨F₃, ea', hle₃, hea', hok', heq'⟩ :=
+      ihwc hbeta hwred hbred hLred
+        ((CtxOk2D.fuelMono hle₂ hCapp).of_subset hsubred) hred
+        (fun ρ hρ => (hstep ρ hρ).2)
+    refine ⟨F₃, ea', Nat.le_trans hle₁ (Nat.le_trans hle₂ hle₃),
+      hea', hok', fun ρ hρ => ?_⟩
+    rw [heqapp ρ hρ, (hstep ρ hρ).1, heq' ρ hρ]
+  · -- ι
+    obtain ⟨F₂, ea₂, hle₂, hea₂, hok₂, heq₂, hwe, hbe, hLe, hCe⟩ :=
+      hiota hio hwapp hbapp hLapp hCapp hiapp hokapp
+    obtain ⟨F₃, ea', hle₃, hea', hok', heq'⟩ :=
+      ihwc hwe'' hwe hbe hLe hCe hea₂ hok₂
+    exact ⟨F₃, ea', Nat.le_trans hle₁ (Nat.le_trans hle₂ hle₃),
+      hea', hok',
+      interp2C_trans (interp2C_trans heqapp heq₂) heq'⟩
+  · -- stuck
+    exact ⟨F₁, _, hle₁, hiapp, hokapp, heqapp⟩
+
+/-- **`WhnfCoreClaims2D` at `fuel + 1`** — the nine cases. -/
+theorem whnfCore_claims2D (m : EnvS2 V env) {fuel : Nat}
+    (hinst : Denote2Inst1B μ m.acval env φ)
+    (hcert : BetaCert2D μ m φ fuel) (hiota : IotaStep2D μ m φ fuel)
+    (hproj : ProjStep2D μ m φ fuel)
+    (ihwc : WhnfCoreClaims2D μ m φ fuel) :
+    WhnfCoreClaims2D μ m φ (fuel + 1) := by
+  intro d e e' Δa h hws hb hLb F ea hC hea hok
+  match e with
+  | .sort u =>
+    obtain ⟨ea', hea', hD⟩ :=
+      whnfCore_leaf_claim2 (Δa := Δa) m (Or.inl ⟨u, rfl⟩) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .fvar idx n ty =>
+    obtain ⟨ea', hea', hD⟩ := whnfCore_leaf_claim2 (Δa := Δa) m
+      (Or.inr (Or.inl ⟨idx, n, ty, rfl⟩)) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .forallE n ty body bi =>
+    obtain ⟨ea', hea', hD⟩ := whnfCore_leaf_claim2 (Δa := Δa) m
+      (Or.inr (Or.inr (Or.inl ⟨n, ty, body, bi, rfl⟩))) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .lam n ty body mb =>
+    obtain ⟨ea', hea', hD⟩ := whnfCore_leaf_claim2 (Δa := Δa) m
+      (Or.inr (Or.inr (Or.inr (Or.inl ⟨n, ty, body, mb, rfl⟩)))) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .const n us =>
+    obtain ⟨ea', hea', hD⟩ := whnfCore_leaf_claim2 (Δa := Δa) m
+      (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl ⟨n, us, rfl⟩))))) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .lit l =>
+    obtain ⟨ea', hea', hD⟩ := whnfCore_leaf_claim2 (Δa := Δa) m
+      (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr ⟨l, rfl⟩))))) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .bvar i => rw [denote2_bvar] at hea; exact nomatch hea
+  | .letE nn tt vv bb =>
+    exact whnfCore_letE_claim2D m hinst ihwc h hws hb hLb hC hea hok
+  | .app f a =>
+    exact whnfCore_app_claim2D m hinst hcert hiota ihwc h hws hb
+      hLb hC hea hok
+  | .proj sn i pe => exact hproj h hws hb hLb hC hea hok
+
+/-- **`whnfCoreStep2D_of` — the head-normalisation quarter against
+generation five.**  Three routed residues, not four: `BetaCert2D` is
+built from the defeq and inference claims the quarter is already
+handed. -/
+theorem whnfCoreStep2D_of
+    (hinst : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+      Denote2Inst1B μ m.acval env φ)
+    (hiota : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), IotaStep2D μ m φ fuel)
+    (hproj : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), ProjStep2D μ m φ fuel) :
+    WhnfCoreStep2D μ V :=
+  fun env m φ fuel ihwc _ ihd ihi =>
+    whnfCore_claims2D m (hinst env m φ)
+      (betaCert2D_of_claims m ihd ihi) (hiota env m φ fuel)
+      (hproj env m φ fuel) ihwc
+
+/-- **The budget induction, in one currency.**  `Delta2B` enters
+unchanged — it moves the fuel and not the annotation — but the context
+must now be moved with it, which is the δ branch's one new line. -/
+theorem whnfLoop_claim2D (m : EnvS2 V env) {fuel : Nat}
+    (ihwc : WhnfCoreClaims2D μ m φ fuel)
+    (hnat : ReduceNatStep2D μ m φ fuel) (hdelta : Delta2B μ m φ) :
+    ∀ (budget : Nat) {d : Nat} {Δa : List AVExpr} {e e' : Expr},
+      whnfLoop (pureFns μ env fuel) env d budget e = .ok e' →
+      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded e →
+      ∀ {F : Nat} {ea : AVExpr},
+        CtxOk2D m μ φ F d Δa e →
+        denote2 μ m.acval env φ F d e = some ea →
+        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) →
+        ∃ F' ea', F ≤ F' ∧
+          denote2 μ m.acval env φ F' d e' = some ea' ∧
+          (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+          ∀ ρ : Nat → V, Sat2 V Δa ρ →
+            interp2 V ρ ea = interp2 V ρ ea' := by
+  intro budget
+  induction budget with
+  | zero =>
+    intro d Δa e e' h
+    rw [whnfLoop] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  | succ budget ih =>
+    intro d Δa e e' h hws hb hLb F ea hC hea hok
+    rw [whnfLoop, whnfStep] at h
+    simp only [Bind.bind, Except.bind, Setlec.whnfCore_def] at h
+    cases hwc : whnfCore μ env fuel d e with
+    | error err => rw [hwc] at h; exact nomatch h
+    | ok e₁ =>
+    rw [hwc] at h
+    dsimp only at h
+    obtain ⟨F₁, ea₁, hle₁, hea₁, hok₁, heq₁, hws₁, hb₁, hLb₁,
+      hC₁⟩ :=
+      whnfCore_package2D m ihwc hwc hws hb hLb hC hea hok
+    cases hrn : reduceNatP μ env fuel d e₁ with
+    | error err =>
+      rw [Setlec.reduceNat_fold] at h; rw [hrn] at h; exact nomatch h
+    | ok o =>
+    rw [Setlec.reduceNat_fold] at h
+    rw [hrn] at h
+    dsimp only at h
+    match o, h with
+    | some e₂, h =>
+      obtain ⟨ea₂, hea₂, hok₂, heq₂, hws₂, hb₂, hLb₂, hC₂⟩ :=
+        hnat hrn hws₁ hb₁ hLb₁ hC₁ hea₁ hok₁
+      obtain ⟨F₃, ea', hle₃, hea', hok', heq'⟩ :=
+        ih h hws₂ hb₂ hLb₂ hC₂ hea₂ hok₂
+      exact ⟨F₃, ea', Nat.le_trans hle₁ hle₃, hea', hok',
+        interp2C_trans (interp2C_trans heq₁ heq₂) heq'⟩
+    | none, h =>
+      dsimp only at h
+      cases hud : unfoldDefinition env e₁ with
+      | none =>
+        rw [hud] at h
+        exact ⟨F₁, ea₁, hle₁, (Except.ok.inj h) ▸ hea₁, hok₁, heq₁⟩
+      | some e₂ =>
+        rw [hud] at h
+        dsimp only at h
+        obtain ⟨F₂, hle₂, hea₂⟩ := hdelta hud hea₁
+        obtain ⟨F₃, ea', hle₃, hea', hok', heq'⟩ :=
+          ih h (unfoldDefinition_WScoped m.base.wf hud hws₁)
+            (unfoldDefinition_looseBVars m.base.wf hud hb₁)
+            (fun l hl => hLb₁ l
+              (unfoldDefinition_fvarLeaves m.base.wf hud l hl))
+            ((CtxOk2D.fuelMono hle₂ hC₁).of_subset
+              (unfoldDefinition_fvarLeaves m.base.wf hud))
+            hea₂ hok₁
+        exact ⟨F₃, ea', Nat.le_trans hle₁
+          (Nat.le_trans hle₂ hle₃), hea', hok',
+          interp2C_trans heq₁ heq'⟩
+
+/-- **`WhnfClaims2D` at `fuel + 1`.** -/
+theorem whnf_claims2D (m : EnvS2 V env) {fuel : Nat}
+    (ihwc : WhnfCoreClaims2D μ m φ fuel)
+    (hnat : ReduceNatStep2D μ m φ fuel) (hdelta : Delta2B μ m φ) :
+    WhnfClaims2D μ m φ (fuel + 1) := by
+  intro d e e' Δa h hws hb hLb F ea hC hea hok
+  rw [Setlec.whnf_succ, whnfBody] at h
+  exact whnfLoop_claim2D m ihwc hnat hdelta whnfLoopFuel h hws hb
+    hLb hC hea hok
+
+/-- **`whnfStep2D_of` — the reduction loop against generation five.** -/
+theorem whnfStep2D_of
+    (hnat : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), ReduceNatStep2D μ m φ fuel)
+    (hdelta : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+      Delta2B μ m φ) :
+    WhnfStep2D μ V :=
+  fun env m φ fuel ihwc _ _ _ =>
+    whnf_claims2D m ihwc (hnat env m φ fuel) (hdelta env m φ)
 
 end Setlec.SetR.Interp2
