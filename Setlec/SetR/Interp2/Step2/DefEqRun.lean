@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.Step2.Routed
+import Setlec.SetR.Interp2.Step2.Whnf
 import Setlec.SetR.Interp2.Step2.DefEq
 import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Interp2.Claims2C
@@ -2772,42 +2773,24 @@ def EtaCert2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 
 /-! ### The `whnfCore` package, hoisted -/
 
-/-- The frame conditions of a `whnfCore` reduct, its annotation at the
-reduct's own fuel, the reduct's **hoisted** `AnnotOk2`, and the
-per-valuation interpretation equality.  This is where the reduction
-claims' change pays this quarter: what comes back is usable at every
-`ρ`, so the stuck block and the continuation no longer have to be
-handed a fact fixed at the caller's valuation. -/
-theorem whnfCore_package2C {m : EnvS2 V env} {fuel F d : Nat}
-    {Δa : List AVExpr} {a a' : Expr} {aa : AVExpr}
-    (ihwc : WhnfCoreClaims2C μ m φ fuel)
-    (hw : whnfCore μ env fuel d a = .ok a')
-    (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded a)
-    (hC : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a)
-    (hda : denote2 μ m.acval env φ F d a = some aa)
-    (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ aa) :
-    ∃ F' aa', F ≤ F' ∧
-      denote2 μ m.acval env φ F' d a' = some aa' ∧
-      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ aa') ∧
-      (∀ ρ : Nat → V, Sat2 V Δa ρ →
-        interp2 V ρ aa = interp2 V ρ aa') ∧
-      Expr.WScoped d a' ∧ a'.looseBVarsBounded 0 = true ∧
-      Expr.LeavesBounded a' ∧
-      CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a' := by
-  obtain ⟨F', aa', hle, hda', hok', hE⟩ :=
-    ihwc hw hws hb hLb hC hda hok
-  exact ⟨F', aa', hle, hda', hok', hE,
-    whnfCore_WScoped m.base.wf fuel hw hws,
-    whnfCore_looseBVars m.base.wf fuel hw hb,
-    fun l hl => hLb l (whnfCore_fvarLeaves m.base.wf fuel hw l hl),
-    CtxOkR.of_subset (whnfCore_fvarLeaves m.base.wf fuel hw) hC⟩
+/-! ### `whnfCore_package2C` lives in `Step2/Whnf.lean`
 
-/-- **`DefEqStepAt2C`**, modulo the five obligations above.  The proof
-is the `…A` one with the two subjects' `AnnotOk2` introduced *before*
-`ρ`; every consumer downstream takes the hoisted form, and the delta
-branches still transport nothing, since the annotation does not move.
--/
+Written here and in the head-normalisation quarter simultaneously,
+with **byte-identical statements** — the fourth name collision of this
+campaign and the starkest: not merely the same name, the same lemma.
+The `…B` predecessor was written once, in `Whnf.lean`; both quarters
+needed the `…C` repackaging and neither could see the other.
+
+Deleted here, kept there, where it packages `whnfCore`'s own claim.
+The two call sites below take `m` explicitly, that copy having bound it
+so.
+
+*The recurring lesson, now with four instances: parallel quarters
+converge on the same helper, and the collision surfaces at the fold
+rather than at authoring.  The cost is one deletion each time and the
+benefit is two independent checks of the same statement — on this
+occasion, two independent proofs of it.* -/
+
 theorem defeqStep_claim2C {m : EnvS2 V env} {fuel : Nat}
     (ihwc : WhnfCoreClaims2C μ m φ fuel)
     (hdel : Denote2Delta2A μ m φ)
@@ -2840,9 +2823,9 @@ theorem defeqStep_claim2C {m : EnvS2 V env} {fuel : Nat}
     rw [hwcb] at h
     dsimp only at h
     obtain ⟨Fa, aa', hFa, hda0, hokA', hEa, hwa', hba', hLa', hCa'⟩ :=
-      whnfCore_package2C ihwc hwca hwa hba hLa hCa hda hokA
+      whnfCore_package2C m ihwc hwca hwa hba hLa hCa hda hokA
     obtain ⟨Fb, ba', hFb, hdb0, hokB', hEb, hwb', hbb', hLb', hCb'⟩ :=
-      whnfCore_package2C ihwc hwcb hwb hbb hLb hCb hdb hokB
+      whnfCore_package2C m ihwc hwcb hwb hbb hLb hCb hdb hokB
     have hEA := hEa ρ hρ
     have hEB := hEb ρ hρ
     -- the two reducts, joined at one fuel; the annotations do not move
