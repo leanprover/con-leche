@@ -17452,3 +17452,91 @@ which the measurement says they all do.
 one-way-door diagnosis: `declAxiomS` picks its leaf through
 `StdAxiomKeyS`, not canonically, so the value kinds' strengthening does
 not reach it.
+
+### Seal 54 — the M lane: mode index lands beside, not in place; one twin proved and spent
+
+Build **348 jobs** warning-free, `lake test` green, battery **90/92**
+with e2e 72/72 and the no-model sweep unchanged. **v1's fourteen
+byte-identical** and on exactly the three standard axioms.
+
+#### Item 1 — the measurement held; my census did not
+
+**Seal 53's measurement stands: no consumer *needs* the all-mode
+form.** But seal 53 counted **four** consumers. There are more, and
+they sit in files that batch could not edit — `Claims2U.lean` (three,
+each at a *free* `μ` from the file's `variable`, all terminal),
+`Step2/Whnf.lean`, the probe construction sites, and **decisively
+`Keys2.lean`, where `DeclStep2 env₂ := Nonempty (EnvS2U V env₂)` is the
+very conclusion the install lane produces**, with ~40 files binding
+`EnvS2U V env`.
+
+*The measurement was of the right thing and the census was of too
+small a set. "No consumer needs it" and "I have found all the
+consumers" are different claims, and seal 53 asserted the second while
+checking the first.*
+
+**And one ripple I predicted has a different cause.** `Denote2Bodies`
+is **already** mode-indexed; `envS2UInImage_iff`'s `∀ μ φ` comes from
+`EnvS2`'s all-mode fields, not from what I named. My rider was right
+that it ripples and wrong about why.
+
+**So the index landed beside rather than in place**, by seal 18's
+precedent — the same *new definition plus bridge* by which `EnvS2U`
+itself was born from `EnvS2`: `EnvS2UM V μ env`, with `EnvS2U.toM` the
+weakening bridge, whose docstring records that the converse is
+**unsupplied, not refuted** — no countermodel exhibited.
+
+**`declStep2AllM_of` is `declStep2All_of`'s proof verbatim**, so *"the
+index threads for free"* is **verified rather than asserted**. And
+`declStep2M_of_axiom` is now a **corollary** of the `cons` shape
+instead of a second sixty-line proof.
+
+**The mode-indexed fields are inhabited, and by what:**
+
+1. `defProbeEnvS2UM` and `lamDefEnvS2UM` — environments that **store a
+   definition**, so `acval_defn` is not discharged by an absent
+   premise; at `lamDef` the premise is met only through a `lamSortE`
+   run at fuel ≥ 2, the shape that refuted the original field.
+2. At a **value install**, `declStep2M_of_value` proves the new
+   constant's `acval_defn`/`acval_thm` **outright**, closing by
+   `denote2_agree_same`. **No mode premise appears anywhere in the M
+   lane** — the same-mode instance that kept `Denote2ModeAgree` from
+   being a vacuous `Prop` is now its *replacement*.
+
+`Denote2ModeAgree` is tombstoned as dissolved-by-de-generalization and
+**un-weakened**: the all-mode lane still consumes it and nothing here
+supplies it there.
+
+#### Item 2 — one twin proved and **spent**, one named and stopped
+
+**`denote_closed`'s twin is proved, and cheaply.** v1 pays 24 cases;
+the twin needs **none** — `denote2_erase` already carries the
+conclusion through `erase`, and the only new content is
+`AVExpr.liftN_eq_self`. **No fuel quantifier**: the fuel sits in the
+premise and the conclusion is a syntactic equation, so there is no run
+on the right-hand side to pay for.
+
+**And it is spent, not merely stated.** `valueLeaf_closed` discharges
+the leaf-closedness residue at a value install. **`ValueResidues2M`
+has four fields where `ValueResidues2` had six** — `modeAgree`
+withdrawn, `closed` proved.
+
+**`denote_params_ext`'s twin: not mechanical, and stopped at a named
+clause.** Closedness is a fact about the *erasure*; level-parameter
+extensionality is not — `denote2`'s `.forallE`/`.lam` clauses carry
+`sortOfE`/`lamSortE` numerals, **precisely the slots `erase`
+forgets**. The twin needs a metatheorem that the checker introduces no
+level parameter the subject lacks: expected true, absent from the
+tree, and **the same clause, in the same two constructors, at which
+`Denote2InstLevels` is a residue rather than a theorem.** It was *not*
+forced into a conditional over a fresh primitive.
+
+**Tombstones: none touched**, verified by diff.
+
+#### The remaining fence
+
+The M lane does not yet feed `CheckStep2E`/`DeclStep2`/the capstone,
+because those bind all-mode `EnvS2U`. Re-pointing is a **mechanical
+arity change** — every claim already carries `μ` — across
+`Claims2*`, `Capstone*` and `Keys2.lean`. *Bookkeeping, not argument*,
+and the next batch.
