@@ -9654,3 +9654,30 @@ the same way), internal motive strengthened with output-boundness.
 (E) joins `DeltaSortLinked` and `BoolCtorsInert` as install-tier
 obligations: discharged once, consumed wherever a prefix cert needs
 lifting.
+
+### Collapse tier opened: extraction + instantiation zip landed
+
+**`CertZip` amended before its first theorem — the pre-build check
+again**: the slack premises were `isEquiv`-form verdicts, but the
+instantiation theorem cannot produce them (`isEquiv` is a partial
+decision procedure with no completeness or subst-congruence); the
+honest premise is **eval-form** (`∀ φ', u.eval φ' = v.eval φ'`,
+pointwise map-form for `constSlack`), which `isEquiv_sound` supplies
+wherever a verdict exists and which the discharges consume directly
+(they only ever need eval facts).  Also added: the `fvar` congruence
+constructor — `instantiateLevelParams` crosses annotations.
+
+Landed and proved: `substFn_eval_congr` (pointwise eval-equal
+substitutions induce one assignment), `certZip_instantiate` (one
+template at two pointwise eval-equal instantiations lands in the
+zip — the δ-case's bridge from the spine's `isEquivList` verdict),
+`defEqList_extract` (per-argument `defeq` runs + the length
+equation from a spine certificate).
+
+Next: the flagged mechanical amendment — the (A)-motive gains the
+concrete cross-pairing thread ((B)'s proved pattern, the
+`PairedPreserve*F` species as hypotheses), `SpineSortAgree` /
+`DeltaSpineSortAgree` gain `PairedLeaves` premises — then
+`deltaSpineSortAgree_of` collapses the core onto
+`ZipWhnfSortAgree` (mkAppN zip fold + `certZip_instantiate` at the
+head + `.cert` leaves from `defEqList_extract`).

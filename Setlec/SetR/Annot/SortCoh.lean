@@ -5760,11 +5760,16 @@ inductive CertZip (μ : CheckMode) (env : Env) (fc d : Nat) :
   | cert (a b : Expr) :
       isDefEqCore μ env fc d a b = .ok true →
       CertZip μ env fc d a b
-  | sortSlack (u v : Level) : Level.isEquiv u v = some true →
+  | sortSlack (u v : Level) :
+      (∀ φ' : Name → Nat, u.eval φ' = v.eval φ') →
       CertZip μ env fc d (.sort u) (.sort v)
   | constSlack (n : Name) (us us' : List Level) :
-      Level.isEquivList us us' = some true →
+      (∀ φ' : Name → Nat,
+        us.map (Level.eval φ') = us'.map (Level.eval φ')) →
       CertZip μ env fc d (.const n us) (.const n us')
+  | fvar (i : Nat) (n : Name) (ty₁ ty₂ : Expr) :
+      CertZip μ env fc d ty₁ ty₂ →
+      CertZip μ env fc d (.fvar i n ty₁) (.fvar i n ty₂)
   | app (f₁ a₁ f₂ a₂ : Expr) :
       CertZip μ env fc d f₁ f₂ → CertZip μ env fc d a₁ a₂ →
       CertZip μ env fc d (.app f₁ a₁) (.app f₂ a₂)
@@ -5848,6 +5853,106 @@ def EnvExtendStable (μ : CheckMode) (env₀ env : Env) : Prop :=
   (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
     Setlec.annotateCore μ env₀ f d e = .ok x →
     Setlec.annotateCore μ env f d e = .ok x)
+
+/-- Pointwise eval-equal substitutions induce the same assignment
+(the level side of the instantiation zip). -/
+theorem substFn_eval_congr {φ : Name → Nat} :
+    ∀ {lps : List Name} {us us' : List Level},
+      us.map (Level.eval φ) = us'.map (Level.eval φ) →
+      Setlec.Level.substFn φ lps us = Setlec.Level.substFn φ lps us'
+  | [], _, _, _ => by funext n; rfl
+  | k :: ks, [], [], _ => rfl
+  | k :: ks, [], v' :: vs', h => nomatch h
+  | k :: ks, v :: vs, [], h => nomatch h
+  | k :: ks, v :: vs, v' :: vs', h => by
+    injection h with h1 h2
+    funext n
+    simp only [Setlec.Level.substFn]
+    rw [h1, substFn_eval_congr (lps := ks) h2]
+
+/-- **One template, two instantiations, zipped**: level-instantiating
+a single expression at pointwise eval-equal level lists lands in
+`CertZip` — the δ-case's bridge from the spine's `isEquivList`
+verdict (via `isEquivList` soundness) to the lockstep relation. -/
+theorem certZip_instantiate {μ : CheckMode} {env : Env} {fc d : Nat}
+    {lps : List Name} {us us' : List Level}
+    (hev : ∀ φ' : Name → Nat,
+      us.map (Level.eval φ') = us'.map (Level.eval φ')) :
+    ∀ v : Expr, CertZip μ env fc d
+      (v.instantiateLevelParams lps us)
+      (v.instantiateLevelParams lps us') := by
+  intro v
+  induction v with
+  | bvar i => exact .refl _
+  | fvar i n ty ih => exact .fvar _ _ _ _ ih
+  | sort u =>
+    exact .sortSlack _ _ fun φ' => by
+      rw [show (Setlec.Level.subst lps us u).eval φ'
+          = Setlec.Level.eval (Setlec.Level.substFn φ' lps us) u from
+        Setlec.Level.eval_subst φ' lps us u,
+        show (Setlec.Level.subst lps us' u).eval φ'
+          = Setlec.Level.eval (Setlec.Level.substFn φ' lps us') u from
+        Setlec.Level.eval_subst φ' lps us' u,
+        substFn_eval_congr (hev φ')]
+  | const n vs =>
+    exact .constSlack _ _ _ fun φ' => by
+      simp only [List.map_map]
+      congr 1
+      funext l
+      show (Setlec.Level.subst lps us l).eval φ'
+        = (Setlec.Level.subst lps us' l).eval φ'
+      rw [Setlec.Level.eval_subst φ' lps us l,
+        Setlec.Level.eval_subst φ' lps us' l,
+        substFn_eval_congr (hev φ')]
+  | app f a ihf iha => exact .app _ _ _ _ ihf iha
+  | lam n ty body m iht ihb => exact .lam _ _ _ _ _ _ iht ihb
+  | forallE n ty body m iht ihb => exact .forallE _ _ _ _ _ _ iht ihb
+  | letE n ty val body iht ihv ihb =>
+    exact .letE _ _ _ _ _ _ _ iht ihv ihb
+  | lit l => exact .refl _
+  | proj s i e ih => exact .proj _ _ _ _ ih
+
+/-- Per-argument extraction from a spine certificate: a `true`
+`defEqList` verdict yields the pairwise `defeq` runs (and the length
+equation). -/
+theorem defEqList_extract {r : Setlec.CoreFns Setlec.CheckM}
+    {env : Env} {d : Nat} :
+    ∀ {as bs : List Expr},
+      Setlec.defEqList r env d as bs = .ok true →
+      as.length = bs.length ∧
+      ∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+        r.defeq d as[i] bs[i] = .ok true := by
+  intro as
+  induction as with
+  | nil =>
+    intro bs h
+    cases bs with
+    | nil =>
+      exact ⟨rfl, fun i h₁ _ => absurd h₁ (Nat.not_lt_zero i)⟩
+    | cons b bs => exact nomatch h
+  | cons a as ih =>
+    intro bs h
+    cases bs with
+    | nil => exact nomatch h
+    | cons b bs =>
+      unfold Setlec.defEqList at h
+      simp only [Bind.bind, Except.bind] at h
+      cases hd : r.defeq d a b with
+      | error err => rw [hd] at h; exact nomatch h
+      | ok c =>
+        rw [hd] at h
+        simp only [] at h
+        cases c with
+        | false => exact nomatch h
+        | true =>
+          rw [if_pos rfl] at h
+          obtain ⟨hlen, hall⟩ := ih h
+          refine ⟨by simp [hlen], ?_⟩
+          intro i h₁ h₂
+          cases i with
+          | zero => simpa using hd
+          | succ i =>
+            simpa using hall i (by simpa using h₁) (by simpa using h₂)
 
 /-- **Summit claim, subject form**: zipped pairs whose members'
 whnf chains both reach literal sorts have eval-equal levels.  The
