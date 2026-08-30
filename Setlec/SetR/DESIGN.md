@@ -15857,3 +15857,57 @@ specification's actual words. "Existence at the declaration level" and
 "existence for anything the checker ran on" differ by exactly the two
 annotations the hardest clause needs, and only writing the clause out
 shows it.*
+
+### Seal 31 — generation six frozen: dual success, and the three checks
+
+`Interp2/Claims2E.lean`, compiling first try. **Every annotation a
+claim used to *produce* is now a premise.** The claims no longer
+promise that a reduct or an inferred type annotates; they say that
+*when both sides annotate, the annotations agree.*
+
+Existence moved to `Denote2Total` (seal 30), which is itself
+dual-success — conditioned on a given run, predicting nothing.
+
+**One thing was already right, and it is evidence.** `DefEqClaims2D`
+needed no change: it has taken both annotations as premises since
+generation four's hoist. Defeq is the one claim that never produced a
+reduct, and seal 14 recorded it as *"purely relieved"* by that hoist.
+**The claim that needs no change in generation six is the one that was
+already dual-success** — which is the same convergence as `acval_defn`'s
+uniqueness repair, arriving a third time from a third direction.
+
+**Fuel ordering dropped.** Generations three to five carried
+`F ≤ F'` because the reduct's annotation was *produced* and had to be
+produced somewhere reachable. With both given, the fuels are
+independent — `denote2_fuelMono` makes `denote2` functional wherever
+defined, so an annotation is the same object at every fuel that
+computes it. Dropping the ordering is **not** a weakening; it is
+removing noise the production discipline had required.
+
+#### The three checks, run on the frozen text
+
+1. **Smallest fuel — satisfied by construction.** No clause asserts a
+   `denote2` success as a *conclusion*; every `denote2` sits in a
+   premise. The rule that refuted three statements in this campaign
+   **has nothing to bite on**, and that is a structural consequence of
+   dual success rather than an accident. Per seal 11 this is still not
+   a clean bill of health — it is the absence of one specific hazard,
+   and seal 28's fuel refutation is the standing reminder that hazards
+   arrive from elsewhere.
+2. **Vacuity — probed, and this is the check the generation most
+   needs**, because dual success *adds* premises and a claim whose
+   premises cannot all hold says nothing.
+   `claims2E_premises_inhabited` exhibits an instance where every
+   premise of the reduction claims holds at once. Deliberately at
+   `.sort`, the one shape whose `whnfCore` and `denote2` both answer
+   with no run — so the probe tests the **premise set**, not the
+   checker's cooperation.
+3. **Tombstones — swept.** The generation adds a file and edits none;
+   `not_ctxOk2R`, `not_isEquivSubstMono` and the rest verify unchanged
+   on the standard axioms, tree green at 330 jobs.
+
+*Rule: a discipline that adds premises inverts which check matters.
+Under production discipline the danger was asserting too much and the
+smallest-fuel rule caught it; under dual success the danger is
+asserting nothing, and the vacuity probe is the one that earns its
+keep.*
