@@ -11309,3 +11309,59 @@ conversions, cert-swallowed majors/scrutinees), the semantic trio,
 the species suppliers (`LeavesSubCoreF` ✓ done; the projFire trio,
 the FrameQ suppliers, the preserver families), the install facts,
 and the (B) type-form map.
+
+### The two sort-premised top discharges: the frozen map
+
+**Audit fact underpinning both**: loopLock's TOP-LEVEL out never
+contains a projHead seam — coreLock's projHead seams are routed
+through `hPr` inside the walk, and `loopProjStep_of` returns only
+dead seams and proj splits; the pack-branch recursion inherits the
+property inductively.  So neither top discharge self-recurses on
+its own seam shape.
+
+**`ZipProjHeadCase`'s discharge** (riding loopLock + the split):
+call loopLock on the subject pair (the full preserver battery +
+both supplied step Props); convert per disjunct under the sort
+premises: pack at the sort outputs → `certZip_sorts_eval`;
+certHead seam → `hΘ` with `LoopReaches`-transported invariants
+(the projFire transport species enter here — their suppliers'
+seals precede this discharge) and the connecting runs, which land
+at the sorts directly; recHead seam → `hIota` (ZipIotaCase as a
+routed hypothesis — non-circular for this Prop); dead seams → the
+`loop_dead_exit` pattern (det + tri + the seam's own shape facts);
+natSplit → `NatStepNoSort` on the fired side (the split's fields
+are its exact premises, by design); projSplit → a routed Θ-family
+Prop (claim-shaped: split data + sort premises → eval-equality),
+discharged at Θ's arc.
+
+**`ZipIotaCase`'s discharge** (the major recursion — loopLock on
+the pair returns the recHead seam back, per the dissolution, so
+the work is local): decompose the first core steps; `iotaRec_inv`;
+**loopLock on the zipped majors at knot−1** (majors are
+pairwise-zipped args); dispatch its out:
+* major-pack at ctor heads → same name (refl/constSlack view; cert
+  heads are not syntactically ctor-headed → no fire → dead) →
+  same rule → zipped reducts (shared instantiated RHS +
+  pairwise trailing args, the `certZip_instantiate` +
+  `certZip_mkAppN_zips` construction) → coreLock on the
+  continuation runs at knot−1 → zip of the step outputs →
+  **`ZipBelow` at the loop decrease** with the continuation loop
+  runs (the loop budget drops by one per side across the step);
+* mixed or failed fire → deadness (stuck rec-spines never reach
+  sorts);
+* major-level seams and splits (cert-swallowed majors) → the
+  Θ-arc's routed Prop;
+* deeper recHead seams mid-continuation → `ZipBelow` covers them
+  (loop-decreased; sort-runs assembled from the seam's connecting
+  runs by the step assembles; the subject zips from the recHead
+  payload, the deltaSpine pattern);
+* the K/eta rescue rows (`majorToCtor` fabrications) → the
+  leg-local infer-lockstep lemmas, stated AT this discharge's seal
+  with their own pre-checks (the deferred-to-need ruling).
+
+**Θ's read-phase docket, final form (four items)**: the cert-spine
+binder-opening motive (`SortSubstStable`/certLoop/(C) surfaces read
+in full first); the projSplit conversion; the natSplit conversion
+at the loop-consumers; cert-swallowed majors/scrutinees.  Supplier
+seals that precede the top discharges: the projFire transport trio
+and the remaining preserver/descent FrameQ suppliers.
