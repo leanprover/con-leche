@@ -7476,6 +7476,177 @@ theorem zipWhnfSortAgree_of_two {φ : Name → Nat}
     (zipLetECase_of (φ := φ) (Q := Q) hSpine)
     (zipProjCase_of (φ := φ) (Q := Q) hSpine)
 
+/-! ### The flat-spine bases kit -/
+
+/-- Pure congruence fold: a zipped head under pointwise-zipped
+arguments stays zipped (no cert leaves manufactured). -/
+theorem certZip_mkAppN_zips {μ : CheckMode} {env : Env} {fc d : Nat} :
+    ∀ {as bs : List Expr} {F₁ F₂ : Expr},
+      CertZip μ env fc d F₁ F₂ →
+      as.length = bs.length →
+      (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
+        CertZip μ env fc d as[i] bs[i]) →
+      CertZip μ env fc d (Setlec.Expr.mkAppN F₁ as)
+        (Setlec.Expr.mkAppN F₂ bs) := by
+  intro as
+  induction as with
+  | nil =>
+    intro bs F₁ F₂ hz hlen hargs
+    cases bs with
+    | nil => exact hz
+    | cons b bs => exact nomatch hlen
+  | cons a as ih =>
+    intro bs F₁ F₂ hz hlen hargs
+    cases bs with
+    | nil => exact nomatch hlen
+    | cons b bs =>
+      simp only [Setlec.Expr.mkAppN]
+      exact ih
+        (.app _ _ _ _ hz
+          (hargs 0 (Nat.zero_lt_succ _) (Nat.zero_lt_succ _)))
+        (by simpa using hlen)
+        (fun i h₁ h₂ =>
+          hargs (i + 1)
+            (by simp only [List.length_cons]; omega)
+            (by simp only [List.length_cons]; omega))
+
+/-- A non-const-headed subject never iota-fires. -/
+theorem iotaRec_none_of_fn_not_const {μ : CheckMode} {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM} {d : Nat} {e : Expr}
+    (h : ∀ n us, e.getAppFn ≠ .const n us) :
+    Setlec.iotaRec μ r env d e = .ok none := by
+  unfold Setlec.iotaRec
+  split
+  · next n us heq => exact absurd heq (h n us)
+  · rfl
+
+/-- A non-const-headed subject never δ-unfolds. -/
+theorem unfoldDefinition_none_of_fn_not_const {env : Env} {e : Expr}
+    (h : ∀ n us, e.getAppFn ≠ .const n us) :
+    Setlec.unfoldDefinition env e = none := by
+  unfold Setlec.unfoldDefinition
+  split
+  · next n us heq => exact absurd heq (h n us)
+  · rfl
+
+/-- A non-const-headed subject never nat-steps. -/
+theorem reduceNat_none_of_fn_not_const {env : Env}
+    {r : Setlec.CoreFns Setlec.CheckM} {d : Nat} {e : Expr}
+    (h : ∀ n us, e.getAppFn ≠ .const n us) :
+    Setlec.reduceNat r env d e = .ok none := by
+  unfold Setlec.reduceNat
+  split
+  · next c a =>
+    exact absurd (show (Expr.app (.const c []) a).getAppFn
+        = .const c [] from rfl) (h c [])
+  · next c a b =>
+    exact absurd (show (Expr.app (.app (.const c []) a) b).getAppFn
+        = .const c [] from rfl) (h c [])
+  · rfl
+
+/-- **Spine inertness**: a stuck, non-λ, non-const-headed head keeps
+its whole spine stuck (fuel grows one per spine layer). -/
+theorem whnfCore_mkAppN_inert {μ : CheckMode} {env : Env} {d : Nat} :
+    ∀ (as : List Expr) {F : Expr} {hd : Nat},
+      (∀ g, hd ≤ g → whnfCore μ env g d F = .ok F) →
+      (∀ n ty body m, F ≠ .lam n ty body m) →
+      (∀ n us, F.getAppFn ≠ .const n us) →
+      ∀ {g : Nat}, hd + as.length ≤ g →
+        whnfCore μ env g d (Setlec.Expr.mkAppN F as)
+          = .ok (Setlec.Expr.mkAppN F as) := by
+  intro as
+  induction as with
+  | nil =>
+    intro F hd hF _ _ g hg
+    exact hF g (by simpa using hg)
+  | cons a as ih =>
+    intro F hd hF hnl hnc g hg
+    show whnfCore μ env g d (Setlec.Expr.mkAppN (.app F a) as) = _
+    refine ih (F := .app F a) (hd := hd + 1) ?_ ?_ ?_ ?_
+    · intro g' hg'
+      cases g' with
+      | zero => exact absurd hg' (by omega)
+      | succ g'' =>
+        rw [show whnfCore μ env (g'' + 1) d (.app F a)
+            = Setlec.whnfCoreBody μ (Setlec.pureFns μ env g'') env d
+              (.app F a) from Setlec.whnfCore_succ ..]
+        have hiota : Setlec.iotaRec μ (Setlec.pureFns μ env g'') env d
+            (.app F a) = .ok none :=
+          iotaRec_none_of_fn_not_const
+            (by intro n us hh
+                exact hnc n us
+                  ((show (Expr.app F a).getAppFn = F.getAppFn
+                    from rfl) ▸ hh))
+        have hFrun : (Setlec.pureFns μ env g'').whnfCore d F
+            = .ok F := hF g'' (by omega)
+        cases F with
+        | lam n ty body m => exact absurd rfl (hnl n ty body m)
+        | const n us =>
+          exact absurd (show (Expr.const n us).getAppFn
+            = .const n us from rfl) (hnc n us)
+        | bvar i =>
+          unfold Setlec.whnfCoreBody
+          simp only [Bind.bind, Except.bind]
+          rw [hFrun]
+          simp only []
+          rw [hiota]
+          rfl
+        | fvar i n ty =>
+          unfold Setlec.whnfCoreBody
+          simp only [Bind.bind, Except.bind]
+          rw [hFrun]
+          simp only []
+          rw [hiota]
+          rfl
+        | sort u =>
+          unfold Setlec.whnfCoreBody
+          simp only [Bind.bind, Except.bind]
+          rw [hFrun]
+          simp only []
+          rw [hiota]
+          rfl
+        | forallE n ty body m =>
+          unfold Setlec.whnfCoreBody
+          simp only [Bind.bind, Except.bind]
+          rw [hFrun]
+          simp only []
+          rw [hiota]
+          rfl
+        | letE n ty v b =>
+          unfold Setlec.whnfCoreBody
+          simp only [Bind.bind, Except.bind]
+          rw [hFrun]
+          simp only []
+          rw [hiota]
+          rfl
+        | lit l =>
+          unfold Setlec.whnfCoreBody
+          simp only [Bind.bind, Except.bind]
+          rw [hFrun]
+          simp only []
+          rw [hiota]
+          rfl
+        | proj sn i e =>
+          unfold Setlec.whnfCoreBody
+          simp only [Bind.bind, Except.bind]
+          rw [hFrun]
+          simp only []
+          rw [hiota]
+          rfl
+        | app p q =>
+          unfold Setlec.whnfCoreBody
+          simp only [Bind.bind, Except.bind]
+          rw [hFrun]
+          simp only []
+          rw [hiota]
+          rfl
+    · intro n ty body m hh; exact nomatch hh
+    · intro n us hh
+      exact hnc n us
+        ((show (Expr.app F a).getAppFn = F.getAppFn from rfl) ▸ hh)
+    · simp only [List.length_cons] at hg ⊢
+      omega
+
 /-- **The both-δ core COLLAPSED onto the summit**: the spine facts
 zip the pair (head by `constSlack` through `isEquivList` soundness,
 args as `.cert` leaves through `defEqList_extract`), and

@@ -10295,3 +10295,32 @@ treatment lives here), `ZipCertSpineCase` (the Θ motive), the
 semantic trio (frame route, zero unbuilt suppliers), `StoredWF` +
 `BoolCtorsInert` (install tier), the preserver/transport suppliers,
 and the (B) type-form map.
+
+### Flat-spine bases kit LANDED
+
+The shape-stuck legs' entire supply, proved:
+
+* `certZip_mkAppN_zips` — the pure congruence fold (zipped head
+  under pointwise-zipped args; no cert leaves manufactured) — the
+  δ-continuation zip for same-template spine unfolds.
+* `iotaRec_none_of_fn_not_const` / `unfoldDefinition_none_of_fn_not_const`
+  / `reduceNat_none_of_fn_not_const` — the three step functions all
+  gate on a const head; non-const-headed subjects are inert at every
+  step kind (each a split + shape refutation).
+* `whnfCore_mkAppN_inert` — **spine inertness**: a stuck, non-λ,
+  non-const-headed head keeps its whole spine whnfCore-stuck, with
+  the honest fuel bookkeeping (one knot level per spine layer —
+  the parametric bound `hd + as.length ≤ g` threads through the
+  generalized-head induction).  Proof note: a variable-scrutinee
+  match with a catch-all arm is definitionally stuck even under a
+  not-lam hypothesis — the ten-way shape `cases` is the honest form
+  (lam dies on the hypothesis, const on the head condition, the
+  eight inert shapes reduce uniformly).
+
+With this kit, the flat-spine discharge's sortSlack/fvar/forallE/
+lam(stuck)/lit-headed legs are one `loop_stuck_out` each; the
+remaining legs are: refl-const/constSlack δ (the both-unfold spine
+extension + `certZip_mkAppN_zips` + `ZipBelow` at loop-decrease),
+the β-chain (reassociation + spine-length induction), iota
+(the standing full treatment), letE-under-spine zeta, proj, and the
+nat-op fired-side vacuities.
