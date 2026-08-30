@@ -13964,3 +13964,98 @@ three are in flight):
   files should say `CheckStep2B`.  Cosmetic, but the file headers are
   how the next reader decides which generation is live, and two dead
   generations are already one too many.
+
+### STOP 3 — `DefEqClaims2A`'s exemption from R2, and my reasoning error
+
+Found by the defeq quarter. **`DefEqClaims2A` left ungraded is not
+provable.** The exemption I wrote at seal 7 — *"it produces no reduct,
+so it needs no slack and no grading"* — is right about **production**
+and wrong about **consumption**: `defeqStep`'s first move is to
+`whnfCore` both sides, which consumes the now-graded reduction claims,
+and at those two sites the quarter holds no `AnnotOk2` for either
+subject and cannot manufacture one (`denote2` performs no membership
+check at an `app` node; `WScoped`/`looseBVarsBounded`/`LeavesBounded`/
+`CtxOkR` are all syntactic).
+
+I had given the reduction claims' exemption from R3 a second look one
+seal earlier and explicitly *declined* to give defeq's the same, on
+the grounds that its asymmetry "was what the quarter actually proved".
+That was evidence about the sealed statement, not about the corrected
+one — and the correction is exactly what invalidated it.
+
+`DefEqClaims2B` (in `Claims2B.lean`, the quarter's `DefEqClaims2AP`
+verbatim) is now canonical, and `CheckStep2B` and all four routed
+quarters are stated with it: the induction cannot close with an
+ungraded hypothesis and a graded conclusion, so the family had to
+become uniform rather than the defeq slot staying special. The two
+`AnnotOk2` are **premises, never conclusions**, so none crosses an
+equality and `deqStep2_symm`/`deqStep2_trans` stay one-liners — which
+is what the original exemption was protecting, and it turns out not to
+have needed the exemption to get it.
+
+*Rule: an asymmetry justified by "this is what was proved" expires the
+moment the thing it was proved against is corrected.*
+
+**Confirmed by the fold:** the whnf quarter's two deliverables still
+compile with the *weaker* graded IH, so they never needed defeq's
+ungraded strength. The asymmetry bought nothing at any consumer.
+
+### Seal 8 — the four quarters folded in
+
+All four re-points landed, reviewed, merged; build green (316 jobs,
+zero warnings), no `sorry`, axioms exactly the three standard, battery
+90/92 with e2e 72/72 and the no-model sweep unchanged.
+
+| quarter | deliverable | own refutations found |
+|---|---|---|
+| whnf | `whnfCoreStep2B_of`, `whnfStep2B_of` | `delta2_refuted`, `projStep2_refuted` |
+| defeq | `defEqStep2BP_of` → `defEqStep2B_of` | STOP 3 (above) |
+| dispatch | `infer_{sort,fvar,bvar}_claim2A`, literals, the `CtxOk2` kit | `ctxOk2_one_forallE_leaf_false` |
+| infer | in flight | — |
+
+**Three results worth keeping from the quarters' reports.**
+
+* **The rule's two-sidedness, stated properly by the dispatch
+  quarter:** *the smallest-fuel test is about which side of the arrow
+  the success-demanding equation is on.* They mechanized both halves
+  for `CtxOk2` — `ctxOk2_one_forallE_leaf_false` (empty at `F = 1`
+  for a ∀-typed leaf) **and** `ctxOk2_zero_inhabited` (holds at every
+  fuel at depth 0) — rather than reporting the negative alone. That is
+  the practice this campaign has been converging on, arrived at
+  independently.
+* **R3's slack is unspent in the whole dispatch and literal layer.**
+  `.fvar` — the clause that *forced* `CtxOk2` — takes `F' = F`,
+  because it reads the context at the claim's own fuel. `.const`
+  spends the slack because its type comes from the environment, not
+  from a hypothesis about the context. R4's `μ.verified` is unused
+  there too. Both premises were kept and the non-use documented as
+  evidence.
+* **`denote2`'s depth-shift law exists and was nearly free.** There was
+  reason to fear it could not: `denote` depends on depth only through
+  its `fvar` clause, while `denote2` also calls the *checker* at that
+  depth. `Setlec.shiftClaims` (`Verify/Deep.lean`), landed for the
+  memo cache's depth-free keys, is exactly the bisimulation needed.
+
+**T5 applied, and one field added.** The dispatch quarter carried
+`hacl : ∀ n ψ k, (acval n ψ).liftN 1 k = acval n ψ` as an explicit
+premise for want of a supplier. It now has one: `EnvS2.acval_closed`,
+the transpose of `EnvS.cval_closed`. Syntactic — no `denote2` in it —
+so unlike the two fields STOP 2 refuted it cannot go false at a small
+fuel, and it is `rfl` at `EnvS2.empty`. Deliberately *not* a new
+`AVExpr.Closed` predicate: the lifting equation is what consumers
+rewrite with.
+
+**Two integration findings from writing four files in parallel.**
+`DefEqRun.lean` and `Step2/Whnf.lean` both declared `denote2_bvar`
+with identical statements (resolved by deletion); `denote2_sort` is
+the same pair between `Whnf.lean` and `InferQ.lean`, latent only
+because `InferQ` is not yet in the import closure. *Parallel quarters
+converge on the same helper names, and the collision surfaces at
+integration rather than at authoring.*
+
+**Open at the junction, for the infer quarter:** a consumer of the
+defeq claim must now supply `AnnotOk2` for the two **types** it
+compares. `InferClaims2A` delivers it for the *subject* and says
+nothing about the returned type. Whether `InferClaims2A`'s conclusion
+needs extending is asked of the infer quarter against a site it can
+point at — not adopted by symmetry.

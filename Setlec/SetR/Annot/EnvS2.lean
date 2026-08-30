@@ -142,6 +142,20 @@ structure EnvS2 (env : Env) where
   annotation *of* the denotation -/
   acval_erase : ∀ (n : Name) (ψ : Name → Nat),
     (acval n ψ).erase = base.cval n ψ
+  /-- every canonical valuation leaf is **closed**, in the only form
+  `AVExpr` can say it: lifting is the identity at every cut.  The
+  transpose of `EnvS.cval_closed`, and the field the dispatch quarter's
+  context-threading lemmas (`CtxOk2.open`, `CtxOk2.weakenTop`) were
+  carrying as an explicit `hacl` premise for want of a supplier — T5:
+  a fired-law premise belongs to the supplier, not to every consumer.
+
+  Note this field is *syntactic*, a condition on an install-fixed
+  object with no `denote2` in it, so unlike the two STOP 2 refuted it
+  cannot go false at a small fuel.  `AVExpr` has no `Closed` predicate
+  and this deliberately does not add one — the lifting equation is
+  what the consumers actually rewrite with. -/
+  acval_closed : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+    (acval n ψ).liftN 1 k = acval n ψ
   /-- every canonical valuation leaf is truthful over `interp2` —
   `annot_okV`'s successor.  Quantifying over `Annotates` (this field's
   shape before this seal) collapses here: in the `denote2` currency a
@@ -199,6 +213,7 @@ noncomputable def empty : EnvS2 V Env.empty where
   acval := fun _ _ => .const .empty [0]
   acval_erase := fun _ _ => rfl
   acval_ok2 := fun _ _ _ => by simp
+  acval_closed := fun _ _ _ => rfl
   acval_defn := by intro μ φ F cv value hint hc; cases hc
   acval_thm := by intro μ φ F cv value hc; cases hc
   mem_type2 := by
