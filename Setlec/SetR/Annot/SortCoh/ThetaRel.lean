@@ -277,6 +277,61 @@ theorem thetaRel_lam_beta₂ {T : Nat} :
         (thetaRel_bounded₂ hΓ' hx) B' 0, hbeta x hx]
       rfl
 
+/-- The letE-image's shape and zeta composite over a Θ telescope
+(LEFT): the image's zeta-contractum is the contractum's image. -/
+theorem thetaRel_letE_zeta₁ {T : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {n : Name} {ty v b : Expr},
+      TelescopeRelD μ env T d Γ →
+      v.looseBVarsBounded 0 = true →
+      ∃ TY B, thetaSubst₁ d Γ (.letE n ty v b)
+          = .letE n TY (thetaSubst₁ d Γ v) B ∧
+        B.instantiate1 (thetaSubst₁ d Γ v)
+          = thetaSubst₁ d Γ (b.instantiate1 v)
+  | [], d, n, ty, v, b => fun _ _ => ⟨ty, b, rfl, rfl⟩
+  | t :: Γ', d, n, ty, v, b => fun hΓ hvb => by
+    cases hΓ with
+    | cons hz hd hI₁ hI₂ hp hΓ' =>
+    obtain ⟨TY', B', hshape, hzeta⟩ :=
+      thetaRel_letE_zeta₁ (Γ := Γ') (d := d + 1) (n := n)
+        (ty := ty) (v := v) (b := b) hΓ' hvb
+    refine ⟨substAK d 0 t.a₁ TY', substAK d 1 t.a₁ B', ?_, ?_⟩
+    · show substAK d 0 t.a₁
+        (thetaSubst₁ (d + 1) Γ' (.letE n ty v b)) = _
+      rw [hshape]
+      rfl
+    · show (substAK d 1 t.a₁ B').instantiate1
+        (substAK d 0 t.a₁ (thetaSubst₁ (d + 1) Γ' v)) = _
+      rw [substAK_instantiate1 hI₁.2.1
+        (thetaRel_bounded₁ hΓ' hvb) B' 0, hzeta]
+      rfl
+
+/-- RIGHT-side version. -/
+theorem thetaRel_letE_zeta₂ {T : Nat} :
+    ∀ {Γ : List ThetaEntry} {d : Nat} {n : Name} {ty v b : Expr},
+      TelescopeRelD μ env T d Γ →
+      v.looseBVarsBounded 0 = true →
+      ∃ TY B, thetaSubst₂ d Γ (.letE n ty v b)
+          = .letE n TY (thetaSubst₂ d Γ v) B ∧
+        B.instantiate1 (thetaSubst₂ d Γ v)
+          = thetaSubst₂ d Γ (b.instantiate1 v)
+  | [], d, n, ty, v, b => fun _ _ => ⟨ty, b, rfl, rfl⟩
+  | t :: Γ', d, n, ty, v, b => fun hΓ hvb => by
+    cases hΓ with
+    | cons hz hd hI₁ hI₂ hp hΓ' =>
+    obtain ⟨TY', B', hshape, hzeta⟩ :=
+      thetaRel_letE_zeta₂ (Γ := Γ') (d := d + 1) (n := n)
+        (ty := ty) (v := v) (b := b) hΓ' hvb
+    refine ⟨substAK d 0 t.a₂ TY', substAK d 1 t.a₂ B', ?_, ?_⟩
+    · show substAK d 0 t.a₂
+        (thetaSubst₂ (d + 1) Γ' (.letE n ty v b)) = _
+      rw [hshape]
+      rfl
+    · show (substAK d 1 t.a₂ B').instantiate1
+        (substAK d 0 t.a₂ (thetaSubst₂ (d + 1) Γ' v)) = _
+      rw [substAK_instantiate1 hI₂.2.1
+        (thetaRel_bounded₂ hΓ' hvb) B' 0, hzeta]
+      rfl
+
 /-- The Θ telescope extends (the push's entry). -/
 def TelescopeRelD.append {T : Nat} {t : ThetaEntry} :
     ∀ {Γ : List ThetaEntry} {d : Nat},
@@ -760,6 +815,70 @@ theorem thetaSubst₂_forallE {d : Nat} {n : Name} {ty b : Expr}
     rw [hs]
     rfl
 
+/-- The λ-image's shape (LEFT). -/
+theorem thetaSubst₁_lam {d : Nat} {n : Name} {ty b : Expr}
+    {m : Setlec.BinderMeta} :
+    ∀ {Γ : List ThetaEntry},
+      ∃ TY B, thetaSubst₁ d Γ (.lam n ty b m)
+        = .lam n TY B m
+  | [] => ⟨ty, b, rfl⟩
+  | t :: Γ' => by
+    obtain ⟨TY', B', hs⟩ := thetaSubst₁_lam (Γ := Γ')
+      (d := d + 1) (n := n) (ty := ty) (b := b) (m := m)
+    refine ⟨substAK d 0 t.a₁ TY', substAK d 1 t.a₁ B', ?_⟩
+    show substAK d 0 t.a₁
+      (thetaSubst₁ (d + 1) Γ' (.lam n ty b m)) = _
+    rw [hs]
+    rfl
+
+/-- The λ-image's shape (RIGHT). -/
+theorem thetaSubst₂_lam {d : Nat} {n : Name} {ty b : Expr}
+    {m : Setlec.BinderMeta} :
+    ∀ {Γ : List ThetaEntry},
+      ∃ TY B, thetaSubst₂ d Γ (.lam n ty b m)
+        = .lam n TY B m
+  | [] => ⟨ty, b, rfl⟩
+  | t :: Γ' => by
+    obtain ⟨TY', B', hs⟩ := thetaSubst₂_lam (Γ := Γ')
+      (d := d + 1) (n := n) (ty := ty) (b := b) (m := m)
+    refine ⟨substAK d 0 t.a₂ TY', substAK d 1 t.a₂ B', ?_⟩
+    show substAK d 0 t.a₂
+      (thetaSubst₂ (d + 1) Γ' (.lam n ty b m)) = _
+    rw [hs]
+    rfl
+
+/-- The letE-image's shape (LEFT). -/
+theorem thetaSubst₁_letE {d : Nat} {n : Name} {ty v b : Expr} :
+    ∀ {Γ : List ThetaEntry},
+      ∃ TY V B, thetaSubst₁ d Γ (.letE n ty v b)
+        = .letE n TY V B
+  | [] => ⟨ty, v, b, rfl⟩
+  | t :: Γ' => by
+    obtain ⟨TY', V', B', hs⟩ := thetaSubst₁_letE (Γ := Γ')
+      (d := d + 1) (n := n) (ty := ty) (v := v) (b := b)
+    refine ⟨substAK d 0 t.a₁ TY', substAK d 0 t.a₁ V',
+      substAK d 1 t.a₁ B', ?_⟩
+    show substAK d 0 t.a₁
+      (thetaSubst₁ (d + 1) Γ' (.letE n ty v b)) = _
+    rw [hs]
+    rfl
+
+/-- The letE-image's shape (RIGHT). -/
+theorem thetaSubst₂_letE {d : Nat} {n : Name} {ty v b : Expr} :
+    ∀ {Γ : List ThetaEntry},
+      ∃ TY V B, thetaSubst₂ d Γ (.letE n ty v b)
+        = .letE n TY V B
+  | [] => ⟨ty, v, b, rfl⟩
+  | t :: Γ' => by
+    obtain ⟨TY', V', B', hs⟩ := thetaSubst₂_letE (Γ := Γ')
+      (d := d + 1) (n := n) (ty := ty) (v := v) (b := b)
+    refine ⟨substAK d 0 t.a₂ TY', substAK d 0 t.a₂ V',
+      substAK d 1 t.a₂ B', ?_⟩
+    show substAK d 0 t.a₂
+      (thetaSubst₂ (d + 1) Γ' (.letE n ty v b)) = _
+    rw [hs]
+    rfl
+
 /-- The proj-image distributes (LEFT). -/
 theorem thetaSubst₁_proj {d : Nat} {sn : Name} {i : Nat}
     {e : Expr} :
@@ -1228,6 +1347,55 @@ def TelescopeRelD.imageRels {T : Nat} {d : Nat}
   | _, _, .cons h rest =>
     .cons (h.underTele (hΓo := hΓo)) (hΓo.imageRels rest)
 end
+
+/-- Spines append. -/
+def ThetaRelsD.appendR {T d : Nat} :
+    ∀ {as bs cs ds : List Expr},
+      ThetaRelsD μ env T d as bs → ThetaRelsD μ env T d cs ds →
+      ThetaRelsD μ env T d (as ++ cs) (bs ++ ds)
+  | [], [], _, _, .nil, h₂ => h₂
+  | _ :: _, _ :: _, _, _, .cons h rest, h₂ =>
+    .cons h (rest.appendR h₂)
+
+/-- Snoc view of a related spine (peeling the outermost app). -/
+inductive RelsSnocView (μ : CheckMode) (env : Env) (T d : Nat) :
+    List Expr → List Expr → Type
+  | nil : RelsSnocView μ env T d [] []
+  | snoc {as bs : List Expr} {a b : Expr}
+      (init : ThetaRelsD μ env T d as bs)
+      (last : ThetaRelD μ env T d a b) :
+      RelsSnocView μ env T d (as ++ [a]) (bs ++ [b])
+
+/-- Every related spine has a snoc view. -/
+def ThetaRelsD.snocView {T d : Nat} :
+    ∀ {as bs : List Expr}, ThetaRelsD μ env T d as bs →
+      RelsSnocView μ env T d as bs
+  | [], [], .nil => .nil
+  | _ :: _, _ :: _, .cons h rest =>
+    match rest.snocView with
+    | .nil => .snoc .nil h
+    | .snoc init last => .snoc (.cons h init) last
+
+/-- A relation extends across one more (outermost) argument. -/
+def ThetaRelD.extendSp {T d : Nat} {u v z₁ z₂ : Expr}
+    (hz : ThetaRelD μ env T d z₁ z₂) :
+    ThetaRelD μ env T d u v →
+    ThetaRelD μ env T d (.app u z₁) (.app v z₂)
+  | .zipCore (sp₁ := sp₁) (sp₂ := sp₂) hT hfc hzc hC₁ hC₂ hsp =>
+    ThetaRelD.castE
+      (by rw [mkAppN_append]; rfl) (by rw [mkAppN_append]; rfl)
+      (ThetaRelD.zipCore hT hfc hzc hC₁ hC₂
+        (hsp.appendR (.cons hz .nil)))
+  | .runCore (sp₁ := sp₁) (sp₂ := sp₂) hT hk hrun hC₁ hC₂ hsp =>
+    ThetaRelD.castE
+      (by rw [mkAppN_append]; rfl) (by rw [mkAppN_append]; rfl)
+      (ThetaRelD.runCore hT hk hrun hC₁ hC₂
+        (hsp.appendR (.cons hz .nil)))
+  | .sameCore (sp₁ := sp₁) (sp₂ := sp₂) hT hP hsp =>
+    ThetaRelD.castE
+      (by rw [mkAppN_append]; rfl) (by rw [mkAppN_append]; rfl)
+      (ThetaRelD.sameCore hT hP
+        (hsp.appendR (.cons hz .nil)))
 
 end Discharge
 
