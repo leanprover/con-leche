@@ -161,7 +161,34 @@ def ProjPairV2 (μ : CheckMode) (env : Env)
         interp2 V ρ (.proj i pa)
           = if i = 0 then interp2 V ρ fa else interp2 V ρ sa
 
-/-- **The existence supplier generation six needs**, and the outcome of
+/-- **PARKED — do not pursue (seal 33).**  Kept as the record of a
+supplier that named the wrong side of its consumer's runs.
+
+Two independent reasons, either sufficient:
+
+* **It names the run's *subject*.** The conclusion is about `e`; `t` is
+  bound and does not occur in it. Every annotation `.app` consumes is a
+  run's *output*, and the subject's annotation is already a premise of
+  `InferClaims2E` — so this supplies nothing at the clause it was
+  priced against. `Denote2TotalR` (the `e ↦ t` repair) is the part that
+  works and is kept; it discharges the inference existence factor via
+  `inferExists2E_of_totalR`.
+* **It would collide with seal 10.** Proving it needs `lamSortE`
+  defined at every λ node, which the checker computes only under
+  `mode.verified` — the premise seal 10 deliberately *withdrew* from
+  the claims to recover the `.noModel` lane. A supplier that
+  reintroduces it undoes a landed result.
+
+Doubtful provability plus a collision with a landed seal is a
+do-not-chase. The remaining gap it was meant to fill — the `∀`'s
+annotation at `.app` — has **nothing to condition on** (no later run
+has that `∀` as subject) and can come only from a
+reduction-preservation fact, which lives inside generation five's
+induction.
+
+*Original docstring follows.*
+
+**The existence supplier generation six needs**, and the outcome of
 pricing its `.app` clause.
 
 Generation six's specification said existence would be *"localized to

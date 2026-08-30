@@ -16002,3 +16002,51 @@ resolved.
 of the run each needed object sits on. "The consumer holds the run" is
 not the same as "the consumer holds the annotation", and the
 difference is invisible until the clause is written out.*
+
+### Seal 33 — the statement tier is CLOSED
+
+**Generation six is the factorisation, and that is enough.** Recorded
+as what it was: *entered for localization, refuted there, but the
+transportable forms were the actual need.* Seal 28's crossing demanded
+claims free of the fuel-sensitive `sortOfE` prediction; the `…2E`
+claims are exactly that, mechanized in both directions
+(`claims2D_of_2E`, `exists2E_of_claims2D`), with no vacuous clause and
+the capstone on generation five's fifteen residues unchanged.
+
+The localization ambition failed for a reason the discharge made
+**structural, not circumstantial**: the `∀`'s annotation at `.app` has
+nothing to condition on, because no later run has that `∀` as its
+subject. That is a fact about `inferBody`'s `.app` branch, not a gap
+in anyone's effort.
+
+**`Denote2Total` is parked, not pursued.** Its docstring carries the
+tombstone: it names the run's *subject* where its consumer needs
+*outputs*, and proving it would need `mode.verified` — the premise
+**seal 10 deliberately withdrew** to recover the `.noModel` lane.
+Doubtful provability plus a collision with a landed seal is a
+do-not-chase. `Denote2TotalR`, the `e ↦ t` repair that actually
+discharges the inference factor, is kept.
+
+#### The statement tier: six generations, closed
+
+| gen | change | fate |
+|---|---|---|
+| `Claims2` | the original seal | **refuted** (`inferClaims2_one_refuted`) |
+| `2A` | fuel binder, grading, `F' ≥ F`, `μ.verified` | **refuted** (`whnfClaims2A_delta_refuted`) |
+| `2B` | R1/R3 unified across the family | superseded |
+| `2C` | the `AnnotOk2` grading hoisted above `ρ` | superseded |
+| `2D` | one context currency (`CtxOk2D`) | superseded |
+| `2E` | dual success | **current** |
+
+Plus two withdrawals that were not generations: R4 (`μ.verified`,
+seal 10) and the `CtxOkR` seam (seal 11).
+
+**No generation seven without a consumer-refutation forcing it.** The
+evidence base for that rule is this table: every one of the two
+refutations, and every one of the four supersessions, was driven by a
+*consumer attempting a discharge* — never by inspection, never by a
+junction's analysis. A seventh generation reasoned out at the junction
+would be the first, and this campaign has no evidence that works.
+
+**Everything now defers to the keys**, which are the goal's critical
+path.
