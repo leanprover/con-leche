@@ -34,7 +34,7 @@ constants in it.*
 ## Consequence
 
 The migration item "swap the fourteen's conclusion from
-`Nonempty (EnvS V env')` to `Nonempty (EnvS2 V env')`" is **not
+`Nonempty (EnvS V env')` to `Nonempty (EnvS2U V env')`" is **not
 merely unproved, it is unprovable** while these two fields keep this
 shape.  No amount of work in the install layer can produce an `EnvS2`
 for an environment with a λ-bodied definition in it.
@@ -170,7 +170,7 @@ the constant annotates at fuel `1` (leaves do), `WhnfClaims2A` demands
 the reduct's annotation at fuel `1` too — which `denote2_one_lam`
 denies.  Conditional only on the run and the subject's annotation,
 both of which any real environment supplies. -/
-theorem whnfClaims2A_delta_refuted {env : Env} (m : EnvS2 V env)
+theorem whnfClaims2A_delta_refuted {env : Env} (m : EnvS2U V env)
     {fuel d : Nat} {e : Expr} {Δa : List AVExpr} {ea : AVExpr}
     {n : Name} {ty body : Expr} {mb : BinderMeta}
     (hrun : whnf μ env fuel d e = .ok (.lam n ty body mb))

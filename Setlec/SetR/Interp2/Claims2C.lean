@@ -67,7 +67,7 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-- Head normalisation, hoisted. -/
-def WhnfCoreClaims2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def WhnfCoreClaims2C (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -84,7 +84,7 @@ def WhnfCoreClaims2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
           interp2 V ρ ea = interp2 V ρ ea'
 
 /-- The reduction loop, hoisted. -/
-def WhnfClaims2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def WhnfClaims2C (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnf μ env fuel d e = .ok e' →
@@ -103,7 +103,7 @@ def WhnfClaims2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 /-- Definitional equality, hoisted.  The two `AnnotOk2` remain
 premises and never become conclusions, so nothing crosses an equality
 and `deqStep2_symm`/`deqStep2_trans` stay one-liners. -/
-def DefEqClaims2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def DefEqClaims2C (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.isDefEqCore μ env fuel d a b = .ok true →
@@ -126,7 +126,7 @@ def DefEqClaims2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 open question answered from two independent sites (`infer_app_claim2A`
 and `betaCert2P_of_claims`) and which retires the inference quarter's
 `TypeOk2` residue.  The membership stays per-valuation. -/
-def InferClaims2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def InferClaims2C (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
     inferTypeCore μ env fuel d e = .ok t →
@@ -144,7 +144,7 @@ def InferClaims2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 
 /-- The hoisted step. -/
 def CheckStep2C (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2C μ m φ fuel → WhnfClaims2C μ m φ fuel →
     DefEqClaims2C μ m φ fuel → InferClaims2C μ m φ fuel →
     WhnfCoreClaims2C μ m φ (fuel + 1) ∧ WhnfClaims2C μ m φ (fuel + 1) ∧
@@ -152,7 +152,7 @@ def CheckStep2C (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 
 /-- The hoisted induction. -/
 theorem checkSound2C {μ : CheckMode} {env : Env}
-    (hstep : CheckStep2C μ V) (m : EnvS2 V env) (φ : Name → Nat) :
+    (hstep : CheckStep2C μ V) (m : EnvS2U V env) (φ : Name → Nat) :
     ∀ fuel : Nat,
       WhnfCoreClaims2C μ m φ fuel ∧ WhnfClaims2C μ m φ fuel ∧
         DefEqClaims2C μ m φ fuel ∧ InferClaims2C μ m φ fuel := by
@@ -180,28 +180,28 @@ theorem checkSound2C {μ : CheckMode} {env : Env}
 
 /-- The inference quarter. -/
 def InferStep2C (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2C μ m φ fuel → WhnfClaims2C μ m φ fuel →
     DefEqClaims2C μ m φ fuel → InferClaims2C μ m φ fuel →
     InferClaims2C μ m φ (fuel + 1)
 
 /-- The head-normalisation quarter. -/
 def WhnfCoreStep2C (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2C μ m φ fuel → WhnfClaims2C μ m φ fuel →
     DefEqClaims2C μ m φ fuel → InferClaims2C μ m φ fuel →
     WhnfCoreClaims2C μ m φ (fuel + 1)
 
 /-- The reduction loop. -/
 def WhnfStep2C (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2C μ m φ fuel → WhnfClaims2C μ m φ fuel →
     DefEqClaims2C μ m φ fuel → InferClaims2C μ m φ fuel →
     WhnfClaims2C μ m φ (fuel + 1)
 
 /-- The definitional-equality quarter. -/
 def DefEqStep2C (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2C μ m φ fuel → WhnfClaims2C μ m φ fuel →
     DefEqClaims2C μ m φ fuel → InferClaims2C μ m φ fuel →
     DefEqClaims2C μ m φ (fuel + 1)

@@ -22,28 +22,28 @@ universe w
 
 /-- The inference quarter: `inferBody`'s eleven clauses. -/
 def InferStep2 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Setlec.Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Setlec.Name → Nat) (fuel : Nat),
     WhnfCoreClaims2 μ m φ fuel → WhnfClaims2 μ m φ fuel →
     DefEqClaims2 μ m φ fuel → InferClaims2 μ m φ fuel →
     InferClaims2 μ m φ (fuel + 1)
 
 /-- The head-normalisation quarter: `whnfCoreBody`'s nine cases. -/
 def WhnfCoreStep2 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Setlec.Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Setlec.Name → Nat) (fuel : Nat),
     WhnfCoreClaims2 μ m φ fuel → WhnfClaims2 μ m φ fuel →
     DefEqClaims2 μ m φ fuel → InferClaims2 μ m φ fuel →
     WhnfCoreClaims2 μ m φ (fuel + 1)
 
 /-- The reduction loop: `whnfStep`'s three exits under the budget. -/
 def WhnfStep2 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Setlec.Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Setlec.Name → Nat) (fuel : Nat),
     WhnfCoreClaims2 μ m φ fuel → WhnfClaims2 μ m φ fuel →
     DefEqClaims2 μ m φ fuel → InferClaims2 μ m φ fuel →
     WhnfClaims2 μ m φ (fuel + 1)
 
 /-- The definitional-equality quarter: `defeqStep`'s seven blocks. -/
 def DefEqStep2 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Setlec.Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Setlec.Name → Nat) (fuel : Nat),
     WhnfCoreClaims2 μ m φ fuel → WhnfClaims2 μ m φ fuel →
     DefEqClaims2 μ m φ fuel → InferClaims2 μ m φ fuel →
     DefEqClaims2 μ m φ (fuel + 1)

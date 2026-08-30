@@ -49,7 +49,7 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-- Head normalisation, one currency. -/
-def WhnfCoreClaims2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def WhnfCoreClaims2D (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -66,7 +66,7 @@ def WhnfCoreClaims2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
           interp2 V ρ ea = interp2 V ρ ea'
 
 /-- The reduction loop, one currency. -/
-def WhnfClaims2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def WhnfClaims2D (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnf μ env fuel d e = .ok e' →
@@ -83,7 +83,7 @@ def WhnfClaims2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
           interp2 V ρ ea = interp2 V ρ ea'
 
 /-- Definitional equality, one currency. -/
-def DefEqClaims2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def DefEqClaims2D (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.isDefEqCore μ env fuel d a b = .ok true →
@@ -102,7 +102,7 @@ def DefEqClaims2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
         interp2 V ρ aa = interp2 V ρ ba
 
 /-- Inference, one currency. -/
-def InferClaims2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+def InferClaims2D (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
     inferTypeCore μ env fuel d e = .ok t →
@@ -120,7 +120,7 @@ def InferClaims2D (μ : CheckMode) {env : Env} (m : EnvS2 V env)
 
 /-- The generation-five step. -/
 def CheckStep2D (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2D μ m φ fuel → WhnfClaims2D μ m φ fuel →
     DefEqClaims2D μ m φ fuel → InferClaims2D μ m φ fuel →
     WhnfCoreClaims2D μ m φ (fuel + 1) ∧ WhnfClaims2D μ m φ (fuel + 1) ∧
@@ -128,7 +128,7 @@ def CheckStep2D (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 
 /-- The generation-five induction. -/
 theorem checkSound2D {μ : CheckMode} {env : Env}
-    (hstep : CheckStep2D μ V) (m : EnvS2 V env) (φ : Name → Nat) :
+    (hstep : CheckStep2D μ V) (m : EnvS2U V env) (φ : Name → Nat) :
     ∀ fuel : Nat,
       WhnfCoreClaims2D μ m φ fuel ∧ WhnfClaims2D μ m φ fuel ∧
         DefEqClaims2D μ m φ fuel ∧ InferClaims2D μ m φ fuel := by
@@ -156,28 +156,28 @@ theorem checkSound2D {μ : CheckMode} {env : Env}
 
 /-- The inference quarter. -/
 def InferStep2D (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2D μ m φ fuel → WhnfClaims2D μ m φ fuel →
     DefEqClaims2D μ m φ fuel → InferClaims2D μ m φ fuel →
     InferClaims2D μ m φ (fuel + 1)
 
 /-- The head-normalisation quarter. -/
 def WhnfCoreStep2D (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2D μ m φ fuel → WhnfClaims2D μ m φ fuel →
     DefEqClaims2D μ m φ fuel → InferClaims2D μ m φ fuel →
     WhnfCoreClaims2D μ m φ (fuel + 1)
 
 /-- The reduction loop. -/
 def WhnfStep2D (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2D μ m φ fuel → WhnfClaims2D μ m φ fuel →
     DefEqClaims2D μ m φ fuel → InferClaims2D μ m φ fuel →
     WhnfClaims2D μ m φ (fuel + 1)
 
 /-- The definitional-equality quarter. -/
 def DefEqStep2D (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2D μ m φ fuel → WhnfClaims2D μ m φ fuel →
     DefEqClaims2D μ m φ fuel → InferClaims2D μ m φ fuel →
     DefEqClaims2D μ m φ (fuel + 1)
