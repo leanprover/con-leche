@@ -23,20 +23,23 @@ the mechanical check of that — every bridge is `Iff.rfl`, so the two
 families are *definitionally* the same proposition wherever both are
 stated.
 
-## Add, never delete
+## The lane below has since been re-pointed too
 
-The `…2E` family stays as the older lane, exactly as `EnvS2` stayed
-when `EnvS2U` was added (seal 18's precedent, seal 36's application).
-`Capstone2E` and the four `…Step2E_of` quarters consume it verbatim
-and are untouched.
+When this file landed, the `…2E` family and the four `…Step2E_of`
+quarters were still stated over `EnvS2`, and the copies below were the
+only claims at `EnvS2U`.  The live lane has now been re-pointed at the
+source, so the `…2E` and `…2U` families are **the same definitions
+twice**: every bridge below is still `Iff.rfl`, but now trivially so,
+and this file's copies are candidates for retirement at a cleanup
+seal rather than a separate lane.
 
 ## The context predicate had to come with them
 
 `CtxOk2`/`CtxOk2Ann`/`CtxOk2D` (`Step2/Dispatch.lean`,
-`Interp2/CtxOk2D.lean`) all take an `EnvS2` and all read it **only**
-through `m.acval`.  So they are re-pointed here in the same way and
-for the same reason, and `ctxOk2DU_iff` records that the re-pointed
-predicate is definitionally the old one.
+`Interp2/CtxOk2D.lean`) all take an `EnvS2U` and all read it **only**
+through `m.acval` — which is why they could be re-pointed at their
+own definitions.  `ctxOk2DU_iff` records that the copy here is
+definitionally the original.
 
 ## What the re-point costs, measured rather than asserted
 
@@ -48,6 +51,11 @@ consumed by **exactly four lemmas in the whole Step2 development**:
 them is a claim discharge.**  Every one is a lemma *about the residue
 `AcvalDefnInst`* — that it is satisfiable at a parameter-free
 declaration, and that `Denote2InstLevels` supplies it.
+
+The live lane's re-point confirmed the measurement exactly: those four
+were the **only** sites that were not a binder type change, and
+`acvalDefnInst_of_instLevels` is the one of them that does not
+survive.
 
 So no quarter needs the existential field to prove a claim, and the
 re-point goes through at the statement tier untouched.  What the
@@ -105,9 +113,9 @@ def CtxOk2DU {env : Env} (m : EnvS2U V env) (μ : CheckMode)
 /-- **The re-pointed predicate is definitionally the old one.**  At an
 `EnvS2` the two agree by `rfl`, which is the whole content of the
 claim that this is a re-point and not a restatement. -/
-theorem ctxOk2DU_iff {env : Env} (m : EnvS2 V env) (μ : CheckMode)
+theorem ctxOk2DU_iff {env : Env} (m : EnvS2U V env) (μ : CheckMode)
     (φ : Name → Nat) (F d : Nat) (Δa : List AVExpr) (e : Expr) :
-    CtxOk2DU (EnvS2.toU V m) μ φ F d Δa e ↔ CtxOk2D m μ φ F d Δa e :=
+    CtxOk2DU m μ φ F d Δa e ↔ CtxOk2D m μ φ F d Δa e :=
   Iff.rfl
 
 /-! ### The two constructors the closed case needs
@@ -258,14 +266,11 @@ generation-six claim, as a proposition and not merely as a
 consequence.  That is the precise sense in which the content did not
 change.
 
-The converse direction — every `EnvS2U` comes from an `EnvS2` — is
-**not** available and is not claimed: `EnvS2U` drops `cval_annot` as
-well as weakening the two `denote2` fields, so `CheckStep2U` is a
-*strictly stronger* residue than `CheckStep2E`.  Recorded rather than
-elided: a key conditional on `…2U` at an arbitrary `EnvS2U` is
-conditional on more than the lane owes today, and the fourteen's swap
-must either exhibit its environments as `EnvS2`s (as the probes do) or
-carry the difference.
+Since the live lane's re-point, both sides are stated at the same
+structure, so the bridges hold at an arbitrary `EnvS2U` and no
+converse is needed.  **They are `rfl` between literally identical
+definitions now** — kept as the check that the two texts have not
+drifted, not as content.
 
 **Which of the two causes matters — measured, seal 41.**  Not
 `cval_annot`: it has **no consumer anywhere in the Step2 development**
@@ -276,23 +281,23 @@ the two structures; it removes no obstruction.  The obstruction is the
 other cause, and `checkStep2U_of_2E` below names it exactly. -/
 
 theorem whnfCoreClaims2U_iff {μ : CheckMode} {env : Env}
-    (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat) :
-    WhnfCoreClaims2U μ (EnvS2.toU V m) φ fuel ↔
+    (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat) :
+    WhnfCoreClaims2U μ m φ fuel ↔
       WhnfCoreClaims2E μ m φ fuel := Iff.rfl
 
 theorem whnfClaims2U_iff {μ : CheckMode} {env : Env}
-    (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat) :
-    WhnfClaims2U μ (EnvS2.toU V m) φ fuel ↔
+    (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat) :
+    WhnfClaims2U μ m φ fuel ↔
       WhnfClaims2E μ m φ fuel := Iff.rfl
 
 theorem defEqClaims2U_iff {μ : CheckMode} {env : Env}
-    (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat) :
-    DefEqClaims2U μ (EnvS2.toU V m) φ fuel ↔
+    (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat) :
+    DefEqClaims2U μ m φ fuel ↔
       DefEqClaims2E μ m φ fuel := Iff.rfl
 
 theorem inferClaims2U_iff {μ : CheckMode} {env : Env}
-    (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat) :
-    InferClaims2U μ (EnvS2.toU V m) φ fuel ↔
+    (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat) :
+    InferClaims2U μ m φ fuel ↔
       InferClaims2E μ m φ fuel := Iff.rfl
 
 /-- **The re-pointed step implies the old one.**  Nothing the older
@@ -300,7 +305,7 @@ lane proves from `CheckStep2E` is lost. -/
 theorem checkStep2E_of_2U {μ : CheckMode}
     (h : CheckStep2U μ V) : CheckStep2E μ V := by
   intro env m φ fuel h1 h2 h3 h4
-  exact h env (EnvS2.toU V m) φ fuel h1 h2 h3 h4
+  exact h env m φ fuel h1 h2 h3 h4
 
 /-! ### The other direction, and the exact size of the gap
 
@@ -308,14 +313,16 @@ Seal 40 owed a re-measurement of `CheckStep2U`'s derivability once
 `cval_annot` was restored.  The measurement, taken rather than
 assumed:
 
-**The quarters cannot be applied at an `EnvS2U` at all.**  Not the
-four `…Step2E_of`, and not the fifteen residues `Capstone2E.lean`
-assembles them from — every one is `∀ (env : Env) (m : EnvS2 V env)`.
-So the derivation is not a matter of which *fields* a proof reads; it
-needs an `EnvS2` at the `EnvS2U` in hand, with the **same `acval`**,
-because that is what the claims are stated at.  `EnvS2UInImage`
-(`EnvS2U.lean`) is that statement and `checkStep2U_of_2E` is the
-derivation from it.
+**Superseded: the quarters have been re-pointed.**  While they were
+`∀ (env : Env) (m : EnvS2 V env)` — the four `…Step2E_of` and all
+fifteen residues `Capstone2E.lean` assembles them from — the
+derivation needed an `EnvS2` at the `EnvS2U` in hand, with the **same
+`acval`**, and `EnvS2UInImage` (`EnvS2U.lean`) was that statement.
+The re-point removed the need: `checkStep2U_of_2E` below no longer
+takes it.  What the re-point did **not** do is dissolve the
+obligation — it moved it onto the fifteen residues, which are now
+demanded at every `EnvS2U` and not only at the `toU`-image of an
+`EnvS2`.
 
 **And the residue is not `cval_annot`.**  It is the two `denote2`
 fields, in the direction uniqueness cannot supply: `acval_defn` asks
@@ -334,14 +341,15 @@ lemmas, none a claim discharge), and the delta exit already has its
 uniqueness transposes below.  That is a statement change to
 `Claims2E.lean` and `Capstone2E.lean`, not a proof. -/
 
-/-- **The residue, cashed.**  Everything `CheckStep2U` needs beyond
-`CheckStep2E` is `EnvS2UInImage`, and nothing else. -/
+/-- **The residue dropped out.**  Before the live lane was
+re-pointed this took `∀ env (m : EnvS2U V env), EnvS2UInImage V m`
+and cashed it; with `CheckStep2E` itself stated at `EnvS2U` there is
+nothing left to cash.  The bridge itself stays open — see
+`EnvS2UInImage` — it is simply no longer on this path. -/
 theorem checkStep2U_of_2E {μ : CheckMode}
-    (hb : ∀ (env : Env) (m : EnvS2U V env), EnvS2UInImage V m)
     (h : CheckStep2E μ V) : CheckStep2U μ V := by
   intro env m φ fuel h1 h2 h3 h4
-  obtain ⟨m', rfl⟩ := hb env m
-  exact h env m' φ fuel h1 h2 h3 h4
+  exact h env m φ fuel h1 h2 h3 h4
 
 /-! ## The delta exit, in the uniqueness form
 

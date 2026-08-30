@@ -418,39 +418,27 @@ Each key here is conditional on a `…2U` claim **at the install's own
 nothing above consumes a `…2E` claim through a bridge.  What was
 missing is the *supplier*.
 
-`checkSound2U` would give all four, but it needs `CheckStep2U`, and
-`checkStep2U_of_2E` buys that only from `EnvS2UInImage` **at every
-environment at once**.  The keys never needed that quantifier: each
-is stated at a single `m`, so the *pointwise* residue suffices — and
-`envS2UInImage_of_bodies` (`EnvS2UDef.lean`) reduces even the
-pointwise residue to `CvalAnnot` plus annotation-existence at the
-stored bodies.
+**The residue is gone, and the re-point is why.**  Until the quarters
+were re-pointed, `checkStep2U_of_2E` bought `CheckStep2U` only from
+`EnvS2UInImage`, and the keys dodged the `∀ env` quantifier by taking
+the *pointwise* residue instead (`claims2U_of_bodies`, deleted here:
+its two hypotheses became unused binders).  With `CheckStep2E`
+**stated at `EnvS2U`**, `checkSound2E` applies at the install's own
+environment directly and no residue is carried at all.
 
-That is what the re-point of the four quarters was to have made
-unnecessary, and it is not a substitute for it: the residue is still
-carried, only now at one environment and in a form an install can
-attempt. -/
+`EnvS2UInImage` itself stays — it is still the honest statement of
+what separates the two structures, and `EnvS2UDef.lean`'s
+biconditional still characterises it.  What changed is that the
+claims no longer need it. -/
 
 /-- **The four claims at one `EnvS2U`.**  The `Iff.rfl` bridges of
 `Claims2U.lean` are what make the conclusion the `…2U` family while
 the proof is `checkSound2E`. -/
 theorem claims2U_of_2E {m : EnvS2U V env} (h : CheckStep2E μ V)
-    (hb : EnvS2UInImage V m) (ψ : Name → Nat) (fuel : Nat) :
-    WhnfCoreClaims2U μ m ψ fuel ∧ WhnfClaims2U μ m ψ fuel ∧
-      DefEqClaims2U μ m ψ fuel ∧ InferClaims2U μ m ψ fuel := by
-  obtain ⟨m', rfl⟩ := hb
-  exact checkSound2E h m' ψ fuel
-
-/-- …with the residue in the concrete form `envS2UInImage_iff` shows
-is exact. -/
-theorem claims2U_of_bodies (m : EnvS2U V env) (h : CheckStep2E μ V)
-    (hann : ∀ (ν : CheckMode) (χ : Name → Nat),
-      CvalAnnot ν env m.base.cval χ)
-    (hbod : ∀ (ν : CheckMode) (χ : Name → Nat),
-      Denote2Bodies V m ν χ) (ψ : Name → Nat) (fuel : Nat) :
+    (ψ : Name → Nat) (fuel : Nat) :
     WhnfCoreClaims2U μ m ψ fuel ∧ WhnfClaims2U μ m ψ fuel ∧
       DefEqClaims2U μ m ψ fuel ∧ InferClaims2U μ m ψ fuel :=
-  claims2U_of_2E h (envS2UInImage_of_bodies V m hann hbod) ψ fuel
+  checkSound2E h m ψ fuel
 
 /-- **The two claims this file's keys consume, at an environment that
 stores a definition.**  Both earlier probes are axiom-only, so before
@@ -460,7 +448,7 @@ theorem claims2U_lamDef (h : CheckStep2E μ V) (ψ : Name → Nat)
     (fuel : Nat) :
     DefEqClaims2U μ (lamDefEnvS2U V) ψ fuel ∧
       InferClaims2U μ (lamDefEnvS2U V) ψ fuel :=
-  let c := claims2U_of_2E h (lamDefEnvS2U_inImage V) ψ fuel
+  let c := claims2U_of_2E (m := lamDefEnvS2U V) h ψ fuel
   ⟨c.2.2.1, c.2.2.2⟩
 
 /-! ## The three sweeps

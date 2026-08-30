@@ -111,7 +111,14 @@ noncomputable def EnvS2U.empty : EnvS2U V Env.empty :=
 Not "is there *some* `EnvS2` here" — the claims are stated at
 `m.acval`, so a witness with a different canonical valuation is no
 use.  The equation is what makes the residue usable, and it is what
-`checkStep2U_of_2E` (`Claims2U.lean`) consumes.
+`checkStep2U_of_2E` (`Claims2U.lean`) consumed until the quarters
+were re-pointed.
+
+**No longer on the claims' path.**  Since the live lane was
+re-pointed to `EnvS2U`, `checkStep2U_of_2E` and `claims2U_of_2E` take
+no residue at all.  This definition stays because it is still the
+honest statement of what separates the two structures, and
+`EnvS2UDef.lean`'s biconditional still characterises it exactly.
 
 **This bridge stays OPEN by ruling (seal 42), and closing it would
 undo seal 34.**  Its residue is the two `denote2` fields *in the
