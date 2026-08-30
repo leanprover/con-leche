@@ -18,6 +18,11 @@ that is this file's content:
 * the **delta** exit moves neither the interpretation nor the
   invariant, because the unfolded body's canonical annotation *is* the
   constant's own leaf — `EnvS2.acval_defn`, added for exactly this.
+  The annotation arrives at a fuel `F' ≥ F` the supplier picks, which
+  is why the reduction claims carry the same slack: demanding the
+  body at the subject's own fuel is false (STOP 2), because a
+  definition's body is typically a `λ` and `denote2` returns `none` on
+  binders at fuel `1`.
   The v1 lane records the same fact as "the reduct denotes
   *identically*"; here it is an environment field rather than a lemma,
   because `denote2` reads `acval` where `denote` read `cval`.
@@ -40,18 +45,20 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
 /-- **The delta exit is free.**  A definition's body carries the
 constant's own canonical annotation, so unfolding it changes no
 `interp2` value and no `AnnotOk2`. -/
-theorem whnfStep2_delta (m : EnvS2 V env) {fuel : Nat}
+theorem whnfStep2_delta (m : EnvS2 V env) {F : Nat}
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     (hc : ConstantInfo.defnInfo cv value hint ∈ env.consts) :
-    denote2 μ m.acval env φ fuel 0 value = some (m.acval cv.name φ) :=
-  m.acval_defn μ φ fuel cv value hint hc
+    ∃ F', F ≤ F' ∧
+      denote2 μ m.acval env φ F' 0 value = some (m.acval cv.name φ) :=
+  m.acval_defn μ φ F cv value hint hc
 
 /-- Ditto for a theorem's proof value. -/
-theorem whnfStep2_delta_thm (m : EnvS2 V env) {fuel : Nat}
+theorem whnfStep2_delta_thm (m : EnvS2 V env) {F : Nat}
     {cv : ConstantVal} {value : Expr}
     (hc : ConstantInfo.thmInfo cv value ∈ env.consts) :
-    denote2 μ m.acval env φ fuel 0 value = some (m.acval cv.name φ) :=
-  m.acval_thm μ φ fuel cv value hc
+    ∃ F', F ≤ F' ∧
+      denote2 μ m.acval env φ F' 0 value = some (m.acval cv.name φ) :=
+  m.acval_thm μ φ F cv value hc
 
 /-! ## On the loop's "contract"
 

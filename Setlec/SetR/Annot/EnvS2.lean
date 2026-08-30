@@ -152,16 +152,28 @@ structure EnvS2 (env : Env) where
   `denote2` successor of `EnvS.defn_eq`, and what makes the reduction
   loop's **delta step** free: the unfolded term's canonical annotation
   *is* the constant's own leaf, so the step moves neither the
-  interpretation nor the invariant -/
-  acval_defn : ∀ (μ : CheckMode) (φ : Name → Nat) (fuel : Nat)
+  interpretation nor the invariant.
+
+  The annotation is produced at a fuel `F' ≥ F` of the *supplier's*
+  choosing, not at every fuel.  Demanding every fuel makes the field
+  **false** — `denote2` returns `none` on binders at fuel `1`, so a
+  single λ-bodied definition would empty the structure
+  (`envS2_defn_lam_refuted`).  The existential form is what the delta
+  exit actually consumes, and it composes with the reduction claims'
+  own `F ≤ F'` slack -/
+  acval_defn : ∀ (μ : CheckMode) (φ : Name → Nat) (F : Nat)
     (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
     ConstantInfo.defnInfo cv value hint ∈ env.consts →
-    denote2 μ acval env φ fuel 0 value = some (acval cv.name φ)
-  /-- ditto for theorems (`EnvS.thm_ok`'s successor) -/
-  acval_thm : ∀ (μ : CheckMode) (φ : Name → Nat) (fuel : Nat)
+    ∃ F', F ≤ F' ∧
+      denote2 μ acval env φ F' 0 value = some (acval cv.name φ)
+  /-- ditto for theorems (`EnvS.thm_ok`'s successor), in the same
+  existential form and for the same reason — a proof of any implication
+  is a `λ` (`envS2_thm_lam_refuted`) -/
+  acval_thm : ∀ (μ : CheckMode) (φ : Name → Nat) (F : Nat)
     (cv : ConstantVal) (value : Expr),
     ConstantInfo.thmInfo cv value ∈ env.consts →
-    denote2 μ acval env φ fuel 0 value = some (acval cv.name φ)
+    ∃ F', F ≤ F' ∧
+      denote2 μ acval env φ F' 0 value = some (acval cv.name φ)
   /-- every stored constant inhabits its canonically-annotated type
   over `interp2` — `mem_type`'s successor in the `denote2` currency -/
   mem_type2 : ∀ (μ : CheckMode) (φ : Name → Nat) (fuel : Nat),
@@ -187,8 +199,8 @@ noncomputable def empty : EnvS2 V Env.empty where
   acval := fun _ _ => .const .empty [0]
   acval_erase := fun _ _ => rfl
   acval_ok2 := fun _ _ _ => by simp
-  acval_defn := by intro μ φ fuel cv value hint hc; cases hc
-  acval_thm := by intro μ φ fuel cv value hc; cases hc
+  acval_defn := by intro μ φ F cv value hint hc; cases hc
+  acval_thm := by intro μ φ F cv value hc; cases hc
   mem_type2 := by
     intro μ φ fuel c hc
     cases hc
