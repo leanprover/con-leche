@@ -15378,3 +15378,79 @@ both were already owed:
 
 `Denote2InstLevels` proceeds unaffected: the RHS-denotation conjunct
 survives in every option.
+
+## The statement-currency separation (stated once, at full generality)
+
+> **Fits guard memberships, and value-level is correct for them.
+> Pins guard index agreement, and syntax-level is correct for them.
+> They must not share a residual.**
+
+This is the same separation that resolved the coherence arc, now
+appearing at the install tier. It is not a workaround for either
+currency's limits; it is a statement about what each kind of guard is
+*for*.
+
+* A **membership** guard says "this value inhabits that set". It
+  quantifies over interpretations and never needs to know how a value
+  was built — so stating it at value level is not merely adequate but
+  *better*: `TeleFit2` with `AnnotOk2_redex_fits` derives fits from
+  the subject's own invariant with **no runtime walk**, which v1's
+  `TeleFitV`/`TeleS` route cannot.
+* An **index-agreement** guard says "this spine's `i`-th argument is
+  that one". It is irreducibly about *structure*, and by the #107
+  squashing countermodel a bare `V` **has none** — distinct
+  constructor spines interpret to equal values, so no value-side fact
+  recovers a spine. v1 knew this: `IotaIndexPinV` decomposes a
+  `VExpr`, not a `V`.
+
+The failure mode the rule prevents is trying to read one guard's
+residual out of the other's — which is exactly what made
+`IotaIndexPin2` look unstatable at seal 22.
+
+### Seal 24 — route 2 confirmed by supplier check; the three gaps named
+
+**Ruling: route 2, the consumer's own decomposition. Confirmed before
+committing, not assumed.** `iotaRec_inv`
+(`Verify/InferLemmas.lean:823`) exposes **both** pieces the pin needs,
+as conjuncts of its existing output:
+
+* `piResidual (cvj.type.instantiateLevelParams cvj.levelParams usj)
+  major.getAppArgs = some residual` — the residual, **as an `Expr`**;
+* `defEqListP mode env fuel d (residual.getAppArgs.drop ctorParams)
+  ((e.getAppArgs.take mI).drop rP) = .ok true` — the index guard the
+  checker itself runs (`Kernel/Core.lean:1335`).
+
+So the thread is: `residual` decomposes syntactically at `Expr` level
+for free; `denote2_mkAppN_swap` pushes that to the `AVExpr`
+decomposition `IotaIndexPin2` asks for; and the `defEqListP` guard
+plus `DefEqClaims2D` gives the `interp2` equalities between the
+annotations. **No second fit structure, no fallback needed** — and
+note this is also how v1 reaches its own `restC`, which is the
+denotation of the very same checker `residual`. Route 2 is not the
+cheaper option so much as the *faithful* one.
+
+**The three gaps, supplier-named:**
+
+1. **`AVExpr.bvarsBelow` — do not build it.** Precedent:
+   `EnvS2.acval_closed` deliberately avoided adding an `AVExpr.Closed`
+   predicate, because *the lifting equation is what consumers actually
+   rewrite with*. The nested premise's `bvarsBelow rP` should be
+   spelled the same way, off `AVExpr.liftN` (`Annot/Syntax.lean:131`).
+   Needed only if conjunct G is carried.
+2. **`AVExpr.instRevChain` — build it**, in `Annot/Syntax.lean` beside
+   `liftN`/`inst`, as the mechanical transpose of `VExpr.instRevChain`.
+   Pure syntax, no `V`. Needed only if conjunct G is carried.
+3. **The `AnnotOk2` spine-assembly lemma — supplier is
+   `Annot/Spine2.lean`, and it is the one real piece of work.**
+   `Spine2.lean` has only the *elimination* direction
+   (`AnnotOk2 (mkAppN f as) → …`, lines 108 and 139); the map found no
+   factory for the converse, and the converse is *harder* over
+   `interp2` than over `interp`, because `AnnotOk2`'s `.app` clause
+   demands a `piR` package with the codomain-kind side condition where
+   `AnnotOkV`'s demands a plain `piC`. So `TeleFitV.appN_annot`
+   (`AnnotOkV.lean:333`) does **not** transpose directly. Needed by
+   conjunct L in the full transpose.
+
+Gaps 1 and 2 are conditional on a conjunct that may not be carried;
+gap 3 is conditional on the full transpose. **None blocks
+`Denote2InstLevels`**, which proceeds next.
