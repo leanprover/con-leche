@@ -10595,7 +10595,7 @@ def LoopIotaStep (μ : CheckMode) (env : Env)
   ∀ {fc N R f₁ f₂ l₁ l₂ d mI rP : Nat} {n : Name}
     {cv : Setlec.ConstantVal} {rules : List Setlec.RecRule}
     {us us' : List Level} {as bs : List Expr}
-    {u v u' v' r₁ r₂ : Expr},
+    {u v u' v' : Expr},
     LoopBelow μ env Q fc N R →
     f₁ + f₂ ≤ N →
     env.find? n = some (.recInfo cv mI rP rules) →
@@ -10646,6 +10646,561 @@ def LoopProjStep (μ : CheckMode) (env : Env)
     Setlec.whnfLoop (Setlec.pureFns μ env f₂) env d l₂
       (Setlec.Expr.mkAppN (.proj sn i e₂) bs) = .ok v' →
     LoopLockOut μ env Q fc d u v u' v' f₁ f₂
+
+/-- `LoopLockOut` re-bases along reachability prefixes (the pack is
+output-only; the seam and split compose their traces). -/
+theorem LoopLockOut.prepend {μ : CheckMode} {env : Env}
+    {Q : Nat → Expr → Expr → Prop} {fc d : Nat}
+    {u v x₁ x₂ u' v' : Expr} {f₁ f₂ : Nat}
+    (r₁ : LoopReaches μ env d u x₁) (r₂ : LoopReaches μ env d v x₂)
+    (h : LoopLockOut μ env Q fc d x₁ x₂ u' v' f₁ f₂) :
+    LoopLockOut μ env Q fc d u v u' v' f₁ f₂ := by
+  rcases h with hpack | ⟨w₁, w₂, c₁, c₂, l₁, l₂, hb₁, hb₂, hr₁, hr₂,
+      ht₁, ht₂, hsm⟩ |
+    ⟨p₁, p₂, t₁, t₂, g₁, g₂, gn₁, gn₂, o₁, o₂, c₁, c₂, l₁, l₂,
+      hb₁, hb₂, hp₁, hp₂, hrest⟩
+  · exact .inl hpack
+  · exact .inr (.inl ⟨w₁, w₂, c₁, c₂, l₁, l₂, hb₁, hb₂, hr₁, hr₂,
+      r₁.trans ht₁, r₂.trans ht₂, hsm⟩)
+  · exact .inr (.inr ⟨p₁, p₂, t₁, t₂, g₁, g₂, gn₁, gn₂, o₁, o₂,
+      c₁, c₂, l₁, l₂, hb₁, hb₂, r₁.trans hp₁, r₂.trans hp₂, hrest⟩)
+
+/-- A whnfCore output either re-cores to itself at the producing
+fuel, or is dead-stuck (non-const-headed, non-λ, non-sort) — the
+R-a family packaged for the loop walk's stuck sides. -/
+theorem whnfCore_self_or_dead {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) {f d : Nat} {p t : Expr}
+    (h : whnfCore μ env f d p = .ok t) :
+    whnfCore μ env f d t = .ok t ∨
+    ((∀ p' q', t.getAppFn ≠ .const p' q') ∧
+      (∀ n ty b m, t ≠ .lam n ty b m) ∧ (∀ ℓ, t ≠ .sort ℓ)) := by
+  by_cases hc : ∃ n us, t.getAppFn = Setlec.Expr.const n us
+  · obtain ⟨n, us, hhd⟩ := hc
+    exact .inl (whnfCore_reidem_const hm h hhd)
+  · have hpos : 1 ≤ f := whnfCore_pos h
+    cases t with
+    | sort ℓ => exact .inl (whnfCore_sort_run hpos)
+    | lam n ty b m => exact .inl (whnfCore_lam_run hpos)
+    | fvar i n ty => exact .inl (whnfCore_fvar_run hpos)
+    | forallE n ty b m => exact .inl (whnfCore_forallE_run hpos)
+    | lit l => exact .inl (whnfCore_lit_run hpos)
+    | const n us => exact absurd ⟨n, us, rfl⟩ hc
+    | bvar i =>
+      exact .inr ⟨(fun p' q' hh => hc ⟨p', q', hh⟩),
+        (fun _ _ _ _ hh => nomatch hh), (fun _ hh => nomatch hh)⟩
+    | letE n ty v b =>
+      exact .inr ⟨(fun p' q' hh => hc ⟨p', q', hh⟩),
+        (fun _ _ _ _ hh => nomatch hh), (fun _ hh => nomatch hh)⟩
+    | proj sn i pe =>
+      exact .inr ⟨(fun p' q' hh => hc ⟨p', q', hh⟩),
+        (fun _ _ _ _ hh => nomatch hh), (fun _ hh => nomatch hh)⟩
+    | app pf pa =>
+      exact .inr ⟨(fun p' q' hh => hc ⟨p', q', hh⟩),
+        (fun _ _ _ _ hh => nomatch hh), (fun _ hh => nomatch hh)⟩
+
+/-- An unfolding spine's non-app head is a constant (subject-first
+argument order so the head resolves before the shape lambda). -/
+theorem unfold_some_head_of_spine {env : Env} {H x : Expr}
+    {cs : List Expr}
+    (h : Setlec.unfoldDefinition env (Setlec.Expr.mkAppN H cs)
+      = some x)
+    (hne : ∀ p q, H ≠ .app p q) :
+    ∃ n us, H = Setlec.Expr.const n us := by
+  obtain ⟨n, us, hfn⟩ := unfoldDefinition_some_head h
+  rw [Setlec.Expr.getAppFn_mkAppN, getAppFn_of_not_app hne] at hfn
+  exact ⟨n, us, hfn⟩
+
+set_option maxHeartbeats 1600000 in
+/-- **The whnf-loop lockstep** (the frozen statement): a zipped
+pair's loop runs land zipped, or exit at a re-based seam, or split
+at the nat tier.  Double strong induction (knot-fuel sum, then
+loop-budget sum); per step: decompose both sides, coreLock on the
+core parts, recHead/projHead seams unpacked through the routed step
+Props, δ synced by name-determinism or exited at cert layers, nat
+to the progress-marked split. -/
+theorem loopLock {μ : CheckMode} {env : Env}
+    {Q : Nat → Expr → Expr → Prop}
+    (hm : KnotFuelMono μ env)
+    (hIC : InvPreserveCoreF μ env) (hIDl : InvPreserveDeltaF env)
+    (hLC : PairedPreserveCoreF μ env)
+    (hLD : PairedPreserveDeltaF env)
+    (hQC : QPreserveCoreF μ env Q) (hQD : QPreserveDeltaF env Q)
+    (hQB : QPreserveBetaF μ env Q) (hQZ : QPreserveZetaF env Q)
+    (hQH : QPreserveHeadF μ env Q)
+    (hLS : LeavesSubCoreF μ env)
+    (hQs : ∀ {d' : Nat} {a b : Expr}, Q d' a b → Q d' b a)
+    (hQA : QDescendAppF Q)
+    (hIo : LoopIotaStep μ env Q) (hPr : LoopProjStep μ env Q) :
+    ∀ (N R : Nat) {f₁ f₂ l₁ l₂ fc d : Nat} {u v u' v' : Expr},
+      f₁ + f₂ ≤ N → l₁ + l₂ ≤ R →
+      CertZip μ env fc d u v →
+      SubjInv d u → SubjInv d v → PairedLeaves u v → Q d u v →
+      Setlec.whnfLoop (Setlec.pureFns μ env f₁) env d l₁ u
+        = .ok u' →
+      Setlec.whnfLoop (Setlec.pureFns μ env f₂) env d l₂ v
+        = .ok v' →
+      LoopLockOut μ env Q fc d u v u' v' f₁ f₂ := by
+  intro N
+  induction N using Nat.strongRecOn with
+  | ind N IHN =>
+  intro R
+  induction R using Nat.strongRecOn with
+  | ind R IHR =>
+  intro f₁ f₂ l₁ l₂ fc d u v u' v' hN hR hz hIu hIv hP hQ h₁ h₂
+  have below : LoopBelow μ env Q fc N R := by
+    intro f₁' f₂' l₁' l₂' d' u₀ v₀ u₀' v₀' hrel hz' hI₁' hI₂'
+      hp' hq' ha' hb'
+    rcases hrel with hlt | ⟨heq, hlt⟩
+    · exact IHN (f₁' + f₂') hlt (l₁' + l₂') (Nat.le_refl _)
+        (Nat.le_refl _) hz' hI₁' hI₂' hp' hq' ha' hb'
+    · exact IHR (l₁' + l₂') hlt (heq ▸ Nat.le_refl _)
+        (Nat.le_refl _) hz' hI₁' hI₂' hp' hq' ha' hb'
+  cases l₁ with
+  | zero => exact nomatch h₁
+  | succ l₁' =>
+  cases l₂ with
+  | zero => exact nomatch h₂
+  | succ l₂' =>
+  have haD := h₁
+  rw [whnfLoop_succ] at haD
+  obtain ⟨t₁, hwc₁, triA⟩ := whnfStep_decompose haD
+  have hbD := h₂
+  rw [whnfLoop_succ] at hbD
+  obtain ⟨t₂, hwc₂, triB⟩ := whnfStep_decompose hbD
+  have hwc₁' : whnfCore μ env f₁ d u = .ok t₁ := hwc₁
+  have hwc₂' : whnfCore μ env f₂ d v = .ok t₂ := hwc₂
+  have stepA : ∀ {W : Expr},
+      whnfCore μ env f₁ d W = .ok t₁ →
+      Setlec.whnfLoop (Setlec.pureFns μ env f₁) env d (l₁' + 1) W
+        = .ok u' := by
+    intro W hW
+    rw [whnfLoop_succ]
+    rcases triA with ⟨x, hrx, hkx⟩ | ⟨hrn, x, hud, hkx⟩ |
+      ⟨hrn, hud, hstop⟩
+    · exact whnfStep_assemble_nat hW hrx hkx
+    · exact whnfStep_assemble_delta hW hrn hud hkx
+    · rw [hstop]
+      exact whnfStep_assemble_stuck hW hrn hud
+  have stepB : ∀ {W : Expr},
+      whnfCore μ env f₂ d W = .ok t₂ →
+      Setlec.whnfLoop (Setlec.pureFns μ env f₂) env d (l₂' + 1) W
+        = .ok v' := by
+    intro W hW
+    rw [whnfLoop_succ]
+    rcases triB with ⟨x, hrx, hkx⟩ | ⟨hrn, x, hud, hkx⟩ |
+      ⟨hrn, hud, hstop⟩
+    · exact whnfStep_assemble_nat hW hrx hkx
+    · exact whnfStep_assemble_delta hW hrn hud hkx
+    · rw [hstop]
+      exact whnfStep_assemble_stuck hW hrn hud
+  rcases @coreLock μ env Q hm hIC hLC hQC hQB hQZ hQH hLS
+      (fun {d'} {a b} h => hQs h)
+      (fun {d'} {P} {y} {Rz} {z} h => hQA h)
+      (f₁ + f₂) f₁ f₂ fc d u v t₁ t₂
+      (Nat.le_refl _) hz hIu hIv hP hQ hwc₁' hwc₂' with
+    ⟨hzT, hIt₁, hIt₂, hPt, hQt⟩ |
+    ⟨w₁, w₂, c₁, c₂, hcb₁, hcb₂, hr₁, hr₂, ht₁, ht₂, hsm⟩
+  · -- pack: the tri matrix
+    have natOut : ∀ (o₁ o₂ : Option Expr),
+        Setlec.reduceNat (Setlec.pureFns μ env f₁) env d t₁
+          = .ok o₁ →
+        Setlec.reduceNat (Setlec.pureFns μ env f₂) env d t₂
+          = .ok o₂ →
+        (o₁.isSome = true ∨ o₂.isSome = true) →
+        LoopLockOut μ env Q fc d u v u' v' f₁ f₂ :=
+      fun o₁ o₂ hn₁ hn₂ hmark =>
+        .inr (.inr ⟨u, v, t₁, t₂, f₁, f₂, f₁, f₂, o₁, o₂, f₁, f₂,
+          l₁' + 1, l₂' + 1, Nat.le_refl _, Nat.le_refl _,
+          .refl _, .refl _, hzT, hIt₁, hIt₂, hPt, hQt,
+          hwc₁', hwc₂', hn₁, hn₂, hmark, h₁, h₂⟩)
+    rcases triA with ⟨x₁, hrn₁, hk₁⟩ | ⟨hrnn₁, x₁, hux₁, hk₁⟩ |
+      ⟨hrnn₁, hud₁, hstop₁⟩
+    · -- A nat fire
+      rcases triB with ⟨x₂, hrn₂, hk₂⟩ | ⟨hrnn₂, -, -, -⟩ |
+        ⟨hrnn₂, -, -⟩
+      · exact natOut _ _ hrn₁ hrn₂ (.inl rfl)
+      · exact natOut _ _ hrn₁ hrnn₂ (.inl rfl)
+      · exact natOut _ _ hrn₁ hrnn₂ (.inl rfl)
+    · -- A δ
+      rcases triB with ⟨x₂, hrn₂, hk₂⟩ | ⟨hrnn₂, x₂, hux₂, hk₂⟩ |
+        ⟨hrnn₂, hud₂, hstop₂⟩
+      · exact natOut _ _ hrnn₁ hrn₂ (.inr rfl)
+      · -- δδ: classify the zipped pair by the spine view
+        obtain ⟨H₁, H₂, cs, ds, rfl, rfl, hlenv, hargsv, hheadv⟩ :=
+          certZip_app_view hzT
+        have certSeam : H₁.looseBVarsBounded 0 = true →
+            H₂.looseBVarsBounded 0 = true →
+            isDefEqCore μ env fc d H₁ H₂ = .ok true →
+            LoopLockOut μ env Q fc d u v u' v' f₁ f₂ := by
+          intro hba hbb hc
+          obtain ⟨n₁, us₁, hhd₁⟩ := unfoldDefinition_some_head hux₁
+          obtain ⟨n₂', us₂', hhd₂⟩ := unfoldDefinition_some_head hux₂
+          refine .inr (.inl ⟨Setlec.Expr.mkAppN H₁ cs,
+            Setlec.Expr.mkAppN H₂ ds, f₁, f₂, l₁' + 1, l₂' + 1,
+            Nat.le_refl _, Nat.le_refl _,
+            stepA (whnfCore_reidem_const hm hwc₁' hhd₁),
+            stepB (whnfCore_reidem_const hm hwc₂' hhd₂),
+            .core f₁ hwc₁' (.refl _), .core f₂ hwc₂' (.refl _),
+            CoreSeam.certHead H₁ H₂ cs ds hba hbb hc hlenv hargsv⟩)
+        rcases hheadv with ⟨hba, hbb, hc⟩ | ⟨hne₁, hne₂, hzH⟩
+        · exact certSeam hba hbb hc
+        · have deltaConst : ∀ {n : Name} {us us' : List Level},
+              H₁ = .const n us → H₂ = .const n us' →
+              (∀ φ' : Name → Nat,
+                us.map (Level.eval φ') = us'.map (Level.eval φ')) →
+              LoopLockOut μ env Q fc d u v u' v' f₁ f₂ := by
+            intro n us us' he₁ he₂ hev
+            subst he₁; subst he₂
+            have hlen' : us.length = us'.length := by
+              have := congrArg List.length (hev fun _ => 0)
+              simpa using this
+            obtain ⟨cv, value, hxeq, huy', -⟩ :=
+              unfoldDefinition_spine_both (us' := us') (bs := ds)
+                hlen' hux₁
+            subst hxeq
+            have hx₂ := Option.some.inj (hux₂.symm.trans huy')
+            subst hx₂
+            have hzX : CertZip μ env fc d
+                (Setlec.Expr.mkAppN
+                  (Setlec.Expr.instantiateLevelParams
+                    cv.levelParams us value) cs)
+                (Setlec.Expr.mkAppN
+                  (Setlec.Expr.instantiateLevelParams
+                    cv.levelParams us' value) ds) :=
+              certZip_mkAppN_zips (certZip_instantiate hev value)
+                hlenv hargsv
+            have hIx₁ := hIDl hux₁ hIt₁
+            have hIx₂ := hIDl hux₂ hIt₂
+            have hpX := (hLD hux₂ ((hLD hux₁ hPt).symm)).symm
+            have hQX := hQs (hQD hux₂ (hQs (hQD hux₁ hQt)))
+            have hout := below (by omega) hzX hIx₁ hIx₂ hpX hQX
+              hk₁ hk₂
+            exact LoopLockOut.prepend
+              (.core f₁ hwc₁' (.delta hux₁ (.refl _)))
+              (.core f₂ hwc₂' (.delta hux₂ (.refl _))) hout
+          cases hzH with
+          | refl _ =>
+            cases H₁ with
+            | const n us => exact deltaConst rfl rfl (fun φ' => rfl)
+            | app p q => exact absurd rfl (hne₁ p q)
+            | bvar i =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | fvar i n ty =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | sort ℓ0 =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | lam n ty b m =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | forallE n ty b m =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | letE n ty vv b =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | lit l0 =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | proj sn i pe =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+          | constSlack n us us' hev => exact deltaConst rfl rfl hev
+          | cert _ _ hba hbb hc => exact certSeam hba hbb hc
+          | app p₁ q₁ p₂ q₂ hp' hq' => exact absurd rfl (hne₁ p₁ q₁)
+          | sortSlack u₀ v₀ hev =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | fvar i n ty₁' ty₂' hty =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | lam n ty₁' ty₂' b₁' b₂' m hty hbody =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | forallE n ty₁' ty₂' b₁' b₂' m hty hbody =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | letE n ty₁' ty₂' v₁' v₂' b₁' b₂' hty hv hbody =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | proj sn i pe₁ pe₂ he =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+      · -- A δ, B stuck: dead or seam by B's re-core
+        obtain ⟨H₁, H₂, cs, ds, rfl, rfl, hlenv, hargsv, hheadv⟩ :=
+          certZip_app_view hzT
+        subst hstop₂
+        have certSeam : H₁.looseBVarsBounded 0 = true →
+            H₂.looseBVarsBounded 0 = true →
+            isDefEqCore μ env fc d H₁ H₂ = .ok true →
+            LoopLockOut μ env Q fc d u v u'
+              (Setlec.Expr.mkAppN H₂ ds) f₁ f₂ := by
+          intro hba hbb hc
+          obtain ⟨n₁, us₁, hhd₁⟩ := unfoldDefinition_some_head hux₁
+          rcases whnfCore_self_or_dead hm hwc₂' with hS₂ |
+            ⟨hnc, hnl, hns⟩
+          · exact .inr (.inl ⟨Setlec.Expr.mkAppN H₁ cs,
+              Setlec.Expr.mkAppN H₂ ds, f₁, f₂, l₁' + 1, l₂' + 1,
+              Nat.le_refl _, Nat.le_refl _,
+              stepA (whnfCore_reidem_const hm hwc₁' hhd₁),
+              stepB hS₂,
+              .core f₁ hwc₁' (.refl _), .core f₂ hwc₂' (.refl _),
+              CoreSeam.certHead H₁ H₂ cs ds hba hbb hc hlenv
+                hargsv⟩)
+          · exact .inr (.inl ⟨u, v, f₁, f₂, l₁' + 1, l₂' + 1,
+              Nat.le_refl _, Nat.le_refl _, h₁, h₂,
+              .refl _, .refl _,
+              CoreSeam.deadR u v (Setlec.Expr.mkAppN H₂ ds) f₂
+                (fun g hg => hm.2.2.1 hg hwc₂') hnc hnl hns⟩)
+        rcases hheadv with ⟨hba, hbb, hc⟩ | ⟨hne₁, hne₂, hzH⟩
+        · exact certSeam hba hbb hc
+        · have deltaBoth : ∀ {n : Name} {us us' : List Level},
+              H₁ = .const n us → H₂ = .const n us' →
+              (∀ φ' : Name → Nat,
+                us.map (Level.eval φ') = us'.map (Level.eval φ')) →
+              LoopLockOut μ env Q fc d u v u'
+                (Setlec.Expr.mkAppN H₂ ds) f₁ f₂ := by
+            intro n us us' he₁ he₂ hev
+            subst he₁; subst he₂
+            have hlen' : us.length = us'.length := by
+              have := congrArg List.length (hev fun _ => 0)
+              simpa using this
+            obtain ⟨cv, value, -, huy', -⟩ :=
+              unfoldDefinition_spine_both (us' := us') (bs := ds)
+                hlen' hux₁
+            rw [huy'] at hud₂
+            exact nomatch hud₂
+          cases hzH with
+          | refl _ =>
+            cases H₁ with
+            | const n us => exact deltaBoth rfl rfl (fun φ' => rfl)
+            | app p q => exact absurd rfl (hne₁ p q)
+            | bvar i =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | fvar i n ty =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | sort ℓ0 =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | lam n ty b m =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | forallE n ty b m =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | letE n ty vv b =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | lit l0 =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | proj sn i pe =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+          | constSlack n us us' hev => exact deltaBoth rfl rfl hev
+          | cert _ _ hba hbb hc => exact certSeam hba hbb hc
+          | app p₁ q₁ p₂ q₂ hp' hq' => exact absurd rfl (hne₁ p₁ q₁)
+          | sortSlack u₀ v₀ hev =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | fvar i n ty₁' ty₂' hty =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | lam n ty₁' ty₂' b₁' b₂' m hty hbody =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | forallE n ty₁' ty₂' b₁' b₂' m hty hbody =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | letE n ty₁' ty₂' v₁' v₂' b₁' b₂' hty hv hbody =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | proj sn i pe₁ pe₂ he =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₁
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+    · -- A stuck
+      rcases triB with ⟨x₂, hrn₂, hk₂⟩ | ⟨hrnn₂, x₂, hux₂, hk₂⟩ |
+        ⟨hrnn₂, hud₂, hstop₂⟩
+      · exact natOut _ _ hrnn₁ hrn₂ (.inr rfl)
+      · -- A stuck, B δ (mirror)
+        obtain ⟨H₁, H₂, cs, ds, rfl, rfl, hlenv, hargsv, hheadv⟩ :=
+          certZip_app_view hzT
+        subst hstop₁
+        have certSeam : H₁.looseBVarsBounded 0 = true →
+            H₂.looseBVarsBounded 0 = true →
+            isDefEqCore μ env fc d H₁ H₂ = .ok true →
+            LoopLockOut μ env Q fc d u v
+              (Setlec.Expr.mkAppN H₁ cs) v' f₁ f₂ := by
+          intro hba hbb hc
+          obtain ⟨n₂', us₂', hhd₂⟩ := unfoldDefinition_some_head hux₂
+          rcases whnfCore_self_or_dead hm hwc₁' with hS₁ |
+            ⟨hnc, hnl, hns⟩
+          · exact .inr (.inl ⟨Setlec.Expr.mkAppN H₁ cs,
+              Setlec.Expr.mkAppN H₂ ds, f₁, f₂, l₁' + 1, l₂' + 1,
+              Nat.le_refl _, Nat.le_refl _,
+              stepA hS₁,
+              stepB (whnfCore_reidem_const hm hwc₂' hhd₂),
+              .core f₁ hwc₁' (.refl _), .core f₂ hwc₂' (.refl _),
+              CoreSeam.certHead H₁ H₂ cs ds hba hbb hc hlenv
+                hargsv⟩)
+          · exact .inr (.inl ⟨u, v, f₁, f₂, l₁' + 1, l₂' + 1,
+              Nat.le_refl _, Nat.le_refl _, h₁, h₂,
+              .refl _, .refl _,
+              CoreSeam.deadL u v (Setlec.Expr.mkAppN H₁ cs) f₁
+                (fun g hg => hm.2.2.1 hg hwc₁') hnc hnl hns⟩)
+        rcases hheadv with ⟨hba, hbb, hc⟩ | ⟨hne₁, hne₂, hzH⟩
+        · exact certSeam hba hbb hc
+        · have deltaBoth : ∀ {n : Name} {us us' : List Level},
+              H₁ = .const n us → H₂ = .const n us' →
+              (∀ φ' : Name → Nat,
+                us.map (Level.eval φ') = us'.map (Level.eval φ')) →
+              LoopLockOut μ env Q fc d u v
+                (Setlec.Expr.mkAppN H₁ cs) v' f₁ f₂ := by
+            intro n us us' he₁ he₂ hev
+            subst he₁; subst he₂
+            have hlen' : us'.length = us.length := by
+              have := congrArg List.length (hev fun _ => 0)
+              simpa using this.symm
+            obtain ⟨cv, value, -, huy', -⟩ :=
+              unfoldDefinition_spine_both (us' := us) (bs := cs)
+                hlen' hux₂
+            rw [huy'] at hud₁
+            exact nomatch hud₁
+          cases hzH with
+          | refl _ =>
+            cases H₁ with
+            | const n us => exact deltaBoth rfl rfl (fun φ' => rfl)
+            | app p q => exact absurd rfl (hne₁ p q)
+            | bvar i =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | fvar i n ty =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | sort ℓ0 =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | lam n ty b m =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | forallE n ty b m =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | letE n ty vv b =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | lit l0 =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+            | proj sn i pe =>
+              obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+                (fun _ _ h2 => nomatch h2)
+              exact nomatch hh0
+          | constSlack n us us' hev => exact deltaBoth rfl rfl hev
+          | cert _ _ hba hbb hc => exact certSeam hba hbb hc
+          | app p₁ q₁ p₂ q₂ hp' hq' => exact absurd rfl (hne₁ p₁ q₁)
+          | sortSlack u₀ v₀ hev =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | fvar i n ty₁' ty₂' hty =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | lam n ty₁' ty₂' b₁' b₂' m hty hbody =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | forallE n ty₁' ty₂' b₁' b₂' m hty hbody =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | letE n ty₁' ty₂' v₁' v₂' b₁' b₂' hty hv hbody =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+          | proj sn i pe₁ pe₂ he =>
+            obtain ⟨n0, us0, hh0⟩ := unfold_some_head_of_spine hux₂
+              (fun _ _ h2 => nomatch h2)
+            exact nomatch hh0
+      · -- both stuck: pack out
+        subst hstop₁
+        subst hstop₂
+        exact .inl ⟨hzT, hIt₁, hIt₂, hPt, hQt⟩
+  · -- seam from the core step
+    have hIw₁ : SubjInv d w₁ := ht₁.subjInv hIC hLS hIu
+    have hIw₂ : SubjInv d w₂ := ht₂.subjInv hIC hLS hIv
+    have hpw : PairedLeaves w₁ w₂ :=
+      Contracts.pairing hLS ht₁ ht₂ hP
+    have hQw : Q d w₁ w₂ :=
+      hQs (ht₂.q_transport hQB hQZ hQH
+        (hQs (ht₁.q_transport hQB hQZ hQH hQ)))
+    have runA := stepA (hm.2.2.1 hcb₁ hr₁)
+    have runB := stepB (hm.2.2.1 hcb₂ hr₂)
+    cases hsm with
+    | certHead F₁ F₂ as bs hba hbb hc hlen hargs =>
+      exact .inr (.inl ⟨Setlec.Expr.mkAppN F₁ as,
+        Setlec.Expr.mkAppN F₂ bs, f₁, f₂, l₁' + 1, l₂' + 1,
+        Nat.le_refl _, Nat.le_refl _, runA, runB,
+        .contract ht₁ (.refl _), .contract ht₂ (.refl _),
+        CoreSeam.certHead F₁ F₂ as bs hba hbb hc hlen hargs⟩)
+    | recHead n cv mI rP rules us us' as bs hf hev hlen hargs =>
+      exact hIo below hN hf hev hlen hargs hIw₁ hIw₂ hpw hQw
+        (.contract ht₁ (.refl _)) (.contract ht₂ (.refl _))
+        runA runB
+    | projHead sn i pe₁ pe₂ as bs he hlen hargs =>
+      exact hPr below hN he hlen hargs hIw₁ hIw₂ hpw hQw
+        (.contract ht₁ (.refl _)) (.contract ht₂ (.refl _))
+        runA runB
+    | deadL _ _ u'd bnd hrun hnc hnl hns =>
+      exact .inr (.inl ⟨w₁, w₂, f₁, f₂, l₁' + 1, l₂' + 1,
+        Nat.le_refl _, Nat.le_refl _, runA, runB,
+        .contract ht₁ (.refl _), .contract ht₂ (.refl _),
+        CoreSeam.deadL w₁ w₂ u'd bnd hrun hnc hnl hns⟩)
+    | deadR _ _ v'd bnd hrun hnc hnl hns =>
+      exact .inr (.inl ⟨w₁, w₂, f₁, f₂, l₁' + 1, l₂' + 1,
+        Nat.le_refl _, Nat.le_refl _, runA, runB,
+        .contract ht₁ (.refl _), .contract ht₂ (.refl _),
+        CoreSeam.deadR w₁ w₂ v'd bnd hrun hnc hnl hns⟩)
 
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/

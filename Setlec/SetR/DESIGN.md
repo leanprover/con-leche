@@ -11005,3 +11005,48 @@ certHead seam (cert layer) or the one guard-determinism audit;
 mixed δ vs stuck → name-determinism contradiction; any nat some →
 NatSplitOut with the walk's own facts.  Consumers enter at knot
 minus one (`whnf_proj_inv` / `iotaRec_inv` fuels).
+
+### loopLock LANDED (the whnf-loop lockstep, on the frozen statement)
+
+The guard-determinism audit resolved in place: `unfoldDefinition`'s
+only guard is `us.length = cv.levelParams.length`, and eval-linked
+level lists have equal lengths — mixed δ on same-name zipped heads
+is contradictory (`unfoldDefinition_spine_both` supplies the other
+side's fire directly).
+
+The induction, as frozen: double `Nat.strongRecOn` (knot-fuel sum,
+then loop-budget sum); `LoopBelow` assembled from the two IHs; per
+step both sides decomposed, coreLock on the core parts.
+* **Pack** → the tri matrix: any nat fire → the progress-marked
+  `NatSplitOut` with the walk's own facts (one uniform builder);
+  δδ → `certZip_app_view`: cert layer → certHead seam with runs
+  re-assembled through `whnfCore_reidem_const` (δ-fires force const
+  heads — the R-a family again), const heads → `spine_both` +
+  δ-preserver transports + `below` at the loop decrease +
+  `LoopLockOut.prepend`; other heads refute the fire (new
+  subject-first `unfold_some_head_of_spine`, replacing 42
+  meta-trapped contradiction arms with a two-liner each);
+  δ×stuck → new **`whnfCore_self_or_dead`** (a whnfCore output
+  re-cores to itself — const-headed via reidem, values via the
+  landed value-run family — or is dead-shaped): self → certHead
+  seam, dead → `deadL/deadR` at the raw subjects (the strLit-corner
+  absorption, once more); mixed δ at same-name heads →
+  contradiction; both stuck → pack out.
+* **Seam** → carrier transports (`Contracts` embeds into
+  `LoopReaches.contract`), runs re-assembled at the premise fuels
+  via the coreLock bounds; certHead/deadL/deadR pass through
+  re-based; **recHead → `hIo`**, **projHead → `hPr`** (the
+  unpacking, exactly as mapped).
+
+Deviations from the frozen hypothesis list, recorded: `hB` never
+entered (no sort premise exists here, so `NatStepNoSort` has no
+site) and the three nat preservers (`hIN`/`hLN`/`hQN`) dropped —
+the nat tier exits as the split BEFORE any nat step is taken, so
+nothing transports across one.  The nat preservers remain the
+CONSUMERS' business (they hold sort premises and walk the split's
+suffix runs).
+
+Next: the proj/iota discharges ride loopLock (`LoopProjStep` /
+`LoopIotaStep`, each at its own seal with its own pre-build map —
+iota's includes the leg-local infer-lockstep lemmas for the K/eta
+rescue rows); then Θ's dedicated read-phase arc.
