@@ -11557,3 +11557,65 @@ iota-major conversions (`ProjSplitSortAgree`,
 suppliers (projFire trio + FrameQ family), the install facts
 (`StoredWF`, `BoolCtorsInert`, (E)), and the (B) type-form map.
 Θ's read phase opens next per the approved sequence.
+
+### Θ's read phase COMPLETE — the map (the arc's most consequential)
+
+**Read findings** (defeqStep in full; `PostCoreCert` +
+`defeqStep_decompose` in full; certLoop's arm handling; the
+(C)/`SortCohAt`/`SortSubstStable` status):
+
+1. **`PostCoreCert` is the complete certifying-path taxonomy** —
+   22 constructors; the binder arms (`piCong`/`lamCong`) carry the
+   fvar-OPENED body runs at `d+1`, each side opened with ITS OWN
+   annotation (`.fvar d n₁ ty₁` vs `.fvar d n₂ ty₂` — the
+   `PairedLeaves` discipline's origin, read off the kernel code),
+   and the opened certs run at the KNOT'S OWN fuel — one cert
+   level down (`fc − 1`): the Θ-recursion's measure is the
+   fc-descent, exactly `ZipBelowFc`'s shape.
+2. **The (A)-template consumes NO binder apparatus**: certLoop's
+   piCong/lamCong/appCong/eta/proj/fvar/const arms are all vacuous
+   by `loop_stuck_out` (the subject's own sort-loop refutes stuck
+   shapes).  The opened-body runs go unconsumed everywhere so far —
+   Θ is their first and only consumer.
+3. **TRAP RECORDED: the ceilinged `SortCohAt` family is UNCLOSED.**
+   The structure bundling the five At-claims (including both (C)
+   claims and `SortSubstStable`'s machinery) is consumed by four
+   `_of_at` theorems but constructed NOWHERE — it is the OLD route
+   that hit the defeq-branch wall (the ceiling-measure STOP), which
+   the zip tier replaced.  Θ's discharge must not lean on the (C)
+   claims or `SortSubstStable`; the substitution simulation must be
+   built zip-side.  (`PremiseLadder` holds the refuted semantic
+   forms — consistent.)
+
+**The Θ design (the binder-opening motive, concretized)**: one walk
+serves all four docket items.  Its induction is certLoop's
+(defeq-loop budget, then the fc-descent at opened certs), its
+subject GENERALIZED to a **substitution telescope**: a pair of
+spines over cert-related cores under a stack of pending
+substitutions — per opened index, the argument pair (zipped), the
+domain cert (at `fc − 1`), and the annotation pair.  The walk
+mirrors the subject loops' steps against the run's `PostCoreCert`
+arms:
+* `lamCong` + β-legs → PUSH onto the telescope (the opened-body
+  cert at `fc − 1` is the next round's core; measure = fc), the
+  loops' instantiated continuations tracked against the opened
+  forms through the telescope;
+* `spine`/`appCong`/`consts` arms → the same-head congruence
+  data feeds the landed spine machinery (deltaSpine pattern);
+* `deltaL/R/B` → name-determinism (`spine_both`) or re-entry at
+  the loop budget; `natL/R` → `NatStepNoSort` under sort premises;
+* `irrel`/eta/`stuckIrrel`-family arms → the landed vacuity trio;
+* the fvar-leaf reads inside opened zones resolve through the
+  telescope's annotation pairs ((A) on the annotation pair at the
+  leaf — the record's motive, now with (A) DISCHARGED to feed it).
+The three split conversions (`ProjSplitSortAgree` — walk the
+scrutinee cert; `IotaMajorSortAgree` — walk the major cert +
+the local K-row algebra; nat splits at the tops) and
+`EtaRescueSortAgree` (the infer-lockstep row) consume the SAME
+walk at telescope depth zero — the shared machinery is the walk
+itself.
+
+**Arc order**: the telescope datatype + the walk's statement (one
+seal, full pre-build treatment with the trap-list above), the walk
+(the induction, likely several seals at knot-natural boundaries),
+then the four docket discharges as consumers.
