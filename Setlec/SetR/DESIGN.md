@@ -11208,3 +11208,38 @@ Also landed: `mkAppN_ne_lam` (the value-shape family's last gap)
 and `QDescendProjF` (the descent family's second member, foreseen
 at the build map — `FrameQ` is per-side structural).  Next: the
 LoopProjStep discharge proper on the complete kit.
+
+### FINDING at the discharge: ProjSplitOut's pack midsection is too strong — the split must nest the scrutinee-level out
+
+Walking the discharge against the below-call's actual outcomes:
+
+* **Banked first**: scrutinee-level DEAD seams are refuted by the
+  fire itself (a dead-shaped scrutinee whnf output is non-const-
+  headed, but the fire pins `e₃`'s head to the entry's constructor
+  — in the identity `projLit` case they collide), and the
+  refl-strLit path needs NO Q and NO coreLock (shared expansion ⇒
+  det-equal `e₃`, det-equal fields — the Q-reflexivity gap never
+  opens).  The id-id sync path needs one more descent species —
+  **`QDescendArgF`** (the argument-side app descent; `FrameQ`
+  per-side structural, same supplier family as `QDescendAppF`).
+* **The finding**: when the scrutinee recursion returns a SEAM or a
+  SPLIT (not a pack), both fires can still hold — and
+  `ProjSplitOut`'s midsection demands the PACK's fields
+  (`CertZip w₁ w₂ ∧ SubjInv ∧ … ∧ Q`), which those arms cannot
+  supply.  The mid-state data they DO supply (scrutinee-level
+  seams with their own connecting runs, or nested splits) is
+  exactly what the Θ-consumer wants — richer than the pack — but
+  the split as sealed cannot carry it.
+
+**The repair (ratification requested)**: `LoopLockOut` becomes a
+Prop-valued INDUCTIVE (strictly positive throughout), with the
+proj-split constructor nesting the SCRUTINEE-LEVEL
+`LoopLockOut e₁ e₂ w₁ w₂ g₁ g₂` in place of the pack midsection —
+the self-similar shape: the split hands the Θ-consumer whatever
+the scrutinee analysis produced (pack, seam, nat split, or a
+nested proj split), and the discharge FORWARDS the below-out
+instead of destructing it.  Pack/seam/nat-split constructors keep
+their exact current payloads (mechanical re-nesting for the landed
+loopLock and prepend); the iota split, when shaped at its map
+seal, nests the MAJOR-level out the same way — the two channels
+stay parallel by construction.
