@@ -16277,3 +16277,59 @@ before.**
 tested at the exact witness that refuted the original — and should be,
 because that is the one case where the old and new shapes are known to
 differ.*
+
+### Seal 37 — the keys' statements, and a cross-lane hypothesis with a landing date
+
+`Interp2/Keys2.lean`. The last statement work before the fourteen's
+swap, written against `EnvS2U` and stated **enabler first**, because
+the survey established the keys are not the bottleneck.
+
+**`Denote2EnvExtend` is the enabler**: `denote2` is stable under
+environment extension. It is an **equation between two runs**, not an
+implication, for the same reason `denote2_acval_congr` is one — an
+install must not be able to assume silently that an annotation exists
+on one side and not the other.
+
+**`InferOutputBound` is the cross-lane hypothesis, and it now has a
+landing date rather than a believer.** Seal 35 asked the Θ lane to
+expose a fact its own discharge already held; **that lane has landed
+the amendment** — `EnvExtendStable`'s `inferTypeCore` conjunct now
+also concludes `ConstsBound env₀` of the output type, a pure
+strengthening with no consumers affected. So the definition here is
+**scheduled for deletion, not for proof**: when the amendment reaches
+master, every use is replaced by the conjunct and the `def` goes.
+
+*Naming a cross-lane dependency instead of assuming it is what turned
+a Step2-quarter-sized build into a one-conjunct amendment on someone
+else's branch.*
+
+#### The keys, stated cheapest-first
+
+`ReducePin2`, `MemberBlock2` (the block `MemberKeyS` and
+`StdAxiomKeyS` share — the survey found them to be the same
+three-part per-`ψ` obligation), and `DeclStep2`. Every *premise* of
+every key is already V-free, checked at each definition site, so the
+hypothesis sides are reused verbatim and not restated.
+
+**`ReducePin2` takes no `μ`** — value-level throughout, like
+`DivModV2`, so it cannot reintroduce the `μ.verified` premise seal 10
+withdrew. Second time an unused binder dropped rather than
+underscored has surfaced that.
+
+#### The three sweeps, and the one honest gap
+
+1. **Smallest fuel.** Only `MemberBlock2` asserts a `denote2` success,
+   and it carries the existential slack for a checked reason: **every
+   standard axiom's type and every block member's type is a `∀`**, and
+   `denote2_one_forallE` is `none` at fuel `1`, so a caller-chosen `F`
+   would make it **false** — exactly as it made `EnvS2.acval_defn`'s
+   original form false at STOP 2. Same repair, reused.
+2. **Vacuity — and here is the gap, recorded rather than discovered
+   later.** `ReducePin2` and `MemberBlock2` inherit premises from v1
+   keys discharged today, so those are inhabited. **`DeclStep2` is
+   `Nonempty (EnvS2U V env₂)`, and the only exhibited inhabitant of
+   `EnvS2U` is `EnvS2U.empty`.** That is precisely the shape of every
+   earlier vacuity failure in this arc — `EnvS2.empty` masked a false
+   field for four seals. **Closing it by building an `EnvS2U` at a
+   non-empty environment is the batch's first job.**
+3. **Tombstones.** A file added, none edited; tree green at 335 jobs.
