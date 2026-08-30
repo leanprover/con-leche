@@ -11390,3 +11390,20 @@ mechanically (refl at direct sites; `Nat.le_succ_of_le`/`le_trans`
 at pass-throughs; budget-mono never needed).  Third instance of
 the same lesson: EVERY run a pack ships must ship with its fuel
 bounds, knot AND budget, from the start.
+
+### The budget-index surgery LANDED (the ratified third-bounds amendment)
+
+`LoopLockOut` now carries the two budget indices; the seam and both
+splits bound their shipped runs' budgets against them (`lc ≤ l`
+beside `c ≤ f`); `LoopBelow`, both step Props, loopLock, and both
+step discharges re-thread.  New **`LoopLockOut.mono_budget`**
+(budget slots weaken upward; bounds compose, pack and nested out
+untouched) serves the recursion-return sites — the δδ branch now
+prepends THEN budget-weakens by one, exactly the `le_succ` shape
+the finding predicted.  The projSplit constructor also gained the
+nested out's own budget slots (`gl₁ gl₂` — the scrutinee analysis'
+run budgets, unbounded against the outer loop: whnf-internal
+budgets are unrelated to it).  All direct sites bound by `le_refl`,
+recursion sites by the weakening — the invariant held everywhere,
+now recorded everywhere.  Design axiom restated: every run a pack
+ships, ships with BOTH fuel bounds from the start.
