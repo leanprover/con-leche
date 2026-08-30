@@ -14549,3 +14549,52 @@ quarter, concurrently — because every one of the three refuted
 generations was refuted by a *consumer*, never by inspection, and
 sequential discharge would find the same defects one at a time after
 the statement had already been built on.
+
+### Seal 15 — the three missing `interp2` environment laws, stated and queued
+
+`Interp2/EnvLaws2.lean`. Seal 12's finding turned into statements:
+`NatOpsV2`, `RecRulesV2`, `ProjPairV2` — the suppliers for
+`ReduceNatStep2`, `IotaStep2B` and `ProjStep2B`, which are blocked on
+**laws that do not exist**, not on proofs.
+
+**Stated as first drafts, and labelled as such in the file.** They are
+deliberately *not* wired into `EnvS2`. This campaign's evidence is
+that a statement is validated by the consumer that discharges it —
+three `Claims2` generations were refuted, every one by a consumer,
+never by inspection — so each law is derived from what its residue
+visibly needs, with the v1 sentence as the guide, and each is expected
+to move before adoption. The path is the one `AcvalParams2` took:
+`Prop` here, diagnosed by its consumer, promoted to an `EnvS2` field
+when the install tier can establish it. **T5: every one names its
+install-tier supplier in its docstring**, and in each case it is an
+existing `EnvS.cons` obligation (`hheadNat`, `hheadRec`,
+`hheadProj`/`hheadProjPair`).
+
+**The trap-check applied in advance.** Each law asserts a `denote2`
+success as a conclusion, and a recursor RHS or a `Nat` equation may
+carry a binder — so all three are stated with the existential fuel
+slack seals 7 and 12 established, never at a caller-chosen fuel. Seal
+11's caveat stands: passing this check is not a clean bill of health.
+
+**One of the three is honestly weaker than the others**, and the file
+says so. `ProjPairV2` has **no v1 sentence to transpose** — v1's
+`ProjOkT` is purely syntactic and says nothing semantic — so it is
+derived from the consumer alone. Its scope is the *native* pair only,
+per the standing `proj-unification-limits` finding that modeled types
+can never get first-class `.proj`.
+
+**Ordering the evidence suggests**, recorded in the file:
+
+1. **`Denote2InstLevels` first.** `RecRulesV2` takes its RHS at
+   `instantiateLevelParams`, so it meets seal 12's open metatheorem
+   head-on — the *same* crossing that blocks the delta exit. Settling
+   it once serves both, and seal 12 recorded a live doubt that it is
+   true at all (`piResultIsProp`/`piResultNeverZero` make a run
+   level-sensitive). **If it is false, `RecRulesV2` as drafted is the
+   wrong statement**, which is precisely why it goes first.
+2. `NatOpsV2` — most complete v1 counterpart, supplier obligation
+   already exists.
+3. `ProjPairV2` — least settled.
+
+These three join the five install keys and `MemberKeyS` as the
+install-tier campaign.
