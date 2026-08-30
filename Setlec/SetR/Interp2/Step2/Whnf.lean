@@ -1,6 +1,7 @@
 import Setlec.SetR.Interp2.Step2.Loop
 import Setlec.SetR.Interp2.Step2.Levels
 import Setlec.SetR.Interp2.Claims2B
+import Setlec.SetR.Interp2.Claims2C
 import Setlec.SetR.Bridge.WhnfCore
 
 /-!
@@ -1986,5 +1987,648 @@ theorem betaCert2P_of_claims (m : EnvS2 V env) {fuel : Nat}
   have heq := ihd hde hwta hbta hLta hwty hbty hLty hCta hCty hta'
     (denote2_fuelMono hle d ty htya) ρ hρ hokta hoktya
   exact heq ▸ (hcon ρ hρ).2
+
+/-! # Generation four — the grading hoisted above `ρ`
+
+`Interp2/Claims2C.lean`.  The subject's `AnnotOk2` becomes a
+**ρ-uniform premise** and the reduct's a **ρ-uniform conclusion**; the
+`interp2` equality stays per-valuation.  The `…B` lane above is the
+tombstone and stays exactly as it is.
+
+## What the hoist costs this quarter: nothing, and the reason is
+structural
+
+`whnfCore` **never opens a binder**.  `.forallE` and `.lam` are among
+its six leaf cases, so `Δa` is a *constant* through every clause and
+every loop iteration of this quarter — the extended-context pair that
+`AnnotOk2.hoist_pi`/`hoist_lam` deliver is never asked for here.  What
+each clause needs instead is the node fact's **component** at the same
+`Δa`: `AnnotOk2_app.1` at `.app`, `AnnotOk2_zeta.2` at `.letE`,
+`AnnotOk2_beta_*.2` at the redex.  Each of those is already a
+pointwise implication, so pushing it under a `∀ ρ` is `fun ρ hρ => …`.
+
+*So the hoist is free exactly where the recursion does not change the
+context, and `hoist_pi`/`hoist_lam` are the price of the sites that
+do — which are the congruences, not this quarter.*  Recorded because
+"the tool provided was not needed" is a fact about where the
+generation's cost actually falls, and the junction asked for it.
+
+## The one place it is not bookkeeping
+
+The **β kind-`0`** branch.  Its supplier `AnnotOk2_beta_zero` needs
+`interp2 ρ aa ∈ˢ interp2 ρ tya` at the ρ it is applied at, and
+`BetaCert2`'s conclusion is already ρ-uniform — so the branch survives
+unchanged.  `BetaCert2P`, the *composition* that would discharge it,
+does not: its `AnnotOk2 ρ tya` premise sits under the `∀ ρ` and
+`InferClaims2C`'s output is above it.  `BetaCert2PC` below is that
+premise hoisted, and the hoist **removes** a residue rather than
+adding one (`TypeOk2`; see there). -/
+
+/-- Equalities compose per valuation; the invariant does not travel
+with them, because in the hoisted currency it is carried separately
+and uniformly. -/
+theorem interp2C_trans {Δa : List AVExpr} {a b c : AVExpr}
+    (h1 : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ a = interp2 V ρ b)
+    (h2 : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ b = interp2 V ρ c) :
+    ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ a = interp2 V ρ c :=
+  fun ρ hρ => (h1 ρ hρ).trans (h2 ρ hρ)
+
+/-- **A `…B`-shaped graded step is stronger than a `…C`-shaped one.**
+Given the subject's `AnnotOk2` ρ-uniformly, a per-valuation graded
+conclusion splits into the two ρ-uniform components.  This is the one
+line that says every `…B` residue still serves the hoisted lane, so
+the `…C` residues below are *weakenings* of statements their suppliers
+were already asked for and nothing was made harder. -/
+theorem step2C_of_graded {Δa : List AVExpr} {ea ea' : AVExpr}
+    (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea)
+    (hD : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea →
+      interp2 V ρ ea = interp2 V ρ ea' ∧ AnnotOk2 V ρ ea') :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea = interp2 V ρ ea' :=
+  ⟨fun ρ hρ => (hD ρ hρ (hok ρ hρ)).2,
+    fun ρ hρ => (hD ρ hρ (hok ρ hρ)).1⟩
+
+/-! ## The routed obligations, hoisted
+
+Three of the six move; three do not, and which is which is decided by
+one question — *does the residue mention `AnnotOk2` at all?*
+
+* `Delta2B` and `Denote2Inst1B` are pure `denote2` statements and are
+  **reused verbatim**;
+* `BetaCert2` concludes a membership under a `∀ ρ` and reads no
+  `AnnotOk2`, so it is **reused verbatim** too;
+* `IotaStep2B`, `ProjStep2B` and `ReduceNatStep2` all carry the graded
+  step, and their hoisted forms are below, each with the `toC` bridge
+  proving the existing residue implies it. -/
+
+/-- `IotaStep2B`, hoisted. -/
+def IotaStep2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e e'' : Expr} {Δa : List AVExpr},
+    iotaRecP μ env fuel d e = .ok (some e'') →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e →
+    ∀ {F : Nat} {ea : AVExpr},
+      denote2 μ m.acval env φ F d e = some ea →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) →
+      ∃ F' ea', F ≤ F' ∧
+        denote2 μ m.acval env φ F' d e'' = some ea' ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ →
+          interp2 V ρ ea = interp2 V ρ ea') ∧
+        Expr.WScoped d e'' ∧ e''.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded e'' ∧
+        CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e''
+
+theorem IotaStep2B.toC {m : EnvS2 V env} {fuel : Nat}
+    (h : IotaStep2B μ m φ fuel) : IotaStep2C μ m φ fuel := by
+  intro d e e'' Δa hio hws hb hLb hC F ea hea hok
+  obtain ⟨F', ea', hle, hea', hD, hf⟩ := h hio hws hb hLb hC hea
+  exact ⟨F', ea', hle, hea', (step2C_of_graded hok hD).1,
+    (step2C_of_graded hok hD).2, hf⟩
+
+/-- `ProjStep2B`, hoisted. -/
+def ProjStep2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {sn : Name} {i : Nat} {pe e' : Expr}
+    {Δa : List AVExpr},
+    whnfCore μ env (fuel + 1) d (.proj sn i pe) = .ok e' →
+    Expr.WScoped d (.proj sn i pe) →
+    (Expr.proj sn i pe).looseBVarsBounded 0 = true →
+    Expr.LeavesBounded (.proj sn i pe) →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase)
+      (.proj sn i pe) →
+    ∀ {F : Nat} {ea : AVExpr},
+      denote2 μ m.acval env φ F d (.proj sn i pe) = some ea →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) →
+      ∃ F' ea', F ≤ F' ∧
+        denote2 μ m.acval env φ F' d e' = some ea' ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+        ∀ ρ : Nat → V, Sat2 V Δa ρ →
+          interp2 V ρ ea = interp2 V ρ ea'
+
+theorem ProjStep2B.toC {m : EnvS2 V env} {fuel : Nat}
+    (h : ProjStep2B μ m φ fuel) : ProjStep2C μ m φ fuel := by
+  intro d sn i pe e' Δa hr hws hb hLb hC F ea hea hok
+  obtain ⟨F', ea', hle, hea', hD⟩ := h hr hws hb hLb hC hea
+  exact ⟨F', ea', hle, hea', (step2C_of_graded hok hD).1,
+    (step2C_of_graded hok hD).2⟩
+
+/-- `ReduceNatStep2`, hoisted.  The fuel still does not move
+(`natOpResult_leaf`); only the grading does. -/
+def ReduceNatStep2C (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e e₂ : Expr} {Δa : List AVExpr},
+    reduceNatP μ env fuel d e = .ok (some e₂) →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e →
+    ∀ {F : Nat} {ea : AVExpr},
+      denote2 μ m.acval env φ F d e = some ea →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) →
+      ∃ ea', denote2 μ m.acval env φ F d e₂ = some ea' ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ →
+          interp2 V ρ ea = interp2 V ρ ea') ∧
+        Expr.WScoped d e₂ ∧ e₂.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded e₂ ∧
+        CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e₂
+
+theorem ReduceNatStep2.toC {m : EnvS2 V env} {fuel : Nat}
+    (h : ReduceNatStep2 μ m φ fuel) : ReduceNatStep2C μ m φ fuel := by
+  intro d e e₂ Δa hrn hws hb hLb hC F ea hea hok
+  obtain ⟨ea', hea', hD, hf⟩ := h hrn hws hb hLb hC hea
+  exact ⟨ea', hea', (step2C_of_graded hok hD).1,
+    (step2C_of_graded hok hD).2, hf⟩
+
+/-! ## The nine cases, hoisted -/
+
+/-- `whnfCore_package2B`, hoisted: the reduct's uniform invariant, its
+per-valuation equality, and the frame conditions. -/
+theorem whnfCore_package2C (m : EnvS2 V env) {fuel d F : Nat}
+    {Δa : List AVExpr} {a a' : Expr} {aa : AVExpr}
+    (ihwc : WhnfCoreClaims2C μ m φ fuel)
+    (hw : whnfCore μ env fuel d a = .ok a')
+    (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded a)
+    (hC : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a)
+    (haa : denote2 μ m.acval env φ F d a = some aa)
+    (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ aa) :
+    ∃ F' aa', F ≤ F' ∧
+      denote2 μ m.acval env φ F' d a' = some aa' ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ aa') ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ aa = interp2 V ρ aa') ∧
+      Expr.WScoped d a' ∧ a'.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded a' ∧
+      CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a' := by
+  obtain ⟨F', aa', hle, haa', hok', heq⟩ :=
+    ihwc hw hws hb hLb hC haa hok
+  exact ⟨F', aa', hle, haa', hok', heq,
+    whnfCore_WScoped m.base.wf fuel hw hws,
+    whnfCore_looseBVars m.base.wf fuel hw hb,
+    fun l hl => hLb l (whnfCore_fvarLeaves m.base.wf fuel hw l hl),
+    CtxOkR.of_subset (whnfCore_fvarLeaves m.base.wf fuel hw) hC⟩
+
+/-- **The ζ clause, hoisted.**  Free: `AnnotOk2_zeta` is a pointwise
+implication, so its second conjunct pushes under the `∀ ρ` verbatim
+and its first is the equality's left half. -/
+theorem whnfCore_letE_claim2C (m : EnvS2 V env) {fuel : Nat}
+    (hinst : Denote2Inst1B μ m.acval env φ)
+    (ihwc : WhnfCoreClaims2C μ m φ fuel)
+    {d : Nat} {nn : Name} {tt vv bb e' : Expr} {Δa : List AVExpr}
+    (h : whnfCore μ env (fuel + 1) d (.letE nn tt vv bb) = .ok e')
+    (hws : Expr.WScoped d (.letE nn tt vv bb))
+    (hb : (Expr.letE nn tt vv bb).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.letE nn tt vv bb))
+    (hC : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase)
+      (.letE nn tt vv bb))
+    {F : Nat} {ea : AVExpr}
+    (hea : denote2 μ m.acval env φ F d (.letE nn tt vv bb)
+      = some ea)
+    (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) :
+    ∃ F' ea', F ≤ F' ∧
+      denote2 μ m.acval env φ F' d e' = some ea' ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea = interp2 V ρ ea' := by
+  rw [Setlec.whnfCore_succ] at h
+  simp only [Setlec.whnfCoreBody, Setlec.whnfCore_def] at h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  rw [denote2] at hea
+  rcases hta : denote2 μ m.acval env φ F d tt with _ | ta
+  · rw [hta] at hea; exact nomatch hea
+  rw [hta] at hea
+  rcases hva : denote2 μ m.acval env φ F d vv with _ | va
+  · rw [hva] at hea; exact nomatch hea
+  rw [hva] at hea
+  rcases hba : denote2 μ m.acval env φ F (d + 1)
+      (bb.instantiate1 (.fvar d nn tt)) with _ | ba
+  · rw [hba] at hea; exact nomatch hea
+  rw [hba] at hea
+  obtain rfl : ea = .letE ta va ba := (Option.some.inj hea).symm
+  have hwred : Expr.WScoped d (bb.instantiate1 vv) :=
+    Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2
+  have hbred : (bb.instantiate1 vv).looseBVarsBounded 0 = true :=
+    Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2
+  have hLred : Expr.LeavesBounded (bb.instantiate1 vv) :=
+    fun l hl => by
+      rcases Expr.fvarLeaves_instantiate1 bb 0 hl with h2 | h2
+      · exact hLb l (by simp [Expr.fvarLeaves, h2])
+      · exact hLb l (by simp [Expr.fvarLeaves, h2])
+  have hCred : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase)
+      (bb.instantiate1 vv) := by
+    refine ⟨hC.1, fun l hl => ?_⟩
+    rcases Expr.fvarLeaves_instantiate1 bb 0 hl with h2 | h2
+    · exact hC.2 l (by simp [Expr.fvarLeaves, h2])
+    · exact hC.2 l (by simp [Expr.fvarLeaves, h2])
+  obtain ⟨F₁, hle₁, hred⟩ := hinst hta hva hba
+  obtain ⟨F₂, ea', hle₂, hea', hok', heq'⟩ :=
+    ihwc h hwred hbred hLred hCred hred
+      (fun ρ hρ => (AnnotOk2_zeta V (hok ρ hρ)).2)
+  exact ⟨F₂, ea', Nat.le_trans hle₁ hle₂, hea', hok',
+    fun ρ hρ => ((AnnotOk2_zeta V (hok ρ hρ)).1).trans (heq' ρ hρ)⟩
+
+/-- **The `.app` clause, hoisted.**  The head's own reduction is the
+only recursive call whose subject fact has to be manufactured, and
+`AnnotOk2_app`'s first conjunct manufactures it pointwise.  The three
+sub-cases then differ only in how the reduct's uniform invariant is
+obtained: from `AnnotOk2_beta_*` (β), from `IotaStep2C` (ι), or not at
+all (stuck). -/
+theorem whnfCore_app_claim2C (m : EnvS2 V env) {fuel : Nat}
+    (hinst : Denote2Inst1B μ m.acval env φ)
+    (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2C μ m φ fuel)
+    (ihwc : WhnfCoreClaims2C μ m φ fuel)
+    {d : Nat} {f a e' : Expr} {Δa : List AVExpr}
+    (h : whnfCore μ env (fuel + 1) d (.app f a) = .ok e')
+    (hws : Expr.WScoped d (.app f a))
+    (hb : (Expr.app f a).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.app f a))
+    (hC : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase)
+      (.app f a))
+    {F : Nat} {ea : AVExpr}
+    (hea : denote2 μ m.acval env φ F d (.app f a) = some ea)
+    (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) :
+    ∃ F' ea', F ≤ F' ∧
+      denote2 μ m.acval env φ F' d e' = some ea' ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea = interp2 V ρ ea' := by
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLf : Expr.LeavesBounded f := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLa : Expr.LeavesBounded a := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hCf : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) f :=
+    CtxOkR.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hC
+  have hCa : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a :=
+    CtxOkR.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hC
+  rw [denote2] at hea
+  rcases hfa : denote2 μ m.acval env φ F d f with _ | fa
+  · rw [hfa] at hea; exact nomatch hea
+  rw [hfa] at hea
+  rcases haa : denote2 μ m.acval env φ F d a with _ | aa
+  · rw [haa] at hea; exact nomatch hea
+  rw [haa] at hea
+  obtain rfl : ea = .app fa aa := (Option.some.inj hea).symm
+  have hokf : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ fa := by
+    intro ρ hρ
+    have hx := hok ρ hρ
+    rw [AnnotOk2_app] at hx
+    exact hx.1
+  obtain ⟨f', hwf, hcase⟩ := Setlec.whnf_app_inv h
+  obtain ⟨F₁, fa', hle₁, hfa', hokf', heqf, hwf', hbf', hLf',
+    hCf'⟩ :=
+    whnfCore_package2C m ihwc hwf hws.1 hb.1 hLf hCf hfa hokf
+  have haa₁ : denote2 μ m.acval env φ F₁ d a = some aa :=
+    denote2_fuelMono hle₁ d a haa
+  have hiapp : denote2 μ m.acval env φ F₁ d (.app f' a)
+      = some (.app fa' aa) := by rw [denote2, hfa', haa₁]; rfl
+  have hokapp : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      AnnotOk2 V ρ (.app fa' aa) := by
+    intro ρ hρ
+    have hx := hok ρ hρ
+    rw [AnnotOk2_app] at hx
+    obtain ⟨-, hoka, v', A, B, h1, h2, h3⟩ := hx
+    rw [AnnotOk2_app]
+    exact ⟨hokf' ρ hρ, hoka, v', A, B, (heqf ρ hρ) ▸ h1, h2, h3⟩
+  have heqapp : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ (.app fa aa) = interp2 V ρ (.app fa' aa) := by
+    intro ρ hρ
+    rw [interp2_app, interp2_app, heqf ρ hρ]
+  have hwapp : Expr.WScoped d (.app f' a) := by
+    simp only [Expr.WScoped]; exact ⟨hwf', hws.2⟩
+  have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨hbf', hb.2⟩
+  have hLapp : Expr.LeavesBounded (.app f' a) := fun l hl => by
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact hLf' l hl
+    · exact hLa l hl
+  have hCapp : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase)
+      (.app f' a) := by
+    refine ⟨hC.1, fun l hl => ?_⟩
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact hCf'.2 l hl
+    · exact hCa.2 l hl
+  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, ta, hta, hde⟩ |
+    ⟨e'', hio, hwe''⟩ | rfl
+  · -- β
+    rw [denote2] at hfa'
+    rcases htya : denote2 μ m.acval env φ F₁ d ty with _ | tya
+    · rw [htya] at hfa'; exact nomatch hfa'
+    rw [htya] at hfa'
+    rcases hbb : denote2 μ m.acval env φ F₁ (d + 1)
+        (body.instantiate1 (.fvar d n ty)) with _ | ba
+    · rw [hbb] at hfa'; exact nomatch hfa'
+    rw [hbb] at hfa'
+    rcases hkind : lamSortE μ env φ F₁ (d + 1)
+        (body.instantiate1 (.fvar d n ty)) with _ | v
+    · rw [hkind] at hfa'; exact nomatch hfa'
+    rw [hkind] at hfa'
+    obtain rfl : fa' = .lam v tya ba := (Option.some.inj hfa').symm
+    simp only [Expr.WScoped] at hwf'
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbf'
+    have hLty : Expr.LeavesBounded ty := fun l hl =>
+      hLf' l (by simp [Expr.fvarLeaves, hl])
+    have hCty : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase)
+        ty :=
+      CtxOkR.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl])
+        hCf'
+    have hwred : Expr.WScoped d (body.instantiate1 a) :=
+      Expr.WScoped.instantiate1_gen hws.2 0 hwf'.2
+    have hbred : (body.instantiate1 a).looseBVarsBounded 0 = true :=
+      Expr.looseBVarsBounded_instantiate1_gen hb.2 hbf'.2
+    have hLred : Expr.LeavesBounded (body.instantiate1 a) :=
+      fun l hl => by
+        rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+        · exact hLf' l (by simp [Expr.fvarLeaves, h2])
+        · exact hLa l h2
+    have hCred : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase)
+        (body.instantiate1 a) := by
+      refine ⟨hC.1, fun l hl => ?_⟩
+      rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+      · exact hCf'.2 l (by simp [Expr.fvarLeaves, h2])
+      · exact hCa.2 l h2
+    have hstep : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ (.app (.lam v tya ba) aa)
+            = interp2 V ρ (ba.inst aa) ∧
+          AnnotOk2 V ρ (ba.inst aa) := by
+      intro ρ hρ
+      by_cases hz : v = 0
+      · subst hz
+        exact AnnotOk2_beta_zero V (hokapp ρ hρ)
+          (hcert hta hde hws.2 hb.2 hLa hCa hwf'.1 hbf'.1 hLty hCty
+            haa₁ htya ρ hρ)
+      · exact AnnotOk2_beta_pos V hz (hokapp ρ hρ)
+    obtain ⟨F₂, hle₂, hred⟩ := hinst htya haa₁ hbb
+    obtain ⟨F₃, ea', hle₃, hea', hok', heq'⟩ :=
+      ihwc hbeta hwred hbred hLred hCred hred
+        (fun ρ hρ => (hstep ρ hρ).2)
+    refine ⟨F₃, ea', Nat.le_trans hle₁ (Nat.le_trans hle₂ hle₃),
+      hea', hok', fun ρ hρ => ?_⟩
+    rw [heqapp ρ hρ, (hstep ρ hρ).1, heq' ρ hρ]
+  · -- ι
+    obtain ⟨F₂, ea₂, hle₂, hea₂, hok₂, heq₂, hwe, hbe, hLe, hCe⟩ :=
+      hiota hio hwapp hbapp hLapp hCapp hiapp hokapp
+    obtain ⟨F₃, ea', hle₃, hea', hok', heq'⟩ :=
+      ihwc hwe'' hwe hbe hLe hCe hea₂ hok₂
+    exact ⟨F₃, ea', Nat.le_trans hle₁ (Nat.le_trans hle₂ hle₃),
+      hea', hok',
+      interp2C_trans (interp2C_trans heqapp heq₂) heq'⟩
+  · -- stuck
+    exact ⟨F₁, _, hle₁, hiapp, hokapp, heqapp⟩
+
+/-- **`WhnfCoreClaims2C` at `fuel + 1`** — the nine cases.  The seven
+`F' = F` cases still go through `whnfCore_leaf_claim2`, reused
+verbatim from the `…R` lane: the subject *is* the reduct there, so the
+hoisted invariant is the premise itself. -/
+theorem whnfCore_claims2C (m : EnvS2 V env) {fuel : Nat}
+    (hinst : Denote2Inst1B μ m.acval env φ)
+    (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2C μ m φ fuel)
+    (hproj : ProjStep2C μ m φ fuel)
+    (ihwc : WhnfCoreClaims2C μ m φ fuel) :
+    WhnfCoreClaims2C μ m φ (fuel + 1) := by
+  intro d e e' Δa h hws hb hLb hC F ea hea hok
+  match e with
+  | .sort u =>
+    obtain ⟨ea', hea', hD⟩ :=
+      whnfCore_leaf_claim2 (Δa := Δa) m (Or.inl ⟨u, rfl⟩) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .fvar idx n ty =>
+    obtain ⟨ea', hea', hD⟩ := whnfCore_leaf_claim2 (Δa := Δa) m
+      (Or.inr (Or.inl ⟨idx, n, ty, rfl⟩)) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .forallE n ty body bi =>
+    obtain ⟨ea', hea', hD⟩ := whnfCore_leaf_claim2 (Δa := Δa) m
+      (Or.inr (Or.inr (Or.inl ⟨n, ty, body, bi, rfl⟩))) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .lam n ty body mb =>
+    obtain ⟨ea', hea', hD⟩ := whnfCore_leaf_claim2 (Δa := Δa) m
+      (Or.inr (Or.inr (Or.inr (Or.inl ⟨n, ty, body, mb, rfl⟩)))) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .const n us =>
+    obtain ⟨ea', hea', hD⟩ := whnfCore_leaf_claim2 (Δa := Δa) m
+      (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl ⟨n, us, rfl⟩))))) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .lit l =>
+    obtain ⟨ea', hea', hD⟩ := whnfCore_leaf_claim2 (Δa := Δa) m
+      (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr ⟨l, rfl⟩))))) h hea
+    exact ⟨F, ea', Nat.le_refl F, hea',
+      fun ρ hρ => (hD ρ hρ).2 (hok ρ hρ), fun ρ hρ => (hD ρ hρ).1⟩
+  | .bvar i => rw [denote2_bvar] at hea; exact nomatch hea
+  | .letE nn tt vv bb =>
+    exact whnfCore_letE_claim2C m hinst ihwc h hws hb hLb hC hea hok
+  | .app f a =>
+    exact whnfCore_app_claim2C m hinst hcert hiota ihwc h hws hb
+      hLb hC hea hok
+  | .proj sn i pe => exact hproj h hws hb hLb hC hea hok
+
+/-- **`whnfCoreStep2C_of` — the head-normalisation quarter against
+generation four.**  Same four residues as the `…B` lane, three of them
+hoisted and `BetaCert2` unchanged; the defeq and inference claims are
+still not consumed here. -/
+theorem whnfCoreStep2C_of
+    (hinst : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+      Denote2Inst1B μ m.acval env φ)
+    (hcert : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), BetaCert2 μ m φ fuel)
+    (hiota : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), IotaStep2C μ m φ fuel)
+    (hproj : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), ProjStep2C μ m φ fuel) :
+    WhnfCoreStep2C μ V :=
+  fun env m φ fuel ihwc _ _ _ =>
+    whnfCore_claims2C m (hinst env m φ) (hcert env m φ fuel)
+      (hiota env m φ fuel) (hproj env m φ fuel) ihwc
+
+/-- **The budget induction, hoisted.**  `Delta2B` enters unchanged —
+it moves the fuel and not the annotation, so the subject's uniform
+invariant is literally the reduct's. -/
+theorem whnfLoop_claim2C (m : EnvS2 V env) {fuel : Nat}
+    (ihwc : WhnfCoreClaims2C μ m φ fuel)
+    (hnat : ReduceNatStep2C μ m φ fuel) (hdelta : Delta2B μ m φ) :
+    ∀ (budget : Nat) {d : Nat} {Δa : List AVExpr} {e e' : Expr},
+      whnfLoop (pureFns μ env fuel) env d budget e = .ok e' →
+      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded e →
+      CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e →
+      ∀ {F : Nat} {ea : AVExpr},
+        denote2 μ m.acval env φ F d e = some ea →
+        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) →
+        ∃ F' ea', F ≤ F' ∧
+          denote2 μ m.acval env φ F' d e' = some ea' ∧
+          (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea') ∧
+          ∀ ρ : Nat → V, Sat2 V Δa ρ →
+            interp2 V ρ ea = interp2 V ρ ea' := by
+  intro budget
+  induction budget with
+  | zero =>
+    intro d Δa e e' h
+    rw [whnfLoop] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  | succ budget ih =>
+    intro d Δa e e' h hws hb hLb hC F ea hea hok
+    rw [whnfLoop, whnfStep] at h
+    simp only [Bind.bind, Except.bind, Setlec.whnfCore_def] at h
+    cases hwc : whnfCore μ env fuel d e with
+    | error err => rw [hwc] at h; exact nomatch h
+    | ok e₁ =>
+    rw [hwc] at h
+    dsimp only at h
+    obtain ⟨F₁, ea₁, hle₁, hea₁, hok₁, heq₁, hws₁, hb₁, hLb₁,
+      hC₁⟩ :=
+      whnfCore_package2C m ihwc hwc hws hb hLb hC hea hok
+    cases hrn : reduceNatP μ env fuel d e₁ with
+    | error err =>
+      rw [Setlec.reduceNat_fold] at h; rw [hrn] at h; exact nomatch h
+    | ok o =>
+    rw [Setlec.reduceNat_fold] at h
+    rw [hrn] at h
+    dsimp only at h
+    match o, h with
+    | some e₂, h =>
+      obtain ⟨ea₂, hea₂, hok₂, heq₂, hws₂, hb₂, hLb₂, hC₂⟩ :=
+        hnat hrn hws₁ hb₁ hLb₁ hC₁ hea₁ hok₁
+      obtain ⟨F₃, ea', hle₃, hea', hok', heq'⟩ :=
+        ih h hws₂ hb₂ hLb₂ hC₂ hea₂ hok₂
+      exact ⟨F₃, ea', Nat.le_trans hle₁ hle₃, hea', hok',
+        interp2C_trans (interp2C_trans heq₁ heq₂) heq'⟩
+    | none, h =>
+      dsimp only at h
+      cases hud : unfoldDefinition env e₁ with
+      | none =>
+        rw [hud] at h
+        exact ⟨F₁, ea₁, hle₁, (Except.ok.inj h) ▸ hea₁, hok₁, heq₁⟩
+      | some e₂ =>
+        rw [hud] at h
+        dsimp only at h
+        obtain ⟨F₂, hle₂, hea₂⟩ := hdelta hud hea₁
+        obtain ⟨F₃, ea', hle₃, hea', hok', heq'⟩ :=
+          ih h (unfoldDefinition_WScoped m.base.wf hud hws₁)
+            (unfoldDefinition_looseBVars m.base.wf hud hb₁)
+            (fun l hl => hLb₁ l
+              (unfoldDefinition_fvarLeaves m.base.wf hud l hl))
+            (CtxOkR.of_subset
+              (unfoldDefinition_fvarLeaves m.base.wf hud) hC₁)
+            hea₂ hok₁
+        exact ⟨F₃, ea', Nat.le_trans hle₁
+          (Nat.le_trans hle₂ hle₃), hea', hok',
+          interp2C_trans heq₁ heq'⟩
+
+/-- **`WhnfClaims2C` at `fuel + 1`.** -/
+theorem whnf_claims2C (m : EnvS2 V env) {fuel : Nat}
+    (ihwc : WhnfCoreClaims2C μ m φ fuel)
+    (hnat : ReduceNatStep2C μ m φ fuel) (hdelta : Delta2B μ m φ) :
+    WhnfClaims2C μ m φ (fuel + 1) := by
+  intro d e e' Δa h hws hb hLb hC F ea hea hok
+  rw [Setlec.whnf_succ, whnfBody] at h
+  exact whnfLoop_claim2C m ihwc hnat hdelta whnfLoopFuel h hws hb
+    hLb hC hea hok
+
+/-- **`whnfStep2C_of` — the reduction loop against generation four.**
+Still no defeq and no inference claim; still `Delta2B` unchanged. -/
+theorem whnfStep2C_of
+    (hnat : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), ReduceNatStep2C μ m φ fuel)
+    (hdelta : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+      Delta2B μ m φ) :
+    WhnfStep2C μ V :=
+  fun env m φ fuel ihwc _ _ _ =>
+    whnf_claims2C m ihwc (hnat env m φ fuel) (hdelta env m φ)
+
+/-! # `BetaCert2P`, hoisted — and the residue it retires
+
+`BetaCert2P`'s `AnnotOk2 ρ tya` sits **under** its `∀ ρ`, and
+`betaCert2P_of_claims` feeds that fact to `DefEqClaims2B`, which also
+reads it under its own `∀ ρ`.  Against generation four both sides move
+above the quantifier and the composition has to move with them.
+
+**The hoist pays for itself.**  `betaCert2P_of_claims` carried `htok`
+— an explicit premise standing in for the inference quarter's
+`TypeOk2` residue, because `InferClaims2A` concluded `AnnotOk2` of the
+*subject* and never of the type it returned.  `InferClaims2C` delivers
+both, ρ-uniformly.  So `betaCert2PC_of_claims` below takes **no**
+`htok`: the residue is not relocated, it is gone, and this is the site
+that pays seal 8's open question back.
+
+What is still **not** dischargeable is the context currency:
+`CtxOk2 m μ φ F d Δa a` remains a premise the `.app` clause cannot
+supply from `CtxOkR`-on-erasures.  That is seal 11's move and it is
+generation *five*; `BetaCert2` (the premise-free consumer shape) is
+therefore still the residue the quarter actually routes through, and
+`BetaCert2PC` is still deliberately not wired into
+`whnfCore_app_claim2C`. -/
+
+/-- `BetaCert2P` with its `AnnotOk2` above the `∀ ρ`. -/
+def BetaCert2PC (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {F : Nat}
+    {aa tya : AVExpr},
+    inferTypeCore μ env fuel d a = .ok ta →
+    Setlec.isDefEqCore μ env fuel d ta ty = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a →
+    Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded ty →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) ty →
+    CtxOk2 m μ φ F d Δa a →
+    denote2 μ m.acval env φ F d a = some aa →
+    denote2 μ m.acval env φ F d ty = some tya →
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ tya) →
+    ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ aa ∈ˢ interp2 V ρ tya
+
+/-- **The β certificate is the two hoisted claims composed**, and the
+composition is now `htok`-free: `InferClaims2C` hands over the
+returned type's `AnnotOk2` ρ-uniformly, which is exactly the shape
+`DefEqClaims2C` takes. -/
+theorem betaCert2PC_of_claims (m : EnvS2 V env) {fuel : Nat}
+    (ihd : DefEqClaims2C μ m φ fuel)
+    (ihi : InferClaims2C μ m φ fuel) :
+    BetaCert2PC μ m φ fuel := by
+  intro d Δa a ty ta F aa tya hta hde hwa hba hLa hCa hwty hbty
+    hLty hCty hC2 haa htya hoktya ρ hρ
+  obtain ⟨F', ta', hle, hta', -, hokta, hcon⟩ :=
+    ihi hta hwa hba hLa hC2 haa
+  have hwta : Expr.WScoped d ta :=
+    Setlec.inferTypeCore_WScoped m.base.wf fuel hta hwa
+  have hbta : ta.looseBVarsBounded 0 = true :=
+    Setlec.inferTypeCore_looseBVars m.base.wf fuel hta hwa hba hLa
+  have hsub := Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hta hwa
+  have hLta : Expr.LeavesBounded ta := fun l hl => hLa l (hsub l hl)
+  have hCta : CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) ta :=
+    CtxOkR.of_subset hsub hCa
+  have heq := ihd hde hwta hbta hLta hwty hbty hLty hCta hCty hta'
+    (denote2_fuelMono hle d ty htya) hokta hoktya ρ hρ
+  exact heq ▸ hcon ρ hρ
+
+/-- **The hoist is a weakening of the residue, not a different one.**
+Anything that proved `BetaCert2P` proves `BetaCert2PC`: apply the
+ρ-uniform premise at the valuation.  So the change costs its supplier
+nothing, and `betaCert2PC_of_claims` above is a strictly better
+discharge than `betaCert2P_of_claims` — one fewer premise, and the
+premise it drops was a named residue. -/
+theorem BetaCert2P.toC {m : EnvS2 V env} {fuel : Nat}
+    (h : BetaCert2P μ m φ fuel) : BetaCert2PC μ m φ fuel :=
+  fun hta hde hwa hba hLa hCa hwty hbty hLty hCty hC2 haa htya
+    hoktya ρ hρ =>
+    h hta hde hwa hba hLa hCa hwty hbty hLty hCty hC2 haa htya ρ hρ
+      (hoktya ρ hρ)
 
 end Setlec.SetR.Interp2
