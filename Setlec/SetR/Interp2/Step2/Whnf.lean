@@ -1665,11 +1665,11 @@ subject's depth.  `EnvS2.acval_defn` speaks about `value`, at depth
 `0`, under a *substituted assignment*.  Three crossings, and only two
 of them are algebra:
 
-| crossing | supplier | status |
-|---|---|---|
-| the spine | `denote2_mkAppN_swap` (`Step2/Levels.lean`) | landed here |
-| depth `0` → `d` | `denote2_depth_of_closed` (ditto), on `denote2_shiftFrom` + `EnvS2.acval_closed` | landed here |
-| `φ` vs `Level.substFn φ …` | **`Denote2InstLevels`** | **residue** |
+* the spine — `denote2_mkAppN_swap` (`Step2/Levels.lean`), landed;
+* depth `0` → `d` — `denote2_depth_of_closed` (ditto), on
+  `denote2_shiftFrom` + `EnvS2.acval_closed`, landed;
+* `φ` versus `Level.substFn φ …` — **`Denote2InstLevels`**, a
+  **residue**.
 
 The third is v1's `denote_instLevels`, which is one induction over
 `denote` — and is *not* one induction over `denote2`, because
@@ -1714,6 +1714,35 @@ def AcvalDefnInst (μ : CheckMode) {env : Env} (m : EnvS2 V env)
       denote2 μ m.acval env φ F' 0
           (value.instantiateLevelParams cv.levelParams us)
         = some (m.acval cv.name (Level.substFn φ cv.levelParams us))
+
+/-- Substituting every level parameter by itself does not move the
+assignment — the `Level.substFn` twin of `Level.subst_param_self`
+(`Verify/InstLevels.lean`), which is where it belongs if anything else
+ever wants it. -/
+theorem substFn_param_self (ψ : Name → Nat) (ks : List Name) :
+    Level.substFn ψ ks (ks.map Level.param) = ψ := by
+  funext n
+  have h : Level.subst.go ks (ks.map Level.param) n = .param n :=
+    Level.subst_param_self ks (.param n)
+  rw [← Level.eval_subst_go, h, Level.eval]
+
+/-- **The proposed field is a strengthening, not a different
+statement**: `EnvS2.acval_defn`'s current shape is its
+identity-substitution instance, so adopting `AcvalDefnInst` in its
+place loses nothing.  (The campaign's rule: a repair needs the
+positive check as well as the negative one.  This is the "nothing is
+lost" half; the "it is satisfiable at a real environment" half is the
+install layer's and is not testable here.) -/
+theorem acval_defn_of_acvalDefnInst (m : EnvS2 V env)
+    (hdi : AcvalDefnInst μ m φ) (F : Nat) (cv : ConstantVal)
+    (value : Expr) (hint : ReducibilityHint)
+    (hmem : ConstantInfo.defnInfo cv value hint ∈ env.consts) :
+    ∃ F', F ≤ F' ∧
+      denote2 μ m.acval env φ F' 0 value
+        = some (m.acval cv.name φ) := by
+  have h := hdi (F := F) (us := cv.levelParams.map Level.param)
+    (Or.inl ⟨hint, hmem⟩) (by simp)
+  rwa [Expr.instantiateLevelParams_self, substFn_param_self] at h
 
 /-- The two forms of the obligation, related: the general level
 crossing turns the fields as they stand into the shape the exit

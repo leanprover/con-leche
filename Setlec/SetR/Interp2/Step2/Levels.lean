@@ -11,11 +11,12 @@ needs, plus the one that is not algebraic at all.
 `mkAppN (value.instantiateLevelParams cv.levelParams us) args`, so a
 consumer of `EnvS2.acval_defn` has three gaps to cross:
 
-| gap | this file |
-|---|---|
-| the head sits under a spine | `denote2_mkAppN_swap` |
-| the field speaks at depth `0`, the loop runs at depth `d` | `denote2_depth_of_closed` |
-| the field speaks about `value`, the reduct is `value.instantiateLevelParams …` | **`Denote2InstLevels` — a residue, not a theorem** |
+* the head sits under a spine — `denote2_mkAppN_swap`;
+* the field speaks at depth `0`, the loop runs at depth `d` —
+  `denote2_depth_of_closed`;
+* the field speaks about `value`, the reduct is
+  `value.instantiateLevelParams …` — **`Denote2InstLevels`, a
+  residue and not a theorem**.
 
 The first two are structural and are proved here.  The third is
 **not**, and that is this file's finding.
