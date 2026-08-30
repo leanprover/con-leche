@@ -222,6 +222,48 @@ def Denote2Total (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     Setlec.inferTypeCore μ env F d e = .ok t →
     ∃ F' ea, denote2 μ m.acval env φ F' d e = some ea
 
+/-- **Law 1b — the pin-certified division/modulo operations, over
+`interp2`.**  R3 of the keys survey.
+
+`NatOpsV2` above quantifies `∀ c ∈ natOpNames` — the **seven**
+structural operations. Its named consumers `ReduceNatStep2D` and
+`ReduceNat2D` are stated over `reduceNatP`, and `reduceNat`
+(`Kernel/Core.lean:712`) accelerates all **nine** `natDivModNames`
+operations as well. **The two name sets are disjoint**, so the
+interp2 lane had no statement of the div/mod law at all, and
+`DivModPinS`'s transpose has a real consumer the drafted law does not
+reach.
+
+*This is seal 22's failure mode a second time — a law drafted against
+part of its consumer — and caught the same way, by mapping rather than
+by discharge.* Both catches came from surveying the consumer's actual
+call, not from reading the law.
+
+v1 shape: `EnvS.div_mod : ∀ φ, DivModV V env cval φ`
+(`Sound/Motives.lean`), whose `DivModClausesV` block is written
+entirely in `SetTheory.app` over a `Name → V` valuation — so it
+transposes by swapping that valuation for the `interp2` reading of
+`acval`. Supplier neighbourhood: the task-#113 nat-op pin machinery
+and `EnvS.cons`'s `hheadDivMod` obligation.
+
+Stated, not frozen, and not wired: like its neighbours it awaits a
+consumer able to attempt a discharge.
+
+**No `μ` parameter, and the absence is informative.** `NatOpsV2` needs
+one because its equations are stated through `denote2`, which reads
+the mode; `DivModClausesV` is value-level throughout, so this law is
+**mode-independent**. That matters for seal 10: a mode-independent law
+cannot reintroduce the `μ.verified` premise that seal withdrew. -/
+def DivModV2 (env : Env)
+    (acval : Name → (Name → Nat) → AVExpr) (φ : Name → Nat) : Prop :=
+  ∀ c ∈ natDivModNames, ∀ cv v hint,
+    env.find? c = some (.defnInfo cv v hint) →
+    natOpGuard env c = true ∧
+    ∀ (ρ : Nat → V) (x y : V),
+      x ∈ˢ interp2 V ρ (acval natName (Level.substFn φ [] [])) →
+      y ∈ˢ interp2 V ρ (acval natName (Level.substFn φ [] [])) →
+      DivModClausesV V (fun n => interp2 V ρ (acval n φ)) c x y
+
 /-! ## `IotaIndexPin2` — the third option, priced
 
 Seal 22 left the choice between a full transpose and a minimal law

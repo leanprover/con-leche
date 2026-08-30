@@ -16152,3 +16152,68 @@ discharge, a named `Prop` would be precisely seal 20's *"vacuous `Prop`
 with a good name, worse than none"*. That is the rule applied against
 the batch's own apparent productivity, which is the hardest direction
 to apply it in.
+
+### Seal 35 — the (E)-fit check: three of four, and the fourth is a statement-level request
+
+Run before building anything, as directed. **The cross-lane inventory
+paid off: R1 is mostly already stated, and what is missing is small
+and precise.**
+
+`EnvExtendStable` (Θ lane, `Annot/SortCoh/Discharge.lean:1291`) covers
+**the whole knot** — `whnfCore`, `whnf`, `inferTypeCore`,
+`isDefEqCore`, `annotateCore` — each as *successful runs on
+prefix-bound subjects are reproduced verbatim at the extended env*,
+premised on `ConstsBound env₀`. And `denote2`'s internal calls are
+exactly `inferTypeCore` and `whnf` (through `sortOfE`/`lamSortE`,
+`Annot/Canon.lean:43-58`). **No import cycle**: `SortCoh/*` does not
+reach `Interp2/*`.
+
+**Three of `denote2`'s four needs fit directly:**
+
+* the `.const` clause's `find?` — `FindPreserved` (same file);
+* the literal spines' `natLitSupported`/`strLitSupported` guards —
+  `find?`-monotone, so a `true` at `env₀` stays `true`;
+* the `inferTypeCore` call inside `sortOfE`/`lamSortE` — (E)'s third
+  conjunct verbatim.
+
+**The fourth does not, and the gap is exact.** `sortOfE` *chains*:
+`inferTypeCore` on `e` yields `t`, then `whnf` runs **on `t`**. (E)'s
+`whnf` conjunct requires `ConstsBound env₀ t` — and its
+`inferTypeCore` conjunct concludes only `inferTypeCore … = .ok x`,
+**not** `ConstsBound env₀ x`. So the chain cannot be composed from the
+statement as written.
+
+**It is not missing content, only missing exposure.** (E)'s own
+docstring records that its discharge runs *"with the internal motive
+strengthened by output-boundness"* — the fact exists inside the proof.
+**Cross-lane request, statement-level: expose it**, by strengthening
+(E)'s `inferTypeCore` conjunct to also conclude `ConstsBound env₀ x`.
+
+*That is the difference between a Step2-quarter-sized build and a
+one-conjunct amendment, and it was found by reading the other lane's
+statement instead of writing my own.*
+
+#### R3 landed: `DivModV2`
+
+Stated beside `NatOpsV2` (`Interp2/EnvLaws2.lean`) with the
+disjointness recorded: `NatOpsV2` covers the **seven** `natOpNames`,
+`reduceNat` accelerates the **nine** `natDivModNames`, and the sets
+share nothing — so the interp2 lane had no div/mod law at all while
+`DivModPinS`'s transpose has a real consumer needing one.
+
+**Both catches of this failure mode came from mapping a consumer's
+actual call, not from reading the law.** Seal 22 was the first.
+
+One observation the statement forced: **`DivModV2` takes no `μ`.**
+`NatOpsV2` needs one because its equations run through `denote2`;
+`DivModClausesV` is value-level throughout, so this law is
+**mode-independent** — and a mode-independent law cannot reintroduce
+the `μ.verified` premise seal 10 withdrew. The unused binder was
+dropped rather than silenced, which is how the observation surfaced.
+
+#### Sequence from here
+
+R5 and R6 join the environment-tier freeze; the freeze carries the
+nine-field delta in the **uniqueness form** (seal 34), R5's six
+missing fields, and R6's `cval` naming. Then the three sweeps on the
+frozen text, then the keys become statable and the serial batch runs.
