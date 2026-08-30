@@ -14059,3 +14059,94 @@ compares. `InferClaims2A` delivers it for the *subject* and says
 nothing about the returned type. Whether `InferClaims2A`'s conclusion
 needs extending is asked of the infer quarter against a site it can
 point at — not adopted by symmetry.
+
+### Seal 9 — the capstone: `CheckStep2B` follows from eight residues
+
+`Interp2/Capstone.lean`: `checkStep2B_of_quarters` and
+`checkSound2B_of_quarters`. Every hypothesis is a **named routed
+residue** owned by one quarter; none is a claim about the checker's
+runs, and none is discharged there. What this establishes is that the
+*decomposition closes* — the remaining work is a finite list of named
+obligations rather than an open question about the shape of the
+induction.
+
+Residues: `Denote2Inst1B`, `BetaCert2`, `IotaStep2B`, `ProjStep2B`
+(whnfCore); `ReduceNatStep2`, `Delta2B` (the loop); `DefEqStep2BP`
+(defeq's ten); `InferInputs2A` (infer's).
+
+**Three generations were needed** — `Claims2` → `Claims2A` →
+`Claims2B` — and each was refuted by a **consumer**, never by
+inspection. The consumers were the four quarters running in parallel
+against the statement. That is the transferable result of this arc:
+*a statement seal is validated by discharging it in parallel from
+several directions, not by reviewing it.* Every one of the three
+defects was invisible to the seal's own author and obvious to the
+quarter that had to pay for it.
+
+### The integration cost of parallel authoring, measured
+
+Four quarters written simultaneously against a moving statement cost
+**three name collisions and one stale-signature break**, all surfacing
+at the fold and none at authoring:
+
+* `denote2_bvar` — declared identically in `DefEqRun` and `Whnf`;
+* `denote2_sort`, `sortOfE_one`, `denote2_one_forallE` — `InferQ` vs
+  `Whnf`, latent until `Claims2B` entered the closure; renamed
+  `…Q`/`…_at_one` by the infer quarter on request;
+* `infer_natLit_claim2A` — written twice, by the dispatch and infer
+  quarters, same conclusion. The dispatch copy took four explicit
+  membership premises; the infer copy bundles one routed `NatHeads2`
+  and derives the returned type's annotation from the support guard.
+  **Kept the infer copy** (strictly stronger, and the one the assembly
+  calls); deleted the dispatch copy.
+* `infer_app_claim2A` took `ihd : DefEqClaims2A` because it was
+  written before STOP 3 was adopted mid-flight. Repaired at the fold
+  by paying the two `AnnotOk2` premises — `TypeOk2` for the argument
+  type, `AnnotOk2_pi` on R2's own output for the domain. **Cost:
+  nothing new**, exactly as the infer quarter predicted.
+
+*Rule: a mid-flight statement change costs one integration break per
+consumer, and the break is silent until the fold — so change the
+statement early or not at all.* Adopting STOP 3 mid-flight was right
+(the alternative was four quarters closing against a false claim), but
+it was not free.
+
+### R4 may be removable, and that would recover `.noModel`
+
+The infer quarter reports **`μ.verified = true` is not what fixed the
+`.lam` clause** — `lamSortE_runs` reads the #152 codomain run out of
+the hypothesis annotation, so the chain-granularity mismatch dissolves
+under R1/R3 and `LamCodSort2` is retired outright. R4 is now consumed
+*only to pass to the induction hypothesis*, which needs it only
+because the claims carry it.
+
+That is a fixed point that may be removable: if no clause uses R4 for
+anything but threading, dropping it from all four claims should
+succeed. Worth doing, because R4 is what costs the fourteen the
+`.noModel` lane (recorded above) — removing it would recover the
+mode-generic conclusion the migration was assumed to preserve.
+
+**Not attempted here**, and deliberately: the claim family has been
+refuted three times, twice by a repair applied to part of it. A fourth
+statement change goes through the same parallel discharge as the other
+three, not through a plausibility argument at the junction.
+
+### Still open at the junction: `CtxOk2R` is believed false
+
+The infer quarter's `.app` clause consumes `CtxOk2` (from
+`InferClaims2A`) **and** `CtxOkR`-on-erasures (from `WhnfClaims2B` and
+`DefEqClaims2B`), so it needs a bridge, and `CtxOk2R` — stated, not
+proved, and believed false — is that bridge. It would need an
+`∃ T', Infer … ∧ DefEq …` derivation out of an `interp2` equation:
+the "no `VExpr → AVExpr`" wall, in the direction seal 3 did not test.
+
+The repair is statement-level and belongs here, not to a quarter: the
+dispatch quarter's original proposal was to substitute `CtxOk2` for
+`CtxOkR` in **all four** claims, and only `InferClaims2A` was changed.
+That is the *third* time in this arc a repair was applied to part of
+the family and not the rest — the same error as R2/R3 and as STOP 3.
+The pattern is now explicit enough to state as a rule:
+
+*Rule: when a repair changes one claim of a mutually-recursive family,
+the default is to change all of them; an exemption needs an argument
+that survives the other repairs in the same seal.*

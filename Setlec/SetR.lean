@@ -94,6 +94,7 @@ import Setlec.SetR.Interp2.Step2.InferQ
 import Setlec.SetR.Interp2.Claims2A
 import Setlec.SetR.Interp2.EnvS2Refute
 import Setlec.SetR.Interp2.Claims2B
+import Setlec.SetR.Interp2.Capstone
 import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.SimSubst
 import Setlec.SetR.Annot.PremiseLadder

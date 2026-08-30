@@ -1630,7 +1630,7 @@ theorem infer_app_claim2A (m : EnvS2 V env) (hss : SortSem2 m μ φ)
     (htok : TypeOk2 m μ φ) (hbeta : BetaCross2A m μ φ)
     {d F : Nat} {f a t : Expr} {Δa : List AVExpr} {ea : AVExpr}
     (hvf : μ.verified = true) (ihw : WhnfClaims2B μ m φ fuel)
-    (ihd : DefEqClaims2A μ m φ fuel) (ihi : InferClaims2A μ m φ fuel)
+    (ihd : DefEqClaims2B μ m φ fuel) (ihi : InferClaims2A μ m φ fuel)
     (h : inferTypeCore μ env (fuel + 1) d (.app f a) = .ok t)
     (hws : Expr.WScoped d (.app f a))
     (hb : (Expr.app f a).looseBVarsBounded 0 = true)
@@ -1705,11 +1705,26 @@ theorem infer_app_claim2A (m : EnvS2 V env) (hss : SortSem2 m μ φ)
     ihi hvf hta hws.2 hb.2 hLa hC.app_arg haa
   obtain ⟨htaw, htab, htaL, htaC⟩ :=
     frame_inferR m.base.wf hta hws.2 hb.2 hLa (hcr hC.app_arg)
+  -- STOP 3: the defeq claim is graded, so its two `AnnotOk2`
+  -- premises are paid here.  This is `app_defeq_premises2A` below,
+  -- inlined only because it is stated after this clause: the
+  -- argument type's from `TypeOk2`, the domain's free from R2's own
+  -- grading via `AnnotOk2_pi`.  Cost to this quarter: nothing new.
   have hdom : ∀ ρ : Nat → V, Sat2 V Δa ρ →
-      interp2 V ρ taa = interp2 V ρ Aa :=
-    ihd hvf hde htaw htab htaL hwfe.1 hbfe.1 hLty' htaC hCty'
+      interp2 V ρ taa = interp2 V ρ Aa := by
+    intro ρ hρ
+    have htfaOk : AnnotOk2 V ρ tfa :=
+      htok htf (CtxOk2.fuelMono hle1 hC.app_fn) htfa ρ hρ
+    have hpiOk : AnnotOk2 V ρ (.pi u' v' Aa Ba) :=
+      (hredf ρ hρ htfaOk).2
+    have hokta : AnnotOk2 V ρ taa :=
+      htok hta (CtxOk2.fuelMono hle2 hC.app_arg) htaa ρ hρ
+    have hokA : AnnotOk2 V ρ Aa := by
+      rw [AnnotOk2_pi] at hpiOk; exact hpiOk.1
+    exact ihd hvf hde htaw htab htaL hwfe.1 hbfe.1 hLty' htaC hCty'
       (denote2_fuelMono (Nat.le_add_right F2 G) d tya htaa)
-      (denote2_fuelMono (Nat.le_add_left G F2) d ty' hAa)
+      (denote2_fuelMono (Nat.le_add_left G F2) d ty' hAa) ρ hρ
+      hokta hokA
   -- the annotated context, carried up to the `∀`'s own fuel
   have hCf : CtxOk2 m μ φ G d Δa f := CtxOk2.fuelMono hle1G hC.app_fn
   have hCpi : CtxOk2 m μ φ G d Δa (.forallE n' ty' body' mb') :=

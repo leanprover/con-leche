@@ -87,51 +87,19 @@ open Setlec (CheckMode Env Expr Name inferTypeCore inferBody viewM
 
 variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
 
-/-- **I10A (`.lit natVal`), amended.**  The checker returns
-`.const Nat []`, whose `denote2` is a **fuel-free** leaf read out of
-`acval`; so, exactly like `.sort` and `.fvar`, this clause takes
-`F' = F` and spends none of R3's slack.
+/-! ## The `Nat`-literal clause lives in `InferQ.lean`
 
-The two membership facts stay explicit arguments for the reason the
-module docstring gives — they are one `mem_type2` chain over the
-stored `Nat` shapes, the same for every numeral — and the two
-truthfulness facts do *not*, because `EnvS2.acval_ok2` supplies them.
-The returned type's annotation is likewise a hypothesis rather than a
-computation: `.const`'s `denote2` needs the stored `Nat` to be found
-with the right level arity, which `natLitSupported` guarantees for the
-*checker* but which no lemma yet transports to `denote2`. -/
-theorem infer_natLit_claim2A (m : EnvS2 V env) {d k F : Nat}
-    {t : Expr} {Δa : List AVExpr} {ea natA : AVExpr}
-    (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t)
-    (hea : denote2 μ m.acval env φ F d (.lit (.natVal k)) = some ea)
-    (hty : denote2 μ m.acval env φ F d (.const Setlec.natName [])
-      = some natA)
-    (hz : ∀ ρ : Nat → V, Sat2 V Δa ρ →
-      interp2 V ρ (m.acval Setlec.natZeroName (Level.substFn φ [] []))
-        ∈ˢ interp2 V ρ natA)
-    (hsucc : ∀ ρ : Nat → V, Sat2 V Δa ρ →
-      interp2 V ρ (m.acval Setlec.natSuccName (Level.substFn φ [] []))
-        ∈ˢ piR 1 (interp2 V ρ natA) fun _ => interp2 V ρ natA) :
-    ∃ F' ta, F ≤ F' ∧
-      denote2 μ m.acval env φ F' d t = some ta ∧
-      ∀ ρ : Nat → V, Sat2 V Δa ρ →
-        AnnotOk2 V ρ ea ∧ interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  rw [Setlec.inferTypeCore_succ] at h
-  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
-    Except.bind] at h
-  split at h
-  · next hsup =>
-    simp only [Except.ok.injEq] at h
-    subst h
-    rw [denote2] at hea
-    simp only [hsup, if_true] at hea
-    obtain rfl : ea = natLitT2
-        (m.acval Setlec.natZeroName (Level.substFn φ [] []))
-        (m.acval Setlec.natSuccName (Level.substFn φ [] [])) k :=
-      (Option.some.inj hea).symm
-    refine ⟨F, natA, Nat.le_refl F, hty, fun ρ hρ => ?_⟩
-    exact natLit_facts2 (m.acval_ok2 _ _ ρ) (m.acval_ok2 _ _ ρ)
-      (hz ρ hρ) (hsucc ρ hρ) k
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
+A version of `infer_natLit_claim2A` was written here in parallel with
+the inference quarter's, with the same conclusion but four explicit
+membership premises where theirs bundles one routed `NatHeads2`.
+Theirs is strictly stronger — it derives the returned type's
+annotation from the support guard instead of taking it as a
+hypothesis — and it is the one the quarter's assembly calls, so this
+copy is deleted rather than renamed.
+
+Third instance of the same integration finding: parallel quarters
+converge on the same helper *names* as well as the same content, and
+the collision surfaces at the fold rather than at authoring. -/
+
 
 end Setlec.SetR.Interp2
