@@ -150,6 +150,14 @@ noncomputable def EnvS2.toU {env : Env} (m : EnvS2 V env) :
 noncomputable def EnvS2U.empty : EnvS2U V Env.empty :=
   (EnvS2.empty (V := V)).toU
 
+/-- **The bridge's converse, pointwise: is this `EnvS2U` an `EnvS2`?**
+Not "is there *some* `EnvS2` here" — the claims are stated at
+`m.acval`, so a witness with a different canonical valuation is no
+use.  The equation is what makes the residue usable, and it is what
+`checkStep2U_of_2E` (`Claims2U.lean`) consumes. -/
+def EnvS2UInImage {env : Env} (m : EnvS2U V env) : Prop :=
+  ∃ m' : EnvS2 V env, EnvS2.toU V m' = m
+
 /-! ## The three sweeps on the frozen text
 
 **1. Smallest fuel — satisfied by construction.** No field asserts a

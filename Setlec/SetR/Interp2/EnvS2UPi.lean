@@ -181,8 +181,9 @@ theorem piProbe_annotOk2 (ρ : Nat → V) :
 
 /-! ## `CvalAnnot` at the probe — the λ-shape conjunct's ingredients
 
-`EnvS2U.cval_annot` (restored: seal 40 recorded its absence as an
-omission) has two conjuncts, and at *this* probe neither is vacuous.
+`EnvS2.cval_annot` — the field seal 40 owed `EnvS2U`, and which is
+still owed for a reason recorded at `EnvS2U.lean` — has two
+conjuncts, and at *this* probe neither is vacuous.
 The first needs an `Annotates` derivation for the stored λ, which
 carries an `Infer` and a `HasSortC` premise.  The second needs the
 converse direction: **every** type the relation infers for the stored
@@ -493,5 +494,39 @@ theorem nonempty_envS2U_piProbe : Nonempty (EnvS2U V piProbeEnv) :=
 theorem piProbeTy_is_forallE :
     ∃ n ty body mb, piProbeTy = .forallE n ty body mb :=
   ⟨_, _, _, _, rfl⟩
+
+/-! ## The probe as an `EnvS2` — `EnvS2UInImage`'s second witness
+
+The λ-leaf probe lifts too, and it is the more interesting of the two
+lifts: `EnvS2`'s tenth field is met here by
+`piProbeEnvS_cvalAnnot`, whose λ-shape conjunct is not vacuous.  The
+two `denote2` fields still agree only because the environment stores
+no `defnInfo`/`thmInfo` — *that* is where the residue lives, and no
+axiom-only probe can exercise it. -/
+
+/-- The λ-leaf probe's `EnvS2`. -/
+noncomputable def piProbeEnvS2 : EnvS2 V piProbeEnv where
+  base := (piProbeEnvS2U V).base
+  cval_annot := piProbeEnvS_cvalAnnot V
+  acval := (piProbeEnvS2U V).acval
+  acval_erase := (piProbeEnvS2U V).acval_erase
+  acval_closed := (piProbeEnvS2U V).acval_closed
+  acval_params := (piProbeEnvS2U V).acval_params
+  acval_ok2 := (piProbeEnvS2U V).acval_ok2
+  acval_defn := by
+    intro _ _ _ _ _ _ hc
+    rcases List.mem_singleton.mp hc with h
+    exact nomatch h
+  acval_thm := by
+    intro _ _ _ _ _ hc
+    rcases List.mem_singleton.mp hc with h
+    exact nomatch h
+  mem_type2 := (piProbeEnvS2U V).mem_type2
+
+theorem piProbeEnvS2_toU :
+    EnvS2.toU V (piProbeEnvS2 V) = piProbeEnvS2U V := rfl
+
+theorem piProbeEnvS2U_inImage : EnvS2UInImage V (piProbeEnvS2U V) :=
+  ⟨piProbeEnvS2 V, piProbeEnvS2_toU V⟩
 
 end Setlec.SetR.Interp2

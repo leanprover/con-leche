@@ -212,6 +212,46 @@ uninhabited. -/
 theorem nonempty_envS2U_probe : Nonempty (EnvS2U V probeEnv) :=
   ⟨probeEnvS2U V⟩
 
+/-! ## The probe as an `EnvS2` — `EnvS2UInImage`'s first witness
+
+`EnvS2UInImage` is the residue `CheckStep2U`'s derivability turns on
+(`Claims2U.lean`), and a residue nobody can satisfy is seal 20's
+"vacuous `Prop` with a good name".  It is satisfied here: the probe's
+`EnvS2U` *is* an `EnvS2`, and every field is the same term — the two
+`denote2` fields differ in form but agree on this environment,
+because there is no stored `defnInfo`/`thmInfo` for either to speak
+about.
+
+This is also where `probeEnvS_cvalAnnot` is consumed: `EnvS2` asks
+for the tenth field that `EnvS2U` does not. -/
+
+/-- The probe environment's `EnvS2` — the same data, plus the tenth
+field. -/
+noncomputable def probeEnvS2 : EnvS2 V probeEnv where
+  base := (probeEnvS2U V).base
+  cval_annot := probeEnvS_cvalAnnot V
+  acval := (probeEnvS2U V).acval
+  acval_erase := (probeEnvS2U V).acval_erase
+  acval_closed := (probeEnvS2U V).acval_closed
+  acval_params := (probeEnvS2U V).acval_params
+  acval_ok2 := (probeEnvS2U V).acval_ok2
+  acval_defn := by
+    intro _ _ _ _ _ _ hc
+    rcases List.mem_singleton.mp hc with h
+    exact nomatch h
+  acval_thm := by
+    intro _ _ _ _ _ hc
+    rcases List.mem_singleton.mp hc with h
+    exact nomatch h
+  mem_type2 := (probeEnvS2U V).mem_type2
+
+/-- …and it lifts to the probe's `EnvS2U` on the nose. -/
+theorem probeEnvS2_toU :
+    EnvS2.toU V (probeEnvS2 V) = probeEnvS2U V := rfl
+
+theorem probeEnvS2U_inImage : EnvS2UInImage V (probeEnvS2U V) :=
+  ⟨probeEnvS2 V, probeEnvS2_toU V⟩
+
 /-- …and the environment really is non-empty, which is the whole point
 of the probe. -/
 theorem probeEnv_consts_ne_nil : probeEnv.consts ≠ [] := by

@@ -265,7 +265,15 @@ well as weakening the two `denote2` fields, so `CheckStep2U` is a
 elided: a key conditional on `…2U` at an arbitrary `EnvS2U` is
 conditional on more than the lane owes today, and the fourteen's swap
 must either exhibit its environments as `EnvS2`s (as the probes do) or
-carry the difference. -/
+carry the difference.
+
+**Which of the two causes matters — measured, seal 41.**  Not
+`cval_annot`: it has **no consumer anywhere in the Step2 development**
+(`Annot/Pass.lean`'s two existence theorems take `CvalAnnot` as an
+explicit hypothesis, not off an `EnvS2`; its only supplier is
+`EnvS2.empty`).  Restoring it to `EnvS2U` removes an asymmetry between
+the two structures; it removes no obstruction.  The obstruction is the
+other cause, and `checkStep2U_of_2E` below names it exactly. -/
 
 theorem whnfCoreClaims2U_iff {μ : CheckMode} {env : Env}
     (m : EnvS2 V env) (φ : Name → Nat) (fuel : Nat) :
@@ -293,6 +301,47 @@ theorem checkStep2E_of_2U {μ : CheckMode}
     (h : CheckStep2U μ V) : CheckStep2E μ V := by
   intro env m φ fuel h1 h2 h3 h4
   exact h env (EnvS2.toU V m) φ fuel h1 h2 h3 h4
+
+/-! ### The other direction, and the exact size of the gap
+
+Seal 40 owed a re-measurement of `CheckStep2U`'s derivability once
+`cval_annot` was restored.  The measurement, taken rather than
+assumed:
+
+**The quarters cannot be applied at an `EnvS2U` at all.**  Not the
+four `…Step2E_of`, and not the fifteen residues `Capstone2E.lean`
+assembles them from — every one is `∀ (env : Env) (m : EnvS2 V env)`.
+So the derivation is not a matter of which *fields* a proof reads; it
+needs an `EnvS2` at the `EnvS2U` in hand, with the **same `acval`**,
+because that is what the claims are stated at.  `EnvS2UInImage`
+(`EnvS2U.lean`) is that statement and `checkStep2U_of_2E` is the
+derivation from it.
+
+**And the residue is not `cval_annot`.**  It is the two `denote2`
+fields, in the direction uniqueness cannot supply: `acval_defn` asks
+for an annotation of a stored definition's body to *exist* at some
+fuel, and the uniqueness field is satisfied exactly where none does —
+`acval_defn_uniq_lam_ok` (`EnvS2U.lean`) is that, at a λ-bodied
+definition at fuel `1`.  So the residue is `Denote2Total`'s wall at
+stored bodies, which is the obstruction the uniqueness ruling exists
+to escape, and closing it by this route would undo seal 34.
+
+The route that does not undo it is the one seal 40's own measurement
+licenses: re-point the four quarters to `EnvS2U` as this file
+re-pointed the claims.  Nothing in their proofs consumes the
+existential fields (seal 40: four consumers, all `AcvalDefnInst`
+lemmas, none a claim discharge), and the delta exit already has its
+uniqueness transposes below.  That is a statement change to
+`Claims2E.lean` and `Capstone2E.lean`, not a proof. -/
+
+/-- **The residue, cashed.**  Everything `CheckStep2U` needs beyond
+`CheckStep2E` is `EnvS2UInImage`, and nothing else. -/
+theorem checkStep2U_of_2E {μ : CheckMode}
+    (hb : ∀ (env : Env) (m : EnvS2U V env), EnvS2UInImage V m)
+    (h : CheckStep2E μ V) : CheckStep2U μ V := by
+  intro env m φ fuel h1 h2 h3 h4
+  obtain ⟨m', rfl⟩ := hb env m
+  exact h env m' φ fuel h1 h2 h3 h4
 
 /-! ## The delta exit, in the uniqueness form
 
