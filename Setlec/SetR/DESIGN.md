@@ -10680,3 +10680,66 @@ carrier transports); the `CoreIdemF` + `LeavesSubCoreF` Verify-tier
 suppliers; the `QPreserveHeadF`/`QDescendAppF`/β/ζ FrameQ suppliers;
 iota's full map (`ZipIotaCase`); proj head; Θ; the semantic trio;
 the install facts; the (B) type-form map.
+
+### λ/letE-head cases DISCHARGED (zipHeadDispatch riding coreLock)
+
+`coreLock` amended first (consumer-driven strengthening): the
+seam-pack now carries **`c₁ ≤ g₁ ∧ c₂ ≤ g₂`** — every exit already
+satisfied the bounds (raw exits at the given fuels, recursion
+passes them up by `le_succ_of_le`, assembles by `max`-arithmetic) —
+so the top can mono-lift the connecting runs to the premise knot
+fuels and keep the ZipBelow measure slots EXACT.
+
+**`zipHeadDispatch`** — the shared workhorse both head cases
+collapse onto (the summit claim's body with the recursion bar as a
+premise, non-circular: no `hLam`/`hLetE`/flat-spine hypotheses):
+one loop step decomposed per side (`whnfStep_decompose`), coreLock
+on the core runs, then
+* **pack**: loop runs re-assembled for the outputs by `CoreIdemF`
+  + the landed step assembles (same tri, same fuel); the returned
+  zip classified by `certZip_app_view`: first cert layer → `hΘ`
+  (fc-descent only, measure-free — Θ at empty spines subsumes the
+  bare cert exit, `hCert` never needed); const heads (refl or
+  `constSlack`) → `hConst` at the very same measure (legal: a
+  hypothesis, not `below`); sort heads with empty spines → the
+  forced stop arms (nat legs die by `NatStepNoSort`, δ by
+  fn-not-const) and the eval link; every other head shape →
+  **`loop_dead_exit`** (new: nat leg by `NatStepNoSort`, δ leg by
+  the head shape, stop leg by the sort equation);
+* **seam**: invariants transported by the carrier kit, connecting
+  runs mono-lifted by the new bounds, loop runs re-based by the
+  step assembles (same tri, premise fuels — so `below` passes
+  UNCHANGED to the converters); `certHead → hΘ`,
+  `recHead → ZipIotaCase`, `projHead → ZipProjHeadCase`,
+  `deadL/deadR → loop_dead_exit` after determinism identifies the
+  dead output with the step's own.
+
+`zipLamHeadCase_of` / `zipLetEHeadCase_of` are one-liners: build
+the spine zip from the congruent head components
+(`certZip_mkAppN_zips` on the λ/letE node) and dispatch.  Three of
+the four flat-spine head Props are now discharged; proj remains.
+
+Helper kit: `not_const_getAppFn_of_shape`, `mkAppN_cons_ne_sort`,
+`mkAppN_ne_sort`, `mkAppN_fn_ne_const`, `loop_dead_exit`.
+
+Mechanization notes (the implicit-∀ trap at full strength, new
+variants recorded): an implicit-∀ Prop hypothesis passed
+POSITIONALLY gets eta-inserted and then applied to the next
+argument (`hQs` consumed `hQA`); `@`-application at the consumer
+fixes the head but arguments of def-named implicit-∀ types
+(`below`) still eta-insert — eta-expand them with EXPLICIT implicit
+binders; a shape-lambda under an un-unified implicit head
+(`nomatch` under meta-`e`) fails with "Missing cases" — wrap in
+`by` so the concrete expected type resolves first, and pin
+`(H := shape)` where the helper's subject is otherwise meta;
+`getAppFn` on literal ctors needs the equation simp, not `nomatch`;
+and the φ/Q higher-order-unification corruption (a non-pattern
+`?Q := fun d e c => Q d e (const)` guess) is prevented exactly by
+the recorded `(φ := φ) (Q := Q)` consumer pins.
+
+Remaining branch obligations: proj head (`ZipProjHeadCase`
+discharge), Θ (`ZipCertSpineCase`), iota (`ZipIotaCase`), the
+semantic trio, `CoreIdemF`/`LeavesSubCoreF` Verify-tier suppliers,
+the FrameQ suppliers (`QPreserveHeadF`/`QDescendAppF`/β/ζ),
+`StoredWF`/`BoolCtorsInert`/(E) install facts, the preserver
+suppliers, the (B) type-form map.
