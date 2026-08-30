@@ -13252,3 +13252,48 @@ so the `.proj`/eta gates discharge by the ungated path and cost the
 campaign nothing.  Only `inferBody`'s λ-codomain check
 (`Core.lean:1615`, `mode.verified && !body.isLam`) is genuinely
 two-valued, and it fires once per λ chain at the innermost binder.
+
+### Discharge campaign, seal 2 — the dispatch keystone validated, Tier B piloted
+
+Two claims from the campaign map tested against reality; both hold.
+
+**The dispatch transfers verbatim.**  `infer_sort_claim2`
+(`Interp2/Step2/Dispatch.lean`) is v1's `infer_sort_claimR` with the
+conclusion swapped to the annotated currency, and **the unfolding
+recipe is unchanged** — `rw [inferTypeCore_succ]` then
+`simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
+Except.bind, Except.ok.injEq]`.  It compiled first try.
+
+That is the campaign's keystone risk retired: the *checker* is the same
+function on both lanes, so the case-splitting machinery — which is
+where a bridge's bulk and its fiddliness live — is shared.  Only what a
+clause produces afterwards differs, and that is exactly the part the
+skeleton rows already supply.  **The remaining ten `inferBody` clauses,
+and the other three quarters' dispatches, are grind against a validated
+template rather than an open problem.**
+
+**Tier B is transposition, as priced.**  `natLit_facts2`
+(`Interp2/Step2/Lit.lean`) is `Sound/Lit.lean`'s `natLit_facts` onto
+`piR`/`AnnotOk2`/`interp2` and `denote2`'s own numeral spine
+(`natLitT2` — the same former the `.lit natVal` clause emits).  It
+compiled first try and came out **shorter than v1**: `Nat → Nat` sits
+at result sort `1`, so the successor's product is in the graph regime,
+`app_mem_piR_pos` applies with no fibre premise, and the app slot's
+kind-`0` component is vacuous.  v1 needed `app_mem_piC` and the
+collapse's side conditions at the same spot.
+
+One structuring choice worth copying through the batch: the numeral
+induction takes the two head facts as **explicit arguments** rather
+than re-deriving them, because they are one `mem_type2` chain shared by
+every numeral.  v1 factors the same way (`natHeads_facts` out of
+`natLit_facts`), and the factoring is what keeps the induction free of
+the literal guards' inversion plumbing.
+
+**State of the campaign.**  Landed: the map, the four quarters' Tier A
+clause lemmas, `EnvS2`'s two delta fields, the Tier B pilot, the
+dispatch keystone.  Remaining and now fully templated: the other ten
+infer clauses, the three other dispatches, the rest of Tier B
+(`strLit_facts` is its bulk at ~394 v1 lines), then the five install
+keys and the fourteen's conclusion swap.  Tier C (iota via the named
+slot, β's sort premise via `SortSubstStable`) stays conditional by
+design.
