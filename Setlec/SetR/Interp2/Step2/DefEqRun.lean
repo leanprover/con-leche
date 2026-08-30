@@ -4566,4 +4566,47 @@ theorem defEqStep2D_of
     (heta env m φ fuel) h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb hCa hCb hda hdb
 
+/-- **`defEqStep2E_of` — the defeq quarter against generation six.**
+
+**This quarter was predicted nearly free and it is** (seal 31:
+`DefEqClaims2D` has taken both annotations as premises since
+generation four's hoist, so it was already dual-success).  The
+prediction is exactly right about *defeq's own* factor —
+`defEqClaims2D_of_2E` needs **no** existence residue at all, only the
+fuel split instantiated at `F' := F` — and exactly wrong about the
+quarter: `defeqStep_claim2D` consumes `ihwc : WhnfCoreClaims2D`, so
+the quarter still needs `WhnfCoreExists2E`.
+
+*The free claim is not the free quarter.*  A claim that produces
+nothing can still be proved by a quarter that consumes a producer. -/
+theorem defEqStep2E_of
+    (hex : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), Exists2E μ m φ fuel)
+    (hdel : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+      Denote2Delta2A μ m φ)
+    (hnat : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), ReduceNat2D μ m φ fuel)
+    (hpi : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), ProofIrrel2D μ m φ fuel)
+    (hspine : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), DefEqSpine2D μ m φ fuel)
+    (hsi : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), StuckIrrel2D μ m φ fuel)
+    (hstr : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+      Denote2StrLit2A μ m φ)
+    (hap : ∀ (env : Env) (m : EnvS2 V env), AcvalParams2 m)
+    (hbs : ∀ (env : Env) (φ : Name → Nat) (fuel F : Nat),
+      BinderSortAgree2A μ env φ fuel F)
+    (happ : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), AppCongrStuck2D μ m φ fuel)
+    (heta : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), EtaCert2D μ m φ fuel) :
+    DefEqStep2E μ V := by
+  intro env m φ fuel ihwc ihw ihd ihi
+  obtain ⟨j1, j2, j3, j4⟩ :=
+    claims2D_of_2E (hex env m φ fuel) ihwc ihw ihd ihi
+  exact defEqClaims2E_of_2D
+    (defEqStep2D_of hdel hnat hpi hspine hsi hstr hap hbs happ heta
+      env m φ fuel j1 j2 j3 j4)
+
 end Setlec.SetR.Interp2

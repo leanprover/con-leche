@@ -3,6 +3,7 @@ import Setlec.SetR.Interp2.Step2.Levels
 import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Interp2.Claims2C
 import Setlec.SetR.Interp2.Claims2D
+import Setlec.SetR.Interp2.Dual2E
 import Setlec.SetR.Bridge.WhnfCore
 
 /-!
@@ -3150,5 +3151,67 @@ theorem whnfStep2D_of
     WhnfStep2D μ V :=
   fun env m φ fuel ihwc _ _ _ =>
     whnf_claims2D m ihwc (hnat env m φ fuel) (hdelta env m φ)
+
+/-! ## The same two quarters, re-pointed at generation six
+
+**The `…D` lane above is untouched** — the two theorems below are
+additions, and they route through their `…D` counterparts rather than
+replacing them.  That is not a shortcut: `Dual2E.lean` proves
+`Claims2D ⟺ Claims2E ∧ Exists2E` at each claim, so the routing is the
+factorisation and nothing is lost in either direction.
+
+**What the routing exposes, and it is the finding.**  Generation six
+hands each quarter a *weaker* induction hypothesis — the dual-success
+claim, which says nothing about the reduct's annotation *existing* —
+while `whnfCore_claims2D`'s recursion and `whnfLoop_claim2D`'s budget
+induction both need exactly that existence at every intermediate
+reduct (`whnfCore_package2D` reads it; the δ branch obtains it from
+`Delta2B`).  So the quarter must be handed the existence factor back,
+and `hex` is that hand-back.
+
+Which components each consumes, read off the `…D` bodies above:
+
+| quarter | core | whnf | infer |
+|---|---|---|---|
+| `whnfCoreStep2E_of` | yes (`ihwc`) | no | yes (`ihi`) |
+| `whnfStep2E_of` | yes (`ihwc`) | no | no |
+
+(`whnfCoreStep2E_of`'s infer column is `betaCert2D_of_claims`.)
+
+Defeq's factor is empty at both, because `DefEqClaims2D` never
+produced an annotation.  The bundle is passed whole for uniformity. -/
+
+/-- **`whnfCoreStep2E_of` — the head-normalisation quarter against
+generation six**, with the existence factor handed back. -/
+theorem whnfCoreStep2E_of
+    (hex : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), Exists2E μ m φ fuel)
+    (hinst : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+      Denote2Inst1B μ m.acval env φ)
+    (hiota : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), IotaStep2D μ m φ fuel)
+    (hproj : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), ProjStep2D μ m φ fuel) :
+    WhnfCoreStep2E μ V := by
+  intro env m φ fuel ihwc ihw ihd ihi
+  obtain ⟨j1, j2, j3, j4⟩ :=
+    claims2D_of_2E (hex env m φ fuel) ihwc ihw ihd ihi
+  exact whnfCoreClaims2E_of_2D
+    (whnfCoreStep2D_of hinst hiota hproj env m φ fuel j1 j2 j3 j4)
+
+/-- **`whnfStep2E_of` — the reduction loop against generation six.** -/
+theorem whnfStep2E_of
+    (hex : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), Exists2E μ m φ fuel)
+    (hnat : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), ReduceNatStep2D μ m φ fuel)
+    (hdelta : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat),
+      Delta2B μ m φ) :
+    WhnfStep2E μ V := by
+  intro env m φ fuel ihwc ihw ihd ihi
+  obtain ⟨j1, j2, j3, j4⟩ :=
+    claims2D_of_2E (hex env m φ fuel) ihwc ihw ihd ihi
+  exact whnfClaims2E_of_2D
+    (whnfStep2D_of hnat hdelta env m φ fuel j1 j2 j3 j4)
 
 end Setlec.SetR.Interp2

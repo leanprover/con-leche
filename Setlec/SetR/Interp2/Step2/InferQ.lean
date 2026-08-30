@@ -3,6 +3,7 @@ import Setlec.SetR.Interp2.Step2.Fuel
 import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Interp2.Claims2C
 import Setlec.SetR.Interp2.Claims2D
+import Setlec.SetR.Interp2.Dual2E
 import Setlec.SetR.Bridge.InferStruct
 
 /-!
@@ -3351,5 +3352,54 @@ condition, no mode, no level assignment, no extra premise. -/
 theorem ctxAnn2D_of {env : Env} (m : EnvS2 V env) (μ : CheckMode)
     (φ : Name → Nat) : CtxAnn2D m μ φ :=
   fun hC hden => CtxOk2Ann.fvar_leaf hC.toAnn _ hden
+
+/-! ## The inference quarter at generation six, and what pricing
+`.app` measured
+
+`infer_app_claim2D` above consumes **three** annotations that
+generation six turns into premises, and they are the three the
+statement of `InferClaims2E` does *not* hand it:
+
+1. `tfa`, the annotation of the head's inferred type `tf` — produced
+   by `ihi` on `f`;
+2. `pa = .pi u' v' Aa Ba`, the annotation of `whnf tf` — produced by
+   `ihw`;
+3. `taa`, the annotation of the argument's inferred type `tya` —
+   produced by `ihi` on `a`, and consumed by `ihd`.
+
+The clause's *own* premise `denote2 … d t = some ta` is about the
+**result** `t = body'.instantiate1 a`, and supplies none of the three.
+
+`Denote2Total` (`Interp2/EnvLaws2.lean`) supplies none of them either,
+and this is the pricing outcome recorded against seal 30: its
+conclusion is `∃ F' ea, denote2 … d e = some ea` — the annotation of
+the run's **subject**, while (1) and (3) are annotations of a run's
+**result** and (2) is the annotation of a *reduct*.  At the `.app`
+clause the subject's annotation is already a premise, so the law as
+frozen adds nothing there.
+
+* Repairing (1) and (3) is one word: `e ↦ t` in `Denote2Total`'s
+  conclusion, which is `InferExists2E` (`Dual2E.lean`) modulo the fuel
+  ordering.
+* **(2) is not repairable by any run-conditioned law.**
+  `denote2`'s `.pi` clause needs `sortOfE` at the ∀'s domain *and* at
+  its opened body; the checker's `.app` branch (`Kernel/Core.lean`,
+  the `.app` case of `inferBody`) runs `infer f`, `whnf tf`,
+  `infer a`, `defeq` — and no sort computation on either.  So there is
+  no run to condition on, and (2) can only come from a
+  *reduction-preservation* fact — `WhnfExists2E` — which the
+  generation-five whnf quarter proves inside the induction. -/
+
+/-- **`inferStep2E_of` — the inference quarter against generation
+six**, with the existence factor handed back.  Consumes
+`WhnfExists2E` and `InferExists2E`; see the note above for where. -/
+theorem inferStep2E_of
+    (hex : ∀ (env : Env) (m : EnvS2 V env) (φ : Name → Nat)
+      (fuel : Nat), Exists2E μ m φ fuel)
+    (h : InferInputs2D V μ) : InferStep2E μ V := by
+  intro env m φ fuel ihwc ihw ihd ihi
+  obtain ⟨j1, j2, j3, j4⟩ :=
+    claims2D_of_2E (hex env m φ fuel) ihwc ihw ihd ihi
+  exact inferClaims2E_of_2D (inferStep2D_of h env m φ fuel j1 j2 j3 j4)
 
 end Setlec.SetR.Interp2

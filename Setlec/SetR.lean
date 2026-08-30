@@ -106,6 +106,8 @@ import Setlec.SetR.Interp2.Claims2E
 import Setlec.SetR.Interp2.EnvLaws2
 import Setlec.SetR.Interp2.Capstone2C
 import Setlec.SetR.Interp2.Capstone2D
+import Setlec.SetR.Interp2.Dual2E
+import Setlec.SetR.Interp2.Capstone2E
 import Setlec.SetR.Interp2.Capstone
 import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.SimSubst
