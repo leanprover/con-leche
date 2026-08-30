@@ -12014,6 +12014,158 @@ theorem zipProjHeadCase_of {φ : Name → Nat}
       hgp₁ hgp₂ hr₁ hr₂ hze' hlen' hargs' hw₁ hw₂ hnested
       hlit₁ hlit₂ hfire₁ hfire₂ hrn₁ hrn₂
 
+/-- Recursor heads never unfold (`recInfo` stores no value). -/
+theorem unfoldDefinition_none_of_recInfo {env : Env} {e : Expr}
+    {n : Name} {us : List Level} {cv : Setlec.ConstantVal}
+    {mI rP : Nat} {rules : List Setlec.RecRule}
+    (hfn : e.getAppFn = .const n us)
+    (hf : env.find? n = some (.recInfo cv mI rP rules)) :
+    Setlec.unfoldDefinition env e = none := by
+  unfold Setlec.unfoldDefinition
+  rw [hfn]
+  simp only []
+  rw [hf]
+
+/-- **The rec-spine inversion** (parallel to the proj one): a core
+run on a recursor-headed spine is stuck (the spine — under-applied
+or iota-none at the arity layer) or fired at some prefix, with the
+continuation's run and the run/nil/dead residual. -/
+theorem whnfCore_rec_spine_inv {μ : CheckMode} {env : Env}
+    (hm : KnotFuelMono μ env) :
+    ∀ {as : List Expr} {f d : Nat} {n : Name} {us : List Level}
+      {t : Expr},
+      whnfCore μ env f d (Setlec.Expr.mkAppN (.const n us) as)
+        = .ok t →
+      t = Setlec.Expr.mkAppN (.const n us) as ∨
+      ∃ (pre post : List Expr) (g : Nat) (e'' h' : Expr),
+        as = pre ++ post ∧ g + 1 ≤ f ∧
+        Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
+          (Setlec.Expr.mkAppN (.const n us) pre)
+          = .ok (some e'') ∧
+        whnfCore μ env g d e'' = .ok h' ∧
+        ((post = [] ∧ t = h') ∨
+         (∃ c, c ≤ f ∧
+           whnfCore μ env c d (Setlec.Expr.mkAppN h' post)
+             = .ok t) ∨
+         ((∀ p' q', t.getAppFn ≠ Setlec.Expr.const p' q') ∧
+           (∀ n' ty' b' m', t ≠ .lam n' ty' b' m') ∧
+           (∀ ℓ, t ≠ .sort ℓ))) := by
+  suffices H : ∀ (m : Nat) (as : List Expr), as.length ≤ m →
+      ∀ {f d : Nat} {n : Name} {us : List Level} {t : Expr},
+      whnfCore μ env f d (Setlec.Expr.mkAppN (.const n us) as)
+        = .ok t →
+      t = Setlec.Expr.mkAppN (.const n us) as ∨
+      ∃ (pre post : List Expr) (g : Nat) (e'' h' : Expr),
+        as = pre ++ post ∧ g + 1 ≤ f ∧
+        Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
+          (Setlec.Expr.mkAppN (.const n us) pre)
+          = .ok (some e'') ∧
+        whnfCore μ env g d e'' = .ok h' ∧
+        ((post = [] ∧ t = h') ∨
+         (∃ c, c ≤ f ∧
+           whnfCore μ env c d (Setlec.Expr.mkAppN h' post)
+             = .ok t) ∨
+         ((∀ p' q', t.getAppFn ≠ Setlec.Expr.const p' q') ∧
+           (∀ n' ty' b' m', t ≠ .lam n' ty' b' m') ∧
+           (∀ ℓ, t ≠ .sort ℓ))) by
+    exact fun {as} => H as.length as (Nat.le_refl _)
+  intro m
+  induction m with
+  | zero =>
+    intro as hlen0 f d n us t h
+    obtain rfl : as = [] := List.eq_nil_of_length_eq_zero
+      (Nat.le_zero.mp hlen0)
+    exact .inl (whnfCore_inert (fun _ _ hh => nomatch hh)
+      (fun _ _ _ _ hh => nomatch hh) (fun _ _ _ hh => nomatch hh)
+      h)
+  | succ m ihm =>
+    intro as hlenn f d n us t h
+    rcases List.eq_nil_or_concat as with rfl | ⟨as₀, b, rfl⟩
+    · exact .inl ((whnfCore_inert (fun _ _ hh => nomatch hh)
+        (fun _ _ _ _ hh => nomatch hh)
+        (fun _ _ _ hh => nomatch hh) h))
+    · rw [List.concat_eq_append] at h hlenn ⊢
+      have hlen₀ : as₀.length ≤ m := by
+        simp only [List.length_append, List.length_cons,
+          List.length_nil] at hlenn
+        omega
+      rw [show Setlec.Expr.mkAppN (.const n us) (as₀ ++ [b])
+          = Expr.app (Setlec.Expr.mkAppN (.const n us) as₀) b
+        from mkAppN_append_one] at h
+      cases f with
+      | zero => exact nomatch h
+      | succ f' =>
+      obtain ⟨P', hhead, legs⟩ := whnfCore_app_decompose h
+      rcases ihm as₀ hlen₀ hhead with rfl |
+        ⟨pre, post, g, e'', h', heq, hg, hio, hcont, hres⟩
+      · -- head stuck: fire here or stay stuck
+        rcases legs with ⟨n', ty', b', m', ta', hPlam, -, -, -⟩ |
+          ⟨n', ty', b', m', ta', hPlam, -, -, rfl⟩ | ⟨hnl, hio⟩
+        · exact absurd hPlam
+            (mkAppN_ne_lam (H := Expr.const n us)
+              (fun _ _ _ _ hh => nomatch hh) n' ty' b' m')
+        · exact absurd hPlam
+            (mkAppN_ne_lam (H := Expr.const n us)
+              (fun _ _ _ _ hh => nomatch hh) n' ty' b' m')
+        · rcases hio with ⟨e'', hio, hrun⟩ | ⟨hio, rfl⟩
+          · refine .inr ⟨as₀ ++ [b], [], f', e'', t,
+              (List.append_nil _).symm, Nat.le_refl _, ?_, hrun,
+              .inl ⟨rfl, rfl⟩⟩
+            rw [show Setlec.Expr.mkAppN (.const n us) (as₀ ++ [b])
+                = Expr.app
+                  (Setlec.Expr.mkAppN (.const n us) as₀) b
+              from mkAppN_append_one]
+            exact hio
+          · exact .inl mkAppN_append_one.symm
+      · -- head fired: compose the residual through the layer
+        subst heq
+        refine .inr ⟨pre, post ++ [b], g, e'', h',
+          List.append_assoc _ _ _, by omega, hio, hcont, ?_⟩
+        rcases hres with ⟨rfl, rfl⟩ | ⟨c, hc, hresrun⟩ |
+          ⟨hnc, hnl2, hns⟩
+        · -- empty inner post: the head output is the continuation's
+          rcases whnfCore_self_or_dead hm hcont with hS |
+            ⟨hnc, hnl2, hns⟩
+          · refine .inr (.inl ⟨max f' f' + 1, by omega, ?_⟩)
+            rw [show Setlec.Expr.mkAppN P' ([] ++ [b])
+                = Expr.app (Setlec.Expr.mkAppN P' []) b
+              from mkAppN_append_one]
+            exact whnfCore_app_assemble (g := f') (gl := f') hm
+              (hm.2.2.1 (by omega) hS) legs
+          · rcases legs with
+              ⟨n', ty', b', m', ta', hPlam, -, -, -⟩ |
+              ⟨n', ty', b', m', ta', hPlam, -, -, rfl⟩ |
+              ⟨hnl, hio'⟩
+            · exact absurd hPlam (hnl2 n' ty' b' m')
+            · exact absurd hPlam (hnl2 n' ty' b' m')
+            · rcases hio' with ⟨e₂'', hio', hrun'⟩ | ⟨hio', rfl⟩
+              · obtain ⟨nn, uu, hh⟩ := iotaRec_some_head hio'
+                exact absurd hh (hnc nn uu)
+              · refine .inr (.inr ⟨?_, ?_, ?_⟩)
+                · exact fun p' q' hh => hnc p' q' hh
+                · exact fun _ _ _ _ hh => nomatch hh
+                · exact fun _ hh => nomatch hh
+        · -- run residual: assemble one more layer
+          refine .inr (.inl ⟨max f' f' + 1, by omega, ?_⟩)
+          rw [show Setlec.Expr.mkAppN h' (post ++ [b])
+              = Expr.app (Setlec.Expr.mkAppN h' post) b
+            from mkAppN_append_one]
+          exact whnfCore_app_assemble (g := f') (gl := f') hm
+            (hm.2.2.1 (Nat.le_trans hc (by omega)) hresrun) legs
+        · -- dead residual: the layer stays dead
+          rcases legs with
+            ⟨n', ty', b', m', ta', hPlam, -, -, -⟩ |
+            ⟨n', ty', b', m', ta', hPlam, -, -, rfl⟩ | ⟨hnl, hio'⟩
+          · exact absurd hPlam (hnl2 n' ty' b' m')
+          · exact absurd hPlam (hnl2 n' ty' b' m')
+          · rcases hio' with ⟨e₂'', hio', hrun'⟩ | ⟨hio', rfl⟩
+            · obtain ⟨nn, uu, hh⟩ := iotaRec_some_head hio'
+              exact absurd hh (hnc nn uu)
+            · refine .inr (.inr ⟨?_, ?_, ?_⟩)
+              · exact fun p' q' hh => hnc p' q' hh
+              · exact fun _ _ _ _ hh => nomatch hh
+              · exact fun _ hh => nomatch hh
+
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/
 theorem zipLamHeadCase_of {φ : Name → Nat}

@@ -11483,3 +11483,17 @@ knot−1 (`iotaRec_inv`) — **loopLock on the zipped majors**.
 Refl-lit majors expand det-equal (no Q, no coreLock — the banked
 strLit trick); `litMajorToCtor` identity rows transport through
 the pack zip.
+
+### The rec-spine inversion LANDED (+ the recInfo-unfold lemma)
+
+`whnfCore_rec_spine_inv` — stuck (the spine) or fired at some
+prefix split (`as = pre ++ post`) with the `iotaRec` fire run, the
+continuation's run, and the run/nil/dead residual — the proj
+inversion's structure verbatim (length induction, concat splits,
+`whnfCore_self_or_dead` at nil residuals, dead propagation through
+iota-none layers; the fire itself is caught at the stuck-head
+layer where the legs' iota-some IS the fire).  Plus
+`unfoldDefinition_none_of_recInfo` (recursor heads never unfold —
+off the match).  Two fixes only (a drafting leftover and the
+append-assoc direction).  Next: the three routed Props with their
+pre-checks, then `zipIotaCase_of` on the map.
