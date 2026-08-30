@@ -11439,3 +11439,47 @@ remaining routed obligations: `ZipCertSpineCase` (Θ),
 `ZipIotaCase` (the major recursion), `ProjSplitSortAgree` (Θ's
 docket) — plus the trio, the species suppliers, the install facts,
 and (B).
+
+### ZipIotaCase: the full-treatment pre-build map (build follows)
+
+**Stuck sides die by their own tri** — no guard analysis needed:
+nat-some → `NatStepNoSort` (the sort premise); δ-some →
+`unfoldDefinition` is none on `recInfo` heads (a ten-line lemma off
+the match); stop → sort = rec-spine, refuted by shape.  So only
+both-fired carries content, exactly as at proj.
+
+**The rec-spine inversion** (parallel to the proj one, reverse-
+spine induction): stuck (the spine, iota-none at the arity layer or
+under-applied) or fired — the `iotaRec_inv` payload at the arity
+prefix plus the run/nil/dead residual.  The fire data pins BOTH
+majors' whnf outputs to constructor spines (`hmfn`), which
+organizes everything after.
+
+**Both-fired**: majors are pairwise-zipped args; their whnfs run at
+knot−1 (`iotaRec_inv`) — **loopLock on the zipped majors**.
+* **Major-pack + identity rows + matching ctor names**
+  (view: refl/constSlack heads) → same rule (`rules.find?` at the
+  shared name) → zipped reducts (`certZip_instantiate` on the
+  shared RHS at eval-linked levels + take/drop of zipped spines) →
+  coreLock on the continuation runs at knot−1 → `ZipBelow` at the
+  LOOP decrease (the budget drops by one across the step).
+* **Everything else routes to ONE new Θ-family Prop,
+  `IotaMajorSortAgree`** — the self-similar interface a third
+  time: it takes the major-level `LoopLockOut` VERBATIM (pack with
+  cert-headed/name-mismatched ctors, seams, splits — whatever the
+  major analysis produced) plus the dual fire data and the sort
+  runs, concluding the claim.  Cert-swallowed majors, mixed
+  strLit rows, and nested seams all ride it; discharged at Θ's
+  arc (its docket becomes: the cert-spine motive + THREE
+  conversions — proj split, nat split, iota-major).
+* **The K/eta rescue rows** (`majorToCtor`'s fabrication arms) →
+  two leg-local routed Props stated AT the build with their own
+  pre-checks (`KRescueSortAgree` / `EtaRescueSortAgree`-shaped:
+  the rescue's `whnf (infer major)` data on both sides + the
+  claim) — the deferred infer-lockstep enters exactly here and
+  nowhere else; their discharges open the infer-lockstep seal that
+  the record always predicted.
+
+Refl-lit majors expand det-equal (no Q, no coreLock — the banked
+strLit trick); `litMajorToCtor` identity rows transport through
+the pack zip.
