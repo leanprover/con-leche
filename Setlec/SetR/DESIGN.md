@@ -12522,3 +12522,51 @@ sort/λ/Π/lit/below-zone-fvar discharge or refute cleanly).  Next:
 ratification of the audited architecture, then the mutual discharge
 in arm-group seals, then the depth-zero consumers as zip-walker
 instances.
+
+### The (B)-audit, round three: the sealed measure OVERTURNED — the audit's own full strength (STOP)
+
+Extending the audit past the transition table to (a) the PUSHED
+telescope's tier supply and (b) the re-entry loops' assembly knots
+falsifies the `[rank, |Γ|, phase, …]` measure sealed one commit ago:
+
+1. **Tier/knot decoupling is forced.**  `ThetaWalkClaim` couples the
+   run's knot and `TelescopeOk`'s tier (both `fcK`).  The push drops
+   the knot but CANNOT re-tier the old entries' certificates down
+   (no fuel down-transport), and the pushed entry's certs arrive at
+   the ORIGINAL tier (the spine zips).  So the telescope tier is a
+   GLOBAL constant `T` of each summit entry and the knot descends
+   independently — the frozen claim needs the two-fuel form.
+2. **Pushes and in-zone entries trade `|Γ|` against the knot in
+   opposite directions** — push: knot−1, `|Γ|`+1; in-zone: `|Γ|`
+   strictly down, knot reset up to `T`.  No lexicographic order on
+   (knot, `|Γ|`) covers both, and the growth is not potential-
+   boundable (in-zone resets can re-grow past any prior state).
+3. **The only globally descending currency is the GIVEN loops' own
+   structure** — and the zip tier's landed ZipAppCase seal already
+   recorded the exact discipline: "the claim must NOT recurse at
+   the contracta — that leg would not decrease; the knot pays for β
+   inline at `ga−1`".  The β-fires the push chases are CORE-internal
+   to ONE `whnfStep` of the given loops: their processing must be
+   INLINE down the loops' core runs (knot-descending), never a walk
+   re-entry; the δ/nat re-entries descend the loop budgets; the
+   cert exits descend `fc`.  The walk's real measure is ZipBelow's
+   own `[fc, ga+gb, la+lb]` — the original bar — with the telescope
+   as TRAVELING DATA (the defeq-run data consumed in sync with the
+   inline core-walk), not a measure slot.
+
+**Corrected architecture sketch (for ratification)**: the summit
+discharge is an inline-processing induction in the ZipAppCase
+style — primary on the loops' knots (`ga+gb`), the defeq-run data
+(`PostCoreCert` at the current opened depth) traveling as a
+hypothesis pack alongside the telescope; the E3/E4 engines align
+the loops' actual core steps with the run's θ-images per layer;
+zip-material exits through ZipBelow (fc-descent at cert exits,
+budget-descent at δ/nat); the in-zone-fvar leaves exit through the
+telescope pack's own zips at the SAME ZipBelow bar (their loops are
+sub-runs at strictly smaller knots — the argument whnfs sit inside
+iota/nat processing one knot down).  `ThetaZipWalkClaim` (beec972)
+survives as the ENTRY-SHAPE (the consumers' interface) but its
+discharge rides the corrected induction, not the overturned
+measure.  The beec972 measure section is TOMBSTONED by this entry
+(the tombstone-sweep rule applies: no future obligation may cite
+`[rank, |Γ|, phase]`).  STOP — reporting before any arm code.
