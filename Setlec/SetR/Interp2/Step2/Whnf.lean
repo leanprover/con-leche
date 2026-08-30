@@ -1724,6 +1724,44 @@ theorem substFn_param_self (ψ : Name → Nat) (ks : List Name) :
     Level.subst_param_self ks (.param n)
   rw [← Level.eval_subst_go, h, Level.eval]
 
+/-- **The satisfiability half**, checked at the junction before the
+field was accepted.  `acvalDefnInst_of_…` shows the proposed shape is
+a *strengthening*; that alone does not show it is inhabited, and this
+campaign has twice been misled by a shape that was vacuous exactly
+where it mattered (`EnvS2.empty` has no constants).
+
+At a declaration with **no level parameters** the proposal follows
+from the two fields `EnvS2` already carries.  So it is inhabited well
+beyond vacuity, and only the genuinely level-parametric declarations
+need new content — which is the honest statement of what adopting it
+costs. -/
+theorem acvalDefnInst_noParams {env : Env} (m : EnvS2 V env)
+    {F : Nat} {cv : ConstantVal} {value : Expr} {us : List Level}
+    (hnp : cv.levelParams = [])
+    (hmem : (∃ hint : ReducibilityHint,
+        ConstantInfo.defnInfo cv value hint ∈ env.consts) ∨
+      ConstantInfo.thmInfo cv value ∈ env.consts)
+    (hlen : us.length = cv.levelParams.length) :
+    ∃ F', F ≤ F' ∧
+      denote2 μ m.acval env φ F' 0
+          (value.instantiateLevelParams cv.levelParams us)
+        = some (m.acval cv.name
+            (Level.substFn φ cv.levelParams us)) := by
+  obtain rfl : us = [] := by
+    rw [hnp] at hlen; exact List.eq_nil_of_length_eq_zero hlen
+  rw [hnp]
+  have hself : Setlec.Expr.instantiateLevelParams [] ([] : List Level)
+      value = value := by
+    simpa using Setlec.Expr.instantiateLevelParams_self (ks := []) value
+  have hfn : Level.substFn φ [] ([] : List Level) = φ := by
+    simpa using substFn_param_self φ []
+  rw [hself, hfn]
+  rcases hmem with ⟨hint, hc⟩ | hc
+  · obtain ⟨F', hle, h⟩ := m.acval_defn μ φ F cv value hint hc
+    exact ⟨F', hle, h⟩
+  · obtain ⟨F', hle, h⟩ := m.acval_thm μ φ F cv value hc
+    exact ⟨F', hle, h⟩
+
 /-- **The proposed field is a strengthening, not a different
 statement**: `EnvS2.acval_defn`'s current shape is its
 identity-substitution instance, so adopting `AcvalDefnInst` in its
@@ -1904,7 +1942,6 @@ def BetaCert2P (μ : CheckMode) {env : Env} (m : EnvS2 V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {F : Nat}
     {aa tya : AVExpr},
-    μ.verified = true →
     inferTypeCore μ env fuel d a = .ok ta →
     Setlec.isDefEqCore μ env fuel d ta ty = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
@@ -1933,9 +1970,9 @@ theorem betaCert2P_of_claims (m : EnvS2 V env) {fuel : Nat}
       ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta)
     (ihd : DefEqClaims2B μ m φ fuel) (ihi : InferClaims2A μ m φ fuel) :
     BetaCert2P μ m φ fuel := by
-  intro d Δa a ty ta F aa tya hv hta hde hwa hba hLa hCa hwty hbty
+  intro d Δa a ty ta F aa tya hta hde hwa hba hLa hCa hwty hbty
     hLty hCty hC2 haa htya ρ hρ hoktya
-  obtain ⟨F', ta', hle, hta', hcon⟩ := ihi hv hta hwa hba hLa hC2 haa
+  obtain ⟨F', ta', hle, hta', hcon⟩ := ihi hta hwa hba hLa hC2 haa
   have hwta : Expr.WScoped d ta :=
     Setlec.inferTypeCore_WScoped m.base.wf fuel hta hwa
   have hbta : ta.looseBVarsBounded 0 = true :=
@@ -1946,7 +1983,7 @@ theorem betaCert2P_of_claims (m : EnvS2 V env) {fuel : Nat}
     CtxOkR.of_subset hsub hCa
   have hokta : AnnotOk2 V ρ ta' :=
     htok hta (CtxOk2.fuelMono hle hC2) hta' ρ hρ
-  have heq := ihd hv hde hwta hbta hLta hwty hbty hLty hCta hCty hta'
+  have heq := ihd hde hwta hbta hLta hwty hbty hLty hCta hCty hta'
     (denote2_fuelMono hle d ty htya) ρ hρ hokta hoktya
   exact heq ▸ (hcon ρ hρ).2
 

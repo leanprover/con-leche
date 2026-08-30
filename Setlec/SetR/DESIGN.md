@@ -14326,3 +14326,98 @@ smallest-fuel test likely goes vacuous rather than false — but the
 side conditions. Owner: whoever discharges `CtxOk2Open`. Flagged by
 the refutation's author, who correctly declined to test a residue
 outside their brief.
+
+### Seal 12 — the residue batch: one discharged, three blocked on missing `interp2` laws
+
+`Delta2B` is **discharged modulo one obligation** (`delta2B_of`). The
+residue's own docstring said "the annotation does not move, only the
+fuel does" — right, and not the whole bill. `unfoldDefinition` hands
+the loop `value.instantiateLevelParams cv.levelParams us`, under a
+spine, at the subject's depth, while `EnvS2.acval_defn` speaks about
+`value`, at depth `0`, under a *substituted* assignment. **Three
+crossings**, of which two are now theorems in a new reusable module
+`Interp2/Step2/Levels.lean`: `denote2_mkAppN_swap` (head swap under a
+spine, fuel free to move up) and `denote2_depth_of_closed`.
+
+**The third crossing is not a clean induction, and that is the finding.**
+On v1 it is `denote_instLevels`, one induction, because `denote` reads
+the level assignment only at `.sort` and `.const`. **`denote2` reads it
+there *and* through `sortOfE`/`lamSortE`, which are checker runs** — so
+at every binder node the crossing relates two *runs* on two different
+terms. It is a metatheorem about the checker, the level-side twin of
+`shiftClaims`, and it has no counterpart in the tree. Named
+`Denote2InstLevels`.
+
+**Three of eight residues are blocked on missing environment laws, not
+on proofs.** This is the batch's most valuable output:
+
+* **`ReduceNatStep2` is not the cheap one.** Its fuel half was settled
+  (`natOpResult_leaf`); its *semantic* conjunct has **no supplier**.
+  `EnvS.nat_ops : NatOpsV` is stated over `denote`/`interp`/`cval`, and
+  `EnvS2` has no `interp2` counterpart — the erasure link cannot carry
+  it, because `interp2` is the two-regime annotation-driven
+  interpretation, not `interp ∘ erase`. v1 escapes by concluding a
+  `Red` whose soundness consumes `nat_ops` elsewhere; the interp2
+  claims conclude the equality directly, so the law must be present.
+* **`ProjStep2B` and `IotaStep2B` are the same class** — the fired
+  modeled-iota law and the native-pair projection law, neither of
+  which exists over `interp2`.
+
+By T5 these belong to their suppliers, exactly as `RecRulesV2` is
+deliberately absent from `EnvS2` today. *The interp2 migration's real
+remaining cost is a set of environment laws, not a set of proofs.*
+
+**`BetaCert2` produced a result worth more than its discharge.**
+`betaCert2P_of_claims` composes `InferClaims2A` and `DefEqClaims2B`
+into the β certificate, and needs exactly one thing the quarter cannot
+build: `CtxOk2` on the argument, from `CtxOkR`-on-erasures. So:
+
+* **`CtxOk2R` has a second, independent consumer.** The seam is not
+  the inference `.app` clause's alone, and both sites want the same
+  repair — the context currency made uniform, which seal 11 already
+  decided. Two independent confirmations of one statement change.
+* **Seal 8's open question is answered from a second site**: yes,
+  `InferClaims2A`'s conclusion needs extending to carry the returned
+  type's `AnnotOk2`, because `DefEqClaims2B` is graded on both sides.
+
+Deliberately **not** wired in: `BetaCert2P` adds a premise its
+consumer cannot supply, and weakening `BetaCert2` to fit would have
+been the failure mode this campaign keeps naming.
+
+#### The `AcvalDefnInst` request: accepted in principle, with the cost stated
+
+The batch recommends restating `EnvS2.acval_defn`/`acval_thm` at the
+*instantiated* value (`AcvalDefnInst`), which discharges `Delta2B`
+outright. It is a verified **strengthening** — the current fields are
+its identity-substitution instance
+(`acval_defn_of_acvalDefnInst`, `substFn_param_self`) — so nothing
+downstream is lost.
+
+**Checked at the junction before accepting, per the standing rule that
+a strengthening must also be shown inhabited:**
+`acvalDefnInst_noParams` derives the proposed shape from the *existing*
+fields at any declaration with no level parameters. So it is satisfiable
+well beyond `EnvS2.empty`'s vacuity, and only genuinely
+level-parametric declarations need new content.
+
+**But it relocates rather than removes the obligation, and that must be
+on the record.** Defining `acval c ψ` as the body's denotation under
+`ψ` makes the field ask precisely `Denote2InstLevels` at the install
+site. The batch preferred relocation because it doubts the metatheorem
+is true at all — `piResultIsProp`/`piResultNeverZero` (`Kernel/Core.lean`)
+make the structure-eta rescue and the irrelevance branch
+**level-sensitive**, so a run genuinely can change behaviour under
+instantiation. No witness either way; flagged as a risk, not a
+refutation, and correctly so.
+
+Relocation is still the right move — the install layer knows the
+declaration was *checked* and chooses `acval` itself, neither of which
+the delta exit has. **Adoption deferred until the `openCong` worker
+lands**, because a fifth `EnvS2` change while an agent is mid-flight is
+exactly the silent integration break seal 9 made a rule about.
+
+**Named as the install campaign's gate:** whether `AcvalDefnInst` is
+establishable at install, and whether `Denote2InstLevels` is true at
+all. The second question now has a concrete attack — find a
+declaration whose `piResultIsProp` branch flips under level
+instantiation, or prove it cannot.
