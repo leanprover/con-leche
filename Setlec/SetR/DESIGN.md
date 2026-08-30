@@ -15554,3 +15554,82 @@ killing case is excluded by construction and the check is structurally
 unavailable. Supply instead: (a) that the witnesses do not refute the
 repair, and (b) that the repaired hypothesis is reachable. Both were
 supplied here.*
+
+### Seal 26 — the seam, enumerated structurally: the beta certificate is not the last guard
+
+Done from the **clause list, not from attacks**, which is the whole
+point. Method, so it can be re-run rather than re-invented:
+
+1. Enumerate the checker's **level-examining primitives** — the
+   functions whose result can branch control flow on a `Level`.
+   `Setlec/Kernel/Level.lean` closes at seven: `isEquiv`,
+   `isEquivList`, `isZero`, `isNonZero`, `isNeverZero`, `leq`,
+   `allParamsDefined`. Plus the two derived guards `piResultIsProp`
+   and `piResultNeverZero` (`Kernel/Core.lean:127`, `:138`).
+2. Find **every call site** of those in the kernel.
+3. **Attribute each to its enclosing function**, and keep only those
+   on the reduction/inference knot.
+
+**Result: thirteen seam sites across nine run-path functions.** Not
+one, not three.
+
+| function | sites | primitive |
+|---|---|---|
+| `proofIrrel` | 786, 790 | `isEquiv _ .zero` ×2 |
+| `pairEtaCert` | 856 | `isEquivList` |
+| `structEtaCertWith` | 940 | `isEquivList` |
+| `majorToCtor` | 1153 | **`piResultNeverZero`** |
+| `iotaRec` | 1311 | `isEquivList usj` |
+| `projCert` | 1371, 1376 | `isEquiv` ×2 |
+| `defeqSpine` | 1694 | `isEquivList` |
+| `defeqStep` | 1816, 1858 | `isEquiv` on sorts; `isEquivList` |
+| `isPropType` | 1944 | `isEquiv _ .zero` |
+
+All in `Kernel/Core.lean`; all reachable from
+`whnfCore`/`whnf`/`inferTypeCore`/`isDefEqCore`.
+
+**The enumeration cross-checks seal 19 and seal 25, and corrects the
+scale of both.** Seal 19 named two guards and closed one. Seal 25
+added a third and warned that closing is not enumerating. **The
+structural count is nine functions** — so the honest state before this
+seal was that roughly a quarter of the seam had been looked at. The
+beta certificate is *one family among several*, reached through
+`proofIrrel`/`isPropType`'s zero-tests.
+
+**Two cross-checks that came out right**, which is the reason to trust
+the method rather than the count:
+
+* `piResultIsProp` appears in `Core.lean` at line 1148 **only inside a
+  comment**; its live call sites are `Modeled.lean:723` and
+  `CheckerS.lean:305`, both install-time. That is exactly seal 19's
+  finding, re-derived from the other direction.
+* `piResultNeverZero` at `Core.lean:1153` in `majorToCtor` *is* a live
+  seam call — also as seal 19 had it.
+
+**Deliberately excluded, with reasons:**
+
+* `CheckerS.lean:771/904/918/1490/1712` and `:507`,
+  `Modeled.lean:179/723` — **declaration-check and install time**, not
+  the knot. A subject's level instantiation never reaches them.
+* `annotateProjRec` (`Core.lean:2002`) — the **preprocessing pass**.
+  Out of seam for `InferInstLevels`/`WhnfSortInstLevels`, whose
+  subjects are already annotated when the run starts. Worth recording
+  that it *is* level-sensitive and *would* be in seam for any statement
+  about the preprocessing contract.
+
+**Consequence for the discharge.** `WhnfInstLevelsUpTo` — the
+simulation form, per seal 25's sort-terminality theorem — must survive
+all nine, not just the three named so far. Six have never been
+examined: the two eta certificates, `projCert`, `defeqSpine`,
+`defeqStep`, and `isPropType`. Each is a `Level` equality or
+zero-test whose *monotonicity direction under substitution* is the
+question, exactly as `piResultNeverZero_map_subst` settled that one.
+
+*That is the shape of the next piece of work, and it is now a finite
+checklist rather than a hunt.* `Denote2InstLevels` stays open with
+better residue, per the standing ledger state; the keys may consume
+the `…W` forms directly without it.
+
+*Rule: enumerate a seam from the function's own clause list and the
+primitive's own call sites. An enumeration driven by attacks
+terminates when imagination does.*
