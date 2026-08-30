@@ -12640,6 +12640,60 @@ analogue.  So entry item 2 is "port `ConstOk.lean` (267 lines) onto
 `piR`", not "invent an argument": sized, and with every case's target
 already written down here.
 
+### The corrected architecture's map tier SEALED (`ThetaRel.lean`)
+
+Landed (compiled): `certZip_mono` (fuel lift — congruence-arm
+argument zips at the run's knot lift to the tier, keeping spines
+un-nested), `ThetaRel` (zip / packed / same — the traveling
+currency; knot decoupled from the tier per round three),
+`ThetaCoreSeam` (the landed `CoreSeam` shape with `ThetaRel`
+material at head rows, dead rows verbatim, plus the `alignSeam` row
+carrying the E4 seams outward), `ThetaCoreOut`, and the
+`ThetaCoreLockF` claim (inline induction over the runs' knot sum;
+zip rows delegate to the landed `coreLock`).  Next: the θ-coreLock
+discharge, then the loop tier, then the tie and the consumers.
+
+### The θ computation kit + THE PUSH ALGEBRA sealed
+
+Landed in `ThetaRel.lean` (all compiled, zero sorries):
+* the θ-image computation family (`thetaSubst₁/₂` on sorts, consts,
+  lits, apps, Π-shapes, projs, spines — the leaf-invariances and
+  distributions the same/packed analyses read);
+* `instantiate1_abstract1_fresh` — the REVERSE roundtrip
+  (abstracting a fresh opening recovers a bounded body; the missing
+  half of the open/close algebra);
+* `thetaSubst₁/₂_append` + `TelescopeOk.append` (the push's
+  telescope extension folds);
+* `thetaSubst₁/₂_scoped_id` (outer-scoped closed terms are
+  θ-invariant — spine args in particular);
+* `thetaSubst₁/₂_lam_beta` (the λ-image's shape with its β
+  composite through the whole telescope); and
+* **`thetaSubst₁_push`** — the arc's deepest single equality: the
+  θ-append image of the OPENED body equals the actual β-contractum
+  (`append` fold + reverse roundtrip + `lam_beta` + `scoped_id`).
+  The inline push case now reduces to bookkeeping.
+Also: `ThetaCoreSeam` gained the `certHead` row with `ThetaRel`
+arguments (the congruence exits' shape), and `alignSeam` carries
+its trace ceiling.  Next: the `same`-row core analysis
+(`thetaSame_core`), then the packed tier and `thetaCoreLock`.
+
+### The Θ relation MUTUALIZED (the same-λ push's forcing)
+
+The `same`-row pre-build found the last structural constraint: a
+shared-λ head fired against REL-related spine arguments pushes an
+entry whose argument pair is Θ-related, not certificate-zipped — so
+the telescope's argument relation must itself be `ThetaRel`.
+Landed: the mutual pair `ThetaRel`/`TelescopeRel` (spines and
+telescope arguments Θ-related; zips embed via `.zip`, and
+`TelescopeRel.of_ok` embeds the claims' `TelescopeOk`), the kit
+ported (`thetaRel_bounded₁/₂`, `thetaRel_WScoped₁/₂`,
+`thetaRel_lam_beta₁/₂`, `TelescopeRel.append`), and
+`thetaSubst₁_push` trimmed to its true inputs (the β composite +
+the roundtrip facts).  All warning-free; battery green, axioms
+12/12.  The `same`/`packed` analyses now have every structural
+ingredient; next: `thetaSame_core` (one layer per invocation,
+recursion through the claim at strictly smaller knot sums).
+
 ### Migration step 2, entry item 2 — the capstone port, thirteen of eighteen
 
 `Setlec/SetR/Interp2/BasisOk.lean`: `ConstOk.lean`'s per-constant
