@@ -17035,3 +17035,72 @@ both probes stand untouched — seal 34 is intact.**
   are the identity. Flagged by the worker under my own rule about
   `rfl`-provable Props. **Ruled: keep as drift checks now, retire at
   the cleanup seal** alongside `EnvS2.cval_annot`.
+
+### Seal 47 — the keys' stopping points; the supplier is NOT VISIBLE; my step lemma amended
+
+Both items landed, gates unchanged: build 343 jobs warning-free,
+`lake test` clean, battery **90/92** with e2e 72/72 and the no-model
+sweep unchanged.
+
+#### Item 1 — four premises retired, each key's stop named
+
+`constsBound_of_constsResolve` is the find: **`ConstsBound` is
+`Expr.constsResolve` read as a proposition**, and *weaker* at the
+literal and projection clauses — so `ConstWF`'s existing conjunct
+implies it, and `declStep2_of_axiom` drops its boundedness premise
+entirely. `memberBlock2_of_stored` drops three more, all read off
+`m.base.wf`.
+
+| key | stops at |
+|---|---|
+| `reducePin2_of_checkStep` | two `Denote2Total` premises, plus two env facts `EnvWF` does not carry and two needing `ReducePinR`'s inversion |
+| `memberBlock2_of_checkStep` | `Denote2Total` at the stored type, **and `hrun` — item 2's gap already biting in this tree** |
+| `declStep2_of_axiom` | `Denote2EnvExtend`, `MemberBlock2` at the new axiom, and the collapse-lane install |
+
+#### Item 2 — verdict: **NOT VISIBLE**, and the diagnosis is exact
+
+* **The fact is true.** `checkDefnVal` (`Kernel/Checker.lean:372`) runs
+  `inferType` on the **annotated** value — the term that gets stored —
+  at the **pre-install** environment. Seals 44/45 hold as stated.
+* **It is held in a named binder**: `valueFrontR_of`
+  (`Bridge/Decl.lean:134`) takes `hvt : inferTypeCore … = .ok vtype`
+  explicitly.
+* **It is dropped at exactly one place.** `ValueFrontR`
+  (`SetR/Decl.lean:152`) records five syntactic conjuncts and one
+  relational front door; its only checker call is `annotateCore`.
+  Grep for `inferTypeCore` across `Decl.lean` and all of `Install/`
+  returns **nothing**.
+* **`annotateCore` is not a substitute** — checked, not assumed: since
+  #100 stage 6 its binder clauses are purely structural, computing no
+  sort and running no `infer`. *Restating the supplier over the one
+  exposed run would trade a true premise for a useless one.*
+
+**Exposure request** (the pattern, now four for four): on
+`ValueFrontR`, `(∃ vtype, inferTypeCore μ env F 0 value' = .ok vtype)`,
+supplied at `valueFrontR_of` by `⟨vtype, hvt⟩` — **a pair, not a
+proof**. Twin on `ConstantValR` for the type side. Cost is positional
+destructuring at six sites, all in files this lane may not edit.
+
+**Two things the exposure would still not close**, both reported
+against interest:
+
+1. **My `Denote2BodiesStep` was unprovable as stated** — exposure or
+   not. Its premise spoke at the **prefix** and its conclusion at the
+   **extension**, and nothing bridged them. **Amended here** to carry
+   `Denote2EnvExtend` as an explicit premise. Naming the transport
+   also names its cost: it is undischarged, and its literal clause is
+   outright **refuted**.
+
+   *Rule: a step lemma whose premise and conclusion live at different
+   environments must carry the transport, or it is a wish with a
+   signature.*
+2. **`memberBlock2_of_stored`'s `hrun` is stronger than the front
+   door.** It demands `inferTypeCore … = .ok (.sort u)` — literally a
+   sort — while `checkConstantVal` only `ensureSort`s, i.e. *whnfs*,
+   the output. **The exposed conjunct would not apply on the nose**,
+   and the key would need the claim at a non-sort inferred type, where
+   its second dual-success premise stops being free.
+
+*That second point is the more useful one: an exposure request that
+would land and still not close its consumer is worth knowing about
+before it is filed.*

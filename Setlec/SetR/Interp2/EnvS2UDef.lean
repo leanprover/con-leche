@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.EnvS2UPi
+import Setlec.SetR.Interp2.Denote2Extend
 
 /-!
 # The third probe: an `EnvS2U` that stores a **definition**
@@ -940,6 +941,19 @@ def Denote2BodyOfRun (μ : CheckMode) (env : Env)
 `Denote2Bodies` at the prefix, the extension's own transport, and the
 front-door fact at the one new body.
 
+**Amended at seal 47**, because as first stated it was *unprovable*:
+its premise spoke at the **prefix** `env` and its conclusion at the
+**extension**, and nothing in the statement bridged them. The
+transport is now an explicit premise rather than a hope — and naming
+it also names its cost, since `Denote2EnvExtend` is itself
+undischarged and its literal clause outright **refuted**
+(`denote2EnvExtend_lit_refuted`), needing a direction the Θ lane's (E)
+did not originally give.
+
+*Rule: a step lemma whose premise and conclusion live at different
+environments must carry the transport, or it is a wish with a
+signature.*
+
 Stated rather than proved: the *old* bodies need
 `Denote2EnvExtend` (`Denote2Extend.lean`, whose own residues are the
 frozen-on-Θ (E) hypotheses), and the *new* body needs
@@ -951,6 +965,7 @@ def Denote2BodiesStep (μ : CheckMode) (env : Env)
     (acval : Name → (Name → Nat) → AVExpr) (φ : Name → Nat)
     (c₀ : ConstantInfo) : Prop :=
   Denote2BodyOfRun μ env acval φ →
+    Denote2EnvExtend μ env ⟨c₀ :: env.consts⟩ acval φ →
     (∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
       c₀ = ConstantInfo.defnInfo cv value hint →
       ∃ (F : Nat) (ra : AVExpr),
