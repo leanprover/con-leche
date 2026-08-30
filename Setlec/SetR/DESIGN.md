@@ -12080,3 +12080,67 @@ eight branch summits (coreLock, loopLock, certLoop_sortAgree,
 zipProjHeadCase_of, substSimClaims, RawReach.image,
 thetaSubst₁_trace, whnfLoop_toRawReach) — 12/12 at exactly the
 three standard axioms.
+
+### STOP-FINDING at E4 (the rebase): two divergence seams beyond the routed coverage
+
+The pre-build on the rebase engine (`RawSortRebase`: a sort-successful
+loop transported along a gate-free trace), run at full strength
+before any code, taxonomizes the trace-vs-actual divergences.  The
+actual (gated, deterministic) run and the (gate-free) trace diverge
+exactly where an IMAGE gate resolves differently from its opened
+original.  Complete taxonomy of the divergence sites:
+
+1. **Gate refusals → actual STUCK, dead-shaped** (β-cert, proj-cert,
+   iota level/defeq certs, spine-length): the actual halts at a
+   lam-headed app spine / full rec-spine (recInfo) / stuck proj.
+   These forms are loop-dead (`unfoldDefinition_none_of_recInfo`,
+   shape-none `reduceNat`, no β/ι) and non-sort — at any position
+   whose context demands a sort they REFUTE, and as app/proj heads
+   they kill the outer (length/shape mismatches force `iotaRec`
+   none).  HANDLED by a `DeadCore` disjunct + the landed dead-exit
+   family.
+2. **Iota fire divergence** (rescue-vs-plain / rescue-vs-rescue):
+   both sides fire the SAME rule (single-rule gate for rescues,
+   `find?`-pinned otherwise) with the SAME `args.take rP` prefix —
+   the results differ ONLY in the field segment.  K rows: `cnF = 0`
+   empties both segments — ALWAYS agree (the record's "K is local"
+   verbatim).  Eta rows: the segments are projection towers of the
+   two sides' majors — the ETA-FIELD SEAM, the one place
+   infer-lockstep enters, exactly as the record priced.
+3. **Nat-arg divergence** (NEW, the finding's sharp edge): a nested
+   major's trace passes a fired nat row (image of an opened
+   `reduceNat` fire); if an image gate refused inside the ARG's own
+   whnf, the actual arg is dead-stuck, the actual `reduceNat`
+   returns none — and then the actual DELTA-UNFOLDS the op (the
+   guard guarantees the stored definition exists!) and grinds the
+   unfolded body on the stuck argument.  The actual is ALIVE and
+   divergent, and relating the grind path to the claimed literal
+   requires reasoning about an arbitrary stored definition body —
+   NOT boundable by local analysis.  (The install-time NatOpsOk
+   recurrences certify the semantic agreement, but that is a
+   model-tier instrument, not a loop-syntactic one.)
+
+**Two structural mitigations verified during the treatment**:
+* `whnfCore` contains NO delta/nat steps — the CORE-tier trace
+  fragment (what the push's head analysis needs) meets seams (2) and
+  (3) only NESTED inside iota majors (whose whnf is loop-tier).
+* The demand-driven reading of the frozen plan ("the loops β-fire",
+  "re-decompose the ACTUAL runs") keeps the pushed continuations as
+  SEGMENTS of the given `.ok` runs (their own gates already passed)
+  — the engine is needed only to ALIGN the actual head-normal form
+  with the run's opened image (λ for the push), where the taxonomy
+  above applies at the head's core run + its nested majors.
+
+**Proposed resolution (ratification requested)** — R1, the
+core-dichotomy route: state E4 as the CORE-tier alignment
+  `RawReach(core fragment) f f' → whnfCore g d f = .ok W →
+     (∃ g₂, whnfCore g₂ d f' = .ok W) ∨ DeadCore W ∨ MajorSeam …`
+with `DeadCore` refuted at sort-demanding contexts by the landed
+dead-exit family, and the residual seam (eta fields / nat grind at
+a nested major) packaged in ONE routed Prop whose discharge gets its
+own dedicated analysis (candidate instruments: the eta-rescue's
+`structEtaCert` runs carried by the actual, the guard's stored-shape
+facts; possibly an arena-reality-guided restriction finding).  The
+alternative (amending `ThetaWalkClaim` to carry image-side head
+facts) merely relocates the same seam.  STOP — reporting before
+building either.
