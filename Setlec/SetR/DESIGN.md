@@ -15719,3 +15719,78 @@ does it flip" is the wrong question. Ask which way it flips **and**
 whether it can fail to decide — and then ask, per call site, whether
 the caller can tell those apart.* Twelve of thirteen here cannot tell
 `none` from an error; one cannot tell it from `false`.
+
+### Seal 29 — the consumer check: they do *not* hold the instantiated run
+
+The redirect asked whether the actual consumers already hold the
+instantiated run, so the `none` channel is excluded by a witness
+rather than by a budget threaded from nowhere. **Checked, and the
+answer is no for both named consumers** — which the redirect named as
+the finding to report if it came out this way.
+
+* **The delta exit.** `Delta2B`'s conclusion is
+  `∃ F', F ≤ F' ∧ denote2 … F' d e' = some ea` — it **owes** the
+  reduct's annotation. `delta2B_of` takes `AcvalDefnInst` and
+  *produces* it; nothing hands it in.
+* **The iota law's consumer.** `IotaStep2D` concludes
+  `∃ F' ea', F ≤ F' ∧ denote2 … F' d e'' = some ea' ∧ …` — same shape,
+  same direction.
+
+And this is not local to those two: **`WhnfCoreClaims2D`,
+`WhnfClaims2D` and `InferClaims2D` all conclude an existential
+annotation for the reduct or the inferred type.** The entire
+reduction-claim family is forward-producing on the annotation side.
+So the dual-success discipline cannot simply be *applied* here — the
+premise it would condition on is exactly what the family currently
+promises to deliver.
+
+**Why this is not the refuted (F)-species even though it rhymes.**
+The (F) refutation was about predicting a *checker* run on a side
+nothing ran. Here the produced object is `denote2`, which is **our**
+function — but `denote2`'s binder clauses call `sortOfE`/`lamSortE`,
+which *are* checker runs. So the family predicts checker runs after
+all, one level down, and that is precisely why the level-substitution
+crossing bites. **The rhyme is real and the redirect's instinct was
+right; what is wrong is only the premise that the consumers already
+hold the other side.**
+
+#### The option this opens, and it is better than budget bookkeeping
+
+Flip the claims to dual-success at the **claim** level rather than the
+primitive level:
+
+```
+whnfCore … = .ok e' →
+denote2 … F d e = some ea →
+denote2 … F' d e' = some ea' →        -- premise, not conclusion
+∀ ρ, Sat2 → AnnotOk2 ρ ea → interp2 ρ ea = interp2 ρ ea' ∧ …
+```
+
+Then **existence is localized and agreement is distributed**:
+
+* *Existence* of an annotation is discharged **once, at the
+  declaration level**, where a checked declaration genuinely supplies
+  the runs — `EnvS2.mem_type2` is already hypothesis-position, and
+  STOP 2 repaired `acval_defn` to the *uniqueness* form for exactly
+  this reason. **The dual-success discipline and STOP 2's repair are
+  the same move**, which is the strongest evidence that this is the
+  grain of the problem rather than a workaround.
+* *Agreement* — which is all the reduction claims ever needed for
+  soundness — is transported per step, and needs no fuel budget,
+  because both runs are given.
+
+The cost is real and must be priced before any freeze: every consumer
+that currently *reads* a produced annotation would have to obtain it
+otherwise, and the inference claim's `.app` clause is the one to check
+first, since it consumes the head's reduct annotation to reach the
+`∀`'s domain.
+
+**Not attempted here.** It is a sixth statement generation, it touches
+all four claims, and this campaign's rule is that such a change is
+re-discharged by a consumer rather than reasoned through at the
+junction. It is now specified enough to be that batch's brief.
+
+*Rule: when a discipline says "condition on the given run", check
+which side the statement currently promises to deliver. A family that
+produces the very premise you meant to condition on cannot adopt the
+discipline without first moving the production somewhere it is given.*
