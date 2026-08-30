@@ -1,5 +1,6 @@
 import Setlec.SetR.Interp2.Step2.Routed
 import Setlec.SetR.Interp2.Step2.DefEq
+import Setlec.SetR.Interp2.Claims2A
 import Setlec.SetR.Bridge.Decl
 
 /-!
@@ -1323,5 +1324,182 @@ theorem defeqStep2_of
         (hap env m) (hbs env φ fuel) (happ env m φ fuel)
         (heta env m φ fuel))
       (hspine env m φ fuel))
+
+/-! ## Seal 6 (+ STOP 2) — the quarter re-pointed
+
+Everything above stays as the sealed shape; what follows is the same
+seven blocks against the amended claims.  Three things changed, and
+each one is a finding rather than a re-typing.
+
+**R1 removes this file's third finding outright.**  The annotation
+fuel is now the claim's own binder, so `defeq_claims2A` hands the two
+subject annotations to the loop *verbatim*: nothing is ever moved down
+a decrement.  `Denote2FuelDownM` is therefore **not consumed anywhere
+below** — not discharged, not weakened, simply never asked for.  (It
+stays refuted; `denote2_fuelMono`'s existence is what makes the
+re-index harmless, not what discharges the old residue.)
+
+**STOP 2's correction is what the two `whnfCore` rewrites need.**  A
+reduct may need more annotation fuel than its subject did, so the
+reduction claim's reduct lives at some `F' ≥ F`.  `defeqStep` reduces
+*both* sides, so the two sides come back at two different fuels; they
+are re-joined at `max` by `denote2_fuelMono`, which returns the *same*
+`AVExpr` and so leaves every equality already proved untouched.  The
+`max` idiom works here without a snag, and the delta and `reduceNat`
+residues take the same `∃ F' ≥ F` shape for the same reason (the
+corrected `acval_defn` is R3-shaped, so a delta step cannot promise
+the body's annotation at the head's own fuel).
+
+**R2's grading is what this quarter cannot pay.**  `WhnfCoreClaims2A`
+concludes under `AnnotOk2 V ρ ea`, and the quarter consumes it at
+exactly two sites — the two `whnfCore` rewrites at the top of
+`defeqStep`, one per subject.  `DefEqClaims2A` is stated *ungraded*,
+and none of its other premises implies `AnnotOk2` of a subject's
+annotation: `denote2` performs no membership check at an `app` node,
+and `WScoped`/`looseBVarsBounded`/`LeavesBounded`/`CtxOkR` are all
+syntactic.  So the ungraded amended claim is **not provable by this
+route**, and the currency below is `DefEqClaims2AP`: each subject's
+`AnnotOk2` as a *premise*, never a conclusion.
+
+`DeqS`'s grading survives that intact — no `AnnotOk2` crosses an
+equality, so `deqStep2_symm`/`deqStep2_trans` are still the one-liners
+of `Step2/DefEq.lean`.  What the premises cost is that the claim
+declines to speak about junk-annotated subjects, which is exactly what
+R2 established about β at kind `0`; and the binder congruences pay for
+them from the node's own `AnnotOk2` (`AnnotOk2_pi`/`AnnotOk2_lam`),
+which is why the seven blocks go through unchanged otherwise. -/
+
+/-- The corrected head-normalisation shape (STOP 2): the reduct's
+annotation lives at some `F' ≥ F`, the equality is graded by the
+subject's `AnnotOk2`.  A quarter-local name for `WhnfCoreClaims2B`,
+which lands in `Claims2A.lean` (not this agent's file);
+`whnfCoreRed2_of_A` shows the sealed `WhnfCoreClaims2A` implies it, so
+the discharge below runs against whichever the junction settles on. -/
+def WhnfCoreRed2 (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
+    μ.verified = true →
+    whnfCore μ env fuel d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) e →
+    ∀ {F : Nat} {ea : AVExpr},
+      denote2 μ m.acval env φ F d e = some ea →
+      ∃ F' ea', F ≤ F' ∧
+        denote2 μ m.acval env φ F' d e' = some ea' ∧
+        ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea →
+          interp2 V ρ ea = interp2 V ρ ea' ∧ AnnotOk2 V ρ ea'
+
+/-- The sealed shape implies the corrected one (`F' := F`). -/
+theorem whnfCoreRed2_of_A {m : EnvS2 V env} {fuel : Nat}
+    (h : WhnfCoreClaims2A μ m φ fuel) : WhnfCoreRed2 μ m φ fuel := by
+  intro d e e' Δa hv hw hws hb hLb hC F ea hd
+  obtain ⟨ea', hd', hR⟩ := h hv hw hws hb hLb hC hd
+  exact ⟨F, ea', Nat.le_refl F, hd', hR⟩
+
+/-- **The claim this quarter can deliver.**  `DefEqClaims2A` with each
+subject's `AnnotOk2` as a premise — the price of R2, paid at the two
+`whnfCore` rewrites and nowhere else. -/
+def DefEqClaims2AP (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
+    μ.verified = true →
+    isDefEqCore μ env fuel d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) b →
+    ∀ {F : Nat} {aa ba : AVExpr},
+      denote2 μ m.acval env φ F d a = some aa →
+      denote2 μ m.acval env φ F d b = some ba →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        AnnotOk2 V ρ aa → AnnotOk2 V ρ ba →
+        interp2 V ρ aa = interp2 V ρ ba
+
+/-- The ungraded amended claim is stronger: dropping premises is
+free.  Stated so the two currencies are related in the tree and the
+junction can see exactly what the grading costs. -/
+theorem defEqClaims2AP_of_A {m : EnvS2 V env} {fuel : Nat}
+    (h : DefEqClaims2A μ m φ fuel) : DefEqClaims2AP μ m φ fuel := by
+  intro d a b Δa hv hr hwa hba hLa hwb hbb hLb hCa hCb F aa ba hda hdb
+    ρ hρ _ _
+  exact h hv hr hwa hba hLa hwb hbb hLb hCa hCb hda hdb ρ hρ
+
+/-! ### The loop and its continuation, amended -/
+
+/-- The continuation's contract at the amended shape: the annotation
+fuel is the continuation's own binder, and each subject's `AnnotOk2`
+is a premise.  The depth is still fixed, not quantified. -/
+def DefEqCont2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (d : Nat)
+    (k : Expr → Expr → CheckM Bool) : Prop :=
+  ∀ {a b : Expr} {Δa : List AVExpr}, k a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a →
+    CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) b →
+    ∀ {F : Nat} {aa ba : AVExpr},
+      denote2 μ m.acval env φ F d a = some aa →
+      denote2 μ m.acval env φ F d b = some ba →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        AnnotOk2 V ρ aa → AnnotOk2 V ρ ba →
+        interp2 V ρ aa = interp2 V ρ ba
+
+/-- **One iteration**, amended.  `μ.verified` moves inside because the
+loop induction below quantifies nothing else. -/
+def DefEqStepAt2A (μ : CheckMode) {env : Env} (m : EnvS2 V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {k : Expr → Expr → CheckM Bool},
+    DefEqCont2A μ m φ d k → μ.verified = true →
+    ∀ {a b : Expr} {Δa : List AVExpr},
+      defeqStep μ (pureFns μ env fuel) env d k a b = .ok true →
+      Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded a →
+      Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded b →
+      CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) a →
+      CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase) b →
+      ∀ {F : Nat} {aa ba : AVExpr},
+        denote2 μ m.acval env φ F d a = some aa →
+        denote2 μ m.acval env φ F d b = some ba →
+        ∀ ρ : Nat → V, Sat2 V Δa ρ →
+          AnnotOk2 V ρ aa → AnnotOk2 V ρ ba →
+          interp2 V ρ aa = interp2 V ρ ba
+
+/-- The loop satisfies the amended contract at every budget.  The
+recursion is still on the **private budget** (`defeqLoopFuel` is
+`@[irreducible]` and the loop does not touch the knot's fuel); the
+amendment changed the payload, not the discipline. -/
+theorem defeqLoop_cont2A {m : EnvS2 V env} {fuel : Nat}
+    (hstep : DefEqStepAt2A μ m φ fuel) (hv : μ.verified = true) :
+    ∀ (budget d : Nat),
+      DefEqCont2A μ m φ d
+        (defeqLoop μ (pureFns μ env fuel) env d budget) := by
+  intro budget
+  induction budget with
+  | zero =>
+    intro d a b Δa h
+    rw [defeqLoop] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  | succ budget ih =>
+    intro d a b Δa h
+    rw [defeqLoop] at h
+    exact hstep (ih d) hv h
+
+/-- **`DefEqClaims2AP` at `fuel + 1`**, modulo the step — and modulo
+*nothing else*.  Compare `defeq_claims2`: the fuel-down residue is
+gone, because `hda`/`hdb` are handed on at the very fuel they arrive
+at.  This is R1's whole payoff, in two lines. -/
+theorem defeq_claims2A {m : EnvS2 V env} {fuel : Nat}
+    (hstep : DefEqStepAt2A μ m φ fuel) :
+    DefEqClaims2AP μ m φ (fuel + 1) := by
+  intro d a b Δa hv h hwa hba hLa hwb hbb hLb hCa hCb F aa ba hda hdb
+  rw [Setlec.isDefEqCore_succ, defeqBody] at h
+  exact defeqLoop_cont2A hstep hv defeqLoopFuel d h hwa hba hLa hwb
+    hbb hLb hCa hCb hda hdb
 
 end Setlec.SetR.Interp2
