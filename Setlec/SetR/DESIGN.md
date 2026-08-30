@@ -12993,3 +12993,65 @@ visible at the use site.*
 
 Next: `CheckStep2`'s discharge, clause by clause, and the five install
 keys over `interp2` in dependency order.
+
+### Step 3, seal 2 — `CheckStep2`'s clause map, and the lemma that unblocks 2,227 lines
+
+Mapping `CheckStep2`'s discharge clause by clause against the landed
+skeleton rows, before writing any case.  **Nine of the eleven inference
+clauses have their supplier; two did not, and the reason turned out to
+be a single missing lemma.**
+
+| checker clause | supplier | status |
+|---|---|---|
+| `.sort u` | `sound_sort` | landed |
+| `.fvar` | `sound_bvar` (+ the `CtxOkR` leaf → `Sat2` bridge) | landed |
+| `.const n us` (stored) | `EnvS2.acval_ok2`, `mem_type2` | landed |
+| `.forallE` | `sound_pi` | landed |
+| `.lam` | `sound_lam` | landed |
+| `.app` | `sound_app` | landed |
+| `.proj` | `sound_proj_fst`/`_snd` | landed |
+| `.letE` | `sound_letE` | landed |
+| `.lit natVal` | the `Nat`-literal block over `interp2` | **was blocked** |
+| `.lit strVal` | the `String`-literal block over `interp2` | **was blocked** |
+| (`whnfCore`/`defeq` rows) β, ζ | `AnnotOk2_beta_pos`/`_zero`, `AnnotOk2_zeta` | landed |
+| iota | — | **the named slot** (`Step2Inputs.rec_rules2`) |
+
+**The literal clauses were blocked on one lemma, and it is now
+supplied.**  The step-3 map recorded that `Sound/{Lit,NatOps,
+NatOpsWf}.lean` — **2,227 lines, 47% of the Sound tier** — touch the
+interpretation through only five lemmas: `interp_app`, `interp_bvar`,
+`interp_sort`, `interp_pi` and `interp_closed`.  Four had `interp2`
+analogues.  The fifth did not, and neither did its engine
+`interp_congr_below`.
+
+`Interp2/Kit.lean` now carries both.  One decision worth recording:
+they are stated through the **erasure's** bound
+(`VExpr.bvarsBelow k e.erase`) rather than a fresh
+`AVExpr.bvarsBelow`.  `AVExpr` has no closedness predicate at all, and
+adding one would have meant touching `Annot/Syntax.lean`, a shared
+landed file — but `erase` maps `bvar i` to `bvar i` and preserves every
+former's shape, so the erasure's bound *is* the annotated term's bound.
+**No new predicate, no shared-file edit, and the lemma is exactly as
+strong.**
+
+*Rule, and it is P4's converse in miniature: before adding a predicate
+to a shared syntax, check whether an existing one already says the same
+thing through a structure-preserving map.  `erase` was right there.*
+
+So the sizing changes: the literal block goes from "blocked" to
+"near-mechanically portable", which is the difference between 2,227
+lines of new argument and 2,227 lines of transposition.  **One
+sixty-line lemma was the whole obstruction.**
+
+**What remains genuinely open on `CheckStep2`.**  The clause map's own
+verdict: the inference and reduction rows are supplier-complete except
+iota, which is the named slot by the T5 rule and stays that way until
+the bottoms migrate.  The discharge itself is a fresh induction over
+the *runs* — it cannot ride the v1 bridge, because that bridge produces
+relation derivations about **erasures** while `Claims2` needs `interp2`
+facts about **annotations**, and no map carries one to the other (the
+step-3 map's headline, in its local form).  So the discharge is
+`Bridge/*`-shaped work, and the honest estimate is that it is the
+largest single remaining item on the lane — larger than everything
+steps 1–2 contained.  Sized, not started; every clause now knows what
+it consumes.

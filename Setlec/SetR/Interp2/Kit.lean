@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.Interp
+import Setlec.Verify.Denote.VClosed
 
 /-!
 # The `interp2` lemma kit (task #151, tier B)
@@ -133,6 +134,74 @@ theorem interp2_inst :
   | proj i e ihe =>
     intro a k ρ; simp only [AVExpr.inst_proj, interp2_proj, ihe]
   | prf => intro a k ρ; rfl
+
+/-! ### Interpretation invariance below a bound
+
+`interp_congr_below`/`interp_closed`'s analogue
+(`Setlec/SetR/AnnotOkV.lean`): a closed term's interpretation does not
+read the environment.  Stated through the **erasure's** bound rather
+than a fresh `AVExpr.bvarsBelow`: `erase` maps `bvar i` to `bvar i` and
+preserves every former's shape, so `VExpr.bvarsBelow k e.erase` says
+exactly "`e`'s indices are below `k`", and no new predicate is needed.
+
+Needed by the literal clauses of any `Claims2` discharge: the `Nat`/
+`String` blocks of `Sound/{Lit,NatOps,NatOpsWf}.lean` touch the
+interpretation only through `interp_app`, `interp_bvar`, `interp_sort`,
+`interp_pi` and `interp_closed`, and this was the one of the five with
+no `interp2` analogue. -/
+
+theorem interp2_congr_below :
+    ∀ (e : AVExpr) (k : Nat) (ρ ρ' : Nat → V),
+      Setlec.TT.VExpr.bvarsBelow k e.erase →
+      (∀ i, i < k → ρ i = ρ' i) →
+      interp2 V ρ e = interp2 V ρ' e := by
+  intro e
+  induction e with
+  | bvar i => intro k ρ ρ' hb hag; exact hag i hb
+  | sort u => intros; rfl
+  | const c us => intros; rfl
+  | prf => intros; rfl
+  | app f a ihf iha =>
+    intro k ρ ρ' hb hag
+    simp only [interp2_app, ihf k ρ ρ' hb.1 hag, iha k ρ ρ' hb.2 hag]
+  | lam v A b ihA ihb =>
+    intro k ρ ρ' hb hag
+    simp only [interp2_lam, ihA k ρ ρ' hb.1 hag]
+    refine lamR_congr fun x _ => ihb (k + 1) _ _ hb.2 ?_
+    intro i hi
+    cases i with
+    | zero => rfl
+    | succ i => exact hag i (Nat.lt_of_succ_lt_succ hi)
+  | pi u v A B ihA ihB =>
+    intro k ρ ρ' hb hag
+    simp only [interp2_pi, ihA k ρ ρ' hb.1 hag]
+    refine piR_congr fun x _ => ihB (k + 1) _ _ hb.2 ?_
+    intro i hi
+    cases i with
+    | zero => rfl
+    | succ i => exact hag i (Nat.lt_of_succ_lt_succ hi)
+  | letE T v b ihT ihv ihb =>
+    intro k ρ ρ' hb hag
+    rw [interp2_letE, interp2_letE, ihv k ρ ρ' hb.2.1 hag]
+    refine ihb (k + 1) _ _ hb.2.2 ?_
+    intro i hi
+    cases i with
+    | zero => rfl
+    | succ i => exact hag i (Nat.lt_of_succ_lt_succ hi)
+  | eqE T a b ihT iha ihb =>
+    intro k ρ ρ' hb hag
+    simp only [interp2_eqE, iha k ρ ρ' hb.2.1 hag,
+      ihb k ρ ρ' hb.2.2 hag]
+  | proj i e ihe =>
+    intro k ρ ρ' hb hag
+    simp only [interp2_proj, ihe k ρ ρ' hb hag]
+
+/-- A closed term interprets the same under every environment. -/
+theorem interp2_closed {e : AVExpr}
+    (he : Setlec.TT.VExpr.bvarsBelow 0 e.erase) (ρ ρ' : Nat → V) :
+    interp2 V ρ e = interp2 V ρ' e :=
+  interp2_congr_below V e 0 ρ ρ' he
+    (fun i hi => absurd hi (Nat.not_lt_zero i))
 
 /-- Substitution at the outermost binder — the form every rule uses. -/
 theorem interp2_inst0 (e a : AVExpr) (ρ : Nat → V) :
