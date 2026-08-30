@@ -6490,9 +6490,10 @@ reached). -/
 lexicographically: smaller cert fuel, or equal fuel and smaller
 loop-budget sum. -/
 def ZipBelow (μ : CheckMode) (env : Env) (φ : Name → Nat)
-    (Q : Nat → Expr → Expr → Prop) (fc r : Nat) : Prop :=
+    (Q : Nat → Expr → Expr → Prop) (fc g r : Nat) : Prop :=
   ∀ {fc' d ga la gb lb : Nat} {s t : Expr} {ℓa ℓb : Level},
-    (fc' < fc ∨ (fc' = fc ∧ la + lb < r)) →
+    (fc' < fc ∨ (fc' = fc ∧
+      (ga + gb < g ∨ (ga + gb = g ∧ la + lb < r)))) →
     CertZip μ env fc' d s t →
     SubjInv d s → SubjInv d t → PairedLeaves s t → Q d s t →
     Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la s
@@ -6518,7 +6519,7 @@ below). -/
 def ZipCertCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
     (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {a b : Expr} {ℓa ℓb : Level},
-    ZipBelow μ env φ Q fc (la + lb) →
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
     a.looseBVarsBounded 0 = true → b.looseBVarsBounded 0 = true →
     isDefEqCore μ env fc d a b = .ok true →
     SubjInv d a → SubjInv d b → PairedLeaves a b → Q d a b →
@@ -6535,7 +6536,7 @@ def ZipConstCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
     (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {n : Name} {us us' : List Level}
     {ℓa ℓb : Level},
-    ZipBelow μ env φ Q fc (la + lb) →
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
     (∀ φ' : Name → Nat,
       us.map (Level.eval φ') = us'.map (Level.eval φ')) →
     Q d (.const n us) (.const n us') →
@@ -6551,7 +6552,7 @@ treatment at its seal). -/
 def ZipAppCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
     (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {f₁ x₁ f₂ x₂ : Expr} {ℓa ℓb : Level},
-    ZipBelow μ env φ Q fc (la + lb) →
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
     CertZip μ env fc d f₁ f₂ → CertZip μ env fc d x₁ x₂ →
     SubjInv d (.app f₁ x₁) → SubjInv d (.app f₂ x₂) →
     PairedLeaves (.app f₁ x₁) (.app f₂ x₂) →
@@ -6568,7 +6569,7 @@ def ZipLetECase (μ : CheckMode) (env : Env) (φ : Name → Nat)
     (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {n : Name}
     {ty₁ ty₂ v₁ v₂ b₁ b₂ : Expr} {ℓa ℓb : Level},
-    ZipBelow μ env φ Q fc (la + lb) →
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
     CertZip μ env fc d ty₁ ty₂ → CertZip μ env fc d v₁ v₂ →
     CertZip μ env fc d b₁ b₂ →
     SubjInv d (.letE n ty₁ v₁ b₁) → SubjInv d (.letE n ty₂ v₂ b₂) →
@@ -6587,7 +6588,7 @@ def ZipProjCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
     (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb i : Nat} {sn : Name} {e₁ e₂ : Expr}
     {ℓa ℓb : Level},
-    ZipBelow μ env φ Q fc (la + lb) →
+    ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
     CertZip μ env fc d e₁ e₂ →
     SubjInv d (.proj sn i e₁) → SubjInv d (.proj sn i e₂) →
     PairedLeaves (.proj sn i e₁) (.proj sn i e₂) →
@@ -6624,8 +6625,8 @@ theorem zipWhnfSortAgree_of {φ : Name → Nat}
     (hApp : ZipAppCase μ env φ Q) (hLet : ZipLetECase μ env φ Q)
     (hProj : ZipProjCase μ env φ Q) :
     ZipWhnfSortAgree μ env φ Q := by
-  have main : ∀ fc r {d ga la gb lb : Nat} {s t : Expr}
-      {ℓa ℓb : Level}, la + lb ≤ r →
+  have main : ∀ fc g r {d ga la gb lb : Nat} {s t : Expr}
+      {ℓa ℓb : Level}, ga + gb ≤ g → la + lb ≤ r →
       CertZip μ env fc d s t →
       SubjInv d s → SubjInv d t → PairedLeaves s t → Q d s t →
       Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la s
@@ -6636,21 +6637,28 @@ theorem zipWhnfSortAgree_of {φ : Name → Nat}
     intro fc
     induction fc using Nat.strongRecOn with
     | ind fc ihfc =>
+    intro g
+    induction g using Nat.strongRecOn with
+    | ind g ihg =>
     intro r
     induction r with
     | zero =>
-      intro d ga la gb lb s t ℓa ℓb hle hz hIs hIt hp hQ ha hb
+      intro d ga la gb lb s t ℓa ℓb hgle hle hz hIs hIt hp hQ ha hb
       obtain rfl : la = 0 := by omega
       exact nomatch ha
     | succ r ihr =>
-      intro d ga la gb lb s t ℓa ℓb hle hz hIs hIt hp hQ ha hb
-      have below : ZipBelow μ env φ Q fc (la + lb) := by
+      intro d ga la gb lb s t ℓa ℓb hgle hle hz hIs hIt hp hQ ha hb
+      have below : ZipBelow μ env φ Q fc (ga + gb) (la + lb) := by
         intro fc' d' ga' la' gb' lb' s' t' ℓa' ℓb' hlt hz' hIs' hIt'
           hp' hQ' ha' hb'
-        rcases hlt with hlt | ⟨rfl, hlt⟩
-        · exact ihfc fc' hlt (la' + lb') (Nat.le_refl _) hz' hIs'
+        rcases hlt with hlt | ⟨rfl, hlt | ⟨hge, hlt⟩⟩
+        · exact ihfc fc' hlt (ga' + gb') (la' + lb') (Nat.le_refl _)
+            (Nat.le_refl _) hz' hIs' hIt' hp' hQ' ha' hb'
+        · exact ihg (ga' + gb') (Nat.lt_of_lt_of_le hlt hgle)
+            (la' + lb') (Nat.le_refl _) (Nat.le_refl _) hz' hIs'
             hIt' hp' hQ' ha' hb'
-        · exact ihr (by omega) hz' hIs' hIt' hp' hQ' ha' hb'
+        · exact ihr (hge ▸ hgle) (by omega) hz' hIs' hIt' hp' hQ'
+            ha' hb'
       cases hz with
       | refl e =>
         rw [Setlec.Expr.sort.inj (whnfLoop_det hm ha hb)]
@@ -6685,7 +6693,8 @@ theorem zipWhnfSortAgree_of {φ : Name → Nat}
       | proj sn i e₁ e₂ he =>
         exact hProj below he hIs hIt hp hQ ha hb
   intro fc d ga la gb lb s t ℓa ℓb hz hIs hIt hp hQ ha hb
-  exact main fc (la + lb) (Nat.le_refl _) hz hIs hIt hp hQ ha hb
+  exact main fc (ga + gb) (la + lb) (Nat.le_refl _) (Nat.le_refl _)
+    hz hIs hIt hp hQ ha hb
 
 /-- **The cert case DISCHARGED** (build step 3): the extracted
 cert-loop template, with the spine handler zipping the post-core
@@ -7076,7 +7085,7 @@ theorem zipConstCase_of {φ : Name → Nat} {Q : Nat → Expr → Expr → Prop}
     · exact nomatch hry
     · rw [huy'] at huy
       obtain rfl := (Option.some.inj huy).symm
-      exact below (Or.inr ⟨rfl, by omega⟩)
+      exact below (Or.inr ⟨rfl, Or.inr ⟨rfl, by omega⟩⟩)
         (certZip_instantiate hev value)
         (subjInv_of_nil (instL_fvarLeaves_nil hnil)
           (instL_looseBVarsBounded hbnd))

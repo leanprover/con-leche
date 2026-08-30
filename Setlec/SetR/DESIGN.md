@@ -10044,3 +10044,43 @@ The letE/app/proj case Props stay as stated (they are the correct
 seams); their discharges wait on the workhorse.  Next in order:
 the workhorse statement seal (with the Θ/iota maps), then the three
 wrapper discharges, then the semantic vacuities and install facts.
+
+### Workhorse statement seal, part 1: the Θ zip-out REFUTED; measure extended
+
+The full pre-build treatment opened on the workhorse and produced a
+second refutation before any statement was frozen: **even a ROUTED
+Θ-Prop promising zip-out is refutable.**  β under cert-related λs
+(the lamCong decomposition of a `.cert` head) yields contracta
+related only through the OPENED-body cert at `d+1` — no run exists
+on the substituted forms, and constructing one is the run-mirror
+bar.  So the lockstep cannot promise zipped outputs past a cert
+head; the Θ seam must exit at the CLAIM level (eval-conclusion with
+`ZipBelow`), and the workhorse family is CLAIM-SHAPED throughout —
+the same architectural correction the uniform sim already took, now
+forced one level deeper.  (Its eventual discharge is the mutual
+knot with binder opening — the SimSubst/Θ-motive machinery, the
+arc's final deep work, exactly as the module docstring's trap list
+promised: the fvar-annotation-divergence apparatus.)
+
+Landed this seal — **the measure extension** (prerequisite for any
+sim-tier work): `ZipBelow` is now the THREE-component lex
+`[cert fuel fc, knot-fuel sum ga+gb, loop-budget sum la+lb]`; the
+skeleton gained the middle `Nat.strongRecOn` layer; the five case
+Props carry the extended contract; the landed discharges adapt
+(cert/spine at `Or.inl` unchanged; constSlack's continuation at
+`Or.inr ⟨rfl, Or.inr ⟨rfl, ·⟩⟩` — same knot, smaller loop).  The
+sim tier's internal recursions (whnf-of-major inside iota at
+knot-1 with FRESH inner loop budgets) now fit: knot strictly
+decreases, loop resets under it.  Compiled first-pass.
+
+**Iota lockstep surface, read** (for the workhorse statements):
+same recursor + zipped spines agree on the rule lookup (major's
+ctor head), the arity/level/comparand guards run per side
+(dual-success), and the OUTPUT is `mkAppN (rhs[us/us'])
+(prefix-args ++ major-fields)` — `certZip_instantiate` + zipped
+args + zipped major-fields, PROVIDED the major-whnf lockstep
+(recursion at knot-1, Θ-routed when the major zip has a cert head).
+`litMajorToCtor`/`projLitToCtor` expand identical literals to
+identical programs (refl-zips through det).  `majorToCtor` (K and
+structure-eta rescues) still unread — its lockstep map is the next
+session's first read, before the workhorse statements are frozen.
