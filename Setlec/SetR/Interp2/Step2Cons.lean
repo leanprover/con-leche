@@ -2,6 +2,7 @@ import Setlec.SetR.Interp2.Keys2Bundle
 import Setlec.SetR.Interp2.EmptyPin2
 import Setlec.SetR.Interp2.Denote2Closed
 import Setlec.SetR.Install.ValueKinds
+import Setlec.SetR.StdAxiomKey
 
 /-!
 # The install step over `interp2`: the `cons` shape, and the value kinds
@@ -782,6 +783,110 @@ theorem declStep2M_of_valueResidues (m : EnvS2UM V μ env)
     hA hbase hag hleaf (valueLeaf_closed m hvf hA) hpa hok hex hme
     hdb htb
 
+/-! ### The axiom kind: `baseExt` supplied, not assumed
+
+`DeclStep2Residues.baseExt`/`.cvalAgree` (`Keys2Bundle.lean`) were
+ledgered as "discharges today, wherever v1's axiom install runs" — and
+seal 52 corrected that: `declAxiomS`'s `Nonempty` conclusion is a
+one-way door, so the extension the install built could not be named.
+It is named now (`declAxiomExtS`), and the two fields become
+theorems.
+
+**Both of its leaf keys are theorems in this tree** — `stdAxiomKeyS`
+(`StdAxiomKey.lean`) and `ofReduceKeyS` (`Install/Axiom.lean`) — so
+nothing below is supplied from an uninhabited premise.
+
+**What the premise had to become, and why.** `DeclAxiom2SM` asks for
+the install from `ConstantValR` alone.  That is not enough and cannot
+be made enough: `extendAxiomS` needs an inhabitant of the axiom's
+denoted type, and `ConstantValR` says only that the *type* type-checks
+— an arbitrary well-typed axiom may be false.  The branch witness is
+what carries the inhabitant, so the theorems below take `DeclAxiomR`,
+which is what the checker actually establishes. -/
+
+/-- **`DeclStep2Residues.baseExt` and `.cvalAgree`, supplied** — the
+all-mode lane's two fields, at one theorem.  The `DeclAxiomR` is the
+storing branch's; the tolerated branch does not reach this statement,
+having no `axiomInfo` to extend to. -/
+theorem axiomBaseExt2 {F : Nat} {cv : ConstantVal} {type' : Expr}
+    (m : EnvS2U V env)
+    (h : DeclAxiomR μ F env m.base.cval cv
+      ⟨ConstantInfo.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts⟩) :
+    ∃ mB : EnvS V ⟨ConstantInfo.axiomInfo
+        ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩,
+      ∀ n, n ≠ cv.name → m.base.cval n = mB.cval n :=
+  declAxiomExtS stdAxiomKeyS ofReduceKeyS m.base h
+
+/-- **What an axiom install still owes, at one mode.**
+`DeclStep2Residues`' nine fields **minus three**: `fresh` comes from
+the front door's own `ConstantValR`, and `baseExt`/`cvalAgree` from
+`declAxiomExtS`.  What is left is the fresh leaf's four laws plus the
+two frozen transports — and, unlike in the bundle, `erase` can now be
+*stated*, because the extension it speaks about has a name. -/
+structure AxiomResidues2M (V : Type w) [SetTheory V] (μ : CheckMode)
+    {env : Env} (m : EnvS2UM V μ env) (cvA : ConstantVal)
+    (hbase : EnvS V ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩)
+    (A : (Name → Nat) → AVExpr) where
+  /-- The fresh leaf erases to the collapse-lane valuation.
+  *Provenance*: the annotated leaf's construction.  **Statable at
+  all only because `hbase` is named** — this is the field seal 52's
+  one-way-door diagnosis was about. -/
+  erase : ∀ ψ, (A ψ).erase = hbase.cval cvA.name ψ
+  /-- …is closed.  Unlike the value kinds' twin this one is *not*
+  discharged here: `valueLeaf_closed` runs on the front door's
+  annotated **value**, and an axiom has none, so there is no run whose
+  subject `denote2_closed` could speak about. -/
+  closed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ
+  /-- …reads only its own level parameters. -/
+  params : ∀ ψ₁ ψ₂ : Name → Nat,
+    (∀ p ∈ cvA.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂
+  /-- …and is truthful. -/
+  ok2 : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ)
+  /-- `denote2` is stable across the install.  **Frozen on Θ.** -/
+  extend : ∀ (ν : CheckMode) (ψ : Name → Nat),
+    Denote2EnvExtend ν env
+      ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩
+      (acvalWith m.acval cvA.name A) ψ
+  /-- `MemberBlock2` at the new axiom. -/
+  newMember : ∀ (ν : CheckMode) (ψ : Name → Nat),
+    MemberBlock2 V ν ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩
+      (acvalWith m.acval cvA.name A) ψ cvA
+
+/-- **The axiom kind's reduction at one mode, assembled**, over all
+four of `DeclAxiomR`'s branches: the three that store go through
+`declStep2M_of_axiom` at the *supplied* extension, and the tolerated
+skip does not move the environment, so the given invariant answers for
+it and the residue list is never consulted. -/
+theorem declStep2M_of_axiomResidues (m : EnvS2UM V μ env) {F : Nat}
+    {cv : ConstantVal} {env₂ : Env}
+    (h : DeclAxiomR μ F env m.base.cval cv env₂)
+    (hres : ∀ (type' : Expr) (hb : EnvS V ⟨ConstantInfo.axiomInfo
+        ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩),
+      (∀ n, n ≠ cv.name → m.base.cval n = hb.cval n) →
+      ∃ A : (Name → Nat) → AVExpr, AxiomResidues2M V μ m
+        ⟨cv.name, cv.levelParams, type'⟩ hb A) :
+    DeclStep2M V μ env₂ := by
+  obtain ⟨mB, hag⟩ := declAxiomExtS stdAxiomKeyS ofReduceKeyS m.base h
+  obtain ⟨type', hcv, hbranch⟩ := h
+  have hfresh : env.find? cv.name = none :=
+    Option.isNone_iff_eq_none.mp hcv.1
+  have hgo : ∀ mB' : EnvS V ⟨ConstantInfo.axiomInfo
+      ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩,
+      (∀ n, n ≠ cv.name → m.base.cval n = mB'.cval n) →
+      DeclStep2M V μ ⟨ConstantInfo.axiomInfo
+        ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩ := by
+    intro mB' hag'
+    obtain ⟨A, hA⟩ := hres type' mB' hag'
+    exact declStep2M_of_axiom m hfresh mB' hag' hA.erase hA.closed
+      hA.params hA.ok2 hA.extend hA.newMember
+  rcases hbranch with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ |
+    ⟨-, -, -, -, -, -, -, rfl⟩
+  · exact hgo mB hag
+  · exact hgo mB hag
+  · exact hgo mB hag
+  · exact ⟨m⟩
+
 /-! ### The six kinds' obligations at one mode
 
 The four obligations, transposed.  Each is its all-mode twin with
@@ -805,7 +910,15 @@ def DeclValue2SM (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
       ConstantInfo.thmInfo cv2 v2 = c₀ → v2 = value') →
     DeclStep2M V μ ⟨c₀ :: env.consts⟩
 
-/-- **The axiom kind's install obligation, at one mode.** -/
+/-- **The axiom kind's install obligation, at one mode.**
+
+**Under-premised, and knowably so** — see
+`declStep2M_of_axiomResidues`, which is this obligation with
+`ConstantValR` replaced by the `DeclAxiomR` the checker actually
+establishes.  From `ConstantValR` alone no install is possible at any
+tier: the axiom's denoted type needs an *inhabitant*, and a well-typed
+type need not have one.  Kept as stated because `Main2.lean` reads
+it. -/
 def DeclAxiom2SM (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {F : Nat} {env : Env} {cv : ConstantVal} {type' : Expr}
     (m : EnvS2UM V μ env),
