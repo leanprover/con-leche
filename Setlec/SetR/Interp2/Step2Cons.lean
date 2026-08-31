@@ -910,15 +910,39 @@ def DeclValue2SM (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
       ConstantInfo.thmInfo cv2 v2 = c₀ → v2 = value') →
     DeclStep2M V μ ⟨c₀ :: env.consts⟩
 
-/-- **The axiom kind's install obligation, at one mode.**
+/-- **TOMBSTONE — the generic axiom obligation, unprovable by
+design.**  Kept because `Main2.lean` reads it; **not to be chased.**
 
-**Under-premised, and knowably so** — see
-`declStep2M_of_axiomResidues`, which is this obligation with
-`ConstantValR` replaced by the `DeclAxiomR` the checker actually
-establishes.  From `ConstantValR` alone no install is possible at any
-tier: the axiom's denoted type needs an *inhabitant*, and a well-typed
-type need not have one.  Kept as stated because `Main2.lean` reads
-it. -/
+It asks for the install from `ConstantValR` alone, and no tier can
+meet that.  `extendAxiomS` needs an **inhabitant** of the axiom's
+denoted type; `ConstantValR` says only that the type *type-checks*,
+and **a well-typed axiom may be false.**
+
+*The point is that this is a feature surfacing, not a gap.*  The
+checker never installs an arbitrary axiom: `extendAxiomS` is reached
+only through `DeclAxiomR`'s four branches, and each of the three that
+store carries a key whose fourth conjunct **is** the inhabitant —
+`StdAxiomKeyS` for the pinned standard axioms, `trustCompilerKeyS`
+proved in-tree, `OfReduceKeyS` for the pinned `ofReduce` family
+(`Install/Axiom.lean`).  So `ConstantValR` was never enough in v1
+either; v1 simply never asked on it.  **This is the
+no-nonstandard-axioms ruling made structural.**
+
+*Replacement*: `DeclAxiom2SMR` (`Main2.lean`), the same obligation on
+the branch witness the checker actually establishes, reduced by
+`declAxiom2SMR_of_residues` to `AxiomResidues2M`'s fields at a
+*supplied* extension.  `declAxiom2SMR_of_generic` (`Main2.lean`)
+checks that the replacement is a weakening: anything this form could
+supply, the branch form supplies too.
+
+*No refutation is offered, and the reason is itself a finding.*  A
+countermodel would have to exhibit a well-typed-but-false axiom the
+lane can actually reach — i.e. an `Empty`-typed `ConstantValR` in an
+`EnvS2UM`-carrying environment where `Empty` is installed.  That
+install is `DeclBasis2SM`, which is **not inhabited in this tree**, so
+the refutation would be premised on something uninhabited: a
+relocation, not evidence.  Docstring, therefore, and not a
+theorem. -/
 def DeclAxiom2SM (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {F : Nat} {env : Env} {cv : ConstantVal} {type' : Expr}
     (m : EnvS2UM V μ env),

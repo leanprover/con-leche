@@ -281,14 +281,21 @@ theorem declStep2AllM_of {μ : CheckMode} (hval : DeclValue2SM V μ)
 
 `DeclAxiom2SM` asks for the install from `ConstantValR` alone, and
 nothing can meet it: an install owes an *inhabitant* of the axiom's
-denoted type, and a well-typed type need not have one.  The obligation
-below asks on the `DeclAxiomR` the checker establishes instead — which
-is exactly what `declStep2AllM_of` already had in hand at the axiom
-clause, and threw away by branching before calling `hax`.
+denoted type, and a well-typed type need not have one.  It is
+**tombstoned** at its definition (`Step2Cons.lean`) as unprovable by
+design — the checker reaches `extendAxiomS` only through
+`DeclAxiomR`'s branches, and each storing branch carries a key
+(`StdAxiomKeyS`, `trustCompilerKeyS`, `OfReduceKeyS`) whose fourth
+conjunct *is* the inhabitant.  The obligation below asks on that
+`DeclAxiomR` instead — which is exactly what `declStep2AllM_of`
+already had in hand at the axiom clause, and threw away by branching
+before calling `hax`.
 
-Both versions stand; the dispatch below is `declStep2AllM_of` with the
-axiom clause's four-way `rcases` **removed**, since the obligation now
-answers for the tolerated branch too. -/
+Both versions stand, and `declAxiom2SMR_of_generic` below records that
+the second is a **weakening** of the first.  The dispatch below is
+`declStep2AllM_of` with the axiom clause's four-way `rcases`
+**removed**, since the obligation now answers for the tolerated branch
+too. -/
 
 /-- **The axiom kind's install obligation, at the branch witness.**
 *Reduces to*: `AxiomResidues2M`'s six fields, by
@@ -318,6 +325,27 @@ theorem declAxiom2SMR_of_residues {μ : CheckMode}
     (hres : AxiomResidues2SM V μ) : DeclAxiom2SMR V μ :=
   fun m h => declStep2M_of_axiomResidues m h
     (fun _ hb hag => hres m hb hag)
+
+/-- **The branch form is a weakening of the tombstoned one.**  The
+generic obligation, if anything could ever supply it, supplies the
+branch obligation — this is `declStep2AllM_of`'s axiom clause, lifted
+out of the dispatch and named.
+
+*Why it is worth naming*: it is the check that re-premising **loses
+nothing**.  Everything the tombstoned `DeclAxiom2SM` could install,
+`DeclAxiom2SMR` installs; the converse fails, and that asymmetry is
+the whole content of the tombstone — the branch witness carries an
+inhabitant that `ConstantValR` does not have. -/
+theorem declAxiom2SMR_of_generic {μ : CheckMode}
+    (hax : DeclAxiom2SM V μ) : DeclAxiom2SMR V μ := by
+  intro F env env₂ cv m h
+  obtain ⟨type', hcv, harm⟩ := h
+  rcases harm with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ |
+    ⟨-, -, -, -, -, -, -, rfl⟩
+  · exact hax m hcv
+  · exact hax m hcv
+  · exact hax m hcv
+  · exact ⟨m⟩
 
 /-- **The dispatch at one mode, on the reduced axiom obligation.**
 `declStep2AllM_of` with `DeclAxiom2SM` replaced by `DeclAxiom2SMR`;
@@ -1479,7 +1507,12 @@ in the chain, which is seal 53's de-generalization cashed. -/
 /-- **No proof of `Empty`, from the four mode-indexed install
 obligations.**  `declStep2AllM_of` composed with the M fold.  Still
 conditional — the four obligations are not inhabited in this tree —
-but conditional on *those four* and on nothing else. -/
+but conditional on *those four* and on nothing else.
+
+**Reads the tombstoned axiom obligation.**  `DeclAxiom2SM` is
+unprovable by design, so this form is vacuously conditional at its
+axiom premise; `no_proof_of_Empty_R2M_of_installsR` below is the one
+to quote. -/
 theorem no_proof_of_Empty_R2M_of_installs (V : Type w) [SetTheory V]
     {μ : CheckMode} {F : Nat} (hval : DeclValue2SM V μ)
     (hax : DeclAxiom2SM V μ) (hbas : DeclBasis2SM V μ)
