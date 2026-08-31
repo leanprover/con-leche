@@ -35,10 +35,12 @@ def PropextKeyS (V : Type w) [SetTheory V] : Prop :=
       (∀ φ₁ φ₂ : Name → Nat,
         (∀ p ∈ cvA.levelParams, φ₁ p = φ₂ p) → Vf φ₁ = Vf φ₂) ∧
       (∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkV V ρ (Vf ψ)) ∧
-      ∀ ψ : Name → Nat, ∃ t,
+      (∀ ψ : Name → Nat, ∃ t,
         denoteClosed m.cval env ψ cvA.type = some t ∧
         ∀ ρ : Nat → V,
-          interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t
+          interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t) ∧
+      ∀ acval : Name → (Name → Nat) → AVExpr,
+        AcvalLink V m.cval acval → AnnotLeaf2 V Vf
 
 /-- The `Classical.choice` half. -/
 def ChoiceKeyS (V : Type w) [SetTheory V] : Prop :=
@@ -49,10 +51,12 @@ def ChoiceKeyS (V : Type w) [SetTheory V] : Prop :=
       (∀ φ₁ φ₂ : Name → Nat,
         (∀ p ∈ cvA.levelParams, φ₁ p = φ₂ p) → Vf φ₁ = Vf φ₂) ∧
       (∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkV V ρ (Vf ψ)) ∧
-      ∀ ψ : Name → Nat, ∃ t,
+      (∀ ψ : Name → Nat, ∃ t,
         denoteClosed m.cval env ψ cvA.type = some t ∧
         ∀ ρ : Nat → V,
-          interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t
+          interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t) ∧
+      ∀ acval : Name → (Name → Nat) → AVExpr,
+        AcvalLink V m.cval acval → AnnotLeaf2 V Vf
 
 /-- The two halves assemble. -/
 theorem stdAxiomKeyS_of (hp : PropextKeyS V) (hc : ChoiceKeyS V) :
@@ -341,7 +345,8 @@ theorem propextKeyS : PropextKeyS V := by
     rw [denoteClosed, denote_erasedEq htyA 0]
     exact denote_propext_typeS hfI hlpI hEq ψ
   refine ⟨fun _ => .const .propext [], fun _ => trivial,
-    fun _ _ _ => rfl, fun _ _ => trivial, fun ψ => ?_⟩
+    fun _ _ _ => rfl, fun _ _ => trivial, fun ψ => ?_,
+    fun _ _ => annotLeaf2_const V .propext fun _ => []⟩
   refine ⟨_, hden ψ, fun ρ => ⟨?_, ?_⟩⟩
   · -- the value is `pt`, and every fibre is `pt`-inhabited
     rw [interp_const]
@@ -705,7 +710,8 @@ theorem choiceKeyS : ChoiceKeyS V := by
     rw [denoteClosed, denote_erasedEq htyA 0]
     exact denote_choice_typeS hfN hlpN ψ
   refine ⟨fun ψ => .const .choice [ψ uN], fun _ => trivial, ?_,
-    fun _ _ => trivial, fun ψ => ?_⟩
+    fun _ _ => trivial, fun ψ => ?_,
+    fun _ _ => annotLeaf2_const V .choice fun ψ => [ψ uN]⟩
   · intro φ₁ φ₂ hp
     have : φ₁ uN = φ₂ uN := by
       refine hp uN ?_

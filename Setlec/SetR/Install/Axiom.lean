@@ -1,4 +1,5 @@
 import Setlec.SetR.Install.ValueKinds
+import Setlec.SetR.Annot.Ok2
 import Setlec.Verify.OfReducePin
 import Setlec.Verify.Denote.Inst
 
@@ -30,6 +31,55 @@ open SetTheory
 universe w
 
 variable {V : Type w} [SetTheory V]
+
+/-! ## The annotated-lane half of a key
+
+`AxiomResidues2M.ok2` (`Interp2/Step2Cons.lean`) wants `AnnotOk2` of
+the *annotated* leaf at the fresh axiom, and seal 61 established there
+is nothing to transport it from: `AnnotOkV`'s clauses carry no fibre
+packages.  So the content is established **where the model is built** —
+here, as a fifth conjunct of each key, alongside (never instead of)
+the `AnnotOkV` one v1's install reads.
+
+The annotated leaf may be drawn from the annotated valuation the
+consumer already carries (`EnvS2UM.acval`), which enters as
+`AcvalLink` — the two `EnvS2` fields that make an `acval` leaf usable:
+its erasure and its truthfulness.  Only `trustCompiler`'s leaf uses
+it; the other four are annotation-free (a `BConst` leaf, or `prf`). -/
+
+/-- **An annotated valuation, linked to a collapse-lane one.**  The two
+`EnvS2` fields an annotated leaf key reads. -/
+structure AcvalLink (V : Type w) [SetTheory V] (cval : TConstVal)
+    (acval : Name → (Name → Nat) → AVExpr) : Prop where
+  /-- the leaves erase to the collapse-lane valuation -/
+  erase : ∀ (n : Name) (ψ : Name → Nat),
+    (acval n ψ).erase = cval n ψ
+  /-- …and are truthful over `interp2` -/
+  ok2 : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
+    Interp2.AnnotOk2 V ρ (acval n ψ)
+
+/-- **An annotated counterpart of a chosen leaf.**  An `AVExpr` family
+erasing to `Vf` on the nose and truthful over `interp2` — exactly what
+`AxiomResidues2M`'s `erase` and `ok2` fields ask of the fresh leaf. -/
+def AnnotLeaf2 (V : Type w) [SetTheory V]
+    (Vf : (Name → Nat) → VExpr) : Prop :=
+  ∃ Af : (Name → Nat) → AVExpr,
+    (∀ ψ : Name → Nat, (Af ψ).erase = Vf ψ) ∧
+    ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Interp2.AnnotOk2 V ρ (Af ψ)
+
+/-- A `BConst` leaf is its own annotation, and truthful for free —
+`AnnotOk2`'s `const` clause is `True`. -/
+theorem annotLeaf2_const (V : Type w) [SetTheory V] (c : BConst)
+    (us : (Name → Nat) → List Nat) :
+    AnnotLeaf2 V (fun ψ => .const c (us ψ)) :=
+  ⟨fun ψ => .const c (us ψ), fun _ => rfl, fun _ _ => by simp⟩
+
+/-- The canonical proof leaf is its own annotation, and truthful for
+free — `AnnotOk2`'s `prf` clause is `True`. -/
+theorem annotLeaf2_prf (V : Type w) [SetTheory V] :
+    AnnotLeaf2 V (fun _ => .prf) :=
+  ⟨fun _ => .prf, fun _ => rfl, fun _ _ => by simp⟩
 
 /-! ## Small [set] helpers -/
 
@@ -103,7 +153,8 @@ theorem extendAxiomS {env : Env} (m : EnvS V env) {cv : ConstantVal}
     (hnres : reservedBasisNames.contains cv.name = false)
     (hnred : cv.name ∉ reduceOpNames) :
     ∃ m' : EnvS V ⟨ConstantInfo.axiomInfo cv :: env.consts⟩,
-      ∀ n, n ≠ cv.name → m.cval n = m'.cval n := by
+      (∀ n, n ≠ cv.name → m.cval n = m'.cval n) ∧
+      ∀ ψ : Name → Nat, m'.cval cv.name ψ = Vf ψ := by
   have hi : Installs env m.cval (cvalWith m.cval cv.name Vf)
       (.axiomInfo cv) :=
     Installs.of_fresh hfresh (fun n hn => (cvalWith_ne hn).symm)
@@ -113,7 +164,8 @@ theorem extendAxiomS {env : Env} (m : EnvS V env) {cv : ConstantVal}
     ?_ (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq) ?_ ?_
     (fun _ _ _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) ?_,
-    fun n hn => (cvalWith_ne hn).symm⟩
+    fun n hn => (cvalWith_ne hn).symm,
+    fun ψ => congrFun cvalWith_self ψ⟩
   · intro ψ
     show VExpr.Closed (cvalWith m.cval cv.name Vf cv.name ψ)
     rw [cvalWith_self]; exact hVcl ψ
@@ -161,7 +213,10 @@ theorem extendAxiomS {env : Env} (m : EnvS V env) {cv : ConstantVal}
 
 /-- The two standard axioms are inhabited (`propext` through the
 pinned `Iff` family, `Classical.choice` through the pinned
-`Nonempty`) — the `Model/StdAxioms.lean` re-hang's interface. -/
+`Nonempty`) — the `Model/StdAxioms.lean` re-hang's interface.
+
+The fifth conjunct is the annotated lane's (see above); the fourth is
+untouched, so v1's install reads exactly what it always did. -/
 def StdAxiomKeyS (V : Type w) [SetTheory V] : Prop :=
   ∀ {env : Env} (m : EnvS V env) {cvA : ConstantVal},
     stdAxiomOk env cvA = true → env.find? cvA.name = none →
@@ -169,10 +224,12 @@ def StdAxiomKeyS (V : Type w) [SetTheory V] : Prop :=
       (∀ φ₁ φ₂ : Name → Nat,
         (∀ p ∈ cvA.levelParams, φ₁ p = φ₂ p) → Vf φ₁ = Vf φ₂) ∧
       (∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkV V ρ (Vf ψ)) ∧
-      ∀ ψ : Name → Nat, ∃ t,
+      (∀ ψ : Name → Nat, ∃ t,
         denoteClosed m.cval env ψ cvA.type = some t ∧
         ∀ ρ : Nat → V,
-          interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t
+          interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t) ∧
+      ∀ acval : Name → (Name → Nat) → AVExpr,
+        AcvalLink V m.cval acval → AnnotLeaf2 V Vf
 
 /-- The `ofReduce*` axioms are inhabited: the identity certificate
 (`reduce_ops`) makes the hypothesis be the conclusion — the
@@ -186,10 +243,12 @@ def OfReduceKeyS (V : Type w) [SetTheory V] : Prop :=
       (∀ φ₁ φ₂ : Name → Nat,
         (∀ p ∈ cvA.levelParams, φ₁ p = φ₂ p) → Vf φ₁ = Vf φ₂) ∧
       (∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkV V ρ (Vf ψ)) ∧
-      ∀ ψ : Name → Nat, ∃ t,
+      (∀ ψ : Name → Nat, ∃ t,
         denoteClosed m.cval env ψ cvA.type = some t ∧
         ∀ ρ : Nat → V,
-          interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t
+          interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t) ∧
+      ∀ acval : Name → (Name → Nat) → AVExpr,
+        AcvalLink V m.cval acval → AnnotLeaf2 V Vf
 
 /-! ## `Lean.trustCompiler`, discharged
 
@@ -207,10 +266,12 @@ theorem trustCompilerKeyS {env : Env} (m : EnvS V env)
       (∀ φ₁ φ₂ : Name → Nat,
         (∀ p ∈ cvA.levelParams, φ₁ p = φ₂ p) → Vf φ₁ = Vf φ₂) ∧
       (∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkV V ρ (Vf ψ)) ∧
-      ∀ ψ : Name → Nat, ∃ t,
+      (∀ ψ : Name → Nat, ∃ t,
         denoteClosed m.cval env ψ cvA.type = some t ∧
         ∀ ρ : Nat → V,
-          interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t := by
+          interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t) ∧
+      (∀ acval : Name → (Name → Nat) → AVExpr,
+        AcvalLink V m.cval acval → AnnotLeaf2 V Vf) := by
   simp only [trustCompilerOk, Bool.and_eq_true] at hok
   obtain ⟨⟨hT, hTi⟩, hA⟩ := hok
   cases hfT : env.find? trueName with
@@ -243,7 +304,9 @@ theorem trustCompilerKeyS {env : Env} (m : EnvS V env)
       decide_eq_true_eq, beq_iff_eq] at hA
     exact eraseNames_const_invS hA.2
   refine ⟨fun ψ => m.cval trueIntroName ψ, fun ψ => m.cval_closed _ _,
-    ?_, fun ψ ρ => m.annot_okV _ _ ρ, fun ψ => ?_⟩
+    ?_, fun ψ ρ => m.annot_okV _ _ ρ, fun ψ => ?_,
+    fun acval hlink => ⟨fun ψ => acval trueIntroName ψ,
+      fun ψ => hlink.erase _ ψ, fun ψ ρ => hlink.ok2 _ ψ ρ⟩⟩
   · intro φ₁ φ₂ _
     exact m.val_params trueIntroName ciTi hfTi φ₁ φ₂ (by
       rw [hlpTi]; intro p hp; exact nomatch hp)
@@ -298,17 +361,18 @@ theorem declAxiomExtS (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
       ∃ m' : EnvS V ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
         env.consts⟩, ∀ n, n ≠ cv.name → m.cval n = m'.cval n := by
     intro Vf hVcl hVp hVannot hkey hnr
-    exact extendAxiomS m (Vf := Vf) hfresh hwfc hVcl hVp hVannot hkey
-      hres hnr
+    exact ⟨_, (extendAxiomS m (cv := ⟨cv.name, cv.levelParams, type'⟩)
+      (Vf := Vf) hfresh hwfc hVcl hVp hVannot hkey hres
+      hnr).choose_spec.1⟩
   rcases hbranch with ⟨hstdok, rfl⟩ | ⟨hnameTC, htcok, rfl⟩ |
     ⟨hofn, hofok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
-  · obtain ⟨Vf, hVcl, hVp, hVannot, hkey⟩ := hstd m hstdok hfresh
+  · obtain ⟨Vf, hVcl, hVp, hVannot, hkey, -⟩ := hstd m hstdok hfresh
     exact hgo Vf hVcl hVp hVannot hkey
       (by rcases stdAxiomOk_nameS hstdok with hh | hh <;> rw [hh] <;> decide)
-  · obtain ⟨Vf, hVcl, hVp, hVannot, hkey⟩ :=
+  · obtain ⟨Vf, hVcl, hVp, hVannot, hkey, -⟩ :=
       trustCompilerKeyS m htcok hnameTC hfresh
     exact hgo Vf hVcl hVp hVannot hkey (by rw [hnameTC]; decide)
-  · obtain ⟨Vf, hVcl, hVp, hVannot, hkey⟩ := hofr m hofok hofn hfresh
+  · obtain ⟨Vf, hVcl, hVp, hVannot, hkey, -⟩ := hofr m hofok hofn hfresh
     exact hgo Vf hVcl hVp hVannot hkey
       (by rcases hofn with hh | hh <;> rw [hh] <;> decide)
   · exact ⟨m, fun _ _ => rfl⟩
@@ -322,6 +386,83 @@ theorem declAxiomS (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
     Nonempty (EnvS V env₂) :=
   ⟨(declAxiomExtS hstd hofr m h).choose⟩
 
+/-- **An accepted `axiom` extends the invariant, with an annotated
+leaf.**  `declAxiomExtS`'s conclusion plus the two `AxiomResidues2M`
+fields that speak about the fresh leaf's *annotation*: it erases to the
+extension's valuation at the new name, and it is `AnnotOk2`.
+
+All four branches answer, and the fourth answers for a reason worth
+naming: the **tolerated skip** stores nothing, so the leaf wanted is
+the annotated valuation's own reading at that name — and `AcvalLink`'s
+two laws hold at *every* name, stored or not, so `acval cv.name` is it.
+The three storing branches take the leaf from the branch key's fifth
+conjunct, at the valuation `extendAxiomS` installs
+(`extendAxiomS`'s third component pins it to `Vf`).
+
+This is the `.ok2` discharge's supply side: nothing here is premised
+on an uninhabited hypothesis — `stdAxiomKeyS` (`StdAxiomKey.lean`),
+`trustCompilerKeyS` and `ofReduceKeyS` are theorems, and `AcvalLink`
+is two `EnvS2U` fields the consumer already carries. -/
+theorem declAxiomLeafExtS (hstd : StdAxiomKeyS V)
+    (hofr : OfReduceKeyS V)
+    {μ : CheckMode} {F : Nat} {env env₂ : Env} {cv : ConstantVal}
+    {acval : Name → (Name → Nat) → AVExpr} (m : EnvS V env)
+    (hlink : AcvalLink V m.cval acval)
+    (h : DeclAxiomR μ F env m.cval cv env₂) :
+    ∃ (m' : EnvS V env₂) (A : (Name → Nat) → AVExpr),
+      (∀ n, n ≠ cv.name → m.cval n = m'.cval n) ∧
+      (∀ ψ : Name → Nat, (A ψ).erase = m'.cval cv.name ψ) ∧
+      ∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Interp2.AnnotOk2 V ρ (A ψ) := by
+  obtain ⟨type', hcv, hbranch⟩ := h
+  obtain ⟨hfind, hres, hpshape, hnd, hlbt, hitf, hann, htp, htr, hfrontT⟩ :=
+    hcv
+  obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
+  have hfresh : env.find? cv.name = none := Option.isNone_iff_eq_none.mp hfind
+  have hwfc : EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+      env.consts⟩ := by
+    refine EnvWF.cons m.wf ⟨htf', htp, Expr.constsResolve_mono htr, hbt',
+      ?_, ?_, ?_⟩
+    · intro cv2 value2 hint2 heq; exact nomatch heq
+    · intro cv2 mI rP rules heq; exact nomatch heq
+    · intro cv2 value2 heq; exact nomatch heq
+  have hgo : ∀ (Vf : (Name → Nat) → VExpr),
+      (∀ ψ, VExpr.Closed (Vf ψ)) →
+      (∀ φ₁ φ₂ : Name → Nat,
+        (∀ p ∈ cv.levelParams, φ₁ p = φ₂ p) → Vf φ₁ = Vf φ₂) →
+      (∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkV V ρ (Vf ψ)) →
+      (∀ ψ : Name → Nat, ∃ t,
+        denoteClosed m.cval env ψ type' = some t ∧
+        ∀ ρ : Nat → V,
+          interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t) →
+      AnnotLeaf2 V Vf → cv.name ∉ reduceOpNames →
+      ∃ (m' : EnvS V ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+          env.consts⟩) (A : (Name → Nat) → AVExpr),
+        (∀ n, n ≠ cv.name → m.cval n = m'.cval n) ∧
+        (∀ ψ : Name → Nat, (A ψ).erase = m'.cval cv.name ψ) ∧
+        ∀ (ψ : Name → Nat) (ρ : Nat → V),
+          Interp2.AnnotOk2 V ρ (A ψ) := by
+    intro Vf hVcl hVp hVannot hkey hleaf hnr
+    obtain ⟨m', hag, hself⟩ :=
+      extendAxiomS m (cv := ⟨cv.name, cv.levelParams, type'⟩)
+        (Vf := Vf) hfresh hwfc hVcl hVp hVannot hkey hres hnr
+    obtain ⟨Af, hAe, hAo⟩ := hleaf
+    exact ⟨m', Af, hag, fun ψ => by rw [hAe ψ, hself ψ], hAo⟩
+  rcases hbranch with ⟨hstdok, rfl⟩ | ⟨hnameTC, htcok, rfl⟩ |
+    ⟨hofn, hofok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
+  · obtain ⟨Vf, hVcl, hVp, hVannot, hkey, hleaf⟩ := hstd m hstdok hfresh
+    exact hgo Vf hVcl hVp hVannot hkey (hleaf acval hlink)
+      (by rcases stdAxiomOk_nameS hstdok with hh | hh <;> rw [hh] <;> decide)
+  · obtain ⟨Vf, hVcl, hVp, hVannot, hkey, hleaf⟩ :=
+      trustCompilerKeyS m htcok hnameTC hfresh
+    exact hgo Vf hVcl hVp hVannot hkey (hleaf acval hlink)
+      (by rw [hnameTC]; decide)
+  · obtain ⟨Vf, hVcl, hVp, hVannot, hkey, hleaf⟩ :=
+      hofr m hofok hofn hfresh
+    exact hgo Vf hVcl hVp hVannot hkey (hleaf acval hlink)
+      (by rcases hofn with hh | hh <;> rw [hh] <;> decide)
+  · exact ⟨m, fun ψ => acval cv.name ψ, fun _ _ => rfl,
+      fun ψ => hlink.erase _ ψ, fun ψ ρ => hlink.ok2 _ ψ ρ⟩
 
 /-- The equality former's valuation at the pinned level `1`. -/
 def eqVS {env : Env} (m : EnvS V env) (ψ : Name → Nat) : VExpr :=
@@ -589,67 +730,28 @@ theorem ofReduceKeyS : OfReduceKeyS V := by
         ρ (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
         (.bvar 2) (.bvar 1)
         (by rw [heqψ]; exact hEmem ψ ρ) h2 h1⟩
-  -- the witness: `fun a b h => h`, built from the type's own pieces
-  refine ⟨fun ψ =>
-      .lam (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
-        (.lam (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
-          (.lam (VExpr.mkAppN (eqVS m ψ)
-              [m.cval (reduceElemName (ofReduceOp cvA.name)) ψ,
-               .app (m.cval (ofReduceOp cvA.name) ψ) (.bvar 1),
-               .bvar 0]) (.bvar 0))),
-    ?_, ?_, ?_, ?_⟩
-  · intro ψ
-    have hE := m.cval_closed (reduceElemName (ofReduceOp cvA.name)) ψ
-    have hO := m.cval_closed (ofReduceOp cvA.name) ψ
-    have hQ := m.cval_closed eqName
-      (Level.substFn ψ eqA.toConstantVal.levelParams [.succ .zero])
-    simp only [VExpr.Closed, VExpr.mkAppN, eqVS] at *
-    have hE2 : ∀ k, VExpr.bvarsBelow k
-        (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) :=
-      fun k => VExpr.bvarsBelow.mono (Nat.zero_le k) hE
-    have hO2 : ∀ k, VExpr.bvarsBelow k (m.cval (ofReduceOp cvA.name) ψ) :=
-      fun k => VExpr.bvarsBelow.mono (Nat.zero_le k) hO
-    have hQ2 : ∀ k, VExpr.bvarsBelow k (m.cval eqName
-        (Level.substFn ψ eqA.toConstantVal.levelParams
-          [Level.zero.succ])) :=
-      fun k => VExpr.bvarsBelow.mono (Nat.zero_le k) hQ
-    simp [VExpr.bvarsBelow, hE2, hO2, hQ2]
-  · intro φ₁ φ₂ _
-    have hEe : m.cval (reduceElemName (ofReduceOp cvA.name)) φ₁
-        = m.cval (reduceElemName (ofReduceOp cvA.name)) φ₂ :=
-      m.val_params _ _ hfE φ₁ φ₂ (by rw [hlpE]; intro p hp; exact nomatch hp)
-    have hOe : m.cval (ofReduceOp cvA.name) φ₁
-        = m.cval (ofReduceOp cvA.name) φ₂ :=
-      m.val_params _ _ hfR φ₁ φ₂ (by
-        show ∀ p ∈ cvR.levelParams, φ₁ p = φ₂ p
-        rw [hlpR]; intro p hp; exact nomatch hp)
-    have hQe : eqVS m φ₁ = eqVS m φ₂ := by
-      rw [eqVS, eqVS]
-      exact m.val_params _ _ hEq _ _ (fun p hp => by
-        rw [hsub φ₁ p hp, hsub φ₂ p hp])
-    dsimp only
-    rw [hEe, hOe, hQe]
-  · -- the witness is truthful: its annotations *are* the type's
-    intro ψ ρ
-    rw [AnnotOkV_lam]
-    refine ⟨m.annot_okV _ _ _, fun x hx => ?_⟩
-    rw [AnnotOkV_lam]
-    refine ⟨m.annot_okV _ _ _, fun y hy => ?_⟩
-    rw [AnnotOkV_lam]
-    refine ⟨(hframe ψ (cons V y (cons V x ρ)) ?_ ?_).1,
-      fun _ _ => trivial⟩
-    · show x ∈ˢ _
-      rw [← hEc ψ ρ]; exact hx
-    · show y ∈ˢ _
-      rw [← hEc ψ (cons V x ρ)]; exact hy
+  -- **The witness is the canonical proof.**  The pinned type
+  -- `∀ a b : E, op a = b → a = b` is a `Prop`, so `pt` inhabits it,
+  -- and `prf` is the leaf that denotes `pt` in *both* lanes.  The
+  -- η-expanded identity `fun a b h => h` inhabits it too — and was
+  -- this key's witness until the annotated lane was asked for — but
+  -- its annotation's `AnnotOk2` is not establishable here: the `.app`
+  -- clause's fibre slot wants `interp2`-lane membership for the
+  -- pinned `Eq` former and the trusted op, whose only supplier is
+  -- `EnvS2U.mem_type2`, gated on a `denote2` success and hence on
+  -- `sortOfE`, i.e. on running `inferTypeCore`/`whnf`.  `prf` carries
+  -- no binder for `AnnotOk2` to be about, so the annotated conjunct
+  -- is `annotLeaf2_prf` — see the module note above.
+  refine ⟨fun _ => .prf, fun _ => trivial, fun _ _ _ => rfl,
+    fun _ _ => trivial, ?_, fun _ _ => annotLeaf2_prf V⟩
   · intro ψ
     refine ⟨_, hden ψ, fun ρ => ⟨?_, ?_⟩⟩
-    · rw [interp_lam, interp_pi]
-      refine lamC_mem fun x hx => ?_
-      rw [interp_lam, interp_pi]
-      refine lamC_mem fun y hy => ?_
-      rw [interp_lam, interp_pi]
-      refine lamC_mem fun h hh => ?_
+    · rw [interp_prf, interp_pi]
+      refine pt_mem_piC_iff.mpr fun x hx => ?_
+      rw [interp_pi]
+      refine pt_mem_piC_iff.mpr fun y hy => ?_
+      rw [interp_pi]
+      refine pt_mem_piC_iff.mpr fun h hh => ?_
       have hx2 : (cons V y (cons V x ρ)) 1 ∈ˢ interp V
           (cons V y (cons V x ρ))
           (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ) := by
@@ -672,7 +774,10 @@ theorem ofReduceKeyS : OfReduceKeyS V := by
         rw [← hEc ψ (cons V x ρ)]; exact hy
       rw [(hframe2 ψ _ hx3 hy3).2]
       rw [(hframe ψ _ hx2 hy2).2] at hh
-      exact hh
+      have hh' : h ∈ˢ eqv x y := hh
+      show (pt : V) ∈ˢ eqv x y
+      rw [mem_eqv hh']
+      exact pt_mem_eqv_self y
     · rw [AnnotOkV_pi]
       refine ⟨m.annot_okV _ _ _, fun x hx => ?_⟩
       rw [AnnotOkV_pi]
