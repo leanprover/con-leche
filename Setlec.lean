@@ -39,3 +39,4 @@ import Setlec.Verify.OfReducePin
 import Setlec.Verify.ParseP
 import Setlec.Verify.BridgeP
 import Setlec.NbE.Check
+import Setlec.NbE.Verify.Walls
