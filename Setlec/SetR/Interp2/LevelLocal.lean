@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.Step2.Levels
+import Setlec.SetR.Interp2.LevelLocalKit
 
 /-!
 # Wall 2 — level-locality, the statement seal
@@ -119,5 +119,119 @@ would make all three vacuous.
 particular `not_isEquivSubstMono` stands, and the audit above records
 that it is *why* consumer 3 is only partly served.
 -/
+
+/-! ## The third statement, from the first two
+
+`denote2` reads the assignment at four kinds of site: the `.sort`
+clause (`Level.eval`), the `.const` and literal clauses (the valuation
+at a `Level.substFn`), and the `.forallE`/`.lam` numerals
+(`sortOfE`/`lamSortE`).  The first three are algebra —
+`Level.eval_ext` and `Level.substFn_agree` — and the fourth is exactly
+what the two statements above say.  So the induction over
+`denote2.induct` goes through with them as hypotheses, in *any*
+environment: this derivation is unconditional, and the environment
+condition the two primitives need (below) is inherited, not added
+here. -/
+
+theorem denote2LevelLocal_of {μ : CheckMode} {env : Env}
+    {acval : Name → (Name → Nat) → AVExpr}
+    (hs : SortOfELevelLocal μ env) (hl : LamSortELevelLocal μ env) :
+    Denote2LevelLocal μ env acval := by
+  intro ps φ₁ φ₂ F d e hdef hφ hac
+  revert hdef
+  induction d, e using denote2.induct (env := env) with
+  | case1 d u =>
+    intro hdef
+    rw [denote2, denote2,
+      Level.eval_ext (by simpa [Expr.allLevelParamsDefined] using hdef)
+        hφ]
+  | case2 d idx nm ty => intro _; rw [denote2, denote2]
+  | case3 d n us ci hf hlen =>
+    intro hdef
+    rw [denote2, hf, denote2, hf]
+    dsimp only
+    rw [if_pos hlen, if_pos hlen,
+      hac n _ _ (Level.substFn_agree hφ (ks := ci.toConstantVal.levelParams)
+        (by
+          simpa [Expr.allLevelParamsDefined, List.all_eq_true]
+            using hdef))]
+  | case4 d n us ci hf hlen =>
+    intro _
+    rw [denote2, hf, denote2, hf]
+    dsimp only
+    rw [if_neg hlen, if_neg hlen]
+  | case5 d n us hf => intro _; rw [denote2, hf, denote2, hf]
+  | case6 d n ty body m ihty ihbody =>
+    intro hdef
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
+    have hopen := Expr.allLevelParamsDefined_open (d := d) (n := n)
+      hdef.1 hdef.2
+    rw [denote2, denote2, ihty hdef.1, ihbody hopen,
+      hs ps φ₁ φ₂ F d ty hdef.1 hφ,
+      hs ps φ₁ φ₂ F (d + 1) _ hopen hφ]
+  | case7 d n ty body m ihty ihbody =>
+    intro hdef
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
+    have hopen := Expr.allLevelParamsDefined_open (d := d) (n := n)
+      hdef.1 hdef.2
+    rw [denote2, denote2, ihty hdef.1, ihbody hopen,
+      hl ps φ₁ φ₂ F (d + 1) _ hopen hφ]
+  | case8 d f a ihf iha =>
+    intro hdef
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
+    rw [denote2, denote2, ihf hdef.1, iha hdef.2]
+  | case9 d n ty val body ihty ihval ihbody =>
+    intro hdef
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
+    rw [denote2, denote2, ihty hdef.1.1, ihval hdef.1.2,
+      ihbody (Expr.allLevelParamsDefined_open (d := d) (n := n)
+        hdef.1.1 hdef.2)]
+  | case10 d sn i e ihe =>
+    intro hdef
+    simp only [Expr.allLevelParamsDefined] at hdef
+    rw [denote2, denote2, ihe hdef]
+  | case11 d n hsup =>
+    intro _
+    rw [denote2, if_pos hsup, denote2, if_pos hsup,
+      hac natZeroName _ _ (Level.substFn_agree hφ (ks := []) (by simp)),
+      hac natSuccName _ _ (Level.substFn_agree hφ (ks := []) (by simp))]
+  | case12 d n hsup => intro _; rw [denote2, if_neg hsup, denote2,
+      if_neg hsup]
+  | case13 d s hsup =>
+    intro _
+    rw [denote2, if_pos hsup, denote2, if_pos hsup,
+      hac stringOfListName _ _
+        (Level.substFn_agree hφ (ks := []) (by simp)),
+      hac listNilName _ _
+        (Level.substFn_agree hφ
+          (ks := levelParamsAt env listNilName)
+          (by simp [Level.allParamsDefined])),
+      hac listConsName _ _
+        (Level.substFn_agree hφ
+          (ks := levelParamsAt env listConsName)
+          (by simp [Level.allParamsDefined])),
+      hac charName _ _ (Level.substFn_agree hφ (ks := []) (by simp)),
+      hac charOfNatName _ _
+        (Level.substFn_agree hφ (ks := []) (by simp)),
+      hac natZeroName _ _ (Level.substFn_agree hφ (ks := []) (by simp)),
+      hac natSuccName _ _ (Level.substFn_agree hφ (ks := []) (by simp))]
+  | case14 d s hsup => intro _; rw [denote2, if_neg hsup, denote2,
+      if_neg hsup]
+  | case15 d x hsrt hfv hc hpi hlam happ hlet hproj hnat hstr =>
+    intro _
+    cases x with
+    | bvar i => rw [denote2.eq_def, denote2.eq_def]
+    | sort u => exact absurd rfl (hsrt u)
+    | fvar i nm ty => exact absurd rfl (hfv i nm ty)
+    | const n us => exact absurd rfl (hc n us)
+    | forallE n ty b m => exact absurd rfl (hpi n ty b m)
+    | lam n ty b m => exact absurd rfl (hlam n ty b m)
+    | app f a => exact absurd rfl (happ f a)
+    | letE n ty v b => exact absurd rfl (hlet n ty v b)
+    | proj sn i e => exact absurd rfl (hproj sn i e)
+    | lit l =>
+      cases l with
+      | natVal n => exact absurd rfl (hnat n)
+      | strVal s => exact absurd rfl (hstr s)
 
 end Setlec.SetR.Interp2
