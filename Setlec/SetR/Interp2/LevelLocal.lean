@@ -581,6 +581,49 @@ theorem lamSortELevelLocal_of {μ : CheckMode} {env : Env}
     simp only [Except.toOption]
     exact hs ps φ₁ φ₂ F d bt (hi ps F d b bt hdef hit) hφ
 
+/-! ## The repair, and the chain re-derived through it
+
+The missing hypothesis is `EnvWF`, and — exactly as
+`Step2/LevelsInst.lean` records for its own escape — **the consumers
+already hold it**: `EnvS2UM.base.wf`.  So the `…W` forms below cost
+them nothing, and the whole chain from the two checker primitives to
+both `params` fields closes through them. -/
+
+/-- Primitive 1, repaired. -/
+def InferLevelParamsW (μ : CheckMode) (env : Env) : Prop :=
+  Setlec.EnvWF env → InferLevelParams μ env
+
+/-- Primitive 2, repaired. -/
+def WhnfLevelParamsW (μ : CheckMode) (env : Env) : Prop :=
+  Setlec.EnvWF env → WhnfLevelParams μ env
+
+/-- Statement 1, repaired. -/
+def SortOfELevelLocalW (μ : CheckMode) (env : Env) : Prop :=
+  Setlec.EnvWF env → SortOfELevelLocal μ env
+
+/-- Statement 2, repaired. -/
+def LamSortELevelLocalW (μ : CheckMode) (env : Env) : Prop :=
+  Setlec.EnvWF env → LamSortELevelLocal μ env
+
+theorem sortOfELevelLocalW_of {μ : CheckMode} {env : Env}
+    (hi : InferLevelParamsW μ env) (hw : WhnfLevelParamsW μ env) :
+    SortOfELevelLocalW μ env :=
+  fun hwf => sortOfELevelLocal_of (hi hwf) (hw hwf)
+
+theorem lamSortELevelLocalW_of {μ : CheckMode} {env : Env}
+    (hi : InferLevelParamsW μ env) (hs : SortOfELevelLocalW μ env) :
+    LamSortELevelLocalW μ env :=
+  fun hwf => lamSortELevelLocal_of (hi hwf) (hs hwf)
+
+/-- **The consumer form, through the repair.**  `EnvWF` is spent from
+the invariant's own field, so the M statement is unconditional again
+once the two primitives are. -/
+theorem denote2LevelLocalMW_of {V : Type w} [SetTheory V]
+    {μ : CheckMode} {env : Env} (m : EnvS2UM V μ env)
+    (hs : SortOfELevelLocalW μ env) (hl : LamSortELevelLocalW μ env) :
+    Denote2LevelLocalM V μ m :=
+  denote2LevelLocalM_of m (hs m.base.wf) (hl m.base.wf)
+
 /-! ## The two `params` consumers, discharged from the M form
 
 Both fields have the same shape — a leaf `A` obtained as a `denote2`
