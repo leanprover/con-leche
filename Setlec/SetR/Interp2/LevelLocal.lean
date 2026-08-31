@@ -384,6 +384,133 @@ theorem denote2LevelLocalM_of {V : Type w} [SetTheory V]
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
+/-! ## First finding: all three statements are **false as frozen**
+
+The statements quantify over a bare `Env`, and nothing in them says
+the environment is well formed.  One axiom whose *stored type* mentions
+a level parameter outside its (empty) `levelParams` refutes all three:
+`inferBody`'s `.const` clause hands the stored type back verbatim (the
+level list is empty, so its own instantiation is the identity), the
+sort is terminal for `whnf`, and `sortOfE` therefore reports the
+assignment's value at a parameter the subject never had.
+
+This is **the same escape** `Step2/LevelsInst.lean` already recorded
+for `InferInstLevels`/`WhnfSortInstLevels`/`SortOfEInstLevels` (its
+`escEnvT`), one seal earlier and in the same lane; the missing
+hypothesis is `EnvWF`, and — as recorded there — the consumers hold it
+(`EnvS.wf`), so the repair costs them nothing.  The witness is rebuilt
+here rather than imported because that file's is `private`. -/
+
+/-- The escaping parameter. -/
+private def llP : Name := .str .anonymous "llP"
+
+/-- The stored constant. -/
+private def llC : Name := .str .anonymous "llC"
+
+/-- One axiom whose stored type mentions a parameter it does not
+declare.  `ConstWF` forbids it; the frozen statements do not. -/
+def llEnv : Env := ⟨[.axiomInfo ⟨llC, [], .sort (.param llP)⟩]⟩
+
+private theorem llEnv_infer (μ : CheckMode) (F d : Nat) :
+    Setlec.inferTypeCore μ llEnv (F + 1) d (.const llC [])
+      = .ok (.sort (.param llP)) := rfl
+
+private theorem llEnv_defined (ps : List Name) :
+    (Expr.const llC []).allLevelParamsDefined ps = true := rfl
+
+/-- The run reads the assignment at the escaping parameter. -/
+private theorem llEnv_sortOfE (μ : CheckMode) (ψ : Name → Nat)
+    (F d : Nat) :
+    sortOfE μ llEnv ψ (F + 3) d (.const llC []) = some (ψ llP) := by
+  unfold sortOfE
+  rw [show Setlec.inferTypeCore μ llEnv (F + 3) d (.const llC [])
+      = .ok (.sort (.param llP)) from llEnv_infer μ (F + 2) d]
+  simp only [Except.toOption]
+  rw [show Setlec.whnf μ llEnv (F + 3) d (.sort (.param llP))
+      = .ok (.sort (.param llP)) from Setlec.whnf_sort llEnv (F + 1) d _]
+  rfl
+
+/-- …and one inference earlier, for the λ clause's numeral. -/
+private theorem llEnv_lamSortE (μ : CheckMode) (ψ : Name → Nat)
+    (F d : Nat) :
+    lamSortE μ llEnv ψ (F + 4) d (.const llC []) = some (ψ llP + 1) := by
+  unfold lamSortE
+  rw [show Setlec.inferTypeCore μ llEnv (F + 4) d (.const llC [])
+      = .ok (.sort (.param llP)) from llEnv_infer μ (F + 3) d]
+  simp only [Except.toOption]
+  unfold sortOfE
+  rw [show Setlec.inferTypeCore μ llEnv (F + 4) d (.sort (.param llP))
+      = .ok (.sort (.succ (.param llP))) from rfl]
+  simp only [Except.toOption]
+  rw [show Setlec.whnf μ llEnv (F + 4) d (.sort (.succ (.param llP)))
+      = .ok (.sort (.succ (.param llP)))
+      from Setlec.whnf_sort llEnv (F + 2) d _]
+  rfl
+
+/-- **`SortOfELevelLocal` is false as stated.** -/
+theorem not_sortOfELevelLocal (μ : CheckMode) :
+    ¬ SortOfELevelLocal μ llEnv := by
+  intro h
+  have hx := h [] (fun _ => 0) (fun _ => 1) 3 0 (.const llC [])
+    (llEnv_defined []) (fun p hp => absurd hp (by simp))
+  rw [llEnv_sortOfE μ (fun _ => 0) 0 0,
+    llEnv_sortOfE μ (fun _ => 1) 0 0] at hx
+  exact nomatch hx
+
+/-- **`LamSortELevelLocal` is false as stated**, at the same
+environment. -/
+theorem not_lamSortELevelLocal (μ : CheckMode) :
+    ¬ LamSortELevelLocal μ llEnv := by
+  intro h
+  have hx := h [] (fun _ => 0) (fun _ => 1) 4 0 (.const llC [])
+    (llEnv_defined []) (fun p hp => absurd hp (by simp))
+  rw [llEnv_lamSortE μ (fun _ => 0) 0 0,
+    llEnv_lamSortE μ (fun _ => 1) 0 0] at hx
+  exact nomatch hx
+
+private theorem llEnv_sortZero (μ : CheckMode) (ψ : Name → Nat)
+    (F d : Nat) :
+    sortOfE μ llEnv ψ (F + 3) d (.sort .zero) = some 1 := by
+  unfold sortOfE
+  rw [show Setlec.inferTypeCore μ llEnv (F + 3) d (.sort .zero)
+      = .ok (.sort (.succ .zero)) from rfl]
+  simp only [Except.toOption]
+  rw [show Setlec.whnf μ llEnv (F + 3) d (.sort (.succ .zero))
+      = .ok (.sort (.succ .zero))
+      from Setlec.whnf_sort llEnv (F + 1) d _]
+  rfl
+
+/-- The `∀` node's annotation, computed: every slot but the domain's
+numeral is assignment-independent. -/
+private theorem llEnv_denote2 (μ : CheckMode) (ψ : Name → Nat) :
+    denote2 μ (fun _ _ => AVExpr.sort 0) llEnv ψ 3 0
+        (.forallE llC (.const llC []) (.sort .zero) ⟨.default⟩)
+      = some (.pi (ψ llP) 1 (.sort 0) (.sort 0)) := by
+  rw [denote2]
+  simp only [Expr.instantiate1, Nat.zero_add]
+  rw [show denote2 μ (fun _ _ => AVExpr.sort 0) llEnv ψ 3 0
+        (.const llC []) = some (.sort 0) from by rw [denote2]; rfl,
+    show denote2 μ (fun _ _ => AVExpr.sort 0) llEnv ψ 3 1
+        (.sort .zero) = some (.sort 0) from by rw [denote2]; rfl,
+    llEnv_sortOfE μ ψ 0 0, llEnv_sortZero μ ψ 0 1]
+  rfl
+
+/-- **`Denote2LevelLocal` is false as stated too** — the escape reaches
+the numeral, not merely the primitive.  The subject is a `∀` whose
+*domain* is the escaping constant and whose body is a literal sort, so
+every other slot of the clause is assignment-independent and the
+valuation hypothesis holds of a constant valuation. -/
+theorem not_denote2LevelLocal (μ : CheckMode) :
+    ¬ Denote2LevelLocal μ llEnv (fun _ _ => .sort 0) := by
+  intro h
+  have hx := h [] (fun _ => 0) (fun _ => 1) 3 0
+    (.forallE llC (.const llC []) (.sort .zero) ⟨.default⟩)
+    (by simp [Expr.allLevelParamsDefined, Level.allParamsDefined])
+    (fun p hp => absurd hp (by simp))
+    (fun _ _ _ _ => rfl)
+  rw [llEnv_denote2 μ (fun _ => 0), llEnv_denote2 μ (fun _ => 1)] at hx
+  exact nomatch hx
+
 /-! ## The two primitives, factored to the checker
 
 `sortOfE` and `lamSortE` take the level assignment **nowhere except
