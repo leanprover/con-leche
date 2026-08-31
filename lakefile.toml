@@ -37,6 +37,7 @@ roots = ["Setlec.SetR"]
 [[lean_lib]]
 name = "SetlecTests"
 srcDir = "tests"
+roots = ["SetlecTests", "NbETests"]
 
 [[lean_exe]]
 name = "setlec"
