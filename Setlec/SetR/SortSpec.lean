@@ -4,6 +4,7 @@ import Setlec.SetR.SortSpec.Examples
 import Setlec.SetR.SortSpec.Subst
 import Setlec.SetR.SortSpec.Agree
 import Setlec.SetR.SortSpec.Coverage
+import Setlec.SetR.SortSpec.Converse
 
 /-!
 # `Setlec.SetR.SortSpec` — the reduction-free structural sort pilot
@@ -19,5 +20,7 @@ agreement question).
 * `SortSpec/Subst.lean` — substitution stability (monotone form) and
   the mechanized refutation of its equational form;
 * `SortSpec/Agree.lean` — agreement with the checker's `sortOfE`;
-* `SortSpec/Coverage.lean` — how much of the pinned basis it reaches.
+* `SortSpec/Coverage.lean` — how much of the pinned basis it reaches;
+* `SortSpec/Converse.lean` — the mechanized refutation of the
+  converse (completeness).
 -/

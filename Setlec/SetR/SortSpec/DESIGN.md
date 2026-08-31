@@ -535,3 +535,64 @@ run-level coherence tier and should not be scheduled as one.  It is a
 its landed value to the tier is one absolute agreement theorem plus
 two substitution lemmas — roughly 700 lines against the tier's 19,019,
 overlapping it in zero species.
+
+### Seal 2, addendum — the converse countermodel, MECHANIZED
+
+Seal 2 recorded the converse's falsifier as prose and flagged its own
+evidential grade under (P4).  It is now built:
+`SortSpec/Converse.lean`, axioms exactly the three standard.
+
+    def Alias : Type 1 := Type      (defnInfo, value `.sort 1`)
+    axiom Foo  : Alias              (axiomInfo, type `.const Alias []`)
+
+* `converse_sortOfE` — the checker answers `some 1`.  It infers
+  `Alias`, and `whnf` δ-unfolds it to `Sort 1` in two loop iterations
+  (peeled with a `whnfLoopFuel_succ`-pattern lemma at depth two, since
+  the budget is `irreducible`).
+* `converse_sortSpec` — `sortSpec` answers `none`, by `rfl`.  It reads
+  `Foo`'s declared type, sees a constant, and declines.
+* `not_sortSpec_complete` — the two together refute completeness.
+* `converse_gap` — the bare disagreement, one environment, one
+  subject: `some 1` against `none`.
+
+**The environment is checker-realizable, not junk.**  `Alias`'s value
+`Sort 1` infers `Sort 2`, its declared type on the nose
+(`cm_alias_value_types`); `Foo`'s declared type `Alias` infers
+`Sort 2`, so it passes the `ensureSort` an axiom's type must
+(`cm_foo_type_is_a_type`).  Both `rfl`.  This is the difference
+between a refutation and an artifact of malformed input, and it is why
+the file bothers to state them.
+
+What the tombstone pins, beyond the fact itself: the gap is
+**unreachable by refutation, not merely by proof**.  No strength of a
+δ-sort-linking theorem rescues completeness, because the `sortSpec`
+side never takes the δ step that would expose the sort.  And it prices
+seal 1's `.const` decision exactly — the partiality that let agreement
+*escape* `DeltaSortLinked` is the same partiality that makes the
+converse false.  One decision, both consequences; there is no version
+of `sortSpec` that keeps the first and avoids the second without the
+environment-order recursion seal 1 ruled out.
+
+### Disposition — the branch PARKS UNMERGED
+
+Ruled at seal 2's close.  The fragment is verified and complete, but
+it has **zero consumers on master**, and the #133 precedent (a
+zero-consumer theorem is a dead line) cuts against landing an artifact
+nothing reads.
+
+* **Retrieval point**: branch `agent/sortspec-pilot`, tip commit
+  recorded in the campaign memo alongside this seal.
+* **Build state**: the branch is parked **wired in** — the umbrella
+  `Setlec/SetR/SortSpec.lean` is imported from `Setlec/SetR.lean`, so
+  the default `lake build` covers all seven pilot modules.  Kept
+  deliberately rather than reverted: a parked branch's only job is to
+  still be revivable, and that question is *"does it build against
+  master?"*, which is only answerable if the default target covers it.
+  The cost on master is nil, because the branch is not merged.
+* **Landing condition**: if a consumer materializes — the natural one
+  is a cheap type-former sort answer on an install path, where
+  `answerable ↔ indInfo` means the fragment is exactly the constants
+  an install needs — it lands **then, with its consumer**, not before.
+
+Final state: seven modules, ~800 lines, no `sorry`, axioms exactly the
+three standard, full build green and warning-free at 358 jobs.
