@@ -1391,6 +1391,33 @@ theorem no_proof_of_Empty_input_SP_R2M (V : Type w) [SetTheory V]
         exact ih fe₁ hfe₁
           (checkDecl_sound_R2M (d := d) hstep m hE hF)
           hres₁ (hext0.trans hext₁) h hd'
+/-! ### The M lane, end to end
+
+The composition is stated rather than asserted, because "the M lane
+feeds the capstone" is exactly a composition claim and the campaign's
+rule is that a claim of that shape is checked by writing it down.
+
+Read it as: the **four mode-indexed install obligations** are all
+that stands between this tree and the capstone's conclusion in the M
+currency.  Nothing else enters — no bridge, no `EnvS2UInImage`, no
+mode-agreement premise.  `Denote2ModeAgree` does not appear anywhere
+in the chain, which is seal 53's de-generalization cashed. -/
+
+/-- **No proof of `Empty`, from the four mode-indexed install
+obligations.**  `declStep2AllM_of` composed with the M fold.  Still
+conditional — the four obligations are not inhabited in this tree —
+but conditional on *those four* and on nothing else. -/
+theorem no_proof_of_Empty_R2M_of_installs (V : Type w) [SetTheory V]
+    {μ : CheckMode} {F : Nat} (hval : DeclValue2SM V μ)
+    (hax : DeclAxiom2SM V μ) (hbas : DeclBasis2SM V μ)
+    (hind : DeclInd2SM V μ)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env')
+    (c : ConstantInfo) (hc : c ∈ env'.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False :=
+  no_proof_of_Empty_R2M V (declStep2AllM_of hval hax hbas hind)
+    h c hc hty
+
 /-! ## The three sweeps
 
 **1. Smallest fuel.**  No statement here asserts a `denote2` success;
