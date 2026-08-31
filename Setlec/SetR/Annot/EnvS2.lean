@@ -14,13 +14,29 @@ interp2-side fields.  When the twelve stand over `interp2` the
 collapse fields retire and the survivors inline — the containment is
 the migration's scaffolding, not its end state.
 
-Core fields: the **annotation clauses as fields** (the tier-C
-carried-obligations ledger's two `CvalAnnot` clauses, now supplied by
-the environment rather than hypothesized), the canonical annotated
-valuation `acval` with its erasure link, the interp2 truthfulness of
-its leaves, and the interp2 membership fact (`mem_type2`).  The
-recursor law (`RecRulesV2`) is deliberately **absent**: it is stated
-by its supplier when the bottoms migrate (the T5 rule).
+Core fields: the canonical annotated valuation `acval` with its
+erasure link, the interp2 truthfulness of its leaves, and the interp2
+membership fact (`mem_type2`).  The recursor law (`RecRulesV2`) is
+deliberately **absent**: it is stated by its supplier when the bottoms
+migrate (the T5 rule).
+
+## The `CvalAnnot` field is gone; the predicate is not
+
+A tenth field `cval_annot : ∀ μ φ, CvalAnnot μ env base.cval φ` sat
+here until the cleanup seal.  It was **projected once** in the whole
+tree — `bodies_of_envS2UInImage` (`Interp2/EnvS2UDef.lean`), i.e. by
+the measurement of its own residue — and supplied by every `EnvS2`
+construction site, so it cost a proof at each of them and bought
+nothing.  `CvalAnnot` itself stays exactly where it earns its keep:
+as an **explicit hypothesis** of `Annot/Pass.lean`'s two existence
+theorems, which is the pattern this structure should have copied.
+
+*Rule (seal 43): withdrawing a field is not withdrawing its
+proposition.*  The four probe-level suppliers
+(`probeEnvS_cvalAnnot`, `defProbeEnvS_cvalAnnot`,
+`lamDefEnvS_cvalAnnot`, `piProbeEnvS_cvalAnnot`) are kept as
+standalone theorems — they are content about the probes, not about
+the field.
 
 ## The currency amendment (the consumer seal's finding)
 
@@ -41,8 +57,9 @@ time) — and bites only on **subject** terms, which is exactly what
 `Claims2` quantifies over.  Hence the amendment: the two fields are
 restated in the `denote2` currency (`acval_ok2`, `mem_type2`), where
 coherence is the determinism of a function and a stored leaf has
-exactly one annotation.  `cval_annot` stays as it is: it closes a
-*named ledger obligation* about the relation and is not in the seam.
+exactly one annotation.  (`cval_annot`, which stayed in the relational
+currency at that seal because it closed a *named ledger obligation*
+and was not in the seam, has since been withdrawn — see below.)
 
 *Rule: when a resolution changes the currency of a tier, the fields
 that were stated in the old one are not merely stale — check whether
@@ -125,12 +142,6 @@ structure EnvS2 (env : Env) where
   /-- the landed collapse-lane invariant, contained: its V-free
   syntactic fields serve both stacks during the migration -/
   base : EnvS V env
-  /-- every stored valuation annotates, and λ-shaped stored valuations
-  have sorted types — the two `CvalAnnot` clauses, now environment
-  fields (closing the tier-C carried-obligations ledger's supplier
-  question in the direction it named) -/
-  cval_annot : ∀ (μ : CheckMode) (φ : Name → Nat),
-    CvalAnnot μ env base.cval φ
   /-- **the canonical annotated valuation** — the annotated leaf each
   stored constant contributes to `denote2`.  An install-fixed object,
   which is what makes annotation coherence the *determinism of a
@@ -216,18 +227,12 @@ structure EnvS2 (env : Env) where
 namespace EnvS2
 
 /-- The empty environment's invariant: the empty `cval` is the bare
-`.const .empty [0]` leaf at every name — it annotates by
-`Annotates.const`, its canonical annotation is the same constructor one
-level up (so `acval_erase` is `rfl`), truthfulness is the constant
-clause's `True`, and the membership field is vacuous over
-`env.consts = []`. -/
+`.const .empty [0]` leaf at every name — its canonical annotation is
+the same constructor one level up (so `acval_erase` is `rfl`),
+truthfulness is the constant clause's `True`, and the membership field
+is vacuous over `env.consts = []`. -/
 noncomputable def empty : EnvS2 V Env.empty where
   base := EnvS.empty V
-  cval_annot := by
-    intro μ φ
-    refine ⟨fun n ψ Δ => ⟨.const .empty [0], .const⟩, ?_⟩
-    intro n ψ Δ T _ hlam _
-    exact absurd hlam (by simp [EnvS.empty, emptyT, VExpr.isLam])
   acval := fun _ _ => .const .empty [0]
   acval_erase := fun _ _ => rfl
   acval_ok2 := fun _ _ _ => by simp

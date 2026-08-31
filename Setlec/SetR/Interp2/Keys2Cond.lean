@@ -15,7 +15,9 @@ exit: **the keys re-route through the checker-run claims**, conditional
 on the same residue set `checkSound2*` already carries.
 
 Section 1 of this batch made that possible by re-pointing the claims
-to `EnvS2U` (`Claims2U.lean`).  This file takes the route.
+to `EnvS2U` (in `Claims2U.lean`, whose copies the cleanup seal then
+retired once the live `…2E` family had been re-pointed at the source).
+This file takes the route.
 
 ## The shape of a conditional key
 
@@ -78,9 +80,8 @@ A key discharged from premises that cannot be met says nothing.  Each
 theorem below is followed by an instance at a real environment:
 `reducePin2_of_claims` at the identity witness, and the two
 `EnvS2U` probes for the rest.  The claims themselves are inhabited at
-any `EnvS2` by `checkSound2E` and `whnfCoreClaims2U_iff`
-(`Claims2U.lean`), so conditioning on them is not conditioning on
-nothing.
+any `EnvS2U` by `checkSound2E`, so conditioning on them is not
+conditioning on nothing.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -219,7 +220,7 @@ def ReduceOpFits2 (V : Type w) [SetTheory V]
 
 /-- **`ReducePin2`, from the install's own run.**  `checkReducePin`
 compares `valA a` with `a` at depth `1` over the one-entry element
-context; `DefEqClaims2U` turns that verdict into the `interp2`
+context; `DefEqClaims2E` turns that verdict into the `interp2`
 identity the key asserts.
 
 The v1 discharge cashed a `DefEq` *derivation* through `DefEq.sound`
@@ -227,7 +228,7 @@ The v1 discharge cashed a `DefEq` *derivation* through `DefEq.sound`
 the *run* instead, which is what route (ii) means. -/
 theorem reducePin2_of_claims (m : EnvS2UM V μ env) {fuel F : Nat}
     {c : Name} {valA : Expr} {ciE : ConstantInfo}
-    (hdeq : DefEqClaims2U μ m φ fuel)
+    (hdeq : DefEqClaims2E μ m φ fuel)
     (hfE : env.find? (reduceElemName c) = some ciE)
     (hlpE : ciE.toConstantVal.levelParams = [])
     (hvf : valA.hasFvar = false)
@@ -251,7 +252,7 @@ theorem reducePin2_of_claims (m : EnvS2UM V μ env) {fuel F : Nat}
   -- the context predicate at any subject with only that leaf
   have hctx : ∀ e : Expr,
       e.fvarLeaves = [(0, Name.str .anonymous "a", reduceElemTy c)] →
-      CtxOk2DU m φ F 1 [m.acval (reduceElemName c) φ] e := by
+      CtxOk2D m μ φ F 1 [m.acval (reduceElemName c) φ] e := by
     intro e he
     refine ⟨⟨rfl, ?_⟩, ?_⟩
     · intro l hl
@@ -378,7 +379,7 @@ theorem storedType_frames2 (m : EnvS2UM V μ env) {c : ConstantInfo}
     fun l hl => absurd (hnil ▸ hl) (by simp), hnil⟩
 
 /-- **`MemberBlock2` at an already-stored constant.**  Membership from
-the environment's own `mem_type2`; truthfulness from `InferClaims2U`
+the environment's own `mem_type2`; truthfulness from `InferClaims2E`
 applied to the install's `inferType` run on the stored type; the
 existence conjunct from the given annotation, with the fuel slack
 supplied by `denote2_fuelMono`.
@@ -403,7 +404,7 @@ inferred type being — or reducing to — a sort. -/
 theorem memberBlock2_of_stored (m : EnvS2UM V μ env) {fuel F₀ F₁ : Nat}
     {ψ : Name → Nat} {c : ConstantInfo} {ta sa : AVExpr}
     {stype : Expr}
-    (hinf : InferClaims2U μ m ψ fuel)
+    (hinf : InferClaims2E μ m ψ fuel)
     (hc : c ∈ env.consts)
     (hrun : inferTypeCore μ env fuel 0 c.toConstantVal.type
       = .ok stype)
@@ -416,7 +417,7 @@ theorem memberBlock2_of_stored (m : EnvS2UM V μ env) {fuel F₀ F₁ : Nat}
   refine ⟨max F F₀, ta, Nat.le_max_left _ _,
     denote2_fuelMono (Nat.le_max_right _ _) 0 _ hta, fun ρ => ?_⟩
   refine ⟨m.mem_type2 μ ψ F₀ c hc ta hta ρ, ?_⟩
-  exact (hinf hrun hws hb hL (CtxOk2DU.of_closed hnil) hta
+  exact (hinf hrun hws hb hL (CtxOk2D.nil hnil) hta
     hsty).1 ρ (Sat2_nil V ρ)
 
 /-- **The key at a stored type with a binder** — `memberBlock2_probe`
@@ -535,10 +536,11 @@ nothing above consumes a `…2E` claim through a bridge.  What was
 missing is the *supplier*.
 
 **The residue is gone, and the re-point is why.**  Until the quarters
-were re-pointed, `checkStep2U_of_2E` bought `CheckStep2U` only from
-`EnvS2UInImage`, and the keys dodged the `∀ env` quantifier by taking
-the *pointwise* residue instead (`claims2U_of_bodies`, deleted here:
-its two hypotheses became unused binders).  With `CheckStep2E`
+were re-pointed, the `…2U` step was bought from `CheckStep2E` only
+through `EnvS2UInImage`, and the keys dodged the `∀ env` quantifier
+by taking the *pointwise* residue instead (`claims2U_of_bodies`,
+deleted then: its two hypotheses became unused binders).  With
+`CheckStep2E`
 **stated at `EnvS2U`**, `checkSound2E` applies at the install's own
 environment directly and no residue is carried at all.
 
@@ -547,13 +549,14 @@ what separates the two structures, and `EnvS2UDef.lean`'s
 biconditional still characterises it.  What changed is that the
 claims no longer need it. -/
 
-/-- **The four claims at one `EnvS2U`.**  The `Iff.rfl` bridges of
-`Claims2U.lean` are what make the conclusion the `…2U` family while
-the proof is `checkSound2E`. -/
+/-- **The four claims at one `EnvS2U`.**  Kept under its historical
+name: it was the bridge from the live lane's `…2E` family to the
+`…2U` copies, and since the cleanup seal retired those copies it is
+`checkSound2E` at the install's own environment, nothing more. -/
 theorem claims2U_of_2E {m : EnvS2UM V μ env} (h : CheckStep2E μ V)
     (ψ : Name → Nat) (fuel : Nat) :
-    WhnfCoreClaims2U μ m ψ fuel ∧ WhnfClaims2U μ m ψ fuel ∧
-      DefEqClaims2U μ m ψ fuel ∧ InferClaims2U μ m ψ fuel :=
+    WhnfCoreClaims2E μ m ψ fuel ∧ WhnfClaims2E μ m ψ fuel ∧
+      DefEqClaims2E μ m ψ fuel ∧ InferClaims2E μ m ψ fuel :=
   checkSound2E h m ψ fuel
 
 /-- **The two claims this file's keys consume, at an environment that
@@ -562,8 +565,8 @@ stores a definition.**  Both earlier probes are axiom-only, so before
 environments where `acval_defn` says nothing. -/
 theorem claims2U_lamDef (h : CheckStep2E μ V) (ψ : Name → Nat)
     (fuel : Nat) :
-    DefEqClaims2U μ (lamDefEnvS2UM V μ) ψ fuel ∧
-      InferClaims2U μ (lamDefEnvS2UM V μ) ψ fuel :=
+    DefEqClaims2E μ (lamDefEnvS2UM V μ) ψ fuel ∧
+      InferClaims2E μ (lamDefEnvS2UM V μ) ψ fuel :=
   let c := claims2U_of_2E (m := lamDefEnvS2UM V μ) h ψ fuel
   ⟨c.2.2.1, c.2.2.2⟩
 
@@ -618,7 +621,7 @@ theorem memberBlock2_of_checkStep (m : EnvS2UM V μ env) {fuel F₀ : Nat}
     MemberBlock2 V μ env m.acval ψ c.toConstantVal :=
   let f := storedType_frames2 m hc
   let e := hex hrun f.1 f.2.1 f.2.2.1
-    (CtxOk2DU.of_closed f.2.2.2) hta
+    (CtxOk2D.nil f.2.2.2) hta
   memberBlock2_of_stored m (claims2U_of_2E h ψ fuel).2.2.2 hc hrun
     e.choose_spec.choose_spec.2 hta
 
@@ -648,7 +651,7 @@ What the exposure **did** close is `hrun`: before it, the key demanded
 `inferTypeCore … = .ok (.sort u)`, which `checkConstantVal` never
 produces at all, so no supplier could have discharged it.  The chain's
 first half discharges it exactly.  Its `ensureSort` half is unused
-here, and `WhnfClaims2U` — seal 48's predicted cost — is not needed:
+here, and `WhnfClaims2E` — seal 48's predicted cost — is not needed:
 `MemberBlock2` asks for the subject's `AnnotOk2` and never for what
 the inferred type reduces to. -/
 theorem memberBlock2_of_constantValR (m : EnvS2UM V μ env) {env₀ : Env}
@@ -711,7 +714,7 @@ tree rather than only in a seal.
   independently of anything the front door records.  The chain's
   `ensureSort` half is not consumed at all: reaching `MemberBlock2`'s
   `AnnotOk2` never asks what the inferred type reduces to, so
-  `WhnfClaims2U` — the cost seal 48 predicted — buys nothing here.
+  `WhnfClaims2E` — the cost seal 48 predicted — buys nothing here.
 * `declStep2_of_axiom` — stops at `hext` (`Denote2EnvExtend`, frozen
   on Θ), `hmem` (`MemberBlock2` at the new axiom, which is the
   install-tier half seal 40 measured), and `hbase`.  The `hbound`
@@ -723,7 +726,7 @@ file adds is satisfiable at a non-empty domain;
 annotation the checker has to compute; `nonempty_envS2U_piProbe`
 (section 2) inhabits `DeclStep2`'s subject one binder past the first
 probe.  The claims themselves are inhabited at every `EnvS2` by
-`checkSound2E` and the `Iff.rfl` bridges of `Claims2U.lean`, and
+`checkSound2E` applied at their own `EnvS2U`, and
 `claims2U_lamDef` inhabits the two *this file* consumes at an
 environment that stores a **definition** — where `acval_defn` is not
 vacuous, which no axiom-only probe could witness.

@@ -41,7 +41,10 @@ needed no change is the one that was already dual-success.*
 
 The structure parameter is now `EnvS2U` — seal 42's authorization,
 carried out.  Clause for clause the claims are unchanged; only the
-binder moved, which `Claims2U.lean`'s `Iff.rfl` bridges still check.
+binder moved, which `Claims2U.lean`'s `Iff.rfl` bridges checked
+until the cleanup seal retired them: once this family was re-pointed
+at the source the copies became the same text, and a `rfl` bridge
+between a text and itself checks nothing.
 
 **And the re-point could not stop at the live lane.**  Measured, not
 argued: the superseded generations `Claims2A`/`2C`/`2D` apply

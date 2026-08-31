@@ -4,9 +4,10 @@ import Setlec.SetR.Annot.EnvS2
 # The `acval` install algebra — the install tier's V-free half
 
 The keys survey (task: the six install keys over `interp2`) found
-that the `EnvS2` delta over `EnvS` is **seven syntactic fields and
-two semantic ones**: `acval` (data), `acval_erase`, `acval_closed`,
-`acval_params`, `acval_defn`, `acval_thm` and `cval_annot` mention no
+that the `EnvS2` delta over `EnvS` is **six syntactic fields and
+two semantic ones** (seven syntactic before the cleanup seal withdrew
+`cval_annot`): `acval` (data), `acval_erase`, `acval_closed`,
+`acval_params`, `acval_defn` and `acval_thm` mention no
 `V` at all, while only `acval_ok2` and `mem_type2` do.  So the first
 thing the install tier needs is not semantics — it is the *algebra*
 of extending a canonical annotated valuation at one fresh name, and

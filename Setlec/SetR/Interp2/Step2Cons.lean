@@ -385,7 +385,7 @@ structure ValueResidues2 (V : Type w) [SetTheory V] (μ : CheckMode)
     (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂
   /-- …and is truthful.  *Provenance*: v1 reads this off the value
   front door through `Infer.sound`; the annotated twin is the claims'
-  `InferClaims2U`, so it lands with `CheckStep2E`. -/
+  `InferClaims2E`, so it lands with `CheckStep2E`. -/
   ok2 : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ)
   /-- `denote2` is stable across the install.  *Provenance*:
   `Keys2.lean`.  **Frozen on Θ.** -/
@@ -724,7 +724,7 @@ structure ValueResidues2M (V : Type w) [SetTheory V] (μ : CheckMode)
   a theorem. -/
   params : ∀ ψ₁ ψ₂ : Name → Nat,
     (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂
-  /-- …and is truthful.  *Provenance*: the claims' `InferClaims2U`. -/
+  /-- …and is truthful.  *Provenance*: the claims' `InferClaims2E`. -/
   ok2 : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ)
   /-- `denote2` is stable across the install.  **Frozen on Θ.** -/
   extend : ∀ (ν : CheckMode) (ψ : Name → Nat),
