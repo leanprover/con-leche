@@ -41,7 +41,7 @@ clause's conclusion *is* the matching skeleton row. -/
 /-- **`.sort`.**  `inferBody` returns `.sort (.succ u)` outright, and
 `denote2` evaluates both levels, so the row is `sound_sort` at the
 evaluated numeral. -/
-theorem inferStep2_sort (m : EnvS2U V env) {d : Nat} {u : Level}
+theorem inferStep2_sort (m : EnvS2UM V μ env) {d : Nat} {u : Level}
     {Δa : List AVExpr} :
     ∀ {ea ta : AVExpr},
       denote2 μ m.acval env φ 0 d (.sort u) = some ea →
@@ -57,7 +57,7 @@ theorem inferStep2_sort (m : EnvS2U V env) {d : Nat} {u : Level}
 /-- **`.fvar`.**  The clause returns the leaf's own annotation, and the
 context correspondence hands the membership over: the row is
 `sound_bvar` at the index the leaf opens. -/
-theorem inferStep2_fvar (m : EnvS2U V env) {d idx : Nat} {n : Name}
+theorem inferStep2_fvar (m : EnvS2UM V μ env) {d idx : Nat} {n : Name}
     {ty : Expr} {Δa : List AVExpr} {Aa : AVExpr}
     (hi : Δa[d - 1 - idx]? = some Aa) :
     ∀ {ea : AVExpr},
@@ -169,7 +169,7 @@ here.*
 
 /-- **`.sort`, at any annotation fuel.**  `inferStep2_sort` with the
 `0` freed; `denote2`'s `sort` equation is fuel-free. -/
-theorem inferStep2_sortF (m : EnvS2U V env) {F d : Nat} {u : Level}
+theorem inferStep2_sortF (m : EnvS2UM V μ env) {F d : Nat} {u : Level}
     {Δa : List AVExpr} :
     ∀ {ea ta : AVExpr},
       denote2 μ m.acval env φ F d (.sort u) = some ea →
@@ -185,8 +185,8 @@ theorem inferStep2_sortF (m : EnvS2U V env) {F d : Nat} {u : Level}
 /-- **`.fvar`, at any annotation fuel.**  `inferStep2_fvar` with the
 `0` freed; `denote2`'s `fvar` equation returns the de Bruijn index and
 does not recurse into the annotation, so no fuel is read. -/
-theorem inferStep2_fvarF (m : EnvS2U V env) {F d idx : Nat} {n : Name}
-    {ty : Expr} {Δa : List AVExpr} {Aa : AVExpr}
+theorem inferStep2_fvarF (m : EnvS2UM V μ env) {F d idx : Nat}
+    {n : Name} {ty : Expr} {Δa : List AVExpr} {Aa : AVExpr}
     (hi : Δa[d - 1 - idx]? = some Aa) :
     ∀ {ea : AVExpr},
       denote2 μ m.acval env φ F d (.fvar idx n ty) = some ea →

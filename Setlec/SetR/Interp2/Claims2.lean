@@ -99,7 +99,7 @@ variable {V : Type w} [SetTheory V]
 /-- Head normalization (no delta) preserves the annotated
 interpretation and transports truthfulness forward.  `WhnfCoreClaimsR`
 in the annotated currency. -/
-def WhnfCoreClaims2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def WhnfCoreClaims2 (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -114,7 +114,7 @@ def WhnfCoreClaims2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
           (AnnotOk2 V ρ ea → AnnotOk2 V ρ ea')
 
 /-- The reduction loop, ditto. -/
-def WhnfClaims2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def WhnfClaims2 (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnf μ env fuel d e = .ok e' →
@@ -131,7 +131,7 @@ def WhnfClaims2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
 /-- A positive definitional-equality verdict is an `interp2` equality.
 Unconditional in truthfulness, exactly as `DeqS` is — the grading that
 lets `symm`/`trans` and the binder congruences stay one-liners. -/
-def DefEqClaims2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def DefEqClaims2 (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     isDefEqCore μ env fuel d a b = .ok true →
@@ -149,7 +149,7 @@ def DefEqClaims2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
 /-- Successful inference: the subject's annotated twin is truthful and
 inhabits its type's annotated interpretation.  **No `∃ T'` slack** —
 see the module docstring. -/
-def InferClaims2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def InferClaims2 (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
     inferTypeCore μ env fuel d e = .ok t →
@@ -169,7 +169,7 @@ def InferClaims2 (μ : CheckMode) {env : Env} (m : EnvS2U V env)
 hypothesis-first for the same reason — the `succ` case is the
 clause-by-clause work of the batches. -/
 def CheckStep2 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2 μ m φ fuel → WhnfClaims2 μ m φ fuel →
     DefEqClaims2 μ m φ fuel → InferClaims2 μ m φ fuel →
     WhnfCoreClaims2 μ m φ (fuel + 1) ∧ WhnfClaims2 μ m φ (fuel + 1) ∧
@@ -179,7 +179,7 @@ def CheckStep2 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 step is outstanding, and its `zero` case is closed here because every
 fuel-zero spelling throws. -/
 theorem checkSound2 {μ : CheckMode} {env : Env}
-    (hstep : CheckStep2 μ V) (m : EnvS2U V env) (φ : Name → Nat) :
+    (hstep : CheckStep2 μ V) (m : EnvS2UM V μ env) (φ : Name → Nat) :
     ∀ fuel : Nat,
       WhnfCoreClaims2 μ m φ fuel ∧ WhnfClaims2 μ m φ fuel ∧
         DefEqClaims2 μ m φ fuel ∧ InferClaims2 μ m φ fuel := by

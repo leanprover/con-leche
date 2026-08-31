@@ -427,7 +427,7 @@ variable {V : Type w} [SetTheory V]
 The `EnvWF` the refutations exposed as missing is read off the
 consumer's own `EnvS2`, so the repair is invisible downstream: this is
 `denote2_instLevels_of` with `m.base.wf` threaded. -/
-theorem denote2_instLevels_ofW {env : Env} (m : EnvS2U V env)
+theorem denote2_instLevels_ofW {env : Env} (m : EnvS2UM V μ env)
     (hs : SortOfEInstLevelsW μ env) (hl : LamSortEInstLevelsW μ env) :
     Denote2InstLevels μ m :=
   denote2_instLevels_of m (hs m.base.wf) (hl m.base.wf)

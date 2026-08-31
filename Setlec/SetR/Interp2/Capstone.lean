@@ -31,17 +31,17 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- **The step, from the four quarters' routed residues.** -/
 theorem checkStep2B_of_quarters
-    (hwc : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hwc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
-    (hbc : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hbc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), BetaCert2 μ m φ fuel)
-    (hio : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hio : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), IotaStep2B μ m φ fuel)
-    (hpj : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hpj : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ProjStep2B μ m φ fuel)
-    (hrn : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hrn : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ReduceNatStep2 μ m φ fuel)
-    (hdl : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hdl : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Delta2B μ m φ)
     (hd : DefEqStep2BP μ V) (hi : InferInputs2A V μ) :
     CheckStep2B μ V :=
@@ -51,20 +51,20 @@ theorem checkStep2B_of_quarters
 /-- **The induction, from the same.**  `checkSound2B` applied to the
 assembly: at every fuel, all four claims. -/
 theorem checkSound2B_of_quarters {env : Env}
-    (hwc : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hwc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
-    (hbc : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hbc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), BetaCert2 μ m φ fuel)
-    (hio : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hio : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), IotaStep2B μ m φ fuel)
-    (hpj : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hpj : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ProjStep2B μ m φ fuel)
-    (hrn : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hrn : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ReduceNatStep2 μ m φ fuel)
-    (hdl : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hdl : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Delta2B μ m φ)
     (hd : DefEqStep2BP μ V) (hi : InferInputs2A V μ)
-    (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat) :
+    (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat) :
     WhnfCoreClaims2B μ m φ fuel ∧ WhnfClaims2B μ m φ fuel ∧
       DefEqClaims2B μ m φ fuel ∧ InferClaims2A μ m φ fuel :=
   checkSound2B

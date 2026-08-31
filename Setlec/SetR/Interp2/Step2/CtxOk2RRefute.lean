@@ -32,7 +32,7 @@ So a context entry `⟪fun (_ : Empty) => Prop⟫` is **uninhabited in
 run at `ρ ≡ ptTag`) turns into `ptTag ∈ˢ univ 0`.  False.
 
 `ctxOk2R_refuted` is that argument.  Its only premise is an arbitrary
-`m : EnvS2U V env` — no environment shape, no fuel, no mode, no level
+`m : EnvS2UM V μ env` — no environment shape, no fuel, no mode, no level
 assignment, and no unproved side condition.
 
 ## Reachability
@@ -83,7 +83,7 @@ A standalone copy of `Step2/InferQ.lean`'s `CtxOk2R`, so that the
 refutation below keeps its subject if the original is amended. -/
 
 /-- `CtxOk2R` as of seal 7, restated so the refutation is permanent. -/
-def CtxOk2RShape {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def CtxOk2RShape {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ {F d : Nat} {Δa : List AVExpr} {e : Expr},
     CtxOk2 m μ φ F d Δa e →
@@ -91,7 +91,7 @@ def CtxOk2RShape {env : Env} (m : EnvS2U V env) (μ : CheckMode)
 
 /-- The original implies the restatement — the two are the same
 sentence, checked rather than asserted. -/
-theorem CtxOk2RShape.of {env : Env} {m : EnvS2U V env} {μ : CheckMode}
+theorem CtxOk2RShape.of {env : Env} {m : EnvS2UM V μ env}
     {φ : Name → Nat} (h : CtxOk2R m μ φ) : CtxOk2RShape m μ φ :=
   fun hC => h hC
 
@@ -151,8 +151,8 @@ entry `emptyLamA` and the subject `.fvar 0 n Prop`:
   `Sat` *is* satisfiable at `emptyLamA.erase`, so `Infer.sound` and
   `DefEq.sound` deliver `ptTag ∈ˢ univ 0`.
 
-No premise beyond an arbitrary `m : EnvS2U V env`. -/
-theorem ctxOk2R_refuted {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+No premise beyond an arbitrary `m : EnvS2UM V μ env`. -/
+theorem ctxOk2R_refuted {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (F : Nat) (n : Name)
     (h : CtxOk2RShape m μ φ) : False := by
   have hleaf : (Expr.fvar 0 n (.sort .zero)).fvarLeaves
@@ -203,7 +203,7 @@ finding: `⟪Empty⟫` and `⟪fun (_ : Empty) => Prop⟫` are **equal over
 `interp2`** and **different over `interp`**, so an `interp2` equation
 carries no `DefEq` and no `interp` fact — the wall, in the direction
 seal 3 did not test. -/
-theorem ctxOk2R_refuted_nonvacuous {env : Env} (m : EnvS2U V env)
+theorem ctxOk2R_refuted_nonvacuous {env : Env} (m : EnvS2UM V μ env)
     (μ : CheckMode) (φ : Name → Nat) (F : Nat) (n : Name)
     (ty : Expr) (hfv : ty.fvarLeaves = [])
     (hby : Expr.fvarsBelow 0 ty)
@@ -245,9 +245,9 @@ inconsistent. -/
 
 /-- **`CtxOk2R` is unsatisfiable.**  There is no environment
 invariant, mode or level assignment at which the bridge holds. -/
-theorem not_ctxOk2R {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+theorem not_ctxOk2R {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) : ¬ CtxOk2R m μ φ :=
-  fun h => ctxOk2R_refuted m μ φ 0 .anonymous (CtxOk2RShape.of h)
+  fun h => ctxOk2R_refuted m φ 0 .anonymous (CtxOk2RShape.of h)
 
 /-! ## The alternative repair, costed
 

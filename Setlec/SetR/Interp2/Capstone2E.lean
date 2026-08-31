@@ -70,7 +70,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 /-- **The existence factor is not a residue at the capstone.**
 Generation five's induction supplies it at every fuel. -/
 theorem exists2E_of_checkStep2D (hstep : CheckStep2D μ V)
-    (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat) :
+    (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat) :
     Exists2E μ m φ fuel := by
   obtain ⟨hwc, hw, -, hi⟩ := checkSound2D hstep m φ fuel
   exact exists2E_of_claims2D hwc hw hi
@@ -78,34 +78,34 @@ theorem exists2E_of_checkStep2D (hstep : CheckStep2D μ V)
 /-- **The generation-six step, from the generation-five residues.**
 Route A: the four `…2E` induction hypotheses are unused. -/
 theorem checkStep2E_of_quarters
-    (hwc : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hwc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
-    (hio : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hio : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), IotaStep2D μ m φ fuel)
-    (hpj : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hpj : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ProjStep2D μ m φ fuel)
-    (hrn : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hrn : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ReduceNatStep2D μ m φ fuel)
-    (hdl : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hdl : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Delta2B μ m φ)
-    (hdd : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hdd : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Delta2A μ m φ)
-    (hrn2 : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hrn2 : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ReduceNat2D μ m φ fuel)
-    (hpi : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hpi : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ProofIrrel2D μ m φ fuel)
-    (hsp : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hsp : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), DefEqSpine2D μ m φ fuel)
-    (hsi : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hsi : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), StuckIrrel2D μ m φ fuel)
-    (hsl : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hsl : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2StrLit2A μ m φ)
-    (hap : ∀ (env : Env) (m : EnvS2U V env), AcvalParams2 m)
+    (hap : ∀ (env : Env) (m : EnvS2UM V μ env), AcvalParams2 m)
     (hbs : ∀ (env : Env) (φ : Name → Nat) (fuel F : Nat),
       BinderSortAgree2A μ env φ fuel F)
-    (hac : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hac : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), AppCongrStuck2D μ m φ fuel)
-    (het : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (het : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), EtaCert2D μ m φ fuel)
     (hi : InferInputs2D V μ) :
     CheckStep2E μ V := by
@@ -122,34 +122,34 @@ Route B: every hypothesis is used, and the existence factor the
 quarters demand is supplied by `exists2E_of_checkStep2D` rather than
 routed. -/
 theorem checkStep2E_of_quarters_routed
-    (hwc : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hwc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
-    (hio : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hio : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), IotaStep2D μ m φ fuel)
-    (hpj : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hpj : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ProjStep2D μ m φ fuel)
-    (hrn : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hrn : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ReduceNatStep2D μ m φ fuel)
-    (hdl : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hdl : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Delta2B μ m φ)
-    (hdd : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hdd : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Delta2A μ m φ)
-    (hrn2 : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hrn2 : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ReduceNat2D μ m φ fuel)
-    (hpi : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hpi : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ProofIrrel2D μ m φ fuel)
-    (hsp : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hsp : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), DefEqSpine2D μ m φ fuel)
-    (hsi : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hsi : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), StuckIrrel2D μ m φ fuel)
-    (hsl : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hsl : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2StrLit2A μ m φ)
-    (hap : ∀ (env : Env) (m : EnvS2U V env), AcvalParams2 m)
+    (hap : ∀ (env : Env) (m : EnvS2UM V μ env), AcvalParams2 m)
     (hbs : ∀ (env : Env) (φ : Name → Nat) (fuel F : Nat),
       BinderSortAgree2A μ env φ fuel F)
-    (hac : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hac : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), AppCongrStuck2D μ m φ fuel)
-    (het : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (het : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), EtaCert2D μ m φ fuel)
     (hi : InferInputs2D V μ) :
     CheckStep2E μ V := by

@@ -25,36 +25,36 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- **The generation-four step, from the quarters' routed residues.** -/
 theorem checkStep2C_of_quarters
-    (hwc : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hwc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
-    (hbc : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hbc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), BetaCert2 μ m φ fuel)
-    (hio : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hio : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), IotaStep2C μ m φ fuel)
-    (hpj : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hpj : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ProjStep2C μ m φ fuel)
-    (hrn : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hrn : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ReduceNatStep2C μ m φ fuel)
-    (hdl : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hdl : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Delta2B μ m φ)
-    (hdd : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hdd : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Delta2A μ m φ)
-    (hrn2 : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hrn2 : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ReduceNat2C μ m φ fuel)
-    (hpi : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hpi : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), ProofIrrel2C μ m φ fuel)
-    (hsp : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hsp : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), DefEqSpine2C μ m φ fuel)
-    (hsi : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hsi : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), StuckIrrel2C μ m φ fuel)
-    (hsl : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat),
+    (hsl : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2StrLit2A μ m φ)
-    (hap : ∀ (env : Env) (m : EnvS2U V env), AcvalParams2 m)
+    (hap : ∀ (env : Env) (m : EnvS2UM V μ env), AcvalParams2 m)
     (hbs : ∀ (env : Env) (φ : Name → Nat) (fuel F : Nat),
       BinderSortAgree2A μ env φ fuel F)
-    (hac : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hac : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), AppCongrStuck2C μ m φ fuel)
-    (het : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (het : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), EtaCert2C μ m φ fuel)
     (hi : InferInputs2C V μ) :
     CheckStep2C μ V :=

@@ -75,7 +75,7 @@ variable {V : Type w} [SetTheory V]
 
 /-- Head normalisation, corrected: the reduct annotates at some
 `F' ≥ F`. -/
-def WhnfCoreClaims2B (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def WhnfCoreClaims2B (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -90,7 +90,7 @@ def WhnfCoreClaims2B (μ : CheckMode) {env : Env} (m : EnvS2U V env)
           interp2 V ρ ea = interp2 V ρ ea' ∧ AnnotOk2 V ρ ea'
 
 /-- The reduction loop, corrected. -/
-def WhnfClaims2B (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def WhnfClaims2B (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnf μ env fuel d e = .ok e' →
@@ -117,7 +117,7 @@ The two `AnnotOk2` are **premises**, never conclusions.  So none of
 them crosses an equality, and `deqStep2_symm`/`deqStep2_trans`
 (`Step2/DefEq.lean`) stay one-liners — which is what the original
 exemption was protecting and what it turns out not to have needed. -/
-def DefEqClaims2B (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def DefEqClaims2B (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.isDefEqCore μ env fuel d a b = .ok true →
@@ -139,7 +139,7 @@ never refuted and R3 was already its shape.  The defeq slot carries
 `DefEqClaims2B` (STOP 3): the induction cannot close with an ungraded
 hypothesis and a graded conclusion, so all four claims are uniform. -/
 def CheckStep2B (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2B μ m φ fuel → WhnfClaims2B μ m φ fuel →
     DefEqClaims2B μ m φ fuel → InferClaims2A μ m φ fuel →
     WhnfCoreClaims2B μ m φ (fuel + 1) ∧ WhnfClaims2B μ m φ (fuel + 1) ∧
@@ -147,7 +147,7 @@ def CheckStep2B (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 
 /-- The corrected induction. -/
 theorem checkSound2B {μ : CheckMode} {env : Env}
-    (hstep : CheckStep2B μ V) (m : EnvS2U V env) (φ : Name → Nat) :
+    (hstep : CheckStep2B μ V) (m : EnvS2UM V μ env) (φ : Name → Nat) :
     ∀ fuel : Nat,
       WhnfCoreClaims2B μ m φ fuel ∧ WhnfClaims2B μ m φ fuel ∧
         DefEqClaims2B μ m φ fuel ∧ InferClaims2A μ m φ fuel := by
@@ -175,28 +175,28 @@ theorem checkSound2B {μ : CheckMode} {env : Env}
 
 /-- The inference quarter. -/
 def InferStep2B (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2B μ m φ fuel → WhnfClaims2B μ m φ fuel →
     DefEqClaims2B μ m φ fuel → InferClaims2A μ m φ fuel →
     InferClaims2A μ m φ (fuel + 1)
 
 /-- The head-normalisation quarter. -/
 def WhnfCoreStep2B (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2B μ m φ fuel → WhnfClaims2B μ m φ fuel →
     DefEqClaims2B μ m φ fuel → InferClaims2A μ m φ fuel →
     WhnfCoreClaims2B μ m φ (fuel + 1)
 
 /-- The reduction loop. -/
 def WhnfStep2B (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2B μ m φ fuel → WhnfClaims2B μ m φ fuel →
     DefEqClaims2B μ m φ fuel → InferClaims2A μ m φ fuel →
     WhnfClaims2B μ m φ (fuel + 1)
 
 /-- The definitional-equality quarter. -/
 def DefEqStep2B (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2B μ m φ fuel → WhnfClaims2B μ m φ fuel →
     DefEqClaims2B μ m φ fuel → InferClaims2A μ m φ fuel →
     DefEqClaims2B μ m φ (fuel + 1)

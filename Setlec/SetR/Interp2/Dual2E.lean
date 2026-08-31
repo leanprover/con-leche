@@ -84,7 +84,7 @@ Each is its `…2D` claim with the two semantic conjuncts deleted: the
 existential half, alone. -/
 
 /-- The head-normalisation existence factor. -/
-def WhnfCoreExists2E (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def WhnfCoreExists2E (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -98,7 +98,7 @@ def WhnfCoreExists2E (μ : CheckMode) {env : Env} (m : EnvS2U V env)
         denote2 μ m.acval env φ F' d e' = some ea'
 
 /-- The reduction-loop existence factor. -/
-def WhnfExists2E (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def WhnfExists2E (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnf μ env fuel d e = .ok e' →
@@ -114,7 +114,7 @@ def WhnfExists2E (μ : CheckMode) {env : Env} (m : EnvS2U V env)
 /-- The inference existence factor — **the inferred type annotates**.
 This is the shape `Denote2Total` was priced to supply and does not:
 its conclusion names `e`, this one names `t`. -/
-def InferExists2E (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def InferExists2E (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
     inferTypeCore μ env fuel d e = .ok t →
@@ -128,7 +128,7 @@ def InferExists2E (μ : CheckMode) {env : Env} (m : EnvS2U V env)
 
 /-- The three factors, bundled — defeq needs none, because
 `DefEqClaims2D` never produced an annotation (seal 31). -/
-def Exists2E (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def Exists2E (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   WhnfCoreExists2E μ m φ fuel ∧ WhnfExists2E μ m φ fuel ∧
     InferExists2E μ m φ fuel
@@ -160,7 +160,7 @@ sort computation on either, so there is no run to condition on. -/
 
 /-- **The repair**: `Denote2Total` with its conclusion moved from the
 run's subject to the run's result. -/
-def Denote2TotalR (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def Denote2TotalR (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) : Prop :=
   ∀ (F d : Nat) (e t : Expr),
     inferTypeCore μ env F d e = .ok t →
@@ -169,7 +169,7 @@ def Denote2TotalR (μ : CheckMode) {env : Env} (m : EnvS2U V env)
 /-- The repaired law **does** discharge the inference existence
 factor — the fuel ordering `F ≤ F'` is bought by `denote2_fuelMono`,
 so the law needs no fuel bookkeeping of its own. -/
-theorem inferExists2E_of_totalR {m : EnvS2U V env}
+theorem inferExists2E_of_totalR {m : EnvS2UM V μ env}
     (h : Denote2TotalR μ m φ) : InferExists2E μ m φ fuel := by
   intro d e t Δa hrun _ _ _ F ea _ _
   obtain ⟨F', ta, hta⟩ := h fuel d e t hrun
@@ -180,7 +180,7 @@ theorem inferExists2E_of_totalR {m : EnvS2U V env}
 
 Free at every claim, and it needs nothing but `denote2_crossFuel`. -/
 
-theorem whnfCoreClaims2E_of_2D {m : EnvS2U V env}
+theorem whnfCoreClaims2E_of_2D {m : EnvS2UM V μ env}
     (h : WhnfCoreClaims2D μ m φ fuel) :
     WhnfCoreClaims2E μ m φ fuel := by
   intro d e e' Δa hrun hws hb hLb F F' ea ea' hC hea hea' hok
@@ -188,7 +188,7 @@ theorem whnfCoreClaims2E_of_2D {m : EnvS2U V env}
   obtain rfl : ea1 = ea' := denote2_crossFuel hden hea'
   exact ⟨hok1, heq⟩
 
-theorem whnfClaims2E_of_2D {m : EnvS2U V env}
+theorem whnfClaims2E_of_2D {m : EnvS2UM V μ env}
     (h : WhnfClaims2D μ m φ fuel) : WhnfClaims2E μ m φ fuel := by
   intro d e e' Δa hrun hws hb hLb F F' ea ea' hC hea hea' hok
   obtain ⟨F1, ea1, _, hden, hok1, heq⟩ := h hrun hws hb hLb hC hea hok
@@ -199,7 +199,7 @@ theorem whnfClaims2E_of_2D {m : EnvS2U V env}
 context hypotheses and the two annotations are lifted to a common
 fuel, where generation five's claim applies verbatim.  This is the
 one claim that was already dual-success. -/
-theorem defEqClaims2E_of_2D {m : EnvS2U V env}
+theorem defEqClaims2E_of_2D {m : EnvS2UM V μ env}
     (h : DefEqClaims2D μ m φ fuel) : DefEqClaims2E μ m φ fuel := by
   intro d a b Δa hrun hwa hba hLa hwb hbb hLb F F' aa ba hCa hCb
     hden hden' hoka hokb
@@ -210,7 +210,7 @@ theorem defEqClaims2E_of_2D {m : EnvS2U V env}
     (denote2_fuelMono (Nat.le_add_left F' F) d b hden')
     hoka hokb
 
-theorem inferClaims2E_of_2D {m : EnvS2U V env}
+theorem inferClaims2E_of_2D {m : EnvS2UM V μ env}
     (h : InferClaims2D μ m φ fuel) : InferClaims2E μ m φ fuel := by
   intro d e t Δa hrun hws hb hLb F F' ea ta hC hea hta
   obtain ⟨F1, ta1, _, hden, hokE, hokT, hmem⟩ :=
@@ -223,7 +223,7 @@ theorem inferClaims2E_of_2D {m : EnvS2U V env}
 The existence factor supplies the witness; the dual-success claim
 supplies everything said about it. -/
 
-theorem whnfCoreClaims2D_of_2E {m : EnvS2U V env}
+theorem whnfCoreClaims2D_of_2E {m : EnvS2UM V μ env}
     (hex : WhnfCoreExists2E μ m φ fuel)
     (h : WhnfCoreClaims2E μ m φ fuel) :
     WhnfCoreClaims2D μ m φ fuel := by
@@ -232,7 +232,7 @@ theorem whnfCoreClaims2D_of_2E {m : EnvS2U V env}
   obtain ⟨hok', heq⟩ := h hrun hws hb hLb hC hea hden hok
   exact ⟨F', ea', hle, hden, hok', heq⟩
 
-theorem whnfClaims2D_of_2E {m : EnvS2U V env}
+theorem whnfClaims2D_of_2E {m : EnvS2UM V μ env}
     (hex : WhnfExists2E μ m φ fuel)
     (h : WhnfClaims2E μ m φ fuel) : WhnfClaims2D μ m φ fuel := by
   intro d e e' Δa hrun hws hb hLb F ea hC hea hok
@@ -242,13 +242,13 @@ theorem whnfClaims2D_of_2E {m : EnvS2U V env}
 
 /-- Defeq recovers with **no existence factor at all** — the fuel
 split is instantiated at `F' := F`. -/
-theorem defEqClaims2D_of_2E {m : EnvS2U V env}
+theorem defEqClaims2D_of_2E {m : EnvS2UM V μ env}
     (h : DefEqClaims2E μ m φ fuel) : DefEqClaims2D μ m φ fuel := by
   intro d a b Δa hrun hwa hba hLa hwb hbb hLb F aa ba hCa hCb
     hden hden' hoka hokb
   exact h hrun hwa hba hLa hwb hbb hLb hCa hCb hden hden' hoka hokb
 
-theorem inferClaims2D_of_2E {m : EnvS2U V env}
+theorem inferClaims2D_of_2E {m : EnvS2UM V μ env}
     (hex : InferExists2E μ m φ fuel)
     (h : InferClaims2E μ m φ fuel) : InferClaims2D μ m φ fuel := by
   intro d e t Δa hrun hws hb hLb F ea hC hea
@@ -259,7 +259,7 @@ theorem inferClaims2D_of_2E {m : EnvS2U V env}
 /-- The existence factor is a *factor*: generation five's claims imply
 it, so `Claims2D ⟺ Claims2E ∧ Exists2E` is an equivalence and the
 split loses nothing. -/
-theorem exists2E_of_claims2D {m : EnvS2U V env}
+theorem exists2E_of_claims2D {m : EnvS2UM V μ env}
     (hwc : WhnfCoreClaims2D μ m φ fuel) (hw : WhnfClaims2D μ m φ fuel)
     (hi : InferClaims2D μ m φ fuel) : Exists2E μ m φ fuel := by
   refine ⟨?_, ?_, ?_⟩
@@ -275,7 +275,7 @@ theorem exists2E_of_claims2D {m : EnvS2U V env}
 
 /-- **The four claims, recovered together** — the form the quarters
 consume. -/
-theorem claims2D_of_2E {m : EnvS2U V env} (hex : Exists2E μ m φ fuel)
+theorem claims2D_of_2E {m : EnvS2UM V μ env} (hex : Exists2E μ m φ fuel)
     (hwc : WhnfCoreClaims2E μ m φ fuel) (hw : WhnfClaims2E μ m φ fuel)
     (hd : DefEqClaims2E μ m φ fuel) (hi : InferClaims2E μ m φ fuel) :
     WhnfCoreClaims2D μ m φ fuel ∧ WhnfClaims2D μ m φ fuel ∧

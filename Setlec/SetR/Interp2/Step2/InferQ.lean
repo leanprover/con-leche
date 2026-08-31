@@ -121,7 +121,7 @@ inference claim gives the membership at the *inferred* type's
 annotation, the reduction claim moves it to the sort's, and
 `interp2_sort` reads the result.  Every binder clause runs this
 twice. -/
-theorem inferSort2 (m : EnvS2U V env) {d : Nat}
+theorem inferSort2 (m : EnvS2UM V μ env) {d : Nat}
     {Δa : List AVExpr} {e t : Expr} {u : Level}
     (ihw : WhnfClaims2 μ m φ fuel) (ihi : InferClaims2 μ m φ fuel)
     (hi : inferTypeCore μ env fuel d e = .ok t)
@@ -153,7 +153,7 @@ for: the checker's two sort runs *are* the two `sortOfE` calls the
 annotation makes, the opened body is the same opened body on both
 sides, and the returned type is a sort — so nothing crosses a
 substitution and the row is `sound_pi` on the nose. -/
-theorem infer_forallE_claim2 (m : EnvS2U V env) {d : Nat} {n : Name}
+theorem infer_forallE_claim2 (m : EnvS2UM V μ env) {d : Nat} {n : Name}
     {ty body t : Expr} {mb : BinderMeta} {Δa : List AVExpr}
     (ihw : WhnfClaims2 μ m φ fuel) (ihi : InferClaims2 μ m φ fuel)
     (h : inferTypeCore μ env (fuel + 1) d (.forallE n ty body mb)
@@ -238,7 +238,7 @@ found.  See `inferClaims2_one_refuted` below. -/
 type has a canonical annotation at every depth, and the constant
 inhabits it.  `EnvS2.mem_type2` is the depth-`0`, uninstantiated
 half. -/
-def ConstType2 {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def ConstType2 {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ (d : Nat) (n : Name) (ci : Setlec.ConstantInfo) (us : List Level),
     env.find? n = some ci →
@@ -253,7 +253,7 @@ def ConstType2 {env : Env} (m : EnvS2U V env) (μ : CheckMode)
 
 /-- **`.const`.**  Truthfulness is `acval_ok2`; the membership and the
 returned type's definedness are the residue above. -/
-theorem infer_const_claim2 (m : EnvS2U V env) (hct : ConstType2 m μ φ
+theorem infer_const_claim2 (m : EnvS2UM V μ env) (hct : ConstType2 m μ φ
       (fuel + 1)) {d : Nat} {n : Name} {us : List Level} {t : Expr}
     {Δa : List AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.const n us) = .ok t) :
@@ -299,7 +299,8 @@ routed. -/
 
 /-- **The `Nat`-literal clause's residue**: the zero's membership and
 the successor's, at the annotated valuation's own `Nat` leaf. -/
-def NatHeads2 {env : Env} (m : EnvS2U V env) (φ : Name → Nat) : Prop :=
+def NatHeads2 {env : Env} (m : EnvS2UM V μ env)
+    (φ : Name → Nat) : Prop :=
   Setlec.natLitSupported env = true →
   ∀ ρ : Nat → V,
     interp2 V ρ (m.acval natZeroName (Level.substFn φ [] []))
@@ -313,7 +314,7 @@ def NatHeads2 {env : Env} (m : EnvS2U V env) (φ : Name → Nat) : Prop :=
 `natLit_facts2`; the head facts are the residue, and the returned
 `.const natName []` denotes because the support guard pins the stored
 declaration's level parameters empty. -/
-theorem infer_natLit_claim2 (m : EnvS2U V env) (hnh : NatHeads2 m φ)
+theorem infer_natLit_claim2 (m : EnvS2UM V μ env) (hnh : NatHeads2 m φ)
     {d k : Nat} {t : Expr} {Δa : List AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t) :
     ∃ ea ta,
@@ -367,7 +368,7 @@ in the relational currency; the clause reads it in the annotated one.
 
 /-- The `.fvar` clause's residue — `CtxOk2.fvar_leaf`'s conclusion,
 conditioned on the claim's own hypothesis. -/
-def FvarCtx2 {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def FvarCtx2 {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d idx : Nat} {n : Name} {ty : Expr} {Δa : List AVExpr},
     CtxOkR μ m.base.cval env φ d (Δa.map AVExpr.erase)
@@ -391,7 +392,7 @@ never makes.  Routed whole rather than to seven head facts, since the
 numeral induction is not written either. -/
 
 /-- The `String`-literal clause. -/
-def InferStrLitStep2 {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def InferStrLitStep2 {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {s : String} {t : Expr} {Δa : List AVExpr},
     inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t →
@@ -461,7 +462,8 @@ clause closes: the abstraction round trip is `abstract1_instantiate1`
 the clause's own `whnf`, and the row is `sound_lam` — whose kind-`0`
 fibre premise is *also* the residue's sort fact, read through
 `inferSort2`. -/
-theorem infer_lam_claim2 (m : EnvS2U V env) (hcod : LamCodSort2 μ env)
+theorem infer_lam_claim2 (m : EnvS2UM V μ env)
+    (hcod : LamCodSort2 μ env)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : BinderMeta}
     {Δa : List AVExpr}
     (ihw : WhnfClaims2 μ m φ fuel) (ihi : InferClaims2 μ m φ fuel)
@@ -586,7 +588,7 @@ substituted runs can branch differently (`Annot/SimSubst.lean`'s
 second trap), so an equation between the two annotations is not what
 holds.  What holds is agreement of the interpretations under `Sat2`,
 which is exactly `SortSubstStable`'s conclusion shape. -/
-def BetaCross2 {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def BetaCross2 {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {n : Name} {ty b a : Expr} {Δa : List AVExpr}
     {aa : AVExpr},
@@ -615,7 +617,7 @@ inference plus the defeq claim put it in the domain's; and the kind-`0`
 fibre premise — which `inferBody`'s app branch never computes — is
 recovered from the annotation itself, because the ∀'s `denote2` stored
 the codomain `sortOfE`, and `sortOfE_runs` reads the runs back out. -/
-theorem infer_app_claim2 (m : EnvS2U V env)
+theorem infer_app_claim2 (m : EnvS2UM V μ env)
     (hbeta : BetaCross2 m μ φ (fuel + 1))
     {d : Nat} {f a t : Expr} {Δa : List AVExpr}
     (ihw : WhnfClaims2 μ m φ fuel) (ihd : DefEqClaims2 μ m φ fuel)
@@ -735,7 +737,7 @@ annotation — which is what the second direction of `BetaCross2` is
 for: the checker infers the **substituted** body (`infer_let`'s order),
 while `denote2`'s `letE` clause is structural and reads the opened one,
 so the definedness travels backwards here and forwards in `.app`. -/
-theorem infer_letE_claim2 (m : EnvS2U V env)
+theorem infer_letE_claim2 (m : EnvS2UM V μ env)
     (hbeta : BetaCross2 m μ φ (fuel + 1))
     {d : Nat} {n : Name} {ty val b t : Expr} {Δa : List AVExpr}
     (ihi : InferClaims2 μ m φ fuel)
@@ -816,7 +818,7 @@ And `denote2`'s `proj` clause is defined only for `i < 2`, while
 index. -/
 
 /-- The projection clause. -/
-def InferProjStep2 {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def InferProjStep2 {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d i : Nat} {sn : Name} {pe t : Expr} {Δa : List AVExpr},
     inferTypeCore μ env (fuel + 1) d (.proj sn i pe) = .ok t →
@@ -919,7 +921,7 @@ theorem denote2_at_one_forallE {acval : Name → (Name → Nat) → AVExpr}
 /-- **The refutation.**  One stored constant with a `∀` type is
 enough: the `.const` clause succeeds at fuel `1` and its returned type
 cannot be annotated there. -/
-theorem inferClaims2_one_refuted {env : Env} (m : EnvS2U V env)
+theorem inferClaims2_one_refuted {env : Env} (m : EnvS2UM V μ env)
     {n : Name} {us : List Level} {ci : Setlec.ConstantInfo}
     {n' : Name} {ty' body' : Expr} {mb' : BinderMeta}
     (hf : env.find? n = some ci)
@@ -948,25 +950,26 @@ quantified over everything `InferStep2` quantifies over. -/
 structure InferInputs2 (V : Type w) [SetTheory V] (μ : CheckMode) :
     Prop where
   /-- I2: the context correspondence in the annotated currency -/
-  fvar_ctx : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat)
+  fvar_ctx : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), FvarCtx2 m μ φ fuel
   /-- I3: the stored type's annotation, instantiated and at depth -/
-  const_ty : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat)
+  const_ty : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), ConstType2 m μ φ fuel
   /-- I4: the two numeral head facts -/
-  nat_heads : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  nat_heads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     NatHeads2 m φ
   /-- I5: the `String`-literal clause -/
-  str_lit : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat)
+  str_lit : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), InferStrLitStep2 m μ φ fuel
   /-- I7: the codomain-sort run at every λ node (the
   chain-granularity finding) -/
   lam_cod : ∀ {env : Env}, LamCodSort2 μ env
   /-- I8/I10: the β crossing -/
-  beta : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat)
+  beta : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), BetaCross2 m μ φ fuel
   /-- I9: the projection clause -/
-  proj : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
+  proj : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat),
     InferProjStep2 m μ φ fuel
 
 /-- **`InferStep2`, modulo the routed inputs.**  The dispatch is the
@@ -1127,7 +1130,7 @@ verbatim except that the annotation's fuel is the *prover's*: given any
 `F' ≥ F`.  This is the exact slot `inferClaims2_one_refuted` shot
 through — at `F = 1` the sealed form demanded a `denote2` that provably
 does not exist, and here the residue may answer at a larger fuel. -/
-def ConstType2A {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def ConstType2A {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ (F d : Nat) (n : Name) (ci : Setlec.ConstantInfo) (us : List Level),
     env.find? n = some ci →
@@ -1154,7 +1157,7 @@ runs happened at the caller's `F` — a fuel the induction has not
 reached.  So the content is unchanged and the *fuel* is what routes
 it: `SortSem2` is `inferSort2` for all fuels at once, and the top-level
 induction (`checkSound2B`) is where it becomes available. -/
-def SortSem2 {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def SortSem2 {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ {F d u : Nat} {e : Expr} {Δa : List AVExpr} {ea : AVExpr},
     CtxOk2 m μ φ F d Δa e →
@@ -1174,7 +1177,7 @@ Deliberately **not** "an inferred type is itself sorted" — that is
 validity, refuted at this very clause (`Setlec/SetR/DESIGN.md`,
 findings A3/B5/A5).  Truthfulness is the weaker, hereditary statement
 `AnnotOk2` names, and it is all the grading asks for. -/
-def TypeOk2 {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def TypeOk2 {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ {F f d : Nat} {e t : Expr} {Δa : List AVExpr} {ta : AVExpr},
     inferTypeCore μ env f d e = .ok t →
@@ -1220,7 +1223,7 @@ whole story: `⟪Empty⟫` and `⟪fun (_ : Empty) => Prop⟫` are equal over
 The trap-checks do **not** fire here: `CtxOkR` mentions `denote`, not
 `denote2`, so the smallest-fuel test has nothing to bite on, and the
 refutation is uniform in `F`. -/
-def CtxOk2R {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def CtxOk2R {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ {F d : Nat} {Δa : List AVExpr} {e : Expr},
     CtxOk2 m μ φ F d Δa e →
@@ -1233,7 +1236,7 @@ domain's annotation, which needs the leaf package to survive a depth
 increase (`denote_weaken_top`'s `denote2` twin, which does not exist).
 Named here at the granularity `CtxOkR.open` has, so that it can be
 moved to the supplier verbatim. -/
-def CtxOk2Open {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def CtxOk2Open {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ {F d : Nat} {Δa : List AVExpr} {n : Name} {ty body : Expr}
     {ta : AVExpr},
@@ -1248,7 +1251,7 @@ def CtxOk2Open {env : Env} (m : EnvS2U V env) (μ : CheckMode)
 direction for `.letE` (whose `denote2` the clause had to *produce*),
 and R1 removed that obligation — the `letE`'s annotation is now a
 hypothesis and the crossing is used forwards at both sites. -/
-def BetaCross2A {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def BetaCross2A {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ {F d : Nat} {n : Name} {ty b a : Expr} {Δa : List AVExpr}
     {aa ba : AVExpr},
@@ -1262,7 +1265,7 @@ def BetaCross2A {env : Env} (m : EnvS2U V env) (μ : CheckMode)
         (AnnotOk2 V ρ ra → AnnotOk2 V ρ (ba.inst aa))
 
 /-- The `String`-literal clause, re-pointed. -/
-def InferStrLitStep2A {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def InferStrLitStep2A {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d F : Nat} {s : String} {t : Expr} {Δa : List AVExpr}
     {ea : AVExpr},
@@ -1274,7 +1277,7 @@ def InferStrLitStep2A {env : Env} (m : EnvS2U V env) (μ : CheckMode)
         AnnotOk2 V ρ ea ∧ interp2 V ρ ea ∈ˢ interp2 V ρ ta
 
 /-- The projection clause, re-pointed. -/
-def InferProjStep2A {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def InferProjStep2A {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d i F : Nat} {sn : Name} {pe t : Expr} {Δa : List AVExpr}
     {ea : AVExpr},
@@ -1296,7 +1299,8 @@ is the sealed one with the residue answering at its own fuel: the
 subject's annotation is the valuation's leaf (`denote2`'s `const`
 equation, now a hypothesis), truthfulness is `acval_ok2`, and the
 returned type's annotation is `ConstType2A`'s `F'`. -/
-theorem infer_const_claim2A (m : EnvS2U V env) (hct : ConstType2A m μ φ)
+theorem infer_const_claim2A (m : EnvS2UM V μ env)
+    (hct : ConstType2A m μ φ)
     {d F : Nat} {n : Name} {us : List Level} {t : Expr}
     {Δa : List AVExpr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.const n us) = .ok t)
@@ -1332,7 +1336,7 @@ theorem infer_const_claim2A (m : EnvS2U V env) (hct : ConstType2A m μ φ)
 `natLit_facts2` and the head facts are `NatHeads2`, both unchanged;
 `F' = F` because the returned `.const natName []` denotes without a
 run (the support guard pins the stored level parameters empty). -/
-theorem infer_natLit_claim2A (m : EnvS2U V env) (hnh : NatHeads2 m φ)
+theorem infer_natLit_claim2A (m : EnvS2UM V μ env) (hnh : NatHeads2 m φ)
     {d k F : Nat} {t : Expr} {Δa : List AVExpr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t)
     (hea : denote2 μ m.acval env φ F d (.lit (.natVal k)) = some ea) :
@@ -1382,7 +1386,8 @@ Under R1 the annotation is handed over, so the two `sortOfE`s are
 all** — only the semantic reading of the two numerals it is given.
 `F' = F`: the returned type is a sort. -/
 
-theorem infer_forallE_claim2A (m : EnvS2U V env) (hss : SortSem2 m μ φ)
+theorem infer_forallE_claim2A (m : EnvS2UM V μ env)
+    (hss : SortSem2 m μ φ)
     (hop : CtxOk2Open m μ φ) {d F : Nat} {n : Name}
     {ty body t : Expr} {mb : BinderMeta} {Δa : List AVExpr}
     {ea : AVExpr}
@@ -1454,7 +1459,7 @@ spike therefore deleted it from the claims and from this signature.
 a readback of the checker's #152 run, so the clause never depended on
 the mode having made that check. -/
 
-theorem infer_lam_claim2A (m : EnvS2U V env) (hss : SortSem2 m μ φ)
+theorem infer_lam_claim2A (m : EnvS2UM V μ env) (hss : SortSem2 m μ φ)
     (hop : CtxOk2Open m μ φ) {d F : Nat} {n : Name}
     {ty body t : Expr} {mb : BinderMeta} {Δa : List AVExpr}
     {ea : AVExpr} (ihi : InferClaims2A μ m φ fuel)
@@ -1560,7 +1565,7 @@ so the opened body's `ba` is a hypothesis and the crossing is used
 forwards, as in `.app`.  One direction of the residue is therefore
 dead. -/
 
-theorem infer_letE_claim2A (m : EnvS2U V env)
+theorem infer_letE_claim2A (m : EnvS2UM V μ env)
     (hbeta : BetaCross2A m μ φ) {d F : Nat} {n : Name}
     {ty val b t : Expr} {Δa : List AVExpr} {ea : AVExpr}
     (ihi : InferClaims2A μ m φ fuel)
@@ -1651,7 +1656,7 @@ Three things this clause, and only this clause, pays for.
   the runs inside it are off the induction and `SortSem2` is what reads
   them. -/
 
-theorem infer_app_claim2A (m : EnvS2U V env) (hss : SortSem2 m μ φ)
+theorem infer_app_claim2A (m : EnvS2UM V μ env) (hss : SortSem2 m μ φ)
     (hop : CtxOk2Open m μ φ) (hcr : CtxOk2R m μ φ)
     (htok : TypeOk2 m μ φ) (hbeta : BetaCross2A m μ φ)
     {d F : Nat} {f a t : Expr} {Δa : List AVExpr} {ea : AVExpr}
@@ -1799,31 +1804,31 @@ structure InferInputs2A (V : Type w) [SetTheory V] (μ : CheckMode) :
     Prop where
   /-- I3: the stored type's annotation, at a fuel of its own choosing
   (R3's slot — the sealed `const_ty` is refuted at `fuel = 1`) -/
-  const_ty : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  const_ty : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     ConstType2A m μ φ
   /-- I4: the two numeral head facts (unchanged) -/
-  nat_heads : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  nat_heads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     NatHeads2 m φ
   /-- I5: the `String`-literal clause -/
-  str_lit : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat)
+  str_lit : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), InferStrLitStep2A m μ φ fuel
   /-- I8/I10: the β crossing, forwards only -/
-  beta : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  beta : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     BetaCross2A m μ φ
   /-- I9: the projection clause -/
-  proj : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat)
+  proj : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), InferProjStep2A m μ φ fuel
   /-- **new**: the sort fact at an annotation fuel off the induction -/
-  sort_sem : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  sort_sem : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     SortSem2 m μ φ
   /-- **new**: R2's grading premise at the one site that reduces -/
-  type_ok : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  type_ok : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     TypeOk2 m μ φ
   /-- **new, and believed false**: the context in the other currency -/
-  ctx_R : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  ctx_R : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     CtxOk2R m μ φ
   /-- **new**: `CtxOkR.open`'s missing twin -/
-  ctx_open : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  ctx_open : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     CtxOk2Open m μ φ
 
 /-- **`InferStep2B`, modulo the routed inputs.**  The dispatch is
@@ -1884,7 +1889,8 @@ argument's inferred type with the ∀'s domain, and:
 So the defeq repair adds **no residue** to this quarter.  Checked
 rather than argued: -/
 
-theorem app_defeq_premises2A (m : EnvS2U V env) (htok : TypeOk2 m μ φ)
+theorem app_defeq_premises2A (m : EnvS2UM V μ env)
+    (htok : TypeOk2 m μ φ)
     {F f d u' v' : Nat} {a tya : Expr} {Δa : List AVExpr}
     {taa Aa Ba : AVExpr} {ρ : Nat → V}
     (hrun : inferTypeCore μ env f d a = .ok tya)
@@ -2029,7 +2035,7 @@ interpretation is `SetTheory.app`/`sfst` of junk, which the `SetTheory`
 interface constrains **in neither direction**.  So the residue is
 parametrically neither provable nor refutable; it is a genuine
 statement about the *supplier*, which is the finding above. -/
-def CtxAnn2 {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def CtxAnn2 {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ {F d idx : Nat} {n : Name} {ty : Expr} {Δa : List AVExpr}
     {tya : AVExpr},
@@ -2041,7 +2047,7 @@ def CtxAnn2 {env : Env} (m : EnvS2U V env) (μ : CheckMode)
 satisfiable at a depth where the `.fvar` clause actually fires, with a
 `Sat2` that *has* a witness — so the residue is a real obligation and
 not a `Sat2`-unsatisfiability artifact. -/
-theorem ctxAnn2_nonvacuous {env : Env} (m : EnvS2U V env)
+theorem ctxAnn2_nonvacuous {env : Env} (m : EnvS2UM V μ env)
     (μ : CheckMode) (φ : Name → Nat) (F : Nat) (nm : Name) :
     CtxOk2 m μ φ F 1 [AVExpr.sort 0]
         (.fvar 0 nm (.sort .zero)) ∧
@@ -2064,7 +2070,7 @@ theorem ctxAnn2_nonvacuous {env : Env} (m : EnvS2U V env)
 the returned type's truthfulness, in the same unguarded `∀ ρ` shape as
 its membership conjunct — the stored type's annotation is closed, so
 no context enters. -/
-def ConstType2C {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def ConstType2C {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ (F d : Nat) (n : Name) (ci : Setlec.ConstantInfo) (us : List Level),
     env.find? n = some ci →
@@ -2086,7 +2092,7 @@ substituted annotation is the *subject*, the descended one is what
 annotation is the *returned type*, and its truthfulness is now owed).
 The sealed `BetaCross2` already had both directions, in the shape of
 two separate implications; this is the same content on one crossing. -/
-def BetaCross2C {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def BetaCross2C {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) : Prop :=
   ∀ {F d : Nat} {n : Name} {ty b a : Expr} {Δa : List AVExpr}
     {aa ba : AVExpr},
@@ -2100,7 +2106,7 @@ def BetaCross2C {env : Env} (m : EnvS2U V env) (μ : CheckMode)
         (AnnotOk2 V ρ ra ↔ AnnotOk2 V ρ (ba.inst aa))
 
 /-- The `String`-literal clause, extended. -/
-def InferStrLitStep2C {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def InferStrLitStep2C {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d F : Nat} {s : String} {t : Expr} {Δa : List AVExpr}
     {ea : AVExpr},
@@ -2114,7 +2120,7 @@ def InferStrLitStep2C {env : Env} (m : EnvS2U V env) (μ : CheckMode)
         interp2 V ρ ea ∈ˢ interp2 V ρ ta
 
 /-- The projection clause, extended. -/
-def InferProjStep2C {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def InferProjStep2C {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d i F : Nat} {sn : Name} {pe t : Expr} {Δa : List AVExpr}
     {ea : AVExpr},
@@ -2135,7 +2141,7 @@ def InferProjStep2C {env : Env} (m : EnvS2U V env) (μ : CheckMode)
 
 /-- **`.sort`, extended.**  The returned type is `.sort (u + 1)` and
 `AnnotOk2` of a sort is `True`: free. -/
-theorem infer_sort_claim2C (m : EnvS2U V env) {d : Nat} {u : Level}
+theorem infer_sort_claim2C (m : EnvS2UM V μ env) {d : Nat} {u : Level}
     {t : Expr} {Δa : List AVExpr} {F : Nat} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.sort u) = .ok t)
     (hea : denote2 μ m.acval env φ F d (.sort u) = some ea) :
@@ -2158,7 +2164,7 @@ theorem infer_sort_claim2C (m : EnvS2U V env) {d : Nat} {u : Level}
     exact (sound_sort V ρ (u.eval φ)).2
 
 /-- **`.bvar`, extended.**  Outside the fragment: the checker throws. -/
-theorem infer_bvar_claim2C (m : EnvS2U V env) {d i : Nat} {t : Expr}
+theorem infer_bvar_claim2C (m : EnvS2UM V μ env) {d i : Nat} {t : Expr}
     {Δa : List AVExpr} {F : Nat} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.bvar i) = .ok t)
     (_hea : denote2 μ m.acval env φ F d (.bvar i) = some ea) :
@@ -2177,7 +2183,7 @@ theorem infer_bvar_claim2C (m : EnvS2U V env) {d i : Nat} {t : Expr}
 ledger.**  Everything but the new conjunct is `infer_fvar_claim2A`;
 the new conjunct is `CtxAnn2`, the leaf-package component `CtxOk2`
 does not have. -/
-theorem infer_fvar_claim2C (m : EnvS2U V env) (hann : CtxAnn2 m μ φ)
+theorem infer_fvar_claim2C (m : EnvS2UM V μ env) (hann : CtxAnn2 m μ φ)
     {d idx : Nat} {n : Name} {ty t : Expr} {Δa : List AVExpr}
     {F : Nat} {ea : AVExpr}
     (hC : CtxOk2 m μ φ F d Δa (.fvar idx n ty))
@@ -2208,7 +2214,8 @@ theorem infer_fvar_claim2C (m : EnvS2U V env) (hann : CtxAnn2 m μ φ)
 /-! ### The two constant-shaped clauses -/
 
 /-- **`.const`, extended.**  The residue answers with the conjunct. -/
-theorem infer_const_claim2C (m : EnvS2U V env) (hct : ConstType2C m μ φ)
+theorem infer_const_claim2C (m : EnvS2UM V μ env)
+    (hct : ConstType2C m μ φ)
     {d F : Nat} {n : Name} {us : List Level} {t : Expr}
     {Δa : List AVExpr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.const n us) = .ok t)
@@ -2246,7 +2253,7 @@ theorem infer_const_claim2C (m : EnvS2U V env) (hct : ConstType2C m μ φ)
 /-- **`.lit (.natVal k)`, extended.**  The returned type's annotation
 is the `Nat` leaf's `acval`, so its truthfulness is `acval_ok2` — free
 and already in the clause. -/
-theorem infer_natLit_claim2C (m : EnvS2U V env) (hnh : NatHeads2 m φ)
+theorem infer_natLit_claim2C (m : EnvS2UM V μ env) (hnh : NatHeads2 m φ)
     {d k F : Nat} {t : Expr} {Δa : List AVExpr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t)
     (hea : denote2 μ m.acval env φ F d (.lit (.natVal k)) = some ea) :
@@ -2300,7 +2307,8 @@ theorem infer_natLit_claim2C (m : EnvS2U V env) (hnh : NatHeads2 m φ)
 /-! ### `.forallE` — still free -/
 
 /-- **`.forallE`, extended.**  The returned type is a sort. -/
-theorem infer_forallE_claim2C (m : EnvS2U V env) (hss : SortSem2 m μ φ)
+theorem infer_forallE_claim2C (m : EnvS2UM V μ env)
+    (hss : SortSem2 m μ φ)
     (hop : CtxOk2Open m μ φ) {d F : Nat} {n : Name}
     {ty body t : Expr} {mb : BinderMeta} {Δa : List AVExpr}
     {ea : AVExpr}
@@ -2367,7 +2375,7 @@ is the λ's own and whose codomain is the body's inferred type, so
 `AnnotOk2_pi` splits the obligation into `SortSem2`'s domain fact —
 already in the clause — and the induction hypothesis's new conjunct at
 `ta :: Δa`, which `Sat2_cons` transports.  **Free.** -/
-theorem infer_lam_claim2C (m : EnvS2U V env) (hss : SortSem2 m μ φ)
+theorem infer_lam_claim2C (m : EnvS2UM V μ env) (hss : SortSem2 m μ φ)
     (hop : CtxOk2Open m μ φ) {d F : Nat} {n : Name}
     {ty body t : Expr} {mb : BinderMeta} {Δa : List AVExpr}
     {ea : AVExpr} (ihi : InferClaims2C μ m φ fuel)
@@ -2475,7 +2483,7 @@ theorem infer_lam_claim2C (m : EnvS2U V env) (hss : SortSem2 m μ φ)
 /-- **`.letE`, extended.**  The returned type *is* the body's inferred
 type, at the same depth and the same context, so the new conjunct is
 the induction hypothesis's own, verbatim.  **Free.** -/
-theorem infer_letE_claim2C (m : EnvS2U V env)
+theorem infer_letE_claim2C (m : EnvS2UM V μ env)
     (hbeta : BetaCross2C m μ φ) {d F : Nat} {n : Name}
     {ty val b t : Expr} {Δa : List AVExpr} {ea : AVExpr}
     (ihi : InferClaims2C μ m φ fuel)
@@ -2563,7 +2571,7 @@ extension's favour.
   is a biconditional.  The sealed `BetaCross2` had both directions;
   `BetaCross2A` dropped one, and this buys it back. -/
 
-theorem infer_app_claim2C (m : EnvS2U V env) (hss : SortSem2 m μ φ)
+theorem infer_app_claim2C (m : EnvS2UM V μ env) (hss : SortSem2 m μ φ)
     (hop : CtxOk2Open m μ φ) (hcr : CtxOk2R m μ φ)
     (hbeta : BetaCross2C m μ φ)
     {d F : Nat} {f a t : Expr} {Δa : List AVExpr} {ea : AVExpr}
@@ -2705,33 +2713,33 @@ structure InferInputs2C (V : Type w) [SetTheory V] (μ : CheckMode) :
     Prop where
   /-- I3: the stored type's annotation, at a fuel of its own choosing,
   now carrying its truthfulness -/
-  const_ty : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  const_ty : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     ConstType2C m μ φ
   /-- I4: the two numeral head facts (unchanged) -/
-  nat_heads : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  nat_heads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     NatHeads2 m φ
   /-- I5: the `String`-literal clause -/
-  str_lit : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat)
+  str_lit : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), InferStrLitStep2C m μ φ fuel
   /-- I8/I10: the β crossing, transporting truthfulness both ways -/
-  beta : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  beta : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     BetaCross2C m μ φ
   /-- I9: the projection clause -/
-  proj : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat)
+  proj : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), InferProjStep2C m μ φ fuel
   /-- the sort fact at an annotation fuel off the induction -/
-  sort_sem : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  sort_sem : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     SortSem2 m μ φ
   /-- **refuted** (`not_ctxOk2R`): the context in the other currency.
   Generation five's context move is what removes it. -/
-  ctx_R : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  ctx_R : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     CtxOk2R m μ φ
   /-- `CtxOkR.open`'s twin (a theorem: `CtxOk2.openS`) -/
-  ctx_open : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  ctx_open : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     CtxOk2Open m μ φ
   /-- **new, and it belongs to the supplier**: `CtxOk2`'s missing
   fourth leaf component -/
-  ctx_ann : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  ctx_ann : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     CtxAnn2 m μ φ
 
 /-- **`InferStep2C`, modulo the routed inputs.**  Eleven `Expr`
@@ -2805,7 +2813,7 @@ conjunction.
 -/
 
 /-- The projection clause, in one currency. -/
-def InferProjStep2D {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def InferProjStep2D {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d i F : Nat} {sn : Name} {pe t : Expr} {Δa : List AVExpr}
     {ea : AVExpr},
@@ -2825,7 +2833,7 @@ def InferProjStep2D {env : Env} (m : EnvS2U V env) (μ : CheckMode)
 /-- **`.fvar`, with no residue.**  `CtxOk2D.fvar_leaf` returns the
 three conjuncts `CtxOk2` had *and* the fourth, at the same `tya`; the
 clause's `hann` premise disappears. -/
-theorem infer_fvar_claim2D (m : EnvS2U V env)
+theorem infer_fvar_claim2D (m : EnvS2UM V μ env)
     {d idx : Nat} {n : Name} {ty t : Expr} {Δa : List AVExpr}
     {F : Nat} {ea : AVExpr}
     (hC : CtxOk2D m μ φ F d Δa (.fvar idx n ty))
@@ -2863,7 +2871,8 @@ The `WScoped` premise is **gone**: the `…C` lane took it only to feed
 scoping (`CtxOk2.wScoped`).  A premise disappearing from a clause
 signature is the cheapest evidence that the currency move was
 right. -/
-theorem infer_forallE_claim2D (m : EnvS2U V env) (hss : SortSem2 m μ φ)
+theorem infer_forallE_claim2D (m : EnvS2UM V μ env)
+    (hss : SortSem2 m μ φ)
     {d F : Nat} {n : Name} {ty body t : Expr} {mb : BinderMeta}
     {Δa : List AVExpr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.forallE n ty body mb)
@@ -2927,7 +2936,7 @@ theorem infer_forallE_claim2D (m : EnvS2U V env) (hss : SortSem2 m μ φ)
 /-- **`.lam`, with the opened context built in place.**  Same move as
 `.forallE`; the grading `openS` asks for is `hdomS`'s first component,
 which the clause computes anyway to feed `sound_lam`. -/
-theorem infer_lam_claim2D (m : EnvS2U V env) (hss : SortSem2 m μ φ)
+theorem infer_lam_claim2D (m : EnvS2UM V μ env) (hss : SortSem2 m μ φ)
     {d F : Nat} {n : Name} {ty body t : Expr} {mb : BinderMeta}
     {Δa : List AVExpr} {ea : AVExpr} (ihi : InferClaims2D μ m φ fuel)
     (h : inferTypeCore μ env (fuel + 1) d (.lam n ty body mb) = .ok t)
@@ -3035,7 +3044,7 @@ theorem infer_lam_claim2D (m : EnvS2U V env) (hss : SortSem2 m μ φ)
 /-- **`.letE`, unchanged in substance.**  The ζ reduct's context is
 `of_subset` of the subject's — one kit call where the `…C` lane
 opened the leaf package by hand. -/
-theorem infer_letE_claim2D (m : EnvS2U V env)
+theorem infer_letE_claim2D (m : EnvS2UM V μ env)
     (hbeta : BetaCross2C m μ φ) {d F : Nat} {n : Name}
     {ty val b t : Expr} {Δa : List AVExpr} {ea : AVExpr}
     (ihi : InferClaims2D μ m φ fuel)
@@ -3111,7 +3120,7 @@ argument's type and the ∀'s domain, and to frame the reduct.  Every
 one of those is now `CtxOk2D.fuelMono` and `of_subset` of the
 hypothesis the clause is handed.  The clause takes **no context
 residue at all**. -/
-theorem infer_app_claim2D (m : EnvS2U V env) (hss : SortSem2 m μ φ)
+theorem infer_app_claim2D (m : EnvS2UM V μ env) (hss : SortSem2 m μ φ)
     (hbeta : BetaCross2C m μ φ)
     {d F : Nat} {f a t : Expr} {Δa : List AVExpr} {ea : AVExpr}
     (ihw : WhnfClaims2D μ m φ fuel)
@@ -3260,22 +3269,22 @@ shape; three of them simply ceased to exist. -/
 structure InferInputs2D (V : Type w) [SetTheory V] (μ : CheckMode) :
     Prop where
   /-- I3: the stored type's annotation, carrying its truthfulness -/
-  const_ty : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  const_ty : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     ConstType2C m μ φ
   /-- I4: the two numeral head facts -/
-  nat_heads : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  nat_heads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     NatHeads2 m φ
   /-- I5: the `String`-literal clause -/
-  str_lit : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat)
+  str_lit : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), InferStrLitStep2C m μ φ fuel
   /-- I8/I10: the β crossing, transporting truthfulness both ways -/
-  beta : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  beta : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     BetaCross2C m μ φ
   /-- I9: the projection clause, in the new currency -/
-  proj : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat)
+  proj : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), InferProjStep2D m μ φ fuel
   /-- the sort fact at an annotation fuel off the induction -/
-  sort_sem : ∀ {env : Env} (m : EnvS2U V env) (φ : Name → Nat),
+  sort_sem : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
     SortSem2 m μ φ
 
 /-- **`InferStep2D`, modulo the routed inputs.**  Eleven `Expr`
@@ -3339,7 +3348,7 @@ Stated anyway, because a retired residue that no declaration mentions
 is a retirement nobody can check. -/
 
 /-- `CtxAnn2` in the new currency. -/
-def CtxAnn2D {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def CtxAnn2D {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) : Prop :=
   ∀ {F d idx : Nat} {n : Name} {ty : Expr} {Δa : List AVExpr}
     {tya : AVExpr},
@@ -3349,8 +3358,8 @@ def CtxAnn2D {env : Env} (m : EnvS2U V env) (μ : CheckMode)
 
 /-- **The residue is discharged.**  No environment shape, no fuel
 condition, no mode, no level assignment, no extra premise. -/
-theorem ctxAnn2D_of {env : Env} (m : EnvS2U V env) (μ : CheckMode)
-    (φ : Name → Nat) : CtxAnn2D m μ φ :=
+theorem ctxAnn2D_of {env : Env} (m : EnvS2UM V μ env)
+    (φ : Name → Nat) : CtxAnn2D m φ :=
   fun hC hden => CtxOk2Ann.fvar_leaf hC.toAnn _ hden
 
 /-! ## The inference quarter at generation six, and what pricing
@@ -3394,7 +3403,7 @@ frozen adds nothing there.
 six**, with the existence factor handed back.  Consumes
 `WhnfExists2E` and `InferExists2E`; see the note above for where. -/
 theorem inferStep2E_of
-    (hex : ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat)
+    (hex : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), Exists2E μ m φ fuel)
     (h : InferInputs2D V μ) : InferStep2E μ V := by
   intro env m φ fuel ihwc ihw ihd ihi
