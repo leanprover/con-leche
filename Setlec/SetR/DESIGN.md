@@ -17885,3 +17885,80 @@ closedness is a fact about the erasure (seal 54's argument); **conjunct
 3 does not**, for the reason `interp2_ne_interp_erase` records. So
 `.closed` is fixable from the key and `.ok2` is not obviously so —
 different fields, different answers, and only the first was asked.
+
+### Seal 61 — `.closed` supplied; `.ok2` refused for a sharper reason than mine
+
+Build **348 jobs** warning-free, `lake test` green, battery **90/92**
+with the no-model sweep unchanged, `Main.lean` **diff empty**, all
+twenty of its results on exactly the three standard axioms.
+
+**Item 1 — the tombstone, and the weakening checked.**
+`DeclAxiom2SM` is tombstoned under its own name as *unprovable by
+design*, with the reason recorded: `extendAxiomS` needs an
+**inhabitant**, `ConstantValR` gives only type-checking, and **a
+well-typed axiom may be false**. `declAxiom2SMR_of_generic` proves
+`DeclAxiom2SM → DeclAxiom2SMR`, so re-premising **loses nothing**; the
+converse fails, and that asymmetry *is* the tombstone's content.
+
+**No refutation was manufactured, and the reason is itself a
+finding.** A well-typed-but-false axiom this lane can reach needs an
+`Empty`-typed `ConstantValR` in an `EnvS2UM`-carrying environment —
+which needs `DeclBasis2SM`, **uninhabited in this tree**. A refutation
+premised on something uninhabited is *a relocation, not evidence*. So:
+docstring, not theorem.
+
+**Item 2 — `.closed` is supplied, and it is inhabitation.**
+`axiomLeaf_closed` prints on **`[propext]` alone**, and the chain
+bottoms out in theorems of this tree: closedness comes from
+`EnvS.cval_closed` at the extension `declAxiomExtS` builds, true at
+the new name **precisely because `extendAxiomS` was handed conjunct 1
+of the branch's key**. `AxiomResidues2M` is **five fields where it was
+six**.
+
+#### `.ok2`'s refusal has two walls, and the second is sharper than seal 60's
+
+Seal 60 named the erasure bridge — `interp2_ne_interp_erase`. **That
+is the second wall, not the first.** Before it can matter:
+**`AnnotOk2`'s `.lam` and `.app` clauses carry fibre packages with no
+counterpart in `AnnotOkV` at all** — `AnnotOkV`'s app clause is the
+bare `∃ A B, ⟦f⟧ ∈ˢ piC A B ∧ ⟦a⟧ ∈ˢ A`, and its lam clause has
+nothing. **There is nothing to transport them *from*.** The failure is
+missing content, not a broken bridge.
+
+*Rule: when a transport fails, check whether the source has the
+content at all before blaming the transport. Seal 60 diagnosed the
+bridge; the bridge was never reached.*
+
+#### `.params` — a third distinct answer, unanticipated
+
+Conjunct 2 **is** this law on the collapse lane, and `erase` carries it
+one way, yielding `(A ψ₁).erase = (A ψ₂).erase`. Getting
+`A ψ₁ = A ψ₂` needs **`erase` injective, and it is not** — *the
+numerals `erase` forgets are exactly where a level parameter shows
+up.* **The same wall `denote_params_ext`'s twin hit** (seal 54), now
+seen from a second direction, which is evidence the two share a
+discharge. Reasoning, not mechanized, and flagged as such.
+
+#### Rulings on the two questions the worker raised
+
+* **Tombstone under its own name was correct.** Redefining a name
+  earlier seals recorded would **silently rewrite what those seals
+  claimed** — the worker's reading, and the right one. A tombstone
+  that changes meaning is not a tombstone.
+* **`declAxiom2SMR_of_generic`'s premise is uninhabited, and reporting
+  it as recording-direction rather than progress is correct.** It
+  inhabits nothing; its job is the asymmetry.
+
+#### Process finding, for every future worktree agent
+
+**The arena battery does not run in a fresh worktree.** `Main.lean`
+looks for the preprocessor at the relative path
+`_tmp/lean-inductive-models/…`, `_tmp/` is gitignored, so a new
+worktree has only `arena-tests` and **everything declines (exit 2) —
+46/92, e2e 53/72.** Symlinking the real `_tmp/lean-inductive-models`
+in restores the true numbers.
+
+**A bare "battery failed" from a worktree agent is a false alarm until
+that symlink is checked.** This is the same trap class as the
+`SETLEC_INDUCTIVE_MODELS` misconfiguration early in this campaign,
+which nearly went in as a catastrophic fake regression.
