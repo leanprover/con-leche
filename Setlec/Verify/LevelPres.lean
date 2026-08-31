@@ -293,8 +293,6 @@ end Kit
 
 /-! ## The reduction side -/
 
-set_option maxRecDepth 2048 in
-set_option maxHeartbeats 1600000 in
 theorem whnfPres_lvlParams {env : Env} (henv : EnvWF env)
     {ps : List Name}
     (hiota : ∀ (F d : Nat) (e t : Expr),
@@ -460,7 +458,6 @@ theorem ensureSortCore_lvlParams {env : Env} (henv : EnvWF env)
   | lit l => exact nomatch hmatch
   | proj sn i x => exact nomatch hmatch
 
-set_option maxRecDepth 2048 in
 theorem inferTypeCore_lvlParams {env : Env} (henv : EnvWF env)
     {ps : List Name}
     (hiota : ∀ (F d : Nat) (e t : Expr),
@@ -608,7 +605,6 @@ theorem inferTypeCore_lvlParams {env : Env} (henv : EnvWF env)
 
 /-! ## The iota case, and the one fact it is missing -/
 
-set_option maxRecDepth 2048 in
 theorem iotaRec_lvlParams_of_arity {env : Env} (henv : EnvWF env)
     {ps : List Name} (F : Nat)
     (hwF : ∀ {d : Nat} {a b : Expr}, whnf mode env F d a = .ok b →
