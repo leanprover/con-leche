@@ -18065,3 +18065,78 @@ count has come back matching.
 `ConstantVal` passing a `Bool` guard, and the obligation would be a
 metatheorem after all. It was already proved, for the v1 install's own
 reasons, in 2026-08.*
+
+### Seal 63 — `.ok2` discharged; and a pinned model's witness changed
+
+Build **348 jobs** warning-free, `lake test` green, battery **90/92**
+with the no-model sweep unchanged, `Main.lean` **diff empty**, v1's
+fourteen and all three keys on exactly the three standard axioms.
+
+**Wall 1 is closed. `AxiomResidues2M.ok2` is discharged, and `erase`
+came with it** — the residue is **three where the ledger said five**
+(`params`, plus the two Θ-frozen transports). **Not a relocation**: the
+sources are `annotLeaf2_const`/`annotLeaf2_prf` (theorems), the three
+keys (theorems), and `AcvalLink` — two `EnvS2UM` fields whose structure
+is inhabited. Nothing rests on `DeclBasis2SM` or any uninhabited
+hypothesis.
+
+Seal 62's inventory held: `propext` and `choice` cost **one line each**
+(their witnesses were already bare `BConst`s, and `AnnotOk2`'s `const`
+clause is `True`), `trustCompiler` two.
+
+#### The decision that needs recording: `ofReduce`'s witness changed
+
+The η-expanded identity `fun a b h => h` **was not refuted** — its
+`AnnotOk2` is *not establishable in this tree*. The `.app` fibre slots
+need `interp2`-lane memberships whose only supplier is
+`EnvS2U.mem_type2`, gated on a `denote2` success at the constant's
+type — and `denote2`'s binder numerals come from `sortOfE`, i.e. from
+running the checker. **There is no symbolic-evaluation kit for
+`inferTypeCore`/`whnf` in the tree.**
+
+So the witness was changed to **`VExpr.prf`**: the pinned type
+`∀ a b : E, op a = b → a = b` is a **`Prop`**, `pt` inhabits it, and
+`prf` denotes `pt` in *both* lanes.
+
+**Ruled: accepted.** The reasons, in the order they matter:
+
+* **The contract did not change, only the witness.** The key's
+  statement is `∃ Vf, closed ∧ params ∧ AnnotOkV ∧ inhabits-type`; a
+  different `Vf` satisfying the same four conjuncts is within the
+  interface, not a change to it. The campaign's *models are consumed
+  through their public interface* rule is respected.
+* **The proof did not get weaker, and that is checked rather than
+  asserted.** The membership still runs through `hframe` → `hOpApp` →
+  `m.reduce_ops`: **without "the trusted op is the identity on `E`"
+  the innermost goal `pt ∈ˢ eqv x y` does not close.** A vacuous
+  witness would not need `reduce_ops` at all.
+* **`prf` is the canonical inhabitant of a `Prop`, not a weakening.**
+  Proof irrelevance is exactly why `pt` is *the* value there.
+* Battery unchanged — models are proof-side, and nothing executable
+  moved.
+
+*Rule: a pinned model's witness may be replaced when the key's
+contract is unchanged and the new witness still forces the same
+supplier. State which supplier the proof would lose without it — that
+is what distinguishes a re-witnessing from a weakening.*
+
+#### The durable finding: the (α) wall will re-fire
+
+**No symbolic evaluation of `denote2`/`sortOfE` exists**, and this
+blocks `AnnotOk2` for *any* annotated leaf with binder structure — not
+just `ofReduce`. **It will re-fire at the value kinds**, where the
+leaves are definition bodies and `prf` is not available. Named now
+rather than met again.
+
+#### A second finding, and it is seal 52's door once more
+
+**`AxiomResidues2SM` is not suppliable as stated.** Its extension
+ranges over *every* env agreeing off the fresh name, at which
+`hb.cval cvA.name` is **unconstrained** — so no annotated leaf erases
+to it and `erase`, *a fortiori* `ok2`, cannot be met. **Naming the
+extension is what makes both statable.** That is the one-way-door
+diagnosis of seal 52, now binding on `ok2` as well. Both old forms
+kept beside the new route.
+
+`.params` untouched — still the erase-injectivity wall, and now the
+lane's **only** remaining item of its own.
