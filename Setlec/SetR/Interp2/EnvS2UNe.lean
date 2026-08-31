@@ -132,18 +132,19 @@ def probeEnvS : EnvS V probeEnv := by
 
 /-- The probe's collapse-lane valuation, read off the assembler: the
 install did not move it, so it is `EnvS.empty`'s leaf at every name.
-Named rather than inlined because `cval_annot` rewrites with it — a
+Named rather than inlined because `probeEnvS_cvalAnnot` rewrites with
+it — a
 `simp` set that unfolds `probeEnvS` cannot get there, since the
 assembler is applied to twenty arguments. -/
 theorem probeEnvS_cval : (probeEnvS V).cval = fun _ _ => emptyT 0 :=
   rfl
 
-/-- **`EnvS2`'s tenth field at the probe** — `cval_annot`, whose
-absence from `EnvS2U` seal 40 recorded as an omission.  Stated
-standalone because the field is not (yet) on the structure: it is
-`cval_annot := probeEnvS_cvalAnnot V` verbatim once it is, and the
-obstruction to putting it there is `declStep2_of_axiom`, not this
-probe (`EnvS2U.lean`'s module docstring).
+/-- **`CvalAnnot` at the probe.**  Written when `EnvS2` still carried
+a `cval_annot` field; the cleanup seal withdrew that field from both
+structures, so this now stands as a **standalone fact about the
+probe's valuation** rather than as a supplier.  It is kept because it
+is content: what the probe's leaves are, not what a structure asks
+for.
 
 Both conjuncts are met by *absence of a λ*: the install did not move
 the valuation, so every leaf is the empty type's constant, which
@@ -222,14 +223,13 @@ theorem nonempty_envS2U_probe : Nonempty (EnvS2U V probeEnv) :=
 because there is no stored `defnInfo`/`thmInfo` for either to speak
 about.
 
-This is also where `probeEnvS_cvalAnnot` is consumed: `EnvS2` asks
-for the tenth field that `EnvS2U` does not. -/
+Since the cleanup seal the two structures have the *same* field list,
+so this lift is field-for-field and `probeEnvS_cvalAnnot` is no longer
+consumed here. -/
 
-/-- The probe environment's `EnvS2` — the same data, plus the tenth
-field. -/
+/-- The probe environment's `EnvS2` — the same data. -/
 noncomputable def probeEnvS2 : EnvS2 V probeEnv where
   base := (probeEnvS2U V).base
-  cval_annot := probeEnvS_cvalAnnot V
   acval := (probeEnvS2U V).acval
   acval_erase := (probeEnvS2U V).acval_erase
   acval_closed := (probeEnvS2U V).acval_closed

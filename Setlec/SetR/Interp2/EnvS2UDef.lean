@@ -286,7 +286,6 @@ field, and the witness fuel is the given one: the value is
 binder-free, so its annotation exists at every fuel. -/
 noncomputable def defProbeEnvS2 : EnvS2 V defProbeEnv where
   base := (defProbeEnvS2U V).base
-  cval_annot := defProbeEnvS_cvalAnnot V
   acval := (defProbeEnvS2U V).acval
   acval_erase := (defProbeEnvS2U V).acval_erase
   acval_closed := (defProbeEnvS2U V).acval_closed
@@ -346,14 +345,11 @@ existential `EnvS2` fields are the `EnvS2U` fields plus
 `denote2_fuelMono`: uniqueness names the annotation, monotonicity
 places it at any requested fuel. -/
 theorem envS2UInImage_of_bodies {env : Env} (m : EnvS2U V env)
-    (hann : ∀ (μ : CheckMode) (φ : Name → Nat),
-      CvalAnnot μ env m.base.cval φ)
     (hbod : ∀ (μ : CheckMode) (φ : Name → Nat),
       Denote2Bodies V m μ φ) :
     EnvS2UInImage V m := by
   refine ⟨{
     base := m.base
-    cval_annot := hann
     acval := m.acval
     acval_erase := m.acval_erase
     acval_closed := m.acval_closed
@@ -373,13 +369,12 @@ theorem envS2UInImage_of_bodies {env : Env} (m : EnvS2U V env)
     exact ⟨max F F₀, Nat.le_max_left _ _,
       denote2_fuelMono (Nat.le_max_right _ _) 0 value h⟩
 
-/-- …and it is **necessary**, so the residue is exactly this and the
-tenth field. -/
+/-- …and it is **necessary**, so the residue is exactly this. -/
 theorem bodies_of_envS2UInImage {env : Env} {m : EnvS2U V env}
     (h : EnvS2UInImage V m) (μ : CheckMode) (φ : Name → Nat) :
-    CvalAnnot μ env m.base.cval φ ∧ Denote2Bodies V m μ φ := by
+    Denote2Bodies V m μ φ := by
   obtain ⟨m', rfl⟩ := h
-  refine ⟨m'.cval_annot μ φ, ?_, ?_⟩
+  refine ⟨?_, ?_⟩
   · intro cv value hint hc
     obtain ⟨F, -, hd⟩ := m'.acval_defn μ φ 0 cv value hint hc
     exact ⟨F, _, hd⟩
@@ -387,16 +382,23 @@ theorem bodies_of_envS2UInImage {env : Env} {m : EnvS2U V env}
     obtain ⟨F, -, hd⟩ := m'.acval_thm μ φ 0 cv value hc
     exact ⟨F, _, hd⟩
 
-/-- **The bridge's residue, exactly.**  `EnvS2UInImage` is `CvalAnnot`
-plus annotation-existence at the stored bodies — and nothing about
-*which* annotation, which is what the uniqueness ruling bought. -/
+/-- **The bridge's residue, exactly.**  `EnvS2UInImage` is
+annotation-existence at the stored bodies — and nothing about *which*
+annotation, which is what the uniqueness ruling bought.
+
+**Re-measured at the cleanup seal.**  The residue used to carry a
+`CvalAnnot` conjunct as well, and this theorem was its only reader:
+`EnvS2.cval_annot` demanded it of every preimage, so the measurement
+of the preimage's cost had to report it.  With the field withdrawn the
+conjunct is not *discharged* — it is no longer *asked*, which is a
+different and smaller thing, and it is what seal 46 already recorded
+when it found the obstruction to be the two `denote2` fields and not
+this one. -/
 theorem envS2UInImage_iff {env : Env} (m : EnvS2U V env) :
     EnvS2UInImage V m ↔
-      ∀ (μ : CheckMode) (φ : Name → Nat),
-        CvalAnnot μ env m.base.cval φ ∧ Denote2Bodies V m μ φ :=
+      ∀ (μ : CheckMode) (φ : Name → Nat), Denote2Bodies V m μ φ :=
   ⟨fun h μ φ => bodies_of_envS2UInImage V h μ φ,
-    fun h => envS2UInImage_of_bodies V m (fun μ φ => (h μ φ).1)
-      (fun μ φ => (h μ φ).2)⟩
+    fun h => envS2UInImage_of_bodies V m h⟩
 
 /-! ## The fourth probe: a **λ-bodied** definition
 
@@ -814,7 +816,6 @@ theorem nonempty_envS2U_lamDef : Nonempty (EnvS2U V lamDefEnv) :=
 the witness fuel is `max F 2` rather than `F`. -/
 noncomputable def lamDefEnvS2 : EnvS2 V lamDefEnv where
   base := (lamDefEnvS2U V).base
-  cval_annot := lamDefEnvS_cvalAnnot V
   acval := (lamDefEnvS2U V).acval
   acval_erase := (lamDefEnvS2U V).acval_erase
   acval_closed := (lamDefEnvS2U V).acval_closed
@@ -864,7 +865,6 @@ merely true. -/
 theorem lamDefEnvS2U_inImage_via_residue :
     EnvS2UInImage V (lamDefEnvS2U V) :=
   envS2UInImage_of_bodies V (lamDefEnvS2U V)
-    (fun μ φ => lamDefEnvS_cvalAnnot V μ φ)
     (fun μ φ => denote2Bodies_lamDef V μ φ)
 
 /-! ## The three sweeps

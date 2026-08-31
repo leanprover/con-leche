@@ -181,9 +181,10 @@ theorem piProbe_annotOk2 (ρ : Nat → V) :
 
 /-! ## `CvalAnnot` at the probe — the λ-shape conjunct's ingredients
 
-`EnvS2.cval_annot` — the field seal 40 owed `EnvS2U`, and which is
-still owed for a reason recorded at `EnvS2U.lean` — has two
-conjuncts, and at *this* probe neither is vacuous.
+`CvalAnnot` — carried as `EnvS2.cval_annot` until the cleanup seal
+withdrew it, and never on `EnvS2U` for the reason recorded at
+`EnvS2U.lean` — has two conjuncts, and at *this* probe neither is
+vacuous.
 The first needs an `Annotates` derivation for the stored λ, which
 carries an `Infer` and a `HasSortC` premise.  The second needs the
 converse direction: **every** type the relation infers for the stored
@@ -368,9 +369,11 @@ def piProbeEnvS : EnvS V piProbeEnv := by
 /-- The probe's collapse-lane valuation, read off the assembler. -/
 theorem piProbeEnvS_cval : (piProbeEnvS V).cval = piProbeCval := rfl
 
-/-- **`EnvS2`'s tenth field at the λ-leaf probe** — `cval_annot`, and
-the one place in this campaign where its **λ-shape conjunct is not
-vacuous**.  `EnvS2.empty` and `probeEnvS_cvalAnnot` both discharge
+/-- **`CvalAnnot` at the λ-leaf probe** — the one place in this
+campaign where its **λ-shape conjunct is not vacuous**.  Kept as a
+standalone fact after the cleanup seal withdrew `EnvS2.cval_annot`:
+the content is the inversion below, not the field it once fed.
+`EnvS2.empty` and `probeEnvS_cvalAnnot` both discharge
 that conjunct by having no λ-shaped stored valuation; here the stored
 leaf *is* a λ, so the obligation has to be met: every type the
 relation infers for `fun (_ : Sort 0) => _` must be sorted.
@@ -497,9 +500,10 @@ theorem piProbeTy_is_forallE :
 
 /-! ## The probe as an `EnvS2` — `EnvS2UInImage`'s second witness
 
-The λ-leaf probe lifts too, and it is the more interesting of the two
-lifts: `EnvS2`'s tenth field is met here by
-`piProbeEnvS_cvalAnnot`, whose λ-shape conjunct is not vacuous.  The
+The λ-leaf probe lifts too.  Until the cleanup seal this was the more
+interesting of the two lifts, because `EnvS2`'s tenth field was met
+here by `piProbeEnvS_cvalAnnot`, whose λ-shape conjunct is not
+vacuous; with the field withdrawn the lift is field-for-field.  The
 two `denote2` fields still agree only because the environment stores
 no `defnInfo`/`thmInfo` — *that* is where the residue lives, and no
 axiom-only probe can exercise it. -/
@@ -507,7 +511,6 @@ axiom-only probe can exercise it. -/
 /-- The λ-leaf probe's `EnvS2`. -/
 noncomputable def piProbeEnvS2 : EnvS2 V piProbeEnv where
   base := (piProbeEnvS2U V).base
-  cval_annot := piProbeEnvS_cvalAnnot V
   acval := (piProbeEnvS2U V).acval
   acval_erase := (piProbeEnvS2U V).acval_erase
   acval_closed := (piProbeEnvS2U V).acval_closed

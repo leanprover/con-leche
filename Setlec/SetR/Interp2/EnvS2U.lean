@@ -35,7 +35,13 @@ truth, not a new bet.
 In exactly one place: generation six's `Exists2E` factors. That is the
 point of the ruling — existence owed once, not twice.
 
-## The tenth field, and why it is still not here
+## The tenth field: withdrawn on both sides
+
+**Settled at the cleanup seal: `EnvS2`'s `cval_annot` is gone too, so
+there is no asymmetry left to close.**  What follows is the record of
+why restoring it here never landed — kept because it is the diagnosis,
+and because a future field asserting annotation of an *arbitrary*
+stored valuation runs into exactly these two walls.
 
 Seal 40 recorded that dropping `EnvS2`'s `cval_annot` was an omission
 in writing this freeze rather than a ruling, and owed its restoration.
