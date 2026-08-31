@@ -298,17 +298,18 @@ the second is a **weakening** of the first.  The dispatch below is
 too. -/
 
 /-- **The axiom kind's install obligation, at the branch witness.**
-*Reduces to*: `AxiomResidues2M`'s six fields, by
+*Reduces to*: `AxiomResidues2M`'s five fields, by
 `declAxiom2SMR_of_residues` — `DeclStep2Residues`' nine minus `fresh`,
-`baseExt` and `cvalAgree`. -/
+`baseExt`, `cvalAgree` and `closed`. -/
 def DeclAxiom2SMR (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {F : Nat} {env env₂ : Env} {cv : ConstantVal}
     (m : EnvS2UM V μ env),
     DeclAxiomR μ F env m.base.cval cv env₂ → DeclStep2M V μ env₂
 
-/-- **What is left of the axiom obligation once `baseExt` is
-supplied**: the fresh leaf's four laws and the two frozen transports,
-at the extension `declAxiomExtS` builds. -/
+/-- **What is left of the axiom obligation once `baseExt` and
+`closed` are supplied**: the fresh leaf's three remaining laws
+(`erase`, `params`, `ok2`) and the two frozen transports, at the
+extension `declAxiomExtS` builds. -/
 def AxiomResidues2SM (V : Type w) [SetTheory V] (μ : CheckMode) :
     Prop :=
   ∀ {env : Env} {cv : ConstantVal} {type' : Expr}
@@ -1526,9 +1527,9 @@ theorem no_proof_of_Empty_R2M_of_installs (V : Type w) [SetTheory V]
 
 /-- **The same, with the axiom obligation reduced.**  Three of the
 four premises are unchanged; the axiom one is now
-`AxiomResidues2SM` — six fields at a *supplied* extension, rather than
-an obligation nothing could meet.  Still conditional, and the other
-three are still not inhabited in this tree. -/
+`AxiomResidues2SM` — **five** fields at a *supplied* extension, rather
+than an obligation nothing could meet.  Still conditional, and the
+other three are still not inhabited in this tree. -/
 theorem no_proof_of_Empty_R2M_of_installsR (V : Type w) [SetTheory V]
     {μ : CheckMode} {F : Nat} (hval : DeclValue2SM V μ)
     (hax : AxiomResidues2SM V μ) (hbas : DeclBasis2SM V μ)

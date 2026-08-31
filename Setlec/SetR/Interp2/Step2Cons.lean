@@ -818,12 +818,42 @@ theorem axiomBaseExt2 {F : Nat} {cv : ConstantVal} {type' : Expr}
       ∀ n, n ≠ cv.name → m.base.cval n = mB.cval n :=
   declAxiomExtS stdAxiomKeyS ofReduceKeyS m.base h
 
+/-- **A leaf whose erasure is closed is closed.**  `liftN` never reads
+or writes an annotation slot, so lift-invariance of an annotated term
+is lift-invariance of its erasure (`AVExpr.liftN_eq_self`, seal 54's
+argument) — and `VExpr.Closed` is `bvarsBelow 0`, which weakens to
+every `k`.
+
+*Where the closedness comes from, at an axiom.*  The leaf's erasure is
+the collapse-lane valuation at the new name (the `erase` field), and
+`EnvS.cval_closed` holds of it at the **supplied** extension.  That
+field is true at the new name because `extendAxiomS` was given it —
+conjunct 1 of the branch's key (`StdAxiomKeyS` &c.,
+`Install/Axiom.lean`).  So the chain bottoms out in a theorem of this
+tree, not in an assumption: it is an inhabitation, not a
+relocation. -/
+theorem axiomLeaf_closed {A : (Name → Nat) → AVExpr}
+    {L : (Name → Nat) → VExpr} (hAerase : ∀ ψ, (A ψ).erase = L ψ)
+    (hcl : ∀ ψ, VExpr.Closed (L ψ)) (ψ : Name → Nat) (k : Nat) :
+    (A ψ).liftN 1 k = A ψ :=
+  AVExpr.liftN_eq_self (A ψ)
+    (VExpr.bvarsBelow.mono (Nat.zero_le k)
+      (by rw [hAerase ψ]; exact hcl ψ)) 1
+
 /-- **What an axiom install still owes, at one mode.**
-`DeclStep2Residues`' nine fields **minus three**: `fresh` comes from
-the front door's own `ConstantValR`, and `baseExt`/`cvalAgree` from
-`declAxiomExtS`.  What is left is the fresh leaf's four laws plus the
-two frozen transports — and, unlike in the bundle, `erase` can now be
-*stated*, because the extension it speaks about has a name. -/
+`DeclStep2Residues`' nine fields **minus four**: `fresh` comes from
+the front door's own `ConstantValR`, `baseExt`/`cvalAgree` from
+`declAxiomExtS`, and `closed` from `axiomLeaf_closed` above — the
+extension's own `cval_closed`, i.e. the branch key's first conjunct,
+read across the erasure.  What is left is the fresh leaf's three
+remaining laws plus the two frozen transports — and, unlike in the
+bundle, `erase` can now be *stated*, because the extension it speaks
+about has a name.  Five fields: the leaf's `erase`, `params`, `ok2`,
+and the transports `extend`, `newMember`.
+
+**`ok2` does not go the same way**, and the difference is not an
+oversight — see its own docstring below.  Closedness is a fact about
+the *erasure*, so it crosses; truthfulness is not. -/
 structure AxiomResidues2M (V : Type w) [SetTheory V] (μ : CheckMode)
     {env : Env} (m : EnvS2UM V μ env) (cvA : ConstantVal)
     (hbase : EnvS V ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩)
@@ -833,15 +863,30 @@ structure AxiomResidues2M (V : Type w) [SetTheory V] (μ : CheckMode)
   all only because `hbase` is named** — this is the field seal 52's
   one-way-door diagnosis was about. -/
   erase : ∀ ψ, (A ψ).erase = hbase.cval cvA.name ψ
-  /-- …is closed.  Unlike the value kinds' twin this one is *not*
-  discharged here: `valueLeaf_closed` runs on the front door's
-  annotated **value**, and an axiom has none, so there is no run whose
-  subject `denote2_closed` could speak about. -/
-  closed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ
-  /-- …reads only its own level parameters. -/
+  /-- …reads only its own level parameters.  **Also not supplied from
+  the key**, and for a third reason again.  Conjunct 2 is exactly this
+  law on the collapse lane, and `erase` carries it *one way* — it
+  gives `(A ψ₁).erase = (A ψ₂).erase`.  Concluding `A ψ₁ = A ψ₂` from
+  that needs `erase` to be injective, and it is not: the numerals it
+  forgets are where a level parameter would show up.  So this field
+  stops at erase-injectivity, which is the same wall
+  `Denote2Closed.lean`'s closing note names for `denote_params_ext`'s
+  twin. -/
   params : ∀ ψ₁ ψ₂ : Name → Nat,
     (∀ p ∈ cvA.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂
-  /-- …and is truthful. -/
+  /-- …and is truthful.  **Not supplied from the key, and the reason
+  is content and not effort.**  What the branch's key states is
+  `AnnotOkV` (conjunct 3) — on the *collapse* lane, about the leaf's
+  erasure, which `hbase.annot_okV` re-states here for free.  It does
+  not give this field two ways over: the shared clauses quantify over
+  `interp2 ρ A` where `AnnotOkV`'s quantify over `interp ρ A.erase`,
+  and those differ (`interp2_ne_interp_erase`, `Keys2Probe.lean`);
+  and, before that even matters, `AnnotOk2`'s `.lam` and `.app`
+  clauses carry **fibre packages** (`∃ B, … ∧ (v = 0 → …)`,
+  `∃ v A B, ⟦f⟧ ∈ˢ piR v A B ∧ …`) with no counterpart in `AnnotOkV`
+  at all, so there is nothing to transport them from.
+  *Contrast `closed`, which crosses because it is a fact about the
+  erasure.  Same key, adjacent fields, opposite answers.* -/
   ok2 : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ)
   /-- `denote2` is stable across the install.  **Frozen on Θ.** -/
   extend : ∀ (ν : CheckMode) (ψ : Name → Nat),
@@ -878,7 +923,8 @@ theorem declStep2M_of_axiomResidues (m : EnvS2UM V μ env) {F : Nat}
         ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩ := by
     intro mB' hag'
     obtain ⟨A, hA⟩ := hres type' mB' hag'
-    exact declStep2M_of_axiom m hfresh mB' hag' hA.erase hA.closed
+    exact declStep2M_of_axiom m hfresh mB' hag' hA.erase
+      (axiomLeaf_closed hA.erase (mB'.cval_closed _))
       hA.params hA.ok2 hA.extend hA.newMember
   rcases hbranch with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ |
     ⟨-, -, -, -, -, -, -, rfl⟩
