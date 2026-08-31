@@ -18353,3 +18353,58 @@ errors. **The template needs `mkdir -p` first:**
 
 *A template line added to stop a trap re-firing had a bug that
 re-fired it once more before being caught.*
+
+## The lane's final table — with a correction to seal 65
+
+**Checked before stating, and it matters:** seal 65 reported *"both
+`params` consumers close."* They do — but `valueParams_of_iota` and
+`axiomParams_of_iota` both take **`IotaLevelParamsW` as a hypothesis**
+(`LevelLocal.lean:805`), and **seal 66 proved that hypothesis false.**
+
+**So both are vacuously true today.** Wall 2 is *not* closed in fact;
+it is closed **conditionally on a premise the checker currently
+violates.** Two seals apart, the second refuted the first's supplier,
+and reading them together is the only way to see it.
+
+*Rule: when a later seal refutes a premise, re-read every earlier seal
+that consumed it. A discharge is only as inhabited as its youngest
+hypothesis.*
+
+**This is not a setback — it prices the proposed patch exactly.** The
+one-line arity guard in `iotaRec` would make `IotaLevelParamsW` **true**,
+converting two vacuous theorems into real ones. *The patch's value is
+now measured rather than argued: it is the difference between wall 2
+closed and wall 2 vacuous.*
+
+### The table
+
+| item | state |
+|---|---|
+| **Wall 1 — `.ok2`, `.erase`** | **CLOSED** (seal 63), inhabitation not relocation |
+| **Wall 2 — `params` ×2** | **conditionally closed on a currently-false premise**; real the moment the guard lands |
+| `iotaRec` arity guard | **awaiting the user's grant** — `Kernel/*` is theirs |
+| the fifteen (`CheckStep2E`) | junction-paced by ruling (ii) |
+| `Denote2EnvExtend` + 3 local stand-ins | Θ-frozen; verified **not yet** on this branch |
+| `Denote2InstLevels` | numerals served; **existence refuted** as transportable (`not_isEquivSubstMono`) |
+| `AxiomResidues2SM` | not suppliable as stated — seal 52's one-way door, third bite |
+
+### Standing results, unmoved throughout
+
+**v1's fourteen are byte-identical and hypothesis-free**, on exactly
+`propext`, `Classical.choice`, `Quot.sound` — verified at every seal of
+this arc. The battery has held **90/92** with e2e 72/72 and the
+no-model sweep unchanged across all sixty-six seals. **No `sorry`, no
+new axiom, at any point.**
+
+### What this arc actually produced
+
+Six statement generations, of which **two were refuted and four
+superseded** — *every one caught by a consumer attempting a discharge,
+never by inspection.* Roughly fifteen of the junction's own rulings
+were corrected by the workers executing them. **Ninety-three tombstones
+stand**, each recording why a repair was necessary rather than merely
+adopted.
+
+*The campaign's most reliable instrument was never a proof technique.
+It was the refusal to let a statement stand un-discharged, and the
+willingness to report the discharge's failure as the result.*
