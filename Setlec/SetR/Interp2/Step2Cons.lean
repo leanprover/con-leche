@@ -933,6 +933,113 @@ theorem declStep2M_of_axiomResidues (m : EnvS2UM V μ env) {F : Nat}
   · exact hgo mB hag
   · exact ⟨m⟩
 
+/-! ### `.ok2`, supplied — and the residue is three
+
+Seal 61 diagnosed `.ok2` as **missing content, not a broken bridge**:
+`AnnotOkV`'s clauses carry no fibre packages, so there is nothing to
+transport them from.  Seal 62 then measured the inventory at **five**
+named constants, which is what makes the alternative — establishing
+the content where the models are built — finite.
+
+That is done: each axiom key now carries an `AnnotLeaf2` conjunct
+(`Install/Axiom.lean`), and `declAxiomLeafExtS` assembles the four
+branches.  Below, the two fields it settles (`erase` and `ok2`) become
+*inputs* to the residue supplier, and `AxiomResidues3M` is what is
+left.
+
+**The `erase` field comes along for free, and it had to.**  It is
+stated against `hbase.cval cvA.name`, and `declStep2M_of_axiomResidues`
+quantifies `hb` over *every* extension agreeing off the name — at which
+`hb.cval cvA.name` is unconstrained, so no annotated leaf can be built
+for it.  Naming the extension (`declAxiomLeafExtS`'s own) is what makes
+both fields statable, exactly as seal 52's one-way-door diagnosis said
+about `erase` alone. -/
+
+/-- **`AcvalLink` from the invariant** — the two `EnvS2` laws an
+annotated leaf key reads, verbatim as fields. -/
+theorem EnvS2UM.acvalLink (m : EnvS2UM V μ env) :
+    Setlec.SetR.AcvalLink V m.base.cval m.acval :=
+  ⟨m.acval_erase, m.acval_ok2⟩
+
+/-- **What an axiom install still owes, at one mode, once the leaf is
+supplied.**  `AxiomResidues2M`'s five fields **minus two**: `erase` and
+`ok2` come from the branch key (see the section note).  What is left is
+the leaf's level-parameter law and the two Θ-frozen transports — and
+none of the three mentions the extension, so unlike `AxiomResidues2M`
+this structure does not have to be indexed by one. -/
+structure AxiomResidues3M (V : Type w) [SetTheory V] (μ : CheckMode)
+    {env : Env} (m : EnvS2UM V μ env) (cvA : ConstantVal)
+    (A : (Name → Nat) → AVExpr) where
+  /-- the fresh leaf reads only its own level parameters.  **Still
+  ours**: conjunct 2 of the key is this law on the collapse lane and
+  `erase` carries it one way only — the converse needs `erase`
+  injective, and the numerals it forgets are exactly where a level
+  parameter shows up (seal 61's third answer, `denote_params_ext`'s
+  twin). -/
+  params : ∀ ψ₁ ψ₂ : Name → Nat,
+    (∀ p ∈ cvA.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂
+  /-- `denote2` is stable across the install.  **Frozen on Θ.** -/
+  extend : ∀ (ν : CheckMode) (ψ : Name → Nat),
+    Denote2EnvExtend ν env
+      ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩
+      (acvalWith m.acval cvA.name A) ψ
+  /-- `MemberBlock2` at the new axiom. -/
+  newMember : ∀ (ν : CheckMode) (ψ : Name → Nat),
+    MemberBlock2 V ν ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩
+      (acvalWith m.acval cvA.name A) ψ cvA
+
+/-- The five-field form from the three-field one, at a leaf whose two
+established laws are handed in. -/
+theorem AxiomResidues2M.of_three {cvA : ConstantVal}
+    {hbase : EnvS V ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩}
+    {A : (Name → Nat) → AVExpr} {m : EnvS2UM V μ env}
+    (herase : ∀ ψ : Name → Nat, (A ψ).erase = hbase.cval cvA.name ψ)
+    (hok2 : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ))
+    (h3 : AxiomResidues3M V μ m cvA A) :
+    AxiomResidues2M V μ m cvA hbase A :=
+  ⟨herase, h3.params, hok2, h3.extend, h3.newMember⟩
+
+/-- **The axiom kind's reduction at one mode, on a residue of three.**
+`declStep2M_of_axiomResidues` with the leaf no longer asked for: it is
+handed to the supplier together with its `erase` and `ok2` laws, both
+from `declAxiomLeafExtS` at the extension that theorem builds.
+
+*Not a relocation.*  The leaf's three sources are theorems of this
+tree — `stdAxiomKeyS` (`StdAxiomKey.lean`), `trustCompilerKeyS` and
+`ofReduceKeyS` (`Install/Axiom.lean`) — and `AcvalLink` is `EnvS2UM`'s
+own `acval_erase`/`acval_ok2`.  The tolerated skip needs no key at all:
+its leaf is `m.acval` read at the skipped name. -/
+theorem declStep2M_of_axiomResidues3 (m : EnvS2UM V μ env) {F : Nat}
+    {cv : ConstantVal} {env₂ : Env}
+    (h : DeclAxiomR μ F env m.base.cval cv env₂)
+    (hres : ∀ (type' : Expr) (A : (Name → Nat) → AVExpr),
+      (∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ)) →
+      AxiomResidues3M V μ m ⟨cv.name, cv.levelParams, type'⟩ A) :
+    DeclStep2M V μ env₂ := by
+  obtain ⟨mB, A, hag, hAe, hAo⟩ :=
+    declAxiomLeafExtS stdAxiomKeyS ofReduceKeyS m.base m.acvalLink h
+  obtain ⟨type', hcv, hbranch⟩ := h
+  have hfresh : env.find? cv.name = none :=
+    Option.isNone_iff_eq_none.mp hcv.1
+  have hgo : ∀ mB' : EnvS V ⟨ConstantInfo.axiomInfo
+      ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩,
+      (∀ ψ : Name → Nat, (A ψ).erase = mB'.cval cv.name ψ) →
+      (∀ n, n ≠ cv.name → m.base.cval n = mB'.cval n) →
+      DeclStep2M V μ ⟨ConstantInfo.axiomInfo
+        ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩ := by
+    intro mB' hAe' hag'
+    have hA := AxiomResidues2M.of_three (hbase := mB') hAe' hAo
+      (hres type' A hAo)
+    exact declStep2M_of_axiom m hfresh mB' hag' hA.erase
+      (axiomLeaf_closed hA.erase (mB'.cval_closed _))
+      hA.params hA.ok2 hA.extend hA.newMember
+  rcases hbranch with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ |
+    ⟨-, -, -, -, -, -, -, rfl⟩
+  · exact hgo mB hAe hag
+  · exact hgo mB hAe hag
+  · exact hgo mB hAe hag
+  · exact ⟨m⟩
+
 /-! ### The six kinds' obligations at one mode
 
 The four obligations, transposed.  Each is its all-mode twin with

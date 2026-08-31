@@ -96,7 +96,8 @@ open Setlec.SetR.Interp2 (EnvS2UM DeclValue2SM DeclAxiom2SM
   DeclBasis2SM DeclInd2SM ValueResidues2M
   declStep2M_of_valueResidues)
 open Setlec.SetR.Interp2 (DeclStep2M AxiomResidues2M
-  declStep2M_of_axiomResidues)
+  declStep2M_of_axiomResidues AxiomResidues3M AnnotOk2
+  declStep2M_of_axiomResidues3)
 
 universe w
 variable {V : Type w} [SetTheory V]
@@ -326,6 +327,32 @@ theorem declAxiom2SMR_of_residues {μ : CheckMode}
     (hres : AxiomResidues2SM V μ) : DeclAxiom2SMR V μ :=
   fun m h => declStep2M_of_axiomResidues m h
     (fun _ hb hag => hres m hb hag)
+
+/-- **What is left of the axiom obligation once the *leaf* is
+supplied.**  `AxiomResidues2SM` minus the two fields the branch keys
+now answer for — `erase` and `ok2` — which arrive as the leaf's own
+laws (`declStep2M_of_axiomResidues3`, `Interp2/Step2Cons.lean`).  The
+extension has vanished from the statement, and that is the point: the
+five-field form quantified `hb` over *every* agreeing extension, at
+which no annotated leaf exists at all.
+
+Three fields where the ledger said five: the leaf's level-parameter
+law (the erase-injectivity wall, seal 61's third answer) and the two
+Θ-frozen transports. -/
+def AxiomResidues3SM (V : Type w) [SetTheory V] (μ : CheckMode) :
+    Prop :=
+  ∀ {env : Env} {cv : ConstantVal} {type' : Expr}
+    (m : EnvS2UM V μ env) (A : (Name → Nat) → AVExpr),
+    (∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ)) →
+    AxiomResidues3M V μ m ⟨cv.name, cv.levelParams, type'⟩ A
+
+/-- **The axiom obligation, reduced again.**  Both halves of the
+install's collapse-lane side and the annotated leaf are now theorems
+of this tree; what the obligation still asks for is the three. -/
+theorem declAxiom2SMR_of_residues3 {μ : CheckMode}
+    (hres : AxiomResidues3SM V μ) : DeclAxiom2SMR V μ :=
+  fun m h => declStep2M_of_axiomResidues3 m h
+    (fun _ A hA => hres m A hA)
 
 /-- **The branch form is a weakening of the tombstoned one.**  The
 generic obligation, if anything could ever supply it, supplies the
