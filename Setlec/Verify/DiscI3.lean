@@ -974,7 +974,8 @@ private theorem iotaRec_unfold (env : Env) (d : Nat) (e : Expr) :
     | .const c us =>
       match env.find? c with
       | some (.recInfo cv mI rP rules) =>
-        if e.getAppArgs.length = mI + 1 then
+        if e.getAppArgs.length = mI + 1 ∧
+            us.length = cv.levelParams.length then
           (fueledFns mode env).whnf d (e.getAppArgs.getD mI (.bvar 0)) >>=
             fun major₀ =>
           litMajorToCtor (fueledFns mode env) env d major₀ >>= fun major₁ =>

@@ -188,7 +188,7 @@ theorem whnfPres_leaves {env : Env} (henv : EnvWF env) :
             exact List.mem_append.2 (.inr h1)
         · -- iota
           obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj,
-            usj, cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj,
+            usj, cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, -, hmaj,
             hlit, hsub, hmfn, hfj, hrule, hml, har1, har2, -, hlev,
             hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ := iotaRec_inv hio
           have hsubM : ∀ l ∈ major.fvarLeaves,

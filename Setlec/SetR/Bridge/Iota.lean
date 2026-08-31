@@ -232,7 +232,7 @@ theorem iota_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     IotaStepR (mode := mode) m φ fuel := by
   intro d Δ e e'' v h hws hb hLb hC hv
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
-    cnF, r, cbinders, cbody, residual, cr, usr, hfn, hfrec, hlenA, hwmaj,
+    cnF, r, cbinders, cbody, residual, cr, usr, hfn, hfrec, hlenA, -, hwmaj,
     hlitmaj, hmajc, hfnmaj, hfcj, hrfind, hlenM, hstripR, hstripC, hfire,
     hlev, hdefP, hcertR, hcertC, hstripEq, hpres, hcbody, hdefI, rfl⟩ :=
     iotaRec_inv h

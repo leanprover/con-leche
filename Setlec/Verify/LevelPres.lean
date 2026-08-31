@@ -622,7 +622,7 @@ theorem iotaRec_lvlParams_of_arity {env : Env} (henv : EnvWF env)
     t.allLevelParamsDefined ps = true := by
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
     cvj, cnP, cnF, r, cbinders, cbody, residual, cr, usr, hfn, hfc,
-    hlen, hmaj, hlit, hsub, hmfn, hfj, hrule, hml, har1, har2, -,
+    hlen, hlus, hmaj, hlit, hsub, hmfn, hfj, hrule, hml, har1, har2, -,
     hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ := iotaRec_inv h
   have hargs := allLevelParamsDefined_getAppArgs hp
   -- the major premise, through the three conversion steps

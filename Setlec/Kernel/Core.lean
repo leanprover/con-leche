@@ -1271,7 +1271,17 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     match env.find? c with
     | some (.recInfo cv mI rP rules) =>
       let args := e.getAppArgs
-      if args.length = mI + 1 then
+      -- checker change #9: the recursor's level arity, guarded as
+      -- `unfoldDefinition` guards it (`Core.lean:174`).  The official
+      -- kernel tests this immediately before instantiating the rule's
+      -- RHS (`src/kernel/inductive.h:105`, present since v4.0.0);
+      -- lean4lean does the same (`Inductive/Reduce.lean:98`) and
+      -- nanoda's `subst_expr_levels` asserts it.  Without it
+      -- `rl.rhs.instantiateLevelParams cv.levelParams us` can leak a
+      -- level parameter the subject never had -- refuted concretely
+      -- at `Interp2/IotaArity.lean`.  Ungated: the reference has it
+      -- unconditionally, so a mode gate would break parity.
+      if args.length = mI + 1 ∧ us.length = cv.levelParams.length then
         let major₀ ← r.whnf depth (args.getD mI (.bvar 0))
         let major₁ ← litMajorToCtor r env depth major₀
         let major ← majorToCtor mode r env depth c rules major₁

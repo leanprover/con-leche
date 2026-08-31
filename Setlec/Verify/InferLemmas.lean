@@ -827,6 +827,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       e.getAppFn = .const c us ∧
       env.find? c = some (.recInfo cv mI rP rules) ∧
       e.getAppArgs.length = mI + 1 ∧
+      us.length = cv.levelParams.length ∧
       whnf mode env fuel d (e.getAppArgs.getD mI (.bvar 0)) =
         .ok major₀ ∧
       litMajorToCtorP mode env fuel d major₀ = .ok major₁ ∧
@@ -889,7 +890,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | some (.recInfo cv mI rP rules) => ?_
   intro h
   dsimp only at h
-  by_cases hlen : e.getAppArgs.length = mI + 1
+  by_cases hlen : e.getAppArgs.length = mI + 1 ∧
+      us.length = cv.levelParams.length
   case neg => rw [if_neg hlen] at h; exact nomatch h
   rw [if_pos hlen] at h
   try simp only [Bind.bind, Except.bind] at h
@@ -1043,7 +1045,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
     Option.some.injEq] at h
   exact ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
-    cnF, r, cbinders, cbody, residual, cr, usr, rfl, hfc, hlen, hmaj, hlit,
+    cnF, r, cbinders, cbody, residual, cr, usr, rfl, hfc, hlen.1, hlen.2,
+    hmaj, hlit,
     hsub, hmfn, hfj, hrule, hml, har1, har2, hplain0, hlev, hpeq, hcerts,
     hmcerts, hstrip, hres, hrfn, hieq, h.symm⟩
 
@@ -2963,7 +2966,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           exact ihCore hbeta (WScoped.instantiate1_gen hw.2 0 hwf'.2)
         · -- iota step
           obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
-            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hlit,
+            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, -, hmaj, hlit,
             hsub, hmfn, hfj,
             hrule,
             hml, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=

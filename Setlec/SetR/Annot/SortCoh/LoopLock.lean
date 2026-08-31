@@ -1957,12 +1957,12 @@ theorem zipIotaCase_of {φ : Name → Nat}
   -- invert the fires for lengths and majors
   obtain ⟨c₁, us₁, cv₁, mI₁, rP₁, rules₁, major₀₁, major₁₁, major₁,
     cj₁, usj₁, cvj₁, cnP₁, cnF₁, r₁, -, -, -, -, -, hfn₁, hfc₁,
-    hlenp₁, hmaj₁, -⟩ := iotaRec_inv (show Setlec.iotaRecP μ env g₁ d
+    hlenp₁, -, hmaj₁, -⟩ := iotaRec_inv (show Setlec.iotaRecP μ env g₁ d
       (Setlec.Expr.mkAppN (.const n us) pre₁) = .ok (some e₁'')
       from hio₁)
   obtain ⟨c₂, us₂, cv₂, mI₂, rP₂, rules₂, major₀₂, major₁₂, major₂,
     cj₂, usj₂, cvj₂, cnP₂, cnF₂, r₂, -, -, -, -, -, hfn₂, hfc₂,
-    hlenp₂, hmaj₂, -⟩ := iotaRec_inv (show Setlec.iotaRecP μ env g₂ d
+    hlenp₂, -, hmaj₂, -⟩ := iotaRec_inv (show Setlec.iotaRecP μ env g₂ d
       (Setlec.Expr.mkAppN (.const n us') pre₂) = .ok (some e₂'')
       from hio₂)
   -- identify the recursor
