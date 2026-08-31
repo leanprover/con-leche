@@ -18140,3 +18140,57 @@ kept beside the new route.
 
 `.params` untouched — still the erase-injectivity wall, and now the
 lane's **only** remaining item of its own.
+
+### Seal 64 — wall 2 stated: level-locality, audited against three consumers
+
+`Interp2/LevelLocal.lean`, compiling. **One statement family for three
+consumers**, because all three fail at the *same clause*: `denote2`'s
+`.forallE` and `.lam` carry `sortOfE`/`lamSortE` numerals, and those
+numerals are **precisely what `erase` forgets**.
+
+`SortOfELevelLocal`, `LamSortELevelLocal`, and the `Denote2LevelLocal`
+they should produce by induction: *the assignment is read only at
+parameters the subject declares.*
+
+#### The audit's positive half — one statement does serve all three
+
+* **`AxiomResidues2M.params`** (seal 61) and **`ValueResidues2M.params`**
+  (seal 54, `denote_params_ext`'s twin): two assignments agreeing on a
+  constant's parameters compute the **same numerals**, so the annotated
+  leaves are equal — *not merely equal after erasure*.
+* **`Denote2InstLevels`**: `Level.substFn φ ks us` and `φ`-after-
+  `instantiateLevelParams` agree on every parameter the subject has.
+
+**And the repair is not the shape the wall presented as.** The wall
+looked like *`erase` is not injective*; the statement is about
+`sortOfE`/`lamSortE` and does not mention `erase` at all.
+
+*Rule: a wall named by what blocked it is not always named by what
+fixes it. `erase`-injectivity was a true description of the
+obstruction and a false description of the repair.*
+
+#### The audit's negative half, recorded so the seal is not over-read
+
+**This does not subsume `Denote2InstLevels`.** That residue also needs
+the run to **succeed** on the instantiated term, which level-locality
+does not give: seals 25 and 28 established that `Level.isEquiv`'s fuel
+makes success non-transportable, and **`not_isEquivSubstMono` is the
+standing refutation**. Level-locality serves consumer 3's **numerals**,
+not its **existence**.
+
+#### The three sweeps
+
+* **Smallest fuel** — all three conclusions are **equations between two
+  runs**, neither side asserted to succeed, so the rule that refuted
+  four statements here has nothing to bite on. Per seal 11: the absence
+  of one hazard, not a clean bill of health.
+* **Vacuity** — the check that matters, since all three are
+  implications. `levelLocal_premises_inhabited` exhibits the premise
+  set met, on `[propext]` alone.
+* **Tombstones** — nothing touched; `not_isEquivSubstMono` verified
+  standing, and the audit records that it is *why* consumer 3 is only
+  partly served.
+
+**Status.** Wall 1 closed at seal 63. Wall 2 is now **stated and
+audited**; its discharge is the last item the lane owns. When it lands,
+the lane is junction-paced in fact.
