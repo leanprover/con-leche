@@ -668,7 +668,8 @@ theorem memberBlock2_of_constantValR (m : EnvS2UM V μ env) {env₀ : Env}
   obtain ⟨stype, -, hrun, -⟩ := hcv.2.2.2.2.2.2.2.2.2.1
   exact memberBlock2_of_checkStep m h hex hc
     (hE.2.2.1
-      (constsBound_of_constsResolve _ hcv.2.2.2.2.2.2.2.2.1) hrun)
+      (constsBound_of_constsResolve _ hcv.2.2.2.2.2.2.2.2.1)
+      hrun).1
     hta
 
 /-- **The `env₀ = env` reading, for contrast.**  With no environment

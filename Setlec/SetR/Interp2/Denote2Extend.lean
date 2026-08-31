@@ -282,7 +282,7 @@ theorem sortAgree_of {μ : CheckMode} {env₀ env : Env} {φ : Name → Nat}
       · rfl
       · rw [hR.1 hc hi'] at hi
         exact nomatch hi
-    · rw [hE.2.2.1 hc hi]
+    · rw [(hE.2.2.1 hc hi).1]
       simp only [Except.toOption]
       have hct : ConstsBound env₀ t := hI hc hi
       rcases hw : whnf μ env₀ f d t with err | w
@@ -299,7 +299,7 @@ theorem sortAgree_of {μ : CheckMode} {env₀ env : Env} {φ : Name → Nat}
     · rfl
     · rw [hR.1 hc hi'] at hi
       exact nomatch hi
-  · rw [hE.2.2.1 hc hi]
+  · rw [(hE.2.2.1 hc hi).1]
     simp only [Except.toOption]
     exact hsort (hI hc hi)
 

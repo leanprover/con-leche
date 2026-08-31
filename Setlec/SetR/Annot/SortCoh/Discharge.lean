@@ -1287,7 +1287,25 @@ def FindPreserved (env₀ env : Env) : Prop :=
     env₀.find? n = some ci → env.find? n = some ci
 
 /-- **(E)**: successful runs on prefix-bound subjects are reproduced
-verbatim at the extended env, knot-wide (the `CoreSub` field set). -/
+verbatim at the extended env, knot-wide (the `CoreSub` field set).
+The `inferTypeCore` conjunct also concludes `ConstsBound env₀` of
+the OUTPUT type (junction amendment for the consumer lane's
+`sortOfE` chain — infer's output feeds whnf's `ConstsBound`
+premise; the discharge's internal motive already carries
+output-boundness, this exposes it).
+
+Junction amendments two and three (consumer-lane exposure
+requests): (i) the BACKWARD direction — on prefix-bound subjects
+the extension's runs REPRODUCE at env₀ (conservativity: the run
+only consults `ConstsBound env₀`-reachable names, whose entries
+`FindPreserved` pins and whose stored material is env₀-closed), the
+transport the uniqueness ruling's denote2-premises need; (ii) the
+LITERAL-GUARD agreement conjuncts — `ConstsBound`'s catch-all
+grades literals while the literal reduction clauses gate on the
+support guards, and an extension may FLIP a guard (their
+`litGuardsAgree_probe` refutes the diagonal-only repair), so (E)
+demands guard agreement outright — `find?`-monotone, cheap at
+install. -/
 def EnvExtendStable (μ : CheckMode) (env₀ env : Env) : Prop :=
   (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
     whnfCore μ env₀ f d e = .ok x → whnfCore μ env f d e = .ok x) ∧
@@ -1295,14 +1313,32 @@ def EnvExtendStable (μ : CheckMode) (env₀ env : Env) : Prop :=
     whnf μ env₀ f d e = .ok x → whnf μ env f d e = .ok x) ∧
   (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
     inferTypeCore μ env₀ f d e = .ok x →
-    inferTypeCore μ env f d e = .ok x) ∧
+    inferTypeCore μ env f d e = .ok x ∧ ConstsBound env₀ x) ∧
   (∀ {f d : Nat} {a b : Expr} {v : Bool},
     ConstsBound env₀ a → ConstsBound env₀ b →
     isDefEqCore μ env₀ f d a b = .ok v →
     isDefEqCore μ env f d a b = .ok v) ∧
   (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
     Setlec.annotateCore μ env₀ f d e = .ok x →
-    Setlec.annotateCore μ env f d e = .ok x)
+    Setlec.annotateCore μ env f d e = .ok x) ∧
+  (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
+    whnfCore μ env f d e = .ok x → whnfCore μ env₀ f d e = .ok x) ∧
+  (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
+    whnf μ env f d e = .ok x → whnf μ env₀ f d e = .ok x) ∧
+  (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
+    inferTypeCore μ env f d e = .ok x →
+    inferTypeCore μ env₀ f d e = .ok x) ∧
+  (∀ {f d : Nat} {a b : Expr} {v : Bool},
+    ConstsBound env₀ a → ConstsBound env₀ b →
+    isDefEqCore μ env f d a b = .ok v →
+    isDefEqCore μ env₀ f d a b = .ok v) ∧
+  (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
+    Setlec.annotateCore μ env f d e = .ok x →
+    Setlec.annotateCore μ env₀ f d e = .ok x) ∧
+  Setlec.natLitSupported env₀ = Setlec.natLitSupported env ∧
+  Setlec.strLitSupported env₀ = Setlec.strLitSupported env ∧
+  (∀ c : Name,
+    Setlec.natOpGuard env₀ c = Setlec.natOpGuard env c)
 
 /-- Pointwise eval-equal substitutions induce the same assignment
 (the level side of the instantiation zip). -/
