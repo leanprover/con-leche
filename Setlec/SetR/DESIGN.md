@@ -17645,3 +17645,74 @@ times running.*
 everything else on the table — the fifteen, `Denote2EnvExtend`, the
 params-ext twin — either waits on Θ or shares a discharge with
 something that does.
+
+### Seal 57 — the cleanup seal, and a correction to seal 42
+
+Two retirements landed, each its own revertible commit. Build **348
+jobs** warning-free, `lake test` clean, battery **90/92** with the
+no-model sweep unchanged, **v1's fourteen byte-identical** and all on
+exactly the three standard axioms.
+
+**The ledger sweep found five flagged items, not the two I named.**
+Items 3–5 — `InferOutputBound`, `EnvExtendReflect`, `LitGuardsAgree` —
+are **not retired, because their trigger has not fired**, and that was
+**verified in-tree rather than assumed**: `EnvExtendStable`
+(`Annot/SortCoh/Discharge.lean:1291`) still carries exactly its five
+original forward conjuncts — no output-boundness, no backward block,
+no guard agreement. **The Θ amendments have not reached this branch**,
+so all three locals remain load-bearing.
+
+#### A correction to seal 42: "projected nowhere" was false
+
+`EnvS2.cval_annot` **is** projected — once, by
+`bodies_of_envS2UInImage`, the forward half of `envS2UInImage_iff`.
+**Seal 41's phrasing was exact** — *"no consumer anywhere in the
+**Step2** development"* — and **seal 42 generalised it one step too
+far**, from a scoped measurement to an unscoped claim.
+
+*Rule: a measurement carries its scope. Dropping the scope when
+quoting it forward turns a fact into a slogan, and this is the second
+time this arc that a short census became a general claim.*
+
+**It was retired anyway, and the argument is not a workaround.** Its
+one consumer is the *enumeration of its own residue*. `EnvS2UInImage`
+asks "does this `EnvS2U` come from an `EnvS2`?"; `envS2UInImage_iff`
+answers "at what cost". The `CvalAnnot` conjunct was in that answer
+**because the field demanded it** — so with the field gone the
+conjunct is not *discharged*, it is **no longer asked**, and the
+residue is now exactly `Denote2Bodies`. That is the verdict seal 46
+reached independently.
+
+**Ruling on the two judgement calls the worker declined to settle
+alone — both as it judged them.**
+
+1. **Restating the `envS2UInImage` family is a theorem following its
+   subject, not a broken consumer.** The "consumer is the finding"
+   rule protects a consumer that *needs* the deleted thing for its own
+   content. This one's content **is** the cost of the field, and the
+   cost changed.
+2. **The probe witnesses' weakening is acceptable, and nothing is
+   lost.** The decisive point is that the `CvalAnnot` content survives
+   as standalone lemmas — `probeEnvS_cvalAnnot` and its three
+   siblings, kept — including `piProbeEnvS_cvalAnnot`'s λ-shape
+   inversion, which is content about the *probe*, not about the field.
+   *The residue got smaller; the evidence did not.*
+
+#### The scope correction inside item 2
+
+`Claims2U`'s degenerate copies retired — **but not the file's
+uniqueness-form delta exit** (`whnfStep2_delta_U`,
+`whnfStep2_delta_thm_U`, `AcvalDefnInstU`, `acvalDefnInstU_noParams`).
+Those are **not degenerate**: the live lane's counterparts sit at an
+`EnvS2` and *produce* an annotation, while these sit at an `EnvS2U`
+and *identify* a given one. **Retiring them would have been a real
+loss**, and the seal-46 ruling did not distinguish them.
+
+The one live consumer did not break: `Keys2Cond.lean` now names the
+`…2E` family directly **with no proof term changed** — the
+substitution is definitional, which is exactly what the retired
+bridges asserted.
+
+**Tombstones: 93 declarations swept, none deleted, edited or
+orphaned**, every one compiling and none outside the standard three
+axioms; the campaign's 39 named ones printed individually.
