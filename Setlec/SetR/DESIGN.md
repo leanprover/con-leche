@@ -17716,3 +17716,58 @@ bridges asserted.
 **Tombstones: 93 declarations swept, none deleted, edited or
 orphaned**, every one compiling and none outside the standard three
 axioms; the campaign's 39 named ones printed individually.
+
+### Seal 58 — the `baseExt` route, measured before briefing
+
+Counted before writing a brief, on the standing observation that this
+lane's site counts have been short three times running. **Both
+measurements changed the picture, in opposite directions.**
+
+**Measurement 1 — the axiom kind has four branches, not one.**
+`DeclAxiomR` (`SetR/Decl.lean:301`) splits into `stdAxiomOk`,
+`trustCompilerName`, `ofReduceNat`/`ofReduceBool`, and a **tolerated**
+branch. Seal 56 spoke of *the* axiom branch and *the* leaf as though
+there were one of each.
+
+**Measurement 2 — three distinct leaf sources, and one of them is
+already a theorem.** At `Install/Axiom.lean:289/293/295` the leaves
+come from `hstd : StdAxiomKeyS` (hypothesis),
+**`trustCompilerKeyS` (a theorem, proved in-tree at `:193`)**, and
+`hofr : OfReduceKeyS` (hypothesis). Seal 34's survey had named all
+three; the seal-52 brief named one, and seal 56 inherited that.
+
+**But the two measurements together make the route *smaller*, not
+larger — and this is the part neither my estimate nor my worry had.**
+All three extending branches funnel through **one** shared extension
+point: `extendAxiomS m (Vf := Vf) …` at `:285`. They differ only in
+*where `Vf` comes from*, and each obtains it **before** calling it. So
+the work is:
+
+* **one** strengthening, at `extendAxiomS` — exactly the shape
+  `extendValueS` took at seal 52 — plus **three call-site
+  threadings**, not three separate strengthenings;
+* and the **tolerated branch needs nothing at all**: `env₂ = env`, so
+  the extension *is* the prefix and `baseExt` is `m` itself.
+
+**Verdict: the route is confirmed, it does not reduce to the junction,
+and it is one strengthening plus three threadings.** No Θ dependency;
+no share with the fifteen.
+
+*Rule: measure before briefing, and expect the measurement to move the
+estimate in **either** direction. Seal 56 under-counted the structure
+and I then over-estimated the work from that under-count; the count
+corrected both. A wrong estimate is not reliably an under-estimate.*
+
+#### The lane's remaining table
+
+| item | status |
+|---|---|
+| axiom-kind `baseExt` | **this lane's own**, route measured above |
+| the fifteen (`CheckStep2E`) | junction-paced by design (ruling (ii)) |
+| `Denote2EnvExtend` | frozen on Θ; amendments verified **not yet on this branch** |
+| `InferOutputBound`, `EnvExtendReflect`, `LitGuardsAgree` | retire when the Θ prefix lands |
+| params-ext twin | stopped with named route, shares its clause with `Denote2InstLevels` |
+
+**So the lane is not closed-pending-junction: one item is still ours.**
+Everything else waits on Θ or shares a discharge with something that
+does.
