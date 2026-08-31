@@ -17605,3 +17605,43 @@ losing results, and where they conflict the rule wins.
 that moves the hypothesis and the conclusion together is not a
 strengthening — it is a different theorem, and replacing the original
 with it is a deletion wearing a diff.*
+
+### Seal 56 — the axiom-kind `baseExt` gap has a non-junction route
+
+Assessed on the instruction to chase it **only** if a route exists that
+does not reduce to the junction. **One does**, so the lane is *not* yet
+closed-pending-junction: one item on the table is still this lane's own
+work.
+
+**The gap** (seal 52): `declAxiomS` concludes `Nonempty (EnvS V env₂)`
+— the one-way door — and its note said the leaf is picked "through
+`StdAxiomKeyS`, not canonically", so the value kinds' strengthening was
+taken not to reach it.
+
+**But "not canonically" is not "not nameable".** `StdAxiomKeyS` hands
+`declAxiomS` a leaf `Vf` through an existential; `declAxiomS` obtains
+it, uses it, and then **discards it by concluding `Nonempty`.** Nothing
+stops it *naming* the leaf it already chose. That is precisely the
+move seal 52 made for the value kinds — `extendValueS` and the three
+kind lemmas were strengthened to expose the extension **plus its
+agreement**, while `declStepS` kept its signature.
+
+**So the route is the same strengthening, one kind over**, in
+`Install/Axiom.lean` — this lane's own surface, no Θ dependency, no
+share with the fifteen. `acval_erase` needs an equation against a
+*named* valuation, and an exposed `Vf` is one.
+
+**Not built, and the limits of the assessment are stated.** I checked
+the *shape* — `declAxiomS`'s conclusion and `extendValueS`'s
+strengthened form — not the proof. Two things could still bite: the
+`OfReduceKeyS` branch may pick its leaf differently from the
+`StdAxiomKeyS` branch, and seal 34's survey found **three** axiom-kind
+keys (`StdAxiomKeyS`, `OfReduceKeyS`, `trustCompilerKeyS`) where the
+brief that produced seal 52 named one. *A count of branches is a thing
+to measure, and this campaign's site counts have been short three
+times running.*
+
+**Status of the lane, pending the cleanup seal and this item:**
+everything else on the table — the fifteen, `Denote2EnvExtend`, the
+params-ext twin — either waits on Θ or shares a discharge with
+something that does.
