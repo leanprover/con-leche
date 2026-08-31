@@ -234,4 +234,153 @@ theorem denote2LevelLocal_of {μ : CheckMode} {env : Env}
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
+/-! ## The form the consumers can actually use
+
+`Denote2LevelLocal`'s valuation hypothesis is **uniform in the name**:
+*every* leaf reads the assignment only at `ps`.  No consumer holds
+that.  What an install holds is `EnvS2UM.acval_params` — each leaf
+reads only **its own** parameters — and the two are incomparable.
+They meet only at the call sites: `denote2` reads `acval n` at
+`Level.substFn φ ci.levelParams us`, and *there* the per-name law
+applies, because two assignments agreeing on `ps` agree at `n`'s own
+parameters after the substitution (`Level.substFn_ext`, with the
+clause's own length guard).
+
+So the induction is run a second time against the per-name law.  It is
+the same proof with three clauses re-derived — `.const` and the two
+literal spines — and it is this form the `params` consumers take.
+
+*Finding (statement-shape).*  The frozen `Denote2LevelLocal` is not
+false; it is **not the form the audit's consumers hold**.  Its
+valuation hypothesis has to be weakened to `acval_params` before
+either `params` field can spend it. -/
+
+/-- Level-locality of `denote2` over an install's own valuation. -/
+def Denote2LevelLocalM (V : Type w) [SetTheory V] (μ : CheckMode)
+    {env : Env} (m : EnvS2UM V μ env) : Prop :=
+  ∀ (ps : List Name) (φ₁ φ₂ : Name → Nat) (F d : Nat) (e : Expr),
+    e.allLevelParamsDefined ps = true →
+    (∀ p ∈ ps, φ₁ p = φ₂ p) →
+    denote2 μ m.acval env φ₁ F d e = denote2 μ m.acval env φ₂ F d e
+
+theorem denote2LevelLocalM_of {V : Type w} [SetTheory V]
+    {μ : CheckMode} {env : Env} (m : EnvS2UM V μ env)
+    (hs : SortOfELevelLocal μ env) (hl : LamSortELevelLocal μ env) :
+    Denote2LevelLocalM V μ m := by
+  intro ps φ₁ φ₂ F d e hdef hφ
+  revert hdef
+  induction d, e using denote2.induct (env := env) with
+  | case1 d u =>
+    intro hdef
+    rw [denote2, denote2,
+      Level.eval_ext (by simpa [Expr.allLevelParamsDefined] using hdef)
+        hφ]
+  | case2 d idx nm ty => intro _; rw [denote2, denote2]
+  | case3 d n us ci hf hlen =>
+    intro hdef
+    rw [denote2, hf, denote2, hf]
+    dsimp only
+    rw [if_pos hlen, if_pos hlen,
+      m.acval_params n ci hf _ _ (fun p hp =>
+        Level.substFn_ext hφ
+          (by
+            simpa [Expr.allLevelParamsDefined, List.all_eq_true]
+              using hdef)
+          hlen p hp)]
+  | case4 d n us ci hf hlen =>
+    intro _
+    rw [denote2, hf, denote2, hf]
+    dsimp only
+    rw [if_neg hlen, if_neg hlen]
+  | case5 d n us hf => intro _; rw [denote2, hf, denote2, hf]
+  | case6 d n ty body m ihty ihbody =>
+    intro hdef
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
+    have hopen := Expr.allLevelParamsDefined_open (d := d) (n := n)
+      hdef.1 hdef.2
+    rw [denote2, denote2, ihty hdef.1, ihbody hopen,
+      hs ps φ₁ φ₂ F d ty hdef.1 hφ,
+      hs ps φ₁ φ₂ F (d + 1) _ hopen hφ]
+  | case7 d n ty body m ihty ihbody =>
+    intro hdef
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
+    have hopen := Expr.allLevelParamsDefined_open (d := d) (n := n)
+      hdef.1 hdef.2
+    rw [denote2, denote2, ihty hdef.1, ihbody hopen,
+      hl ps φ₁ φ₂ F (d + 1) _ hopen hφ]
+  | case8 d f a ihf iha =>
+    intro hdef
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
+    rw [denote2, denote2, ihf hdef.1, iha hdef.2]
+  | case9 d n ty val body ihty ihval ihbody =>
+    intro hdef
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
+    rw [denote2, denote2, ihty hdef.1.1, ihval hdef.1.2,
+      ihbody (Expr.allLevelParamsDefined_open (d := d) (n := n)
+        hdef.1.1 hdef.2)]
+  | case10 d sn i e ihe =>
+    intro hdef
+    simp only [Expr.allLevelParamsDefined] at hdef
+    rw [denote2, denote2, ihe hdef]
+  | case11 d n hsup =>
+    intro _
+    rw [denote2, if_pos hsup, denote2, if_pos hsup,
+      (acval_natPair m hsup _ _).1, (acval_natPair m hsup _ _).2]
+  | case12 d n hsup => intro _; rw [denote2, if_neg hsup, denote2,
+      if_neg hsup]
+  | case13 d s hsup =>
+    intro _
+    rw [denote2, if_pos hsup, denote2, if_pos hsup]
+    have hg := hsup
+    simp only [Setlec.strLitSupported, Bool.and_eq_true] at hg
+    obtain ⟨⟨⟨⟨⟨⟨⟨h0, -⟩, h2⟩, -⟩, h4⟩, h5⟩, h6⟩, h7⟩ := hg
+    rw [acval_scalar m stringOfListName stringOfListTyOk h2 rfl
+        (by
+          intro ci h
+          simp only [stringOfListTyOk, Bool.and_eq_true] at h
+          exact h.1) _ _,
+      acval_scalar m charName charTyOk h6 rfl
+        (by
+          intro ci h
+          simp only [charTyOk, Bool.and_eq_true] at h
+          exact h.1) _ _,
+      acval_scalar m charOfNatName charOfNatTyOk h7 rfl
+        (by
+          intro ci h
+          simp only [charOfNatTyOk, Bool.and_eq_true] at h
+          exact h.1) _ _,
+      (acval_natPair m h0 _ _).1, (acval_natPair m h0 _ _).2,
+      acval_one m listNilName listNilTyOk h4 rfl
+        (by
+          intro ci h
+          simp only [listNilTyOk] at h
+          split at h
+          · next p hpe => simp [hpe]
+          · exact nomatch h) _ _,
+      acval_one m listConsName listConsTyOk h5 rfl
+        (by
+          intro ci h
+          simp only [listConsTyOk] at h
+          split at h
+          · next p hpe => simp [hpe]
+          · exact nomatch h) _ _]
+  | case14 d s hsup => intro _; rw [denote2, if_neg hsup, denote2,
+      if_neg hsup]
+  | case15 d x hsrt hfv hc hpi hlam happ hlet hproj hnat hstr =>
+    intro _
+    cases x with
+    | bvar i => rw [denote2.eq_def, denote2.eq_def]
+    | sort u => exact absurd rfl (hsrt u)
+    | fvar i nm ty => exact absurd rfl (hfv i nm ty)
+    | const n us => exact absurd rfl (hc n us)
+    | forallE n ty b m => exact absurd rfl (hpi n ty b m)
+    | lam n ty b m => exact absurd rfl (hlam n ty b m)
+    | app f a => exact absurd rfl (happ f a)
+    | letE n ty v b => exact absurd rfl (hlet n ty v b)
+    | proj sn i e => exact absurd rfl (hproj sn i e)
+    | lit l =>
+      cases l with
+      | natVal n => exact absurd rfl (hnat n)
+      | strVal s => exact absurd rfl (hstr s)
+
 end Setlec.SetR.Interp2

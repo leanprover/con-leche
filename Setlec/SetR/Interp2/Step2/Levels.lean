@@ -521,7 +521,7 @@ annotated valuation. -/
 
 /-- A stored slot with no level parameters is valued independently of
 the assignment. -/
-private theorem acval_isEmpty (m : EnvS2UM V μ env) {n : Name}
+theorem acval_isEmpty (m : EnvS2UM V μ env) {n : Name}
     {ci : ConstantInfo} (hf : env.find? n = some ci)
     (he : ci.toConstantVal.levelParams.isEmpty = true)
     (ψ₁ ψ₂ : Name → Nat) : m.acval n ψ₁ = m.acval n ψ₂ := by
@@ -533,7 +533,7 @@ private theorem acval_isEmpty (m : EnvS2UM V μ env) {n : Name}
 /-- A one-parameter slot substituted at `Level.zero` is valued
 independently of the assignment: the substitution overrides the only
 parameter the valuation may read. -/
-private theorem acval_oneParam (m : EnvS2UM V μ env) {n : Name}
+theorem acval_oneParam (m : EnvS2UM V μ env) {n : Name}
     {ci : ConstantInfo} (hf : env.find? n = some ci)
     (hlen : ci.toConstantVal.levelParams.length = 1)
     (ψ₁ ψ₂ : Name → Nat) :
@@ -551,7 +551,7 @@ private theorem acval_oneParam (m : EnvS2UM V μ env) {n : Name}
   · simp [hlen]
 
 /-- The scalar literal-support slots, read off their shape guards. -/
-private theorem acval_scalar (m : EnvS2UM V μ env) (nm : Name)
+theorem acval_scalar (m : EnvS2UM V μ env) (nm : Name)
     (f : Option ConstantInfo → Bool) (hfok : f (env.find? nm) = true)
     (hnone : f none = false)
     (hshape : ∀ ci, f (some ci) = true →
@@ -564,7 +564,7 @@ private theorem acval_scalar (m : EnvS2UM V μ env) (nm : Name)
     exact acval_isEmpty m hx (hshape ci hfok) _ _
 
 /-- The two one-parameter literal-support slots. -/
-private theorem acval_one (m : EnvS2UM V μ env) (nm : Name)
+theorem acval_one (m : EnvS2UM V μ env) (nm : Name)
     (f : Option ConstantInfo → Bool) (hfok : f (env.find? nm) = true)
     (hnone : f none = false)
     (hshape : ∀ ci, f (some ci) = true →
@@ -583,7 +583,7 @@ private theorem acval_one (m : EnvS2UM V μ env) (nm : Name)
     exact acval_oneParam m hx (hshape ci hfok) _ _
 
 /-- The `Nat`-literal leaves are assignment-independent. -/
-private theorem acval_natPair (m : EnvS2UM V μ env)
+theorem acval_natPair (m : EnvS2UM V μ env)
     (hg : Setlec.natLitSupported env = true) (ψ₁ ψ₂ : Name → Nat) :
     m.acval natZeroName ψ₁ = m.acval natZeroName ψ₂ ∧
       m.acval natSuccName ψ₁ = m.acval natSuccName ψ₂ := by
