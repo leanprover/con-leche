@@ -17962,3 +17962,78 @@ in restores the true numbers.
 that symlink is checked.** This is the same trap class as the
 `SETLEC_INDUCTIVE_MODELS` misconfiguration early in this campaign,
 which nearly went in as a catastrophic fake regression.
+
+## The lane's final table
+
+Asked for in one report, with each ours-item judged for **whose
+machinery discharges it**. The short answer: **the lane is not
+effectively junction-paced.** Two genuine walls remain and both are
+ours.
+
+### Ours, and open
+
+**1. `.ok2` — the pinned-model truthfulness gap. NOT the junction's.**
+
+The hypothesis was that the fibre packages are establishment-tier
+content the annotated claims already carry. **Checked, and it is
+false.** `acval_ok2` quantifies over **every stored name**
+(`∀ n ψ ρ, AnnotOk2 V ρ (acval n ψ)`), and the claims deliver
+`AnnotOk2` only for annotations **of checked terms** — a subject, or a
+returned type, of an actual run. **A pinned axiom's leaf is neither.**
+It is a *model* handed over by `StdAxiomKeyS`/`OfReduceKeyS`/
+`trustCompilerKeyS`, and an axiom has no value for any claim to speak
+about.
+
+So the discharge belongs **where the model is built**: the axiom keys
+would have to supply `AnnotOk2` of their leaf, not just `AnnotOkV`.
+That is `StdAxiomKey.lean` and `Install/Axiom.lean` — **this lane's
+surface, and a real piece of work**, since seal 61 established there
+is nothing to transport it *from* (`AnnotOkV`'s clauses lack the fibre
+packages entirely).
+
+**2. The erase-injectivity wall — `.params`, and `denote_params_ext`'s
+twin.** `erase` carries the level-parameter law one way; the converse
+needs `erase` **injective**, and *the numerals it forgets are exactly
+where a level parameter shows up*. **Two independent walls at one
+clause** — seal 54 from the value side, seal 61 from the axiom side —
+which is the strongest shared-supplier evidence available. Ours, and
+one discharge should serve both.
+
+*(`.erase` is ours but trivial: whoever builds the annotated leaf
+proves it.)*
+
+### Junction-paced, by ruling (ii)
+
+`CheckStep2E`'s fifteen residues, and everything conditional on them:
+the four `…2SM` install obligations, `DeclValue2SM`/`DeclBasis2SM`/
+`DeclInd2SM`, and the fourteen swaps' usability.
+
+### Θ-frozen
+
+`Denote2EnvExtend`, and the three local stand-ins that retire when
+that prefix lands — `InferOutputBound`, `EnvExtendReflect`,
+`LitGuardsAgree`. Seal 57 verified **in-tree** that the amendments
+have not reached this branch.
+
+### The precise statement
+
+**Not "closed-pending-junction."** The consumer side has two open
+items whose discharge is this lane's own, and neither reduces to the
+junction's machinery: one is about what the **pinned models** satisfy,
+the other about what **`erase` forgets**. Both are answerable without
+Θ and without the fifteen.
+
+*Rule: "does it reduce to the junction?" is answered by asking what
+tier the missing content lives in, not by how far away it feels. The
+fibre packages felt like claim content and are model content.*
+
+### Standing brief-template item
+
+**Every worker brief must carry the worktree setup line**: `_tmp/` is
+gitignored, so a fresh worktree lacks `lean-inductive-models` and the
+battery declines everything (46/92, e2e 53/72) — symlink
+`/home/joachim/setlec/_tmp/lean-inductive-models` before running it.
+This trap is in the protocol ledger from 2026-08-27 and **re-fired
+anyway**, which means the ledger was not the right place for it: *a
+documented trap that re-fires belongs in the template, not the
+archive.*
