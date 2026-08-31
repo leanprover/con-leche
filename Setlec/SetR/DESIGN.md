@@ -18037,3 +18037,31 @@ This trap is in the protocol ledger from 2026-08-27 and **re-fired
 anyway**, which means the ledger was not the right place for it: *a
 documented trap that re-fires belongs in the template, not the
 archive.*
+
+### Seal 62 — the pinned-leaf inventory: five, and already pinned by a theorem
+
+Measured before briefing. **The inventory is five concrete constants**,
+and the first two are pinned by a theorem that has been in the tree
+since the v1 install landed:
+
+| key | leaves |
+|---|---|
+| `StdAxiomKeyS` | `propext`, `choice` — and **`stdAxiomOk_nameS`** (`Install/Axiom.lean:46`) *proves* the accepted set is exactly these two |
+| `trustCompilerKeyS` | `trustCompiler` |
+| `OfReduceKeyS` | `ofReduceNat`, `ofReduceBool` |
+
+`Quot.sound` is **not** among them — Quot is installed as *rules*, not
+as an axiom.
+
+**So `.ok2` is finite concrete work, not a metatheorem**: five
+`AnnotOk2` obligations at five *named* models, against the landed
+basis-capstone machinery in `bval2_mem_type`'s per-constant style.
+That is the shape the directive predicted, and the measurement
+confirms it rather than the reverse — the first time in a while a
+count has come back matching.
+
+*The name-pinning theorem is what makes it finite. Without
+`stdAxiomOk_nameS` the standard branch would quantify over every
+`ConstantVal` passing a `Bool` guard, and the obligation would be a
+metatheorem after all. It was already proved, for the v1 install's own
+reasons, in 2026-08.*
