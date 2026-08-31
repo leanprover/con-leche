@@ -17771,3 +17771,70 @@ corrected both. A wrong estimate is not reliably an under-estimate.*
 **So the lane is not closed-pending-junction: one item is still ours.**
 Everything else waits on Θ or shares a discharge with something that
 does.
+
+### Seal 59 — the route held; `baseExt` is supplied unconditionally
+
+**Seal 58's count was right, branch by branch.** No fourth leaf
+source; all three extending branches do funnel through the one
+`extendAxiomS` call; the agreement was statable as `cvalWith`'s own
+off-name clause, one term, exactly as `extendValueS` had it. **One
+strengthening, three threadings, one identity case — as counted.**
+
+**`baseExt` is supplied, and this is inhabitation rather than
+relocation.** `extendAxiomS` now concludes the extension **plus its
+agreement**; `declAxiomExtS` threads it over all four branches; and
+`declAxiomS` keeps its **exact** signature as a `.choose` corollary,
+so `declStepS` and v1's fourteen are untouched. Both keys
+`declAxiomExtS` consumes — `stdAxiomKeyS` and `ofReduceKeyS` — are
+**theorems in this tree**, so `axiomBaseExt2` is called with **no
+residual hypothesis.**
+
+Downstream: `AxiomResidues2M` is **six fields where
+`DeclStep2Residues` had nine** (`fresh` from the front door's own
+`ConstantValR`, `baseExt`/`cvalAgree` from `declAxiomExtS`), and
+`declStep2AllM_ofR` drops the axiom clause's four-way `rcases`
+entirely — the reduced obligation answers the tolerated branch too.
+`ValueResidues2M` did not shrink; the value lane was already fixed at
+seal 52.
+
+Gates: build **348 jobs** warning-free, `lake test` green, battery
+**90/92** with the no-model sweep unchanged, `Main.lean` **diff
+empty**, and **all twenty** of its results on exactly the three
+standard axioms.
+
+#### Two findings, and the second means the table is not empty
+
+1. **`DeclAxiom2SM` is under-premised and cannot be closed as
+   stated.** It asks for the install from `ConstantValR` alone —
+   but `extendAxiomS` needs an **inhabitant of the axiom's denoted
+   type**, and `ConstantValR` says only that the type *type-checks*.
+   **A well-typed axiom may be false.** The branch witness is what
+   carries the inhabitant, so the new theorems take `DeclAxiomR`.
+   Both old forms kept, since `Main2.lean` reads them.
+
+   *That is not a counting error but a content one, and it is the
+   sharper kind: the premise was not too small by a term, it was the
+   wrong sort of thing. `ConstantValR` is a syntactic front door;
+   inhabitation is semantic.*
+
+2. **`AxiomResidues2M.closed` is not discharged**, where the value
+   lane's twin is. `valueLeaf_closed` runs on the front door's
+   annotated **value**; **an axiom has none**, so there is no run
+   whose subject `denote2_closed` could speak about. Named in the
+   field's docstring rather than left to be discovered.
+
+#### The lane's table — **not empty**
+
+| item | status |
+|---|---|
+| axiom-kind `baseExt` | **closed**, unconditionally |
+| `AxiomResidues2M.closed` | **ours**, newly named — no annotated value to run on |
+| the fifteen (`CheckStep2E`) | junction-paced by ruling (ii) |
+| `Denote2EnvExtend`, and the three local stand-ins | Θ-frozen; amendments verified not yet on this branch |
+| params-ext twin | stopped, shares its clause with `Denote2InstLevels` |
+
+**So the consumer side is not closed.** The item we set out to close
+*is* closed, and closing it surfaced one more that is also ours — a
+smaller and better-named one, but ours. *Per seal 11: what is
+established is that `baseExt` has a named unconditional supplier, not
+that the axiom install is closed.*
