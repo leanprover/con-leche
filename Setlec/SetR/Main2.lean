@@ -95,6 +95,8 @@ open Setlec.SetR.Interp2 (EnvS2U DeclValue2S DeclAxiom2S DeclBasis2S
 open Setlec.SetR.Interp2 (EnvS2UM DeclValue2SM DeclAxiom2SM
   DeclBasis2SM DeclInd2SM ValueResidues2M
   declStep2M_of_valueResidues)
+open Setlec.SetR.Interp2 (DeclStep2M AxiomResidues2M
+  declStep2M_of_axiomResidues)
 
 universe w
 variable {V : Type w} [SetTheory V]
@@ -272,6 +274,77 @@ theorem declStep2AllM_of {μ : CheckMode} (hval : DeclValue2SM V μ)
     · exact hax m hcv
     · exact hax m hcv
     · exact ⟨m⟩
+  | basisDecl kind => exact hbas ⟨m⟩ h
+  | indDecl block => exact hind m hE h
+
+/-! ### The axiom obligation, at the premise it can actually be met on
+
+`DeclAxiom2SM` asks for the install from `ConstantValR` alone, and
+nothing can meet it: an install owes an *inhabitant* of the axiom's
+denoted type, and a well-typed type need not have one.  The obligation
+below asks on the `DeclAxiomR` the checker establishes instead — which
+is exactly what `declStep2AllM_of` already had in hand at the axiom
+clause, and threw away by branching before calling `hax`.
+
+Both versions stand; the dispatch below is `declStep2AllM_of` with the
+axiom clause's four-way `rcases` **removed**, since the obligation now
+answers for the tolerated branch too. -/
+
+/-- **The axiom kind's install obligation, at the branch witness.**
+*Reduces to*: `AxiomResidues2M`'s six fields, by
+`declAxiom2SMR_of_residues` — `DeclStep2Residues`' nine minus `fresh`,
+`baseExt` and `cvalAgree`. -/
+def DeclAxiom2SMR (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
+  ∀ {F : Nat} {env env₂ : Env} {cv : ConstantVal}
+    (m : EnvS2UM V μ env),
+    DeclAxiomR μ F env m.base.cval cv env₂ → DeclStep2M V μ env₂
+
+/-- **What is left of the axiom obligation once `baseExt` is
+supplied**: the fresh leaf's four laws and the two frozen transports,
+at the extension `declAxiomExtS` builds. -/
+def AxiomResidues2SM (V : Type w) [SetTheory V] (μ : CheckMode) :
+    Prop :=
+  ∀ {env : Env} {cv : ConstantVal} {type' : Expr}
+    (m : EnvS2UM V μ env) (hb : EnvS V ⟨ConstantInfo.axiomInfo
+      ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩),
+    (∀ n, n ≠ cv.name → m.base.cval n = hb.cval n) →
+    ∃ A : (Name → Nat) → AVExpr, AxiomResidues2M V μ m
+      ⟨cv.name, cv.levelParams, type'⟩ hb A
+
+/-- **The axiom obligation, reduced.**  The install's collapse-lane
+half is no longer assumed anywhere: it comes from `declAxiomExtS`,
+whose own two keys (`stdAxiomKeyS`, `ofReduceKeyS`) are theorems. -/
+theorem declAxiom2SMR_of_residues {μ : CheckMode}
+    (hres : AxiomResidues2SM V μ) : DeclAxiom2SMR V μ :=
+  fun m h => declStep2M_of_axiomResidues m h
+    (fun _ hb hag => hres m hb hag)
+
+/-- **The dispatch at one mode, on the reduced axiom obligation.**
+`declStep2AllM_of` with `DeclAxiom2SM` replaced by `DeclAxiom2SMR`;
+the other five clauses are verbatim. -/
+theorem declStep2AllM_ofR {μ : CheckMode} (hval : DeclValue2SM V μ)
+    (hax : DeclAxiom2SMR V μ) (hbas : DeclBasis2SM V μ)
+    (hind : DeclInd2SM V μ) : DeclStep2AllM V μ := by
+  intro F env env₂ d m hE h
+  cases d with
+  | defnDecl cv value hint =>
+    obtain ⟨type', value', hcv, hvfr, rfl, -, -⟩ := h
+    exact hval m hcv hvfr rfl
+      (fun cv2 v2 h2 heq => by
+        simp only [ConstantInfo.defnInfo.injEq] at heq
+        exact heq.2.1)
+      (fun cv2 v2 heq => nomatch heq)
+  | thmDecl cv value =>
+    obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := h
+    exact hval m hcv hvfr rfl (fun cv2 v2 h2 heq => nomatch heq)
+      (fun cv2 v2 heq => by
+        simp only [ConstantInfo.thmInfo.injEq] at heq
+        exact heq.2)
+  | opaqueDecl cv value =>
+    obtain ⟨type', value', hcv, hvfr, rfl, -⟩ := h
+    exact hval m hcv hvfr rfl (fun cv2 v2 h2 heq => nomatch heq)
+      (fun cv2 v2 heq => nomatch heq)
+  | axiomDecl cv => exact hax m h
   | basisDecl kind => exact hbas ⟨m⟩ h
   | indDecl block => exact hind m hE h
 
@@ -1416,6 +1489,23 @@ theorem no_proof_of_Empty_R2M_of_installs (V : Type w) [SetTheory V]
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False :=
   no_proof_of_Empty_R2M V (declStep2AllM_of hval hax hbas hind)
+    h c hc hty
+
+/-- **The same, with the axiom obligation reduced.**  Three of the
+four premises are unchanged; the axiom one is now
+`AxiomResidues2SM` — six fields at a *supplied* extension, rather than
+an obligation nothing could meet.  Still conditional, and the other
+three are still not inhabited in this tree. -/
+theorem no_proof_of_Empty_R2M_of_installsR (V : Type w) [SetTheory V]
+    {μ : CheckMode} {F : Nat} (hval : DeclValue2SM V μ)
+    (hax : AxiomResidues2SM V μ) (hbas : DeclBasis2SM V μ)
+    (hind : DeclInd2SM V μ)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env')
+    (c : ConstantInfo) (hc : c ∈ env'.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False :=
+  no_proof_of_Empty_R2M V
+    (declStep2AllM_ofR hval (declAxiom2SMR_of_residues hax) hbas hind)
     h c hc hty
 
 /-! ## The three sweeps
