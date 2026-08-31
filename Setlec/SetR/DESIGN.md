@@ -17540,3 +17540,68 @@ because those bind all-mode `EnvS2U`. Re-pointing is a **mechanical
 arity change** — every claim already carries `μ` — across
 `Claims2*`, `Capstone*` and `Keys2.lean`. *Bookkeeping, not argument*,
 and the next batch.
+
+### Seal 55 — the M lane feeds the capstone
+
+`no_proof_of_Empty_R2M_of_installs` derives the capstone's conclusion
+from the **four mode-indexed install obligations alone** — no bridge,
+no `EnvS2UInImage`, no `Denote2ModeAgree` anywhere in the chain.
+
+Gates: build **348 jobs** warning-free on a *forced full rebuild*,
+`lake test` clean, battery **90/92** with e2e 72/72 and the no-model
+sweep unchanged, **v1's fourteen byte-identical** and on exactly the
+three standard axioms.
+
+**543 sites, 522 mechanical.** *My table under-counted a third time* —
+~100 sites omitted, including `Claims2.lean`, the root of the claims
+cone. The 21 non-mechanical ones are **all one shape**: they bind
+`(m : EnvS2U V env) (μ : CheckMode)` in that order, so the local binder
+shadows the section variable and downstream lemmas force the diagonal.
+Fixed by dropping the local binder — three of the files were relying on
+`autoImplicit` for `μ`.
+
+**Guardrail 1 — confirmed by measurement, as seal 46 predicted of
+itself.** The tombstoned capstones **could not stay behind**: leaving
+them produced 45 `Application type mismatch` errors, because they apply
+live predicates to their own binders. All 42 sites moved.
+
+**Guardrail 2 — all eight refutations strengthened**, each checked
+individually rather than by the general argument: `m` is universally
+quantified in a positive binder, each predicate reads only
+`m.acval`/`m.base`, both preserved *definitionally* by `toM`, so the
+old form is recovered by instantiating at `m_U.toM μ` while
+`EnvS2UM` admits strictly more. `ctxOk2R_refuted_nonvacuous` keeps a
+decoupled mode and so quantifies over **two** independent modes — more
+general still.
+
+**Guardrail 3 — four `toM` sites, reported rather than treated as
+free.** The M lane subsumes the U lane **except at structure-valued
+conclusions**: `DeclStep2 = Nonempty (EnvS2U …)` cannot be supplied by
+an `EnvS2UM`, so `declStep2_of_axiom` and `installKeys2_of_residues`
+stay all-mode and cross through the bridge.
+
+#### The finding: the fold is added beside, and the direction argument is why
+
+**`DeclStep2AllM` neither implies nor is implied by `DeclStep2All`.**
+The input class widens (more `EnvS2UM`) **and the output class widens
+with it**, so the two are **incomparable** — unlike the claims cone,
+where `m` is universally quantified on both sides and widening is
+unambiguous strengthening.
+
+**So re-pointing the fold would have *deleted* a standing conditional
+result rather than strengthening one.** The worker added the M family
+beside the all-mode one instead — every proof the all-mode proof
+verbatim, which is seal 54's "the index threads for free" check applied
+to the fold — and flagged the conflict rather than resolving it
+silently: my brief said *re-point Main2's sites*, my rules said *add,
+never delete*, and **at exactly the fold those two instructions
+disagree.**
+
+**Ruled: the "add" resolution is correct and adopted.** A brief's
+site list is an estimate; *add, never delete* is a rule about not
+losing results, and where they conflict the rule wins.
+
+*Rule: check the direction on **both** sides of a re-point. A widening
+that moves the hypothesis and the conclusion together is not a
+strengthening — it is a different theorem, and replacing the original
+with it is a deletion wearing a diff.*
