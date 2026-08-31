@@ -648,18 +648,34 @@ the reduct `r.rhs.instantiateLevelParams cv.levelParams us` can carry
 a parameter out of a short `us`.
 
 The gap is stated exactly, not described: `iotaRec_lvlParams_of_arity`
-proves the iota case from the level-`F` facts **plus the redex head's
-level arity, and nothing else**.  So `IotaLevelParams` below is the
-whole residue, and it would close from either
+proves the iota case from the level-`F` reduction and inference facts
+**plus the redex head's level arity, and nothing else**.  So
+`IotaLevelParams` below is the whole residue of the two inductions —
+they assume `EnvWF` and it, and nothing further.
 
-* one guard in `iotaRec` (`us.length = cv.levelParams.length`, the
-  spelling `unfoldDefinition` already uses) — a checker change, not a
-  proof; or
-* one clause in `ConstWF` recording that stored expressions apply
-  constants at their declared level-arity, which would then be an
-  invariant of the subject too.
+Two ways it could close, of unequal cost:
 
-Neither is this lane's to make, so the residue is named and carried. -/
+* **one guard in `iotaRec`** (`us.length = cv.levelParams.length`, the
+  spelling `unfoldDefinition` already uses at the delta step).  That
+  hands the arity to the inversion directly, and
+  `iotaRec_lvlParams_of_arity` is then the whole proof.  It is a
+  *checker* change, not this lane's to make — and it is a finding in
+  its own right: the level-arity of a recursor application is checked
+  nowhere on the reduction path, while every other instantiation site
+  checks its own;
+* **an arity clause in `ConstWF`**, plus the matching syntactic
+  invariant carried through the induction beside
+  `allLevelParamsDefined`.  This one is *not* a small change and is
+  not known to close: the stuck-major rescue fabricates
+  `.const (projFnName T j) ust` applications
+  (`etaFabArgs`, `Kernel/Core.lean:1059`) whose own arity is not among
+  the guards the inversion exposes.
+
+**Not settled either way.**  No countermodel is offered: a firing iota
+redex at a short `us` would have to pass the rule lookup, both
+`iotaCerts` and the index comparison, and no such environment was
+built.  So this is *"the induction cannot close it"*, not *"it is
+false"*. -/
 
 /-- Iota keeps the level parameters within the subject's — **the one
 clause the induction does not close** (see the note above). -/
