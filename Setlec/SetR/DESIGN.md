@@ -18275,3 +18275,81 @@ two `ps`-agreeing assignments. **That is all.** It does not give the
 run's *success* on the instantiated term; `not_isEquivSubstMono`
 stands, verified. Nothing was claimed past the numerals and consumer 3
 was not touched.
+
+### Seal 66 — the `iotaRec` arity gap is REAL, and it is ours
+
+Settled by **route A**: the residue is **false**, not merely unproven.
+`Interp2/IotaArity.lean` builds the countermodel — `not_iotaLevelParams`
+and `not_iotaLevelParamsW`, with `iota_fires` and `envWF`, all on
+exactly the three standard axioms. Build **351 jobs** warning-free,
+`Kernel/` diff **empty**.
+
+**Why every gate passes, built against them honestly.** Each
+level-mentioning gate reads the **constructor's** levels or one of the
+two stored types, **never the recursor's `us`**: at a nullary
+constructor `isEquivList usj …` is `isEquivList [] []`, both
+`iotaCerts` instantiate `cv.type`/`cvj.type` so a parameter that does
+not *occur* there is invisible, and the index comparison compares
+empty lists.
+
+**Why `EnvWF` does not save it.** `ConstWF` is **purely syntactic** —
+for a `recInfo` it asks `hasFvar`/`allLevelParamsDefined`/
+`constsResolve`/`looseBVarsBounded` of each rule's RHS and **nothing
+about occurrence**. So a parameter used only in the RHS is legal.
+
+#### The reference check: this is our deviation, not a shared omission
+
+| reference | iota guard |
+|---|---|
+| official C++ | **YES** — `src/kernel/inductive.h:105`, immediately before the RHS instantiation; present v4.0.0 → master |
+| lean4lean | **YES** — `Inductive/Reduce.lean:98`, the line before `instantiateLevelParams` |
+| nanoda | no explicit test, but `subst_expr_levels` **asserts** the lengths (`expr.rs:387`) — a mismatch **aborts**, it cannot leak |
+
+**So the asymmetry claim fails in the reference: the official kernel
+guards iota too. There is no reportable observation about the official
+kernel here.** The finding is **ours** — `iotaRec`
+(`Kernel/Core.lean:1267`) omits a guard all three references
+effectively have, and the fix is one line in the spelling
+`unfoldDefinition` already uses at `Core.lean:174/179`.
+
+*The restrictions-are-findings rule did its job in the direction it is
+most often not expected to: it cleared the reference and convicted
+us.*
+
+#### What is NOT claimed — the calibration matters more than the verdict
+
+**This is not a demonstrated soundness hole in an accepted stream.**
+`inferBody`'s `.const` clause rejects wrong arity **unconditionally**
+(`Core.lean:1566`, no mode gate, matching the official kernel), so any
+constant the checker *infers* is arity-checked. **It was not verified
+that every term reaching `whnf` has been inferred first**, and the
+parser/intern path was not inspected. What is established is narrower
+and exact: **the invariant `IotaLevelParamsW`, quantified over all
+`EnvWF` environments, is false.**
+
+**Reference caveat, and it matters for anyone re-checking.** The local
+checkout `_tmp/lean4-master-kernel/` holds **only** `type_checker.cpp`,
+`declaration.cpp`, `declaration.h`. **`inductive.h` is absent**, and
+that is where the guard lives — `type_checker.cpp:399` delegates to
+`inductive_reduce_rec`. The C++ claim rests on a fetch from
+`raw.githubusercontent.com`, not on the local tree. *Anyone concluding
+"no guard in the official kernel" from the local checkout could not
+have found it there.*
+
+Also unverified: the install-shaped-recursor safety sketch (every
+parameter occurring in the recursor type or the constructor's levels,
+which would let the certificates force the arity back) — **stated in
+the file as not proved and not claimed**.
+
+#### Process fix: my own brief template was wrong
+
+The worktree setup line I have been issuing fails on a clean worktree —
+`_tmp/` does not exist, so `ln -sfn … _tmp/lean-inductive-models`
+errors. **The template needs `mkdir -p` first:**
+
+    mkdir -p <worktree>/_tmp && ln -sfn \
+      /home/joachim/setlec/_tmp/lean-inductive-models \
+      <worktree>/_tmp/lean-inductive-models
+
+*A template line added to stop a trap re-firing had a bug that
+re-fired it once more before being caught.*
