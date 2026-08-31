@@ -134,6 +134,7 @@ import Setlec.SetR.Annot.SortCoh
 import Setlec.SetR.Annot.SortCohFrame
 import Setlec.SetR.DivModPin
 import Setlec.SetR.StdAxiomKey
+import Setlec.SetR.SortSpec
 
 /-!
 # `Setlec.SetR` — umbrella for the task-#148 relation family

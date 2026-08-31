@@ -42,8 +42,17 @@ oracle `σ : SortEnv`, and the canonical instantiation `constCod env`
 performs *exactly one* declared-type read (`inferBody`'s own `.const`
 clause — level-arity guard included) followed by `piCod`.
 
-Chaining those reads — needed when a declared type's residual is
-itself a constant (`def A : Alias`) — has no termination measure:
+## Literals have no clause
+
+A literal is never a type: `3 : Nat` and `Nat` is not a universe, so
+`sortSpec (.lit _) = none`.  (Seal 1 shipped a `.lit` clause that
+returned the sort of the literal's *type name* — the sort of `Nat`,
+not of `3`.  Seal 2's agreement work caught it; see DESIGN seal 2.)
+
+## The constant oracle `σ`, continued
+
+Chaining declared-type reads — needed when a declared type's residual
+is itself a constant (`def A : Alias`) — has no termination measure:
 `EnvWF` is `∀ c ∈ env.consts, ConstWF env c`, which resolves every
 constant against the *whole* environment and so admits `def A : B`
 together with `def B : A`.  A δ-chaining `sortSpec` would need an
@@ -94,8 +103,6 @@ def sortApp (σ : SortEnv) : List Expr → Expr → Nat → Option Level
   | g, .bvar i, n => ctxCod g i n
   | _, .fvar _ _ t, n => piCod t n
   | _, .const c us, n => σ c us n
-  | _, .lit (.natVal _), 0 => σ Setlec.natName [] 0
-  | _, .lit (.strVal _), 0 => σ Setlec.stringName [] 0
   | _, _, _ => none
 
 /-- The sort of `e` itself. -/
@@ -110,9 +117,9 @@ def sortSpec (σ : SortEnv) (g : List Expr) (e : Expr) : Option Level :=
 def constCod (env : Env) : SortEnv := fun c us n =>
   match env.find? c with
   | some ci =>
-    let cv := ci.toConstantVal
-    if us.length = cv.levelParams.length then
-      piCod (cv.type.instantiateLevelParams cv.levelParams us) n
+    if us.length = ci.toConstantVal.levelParams.length then
+      piCod (ci.toConstantVal.type.instantiateLevelParams
+        ci.toConstantVal.levelParams us) n
     else none
   | none => none
 
@@ -181,5 +188,9 @@ rewrite rules consumers use. -/
 @[simp] theorem sortApp_proj (σ : SortEnv) (g : List Expr)
     (s : Name) (i : Nat) (e : Expr) (n : Nat) :
     sortApp σ g (.proj s i e) n = none := rfl
+
+@[simp] theorem sortApp_lit (σ : SortEnv) (g : List Expr)
+    (l : Setlec.Literal) (n : Nat) :
+    sortApp σ g (.lit l) n = none := by cases l <;> rfl
 
 end Setlec.SetR.SortSpec
