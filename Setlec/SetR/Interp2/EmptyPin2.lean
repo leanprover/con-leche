@@ -48,7 +48,7 @@ open Setlec (CheckMode Env Expr Name ConstantInfo emptyName)
 
 universe w
 
-variable {V : Type w} [SetTheory V]
+variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- **`erase` is injective at the constant clause.**  Every other
 `AVExpr` constructor erases to a different `VExpr` constructor, so a
@@ -80,13 +80,14 @@ leaf outright.
 *No `EnvS2U` field is added, and none is wanted.*  A field is earned
 when a consumer can attempt its discharge and the invariant cannot
 supply it; here the invariant supplies it. -/
-theorem acval_empty_pinned {env : Env} (m : EnvS2U V env)
-    (ψ : Name → Nat) : ∃ u, m.acval emptyName ψ = .const .empty [u] := by
+theorem acval_empty_pinned {env : Env} (m : EnvS2UM V μ env)
+    (ψ : Name → Nat) :
+    ∃ u, m.acval emptyName ψ = .const .empty [u] := by
   obtain ⟨u, hu⟩ := m.base.empty_pinned ψ
   exact ⟨u, erase_eq_const (by rw [m.acval_erase, hu]; rfl)⟩
 
 /-- …so its `interp2` reading is the empty set, at every assignment. -/
-theorem interp2_acval_empty {env : Env} (m : EnvS2U V env)
+theorem interp2_acval_empty {env : Env} (m : EnvS2UM V μ env)
     (ψ : Name → Nat) (ρ : Nat → V) :
     interp2 V ρ (m.acval emptyName ψ) = empty := by
   obtain ⟨u, hu⟩ := acval_empty_pinned m ψ
@@ -100,7 +101,7 @@ off `base`.
 
 Contrast with `no_constant_of_Empty_R2`, whose whole proof is v1's at
 `m.base`: there the annotated valuation plays no part at all. -/
-theorem no_constant_of_Empty_2 {env : Env} (m : EnvS2U V env)
+theorem no_constant_of_Empty_2 {env : Env} (m : EnvS2UM V μ env)
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
   obtain ⟨t, hTi, -⟩ := m.base.mem_type c hc (fun _ => 0)

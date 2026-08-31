@@ -107,6 +107,13 @@ noncomputable def EnvS2.toU {env : Env} (m : EnvS2 V env) :
 noncomputable def EnvS2U.empty : EnvS2U V Env.empty :=
   (EnvS2.empty (V := V)).toU
 
+/-- The empty environment at one mode.  The weakening bridge applied
+to `EnvS2U.empty`: nothing new is proved, and the M lane's fold needs
+a carrier at `Env.empty` just as the all-mode lane does. -/
+noncomputable def EnvS2UM.empty (μ : CheckMode) :
+    EnvS2UM V μ Env.empty :=
+  EnvS2U.toM V (EnvS2U.empty V) μ
+
 /-- **The bridge's converse, pointwise: is this `EnvS2U` an `EnvS2`?**
 Not "is there *some* `EnvS2` here" — the claims are stated at
 `m.acval`, so a witness with a different canonical valuation is no

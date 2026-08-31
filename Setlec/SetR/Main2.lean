@@ -332,7 +332,7 @@ collapse lane's — which no annotated field could replace, since
 theorem no_constant_of_Empty_R2 {env : Env} (m : EnvS2U V env)
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False :=
-  no_constant_of_Empty_2 m c hc hty
+  no_constant_of_Empty_2 (EnvS2U.toM V m CheckMode.setModel) c hc hty
 
 /-- **`checkDecl_sound_R`, over `EnvS2U`.**  One checked declaration
 extends the annotated invariant. -/
@@ -843,6 +843,554 @@ theorem no_proof_of_Empty_input_SP_R2 (V : Type w) [SetTheory V]
           (checkDecl_sound_R2 (d := d) hstep m hE hF)
           hres₁ (hext0.trans hext₁) h hd'
 
+/-! ## The mode-indexed fold — the M lane, to the same fourteen
+
+Seal 54 landed the mode index *beside* the all-mode lane and stopped
+at the dispatch (`DeclStep2AllM`).  This section carries it the rest
+of the way: every carrier, every fold and every `no_proof_of_Empty*`
+above, restated at `EnvS2UM V μ` and conditional on `DeclStep2AllM`.
+
+**Why beside and not in place.**  `DeclStep2AllM` neither implies nor
+is implied by `DeclStep2All`: the input class widens (`EnvS2UM` is
+weaker, so there are more of them) *and* the output class widens with
+it, so the two are incomparable and re-pointing would have deleted a
+standing conditional result rather than strengthened it.  That is a
+different situation from the claims cone, where the binder is
+universally quantified in both statements and widening it is a
+strengthening.
+
+**Every proof below is the all-mode proof verbatim**, which is what
+makes this a check and not a second development: the mode index is
+inert in the fold exactly as `declStep2AllM_of` showed it inert in
+the dispatch.  The one place it is *not* inert is the entry point —
+`EnvS2UOkM.empty` goes through `EnvS2U.toM`, because the empty
+environment's witness is built all-mode and weakened, not built
+twice.
+
+**What this buys.**  The M lane now reaches the capstone: with the
+four mode-indexed install obligations, `declStep2AllM_of` gives
+`DeclStep2AllM`, and `no_proof_of_Empty_R2M` and its seven siblings
+follow.  The all-mode lane above still needs `DeclStep2All`, which
+the front door's single run cannot supply — that was seal 53's whole
+finding. -/
+
+/-- The annotated fold's carrier at one mode. -/
+def EnvS2UOkM (V : Type w) [SetTheory V] (μ : CheckMode)
+    (env : Env) : Prop :=
+  Nonempty (EnvS2UM V μ env) ∧ EtaFamiliesClosed env
+
+/-- The empty environment carries the mode-indexed invariant. -/
+theorem EnvS2UOkM.empty (V : Type w) [SetTheory V] (μ : CheckMode) :
+    EnvS2UOkM V μ Env.empty :=
+  ⟨⟨EnvS2UM.empty V μ⟩, EtaFamiliesClosed.empty⟩
+
+/-- **`no_constant_of_Empty_R`, over `EnvS2UM` — and now over
+`interp2`.**  Seal 51 recorded this as a stall: the proof was v1's at
+`m.base`, so the annotated valuation played no part.  It does now.
+The membership is `mem_type2`, the leaf is pinned by `acval_erase`
+plus `EnvS.empty_pinned` plus erasure injectivity at the constant
+clause (`EmptyPin2.lean`), and only the pin itself is still the
+collapse lane's — which no annotated field could replace, since
+`acval` is *defined* to erase to the pinned valuation. -/
+theorem no_constant_of_Empty_R2M {μ : CheckMode} {env : Env}
+    (m : EnvS2UM V μ env)
+    (c : ConstantInfo) (hc : c ∈ env.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False :=
+  no_constant_of_Empty_2 m c hc hty
+
+/-- **`checkDecl_sound_R`, over `EnvS2UM`.**  One checked declaration
+extends the annotated invariant. -/
+theorem checkDecl_sound_R2M {μ : CheckMode} (hstep : DeclStep2AllM V μ)
+    {F : Nat} {env env₂ : Env} {d : Declaration} (m : EnvS2UM V μ env)
+    (hE : EtaFamiliesClosed env)
+    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
+    EnvS2UOkM V μ env₂ :=
+  ⟨hstep m hE (checkDeclR_sound m.base hE h),
+    (declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
+      (declIndS memberKeyS) m.base hE
+      (checkDeclR_sound m.base hE h)).2⟩
+
+/-- The pure checker's fold, over `EnvS2UM`. -/
+theorem foldlM_R2M {μ : CheckMode} {F : Nat}
+    (hstep : DeclStep2AllM V μ) :
+    ∀ (ds : List Declaration) (env : Env) {env' : Env},
+      EnvS2UOkM V μ env →
+      ds.foldlM (checkDecl μ (fueledOps μ F)) env = .ok env' →
+      EnvS2UOkM V μ env'
+  | [], _, _, hm, h => by
+    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ hm
+  | d :: ds, env, _, hm, h => by
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    cases hd : checkDecl μ (fueledOps μ F) env d with
+    | error e => rw [hd] at h; exact nomatch h
+    | ok env1 =>
+      rw [hd] at h
+      obtain ⟨⟨m⟩, hE⟩ := hm
+      exact foldlM_R2M hstep ds env1
+        (checkDecl_sound_R2M hstep m hE hd) h
+
+/-- **The acceptance theorem, over `EnvS2UM`.**  `checkDecls_sound_R`
+with the annotated carrier. -/
+theorem checkDecls_sound_R2M {μ : CheckMode} {F : Nat}
+    (hstep : DeclStep2AllM V μ)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+    Nonempty (EnvS2UM V μ env') :=
+  (foldlM_R2M hstep ds Env.empty (EnvS2UOkM.empty V μ) h).1
+
+/-- **No proof of `Empty`**, through the annotated fold. -/
+theorem no_proof_of_Empty_R2M (V : Type w) [SetTheory V]
+    {μ : CheckMode} {F : Nat} (hstep : DeclStep2AllM V μ)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env')
+    (c : ConstantInfo) (hc : c ∈ env'.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False := by
+  obtain ⟨m⟩ := checkDecls_sound_R2M (V := V) hstep h
+  exact no_constant_of_Empty_R2M m c hc hty
+
+/-- The cached-executable fold, over `EnvS2UM`. -/
+theorem foldlM_RC2M {μ : CheckMode} (hstep : DeclStep2AllM V μ) :
+    ∀ (ds : List Declaration) (env : Env) {env' : Env},
+      EnvS2UOkM V μ env →
+      ds.foldlM (checkDecl μ (cachedOps μ)) env = .ok env' →
+      EnvS2UOkM V μ env'
+  | [], env, env', hm, h => by
+    have h' : (Except.ok env : CheckM Env) = Except.ok env' := h
+    cases h'
+    exact hm
+  | d :: ds, env, _, hm, h => by
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    cases hd : checkDecl μ (cachedOps μ) env d with
+    | error e => rw [hd] at h; exact nomatch h
+    | ok env1 =>
+      rw [hd] at h
+      obtain ⟨⟨m⟩, hE⟩ := hm
+      obtain ⟨F, hF⟩ := checkDecl_bridge m.base.wf hd
+      exact foldlM_RC2M hstep ds env1
+        (checkDecl_sound_R2M hstep m hE hF) h
+
+/-- **The cached executable's acceptance theorem, over `EnvS2UM`.** -/
+theorem checkDeclsC_sound_R2M {μ : CheckMode}
+    (hstep : DeclStep2AllM V μ) {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (cachedOps μ) ds = .ok env') :
+    Nonempty (EnvS2UM V μ env') :=
+  (foldlM_RC2M hstep ds Env.empty (EnvS2UOkM.empty V μ) h).1
+
+/-- **No proof of `Empty`** — cached executable, annotated fold. -/
+theorem no_proof_of_Empty_C_R2M (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hstep : DeclStep2AllM V μ)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (cachedOps μ) ds = .ok env')
+    (c : ConstantInfo) (hc : c ∈ env'.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False := by
+  obtain ⟨m⟩ := checkDeclsC_sound_R2M (V := V) hstep h
+  exact no_constant_of_Empty_R2M m c hc hty
+
+/-- The shared-state executable's fold, over `EnvS2UM`. -/
+theorem foldlM_RS2M {μ : CheckMode} (hstep : DeclStep2AllM V μ) :
+    ∀ (ds : List Declaration) (fe : FEnv) {fe' : FEnv},
+      fe = mkFEnv fe.env →
+      EnvS2UOkM V μ fe.env →
+      ds.foldlM (checkDeclSharedF μ) fe = .ok fe' →
+      EnvS2UOkM V μ fe'.env
+  | [], fe, fe', _, hm, h => by
+    have h' : (Except.ok fe : CheckM FEnv) = Except.ok fe' := h
+    cases h'
+    exact hm
+  | d :: ds, fe, fe', hfe, hm, h => by
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    cases hd : checkDeclSharedF μ fe d with
+    | error e => rw [hd] at h; exact nomatch h
+    | ok fe1 =>
+      rw [hd] at h
+      obtain ⟨⟨m⟩, hE⟩ := hm
+      rw [hfe] at hd
+      obtain ⟨hfe1, F, hF⟩ := checkDeclSharedF_bridge m.base.wf hd
+      exact foldlM_RS2M hstep ds fe1 hfe1
+        (checkDecl_sound_R2M hstep m hE hF) h
+
+/-- **The shared-state executable's acceptance theorem, over
+`EnvS2UM`.** -/
+theorem checkDeclsS_sound_R2M {μ : CheckMode}
+    (hstep : DeclStep2AllM V μ) {ds : List Declaration} {env' : Env}
+    (h : checkDeclsShared μ ds = .ok env') :
+    Nonempty (EnvS2UM V μ env') := by
+  unfold checkDeclsShared at h
+  simp only [Bind.bind, Except.bind] at h
+  cases hf : ds.foldlM (checkDeclSharedF μ) (mkFEnv Env.empty) with
+  | error e => rw [hf] at h; exact nomatch h
+  | ok fe =>
+    rw [hf] at h
+    obtain rfl : fe.env = env' := by
+      have h' : (Except.ok fe.env : CheckM Env) = .ok env' := h
+      exact Except.ok.inj h'
+    exact (foldlM_RS2M hstep ds (mkFEnv Env.empty) rfl
+      (EnvS2UOkM.empty V μ) hf).1
+
+/-- **No proof of `Empty`** — shared-state executable, annotated
+fold. -/
+theorem no_proof_of_Empty_S_R2M (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hstep : DeclStep2AllM V μ)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDeclsShared μ ds = .ok env')
+    (c : ConstantInfo) (hc : c ∈ env'.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False := by
+  obtain ⟨m⟩ := checkDeclsS_sound_R2M (V := V) hstep h
+  exact no_constant_of_Empty_R2M m c hc hty
+
+/-- The parsed-index executable's fold, over `EnvS2UM`. -/
+theorem foldSP_R2M {μ : CheckMode} (hstep : DeclStep2AllM V μ)
+    {st0 : EStore} (hwfst : st0.WF) :
+    ∀ (pds : List DeclP) (fe : FEnv) {fe' : FEnv} {s₀ s' : IState},
+      fe = mkFEnv fe.env →
+      EnvS2UOkM V μ fe.env →
+      ISOKF s₀ → Ext st0 s₀.store →
+      (pds.foldlM (checkDeclSPStep μ
+        (st0.nodes.size + st0.nodes.size)) fe) s₀ = .ok (fe', s') →
+      EnvS2UOkM V μ fe'.env
+  | [], fe, fe', s₀, s', _, hm, _, _, h => by
+    obtain ⟨hfe, rfl⟩ := pureI_ok h
+    subst hfe
+    exact hm
+  | pd :: pds, fe, fe', s₀, s', hfe, hm, hres, hext0, h => by
+    rw [List.foldlM_cons] at h
+    obtain ⟨fe₁, s₁, hstepP, h⟩ := bindI_ok h
+    obtain ⟨⟨m⟩, hE⟩ := hm
+    obtain ⟨d, hd0⟩ := denoteDeclP_total hwfst
+      (checkDeclSPStep_inRange hstepP)
+    have hd : denoteDeclP s₀.store pd = some d :=
+      denoteDeclP_mono hwfst hext0 hd0
+    rw [hfe] at hstepP
+    obtain ⟨hres₁, hext₁, hfe₁, F, hF⟩ :=
+      checkDeclSPStep_run m.base.wf hres hd hstepP
+    exact foldSP_R2M hstep hwfst pds fe₁ hfe₁
+      (checkDecl_sound_R2M hstep m hE hF) hres₁
+      (hext0.trans hext₁) h
+
+/-- **The parsed-index executable's acceptance theorem, over
+`EnvS2UM`.** -/
+theorem checkDeclsSP_sound_R2M {μ : CheckMode}
+    (hstep : DeclStep2AllM V μ)
+    {st : WFStore} {pds : List DeclP} {env' : Env}
+    (h : checkDeclsSP μ st pds = .ok env') :
+    Nonempty (EnvS2UM V μ env') := by
+  unfold checkDeclsSP at h
+  have hwf : st.raw.WF := st.wf
+  simp only [Bind.bind, Except.bind] at h
+  cases hf : (pds.foldlM (checkDeclSPStep μ
+      (st.raw.nodes.size + st.raw.nodes.size))
+      (mkFEnv Env.empty)).run' { store := st.raw } with
+  | error e => rw [hf] at h; exact nomatch h
+  | ok fe =>
+    rw [hf] at h
+    obtain rfl : fe.env = env' := by
+      have h' : (Except.ok fe.env : CheckM Env) = .ok env' := h
+      exact Except.ok.inj h'
+    simp only [StateT.run'] at hf
+    cases hrun : (pds.foldlM (checkDeclSPStep μ
+        (st.raw.nodes.size + st.raw.nodes.size))
+        (mkFEnv Env.empty)) { store := st.raw } with
+    | error e => rw [hrun] at hf; exact nomatch hf
+    | ok pr =>
+      obtain ⟨feO, sO⟩ := pr
+      rw [hrun] at hf
+      simp only [Functor.map, Except.map, Except.ok.injEq] at hf
+      subst hf
+      exact (foldSP_R2M hstep hwf pds (mkFEnv Env.empty) rfl
+        (EnvS2UOkM.empty V μ) (ISOKF.fresh hwf) (Ext.refl _) hrun).1
+
+/-- **No proof of `Empty`** — parsed-index executable, annotated
+fold. -/
+theorem no_proof_of_Empty_SP_R2M (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hstep : DeclStep2AllM V μ)
+    {st : WFStore} {pds : List DeclP} {env' : Env}
+    (h : checkDeclsSP μ st pds = .ok env')
+    (c : ConstantInfo) (hc : c ∈ env'.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False := by
+  obtain ⟨m⟩ := checkDeclsSP_sound_R2M (V := V) hstep h
+  exact no_constant_of_Empty_R2M m c hc hty
+
+/-! ## The input-level four
+
+Their conclusion is `False`, which v1 proves unconditionally, so what
+these add is the route and not the fact.  Stated anyway, because the
+route is what the swap is about: the fold that carries them is the
+annotated one throughout. -/
+
+/-- The pure checker's input-level fold, over `EnvS2UM`. -/
+theorem foldlM_no_Empty_R2M {μ : CheckMode} {F : Nat}
+    (hstep : DeclStep2AllM V μ)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hty : cv.type = .const emptyName []) :
+    ∀ (ds : List Declaration) (env : Env) {env' : Env},
+      EnvS2UOkM V μ env →
+      ds.foldlM (checkDecl μ (fueledOps μ F)) env = .ok env' →
+      (Declaration.defnDecl cv value hint ∈ ds ∨
+        Declaration.thmDecl cv value ∈ ds) → False
+  | [], _, _, _, _, hd => by rcases hd with hd | hd <;> cases hd
+  | d :: ds, env, env', hm, h, hd => by
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    cases hdd : checkDecl μ (fueledOps μ F) env d with
+    | error e => rw [hdd] at h; exact nomatch h
+    | ok env1 =>
+    rw [hdd] at h
+    obtain ⟨⟨m⟩, hE⟩ := hm
+    by_cases hdis : d = Declaration.defnDecl cv value hint ∨
+        d = Declaration.thmDecl cv value
+    · obtain ⟨type, hann, c, hc, hcv⟩ := checkDecl_stores hdd hdis
+      rw [hty] at hann
+      obtain rfl : Expr.const emptyName [] = type :=
+        annotate_empty_const_eq hann
+      obtain ⟨m1⟩ := (checkDecl_sound_R2M (d := d) hstep m hE hdd).1
+      exact no_constant_of_Empty_R2M m1 c hc (by rw [hcv])
+    · refine foldlM_no_Empty_R2M (value := value) (hint := hint)
+        hstep hty ds env1
+        (checkDecl_sound_R2M (d := d) hstep m hE hdd) h ?_
+      rcases hd with hd | hd
+      · rcases List.mem_cons.mp hd with rfl | hmem
+        · exact absurd (Or.inl rfl) hdis
+        · exact Or.inl hmem
+      · rcases List.mem_cons.mp hd with rfl | hmem
+        · exact absurd (Or.inr rfl) hdis
+        · exact Or.inr hmem
+
+/-- **No accepted stream declares a proof of `Empty`** — annotated
+fold. -/
+theorem no_proof_of_Empty_input_R2M (V : Type w) [SetTheory V]
+    {μ : CheckMode} {F : Nat} (hstep : DeclStep2AllM V μ)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env')
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hd : Declaration.defnDecl cv value hint ∈ ds ∨
+      Declaration.thmDecl cv value ∈ ds)
+    (hty : cv.type = .const emptyName []) : False :=
+  foldlM_no_Empty_R2M hstep hty ds Env.empty (EnvS2UOkM.empty V μ) h hd
+
+/-- The cached executable's input-level fold, over `EnvS2UM`. -/
+theorem foldlM_no_Empty_RC2M {μ : CheckMode}
+    (hstep : DeclStep2AllM V μ)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hty : cv.type = .const emptyName []) :
+    ∀ (ds : List Declaration) (env : Env) {env' : Env},
+      EnvS2UOkM V μ env →
+      ds.foldlM (checkDecl μ (cachedOps μ)) env = .ok env' →
+      (Declaration.defnDecl cv value hint ∈ ds ∨
+        Declaration.thmDecl cv value ∈ ds) → False
+  | [], _, _, _, _, hd => by rcases hd with hd | hd <;> cases hd
+  | d :: ds, env, env', hm, h, hd => by
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    cases hdd : checkDecl μ (cachedOps μ) env d with
+    | error e => rw [hdd] at h; exact nomatch h
+    | ok env1 =>
+    rw [hdd] at h
+    obtain ⟨⟨m⟩, hE⟩ := hm
+    obtain ⟨F, hF⟩ := checkDecl_bridge m.base.wf hdd
+    by_cases hdis : d = Declaration.defnDecl cv value hint ∨
+        d = Declaration.thmDecl cv value
+    · obtain ⟨type, hann, c, hc, hcv⟩ := checkDecl_stores hF hdis
+      rw [hty] at hann
+      obtain rfl : Expr.const emptyName [] = type :=
+        annotate_empty_const_eq hann
+      obtain ⟨m1⟩ := (checkDecl_sound_R2M (d := d) hstep m hE hF).1
+      exact no_constant_of_Empty_R2M m1 c hc (by rw [hcv])
+    · refine foldlM_no_Empty_RC2M (value := value) (hint := hint)
+        hstep hty ds env1
+        (checkDecl_sound_R2M (d := d) hstep m hE hF) h ?_
+      rcases hd with hd | hd
+      · rcases List.mem_cons.mp hd with rfl | hmem
+        · exact absurd (Or.inl rfl) hdis
+        · exact Or.inl hmem
+      · rcases List.mem_cons.mp hd with rfl | hmem
+        · exact absurd (Or.inr rfl) hdis
+        · exact Or.inr hmem
+
+/-- **No accepted stream declares a proof of `Empty`** — cached
+executable, annotated fold. -/
+theorem no_proof_of_Empty_input_C_R2M (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hstep : DeclStep2AllM V μ)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (cachedOps μ) ds = .ok env')
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hd : Declaration.defnDecl cv value hint ∈ ds ∨
+      Declaration.thmDecl cv value ∈ ds)
+    (hty : cv.type = .const emptyName []) : False :=
+  foldlM_no_Empty_RC2M hstep hty ds Env.empty (EnvS2UOkM.empty V μ) h hd
+
+/-- The shared-state executable's input-level fold, over `EnvS2UM`. -/
+theorem foldlM_no_Empty_RS2M {μ : CheckMode}
+    (hstep : DeclStep2AllM V μ)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hty : cv.type = .const emptyName []) :
+    ∀ (ds : List Declaration) (fe : FEnv) {fe' : FEnv},
+      fe = mkFEnv fe.env →
+      EnvS2UOkM V μ fe.env →
+      ds.foldlM (checkDeclSharedF μ) fe = .ok fe' →
+      (Declaration.defnDecl cv value hint ∈ ds ∨
+        Declaration.thmDecl cv value ∈ ds) → False
+  | [], _, _, _, _, _, hd => by rcases hd with hd | hd <;> cases hd
+  | d :: ds, fe, fe', hfe, hm, h, hd => by
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    cases hdd : checkDeclSharedF μ fe d with
+    | error e => rw [hdd] at h; exact nomatch h
+    | ok fe1 =>
+    rw [hdd] at h
+    obtain ⟨⟨m⟩, hE⟩ := hm
+    rw [hfe] at hdd
+    obtain ⟨hfe1, F, hF⟩ := checkDeclSharedF_bridge m.base.wf hdd
+    by_cases hdis : d = Declaration.defnDecl cv value hint ∨
+        d = Declaration.thmDecl cv value
+    · obtain ⟨type, hann, c, hc, hcv⟩ := checkDecl_stores hF hdis
+      rw [hty] at hann
+      obtain rfl : Expr.const emptyName [] = type :=
+        annotate_empty_const_eq hann
+      obtain ⟨m1⟩ := (checkDecl_sound_R2M (d := d) hstep m hE hF).1
+      exact no_constant_of_Empty_R2M m1 c hc (by rw [hcv])
+    · refine foldlM_no_Empty_RS2M (value := value) (hint := hint)
+        hstep hty ds fe1 hfe1
+        (checkDecl_sound_R2M (d := d) hstep m hE hF) h ?_
+      rcases hd with hd | hd
+      · rcases List.mem_cons.mp hd with rfl | hmem
+        · exact absurd (Or.inl rfl) hdis
+        · exact Or.inl hmem
+      · rcases List.mem_cons.mp hd with rfl | hmem
+        · exact absurd (Or.inr rfl) hdis
+        · exact Or.inr hmem
+
+/-- **No accepted stream declares a proof of `Empty`** — shared-state
+executable, annotated fold. -/
+theorem no_proof_of_Empty_input_S_R2M (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hstep : DeclStep2AllM V μ)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDeclsShared μ ds = .ok env')
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hd : Declaration.defnDecl cv value hint ∈ ds ∨
+      Declaration.thmDecl cv value ∈ ds)
+    (hty : cv.type = .const emptyName []) : False := by
+  unfold checkDeclsShared at h
+  simp only [Bind.bind, Except.bind] at h
+  cases hf : ds.foldlM (checkDeclSharedF μ) (mkFEnv Env.empty) with
+  | error e => rw [hf] at h; exact nomatch h
+  | ok fe =>
+    exact foldlM_no_Empty_RS2M hstep hty ds (mkFEnv Env.empty) rfl
+      (EnvS2UOkM.empty V μ) hf hd
+
+/-- **No accepted input stream declares a proof of `Empty`** — the
+parsed-index executable at the stream level, annotated fold. -/
+theorem no_proof_of_Empty_input_SP_R2M (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hstep : DeclStep2AllM V μ)
+    {st : WFStore} {pds : List DeclP} {env' : Env}
+    (h : checkDeclsSP μ st pds = .ok env')
+    {cvp : ConstantValP} {value : EIdx}
+    (hd : (∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
+      DeclP.thmDecl cvp value ∈ pds)
+    (hty : st.denote cvp.type = some (.const emptyName [])) :
+    False := by
+  replace hty : st.raw.denote cvp.type
+      = some (.const emptyName []) := hty
+  unfold checkDeclsSP at h
+  have hwf : st.raw.WF := st.wf
+  simp only [Bind.bind, Except.bind, StateT.run'] at h
+  cases hrun : (pds.foldlM (checkDeclSPStep μ
+      (st.raw.nodes.size + st.raw.nodes.size))
+      (mkFEnv Env.empty)) { store := st.raw } with
+  | error e => rw [hrun] at h; exact nomatch h
+  | ok pr =>
+    clear h
+    obtain ⟨feO, sO⟩ := pr
+    suffices hgen : ∀ (pds : List DeclP) (fe : FEnv) {fe' : FEnv}
+        {s₀ s' : IState},
+        fe = mkFEnv fe.env →
+        EnvS2UOkM V μ fe.env →
+        ISOKF s₀ → Ext st.raw s₀.store →
+        (pds.foldlM (checkDeclSPStep μ
+          (st.raw.nodes.size + st.raw.nodes.size)) fe) s₀
+          = .ok (fe', s') →
+        ((∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
+          DeclP.thmDecl cvp value ∈ pds) → False by
+      exact hgen pds (mkFEnv Env.empty) rfl (EnvS2UOkM.empty V μ)
+        (ISOKF.fresh hwf) (Ext.refl _) hrun hd
+    clear hrun hd
+    intro pds
+    induction pds with
+    | nil =>
+      intro fe fe' s₀ s' _ _ _ _ _ hd
+      rcases hd with ⟨_, hd⟩ | hd <;> cases hd
+    | cons pd pds ih =>
+      intro fe fe' s₀ s' hfe hm hres hext0 h hd
+      rw [List.foldlM_cons] at h
+      obtain ⟨fe₁, s₁, hstepP, h⟩ := bindI_ok h
+      obtain ⟨⟨m⟩, hE⟩ := hm
+      obtain ⟨d, hd0⟩ := denoteDeclP_total hwf
+        (checkDeclSPStep_inRange hstepP)
+      have hden : denoteDeclP s₀.store pd = some d :=
+        denoteDeclP_mono hwf hext0 hd0
+      rw [hfe] at hstepP
+      obtain ⟨hres₁, hext₁, hfe₁, F, hF⟩ :=
+        checkDeclSPStep_run m.base.wf hres hden hstepP
+      by_cases hdis : (∃ hint, pd = DeclP.defnDecl cvp value hint) ∨
+          pd = DeclP.thmDecl cvp value
+      · have hdd : ∃ ve, (∃ hint, d = Declaration.defnDecl
+              ⟨cvp.name, cvp.levelParams, .const emptyName []⟩ ve
+                hint) ∨
+            d = Declaration.thmDecl
+              ⟨cvp.name, cvp.levelParams, .const emptyName []⟩ ve := by
+          rcases hdis with ⟨hint, rfl⟩ | rfl
+          · simp only [denoteDeclP, denoteCVP, Option.bind_eq_some_iff,
+              Option.map_eq_some_iff] at hd0
+            obtain ⟨cv0, ⟨ty, hty', rfl⟩, ve, hve, rfl⟩ := hd0
+            rw [hty] at hty'
+            cases hty'
+            exact ⟨ve, .inl ⟨hint, rfl⟩⟩
+          · simp only [denoteDeclP, denoteCVP, Option.bind_eq_some_iff,
+              Option.map_eq_some_iff] at hd0
+            obtain ⟨cv0, ⟨ty, hty', rfl⟩, ve, hve, rfl⟩ := hd0
+            rw [hty] at hty'
+            cases hty'
+            exact ⟨ve, .inr rfl⟩
+        obtain ⟨ve, hdd⟩ := hdd
+        have hfin : ((d = Declaration.defnDecl
+              ⟨cvp.name, cvp.levelParams, .const emptyName []⟩ ve
+                (.regular 0) ∨
+            d = Declaration.thmDecl
+              ⟨cvp.name, cvp.levelParams, .const emptyName []⟩ ve) ∨
+            (∃ hint, d = Declaration.defnDecl
+              ⟨cvp.name, cvp.levelParams, .const emptyName []⟩ ve
+                hint)) →
+            False := by
+          intro hcase
+          have hstores : ∃ type, annotateCore μ fe.env F 0
+                (.const emptyName []) = .ok type ∧
+              ∃ c, c ∈ fe₁.env.consts ∧ c.toConstantVal =
+                ⟨cvp.name, cvp.levelParams, type⟩ := by
+            rcases hcase with hdis' | ⟨hint, hdis'⟩
+            · obtain ⟨type, hann, c, hc, hcv⟩ :=
+                checkDecl_stores hF hdis'
+              exact ⟨type, hann, c, hc, hcv⟩
+            · obtain ⟨type, hann, c, hc, hcv⟩ := checkDecl_stores hF
+                (Or.inl hdis')
+              exact ⟨type, hann, c, hc, hcv⟩
+          obtain ⟨type, hann, c, hc, hcv⟩ := hstores
+          obtain rfl : Expr.const emptyName [] = type :=
+            annotate_empty_const_eq hann
+          obtain ⟨m1⟩ := (checkDecl_sound_R2M (d := d)
+            hstep m hE hF).1
+          exact no_constant_of_Empty_R2M m1 c hc (by rw [hcv])
+        rcases hdd with ⟨hint, rfl⟩ | rfl
+        · exact hfin (.inr ⟨hint, rfl⟩)
+        · exact hfin (.inl (.inr rfl))
+      · have hd' : (∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
+            DeclP.thmDecl cvp value ∈ pds := by
+          rcases hd with ⟨hint, hdm2⟩ | hdm2
+          · rcases List.mem_cons.mp hdm2 with heq | hmem
+            · exact absurd (.inl ⟨hint, heq.symm⟩) hdis
+            · exact .inl ⟨hint, hmem⟩
+          · rcases List.mem_cons.mp hdm2 with heq | hmem
+            · exact absurd (.inr heq.symm) hdis
+            · exact .inr hmem
+        exact ih fe₁ hfe₁
+          (checkDecl_sound_R2M (d := d) hstep m hE hF)
+          hres₁ (hext0.trans hext₁) h hd'
 /-! ## The three sweeps
 
 **1. Smallest fuel.**  No statement here asserts a `denote2` success;
