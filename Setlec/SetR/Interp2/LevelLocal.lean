@@ -384,6 +384,76 @@ theorem denote2LevelLocalM_of {V : Type w} [SetTheory V]
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
+/-! ## The two primitives, factored to the checker
+
+`sortOfE` and `lamSortE` take the level assignment **nowhere except
+the final `Level.eval`**: `inferTypeCore` and `whnf` do not mention
+`φ` at all.  So the two statements above are not about two runs — they
+are about *one* run and the level it returns, and what they need is:
+
+> inference and head normalisation introduce no level parameter the
+> subject does not already have.
+
+That is the pair below, and it is the level-side twin of
+`Step2/Levels.lean`'s `InferInstLevels`/`WhnfSortInstLevels`
+factoring.  Everything else is `Level.eval_ext`. -/
+
+/-- Inference keeps the level parameters within the subject's. -/
+def InferLevelParams (μ : CheckMode) (env : Env) : Prop :=
+  ∀ (ps : List Name) (F d : Nat) (e t : Expr),
+    e.allLevelParamsDefined ps = true →
+    Setlec.inferTypeCore μ env F d e = .ok t →
+    t.allLevelParamsDefined ps = true
+
+/-- Head normalisation keeps the level parameters within the
+subject's. -/
+def WhnfLevelParams (μ : CheckMode) (env : Env) : Prop :=
+  ∀ (ps : List Name) (F d : Nat) (e t : Expr),
+    e.allLevelParamsDefined ps = true →
+    Setlec.whnf μ env F d e = .ok t →
+    t.allLevelParamsDefined ps = true
+
+/-- **Statement 1 from the pair.** -/
+theorem sortOfELevelLocal_of {μ : CheckMode} {env : Env}
+    (hi : InferLevelParams μ env) (hw : WhnfLevelParams μ env) :
+    SortOfELevelLocal μ env := by
+  intro ps φ₁ φ₂ F d e hdef hφ
+  unfold sortOfE
+  cases hit : Setlec.inferTypeCore μ env F d e with
+  | error err => rfl
+  | ok t =>
+    simp only [Except.toOption]
+    cases hwt : Setlec.whnf μ env F d t with
+    | error err => rfl
+    | ok w =>
+      have hLw := hw ps F d t w (hi ps F d e t hdef hit) hwt
+      cases w with
+      | sort ℓ =>
+        simp only []
+        rw [Level.eval_ext
+          (by simpa [Expr.allLevelParamsDefined] using hLw) hφ]
+      | bvar i => rfl
+      | fvar i n ty => rfl
+      | const n us => rfl
+      | app f a => rfl
+      | lam n ty b m => rfl
+      | forallE n ty b m => rfl
+      | letE n ty v b => rfl
+      | proj s i x => rfl
+      | lit l => rfl
+
+/-- **Statement 2 from statement 1**, one inference earlier. -/
+theorem lamSortELevelLocal_of {μ : CheckMode} {env : Env}
+    (hi : InferLevelParams μ env) (hs : SortOfELevelLocal μ env) :
+    LamSortELevelLocal μ env := by
+  intro ps φ₁ φ₂ F d b hdef hφ
+  unfold lamSortE
+  cases hit : Setlec.inferTypeCore μ env F d b with
+  | error err => rfl
+  | ok bt =>
+    simp only [Except.toOption]
+    exact hs ps φ₁ φ₂ F d bt (hi ps F d b bt hdef hit) hφ
+
 /-! ## The two `params` consumers, discharged from the M form
 
 Both fields have the same shape — a leaf `A` obtained as a `denote2`
