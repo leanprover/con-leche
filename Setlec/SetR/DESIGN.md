@@ -18408,3 +18408,55 @@ adopted.
 *The campaign's most reliable instrument was never a proof technique.
 It was the refusal to let a statement stand un-discharged, and the
 willingness to report the discharge's failure as the result.*
+
+## Seal 67 — checker change #9 landed; wall 2 is inhabited
+
+**The user granted the guard.** `iotaRec` now tests
+`args.length = mI + 1 ∧ us.length = cv.levelParams.length`
+(`Kernel/Core.lean`), ungated, in the spelling `unfoldDefinition`
+already uses at `Core.lean:174/179` and the one all three references
+carry. The seal-66 verdict is therefore **retired by repair, not by
+weakening**: what `not_iotaLevelParams`/`not_iotaLevelParamsW` denied
+of the *unpatched* checker is now true of the patched one.
+
+**The twins had to move with it.** `iotaRecI` (`Kernel/CoreI.lean`) and
+`iotaRecNC` (`Kernel/CoreNC.lean`) carry the same conjunct. This is not
+cosmetic: `iotaRecI_sim` (`Verify/DiscI3.lean`) relates the interned
+implementation to the spec one, and with the guard on only one side the
+simulation is **false**, not merely unprovable — a spec-side `none`
+against an interned-side `some` reduct.
+
+**The knot, and why it was tie-able.** `iotaRec_lvlParams` at fuel `F`
+needs reduction and inference **at `F`**; `whnf`/`inferTypeCore` at `F`
+need the iota fact only **strictly below `F`** (each clause recurses one
+fuel down). So the internal `hiota` hypotheses in `Verify/LevelPres.lean`
+were made *fuel-bounded* (`F < fuel`) — a signature change, no proof
+change — and one induction on a bound (`iotaRec_lvlParams_lt`) closes
+the cycle. Out of it fall `iotaRec_lvlParamsW`, `whnf_lvlParamsW` and
+`inferTypeCore_lvlParamsW`, hypothesis-free.
+
+*Rule: when two mutually-dependent families are stuck, check whether one
+direction is actually **strict**. A globally-quantified hypothesis can
+hide a well-founded recursion that a bounded one exposes.*
+
+**Wall 2.** `IotaLevelParamsW` is a theorem (`iotaLevelParamsW`,
+`Interp2/LevelLocal.lean`). `valueParams_of_iota` and
+`axiomParams_of_iota` — vacuous at seal 65, refuted at seal 66 — **drop
+the hypothesis entirely** (zero external consumers, so dropping beat
+shadowing). Wall 2 is closed **in fact**.
+
+**`EnvWF` is not removable.** `IotaLevelParams` at an arbitrary `Env`
+remains out of reach: the bound on a rule's `rhs` parameters *is*
+`ConstWF`'s. Only the `W` form is a theorem, and that is the form every
+consumer holds.
+
+**What `Interp2/IotaArity.lean` is now.** The same three-constant
+environment, the same redex, `envWF` and `redex_clean` and
+`reduct_dirty` unchanged — but `iota_fires` is replaced by
+**`iota_blocked`** (`iotaRecP μ env 16 0 redex = .ok none`, both modes),
+and the header records the four retired theorems and what they proved.
+It is a **regression test**: remove the guard and `iota_blocked` breaks.
+
+**Battery:** 351 jobs warning-free, arena 90/92, e2e 72/72, split 11/11,
+mode flags 9/9, no-model sweep unchanged. `SetR/Main.lean` byte-identical.
+No `sorry`, no new axiom.
