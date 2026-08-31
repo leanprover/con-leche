@@ -17838,3 +17838,50 @@ standard axioms.
 smaller and better-named one, but ours. *Per seal 11: what is
 established is that `baseExt` has a named unconditional supplier, not
 that the axiom install is closed.*
+
+### Seal 60 — both findings measured: v1 answers the category question by policy
+
+Measured before briefing, per the discipline that has now paid three
+times. **One read of `StdAxiomKeyS` (`Install/Axiom.lean:165`) answers
+both.** Its four conjuncts are:
+
+1. `∀ ψ, VExpr.Closed (Vf ψ)` — **closedness**;
+2. level-parameter congruence;
+3. `∀ ψ ρ, AnnotOkV V ρ (Vf ψ)` — truthfulness;
+4. `∀ ψ, ∃ t, denoteClosed … cvA.type = some t ∧ ∀ ρ, interp ρ (Vf ψ) ∈ˢ interp ρ t ∧ …` — **the inhabitant.**
+
+**Finding 1 — confirmed, and it is a feature surfacing.** The key
+supplies the inhabitant *by conjunct 4*, so **`ConstantValR` was never
+enough in v1 either.** The checker never installs an arbitrary axiom:
+`extendAxiomS` is reached only through the four branches, and each
+extending one carries a key that supplies exactly the inhabitant —
+`StdAxiomKeyS` for the pinned standard axioms, `trustCompilerKeyS`
+proved in-tree, `OfReduceKeyS` for the pinned `ofReduce` family.
+
+**That is the no-nonstandard-axioms ruling made structural.** The
+generic-axiom form is **unprovable by design**, and the model is
+*why*: a well-typed axiom may be false, so only pinned ones are
+accepted. `DeclAxiom2SM` is to be **re-premised on the branch-specific
+key**, and its generic form **tombstoned as unprovable-by-design** —
+not chased.
+
+**Finding 2 — the supplier is nearer than the prediction.** The
+directive guessed the seal-49 exposed chain on `ConstantValR`, i.e.
+the *type's* run. It is not: `.closed` is **conjunct 1 of the same
+key**. An axiom's leaf is `Vf`, and the key already states `Vf` is
+closed. So `AxiomResidues2M.closed` is a **field-shape fix reading the
+key**, not a new obligation and not a type-run consumer.
+
+*Rule: when a field looks unsuppliable, read the supplier its own
+branch already carries before reaching for a different tier. Both
+findings were answered by one definition that had been in the tree
+since the v1 install landed.*
+
+**One thing the measurement does *not* settle**, flagged rather than
+assumed: the key supplies `AnnotOkV` — the **collapse-lane**
+truthfulness — where the M lane's `.ok2` wants `AnnotOk2`. Conjunct 1
+transfers to the annotated leaf through `acval_erase` because
+closedness is a fact about the erasure (seal 54's argument); **conjunct
+3 does not**, for the reason `interp2_ne_interp_erase` records. So
+`.closed` is fixable from the key and `.ok2` is not obviously so —
+different fields, different answers, and only the first was asked.
