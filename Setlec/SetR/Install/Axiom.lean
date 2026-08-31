@@ -80,7 +80,14 @@ theorem EnvS.cval_memType {env : Env} (m : EnvS V env) {n : Name}
 
 /-- **The axiom install** — transpose of `extendAxiomTT`: the
 valuation is chosen outright; `defn_eq` and `thm_ok` are vacuous at an
-`axiomInfo`, so the install is strictly smaller than the value one. -/
+`axiomInfo`, so the install is strictly smaller than the value one.
+
+**The conclusion names the extension and its agreement**, on
+`extendValueS`'s shape and for its reason: a `Nonempty` is a one-way
+door, and the interp2 tier's `acval_erase` is an equation against the
+extension's own valuation, so it cannot be *stated* against a witness
+the install discarded.  The agreement is `cvalWith`'s own off-name
+clause, so exposing it costs one term. -/
 theorem extendAxiomS {env : Env} (m : EnvS V env) {cv : ConstantVal}
     {Vf : (Name → Nat) → VExpr}
     (hfresh : env.find? cv.name = none)
@@ -95,7 +102,8 @@ theorem extendAxiomS {env : Env} (m : EnvS V env) {cv : ConstantVal}
         interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t)
     (hnres : reservedBasisNames.contains cv.name = false)
     (hnred : cv.name ∉ reduceOpNames) :
-    Nonempty (EnvS V ⟨ConstantInfo.axiomInfo cv :: env.consts⟩) := by
+    ∃ m' : EnvS V ⟨ConstantInfo.axiomInfo cv :: env.consts⟩,
+      ∀ n, n ≠ cv.name → m.cval n = m'.cval n := by
   have hi : Installs env m.cval (cvalWith m.cval cv.name Vf)
       (.axiomInfo cv) :=
     Installs.of_fresh hfresh (fun n hn => (cvalWith_ne hn).symm)
@@ -104,7 +112,8 @@ theorem extendAxiomS {env : Env} (m : EnvS V env) {cv : ConstantVal}
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     ?_ (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq) ?_ ?_
-    (fun _ _ _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) ?_⟩
+    (fun _ _ _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) ?_,
+    fun n hn => (cvalWith_ne hn).symm⟩
   · intro ψ
     show VExpr.Closed (cvalWith m.cval cv.name Vf cv.name ψ)
     rw [cvalWith_self]; exact hVcl ψ
@@ -251,12 +260,19 @@ theorem trustCompilerKeyS {env : Env} (m : EnvS V env)
 
 /-! ## The guard chain -/
 
-/-- An accepted `axiom` extends the invariant, given the two remaining
-keys.  The tolerated skip installs nothing and owes nothing. -/
-theorem declAxiomS (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
+/-- An accepted `axiom` extends the invariant, **with the extension
+and its valuation agreement exposed**, given the two remaining keys.
+
+All four of `DeclAxiomR`'s branches are answered here.  The three that
+store funnel through the single `extendAxiomS` call in `hgo` and differ
+only in where `Vf` comes from — `hstd`, the in-tree theorem
+`trustCompilerKeyS`, and `hofr`.  The tolerated skip does not move the
+environment, so its extension **is** the prefix and its agreement is
+`rfl`. -/
+theorem declAxiomExtS (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
     {μ : CheckMode} {F : Nat} {env env₂ : Env} {cv : ConstantVal}
     (m : EnvS V env) (h : DeclAxiomR μ F env m.cval cv env₂) :
-    Nonempty (EnvS V env₂) := by
+    ∃ m' : EnvS V env₂, ∀ n, n ≠ cv.name → m.cval n = m'.cval n := by
   obtain ⟨type', hcv, hbranch⟩ := h
   obtain ⟨hfind, hres, hpshape, hnd, hlbt, hitf, hann, htp, htr, hfrontT⟩ :=
     hcv
@@ -279,8 +295,8 @@ theorem declAxiomS (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
         ∀ ρ : Nat → V,
           interp V ρ (Vf ψ) ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t) →
       cv.name ∉ reduceOpNames →
-      Nonempty (EnvS V ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-        env.consts⟩) := by
+      ∃ m' : EnvS V ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts⟩, ∀ n, n ≠ cv.name → m.cval n = m'.cval n := by
     intro Vf hVcl hVp hVannot hkey hnr
     exact extendAxiomS m (Vf := Vf) hfresh hwfc hVcl hVp hVannot hkey
       hres hnr
@@ -295,7 +311,16 @@ theorem declAxiomS (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
   · obtain ⟨Vf, hVcl, hVp, hVannot, hkey⟩ := hofr m hofok hofn hfresh
     exact hgo Vf hVcl hVp hVannot hkey
       (by rcases hofn with hh | hh <;> rw [hh] <;> decide)
-  · exact ⟨m⟩
+  · exact ⟨m, fun _ _ => rfl⟩
+
+/-- An accepted `axiom` extends the invariant — `declAxiomExtS`'s
+conclusion with the extension forgotten.  The signature is unchanged,
+so `declStepS` and the fourteen read exactly what they always did. -/
+theorem declAxiomS (hstd : StdAxiomKeyS V) (hofr : OfReduceKeyS V)
+    {μ : CheckMode} {F : Nat} {env env₂ : Env} {cv : ConstantVal}
+    (m : EnvS V env) (h : DeclAxiomR μ F env m.cval cv env₂) :
+    Nonempty (EnvS V env₂) :=
+  ⟨(declAxiomExtS hstd hofr m h).choose⟩
 
 
 /-- The equality former's valuation at the pinned level `1`. -/
