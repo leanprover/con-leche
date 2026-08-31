@@ -1,5 +1,6 @@
 import Setlec
 import Setlec.Frontend.Export
+import NbETests
 
 /-!
 Test suite.  Tests are `#guard`s and `example`s, so `lake test` (which

@@ -38,3 +38,4 @@ import Setlec.Verify.DeclStores
 import Setlec.Verify.OfReducePin
 import Setlec.Verify.ParseP
 import Setlec.Verify.BridgeP
+import Setlec.NbE.Check
