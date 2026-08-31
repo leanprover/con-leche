@@ -1391,7 +1391,9 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
     match fe.find? cn with
     | some (.recInfo cv mI rP rules) => do
       let args ← withStore (·.getAppArgsI e)
-      if args.length = mI + 1 then do
+      -- checker change #9 (twin of `Core.lean`'s `iotaRec`): guard the
+      -- recursor's level arity before the rule's RHS is instantiated.
+      if args.length = mI + 1 ∧ us.length = cv.levelParams.length then do
         let bvar0 ← internI (.bvar 0)
         let major₀ ← r.whnf depth (args.getD mI bvar0)
         let major₁ ← litMajorToCtorI r fe depth major₀

@@ -1163,7 +1163,7 @@ theorem substSim_core_succ {env : Env} {fuel : Nat}
     · -- fired iota
       obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj,
         usj, cvj, cnP, cnF, rl, cbinders, cbody, residual, cr, usr,
-        hifn, hifc, hilen, himaj, hilit, hisub, himfn, hifj, hirule,
+        hifn, hifc, hilen, -, himaj, hilit, hisub, himfn, hifj, hirule,
         himl, -, -, hinin, -, -, -, -, -, -, -, -, rfl⟩ :=
         Setlec.iotaRec_inv (mode := μ) hio
       have hSb : (Expr.app f' x).looseBVarsBounded 0 = true := by

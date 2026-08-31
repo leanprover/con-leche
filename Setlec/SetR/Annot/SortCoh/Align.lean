@@ -228,7 +228,7 @@ theorem iotaRec_none_of_arglen {r : Setlec.CoreFns Setlec.CheckM}
   unfold Setlec.iotaRec
   rw [hfn]
   simp only [hc]
-  rw [if_neg hlen]
+  rw [if_neg (fun hc => hlen hc.1)]
   rfl
 
 /-- Dead shapes absorb spine extension. -/

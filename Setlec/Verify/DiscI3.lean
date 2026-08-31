@@ -1089,12 +1089,14 @@ theorem iotaRecI_sim (ih : SSimI mode env f) (henv : EnvWF env)
         dsimp only
         refine SimAt.withStore ?_
         have hargs := getAppArgsI_spec hs.wf hden
-        rw [hargs.length_eq]
-        by_cases hlen : ex.getAppArgs.length = mI + 1
+        rw [hargs.length_eq, denoteLList_length hlusDen]
+        by_cases hlen : ex.getAppArgs.length = mI + 1 ∧
+            lus.length = cv.levelParams.length
         rotate_right
         · rw [if_neg hlen, if_neg hlen]
           exact SimAt.pure hs trivial
         rw [if_pos hlen, if_pos hlen]
+        replace hlen := hlen.1
         · have hbv : denoteNode s₀.store.denoteT s₀.store.denoteL s₀.store.denoteN (.bvar 0)
               = some (.bvar 0) := rfl
           refine SimAt.bind_left (internI_eff hs hbv)

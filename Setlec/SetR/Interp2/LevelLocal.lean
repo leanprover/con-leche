@@ -628,7 +628,7 @@ theorem denote2LevelLocalMW_of {V : Type w} [SetTheory V]
     Denote2LevelLocalM V μ m :=
   denote2LevelLocalM_of m (hs m.base.wf) (hl m.base.wf)
 
-/-! ## Second finding: the pair discharges but for **one** clause
+/-! ## Second finding: the one clause that was open — and is now closed
 
 `Setlec/Verify/LevelPres.lean` runs the two inductions.  Every site
 that could introduce a level parameter instantiates a *stored*
@@ -638,98 +638,85 @@ stored expression's parameters by its declaration's own, and
 have the same length** — a ragged substitution really does lose them
 (`Level.subst.go` falls through to `.param n`).
 
-Three of the four sites check that length themselves:
+Three of the four sites always checked that length themselves:
 `unfoldDefinition` (the delta step), `inferBody`'s `.const` clause,
-and `inferBody`'s `.proj` clause.  **`iotaRec` does not**: its guards
-are the spine length, the rule lookup, `Level.isEquivList` on the
+and `inferBody`'s `.proj` clause.  **`iotaRec` did not**: its guards
+were the spine length, the rule lookup, `Level.isEquivList` on the
 *constructor's* levels, the two `iotaCerts` and the index comparison —
 none of which relates the recursor's `us` to its `cv.levelParams`.  So
-the reduct `r.rhs.instantiateLevelParams cv.levelParams us` can carry
-a parameter out of a short `us`.
+the reduct `r.rhs.instantiateLevelParams cv.levelParams us` could
+carry a parameter out of a short `us`, and
+`Setlec/SetR/Interp2/IotaArity.lean` built the environment that did:
+three constants, `EnvWF` discharged, `T.rec.{0} T.mk T.mk T.mk` firing
+at `us.length = 1 < 2 = cv.levelParams.length` and leaking `.param w`.
+That refuted `IotaLevelParamsW` **as stated**, so the residue could not
+be proved away — the fix had to be in the checker.
 
-The gap is stated exactly, not described: `iotaRec_lvlParams_of_arity`
-proves the iota case from the level-`F` reduction and inference facts
-**plus the redex head's level arity, and nothing else**.  So
-`IotaLevelParams` below is the whole residue of the two inductions —
-they assume `EnvWF` and it, and nothing further.
+**It was.**  Checker change #9 adds `us.length = cv.levelParams.length`
+to `iotaRec`'s guard (`Setlec/Kernel/Core.lean`, with the `iotaRecI`
+and `iotaRecNC` twins), the spelling `unfoldDefinition` already used at
+the delta step, and the one the official C++ kernel
+(`src/kernel/inductive.h:105`), lean4lean
+(`Lean4Lean/Inductive/Reduce.lean:98`) and nanoda all carry.  The arity
+is now handed to `iotaRec_inv` directly, `iotaRec_lvlParams` needs no
+side hypothesis, and `Setlec/Verify/LevelPres.lean` ties the knot
+(`iotaRec_lvlParamsW`): reduction and inference at fuel `F` use the
+iota fact only strictly below `F`, so one induction on a bound closes
+the cycle.  `IotaArity.lean` keeps the environment as a regression
+test (`iota_blocked`).
 
-Two ways it could close, of unequal cost:
+So `IotaLevelParamsW` below is a **theorem** (`iotaLevelParamsW`), and
+every consumer that used to take it as a hypothesis now stands alone.
+The `EnvWF` premise is not removable: `IotaLevelParams` at an arbitrary
+environment is still out of reach, because the bound on a rule's `rhs`
+parameters is exactly `ConstWF`'s. -/
 
-* **one guard in `iotaRec`** (`us.length = cv.levelParams.length`, the
-  spelling `unfoldDefinition` already uses at the delta step).  That
-  hands the arity to the inversion directly, and
-  `iotaRec_lvlParams_of_arity` is then the whole proof.  It is a
-  *checker* change, not this lane's to make — and it is a finding in
-  its own right: the level-arity of a recursor application is checked
-  nowhere on the reduction path, while every other instantiation site
-  checks its own;
-* **an arity clause in `ConstWF`**, plus the matching syntactic
-  invariant carried through the induction beside
-  `allLevelParamsDefined`.  This one is *not* a small change and is
-  not known to close: the stuck-major rescue fabricates
-  `.const (projFnName T j) ust` applications
-  (`etaFabArgs`, `Kernel/Core.lean:1059`) whose own arity is not among
-  the guards the inversion exposes.
-
-**Settled — and it *is* false.**  `Setlec/SetR/Interp2/IotaArity.lean`
-builds the environment this note said had not been built: three
-constants, `EnvWF` discharged, and `T.rec.{0} T.mk T.mk T.mk` fires
-`iotaRec` at `us.length = 1 < 2 = cv.levelParams.length`, leaking
-`.param w` out of the rule's rhs.  `not_iotaLevelParamsW` there refutes
-the residue as stated, so neither consumer can be closed by proving it;
-the closing move is the guard in `iotaRec`, which the official C++
-kernel (`src/kernel/inductive.h:105`) and lean4lean
-(`Lean4Lean/Inductive/Reduce.lean:98`) both carry and we do not.
-The countermodel needs a level parameter occurring in the rule's rhs
-and *nowhere* in the recursor's type or the constructor's level list;
-install-shaped recursors have no such parameter, but nothing the
-checker proves records that. -/
-
-/-- Iota keeps the level parameters within the subject's — **the one
-clause the induction does not close** (see the note above). -/
+/-- Iota keeps the level parameters within the subject's. -/
 def IotaLevelParams (μ : CheckMode) (env : Env) : Prop :=
   ∀ (ps : List Name) (F d : Nat) (e t : Expr),
     e.allLevelParamsDefined ps = true →
     Setlec.iotaRecP μ env F d e = .ok (some t) →
     t.allLevelParamsDefined ps = true
 
-/-- The residue, at the repaired shape. -/
+/-- The same, premised on the invariant's own `EnvWF`. -/
 def IotaLevelParamsW (μ : CheckMode) (env : Env) : Prop :=
   Setlec.EnvWF env → IotaLevelParams μ env
 
-/-- **Primitive 1 discharged, modulo the residue.** -/
-theorem inferLevelParamsW_of {μ : CheckMode} {env : Env}
-    (hio : IotaLevelParamsW μ env) : InferLevelParamsW μ env := by
+/-- **The residue, discharged** — what checker change #9 bought. -/
+theorem iotaLevelParamsW {μ : CheckMode} {env : Env} :
+    IotaLevelParamsW μ env :=
+  fun hwf _ps F d e t hp h =>
+    Setlec.iotaRec_lvlParamsW hwf F d e t hp h
+
+/-- **Primitive 1, discharged.** -/
+theorem inferLevelParamsW_of {μ : CheckMode} {env : Env} :
+    InferLevelParamsW μ env := by
   intro hwf ps F d e t hp h
-  exact Setlec.inferTypeCore_lvlParams hwf
-    (fun F' d' e' t' hp' h' => hio hwf ps F' d' e' t' hp' h') F h hp
+  exact Setlec.inferTypeCore_lvlParamsW hwf F h hp
 
-/-- **Primitive 2 discharged, modulo the residue.** -/
-theorem whnfLevelParamsW_of {μ : CheckMode} {env : Env}
-    (hio : IotaLevelParamsW μ env) : WhnfLevelParamsW μ env := by
+/-- **Primitive 2, discharged.** -/
+theorem whnfLevelParamsW_of {μ : CheckMode} {env : Env} :
+    WhnfLevelParamsW μ env := by
   intro hwf ps F d e t hp h
-  exact Setlec.whnf_lvlParams hwf
-    (fun F' d' e' t' hp' h' => hio hwf ps F' d' e' t' hp' h') F h hp
+  exact Setlec.whnf_lvlParamsW hwf F h hp
 
-/-- **Statement 1, discharged modulo the residue.** -/
-theorem sortOfELevelLocalW_of_iota {μ : CheckMode} {env : Env}
-    (hio : IotaLevelParamsW μ env) : SortOfELevelLocalW μ env :=
-  sortOfELevelLocalW_of (inferLevelParamsW_of hio)
-    (whnfLevelParamsW_of hio)
+/-- **Statement 1, discharged.** -/
+theorem sortOfELevelLocalW_of_iota {μ : CheckMode} {env : Env} :
+    SortOfELevelLocalW μ env :=
+  sortOfELevelLocalW_of inferLevelParamsW_of whnfLevelParamsW_of
 
-/-- **Statement 2, discharged modulo the residue.** -/
-theorem lamSortELevelLocalW_of_iota {μ : CheckMode} {env : Env}
-    (hio : IotaLevelParamsW μ env) : LamSortELevelLocalW μ env :=
-  lamSortELevelLocalW_of (inferLevelParamsW_of hio)
-    (sortOfELevelLocalW_of_iota hio)
+/-- **Statement 2, discharged.** -/
+theorem lamSortELevelLocalW_of_iota {μ : CheckMode} {env : Env} :
+    LamSortELevelLocalW μ env :=
+  lamSortELevelLocalW_of inferLevelParamsW_of
+    sortOfELevelLocalW_of_iota
 
-/-- **Statement 3, discharged modulo the residue**, at the form the
-consumers hold. -/
+/-- **Statement 3, discharged**, at the form the consumers hold. -/
 theorem denote2LevelLocalM_of_iota {V : Type w} [SetTheory V]
-    {μ : CheckMode} {env : Env} (m : EnvS2UM V μ env)
-    (hio : IotaLevelParamsW μ env) : Denote2LevelLocalM V μ m :=
-  denote2LevelLocalMW_of m (sortOfELevelLocalW_of_iota hio)
-    (lamSortELevelLocalW_of_iota hio)
+    {μ : CheckMode} {env : Env} (m : EnvS2UM V μ env) :
+    Denote2LevelLocalM V μ m :=
+  denote2LevelLocalMW_of m sortOfELevelLocalW_of_iota
+    lamSortELevelLocalW_of_iota
 
 /-! ## The two `params` consumers, discharged from the M form
 
@@ -795,33 +782,35 @@ theorem axiomParams_of_levelLocalM {V : Type w} [SetTheory V]
 
 /-! ## The whole chain, end to end
 
-Both fields, from the one residue and the invariant's own `EnvWF`.
-Nothing else is assumed: no fuel bound, no environment shape, no mode
-condition, and no valuation law beyond `acval_params`. -/
+Both fields, from the invariant's own `EnvWF` and nothing else: no
+residue, no fuel bound, no environment shape, no mode condition, and no
+valuation law beyond `acval_params`.  The `hio` hypothesis these two
+carried until checker change #9 is gone — it is `iotaLevelParamsW`
+now, and the chain supplies it internally. -/
 
-/-- **`ValueResidues2M.params` from the residue.** -/
+/-- **`ValueResidues2M.params`, outright.** -/
 theorem valueParams_of_iota {V : Type w} [SetTheory V]
     {μ : CheckMode} {env : Env} (m : EnvS2UM V μ env)
-    (hio : IotaLevelParamsW μ env) {F : Nat} {cv : ConstantVal}
+    {F : Nat} {cv : ConstantVal}
     {value type' value' : Expr} {A : (Name → Nat) → AVExpr}
     (hvf : ValueFrontR μ F env m.base.cval cv value type' value')
     (hA : ∀ ψ : Name → Nat, ∃ F' : Nat,
       denote2 μ m.acval env ψ F' 0 value' = some (A ψ)) :
     ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂ :=
-  valueParams_of_levelLocalM (denote2LevelLocalM_of_iota m hio) hvf hA
+  valueParams_of_levelLocalM (denote2LevelLocalM_of_iota m) hvf hA
 
-/-- **`AxiomResidues2M.params`/`AxiomResidues3M.params` from the
-residue.** -/
+/-- **`AxiomResidues2M.params`/`AxiomResidues3M.params`,
+outright.** -/
 theorem axiomParams_of_iota {V : Type w} [SetTheory V]
     {μ : CheckMode} {env : Env} (m : EnvS2UM V μ env)
-    (hio : IotaLevelParamsW μ env) {F : Nat} {cv : ConstantVal}
+    {F : Nat} {cv : ConstantVal}
     {type' : Expr} {A : (Name → Nat) → AVExpr}
     (hcv : ConstantValR μ F env m.base.cval cv type')
     (hA : ∀ ψ : Name → Nat, ∃ F' : Nat,
       denote2 μ m.acval env ψ F' 0 type' = some (A ψ)) :
     ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂ :=
-  axiomParams_of_levelLocalM (denote2LevelLocalM_of_iota m hio) hcv hA
+  axiomParams_of_levelLocalM (denote2LevelLocalM_of_iota m) hcv hA
 
 end Setlec.SetR.Interp2
