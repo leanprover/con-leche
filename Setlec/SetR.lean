@@ -119,6 +119,7 @@ import Setlec.SetR.Interp2.EmptyPin2
 import Setlec.SetR.Interp2.Denote2Closed
 import Setlec.SetR.Interp2.Step2Cons
 import Setlec.SetR.Interp2.LevelLocal
+import Setlec.SetR.Interp2.IotaArity
 import Setlec.SetR.Interp2.EnvLaws2
 import Setlec.SetR.Interp2.Capstone2C
 import Setlec.SetR.Interp2.Capstone2D

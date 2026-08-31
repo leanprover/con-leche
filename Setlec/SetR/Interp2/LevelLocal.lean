@@ -671,11 +671,19 @@ Two ways it could close, of unequal cost:
   (`etaFabArgs`, `Kernel/Core.lean:1059`) whose own arity is not among
   the guards the inversion exposes.
 
-**Not settled either way.**  No countermodel is offered: a firing iota
-redex at a short `us` would have to pass the rule lookup, both
-`iotaCerts` and the index comparison, and no such environment was
-built.  So this is *"the induction cannot close it"*, not *"it is
-false"*. -/
+**Settled — and it *is* false.**  `Setlec/SetR/Interp2/IotaArity.lean`
+builds the environment this note said had not been built: three
+constants, `EnvWF` discharged, and `T.rec.{0} T.mk T.mk T.mk` fires
+`iotaRec` at `us.length = 1 < 2 = cv.levelParams.length`, leaking
+`.param w` out of the rule's rhs.  `not_iotaLevelParamsW` there refutes
+the residue as stated, so neither consumer can be closed by proving it;
+the closing move is the guard in `iotaRec`, which the official C++
+kernel (`src/kernel/inductive.h:105`) and lean4lean
+(`Lean4Lean/Inductive/Reduce.lean:98`) both carry and we do not.
+The countermodel needs a level parameter occurring in the rule's rhs
+and *nowhere* in the recursor's type or the constructor's level list;
+install-shaped recursors have no such parameter, but nothing the
+checker proves records that. -/
 
 /-- Iota keeps the level parameters within the subject's — **the one
 clause the induction does not close** (see the note above). -/
