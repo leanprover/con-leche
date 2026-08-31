@@ -18460,3 +18460,65 @@ It is a **regression test**: remove the guard and `iota_blocked` breaks.
 **Battery:** 351 jobs warning-free, arena 90/92, e2e 72/72, split 11/11,
 mode flags 9/9, no-model sweep unchanged. `SetR/Main.lean` byte-identical.
 No `sorry`, no new axiom.
+
+**The reference table** — the justification the user asked to stand
+with the change. Every reference kernel guards the recursor's level
+arity unconditionally; ours alone omitted it:
+
+| kernel | site | form |
+|---|---|---|
+| Lean 4 C++ | `src/kernel/inductive.h:105` | guards before instantiating the rule RHS; present since v4.0.0 |
+| lean4lean | `Inductive/Reduce.lean:98` | same test, same position |
+| nanoda | `expr.rs:387` | `subst_expr_levels` asserts it |
+| setlec (pre-#9) | `Kernel/Core.lean` | **absent** — the residue seal 66 refuted |
+
+**The countermodel** that priced it: `Interp2/IotaArity.lean`'s
+three-constant environment applies a recursor at the wrong level arity;
+pre-patch the redex fired (`iota_fires`) and
+`rl.rhs.instantiateLevelParams cv.levelParams us` leaked a level
+parameter the subject never carried (`redex_clean` +
+`reduct_dirty`), refuting `IotaLevelParams` and `IotaLevelParamsW`.
+
+**Calibration, unchanged from seal 66:** this is *not* a demonstrated
+soundness hole in an accepted stream. `inferBody`'s `.const` clause
+arity-checks unconditionally, and whnf-reachability of a mis-arity
+recursor application was never verified. The change buys parity and a
+theorem, not a rescued verdict.
+
+**Verdict-neutrality, measured.** Both sweeps: zero verdict changes on
+accepted streams — as predicted, correct-arity inputs are untouched.
+No stream changed verdict, so there is nothing to report as a finding.
+`init-prelude` (103232 decls) run under both the master and the patched
+binary: exit 0 both, output **byte-identical**. v1's fourteen swept
+with `#print axioms`: all fourteen on exactly
+`[propext, Classical.choice, Quot.sound]`, hypothesis-free, and
+`SetR/Main.lean` byte-identical against `master`.
+
+**The patch's value, cashed.** The standing formulation was *"the
+patch's value is the difference between wall 2 closed and wall 2
+vacuous."* That difference is now paid: `valueParams_of_iota` and
+`axiomParams_of_iota` carried a hypothesis that seal 66 had proved
+false, which made them vacuously true — statements that could never
+fail because nothing could satisfy them. They are now hypothesis-free
+theorems about the checker that actually runs.
+
+### The campaign's epitaph
+
+Across six statement generations, two refutations, four supersessions
+and ninety-three tombstones, not one bad statement was caught by
+reading it. Every one fell when a consumer tried to *use* it.
+
+> the most reliable instrument was refusing to let a statement stand
+> un-discharged
+
+### Lane status: junction-paced, Θ-frozen
+
+With wall 1 (`.ok2`, seal 63) and wall 2 (seal 67) both closed in fact,
+this lane has no remaining work it can do alone. What is left is
+**junction-paced**: the keys stay conditional until the junction closes,
+at which point they go unconditional on the residue set — that
+sequencing was ruled, not deferred. And the Θ lane is **frozen**: its
+statement and telescope are fixed, `SortCoh/*` is not ours to move, and
+`EnvExtendStable` (E) is the junction's to discharge.
+
+Stated in fact, not as a plan: **the lane holds for the junction.**
