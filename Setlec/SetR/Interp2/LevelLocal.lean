@@ -153,7 +153,8 @@ theorem denote2LevelLocal_of {μ : CheckMode} {env : Env}
     rw [denote2, hf, denote2, hf]
     dsimp only
     rw [if_pos hlen, if_pos hlen,
-      hac n _ _ (Level.substFn_agree hφ (ks := ci.toConstantVal.levelParams)
+      hac n _ _ (Level.substFn_agree hφ
+        (ks := ci.toConstantVal.levelParams)
         (by
           simpa [Expr.allLevelParamsDefined, List.all_eq_true]
             using hdef))]
@@ -428,13 +429,15 @@ private theorem llEnv_sortOfE (μ : CheckMode) (ψ : Name → Nat)
       = .ok (.sort (.param llP)) from llEnv_infer μ (F + 2) d]
   simp only [Except.toOption]
   rw [show Setlec.whnf μ llEnv (F + 3) d (.sort (.param llP))
-      = .ok (.sort (.param llP)) from Setlec.whnf_sort llEnv (F + 1) d _]
+      = .ok (.sort (.param llP))
+      from Setlec.whnf_sort llEnv (F + 1) d _]
   rfl
 
 /-- …and one inference earlier, for the λ clause's numeral. -/
 private theorem llEnv_lamSortE (μ : CheckMode) (ψ : Name → Nat)
     (F d : Nat) :
-    lamSortE μ llEnv ψ (F + 4) d (.const llC []) = some (ψ llP + 1) := by
+    lamSortE μ llEnv ψ (F + 4) d (.const llC [])
+      = some (ψ llP + 1) := by
   unfold lamSortE
   rw [show Setlec.inferTypeCore μ llEnv (F + 4) d (.const llC [])
       = .ok (.sort (.param llP)) from llEnv_infer μ (F + 3) d]

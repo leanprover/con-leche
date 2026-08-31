@@ -57,7 +57,8 @@ theorem Level.substFn_agree {φ₁ φ₂ : Name → Nat} {ps : List Name}
     (hφ : ∀ p ∈ ps, φ₁ p = φ₂ p) :
     ∀ {ks : List Name} {us : List Level},
       (∀ u ∈ us, u.allParamsDefined ps = true) →
-      ∀ p ∈ ps, Level.substFn φ₁ ks us p = Level.substFn φ₂ ks us p := by
+      ∀ p ∈ ps,
+        Level.substFn φ₁ ks us p = Level.substFn φ₂ ks us p := by
   intro ks
   induction ks with
   | nil => intro us _ p hp; exact hφ p hp
@@ -201,7 +202,8 @@ theorem strLitToConstructor_lvlParams (s : String) :
     (strLitToConstructor s).allLevelParamsDefined ps = true := by
   have hspine : ∀ cs : List Char,
       (cs.foldr
-        (init := Expr.app (.const listNilName [.zero]) (.const charName []))
+        (init := Expr.app (.const listNilName [.zero])
+          (.const charName []))
         (fun c e =>
           .app (.app (.app (.const listConsName [.zero])
             (.const charName []))
@@ -306,7 +308,8 @@ theorem whnfPres_lvlParams {env : Env} (henv : EnvWF env)
       (∀ {d : Nat} {e e' : Expr}, whnf mode env fuel d e = .ok e' →
         e.allLevelParamsDefined ps = true →
         e'.allLevelParamsDefined ps = true)
-  | 0 => ⟨(fun {_ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h)⟩
+  | 0 => ⟨(fun {_ _ _} h _ => nomatch h),
+      (fun {_ _ _} h _ => nomatch h)⟩
   | fuel + 1 => by
     obtain ⟨ihCore, ihLoop⟩ := whnfPres_lvlParams henv hiota fuel
     constructor
@@ -315,27 +318,33 @@ theorem whnfPres_lvlParams {env : Env} (henv : EnvWF env)
       cases e with
       | sort u =>
         rw [whnfCore_succ] at h
-        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        simp only [whnfCoreBody, pure, Except.pure,
+          Except.ok.injEq] at h
         exact h ▸ hb
       | fvar idx n ty =>
         rw [whnfCore_succ] at h
-        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        simp only [whnfCoreBody, pure, Except.pure,
+          Except.ok.injEq] at h
         exact h ▸ hb
       | forallE n ty body bi =>
         rw [whnfCore_succ] at h
-        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        simp only [whnfCoreBody, pure, Except.pure,
+          Except.ok.injEq] at h
         exact h ▸ hb
       | lam n ty body bi =>
         rw [whnfCore_succ] at h
-        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        simp only [whnfCoreBody, pure, Except.pure,
+          Except.ok.injEq] at h
         exact h ▸ hb
       | const n ws =>
         rw [whnfCore_succ] at h
-        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        simp only [whnfCoreBody, pure, Except.pure,
+          Except.ok.injEq] at h
         exact h ▸ hb
       | lit l =>
         rw [whnfCore_succ] at h
-        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        simp only [whnfCoreBody, pure, Except.pure,
+          Except.ok.injEq] at h
         exact h ▸ hb
       | bvar i =>
         rw [whnfCore_succ] at h
@@ -372,7 +381,8 @@ theorem whnfPres_lvlParams {env : Env} (henv : EnvWF env)
           ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -, -⟩
         · simpa [allLevelParamsDefined] using hbe₃
         · exact ihCore hred
-            (allLevelParamsDefined_getAppArgs hbe₃ _ (getD_mem (by omega)))
+            (allLevelParamsDefined_getAppArgs hbe₃ _
+              (getD_mem (by omega)))
     · -- the reduction loop
       have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
           whnfLoop (pureFns mode env fuel) env d n e = .ok e' →
@@ -571,7 +581,8 @@ theorem inferTypeCore_lvlParams {env : Env} (henv : EnvWF env)
         hus, -, hres⟩ := inferTypeCore_proj_inv h
       simp only [allLevelParamsDefined] at hp
       have hte' := whnf_lvlParams henv hiota fuel hwt (ihI hte hp)
-      have hfnp : (Expr.const T us).allLevelParamsDefined ps = true := by
+      have hfnp :
+          (Expr.const T us).allLevelParamsDefined ps = true := by
         rw [← hfn]; exact allLevelParamsDefined_getAppFn hte'
       obtain ⟨-, hep, -, -, -, -, -⟩ :=
         henv _ (find?_mem (Env.findProj?_some hfp))
