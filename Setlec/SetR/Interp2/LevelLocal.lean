@@ -1,3 +1,4 @@
+import Setlec.SetR.Decl
 import Setlec.SetR.Interp2.LevelLocalKit
 
 /-!
@@ -52,7 +53,7 @@ namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
 open Setlec.SetR (AVExpr)
-open Setlec (CheckMode Env Expr Name Level)
+open Setlec (CheckMode Env Expr Name Level ConstantVal)
 
 universe w
 
@@ -382,5 +383,67 @@ theorem denote2LevelLocalM_of {V : Type w} [SetTheory V]
       cases l with
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
+
+/-! ## The two `params` consumers, discharged from the M form
+
+Both fields have the same shape — a leaf `A` obtained as a `denote2`
+run on the *annotated* subject, and the demand that it read only the
+constant's own parameters — and both front doors carry the subject's
+`allLevelParamsDefined` as a conjunct (`ConstantValR`,
+`ValueFrontR`, `Setlec/SetR/Decl.lean`).  So one lemma serves
+`ValueResidues2M.params`, `AxiomResidues2M.params` and
+`AxiomResidues3M.params`.
+
+The only non-syntactic move is the fuel: the leaf is named at *some*
+fuel per assignment, and level-locality is an equation at *one*, so the
+two runs are lifted to their maximum by `denote2_fuelMono` — which
+returns the same `AVExpr`, so nothing is lost. -/
+
+/-- **The `params` field, supplied.**  `A` is level-local because the
+run that names it is. -/
+theorem params_of_levelLocalM {V : Type w} [SetTheory V]
+    {μ : CheckMode} {env : Env} {m : EnvS2UM V μ env}
+    (hll : Denote2LevelLocalM V μ m) {ps : List Name} {e : Expr}
+    {A : (Name → Nat) → AVExpr}
+    (hdef : e.allLevelParamsDefined ps = true)
+    (hA : ∀ ψ : Name → Nat, ∃ F : Nat,
+      denote2 μ m.acval env ψ F 0 e = some (A ψ)) :
+    ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ ps, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂ := by
+  intro ψ₁ ψ₂ hψ
+  obtain ⟨F₁, h₁⟩ := hA ψ₁
+  obtain ⟨F₂, h₂⟩ := hA ψ₂
+  have k₁ := denote2_fuelMono (Nat.le_max_left F₁ F₂) 0 e h₁
+  have k₂ := denote2_fuelMono (Nat.le_max_right F₁ F₂) 0 e h₂
+  rw [hll ps ψ₁ ψ₂ (max F₁ F₂) 0 e hdef hψ, k₂] at k₁
+  exact (Option.some.inj k₁).symm
+
+/-- **`ValueResidues2M.params`**, at the value front door's own
+level-parameter conjunct. -/
+theorem valueParams_of_levelLocalM {V : Type w} [SetTheory V]
+    {μ : CheckMode} {env : Env} {m : EnvS2UM V μ env}
+    (hll : Denote2LevelLocalM V μ m) {F : Nat} {cv : ConstantVal}
+    {value type' value' : Expr} {A : (Name → Nat) → AVExpr}
+    (hvf : ValueFrontR μ F env m.base.cval cv value type' value')
+    (hA : ∀ ψ : Name → Nat, ∃ F' : Nat,
+      denote2 μ m.acval env ψ F' 0 value' = some (A ψ)) :
+    ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂ :=
+  params_of_levelLocalM hll hvf.2.2.2.1 hA
+
+/-- **`AxiomResidues2M.params`/`AxiomResidues3M.params`**, at the
+constant front door's own level-parameter conjunct.  The axiom's leaf
+is the run on the *annotated type*, so this is the same lemma one
+front door over. -/
+theorem axiomParams_of_levelLocalM {V : Type w} [SetTheory V]
+    {μ : CheckMode} {env : Env} {m : EnvS2UM V μ env}
+    (hll : Denote2LevelLocalM V μ m) {F : Nat} {cv : ConstantVal}
+    {type' : Expr} {A : (Name → Nat) → AVExpr}
+    (hcv : ConstantValR μ F env m.base.cval cv type')
+    (hA : ∀ ψ : Name → Nat, ∃ F' : Nat,
+      denote2 μ m.acval env ψ F' 0 type' = some (A ψ)) :
+    ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂ :=
+  params_of_levelLocalM hll hcv.2.2.2.2.2.2.2.1 hA
 
 end Setlec.SetR.Interp2
