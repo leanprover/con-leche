@@ -124,11 +124,12 @@ noncomputable def EnvS2UM.empty (μ : CheckMode) :
 Not "is there *some* `EnvS2` here" — the claims are stated at
 `m.acval`, so a witness with a different canonical valuation is no
 use.  The equation is what makes the residue usable, and it is what
-`checkStep2U_of_2E` (`Claims2U.lean`) consumed until the quarters
-were re-pointed.
+`Claims2U.lean`'s `checkStep2U_of_2E` consumed until the quarters
+were re-pointed (that bridge was retired at the cleanup seal, being
+the identity by then).
 
 **No longer on the claims' path.**  Since the live lane was
-re-pointed to `EnvS2U`, `checkStep2U_of_2E` and `claims2U_of_2E` take
+re-pointed to `EnvS2U`, `claims2U_of_2E` (`Keys2Cond.lean`) takes
 no residue at all.  This definition stays because it is still the
 honest statement of what separates the two structures, and
 `EnvS2UDef.lean`'s biconditional still characterises it exactly.

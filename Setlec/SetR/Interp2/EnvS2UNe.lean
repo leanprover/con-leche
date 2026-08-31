@@ -133,9 +133,8 @@ def probeEnvS : EnvS V probeEnv := by
 /-- The probe's collapse-lane valuation, read off the assembler: the
 install did not move it, so it is `EnvS.empty`'s leaf at every name.
 Named rather than inlined because `probeEnvS_cvalAnnot` rewrites with
-it — a
-`simp` set that unfolds `probeEnvS` cannot get there, since the
-assembler is applied to twenty arguments. -/
+it — a `simp` set that unfolds `probeEnvS` cannot get there, since
+the assembler is applied to twenty arguments. -/
 theorem probeEnvS_cval : (probeEnvS V).cval = fun _ _ => emptyT 0 :=
   rfl
 
@@ -215,8 +214,9 @@ theorem nonempty_envS2U_probe : Nonempty (EnvS2U V probeEnv) :=
 
 /-! ## The probe as an `EnvS2` — `EnvS2UInImage`'s first witness
 
-`EnvS2UInImage` is the residue `CheckStep2U`'s derivability turns on
-(`Claims2U.lean`), and a residue nobody can satisfy is seal 20's
+`EnvS2UInImage` is the residue the `EnvS2U`-form step's derivability
+turned on before the live lane was re-pointed to `EnvS2U` (seal 46),
+and a residue nobody can satisfy is seal 20's
 "vacuous `Prop` with a good name".  It is satisfied here: the probe's
 `EnvS2U` *is* an `EnvS2`, and every field is the same term — the two
 `denote2` fields differ in form but agree on this environment,
