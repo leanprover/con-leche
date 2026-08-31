@@ -75,7 +75,7 @@ open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 
 universe w
 
-variable {V : Type w} [SetTheory V]
+variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-! ## The context predicate, re-pointed
 
@@ -84,7 +84,7 @@ Three definitions, copied clause for clause from `CtxOk2`,
 `Iff.rfl` bridges below are the proof that "copied" is exact. -/
 
 /-- `CtxOk2`, over the uniqueness-form environment tier. -/
-def CtxOk2U {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def CtxOk2U {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel d : Nat) (Δa : List AVExpr) (e : Expr) :
     Prop :=
   Δa.length = d ∧
@@ -97,7 +97,7 @@ def CtxOk2U {env : Env} (m : EnvS2U V env) (μ : CheckMode)
           = interp2 V (fun j => ρ (j + (d - 1 - l.1) + 1)) Aa
 
 /-- `CtxOk2Ann`, ditto. -/
-def CtxOk2AnnU {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def CtxOk2AnnU {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (F d : Nat) (Δa : List AVExpr) (e : Expr) :
     Prop :=
   ∀ l ∈ e.fvarLeaves, ∀ tya : AVExpr,
@@ -105,17 +105,17 @@ def CtxOk2AnnU {env : Env} (m : EnvS2U V env) (μ : CheckMode)
     ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ tya
 
 /-- `CtxOk2D`, ditto — the generation-five supplier the claims use. -/
-def CtxOk2DU {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+def CtxOk2DU {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (F d : Nat) (Δa : List AVExpr) (e : Expr) :
     Prop :=
-  CtxOk2U m μ φ F d Δa e ∧ CtxOk2AnnU m μ φ F d Δa e
+  CtxOk2U m φ F d Δa e ∧ CtxOk2AnnU m φ F d Δa e
 
 /-- **The re-pointed predicate is definitionally the old one.**  At an
 `EnvS2` the two agree by `rfl`, which is the whole content of the
 claim that this is a re-point and not a restatement. -/
-theorem ctxOk2DU_iff {env : Env} (m : EnvS2U V env) (μ : CheckMode)
+theorem ctxOk2DU_iff {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (F d : Nat) (Δa : List AVExpr) (e : Expr) :
-    CtxOk2DU m μ φ F d Δa e ↔ CtxOk2D m μ φ F d Δa e :=
+    CtxOk2DU m φ F d Δa e ↔ CtxOk2D m μ φ F d Δa e :=
   Iff.rfl
 
 /-! ### The two constructors the closed case needs
@@ -126,9 +126,9 @@ install key lives. -/
 
 /-- A subject with no free-variable leaves satisfies the predicate in
 the empty context, at every fuel. -/
-theorem CtxOk2DU.of_closed {env : Env} {m : EnvS2U V env}
-    {μ : CheckMode} {φ : Name → Nat} {F : Nat} {e : Expr}
-    (h : e.fvarLeaves = []) : CtxOk2DU m μ φ F 0 [] e := by
+theorem CtxOk2DU.of_closed {env : Env} {m : EnvS2UM V μ env}
+    {φ : Name → Nat} {F : Nat} {e : Expr}
+    (h : e.fvarLeaves = []) : CtxOk2DU m φ F 0 [] e := by
   refine ⟨⟨rfl, ?_⟩, ?_⟩
   · intro l hl; rw [h] at hl; exact absurd hl (by simp)
   · intro l hl; rw [h] at hl; exact absurd hl (by simp)
@@ -136,10 +136,10 @@ theorem CtxOk2DU.of_closed {env : Env} {m : EnvS2U V env}
 /-- Fuel monotonicity, on the pair — the one kit entry the keys use
 that is not about the empty context.  `denote2_fuelMono` returns the
 *same* annotation at the larger fuel, so both halves transport. -/
-theorem CtxOk2DU.fuelMono {env : Env} {m : EnvS2U V env}
-    {μ : CheckMode} {φ : Name → Nat} {F F' d : Nat}
+theorem CtxOk2DU.fuelMono {env : Env} {m : EnvS2UM V μ env}
+    {φ : Name → Nat} {F F' d : Nat}
     {Δa : List AVExpr} {e : Expr} (hle : F ≤ F')
-    (h : CtxOk2DU m μ φ F d Δa e) : CtxOk2DU m μ φ F' d Δa e := by
+    (h : CtxOk2DU m φ F d Δa e) : CtxOk2DU m φ F' d Δa e := by
   obtain ⟨⟨hlen, hleaf⟩, hann⟩ := h
   refine ⟨⟨hlen, ?_⟩, ?_⟩
   · intro l hl
@@ -158,14 +158,14 @@ Copied from `Claims2E.lean` with two substitutions and no third:
 `EnvS2 → EnvS2U`, `CtxOk2D → CtxOk2DU`. -/
 
 /-- Head normalisation, dual success, over `EnvS2U`. -/
-def WhnfCoreClaims2U (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def WhnfCoreClaims2U (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {F F' : Nat} {ea ea' : AVExpr},
-      CtxOk2DU m μ φ F d Δa e →
+      CtxOk2DU m φ F d Δa e →
       denote2 μ m.acval env φ F d e = some ea →
       denote2 μ m.acval env φ F' d e' = some ea' →
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) →
@@ -174,14 +174,14 @@ def WhnfCoreClaims2U (μ : CheckMode) {env : Env} (m : EnvS2U V env)
           interp2 V ρ ea = interp2 V ρ ea'
 
 /-- The reduction loop, dual success, over `EnvS2U`. -/
-def WhnfClaims2U (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def WhnfClaims2U (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnf μ env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {F F' : Nat} {ea ea' : AVExpr},
-      CtxOk2DU m μ φ F d Δa e →
+      CtxOk2DU m φ F d Δa e →
       denote2 μ m.acval env φ F d e = some ea →
       denote2 μ m.acval env φ F' d e' = some ea' →
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) →
@@ -190,7 +190,7 @@ def WhnfClaims2U (μ : CheckMode) {env : Env} (m : EnvS2U V env)
           interp2 V ρ ea = interp2 V ρ ea'
 
 /-- Definitional equality, over `EnvS2U`. -/
-def DefEqClaims2U (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def DefEqClaims2U (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.isDefEqCore μ env fuel d a b = .ok true →
@@ -199,8 +199,8 @@ def DefEqClaims2U (μ : CheckMode) {env : Env} (m : EnvS2U V env)
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
     Expr.LeavesBounded b →
     ∀ {F F' : Nat} {aa ba : AVExpr},
-      CtxOk2DU m μ φ F d Δa a →
-      CtxOk2DU m μ φ F' d Δa b →
+      CtxOk2DU m φ F d Δa a →
+      CtxOk2DU m φ F' d Δa b →
       denote2 μ m.acval env φ F d a = some aa →
       denote2 μ m.acval env φ F' d b = some ba →
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ aa) →
@@ -209,14 +209,14 @@ def DefEqClaims2U (μ : CheckMode) {env : Env} (m : EnvS2U V env)
         interp2 V ρ aa = interp2 V ρ ba
 
 /-- Inference, dual success, over `EnvS2U`. -/
-def InferClaims2U (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def InferClaims2U (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
     inferTypeCore μ env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {F F' : Nat} {ea ta : AVExpr},
-      CtxOk2DU m μ φ F d Δa e →
+      CtxOk2DU m φ F d Δa e →
       denote2 μ m.acval env φ F d e = some ea →
       denote2 μ m.acval env φ F' d t = some ta →
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ea) ∧
@@ -226,7 +226,7 @@ def InferClaims2U (μ : CheckMode) {env : Env} (m : EnvS2U V env)
 
 /-- The step, over `EnvS2U`. -/
 def CheckStep2U (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2U μ m φ fuel → WhnfClaims2U μ m φ fuel →
     DefEqClaims2U μ m φ fuel → InferClaims2U μ m φ fuel →
     WhnfCoreClaims2U μ m φ (fuel + 1) ∧ WhnfClaims2U μ m φ (fuel + 1) ∧
@@ -235,7 +235,7 @@ def CheckStep2U (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 /-- The induction, over `EnvS2U` — `checkSound2E`'s proof verbatim,
 which is one more check that nothing in the claims' content moved. -/
 theorem checkSound2U {μ : CheckMode} {env : Env}
-    (hstep : CheckStep2U μ V) (m : EnvS2U V env) (φ : Name → Nat) :
+    (hstep : CheckStep2U μ V) (m : EnvS2UM V μ env) (φ : Name → Nat) :
     ∀ fuel : Nat,
       WhnfCoreClaims2U μ m φ fuel ∧ WhnfClaims2U μ m φ fuel ∧
         DefEqClaims2U μ m φ fuel ∧ InferClaims2U μ m φ fuel := by
@@ -281,22 +281,22 @@ the two structures; it removes no obstruction.  The obstruction is the
 other cause, and `checkStep2U_of_2E` below names it exactly. -/
 
 theorem whnfCoreClaims2U_iff {μ : CheckMode} {env : Env}
-    (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat) :
+    (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat) :
     WhnfCoreClaims2U μ m φ fuel ↔
       WhnfCoreClaims2E μ m φ fuel := Iff.rfl
 
 theorem whnfClaims2U_iff {μ : CheckMode} {env : Env}
-    (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat) :
+    (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat) :
     WhnfClaims2U μ m φ fuel ↔
       WhnfClaims2E μ m φ fuel := Iff.rfl
 
 theorem defEqClaims2U_iff {μ : CheckMode} {env : Env}
-    (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat) :
+    (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat) :
     DefEqClaims2U μ m φ fuel ↔
       DefEqClaims2E μ m φ fuel := Iff.rfl
 
 theorem inferClaims2U_iff {μ : CheckMode} {env : Env}
-    (m : EnvS2U V env) (φ : Name → Nat) (fuel : Nat) :
+    (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat) :
     InferClaims2U μ m φ fuel ↔
       InferClaims2E μ m φ fuel := Iff.rfl
 
@@ -342,7 +342,7 @@ uniqueness transposes below.  That is a statement change to
 `Claims2E.lean` and `Capstone2E.lean`, not a proof. -/
 
 /-- **The residue dropped out.**  Before the live lane was
-re-pointed this took `∀ env (m : EnvS2U V env), EnvS2UInImage V m`
+re-pointed this took `∀ env (m : EnvS2UM V μ env), EnvS2UInImage V m`
 and cashed it; with `CheckStep2E` itself stated at `EnvS2U` there is
 nothing left to cash.  The bridge itself stays open — see
 `EnvS2UInImage` — it is simply no longer on this path. -/
@@ -360,34 +360,34 @@ strictly downstream of the loop quarter and the uniqueness-form
 lemmas cannot be stated there.  They are stated here instead, beside
 the claims that consume them. -/
 
-variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
+variable {env : Env} {φ : Name → Nat}
 
 /-- **The delta exit, uniqueness form.**  Where `whnfStep2_delta`
 *produces* the body's annotation, this one *identifies* a given one.
 That is the whole of seal 34's ruling at the exit it was made for. -/
-theorem whnfStep2_delta_U (m : EnvS2U V env) {F : Nat}
+theorem whnfStep2_delta_U (m : EnvS2UM V μ env) {F : Nat}
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     (hc : ConstantInfo.defnInfo cv value hint ∈ env.consts)
     {ra : AVExpr}
     (h : denote2 μ m.acval env φ F 0 value = some ra) :
     ra = m.acval cv.name φ :=
-  m.acval_defn μ φ F cv value hint hc h
+  m.acval_defn φ F cv value hint hc h
 
 /-- Ditto for a theorem's proof value. -/
-theorem whnfStep2_delta_thm_U (m : EnvS2U V env) {F : Nat}
+theorem whnfStep2_delta_thm_U (m : EnvS2UM V μ env) {F : Nat}
     {cv : ConstantVal} {value : Expr}
     (hc : ConstantInfo.thmInfo cv value ∈ env.consts)
     {ra : AVExpr}
     (h : denote2 μ m.acval env φ F 0 value = some ra) :
     ra = m.acval cv.name φ :=
-  m.acval_thm μ φ F cv value hc h
+  m.acval_thm φ F cv value hc h
 
 /-- **The residue the delta exit actually consumes, uniqueness
 form.**  `AcvalDefnInst` (`Step2/Whnf.lean`) restated the fields at
 the *instantiated* value, because `unfoldDefinition` hands the loop
 `value.instantiateLevelParams cv.levelParams us`, not `value`.  The
 uniqueness transpose keeps that crossing and drops the existence. -/
-def AcvalDefnInstU (μ : CheckMode) {env : Env} (m : EnvS2U V env)
+def AcvalDefnInstU (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
     (φ : Name → Nat) : Prop :=
   ∀ {F : Nat} {cv : ConstantVal} {value : Expr} {us : List Level},
     ((∃ hint : ReducibilityHint,
@@ -411,7 +411,7 @@ from `Denote2InstLevels` — that derivation reads existence out of
 uniqueness residue is derivable from `Denote2InstLevels` only in the
 direction that carries an annotation *in*, which is what the form
 above states. -/
-theorem acvalDefnInstU_noParams {env : Env} (m : EnvS2U V env)
+theorem acvalDefnInstU_noParams {env : Env} (m : EnvS2UM V μ env)
     {F : Nat} {cv : ConstantVal} {value : Expr} {us : List Level}
     (hnp : cv.levelParams = [])
     (hmem : (∃ hint : ReducibilityHint,
@@ -432,8 +432,8 @@ theorem acvalDefnInstU_noParams {env : Env} (m : EnvS2U V env)
   rw [hself] at hden
   rw [hfn]
   rcases hmem with ⟨hint, hc⟩ | hc
-  · exact m.acval_defn μ φ F cv value hint hc hden
-  · exact m.acval_thm μ φ F cv value hc hden
+  · exact m.acval_defn φ F cv value hint hc hden
+  · exact m.acval_thm φ F cv value hc hden
 
 /-! ## The three sweeps
 

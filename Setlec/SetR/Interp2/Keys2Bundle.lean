@@ -140,8 +140,17 @@ structure MemberBlock2Residues (V : Type w) [SetTheory V]
   `exists2E_of_checkStep2D` from `CheckStep2D`, or
   `inferExists2E_of_totalR` from `Denote2TotalR`.  **Beyond the reach
   of any checker-side exposure**: no run the front door makes says
-  the inferred type annotates. -/
-  inferExists : InferExists2E μ m φ fuel
+  the inferred type annotates.
+
+  **The one `EnvS2U.toM` in the bundle, and why it is here.**  The
+  claims lane is stated at `EnvS2UM`; the third key's conclusion is
+  `DeclStep2`, i.e. `Nonempty (EnvS2U …)`, which no `EnvS2UM` can
+  supply.  So the bundle keeps its all-mode binder and crosses to the
+  claims through the weakening bridge at this one field and at the
+  two call sites that consume it.  Nothing is lost: `toM` is the
+  identity on `acval` and `base`, and every other premise here reads
+  only those. -/
+  inferExists : InferExists2E μ (EnvS2U.toM V m μ) φ fuel
   /-- **Leftover 2 (seal 49).**  The composition crosses an
   environment: `ConstantValR` records a run at the prefix `env₀`,
   the key needs it where the constant is already stored.
@@ -272,11 +281,11 @@ theorem installKeys2_of_residues {V : Type w} [SetTheory V]
     ReducePin2 V env m.acval φ c ∧
       MemberBlock2 V μ env m.acval φ cS.toConstantVal ∧
       DeclStep2 V ⟨ConstantInfo.axiomInfo cvA :: env.consts⟩ :=
-  ⟨reducePin2_of_checkStep m H.checkStep H.reducePin.elemFound
-      H.reducePin.elemMono H.reducePin.opNoFvar
+  ⟨reducePin2_of_checkStep (EnvS2U.toM V m μ) H.checkStep
+      H.reducePin.elemFound H.reducePin.elemMono H.reducePin.opNoFvar
       H.reducePin.opBounded H.reducePin.opAnnot H.reducePin.opFits
       H.reducePin.pinRun,
-    memberBlock2_of_constantValR m H.checkStep
+    memberBlock2_of_constantValR (EnvS2U.toM V m μ) H.checkStep
       H.memberBlock.inferExists H.memberBlock.envExtend
       H.memberBlock.constantVal H.memberBlock.stored
       H.memberBlock.storedAnnot,

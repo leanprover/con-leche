@@ -102,7 +102,7 @@ variable {env : Env} {μ : CheckMode} {φ : Name → Nat}
 `acval_erase` and the collapse lane's `cval_closed`: the annotated
 leaf erases to a closed `VExpr`, and `interp2` only ever reads a
 bound index. -/
-theorem acval_interp2_closed (m : EnvS2U V env) (n : Name)
+theorem acval_interp2_closed (m : EnvS2UM V μ env) (n : Name)
     (ψ : Name → Nat) (ρ ρ' : Nat → V) :
     interp2 V ρ (m.acval n ψ) = interp2 V ρ' (m.acval n ψ) :=
   interp2_closed V
@@ -189,7 +189,7 @@ theorem reduceElemTy_const (c : Name) :
 
 /-- …so it annotates to the element's own leaf, at every fuel and
 depth: the element inductive is stored level-monomorphically. -/
-theorem denote2_reduceElemTy (m : EnvS2U V env) {c : Name}
+theorem denote2_reduceElemTy (m : EnvS2UM V μ env) {c : Name}
     {ciE : ConstantInfo}
     (hfE : env.find? (reduceElemName c) = some ciE)
     (hlpE : ciE.toConstantVal.levelParams = []) (F d : Nat) :
@@ -225,7 +225,7 @@ identity the key asserts.
 The v1 discharge cashed a `DefEq` *derivation* through `DefEq.sound`
 (seal 38: there is no such soundness over `interp2`).  This one cashes
 the *run* instead, which is what route (ii) means. -/
-theorem reducePin2_of_claims (m : EnvS2U V env) {fuel F : Nat}
+theorem reducePin2_of_claims (m : EnvS2UM V μ env) {fuel F : Nat}
     {c : Name} {valA : Expr} {ciE : ConstantInfo}
     (hdeq : DefEqClaims2U μ m φ fuel)
     (hfE : env.find? (reduceElemName c) = some ciE)
@@ -251,7 +251,7 @@ theorem reducePin2_of_claims (m : EnvS2U V env) {fuel F : Nat}
   -- the context predicate at any subject with only that leaf
   have hctx : ∀ e : Expr,
       e.fvarLeaves = [(0, Name.str .anonymous "a", reduceElemTy c)] →
-      CtxOk2DU m μ φ F 1 [m.acval (reduceElemName c) φ] e := by
+      CtxOk2DU m φ F 1 [m.acval (reduceElemName c) φ] e := by
     intro e he
     refine ⟨⟨rfl, ?_⟩, ?_⟩
     · intro l hl
@@ -365,7 +365,7 @@ their membership content is model-side, and the claims reach only the
 
 /-- The stored type's frame facts, all four read off `EnvWF` — the
 shape both keys below open with. -/
-theorem storedType_frames2 (m : EnvS2U V env) {c : ConstantInfo}
+theorem storedType_frames2 (m : EnvS2UM V μ env) {c : ConstantInfo}
     (hc : c ∈ env.consts) :
     Expr.WScoped 0 c.toConstantVal.type ∧
       c.toConstantVal.type.looseBVarsBounded 0 = true ∧
@@ -400,7 +400,7 @@ the same parked existence residue as `hta`, one term further along;
 `ensureSort` half of the chain is **not** consumed here: `MemberBlock2`
 asks only for the subject's `AnnotOk2`, and nothing in it turns on the
 inferred type being — or reducing to — a sort. -/
-theorem memberBlock2_of_stored (m : EnvS2U V env) {fuel F₀ F₁ : Nat}
+theorem memberBlock2_of_stored (m : EnvS2UM V μ env) {fuel F₀ F₁ : Nat}
     {ψ : Name → Nat} {c : ConstantInfo} {ta sa : AVExpr}
     {stype : Expr}
     (hinf : InferClaims2U μ m ψ fuel)
@@ -550,7 +550,7 @@ claims no longer need it. -/
 /-- **The four claims at one `EnvS2U`.**  The `Iff.rfl` bridges of
 `Claims2U.lean` are what make the conclusion the `…2U` family while
 the proof is `checkSound2E`. -/
-theorem claims2U_of_2E {m : EnvS2U V env} (h : CheckStep2E μ V)
+theorem claims2U_of_2E {m : EnvS2UM V μ env} (h : CheckStep2E μ V)
     (ψ : Name → Nat) (fuel : Nat) :
     WhnfCoreClaims2U μ m ψ fuel ∧ WhnfClaims2U μ m ψ fuel ∧
       DefEqClaims2U μ m ψ fuel ∧ InferClaims2U μ m ψ fuel :=
@@ -562,9 +562,9 @@ stores a definition.**  Both earlier probes are axiom-only, so before
 environments where `acval_defn` says nothing. -/
 theorem claims2U_lamDef (h : CheckStep2E μ V) (ψ : Name → Nat)
     (fuel : Nat) :
-    DefEqClaims2U μ (lamDefEnvS2U V) ψ fuel ∧
-      InferClaims2U μ (lamDefEnvS2U V) ψ fuel :=
-  let c := claims2U_of_2E (m := lamDefEnvS2U V) h ψ fuel
+    DefEqClaims2U μ (lamDefEnvS2UM V μ) ψ fuel ∧
+      InferClaims2U μ (lamDefEnvS2UM V μ) ψ fuel :=
+  let c := claims2U_of_2E (m := lamDefEnvS2UM V μ) h ψ fuel
   ⟨c.2.2.1, c.2.2.2⟩
 
 /-! ### The keys at the lane's single named residue
@@ -580,7 +580,7 @@ own `isDefEq` run, `valA`'s two syntactic guards, the element
 constant's lookup and monomorphism — and the two `denote2` facts
 (`hva`, `hfits`) that are `Denote2Total` at the operation's value and
 at its pinned type. -/
-theorem reducePin2_of_checkStep (m : EnvS2U V env) {fuel F : Nat}
+theorem reducePin2_of_checkStep (m : EnvS2UM V μ env) {fuel F : Nat}
     {c : Name} {valA : Expr} {ciE : ConstantInfo}
     (h : CheckStep2E μ V)
     (hfE : env.find? (reduceElemName c) = some ciE)
@@ -606,7 +606,7 @@ conjunct is entirely the claim's.
 `hex` is named rather than inlined because it is the honest leftover:
 `ConstantValR`'s exposed chain discharges `hrun` on the nose, and
 `hex` is the one premise the front door does **not** supply. -/
-theorem memberBlock2_of_checkStep (m : EnvS2U V env) {fuel F₀ : Nat}
+theorem memberBlock2_of_checkStep (m : EnvS2UM V μ env) {fuel F₀ : Nat}
     {ψ : Name → Nat} {c : ConstantInfo} {ta : AVExpr} {stype : Expr}
     (h : CheckStep2E μ V)
     (hex : InferExists2E μ m ψ fuel)
@@ -651,7 +651,7 @@ first half discharges it exactly.  Its `ensureSort` half is unused
 here, and `WhnfClaims2U` — seal 48's predicted cost — is not needed:
 `MemberBlock2` asks for the subject's `AnnotOk2` and never for what
 the inferred type reduces to. -/
-theorem memberBlock2_of_constantValR (m : EnvS2U V env) {env₀ : Env}
+theorem memberBlock2_of_constantValR (m : EnvS2UM V μ env) {env₀ : Env}
     {fuel F₀ : Nat} {ψ : Name → Nat} {c : ConstantInfo}
     {cval : TConstVal} {cv : ConstantVal} {ta : AVExpr}
     (h : CheckStep2E μ V)
@@ -675,7 +675,7 @@ the exposure leaves.  The hypothesis pair is contradictory at a
 non-fresh name (`ConstantValR`'s first conjunct says `cv.name` is
 absent), so this is a shape check on the discharge, not a usable
 key: it is stated at an arbitrary `cv`, and `c` need not be `cv`. -/
-theorem memberBlock2_of_constantValR_same (m : EnvS2U V env)
+theorem memberBlock2_of_constantValR_same (m : EnvS2UM V μ env)
     {fuel F₀ : Nat} {ψ : Name → Nat} {c : ConstantInfo}
     {cval : TConstVal} {cv : ConstantVal} {ta : AVExpr}
     (h : CheckStep2E μ V)
