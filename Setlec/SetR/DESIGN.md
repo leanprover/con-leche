@@ -18194,3 +18194,84 @@ not its **existence**.
 **Status.** Wall 1 closed at seal 63. Wall 2 is now **stated and
 audited**; its discharge is the last item the lane owns. When it lands,
 the lane is junction-paced in fact.
+
+### Seal 65 — level-locality: both `params` consumers close; the residue is a checker asymmetry
+
+Build **350 jobs** warning-free, `lake test` green, battery **90/92**
+with the no-model sweep unchanged, `Main.lean` **diff empty**, v1's
+fourteen and every new declaration on exactly the three standard
+axioms.
+
+**Both `params` consumers close** — `valueParams_of_iota` and
+`axiomParams_of_iota` — **from `IotaLevelParamsW` alone**: no fuel
+bound, no environment shape, no mode condition, no valuation law
+beyond `acval_params`. **Nothing was reshaped to fit.** And
+`denote2LevelLocal_of` — the derivation the seal asked for — is
+**unconditional and closed**, one induction over `denote2.induct`.
+
+#### Three corrections to seal 64, all mine
+
+**1. The template was wrong, and the diagnosis is one clause.**
+`CoreSub` is an oracle-extension order; but **`sortOfE`/`lamSortE` do
+not pass `φ` to `inferTypeCore`/`whnf` at all** — `φ` enters only at
+the final `Level.eval`. So the two sides of every level-locality
+equation are **the same run**, and the content is a **preservation**,
+not a monotonicity. The tree's template for that is
+`Verify/InferLeaves.lean`'s `whnfPres_*`/`inferTypeCore_*` family,
+which has three existing instances and fits line for line. *The worker
+stopped at the first clause rather than inventing a second
+architecture, which is what the instruction was for.*
+
+**2. All three frozen statements are FALSE over a bare `Env` — and
+this is a repeat.** One axiom whose stored type mentions a parameter
+outside its `levelParams` makes `sortOfE` report `ψ` at a parameter the
+subject never had. **This is the *same escape* `Step2/LevelsInst.lean`
+recorded one seal earlier** for `InferInstLevels`/`WhnfSortInstLevels`/
+`SortOfEInstLevels`. Seal 64 repeated seal 25's error, with the
+counterexample already in the tree.
+
+*Rule: when a statement quantifies over `Env`, check the ledger for
+whether a bare-`Env` escape was already found — this campaign has now
+built the same witness twice.*
+
+**3. `Denote2LevelLocal`'s valuation hypothesis had no consumer.** It
+asks that *every* leaf read only `ps`; installs hold `acval_params`,
+that *each* leaf reads only **its own** parameters, and **the two are
+incomparable.** The per-name form (`Denote2LevelLocalM`) is what the
+consumers spend.
+
+#### The residue is an asymmetry in the checker, and it is unsettled
+
+With `EnvWF`, both inductions run and factor to a single residue,
+**`IotaLevelParams`**. Every parameter-introducing site instantiates a
+stored expression at a `.const` node's levels, and `Level.subst` keeps
+parameters inside the subject's **only when the lists have equal
+length**. `unfoldDefinition`, `inferBody`'s `.const` clause and its
+`.proj` clause **all check that length. `iotaRec` does not** — nothing
+relates the recursor's `us` to `cv.levelParams` — so
+`r.rhs.instantiateLevelParams cv.levelParams us` can leak a parameter.
+
+`iotaRec_lvlParams_of_arity` **pins the gap exactly**: the iota case
+follows from the level facts **plus the redex head's level arity and
+nothing else.**
+
+**Not settled either way.** No firing-iota countermodel was built, and
+one would have to pass the rule lookup, both `iotaCerts`, *and* the
+index comparison — so those checks may already force what the missing
+guard would state. **This is "the induction cannot close it", not "it
+is false".**
+
+Per the standing rule that *provability-driven deviations from the
+reference kernel are findings*: **three sibling sites guard a length
+that the fourth does not** is exactly that shape, and it is reported
+rather than worked around. What would settle it: either a firing iota
+whose recursor levels mismatch, or a proof that the existing
+certificates already force the arity.
+
+#### `Denote2InstLevels` — numerals only
+
+Level-locality gives that the `.forallE`/`.lam` numerals agree between
+two `ps`-agreeing assignments. **That is all.** It does not give the
+run's *success* on the instantiated term; `not_isEquivSubstMono`
+stands, verified. Nothing was claimed past the numerals and consumer 3
+was not touched.
