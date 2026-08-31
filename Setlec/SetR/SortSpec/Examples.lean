@@ -93,6 +93,15 @@ example : sortSpec natOnly [] (.proj nm 0 (.bvar 0)) = none := rfl
 
 example : sortSpec natOnly [] (.const nm []) = none := rfl
 
+/-- A **literal is never a type**: `3 : Nat` and `Nat` is not a
+universe.  (Seal 1 got this wrong — its `.lit` clause returned the
+sort of the literal's *type name*, i.e. the sort of `Nat`.  Seal 2's
+agreement work caught it: the checker infers `Nat` for a literal, and
+`whnf Nat` is not a sort, so `sortOfE` fails.) -/
+example : sortSpec natOnly [] (.lit (.natVal 3)) = none := rfl
+
+example : sortSpec natOnly [] (.lit (.strVal "s")) = none := rfl
+
 /-! ## The ι probe
 
 `Nat.rec`'s declared codomain is the motive application `motive t`,

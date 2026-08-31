@@ -318,6 +318,20 @@ theorem sortSpec_agree {μ : CheckMode} {env : Env} (φ : Name → Nat)
   simp only [sortOfE, hi2, Except.toOption,
     Setlec.whnf_sort (mode := μ) env F d u]
 
+/-- **Mode-freeness, made visible.**  The same theorem at
+`.noModel` — the official-parity lane, which does *not* run the λ
+clause's codomain check.  `sortSpec` never needs `lamSortE`: it reads
+a λ's binder type off the term instead of computing the body's type,
+so the premise seal 10 withdrew is not reintroduced here, and the
+parked `Denote2Total`'s collision does not reach the pilot. -/
+theorem sortSpec_agree_noModel {env : Env} (φ : Name → Nat)
+    (henv : EnvWF env) {e : Expr} {d F : Nat} {u : Level} {t : Expr}
+    (hnl : noLet e = true)
+    (hs : sortSpecE env [] e = some u)
+    (hi : inferTypeCore .noModel env F d e = .ok t) :
+    sortOfE .noModel env φ (F + 2) d e = some (u.eval φ) :=
+  sortSpec_agree φ henv hnl hs hi
+
 /-- The `∃ F` form. -/
 theorem sortSpec_agree_exists {μ : CheckMode} {env : Env}
     (φ : Name → Nat) (henv : EnvWF env) {e : Expr} {d F : Nat}

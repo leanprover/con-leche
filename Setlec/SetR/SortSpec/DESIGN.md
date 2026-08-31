@@ -314,3 +314,224 @@ clauses, and every clause was designed against them, but that is
 evidence, not a proof.  It is the obvious next seal, and it is where
 `EnvWF` will finally do work (the `.const` clause's level
 instantiation is exactly the operation seal 0 (P1) flagged).
+
+## Seal 2 — agreement proved; and what it does *not* buy
+
+Two new files (`SortSpec/Agree.lean`, `SortSpec/Coverage.lean`), one
+umbrella (`Setlec/SetR/SortSpec.lean`) wired into `Setlec/SetR.lean`
+so the default `lake build` now covers the pilot (357 jobs, green,
+zero warnings), and one seal-1 correction.
+
+### Correction first — seal 1 shipped a wrong clause
+
+`sortApp`'s `.lit` clause returned `σ natName [] 0`: **the sort of the
+literal's type name**, i.e. the sort of `Nat`, not of `3`.  A literal
+is never a type — `3 : Nat` and `Nat` is not a universe — so the
+clause is `none`, and the checker agrees (it infers `Nat` for a
+literal, and `whnf Nat` is not a sort, so `sortOfE` fails).
+
+Worth recording *how* it was caught: not by review and not by the
+worked instances, but by the agreement proof's clause audit, on the
+first pass.  Agreement is the test that has teeth; seal 1's
+"evidence, not a proof" caveat was the right one to have written.
+
+### Agreement — PROVED
+
+    noLet e →
+    sortSpecE env [] e = some u →
+    inferTypeCore μ env F d e = .ok t →
+    sortOfE μ env φ (F + 2) d e = some (u.eval φ)
+
+(`sortSpec_agree`; `sortSpec_agree_exists` for the `∃ F` form;
+axioms exactly the three standard.)  Read: **`sortSpec` never lies.**
+Where it commits to a level, a run that infers anything at all for the
+same subject infers exactly that sort — at a *constructively named*
+fuel, not an existential one.
+
+The engine is one invariant carried through the fuel induction
+(`piCod_agree`): *if `sortApp σ [] e n = some u` and the checker
+infers `t` for `e`, then `piCod t n = some u`.*  At `n = 0` that says
+`t = .sort u` outright, which is exactly what `sortOfE`'s
+whnf-to-a-sort step needs.
+
+**The two theorems seal 1 landed are precisely what moves it**, which
+was not designed and is the seal's pleasant surprise:
+
+* the `.app` clause consumes an argument and the checker's residual is
+  `body.instantiate1 a` — closed by `piCod_instantiate1`, seal 1's
+  substitution-monotonicity lemma;
+* `.forallE`/`.lam` open a binder with `.fvar d n ty` — closed by
+  `sortApp_instantiate1` at `Δ = []`, and its premise `hv` is **free**
+  here, because `sortApp σ Θ (.fvar d n A) m` *is* `piCod A m`
+  definitionally.  Opening a binder with its own variable costs
+  nothing (`sortApp_open`).
+
+Wall #1's monotone form was the right statement: the equational form
+would have been unusable here anyway, since agreement only ever needs
+`some w → some w`.
+
+**One restriction: `letE`-free subjects.**  `sortSpec` reads a `let`'s
+*annotation* and drops the value; the checker substitutes the value.
+Bridging needs `sortApp σ Θ v m = piCod A m`, and the checker supplies
+only `defeq (infer v) A` — so recovering it needs **defeq soundness on
+sorts**, a run fact.  Seal 2 stops there and restricts the subject
+(`noLet`) rather than importing the run apparatus the pilot exists to
+avoid.  The restriction is named, decidable, and preserved by binder
+opening.
+
+### The `DeltaSortLinked` dependency — ESCAPED, not deferred
+
+The scout's reading was that seal 1's partiality *deferred* the open
+gap to this theorem.  It did not.  The agreement proof does not need
+`DeltaSortLinked`-strength material, at any strength, and the reason
+is structural:
+
+> `sortSpec` commits only when the declared codomain is **already** a
+> syntactic `.sort`.  A `.sort` node carries no expression `bvar`s, so
+> the checker's argument substitutions cannot touch it, and no δ step
+> is ever needed to *expose* it.
+
+`DeltaSortLinked`'s content — unfold a definition and relate its
+value's sort to its declared codomain — is about exactly the case
+`sortSpec` answers `none` on.  The proof uses no δ, no defeq fact and
+no level equivalence; `whnf` enters only as the identity on `.sort`
+and on `.forallE` (`whnf_sort_eq`, `whnf_forallE_eq`).
+
+**But name what the escape costs**, because it is not free.  The
+*converse* — completeness, "`sortOfE` succeeds ⟹ `sortSpec` commits"
+— is not merely unproved, it is **false**: for
+`def Alias : Type 1 := Type` and `def Foo : Alias := Nat`,
+`sortOfE (.const Foo [])` reduces `Alias` and answers `1`, while
+`sortSpec` reads `Foo`'s declared type `.const Alias []`, finds no
+syntactic sort, and answers `none`.  *That* statement is where the
+`DeltaSortLinked` gap lives, and it is unreachable by refutation
+rather than by proof.  (Evidential grade, per (P4): this countermodel
+is **described, not mechanized** — building it needs an environment a
+`whnf` run can δ-step through.  It is stated here as prose and should
+not be spent as a tombstone.)
+
+### The semantic clause (2) — SKIPPED, deliberately
+
+`interp2 : (Nat → V) → AVExpr → V` consumes an **`AVExpr`**, not an
+`Expr`, so `interp2 ρ e ∈ˢ univ (sortSpec e)` does not even typecheck
+without going through `denote2` — and `denote2`'s binder clauses call
+`sortOfE`/`lamSortE`, i.e. *runs*.  Stating the semantic clause would
+therefore drag the whole erasure/`denote2` bridge into a pilot whose
+entire point is to do without runs.
+
+And it would buy nothing that (1) does not already buy more of.  By
+`kind_not_semantic` (`Interp2/Graded.lean`) the tower is cumulative —
+`∃ T, T ∈ˢ univ 0 ∧ T ∈ˢ univ 1` — so a membership fixes only a lower
+bound and can never be run backwards to pin a level; `univ_inj` says
+an *equality* of universes is the only handle.  A membership statement
+is strictly one-directional and cannot substitute for agreement.
+
+Skipped, per the increment's own instruction.  Nothing was built for
+it.
+
+### The mode question (3) — the pilot genuinely sidesteps seal 10
+
+**Answer: agreement is mode-free.**  `μ` is universally quantified in
+`sortSpec_agree`; `sortSpec_agree_noModel` instantiates it at the
+official-parity lane to make that visible rather than merely stated.
+
+The premises actually needed are exactly two: `noLet e`, and
+`inferTypeCore μ env F d e = .ok t`.  No `mode.verified`.
+
+The reason is architectural, not lucky: the parked `Denote2Total`
+needs `lamSortE` defined at every λ node — the *body's* type's sort,
+which the checker computes only under `mode.verified`.  `sortSpec`
+never asks for it: at a λ it reads the **binder's** type off the term
+and pushes it on the sort-context.  `inferBody`'s verified-only block
+is a side check; it can make the run fail (and the run's success is a
+premise) but it never changes the inferred type, so the `.lam` case
+discards it (`-` in the inversion's pattern).  Seal 10's withdrawn
+premise is not reintroduced.
+
+`EnvWF` likewise does no work, and this is the seal's second
+non-obvious finding.  Seal 1 predicted agreement would be where
+`EnvWF` "finally does real work".  It is not: **both sides read the
+same declared type through the same `instantiateLevelParams`**, so a
+bare-`Env` escape produces identical garbage on both sides.  Agreement
+is a *relative* statement, and (P1)'s escape cannot separate the two
+functions it relates.  `EnvWF` is carried on the statements because
+(P1) binds, and is flagged in the file as unused and structurally
+unusable.  It will do real work only in a *semantic* statement, which
+seal 2 declined to build.
+
+### Catch-up estimate (4) — the number is 0, and here is why
+
+The tier as it stands (counted, not guessed): `Annot/SortCoh/*` is
+**10 files, 19,019 lines, 118 `Prop`-valued species**, of which **90
+have an in-tier supplier theorem and 28 do not**.  The 28 include all
+five core claims — `EnsureSortAgreeAt` (A), `SortOfAgreeAt` (B),
+`SortOfWhnfCoreStableAt` (C), `SortOfDeltaStableAt` (C-δ),
+`SortOfWhnfStableAt` (C*) — plus `DefEqE` and `SortLinkE`.
+
+**A landed `sortSpec` retires 0 of the 118 species and 0 of the 5 core
+claims.**  Two independent reasons, either sufficient:
+
+1. **Wrong shape.**  SortCoh's obligation is *relational*: two
+   subjects `a`, `b` (or `e`, `e'`), a defeq verdict or a reduction
+   step between them, and the conclusion that their sort *runs* agree.
+   `sortSpec`'s theorem is *absolute*: one subject, structural
+   function versus run.  An absolute fact yields a relational one only
+   through totality on both sides — and `sortSpec` is not total.
+2. **Not total, by four separate walls, each already priced.**
+   Recursor applications (the ι wall), `.proj`, `letE`, and any
+   constant whose declared codomain is not a syntactic sort
+   (δ-chaining).  Every core claim quantifies over arbitrary subjects
+   with only scoping/boundedness guards, so each of the four is
+   individually fatal to retirement.
+
+What `sortSpec` supplies instead, and it is not nothing:
+
+* On its fragment it gives the **value**, not merely coherence —
+  strictly stronger than (B), which only concludes `u = v`.
+* On its fragment the **fuel apparatus disappears**.  Claims.lean's
+  headline trap is "two independent fuel scales", discharged through
+  `KnotFuelDet`; `sortSpec` is fuel-free and agreement names the fuel
+  constructively (`F + 2`), so on the fragment the trap does not
+  arise.
+
+**The fragment, measured** (`SortSpec/Coverage.lean`, `decide`-checked
+on the 26 pinned basis constants):
+
+    answerable c  ↔  c is an inductive type former
+
+| class | count | `sortSpec` | verdict |
+|---|---|---|---|
+| type formers | 8 | answers | complete |
+| ctors + `Quot.sound` | 9 | declines | correct — never types |
+| recursors | 9 | declines | the ι wall |
+
+So **8/26 = 31% of the environment's constants are answerable, and
+that is 100% of the class that can appear as a binder type**, while
+**9/26 = 35% are declined at the ι wall** — declined for a limitation
+rather than a fact.
+
+Are the structural incapacities fatal or partial?  Split them:
+
+* `.proj` — **fatal, architecturally**.  A field's sort needs the
+  subject's type *expression* (its level arguments); a sort-only walk
+  cannot produce one.  Fixing it means building a reduction-free type
+  inferencer, i.e. a different pilot.
+* type-valued large elimination — **partial**.  A `pred` extension is
+  argument-blind and would recover it, but can read `pred` only off a
+  syntactic `.succ`, and `max (u+1) (v+1)` is a successor semantically
+  without being one syntactically: (P2)'s currency lesson, unspent.
+* λ at zero arguments — **not a limitation at all**.  A λ is not a
+  type; `sortOfE` fails there too.  Correct, not partial.
+* `letE` — **partial**, and cheaply so: one defeq-soundness-on-sorts
+  fact would lift the `noLet` restriction.
+* δ-chaining — **fatal at the current invariant**.  It needs an
+  environment *order*, and `EnvWF` is
+  `∀ c ∈ env.consts, ConstWF env c`, which resolves against the whole
+  environment and admits `def A : B` with `def B : A`.
+
+Verdict for the memo: `sortSpec` is not a replacement for the
+run-level coherence tier and should not be scheduled as one.  It is a
+**complete, cheap, fuel-free answer on the type-former fragment**, and
+its landed value to the tier is one absolute agreement theorem plus
+two substitution lemmas — roughly 700 lines against the tier's 19,019,
+overlapping it in zero species.
