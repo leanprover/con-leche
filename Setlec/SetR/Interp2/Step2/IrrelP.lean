@@ -37,7 +37,7 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
 sides' types whnf to a unit-like type.  Discharged at the
 structure-capability tier (a unit-like type's `interp2` is a
 subsingleton — the caps invariant), not in the quarter. -/
-def UnitIrrelPQ {env : Env} (m : EnvS2UM V μ env)
+def UnitIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b ta wta tb wtb : Expr} {Δa : List AVExpr},
     inferTypeCore μ env fuel d a = .ok ta →
@@ -60,7 +60,7 @@ def UnitIrrelPQ {env : Env} (m : EnvS2UM V μ env)
 
 /-- One side of the `Prop` branch: a term whose type's sort is a
 zero-equivalent level interprets to `pt`. -/
-private theorem prop_side_pt {m : EnvS2UM V μ env}
+private theorem prop_side_pt {m : EnvS2Core V env}
     (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
     (hreads : InferReadsP m μ φ fuel)
     {d : Nat} {a ta sta : Expr} {uT : Level} {Δa : List AVExpr}
@@ -93,11 +93,11 @@ private theorem prop_side_pt {m : EnvS2UM V μ env}
 
 /-- **Residue 3's discharge, `Prop` branch outright** (see the module
 docstring); the unit-like branch routes to `UnitIrrelPQ`. -/
-theorem proofIrrelPQ_of_claims {m : EnvS2UM V μ env}
+theorem proofIrrelPQ_of_claims {m : EnvS2Core V env}
     (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
     (hreads : InferReadsP m μ φ fuel)
-    (hunit : UnitIrrelPQ m φ fuel) :
-    ProofIrrelPQ m φ fuel := by
+    (hunit : UnitIrrelPQ μ m φ fuel) :
+    ProofIrrelPQ μ m φ fuel := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
   obtain ⟨ta, wta, hta, hwta, hbranch⟩ := Setlec.proofIrrel_inv h

@@ -79,8 +79,8 @@ second leaf premise, discharged from the erasure link and the
 collapse-lane closedness field.  (Shared home: both the infer and the
 whnf quarters proved this independently at their batches; deduplicated
 here at the merge.) -/
-theorem acval_inst_self {μ : CheckMode} {env : Setlec.Env}
-    (m : EnvS2UM V μ env) (n : Setlec.Name)
+theorem acval_inst_self {env : Setlec.Env}
+    (m : EnvS2Core V env) (n : Setlec.Name)
     (ψ : Setlec.Name → Nat) (y : AVExpr) (k : Nat) :
     (m.acval n ψ).inst y k = m.acval n ψ :=
   AVExpr.inst_eq_self _

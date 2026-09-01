@@ -1,5 +1,6 @@
 import Setlec.SetR.Interp2.Claims2E
 import Setlec.SetR.Annot.ValidV
+import Setlec.SetR.Annot.EnvS2Core
 
 /-!
 # The P-generation claims: the ladder over `denoteP` (task #161, P3.3)
@@ -68,7 +69,7 @@ def AnnotOkP (V : Type w) [SetTheory V] (ρ : Nat → V) (e : AVExpr) :
 — scope bound, leaf types annotate, their interpretations read the
 telescope, and they are `AnnotOkP` under every satisfying valuation.
 No fuel parameter. -/
-def CtxOkP {μ : CheckMode} {env : Env} (m : EnvS2UM V μ env)
+def CtxOkP {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (d : Nat) (Δa : List AVExpr) (e : Expr) : Prop :=
   Δa.length = d ∧
   ∀ l ∈ e.fvarLeaves, l.1 < d ∧ Expr.fvarsBelow l.1 l.2.2 ∧
@@ -81,7 +82,7 @@ def CtxOkP {μ : CheckMode} {env : Env} (m : EnvS2UM V μ env)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ tya)
 
 /-- Head normalisation, dual success, P currency. -/
-def WhnfCoreClaims2P (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def WhnfCoreClaims2P (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -97,7 +98,7 @@ def WhnfCoreClaims2P (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
           interp2 V ρ ea = interp2 V ρ ea'
 
 /-- The reduction loop, dual success, P currency. -/
-def WhnfClaims2P (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def WhnfClaims2P (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnf μ env fuel d e = .ok e' →
@@ -113,7 +114,7 @@ def WhnfClaims2P (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
           interp2 V ρ ea = interp2 V ρ ea'
 
 /-- Definitional equality, P currency. -/
-def DefEqClaims2P (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def DefEqClaims2P (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.isDefEqCore μ env fuel d a b = .ok true →
@@ -133,7 +134,7 @@ def DefEqClaims2P (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
 
 /-- Inference, dual success, P currency: the subject's and the
 type's truthfulness — bit validity included — are *conclusions*. -/
-def InferClaims2P (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def InferClaims2P (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
     inferTypeCore μ env fuel d e = .ok t →
@@ -150,7 +151,7 @@ def InferClaims2P (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
 
 /-- The P-generation step. -/
 def CheckStep2P (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
     WhnfCoreClaims2P μ m φ (fuel + 1) ∧ WhnfClaims2P μ m φ (fuel + 1) ∧
@@ -159,7 +160,7 @@ def CheckStep2P (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 /-- The P-generation induction: generic in the step, zero case from
 the checker's own zero-fuel throws (currency-independent). -/
 theorem checkSound2P {μ : CheckMode} {env : Env}
-    (hstep : CheckStep2P μ V) (m : EnvS2UM V μ env) (φ : Name → Nat) :
+    (hstep : CheckStep2P μ V) (m : EnvS2Core V env) (φ : Name → Nat) :
     ∀ fuel : Nat,
       WhnfCoreClaims2P μ m φ fuel ∧ WhnfClaims2P μ m φ fuel ∧
         DefEqClaims2P μ m φ fuel ∧ InferClaims2P μ m φ fuel := by

@@ -64,7 +64,7 @@ fuel — the checker's runs are sound for the collapse-free
 interpretation of the validated annotations. -/
 theorem checkSoundP_of_inputs (hμ : μ.verified = true)
     (hwin : WhnfInputsP V μ) (hdin : DefEqInputsP μ V)
-    (hiin : InferInputsP V μ) {env : Env} (m : EnvS2UM V μ env)
+    (hiin : InferInputsP V μ) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) :
     ∀ fuel : Nat,
       WhnfCoreClaims2P μ m φ fuel ∧ WhnfClaims2P μ m φ fuel ∧

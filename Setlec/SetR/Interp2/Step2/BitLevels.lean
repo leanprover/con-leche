@@ -1,5 +1,6 @@
 import Setlec.SetR.Interp2.Step2.Levels
 import Setlec.SetR.Annot.Bit
+import Setlec.SetR.Annot.EnvS2Core
 
 /-!
 # The level crossing for `denoteP`: algebra, outright (task #161, P3)
@@ -30,12 +31,102 @@ namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
 open Setlec.SetR (AVExpr)
-open Setlec (CheckMode Env Expr Name Level)
+open Setlec (CheckMode Env Expr Name Level ConstantInfo)
 
 universe w
 
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
+
+/-! ### The literal-support slot lemmas, transposed to the core
+
+`Step2/Levels.lean`'s `acval_isEmpty`/`acval_oneParam`/`acval_scalar`/
+`acval_one`/`acval_natPair` are stated over `EnvS2UM`; each reads the
+`acval_params` field and nothing else, so each re-proves verbatim over
+`EnvS2Core` (batch 8 — the canonical file stays untouched). -/
+
+/-- A parameter-free slot is valued independently of the assignment. -/
+theorem acval_isEmptyP (m : EnvS2Core V env) {n : Name}
+    {ci : ConstantInfo} (hf : env.find? n = some ci)
+    (he : ci.toConstantVal.levelParams.isEmpty = true)
+    (ψ₁ ψ₂ : Name → Nat) : m.acval n ψ₁ = m.acval n ψ₂ := by
+  refine m.acval_params n ci hf ψ₁ ψ₂ fun p hpm => ?_
+  rw [List.isEmpty_iff] at he
+  rw [he] at hpm
+  exact nomatch hpm
+
+/-- A one-parameter slot substituted at `Level.zero` is valued
+independently of the assignment. -/
+theorem acval_oneParamP (m : EnvS2Core V env) {n : Name}
+    {ci : ConstantInfo} (hf : env.find? n = some ci)
+    (hlen : ci.toConstantVal.levelParams.length = 1)
+    (ψ₁ ψ₂ : Name → Nat) :
+    m.acval n (Level.substFn ψ₁ ci.toConstantVal.levelParams [.zero])
+      = m.acval n
+        (Level.substFn ψ₂ ci.toConstantVal.levelParams [.zero]) := by
+  refine m.acval_params n ci hf _ _ ?_
+  intro p hpm
+  refine Level.substFn_ext (ps := []) (fun q hq => nomatch hq) ?_ ?_ p
+    hpm
+  · intro u hu
+    simp only [List.mem_singleton] at hu
+    subst hu
+    rfl
+  · simp [hlen]
+
+/-- The scalar literal-support slots, read off their shape guards. -/
+theorem acval_scalarP (m : EnvS2Core V env) (nm : Name)
+    (f : Option ConstantInfo → Bool) (hfok : f (env.find? nm) = true)
+    (hnone : f none = false)
+    (hshape : ∀ ci, f (some ci) = true →
+      ci.toConstantVal.levelParams.isEmpty = true)
+    (ψ₁ ψ₂ : Name → Nat) : m.acval nm ψ₁ = m.acval nm ψ₂ := by
+  cases hx : env.find? nm with
+  | none => rw [hx, hnone] at hfok; exact nomatch hfok
+  | some ci =>
+    rw [hx] at hfok
+    exact acval_isEmptyP m hx (hshape ci hfok) _ _
+
+/-- The two one-parameter literal-support slots. -/
+theorem acval_oneP (m : EnvS2Core V env) (nm : Name)
+    (f : Option ConstantInfo → Bool) (hfok : f (env.find? nm) = true)
+    (hnone : f none = false)
+    (hshape : ∀ ci, f (some ci) = true →
+      ci.toConstantVal.levelParams.length = 1)
+    (ψ₁ ψ₂ : Name → Nat) :
+    m.acval nm (Level.substFn ψ₁ (levelParamsAt env nm) [.zero])
+      = m.acval nm
+        (Level.substFn ψ₂ (levelParamsAt env nm) [.zero]) := by
+  cases hx : env.find? nm with
+  | none => rw [hx, hnone] at hfok; exact nomatch hfok
+  | some ci =>
+    have hlp : levelParamsAt env nm = ci.toConstantVal.levelParams := by
+      simp [levelParamsAt, hx]
+    rw [hx] at hfok
+    rw [hlp]
+    exact acval_oneParamP m hx (hshape ci hfok) _ _
+
+/-- The `Nat`-literal leaves are assignment-independent. -/
+theorem acval_natPairP (m : EnvS2Core V env)
+    (hg : Setlec.natLitSupported env = true) (ψ₁ ψ₂ : Name → Nat) :
+    m.acval natZeroName ψ₁ = m.acval natZeroName ψ₂ ∧
+      m.acval natSuccName ψ₁ = m.acval natSuccName ψ₂ := by
+  simp only [Setlec.natLitSupported, Bool.and_eq_true] at hg
+  obtain ⟨⟨-, hz⟩, hs⟩ := hg
+  refine ⟨acval_scalarP m natZeroName natZeroOk hz rfl ?_ _ _,
+    acval_scalarP m natSuccName natSuccOk hs rfl ?_ _ _⟩
+  · intro ci h
+    cases ci with
+    | ctorInfo cv a b =>
+      simp only [natZeroOk, Bool.and_eq_true] at h
+      simpa [ConstantInfo.toConstantVal] using h.1
+    | _ => simp [natZeroOk] at h
+  · intro ci h
+    cases ci with
+    | ctorInfo cv a b =>
+      simp only [natSuccOk, Bool.and_eq_true] at h
+      simpa [ConstantInfo.toConstantVal] using h.1
+    | _ => simp [natSuccOk] at h
 
 /-- **The level crossing for `denoteP`, unconditional and exact**:
 reading an instantiated term at `φ` is reading the term at the
@@ -43,7 +134,7 @@ composed valuation `Level.substFn φ ks us`.  The binder step is
 `pwBit_substPW` (i.e. `PropWhen.holds_substPW`); the constant step is
 `EnvS2.acval_params` + `Level.substFn_map_subst`, as in the canonical
 walk. -/
-theorem denotePInstLevels (m : EnvS2UM V μ env)
+theorem denotePInstLevels (m : EnvS2Core V env)
     (φ : Name → Nat) (ks : List Name) (us : List Level) :
     ∀ (d : Nat) (e : Expr),
       denoteP m.acval env φ d (e.instantiateLevelParams ks us)
@@ -88,7 +179,7 @@ theorem denotePInstLevels (m : EnvS2UM V μ env)
   | case11 d k hsup =>
     rw [Expr.instantiateLevelParams, denoteP, denoteP,
       if_pos hsup, if_pos hsup]
-    obtain ⟨ez, es⟩ := acval_natPair m hsup
+    obtain ⟨ez, es⟩ := acval_natPairP m hsup
       (Level.substFn (Level.substFn φ ks us) [] [])
       (Level.substFn φ [] [])
     rw [ez, es]
@@ -101,35 +192,35 @@ theorem denotePInstLevels (m : EnvS2UM V μ env)
     have hg := hsup
     simp only [Setlec.strLitSupported, Bool.and_eq_true] at hg
     obtain ⟨⟨⟨⟨⟨⟨⟨h0, -⟩, h2⟩, -⟩, h4⟩, h5⟩, h6⟩, h7⟩ := hg
-    obtain ⟨ez, es⟩ := acval_natPair m h0
+    obtain ⟨ez, es⟩ := acval_natPairP m h0
       (Level.substFn (Level.substFn φ ks us) [] [])
       (Level.substFn φ [] [])
-    have esol := acval_scalar m stringOfListName stringOfListTyOk h2 rfl
+    have esol := acval_scalarP m stringOfListName stringOfListTyOk h2 rfl
       (by intro ci hh
           simp only [stringOfListTyOk, Bool.and_eq_true] at hh
           exact hh.1)
       (Level.substFn (Level.substFn φ ks us) [] [])
       (Level.substFn φ [] [])
-    have echar := acval_scalar m charName charTyOk h6 rfl
+    have echar := acval_scalarP m charName charTyOk h6 rfl
       (by intro ci hh
           simp only [charTyOk, Bool.and_eq_true] at hh
           exact hh.1)
       (Level.substFn (Level.substFn φ ks us) [] [])
       (Level.substFn φ [] [])
-    have eofn := acval_scalar m charOfNatName charOfNatTyOk h7 rfl
+    have eofn := acval_scalarP m charOfNatName charOfNatTyOk h7 rfl
       (by intro ci hh
           simp only [charOfNatTyOk, Bool.and_eq_true] at hh
           exact hh.1)
       (Level.substFn (Level.substFn φ ks us) [] [])
       (Level.substFn φ [] [])
-    have enil := acval_one m listNilName listNilTyOk h4 rfl
+    have enil := acval_oneP m listNilName listNilTyOk h4 rfl
       (by intro ci hh
           simp only [listNilTyOk] at hh
           split at hh
           · next p hpe => simp [hpe]
           · exact nomatch hh)
       (Level.substFn φ ks us) φ
-    have econs := acval_one m listConsName listConsTyOk h5 rfl
+    have econs := acval_oneP m listConsName listConsTyOk h5 rfl
       (by intro ci hh
           simp only [listConsTyOk] at hh
           split at hh

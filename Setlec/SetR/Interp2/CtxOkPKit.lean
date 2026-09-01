@@ -28,7 +28,7 @@ open Setlec (CheckMode Env Expr Name)
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
-variable {m : EnvS2UM V μ env} {φ : Name → Nat}
+variable {m : EnvS2Core V env} {φ : Name → Nat}
 
 namespace CtxOkP
 

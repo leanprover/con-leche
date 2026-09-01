@@ -61,7 +61,7 @@ every use in the quarter is at the induction-bounded checker fuel,
 and `sortSemAtP_of_claims` *derives* the fact from the claims one
 level down — another canonical-frontier residue dissolved.  The
 subject's scoping package is carried so the claims can be applied. -/
-def SortSemAtP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+def SortSemAtP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {u : Level} {Δa : List AVExpr}
     {ea : AVExpr},
@@ -88,13 +88,13 @@ at the install tier — a stored type's annotations went through the
 checker's own front door, which is establishment — and folded into the
 environment structure there (with the owed `EnvWF` records, if the
 seal's invariants state them naturally). -/
-def AcvalValidP {env : Env} (m : EnvS2UM V μ env) : Prop :=
+def AcvalValidP {env : Env} (m : EnvS2Core V env) : Prop :=
   ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
     AnnotValidV V ρ (m.acval n ψ)
 
 /-- **The `const` clause's residue, P currency** (`ConstType2C`
 transposed: no fuel, `AnnotOkP` conclusion). -/
-def ConstTypeP {env : Env} (m : EnvS2UM V μ env)
+def ConstTypeP {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop :=
   ∀ (d : Nat) (n : Name) (ci : Setlec.ConstantInfo) (us : List Level),
     env.find? n = some ci →
@@ -112,7 +112,7 @@ def ConstTypeP {env : Env} (m : EnvS2UM V μ env)
 /-- `.const`, P currency: the residue answers with the type's row; the
 subject's grading is the two leaf facts (`acval_ok2` + the routed
 `AcvalValidP`). -/
-theorem infer_const_claimP (m : EnvS2UM V μ env)
+theorem infer_const_claimP (m : EnvS2Core V env)
     (hct : ConstTypeP m φ) (hval : AcvalValidP m)
     {d : Nat} {n : Name} {us : List Level} {t : Expr}
     {Δa : List AVExpr} {ea ta : AVExpr}
@@ -151,7 +151,7 @@ theorem infer_const_claimP (m : EnvS2UM V μ env)
 
 /-- `.sort`, P currency: both readings are sort nodes, gradings are
 vacuous, the row is `sound_sort`. -/
-theorem infer_sort_claimP (m : EnvS2UM V μ env) {d : Nat} {u : Level}
+theorem infer_sort_claimP (m : EnvS2Core V env) {d : Nat} {u : Level}
     {t : Expr} {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.sort u) = .ok t)
     (hea : denoteP m.acval env φ d (.sort u) = some ea)
@@ -174,7 +174,7 @@ theorem infer_sort_claimP (m : EnvS2UM V μ env) {d : Nat} {u : Level}
   exact (sound_sort V ρ (u.eval φ)).2
 
 /-- `.bvar`, P currency: outside the fragment, the checker throws. -/
-theorem infer_bvar_claimP (m : EnvS2UM V μ env) {d i : Nat} {t : Expr}
+theorem infer_bvar_claimP (m : EnvS2Core V env) {d i : Nat} {t : Expr}
     {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.bvar i) = .ok t)
     (_hea : denoteP m.acval env φ d (.bvar i) = some ea)
@@ -191,7 +191,7 @@ theorem infer_bvar_claimP (m : EnvS2UM V μ env) {d i : Nat} {t : Expr}
 /-- `.fvar`, P currency: the leaf package of `CtxOkP` carries the
 fourth conjunct at `AnnotOkP`, so the clause takes no residue —
 `infer_fvar_claim2D`'s improvement inherited by construction. -/
-theorem infer_fvar_claimP (m : EnvS2UM V μ env)
+theorem infer_fvar_claimP (m : EnvS2Core V env)
     {d idx : Nat} {n : Name} {ty t : Expr} {Δa : List AVExpr}
     {ea ta : AVExpr}
     (hC : CtxOkP m φ d Δa (.fvar idx n ty))
@@ -221,7 +221,7 @@ theorem infer_fvar_claimP (m : EnvS2UM V μ env)
 
 /-- **`.forallE`, P currency** — see the module docstring; the four
 moves annotated inline. -/
-theorem infer_forallE_claimP (m : EnvS2UM V μ env)
+theorem infer_forallE_claimP (m : EnvS2Core V env)
     (hμ : μ.verified = true) (hss : SortSemAtP m μ φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
@@ -325,7 +325,7 @@ on the body:
   **impredicativity** (`piR_zero_mem_univZero`).  This is where the
   canonical lane's `LamCodSort2` residue (the per-node sort run the
   #152 chain guard lost) dissolves into the model's own law. -/
-theorem infer_lam_claimP (m : EnvS2UM V μ env)
+theorem infer_lam_claimP (m : EnvS2Core V env)
     (hμ : μ.verified = true) (hss : SortSemAtP m μ φ fuel)
     (ihi : InferClaims2P μ m φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
@@ -475,8 +475,11 @@ theorem infer_lam_claimP (m : EnvS2UM V μ env)
 /-! ## The numeral clause (task #161, P3 batch 3, T1)
 
 `NatHeads2` is **denote-free** — it speaks only of `interp2` at the
-valuation's own `Nat` leaves — so the P tier consumes it verbatim,
-with no transpose.  What the currency swap costs is one extra
+valuation's own `Nat` leaves — so the P tier consumes it with the
+identical body, transposed only in its carrier (`NatHeadsP`, below:
+batch 8's carrier sweep moved the P surface to `EnvS2Core`, and the
+mode-indexed `EnvS2UM` the canonical statement binds is not what the
+P fold can supply).  What the currency swap costs is one extra
 grading per spine: `natLit_facts2` produces the `AnnotOk2` half of
 the numeral's truthfulness (and the membership row) exactly as in the
 canonical lane, and `AnnotValidV_natLitT2` (batch 2) produces the
@@ -484,11 +487,26 @@ canonical lane, and `AnnotValidV_natLitT2` (batch 2) produces the
 the routed `AcvalValidP`, the same residue `infer_const_claimP`
 takes. -/
 
+/-- **The `Nat`-literal clause's residue, over the core**
+(`Step2/InferQ.lean`'s `NatHeads2`, body for body): the zero's
+membership and the successor's, at the annotated valuation's own
+`Nat` leaf. -/
+def NatHeadsP {env : Env} (m : EnvS2Core V env)
+    (φ : Name → Nat) : Prop :=
+  Setlec.natLitSupported env = true →
+  ∀ ρ : Nat → V,
+    interp2 V ρ (m.acval natZeroName (Level.substFn φ [] []))
+      ∈ˢ interp2 V ρ (m.acval natName (Level.substFn φ [] [])) ∧
+    interp2 V ρ (m.acval natSuccName (Level.substFn φ [] []))
+      ∈ˢ piR 1 (interp2 V ρ (m.acval natName (Level.substFn φ [] [])))
+        (fun _ => interp2 V ρ
+          (m.acval natName (Level.substFn φ [] [])))
+
 /-- **`.lit (.natVal k)`, P currency.**  Dual success: the returned
 type is `.const natName []`, whose reading the support guard pins to
 the `Nat` leaf itself (`natName_levelParams_nil`), so identifying `ta`
 with that leaf is the `denoteP` `const` clause and nothing more. -/
-theorem infer_natLit_claimP (m : EnvS2UM V μ env) (hnh : NatHeads2 m φ)
+theorem infer_natLit_claimP (m : EnvS2Core V env) (hnh : NatHeadsP m φ)
     (hval : AcvalValidP m)
     {d k : Nat} {t : Expr} {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t)
@@ -553,7 +571,7 @@ later tiers exactly as the canonical ones do — the `String` clause is
 is the structure-type walk. -/
 
 /-- The `String`-literal clause, P currency. -/
-def InferStrLitStepP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+def InferStrLitStepP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {s : String} {t : Expr} {Δa : List AVExpr}
     {ea ta : AVExpr},
@@ -566,7 +584,7 @@ def InferStrLitStepP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
         interp2 V ρ ea ∈ˢ interp2 V ρ ta
 
 /-- The projection clause, P currency. -/
-def InferProjStepP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+def InferProjStepP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d i : Nat} {sn : Name} {pe t : Expr} {Δa : List AVExpr}
     {ea ta : AVExpr},
@@ -628,7 +646,7 @@ as the claims it feeds.  Two producers, so two residues. -/
 /-- **The inferred type reads** (P-tier totality residue; see the
 FINDING above).  Conditioned exactly as the claims are: the run, the
 subject's scoping package, and the subject's own reading. -/
-def InferReadsP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+def InferReadsP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {ea : AVExpr},
     inferTypeCore μ env fuel d e = .ok t →
@@ -639,7 +657,7 @@ def InferReadsP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
 
 /-- **The head normal form reads** (P-tier totality residue, the
 reduction producer). -/
-def WhnfReadsP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+def WhnfReadsP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {ea : AVExpr},
     whnf μ env fuel d e = .ok e' →
@@ -653,7 +671,7 @@ sort fact at `fuel` from the claims at `fuel` plus the one totality
 factor — infer the type (`hreads` says it reads), grade both readings
 (`ihi`), then walk the type to its sort (`ihw`) and the membership
 lands in the universe. -/
-theorem sortSemAtP_of_claims {env : Env} {m : EnvS2UM V μ env}
+theorem sortSemAtP_of_claims {env : Env} {m : EnvS2Core V env}
     {fuel : Nat}
     (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
     (hreads : InferReadsP m μ φ fuel) :
@@ -685,7 +703,7 @@ equivalence, not a per-site truthfulness ledger.
 The type's grading comes from the clause's own `ensureSort` run
 through `SortSemP`; the value's is `ihi` at `val`, whose type-side
 reading is the routed `InferReadsP` (the FINDING above). -/
-theorem infer_letE_claimP (m : EnvS2UM V μ env)
+theorem infer_letE_claimP (m : EnvS2Core V env)
     (hss : SortSemAtP m μ φ fuel)
     (hir : InferReadsP m μ φ fuel) (ihi : InferClaims2P μ m φ fuel)
     {d : Nat} {n : Name} {ty val b t : Expr} {Δa : List AVExpr}
@@ -786,7 +804,7 @@ things replace canonical machinery:
 The three readings the recursive calls need on the type side
 (`tf`, the whnf'd ∀, `tya`) are the routed totality residues — see the
 FINDING above. -/
-theorem infer_app_claimP (m : EnvS2UM V μ env)
+theorem infer_app_claimP (m : EnvS2Core V env)
     (hir : InferReadsP m μ φ fuel) (hwr : WhnfReadsP m μ φ fuel)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
     (ihi : InferClaims2P μ m φ fuel)
@@ -923,7 +941,7 @@ P tier's own:
 | `InferInputs2D` | `InferInputsP` |
 |---|---|
 | `const_ty` (`ConstType2C`) | `const_ty` (`ConstTypeP`) |
-| `nat_heads` (`NatHeads2`) | `nat_heads` — **verbatim**, denote-free |
+| `nat_heads` (`NatHeads2`) → `NatHeadsP` | `nat_heads` — **verbatim**, denote-free |
 | `str_lit`, `proj` | the T2 transposes |
 | `sort_sem` (`SortSem2`) | **gone** — `sortSemAtP_of_claims` derives it |
 | `beta` (`BetaCross2C`) | **gone** — `denoteP_beta` is a theorem |
@@ -940,33 +958,33 @@ only at that mode.  See the module docstring. -/
 structure InferInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
     Prop where
   /-- I3: the stored type's annotation, carrying its truthfulness -/
-  const_ty : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
+  const_ty : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat),
     ConstTypeP m φ
   /-- the stored leaves are bit-valid (`AnnotOk2`'s companion; the
   `acval_ok2` field's `AnnotValidV` half) -/
-  acval_valid : ∀ {env : Env} (m : EnvS2UM V μ env), AcvalValidP m
+  acval_valid : ∀ {env : Env} (m : EnvS2Core V env), AcvalValidP m
   /-- I4: the two numeral head facts, unchanged from the canonical
   lane -/
-  nat_heads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
-    NatHeads2 m φ
+  nat_heads : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat),
+    NatHeadsP m φ
   /-- I5: the `String`-literal clause -/
-  str_lit : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+  str_lit : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), InferStrLitStepP m μ φ fuel
   /-- I9: the projection clause -/
-  proj : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+  proj : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), InferProjStepP m μ φ fuel
   /-- the inferred type reads (dual-success totality residue) -/
-  infer_reads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+  infer_reads : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), InferReadsP m μ φ fuel
   /-- the head normal form reads (dual-success totality residue) -/
-  whnf_reads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+  whnf_reads : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), WhnfReadsP m μ φ fuel
 
 /-- **The inference quarter, P currency** — `InferStep2D`'s shape with
 the mode pinned: the four claims at `fuel` give the inference claim at
 `fuel + 1`, at a validating mode. -/
 def InferStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
     μ.verified = true →
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →

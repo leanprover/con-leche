@@ -98,9 +98,9 @@ quarters already carry, and the conversions are eta-expansions. -/
 `DeltaP` (`Step2/WhnfP.lean`) — same binders, same premises, same
 conclusion — so `deltaP_of` discharges it verbatim.  Stated at the
 `AcvalDefnInstP` field so the consumer can pass `m.defn_reads`. -/
-theorem denotePDeltaP_of_fields (m : EnvS2UM V μ env)
+theorem denotePDeltaP_of_fields (m : EnvS2Core V env)
     (hdi : AcvalDefnInstP m) : DenotePDeltaP m φ :=
-  fun hud hea => deltaP_of (μ := μ) m hdi hud hea
+  fun hud hea => deltaP_of m hdi hud hea
 
 /-- `DenotePDeltaP`, read straight off the P environment invariant. -/
 theorem EnvS2PM.denotePDeltaP (mp : EnvS2PM V μ env) :
@@ -114,15 +114,15 @@ same `CtxOkP`/reading/grading premises, same conclusion.  The only
 difference is that `WhnfCoreExistsP` names `μ` explicitly where
 `WhnfCoreReductExistsP` takes it from the section variable, so the
 conversion is an eta-expansion — in **both** directions. -/
-theorem whnfCoreReductExistsP_of {m : EnvS2UM V μ env}
+theorem whnfCoreReductExistsP_of {m : EnvS2Core V env}
     (h : WhnfCoreExistsP μ m φ fuel) :
-    WhnfCoreReductExistsP m φ fuel := by
+    WhnfCoreReductExistsP μ m φ fuel := by
   intro _d _e _e' _Δa hrun hws hb hLb _ea hC hea hok
   exact h hrun hws hb hLb hC hea hok
 
 /-- The converse of `whnfCoreReductExistsP_of` (same statement). -/
-theorem whnfCoreExistsP_of_reduct {m : EnvS2UM V μ env}
-    (h : WhnfCoreReductExistsP m φ fuel) :
+theorem whnfCoreExistsP_of_reduct {m : EnvS2Core V env}
+    (h : WhnfCoreReductExistsP μ m φ fuel) :
     WhnfCoreExistsP μ m φ fuel := by
   intro _d _e _e' _Δa hrun hws hb hLb _ea hC hea hok
   exact h hrun hws hb hLb hC hea hok
@@ -136,7 +136,7 @@ dropping the context — and the converse does **not** hold as a
 conversion (there is no `Δa` to supply).  See the module FINDING: it
 is the missing `CtxOkP` that makes `InferReadsP` refutable, and
 `InferExistsP` the one of the pair this file discharges outright. -/
-theorem inferExistsP_of_reads {m : EnvS2UM V μ env}
+theorem inferExistsP_of_reads {m : EnvS2Core V env}
     (h : InferReadsP m μ φ fuel) : InferExistsP μ m φ fuel := by
   intro _d _e _t _Δa hrun hws hb hLb _ea _hC hea
   exact h hrun hws hb hLb hea
@@ -154,13 +154,13 @@ This is the side condition the module FINDING names — the one premise
 supplies.  It is *not* routed to another tier: the walk carries it as
 an ordinary hypothesis and propagates it through the binder clauses
 (`weakenTop`/`openS` below). -/
-def LeafReadsP {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+def LeafReadsP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (d : Nat) (e : Expr) : Prop :=
   ∀ l ∈ e.fvarLeaves, ∃ tya, denoteP m.acval env φ d l.2.2 = some tya
 
 namespace LeafReadsP
 
-variable {m : EnvS2UM V μ env}
+variable {m : EnvS2Core V env}
 
 /-- **The consumers' discharge**: `CtxOkP`'s leaf package contains the
 reading, so any clause holding a context correspondence holds this. -/
@@ -221,7 +221,7 @@ grading the walk never reads), so it is stated here. -/
 
 /-- **The `whnfCore` reduct reads** — `WhnfCoreExistsP` with the
 `CtxOkP` and grading premises dropped. -/
-def WhnfCoreReadsP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+def WhnfCoreReadsP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {ea : AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -234,7 +234,7 @@ def WhnfCoreReadsP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
 side condition the FINDING identifies.  This is the statement the walk
 proves; `InferExistsP` follows outright (`LeafReadsP.of_ctxOkP`), and
 `InferReadsP` needs the flagged `LeafReadsAllP` on top. -/
-def InferReadsCP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+def InferReadsCP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {ea : AVExpr},
     inferTypeCore μ env fuel d e = .ok t →
@@ -251,7 +251,7 @@ calls `whnfCore` and `whnf` at `fuel`; `whnf` at `fuel + 1` calls
 `fuel`.  `defeq` returns a `Bool` and so owes no reading — the two
 clauses that call it (`whnfCore`'s β, `infer`'s application) read it
 for the verdict only. -/
-def ReadsAllP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+def ReadsAllP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   WhnfCoreReadsP m μ φ fuel ∧ WhnfReadsP m μ φ fuel ∧
     InferReadsCP m μ φ fuel
@@ -267,7 +267,7 @@ their readability is not the walk's to prove.  Each is stated as the
 reads.  Discharged where the rules are installed: `checkDecl`'s
 recursor-installation path validates every rule's RHS through the
 checker's own front door, which is exactly this. -/
-def IotaReadsP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def IotaReadsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e'' : Expr} {ea : AVExpr},
     Setlec.iotaRecP μ env fuel d e = .ok (some e'') →
@@ -283,7 +283,7 @@ reduct is a spine argument of a `whnf`'d scrutinee selected by the
 projection table; reading it needs the table's own well-formedness, so
 the whole clause is routed (`ProjStepP`'s shape, readings only). -/
 def WhnfCoreProjReadsP (μ : CheckMode) {env : Env}
-    (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat) : Prop :=
+    (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d i : Nat} {sn : Name} {pe e' : Expr} {ea : AVExpr},
     whnfCore μ env (fuel + 1) d (.proj sn i pe) = .ok e' →
     Expr.WScoped d (.proj sn i pe) →
@@ -295,7 +295,7 @@ def WhnfCoreProjReadsP (μ : CheckMode) {env : Env}
 /-- **`infer`'s projection clause, routed to the install tier.**  The
 inferred type is `piResidual` of the entry's stored level-parametric
 type; its readability is the projection table's, not the walk's. -/
-def InferProjReadsP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def InferProjReadsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d i : Nat} {sn : Name} {pe t : Expr} {ea : AVExpr},
     inferTypeCore μ env (fuel + 1) d (.proj sn i pe) = .ok t →
@@ -311,7 +311,7 @@ def InferProjReadsP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
 built from the pinned heads; it reads under the same support guard the
 subject read through, and the tier that pins the operations owes the
 statement (`ReduceNatStepP`'s shape, readings and scoping only). -/
-def ReduceNatReadsP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def ReduceNatReadsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e₂ : Expr} {ea : AVExpr},
     Setlec.reduceNatP μ env fuel d e = .ok (some e₂) →
@@ -326,7 +326,7 @@ def ReduceNatReadsP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
 
 /-- The six shapes `whnfCoreBody` returns unchanged: the reduct *is*
 the subject. -/
-private theorem whnfCoreReads_leaf {m : EnvS2UM V μ env}
+private theorem whnfCoreReads_leaf {m : EnvS2Core V env}
     {d : Nat} {e e' : Expr} {ea : AVExpr}
     (hleaf : (∃ u, e = .sort u) ∨ (∃ idx n ty, e = .fvar idx n ty) ∨
       (∃ n ty body bi, e = .forallE n ty body bi) ∨
@@ -348,7 +348,7 @@ private theorem whnfCoreReads_leaf {m : EnvS2UM V μ env}
 
 /-- **The ζ clause.**  `denoteP_beta` at the `letE` reading: the
 reduct's annotation is the body's, instantiated at the value's. -/
-private theorem whnfCoreReads_letE {m : EnvS2UM V μ env}
+private theorem whnfCoreReads_letE {m : EnvS2Core V env}
     (ihwc : WhnfCoreReadsP m μ φ fuel)
     {d : Nat} {nn : Name} {tt vv bb e' : Expr} {ea : AVExpr}
     (h : whnfCore μ env (fuel + 1) d (.letE nn tt vv bb) = .ok e')
@@ -391,7 +391,7 @@ private theorem whnfCoreReads_letE {m : EnvS2UM V μ env}
 hypothesis; the β branch is `denoteP_beta` again, the ι branch is the
 routed `IotaReadsP`, and the stuck fallback re-assembles the two
 readings the `denoteP` `app` clause wants. -/
-private theorem whnfCoreReads_app {m : EnvS2UM V μ env}
+private theorem whnfCoreReads_app {m : EnvS2Core V env}
     (hiota : IotaReadsP μ m φ fuel) (ihwc : WhnfCoreReadsP m μ φ fuel)
     {d : Nat} {f a e' : Expr} {ea : AVExpr}
     (h : whnfCore μ env (fuel + 1) d (.app f a) = .ok e')
@@ -455,7 +455,7 @@ private theorem whnfCoreReads_app {m : EnvS2UM V μ env}
     exact ⟨_, hiapp⟩
 
 /-- **`WhnfCoreReadsP` at `fuel + 1`** — the ten shapes. -/
-theorem whnfCoreReadsP_succ {m : EnvS2UM V μ env}
+theorem whnfCoreReadsP_succ {m : EnvS2Core V env}
     (hiota : IotaReadsP μ m φ fuel)
     (hproj : WhnfCoreProjReadsP μ m φ fuel)
     (ihwc : WhnfCoreReadsP m μ φ fuel) :
@@ -490,9 +490,9 @@ branches, and each one hands the *next* subject's reading to the
 budget induction hypothesis.  The δ branch is the sharpest — `DeltaP`
 says the reduct reads at the **same** annotation, so nothing moves. -/
 
-private theorem whnfLoopReads {m : EnvS2UM V μ env}
+private theorem whnfLoopReads {m : EnvS2Core V env}
     (ihwc : WhnfCoreReadsP m μ φ fuel)
-    (hnat : ReduceNatReadsP μ m φ fuel) (hdelta : DeltaP μ m φ) :
+    (hnat : ReduceNatReadsP μ m φ fuel) (hdelta : DeltaP m φ) :
     ∀ (budget : Nat) {d : Nat} {e e' : Expr} {ea : AVExpr},
       Setlec.whnfLoop (Setlec.pureFns μ env fuel) env d budget e
         = .ok e' →
@@ -552,9 +552,9 @@ private theorem whnfLoopReads {m : EnvS2UM V μ env}
 
 /-- **`WhnfReadsP` at `fuel + 1`** — the residue's own statement, from
 the loop induction. -/
-theorem whnfReadsP_succ {m : EnvS2UM V μ env}
+theorem whnfReadsP_succ {m : EnvS2Core V env}
     (ihwc : WhnfCoreReadsP m μ φ fuel)
-    (hnat : ReduceNatReadsP μ m φ fuel) (hdelta : DeltaP μ m φ) :
+    (hnat : ReduceNatReadsP μ m φ fuel) (hdelta : DeltaP m φ) :
     WhnfReadsP m μ φ (fuel + 1) := by
   intro d e e' ea h hws hb hLb hea
   rw [Setlec.whnf_succ, Setlec.whnfBody] at h
@@ -581,7 +581,7 @@ Per clause, what the inferred type's reading *is*:
 * `.proj` → routed (`InferProjReadsP`). -/
 
 /-- `.sort`: the inferred type is `.sort (.succ u)`. -/
-private theorem inferReads_sort {m : EnvS2UM V μ env}
+private theorem inferReads_sort {m : EnvS2Core V env}
     {d : Nat} {u : Level} {t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.sort u) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
@@ -593,7 +593,7 @@ private theorem inferReads_sort {m : EnvS2UM V μ env}
 
 /-- `.fvar`: the inferred type is the leaf's stored annotation, and its
 reading is exactly what `LeafReadsP` provides. -/
-private theorem inferReads_fvar {m : EnvS2UM V μ env}
+private theorem inferReads_fvar {m : EnvS2Core V env}
     {d idx : Nat} {n : Name} {ty t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.fvar idx n ty) = .ok t)
     (hlr : LeafReadsP m φ d (.fvar idx n ty)) :
@@ -609,7 +609,7 @@ private theorem inferReads_fvar {m : EnvS2UM V μ env}
 
 /-- `.const`: the subject's own reading pins `env.find?` and the arity,
 and `ConstTypeP` answers with the instantiated type's row. -/
-private theorem inferReads_const {m : EnvS2UM V μ env}
+private theorem inferReads_const {m : EnvS2Core V env}
     (hct : ConstTypeP m φ) {d : Nat} {n : Name} {us : List Level}
     {t : Expr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.const n us) = .ok t)
@@ -626,7 +626,7 @@ private theorem inferReads_const {m : EnvS2UM V μ env}
 
 /-- `.lit (.natVal _)`: the inferred type is `.const natName []`, whose
 reading the support guard pins to the `Nat` leaf itself. -/
-private theorem inferReads_natLit {m : EnvS2UM V μ env}
+private theorem inferReads_natLit {m : EnvS2Core V env}
     {d k : Nat} {t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
@@ -659,7 +659,7 @@ private theorem inferReads_natLit {m : EnvS2UM V μ env}
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `.lit (.strVal _)`: the same move at `String`. -/
-private theorem inferReads_strLit {m : EnvS2UM V μ env}
+private theorem inferReads_strLit {m : EnvS2Core V env}
     {d : Nat} {s : String} {t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
@@ -692,7 +692,7 @@ private theorem inferReads_strLit {m : EnvS2UM V μ env}
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `.forallE`: the inferred type is `.sort (.imax u v)`. -/
-private theorem inferReads_forallE {m : EnvS2UM V μ env}
+private theorem inferReads_forallE {m : EnvS2Core V env}
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
     (h : inferTypeCore μ env (fuel + 1) d (.forallE n ty body mb)
       = .ok t) :
@@ -705,7 +705,7 @@ private theorem inferReads_forallE {m : EnvS2UM V μ env}
 its codomain reading is the induction hypothesis at the opened body,
 transported across the `abstract1`/`instantiate1` round trip — which is
 where the leaf premise has to be *opened* (`LeafReadsP.openS`). -/
-private theorem inferReads_lam {m : EnvS2UM V μ env}
+private theorem inferReads_lam {m : EnvS2Core V env}
     (ihi : InferReadsCP m μ φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
     {ea : AVExpr}
@@ -763,7 +763,7 @@ private theorem inferReads_lam {m : EnvS2UM V μ env}
 the argument — `denoteP_beta` backwards.  The function's type reads by
 the inference hypothesis, its head normal form by the reduction
 hypothesis. -/
-private theorem inferReads_app {m : EnvS2UM V μ env}
+private theorem inferReads_app {m : EnvS2Core V env}
     (ihi : InferReadsCP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel)
     {d : Nat} {f a t : Expr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.app f a) = .ok t)
@@ -804,7 +804,7 @@ private theorem inferReads_app {m : EnvS2UM V μ env}
 /-- `.letE`: the ζ-shaped recursion — the checker infers the body
 *opened at the value*, whose reading is `denoteP_beta` at the `letE`
 node's own three readings. -/
-private theorem inferReads_letE {m : EnvS2UM V μ env}
+private theorem inferReads_letE {m : EnvS2Core V env}
     (ihi : InferReadsCP m μ φ fuel)
     {d : Nat} {nn : Name} {tt vv bb t : Expr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.letE nn tt vv bb) = .ok t)
@@ -845,7 +845,7 @@ private theorem inferReads_letE {m : EnvS2UM V μ env}
     (fun l hl => hLb l (hsubred l hl)) (hlr.of_subset hsubred) hred
 
 /-- **`InferReadsCP` at `fuel + 1`** — the eleven shapes. -/
-theorem inferReadsCP_succ {m : EnvS2UM V μ env}
+theorem inferReadsCP_succ {m : EnvS2Core V env}
     (hct : ConstTypeP m φ) (hproj : InferProjReadsP μ m φ fuel)
     (ihi : InferReadsCP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     InferReadsCP m μ φ (fuel + 1) := by
@@ -869,7 +869,7 @@ theorem inferReadsCP_succ {m : EnvS2UM V μ env}
 
 /-- Fuel zero: every entry point throws, so all three statements are
 vacuous. -/
-theorem readsAllP_zero (m : EnvS2UM V μ env) : ReadsAllP m μ φ 0 := by
+theorem readsAllP_zero (m : EnvS2Core V env) : ReadsAllP m μ φ 0 := by
   refine ⟨?_, ?_, ?_⟩
   · intro d e e' ea h
     rw [Setlec.whnfCore_zero] at h
@@ -886,7 +886,7 @@ the tier that owes it.  `const_ty` and `defn` are *already* derived
 facts of the P environment invariant (`EnvS2PM.constTypeP`,
 `EnvS2PM.defn_reads`); the other four are the clause-granular residues
 this file introduces. -/
-structure ReadsInputsP {env : Env} (m : EnvS2UM V μ env)
+structure ReadsInputsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop where
   /-- the stored type's reading at a `const` node — **install tier**,
   and already an `EnvS2PM` consequence (`EnvS2PM.constTypeP`) -/
@@ -911,7 +911,7 @@ theorem ReadsInputsP.ofEnvS2PM (mp : EnvS2PM V μ env)
     (hwproj : ∀ fuel, WhnfCoreProjReadsP μ mp.base2 φ fuel)
     (hiproj : ∀ fuel, InferProjReadsP μ mp.base2 φ fuel)
     (hnat : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel) :
-    ReadsInputsP mp.base2 φ where
+    ReadsInputsP μ mp.base2 φ where
   const_ty := mp.constTypeP
   defn := mp.defn_reads
   iota := hiota
@@ -922,14 +922,14 @@ theorem ReadsInputsP.ofEnvS2PM (mp : EnvS2PM V μ env)
 /-- **The walk, at every fuel.**  One induction, three statements: the
 checker's knot is mutual, so `whnfCore`, `whnf` and `infer` at
 `fuel + 1` are proved together from all three at `fuel`. -/
-theorem readsAllP_of {m : EnvS2UM V μ env} (hin : ReadsInputsP m φ) :
+theorem readsAllP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
     ∀ fuel, ReadsAllP m μ φ fuel
   | 0 => readsAllP_zero m
   | fuel + 1 =>
     let ih := readsAllP_of hin fuel
     ⟨whnfCoreReadsP_succ (hin.iota fuel) (hin.whnf_proj fuel) ih.1,
       whnfReadsP_succ ih.1 (hin.nat fuel)
-        (deltaP_of (μ := μ) m hin.defn),
+        (deltaP_of m hin.defn),
       inferReadsCP_succ hin.const_ty (hin.infer_proj fuel) ih.2.2
         ih.2.1⟩
 
@@ -939,46 +939,46 @@ Five outright from `ReadsInputsP`; the sixth (`InferReadsP`) needs the
 flagged leaf hypothesis — see the module FINDING. -/
 
 /-- The `whnfCore` reduct reads, at every fuel. -/
-theorem whnfCoreReadsP_of {m : EnvS2UM V μ env}
-    (hin : ReadsInputsP m φ) : WhnfCoreReadsP m μ φ fuel :=
+theorem whnfCoreReadsP_of {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : WhnfCoreReadsP m μ φ fuel :=
   (readsAllP_of hin fuel).1
 
 /-- **Residue 1/6 — `WhnfReadsP`, discharged outright.** -/
-theorem whnfReadsP_of {m : EnvS2UM V μ env} (hin : ReadsInputsP m φ) :
+theorem whnfReadsP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
     WhnfReadsP m μ φ fuel :=
   (readsAllP_of hin fuel).2.1
 
 /-- The leaf-premised inference walk, at every fuel. -/
-theorem inferReadsCP_of {m : EnvS2UM V μ env}
-    (hin : ReadsInputsP m φ) : InferReadsCP m μ φ fuel :=
+theorem inferReadsCP_of {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : InferReadsCP m μ φ fuel :=
   (readsAllP_of hin fuel).2.2
 
 /-- **Residue 2/6 — `WhnfCoreExistsP`, discharged outright.**  The
 `CtxOkP` and grading premises are simply unused. -/
-theorem whnfCoreExistsP_of {m : EnvS2UM V μ env}
-    (hin : ReadsInputsP m φ) : WhnfCoreExistsP μ m φ fuel := by
+theorem whnfCoreExistsP_of {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : WhnfCoreExistsP μ m φ fuel := by
   intro _d _e _e' _Δa hrun hws hb hLb _ea _hC hea _hok
   exact whnfCoreReadsP_of hin hrun hws hb hLb hea
 
 /-- **Residue 3/6 — `WhnfCoreReductExistsP`, discharged outright**
 (`whnfCoreReductExistsP_of` on the previous one). -/
-theorem whnfCoreReductExistsP_of' {m : EnvS2UM V μ env}
-    (hin : ReadsInputsP m φ) : WhnfCoreReductExistsP m φ fuel :=
+theorem whnfCoreReductExistsP_of' {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : WhnfCoreReductExistsP μ m φ fuel :=
   whnfCoreReductExistsP_of (whnfCoreExistsP_of hin)
 
 /-- **Residue 4/6 — `InferExistsP`, discharged outright.**  This is the
 pair member whose statement *does* carry the context, so the leaf side
 condition is a projection (`LeafReadsP.of_ctxOkP`) and nothing is
 routed. -/
-theorem inferExistsP_of {m : EnvS2UM V μ env} (hin : ReadsInputsP m φ) :
+theorem inferExistsP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
     InferExistsP μ m φ fuel := by
   intro _d _e _t _Δa hrun hws hb hLb _ea hC hea
   exact inferReadsCP_of hin hrun hws hb hLb (LeafReadsP.of_ctxOkP hC)
     hea
 
 /-- **Residue 5/6 — `DenotePDeltaP`, discharged outright.** -/
-theorem denotePDeltaP_of {m : EnvS2UM V μ env}
-    (hin : ReadsInputsP m φ) : DenotePDeltaP m φ :=
+theorem denotePDeltaP_of {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : DenotePDeltaP m φ :=
   denotePDeltaP_of_fields m hin.defn
 
 /-- **The flagged residue.**  `LeafReadsAllP` is `LeafReadsP` at *every*
@@ -993,14 +993,14 @@ change named in the FINDING: give `InferReadsP` the `CtxOkP` premise
 its sibling `InferExistsP` already has, after which
 `inferExistsP_of` *is* the supplier and this definition can be
 deleted. -/
-def LeafReadsAllP {env : Env} (m : EnvS2UM V μ env)
+def LeafReadsAllP {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop :=
   ∀ (d : Nat) (e : Expr), LeafReadsP m φ d e
 
 /-- **Residue 6/6 — `InferReadsP`, modulo the flagged hypothesis.**
 Everything except the `.fvar` clause is the walk; `hleaf` is consumed
 at that clause and nowhere else. -/
-theorem inferReadsP_of {m : EnvS2UM V μ env} (hin : ReadsInputsP m φ)
+theorem inferReadsP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ)
     (hleaf : LeafReadsAllP m φ) : InferReadsP m μ φ fuel := by
   intro d e t ea hrun hws hb hLb hea
   exact inferReadsCP_of hin hrun hws hb hLb (hleaf d e) hea
