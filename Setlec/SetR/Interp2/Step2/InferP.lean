@@ -1,5 +1,7 @@
 import Setlec.SetR.Interp2.CtxOkPKit
 import Setlec.SetR.Annot.BitLemmas
+import Setlec.SetR.Annot.BitInst
+import Setlec.SetR.Annot.ValidVSpine
 import Setlec.Verify.InferLemmas
 import Setlec.SetR.Interp2.Step2.InferQ
 
@@ -449,5 +451,524 @@ theorem infer_lam_claimP (m : EnvS2UM V μ env)
       (fun x hx => (hrowE (cons x ρ) (Sat2_cons V hρ hx)).1)
       (fun x hx => hrowM (cons x ρ) (Sat2_cons V hρ hx))
       (fun h0 x hx => hzfib h0 (cons x ρ) (Sat2_cons V hρ hx))).2
+
+/-! ## The numeral clause (task #161, P3 batch 3, T1)
+
+`NatHeads2` is **denote-free** — it speaks only of `interp2` at the
+valuation's own `Nat` leaves — so the P tier consumes it verbatim,
+with no transpose.  What the currency swap costs is one extra
+grading per spine: `natLit_facts2` produces the `AnnotOk2` half of
+the numeral's truthfulness (and the membership row) exactly as in the
+canonical lane, and `AnnotValidV_natLitT2` (batch 2) produces the
+`AnnotValidV` half from the two head leaves' bit validity — which is
+the routed `AcvalValidP`, the same residue `infer_const_claimP`
+takes. -/
+
+/-- **`.lit (.natVal k)`, P currency.**  Dual success: the returned
+type is `.const natName []`, whose reading the support guard pins to
+the `Nat` leaf itself (`natName_levelParams_nil`), so identifying `ta`
+with that leaf is the `denoteP` `const` clause and nothing more. -/
+theorem infer_natLit_claimP (m : EnvS2UM V μ env) (hnh : NatHeads2 m φ)
+    (hval : AcvalValidP m)
+    {d k : Nat} {t : Expr} {Δa : List AVExpr} {ea ta : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t)
+    (hea : denoteP m.acval env φ d (.lit (.natVal k)) = some ea)
+    (hta : denoteP m.acval env φ d t = some ta) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [Setlec.inferBody, Setlec.viewM, Expr.view, pure,
+    Except.pure, Bind.bind, Except.bind] at h
+  split at h
+  · next hg =>
+    simp only [Except.ok.injEq] at h
+    subst h
+    have hgt : Setlec.natLitSupported env = true := by simpa using hg
+    rw [denoteP, if_pos hgt] at hea
+    obtain rfl : ea = natLitT2
+        (m.acval natZeroName (Level.substFn φ [] []))
+        (m.acval natSuccName (Level.substFn φ [] [])) k :=
+      (Option.some.inj hea).symm
+    cases hf : env.find? natName with
+    | none =>
+      simp only [Setlec.natLitSupported, Bool.and_eq_true] at hgt
+      obtain ⟨⟨h1, -⟩, -⟩ := hgt
+      rw [hf] at h1
+      exact nomatch h1
+    | some ci =>
+      have hlp : ci.toConstantVal.levelParams = [] :=
+        natName_levelParams_nil hgt hf
+      rw [denoteP, hf] at hta
+      dsimp only at hta
+      rw [if_pos (by simp [hlp]), hlp] at hta
+      obtain rfl : ta = m.acval natName (Level.substFn φ [] []) :=
+        (Option.some.inj hta).symm
+      have hrow : ∀ ρ : Nat → V,
+          AnnotOk2 V ρ (natLitT2
+              (m.acval natZeroName (Level.substFn φ [] []))
+              (m.acval natSuccName (Level.substFn φ [] [])) k) ∧
+            interp2 V ρ (natLitT2
+                (m.acval natZeroName (Level.substFn φ [] []))
+                (m.acval natSuccName (Level.substFn φ [] [])) k)
+              ∈ˢ interp2 V ρ
+                (m.acval natName (Level.substFn φ [] [])) :=
+        fun ρ => natLit_facts2 (m.acval_ok2 _ _ ρ) (m.acval_ok2 _ _ ρ)
+          (hnh hgt ρ).1 (hnh hgt ρ).2 k
+      exact ⟨fun ρ _ => ⟨(hrow ρ).1,
+          AnnotValidV_natLitT2 (hval _ _ ρ) (hval _ _ ρ) k⟩,
+        fun ρ _ => ⟨m.acval_ok2 _ _ ρ, hval _ _ ρ⟩,
+        fun ρ _ => (hrow ρ).2⟩
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-! ## The two clause-granular residues (T2)
+
+`InferStrLitStep2C` and `InferProjStep2C` transposed: the annotation
+fuel `F` and the `∃ F' ≥ F` slack vanish with `denote2`, the reading
+is `denoteP`, both readings sit in **premises** (dual success), and
+the three rows are stated at `AnnotOkP`.  Their discharges belong to
+later tiers exactly as the canonical ones do — the `String` clause is
+`strLit_facts`' volume plus seven head facts, the projection clause
+is the structure-type walk. -/
+
+/-- The `String`-literal clause, P currency. -/
+def InferStrLitStepP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {s : String} {t : Expr} {Δa : List AVExpr}
+    {ea ta : AVExpr},
+    inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t →
+    denoteP m.acval env φ d (.lit (.strVal s)) = some ea →
+    denoteP m.acval env φ d t = some ta →
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta
+
+/-- The projection clause, P currency. -/
+def InferProjStepP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d i : Nat} {sn : Name} {pe t : Expr} {Δa : List AVExpr}
+    {ea ta : AVExpr},
+    inferTypeCore μ env (fuel + 1) d (.proj sn i pe) = .ok t →
+    Expr.WScoped d (.proj sn i pe) →
+    (Expr.proj sn i pe).looseBVarsBounded 0 = true →
+    Expr.LeavesBounded (.proj sn i pe) →
+    CtxOkP m φ d Δa (.proj sn i pe) →
+    denoteP m.acval env φ d (.proj sn i pe) = some ea →
+    denoteP m.acval env φ d t = some ta →
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta
+
+/-! ## The threading clauses (T3, T4) and what dual success costs them
+
+### `hainst` is **discharged, not routed**
+
+`denoteP_substFvarAt`/`denoteP_beta` (batch 2) take two leaf premises.
+`hacl` is the structure field `acval_closed`; `hainst` — the stronger
+`inst`-invariance at every cut — is *derivable* from the same single
+closedness fact the module docstring of `Annot/BitInst.lean` predicts:
+`AVExpr.inst_eq_self` wants `VExpr.bvarsBelow k (acval n ψ).erase`,
+the erasure link `acval_erase` turns that into
+`VExpr.bvarsBelow k (base.cval n ψ)`, and `EnvS.cval_closed` is
+`bvarsBelow 0` of exactly that, which `bvarsBelow.mono` weakens.  So
+the P tier pays **no** new environment field for the β/ζ crossing.
+
+### FINDING — dual success charges the threading clauses a *totality*
+residue
+
+`InferClaims2P` puts **both** readings in premises.  A threading
+clause that recurses therefore has to *supply* the recursive call's
+type-side reading, and for the sub-runs the clause makes that reading
+is nowhere in its hypotheses:
+
+* `.letE` infers `val`'s type `tvv` and needs `AnnotOkP ρ vA` (the
+  `letE` clause of `AnnotOk2`/`AnnotValidV` reads the **value's own**
+  grading) — which is `ihi` at `val`, and `ihi` wants
+  `denoteP … d tvv = some _`.  Nothing else supplies it: the type
+  side is reachable through `SortSemP` (the clause runs `ensureSort`
+  on `ty`) but the value side has no sort run.
+* `.app` needs the head's inferred type `tf` (for `ihi` at `f` and
+  then `ihw`), the whnf'd `∀`-type's own reading (for `ihw`'s
+  conclusion and for the domain `Aa`, which does not occur in the
+  returned type at all), and the argument's inferred type `tya` (for
+  `ihd`).
+
+Neither is a gap in the *mathematics* — `denoteP` fails only on an
+unfindable/mis-arity constant, an unsupported literal guard, a
+projection index `≥ 2` or a loose `bvar`, and the checker's own
+outputs have none of those on a well-formed environment.  It is
+exactly the "success premises may later be dischargeable outright"
+upgrade path `Claims2P.lean`'s docstring names, and until that lands
+it is a **routed residue**, in the same currency and at the same fuel
+as the claims it feeds.  Two producers, so two residues. -/
+
+/-- **The stored leaves are `inst`-invariant** — `denoteP_beta`'s
+second leaf premise, discharged from the erasure link and the
+collapse-lane closedness field. -/
+theorem acval_inst_self (m : EnvS2UM V μ env) (n : Name)
+    (ψ : Name → Nat) (y : AVExpr) (k : Nat) :
+    (m.acval n ψ).inst y k = m.acval n ψ :=
+  AVExpr.inst_eq_self _
+    (by rw [m.acval_erase]
+        exact VExpr.bvarsBelow.mono (Nat.zero_le k)
+          (m.base.cval_closed n ψ)) y
+
+/-- **The inferred type reads** (P-tier totality residue; see the
+FINDING above).  Conditioned exactly as the claims are: the run, the
+subject's scoping package, and the subject's own reading. -/
+def InferReadsP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e t : Expr} {ea : AVExpr},
+    inferTypeCore μ env fuel d e = .ok t →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    denoteP m.acval env φ d e = some ea →
+    ∃ ta, denoteP m.acval env φ d t = some ta
+
+/-- **The head normal form reads** (P-tier totality residue, the
+reduction producer). -/
+def WhnfReadsP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e e' : Expr} {ea : AVExpr},
+    whnf μ env fuel d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    denoteP m.acval env φ d e = some ea →
+    ∃ ea', denoteP m.acval env φ d e' = some ea'
+
+/-- **`.letE`, P currency.**  The ζ crossing is `denoteP_beta`
+*directly* — no routed `BetaCross2C`, because in the validated
+reading the two sides are literally the same annotation up to `inst`
+and the transport of the grading is `AnnotOkP_inst0`, an
+equivalence, not a per-site truthfulness ledger.
+
+The type's grading comes from the clause's own `ensureSort` run
+through `SortSemP`; the value's is `ihi` at `val`, whose type-side
+reading is the routed `InferReadsP` (the FINDING above). -/
+theorem infer_letE_claimP (m : EnvS2UM V μ env) (hss : SortSemP m μ φ)
+    (hir : InferReadsP m μ φ fuel) (ihi : InferClaims2P μ m φ fuel)
+    {d : Nat} {n : Name} {ty val b t : Expr} {Δa : List AVExpr}
+    {ea ta : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.letE n ty val b) = .ok t)
+    (hws : Expr.WScoped d (.letE n ty val b))
+    (hb : (Expr.letE n ty val b).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.letE n ty val b))
+    (hC : CtxOkP m φ d Δa (.letE n ty val b))
+    (hea : denoteP m.acval env φ d (.letE n ty val b) = some ea)
+    (hta : denoteP m.acval env φ d t = some ta) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  obtain ⟨tty, sv, tvv, hty, hes, hvv, -, hbody⟩ :=
+    Setlec.inferTypeCore_letE_inv h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLval : Expr.LeavesBounded val := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hsubred : ∀ l ∈ (b.instantiate1 val).fvarLeaves,
+      l ∈ (Expr.letE n ty val b).fvarLeaves := by
+    intro l hl
+    rcases Expr.fvarLeaves_instantiate1 b 0 hl with h2 | h2
+    · simp [Expr.fvarLeaves, h2]
+    · simp [Expr.fvarLeaves, h2]
+  have hwred : Expr.WScoped d (b.instantiate1 val) :=
+    Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2
+  have hbred : (b.instantiate1 val).looseBVarsBounded 0 = true :=
+    Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2
+  have hLred : Expr.LeavesBounded (b.instantiate1 val) :=
+    fun l hl => hLb l (hsubred l hl)
+  have hCred : CtxOkP m φ d Δa (b.instantiate1 val) :=
+    hC.of_subset hsubred
+  -- the subject's reading
+  rw [denoteP] at hea
+  rcases htyA : denoteP m.acval env φ d ty with _ | tyA
+  · rw [htyA] at hea; exact nomatch hea
+  rw [htyA] at hea
+  rcases hvA : denoteP m.acval env φ d val with _ | vA
+  · rw [hvA] at hea; exact nomatch hea
+  rw [hvA] at hea
+  rcases hbA : denoteP m.acval env φ (d + 1)
+      (b.instantiate1 (.fvar d n ty)) with _ | bA
+  · rw [hbA] at hea; exact nomatch hea
+  rw [hbA] at hea
+  obtain rfl : ea = .letE tyA vA bA := (Option.some.inj hea).symm
+  -- the ζ crossing: `denoteP_beta`, directly
+  have hcross : denoteP m.acval env φ d (b.instantiate1 val)
+      = some (bA.inst vA) := by
+    rw [denoteP_beta (n := n) (ty := ty) m.acval_closed
+      (acval_inst_self m) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hvA 0, hbA]
+    rfl
+  -- the value's grading (routed reading), the type's (own sort run)
+  obtain ⟨tvvA, htvvA⟩ := hir hvv hws.2.1 hb.1.2 hLval hvA
+  obtain ⟨hrowVE, -, -⟩ :=
+    ihi hvv hws.2.1 hb.1.2 hLval hC.letE_val hvA htvvA
+  have hrowTE : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ tyA :=
+    fun ρ hρ =>
+      (hss hC.letE_ty hty (Setlec.ensureSortCore_inv hes) htyA ρ hρ).1
+  obtain ⟨hrowBE, hrowBT, hrowBM⟩ :=
+    ihi hbody hwred hbred hLred hCred hcross hta
+  refine ⟨?_, hrowBT, ?_⟩
+  · intro ρ hρ
+    have hokv := hrowVE ρ hρ
+    have hokbA : AnnotOkP V (cons (interp2 V ρ vA) ρ) bA :=
+      (AnnotOkP_inst0 hokv).mp (hrowBE ρ hρ)
+    refine ⟨?_, ?_⟩
+    · rw [AnnotOk2_letE]
+      exact ⟨(hrowTE ρ hρ).1, hokv.1, hokbA.1⟩
+    · rw [AnnotValidV_letE]
+      exact ⟨(hrowTE ρ hρ).2, hokv.2, hokbA.2⟩
+  · intro ρ hρ
+    rw [interp2_letE, ← interp2_inst0]
+    exact hrowBM ρ hρ
+
+/-- **`.app`, P currency — the quarter's hardest clause.**  Three
+things replace canonical machinery:
+
+1. **the returned type's reading is *derived*, not produced.**  The
+   canonical clause routes `BetaCross2C` to build `denote2` of
+   `body'.instantiate1 a`; here `hta` *gives* that reading and
+   `denoteP_beta` runs backwards, identifying `ta` with `Ba.inst aa`
+   — one equation, no ledger, no fuel slack;
+2. **the app slot's kind-`0` component is read off the ∀-type's own
+   annotation.**  The canonical clause re-runs `SortSem2` at the
+   codomain to learn `v' = 0 → fibres ∈ univZero`; in the validated
+   reading the whnf'd function type is `.pi 0 (pwBit φ mb'.pw) Aa Ba`
+   and that implication *is* `AnnotValidV`'s `pi` component, which
+   `ihw` hands over as part of its conclusion.  So the clause takes
+   **no `SortSemP`**;
+3. the grading transport across the substitution is `AnnotOkP_inst0`.
+
+The three readings the recursive calls need on the type side
+(`tf`, the whnf'd ∀, `tya`) are the routed totality residues — see the
+FINDING above. -/
+theorem infer_app_claimP (m : EnvS2UM V μ env)
+    (hir : InferReadsP m μ φ fuel) (hwr : WhnfReadsP m μ φ fuel)
+    (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
+    (ihi : InferClaims2P μ m φ fuel)
+    {d : Nat} {f a t : Expr} {Δa : List AVExpr} {ea ta : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.app f a) = .ok t)
+    (hws : Expr.WScoped d (.app f a))
+    (hb : (Expr.app f a).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.app f a))
+    (hC : CtxOkP m φ d Δa (.app f a))
+    (hea : denoteP m.acval env φ d (.app f a) = some ea)
+    (hta : denoteP m.acval env φ d t = some ta) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  obtain ⟨tf, n', ty', body', mb', htf, hwf, rfl, tya, hia, hde⟩ :=
+    Setlec.inferTypeCore_app_inv h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLf : Expr.LeavesBounded f := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLa : Expr.LeavesBounded a := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  -- the subject's reading
+  rw [denoteP] at hea
+  rcases hfa : denoteP m.acval env φ d f with _ | fa
+  · rw [hfa] at hea; exact nomatch hea
+  rw [hfa] at hea
+  rcases haa : denoteP m.acval env φ d a with _ | aa
+  · rw [haa] at hea; exact nomatch hea
+  rw [haa] at hea
+  obtain rfl : ea = .app fa aa := (Option.some.inj hea).symm
+  -- the head, and its inferred type's frame
+  obtain ⟨tfa, htfa⟩ := hir htf hws.1 hb.1 hLf hfa
+  obtain ⟨hrowfE, hrowfT, hrowfM⟩ :=
+    ihi htf hws.1 hb.1 hLf hC.app_fn hfa htfa
+  have htfsub := inferTypeCore_fvarLeaves m.base.wf fuel htf hws.1
+  have htfw : Expr.WScoped d tf :=
+    inferTypeCore_WScoped m.base.wf fuel htf hws.1
+  have htfb : tf.looseBVarsBounded 0 = true :=
+    inferTypeCore_looseBVars m.base.wf fuel htf hws.1 hb.1 hLf
+  have htfL : Expr.LeavesBounded tf := fun l hl => hLf l (htfsub l hl)
+  have htfC : CtxOkP m φ d Δa tf := hC.app_fn.of_subset htfsub
+  -- the ∀-type: read (routed) and graded by the reduction claim
+  obtain ⟨pa, hpa⟩ := hwr hwf htfw htfb htfL htfa
+  obtain ⟨hokpa, hredf⟩ :=
+    ihw hwf htfw htfb htfL htfC htfa hpa hrowfT
+  have hwfe : Expr.WScoped d (Expr.forallE n' ty' body' mb') :=
+    whnf_WScoped m.base.wf fuel hwf htfw
+  have hbfe : (Expr.forallE n' ty' body' mb').looseBVarsBounded 0
+      = true := whnf_looseBVars m.base.wf fuel hwf htfb
+  have hLfe : Expr.LeavesBounded (.forallE n' ty' body' mb') :=
+    fun l hl => htfL l (whnf_fvarLeaves m.base.wf fuel hwf l hl)
+  simp only [Expr.WScoped] at hwfe
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbfe
+  have hLty' : Expr.LeavesBounded ty' := fun l hl =>
+    hLfe l (by simp [Expr.fvarLeaves, hl])
+  have hCpi : CtxOkP m φ d Δa (.forallE n' ty' body' mb') :=
+    (hC.app_fn.of_subset htfsub).of_subset
+      (whnf_fvarLeaves m.base.wf fuel hwf)
+  obtain ⟨Aa, Ba, hAa, hBa, rfl⟩ := denoteP_forallE_inv hpa
+  -- the ∀'s reading, split: domain, fibres, and the kind-`0` component
+  have hokAa : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ Aa := by
+    intro ρ hρ
+    obtain ⟨h1, h2⟩ := hokpa ρ hρ
+    rw [AnnotOk2_pi] at h1
+    rw [AnnotValidV_pi] at h2
+    exact ⟨h1.1, h2.1⟩
+  have hokBa : ∀ (ρ : Nat → V), Sat2 V Δa ρ →
+      ∀ x, x ∈ˢ interp2 V ρ Aa → AnnotOkP V (cons x ρ) Ba := by
+    intro ρ hρ x hx
+    obtain ⟨h1, h2⟩ := hokpa ρ hρ
+    rw [AnnotOk2_pi] at h1
+    rw [AnnotValidV_pi] at h2
+    exact ⟨h1.2 x hx, h2.2.1 x hx⟩
+  have hcod0 : ∀ (ρ : Nat → V), Sat2 V Δa ρ → pwBit φ mb'.pw = 0 →
+      ∀ x, x ∈ˢ interp2 V ρ Aa →
+        interp2 V (cons x ρ) Ba ∈ˢ (univZero : V) := by
+    intro ρ hρ h0 x hx
+    obtain ⟨-, h2⟩ := hokpa ρ hρ
+    rw [AnnotValidV_pi] at h2
+    exact h2.2.2 h0 x hx
+  -- the argument, and the domain agreement
+  obtain ⟨tyaA, htyaA⟩ := hir hia hws.2 hb.2 hLa haa
+  obtain ⟨hrowaE, hrowaT, hrowaM⟩ :=
+    ihi hia hws.2 hb.2 hLa hC.app_arg haa htyaA
+  have htasub := inferTypeCore_fvarLeaves m.base.wf fuel hia hws.2
+  have htaw : Expr.WScoped d tya :=
+    inferTypeCore_WScoped m.base.wf fuel hia hws.2
+  have htab : tya.looseBVarsBounded 0 = true :=
+    inferTypeCore_looseBVars m.base.wf fuel hia hws.2 hb.2 hLa
+  have htaL : Expr.LeavesBounded tya := fun l hl => hLa l (htasub l hl)
+  have htaC : CtxOkP m φ d Δa tya := hC.app_arg.of_subset htasub
+  have hdom : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ tyaA = interp2 V ρ Aa :=
+    ihd hde htaw htab htaL hwfe.1 hbfe.1 hLty' htaC hCpi.forallE_ty
+      htyaA hAa hrowaT hokAa
+  have ha2 : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ aa ∈ˢ interp2 V ρ Aa := by
+    intro ρ hρ
+    rw [← hdom ρ hρ]
+    exact hrowaM ρ hρ
+  have hf2 : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ fa
+        ∈ˢ interp2 V ρ (.pi 0 (pwBit φ mb'.pw) Aa Ba) := by
+    intro ρ hρ
+    rw [← hredf ρ hρ]
+    exact hrowfM ρ hρ
+  -- the returned type's reading, `denoteP_beta` backwards
+  have hcross : denoteP m.acval env φ d (body'.instantiate1 a)
+      = some (Ba.inst aa) := by
+    rw [denoteP_beta (n := n') (ty := ty') m.acval_closed
+      (acval_inst_self m) hwfe.2.fvarsBelow hws.2 hb.2 haa 0, hBa]
+    rfl
+  rw [hcross] at hta
+  obtain rfl : ta = Ba.inst aa := (Option.some.inj hta).symm
+  refine ⟨?_, ?_, ?_⟩
+  · intro ρ hρ
+    refine ⟨(sound_app V (hrowfE ρ hρ).1 (hrowaE ρ hρ).1 (hf2 ρ hρ)
+      (ha2 ρ hρ) (hcod0 ρ hρ)).1, ?_⟩
+    rw [AnnotValidV_app]
+    exact ⟨(hrowfE ρ hρ).2, (hrowaE ρ hρ).2⟩
+  · intro ρ hρ
+    exact (AnnotOkP_inst0 (hrowaE ρ hρ)).mpr (hokBa ρ hρ _ (ha2 ρ hρ))
+  · intro ρ hρ
+    exact (sound_app V (hrowfE ρ hρ).1 (hrowaE ρ hρ).1 (hf2 ρ hρ)
+      (ha2 ρ hρ) (hcod0 ρ hρ)).2
+
+/-! ## The quarter, assembled (T5)
+
+`InferInputs2D`'s six fields become eight, and the deltas are the
+P tier's own:
+
+| `InferInputs2D` | `InferInputsP` |
+|---|---|
+| `const_ty` (`ConstType2C`) | `const_ty` (`ConstTypeP`) |
+| `nat_heads` (`NatHeads2`) | `nat_heads` — **verbatim**, denote-free |
+| `str_lit`, `proj` | the T2 transposes |
+| `sort_sem` (`SortSem2`) | `sort_sem` (`SortSemP`) |
+| `beta` (`BetaCross2C`) | **gone** — `denoteP_beta` is a theorem |
+| — | `acval_valid` (`AcvalValidP`), the leaf bit-validity residue |
+| — | `infer_reads`, `whnf_reads` (the FINDING's totality residues) |
+
+**The step is verified-only.**  The claims stay mode-generic — they
+have to, since `checkSound2P` inducts over them at whatever mode the
+install fixed — but the *step* holds at `μ.verified = true`: the ∀ and
+λ clauses read validation conjuncts that the run inversions produce
+only at that mode.  See the module docstring. -/
+
+/-- **The quarter's routed inputs**, P currency. -/
+structure InferInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
+    Prop where
+  /-- I3: the stored type's annotation, carrying its truthfulness -/
+  const_ty : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
+    ConstTypeP m φ
+  /-- the stored leaves are bit-valid (`AnnotOk2`'s companion; the
+  `acval_ok2` field's `AnnotValidV` half) -/
+  acval_valid : ∀ {env : Env} (m : EnvS2UM V μ env), AcvalValidP m
+  /-- I4: the two numeral head facts, unchanged from the canonical
+  lane -/
+  nat_heads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
+    NatHeads2 m φ
+  /-- I5: the `String`-literal clause -/
+  str_lit : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), InferStrLitStepP m μ φ fuel
+  /-- I9: the projection clause -/
+  proj : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), InferProjStepP m μ φ fuel
+  /-- the sort fact, fuel-free -/
+  sort_sem : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
+    SortSemP m μ φ
+  /-- the inferred type reads (dual-success totality residue) -/
+  infer_reads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), InferReadsP m μ φ fuel
+  /-- the head normal form reads (dual-success totality residue) -/
+  whnf_reads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), WhnfReadsP m μ φ fuel
+
+/-- **The inference quarter, P currency** — `InferStep2D`'s shape with
+the mode pinned: the four claims at `fuel` give the inference claim at
+`fuel + 1`, at a validating mode. -/
+def InferStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
+  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
+    μ.verified = true →
+    WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
+    DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
+    InferClaims2P μ m φ (fuel + 1)
+
+/-- **`InferStepP`, modulo the routed inputs** — the eleven shapes
+dispatched to the eleven clause lemmas, exactly as `inferStep2D_of`
+does.  Nine are theorems of this file; `.lit (.strVal _)` and `.proj`
+route through the input structure. -/
+theorem inferStepP_of (h : InferInputsP V μ) (hμ : μ.verified = true) :
+    InferStepP μ V := by
+  intro env m φ fuel _hv _ihwc ihw ihd ihi
+  intro d e t Δa hrun hws hb hLb ea ta hC hea hta
+  match e, hrun, hws, hb, hLb, hC, hea with
+  | .sort u, hrun, _, _, _, _, hea =>
+    exact infer_sort_claimP m hrun hea hta
+  | .bvar i, hrun, _, _, _, _, hea =>
+    exact infer_bvar_claimP m hrun hea hta
+  | .fvar idx nm ty, hrun, _, _, _, hC, hea =>
+    exact infer_fvar_claimP m hC hrun hea hta
+  | .const nm us, hrun, _, _, _, _, hea =>
+    exact infer_const_claimP m (h.const_ty m φ) (h.acval_valid m) hrun
+      hea hta
+  | .lit (.natVal k), hrun, _, _, _, _, hea =>
+    exact infer_natLit_claimP m (h.nat_heads m φ) (h.acval_valid m)
+      hrun hea hta
+  | .lit (.strVal s), hrun, _, _, _, _, hea =>
+    exact h.str_lit m φ fuel hrun hea hta
+  | .forallE nm ty body mb, hrun, _, _, _, hC, hea =>
+    exact infer_forallE_claimP m hμ (h.sort_sem m φ) hrun hC hea hta
+  | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
+    exact infer_lam_claimP m hμ (h.sort_sem m φ) ihi hrun hws hb hLb
+      hC hea hta
+  | .app fe ae, hrun, hws, hb, hLb, hC, hea =>
+    exact infer_app_claimP m (h.infer_reads m φ fuel)
+      (h.whnf_reads m φ fuel) ihw ihd ihi hrun hws hb hLb hC hea hta
+  | .letE nm ty val bd, hrun, hws, hb, hLb, hC, hea =>
+    exact infer_letE_claimP m (h.sort_sem m φ) (h.infer_reads m φ fuel)
+      ihi hrun hws hb hLb hC hea hta
+  | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
+    exact h.proj m φ fuel hrun hws hb hLb hC hea hta
 
 end Setlec.SetR.Interp2
