@@ -130,6 +130,7 @@ import Setlec.SetR.Interp2.Install2
 import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.Bit
 import Setlec.SetR.Annot.BitLemmas
+import Setlec.SetR.Annot.ValidV
 import Setlec.SetR.Interp2.Step2.BitLevels
 import Setlec.SetR.Annot.SimSubst
 import Setlec.SetR.Annot.PremiseLadder
