@@ -1467,8 +1467,11 @@ theorem pisToLamsI_spec :
         pisToLamsI_spec (k := k) hwf hbb hb (e := b) (body := body)
       rw [pisToLamsI, hn]
       dsimp only
+      -- task #161 P5: both sides emit the parse placeholder `.never` on
+      -- the manufactured λ (a ∀'s `pw` is not the λ's claim), so the
+      -- ∀ node's own datum `m.pw` is simply dropped here.
       rw [show Expr.pisToLams (k + 1) (.forallE _nmv et eb ⟨m.bi, m.pw⟩) xb =
-        (Expr.pisToLams k eb xb).map (fun bx => .lam _nmv et bx ⟨m.bi, m.pw⟩)
+        (Expr.pisToLams k eb xb).map (fun bx => .lam _nmv et bx ⟨m.bi, .never⟩)
         from rfl]
       rcases hgo : st.pisToLamsI k b body with ⟨o, st₁⟩
       rw [hgo] at hres₁ hwf₁ hext₁
@@ -1483,8 +1486,8 @@ theorem pisToLamsI_spec :
         | some bx =>
           rw [hox] at hres₁
           have hd' : denoteNode st₁.denoteT st₁.denoteL st₁.denoteN
-                (.lam nm t bidx ⟨m.bi, m.pw⟩)
-              = some (.lam _nmv et bx ⟨m.bi, m.pw⟩) := by
+                (.lam nm t bidx ⟨m.bi, .never⟩)
+              = some (.lam _nmv et bx ⟨m.bi, .never⟩) := by
             rw [denoteNode, denoteT_mono hext₁ ht, hres₁,
               denoteN_mono hext₁ _hnmv]; rfl
           obtain ⟨hwf₂, hext₂, hres₂⟩ := intern_spec hwf₁ hd'
