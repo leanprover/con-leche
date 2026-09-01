@@ -11466,3 +11466,19 @@ threading clauses totality residues (`InferReadsP`/`WhnfReadsP`).
 establishes `AcvalValidP` from the front door, folds the owed `EnvWF`
 records where demanded), the totality consolidation seal (bundle
 (b)), then the capstone `no_proof_of_Empty_P`.
+
+### Task #161 P4 FINDING: the carrier must slim — `EnvS2Core` (2026-09-01)
+
+The P fold can never supply an `EnvS2UM`: it must store each new leaf
+as the value's **`denoteP` reading** (bit numerals — otherwise
+`DeltaP` is false), while `acval_defn`/`acval_thm` insist a
+successful **`denote2`** reading is the leaf, and the two differ at
+every binder whose sort evaluates above 1.  One valuation cannot
+serve both currencies.  Measured before fixing: the P surface reads
+NONE of the denote2 fields — so the carrier slims
+(`Annot/EnvS2Core.lean`: `EnvS2U` minus the three denote2 fields and
+the mode index; `toCore` projections landed).  Batch 8 = the
+mechanical signature sweep of the P surface (`EnvS2UM V μ env` →
+`EnvS2Core V env`) + re-homing the three `acval` helper lemmas the
+level crossing reads + `EnvS2PM.base2 : EnvS2Core`; runs after
+batches 6/7 merge so the sweep is single-shot.

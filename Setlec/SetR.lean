@@ -111,6 +111,7 @@ import Setlec.SetR.Interp2.Step2.InferP
 import Setlec.SetR.Interp2.Step2.WhnfP
 import Setlec.SetR.Interp2.Step2.DefEqP
 import Setlec.SetR.Interp2.Step2.AssemblyP
+import Setlec.SetR.Annot.EnvS2Core
 import Setlec.SetR.Annot.EnvS2P
 import Setlec.SetR.Interp2.Step2.IrrelP
 import Setlec.SetR.Annot.EnvS2U
