@@ -10315,3 +10315,408 @@ is a term the checker built rather than one it walked.  Its subterms
 are memo-warm, which is why the figure is a fifth of a percent and not
 a multiple.  `app-lam` is the reason the chain guard matters: one check
 per λ-chain there rather than 4 000.
+
+## Validated sort annotations: the design (2026-09-01, task #161)
+
+**The user-granted pivot** (docs/sort-coherence-campaign-151.md §7): an
+*unverified* annotate pass writes the sort levels of binders into the
+term; annotations are first-class term components; the *verified*
+checker **validates** them — at the front door against its own
+inference, and inside defeq by level-equivalence wherever binders are
+compared.  The collapse-free interpretation (`Setlec/SetR/Interp2`,
+task #151's goal) reads its regime numerals off validated annotations.
+Cross-run sort coherence thereby becomes a runtime-CHECKED property
+(mismatch ⇒ decline), not a metatheorem — the six Θ walls
+(campaign doc §2) are priced out of the program.  This section is the
+design; no kernel code changes land with it.
+
+**Two standing laws, stated first.**
+
+1. **Annotations never steer reduction.**  No whnf/unfold/fire/eta
+   decision may branch on an annotation.  They are *written* (the
+   pass), *compared* (validation), and *read* (the model) — nothing
+   else.  The task-#100 finding is the permanent evidence: every
+   annotation-guarded reduction gate was falsified by the empty-domain
+   countermodel ("the annotation-guarded reduction gates are
+   unsound-to-model", this file).  Validation *compares two levels and
+   declines on disagreement*; it never skips or redirects work.
+2. **Every annotation mismatch is a decline (exit 2), never a
+   reject.**  A mismatch can occur on a well-formed input the official
+   kernel accepts (the residual coherence corners, e.g. cross-
+   provenance binders in defeq); claiming "invalid" would be wrong.
+   The mismatch throw is `.notImplemented` with a per-site message
+   (`sort-annotation mismatch (<site>)`), which is also the
+   measurement hook.  Pre-existing failures at the same clauses
+   (non-sort domain, etc.) keep their current error classes.
+
+### 1. Representation: `BinderMeta` regains levels — two of them
+
+**Decision: in-node, as two mandatory `Level` fields on `BinderMeta`
+(and `LIdx` fields on `IBinderMeta`).  `letE` carries no annotation.**
+
+```
+structure BinderMeta where       structure IBinderMeta where
+  bi : BinderInfo                  bi : BinderInfo
+  u  : Level  -- domain sort       u  : LIdx
+  v  : Level  -- codomain sort     v  : LIdx
+```
+
+* **Why two levels.**  `Interp2`'s F4 refutation
+  (`Setlec/SetR/DESIGN.md` "F4", mechanized as `lam_cod_sort_needed`
+  in `Interp2/TierA.lean`) proves a structural interpretation's λ
+  clause *cannot* be sound from the domain sort alone: the regime
+  (squash vs graph) is the **codomain** sort's zero-ness.  `piR v A B`
+  / `lamR v A F` dispatch on `v` only; `u` (the domain's sort) feeds
+  the kinding tier (`piR_mem_univ`'s `imax u v`) and — decisively —
+  makes the λ-chain validation *pure arithmetic* (below).  So
+  `forallE`/`lam` both carry `(u, v)`: `ty : Sort u`, and the body's
+  type (for λ) resp. the body (for ∀) has sort `v`.  The node's own
+  sort is then `imax u v` for a ∀, read off the term with no
+  inference.
+* **Why not `letE`.**  `interp2`'s `letE` clause is ζ (substitute the
+  value) and reads no annotation (`Setlec/SetR/DESIGN.md`, "The two
+  regimes": "`letE`: ζ needs no annotation"); the kernel likewise
+  ζ-eliminates `letE` before any structural comparison
+  (`Core.lean:1487-1492`), so no defeq arm ever compares one.  An
+  annotation there would be written and validated but never consumed.
+  Revisit trigger, recorded: if a model clause ever reads the `letE`
+  type slot, `interp2_letE` is the one clause to revisit — then the
+  field is added.
+* **Why in-node, not a side table.**  A side table keyed by `EIdx`
+  must still be maintained by *every* node-producing walk
+  (substitution, level instantiation, intern) — the same work as a
+  field, plus a new failure class (missing entries) and a WF clause
+  either way.  In-node keeps annotation identity = term identity
+  (they are "first-class term components" per the grant), and the #31
+  depth-free memo keys inherit automatically: keys are `EIdx`-based,
+  and the annotation is inside the node.  Wrapper nodes were not
+  seriously considered (every view/match breaks, term depth doubles).
+* **Why on `BinderMeta` and not new constructor arguments.**  Pattern
+  arity of `.lam n ty body m` / `.forallE n ty body m` is unchanged
+  *everywhere* — the `m` variable absorbs the fields.  The migration
+  collapses to: (a) literal `⟨.default⟩` constructions (parser,
+  pins, basis — see the pin plan), (b) the walks that must *transform*
+  annotations (level instantiation), (c) `internBM`/`denoteBM`/arena
+  WF plumbing, (d) the pass and validation logic itself.  There is
+  also a proof-side bonus precedent: `TowerOk.cons` shares binder
+  metadata between a frame and the λ it opens *by construction*
+  (task #142's rejected-alternative note), and the one in-flight
+  binder manufacture site (below) copies its meta — which is exactly
+  the annotation flow the validity lemma wants.
+* **Hashing/equality.**  `Expr.hashB` already skips binder metadata
+  (`Expr.lean:112-117`) — unchanged.  `ENode`'s derived `Hashable`
+  includes `IBinderMeta` — annotations are part of interned node
+  identity, `O(1)` via `LIdx`.  `DecidableEq` is full: the defeq
+  syntactic fast path (`Core.lean:1734`) now sees annotations, so
+  equivalent-but-unequal annotations miss the fast path and fall to
+  congruence, where `Level.isEquiv` accepts — verdict-safe, cost
+  bounded by normalization (next section).
+* **Sharing.**  Annotations are a *deterministic, normalized function
+  of the raw term and the environment*, so identical raw subtrees get
+  identical annotations and re-share via the cons-table; the arena
+  cost is one annotated twin of each binder spine beside its parsed
+  raw form (the parse tree holds placeholders until the pass runs).
+  Constant-factor; measured at T2.
+* **Placeholders.**  The parser interns `⟨.default, .zero, .zero⟩`
+  (`Frontend/Export.lean:372-381`).  Placeholders exist only
+  pre-annotate and in `--no-model` (where nothing reads or validates
+  them).  `canonExpr` (`Export.lean:76-78`) rebuilds metas wholesale
+  and thus stays annotation-blind for basis pin canon automatically.
+* **Migration cost estimate**: one session for the `Expr`-level sweep
+  (compile-error-driven; patterns don't change), one for the interned
+  side + `ArenaWF`/`WFStore` clauses (in-range invariants for the two
+  `LIdx` fields, the task-#103 pattern).
+
+### 2. The annotate pass: where the levels come from
+
+The pass is the *existing* `annotateBody` (`Core.lean:2077`) /
+`annotateBodyI` (`CoreI.lean:2283`) — the input normalizer that every
+front door and every install path already threads through
+(`ops.annotate` at `CheckerS.lean:393, 612, 681, 756, 777, 794, 816,
+833, 854, 1031, 1066`; the driver's per-declaration front door).  **No
+new pass and no new call sites.**  Its ∀/λ clauses
+(`Core.lean:2107-2117`), today structural rebuilds, additionally write
+the meta — gated on `mode.verified`:
+
+* `u := simplify (sortOf ty')` — the annotated domain's sort;
+* ∀: `v := simplify (sortOf body')`; λ: `v := simplify (sortOfType
+  body')` — the sort of the body resp. of the body's type.
+
+`sortOf` is `ensureSort ∘ infer` with two arithmetic shortcuts that
+make the common case inference-free: a *binder* child's sort is
+`imax u_c v_c` read off the child's already-written annotation, and a
+`.sort w` child's sort is `succ w`.  Only atomic bodies (const/app
+heads) infer — and those inferences share the knot's memos with the
+validation sweep that follows, so the work is paid once and looked up
+once.  (If measurement says otherwise, the deleted `codOf` memo
+apparatus — task #100 stage 6, recoverable from git history — is the
+prepared fallback; its `IState` slot, spec function and `ISOK` clause
+pattern are all recorded in this file.)
+
+* **Normalization at write** (task #85, folded in from the start):
+  every written annotation is `Level.simplify`-normalized, minimizing
+  syntactic divergence at fast paths and cons-tables.  Comparisons are
+  by `Level.isEquiv` regardless, so normalization is a cost lever, not
+  a soundness lever.
+* **Determinism.**  The pass is a pure function of `(env, term, fuel)`
+  — same algorithm at install and at use, so a stored constant's
+  annotations and a use site's annotations of the same syntactic type
+  agree syntactically, not just up to `isEquiv`.
+* **Trust status.**  The pass stays OUT of the truthfulness story: no
+  `annotate_sound` is resurrected.  Its verification obligations
+  remain what they are today (scope discipline, the interned
+  simulation).  Truthfulness of what it wrote is established by the
+  validation sites, on the checker's own runs.
+* The normalizer clauses (projection rewrite, ζ, literal guards, fvar
+  scope) are untouched and stay unconditional in all modes.
+
+### 3. Validation sites, exactly
+
+**(a) Front door — `infer`, gated `mode.verified`** (the accessor task
+#152 introduced, `Env.lean:54-56`).  The driver's per-declaration
+inference sweep visits every node of every stored type and value, so
+this is where input annotations become *validated* annotations.
+
+* **∀ clause** (`Core.lean:1589-1598`; interned `inferPisI`,
+  `CoreI.lean:1824-1838`): the loop already infers each opened
+  domain's sort on the way in (`CoreI.lean:1833`) — compare it
+  `isEquiv` against the node's `u`.  The rebuild fold `inferPisOutI`
+  (`CoreI.lean:1800-1804`) computes exactly the per-node codomain
+  sorts as its intermediates — compare each against the node's `v`.
+  `O(1)` per binder, on data the loop already holds.
+* **λ clause** (`Core.lean:1599-1630`; interned `inferLamsI` /
+  `inferLamsLeafI`, `CoreI.lean:1759-1795`): the domain sort is
+  inferred on the way in (`CoreI.lean:1789`, currently discarded —
+  bind it) — compare against `u`.  The codomain: at the chain's
+  innermost node the task-#152 check already computes the body type's
+  sort (`CoreI.lean:1766-1771`, currently discarded — bind it) —
+  compare against the innermost `v`; at every outer node `v_j` must be
+  `isEquiv` to `imax u_{j+1} v_{j+1}` of the inner node's annotations
+  — **pure level arithmetic**, no opened intermediate types needed.
+  FINDING, recorded: this *dissolves task #152's per-chain
+  restriction* — the obstruction was that the interned bulk loop
+  never materializes intermediate opened body types, but the inner
+  node's annotations ARE materialized, and the per-node fact is a
+  function of those alone.  The λ-rule finally has its I7 sort
+  premise per node, at `O(1)` each.
+* **`letE` clause**: unchanged (`Core.lean:1682-1685`) — no
+  annotation, nothing to validate.
+
+**(b) Defeq — `defeqStep`'s binder arms.**
+
+* `forallE`/`forallE` (`Core.lean:1872-1880`) and `lam`/`lam`
+  (`:1881-1884`): after the domain defeq succeeds, compare `v₁`
+  `isEquiv` `v₂`; mismatch throws the decline.  **`u` is deliberately
+  not compared**: `piR`/`lamR` dispatch on `v` only, domain-value
+  agreement flows from the domain defeq, and a `u` comparison would
+  add decline surface with zero soundness payoff (two defeq domains
+  may sit in different universes without harm).
+* `etaCert` (`Core.lean:1027-1040`): the one-sided λ against the
+  whnf'd `∀`-type of the stuck side — compare the λ's `v` against the
+  ∀'s `v` (the regime agreement `lamR_eta` needs; this is the
+  annotation-era successor of the cod-agreement comparison task #100
+  deleted).
+* `letE` arms: none exist (ζ in `whnfCore`, `Core.lean:1487-1492`).
+* Everything else in defeq (proof irrelevance, lazy delta, spine
+  congruence, stuck fallbacks) reads no annotation.
+
+**(c) Install time — free, via the existing threading.**  Every
+stored type, value, iota-rule RHS, projection rule, and pin
+certificate already runs `ops.annotate` then `ops.inferType` on the
+annotated result (`CheckerS.lean:393-398` types, `:756-762` values,
+`:612-619` rule RHSs, `:681-705` proj rules, `:816-820`/`:833`/
+`:854-855` nat-op/trust pins, `:1031-1049`/`:1066-1072`), so (a)
+covers storage with **no new install calls**.  "Valid under all
+valuations" is exactly what this buys: validation runs at the symbolic
+level parameters, and `Level.isEquiv` decides evaluation-equality at
+*every* assignment (`isEquiv_sound`), so symbolic validation plus
+`Level.subst`/`eval` composition gives per-instantiation validity —
+the checker computes the universal fact natively, no per-valuation
+enumeration exists or is needed.
+
+**Failure behavior, per site** (law 2): all eight comparison points
+decline with a site-naming message — `(forall-domain)`,
+`(forall-cod)`, `(lam-domain)`, `(lam-cod-leaf)`, `(lam-cod-chain)`,
+`(defeq-forall)`, `(defeq-lam)`, `(eta)`.  Install-time mismatches
+decline the declaration (existing convention).  Rationale: a mismatch
+is a positively detected limitation of *this design* on possibly
+official-accepted input; rejecting would claim the input is invalid.
+
+### 4. The manufacture-site audit
+
+Every kernel site that produces a binder node not present in the
+input, with its annotation source and validity-lemma sketch.  The
+headline result of the audit: **exactly one site manufactures a binder
+in-flight from non-binder parts** (row 1); everything else is
+substitution transport, install-time (pass-covered) construction, or
+binder-free fabrication.
+
+| # | site | what is built | annotation source | validity lemma sketch |
+|---|---|---|---|---|
+| 1 | λ-infer rebuilds the ∀ — `Core.lean:1629` `.forallE n ty (bt.abstract1 depth) mb` | a ∀ from the λ's parts | **the λ's own meta `mb`, copied verbatim** (automatic under the `BinderMeta` representation) | `AnnotValid(λ) → AnnotValid(∀)`: same domain so `u` transfers; the λ's `v` claims "body's type has sort `v`", which IS the ∀'s claim "codomain has sort `v`".  One lemma, against `interp2`'s clauses. |
+| 2 | β / ζ / binder opening — `Core.lean:1436, 1492, 1596, 1605, 1879-1884` (`instantiate1`/`instantiateList`) | substitution instances | copied nodewise (annotations are `Level`s; term substitution never touches them — `Interp2` F3: numerals are carried, never read, by `liftN`/`inst`) | `AnnotOkV` closed under instantiation at a domain member, via `interp2_inst`; the member fact is the site's own certificate (β: `Core.lean:1434-1435`; ζ: the front door's `:1682-1685`; opening: the frame's fvar membership) |
+| 3 | δ-unfolding — `Core.lean:175/180` (`value.instantiateLevelParams`) | stored value at instance levels | install-validated value annotations, level-substituted (the extended `Expr.instantiateLevelParams`) | `annotValid_instL`: symbolic validity at the params + the arity guard (`:174`) ⇒ validity at every instance; `Level.subst`/`eval` composition (already in `Verify/Level`) |
+| 4 | ι-fire RHS — `Core.lean:1349-1350` (`rl.rhs.instantiateLevelParams` + `mkAppN`) | rule RHS at instance levels | rule RHS annotated+validated at install (`CheckerS.lean:612-619`); arity guard = checker change #9 (`Core.lean:1284`) | same as row 3; `mkAppN` builds only apps |
+| 5 | K-rescue fabrication — `Core.lean:1095` | `ctor` applied to type args | **no binder built**; constituents are copied subterms of the whnf'd major type | none new (constituent transport) |
+| 6 | η-rescue fabrication — `Core.lean:1158` + `etaFabArgs` `:1059-1062` | `ctor` applied to type args + projection applications | **no binder built** | none new.  The Θ (p1) hazard (`iotaEta`'s free `ust` existential) does not touch annotations: nothing here fabricates a binder |
+| 7 | η comparison term — `Core.lean:1036-1038` `.app b (.fvar …)` | an app + fvar | fvar's type copied from the validated λ domain | none new; the *new check* here is the `v` agreement (site (b)) |
+| 8 | proj expansion/template fallback — `annotateProjRec` `Core.lean:1990-2027` (motive λ `:2017`, minor via `pisToLams` `:2003`), `annotateProjElim` `:2036` | motive/minor λs | **re-annotated by the pass** (`r.annotate` at `:2021`/`:2051`) and re-checked by the ordinary rules — annotate-time, so front-door-validated | covered by pass+validation; no separate lemma |
+| 9 | `pisToLams` at install — `CheckerS.lean:677`, `CheckerBase.lean:249` (`ExprOps.lean:481-484`) | proj-rule λ tower from the ctor's Π tower | the Π metas it copies are WRONG for λs (`v` differs) — **placeholder-grade**; both consumers feed `ops.annotate` (`CheckerS.lean:681`), which overwrites | rule + docstring on `pisToLams`: its meta copy is placeholder; every consumer must annotate before store/use (audit: both do) |
+| 10 | nat-op cert substitution — `Expr.substConstAll` `Core.lean:629-640`, equations `:533` (binder-free by construction, `:532`) | cert statements with the op inlined | copied metas; statements re-annotated + inferred at install (`CheckerS.lean:816-820`) | covered by pass+validation |
+| 11 | hand-built types — `TrustAxioms.lean:106-118`, `StdAxioms.lean` `*A` pins (`:137-385`), `Basis/*.lean` blocks, `NatOpPins`, `TrustPins`; `Direct.lean:218` (dead route, #148 T0b) | pinned ∀s | **regenerated** annotated literals via `AnnotateBasis.lean` (the lakefile root target built for exactly this in the pre-#100 era, still present) — `Expr.eraseNames`/`ErasedEq` stay untouched, the task-#142 route | pin-vs-stream agreement is syntactic (same deterministic pass on both sides); any miss surfaces as a measurable decline |
+| 12 | literal expansions — `Core.lean:228-231, 324-330`; comparands `recFireComparands` `:1242-1252` (stored pins, install-annotated via `checkAnnotList` `CheckerS.lean:580`) | apps/consts only | rows 2/3 transports | none new |
+
+Θ cross-reference: W1/W6 (rescue fabrication-from-annotations) → rows
+5/6, burden zero (no binder fabricated); etaL/etaR residues → row 7
+plus the `(eta)` check; projCong → already deleted by checker change
+#10; the δ-sim residue → row 3.  The campaign's claim — "the residual
+proof burden localizes to the manufacture-site audit, and the sites
+are finitely many and already named" — survives contact with the
+sources: one real lemma (row 1), two transport lemmas (rows 2–3), and
+discipline notes.
+
+### 5. Verification plan
+
+**The invariant.**  `AnnotValidV` (working name; `AnnotOkV.lean` is
+the seeded namespace): for every binder in every checker-touched term,
+under every valuation `φ` and frame-consistent environment: the domain
+interprets into `univ (u.eval φ)`-grade and every fibre's body-type
+value lies in `univ (v.eval φ)` — tier B's premise shape, stated
+against `piR`/`lamR` (`Interp2/Ops.lean`); the positive half is
+already mechanized (`lamR_sound_at_every_regime`, `Interp2/TierA`).
+
+* **Establishment**: at the front door, from the validation conjuncts
+  of the run's own inversions — the same mechanism by which task #100
+  stage 6 replaced `annotate_sound` with `inferTypeCore_sound`
+  ("the inference run is the truthfulness witness").  Explicitly NOT
+  the A5-refuted shape: no validity metatheorem over `Infer` is
+  claimed (that was refuted at the application clause,
+  `hasSort_not_defEq_stable`); the fact comes from the run's recorded
+  comparisons, per term, per site.
+* **Preservation**: `interp2_inst` (F3) for term substitution;
+  `annotValid_instL` (new, small) for level substitution; the row-1
+  lemma for the one in-flight manufacture.
+* **Consumption**: the AVExpr swap per F4 — `Interp2/Syntax.lean`'s
+  provisional node (which already carries `lam (u v)` / `pi (u v)`)
+  is replaced by the annotated kernel syntax; `interp2` reads the
+  regime numeral off validated `BinderMeta.v`.
+* **What changes in `Verify/`**: `inferTypeCore_forall_inv` /
+  `inferTypeCore_lam_inv` gain implication-form conjuncts
+  (`mode.verified = true → isEquiv … = some true`) — the exact #147/
+  #152 interface pattern, consumers take them as `-` until the SetR
+  lane consumes them (the #148 finding, held eight times); the defeq
+  binder-arm inversions gain the `v`-agreement conjunct; the interned
+  simulation tower relates the extended metas (one `denoteBM` clause).
+  **Untouched**: the whnf walks and every reduction-side proof (law 1:
+  reduction never reads annotations), the scoped-call discipline, the
+  fourteen `*_R` theorems' statements (they are mode-generic and gain
+  nothing until the collapse-free interpretation replaces the
+  collapse).
+* **Θ-4 compliance**: no new statement concludes
+  `∃ L', defeqLoop … = .ok true`; every new conjunct is an inversion
+  of a run in the premises.
+* **Parked-lane transfer**: `Interp2/*` wholesale (landed on master);
+  the tier-A files (`Annot/Syntax,Pass,Validity,Kinding` —
+  `hasSort_pi_of` is the λ-chain induction's step); the countermodels
+  as regression guards (`lam_cod_sort_needed`, the #100 gated-beta
+  countermodel, the Θ probes `delta151`/`inverse151`/the compound
+  pair, kept as fixtures).  The Θ Engine's pure algebra
+  (`Absorb`/`Engine.lean`) is NOT consumed — its purpose (classifying
+  image walks) is what this design replaces with checks; it stays
+  parked with the campaign record.  `SortCoh*`/`ThetaLock` retire in
+  place.
+
+### 6. Measurement plan
+
+* **Counters**: the shipped mechanism is the eight per-site decline
+  messages (grep-able per stream); a `CPMASK`-style instrumentation
+  patch (task #141 pattern, kept in `_tmp/annot-161/`) counts
+  comparisons and near-misses without shipping state.
+* **Acceptance ladder**, each rung gated before the next: `lake
+  build`/`lake test` → arena 90/92 + e2e, all modes → init-prelude
+  (3653 decls; gate: **zero mismatch declines**, verdict-identical,
+  `--no-model` byte-identical, cost ≤ +5 % instructions at
+  `--set-model`) → grind-ring-5 and app-lam (the 4 000-binder chain
+  fixture; per-node arithmetic must stay `O(n)` per chain) →
+  init-full (gate: taint-frontier parity, zero mismatch declines) →
+  Mathlib 40 % prefix (observation rung; measured, not gated).
+* **Abort criteria**: (i) any mismatch decline on an
+  official-accepted stream that survives one diagnosis session
+  without a pass/normalization fix is a STOP-FINDING (report, per the
+  standing rule); a systematic cross-provenance defeq mismatch class
+  with no normalization repair kills the design — the record then
+  goes to the campaign doc as its §9.  (ii) Cost: > +10 % at
+  `--set-model` after memo sharing ⇒ redesign the pass's sort
+  computation (the `codOf` memo revival) before proceeding; > +25 %
+  ⇒ stop.  Expected: near the task-#152 scale (+0.2 % was one
+  cold inference per λ chain; this adds `O(1)` comparisons per binder
+  plus the pass's memo-shared inferences).
+
+### 7. Mode integration
+
+Gating is the existing `CheckMode.verified` accessor
+(`Env.lean:54-56`) — **no new mode, no new flag**.
+
+* `--set-model` (default): pass writes, all sites validate, the model
+  (eventually) reads.
+* `--no-model`: parser placeholders persist; the pass's sort
+  computation and every validation site are off; the NC stack
+  (`CoreNC`/`CheckerNC`) is untouched beyond the meta-arity ripple;
+  gate: byte-identical to master.
+* `ttChecks` stays constantly `false` (`Env.lean:43-44`, post-T7b);
+  the seven gated sites are not touched.
+* Master's current behavior remains available throughout: T1/T2 are
+  write-only (verdict byte-identical in both modes, gated), so
+  `--set-model` equals master until T3 lands, and `--no-model` equals
+  master permanently.
+
+### 8. Owed environment records (Θ batch-book handover, landed here as tasks)
+
+Three install-checked facts are consumed nowhere because `EnvWF` never
+records them; T4 adds them as invariant clauses with preservation at
+install (the direction "invariants over runtime gates"):
+
+1. **`r.nfields = cnF`** — checked at `CheckerS.lean:606-607`,
+   unrecorded; it is `iotaK`'s result-determinism premise (the (p1)
+   record: "`iotaK` IS result-deterministic — `cnF = 0` makes the
+   reduct targs-independent — but its premise is unrecorded").
+2. **nat-op stored-value coherence** — the pre-insertion
+   certification against the substituted value
+   (`CheckerS.lean:816-820`, the `Core.lean:436-462` presence-is-
+   certificate contract), unrecorded.
+3. **`defnInfo` type-value coherence** — `vtype ≡ cv.type` at install
+   (`CheckerS.lean:761-762`), unrecorded.
+
+### 9. Task breakdown
+
+| task | content | gate | estimate |
+|---|---|---|---|
+| T1 | representation: `BinderMeta`/`IBinderMeta` fields; parser placeholders; `instantiateLevelParams` (+ interned `instantiateLevelParamsIGo`) map annotations; `internBM`/`denoteBM`/`ArenaWF`/`WFStore` clauses; `⟨.default⟩` literal sweep | build warning-free; **byte-identical verdicts, all modes** | 1–2 sessions, mechanical |
+| T2 | the pass writes: `annotateBody`/`annotateBodyI` ∀/λ clauses + arithmetic shortcuts + simplify-at-write; `AnnotateBasis` regeneration of `Basis/*`, `StdAxioms` `*A`, `TrustAxioms`, pins; storage-uniformly-annotated audit | byte-identical verdicts (nothing reads yet); cost measured | ~2 sessions |
+| T3 | validation: front-door ∀/λ (spec + interned loops), defeq `v` arms, `etaCert`, decline plumbing + per-site messages; negation probes (#147 style); ladder through init-full | ladder gates of §6 | 2–3 sessions |
+| T4 | the three owed `EnvWF` records + inversions | build + proofs green | 1 session, parallel to T2 |
+| T5 | `Verify/` inversion conjuncts (implication form), sim-tower meta clauses, consumers `-` | axioms pinned, zero sorries | ~2 sessions |
+| T6 | the model phase: AVExpr swap (F4), `AnnotValidV` establishment from the front-door inversions, `annotValid_instL`, the row-1 lemma, the `interp2` bridge into the SetR lane | the lane's own ledger resumes; consumption probes first | research-paced |
+| T7 | measurement closeout per rung; standing abort review | §6 criteria | continuous |
+
+### 10. Top risks
+
+1. **Cross-provenance defeq mismatches on real streams** — the
+   unprovable coherence corners resurfacing as declines.  This is the
+   design's premise made observable: mitigation is semantic
+   comparison (`isEquiv`, never syntactic) + simplify normalization +
+   the per-site decline messages; §6's abort criterion bounds the
+   exposure.
+2. **Cost** — the pre-#100 pass's inference sweep priced at roughly
+   the front-door sweep, and annotations split binder-node sharing
+   between raw and annotated twins.  Mitigation: memo sharing within
+   the declaration, the arithmetic shortcuts (most `v`s are
+   inference-free), measured gates at T2/T3 with hard thresholds.
+3. **T6's establishment step** — threading frame/valuation
+   quantifiers from the run inversions into `AnnotValidV` without
+   resurrecting the refuted validity-metatheorem shape; and the audit
+   table's completeness (a binder manufactured somewhere unlisted).
+   Mitigation: probe-first discipline (a consumption probe on a
+   nested-manufacture example before the lemma battery), and the
+   table's grep-audit is re-runnable
+   (`grep -n "\.forallE (\|\.lam (" Setlec/Kernel/*.lean`).
