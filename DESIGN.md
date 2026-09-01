@@ -11768,3 +11768,111 @@ v1 base cost nothing), `foldPM`, `checkDecls_sound_P_of`.
 semantic tiers (literal → caps → proj/str → iota, the campaign
 order) + the literal tier's stability lemma.  Every one is a named
 `Prop` with its mirror source recorded; zero sorries anywhere.
+
+## Task #161 SUCCESSION RECORD (kept current at each tier seal; written at P4.7)
+
+**For a successor lane lead resuming between tiers.  Read this, the
+frontier-transformation table, and the P4.5-P4.7 seals; everything
+else is context.**
+
+### State at this record
+
+Lane `agent/annot-v2` @ `dcfea02a` (master contained; local master
+`99987a5f` is ahead of origin — the user pushes).  Everything below is
+PROVED, zero sorries, axioms exactly `[propext, Classical.choice,
+Quot.sound]`, battery green (build warning-free; `lake test`; harness
+with `SETLEC_INDUCTIVE_MODELS=/home/joachim/setlec/_tmp/
+lean-inductive-models/.lake/build/bin/lean-inductive-models`: annot
+10/10, split 11/11, mode 9/9, no-model sweep 138+72+10 with 4
+recorded divergences):
+
+* the P2 validated checker (six sites) and its fixtures;
+* the P quarters over `denoteP`/`AnnotOkP`/`CtxOkP`
+  (`checkSoundAtP`, `Step2/TiersP.lean`) with every of_claims
+  discharge wired;
+* `EnvS2PM`/`EnvS2Core` (the carrier finding), the four value-kind
+  harvests (`Interp2/HarvestP.lean`), the fold and the
+  **milestone capstone `no_proof_of_Empty_P_of`**
+  (`Interp2/FoldP.lean`);
+* the frozen FINAL statement: `no_proof_of_Empty_P` =
+  `no_proof_of_Empty_P_of` with the five bundles replaced by the
+  tiers' theorems (`CapstoneP.lean`'s docstring is the letter).
+
+### The five bundles = the whole remaining distance
+
+1. **`LitStabilityP`** (`FoldP.lean`) — literal-guard stability at a
+   fresh value-kind cons.  Proof shape: `natLitSupported` components
+   need ind/ctor kinds, so the nat half is free at value-kind conses
+   (Bool-pushing on `find?` + the `…Ok` shape guards, mirroring
+   `LitAgree.of_fresh`'s find-isSome trick); the str half is free
+   except when `c₀.name ∈ {stringOfListName, charOfNatName}` — prove
+   the generic case by name-disequality, the two pin names bespoke
+   (at those installs the tier establishes the heads anyway).
+2. **literal tier** in `SemTierInputsP` (`CapstoneP.lean`):
+   `ReduceNatStepP`/`PQ` (v1 mirror: `Sound/NatOps.lean` +
+   `Bridge/ReduceNat.lean` — the literal spines' interp2 arithmetic;
+   `NatHeadsP` is already an `EnvS2PM` field, established at the nat
+   pin installs), `ReduceNatReadsP` (outputs are literals — read
+   under the guard, which held for the subject).
+3. **caps tier**: `UnitIrrelPQ`, `PairEtaIrrelP`, `StructEtaIrrelP`,
+   `StructUnitIrrelP` (v1 mirrors: `Sound/Struct.lean`,
+   `Sound/Irrel.lean`, the capability pipeline `CapsOkV` — at
+   interp2 the unit-like collapse is `mem_univ_zero`-adjacent; the
+   pair/struct η laws ride `sigmaSet`/`sfst`/`ssnd` in
+   `SetTheory/Derive/Sigma.lean` + `Interp2/Ops.lean`).
+4. **proj/str install tier**: `InferStrLitStepP`, `InferProjStepP`,
+   `ProjStepP`, `WhnfCoreProjReadsP`, `InferProjReadsP` (v1 mirrors:
+   `Bridge/Proj.lean`, `Bridge/ProjRed.lean`, `Sound/Proj.lean`,
+   `Bridge/StrLit`-adjacent; the proj rows read the stored
+   `projInfo` entries' `piResidual` machinery), and
+   `AxiomStepPB`/`BasisStepPB` (pin/basis installs at the P fields —
+   v1 mirrors: `Install/Axiom.lean` (note `declAxiomLeafExtS`
+   already constructive), `Install/BasisS.lean`; the P side adds
+   `AnnotValidV` of the pinned leaves + `denoteP` readings of pinned
+   types — the basis leaves are `BasisType.lean`'s `AVExpr`s, whose
+   bit-validity should be direct (`AnnotValidV` of concrete
+   constants/pis with known sorts)).
+5. **iota tier** (LAST, the long pole): `IotaStepP`, `IotaReadsP`,
+   `IndStepPB`.  Statement-freeze first: `RecRulesP` :=
+   `RecRuleLawV` (`Sound/Motives.lean:145`) at
+   `denoteP`/`interp2`; quarter-side discharge mirrors
+   `Bridge/Iota.lean` (~550 lines); install-side establishment
+   mirrors the v1 iota install derivations — **new mathematics at
+   Prop-motive minors** (a Prop-valued motive's minors interp at the
+   squash regime): STOP-AND-NAME on the first genuinely novel
+   obstruction, per the standing instruction.
+
+### The cadence (the dispatch protocol, binding)
+
+Statement design, establishment architecture, the FIRST worked
+example of each proof species, and review stay with the lane lead;
+stated-and-recipe'd theorem lists go to ONE serial Opus worker per
+batch (`Agent` tool, `isolation: worktree`, `model: opus`), own
+worktree off the lane branch.  Worker briefs must include: the HEAD
+hash to fast-forward to, the `SETLEC_INDUCTIVE_MODELS` export, the
+skip-on-wall + flag-premise rules, per-task commits with the
+CLAUDE.md trailer, and the full battery + axiom audit in the report.
+Review diffs before merging; watch for convergent duplicates across
+concurrent batch fences (two happened: `acval_inst_self`,
+`natHeadsP_cons_fresh`-vs-`declStepPM_natHeads_fresh`).
+
+### Standing laws
+
+Annotations never steer reduction; `PropWhen` consumed only through
+`pwBit`/`holds`/the named battery laws (missing fact = new LAW in
+`Verify/PropWhen.lean` + note the ZeroSet mirror + report);
+conditional forms are milestones, never closes; zero sorries; the
+suite policy (annot fixtures at `--set-model`, full parity at
+`--no-model`) holds until P5; the three owed `EnvWF` records
+(nfields = cnF; nat-op stored-value; defnInfo type-value) are
+UNDEMANDED so far — watch inside the semantic tiers.
+
+### Resume-here
+
+Next action at this record: the literal tier — freeze nothing (its
+statements exist), prove `LitStabilityP` (lead or batch; the wrinkle
+above), then a serial batch for the `ReduceNat*` rows off
+`Sound/NatOps` mirrors with a lead-worked species if the interp2
+numeral arithmetic needs one.  Then caps → proj/str → iota per the
+bundle notes.  At each tier seal: update this record, the frontier
+table, full battery, report.
