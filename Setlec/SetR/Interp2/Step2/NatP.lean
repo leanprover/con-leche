@@ -410,34 +410,6 @@ a conditional form is not a solution, `ReduceNatStepP` and
 `ReduceNatStepPQ` remain OPEN; see the module docstring for the three
 pieces of tier work they wait on. -/
 
-/-- **The structural-`Nat` recurrence law at the validated-annotation
-tier** (task #161, the wall's supplier): every stored structural
-operation's defining equations read under `denoteP` and hold as
-`interp2` equalities at the two-variable `Nat` context — `NatOpsV`
-(`Sound/Motives.lean`) with `denote`/`interp`/`cval` replaced by
-`denoteP`/`interp2`/`acval`, and the level composition normalized to
-the plain assignment (the heads are level-monomorphic).
-
-Supplied as an `EnvS2PM` field: established at the operation's own
-install from the recorded `isDefEqCore` runs (`NatEqsRunR`) through
-`DefEqClaims2P` — the run-certificate route (`Interp2/NatEqsP.lean`)
-— and preserved across every other fresh cons.  Consumed by the
-numeral-transport inductions (`Sound/NatOps`' shape at `interp2`),
-which close `ReduceNatStepP`/`PQ` below. -/
-def NatOpsP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat) :
-    Prop :=
-  ∀ c ∈ Setlec.natOpNames, ∀ cv v hint,
-    env.find? c = some (.defnInfo cv v hint) →
-    natOpGuard env c = true ∧
-    ∀ eq ∈ Setlec.natOpEquations 0 c, ∃ L R,
-      denoteP m.acval env φ 2 eq.1 = some L ∧
-      denoteP m.acval env φ 2 eq.2 = some R ∧
-      ∀ (ρ : Nat → V) (x y : V),
-        x ∈ˢ interp2 V ρ (m.acval Setlec.natName φ) →
-        y ∈ˢ interp2 V ρ (m.acval Setlec.natName φ) →
-        interp2 V (cons y (cons x ρ)) L
-          = interp2 V (cons y (cons x ρ)) R
-
 /-- **The literal tier's semantic residue.**  The `interp2` half of
 `ReduceNatStepP`, alone: literal acceleration preserves the
 interpretation.

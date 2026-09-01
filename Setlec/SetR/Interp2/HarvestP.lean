@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.CapstoneP
+import Setlec.SetR.Interp2.NatEqsP
 import Setlec.SetR.Install.ValueKinds
 
 /-!
@@ -337,7 +338,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -421,6 +422,58 @@ theorem harvestDefnP (hμ : μ.verified = true)
       acvalWith_ne (hstored _ hn)
     have := mp.nat_heads φ hgold ρ
     simpa only [e1, e2, e3] using this
+  · -- `nat_ops` at the extension: the operation's own install goes
+    -- through the run-certificate conversion; any other definition
+    -- preserves the stored entries
+    intro φ
+    by_cases hno : Setlec.natOpNames.contains cv.name = true
+    · -- the install
+      obtain ⟨hg2, hdeps₂, -, hruns⟩ := hnatc hno
+      have hcmem : cv.name ∈ Setlec.natOpNames :=
+        List.contains_iff_mem.mp hno
+      -- the self entry of the dependency check: level-mono + pinned
+      have hself : cv.name ∈ Setlec.natOpDeps cv.name := by
+        have h7 := hcmem
+        simp only [Setlec.natOpNames, List.mem_cons,
+          List.not_mem_nil, or_false] at h7
+        rcases h7 with h | h | h | h | h | h | h <;> rw [h] <;> decide
+      have hd := List.all_eq_true.mp hdeps₂ cv.name (by simpa using hself)
+      unfold Setlec.natOpStoredOk at hd
+      rw [show (⟨ConstantInfo.defnInfo ⟨cv.name, cv.levelParams, type'⟩
+            value' hint :: env.consts⟩ : Env).find? cv.name
+          = some (.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value'
+            hint) from by
+        rw [Setlec.Env.find?_cons]; exact if_pos rfl] at hd
+      simp only [Bool.and_eq_true] at hd
+      have hlpcv : cv.levelParams = [] := by
+        simpa [List.isEmpty_iff] using hd.1
+      have hpin : Setlec.natOpTyPinned
+          (⟨ConstantInfo.defnInfo ⟨cv.name, cv.levelParams, type'⟩
+            value' hint :: env.consts⟩ : Env) cv.name type' = true :=
+        hd.2
+      have hsE : Setlec.natLitSupported env = true :=
+        natLitSupported_cons_back
+          ⟨(fun _ _ h => ConstantInfo.noConfusion h),
+            (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
+          (Setlec.natOpGuard_deps hg2).1
+      have hTok : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+          AnnotOkP V ρ (Ta ψ) := fun ψ ρ => by
+        obtain ⟨sta, hsta, hT1, -, -⟩ := hrowsT ψ
+        exact hT1 ρ (Sat2_nil V ρ)
+      have hA2 : ∀ ψ, denoteP mp.base2.acval env ψ 2 value'
+          = some (A ψ) := fun ψ =>
+        denoteP_depth_of_closed mp.base2.acval_closed hvf'
+          (hAclosed ψ) (hA ψ) 2
+      obtain ⟨hSelfBin, hSelfUn⟩ := natSelfHeadP_install (φ := φ) mp
+        hcmem hfresh hpin hsE hTa hTok hA2
+        (fun ψ ρ => ⟨hAok ψ ρ, hAvalid ψ ρ⟩) hmemA
+      exact natOpsP_install mp ((hclaims φ).2.2.1) (mp.nat_ops φ)
+        hcmem hfresh hlpcv hsE hg2 hdeps₂ hruns hA hAclosed hvf' hbv'
+        hSelfBin hSelfUn _ rfl
+    · exact natOpsP_cons_fresh mp (mp.nat_ops φ)
+        (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
+        (A := A) hfresh
+        (Or.inr (fun hm => hno (List.contains_iff_mem.mpr hm))) _ rfl
 
 /-! ## The `thm` mirror (batch H2, T1)
 
@@ -634,7 +687,7 @@ theorem harvestThmP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -677,6 +730,10 @@ theorem harvestThmP (hμ : μ.verified = true)
       hfresh ⟨(fun _ _ h => ConstantInfo.noConfusion h),
           (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
       _ rfl φ
+  · -- `nat_ops` at the extension: a theorem is not a definition
+    exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value') (A := A)
+      hfresh (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
 
 /-! ## The `opaque` kind: the H2 SKIP, since unlocked
 
@@ -841,7 +898,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh hbase hag hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -878,6 +935,10 @@ theorem harvestAxiomP (hμ : μ.verified = true)
       hfresh ⟨(fun _ _ h => ConstantInfo.noConfusion h),
           (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
       _ rfl φ
+  · -- `nat_ops` at the extension: an axiom is not a definition
+    exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ)
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
+      hfresh (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
 
 
 /-! ## The `opaque` kind, unlocked (the exposed leaf equation)
@@ -1058,7 +1119,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -1095,5 +1156,9 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
       hfresh ⟨(fun _ _ h => ConstantInfo.noConfusion h),
           (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
       _ rfl φ
+  · -- `nat_ops` at the extension: an opaque stores an axiom entry
+    exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ)
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
+      hfresh (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
 
 end Setlec.SetR.Interp2
