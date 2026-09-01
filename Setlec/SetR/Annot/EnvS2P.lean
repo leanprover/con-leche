@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.Step2.AssemblyP
+import Setlec.SetR.Interp2.EnvS2U
 
 /-!
 # `EnvS2PM` — the P-tier environment invariant (task #161, P4)
@@ -119,5 +120,27 @@ theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
     rwa [hname] at this
 
 end EnvS2PM
+
+/-- The empty environment carries the P invariant (the fold's base
+case): the core is the mode-indexed empty's projection, and every P
+field is vacuous — no constants, guards false, and the empty leaf
+`.const .empty [0]` is bit-valid because a constant leaf carries no
+binder. -/
+noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
+    (μ : CheckMode) : EnvS2PM V μ Env.empty where
+  base2 := (EnvS2UM.empty (V := V) μ).toCore
+  acval_validV := fun _ _ _ => by
+    show AnnotValidV V _ (.const .empty [0])
+    simp
+  type_reads := fun c hc => nomatch hc
+  type_okP := fun c hc => nomatch hc
+  mem_typeP := fun c hc => nomatch hc
+  defn_reads := fun ψ cv value hmem => by
+    rcases hmem with ⟨hint, hdt⟩ | hdt
+    · exact nomatch hdt
+    · exact nomatch hdt
+  nat_heads := fun φ hg => by
+    rw [show Setlec.natLitSupported Env.empty = false from rfl] at hg
+    exact nomatch hg
 
 end Setlec.SetR.Interp2

@@ -192,6 +192,39 @@ theorem opener_denotes_at {env : Env} (m : EnvR env) {φ : Name → Nat}
   rw [denote_lift m.cval_closed hfb D hle, h]
   rfl
 
+/-- **`certifyNatEqs`, exposed as runs** (task #161 P4 H1 at the
+literal tier): the verdict is one `isDefEqCore` success per equation,
+and the recorded form is the checker's literal call —
+`fueledOps_isDefEq` at fuel `F`, depth `2`.  The P tier's
+`NatOpsP` establishment consumes these through `DefEqClaims2P`
+instead of the relational `NatEqsR` below (whose `DefEq` only has
+collapse-currency soundness). -/
+theorem natEqsRunR_of_certs {μ : CheckMode} {F : Nat} {env : Env} :
+    ∀ (eqs : List (Expr × Expr)),
+      certifyNatEqs (m := CheckM) (fueledOps μ F) env eqs = .ok true →
+      NatEqsRunR μ F env eqs := by
+  intro eqs
+  induction eqs with
+  | nil => intro _ eq heq; exact nomatch heq
+  | cons e rest ih =>
+    intro h eq heq
+    simp only [certifyNatEqs, fueledOps_isDefEq, Bind.bind,
+      Except.bind] at h
+    cases hx : isDefEqCore μ env F 2 e.1 e.2 with
+    | error err => rw [hx] at h; exact nomatch h
+    | ok b =>
+      cases b with
+      | false =>
+        rw [hx] at h
+        simp only [Bool.false_eq_true, if_false, pure, Except.pure,
+          Except.ok.injEq] at h
+      | true =>
+        rw [hx] at h
+        simp only [if_true] at h
+        rcases List.mem_cons.mp heq with rfl | heq'
+        · exact hx
+        · exact ih h eq heq'
+
 /-- The frame package one side of a certified `Nat` recurrence needs:
 the three syntactic facts, the `Nat`-annotated-leaf shape that the
 canonical context matches, and the denotation. -/
@@ -940,7 +973,8 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
               hvt hde hcv
           obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ
           exact ⟨Vv, hVv⟩)
-        (hnatK hc).1 (hnatK hc).2.2⟩,
+        (hnatK hc).1 (hnatK hc).2.2,
+      natEqsRunR_of_certs _ (hnatK hc).2.2⟩,
     fun hc => divModPinR_of m
       (by rw [Env.find?_cons]; exact if_pos rfl) (hdmK hc)⟩
 

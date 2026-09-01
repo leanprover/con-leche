@@ -85,6 +85,23 @@ theorem denoteP_cons_fresh {acval : Name → (Name → Nat) → AVExpr}
   rw [← denoteP_envExtend (findPreserved_cons hfresh) hlga d e hcb,
     denoteP_acvalWith_fresh hfresh d e]
 
+/-- **The fresh-cons forward transfer** (the monotone form; the
+equality form is refutable at support-completing installs — see
+`denoteP_envExtend_mono`): a successful prefix reading survives the
+extension and ignores the fresh leaf.  The only direction the step
+and the harvests use for their subjects, whose acceptance guaranteed
+prefix-supported literals. -/
+theorem denoteP_cons_fresh_mono {acval : Name → (Name → Nat) → AVExpr}
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound env e)
+    {ea : AVExpr} (h : denoteP acval env ψ d e = some ea) :
+    denoteP (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
+      = some ea :=
+  denoteP_envExtend_mono (findPreserved_cons hfresh)
+    (litGuardsMono_cons hfresh) d e hcb
+    (by rw [denoteP_acvalWith_fresh hfresh]; exact h)
+
 /-- **The P declaration step, cons shape** (see the module
 docstring). -/
 theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
@@ -92,7 +109,6 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     (hfresh : env.find? c₀.name = none)
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
     (hag : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n)
-    (hlga : LitGuardsAgree env ⟨c₀ :: env.consts⟩)
     (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -137,13 +153,12 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     rw [Setlec.Env.find?, List.find?_eq_none] at h0
     intro c hc h
     exact h0 c hc (by simp [h])
-  -- the P crossing: readings of prefix-bound subjects survive
-  have hcompP : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
-      ConstsBound env e →
+  -- the P crossing, forward only: successful prefix readings survive
+  have hcompM : ∀ (ψ : Name → Nat) (e : Expr), ConstsBound env e →
+      ∀ {ea : AVExpr}, denoteP mp.base2.acval env ψ 0 e = some ea →
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ d e
-        = denoteP mp.base2.acval env ψ d e :=
-    fun ψ d e hcb => denoteP_cons_fresh hfresh hlga ψ d e hcb
+          ⟨c₀ :: env.consts⟩ ψ 0 e = some ea :=
+    fun ψ e hcb {ea} h => denoteP_cons_fresh_mono hfresh ψ 0 e hcb h
   -- the P fields, at the `acvalWith` spelling (defeq to the core's)
   have htr : ∀ c ∈ (⟨c₀ :: env.consts⟩ : Env).consts, ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
@@ -153,7 +168,7 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     rcases List.mem_cons.mp hc with h | h
     · subst h; exact htyReads ψ
     · obtain ⟨ta, hta⟩ := mp.type_reads c h ψ
-      exact ⟨ta, by rw [hcompP ψ 0 _ (hbound _ h).1]; exact hta⟩
+      exact ⟨ta, hcompM ψ _ (hbound _ h).1 hta⟩
   have hto : ∀ c ∈ (⟨c₀ :: env.consts⟩ : Env).consts,
       ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
@@ -162,8 +177,11 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     intro c hc ψ ta hta ρ
     rcases List.mem_cons.mp hc with h | h
     · subst h; exact htyOk ψ ta hta ρ
-    · rw [hcompP ψ 0 _ (hbound _ h).1] at hta
-      exact mp.type_okP c h ψ ta hta ρ
+    · obtain ⟨ta', hta'⟩ := mp.type_reads c h ψ
+      obtain rfl : ta' = ta :=
+        Option.some.inj
+          ((hcompM ψ _ (hbound _ h).1 hta').symm.trans hta)
+      exact mp.type_okP c h ψ ta' hta' ρ
   have hmt : ∀ c ∈ (⟨c₀ :: env.consts⟩ : Env).consts,
       ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
@@ -176,10 +194,13 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     · rw [show acvalWith mp.base2.acval c.name A c.name = A from
         acvalWith_self]
       exact hmemNew ψ ta hta ρ
-    · rw [hcompP ψ 0 _ (hbound _ h).1] at hta
+    · obtain ⟨ta', hta'⟩ := mp.type_reads c h ψ
+      obtain rfl : ta' = ta :=
+        Option.some.inj
+          ((hcompM ψ _ (hbound _ h).1 hta').symm.trans hta)
       rw [show acvalWith mp.base2.acval c₀.name A c.name
             = mp.base2.acval c.name from acvalWith_ne (hne _ h)]
-      exact mp.mem_typeP c h ψ ta hta ρ
+      exact mp.mem_typeP c h ψ ta' hta' ρ
   have hdr : ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
       ((∃ hint : ReducibilityHint,
           ConstantInfo.defnInfo cv value hint
@@ -197,22 +218,22 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
           rw [hnm]; exact acvalWith_self
         rw [hleaf]
         exact hvalReads ψ cv value (.inl ⟨hint, h⟩)
-      · rw [hcompP ψ 0 value ((hbound _ h).2.1 cv value hint rfl),
-          show acvalWith mp.base2.acval c₀.name A cv.name
+      · rw [show acvalWith mp.base2.acval c₀.name A cv.name
             = mp.base2.acval cv.name from
             acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
-        exact mp.defn_reads ψ cv value (.inl ⟨hint, h⟩)
+        exact hcompM ψ value ((hbound _ h).2.1 cv value hint rfl)
+          (mp.defn_reads ψ cv value (.inl ⟨hint, h⟩))
     · rcases List.mem_cons.mp hdt with h | h
       · have hnm : cv.name = c₀.name := congrArg ConstantInfo.name h
         have hleaf : acvalWith mp.base2.acval c₀.name A cv.name = A := by
           rw [hnm]; exact acvalWith_self
         rw [hleaf]
         exact hvalReads ψ cv value (.inr h)
-      · rw [hcompP ψ 0 value ((hbound _ h).2.2 cv value rfl),
-          show acvalWith mp.base2.acval c₀.name A cv.name
+      · rw [show acvalWith mp.base2.acval c₀.name A cv.name
             = mp.base2.acval cv.name from
             acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
-        exact mp.defn_reads ψ cv value (.inr h)
+        exact hcompM ψ value ((hbound _ h).2.2 cv value rfl)
+          (mp.defn_reads ψ cv value (.inr h))
   exact ⟨{
     base2 := ⟨hbase, acvalWith mp.base2.acval c₀.name A,
       by intro n ψ

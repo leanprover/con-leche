@@ -222,7 +222,7 @@ theorem declDefnS (hdm : DivModPinS V) {μ : CheckMode} {F : Nat}
     exact denote_params_ext m.val_params hp 0 value' hvp
   · -- the structural-`Nat` recurrences, inline
     intro cv2 v2 hint2 heq hmem
-    obtain ⟨hg2, hdeps, hne⟩ := hnatc (List.contains_iff_mem.mpr hmem)
+    obtain ⟨hg2, hdeps, hne, -⟩ := hnatc (List.contains_iff_mem.mpr hmem)
     refine ⟨hg2, ?_⟩
     -- the operation is stored level-monomorphically (it is its own
     -- dependency, and the dependency check pins the levels)
