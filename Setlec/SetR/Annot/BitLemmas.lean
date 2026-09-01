@@ -34,6 +34,44 @@ variable {acval : Name → (Name → Nat) → AVExpr}
 
 /-! ## Clause equations -/
 
+theorem denoteP_sort (acval : Name → (Name → Nat) → AVExpr)
+    (d : Nat) (u : Level) :
+    denoteP acval env φ d (.sort u) = some (.sort (u.eval φ)) := by
+  rw [denoteP]
+
+theorem denoteP_fvar (acval : Name → (Name → Nat) → AVExpr)
+    (d idx : Nat) (n : Name) (ty : Expr) :
+    denoteP acval env φ d (.fvar idx n ty)
+      = some (.bvar (d - 1 - idx)) := by
+  rw [denoteP]
+
+theorem denoteP_const {acval : Name → (Name → Nat) → AVExpr}
+    {d : Nat} {n : Name} {us : List Level} {ci : Setlec.ConstantInfo}
+    (hf : env.find? n = some ci)
+    (hlen : us.length = ci.toConstantVal.levelParams.length) :
+    denoteP acval env φ d (.const n us)
+      = some (acval n
+          (Level.substFn φ ci.toConstantVal.levelParams us)) := by
+  rw [denoteP, hf]
+  simp [hlen]
+
+theorem denoteP_app (acval : Name → (Name → Nat) → AVExpr)
+    (d : Nat) (f a : Expr) :
+    denoteP acval env φ d (.app f a)
+      = (do
+        let fa ← denoteP acval env φ d f
+        let aa ← denoteP acval env φ d a
+        some (.app fa aa)) := by
+  rw [denoteP]
+
+theorem denoteP_proj (acval : Name → (Name → Nat) → AVExpr)
+    (d : Nat) (s : Name) (i : Nat) (e : Expr) :
+    denoteP acval env φ d (.proj s i e)
+      = (do
+        let ea ← denoteP acval env φ d e
+        if i < 2 then some (.proj i ea) else none) := by
+  rw [denoteP]
+
 theorem denoteP_forallE (acval : Name → (Name → Nat) → AVExpr)
     (d : Nat) (n : Name) (ty body : Expr) (mb : Setlec.BinderMeta) :
     denoteP acval env φ d (.forallE n ty body mb)
@@ -44,7 +82,54 @@ theorem denoteP_forallE (acval : Name → (Name → Nat) → AVExpr)
         some (.pi 0 (pwBit φ mb.pw) ta ba)) := by
   rw [denoteP]
 
+theorem denoteP_lam (acval : Name → (Name → Nat) → AVExpr)
+    (d : Nat) (n : Name) (ty body : Expr) (mb : Setlec.BinderMeta) :
+    denoteP acval env φ d (.lam n ty body mb)
+      = (do
+        let ta ← denoteP acval env φ d ty
+        let ba ← denoteP acval env φ (d + 1)
+          (body.instantiate1 (.fvar d n ty))
+        some (.lam (pwBit φ mb.pw) ta ba)) := by
+  rw [denoteP]
+
+theorem denoteP_natLit {acval : Name → (Name → Nat) → AVExpr}
+    {d n : Nat} (hg : natLitSupported env = true) :
+    denoteP acval env φ d (.lit (.natVal n))
+      = some (natLitT2 (acval natZeroName (Level.substFn φ [] []))
+          (acval natSuccName (Level.substFn φ [] [])) n) := by
+  rw [denoteP, if_pos hg]
+
 /-! ## Inversions -/
+
+theorem denoteP_app_inv {d : Nat} {f a : Expr} {ea : AVExpr}
+    (h : denoteP acval env φ d (.app f a) = some ea) :
+    ∃ fa aa, denoteP acval env φ d f = some fa ∧
+      denoteP acval env φ d a = some aa ∧ ea = .app fa aa := by
+  rw [denoteP] at h
+  cases hf : denoteP acval env φ d f with
+  | none => rw [hf] at h; exact nomatch h
+  | some fa =>
+    cases ha : denoteP acval env φ d a with
+    | none => rw [hf, ha] at h; exact nomatch h
+    | some aa =>
+      rw [hf, ha] at h
+      exact ⟨fa, aa, rfl, rfl, (Option.some.inj h).symm⟩
+
+theorem denoteP_proj_inv {d : Nat} {s : Name} {i : Nat} {e : Expr}
+    {ea : AVExpr}
+    (h : denoteP acval env φ d (.proj s i e) = some ea) :
+    ∃ ia, denoteP acval env φ d e = some ia ∧ i < 2 ∧
+      ea = .proj i ia := by
+  rw [denoteP] at h
+  cases he : denoteP acval env φ d e with
+  | none => rw [he] at h; exact nomatch h
+  | some ia =>
+    rw [he] at h
+    replace h : (if i < 2 then some (AVExpr.proj i ia) else none)
+        = some ea := h
+    split at h
+    · next hlt => exact ⟨ia, rfl, hlt, (Option.some.inj h).symm⟩
+    · exact nomatch h
 
 theorem denoteP_forallE_inv {d : Nat} {n : Name} {ty bd : Expr}
     {mb : Setlec.BinderMeta} {ea : AVExpr}
@@ -63,5 +148,33 @@ theorem denoteP_forallE_inv {d : Nat} {n : Name} {ty bd : Expr}
     | some ba =>
       rw [ht, hb] at h
       exact ⟨ta, ba, rfl, rfl, (Option.some.inj h).symm⟩
+
+theorem denoteP_lam_inv {d : Nat} {n : Name} {ty bd : Expr}
+    {mb : Setlec.BinderMeta} {ea : AVExpr}
+    (h : denoteP acval env φ d (.lam n ty bd mb) = some ea) :
+    ∃ ta ba, denoteP acval env φ d ty = some ta ∧
+      denoteP acval env φ (d + 1)
+        (bd.instantiate1 (.fvar d n ty)) = some ba ∧
+      ea = .lam (pwBit φ mb.pw) ta ba := by
+  rw [denoteP] at h
+  cases ht : denoteP acval env φ d ty with
+  | none => rw [ht] at h; exact nomatch h
+  | some ta =>
+    cases hb : denoteP acval env φ (d + 1)
+        (bd.instantiate1 (.fvar d n ty)) with
+    | none => rw [ht, hb] at h; exact nomatch h
+    | some ba =>
+      rw [ht, hb] at h
+      exact ⟨ta, ba, rfl, rfl, (Option.some.inj h).symm⟩
+
+theorem denoteP_natLit_inv {d n : Nat} {ea : AVExpr}
+    (h : denoteP acval env φ d (.lit (.natVal n)) = some ea) :
+    natLitSupported env = true ∧
+      ea = natLitT2 (acval natZeroName (Level.substFn φ [] []))
+        (acval natSuccName (Level.substFn φ [] [])) n := by
+  rw [denoteP] at h
+  split at h
+  · next hg => exact ⟨hg, (Option.some.inj h).symm⟩
+  · exact nomatch h
 
 end Setlec.SetR.Interp2
