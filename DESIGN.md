@@ -12218,6 +12218,34 @@ Capstone axiom audit after the adaptation: `no_proof_of_Empty_P_of`,
 `no_proof_of_Empty_input_SP_R` and `no_proof_of_Empty_R2` all depend on
 exactly `[propext, Classical.choice, Quot.sound]`.
 
+### Merge review + ratification (lane lead, 2026-09-01)
+
+The repair (38ab6797) is RATIFIED and merged to the lane at
+`9e80963f` (full battery green post-merge: build 386 warning-free,
+`lake test` 139, arena 90/92, e2e 72/72, annot 13/13, split 11/11,
+modes 9/9, no-model 138+72+13 with the 3 recorded divergences).
+
+**Evidence for proof-first, on the record**: the pass seal's
+STOP-FINDING assessed "no new *kind* of obligation appears" — and the
+whole engineering battery (210 fixtures + 61 048 real declarations,
+byte-identical counters) agreed.  Both were wrong: two algorithms sat
+under one simulation contract, and only the attempt to *prove* the
+contract exposed it.  Measurement cannot distinguish two
+verdict-equivalent algorithms; a simulation proof must.  This is the
+campaign's cleanest instance of the verification catching a defect
+the tests were structurally unable to see.
+
+**Pass-ladder reconciliation** (the one residue): the retired
+`dependentType` guard is the P5 ladder's own prediction ("silently
+*corrected* instead of being falsified") observed at `lake test` —
+recorded above; the P5 ladder record needs no further change.
+
+**For future runs on `agent/annot-pass`**: merge the lane's
+post-merge HEAD (`9e80963f` or later) before any new ladder work —
+the ratified write-rule repair lives there, and re-basing ladder
+measurements on the pre-repair pass would resurrect the two-algorithm
+defect.
+
 ## Task #161 RULING: the pin comparison stays `erasePw`-shaped (2026-09-01)
 
 The pass branch (agent/annot-pass @ c9f865be) made
