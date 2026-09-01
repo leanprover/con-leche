@@ -197,6 +197,21 @@ def NatEqsR (μ : CheckMode) (env : Env) (cval : TConstVal)
       denote cval env φ 2 eq.2 = some R ∧
       DefEq μ env cval φ [natVR cval φ, natVR cval φ] L R
 
+/-- The structural-`Nat` recurrences' **checker runs** (task #161 P4
+H1, extended to the literal tier): `certifyNatEqs`'s verdict is the
+conjunction of one `isDefEqCore` run per equation
+(`Setlec/Kernel/Checker.lean:426-433` — `ops.isDefEq env 2 eq.1 eq.2`
+under `fueledOps μ F`, i.e. `isDefEqCore` at fuel `F`, depth `2`), so
+the recorded form is the checker's literal output, one run per
+equation.  The P tier's establishment route consumes these runs
+through `DefEqClaims2P` — the run-certificate move — because the
+relational `NatEqsR` above concludes a `DefEq` whose soundness lives
+at the collapse currency only (`Interp2/Step2/NatP.lean`'s wall
+record). -/
+def NatEqsRunR (μ : CheckMode) (F : Nat) (env : Env)
+    (eqs : List (Expr × Expr)) : Prop :=
+  ∀ eq ∈ eqs, isDefEqCore μ env F 2 eq.1 eq.2 = .ok true
+
 /-- The `checkDivModPin` pack (`Setlec/Kernel/Checker.lean:638-658`):
 environment/pin guards, the stored value pinned `DefEq` to the vendored
 definition, and the certificate list. -/
@@ -274,6 +289,10 @@ def DeclDefnR (μ : CheckMode) (F : Nat) (env : Env) (cval : TConstVal)
       natOpGuard env₂ cv.name = true ∧
       (natOpDeps cv.name).all (natOpStoredOk env₂) = true ∧
       NatEqsR μ env cval
+        ((natOpEquations 0 cv.name).map fun eq =>
+          (Expr.substConst0 cv.name value' eq.1,
+           Expr.substConst0 cv.name value' eq.2)) ∧
+      NatEqsRunR μ F env
         ((natOpEquations 0 cv.name).map fun eq =>
           (Expr.substConst0 cv.name value' eq.1,
            Expr.substConst0 cv.name value' eq.2))) ∧
