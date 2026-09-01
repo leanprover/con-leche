@@ -386,6 +386,28 @@ theorem zeronessOfZ_sound (φ : Name → Nat) :
       have h2 : (Max.max (eval φ a) (eval φ b) == 0) = false := by simpa using hm
       rw [h1, if_neg hb, h2]
 
+/-! ### The bit readouts (task #161 P3 mirrors)
+
+`holds_substPWZ` below is the third of the P3 bit-readout trio (it
+predates them here because canonicity made it this side's primitive);
+these two mirror `PropWhen.holds_eq_of_equiv` and
+`PropWhen.holds_of_equiv_zeronessOf`. -/
+
+/-- Equivalent data read out equal bits at every valuation (≙
+`PropWhen.holds_eq_of_equiv`; here `equiv` is `==`). -/
+theorem _root_.Setlec.ZPropWhen.holds_eq_of_equiv {p q : ZPropWhen}
+    (h : ZPropWhen.equiv p q = true) (φ : Name → Nat) :
+    p.holds φ = q.holds φ :=
+  (ZPropWhen.equiv_iff_holds p q).mp h φ
+
+/-- **The establishment law** (≙ `PropWhen.holds_of_equiv_zeronessOf`):
+a datum validated against a computed codomain sort reads out that
+sort's zero bit at every ground valuation. -/
+theorem holds_of_equiv_zeronessOfZ {v : Level} {pw : ZPropWhen}
+    (h : ZPropWhen.equiv (zeronessOfZ v) pw = true) (φ : Name → Nat) :
+    pw.holds φ = (eval φ v == 0) := by
+  rw [← ZPropWhen.holds_eq_of_equiv h φ, zeronessOfZ_sound]
+
 /-! ### The pushforward's defining equations -/
 
 @[simp] theorem substPWZ_never (ks : List Name) (vs : List Level) :

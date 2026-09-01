@@ -11203,3 +11203,84 @@ concrete type.
 annotation — the fixture fragment is constant-free, and the pinned
 basis literals stay `.never` (`PinGen.lean` fills `⟨bi, .never⟩`);
 the pins' own Prop binders will need the generator route at P5.
+
+## Task #161 P3.1 SEAL: the bit laws, `denoteP`, and the unconditional level crossing (2026-09-01)
+
+P3/P4 go-order received (decline-surface review passed).  This is the
+first goal-phase seal: the piece-1/piece-3 groundwork and the pivot's
+first full payoff, all **proved** (no conditional forms).
+
+**The route, fixed by survey before writing anything.**  The
+collapse-free lane (`Interp2/*`, task #151) reads binder regimes off
+`AVExpr` numerals that `denote2` computes by *running the checker*
+(`sortOfE`/`lamSortE`) — the canonical-annotations resolution of WALL
+3 — and its frontier is exactly the runs' stability: residue 9
+(`BinderSortAgree2`, `Step2/DefEqRun.lean`: two independent sort runs
+on defeq'd bodies agree), `Denote2InstLevels` riding the *open*
+checker metatheorems `SortOfEInstLevels`/`LamSortEInstLevels`
+(`Step2/Levels.lean`, false-as-stated over a bare `Env`,
+`Step2/LevelsInst.lean`), and the Θ-frozen `EnvExtendStable`/
+`Denote2Total` family (`Keys2Bundle.lean`).  The P2 checker validates
+the *input's own* data at exactly the shapes these residues need:
+`interp2` reads numerals only through the `v = 0` test
+(`piR_zero_agree`/`lamR_zero_agree`), and the datum's bit at a ground
+valuation is that test.
+
+**Landed, all proved:**
+
+* **The bit-law battery** (both representations, as the ruling
+  requires): `PropWhen.holds_eq_of_equiv` (a passed comparison =
+  equal bits at every valuation), `PropWhen.holds_of_equiv_zeronessOf`
+  (a passed validation site = the computed sort's true zero bit — the
+  establishment law, reading the P2 run-inversion conjunct), and
+  `Level.holds_substPW` (the pushforward's semantic reading:
+  instantiate-then-read = read-at-`Level.substFn` — the crossing law).
+  Mirrors: `ZPropWhen.holds_eq_of_equiv`,
+  `Level.holds_of_equiv_zeronessOfZ` (`holds_substPWZ` predated,
+  canonicity's primitive).
+* **`denoteP`** (`Annot/Bit.lean`): `denote2`'s recursion with every
+  binder numeral `pwBit φ m.pw` — no checker runs, **no fuel, no
+  mode**.  `pwBit` lands in `{0,1}`, so checker-`equiv` data give
+  *equal* numerals (`pwBit_eq_of_equiv`) — the `zero_agree` step
+  becomes `rfl`-shaped where residue 9 lived.  The `pi` `u`-slot is
+  filled with `0`: `interp2`/`AnnotOk2` never read it, amendment 1
+  dropped the domain datum deliberately; a consumer that turns out to
+  read `u` is a named finding against the amendment, not a plumbing
+  gap.  `denoteP_erase` links to `denote` exactly as `denote2_erase`.
+* **`denotePInstLevels`** (`Step2/BitLevels.lean`) — the level
+  crossing, **unconditional and exact**:
+  `denoteP acval env φ d (e.instantiateLevelParams ks us) =
+  denoteP acval env (substFn φ ks us) d e`.  An *equality* (no fuel
+  slack, no `EnvWF`, no checker residue) where `Denote2InstLevels` is
+  a one-directional implication conditional on two open metatheorems.
+  Binder step = `pwBit_substPW`; constant step = `acval_params` +
+  `substFn_map_subst` as in the canonical walk.
+* **The λ→∀ meta copy, named** (piece 3): `infer_lam_meta_copy`
+  (`Verify/InferLemmas.lean`) — the inferred type of a λ is a ∀
+  carrying the λ's own meta (definitional in the λ clause), so the
+  inferred type needs no ∀-front-door pass: the λ's chain/leaf check
+  *is* the copied datum's validation, and both `denoteP` readings
+  dispatch on the same `pwBit φ m.pw`.
+* **The defensive-sites invariant, named** (the coordinator's
+  mandate): `DefensiveSitesQuiet` (`Verify/AnnotDefense.lean`) —
+  on inference-successful inputs, `isDefEqCore` never declines at
+  `(defeq-forall)`/`(defeq-lam)`/`(eta)`.  Statement only; to be
+  decided by proof or refutation, never assumed; the kernel checks
+  stay either way.
+
+**P3.2 (next, its own statement seal): `AnnotValidV` on the bit.**
+Design constraints fixed here: it must be establishable from the run
+inversions (the refuted `ValidInfer` metatheorem shape —
+`Annot/Validity.lean`, I8/`DefEq`-crossing — is OFF the table),
+preserved via `interp2_inst` + the bit laws, and shaped by its
+*consumers*: the `AnnotOk2` binder components (`v = 0 → fibres are
+truth values`) and the Step2 ladder's per-lemma premises, which the
+P3.2 survey walks before the definition is frozen.  The three owed
+`EnvWF` records (nfields = cnF; nat-op stored-value; defnInfo
+type-value) fold where those invariants state them — none was
+naturally stated by P3.1's pieces, so they remain owed.
+
+**Battery**: full build warning-free, `lake test`, harness (annot
+10/10, no-model sweep 138+72+10, split 11/11, mode 9/9), zero
+sorries; axioms on the new theorems exactly the standard three or
+fewer.

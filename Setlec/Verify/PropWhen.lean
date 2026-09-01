@@ -163,6 +163,29 @@ theorem paramsDefined_inter_of {params : List Name} {p q : PropWhen}
 theorem equiv_refl (p : PropWhen) : equiv p p = true :=
   (equiv_iff_holds p p).mpr fun _ => rfl
 
+/-! ## The bit readouts (task #161 P3)
+
+The P3 proofs consume validated annotations only through the *bit* a
+datum reads out at a ground valuation.  These are the two named
+readout laws: what a passed comparison says (`holds_eq_of_equiv`), and
+what a passed validation site says (`holds_of_equiv_zeronessOf` — the
+run inversions' `(zeronessOf v).equiv m.pw` conjunct, turned into the
+sort's zero bit). -/
+
+/-- Equivalent data read out equal bits at every valuation (the `mp`
+direction of `equiv_iff_holds`, named for the P3 API). -/
+theorem holds_eq_of_equiv {p q : PropWhen} (h : equiv p q = true)
+    (φ : Name → Nat) : p.holds φ = q.holds φ :=
+  (equiv_iff_holds p q).mp h φ
+
+/-- **The establishment law**: a datum the checker validated against a
+computed codomain sort reads out that sort's zero bit, at every ground
+valuation. -/
+theorem holds_of_equiv_zeronessOf {v : Setlec.Level} {pw : PropWhen}
+    (h : equiv (Setlec.Level.zeronessOf v) pw = true) (φ : Name → Nat) :
+    pw.holds φ = (Setlec.Level.eval φ v == 0) := by
+  rw [← holds_eq_of_equiv h φ, zeronessOf_sound]
+
 /-! ## `bindZ` algebra -/
 
 theorem inter_never_right (p : PropWhen) :
@@ -375,5 +398,26 @@ theorem substPW_paramsDefined {ks : List Name} {us : List Level}
         (zeronessOf_paramsDefined (hus _ (subst_go_mem
           (by simpa [List.contains_iff_mem] using h n (by simp)) hl)))
         (ih fun m hm => h m (by simp [hm]))
+
+/-- **The pushforward's semantic reading** (task #161 P3): the
+instantiated datum's bit at `φ` is the datum's bit at the composed
+valuation `Level.substFn φ ks vs` — the same composed valuation
+`denote2`'s constant clause uses.  The `denoteP` level crossing rides
+this where the canonical lane needed the open checker metatheorems
+(`SortOfEInstLevels`/`LamSortEInstLevels`,
+`Setlec/SetR/Interp2/Step2/Levels.lean`). -/
+theorem holds_substPW (φ : Name → Nat) (ks : List Name)
+    (vs : List Level) : ∀ pw : PropWhen,
+    (substPW ks vs pw).holds φ = pw.holds (substFn φ ks vs)
+  | .never => rfl
+  | .ifAllZero ps => by
+    show (PropWhen.bindZ.go _ ps).holds φ
+      = ps.all fun n => substFn φ ks vs n == 0
+    rw [holds_bindZ_go]
+    induction ps with
+    | nil => rfl
+    | cons n rest ih =>
+      simp only [List.all_cons, ih]
+      rw [zeronessOf_sound, eval_subst_go]
 
 end Setlec.Level

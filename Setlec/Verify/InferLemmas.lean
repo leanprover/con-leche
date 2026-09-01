@@ -254,6 +254,22 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
       intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
 
+/-- **The λ→∀ meta copy, named** (task #161 P3, piece 3): the type
+`inferTypeCore` returns for a λ is a `∀` carrying the λ's *own*
+binder meta — annotation included.  This is definitional
+(`Core.lean`'s λ clause returns `.forallE n ty (bt.abstract1 depth)
+mb`), and it is why an inferred type needs no ∀-front-door pass of its
+own: the codomain check the λ clause ran (chain or leaf) *is* the
+validation of the copied datum, and the `denoteP` readings of the λ
+and of its inferred type dispatch on the same regime numeral
+`pwBit φ m.pw` by their clause equations. -/
+theorem infer_lam_meta_copy {env : Env} {fuel d : Nat} {n : Name}
+    {ty body t : Expr} {m : BinderMeta}
+    (h : inferTypeCore mode env (fuel + 1) d (.lam n ty body m) = .ok t) :
+    ∃ bt, t = .forallE n ty bt m := by
+  obtain ⟨tty, u, bt, -, -, -, -, -, ht⟩ := inferTypeCore_lam_inv h
+  exact ⟨bt.abstract1 d, ht⟩
+
 /-- Inversion for the application rule of `inferTypeCore` (task #100
 de-gating: the per-argument re-check runs unconditionally — the former
 possibly-Prop gate of task #49 is unsound-to-model under the

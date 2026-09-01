@@ -9,6 +9,7 @@ import Setlec.Verify.Shift
 import Setlec.Verify.InstLevels
 import Setlec.Verify.EnvWF
 import Setlec.Verify.InferLemmas
+import Setlec.Verify.AnnotDefense
 import Setlec.SetTheory.Basic
 import Setlec.SetTheory.Core
 import Setlec.SetTheory.Derive.Collapse
