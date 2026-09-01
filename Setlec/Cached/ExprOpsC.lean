@@ -193,8 +193,9 @@ partial def instantiateRevGo (vs : Array ExprC) (memo : MemoNL)
         | .bvar i .. =>
           if i < d then (e, memo)
           else if i - d < k then
-            if h : vs.size - 1 - (i - d) < vs.size then
-              instantiateRevGo vs memo vs[vs.size - 1 - (i - d)] (i - d) d
+            if h : i - d < vs.size then
+              instantiateRevGo vs memo
+                (vs[vs.size - 1 - (i - d)]'(by omega)) (i - d) d
             else (e, memo)
           else (mkBVar (i - k), memo)
         | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
@@ -229,7 +230,15 @@ def instantiateRev (e : ExprC) (vs : Array ExprC) (d : Nat := 0) : ExprC :=
 /-! ## Abstraction -/
 
 /-- Core of `abstract1` (memoized; `d` is the abstracted fvar's level,
-`k` the binder cursor). -/
+`k` the binder cursor).
+
+**Documented deviation from the arena twin** (`abstract1IGo`, which has
+no such cutoff): a node whose cached fvar range is at or below `d`
+cannot contain `fvar d`, so it is returned unchanged.  The arena does
+not need the cutoff — its rebuild re-interns to the *same index* — but
+the clone's rebuild allocates, so returning the node itself is how the
+computed-field representation recovers the arena's idempotence.  Same
+value either way. -/
 partial def abstract1Go (d : Nat) (memo : MemoN) (e : ExprC) (k : Nat) :
     ExprC × MemoN :=
   if e.fvarB ≤ d then (e, memo) else
@@ -301,9 +310,12 @@ partial def abstractRangeGo (d k : Nat) (memo : MemoN) (e : ExprC) (c : Nat) :
         (mkProj s i s', memo)
     (r, memo.insert (e, c) r)
 
-/-- `Expr.abstractRange` on `ExprC`. -/
+/-- `Expr.abstractRange` on `ExprC` (`k = 0` is the identity and skips
+the traversal, as in the arena). -/
 def abstractRange (e : ExprC) (d k : Nat) (c : Nat := 0) : ExprC :=
-  if e.fvarB ≤ d then e else (abstractRangeGo d k {} e c).1
+  match k with
+  | 0 => e
+  | _ + 1 => if e.fvarB ≤ d then e else (abstractRangeGo d k {} e c).1
 
 /-! ## Level instantiation -/
 
