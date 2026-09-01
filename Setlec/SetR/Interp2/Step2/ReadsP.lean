@@ -1,6 +1,7 @@
 import Setlec.SetR.Interp2.Step2.InferP
 import Setlec.SetR.Interp2.Step2.WhnfP
 import Setlec.SetR.Interp2.Step2.DefEqP
+import Setlec.SetR.Interp2.Step2.ProjPinsP
 import Setlec.SetR.Annot.EnvS2P
 
 /-!
@@ -225,6 +226,125 @@ def ReduceNatReadsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
       Expr.WScoped d e₂ ∧ e₂.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded e₂
 
+/-! ## The two projection leaves, discharged from the walk itself
+(task #161, PROJ/STR tier)
+
+**Neither is a routed leaf after all.**  `WhnfCoreProjReadsP` and
+`InferProjReadsP` were stated as clause-granular obligations for the
+install tier on the reading that "the reduct is a spine argument of a
+`whnf`'d scrutinee selected by the projection table; reading it needs
+the table's own well-formedness".  What the tier finds is that the
+table's contribution is *arithmetic only* — `projPinsP`'s
+`numParams`/`numFields`/level-arity, plus `projResidualP`'s computed
+residual — and that every reading the two clauses need is the walk's
+own induction hypothesis at `fuel`, which `readsAllP_of` has in hand at
+exactly the point it uses them.
+
+So the **statements stand unchanged** and the two fields leave
+`ReadsInputsP`; what the install tier owes is the *semantic* projection
+rows (`ProjStepP`, `InferProjStepP`), not these.
+-/
+
+/-- **`WhnfCoreProjReadsP`, discharged.**  Both branches of the clause
+read: the stuck one is the projection of the reduced scrutinee (the
+subject's own `i < 2` carries over), the firing one is a spine argument
+of a constructor application, head-normalised — and a spine argument of
+a reading reads (`DenoteSpineP.mem`). -/
+theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
+    (ihwc : WhnfCoreReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
+    WhnfCoreProjReadsP μ m φ fuel := by
+  intro d i sn pe e' ea h hws hb hLb hea
+  obtain ⟨e₂, e₃, hwpe, hlit, hcase⟩ := Setlec.whnf_proj_inv h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded] at hb
+  have hLpe : Expr.LeavesBounded pe := fun l hl =>
+    hLb l (by simpa [Expr.fvarLeaves] using hl)
+  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv hea
+  -- the reduced scrutinee
+  obtain ⟨v₂, hv₂⟩ := ihw hwpe hws hb hLpe hvp
+  have hw₂ : Expr.WScoped d e₂ := Setlec.whnf_WScoped m.base.wf fuel hwpe hws
+  have hb₂ : e₂.looseBVarsBounded 0 = true :=
+    Setlec.whnf_looseBVars m.base.wf fuel hwpe hb
+  have hL₂ : Expr.LeavesBounded e₂ := fun l hl =>
+    hLpe l (Setlec.whnf_fvarLeaves m.base.wf fuel hwpe l hl)
+  -- the string-literal expansion, if it fired
+  obtain ⟨v₃, hv₃, hw₃, hb₃, hL₃⟩ :
+      ∃ v₃, denoteP m.acval env φ d e₃ = some v₃ ∧
+        Expr.WScoped d e₃ ∧ e₃.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded e₃ := by
+    rcases Setlec.projLitToCtorP_inv hlit with rfl | ⟨st, rfl, hg, hred⟩
+    · exact ⟨v₂, hv₂, hw₂, hb₂, hL₂⟩
+    · obtain ⟨hSC, hwc, hbc, hLc, -⟩ := denotePStrLit_of_guard d st hg hv₂
+      obtain ⟨v₃, hv₃⟩ := ihw hred hwc hbc hLc hSC
+      exact ⟨v₃, hv₃, Setlec.whnf_WScoped m.base.wf fuel hred hwc,
+        Setlec.whnf_looseBVars m.base.wf fuel hred hbc,
+        fun l hl => hLc l (Setlec.whnf_fvarLeaves m.base.wf fuel hred l hl)⟩
+  rcases hcase with rfl | ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU,
+    hwcf, -, -⟩
+  · exact ⟨.proj i v₃, by rw [denoteP_proj, hv₃]; exact if_pos hi2⟩
+  · -- the table fires: the reduct is a head-normalised spine argument
+    have hmem : e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)
+        ∈ e₃.getAppArgs := Setlec.getD_mem (by rw [hlenA]; omega)
+    have hwF : Expr.WScoped d
+      (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
+      hw₃.getAppArgs _ hmem
+    have hbF : (e₃.getAppArgs.getD (entry.numParams + i)
+      (.bvar 0)).looseBVarsBounded 0 = true :=
+      Setlec.looseBVarsBounded_getAppArgs hb₃ _ hmem
+    have hLF : Expr.LeavesBounded
+      (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) := fun l hl =>
+      hL₃ l (Setlec.fvarLeaves_getAppArgs hmem l hl)
+    rw [show e₃ = Expr.mkAppN e₃.getAppFn e₃.getAppArgs from
+      (Setlec.Expr.mkAppN_getApp e₃).symm] at hv₃
+    obtain ⟨-, vs, -, hspa, -⟩ := denoteP_mkAppN_inv hv₃
+    obtain ⟨vf, hvf⟩ := hspa.mem _ hmem
+    exact ihwc hwcf hwF hbF hLF hvf
+
+/-- **`InferProjReadsP`, discharged.**  The returned type is
+`projResidualP`'s computed residual: the first parameter of the reduced
+subject type, or the second applied to `pe.1`.  Both read — the
+parameters because the reduced type reads (`ihi` then `ihw`), the
+projection node because the subject's own reading supplies `i < 2`. -/
+theorem inferProjReadsP_of {m : EnvS2Core V env}
+    (ihi : InferReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
+    InferProjReadsP μ m φ fuel := by
+  intro d i sn pe t ea h hws hb hLb hlr hea
+  obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
+    hlenUs, -, hres⟩ := Setlec.inferTypeCore_proj_inv h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded] at hb
+  have hLpe : Expr.LeavesBounded pe := fun l hl =>
+    hLb l (by simpa [Expr.fvarLeaves] using hl)
+  have hlrpe : LeafReadsP m φ d pe :=
+    hlr.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
+  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv hea
+  -- the subject's type, and its head normal form
+  obtain ⟨tpea, htpea⟩ := ihi htpe hws hb hLpe hlrpe hvp
+  have hwtpe : Expr.WScoped d tpe :=
+    inferTypeCore_WScoped m.base.wf fuel htpe hws
+  have hbtpe : tpe.looseBVarsBounded 0 = true :=
+    inferTypeCore_looseBVars m.base.wf fuel htpe hws hb hLpe
+  have hLtpe : Expr.LeavesBounded tpe := fun l hl =>
+    hLpe l (inferTypeCore_fvarLeaves m.base.wf fuel htpe hws l hl)
+  obtain ⟨tea, htea⟩ := ihw hwte hwtpe hbtpe hLtpe htpea
+  have hbte : te.looseBVarsBounded 0 = true :=
+    Setlec.whnf_looseBVars m.base.wf fuel hwte hbtpe
+  -- the returned type, computed at the pinned entry
+  obtain ⟨A, B, hAB, hcase⟩ :=
+    projResidualP m.base.proj_ok hfe hnat hlenArgs hlenUs
+      (fun x hx => Setlec.looseBVarsBounded_getAppArgs hbte x hx) hres
+  -- the reduced type's parameter spine reads
+  rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
+    (Setlec.Expr.mkAppN_getApp te).symm] at htea
+  obtain ⟨-, vs, -, hspt, -⟩ := denoteP_mkAppN_inv htea
+  rw [hAB] at hspt
+  rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
+  · exact hspt.mem t (by simp)
+  · obtain ⟨Ba, hBa⟩ := hspt.mem B (by simp)
+    exact ⟨.app Ba (.proj 0 vp), by
+      rw [denoteP_app, hBa, denoteP_proj, hvp]
+      simp⟩
+
 /-! ## T3a — the `whnfCore` clauses -/
 
 /-- The six shapes `whnfCoreBody` returns unchanged: the reduct *is*
@@ -360,8 +480,7 @@ private theorem whnfCoreReads_app {m : EnvS2Core V env}
 /-- **`WhnfCoreReadsP` at `fuel + 1`** — the ten shapes. -/
 theorem whnfCoreReadsP_succ {m : EnvS2Core V env}
     (hiota : IotaReadsP μ m φ fuel)
-    (hproj : WhnfCoreProjReadsP μ m φ fuel)
-    (ihwc : WhnfCoreReadsP m μ φ fuel) :
+    (ihwc : WhnfCoreReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     WhnfCoreReadsP m μ φ (fuel + 1) := by
   intro d e e' ea h hws hb hLb hea
   match e with
@@ -384,7 +503,8 @@ theorem whnfCoreReadsP_succ {m : EnvS2Core V env}
   | .letE nn tt vv bb =>
     exact whnfCoreReads_letE ihwc h hws hb hLb hea
   | .app f a => exact whnfCoreReads_app hiota ihwc h hws hb hLb hea
-  | .proj sn i pe => exact hproj h hws hb hLb hea
+  | .proj sn i pe =>
+    exact whnfCoreProjReadsP_of ihwc ihw h hws hb hLb hea
 
 /-! ## T3b — the `whnf` reduction loop
 
@@ -749,7 +869,7 @@ private theorem inferReads_letE {m : EnvS2Core V env}
 
 /-- **`InferReadsP` at `fuel + 1`** — the eleven shapes. -/
 theorem inferReadsP_succ {m : EnvS2Core V env}
-    (hct : ConstTypeP m φ) (hproj : InferProjReadsP μ m φ fuel)
+    (hct : ConstTypeP m φ)
     (ihi : InferReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     InferReadsP m μ φ (fuel + 1) := by
   intro d e t ea h hws hb hLb hlr hea
@@ -766,7 +886,8 @@ theorem inferReadsP_succ {m : EnvS2Core V env}
   | .app f a => exact inferReads_app ihi ihw h hws hb hLb hlr hea
   | .letE nn tt vv bb =>
     exact inferReads_letE ihi h hws hb hLb hlr hea
-  | .proj sn i pe => exact hproj h hws hb hLb hlr hea
+  | .proj sn i pe =>
+    exact inferProjReadsP_of ihi ihw h hws hb hLb hlr hea
 
 /-! # The joint induction and the routed bundle -/
 
@@ -799,10 +920,6 @@ structure ReadsInputsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
   defn : AcvalDefnInstP m
   /-- a fired ι rule's right-hand side reads — **iota tier** -/
   iota : ∀ fuel, IotaReadsP μ m φ fuel
-  /-- `whnfCore`'s projection clause — **install tier** -/
-  whnf_proj : ∀ fuel, WhnfCoreProjReadsP μ m φ fuel
-  /-- `infer`'s projection clause — **install tier** -/
-  infer_proj : ∀ fuel, InferProjReadsP μ m φ fuel
   /-- the literal acceleration's output reads — **literal tier** -/
   nat : ∀ fuel, ReduceNatReadsP μ m φ fuel
 
@@ -811,15 +928,11 @@ structure ReadsInputsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 structure owes only the four clause-granular leaves. -/
 theorem ReadsInputsP.ofEnvS2PM (mp : EnvS2PM V μ env)
     (hiota : ∀ fuel, IotaReadsP μ mp.base2 φ fuel)
-    (hwproj : ∀ fuel, WhnfCoreProjReadsP μ mp.base2 φ fuel)
-    (hiproj : ∀ fuel, InferProjReadsP μ mp.base2 φ fuel)
     (hnat : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel) :
     ReadsInputsP μ mp.base2 φ where
   const_ty := mp.constTypeP
   defn := mp.defn_reads
   iota := hiota
-  whnf_proj := hwproj
-  infer_proj := hiproj
   nat := hnat
 
 /-- **The walk, at every fuel.**  One induction, three statements: the
@@ -830,11 +943,10 @@ theorem readsAllP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
   | 0 => readsAllP_zero m
   | fuel + 1 =>
     let ih := readsAllP_of hin fuel
-    ⟨whnfCoreReadsP_succ (hin.iota fuel) (hin.whnf_proj fuel) ih.1,
+    ⟨whnfCoreReadsP_succ (hin.iota fuel) ih.1 ih.2.1,
       whnfReadsP_succ ih.1 (hin.nat fuel)
         (deltaP_of m hin.defn),
-      inferReadsP_succ hin.const_ty (hin.infer_proj fuel) ih.2.2
-        ih.2.1⟩
+      inferReadsP_succ hin.const_ty ih.2.2 ih.2.1⟩
 
 /-! # The six residues, supplied
 

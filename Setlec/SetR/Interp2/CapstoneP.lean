@@ -126,10 +126,6 @@ structure SemTierInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
   iota : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), IotaStepP μ m φ fuel
   /-- proj/str install tier -/
-  whnf_proj_reads : ∀ {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) (fuel : Nat), WhnfCoreProjReadsP μ m φ fuel
-  infer_proj_reads : ∀ {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) (fuel : Nat), InferProjReadsP μ m φ fuel
   whnf_proj : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), ProjStepP μ m φ fuel
   infer_proj : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
@@ -150,8 +146,6 @@ theorem TierInputsAtP.ofSem (hsem : SemTierInputsP V μ)
     TierInputsAtP V μ mp.base2 φ :=
   TierInputsAtP.ofEnvS2PM mp
     (fun fuel => hsem.iota_reads mp.base2 φ fuel)
-    (fun fuel => hsem.whnf_proj_reads mp.base2 φ fuel)
-    (fun fuel => hsem.infer_proj_reads mp.base2 φ fuel)
     (fun fuel => reduceNatReadsP_of mp.base2 φ fuel)
     (fun fuel => hsem.infer_proj mp.base2 φ fuel)
     (fun fuel => hsem.iota mp.base2 φ fuel)

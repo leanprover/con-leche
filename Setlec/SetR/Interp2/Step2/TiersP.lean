@@ -175,8 +175,6 @@ heads; what remains as arguments is exactly the semantic-content bill
 by its tier in the frontier-transformation table. -/
 theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
     (hiota_r : ∀ fuel, IotaReadsP μ mp.base2 φ fuel)
-    (hwproj_r : ∀ fuel, WhnfCoreProjReadsP μ mp.base2 φ fuel)
-    (hiproj_r : ∀ fuel, InferProjReadsP μ mp.base2 φ fuel)
     (hnat_r : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel)
     (hiproj : ∀ fuel, InferProjStepP mp.base2 μ φ fuel)
     (hiota : ∀ fuel, IotaStepP μ mp.base2 φ fuel)
@@ -187,7 +185,7 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
       WhnfClaims2P μ mp.base2 φ fuel →
         ReduceNatStepPQ μ mp.base2 φ fuel) :
     TierInputsAtP V μ mp.base2 φ where
-  reads := ReadsInputsP.ofEnvS2PM mp hiota_r hwproj_r hiproj_r hnat_r
+  reads := ReadsInputsP.ofEnvS2PM mp hiota_r hnat_r
   acval_valid := mp.acvalValidP
   nat_heads := mp.nat_heads φ
   infer_proj := hiproj
