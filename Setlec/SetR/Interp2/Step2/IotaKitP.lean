@@ -345,4 +345,56 @@ theorem certs_telePA {m : EnvS2Core V env}
     exact ⟨resta, fun ρ hρ =>
       .cons ((hdeq ρ hρ) ▸ hmemA ρ hρ) (hfit ρ hρ), hokR⟩
 
+/-! ## From a substitution-peeling fit to a graded application
+
+`annotOkP_mkAppN_of_fit`'s twin at `TeleFitPA`.  The caps version keeps
+the type's environment `σ` separate from the spine's `ρ` because its
+fit peels into `cons`-extensions; this one peels by substitution, so
+there is one environment throughout and `interp2_inst0` is the only
+commutation. -/
+
+/-- **A `TeleFitPA` fit plus the type's grading grades the applied
+spine**, and places it in the residual's reading. -/
+theorem annotOkP_mkAppN_of_fitA {ρ : Nat → V} :
+    ∀ (vs : List AVExpr) {Ta f rest : AVExpr},
+      AnnotOkP V ρ Ta → AnnotOkP V ρ f →
+      (∀ x ∈ vs, AnnotOkP V ρ x) →
+      interp2 V ρ f ∈ˢ interp2 V ρ Ta →
+      TeleFitPA V ρ Ta vs rest →
+      AnnotOkP V ρ (AVExpr.mkAppN f vs) ∧
+        interp2 V ρ (AVExpr.mkAppN f vs) ∈ˢ interp2 V ρ rest := by
+  intro vs
+  induction vs with
+  | nil =>
+    intro Ta f rest _ hf _ hmem hfit
+    cases hfit
+    exact ⟨hf, hmem⟩
+  | cons x xs ih =>
+    intro Ta f rest hokT hf hoks hmem hfit
+    cases hfit with
+    | @cons u v A B _ _ _ hx hfit' =>
+      have hokA : AnnotOkP V ρ A :=
+        ⟨((AnnotOk2_pi V ρ u v A B) ▸ hokT.1).1,
+          ((AnnotValidV_pi V ρ u v A B) ▸ hokT.2).1⟩
+      have hokB : ∀ y, y ∈ˢ interp2 V ρ A → AnnotOkP V (cons y ρ) B :=
+        fun y hy =>
+          ⟨((AnnotOk2_pi V ρ u v A B) ▸ hokT.1).2 y hy,
+            ((AnnotValidV_pi V ρ u v A B) ▸ hokT.2).2.1 y hy⟩
+      have hfib : v = 0 → ∀ y, y ∈ˢ interp2 V ρ A →
+          interp2 V (cons y ρ) B ∈ˢ (univZero : V) :=
+        ((AnnotValidV_pi V ρ u v A B) ▸ hokT.2).2.2
+      rw [interp2_pi] at hmem
+      have hokx : AnnotOkP V ρ x := hoks x List.mem_cons_self
+      have hstep : AnnotOkP V ρ (.app f x) := by
+        refine ⟨?_, ?_⟩
+        · rw [AnnotOk2_app]
+          exact ⟨hf.1, hokx.1, v, interp2 V ρ A,
+            (fun y => interp2 V (cons y ρ) B), hmem, hx, hfib⟩
+        · rw [AnnotValidV_app]; exact ⟨hf.2, hokx.2⟩
+      have hmem' : interp2 V ρ (.app f x) ∈ˢ interp2 V ρ (B.inst x) := by
+        rw [interp2_inst0, interp2_app]
+        exact app_mem_piR hmem hx hfib
+      exact ih ((AnnotOkP_inst0 hokx).mpr (hokB _ hx)) hstep
+        (fun y hy => hoks y (List.mem_cons_of_mem x hy)) hmem' hfit'
+
 end Setlec.SetR.Interp2
