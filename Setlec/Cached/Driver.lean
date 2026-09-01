@@ -1,0 +1,67 @@
+import Setlec.Cached.CheckerC
+import Setlec.Kernel.WFStore
+
+/-!
+# The pilot's driver seam
+
+Three declaration folds with the *same* signature as the production
+`checkDeclsSP`, so the binary selects one and nothing else changes:
+
+* `checkDeclsSP` (production, unchanged) — parsed indices all the way
+  down: the parse arena seeds the run's single `IState`, declarations
+  stay as `DeclP`, and the tier-two snapshot bracket applies;
+* `checkDeclsSharedI` — the interned core under the **`Expr`-typed**
+  shared-state driver (`Setlec.checkDeclsShared`, already in the
+  kernel): declarations are read back from the parse arena first;
+* `checkDeclsSharedC` — the cached-clone core under the same
+  `Expr`-typed shared-state driver.
+
+The last two are the pilot's controlled pair: identical declaration
+checker, identical `FEnv` indexing, identical per-declaration state
+lifetime and flush discipline, identical input objects — the *only*
+difference is what the core computes on.  `checkDeclsSP` is reported
+alongside as the production reference; it additionally carries
+parse-time interning and the snapshot bracket, which are arena
+mechanisms with no clone counterpart, so a `SP`-vs-clone gap mixes
+representation with driver.
+-/
+
+namespace Setlec.Cached
+
+open Setlec
+
+/-- Read the parsed declarations back as `Expr`-level `Declaration`s
+(the input both `Expr`-typed drivers consume). -/
+def declsOfP (st : EStore) : List DeclP → CheckM (List Declaration)
+  | [] => pure []
+  | pd :: rest =>
+    match st.readbackDecl pd with
+    | some d => do
+      let ds ← declsOfP st rest
+      pure (d :: ds)
+    | none => throw (.internal "parse-arena declaration readback failed")
+
+/-- The cached-clone fold. -/
+def checkDeclsSharedC (mode : CheckMode) (st : WFStore)
+    (pds : List DeclP) : CheckM Env := do
+  let ds ← declsOfP st.raw pds
+  checkDeclsShared mode ds
+
+/-- The interned-core fold under the same `Expr`-typed driver. -/
+def checkDeclsSharedI (mode : CheckMode) (st : WFStore)
+    (pds : List DeclP) : CheckM Env := do
+  let ds ← declsOfP st.raw pds
+  Setlec.checkDeclsShared mode ds
+
+/-- Which core/driver pair the binary runs (the pilot's measurement
+knob; the default is the production one). -/
+inductive CoreVariant where
+  /-- `checkDeclsSP`: the production parsed-index driver. -/
+  | production
+  /-- `checkDeclsSharedI`: interned core, `Expr`-typed shared driver. -/
+  | internedShared
+  /-- `checkDeclsSharedC`: cached-clone core, same driver. -/
+  | cached
+  deriving DecidableEq, Repr, Inhabited
+
+end Setlec.Cached
