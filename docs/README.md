@@ -14,6 +14,12 @@
   (McTT, Abel–Öhman–Vezzosi), partiality/convergence in logical relations,
   code-indexed Kripke relations.
 
-All three surveys were produced 2026-09-01 from primary sources (PDFs and source
+- `lit-user-papers-2026-09.md` — assessment of three user-supplied 2026 papers:
+  Carneiro et al. "Definitional Inversion, Without Normalisation" (arXiv:2607.13662);
+  Felicissimo et al. "Definitional Proof Irrelevance Made Accessible" (LICS 2026);
+  Felicissimo et al. "Consolidating Equality in a Proof Irrelevant Universe"
+  (hal-05688985) — bearing on the Θ/NbE lanes and the set-model program.
+
+All surveys were produced 2026-09-01 from primary sources (PDFs and source
 trees read directly); quotes are verbatim from those sources, with unverifiable
 items flagged in each report's final section.
