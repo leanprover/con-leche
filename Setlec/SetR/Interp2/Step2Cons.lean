@@ -337,7 +337,7 @@ theorem exists_leaf_of_valueFrontR {F : Nat} {cval : TConstVal}
     (hvf : ValueFrontR μ F env cval cv value type' value') :
     ∃ A : (Name → Nat) → AVExpr, ∀ ψ : Name → Nat, ∃ F' : Nat,
       denote2 μ acval env ψ F' 0 value' = some (A ψ) := by
-  obtain ⟨vtype, hvt⟩ := hvf.2.2.2.2.2.1
+  obtain ⟨vtype, hvt, -⟩ := hvf.2.2.2.2.2.1
   exact ⟨fun ψ => (hrun ψ value' vtype F hvt).choose_spec.choose,
     fun ψ => ⟨(hrun ψ value' vtype F hvt).choose,
       (hrun ψ value' vtype F hvt).choose_spec.choose_spec⟩⟩
@@ -353,7 +353,7 @@ theorem newBodyFrontR_of_valueFrontR {F : Nat} {cval : TConstVal}
     (htb : ∀ (cv2 : ConstantVal) (v2 : Expr),
       c₀ = ConstantInfo.thmInfo cv2 v2 → v2 = value') :
     NewBodyFrontR μ env c₀ := by
-  obtain ⟨vtype, hvt⟩ := hvf.2.2.2.2.2.1
+  obtain ⟨vtype, hvt, -⟩ := hvf.2.2.2.2.2.1
   constructor
   · intro cv2 v2 h2 heq
     obtain rfl := hdb cv2 v2 h2 heq

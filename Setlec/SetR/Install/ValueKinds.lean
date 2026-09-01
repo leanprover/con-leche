@@ -89,7 +89,10 @@ theorem declThmS {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {cv : ConstantVal} {value : Expr} (m : EnvS V env)
     (h : DeclThmR μ F env m.cval cv value env₂) :
     ∃ m' : EnvS V env₂, ∀ n, n ≠ cv.name → m.cval n = m'.cval n := by
-  obtain ⟨type', value', hcv, hprop, hvfr, rfl⟩ := h
+  -- the `-` is task #161 P4 H1's added prop-check run triple, which
+  -- this v1 install does not spend (the semantic `hprop` is what the
+  -- `EnvS` field wants); the P tier reads it off `DeclThmR` directly.
+  obtain ⟨type', value', hcv, -, hprop, hvfr, rfl⟩ := h
   obtain ⟨hfind, hres, hpshape, hnd, hlbt, hitf, hann, htp, htr, hfrontT⟩ :=
     hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, hfrontV⟩ := hvfr

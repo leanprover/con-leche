@@ -145,7 +145,7 @@ theorem valueFrontR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
     (hde : isDefEqCore μ env F 0 vtype type' = .ok true)
     (hcv : ConstantValR μ F env m.cval cv type') :
     ValueFrontR μ F env m.cval cv value type' value' := by
-  refine ⟨hlbv, hivf, hannv, hvp, hvr, ⟨vtype, hvt⟩, fun φ => ?_⟩
+  refine ⟨hlbv, hivf, hannv, hvp, hvr, ⟨vtype, hvt, hde⟩, fun φ => ?_⟩
   obtain ⟨-, -, ihd, ihi⟩ := checkBridge m φ F
   have hvf' : value'.hasFvar = false :=
     Expr.not_hasFvar_of_fvarsBelow_zero
@@ -442,7 +442,7 @@ theorem reducePinR_of {V : Type w} [SetTheory V] {env env' : Env}
   have hEty : reduceElemTy c = .const (reduceElemName c) [] := by
     unfold reduceElemTy reduceElemName
     split <;> rfl
-  refine ⟨hstored, helem, hpg, valA, pinA, hva, hpa, fun φ => ?_⟩
+  refine ⟨hstored, helem, hpg, valA, pinA, hva, hpa, hp2, fun φ => ?_⟩
   -- the element type denotes to the pinned valuation, at any depth
   have hE : ∀ d, denote m.cval env φ d (reduceElemTy c)
       = some (m.cval (reduceElemName c) φ) := by
@@ -609,7 +609,8 @@ theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
   | false => exact nomatch h
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
-  refine ⟨type, value', hcv, fun φ => ?_,
+  refine ⟨type, value', hcv, ⟨stype2, u2, hst2, hsort2, hpz⟩,
+    fun φ => ?_,
     valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt hde
       hcv,
     h.symm⟩
