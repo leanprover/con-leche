@@ -131,6 +131,7 @@ import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.Bit
 import Setlec.SetR.Annot.BitLemmas
 import Setlec.SetR.Annot.BitShift
+import Setlec.SetR.Annot.BitClosed
 import Setlec.SetR.Interp2.Step2.BitLevels
 import Setlec.SetR.Annot.SimSubst
 import Setlec.SetR.Annot.PremiseLadder
