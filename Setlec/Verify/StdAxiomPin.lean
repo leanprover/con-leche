@@ -9,6 +9,19 @@ import Setlec.Verify.OfReducePin
 reasoning — no valuation, no typing judgement — so they belong in the
 shared tier by task #123's criterion, and both soundness routes read
 them.  Relocated verbatim from `Setlec/TTVerify/StdAxiomKey.lean`.
+
+**Task #161 P5 — the shape statements track the pin exactly.**  Six
+conclusions here read `cv.type.erasePw.eraseNames = pinA.type.erasePw
+.eraseNames` where they used to read `cv.type.eraseNames =
+pinA.type.eraseNames`.  That is not a weakening of what is *proved*:
+`ConstantVal.matchesPin` itself now compares through `Expr.erasePw`
+(the pins carry the generated prop-ness data while the compared side
+carries whatever the mode produced — nothing at `--no-model`), so the
+stronger statement is simply no longer true of the hypothesis.  The
+consumers lose nothing: what they need of these equalities is the
+denotation, and `denote_erasePw` (`Verify/Denote/Inst.lean`) says
+`erasePw` is invisible to it, so a `pw`-erased shape fact denotes
+exactly as the un-erased one did.
 -/
 
 namespace Setlec.TTVerify
@@ -21,14 +34,14 @@ theorem iff_shapes {env : Env} {cvA : ConstantVal}
     env.find? eqName = some eqA ∧
     (∃ cvI caps, env.find? iffName = some (.indInfo cvI caps) ∧
       cvI.levelParams = [] ∧
-      cvI.type.eraseNames = iffA.toConstantVal.type.eraseNames) ∧
+      cvI.type.erasePw.eraseNames = iffA.toConstantVal.type.erasePw.eraseNames) ∧
     (∃ cvIi, env.find? iffIntroName = some (.ctorInfo cvIi 2 2) ∧
       cvIi.levelParams = [] ∧
-      cvIi.type.eraseNames = iffIntroA.toConstantVal.type.eraseNames) ∧
+      cvIi.type.erasePw.eraseNames = iffIntroA.toConstantVal.type.erasePw.eraseNames) ∧
     (∃ cvIr mI rP rules,
       env.find? iffRecName = some (.recInfo cvIr mI rP rules) ∧
       cvIr.levelParams = iffRecA.toConstantVal.levelParams ∧
-      cvIr.type.eraseNames = iffRecA.toConstantVal.type.eraseNames) ∧
+      cvIr.type.erasePw.eraseNames = iffRecA.toConstantVal.type.erasePw.eraseNames) ∧
     ConstantVal.matchesPin cvA propextA = true := by
   rw [stdAxiomOk, if_pos hp] at h
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
@@ -78,14 +91,14 @@ theorem nonempty_shapes {env : Env} {cvA : ConstantVal}
     (h : stdAxiomOk env cvA = true) (hc : cvA.name = choiceName) :
     (∃ cvN caps, env.find? nonemptyName = some (.indInfo cvN caps) ∧
       cvN.levelParams = nonemptyA.toConstantVal.levelParams ∧
-      cvN.type.eraseNames = nonemptyA.toConstantVal.type.eraseNames) ∧
+      cvN.type.erasePw.eraseNames = nonemptyA.toConstantVal.type.erasePw.eraseNames) ∧
     (∃ cvNi, env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1) ∧
       cvNi.levelParams = nonemptyIntroA.toConstantVal.levelParams ∧
-      cvNi.type.eraseNames = nonemptyIntroA.toConstantVal.type.eraseNames) ∧
+      cvNi.type.erasePw.eraseNames = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames) ∧
     (∃ cvNr mI rP rules,
       env.find? nonemptyRecName = some (.recInfo cvNr mI rP rules) ∧
       cvNr.levelParams = nonemptyRecA.toConstantVal.levelParams ∧
-      cvNr.type.eraseNames = nonemptyRecA.toConstantVal.type.eraseNames) ∧
+      cvNr.type.erasePw.eraseNames = nonemptyRecA.toConstantVal.type.erasePw.eraseNames) ∧
     ConstantVal.matchesPin cvA choiceA = true := by
   rw [stdAxiomOk, if_neg (by rw [hc]; decide), if_pos hc] at h
   simp only [Bool.and_eq_true] at h
