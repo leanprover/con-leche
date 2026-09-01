@@ -11655,3 +11655,57 @@ green (build warning-free, `lake test`, annot 10/10, no-model sweep
 
 Zero sorries stand between here and the capstone: every remaining
 obligation is a named routed `Prop` with its discharge tier recorded.
+
+## Task #161 P4.5 SEAL: the capstone frozen; the harvest mapped to its seams (2026-09-01)
+
+**Landed, proved (standard axioms, battery green):**
+
+* `no_constant_of_Empty_P` (`CapstoneP.lean`) — the capstone's
+  business end: an `EnvS2PM` environment stores no `Empty`-typed
+  constant, the membership read entirely at the validated-annotation
+  tier (`mem_typeP` over `denoteP`/`interp2`; both failure modes of
+  the constant clause read off `type_reads`' totality — no WF-clause
+  routing).
+* **The final statement, frozen** (module docstring, checked against
+  the goal's letter, hypothesis-minimal per the #16 precedent):
+  `no_proof_of_Empty_P` = accepted run + stored constant + its type +
+  the validating mode ⇒ `False`.  No residue hypotheses in the final
+  form; `SemTierInputsP` (the four tiers, ∀-env form) is the
+  *milestone* conditional shape only, and `TierInputsAtP.ofSem` is its
+  consumer seam into the env-fixed assembly.
+
+**The harvest layer, mapped to its exact seams** (the per-kind work
+that remains, defn kind first):
+
+1. run → relation: `checkDeclR_sound` (v1, landed) gives `DeclDefnR` —
+   `ConstantValR` (the type front door's runs at the annotate-
+   normalized `type'`), `ValueFrontR` (the value runs at `value'`),
+   and the `env₂` shape.  NOTE the annotate-normalization wrinkle:
+   the stored forms are `type'`/`value'`, so the P leaf is
+   `A ψ := (denoteP … ψ 0 value').get` and every claims application
+   is at the primed forms.
+2. the v1 base, constructively: NOT `declStepS` (its `Nonempty`
+   erases the construction) — the seam is `Installs`
+   (`Verify/Denote/Install.lean:755`, carrying `fresh`/`ag`/`lit`)
+   + `EnvS.cons` (`Install/Cons.lean:454`): the v1 per-kind install
+   replayed at the constructive level supplies
+   `declStepPM_of_cons`'s `hbase`/`hag`/`hlga` (the `lit` field is
+   `LitGuardsAgree`'s content).
+3. the P side: `checkSoundAtP` at the prefix (via
+   `TierInputsAtP.ofSem` + the prefix `EnvS2PM`), applied to
+   `ConstantValR`/`ValueFrontR`'s runs, yields
+   `hAok`/`hAvalid`/`htyReads`/`htyOk`/`hmemNew`/`hvalReads` — the
+   subject-readability premises route through the reads bundle
+   (accepted declarations' primed forms read: the front door's
+   acceptance guards are `denoteP`'s fragment guards; the totality
+   walk over *input* expressions is part of the proj/literal tiers'
+   completion).
+4. the fold: `EnvSPOk := Nonempty (EnvS2PM) ∧ EtaFamiliesClosed`,
+   mirroring `foldlM_R`'s recursion; the conditional milestone
+   `checkDecls + SemTierInputsP ⇒ Nonempty (EnvS2PM env')`; then the
+   frozen capstone via `no_constant_of_Empty_P`.
+
+**The owed `EnvWF` records**: still not demanded — the fold species
+and the Empty argument consumed only existing `ConstWF` clauses.  If
+they surface anywhere, it is at step 1-3's per-kind inversions;
+re-check there.
