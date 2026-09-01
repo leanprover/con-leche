@@ -47,20 +47,22 @@ private theorem defeqI_etaR_arm (ih : SSimI mode env f) (henv : EnvWF env)
     (hbody₂ : s₀.store.denoteT b₂ = some body₂x)
     (hbS : s₀.store.denoteT b' = some (.lam nm₂x ty₂x body₂x bm₂))
     (hwa' : WScoped d a'x)
-    (hwb' : WScoped d (Expr.lam nm₂x ty₂x body₂x bm₂)) :
+    (hwb' : WScoped d (Expr.lam nm₂x ty₂x body₂x bm₂))
+    (hbm₂ : denoteBM s₀.store.denoteL m₂ = some bm₂) :
     SimAt mode env s₀ RelV
-      (etaCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d nm₂ t₂ b₂ m₂
-          a' >>= fun r =>
+      (etaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
+          nm₂ t₂ b₂ m₂ a' >>= fun r =>
         if r then pure true
         else stuckIrrelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
-      (etaCert (fueledFns mode env) env d nm₂x ty₂x body₂x bm₂ a'x >>= fun r =>
+      (etaCert mode (fueledFns mode env) env d nm₂x ty₂x body₂x bm₂
+          a'x >>= fun r =>
         if r then pure true
         else stuckIrrel mode (fueledFns mode env) env d a'x
           (.lam nm₂x ty₂x body₂x bm₂)) := by
   have h2 : WScoped d ty₂x ∧ WScoped d body₂x := by
     simpa only [WScoped] using hwb'
   refine SimAt.bind (etaCertI_sim ih hnm₂ hty₂ hbody₂ haS h2.1 h2.2
-    hwa' (s₀ := s₀) (hs := hs)) (fun s₁ r r' hs₁ hext₁ hP => ?_)
+    hwa' hbm₂ (s₀ := s₀) (hs := hs)) (fun s₁ r r' hs₁ hext₁ hP => ?_)
   obtain rfl : r = r' := hP
   cases r with
   | true =>
@@ -82,20 +84,22 @@ private theorem defeqI_etaL_arm (ih : SSimI mode env f) (henv : EnvWF env)
     (hbody₁ : s₀.store.denoteT b₁ = some body₁x)
     (hbS : s₀.store.denoteT b' = some b'x)
     (hwa' : WScoped d (Expr.lam nm₁x ty₁x body₁x bm₁))
-    (hwb' : WScoped d b'x) :
+    (hwb' : WScoped d b'x)
+    (hbm₁ : denoteBM s₀.store.denoteL m₁ = some bm₁) :
     SimAt mode env s₀ RelV
-      (etaCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d nm₁ t₁ b₁ m₁
-          b' >>= fun r =>
+      (etaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
+          nm₁ t₁ b₁ m₁ b' >>= fun r =>
         if r then pure true
         else stuckIrrelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
-      (etaCert (fueledFns mode env) env d nm₁x ty₁x body₁x bm₁ b'x >>= fun r =>
+      (etaCert mode (fueledFns mode env) env d nm₁x ty₁x body₁x bm₁
+          b'x >>= fun r =>
         if r then pure true
         else stuckIrrel mode (fueledFns mode env) env d
           (.lam nm₁x ty₁x body₁x bm₁) b'x) := by
   have h1 : WScoped d ty₁x ∧ WScoped d body₁x := by
     simpa only [WScoped] using hwa'
   refine SimAt.bind (etaCertI_sim ih hnm₁ hty₁ hbody₁ hbS h1.1 h1.2
-    hwb' (s₀ := s₀) (hs := hs)) (fun s₁ r r' hs₁ hext₁ hP => ?_)
+    hwb' hbm₁ (s₀ := s₀) (hs := hs)) (fun s₁ r r' hs₁ hext₁ hP => ?_)
   obtain rfl : r = r' := hP
   cases r with
   | true =>
@@ -413,7 +417,7 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                             obtain ⟨nm₂, hnmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb' hbmDen
                           | forallE nm₂ᵢ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -577,7 +581,7 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                               obtain ⟨nm₂, hnmDen, hdb⟩ := hdb
                               subst hdb
                               try dsimp only
-                              exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb'
+                              exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb' hbmDen
                             | forallE nm₂ᵢ t₂ b₂ m₂ =>
                               invert_node hdb
                               try dsimp only
@@ -708,7 +712,7 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                               obtain ⟨nm₂, hnmDen, hdb⟩ := hdb
                               subst hdb
                               try dsimp only
-                              exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb'
+                              exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb' hbmDen
                             | forallE nm₂ᵢ t₂ b₂ m₂ =>
                               invert_node hdb
                               try dsimp only
@@ -779,7 +783,7 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                             obtain ⟨nmx₀, hnmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb' hbmDen
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -888,7 +892,7 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                             obtain ⟨nmx₀, hnmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb' hbmDen
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -969,10 +973,27 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                                   hext₉).trans hext₁₀) hbody₂) hQf₂)
                                 (fun s₁₁ ob₂ hs₁₁ hext₁₁ hQo₂ => ?_)
                               try dsimp only
-                              exact ih.defeq hs₁₁
-                                (denoteT_mono (hext₁₀.trans hext₁₁) hQo₁) hQo₂
+                              refine SimAt.bind (ih.defeq hs₁₁
+                                (denoteT_mono (hext₁₀.trans hext₁₁) hQo₁)
+                                hQo₂
                                 (WScoped.instantiate1 h1.1 0 h1.2)
-                                (WScoped.instantiate1 h2.1 0 h2.2)
+                                (WScoped.instantiate1 h2.1 0 h2.2))
+                                (fun s₁₂ r₂ r₂x hs₁₂ hext₁₂ hPr₂ => ?_)
+                              obtain rfl : r₂ = r₂x := hPr₂
+                              cases r₂ with
+                              | false =>
+                                simp only [Bool.false_eq_true,
+                                  ↓reduceIte]
+                                exact SimAt.pure hs₁₂ rfl
+                              | true =>
+                                simp only [↓reduceIte]
+                                rw [show bm₁.pw = (m₁ : IBinderMeta).pw
+                                    from denoteBM_pw hbmDen₁,
+                                  show bm₂.pw = (m₂ : IBinderMeta).pw
+                                    from denoteBM_pw hbmDen₂]
+                                split
+                                · exact SimAt.throw_bind
+                                · exact SimAt.pure hs₁₂ rfl
                           | bvar k₂ =>
                             cases hdb
                             try dsimp only
@@ -1012,7 +1033,7 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                             obtain ⟨nm₁, hnmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb' hbmDen
                           | letE nm₂ t₂ v₂ b₂ =>
                             invert_node hdb
                             try dsimp only
@@ -1089,50 +1110,67 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                                   hext₉).trans hext₁₀) hbody₂) hQf₂)
                                 (fun s₁₁ ob₂ hs₁₁ hext₁₁ hQo₂ => ?_)
                               try dsimp only
-                              exact ih.defeq hs₁₁
-                                (denoteT_mono (hext₁₀.trans hext₁₁) hQo₁) hQo₂
+                              refine SimAt.bind (ih.defeq hs₁₁
+                                (denoteT_mono (hext₁₀.trans hext₁₁) hQo₁)
+                                hQo₂
                                 (WScoped.instantiate1 h1.1 0 h1.2)
-                                (WScoped.instantiate1 h2.1 0 h2.2)
+                                (WScoped.instantiate1 h2.1 0 h2.2))
+                                (fun s₁₂ r₂ r₂x hs₁₂ hext₁₂ hPr₂ => ?_)
+                              obtain rfl : r₂ = r₂x := hPr₂
+                              cases r₂ with
+                              | false =>
+                                simp only [Bool.false_eq_true,
+                                  ↓reduceIte]
+                                exact SimAt.pure hs₁₂ rfl
+                              | true =>
+                                simp only [↓reduceIte]
+                                rw [show bm₁.pw = (m₁ : IBinderMeta).pw
+                                    from denoteBM_pw hbmDen₁,
+                                  show bm₂.pw = (m₂ : IBinderMeta).pw
+                                    from denoteBM_pw hbmDen₂]
+                                split
+                                · exact SimAt.throw_bind
+                                · exact SimAt.pure hs₁₂ rfl
                           | bvar k₂ =>
                             cases hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb' hbmDen₁
                           | sort u₂ =>
                             rw [denoteNode, Option.map_eq_some_iff] at hdb
                             obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb' hbmDen₁
                           | const c₂ us₂ =>
                             rw [denoteNode, Option.bind_eq_some_iff] at hdb
                             obtain ⟨lus₂, hlus₂, hdb⟩ := hdb
                             rw [Option.map_eq_some_iff] at hdb
                             obtain ⟨_cx, _hcx, rfl⟩ := hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb' hbmDen₁
                           | lit l₂ =>
                             cases hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb' hbmDen₁
                           | fvar i₂ nm₂ t₂ =>
                             invert_node hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb' hbmDen₁
                           | app f₂ a₂ =>
                             invert_node hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb' hbmDen₁
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb' hbmDen₁
                           | letE nm₂ t₂ v₂ b₂ =>
                             invert_node hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb' hbmDen₁
                           | proj s₂' j₂ e₂ =>
                             invert_node hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ hnmDen haS hty₁ hbody₁ hbS hwa' hwb' hbmDen₁
                         | app f₁ a₁ =>
                           rw [denoteNode, Option.bind_eq_some_iff] at hda
                           obtain ⟨xf₁, hf₁, hda⟩ := hda
@@ -1391,7 +1429,7 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                             obtain ⟨nm₂, hnmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb' hbmDen
                           | forallE nm₂ᵢ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -1446,7 +1484,7 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                             obtain ⟨nm₂, hnmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb' hbmDen
                           | forallE nm₂ᵢ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -1501,7 +1539,7 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                             obtain ⟨nm₁, hnmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb' hbmDen
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -1590,7 +1628,7 @@ theorem defeqStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                             obtain ⟨nmx₀, hnmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ hnmDen haS hty₂ hbody₂ hbS hwa' hwb' hbmDen
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only

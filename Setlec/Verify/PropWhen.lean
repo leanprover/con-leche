@@ -159,6 +159,10 @@ theorem paramsDefined_inter_of {params : List Name} {p q : PropWhen}
   cases p <;> cases q <;>
     simp_all [inter, paramsDefined, List.all_append]
 
+/-- `equiv` is reflexive (the fold's vacuous self-comparison steps). -/
+theorem equiv_refl (p : PropWhen) : equiv p p = true :=
+  (equiv_iff_holds p p).mpr fun _ => rfl
+
 /-! ## `bindZ` algebra -/
 
 theorem inter_never_right (p : PropWhen) :

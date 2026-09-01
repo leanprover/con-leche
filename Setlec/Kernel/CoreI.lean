@@ -1219,19 +1219,21 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
 /-- Twin of `etaCert` (the λ's pieces come pre-destructured, as in the
 spec). -/
 def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
-    (n₁ : NIdx) (ty₁ body₁ : EIdx) (_m₁ : IBinderMeta) (b : EIdx) :
+    (n₁ : NIdx) (ty₁ body₁ : EIdx) (m₁ : IBinderMeta) (b : EIdx) :
     CheckIM Bool := do
   let tb ← r.infer depth b
   let wtb ← r.whnf depth tb
   match ← viewI wtb with
-  | some (.forallE _ ty₂ _ _m₂) => do
-    -- (task #100 stage 6: the codomain-annotation agreement comparison
-    -- is gone — the collapse model's `lam_eta` is level-free)
+  | some (.forallE _ ty₂ _ m₂) => do
+    -- prop-ness agreement checked LAST (task #161); see `etaCert`
     if ← r.defeq depth ty₂ ty₁ then do
       let fv ← internI (.fvar depth n₁ ty₁)
       let b₁ ← inst1M body₁ fv
       let ba ← internI (.app b fv)
-      r.defeq (depth + 1) b₁ ba
+      unless ← r.defeq (depth + 1) b₁ ba do return false
+      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+        throw (.notImplemented "sort-annotation mismatch (eta)")
+      pure true
     else pure false
   | _ => pure false
 
@@ -1741,12 +1743,18 @@ value-determined by the peel phase's domain sorts and the leaf phase's
 body-type sort and cannot fail (task #100 stage 6: the per-level
 λ-annotation re-check is gone with the stored annotations). -/
 def inferLamsOutI (d : Nat) :
-    List InferLamEntry → Nat → EIdx → CheckIM EIdx
-  | [], _j, cur => pure cur
-  | (n, tyo, mb) :: rest, j, cur => do
+    List InferLamEntry → Nat → EIdx → PropWhen → CheckIM EIdx
+  | [], _j, cur, _prevPw => pure cur
+  | (n, tyo, mb) :: rest, j, cur, prevPw => do
+    -- Task #161, the chain rule (see `inferBody`'s `.lam` clause): a
+    -- node's prop-ness annotation must agree with its inner
+    -- neighbour's (the innermost step compares the entry with itself
+    -- — vacuously true).
+    if mode.verified && !(mb.pw.equiv prevPw) then
+      throw (.notImplemented "sort-annotation mismatch (lam-cod-chain)")
     let tyAbs ← abstractRangeM tyo d j
     let node ← internI (.forallE n tyAbs cur mb)
-    inferLamsOutI d rest (j - 1) node
+    inferLamsOutI d rest (j - 1) node mb.pw
 
 /-- Leaf phase of `inferLamsI`: bulk-open the residual body, infer it,
 then rebuild outward.
@@ -1767,10 +1775,32 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
       let btt ← r.infer (d + k) bt
       let wbtt ← r.whnf (d + k) btt
       match ← viewI wbtt with
-      | some (.sort _) => pure ()
+      | some (.sort vb) =>
+        -- Task #161: validate the innermost binder's prop-ness
+        -- annotation against the chain's body-type sort — the leaf
+        -- half of the spec's `.lam` clause check.
+        match stk with
+        | (_, _, mb₀) :: _ => do
+          let pv ← withStore fun st => (st.zeronessOfLIGo {} vb).1
+          unless pv.equiv mb₀.pw do
+            throw (.notImplemented
+              "sort-annotation mismatch (lam-cod-leaf)")
+        | [] => pure ()
       | _ => throw (.invalid "expected a sort")
   let cur ← abstractRangeM bt d k
-  inferLamsOutI d stk (k - 1) cur
+  -- The fold's initial neighbour: a λ residual (the fuel-exhausted
+  -- path) supplies its own annotation — the head entry's chain check
+  -- then compares against it, exactly as the spec's per-node clause
+  -- does; a non-λ residual makes the head entry's step vacuous (its
+  -- codomain fact is the leaf check above).
+  let prevPw ← do
+    match ← viewI t with
+    | some (.lam _ _ _ mbT) => pure mbT.pw
+    | _ =>
+      pure (match stk with
+        | (_, _, mb₀) :: _ => mb₀.pw
+        | [] => .never)
+  inferLamsOutI mode d stk (k - 1) cur prevPw
 
 /-- λ-telescope inference loop (task #72; used by `inferBodyI`'s and
 `inferBodyNC`'s lam cases): peel the raw λ-chain, checking each opened
@@ -1797,22 +1827,28 @@ def inferLamsI (r : CoreFnsI) (d : Nat) :
 /-- Rebuild loop of `inferPisI`: fold the accumulated domain sorts by
 `imax`, innermost binder first — exactly the chained `∀`-rule's result
 value. -/
-def inferPisOutI : List LIdx → LIdx → CheckIM LIdx
-  | [], v => pure v
-  | u :: rest, v => do
+def inferPisOutI : List (LIdx × PropWhen) → LIdx → EStore.PWMemo → CheckIM LIdx
+  | [], v, _memo => pure v
+  | (u, pw) :: rest, v, memo => do
+    -- Task #161: validate the node's prop-ness annotation against its
+    -- inferred codomain sort (`v` is exactly the spec `∀`-clause's
+    -- `v` at this node); the readout is memoized across the fold.
+    let (pv, memo) ← withStore fun st => st.zeronessOfLIGo memo v
+    if mode.verified && !(pv.equiv pw) then
+      throw (.notImplemented "sort-annotation mismatch (forall-cod)")
     let v' ← internLM (.imax u v)
-    inferPisOutI rest v'
+    inferPisOutI rest v' memo
 
 /-- Leaf phase of `inferPisI`: bulk-open the residual body, infer its
 sort, then fold the domain sorts outward. -/
 def inferPisLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
-    (fvs : Array EIdx) (stk : List LIdx) : CheckIM EIdx := do
+    (fvs : Array EIdx) (stk : List (LIdx × PropWhen)) : CheckIM EIdx := do
   let ob ← instListRevM t fvs
   let bt ← r.infer (d + k) ob
   let wbt ← r.whnf (d + k) bt
   match ← viewI wbt with
   | some (.sort v) => do
-    let iv ← inferPisOutI stk v
+    let iv ← inferPisOutI mode stk v ({} : EStore.PWMemo)
     internI (.sort iv)
   | _ => throw (.invalid "expected a sort")
 
@@ -1822,20 +1858,22 @@ its codomain sort — the stored annotation is not read): peel the raw
 accumulating its sort, infer the bulk-opened leaf's sort once, and
 fold `imax` outward. -/
 def inferPisI (r : CoreFnsI) (d : Nat) :
-    Nat → EIdx → Nat → Array EIdx → List LIdx → CheckIM EIdx
+    Nat → EIdx → Nat → Array EIdx → List (LIdx × PropWhen) →
+      CheckIM EIdx
   | fuel + 1, t, k, fvs, stk => do
     match ← viewI t with
-    | some (.forallE n ty body _mb) => do
+    | some (.forallE n ty body mb) => do
       let tyo ← instListRevM ty fvs
       let tty ← r.infer (d + k) tyo
       let wtty ← r.whnf (d + k) tty
       match ← viewI wtty with
       | some (.sort u) => do
         let fv ← internI (.fvar (d + k) n tyo)
-        inferPisI r d fuel body (k + 1) (fvs.push fv) (u :: stk)
+        inferPisI r d fuel body (k + 1) (fvs.push fv)
+          ((u, mb.pw) :: stk)
       | _ => throw (.invalid "expected a sort")
-    | _ => inferPisLeafI r d t k fvs stk
-  | 0, t, k, fvs, stk => inferPisLeafI r d t k fvs stk
+    | _ => inferPisLeafI mode r d t k fvs stk
+  | 0, t, k, fvs, stk => inferPisLeafI mode r d t k fvs stk
 
 /-- Twin of `inferBody`. -/
 def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
@@ -1867,16 +1905,17 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         internI (.const si [])
       else throw (.notImplemented
         "string literals before the String support declarations")
-    | some (.forallE n ty body _mb) => do
-      -- Binder-telescope loop (task #72 discipline; task #100 stage 6:
-      -- the codomain sort is inferred, not read off the annotation).
+    | some (.forallE n ty body mb) => do
+      -- Binder-telescope loop (task #72 discipline; the codomain sort
+      -- is inferred; task #161: each node's prop-ness annotation is
+      -- validated against it in the rebuild fold).
       let tty ← r.infer depth ty
       let wtty ← r.whnf depth tty
       match ← viewI wtty with
       | some (.sort u) => do
         let fv ← internI (.fvar depth n ty)
         let fuel ← withStore (·.nodes.size)
-        inferPisI r depth fuel body 1 #[fv] [u]
+        inferPisI mode r depth fuel body 1 #[fv] [(u, mb.pw)]
       | _ => throw (.invalid "expected a sort")
     | some (.lam n ty body mb) => do
       let tty ← r.infer depth ty
@@ -2046,21 +2085,27 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           pure true
         else stuckIrrelI mode r fe depth a' b'
       else stuckIrrelI mode r fe depth a' b'
-    | some (.forallE n₁ ty₁ body₁ _m₁), some (.forallE n₂ ty₂ body₂ _m₂) => do
-      -- no binder-annotation comparison; see `defeqBody`
+    | some (.forallE n₁ ty₁ body₁ m₁), some (.forallE n₂ ty₂ body₂ m₂) => do
+      -- prop-ness agreement checked LAST (task #161); see `defeqBody`
       unless ← r.defeq depth ty₁ ty₂ do return false
       let fv₁ ← internI (.fvar depth n₁ ty₁)
       let b₁ ← inst1M body₁ fv₁
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
-      r.defeq (depth + 1) b₁ b₂
-    | some (.lam n₁ ty₁ body₁ _m₁), some (.lam n₂ ty₂ body₂ _m₂) => do
+      unless ← r.defeq (depth + 1) b₁ b₂ do return false
+      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+        throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
+      pure true
+    | some (.lam n₁ ty₁ body₁ m₁), some (.lam n₂ ty₂ body₂ m₂) => do
       unless ← r.defeq depth ty₁ ty₂ do return false
       let fv₁ ← internI (.fvar depth n₁ ty₁)
       let b₁ ← inst1M body₁ fv₁
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
-      r.defeq (depth + 1) b₁ b₂
+      unless ← r.defeq (depth + 1) b₁ b₂ do return false
+      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+        throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
+      pure true
     | some (.app _f₁ _a₁), some (.app _f₂ _a₂) => do
       -- spine-wise congruence, as in the spec body `defeqBody`
       -- (official `is_def_eq_app`)
@@ -2080,10 +2125,10 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         else stuckIrrelI mode r fe depth a' b'
       else stuckIrrelI mode r fe depth a' b'
     | some (.lam n₁ ty₁ body₁ m₁), _ => do
-      if ← etaCertI r fe depth n₁ ty₁ body₁ m₁ b' then pure true
+      if ← etaCertI mode r fe depth n₁ ty₁ body₁ m₁ b' then pure true
       else stuckIrrelI mode r fe depth a' b'
     | _, some (.lam n₂ ty₂ body₂ m₂) => do
-      if ← etaCertI r fe depth n₂ ty₂ body₂ m₂ a' then pure true
+      if ← etaCertI mode r fe depth n₂ ty₂ body₂ m₂ a' then pure true
       else stuckIrrelI mode r fe depth a' b'
     | some _, some _ => stuckIrrelI mode r fe depth a' b'
     | _, _ => throw (.internal "interned node missing")

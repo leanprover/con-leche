@@ -55,7 +55,8 @@ theorem etaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel) : EtaCertStepR (mode := mode) m φ fuel := by
   intro d Δ n₁ ty₁ body₁ b mb h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
-  obtain ⟨tb, n₂, ty₂, fb, mb₂, htb, hwtb, hdty, hdbody⟩ := etaCert_inv h
+  obtain ⟨tb, n₂, ty₂, fb, mb₂, htb, hwtb, hdty, hdbody, -⟩ :=
+    etaCert_inv h
   simp only [Expr.WScoped] at hwa
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hba
   have hLty₁ : Expr.LeavesBounded ty₁ := fun l hl =>

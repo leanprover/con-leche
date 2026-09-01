@@ -1769,18 +1769,19 @@ theorem substLIList_spec {ks : List Name} {us : List LIdx} {lus : List Level} :
 
 /-! ### The zero-ness readout and the datum pushforward (task #161) -/
 
-/-- Memo invariant of `zeronessOfLIGo`: every entry is the readout of
-its index's denotation. -/
+/-- Memo invariant of `zeronessOfLIGo`: every entry is in range and is
+the readout of its index's denotation. -/
 def PWMemoInv (st : EStore) (memo : PWMemo) : Prop :=
   ∀ (u : LIdx) (pw : PropWhen), memo[u]? = some pw →
-    ∀ lu, st.denoteL u = some lu → pw = Level.zeronessOf lu
+    u < st.lnodes.size ∧
+      ∀ lu, st.denoteL u = some lu → pw = Level.zeronessOf lu
 
 theorem PWMemoInv.empty {st : EStore} : PWMemoInv st {} := by
   intro u pw hpw
   simp at hpw
 
 theorem PWMemoInv.insert {st : EStore} {memo : PWMemo} {u : LIdx}
-    {pw : PropWhen} (h : PWMemoInv st memo)
+    {pw : PropWhen} (h : PWMemoInv st memo) (hlt : u < st.lnodes.size)
     (hcond : ∀ lu, st.denoteL u = some lu → pw = Level.zeronessOf lu) :
     PWMemoInv st (memo.insert u pw) := by
   intro u' pw' hpw'
@@ -1789,9 +1790,19 @@ theorem PWMemoInv.insert {st : EStore} {memo : PWMemo} {u : LIdx}
   · subst hk
     rw [if_pos (by simp)] at hpw'
     cases hpw'
-    exact hcond
+    exact ⟨hlt, hcond⟩
   · rw [if_neg (by simpa using hk)] at hpw'
     exact h u' pw' hpw'
+
+theorem PWMemoInv.mono {st st' : EStore} {memo : EStore.PWMemo}
+    (hext : Ext st st') (h : PWMemoInv st memo) :
+    PWMemoInv st' memo := by
+  intro u pw hpw
+  obtain ⟨hlt, hcond⟩ := h u pw hpw
+  refine ⟨Nat.lt_of_lt_of_le hlt hext.lsize_le, ?_⟩
+  intro lu hlu
+  rw [hext.denoteL_eq_of_lt hlt] at hlu
+  exact hcond lu hlu
 
 /-- The interned zero-ness readout agrees with the tree readout, and
 maintains its memo invariant. -/
@@ -1809,7 +1820,7 @@ theorem zeronessOfLIGo_spec {st : EStore} :
     split at hgo
     · rename_i r hhit
       cases hgo
-      exact ⟨hminv, fun lv hlv => hminv v _ hhit lv hlv⟩
+      exact ⟨hminv, fun lv hlv => (hminv v _ hhit).2 lv hlv⟩
     · split at hgo
       · rename_i hnone
         cases hgo
@@ -1819,6 +1830,8 @@ theorem zeronessOfLIGo_spec {st : EStore} :
         rw [hn] at hnone
         cases hnone
       · rename_i n hn
+        have hvlt : v < st.lnodes.size :=
+          (Array.getElem?_eq_some_iff.mp hn).1
         cases n with
         | zero =>
           dsimp only at hgo
@@ -1831,7 +1844,7 @@ theorem zeronessOfLIGo_spec {st : EStore} :
             cases hn'
             cases hdn
             rfl
-          exact ⟨hminv.insert hcond, hcond⟩
+          exact ⟨hminv.insert hvlt hcond, hcond⟩
         | param q =>
           dsimp only at hgo
           cases hgo
@@ -1843,7 +1856,7 @@ theorem zeronessOfLIGo_spec {st : EStore} :
             cases hn'
             cases hdn
             rfl
-          exact ⟨hminv.insert hcond, hcond⟩
+          exact ⟨hminv.insert hvlt hcond, hcond⟩
         | succ u =>
           dsimp only at hgo
           cases hgo
@@ -1856,7 +1869,7 @@ theorem zeronessOfLIGo_spec {st : EStore} :
             simp only [denoteLNode, Option.map_eq_some_iff] at hdn
             obtain ⟨lu, -, rfl⟩ := hdn
             rfl
-          exact ⟨hminv.insert hcond, hcond⟩
+          exact ⟨hminv.insert hvlt hcond, hcond⟩
         | max l r =>
           dsimp only at hgo
           split at hgo
@@ -1870,7 +1883,7 @@ theorem zeronessOfLIGo_spec {st : EStore} :
               cases hn'
               exact absurd ⟨hch l (by simp [LNode.children]),
                 hch r (by simp [LNode.children])⟩ hguard
-            exact ⟨hminv.insert hcond, hcond⟩
+            exact ⟨hminv.insert hvlt hcond, hcond⟩
           case isTrue hguard =>
             rcases h₁ : zeronessOfLIGo st memo l with ⟨p1, memo1⟩
             rw [h₁] at hgo
@@ -1890,7 +1903,7 @@ theorem zeronessOfLIGo_spec {st : EStore} :
               obtain ⟨ll, hll, lr, hlr, rfl⟩ := hdn
               rw [hc1 ll hll, hc2 lr hlr]
               rfl
-            exact ⟨hm2.insert hcond, hcond⟩
+            exact ⟨hm2.insert hvlt hcond, hcond⟩
         | imax l r =>
           dsimp only at hgo
           split at hgo
@@ -1903,7 +1916,7 @@ theorem zeronessOfLIGo_spec {st : EStore} :
               rw [hn] at hn'
               cases hn'
               exact absurd (hch r (by simp [LNode.children])) hguard
-            exact ⟨hminv.insert hcond, hcond⟩
+            exact ⟨hminv.insert hvlt hcond, hcond⟩
           case isTrue hguard =>
             rcases h₂ : zeronessOfLIGo st memo r with ⟨p2, memo2⟩
             rw [h₂] at hgo
@@ -1920,7 +1933,7 @@ theorem zeronessOfLIGo_spec {st : EStore} :
               obtain ⟨ll, -, lr, hlr, rfl⟩ := hdn
               rw [hc2 lr hlr]
               rfl
-            exact ⟨hm2.insert hcond, hcond⟩
+            exact ⟨hm2.insert hvlt hcond, hcond⟩
 
 /-- The interned datum pushforward is the tree-level one. -/
 theorem substPWI_spec {st : EStore} {ks : List Name} {us : List LIdx}

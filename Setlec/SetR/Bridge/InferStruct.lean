@@ -130,7 +130,7 @@ theorem infer_forallE_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
       denote m.cval env φ d t = some tv ∧
       ∃ T', Infer mode env m.cval φ Δ v T' ∧
         DefEq mode env m.cval φ Δ T' tv := by
-  obtain ⟨tty, u, bt, vv, hty, hwu, hbt, hens, rfl⟩ :=
+  obtain ⟨tty, u, bt, vv, hty, hwu, hbt, hens, -, rfl⟩ :=
     inferTypeCore_forall_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -213,7 +213,8 @@ theorem infer_lam_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
       denote m.cval env φ d t = some tv ∧
       ∃ T', Infer mode env m.cval φ Δ v T' ∧
         DefEq mode env m.cval φ Δ T' tv := by
-  obtain ⟨tty, u, bt, hty, hwu, hbt, h152, rfl⟩ := inferTypeCore_lam_inv h
+  obtain ⟨tty, u, bt, hty, hwu, hbt, h152, -, rfl⟩ :=
+    inferTypeCore_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLty : Expr.LeavesBounded ty := fun l hl =>
@@ -261,7 +262,7 @@ theorem infer_lam_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
           (fun _ hnl => absurd hBlam (by rw [hnl]; exact Bool.noConfusion))
           (fun _ hnl => absurd hBlam (by rw [hnl]; exact Bool.noConfusion))
           (fun _ hnl => absurd hBlam (by rw [hnl]; exact Bool.noConfusion))
-      · obtain ⟨btt, v', hbtt, hwv⟩ :=
+      · obtain ⟨btt, v', hbtt, hwv, -⟩ :=
           h152 hver (by simpa using hbl)
         have hwsbt : Expr.WScoped (d + 1) bt :=
           inferTypeCore_WScoped m.wf fuel hbt hwopen

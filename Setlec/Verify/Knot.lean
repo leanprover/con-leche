@@ -138,7 +138,7 @@ abbrev structUnitCertP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Exp
 
 abbrev etaCertP (mode : CheckMode) (env : Env) (fuel : Nat) (d : Nat) (n : Name)
     (ty body : Expr) (mb : BinderMeta) (b : Expr) : CheckM Bool :=
-  etaCert (pureFns mode env fuel) env d n ty body mb b
+  etaCert mode (pureFns mode env fuel) env d n ty body mb b
 
 abbrev majorToCtorP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Name →
     List RecRule → Expr → CheckM Expr := majorToCtor mode (pureFns mode env fuel) env
@@ -206,7 +206,7 @@ theorem structEtaProjCerts_fold (env : Env) (fuel : Nat) :
 theorem structUnitCert_fold (env : Env) (fuel : Nat) :
     structUnitCert (pureFns mode env fuel) env = structUnitCertP mode env fuel := rfl
 theorem etaCert_fold (env : Env) (fuel : Nat) :
-    etaCert (pureFns mode env fuel) env = etaCertP mode env fuel := rfl
+    etaCert mode (pureFns mode env fuel) env = etaCertP mode env fuel := rfl
 theorem majorToCtor_fold (env : Env) (fuel : Nat) :
     majorToCtor mode (pureFns mode env fuel) env = majorToCtorP mode env fuel := rfl
 theorem litMajorToCtor_fold (env : Env) (fuel : Nat) :

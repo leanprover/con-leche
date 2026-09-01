@@ -258,8 +258,8 @@ theorem structUnitCert_atF (d : Nat) (a b : Expr) (F : Nat) :
   atF_tac
 
 theorem etaCert_atF (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta) (b : Expr) (F : Nat) :
-    (etaCert (fueledFns mode env) env d n ty body mb b).val F =
-      etaCert (pureFns mode env F) env d n ty body mb b := by
+    (etaCert mode (fueledFns mode env) env d n ty body mb b).val F =
+      etaCert mode (pureFns mode env F) env d n ty body mb b := by
   unfold etaCert
   atF_tac
 

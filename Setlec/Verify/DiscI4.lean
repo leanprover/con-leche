@@ -1826,6 +1826,8 @@ theorem inferBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
       refine SimAt.bind_left (internI_eff hs₂ hfvd)
         (fun s₃ fv hs₃ hext₃ hQfv => ?_)
       refine SimAt.withStore ?_
+      dsimp only
+      rw [show bm.pw = (m : IBinderMeta).pw from denoteBM_pw hbmDen]
       exact inferPisI_tail_sim ih hs₃
         (denoteT_mono (hext₀₂.trans hext₃) hbody)
         (denoteL_mono hext₃ hlu) hQfv hwtb.1 hwtb.2

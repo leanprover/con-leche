@@ -121,6 +121,16 @@ private def shiftTy (p i : Nat) (ty : Expr) : Expr :=
 
 /-- `shiftFrom` on an `fvar`, in constructor-headed form (so that
 `match`es on shifted scrutinees reduce). -/
+private theorem lamPw_shiftFrom (p : Nat) (e : Expr) :
+    (shiftFrom p e).lamPw = e.lamPw := by
+  cases e
+  case fvar idx nm t =>
+    rw [shiftFrom]
+    split <;> rfl
+  all_goals first
+    | rfl
+    | simp [shiftFrom, Expr.lamPw]
+
 private theorem shiftFrom_fvar (p idx : Nat) (n : Name) (ty : Expr) :
     shiftFrom p (.fvar idx n ty) =
       .fvar (shiftIdx p idx) n (shiftTy p idx ty) := by
@@ -1029,9 +1039,9 @@ private theorem etaCert_shift (henv : EnvWF env)
     {ty₁ body₁ : Expr} (m₁ : BinderMeta) {b : Expr}
     (hwty₁ : WScoped d ty₁) (hwbody₁ : WScoped d body₁)
     (hwb : WScoped d b) :
-    etaCert (pureFns mode env fuel) env (d + 1) n₁ (shiftFrom p ty₁)
+    etaCert mode (pureFns mode env fuel) env (d + 1) n₁ (shiftFrom p ty₁)
         (shiftFrom p body₁) m₁ (shiftFrom p b) =
-      etaCert (pureFns mode env fuel) env d n₁ ty₁ body₁ m₁ b := by
+      etaCert mode (pureFns mode env fuel) env d n₁ ty₁ body₁ m₁ b := by
   simp only [etaCert]
   refine bind_congr _ (ih.infer hpd hwb) ?_
   intro tb htb
@@ -1053,10 +1063,13 @@ private theorem etaCert_shift (henv : EnvWF env)
       (show WScoped (d + 1) (Expr.app b (.fvar d n₁ ty₁)) by
         simp only [WScoped]
         exact ⟨hwb.mono (Nat.le_succ d), Nat.lt_succ_self d, hwty₁⟩)
-    rwa [shiftFrom_instantiate1 hpd, show
+    rw [shiftFrom_instantiate1 hpd, show
         shiftFrom p (Expr.app b (.fvar d n₁ ty₁)) =
           Expr.app (shiftFrom p b) (.fvar (d + 1) n₁ (shiftFrom p ty₁))
       from by rw [shiftFrom_app, shiftFrom_fvar_ge hpd]] at h
+    refine bind_congr_eq h ?_
+    intro bb₂ _
+    rfl
 
 private theorem stuckIrrel_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
@@ -2164,7 +2177,11 @@ private theorem infer_step (henv : EnvWF env)
     refine bind_rel_eq _ (ensureSort_shift henv ih (p := p)
       (d := d + 1) (by omega) hwbt) ?_
     intro v _
-    rfl
+    -- the ∀-annotation validation (task #161) is shift-invariant
+    rw [apply_ite (Except.map (shiftFrom p))]
+    refine ite_congr' (fun _ => ?_) (fun _ => rfl)
+    rw [apply_ite (Except.map (shiftFrom p))]
+    exact ite_congr' (fun _ => rfl) (fun _ => rfl)
   | .lam n ty body mb =>
     simp only [WScoped] at hw
     show inferBody mode (pureFns mode env fuel) env (d + 1)
@@ -2188,24 +2205,32 @@ private theorem infer_step (henv : EnvWF env)
     intro bt hbt
     have hwbt : WScoped (d + 1) bt :=
       inferTypeCore_WScoped henv fuel hbt hwo
-    -- the codomain-sort check (task #152) commutes like the ∀ rule's
-    -- (shifting does not change the body's head shape, so the guard
-    -- reads the same on both sides)
-    rw [isLam_shiftFrom body]
-    by_cases hv : (mode.verified && !body.isLam) = true
-    case neg =>
-      rw [if_neg hv, if_neg hv, ← shiftFrom_abstract1 hpd]
-      rfl
-    rw [if_pos hv, if_pos hv]
-    refine bind_rel _ _ (ih.infer (p := p) (d := d + 1) (by omega) hwbt) ?_
-    intro btt hbtt
-    have hwbtt : WScoped (d + 1) btt :=
-      inferTypeCore_WScoped henv fuel hbtt hwbt
-    refine bind_rel_eq _ (ensureSort_shift henv ih (p := p)
-      (d := d + 1) (by omega) hwbtt) ?_
-    intro v _
-    rw [← shiftFrom_abstract1 hpd]
-    rfl
+    -- the λ-annotation validation (tasks #152/#161) commutes: the
+    -- body's head constructor and the data compared are
+    -- shift-invariant
+    rw [apply_ite (Except.map (shiftFrom p))]
+    refine ite_congr' (fun hv => ?_)
+      (fun _ => by rw [← shiftFrom_abstract1 hpd]; rfl)
+    rw [lamPw_shiftFrom]
+    cases hbp : body.lamPw with
+    | some pwI =>
+      rw [apply_ite (Except.map (shiftFrom p))]
+      refine ite_congr'
+        (fun _ => by rw [← shiftFrom_abstract1 hpd]; rfl)
+        (fun _ => rfl)
+    | none =>
+      refine bind_rel _ _ (ih.infer (p := p) (d := d + 1)
+        (by omega) hwbt) ?_
+      intro btt hbtt
+      have hwbtt : WScoped (d + 1) btt :=
+        inferTypeCore_WScoped henv fuel hbtt hwbt
+      refine bind_rel_eq _ (ensureSort_shift henv ih (p := p)
+        (d := d + 1) (by omega) hwbtt) ?_
+      intro v _
+      rw [apply_ite (Except.map (shiftFrom p))]
+      refine ite_congr'
+        (fun _ => by rw [← shiftFrom_abstract1 hpd]; rfl)
+        (fun _ => rfl)
   | .app f a =>
     simp only [WScoped] at hw
     rw [shiftFrom_app]
@@ -2511,7 +2536,9 @@ private theorem defeqLoop_shift (henv : EnvWF env)
       (WScoped.instantiate1 (n := n₁) hwwa.1 0 hwwa.2)
       (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwb.2)
     rw [shiftFrom_instantiate1 hpd, shiftFrom_instantiate1 hpd] at hb
-    exact hb
+    refine bind_congr_eq hb ?_
+    intro b₂ _
+    rfl
   case lam.lam n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne =>
     simp only [WScoped] at hwwa hwwb
     refine bind_congr_eq (ih.defeq hpd hwwa.1 hwwb.1) ?_
@@ -2521,7 +2548,9 @@ private theorem defeqLoop_shift (henv : EnvWF env)
       (WScoped.instantiate1 (n := n₁) hwwa.1 0 hwwa.2)
       (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwb.2)
     rw [shiftFrom_instantiate1 hpd, shiftFrom_instantiate1 hpd] at hb
-    exact hb
+    refine bind_congr_eq hb ?_
+    intro b₂ _
+    rfl
   case app.app f₁ a₁ f₂ a₂ hne =>
     -- spine-wise congruence (task #106): one head comparison and the
     -- argument lists pairwise, all shift-invariant

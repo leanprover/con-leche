@@ -101,21 +101,21 @@ theorem DenAStk.mono {s s' : IState} (hext : Ext s.store s'.store)
 
 theorem inferLamsOutI_sim {d : Nat} :
     ∀ {stk : List InferLamEntry} {stkx : List InferLamEntryX} {j : Nat}
-      {cur : EIdx} {curx : Expr} {s₀ : IState},
+      {cur : EIdx} {curx : Expr} {prevPw : PropWhen} {s₀ : IState},
       ISOK mode env s₀ → DenILStk s₀ stk stkx →
       s₀.store.denoteT cur = some curx →
-      SimAt mode env s₀ RelD (inferLamsOutI d stk j cur)
-        (inferLamsOut (m := FueledM) d stkx j curx) := by
+      SimAt mode env s₀ RelD (inferLamsOutI mode d stk j cur prevPw)
+        (inferLamsOut (m := FueledM) mode d stkx j curx prevPw) := by
   intro stk
   induction stk with
   | nil =>
-    intro stkx j cur curx s₀ hs hstk hcur
+    intro stkx j cur curx prevPw s₀ hs hstk hcur
     cases stkx with
     | nil => exact SimAt.pure hs hcur
     | cons ex rx => exact absurd hstk (by simp [DenILStk])
   | cons e rest ihOut =>
     obtain ⟨n, tyo, mb⟩ := e
-    intro stkx j cur curx s₀ hs hstk hcur
+    intro stkx j cur curx prevPw s₀ hs hstk hcur
     cases stkx with
     | nil => exact absurd hstk (by simp [DenILStk])
     | cons ex rx =>
@@ -123,11 +123,21 @@ theorem inferLamsOutI_sim {d : Nat} :
       obtain ⟨⟨hnnm, htyo, hmb⟩, hrest⟩ := hstk
       show SimAt mode env s₀ RelD
         (do
+          if mode.verified && !(mb.pw.equiv prevPw) then
+            throw (.notImplemented
+              "sort-annotation mismatch (lam-cod-chain)")
           let tyAbs ← abstractRangeM tyo d j
           let node ← internI (.forallE n tyAbs cur mb)
-          inferLamsOutI d rest (j - 1) node)
-        (inferLamsOut (m := FueledM) d rx (j - 1)
-          (Expr.forallE nx (tyox.abstractRange d j) curx mbx))
+          inferLamsOutI mode d rest (j - 1) node mb.pw)
+        (do
+          if mode.verified && !(mbx.pw.equiv prevPw) then
+            throw (.notImplemented
+              "sort-annotation mismatch (lam-cod-chain)")
+          inferLamsOut (m := FueledM) mode d rx (j - 1)
+            (Expr.forallE nx (tyox.abstractRange d j) curx mbx) mbx.pw)
+      rw [show mbx.pw = (mb : IBinderMeta).pw from denoteBM_pw hmb]
+      split
+      · exact SimAt.throw_bind
       refine SimAt.bind_left (abstractRangeM_eff hs htyo)
         (fun s₃ tyAbs hs₃ hext₃ hQab => ?_)
       have hnd : denoteNode s₃.store.denoteT s₃.store.denoteL
@@ -161,24 +171,61 @@ theorem inferLamsLeafI_sim (ih : SSimI mode env f) {d : Nat}
   obtain ⟨nd, hn, hc, hd⟩ :=
     denoteT_some_inv (denoteT_mono (hext₁.trans hext₂) ht)
   rw [hn]
+  -- the fold's initial neighbour, resolved per residual head (both
+  -- sides read the same head)
   cases nd
   case lam nmN tyN bodyN mbN =>
-    invert_node hd
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨tyxx, htyx, hd⟩ := hd
+    rw [Option.bind_eq_some_iff] at hd
+    obtain ⟨bodyxx, hbodyx, hd⟩ := hd
+    rw [Option.bind_eq_some_iff] at hd
+    obtain ⟨bmx, hbmx, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨nmx, hnmx, rfl⟩ := hd
     dsimp only
     refine SimAt.bind_left (abstractRangeM_eff hs₂ hbtd)
       (fun s₅ cur hs₅ hext₅ hQcur => ?_)
+    refine SimAt.view ?_
+    rw [Ext.getNode hext₅ hn]
+    dsimp only [Expr.lamPw]
+    rw [show bmx.pw = (mbN : IBinderMeta).pw from denoteBM_pw hbmx]
     exact inferLamsOutI_sim hs₅
       (DenILStk.mono (((hext₁.trans hext₂)).trans hext₅) hstk) hQcur
   all_goals
     (first | invert_node hd | cases hd)
-    dsimp only
+    dsimp only [Expr.lamPw]
     by_cases hv : mode.verified = true
     case neg =>
       simp only [if_neg hv]
       refine SimAt.bind_left (abstractRangeM_eff hs₂ hbtd)
         (fun s₅ cur hs₅ hext₅ hQcur => ?_)
-      exact inferLamsOutI_sim hs₅
-        (DenILStk.mono (((hext₁.trans hext₂)).trans hext₅) hstk) hQcur
+      refine SimAt.view ?_
+      rw [Ext.getNode hext₅ hn]
+      dsimp only
+      cases hstk0 : stk with
+      | nil =>
+        cases hstkx0 : stkx with
+        | nil =>
+          exact inferLamsOutI_sim hs₅ trivial hQcur
+        | cons _ _ =>
+          rw [hstk0, hstkx0] at hstk
+          exact absurd hstk (by simp [DenILStk])
+      | cons e0 r0 =>
+        cases hstkx0 : stkx with
+        | nil =>
+          rw [hstk0, hstkx0] at hstk
+          exact absurd hstk (by simp [DenILStk])
+        | cons e0x r0x =>
+          rw [hstk0, hstkx0] at hstk
+          obtain ⟨n0, ty0, mb0⟩ := e0
+          obtain ⟨n0x, ty0x, mb0x⟩ := e0x
+          dsimp only
+          rw [show mb0x.pw = (mb0 : IBinderMeta).pw
+            from denoteBM_pw hstk.1.2.2]
+          exact inferLamsOutI_sim hs₅
+            (DenILStk.mono (((hext₁.trans hext₂)).trans hext₅) hstk)
+            hQcur
     simp only [if_pos hv]
     refine SimAt.bind (ih.infer hs₂ hbtd hwbt)
       (fun s₃ btt bttx hs₃ hext₃ hPbtt => ?_)
@@ -193,12 +240,53 @@ theorem inferLamsLeafI_sim (ih : SSimI mode env f) {d : Nat}
     | sort v =>
       rw [denoteNode, Option.map_eq_some_iff] at hd'
       obtain ⟨lv, hlv, rfl⟩ := hd'
-      refine SimAt.bind_left (abstractRangeM_eff hs₄
-        (denoteT_mono (hext₃.trans hext₄) hbtd))
-        (fun s₅ cur hs₅ hext₅ hQcur => ?_)
-      exact inferLamsOutI_sim hs₅
-        (DenILStk.mono ((((hext₁.trans hext₂).trans hext₃).trans
-          hext₄).trans hext₅) hstk) hQcur
+      dsimp only
+      -- the leaf validation (task #161): both sides read the same
+      -- datum of the same sort; then the fold, per stack head
+      cases hstk0 : stk with
+      | nil =>
+        cases hstkx0 : stkx with
+        | nil =>
+          dsimp only
+          refine SimAt.bind_left (abstractRangeM_eff hs₄
+            (denoteT_mono (hext₃.trans hext₄) hbtd))
+            (fun s₅ cur hs₅ hext₅ hQcur => ?_)
+          refine SimAt.view ?_
+          rw [Ext.getNode ((hext₃.trans hext₄).trans hext₅) hn]
+          dsimp only
+          exact inferLamsOutI_sim hs₅ trivial hQcur
+        | cons _ _ =>
+          rw [hstk0, hstkx0] at hstk
+          exact absurd hstk (by simp [DenILStk])
+      | cons e0 r0 =>
+        cases hstkx0 : stkx with
+        | nil =>
+          rw [hstk0, hstkx0] at hstk
+          exact absurd hstk (by simp [DenILStk])
+        | cons e0x r0x =>
+          rw [hstk0, hstkx0] at hstk
+          obtain ⟨n0, ty0, mb0⟩ := e0
+          obtain ⟨n0x, ty0x, mb0x⟩ := e0x
+          dsimp only
+          refine SimAt.withStore ?_
+          obtain ⟨-, hzeq⟩ := zeronessOfLIGo_spec (st := s₄.store) v
+            (memo := {}) PWMemoInv.empty
+            (p := (s₄.store.zeronessOfLIGo {} v).1)
+            (memo' := (s₄.store.zeronessOfLIGo {} v).2) rfl
+          rw [hzeq lv hlv]
+          rw [show mb0x.pw = (mb0 : IBinderMeta).pw
+            from denoteBM_pw hstk.1.2.2]
+          split
+          case isFalse => exact SimAt.throw_bind
+          refine SimAt.bind_left (abstractRangeM_eff hs₄
+            (denoteT_mono (hext₃.trans hext₄) hbtd))
+            (fun s₅ cur hs₅ hext₅ hQcur => ?_)
+          refine SimAt.view ?_
+          rw [Ext.getNode ((hext₃.trans hext₄).trans hext₅) hn]
+          dsimp only
+          exact inferLamsOutI_sim hs₅
+            (DenILStk.mono ((((hext₁.trans hext₂).trans hext₃).trans
+              hext₄).trans hext₅) hstk) hQcur
     | bvar i => cases hd'; exact SimAt.throw
     | fvar idx nm tt => invert_node hd'; exact SimAt.throw
     | const nm us => invert_node hd'; exact SimAt.throw
@@ -359,54 +447,84 @@ theorem inferLamsI_sim (ih : SSimI mode env f) {d : Nat} :
 its codomain sort, so the interned side runs a telescope loop) -/
 
 /-- Pointwise denotation of `inferPisI`'s domain-sort stack. -/
-def DenLStk (s : IState) : List LIdx → List Level → Prop
+def DenLStk (s : IState) :
+    List (LIdx × PropWhen) → List (Level × PropWhen) → Prop
   | [], [] => True
-  | u :: r, ux :: rx => s.store.denoteL u = some ux ∧ DenLStk s r rx
+  | (u, pw) :: r, (ux, pwx) :: rx =>
+    (s.store.denoteL u = some ux ∧ pw = pwx) ∧ DenLStk s r rx
   | _, _ => False
 
 theorem DenLStk.mono {s s' : IState} (hext : Ext s.store s'.store) :
-    ∀ {stk : List LIdx} {stkx : List Level},
+    ∀ {stk : List (LIdx × PropWhen)} {stkx : List (Level × PropWhen)},
       DenLStk s stk stkx → DenLStk s' stk stkx
   | [], [], _ => trivial
-  | _ :: _, _ :: _, h => ⟨denoteL_mono hext h.1, DenLStk.mono hext h.2⟩
+  | (_, _) :: _, (_, _) :: _, h =>
+    ⟨⟨denoteL_mono hext h.1.1, h.1.2⟩, DenLStk.mono hext h.2⟩
 
-theorem inferPisOutI_eff :
-    ∀ {stk : List LIdx} {stkx : List Level} {v : LIdx} {lv : Level}
-      {s₀ : IState},
-      ISOK mode env s₀ → DenLStk s₀ stk stkx → s₀.store.denoteL v = some lv →
-      IEff mode env s₀
-        (fun s iv => s.store.denoteL iv = some (inferPisOut stkx lv))
-        (inferPisOutI stk v) := by
+theorem inferPisOutI_sim :
+    ∀ {stk : List (LIdx × PropWhen)} {stkx : List (Level × PropWhen)}
+      {v : LIdx} {lv : Level} {memo : EStore.PWMemo} {s₀ : IState},
+      ISOK mode env s₀ → DenLStk s₀ stk stkx →
+      s₀.store.denoteL v = some lv →
+      PWMemoInv s₀.store memo →
+      SimAt mode env s₀
+        (fun s iv ivx => s.store.denoteL iv = some ivx)
+        (inferPisOutI mode stk v memo)
+        (inferPisOut (m := FueledM) mode stkx lv) := by
   intro stk
   induction stk with
   | nil =>
-    intro stkx v lv s₀ hs hstk hv
+    intro stkx v lv memo s₀ hs hstk hv _hminv
     cases stkx with
-    | nil => exact IEff.pure hs hv
+    | nil => exact SimAt.pure hs hv
     | cons ux rx => exact absurd hstk (by simp [DenLStk])
-  | cons u rest ih =>
-    intro stkx v lv s₀ hs hstk hv
+  | cons upw rest ih =>
+    obtain ⟨u, pw⟩ := upw
+    intro stkx v lv memo s₀ hs hstk hv hminv
     cases stkx with
     | nil => exact absurd hstk (by simp [DenLStk])
-    | cons ux rx =>
-      obtain ⟨hu, hrest⟩ := hstk
-      show IEff mode env s₀ _
-        (internLM (.imax u v) >>= fun v' => inferPisOutI rest v')
-      refine IEff.bind (internLM_eff hs (n := .imax u v)
+    | cons uxp rx =>
+      obtain ⟨ux, pwx⟩ := uxp
+      obtain ⟨⟨hu, rfl⟩, hrest⟩ := hstk
+      show SimAt mode env s₀ _
+        (do
+          let (pv, memo) ← withStore fun st =>
+            st.zeronessOfLIGo memo v
+          if mode.verified && !(pv.equiv pw) then
+            throw (.notImplemented
+              "sort-annotation mismatch (forall-cod)")
+          internLM (.imax u v) >>= fun v' =>
+            inferPisOutI mode rest v' memo)
+        (do
+          if mode.verified && !((Level.zeronessOf lv).equiv pw) then
+            throw (.notImplemented
+              "sort-annotation mismatch (forall-cod)")
+          inferPisOut (m := FueledM) mode rx (.imax ux lv))
+      refine SimAt.withStore ?_
+      obtain ⟨hminv', hzeq⟩ := zeronessOfLIGo_spec (st := s₀.store) v
+        (memo := memo) hminv
+        (p := (s₀.store.zeronessOfLIGo memo v).1)
+        (memo' := (s₀.store.zeronessOfLIGo memo v).2) rfl
+      dsimp only
+      rw [hzeq lv hv]
+      split
+      · exact SimAt.throw_bind
+      refine SimAt.bind_left (internLM_eff hs (n := .imax u v)
         (l := .imax ux lv) (by rw [denoteLNode, hu, hv]; rfl))
         (fun s₁ v' hs₁ hext₁ hv' => ?_)
       exact ih (stkx := rx) (lv := .imax ux lv) hs₁
-        (DenLStk.mono hext₁ hrest) hv'
+        (DenLStk.mono hext₁ hrest) hv' (PWMemoInv.mono hext₁ hminv')
 
 theorem inferPisLeafI_sim (ih : SSimI mode env f) {d : Nat}
     {t : EIdx} {tx : Expr} {k : Nat} {fvs : Array EIdx} {ws : List Expr}
-    {stk : List LIdx} {stkx : List Level} {s₀ : IState}
+    {stk : List (LIdx × PropWhen)} {stkx : List (Level × PropWhen)}
+    {s₀ : IState}
     (hs : ISOK mode env s₀) (ht : s₀.store.denoteT t = some tx)
     (hfvs : DenL s₀.store fvs.toList.reverse ws) (hstk : DenLStk s₀ stk stkx)
     (hw : WScoped (d + k) (tx.instantiateList ws)) :
     SimAt mode env s₀ RelD
-      (inferPisLeafI (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
-      (inferPisLeaf (fueledFns mode env) d tx k ws stkx) := by
+      (inferPisLeafI mode (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
+      (inferPisLeaf mode (fueledFns mode env) d tx k ws stkx) := by
   unfold inferPisLeafI inferPisLeaf
   refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hfvs)
     (fun s₁ ob hs₁ hext₁ hQob => ?_)
@@ -423,10 +541,12 @@ theorem inferPisLeafI_sim (ih : SSimI mode env f) {d : Nat}
   | sort v =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
     obtain ⟨lv, hlv, rfl⟩ := hd
-    refine SimAt.of_eff (IEff.bind (inferPisOutI_eff hs₃
-      (DenLStk.mono ((hext₁.trans hext₂).trans hext₃) hstk) hlv)
-      (fun s₄ iv hs₄ hext₄ hiv => internI_eff hs₄ (n := .sort iv)
-        (x := .sort (inferPisOut stkx lv)) (by rw [denoteNode, hiv]; rfl)))
+    dsimp only
+    refine SimAt.bind (inferPisOutI_sim hs₃
+      (DenLStk.mono ((hext₁.trans hext₂).trans hext₃) hstk) hlv
+      PWMemoInv.empty) (fun s₄ iv ivx hs₄ hext₄ hiv => ?_)
+    exact SimAt.of_eff (internI_eff hs₄ (n := .sort iv)
+      (x := .sort ivx) (by rw [denoteNode, hiv]; rfl))
       _ (fun s r hQ => hQ)
   | bvar i => cases hd; exact SimAt.throw
   | fvar idx nm tt => invert_node hd; exact SimAt.throw
@@ -441,13 +561,15 @@ theorem inferPisLeafI_sim (ih : SSimI mode env f) {d : Nat}
 theorem inferPisI_sim (ih : SSimI mode env f) {d : Nat} :
     ∀ (fuel : Nat) {t : EIdx} {tx : Expr} {k : Nat}
       {fvs : Array EIdx} {ws : List Expr}
-      {stk : List LIdx} {stkx : List Level} {s₀ : IState},
+      {stk : List (LIdx × PropWhen)} {stkx : List (Level × PropWhen)}
+      {s₀ : IState},
       ISOK mode env s₀ → s₀.store.denoteT t = some tx →
       DenL s₀.store fvs.toList.reverse ws → DenLStk s₀ stk stkx →
       WScoped (d + k) (tx.instantiateList ws) →
       SimAt mode env s₀ RelD
-        (inferPisI (coreKnotI mode (mkFEnv env) f) d fuel t k fvs stk)
-        (inferPis (fueledFns mode env) d fuel tx k ws stkx)
+        (inferPisI mode (coreKnotI mode (mkFEnv env) f) d fuel t k fvs
+          stk)
+        (inferPis mode (fueledFns mode env) d fuel tx k ws stkx)
   | 0, t, tx, k, fvs, ws, stk, stkx, s₀ => by
     intro hs ht hfvs hstk hw
     exact inferPisLeafI_sim ih hs ht hfvs hstk hw
@@ -456,17 +578,19 @@ theorem inferPisI_sim (ih : SSimI mode env f) {d : Nat} :
     show SimAt mode env s₀ RelD
       (do
         match ← viewI t with
-        | some (.forallE n ty body _mb) => do
+        | some (.forallE n ty body mb) => do
           let tyo ← instListRevM ty fvs
           let tty ← (coreKnotI mode (mkFEnv env) f).infer (d + k) tyo
           let wtty ← (coreKnotI mode (mkFEnv env) f).whnf (d + k) tty
           match ← viewI wtty with
           | some (.sort u) => do
             let fv ← internI (.fvar (d + k) n tyo)
-            inferPisI (coreKnotI mode (mkFEnv env) f) d fuel body (k + 1)
-              (fvs.push fv) (u :: stk)
+            inferPisI mode (coreKnotI mode (mkFEnv env) f) d fuel body
+              (k + 1) (fvs.push fv) ((u, mb.pw) :: stk)
           | _ => throw (.invalid "expected a sort")
-        | _ => inferPisLeafI (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
+        | _ =>
+          inferPisLeafI mode (coreKnotI mode (mkFEnv env) f) d t k fvs
+            stk)
       _
     refine SimAt.view ?_
     obtain ⟨nd, hn, hc, hd⟩ := denoteT_some_inv ht
@@ -526,7 +650,8 @@ theorem inferPisI_sim (ih : SSimI mode env f) {d : Nat} :
           (denoteT_mono hextAll hbody)
           (by rw [toListRev_push]
               exact ⟨hQfv, hfvs.mono hextAll⟩)
-          ⟨denoteL_mono hext₄ hlu, DenLStk.mono hextAll hstk⟩
+          ⟨⟨denoteL_mono hext₄ hlu,
+            (denoteBM_pw hbmDen).symm⟩, DenLStk.mono hextAll hstk⟩
           hwopen
       | bvar i => cases hd'; exact SimAt.throw
       | fvar idx nm' tt => invert_node hd'; exact SimAt.throw
@@ -914,28 +1039,57 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
     ((do
       let bt ← (fueledFns mode env).infer (d + 1)
         (bodyx.instantiate1 (.fvar d nm tyx))
-      if mode.verified && !bodyx.isLam then
-        let btt ← (fueledFns mode env).infer (d + 1) bt
-        let _ ← ensureSort (fueledFns mode env) env (d + 1) btt
-        pure ()
+      if mode.verified then
+        match bodyx.lamPw with
+        | some pwI =>
+          unless mbx.pw.equiv pwI do
+            throw (.notImplemented
+              "sort-annotation mismatch (lam-cod-chain)")
+        | none => do
+          let btt ← (fueledFns mode env).infer (d + 1) bt
+          let vb ← ensureSort (fueledFns mode env) env (d + 1) btt
+          unless (Level.zeronessOf vb).equiv mbx.pw do
+            throw (.notImplemented
+              "sort-annotation mismatch (lam-cod-leaf)")
       pure (Expr.forallE nm tyx (bt.abstract1 d) mbx)) : FueledM Expr).val F
     = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx))
-        >>= fun bt =>
-          if mode.verified && !bodyx.isLam then
-            inferTypeCore mode env F (d + 1) bt >>= fun btt =>
-              ensureSortCore mode env F (d + 1) btt >>= fun _ =>
-                pure (Expr.forallE nm tyx (bt.abstract1 d) mbx)
-          else pure (Expr.forallE nm tyx (bt.abstract1 d) mbx)) := by
+        >>= fun bt => (do
+          if mode.verified then
+            match bodyx.lamPw with
+            | some pwI =>
+              unless mbx.pw.equiv pwI do
+                throw (.notImplemented
+                  "sort-annotation mismatch (lam-cod-chain)")
+            | none => do
+              let btt ← inferTypeCore mode env F (d + 1) bt
+              let vb ← ensureSortCore mode env F (d + 1) btt
+              unless (Level.zeronessOf vb).equiv mbx.pw do
+                throw (.notImplemented
+                  "sort-annotation mismatch (lam-cod-leaf)")
+          pure (Expr.forallE nm tyx (bt.abstract1 d) mbx))) := by
   rw [FueledM.atF_bind]
   congr 1
   funext bt
-  by_cases hv : (mode.verified && !bodyx.isLam) = true
+  by_cases hv : mode.verified = true
   case neg => rw [if_neg hv, if_neg hv]; rfl
-  rw [if_pos hv, if_pos hv, FueledM.atF_bind]
-  congr 1
-  funext btt
-  rw [FueledM.atF_bind, ensureSort_atF]
-  rfl
+  rw [if_pos hv, if_pos hv]
+  cases hbp : bodyx.lamPw with
+  | some pwI =>
+    dsimp only
+    by_cases hc : mbx.pw.equiv pwI = true
+    · rw [if_pos hc, if_pos hc]; rfl
+    · rw [if_neg hc, if_neg hc]; rfl
+  | none =>
+    dsimp only
+    rw [FueledM.atF_bind]
+    congr 1
+    funext btt
+    rw [FueledM.atF_bind, ensureSort_atF]
+    congr 1
+    funext vb
+    by_cases hc : (Level.zeronessOf vb).equiv mbx.pw = true
+    · rw [if_pos hc, if_pos hc]; rfl
+    · rw [if_neg hc, if_neg hc]; rfl
 
 /-- The λ-inference loop against `inferBody`'s own λ-tail (task #100
 stage 6: the tail is a pure rebuild — the λ-annotation re-check died
@@ -955,10 +1109,19 @@ theorem inferLamsI_tail_sim (ih : SSimI mode env f) (henv : EnvWF env)
       (do
         let bt ← (fueledFns mode env).infer (d + 1)
           (bodyx.instantiate1 (.fvar d nmx tyx))
-        if mode.verified && !bodyx.isLam then
-          let btt ← (fueledFns mode env).infer (d + 1) bt
-          let _ ← ensureSort (fueledFns mode env) env (d + 1) btt
-          pure ()
+        if mode.verified then
+          match bodyx.lamPw with
+          | some pwI =>
+            unless (⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI do
+              throw (.notImplemented
+                "sort-annotation mismatch (lam-cod-chain)")
+          | none => do
+            let btt ← (fueledFns mode env).infer (d + 1) bt
+            let vb ← ensureSort (fueledFns mode env) env (d + 1) btt
+            unless (Level.zeronessOf vb).equiv
+                (⟨mbbi, mbpw⟩ : BinderMeta).pw do
+              throw (.notImplemented
+                "sort-annotation mismatch (lam-cod-leaf)")
         pure (Expr.forallE nmx tyx (bt.abstract1 d) ⟨mbbi, mbpw⟩)) := by
   have hwopen : WScoped (d + 1)
       (bodyx.instantiateList [Expr.fvar d nmx tyx]) := by
@@ -992,20 +1155,61 @@ theorem inferLamsI_tail_sim (ih : SSimI mode env f) (henv : EnvWF env)
       exact hbt
     rw [hbt', okB_bind]
     unfold inferLamsTail at htail
-    by_cases hv : (mode.verified && !bodyx.isLam) = true
-    case neg =>
-      rw [if_neg hv] at htail ⊢
+    revert htail
+    cases hbp : bodyx.lamPw with
+    | some pwI =>
+      intro htail
+      have hbl : bodyx.isLam = true := by
+        cases bodyx <;> first | rfl | exact nomatch hbp
+      simp only [hbl, Bool.not_true, Bool.and_false,
+        Bool.false_eq_true, ↓reduceIte] at htail
       unfold inferLamsWrap at htail
+      dsimp only
+      by_cases hg : (mode.verified
+          && !((⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI)) = true
+      · rw [if_pos hg] at htail
+        exact nomatch htail
+      rw [if_neg hg] at htail
+      by_cases hv : mode.verified = true
+      · rw [if_pos hv]
+        have hpw : (⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI = true := by
+          by_cases hc : (⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI = true
+          · exact hc
+          · exact absurd (by simp [hv, hc]) hg
+        rw [if_pos hpw]
+        exact htail
+      · rw [if_neg hv]
+        exact htail
+    | none =>
+      intro htail
+      have hbl : bodyx.isLam = false := by
+        cases bodyx <;> first | rfl | exact nomatch hbp
+      simp only [hbl, Bool.not_false, Bool.and_true] at htail
+      dsimp only
+      by_cases hv : mode.verified = true
+      case neg =>
+        rw [if_neg hv] at htail ⊢
+        unfold inferLamsWrap at htail
+        rw [if_neg (by simp [hv])] at htail
+        exact htail
+      rw [if_pos hv] at htail ⊢
+      rw [infer_def] at htail
+      obtain ⟨btt, hbtt, htail⟩ := bind_okB htail
+      rw [hbtt, okB_bind]
+      rw [ensureSort_def] at htail
+      obtain ⟨v, hvv, htail⟩ := bind_okB htail
+      rw [hvv, okB_bind]
+      try dsimp only at htail ⊢
+      by_cases hz : (Level.zeronessOf v).equiv
+          (⟨mbbi, mbpw⟩ : BinderMeta).pw = true
+      case neg =>
+        rw [if_neg hz] at htail
+        exact nomatch htail
+      rw [if_pos hz] at htail
+      rw [if_pos hz]
+      unfold inferLamsWrap at htail
+      rw [if_neg (by simp [PropWhen.equiv_refl])] at htail
       exact htail
-    rw [if_pos hv] at htail ⊢
-    rw [infer_def] at htail
-    obtain ⟨btt, hbtt, htail⟩ := bind_okB htail
-    rw [hbtt, okB_bind]
-    rw [ensureSort_def] at htail
-    obtain ⟨v, hvv, htail⟩ := bind_okB htail
-    rw [hvv, okB_bind]
-    unfold inferLamsWrap at htail
-    exact htail
   case hsc =>
     intro s v' vv hden hrun
     refine ⟨hden, ?_⟩
@@ -1017,14 +1221,39 @@ theorem inferLamsI_tail_sim (ih : SSimI mode env f) (henv : EnvWF env)
         (WScoped.instantiate1 hwty 0 hwbody)
     have hres : vv = Expr.forallE nmx tyx (bt.abstract1 d) ⟨mbbi, mbpw⟩ := by
       revert hF
-      by_cases hv : (mode.verified && !bodyx.isLam) = true
-      case neg => rw [if_neg hv]; intro hF; injection hF with hres; exact hres.symm
+      by_cases hv : mode.verified = true
+      case neg =>
+        rw [if_neg hv]
+        intro hF
+        injection hF with hres
+        exact hres.symm
       rw [if_pos hv]
-      intro hF
-      obtain ⟨btt, -, hF⟩ := bind_okB hF
-      obtain ⟨v, -, hF⟩ := bind_okB hF
-      injection hF with hres
-      exact hres.symm
+      cases bodyx.lamPw with
+      | some pwI =>
+        dsimp only
+        by_cases hc : (⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI = true
+        · rw [if_pos hc]
+          intro hF
+          injection hF with hres
+          exact hres.symm
+        · rw [if_neg hc]
+          intro hF
+          exact nomatch hF
+      | none =>
+        dsimp only
+        intro hF
+        obtain ⟨btt, -, hF⟩ := bind_okB hF
+        obtain ⟨v, -, hF⟩ := bind_okB hF
+        revert hF
+        by_cases hc : (Level.zeronessOf v).equiv
+            (⟨mbbi, mbpw⟩ : BinderMeta).pw = true
+        · rw [if_pos hc]
+          intro hF
+          injection hF with hres
+          exact hres.symm
+        · rw [if_neg hc]
+          intro hF
+          exact nomatch hF
     subst hres
     exact (by
       simp only [WScoped]
@@ -1032,55 +1261,76 @@ theorem inferLamsI_tail_sim (ih : SSimI mode env f) (henv : EnvWF env)
       WScoped d (Expr.forallE nmx tyx (bt.abstract1 d) ⟨mbbi, mbpw⟩))
 
 private theorem inferPiTail_atF {env : Env} (d : Nat) (nm : Name)
-    (tyx bodyx : Expr) (lu : Level) (F : Nat) :
+    (tyx bodyx : Expr) (lu : Level) (pw : PropWhen) (F : Nat) :
     ((do
       let v ← ensureSort (fueledFns mode env) env (d + 1)
         (← (fueledFns mode env).infer (d + 1)
           (bodyx.instantiate1 (.fvar d nm tyx)))
+      if mode.verified then
+        unless (Level.zeronessOf v).equiv pw do
+          throw (.notImplemented "sort-annotation mismatch (forall-cod)")
       pure (Expr.sort (.imax lu v))) : FueledM Expr).val F
     = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx))
         >>= fun bt => ensureSortCore mode env F (d + 1) bt >>= fun v =>
-        pure (Expr.sort (.imax lu v))) := by
+        (do
+          if mode.verified then
+            unless (Level.zeronessOf v).equiv pw do
+              throw (.notImplemented
+                "sort-annotation mismatch (forall-cod)")
+          pure (Expr.sort (.imax lu v)))) := by
   rw [FueledM.atF_bind]
   congr 1
   funext bt
   rw [FueledM.atF_bind, ensureSort_atF]
-  rfl
+  congr 1
+  funext v
+  by_cases hv : mode.verified = true
+  case neg => rw [if_neg hv, if_neg hv]; rfl
+  rw [if_pos hv, if_pos hv]
+  by_cases hz : (Level.zeronessOf v).equiv pw = true
+  · rw [if_pos hz, if_pos hz]; rfl
+  · rw [if_neg hz, if_neg hz]; rfl
 
 /-- The ∀-inference loop against `inferBody`'s own ∀-tail (task #100
 stage 6: the codomain sort is inferred, not read off an annotation). -/
 theorem inferPisI_tail_sim (ih : SSimI mode env f)
     {d fuel : Nat} {b fv : EIdx} {bodyx tyx : Expr}
-    {nmx : Name} {u : LIdx} {lu : Level} {s₀ : IState}
+    {nmx : Name} {u : LIdx} {lu : Level} {pw : PropWhen} {s₀ : IState}
     (hs : ISOK mode env s₀)
     (hbody : s₀.store.denoteT b = some bodyx)
     (hlu : s₀.store.denoteL u = some lu)
     (hfv : s₀.store.denoteT fv = some (.fvar d nmx tyx))
     (hwty : WScoped d tyx) (hwbody : WScoped d bodyx) :
     SimAt mode env s₀ (RelE d)
-      (inferPisI (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv] [u])
+      (inferPisI mode (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
+        [(u, pw)])
       (do
         let v ← ensureSort (fueledFns mode env) env (d + 1)
           (← (fueledFns mode env).infer (d + 1)
             (bodyx.instantiate1 (.fvar d nmx tyx)))
+        if mode.verified then
+          unless (Level.zeronessOf v).equiv pw do
+            throw (.notImplemented
+              "sort-annotation mismatch (forall-cod)")
         pure (Expr.sort (.imax lu v))) := by
   have hwopen : WScoped (d + 1)
       (bodyx.instantiateList [Expr.fvar d nmx tyx]) := by
     rw [instList_single]
     exact WScoped.instantiate1 hwty 0 hwbody
   have hcore : SimAt mode env s₀ RelD
-      (inferPisI (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv] [u])
-      (inferPis (fueledFns mode env) d fuel bodyx 1 [Expr.fvar d nmx tyx]
-        [lu]) := by
+      (inferPisI mode (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
+        [(u, pw)])
+      (inferPis mode (fueledFns mode env) d fuel bodyx 1
+        [Expr.fvar d nmx tyx] [(lu, pw)]) := by
     refine inferPisI_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact DenL.cons hfv DenL.nil)
-      ⟨hlu, trivial⟩ hwopen
+      ⟨⟨hlu, rfl⟩, trivial⟩ hwopen
   refine SimAt.wp (SimAt.wr hcore ?himp) ?hsc
   case himp =>
     intro res F hF
     rw [inferPis_atF] at hF
     obtain ⟨F', hchain⟩ := inferPis_sound fuel bodyx 1
-      [Expr.fvar d nmx tyx] [lu] F res rfl (Nat.le_refl 1) hF
+      [Expr.fvar d nmx tyx] [(lu, pw)] F res rfl (Nat.le_refl 1) hF
     refine ⟨F', ?_⟩
     rw [inferPiTail_atF]
     obtain ⟨bt, hbt, hwrap⟩ := bind_okB hchain
@@ -1094,6 +1344,18 @@ theorem inferPisI_tail_sim (ih : SSimI mode env f)
     rw [ensureSort_def] at hv
     have hv' : ensureSortCore mode env F' (d + 1) bt = .ok v := hv
     rw [hv', okB_bind]
+    dsimp only at hwrap ⊢
+    by_cases hver : mode.verified = true
+    case neg =>
+      rw [if_neg hver] at hwrap ⊢
+      unfold inferPisWrap at hwrap
+      exact hwrap
+    rw [if_pos hver] at hwrap ⊢
+    by_cases hz : (Level.zeronessOf v).equiv pw = true
+    case neg =>
+      rw [if_neg hz] at hwrap
+      exact nomatch hwrap
+    rw [if_pos hz] at hwrap ⊢
     unfold inferPisWrap at hwrap
     exact hwrap
   case hsc =>
@@ -1103,9 +1365,24 @@ theorem inferPisI_tail_sim (ih : SSimI mode env f)
     rw [inferPiTail_atF] at hF
     obtain ⟨bt, hbt, hF⟩ := bind_okB hF
     obtain ⟨v, hv, hF⟩ := bind_okB hF
-    injection hF with hres
-    subst hres
-    simp [WScoped]
+    revert hF
+    by_cases hver : mode.verified = true
+    case neg =>
+      rw [if_neg hver]
+      intro hF
+      injection hF with hres
+      subst hres
+      simp [WScoped]
+    rw [if_pos hver]
+    by_cases hz : (Level.zeronessOf v).equiv pw = true
+    · rw [if_pos hz]
+      intro hF
+      injection hF with hres
+      subst hres
+      simp [WScoped]
+    · rw [if_neg hz]
+      intro hF
+      exact nomatch hF
 
 private theorem annPiTail_atF {env : Env} (d : Nat) (nm : Name)
     (tyx' bodyx : Expr) (mx : BinderMeta) (F : Nat) :

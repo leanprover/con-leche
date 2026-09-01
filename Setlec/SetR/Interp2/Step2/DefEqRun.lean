@@ -1183,8 +1183,22 @@ theorem defeqStuck_claim2 {m : EnvS2UM V μ env} {fuel : Nat}
         denote2_forallE_inv hda
       obtain ⟨ta₂, ba₂, _u₂, v₂, hta₂, hva₂, -, hv₂, rfl⟩ :=
         denote2_forallE_inv hdb
-      obtain rfl : v₁ = v₂ := hbs.1 h hv₁ hv₂
-      obtain ⟨hDA, hDB⟩ := binder_congr2 ihd hdt h
+      have hbd : isDefEqCore μ env fuel (d + 1)
+          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+        revert h
+        cases hbd0 : isDefEqCore μ env fuel (d + 1)
+            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true => rfl
+      obtain rfl : v₁ = v₂ := hbs.1 hbd hv₁ hv₂
+      obtain ⟨hDA, hDB⟩ := binder_congr2 ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -1215,8 +1229,22 @@ theorem defeqStuck_claim2 {m : EnvS2UM V μ env} {fuel : Nat}
         denote2_lam_inv hda
       obtain ⟨ta₂, ba₂, v₂, hta₂, hva₂, hv₂, rfl⟩ :=
         denote2_lam_inv hdb
-      obtain rfl : v₁ = v₂ := hbs.2 h hv₁ hv₂
-      obtain ⟨hDA, hDB⟩ := binder_congr2 ihd hdt h
+      have hbd : isDefEqCore μ env fuel (d + 1)
+          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+        revert h
+        cases hbd0 : isDefEqCore μ env fuel (d + 1)
+            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true => rfl
+      obtain rfl : v₁ = v₂ := hbs.2 hbd hv₁ hv₂
+      obtain ⟨hDA, hDB⟩ := binder_congr2 ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -2250,9 +2278,23 @@ theorem defeqStuck_claim2A {m : EnvS2UM V μ env} {fuel F : Nat}
         denote2_forallE_inv hda
       obtain ⟨ta₂, ba₂, _u₂, v₂, hta₂, hva₂, -, hv₂, rfl⟩ :=
         denote2_forallE_inv hdb
-      obtain rfl : v₁ = v₂ := hbs.1 h hv₁ hv₂
+      have hbd : isDefEqCore μ env fuel (d + 1)
+          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+        revert h
+        cases hbd0 : isDefEqCore μ env fuel (d + 1)
+            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true => rfl
+      obtain rfl : v₁ = v₂ := hbs.1 hbd hv₁ hv₂
       rw [AnnotOk2_pi] at hokA hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2A ihd hdt h
+      obtain ⟨hDA, hDB⟩ := binder_congr2A ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -2283,9 +2325,23 @@ theorem defeqStuck_claim2A {m : EnvS2UM V μ env} {fuel F : Nat}
         denote2_lam_inv hda
       obtain ⟨ta₂, ba₂, v₂, hta₂, hva₂, hv₂, rfl⟩ :=
         denote2_lam_inv hdb
-      obtain rfl : v₁ = v₂ := hbs.2 h hv₁ hv₂
+      have hbd : isDefEqCore μ env fuel (d + 1)
+          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+        revert h
+        cases hbd0 : isDefEqCore μ env fuel (d + 1)
+            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true => rfl
+      obtain rfl : v₁ = v₂ := hbs.2 hbd hv₁ hv₂
       rw [AnnotOk2_lam] at hokA hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2A ihd hdt h
+      obtain ⟨hDA, hDB⟩ := binder_congr2A ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -3339,10 +3395,24 @@ theorem defeqStuck_claim2C {m : EnvS2UM V μ env} {fuel F : Nat}
         denote2_forallE_inv hda
       obtain ⟨ta₂, ba₂, _u₂, v₂, hta₂, hva₂, -, hv₂, rfl⟩ :=
         denote2_forallE_inv hdb
-      obtain rfl : v₁ = v₂ := hbs.1 h hv₁ hv₂
+      have hbd : isDefEqCore μ env fuel (d + 1)
+          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+        revert h
+        cases hbd0 : isDefEqCore μ env fuel (d + 1)
+            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true => rfl
+      obtain rfl : v₁ = v₂ := hbs.1 hbd hv₁ hv₂
       obtain ⟨hoT₁, hoB₁⟩ := AnnotOk2.hoist_pi hokA
       obtain ⟨hoT₂, hoB₂⟩ := AnnotOk2.hoist_pi hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2C ihd hdt h
+      obtain ⟨hDA, hDB⟩ := binder_congr2C ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -3373,10 +3443,24 @@ theorem defeqStuck_claim2C {m : EnvS2UM V μ env} {fuel F : Nat}
         denote2_lam_inv hda
       obtain ⟨ta₂, ba₂, v₂, hta₂, hva₂, hv₂, rfl⟩ :=
         denote2_lam_inv hdb
-      obtain rfl : v₁ = v₂ := hbs.2 h hv₁ hv₂
+      have hbd : isDefEqCore μ env fuel (d + 1)
+          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+        revert h
+        cases hbd0 : isDefEqCore μ env fuel (d + 1)
+            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true => rfl
+      obtain rfl : v₁ = v₂ := hbs.2 hbd hv₁ hv₂
       obtain ⟨hoT₁, hoB₁⟩ := AnnotOk2.hoist_lam hokA
       obtain ⟨hoT₂, hoB₂⟩ := AnnotOk2.hoist_lam hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2C ihd hdt h
+      obtain ⟨hDA, hDB⟩ := binder_congr2C ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -4410,10 +4494,24 @@ theorem defeqStuck_claim2D {m : EnvS2UM V μ env} {fuel F : Nat}
         denote2_forallE_inv hda
       obtain ⟨ta₂, ba₂, _u₂, v₂, hta₂, hva₂, -, hv₂, rfl⟩ :=
         denote2_forallE_inv hdb
-      obtain rfl : v₁ = v₂ := hbs.1 h hv₁ hv₂
+      have hbd : isDefEqCore μ env fuel (d + 1)
+          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+        revert h
+        cases hbd0 : isDefEqCore μ env fuel (d + 1)
+            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true => rfl
+      obtain rfl : v₁ = v₂ := hbs.1 hbd hv₁ hv₂
       obtain ⟨hoT₁, hoB₁⟩ := AnnotOk2.hoist_pi hokA
       obtain ⟨hoT₂, hoB₂⟩ := AnnotOk2.hoist_pi hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2D ihd hdt h
+      obtain ⟨hDA, hDB⟩ := binder_congr2D ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         hCa.forallE_ty
         hwa.2 hba.2 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
@@ -4440,10 +4538,24 @@ theorem defeqStuck_claim2D {m : EnvS2UM V μ env} {fuel F : Nat}
         denote2_lam_inv hda
       obtain ⟨ta₂, ba₂, v₂, hta₂, hva₂, hv₂, rfl⟩ :=
         denote2_lam_inv hdb
-      obtain rfl : v₁ = v₂ := hbs.2 h hv₁ hv₂
+      have hbd : isDefEqCore μ env fuel (d + 1)
+          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+        revert h
+        cases hbd0 : isDefEqCore μ env fuel (d + 1)
+            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true => rfl
+      obtain rfl : v₁ = v₂ := hbs.2 hbd hv₁ hv₂
       obtain ⟨hoT₁, hoB₁⟩ := AnnotOk2.hoist_lam hokA
       obtain ⟨hoT₂, hoB₂⟩ := AnnotOk2.hoist_lam hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2D ihd hdt h
+      obtain ⟨hDA, hDB⟩ := binder_congr2D ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         hCa.lam_ty
         hwa.2 hba.2 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))

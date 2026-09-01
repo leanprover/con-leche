@@ -183,33 +183,49 @@ theorem etaCertI_sim (ih : SSimI mode env f) {d : Nat} {n₁ : NIdx}
     (hbody : s₀.store.denoteT body₁ = some body₁x)
     (hb : s₀.store.denoteT b = some bx)
     (hwty : WScoped d ty₁x) (hwbody : WScoped d body₁x)
-    (hwb : WScoped d bx) :
+    (hwb : WScoped d bx)
+    (hbm₁ : denoteBM s₀.store.denoteL m₁ = some bm₁) :
     SimAt mode env s₀ RelV
-      (etaCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n₁ ty₁ body₁ m₁ b)
-      (etaCert (fueledFns mode env) env d n₁x ty₁x body₁x bm₁ bx) := by
+      (etaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
+        n₁ ty₁ body₁ m₁ b)
+      (etaCert mode (fueledFns mode env) env d n₁x ty₁x body₁x bm₁ bx)
+      := by
   show SimAt mode env s₀ RelV
     ((coreKnotI mode (mkFEnv env) f).infer d b >>= fun tb =>
       (coreKnotI mode (mkFEnv env) f).whnf d tb >>= fun wtb =>
       viewI wtb >>= fun n =>
       match n with
-      | some (.forallE _ ty₂ _ _m₂) =>
+      | some (.forallE _ ty₂ _ m₂) =>
         (coreKnotI mode (mkFEnv env) f).defeq d ty₂ ty₁ >>= fun r =>
         if r then
           internI (.fvar d n₁ ty₁) >>= fun fv =>
           inst1M body₁ fv >>= fun b₁ =>
           internI (.app b fv) >>= fun ba =>
           (coreKnotI mode (mkFEnv env) f).defeq (d + 1) b₁ ba
+            >>= fun r₂ =>
+          if r₂ = true then
+            if (mode.verified && !(m₁.pw.equiv m₂.pw)) = true then
+              (throw (.notImplemented "sort-annotation mismatch (eta)")
+                : CheckIM Unit) >>= fun _ => pure true
+            else pure true
+          else pure false
         else pure false
       | _ => pure false)
     ((fueledFns mode env).infer d bx >>= fun tb =>
       (fueledFns mode env).whnf d tb >>= fun wtb =>
       match wtb with
-      | .forallE _ ty₂ _ _m₂ =>
+      | .forallE _ ty₂ _ m₂ =>
         (fueledFns mode env).defeq d ty₂ ty₁x >>= fun r =>
         if r then
           (fueledFns mode env).defeq (d + 1)
             (body₁x.instantiate1 (.fvar d n₁x ty₁x))
-            (.app bx (.fvar d n₁x ty₁x))
+            (.app bx (.fvar d n₁x ty₁x)) >>= fun r₂ =>
+          if r₂ = true then
+            if (mode.verified && !(bm₁.pw.equiv m₂.pw)) = true then
+              (throw (.notImplemented "sort-annotation mismatch (eta)")
+                : FueledM Unit) >>= fun _ => pure true
+            else pure true
+          else pure false
         else pure false
       | _ => pure false)
   refine SimAt.bind (ih.infer hs hb hwb) (fun s₁ tb tbx hs₁ hext₁ hP => ?_)
@@ -268,12 +284,25 @@ theorem etaCertI_sim (ih : SSimI mode env f) {d : Nat} {n₁ : NIdx}
         rfl
       refine SimAt.bind_left (internI_eff hs₆ hbad)
         (fun s₇ ba hs₇ hext₇ hQba => ?_)
-      refine ih.defeq hs₇ (denoteT_mono hext₇ hQb₁) hQba
-        (WScoped.instantiate1 hwty 0 hwbody) ?_
-      show WScoped (d + 1) (.app bx (.fvar d n₁x ty₁x))
-      simp only [WScoped]
-      exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d,
-        hwty⟩
+      have hwapp : WScoped (d + 1) (.app bx (.fvar d n₁x ty₁x)) := by
+        simp only [WScoped]
+        exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d,
+          hwty⟩
+      refine SimAt.bind (ih.defeq hs₇ (denoteT_mono hext₇ hQb₁) hQba
+        (WScoped.instantiate1 hwty 0 hwbody) hwapp)
+        (fun s₈ r₂ r₂x hs₈ hext₈ hPr₂ => ?_)
+      obtain rfl : r₂ = r₂x := hPr₂
+      cases r₂ with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        exact SimAt.pure hs₈ rfl
+      | true =>
+        simp only [↓reduceIte]
+        rw [show bm₁.pw = m₁.pw from denoteBM_pw hbm₁,
+          show bm.pw = m₂.pw from denoteBM_pw hbmDen]
+        split
+        · exact SimAt.throw_bind
+        · exact SimAt.pure hs₈ rfl
   | bvar k => invert_node hd; exact SimAt.pure hs₂ rfl
   | sort u => invert_node hd; exact SimAt.pure hs₂ rfl
   | const nmᵢ us => invert_node hd; exact SimAt.pure hs₂ rfl

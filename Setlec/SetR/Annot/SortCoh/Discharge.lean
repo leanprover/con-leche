@@ -992,17 +992,31 @@ theorem inferTypeCore_lam_out {μ : CheckMode} {env : Env} {f d : Nat}
       rw [h3] at h
       simp only [] at h
       split at h
-      · cases h4 : (Setlec.pureFns μ env f).infer (d + 1) bt with
-        | error err => rw [h4] at h; exact nomatch h
-        | ok btt =>
-        rw [h4] at h
-        simp only [] at h
-        cases h5 : Setlec.ensureSort (Setlec.pureFns μ env f) env
-            (d + 1) btt with
-        | error err => rw [h5] at h; exact nomatch h
-        | ok s =>
-        rw [h5] at h
-        exact ⟨bt.abstract1 d, (Except.ok.inj h).symm⟩
+      · revert h
+        cases body.lamPw with
+        | some pwI =>
+          intro h
+          dsimp only at h
+          split at h
+          · exact ⟨bt.abstract1 d, (Except.ok.inj h).symm⟩
+          · simp [throw, throwThe, MonadExceptOf.throw] at h
+        | none =>
+          intro h
+          dsimp only at h
+          cases h4 : (Setlec.pureFns μ env f).infer (d + 1) bt with
+          | error err => rw [h4] at h; exact nomatch h
+          | ok btt =>
+          rw [h4] at h
+          simp only [] at h
+          cases h5 : Setlec.ensureSort (Setlec.pureFns μ env f) env
+              (d + 1) btt with
+          | error err => rw [h5] at h; exact nomatch h
+          | ok s =>
+          rw [h5] at h
+          dsimp only at h
+          split at h
+          · exact ⟨bt.abstract1 d, (Except.ok.inj h).symm⟩
+          · simp [throw, throwThe, MonadExceptOf.throw] at h
       · exact ⟨bt.abstract1 d, (Except.ok.inj h).symm⟩
     · exact nomatch h
 

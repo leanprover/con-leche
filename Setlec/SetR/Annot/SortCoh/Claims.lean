@@ -668,11 +668,11 @@ inductive PostCoreCert (μ : CheckMode) (env : Env)
       PostCoreCert μ env r k d (.proj s₁ i e₁) (.proj s₂ i e₂)
   | etaL (n₁ : Name) (ty₁ body₁ : Expr) (m₁ : Setlec.BinderMeta)
       (b : Expr) :
-      Setlec.etaCert r env d n₁ ty₁ body₁ m₁ b = .ok true →
+      Setlec.etaCert μ r env d n₁ ty₁ body₁ m₁ b = .ok true →
       PostCoreCert μ env r k d (.lam n₁ ty₁ body₁ m₁) b
   | etaR (a : Expr) (n₂ : Name) (ty₂ body₂ : Expr)
       (m₂ : Setlec.BinderMeta) :
-      Setlec.etaCert r env d n₂ ty₂ body₂ m₂ a = .ok true →
+      Setlec.etaCert μ r env d n₂ ty₂ body₂ m₂ a = .ok true →
       PostCoreCert μ env r k d a (.lam n₂ ty₂ body₂ m₂)
   | rescue (a b : Expr) :
       Setlec.stuckIrrel μ r env d a b = .ok true →
@@ -843,7 +843,19 @@ theorem defeqStep_decompose {μ : CheckMode} {env : Env}
       next c'' hd =>
       split at h
       · next hc'' =>
-        exact .piCong n₁ n₂ ty₁ ty₂ body₁ body₂ m₁ m₂ (hc'' ▸ hd) h
+        revert h
+        cases hbd : r.defeq (d + 1)
+            (body₁.instantiate1 (.fvar d n₁ ty₁))
+            (body₂.instantiate1 (.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true =>
+            exact .piCong n₁ n₂ ty₁ ty₂ body₁ body₂ m₁ m₂
+              (hc'' ▸ hd) hbd
       · exact nomatch h
     case _ n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ => -- lam congruence
       split at h
@@ -851,7 +863,19 @@ theorem defeqStep_decompose {μ : CheckMode} {env : Env}
       next c'' hd =>
       split at h
       · next hc'' =>
-        exact .lamCong n₁ n₂ ty₁ ty₂ body₁ body₂ m₁ m₂ (hc'' ▸ hd) h
+        revert h
+        cases hbd : r.defeq (d + 1)
+            (body₁.instantiate1 (.fvar d n₁ ty₁))
+            (body₂.instantiate1 (.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true =>
+            exact .lamCong n₁ n₂ ty₁ ty₂ body₁ body₂ m₁ m₂
+              (hc'' ▸ hd) hbd
       · exact nomatch h
     case _ f₁ a₁ f₂ a₂ => -- app congruence
       split at h
@@ -1499,7 +1523,7 @@ def EtaSortVacuity (μ : CheckMode) (env : Env)
     {m : Setlec.BinderMeta} {ℓ : Level},
     SubjInv d a → Q d a' (.lam n ty body m) →
     whnfCore μ env f d a = .ok a' →
-    Setlec.etaCert (Setlec.pureFns μ env g) env d n ty body m a'
+    Setlec.etaCert μ (Setlec.pureFns μ env g) env d n ty body m a'
       = .ok true →
     Setlec.whnfLoop (Setlec.pureFns μ env g') env d l a
       = .ok (.sort ℓ) →

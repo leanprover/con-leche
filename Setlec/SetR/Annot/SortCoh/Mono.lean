@@ -486,8 +486,8 @@ theorem proofIrrel_mono (hs : CoreSub r₁ r₂) {d : Nat} {a b : Expr}
 /-- `etaCert` respects the order. -/
 theorem etaCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {n₁ : Name}
     {ty₁ body₁ : Expr} {m₁ : Setlec.BinderMeta} {b : Expr} {v : Bool}
-    (h : Setlec.etaCert r₁ env d n₁ ty₁ body₁ m₁ b = .ok v) :
-    Setlec.etaCert r₂ env d n₁ ty₁ body₁ m₁ b = .ok v := by
+    (h : Setlec.etaCert μ r₁ env d n₁ ty₁ body₁ m₁ b = .ok v) :
+    Setlec.etaCert μ r₂ env d n₁ ty₁ body₁ m₁ b = .ok v := by
   unfold Setlec.etaCert at h ⊢
   simp only [Bind.bind, Except.bind] at h ⊢
   cases h1 : r₁.infer d b with
@@ -509,7 +509,16 @@ theorem etaCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {n₁ : Name}
     rw [h3] at h; rw [hs.2.2.2.1 h3]
     simp only [] at h ⊢
     cases c with
-    | true => exact hs.2.2.2.1 h
+    | true =>
+      cases h4 : r₁.defeq (d + 1)
+          (body₁.instantiate1 (.fvar d n₁ ty₁))
+          (.app b (.fvar d n₁ ty₁)) with
+      | error err => rw [h4] at h; exact nomatch h
+      | ok c₂ =>
+        rw [h4] at h
+        rw [hs.2.2.2.1 h4]
+        dsimp only at h ⊢
+        exact h
     | false => exact h
   | sort u => exact h
   | fvar i' n ty => exact h
@@ -1619,8 +1628,19 @@ theorem inferBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
       | ok bt =>
       rw [h3] at h; rw [hs.2.2.1 h3]
       simp only [] at h ⊢
-      by_cases hv : (μ.verified && !body.isLam) = true
-      · rw [if_pos hv] at h ⊢
+      by_cases hv : μ.verified = true
+      case neg =>
+        rw [if_neg hv] at h ⊢
+        exact h
+      rw [if_pos hv] at h ⊢
+      revert h
+      cases body.lamPw with
+      | some pwI =>
+        intro h
+        exact h
+      | none =>
+        intro h
+        dsimp only at h ⊢
         cases h4 : r₁.infer (d + 1) bt with
         | error err => rw [h4] at h; exact nomatch h
         | ok btt =>
@@ -1631,8 +1651,6 @@ theorem inferBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
         | ok s5 =>
         rw [h5] at h; rw [ensureSort_mono hs h5]
         simp only [] at h ⊢
-        exact h
-      · rw [if_neg hv] at h ⊢
         exact h
     · next => exact h
   | app f a =>
@@ -1890,7 +1908,17 @@ theorem defeqStep_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
           simp only [] at h ⊢
           cases c₁ with
           | false => exact h
-          | true => exact hs.2.2.2.1 (by simpa using h)
+          | true =>
+            simp only [↓reduceIte] at h ⊢
+            cases hd2 : r₁.defeq (d + 1)
+                (body₁.instantiate1 (.fvar d n₁ ty₁))
+                (body₂.instantiate1 (.fvar d n₂ ty₂)) with
+            | error err => rw [hd2] at h; exact nomatch h
+            | ok c₂ =>
+            rw [hd2] at h
+            rw [hs.2.2.2.1 hd2]
+            dsimp only at h ⊢
+            exact h
         · next n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ =>
           cases hd1 : r₁.defeq d ty₁ ty₂ with
           | error err => rw [hd1] at h; exact nomatch h
@@ -1899,7 +1927,17 @@ theorem defeqStep_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
           simp only [] at h ⊢
           cases c₁ with
           | false => exact h
-          | true => exact hs.2.2.2.1 (by simpa using h)
+          | true =>
+            simp only [↓reduceIte] at h ⊢
+            cases hd2 : r₁.defeq (d + 1)
+                (body₁.instantiate1 (.fvar d n₁ ty₁))
+                (body₂.instantiate1 (.fvar d n₂ ty₂)) with
+            | error err => rw [hd2] at h; exact nomatch h
+            | ok c₂ =>
+            rw [hd2] at h
+            rw [hs.2.2.2.1 hd2]
+            dsimp only at h ⊢
+            exact h
         · next f₁ a₁ f₂ a₂ =>
           by_cases hlen : (Expr.app f₁ a₁).getAppArgs.length =
               (Expr.app f₂ a₂).getAppArgs.length
@@ -2073,7 +2111,17 @@ theorem defeqStep_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
         simp only [] at h ⊢
         cases c₁ with
         | false => exact h
-        | true => exact hs.2.2.2.1 (by simpa using h)
+        | true =>
+          simp only [↓reduceIte] at h ⊢
+          cases hd2 : r₁.defeq (d + 1)
+              (body₁.instantiate1 (.fvar d n₁ ty₁))
+              (body₂.instantiate1 (.fvar d n₂ ty₂)) with
+          | error err => rw [hd2] at h; exact nomatch h
+          | ok c₂ =>
+          rw [hd2] at h
+          rw [hs.2.2.2.1 hd2]
+          dsimp only at h ⊢
+          exact h
       · next n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ =>
         cases hd1 : r₁.defeq d ty₁ ty₂ with
         | error err => rw [hd1] at h; exact nomatch h
@@ -2082,7 +2130,17 @@ theorem defeqStep_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
         simp only [] at h ⊢
         cases c₁ with
         | false => exact h
-        | true => exact hs.2.2.2.1 (by simpa using h)
+        | true =>
+          simp only [↓reduceIte] at h ⊢
+          cases hd2 : r₁.defeq (d + 1)
+              (body₁.instantiate1 (.fvar d n₁ ty₁))
+              (body₂.instantiate1 (.fvar d n₂ ty₂)) with
+          | error err => rw [hd2] at h; exact nomatch h
+          | ok c₂ =>
+          rw [hd2] at h
+          rw [hs.2.2.2.1 hd2]
+          dsimp only at h ⊢
+          exact h
       · next f₁ a₁ f₂ a₂ =>
         by_cases hlen : (Expr.app f₁ a₁).getAppArgs.length =
             (Expr.app f₂ a₂).getAppArgs.length

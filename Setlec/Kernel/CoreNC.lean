@@ -566,7 +566,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         internI (.const si [])
       else throw (.notImplemented
         "string literals before the String support declarations")
-    | some (.forallE n ty body _mb) => do
+    | some (.forallE n ty body mb) => do
       -- Binder-telescope loop (task #72), shared with `inferBodyI`
       -- (task #100 stage 6: the codomain sort is inferred).
       let tty ← r.infer depth ty
@@ -575,7 +575,9 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       | some (.sort u) => do
         let fv ← internI (.fvar depth n ty)
         let fuel ← withStore (·.nodes.size)
-        inferPisI r depth fuel body 1 #[fv] [u]
+        -- At `.noModel` the ∀-annotation validation is off (task
+        -- #161), matching the spec's parity lane.
+        inferPisI .noModel r depth fuel body 1 #[fv] [(u, mb.pw)]
       | _ => throw (.invalid "expected a sort")
     | some (.lam n ty body mb) => do
       let tty ← r.infer depth ty
@@ -763,10 +765,10 @@ def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         else stuckIrrelNC r fe depth a' b'
       else stuckIrrelNC r fe depth a' b'
     | some (.lam n₁ ty₁ body₁ m₁), _ => do
-      if ← etaCertI r fe depth n₁ ty₁ body₁ m₁ b' then pure true
+      if ← etaCertI .noModel r fe depth n₁ ty₁ body₁ m₁ b' then pure true
       else stuckIrrelNC r fe depth a' b'
     | _, some (.lam n₂ ty₂ body₂ m₂) => do
-      if ← etaCertI r fe depth n₂ ty₂ body₂ m₂ a' then pure true
+      if ← etaCertI .noModel r fe depth n₂ ty₂ body₂ m₂ a' then pure true
       else stuckIrrelNC r fe depth a' b'
     | some _, some _ => stuckIrrelNC r fe depth a' b'
     | _, _ => throw (.internal "interned node missing")

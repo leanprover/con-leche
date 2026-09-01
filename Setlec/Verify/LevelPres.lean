@@ -555,7 +555,7 @@ theorem inferTypeCore_lvlParams {env : Env} (henv : EnvWF env)
           simp only [Except.ok.injEq] at h
           subst h; simp [allLevelParamsDefined]
     | forallE n ty body m =>
-      obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, rfl⟩ :=
+      obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, -, rfl⟩ :=
         inferTypeCore_forall_inv h
       simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
       have hu : u.allParamsDefined ps = true := by
@@ -567,7 +567,7 @@ theorem inferTypeCore_lvlParams {env : Env} (henv : EnvWF env)
       have hv := ensureSortCore_lvlParams henv fuel hiota hes hbtp
       simp [allLevelParamsDefined, Level.allParamsDefined, hu, hv]
     | lam n ty body m =>
-      obtain ⟨tty, u, bt, -, -, hbt, -, rfl⟩ :=
+      obtain ⟨tty, u, bt, -, -, hbt, -, -, rfl⟩ :=
         inferTypeCore_lam_inv h
       simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
       have hbtp := ihI hbt

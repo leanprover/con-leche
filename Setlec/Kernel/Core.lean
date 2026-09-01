@@ -1024,18 +1024,25 @@ def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 type whnfs to a `∀` whose domain is defeq to the λ's, and the λ's body
 is pointwise the application of `b`.  The λ is then `b`'s eta-expansion
 (soundness: `SetTheory.lam_eta`). -/
-def etaCert (r : CoreFns m) (_env : Env) (depth : Nat)
-    (n₁ : Name) (ty₁ body₁ : Expr) (_m₁ : BinderMeta) (b : Expr) :
+def etaCert (mode : CheckMode) (r : CoreFns m) (_env : Env) (depth : Nat)
+    (n₁ : Name) (ty₁ body₁ : Expr) (m₁ : BinderMeta) (b : Expr) :
     m Bool := do
   let tb ← r.infer depth b
   match ← r.whnf depth tb with
-  | .forallE _ ty₂ _ _m₂ =>
-    -- (task #100 stage 6: the codomain-annotation agreement comparison
-    -- is gone — the collapse model's `lam_eta` is level-free)
+  | .forallE _ ty₂ _ m₂ =>
+    -- Task #161: the λ's prop-ness annotation must agree with the
+    -- product it η-expands (`lamR_eta`'s regime agreement) — checked
+    -- LAST, like the defeq binder arms, so a mismatch fires only on
+    -- an otherwise-successful η certification.  (This is the
+    -- validated successor of the cod-agreement comparison task #100
+    -- stage 6 deleted.)
     if ← r.defeq depth ty₂ ty₁ then
-      r.defeq (depth + 1)
-        (body₁.instantiate1 (.fvar depth n₁ ty₁))
-        (.app b (.fvar depth n₁ ty₁))
+      unless ← r.defeq (depth + 1)
+          (body₁.instantiate1 (.fvar depth n₁ ty₁))
+          (.app b (.fvar depth n₁ ty₁)) do return false
+      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+        throw (.notImplemented "sort-annotation mismatch (eta)")
+      pure true
     else pure false
   | _ => pure false
 
@@ -1586,14 +1593,21 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       if strLitSupported env then pure (.const stringName [])
       else throw (.notImplemented
         "string literals before the String support declarations")
-    | .forallE n ty body _mb => do
+    | .forallE n ty body mb => do
       -- The ∀-formation rule, official-kernel style (task #100 stage 6):
-      -- the codomain sort is *inferred* from the opened body — the
-      -- stored codomain annotation is not read.
+      -- the codomain sort is *inferred* from the opened body.  Task
+      -- #161: at the verified modes the node's prop-ness annotation is
+      -- VALIDATED against the inferred codomain sort — `equiv` is
+      -- complete for zero-ness agreement, and a mismatch is a decline
+      -- (a positively detected annotation the checker cannot certify),
+      -- never a reject.  The annotation is never read by reduction.
       match ← r.whnf depth (← r.infer depth ty) with
       | .sort u => do
         let v ← ensureSort r env (depth + 1)
           (← r.infer (depth + 1) (body.instantiate1 (.fvar depth n ty)))
+        if mode.verified then
+          unless (Level.zeronessOf v).equiv mb.pw do
+            throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         pure (.sort (.imax u v))
       | _ => throw (.invalid "expected a sort")
     | .lam n ty body mb => do
@@ -1622,10 +1636,26 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         -- granularity the interned telescope loop (task #72) can
         -- reproduce: it opens a whole λ-chain in bulk and never
         -- materializes the intermediate opened types.
-        if mode.verified && !body.isLam then
-          let btt ← r.infer (depth + 1) bt
-          let _ ← ensureSort r env (depth + 1) btt
-          pure ()
+        if mode.verified then
+          match body.lamPw with
+          | some pwI =>
+            -- Task #161, the chain rule: an outer λ's codomain is the
+            -- inner λ's own ∀-type, whose sort's zero-ness is the
+            -- inner codomain's — datum equality with the neighbour,
+            -- no inference (this dissolves the #152 chain guard's
+            -- information loss: the per-node fact is now checked at
+            -- every node, at O(1) each).
+            unless mb.pw.equiv pwI do
+              throw (.notImplemented
+                "sort-annotation mismatch (lam-cod-chain)")
+          | none =>
+            -- The innermost binder: the task-#152 codomain-sort
+            -- computation, now also validating the node's annotation.
+            let btt ← r.infer (depth + 1) bt
+            let vb ← ensureSort r env (depth + 1) btt
+            unless (Level.zeronessOf vb).equiv mb.pw do
+              throw (.notImplemented
+                "sort-annotation mismatch (lam-cod-leaf)")
         pure (.forallE n ty (bt.abstract1 depth) mb)
       | _ => throw (.invalid "expected a sort")
     | .app f a => do
@@ -1869,19 +1899,31 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
           pure true
         else stuckIrrel mode r env depth (.const n us) (.const n' us')
       else stuckIrrel mode r env depth (.const n us) (.const n' us')
-    | .forallE n₁ ty₁ body₁ _m₁, .forallE n₂ ty₂ body₂ _m₂ => do
-      -- No binder-annotation comparison, like the official kernel's
-      -- (task #100 stage 3: the level-free collapse model reads no
-      -- levels at binders — `piC_congr` needs only the domain and
-      -- fibre agreements — so the former zero-ness comparison died
-      -- with the leveled model).
+    | .forallE n₁ ty₁ body₁ m₁, .forallE n₂ ty₂ body₂ m₂ => do
+      -- Binder congruence.  Task #161: at the verified modes the two
+      -- prop-ness annotations must agree (`equiv`, complete) for the
+      -- two-regime interpretations to coincide (`piR_zero_agree`'s
+      -- premise).  The comparison runs LAST — only a pair that is
+      -- otherwise definitionally equal can reach it, so benign
+      -- cert-fallthrough `false`s are untouched and a firing mismatch
+      -- is exactly the cross-provenance coherence corner, declined
+      -- loudly.  (The official kernel compares no annotations; the
+      -- pre-#100 zero-ness comparison is back in validated clothing.)
       unless ← r.defeq depth ty₁ ty₂ do return false
-      r.defeq (depth + 1) (body₁.instantiate1 (.fvar depth n₁ ty₁))
-        (body₂.instantiate1 (.fvar depth n₂ ty₂))
-    | .lam n₁ ty₁ body₁ _m₁, .lam n₂ ty₂ body₂ _m₂ => do
+      unless ← r.defeq (depth + 1)
+          (body₁.instantiate1 (.fvar depth n₁ ty₁))
+          (body₂.instantiate1 (.fvar depth n₂ ty₂)) do return false
+      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+        throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
+      pure true
+    | .lam n₁ ty₁ body₁ m₁, .lam n₂ ty₂ body₂ m₂ => do
       unless ← r.defeq depth ty₁ ty₂ do return false
-      r.defeq (depth + 1) (body₁.instantiate1 (.fvar depth n₁ ty₁))
-        (body₂.instantiate1 (.fvar depth n₂ ty₂))
+      unless ← r.defeq (depth + 1)
+          (body₁.instantiate1 (.fvar depth n₁ ty₁))
+          (body₂.instantiate1 (.fvar depth n₂ ty₂)) do return false
+      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+        throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
+      pure true
     | .app f₁ a₁, .app f₂ a₂ => do
       -- Stuck applications: **spine-wise** congruence (the official
       -- kernel's `is_def_eq_app`, lean4lean's `isDefEqApp`, nanoda's
@@ -1917,10 +1959,10 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
       else stuckIrrel mode r env depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
     -- One-sided λ: eta, else the stuck fallbacks.
     | .lam n₁ ty₁ body₁ m₁, b₂ => do
-      if ← etaCert r env depth n₁ ty₁ body₁ m₁ b₂ then pure true
+      if ← etaCert mode r env depth n₁ ty₁ body₁ m₁ b₂ then pure true
       else stuckIrrel mode r env depth (.lam n₁ ty₁ body₁ m₁) b₂
     | a₁, .lam n₂ ty₂ body₂ m₂ => do
-      if ← etaCert r env depth n₂ ty₂ body₂ m₂ a₁ then pure true
+      if ← etaCert mode r env depth n₂ ty₂ body₂ m₂ a₁ then pure true
       else stuckIrrel mode r env depth a₁ (.lam n₂ ty₂ body₂ m₂)
     -- Distinct whnf-stuck head symbols: only the stuck fallbacks can
     -- equate them; `false` is always sound, and `whnf` has already

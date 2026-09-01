@@ -169,7 +169,7 @@ theorem infer_forallE_claim2 (m : EnvS2UM V μ env) {d : Nat} {n : Name}
       denote2 μ m.acval env φ (fuel + 1) d t = some ta ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         AnnotOk2 V ρ ea ∧ interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tty, u, bt, vv, hty, hwu, hbt, hens, rfl⟩ :=
+  obtain ⟨tty, u, bt, vv, hty, hwu, hbt, hens, -, rfl⟩ :=
     Setlec.inferTypeCore_forall_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -479,7 +479,7 @@ theorem infer_lam_claim2 (m : EnvS2UM V μ env)
       denote2 μ m.acval env φ (fuel + 1) d t = some ta ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         AnnotOk2 V ρ ea ∧ interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tty, u, bt, hty, hwu, hbt, -, rfl⟩ :=
+  obtain ⟨tty, u, bt, hty, hwu, hbt, -, -, rfl⟩ :=
     Setlec.inferTypeCore_lam_inv h
   obtain ⟨btt, v, hbtt, hwv⟩ := hcod h hbt
   simp only [Expr.WScoped] at hws
@@ -1401,7 +1401,7 @@ theorem infer_forallE_claim2A (m : EnvS2UM V μ env)
       denote2 μ m.acval env φ F' d t = some ta ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         AnnotOk2 V ρ ea ∧ interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tty, u, bt, vv, hty, hwu, hbt, hens, rfl⟩ :=
+  obtain ⟨tty, u, bt, vv, hty, hwu, hbt, hens, -, rfl⟩ :=
     Setlec.inferTypeCore_forall_inv h
   simp only [Expr.WScoped] at hws
   rw [denote2] at hea
@@ -1473,7 +1473,7 @@ theorem infer_lam_claim2A (m : EnvS2UM V μ env) (hss : SortSem2 m μ φ)
       denote2 μ m.acval env φ F' d t = some ta ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         AnnotOk2 V ρ ea ∧ interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tty, u, bt, hty, hwu, hbt, -, rfl⟩ :=
+  obtain ⟨tty, u, bt, hty, hwu, hbt, -, -, rfl⟩ :=
     Setlec.inferTypeCore_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -2324,7 +2324,7 @@ theorem infer_forallE_claim2C (m : EnvS2UM V μ env)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tty, u, bt, vv, hty, hwu, hbt, hens, rfl⟩ :=
+  obtain ⟨tty, u, bt, vv, hty, hwu, hbt, hens, -, rfl⟩ :=
     Setlec.inferTypeCore_forall_inv h
   simp only [Expr.WScoped] at hws
   rw [denote2] at hea
@@ -2391,7 +2391,7 @@ theorem infer_lam_claim2C (m : EnvS2UM V μ env) (hss : SortSem2 m μ φ)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tty, u, bt, hty, hwu, hbt, -, rfl⟩ :=
+  obtain ⟨tty, u, bt, hty, hwu, hbt, -, -, rfl⟩ :=
     Setlec.inferTypeCore_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -2886,7 +2886,7 @@ theorem infer_forallE_claim2D (m : EnvS2UM V μ env)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tty, u, bt, vv, hty, hwu, hbt, hens, rfl⟩ :=
+  obtain ⟨tty, u, bt, vv, hty, hwu, hbt, hens, -, rfl⟩ :=
     Setlec.inferTypeCore_forall_inv h
   rw [denote2] at hea
   rcases hta : denote2 μ m.acval env φ F d ty with _ | ta
@@ -2951,7 +2951,7 @@ theorem infer_lam_claim2D (m : EnvS2UM V μ env) (hss : SortSem2 m μ φ)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tty, u, bt, hty, hwu, hbt, -, rfl⟩ :=
+  obtain ⟨tty, u, bt, hty, hwu, hbt, -, -, rfl⟩ :=
     Setlec.inferTypeCore_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb

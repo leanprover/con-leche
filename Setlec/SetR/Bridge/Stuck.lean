@@ -365,7 +365,21 @@ theorem defeqStuck_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
             · next B₂ hB₂ =>
               obtain rfl : va = VExpr.pi A₁ B₁ := (Option.some.inj hva).symm
               obtain rfl : vb = VExpr.pi A₂ B₂ := (Option.some.inj hvb).symm
-              obtain ⟨hDA, hDB⟩ := binder_congrR m φ hcl ihd hdt h
+              have hbd : isDefEqCore mode env fuel (d + 1)
+                  (bd₁.instantiate1 (.fvar d n₁ ty₁))
+                  (bd₂.instantiate1 (.fvar d n₂ ty₂)) = .ok true := by
+                revert h
+                cases hbd0 : isDefEqCore mode env fuel (d + 1)
+                    (bd₁.instantiate1 (.fvar d n₁ ty₁))
+                    (bd₂.instantiate1 (.fvar d n₂ ty₂)) with
+                | error err => intro h; exact nomatch h
+                | ok rb =>
+                  intro h
+                  dsimp only at h
+                  cases rb with
+                  | false => simp [pure, Except.pure] at h
+                  | true => rfl
+              obtain ⟨hDA, hDB⟩ := binder_congrR m φ hcl ihd hdt hbd
                 hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
                 (CtxOkR.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
                 hwa.2 hba.2 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
@@ -403,7 +417,21 @@ theorem defeqStuck_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
             · next B₂ hB₂ =>
               obtain rfl : va = VExpr.lam A₁ B₁ := (Option.some.inj hva).symm
               obtain rfl : vb = VExpr.lam A₂ B₂ := (Option.some.inj hvb).symm
-              obtain ⟨hDA, hDB⟩ := binder_congrR m φ hcl ihd hdt h
+              have hbd : isDefEqCore mode env fuel (d + 1)
+                  (bd₁.instantiate1 (.fvar d n₁ ty₁))
+                  (bd₂.instantiate1 (.fvar d n₂ ty₂)) = .ok true := by
+                revert h
+                cases hbd0 : isDefEqCore mode env fuel (d + 1)
+                    (bd₁.instantiate1 (.fvar d n₁ ty₁))
+                    (bd₂.instantiate1 (.fvar d n₂ ty₂)) with
+                | error err => intro h; exact nomatch h
+                | ok rb =>
+                  intro h
+                  dsimp only at h
+                  cases rb with
+                  | false => simp [pure, Except.pure] at h
+                  | true => rfl
+              obtain ⟨hDA, hDB⟩ := binder_congrR m φ hcl ihd hdt hbd
                 hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
                 (CtxOkR.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
                 hwa.2 hba.2 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))

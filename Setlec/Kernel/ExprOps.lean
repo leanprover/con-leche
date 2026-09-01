@@ -297,6 +297,15 @@ def isLam : Expr → Bool
   | .lam .. => true
   | _ => false
 
+/-- The prop-ness annotation of a λ node's meta, `none` off λs — the
+head reading the task-#161 chain rule consumes (an outer λ's codomain
+prop-ness is its body-λ's own annotation).  Total, so the walks
+commute with it structurally (`lamPw_instantiateList_fvars`,
+`lamPw_shiftFrom` in `Setlec/Verify`). -/
+def lamPw : Expr → Option PropWhen
+  | .lam _ _ _ mbI => some mbI.pw
+  | _ => none
+
 /-- Does the expression contain any free variable (`fvar`)?  Input
 declarations must be `fvar`-free; the checker introduces `fvar`s only
 internally when opening binders. -/

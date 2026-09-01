@@ -542,8 +542,9 @@ theorem etaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {n₁ : Name} {ty₁ body₁ : Expr} {m₁ : BinderMeta} {b : Expr}
     (hwty : WScoped d ty₁) (hwbody : WScoped d body₁)
     (hwb : WScoped d b) :
-    DiscV mode env (fun _ => True) (etaCert C env d n₁ ty₁ body₁ m₁ b)
-      (etaCert G env d n₁ ty₁ body₁ m₁ b) := by
+    DiscV mode env (fun _ => True)
+      (etaCert mode C env d n₁ ty₁ body₁ m₁ b)
+      (etaCert mode G env d n₁ ty₁ body₁ m₁ b) := by
   unfold etaCert
   refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
   refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
@@ -554,10 +555,17 @@ theorem etaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     exact hwtb.1
   refine DiscV.bind (ih.site_defeq hwty₂ hwty) (fun r _ => ?_)
   split <;> try exact DiscV.pure trivial
-  refine ih.site_defeq (WScoped.instantiate1 hwty 0 hwbody) ?_
-  show WScoped (d + 1) (.app b (.fvar d n₁ ty₁))
-  simp only [WScoped]
-  exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d, hwty⟩
+  have hwapp : WScoped (d + 1) (.app b (.fvar d n₁ ty₁)) := by
+    simp only [WScoped]
+    exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d, hwty⟩
+  refine DiscV.bind (ih.site_defeq
+    (WScoped.instantiate1 hwty 0 hwbody) hwapp) (fun r₂ _ => ?_)
+  split
+  · split
+    · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+        (fun _ h => h.elim)
+    · exact DiscV.pure trivial
+  · exact DiscV.pure trivial
 
 theorem projCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e₂ : Expr} {i : Nat} {fieldLvl structLvl : Level}
@@ -1361,7 +1369,12 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     refine DiscV.bind (ih.site_infer henv
       (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
     refine DiscV.bind (ensureSort_disc ih henv hbt) (fun v _ => ?_)
-    exact DiscV.pure (by simp [WScoped])
+    split
+    · split
+      · exact DiscV.pure (by simp [WScoped])
+      · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+          (fun _ h => h.elim)
+    · exact DiscV.pure (by simp [WScoped])
   | .lam n ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
@@ -1373,20 +1386,33 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split <;> try exact DiscV.throw _
     refine DiscV.bind (ih.site_infer henv
       (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
-    -- the codomain-sort check (task #152), at the verified modes and
-    -- at the innermost binder of a λ-chain
-    by_cases hv : (mode.verified && !body.isLam) = true
-    case neg =>
-      simp only [if_neg hv]
-      exact DiscV.pure (by
+    -- the λ-annotation validation (tasks #152/#161), at the verified
+    -- modes: chain rule at outer binders, sort computation at the
+    -- innermost
+    have hpure : DiscV mode env
+        (fun r => Expr.WScoped d r)
+        (pure (Expr.forallE n ty (bt.abstract1 d) mb))
+        (pure (Expr.forallE n ty (bt.abstract1 d) mb)) :=
+      DiscV.pure (by
         simp only [WScoped]
         exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)
-    simp only [if_pos hv]
-    refine DiscV.bind (ih.site_infer henv hbt) (fun btt hbtt => ?_)
-    refine DiscV.bind (ensureSort_disc ih henv hbtt) (fun v _ => ?_)
-    exact DiscV.pure (by
-      simp only [WScoped]
-      exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)
+    split
+    · cases body.lamPw with
+      | some pwI =>
+        dsimp only
+        split
+        · exact hpure
+        · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
+      | none =>
+        dsimp only
+        refine DiscV.bind (ih.site_infer henv hbt) (fun btt hbtt => ?_)
+        refine DiscV.bind (ensureSort_disc ih henv hbtt) (fun v _ => ?_)
+        split
+        · exact hpure
+        · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
+    · exact hpure
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by
       simpa only [WScoped] using hw
@@ -1576,8 +1602,15 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         simpa only [WScoped] using hb'
       refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
       split
-      · exact ih.site_defeq (WScoped.instantiate1 h1.1 0 h1.2)
-          (WScoped.instantiate1 h2.1 0 h2.2)
+      · refine DiscV.bind (ih.site_defeq
+          (WScoped.instantiate1 h1.1 0 h1.2)
+          (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
+        split
+        · split
+          · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+              (fun _ h => h.elim)
+          · exact DiscV.pure trivial
+        · exact DiscV.pure trivial
       · exact DiscV.pure trivial
     case h_12 =>
       rename_i n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne
@@ -1587,8 +1620,15 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         simpa only [WScoped] using hb'
       refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
       split
-      · exact ih.site_defeq (WScoped.instantiate1 h1.1 0 h1.2)
-          (WScoped.instantiate1 h2.1 0 h2.2)
+      · refine DiscV.bind (ih.site_defeq
+          (WScoped.instantiate1 h1.1 0 h1.2)
+          (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
+        split
+        · split
+          · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+              (fun _ h => h.elim)
+          · exact DiscV.pure trivial
+        · exact DiscV.pure trivial
       · exact DiscV.pure trivial
     case h_13 =>
       -- spine-wise congruence (task #106)
