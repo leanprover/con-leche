@@ -123,6 +123,7 @@ import Setlec.SetR.Interp2.InstallP
 import Setlec.SetR.Interp2.NatEqsP
 import Setlec.SetR.Interp2.NatSemP
 import Setlec.SetR.Interp2.CapsP
+import Setlec.SetR.Interp2.IotaLawP
 import Setlec.SetR.Interp2.DivModP
 import Setlec.SetR.Interp2.NatWfP
 import Setlec.SetR.Interp2.NatStepP
