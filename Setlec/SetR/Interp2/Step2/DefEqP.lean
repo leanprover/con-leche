@@ -466,4 +466,190 @@ theorem dq_delta_packageP {m : EnvS2UM V μ env}
     fun l hl => hLb l (unfoldDefinition_fvarLeaves m.base.wf hu l hl),
     hC.of_subset (unfoldDefinition_fvarLeaves m.base.wf hu)⟩
 
+/-! ## T3 — the step dispatcher
+
+`defeqStep_claim2D`'s transpose.  Every `denote2_fuelMono` and every
+`CtxOk2D.fuelMono` in the original had exactly one job — reconciling
+two readings taken at two fuels — and in the P currency there is one
+reading, so all of them disappear together with the `max Fa Fb` join.
+What is left is the checker's own case tree. -/
+
+/-- **`DefEqStepAtP`**, modulo the routed obligations. -/
+theorem defeqStep_claimP {m : EnvS2UM V μ env} {fuel : Nat}
+    (hex : WhnfCoreReductExistsP m φ fuel)
+    (ihwc : WhnfCoreClaims2P μ m φ fuel)
+    (hdel : DenotePDeltaP m φ)
+    (hnat : ReduceNatStepPQ m φ fuel) (hpi : ProofIrrelPQ m φ fuel)
+    (hstk : DefEqStuckP m φ fuel)
+    (hspine : DefEqSpineP m φ fuel) :
+    DefEqStepAtP m φ fuel := by
+  intro d k hk a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb
+    hda hdb hokA hokB ρ hρ
+  have h0 := h
+  simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
+    Setlec.proofIrrel_fold, Setlec.reduceNat_fold,
+    Setlec.defeqSpine_fold, Setlec.stuckIrrel_fold,
+    Setlec.defeq_def] at h
+  split at h
+  · -- the syntactic fast path
+    next hab =>
+    obtain rfl : a = b := eq_of_beq hab
+    obtain rfl : aa = ba := by
+      rw [hda] at hdb; exact Option.some.inj hdb
+    rfl
+  · cases hwca : whnfCore μ env fuel d a with
+    | error err => rw [hwca] at h; exact nomatch h
+    | ok a' =>
+    rw [hwca] at h
+    dsimp only at h
+    cases hwcb : whnfCore μ env fuel d b with
+    | error err => rw [hwcb] at h; exact nomatch h
+    | ok b' =>
+    rw [hwcb] at h
+    dsimp only at h
+    obtain ⟨aa', hda', hokA', hEa, hwa', hba', hLa', hCa'⟩ :=
+      dq_whnfCore_packageP m hex ihwc hwca hwa hba hLa hCa hda hokA
+    obtain ⟨ba', hdb', hokB', hEb, hwb', hbb', hLb', hCb'⟩ :=
+      dq_whnfCore_packageP m hex ihwc hwcb hwb hbb hLb hCb hdb hokB
+    have hEA := hEa ρ hρ
+    have hEB := hEb ρ hρ
+    -- from here every verdict is the middle equation
+    suffices hmid : interp2 V ρ aa' = interp2 V ρ ba' from
+      (hEA.trans hmid).trans hEB.symm
+    clear hEA hEB hEa hEb hda hdb hokA hokB hCa hCb
+    split at h
+    · next hab' =>
+      obtain rfl : a' = b' := eq_of_beq hab'
+      obtain rfl : aa' = ba' := by
+        rw [hda'] at hdb'; exact Option.some.inj hdb'
+      rfl
+    · cases hir : Setlec.proofIrrelP μ env fuel d a' b' with
+      | error err => rw [hir] at h; exact nomatch h
+      | ok r =>
+      rw [hir] at h
+      dsimp only at h
+      cases r with
+      | true =>
+        exact hpi hir hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hda'
+          hdb' hokA' hokB' ρ hρ
+      | false =>
+        cases hna : (if !a'.hasFvar && !b'.hasFvar then
+            Setlec.reduceNatP μ env fuel d a' else pure none) with
+        | error err => rw [hna] at h; exact nomatch h
+        | ok o₁ =>
+        rw [hna] at h
+        dsimp only at h
+        match o₁, hna, h with
+        | some a₂, hna, h =>
+          have hred : Setlec.reduceNatP μ env fuel d a'
+              = .ok (some a₂) := by
+            split at hna
+            · exact hna
+            · exact nomatch hna
+          obtain ⟨w, hw, hokw, hEw, hw2, hb2, hL2, hC2⟩ :=
+            hnat hred hwa' hba' hLa' hCa' hda' hokA'
+          exact (hEw ρ hρ).trans
+            (hk h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hw hdb' hokw
+              hokB' ρ hρ)
+        | none, hna, h =>
+        dsimp only at h
+        cases hnb : (if !a'.hasFvar && !b'.hasFvar then
+            Setlec.reduceNatP μ env fuel d b' else pure none) with
+        | error err => rw [hnb] at h; exact nomatch h
+        | ok o₂ =>
+        rw [hnb] at h
+        dsimp only at h
+        match o₂, hnb, h with
+        | some b₂, hnb, h =>
+          have hred : Setlec.reduceNatP μ env fuel d b'
+              = .ok (some b₂) := by
+            split at hnb
+            · exact hnb
+            · exact nomatch hnb
+          obtain ⟨w, hw, hokw, hEw, hw2, hb2, hL2, hC2⟩ :=
+            hnat hred hwb' hbb' hLb' hCb' hdb' hokB'
+          exact (hk h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda' hw
+            hokA' hokw ρ hρ).trans (hEw ρ hρ).symm
+        | none, hnb, h =>
+        cases hha : Setlec.unfoldableHead env a' <;>
+          cases hhb : Setlec.unfoldableHead env b' <;>
+          rw [hha, hhb] at h <;> dsimp only at h
+        · -- neither head unfolds: the stuck configuration
+          exact hstk h0 (by simpa using ‹¬(a == b) = true›) hwca
+            hwcb (by simpa using ‹¬(a' == b') = true›) hir hna hnb
+            hha hhb hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hda'
+            hdb' hokA' hokB' ρ hρ
+        · cases hub : Setlec.unfoldDefinition env b' with
+          | none => rw [hub] at h; exact nomatch h
+          | some b₂ =>
+            rw [hub] at h
+            obtain ⟨hd2, hw2, hb2, hL2, hC2⟩ :=
+              dq_delta_packageP hdel hub hwb' hbb' hLb' hCb' hdb'
+            exact hk h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda' hd2
+              hokA' hokB' ρ hρ
+        · cases hua : Setlec.unfoldDefinition env a' with
+          | none => rw [hua] at h; exact nomatch h
+          | some a₂ =>
+            rw [hua] at h
+            obtain ⟨hd2, hw2, hb2, hL2, hC2⟩ :=
+              dq_delta_packageP hdel hua hwa' hba' hLa' hCa' hda'
+            exact hk h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hd2 hdb'
+              hokA' hokB' ρ hρ
+        · have hboth : ∀ {x : CheckM Bool},
+              (match Setlec.unfoldDefinition env a',
+                  Setlec.unfoldDefinition env b' with
+                | some a₂, some b₂ => k a₂ b₂
+                | _, _ => pure false) = .ok true →
+              interp2 V ρ aa' = interp2 V ρ ba' := by
+            intro x hbb2
+            cases hua : Setlec.unfoldDefinition env a' with
+            | none => rw [hua] at hbb2; exact nomatch hbb2
+            | some a₂ =>
+            cases hub : Setlec.unfoldDefinition env b' with
+            | none => rw [hua, hub] at hbb2; exact nomatch hbb2
+            | some b₂ =>
+              rw [hua, hub] at hbb2
+              obtain ⟨hdA, hwA, hbA, hLA, hCA⟩ :=
+                dq_delta_packageP hdel hua hwa' hba' hLa' hCa' hda'
+              obtain ⟨hdB, hwB, hbB, hLB, hCB⟩ :=
+                dq_delta_packageP hdel hub hwb' hbb' hLb' hCb' hdb'
+              exact hk hbb2 hwA hbA hLA hwB hbB hLB hCA hCB hdA hdB
+                hokA' hokB' ρ hρ
+          cases hlt1 : Setlec.ReducibilityHint.lt
+              (Setlec.headHint env b') (Setlec.headHint env a') <;>
+            rw [hlt1] at h
+          · cases hlt2 : Setlec.ReducibilityHint.lt
+                (Setlec.headHint env a') (Setlec.headHint env b') <;>
+              rw [hlt2] at h
+            · cases hsr : (Setlec.ReducibilityHint.sameRegular
+                    (Setlec.headHint env a') (Setlec.headHint env b') &&
+                  Setlec.sameConstHeads a' b') <;> rw [hsr] at h
+              · exact hboth (x := pure false) h
+              · cases hsp : Setlec.defeqSpineP μ env fuel d a' b' with
+                | error err => rw [hsp] at h; exact nomatch h
+                | ok r' =>
+                rw [hsp] at h
+                dsimp only at h
+                cases r' with
+                | true =>
+                  exact hspine hsp hwa' hba' hLa' hwb' hbb' hLb'
+                    hCa' hCb' hda' hdb' hokA' hokB' ρ hρ
+                | false => exact hboth (x := pure false) h
+            · cases hub : Setlec.unfoldDefinition env b' with
+              | none => rw [hub] at h; exact nomatch h
+              | some b₂ =>
+                rw [hub] at h
+                obtain ⟨hd2, hw2, hb2, hL2, hC2⟩ :=
+                  dq_delta_packageP hdel hub hwb' hbb' hLb' hCb' hdb'
+                exact hk h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda'
+                  hd2 hokA' hokB' ρ hρ
+          · cases hua : Setlec.unfoldDefinition env a' with
+            | none => rw [hua] at h; exact nomatch h
+            | some a₂ =>
+              rw [hua] at h
+              obtain ⟨hd2, hw2, hb2, hL2, hC2⟩ :=
+                dq_delta_packageP hdel hua hwa' hba' hLa' hCa' hda'
+              exact hk h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hd2
+                hdb' hokA' hokB' ρ hρ
+
 end Setlec.SetR.Interp2
