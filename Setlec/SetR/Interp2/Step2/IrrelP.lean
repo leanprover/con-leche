@@ -1,5 +1,6 @@
 import Setlec.SetR.Interp2.Step2.DefEqP
 import Setlec.SetR.Interp2.Step2.InferP
+import Setlec.SetR.Interp2.EmptyPin2
 
 /-!
 # Proof irrelevance over `interp2` (task #161, P4 — the semantic rows begin)
@@ -91,6 +92,90 @@ private theorem prop_side_pt {m : EnvS2Core V env}
   have h0 : Level.eval φ uT = 0 := Setlec.Level.isEquiv_sound huT φ
   rw [h0] at hA
   exact mem_univ_zero hA.2 (hmemA ρ hρ)
+
+/-- One side of the unit-like branch: a term whose inferred type
+whnf-reduces to a unit-like type interprets to `pt`.
+
+`isUnitLikeTy` accepts only the **pinned** basis shapes
+(`Kernel/Core.lean:149` — the reserved-recursor conjunct), and among
+the pins only `PUnit` passes its three conditions
+(`unitLike_eq_punit`), so this is a basis-level fact: the annotated
+`PUnit` leaf is the pinned constant by erasure injectivity, its
+`interp2` is `unitSet`, and `unitSet` is `{pt}`.  The caps tier's
+first discharged row (task #161). -/
+private theorem unit_side_pt {m : EnvS2Core V env}
+    (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
+    (hreads : InferReadsP m μ φ fuel)
+    (hwreads : WhnfReadsP m μ φ fuel)
+    {d : Nat} {a ta wta : Expr} {Δa : List AVExpr} {aa : AVExpr}
+    (hta : inferTypeCore μ env fuel d a = .ok ta)
+    (hwta : whnf μ env fuel d ta = .ok wta)
+    (hu : isUnitLikeTy env wta = true)
+    (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a)
+    (hCa : CtxOkP m φ d Δa a)
+    (hda : denoteP m.acval env φ d a = some aa)
+    (ρ : Nat → V) (hρ : Sat2 V Δa ρ) :
+    interp2 V ρ aa = (pt : V) := by
+  obtain ⟨taa, htaa⟩ :=
+    hreads hta hwa hba hLa (LeafReadsP.of_ctxOkP hCa) hda
+  obtain ⟨-, hokTa, hmemA⟩ := ihi hta hwa hba hLa hCa hda htaa
+  -- the inferred type's frames
+  have hwt : Expr.WScoped d ta :=
+    inferTypeCore_WScoped m.base.wf fuel hta hwa
+  have hbt : ta.looseBVarsBounded 0 = true :=
+    inferTypeCore_looseBVars m.base.wf fuel hta hwa hba hLa
+  have hLt : Expr.LeavesBounded ta := fun l hl =>
+    hLa l (inferTypeCore_fvarLeaves m.base.wf fuel hta hwa l hl)
+  have hCt : CtxOkP m φ d Δa ta :=
+    hCa.of_subset (inferTypeCore_fvarLeaves m.base.wf fuel hta hwa)
+  -- the head normal form reads, and the reduction preserves interp2
+  obtain ⟨wtaa, hwtaa⟩ := hwreads hwta hwt hbt hLt htaa
+  obtain ⟨-, heqW⟩ := ihw hwta hwt hbt hLt hCt htaa hwtaa hokTa
+  -- the unit-like type is the pinned `PUnit`
+  obtain ⟨us, rfl, hfind⟩ :=
+    Setlec.TTVerify.unitLike_eq_punit m.base.basis_pinned hu
+  -- its reading is the annotated `PUnit` leaf
+  rw [denoteP, hfind] at hwtaa
+  dsimp only at hwtaa
+  split at hwtaa
+  case isFalse => exact nomatch hwtaa
+  case isTrue hlen =>
+  obtain rfl : wtaa = m.acval Setlec.punitName
+      (Level.substFn φ Setlec.punitA.toConstantVal.levelParams us) :=
+    (Option.some.inj hwtaa).symm
+  -- the leaf is the pinned constant, and its `interp2` is `unitSet`
+  have hpin : m.base.cval Setlec.punitName
+      (Level.substFn φ Setlec.punitA.toConstantVal.levelParams us)
+      = Setlec.TT.punitT
+        (Level.substFn φ Setlec.punitA.toConstantVal.levelParams us
+          Setlec.uN) :=
+    (m.base.basis_pinned Setlec.punitName _ hfind (by decide)).2 _ _ rfl
+  have hleaf : m.acval Setlec.punitName
+      (Level.substFn φ Setlec.punitA.toConstantVal.levelParams us)
+      = .const .punit
+        [Level.substFn φ Setlec.punitA.toConstantVal.levelParams us
+          Setlec.uN] :=
+    erase_eq_const (by rw [m.acval_erase, hpin]; rfl)
+  -- the membership chain
+  have hmem := hmemA ρ hρ
+  rw [heqW ρ hρ, hleaf, interp2_const] at hmem
+  exact mem_unitSet hmem
+
+/-- **The unit-like branch, discharged** — `UnitIrrelPQ` is a theorem
+of the claims plus the pinned basis, so it leaves the caps tier's bill
+(task #161; the first of the four capability rows to fall). -/
+theorem unitIrrelPQ_of_claims {m : EnvS2Core V env}
+    (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
+    (hreads : InferReadsP m μ φ fuel)
+    (hwreads : WhnfReadsP m μ φ fuel) :
+    UnitIrrelPQ μ m φ fuel := by
+  intro d a b ta wta tb wtb Δa hta hwta hu htb hwtb hub hwa hba hLa
+    hwb hbb hLb aa ba hCa hCb hda hdb _hokA _hokB ρ hρ
+  rw [unit_side_pt ihw ihi hreads hwreads hta hwta hu hwa hba hLa
+      hCa hda ρ hρ,
+    unit_side_pt ihw ihi hreads hwreads htb hwtb hub hwb hbb hLb
+      hCb hdb ρ hρ]
 
 /-- **Residue 3's discharge, `Prop` branch outright** (see the module
 docstring); the unit-like branch routes to `UnitIrrelPQ`. -/

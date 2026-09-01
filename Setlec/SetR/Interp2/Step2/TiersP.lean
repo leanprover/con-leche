@@ -63,8 +63,9 @@ structure TierInputsAtP (V : Type w) [SetTheory V] (μ : CheckMode)
   nat_step : ∀ fuel, WhnfClaims2P μ m φ fuel → ReduceNatStepP μ m φ fuel
   nat_stepQ : ∀ fuel,
     WhnfClaims2P μ m φ fuel → ReduceNatStepPQ μ m φ fuel
-  /-- caps tier: the four structure-capability fallbacks -/
-  unit_irrel : ∀ fuel, UnitIrrelPQ μ m φ fuel
+  /-- caps tier: the three structure-capability fallbacks
+  (`UnitIrrelPQ` is discharged — `unitIrrelPQ_of_claims`, the pinned
+  `PUnit` at the claims) -/
   pair_eta : ∀ fuel, PairEtaIrrelP μ m φ fuel
   struct_eta : ∀ fuel, StructEtaIrrelP μ m φ fuel
   struct_unit : ∀ fuel, StructUnitIrrelP μ m φ fuel
@@ -112,12 +113,14 @@ theorem checkSoundAtP (hμ : μ.verified = true)
         (deltaP_of m h.reads.defn)
     · -- the defeq quarter, of_claims discharges wired
       have hsi : StuckIrrelPQ μ m φ fuel :=
-        stuckIrrelP_of_claims ihw ihi hreads (h.unit_irrel fuel)
+        stuckIrrelP_of_claims ihw ihi hreads
+          (unitIrrelPQ_of_claims ihw ihi hreads hwreads)
           (h.pair_eta fuel) (h.struct_eta fuel) (h.struct_unit fuel)
       have hstep : DefEqStepAtP μ m φ fuel :=
         defeqStep_claimP (whnfCoreReductExistsP_of' h.reads) ihwc
           (denotePDeltaP_of h.reads) (h.nat_stepQ fuel ihw)
-          (proofIrrelPQ_of_claims ihw ihi hreads (h.unit_irrel fuel))
+          (proofIrrelPQ_of_claims ihw ihi hreads
+            (unitIrrelPQ_of_claims ihw ihi hreads hwreads))
           (defeqStuck_claimP hμ ihd hsi denotePStrLit_of_guard
             (acvalParamsP m) (appCongrStuckP_of_claims ihd)
             (etaCertStepP_of_claims hμ ihw ihd ihi hreads hwreads))
@@ -179,7 +182,6 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
     (hnatQ : ∀ fuel,
       WhnfClaims2P μ mp.base2 φ fuel →
         ReduceNatStepPQ μ mp.base2 φ fuel)
-    (hunit : ∀ fuel, UnitIrrelPQ μ mp.base2 φ fuel)
     (hpair : ∀ fuel, PairEtaIrrelP μ mp.base2 φ fuel)
     (hseta : ∀ fuel, StructEtaIrrelP μ mp.base2 φ fuel)
     (hsunit : ∀ fuel, StructUnitIrrelP μ mp.base2 φ fuel) :
@@ -193,7 +195,6 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
   whnf_proj := hwproj
   nat_step := hnat
   nat_stepQ := hnatQ
-  unit_irrel := hunit
   pair_eta := hpair
   struct_eta := hseta
   struct_unit := hsunit

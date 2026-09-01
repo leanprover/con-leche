@@ -134,9 +134,8 @@ structure SemTierInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
     (fuel : Nat), InferProjStepP m μ φ fuel
   str_lit : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), InferStrLitStepP m μ φ fuel
-  /-- caps tier -/
-  unit_irrel : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), UnitIrrelPQ μ m φ fuel
+  /-- caps tier (`UnitIrrelPQ` is discharged at the claims —
+  `unitIrrelPQ_of_claims`) -/
   pair_eta : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), PairEtaIrrelP μ m φ fuel
   struct_eta : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
@@ -162,7 +161,6 @@ theorem TierInputsAtP.ofSem (hsem : SemTierInputsP V μ)
     (fun fuel => hsem.whnf_proj mp.base2 φ fuel)
     (fun _fuel ihw => reduceNatStepP_of mp ihw)
     (fun _fuel ihw => reduceNatStepPQ_of mp ihw)
-    (fun fuel => hsem.unit_irrel mp.base2 φ fuel)
     (fun fuel => hsem.pair_eta mp.base2 φ fuel)
     (fun fuel => hsem.struct_eta mp.base2 φ fuel)
     (fun fuel => hsem.struct_unit mp.base2 φ fuel)
