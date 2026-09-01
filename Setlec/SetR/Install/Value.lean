@@ -157,7 +157,9 @@ theorem extendValueS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
             (interp V ρ (cvalAt m.cval env name value c₀.name ψ)) x
             = x) :
     ∃ m' : EnvS V ⟨c₀ :: env.consts⟩,
-      ∀ n, n ≠ name → m.cval n = m'.cval n := by
+      (∀ n, n ≠ name → m.cval n = m'.cval n) ∧
+      ∀ ψ : Name → Nat,
+        denoteClosed m.cval env ψ value = some (m'.cval name ψ) := by
   have hfresh' : env.find? c₀.name = none := by rw [hc₀name]; exact hfresh
   have hi : Installs env m.cval (cvalAt m.cval env name value) c₀ :=
     Installs.of_fresh hfresh' (fun n hn => by
@@ -170,7 +172,11 @@ theorem extendValueS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
     (fun entry heq => absurd heq (hc₀nproj entry))
     (fun _ entry heq => absurd heq (hc₀nproj entry))
     ?_ ?_ hheadNat hheadDivMod hheadReduce,
-    fun n hn => (cvalAt_ne hn).symm⟩
+    fun n hn => (cvalAt_ne hn).symm,
+    fun ψ => by
+      obtain ⟨v, t, hv, -⟩ := hkey ψ
+      rw [hv]
+      exact congrArg some (cvalAt_self hv).symm⟩
   · -- the new valuation is closed
     intro ψ
     obtain ⟨v, t, hv, -, -⟩ := hkey ψ

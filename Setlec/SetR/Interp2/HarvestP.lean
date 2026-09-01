@@ -628,7 +628,12 @@ theorem harvestThmP (hμ : μ.verified = true)
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value') (A := A)
       hfresh hlga _ rfl φ
 
-/-! ## The `opaque` kind: SKIPPED, and why (batch H2, T2)
+/-! ## The `opaque` kind: the H2 SKIP, since unlocked
+
+(The record below is batch H2's original finding, kept for the trail;
+the named strengthening has been LANDED — `extendValueS` now exposes
+the leaf equation, `declOpaqueS` carries it with the annotate link —
+and `harvestOpaqueP` at the end of this file is the species on it.)
 
 There is **no `harvestOpaqueP` here**, and the wall is one equation.
 
@@ -812,6 +817,220 @@ theorem harvestAxiomP (hμ : μ.verified = true)
     rw [hcomp ψ type' hcbT] at hta
     exact hmemA ψ ta hta ρ
   · -- `hvalReads`: an axiom is neither a `def` nor a `thm`
+    intro ψ cv2 value2 hmem
+    rcases hmem with ⟨hint2, hdt⟩ | hdt
+    · exact nomatch hdt
+    · exact nomatch hdt
+  · -- `nat_heads` at the extension, from the guard agreement
+    exact fun φ => natHeadsP_cons_fresh mp
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
+      hfresh hlga _ rfl φ
+
+
+/-! ## The `opaque` kind, unlocked (the exposed leaf equation)
+
+The H2 SKIP record above named the one missing premise: the leaf
+equation invisible at `declOpaqueS`'s `∃`-boundary.  `extendValueS`
+now exposes it (an additive conjunct; `declOpaqueS` carries it with
+the annotate link), and the harvest is the species with the erasure
+link read **directly** off the exposed equation — no `denote_install`,
+no `defn_eq`/`thm_ok` detour. -/
+
+theorem harvestOpaqueP (hμ : μ.verified = true)
+    (hsem : SemTierInputsP V μ) (hrp : ReducePinS V)
+    (mp : EnvS2PM V μ env)
+    {cv : ConstantVal} {value : Expr} {env₂ : Env}
+    (hR : DeclOpaqueR μ F env mp.base2.base.cval cv value env₂)
+    (hlga : LitGuardsAgree env env₂) :
+    Nonempty (EnvS2PM V μ env₂) := by
+  obtain ⟨m', hag, value'', hannv2, hleafEq⟩ :=
+    declOpaqueS hrp mp.base2.base hR
+  obtain ⟨type', value', hcv, hvfr, rfl, -⟩ := hR
+  obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
+    hrunT, hfrontT⟩ := hcv
+  obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩,
+    hfrontV⟩ := hvfr
+  obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
+  obtain ⟨hvf', hbv'⟩ := annotate_syntax hannv hvhf hvlb
+  have hfresh : env.find? cv.name = none :=
+    Option.isNone_iff_eq_none.mp hfind
+  -- the scoping packages of the primed forms
+  have hwv : Expr.WScoped 0 value' := Expr.WScoped.of_not_hasFvar hvf'
+  have hLv : Expr.LeavesBounded value' := fun l hl => by
+    rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hvf'] at hl
+    exact absurd hl (List.not_mem_nil)
+  have hnlv : value'.fvarLeaves = [] :=
+    Expr.fvarLeaves_eq_nil_of_not_hasFvar hvf'
+  have hwt : Expr.WScoped 0 type' := Expr.WScoped.of_not_hasFvar htf'
+  have hLt : Expr.LeavesBounded type' := fun l hl => by
+    rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'] at hl
+    exact absurd hl (List.not_mem_nil)
+  have hnlt : type'.fvarLeaves = [] :=
+    Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'
+  -- the leaf: the value's reading, per assignment
+  have hAex : ∀ ψ : Name → Nat,
+      ∃ va, denoteP mp.base2.acval env ψ 0 value' = some va := by
+    intro ψ
+    exact hsem.accepted_reads mp.base2 ψ hvrun hwv hbv' hLv
+  let A : (Name → Nat) → AVExpr :=
+    fun ψ => (denoteP mp.base2.acval env ψ 0 value').getD default
+  have hA : ∀ ψ : Name → Nat,
+      denoteP mp.base2.acval env ψ 0 value' = some (A ψ) := by
+    intro ψ
+    obtain ⟨va, hva⟩ := hAex ψ
+    show _ = some ((denoteP mp.base2.acval env ψ 0 value').getD default)
+    simp [hva]
+  -- the type's reading, per assignment
+  obtain ⟨stype, u, hst, hens⟩ := hrunT
+  have hTex : ∀ ψ : Name → Nat,
+      ∃ ta, denoteP mp.base2.acval env ψ 0 type' = some ta := by
+    intro ψ
+    exact hsem.accepted_reads mp.base2 ψ hst hwt hbt' hLt
+  let Ta : (Name → Nat) → AVExpr :=
+    fun ψ => (denoteP mp.base2.acval env ψ 0 type').getD default
+  have hTa : ∀ ψ : Name → Nat,
+      denoteP mp.base2.acval env ψ 0 type' = some (Ta ψ) := by
+    intro ψ
+    obtain ⟨ta, hta⟩ := hTex ψ
+    show _ = some ((denoteP mp.base2.acval env ψ 0 type').getD default)
+    simp [hta]
+  -- the claims and the reads, per assignment
+  have hclaims := fun ψ =>
+    checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem hsem mp ψ) F
+  have hreads : ∀ ψ, InferReadsP mp.base2 μ ψ F :=
+    fun ψ => inferReadsP_of (TierInputsAtP.ofSem hsem mp ψ).reads
+  -- the value's rows: gradings and the membership at its own type
+  have hrowsV : ∀ ψ : Name → Nat, ∃ vta,
+      denoteP mp.base2.acval env ψ 0 vtype = some vta ∧
+      ((∀ ρ : Nat → V, Sat2 V [] ρ → AnnotOkP V ρ (A ψ)) ∧
+        (∀ ρ : Nat → V, Sat2 V [] ρ → AnnotOkP V ρ vta) ∧
+        ∀ ρ : Nat → V, Sat2 V [] ρ →
+          interp2 V ρ (A ψ) ∈ˢ interp2 V ρ vta) := by
+    intro ψ
+    obtain ⟨-, -, -, ihi⟩ := hclaims ψ
+    obtain ⟨vta, hvta⟩ :=
+      hreads ψ hvrun hwv hbv' hLv (LeafReadsP.of_ctxOkP (CtxOkP.nil hnlv))
+        (hA ψ)
+    exact ⟨vta, hvta, ihi hvrun hwv hbv' hLv (CtxOkP.nil hnlv)
+      (hA ψ) hvta⟩
+  -- the type's rows: its own grading as a subject
+  have hrowsT : ∀ ψ : Name → Nat, ∃ sta,
+      denoteP mp.base2.acval env ψ 0 stype = some sta ∧
+      ((∀ ρ : Nat → V, Sat2 V [] ρ → AnnotOkP V ρ (Ta ψ)) ∧
+        (∀ ρ : Nat → V, Sat2 V [] ρ → AnnotOkP V ρ sta) ∧
+        ∀ ρ : Nat → V, Sat2 V [] ρ →
+          interp2 V ρ (Ta ψ) ∈ˢ interp2 V ρ sta) := by
+    intro ψ
+    obtain ⟨-, -, -, ihi⟩ := hclaims ψ
+    obtain ⟨sta, hsta⟩ :=
+      hreads ψ hst hwt hbt' hLt (LeafReadsP.of_ctxOkP (CtxOkP.nil hnlt))
+        (hTa ψ)
+    exact ⟨sta, hsta, ihi hst hwt hbt' hLt (CtxOkP.nil hnlt)
+      (hTa ψ) hsta⟩
+  -- the leaf laws
+  have hAclosed : ∀ (ψ : Name → Nat) (k : Nat),
+      (A ψ).liftN 1 k = A ψ := fun ψ k =>
+    denoteP_closed mp.base2.acval_erase mp.base2.base.cval_closed
+      hvf' hbv' (hA ψ) 1 k
+  have hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂ := by
+    intro ψ₁ ψ₂ hψ
+    have := denoteP_params_ext mp.base2 hψ 0 value' hvp
+    rw [hA ψ₁, hA ψ₂] at this
+    exact Option.some.inj this
+  have hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      AnnotOk2 V ρ (A ψ) := by
+    intro ψ ρ
+    obtain ⟨vta, hvta, hrE, -, -⟩ := hrowsV ψ
+    exact (hrE ρ (Sat2_nil V ρ)).1
+  have hAvalid : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      AnnotValidV V ρ (A ψ) := by
+    intro ψ ρ
+    obtain ⟨vta, hvta, hrE, -, -⟩ := hrowsV ψ
+    exact (hrE ρ (Sat2_nil V ρ)).2
+  -- the membership at the declared type, across the defeq run
+  have hmemA : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      interp2 V ρ (A ψ) ∈ˢ interp2 V ρ (Ta ψ) := by
+    intro ψ ρ
+    obtain ⟨-, -, ihd, ihi⟩ := hclaims ψ
+    obtain ⟨vta, hvta, hrE, hrT, hrM⟩ := hrowsV ψ
+    obtain ⟨sta, hsta, htE, -, -⟩ := hrowsT ψ
+    -- vtype's scoping package
+    have hwvt : Expr.WScoped 0 vtype :=
+      inferTypeCore_WScoped mp.base2.base.wf F hvrun hwv
+    have hbvt : vtype.looseBVarsBounded 0 = true :=
+      inferTypeCore_looseBVars mp.base2.base.wf F hvrun hwv hbv' hLv
+    have hnlvt : vtype.fvarLeaves = [] := by
+      have hsub := inferTypeCore_fvarLeaves mp.base2.base.wf F hvrun hwv
+      cases hh : vtype.fvarLeaves with
+      | nil => rfl
+      | cons l ls =>
+        have := hsub l (by rw [hh]; exact List.mem_cons_self ..)
+        rw [hnlv] at this
+        exact absurd this (List.not_mem_nil)
+    have hLvt : Expr.LeavesBounded vtype := fun l hl => by
+      rw [hnlvt] at hl
+      exact absurd hl (List.not_mem_nil)
+    have heq := ihd hvde hwvt hbvt hLvt hwt hbt' hLt
+      (CtxOkP.nil hnlvt) (CtxOkP.nil hnlt) hvta (hTa ψ)
+      hrT htE ρ (Sat2_nil V ρ)
+    rw [← heq]
+    exact hrM ρ (Sat2_nil V ρ)
+  -- the transfer to the extension
+  have hcbT : ConstsBound env type' := constsBound_of_constsResolve _ htr
+  have hcbV : ConstsBound env value' := constsBound_of_constsResolve _ hvr
+  have hcomp : ∀ (ψ : Name → Nat) (e : Expr), ConstsBound env e →
+      denoteP (acvalWith mp.base2.acval cv.name A)
+          ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+            env.consts⟩ ψ 0 e
+        = denoteP mp.base2.acval env ψ 0 e :=
+    fun ψ e hcb =>
+      denoteP_cons_fresh
+        (acval := mp.base2.acval)
+        (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+        (A := A) hfresh hlga ψ 0 e hcb
+  -- the v1-side erasure link: the exposed leaf equation, directly
+  have hvv : value'' = value' :=
+    Except.ok.inj (hannv2.symm.trans hannv)
+  rw [hvv] at hleafEq
+  have hAerase : ∀ ψ,
+      (A ψ).erase = m'.cval cv.name ψ := by
+    intro ψ
+    have hden : denote mp.base2.base.cval env ψ 0 value'
+        = some (A ψ).erase :=
+      denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)
+    have hle := hleafEq ψ
+    rw [denoteClosed, hden] at hle
+    exact Option.some.inj hle
+  -- assemble
+  refine declStepPM_of_cons mp
+    (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+    (A := A) hfresh m' (fun n hn => hag n hn) hlga hAerase hAclosed
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_
+  · -- `htyReads`
+    intro ψ
+    show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts⟩ ψ 0 type' = some ta
+    exact ⟨Ta ψ, by rw [hcomp ψ type' hcbT]; exact hTa ψ⟩
+  · -- `htyOk`
+    intro ψ ta hta ρ
+    replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
+        ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+          env.consts⟩ ψ 0 type' = some ta := hta
+    rw [hcomp ψ type' hcbT, hTa ψ] at hta
+    obtain rfl : ta = Ta ψ := (Option.some.inj hta).symm
+    obtain ⟨sta, hsta, htE, -, -⟩ := hrowsT ψ
+    exact htE ρ (Sat2_nil V ρ)
+  · -- `hmemNew`
+    intro ψ ta hta ρ
+    replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
+        ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+          env.consts⟩ ψ 0 type' = some ta := hta
+    rw [hcomp ψ type' hcbT, hTa ψ] at hta
+    obtain rfl : ta = Ta ψ := (Option.some.inj hta).symm
+    exact hmemA ψ ρ
+  · -- `hvalReads`: an opaque stores an axiom — both arms impossible
     intro ψ cv2 value2 hmem
     rcases hmem with ⟨hint2, hdt⟩ | hdt
     · exact nomatch hdt
