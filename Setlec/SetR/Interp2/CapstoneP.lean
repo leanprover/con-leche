@@ -106,6 +106,16 @@ fold consumes this; the final capstone consumes nothing (the tiers
 land as theorems). -/
 structure SemTierInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
     Prop where
+  /-- subject-side totality: whatever inference accepts, reads —
+  the harvest layer's per-declaration readings (the primed forms),
+  discharged with the proj/literal tiers' completion (`denoteP`'s
+  fragment guards are the front door's acceptance guards) -/
+  accepted_reads : ∀ {env : Env} (m : EnvS2Core V env)
+    (φ : Name → Nat) {F d : Nat} {e t : Expr},
+    Setlec.inferTypeCore μ env F d e = .ok t →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    ∃ ea, denoteP m.acval env φ d e = some ea
   /-- iota tier: the fired rule's reading -/
   iota_reads : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), IotaReadsP μ m φ fuel

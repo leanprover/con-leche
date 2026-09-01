@@ -70,6 +70,21 @@ theorem acvalWith_validV {acval : Name → (Name → Nat) → AVExpr}
   · subst hm; rw [acvalWith_self]; exact hA ψ ρ
   · rw [acvalWith_ne hm]; exact h m ψ ρ
 
+/-- **The fresh-cons transfer**: readings of prefix-bound subjects
+survive the extension and ignore the fresh leaf — the composition of
+`denoteP_envExtend` (a theorem) and `denoteP_acvalWith_fresh`.  The
+harvest layer reads it directly; `declStepPM_of_cons` uses it for
+every old-constant field. -/
+theorem denoteP_cons_fresh {acval : Name → (Name → Nat) → AVExpr}
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hlga : LitGuardsAgree env ⟨c₀ :: env.consts⟩)
+    (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound env e) :
+    denoteP (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
+      = denoteP acval env ψ d e := by
+  rw [← denoteP_envExtend (findPreserved_cons hfresh) hlga d e hcb,
+    denoteP_acvalWith_fresh hfresh d e]
+
 /-- **The P declaration step, cons shape** (see the module
 docstring). -/
 theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
@@ -127,10 +142,8 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
       ConstsBound env e →
       denoteP (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ d e
-        = denoteP mp.base2.acval env ψ d e := by
-    intro ψ d e hcb
-    rw [← denoteP_envExtend (findPreserved_cons hfresh) hlga d e hcb,
-      denoteP_acvalWith_fresh hfresh d e]
+        = denoteP mp.base2.acval env ψ d e :=
+    fun ψ d e hcb => denoteP_cons_fresh hfresh hlga ψ d e hcb
   -- the P fields, at the `acvalWith` spelling (defeq to the core's)
   have htr : ∀ c ∈ (⟨c₀ :: env.consts⟩ : Env).consts, ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
