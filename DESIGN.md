@@ -11575,3 +11575,43 @@ Every consumer paid nothing: `sortSemAtP_of_claims`,
 `CtxOkP` at the same depth, and discharge the new premise by
 `LeafReadsP.of_ctxOkP`.  All six totality residues of the batch-6
 consolidation are now discharged outright.
+
+## Task #161 P4.3 SEAL: the tiers assembly — `checkSoundAtP` (2026-09-01)
+
+**The consolidation theorem** (`Step2/TiersP.lean`, proved, standard
+axioms): at a validating mode and one environment, given
+`TierInputsAtP` — the residues still routed, each named by its
+discharge tier — the four P-tier soundness claims hold at every fuel,
+with ALL of the batch-6/7 discharges wired into the induction step
+(the totality factors, the derived sort fact, proof irrelevance, the
+spine congruences, η, `stuckIrrel`'s cascade, the string expansion,
+the delta identity: none appears in the bundle).
+`TierInputsAtP.ofEnvS2PM` supplies the env-tier entries from the fold
+invariant; what remains as arguments is exactly the semantic-content
+bill:
+
+* **iota tier**: `IotaStepP`, `IotaReadsP` — the fired-rule row and
+  its readability.  Next architecture piece: freeze `RecRulesP`
+  (`RecRuleLawV` at `interp2`/`denoteP`), quarter-side discharge from
+  it, install-side establishment mirroring the v1 iota derivations at
+  the two-regime interpretation (the campaign's long pole — genuinely
+  new mathematics at Prop-motive minors, not mechanical mirrors).
+* **caps tier**: `UnitIrrelPQ`, `PairEtaIrrelP`, `StructEtaIrrelP`,
+  `StructUnitIrrelP` — subsingleton/η semantics of the structure
+  capabilities at `interp2` (v1: `Sound/Struct`, `Sound/Irrel`).
+* **literal tier**: `ReduceNatStepP`/`PQ`, `ReduceNatReadsP` — the
+  numeral acceleration at `interp2` (v1: `Sound/NatOps`).
+* **install/proj tier**: `InferStrLitStepP`, `InferProjStepP`,
+  `ProjStepP`, the two proj-reads — the projection machinery and the
+  `String` infer row; plus the **fold itself** (`declStepPM` per
+  declaration kind: extend `EnvS2PM` — the new leaf is the value's
+  `denoteP` reading, its facts are `checkSoundAtP`'s conclusions at
+  the prefix, the crossings are batch 1's extension lemmas — then
+  `checkDecls_sound_P` and the capstone `no_proof_of_Empty_P` off
+  `mem_typeP` at the `Empty` pin).
+
+Battery at seal: build warning-free (378 jobs), `lake test`, harness
+(annot 10/10, split 11/11, mode 9/9, no-model sweep 138+72+10 with the
+4 recorded divergences), zero sorries, axioms exactly the standard
+three on `checkSoundAtP` and `TierInputsAtP.ofEnvS2PM`; master
+contained.
