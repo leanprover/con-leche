@@ -336,12 +336,84 @@ theorem erasedEq_of_eraseNames :
       simp only [Expr.eraseNames, Expr.proj.injEq] at h
       exact ⟨h.1, h.2.1, erasedEq_of_eraseNames h.2.2⟩
 
+/-! ### `pw` transparency (task #161 P5)
+
+`ConstantVal.matchesPin` now compares stored types to pinned ones up to
+the binder *prop-ness datum* as well as up to binder names
+(`Expr.erasePw`, `Setlec/Kernel/StdAxioms.lean`).  The paragraph
+above's rule — *a pin comparison must never forgive something the
+interpretation reads* — is what has to be re-established, and it is:
+`denote`'s ∀/λ clauses bind `m` and never mention it again, exactly as
+they bind `n` and use it only to build the `fvar` they open with.  So
+the forgiveness is again matched by blindness, and `denote_matchesPin`
+keeps its statement verbatim.
+
+The two lemmas below are the mechanical half of that.  `erasePw` is a
+structural rewrite that also rewrites the *type carried on an `fvar`
+leaf* — which `denote` does not read either (`denote_fvar`) — so it
+commutes with `instantiate1` and the binder clauses' opened bodies line
+up on the nose. -/
+
+/-- `erasePw` commutes with opening a binder. -/
+theorem Expr.erasePw_instantiate1 :
+    ∀ (e v : Expr) (k : Nat),
+      (e.instantiate1 v k).erasePw = e.erasePw.instantiate1 v.erasePw k := by
+  intro e
+  induction e <;> intro v k <;>
+    simp_all [Expr.instantiate1, Expr.erasePw]
+  case bvar i =>
+    split
+    · rfl
+    · split <;> rfl
+
+/-- **`pw` transparency**: erasing the binder prop-ness data does not
+change a denotation.  `denote` reads a binder's metadata never, and its
+name only to build the `fvar` it opens with. -/
+theorem denote_erasePw {cval : TConstVal} {env : Env} {φ : Name → Nat} :
+    ∀ (e : Expr) (d : Nat),
+      denote cval env φ d e.erasePw = denote cval env φ d e
+  | .bvar _, _ => rfl
+  | .fvar i n ty, d => by simp [Expr.erasePw, denote_fvar]
+  | .sort _, _ => rfl
+  | .const _ _, _ => rfl
+  | .app f a, d => by
+    simp only [Expr.erasePw, denote_app, denote_erasePw f d, denote_erasePw a d]
+  | .forallE n ty body m, d => by
+    have hb : (body.erasePw).instantiate1 (Expr.fvar d n ty.erasePw)
+        = (body.instantiate1 (.fvar d n ty)).erasePw := by
+      rw [Expr.erasePw_instantiate1]; rfl
+    simp only [Expr.erasePw, denote_forallE, denote_erasePw ty d, hb,
+      denote_erasePw (body.instantiate1 (.fvar d n ty)) (d + 1)]
+  | .lam n ty body m, d => by
+    have hb : (body.erasePw).instantiate1 (Expr.fvar d n ty.erasePw)
+        = (body.instantiate1 (.fvar d n ty)).erasePw := by
+      rw [Expr.erasePw_instantiate1]; rfl
+    simp only [Expr.erasePw, denote_lam, denote_erasePw ty d, hb,
+      denote_erasePw (body.instantiate1 (.fvar d n ty)) (d + 1)]
+  | .letE n ty vl body, d => by
+    have hb : (body.erasePw).instantiate1 (Expr.fvar d n ty.erasePw)
+        = (body.instantiate1 (.fvar d n ty)).erasePw := by
+      rw [Expr.erasePw_instantiate1]; rfl
+    simp only [Expr.erasePw, denote_letE, denote_erasePw ty d,
+      denote_erasePw vl d, hb,
+      denote_erasePw (body.instantiate1 (.fvar d n ty)) (d + 1)]
+  | .lit _, _ => rfl
+  | .proj sn i pe, d => by
+    simp only [Expr.erasePw, denote_proj, denote_erasePw pe d]
+termination_by e => e.sizeB
+decreasing_by
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
+
 /-- A `matchesPin` hit lets a stored type be denoted on the pin. -/
 theorem denote_matchesPin {cval : TConstVal} {env : Env} {φ : Name → Nat}
     {cv pin : ConstantVal} (h : ConstantVal.matchesPin cv pin = true)
     (d : Nat) :
     denote cval env φ d cv.type = denote cval env φ d pin.type := by
   simp only [ConstantVal.matchesPin, Bool.and_eq_true, beq_iff_eq] at h
+  rw [← denote_erasePw cv.type d, ← denote_erasePw pin.type d]
   exact denote_erasedEq (erasedEq_of_eraseNames h.2) d
 
 end Setlec.TTVerify
