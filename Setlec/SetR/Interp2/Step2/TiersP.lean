@@ -1,5 +1,7 @@
 import Setlec.SetR.Interp2.Step2.ReadsP
 import Setlec.SetR.Interp2.Step2.CapsRowsP
+import Setlec.SetR.Interp2.Step2.StrLitP
+import Setlec.SetR.Interp2.Step2.ProjRowsP
 
 /-!
 # The tiers assembly (task #161, P4): one env-fixed bundle, one induction
@@ -49,14 +51,8 @@ structure TierInputsAtP (V : Type w) [SetTheory V] (μ : CheckMode)
   acval_valid : AcvalValidP m
   /-- install tier: the numeral heads -/
   nat_heads : NatHeadsP m φ
-  /-- install tier: the `String`-literal infer row -/
-  str_lit : ∀ fuel, InferStrLitStepP m μ φ fuel
-  /-- install tier: the projection infer row -/
-  infer_proj : ∀ fuel, InferProjStepP m μ φ fuel
   /-- iota tier: the fired-rule row -/
   iota : ∀ fuel, IotaStepP μ m φ fuel
-  /-- install tier: the projection reduction row -/
-  whnf_proj : ∀ fuel, ProjStepP μ m φ fuel
   /-- literal tier: the two acceleration rows, each taking the whnf
   claims at the same fuel (`reduceNat` head-normalises its arguments
   before reading them as literals) -/
@@ -108,7 +104,8 @@ theorem checkSoundAtP (hμ : μ.verified = true)
     · -- the head-normalisation quarter
       exact whnfCore_claimsP m hex
         (betaCertP_of_claims m hexi ihd ihi)
-        (h.iota fuel) (h.whnf_proj fuel) ihwc
+        (h.iota fuel)
+        (projStepP_of_claims ihwc ihw ihd ihi hreads hwreads) ihwc
     · -- the reduction loop
       exact whnf_claimsP m hex ihwc (h.nat_step fuel ihw)
         (deltaP_of m h.reads.defn)
@@ -154,7 +151,8 @@ theorem checkSoundAtP (hμ : μ.verified = true)
         exact infer_natLit_claimP m h.nat_heads h.acval_valid
           hrun hea hta
       | .lit (.strVal s), hrun, _, _, _, _, hea =>
-        exact h.str_lit fuel hrun hea hta
+        exact inferStrLitStepP_of_claims h.reads.const_ty h.acval_valid
+          h.nat_heads hrun hea hta
       | .forallE nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
         exact infer_forallE_claimP m hμ hss hrun hws hb hLb hC hea hta
       | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
@@ -166,7 +164,8 @@ theorem checkSoundAtP (hμ : μ.verified = true)
         exact infer_letE_claimP m hss hreads ihi hrun hws hb hLb
           hC hea hta
       | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
-        exact h.infer_proj fuel hrun hws hb hLb hC hea hta
+        exact inferProjStepP_of_claims ihw ihi hreads hwreads hrun hws hb
+          hLb hC hea hta
 
 /-- **The env-tier entries, from the fold's invariant**: an `EnvS2PM`
 supplies the readability bundle, the leaf validity, and the numeral
@@ -175,26 +174,18 @@ heads; what remains as arguments is exactly the semantic-content bill
 by its tier in the frontier-transformation table. -/
 theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
     (hiota_r : ∀ fuel, IotaReadsP μ mp.base2 φ fuel)
-    (hwproj_r : ∀ fuel, WhnfCoreProjReadsP μ mp.base2 φ fuel)
-    (hiproj_r : ∀ fuel, InferProjReadsP μ mp.base2 φ fuel)
     (hnat_r : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel)
-    (hstr : ∀ fuel, InferStrLitStepP mp.base2 μ φ fuel)
-    (hiproj : ∀ fuel, InferProjStepP mp.base2 μ φ fuel)
     (hiota : ∀ fuel, IotaStepP μ mp.base2 φ fuel)
-    (hwproj : ∀ fuel, ProjStepP μ mp.base2 φ fuel)
     (hnat : ∀ fuel,
       WhnfClaims2P μ mp.base2 φ fuel → ReduceNatStepP μ mp.base2 φ fuel)
     (hnatQ : ∀ fuel,
       WhnfClaims2P μ mp.base2 φ fuel →
         ReduceNatStepPQ μ mp.base2 φ fuel) :
     TierInputsAtP V μ mp.base2 φ where
-  reads := ReadsInputsP.ofEnvS2PM mp hiota_r hwproj_r hiproj_r hnat_r
+  reads := ReadsInputsP.ofEnvS2PM mp hiota_r hnat_r
   acval_valid := mp.acvalValidP
   nat_heads := mp.nat_heads φ
-  str_lit := hstr
-  infer_proj := hiproj
   iota := hiota
-  whnf_proj := hwproj
   nat_step := hnat
   nat_stepQ := hnatQ
   caps_ok := mp.caps_ok

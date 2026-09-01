@@ -125,23 +125,22 @@ structure SemTierInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
   /-- iota tier: the fired rule's row -/
   iota : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), IotaStepP μ m φ fuel
-  /-- proj/str install tier -/
-  whnf_proj_reads : ∀ {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) (fuel : Nat), WhnfCoreProjReadsP μ m φ fuel
-  infer_proj_reads : ∀ {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) (fuel : Nat), InferProjReadsP μ m φ fuel
-  whnf_proj : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), ProjStepP μ m φ fuel
-  infer_proj : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), InferProjStepP m μ φ fuel
-  str_lit : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), InferStrLitStepP m μ φ fuel
   /- caps tier: NO entries.  All four capability rows left this
   census with the tier: `UnitIrrelPQ` (`unitIrrelPQ_of_claims`),
   `PairEtaIrrelP` (`pairEtaIrrelP_of_claims`), `StructEtaIrrelP`
   (`structEtaIrrelP_of_claims`, off the `EnvS2PM.caps_ok` field), and
   `StructUnitIrrelP` with the ratified one-premise repair of the unit
-  half (`structUnitIrrelP_of_claims`): the caps tier is CLOSED. -/
+  half (`structUnitIrrelP_of_claims`): the caps tier is CLOSED.
+
+  proj/str install tier: NO entries either.  All five rows left this
+  census with that tier — `InferStrLitStepP`
+  (`inferStrLitStepP_of_claims`, `Step2/StrLitP.lean`),
+  `WhnfCoreProjReadsP`/`InferProjReadsP` (`whnfCoreProjReadsP_of`,
+  `inferProjReadsP_of`, `Step2/ReadsP.lean`: routed by mistake, the
+  walk's own induction hypothesis discharges them), and
+  `InferProjStepP`/`ProjStepP` (`inferProjStepP_of_claims`,
+  `projStepP_of_claims`, `Step2/ProjRowsP.lean`).  The bill is now
+  `accepted_reads` + the two iota rows. -/
 
 /-- The env-fixed tier bundle, from the semantic inputs + the fold's
 invariant + the one bespoke literal-tier fact (`nat_heads`, an install
@@ -152,13 +151,8 @@ theorem TierInputsAtP.ofSem (hsem : SemTierInputsP V μ)
     TierInputsAtP V μ mp.base2 φ :=
   TierInputsAtP.ofEnvS2PM mp
     (fun fuel => hsem.iota_reads mp.base2 φ fuel)
-    (fun fuel => hsem.whnf_proj_reads mp.base2 φ fuel)
-    (fun fuel => hsem.infer_proj_reads mp.base2 φ fuel)
     (fun fuel => reduceNatReadsP_of mp.base2 φ fuel)
-    (fun fuel => hsem.str_lit mp.base2 φ fuel)
-    (fun fuel => hsem.infer_proj mp.base2 φ fuel)
     (fun fuel => hsem.iota mp.base2 φ fuel)
-    (fun fuel => hsem.whnf_proj mp.base2 φ fuel)
     (fun _fuel ihw => reduceNatStepP_of mp ihw)
     (fun _fuel ihw => reduceNatStepPQ_of mp ihw)
 
