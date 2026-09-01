@@ -10720,3 +10720,270 @@ install (the direction "invariants over runtime gates"):
    nested-manufacture example before the lemma battery), and the
    table's grep-audit is re-runnable
    (`grep -n "\.forallE (\|\.lam (" Setlec/Kernel/*.lean`).
+
+## Task #161 amendment 1: prop-only annotations, proof-first phasing (2026-09-01)
+
+Two user directives amend the accepted design before any
+implementation: (1) build the checker and the consistency proof first
+— "annotating is untrusted and just engineering" — the pass moves to
+the engineering tail; (2) audit whether the annotation needs the sort
+*level* at all, or only prop-ness ("'always type' or 'prop if all
+these parameters are zero' — simple to normalize and compare").
+
+### The prop-only audit: VERDICT — prop-ness suffices; both levels drop
+
+**(a) What `interp2` reads from `v`: the zero-test, nothing else.**
+The operators are (`Interp2/Ops.lean:52-58`):
+
+```
+noncomputable def piR (v : Nat) (A : V) (B : V → V) : V :=
+  if v = 0 then truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) else piSet A B
+noncomputable def lamR (v : Nat) (A : V) (F : V → V) : V :=
+  if v = 0 then pt else graph F A
+```
+
+— `v` occurs *only* in the `if v = 0` test; the graph branch does not
+use its value.  The module states it outright (`Ops.lean:93-94`):
+"`piR`/`lamR` read their numeral **only through the `v = 0` test**, so
+annotations that agree on zero-ness are interchangeable", and proves
+it as the zero-agreement battery `piR_zero_agree`/`lamR_zero_agree`/
+`lamR_mem_zero_agree` (`Ops.lean:102-146`) — hypotheses of the shape
+`v = 0 ↔ v' = 0`.  Task #100's own finding said the same thing a
+tier earlier (this file, "Raw (annotation-free) storage"): "the
+interpretation reads its level argument only through the `v = 0`
+test (`pi_pos`/`lam_pos`), so what a binder needs is exactly one
+bit."
+
+**The F4 refutation forces the bit, not the level.**
+`lam_cod_sort_needed` (`Interp2/TierA.lean:74-82`):
+
+```
+theorem lam_cod_sort_needed (L : Nat → V → (V → V) → V)
+    (hL : ∀ (u v : Nat) (A : V) (F B : V → V),
+      (∀ x, x ∈ˢ A → F x ∈ˢ B x) → L u A F ∈ˢ piR v A B) : False
+```
+
+Its witness is one fibre assignment read at `v = 0` and at `v = 1` —
+the two readings differ exactly in the codomain's *zero-ness*.  A
+clause handed the bit (`lamR (if bit then 0 else 1) …`) is sound at
+both regimes (`lamR_sound_at_every_regime`, `TierA.lean:87-89`), so
+F4 refutes bit-less clauses and nothing stronger.
+
+**(b) `u` (the domain sort) is read nowhere — it drops entirely.**
+`TierA.lean:21-22`, verbatim: "(`u` is not wrong, just not
+sufficient: `interp2` reads it nowhere, tier C may.)"  The two uses
+the accepted design kept `u` for both dissolve:
+
+* *Kinding/universe placement*: `piR_mem_univ` (`Interp2/Univ.lean:73`)
+  takes semantic `u v : Nat` supplied by its *consumer* — in the
+  soundness walks those are the checker's own inferred sorts (the run
+  computes them: `Core.lean:1593-1597` infers both `∀`-rule sorts,
+  never reading an annotation), bridged to the annotation-driven
+  value by `piR_zero_agree`/`lamR_mem_zero_agree` under the validated
+  bit-agreement.  `Interp2/Value.lean`'s own convention is the
+  precedent in the tree: bval towers already annotate every λ with
+  the *result* sort — correct only up to zero-ness — and bridge to
+  exact statements through `lamR_mem_zero_agree`; the exact numerals
+  in its motive-space *statements* are model-side data, not reads
+  from the syntax.
+* *λ-chain validation arithmetic*: `imax_eq_zero_iff`
+  (`Ops.lean:118-126`) — `imax x y = 0 ↔ y = 0` — makes prop-ness of
+  every telescope suffix equal to prop-ness of the leaf, so the
+  chain rules trivialize (below) and `u` is not needed even for
+  validation.
+
+**(c) Universe placement is recomputed semantically** — the syntax
+supplies the dispatch bit only; every exact level in a membership or
+placement fact flows from the checker's run (inferred sorts in the
+inversion premises) into the model statements, exactly as in v1.
+Re-open trigger, recorded: if tier C ever needs a *domain*-sort datum
+read off the term, that is a new consumer and this verdict is
+re-audited (the one place the record reserves it: `TierA.lean:22`
+"tier C may").
+
+**(d) The canonical normal form, verified.**  Define
+`Z(l) := {φ | l.eval φ = 0}`.  Computing by induction:
+`Z(zero) = all`; `Z(succ _) = ∅`; `Z(max a b) = Z(a) ∩ Z(b)`;
+`Z(imax a b) = Z(b)` (since `eval (imax a b) φ = 0 ↔ eval b φ = 0` —
+if `eval b φ ≠ 0` the `imax` is a `max ≥ eval b φ > 0`; this is
+`imax_eq_zero_iff` at the eval level); `Z(param u) = {φ | φ u = 0}`.
+So `Z(l)` is **always** either `∅` or `{φ | ∀ u ∈ P, φ u = 0}` for a
+finite param set `P` (`P = ∅` = always).  The canonical datum:
+
+```
+inductive PropWhen where
+  | never                        -- the codomain sort is never zero
+  | ifAllZero (ps : List Name)   -- zero iff every param in ps is zero
+                                 -- (canonical: sorted, deduplicated)
+```
+
+with `zeronessOf : Level → PropWhen` the one-pass computation
+(`zero ↦ ifAllZero []`, `succ ↦ never`, `max ↦ ∩` [never absorbs,
+else union], `imax a b ↦ zeronessOf b`, `param u ↦ ifAllZero [u]`).
+**Distinct canonical forms denote distinct predicates** (`never` vs
+`ifAllZero P`: the all-zero valuation separates; `ifAllZero P` vs
+`ifAllZero Q`, `P ≠ Q`: a valuation sending a name in the difference
+to `1` and the rest to `0` separates), so **datum equality is sound
+AND complete for zero-ness agreement over all valuations** — no
+`Level.isEquiv`, no `leqCore` fuel, no `simplify` subtleties: the #85
+concern vanishes rather than being folded in.  Substitution has a
+compositional pushforward `substPW`:
+`substPW σ never = never` (a never-zero level stays never-zero under
+substitution — evals compose); `substPW σ (ifAllZero P) =` the `∩`
+over `u ∈ P` of `zeronessOf (σ u)`.  The commutation lemma
+`zeronessOf_subst : zeronessOf (Level.subst ks vs l) =
+substPW ks vs (zeronessOf l)` replaces the accepted design's
+`annotValid_instL` in the δ/ι manufacture rows.
+
+**(e) Validation stays cheap — cheaper.**  Front door: the checker
+computes the codomain sort it already computes (`∀`: the
+`inferPisLeafI` leaf sort, `CoreI.lean:1808-1817`; λ: the task-#152
+leaf check, `CoreI.lean:1766-1771`), applies `zeronessOf` **once per
+telescope**, and compares data for equality per node.  The chain
+rules collapse: along a Π-telescope every node's datum equals the
+leaf's (`Z(imax u rest) = Z(rest)`, iterated), and along a λ-chain
+every node's datum equals the inner node's (the type of `body_j` is
+the inner `∀`, whose sort's zero-ness is the inner codomain's) — so
+outer-node validation is *datum equality with the neighbour*, no
+arithmetic at all.  Defeq arms and `etaCert` compare data by
+decidable equality.
+
+**(f) What defeq compares, precisely: the canonical datum
+syntactically — which IS the predicate, and predicate equality is
+exactly the needed strength.**  The soundness statements quantify
+over every valuation `φ` (the model is level-polymorphic, this file
+"The model"), and the binder-congruence conclusion
+`piR_zero_agree` needs `bit₁(φ) ↔ bit₂(φ)` at *every* `φ` — i.e.
+`Z`-equality, i.e. (by (d)'s completeness) datum equality.  It is
+also *minimal*: if two data differ, some `φ` separates them, and at
+that `φ` the two interpretations genuinely diverge (one side a truth
+value/`pt`, the other a `piSet`/graph — `piR_pos_not_mem_univZero`,
+`Univ.lean:93`), so any weaker comparison would be unsound-to-model.
+"Instance-level" comparison at the current declaration's parameters
+is not a checker-side notion (parameters are symbols); everything the
+checker holds is already instantiated into the declaration's context
+by `substPW`-carrying walks, and the comparison of the resulting data
+is the all-`φ` predicate agreement the model consumes.  Consequence
+for the decline surface: annotation pairs that differ in level value
+but agree in zero-ness — e.g. the λ-tower result-sort convention
+(`Value.lean`), `Sort 3` vs `Sort 5` codomains — can no longer
+mismatch; **every remaining mismatch is a genuine regime
+disagreement**, the semantically dangerous case and nothing else.
+
+### The re-specified representation (supersedes amendment target §1)
+
+```
+structure BinderMeta where     -- Expr.lean:72; IBinderMeta identical
+  bi : BinderInfo              --   (denoteBM stays the identity)
+  pw : PropWhen                -- codomain prop-ness, canonical form
+```
+
+**One datum per binder** — `u` and `v` are gone.  `letE` still
+carries nothing (unchanged verdict).  Notes replacing the two-level
+plan's:
+
+* `PropWhen` lives beside `Level` in `Expr.lean`; the interned meta
+  stores it **unchanged** (raw `Name`s).  Precedent: the level arena
+  itself stores raw level-param names (`LNode.param (n : Name)`,
+  `IExpr.lean:141`) — level params are outside the #88 name-interning
+  regime already.  Lists are tiny (≤ a declaration's `levelParams`);
+  if intern-probe hashing ever shows up in a profile, migrating `ps`
+  to sorted `NIdx` lists is a recorded, mechanical follow-up.
+* Canonical form (sorted, deduplicated `ps`) is a **producer
+  discipline**: `zeronessOf`, `substPW`, and the parser all emit it;
+  a total order `Name.leb` (structural lexicographic) is added for
+  it.  Validation and defeq compare only producer outputs.
+* `Expr.instantiateLevelParams` (`Expr.lean:190`) and
+  `instantiateLevelParamsIGo` (`IExpr.lean:1356`) map `pw` by
+  `substPW` — the one walk that transforms annotations (term
+  substitution still never touches them).
+* `Expr.hashB` still skips metas; `ENode` equality includes `pw`
+  (first-class identity); the checker-diff summary of the accepted
+  design otherwise stands with `isEquiv v₁ v₂` replaced by `pw₁ = pw₂`
+  everywhere, and the eight decline sites keep their names.
+* The `interp2` bridge evaluates the datum at a valuation:
+  `pwHolds φ pw : Bool`, and the clause reads
+  `piR (if pwHolds φ pw then 0 else 1) …` — `Interp2/Ops.lean`,
+  `Univ.lean`, `Value.lean` need **no changes**; the zero-agreement
+  battery is the designed bridge to exact-level statements.
+
+### Proof-first phasing (supersedes amendment target §9)
+
+The pass is untrusted engineering and moves last; the goal is the
+consistency proof for the checker **on sort-annotated syntax** — the
+capstone is `no_proof_of_Empty` for annotated input.  New order:
+
+* **P1 — representation** (was T1, re-specified above): `PropWhen` +
+  `zeronessOf`/`substPW`/canonicity lemmas, `BinderMeta.pw`, walks,
+  parser, plumbing.  GATE: full battery + init-prelude
+  **byte-identical** vs master, both modes (parser default `.never`,
+  nothing reads it).
+* **P2 — annotated input + validation semantics** (was T3): the
+  export-format extension (below), hand-annotated pins/basis, the
+  eight validation sites gated `mode.verified`, decline messages,
+  hand-annotated fixtures in `tests/` exercising accept and each
+  decline site.  GATE: `lake test` + the fixture family +
+  `--no-model` byte-identical; **suite re-point** (needs
+  ratification): from P2 on, `--set-model` on *unannotated* streams
+  declines at the first Prop-codomain binder by design — the
+  `--set-model` arena/init sweeps are suspended in favor of the
+  annotated fixture suite until P5 restores them; `--no-model` keeps
+  the full parity suite green throughout.
+* **P3/P4 — the proof** (was T5/T6): inversion conjuncts
+  (implication form) for the eight sites; `AnnotValidV` stated on the
+  bit (per-binder: the datum's predicate agrees with the codomain
+  sort's zero-ness under every `φ`); establishment from the run's
+  validation conjuncts; preservation (`interp2_inst`,
+  `zeronessOf_subst`, the row-1 λ→∀ meta-copy lemma); the AVExpr
+  swap; the `interp2` bridge and the annotated-checker capstone.
+  Plus P0-owed: the three environment records (unchanged).
+* **P5 — the engineering tail** (was T2 + T7): the annotate pass
+  (writes `zeronessOf` of the sorts it infers), `AnnotateBasis`
+  regeneration, the measurement ladder (init-prelude → init-full →
+  Mathlib) and the abort review.  Only here do real streams re-enter
+  `--set-model`.
+
+**The annotated-input format** (part of the checker's input spec now,
+not of the pass): the export ndjson's `lam`/`forallE` expression
+entries (`Frontend/Export.lean:371-382`) gain one **optional** field
+`"pw"`: absent → `.never` (the parse default — a definite,
+validatable claim, so T1 stays byte-identical and unannotated
+fixtures fail loudly at P2, not silently); `"pw": "never"` →
+`.never`; `"pw": [i₁, …]` → `.ifAllZero` over the stream's *name
+table indices* (the format's existing index discipline), canonicalized
+at parse.  Real exporters never emit the field; hand-written fixtures
+and (later) the pass's internal output are its producers.
+
+**Pins without the pass**: the pinned literals (`Basis/*`,
+`StdAxioms` `*A` forms, `TrustAxioms.lean:106-118`) are
+**hand-annotated** at P2 — their binders' codomain prop-ness is
+statically evident, the counts are small, and the install-side
+validation checks our hand annotations (a wrong one declines its own
+install: self-correcting, mechanical to fix).  The elab-time
+generated pins (#53: `NatOpPins`, `TrustPins`, `DivModPin`) compute
+`pw` **at generation time** from the host elaborator's `inferType`
+(trusted exactly as far as the pins already are, and re-validated by
+our checker at install); the #113 module-strip interaction is
+unchanged (`pw` is plain data in the same `ToExpr`-pinned literals).
+
+### Revised risks
+
+1. *(shrunk)* Cross-provenance defeq mismatches: only genuine regime
+   disagreements remain (audit (f)); comparison is complete — the
+   `isEquiv`-incompleteness and normalization decline classes are
+   gone.  Abort criteria unchanged.
+2. *(shrunk)* Cost: datum equality replaces level `isEquiv` at every
+   site (no `leqCore`, no fuel); one `zeronessOf` per telescope.
+   The pass-side cost question is deferred to P5 with the pass.
+3. *(unchanged in kind)* P3/P4's establishment step and audit
+   completeness — probe-first discipline stands.
+4. *(new)* Proof-first ordering defers real-stream feedback to P5: a
+   defect in the annotation language would surface late.  Mitigation:
+   the P2 fixture family is drawn from real declaration shapes
+   (including a λ-tower with the result-sort convention, a
+   parametric `Sort u` codomain, and an `imax`-sorted telescope), and
+   the audit's (d)-completeness lemma is mechanized at P1, not
+   assumed.
+5. *(new)* Hand-annotated pins: a wrong `pw` declines its own basis
+   install — loud, local, mechanical; the generated pins compute
+   theirs, leaving only the small hand-written set.
