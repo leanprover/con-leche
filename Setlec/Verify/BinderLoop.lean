@@ -212,74 +212,63 @@ def annotateBindersOut (mk : Name → Expr → Expr → BinderMeta → Expr)
 /-- Pure mirror of `annotatePisLeafI` (task #161 P5: the telescope's
 datum, computed once here — the leaf's own if the residual annotates to
 a ∀, else the leaf codomain sort's zero-ness). -/
-def annotatePisPw (mode : CheckMode) (r : CoreFns m) (d k : Nat)
+def annotatePisPw (mode : CheckMode) (r : CoreFns m) (env : Env) (d k : Nat)
     (leaf' : Expr) : m (Option PropWhen) :=
-  if mode.verified then
-    match leaf'.forallPw with
-    | some pwT => pure (some pwT)
-    | none => do
-      let bt ← r.infer (d + k) leaf'
-      let wbt ← r.whnf (d + k) bt
-      match wbt with
-      | .sort v => pure (some (Level.zeronessOf v))
-      | _ => throw (.invalid "expected a sort")
+  if mode.verified then do
+    let p ← annotPwPi r env (d + k) leaf'
+    pure (some p)
   else pure none
 
 /-- Pure mirror of `annotatePisLeafI`'s rebuild. -/
-def annotatePisLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat) (t : Expr)
+def annotatePisLeaf (mode : CheckMode) (r : CoreFns m) (env : Env)
+    (d : Nat) (t : Expr)
     (k : Nat) (fvs : List Expr) (stk : List AnnotBinderEntryX) : m Expr := do
   let leaf' ← r.annotate (d + k) (t.instantiateList fvs)
-  let pw? ← annotatePisPw mode r d k leaf'
+  let pw? ← annotatePisPw mode r env d k leaf'
   annotateBindersOut (fun n ty b mb => .forallE n ty b mb) d pw?
     stk (k - 1) (leaf'.abstractRange d k)
 
 /-- Pure mirror of `annotatePisI`. -/
-def annotatePis (mode : CheckMode) (r : CoreFns m) (d : Nat) :
+def annotatePis (mode : CheckMode) (r : CoreFns m) (env : Env) (d : Nat) :
     Nat → Expr → Nat → List Expr → List AnnotBinderEntryX → m Expr
   | fuel + 1, t, k, fvs, stk =>
     match t with
     | .forallE n ty body mb => do
       let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
-      annotatePis mode r d fuel body (k + 1)
+      annotatePis mode r env d fuel body (k + 1)
         (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb) :: stk)
-    | t => annotatePisLeaf mode r d t k fvs stk
-  | 0, t, k, fvs, stk => annotatePisLeaf mode r d t k fvs stk
+    | t => annotatePisLeaf mode r env d t k fvs stk
+  | 0, t, k, fvs, stk => annotatePisLeaf mode r env d t k fvs stk
 
 /-- Pure mirror of `annotateLamsLeafI` (the λ twin: the chain's datum
 is the innermost λ's own, else the sort of the body's type). -/
-def annotateLamsPw (mode : CheckMode) (r : CoreFns m) (d k : Nat)
+def annotateLamsPw (mode : CheckMode) (r : CoreFns m) (env : Env) (d k : Nat)
     (leaf' : Expr) : m (Option PropWhen) :=
-  if mode.verified then
-    match leaf'.lamPw with
-    | some pwT => pure (some pwT)
-    | none => do
-      let bt ← r.infer (d + k) leaf'
-      let btt ← r.infer (d + k) bt
-      let wbtt ← r.whnf (d + k) btt
-      match wbtt with
-      | .sort vb => pure (some (Level.zeronessOf vb))
-      | _ => throw (.invalid "expected a sort")
+  if mode.verified then do
+    let p ← annotPwLam r env (d + k) leaf'
+    pure (some p)
   else pure none
 
 /-- Pure mirror of `annotateLamsLeafI`'s rebuild. -/
-def annotateLamsLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat) (t : Expr)
+def annotateLamsLeaf (mode : CheckMode) (r : CoreFns m) (env : Env)
+    (d : Nat) (t : Expr)
     (k : Nat) (fvs : List Expr) (stk : List AnnotBinderEntryX) : m Expr := do
   let leaf' ← r.annotate (d + k) (t.instantiateList fvs)
-  let pw? ← annotateLamsPw mode r d k leaf'
+  let pw? ← annotateLamsPw mode r env d k leaf'
   annotateBindersOut (fun n ty b mb => .lam n ty b mb) d pw?
     stk (k - 1) (leaf'.abstractRange d k)
 
 /-- Pure mirror of `annotateLamsI`. -/
-def annotateLams (mode : CheckMode) (r : CoreFns m) (d : Nat) :
+def annotateLams (mode : CheckMode) (r : CoreFns m) (env : Env) (d : Nat) :
     Nat → Expr → Nat → List Expr → List AnnotBinderEntryX → m Expr
   | fuel + 1, t, k, fvs, stk =>
     match t with
     | .lam n ty body mb => do
       let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
-      annotateLams mode r d fuel body (k + 1)
+      annotateLams mode r env d fuel body (k + 1)
         (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb) :: stk)
-    | t => annotateLamsLeaf mode r d t k fvs stk
-  | 0, t, k, fvs, stk => annotateLamsLeaf mode r d t k fvs stk
+    | t => annotateLamsLeaf mode r env d t k fvs stk
+  | 0, t, k, fvs, stk => annotateLamsLeaf mode r env d t k fvs stk
 
 /-! ## The chained tails (wraps) -/
 
@@ -420,44 +409,44 @@ theorem inferPis_succ_ne_pi (fuel : Nat) {t : Expr}
 
 theorem annotatePis_zero (t : Expr) (k : Nat) (fvs : List Expr)
     (stk : List AnnotBinderEntryX) :
-    annotatePis mode r d 0 t k fvs stk = annotatePisLeaf mode r d t k fvs stk := rfl
+    annotatePis mode r env d 0 t k fvs stk = annotatePisLeaf mode r env d t k fvs stk := rfl
 
 theorem annotatePis_succ_pi (fuel : Nat) (n : Name) (ty body : Expr)
     (mb : BinderMeta) (k : Nat) (fvs : List Expr)
     (stk : List AnnotBinderEntryX) :
-    annotatePis mode r d (fuel + 1) (.forallE n ty body mb) k fvs stk
+    annotatePis mode r env d (fuel + 1) (.forallE n ty body mb) k fvs stk
       = (do
         let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
-        annotatePis mode r d fuel body (k + 1)
+        annotatePis mode r env d fuel body (k + 1)
           (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb) :: stk)) := rfl
 
 theorem annotatePis_succ_ne_pi (fuel : Nat) {t : Expr}
     (ht : ∀ n ty body mb, t ≠ .forallE n ty body mb) (k : Nat)
     (fvs : List Expr) (stk : List AnnotBinderEntryX) :
-    annotatePis mode r d (fuel + 1) t k fvs stk
-      = annotatePisLeaf mode r d t k fvs stk := by
+    annotatePis mode r env d (fuel + 1) t k fvs stk
+      = annotatePisLeaf mode r env d t k fvs stk := by
   cases t with
   | forallE n ty body mb => exact absurd rfl (ht n ty body mb)
   | _ => rw [annotatePis] <;> exact fun _ _ _ _ h => nomatch h
 
 theorem annotateLams_zero (t : Expr) (k : Nat) (fvs : List Expr)
     (stk : List AnnotBinderEntryX) :
-    annotateLams mode r d 0 t k fvs stk = annotateLamsLeaf mode r d t k fvs stk := rfl
+    annotateLams mode r env d 0 t k fvs stk = annotateLamsLeaf mode r env d t k fvs stk := rfl
 
 theorem annotateLams_succ_lam (fuel : Nat) (n : Name) (ty body : Expr)
     (mb : BinderMeta) (k : Nat) (fvs : List Expr)
     (stk : List AnnotBinderEntryX) :
-    annotateLams mode r d (fuel + 1) (.lam n ty body mb) k fvs stk
+    annotateLams mode r env d (fuel + 1) (.lam n ty body mb) k fvs stk
       = (do
         let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
-        annotateLams mode r d fuel body (k + 1)
+        annotateLams mode r env d fuel body (k + 1)
           (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb) :: stk)) := rfl
 
 theorem annotateLams_succ_ne_lam (fuel : Nat) {t : Expr}
     (ht : ∀ n ty body mb, t ≠ .lam n ty body mb) (k : Nat)
     (fvs : List Expr) (stk : List AnnotBinderEntryX) :
-    annotateLams mode r d (fuel + 1) t k fvs stk
-      = annotateLamsLeaf mode r d t k fvs stk := by
+    annotateLams mode r env d (fuel + 1) t k fvs stk
+      = annotateLamsLeaf mode r env d t k fvs stk := by
   cases t with
   | lam n ty body mb => exact absurd rfl (ht n ty body mb)
   | _ => rw [annotateLams] <;> exact fun _ _ _ _ h => nomatch h
@@ -712,8 +701,8 @@ theorem annotateBindersOut_atF (mk : Name → Expr → Expr → BinderMeta → E
 
 theorem annotatePisLeaf_atF (d : Nat) (t : Expr) (k : Nat)
     (fvs : List Expr) (stk : List AnnotBinderEntryX) (F : Nat) :
-    (annotatePisLeaf mode (fueledFns mode env) d t k fvs stk).val F
-      = annotatePisLeaf mode (pureFns mode env F) d t k fvs stk := by
+    (annotatePisLeaf mode (fueledFns mode env) env d t k fvs stk).val F
+      = annotatePisLeaf mode (pureFns mode env F) env d t k fvs stk := by
   unfold annotatePisLeaf
   rw [FueledM.atF_bind]
   congr 1
@@ -723,17 +712,8 @@ theorem annotatePisLeaf_atF (d : Nat) (t : Expr) (k : Nat)
   · unfold annotatePisPw
     simp only [FueledM.atF_ite, FueledM.atF_pure]
     split
-    · cases leaf'.forallPw with
-      | some pwT => rfl
-      | none =>
-        dsimp only
-        rw [FueledM.atF_bind]
-        congr 1
-        funext bt
-        rw [FueledM.atF_bind]
-        congr 1
-        funext w
-        cases w <;> rfl
+    · rw [FueledM.atF_bind, annotPwPi_atF]
+      rfl
     · rfl
   · funext pw?
     exact annotateBindersOut_atF _ d _ stk (k - 1) _ F
@@ -741,8 +721,8 @@ theorem annotatePisLeaf_atF (d : Nat) (t : Expr) (k : Nat)
 theorem annotatePis_atF (d : Nat) :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List AnnotBinderEntryX) (F : Nat),
-      (annotatePis mode (fueledFns mode env) d fuel t k fvs stk).val F
-        = annotatePis mode (pureFns mode env F) d fuel t k fvs stk
+      (annotatePis mode (fueledFns mode env) env d fuel t k fvs stk).val F
+        = annotatePis mode (pureFns mode env F) env d fuel t k fvs stk
   | 0, t, k, fvs, stk, F => annotatePisLeaf_atF d t k fvs stk F
   | fuel + 1, t, k, fvs, stk, F => by
     by_cases hpi : ∃ n ty body mb, t = Expr.forallE n ty body mb
@@ -759,8 +739,8 @@ theorem annotatePis_atF (d : Nat) :
 
 theorem annotateLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
     (fvs : List Expr) (stk : List AnnotBinderEntryX) (F : Nat) :
-    (annotateLamsLeaf mode (fueledFns mode env) d t k fvs stk).val F
-      = annotateLamsLeaf mode (pureFns mode env F) d t k fvs stk := by
+    (annotateLamsLeaf mode (fueledFns mode env) env d t k fvs stk).val F
+      = annotateLamsLeaf mode (pureFns mode env F) env d t k fvs stk := by
   unfold annotateLamsLeaf
   rw [FueledM.atF_bind]
   congr 1
@@ -770,20 +750,8 @@ theorem annotateLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
   · unfold annotateLamsPw
     simp only [FueledM.atF_ite, FueledM.atF_pure]
     split
-    · cases leaf'.lamPw with
-      | some pwT => rfl
-      | none =>
-        dsimp only
-        rw [FueledM.atF_bind]
-        congr 1
-        funext bt
-        rw [FueledM.atF_bind]
-        congr 1
-        funext btt
-        rw [FueledM.atF_bind]
-        congr 1
-        funext w
-        cases w <;> rfl
+    · rw [FueledM.atF_bind, annotPwLam_atF]
+      rfl
     · rfl
   · funext pw?
     exact annotateBindersOut_atF _ d _ stk (k - 1) _ F
@@ -791,8 +759,8 @@ theorem annotateLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
 theorem annotateLams_atF (d : Nat) :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List AnnotBinderEntryX) (F : Nat),
-      (annotateLams mode (fueledFns mode env) d fuel t k fvs stk).val F
-        = annotateLams mode (pureFns mode env F) d fuel t k fvs stk
+      (annotateLams mode (fueledFns mode env) env d fuel t k fvs stk).val F
+        = annotateLams mode (pureFns mode env F) env d fuel t k fvs stk
   | 0, t, k, fvs, stk, F => annotateLamsLeaf_atF d t k fvs stk F
   | fuel + 1, t, k, fvs, stk, F => by
     by_cases hlam : ∃ n ty body mb, t = Expr.lam n ty body mb
@@ -1579,66 +1547,13 @@ theorem annotateLamsWrap_mono {env : Env} {F F' : Nat} (hle : F ≤ F')
     · intro h
       exact annotateLamsWrap_mono hle rest (j - 1) _ res h
 
-/-- **The loop's leaf datum is the tail's innermost write.**  The peel
-computes the telescope's datum once, on the annotated residual; the
-chained tail's innermost level computes `annotPwPi` on the same term.
-They are literally the same program — which is where the telescope
-collapse enters, once, and why it never has to be re-derived at the
-levels above (`annotateBindersOut_wrap`'s `hpwf_read`). -/
-theorem annotatePisPw_eq (r : CoreFns CheckM) (env : Env) (d k : Nat)
-    (leaf' : Expr) :
-    annotatePisPw mode r d k leaf'
-      = if mode.verified then
-          Except.map some (annotPwPi r env (d + k) leaf')
-        else pure none := by
-  unfold annotatePisPw annotPwPi ensureSort
-  split
-  · cases leaf'.forallPw with
-    | some p => rfl
-    | none =>
-      dsimp only
-      cases r.infer (d + k) leaf' with
-      | error e => rfl
-      | ok bt =>
-        dsimp only [Bind.bind, Except.bind]
-        cases r.whnf (d + k) bt with
-        | error e => rfl
-        | ok w => cases w <;> rfl
-  · rfl
-
-/-- The λ twin of `annotatePisPw_eq`. -/
-theorem annotateLamsPw_eq (r : CoreFns CheckM) (env : Env) (d k : Nat)
-    (leaf' : Expr) :
-    annotateLamsPw mode r d k leaf'
-      = if mode.verified then
-          Except.map some (annotPwLam r env (d + k) leaf')
-        else pure none := by
-  unfold annotateLamsPw annotPwLam ensureSort
-  split
-  · cases leaf'.lamPw with
-    | some p => rfl
-    | none =>
-      dsimp only
-      cases r.infer (d + k) leaf' with
-      | error e => rfl
-      | ok bt =>
-        dsimp only [Bind.bind, Except.bind]
-        cases r.infer (d + k) bt with
-        | error e => rfl
-        | ok btt =>
-          dsimp only [Bind.bind, Except.bind]
-          cases r.whnf (d + k) btt with
-          | error e => rfl
-          | ok w => cases w <;> rfl
-  · rfl
-
 /-- The peel's datum, in the form `annotateBindersOut_wrap` consumes. -/
 theorem annotatePisPw_inv {env : Env} {F d k : Nat}
     {leaf' : Expr} {pw? : Option PropWhen}
-    (h : annotatePisPw mode (pureFns mode env F) d k leaf' = .ok pw?) :
+    (h : annotatePisPw mode (pureFns mode env F) env d k leaf' = .ok pw?) :
     AnnotPwOk mode.verified
       (annotPwPi (pureFns mode env F) env (d + k) leaf') pw? := by
-  rw [annotatePisPw_eq (env := env)] at h
+  unfold annotatePisPw at h
   by_cases hv : mode.verified = true
   · rw [if_pos hv] at h
     revert h
@@ -1646,22 +1561,19 @@ theorem annotatePisPw_inv {env : Env} {F d k : Nat}
     | error e => intro h; exact nomatch h
     | ok pw =>
       intro h
-      simp only [Except.map, Except.ok.injEq] at h
-      subst h
-      exact (⟨hv, rfl⟩ : mode.verified = true ∧ _ = Except.ok pw)
+      simp only [okB_bind, pure, Except.pure, Except.ok.injEq] at h
+      exact (h ▸ (⟨hv, rfl⟩ : mode.verified = true ∧ _ = Except.ok pw))
   · rw [if_neg hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    show mode.verified = false
-    simpa using hv
+    exact (h ▸ (by show mode.verified = false; simpa using hv))
 
 /-- The λ twin of `annotatePisPw_inv`. -/
 theorem annotateLamsPw_inv {env : Env} {F d k : Nat}
     {leaf' : Expr} {pw? : Option PropWhen}
-    (h : annotateLamsPw mode (pureFns mode env F) d k leaf' = .ok pw?) :
+    (h : annotateLamsPw mode (pureFns mode env F) env d k leaf' = .ok pw?) :
     AnnotPwOk mode.verified
       (annotPwLam (pureFns mode env F) env (d + k) leaf') pw? := by
-  rw [annotateLamsPw_eq (env := env)] at h
+  unfold annotateLamsPw at h
   by_cases hv : mode.verified = true
   · rw [if_pos hv] at h
     revert h
@@ -1669,21 +1581,18 @@ theorem annotateLamsPw_inv {env : Env} {F d k : Nat}
     | error e => intro h; exact nomatch h
     | ok pw =>
       intro h
-      simp only [Except.map, Except.ok.injEq] at h
-      subst h
-      exact (⟨hv, rfl⟩ : mode.verified = true ∧ _ = Except.ok pw)
+      simp only [okB_bind, pure, Except.pure, Except.ok.injEq] at h
+      exact (h ▸ (⟨hv, rfl⟩ : mode.verified = true ∧ _ = Except.ok pw))
   · rw [if_neg hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    show mode.verified = false
-    simpa using hv
+    exact (h ▸ (by show mode.verified = false; simpa using hv))
 
 /-- Leaf-phase soundness for the annotate ∀-loop. -/
 theorem annotatePisLeaf_sound {d : Nat} {t : Expr}
     {k : Nat} {fvs : List Expr} {stk : List AnnotBinderEntryX} {F : Nat}
     {res : Expr}
     (hlen : stk.length = k)
-    (hrun : annotatePisLeaf mode (pureFns mode env F) d t k fvs stk = .ok res) :
+    (hrun : annotatePisLeaf mode (pureFns mode env F) env d t k fvs stk = .ok res) :
     ∃ F', (annotateCore mode env F' (d + k) (t.instantiateList fvs) >>=
       fun leaf' => annotatePisWrap (m := CheckM) mode (pureFns mode env F')
         env d stk (k - 1) leaf')
@@ -1724,7 +1633,7 @@ theorem annotatePis_sound {d : Nat} :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List AnnotBinderEntryX) (F : Nat) (res : Expr),
       stk.length = k →
-      annotatePis mode (pureFns mode env F) d fuel t k fvs stk = .ok res →
+      annotatePis mode (pureFns mode env F) env d fuel t k fvs stk = .ok res →
       ∃ F', (annotateCore mode env F' (d + k) (t.instantiateList fvs) >>=
         fun leaf' => annotatePisWrap (m := CheckM) mode (pureFns mode env F')
           env d stk (k - 1) leaf')
@@ -1784,7 +1693,7 @@ theorem annotateLamsLeaf_sound {d : Nat} {t : Expr}
     {k : Nat} {fvs : List Expr} {stk : List AnnotBinderEntryX} {F : Nat}
     {res : Expr}
     (hlen : stk.length = k)
-    (hrun : annotateLamsLeaf mode (pureFns mode env F) d t k fvs stk = .ok res) :
+    (hrun : annotateLamsLeaf mode (pureFns mode env F) env d t k fvs stk = .ok res) :
     ∃ F', (annotateCore mode env F' (d + k) (t.instantiateList fvs) >>=
       fun leaf' => annotateLamsWrap (m := CheckM) mode (pureFns mode env F')
         env d stk (k - 1) leaf')
@@ -1825,7 +1734,7 @@ theorem annotateLams_sound {d : Nat} :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List AnnotBinderEntryX) (F : Nat) (res : Expr),
       stk.length = k →
-      annotateLams mode (pureFns mode env F) d fuel t k fvs stk = .ok res →
+      annotateLams mode (pureFns mode env F) env d fuel t k fvs stk = .ok res →
       ∃ F', (annotateCore mode env F' (d + k) (t.instantiateList fvs) >>=
         fun leaf' => annotateLamsWrap (m := CheckM) mode (pureFns mode env F')
           env d stk (k - 1) leaf')

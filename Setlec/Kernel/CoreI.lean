@@ -2299,19 +2299,21 @@ codomain sort's zero-ness — shared by every node of the telescope
 because `zeronessOf (imax u v) = zeronessOf v`.  A ∀ residual (the fuel
 path, or a `letE` whose zeta reduct is a ∀) supplies its own
 already-written datum instead, exactly as `annotPwPi` reads it. -/
+def annotPwPiI (r : CoreFnsI) (depth : Nat) (body' : EIdx) :
+    CheckIM PropWhen := do
+  match ← viewI body' with
+  | some (.forallE _ _ _ mbT) => pure mbT.pw
+  | _ => do
+    let bt ← r.infer depth body'
+    let v ← ensureSortI r depth bt
+    withStore fun st => (st.zeronessOfLIGo {} v).1
+
+/-- Gated for the telescope loop: `none` = no write. -/
 def annotatePisPwI (r : CoreFnsI) (d k : Nat) (leaf' : EIdx) :
     CheckIM (Option PropWhen) :=
   if mode.verified then do
-    match ← viewI leaf' with
-    | some (.forallE _ _ _ mbT) => pure (some mbT.pw)
-    | _ => do
-      let bt ← r.infer (d + k) leaf'
-      let wbt ← r.whnf (d + k) bt
-      match ← viewI wbt with
-      | some (.sort v) => do
-        let pv ← withStore fun st => (st.zeronessOfLIGo {} v).1
-        pure (some pv)
-      | _ => throw (.invalid "expected a sort")
+    let p ← annotPwPiI r (d + k) leaf'
+    pure (some p)
   else pure none
 
 /-- Leaf phase of `annotatePisI`: bulk-open and annotate the residual
@@ -2346,20 +2348,22 @@ def annotatePisI (r : CoreFnsI) (d : Nat) :
 the innermost body's TYPE; every λ node of the chain shares it (the
 `(lam-cod-chain)` rule).  A λ residual supplies its own already-written
 datum, exactly as `inferLamsLeafI` reads it. -/
+def annotPwLamI (r : CoreFnsI) (depth : Nat) (body' : EIdx) :
+    CheckIM PropWhen := do
+  match ← viewI body' with
+  | some (.lam _ _ _ mbT) => pure mbT.pw
+  | _ => do
+    let bt ← r.infer depth body'
+    let btt ← r.infer depth bt
+    let vb ← ensureSortI r depth btt
+    withStore fun st => (st.zeronessOfLIGo {} vb).1
+
+/-- Gated for the telescope loop: `none` = no write. -/
 def annotateLamsPwI (r : CoreFnsI) (d k : Nat) (leaf' : EIdx) :
     CheckIM (Option PropWhen) :=
   if mode.verified then do
-    match ← viewI leaf' with
-    | some (.lam _ _ _ mbT) => pure (some mbT.pw)
-    | _ => do
-      let bt ← r.infer (d + k) leaf'
-      let btt ← r.infer (d + k) bt
-      let wbtt ← r.whnf (d + k) btt
-      match ← viewI wbtt with
-      | some (.sort vb) => do
-        let pv ← withStore fun st => (st.zeronessOfLIGo {} vb).1
-        pure (some pv)
-      | _ => throw (.invalid "expected a sort")
+    let p ← annotPwLamI r (d + k) leaf'
+    pure (some p)
   else pure none
 
 /-- Leaf phase of `annotateLamsI` (as `annotatePisLeafI`, rebuilding
@@ -2435,17 +2439,8 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         let bAbs ← abstract1M body' depth
         -- task #161 P5: the single-binder write (the λ-loop's rule at
         -- a chain of length one; see `annotateLamsLeafI`)
-        let pw ← if mode.verified && !pwWritten mb.pw then do
-            match ← viewI body' with
-            | some (.lam _ _ _ mbI) => pure mbI.pw
-            | _ => do
-              let bt ← r.infer (depth + 1) body'
-              let btt ← r.infer (depth + 1) bt
-              let wbtt ← r.whnf (depth + 1) btt
-              match ← viewI wbtt with
-              | some (.sort vb) =>
-                withStore fun st => (st.zeronessOfLIGo {} vb).1
-              | _ => throw (.invalid "expected a sort")
+        let pw ← if mode.verified && !pwWritten mb.pw then
+            annotPwLamI r (depth + 1) body'
           else pure mb.pw
         internI (.lam n ty' bAbs ⟨mb.bi, pw⟩)
     | some (.letE _ ty v b) => do

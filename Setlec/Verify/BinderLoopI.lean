@@ -768,24 +768,33 @@ theorem annotateBindersOutI_sim
       exact ihOut hs₂
         (DenAStk.mono (hext₁.trans hext₂) hrest) hQnode
 
+/-- A bare store read against a pure fueled result (the write's last
+step: `zeronessOfLIGo` on the sort index). -/
+private theorem simAt_withStore_pure {β α : Type}
+    {P : IState → β → α → Prop} {f : EStore → β} {a : α} {s₀ : IState}
+    (hs : ISOK mode env s₀) (h : P s₀ (f s₀.store) a) :
+    SimAt mode env s₀ P (Setlec.withStore f) (pure a) := by
+  intro v' s' hr
+  have hr' : (f s₀.store, s₀) = (v', s') := by
+    simpa only [Setlec.withStore, Functor.map, StateT.map, get, getThe,
+      MonadStateOf.get, StateT.get, Except.map, Bind.bind, Except.bind,
+      pure, StateT.pure, Except.pure, Except.ok.injEq] using hr
+  injection hr' with h1 h2
+  subst h1; subst h2
+  exact ⟨hs, Ext.refl _, a, h, 0, rfl⟩
+
 /-- **The telescope datum's walk (task #161 P5).**  Both sides read the
-annotated residual's head first — a ∀ residual hands on its own
-datum (the chain rule) — and only otherwise pay the one inference the
-telescope's collapse needs. -/
-theorem annotatePisPwI_sim (ih : SSimI mode env f) {d k : Nat}
-    {leaf' : EIdx} {leafx : Expr} {s₀ : IState}
-    (hs : ISOK mode env s₀) (hl : s₀.store.denoteT leaf' = some leafx)
-    (hw : WScoped (d + k) leafx) :
-    SimAt mode env s₀
-      (fun _ (v : Option PropWhen) (vx : Option PropWhen) => v = vx)
-      (annotatePisPwI mode (coreKnotI mode (mkFEnv env) f) d k leaf')
-      (annotatePisPw mode (fueledFns mode env) d k leafx) := by
-  unfold annotatePisPwI annotatePisPw
-  by_cases hv : mode.verified = true
-  case neg =>
-    simp only [if_neg hv]
-    exact SimAt.pure hs rfl
-  simp only [if_pos hv]
+annotated body's head first — a ∀ body hands on its own datum (the
+chain rule) — and only otherwise pay the one inference the telescope's
+collapse needs. -/
+theorem annotPwPiI_sim (ih : SSimI mode env f) {d : Nat}
+    {body' : EIdx} {body'x : Expr} {s₀ : IState}
+    (hs : ISOK mode env s₀) (hl : s₀.store.denoteT body' = some body'x)
+    (hw : WScoped d body'x) :
+    SimAt mode env s₀ (fun _ (v : PropWhen) (vx : PropWhen) => v = vx)
+      (annotPwPiI (coreKnotI mode (mkFEnv env) f) d body')
+      (annotPwPi (fueledFns mode env) env d body'x) := by
+  unfold annotPwPiI annotPwPi
   refine SimAt.view ?_
   obtain ⟨nd, hn, hc, hd⟩ := denoteT_some_inv hl
   rw [hn]
@@ -808,43 +817,23 @@ theorem annotatePisPwI_sim (ih : SSimI mode env f) {d k : Nat}
     refine SimAt.bind (ih.infer hs hl hw)
       (fun s₂ bt btx hs₂ hext₂ hPbt => ?_)
     obtain ⟨hbtd, hwbt⟩ := hPbt
-    refine SimAt.bind (ih.whnf hs₂ hbtd hwbt)
-      (fun s₃ wbt wx hs₃ hext₃ hPw => ?_)
-    obtain ⟨hwd, hww⟩ := hPw
-    refine SimAt.view ?_
-    obtain ⟨nd', hn', hc', hd'⟩ := denoteT_some_inv hwd
-    rw [hn']
-    cases nd'
-    case sort v =>
-      rw [denoteNode, Option.map_eq_some_iff] at hd'
-      obtain ⟨lv, hlv, rfl⟩ := hd'
-      dsimp only
-      refine SimAt.withStore ?_
-      obtain ⟨-, hzeq⟩ := zeronessOfLIGo_spec (st := s₃.store) v
-        (memo := {}) PWMemoInv.empty
-        (p := (s₃.store.zeronessOfLIGo {} v).1)
-        (memo' := (s₃.store.zeronessOfLIGo {} v).2) rfl
-      rw [hzeq lv hlv]
-      exact SimAt.pure hs₃ rfl
-    all_goals
-      (first | invert_node hd' | cases hd')
-      exact SimAt.throw
+    refine SimAt.bind (ensureSortI_sim ih hs₂ hbtd hwbt)
+      (fun s₃ v lv hs₃ hext₃ hPv => ?_)
+    obtain ⟨-, hzeq⟩ := zeronessOfLIGo_spec (st := s₃.store) v
+      (memo := {}) PWMemoInv.empty
+      (p := (s₃.store.zeronessOfLIGo {} v).1)
+      (memo' := (s₃.store.zeronessOfLIGo {} v).2) rfl
+    exact simAt_withStore_pure hs₃ (hzeq lv hPv)
 
-/-- The λ twin of `annotatePisPwI_sim`. -/
-theorem annotateLamsPwI_sim (ih : SSimI mode env f) {d k : Nat}
-    {leaf' : EIdx} {leafx : Expr} {s₀ : IState}
-    (hs : ISOK mode env s₀) (hl : s₀.store.denoteT leaf' = some leafx)
-    (hw : WScoped (d + k) leafx) :
-    SimAt mode env s₀
-      (fun _ (v : Option PropWhen) (vx : Option PropWhen) => v = vx)
-      (annotateLamsPwI mode (coreKnotI mode (mkFEnv env) f) d k leaf')
-      (annotateLamsPw mode (fueledFns mode env) d k leafx) := by
-  unfold annotateLamsPwI annotateLamsPw
-  by_cases hv : mode.verified = true
-  case neg =>
-    simp only [if_neg hv]
-    exact SimAt.pure hs rfl
-  simp only [if_pos hv]
+/-- The λ twin of `annotPwPiI_sim`. -/
+theorem annotPwLamI_sim (ih : SSimI mode env f) {d : Nat}
+    {body' : EIdx} {body'x : Expr} {s₀ : IState}
+    (hs : ISOK mode env s₀) (hl : s₀.store.denoteT body' = some body'x)
+    (hw : WScoped d body'x) :
+    SimAt mode env s₀ (fun _ (v : PropWhen) (vx : PropWhen) => v = vx)
+      (annotPwLamI (coreKnotI mode (mkFEnv env) f) d body')
+      (annotPwLam (fueledFns mode env) env d body'x) := by
+  unfold annotPwLamI annotPwLam
   refine SimAt.view ?_
   obtain ⟨nd, hn, hc, hd⟩ := denoteT_some_inv hl
   rw [hn]
@@ -870,27 +859,47 @@ theorem annotateLamsPwI_sim (ih : SSimI mode env f) {d k : Nat}
     refine SimAt.bind (ih.infer hs₂ hbtd hwbt)
       (fun s₃ btt bttx hs₃ hext₃ hPbtt => ?_)
     obtain ⟨hbttd, hwbtt⟩ := hPbtt
-    refine SimAt.bind (ih.whnf hs₃ hbttd hwbtt)
-      (fun s₄ wbtt wx hs₄ hext₄ hPw => ?_)
-    obtain ⟨hwd, hww⟩ := hPw
-    refine SimAt.view ?_
-    obtain ⟨nd', hn', hc', hd'⟩ := denoteT_some_inv hwd
-    rw [hn']
-    cases nd'
-    case sort v =>
-      rw [denoteNode, Option.map_eq_some_iff] at hd'
-      obtain ⟨lv, hlv, rfl⟩ := hd'
-      dsimp only
-      refine SimAt.withStore ?_
-      obtain ⟨-, hzeq⟩ := zeronessOfLIGo_spec (st := s₄.store) v
-        (memo := {}) PWMemoInv.empty
-        (p := (s₄.store.zeronessOfLIGo {} v).1)
-        (memo' := (s₄.store.zeronessOfLIGo {} v).2) rfl
-      rw [hzeq lv hlv]
-      exact SimAt.pure hs₄ rfl
-    all_goals
-      (first | invert_node hd' | cases hd')
-      exact SimAt.throw
+    refine SimAt.bind (ensureSortI_sim ih hs₃ hbttd hwbtt)
+      (fun s₄ vb lvb hs₄ hext₄ hPv => ?_)
+    obtain ⟨-, hzeq⟩ := zeronessOfLIGo_spec (st := s₄.store) vb
+      (memo := {}) PWMemoInv.empty
+      (p := (s₄.store.zeronessOfLIGo {} vb).1)
+      (memo' := (s₄.store.zeronessOfLIGo {} vb).2) rfl
+    exact simAt_withStore_pure hs₄ (hzeq lvb hPv)
+
+/-- The gated forms the telescope loops use. -/
+theorem annotatePisPwI_sim (ih : SSimI mode env f) {d k : Nat}
+    {leaf' : EIdx} {leafx : Expr} {s₀ : IState}
+    (hs : ISOK mode env s₀) (hl : s₀.store.denoteT leaf' = some leafx)
+    (hw : WScoped (d + k) leafx) :
+    SimAt mode env s₀
+      (fun _ (v : Option PropWhen) (vx : Option PropWhen) => v = vx)
+      (annotatePisPwI mode (coreKnotI mode (mkFEnv env) f) d k leaf')
+      (annotatePisPw mode (fueledFns mode env) env d k leafx) := by
+  unfold annotatePisPwI annotatePisPw
+  split
+  · refine SimAt.bind (annotPwPiI_sim ih hs hl hw)
+      (fun s₁ p px hs₁ hext₁ hP => ?_)
+    subst hP
+    exact SimAt.pure hs₁ rfl
+  · exact SimAt.pure hs rfl
+
+/-- The λ twin of `annotatePisPwI_sim`. -/
+theorem annotateLamsPwI_sim (ih : SSimI mode env f) {d k : Nat}
+    {leaf' : EIdx} {leafx : Expr} {s₀ : IState}
+    (hs : ISOK mode env s₀) (hl : s₀.store.denoteT leaf' = some leafx)
+    (hw : WScoped (d + k) leafx) :
+    SimAt mode env s₀
+      (fun _ (v : Option PropWhen) (vx : Option PropWhen) => v = vx)
+      (annotateLamsPwI mode (coreKnotI mode (mkFEnv env) f) d k leaf')
+      (annotateLamsPw mode (fueledFns mode env) env d k leafx) := by
+  unfold annotateLamsPwI annotateLamsPw
+  split
+  · refine SimAt.bind (annotPwLamI_sim ih hs hl hw)
+      (fun s₁ p px hs₁ hext₁ hP => ?_)
+    subst hP
+    exact SimAt.pure hs₁ rfl
+  · exact SimAt.pure hs rfl
 
 theorem annotatePisLeafI_sim (ih : SSimI mode env f) {d : Nat}
     {t : EIdx} {tx : Expr} {k : Nat} {fvs : Array EIdx} {ws : List Expr}
@@ -901,7 +910,7 @@ theorem annotatePisLeafI_sim (ih : SSimI mode env f) {d : Nat}
     (hw : WScoped (d + k) (tx.instantiateList ws)) :
     SimAt mode env s₀ RelD
       (annotatePisLeafI mode (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
-      (annotatePisLeaf mode (fueledFns mode env) d tx k ws stkx) := by
+      (annotatePisLeaf mode (fueledFns mode env) env d tx k ws stkx) := by
   unfold annotatePisLeafI annotatePisLeaf
   refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hfvs)
     (fun s₁ ob hs₁ hext₁ hQob => ?_)
@@ -932,7 +941,7 @@ theorem annotatePisI_sim (ih : SSimI mode env f) {d : Nat} :
       WScoped (d + k) (tx.instantiateList ws) →
       SimAt mode env s₀ RelD
         (annotatePisI mode (coreKnotI mode (mkFEnv env) f) d fuel t k fvs stk)
-        (annotatePis mode (fueledFns mode env) d fuel tx k ws stkx)
+        (annotatePis mode (fueledFns mode env) env d fuel tx k ws stkx)
   | 0, t, tx, k, fvs, ws, stk, stkx, s₀ => by
     intro hs ht hfvs hstk hw
     exact annotatePisLeafI_sim ih hs ht hfvs hstk hw
@@ -1048,7 +1057,7 @@ theorem annotateLamsLeafI_sim (ih : SSimI mode env f) {d : Nat}
     (hw : WScoped (d + k) (tx.instantiateList ws)) :
     SimAt mode env s₀ RelD
       (annotateLamsLeafI mode (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
-      (annotateLamsLeaf mode (fueledFns mode env) d tx k ws stkx) := by
+      (annotateLamsLeaf mode (fueledFns mode env) env d tx k ws stkx) := by
   unfold annotateLamsLeafI annotateLamsLeaf
   refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hfvs)
     (fun s₁ ob hs₁ hext₁ hQob => ?_)
@@ -1079,7 +1088,7 @@ theorem annotateLamsI_sim (ih : SSimI mode env f) {d : Nat} :
       WScoped (d + k) (tx.instantiateList ws) →
       SimAt mode env s₀ RelD
         (annotateLamsI mode (coreKnotI mode (mkFEnv env) f) d fuel t k fvs stk)
-        (annotateLams mode (fueledFns mode env) d fuel tx k ws stkx)
+        (annotateLams mode (fueledFns mode env) env d fuel tx k ws stkx)
   | 0, t, tx, k, fvs, ws, stk, stkx, s₀ => by
     intro hs ht hfvs hstk hw
     exact annotateLamsLeafI_sim ih hs ht hfvs hstk hw
@@ -1592,7 +1601,7 @@ theorem annotatePisI_tail_sim (ih : SSimI mode env f) {d fuel : Nat}
   have hcore : SimAt mode env s₀ RelD
       (annotatePisI mode (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
         [(nm, ty', mi)])
-      (annotatePis mode (fueledFns mode env) d fuel bodyx 1
+      (annotatePis mode (fueledFns mode env) env d fuel bodyx 1
         [Expr.fvar d nmx tyx'] [(nmx, tyx', mx)]) := by
     refine annotatePisI_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact DenL.cons hfv DenL.nil)
@@ -1696,7 +1705,7 @@ theorem annotateLamsI_tail_sim (ih : SSimI mode env f) {d fuel : Nat}
   have hcore : SimAt mode env s₀ RelD
       (annotateLamsI mode (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
         [(nm, ty', mi)])
-      (annotateLams mode (fueledFns mode env) d fuel bodyx 1
+      (annotateLams mode (fueledFns mode env) env d fuel bodyx 1
         [Expr.fvar d nmx tyx'] [(nmx, tyx', mx)]) := by
     refine annotateLamsI_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact DenL.cons hfv DenL.nil)
