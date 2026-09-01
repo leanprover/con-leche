@@ -25,17 +25,14 @@ assembled end to end:
   new base's own `defn_eq` field;
 * the membership (`hmemNew`) is the claims' membership at the value
   run carried across the H1-exposed defeq run by the defeq claim;
-* `nat_heads` at the extension derives from the routed guard
-  agreement + freshness — no bespoke premise.
+* `nat_heads` at the extension derives from guard reflection
+  (`natLitSupported_cons_back`) + freshness — no bespoke premise.
 
-Routed premises, both named tiers: `hsem : SemTierInputsP` (the
-semantic bill).  (`LitGuardsAgree` is GONE: the guard equality is
-refutable at support-completing installs, and the monotone crossing
-(`denoteP_cons_fresh_mono`) plus `natLitSupported_cons_back` replace
-every use — the harvests carry no literal-tier premise at all.  The
-next line's original text described the routed `hlga`; kept for the
-stability at this extension; free except at a support-completing
-install, where the literal tier does bespoke work anyway).
+One routed premise: `hsem : SemTierInputsP` (the semantic bill).
+`LitGuardsAgree` is GONE from every harvest: the guard equality is
+refutable at a support-completing install, and the monotone crossing
+(`denoteP_cons_fresh_mono`) plus guard reflection replace every use —
+the harvests carry no literal-tier premise at all.
 -/
 
 namespace Setlec.SetR.Interp2
