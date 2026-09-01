@@ -11094,3 +11094,20 @@ official-kernel/lean4lean-style — instead of extending the arena
 machinery.  Consequence recorded for the parked P5 items: the
 `PWMemo`-sharing TODO (`IExpr.lean`, `substPWI`) should assume the
 cached-variant world, not the two-tier arena.  No action in P2–P4.
+
+### Task #161 ledger note: PropWhen is consumed interface-only from P3 on (user directive, 2026-09-01)
+
+A canonical subtype-encapsulated set type (`ZeroSet`/`ZPropWhen`,
+sorted-nodup by construction — the Std.HashMap pattern) is prepared on
+the side (branch `agent/annot-set`) as the P5-candidate representation
+and the documentation of the needed operations and laws.  BINDING for
+the big proof (P3/P4): statements consume `PropWhen` only through the
+operation/law interface — `holds`, `equiv` + `equiv_iff_holds`,
+`substPW` + `substPW_self`/`substPW_comp`, `zeronessOf` +
+`zeronessOf_sound`/`zeronessOf_subst`, `paramsDefined` — never through
+`List` internals, param-list pattern matching, or order-dependent
+reasoning, so the later swap is an interface re-instantiation, not a
+proof rewrite, and the big proof never carries the representation
+invariant.  A proof step wanting a fact outside the battery = a
+missing LAW: state it, add it to the battery (both representations),
+report the addition.  P2 is unchanged (`equiv` at validation sites).
