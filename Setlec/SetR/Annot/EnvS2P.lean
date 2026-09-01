@@ -73,6 +73,52 @@ def NatOpsP {V : Type w} [SetTheory V] {env : Env}
         interp2 V (cons y (cons x ρ)) L
           = interp2 V (cons y (cons x ρ)) R
 
+/-- **The pin-certified WF-recursive operations' guarded value
+recurrences at the validated-annotation tier** — `DivModV`
+(`Sound/Motives.lean`) with `interp`/`cval` replaced by
+`interp2`/`acval`.  `DivModClausesV` is already valuation-generic, so
+it is reused verbatim: only the valuation it is fed changes.
+
+Supplied as an `EnvS2PM` field: established at the operation's own
+install from the recorded certificate runs (`DivModPinR`'s
+`checkDivModCerts` verdict) through `InferClaims2P`/`DefEqClaims2P` —
+the run-certificate route again (`Interp2/DivModP.lean`) — and
+preserved across every other fresh cons.  Consumed by the WF-op
+numeral transports (`Sound/NatOpsWf`' shape at `interp2`). -/
+def DivModP {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS2Core V env) (φ : Name → Nat) : Prop :=
+  ∀ c ∈ Setlec.natDivModNames, ∀ cv v hint,
+    env.find? c = some (.defnInfo cv v hint) →
+    Setlec.natOpGuard env c = true ∧
+    ∀ (ρ : Nat → V) (x y : V),
+      x ∈ˢ interp2 V ρ (m.acval Setlec.natName φ) →
+      y ∈ˢ interp2 V ρ (m.acval Setlec.natName φ) →
+      DivModClausesV V (fun n => interp2 V ρ (m.acval n φ)) c x y
+
+/-- **The pinned `Eq` spine's value at `interp2`** — `EnvS.eq_lawV`'s
+mirror one currency over, stated directly at the three-fold
+application (the only form the certificate consumers read; v1 states
+the two-fold `lamC` form because its η/unit consumers need the
+rigidity clause, which nothing here does).
+
+**This is an environment law, exactly as in v1**: `EqLawV` is an
+`EnvS` *field*, not a theorem, because the `Eq` leaf's value is fixed
+by the basis install (`Install/BasisS.lean`'s `eqValT` — the `.eqE`
+former η-expanded) and by nothing else.  The P mirror is a field for
+the same reason, and its supplier is the P basis install
+(`BasisStepPB`, routed): the annotated `Eq` tower's *regime bits* are
+invisible to every other `EnvS2PM` field, and the erasure factoring
+that would import the v1 law is refuted at exactly the λ-nodes this
+tower is made of (the literal-tier seal II finding 1).  See the task
+#161 LITERAL TIER seal III record. -/
+def EqLawP {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS2Core V env) : Prop :=
+  env.find? eqName = some eqA →
+  ∀ (ψ : Name → Nat) (ρ : Nat → V) (A a b : V),
+    A ∈ˢ (univ (ψ uN) : V) → a ∈ˢ A → b ∈ˢ A →
+    SetTheory.app (SetTheory.app (SetTheory.app
+        (interp2 V ρ (m.acval eqName ψ)) A) a) b = eqv a b
+
 /-- **The P-tier environment invariant, at one mode** (see the module
 docstring). -/
 structure EnvS2PM (μ : CheckMode) (env : Env) where
