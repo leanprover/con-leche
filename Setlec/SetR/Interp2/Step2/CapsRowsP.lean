@@ -450,4 +450,267 @@ theorem piChainP_of_stripPis {acval : Name → (Name → Nat) → AVExpr} :
       simp only [Setlec.Expr.stripPis, Option.isSome_map] at hs
       exact ih (Setlec.Expr.stripPis_instantiate1_isSome n 0 hs) hba
 
+/-! ## The stored structure's η row
+
+`structEtaCertWith_stepR` and `sndDeqStructEta`, fused.  What the
+semantic argument actually consumes is small: the family is stored
+(`EtaFamilyStored`, built from the certificate's constructor lookup and
+its per-field recursor lookups), the former's telescope fits
+(`certs_teleP` on the `iotaCerts` conjunct), and the two argument
+lists are certified (`map_interp2_of_defEqListP` twice).  The per-field
+telescopes appear only to *grade* the fabricated projection spine —
+`DefEqClaims2P` demands `AnnotOkP` of both comparands where
+`DefEqClaimsR` demands nothing — and they are consumed through
+`annotOkP_mkAppN_of_fit`, not through any function-valued
+quantification, so `choose_fun` has no counterpart here. -/
+
+/-- **`StructEtaIrrelP`, discharged from the field.**  The stored
+η law fires at the reduced type's parameter spine; the fabricated
+value spine is `etaFabArgs2`, and the certificate's two `defEqList`
+runs identify it with the constructor application's own arguments. -/
+theorem structEtaIrrelP_of_claims {m : EnvS2Core V env}
+    (hcaps : CapsOkP m) (hct : ConstTypeP m φ) (hav : AcvalValidP m)
+    (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
+    (ihi : InferClaims2P μ m φ fuel)
+    (hreads : InferReadsP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
+    StructEtaIrrelP μ m φ fuel := by
+  intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
+    hokA hokB ρ hρ
+  obtain ⟨tb, wtb, htb, hwtb, hcw⟩ := Setlec.structEtaCert_inv h
+  obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, hfna, hfc, hlena,
+    hfnb, hfT, heta, hectr, hepar, hefld, hresT, hresc, hlenb, hlenus,
+    hlpc, hstrip, hlev, hcertT, hprojs, hdefL1, -, hdefL2⟩ :=
+    Setlec.structEtaCertWith_inv hcw
+  -- the stuck side's inferred type: frames, reading, membership
+  have hwt : Expr.WScoped d tb :=
+    Setlec.inferTypeCore_WScoped m.base.wf fuel htb hwb
+  have hbt : tb.looseBVarsBounded 0 = true :=
+    Setlec.inferTypeCore_looseBVars m.base.wf fuel htb hwb hbb hLb
+  have hLt : Expr.LeavesBounded tb := fun l hl =>
+    hLb l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb l hl)
+  have hCt : CtxOkP m φ d Δa tb :=
+    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb)
+  obtain ⟨tba, htba⟩ :=
+    hreads htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
+  obtain ⟨-, hokTb, hmemB⟩ := ihi htb hwb hbb hLb hCb hdb htba
+  obtain ⟨wtba, hwtba⟩ := hwreads hwtb hwt hbt hLt htba
+  obtain ⟨hokW, heqW⟩ := ihw hwtb hwt hbt hLt hCt htba hwtba hokTb
+  -- the reduct's frames
+  have hwr : Expr.WScoped d wtb := Setlec.whnf_WScoped m.base.wf fuel hwtb hwt
+  have hbr : wtb.looseBVarsBounded 0 = true :=
+    Setlec.whnf_looseBVars m.base.wf fuel hwtb hbt
+  have hLr : Expr.LeavesBounded wtb := fun l hl =>
+    hLt l (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb l hl)
+  have hCr : CtxOkP m φ d Δa wtb :=
+    hCt.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb)
+  -- the reduced type is the family applied to its parameters
+  rw [show wtb = Expr.mkAppN wtb.getAppFn wtb.getAppArgs from
+    (Setlec.Expr.mkAppN_getApp wtb).symm, hfnb] at hwtba
+  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denoteP_mkAppN_inv hwtba
+  rw [denoteP, hfT] at hvT
+  dsimp only at hvT
+  split at hvT
+  case isFalse => exact nomatch hvT
+  case isTrue =>
+  obtain rfl : vT = m.acval T (Level.substFn φ cvT.levelParams us') := (Option.some.inj hvT).symm
+  -- the constructor side is the constructor applied to its arguments
+  rw [show a = Expr.mkAppN a.getAppFn a.getAppArgs from
+    (Setlec.Expr.mkAppN_getApp a).symm, hfna] at hda
+  obtain ⟨vf, asa, hvf, hspa, rfl⟩ := denoteP_mkAppN_inv hda
+  rw [denoteP, hfc] at hvf
+  dsimp only at hvf
+  split at hvf
+  case isFalse => exact nomatch hvf
+  case isTrue =>
+  obtain rfl : vf = m.acval c (Level.substFn φ cvc.levelParams us) :=
+    (Option.some.inj hvf).symm
+  -- the two instantiations agree (`sndDeqStructEta`'s `hψ`)
+  have hψc : Level.substFn φ cvc.levelParams us = (Level.substFn φ cvT.levelParams us') := by
+    rw [hlpc]
+    exact Setlec.Level.substFn_congr (Setlec.Level.isEquivList_sound hlev φ)
+  -- the family is stored
+  have hfam : Setlec.EtaFamilyStored env T caps := by
+    refine ⟨by rw [hectr]; exact hresc, ⟨cvc, ?_⟩, ?_⟩
+    · rw [hectr, hepar, hefld]; exact hfc
+    · intro j hj
+      obtain ⟨cvp, mIp, rPp, rulesp, hfp, -, -, -⟩ :=
+        Setlec.structEtaProjCerts_inv _ hprojs j
+          (List.mem_range.mpr (by rw [← hefld]; exact hj))
+      exact ⟨cvp, mIp, rPp, rulesp, hfp⟩
+  -- the law, and its carried reading moved to the ambient depth
+  obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
+    hcaps.1 T cvT caps hfT heta hresT hfam φ us' hlenus
+  have hwfT := m.base.wf _ (Setlec.SetR.Env.find?_mem hfT)
+  have hnfT : (cvT.type.instantiateLevelParams cvT.levelParams us').hasFvar
+      = false := by
+    rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfT.1
+  have hbdT : (cvT.type.instantiateLevelParams cvT.levelParams
+      us').looseBVarsBounded 0 = true := by
+    rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+    exact hwfT.2.2.2.1
+  have hTVd : denoteP m.acval env φ d
+      (cvT.type.instantiateLevelParams cvT.levelParams us') = some TVa :=
+    denoteP_depth_of_closed m.acval_closed hnfT
+      (fun k => denoteP_closed m.acval_erase m.base.cval_closed
+        hnfT hbdT hTVa 1 k) hTVa d
+  -- the former type's frames (closed, so all four are free)
+  have hTw : Expr.WScoped d
+      (cvT.type.instantiateLevelParams cvT.levelParams us') :=
+    Setlec.Expr.WScoped.of_not_hasFvar hnfT
+  have hTL : Expr.LeavesBounded
+      (cvT.type.instantiateLevelParams cvT.levelParams us') :=
+    Setlec.Expr.LeavesBounded.of_not_hasFvar hnfT
+  have hTC : CtxOkP m φ d Δa
+      (cvT.type.instantiateLevelParams cvT.levelParams us') :=
+    ⟨hCa.1, fun l hl => by
+      rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfT] at hl
+      exact nomatch hl⟩
+  -- the ∀-chain guard, from the certificate's `stripPis` conjunct
+  have hpcT : PiChainP wtb.getAppArgs.length TVa := by
+    rw [hlenb]
+    exact piChainP_of_stripPis cnP
+      (Setlec.Expr.stripPis_instantiateLevelParams_isSome
+        cvT.levelParams us' cnP hstrip) hTVd
+  obtain ⟨rest, hfitT⟩ :=
+    certs_teleP ihd ihi hreads _ wtb.getAppArgs tsa TVa hcertT hpcT
+      hTw hbdT hTL hTC hTVd (fun σ _ => hokTVa σ)
+      (frame_spineP hwr hbr hLr hCr) hspt ρ hρ
+  -- the fold form both sides are read in
+  have hfold : ∀ (l : List AVExpr) (x : V),
+      l.foldl (fun r y => SetTheory.app r (interp2 V ρ y)) x
+        = (l.map (interp2 V ρ)).foldl SetTheory.app x := by
+    intro l x; rw [List.foldl_map]
+  -- the stuck side inhabits the family instance
+  have hmemBW : interp2 V ρ ba
+      ∈ˢ (tsa.map (interp2 V ρ)).foldl SetTheory.app
+          (interp2 V ρ (m.acval T (Level.substFn φ cvT.levelParams us'))) := by
+    have := (heqW ρ hρ) ▸ hmemB ρ hρ
+    rwa [interp2_mkAppN, hfold] at this
+  have hlenTs : (tsa.map (interp2 V ρ)).length = caps.etaParams := by
+    rw [List.length_map, ← hspt.length, hlenb, hepar]
+  have hb := hlaw ρ (tsa.map (interp2 V ρ)) rest (interp2 V ρ ba)
+    hlenTs hfitT hmemBW
+  -- the two argument spines' gradings
+  obtain ⟨hohA, hoA⟩ := hoistP_spine asa hokA
+  obtain ⟨-, hoT⟩ := hoistP_spine tsa hokW
+  -- the fabricated projection spine: it reads, and it is graded
+  have hspTb : DenoteSpineP m.acval env φ d (wtb.getAppArgs ++ [b])
+      (tsa ++ [ba]) := hspt.append (DenoteSpineP.cons hdb DenoteSpineP.nil)
+  have hframeTb : ∀ x ∈ wtb.getAppArgs ++ [b],
+      Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · exact frame_spineP hwr hbr hLr hCr x hx'
+    · rcases List.mem_singleton.mp hx' with rfl
+      exact ⟨hwb, hbb, hLb, hCb⟩
+  have hokTb' : ∀ x ∈ tsa ++ [ba], ∀ σ : Nat → V, Sat2 V Δa σ →
+      AnnotOkP V σ x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · exact hoT x hx'
+    · rcases List.mem_singleton.mp hx' with rfl; exact hokB
+  have hprojden : ∀ j ∈ List.range cnF,
+      denoteP m.acval env φ d
+          (Expr.mkAppN (.const (projFnName T j) us') (wtb.getAppArgs ++ [b]))
+        = some (AVExpr.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])) := by
+    intro j hj
+    obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpj, -, -⟩ :=
+      Setlec.structEtaProjCerts_inv _ hprojs j hj
+    refine denoteP_mkAppN hspTb ?_
+    rw [denoteP, hfp]
+    dsimp only
+    split
+    · next =>
+      show some (m.acval (projFnName T j)
+        (Level.substFn φ cvp.levelParams us')) = _
+      rw [hlpj]
+    · next hne =>
+      exact absurd (show us'.length = cvp.levelParams.length from by
+        rw [hlpj]; exact hlenus) hne
+  have hokProj : ∀ x ∈ (List.range cnF).map (fun j =>
+        AVExpr.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])),
+      ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ x := by
+    intro x hx σ hσ
+    obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
+    obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpj, hstrpj, hicj⟩ :=
+      Setlec.structEtaProjCerts_inv _ hprojs j hj
+    have hlenp : us'.length = cvp.levelParams.length := by
+      rw [hlpj]; exact hlenus
+    obtain ⟨tpa, htpa, hoktpa, hmemp⟩ :=
+      hct d (projFnName T j) _ us' hfp hlenp
+    -- the projection type's frames
+    have hwfp := m.base.wf _ (Setlec.SetR.Env.find?_mem hfp)
+    have hnfp : (cvp.type.instantiateLevelParams cvp.levelParams
+        us').hasFvar = false := by
+      rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfp.1
+    have hbdp : (cvp.type.instantiateLevelParams cvp.levelParams
+        us').looseBVarsBounded 0 = true := by
+      rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+      exact hwfp.2.2.2.1
+    have hpcp : PiChainP (wtb.getAppArgs ++ [b]).length tpa := by
+      rw [List.length_append, List.length_singleton]
+      exact piChainP_of_stripPis _
+        (Setlec.Expr.stripPis_instantiateLevelParams_isSome
+          cvp.levelParams us' _ hstrpj) htpa
+    obtain ⟨restp, hfitp⟩ :=
+      certs_teleP ihd ihi hreads _ (wtb.getAppArgs ++ [b]) (tsa ++ [ba])
+        tpa hicj hpcp (Setlec.Expr.WScoped.of_not_hasFvar hnfp) hbdp
+        (Setlec.Expr.LeavesBounded.of_not_hasFvar hnfp)
+        ⟨hCa.1, fun l hl => by
+          rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfp] at hl
+          exact nomatch hl⟩
+        htpa (fun τ _ => hoktpa τ) hframeTb hspTb σ hσ
+    refine (annotOkP_mkAppN_of_fit (tsa ++ [ba]) (hoktpa σ)
+      ⟨m.acval_ok2 _ _ σ, hav _ _ σ⟩
+      (fun x hx => hokTb' x hx σ hσ) ?_ hfitp).1
+    have := hmemp σ
+    dsimp only [Setlec.ConstantInfo.toConstantVal] at this
+    rwa [hlpj] at this
+  have hframeProj : ∀ x ∈ (List.range cnF).map (fun i =>
+        Expr.mkAppN (.const (projFnName T i) us') (wtb.getAppArgs ++ [b])),
+      Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x := by
+    intro x hx
+    obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
+    refine ⟨Setlec.Expr.WScoped.mkAppN
+        (Setlec.Expr.WScoped.of_not_hasFvar rfl)
+        (fun y hy => (hframeTb y hy).1),
+      Setlec.looseBVarsBounded_mkAppN rfl
+        (fun y hy => (hframeTb y hy).2.1),
+      fun l hl => ?_, ⟨hCa.1, fun l hl => ?_⟩⟩ <;>
+    · rcases Setlec.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+      · exact absurd hl' (by simp [Expr.fvarLeaves])
+      · first
+        | exact (hframeTb y hy).2.2.1 l hly
+        | exact (hframeTb y hy).2.2.2.2 l hly
+  -- the two certified lists, pointwise
+  have htake : (asa.take cnP).map (interp2 V ρ) = tsa.map (interp2 V ρ) :=
+    map_interp2_of_defEqListP ihd hdefL1
+      (fun x hx => frame_spineP hwa hba hLa hCa x (List.mem_of_mem_take hx))
+      (frame_spineP hwr hbr hLr hCr) (hspa.take cnP) hspt
+      (fun x hx => hoA x (List.mem_of_mem_take hx)) hoT ρ hρ
+  have hdrop : (asa.drop cnP).map (interp2 V ρ)
+      = ((List.range cnF).map fun j =>
+          AVExpr.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])).map
+        (interp2 V ρ) :=
+    map_interp2_of_defEqListP ihd hdefL2
+      (fun x hx => frame_spineP hwa hba hLa hCa x (List.mem_of_mem_drop hx))
+      hframeProj (hspa.drop cnP)
+      (DenoteSpineP.map_list _ hprojden)
+      (fun x hx => hoA x (List.mem_of_mem_drop hx)) hokProj ρ hρ
+  -- the constructor's arguments ARE the fabricated spine
+  have hfab : asa.map (interp2 V ρ)
+      = etaFabArgs2 (fun n => interp2 V ρ (m.acval n (Level.substFn φ cvT.levelParams us'))) T
+          (tsa.map (interp2 V ρ)) (interp2 V ρ ba) caps.etaFields := by
+    rw [etaFabArgs2, projSpines2, ← List.take_append_drop cnP asa,
+      List.map_append, htake, hdrop, hefld, List.map_map]
+    refine congrArg _ (List.map_congr_left fun j _ => ?_)
+    show interp2 V ρ (AVExpr.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us'))
+      (tsa ++ [ba])) = _
+    rw [interp2_mkAppN, hfold, List.map_append]
+    rfl
+  -- assemble
+  rw [hb, interp2_mkAppN, hfold, hfab, hψc, hectr]
+
 end Setlec.SetR.Interp2
