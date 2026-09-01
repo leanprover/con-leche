@@ -145,7 +145,7 @@ theorem valueFrontR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
     (hde : isDefEqCore μ env F 0 vtype type' = .ok true)
     (hcv : ConstantValR μ F env m.cval cv type') :
     ValueFrontR μ F env m.cval cv value type' value' := by
-  refine ⟨hlbv, hivf, hannv, hvp, hvr, ⟨vtype, hvt⟩, fun φ => ?_⟩
+  refine ⟨hlbv, hivf, hannv, hvp, hvr, ⟨vtype, hvt, hde⟩, fun φ => ?_⟩
   obtain ⟨-, -, ihd, ihi⟩ := checkBridge m φ F
   have hvf' : value'.hasFvar = false :=
     Expr.not_hasFvar_of_fvarsBelow_zero

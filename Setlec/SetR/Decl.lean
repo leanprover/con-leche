@@ -156,12 +156,18 @@ def ConstantValR (μ : CheckMode) (F : Nat) (env : Env)
 /-- The value front door shared by `defn`/`thm`/`opaque`
 (`checkDefnVal`/`checkThmVal`/`checkOpaqueVal`'s common core): the
 value's syntactic guards, its annotate output, **the branch's own
-`inferType` run on the annotated value**, and its inference against
-the annotated type at `Δ = []`, every `φ`.
+`inferType` + `isDefEq` run pair on the annotated value**, and its
+inference against the annotated type at `Δ = []`, every `φ`.
 
 The run conjunct is the twin of `ConstantValR`'s: the value side runs
-`inferType` and then compares by `isDefEq`, so there is one run to
-name, not a chain (seal 47). -/
+`inferType` and then compares by `isDefEq` (seal 47).  Task #161 P4
+H1 extends it from the bare `inferType` run to the **pair** — the
+comparison is the branch's literal next call
+(`Setlec/Kernel/Checker.lean:372-374`, and identically at `:395-396`,
+`:420-421`): `isDefEq` at fuel `F`, depth `0`, the *inferred* type
+first and the annotated declared type second.  No whnf sits between
+them, and the entry point is the same `ops` record, so the recorded
+form is the checker's literal output (seal 48). -/
 def ValueFrontR (μ : CheckMode) (F : Nat) (env : Env)
     (cval : TConstVal) (cv : ConstantVal) (value : Expr)
     (type' value' : Expr) : Prop :=
@@ -170,7 +176,8 @@ def ValueFrontR (μ : CheckMode) (F : Nat) (env : Env)
   annotateCore μ env F 0 value = .ok value' ∧
   value'.allLevelParamsDefined cv.levelParams = true ∧
   value'.constsResolve env = true ∧
-  (∃ vtype, inferTypeCore μ env F 0 value' = .ok vtype) ∧
+  (∃ vtype, inferTypeCore μ env F 0 value' = .ok vtype ∧
+    isDefEqCore μ env F 0 vtype type' = .ok true) ∧
   ∀ φ : Name → Nat,
     ∃ Tv Vv tv, denoteClosed cval env φ type' = some Tv ∧
       denoteClosed cval env φ value' = some Vv ∧
