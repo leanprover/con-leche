@@ -11709,3 +11709,38 @@ that remains, defn kind first):
 and the Empty argument consumed only existing `ConstWF` clauses.  If
 they surface anywhere, it is at step 1-3's per-kind inversions;
 re-check there.
+
+## Task #161 P4.6 SEAL: the harvest species lands — `harvestDefnP` (2026-09-01)
+
+**Proved end to end** (standard axioms, battery green): a checked
+`def` extends the P invariant.  The assembly validated every seam the
+P4.5 record mapped:
+
+* batch H1 exposed the value-type **defeq run** (and the thm prop-run
+  and the opaque identity-certificate run) as additive conjuncts
+  through the v1 harvest — zero new proof lines, every prover had the
+  run in hand;
+* `declDefnS` supplies the v1 base **constructively** (`∃ m'` + the
+  cval agreement); the leaf erases to it through `denoteP_erase` +
+  `denote_install` at `LitAgree.of_fresh` + the new base's own
+  `defn_eq` field;
+* the leaf's laws are the claims' conclusions at `Sat2_nil`
+  (`hAok`/`hAvalid`), `denoteP_closed` (`hAclosed`), and the new
+  `denoteP_params_ext` (`hAparams`) — which rides the new battery law
+  `holds_ext` (parameter locality of the datum; the canonical-side
+  mirror is the pre-existing `ZPropWhen.holds_congr` — the
+  both-representations report);
+* the membership crosses the H1-exposed defeq run via the defeq
+  claim; `nat_heads` at the extension **derives** from the routed
+  guard agreement + freshness (no bespoke premise).
+
+Routed, tier-named: `SemTierInputsP` + `LitGuardsAgree` per
+extension.  The remaining fold work is now recipe-mirroring: the
+thm/opaque/axiom kinds (same seams; thm adds the prop-run row,
+opaque the identity certificate), the basis/inductive kinds (the
+install tiers), the fold recursion (`EnvSPOk` mirroring `foldlM_R`),
+and the conditional capstone assembly — then the tiers, literal →
+caps → proj/str → iota.
+
+The three owed `EnvWF` records: still not demanded (the species
+consumed `EnvWF.cons` + existing `ConstWF` clauses only).
