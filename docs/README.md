@@ -20,6 +20,12 @@
   Felicissimo et al. "Consolidating Equality in a Proof Irrelevant Universe"
   (hal-05688985) — bearing on the Θ/NbE lanes and the set-model program.
 
+- `sort-coherence-campaign-151.md` — the campaign summary: what was tried on the
+  sort-coherence tier (Θ lane, six walls) and the NbE adequacy lane (ten
+  refutations), what survived, and why both were parked in favor of the
+  validated-annotation design. Parked branches: agent/theta-runbatch @ cb2c2ed3,
+  agent/nbe-lr @ eb3591d2, agent/cert-tax @ f46e968.
+
 All surveys were produced 2026-09-01 from primary sources (PDFs and source
 trees read directly); quotes are verbatim from those sources, with unverifiable
 items flagged in each report's final section.
