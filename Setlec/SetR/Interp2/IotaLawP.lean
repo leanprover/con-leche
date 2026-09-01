@@ -17,13 +17,18 @@ deviation from the v1 shape is a recorded decision:
   the whnf loop a graded reading), and `AnnotOkP` is `AVExpr`-indexed.
   An earlier value-level draft of this file died on exactly that
   conjunct.
-* **`TeleFitPA` is `TeleFitV`'s transpose with `cons` for `inst`**:
-  the telescope peels under an *extended environment* while the
-  arguments stay interpreted at the ambient one — two environment
-  parameters, and the residual keeps its syntax (`EnvLaws2`'s seal-22
-  tension, resolved: the index pin below decomposes the constructor
-  residual as an `AVExpr` spine, which a bare-`V` residual can never
-  yield).
+* **`TeleFitPA` is `TeleFitV`'s transpose, substitution-peeling** —
+  `B.inst a` at the argument's *reading*, one ambient environment,
+  exactly v1's shape one currency over.  The consumer-validation pass
+  killed the earlier cons-environment draft: its residual diverged
+  syntactically from the substituted readings the certificate's
+  `defEqList` runs compare, re-opening the seal-22 gap the fit was
+  meant to close.  Substitution-peeling is available here because the
+  arguments are readings (the caps tier's `TeleFitP` had bare values
+  and could not substitute — hence its `teleFitP_of_inst` detour,
+  which this fit never needs): `denoteP_beta` gives the residual
+  identity (`Tele.residual`'s mirror) directly, and the index pin
+  decomposes the residual at the ambient environment, v1-verbatim.
 * **The `.nested` pin clause quantifies the pin's own open reading**
   (`denoteP` at depth `rP`), concluding at the reading substituted
   along the argument prefix — `AVExpr.instRevChain`, the exact v1
@@ -61,19 +66,18 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-- **The annotated telescope fit, syntax-carrying**
-(`TeleFitV`'s transpose): arguments interpret at the ambient
-environment `ρ`, the telescope peels under the extended one, and the
-residual keeps its syntax together with its environment. -/
+/-- **The annotated telescope fit** (`TeleFitV`'s transpose,
+substitution-peeling): each argument reading inhabits its
+progressively-substituted domain, one ambient environment, the
+residual an `AVExpr` at that environment. -/
 inductive TeleFitPA (V : Type w) [SetTheory V] (ρ : Nat → V) :
-    (Nat → V) → AVExpr → List AVExpr → (Nat → V) → AVExpr →
-    Prop where
-  | nil {ρT : Nat → V} {T : AVExpr} : TeleFitPA V ρ ρT T [] ρT T
-  | cons {ρT ρ' : Nat → V} {u v : Nat} {A B rest : AVExpr}
-      {a : AVExpr} {as : List AVExpr} :
-      interp2 V ρ a ∈ˢ interp2 V ρT A →
-      TeleFitPA V ρ (cons (interp2 V ρ a) ρT) B as ρ' rest →
-      TeleFitPA V ρ ρT (.pi u v A B) (a :: as) ρ' rest
+    AVExpr → List AVExpr → AVExpr → Prop where
+  | nil {T : AVExpr} : TeleFitPA V ρ T [] T
+  | cons {u v : Nat} {A B rest : AVExpr} {a : AVExpr}
+      {as : List AVExpr} :
+      interp2 V ρ a ∈ˢ interp2 V ρ A →
+      TeleFitPA V ρ (B.inst a) as rest →
+      TeleFitPA V ρ (.pi u v A B) (a :: as) rest
 
 /-- The annotated reverse-opening substitution chain
 (`VExpr.instRevChain`'s `AVExpr` twin, `Verify/Denote/OpenVars.lean:80`
@@ -86,16 +90,16 @@ def _root_.Setlec.SetR.AVExpr.instRevChain :
     Setlec.SetR.AVExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
 
 /-- **The constructor residual's index pin** (`IotaIndexPinV`'s
-mirror at the syntax-carrying fit): the residual decomposes as a
-spine whose trailing arguments, read under the *fit's* environment,
-agree with the recursor's index arguments at the ambient one. -/
-def IotaIndexPinP (ρ ρC : Nat → V) (restC : AVExpr)
+mirror, v1-verbatim at `AVExpr`): the residual decomposes as a spine
+whose trailing arguments agree with the recursor's index arguments,
+all at the ambient environment. -/
+def IotaIndexPinP (ρ : Nat → V) (restC : AVExpr)
     (cnP mI rP : Nat) (xs : List AVExpr) : Prop :=
   ∃ (Ha : AVExpr) (cargsa : List AVExpr),
     restC = AVExpr.mkAppN Ha cargsa ∧
     (mI = rP ∨ cargsa.length = cnP + (mI - rP)) ∧
     ∀ i, i < mI - rP →
-      interp2 V ρC (cargsa.getD (cnP + i) default)
+      interp2 V ρ (cargsa.getD (cnP + i) default)
         = interp2 V ρ (xs.getD (rP + i) default)
 
 /-- **One rule's fired modeled-iota contract at `interp2`**
@@ -114,8 +118,7 @@ def RecRuleLawP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
       ∀ (cvj : ConstantVal) (cnP cnF : Nat),
         env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
       ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AVExpr)
-        (TVa TVja : AVExpr) (ρR : Nat → V) (restR : AVExpr)
-        (ρC : Nat → V) (restC : AVExpr),
+        (TVa TVja restR restC : AVExpr),
         xs.length = mI →
         ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
         usj.length = cvj.levelParams.length →
@@ -138,7 +141,7 @@ def RecRuleLawP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
               = interp2 V ρ
                   (Setlec.SetR.AVExpr.instRevChain (xs.take rP)
                     vpa)) →
-        IotaIndexPinP (V := V) ρ ρC restC (RecRule.ctorParams rl)
+        IotaIndexPinP (V := V) ρ restC (RecRule.ctorParams rl)
           mI rP xs →
         denoteP m.acval env φ 0
           (cv.type.instantiateLevelParams cv.levelParams us)
@@ -146,11 +149,11 @@ def RecRuleLawP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
         denoteP m.acval env φ 0
           (cvj.type.instantiateLevelParams cvj.levelParams usj)
           = some TVja →
-        TeleFitPA V ρ ρ TVa
+        TeleFitPA V ρ TVa
           (xs ++ [AVExpr.mkAppN
             (m.acval (RecRule.ctor rl)
-              (Level.substFn φ cvj.levelParams usj)) ys]) ρR restR →
-        TeleFitPA V ρ ρ TVja ys ρC restC →
+              (Level.substFn φ cvj.levelParams usj)) ys]) restR →
+        TeleFitPA V ρ TVja ys restC →
         interp2 V ρ
             (AVExpr.mkAppN
               (m.acval n (Level.substFn φ cv.levelParams us))
