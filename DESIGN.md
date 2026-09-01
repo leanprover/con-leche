@@ -11876,3 +11876,23 @@ above), then a serial batch for the `ReduceNat*` rows off
 numeral arithmetic needs one.  Then caps → proj/str → iota per the
 bundle notes.  At each tier seal: update this record, the frontier
 table, full battery, report.
+
+## Task #161 LITERAL TIER seal I: the stability bundle deleted (2026-09-01)
+
+Writing the succession record surfaced that `LitStabilityP` was
+**refutable as stated** (a pinned-type `def` named `String.ofList`
+completes string support and flips the guard; the support names are
+pinned, not reserved).  Instead of weakening it, the crossing was made
+honest: `denoteP_envExtend_mono` (successful prefix readings transfer
+forward — the only direction the fold ever uses, since accepted
+subjects carry only prefix-supported literals), `litGuardsMono_cons`
+(free, every kind), `natLitSupported_cons_back` (the nat guard
+reflects at value-kind conses).  `declStepPM_of_cons` and all four
+harvests now carry **no literal-tier premise**; `LitStabilityP` is
+deleted from `FoldP.lean`.
+
+**The census is now FOUR bundles**: `SemTierInputsP`, `AxiomStepPB`,
+`BasisStepPB`, `IndStepPB`.  (SUCCESSION RECORD correction: bundle 1
+of the five-bundle list is gone; its "proof shape" note is obsolete —
+the remaining literal-tier work is only `SemTierInputsP`'s
+`ReduceNat*` rows.)
