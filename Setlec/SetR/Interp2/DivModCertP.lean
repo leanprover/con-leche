@@ -126,13 +126,100 @@ theorem DmUnV.ok1 {natS codS f x : V} (h : DmUnV natS codS f)
 the two-variable context stripped off — the certificate frame is a
 different context, and the packages never read one.) -/
 
+/-- **A binary head, from its parts**: a membership in the two-step
+pinned product's reading, and that reading's own grading (which is
+where the fibre facts at the unknown regime bits come from). -/
+theorem dmBinV_of_parts (m : EnvS2Core V env) {ψ : Name → Nat}
+    {b₁ b₂ : Nat} {codN : Name} {fa : AVExpr} {ρ : Nat → V}
+    (hmem : interp2 V ρ fa ∈ˢ interp2 V ρ
+      ((.pi 0 b₁ (m.acval Setlec.natName ψ)
+        (.pi 0 b₂ (m.acval Setlec.natName ψ) (m.acval codN ψ)))
+        : AVExpr))
+    (htok : AnnotOkP V ρ
+      ((.pi 0 b₁ (m.acval Setlec.natName ψ)
+        (.pi 0 b₂ (m.acval Setlec.natName ψ) (m.acval codN ψ)))
+        : AVExpr)) :
+    DmBinV (interp2 V ρ (m.acval Setlec.natName ψ))
+      (interp2 V ρ (m.acval codN ψ)) (interp2 V ρ fa) := by
+  have hfib : interp2 V (cons (interp2 V ρ fa) ρ)
+        ((.pi 0 b₂ (m.acval Setlec.natName ψ) (m.acval codN ψ))
+          : AVExpr)
+      = piR b₂ (interp2 V ρ (m.acval Setlec.natName ψ))
+          (fun _ => interp2 V ρ (m.acval codN ψ)) := by
+    rw [interp2_pi]
+    congr 1
+    · exact acval_interp2_closedC m _ ψ _ ρ
+    · funext y
+      exact acval_interp2_closedC m _ ψ _ ρ
+  refine ⟨b₁, b₂, ?_, ?_, ?_⟩
+  · rw [interp2_pi] at hmem
+    rw [show (fun x => interp2 V (cons x ρ)
+          ((.pi 0 b₂ (m.acval Setlec.natName ψ) (m.acval codN ψ))
+            : AVExpr))
+        = fun _ => piR b₂ (interp2 V ρ (m.acval Setlec.natName ψ))
+            (fun _ => interp2 V ρ (m.acval codN ψ)) from by
+      funext x
+      rw [interp2_pi]
+      congr 1
+      · exact acval_interp2_closedC m _ ψ _ ρ
+      · funext y
+        exact acval_interp2_closedC m _ ψ _ ρ] at hmem
+    exact hmem
+  · intro hz x hx
+    have hv := htok.2
+    rw [AnnotValidV_pi] at hv
+    have h := hv.2.2 hz x hx
+    rw [show interp2 V (cons x ρ)
+          ((.pi 0 b₂ (m.acval Setlec.natName ψ) (m.acval codN ψ))
+            : AVExpr)
+        = piR b₂ (interp2 V ρ (m.acval Setlec.natName ψ))
+            (fun _ => interp2 V ρ (m.acval codN ψ)) from by
+      rw [interp2_pi]
+      congr 1
+      · exact acval_interp2_closedC m _ ψ _ ρ
+      · funext y
+        exact acval_interp2_closedC m _ ψ _ ρ] at h
+    exact h
+  · intro hz x hx
+    have hv := htok.2
+    rw [AnnotValidV_pi] at hv
+    have hinner := hv.2.1 x hx
+    rw [AnnotValidV_pi] at hinner
+    have h := hinner.2.2 hz x
+      (by rw [acval_interp2_closedC m _ ψ (cons x ρ) ρ]; exact hx)
+    rwa [acval_interp2_closedC m _ ψ _ ρ] at h
+
+/-- **A unary head, from its parts.** -/
+theorem dmUnV_of_parts (m : EnvS2Core V env) {ψ : Name → Nat}
+    {b₁ : Nat} {codN : Name} {fa : AVExpr} {ρ : Nat → V}
+    (hmem : interp2 V ρ fa ∈ˢ interp2 V ρ
+      ((.pi 0 b₁ (m.acval Setlec.natName ψ) (m.acval codN ψ))
+        : AVExpr))
+    (htok : AnnotOkP V ρ
+      ((.pi 0 b₁ (m.acval Setlec.natName ψ) (m.acval codN ψ))
+        : AVExpr)) :
+    DmUnV (interp2 V ρ (m.acval Setlec.natName ψ))
+      (interp2 V ρ (m.acval codN ψ)) (interp2 V ρ fa) := by
+  refine ⟨b₁, ?_, ?_⟩
+  · rw [interp2_pi] at hmem
+    rw [show (fun x => interp2 V (cons x ρ) (m.acval codN ψ))
+        = fun _ => interp2 V ρ (m.acval codN ψ) from by
+      funext x
+      exact acval_interp2_closedC m _ ψ _ ρ] at hmem
+    exact hmem
+  · intro hz x hx
+    have hv := htok.2
+    rw [AnnotValidV_pi] at hv
+    have h := hv.2.2 hz x hx
+    rwa [acval_interp2_closedC m _ ψ _ ρ] at h
+
 /-- **A stored pinned binary head, at the value level.** -/
 theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
-    {o : Name} {cvo : ConstantVal} {vo : Expr} {ho : ReducibilityHint}
-    (hf : env.find? o = some (.defnInfo cvo vo ho))
-    (_hlp : cvo.levelParams = [])
+    {o : Name} {cio : ConstantInfo}
+    (hf : env.find? o = some cio)
     {n₁ n₂ : Name} {mb₁ mb₂ : Setlec.BinderMeta} {codN : Name}
-    (hty : cvo.type = .forallE n₁ (.const Setlec.natName [])
+    (hty : cio.toConstantVal.type
+      = .forallE n₁ (.const Setlec.natName [])
       (.forallE n₂ (.const Setlec.natName []) (.const codN []) mb₂)
       mb₁)
     {ciN codCi : ConstantInfo}
@@ -145,66 +232,24 @@ theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
       (interp2 V ρ (mp.base2.acval codN ψ))
       (interp2 V ρ (mp.base2.acval o ψ)) := by
   have hmemE := Setlec.SetR.Env.find?_mem hf
-  have hnm : cvo.name = o := Setlec.SetR.Env.find?_name hf
-  have hta : denoteP mp.base2.acval env ψ 0
-      (ConstantInfo.defnInfo cvo vo ho).toConstantVal.type
+  have hnm : cio.name = o := Setlec.SetR.Env.find?_name hf
+  have hta : denoteP mp.base2.acval env ψ 0 cio.toConstantVal.type
       = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval Setlec.natName ψ)
           (.pi 0 (pwBit ψ mb₂.pw) (mp.base2.acval Setlec.natName ψ)
             (mp.base2.acval codN ψ))) := by
-    show denoteP mp.base2.acval env ψ 0 cvo.type = _
     rw [hty]
     exact denoteP_pinnedBinTy mp.base2 ψ hfN hlpN hcodF hcodLp
   have hmem := mp.mem_typeP _ hmemE ψ _ hta ρ
-  rw [show (ConstantInfo.defnInfo cvo vo ho).name = o from hnm] at hmem
-  have htok := mp.type_okP _ hmemE ψ _ hta ρ
-  refine ⟨pwBit ψ mb₁.pw, pwBit ψ mb₂.pw, ?_, ?_, ?_⟩
-  · rw [interp2_pi] at hmem
-    rw [show (fun x => interp2 V (cons x ρ)
-          ((.pi 0 (pwBit ψ mb₂.pw) (mp.base2.acval Setlec.natName ψ)
-            (mp.base2.acval codN ψ)) : AVExpr))
-        = fun _ => piR (pwBit ψ mb₂.pw)
-            (interp2 V ρ (mp.base2.acval Setlec.natName ψ))
-            (fun _ => interp2 V ρ (mp.base2.acval codN ψ)) from by
-      funext x
-      rw [interp2_pi]
-      congr 1
-      · exact acval_interp2_closedC mp.base2 _ ψ _ ρ
-      · funext y
-        exact acval_interp2_closedC mp.base2 _ ψ _ ρ] at hmem
-    exact hmem
-  · intro hz x hx
-    have hv := htok.2
-    rw [AnnotValidV_pi] at hv
-    have h := hv.2.2 hz x hx
-    rw [show interp2 V (cons x ρ)
-          ((.pi 0 (pwBit ψ mb₂.pw) (mp.base2.acval Setlec.natName ψ)
-            (mp.base2.acval codN ψ)) : AVExpr)
-        = piR (pwBit ψ mb₂.pw)
-            (interp2 V ρ (mp.base2.acval Setlec.natName ψ))
-            (fun _ => interp2 V ρ (mp.base2.acval codN ψ)) from by
-      rw [interp2_pi]
-      congr 1
-      · exact acval_interp2_closedC mp.base2 _ ψ _ ρ
-      · funext y
-        exact acval_interp2_closedC mp.base2 _ ψ _ ρ] at h
-    exact h
-  · intro hz x hx
-    have hv := htok.2
-    rw [AnnotValidV_pi] at hv
-    have hinner := hv.2.1 x hx
-    rw [AnnotValidV_pi] at hinner
-    have h := hinner.2.2 hz x
-      (by rw [acval_interp2_closedC mp.base2 _ ψ (cons x ρ) ρ]; exact hx)
-    rwa [acval_interp2_closedC mp.base2 _ ψ _ ρ] at h
+  rw [hnm] at hmem
+  exact dmBinV_of_parts mp.base2 hmem (mp.type_okP _ hmemE ψ _ hta ρ)
 
 /-- **A stored pinned unary head, at the value level.** -/
 theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
-    {o : Name} {cvo : ConstantVal} {vo : Expr} {ho : ReducibilityHint}
-    (hf : env.find? o = some (.defnInfo cvo vo ho))
-    (_hlp : cvo.levelParams = [])
+    {o : Name} {cio : ConstantInfo}
+    (hf : env.find? o = some cio)
     {n₁ : Name} {mb₁ : Setlec.BinderMeta} {codN : Name}
-    (hty : cvo.type = .forallE n₁ (.const Setlec.natName [])
-      (.const codN []) mb₁)
+    (hty : cio.toConstantVal.type
+      = .forallE n₁ (.const Setlec.natName []) (.const codN []) mb₁)
     {ciN codCi : ConstantInfo}
     (hfN : env.find? Setlec.natName = some ciN)
     (hlpN : ciN.toConstantVal.levelParams = [])
@@ -215,12 +260,10 @@ theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
       (interp2 V ρ (mp.base2.acval codN ψ))
       (interp2 V ρ (mp.base2.acval o ψ)) := by
   have hmemE := Setlec.SetR.Env.find?_mem hf
-  have hnm : cvo.name = o := Setlec.SetR.Env.find?_name hf
-  have hta : denoteP mp.base2.acval env ψ 0
-      (ConstantInfo.defnInfo cvo vo ho).toConstantVal.type
+  have hnm : cio.name = o := Setlec.SetR.Env.find?_name hf
+  have hta : denoteP mp.base2.acval env ψ 0 cio.toConstantVal.type
       = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval Setlec.natName ψ)
           (mp.base2.acval codN ψ)) := by
-    show denoteP mp.base2.acval env ψ 0 cvo.type = _
     rw [hty, denoteP_forallE, denoteP_levelless_const hfN hlpN]
     rw [show (Expr.const codN ([] : List Setlec.Level)).instantiate1
           (.fvar 0 n₁ (.const Setlec.natName []))
@@ -229,21 +272,8 @@ theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     rw [denoteP_levelless_const hcodF hcodLp]
     rfl
   have hmem := mp.mem_typeP _ hmemE ψ _ hta ρ
-  rw [show (ConstantInfo.defnInfo cvo vo ho).name = o from hnm] at hmem
-  have htok := mp.type_okP _ hmemE ψ _ hta ρ
-  refine ⟨pwBit ψ mb₁.pw, ?_, ?_⟩
-  · rw [interp2_pi] at hmem
-    rw [show (fun x => interp2 V (cons x ρ)
-          (mp.base2.acval codN ψ))
-        = fun _ => interp2 V ρ (mp.base2.acval codN ψ) from by
-      funext x
-      exact acval_interp2_closedC mp.base2 _ ψ _ ρ] at hmem
-    exact hmem
-  · intro hz x hx
-    have hv := htok.2
-    rw [AnnotValidV_pi] at hv
-    have h := hv.2.2 hz x hx
-    rwa [acval_interp2_closedC mp.base2 _ ψ _ ρ] at h
+  rw [hnm] at hmem
+  exact dmUnV_of_parts mp.base2 hmem (mp.type_okP _ hmemE ψ _ hta ρ)
 
 /-! ## The statements' `Nat`-valued fragment, and its graded walk
 
@@ -1670,5 +1700,356 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
       = fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n) from
       funext fun n => fr.leafClosed n _ ρ] at hres
   exact hres
+
+/-! ## The frame, assembled from the guards
+
+`dmFrameS`'s mirror.  Everything is read off `divModEnvGuard` at the
+*extension* and descended to the prefix, except the operation's own
+head, which comes through the value front door's products the harvest
+already holds (`hmemA`/`hTok`) — `c` is not stored in `env`; it is
+what the declaration is installing. -/
+
+set_option maxHeartbeats 1600000 in
+/-- **The div/mod certificate frame at `interp2`, assembled.** -/
+theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
+    {lps : List Name} {type' value' : Expr} {hint : ReducibilityHint}
+    (hmem : c ∈ Setlec.natDivModNames)
+    (hgenv : Setlec.divModEnvGuard
+      (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env) c
+      = true)
+    {A Ta : (Name → Nat) → AVExpr}
+    (hA : ∀ ψ, denoteP mp.base2.acval env ψ 0 value' = some (A ψ))
+    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
+    (hvf' : value'.hasFvar = false)
+    (hbv' : value'.looseBVarsBounded 0 = true)
+    (hTa : ∀ ψ, denoteP mp.base2.acval env ψ 0 type' = some (Ta ψ))
+    (hTok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkP V ρ (Ta ψ))
+    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkP V ρ (A ψ))
+    (hmemA : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      interp2 V ρ (A ψ) ∈ˢ interp2 V ρ (Ta ψ))
+    (ψ : Name → Nat) :
+    DmFrameP mp c A value' ψ := by
+  obtain ⟨hnog, hdeps, hEq2, hbT2, hbF2⟩ :=
+    Setlec.divModEnvGuard_inv hgenv
+  obtain ⟨hs, hdeps', hbool⟩ := Setlec.natOpGuard_inv hnog
+  have hdepAll := List.all_eq_true.mp hdeps
+  obtain ⟨hnN0, hnZ0, hnS0, hnB0, hnT0, hnF0, hnE0, -, -, -, -⟩ :=
+    Setlec.natDivModNames_ne_env hmem
+  have hnN : Setlec.natName ≠ c := hnN0.symm
+  have hnZ : Setlec.natZeroName ≠ c := hnZ0.symm
+  have hnS : Setlec.natSuccName ≠ c := hnS0.symm
+  have hnB : Setlec.boolName ≠ c := hnB0.symm
+  have hnT : Setlec.boolTrueName ≠ c := hnT0.symm
+  have hnF : Setlec.boolFalseName ≠ c := hnF0.symm
+  have hnE : eqName ≠ c := hnE0.symm
+  have hdown : ∀ (n : Name) (ci : ConstantInfo), n ≠ c →
+      (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩
+        : Env).find? n = some ci → env.find? n = some ci := by
+    intro n ci hnn hf
+    rwa [Setlec.Env.find?_cons, if_neg (fun hh => hnn hh.symm)] at hf
+  -- the numeral heads, at the prefix
+  obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hfN2, hfZ2, hfS2,
+    hlpN, hlpZ, hlpS, htyN, htyZ, nmS, mbS, htyS⟩ :=
+    Setlec.natLitSupported_inv hs
+  have hfN : env.find? Setlec.natName
+      = some (.indInfo cvN capsN) := hdown _ _ hnN hfN2
+  have hfZ : env.find? Setlec.natZeroName
+      = some (.ctorInfo cv0 i0 j0) := hdown _ _ hnZ hfZ2
+  have hfS : env.find? Setlec.natSuccName
+      = some (.ctorInfo cv1 i1 j1) := hdown _ _ hnS hfS2
+  -- `Nat.ble` is a dependency of every pin-certified operation, and it
+  -- is where `Bool` enters
+  have hbleDep : Setlec.natBleName ∈ Setlec.natOpDeps c := by
+    simp only [Setlec.natDivModNames, List.mem_cons,
+      List.not_mem_nil, or_false] at hmem
+    rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+  have hbleNe : Setlec.natBleName ≠ c := by
+    simp only [Setlec.natDivModNames, List.mem_cons,
+      List.not_mem_nil, or_false] at hmem
+    rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+  have hstoredDep : ∀ n ∈ Setlec.natOpDeps c, n ≠ c →
+      ∃ cvn vn hn, env.find? n = some (.defnInfo cvn vn hn) ∧
+        cvn.levelParams = [] ∧
+        Setlec.natOpTyPinned
+          (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩
+            : Env) n cvn.type = true := by
+    intro n hn hnc
+    obtain ⟨cvn, vn, hintn, hfn2, hpinn⟩ :=
+      Setlec.natOpStoredOk_tyPinned (hdepAll n hn)
+    have hd := hdepAll n hn
+    unfold Setlec.natOpStoredOk at hd
+    rw [hfn2] at hd
+    simp only [Bool.and_eq_true, List.isEmpty_iff] at hd
+    exact ⟨cvn, vn, hintn, hdown _ _ hnc hfn2, hd.1, hpinn⟩
+  obtain ⟨cvb, vb, hintb, hfble, hlpble, hpinb⟩ :=
+    hstoredDep _ hbleDep hbleNe
+  obtain ⟨nmb, nmb2, mbb, mbb2, codb, htyb, hcodb⟩ :=
+    natOpTyPinned_binaryE (by decide) hpinb
+  obtain ⟨rfl, ciB, hfB2, hlpB, htyB⟩ := natOpCod_ble hcodb
+  have hfB : env.find? Setlec.boolName = some ciB :=
+    hdown _ _ hnB hfB2
+  -- the `Bool` constructors
+  obtain ⟨⟨ciT, hfT2, hlpT⟩, ⟨ciF, hfF2, hlpF⟩⟩ :=
+    hbool (Or.inr (Or.inr (by simpa using hmem)))
+  obtain ⟨ciT', hfT2', htyT'⟩ := hbT2
+  obtain ⟨ciF', hfF2', htyF'⟩ := hbF2
+  have htyT : ciT.toConstantVal.type = .const Setlec.boolName [] := by
+    rw [← show ciT' = ciT from
+      Option.some.inj (hfT2'.symm.trans hfT2)]
+    exact htyT'
+  have htyF : ciF.toConstantVal.type = .const Setlec.boolName [] := by
+    rw [← show ciF' = ciF from
+      Option.some.inj (hfF2'.symm.trans hfF2)]
+    exact htyF'
+  have hfT : env.find? Setlec.boolTrueName = some ciT :=
+    hdown _ _ hnT hfT2
+  have hfF : env.find? Setlec.boolFalseName = some ciF :=
+    hdown _ _ hnF hfF2
+  -- the operation's own pinned type
+  have hselfDep : c ∈ Setlec.natOpDeps c := by
+    simp only [Setlec.natDivModNames, List.mem_cons,
+      List.not_mem_nil, or_false] at hmem
+    rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+  obtain ⟨cvS2, vS2, hS2, hfS2', hpinS2⟩ :=
+    Setlec.natOpStoredOk_tyPinned (hdepAll _ hselfDep)
+  have htyS2 : cvS2.type = type' := by
+    rw [Setlec.Env.find?_cons] at hfS2'
+    rw [if_pos (show (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
+      hint).name = c from rfl)] at hfS2'
+    obtain ⟨h1, -, -⟩ :=
+      Setlec.ConstantInfo.defnInfo.inj (Option.some.inj hfS2')
+    rw [← h1]
+  -- no pin-certified operation is a comparison
+  have hnotcmp : (decide (c = Setlec.natBeqName)
+      || decide (c = Setlec.natBleName)) = false := by
+    simp only [Setlec.natDivModNames, List.mem_cons,
+      List.not_mem_nil, or_false] at hmem
+    rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+  have hnotpred : (decide (c = Setlec.natPredName)) = false := by
+    simp only [Setlec.natDivModNames, List.mem_cons,
+      List.not_mem_nil, or_false] at hmem
+    rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+  -- the leaves' closedness and grading
+  have hAerCl : ∀ ψ' : Name → Nat, VExpr.Closed (A ψ').erase :=
+    fun ψ' => denote_closed mp.base2.base.cval_closed hvf' hbv'
+      (denoteP_erase mp.base2.acval_erase 0 value' (hA ψ'))
+  have hleafOk : ∀ (n : Name) (ρ : Nat → V),
+      AnnotOkP V ρ (dmLeaf mp.base2 c A ψ n) := by
+    intro n ρ
+    by_cases hn : n = c
+    · subst hn
+      rw [dmLeaf, show acvalWith mp.base2.acval n A n = A
+        from acvalWith_self]
+      exact hAok ψ ρ
+    · rw [dmLeaf, show acvalWith mp.base2.acval c A n
+        = mp.base2.acval n from acvalWith_ne hn]
+      exact ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩
+  have hleafClosed : ∀ (n : Name) (ρ ρ' : Nat → V),
+      interp2 V ρ (dmLeaf mp.base2 c A ψ n)
+        = interp2 V ρ' (dmLeaf mp.base2 c A ψ n) := by
+    intro n ρ ρ'
+    by_cases hn : n = c
+    · subst hn
+      rw [dmLeaf, show acvalWith mp.base2.acval n A n = A
+        from acvalWith_self]
+      exact interp2_closed V (hAerCl ψ) ρ ρ'
+    · rw [dmLeaf, show acvalWith mp.base2.acval c A n
+        = mp.base2.acval n from acvalWith_ne hn]
+      exact acval_interp2_closedC mp.base2 _ ψ ρ ρ'
+  -- a stored constant's `.sort 1` type gives its universe membership
+  have huniv : ∀ (n : Name) (ci : ConstantInfo),
+      env.find? n = some ci →
+      ci.toConstantVal.type = .sort (.succ .zero) →
+      ∀ ρ : Nat → V,
+        interp2 V ρ (mp.base2.acval n ψ) ∈ˢ (univ 1 : V) := by
+    intro n ci hf hty ρ
+    have hta : denoteP mp.base2.acval env ψ 0 ci.toConstantVal.type
+        = some (.sort 1) := by
+      rw [hty]
+      exact denoteP_sort _ _ _
+    have h := mp.mem_typeP ci (Setlec.SetR.Env.find?_mem hf) ψ _ hta ρ
+    rw [show ci.name = n from Setlec.SetR.Env.find?_name hf,
+      interp2_sort] at h
+    exact h
+  -- a stored constant whose type is a stored level-mono constant
+  have hmemC : ∀ (n t : Name) (ci ti : ConstantInfo),
+      env.find? n = some ci → env.find? t = some ti →
+      ti.toConstantVal.levelParams = [] →
+      ci.toConstantVal.type = .const t [] →
+      ∀ ρ : Nat → V, interp2 V ρ (mp.base2.acval n ψ)
+        ∈ˢ interp2 V ρ (mp.base2.acval t ψ) := by
+    intro n t ci ti hf hft hlpt hty ρ
+    have hta : denoteP mp.base2.acval env ψ 0 ci.toConstantVal.type
+        = some (mp.base2.acval t ψ) := by
+      rw [hty]
+      exact denoteP_levelless_const hft hlpt
+    have h := mp.mem_typeP ci (Setlec.SetR.Env.find?_mem hf) ψ _ hta ρ
+    rwa [show ci.name = n from Setlec.SetR.Env.find?_name hf] at h
+  refine
+    { eqStored := hdown _ _ hnE hEq2
+      natNe := hnN
+      boolNe := hnB
+      selfRead := fun d => denoteP_depth_of_closed
+        mp.base2.acval_closed hvf' (hAclosed ψ) (hA ψ) d
+      valueNoFvar := hvf'
+      valueBounded := hbv'
+      stored := ?stored
+      leafOk := hleafOk
+      leafClosed := hleafClosed
+      natU := huniv _ _ hfN htyN
+      boolU := huniv _ _ hfB htyB
+      binHead := ?binHead
+      unHead := ?unHead
+      bleHead := ?bleHead
+      zeroMem := ?zeroMem
+      boolCtorMem := ?boolCtorMem }
+  case stored =>
+    intro n hn
+    by_cases hnc : n = c
+    · exact Or.inl hnc
+    refine Or.inr ⟨hnc, ?_⟩
+    simp only [dmHeadNames, List.mem_cons, List.mem_append] at hn
+    rcases hn with rfl | rfl | rfl | rfl | rfl | rfl | hn
+    · exact ⟨_, hfN, hlpN⟩
+    · exact ⟨_, hfB, hlpB⟩
+    · exact ⟨_, hfZ, hlpZ⟩
+    · exact ⟨_, hfble, hlpble⟩
+    · exact ⟨_, hfT, hlpT⟩
+    · exact ⟨_, hfF, hlpF⟩
+    · -- a recurrence dependency, or `Nat.succ`
+      rcases hn with hn | hn
+      · have hnd : n ∈ Setlec.natOpDeps c :=
+          (List.mem_filter.mp hn).1
+        obtain ⟨cvn, vn, hintn, hfn, hlpn, -⟩ :=
+          hstoredDep n hnd hnc
+        exact ⟨_, hfn, hlpn⟩
+      · unfold dmUnNames at hn
+        split at hn
+        · next hlog =>
+          simp only [List.mem_cons, List.not_mem_nil,
+            or_false] at hn
+          rcases hn with rfl | rfl
+          · exact ⟨_, hfS, hlpS⟩
+          · exact absurd hlog.symm hnc
+        · simp only [List.mem_cons, List.not_mem_nil,
+            or_false] at hn
+          subst hn
+          exact ⟨_, hfS, hlpS⟩
+  case bleHead =>
+    intro ρ
+    rw [dmLeaf, show acvalWith mp.base2.acval c A Setlec.natBleName
+      = mp.base2.acval Setlec.natBleName from acvalWith_ne hbleNe]
+    exact dmBinV_of_stored mp ψ hfble htyb hfN hlpN hfB hlpB ρ
+  case binHead =>
+    intro n hn ρ
+    obtain ⟨hnd, hfilt⟩ := List.mem_filter.mp hn
+    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at hfilt
+    obtain ⟨⟨hnble, hnpred⟩, hnlog⟩ := hfilt
+    have hnu : (decide (n = Setlec.natPredName)
+        || decide (n = Setlec.natLog2Name)) = false := by
+      simp only [Bool.or_eq_false_iff, decide_eq_false_iff_not]
+      exact ⟨hnpred, hnlog⟩
+    have hnbeqAll : ((Setlec.natOpDeps c).all
+        fun m => m != Setlec.natBeqName) = true := by
+      simp only [Setlec.natDivModNames, List.mem_cons,
+        List.not_mem_nil, or_false] at hmem
+      rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+    have hnbeq : n ≠ Setlec.natBeqName := by
+      have := List.all_eq_true.mp hnbeqAll n hnd
+      simpa using this
+    have hnb : (decide (n = Setlec.natBeqName)
+        || decide (n = Setlec.natBleName)) = false := by
+      simp only [Bool.or_eq_false_iff, decide_eq_false_iff_not]
+      exact ⟨hnbeq, hnble⟩
+    by_cases hnc : n = c
+    · -- the operation itself, through the value front door
+      subst hnc
+      obtain ⟨nmT, nmT2, mbT, mbT2, codT, htyT2, hcodT⟩ :=
+        natOpTyPinned_binaryE hnu (htyS2 ▸ hpinS2)
+      have hcodN : codT = Expr.const Setlec.natName [] := by
+        unfold Setlec.natOpCod at hcodT
+        rw [if_neg (show ¬((decide (n = Setlec.natBeqName)
+          || decide (n = Setlec.natBleName)) = true) from by
+          simp [hnb])] at hcodT
+        simpa using hcodT
+      subst hcodN
+      have hTshape := denoteP_pinnedBinTy (codN := Setlec.natName)
+        (n₁ := nmT) (n₂ := nmT2) (mb₁ := mbT) (mb₂ := mbT2)
+        mp.base2 ψ hfN hlpN hfN hlpN
+      rw [← htyT2] at hTshape
+      obtain heq : Ta ψ = _ :=
+        Option.some.inj ((hTa ψ).symm.trans hTshape)
+      rw [dmLeaf, show acvalWith mp.base2.acval n A n = A
+        from acvalWith_self]
+      exact dmBinV_of_parts mp.base2 (heq ▸ hmemA ψ ρ)
+        (heq ▸ hTok ψ ρ)
+    · obtain ⟨cvn, vn, hintn, hfn, hlpn, hpinn⟩ :=
+        hstoredDep n hnd hnc
+      obtain ⟨nmn, nmn2, mbn, mbn2, codn, htyn, hcodn⟩ :=
+        natOpTyPinned_binaryE hnu hpinn
+      have hcodN : codn = Expr.const Setlec.natName [] := by
+        unfold Setlec.natOpCod at hcodn
+        rw [if_neg (show ¬((decide (n = Setlec.natBeqName)
+          || decide (n = Setlec.natBleName)) = true) from by
+          simp [hnb])] at hcodn
+        simpa using hcodn
+      subst hcodN
+      rw [dmLeaf, show acvalWith mp.base2.acval c A n
+        = mp.base2.acval n from acvalWith_ne hnc]
+      exact dmBinV_of_stored mp ψ hfn htyn hfN hlpN hfN hlpN ρ
+  case unHead =>
+    intro n hn ρ
+    have hsuccCase : n = Setlec.natSuccName →
+        DmUnV (interp2 V ρ (mp.base2.acval Setlec.natName ψ))
+          (interp2 V ρ (mp.base2.acval Setlec.natName ψ))
+          (interp2 V ρ (dmLeaf mp.base2 c A ψ n)) := by
+      rintro rfl
+      rw [dmLeaf, show acvalWith mp.base2.acval c A Setlec.natSuccName
+        = mp.base2.acval Setlec.natSuccName from acvalWith_ne hnS]
+      exact dmUnV_of_stored mp ψ hfS htyS hfN hlpN hfN hlpN ρ
+    unfold dmUnNames at hn
+    split at hn
+    · next hlog =>
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hn
+      rcases hn with rfl | rfl
+      · exact hsuccCase rfl
+      · -- `Nat.log2`, the unary self
+        obtain rfl : c = Setlec.natLog2Name := hlog
+        obtain ⟨nmT, mbT, codT, htyT2, hcodT⟩ :=
+          natOpTyPinned_unaryE (by decide) (htyS2 ▸ hpinS2)
+        have hcodN : codT = Expr.const Setlec.natName [] := by
+          unfold Setlec.natOpCod at hcodT
+          rw [if_neg (show ¬((decide (Setlec.natLog2Name
+              = Setlec.natBeqName)
+            || decide (Setlec.natLog2Name = Setlec.natBleName))
+            = true) from by decide)] at hcodT
+          simpa using hcodT
+        subst hcodN
+        have hTshape := denoteP_pinnedUnTy (n₁ := nmT) (mb₁ := mbT)
+          mp.base2 ψ hfN hlpN
+        rw [← htyT2] at hTshape
+        obtain heq : Ta ψ = _ :=
+          Option.some.inj ((hTa ψ).symm.trans hTshape)
+        rw [dmLeaf, show acvalWith mp.base2.acval Setlec.natLog2Name A
+          Setlec.natLog2Name = A from acvalWith_self]
+        exact dmUnV_of_parts mp.base2 (heq ▸ hmemA ψ ρ)
+          (heq ▸ hTok ψ ρ)
+    · simp only [List.mem_cons, List.not_mem_nil, or_false] at hn
+      exact hsuccCase hn
+  case zeroMem =>
+    intro ρ
+    rw [dmLeaf, show acvalWith mp.base2.acval c A Setlec.natZeroName
+      = mp.base2.acval Setlec.natZeroName from acvalWith_ne hnZ]
+    exact hmemC _ _ _ _ hfZ hfN hlpN htyZ ρ
+  case boolCtorMem =>
+    intro bn hbn ρ
+    rcases hbn with rfl | rfl
+    · rw [dmLeaf, show acvalWith mp.base2.acval c A Setlec.boolTrueName
+        = mp.base2.acval Setlec.boolTrueName from acvalWith_ne hnT]
+      exact hmemC _ _ _ _ hfT hfB hlpB htyT ρ
+    · rw [dmLeaf,
+        show acvalWith mp.base2.acval c A Setlec.boolFalseName
+        = mp.base2.acval Setlec.boolFalseName from acvalWith_ne hnF]
+      exact hmemC _ _ _ _ hfF hfB hlpB htyF ρ
 
 end Setlec.SetR.Interp2
