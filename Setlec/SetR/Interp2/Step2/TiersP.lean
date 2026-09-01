@@ -57,9 +57,12 @@ structure TierInputsAtP (V : Type w) [SetTheory V] (μ : CheckMode)
   iota : ∀ fuel, IotaStepP μ m φ fuel
   /-- install tier: the projection reduction row -/
   whnf_proj : ∀ fuel, ProjStepP μ m φ fuel
-  /-- literal tier: the two acceleration rows -/
-  nat_step : ∀ fuel, ReduceNatStepP μ m φ fuel
-  nat_stepQ : ∀ fuel, ReduceNatStepPQ μ m φ fuel
+  /-- literal tier: the two acceleration rows, each taking the whnf
+  claims at the same fuel (`reduceNat` head-normalises its arguments
+  before reading them as literals) -/
+  nat_step : ∀ fuel, WhnfClaims2P μ m φ fuel → ReduceNatStepP μ m φ fuel
+  nat_stepQ : ∀ fuel,
+    WhnfClaims2P μ m φ fuel → ReduceNatStepPQ μ m φ fuel
   /-- caps tier: the four structure-capability fallbacks -/
   unit_irrel : ∀ fuel, UnitIrrelPQ μ m φ fuel
   pair_eta : ∀ fuel, PairEtaIrrelP μ m φ fuel
@@ -105,7 +108,7 @@ theorem checkSoundAtP (hμ : μ.verified = true)
         (betaCertP_of_claims m hexi ihd ihi)
         (h.iota fuel) (h.whnf_proj fuel) ihwc
     · -- the reduction loop
-      exact whnf_claimsP m hex ihwc (h.nat_step fuel)
+      exact whnf_claimsP m hex ihwc (h.nat_step fuel ihw)
         (deltaP_of m h.reads.defn)
     · -- the defeq quarter, of_claims discharges wired
       have hsi : StuckIrrelPQ μ m φ fuel :=
@@ -113,7 +116,7 @@ theorem checkSoundAtP (hμ : μ.verified = true)
           (h.pair_eta fuel) (h.struct_eta fuel) (h.struct_unit fuel)
       have hstep : DefEqStepAtP μ m φ fuel :=
         defeqStep_claimP (whnfCoreReductExistsP_of' h.reads) ihwc
-          (denotePDeltaP_of h.reads) (h.nat_stepQ fuel)
+          (denotePDeltaP_of h.reads) (h.nat_stepQ fuel ihw)
           (proofIrrelPQ_of_claims ihw ihi hreads (h.unit_irrel fuel))
           (defeqStuck_claimP hμ ihd hsi denotePStrLit_of_guard
             (acvalParamsP m) (appCongrStuckP_of_claims ihd)
@@ -171,8 +174,11 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
     (hiproj : ∀ fuel, InferProjStepP mp.base2 μ φ fuel)
     (hiota : ∀ fuel, IotaStepP μ mp.base2 φ fuel)
     (hwproj : ∀ fuel, ProjStepP μ mp.base2 φ fuel)
-    (hnat : ∀ fuel, ReduceNatStepP μ mp.base2 φ fuel)
-    (hnatQ : ∀ fuel, ReduceNatStepPQ μ mp.base2 φ fuel)
+    (hnat : ∀ fuel,
+      WhnfClaims2P μ mp.base2 φ fuel → ReduceNatStepP μ mp.base2 φ fuel)
+    (hnatQ : ∀ fuel,
+      WhnfClaims2P μ mp.base2 φ fuel →
+        ReduceNatStepPQ μ mp.base2 φ fuel)
     (hunit : ∀ fuel, UnitIrrelPQ μ mp.base2 φ fuel)
     (hpair : ∀ fuel, PairEtaIrrelP μ mp.base2 φ fuel)
     (hseta : ∀ fuel, StructEtaIrrelP μ mp.base2 φ fuel)
