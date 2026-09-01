@@ -34,11 +34,9 @@ is unvalidated.  The P-tier assembly (and the capstone) is a
 verified-mode statement — which is the design: the annotated checker's
 consistency proof covers the mode that validates.
 
-**One routed premise is temporary**: `hCop` (the opened context) is
-`CtxOkP.openS`'s conclusion, whose proof needs the `denoteP` depth
-shift (batch 1); until that lands the clause takes it as a premise,
-exactly where the D tier calls the kit.  TODO(#161-P3.5): replace with
-`CtxOkP.openS` at the batch-1 merge.
+The opened contexts are built in place by `CtxOkP.openS` (batch 2),
+at the grading the clause's own residue supplies — the D-tier's
+self-propagation argument, inherited.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -223,12 +221,7 @@ theorem infer_forallE_claimP (m : EnvS2UM V μ env)
       = .ok t)
     (hC : CtxOkP m φ d Δa (.forallE n ty body mb))
     (hea : denoteP m.acval env φ d (.forallE n ty body mb) = some ea)
-    (hta : denoteP m.acval env φ d t = some ta)
-    -- TODO(#161-P3.5): `CtxOkP.openS` at the batch-1 merge
-    (hCop : ∀ {tyA : AVExpr},
-      denoteP m.acval env φ d ty = some tyA →
-      CtxOkP m φ (d + 1) (tyA :: Δa)
-        (body.instantiate1 (.fvar d n ty))) :
+    (hta : denoteP m.acval env φ d t = some ta) :
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
@@ -241,9 +234,15 @@ theorem infer_forallE_claimP (m : EnvS2UM V μ env)
   rw [denoteP_sortQ] at hta
   obtain rfl : ta = .sort (Level.eval φ (.imax u v)) :=
     (Option.some.inj hta).symm
-  -- move 2: grade domain and opened codomain through the residue
+  -- move 2: grade domain and opened codomain through the residue,
+  -- with the opened context built in place (`CtxOkP.openS`; the
+  -- grading it asks for is the residue's own first component)
   have hdomU := hss hC.forallE_ty hty hwu htyA
-  have hcodU := hss (hCop htyA) hbt
+  have hCop : CtxOkP m φ (d + 1) (tyA :: Δa)
+      (body.instantiate1 (.fvar d n ty)) :=
+    CtxOkP.openS (n := n) hC.forallE_ty hC.forallE_body htyA
+      (fun ρ hρ => (hdomU ρ hρ).1)
+  have hcodU := hss hCop hbt
     (Setlec.ensureSortCore_inv hens) hbaA
   refine ⟨?_, ?_, ?_⟩
   · -- AnnotOkP of the ∀ node itself
@@ -319,12 +318,7 @@ theorem infer_lam_claimP (m : EnvS2UM V μ env)
     (hLb : Expr.LeavesBounded (.lam n ty body mb))
     (hC : CtxOkP m φ d Δa (.lam n ty body mb))
     (hea : denoteP m.acval env φ d (.lam n ty body mb) = some ea)
-    (hta : denoteP m.acval env φ d t = some ta)
-    -- TODO(#161-P3.5): `CtxOkP.openS` at the batch-1 merge
-    (hCop : ∀ {tyA : AVExpr},
-      denoteP m.acval env φ d ty = some tyA →
-      CtxOkP m φ (d + 1) (tyA :: Δa)
-        (body.instantiate1 (.fvar d n ty))) :
+    (hta : denoteP m.acval env φ d t = some ta) :
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
@@ -377,13 +371,18 @@ theorem infer_lam_claimP (m : EnvS2UM V μ env)
   rw [hbtA] at hta
   obtain rfl : ta = .pi 0 (pwBit φ mb.pw) tyA btA :=
     (Option.some.inj hta).symm
-  -- the domain and the opened body, graded
+  -- the domain and the opened body, graded; the opened context in
+  -- place (`CtxOkP.openS` at the residue's own grading)
   have hdomU := hss hC.lam_ty hty hwu htyA
+  have hCop : CtxOkP m φ (d + 1) (tyA :: Δa)
+      (body.instantiate1 (.fvar d n ty)) :=
+    CtxOkP.openS (n := n) hC.lam_ty hC.lam_body htyA
+      (fun ρ hρ => (hdomU ρ hρ).1)
   obtain ⟨hrowE, hrowT, hrowM⟩ :=
-    ihi hbt hwopen hbopen hLopen (hCop htyA) hba hbtA
+    ihi hbt hwopen hbopen hLopen hCop hba hbtA
   -- the fibre regime fact, one `have`, both uses (the meta copy)
   have hCbt : CtxOkP m φ (d + 1) (tyA :: Δa) bt :=
-    (hCop htyA).of_subset
+    hCop.of_subset
       (inferTypeCore_fvarLeaves m.base.wf fuel hbt hwopen)
   have hzfib : pwBit φ mb.pw = 0 →
       ∀ (ρ' : Nat → V), Sat2 V (tyA :: Δa) ρ' →
