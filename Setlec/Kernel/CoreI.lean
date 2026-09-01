@@ -2302,13 +2302,19 @@ def annotatePisLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
   -- zeronessOf v`).  One inference per telescope, memo-shared with the
   -- front-door sweep that validates it.
   let pw? ← if mode.verified then do
-      let bt ← r.infer (d + k) leaf'
-      let wbt ← r.whnf (d + k) bt
-      match ← viewI wbt with
-      | some (.sort v) => do
-        let pv ← withStore fun st => (st.zeronessOfLIGo {} v).1
-        pure (some pv)
-      | _ => throw (.invalid "expected a sort")
+      -- the ∀ twin of `annotateLamsLeafI`'s chain read: a ∀ residual
+      -- (the fuel path, or a `letE` whose zeta reduct is a ∀) supplies
+      -- its own already-written datum, exactly as `annotPwPi` reads it
+      match ← viewI leaf' with
+      | some (.forallE _ _ _ mbT) => pure (some mbT.pw)
+      | _ => do
+        let bt ← r.infer (d + k) leaf'
+        let wbt ← r.whnf (d + k) bt
+        match ← viewI wbt with
+        | some (.sort v) => do
+          let pv ← withStore fun st => (st.zeronessOfLIGo {} v).1
+          pure (some pv)
+        | _ => throw (.invalid "expected a sort")
     else pure none
   let cur ← abstractRangeM leaf' d k
   annotateBindersOutI (fun n ty b mb => .forallE n ty b mb) d pw?

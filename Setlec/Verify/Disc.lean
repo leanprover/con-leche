@@ -64,19 +64,18 @@ theorem ensureSort_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     | exact DiscV.pure trivial
     | exact DiscV.throw _
 
-/-- The ∀ node's datum is computed by scoped calls only. -/
+/-- The ∀ node's datum: the chain read is pure, the leaf path is one
+`infer` and an `ensureSort`. -/
 theorem annotPwPi_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
     DiscV mode env (fun _ => True) (annotPwPi C env d e)
       (annotPwPi G env d e) := by
-  show DiscV mode env _
-    ((C : CoreFns CheckSM).infer d e >>= fun t =>
-      ensureSort C env d t >>= fun v => pure (Level.zeronessOf v))
-    ((G : CoreFns CheckSM).infer d e >>= fun t =>
-      ensureSort G env d t >>= fun v => pure (Level.zeronessOf v))
-  refine DiscV.bind (ih.site_infer henv hw) (fun t ht => ?_)
-  refine DiscV.bind (ensureSort_disc ih henv ht) (fun v _ => ?_)
-  exact DiscV.pure trivial
+  unfold annotPwPi
+  split
+  · exact DiscV.pure trivial
+  · refine DiscV.bind (ih.site_infer henv hw) (fun t ht => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv ht) (fun v _ => ?_)
+    exact DiscV.pure trivial
 
 /-- The λ node's datum: the chain read is pure, the leaf path is two
 `infer`s and an `ensureSort`. -/

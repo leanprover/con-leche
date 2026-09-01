@@ -403,8 +403,10 @@ private theorem ensureSort_shift (_henv : EnvWF env)
   case fvar => rw [shiftFrom_fvar]
 
 /-- Task #161 P5: the ∀ clause's untrusted `pw` write is depth-shift
-stable.  It is one `infer` and one `ensureSort` — precisely the calls
-the `letE` clause already makes — and its *result* is a `PropWhen`,
+stable.  The chain read (`forallPw`) is shift-stable by
+`forallPw_shiftFrom`; the leaf path is one `infer` and one
+`ensureSort` — precisely the calls the `letE` clause already makes.
+Its *result* is a `PropWhen`,
 which carries no de Bruijn index, so the two sides agree on the nose
 rather than up to `shiftFrom`. -/
 private theorem annotPwPi_shift (henv : EnvWF env)
@@ -412,13 +414,17 @@ private theorem annotPwPi_shift (henv : EnvWF env)
     (hw : WScoped d e) :
     annotPwPi (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
       annotPwPi (pureFns mode env fuel) env d e := by
-  simp only [annotPwPi]
-  refine bind_congr _ (ih.infer hpd hw) ?_
-  intro t ht
-  refine bind_congr_eq (ensureSort_shift henv ih hpd
-    (inferTypeCore_WScoped henv fuel ht hw)) ?_
-  intro v _
-  rfl
+  simp only [annotPwPi, forallPw_shiftFrom]
+  cases e.forallPw with
+  | some pwI => rfl
+  | none =>
+    dsimp only
+    refine bind_congr _ (ih.infer hpd hw) ?_
+    intro t ht
+    refine bind_congr_eq (ensureSort_shift henv ih hpd
+      (inferTypeCore_WScoped henv fuel ht hw)) ?_
+    intro v _
+    rfl
 
 /-- The λ twin of `annotPwPi_shift`.  The chain read (`lamPw`) is
 shift-stable by `lamPw_shiftFrom`; the leaf path is two `infer`s and an
