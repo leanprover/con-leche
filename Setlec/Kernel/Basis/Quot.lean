@@ -37,369 +37,395 @@ hand. -/
 /-- Annotated basis declaration (generated). -/
 def quotA : ConstantInfo :=
   Setlec.ConstantInfo.indInfo
-  { name := Setlec.Name.str (Setlec.Name.anonymous) "Quot",
-    levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
-    type := Setlec.Expr.forallE
-              (Setlec.Name.str (Setlec.Name.anonymous) "α")
-              (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-              (Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "r")
+    { name := Setlec.Name.str (Setlec.Name.anonymous) "Quot",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
                 (Setlec.Expr.forallE
-                  (Setlec.Name.anonymous)
-                  (Setlec.Expr.bvar 0)
+                  (Setlec.Name.str (Setlec.Name.anonymous) "r")
                   (Setlec.Expr.forallE
                     (Setlec.Name.anonymous)
-                    (Setlec.Expr.bvar 1)
-                    (Setlec.Expr.sort (Setlec.Level.zero))
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.anonymous)
+                      (Setlec.Expr.bvar 1)
+                      (Setlec.Expr.sort (Setlec.Level.zero))
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
                   { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
-  { eta := false,
-    etaCtor := Setlec.Name.anonymous,
-    etaParams := 0,
-    etaFields := 0,
-    unitlike := false,
-    unitParams := 0,
-    ruleK := false }
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
+    { eta := false,
+      etaCtor := Setlec.Name.anonymous,
+      etaParams := 0,
+      etaFields := 0,
+      unitlike := false,
+      unitParams := 0,
+      ruleK := false }
 
 /-- Annotated basis declaration (generated). -/
 def quotMkA : ConstantInfo :=
   Setlec.ConstantInfo.ctorInfo
-  { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk",
-    levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
-    type := Setlec.Expr.forallE
-              (Setlec.Name.str (Setlec.Name.anonymous) "α")
-              (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-              (Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "r")
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
                 (Setlec.Expr.forallE
-                  (Setlec.Name.anonymous)
-                  (Setlec.Expr.bvar 0)
+                  (Setlec.Name.str (Setlec.Name.anonymous) "r")
                   (Setlec.Expr.forallE
                     (Setlec.Name.anonymous)
-                    (Setlec.Expr.bvar 1)
-                    (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                (Setlec.Expr.forallE
-                  (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                  (Setlec.Expr.bvar 1)
-                  (Setlec.Expr.app
-                    (Setlec.Expr.app
-                      (Setlec.Expr.const
-                        (Setlec.Name.str (Setlec.Name.anonymous) "Quot")
-                        [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                      (Setlec.Expr.bvar 2))
-                    (Setlec.Expr.bvar 1))
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
-  2
-  1
-
-/-- Annotated basis declaration (generated). -/
-def quotLiftA : ConstantInfo :=
-  Setlec.ConstantInfo.recInfo
-  { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "lift",
-    levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u", Setlec.Name.str (Setlec.Name.anonymous) "v"],
-    type := Setlec.Expr.forallE
-              (Setlec.Name.str (Setlec.Name.anonymous) "α")
-              (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-              (Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "r")
-                (Setlec.Expr.forallE
-                  (Setlec.Name.anonymous)
-                  (Setlec.Expr.bvar 0)
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.anonymous)
-                    (Setlec.Expr.bvar 1)
-                    (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                (Setlec.Expr.forallE
-                  (Setlec.Name.str (Setlec.Name.anonymous) "β")
-                  (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.str (Setlec.Name.anonymous) "f")
+                    (Setlec.Expr.bvar 0)
                     (Setlec.Expr.forallE
-                      (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                      (Setlec.Expr.bvar 2)
+                      (Setlec.Name.anonymous)
                       (Setlec.Expr.bvar 1)
-                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                    (Setlec.Expr.forallE
-                      (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                      (Setlec.Expr.forallE
-                        (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                        (Setlec.Expr.bvar 3)
-                        (Setlec.Expr.forallE
-                          (Setlec.Name.str (Setlec.Name.anonymous) "b")
-                          (Setlec.Expr.bvar 4)
-                          (Setlec.Expr.forallE
-                            (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                            (Setlec.Expr.app
-                              (Setlec.Expr.app (Setlec.Expr.bvar 4) (Setlec.Expr.bvar 1))
-                              (Setlec.Expr.bvar 0))
-                            (Setlec.Expr.app
-                              (Setlec.Expr.app
-                                (Setlec.Expr.app
-                                  (Setlec.Expr.const
-                                    (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
-                                    [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
-                                  (Setlec.Expr.bvar 4))
-                                (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 2)))
-                              (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 1)))
-                            { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                      (Setlec.Expr.forallE
-                        (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                        (Setlec.Expr.app
-                          (Setlec.Expr.app
-                            (Setlec.Expr.const
-                              (Setlec.Name.str (Setlec.Name.anonymous) "Quot")
-                              [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                            (Setlec.Expr.bvar 4))
-                          (Setlec.Expr.bvar 3))
-                        (Setlec.Expr.bvar 3)
-                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                      (Setlec.Expr.sort (Setlec.Level.zero))
                       { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
-  5
-  5
-  [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk",
-     nfields := 1,
-     ctorParams := 2,
-     fire := .plain,
-     rhs := Setlec.Expr.lam
-              (Setlec.Name.str (Setlec.Name.anonymous) "α")
-              (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-              (Setlec.Expr.lam
-                (Setlec.Name.str (Setlec.Name.anonymous) "r")
-                (Setlec.Expr.forallE
-                  (Setlec.Name.anonymous)
-                  (Setlec.Expr.bvar 0)
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.anonymous)
-                    (Setlec.Expr.bvar 1)
-                    (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                (Setlec.Expr.lam
-                  (Setlec.Name.str (Setlec.Name.anonymous) "β")
-                  (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                  (Setlec.Expr.lam
-                    (Setlec.Name.str (Setlec.Name.anonymous) "f")
-                    (Setlec.Expr.forallE
-                      (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                      (Setlec.Expr.bvar 2)
-                      (Setlec.Expr.bvar 1)
-                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                    (Setlec.Expr.lam
-                      (Setlec.Name.str (Setlec.Name.anonymous) "h")
-                      (Setlec.Expr.forallE
-                        (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                        (Setlec.Expr.bvar 3)
-                        (Setlec.Expr.forallE
-                          (Setlec.Name.str (Setlec.Name.anonymous) "b")
-                          (Setlec.Expr.bvar 4)
-                          (Setlec.Expr.forallE
-                            (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                            (Setlec.Expr.app
-                              (Setlec.Expr.app (Setlec.Expr.bvar 4) (Setlec.Expr.bvar 1))
-                              (Setlec.Expr.bvar 0))
-                            (Setlec.Expr.app
-                              (Setlec.Expr.app
-                                (Setlec.Expr.app
-                                  (Setlec.Expr.const
-                                    (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
-                                    [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
-                                  (Setlec.Expr.bvar 4))
-                                (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 2)))
-                              (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 1)))
-                            { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                      (Setlec.Expr.lam
-                        (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                        (Setlec.Expr.bvar 4)
-                        (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }]
-
-/-- Annotated basis declaration (generated). -/
-def quotIndA : ConstantInfo :=
-  Setlec.ConstantInfo.recInfo
-  { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "ind",
-    levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
-    type := Setlec.Expr.forallE
-              (Setlec.Name.str (Setlec.Name.anonymous) "α")
-              (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-              (Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "r")
-                (Setlec.Expr.forallE
-                  (Setlec.Name.anonymous)
-                  (Setlec.Expr.bvar 0)
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.anonymous)
-                    (Setlec.Expr.bvar 1)
-                    (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                (Setlec.Expr.forallE
-                  (Setlec.Name.str (Setlec.Name.anonymous) "β")
                   (Setlec.Expr.forallE
                     (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                    (Setlec.Expr.bvar 1)
                     (Setlec.Expr.app
                       (Setlec.Expr.app
                         (Setlec.Expr.const
                           (Setlec.Name.str (Setlec.Name.anonymous) "Quot")
                           [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                        (Setlec.Expr.bvar 1))
-                      (Setlec.Expr.bvar 0))
-                    (Setlec.Expr.sort (Setlec.Level.zero))
+                        (Setlec.Expr.bvar 2))
+                      (Setlec.Expr.bvar 1))
+                    { bi := Setlec.BinderInfo.default,
+                      pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                  { bi := Setlec.BinderInfo.default,
+                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                { bi := Setlec.BinderInfo.implicit,
+                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] } }
+    2
+    1
+
+/-- Annotated basis declaration (generated). -/
+def quotLiftA : ConstantInfo :=
+  Setlec.ConstantInfo.recInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "lift",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u", Setlec.Name.str (Setlec.Name.anonymous) "v"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "r")
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.anonymous)
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.anonymous)
+                      (Setlec.Expr.bvar 1)
+                      (Setlec.Expr.sort (Setlec.Level.zero))
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                   (Setlec.Expr.forallE
-                    (Setlec.Name.str (Setlec.Name.anonymous) "mk")
+                    (Setlec.Name.str (Setlec.Name.anonymous) "β")
+                    (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
                     (Setlec.Expr.forallE
-                      (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                      (Setlec.Expr.bvar 2)
-                      (Setlec.Expr.app
+                      (Setlec.Name.str (Setlec.Name.anonymous) "f")
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                        (Setlec.Expr.bvar 2)
                         (Setlec.Expr.bvar 1)
-                        (Setlec.Expr.app
+                        { bi := Setlec.BinderInfo.default,
+                          pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                        (Setlec.Expr.forallE
+                          (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                          (Setlec.Expr.bvar 3)
+                          (Setlec.Expr.forallE
+                            (Setlec.Name.str (Setlec.Name.anonymous) "b")
+                            (Setlec.Expr.bvar 4)
+                            (Setlec.Expr.forallE
+                              (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                              (Setlec.Expr.app
+                                (Setlec.Expr.app (Setlec.Expr.bvar 4) (Setlec.Expr.bvar 1))
+                                (Setlec.Expr.bvar 0))
+                              (Setlec.Expr.app
+                                (Setlec.Expr.app
+                                  (Setlec.Expr.app
+                                    (Setlec.Expr.const
+                                      (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
+                                      [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+                                    (Setlec.Expr.bvar 4))
+                                  (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 2)))
+                                (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 1)))
+                              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                            { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                        (Setlec.Expr.forallE
+                          (Setlec.Name.str (Setlec.Name.anonymous) "a")
                           (Setlec.Expr.app
                             (Setlec.Expr.app
                               (Setlec.Expr.const
-                                (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk")
+                                (Setlec.Name.str (Setlec.Name.anonymous) "Quot")
                                 [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                              (Setlec.Expr.bvar 3))
-                            (Setlec.Expr.bvar 2))
-                          (Setlec.Expr.bvar 0)))
-                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                              (Setlec.Expr.bvar 4))
+                            (Setlec.Expr.bvar 3))
+                          (Setlec.Expr.bvar 3)
+                          { bi := Setlec.BinderInfo.default,
+                            pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                        { bi := Setlec.BinderInfo.default,
+                          pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                      { bi := Setlec.BinderInfo.default,
+                        pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                    { bi := Setlec.BinderInfo.implicit,
+                      pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                  { bi := Setlec.BinderInfo.implicit,
+                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                { bi := Setlec.BinderInfo.implicit,
+                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] } }
+    5
+    5
+    [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk",
+       nfields := 1,
+       ctorParams := 2,
+       fire := Setlec.RecRuleFire.plain,
+       rhs := Setlec.Expr.lam
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.lam
+                  (Setlec.Name.str (Setlec.Name.anonymous) "r")
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.anonymous)
+                    (Setlec.Expr.bvar 0)
                     (Setlec.Expr.forallE
-                      (Setlec.Name.str (Setlec.Name.anonymous) "q")
+                      (Setlec.Name.anonymous)
+                      (Setlec.Expr.bvar 1)
+                      (Setlec.Expr.sort (Setlec.Level.zero))
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  (Setlec.Expr.lam
+                    (Setlec.Name.str (Setlec.Name.anonymous) "β")
+                    (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                    (Setlec.Expr.lam
+                      (Setlec.Name.str (Setlec.Name.anonymous) "f")
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                        (Setlec.Expr.bvar 2)
+                        (Setlec.Expr.bvar 1)
+                        { bi := Setlec.BinderInfo.default,
+                          pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                      (Setlec.Expr.lam
+                        (Setlec.Name.str (Setlec.Name.anonymous) "h")
+                        (Setlec.Expr.forallE
+                          (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                          (Setlec.Expr.bvar 3)
+                          (Setlec.Expr.forallE
+                            (Setlec.Name.str (Setlec.Name.anonymous) "b")
+                            (Setlec.Expr.bvar 4)
+                            (Setlec.Expr.forallE
+                              (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                              (Setlec.Expr.app
+                                (Setlec.Expr.app (Setlec.Expr.bvar 4) (Setlec.Expr.bvar 1))
+                                (Setlec.Expr.bvar 0))
+                              (Setlec.Expr.app
+                                (Setlec.Expr.app
+                                  (Setlec.Expr.app
+                                    (Setlec.Expr.const
+                                      (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
+                                      [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+                                    (Setlec.Expr.bvar 4))
+                                  (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 2)))
+                                (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 1)))
+                              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                            { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                        (Setlec.Expr.lam
+                          (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                          (Setlec.Expr.bvar 4)
+                          (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                          { bi := Setlec.BinderInfo.default,
+                            pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                        { bi := Setlec.BinderInfo.default,
+                          pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                      { bi := Setlec.BinderInfo.default,
+                        pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                    { bi := Setlec.BinderInfo.default,
+                      pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                  { bi := Setlec.BinderInfo.default,
+                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                { bi := Setlec.BinderInfo.default,
+                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "v"] } }]
+
+/-- Annotated basis declaration (generated). -/
+def quotIndA : ConstantInfo :=
+  Setlec.ConstantInfo.recInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "ind",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "r")
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.anonymous)
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.anonymous)
+                      (Setlec.Expr.bvar 1)
+                      (Setlec.Expr.sort (Setlec.Level.zero))
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "β")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "a")
                       (Setlec.Expr.app
                         (Setlec.Expr.app
                           (Setlec.Expr.const
                             (Setlec.Name.str (Setlec.Name.anonymous) "Quot")
                             [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                          (Setlec.Expr.bvar 3))
-                        (Setlec.Expr.bvar 2))
-                      (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                          (Setlec.Expr.bvar 1))
+                        (Setlec.Expr.bvar 0))
+                      (Setlec.Expr.sort (Setlec.Level.zero))
                       { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
-  4
-  4
-  [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk",
-     nfields := 1,
-     ctorParams := 2,
-     fire := .plain,
-     rhs := Setlec.Expr.lam
-              (Setlec.Name.str (Setlec.Name.anonymous) "α")
-              (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-              (Setlec.Expr.lam
-                (Setlec.Name.str (Setlec.Name.anonymous) "r")
-                (Setlec.Expr.forallE
-                  (Setlec.Name.anonymous)
-                  (Setlec.Expr.bvar 0)
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.anonymous)
-                    (Setlec.Expr.bvar 1)
-                    (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                (Setlec.Expr.lam
-                  (Setlec.Name.str (Setlec.Name.anonymous) "β")
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                    (Setlec.Expr.app
-                      (Setlec.Expr.app
-                        (Setlec.Expr.const
-                          (Setlec.Name.str (Setlec.Name.anonymous) "Quot")
-                          [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                        (Setlec.Expr.bvar 1))
-                      (Setlec.Expr.bvar 0))
-                    (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  (Setlec.Expr.lam
-                    (Setlec.Name.str (Setlec.Name.anonymous) "mk")
                     (Setlec.Expr.forallE
-                      (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                      (Setlec.Expr.bvar 2)
-                      (Setlec.Expr.app
-                        (Setlec.Expr.bvar 1)
+                      (Setlec.Name.str (Setlec.Name.anonymous) "mk")
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                        (Setlec.Expr.bvar 2)
                         (Setlec.Expr.app
+                          (Setlec.Expr.bvar 1)
                           (Setlec.Expr.app
                             (Setlec.Expr.app
-                              (Setlec.Expr.const
-                                (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk")
-                                [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                              (Setlec.Expr.bvar 3))
-                            (Setlec.Expr.bvar 2))
-                          (Setlec.Expr.bvar 0)))
-                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                    (Setlec.Expr.lam
-                      (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                      (Setlec.Expr.bvar 3)
-                      (Setlec.Expr.app (Setlec.Expr.bvar 1) (Setlec.Expr.bvar 0))
+                              (Setlec.Expr.app
+                                (Setlec.Expr.const
+                                  (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk")
+                                  [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                                (Setlec.Expr.bvar 3))
+                              (Setlec.Expr.bvar 2))
+                            (Setlec.Expr.bvar 0)))
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "q")
+                        (Setlec.Expr.app
+                          (Setlec.Expr.app
+                            (Setlec.Expr.const
+                              (Setlec.Name.str (Setlec.Name.anonymous) "Quot")
+                              [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                            (Setlec.Expr.bvar 3))
+                          (Setlec.Expr.bvar 2))
+                        (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                    { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] })
+                  { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] } }
+    4
+    4
+    [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk",
+       nfields := 1,
+       ctorParams := 2,
+       fire := Setlec.RecRuleFire.plain,
+       rhs := Setlec.Expr.lam
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.lam
+                  (Setlec.Name.str (Setlec.Name.anonymous) "r")
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.anonymous)
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.anonymous)
+                      (Setlec.Expr.bvar 1)
+                      (Setlec.Expr.sort (Setlec.Level.zero))
                       { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }]
+                  (Setlec.Expr.lam
+                    (Setlec.Name.str (Setlec.Name.anonymous) "β")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                      (Setlec.Expr.app
+                        (Setlec.Expr.app
+                          (Setlec.Expr.const
+                            (Setlec.Name.str (Setlec.Name.anonymous) "Quot")
+                            [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                          (Setlec.Expr.bvar 1))
+                        (Setlec.Expr.bvar 0))
+                      (Setlec.Expr.sort (Setlec.Level.zero))
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    (Setlec.Expr.lam
+                      (Setlec.Name.str (Setlec.Name.anonymous) "mk")
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                        (Setlec.Expr.bvar 2)
+                        (Setlec.Expr.app
+                          (Setlec.Expr.bvar 1)
+                          (Setlec.Expr.app
+                            (Setlec.Expr.app
+                              (Setlec.Expr.app
+                                (Setlec.Expr.const
+                                  (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk")
+                                  [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                                (Setlec.Expr.bvar 3))
+                              (Setlec.Expr.bvar 2))
+                            (Setlec.Expr.bvar 0)))
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                      (Setlec.Expr.lam
+                        (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                        (Setlec.Expr.bvar 3)
+                        (Setlec.Expr.app (Setlec.Expr.bvar 1) (Setlec.Expr.bvar 0))
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] } }]
 
 /-- Annotated basis declaration (generated). -/
 def quotSoundA : ConstantInfo :=
   Setlec.ConstantInfo.axiomInfo
-  { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "sound",
-    levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
-    type := Setlec.Expr.forallE
-              (Setlec.Name.str (Setlec.Name.anonymous) "α")
-              (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-              (Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "r")
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "sound",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
                 (Setlec.Expr.forallE
-                  (Setlec.Name.anonymous)
-                  (Setlec.Expr.bvar 0)
+                  (Setlec.Name.str (Setlec.Name.anonymous) "r")
                   (Setlec.Expr.forallE
                     (Setlec.Name.anonymous)
-                    (Setlec.Expr.bvar 1)
-                    (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                (Setlec.Expr.forallE
-                  (Setlec.Name.str (Setlec.Name.anonymous) "a")
-                  (Setlec.Expr.bvar 1)
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.str (Setlec.Name.anonymous) "b")
-                    (Setlec.Expr.bvar 2)
+                    (Setlec.Expr.bvar 0)
                     (Setlec.Expr.forallE
                       (Setlec.Name.anonymous)
-                      (Setlec.Expr.app (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 1)) (Setlec.Expr.bvar 0))
-                      (Setlec.Expr.app
+                      (Setlec.Expr.bvar 1)
+                      (Setlec.Expr.sort (Setlec.Level.zero))
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                    (Setlec.Expr.bvar 1)
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "b")
+                      (Setlec.Expr.bvar 2)
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.anonymous)
+                        (Setlec.Expr.app (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 1)) (Setlec.Expr.bvar 0))
                         (Setlec.Expr.app
                           (Setlec.Expr.app
-                            (Setlec.Expr.const
-                              (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
-                              [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                            (Setlec.Expr.app
+                              (Setlec.Expr.const
+                                (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
+                                [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                              (Setlec.Expr.app
+                                (Setlec.Expr.app
+                                  (Setlec.Expr.const
+                                    (Setlec.Name.str (Setlec.Name.anonymous) "Quot")
+                                    [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                                  (Setlec.Expr.bvar 4))
+                                (Setlec.Expr.bvar 3)))
                             (Setlec.Expr.app
                               (Setlec.Expr.app
-                                (Setlec.Expr.const
-                                  (Setlec.Name.str (Setlec.Name.anonymous) "Quot")
-                                  [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                                (Setlec.Expr.bvar 4))
-                              (Setlec.Expr.bvar 3)))
+                                (Setlec.Expr.app
+                                  (Setlec.Expr.const
+                                    (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk")
+                                    [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                                  (Setlec.Expr.bvar 4))
+                                (Setlec.Expr.bvar 3))
+                              (Setlec.Expr.bvar 2)))
                           (Setlec.Expr.app
                             (Setlec.Expr.app
                               (Setlec.Expr.app
@@ -408,20 +434,11 @@ def quotSoundA : ConstantInfo :=
                                   [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                                 (Setlec.Expr.bvar 4))
                               (Setlec.Expr.bvar 3))
-                            (Setlec.Expr.bvar 2)))
-                        (Setlec.Expr.app
-                          (Setlec.Expr.app
-                            (Setlec.Expr.app
-                              (Setlec.Expr.const
-                                (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk")
-                                [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                              (Setlec.Expr.bvar 4))
-                            (Setlec.Expr.bvar 3))
-                          (Setlec.Expr.bvar 1)))
-                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                    { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
+                            (Setlec.Expr.bvar 1)))
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                      { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] })
+                    { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] })
+                  { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] } }
 
 end Setlec

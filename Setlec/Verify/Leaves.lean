@@ -446,21 +446,8 @@ theorem annotateCore_leaves_sub {env : Env} :
   | fuel + 1, .forallE n ty body m, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    rw [annotateCore_succ] at h
-    simp only [annotateBody, Bind.bind, Except.bind] at h
-    simp only [annotate_def] at h
-    cases hty : annotateCore mode env fuel d ty with
-    | error e => rw [hty] at h; exact nomatch h
-    | ok ty' =>
-    rw [hty] at h; dsimp only at h
+    obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_forallE_inv h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
-    cases hbody : annotateCore mode env fuel (d + 1)
-        (body.instantiate1 (.fvar d n ty')) with
-    | error e => rw [hbody] at h; exact nomatch h
-    | ok body' =>
-    rw [hbody] at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
     have hwbody' := annotateCore_WScoped fuel
       (body.instantiate1 (.fvar d n ty')) hbody (hwty'.instantiate1 0 hw.2)
     have hsubty : ∀ l ∈ ty'.fvarLeaves, l ∈ ty.fvarLeaves :=
@@ -484,21 +471,8 @@ theorem annotateCore_leaves_sub {env : Env} :
   | fuel + 1, .lam n ty body m, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    rw [annotateCore_succ] at h
-    simp only [annotateBody, Bind.bind, Except.bind] at h
-    simp only [annotate_def] at h
-    cases hty : annotateCore mode env fuel d ty with
-    | error e => rw [hty] at h; exact nomatch h
-    | ok ty' =>
-    rw [hty] at h; dsimp only at h
+    obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_lam_inv h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
-    cases hbody : annotateCore mode env fuel (d + 1)
-        (body.instantiate1 (.fvar d n ty')) with
-    | error e => rw [hbody] at h; exact nomatch h
-    | ok body' =>
-    rw [hbody] at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
     have hwbody' := annotateCore_WScoped fuel
       (body.instantiate1 (.fvar d n ty')) hbody (hwty'.instantiate1 0 hw.2)
     have hsubty : ∀ l ∈ ty'.fvarLeaves, l ∈ ty.fvarLeaves :=

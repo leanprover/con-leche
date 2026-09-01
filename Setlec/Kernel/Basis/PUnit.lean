@@ -35,7 +35,11 @@ def punitA : ConstantInfo :=
       type := Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) }
     { eta := true,
       etaCtor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PUnit") "unit",
-      etaParams := 0, etaFields := 0, unitlike := true, ruleK := false }
+      etaParams := 0,
+      etaFields := 0,
+      unitlike := true,
+      unitParams := 0,
+      ruleK := false }
 
 /-- Annotated basis declaration (generated). -/
 def punitUnitA : ConstantInfo :=
@@ -75,15 +79,18 @@ def punitRecA : ConstantInfo :=
                       (Setlec.Name.str (Setlec.Name.anonymous) "PUnit")
                       [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                     (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
+                    { bi := Setlec.BinderInfo.default,
+                      pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] })
+                  { bi := Setlec.BinderInfo.default,
+                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] })
+                { bi := Setlec.BinderInfo.implicit,
+                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] } }
     2
     2
     [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PUnit") "unit",
        nfields := 0,
        ctorParams := 0,
-       fire := .plain,
+       fire := Setlec.RecRuleFire.plain,
        rhs := Setlec.Expr.lam
                 (Setlec.Name.str (Setlec.Name.anonymous) "motive")
                 (Setlec.Expr.forallE
@@ -101,7 +108,9 @@ def punitRecA : ConstantInfo :=
                       (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PUnit") "unit")
                       [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")]))
                   (Setlec.Expr.bvar 0)
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }]
+                  { bi := Setlec.BinderInfo.default,
+                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] })
+                { bi := Setlec.BinderInfo.default,
+                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] } }]
 
 end Setlec

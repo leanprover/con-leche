@@ -135,11 +135,16 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
   (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩)]).toBool
 
 -- … and the same declaration with the unannotated (`.never`) binder is
--- a positive decline at the verified mode — the sort-annotation front
--- door (site: forall-cod) — while `.noModel` still accepts it.
-#guard checkDecls .setModel (pureOps .setModel) [mkDef "dependentType" [] (.sort .zero)
-    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]
-  matches .error (.notImplemented _)
+-- **accepted** since task #161 P5: `.never` is the parser's placeholder
+-- for an absent `"pw"` field, so the annotate pass recomputes it (here
+-- to `.ifAllZero []`) and the front door then validates its own write.
+-- Before the pass this was a positive decline at `(forall-cod)`.  The
+-- design records the consequence deliberately: an explicit
+-- `"pw": "never"` is indistinguishable from an absent field and is
+-- silently corrected rather than falsified, so the falsifiable claims
+-- are exactly the `ifAllZero` ones (see the `bad*` guards below).
+#guard (checkDecls .setModel (pureOps .setModel) [mkDef "dependentType" [] (.sort .zero)
+  (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]).toBool
 #guard (checkDecls .noModel (pureOps .noModel) [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]).toBool
 

@@ -1350,10 +1350,55 @@ theorem annotateProjElim_mono (hs : CoreSub r₁ r₂) {d : Nat}
       exact h
   · next => exact h
 
+/-- Task #161 P5: the ∀/λ writes respect the order — a pure chain read,
+or the `infer`/`ensureSort` calls the `letE` clause already makes. -/
+theorem annotPwPi_sub (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
+    {pw : PropWhen} (h : Setlec.annotPwPi r₁ env d e = .ok pw) :
+    Setlec.annotPwPi r₂ env d e = .ok pw := by
+  revert h
+  unfold Setlec.annotPwPi
+  cases e.forallPw with
+  | some p => exact id
+  | none =>
+    simp only [Bind.bind, Except.bind]
+    cases h1 : r₁.infer d e with
+    | error err => intro h; exact nomatch h
+    | ok bt =>
+      rw [hs.2.2.1 h1]
+      simp only []
+      cases h2 : Setlec.ensureSort r₁ env d bt with
+      | error err => intro h; exact nomatch h
+      | ok v => rw [ensureSort_mono hs h2]; exact id
+
+/-- The λ twin of `annotPwPi_sub`. -/
+theorem annotPwLam_sub (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
+    {pw : PropWhen} (h : Setlec.annotPwLam r₁ env d e = .ok pw) :
+    Setlec.annotPwLam r₂ env d e = .ok pw := by
+  revert h
+  unfold Setlec.annotPwLam
+  cases e.lamPw with
+  | some p => exact id
+  | none =>
+    simp only [Bind.bind, Except.bind]
+    cases h1 : r₁.infer d e with
+    | error err => intro h; exact nomatch h
+    | ok bt =>
+      rw [hs.2.2.1 h1]
+      simp only []
+      cases h2 : r₁.infer d bt with
+      | error err => intro h; exact nomatch h
+      | ok btt =>
+        rw [hs.2.2.1 h2]
+        simp only []
+        cases h3 : Setlec.ensureSort r₁ env d btt with
+        | error err => intro h; exact nomatch h
+        | ok v => rw [ensureSort_mono hs h3]; exact id
+
 /-- `annotateBody` respects the order. -/
-theorem annotateBody_mono (hs : CoreSub r₁ r₂) {d : Nat} {e x : Expr}
-    (h : Setlec.annotateBody r₁ env d e = .ok x) :
-    Setlec.annotateBody r₂ env d e = .ok x := by
+theorem annotateBody_mono (hs : CoreSub r₁ r₂) {μ : Setlec.CheckMode}
+    {d : Nat} {e x : Expr}
+    (h : Setlec.annotateBody μ r₁ env d e = .ok x) :
+    Setlec.annotateBody μ r₂ env d e = .ok x := by
   unfold Setlec.annotateBody at h ⊢
   cases e with
   | bvar i => exact h
@@ -1387,7 +1432,13 @@ theorem annotateBody_mono (hs : CoreSub r₁ r₂) {d : Nat} {e x : Expr}
     | ok body' =>
     rw [h2] at h; rw [hs.2.2.2.2 h2]
     simp only [] at h ⊢
-    exact h
+    -- task #161 P5: the write, one bind further in
+    revert h
+    split
+    · cases h3 : Setlec.annotPwPi r₁ env (d + 1) body' with
+      | error err => intro h; exact nomatch h
+      | ok pw => rw [annotPwPi_sub hs h3]; exact id
+    · exact id
   | lam n ty body mb =>
     simp only [Bind.bind, Except.bind] at h ⊢
     cases h1 : r₁.annotate d ty with
@@ -1401,7 +1452,13 @@ theorem annotateBody_mono (hs : CoreSub r₁ r₂) {d : Nat} {e x : Expr}
     | ok body' =>
     rw [h2] at h; rw [hs.2.2.2.2 h2]
     simp only [] at h ⊢
-    exact h
+    -- task #161 P5: the write, one bind further in
+    revert h
+    split
+    · cases h3 : Setlec.annotPwLam r₁ env (d + 1) body' with
+      | error err => intro h; exact nomatch h
+      | ok pw => rw [annotPwLam_sub hs h3]; exact id
+    · exact id
   | letE nm ty v b =>
     simp only [Bind.bind, Except.bind] at h ⊢
     cases h1 : r₁.annotate d ty with

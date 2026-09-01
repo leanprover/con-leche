@@ -443,6 +443,84 @@ theorem annotateCore_letE_inv {env : Env} {fuel d : Nat} {n : Name}
   simp only [if_true] at h
   exact ⟨ty', v', rfl, rfl, h, tty, u, tv, hit, hes, hiv, hde⟩
 
+/-! ### The binder clauses' inversion (task #161 P5)
+
+The ∀/λ clauses gained one monadic bind: the untrusted `pw` write,
+run only at the verified modes and only over the parse placeholder
+(`annotPwPi` / `annotPwLam`).  The datum is *data*, not a check —
+whatever it computes, the node's skeleton is the same — so the
+inversions below take it existentially.  Every consumer in this file
+(`WScoped`, `looseBVarsBounded`, `LeafEquiv`) is blind to binder
+metadata, so the existential is exactly the right strength; the
+consumers that *do* need the written value (the annotation-validation
+battery) read it off the rebuilt node instead. -/
+
+/-- Inversion for `annotate` on ∀-binders: the domain and the opened
+body are annotated and the node is rebuilt, carrying *some* prop-ness
+datum (the P5 write at the verified modes, the input datum otherwise). -/
+theorem annotateCore_forallE_inv {env : Env} {fuel d : Nat} {n : Name}
+    {ty body e' : Expr} {m : BinderMeta}
+    (h : annotateCore mode env (fuel + 1) d (.forallE n ty body m) = .ok e') :
+    ∃ ty' body' pw, annotateCore mode env fuel d ty = .ok ty' ∧
+      annotateCore mode env fuel (d + 1)
+        (body.instantiate1 (.fvar d n ty')) = .ok body' ∧
+      e' = .forallE n ty' (body'.abstract1 d) ⟨m.bi, pw⟩ := by
+  rw [annotateCore_succ] at h
+  simp only [annotateBody, Bind.bind, Except.bind] at h
+  simp only [annotate_def] at h
+  cases hty : annotateCore mode env fuel d ty with
+  | error e => rw [hty] at h; exact nomatch h
+  | ok ty' =>
+  rw [hty] at h; dsimp only at h
+  cases hbody : annotateCore mode env fuel (d + 1)
+      (body.instantiate1 (.fvar d n ty')) with
+  | error e => rw [hbody] at h; exact nomatch h
+  | ok body' =>
+  rw [hbody] at h; dsimp only at h
+  revert h
+  split
+  · cases hpw : annotPwPi (pureFns mode env fuel) env (d + 1) body' with
+    | error e => intro h; exact nomatch h
+    | ok pw =>
+      intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact ⟨ty', body', pw, rfl, hbody, h.symm⟩
+  · intro h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨ty', body', m.pw, rfl, hbody, h.symm⟩
+
+/-- Inversion for `annotate` on λ-binders (the ∀ twin; `annotPwLam`). -/
+theorem annotateCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
+    {ty body e' : Expr} {m : BinderMeta}
+    (h : annotateCore mode env (fuel + 1) d (.lam n ty body m) = .ok e') :
+    ∃ ty' body' pw, annotateCore mode env fuel d ty = .ok ty' ∧
+      annotateCore mode env fuel (d + 1)
+        (body.instantiate1 (.fvar d n ty')) = .ok body' ∧
+      e' = .lam n ty' (body'.abstract1 d) ⟨m.bi, pw⟩ := by
+  rw [annotateCore_succ] at h
+  simp only [annotateBody, Bind.bind, Except.bind] at h
+  simp only [annotate_def] at h
+  cases hty : annotateCore mode env fuel d ty with
+  | error e => rw [hty] at h; exact nomatch h
+  | ok ty' =>
+  rw [hty] at h; dsimp only at h
+  cases hbody : annotateCore mode env fuel (d + 1)
+      (body.instantiate1 (.fvar d n ty')) with
+  | error e => rw [hbody] at h; exact nomatch h
+  | ok body' =>
+  rw [hbody] at h; dsimp only at h
+  revert h
+  split
+  · cases hpw : annotPwLam (pureFns mode env fuel) env (d + 1) body' with
+    | error e => intro h; exact nomatch h
+    | ok pw =>
+      intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact ⟨ty', body', pw, rfl, hbody, h.symm⟩
+  · intro h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨ty', body', m.pw, rfl, hbody, h.symm⟩
+
 theorem annotateCore_WScoped {env : Env} :
     ∀ (fuel : Nat) (e : Expr) {d : Nat} {e' : Expr},
       annotateCore mode env fuel d e = .ok e' → WScoped d e → WScoped d e'
@@ -512,40 +590,16 @@ theorem annotateCore_WScoped {env : Env} :
       exact annotateCore_WScoped fuel _ hann (WScoped.of_wscopedB hwsb)
   | fuel + 1, .forallE n ty body m, d, e', h, hw => by
     simp only [WScoped] at hw
-    rw [annotateCore_succ] at h
-    simp only [annotateBody, Bind.bind, Except.bind] at h
-    simp only [annotate_def] at h
-    cases hty : annotateCore mode env fuel d ty with
-    | error e => rw [hty] at h; exact nomatch h
-    | ok ty' =>
-    rw [hty] at h; dsimp only at h
+    obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_forallE_inv h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
-    cases hbody : annotateCore mode env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
-    | error e => rw [hbody] at h; exact nomatch h
-    | ok body' =>
-    rw [hbody] at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
     have hwbody' := annotateCore_WScoped fuel (body.instantiate1 (.fvar d n ty')) hbody
       (hwty'.instantiate1 0 hw.2)
     simp only [WScoped]
     exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩
   | fuel + 1, .lam n ty body m, d, e', h, hw => by
     simp only [WScoped] at hw
-    rw [annotateCore_succ] at h
-    simp only [annotateBody, Bind.bind, Except.bind] at h
-    simp only [annotate_def] at h
-    cases hty : annotateCore mode env fuel d ty with
-    | error e => rw [hty] at h; exact nomatch h
-    | ok ty' =>
-    rw [hty] at h; dsimp only at h
+    obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_lam_inv h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
-    cases hbody : annotateCore mode env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
-    | error e => rw [hbody] at h; exact nomatch h
-    | ok body' =>
-    rw [hbody] at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
     have hwbody' := annotateCore_WScoped fuel (body.instantiate1 (.fvar d n ty')) hbody
       (hwty'.instantiate1 0 hw.2)
     simp only [WScoped]
@@ -626,38 +680,14 @@ theorem annotateCore_looseBVars {env : Env} :
     exact ⟨annotateCore_looseBVars fuel f hf hb.1, annotateCore_looseBVars fuel a ha hb.2⟩
   | fuel + 1, .forallE n ty body m, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    rw [annotateCore_succ] at h
-    simp only [annotateBody, Bind.bind, Except.bind] at h
-    simp only [annotate_def] at h
-    cases hty : annotateCore mode env fuel d ty with
-    | error e => rw [hty] at h; exact nomatch h
-    | ok ty' =>
-    rw [hty] at h; dsimp only at h
-    cases hbody : annotateCore mode env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
-    | error e => rw [hbody] at h; exact nomatch h
-    | ok body' =>
-    rw [hbody] at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
+    obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_forallE_inv h
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
     refine ⟨annotateCore_looseBVars fuel ty hty hb.1, ?_⟩
     exact looseBVarsBounded_abstract1 _ 0
       (annotateCore_looseBVars fuel _ hbody (looseBVarsBounded_instantiate1 body 0 hb.2))
   | fuel + 1, .lam n ty body m, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    rw [annotateCore_succ] at h
-    simp only [annotateBody, Bind.bind, Except.bind] at h
-    simp only [annotate_def] at h
-    cases hty : annotateCore mode env fuel d ty with
-    | error e => rw [hty] at h; exact nomatch h
-    | ok ty' =>
-    rw [hty] at h; dsimp only at h
-    cases hbody : annotateCore mode env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
-    | error e => rw [hbody] at h; exact nomatch h
-    | ok body' =>
-    rw [hbody] at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
+    obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_lam_inv h
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
     refine ⟨annotateCore_looseBVars fuel ty hty hb.1, ?_⟩
     exact looseBVarsBounded_abstract1 _ 0

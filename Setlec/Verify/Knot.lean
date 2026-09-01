@@ -48,7 +48,7 @@ theorem defeqLoopFuel_succ : ∃ n, defeqLoopFuel = n + 1 :=
 
 @[simp] theorem pureFns_annotate (env : Env) (f d : Nat) (e : Expr) :
     (pureFns mode env (f + 1)).annotate d e =
-      annotateBody (pureFns mode env f) env d e := rfl
+      annotateBody mode (pureFns mode env f) env d e := rfl
 
 theorem whnfCore_succ (env : Env) (f d : Nat) (e : Expr) :
     whnfCore mode env (f + 1) d e = whnfCoreBody mode (pureFns mode env f) env d e := rfl
@@ -63,7 +63,7 @@ theorem isDefEqCore_succ (env : Env) (f d : Nat) (a b : Expr) :
     isDefEqCore mode env (f + 1) d a b = defeqBody mode (pureFns mode env f) env d a b := rfl
 
 theorem annotateCore_succ (env : Env) (f d : Nat) (e : Expr) :
-    annotateCore mode env (f + 1) d e = annotateBody (pureFns mode env f) env d e := rfl
+    annotateCore mode env (f + 1) d e = annotateBody mode (pureFns mode env f) env d e := rfl
 
 theorem whnfCore_def (env : Env) (f d : Nat) (e : Expr) :
     (pureFns mode env f).whnfCore d e = whnfCore mode env f d e := rfl

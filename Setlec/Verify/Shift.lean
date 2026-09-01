@@ -60,6 +60,29 @@ theorem isLam_shiftFrom {p : Nat} :
     split <;> rfl
   | _ => rfl
 
+/-- Shifting reads through to a λ's prop-ness datum unchanged (task
+#161 P5): `shiftFrom` copies binder metadata, so the chain rule's
+`(lam-cod-chain)` read is the same on both sides of a shift. -/
+theorem lamPw_shiftFrom {p : Nat} :
+    ∀ (e : Expr), (shiftFrom p e).lamPw = e.lamPw := by
+  intro e
+  cases e with
+  | fvar idx n ty =>
+    simp only [shiftFrom]
+    split <;> rfl
+  | _ => rfl
+
+/-- The ∀ twin: shifting reads through to a ∀'s prop-ness datum
+unchanged, so `annotPwPi`'s chain read is shift-stable. -/
+theorem forallPw_shiftFrom {p : Nat} :
+    ∀ (e : Expr), (shiftFrom p e).forallPw = e.forallPw := by
+  intro e
+  cases e with
+  | fvar idx n ty =>
+    simp only [shiftFrom]
+    split <;> rfl
+  | _ => rfl
+
 /-- Shifting from `p` does nothing to a term whose reachable `fvar`s are
 below `p`... except inside `fvar` type annotations, which `fvarsBelow` does
 not constrain; hence this lemma requires annotation-free positions only in
@@ -697,10 +720,13 @@ theorem pisToLams_shiftFrom {p : Nat} :
     cases t <;> try rfl
     case fvar => simp only [shiftFrom]; split <;> rfl
     case forallE n ty rest mb =>
+      -- task #161 P5: `pisToLams` emits the parse placeholder `.never`
+      -- (a ∀'s `pw` is not the λ's claim); the shift commutation is
+      -- unaffected — `shiftFrom` never reads binder metadata.
       show (Expr.pisToLams k (shiftFrom p rest) (shiftFrom p body)).map
-          (fun b => Expr.lam n (shiftFrom p ty) b ⟨mb.bi, mb.pw⟩) =
+          (fun b => Expr.lam n (shiftFrom p ty) b ⟨mb.bi, .never⟩) =
         ((Expr.pisToLams k rest body).map
-          (fun b => Expr.lam n ty b ⟨mb.bi, mb.pw⟩)).map (shiftFrom p)
+          (fun b => Expr.lam n ty b ⟨mb.bi, .never⟩)).map (shiftFrom p)
       rw [pisToLams_shiftFrom k rest body]
       cases Expr.pisToLams k rest body <;> rfl
 

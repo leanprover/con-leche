@@ -26,15 +26,9 @@
 # accepted, under --no-model is a bug in the cert-skipping twins
 # (task #139's drift lesson): fix the twin, do not record the flip.
 
-# The unsupported projection shape in `PProd'._model.eta` sits inside
-# an application argument.  Certified: 2 ("projection on a
-# non-structure type", a positive decline at the annotation pass).
-# Under --no-model the checking-mode front door does look at the
-# argument (the class-B escape is gone), but the cert-free reduction
-# underneath resolves the same declaration to "invalid: expected a
-# sort" — a reject (1) where the certified stack positively declines.
-# Error-class difference, the lane's nature.
-1 e2e yolo_decline_vs_accept.ndjson
+# (Task #161 P5: the yolo_decline_vs_accept override is GONE — the
+# certified lane now rejects that fixture too, for its own reason; see
+# tests/e2e-expected.txt.  Both lanes agree, so nothing is recorded.)
 
 # The annotated fixture suite's decline fixtures (task #161, suite
 # `annot`, tests/annot-expected.txt): the verified mode validates the

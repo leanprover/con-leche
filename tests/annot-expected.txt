@@ -13,6 +13,16 @@
 # --no-model (official parity) the annotations are ignored — the three
 # decline fixtures accept there, recorded in
 # tests/no-model-expected.txt.
+#
+# Task #161 P5 (the annotate pass): the pass WRITES the datum wherever
+# the input carries the parse placeholder (an absent "pw" field, or the
+# semantically identical "never"), and leaves an explicit "ifAllZero"
+# claim alone for validation to judge.  So a decline fixture must claim
+# prop-ness where there is none — the three annot_decline_* streams do
+# — while the three annot_fill_* streams (the pre-P5 decline fixtures,
+# whose offending binder was simply UNANNOTATED) now accept: the pass
+# fills their placeholders correctly.  They are kept as the pass's own
+# per-site regression.
 
 # Accepts: the constant-free annotated fragment.
 # idU.{u} : ∀ (α : Sort u), α → α — every codomain is Prop iff u = 0.
@@ -36,15 +46,27 @@
 # (SPLIT_BAD): a genuine reject, past the annotated prefix.
 1 annot_split_bad.ndjson
 
+# Pass fills (task #161 P5; these were the pre-P5 decline fixtures —
+# their offending binder carries NO pw field, so the pass computes the
+# right datum and the stream accepts).  One per front-door site.
+# impSelf with the ∀ (h : p) binder unannotated.
+0 annot_fill_forall.ndjson
+# impSelf's value with the outer λ unannotated, inner λ says "[]".
+0 annot_fill_lam_chain.ndjson
+# fun (x : ∀ p h, p) => x with the (single) λ unannotated — its body's
+# type is a proposition by impredicativity.
+0 annot_fill_lam_leaf.ndjson
+
 # Declines: one per stream-reachable validation site.  (The three
 # defensive sites — defeq-forall, defeq-lam, eta — cannot be reached
 # by any input that got past the front door; they are unit-tested in
-# tests/SetlecTests.lean instead.)
-# impSelf with the ∀ (h : p) binder unannotated: (forall-cod).
+# tests/SetlecTests.lean instead.)  Each carries an EXPLICIT wrong
+# claim — "[]" ("always a proposition") on a Type-level binder — which
+# the pass must not overwrite.
+# def tidBad : Type → Type, the ∀ claiming "[]": (forall-cod).
 2 annot_decline_forall.ndjson
-# impSelf's value with the outer λ unannotated while the inner λ says
-# "[]": (lam-cod-chain).
+# def constBad : Type → Type → Type, outer λ claiming "[]" over a
+# correctly-filled inner λ: (lam-cod-chain).
 2 annot_decline_lam_chain.ndjson
-# fun (x : ∀ p h, p) => x with the (single) λ unannotated — its body's
-# type is a proposition by impredicativity: (lam-cod-leaf).
+# def tidBad : Type → Type, the single λ claiming "[]": (lam-cod-leaf).
 2 annot_decline_lam_leaf.ndjson

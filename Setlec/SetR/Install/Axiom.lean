@@ -91,6 +91,15 @@ theorem eraseNames_const_invS {e : Expr} {n : Name} {us : List Level}
     | exact h
     | exact nomatch h
 
+/-- `erasePw` fixes a constant (task #161 P5: `matchesPin` compares
+through `Expr.erasePw` as well, so a pinned-shape inversion has to see
+through both erasures).  Head inversion, as above. -/
+theorem erasePw_const_invS {e : Expr} {n : Name} {us : List Level}
+    (h : e.erasePw = .const n us) : e = .const n us := by
+  cases e <;> simp only [Expr.erasePw] at h <;> first
+    | exact h
+    | exact nomatch h
+
 /-- `stdAxiomOk` accepts only the two standard axioms' names (local
 twin of the TT lane's `stdAxiomOk_name`). -/
 theorem stdAxiomOk_nameS {env : Env} {cvA : ConstantVal}
@@ -297,12 +306,12 @@ theorem trustCompilerKeyS {env : Env} (m : EnvS V env)
       | 0, 0, hTi =>
         simp only [ConstantVal.matchesPin, Bool.and_eq_true,
           decide_eq_true_eq, beq_iff_eq] at hTi
-        exact ⟨hTi.1.2, eraseNames_const_invS hTi.2⟩
+        exact ⟨hTi.1.2, erasePw_const_invS (eraseNames_const_invS hTi.2)⟩
     | _ => exact nomatch hTi
   have htyA : cvA.type = .const trueName [] := by
     simp only [ConstantVal.matchesPin, Bool.and_eq_true,
       decide_eq_true_eq, beq_iff_eq] at hA
-    exact eraseNames_const_invS hA.2
+    exact erasePw_const_invS (eraseNames_const_invS hA.2)
   refine ⟨fun ψ => m.cval trueIntroName ψ, fun ψ => m.cval_closed _ _,
     ?_, fun ψ ρ => m.annot_okV _ _ ρ, fun ψ => ?_,
     fun acval hlink => ⟨fun ψ => acval trueIntroName ψ,
@@ -557,15 +566,19 @@ theorem ofReduceKeyS : OfReduceKeyS V := by
     unfold reduceOpCvA; split <;> rfl] at hlpR
   have hmem : ofReduceOp cvA.name ∈ reduceOpNames := by
     unfold ofReduceOp; split <;> decide
-  have htyA : Expr.ErasedEq cvA.type (ofReducePinA cvA.name).type := by
-    simp only [ConstantVal.matchesPin, Bool.and_eq_true,
-      beq_iff_eq] at hpin
-    exact erasedEq_of_eraseNames hpin.2
-  have htyR : Expr.ErasedEq cvR.type
-      (reduceOpCvA (ofReduceOp cvA.name)).type := by
-    simp only [ConstantVal.matchesPin, Bool.and_eq_true,
-      beq_iff_eq] at hmpR
-    exact erasedEq_of_eraseNames hmpR.2
+  -- task #161 P5: `matchesPin` forgives the binder prop-ness datum as
+  -- well as binder names, so the pin hit no longer gives `ErasedEq` on
+  -- the stored types themselves.  It gives what these two facts are
+  -- *for* — the denotations agree — directly: `denote_matchesPin`,
+  -- whose statement is unchanged, because `denote` reads neither.
+  have htyA : ∀ ψ : Name → Nat,
+      denote m.cval env ψ 0 cvA.type
+        = denote m.cval env ψ 0 (ofReducePinA cvA.name).type :=
+    fun _ => denote_matchesPin hpin 0
+  have htyR : ∀ ψ : Name → Nat,
+      denote m.cval env ψ 0 cvR.type
+        = denote m.cval env ψ 0 (reduceOpCvA (ofReduceOp cvA.name)).type :=
+    fun _ => denote_matchesPin hmpR 0
   have hden : ∀ ψ : Name → Nat,
       denoteClosed m.cval env ψ cvA.type
         = some (.pi (m.cval (reduceElemName (ofReduceOp cvA.name)) ψ)
@@ -578,7 +591,7 @@ theorem ofReduceKeyS : OfReduceKeyS V := by
                 [m.cval (reduceElemName (ofReduceOp cvA.name)) ψ,
                  .bvar 2, .bvar 1])))) := by
     intro ψ
-    rw [denoteClosed, denote_erasedEq htyA 0]
+    rw [denoteClosed, htyA ψ]
     exact denote_ofReducePinS m hor hfE hlpE hfR hlpR hEq ψ
   -- the `Eq` former's one level parameter is pinned to `1`
   have hsub : ∀ (φ : Name → Nat) (p : Name),
@@ -632,7 +645,7 @@ theorem ofReduceKeyS : OfReduceKeyS V := by
     intro ψ ρ
     obtain ⟨t, ht, hlaw⟩ := m.cval_memType hfR ψ
     rw [show ((ConstantInfo.axiomInfo cvR).toConstantVal) = cvR
-        from rfl, denoteClosed, denote_erasedEq htyR 0,
+        from rfl, denoteClosed, htyR ψ,
       reduceOpCv_type hor] at ht
     simp only [denote_forallE,
       denote_const_nolevelsS hfE hlpE, Expr.instantiate1] at ht
