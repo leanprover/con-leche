@@ -339,8 +339,8 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
       ISOK mode env s₀ → s₀.store.denoteT i = some e → WScoped d e →
       SimAt mode env s₀ (RelE d)
-        (annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
-        (annotateBody (fueledFns mode env) env d e))
+        (annotateBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+        (annotateBody mode (fueledFns mode env) env d e))
     {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr}
     (hs : ISOK mode env s₀) (hden : s₀.store.denoteT i = some e)
     (hw : WScoped d e) :
@@ -349,7 +349,7 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
   intro v' s' hr
   rw [show (coreKnotI mode (mkFEnv env) (f + 1)).annotate d i =
     memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-      (fun d e => annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => annotateBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -369,7 +369,7 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀
+    cases hb : annotateBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀
         with
     | error err =>
       rw [hb] at hr

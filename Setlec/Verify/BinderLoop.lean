@@ -463,7 +463,10 @@ theorem annotateCore_forallE_eq (env : Env) (F d : Nat) (n : Name)
       = (annotateCore mode env F d ty >>= fun ty' =>
          annotateCore mode env F (d + 1)
              (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-           pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩)) := rfl
+           if mode.verified && !pwWritten mb.pw then
+             annotPwPi (pureFns mode env F) env (d + 1) body' >>= fun pw =>
+               pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
+           else pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩)) := rfl
 
 theorem annotateCore_lam_eq (env : Env) (F d : Nat) (n : Name)
     (ty body : Expr) (mb : BinderMeta) :
@@ -471,7 +474,10 @@ theorem annotateCore_lam_eq (env : Env) (F d : Nat) (n : Name)
       = (annotateCore mode env F d ty >>= fun ty' =>
          annotateCore mode env F (d + 1)
              (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-           pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩)) := rfl
+           if mode.verified && !pwWritten mb.pw then
+             annotPwLam (pureFns mode env F) env (d + 1) body' >>= fun pw =>
+               pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
+           else pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩)) := rfl
 
 theorem ensureSortCore_eq (env : Env) (F d : Nat) (e : Expr) :
     ensureSortCore mode env F d e
