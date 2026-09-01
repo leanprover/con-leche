@@ -1099,16 +1099,22 @@ theorem defeqBody_snd_proj (d : Nat) (a b : Expr) :
       defeqBody mode r₂ env d a b :=
   defeqLoop_snd_proj d defeqLoopFuel a b
 
+-- Task #161 P5: the ∀/λ clauses' untrusted `pw` write is one more
+-- inference call under the same cascade (`annotPwPi` = infer +
+-- `ensureSort`; `annotPwLam` = the chain read, else infer + infer +
+-- `ensureSort`).  Unfolding them alongside `annotateBody` puts their
+-- binds in front of the level-4 rewrites — no new lemma is needed, the
+-- calls are exactly the kind the `letE`/`proj` clauses already make.
 theorem annotateBody_fst_proj (d : Nat) (e : Expr) :
-    (annotateBody (pairFns r₁ r₂ h) env d e).val.1 =
-      annotateBody r₁ env d e := by
-  unfold annotateBody
+    (annotateBody mode (pairFns r₁ r₂ h) env d e).val.1 =
+      annotateBody mode r₁ env d e := by
+  unfold annotateBody annotPwPi annotPwLam
   fst_tac4
 
 theorem annotateBody_snd_proj (d : Nat) (e : Expr) :
-    (annotateBody (pairFns r₁ r₂ h) env d e).val.2 =
-      annotateBody r₂ env d e := by
-  unfold annotateBody
+    (annotateBody mode (pairFns r₁ r₂ h) env d e).val.2 =
+      annotateBody mode r₂ env d e := by
+  unfold annotateBody annotPwPi annotPwLam
   snd_tac4
 
 

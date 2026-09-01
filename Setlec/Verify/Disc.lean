@@ -41,6 +41,11 @@ variable {env : Env} {f : Nat}
 local notation "C" => cachedFns mode env f
 local notation "G" => gFns mode env f
 
+/-! Task #161 P5: the ∀/λ clauses' untrusted `pw` write.  Both helpers
+are `infer` + `ensureSort` calls — the very calls the `letE` and `proj`
+clauses already make — so the scoped-call discipline they need is the
+existing one, site by site. -/
+
 theorem ensureSort_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
     DiscV mode env (fun _ => True) (ensureSort C env d e)
@@ -58,6 +63,34 @@ theorem ensureSort_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   cases w <;> first
     | exact DiscV.pure trivial
     | exact DiscV.throw _
+
+/-- The ∀ node's datum: the chain read is pure, the leaf path is one
+`infer` and an `ensureSort`. -/
+theorem annotPwPi_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV mode env (fun _ => True) (annotPwPi C env d e)
+      (annotPwPi G env d e) := by
+  unfold annotPwPi
+  split
+  · exact DiscV.pure trivial
+  · refine DiscV.bind (ih.site_infer henv hw) (fun t ht => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv ht) (fun v _ => ?_)
+    exact DiscV.pure trivial
+
+/-- The λ node's datum: the chain read is pure, the leaf path is two
+`infer`s and an `ensureSort`. -/
+theorem annotPwLam_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV mode env (fun _ => True) (annotPwLam C env d e)
+      (annotPwLam G env d e) := by
+  unfold annotPwLam
+  split
+  · exact DiscV.pure trivial
+  · refine DiscV.bind (ih.site_infer henv hw) (fun bt hbt => ?_)
+    refine DiscV.bind (ih.site_infer henv hbt) (fun btt hbtt => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv hbtt) (fun vb _ => ?_)
+    exact DiscV.pure trivial
+
 
 theorem reduceNat_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
@@ -1132,8 +1165,8 @@ theorem whnfBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
 set_option maxHeartbeats 1600000 in
 theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV mode env (WScoped d) (annotateBody C env d e)
-      (annotateBody G env d e) := by
+    DiscV mode env (WScoped d) (annotateBody mode C env d e)
+      (annotateBody mode G env d e) := by
   match e with
   | .bvar i => exact DiscV.pure (by simp [WScoped])
   | .fvar idx n ty =>
@@ -1219,17 +1252,29 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
+        if mode.verified && !pwWritten mb.pw then
+          annotPwPi C env (d + 1) body' >>= fun pw =>
+            pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
+        else pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
+        if mode.verified && !pwWritten mb.pw then
+          annotPwPi G env (d + 1) body' >>= fun pw =>
+            pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
+        else pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
     refine DiscV.bind (ih.site_annotate hwtb.1) (fun ty' hty' => ?_)
     refine DiscV.bind (ih.site_annotate
       (WScoped.instantiate1 hty' 0 hwtb.2)) (fun body' hbody' => ?_)
-    refine DiscV.pure ?_
-    simp only [WScoped]
-    exact ⟨hty', WScoped.abstract1 0 hbody'⟩
+    -- task #161 P5: the write is one more scoped call on the annotated
+    -- body; the node's scoping does not depend on the datum, so both
+    -- branches close the same way.
+    have hnode : WScoped d ty' ∧ WScoped d (body'.abstract1 d) :=
+      ⟨hty', WScoped.abstract1 0 hbody'⟩
+    split
+    · refine DiscV.bind (annotPwPi_disc ih henv hbody') (fun pw _ => ?_)
+      exact DiscV.pure (by simp only [WScoped]; exact hnode)
+    · exact DiscV.pure (by simp only [WScoped]; exact hnode)
   | .lam n ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
@@ -1237,17 +1282,29 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
+        if mode.verified && !pwWritten mb.pw then
+          annotPwLam C env (d + 1) body' >>= fun pw =>
+            pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
+        else pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
+        if mode.verified && !pwWritten mb.pw then
+          annotPwLam G env (d + 1) body' >>= fun pw =>
+            pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
+        else pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
     refine DiscV.bind (ih.site_annotate hwtb.1) (fun ty' hty' => ?_)
     refine DiscV.bind (ih.site_annotate
       (WScoped.instantiate1 hty' 0 hwtb.2)) (fun body' hbody' => ?_)
-    refine DiscV.pure ?_
-    simp only [WScoped]
-    exact ⟨hty', WScoped.abstract1 0 hbody'⟩
+    -- task #161 P5: the write is one more scoped call on the annotated
+    -- body; the node's scoping does not depend on the datum, so both
+    -- branches close the same way.
+    have hnode : WScoped d ty' ∧ WScoped d (body'.abstract1 d) :=
+      ⟨hty', WScoped.abstract1 0 hbody'⟩
+    split
+    · refine DiscV.bind (annotPwLam_disc ih henv hbody') (fun pw _ => ?_)
+      exact DiscV.pure (by simp only [WScoped]; exact hnode)
+    · exact DiscV.pure (by simp only [WScoped]; exact hnode)
   | .proj sn i pe =>
     have hwpe : WScoped d pe := by simpa only [WScoped] using hw
     show DiscV mode env _

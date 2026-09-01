@@ -11951,6 +11951,272 @@ remainder scoped as above; the caps/proj-str/iota notes stand, with
 the caps note CORRECTED: do not attempt the erasure transfer — the
 caps laws need the run-certificate route (the caps certs' defeq runs
 exposed, then the P claims), not the v1 law transfer.
+## Task #161 P5: the annotate pass (engineering track, 2026-09-01)
+
+The untrusted pass that lets **real (unannotated) streams enter
+`--set-model`**.  It writes; the verified checker validates; reduction
+ignores.  A wrong write is a decline, never unsoundness — so nothing
+here is in the truthfulness story.
+
+### Where the writes live (as designed: no new pass, no new call sites)
+
+The ∀/λ clauses of the existing `annotate` normalizer, gated
+`mode.verified`:
+
+* spec (`Core.lean`): `annotateBody`'s `.forallE`/`.lam` clauses, via
+  `annotPwPi` (the codomain's sort) and `annotPwLam` (the sort of the
+  body's type, or the inner λ's datum);
+* interned (`CoreI.lean`): `annotatePisLeafI` / `annotateLamsLeafI`
+  compute the datum once and hand it to `annotateBindersOutI`, plus
+  `annotateBodyI`'s single-binder (non-bvar-closed) λ branch.
+
+**The telescope collapse — the pass's one real economy.**  A ∀
+telescope needs ONE computation, not one per binder:
+`zeronessOf (imax u v) = zeronessOf v`, so every node's codomain-sort
+zero-ness is the *leaf* codomain sort's.  Symmetrically the
+`(lam-cod-chain)` rule makes every λ node of a chain carry the
+innermost node's datum.  So the pass pays one `infer`+`whnf` (∀) or
+two `infer`s+`whnf` (λ) per **telescope**, on the same term the
+front-door sweep infers immediately afterwards — memo-shared, `O(1)`
+per binder, no `codOf` revival needed.
+
+**The placeholder rule (ratified here, simple by choice).**  A binder
+whose input datum is `.never` — the parser's placeholder for an absent
+`"pw"` field, and *also* a legitimate value — is recomputed; a binder
+carrying `ifAllZero …` is left alone, so explicit input annotations are
+judged by validation and never overwritten.  Consequence, recorded: an
+explicit `"pw": "never"` is indistinguishable from an absent field and
+is silently *corrected* instead of being falsified.  Falsifiable
+claims are therefore exactly the `ifAllZero` ones (the fixture suite's
+decline streams claim `"pw": []` on Type-level binders).
+Distinguishing the two would need a third state in `BinderMeta` — a
+kernel-type change, deliberately not taken.
+
+### The manufacture sites that actually bit (audit rows made real)
+
+* **Row 9, `pisToLams`** — the predicted one, and the only kernel
+  behaviour change the pass forced.  A ∀'s `pw` claims the
+  *codomain*'s prop-ness; a λ's claims the sort of its *body's type*.
+  Copying the Π meta onto the λ tower of a projection rule therefore
+  wrote a wrong annotation that the pass then refused to overwrite
+  (`ifAllZero` is preserved), and every structure install declined at
+  `(lam-cod-leaf)` — `PProd'` on 34 arena/e2e fixtures.  `pisToLams`
+  and `pisToLamsI` now emit the placeholder `⟨bi, .never⟩`; the three
+  consumers all annotate (audited, docstring'd).  `replacePiBody`
+  has the same hazard and already says so in its docstring; its one
+  consumer is the dead `Direct.lean` route, left alone.
+* **The pins (row 11)** — `AnnotateBasis.lean` regenerates all 32
+  `*A` forms (`Basis/*`, `StdAxioms`, `TrustAxioms`) with real data;
+  the raw pins that the frontend matches *parsed* records against stay
+  at `.never`, as they must.  The elab-time generator (`PinGen`,
+  task #53) needed **no** change: its pins' `.never` placeholders are
+  filled by the ordinary install-path `annotate`, so the host
+  elaborator's `inferType` was never consulted — the amendment's
+  "compute `pw` at generation time" is unnecessary.  (Residual audit
+  item: a pin that is *stored without* being annotated would keep a
+  wrong bit; none is known, and every stored constant the front door
+  infers is validated.)
+* **`ConstantVal.matchesPin` now compares up to `pw`** (new
+  `Expr.erasePw`; `eraseNames` untouched).  The pins carry the
+  generated datum while the compared side carries whatever the mode
+  produced — nothing at `--no-model` — so without this an
+  annotation-only deviation would change a `--no-model` verdict, which
+  is exactly what the pin's own binder-info paragraph forbids.  The
+  forgiveness is safe because the consumer computes on the *pin*
+  (which holds the true datum) and the compared side's datum is
+  independently validated at the front door.  **Proof-lane decision
+  owed**: the alternative is threading the mode into `stdAxiomOk` and
+  selecting raw-vs-annotated pins, which changes a signature the
+  `SetR/Install/*` battery reasons about.
+
+### The ladder (measured, this branch)
+
+| rung | result |
+|---|---|
+| annot fixture suite | 13/13 as expected (7 accepts incl. 3 new `annot_fill_*`, 3 explicit-wrong declines, `split_bad`) |
+| `--no-model` full parity | arena 138 + e2e 72 + annot 13 as expected, 3 recorded divergences; init-prelude **byte-identical** (stdout, stderr, exit) to the pre-branch binary |
+| `--set-model` arena + e2e | arena tutorial **90/92** good accepted (the pre-#161 figure), e2e **72/72**; **zero** `sort-annotation mismatch` declines across all 210 fixtures |
+| `--set-model` init-prelude | `--pre`, 3653 declarations, **exit 0, accepted**, 3.4 s; **zero** mismatch declines at all eight sites |
+| `--set-model` init-full | `--pre`, **61 048 declarations accepted, exit 0**, ~7 min, 16 GB ulimit; **zero** mismatch declines.  Verdict-identical to the P1 reference binary (the pre-validation checker), which accepts the same 61 048 |
+| `--no-model` init-full | **byte-identical** (stdout, stderr, exit) to the pre-branch binary |
+| split driver / mode flags | 11/11, 9/9 |
+
+**Cost.**  The reference is the P1 seal binary (`2b1b11aa`), where
+`--set-model` was byte-identical to master — i.e. the checker with
+neither the pass nor validation.  init-prelude, median of 3, same
+machine: reference **3.27 s**, this branch **3.35 s** (≈ +2 %, inside
+run-to-run noise, well under the §6 gate of +5 %).  init-full, two
+serial runs each: reference **6:31.4 / 6:26.7**, this branch
+**6:41.8 / 6:35.5** — **+1.9 %**.  The `scale` chain and telescope
+shapes at n = 500…4000 are indistinguishable between the two binaries
+(0.064→0.106 s and 0.068→0.120 s over an 8× size increase, both
+binaries within 3 ms of each other at every n): the per-chain
+arithmetic stays linear, no quadratic blow-up at 4000-binder
+telescopes.  The telescope collapse is what buys this — one inference
+per ∀ telescope and one per λ chain, on terms the front-door sweep
+re-infers immediately after, so the memo serves the second read.
+
+**FINDING — the empirical unique-typing question is answered
+negative-free, up to and including init-full.**  The design's top risk
+(§10.1, amendment 1 risk 1) was cross-provenance mismatches surfacing
+as declines on real streams.  On 61 048 real declarations (init-full;
+3653 of them init-prelude) plus the whole arena and e2e corpus there
+are **none**: not one `(forall-cod)`,
+`(lam-cod-leaf)`, `(lam-cod-chain)`, `(defeq-forall)`, `(defeq-lam)`
+or `(eta)` decline.  Amendment 1's audit (f) — the prop-only datum
+cannot mismatch on level *value* differences, only on genuine regime
+disagreement — is what makes this unsurprising in hindsight; it is
+now measured, not argued.
+
+**FINDING — one verdict-class change, on defective input only.**
+`tests/e2e/yolo_decline_vs_accept.ndjson` moves 2 → 1.  The pass
+infers each binder's codomain sort, so that purpose-built defective
+stream's per-argument type error ("function expected", theorem
+`PProd'._model.eta`) is found *before* annotate reaches the
+unsupported projection shape that used to decline first.  The general
+statement: **the pass makes inference happen earlier inside
+`annotate`, so on input that is both defective and unsupported the
+reported class can move from decline to reject.**  It cannot introduce
+a reject on valid input — the pass infers exactly the terms the front
+door infers anyway.
+
+### What is NOT done, and why
+
+**STOP-FINDING: the writes cannot be landed without the proof tier.**
+`annotateBody` and `annotateBodyI` gain the `mode` argument and two
+monadic binds; `pisToLams`/`pisToLamsI` and `matchesPin` change
+definitionally.  Nineteen `Setlec/Verify/*` and `Setlec/SetR/*`
+modules case-analyse those definitions (`Verify/Deep.lean`,
+`Abstract.lean`, `DiscI6.lean`, `PairM.lean`, `Leaves.lean`,
+`Bridge.lean`, `Mono.lean`, `SimIKnot.lean`, `IExprOps.lean`,
+`SetR/Install/Axiom.lean`, `SetR/StdAxiomKey.lean`, … ), so `lake
+build` (default targets) does not pass on this branch and `lake test`
+cannot run: **the executable target `setlec` builds warning-free and
+every measurement above is real, but the proof lane must adapt before
+this merges.**  The adaptation is not mechanical — the new `infer`
+calls inside `annotate` need the scoped-call discipline (`DiscI*`),
+fuel monotonicity (`Mono`) and depth-shift (`Deep`) treatment that
+`annotate`'s other inference calls already have (the `letE` and
+`proj` clauses are the precedent: `annotate` already calls `infer`,
+`whnf` and `defeq` there, so no new *kind* of obligation appears).
+
+Deliberately untouched: `Verify/*`, `SetR/*`, every validation site's
+logic, `eraseNames`/`ErasedEq`, every reduction path.
+
+**STOP-FINDING RESOLVED (2026-09-01, agent/pass-adapt).**  The proof
+lane was adapted and `lake build` / `lake test` are green again; the
+adaptation is recorded in the next section, together with the one
+finding it turned up — the assessment above ("no new *kind* of
+obligation appears") was **wrong**, and not in a way more proof could
+have fixed.
+
+## Task #161 P5 adaptation: the proof lane, and the write rule it forced
+
+The wave-by-wave adaptation is unremarkable and is not re-narrated
+here: the new binds get the `letE`/`proj` clauses' existing treatment
+at each tier (`Deep`'s depth shift, `Disc`'s scoped-call discipline,
+`PairM`/`Fueled`'s cascades, `Mono`'s refinement), `Abstract` grows the
+two binder inversions it was missing, and the `erasePw` comparison is
+met by `denote_erasePw` — `denote` reads binder metadata never, so the
+pin's new tolerance is again matched by the interpretation's blindness
+and `denote_matchesPin` keeps its statement verbatim.
+
+### THE FINDING: the pass shipped two different write algorithms
+
+`annotateBody` (spec) computed each ∀ node's datum by **inferring the
+annotated body**; `annotatePisI` (interned) computed it **once at the
+telescope's leaf** and stamped every node.  These are not the same
+function, so `annotateBodyI`'s simulation of `annotateBody` — which is
+`interned ok ⟹ spec ok` (`Verify/SimI.lean:244`) — was **false**, and
+no amount of proof adaptation recovers a false theorem.  Two measured
+countermodels, `--set-model`, empty environment:
+
+| input | spec | interned |
+|---|---|---|
+| `∀ (x : Prop), ∀ (y : Foo), Prop`, `Foo` absent | error "unknown constant Foo" | **ok** |
+| `∀ (x : Prop), ∀ (y : Prop) {pw := ifAllZero []}, Prop` | error "(forall-cod) mismatch" | **ok** |
+
+`annotate` never looks a constant up; *inferring the inner ∀ node*
+does, and only the spec did that.  The second row is the same cause
+seen from the other side: the interned pass never validates while
+writing, the spec did, because it inferred.
+
+This is not unsoundness — a wrong write is a decline — and it changed
+no verdict on any real stream, because the front door infers the term
+immediately afterwards.  It is a *specification* failure: the object
+the proofs are about had stopped being the object that runs.
+
+### THE REPAIR: one write rule, read locally
+
+`annotPwLam` had always applied the chain rule (`lamPw`); `annotPwPi`
+never did.  Giving it the ∀ twin (`Expr.forallPw`) makes the datum
+rule **local** — each node's datum is its child's, computed once at the
+telescope's leaf — which is exactly what the collapse
+(`zeronessOf (imax u v) = zeronessOf v`) licenses and what the P5 cost
+paragraph already claimed of the pass.  Three hunks:
+
+* `annotPwPi` reads `forallPw`, so a ∀ body that is itself a ∀ reuses
+  its neighbour's datum and the spec pays **one** inference per ∀
+  telescope, as the interned side always did;
+* `annotatePisLeafI` gains the ∀ chain read its λ twin already had, so
+  a `letE` whose zeta reduct is a ∀ is handled identically on both
+  sides;
+* `annotateBindersOutI` threads the datum *just written* outward
+  instead of re-stamping the leaf's — the two differ only above an
+  explicitly annotated binder, and there the chain rule is what the
+  spec reads.
+
+**Verdict-neutral, measured on the whole corpus**: arena tutorial
+90/92 good accepted, e2e 72/72, annot 13/13, split driver 11/11, mode
+flags 9/9, `--no-model` sweep 138 + 72 + 13 with the 3 recorded
+divergences; `--set-model` init-prelude 3653 accepted in 3.42 s and
+init-full 61 048 accepted in 6 m 34.5 s — every counter and both wall
+times identical to the pass seal's.
+
+**Where the collapse now lives.**  Exactly one place:
+`annotatePisLeaf`'s datum *is* `annotPwPi` at the leaf, definitionally.
+Every level above reads (`annotateBindersOut_wrap`'s `hpwf_read`), so
+the inference-shape induction over annotated ∀-chains that the
+unrepaired form would have needed never has to be written.
+
+**What this cost the checker's shape.**  Every write is now one named
+function with one spec counterpart: `annotPwPi`/`annotPwPiI`,
+`annotPwLam`/`annotPwLamI`, `annotBinderMeta`/`annotBinderMetaI`,
+`annotatePisPw`/`annotatePisPwI`.  `annotateBodyI`'s single-binder λ
+branch stops inlining the rule and calls `annotPwLamI`.  No behaviour
+change beyond the three hunks above.
+
+### One test expectation retired
+
+`lake test` ran for the first time since the pass landed and caught a
+P2-era guard: `dependentType` with an unannotated (`.never`) binder was
+a positive `(forall-cod)` decline at `--set-model`.  It is now
+accepted — the pass recomputes the placeholder and the front door
+validates its own write — which is the placeholder rule stated above,
+observed.  Updated with the reason recorded beside it; the falsifiable
+(`ifAllZero`) guards are unchanged.
+
+### The statements that moved, and why
+
+* `Verify/StdAxiomPin.lean` — six shape conclusions read
+  `cv.type.erasePw.eraseNames = pinA.type.erasePw.eraseNames`.  Not a
+  weakening: `matchesPin` itself compares through `erasePw`, so the
+  stronger form is no longer implied by the hypothesis, and
+  `denote_erasePw` means consumers lose nothing.
+* `Verify/OfReducePin.lean`, `SetR/Install/BasisS.lean` — the pinned
+  shape literals now carry the data `AnnotateBasis` actually generated
+  (39 pin types, 6 recursor-rule right-hand sides, read off the pins
+  rather than re-derived).  These are `rfl` facts about the pins; they
+  now state what the pins are.
+* `SetR/Install/Axiom.lean`, `SetR/StdAxiomKey.lean` — no statement
+  moved: the `ErasedEq`-on-a-pin-hit facts existed only to feed
+  `denote_erasedEq`, so they go through `denote_matchesPin` and the new
+  `denote_pinEq` instead.
+
+Capstone axiom audit after the adaptation: `no_proof_of_Empty_P_of`,
+`checkDecls_sound_P_of`, `no_proof_of_Empty_R`, `no_proof_of_Empty_SP_R`,
+`no_proof_of_Empty_input_SP_R` and `no_proof_of_Empty_R2` all depend on
+exactly `[propext, Classical.choice, Quot.sound]`.
 
 ## Task #161 RULING: the pin comparison stays `erasePw`-shaped (2026-09-01)
 

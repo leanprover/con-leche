@@ -575,8 +575,8 @@ theorem annotateBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
     SimAt mode env s₀ (RelE d)
-      (annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
-      (annotateBody (fueledFns mode env) env d ex) := by
+      (annotateBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (annotateBody mode (fueledFns mode env) env d ex) := by
   unfold annotateBodyI
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv hden
@@ -787,20 +787,47 @@ theorem annotateBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
       obtain ⟨hbody'd, hwbody'⟩ := hP₄
       refine SimAt.bind_left (abstract1M_eff hs₄ hbody'd)
         (fun s₈ bAbs hs₈ hext₈ hQabs => ?_)
-      refine SimAt.of_eff (internI_eff hs₈
-        (x := .lam nm ty'x (body'x.abstract1 d) bm) ?_) _
-        (fun s r hQ => ?_)
-      · rw [denoteNode,
-          denoteT_mono (((hext₂.trans hext₃).trans hext₄).trans hext₈)
-            hty'd, hQabs,
-          denoteBM_mono (((((hextb.trans hext₁).trans hext₂).trans
-            hext₃).trans hext₄).trans hext₈) hbmDen,
-          denoteN_mono (((((hextb.trans hext₁).trans hext₂).trans
-            hext₃).trans hext₄).trans hext₈) hnmDen]
-        rfl
-      · refine ⟨hQ, ?_⟩
-        simp only [WScoped]
-        exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩
+      -- task #161 P5: the single-binder write — the λ chain rule at a
+      -- chain of length one, the same `annotPwLam` the spec clause runs.
+      -- The rebuilt node is the same on both sides whatever the datum.
+      have hty'8 := denoteT_mono
+        (((hext₂.trans hext₃).trans hext₄).trans hext₈) hty'd
+      have hnm8 := denoteN_mono
+        (((((hextb.trans hext₁).trans hext₂).trans hext₃).trans
+          hext₄).trans hext₈) hnmDen
+      have hbm8 := denoteBM_mono
+        (((((hextb.trans hext₁).trans hext₂).trans hext₃).trans
+          hext₄).trans hext₈) hbmDen
+      have hstep : ∀ (s' : IState) (pw : PropWhen), ISOK mode env s' →
+          Ext s₈.store s'.store →
+          SimAt mode env s' (RelE d)
+            (internI (.lam nmᵢ ty' bAbs ⟨(m : IBinderMeta).bi, pw⟩))
+            (pure (Expr.lam nm ty'x (body'x.abstract1 d)
+              ⟨(bm : BinderMeta).bi, pw⟩)) := by
+        intro s' pw hsS hextS
+        refine SimAt.of_eff (internI_eff hsS
+          (x := .lam nm ty'x (body'x.abstract1 d)
+            ⟨(bm : BinderMeta).bi, pw⟩) ?_) _ (fun s'' r hQ => ?_)
+        · rw [denoteNode, denoteT_mono hextS hty'8,
+            denoteT_mono hextS hQabs, denoteN_mono hextS hnm8,
+            show denoteBM s'.store.denoteL
+                (⟨(m : IBinderMeta).bi, pw⟩ : IBinderMeta)
+              = some ⟨(bm : BinderMeta).bi, pw⟩ from by
+                rw [show (bm : BinderMeta).bi = (m : IBinderMeta).bi
+                  from denoteBM_bi hbm8]; rfl]
+          rfl
+        · exact ⟨hQ, by
+            simp only [WScoped]
+            exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩⟩
+      rw [show (bm : BinderMeta).pw = (m : IBinderMeta).pw
+        from denoteBM_pw hbm8]
+      split
+      · refine SimAt.bind (annotPwLamI_sim ih hs₈
+          (denoteT_mono hext₈ hbody'd) hwbody')
+          (fun s₉ pw pwx hs₉ hext₉ hPpw => ?_)
+        subst hPpw
+        exact hstep s₉ pw hs₉ hext₉
+      · exact hstep s₈ (m : IBinderMeta).pw hs₈ (Ext.refl _)
   | proj snᵢ ip pe =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨pex, hpe, hd⟩ := hd

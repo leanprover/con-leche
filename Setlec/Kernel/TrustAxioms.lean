@@ -125,22 +125,22 @@ def ofReduceRaw (n : Name) : ConstantVal :=
 /-- Annotated standard-shape pin (generated). -/
 def reduceNatCvA : ConstantVal :=
   { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Lean") "reduceNat",
-      levelParams := [],
-      type := Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "n")
-                (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
-                (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
+    levelParams := [],
+    type := Setlec.Expr.forallE
+              (Setlec.Name.str (Setlec.Name.anonymous) "n")
+              (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+              (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
 
 /-- Annotated standard-shape pin (generated). -/
 def reduceBoolCvA : ConstantVal :=
   { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Lean") "reduceBool",
-      levelParams := [],
-      type := Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "n")
-                (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Bool") [])
-                (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Bool") [])
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
+    levelParams := [],
+    type := Setlec.Expr.forallE
+              (Setlec.Name.str (Setlec.Name.anonymous) "n")
+              (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Bool") [])
+              (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Bool") [])
+              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
 
 /-- Annotated standard-shape pin (generated). -/
 def ofReduceNatA : ConstantVal :=
@@ -176,9 +176,9 @@ def ofReduceNatA : ConstantVal :=
                         (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") []))
                       (Setlec.Expr.bvar 2))
                     (Setlec.Expr.bvar 1))
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] } }
 
 /-- Annotated standard-shape pin (generated). -/
 def ofReduceBoolA : ConstantVal :=
@@ -214,9 +214,9 @@ def ofReduceBoolA : ConstantVal :=
                         (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Bool") []))
                       (Setlec.Expr.bvar 2))
                     (Setlec.Expr.bvar 1))
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] } }
 
 /-- The annotated pinned type of a reduce operation. -/
 def reduceOpCvA (c : Name) : ConstantVal :=

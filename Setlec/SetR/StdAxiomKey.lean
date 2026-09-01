@@ -107,14 +107,14 @@ constant, its pinned type denoted, and `app_mem_piC`. -/
 theorem iffVal_memS {env : Env} (m : EnvS V env)
     {cvI : ConstantVal} {caps : IndCaps}
     (hfI : env.find? iffName = some (.indInfo cvI caps))
-    (htyI : cvI.type.eraseNames = iffA.toConstantVal.type.eraseNames)
+    (htyI : cvI.type.erasePw.eraseNames = iffA.toConstantVal.type.erasePw.eraseNames)
     (ψ : Name → Nat) (ρ : Nat → V) :
     interp V ρ (m.cval iffName ψ)
       ∈ˢ piC (univ 0 : V) fun _ =>
         piC (univ 0 : V) fun _ => (univ 0 : V) := by
   obtain ⟨t, ht, hlaw⟩ := m.cval_memType hfI ψ
   rw [show (ConstantInfo.indInfo cvI caps).toConstantVal = cvI from rfl,
-    denoteClosed, denote_erasedEq (erasedEq_of_eraseNames htyI) 0] at ht
+    denoteClosed, denote_pinEq htyI 0] at ht
   simp [iffA, ConstantInfo.toConstantVal, denote_forallE,
     denote_sort, Expr.instantiate1, Level.eval] at ht
   obtain rfl := ht
@@ -124,7 +124,7 @@ theorem iffVal_memS {env : Env} (m : EnvS V env)
 theorem iffVal_app₂_memS {env : Env} (m : EnvS V env)
     {cvI : ConstantVal} {caps : IndCaps}
     (hfI : env.find? iffName = some (.indInfo cvI caps))
-    (htyI : cvI.type.eraseNames = iffA.toConstantVal.type.eraseNames)
+    (htyI : cvI.type.erasePw.eraseNames = iffA.toConstantVal.type.erasePw.eraseNames)
     (ψ : Name → Nat) (ρ : Nat → V) {A B : V}
     (hA : A ∈ˢ (univ 0 : V)) (hB : B ∈ˢ (univ 0 : V)) :
     SetTheory.app (SetTheory.app (interp V ρ (m.cval iffName ψ)) A) B
@@ -137,8 +137,8 @@ theorem iffIntroVal_app₄_memS {env : Env} (m : EnvS V env)
     (hfI : env.find? iffName = some (.indInfo cvI caps))
     (hlpI : cvI.levelParams = [])
     (hfIi : env.find? iffIntroName = some (.ctorInfo cvIi 2 2))
-    (htyIi : cvIi.type.eraseNames
-      = iffIntroA.toConstantVal.type.eraseNames)
+    (htyIi : cvIi.type.erasePw.eraseNames
+      = iffIntroA.toConstantVal.type.erasePw.eraseNames)
     (ψ : Name → Nat) (ρ : Nat → V) {A B mp mpr : V}
     (hA : A ∈ˢ (univ 0 : V)) (hB : B ∈ˢ (univ 0 : V))
     (hmp : mp ∈ˢ piC A (fun _ => B))
@@ -150,7 +150,7 @@ theorem iffIntroVal_app₄_memS {env : Env} (m : EnvS V env)
   obtain ⟨t, ht, hlaw⟩ := m.cval_memType hfIi ψ
   rw [show (ConstantInfo.ctorInfo cvIi 2 2).toConstantVal = cvIi
       from rfl, denoteClosed,
-    denote_erasedEq (erasedEq_of_eraseNames htyIi) 0] at ht
+    denote_pinEq htyIi 0] at ht
   have hI : ∀ d, denote m.cval env ψ d (.const iffName [])
       = some (m.cval iffName ψ) :=
     fun d => denote_const_nolevelsS hfI hlpI ψ d
@@ -176,8 +176,8 @@ theorem iffRecVal_memS {env : Env} (m : EnvS V env)
     (hfIi : env.find? iffIntroName = some (.ctorInfo cvIi 2 2))
     (hlpIi : cvIi.levelParams = [])
     (hfIr : env.find? iffRecName = some (.recInfo cvIr mI rP rules))
-    (htyIr : cvIr.type.eraseNames
-      = iffRecA.toConstantVal.type.eraseNames)
+    (htyIr : cvIr.type.erasePw.eraseNames
+      = iffRecA.toConstantVal.type.erasePw.eraseNames)
     {ψ0 : Name → Nat} (h0 : ψ0 uN = 0) (ρ : Nat → V) :
     interp V ρ (m.cval iffRecName ψ0) ∈ˢ
       piC (univ 0) fun A => piC (univ 0) fun B =>
@@ -197,7 +197,7 @@ theorem iffRecVal_memS {env : Env} (m : EnvS V env)
   obtain ⟨t, ht, hlaw⟩ := m.cval_memType hfIr ψ0
   rw [show (ConstantInfo.recInfo cvIr mI rP rules).toConstantVal = cvIr
       from rfl, denoteClosed,
-    denote_erasedEq (erasedEq_of_eraseNames htyIr) 0] at ht
+    denote_pinEq htyIr 0] at ht
   have hI : ∀ d, denote m.cval env ψ0 d (.const iffName [])
       = some (m.cval iffName ψ0) :=
     fun d => denote_const_nolevelsS hfI hlpI ψ0 d
@@ -226,11 +226,11 @@ theorem iff_forces_eqS {env : Env} (m : EnvS V env)
     (hlpI : cvI.levelParams = [])
     (hfIi : env.find? iffIntroName = some (.ctorInfo cvIi 2 2))
     (hlpIi : cvIi.levelParams = [])
-    (htyIi : cvIi.type.eraseNames
-      = iffIntroA.toConstantVal.type.eraseNames)
+    (htyIi : cvIi.type.erasePw.eraseNames
+      = iffIntroA.toConstantVal.type.erasePw.eraseNames)
     (hfIr : env.find? iffRecName = some (.recInfo cvIr mI rP rules))
-    (htyIr : cvIr.type.eraseNames
-      = iffRecA.toConstantVal.type.eraseNames)
+    (htyIr : cvIr.type.erasePw.eraseNames
+      = iffRecA.toConstantVal.type.erasePw.eraseNames)
     (ψ' : Name → Nat) (ρ : Nat → V) {A B w : V}
     (hA : A ∈ˢ (univ 0 : V)) (hB : B ∈ˢ (univ 0 : V))
     (hw : w ∈ˢ SetTheory.app (SetTheory.app
@@ -304,10 +304,12 @@ theorem propextKeyS : PropextKeyS V := by
   obtain ⟨hEq, ⟨cvI, caps, hfI, hlpI, htyI⟩, ⟨cvIi, hfIi, hlpIi, htyIi⟩,
     ⟨cvIr, mI, rP, rules, hfIr, hlpIr, htyIr⟩, hApin⟩ :=
     iff_shapes hok hn
-  have htyA : Expr.ErasedEq cvA.type propextA.type := by
-    simp only [ConstantVal.matchesPin, Bool.and_eq_true,
-      beq_iff_eq] at hApin
-    exact erasedEq_of_eraseNames hApin.2
+  -- task #161 P5: the pin hit forgives the binder prop-ness datum too,
+  -- so it no longer gives `ErasedEq` on the stored type itself.  It
+  -- gives what this fact is for — the denotations agree —directly.
+  have htyA : ∀ ψ : Name → Nat,
+      denote m.cval env ψ 0 cvA.type = denote m.cval env ψ 0 propextA.type :=
+    fun _ => denote_matchesPin hApin 0
   -- the `Eq` former's one level parameter is pinned to `1`
   have hsub : ∀ (φ : Name → Nat) (p : Name),
       p ∈ eqA.toConstantVal.levelParams →
@@ -342,7 +344,7 @@ theorem propextKeyS : PropextKeyS V := by
               eqA.toConstantVal.levelParams [.succ .zero]))
               [.sort 0, .bvar 2, .bvar 1])))) := by
     intro ψ
-    rw [denoteClosed, denote_erasedEq htyA 0]
+    rw [denoteClosed, htyA ψ]
     exact denote_propext_typeS hfI hlpI hEq ψ
   refine ⟨fun _ => .const .propext [], fun _ => trivial,
     fun _ _ _ => rfl, fun _ _ => trivial, fun ψ => ?_,
@@ -430,15 +432,15 @@ motive whose minor premise is vacuous over an empty `A`.
 theorem nonemptyVal_memS {env : Env} (m : EnvS V env)
     {cvN : ConstantVal} {capsN : IndCaps}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
-    (htyN : cvN.type.eraseNames
-      = nonemptyA.toConstantVal.type.eraseNames)
+    (htyN : cvN.type.erasePw.eraseNames
+      = nonemptyA.toConstantVal.type.erasePw.eraseNames)
     (ψ : Name → Nat) (ρ : Nat → V) :
     interp V ρ (m.cval nonemptyName ψ)
       ∈ˢ piC (univ (ψ uN) : V) fun _ => (univ 0 : V) := by
   obtain ⟨t, ht, hlaw⟩ := m.cval_memType hfN ψ
   rw [show (ConstantInfo.indInfo cvN capsN).toConstantVal = cvN
       from rfl,
-    denoteClosed, denote_erasedEq (erasedEq_of_eraseNames htyN) 0] at ht
+    denoteClosed, denote_pinEq htyN 0] at ht
   simp [nonemptyA, ConstantInfo.toConstantVal, denote_forallE,
     denote_sort, Expr.instantiate1, Level.eval] at ht
   obtain rfl := ht
@@ -450,8 +452,8 @@ theorem nonemptyVal_memS {env : Env} (m : EnvS V env)
 theorem nonemptyVal_app_memS {env : Env} (m : EnvS V env)
     {cvN : ConstantVal} {capsN : IndCaps}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
-    (htyN : cvN.type.eraseNames
-      = nonemptyA.toConstantVal.type.eraseNames)
+    (htyN : cvN.type.erasePw.eraseNames
+      = nonemptyA.toConstantVal.type.erasePw.eraseNames)
     (ψ : Name → Nat) (ρ : Nat → V) {A : V} (hA : A ∈ˢ univ (ψ uN)) :
     SetTheory.app (interp V ρ (m.cval nonemptyName ψ)) A
       ∈ˢ (univ 0 : V) :=
@@ -463,8 +465,8 @@ theorem nonemptyIntroVal_memS {env : Env} (m : EnvS V env)
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
     (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
-    (htyNi : cvNi.type.eraseNames
-      = nonemptyIntroA.toConstantVal.type.eraseNames)
+    (htyNi : cvNi.type.erasePw.eraseNames
+      = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames)
     (ψ : Name → Nat) (ρ : Nat → V) :
     interp V ρ (m.cval nonemptyIntroName ψ)
       ∈ˢ piC (univ (ψ uN) : V) fun A =>
@@ -473,7 +475,7 @@ theorem nonemptyIntroVal_memS {env : Env} (m : EnvS V env)
   obtain ⟨t, ht, hlaw⟩ := m.cval_memType hfNi ψ
   rw [show (ConstantInfo.ctorInfo cvNi 1 1).toConstantVal = cvNi
       from rfl, denoteClosed,
-    denote_erasedEq (erasedEq_of_eraseNames htyNi) 0] at ht
+    denote_pinEq htyNi 0] at ht
   have hsub : Level.substFn ψ [uN] [Level.param uN] = ψ :=
     funext fun _ => Level.substFn_map_param
   have hN : ∀ d, denote m.cval env ψ d
@@ -506,8 +508,8 @@ theorem nonemptyIntroVal_app₂_memS {env : Env} (m : EnvS V env)
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
     (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
-    (htyNi : cvNi.type.eraseNames
-      = nonemptyIntroA.toConstantVal.type.eraseNames)
+    (htyNi : cvNi.type.erasePw.eraseNames
+      = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames)
     (ψ : Name → Nat) (ρ : Nat → V) {A a : V}
     (hA : A ∈ˢ univ (ψ uN)) (ha : a ∈ˢ A) :
     SetTheory.app (SetTheory.app
@@ -527,8 +529,8 @@ theorem nonemptyRecVal_memS {env : Env} (m : EnvS V env)
       = nonemptyIntroA.toConstantVal.levelParams)
     (hfNr : env.find? nonemptyRecName
       = some (.recInfo cvNr mI rP rulesN))
-    (htyNr : cvNr.type.eraseNames
-      = nonemptyRecA.toConstantVal.type.eraseNames)
+    (htyNr : cvNr.type.erasePw.eraseNames
+      = nonemptyRecA.toConstantVal.type.erasePw.eraseNames)
     (ψ : Name → Nat) (ρ : Nat → V) :
     interp V ρ (m.cval nonemptyRecName ψ)
       ∈ˢ piC (univ (ψ uN) : V) fun A =>
@@ -545,7 +547,7 @@ theorem nonemptyRecVal_memS {env : Env} (m : EnvS V env)
   obtain ⟨t, ht, hlaw⟩ := m.cval_memType hfNr ψ
   rw [show (ConstantInfo.recInfo cvNr mI rP rulesN).toConstantVal = cvNr
       from rfl, denoteClosed,
-    denote_erasedEq (erasedEq_of_eraseNames htyNr) 0] at ht
+    denote_pinEq htyNr 0] at ht
   have hsub : Level.substFn ψ [uN] [Level.param uN] = ψ :=
     funext fun _ => Level.substFn_map_param
   have hN : ∀ d, denote m.cval env ψ d
@@ -596,8 +598,8 @@ theorem nonemptyVal_forcesS {env : Env} (m : EnvS V env)
       = nonemptyIntroA.toConstantVal.levelParams)
     (hfNr : env.find? nonemptyRecName
       = some (.recInfo cvNr mI rP rulesN))
-    (htyNr : cvNr.type.eraseNames
-      = nonemptyRecA.toConstantVal.type.eraseNames)
+    (htyNr : cvNr.type.erasePw.eraseNames
+      = nonemptyRecA.toConstantVal.type.erasePw.eraseNames)
     (ψ : Name → Nat) (ρ : Nat → V) {A h : V} (hA : A ∈ˢ univ (ψ uN))
     (hh : h ∈ˢ SetTheory.app (interp V ρ (m.cval nonemptyName ψ)) A) :
     ∃ x, x ∈ˢ A := by
@@ -628,17 +630,17 @@ theorem dneg_eq_nonemptyS {env : Env} (m : EnvS V env)
     {mI rP : Nat} {rulesN : List RecRule}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
-    (htyN : cvN.type.eraseNames
-      = nonemptyA.toConstantVal.type.eraseNames)
+    (htyN : cvN.type.erasePw.eraseNames
+      = nonemptyA.toConstantVal.type.erasePw.eraseNames)
     (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
     (hlpNi : cvNi.levelParams
       = nonemptyIntroA.toConstantVal.levelParams)
-    (htyNi : cvNi.type.eraseNames
-      = nonemptyIntroA.toConstantVal.type.eraseNames)
+    (htyNi : cvNi.type.erasePw.eraseNames
+      = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames)
     (hfNr : env.find? nonemptyRecName
       = some (.recInfo cvNr mI rP rulesN))
-    (htyNr : cvNr.type.eraseNames
-      = nonemptyRecA.toConstantVal.type.eraseNames)
+    (htyNr : cvNr.type.erasePw.eraseNames
+      = nonemptyRecA.toConstantVal.type.erasePw.eraseNames)
     (ψ : Name → Nat) (ρ : Nat → V) {A : V} (hA : A ∈ˢ univ (ψ uN)) :
     piC (piC A fun _ => (empty : V)) (fun _ => (empty : V))
       = SetTheory.app (interp V ρ (m.cval nonemptyName ψ)) A := by
@@ -697,17 +699,18 @@ theorem choiceKeyS : ChoiceKeyS V := by
     nonempty_shapes hok hn
   have hlpA : cvA.levelParams = choiceA.levelParams :=
     (matchesPin_invT hApin).2
-  have htyA : Expr.ErasedEq cvA.type choiceA.type := by
-    simp only [ConstantVal.matchesPin, Bool.and_eq_true,
-      beq_iff_eq] at hApin
-    exact erasedEq_of_eraseNames hApin.2
+  -- as at `propextKeyS`: the pin hit gives the denotation equality
+  -- directly (task #161 P5).
+  have htyA : ∀ ψ : Name → Nat,
+      denote m.cval env ψ 0 cvA.type = denote m.cval env ψ 0 choiceA.type :=
+    fun _ => denote_matchesPin hApin 0
   have hden : ∀ ψ : Name → Nat,
       denoteClosed m.cval env ψ cvA.type
         = some (.pi (.sort (ψ uN))
           (.pi (.app (m.cval nonemptyName ψ) (.bvar 0))
             (.bvar 1))) := by
     intro ψ
-    rw [denoteClosed, denote_erasedEq htyA 0]
+    rw [denoteClosed, htyA ψ]
     exact denote_choice_typeS hfN hlpN ψ
   refine ⟨fun ψ => .const .choice [ψ uN], fun _ => trivial, ?_,
     fun _ _ => trivial, fun ψ => ?_,
