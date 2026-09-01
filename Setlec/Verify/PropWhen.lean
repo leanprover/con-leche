@@ -178,6 +178,26 @@ theorem holds_eq_of_equiv {p q : PropWhen} (h : equiv p q = true)
     (φ : Name → Nat) : p.holds φ = q.holds φ :=
   (equiv_iff_holds p q).mp h φ
 
+/-- **Parameter locality**: a datum reads its valuation only at its
+own parameters (the `paramsDefined` footprint) — `denoteP`'s
+φ-congruence walk (`denoteP_params_ext`) rides this at every binder.
+(Mirror on the canonical side: `ZPropWhen.holds_congr`, via
+`parameters`.) -/
+theorem holds_ext {ps : List Name} {pw : PropWhen}
+    (hdef : pw.paramsDefined ps = true) {φ₁ φ₂ : Name → Nat}
+    (hφ : ∀ p ∈ ps, φ₁ p = φ₂ p) : pw.holds φ₁ = pw.holds φ₂ := by
+  cases pw with
+  | never => rfl
+  | ifAllZero qs =>
+    simp only [paramsDefined, List.all_eq_true] at hdef
+    show (qs.all fun n => φ₁ n == 0) = qs.all fun n => φ₂ n == 0
+    induction qs with
+    | nil => rfl
+    | cons n rest ih =>
+      simp only [List.all_cons]
+      rw [hφ n (by simpa [List.contains_iff_mem] using hdef n (by simp)),
+        ih fun m hm => hdef m (by simp [hm])]
+
 /-- **The establishment law**: a datum the checker validated against a
 computed codomain sort reads out that sort's zero bit, at every ground
 valuation. -/
