@@ -746,4 +746,411 @@ theorem binder_congrP {m : EnvS2UM V μ env} {fuel : Nat}
     (fun σ hσ => hoB₂ σ (Sat2.head_congr hdom hσ)) (cons x ρ)
     (Sat2_cons V hρ hx)
 
+/-! ## T5 — the stuck configuration, seventeen cases
+
+`AcvalParams2` mentions no reading at all (it is a statement about
+`m.acval` and two valuations), so it is consumed **verbatim**, and so
+is its discharge `acvalParams2`.  Only its consumer moves. -/
+
+/-- The same constant at level-equivalent instantiations has one
+validated reading (`acval_const_congr2`, fuel-free). -/
+theorem acval_const_congrP {m : EnvS2UM V μ env} (hap : AcvalParams2 m)
+    {d : Nat} {n : Name} {us us' : List Level} {aa ba : AVExpr}
+    (hlev : Level.isEquivList us us' = some true)
+    (hda : denoteP m.acval env φ d (.const n us) = some aa)
+    (hdb : denoteP m.acval env φ d (.const n us') = some ba) :
+    aa = ba := by
+  rw [denoteP] at hda hdb
+  cases hf : env.find? n with
+  | none => rw [hf] at hda; exact nomatch hda
+  | some ci =>
+    rw [hf] at hda hdb
+    dsimp only at hda hdb
+    split at hda
+    · split at hdb
+      · rw [← Option.some.inj hda, ← Option.some.inj hdb]
+        refine hap n ci hf _ _ ?_
+        intro p _
+        exact Level.substFn_of_evalEqList _
+          (Level.isEquivList_sound hlev φ) p
+      · exact nomatch hdb
+    · exact nomatch hda
+
+/-- **`DefEqStuckP`** — the seventeen cases, P currency.
+
+`hbs : BinderSortAgree2A` is **gone**.  Its two uses were the
+`obtain rfl : v₁ = v₂` lines in cases 11 and 12; each is replaced by
+the run's own certificate, extracted from the ok-true tail of the
+binder arm at `hμ : μ.verified = true` and turned into an equation by
+`pwBit_eq_of_equiv`.  Nothing else in the block changes shape. -/
+theorem defeqStuck_claimP {m : EnvS2UM V μ env} {fuel : Nat}
+    (hμ : μ.verified = true)
+    (ihd : DefEqClaims2P μ m φ fuel) (hsi : StuckIrrelPQ m φ fuel)
+    (hstr : DenotePStrLit m φ) (hap : AcvalParams2 m)
+    (happ : AppCongrStuckP m φ fuel) (heta : EtaCertStepP m φ fuel) :
+    DefEqStuckP m φ fuel := by
+  intro d Δa _k a b a' b' h hab hwca hwcb hab' hir hna hnb hha hhb
+    hwa hba hLa hwb hbb hLb aa' ba' hCa hCb hda hdb hokA hokB ρ hρ
+  simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
+    Setlec.proofIrrel_fold, Setlec.reduceNat_fold,
+    Setlec.defeqSpine_fold, Setlec.stuckIrrel_fold, Setlec.defeq_def,
+    Setlec.defEqList_fold, Setlec.etaCert_fold] at h
+  rw [if_neg (by simpa using hab), hwca] at h
+  dsimp only at h
+  rw [hwcb] at h
+  dsimp only at h
+  rw [if_neg (by simpa using hab'), hir] at h
+  dsimp only at h
+  rw [hna] at h
+  dsimp only at h
+  rw [hnb] at h
+  dsimp only at h
+  rw [hha, hhb] at h
+  simp only [Bool.false_eq_true, if_false] at h
+  have hfall : Setlec.stuckIrrelP μ env fuel d a' b' = .ok true →
+      interp2 V ρ aa' = interp2 V ρ ba' := fun hs =>
+    hsi hs hwa hba hLa hwb hbb hLb hCa hCb hda hdb hokA hokB ρ hρ
+  clear hab hwca hwcb hab' hir hna hnb hha hhb hsi
+  split at h
+  -- 1: sort/sort
+  · rename_i u v
+    rw [denoteP_sort] at hda hdb
+    obtain rfl : aa' = AVExpr.sort (u.eval φ) :=
+      (Option.some.inj hda).symm
+    obtain rfl : ba' = AVExpr.sort (v.eval φ) :=
+      (Option.some.inj hdb).symm
+    cases hle : Level.isEquiv u v with
+    | none => rw [hle] at h; exact nomatch h
+    | some r =>
+      rw [hle] at h
+      dsimp only [Setlec.liftFueled] at h
+      cases r with
+      | false => exact nomatch h
+      | true => rw [Level.isEquiv_sound hle φ]
+  -- 2: lit/lit
+  · rename_i l₁ l₂
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl : l₁ = l₂ := eq_of_beq h
+    obtain rfl : aa' = ba' := by
+      rw [hda] at hdb; exact Option.some.inj hdb
+    rfl
+  -- 3: `lit 0` against `Nat.zero`
+  · rename_i n c us
+    split at h
+    · next hcond =>
+      obtain ⟨rfl, rfl⟩ := hcond
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      obtain rfl : n = 0 := by simpa using h.symm
+      obtain ⟨hg, rfl⟩ := denoteP_natLit_inv hda
+      rw [denoteP_natZeroConst hg] at hdb
+      obtain rfl : ba' = m.acval Setlec.natZeroName
+        (Level.substFn φ [] []) := (Option.some.inj hdb).symm
+      rfl
+    · exact hfall h
+  -- 4: `Nat.zero` against `lit 0`
+  · rename_i c us n
+    split at h
+    · next hcond =>
+      obtain ⟨rfl, rfl⟩ := hcond
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      obtain rfl : n = 0 := by simpa using h.symm
+      obtain ⟨hg, rfl⟩ := denoteP_natLit_inv hdb
+      rw [denoteP_natZeroConst hg] at hda
+      obtain rfl : aa' = m.acval Setlec.natZeroName
+        (Level.substFn φ [] []) := (Option.some.inj hda).symm
+      rfl
+    · exact hfall h
+  -- 5: `lit (k+1)` against a `Nat.succ` application
+  · split at h
+    · split at h
+      · next hc =>
+        subst hc
+        obtain ⟨hg, rfl⟩ := denoteP_natLit_inv hda
+        obtain ⟨fa, xa, hfa, hxa, rfl⟩ := denoteP_app_inv hdb
+        rw [denoteP_natSuccConst hg] at hfa
+        obtain rfl : fa = m.acval Setlec.natSuccName
+          (Level.substFn φ [] []) := (Option.some.inj hfa).symm
+        obtain ⟨hwx, hbx, hLx, hCx⟩ := dq_frame_appArgP hwb hbb hLb hCb
+        refine deqStep2_appCong rfl
+          (ihd h (Expr.WScoped.of_not_hasFvar rfl) rfl
+            (Expr.LeavesBounded.of_not_hasFvar rfl) hwx hbx hLx
+            (CtxOkP.of_fvarLeaves_nil hCa.length
+              (by simp [Expr.fvarLeaves]))
+            hCx (denoteP_natLit hg) hxa (fun σ hσ => ?_)
+            (fun σ hσ => ?_) ρ hρ)
+        · have hA1 := (hokA σ hσ).1
+          have hA2 := (hokA σ hσ).2
+          simp only [natLitT2, AnnotOk2_app] at hA1
+          simp only [natLitT2, AnnotValidV_app] at hA2
+          exact ⟨hA1.2.1, hA2.2⟩
+        · have hB1 := (hokB σ hσ).1
+          have hB2 := (hokB σ hσ).2
+          rw [AnnotOk2_app] at hB1
+          rw [AnnotValidV_app] at hB2
+          exact ⟨hB1.2.1, hB2.2⟩
+      · exact hfall h
+    · exact hfall h
+  -- 6: a `Nat.succ` application against `lit (k+1)`
+  · split at h
+    · split at h
+      · next hc =>
+        subst hc
+        obtain ⟨hg, rfl⟩ := denoteP_natLit_inv hdb
+        obtain ⟨fa, xa, hfa, hxa, rfl⟩ := denoteP_app_inv hda
+        rw [denoteP_natSuccConst hg] at hfa
+        obtain rfl : fa = m.acval Setlec.natSuccName
+          (Level.substFn φ [] []) := (Option.some.inj hfa).symm
+        obtain ⟨hwx, hbx, hLx, hCx⟩ := dq_frame_appArgP hwa hba hLa hCa
+        refine deqStep2_appCong rfl
+          (ihd h hwx hbx hLx (Expr.WScoped.of_not_hasFvar rfl) rfl
+            (Expr.LeavesBounded.of_not_hasFvar rfl) hCx
+            (CtxOkP.of_fvarLeaves_nil hCb.length
+              (by simp [Expr.fvarLeaves]))
+            hxa (denoteP_natLit hg) (fun σ hσ => ?_)
+            (fun σ hσ => ?_) ρ hρ)
+        · have hA1 := (hokA σ hσ).1
+          have hA2 := (hokA σ hσ).2
+          rw [AnnotOk2_app] at hA1
+          rw [AnnotValidV_app] at hA2
+          exact ⟨hA1.2.1, hA2.2⟩
+        · have hB1 := (hokB σ hσ).1
+          have hB2 := (hokB σ hσ).2
+          simp only [natLitT2, AnnotOk2_app] at hB1
+          simp only [natLitT2, AnnotValidV_app] at hB2
+          exact ⟨hB1.2.1, hB2.2⟩
+      · exact hfall h
+    · exact hfall h
+  -- 7: a string literal against a `String.ofList` application
+  · rename_i st cO usO x
+    split at h
+    · next hcond =>
+      obtain ⟨rfl, rfl, hg⟩ := hcond
+      obtain ⟨hdc, hwc, hbc, hLc, hnil⟩ := hstr d st hg hda
+      exact ihd h hwc hbc hLc hwb hbb hLb
+        (CtxOkP.of_fvarLeaves_nil hCa.length hnil) hCb hdc hdb
+        hokA hokB ρ hρ
+    · exact hfall h
+  -- 8: a `String.ofList` application against a string literal
+  · rename_i cO usO x st
+    split at h
+    · next hcond =>
+      obtain ⟨rfl, rfl, hg⟩ := hcond
+      obtain ⟨hdc, hwc, hbc, hLc, hnil⟩ := hstr d st hg hdb
+      exact ihd h hwa hba hLa hwc hbc hLc hCa
+        (CtxOkP.of_fvarLeaves_nil hCb.length hnil) hda hdc hokA
+        hokB ρ hρ
+    · exact hfall h
+  -- 9: the same de Bruijn level
+  · rename_i i n₁ t₁ j n₂ t₂
+    split at h
+    · next hij =>
+      obtain rfl : i = j := eq_of_beq hij
+      rw [denoteP_fvar] at hda hdb
+      obtain rfl : aa' = AVExpr.bvar (d - 1 - i) :=
+        (Option.some.inj hda).symm
+      obtain rfl : ba' = AVExpr.bvar (d - 1 - i) :=
+        (Option.some.inj hdb).symm
+      rfl
+    · exact hfall h
+  -- 10: the same constant at level-equivalent instantiations
+  · rename_i n us n' us'
+    split at h
+    · next hnn =>
+      subst hnn
+      cases hle : Level.isEquivList us us' with
+      | none => rw [hle] at h; exact nomatch h
+      | some r =>
+        rw [hle] at h
+        dsimp only [Setlec.liftFueled] at h
+        cases r with
+        | false => exact hfall h
+        | true =>
+          obtain rfl : aa' = ba' := acval_const_congrP hap hle hda hdb
+          rfl
+    · exact hfall h
+  -- 11: ∀-congruence
+  · rename_i n₁ ty₁ bd₁ mb₁ n₂ ty₂ bd₂ mb₂
+    cases hdt : isDefEqCore μ env fuel d ty₁ ty₂ with
+    | error err => rw [hdt] at h; exact nomatch h
+    | ok r =>
+    rw [hdt] at h
+    cases r with
+    | false => exact nomatch h
+    | true =>
+      dsimp only at h
+      simp only [Expr.WScoped] at hwa hwb
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hba hbb
+      obtain ⟨ta₁, ba₁, hta₁, hva₁, rfl⟩ := denoteP_forallE_inv hda
+      obtain ⟨ta₂, ba₂, hta₂, hva₂, rfl⟩ := denoteP_forallE_inv hdb
+      have hbd : isDefEqCore μ env fuel (d + 1)
+          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+        revert h
+        cases hbd0 : isDefEqCore μ env fuel (d + 1)
+            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true => rfl
+      -- THE KEY DELTA: the run's own certificate, in place of `hbs.1`
+      have hq : PropWhen.equiv mb₁.pw mb₂.pw = true := by
+        by_cases hq0 : PropWhen.equiv mb₁.pw mb₂.pw = true
+        · exact hq0
+        · exfalso
+          have hq1 : PropWhen.equiv mb₁.pw mb₂.pw = false := by
+            simpa using hq0
+          rw [hbd] at h
+          dsimp only at h
+          rw [hμ, hq1] at h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw :=
+        pwBit_eq_of_equiv hq φ
+      obtain ⟨hoT₁, hoB₁⟩ := hoistP_pi hokA
+      obtain ⟨hoT₂, hoB₂⟩ := hoistP_pi hokB
+      obtain ⟨hDA, hDB⟩ := binder_congrP ihd hdt hbd
+        hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
+        hCa.forallE_ty
+        hwa.2 hba.2 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
+        hCa.forallE_body
+        hwb.1 hbb.1 (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
+        hCb.forallE_ty
+        hwb.2 hbb.2 (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
+        hCb.forallE_body
+        hta₁ hva₁ hta₂ hva₂ hoT₁ hoT₂ hoB₁ hoB₂ ρ hρ
+      rw [hpw]
+      exact deqStep2_piCong hDA hDB
+  -- 12: λ-congruence
+  · rename_i n₁ ty₁ bd₁ mb₁ n₂ ty₂ bd₂ mb₂
+    cases hdt : isDefEqCore μ env fuel d ty₁ ty₂ with
+    | error err => rw [hdt] at h; exact nomatch h
+    | ok r =>
+    rw [hdt] at h
+    cases r with
+    | false => exact nomatch h
+    | true =>
+      dsimp only at h
+      simp only [Expr.WScoped] at hwa hwb
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hba hbb
+      obtain ⟨ta₁, ba₁, hta₁, hva₁, rfl⟩ := denoteP_lam_inv hda
+      obtain ⟨ta₂, ba₂, hta₂, hva₂, rfl⟩ := denoteP_lam_inv hdb
+      have hbd : isDefEqCore μ env fuel (d + 1)
+          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+        revert h
+        cases hbd0 : isDefEqCore μ env fuel (d + 1)
+            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+        | error err => intro h; exact nomatch h
+        | ok rb =>
+          intro h
+          dsimp only at h
+          cases rb with
+          | false => simp [pure, Except.pure] at h
+          | true => rfl
+      -- THE KEY DELTA: the run's own certificate, in place of `hbs.2`
+      have hq : PropWhen.equiv mb₁.pw mb₂.pw = true := by
+        by_cases hq0 : PropWhen.equiv mb₁.pw mb₂.pw = true
+        · exact hq0
+        · exfalso
+          have hq1 : PropWhen.equiv mb₁.pw mb₂.pw = false := by
+            simpa using hq0
+          rw [hbd] at h
+          dsimp only at h
+          rw [hμ, hq1] at h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw :=
+        pwBit_eq_of_equiv hq φ
+      obtain ⟨hoT₁, hoB₁⟩ := hoistP_lam hokA
+      obtain ⟨hoT₂, hoB₂⟩ := hoistP_lam hokB
+      obtain ⟨hDA, hDB⟩ := binder_congrP ihd hdt hbd
+        hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
+        hCa.lam_ty
+        hwa.2 hba.2 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
+        hCa.lam_body
+        hwb.1 hbb.1 (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
+        hCb.lam_ty
+        hwb.2 hbb.2 (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
+        hCb.lam_body
+        hta₁ hva₁ hta₂ hva₂ hoT₁ hoT₂ hoB₁ hoB₂ ρ hρ
+      rw [hpw]
+      exact deqStep2_lamCong hDA hDB
+  -- 13: the stuck spine congruence
+  · rename_i f₁ a₁ f₂ a₂
+    split at h
+    · next hlen =>
+      cases hhd : isDefEqCore μ env fuel d (Expr.app f₁ a₁).getAppFn
+          (Expr.app f₂ a₂).getAppFn with
+      | error err => rw [hhd] at h; exact nomatch h
+      | ok r =>
+      rw [hhd] at h
+      dsimp only at h
+      cases r with
+      | false => exact hfall h
+      | true =>
+        cases hls : Setlec.defEqListP μ env fuel d
+            (Expr.app f₁ a₁).getAppArgs (Expr.app f₂ a₂).getAppArgs with
+        | error err => rw [hls] at h; exact nomatch h
+        | ok r' =>
+        rw [hls] at h
+        dsimp only at h
+        cases r' with
+        | false => exact hfall h
+        | true =>
+          exact happ hhd hls hlen hwa hba hLa hwb hbb hLb hCa hCb
+            hda hdb hokA hokB ρ hρ
+    · exact hfall h
+  -- 14: the stuck projection congruence
+  · rename_i s₁ i₁ e₁ s₂ i₂ e₂
+    split at h
+    · next hii =>
+      obtain rfl : i₁ = i₂ := eq_of_beq hii
+      cases hde : isDefEqCore μ env fuel d e₁ e₂ with
+      | error err => rw [hde] at h; exact nomatch h
+      | ok r =>
+      rw [hde] at h
+      dsimp only at h
+      cases r with
+      | false => exact hfall h
+      | true =>
+        obtain ⟨ia₁, he₁, -, rfl⟩ := denoteP_proj_inv hda
+        obtain ⟨ia₂, he₂, -, rfl⟩ := denoteP_proj_inv hdb
+        simp only [Expr.WScoped] at hwa hwb
+        simp only [Expr.looseBVarsBounded] at hba hbb
+        exact deqStep2_projCong (ihd hde hwa hba
+          (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
+          hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
+          hCa.proj_arg hCb.proj_arg
+          he₁ he₂ (hoistP_proj hokA) (hoistP_proj hokB) ρ hρ)
+    · exact hfall h
+  -- 15: one-sided λ on the left
+  · rename_i n₁ ty₁ bd₁ mb₁ hnl
+    cases he : Setlec.etaCertP μ env fuel d n₁ ty₁ bd₁ mb₁ b' with
+    | error err => rw [he] at h; exact nomatch h
+    | ok r =>
+    rw [he] at h
+    dsimp only at h
+    cases r with
+    | true =>
+      exact heta he hwa hba hLa hwb hbb hLb hCa hCb hda hdb hokA
+        hokB ρ hρ
+    | false => exact hfall h
+  -- 16: one-sided λ on the right
+  · rename_i n₂ ty₂ bd₂ mb₂ hnl
+    cases he : Setlec.etaCertP μ env fuel d n₂ ty₂ bd₂ mb₂ a' with
+    | error err => rw [he] at h; exact nomatch h
+    | ok r =>
+    rw [he] at h
+    dsimp only at h
+    cases r with
+    | true =>
+      exact (heta he hwb hbb hLb hwa hba hLa hCb hCa hdb hda hokB
+        hokA ρ hρ).symm
+    | false => exact hfall h
+  -- 17: distinct stuck heads
+  · exact hfall h
+
 end Setlec.SetR.Interp2
