@@ -442,7 +442,7 @@ theorem reducePinR_of {V : Type w} [SetTheory V] {env env' : Env}
   have hEty : reduceElemTy c = .const (reduceElemName c) [] := by
     unfold reduceElemTy reduceElemName
     split <;> rfl
-  refine ⟨hstored, helem, hpg, valA, pinA, hva, hpa, fun φ => ?_⟩
+  refine ⟨hstored, helem, hpg, valA, pinA, hva, hpa, hp2, fun φ => ?_⟩
   -- the element type denotes to the pinned valuation, at any depth
   have hE : ∀ d, denote m.cval env φ d (reduceElemTy c)
       = some (m.cval (reduceElemName c) φ) := by

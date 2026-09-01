@@ -246,6 +246,14 @@ def ReducePinR (μ : CheckMode) (F : Nat) (env env₂ : Env)
     -- leaves the derivation layer alone"), the install destructured
     -- it and never used it, and the pin's own denotation has no
     -- supplier.  Consumer's vote, as with the `ErasedEq` granularity.
+    --
+    -- task #161 P4 H1: the *identity certificate*'s run, on the other
+    -- hand, **is** recorded — it was absorbed into the `DefEq`
+    -- conjunct below, which is the exact gap H1 closes elsewhere.
+    -- Literal form (`Setlec/Kernel/Checker.lean:689`): `isDefEq` at
+    -- depth `1`, applied side first, the certificate variable second.
+    isDefEqCore μ env F 1 (.app valA (reduceCertVar c))
+      (reduceCertVar c) = .ok true ∧
     (∀ φ : Name → Nat, ∃ E V,
       denoteClosed cval env φ (reduceElemTy c) = some E ∧
       denoteClosed cval env φ valA = some V ∧
