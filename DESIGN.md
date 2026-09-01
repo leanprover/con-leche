@@ -12797,3 +12797,16 @@ New: `Step2/StrLitP.lean`, `Step2/ProjPinsP.lean`,
 Extended: `Step2/ReadsP.lean` (the two reads rows; `ReadsInputsP` and
 the two `_succ` assemblies).
 Shrunk: `Step2/TiersP.lean`, `Interp2/CapstoneP.lean` (the census).
+
+## Task #161 DE-GATING: a NEGATIVE verdict, ratified (2026-09-01)
+
+The proj/str tier's sought-and-failed refutation is a de-gating
+verdict with a proof: **`projCert`'s per-hit infer run is NOT a
+harvest candidate.**  The hoped-for rigidity shortcut ("a member of a
+sigma set is a well-typed pair, so the certificate re-inference is
+redundant") is refuted by the squash regime itself: at
+`Nat.max u v = 0` the `psigmaMkV2` tower collapses to `pt`, and an
+ill-typed constructor spine inhabits the sigma set exactly as a
+well-typed one does — the model cannot distinguish them, so the
+runtime certificate is load-bearing.  Recorded here so the harvest
+phase never re-litigates it.
