@@ -169,6 +169,17 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   literal tier's supplier; established at the operations' own installs
   from the recorded runs — `Interp2/NatEqsP.lean`) -/
   nat_ops : ∀ φ : Name → Nat, NatOpsP base2 φ
+  /-- the pin-certified WF operations' guarded clauses at every
+  assignment (the literal tier's other supplier; established at the
+  operations' own installs from the recorded certificate runs —
+  `Interp2/DivModCertP.lean`) -/
+  div_mod : ∀ φ : Name → Nat, DivModP base2 φ
+  /-- the pinned `Eq` spine's value and grading (an *environment law*,
+  as `EnvS.eq_lawV` is: the `Eq` leaf is fixed by the basis install and
+  by nothing else, so the supplier is the P basis install —
+  `BasisStepPB`, routed.  Consumed by the WF operations' certificate
+  frame) -/
+  eq_lawP : EqLawP base2
 
 namespace EnvS2PM
 
@@ -239,6 +250,12 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
     exact nomatch hg
   nat_ops := fun φ c _ cv v hint hf => by
     rw [show Env.empty.find? c = none from rfl] at hf
+    exact nomatch hf
+  div_mod := fun φ c _ cv v hint hf => by
+    rw [show Env.empty.find? c = none from rfl] at hf
+    exact nomatch hf
+  eq_lawP := fun hf => by
+    rw [show Env.empty.find? eqName = none from rfl] at hf
     exact nomatch hf
 
 end Setlec.SetR.Interp2

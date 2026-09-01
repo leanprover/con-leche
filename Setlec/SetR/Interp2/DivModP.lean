@@ -250,4 +250,21 @@ theorem eqLawP_cons_fresh {m : EnvS2Core V env}
   rw [hmove]
   exact hprev hfE ψ
 
+/-- **`EqLawP` at a value-kind cons.**  No freshness side condition is
+needed: `Eq`'s pin is an `indInfo`, so a `defn`/`thm`/`axiom`/`opaque`
+cons named `Eq` makes the law's own premise false. -/
+theorem eqLawP_cons_valueKind {m : EnvS2Core V env}
+    (hprev : EqLawP m)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hnotind : ∀ cv caps, c₀ ≠ .indInfo cv caps)
+    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith m.acval c₀.name A) :
+    EqLawP m₂ := by
+  by_cases hn : eqName = c₀.name
+  · intro hfind ψ
+    exfalso
+    rw [Setlec.Env.find?_cons, if_pos hn.symm] at hfind
+    exact hnotind _ _ (Option.some.inj hfind)
+  · exact eqLawP_cons_fresh hprev hn m₂ hac
+
 end Setlec.SetR.Interp2
