@@ -74,6 +74,75 @@ theorem denoteP_sortQ {acval : Name → (Name → Nat) → AVExpr} {d : Nat}
     denoteP acval env φ d (.sort u) = some (.sort (u.eval φ)) := by
   rw [denoteP]
 
+/-- **The leaf-validity residue** (the P tier's one new routed
+obligation): every stored leaf of the annotated valuation is
+bit-valid.  The `AnnotOk2` half is already an `EnvS2U` field
+(`acval_ok2`); this is its `AnnotValidV` companion, to be discharged
+at the install tier — a stored type's annotations went through the
+checker's own front door, which is establishment — and folded into the
+environment structure there (with the owed `EnvWF` records, if the
+seal's invariants state them naturally). -/
+def AcvalValidP {env : Env} (m : EnvS2UM V μ env) : Prop :=
+  ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
+    AnnotValidV V ρ (m.acval n ψ)
+
+/-- **The `const` clause's residue, P currency** (`ConstType2C`
+transposed: no fuel, `AnnotOkP` conclusion). -/
+def ConstTypeP {env : Env} (m : EnvS2UM V μ env)
+    (φ : Name → Nat) : Prop :=
+  ∀ (d : Nat) (n : Name) (ci : Setlec.ConstantInfo) (us : List Level),
+    env.find? n = some ci →
+    us.length = ci.toConstantVal.levelParams.length →
+    ∃ ta,
+      denoteP m.acval env φ d
+        (ci.toConstantVal.type.instantiateLevelParams
+          ci.toConstantVal.levelParams us) = some ta ∧
+      (∀ ρ : Nat → V, AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V,
+        interp2 V ρ (m.acval n
+            (Level.substFn φ ci.toConstantVal.levelParams us))
+          ∈ˢ interp2 V ρ ta
+
+/-- `.const`, P currency: the residue answers with the type's row; the
+subject's grading is the two leaf facts (`acval_ok2` + the routed
+`AcvalValidP`). -/
+theorem infer_const_claimP (m : EnvS2UM V μ env)
+    (hct : ConstTypeP m φ) (hval : AcvalValidP m)
+    {d : Nat} {n : Name} {us : List Level} {t : Expr}
+    {Δa : List AVExpr} {ea ta : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.const n us) = .ok t)
+    (hea : denoteP m.acval env φ d (.const n us) = some ea)
+    (hta : denoteP m.acval env φ d t = some ta) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [Setlec.inferBody, Setlec.viewM, Expr.view, pure,
+    Except.pure, Bind.bind, Except.bind] at h
+  cases hf : env.find? n with
+  | none =>
+    rw [hf] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
+  | some ci =>
+    rw [hf] at h
+    dsimp only at h
+    split at h
+    · next hlen =>
+      simp only [Except.ok.injEq] at h
+      subst h
+      rw [denoteP, hf] at hea
+      dsimp only at hea
+      rw [if_pos hlen] at hea
+      obtain rfl : ea = m.acval n
+          (Level.substFn φ ci.toConstantVal.levelParams us) :=
+        (Option.some.inj hea).symm
+      obtain ⟨ta', hta', hok, hmem⟩ := hct d n ci us hf hlen
+      rw [hta'] at hta
+      obtain rfl : ta = ta' := (Option.some.inj hta).symm
+      exact ⟨fun ρ _ => ⟨m.acval_ok2 n _ ρ, hval n _ ρ⟩,
+        fun ρ _ => hok ρ, fun ρ _ => hmem ρ⟩
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+
 /-- `.sort`, P currency: both readings are sort nodes, gradings are
 vacuous, the row is `sound_sort`. -/
 theorem infer_sort_claimP (m : EnvS2UM V μ env) {d : Nat} {u : Level}
