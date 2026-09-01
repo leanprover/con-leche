@@ -12242,3 +12242,351 @@ fuel monotonicity (`Mono`) and depth-shift (`Deep`) treatment that
 
 Deliberately untouched: `Verify/*`, `SetR/*`, every validation site's
 logic, `eraseNames`/`ErasedEq`, every reduction path.
+
+## The cached-clone performance pilot (2026-09-01)
+
+A **checker clone** built to answer one architectural question: if the
+two-tier interned arena does not survive, is *"a plain inductive `Expr`
+with computed per-node fields plus `HashMap` memos"* — the official
+kernel's and lean4lean's shape — a viable replacement?  The pilot is a
+measurement instrument in the tradition of the NbE and sortSpec spikes:
+a parked branch (`agent/cached-clone`), unverified, wired into the
+build behind a flag, with honest numbers.  **The existing checker is
+untouched**: the pilot lives entirely in `Setlec/Cached/*`, plus the
+`--core=` selector in `Main.lean` and three harnesses under `tests/`.
+
+**Headline: the answer is yes, with two named prices.**  Under the
+driver that matches production, the clone is faster than the shipped
+checker on every real workload measured — `init-prelude` −14 %
+instructions, `init-full` −5 %, `app-lam` −21 % / −61 % wall,
+`beta-ladder` −39 %, `let-ladder` −50 % — at equal or lower peak RSS.
+But it is asymptotically *worse* on three of the ten scale shapes
+(`spine`, `telescope`, `fanout` go from exponent ~1.05 to ~1.45), and
+getting it to work at all required re-supplying, by hand, two services
+the cons table was providing silently.
+
+### The representation
+
+`Setlec/Cached/ExprC.lean`.  `ExprC` is `Setlec.Expr` with four derived
+fields on **every** constructor, computed once by smart constructors:
+
+| field | meaning | arena counterpart |
+|---|---|---|
+| `h` (`UInt64`) | node hash | — (the arena hashes the *index*) |
+| `bb` (`Nat`) | loose-bvar bound | `EStore.bvarBs` (task #87) |
+| `fb` (`Nat`) | fvar range | `EStore.fvarBs` |
+| `lp` (`Bool`) | has-level-param | `EStore.eparamBs` |
+
+The three scope/level recurrences are *literally* the arena's
+(`ENode.bvarBoundOf`, `ENode.fvarRangeOf`, `ENode.hasLParamOf`), so the
+two checkers take the same cutoffs at the same sites; only the
+mechanism differs — a field of the node versus a parallel array indexed
+by the node's arena position.  The level hash is the existing
+depth-bounded `Level.hashB 4` (as in `Setlec.Expr`'s own hash), which
+keeps `mkSort`/`mkConst` `O(1)` in the level's size.
+
+Equality is the official kernel's `is_equal` plus one addition:
+pointer identity, then the cached hashes, then a **budgeted**
+allocation-free structural descent, and past the budget a restart
+under a memo keyed on the pair of addresses (`ExprC.beqFast`, an
+`unsafe` `implemented_by` over a structural spec).  `Hashable ExprC` is
+a field read.  Together these are what make `Std.HashMap ExprC α` a
+viable memo key with no hash-consing table — the pilot's central
+claim.  Sharing is Lean's own: every operation returns unchanged
+subterms *by reference* (each cutoff returns the node itself), so the
+pointer test decides the overwhelmingly common comparison in `O(1)`.
+
+### What was cloned, what was reused
+
+The core is **not** τ-generic (the 2026-08-22 seam decision rejected
+that: it would restructure the match compilation every proof recipe
+reduces through), so the clone is a *third twin* beside `Core.lean`
+(the specification) and `CoreI.lean` (the executable interned core).
+It was cloned from `CoreI.lean`, not from `Core.lean`, deliberately:
+`CoreI` is what the binary runs, and it carries the algorithmic work
+the specification does not (the task-#106 step-budget loops, the
+task-#72 binder-telescope loops, the task-#50 bulk spine/telescope
+instantiation, the task-#145 `instC` memo).  A clone of the
+specification would have lost to the arena for reasons that have
+nothing to do with representation.
+
+| module | lines | what it is |
+|---|---|---|
+| `Setlec/Cached/ExprC.lean` | 467 | the representation, its equality/hash, and the `Expr` boundary |
+| `Setlec/Cached/ExprOpsC.lean` | 564 | the `IExpr` operations over `ExprC` (memoized DAG walks, same cutoffs) |
+| `Setlec/Cached/StateC.lean` | 578 | `CState` (= `IState` minus the arena) and the operation wrappers |
+| `Setlec/Cached/CoreC.lean` | 1748 | the core: a clause-by-clause twin of `CoreI.lean` |
+| `Setlec/Cached/CheckerC.lean` | 321 | `sharedOpsC` + the `CheckIM`-pinned layer of `CheckerS.lean` |
+| `Setlec/Cached/ParsedC.lean` | 396 | the clone's own parsed-declaration driver (counterpart of `checkDeclsSP`) |
+| `Setlec/Cached/Driver.lean` | 75 | the declaration folds behind one signature |
+
+Everything **above** `CheckerOps` is reused verbatim — the declaration
+checker, the modeled-inductive installs, every `FEnv` guard, the
+environment, the parser, the basis pins.  The pilot replaces the core
+and its driver, and nothing else.
+
+The clone is deliberately *literal*.  `CoreC.lean` was produced from
+`CoreI.lean` by a type-level rename (`EIdx → ExprC`, `NIdx → Name`,
+`LIdx → Level`, `IBinderMeta → BinderMeta`, `CheckIM → CheckCM`,
+`IState → CState`) plus three edits; every store read survives as a
+call on a **vestigial `CStore`** (a unit whose "methods" are the
+`ExprC` operations), every interning wrapper as a smart constructor,
+and the name/level interning as identities, so the two cores diff
+cleanly against each other.  That literalness is what makes a
+verdict-parity claim auditable rather than hopeful.  Drift risk is
+low but real: the clone will not follow future `CoreI` changes, and
+nothing enforces that it does.
+
+**Deliberate deviations**, all recorded in the source:
+
+1. `ExprC.abstract1` takes the cached-fvar-range cutoff that
+   `abstract1IGo` does not have.  The arena does not need it — its
+   rebuild re-interns to the *same index* — but the clone's rebuild
+   allocates, so returning the node itself is how the computed-field
+   representation recovers the arena's idempotence.
+2. The binder-telescope loops' peel fuel is a constant rather than the
+   arena's node count (the fuel is semantically transparent: on
+   exhaustion the leaf phase hands the residual chain back to the
+   knot).
+3. `ofExpr` converts under a pointer-address memo (below).
+4. Structural equality memoizes past a node budget (below).
+5. The task-#64 tier-two snapshot bracket is **not** cloned: it forks
+   and truncates a node table, and a representation without one has no
+   counterpart.  `--core=cached-parsed` mirrors `checkDeclSPPlain`, the
+   unbracketed path.  Its job — bounding per-declaration retention — is
+   done here by ordinary collection of unreferenced intermediates, and
+   the measured RSS says that is enough (`init-full` +4 %,
+   `let-ladder` −43 %).
+
+### The two services the cons table was providing silently
+
+Both were discovered by fixtures, not by reasoning, and both are the
+pilot's substantive findings.
+
+**1. Sharing preservation at every boundary.**  `EStore.internExpr` is
+a plain tree walk, but hash-consing *recovers* full sharing: a
+DAG-shaped `Expr` arriving as a tree is re-collapsed node by node.  The
+clone has no cons table, so a naive `ofExpr` turns a shared DAG into a
+tree — and that is not a constant factor: with the tree-walking
+`ofExpr` the e2e `dag_tower` fixture (a 2^28-node doubling tower) does
+not terminate.  The fix is a pointer-address memo, which preserves the
+input's sharing exactly and is what the official kernel does at the
+same kind of seam.  For the computed-field architecture, **sharing
+preservation is a correctness-of-performance obligation, not an
+optimization**; the arena gets it for free.
+
+**2. Identification of structurally equal terms *however they
+arose*.**  The arena never compares two distinct-but-equal DAGs — they
+are one index.  The clone does exactly that whenever a reduction
+rebuilds a term the arena would have collapsed, and the naive descent
+is `O(tree)`, not `O(DAG)`: `good/perf/app-lam` (24 k arena nodes,
+~10^1160 unshared tree) was unreachable.  Memoizing the descent on the
+pair of addresses restores `O(DAG)` — but paying for a memo table on
+*every* comparison cost +33 % instructions on `init-prelude` and
++41 % on `shared-subterm`.  The shipped shape is therefore a 4096-node
+allocation-free descent with the memo as the fallback, which is
+allocation-free for essentially every comparison the checker makes and
+`O(DAG)` for the ones that matter.
+
+### The memo key discipline
+
+Memo keys are `ExprC` values: `O(1)` hashing off the cached field,
+pointer-first equality.  Every one of `IState`'s caches has a
+counterpart in `CState` with the same lifetime and the same
+detach-before-update linearity discipline: the five entry-point memos,
+the level-instantiated stored-constant caches (`constTyAt`,
+`constValAt`, `ruleRhsAt`), the converted-constant cache `ienv`
+(self-certified by `Expr` pointer tags, exactly as `IConstE` is), the
+level-operation memos, and the persistent bulk-instantiation memo
+`instC`.  A lightweight hash-cons table was **not** added: it is the
+arena's central data structure, and reintroducing it would be
+answering a different question.
+
+The one place structural hashing survives is the `Level`- and
+`Name`-keyed caches (`lsimpC`, `lnzC`, `eqvC`, `constTyAt`,
+`constValAt`, `ruleRhsAt`).  The interned checker keys those on `LIdx`
+and `NIdx`, i.e. `O(1)`; the clone keys them on trees.  This is the
+clone's one structural regression against task #62 (interned levels)
+and task #88 (interned names), and the first thing a
+production-ization should fix — by giving `Level` and `Name` cached
+hashes, exactly as `Expr` got them here.
+
+### The four configurations
+
+`--core=` selects the declaration fold; all four run the *same*
+declaration checker, `FEnv` index, flush discipline and basis pins.
+
+| variant | driver | core |
+|---|---|---|
+| `production` (default) | `checkDeclsSP` — parsed indices, tier-two bracket | interned |
+| `interned-shared` | `checkDeclsShared` — `Expr`-typed shared state | interned |
+| `cached` | `checkDeclsShared`'s clone | cached |
+| `cached-parsed` | `checkDeclsSPCached` — converted once, guards as memoized `ExprC` walks | cached |
+
+`interned-shared` vs `cached` isolates the **core** (same driver, same
+input objects).  `production` vs `cached-parsed` compares the shipped
+architecture against the pilot's — the one that answers the question.
+Note that the `Expr`-typed driver is a poor environment for either
+core: its per-declaration guards (`Expr.constsResolveF`,
+`looseBVarsBounded`) are tree walks, so neither `interned-shared` nor
+`cached` can check `app-lam` at all.
+
+### Verdict parity
+
+`tests/pilot-parity.sh` runs every fixture of the arena tutorial
+suite, the e2e suite and the annot suite through all four variants and
+compares exit codes **and** the decision-relevant stdout line.
+
+* `--set-model`: **223 fixtures, 0 divergences** — all four variants
+  agree everywhere, the clone included.
+* `--no-model`: **223 fixtures, 0 parity failures**, and exactly one
+  `production`-vs-clone divergence, `e2e/yolo_decline_vs_accept.ndjson`
+  (exit 1 vs 2).  That is the expected one: `--no-model` production
+  runs the `CheckerNC` front door (`checkDeclsSPNM`), which the pilot
+  did not clone; both clone variants agree with the interned core
+  under the front door they do share.
+
+### Measured
+
+Method: retired instructions (`perf stat -e instructions:u`, median of
+3), wall seconds (median of 3), process-tree peak RSS
+(`RUSAGE_CHILDREN` `ru_maxrss`, max of 3 — it follows the re-exec'd
+supervised child, which a sampler on the parent would miss).  Every run
+under `timeout` and a 32 GB address-space `ulimit` (16 GB is too tight:
+`app-lam` needs 5.5 GB RSS and much more virtual).  `init-full` and
+`app-lam` at 1 and 2 repetitions respectively.  All counts include the
+preprocessor child, which is a ~0.33 G fixed floor — it dominates the
+small fixtures, so read those as "no difference".
+
+**The architecture comparison** (`production` = shipped,
+`cached-parsed` = the pilot):
+
+| workload | production instr / wall / RSS | cached-parsed instr / wall / RSS | Δ instr | Δ wall | Δ RSS |
+|---|---|---|---|---|---|
+| `init-full` (335 MB) | 2983.74G / 397.7 s / 2118.7 MB | 2820.75G / 339.9 s / 2193.4 MB | −5 % | −15 % | +4 % |
+| `init-prelude` | 38.56G / 3.881 s / 114.9 MB | 32.99G / 3.173 s / 113.9 MB | −14 % | −18 % | −1 % |
+| `app-lam` | 382.91G / 80.252 s / 5458.4 MB | 303.35G / 30.942 s / 5233.7 MB | −21 % | −61 % | −4 % |
+| `beta-ladder` | 78.20G / 15.742 s / 1470.5 MB | 47.83G / 4.498 s / 1266.9 MB | −39 % | −71 % | −14 % |
+| `let-ladder` | 23.38G / 5.097 s / 824.7 MB | 11.66G / 1.131 s / 467.4 MB | −50 % | −78 % | −43 % |
+| `grind-ring-5` | 126.77G / 14.569 s / 555.9 MB | 108.15G / 11.443 s / 512.3 MB | −15 % | −21 % | −8 % |
+| `shared-subterm` | 5.43G / 0.579 s / 97.3 MB | 4.75G / 0.518 s / 95.7 MB | −13 % | −11 % | −2 % |
+| `repeated-subproblem` | 4.48G / 0.525 s / 96.5 MB | 3.99G / 0.466 s / 97.2 MB | −11 % | −11 % | +1 % |
+| `church-numerals` | 1.44G / 0.214 s / 87.2 MB | 1.41G / 0.218 s / 86.4 MB | −2 % | +2 % | −1 % |
+| `shift-cascade` | 1.11G / 0.171 s / 90.5 MB | 1.06G / 0.187 s / 91.3 MB | −5 % | +9 % | +1 % |
+| `identical-nesting` | 0.82G / 0.153 s / 89.0 MB | 0.80G / 0.159 s / 88.2 MB | −2 % | +4 % | −1 % |
+| `unroll-versus-evaluate` | 0.88G / 0.173 s / 88.9 MB | 0.86G / 0.168 s / 89.6 MB | −2 % | −3 % | +1 % |
+| `args-before-unfold` | 1.08G / 0.209 s / 88.1 MB | 1.01G / 0.175 s / 88.2 MB | −6 % | −16 % | +0 % |
+| `discarded-argument` | 0.96G / 0.166 s / 88.4 MB | 0.91G / 0.158 s / 88.9 MB | −5 % | −5 % | +1 % |
+
+**The core-only comparison** (same `Expr`-typed shared-state driver;
+`app-lam` completes under neither):
+
+| workload | interned-shared instr / wall | cached instr / wall | Δ instr |
+|---|---|---|---|
+| `init-prelude` | 42.41G / 4.126 s | 35.88G / 3.417 s | −15 % |
+| `beta-ladder` | 78.12G / 15.200 s | 47.86G / 4.472 s | −39 % |
+| `let-ladder` | 21.45G / 4.973 s | 11.72G / 1.147 s | −45 % |
+| `grind-ring-5` | 754.99G / 54.831 s | 271.57G / 21.998 s | −64 % |
+| `shared-subterm` | 5.86G / 0.629 s | 6.69G / 0.618 s | +14 % |
+| `repeated-subproblem` | 4.90G / 0.531 s | 4.26G / 0.502 s | −13 % |
+| `args-before-unfold` | 1.13G / 0.181 s | 2.95G / 0.261 s | +161 % |
+| `discarded-argument` | 0.99G / 0.165 s | 1.07G / 0.171 s | +8 % |
+
+(The two regressions are the boundary: the `Expr`-typed driver
+converts afresh at every entry call, so the clone's memo probes meet
+distinct-but-equal objects where the arena's meet equal indices.  Both
+vanish under `cached-parsed`, which has no such boundary.)
+
+**The doubling-n growth comparison** (`tests/pilot-scale.sh --deep`;
+adjusted instruction counts with the per-shape `n = 1` startup baseline
+subtracted, exponent read at the largest step, `n` up to 32× base):
+
+| shape | production exp | cached-parsed exp | adjusted instr at 32× (prod → clone) |
+|---|---|---|---|
+| `chain` | 1.06 | 1.06 | 831 M → 775 M |
+| `many` | 1.05 | 1.05 | 906 M → 776 M |
+| `dag` | 1.06 | 1.06 | 716 M → 697 M |
+| `delta` | 1.05 | 1.05 | 1151 M → 1045 M |
+| `lets` | 1.05 | 1.05 | 291 M → 281 M |
+| `thm` | 1.07 | 1.05 | 432 M → 378 M |
+| `lparams` | 1.81 | 1.82 | 2068 M → 2033 M |
+| **`spine`** | 1.05 | **1.50** | 365 M → **774 M** |
+| **`telescope`** | 1.06 | **1.42** | 364 M → **629 M** |
+| **`fanout`** | 1.05 | **1.45** | 1390 M → **2403 M** |
+
+**This is the pilot's one asymptotic loss, and its mechanism is
+exact.**  A memo probe in the arena is an integer comparison; a memo
+probe in the clone is `O(1)` hash plus an equality that walks until it
+reaches pointer-shared children.  When a spine (or telescope, or
+fanout) of length `n` is rebuilt and looked up, its children are
+shared but its `n` spine nodes are fresh, so the probe costs `O(n)`
+instead of `O(1)` — one extra factor of `n`, which is exactly the
++0.4 exponent observed.  The flat shapes are flat because the terms
+they look up are small.
+
+### Assessment
+
+**Where the cached variant wins.**  Everywhere the work is *reduction*
+rather than *lookup of large rebuilt terms*.  It allocates less
+(no cons-table probe, no arena growth, no index encode/decode), it
+takes the same cutoffs at the same places off cheaper reads, and it
+gets Lean's structure sharing for free rather than paying a hash to
+recover it.  `beta-ladder` and `let-ladder`, which are nothing but
+β/ζ reduction, are 39–50 % cheaper and 71–78 % faster in wall time;
+`app-lam`, the hardest DAG fixture in the suite, is 21 % cheaper and
+2.6× faster.  RSS is equal or better on all but `init-full` (+4 %).
+
+**Where it loses.**  (a) The `spine`/`telescope`/`fanout` exponent, as
+analysed above — a real asymptotic regression that the arena does not
+have, and the only measured result that argues *for* hash-consing on
+the merits rather than on habit.  (b) `Level` and `Name` are still
+trees, so the level-operation and stored-constant caches hash
+structurally; tasks #62 and #88 would have to be redone for the new
+representation.  (c) Two mechanisms (sharing-preserving conversion,
+DAG-aware equality) have to be got right by hand, and both are
+*silent* when wrong — they show up as non-termination on adversarial
+fixtures, not as wrong answers.
+
+**What production-izing would take**, in expected-value order:
+
+1. **Cached `Level` and `Name`** (hash + has-param on the node, as
+   `ExprC` has them).  Mechanical, and it removes the clone's only
+   structural regression against the current checker.
+2. **A fix for the spine exponent.**  The honest options are a
+   persistent equality memo (`O(1)` after the first successful
+   comparison of a pair — hash-consing's benefit without its table),
+   or accepting the exponent.  Measure before choosing.
+3. **The verification seam.**  This is the real cost and it is not
+   small.  The arena's story is `EStore.WF` + `denote_inj` (index
+   equality decides expression equality); the clone's would be
+   *field exactness* — `hash`/`bb`/`fb`/`lp` agree with their spec
+   functions on every reachable node — plus a `denote : ExprC → Expr`
+   erasure that is **not** injective in the arena's sense but does not
+   need to be, since the clone never uses equality of representations
+   to decide equality of terms.  The `SimAt`/`DiscI*` walk structure
+   transfers (the clone mirrors `CoreI` clause by clause), and the
+   whole `ArenaWF`/`WFStore`/`Promote`/`BracketB4` tier — thousands of
+   proof lines about canonicity, tiers and promotion — would be
+   *deleted* rather than replaced.  That is the strategic argument for
+   the clone and it is larger than the performance one.
+4. **`unsafe` obligations.**  Three `implemented_by` escapes
+   (`beqFast`, `beqGo`, `ofExprGo`) rest on Lean's collector not moving
+   objects and on the root keeping keyed subterms alive.  They are
+   sound but they are trust, and a merge would want them isolated
+   behind a documented interface (they already are: three definitions
+   in `ExprC.lean`).
+5. **The no-model front door** (`CheckerNC`) and the tier bracket's
+   replacement policy, neither of which the pilot cloned.
+
+**Verdict.**  The two-tier arena is not load-bearing for performance:
+a computed-field representation with `HashMap` memos matches or beats
+it on every real stream measured, at equal memory, while deleting the
+arena's entire well-formedness tier from the verification.  It is
+load-bearing for *one* asymptotic property — `O(1)` identification of
+rebuilt terms — which costs +0.4 in the growth exponent on
+spine-shaped work.  Whether that is acceptable is a judgement about
+input shapes, and it is the one thing to settle before choosing the
+successor architecture.
+
+Reproduce: `tests/pilot-parity.sh [--mode=…]`, `tests/pilot-measure.sh`,
+`tests/pilot-scale.sh --deep`, on branch `agent/cached-clone`.
