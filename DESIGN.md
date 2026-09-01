@@ -11111,3 +11111,95 @@ proof rewrite, and the big proof never carries the representation
 invariant.  A proof step wanting a fact outside the battery = a
 missing LAW: state it, add it to the battery (both representations),
 report the addition.  P2 is unchanged (`equiv` at validation sites).
+
+## Task #161 P2 SEAL: the validated checker lands (2026-09-01)
+
+**Landed** (branch `agent/annot-v2`): the six validation sites, the
+annotated input surface, the fixture suite, and the full proof-stack
+adaptation.  The verified mode (`--set-model`) now checks every
+binder's `pw` claim; `--no-model` remains official parity (no reads).
+
+**The decline surface** (all `CheckError.notImplemented`, exit 2, all
+gated `mode.verified`, annotations never steer reduction):
+
+| site             | where                                        |
+|------------------|----------------------------------------------|
+| `(forall-cod)`   | `inferBody` ∀: `zeronessOf v ≃ mb.pw` after `ensureSort` of the codomain |
+| `(lam-cod-leaf)` | `inferBody` λ, body not a λ: against the #152 body-type sort |
+| `(lam-cod-chain)`| `inferBody` λ, body a λ: `mb.pw ≃` the inner λ's `pw` (`Expr.lamPw`) |
+| `(defeq-forall)` | `defeqStep` ∀-congruence, after both defeqs succeed |
+| `(defeq-lam)`    | `defeqStep` λ-congruence, ditto              |
+| `(eta)`          | `etaCert`, after the η defeq succeeds        |
+
+The defeq/eta checks run LAST so a benign certificate fallthrough
+(`pure false`) is untouched: a mismatch fires only where the
+comparison was otherwise about to succeed.
+
+**Input surface**: optional `"pw"` field on `lam`/`forallE` export
+records (`Frontend/Export.lean`) — absent or `"never"` = the codomain
+is never a proposition; an array of name-table indices = `ifAllZero`
+over those level parameters (`[]` = always).  Unannotated streams
+parse unchanged and *decline* at their first Prop-codomain binder
+(init-prelude: `(forall-cod)` at `LT.rec._model`).
+`allLevelParamsDefined` covers `pw.paramsDefined`, so an out-of-scope
+parameter in a `pw` is the same reject as one in a level.
+
+**FINDING (P3/P4's statement, discovered as a test-writing wall): the
+three defensive sites are unreachable through the spec knot.**  Every
+path to the structural congruence arms and to `etaCert`'s comparison
+first infers both compared expressions (`proofIrrel` runs before them
+and infers `a`, `b` AND their types — no short-circuit in the monad),
+and the front door validates every binder an infer walks.  Two valid
+annotations of level-equivalent codomain sorts are semantically equal
+zero-sets, and `equiv` is complete — so they always pass.  Attempted
+countermodels (invalid ∀ meta on an fvar's stored type) decline at
+`(forall-cod)` inside `proofIrrel` instead.  Consequences:
+* the annotated fixture suite covers the three front-door sites
+  end-to-end (`tests/annot/annot_decline_*.ndjson`); the defensive
+  sites are unit-tested in `tests/SetlecTests.lean` against a stub
+  `CoreFns` whose `infer` does not walk, plus a direct `etaCert` call
+  (an fvar's stored type is returned, not walked — the one real-knot
+  crack, and `proofIrrel` seals it at any composite call site);
+* P3/P4 should get the invariant "validated exprs stay validated"
+  essentially for free at these sites — the checks are pure defense,
+  kept because the checker never trusts (invariants-over-runtime-gates
+  is about *hypotheses*, not about dropping validation).
+
+**The annotated fixture suite** (`tests/annot/`,
+`tests/annot-expected.txt`; hand-written streams): five accepts (Sort
+u identity; the imax telescope; `max u v` with the type spelling
+`[u,v]` and the value `[v,u]` — equivalent-but-unequal lists pass the
+chain rule and the final defeq; the impredicative always-`[]`; a
+Type-only stream with no annotations at all) + the three declines +
+the split-driver pair (`annot_split_good`/`annot_split_bad`, bad at
+declaration index 2).
+
+**Suite state (ratified policy in force)**: `tests/arena.sh`'s
+certified sweep runs the annot suite (10/10); the arena + e2e suites
+run under `--no-model` against the unchanged certified expectations —
+138 arena + 72 e2e + 10 annot as expected, 4 recorded divergences (1
+pre-existing error-class line + the 3 annot declines, recorded in
+`tests/no-model-expected.txt` as the parity lane's nature).  Split
+driver 11/11 and mode flags 9/9 on the annotated smoke pair, same
+properties, `badDecl` selectivity message included.
+
+**The P2 battery** (all green): `lake build` warning-free, `lake
+test`, the harness as above, zero sorries, axioms exactly
+`[propext, Classical.choice, Quot.sound]` on `no_proof_of_Empty_R` /
+`no_proof_of_Empty_input_R` / `checkDecls_sound_R` (the consistency
+theorems now cover the *validating* checker) and on the PropWhen
+battery.  init-prelude (`--pre`, `--no-model`) BYTE-IDENTICAL to the
+master binary — stdout, stderr, exit; at `--set-model` it positively
+declines, as the policy prescribes until P5.
+
+**Merged at the seal**, per the coordinator action item:
+`agent/annot-set` @ `339e0d74` (the canonical `ZeroSet`/`ZPropWhen`
+side module — 4 new files + the import/test lines, additive, battery
+green post-merge).  The P3/P4 interface-only discipline (previous
+ledger note) is unchanged by the merge: `PropWhen` stays the one
+concrete type.
+
+**Not in P2 (deliberate)**: no annotate pass (P5); no basis/pin
+annotation — the fixture fragment is constant-free, and the pinned
+basis literals stay `.never` (`PinGen.lean` fills `⟨bi, .never⟩`);
+the pins' own Prop binders will need the generator route at P5.
