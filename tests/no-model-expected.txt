@@ -35,3 +35,14 @@
 # sort" — a reject (1) where the certified stack positively declines.
 # Error-class difference, the lane's nature.
 1 e2e yolo_decline_vs_accept.ndjson
+
+# The annotated fixture suite's decline fixtures (task #161, suite
+# `annot`, tests/annot-expected.txt): the verified mode validates the
+# "pw" sort annotations and positively declines a mismatched claim;
+# the no-model lane ignores annotations entirely (official parity —
+# the reference kernel has no such field), so the underlying
+# well-typed declarations accept.  The lane's nature, one line per
+# decline fixture.
+0 annot annot_decline_forall.ndjson
+0 annot annot_decline_lam_chain.ndjson
+0 annot annot_decline_lam_leaf.ndjson

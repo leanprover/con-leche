@@ -125,13 +125,26 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 #guard (checkDecls .setModel (pureOps .setModel) [mkDef "arrowType" [] (.sort (.succ .zero))
   (.forallE (.str .anonymous "a") (.sort .zero) (.sort .zero) ⟨.default, .never⟩)]).toBool
 
--- `def dependentType : Prop := ∀ (p : Prop), p` (tutorial test 004): impredicativity
+-- `def dependentType : Prop := ∀ (p : Prop), p` (tutorial test 004):
+-- impredicativity.  The binder carries the task-#161 sort annotation
+-- `.ifAllZero []` ("the codomain is always a proposition"): the
+-- verified mode validates annotations and declines a `.never` on a
+-- Prop-codomain binder.
 #guard (checkDecls .setModel (pureOps .setModel) [mkDef "dependentType" [] (.sort .zero)
+  (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩)]).toBool
+
+-- … and the same declaration with the unannotated (`.never`) binder is
+-- a positive decline at the verified mode — the sort-annotation front
+-- door (site: forall-cod) — while `.noModel` still accepts it.
+#guard checkDecls .setModel (pureOps .setModel) [mkDef "dependentType" [] (.sort .zero)
+    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]
+  matches .error (.notImplemented _)
+#guard (checkDecls .noModel (pureOps .noModel) [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]).toBool
 
 -- `∀ (p : Prop), p : Type` is rejected (it is a Prop).
 #guard checkDecls .setModel (pureOps .setModel) [mkDef "bad2" [] (.sort (.succ .zero))
-    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]
+    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩)]
   matches .error (.invalid _)
 
 -- Input expressions containing fvars are rejected.
@@ -158,10 +171,82 @@ private def mkThm (n : String) (type value : Expr) : Declaration :=
 -- A theorem stating an accepted Prop with a matching proof-shaped value:
 -- `theorem t2 : Prop-valued-forall` where value has exactly that type.
 #guard (checkDecls .setModel (pureOps .setModel) [mkDef "prp" [] (.sort .zero)
-    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩),
+    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩),
   mkThm "t2" (.sort .zero) (.const (.str .anonymous "prp") [])]).toBool == false
   -- (const prp : Prop, but Prop ≠ prp's type Prop... value `prp : Prop`; type `Prop`:
   --  `prp : Prop` vs declared `Prop : ?` — declared type must be a Prop; `Prop` is not)
+
+/-! ## Sort-annotation validation: the defensive defeq/eta sites (task #161)
+
+The three front-door sites — (forall-cod), (lam-cod-leaf),
+(lam-cod-chain) — are exercised end-to-end by tests/annot/*.ndjson.
+The three *defensive* sites — (defeq-forall), (defeq-lam), (eta) —
+cannot be reached through the spec knot by any input: every path to
+them first infers both compared expressions (`proofIrrel` runs before
+the structural arms and before eta), and the front door validates
+every binder an infer walks, so by comparison time both annotations
+are valid for the same (level-equivalent) codomain sort and `equiv`
+(complete) accepts.  That redundancy is by design — the checks are
+placed last so they fire only on an otherwise-successful comparison —
+so they are unit-tested here against a stub `CoreFns` whose `infer`
+does not walk (standing in for the hostile hypothetical the P3/P4
+proof rules out). -/
+
+private def stubFns : CoreFns CheckM where
+  whnfCore _ e := pure e
+  whnf _ e := pure e
+  infer _ _ := pure (.sort (.succ .zero))
+  defeq _ a b := pure (a == b)
+  annotate _ e := pure e
+
+private def pwForall (pw : PropWhen) : Expr :=
+  .forallE (.str .anonymous "p") (.sort .zero) (.sort .zero) ⟨.default, pw⟩
+
+private def pwLam (pw : PropWhen) : Expr :=
+  .lam (.str .anonymous "p") (.sort .zero) (.sort .zero) ⟨.default, pw⟩
+
+-- (defeq-forall): inequivalent binder annotations on otherwise defeq
+-- ∀s are a positive decline at the verified mode …
+#guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
+    (pwForall (.ifAllZero [])) (pwForall .never)
+  matches .error (.notImplemented _)
+-- … and no check at the unverified lane (official parity).
+#guard defeqStep .noModel stubFns Env.empty 0 (fun a b => pure (a == b))
+    (pwForall (.ifAllZero [])) (pwForall .never)
+  matches .ok true
+-- Equivalent-but-unequal annotations pass: `equiv` is semantic
+-- containment, not list equality.
+#guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
+    (pwForall (.ifAllZero [.str .anonymous "u", .str .anonymous "u"]))
+    (pwForall (.ifAllZero [.str .anonymous "u"]))
+  matches .ok true
+
+-- (defeq-lam): the λ congruence arm, same discipline.
+#guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
+    (pwLam (.ifAllZero [])) (pwLam .never)
+  matches .error (.notImplemented _)
+#guard defeqStep .noModel stubFns Env.empty 0 (fun a b => pure (a == b))
+    (pwLam (.ifAllZero [])) (pwLam .never)
+  matches .ok true
+
+-- (eta): η-certifying `fun p => f p` against a stuck `f` whose stored
+-- ∀-type carries an inequivalent annotation.  The real knot suffices
+-- here: `etaCert` infers `f` (an fvar: the stored type is returned,
+-- not walked), so the mismatched ∀ meta reaches the comparison.
+private def etaStuckTy (pw : PropWhen) : Expr := pwForall pw
+private def etaStuckF (pw : PropWhen) : Expr :=
+  .fvar 0 (.str .anonymous "f") (etaStuckTy pw)
+
+#guard etaCert .setModel (pureFns .setModel Env.empty 100) Env.empty 1
+    (.str .anonymous "p") (.sort .zero)
+    (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.default, .never⟩
+    (etaStuckF (.ifAllZero []))
+  matches .error (.notImplemented _)
+#guard etaCert .noModel (pureFns .noModel Env.empty 100) Env.empty 1
+    (.str .anonymous "p") (.sort .zero)
+    (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.default, .never⟩
+    (etaStuckF (.ifAllZero []))
+  matches .ok true
 
 /-! ## Frontend: basis `_model` companions are ordinary declarations
 

@@ -1,0 +1,17 @@
+{"meta":{"exporter":{"name":"hand-written","version":"0"},"format":{"version":"3.1.0"},"lean":{"githash":"","version":"4.29.1"}}}
+{"in":1,"str":{"pre":0,"str":"u"}}
+{"in":2,"str":{"pre":0,"str":"v"}}
+{"in":3,"str":{"pre":0,"str":"alpha"}}
+{"in":4,"str":{"pre":0,"str":"a"}}
+{"in":5,"str":{"pre":0,"str":"idm"}}
+{"il":1,"param":1}
+{"il":2,"param":2}
+{"il":3,"max":[1,2]}
+{"ie":0,"sort":3}
+{"ie":1,"bvar":0}
+{"ie":2,"bvar":1}
+{"ie":3,"forallE":{"binderInfo":"default","name":4,"type":1,"body":2,"pw":[1,2]}}
+{"ie":4,"forallE":{"binderInfo":"default","name":3,"type":0,"body":3,"pw":[1,2]}}
+{"ie":5,"lam":{"binderInfo":"default","name":4,"type":1,"body":1,"pw":[2,1]}}
+{"ie":6,"lam":{"binderInfo":"default","name":3,"type":0,"body":5,"pw":[2,1]}}
+{"def":{"name":5,"levelParams":[1,2],"type":4,"value":6,"safety":"safe"}}

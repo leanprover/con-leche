@@ -60,6 +60,7 @@ TESTS_DIR="${1:-_tmp/arena-tests}"
 BIN=.lake/build/bin/setlec
 EXPECTED=tests/arena-expected.txt
 E2E_EXPECTED=tests/e2e-expected.txt
+ANNOT_EXPECTED=tests/annot-expected.txt
 NM_EXPECTED=tests/no-model-expected.txt
 
 if [ ! -d "$TESTS_DIR" ]; then
@@ -193,13 +194,39 @@ e2e_half() {
   done < "$E2E_EXPECTED"
 }
 
-arena_half
-echo "arena tutorial: $accepted/$total_good good tests accepted"
+# --- the annotated suite (task #161) --------------------------------
+# Hand-written export streams whose binder records carry the "pw"
+# sort-annotation field; see tests/annot-expected.txt's header.
+annot_half() {
+  annot_ok=0
+  annot_total=0
+  while read -r exp rel; do
+    case "$exp" in ''|'#'*) continue;; esac
+    resolve "$exp" annot "$rel" ""
+    annot_total=$((annot_total+1))
+    timeout 60 "$BIN" $MODEFLAG "tests/annot/$rel" >/dev/null 2>&1
+    got=$?
+    if [ "$got" != "$want" ]; then
+      mismatch "ANNOT FAIL" "$rel" "$want" "$got"
+    else
+      annot_ok=$((annot_ok+1))
+    fi
+  done < "$ANNOT_EXPECTED"
+}
 
-if [ -f "$E2E_EXPECTED" ]; then
-  e2e_half
-  echo "e2e: $e2e_ok/$e2e_total as expected"
-fi
+# THE CERTIFIED-SWEEP SUSPENSION (task #161, ratified suite policy for
+# P2..P5): the verified mode (--set-model) now validates sort
+# annotations, and the arena/e2e streams are unannotated — they
+# positively decline at their first Prop-codomain binder.  Until the
+# annotate pass lands (P5) and the streams return to --set-model, the
+# certified sweep runs the ANNOTATED suite only; the full arena + e2e
+# suites keep running under --no-model (the official-parity lane, where
+# annotations are ignored) in the mode sweep below, against the same
+# certified expectations — that sweep is the regression gate for
+# everything that is not annotation validation.
+annot_half
+echo "annot suite: $annot_ok/$annot_total as expected"
+
 
 # Split install/check driver (task #108): --install-only and
 # --check-range.  Two properties are pinned here.
@@ -212,11 +239,14 @@ fi
 #  (b) Selectivity: a range that excludes a bad declaration must not
 #      trip over it, while a range containing just that declaration
 #      must find it — the whole point of the mode.
-# Fixtures are the committed e2e ones: indexed_vec accepts, and
-# nat_add_wrong has its type mismatch at declaration index 46
-# (theorem addOk), well past the prefix its check needs.
-SPLIT_GOOD=tests/e2e/indexed_vec.ndjson
-SPLIT_BAD=tests/e2e/nat_add_wrong.ndjson
+# Fixtures are committed annotated streams: annot_split_good accepts,
+# and annot_split_bad has its type mismatch at declaration index 2
+# (def badDecl), past the prefix its check needs.
+# (task #161: the smoke fixtures are annotated streams while the
+# certified sweep is suspended for unannotated input — same properties,
+# badDecl's type mismatch sits at declaration index 2.)
+SPLIT_GOOD=tests/annot/annot_split_good.ndjson
+SPLIT_BAD=tests/annot/annot_split_bad.ndjson
 split_ok=0
 split_total=0
 split_case() {
@@ -235,19 +265,19 @@ split_case 2 --install-only "$SPLIT_GOOD"        # installed, nothing checked
 split_case 2 --check-range 0:2 "$SPLIT_GOOD"     # a subrange
 split_case 2 --check-range 0: "$SPLIT_GOOD"      # all of it, but split driver
 split_case 1 --check-range 0: "$SPLIT_BAD"       # full range finds the bad one
-split_case 2 --check-range 46:47 "$SPLIT_BAD"    # just the bad one: reported…
+split_case 2 --check-range 2:3 "$SPLIT_BAD"      # just the bad one: reported…
 split_case 2 --check-range 0:1 "$SPLIT_BAD"      # …excluded: not tripped over
 split_case 2 --install-only "$SPLIT_BAD"         # nor installed into a reject
 split_case 3 --check-range bogus "$SPLIT_GOOD"   # malformed range spec
 split_case 3 --no-model --install-only "$SPLIT_GOOD" # unverified stack + split
-# selectivity, positively: checking *only* declaration 46 must actually
+# selectivity, positively: checking *only* declaration 2 must actually
 # report that declaration's failure
 split_total=$((split_total+1))
-if timeout 120 "$BIN" --check-range 46:47 "$SPLIT_BAD" 2>&1 |
-    grep -q "type mismatch in addOk"; then
+if timeout 120 "$BIN" --check-range 2:3 "$SPLIT_BAD" 2>&1 |
+    grep -q "type mismatch in badDecl"; then
   split_ok=$((split_ok+1))
 else
-  echo "SPLIT FAIL: --check-range 46:47 did not report addOk"; fail=1
+  echo "SPLIT FAIL: --check-range 2:3 did not report badDecl"; fail=1
 fi
 echo "split driver: $split_ok/$split_total as expected"
 
@@ -303,6 +333,7 @@ if [ "$MODE_SWEEPS" = on ]; then
   arena_half
   nm_arena=$arena_checked
   e2e_half
+  annot_half
   SWEEP=cert
   MODEFLAG=""
   if [ "$fail" = "$nm_fail_before" ]; then
@@ -310,7 +341,8 @@ if [ "$MODE_SWEEPS" = on ]; then
     # deliberately do not agree — they are the recorded divergences of
     # the unverified lane, counted here so a silently emptied
     # tests/no-model-expected.txt is visible in the summary line.
-    echo "no-model sweep: $nm_arena arena + $e2e_total e2e as expected" \
+    echo "no-model sweep: $nm_arena arena + $e2e_total e2e +" \
+         "$annot_total annot as expected" \
          "(${#NM_OVR[@]} recorded divergences)"
   else
     echo "no-model sweep: DIVERGED — see the lines above" \

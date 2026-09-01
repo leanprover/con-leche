@@ -269,6 +269,29 @@ private def parseBinderInfo (j : Json) : M Unit := do
   | "default" | "implicit" | "strictImplicit" | "instImplicit" => pure ()
   | s => throw s!"unknown binderInfo {s}"
 
+/-- Parse a binder record's optional `pw` sort-annotation field (task
+#161).  The datum says when the binder's *codomain* (the λ's body
+type / the ∀'s body) is a proposition: absent or `"never"` means it
+never is; an array of name-table indices means it is exactly when all
+those level parameters are instantiated to zero (`[]` = always).  The
+field is an untrusted *claim*: the verified checker validates it
+against the codomain sort it computes and declines on mismatch — it
+never steers reduction.  Unannotated streams therefore keep parsing
+unchanged (`.never` everywhere) and are declined by the verified mode
+at the first Prop-codomain binder, not misjudged. -/
+private def parsePw (st : State) (j : Json) : M PropWhen := do
+  match j.getObjVal? "pw" with
+  | .error _ => pure .never
+  | .ok v =>
+    if let .ok s := v.getStr? then
+      match s with
+      | "never" => pure .never
+      | _ => throw s!"unknown pw {s}"
+    else if let .ok a := v.getArr? then
+      pure (.ifAllZero (← a.toList.mapM (fun i => do st.name (← i.getNat?))))
+    else
+      throw "malformed pw field"
+
 /-- Intern one name node into the parse arena (linear threading, as
 `internL'` below; the checked intern rejects out-of-range child
 indices — a malformed export record). -/
@@ -372,13 +395,13 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
       parseBinderInfo v
       let (e, st) ← st.intern' (.lam (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
-        ⟨.default, .never⟩)
+        ⟨.default, ← parsePw st v⟩)
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "forallE" then
       parseBinderInfo v
       let (e, st) ← st.intern' (.forallE (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
-        ⟨.default, .never⟩)
+        ⟨.default, ← parsePw st v⟩)
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "letE" then
       let (e, st) ← st.intern' (.letE (← getNameIdx' st v "name")

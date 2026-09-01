@@ -1,0 +1,50 @@
+# Expected exit codes for the annotated fixture suite (task #161),
+# read by tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).
+# Line format: "<expectation> <fixture>".
+#
+# These are hand-written export streams (tests/annot/*.ndjson) whose
+# lam/forallE records carry the optional "pw" sort-annotation field:
+# absent or "never" claims the binder's codomain is never a
+# proposition; an array of name-table indices claims it is one exactly
+# when all those level parameters are zero ("[]" = always).  The
+# verified mode (--set-model, the default) validates every claim
+# against the codomain sort it computes and positively declines a
+# mismatch, naming the site; annotations never steer reduction.  Under
+# --no-model (official parity) the annotations are ignored — the three
+# decline fixtures accept there, recorded in
+# tests/no-model-expected.txt.
+
+# Accepts: the constant-free annotated fragment.
+# idU.{u} : ∀ (α : Sort u), α → α — every codomain is Prop iff u = 0.
+0 annot_id.ndjson
+# constFn.{u,v} : ∀ (α : Sort u) (β : Sort v), α → β → β — the imax
+# telescope: every codomain's zeroness reads off the imax's right arm.
+0 annot_imax.ndjson
+# idm.{u,v} over Sort (max u v): the type spells [u,v], the value
+# [v,u] — equivalent-but-unequal lists must pass everywhere the
+# checker compares annotations (chain rule and final defeq).
+0 annot_max.ndjson
+# impSelf : ∀ (p : Prop), p → p — the always-a-proposition datum "[]".
+0 annot_prop.ndjson
+# tid : Type → Type with NO pw fields: a fully Type-level stream needs
+# no annotations at all.
+0 annot_type_absent.ndjson
+# Three declarations (idU, impSelf, tid) in one stream; also the
+# split-driver and mode-flag smoke fixture (SPLIT_GOOD in arena.sh).
+0 annot_split_good.ndjson
+# Same prefix with `def badDecl : Prop := Type` at declaration index 2
+# (SPLIT_BAD): a genuine reject, past the annotated prefix.
+1 annot_split_bad.ndjson
+
+# Declines: one per stream-reachable validation site.  (The three
+# defensive sites — defeq-forall, defeq-lam, eta — cannot be reached
+# by any input that got past the front door; they are unit-tested in
+# tests/SetlecTests.lean instead.)
+# impSelf with the ∀ (h : p) binder unannotated: (forall-cod).
+2 annot_decline_forall.ndjson
+# impSelf's value with the outer λ unannotated while the inner λ says
+# "[]": (lam-cod-chain).
+2 annot_decline_lam_chain.ndjson
+# fun (x : ∀ p h, p) => x with the (single) λ unannotated — its body's
+# type is a proposition by impredicativity: (lam-cod-leaf).
+2 annot_decline_lam_leaf.ndjson
