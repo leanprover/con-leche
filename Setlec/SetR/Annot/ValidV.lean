@@ -186,4 +186,97 @@ theorem AnnotValidV_liftN (n : Nat) :
     rw [AVExpr.liftN_proj, AnnotValidV_proj, AnnotValidV_proj, ihe]
   | prf => intro k ρ; simp
 
+/-! ### Instantiation — and the one premise that had to change
+
+`AnnotOk2_inst` takes `AnnotOk2 V (shiftE k 0 ρ) a`, and the P3 brief
+proposed the same premise here.  **It does not work, for a structural
+reason worth recording.**  The `bvar` clause at `i = k` reduces the
+goal to `AnnotValidV V ρ (a.liftN k)`, which `AnnotValidV_liftN`
+turns into `AnnotValidV V (shiftE k 0 ρ) a` — *bit validity of the
+substituted term itself*.  `AnnotOk2` does not imply it (the two
+predicates are independent: `AnnotOk2`'s `pi` clause carries no bit
+component at all, which is exactly why `AnnotValidV` exists).
+
+So the premise below is the **matching** one, `AnnotValidV` of `a`,
+not the conjunction: no other clause reads anything about `a` beyond
+what its own induction hypothesis supplies, so asking for `AnnotOkP`
+would over-charge the lemma.  The conjunction form is available as
+`AnnotOkP_inst0` (`Interp2/OkPTransport.lean`), where it is assembled
+from this lemma and `AnnotOk2_inst` — each half paying only its own
+premise. -/
+
+/-- Bit validity through instantiation. -/
+theorem AnnotValidV_inst :
+    ∀ (e a : AVExpr) (k : Nat) (ρ : Nat → V),
+      AnnotValidV V (shiftE k 0 ρ) a →
+      (AnnotValidV V ρ (e.inst a k) ↔
+        AnnotValidV V (instE k (interp2 V (shiftE k 0 ρ) a) ρ) e) := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro a k ρ ha
+    show AnnotValidV V ρ
+        (if i < k then .bvar i
+         else if i = k then AVExpr.liftN k a else .bvar (i - 1)) ↔ _
+    by_cases h : i < k
+    · simp [if_pos h]
+    · by_cases h2 : i = k
+      · simp only [if_neg h, if_pos h2, AnnotValidV_bvar, iff_true]
+        exact (AnnotValidV_liftN V k a 0 ρ).mpr ha
+      · simp [if_neg h, if_neg h2]
+  | sort u => intro a k ρ _; simp [AVExpr.inst]
+  | const c us => intro a k ρ _; simp [AVExpr.inst]
+  | app f b ihf ihb =>
+    intro a k ρ ha
+    rw [AVExpr.inst_app, AnnotValidV_app, AnnotValidV_app, ihf a k ρ ha,
+      ihb a k ρ ha]
+  | lam v A b ihA ihb =>
+    intro a k ρ ha
+    rw [AVExpr.inst_lam, AnnotValidV_lam, AnnotValidV_lam, ihA a k ρ ha,
+      interp2_inst]
+    refine and_congr Iff.rfl (forall_congr' fun x => imp_congr Iff.rfl ?_)
+    have ha' : AnnotValidV V (shiftE (k + 1) 0 (cons x ρ)) a := by
+      rw [shiftE_succ_cons]; exact ha
+    rw [ihb a (k + 1) (cons x ρ) ha', shiftE_succ_cons, cons_instE]
+  | pi u v A B ihA ihB =>
+    intro a k ρ ha
+    rw [AVExpr.inst_pi, AnnotValidV_pi, AnnotValidV_pi, ihA a k ρ ha,
+      interp2_inst]
+    refine and_congr Iff.rfl (and_congr
+      (forall_congr' fun x => imp_congr Iff.rfl ?_)
+      (imp_congr Iff.rfl (forall_congr' fun x =>
+        imp_congr Iff.rfl ?_)))
+    · have ha' : AnnotValidV V (shiftE (k + 1) 0 (cons x ρ)) a := by
+        rw [shiftE_succ_cons]; exact ha
+      rw [ihB a (k + 1) (cons x ρ) ha', shiftE_succ_cons, cons_instE]
+    · rw [interp2_inst, shiftE_succ_cons, cons_instE]
+  | letE T v b ihT ihv ihb =>
+    intro a k ρ ha
+    rw [AVExpr.inst_letE, AnnotValidV_letE, AnnotValidV_letE,
+      ihT a k ρ ha, ihv a k ρ ha, interp2_inst]
+    refine and_congr Iff.rfl (and_congr Iff.rfl ?_)
+    have ha' : AnnotValidV V (shiftE (k + 1) 0
+        (cons (interp2 V (instE k (interp2 V (shiftE k 0 ρ) a) ρ) v)
+          ρ)) a := by
+      rw [shiftE_succ_cons]; exact ha
+    rw [ihb a (k + 1) _ ha', shiftE_succ_cons, cons_instE]
+  | eqE T x y ihT ihx ihy =>
+    intro a k ρ ha
+    rw [AVExpr.inst_eqE, AnnotValidV_eqE, AnnotValidV_eqE, ihx a k ρ ha,
+      ihy a k ρ ha]
+  | proj i e ihe =>
+    intro a k ρ ha
+    rw [AVExpr.inst_proj, AnnotValidV_proj, AnnotValidV_proj,
+      ihe a k ρ ha]
+  | prf => intro a k ρ _; simp [AVExpr.inst]
+
+/-- Substitution at the outermost binder — the β/ζ transport form,
+`AnnotOk2_inst0`'s mirror. -/
+theorem AnnotValidV_inst0 {e a : AVExpr} {ρ : Nat → V}
+    (ha : AnnotValidV V ρ a) :
+    AnnotValidV V ρ (e.inst a) ↔
+      AnnotValidV V (cons (interp2 V ρ a) ρ) e := by
+  have h := AnnotValidV_inst V e a 0 ρ (by rwa [shiftE_zero_zero])
+  rwa [shiftE_zero_zero, instE_zero] at h
+
 end Setlec.SetR.Interp2

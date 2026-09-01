@@ -105,6 +105,7 @@ import Setlec.SetR.Interp2.Step2.SeamMono
 import Setlec.SetR.Interp2.Claims2D
 import Setlec.SetR.Interp2.Claims2E
 import Setlec.SetR.Interp2.Claims2P
+import Setlec.SetR.Interp2.OkPTransport
 import Setlec.SetR.Interp2.CtxOkPKit
 import Setlec.SetR.Interp2.Step2.InferP
 import Setlec.SetR.Annot.EnvS2U
@@ -134,6 +135,7 @@ import Setlec.SetR.Annot.Canon
 import Setlec.SetR.Annot.Bit
 import Setlec.SetR.Annot.BitLemmas
 import Setlec.SetR.Annot.BitShift
+import Setlec.SetR.Annot.BitInst
 import Setlec.SetR.Annot.BitClosed
 import Setlec.SetR.Annot.BitInstall
 import Setlec.SetR.Annot.BitExtend
