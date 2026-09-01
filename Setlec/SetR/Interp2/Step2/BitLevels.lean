@@ -248,4 +248,139 @@ theorem denotePInstLevels (m : EnvS2Core V env)
       | natVal k => exact absurd rfl (hnat k)
       | strVal s => exact absurd rfl (hstr s)
 
+/-- **The reading's φ-congruence at the expression's own parameters**
+(`denote_params_ext`'s mirror; the harvest layer's `hAparams`
+supplier).  The one new step against the v1 walk is the binder
+numeral: `PropWhen.holds_ext` at the meta's `paramsDefined` conjunct —
+which is exactly why task #161 folded the datum's footprint into
+`Expr.allLevelParamsDefined`. -/
+theorem denoteP_params_ext (m : EnvS2Core V env)
+    {ps : List Name} {φ₁ φ₂ : Name → Nat}
+    (hφ : ∀ p ∈ ps, φ₁ p = φ₂ p) :
+    ∀ (d : Nat) (e : Expr), e.allLevelParamsDefined ps = true →
+      denoteP m.acval env φ₁ d e = denoteP m.acval env φ₂ d e := by
+  intro d e
+  induction d, e using denoteP.induct (env := env) with
+  | case1 d u =>
+    intro hd
+    rw [denoteP, denoteP,
+      Level.eval_ext (by simpa [Expr.allLevelParamsDefined] using hd) hφ]
+  | case2 d idx nm ty => intro _; rw [denoteP, denoteP]
+  | case3 d n us ci h1 h2 =>
+    intro hd
+    rw [denoteP, denoteP, h1]
+    dsimp only
+    rw [if_pos h2, if_pos h2]
+    refine congrArg _ (m.acval_params n ci h1 _ _ fun p hpm => ?_)
+    refine Level.substFn_ext hφ ?_ h2 p hpm
+    intro u hu
+    simp only [Expr.allLevelParamsDefined, List.all_eq_true] at hd
+    exact hd u hu
+  | case4 d n us ci h1 h2 =>
+    intro _
+    rw [denoteP, denoteP, h1]
+    dsimp only
+    rw [if_neg h2, if_neg h2]
+  | case5 d n us h1 => intro _; rw [denoteP, denoteP, h1]
+  | case6 d n ty body mb ihty ihbody =>
+    intro hd
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
+    have hpw : pwBit φ₁ mb.pw = pwBit φ₂ mb.pw := by
+      unfold pwBit
+      rw [Setlec.PropWhen.holds_ext hd.2 hφ]
+    rw [denoteP, denoteP, ← ihty hd.1.1,
+      ← ihbody (Setlec.Expr.allLevelParamsDefined_instantiate1 hd.1.1 0
+        hd.1.2)]
+    simp only [hpw]
+  | case7 d n ty body mb ihty ihbody =>
+    intro hd
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
+    have hpw : pwBit φ₁ mb.pw = pwBit φ₂ mb.pw := by
+      unfold pwBit
+      rw [Setlec.PropWhen.holds_ext hd.2 hφ]
+    rw [denoteP, denoteP, ← ihty hd.1.1,
+      ← ihbody (Setlec.Expr.allLevelParamsDefined_instantiate1 hd.1.1 0
+        hd.1.2)]
+    simp only [hpw]
+  | case8 d fe a ihf iha =>
+    intro hd
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
+    rw [denoteP, denoteP, ← ihf hd.1, ← iha hd.2]
+  | case9 d n ty val body ihty ihval ihbody =>
+    intro hd
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
+    rw [denoteP, denoteP, ← ihty hd.1.1, ← ihval hd.1.2,
+      ← ihbody (Setlec.Expr.allLevelParamsDefined_instantiate1 hd.1.1 0
+        hd.2)]
+  | case10 d sn i e ihe =>
+    intro hd
+    rw [denoteP, denoteP,
+      ← ihe (by simpa [Expr.allLevelParamsDefined] using hd)]
+  | case11 d k hsup =>
+    intro _
+    rw [denoteP, denoteP, if_pos hsup, if_pos hsup]
+    obtain ⟨ez, es⟩ := acval_natPairP m hsup
+      (Level.substFn φ₁ [] []) (Level.substFn φ₂ [] [])
+    rw [ez, es]
+  | case12 d k hsup =>
+    intro _
+    rw [denoteP, denoteP, if_neg hsup, if_neg hsup]
+  | case13 d s hsup =>
+    intro _
+    rw [denoteP, denoteP, if_pos hsup, if_pos hsup]
+    have hg := hsup
+    simp only [Setlec.strLitSupported, Bool.and_eq_true] at hg
+    obtain ⟨⟨⟨⟨⟨⟨⟨h0, -⟩, h2⟩, -⟩, h4⟩, h5⟩, h6⟩, h7⟩ := hg
+    obtain ⟨ez, es⟩ := acval_natPairP m h0
+      (Level.substFn φ₁ [] []) (Level.substFn φ₂ [] [])
+    have esol := acval_scalarP m stringOfListName stringOfListTyOk h2 rfl
+      (by intro ci hh
+          simp only [stringOfListTyOk, Bool.and_eq_true] at hh
+          exact hh.1)
+      (Level.substFn φ₁ [] []) (Level.substFn φ₂ [] [])
+    have echar := acval_scalarP m charName charTyOk h6 rfl
+      (by intro ci hh
+          simp only [charTyOk, Bool.and_eq_true] at hh
+          exact hh.1)
+      (Level.substFn φ₁ [] []) (Level.substFn φ₂ [] [])
+    have eofn := acval_scalarP m charOfNatName charOfNatTyOk h7 rfl
+      (by intro ci hh
+          simp only [charOfNatTyOk, Bool.and_eq_true] at hh
+          exact hh.1)
+      (Level.substFn φ₁ [] []) (Level.substFn φ₂ [] [])
+    have enil := acval_oneP m listNilName listNilTyOk h4 rfl
+      (by intro ci hh
+          simp only [listNilTyOk] at hh
+          split at hh
+          · next p hpe => simp [hpe]
+          · exact nomatch hh)
+      φ₁ φ₂
+    have econs := acval_oneP m listConsName listConsTyOk h5 rfl
+      (by intro ci hh
+          simp only [listConsTyOk] at hh
+          split at hh
+          · next p hpe => simp [hpe]
+          · exact nomatch hh)
+      φ₁ φ₂
+    rw [ez, es, esol, echar, eofn, enil, econs]
+  | case14 d s hsup =>
+    intro _
+    rw [denoteP, denoteP, if_neg hsup, if_neg hsup]
+  | case15 d x hxs hfv hc hpi hlam happ hlet hproj hnat hstr =>
+    intro _
+    cases x with
+    | bvar i => rw [denoteP.eq_def, denoteP.eq_def]
+    | sort u => exact absurd rfl (hxs u)
+    | fvar i nm ty => exact absurd rfl (hfv i nm ty)
+    | const n vs => exact absurd rfl (hc n vs)
+    | forallE n ty b mb => exact absurd rfl (hpi n ty b mb)
+    | lam n ty b mb => exact absurd rfl (hlam n ty b mb)
+    | app fe a => exact absurd rfl (happ fe a)
+    | letE n ty v b => exact absurd rfl (hlet n ty v b)
+    | proj sn i e => exact absurd rfl (hproj sn i e)
+    | lit l =>
+      cases l with
+      | natVal k => exact absurd rfl (hnat k)
+      | strVal s => exact absurd rfl (hstr s)
+
 end Setlec.SetR.Interp2

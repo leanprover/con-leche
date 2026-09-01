@@ -156,12 +156,18 @@ def ConstantValR (μ : CheckMode) (F : Nat) (env : Env)
 /-- The value front door shared by `defn`/`thm`/`opaque`
 (`checkDefnVal`/`checkThmVal`/`checkOpaqueVal`'s common core): the
 value's syntactic guards, its annotate output, **the branch's own
-`inferType` run on the annotated value**, and its inference against
-the annotated type at `Δ = []`, every `φ`.
+`inferType` + `isDefEq` run pair on the annotated value**, and its
+inference against the annotated type at `Δ = []`, every `φ`.
 
 The run conjunct is the twin of `ConstantValR`'s: the value side runs
-`inferType` and then compares by `isDefEq`, so there is one run to
-name, not a chain (seal 47). -/
+`inferType` and then compares by `isDefEq` (seal 47).  Task #161 P4
+H1 extends it from the bare `inferType` run to the **pair** — the
+comparison is the branch's literal next call
+(`Setlec/Kernel/Checker.lean:372-374`, and identically at `:395-396`,
+`:420-421`): `isDefEq` at fuel `F`, depth `0`, the *inferred* type
+first and the annotated declared type second.  No whnf sits between
+them, and the entry point is the same `ops` record, so the recorded
+form is the checker's literal output (seal 48). -/
 def ValueFrontR (μ : CheckMode) (F : Nat) (env : Env)
     (cval : TConstVal) (cv : ConstantVal) (value : Expr)
     (type' value' : Expr) : Prop :=
@@ -170,7 +176,8 @@ def ValueFrontR (μ : CheckMode) (F : Nat) (env : Env)
   annotateCore μ env F 0 value = .ok value' ∧
   value'.allLevelParamsDefined cv.levelParams = true ∧
   value'.constsResolve env = true ∧
-  (∃ vtype, inferTypeCore μ env F 0 value' = .ok vtype) ∧
+  (∃ vtype, inferTypeCore μ env F 0 value' = .ok vtype ∧
+    isDefEqCore μ env F 0 vtype type' = .ok true) ∧
   ∀ φ : Name → Nat,
     ∃ Tv Vv tv, denoteClosed cval env φ type' = some Tv ∧
       denoteClosed cval env φ value' = some Vv ∧
@@ -239,6 +246,14 @@ def ReducePinR (μ : CheckMode) (F : Nat) (env env₂ : Env)
     -- leaves the derivation layer alone"), the install destructured
     -- it and never used it, and the pin's own denotation has no
     -- supplier.  Consumer's vote, as with the `ErasedEq` granularity.
+    --
+    -- task #161 P4 H1: the *identity certificate*'s run, on the other
+    -- hand, **is** recorded — it was absorbed into the `DefEq`
+    -- conjunct below, which is the exact gap H1 closes elsewhere.
+    -- Literal form (`Setlec/Kernel/Checker.lean:689`): `isDefEq` at
+    -- depth `1`, applied side first, the certificate variable second.
+    isDefEqCore μ env F 1 (.app valA (reduceCertVar c))
+      (reduceCertVar c) = .ok true ∧
     (∀ φ : Name → Nat, ∃ E V,
       denoteClosed cval env φ (reduceElemTy c) = some E ∧
       denoteClosed cval env φ valA = some V ∧
@@ -271,6 +286,16 @@ def DeclThmR (μ : CheckMode) (F : Nat) (env : Env) (cval : TConstVal)
     (cv : ConstantVal) (value : Expr) (env₂ : Env) : Prop :=
   ∃ type' value',
     ConstantValR μ F env cval cv type' ∧
+    -- task #161 P4 H1: the is-a-proposition check's **own three runs**
+    -- (`Setlec/Kernel/Checker.lean:382-385`), in the checker's literal
+    -- order.  Note these are *not* `ConstantValR`'s pair: that pack
+    -- records `checkConstantVal`'s chain, and `checkThmVal` re-runs
+    -- `inferType`/`ensureSort` on the annotated type from scratch, so
+    -- the intermediates are separately named here.  The level test is
+    -- `Level.isEquiv` under `liftFueled`, i.e. literally `some true`.
+    (∃ stype u, inferTypeCore μ env F 0 type' = .ok stype ∧
+      ensureSortCore μ env F 0 stype = .ok u ∧
+      Level.isEquiv u .zero = some true) ∧
     -- the type is a proposition (`checkThmVal`'s `ensureSort` +
     -- `Level.isEquiv u .zero`, absorbed to the ground sort `0`)
     (∀ φ : Name → Nat,
