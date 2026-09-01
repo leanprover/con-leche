@@ -11991,3 +11991,24 @@ true-zeroness data (consumers compute bits on pins by `decide`);
 (b) `erasePw` must never grow a clause that forgives something
 `interp2`/`AnnotOk2` reads *other than* through the run-validated
 bits — the docstring's rule, kept under the P reading.
+
+## Task #161 DE-GATING ENUMERATION (started 2026-09-01, per user directive)
+
+The phase after the capstone: harvest runtime checks whose licensing
+facts become derivable from the annotation-backed model.  Running log,
+one entry per certificate site the tier work touches — site / what it
+computes at runtime / which P-tier fact would license removal or
+downgrade / expected saving class.  Verdict-neutrality is checked per
+removal when the harvest runs; nothing is removed before the capstone.
+
+| site | runtime computation | licensing P fact | saving class |
+|---|---|---|---|
+| `reduceNat`'s per-hit `natOpGuard`/`natOpStoredOk` re-checks (`Setlec/Kernel/Core.lean:684+`, every literal acceleration) | full guard re-derivation: `natLitSupported` + per-dep `find?`+shape scans, on **every** accelerated application | `NatOpsP`/`DivModP`'s guard conclusion: a stored `natOpNames`/`natDivModNames` definition *always* satisfies its guard (the install enforced it; the fold invariant carries it) — the per-hit check can downgrade to a single `find?`-hit test | per-reduction constant factor on `Nat`-heavy streams; small but hot |
+| `certifyNatEqs` (17 `isDefEqCore` runs per structural-op install, `Checker.lean:426`) | NOT a candidate: the runs are the **establishment source** of `NatOpsP` (the run-certificate route consumes them); deleting them would orphan the model | — | — |
+| `checkDivModCerts` (depth-4 certificate runs per WF-pin install, `Checker.lean:638+`) | NOT a candidate, same reason: `DivModP`'s establishment source | — | — |
+| #141's non-app certificate tax family (14–16×, annotate-side) | certificate checks on non-app nodes during annotate | candidates once the P tiers seal: the validated `pw` + P-tier soundness derive the licensing facts the certs re-check; enumerate per-site when the caps/iota tiers touch them | the named 14–16× family |
+| #71's possibly-Prop-by-inference gates (iota certs) | Prop-ness re-inference behind iota certificates | the iota tier's `RecRulesP` + validated `pw` (the bit IS the Prop-ness datum, validated at the front door) | iota-heavy streams |
+| #109's pt-freshness gates | freshness scans licensing infer_only | P-tier soundness at the validated reading (the set model proves the real checker incl. infer_only via #109 pt-freshness — the gate's fact becomes a theorem) | per-decl scans |
+
+Entries accrete as tier work touches sites; the harvest begins the day
+the capstone seals.
