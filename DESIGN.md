@@ -11951,3 +11951,43 @@ remainder scoped as above; the caps/proj-str/iota notes stand, with
 the caps note CORRECTED: do not attempt the erasure transfer — the
 caps laws need the run-certificate route (the caps certs' defeq runs
 exposed, then the P claims), not the v1 law transfer.
+
+## Task #161 RULING: the pin comparison stays `erasePw`-shaped (2026-09-01)
+
+The pass branch (agent/annot-pass @ c9f865be) made
+`ConstantVal.matchesPin` compare types through a new `Expr.erasePw`
+(pw data normalized to `.never`; `eraseNames` untouched).  The owed
+decision — that form versus threading the mode into `stdAxiomOk` and
+selecting raw-vs-annotated pins — is RULED for `erasePw`, for the
+proof tier's reasons:
+
+1. **The collapse lane pays nothing.**  `denote` reads neither binder
+   names nor binder metas (`Verify/Denote.lean:198-211` — `m` is
+   unbound in both binder clauses), so `denote (erasePw e) = denote e`
+   is a clean structural induction and every v1 consumer of a
+   `matchesPin` hit (`SetR/Install/Axiom.lean`, `SetR/StdAxiomKey.lean`)
+   keeps computing on the pin as before, plus one transparency lemma.
+2. **The P tier never takes bits from pin comparisons.**  The
+   established doctrine (`Claims2P.lean`) is that regime bits are
+   established from the front door's recorded run inversions, never
+   from a match verdict.  At `μ.verified` the stored datum is
+   validated `equiv (zeronessOf …)` against the checker's own sort
+   run (recorded H1-style in `ConstantValR`), and the pin's generated
+   datum is that same zeroness by construction — so `denoteP` of the
+   stored type and the pin's `AVExpr` get **equal** bits (both in
+   `{0,1}`, same zero-ness) exactly where the interpretation reads
+   them.  The pin-tier establishment lemma ("stored reading = pin
+   reading at the verified mode, from the recorded run") is owed WHEN
+   `AxiomStepPB`/`BasisStepPB` land, and is work of exactly the kind
+   those tiers already do.
+3. **Mode-threading would introduce `PropWhen` `==` at pins** — a
+   representation rigidity the validation layer deliberately avoids
+   (every P2 site compares by `equiv`), and a verdict sensitivity to
+   annotation *spelling*, violating the annotation-only-deviation law
+   that motivated the exception in the first place.
+
+Two conditions attach: (a) the pin generator must keep emitting the
+true-zeroness data (consumers compute bits on pins by `decide`);
+(b) `erasePw` must never grow a clause that forgives something
+`interp2`/`AnnotOk2` reads *other than* through the run-validated
+bits — the docstring's rule, kept under the P reading.
