@@ -2128,6 +2128,14 @@ and the *only* input annotations preserved are the `ifAllZero` ones.
   | .never => false
   | .ifAllZero _ => true
 
+/-- The datum a rebuilt binder ends up with: the one threaded in from
+the node below (the chain rule), unless it carries a real input
+annotation — those are judged by validation, never overwritten. -/
+def annotBinderMeta (pw? : Option PropWhen) (mb : BinderMeta) : BinderMeta :=
+  match pw? with
+  | some pw => if pwWritten mb.pw then mb else ⟨mb.bi, pw⟩
+  | none => mb
+
 /-- The ∀ node's datum: the zero-ness of the *codomain*'s sort, on the
 already-annotated opened body — exactly the value `inferBody`'s ∀
 clause validates against (`(forall-cod)`).

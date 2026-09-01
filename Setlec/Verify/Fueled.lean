@@ -233,6 +233,20 @@ theorem ensureSort_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold ensureSort
   atF_tac
 
+/-- Task #161 P5: the ∀/λ writes at a fixed fuel.  Both are the chain
+read, or `infer`/`ensureSort` calls the cascade already knows. -/
+theorem annotPwPi_atF {env : Env} (d : Nat) (e : Expr) (F : Nat) :
+    (annotPwPi (fueledFns mode env) env d e).val F =
+      annotPwPi (pureFns mode env F) env d e := by
+  unfold annotPwPi
+  atF_tac <;> exact ensureSort_atF _ _ _
+
+theorem annotPwLam_atF {env : Env} (d : Nat) (e : Expr) (F : Nat) :
+    (annotPwLam (fueledFns mode env) env d e).val F =
+      annotPwLam (pureFns mode env F) env d e := by
+  unfold annotPwLam
+  atF_tac <;> exact ensureSort_atF _ _ _
+
 theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
     (proofIrrel (fueledFns mode env) env d a b).val F =
       proofIrrel (pureFns mode env F) env d a b := by

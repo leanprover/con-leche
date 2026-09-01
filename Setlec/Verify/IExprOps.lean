@@ -337,6 +337,23 @@ theorem denoteBM_pw {denL : LIdx → Option Level} {m : IBinderMeta}
   simp only [denoteBM, Option.some.injEq] at h
   subst h; rfl
 
+/-- The rebuild fold's datum rule commutes with denotation (task #161
+P5): `denoteBM` is the identity on both fields, so the interned and
+spec mirrors settle on the same binder meta. -/
+theorem denoteBM_annotBinderMeta {denL : LIdx → Option Level}
+    {m : IBinderMeta} {bm : BinderMeta} (pw? : Option PropWhen)
+    (h : denoteBM denL m = some bm) :
+    denoteBM denL (annotBinderMetaI pw? m)
+      = some (annotBinderMeta pw? bm) := by
+  obtain ⟨bi, pw⟩ := m
+  simp only [denoteBM, Option.some.injEq] at h
+  subst h
+  cases pw? with
+  | none => rfl
+  | some p =>
+    simp only [annotBinderMetaI, annotBinderMeta]
+    split <;> rfl
+
 /-- Level-index lists and their denotations have equal length. -/
 theorem denoteLList_length {denL : LIdx → Option Level} :
     ∀ {us : List LIdx} {ls : List Level},

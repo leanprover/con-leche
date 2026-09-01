@@ -194,13 +194,6 @@ def AnnotPwOk (verified : Bool) (x : CheckM PropWhen) : Option PropWhen → Prop
   | some pw => verified = true ∧ x = .ok pw
   | none => verified = false
 
-/-- The datum a rebuilt binder ends up with: the one threaded in,
-unless it carries a real input annotation. -/
-def annotBinderMeta (pw? : Option PropWhen) (mb : BinderMeta) : BinderMeta :=
-  match pw? with
-  | some pw => if pwWritten mb.pw then mb else ⟨mb.bi, pw⟩
-  | none => mb
-
 /-- Pure mirror of `annotateBindersOutI` (a pure rebuild fold, generic
 in the rebuilt binder kind).  Task #161 P5: `pw?` is the datum written
 just below — each node takes it unless it carries a real input
