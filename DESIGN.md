@@ -11482,3 +11482,46 @@ mechanical signature sweep of the P surface (`EnvS2UM V μ env` →
 `EnvS2Core V env`) + re-homing the three `acval` helper lemmas the
 level crossing reads + `EnvS2PM.base2 : EnvS2Core`; runs after
 batches 6/7 merge so the sweep is single-shot.
+
+## Task #161 P4 frontier-transformation record (running tally, 2026-09-01)
+
+The design's publishable evidence: what the canonical (sort-run)
+interp2 lane routes undischarged at its frontier (`Capstone2E`'s
+fifteen, plus the quarter-level residues feeding them) versus the
+validated-annotation (P) lane after batches 1-7 + the lead's seals.
+
+**Dissolved or proved outright in P (canonical status in parens):**
+
+| canonical residue | P status |
+|---|---|
+| `BinderSortAgree2` — residue 9 (routed, Θ-shaped) | DEAD: the P2 defeq arms' own run certificates + `pwBit_eq_of_equiv` |
+| `LamCodSort2` (routed) | DEAD: leaf = front-door conjunct; chain = impredicativity (`piR_zero_mem_univZero`) |
+| `SortSem2` (routed, off-induction) | DERIVED: `sortSemAtP_of_claims` — the annotation fuel's removal makes every use induction-bounded |
+| `SortOfE/LamSortEInstLevels` (open metatheorems, false over bare `Env`) | PROVED: `denotePInstLevels`, unconditional equality |
+| `SortAgree` (env crossing, Θ) | PROVED-FREE: `denoteP_envExtend` from `FindPreserved`+`LitGuardsAgree` |
+| `EnvExtendStable` (frozen on Θ) | not needed: the crossing above is the whole obligation |
+| `BetaCross2C` (routed) | THEOREM: `denoteP_beta` — syntactic equation, transports by `AnnotOkP_inst0` |
+| `Denote2Inst1B` (routed) | RETIRED: `denoteP_beta` directly; both leaf premises discharged (`acval_inst_self`) |
+| `Delta2B` (routed; slack; `delta2_refuted` wall) | DISCHARGED: `deltaP_of` from the existence-form field + the proved crossing |
+| `Denote2ModeAgree` (routed) | GONE: one reading per subject (`denoteP_agree_same` = `Option.some.inj`) |
+| `TypeOk2` (routed) | GONE: the P claims conclude `AnnotOkP` of the returned type |
+| `CtxOk2R` (routed, believed false) | GONE: one currency (`CtxOkP`) |
+| `EtaCert2D` (routed) | PROVED: `etaCertStepP_of_claims` — `lamR_eta` is regime-uniform; the P2 `(eta)` certificate identifies the annotations |
+| `AppCongrStuck2D`, `DefEqSpine2D` (routed) | PROVED: `appCongrStuckP_of_claims`, `defEqSpineP_of_claims` |
+| `ProofIrrel2D` (routed) | PROVED (Prop branch): `proofIrrelPQ_of_claims` — no heterogeneity side condition at `interp2`; unit-like branch → caps tier |
+| `Denote2StrLit2A` (routed) | PROVED: purely syntactic (`denotePStrLit_of_guard`) |
+| `InferExists2E` + the dual-success totality family | DISCHARGED from `EnvS2PM` fields + the `ReadsP` walk (post batch-8 repair of the refutable-as-stated `InferReadsP` — batch-6 finding) |
+| `ConstType2C` (routed) | DERIVED: `EnvS2PM.constTypeP` |
+
+**Still routed in P, by discharge tier:**
+install (`InferStrLitStepP`, `InferProjStepP`, proj-reads pair);
+iota (`IotaStepP`, `IotaReadsP`);
+literal (`ReduceNatStepP`/`PQ`, `ReduceNatReadsP`);
+caps/structure (`UnitIrrelPQ`, `PairEtaIrrelP`, `StructEtaIrrelP`,
+`StructUnitIrrelP`).
+These are the P capstone's remaining bill — every one names semantic
+content the canonical lane also never built (it froze earlier, on the
+sort-stability family), so the table above is the design's measured
+claim: **validated annotations dissolve the coherence frontier;
+what remains is the ordinary semantic content of the checker's
+features.**
