@@ -1153,4 +1153,81 @@ theorem defeqStuck_claimP {m : EnvS2UM V μ env} {fuel : Nat}
   -- 17: distinct stuck heads
   · exact hfall h
 
+/-! ## T6 — the quarter
+
+`defEqStep2D_of`'s transpose.  Two things move.
+
+* The ten routed residues are bundled into `DefEqInputsP` rather than
+  spelled as ten hypotheses: at this width the list is the noise and
+  the structure is the signal, and a consumer that discharges one
+  residue can update one field.
+* `μ.verified = true` is a hypothesis of the **step**, not of the
+  claims.  `DefEqClaims2P` stays mode-generic — it must, it is frozen
+  text — and the mode pin sits exactly where the validation conjuncts
+  are read, which is `defeqStuck_claimP`'s two binder cases.  This is
+  the same discipline the infer quarter's `infer_forallE_claimP`
+  already follows.
+
+`hap : AcvalParams2` is kept in the structure for symmetry with the D
+lane's hypothesis list even though `acvalParams2` discharges it
+outright from the `EnvS2U` field. -/
+
+/-- The quarter's deliverable: the four P claims at `fuel` give the
+defeq claim at `fuel + 1`. -/
+def DefEqStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
+  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
+    WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
+    DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
+    DefEqClaims2P μ m φ (fuel + 1)
+
+/-- **The quarter's routed inputs**, one field per residue.  Eight are
+the D lane's own list transposed; two — `hex` and `hdel` — are the
+dual-success currency's price (see the module docstring). -/
+structure DefEqInputsP (μ : CheckMode) (V : Type w) [SetTheory V] :
+    Prop where
+  /-- **New at the P tier.**  The `whnfCore` reduct annotates. -/
+  hex : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), WhnfCoreReductExistsP m φ fuel
+  /-- Residue 2 — the delta identity, fuel-free. -/
+  hdel : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
+    DenotePDeltaP m φ
+  /-- Residue 4 — the literal acceleration. -/
+  hnat : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), ReduceNatStepPQ m φ fuel
+  /-- Residue 3 — proof irrelevance. -/
+  hpi : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), ProofIrrelPQ m φ fuel
+  /-- Residue 5 — the same-head spine short-circuit. -/
+  hspine : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), DefEqSpineP m φ fuel
+  /-- Residue 6 — `stuckIrrel`. -/
+  hsi : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), StuckIrrelPQ m φ fuel
+  /-- Residue 7 — the string-literal expansion. -/
+  hstr : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
+    DenotePStrLit m φ
+  /-- Residue 8 — the canonical valuation is level-insensitive.
+  Discharged by `acvalParams2`; kept for symmetry. -/
+  hap : ∀ (env : Env) (m : EnvS2UM V μ env), AcvalParams2 m
+  /-- Residue 10 — the stuck spine congruence. -/
+  happ : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), AppCongrStuckP m φ fuel
+  /-- Residue 11 — the η certificate. -/
+  heta : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), EtaCertStepP m φ fuel
+
+/-- **The defeq quarter, P currency.**  Ten routed residues and one
+mode pin; **no `BinderSortAgree`** — residue 9's successor is the run's
+own `equiv` certificate, read at `hμ` inside `defeqStuck_claimP`. -/
+theorem defEqStepP_of (hμ : μ.verified = true)
+    (hin : DefEqInputsP μ V) : DefEqStepP μ V := by
+  intro env m φ fuel ihwc _ihw ihd _ihi
+  exact defeq_claimsP
+    (defeqStep_claimP (hin.hex env m φ fuel) ihwc (hin.hdel env m φ)
+      (hin.hnat env m φ fuel) (hin.hpi env m φ fuel)
+      (defeqStuck_claimP hμ ihd (hin.hsi env m φ fuel)
+        (hin.hstr env m φ) (hin.hap env m) (hin.happ env m φ fuel)
+        (hin.heta env m φ fuel))
+      (hin.hspine env m φ fuel))
+
 end Setlec.SetR.Interp2
