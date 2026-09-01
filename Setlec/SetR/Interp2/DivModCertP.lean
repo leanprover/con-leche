@@ -264,99 +264,112 @@ def dmNatFrag (bins uns : List Name) : Expr → Bool
   | .app (.const n us) a =>
       uns.contains n && us.isEmpty && dmNatFrag bins uns a
   | .const n us => (n == Setlec.natZeroName) && us.isEmpty
-  | .fvar i _ ty =>
-      (i == 0 || i == 1) && ty == Expr.const Setlec.natName []
+  | .fvar i nm ty =>
+      ((i == 0 && nm == Name.anonymous.str "x") ||
+        (i == 1 && nm == Name.anonymous.str "y")) &&
+        ty == Expr.const Setlec.natName []
   | _ => false
 
-/-- **The graded walk.**  A `Nat`-valued statement fragment reads, its
-reading is graded, its value is in the frame's `Nat`, and that value is
-the `dmEvalV` chain `DivModClausesV` is written in. -/
+/-- **The graded walk.**  A `Nat`-valued statement fragment reads, and
+at every valuation putting the two frame variables in the frame's
+`Nat` its reading is graded, its value is in `Nat`, and that value is
+the `dmEvalV` chain `DivModClausesV` is written in.
+
+The valuation is quantified *inside* the reading, because the P claims
+grade at every valuation satisfying the telescope, not at one. -/
 theorem dmNatFragP {m : EnvS2Core V env} {ψ : Name → Nat}
     {c : Name} {A : (Name → Nat) → AVExpr} {value' : Expr}
-    {bins uns : List Name} {d : Nat} {ρ : Nat → V} {natS : V}
+    {bins uns : List Name} {d : Nat} {natS : V}
     (hread : ∀ n ∈ Setlec.natZeroName :: (bins ++ uns), ∀ d' : Nat,
       denoteP m.acval env ψ d' (Expr.substConst0 c value' (.const n []))
         = some (acvalWith m.acval c A n ψ))
-    (hleafOk : ∀ n : Name, AnnotOkP V ρ (acvalWith m.acval c A n ψ))
-    (hbin : ∀ n ∈ bins,
+    (hleafOk : ∀ (n : Name) (ρ : Nat → V),
+      AnnotOkP V ρ (acvalWith m.acval c A n ψ))
+    (hbin : ∀ n ∈ bins, ∀ ρ : Nat → V,
       DmBinV natS natS (interp2 V ρ (acvalWith m.acval c A n ψ)))
-    (hun : ∀ n ∈ uns,
+    (hun : ∀ n ∈ uns, ∀ ρ : Nat → V,
       DmUnV natS natS (interp2 V ρ (acvalWith m.acval c A n ψ)))
-    (hzero : interp2 V ρ
-      (acvalWith m.acval c A Setlec.natZeroName ψ) ∈ˢ natS)
-    (hx : ρ (d - 1 - 0) ∈ˢ natS) (hy : ρ (d - 1 - 1) ∈ˢ natS) :
+    (hzero : ∀ ρ : Nat → V,
+      interp2 V ρ (acvalWith m.acval c A Setlec.natZeroName ψ) ∈ˢ natS) :
     ∀ e : Expr, dmNatFrag bins uns e = true →
       ∃ ea, denoteP m.acval env ψ d
           (Expr.substConst0 c value' e) = some ea ∧
-        AnnotOkP V ρ ea ∧ interp2 V ρ ea ∈ˢ natS ∧
-        interp2 V ρ ea = dmEvalV V
-          (fun n => interp2 V ρ (acvalWith m.acval c A n ψ))
-          (ρ (d - 1 - 0)) (ρ (d - 1 - 1)) e
+        ∀ ρ : Nat → V, ρ (d - 1 - 0) ∈ˢ natS → ρ (d - 1 - 1) ∈ˢ natS →
+          AnnotOkP V ρ ea ∧ interp2 V ρ ea ∈ˢ natS ∧
+          interp2 V ρ ea = dmEvalV V
+            (fun n => interp2 V ρ (acvalWith m.acval c A n ψ))
+            (ρ (d - 1 - 0)) (ρ (d - 1 - 1)) e
   | .app (.app (.const n us) a) b, h => by
     simp only [dmNatFrag, Bool.and_eq_true, List.isEmpty_iff] at h
     obtain ⟨⟨⟨hn, rfl⟩, ha⟩, hb⟩ := h
     have hnm : n ∈ bins := List.contains_iff_mem.mp hn
-    obtain ⟨aa, hda, hoka, hma, hea⟩ := dmNatFragP hread hleafOk hbin
-      hun hzero hx hy a ha
-    obtain ⟨ba, hdb, hokb, hmb, heb⟩ := dmNatFragP hread hleafOk hbin
-      hun hzero hx hy b hb
+    obtain ⟨aa, hda, hfa⟩ := dmNatFragP hread hleafOk hbin hun hzero a ha
+    obtain ⟨ba, hdb, hfb⟩ := dmNatFragP hread hleafOk hbin hun hzero b hb
     have hdn := hread n (by simp [List.mem_append, hnm]) d
-    refine ⟨.app (.app (acvalWith m.acval c A n ψ) aa) ba, ?_, ?_, ?_, ?_⟩
+    refine ⟨.app (.app (acvalWith m.acval c A n ψ) aa) ba, ?_,
+      fun ρ hx hy => ?_⟩
     · show denoteP m.acval env ψ d
         (.app (.app (Expr.substConst0 c value' (.const n []))
           (Expr.substConst0 c value' a)) (Expr.substConst0 c value' b))
         = _
       rw [denoteP_app, denoteP_app, hdn, hda, hdb]
       rfl
-    · exact ⟨DmBinV.ok2 (hbin n hnm) hma hmb (hleafOk n).1 hoka.1
-        hokb.1 rfl rfl rfl,
-        by rw [AnnotValidV_app, AnnotValidV_app]
-           exact ⟨⟨(hleafOk n).2, hoka.2⟩, hokb.2⟩⟩
-    · rw [interp2_app, interp2_app]
-      exact DmBinV.app (hbin n hnm) hma hmb
-    · rw [interp2_app, interp2_app, hea, heb]
-      rfl
+    · obtain ⟨hoka, hma, hea⟩ := hfa ρ hx hy
+      obtain ⟨hokb, hmb, heb⟩ := hfb ρ hx hy
+      refine ⟨⟨DmBinV.ok2 (hbin n hnm ρ) hma hmb (hleafOk n ρ).1
+          hoka.1 hokb.1 rfl rfl rfl,
+          by rw [AnnotValidV_app, AnnotValidV_app]
+             exact ⟨⟨(hleafOk n ρ).2, hoka.2⟩, hokb.2⟩⟩, ?_, ?_⟩
+      · rw [interp2_app, interp2_app]
+        exact DmBinV.app (hbin n hnm ρ) hma hmb
+      · rw [interp2_app, interp2_app, hea, heb]
+        rfl
   | .app (.const n us) a, h => by
     simp only [dmNatFrag, Bool.and_eq_true, List.isEmpty_iff] at h
     obtain ⟨⟨hn, rfl⟩, ha⟩ := h
     have hnm : n ∈ uns := List.contains_iff_mem.mp hn
-    obtain ⟨aa, hda, hoka, hma, hea⟩ := dmNatFragP hread hleafOk hbin
-      hun hzero hx hy a ha
+    obtain ⟨aa, hda, hfa⟩ := dmNatFragP hread hleafOk hbin hun hzero a ha
     have hdn := hread n (by simp [List.mem_append, hnm]) d
-    refine ⟨.app (acvalWith m.acval c A n ψ) aa, ?_, ?_, ?_, ?_⟩
+    refine ⟨.app (acvalWith m.acval c A n ψ) aa, ?_, fun ρ hx hy => ?_⟩
     · show denoteP m.acval env ψ d
         (.app (Expr.substConst0 c value' (.const n []))
           (Expr.substConst0 c value' a)) = _
       rw [denoteP_app, hdn, hda]
       rfl
-    · exact ⟨DmUnV.ok1 (hun n hnm) hma (hleafOk n).1 hoka.1 rfl rfl,
-        by rw [AnnotValidV_app]; exact ⟨(hleafOk n).2, hoka.2⟩⟩
-    · rw [interp2_app]
-      exact DmUnV.app (hun n hnm) hma
-    · rw [interp2_app, hea]
-      rfl
+    · obtain ⟨hoka, hma, hea⟩ := hfa ρ hx hy
+      refine ⟨⟨DmUnV.ok1 (hun n hnm ρ) hma (hleafOk n ρ).1 hoka.1 rfl
+          rfl,
+          by rw [AnnotValidV_app]; exact ⟨(hleafOk n ρ).2, hoka.2⟩⟩,
+        ?_, ?_⟩
+      · rw [interp2_app]
+        exact DmUnV.app (hun n hnm ρ) hma
+      · rw [interp2_app, hea]
+        rfl
   | .const n us, h => by
     simp only [dmNatFrag, Bool.and_eq_true, beq_iff_eq,
       List.isEmpty_iff] at h
     obtain ⟨rfl, rfl⟩ := h
-    exact ⟨_, hread _ (by simp) d, hleafOk _, hzero, rfl⟩
+    exact ⟨_, hread _ (by simp) d,
+      fun ρ _ _ => ⟨hleafOk _ ρ, hzero ρ, rfl⟩⟩
   | .fvar i nm ty, h => by
     simp only [dmNatFrag, Bool.and_eq_true, Bool.or_eq_true,
       beq_iff_eq] at h
     obtain ⟨hi, rfl⟩ := h
-    rcases hi with rfl | rfl
-    · refine ⟨.bvar (d - 1 - 0), ?_, ⟨by simp, by simp⟩, ?_, ?_⟩
+    rcases hi with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+    · refine ⟨.bvar (d - 1 - 0), ?_, fun ρ hx hy => ?_⟩
       · show denoteP m.acval env ψ d
-          (.fvar 0 nm (.const Setlec.natName [])) = _
+          (.fvar 0 (Name.anonymous.str "x")
+            (.const Setlec.natName [])) = _
         rw [denoteP_fvar]
-      · rw [interp2_bvar]; exact hx
-      · rw [interp2_bvar]; rfl
-    · refine ⟨.bvar (d - 1 - 1), ?_, ⟨by simp, by simp⟩, ?_, ?_⟩
+      · exact ⟨⟨by simp, by simp⟩, by rw [interp2_bvar]; exact hx,
+          by rw [interp2_bvar]; rfl⟩
+    · refine ⟨.bvar (d - 1 - 1), ?_, fun ρ hx hy => ?_⟩
       · show denoteP m.acval env ψ d
-          (.fvar 1 nm (.const Setlec.natName [])) = _
+          (.fvar 1 (Name.anonymous.str "y")
+            (.const Setlec.natName [])) = _
         rw [denoteP_fvar]
-      · rw [interp2_bvar]; exact hy
-      · rw [interp2_bvar]; rfl
+      · exact ⟨⟨by simp, by simp⟩, by rw [interp2_bvar]; exact hy,
+          by rw [interp2_bvar]; rfl⟩
   | .bvar _, h | .sort _, h | .lam _ _ _ _, h | .letE _ _ _ _, h
   | .forallE _ _ _ _, h | .lit _, h | .proj _ _ _, h => by
     simp [dmNatFrag] at h
@@ -533,5 +546,467 @@ theorem denoteP_eqSpine {acval : Name → (Name → Nat) → AVExpr}
 theorem eqSubstP_uN (ψ : Name → Nat) :
     Level.substFn ψ eqA.toConstantVal.levelParams [Level.zero.succ] uN
       = 1 := rfl
+
+/-! ## The head names a certificate block reads -/
+
+/-- The extension's valuation: the pinned operation at its own name
+(through the annotated stored value), every dependency at its
+storage. -/
+def dmLeaf {env : Env} (m : EnvS2Core V env) (c : Name)
+    (A : (Name → Nat) → AVExpr) (ψ : Name → Nat) (n : Name) : AVExpr :=
+  acvalWith m.acval c A n ψ
+
+/-- The binary heads the statements apply: the recurrence dependencies
+minus the guard's `Nat.ble` and the unary `Nat.pred`/`Nat.log2`. -/
+def dmBinNames (c : Name) : List Name :=
+  (Setlec.natOpDeps c).filter fun n =>
+    n != Setlec.natBleName && n != Setlec.natPredName &&
+      n != Setlec.natLog2Name
+
+/-- The unary heads: `Nat.succ`, plus the operation itself when it is
+`Nat.log2`. -/
+def dmUnNames (c : Name) : List Name :=
+  if c = Setlec.natLog2Name then [Setlec.natSuccName, Setlec.natLog2Name]
+  else [Setlec.natSuccName]
+
+/-- Every head a certificate block mentions. -/
+def dmHeadNames (c : Name) : List Name :=
+  Setlec.natName :: Setlec.boolName :: Setlec.natZeroName ::
+    Setlec.natBleName :: Setlec.boolTrueName ::
+    Setlec.boolFalseName :: (dmBinNames c ++ dmUnNames c)
+
+/-- The walk's head list sits inside the frame's. -/
+theorem mem_dmHeadNames {c n : Name}
+    (h : n ∈ Setlec.natZeroName :: (dmBinNames c ++ dmUnNames c)) :
+    n ∈ dmHeadNames c := by
+  simp only [dmHeadNames, List.mem_cons] at h ⊢
+  rcases h with rfl | h
+  · exact Or.inr (Or.inr (Or.inl rfl))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h)))))
+
+/-! ## The statements' syntactic obligations, from the grammar
+
+A `dmNatFrag` term has only the two frame variables as leaves, both at
+`Nat`, and no bound variables at all — so every syntactic side
+condition the frame asks for is a consequence of the grammar, not a
+`by decide` at each call site. -/
+
+/-- A frame variable is well-scoped at any depth above its index. -/
+theorem dmFvarWScoped {d i : Nat} {n : Name} {ty : Expr} (hi : i < d)
+    (hty : Expr.WScoped i ty) : Expr.WScoped d (Expr.fvar i n ty) := by
+  simp only [Expr.WScoped]
+  exact ⟨hi, hty⟩
+
+theorem dmNatFrag_syntax {bins uns : List Name} :
+    ∀ e : Expr, dmNatFrag bins uns e = true →
+      dmLeavesOk e = true ∧ e.looseBVarsBounded 0 = true ∧
+      ∀ d : Nat, 2 ≤ d → Expr.WScoped d e
+  | .app (.app (.const n us) a) b, h => by
+    simp only [dmNatFrag, Bool.and_eq_true, List.isEmpty_iff] at h
+    obtain ⟨⟨⟨-, rfl⟩, ha⟩, hb⟩ := h
+    obtain ⟨hla, hba, hwa⟩ := dmNatFrag_syntax a ha
+    obtain ⟨hlb, hbb, hwb⟩ := dmNatFrag_syntax b hb
+    refine ⟨?_, ?_, fun d hd =>
+      dmApp_wscoped (dmApp_wscoped
+        (Expr.WScoped.of_not_hasFvar (e := .const n []) rfl)
+        (hwa d hd)) (hwb d hd)⟩
+    · simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append,
+        List.all_append, Bool.and_eq_true]
+      exact ⟨hla, hlb⟩
+    · simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨⟨trivial, hba⟩, hbb⟩
+  | .app (.const n us) a, h => by
+    simp only [dmNatFrag, Bool.and_eq_true, List.isEmpty_iff] at h
+    obtain ⟨⟨-, rfl⟩, ha⟩ := h
+    obtain ⟨hla, hba, hwa⟩ := dmNatFrag_syntax a ha
+    refine ⟨?_, ?_, fun d hd =>
+      dmApp_wscoped (Expr.WScoped.of_not_hasFvar (e := .const n []) rfl)
+        (hwa d hd)⟩
+    · simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append]
+      exact hla
+    · simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨trivial, hba⟩
+  | .const n us, h => by
+    simp only [dmNatFrag, Bool.and_eq_true, beq_iff_eq,
+      List.isEmpty_iff] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨by simp [dmLeavesOk, Expr.fvarLeaves], rfl, fun _ _ =>
+      Expr.WScoped.of_not_hasFvar
+        (e := .const Setlec.natZeroName []) rfl⟩
+  | .fvar i nm ty, h => by
+    simp only [dmNatFrag, Bool.and_eq_true, Bool.or_eq_true,
+      beq_iff_eq] at h
+    obtain ⟨hi, rfl⟩ := h
+    rcases hi with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+    · exact ⟨by simp [dmLeavesOk, Expr.fvarLeaves], rfl,
+        fun d hd => dmFvarWScoped (by omega)
+          (Expr.WScoped.of_not_hasFvar
+            (e := .const Setlec.natName []) rfl)⟩
+    · exact ⟨by simp [dmLeavesOk, Expr.fvarLeaves], rfl,
+        fun d hd => dmFvarWScoped (by omega)
+          (Expr.WScoped.of_not_hasFvar
+            (e := .const Setlec.natName []) rfl)⟩
+  | .bvar _, h | .sort _, h | .lam _ _ _ _, h | .letE _ _ _ _, h
+  | .forallE _ _ _ _, h | .lit _, h | .proj _ _ _, h => by
+    simp [dmNatFrag] at h
+
+/-- Scoping survives the operation substitution (the `WScoped` twin of
+`wscopedB_substConst0`; `substConst0` rewrites `const` nodes and
+recurses only through applications). -/
+theorem wscoped_substConst0 {c : Name} {v : Expr}
+    (hv : v.hasFvar = false) :
+    ∀ (e : Expr) {d : Nat}, Expr.WScoped d e →
+      Expr.WScoped d (Expr.substConst0 c v e)
+  | .const n us, d, _ => by
+    simp only [Expr.substConst0]
+    split
+    · exact Expr.WScoped.of_not_hasFvar hv
+    · exact Expr.WScoped.of_not_hasFvar (e := .const n us) rfl
+  | .app f a, d, hw => by
+    simp only [Expr.WScoped] at hw
+    exact dmApp_wscoped (wscoped_substConst0 hv f hw.1)
+      (wscoped_substConst0 hv a hw.2)
+  | .bvar _, _, hw | .fvar _ _ _, _, hw | .sort _, _, hw
+  | .lit _, _, hw | .lam _ _ _ _, _, hw | .forallE _ _ _ _, _, hw
+  | .letE _ _ _ _, _, hw | .proj _ _ _, _, hw => hw
+
+/-! ## The certificate frame
+
+Everything the nine clause blocks are read against, at one assignment:
+the extension's valuation with its closedness and grading, the frame's
+`Nat` and `Bool` as universes, the statements' heads as functions on
+`Nat`, and the pinned `Eq`.  This is `dmFrameS`'s existential tuple as
+a structure. -/
+
+/-- **The div/mod certificate frame at `interp2`.** -/
+structure DmFrameP {env : Env} (mp : EnvS2PM V μ env) (c : Name)
+    (A : (Name → Nat) → AVExpr) (value' : Expr) (ψ : Name → Nat) :
+    Prop where
+  /-- the pinned `Eq` is stored -/
+  eqStored : env.find? eqName = some eqA
+  /-- neither pinned type name is the operation being installed -/
+  natNe : Setlec.natName ≠ c
+  boolNe : Setlec.boolName ≠ c
+  /-- the annotated stored value's reading, at every depth -/
+  selfRead : ∀ d : Nat,
+    denoteP mp.base2.acval env ψ d value' = some (A ψ)
+  /-- the annotated value is closed -/
+  valueNoFvar : value'.hasFvar = false
+  valueBounded : value'.looseBVarsBounded 0 = true
+  /-- every head the statements read is the operation itself or is
+  stored level-monomorphically -/
+  stored : ∀ n ∈ dmHeadNames c, n = c ∨ (n ≠ c ∧ ∃ ci,
+    env.find? n = some ci ∧ ci.toConstantVal.levelParams = [])
+  /-- the extension's leaves are graded and closed -/
+  leafOk : ∀ (n : Name) (ρ : Nat → V),
+    AnnotOkP V ρ (dmLeaf mp.base2 c A ψ n)
+  leafClosed : ∀ (n : Name) (ρ ρ' : Nat → V),
+    interp2 V ρ (dmLeaf mp.base2 c A ψ n)
+      = interp2 V ρ' (dmLeaf mp.base2 c A ψ n)
+  /-- the frame's two types are universes -/
+  natU : ∀ ρ : Nat → V,
+    interp2 V ρ (mp.base2.acval Setlec.natName ψ) ∈ˢ (univ 1 : V)
+  boolU : ∀ ρ : Nat → V,
+    interp2 V ρ (mp.base2.acval Setlec.boolName ψ) ∈ˢ (univ 1 : V)
+  /-- the statements' heads are functions on the frame's `Nat` -/
+  binHead : ∀ n ∈ dmBinNames c, ∀ ρ : Nat → V,
+    DmBinV (interp2 V ρ (mp.base2.acval Setlec.natName ψ))
+      (interp2 V ρ (mp.base2.acval Setlec.natName ψ))
+      (interp2 V ρ (dmLeaf mp.base2 c A ψ n))
+  unHead : ∀ n ∈ dmUnNames c, ∀ ρ : Nat → V,
+    DmUnV (interp2 V ρ (mp.base2.acval Setlec.natName ψ))
+      (interp2 V ρ (mp.base2.acval Setlec.natName ψ))
+      (interp2 V ρ (dmLeaf mp.base2 c A ψ n))
+  /-- …and the guard's `Nat.ble` is one into `Bool` -/
+  bleHead : ∀ ρ : Nat → V,
+    DmBinV (interp2 V ρ (mp.base2.acval Setlec.natName ψ))
+      (interp2 V ρ (mp.base2.acval Setlec.boolName ψ))
+      (interp2 V ρ (dmLeaf mp.base2 c A ψ Setlec.natBleName))
+  /-- the constructors inhabit their types -/
+  zeroMem : ∀ ρ : Nat → V,
+    interp2 V ρ (dmLeaf mp.base2 c A ψ Setlec.natZeroName)
+      ∈ˢ interp2 V ρ (mp.base2.acval Setlec.natName ψ)
+  boolCtorMem : ∀ bn : Name,
+    bn = Setlec.boolTrueName ∨ bn = Setlec.boolFalseName →
+    ∀ ρ : Nat → V, interp2 V ρ (dmLeaf mp.base2 c A ψ bn)
+      ∈ˢ interp2 V ρ (mp.base2.acval Setlec.boolName ψ)
+
+namespace DmFrameP
+
+variable {mp : EnvS2PM V μ env} {c : Name} {A : (Name → Nat) → AVExpr}
+variable {value' : Expr} {ψ : Name → Nat}
+
+/-- **A head reads to its leaf**, at every depth: the operation itself
+through the substitution, a dependency through its storage. -/
+theorem read (fr : DmFrameP mp c A value' ψ) {n : Name}
+    (hn : n ∈ dmHeadNames c) (d : Nat) :
+    denoteP mp.base2.acval env ψ d
+        (Expr.substConst0 c value' (.const n []))
+      = some (dmLeaf mp.base2 c A ψ n) := by
+  rcases fr.stored n hn with rfl | ⟨hne, ci, hf, hlp⟩
+  · rw [show Expr.substConst0 n value' (.const n []) = value' from by
+      rw [Expr.substConst0, if_pos ⟨rfl, rfl⟩]]
+    rw [fr.selfRead d, dmLeaf,
+      show acvalWith mp.base2.acval n A n = A from acvalWith_self]
+  · rw [show Expr.substConst0 c value' (.const n []) = .const n []
+      from by
+      rw [Expr.substConst0, if_neg (fun hh => hne hh.1)]]
+    rw [denoteP_levelless_const hf hlp, dmLeaf,
+      show acvalWith mp.base2.acval c A n = mp.base2.acval n
+        from acvalWith_ne hne]
+
+/-- The `Nat` leaf is not moved by the extension. -/
+theorem natLeaf (fr : DmFrameP mp c A value' ψ) :
+    dmLeaf mp.base2 c A ψ Setlec.natName
+      = mp.base2.acval Setlec.natName ψ := by
+  rw [dmLeaf, show acvalWith mp.base2.acval c A Setlec.natName
+    = mp.base2.acval Setlec.natName from acvalWith_ne fr.natNe]
+
+/-- Nor is the `Bool` leaf. -/
+theorem boolLeaf (fr : DmFrameP mp c A value' ψ) :
+    dmLeaf mp.base2 c A ψ Setlec.boolName
+      = mp.base2.acval Setlec.boolName ψ := by
+  rw [dmLeaf, show acvalWith mp.base2.acval c A Setlec.boolName
+    = mp.base2.acval Setlec.boolName from acvalWith_ne fr.boolNe]
+
+end DmFrameP
+
+/-! ## The statement's equation, at a satisfied frame
+
+`dmCertEq1S`/`dmCertEq2S`'s content, with the two hypothesis-slot
+shapes factored out: what the certificate delivers depends on the
+*frame* being satisfied, not on how many hypotheses it took to satisfy
+it.  The caller supplies the four-entry telescope with its two `Nat`
+slots at the bottom, the applied proof's frame conditions, and a
+satisfying valuation. -/
+
+/-- The frame's `Nat` leaf reads. -/
+theorem DmFrameP.readNat {mp : EnvS2PM V μ env} {c : Name}
+    {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
+    (fr : DmFrameP mp c A value' ψ) (d : Nat) :
+    denoteP mp.base2.acval env ψ d (Expr.const Setlec.natName [])
+      = some (mp.base2.acval Setlec.natName ψ) := by
+  rcases fr.stored Setlec.natName (by simp [dmHeadNames]) with
+    hc | ⟨-, ci, hf, hlp⟩
+  · exact absurd hc fr.natNe
+  · exact denoteP_levelless_const hf hlp
+
+/-- The frame's `Bool` leaf reads. -/
+theorem DmFrameP.readBool {mp : EnvS2PM V μ env} {c : Name}
+    {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
+    (fr : DmFrameP mp c A value' ψ) (d : Nat) :
+    denoteP mp.base2.acval env ψ d (Expr.const Setlec.boolName [])
+      = some (mp.base2.acval Setlec.boolName ψ) := by
+  rcases fr.stored Setlec.boolName (by simp [dmHeadNames]) with
+    hc | ⟨-, ci, hf, hlp⟩
+  · exact absurd hc fr.boolNe
+  · exact denoteP_levelless_const hf hlp
+
+/-- A `dmLeavesOk` term's leaves are the two `Nat` slots, so the frame
+discipline is free for it. -/
+theorem dmCtxOkP_natLeaves {mp : EnvS2PM V μ env} {c : Name}
+    {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
+    (fr : DmFrameP mp c A value' ψ) {Δa : List AVExpr}
+    (hlen : Δa.length = 4)
+    (h3 : Δa.getD 3 default = mp.base2.acval Setlec.natName ψ)
+    (h2 : Δa.getD 2 default = mp.base2.acval Setlec.natName ψ)
+    {e : Expr} (he : dmLeavesOk e = true) :
+    CtxOkP mp.base2 ψ 4 Δa (Expr.substConst0 c value' e) := by
+  have hself : ∀ k : Nat,
+      (mp.base2.acval Setlec.natName ψ).liftN k 0
+        = mp.base2.acval Setlec.natName ψ := fun k =>
+    AVExpr.liftN_eq_self _
+      (by rw [mp.base2.acval_erase]
+          exact mp.base2.base.cval_closed Setlec.natName ψ) k
+  refine ctxOkP_pinnedLift hlen (fun l hl => ?_)
+  rw [fvarLeaves_substConst0 (n := c) fr.valueNoFvar e] at hl
+  rcases dmLeavesOk_mem he hl with rfl | rfl
+  · refine ⟨by omega, trivial, _, fr.readNat 4, ?_,
+      fun ρ _ => ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩⟩
+    show mp.base2.acval Setlec.natName ψ
+      = (Δa.getD 3 default).liftN 4 0
+    rw [h3, hself 4]
+  · refine ⟨by omega, trivial, _, fr.readNat 4, ?_,
+      fun ρ _ => ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩⟩
+    show mp.base2.acval Setlec.natName ψ
+      = (Δa.getD 2 default).liftN 3 0
+    rw [h2, hself 3]
+
+/-- The frame's two `Nat` slots, read off satisfaction. -/
+theorem dmSat_slots {mp : EnvS2PM V μ env} {ψ : Name → Nat}
+    {Δa : List AVExpr} (hlen : Δa.length = 4)
+    (h3 : Δa.getD 3 default = mp.base2.acval Setlec.natName ψ)
+    (h2 : Δa.getD 2 default = mp.base2.acval Setlec.natName ψ)
+    {ρ : Nat → V} (hsat : Sat2 V Δa ρ) (ρ₀ : Nat → V) :
+    ρ 3 ∈ˢ interp2 V ρ₀ (mp.base2.acval Setlec.natName ψ) ∧
+      ρ 2 ∈ˢ interp2 V ρ₀ (mp.base2.acval Setlec.natName ψ) := by
+  have hg : ∀ i : Nat, i < 4 →
+      Δa[i]? = some (Δa.getD i default) := by
+    intro i hi
+    rw [List.getD, List.getElem?_eq_getElem (by rw [hlen]; omega)]
+    rfl
+  have e3 := hsat 3 _ (by rw [hg 3 (by omega), h3])
+  have e2 := hsat 2 _ (by rw [hg 2 (by omega), h2])
+  rw [acval_interp2_closedC mp.base2 _ ψ _ ρ₀] at e3 e2
+  exact ⟨e3, e2⟩
+
+/-- **The certificate's equation, at a satisfied frame.**  The
+statement's two sides are `Nat`-valued fragments; how the frame's
+hypothesis slots came to be satisfied is the caller's business. -/
+theorem dmStmtEqP {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
+    {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
+    (fr : DmFrameP mp c A value' ψ) (heqlaw : EqLawP mp.base2)
+    (hacc : ∀ {d : Nat} {e t : Expr},
+      Setlec.inferTypeCore μ env F d e = .ok t →
+      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded e →
+      ∃ ea, denoteP mp.base2.acval env ψ d e = some ea)
+    (hreads : InferReadsP mp.base2 μ ψ F)
+    (hinfC : InferClaims2P μ mp.base2 ψ F)
+    (hdeC : DefEqClaims2P μ mp.base2 ψ F)
+    {hyps : List Expr} {lhs rhs proof : Expr}
+    (hfacts : CertRunFacts μ env F c value'
+      (hyps, .app (.app (.app (.const eqName [.succ .zero])
+        (.const Setlec.natName [])) lhs) rhs) proof)
+    (hlhs : dmNatFrag (dmBinNames c) (dmUnNames c) lhs = true)
+    (hrhs : dmNatFrag (dmBinNames c) (dmUnNames c) rhs = true)
+    {Δa : List AVExpr} (hlen : Δa.length = 4)
+    (h3 : Δa.getD 3 default = mp.base2.acval Setlec.natName ψ)
+    (h2 : Δa.getD 2 default = mp.base2.acval Setlec.natName ψ)
+    (hWA : Expr.WScoped 4 (divModCertApplied
+      (Expr.substConstAll c value' proof)
+      (hyps.map (Expr.substConst0 c value'))))
+    (hBA : (divModCertApplied (Expr.substConstAll c value' proof)
+      (hyps.map (Expr.substConst0 c value'))).looseBVarsBounded 0
+      = true)
+    (hLA : Expr.LeavesBounded (divModCertApplied
+      (Expr.substConstAll c value' proof)
+      (hyps.map (Expr.substConst0 c value'))))
+    (hCA : CtxOkP mp.base2 ψ 4 Δa (divModCertApplied
+      (Expr.substConstAll c value' proof)
+      (hyps.map (Expr.substConst0 c value'))))
+    (ρ4 : Nat → V) (hsat : Sat2 V Δa ρ4) :
+    dmEvalV V (fun n => interp2 V ρ4 (dmLeaf mp.base2 c A ψ n))
+        (ρ4 3) (ρ4 2) lhs
+      = dmEvalV V (fun n => interp2 V ρ4 (dmLeaf mp.base2 c A ψ n))
+        (ρ4 3) (ρ4 2) rhs := by
+  -- the walk's inputs, at the fixed `Nat` set
+  have hmove : ∀ ρ : Nat → V,
+      interp2 V ρ (mp.base2.acval Setlec.natName ψ)
+        = interp2 V ρ4 (mp.base2.acval Setlec.natName ψ) :=
+    fun ρ => acval_interp2_closedC mp.base2 _ ψ ρ ρ4
+  have hread : ∀ n ∈ Setlec.natZeroName ::
+      (dmBinNames c ++ dmUnNames c), ∀ d' : Nat,
+      denoteP mp.base2.acval env ψ d'
+        (Expr.substConst0 c value' (.const n []))
+        = some (acvalWith mp.base2.acval c A n ψ) :=
+    fun n hn d' => fr.read (mem_dmHeadNames hn) d'
+  have hbin : ∀ n ∈ dmBinNames c, ∀ ρ : Nat → V,
+      DmBinV (interp2 V ρ4 (mp.base2.acval Setlec.natName ψ))
+        (interp2 V ρ4 (mp.base2.acval Setlec.natName ψ))
+        (interp2 V ρ (acvalWith mp.base2.acval c A n ψ)) := by
+    intro n hn ρ
+    have h := fr.binHead n hn ρ
+    rwa [hmove ρ] at h
+  have hun : ∀ n ∈ dmUnNames c, ∀ ρ : Nat → V,
+      DmUnV (interp2 V ρ4 (mp.base2.acval Setlec.natName ψ))
+        (interp2 V ρ4 (mp.base2.acval Setlec.natName ψ))
+        (interp2 V ρ (acvalWith mp.base2.acval c A n ψ)) := by
+    intro n hn ρ
+    have h := fr.unHead n hn ρ
+    rwa [hmove ρ] at h
+  have hzero : ∀ ρ : Nat → V,
+      interp2 V ρ (acvalWith mp.base2.acval c A Setlec.natZeroName ψ)
+        ∈ˢ interp2 V ρ4 (mp.base2.acval Setlec.natName ψ) := by
+    intro ρ
+    have h := fr.zeroMem ρ
+    rwa [hmove ρ] at h
+  -- the two sides, walked at depth 4
+  obtain ⟨lhsa, hdl, hfl⟩ :=
+    dmNatFragP (d := 4) hread fr.leafOk hbin hun hzero lhs hlhs
+  obtain ⟨rhsa, hdr, hfr⟩ :=
+    dmNatFragP (d := 4) hread fr.leafOk hbin hun hzero rhs hrhs
+  -- the slots, at every satisfying valuation
+  have hslots : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      ρ 3 ∈ˢ interp2 V ρ4 (mp.base2.acval Setlec.natName ψ) ∧
+        ρ 2 ∈ˢ interp2 V ρ4 (mp.base2.acval Setlec.natName ψ) :=
+    fun ρ hρ => dmSat_slots hlen h3 h2 hρ ρ4
+  -- the statement's reading
+  have hnatRead : denoteP mp.base2.acval env ψ 4
+      (Expr.substConst0 c value' (.const Setlec.natName []))
+      = some (mp.base2.acval Setlec.natName ψ) := by
+    rw [fr.read (by simp [dmHeadNames]) 4, fr.natLeaf]
+  have hstmt := denoteP_eqSpine (acval := mp.base2.acval) (c := c)
+    (value' := value') fr.eqStored hnatRead hdl hdr
+  -- the statement's grading
+  have hokE : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      AnnotOkP V ρ ((.app (.app (.app (mp.base2.acval eqName
+        (Level.substFn ψ eqA.toConstantVal.levelParams
+          [Level.zero.succ])) (mp.base2.acval Setlec.natName ψ)) lhsa)
+        rhsa : AVExpr)) := by
+    intro ρ hρ
+    obtain ⟨hx, hy⟩ := hslots ρ hρ
+    obtain ⟨hokl, hml, -⟩ := hfl ρ hx hy
+    obtain ⟨hokr, hmr, -⟩ := hfr ρ hx hy
+    exact ((heqlaw fr.eqStored _).2 ρ _ lhsa rhsa
+      ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩ hokl hokr
+      (by rw [eqSubstP_uN, hmove ρ]; exact fr.natU ρ4)
+      (by rw [hmove ρ]; exact hml)
+      (by rw [hmove ρ]; exact hmr)).1
+  -- the statement's syntactic frame
+  obtain ⟨hlL, hbL, hwL⟩ := dmNatFrag_syntax lhs hlhs
+  obtain ⟨hlR, hbR, hwR⟩ := dmNatFrag_syntax rhs hrhs
+  have hlE : dmLeavesOk (Expr.app (.app (.app
+      (.const eqName [.succ .zero]) (.const Setlec.natName [])) lhs)
+      rhs) = true := by
+    simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append,
+      List.all_append, Bool.and_eq_true]
+    exact ⟨hlL, hlR⟩
+  have hWE : Expr.WScoped 4 (Expr.substConst0 c value'
+      (.app (.app (.app (.const eqName [.succ .zero])
+        (.const Setlec.natName [])) lhs) rhs)) :=
+    wscoped_substConst0 fr.valueNoFvar _
+      (dmApp_wscoped (dmApp_wscoped (dmApp_wscoped
+        (Expr.WScoped.of_not_hasFvar
+          (e := .const eqName [.succ .zero]) rfl)
+        (Expr.WScoped.of_not_hasFvar
+          (e := .const Setlec.natName []) rfl))
+        (hwL 4 (by omega))) (hwR 4 (by omega)))
+  have hBE : (Expr.substConst0 c value' (.app (.app (.app
+      (.const eqName [.succ .zero]) (.const Setlec.natName [])) lhs)
+      rhs)).looseBVarsBounded 0 = true :=
+    looseBVarsBounded_substConst0 fr.valueBounded _
+      (by simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+          exact ⟨⟨⟨trivial, trivial⟩, hbL⟩, hbR⟩)
+  have hLE : Expr.LeavesBounded (Expr.substConst0 c value'
+      (.app (.app (.app (.const eqName [.succ .zero])
+        (.const Setlec.natName [])) lhs) rhs)) :=
+    dmLeavesOk_leavesBounded
+      (dmLeavesOk_substConst0 fr.valueNoFvar hlE)
+  have hCE := dmCtxOkP_natLeaves fr hlen h3 h2 hlE
+  -- the certificate: the statement is inhabited
+  obtain ⟨w, hw⟩ := certValueP mp ψ hacc hreads hinfC hdeC hfacts
+    hWA hBA hLA hCA hWE hBE hLE hCE hstmt hokE ρ4 hsat
+  -- …hence the two sides are equal
+  obtain ⟨hx4, hy4⟩ := hslots ρ4 hsat
+  obtain ⟨-, hml4, hel⟩ := hfl ρ4 hx4 hy4
+  obtain ⟨-, hmr4, her⟩ := hfr ρ4 hx4 hy4
+  rw [show interp2 V ρ4 ((.app (.app (.app (mp.base2.acval eqName
+        (Level.substFn ψ eqA.toConstantVal.levelParams
+          [Level.zero.succ])) (mp.base2.acval Setlec.natName ψ)) lhsa)
+        rhsa : AVExpr))
+      = eqv (interp2 V ρ4 lhsa) (interp2 V ρ4 rhsa) from by
+    rw [interp2_app, interp2_app, interp2_app]
+    exact (heqlaw fr.eqStored _).1 ρ4 _ _ _
+      (by rw [eqSubstP_uN]; exact fr.natU ρ4) hml4 hmr4] at hw
+  have hlr := eq_of_mem_eqv hw
+  show dmEvalV V
+      (fun n => interp2 V ρ4 (acvalWith mp.base2.acval c A n ψ))
+      (ρ4 (4 - 1 - 0)) (ρ4 (4 - 1 - 1)) lhs
+    = dmEvalV V
+      (fun n => interp2 V ρ4 (acvalWith mp.base2.acval c A n ψ))
+      (ρ4 (4 - 1 - 0)) (ρ4 (4 - 1 - 1)) rhs
+  rw [← hel, ← her]
+  exact hlr
 
 end Setlec.SetR.Interp2
