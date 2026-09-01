@@ -11830,13 +11830,31 @@ kernel-type change, deliberately not taken.
 | `--no-model` full parity | arena 138 + e2e 72 + annot 13 as expected, 3 recorded divergences; init-prelude **byte-identical** (stdout, stderr, exit) to the pre-branch binary |
 | `--set-model` arena + e2e | arena tutorial **90/92** good accepted (the pre-#161 figure), e2e **72/72**; **zero** `sort-annotation mismatch` declines across all 210 fixtures |
 | `--set-model` init-prelude | `--pre`, 3653 declarations, **exit 0, accepted**, 3.4 s; **zero** mismatch declines at all eight sites |
+| `--set-model` init-full | `--pre`, **61 048 declarations accepted, exit 0**, ~7 min, 16 GB ulimit; **zero** mismatch declines.  Verdict-identical to the P1 reference binary (the pre-validation checker), which accepts the same 61 048 |
+| `--no-model` init-full | **byte-identical** (stdout, stderr, exit) to the pre-branch binary |
 | split driver / mode flags | 11/11, 9/9 |
 
+**Cost.**  The reference is the P1 seal binary (`2b1b11aa`), where
+`--set-model` was byte-identical to master — i.e. the checker with
+neither the pass nor validation.  init-prelude, median of 3, same
+machine: reference **3.27 s**, this branch **3.35 s** (≈ +2 %, inside
+run-to-run noise, well under the §6 gate of +5 %).  init-full, two
+serial runs each: reference **6:31.4 / 6:26.7**, this branch
+**6:41.8 / 6:35.5** — **+1.9 %**.  The `scale` chain and telescope
+shapes at n = 500…4000 are indistinguishable between the two binaries
+(0.064→0.106 s and 0.068→0.120 s over an 8× size increase, both
+binaries within 3 ms of each other at every n): the per-chain
+arithmetic stays linear, no quadratic blow-up at 4000-binder
+telescopes.  The telescope collapse is what buys this — one inference
+per ∀ telescope and one per λ chain, on terms the front-door sweep
+re-infers immediately after, so the memo serves the second read.
+
 **FINDING — the empirical unique-typing question is answered
-negative-free for init-prelude.**  The design's top risk (§10.1,
-amendment 1 risk 1) was cross-provenance mismatches surfacing as
-declines on real streams.  On 3653 real declarations plus the whole
-arena and e2e corpus there are **none**: not one `(forall-cod)`,
+negative-free, up to and including init-full.**  The design's top risk
+(§10.1, amendment 1 risk 1) was cross-provenance mismatches surfacing
+as declines on real streams.  On 61 048 real declarations (init-full;
+3653 of them init-prelude) plus the whole arena and e2e corpus there
+are **none**: not one `(forall-cod)`,
 `(lam-cod-leaf)`, `(lam-cod-chain)`, `(defeq-forall)`, `(defeq-lam)`
 or `(eta)` decline.  Amendment 1's audit (f) — the prop-only datum
 cannot mismatch on level *value* differences, only on genuine regime
