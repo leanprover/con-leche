@@ -1,6 +1,7 @@
 import Setlec.SetR.Interp2.CtxOkPKit
 import Setlec.SetR.Annot.BitLemmas
 import Setlec.Verify.InferLemmas
+import Setlec.SetR.Interp2.Step2.InferQ
 
 /-!
 # The infer quarter, P currency — the worked ∀ clause (task #161, P3.5)
@@ -149,4 +150,166 @@ theorem infer_forallE_claimP (m : EnvS2UM V μ env)
       exact piR_zero_agree hzag fun x _ => rfl
     rw [hbridge]
     exact hrow.2
+
+/-- **`.lam`, P currency — the chain-case species.**  The λ's fibre
+regime fact (`AnnotOk2`'s λ-clause `v = 0` component, and the copied
+∀-type's `AnnotValidV` `pi` component — one `have`, both uses, because
+the meta is *copied*, `infer_lam_meta_copy`) is established by cases
+on the body:
+
+* **leaf** (body not a λ): the P2 leaf conjunct delivers the codomain
+  sort run + the validation `equiv`; `SortSemP` grades the inferred
+  body type, `pwBit_zero_mem_univZero` reads the bit — the ∀ clause's
+  move 3 again.
+* **chain** (body a λ): *no run at all.*  The chain conjunct says the
+  outer datum is `equiv` the inner λ's; the meta copy says the
+  inferred body type is a ∀ carrying the inner meta, so its `denoteP`
+  is a `.pi` at the inner bit, and at outer bit `0` the inner bit is
+  `0` (`pwBit_eq_of_equiv`) — a `piR 0` is a truth value by
+  **impredicativity** (`piR_zero_mem_univZero`).  This is where the
+  canonical lane's `LamCodSort2` residue (the per-node sort run the
+  #152 chain guard lost) dissolves into the model's own law. -/
+theorem infer_lam_claimP (m : EnvS2UM V μ env)
+    (hμ : μ.verified = true) (hss : SortSemP m μ φ)
+    (ihi : InferClaims2P μ m φ fuel)
+    {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
+    {Δa : List AVExpr} {ea ta : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.lam n ty body mb) = .ok t)
+    (hws : Expr.WScoped d (.lam n ty body mb))
+    (hb : (Expr.lam n ty body mb).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.lam n ty body mb))
+    (hC : CtxOkP m φ d Δa (.lam n ty body mb))
+    (hea : denoteP m.acval env φ d (.lam n ty body mb) = some ea)
+    (hta : denoteP m.acval env φ d t = some ta)
+    -- TODO(#161-P3.5): `CtxOkP.openS` at the batch-1 merge
+    (hCop : ∀ {tyA : AVExpr},
+      denoteP m.acval env φ d ty = some tyA →
+      CtxOkP m φ (d + 1) (tyA :: Δa)
+        (body.instantiate1 (.fvar d n ty))) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  obtain ⟨tty, u, bt, hty, hwu, hbt, hleafC, hchainC, rfl⟩ :=
+    Setlec.inferTypeCore_lam_inv h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLty : Expr.LeavesBounded ty := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLbody : Expr.LeavesBounded body := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  -- the subject's reading
+  rw [denoteP] at hea
+  rcases htyA : denoteP m.acval env φ d ty with _ | tyA
+  · rw [htyA] at hea; exact nomatch hea
+  rw [htyA] at hea
+  rcases hba : denoteP m.acval env φ (d + 1)
+      (body.instantiate1 (.fvar d n ty)) with _ | ba
+  · rw [hba] at hea; exact nomatch hea
+  rw [hba] at hea
+  obtain rfl : ea = .lam (pwBit φ mb.pw) tyA ba :=
+    (Option.some.inj hea).symm
+  -- the abstraction round trip, for the ∀-type's reading
+  obtain ⟨hwopen, hbopen, hLopen⟩ :=
+    frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
+  have hleaf :
+      Expr.LeafCond d n ty (body.instantiate1 (.fvar d n ty)) := by
+    intro l hl hd
+    rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+    · exact absurd hd (by
+        have := Expr.fvarLeaves_lt_of_wscoped hws.2 l h2
+        omega)
+    · rw [Expr.fvarLeaves] at h2
+      rcases List.mem_cons.mp h2 with rfl | h3
+      · exact ⟨rfl, rfl⟩
+      · exact absurd hd (by
+          have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
+          omega)
+  have hcons : Expr.fvarConsistent d n ty bt :=
+    Expr.fvarConsistent_of_leafCond bt (fun l hl =>
+      hleaf l (inferTypeCore_fvarLeaves m.base.wf fuel hbt hwopen l hl))
+  have hbtb : bt.looseBVarsBounded 0 = true :=
+    inferTypeCore_looseBVars m.base.wf fuel hbt hwopen hbopen hLopen
+  have hround : (bt.abstract1 d).instantiate1 (.fvar d n ty) = bt :=
+    abstract1_instantiate1 bt 0 hcons hbtb
+  rw [denoteP, htyA, hround] at hta
+  rcases hbtA : denoteP m.acval env φ (d + 1) bt with _ | btA
+  · rw [hbtA] at hta; exact nomatch hta
+  rw [hbtA] at hta
+  obtain rfl : ta = .pi 0 (pwBit φ mb.pw) tyA btA :=
+    (Option.some.inj hta).symm
+  -- the domain and the opened body, graded
+  have hdomU := hss hC.lam_ty hty hwu htyA
+  obtain ⟨hrowE, hrowT, hrowM⟩ :=
+    ihi hbt hwopen hbopen hLopen (hCop htyA) hba hbtA
+  -- the fibre regime fact, one `have`, both uses (the meta copy)
+  have hCbt : CtxOkP m φ (d + 1) (tyA :: Δa) bt :=
+    (hCop htyA).of_subset
+      (inferTypeCore_fvarLeaves m.base.wf fuel hbt hwopen)
+  have hzfib : pwBit φ mb.pw = 0 →
+      ∀ (ρ' : Nat → V), Sat2 V (tyA :: Δa) ρ' →
+        interp2 V ρ' btA ∈ˢ (univZero : V) := by
+    intro hb0 ρ' hρ'
+    by_cases hbl : body.isLam
+    · -- chain: no run — impredicativity at the copied meta
+      obtain ⟨nI, tyI, bI, mbI, rfl⟩ :
+          ∃ nI tyI bI mbI, body = .lam nI tyI bI mbI := by
+        cases body <;> simp [Expr.isLam] at hbl
+        exact ⟨_, _, _, _, rfl⟩
+      have hpwEq : Setlec.PropWhen.equiv mb.pw mbI.pw = true :=
+        hchainC hμ mbI.pw rfl
+      -- the opened body is a λ with the same meta; the inferred type
+      -- copies it
+      obtain ⟨btI, rfl⟩ : ∃ btI,
+          bt = .forallE nI (tyI.instantiate1 (.fvar d n ty)) btI mbI := by
+        cases fuel with
+        | zero =>
+          rw [Setlec.inferTypeCore_zero] at hbt
+          simp [throw, throwThe, MonadExceptOf.throw] at hbt
+        | succ f =>
+          exact Setlec.infer_lam_meta_copy hbt
+      obtain ⟨tyIA, btIA, -, -, rfl⟩ := denoteP_forallE_inv hbtA
+      rw [interp2_pi]
+      have hinner : pwBit φ mbI.pw = 0 := by
+        rw [← pwBit_eq_of_equiv hpwEq φ]
+        exact hb0
+      rw [hinner]
+      exact piR_zero_mem_univZero
+    · -- leaf: the P2 leaf conjunct's run + the bit law
+      obtain ⟨btt, vb, hbtt, hwbtt, hzeq⟩ :=
+        hleafC hμ (by simpa using hbl)
+      exact pwBit_zero_mem_univZero hzeq hb0
+        (hss hCbt hbtt hwbtt hbtA ρ' hρ').2
+  refine ⟨?_, ?_, ?_⟩
+  · -- AnnotOkP of the λ
+    intro ρ hρ
+    have hdom := hdomU ρ hρ
+    refine ⟨?_, ?_⟩
+    · rw [AnnotOk2_lam]
+      exact ⟨hdom.1.1,
+        fun x hx => (hrowE (cons x ρ) (Sat2_cons V hρ hx)).1,
+        fun x => interp2 V (cons x ρ) btA,
+        fun x hx => hrowM (cons x ρ) (Sat2_cons V hρ hx),
+        fun h0 x hx => hzfib h0 (cons x ρ) (Sat2_cons V hρ hx)⟩
+    · rw [AnnotValidV_lam]
+      exact ⟨hdom.1.2,
+        fun x hx => (hrowE (cons x ρ) (Sat2_cons V hρ hx)).2⟩
+  · -- AnnotOkP of the copied ∀-type
+    intro ρ hρ
+    have hdom := hdomU ρ hρ
+    refine ⟨?_, ?_⟩
+    · rw [AnnotOk2_pi]
+      exact ⟨hdom.1.1,
+        fun x hx => (hrowT (cons x ρ) (Sat2_cons V hρ hx)).1⟩
+    · rw [AnnotValidV_pi]
+      exact ⟨hdom.1.2,
+        fun x hx => (hrowT (cons x ρ) (Sat2_cons V hρ hx)).2,
+        fun h0 x hx => hzfib h0 (cons x ρ) (Sat2_cons V hρ hx)⟩
+  · -- the membership row
+    intro ρ hρ
+    exact (sound_lam V (hdomU ρ hρ).1.1
+      (fun x hx => (hrowE (cons x ρ) (Sat2_cons V hρ hx)).1)
+      (fun x hx => hrowM (cons x ρ) (Sat2_cons V hρ hx))
+      (fun h0 x hx => hzfib h0 (cons x ρ) (Sat2_cons V hρ hx))).2
+
 end Setlec.SetR.Interp2
