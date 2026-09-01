@@ -10,7 +10,7 @@ The three routed literal rows — `ReduceNatReadsP` (`Step2/ReadsP.lean`),
 `ReduceNatStepP` (`Step2/WhnfP.lean`), `ReduceNatStepPQ`
 (`Step2/DefEqP.lean`) — all key on the same run: `reduceNatP`'s success.
 
-## What lands here, and what does not
+## What lands here
 
 `reduceNat`'s reduct is a **leaf**: a `Nat` literal, or a `Bool`
 constructor constant applied to nothing (`Setlec.reduceNat_inv`).  So
@@ -32,16 +32,29 @@ and this file proves them all, unconditionally:
 That closes `ReduceNatReadsP` outright (`reduceNatReadsP_of`, **no
 premises at all**).
 
-The one conjunct that does **not** land is the `interp2` equality of
-`ReduceNatStepP`/`ReduceNatStepPQ`.  It is isolated below as
-`NatOpSemP`, and `reduceNatStepP_of_sem`/`reduceNatStepPQ_of_sem`
-prove that `NatOpSemP` is *all* that is missing.  Those two are
-**NOT discharges** — they are the wall, machine-checked to be exactly
-one law wide.
+## The wall that stood here, and how it fell (SUPERSEDED)
 
-## The wall, and why the erasure route cannot climb it (FINDING)
+The one conjunct the leaf analysis cannot give is the `interp2`
+equality of `ReduceNatStepP`/`ReduceNatStepPQ`.  It was isolated here
+as `NatOpSemP` — the campaign's first named wall (task #161 LITERAL
+TIER seal II) — with `reduceNatStepP_of_sem`/`PQ_of_sem` machine-
+checking that it was *all* that was missing.  All three are now
+**deleted**: the law landed, and the two rows are proved outright in
+`Interp2/NatStepP.lean` (`reduceNatStepP_of`/`reduceNatStepPQ_of`),
+which consumes this file's leaf analysis unchanged.
 
-The natural plan is to reuse the collapse lane, which proved this row
+The route was the one the wall record named: **not** the erasure
+transfer, but `EnvS2PM.nat_ops`/`EnvS2PM.div_mod` — the stored
+operations' recurrences at `interp2`, established at their own
+installs from the recorded run certificates (`Interp2/NatEqsP.lean`,
+`Interp2/DivModCertP.lean`) — plus the numeral transports
+(`Interp2/NatSemP.lean`, `Interp2/NatWfP.lean`) and the widened
+`WhnfInputsP.nat`/`TierInputsAtP.nat_step` signature, which now carries
+the whnf IH the wall record recorded as owed.
+
+## The refuted erasure factoring (PERMANENT RECORD)
+
+The natural plan was to reuse the collapse lane, which proved this row
 at `Setlec/SetR/Bridge/ReduceNat.lean` (`reduceNat_stepR`): read the
 subject through `denoteP_erase`, run the v1 row, and transport the
 answer back along `EnvS2Core.acval_erase`.  **That route is refuted,
@@ -52,7 +65,7 @@ module docstring names `ReduceNatStep2` as one of three residues
 the two-regime annotation-driven interpretation, **not**
 `interp ∘ erase`".
 
-Two independent confirmations, both checked here rather than assumed:
+Two independent confirmations, both checked rather than assumed:
 
 1. **The species lemma is false at the generality the row needs.**
    `interp2 V ρ ea = interp V ρ ea.erase` holds only where the two
@@ -74,26 +87,9 @@ Two independent confirmations, both checked here rather than assumed:
    `EnvSHyp.nat_ops` — the `NatOpsV` battery of
    `Sound/NatOps.lean` (892 lines) at the *collapse* `interp`/`cval`.
    The P quarters conclude the `interp2` equality directly, so that
-   battery would have to exist again at `interp2`/`acval`.  It does
-   not: `NatOpsV2` (`Interp2/EnvLaws2.lean`) is a first-draft
-   statement, deliberately unwired from `EnvS2` ("stated, queued"),
-   and it is stated over `denote2`, not `denoteP`.
-
-A third gap, independent of the first two: `reduceNatP` calls `whnf`
-on its arguments, so the equality needs whnf soundness at the
-arguments.  The collapse lane takes exactly that as a premise
-(`reduceNat_stepR`'s `ihw : WhnfClaimsR mode m φ fuel`).  The P row's
-consumer does not offer one — `WhnfInputsP.nat` is
-`∀ m φ fuel, ReduceNatStepP μ m φ fuel` with no IH — although
-`whnfStepP_of` has `WhnfClaims2P μ m φ fuel` in scope and discards it.
-Wiring it through is a *statement* change to `WhnfInputsP`
-(`Step2/WhnfP.lean`), which this file is not sanctioned to make.
-
-So the literal tier's remaining owed work is: (a) a `NatOpsP` law over
-`denoteP`/`interp2`/`acval` with an install-tier supplier, (b) the
-`Sound/NatOps.lean` transport re-proved at `interp2`, and (c) the
-`WhnfInputsP.nat` signature widened to carry the whnf IH.  None is a
-proof step; all three are tier work.
+   battery had to exist again at `interp2`/`acval`.  It now does
+   (`Interp2/NatSemP.lean` + `Interp2/NatWfP.lean`), built on the
+   run-certificate laws rather than transported.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -395,64 +391,6 @@ theorem reduceNatReadsP_of (m : EnvS2Core V env) (φ : Name → Nat)
   obtain ⟨ea', hea'⟩ := denoteP_of_natLeafP (acval := m.acval) hleaf d
   obtain ⟨hws₂, hb₂, hLb₂⟩ := frame_of_natLeafP (d := d) hleaf
   exact ⟨ea', hea', hws₂, hb₂, hLb₂⟩
-
-/-! ## The two step rows: the residue, isolated
-
-`ReduceNatStepP` and `ReduceNatStepPQ` are the same statement up to
-the binding site of the subject's annotation, and both ask for one
-thing the leaf analysis cannot give: the `interp2` equality between
-the subject's reading and the reduct's.  It is named below and
-consumed below, so that the wall is exactly one law wide and the
-supplier tier has a target.
-
-**These are not discharges.**  Per the project's standing ruling that
-a conditional form is not a solution, `ReduceNatStepP` and
-`ReduceNatStepPQ` remain OPEN; see the module docstring for the three
-pieces of tier work they wait on. -/
-
-/-- **The literal tier's semantic residue.**  The `interp2` half of
-`ReduceNatStepP`, alone: literal acceleration preserves the
-interpretation.
-
-This is the P-currency slot of `NatOpsV2`
-(`Interp2/EnvLaws2.lean` — stated, unwired, and over `denote2` rather
-than `denoteP`), composed with the whnf soundness at the operation's
-arguments that `reduceNat` runs and the P row's consumer does not
-offer.  Its collapse-lane counterpart is not a statement at all but a
-consequence: `Red.sound` at `Red.natSucc`/`natOp1`/`natOp2`, over
-`EnvSHyp.nat_ops`. -/
-def NatOpSemP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) (fuel : Nat) : Prop :=
-  ∀ {d : Nat} {e e₂ : Expr} {Δa : List AVExpr} {ea ea₂ : AVExpr},
-    reduceNatP μ env fuel d e = .ok (some e₂) →
-    denoteP m.acval env φ d e = some ea →
-    denoteP m.acval env φ d e₂ = some ea₂ →
-    ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ ea = interp2 V ρ ea₂
-
-/-- **`ReduceNatStepP` is exactly `NatOpSemP` away**: every other
-conjunct — the reduct's reading, its grading, and its four frame
-conditions — is proved here.  NOT a discharge (see the section
-docstring). -/
-theorem reduceNatStepP_of_sem (m : EnvS2Core V env)
-    (hnh : NatHeadsP m φ) (hval : AcvalValidP m) {fuel : Nat}
-    (hsem : NatOpSemP μ m φ fuel) : ReduceNatStepP μ m φ fuel := by
-  intro d e e₂ Δa h _hws _hb _hLb ea hC hea _hok
-  have hleaf := reduceNat_natLeafP h
-  obtain ⟨ea₂, hea₂⟩ := denoteP_of_natLeafP (acval := m.acval) hleaf d
-  obtain ⟨hws₂, hb₂, hLb₂⟩ := frame_of_natLeafP (d := d) hleaf
-  have hC₂ := ctxOkP_of_natLeafP hleaf hC
-  exact ⟨ea₂, hea₂,
-    fun ρ _ => annotOkP_of_natLeafP m hnh hval hleaf hea₂ ρ,
-    hsem h hea hea₂, hws₂, hb₂, hLb₂, hC₂⟩
-
-/-- **`ReduceNatStepPQ` is exactly `NatOpSemP` away**, likewise: the
-defeq quarter's row differs from the whnf quarter's only in where the
-subject's annotation is bound.  NOT a discharge. -/
-theorem reduceNatStepPQ_of_sem (m : EnvS2Core V env)
-    (hnh : NatHeadsP m φ) (hval : AcvalValidP m) {fuel : Nat}
-    (hsem : NatOpSemP μ m φ fuel) : ReduceNatStepPQ μ m φ fuel := by
-  intro d e e₂ Δa ea h hws hb hLb hC hea hok
-  exact reduceNatStepP_of_sem m hnh hval hsem h hws hb hLb hC hea hok
 
 end Setlec.SetR.Interp2
 

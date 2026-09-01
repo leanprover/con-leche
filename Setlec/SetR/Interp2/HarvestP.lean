@@ -1,5 +1,6 @@
 import Setlec.SetR.Interp2.CapstoneP
 import Setlec.SetR.Interp2.NatEqsP
+import Setlec.SetR.Interp2.DivModCertP
 import Setlec.SetR.Install.ValueKinds
 
 /-!
@@ -338,7 +339,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -474,6 +475,30 @@ theorem harvestDefnP (hμ : μ.verified = true)
         (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
         (A := A) hfresh
         (Or.inr (fun hm => hno (List.contains_iff_mem.mpr hm))) _ rfl
+  · -- `div_mod` at the extension: a WF operation's own install goes
+    -- through the certificate conversion; any other definition
+    -- preserves the stored entries
+    intro φ
+    by_cases hno : Setlec.natDivModNames.contains cv.name = true
+    · obtain ⟨hgenv, -, -, pinA, -, hcerts⟩ := hdmc hno
+      exact divModP_install mp (mp.div_mod φ) mp.eq_lawP
+        (fun {d} {e} {t} hrun hw hb hL =>
+          hsem.accepted_reads mp.base2 φ hrun hw hb hL)
+        (hreads φ) ((hclaims φ).2.2.2) ((hclaims φ).2.2.1)
+        (List.contains_iff_mem.mp hno) hfresh hgenv hcerts
+        hA hAclosed hvf' hbv'
+        hTa (fun ψ ρ => by
+          obtain ⟨sta, hsta, hT1, -, -⟩ := hrowsT ψ
+          exact hT1 ρ (Sat2_nil V ρ))
+        (fun ψ ρ => ⟨hAok ψ ρ, hAvalid ψ ρ⟩) hmemA _ rfl
+    · exact divModP_cons_fresh (mp.div_mod φ)
+        (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
+        (A := A) hfresh
+        (Or.inr (fun hm => hno (List.contains_iff_mem.mpr hm))) _ rfl
+  · -- `eq_lawP` at the extension: a definition is not an inductive
+    exact eqLawP_cons_valueKind mp.eq_lawP
+      (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
+      (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
 
 /-! ## The `thm` mirror (batch H2, T1)
 
@@ -687,7 +712,7 @@ theorem harvestThmP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -734,6 +759,15 @@ theorem harvestThmP (hμ : μ.verified = true)
     exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ)
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value') (A := A)
       hfresh (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+  · -- `div_mod`/`eq_lawP` at the extension: a theorem is neither a
+    -- definition nor an inductive
+    exact fun φ => divModP_cons_fresh (mp.div_mod φ)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (A := A) hfresh
+      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+  · exact eqLawP_cons_valueKind mp.eq_lawP
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
 
 /-! ## The `opaque` kind: the H2 SKIP, since unlocked
 
@@ -898,7 +932,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh hbase hag hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -939,6 +973,14 @@ theorem harvestAxiomP (hμ : μ.verified = true)
     exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ)
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
       hfresh (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+  · -- `div_mod`/`eq_lawP` at the extension: an axiom is neither
+    exact fun φ => divModP_cons_fresh (mp.div_mod φ)
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+      (A := A) hfresh
+      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+  · exact eqLawP_cons_valueKind mp.eq_lawP
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+      (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
 
 
 /-! ## The `opaque` kind, unlocked (the exposed leaf equation)
@@ -1119,7 +1161,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -1160,5 +1202,14 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
     exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ)
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
       hfresh (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+  · -- `div_mod`/`eq_lawP` at the extension: an opaque stores an axiom
+    -- entry, which is neither a definition nor an inductive
+    exact fun φ => divModP_cons_fresh (mp.div_mod φ)
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+      (A := A) hfresh
+      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+  · exact eqLawP_cons_valueKind mp.eq_lawP
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+      (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
 
 end Setlec.SetR.Interp2

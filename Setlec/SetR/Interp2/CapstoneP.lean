@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.InstallP
+import Setlec.SetR.Interp2.NatStepP
 import Setlec.SetR.Interp2.EmptyPin2
 
 /-!
@@ -32,9 +33,9 @@ harvest layer builds toward them:
   *milestone shape*, never the close (the conditional-forms ruling).
 
 `SemTierInputsP` names the remaining bill in ∀-environment form —
-exactly `TierInputsAtP`'s non-env-tier fields, which the four semantic
-tiers discharge (literal → caps → proj/str → iota, per the campaign
-order).  The harvest layer proves: accepted stream + `SemTierInputsP`
+`TierInputsAtP`'s non-env-tier fields *less the literal tier*, which
+landed (`Interp2/NatStepP.lean`); what remains is iota, caps and the
+proj/str install rows.  The harvest layer proves: accepted stream + `SemTierInputsP`
 ⇒ `Nonempty (EnvS2PM …)` at the final environment; this file's
 `no_constant_of_Empty_P` then closes the capstone.
 -/
@@ -133,13 +134,6 @@ structure SemTierInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
     (fuel : Nat), InferProjStepP m μ φ fuel
   str_lit : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), InferStrLitStepP m μ φ fuel
-  /-- literal tier -/
-  nat_reads : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), ReduceNatReadsP μ m φ fuel
-  nat_step : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), ReduceNatStepP μ m φ fuel
-  nat_stepQ : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), ReduceNatStepPQ μ m φ fuel
   /-- caps tier -/
   unit_irrel : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), UnitIrrelPQ μ m φ fuel
@@ -161,13 +155,13 @@ theorem TierInputsAtP.ofSem (hsem : SemTierInputsP V μ)
     (fun fuel => hsem.iota_reads mp.base2 φ fuel)
     (fun fuel => hsem.whnf_proj_reads mp.base2 φ fuel)
     (fun fuel => hsem.infer_proj_reads mp.base2 φ fuel)
-    (fun fuel => hsem.nat_reads mp.base2 φ fuel)
+    (fun fuel => reduceNatReadsP_of mp.base2 φ fuel)
     (fun fuel => hsem.str_lit mp.base2 φ fuel)
     (fun fuel => hsem.infer_proj mp.base2 φ fuel)
     (fun fuel => hsem.iota mp.base2 φ fuel)
     (fun fuel => hsem.whnf_proj mp.base2 φ fuel)
-    (fun fuel => hsem.nat_step mp.base2 φ fuel)
-    (fun fuel => hsem.nat_stepQ mp.base2 φ fuel)
+    (fun _fuel ihw => reduceNatStepP_of mp ihw)
+    (fun _fuel ihw => reduceNatStepPQ_of mp ihw)
     (fun fuel => hsem.unit_irrel mp.base2 φ fuel)
     (fun fuel => hsem.pair_eta mp.base2 φ fuel)
     (fun fuel => hsem.struct_eta mp.base2 φ fuel)

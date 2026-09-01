@@ -847,9 +847,14 @@ structure WhnfInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
   /-- the projection clause -/
   proj : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), ProjStepP μ m φ fuel
-  /-- the `Nat`-literal reduction clause -/
+  /-- the `Nat`-literal reduction clause.  It takes the whnf claims at
+  the same fuel: `reduceNat` head-normalises its arguments before
+  reading them as literals, so the row's own `interp2` equality needs
+  whnf soundness there (the collapse lane's `reduceNat_stepR` takes the
+  same IH).  `whnfStepP_of` was already holding — and discarding —
+  exactly this argument. -/
   nat : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), ReduceNatStepP μ m φ fuel
+    (fuel : Nat), WhnfClaims2P μ m φ fuel → ReduceNatStepP μ m φ fuel
   /-- the δ exit's single obligation -/
   defn : ∀ {env : Env} (m : EnvS2Core V env), AcvalDefnInstP m
 
@@ -867,8 +872,8 @@ theorem whnfCoreStepP_of (_hμ : μ.verified = true)
 as above. -/
 theorem whnfStepP_of (_hμ : μ.verified = true)
     (hin : WhnfInputsP V μ) : WhnfStepP μ V :=
-  fun _env m φ fuel ihwc _ _ _ =>
-    whnf_claimsP m (hin.core_exists m φ fuel) ihwc (hin.nat m φ fuel)
-      (deltaP_of m (hin.defn m))
+  fun _env m φ fuel ihwc ihw _ _ =>
+    whnf_claimsP m (hin.core_exists m φ fuel) ihwc
+      (hin.nat m φ fuel ihw) (deltaP_of m (hin.defn m))
 
 end Setlec.SetR.Interp2

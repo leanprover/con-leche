@@ -73,6 +73,69 @@ def NatOpsP {V : Type w} [SetTheory V] {env : Env}
         interp2 V (cons y (cons x ρ)) L
           = interp2 V (cons y (cons x ρ)) R
 
+/-- **The pin-certified WF-recursive operations' guarded value
+recurrences at the validated-annotation tier** — `DivModV`
+(`Sound/Motives.lean`) with `interp`/`cval` replaced by
+`interp2`/`acval`.  `DivModClausesV` is already valuation-generic, so
+it is reused verbatim: only the valuation it is fed changes.
+
+Supplied as an `EnvS2PM` field: established at the operation's own
+install from the recorded certificate runs (`DivModPinR`'s
+`checkDivModCerts` verdict) through `InferClaims2P`/`DefEqClaims2P` —
+the run-certificate route again (`Interp2/DivModP.lean`) — and
+preserved across every other fresh cons.  Consumed by the WF-op
+numeral transports (`Sound/NatOpsWf`' shape at `interp2`). -/
+def DivModP {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS2Core V env) (φ : Name → Nat) : Prop :=
+  ∀ c ∈ Setlec.natDivModNames, ∀ cv v hint,
+    env.find? c = some (.defnInfo cv v hint) →
+    Setlec.natOpGuard env c = true ∧
+    ∀ (ρ : Nat → V) (x y : V),
+      x ∈ˢ interp2 V ρ (m.acval Setlec.natName φ) →
+      y ∈ˢ interp2 V ρ (m.acval Setlec.natName φ) →
+      DivModClausesV V (fun n => interp2 V ρ (m.acval n φ)) c x y
+
+/-- **The pinned `Eq` spine's value at `interp2`** — `EnvS.eq_lawV`'s
+mirror one currency over, stated directly at the three-fold
+application (the only form the certificate consumers read; v1 states
+the two-fold `lamC` form because its η/unit consumers need the
+rigidity clause, which nothing here does).
+
+**This is an environment law, exactly as in v1**: `EqLawV` is an
+`EnvS` *field*, not a theorem, because the `Eq` leaf's value is fixed
+by the basis install (`Install/BasisS.lean`'s `eqValT` — the `.eqE`
+former η-expanded) and by nothing else.  The P mirror is a field for
+the same reason, and its supplier is the P basis install
+(`BasisStepPB`, routed): the annotated `Eq` tower's *regime bits* are
+invisible to every other `EnvS2PM` field, and the erasure factoring
+that would import the v1 law is refuted at exactly the λ-nodes this
+tower is made of (the literal-tier seal II finding 1).  See the task
+#161 LITERAL TIER seal III record. -/
+def EqLawP {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS2Core V env) : Prop :=
+  env.find? eqName = some eqA →
+  ∀ ψ : Name → Nat,
+    -- the spine's **value**: the truth set of the equation
+    (∀ (ρ : Nat → V) (A a b : V),
+      A ∈ˢ (univ (ψ uN) : V) → a ∈ˢ A → b ∈ˢ A →
+      SetTheory.app (SetTheory.app (SetTheory.app
+          (interp2 V ρ (m.acval eqName ψ)) A) a) b = eqv a b) ∧
+    -- the spine's **grading**, and that it is a proposition.  (v1
+    -- needs neither: `AnnotOkV` has no bit content and `CtxOkR` asks
+    -- for no grading.  Both are stated here for the same reason v1
+    -- restated `EqLawV` at the two-fold application — an interface
+    -- field is stated at the shape its consumers read, and the
+    -- certificate frame reads exactly these.)
+    ∀ (ρ : Nat → V) (Aa la ra : AVExpr),
+      AnnotOkP V ρ Aa → AnnotOkP V ρ la → AnnotOkP V ρ ra →
+      interp2 V ρ Aa ∈ˢ (univ (ψ uN) : V) →
+      interp2 V ρ la ∈ˢ interp2 V ρ Aa →
+      interp2 V ρ ra ∈ˢ interp2 V ρ Aa →
+      AnnotOkP V ρ
+          (.app (.app (.app (m.acval eqName ψ) Aa) la) ra) ∧
+        interp2 V ρ (.app (.app (.app (m.acval eqName ψ) Aa) la) ra)
+          ∈ˢ (univZero : V)
+
 /-- **The P-tier environment invariant, at one mode** (see the module
 docstring). -/
 structure EnvS2PM (μ : CheckMode) (env : Env) where
@@ -106,6 +169,17 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   literal tier's supplier; established at the operations' own installs
   from the recorded runs — `Interp2/NatEqsP.lean`) -/
   nat_ops : ∀ φ : Name → Nat, NatOpsP base2 φ
+  /-- the pin-certified WF operations' guarded clauses at every
+  assignment (the literal tier's other supplier; established at the
+  operations' own installs from the recorded certificate runs —
+  `Interp2/DivModCertP.lean`) -/
+  div_mod : ∀ φ : Name → Nat, DivModP base2 φ
+  /-- the pinned `Eq` spine's value and grading (an *environment law*,
+  as `EnvS.eq_lawV` is: the `Eq` leaf is fixed by the basis install and
+  by nothing else, so the supplier is the P basis install —
+  `BasisStepPB`, routed.  Consumed by the WF operations' certificate
+  frame) -/
+  eq_lawP : EqLawP base2
 
 namespace EnvS2PM
 
@@ -176,6 +250,12 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
     exact nomatch hg
   nat_ops := fun φ c _ cv v hint hf => by
     rw [show Env.empty.find? c = none from rfl] at hf
+    exact nomatch hf
+  div_mod := fun φ c _ cv v hint hf => by
+    rw [show Env.empty.find? c = none from rfl] at hf
+    exact nomatch hf
+  eq_lawP := fun hf => by
+    rw [show Env.empty.find? eqName = none from rfl] at hf
     exact nomatch hf
 
 end Setlec.SetR.Interp2

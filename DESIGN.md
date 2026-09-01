@@ -11512,11 +11512,13 @@ validated-annotation (P) lane after batches 1-7 + the lead's seals.
 | `Denote2StrLit2A` (routed) | PROVED: purely syntactic (`denotePStrLit_of_guard`) |
 | `InferExists2E` + the dual-success totality family | DISCHARGED from `EnvS2PM` fields + the `ReadsP` walk (post batch-8 repair of the refutable-as-stated `InferReadsP` — batch-6 finding) |
 | `ConstType2C` (routed) | DERIVED: `EnvS2PM.constTypeP` |
+| `ReduceNatStep2` (routed; `EnvLaws2` records it as blocked on absent environment laws) | DISCHARGED: `reduceNatStepP_of`/`PQ_of` — the laws built at `interp2` from run certificates (`EnvS2PM.nat_ops`/`div_mod`), never transported |
+| `ReduceNatReadsP` (literal tier) | DISCHARGED: `reduceNatReadsP_of`, premise-free |
 
-**Still routed in P, by discharge tier:**
+**Still routed in P, by discharge tier** (the literal tier is CLOSED —
+seal III):
 install (`InferStrLitStepP`, `InferProjStepP`, proj-reads pair);
 iota (`IotaStepP`, `IotaReadsP`);
-literal (`ReduceNatStepP`/`PQ`, `ReduceNatReadsP`);
 caps/structure (`UnitIrrelPQ`, `PairEtaIrrelP`, `StructEtaIrrelP`,
 `StructUnitIrrelP`).
 These are the P capstone's remaining bill — every one names semantic
@@ -11808,13 +11810,14 @@ recorded divergences):
    except when `c₀.name ∈ {stringOfListName, charOfNatName}` — prove
    the generic case by name-disequality, the two pin names bespoke
    (at those installs the tier establishes the heads anyway).
-2. **literal tier** in `SemTierInputsP` (`CapstoneP.lean`):
-   `ReduceNatStepP`/`PQ` (v1 mirror: `Sound/NatOps.lean` +
-   `Bridge/ReduceNat.lean` — the literal spines' interp2 arithmetic;
-   `NatHeadsP` is already an `EnvS2PM` field, established at the nat
-   pin installs), `ReduceNatReadsP` (outputs are literals — read
-   under the guard, which held for the subject).
-3. **caps tier**: `UnitIrrelPQ`, `PairEtaIrrelP`, `StructEtaIrrelP`,
+2. **literal tier** — **DONE** (seal III).  `ReduceNatReadsP`,
+   `ReduceNatStepP` and `ReduceNatStepPQ` are discharged and removed
+   from `SemTierInputsP`; `EnvS2PM` gained `nat_ops`, `div_mod` and
+   `eq_lawP`.  The only residue is `eq_lawP`'s *establishment*, which
+   is `BasisStepPB`'s (see the seal for why nothing else can supply
+   it).
+3. **caps tier** (NEXT): `UnitIrrelPQ`, `PairEtaIrrelP`,
+   `StructEtaIrrelP`,
    `StructUnitIrrelP` (v1 mirrors: `Sound/Struct.lean`,
    `Sound/Irrel.lean`, the capability pipeline `CapsOkV` — at
    interp2 the unit-like collapse is `mem_univ_zero`-adjacent; the
@@ -11869,13 +11872,23 @@ UNDEMANDED so far — watch inside the semantic tiers.
 
 ### Resume-here
 
-Next action at this record: the literal tier — freeze nothing (its
-statements exist), prove `LitStabilityP` (lead or batch; the wrinkle
-above), then a serial batch for the `ReduceNat*` rows off
-`Sound/NatOps` mirrors with a lead-worked species if the interp2
-numeral arithmetic needs one.  Then caps → proj/str → iota per the
-bundle notes.  At each tier seal: update this record, the frontier
-table, full battery, report.
+Next action at this record (updated at seal III): the **caps tier**.
+`UnitIrrelPQ`, `PairEtaIrrelP`, `StructEtaIrrelP`, `StructUnitIrrelP`.
+Take the literal tier's shape as the template — it is now the worked
+precedent for *both* establishment species:
+
+* an operation-family law that no landed field supplies is built from
+  the checker's own **run certificates** at the pre-insertion
+  environment (`natOpsP_install`, `divModP_install`), never transported
+  across the erasure link;
+* a law whose value is fixed by an install the P lane has not reached
+  becomes an `EnvS2PM` **field** routed to that install's bundle
+  (`eq_lawP` → `BasisStepPB`), with the reason recorded — the caps
+  note below already says the caps laws are collapse-currency at
+  stored leaves, so expect the same two-way split there.
+
+Then proj/str → iota per the bundle notes.  At each tier seal: update
+this record, the frontier table, full battery, report.
 
 ## Task #161 LITERAL TIER seal I: the stability bundle deleted (2026-09-01)
 
@@ -11951,6 +11964,121 @@ remainder scoped as above; the caps/proj-str/iota notes stand, with
 the caps note CORRECTED: do not attempt the erasure transfer — the
 caps laws need the run-certificate route (the caps certs' defeq runs
 exposed, then the P claims), not the v1 law transfer.
+## Task #161 LITERAL TIER seal III: the tier is CLOSED (2026-09-01)
+
+**The wall is down and the literal tier is complete.**  All three of
+`SemTierInputsP`'s literal fields — `ReduceNatReadsP` (seal II),
+`ReduceNatStepP`, `ReduceNatStepPQ` — are discharged, and the three
+rows are *deleted from the bundle*.
+
+### What landed, in dependency order
+
+1. **The recurrence laws, from run certificates.**  `EnvS2PM` gains
+   `div_mod : ∀ φ, DivModP base2 φ` beside `nat_ops` — `DivModV`'s
+   mirror, reusing `DivModClausesV` verbatim (it was already stated
+   over a bare `Name → V`, so only the valuation changes).
+   `divModP_install` (`Interp2/DivModCertP.lean`) establishes it at a
+   WF operation's own install by converting `checkDivModCerts`'
+   verdict: `checkDivModCerts_inv` (currency-free, `Verify/DivModInv`)
+   peels the certificates; `certValueP` runs each through
+   `InferClaims2P`/`DefEqClaims2P` at the pre-insertion environment to
+   "the statement's interpretation is inhabited"; `EqLawP` turns
+   inhabited into equal.  `divModP_cons_fresh` preserves it at every
+   other fresh cons — with no `denoteP` crossing, because a clause is a
+   pure value fact over closed leaves.
+2. **The numeral transports.**  `Sound/NatOps.lean`'s seven structural
+   closed forms (`natOpV2_pred`/`sub`/`mul`/`pow`/`beq`/`ble` beside
+   the lead's `natOpV2_add`, `Interp2/NatSemP.lean`) and
+   `Sound/NatOpsWf.lean`'s nine WF strong inductions
+   (`natOpV2_div`/`mod`/`gcd`/`shiftLeft`/`shiftRight`/`log2`/`land`/
+   `lor`/`xor`, `Interp2/NatWfP.lean`), all at `interp2`.  The
+   `PinGen.*Cert` arithmetic facts are pure `Nat` and were reused as
+   they stand.
+3. **The assembly.**  `reduceNatStepP_of`/`reduceNatStepPQ_of`
+   (`Interp2/NatStepP.lean`): `Bridge/ReduceNat.lean`'s branch analysis
+   at the P currency, with the reduct's reading/grading/frames taken
+   unchanged from `Step2/NatP.lean`'s leaf analysis.  The consumer
+   chain now carries the whnf IH (`WhnfInputsP.nat`,
+   `TierInputsAtP.nat_step`/`nat_stepQ` take `WhnfClaims2P` at the same
+   fuel) — the third owed piece; `whnfStepP_of` was already holding
+   and discarding exactly that argument.
+
+### The census delta
+
+`SemTierInputsP` loses `nat_reads`, `nat_step`, `nat_stepQ`;
+`TierInputsAtP.ofSem` supplies all three from the fold invariant.  The
+bundle is now **iota + proj/str + caps + accepted_reads**.  The
+four-bundle count (`SemTierInputsP`, `AxiomStepPB`, `BasisStepPB`,
+`IndStepPB`) is unchanged.
+
+### The one transferred obligation, named
+
+`EqLawP` (`Annot/EnvS2P.lean`) — the pinned `Eq` spine's value and
+grading at `interp2` — is a new `EnvS2PM` **field**, not a theorem, and
+its supplier is the P basis install, i.e. `BasisStepPB`.  This is
+structural parity with v1, where `EqLawV` is likewise an `EnvS` field:
+the `Eq` leaf's value is fixed by the basis install (`Install/BasisS`'s
+`eqValT`, the `.eqE` former η-expanded) and by nothing else.
+
+It is recorded as a **transfer, not a discharge**.  Why no landed P
+field can supply it: the annotated `Eq` tower's *regime bits* are
+invisible to every `EnvS2PM` field (`acval_erase` forgets them), and
+the erasure factoring that would import the v1 law is refuted at
+exactly the λ-nodes this tower is made of — seal II finding 1, which
+applies verbatim.  At the P basis install the bits are in hand and the
+law is `eqValT_lawS`'s mirror by three `app_lamR`s.  `EqLawP` crosses
+every value-kind cons for free (`eqLawP_cons_valueKind`: `Eq`'s pin is
+an `indInfo`, so a `defn`/`thm`/`axiom`/`opaque` cons named `Eq` makes
+the law's own premise false), so it costs the four harvests nothing.
+
+**Statement note**: `EqLawP` carries two clauses where `EqLawV` carries
+one-and-a-rigidity — the spine's *value* and its *grading* (plus
+propositionhood).  The second is the grading tax: `CtxOkR` asks nothing
+of the sort, `CtxOkP`/`InferClaims2P`/`DefEqClaims2P` all do.  Stating
+an interface field at the shape its consumers read is v1's own recorded
+doctrine for this very field.
+
+### What the grading tax cost, measured
+
+The certificate mirror is `Setlec/SetR/DivModPin.lean`'s 2880 lines at
+~1400.  The saving is not in the semantic content — that transposed
+one-for-one — but in the *syntactic* obligations: v1's nine clause
+blocks carry ~15 `by decide` side conditions per clause (scoping,
+leaves, bounds, at two depths); the P blocks carry four, because the
+statements' `Nat`-valued fragment is given a **typed** grammar
+(`dmNatFrag`) whose walk (`dmNatFragP`) returns reading, grading,
+membership and `dmEvalV` value in one package, and whose syntactic
+consequences are a lemma (`dmNatFrag_syntax`) rather than a decision
+per call site.  A grading is a typing derivation, so the tier that had
+to pay for typing got the syntax for free.
+
+### Battery at seal
+
+`lake build` warning-free (390 jobs), `lake test`, harness *after
+merging the lane's P5 adaptation* (`agent/annot-v2` @ `07354b92`):
+arena tutorial 90/92, e2e 72/72, annot 13/13, split driver 11/11, mode
+flags 9/9, no-model sweep 138 arena + 72 e2e + 13 annot with the 3
+recorded divergences (the P5 merge added the three `annot_fill_*`
+fixtures and retired one divergence).  Zero sorries.
+Axioms exactly `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `reduceNatStepP_of`, `reduceNatStepPQ_of`,
+`divModP_install`, `dmStmtEqP`, `TierInputsAtP.ofSem`,
+`checkSoundAtP`, `harvestDefnP` and the transports.  `agent/annot-v2`
+@ `07354b92` merged in.
+
+### Files
+
+New: `Interp2/DivModP.lean` (statement + crossings),
+`Interp2/NatWfP.lean` (WF transports), `Interp2/DivModCertP.lean` (the
+certificate kit and the install), `Interp2/NatStepP.lean` (the rows).
+Extended: `Interp2/NatSemP.lean` (six transports),
+`Annot/EnvS2P.lean` (`DivModP`, `EqLawP`, two fields),
+`Interp2/InstallP.lean` (two `declStepPM_of_cons` premises),
+`Interp2/HarvestP.lean` (four harvests),
+`Step2/WhnfP.lean` + `Step2/TiersP.lean` (the IH widening),
+`Interp2/CapstoneP.lean` (the census shrink).
+Shrunk: `Step2/NatP.lean` (the wall deleted, the FINDING kept).
+
 ## Task #161 P5: the annotate pass (engineering track, 2026-09-01)
 
 The untrusted pass that lets **real (unannotated) streams enter
