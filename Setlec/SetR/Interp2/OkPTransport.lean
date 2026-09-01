@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.Claims2P
+import Setlec.SetR.Interp2.Denote2Closed
 
 /-!
 # `AnnotOkP`'s substitution metatheory (task #161, P3 batch 2)
@@ -72,5 +73,19 @@ theorem AnnotOkP.hoist_lift {Δa : List AVExpr} {X e : AVExpr}
   refine (AnnotOkP_liftN V 1 e 0 ρ).mpr ?_
   rw [shiftE_zero]
   exact h _ (Sat2_tail hρ)
+
+/-- **The stored leaves are `inst`-invariant** — `denoteP_beta`'s
+second leaf premise, discharged from the erasure link and the
+collapse-lane closedness field.  (Shared home: both the infer and the
+whnf quarters proved this independently at their batches; deduplicated
+here at the merge.) -/
+theorem acval_inst_self {μ : CheckMode} {env : Setlec.Env}
+    (m : EnvS2UM V μ env) (n : Setlec.Name)
+    (ψ : Setlec.Name → Nat) (y : AVExpr) (k : Nat) :
+    (m.acval n ψ).inst y k = m.acval n ψ :=
+  AVExpr.inst_eq_self _
+    (by rw [m.acval_erase]
+        exact VExpr.bvarsBelow.mono (Nat.zero_le k)
+          (m.base.cval_closed n ψ)) y
 
 end Setlec.SetR.Interp2

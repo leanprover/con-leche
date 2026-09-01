@@ -82,18 +82,6 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
 `hacl` is a structure field; `hainst` is one composition away from
 another, and is proved here once so that no clause carries it. -/
 
-/-- **`denoteP_beta`'s second leaf premise, discharged.**  A stored
-annotation is invariant under *any* substitution at *any* cut, because
-its erasure is closed (`EnvS.cval_closed`) and `AVExpr.inst` never
-reads a numeral slot (`AVExpr.inst_eq_self`). -/
-theorem acval_inst_self (m : EnvS2UM V μ env) (n : Name)
-    (ψ : Name → Nat) (y : AVExpr) (k : Nat) :
-    (m.acval n ψ).inst y k = m.acval n ψ := by
-  refine AVExpr.inst_eq_self _ ?_ y
-  refine VExpr.bvarsBelow.mono (Nat.zero_le k) ?_
-  rw [m.acval_erase n ψ]
-  exact m.base.cval_closed n ψ
-
 /-- `denoteP` has no clause for a loose `bvar` — `denote2_bvar`'s
 mirror, and the `.bvar` case of the dispatcher entire. -/
 theorem denoteP_bvar {acval : Name → (Name → Nat) → AVExpr}

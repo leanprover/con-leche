@@ -605,17 +605,6 @@ upgrade path `Claims2P.lean`'s docstring names, and until that lands
 it is a **routed residue**, in the same currency and at the same fuel
 as the claims it feeds.  Two producers, so two residues. -/
 
-/-- **The stored leaves are `inst`-invariant** — `denoteP_beta`'s
-second leaf premise, discharged from the erasure link and the
-collapse-lane closedness field. -/
-theorem acval_inst_self (m : EnvS2UM V μ env) (n : Name)
-    (ψ : Name → Nat) (y : AVExpr) (k : Nat) :
-    (m.acval n ψ).inst y k = m.acval n ψ :=
-  AVExpr.inst_eq_self _
-    (by rw [m.acval_erase]
-        exact VExpr.bvarsBelow.mono (Nat.zero_le k)
-          (m.base.cval_closed n ψ)) y
-
 /-- **The inferred type reads** (P-tier totality residue; see the
 FINDING above).  Conditioned exactly as the claims are: the run, the
 subject's scoping package, and the subject's own reading. -/
