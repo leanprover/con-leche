@@ -73,9 +73,9 @@ private def canonExpr (m : Name → Name) : Expr → Expr
   | .sort u => .sort (canonLevel m u)
   | .const n us => .const n (us.map (canonLevel m))
   | .app f a => .app (canonExpr m f) (canonExpr m a)
-  | .lam _ ty b _ => .lam .anonymous (canonExpr m ty) (canonExpr m b) ⟨.default⟩
+  | .lam _ ty b _ => .lam .anonymous (canonExpr m ty) (canonExpr m b) ⟨.default, .never⟩
   | .forallE _ ty b _ =>
-      .forallE .anonymous (canonExpr m ty) (canonExpr m b) ⟨.default⟩
+      .forallE .anonymous (canonExpr m ty) (canonExpr m b) ⟨.default, .never⟩
   | .letE _ ty v b => .letE .anonymous (canonExpr m ty) (canonExpr m v)
       (canonExpr m b)
   | .lit l => .lit l
@@ -372,13 +372,13 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
       parseBinderInfo v
       let (e, st) ← st.intern' (.lam (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
-        ⟨.default⟩)
+        ⟨.default, .never⟩)
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "forallE" then
       parseBinderInfo v
       let (e, st) ← st.intern' (.forallE (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
-        ⟨.default⟩)
+        ⟨.default, .never⟩)
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "letE" then
       let (e, st) ← st.intern' (.letE (← getNameIdx' st v "name")

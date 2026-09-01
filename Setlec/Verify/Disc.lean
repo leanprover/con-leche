@@ -1211,11 +1211,11 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi⟩))
+        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi⟩))
+        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
     refine DiscV.bind (ih.site_annotate hwtb.1) (fun ty' hty' => ?_)
     refine DiscV.bind (ih.site_annotate
       (WScoped.instantiate1 hty' 0 hwtb.2)) (fun body' hbody' => ?_)
@@ -1229,11 +1229,11 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi⟩))
+        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi⟩))
+        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
     refine DiscV.bind (ih.site_annotate hwtb.1) (fun ty' hty' => ?_)
     refine DiscV.bind (ih.site_annotate
       (WScoped.instantiate1 hty' 0 hwtb.2)) (fun body' hbody' => ?_)

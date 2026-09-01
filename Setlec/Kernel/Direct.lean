@@ -216,7 +216,7 @@ def directProjTyR (T : Name) (lps : List Name) (nP nF i : Nat)
     if i < nF then
       Expr.replacePiBody nP tty
         (.forallE (.str .anonymous "t") (directFam T lps nP 0) fdom
-          ⟨.default⟩)
+          ⟨.default, .never⟩)
     else none
   | _ => none
 

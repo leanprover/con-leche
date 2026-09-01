@@ -164,6 +164,30 @@ def isNonZero : Level → Bool
   | .imax _ b => b.isNonZero
   | .param _ => false
 
+/-- The zero-ness datum of a level (task #161): the exact reading of
+`{φ | eval φ l = 0}`.  `Setlec.Verify.PropWhen` proves
+`(zeronessOf l).holds φ = (eval φ l == 0)`.  Case notes: a `max` is
+zero iff both sides are (`inter`); an `imax` is zero iff its right
+side is (`eval (imax a b) = if eval b = 0 then 0 else max …`). -/
+def zeronessOf : Level → PropWhen
+  | .zero => .ifAllZero []
+  | .succ _ => .never
+  | .param n => .ifAllZero [n]
+  | .max a b => (zeronessOf a).inter (zeronessOf b)
+  | .imax _ b => zeronessOf b
+
+/-- Push a level-parameter substitution through a zero-ness datum
+(task #161): each parameter becomes its replacement's datum,
+intersected — `Z(subst ks vs l)` is exactly
+`substPW ks vs (zeronessOf l)` (`Verify.PropWhen.zeronessOf_subst`,
+a syntactic equation).  Shape-preserving (`PropWhen.bindZ`): an
+unlisted parameter reproduces `ifAllZero [n]`, so instantiating a
+declaration at its own parameters is the identity here too
+(`substPW_self`), with no canonical-form side condition. -/
+def substPW (ks : List Name) (vs : List Level) (pw : PropWhen) :
+    PropWhen :=
+  pw.bindZ fun n => zeronessOf (subst.go ks vs n)
+
 end Setlec.Level
 
 namespace Setlec
@@ -195,24 +219,29 @@ def Expr.instantiateLevelParams (ks : List Name) (us : List Level) : Expr → Ex
   | .app f a => .app (f.instantiateLevelParams ks us) (a.instantiateLevelParams ks us)
   | .lam n ty body m =>
     .lam n (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
-      m
+      ⟨m.bi, Level.substPW ks us m.pw⟩
   | .forallE n ty body m =>
     .forallE n (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
-      m
+      ⟨m.bi, Level.substPW ks us m.pw⟩
   | .letE n ty val body => .letE n (ty.instantiateLevelParams ks us)
       (val.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
   | .lit l => .lit l
   | .proj s i e => .proj s i (e.instantiateLevelParams ks us)
 
-/-- Are all level parameters occurring in `e` among `params`? -/
+/-- Are all level parameters occurring in `e` among `params`?  Binder
+prop-ness data included (task #161): their parameters are level
+parameters of the term — `instantiateLevelParams` substitutes into
+them, and its composition law needs them covered exactly as it needs
+the levels'. -/
 def Expr.allLevelParamsDefined (params : List Name) : Expr → Bool
   | .bvar _ => true
   | .fvar _ _ t => t.allLevelParamsDefined params
   | .sort u => u.allParamsDefined params
   | .const _ us => us.all (Level.allParamsDefined params)
   | .app f a => f.allLevelParamsDefined params && a.allLevelParamsDefined params
-  | .lam _ t b _ | .forallE _ t b _ =>
+  | .lam _ t b m | .forallE _ t b m =>
     t.allLevelParamsDefined params && b.allLevelParamsDefined params
+      && m.pw.paramsDefined params
   | .letE _ t v b => t.allLevelParamsDefined params && v.allLevelParamsDefined params
       && b.allLevelParamsDefined params
   | .lit _ => true

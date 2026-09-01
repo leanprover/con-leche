@@ -1475,7 +1475,7 @@ theorem zipLamHeadCase_of {φ : Name → Nat}
     (hIo : ZipIotaCase μ env φ Q)
     (hProj : ZipProjHeadCase μ env φ Q) :
     ZipLamHeadCase μ env φ Q := by
-  intro fc d ga la gb lb n ty₁ ty₂ b₁ b₂ m as bs ℓa ℓb below hty
+  intro fc d ga la gb lb n ty₁ ty₂ b₁ b₂ m₁ m₂ as bs ℓa ℓb below hty
     hbody hlen hargs hIs hIt hp hQ ha hb
   exact zipHeadDispatch (φ := φ) (Q := Q) hm hB hIC hLC hQC hQB
     hQZ hQH hLS
@@ -1484,7 +1484,7 @@ theorem zipLamHeadCase_of {φ : Name → Nat}
     (fun {fc'} {d'} {ga'} {la₀} {gb'} {lb₀} {s'} {t'} {ℓa'} {ℓb'}
         hmes hz' hIs' hIt' hp' hq' hla hlb =>
       below hmes hz' hIs' hIt' hp' hq' hla hlb)
-    (certZip_mkAppN_zips (.lam n ty₁ ty₂ b₁ b₂ m hty hbody)
+    (certZip_mkAppN_zips (.lam n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody)
       hlen hargs) hIs hIt hp hQ ha hb
 
 /-- **The letE-head case DISCHARGED**: same dispatch, letE-node

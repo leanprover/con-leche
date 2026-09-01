@@ -418,12 +418,12 @@ def lamDefName : Name := .num .anonymous 4
 /-- Its stored type, `∀ _ : Sort 0, Sort 1`. -/
 def lamDefTy : Expr :=
   .forallE (.num .anonymous 5) (.sort .zero) (.sort (.succ .zero))
-    ⟨.default⟩
+    ⟨.default, .never⟩
 
 /-- Its stored value, `fun _ : Sort 0 => Sort 0` — a λ, which is what
 this probe is for. -/
 def lamDefVal : Expr :=
-  .lam (.num .anonymous 6) (.sort .zero) (.sort .zero) ⟨.default⟩
+  .lam (.num .anonymous 6) (.sort .zero) (.sort .zero) ⟨.default, .never⟩
 
 def lamDefCi : ConstantInfo :=
   .defnInfo ⟨lamDefName, [], lamDefTy⟩ lamDefVal (.regular 0)

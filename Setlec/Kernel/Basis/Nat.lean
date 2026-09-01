@@ -15,10 +15,10 @@ open Name (anonymous)
 def natBasis : List ConstantInfo := [
   .indInfo ⟨(anonymous |>.str "Nat"), [], (.sort (.succ .zero))⟩ {},
   .ctorInfo ⟨((anonymous |>.str "Nat") |>.str "zero"), [], (.const (anonymous |>.str "Nat") [])⟩ 0 0,
-  .ctorInfo ⟨((anonymous |>.str "Nat") |>.str "succ"), [], (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.const (anonymous |>.str "Nat") []) ⟨.default⟩)⟩ 0 1,
-  .recInfo ⟨((anonymous |>.str "Nat") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default⟩) (.forallE (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.forallE (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.app (.bvar 3) (.bvar 0)) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩)⟩ 3 3
-    [⟨((anonymous |>.str "Nat") |>.str "zero"), 0, 0, .inert, (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default⟩) (.lam (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.lam (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default⟩) ⟨.default⟩) (.bvar 1) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩)⟩,
-      ⟨((anonymous |>.str "Nat") |>.str "succ"), 1, 0, .inert, (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default⟩) (.lam (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.lam (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default⟩) ⟨.default⟩) (.lam (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.app (.app (.bvar 1) (.bvar 0)) (.app (.app (.app (.app (.const ((anonymous |>.str "Nat") |>.str "rec") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 1)) (.bvar 0))) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩)⟩]]
+  .ctorInfo ⟨((anonymous |>.str "Nat") |>.str "succ"), [], (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.const (anonymous |>.str "Nat") []) ⟨.default, .never⟩)⟩ 0 1,
+  .recInfo ⟨((anonymous |>.str "Nat") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, .never⟩) (.forallE (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.forallE (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default, .never⟩) ⟨.default, .never⟩) (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.app (.bvar 3) (.bvar 0)) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.implicit, .never⟩)⟩ 3 3
+    [⟨((anonymous |>.str "Nat") |>.str "zero"), 0, 0, .inert, (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, .never⟩) (.lam (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.lam (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default, .never⟩) ⟨.default, .never⟩) (.bvar 1) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩)⟩,
+      ⟨((anonymous |>.str "Nat") |>.str "succ"), 1, 0, .inert, (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, .never⟩) (.lam (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.lam (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default, .never⟩) ⟨.default, .never⟩) (.lam (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.app (.app (.bvar 1) (.bvar 0)) (.app (.app (.app (.app (.const ((anonymous |>.str "Nat") |>.str "rec") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 1)) (.bvar 0))) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩)⟩]]
 
 /-! ## The annotated declarations
 
@@ -53,7 +53,7 @@ def natSuccA : ConstantInfo :=
                 (Setlec.Name.str (Setlec.Name.anonymous) "n")
                 (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
                 (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
-                { bi := Setlec.BinderInfo.default} }
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
     0
     1
 
@@ -68,7 +68,7 @@ def natRecA : ConstantInfo :=
                   (Setlec.Name.str (Setlec.Name.anonymous) "t")
                   (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
                   (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-                  { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "zero")
                   (Setlec.Expr.app
@@ -89,16 +89,16 @@ def natRecA : ConstantInfo :=
                               (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "succ")
                               [])
                             (Setlec.Expr.bvar 1)))
-                        { bi := Setlec.BinderInfo.default})
-                      { bi := Setlec.BinderInfo.default})
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     (Setlec.Expr.forallE
                       (Setlec.Name.str (Setlec.Name.anonymous) "t")
                       (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
                       (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 0))
-                      { bi := Setlec.BinderInfo.default})
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
-                { bi := Setlec.BinderInfo.implicit} }
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
     3
     3
     [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "zero",
@@ -111,7 +111,7 @@ def natRecA : ConstantInfo :=
                   (Setlec.Name.str (Setlec.Name.anonymous) "t")
                   (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
                   (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-                  { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                 (Setlec.Expr.lam
                   (Setlec.Name.str (Setlec.Name.anonymous) "zero")
                   (Setlec.Expr.app
@@ -132,12 +132,12 @@ def natRecA : ConstantInfo :=
                               (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "succ")
                               [])
                             (Setlec.Expr.bvar 1)))
-                        { bi := Setlec.BinderInfo.default})
-                      { bi := Setlec.BinderInfo.default})
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     (Setlec.Expr.bvar 1)
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
-                { bi := Setlec.BinderInfo.default} },
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } },
      { ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "succ",
        nfields := 1,
        ctorParams := 0,
@@ -148,7 +148,7 @@ def natRecA : ConstantInfo :=
                   (Setlec.Name.str (Setlec.Name.anonymous) "t")
                   (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
                   (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-                  { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                 (Setlec.Expr.lam
                   (Setlec.Name.str (Setlec.Name.anonymous) "zero")
                   (Setlec.Expr.app
@@ -169,8 +169,8 @@ def natRecA : ConstantInfo :=
                               (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "succ")
                               [])
                             (Setlec.Expr.bvar 1)))
-                        { bi := Setlec.BinderInfo.default})
-                      { bi := Setlec.BinderInfo.default})
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     (Setlec.Expr.lam
                       (Setlec.Name.str (Setlec.Name.anonymous) "n")
                       (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
@@ -187,9 +187,9 @@ def natRecA : ConstantInfo :=
                               (Setlec.Expr.bvar 2))
                             (Setlec.Expr.bvar 1))
                           (Setlec.Expr.bvar 0)))
-                      { bi := Setlec.BinderInfo.default})
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
-                { bi := Setlec.BinderInfo.default} }]
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }]
 
 end Setlec

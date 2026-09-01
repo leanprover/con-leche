@@ -220,31 +220,31 @@ theorem denote_params_ext {env : Env} {cval : TConstVal}
   | case6 d n ty body mb h1 ihty =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    rw [denote_forallE, denote_forallE, ← ihty hd.1, h1]
+    rw [denote_forallE, denote_forallE, ← ihty hd.1.1, h1]
   | case7 d n ty body mb B h1 h2 ihty ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    rw [denote_forallE, denote_forallE, ← ihty hd.1,
-      ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1 0 hd.2)]
+    rw [denote_forallE, denote_forallE, ← ihty hd.1.1,
+      ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.1.2)]
   | case8 d n ty body mb B h1 B' h2 ihty ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    rw [denote_forallE, denote_forallE, ← ihty hd.1,
-      ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1 0 hd.2)]
+    rw [denote_forallE, denote_forallE, ← ihty hd.1.1,
+      ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.1.2)]
   | case9 d n ty body mb h1 ihty =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    rw [denote_lam, denote_lam, ← ihty hd.1, h1]
+    rw [denote_lam, denote_lam, ← ihty hd.1.1, h1]
   | case10 d n ty body mb B h1 h2 ihty ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    rw [denote_lam, denote_lam, ← ihty hd.1,
-      ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1 0 hd.2)]
+    rw [denote_lam, denote_lam, ← ihty hd.1.1,
+      ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.1.2)]
   | case11 d n ty body mb B h1 B' h2 ihty ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    rw [denote_lam, denote_lam, ← ihty hd.1,
-      ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1 0 hd.2)]
+    rw [denote_lam, denote_lam, ← ihty hd.1.1,
+      ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.1.2)]
   | case12 d f a vf va h1 h2 ihf iha =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd

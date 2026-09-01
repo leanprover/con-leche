@@ -77,10 +77,10 @@ def denoteLList (denL : LIdx → Option Level) : List LIdx → Option (List Leve
   | u :: us =>
     (denL u).bind fun l => (denoteLList denL us).map fun ls => l :: ls
 
-/-- Denotation of interned binder metadata (annotation-free: the
-identity). -/
+/-- Denotation of interned binder metadata (the identity on both
+fields: the prop-ness datum is stored raw, task #161). -/
 def denoteBM (_denL : LIdx → Option Level) : IBinderMeta → Option BinderMeta
-  | ⟨bi⟩ => some ⟨bi⟩
+  | ⟨bi, pw⟩ => some ⟨bi, pw⟩
 
 /-- `denoteLList` only looks at the listed indices. -/
 theorem denoteLList_congr {l₁ l₂ : LIdx → Option Level} :
@@ -97,7 +97,7 @@ theorem denoteLList_congr {l₁ l₂ : LIdx → Option Level} :
 /-- `denoteBM` is denotation-independent. -/
 theorem denoteBM_congr {l₁ l₂ : LIdx → Option Level} {m : IBinderMeta} :
     denoteBM l₁ m = denoteBM l₂ m := by
-  obtain ⟨bi⟩ := m
+  obtain ⟨bi, pw⟩ := m
   rfl
 
 /-- `denoteLNode` only looks at the children. -/
@@ -730,7 +730,7 @@ theorem denoteBM_mono {st st' : EStore} (_hext : Ext st st')
     {m : IBinderMeta} {bm : BinderMeta}
     (h : denoteBM st.denoteL m = some bm) :
     denoteBM st'.denoteL m = some bm := by
-  obtain ⟨bi⟩ := m
+  obtain ⟨bi, pw⟩ := m
   exact h
 
 /-- `denoteNode` transports along extension when the children's
@@ -1905,14 +1905,14 @@ theorem internLevels_specT {st : EStore} (hwf : st.TWF) (ls : List Level) :
 theorem internBM_spec {st : EStore} (hwf : st.WF) (m : BinderMeta) :
     (st.internBM m).2.WF ∧ Ext st (st.internBM m).2 ∧
       denoteBM (st.internBM m).2.denoteL (st.internBM m).1 = some m := by
-  obtain ⟨bi⟩ := m
+  obtain ⟨bi, pw⟩ := m
   exact ⟨hwf, Ext.refl st, rfl⟩
 
 /-- `internBM` round-trip, two-tier form (task #64). -/
 theorem internBM_specT {st : EStore} (hwf : st.TWF) (m : BinderMeta) :
     (st.internBM m).2.TWF ∧ Ext st (st.internBM m).2 ∧
       denoteBM (st.internBM m).2.denoteL (st.internBM m).1 = some m := by
-  obtain ⟨bi⟩ := m
+  obtain ⟨bi, pw⟩ := m
   exact ⟨hwf, Ext.refl st, rfl⟩
 
 /-! ## `internN` / `internName`: the name round-trip (task #88) -/
@@ -2520,7 +2520,7 @@ theorem denoteLList_inj {st : EStore} (hwf : st.TWF) :
 theorem denoteBM_inj {st : EStore} (_hwf : st.TWF) {m m' : IBinderMeta}
     {bm : BinderMeta} (h : denoteBM st.denoteL m = some bm)
     (h' : denoteBM st.denoteL m' = some bm) : m = m' := by
-  obtain ⟨bi⟩ := m
+  obtain ⟨bi, pw⟩ := m
   obtain ⟨bi'⟩ := m'
   simp only [denoteBM, Option.some.injEq] at h h'
   rw [← h] at h'
@@ -2971,7 +2971,7 @@ theorem denoteLList_total {st : EStore} (hwf : st.TWF) :
 /-- Binder metadata always denotes (annotation-free). -/
 theorem denoteBM_total {st : EStore} (_hwf : st.TWF) (m : IBinderMeta) :
     ∃ bm, denoteBM st.denoteL m = some bm := by
-  obtain ⟨bi⟩ := m
+  obtain ⟨bi, pw⟩ := m
   exact ⟨_, rfl⟩
 
 /-- On a well-formed store, every valid tier-one index denotes. -/
@@ -3592,18 +3592,44 @@ theorem WF.lhasParamD_false {st : EStore} (hwf : st.WF) {u : LIdx}
 
 /-- Whether an expression mentions any level parameter (the spec
 function of the eager `eparamBs` entries; `fvar` type annotations
-included, matching `Expr.instantiateLevelParams`). -/
+included, matching `Expr.instantiateLevelParams`; binder prop-ness
+data included since task #161 — `instantiateLevelParams` substitutes
+into them, so the shortcut must see their parameters). -/
 def _root_.Setlec.Expr.hasLevelParam : Expr → Bool
   | .bvar _ | .lit _ => false
   | .sort u => u.hasParam
   | .const _ us => us.any Level.hasParam
   | .fvar _ _ ty => ty.hasLevelParam
   | .app f a => f.hasLevelParam || a.hasLevelParam
-  | .lam _ ty body _ | .forallE _ ty body _ =>
-    ty.hasLevelParam || body.hasLevelParam
+  | .lam _ ty body m | .forallE _ ty body m =>
+    ty.hasLevelParam || body.hasLevelParam || m.pw.hasParams
   | .letE _ ty val body =>
     ty.hasLevelParam || val.hasLevelParam || body.hasLevelParam
   | .proj _ _ e => e.hasLevelParam
+
+/-- `substPW` is the identity on parameter-free data (`never` and
+`ifAllZero []`) — the meta half of the has-param shortcut's
+soundness. -/
+theorem _root_.Setlec.Level.substPW_eq_self {ks : List Name}
+    {us : List Level} {pw : PropWhen} (h : pw.hasParams = false) :
+    Level.substPW ks us pw = pw := by
+  cases pw with
+  | never => rfl
+  | ifAllZero ps =>
+    cases ps with
+    | nil => rfl
+    | cons p ps => simp [PropWhen.hasParams] at h
+
+/-- Parameter-free data are defined under any parameter list. -/
+theorem _root_.Setlec.PropWhen.paramsDefined_of_not_hasParams
+    {params : List Name} {pw : PropWhen} (h : pw.hasParams = false) :
+    pw.paramsDefined params = true := by
+  cases pw with
+  | never => rfl
+  | ifAllZero ps =>
+    cases ps with
+    | nil => rfl
+    | cons p ps => simp [PropWhen.hasParams] at h
 
 /-- Level-parameter instantiation is the identity on level-param-free
 expressions. -/
@@ -3635,12 +3661,14 @@ theorem _root_.Setlec.Expr.instantiateLevelParams_eq_self
     simp [Expr.instantiateLevelParams, ihf h.1, iha h.2]
   | lam nm ty body m iht ihb =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
-    obtain ⟨ht, hb⟩ := h
-    simp [Expr.instantiateLevelParams, iht ht, ihb hb]
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    simp [Expr.instantiateLevelParams, iht ht, ihb hb,
+      Level.substPW_eq_self hm]
   | forallE nm ty body m iht ihb =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
-    obtain ⟨ht, hb⟩ := h
-    simp [Expr.instantiateLevelParams, iht ht, ihb hb]
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    simp [Expr.instantiateLevelParams, iht ht, ihb hb,
+      Level.substPW_eq_self hm]
   | letE nm ty val body iht ihv ihb =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
     simp [Expr.instantiateLevelParams, iht h.1.1, ihv h.1.2, ihb h.2]
@@ -3656,12 +3684,14 @@ theorem _root_.Setlec.Expr.allLevelParamsDefined_of_not_hasLevelParam
   induction x with
   | lam nm ty body m iht ihb =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
-    obtain ⟨ht, hb⟩ := h
-    simp [Expr.allLevelParamsDefined, iht ht, ihb hb]
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    simp [Expr.allLevelParamsDefined, iht ht, ihb hb,
+      PropWhen.paramsDefined_of_not_hasParams hm]
   | forallE nm ty body m iht ihb =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
-    obtain ⟨ht, hb⟩ := h
-    simp [Expr.allLevelParamsDefined, iht ht, ihb hb]
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    simp [Expr.allLevelParamsDefined, iht ht, ihb hb,
+      PropWhen.paramsDefined_of_not_hasParams hm]
   | const nm vs =>
     simp only [Expr.hasLevelParam, List.any_eq_false] at h
     simp only [Expr.allLevelParamsDefined, List.all_eq_true]
@@ -3771,11 +3801,11 @@ theorem WF.ehasParamD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
-      obtain ⟨bi⟩ := m
+      obtain ⟨bi, pw⟩ := m
       rw [denoteBM] at hbm
       cases hbm
       show (st.eparamBs.getD (epos ty) false
-          || st.eparamBs.getD (epos body) false) = _
+          || st.eparamBs.getD (epos body) false || pw.hasParams) = _
       rw [← ehasParamD_tierOne (denote_etier hxt),
         ← ehasParamD_tierOne (denote_etier hxb),
         ih ty ht hxt, ih body hb hxb]
@@ -3791,11 +3821,11 @@ theorem WF.ehasParamD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
-      obtain ⟨bi⟩ := m
+      obtain ⟨bi, pw⟩ := m
       rw [denoteBM] at hbm
       cases hbm
       show (st.eparamBs.getD (epos ty) false
-          || st.eparamBs.getD (epos body) false) = _
+          || st.eparamBs.getD (epos body) false || pw.hasParams) = _
       rw [← ehasParamD_tierOne (denote_etier hxt),
         ← ehasParamD_tierOne (denote_etier hxb),
         ih ty ht hxt, ih body hb hxb]
@@ -5479,10 +5509,10 @@ theorem TWF.ehasParamD_exact2 {st : EStore} (h : st.TWF) :
       obtain ⟨bm, hbm, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
       obtain ⟨nmv, -, rfl⟩ := hdn
-      obtain ⟨bi⟩ := m
+      obtain ⟨bi, pw⟩ := m
       rw [denoteBM] at hbm
       cases hbm
-      show (st.ehasParamD ty || st.ehasParamD body) = _
+      show (st.ehasParamD ty || st.ehasParamD body || pw.hasParams) = _
       rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
         ih body (hcl body (by simp [ENode.children])) hxb]
       rfl
@@ -5495,10 +5525,10 @@ theorem TWF.ehasParamD_exact2 {st : EStore} (h : st.TWF) :
       obtain ⟨bm, hbm, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
       obtain ⟨nmv, -, rfl⟩ := hdn
-      obtain ⟨bi⟩ := m
+      obtain ⟨bi, pw⟩ := m
       rw [denoteBM] at hbm
       cases hbm
-      show (st.ehasParamD ty || st.ehasParamD body) = _
+      show (st.ehasParamD ty || st.ehasParamD body || pw.hasParams) = _
       rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
         ih body (hcl body (by simp [ENode.children])) hxb]
       rfl

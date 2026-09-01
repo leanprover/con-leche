@@ -72,7 +72,7 @@ def piProbeName : Name := .num .anonymous 1
 and the one `denote2_two_forallE` is stated at. -/
 def piProbeTy : Expr :=
   .forallE (.num .anonymous 2) (.sort .zero) (.sort .zero)
-    ⟨.default⟩
+    ⟨.default, .never⟩
 
 /-- The probe's stored constant. -/
 def piProbeCi : ConstantInfo :=

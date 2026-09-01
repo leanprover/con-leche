@@ -224,7 +224,7 @@ private theorem annotateProjRecI_rest (ih : SSimI mode env f)
        internI (.const recI (uf ++ us)) >>=
         fun recC =>
        internNameM (.str .anonymous "t") >>= fun tI =>
-       internI (.lam tI te fi ⟨.default⟩) >>=
+       internI (.lam tI te fi ⟨.default, .never⟩) >>=
         fun motive =>
        mkAppNM recC (params ++ [motive, minor, e']) >>= fun raw =>
        Setlec.withStore (fun st => st.wscopedBI d raw &&
@@ -235,7 +235,7 @@ private theorem annotateProjRecI_rest (ih : SSimI mode env f)
       (let raw := Expr.mkAppN
           (.const (entry.structName.str "rec") (luf ++ lus))
           (paramsx ++ [.lam (.str .anonymous "t") tex fix
-            ⟨.default⟩, minorx, e'x])
+            ⟨.default, .never⟩, minorx, e'x])
         if raw.wscopedB d && raw.looseBVarsBounded 0 &&
             raw.fvarLeaves.all
               (fun l => e'x.fvarLeaves.contains l) then
@@ -265,8 +265,8 @@ private theorem annotateProjRecI_rest (ih : SSimI mode env f)
   replace hext₁ := hext₁.trans hext₁t
   have hmot : denoteNode s₁t.store.denoteT s₁t.store.denoteL
       s₁t.store.denoteN
-      (ENode.lam tI te fi ⟨.default⟩)
-      = some (.lam (.str .anonymous "t") tex fix ⟨.default⟩) := by
+      (ENode.lam tI te fi ⟨.default, .never⟩)
+      = some (.lam (.str .anonymous "t") tex fix ⟨.default, .never⟩) := by
     rw [denoteNode, denoteT_mono hext₁ hte, denoteT_mono hext₁ hfi, hQtI]
     rfl
   refine SimAt.bind_left (internI_eff hs₁ hmot)
@@ -727,9 +727,9 @@ theorem annotateBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     refine SimAt.bind_left (internI_eff hs₁ hfvd)
       (fun s₂ fv hs₂ hext₂ hQfv => ?_)
     refine SimAt.withStore ?_
-    rw [show (m : IBinderMeta).bi = bm.bi from (denoteBM_bi hbmDen).symm]
     exact annotatePisI_tail_sim ih hs₂
       (denoteN_mono (hext₁.trans hext₂) hnmDen)
+      (denoteBM_mono (hext₁.trans hext₂) hbmDen)
       (denoteT_mono (hext₁.trans hext₂) hbody)
       (denoteT_mono hext₂ hty'd) hQfv hwty' hwtb.2
   | lam nmᵢ t b m =>
@@ -762,9 +762,9 @@ theorem annotateBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
       refine SimAt.bind_left (internI_eff hs₁ hfvd)
         (fun s₂ fv hs₂ hext₂ hQfv => ?_)
       refine SimAt.withStore ?_
-      rw [show (m : IBinderMeta).bi = bm.bi from (denoteBM_bi hbmDen).symm]
       exact annotateLamsI_tail_sim ih hs₂
         (denoteN_mono ((hextb.trans hext₁).trans hext₂) hnmDen)
+        (denoteBM_mono ((hextb.trans hext₁).trans hext₂) hbmDen)
         (denoteT_mono ((hextb.trans hext₁).trans hext₂) hbody)
         (denoteT_mono hext₂ hty'd) hQfv hwty' hwtb.2
     · rw [if_neg hb0]
@@ -788,14 +788,16 @@ theorem annotateBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
       refine SimAt.bind_left (abstract1M_eff hs₄ hbody'd)
         (fun s₈ bAbs hs₈ hext₈ hQabs => ?_)
       refine SimAt.of_eff (internI_eff hs₈
-        (x := .lam nm ty'x (body'x.abstract1 d) ⟨bm.bi⟩) ?_) _
+        (x := .lam nm ty'x (body'x.abstract1 d) bm) ?_) _
         (fun s r hQ => ?_)
       · rw [denoteNode,
           denoteT_mono (((hext₂.trans hext₃).trans hext₄).trans hext₈)
             hty'd, hQabs,
+          denoteBM_mono (((((hextb.trans hext₁).trans hext₂).trans
+            hext₃).trans hext₄).trans hext₈) hbmDen,
           denoteN_mono (((((hextb.trans hext₁).trans hext₂).trans
             hext₃).trans hext₄).trans hext₈) hnmDen]
-        simp [denoteBM, denoteBM_bi hbmDen]
+        rfl
       · refine ⟨hQ, ?_⟩
         simp only [WScoped]
         exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩

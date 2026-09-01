@@ -595,14 +595,16 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.TWF)
               | true =>
                 rw [hbb] at hgo
                 cases m with
-                | mk bi =>
+                | mk bi pw =>
                   cases hgo
-                  obtain rfl : bm = ⟨bi⟩ := by
+                  obtain rfl : bm = ⟨bi, pw⟩ := by
                     simpa [denoteBM] using hbm.symm
                   have hcond : ∀ x, st.denoteT e = some x →
-                      x.allLevelParamsDefined params = true := by
+                      x.allLevelParamsDefined params
+                        = (true && PropWhen.paramsDefined params pw) := by
                     intro x hxx
-                    have hx : st.denoteT e = some (.lam nm xt xb ⟨bi⟩) := by
+                    have hx : st.denoteT e
+                        = some (.lam nm xt xb ⟨bi, pw⟩) := by
                       rw [hde, denoteNode, hxt, hxb, hbm, hnmDen]; rfl
                     rw [hx] at hxx; cases hxx
                     simp only [Expr.allLevelParamsDefined]
@@ -672,14 +674,16 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.TWF)
               | true =>
                 rw [hbb] at hgo
                 cases m with
-                | mk bi =>
+                | mk bi pw =>
                   cases hgo
-                  obtain rfl : bm = ⟨bi⟩ := by
+                  obtain rfl : bm = ⟨bi, pw⟩ := by
                     simpa [denoteBM] using hbm.symm
                   have hcond : ∀ x, st.denoteT e = some x →
-                      x.allLevelParamsDefined params = true := by
+                      x.allLevelParamsDefined params
+                        = (true && PropWhen.paramsDefined params pw) := by
                     intro x hxx
-                    have hx : st.denoteT e = some (.forallE nm xt xb ⟨bi⟩) := by
+                    have hx : st.denoteT e
+                        = some (.forallE nm xt xb ⟨bi, pw⟩) := by
                       rw [hde, denoteNode, hxt, hxb, hbm, hnmDen]; rfl
                     rw [hx] at hxx; cases hxx
                     simp only [Expr.allLevelParamsDefined]

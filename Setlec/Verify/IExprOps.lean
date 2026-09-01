@@ -326,7 +326,14 @@ theorem denoteLList_some_mem {denL : LIdx → Option Level} :
 /-- `denoteBM` preserves the binder info. -/
 theorem denoteBM_bi {denL : LIdx → Option Level} {m : IBinderMeta}
     {bm : BinderMeta} (h : denoteBM denL m = some bm) : bm.bi = m.bi := by
-  obtain ⟨bi⟩ := m
+  obtain ⟨bi, pw⟩ := m
+  simp only [denoteBM, Option.some.injEq] at h
+  subst h; rfl
+
+/-- `denoteBM` preserves the prop-ness datum (task #161). -/
+theorem denoteBM_pw {denL : LIdx → Option Level} {m : IBinderMeta}
+    {bm : BinderMeta} (h : denoteBM denL m = some bm) : bm.pw = m.pw := by
+  obtain ⟨bi, pw⟩ := m
   simp only [denoteBM, Option.some.injEq] at h
   subst h; rfl
 
@@ -1451,15 +1458,17 @@ theorem pisToLamsI_spec :
       obtain ⟨bm, hbm', hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      obtain ⟨bi'⟩ := bm
+      obtain ⟨bi', pw'⟩ := bm
       have hbi : bi' = m.bi := by simpa using denoteBM_bi hbm'
+      have hpw : pw' = m.pw := by simpa using denoteBM_pw hbm'
       subst hbi
+      subst hpw
       obtain ⟨hwf₁, hext₁, hres₁⟩ :=
         pisToLamsI_spec (k := k) hwf hbb hb (e := b) (body := body)
       rw [pisToLamsI, hn]
       dsimp only
-      rw [show Expr.pisToLams (k + 1) (.forallE _nmv et eb ⟨m.bi⟩) xb =
-        (Expr.pisToLams k eb xb).map (fun bx => .lam _nmv et bx ⟨m.bi⟩)
+      rw [show Expr.pisToLams (k + 1) (.forallE _nmv et eb ⟨m.bi, m.pw⟩) xb =
+        (Expr.pisToLams k eb xb).map (fun bx => .lam _nmv et bx ⟨m.bi, m.pw⟩)
         from rfl]
       rcases hgo : st.pisToLamsI k b body with ⟨o, st₁⟩
       rw [hgo] at hres₁ hwf₁ hext₁
@@ -1474,8 +1483,8 @@ theorem pisToLamsI_spec :
         | some bx =>
           rw [hox] at hres₁
           have hd' : denoteNode st₁.denoteT st₁.denoteL st₁.denoteN
-                (.lam nm t bidx ⟨m.bi⟩)
-              = some (.lam _nmv et bx ⟨m.bi⟩) := by
+                (.lam nm t bidx ⟨m.bi, m.pw⟩)
+              = some (.lam _nmv et bx ⟨m.bi, m.pw⟩) := by
             rw [denoteNode, denoteT_mono hext₁ ht, hres₁,
               denoteN_mono hext₁ _hnmv]; rfl
           obtain ⟨hwf₂, hext₂, hres₂⟩ := intern_spec hwf₁ hd'
@@ -1789,7 +1798,7 @@ theorem readbackBM_spec {st : EStore} {m : IBinderMeta} {bm : BinderMeta}
     (hbm : denoteBM st.denoteL m = some bm) (hinv : RLInv st memo)
     (hgo : readbackBM st memo m = (r, memo')) :
     r = some bm ∧ RLInv st memo' := by
-  obtain ⟨bi⟩ := m
+  obtain ⟨bi, pw⟩ := m
   simp only [denoteBM, Option.some.injEq] at hbm
   subst hbm
   cases hgo

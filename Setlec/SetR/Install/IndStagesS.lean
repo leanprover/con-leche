@@ -1186,26 +1186,26 @@ theorem fireS {env : Env} {cval : TConstVal}
         = .forallE (.str .anonymous "α") (.sort ℓA)
             (.forallE (.str .anonymous "a") (.bvar 0)
               (.forallE (.str .anonymous "b") (.bvar 1)
-                (.sort .zero) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩ := by
+                (.sort .zero) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.implicit, .never⟩ := by
       rfl
     have hb1 : (Expr.forallE (.str .anonymous "a") (.bvar 0)
         (.forallE (.str .anonymous "b") (.bvar 1)
-          (.sort .zero) ⟨.default⟩) ⟨.default⟩).instantiate1
+          (.sort .zero) ⟨.default, .never⟩) ⟨.default, .never⟩).instantiate1
         (.fvar 0 (.str .anonymous "α") (.sort ℓA))
         = .forallE (.str .anonymous "a")
             (.fvar 0 (.str .anonymous "α") (.sort ℓA))
             (.forallE (.str .anonymous "b")
               (.fvar 0 (.str .anonymous "α") (.sort ℓA))
-              (.sort .zero) ⟨.default⟩) ⟨.default⟩ := by
+              (.sort .zero) ⟨.default, .never⟩) ⟨.default, .never⟩ := by
       rfl
     have hb2 : (Expr.forallE (.str .anonymous "b")
         (.fvar 0 (.str .anonymous "α") (.sort ℓA))
-        (.sort .zero) ⟨.default⟩).instantiate1
+        (.sort .zero) ⟨.default, .never⟩).instantiate1
         (.fvar 1 (.str .anonymous "a")
           (.fvar 0 (.str .anonymous "α") (.sort ℓA)))
         = .forallE (.str .anonymous "b")
             (.fvar 0 (.str .anonymous "α") (.sort ℓA))
-            (.sort .zero) ⟨.default⟩ := by
+            (.sort .zero) ⟨.default, .never⟩ := by
       rfl
     have hb3 : (Expr.sort .zero).instantiate1
         (.fvar 2 (.str .anonymous "b")

@@ -1818,14 +1818,14 @@ private theorem annotateProjRec_shift (henv : EnvWF env)
               else []) ++ us))
           (te.getAppArgs.map (shiftFrom p) ++
             [.lam (.str .anonymous "t") (shiftFrom p te)
-              (shiftFrom p fi) ⟨.default⟩,
+              (shiftFrom p fi) ⟨.default, .never⟩,
              shiftFrom p minor, shiftFrom p e']) =
           shiftFrom p (Expr.mkAppN
             (.const (entry.structName.str "rec")
               ((if entry.recExtraLevel then [sfi]
                 else []) ++ us))
             (te.getAppArgs ++
-              [.lam (.str .anonymous "t") te fi ⟨.default⟩,
+              [.lam (.str .anonymous "t") te fi ⟨.default, .never⟩,
                minor, e'])) := by
         rw [shiftFrom_mkAppN, List.map_append]
         rfl
@@ -1835,7 +1835,7 @@ private theorem annotateProjRec_shift (henv : EnvWF env)
             ((if entry.recExtraLevel then [sfi]
               else []) ++ us))
           (te.getAppArgs ++
-            [.lam (.str .anonymous "t") te fi ⟨.default⟩,
+            [.lam (.str .anonymous "t") te fi ⟨.default, .never⟩,
              minor, e'])) := by
         refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
         intro x hx

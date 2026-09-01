@@ -698,9 +698,9 @@ theorem pisToLams_shiftFrom {p : Nat} :
     case fvar => simp only [shiftFrom]; split <;> rfl
     case forallE n ty rest mb =>
       show (Expr.pisToLams k (shiftFrom p rest) (shiftFrom p body)).map
-          (fun b => Expr.lam n (shiftFrom p ty) b ⟨mb.bi⟩) =
+          (fun b => Expr.lam n (shiftFrom p ty) b ⟨mb.bi, mb.pw⟩) =
         ((Expr.pisToLams k rest body).map
-          (fun b => Expr.lam n ty b ⟨mb.bi⟩)).map (shiftFrom p)
+          (fun b => Expr.lam n ty b ⟨mb.bi, mb.pw⟩)).map (shiftFrom p)
       rw [pisToLams_shiftFrom k rest body]
       cases Expr.pisToLams k rest body <;> rfl
 

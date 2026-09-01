@@ -250,11 +250,13 @@ theorem instLevels_comp_of_defined (ks : List Name) (vs : List Level)
   | lam n ty b mb ihty ihb =>
     intro h
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [Expr.instantiateLevelParams, ihty h.1, ihb h.2]
+    simp only [Expr.instantiateLevelParams, ihty h.1.1, ihb h.1.2,
+      Level.substPW_comp hlen.symm h.2]
   | forallE n ty b mb ihty ihb =>
     intro h
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [Expr.instantiateLevelParams, ihty h.1, ihb h.2]
+    simp only [Expr.instantiateLevelParams, ihty h.1.1, ihb h.1.2,
+      Level.substPW_comp hlen.symm h.2]
   | letE n ty v b ihty ihv ihb =>
     intro h
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h

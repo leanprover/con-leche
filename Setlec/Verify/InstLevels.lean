@@ -1,6 +1,7 @@
 import Setlec.Kernel.Level
 import Setlec.Kernel.ExprOps
 import Setlec.Verify.Level
+import Setlec.Verify.PropWhen
 import Setlec.Verify.Subst
 
 /-!
@@ -141,7 +142,8 @@ theorem stripPis_instantiateLevelParams_eq (ks : List Name)
         cases h1; exact ⟨rfl, rfl⟩
       obtain ⟨hb2, hbody2⟩ :
           (n, d.instantiateLevelParams ks us,
-            m) :: p2.1 = bs' ∧
+            (⟨m.bi, Level.substPW ks us m.pw⟩ : BinderMeta)) :: p2.1
+              = bs' ∧
             p2.2 = body' := by
         cases h2; exact ⟨rfl, rfl⟩
       subst hb1 hbody1 hb2 hbody2
@@ -217,7 +219,8 @@ theorem stripLams_instantiateLevelParams_eq (ks : List Name)
         cases h1; exact ⟨rfl, rfl⟩
       obtain ⟨hb2, hbody2⟩ :
           (n, d.instantiateLevelParams ks us,
-            m) :: p2.1 = bs' ∧
+            (⟨m.bi, Level.substPW ks us m.pw⟩ : BinderMeta)) :: p2.1
+              = bs' ∧
             p2.2 = body' := by
         cases h2; exact ⟨rfl, rfl⟩
       subst hb1 hbody1 hb2 hbody2
@@ -296,7 +299,7 @@ theorem allLevelParamsDefined_stripPis_body {ps : List Name} :
       obtain ⟨-, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body := by
         simpa using heq
       simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hp
-      exact ih hb hp.2
+      exact ih hb hp.1.2
 
 /-- Application-spine members keep their level parameters defined. -/
 theorem allLevelParamsDefined_getAppArgs {ps : List Name} :
@@ -406,11 +409,13 @@ theorem instantiateLevelParams_instantiateLevelParams
   | lam n ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [instantiateLevelParams, ihty h.1, ihbody h.2]
+    simp only [instantiateLevelParams, ihty h.1.1, ihbody h.1.2,
+      Level.substPW_comp hl h.2]
   | forallE n ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [instantiateLevelParams, ihty h.1, ihbody h.2]
+    simp only [instantiateLevelParams, ihty h.1.1, ihbody h.1.2,
+      Level.substPW_comp hl h.2]
   | _ =>
     intro h
     simp_all [instantiateLevelParams, allLevelParamsDefined]
@@ -428,12 +433,16 @@ theorem allLevelParamsDefined_instantiateLevelParams
   | lam n ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [instantiateLevelParams, allLevelParamsDefined, ihty h.1, ihbody h.2,
+    simp only [instantiateLevelParams, allLevelParamsDefined,
+      ihty h.1.1, ihbody h.1.2,
+      Level.substPW_paramsDefined hl hus h.2,
       Bool.and_eq_true, Bool.true_and]
   | forallE n ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [instantiateLevelParams, allLevelParamsDefined, ihty h.1, ihbody h.2,
+    simp only [instantiateLevelParams, allLevelParamsDefined,
+      ihty h.1.1, ihbody h.1.2,
+      Level.substPW_paramsDefined hl hus h.2,
       Bool.and_eq_true, Bool.true_and]
   | sort u =>
     intro h
@@ -571,6 +580,7 @@ theorem Expr.instantiateLevelParams_self (ks : List Name) :
     | nil => rfl
     | cons x xs ih => simp [Level.subst_param_self, ih]
   induction e <;>
-    simp_all [Expr.instantiateLevelParams, Level.subst_param_self, hmap]
+    simp_all [Expr.instantiateLevelParams, Level.subst_param_self, hmap,
+      Level.substPW_self]
 
 end Setlec

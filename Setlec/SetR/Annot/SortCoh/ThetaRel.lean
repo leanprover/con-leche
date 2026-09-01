@@ -43,10 +43,10 @@ theorem certZip_mono (hm : KnotFuelMono μ env)
   | constSlack n us us' hev => exact .constSlack n us us' hev
   | fvar i n ty₁ ty₂ hty ih => exact .fvar i n ty₁ ty₂ ih
   | app f₁ a₁ f₂ a₂ hf ha ihf iha => exact .app f₁ a₁ f₂ a₂ ihf iha
-  | lam n ty₁ ty₂ b₁ b₂ m hty hb iht ihb =>
-    exact .lam n ty₁ ty₂ b₁ b₂ m iht ihb
-  | forallE n ty₁ ty₂ b₁ b₂ m hty hb iht ihb =>
-    exact .forallE n ty₁ ty₂ b₁ b₂ m iht ihb
+  | lam n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hb iht ihb =>
+    exact .lam n ty₁ ty₂ b₁ b₂ m₁ m₂ iht ihb
+  | forallE n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hb iht ihb =>
+    exact .forallE n ty₁ ty₂ b₁ b₂ m₁ m₂ iht ihb
   | letE n ty₁ ty₂ v₁ v₂ b₁ b₂ hty hv hb iht ihv ihb =>
     exact .letE n ty₁ ty₂ v₁ v₂ b₁ b₂ iht ihv ihb
   | proj s i e₁ e₂ he ih => exact .proj s i e₁ e₂ ih

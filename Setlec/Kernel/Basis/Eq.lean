@@ -13,10 +13,10 @@ open Name (anonymous)
 
 /-- The pinned `Eq` basis block. -/
 def eqBasis : List ConstantInfo := [
-  .indInfo ⟨(anonymous |>.str "Eq"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.forallE (anonymous |>.str "b") (.bvar 1) (.sort .zero) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩)⟩ { ruleK := true },
-  .ctorInfo ⟨((anonymous |>.str "Eq") |>.str "refl"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 1)) (.bvar 0)) (.bvar 0)) ⟨.default⟩) ⟨.implicit⟩)⟩ 2 0,
-  .recInfo ⟨((anonymous |>.str "Eq") |>.str "rec"), [(anonymous |>.str "u_1"), (anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "b") (.bvar 1) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) (.bvar 0)) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "refl") (.app (.app (.bvar 0) (.bvar 1)) (.app (.app (.const ((anonymous |>.str "Eq") |>.str "refl") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1))) (.forallE (anonymous |>.str "b") (.bvar 3) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 0)) (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)) ⟨.default⟩) ⟨.implicit⟩) ⟨.default⟩) ⟨.implicit⟩) ⟨.implicit⟩) ⟨.implicit⟩)⟩ 5 4
-    [⟨((anonymous |>.str "Eq") |>.str "refl"), 0, 0, .inert, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "a") (.bvar 0) (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "b") (.bvar 1) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) (.bvar 0)) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default⟩) ⟨.default⟩) (.lam (anonymous |>.str "refl") (.app (.app (.bvar 0) (.bvar 1)) (.app (.app (.const ((anonymous |>.str "Eq") |>.str "refl") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1))) (.bvar 0) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩)⟩]]
+  .indInfo ⟨(anonymous |>.str "Eq"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.forallE (anonymous |>.str "b") (.bvar 1) (.sort .zero) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.implicit, .never⟩)⟩ { ruleK := true },
+  .ctorInfo ⟨((anonymous |>.str "Eq") |>.str "refl"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 1)) (.bvar 0)) (.bvar 0)) ⟨.default, .never⟩) ⟨.implicit, .never⟩)⟩ 2 0,
+  .recInfo ⟨((anonymous |>.str "Eq") |>.str "rec"), [(anonymous |>.str "u_1"), (anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "b") (.bvar 1) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) (.bvar 0)) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default, .never⟩) ⟨.default, .never⟩) (.forallE (anonymous |>.str "refl") (.app (.app (.bvar 0) (.bvar 1)) (.app (.app (.const ((anonymous |>.str "Eq") |>.str "refl") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1))) (.forallE (anonymous |>.str "b") (.bvar 3) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 0)) (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)) ⟨.default, .never⟩) ⟨.implicit, .never⟩) ⟨.default, .never⟩) ⟨.implicit, .never⟩) ⟨.implicit, .never⟩) ⟨.implicit, .never⟩)⟩ 5 4
+    [⟨((anonymous |>.str "Eq") |>.str "refl"), 0, 0, .inert, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "a") (.bvar 0) (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "b") (.bvar 1) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) (.bvar 0)) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default, .never⟩) ⟨.default, .never⟩) (.lam (anonymous |>.str "refl") (.app (.app (.bvar 0) (.bvar 1)) (.app (.app (.const ((anonymous |>.str "Eq") |>.str "refl") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1))) (.bvar 0) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.implicit, .never⟩)⟩]]
 
 /-! ## The annotated declarations
 
@@ -40,9 +40,9 @@ def eqA : ConstantInfo :=
                     (Setlec.Name.str (Setlec.Name.anonymous) "b")
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
-                { bi := Setlec.BinderInfo.implicit} }
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
     { eta := false, etaCtor := Setlec.Name.anonymous, etaParams := 0, etaFields := 0, unitlike := false, ruleK := true }
 
 /-- Annotated basis declaration (generated). -/
@@ -65,8 +65,8 @@ def eqReflA : ConstantInfo :=
                         (Setlec.Expr.bvar 1))
                       (Setlec.Expr.bvar 0))
                     (Setlec.Expr.bvar 0))
-                  { bi := Setlec.BinderInfo.default})
-                { bi := Setlec.BinderInfo.implicit} }
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
     2
     0
 
@@ -98,8 +98,8 @@ def eqRecA : ConstantInfo :=
                             (Setlec.Expr.bvar 1))
                           (Setlec.Expr.bvar 0))
                         (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))
-                        { bi := Setlec.BinderInfo.default})
-                      { bi := Setlec.BinderInfo.default})
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     (Setlec.Expr.forallE
                       (Setlec.Name.str (Setlec.Name.anonymous) "refl")
                       (Setlec.Expr.app
@@ -128,12 +128,12 @@ def eqRecA : ConstantInfo :=
                           (Setlec.Expr.app
                             (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 1))
                             (Setlec.Expr.bvar 0))
-                          { bi := Setlec.BinderInfo.default})
-                        { bi := Setlec.BinderInfo.implicit})
-                      { bi := Setlec.BinderInfo.default})
-                    { bi := Setlec.BinderInfo.implicit})
-                  { bi := Setlec.BinderInfo.implicit})
-                { bi := Setlec.BinderInfo.implicit} }
+                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                        { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
     5
     4
     [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Eq") "refl",
@@ -163,8 +163,8 @@ def eqRecA : ConstantInfo :=
                             (Setlec.Expr.bvar 1))
                           (Setlec.Expr.bvar 0))
                         (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))
-                        { bi := Setlec.BinderInfo.default})
-                      { bi := Setlec.BinderInfo.default})
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     (Setlec.Expr.lam
                       (Setlec.Name.str (Setlec.Name.anonymous) "refl")
                       (Setlec.Expr.app
@@ -177,9 +177,9 @@ def eqRecA : ConstantInfo :=
                             (Setlec.Expr.bvar 2))
                           (Setlec.Expr.bvar 1)))
                       (Setlec.Expr.bvar 0)
-                      { bi := Setlec.BinderInfo.default})
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
-                { bi := Setlec.BinderInfo.implicit} }]
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }]
 
 end Setlec

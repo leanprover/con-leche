@@ -1767,19 +1767,227 @@ theorem substLIList_spec {ks : List Name} {us : List LIdx} {lus : List Level} :
     have hvs' := hden₂ ls (denoteLList_mono hext₁ hls)
     simp [denoteLList, hv', hvs']
 
-/-- `substLIBM` commutes with the denotation. -/
+/-! ### The zero-ness readout and the datum pushforward (task #161) -/
+
+/-- Memo invariant of `zeronessOfLIGo`: every entry is the readout of
+its index's denotation. -/
+def PWMemoInv (st : EStore) (memo : PWMemo) : Prop :=
+  ∀ (u : LIdx) (pw : PropWhen), memo[u]? = some pw →
+    ∀ lu, st.denoteL u = some lu → pw = Level.zeronessOf lu
+
+theorem PWMemoInv.empty {st : EStore} : PWMemoInv st {} := by
+  intro u pw hpw
+  simp at hpw
+
+theorem PWMemoInv.insert {st : EStore} {memo : PWMemo} {u : LIdx}
+    {pw : PropWhen} (h : PWMemoInv st memo)
+    (hcond : ∀ lu, st.denoteL u = some lu → pw = Level.zeronessOf lu) :
+    PWMemoInv st (memo.insert u pw) := by
+  intro u' pw' hpw'
+  rw [Std.HashMap.getElem?_insert] at hpw'
+  by_cases hk : u = u'
+  · subst hk
+    rw [if_pos (by simp)] at hpw'
+    cases hpw'
+    exact hcond
+  · rw [if_neg (by simpa using hk)] at hpw'
+    exact h u' pw' hpw'
+
+/-- The interned zero-ness readout agrees with the tree readout, and
+maintains its memo invariant. -/
+theorem zeronessOfLIGo_spec {st : EStore} :
+    ∀ (v : LIdx) {memo : PWMemo} {p : PropWhen} {memo' : PWMemo},
+      PWMemoInv st memo →
+      zeronessOfLIGo st memo v = (p, memo') →
+      PWMemoInv st memo' ∧
+        ∀ lv, st.denoteL v = some lv → p = Level.zeronessOf lv := by
+  intro v
+  induction v using Nat.strongRecOn with
+  | _ v ih =>
+    intro memo p memo' hminv hgo
+    unfold zeronessOfLIGo at hgo
+    split at hgo
+    · rename_i r hhit
+      cases hgo
+      exact ⟨hminv, fun lv hlv => hminv v _ hhit lv hlv⟩
+    · split at hgo
+      · rename_i hnone
+        cases hgo
+        refine ⟨hminv, ?_⟩
+        intro lv hlv
+        obtain ⟨n, hn, -, -⟩ := denoteL_some_inv hlv
+        rw [hn] at hnone
+        cases hnone
+      · rename_i n hn
+        cases n with
+        | zero =>
+          dsimp only at hgo
+          cases hgo
+          have hcond : ∀ lv, st.denoteL v = some lv →
+              PropWhen.ifAllZero [] = Level.zeronessOf lv := by
+            intro lv hlv
+            obtain ⟨n', hn', -, hdn⟩ := denoteL_some_inv hlv
+            rw [hn] at hn'
+            cases hn'
+            cases hdn
+            rfl
+          exact ⟨hminv.insert hcond, hcond⟩
+        | param q =>
+          dsimp only at hgo
+          cases hgo
+          have hcond : ∀ lv, st.denoteL v = some lv →
+              PropWhen.ifAllZero [q] = Level.zeronessOf lv := by
+            intro lv hlv
+            obtain ⟨n', hn', -, hdn⟩ := denoteL_some_inv hlv
+            rw [hn] at hn'
+            cases hn'
+            cases hdn
+            rfl
+          exact ⟨hminv.insert hcond, hcond⟩
+        | succ u =>
+          dsimp only at hgo
+          cases hgo
+          have hcond : ∀ lv, st.denoteL v = some lv →
+              PropWhen.never = Level.zeronessOf lv := by
+            intro lv hlv
+            obtain ⟨n', hn', -, hdn⟩ := denoteL_some_inv hlv
+            rw [hn] at hn'
+            cases hn'
+            simp only [denoteLNode, Option.map_eq_some_iff] at hdn
+            obtain ⟨lu, -, rfl⟩ := hdn
+            rfl
+          exact ⟨hminv.insert hcond, hcond⟩
+        | max l r =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            cases hgo
+            have hcond : ∀ lv, st.denoteL v = some lv →
+                PropWhen.never = Level.zeronessOf lv := by
+              intro lv hlv
+              obtain ⟨n', hn', hch, -⟩ := denoteL_some_inv hlv
+              rw [hn] at hn'
+              cases hn'
+              exact absurd ⟨hch l (by simp [LNode.children]),
+                hch r (by simp [LNode.children])⟩ hguard
+            exact ⟨hminv.insert hcond, hcond⟩
+          case isTrue hguard =>
+            rcases h₁ : zeronessOfLIGo st memo l with ⟨p1, memo1⟩
+            rw [h₁] at hgo
+            rcases h₂ : zeronessOfLIGo st memo1 r with ⟨p2, memo2⟩
+            rw [h₂] at hgo
+            cases hgo
+            obtain ⟨hm1, hc1⟩ := ih l hguard.1 hminv h₁
+            obtain ⟨hm2, hc2⟩ := ih r hguard.2 hm1 h₂
+            have hcond : ∀ lv, st.denoteL v = some lv →
+                p1.inter p2 = Level.zeronessOf lv := by
+              intro lv hlv
+              obtain ⟨n', hn', -, hdn⟩ := denoteL_some_inv hlv
+              rw [hn] at hn'
+              cases hn'
+              simp only [denoteLNode, Option.bind_eq_some_iff,
+                Option.map_eq_some_iff] at hdn
+              obtain ⟨ll, hll, lr, hlr, rfl⟩ := hdn
+              rw [hc1 ll hll, hc2 lr hlr]
+              rfl
+            exact ⟨hm2.insert hcond, hcond⟩
+        | imax l r =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            cases hgo
+            have hcond : ∀ lv, st.denoteL v = some lv →
+                PropWhen.never = Level.zeronessOf lv := by
+              intro lv hlv
+              obtain ⟨n', hn', hch, -⟩ := denoteL_some_inv hlv
+              rw [hn] at hn'
+              cases hn'
+              exact absurd (hch r (by simp [LNode.children])) hguard
+            exact ⟨hminv.insert hcond, hcond⟩
+          case isTrue hguard =>
+            rcases h₂ : zeronessOfLIGo st memo r with ⟨p2, memo2⟩
+            rw [h₂] at hgo
+            cases hgo
+            obtain ⟨hm2, hc2⟩ := ih r hguard hminv h₂
+            have hcond : ∀ lv, st.denoteL v = some lv →
+                p2 = Level.zeronessOf lv := by
+              intro lv hlv
+              obtain ⟨n', hn', -, hdn⟩ := denoteL_some_inv hlv
+              rw [hn] at hn'
+              cases hn'
+              simp only [denoteLNode, Option.bind_eq_some_iff,
+                Option.map_eq_some_iff] at hdn
+              obtain ⟨ll, -, lr, hlr, rfl⟩ := hdn
+              rw [hc2 lr hlr]
+              rfl
+            exact ⟨hm2.insert hcond, hcond⟩
+
+/-- The interned datum pushforward is the tree-level one. -/
+theorem substPWI_spec {st : EStore} {ks : List Name} {us : List LIdx}
+    {lus : List Level} (hus : denoteLList st.denoteL us = some lus) :
+    ∀ pw : PropWhen, st.substPWI ks us pw = Level.substPW ks lus pw := by
+  have main : ∀ (ps : List Name) (memo : PWMemo), PWMemoInv st memo →
+      (substPWI.go st ks us ps memo).1
+        = PropWhen.bindZ.go
+            (fun n => Level.zeronessOf (Level.subst.go ks lus n)) ps ∧
+        PWMemoInv st (substPWI.go st ks us ps memo).2 := by
+    intro ps
+    induction ps with
+    | nil => exact fun memo hm => ⟨rfl, hm⟩
+    | cons n rest irest =>
+      intro memo hm
+      rw [substPWI.go]
+      cases hv : substLGo? ks us n with
+      | none =>
+        dsimp only
+        rcases hz : substPWI.go st ks us rest memo with ⟨pr, memor⟩
+        obtain ⟨he, hmr⟩ := irest memo hm
+        rw [hz] at he hmr
+        dsimp only at he hmr ⊢
+        rw [he]
+        refine ⟨?_, hmr⟩
+        show (PropWhen.ifAllZero [n]).inter _
+          = (Level.zeronessOf (Level.subst.go ks lus n)).inter _
+        rw [(substLGo?_spec n hus).2 hv]
+        rfl
+      | some v =>
+        dsimp only
+        rcases hzz : zeronessOfLIGo st memo v with ⟨pv, memov⟩
+        obtain ⟨hm1, hc1⟩ := zeronessOfLIGo_spec v hm hzz
+        rcases hz : substPWI.go st ks us rest memov with ⟨pr, memor⟩
+        obtain ⟨he, hmr⟩ := irest memov hm1
+        rw [hz] at he hmr
+        dsimp only at he hmr ⊢
+        rw [he, hc1 _ ((substLGo?_spec n hus).1 v hv)]
+        exact ⟨rfl, hmr⟩
+  intro pw
+  cases pw with
+  | never => rfl
+  | ifAllZero ps =>
+    show (substPWI.go st ks us ps {}).1 = PropWhen.bindZ.go _ ps
+    exact (main ps {} PWMemoInv.empty).1
+
+/-- `substLIBM` commutes with the denotation: the display info rides,
+the datum takes the tree-level pushforward. -/
 theorem substLIBM_spec {ks : List Name} {us : List LIdx} {lus : List Level}
     {m : IBinderMeta} {st : EStore} {memo : LMemo} {m' : IBinderMeta}
     {st' : EStore} {memo' : LMemo}
-    (hwf : st.TWF) (_hus : denoteLList st.denoteL us = some lus)
+    (hwf : st.TWF) (hus : denoteLList st.denoteL us = some lus)
     (hinv : LvlMemoInv st (Level.subst ks lus) memo)
     (hgo : substLIBM ks us st memo m = (m', st', memo')) :
     st'.TWF ∧ Ext st st' ∧
       LvlMemoInv st' (Level.subst ks lus) memo' ∧
       ∀ bm, denoteBM st.denoteL m = some bm →
-        denoteBM st'.denoteL m' = some bm := by
+        denoteBM st'.denoteL m'
+          = some ⟨bm.bi, Level.substPW ks lus bm.pw⟩ := by
   cases hgo
-  exact ⟨hwf, Ext.refl st, hinv, fun bm hbm => hbm⟩
+  refine ⟨hwf, Ext.refl st, hinv, ?_⟩
+  intro bm hbm
+  obtain ⟨bi, pw⟩ := m
+  rw [denoteBM] at hbm
+  cases hbm
+  show denoteBM st.denoteL ⟨bi, st.substPWI ks us pw⟩ = _
+  rw [denoteBM, substPWI_spec hus]
 
 theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
     {lus : List Level} :
@@ -2052,7 +2260,8 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             obtain ⟨hwf₃, hext₃, hlinv₃, hbden₃⟩ :=
               substLIBM_spec hwf₂ hus₂ hlinv₂ h₃
             have hm₃ : denoteBM st₃.denoteL m'
-                = some bm := hbden₃ bm hbm₂
+                = some ⟨bm.bi, Level.substPW ks lus bm.pw⟩ :=
+              hbden₃ bm hbm₂
             have ht₃ : st₃.denoteT ty' = some (xt.instantiateLevelParams ks lus) :=
               denoteT_mono hext₃ (denoteT_mono hext₂ (hden₁ xt ht))
             have hb₃ : st₃.denoteT body'
@@ -2126,7 +2335,8 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             obtain ⟨hwf₃, hext₃, hlinv₃, hbden₃⟩ :=
               substLIBM_spec hwf₂ hus₂ hlinv₂ h₃
             have hm₃ : denoteBM st₃.denoteL m'
-                = some bm := hbden₃ bm hbm₂
+                = some ⟨bm.bi, Level.substPW ks lus bm.pw⟩ :=
+              hbden₃ bm hbm₂
             have ht₃ : st₃.denoteT ty' = some (xt.instantiateLevelParams ks lus) :=
               denoteT_mono hext₃ (denoteT_mono hext₂ (hden₁ xt ht))
             have hb₃ : st₃.denoteT body'

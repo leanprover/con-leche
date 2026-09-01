@@ -53,7 +53,7 @@ abbrev InferLamEntryX := Name × Expr × BinderMeta
 
 /-- Mirror stack entry of the annotation loops: binder name, annotated
 opened domain, binder info. -/
-abbrev AnnotBinderEntryX := Name × Expr × BinderInfo
+abbrev AnnotBinderEntryX := Name × Expr × BinderMeta
 
 /-- Pure mirror of `inferLamsOutI` (a pure rebuild fold). -/
 def inferLamsOut (d : Nat) :
@@ -145,7 +145,7 @@ def inferPis (r : CoreFns m) (d : Nat) :
 
 /-- Pure mirror of `annotateBindersOutI` (a pure rebuild fold, generic
 in the rebuilt binder kind). -/
-def annotateBindersOut (mk : Name → Expr → Expr → BinderInfo → Expr)
+def annotateBindersOut (mk : Name → Expr → Expr → BinderMeta → Expr)
     (d : Nat) :
     List AnnotBinderEntryX → Nat → Expr → m Expr
   | [], _j, cur => pure cur
@@ -157,7 +157,7 @@ def annotateBindersOut (mk : Name → Expr → Expr → BinderInfo → Expr)
 def annotatePisLeaf (r : CoreFns m) (d : Nat) (t : Expr)
     (k : Nat) (fvs : List Expr) (stk : List AnnotBinderEntryX) : m Expr := do
   let leaf' ← r.annotate (d + k) (t.instantiateList fvs)
-  annotateBindersOut (fun n ty b bi => .forallE n ty b ⟨bi⟩) d
+  annotateBindersOut (fun n ty b mb => .forallE n ty b mb) d
     stk (k - 1) (leaf'.abstractRange d k)
 
 /-- Pure mirror of `annotatePisI`. -/
@@ -168,7 +168,7 @@ def annotatePis (r : CoreFns m) (d : Nat) :
     | .forallE n ty body mb => do
       let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
       annotatePis r d fuel body (k + 1)
-        (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb.bi) :: stk)
+        (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb) :: stk)
     | t => annotatePisLeaf r d t k fvs stk
   | 0, t, k, fvs, stk => annotatePisLeaf r d t k fvs stk
 
@@ -176,7 +176,7 @@ def annotatePis (r : CoreFns m) (d : Nat) :
 def annotateLamsLeaf (r : CoreFns m) (d : Nat) (t : Expr)
     (k : Nat) (fvs : List Expr) (stk : List AnnotBinderEntryX) : m Expr := do
   let leaf' ← r.annotate (d + k) (t.instantiateList fvs)
-  annotateBindersOut (fun n ty b bi => .lam n ty b ⟨bi⟩) d
+  annotateBindersOut (fun n ty b mb => .lam n ty b mb) d
     stk (k - 1) (leaf'.abstractRange d k)
 
 /-- Pure mirror of `annotateLamsI`. -/
@@ -187,7 +187,7 @@ def annotateLams (r : CoreFns m) (d : Nat) :
     | .lam n ty body mb => do
       let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
       annotateLams r d fuel body (k + 1)
-        (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb.bi) :: stk)
+        (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb) :: stk)
     | t => annotateLamsLeaf r d t k fvs stk
   | 0, t, k, fvs, stk => annotateLamsLeaf r d t k fvs stk
 
@@ -232,17 +232,17 @@ def inferPisWrap (r : CoreFns m) (env : Env) (d : Nat) :
 def annotatePisWrap (d : Nat) :
     List AnnotBinderEntryX → Nat → Expr → m Expr
   | [], _j, body' => pure body'
-  | (n, ty', bi) :: rest, j, body' =>
+  | (n, ty', mb) :: rest, j, body' =>
     annotatePisWrap d rest (j - 1)
-      (.forallE n ty' (body'.abstract1 (d + j)) ⟨bi⟩)
+      (.forallE n ty' (body'.abstract1 (d + j)) mb)
 
 /-- The chained `annotateBody` λ-tail folded over the peeled binders. -/
 def annotateLamsWrap (d : Nat) :
     List AnnotBinderEntryX → Nat → Expr → m Expr
   | [], _j, body' => pure body'
-  | (n, ty', bi) :: rest, j, body' =>
+  | (n, ty', mb) :: rest, j, body' =>
     annotateLamsWrap d rest (j - 1)
-      (.lam n ty' (body'.abstract1 (d + j)) ⟨bi⟩)
+      (.lam n ty' (body'.abstract1 (d + j)) mb)
 
 /-! ## Unfolding equations -/
 
@@ -316,7 +316,7 @@ theorem annotatePis_succ_pi (fuel : Nat) (n : Name) (ty body : Expr)
       = (do
         let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
         annotatePis r d fuel body (k + 1)
-          (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb.bi) :: stk)) := rfl
+          (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb) :: stk)) := rfl
 
 omit [MonadExceptOf CheckError m] in
 theorem annotatePis_succ_ne_pi (fuel : Nat) {t : Expr}
@@ -341,7 +341,7 @@ theorem annotateLams_succ_lam (fuel : Nat) (n : Name) (ty body : Expr)
       = (do
         let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
         annotateLams r d fuel body (k + 1)
-          (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb.bi) :: stk)) := rfl
+          (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb) :: stk)) := rfl
 
 omit [MonadExceptOf CheckError m] in
 theorem annotateLams_succ_ne_lam (fuel : Nat) {t : Expr}
@@ -391,7 +391,7 @@ theorem annotateCore_forallE_eq (env : Env) (F d : Nat) (n : Name)
       = (annotateCore mode env F d ty >>= fun ty' =>
          annotateCore mode env F (d + 1)
              (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-           pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi⟩)) := rfl
+           pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩)) := rfl
 
 theorem annotateCore_lam_eq (env : Env) (F d : Nat) (n : Name)
     (ty body : Expr) (mb : BinderMeta) :
@@ -399,7 +399,7 @@ theorem annotateCore_lam_eq (env : Env) (F d : Nat) (n : Name)
       = (annotateCore mode env F d ty >>= fun ty' =>
          annotateCore mode env F (d + 1)
              (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-           pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi⟩)) := rfl
+           pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩)) := rfl
 
 theorem ensureSortCore_eq (env : Env) (F d : Nat) (e : Expr) :
     ensureSortCore mode env F d e
@@ -534,7 +534,7 @@ theorem inferPis_atF (d : Nat) :
       rw [inferPis_succ_ne_pi _ ht, inferPis_succ_ne_pi _ ht]
       exact inferPisLeaf_atF d t k fvs stk F
 
-theorem annotateBindersOut_atF (mk : Name → Expr → Expr → BinderInfo → Expr)
+theorem annotateBindersOut_atF (mk : Name → Expr → Expr → BinderMeta → Expr)
     (d : Nat) :
     ∀ (stk : List AnnotBinderEntryX) (j : Nat) (cur : Expr) (F : Nat),
       (annotateBindersOut (m := FueledM) mk d stk j cur).val F
@@ -991,7 +991,7 @@ variable {env : Env}
 (instantiated at ∀- and λ-rebuilds; `hmk` is the constructor's
 `abstractRange`/`abstract1` commutation, definitional for both). -/
 theorem annotateBindersOut_wrap
-    {mk : Name → Expr → Expr → BinderInfo → Expr}
+    {mk : Name → Expr → Expr → BinderMeta → Expr}
     (hmkR : ∀ n ty b bi d k c, (mk n ty b bi).abstractRange d k c
       = mk n (ty.abstractRange d k c) (b.abstractRange d k (c + 1)) bi)
     {d : Nat}
@@ -1063,7 +1063,7 @@ theorem annotatePisLeaf_sound {d : Nat} {t : Expr}
     have hkeq : (k - 1) + 1 = k := by omega
     refine ⟨F, ?_⟩
     rw [hleaf, okB_bind]
-    rw [← annotateBindersOut_wrap (mk := fun n ty b bi => .forallE n ty b ⟨bi⟩)
+    rw [← annotateBindersOut_wrap (mk := fun n ty b mb => .forallE n ty b mb)
       (fun n ty b bi d k c => rfl)
       (annotatePisWrap (m := CheckM) d)
       (fun j bt => rfl) (fun n ty' bi rest j bt => rfl)
@@ -1142,7 +1142,7 @@ theorem annotateLamsLeaf_sound {d : Nat} {t : Expr}
     have hkeq : (k - 1) + 1 = k := by omega
     refine ⟨F, ?_⟩
     rw [hleaf, okB_bind]
-    rw [← annotateBindersOut_wrap (mk := fun n ty b bi => .lam n ty b ⟨bi⟩)
+    rw [← annotateBindersOut_wrap (mk := fun n ty b mb => .lam n ty b mb)
       (fun n ty b bi d k c => rfl)
       (annotateLamsWrap (m := CheckM) d)
       (fun j bt => rfl) (fun n ty' bi rest j bt => rfl)

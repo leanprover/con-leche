@@ -141,13 +141,17 @@ inductive LNode where
   | param (n : Name)
   deriving DecidableEq, Repr, Inhabited, Hashable
 
-/-- Interned binder metadata: `BinderMeta` (annotation-free, task
-#100). -/
+/-- Interned binder metadata: `BinderMeta` — display info plus the
+codomain prop-ness datum (task #161).  `pw` is stored *unchanged*
+(raw `Name`s): level-parameter names are outside the #88
+name-interning regime already (`LNode.param` carries a raw `Name`),
+and the canonical parameter sets are tiny. -/
 structure IBinderMeta where
   bi : BinderInfo
+  pw : PropWhen
   deriving DecidableEq, Repr, Hashable
 
-instance : Inhabited IBinderMeta := ⟨⟨.default⟩⟩
+instance : Inhabited IBinderMeta := ⟨⟨.default, .never⟩⟩
 
 /-- One interned expression node: the constructors of `Setlec.Expr` with
 subexpressions replaced by arena indices and levels by level indices
@@ -237,8 +241,9 @@ included, matching the level-instantiation traversal). -/
   | .const _ us => us.any (lbs.getD · false)
   | .fvar _ _ ty => ebs.getD (epos ty) false
   | .app f a => ebs.getD (epos f) false || ebs.getD (epos a) false
-  | .lam _ ty body _ | .forallE _ ty body _ =>
-    ebs.getD (epos ty) false || ebs.getD (epos body) false
+  | .lam _ ty body m | .forallE _ ty body m =>
+    ebs.getD (epos ty) false || ebs.getD (epos body) false ||
+      m.pw.hasParams
   | .letE _ ty val body =>
     ebs.getD (epos ty) false || ebs.getD (epos val) false ||
       ebs.getD (epos body) false
@@ -421,8 +426,8 @@ def nodeHasLParam (st : EStore) : ENode → Bool
   | .const _ us => us.any st.lhasParamD
   | .fvar _ _ ty => st.ehasParamD ty
   | .app f a => st.ehasParamD f || st.ehasParamD a
-  | .lam _ ty body _ | .forallE _ ty body _ =>
-    st.ehasParamD ty || st.ehasParamD body
+  | .lam _ ty body m | .forallE _ ty body m =>
+    st.ehasParamD ty || st.ehasParamD body || m.pw.hasParams
   | .letE _ ty val body =>
     st.ehasParamD ty || st.ehasParamD val || st.ehasParamD body
   | .proj _ _ sub => st.ehasParamD sub
@@ -570,10 +575,10 @@ def internLevels (st : EStore) : List Level → List LIdx × EStore
     let (us', st) := st.internLevels us
     (u' :: us', st)
 
-/-- Intern binder metadata (annotation-free: the identity on the
-display info). -/
+/-- Intern binder metadata (the identity on both fields; the
+prop-ness datum is stored raw — see `IBinderMeta`). -/
 def internBM (st : EStore) (m : BinderMeta) : IBinderMeta × EStore :=
-  (⟨m.bi⟩, st)
+  (⟨m.bi, m.pw⟩, st)
 
 /-- Intern a whole expression bottom-up. -/
 def internExpr (st : EStore) : Expr → EIdx × EStore
@@ -750,6 +755,62 @@ def substLI (st : EStore) (ks : List Name) (us : List LIdx) (u : LIdx) :
     LIdx × EStore :=
   let (r, st, _) := substLIGo ks us st {} u
   (r, st)
+
+/-- Memo table for the zero-ness readout (task #161). -/
+abbrev PWMemo := Std.HashMap LIdx PropWhen
+
+/-- Interned `Level.zeronessOf`: the canonical zero-ness datum of a
+stored level, memoized per call (levels are DAGs; the `max` clause
+recurses both children).  Out-of-range and guard-failure defaults are
+`.never` — unreachable on well-formed stores (children of a stored
+node are strictly smaller indices). -/
+def zeronessOfLIGo (st : EStore) (memo : PWMemo) (u : LIdx) :
+    PropWhen × PWMemo :=
+  match memo[u]? with
+  | some r => (r, memo)
+  | none =>
+    match st.lnodes[u]? with
+    | none => (.never, memo)
+    | some n =>
+      let (r, memo) : PropWhen × PWMemo :=
+        match n with
+        | .zero => (.ifAllZero [], memo)
+        | .succ _ => (.never, memo)
+        | .param p => (.ifAllZero [p], memo)
+        | .max l r =>
+          if _h : l < u ∧ r < u then
+            let (pl, memo) := zeronessOfLIGo st memo l
+            let (pr, memo) := zeronessOfLIGo st memo r
+            (pl.inter pr, memo)
+          else (.never, memo)
+        | .imax _ r =>
+          if _h : r < u then zeronessOfLIGo st memo r
+          else (.never, memo)
+      (r, memo.insert u r)
+termination_by u
+decreasing_by all_goals first | exact _h.1 | exact _h.2 | exact _h
+
+/-- Interned `Level.substPW` (task #161): push the parameter
+substitution through a zero-ness datum, reading each replacement's
+datum off the level arena — the exact `PropWhen.bindZ` shape of
+`Level.substPW ks (readback us)`.  Each replacement's readout is
+memoized within the call.  TODO(#161-P5): share one `PWMemo` per
+`instantiateLevelParamsI` call if profiling shows repeated readouts
+on deep level DAGs — per-node cost here is `|ps|` memoized readouts
+of per-call-constant levels. -/
+def substPWI (st : EStore) (ks : List Name) (us : List LIdx) :
+    PropWhen → PropWhen
+  | .never => .never
+  | .ifAllZero ps => (go ps {}).1
+where
+  go : List Name → PWMemo → PropWhen × PWMemo
+  | [], memo => (.ifAllZero [], memo)
+  | n :: rest, memo =>
+    let (pn, memo) := match substLGo? ks us n with
+      | some v => zeronessOfLIGo st memo v
+      | none => (.ifAllZero [n], memo)
+    let (pr, memo) := go rest memo
+    (pn.inter pr, memo)
 
 /-- Interned `Level.subst ks us` applied to a level *tree* (stored
 levels enter the arena through this; parameters hit the interned
@@ -1343,11 +1404,12 @@ def substLIList (ks : List Name) (us : List LIdx) (st : EStore)
     let (vs', st, memo) := substLIList ks us st memo vs
     (v' :: vs', st, memo)
 
-/-- Interned binder-meta level substitution (annotation-free: the
-identity). -/
-def substLIBM (_ks : List Name) (_us : List LIdx) (st : EStore)
+/-- Interned binder-meta level substitution (task #161): the display
+info rides; the prop-ness datum takes the substitution's pushforward
+(`substPWI`, mirroring `Level.substPW`). -/
+def substLIBM (ks : List Name) (us : List LIdx) (st : EStore)
     (memo : LMemo) (m : IBinderMeta) : IBinderMeta × EStore × LMemo :=
-  (m, st, memo)
+  (⟨m.bi, st.substPWI ks us m.pw⟩, st, memo)
 
 /-- Core of `instantiateLevelParamsI` (no cursor; mirrors
 `Expr.instantiateLevelParams ks us`; the replacement levels are
@@ -1572,12 +1634,14 @@ def allLevelParamsDefinedIGo (st : EStore) (params : List Name)
             if rf then allLevelParamsDefinedIGo st params lmemo memo a
             else (false, lmemo, memo)
           else (false, lmemo, memo)
-        | .lam _ ty body _ | .forallE _ ty body _ =>
+        | .lam _ ty body m | .forallE _ ty body m =>
           if _h : emlt ty e ∧ emlt body e then
             let (rt, lmemo, memo) :=
               allLevelParamsDefinedIGo st params lmemo memo ty
             if rt then
-              allLevelParamsDefinedIGo st params lmemo memo body
+              let (rb, lmemo, memo) :=
+                allLevelParamsDefinedIGo st params lmemo memo body
+              (rb && m.pw.paramsDefined params, lmemo, memo)
             else (false, lmemo, memo)
           else (false, lmemo, memo)
         | .letE _ ty val body =>
@@ -1931,7 +1995,7 @@ def pisToLamsI (st : EStore) : Nat → EIdx → EIdx → Option EIdx × EStore
     | some (.forallE n ty rest mb) =>
       match pisToLamsI st k rest body with
       | (some b, st) =>
-        let (r, st) := st.intern (.lam n ty b ⟨mb.bi⟩)
+        let (r, st) := st.intern (.lam n ty b ⟨mb.bi, mb.pw⟩)
         (some r, st)
       | (none, st) => (none, st)
     | _ => (none, st)
@@ -1961,7 +2025,7 @@ def readbackLList (st : EStore) (memo : Std.HashMap LIdx Level) :
 /-- Memoized binder-meta readback (annotation-free). -/
 def readbackBM (_st : EStore) (memo : Std.HashMap LIdx Level)
     (m : IBinderMeta) : Option BinderMeta × Std.HashMap LIdx Level :=
-  (some ⟨m.bi⟩, memo)
+  (some ⟨m.bi, m.pw⟩, memo)
 
 /-- Core of `readbackI` (memoized, so shared subterms are rebuilt once
 and share the resulting `Expr` values in memory; one level memo is

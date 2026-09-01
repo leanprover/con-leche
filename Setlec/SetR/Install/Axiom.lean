@@ -517,8 +517,8 @@ theorem denote_eqA_typeS {env : Env} {cval : TConstVal}
         (Expr.sort (Level.param (Name.anonymous.str "u")))
         (Expr.forallE (Name.anonymous.str "a") (Expr.bvar 0)
           (Expr.forallE (Name.anonymous.str "b") (Expr.bvar 1)
-            (Expr.sort Level.zero) ⟨.default⟩) ⟨.default⟩)
-        ⟨.implicit⟩ := rfl
+            (Expr.sort Level.zero) ⟨.default, .never⟩) ⟨.default, .never⟩)
+        ⟨.implicit, .never⟩ := rfl
   rw [denoteClosed, hty]
   simp [denote_forallE, denote_sort, Expr.instantiate1,
     denote_fvar, Level.eval, hu]

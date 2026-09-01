@@ -49,8 +49,8 @@ theorem ofReducePin_type {n : Name}
                .app (.const (ofReduceOp n) []) (.bvar 1), .bvar 0])
             (Expr.mkAppN (.const eqName [.succ .zero])
               [.const (reduceElemName (ofReduceOp n)) [],
-               .bvar 2, .bvar 1]) ⟨.default⟩) ⟨.default⟩)
-        ⟨.default⟩ := by
+               .bvar 2, .bvar 1]) ⟨.default, .never⟩) ⟨.default, .never⟩)
+        ⟨.default, .never⟩ := by
   rcases hn with rfl | rfl <;> rfl
 
 /-- The pinned type of the operation itself. -/
@@ -59,7 +59,7 @@ theorem reduceOpCv_type {n : Name}
     (reduceOpCvA (ofReduceOp n)).type =
       .forallE (Name.anonymous.str "n")
         (.const (reduceElemName (ofReduceOp n)) [])
-        (.const (reduceElemName (ofReduceOp n)) []) ⟨.default⟩ := by
+        (.const (reduceElemName (ofReduceOp n)) []) ⟨.default, .never⟩ := by
   rcases hn with rfl | rfl <;> rfl
 
 /-- The element inductive's pinned type is `Sort 1`. -/

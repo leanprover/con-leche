@@ -408,11 +408,11 @@ theorem extendEmptyRecS {env : Env} (m : EnvS V env)
           = Expr.forallE (Name.anonymous.str "motive")
               (Expr.forallE (Name.anonymous.str "t")
                 (.const emptyName []) (.sort (.param uN))
-                { bi := .default })
+                { bi := .default, pw := .never })
               (Expr.forallE (Name.anonymous.str "t")
                 (.const emptyName []) (.app (.bvar 1) (.bvar 0))
-                { bi := .default })
-              { bi := .default } from rfl,
+                { bi := .default, pw := .never })
+              { bi := .default, pw := .never } from rfl,
         denote_forallE, denote_forallE]
       rw [hEc 0 φ]
       simp [Expr.instantiate1, denote_sort, Level.eval, denote_forallE,
@@ -453,10 +453,10 @@ theorem declBasisS_emptyK {env env₂ : Env} (m : EnvS V env)
     simp only [show emptyRecA.toConstantVal.type
         = Expr.forallE (Name.anonymous.str "motive")
             (Expr.forallE (Name.anonymous.str "t") (.const emptyName [])
-              (.sort (.param uN)) { bi := .default })
+              (.sort (.param uN)) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "t") (.const emptyName [])
-              (.app (.bvar 1) (.bvar 0)) { bi := .default })
-            { bi := .default } from rfl,
+              (.app (.bvar 1) (.bvar 0)) { bi := .default, pw := .never })
+            { bi := .default, pw := .never } from rfl,
       Expr.constsResolve, Bool.and_eq_true, Option.isSome_iff_exists]
     have hf : (⟨emptyRecA :: emptyA :: env.consts⟩ : Env).find?
         emptyName = some emptyA := by
@@ -605,14 +605,14 @@ theorem extendPUnitRecS {env : Env} (m : EnvS V env)
         = Expr.forallE (Name.anonymous.str "motive")
             (Expr.forallE (Name.anonymous.str "t")
               (.const punitName [.param uN]) (.sort (.param u1N))
-              { bi := .default })
+              { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "unit")
               (.app (.bvar 0) (.const punitUnitName [.param uN]))
               (Expr.forallE (Name.anonymous.str "t")
                 (.const punitName [.param uN])
-                (.app (.bvar 2) (.bvar 0)) { bi := .default })
-              { bi := .default })
-            { bi := .implicit } from rfl]
+                (.app (.bvar 2) (.bvar 0)) { bi := .default, pw := .never })
+              { bi := .default, pw := .never })
+            { bi := .implicit, pw := .never } from rfl]
     simp [denote_forallE, denote_sort, denote_app, denote_fvar,
       Expr.instantiate1, Level.eval, hPc, hUc, BConst.type, arrow,
       punitT, punitUnitT]
@@ -878,7 +878,7 @@ theorem extendNatSuccS {env : Env} (m : EnvS V env)
         ⟨trivial, fun _ _ => trivial⟩⟩⟩
     rw [denoteClosed, show natSuccA.toConstantVal.type
       = Expr.forallE (Name.anonymous.str "n") (.const natName [])
-          (.const natName []) { bi := .default } from rfl]
+          (.const natName []) { bi := .default, pw := .never } from rfl]
     simp [denote_forallE, Expr.instantiate1, hNc]
 
 /-- The `Nat` block's earlier constants, denoted in the environment
@@ -930,7 +930,7 @@ theorem denote_natRec_typeS {env : Env} (m : EnvS V env)
     show natRecA.toConstantVal.type
       = Expr.forallE (Name.anonymous.str "motive")
           (Expr.forallE (Name.anonymous.str "t") (.const natName [])
-            (.sort (.param uN)) { bi := .default })
+            (.sort (.param uN)) { bi := .default, pw := .never })
           (Expr.forallE (Name.anonymous.str "zero")
             (.app (.bvar 0) (.const natZeroName []))
             (Expr.forallE (Name.anonymous.str "succ")
@@ -939,13 +939,13 @@ theorem denote_natRec_typeS {env : Env} (m : EnvS V env)
                   (.app (.bvar 2) (.bvar 0))
                   (.app (.bvar 3)
                     (.app (.const natSuccName []) (.bvar 1)))
-                  { bi := .default })
-                { bi := .default })
+                  { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
               (Expr.forallE (Name.anonymous.str "t") (.const natName [])
-                (.app (.bvar 3) (.bvar 0)) { bi := .default })
-              { bi := .default })
-            { bi := .default })
-          { bi := .implicit } from rfl]
+                (.app (.bvar 3) (.bvar 0)) { bi := .default, pw := .never })
+              { bi := .default, pw := .never })
+            { bi := .default, pw := .never })
+          { bi := .implicit, pw := .never } from rfl]
   simp [Expr.instantiateLevelParams, hsu, denote_forallE, denote_sort,
     denote_app, denote_fvar, hNc, hZc, hSc]
 
@@ -955,7 +955,7 @@ def natRecZeroRule : RecRule :=
   { ctor := natZeroName, nfields := 0, ctorParams := 0, fire := .plain,
     rhs := Expr.lam (Name.anonymous.str "motive")
       (Expr.forallE (Name.anonymous.str "t") (.const natName [])
-        (.sort (.param uN)) { bi := .default })
+        (.sort (.param uN)) { bi := .default, pw := .never })
       (Expr.lam (Name.anonymous.str "zero")
         (.app (.bvar 0) (.const natZeroName []))
         (Expr.lam (Name.anonymous.str "succ")
@@ -963,17 +963,17 @@ def natRecZeroRule : RecRule :=
             (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2)
               (.bvar 0))
               (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
-              { bi := .default })
-            { bi := .default })
-          (.bvar 1) { bi := .default })
-        { bi := .default })
-      { bi := .default } }
+              { bi := .default, pw := .never })
+            { bi := .default, pw := .never })
+          (.bvar 1) { bi := .default, pw := .never })
+        { bi := .default, pw := .never })
+      { bi := .default, pw := .never } }
 
 def natRecSuccRule : RecRule :=
   { ctor := natSuccName, nfields := 1, ctorParams := 0, fire := .plain,
     rhs := Expr.lam (Name.anonymous.str "motive")
       (Expr.forallE (Name.anonymous.str "t") (.const natName [])
-        (.sort (.param uN)) { bi := .default })
+        (.sort (.param uN)) { bi := .default, pw := .never })
       (Expr.lam (Name.anonymous.str "zero")
         (.app (.bvar 0) (.const natZeroName []))
         (Expr.lam (Name.anonymous.str "succ")
@@ -981,17 +981,17 @@ def natRecSuccRule : RecRule :=
             (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2)
               (.bvar 0))
               (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
-              { bi := .default })
-            { bi := .default })
+              { bi := .default, pw := .never })
+            { bi := .default, pw := .never })
           (Expr.lam (Name.anonymous.str "n") (.const natName [])
             (.app (.app (.bvar 1) (.bvar 0))
               (.app (.app (.app (.app (.const (natName.str "rec")
                 [.param uN]) (.bvar 3)) (.bvar 2)) (.bvar 1)) (.bvar
                   0)))
-            { bi := .default })
-          { bi := .default })
-        { bi := .default })
-      { bi := .default } }
+            { bi := .default, pw := .never })
+          { bi := .default, pw := .never })
+        { bi := .default, pw := .never })
+      { bi := .default, pw := .never } }
 
 theorem natRecA_eq :
     natRecA = .recInfo natRecA.toConstantVal 3 3
@@ -1326,7 +1326,7 @@ theorem extendNatRecS {env : Env} (m : EnvS V env)
           rw [denoteClosed, show natSuccA.toConstantVal.type
               = Expr.forallE (Name.anonymous.str "n")
                 (.const natName []) (.const natName [])
-                { bi := .default } from rfl] at hTVj
+                { bi := .default, pw := .never } from rfl] at hTVj
           simp [denote_forallE, Expr.instantiate1, hNc,
             Expr.instantiateLevelParams] at hTVj
           exact hTVj.symm
@@ -1618,9 +1618,9 @@ theorem extendQuotS {env : Env} (m : EnvS V env)
           (Expr.forallE (Name.anonymous.str "r")
             (Expr.forallE Name.anonymous (.bvar 0)
               (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default }) { bi := .default })
-            (.sort (.param uN)) { bi := .default })
-          { bi := .implicit } from rfl]
+                { bi := .default, pw := .never }) { bi := .default, pw := .never })
+            (.sort (.param uN)) { bi := .default, pw := .never })
+          { bi := .implicit, pw := .never } from rfl]
     simp [denote_forallE, denote_sort, denote_fvar, Level.eval]
     rfl
 
@@ -1666,12 +1666,12 @@ theorem extendQuotMkS {env : Env} (m : EnvS V env)
           (Expr.forallE (Name.anonymous.str "r")
             (Expr.forallE Name.anonymous (.bvar 0)
               (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default }) { bi := .default })
+                { bi := .default, pw := .never }) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "a") (.bvar 1)
               (.app (.app (.const quotName [.param uN]) (.bvar 2))
-                (.bvar 1)) { bi := .default })
-            { bi := .default })
-          { bi := .implicit } from rfl]
+                (.bvar 1)) { bi := .default, pw := .never })
+            { bi := .default, pw := .never })
+          { bi := .implicit, pw := .never } from rfl]
     simp [denote_forallE, denote_sort, denote_app, denote_fvar,
       Level.eval, hQc]
     rfl
@@ -1741,12 +1741,12 @@ theorem denote_quotMk_typeS {env : Env} {ci : ConstantInfo}
           (Expr.forallE (Name.anonymous.str "r")
             (Expr.forallE Name.anonymous (.bvar 0)
               (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default }) { bi := .default })
+                { bi := .default, pw := .never }) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "a") (.bvar 1)
               (.app (.app (.const quotName [.param uN]) (.bvar 2))
-                (.bvar 1)) { bi := .default })
-            { bi := .default })
-          { bi := .implicit } from rfl,
+                (.bvar 1)) { bi := .default, pw := .never })
+            { bi := .default, pw := .never })
+          { bi := .implicit, pw := .never } from rfl,
     show quotMkA.toConstantVal.levelParams = [uN] from rfl]
   simp [Expr.instantiateLevelParams, hsu, hsz, denote_forallE,
     denote_sort,
@@ -1784,25 +1784,25 @@ theorem denote_quotInd_typeS {env : Env} (m : EnvS V env)
           (Expr.forallE (Name.anonymous.str "r")
             (Expr.forallE Name.anonymous (.bvar 0)
               (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default }) { bi := .default })
+                { bi := .default, pw := .never }) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "β")
               (Expr.forallE (Name.anonymous.str "a")
                 (.app (.app (.const quotName [.param uN]) (.bvar 1))
-                  (.bvar 0)) (.sort .zero) { bi := .default })
+                  (.bvar 0)) (.sort .zero) { bi := .default, pw := .never })
               (Expr.forallE (Name.anonymous.str "mk")
                 (Expr.forallE (Name.anonymous.str "a") (.bvar 2)
                   (.app (.bvar 1)
                     (.app (.app (.app (.const quotMkName [.param uN])
                       (.bvar 3)) (.bvar 2)) (.bvar 0)))
-                  { bi := .default })
+                  { bi := .default, pw := .never })
                 (Expr.forallE (Name.anonymous.str "q")
                   (.app (.app (.const quotName [.param uN]) (.bvar 3))
                     (.bvar 2))
-                  (.app (.bvar 2) (.bvar 0)) { bi := .default })
-                { bi := .default })
-              { bi := .implicit })
-            { bi := .implicit })
-          { bi := .implicit } from rfl,
+                  (.app (.bvar 2) (.bvar 0)) { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl,
     show quotIndA.toConstantVal.levelParams = [uN] from rfl]
   simp [Expr.instantiateLevelParams, hsu, hsz, denote_forallE,
     denote_sort,
@@ -1815,24 +1815,24 @@ def quotIndRule : RecRule :=
       (Expr.lam (Name.anonymous.str "r")
         (Expr.forallE Name.anonymous (.bvar 0)
           (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-            { bi := .default }) { bi := .default })
+            { bi := .default, pw := .never }) { bi := .default, pw := .never })
         (Expr.lam (Name.anonymous.str "β")
           (Expr.forallE (Name.anonymous.str "a")
             (.app (.app (.const quotName [.param uN]) (.bvar 1)) (.bvar
               0))
-            (.sort .zero) { bi := .default })
+            (.sort .zero) { bi := .default, pw := .never })
           (Expr.lam (Name.anonymous.str "mk")
             (Expr.forallE (Name.anonymous.str "a") (.bvar 2)
               (.app (.bvar 1)
                 (.app (.app (.app (.const quotMkName [.param uN])
                   (.bvar 3)) (.bvar 2)) (.bvar 0)))
-              { bi := .default })
+              { bi := .default, pw := .never })
             (Expr.lam (Name.anonymous.str "a") (.bvar 3)
-              (.app (.bvar 1) (.bvar 0)) { bi := .default })
-            { bi := .default })
-          { bi := .default })
-        { bi := .default })
-      { bi := .default } }
+              (.app (.bvar 1) (.bvar 0)) { bi := .default, pw := .never })
+            { bi := .default, pw := .never })
+          { bi := .default, pw := .never })
+        { bi := .default, pw := .never })
+      { bi := .default, pw := .never } }
 
 /-- The stored declaration, with its rule named. -/
 theorem quotIndA_eq :
@@ -2348,12 +2348,12 @@ theorem denote_quotLift_typeS {env : Env} (m : EnvS V env)
           (Expr.forallE (Name.anonymous.str "r")
             (Expr.forallE Name.anonymous (.bvar 0)
               (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default }) { bi := .default })
+                { bi := .default, pw := .never }) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "β") (.sort (.param vN))
               (Expr.forallE (Name.anonymous.str "f")
                 (Expr.forallE (Name.anonymous.str "a") (.bvar 2) (.bvar
                   1)
-                  { bi := .default })
+                  { bi := .default, pw := .never })
                 (Expr.forallE (Name.anonymous.str "a")
                   (Expr.forallE (Name.anonymous.str "a") (.bvar 3)
                     (Expr.forallE (Name.anonymous.str "b") (.bvar 4)
@@ -2362,17 +2362,17 @@ theorem denote_quotLift_typeS {env : Env} (m : EnvS V env)
                         (.app (.app (.app (.const eqName [.param vN])
                           (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
                           (.app (.bvar 3) (.bvar 1)))
-                        { bi := .default }) { bi := .default })
-                    { bi := .default })
+                        { bi := .default, pw := .never }) { bi := .default, pw := .never })
+                    { bi := .default, pw := .never })
                   (Expr.forallE (Name.anonymous.str "a")
                     (.app (.app (.const quotName [.param uN]) (.bvar 4))
                       (.bvar 3))
-                    (.bvar 3) { bi := .default })
-                  { bi := .default })
-                { bi := .default })
-              { bi := .implicit })
-            { bi := .implicit })
-          { bi := .implicit } from rfl,
+                    (.bvar 3) { bi := .default, pw := .never })
+                  { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl,
     show quotLiftA.toConstantVal.levelParams = [uN, vN] from rfl]
   simp [Expr.instantiateLevelParams, hsu, hsv, hsz, denote_forallE,
     denote_sort, denote_app, denote_fvar, hQc, hEc, quotLiftTyV,
@@ -2459,11 +2459,11 @@ def quotLiftRule : RecRule :=
       (Expr.lam (Name.anonymous.str "r")
         (Expr.forallE Name.anonymous (.bvar 0)
           (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-            { bi := .default }) { bi := .default })
+            { bi := .default, pw := .never }) { bi := .default, pw := .never })
         (Expr.lam (Name.anonymous.str "β") (.sort (.param vN))
           (Expr.lam (Name.anonymous.str "f")
             (Expr.forallE (Name.anonymous.str "a") (.bvar 2) (.bvar 1)
-              { bi := .default })
+              { bi := .default, pw := .never })
             (Expr.lam (Name.anonymous.str "h")
               (Expr.forallE (Name.anonymous.str "a") (.bvar 3)
                 (Expr.forallE (Name.anonymous.str "b") (.bvar 4)
@@ -2472,15 +2472,15 @@ def quotLiftRule : RecRule :=
                     (.app (.app (.app (.const eqName [.param vN])
                       (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
                       (.app (.bvar 3) (.bvar 1)))
-                    { bi := .default }) { bi := .default })
-                { bi := .default })
+                    { bi := .default, pw := .never }) { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
               (Expr.lam (Name.anonymous.str "a") (.bvar 4)
-                (.app (.bvar 2) (.bvar 0)) { bi := .default })
-              { bi := .default })
-            { bi := .default })
-          { bi := .default })
-        { bi := .default })
-      { bi := .default } }
+                (.app (.bvar 2) (.bvar 0)) { bi := .default, pw := .never })
+              { bi := .default, pw := .never })
+            { bi := .default, pw := .never })
+          { bi := .default, pw := .never })
+        { bi := .default, pw := .never })
+      { bi := .default, pw := .never } }
 
 theorem quotLiftA_eq :
     quotLiftA = .recInfo quotLiftA.toConstantVal 5 5 [quotLiftRule] :=
@@ -2967,7 +2967,7 @@ theorem denote_quotSound_typeS {env : Env} (m : EnvS V env)
           (Expr.forallE (Name.anonymous.str "r")
             (Expr.forallE Name.anonymous (.bvar 0)
               (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default }) { bi := .default })
+                { bi := .default, pw := .never }) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "a") (.bvar 1)
               (Expr.forallE (Name.anonymous.str "b") (.bvar 2)
                 (Expr.forallE Name.anonymous
@@ -2979,10 +2979,10 @@ theorem denote_quotSound_typeS {env : Env} (m : EnvS V env)
                       (.bvar 4)) (.bvar 3)) (.bvar 2)))
                     (.app (.app (.app (.const quotMkName [.param uN])
                       (.bvar 4)) (.bvar 3)) (.bvar 1)))
-                  { bi := .default }) { bi := .implicit })
-              { bi := .implicit })
-            { bi := .implicit })
-          { bi := .implicit } from rfl,
+                  { bi := .default, pw := .never }) { bi := .implicit, pw := .never })
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl,
     show quotSoundA.toConstantVal.levelParams = [uN] from rfl]
   simp [Expr.instantiateLevelParams, hsu, hsz, denote_forallE,
     denote_sort,
@@ -3338,8 +3338,8 @@ theorem extendEqS {env : Env} (m : EnvS V env)
           = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
               (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
                 (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
-                  (.sort .zero) { bi := .default }) { bi := .default })
-              { bi := .implicit } from rfl]
+                  (.sort .zero) { bi := .default, pw := .never }) { bi := .default, pw := .never })
+              { bi := .implicit, pw := .never } from rfl]
       simp [denote_forallE, denote_sort, denote_fvar, Level.eval]
     · simpa [interp_pi, interp_sort, interp_bvar, cons]
         using eqValT_memS (V := V) φ ρ
@@ -3397,8 +3397,8 @@ theorem extendEqReflS {env : Env} (m : EnvS V env)
           = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
               (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
                 (.app (.app (.app (.const eqName [.param uN]) (.bvar 1))
-                  (.bvar 0)) (.bvar 0)) { bi := .default })
-              { bi := .implicit } from rfl]
+                  (.bvar 0)) (.bvar 0)) { bi := .default, pw := .never })
+              { bi := .implicit, pw := .never } from rfl]
       simp [denote_forallE, denote_sort, denote_app, denote_fvar,
         Level.eval, hEc, VExpr.mkAppN]
     · simp only [eqReflValT, interp_lam, interp_pi, interp_sort,
@@ -3485,8 +3485,8 @@ theorem denote_eqRec_typeS {env : Env} (m : EnvS V env)
                   (.app (.app (.app (.const eqName [.param uN]) (.bvar
                     2))
                     (.bvar 1)) (.bvar 0))
-                  (.sort (.param u1N)) { bi := .default })
-                { bi := .default })
+                  (.sort (.param u1N)) { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
               (Expr.forallE (Name.anonymous.str "refl")
                 (.app (.app (.bvar 0) (.bvar 1))
                   (.app (.app (.const eqReflName [.param uN]) (.bvar 2))
@@ -3497,12 +3497,12 @@ theorem denote_eqRec_typeS {env : Env} (m : EnvS V env)
                       4))
                       (.bvar 3)) (.bvar 0))
                     (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))
-                    { bi := .default })
-                  { bi := .implicit })
-                { bi := .default })
-              { bi := .implicit })
-            { bi := .implicit })
-          { bi := .implicit } from rfl,
+                    { bi := .default, pw := .never })
+                  { bi := .implicit, pw := .never })
+                { bi := .default, pw := .never })
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl,
     show eqRecA.toConstantVal.levelParams = [u1N, uN] from rfl]
   simp [Expr.instantiateLevelParams, hsu, hsu1, denote_forallE,
     denote_sort,
@@ -3518,16 +3518,16 @@ def eqRecRule : RecRule :=
             (Expr.forallE (Name.anonymous.str "t")
               (.app (.app (.app (.const eqName [.param uN]) (.bvar 2))
                 (.bvar 1)) (.bvar 0))
-              (.sort (.param u1N)) { bi := .default })
-            { bi := .default })
+              (.sort (.param u1N)) { bi := .default, pw := .never })
+            { bi := .default, pw := .never })
           (Expr.lam (Name.anonymous.str "refl")
             (.app (.app (.bvar 0) (.bvar 1))
               (.app (.app (.const eqReflName [.param uN]) (.bvar 2))
                 (.bvar 1)))
-            (.bvar 0) { bi := .default })
-          { bi := .default })
-        { bi := .default })
-      { bi := .implicit } }
+            (.bvar 0) { bi := .default, pw := .never })
+          { bi := .default, pw := .never })
+        { bi := .default, pw := .never })
+      { bi := .implicit, pw := .never } }
 
 /-- The stored declaration, with its rule named. -/
 theorem eqRecA_eq :
@@ -4076,12 +4076,12 @@ theorem denote_psigmaRec_typeS {env : Env} (m : EnvS V env)
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
           (Expr.forallE (Name.anonymous.str "β")
             (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-              (.sort (.param vN)) { bi := .default })
+              (.sort (.param vN)) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "motive")
               (Expr.forallE (Name.anonymous.str "t")
                 (.app (.app (.const psigmaName [.param uN, .param vN])
                   (.bvar 1)) (.bvar 0))
-                (.sort .zero) { bi := .default })
+                (.sort .zero) { bi := .default, pw := .never })
               (Expr.forallE (Name.anonymous.str "mk")
                 (Expr.forallE (Name.anonymous.str "fst") (.bvar 2)
                   (Expr.forallE (Name.anonymous.str "snd")
@@ -4090,16 +4090,16 @@ theorem denote_psigmaRec_typeS {env : Env} (m : EnvS V env)
                       (.app (.app (.app (.app (.const psigmaMkName
                         [.param uN, .param vN]) (.bvar 4)) (.bvar 3))
                         (.bvar 1)) (.bvar 0)))
-                    { bi := .default })
-                  { bi := .default })
+                    { bi := .default, pw := .never })
+                  { bi := .default, pw := .never })
                 (Expr.forallE (Name.anonymous.str "t")
                   (.app (.app (.const psigmaName [.param uN, .param vN])
                     (.bvar 3)) (.bvar 2))
-                  (.app (.bvar 2) (.bvar 0)) { bi := .default })
-                { bi := .default })
-              { bi := .implicit })
-            { bi := .implicit })
-          { bi := .implicit } from rfl,
+                  (.app (.bvar 2) (.bvar 0)) { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl,
     show psigmaRecA.toConstantVal.levelParams = [uN, vN] from rfl]
   simp [Expr.instantiateLevelParams, hsu, hsv, denote_forallE,
     denote_sort,
@@ -4137,16 +4137,16 @@ theorem denote_psigmaMk_typeS {env : Env} (m : EnvS V env)
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
           (Expr.forallE (Name.anonymous.str "β")
             (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-              (.sort (.param vN)) { bi := .default })
+              (.sort (.param vN)) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "fst") (.bvar 1)
               (Expr.forallE (Name.anonymous.str "snd")
                 (.app (.bvar 1) (.bvar 0))
                 (.app (.app (.const psigmaName
                     [.param uN, .param vN]) (.bvar 3)) (.bvar 2))
-                { bi := .default })
-              { bi := .default })
-            { bi := .implicit })
-          { bi := .implicit } from rfl,
+                { bi := .default, pw := .never })
+              { bi := .default, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl,
     show psigmaMkA.toConstantVal.levelParams = [uN, vN] from rfl]
   simp [Expr.instantiateLevelParams, hsu, hsv, denote_forallE,
     denote_sort,
@@ -4158,12 +4158,12 @@ def psigmaRecRule : RecRule :=
     rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uN))
       (Expr.lam (Name.anonymous.str "β")
         (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-          (.sort (.param vN)) { bi := .default })
+          (.sort (.param vN)) { bi := .default, pw := .never })
         (Expr.lam (Name.anonymous.str "motive")
           (Expr.forallE (Name.anonymous.str "t")
             (.app (.app (.const psigmaName [.param uN, .param vN])
               (.bvar 1)) (.bvar 0))
-            (.sort .zero) { bi := .default })
+            (.sort .zero) { bi := .default, pw := .never })
           (Expr.lam (Name.anonymous.str "mk")
             (Expr.forallE (Name.anonymous.str "fst") (.bvar 2)
               (Expr.forallE (Name.anonymous.str "snd")
@@ -4172,18 +4172,18 @@ def psigmaRecRule : RecRule :=
                   (.app (.app (.app (.app (.const psigmaMkName
                     [.param uN, .param vN]) (.bvar 4)) (.bvar 3))
                     (.bvar 1)) (.bvar 0)))
-                { bi := .default })
-              { bi := .default })
+                { bi := .default, pw := .never })
+              { bi := .default, pw := .never })
             (Expr.lam (Name.anonymous.str "fst") (.bvar 3)
               (Expr.lam (Name.anonymous.str "snd")
                 (.app (.bvar 3) (.bvar 0))
                 (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0))
-                { bi := .default })
-              { bi := .default })
-            { bi := .default })
-          { bi := .default })
-        { bi := .default })
-      { bi := .implicit } }
+                { bi := .default, pw := .never })
+              { bi := .default, pw := .never })
+            { bi := .default, pw := .never })
+          { bi := .default, pw := .never })
+        { bi := .default, pw := .never })
+      { bi := .implicit, pw := .never } }
 
 /-- The stored declaration, with its rule named. -/
 theorem psigmaRecA_eq :
@@ -4286,9 +4286,9 @@ theorem extendPSigmaS {env : Env} (m : EnvS V env)
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
           (Expr.forallE (Name.anonymous.str "β")
             (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-              (.sort (.param vN)) { bi := .default })
-            (.sort (.max (.param uN) (.param vN))) { bi := .default })
-          { bi := .implicit } from rfl]
+              (.sort (.param vN)) { bi := .default, pw := .never })
+            (.sort (.max (.param uN) (.param vN))) { bi := .default, pw := .never })
+          { bi := .implicit, pw := .never } from rfl]
     simp [denote_forallE, denote_sort, denote_fvar, Level.eval]
     rfl
 
@@ -4340,16 +4340,16 @@ theorem extendPSigmaMkS {env : Env} (m : EnvS V env)
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
           (Expr.forallE (Name.anonymous.str "β")
             (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-              (.sort (.param vN)) { bi := .default })
+              (.sort (.param vN)) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "fst") (.bvar 1)
               (Expr.forallE (Name.anonymous.str "snd")
                 (.app (.bvar 1) (.bvar 0))
                 (.app (.app (.const psigmaName
                     [.param uN, .param vN]) (.bvar 3)) (.bvar 2))
-                { bi := .default })
-              { bi := .default })
-            { bi := .implicit })
-          { bi := .implicit } from rfl]
+                { bi := .default, pw := .never })
+              { bi := .default, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl]
     simp [denote_forallE, denote_sort, denote_app, denote_fvar,
       Level.eval,
       hPc]
@@ -4602,13 +4602,13 @@ theorem extendPairFstS {env : Env} (m : EnvS V env)
     = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
         (Expr.forallE (Name.anonymous.str "β")
           (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-            (.sort (.param vN)) { bi := .default })
+            (.sort (.param vN)) { bi := .default, pw := .never })
           (Expr.forallE (Name.anonymous.str "t")
             (.app (.app (.const psigmaName [.param uN, .param vN])
               (.bvar 1)) (.bvar 0))
-            (.bvar 2) { bi := .default })
-          { bi := .implicit })
-        { bi := .implicit } from rfl]
+            (.bvar 2) { bi := .default, pw := .never })
+          { bi := .implicit, pw := .never })
+        { bi := .implicit, pw := .never } from rfl]
   simp [denote_forallE, denote_sort, denote_app, denote_fvar,
     Level.eval,
     hPc, VExpr.mkAppN, pairFstTyV]
@@ -4641,14 +4641,14 @@ theorem extendPairSndS {env : Env} (m : EnvS V env)
     = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
         (Expr.forallE (Name.anonymous.str "β")
           (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-            (.sort (.param vN)) { bi := .default })
+            (.sort (.param vN)) { bi := .default, pw := .never })
           (Expr.forallE (Name.anonymous.str "t")
             (.app (.app (.const psigmaName [.param uN, .param vN])
               (.bvar 1)) (.bvar 0))
             (.app (.bvar 1) (.proj psigmaName 0 (.bvar 0)))
-            { bi := .default })
-          { bi := .implicit })
-        { bi := .implicit } from rfl]
+            { bi := .default, pw := .never })
+          { bi := .implicit, pw := .never })
+        { bi := .implicit, pw := .never } from rfl]
   simp [denote_forallE, denote_sort, denote_app, denote_fvar,
     denote_proj,
     Expr.instantiate1, Level.eval, hPc, VExpr.mkAppN, pairSndTyV]
@@ -5122,16 +5122,16 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
       = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
           (Expr.forallE (Name.anonymous.str "β")
             (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-              (.sort (.param vN)) { bi := .default })
+              (.sort (.param vN)) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "fst") (.bvar 1)
               (Expr.forallE (Name.anonymous.str "snd")
                 (.app (.bvar 1) (.bvar 0))
                 (.app (.app (.const psigmaName
                     [.param uN, .param vN]) (.bvar 3)) (.bvar 2))
-                { bi := .default })
-              { bi := .default })
-            { bi := .implicit })
-          { bi := .implicit } from rfl]
+                { bi := .default, pw := .never })
+              { bi := .default, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hf]
   obtain ⟨m2, -⟩ := extendPSigmaMkS m1 hP1 (Option.isNone_iff_eq_none.mp
     h2) hwf2
@@ -5172,12 +5172,12 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
         = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
             (Expr.forallE (Name.anonymous.str "β")
               (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-                (.sort (.param vN)) { bi := .default })
+                (.sort (.param vN)) { bi := .default, pw := .never })
               (Expr.forallE (Name.anonymous.str "motive")
                 (Expr.forallE (Name.anonymous.str "t")
                   (.app (.app (.const psigmaName [.param uN, .param vN])
                     (.bvar 1)) (.bvar 0))
-                  (.sort .zero) { bi := .default })
+                  (.sort .zero) { bi := .default, pw := .never })
                 (Expr.forallE (Name.anonymous.str "mk")
                   (Expr.forallE (Name.anonymous.str "fst") (.bvar 2)
                     (Expr.forallE (Name.anonymous.str "snd")
@@ -5186,17 +5186,17 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
                         (.app (.app (.app (.app (.const psigmaMkName
                           [.param uN, .param vN]) (.bvar 4)) (.bvar 3))
                           (.bvar 1)) (.bvar 0)))
-                      { bi := .default })
-                    { bi := .default })
+                      { bi := .default, pw := .never })
+                    { bi := .default, pw := .never })
                   (Expr.forallE (Name.anonymous.str "t")
                     (.app (.app (.const psigmaName [.param uN, .param
                       vN])
                       (.bvar 3)) (.bvar 2))
-                    (.app (.bvar 2) (.bvar 0)) { bi := .default })
-                  { bi := .default })
-                { bi := .implicit })
-              { bi := .implicit })
-            { bi := .implicit } from rfl]
+                    (.app (.bvar 2) (.bvar 0)) { bi := .default, pw := .never })
+                  { bi := .default, pw := .never })
+                { bi := .implicit, pw := .never })
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hfP, hfM]
   case rec3 =>
     intro cv mI rP rules heq
@@ -5237,13 +5237,13 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
         = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
             (Expr.forallE (Name.anonymous.str "β")
               (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-                (.sort (.param vN)) { bi := .default })
+                (.sort (.param vN)) { bi := .default, pw := .never })
               (Expr.forallE (Name.anonymous.str "t")
                 (.app (.app (.const psigmaName [.param uN, .param vN])
                   (.bvar 1)) (.bvar 0))
-                (.bvar 2) { bi := .default })
-              { bi := .implicit })
-            { bi := .implicit } from rfl]
+                (.bvar 2) { bi := .default, pw := .never })
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hfP]
   obtain ⟨m4, -⟩ := extendPairFstS m3 hP3 hM3
     (Option.isNone_iff_eq_none.mp h4) hwf4
@@ -5268,14 +5268,14 @@ theorem declBasisS_psigmaK {env env₁ : Env} (m : EnvS V env)
         = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
             (Expr.forallE (Name.anonymous.str "β")
               (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-                (.sort (.param vN)) { bi := .default })
+                (.sort (.param vN)) { bi := .default, pw := .never })
               (Expr.forallE (Name.anonymous.str "t")
                 (.app (.app (.const psigmaName [.param uN, .param vN])
                   (.bvar 1)) (.bvar 0))
-                (.app (.bvar 1) (.proj psigmaName 0 (.bvar 0))) { bi :=
-                  .default })
-              { bi := .implicit })
-            { bi := .implicit } from rfl]
+                (.app (.bvar 1) (.proj psigmaName 0 (.bvar 0)))
+                ⟨.default, .never⟩)
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hfP]
   obtain ⟨m5, -⟩ := extendPairSndS m4 hP4 hM4
     (Option.isNone_iff_eq_none.mp h5) hwf5
@@ -5313,8 +5313,8 @@ theorem declBasisS_eqK {env env₁ : Env} (m : EnvS V env)
         = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
             (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
               (.app (.app (.app (.const eqName [.param uN]) (.bvar 1))
-                (.bvar 0)) (.bvar 0)) { bi := .default })
-            { bi := .implicit } from rfl]
+                (.bvar 0)) (.bvar 0)) { bi := .default, pw := .never })
+            { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hf]
   obtain ⟨m2, hm2⟩ := extendEqReflS m1 hE1 hEv1
     (Option.isNone_iff_eq_none.mp h2) hwf2
@@ -5353,8 +5353,8 @@ theorem declBasisS_eqK {env env₁ : Env} (m : EnvS V env)
                   (.app (.app (.app (.const eqName [.param uN]) (.bvar
                     2))
                     (.bvar 1)) (.bvar 0))
-                  (.sort (.param u1N)) { bi := .default })
-                { bi := .default })
+                  (.sort (.param u1N)) { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
               (Expr.forallE (Name.anonymous.str "refl")
                 (.app (.app (.bvar 0) (.bvar 1))
                   (.app (.app (.const eqReflName [.param uN]) (.bvar 2))
@@ -5365,12 +5365,12 @@ theorem declBasisS_eqK {env env₁ : Env} (m : EnvS V env)
                       4))
                       (.bvar 3)) (.bvar 0))
                     (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))
-                    { bi := .default })
-                  { bi := .implicit })
-                { bi := .default })
-              { bi := .implicit })
-            { bi := .implicit })
-          { bi := .implicit } from rfl]
+                    { bi := .default, pw := .never })
+                  { bi := .implicit, pw := .never })
+                { bi := .default, pw := .never })
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hfE, hfR]
   case rec3 =>
     intro cv mI rP rules heq
@@ -5471,12 +5471,12 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
           (Expr.forallE (Name.anonymous.str "r")
             (Expr.forallE Name.anonymous (.bvar 0)
               (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default }) { bi := .default })
+                { bi := .default, pw := .never }) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "a") (.bvar 1)
               (.app (.app (.const quotName [.param uN]) (.bvar 2))
-                (.bvar 1)) { bi := .default })
-            { bi := .default })
-          { bi := .implicit } from rfl]
+                (.bvar 1)) { bi := .default, pw := .never })
+            { bi := .default, pw := .never })
+          { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hf]
   obtain ⟨m2, -⟩ := extendQuotMkS m1 hQ1 (Option.isNone_iff_eq_none.mp
     h2) hwf2
@@ -5508,12 +5508,12 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
           (Expr.forallE (Name.anonymous.str "r")
             (Expr.forallE Name.anonymous (.bvar 0)
               (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default }) { bi := .default })
+                { bi := .default, pw := .never }) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "β") (.sort (.param vN))
               (Expr.forallE (Name.anonymous.str "f")
                 (Expr.forallE (Name.anonymous.str "a") (.bvar 2) (.bvar
                   1)
-                  { bi := .default })
+                  { bi := .default, pw := .never })
                 (Expr.forallE (Name.anonymous.str "a")
                   (Expr.forallE (Name.anonymous.str "a") (.bvar 3)
                     (Expr.forallE (Name.anonymous.str "b") (.bvar 4)
@@ -5522,17 +5522,17 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
                         (.app (.app (.app (.const eqName [.param vN])
                           (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
                           (.app (.bvar 3) (.bvar 1)))
-                        { bi := .default }) { bi := .default })
-                    { bi := .default })
+                        { bi := .default, pw := .never }) { bi := .default, pw := .never })
+                    { bi := .default, pw := .never })
                   (Expr.forallE (Name.anonymous.str "a")
                     (.app (.app (.const quotName [.param uN]) (.bvar 4))
                       (.bvar 3))
-                    (.bvar 3) { bi := .default })
-                  { bi := .default })
-                { bi := .default })
-              { bi := .implicit })
-            { bi := .implicit })
-          { bi := .implicit } from rfl]
+                    (.bvar 3) { bi := .default, pw := .never })
+                  { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hfQ, hfE]
   case rec3 =>
     intro cv mI rP rules heq
@@ -5582,25 +5582,25 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
           (Expr.forallE (Name.anonymous.str "r")
             (Expr.forallE Name.anonymous (.bvar 0)
               (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default }) { bi := .default })
+                { bi := .default, pw := .never }) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "β")
               (Expr.forallE (Name.anonymous.str "a")
                 (.app (.app (.const quotName [.param uN]) (.bvar 1))
-                  (.bvar 0)) (.sort .zero) { bi := .default })
+                  (.bvar 0)) (.sort .zero) { bi := .default, pw := .never })
               (Expr.forallE (Name.anonymous.str "mk")
                 (Expr.forallE (Name.anonymous.str "a") (.bvar 2)
                   (.app (.bvar 1)
                     (.app (.app (.app (.const quotMkName [.param uN])
                       (.bvar 3)) (.bvar 2)) (.bvar 0)))
-                  { bi := .default })
+                  { bi := .default, pw := .never })
                 (Expr.forallE (Name.anonymous.str "q")
                   (.app (.app (.const quotName [.param uN]) (.bvar 3))
                     (.bvar 2))
-                  (.app (.bvar 2) (.bvar 0)) { bi := .default })
-                { bi := .default })
-              { bi := .implicit })
-            { bi := .implicit })
-          { bi := .implicit } from rfl]
+                  (.app (.bvar 2) (.bvar 0)) { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hfQ, hfM]
   case rec4 =>
     intro cv mI rP rules heq
@@ -5654,7 +5654,7 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
           (Expr.forallE (Name.anonymous.str "r")
             (Expr.forallE Name.anonymous (.bvar 0)
               (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default }) { bi := .default })
+                { bi := .default, pw := .never }) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "a") (.bvar 1)
               (Expr.forallE (Name.anonymous.str "b") (.bvar 2)
                 (Expr.forallE Name.anonymous
@@ -5666,10 +5666,10 @@ theorem declBasisS_quotK {env env₁ : Env} (m : EnvS V env)
                       (.bvar 4)) (.bvar 3)) (.bvar 2)))
                     (.app (.app (.app (.const quotMkName [.param uN])
                       (.bvar 4)) (.bvar 3)) (.bvar 1)))
-                  { bi := .default }) { bi := .implicit })
-              { bi := .implicit })
-            { bi := .implicit })
-          { bi := .implicit } from rfl]
+                  { bi := .default, pw := .never }) { bi := .implicit, pw := .never })
+              { bi := .implicit, pw := .never })
+            { bi := .implicit, pw := .never })
+          { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hfQ, hfM, hfE]
   obtain ⟨m5, -⟩ := extendQuotSoundS m4 hQ4 hM4 hE4
     (Option.isNone_iff_eq_none.mp h5) hwf5
@@ -5722,7 +5722,7 @@ theorem declBasisS_natK {env env₁ : Env} (m : EnvS V env)
       rw [Env.find?_cons, if_neg (by decide)]; exact hN2
     rw [show natSuccA.toConstantVal.type
       = Expr.forallE (Name.anonymous.str "n") (.const natName [])
-        (.const natName []) { bi := .default } from rfl]
+        (.const natName []) { bi := .default, pw := .never } from rfl]
     simp [Expr.constsResolve, hf]
   obtain ⟨m3, -⟩ := extendNatSuccS m2 hN2 (Option.isNone_iff_eq_none.mp
     h3) hwf3
@@ -5757,7 +5757,7 @@ theorem declBasisS_natK {env env₁ : Env} (m : EnvS V env)
     rw [show natRecA.toConstantVal.type
         = Expr.forallE (Name.anonymous.str "motive")
             (Expr.forallE (Name.anonymous.str "t") (.const natName [])
-              (.sort (.param uN)) { bi := .default })
+              (.sort (.param uN)) { bi := .default, pw := .never })
             (Expr.forallE (Name.anonymous.str "zero")
               (.app (.bvar 0) (.const natZeroName []))
               (Expr.forallE (Name.anonymous.str "succ")
@@ -5767,14 +5767,14 @@ theorem declBasisS_natK {env env₁ : Env} (m : EnvS V env)
                     (.app (.bvar 2) (.bvar 0))
                     (.app (.bvar 3)
                       (.app (.const natSuccName []) (.bvar 1)))
-                    { bi := .default })
-                  { bi := .default })
+                    { bi := .default, pw := .never })
+                  { bi := .default, pw := .never })
                 (Expr.forallE (Name.anonymous.str "t") (.const natName
                   [])
-                  (.app (.bvar 3) (.bvar 0)) { bi := .default })
-                { bi := .default })
-              { bi := .default })
-            { bi := .implicit } from rfl]
+                  (.app (.bvar 3) (.bvar 0)) { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
+              { bi := .default, pw := .never })
+            { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hfN, hfZ, hfS]
   case rec4 =>
     intro cv mI rP rules heq
@@ -5865,14 +5865,14 @@ theorem declBasisS_punitK {env env₂ : Env} (m : EnvS V env)
           = Expr.forallE (Name.anonymous.str "motive")
               (Expr.forallE (Name.anonymous.str "t")
                 (.const punitName [.param uN]) (.sort (.param u1N))
-                { bi := .default })
+                { bi := .default, pw := .never })
               (Expr.forallE (Name.anonymous.str "unit")
                 (.app (.bvar 0) (.const punitUnitName [.param uN]))
                 (Expr.forallE (Name.anonymous.str "t")
                   (.const punitName [.param uN])
-                  (.app (.bvar 2) (.bvar 0)) { bi := .default })
-                { bi := .default })
-              { bi := .implicit } from rfl]
+                  (.app (.bvar 2) (.bvar 0)) { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
+              { bi := .implicit, pw := .never } from rfl]
       simp only [Expr.constsResolve, hfP, hfU, Option.isSome_some,
         Bool.and_self]
     · intro cv mI rP rules heq
@@ -5886,11 +5886,11 @@ theorem declBasisS_punitK {env env₂ : Env} (m : EnvS V env)
               (Name.anonymous.str "motive")
               (Expr.forallE (Name.anonymous.str "t")
                 (.const punitName [.param uN]) (.sort (.param u1N))
-                { bi := .default })
+                { bi := .default, pw := .never })
               (Expr.lam (Name.anonymous.str "unit")
                 (.app (.bvar 0) (.const punitUnitName [.param uN]))
-                (.bvar 0) { bi := .default })
-              { bi := .default }) = true
+                (.bvar 0) { bi := .default, pw := .never })
+              { bi := .default, pw := .never }) = true
           simp only [Expr.constsResolve, hfP, hfU, Option.isSome_some,
             Bool.and_self]
       · exact nomatch hr'

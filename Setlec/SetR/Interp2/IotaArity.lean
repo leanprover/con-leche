@@ -97,9 +97,9 @@ short `us` hides nothing from `iotaCerts`. -/
 def recTy : Expr :=
   .forallE .anonymous (.const nT [])
     (.forallE .anonymous (.const nT [])
-      (.forallE .anonymous (.const nT []) (.const nT []) ⟨.default⟩)
-      ⟨.default⟩)
-    ⟨.default⟩
+      (.forallE .anonymous (.const nT []) (.const nT []) ⟨.default, .never⟩)
+      ⟨.default, .never⟩)
+    ⟨.default, .never⟩
 
 /-- The single rule: a canonical (`.plain`) rule on the nullary
 constructor whose right-hand side mentions the second level

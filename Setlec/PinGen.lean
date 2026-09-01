@@ -91,9 +91,17 @@ instance : ToExpr Setlec.BinderInfo where
     | .instImplicit => .const ``Setlec.BinderInfo.instImplicit []
   toTypeExpr := .const ``Setlec.BinderInfo []
 
+instance : ToExpr Setlec.PropWhen where
+  toExpr
+    | .never => .const ``Setlec.PropWhen.never []
+    | .ifAllZero ps =>
+      .app (.const ``Setlec.PropWhen.ifAllZero []) (toExpr ps)
+  toTypeExpr := .const ``Setlec.PropWhen []
+
 instance : ToExpr Setlec.BinderMeta where
   toExpr m :=
-    .app (.const ``Setlec.BinderMeta.mk []) (toExpr m.bi)
+    .app (.app (.const ``Setlec.BinderMeta.mk []) (toExpr m.bi))
+      (toExpr m.pw)
   toTypeExpr := .const ``Setlec.BinderMeta []
 
 instance : ToExpr Setlec.Literal where
@@ -168,11 +176,13 @@ partial def toSetlec : Lean.Expr → Except String Setlec.Expr
     .ok (.const (toSetlecName c) (← us.mapM toSetlecLevel))
   | .app f a => Setlec.Expr.app <$> toSetlec f <*> toSetlec a
   | .lam n ty b bi => do
+    -- pw: parse-default placeholder at P1; the P2 generator computes
+    -- the codomain prop-ness from the host elaborator (task #161)
     .ok (.lam (sanitizeBinderName n) (← toSetlec ty) (← toSetlec b)
-      ⟨toSetlecBI bi⟩)
+      ⟨toSetlecBI bi, .never⟩)
   | .forallE n ty b bi => do
     .ok (.forallE (sanitizeBinderName n) (← toSetlec ty) (← toSetlec b)
-      ⟨toSetlecBI bi⟩)
+      ⟨toSetlecBI bi, .never⟩)
   | .letE _ _ v b _ => toSetlec (b.instantiate1 v)
   | .lit (.natVal n) => .ok (.lit (.natVal n))
   | .lit (.strVal s) => .ok (.lit (.strVal s))

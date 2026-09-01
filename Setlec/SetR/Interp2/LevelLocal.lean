@@ -168,16 +168,16 @@ theorem denote2LevelLocal_of {μ : CheckMode} {env : Env}
     intro hdef
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
     have hopen := Expr.allLevelParamsDefined_open (d := d) (n := n)
-      hdef.1 hdef.2
-    rw [denote2, denote2, ihty hdef.1, ihbody hopen,
-      hs ps φ₁ φ₂ F d ty hdef.1 hφ,
+      hdef.1.1 hdef.1.2
+    rw [denote2, denote2, ihty hdef.1.1, ihbody hopen,
+      hs ps φ₁ φ₂ F d ty hdef.1.1 hφ,
       hs ps φ₁ φ₂ F (d + 1) _ hopen hφ]
   | case7 d n ty body m ihty ihbody =>
     intro hdef
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
     have hopen := Expr.allLevelParamsDefined_open (d := d) (n := n)
-      hdef.1 hdef.2
-    rw [denote2, denote2, ihty hdef.1, ihbody hopen,
+      hdef.1.1 hdef.1.2
+    rw [denote2, denote2, ihty hdef.1.1, ihbody hopen,
       hl ps φ₁ φ₂ F (d + 1) _ hopen hφ]
   | case8 d f a ihf iha =>
     intro hdef
@@ -300,16 +300,16 @@ theorem denote2LevelLocalM_of {V : Type w} [SetTheory V]
     intro hdef
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
     have hopen := Expr.allLevelParamsDefined_open (d := d) (n := n)
-      hdef.1 hdef.2
-    rw [denote2, denote2, ihty hdef.1, ihbody hopen,
-      hs ps φ₁ φ₂ F d ty hdef.1 hφ,
+      hdef.1.1 hdef.1.2
+    rw [denote2, denote2, ihty hdef.1.1, ihbody hopen,
+      hs ps φ₁ φ₂ F d ty hdef.1.1 hφ,
       hs ps φ₁ φ₂ F (d + 1) _ hopen hφ]
   | case7 d n ty body m ihty ihbody =>
     intro hdef
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hdef
     have hopen := Expr.allLevelParamsDefined_open (d := d) (n := n)
-      hdef.1 hdef.2
-    rw [denote2, denote2, ihty hdef.1, ihbody hopen,
+      hdef.1.1 hdef.1.2
+    rw [denote2, denote2, ihty hdef.1.1, ihbody hopen,
       hl ps φ₁ φ₂ F (d + 1) _ hopen hφ]
   | case8 d f a ihf iha =>
     intro hdef
@@ -488,7 +488,7 @@ private theorem llEnv_sortZero (μ : CheckMode) (ψ : Name → Nat)
 numeral is assignment-independent. -/
 private theorem llEnv_denote2 (μ : CheckMode) (ψ : Name → Nat) :
     denote2 μ (fun _ _ => AVExpr.sort 0) llEnv ψ 3 0
-        (.forallE llC (.const llC []) (.sort .zero) ⟨.default⟩)
+        (.forallE llC (.const llC []) (.sort .zero) ⟨.default, .never⟩)
       = some (.pi (ψ llP) 1 (.sort 0) (.sort 0)) := by
   rw [denote2]
   simp only [Expr.instantiate1, Nat.zero_add]
@@ -508,8 +508,9 @@ theorem not_denote2LevelLocal (μ : CheckMode) :
     ¬ Denote2LevelLocal μ llEnv (fun _ _ => .sort 0) := by
   intro h
   have hx := h [] (fun _ => 0) (fun _ => 1) 3 0
-    (.forallE llC (.const llC []) (.sort .zero) ⟨.default⟩)
-    (by simp [Expr.allLevelParamsDefined, Level.allParamsDefined])
+    (.forallE llC (.const llC []) (.sort .zero) ⟨.default, .never⟩)
+    (by simp [Expr.allLevelParamsDefined, Level.allParamsDefined,
+      PropWhen.paramsDefined])
     (fun p hp => absurd hp (by simp))
     (fun _ _ _ _ => rfl)
   rw [llEnv_denote2 μ (fun _ => 0), llEnv_denote2 μ (fun _ => 1)] at hx

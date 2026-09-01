@@ -123,15 +123,15 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 
 -- `def arrowType : Type := Prop → Prop` (tutorial test 003)
 #guard (checkDecls .setModel (pureOps .setModel) [mkDef "arrowType" [] (.sort (.succ .zero))
-  (.forallE (.str .anonymous "a") (.sort .zero) (.sort .zero) ⟨.default⟩)]).toBool
+  (.forallE (.str .anonymous "a") (.sort .zero) (.sort .zero) ⟨.default, .never⟩)]).toBool
 
 -- `def dependentType : Prop := ∀ (p : Prop), p` (tutorial test 004): impredicativity
 #guard (checkDecls .setModel (pureOps .setModel) [mkDef "dependentType" [] (.sort .zero)
-  (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default⟩)]).toBool
+  (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]).toBool
 
 -- `∀ (p : Prop), p : Type` is rejected (it is a Prop).
 #guard checkDecls .setModel (pureOps .setModel) [mkDef "bad2" [] (.sort (.succ .zero))
-    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default⟩)]
+    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]
   matches .error (.invalid _)
 
 -- Input expressions containing fvars are rejected.
@@ -147,8 +147,8 @@ private def mkThm (n : String) (type value : Expr) : Declaration :=
 -- `theorem t : ∀ (p : Prop), p → p`-shaped: a Prop-typed theorem is accepted
 -- when its (in-fragment) value matches.
 #guard (checkDecls .setModel (pureOps .setModel) [mkThm "t"
-    (.forallE (.str .anonymous "p") (.sort .zero) (.sort .zero) ⟨.default⟩)
-    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default⟩)])
+    (.forallE (.str .anonymous "p") (.sort .zero) (.sort .zero) ⟨.default, .never⟩)
+    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)])
   matches .error (.invalid _)  -- value `∀ p, p : Prop` vs type `Prop → Prop : Prop`? mismatch
 
 -- A theorem whose type is not a proposition is rejected (tutorial 012).
@@ -158,7 +158,7 @@ private def mkThm (n : String) (type value : Expr) : Declaration :=
 -- A theorem stating an accepted Prop with a matching proof-shaped value:
 -- `theorem t2 : Prop-valued-forall` where value has exactly that type.
 #guard (checkDecls .setModel (pureOps .setModel) [mkDef "prp" [] (.sort .zero)
-    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default⟩),
+    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩),
   mkThm "t2" (.sort .zero) (.const (.str .anonymous "prp") [])]).toBool == false
   -- (const prp : Prop, but Prop ≠ prp's type Prop... value `prp : Prop`; type `Prop`:
   --  `prp : Prop` vs declared `Prop : ?` — declared type must be a Prop; `Prop` is not)
@@ -310,7 +310,7 @@ operations and the unconditional derived reads. -/
 private def wfsTestExpr : Expr :=
   .lam (.str .anonymous "x") (.sort .zero)
     (.app (.bvar 0) (.fvar 2 (.str .anonymous "y") (.sort .zero)))
-    ⟨.default⟩
+    ⟨.default, .never⟩
 
 -- Whole-tree interning is canonical: the same tree twice yields the
 -- same index, a different tree a different one.

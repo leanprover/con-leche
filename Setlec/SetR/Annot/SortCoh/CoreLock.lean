@@ -1269,26 +1269,26 @@ theorem coreLock {μ : CheckMode} {env : Env}
     refine .inl ⟨?_, hIu', hIv', hP', hQ'⟩
     rw [hu, hv]
     exact .fvar i n ty₁ ty₂ hty
-  | lam n ty₁ ty₂ b₁ b₂ m hty hbody =>
-    have hu : u' = .lam n ty₁ b₁ m := whnfCore_inert
+  | lam n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody =>
+    have hu : u' = .lam n ty₁ b₁ m₁ := whnfCore_inert
       (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h)
       (fun _ _ _ h => nomatch h) h₁
-    have hv : v' = .lam n ty₂ b₂ m := whnfCore_inert
+    have hv : v' = .lam n ty₂ b₂ m₂ := whnfCore_inert
       (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h)
       (fun _ _ _ h => nomatch h) h₂
     refine .inl ⟨?_, hIu', hIv', hP', hQ'⟩
     rw [hu, hv]
-    exact .lam n ty₁ ty₂ b₁ b₂ m hty hbody
-  | forallE n ty₁ ty₂ b₁ b₂ m hty hbody =>
-    have hu : u' = .forallE n ty₁ b₁ m := whnfCore_inert
+    exact .lam n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody
+  | forallE n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody =>
+    have hu : u' = .forallE n ty₁ b₁ m₁ := whnfCore_inert
       (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h)
       (fun _ _ _ h => nomatch h) h₁
-    have hv : v' = .forallE n ty₂ b₂ m := whnfCore_inert
+    have hv : v' = .forallE n ty₂ b₂ m₂ := whnfCore_inert
       (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h)
       (fun _ _ _ h => nomatch h) h₂
     refine .inl ⟨?_, hIu', hIv', hP', hQ'⟩
     rw [hu, hv]
-    exact .forallE n ty₁ ty₂ b₁ b₂ m hty hbody
+    exact .forallE n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody
   | proj s i e₁ e₂ he =>
     exact .inr ⟨.proj s i e₁, .proj s i e₂, g₁, g₂,
       Nat.le_refl _, Nat.le_refl _, h₁, h₂, .refl _, .refl _,
@@ -1435,7 +1435,7 @@ theorem coreLock {μ : CheckMode} {env : Env}
           | cert _ _ hba hbb hc =>
             exact certExit (whnfCore_lam_run (whnfCore_pos hh₁))
               (whnfCore_lam_run (whnfCore_pos hh₂)) hba hbb hc
-          | lam _ _ _ _ _ _ hty hbody => exact betaRec hbody
+          | lam _ _ _ _ _ _ _ hty hbody => exact betaRec hbody
         · -- right side stuck at a failed β-cert: dead on the right
           exact .inr ⟨.app f₁ a₁, .app f₂ a₂, gp + 1, gr + 1,
             Nat.le_refl _, Nat.le_refl _, h₁, h₂, .refl _, .refl _,
@@ -1467,8 +1467,8 @@ theorem coreLock {μ : CheckMode} {env : Env}
                     (fun p q hh => hc2 ⟨p, q, hh⟩)
                     (fun _ _ _ _ hh => nomatch hh)
                     (fun _ hh => nomatch hh)⟩
-          | lam _ _ ty₂' _ b₂' _ hty hbody =>
-            exact absurd rfl (hnl₂ n₁ ty₂' b₂' m₁)
+          | lam _ _ ty₂' _ b₂' _ mr hty hbody =>
+            exact absurd rfl (hnl₂ n₁ ty₂' b₂' mr)
       · -- left side stuck at a failed β-cert: dead on the left
         exact .inr ⟨.app f₁ a₁, .app f₂ a₂, gp + 1, gr + 1,
           Nat.le_refl _, Nat.le_refl _, h₁, h₂, .refl _, .refl _,
@@ -1505,8 +1505,8 @@ theorem coreLock {μ : CheckMode} {env : Env}
                     (fun p q hh => hc1 ⟨p, q, hh⟩)
                     (fun _ _ _ _ hh => nomatch hh)
                     (fun _ hh => nomatch hh)⟩
-          | lam _ ty₁' _ b₁' _ _ hty hbody =>
-            exact absurd rfl (hnl₁ n₂ ty₁' b₁' m₂)
+          | lam _ ty₁' _ b₁' _ ml _ hty hbody =>
+            exact absurd rfl (hnl₁ n₂ ty₁' b₁' ml)
         · -- right side stuck at a failed β-cert: dead on the right
           exact .inr ⟨.app f₁ a₁, .app f₂ a₂, gp + 1, gr + 1,
             Nat.le_refl _, Nat.le_refl _, h₁, h₂, .refl _, .refl _,

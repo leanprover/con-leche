@@ -65,15 +65,100 @@ inductive BinderInfo where
   | instImplicit
   deriving DecidableEq, Repr, Inhabited, Hashable
 
+/-- The zero-ness datum of a binder's codomain sort — the regime
+discriminator of the validated-annotation design (task #161).  For
+every level `l`, the set `Z(l) := {φ | eval φ l = 0}` of zeroing
+valuations is either empty (`never`) or of the form "every parameter
+in `ps` is zero" (`ifAllZero ps`; `ps = []` = always zero) — see
+`Level.zeronessOf` and the mechanized battery in
+`Setlec.Verify.PropWhen`.
+
+`ps` is an unordered, possibly-duplicated parameter *set in list
+clothing*: all structural operations (`inter`, `bindZ`,
+`Level.substPW`) are shape-preserving — no sorting, no
+deduplication — which is what makes level instantiation's identity
+and composition laws hold *unconditionally*
+(`Level.substPW_self`/`substPW_comp`).  Comparison is by the
+containment test `equiv`, which is sound **and complete** for
+zero-ness agreement at every valuation (`Verify.PropWhen`); the
+checker's validation and defeq sites compare with `equiv`, never
+with `==`. -/
+inductive PropWhen where
+  | never
+  | ifAllZero (ps : List Name)
+  deriving DecidableEq, Repr, Inhabited, Hashable
+
+namespace PropWhen
+
+/-- Does the datum hold at a valuation — is the codomain sort zero
+there?  (The model side's dispatch bit; the kernel never evaluates
+this, it only compares data by `equiv`.) -/
+def holds (φ : Name → Nat) : PropWhen → Bool
+  | .never => false
+  | .ifAllZero ps => ps.all fun n => φ n == 0
+
+/-- Does the datum mention any level parameter — is `Level.substPW`
+ever non-trivial on it?  Folded into `Expr.hasLevelParam` and the
+eager `eparamBs` recurrence (task #87), so the has-param shortcut of
+the interned level-instantiation walk stays exact. -/
+def hasParams : PropWhen → Bool
+  | .never => false
+  | .ifAllZero ps => !ps.isEmpty
+
+/-- Are all parameters of the datum among `params`?  Folded into
+`Expr.allLevelParamsDefined` (task #161): level instantiation's
+composition law (`Level.substPW_comp`) is *false* for data whose
+parameters escape the declaration's — exactly as for the levels
+themselves. -/
+def paramsDefined (params : List Name) : PropWhen → Bool
+  | .never => true
+  | .ifAllZero ps => ps.all params.contains
+
+/-- Intersection of two zero-ness predicates (the `max` rule: a `max`
+is zero iff both sides are): `never` absorbs, sets append. -/
+def inter : PropWhen → PropWhen → PropWhen
+  | .never, _ => .never
+  | _, .never => .never
+  | .ifAllZero ps, .ifAllZero qs => .ifAllZero (ps ++ qs)
+
+/-- Substitute each parameter of the datum by a whole datum and
+intersect ("all of `ps` zero" becomes "all replacements zero") — the
+monadic bind of the zero-ness reading.  Shape-preserving: parameters
+mapped to `ifAllZero [n]` reproduce the input list exactly, which is
+what the unconditional substitution laws rest on. -/
+def bindZ (f : Name → PropWhen) : PropWhen → PropWhen
+  | .never => .never
+  | .ifAllZero ps => go ps
+where
+  go : List Name → PropWhen
+  | [] => .ifAllZero []
+  | n :: rest => (f n).inter (go rest)
+
+/-- Decidable zero-ness agreement at *every* valuation: mutual
+containment of the parameter sets (`never` only agrees with `never` —
+`ifAllZero` data hold at the all-zero valuation, `never` nowhere).
+Sound and complete (`Verify.PropWhen`); this is the comparison every
+validation and defeq site uses. -/
+def equiv : PropWhen → PropWhen → Bool
+  | .never, .never => true
+  | .ifAllZero ps, .ifAllZero qs =>
+    ps.all qs.contains && qs.all ps.contains
+  | _, _ => false
+
+end PropWhen
+
 /-- Metadata carried by a binder (`forallE`, `lam`): the display
-`BinderInfo`.  (Task #100: the codomain sort annotation `cod` is
-erased — the domain-relative collapse model is level-free and the
-kernel infers every sort it needs, so binders carry no annotations.) -/
+`BinderInfo` and the codomain prop-ness annotation `pw` (task #161 —
+the validated-annotation design; one datum per binder, written by the
+untrusted annotate pass or the input stream and *validated* by the
+checker; the reduction rules never read it).  Unannotated input
+defaults to `.never` at the parser — a definite, validatable claim. -/
 structure BinderMeta where
   bi : BinderInfo
+  pw : PropWhen
   deriving DecidableEq, Repr, Hashable
 
-instance : Inhabited BinderMeta := ⟨⟨.default⟩⟩
+instance : Inhabited BinderMeta := ⟨⟨.default, .never⟩⟩
 
 /-- Literals. -/
 inductive Literal where

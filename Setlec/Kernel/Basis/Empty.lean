@@ -14,7 +14,7 @@ open Name (anonymous)
 /-- The pinned `Empty` basis block (no constructors, no iota rules). -/
 def emptyBasis : List ConstantInfo := [
   .indInfo ⟨(anonymous |>.str "Empty"), [], (.sort (.succ .zero))⟩ {},
-  .recInfo ⟨((anonymous |>.str "Empty") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Empty") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default⟩) (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Empty") []) (.app (.bvar 1) (.bvar 0)) ⟨.default⟩) ⟨.default⟩)⟩ 1 1 []]
+  .recInfo ⟨((anonymous |>.str "Empty") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Empty") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, .never⟩) (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Empty") []) (.app (.bvar 1) (.bvar 0)) ⟨.default, .never⟩) ⟨.default, .never⟩)⟩ 1 1 []]
 
 /-! ## The annotated declarations
 
@@ -42,13 +42,13 @@ def emptyRecA : ConstantInfo :=
                   (Setlec.Name.str (Setlec.Name.anonymous) "t")
                   (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Empty") [])
                   (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-                  { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "t")
                   (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Empty") [])
                   (Setlec.Expr.app (Setlec.Expr.bvar 1) (Setlec.Expr.bvar 0))
-                  { bi := Setlec.BinderInfo.default})
-                { bi := Setlec.BinderInfo.default} }
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
     1
     1
     []

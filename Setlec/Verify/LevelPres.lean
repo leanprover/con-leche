@@ -97,12 +97,12 @@ theorem Expr.allLevelParamsDefined_instantiate1_gen {ps : List Name}
     intro k h
     simp only [Expr.instantiate1, Expr.allLevelParamsDefined,
       Bool.and_eq_true] at h ⊢
-    exact ⟨ihty k h.1, ihbody (k + 1) h.2⟩
+    exact ⟨⟨ihty k h.1.1, ihbody (k + 1) h.1.2⟩, h.2⟩
   | forallE n ty body m ihty ihbody =>
     intro k h
     simp only [Expr.instantiate1, Expr.allLevelParamsDefined,
       Bool.and_eq_true] at h ⊢
-    exact ⟨ihty k h.1, ihbody (k + 1) h.2⟩
+    exact ⟨⟨ihty k h.1.1, ihbody (k + 1) h.1.2⟩, h.2⟩
   | letE n ty val body ihty ihval ihbody =>
     intro k h
     simp only [Expr.instantiate1, Expr.allLevelParamsDefined,
@@ -170,13 +170,14 @@ theorem piResidual_lvlParams :
   | a :: as, t, res, h, hw, has => by
     match t, h with
     | .forallE n ty body mb, h =>
-      have hw' : ty.allLevelParamsDefined ps = true ∧
-          body.allLevelParamsDefined ps = true := by
+      have hw' : (ty.allLevelParamsDefined ps = true ∧
+          body.allLevelParamsDefined ps = true) ∧
+          PropWhen.paramsDefined ps mb.pw = true := by
         simpa only [allLevelParamsDefined, Bool.and_eq_true] using hw
       have h' : piResidual (body.instantiate1 a) as = some res := h
       exact piResidual_lvlParams h'
         (Expr.allLevelParamsDefined_instantiate1_gen
-          (has a (List.mem_cons_self ..)) 0 hw'.2)
+          (has a (List.mem_cons_self ..)) 0 hw'.1.2)
         (fun x hx => has x (List.mem_cons_of_mem _ hx))
 
 theorem natLitToConstructor_lvlParams (n : Nat) :
@@ -361,7 +362,7 @@ theorem whnfPres_lvlParams {env : Env} (henv : EnvWF env)
           ⟨e'', hio, hwe''⟩ | rfl
         · simp only [allLevelParamsDefined, Bool.and_eq_true] at hbf'
           exact ihCore hbeta
-            (Expr.allLevelParamsDefined_instantiate1_gen hb.2 0 hbf'.2)
+            (Expr.allLevelParamsDefined_instantiate1_gen hb.2 0 hbf'.1.2)
         · refine ihCore hwe''
             (hiota fuel d _ _ (Nat.lt_succ_self fuel) ?_ hio)
           simp only [allLevelParamsDefined, Bool.and_eq_true]
@@ -559,10 +560,10 @@ theorem inferTypeCore_lvlParams {env : Env} (henv : EnvWF env)
       simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
       have hu : u.allParamsDefined ps = true := by
         simpa [allLevelParamsDefined]
-          using whnf_lvlParams henv fuel hiota hwt (ihI hty hp.1)
+          using whnf_lvlParams henv fuel hiota hwt (ihI hty hp.1.1)
       have hbtp := ihI hbt
         (Expr.allLevelParamsDefined_instantiate1_gen
-          (v := .fvar d n ty) hp.1 0 hp.2)
+          (v := .fvar d n ty) hp.1.1 0 hp.1.2)
       have hv := ensureSortCore_lvlParams henv fuel hiota hes hbtp
       simp [allLevelParamsDefined, Level.allParamsDefined, hu, hv]
     | lam n ty body m =>
@@ -571,16 +572,16 @@ theorem inferTypeCore_lvlParams {env : Env} (henv : EnvWF env)
       simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
       have hbtp := ihI hbt
         (Expr.allLevelParamsDefined_instantiate1_gen
-          (v := .fvar d n ty) hp.1 0 hp.2)
+          (v := .fvar d n ty) hp.1.1 0 hp.1.2)
       simp only [allLevelParamsDefined, Bool.and_eq_true]
-      exact ⟨hp.1, allLevelParamsDefined_abstract1 d 0 hbtp⟩
+      exact ⟨⟨hp.1.1, allLevelParamsDefined_abstract1 d 0 hbtp⟩, hp.2⟩
     | app f a =>
       obtain ⟨tf, n', ty', body', m', htf, hwh, rfl, -⟩ :=
         inferTypeCore_app_inv h
       simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
       have hPi := whnf_lvlParams henv fuel hiota hwh (ihI htf hp.1)
       simp only [allLevelParamsDefined, Bool.and_eq_true] at hPi
-      exact Expr.allLevelParamsDefined_instantiate1_gen hp.2 0 hPi.2
+      exact Expr.allLevelParamsDefined_instantiate1_gen hp.2 0 hPi.1.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
         hus, -, hres⟩ := inferTypeCore_proj_inv h

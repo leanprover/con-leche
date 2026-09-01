@@ -1854,8 +1854,8 @@ theorem inferBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     dsimp only [viewM, Expr.view]
     refine SimAt.bind_pure_right ?_
     try dsimp only
-    obtain rfl : bm = ⟨(m : IBinderMeta).bi⟩ := by
-      obtain ⟨mbi⟩ := m
+    obtain rfl : bm = ⟨(m : IBinderMeta).bi, (m : IBinderMeta).pw⟩ := by
+      obtain ⟨mbi, mpw⟩ := m
       simpa [denoteBM] using hbmDen.symm
     refine SimAt.bind (ih.infer hs hty hwtb.1)
       (fun s₁ tty ttyx hs₁ hext₁ hP => ?_)

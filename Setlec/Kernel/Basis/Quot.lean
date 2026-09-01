@@ -19,13 +19,13 @@ open Name (anonymous)
 
 /-- The pinned `Quot` basis block. -/
 def quotBasis : List ConstantInfo := [
-  .indInfo ⟨(anonymous |>.str "Quot"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.sort (.param (anonymous |>.str "u"))) ⟨.default⟩) ⟨.implicit⟩)⟩ {},
-  .ctorInfo ⟨((anonymous |>.str "Quot") |>.str "mk"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "a") (.bvar 1) (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩)⟩ 2 1,
-  .recInfo ⟨((anonymous |>.str "Quot") |>.str "lift"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "β") (.sort (.param (anonymous |>.str "v"))) (.forallE (anonymous |>.str "f") (.forallE (anonymous |>.str "a") (.bvar 2) (.bvar 1) ⟨.default⟩) (.forallE (anonymous |>.str "a") (.forallE (anonymous |>.str "a") (.bvar 3) (.forallE (anonymous |>.str "b") (.bvar 4) (.forallE (anonymous |>.str "a") (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "v"))]) (.bvar 4)) (.app (.bvar 3) (.bvar 2))) (.app (.bvar 3) (.bvar 1))) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 3) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩) ⟨.implicit⟩) ⟨.implicit⟩)⟩ 5 5
-    [⟨((anonymous |>.str "Quot") |>.str "mk"), 1, 0, .inert, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.lam (anonymous |>.str "β") (.sort (.param (anonymous |>.str "v"))) (.lam (anonymous |>.str "f") (.forallE (anonymous |>.str "a") (.bvar 2) (.bvar 1) ⟨.default⟩) (.lam (anonymous |>.str "h") (.forallE (anonymous |>.str "a") (.bvar 3) (.forallE (anonymous |>.str "b") (.bvar 4) (.forallE (anonymous |>.str "a") (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "v"))]) (.bvar 4)) (.app (.bvar 3) (.bvar 2))) (.app (.bvar 3) (.bvar 1))) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) (.lam (anonymous |>.str "a") (.bvar 4) (.app (.bvar 2) (.bvar 0)) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩)⟩],
-  .recInfo ⟨((anonymous |>.str "Quot") |>.str "ind"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 1)) (.bvar 0)) (.sort (.zero)) ⟨.default⟩) (.forallE (anonymous |>.str "mk") (.forallE (anonymous |>.str "a") (.bvar 2) (.app (.bvar 1) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 0))) ⟨.default⟩) (.forallE (anonymous |>.str "q") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.app (.bvar 2) (.bvar 0)) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩) ⟨.implicit⟩) ⟨.implicit⟩)⟩ 4 4
-    [⟨((anonymous |>.str "Quot") |>.str "mk"), 1, 0, .inert, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.lam (anonymous |>.str "β") (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 1)) (.bvar 0)) (.sort (.zero)) ⟨.default⟩) (.lam (anonymous |>.str "mk") (.forallE (anonymous |>.str "a") (.bvar 2) (.app (.bvar 1) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 0))) ⟨.default⟩) (.lam (anonymous |>.str "a") (.bvar 3) (.app (.bvar 1) (.bvar 0)) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩)⟩],
-  .axiomInfo ⟨((anonymous |>.str "Quot") |>.str "sound"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "a") (.bvar 1) (.forallE (anonymous |>.str "b") (.bvar 2) (.forallE (anonymous) (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3))) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 2))) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 1))) ⟨.default⟩) ⟨.implicit⟩) ⟨.implicit⟩) ⟨.implicit⟩) ⟨.implicit⟩)⟩]
+  .indInfo ⟨(anonymous |>.str "Quot"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, .never⟩) ⟨.default, .never⟩) (.sort (.param (anonymous |>.str "u"))) ⟨.default, .never⟩) ⟨.implicit, .never⟩)⟩ {},
+  .ctorInfo ⟨((anonymous |>.str "Quot") |>.str "mk"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, .never⟩) ⟨.default, .never⟩) (.forallE (anonymous |>.str "a") (.bvar 1) (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.implicit, .never⟩)⟩ 2 1,
+  .recInfo ⟨((anonymous |>.str "Quot") |>.str "lift"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, .never⟩) ⟨.default, .never⟩) (.forallE (anonymous |>.str "β") (.sort (.param (anonymous |>.str "v"))) (.forallE (anonymous |>.str "f") (.forallE (anonymous |>.str "a") (.bvar 2) (.bvar 1) ⟨.default, .never⟩) (.forallE (anonymous |>.str "a") (.forallE (anonymous |>.str "a") (.bvar 3) (.forallE (anonymous |>.str "b") (.bvar 4) (.forallE (anonymous |>.str "a") (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "v"))]) (.bvar 4)) (.app (.bvar 3) (.bvar 2))) (.app (.bvar 3) (.bvar 1))) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩) (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 3) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.implicit, .never⟩) ⟨.implicit, .never⟩) ⟨.implicit, .never⟩)⟩ 5 5
+    [⟨((anonymous |>.str "Quot") |>.str "mk"), 1, 0, .inert, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, .never⟩) ⟨.default, .never⟩) (.lam (anonymous |>.str "β") (.sort (.param (anonymous |>.str "v"))) (.lam (anonymous |>.str "f") (.forallE (anonymous |>.str "a") (.bvar 2) (.bvar 1) ⟨.default, .never⟩) (.lam (anonymous |>.str "h") (.forallE (anonymous |>.str "a") (.bvar 3) (.forallE (anonymous |>.str "b") (.bvar 4) (.forallE (anonymous |>.str "a") (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "v"))]) (.bvar 4)) (.app (.bvar 3) (.bvar 2))) (.app (.bvar 3) (.bvar 1))) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩) (.lam (anonymous |>.str "a") (.bvar 4) (.app (.bvar 2) (.bvar 0)) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩)⟩],
+  .recInfo ⟨((anonymous |>.str "Quot") |>.str "ind"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, .never⟩) ⟨.default, .never⟩) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 1)) (.bvar 0)) (.sort (.zero)) ⟨.default, .never⟩) (.forallE (anonymous |>.str "mk") (.forallE (anonymous |>.str "a") (.bvar 2) (.app (.bvar 1) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 0))) ⟨.default, .never⟩) (.forallE (anonymous |>.str "q") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.app (.bvar 2) (.bvar 0)) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.implicit, .never⟩) ⟨.implicit, .never⟩) ⟨.implicit, .never⟩)⟩ 4 4
+    [⟨((anonymous |>.str "Quot") |>.str "mk"), 1, 0, .inert, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, .never⟩) ⟨.default, .never⟩) (.lam (anonymous |>.str "β") (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 1)) (.bvar 0)) (.sort (.zero)) ⟨.default, .never⟩) (.lam (anonymous |>.str "mk") (.forallE (anonymous |>.str "a") (.bvar 2) (.app (.bvar 1) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 0))) ⟨.default, .never⟩) (.lam (anonymous |>.str "a") (.bvar 3) (.app (.bvar 1) (.bvar 0)) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩) ⟨.default, .never⟩)⟩],
+  .axiomInfo ⟨((anonymous |>.str "Quot") |>.str "sound"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, .never⟩) ⟨.default, .never⟩) (.forallE (anonymous |>.str "a") (.bvar 1) (.forallE (anonymous |>.str "b") (.bvar 2) (.forallE (anonymous) (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3))) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 2))) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 1))) ⟨.default, .never⟩) ⟨.implicit, .never⟩) ⟨.implicit, .never⟩) ⟨.implicit, .never⟩) ⟨.implicit, .never⟩)⟩]
 
 /-! ## The annotated declarations
 
@@ -51,11 +51,11 @@ def quotA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                 (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-                { bi := Setlec.BinderInfo.default})
-              { bi := Setlec.BinderInfo.implicit} }
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+              { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
   { eta := false,
     etaCtor := Setlec.Name.anonymous,
     etaParams := 0,
@@ -81,8 +81,8 @@ def quotMkA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "a")
                   (Setlec.Expr.bvar 1)
@@ -93,9 +93,9 @@ def quotMkA : ConstantInfo :=
                         [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                       (Setlec.Expr.bvar 2))
                     (Setlec.Expr.bvar 1))
-                  { bi := Setlec.BinderInfo.default})
-                { bi := Setlec.BinderInfo.default})
-              { bi := Setlec.BinderInfo.implicit} }
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+              { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
   2
   1
 
@@ -116,8 +116,8 @@ def quotLiftA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "β")
                   (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
@@ -127,7 +127,7 @@ def quotLiftA : ConstantInfo :=
                       (Setlec.Name.str (Setlec.Name.anonymous) "a")
                       (Setlec.Expr.bvar 2)
                       (Setlec.Expr.bvar 1)
-                      { bi := Setlec.BinderInfo.default})
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     (Setlec.Expr.forallE
                       (Setlec.Name.str (Setlec.Name.anonymous) "a")
                       (Setlec.Expr.forallE
@@ -150,9 +150,9 @@ def quotLiftA : ConstantInfo :=
                                   (Setlec.Expr.bvar 4))
                                 (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 2)))
                               (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 1)))
-                            { bi := Setlec.BinderInfo.default})
-                          { bi := Setlec.BinderInfo.default})
-                        { bi := Setlec.BinderInfo.default})
+                            { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                       (Setlec.Expr.forallE
                         (Setlec.Name.str (Setlec.Name.anonymous) "a")
                         (Setlec.Expr.app
@@ -163,12 +163,12 @@ def quotLiftA : ConstantInfo :=
                             (Setlec.Expr.bvar 4))
                           (Setlec.Expr.bvar 3))
                         (Setlec.Expr.bvar 3)
-                        { bi := Setlec.BinderInfo.default})
-                      { bi := Setlec.BinderInfo.default})
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.implicit})
-                { bi := Setlec.BinderInfo.implicit})
-              { bi := Setlec.BinderInfo.implicit} }
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
+              { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
   5
   5
   [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk",
@@ -187,8 +187,8 @@ def quotLiftA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                 (Setlec.Expr.lam
                   (Setlec.Name.str (Setlec.Name.anonymous) "β")
                   (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
@@ -198,7 +198,7 @@ def quotLiftA : ConstantInfo :=
                       (Setlec.Name.str (Setlec.Name.anonymous) "a")
                       (Setlec.Expr.bvar 2)
                       (Setlec.Expr.bvar 1)
-                      { bi := Setlec.BinderInfo.default})
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     (Setlec.Expr.lam
                       (Setlec.Name.str (Setlec.Name.anonymous) "h")
                       (Setlec.Expr.forallE
@@ -221,19 +221,19 @@ def quotLiftA : ConstantInfo :=
                                   (Setlec.Expr.bvar 4))
                                 (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 2)))
                               (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 1)))
-                            { bi := Setlec.BinderInfo.default})
-                          { bi := Setlec.BinderInfo.default})
-                        { bi := Setlec.BinderInfo.default})
+                            { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                       (Setlec.Expr.lam
                         (Setlec.Name.str (Setlec.Name.anonymous) "a")
                         (Setlec.Expr.bvar 4)
                         (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                        { bi := Setlec.BinderInfo.default})
-                      { bi := Setlec.BinderInfo.default})
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
-                { bi := Setlec.BinderInfo.default})
-              { bi := Setlec.BinderInfo.default} }]
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }]
 
 /-- Annotated basis declaration (generated). -/
 def quotIndA : ConstantInfo :=
@@ -252,8 +252,8 @@ def quotIndA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "β")
                   (Setlec.Expr.forallE
@@ -266,7 +266,7 @@ def quotIndA : ConstantInfo :=
                         (Setlec.Expr.bvar 1))
                       (Setlec.Expr.bvar 0))
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                   (Setlec.Expr.forallE
                     (Setlec.Name.str (Setlec.Name.anonymous) "mk")
                     (Setlec.Expr.forallE
@@ -283,7 +283,7 @@ def quotIndA : ConstantInfo :=
                               (Setlec.Expr.bvar 3))
                             (Setlec.Expr.bvar 2))
                           (Setlec.Expr.bvar 0)))
-                      { bi := Setlec.BinderInfo.default})
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     (Setlec.Expr.forallE
                       (Setlec.Name.str (Setlec.Name.anonymous) "q")
                       (Setlec.Expr.app
@@ -294,11 +294,11 @@ def quotIndA : ConstantInfo :=
                           (Setlec.Expr.bvar 3))
                         (Setlec.Expr.bvar 2))
                       (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                      { bi := Setlec.BinderInfo.default})
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.implicit})
-                { bi := Setlec.BinderInfo.implicit})
-              { bi := Setlec.BinderInfo.implicit} }
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
+              { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
   4
   4
   [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk",
@@ -317,8 +317,8 @@ def quotIndA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                 (Setlec.Expr.lam
                   (Setlec.Name.str (Setlec.Name.anonymous) "β")
                   (Setlec.Expr.forallE
@@ -331,7 +331,7 @@ def quotIndA : ConstantInfo :=
                         (Setlec.Expr.bvar 1))
                       (Setlec.Expr.bvar 0))
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                   (Setlec.Expr.lam
                     (Setlec.Name.str (Setlec.Name.anonymous) "mk")
                     (Setlec.Expr.forallE
@@ -348,16 +348,16 @@ def quotIndA : ConstantInfo :=
                               (Setlec.Expr.bvar 3))
                             (Setlec.Expr.bvar 2))
                           (Setlec.Expr.bvar 0)))
-                      { bi := Setlec.BinderInfo.default})
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                     (Setlec.Expr.lam
                       (Setlec.Name.str (Setlec.Name.anonymous) "a")
                       (Setlec.Expr.bvar 3)
                       (Setlec.Expr.app (Setlec.Expr.bvar 1) (Setlec.Expr.bvar 0))
-                      { bi := Setlec.BinderInfo.default})
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
-                { bi := Setlec.BinderInfo.default})
-              { bi := Setlec.BinderInfo.default} }]
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }]
 
 /-- Annotated basis declaration (generated). -/
 def quotSoundA : ConstantInfo :=
@@ -376,8 +376,8 @@ def quotSoundA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default})
-                  { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "a")
                   (Setlec.Expr.bvar 1)
@@ -418,10 +418,10 @@ def quotSoundA : ConstantInfo :=
                               (Setlec.Expr.bvar 4))
                             (Setlec.Expr.bvar 3))
                           (Setlec.Expr.bvar 1)))
-                      { bi := Setlec.BinderInfo.default})
-                    { bi := Setlec.BinderInfo.implicit})
-                  { bi := Setlec.BinderInfo.implicit})
-                { bi := Setlec.BinderInfo.implicit})
-              { bi := Setlec.BinderInfo.implicit} }
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
+                  { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never })
+              { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.never } }
 
 end Setlec

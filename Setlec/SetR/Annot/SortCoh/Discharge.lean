@@ -1224,14 +1224,14 @@ inductive CertZip (μ : CheckMode) (env : Env) (fc d : Nat) :
       CertZip μ env fc d f₁ f₂ → CertZip μ env fc d a₁ a₂ →
       CertZip μ env fc d (.app f₁ a₁) (.app f₂ a₂)
   | lam (n : Name) (ty₁ ty₂ body₁ body₂ : Expr)
-      (m : Setlec.BinderMeta) :
+      (m₁ m₂ : Setlec.BinderMeta) :
       CertZip μ env fc d ty₁ ty₂ → CertZip μ env fc d body₁ body₂ →
-      CertZip μ env fc d (.lam n ty₁ body₁ m) (.lam n ty₂ body₂ m)
+      CertZip μ env fc d (.lam n ty₁ body₁ m₁) (.lam n ty₂ body₂ m₂)
   | forallE (n : Name) (ty₁ ty₂ body₁ body₂ : Expr)
-      (m : Setlec.BinderMeta) :
+      (m₁ m₂ : Setlec.BinderMeta) :
       CertZip μ env fc d ty₁ ty₂ → CertZip μ env fc d body₁ body₂ →
-      CertZip μ env fc d (.forallE n ty₁ body₁ m)
-        (.forallE n ty₂ body₂ m)
+      CertZip μ env fc d (.forallE n ty₁ body₁ m₁)
+        (.forallE n ty₂ body₂ m₂)
   | letE (n : Name) (ty₁ ty₂ v₁ v₂ body₁ body₂ : Expr) :
       CertZip μ env fc d ty₁ ty₂ → CertZip μ env fc d v₁ v₂ →
       CertZip μ env fc d body₁ body₂ →
@@ -1391,8 +1391,9 @@ theorem certZip_instantiate {μ : CheckMode} {env : Env} {fc d : Nat}
         Setlec.Level.eval_subst φ' lps us' l,
         substFn_eval_congr (hev φ')]
   | app f a ihf iha => exact .app _ _ _ _ ihf iha
-  | lam n ty body m iht ihb => exact .lam _ _ _ _ _ _ iht ihb
-  | forallE n ty body m iht ihb => exact .forallE _ _ _ _ _ _ iht ihb
+  | lam n ty body m iht ihb => exact .lam _ _ _ _ _ _ _ iht ihb
+  | forallE n ty body m iht ihb =>
+    exact .forallE _ _ _ _ _ _ _ iht ihb
   | letE n ty val body iht ihv ihb =>
     exact .letE _ _ _ _ _ _ _ iht ihv ihb
   | lit l => exact .refl _
@@ -1559,11 +1560,11 @@ theorem certZip_instantiate1 {μ : CheckMode} {env : Env} {fc d : Nat}
   | lam n ty body m iht ihb =>
     intro k
     simp only [Setlec.Expr.instantiate1]
-    exact .lam _ _ _ _ _ _ (iht k) (ihb (k + 1))
+    exact .lam _ _ _ _ _ _ _ (iht k) (ihb (k + 1))
   | forallE n ty body m iht ihb =>
     intro k
     simp only [Setlec.Expr.instantiate1]
-    exact .forallE _ _ _ _ _ _ (iht k) (ihb (k + 1))
+    exact .forallE _ _ _ _ _ _ _ (iht k) (ihb (k + 1))
   | letE n ty val body iht ihv ihb =>
     intro k
     simp only [Setlec.Expr.instantiate1]
@@ -1599,14 +1600,14 @@ theorem certZip_subst {μ : CheckMode} {env : Env} {fc d : Nat}
     intro k
     simp only [Setlec.Expr.instantiate1]
     exact .app _ _ _ _ (ihf k) (ihx k)
-  | lam n ty₁ ty₂ b₁ b₂ m hty hbody iht ihb =>
+  | lam n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody iht ihb =>
     intro k
     simp only [Setlec.Expr.instantiate1]
-    exact .lam _ _ _ _ _ _ (iht k) (ihb (k + 1))
-  | forallE n ty₁ ty₂ b₁ b₂ m hty hbody iht ihb =>
+    exact .lam _ _ _ _ _ _ _ (iht k) (ihb (k + 1))
+  | forallE n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody iht ihb =>
     intro k
     simp only [Setlec.Expr.instantiate1]
-    exact .forallE _ _ _ _ _ _ (iht k) (ihb (k + 1))
+    exact .forallE _ _ _ _ _ _ _ (iht k) (ihb (k + 1))
   | letE n ty₁ ty₂ v₁ v₂ b₁ b₂ hty hval hbody iht ihv ihb =>
     intro k
     simp only [Setlec.Expr.instantiate1]
@@ -2114,11 +2115,11 @@ theorem zipWhnfSortAgree_of {φ : Name → Nat}
         exact nomatch (loop_stuck_out hm ha
           (whnfCore_fvar_run (Nat.le_refl 1))
           (fun _ => reduceNat_fvar) unfoldDefinition_fvar)
-      | lam n ty₁ ty₂ b₁ b₂ m hty hbody =>
+      | lam n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody =>
         exact nomatch (loop_stuck_out hm ha
           (whnfCore_lam_run (Nat.le_refl 1))
           (fun _ => reduceNat_lam) unfoldDefinition_lam)
-      | forallE n ty₁ ty₂ b₁ b₂ m hty hbody =>
+      | forallE n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody =>
         exact nomatch (loop_stuck_out hm ha
           (whnfCore_forallE_run (Nat.le_refl 1))
           (fun _ => reduceNat_forallE) unfoldDefinition_forallE)
@@ -2888,17 +2889,17 @@ theorem certZip_app_view {μ : CheckMode} {env : Env} {fc d : Nat} :
       (fun j h₁ _ => absurd h₁ (Nat.not_lt_zero j)),
       Or.inr ⟨(fun p q h => nomatch h), (fun p q h => nomatch h),
         CertZip.fvar _ _ _ _ hty⟩⟩
-  | lam n ty₁ ty₂ b₁ b₂ m hty hbody ihty ihbody =>
-    exact ⟨.lam n ty₁ b₁ m, .lam n ty₂ b₂ m, [], [], rfl, rfl, rfl,
+  | lam n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody ihty ihbody =>
+    exact ⟨.lam n ty₁ b₁ m₁, .lam n ty₂ b₂ m₂, [], [], rfl, rfl, rfl,
       (fun i h₁ _ => absurd h₁ (Nat.not_lt_zero i)),
       Or.inr ⟨(fun p q h => nomatch h), (fun p q h => nomatch h),
-        CertZip.lam _ _ _ _ _ _ hty hbody⟩⟩
-  | forallE n ty₁ ty₂ b₁ b₂ m hty hbody ihty ihbody =>
-    exact ⟨.forallE n ty₁ b₁ m, .forallE n ty₂ b₂ m, [], [], rfl,
+        CertZip.lam _ _ _ _ _ _ _ hty hbody⟩⟩
+  | forallE n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody ihty ihbody =>
+    exact ⟨.forallE n ty₁ b₁ m₁, .forallE n ty₂ b₂ m₂, [], [], rfl,
       rfl, rfl,
       (fun i h₁ _ => absurd h₁ (Nat.not_lt_zero i)),
       Or.inr ⟨(fun p q h => nomatch h), (fun p q h => nomatch h),
-        CertZip.forallE _ _ _ _ _ _ hty hbody⟩⟩
+        CertZip.forallE _ _ _ _ _ _ _ hty hbody⟩⟩
   | letE n ty₁ ty₂ v₁ v₂ b₁ b₂ hty hval hbody ihty ihval ihbody =>
     exact ⟨.letE n ty₁ v₁ b₁, .letE n ty₂ v₂ b₂, [], [], rfl, rfl,
       rfl,
@@ -3258,22 +3259,22 @@ induction). -/
 def ZipLamHeadCase (μ : CheckMode) (env : Env) (φ : Name → Nat)
     (Q : Nat → Expr → Expr → Prop) : Prop :=
   ∀ {fc d ga la gb lb : Nat} {n : Name} {ty₁ ty₂ b₁ b₂ : Expr}
-    {m : Setlec.BinderMeta} {as bs : List Expr} {ℓa ℓb : Level},
+    {m₁ m₂ : Setlec.BinderMeta} {as bs : List Expr} {ℓa ℓb : Level},
     ZipBelow μ env φ Q fc (ga + gb) (la + lb) →
     CertZip μ env fc d ty₁ ty₂ → CertZip μ env fc d b₁ b₂ →
     as.length = bs.length →
     (∀ i (h₁ : i < as.length) (h₂ : i < bs.length),
       CertZip μ env fc d as[i] bs[i]) →
-    SubjInv d (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m) as) →
-    SubjInv d (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m) bs) →
-    PairedLeaves (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m) as)
-      (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m) bs) →
-    Q d (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m) as)
-      (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m) bs) →
+    SubjInv d (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m₁) as) →
+    SubjInv d (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m₂) bs) →
+    PairedLeaves (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m₁) as)
+      (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m₂) bs) →
+    Q d (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m₁) as)
+      (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m₂) bs) →
     Setlec.whnfLoop (Setlec.pureFns μ env ga) env d la
-      (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m) as) = .ok (.sort ℓa) →
+      (Setlec.Expr.mkAppN (.lam n ty₁ b₁ m₁) as) = .ok (.sort ℓa) →
     Setlec.whnfLoop (Setlec.pureFns μ env gb) env d lb
-      (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m) bs) = .ok (.sort ℓb) →
+      (Setlec.Expr.mkAppN (.lam n ty₂ b₂ m₂) bs) = .ok (.sort ℓb) →
     ℓa.eval φ = ℓb.eval φ
 
 /-- letE-headed spines (zeta under application, knot-paid). -/
@@ -3345,7 +3346,7 @@ theorem zipSpineFlatCase_of {φ : Name → Nat}
       hba hbb hc hlen hargs hIs hIt hp hQ ha hb
   | constSlack n us us' hev =>
     exact hConst below hev hlen hargs hIs hIt hp hQ ha hb
-  | lam n ty₁ ty₂ b₁ b₂ m hty hbody =>
+  | lam n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody =>
     exact hLam below hty hbody hlen hargs hIs hIt hp hQ ha hb
   | letE n ty₁ ty₂ v₁ v₂ b₁ b₂ hty hval hbody =>
     exact hLetE below hty hval hbody hlen hargs hIs hIt hp hQ ha hb
@@ -3388,19 +3389,19 @@ theorem zipSpineFlatCase_of {φ : Name → Nat}
         mkAppN_cons_app (F := Expr.fvar i n ty₁) (a := a) (as := as')
       rw [hpq] at h1
       exact nomatch h1
-  | forallE n ty₁ ty₂ b₁ b₂ m hty hbody =>
-    have h1 := spine_inert_out hm (F := .forallE n ty₁ b₁ m)
+  | forallE n ty₁ ty₂ b₁ b₂ m₁ m₂ hty hbody =>
+    have h1 := spine_inert_out hm (F := .forallE n ty₁ b₁ m₁)
       (as := as)
       (fun g hg => whnfCore_forallE_run hg)
       (fun _ _ _ _ h => nomatch h)
       (fun n' us' h => nomatch
-        ((show (Expr.forallE n ty₁ b₁ m).getAppFn
-          = Expr.forallE n ty₁ b₁ m from rfl) ▸ h)) ha
+        ((show (Expr.forallE n ty₁ b₁ m₁).getAppFn
+          = Expr.forallE n ty₁ b₁ m₁ from rfl) ▸ h)) ha
     cases as with
     | nil => exact nomatch h1
     | cons a as' =>
       obtain ⟨p, q, hpq⟩ := mkAppN_cons_app
-        (F := Expr.forallE n ty₁ b₁ m) (a := a) (as := as')
+        (F := Expr.forallE n ty₁ b₁ m₁) (a := a) (as := as')
       rw [hpq] at h1
       exact nomatch h1
   | refl _ =>

@@ -2163,7 +2163,7 @@ def annotateProjRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           let recC ← internI (.const recI (uf ++ us))
           let tI ← internNameM (.str .anonymous "t")
           let motive ← internI
-            (.lam tI te fi ⟨.default⟩)
+            (.lam tI te fi ⟨.default, .never⟩)
           let raw ← mkAppNM recC (params ++ [motive, minor, e'])
           if ← withStore (fun st => st.wscopedBI depth raw &&
               st.looseBVarsBoundedI 0 raw &&
@@ -2212,13 +2212,13 @@ def annotateProjElimI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (sn : NIdx)
 
 /-- Stack entry of the annotation loops: binder name, annotated opened
 domain, binder info. -/
-abbrev AnnotBinderEntry := NIdx × EIdx × BinderInfo
+abbrev AnnotBinderEntry := NIdx × EIdx × IBinderMeta
 
 /-- Rebuild loop of the annotation binder-telescope loops: fold the
 stack (innermost binder first, `j` its binder level), rebuilding one
 binder node per entry (task #100 stage 6: the annotation pass is a
 pure normalizer at binders — no annotations to compute, no checks). -/
-def annotateBindersOutI (mk : NIdx → EIdx → EIdx → BinderInfo → ENode)
+def annotateBindersOutI (mk : NIdx → EIdx → EIdx → IBinderMeta → ENode)
     (d : Nat) :
     List AnnotBinderEntry → Nat → EIdx → CheckIM EIdx
   | [], _j, cur => pure cur
@@ -2234,7 +2234,7 @@ def annotatePisLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
   let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
   let cur ← abstractRangeM leaf' d k
-  annotateBindersOutI (fun n ty b bi => .forallE n ty b ⟨bi⟩) d
+  annotateBindersOutI (fun n ty b mb => .forallE n ty b mb) d
     stk (k - 1) cur
 
 /-- ∀-telescope annotation loop (task #72; `annotateBodyI`'s forallE
@@ -2250,7 +2250,7 @@ def annotatePisI (r : CoreFnsI) (d : Nat) :
       let ty' ← r.annotate (d + k) tyo
       let fv ← internI (.fvar (d + k) n ty')
       annotatePisI r d fuel body (k + 1) (fvs.push fv)
-        ((n, ty', mb.bi) :: stk)
+        ((n, ty', mb) :: stk)
     | _ => annotatePisLeafI r d t k fvs stk
   | 0, t, k, fvs, stk => annotatePisLeafI r d t k fvs stk
 
@@ -2261,7 +2261,7 @@ def annotateLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
   let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
   let cur ← abstractRangeM leaf' d k
-  annotateBindersOutI (fun n ty b bi => .lam n ty b ⟨bi⟩) d
+  annotateBindersOutI (fun n ty b mb => .lam n ty b mb) d
     stk (k - 1) cur
 
 /-- λ-telescope annotation loop (task #72; `annotateBodyI`'s lam
@@ -2275,7 +2275,7 @@ def annotateLamsI (r : CoreFnsI) (d : Nat) :
       let ty' ← r.annotate (d + k) tyo
       let fv ← internI (.fvar (d + k) n ty')
       annotateLamsI r d fuel body (k + 1) (fvs.push fv)
-        ((n, ty', mb.bi) :: stk)
+        ((n, ty', mb) :: stk)
     | _ => annotateLamsLeafI r d t k fvs stk
   | 0, t, k, fvs, stk => annotateLamsLeafI r d t k fvs stk
 
@@ -2308,7 +2308,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       let ty' ← r.annotate depth ty
       let fv ← internI (.fvar depth n ty')
       let fuel ← withStore (·.nodes.size)
-      annotatePisI r depth fuel body 1 #[fv] [(n, ty', mb.bi)]
+      annotatePisI r depth fuel body 1 #[fv] [(n, ty', mb)]
     | some (.lam n ty body mb) => do
       -- The λ-loop is chain-identical only on bvar-closed nodes (the
       -- chained tails re-open exactly what they closed); disciplined
@@ -2317,14 +2317,14 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')
         let fuel ← withStore (·.nodes.size)
-        annotateLamsI r depth fuel body 1 #[fv] [(n, ty', mb.bi)]
+        annotateLamsI r depth fuel body 1 #[fv] [(n, ty', mb)]
       else do
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')
         let ob ← inst1M body fv
         let body' ← r.annotate (depth + 1) ob
         let bAbs ← abstract1M body' depth
-        internI (.lam n ty' bAbs ⟨mb.bi⟩)
+        internI (.lam n ty' bAbs ⟨mb.bi, mb.pw⟩)
     | some (.letE _ ty v b) => do
       -- official `infer_let` check order (see the spec body): the
       -- annotation is a type, the value's inferred type matches it,

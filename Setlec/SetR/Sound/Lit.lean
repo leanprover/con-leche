@@ -68,7 +68,7 @@ theorem natHeads_facts (henv : EnvSHyp V env cval φ)
           (cv1.type.instantiateLevelParams cv1.levelParams []) = _
         rw [hlpS, hTS]
         show denote cval env φ 0
-          (.forallE nm (.const natName []) (.const natName []) mb) = _
+          (.forallE nm (.const natName []) (.const natName []) _) = _
         rw [denote_forallE, hK 0]
         simp only [Expr.instantiate1, hK 1]) ρ
     have hmem := h.1
@@ -192,7 +192,7 @@ theorem strLit_facts (henv : EnvSHyp V env cval φ)
         simp only [Expr.instantiateLevelParams, Level.subst,
           Level.subst.go]
         show denote cval env φ 0
-          (.forallE nmL (.sort (.succ .zero)) (.sort (.succ .zero)) mbL)
+          (.forallE nmL (.sort (.succ .zero)) (.sort (.succ .zero)) _)
           = _
         rw [denote_forallE, denote_sort]
         simp +decide [Expr.instantiate1, denote_sort, Level.eval]) ρ
@@ -224,7 +224,7 @@ theorem strLit_facts (henv : EnvSHyp V env cval φ)
       Level.subst.go, List.map_cons, List.map_nil]
     show denote cval env φ 0
       (.forallE nmN (.sort (.succ .zero))
-        (.app (.const listName [.zero]) (.bvar 0)) mbN) = _
+        (.app (.const listName [.zero]) (.bvar 0)) _) = _
     rw [denote_forallE, denote_sort]
     simp +decide only [Expr.instantiate1, denote_app, hKL 1,
       denote_fvar, Level.eval, if_true, Nat.reduceSub]
@@ -286,7 +286,7 @@ theorem strLit_facts (henv : EnvSHyp V env cval φ)
       (.forallE nm1 (.sort (.succ .zero))
         (.forallE nm2 (.bvar 0)
           (.forallE nm3 (.app (.const listName [.zero]) (.bvar 1))
-            (.app (.const listName [.zero]) (.bvar 2)) mb3) mb2) mb1)
+            (.app (.const listName [.zero]) (.bvar 2)) _) _) _)
       = _
     rw [denote_forallE, denote_sort]
     simp +decide only [Expr.instantiate1, denote_forallE, denote_fvar,
@@ -319,7 +319,7 @@ theorem strLit_facts (henv : EnvSHyp V env cval φ)
     · rwa [hlpF] at h
     rw [hlpF, hTF]
     show denote cval env φ 0
-      (.forallE nmF (.const natName []) (.const charName []) mbF) = _
+      (.forallE nmF (.const natName []) (.const charName []) _) = _
     obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hfNat, -, -, hlpNat, -⟩ :=
       natLitSupported_inv hs
     have hKn : denote cval env φ 0 (.const natName []) =
@@ -476,7 +476,7 @@ theorem strLit_facts (henv : EnvSHyp V env cval φ)
     show denote cval env φ 0
       (.forallE nmO
         (.app (.const listName [.zero]) (.const charName []))
-        (.const stringName []) mbO) = _
+        (.const stringName []) _) = _
     rw [denote_forallE, denote_app, hKL 0, hKH 0]
     have hKS : denote cval env φ 1 (.const stringName []) =
         some (cval stringName (Level.substFn φ [] [])) := by

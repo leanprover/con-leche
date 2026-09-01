@@ -2014,7 +2014,7 @@ def annotateProjRec (r : CoreFns m) (env : Env) (depth : Nat)
           let uf := if entry.recExtraLevel then [sfi] else []
           let raw := Expr.mkAppN
             (.const (entry.structName.str "rec") (uf ++ us))
-            (params ++ [.lam (.str .anonymous "t") te fi ⟨.default⟩,
+            (params ++ [.lam (.str .anonymous "t") te fi ⟨.default, .never⟩,
               minor, e'])
           if raw.wscopedB depth && raw.looseBVarsBounded 0 &&
               raw.fvarLeaves.all (fun l => e'.fvarLeaves.contains l) then
@@ -2110,11 +2110,11 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- body via the ∀/λ rules)
       let ty' ← r.annotate depth ty
       let body' ← r.annotate (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-      pure (.forallE n ty' (body'.abstract1 depth) ⟨mb.bi⟩)
+      pure (.forallE n ty' (body'.abstract1 depth) ⟨mb.bi, mb.pw⟩)
     | .lam n ty body mb => do
       let ty' ← r.annotate depth ty
       let body' ← r.annotate (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-      pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi⟩)
+      pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi, mb.pw⟩)
     | .letE _ ty v b => do
       -- The official kernel's `infer_let` check order (`!infer_only`):
       -- the annotation is a type (`ensure_sort_core(infer(type))`), the
