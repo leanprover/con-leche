@@ -652,4 +652,98 @@ theorem defeqStep_claimP {m : EnvS2UM V μ env} {fuel : Nat}
               exact hk h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hd2
                 hdb' hokA' hokB' ρ hρ
 
+/-! ## T4 — the binder congruence's two premises -/
+
+/-- An application's argument frame, P currency (`frame_appArg2D`). -/
+private theorem dq_frame_appArgP {m : EnvS2UM V μ env} {d : Nat}
+    {Δa : List AVExpr} {f x : Expr}
+    (hws : Expr.WScoped d (.app f x))
+    (hb : (Expr.app f x).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.app f x))
+    (hC : CtxOkP m φ d Δa (.app f x)) :
+    Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x := by
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  exact ⟨hws.2, hb.2,
+    fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]), hC.app_arg⟩
+
+/-- **The binder congruence's two premises, P currency.**
+`binder_congr2D` verbatim modulo the currency: the opened contexts are
+`CtxOkP.openS` on the left (its own domain) and `CtxOkP.openCongC` on
+the right (the *left* domain, across the domains' semantic agreement),
+and `hdom` — `ihd`'s own conclusion — is computed once and used for
+both the congruence's first component and `openCongC`'s transport.
+
+The gradings come in at `AnnotOkP`, which is what `CtxOkP`'s leaf
+package and `DefEqClaims2P`'s premises both speak. -/
+theorem binder_congrP {m : EnvS2UM V μ env} {fuel : Nat}
+    (ihd : DefEqClaims2P μ m φ fuel)
+    {d : Nat} {Δa : List AVExpr} {n₁ n₂ : Name}
+    {ty₁ bd₁ ty₂ bd₂ : Expr} {ta₁ ba₁ ta₂ ba₂ : AVExpr}
+    (hdt : isDefEqCore μ env fuel d ty₁ ty₂ = .ok true)
+    (hdd : isDefEqCore μ env fuel (d + 1)
+      (bd₁.instantiate1 (.fvar d n₁ ty₁))
+      (bd₂.instantiate1 (.fvar d n₂ ty₂)) = .ok true)
+    (hwt₁ : Expr.WScoped d ty₁) (hbt₁ : ty₁.looseBVarsBounded 0 = true)
+    (hLt₁ : Expr.LeavesBounded ty₁)
+    (hCt₁ : CtxOkP m φ d Δa ty₁)
+    (hwb₁ : Expr.WScoped d bd₁) (hbb₁ : bd₁.looseBVarsBounded 1 = true)
+    (hLb₁ : Expr.LeavesBounded bd₁)
+    (hCb₁ : CtxOkP m φ d Δa bd₁)
+    (hwt₂ : Expr.WScoped d ty₂) (hbt₂ : ty₂.looseBVarsBounded 0 = true)
+    (hLt₂ : Expr.LeavesBounded ty₂)
+    (hCt₂ : CtxOkP m φ d Δa ty₂)
+    (hwb₂ : Expr.WScoped d bd₂) (hbb₂ : bd₂.looseBVarsBounded 1 = true)
+    (hLb₂ : Expr.LeavesBounded bd₂)
+    (hCb₂ : CtxOkP m φ d Δa bd₂)
+    (hta₁ : denoteP m.acval env φ d ty₁ = some ta₁)
+    (hva₁ : denoteP m.acval env φ (d + 1)
+      (bd₁.instantiate1 (.fvar d n₁ ty₁)) = some ba₁)
+    (hta₂ : denoteP m.acval env φ d ty₂ = some ta₂)
+    (hva₂ : denoteP m.acval env φ (d + 1)
+      (bd₂.instantiate1 (.fvar d n₂ ty₂)) = some ba₂)
+    (hoT₁ : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ ta₁)
+    (hoT₂ : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ ta₂)
+    (hoB₁ : ∀ σ : Nat → V, Sat2 V (ta₁ :: Δa) σ → AnnotOkP V σ ba₁)
+    (hoB₂ : ∀ σ : Nat → V, Sat2 V (ta₂ :: Δa) σ → AnnotOkP V σ ba₂)
+    (ρ : Nat → V) (hρ : Sat2 V Δa ρ) :
+    interp2 V ρ ta₁ = interp2 V ρ ta₂ ∧
+      ∀ x, x ∈ˢ interp2 V ρ ta₁ →
+        interp2 V (cons x ρ) ba₁ = interp2 V (cons x ρ) ba₂ := by
+  have hdom : ∀ σ : Nat → V, Sat2 V Δa σ →
+      interp2 V σ ta₁ = interp2 V σ ta₂ :=
+    ihd hdt hwt₁ hbt₁ hLt₁ hwt₂ hbt₂ hLt₂ hCt₁ hCt₂ hta₁ hta₂
+      hoT₁ hoT₂
+  have hLo₁ : Expr.LeavesBounded
+      (bd₁.instantiate1 (.fvar d n₁ ty₁)) := by
+    intro l hl
+    rcases Expr.fvarLeaves_instantiate1 bd₁ 0 hl with h2 | h2
+    · exact hLb₁ l h2
+    · rw [Expr.fvarLeaves] at h2
+      rcases List.mem_cons.mp h2 with rfl | h3
+      · exact hbt₁
+      · exact hLt₁ l h3
+  have hLo₂ : Expr.LeavesBounded
+      (bd₂.instantiate1 (.fvar d n₂ ty₂)) := by
+    intro l hl
+    rcases Expr.fvarLeaves_instantiate1 bd₂ 0 hl with h2 | h2
+    · exact hLb₂ l h2
+    · rw [Expr.fvarLeaves] at h2
+      rcases List.mem_cons.mp h2 with rfl | h3
+      · exact hbt₂
+      · exact hLt₂ l h3
+  refine ⟨hdom ρ hρ, ?_⟩
+  intro x hx
+  exact ihd (Δa := ta₁ :: Δa) hdd
+    (Expr.WScoped.instantiate1 hwt₁ 0 hwb₁)
+    (Setlec.looseBVarsBounded_instantiate1 bd₁ 0 hbb₁) hLo₁
+    (Expr.WScoped.instantiate1 hwt₂ 0 hwb₂)
+    (Setlec.looseBVarsBounded_instantiate1 bd₂ 0 hbb₂) hLo₂
+    (CtxOkP.openS hCt₁ hCb₁ hta₁ hoT₁)
+    (CtxOkP.openCongC hCb₂ hCt₂ hta₂ hoT₂ hdom)
+    hva₁ hva₂ hoB₁
+    (fun σ hσ => hoB₂ σ (Sat2.head_congr hdom hσ)) (cons x ρ)
+    (Sat2_cons V hρ hx)
+
 end Setlec.SetR.Interp2
