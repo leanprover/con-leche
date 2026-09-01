@@ -609,7 +609,8 @@ theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
   | false => exact nomatch h
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
-  refine ⟨type, value', hcv, fun φ => ?_,
+  refine ⟨type, value', hcv, ⟨stype2, u2, hst2, hsort2, hpz⟩,
+    fun φ => ?_,
     valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt hde
       hcv,
     h.symm⟩

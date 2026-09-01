@@ -278,6 +278,16 @@ def DeclThmR (μ : CheckMode) (F : Nat) (env : Env) (cval : TConstVal)
     (cv : ConstantVal) (value : Expr) (env₂ : Env) : Prop :=
   ∃ type' value',
     ConstantValR μ F env cval cv type' ∧
+    -- task #161 P4 H1: the is-a-proposition check's **own three runs**
+    -- (`Setlec/Kernel/Checker.lean:382-385`), in the checker's literal
+    -- order.  Note these are *not* `ConstantValR`'s pair: that pack
+    -- records `checkConstantVal`'s chain, and `checkThmVal` re-runs
+    -- `inferType`/`ensureSort` on the annotated type from scratch, so
+    -- the intermediates are separately named here.  The level test is
+    -- `Level.isEquiv` under `liftFueled`, i.e. literally `some true`.
+    (∃ stype u, inferTypeCore μ env F 0 type' = .ok stype ∧
+      ensureSortCore μ env F 0 stype = .ok u ∧
+      Level.isEquiv u .zero = some true) ∧
     -- the type is a proposition (`checkThmVal`'s `ensureSort` +
     -- `Level.isEquiv u .zero`, absorbed to the ground sort `0`)
     (∀ φ : Name → Nat,

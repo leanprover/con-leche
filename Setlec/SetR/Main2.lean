@@ -162,7 +162,7 @@ theorem declStep2All_of {μ : CheckMode} (hval : DeclValue2S V μ)
         exact heq.2.1)
       (fun cv2 v2 heq => nomatch heq)
   | thmDecl cv value =>
-    obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := h
+    obtain ⟨type', value', hcv, -, -, hvfr, rfl⟩ := h
     exact hval m hcv hvfr rfl (fun cv2 v2 h2 heq => nomatch heq)
       (fun cv2 v2 heq => by
         simp only [ConstantInfo.thmInfo.injEq] at heq
@@ -258,7 +258,7 @@ theorem declStep2AllM_of {μ : CheckMode} (hval : DeclValue2SM V μ)
         exact heq.2.1)
       (fun cv2 v2 heq => nomatch heq)
   | thmDecl cv value =>
-    obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := h
+    obtain ⟨type', value', hcv, -, -, hvfr, rfl⟩ := h
     exact hval m hcv hvfr rfl (fun cv2 v2 h2 heq => nomatch heq)
       (fun cv2 v2 heq => by
         simp only [ConstantInfo.thmInfo.injEq] at heq
@@ -391,7 +391,7 @@ theorem declStep2AllM_ofR {μ : CheckMode} (hval : DeclValue2SM V μ)
         exact heq.2.1)
       (fun cv2 v2 heq => nomatch heq)
   | thmDecl cv value =>
-    obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := h
+    obtain ⟨type', value', hcv, -, -, hvfr, rfl⟩ := h
     exact hval m hcv hvfr rfl (fun cv2 v2 h2 heq => nomatch heq)
       (fun cv2 v2 heq => by
         simp only [ConstantInfo.thmInfo.injEq] at heq
