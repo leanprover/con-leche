@@ -253,13 +253,14 @@ theorem certs_telePA {m : EnvS2Core V env}
       DenoteSpineP m.acval env φ d args vs →
       ∃ resta : AVExpr,
         (∀ ρ : Nat → V, Sat2 V Δa ρ → TeleFitPA V ρ Ta vs resta) ∧
-        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ resta) := by
+        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ resta) ∧
+        (∀ x ∈ vs, ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ x) := by
   intro d Δa ty args
   induction args generalizing ty with
   | nil =>
     intro vs Ta _ _ _ _ _ _ hokT _ hsp
     cases hsp
-    exact ⟨Ta, fun _ _ => .nil, hokT⟩
+    exact ⟨Ta, fun _ _ => .nil, hokT, by simp⟩
   | cons a as ih =>
     intro vs Ta hc hwty hbty hLbty hCty hity hokT hargs hsp
     match ty, hc, hwty, hbty, hLbty, hCty, hity with
@@ -338,12 +339,15 @@ theorem certs_telePA {m : EnvS2Core V env}
       (AnnotOkP_inst0 (hokA ρ hρ)).mpr
         (hokBody ρ hρ _ ((hdeq ρ hρ) ▸ hmemA ρ hρ))
     -- the tail, and the fit
-    obtain ⟨resta, hfit, hokR⟩ :=
+    obtain ⟨resta, hfit, hokR, hokAs⟩ :=
       ih (body.instantiate1 a) _ _ hrestc hwbody hbbody hLbbody hCbody
         hbody' hokBody' (fun x hx => hargs x (List.mem_cons_of_mem a hx))
         hsp'
-    exact ⟨resta, fun ρ hρ =>
-      .cons ((hdeq ρ hρ) ▸ hmemA ρ hρ) (hfit ρ hρ), hokR⟩
+    refine ⟨resta, fun ρ hρ =>
+      .cons ((hdeq ρ hρ) ▸ hmemA ρ hρ) (hfit ρ hρ), hokR, fun x hx => ?_⟩
+    rcases List.mem_cons.mp hx with rfl | hx'
+    · exact hokA
+    · exact hokAs x hx'
 
 /-! ## From a substitution-peeling fit to a graded application
 
