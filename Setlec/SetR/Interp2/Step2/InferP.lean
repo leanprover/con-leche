@@ -874,4 +874,101 @@ theorem infer_app_claimP (m : EnvS2UM V μ env)
     exact (sound_app V (hrowfE ρ hρ).1 (hrowaE ρ hρ).1 (hf2 ρ hρ)
       (ha2 ρ hρ) (hcod0 ρ hρ)).2
 
+/-! ## The quarter, assembled (T5)
+
+`InferInputs2D`'s six fields become eight, and the deltas are the
+P tier's own:
+
+| `InferInputs2D` | `InferInputsP` |
+|---|---|
+| `const_ty` (`ConstType2C`) | `const_ty` (`ConstTypeP`) |
+| `nat_heads` (`NatHeads2`) | `nat_heads` — **verbatim**, denote-free |
+| `str_lit`, `proj` | the T2 transposes |
+| `sort_sem` (`SortSem2`) | `sort_sem` (`SortSemP`) |
+| `beta` (`BetaCross2C`) | **gone** — `denoteP_beta` is a theorem |
+| — | `acval_valid` (`AcvalValidP`), the leaf bit-validity residue |
+| — | `infer_reads`, `whnf_reads` (the FINDING's totality residues) |
+
+**The step is verified-only.**  The claims stay mode-generic — they
+have to, since `checkSound2P` inducts over them at whatever mode the
+install fixed — but the *step* holds at `μ.verified = true`: the ∀ and
+λ clauses read validation conjuncts that the run inversions produce
+only at that mode.  See the module docstring. -/
+
+/-- **The quarter's routed inputs**, P currency. -/
+structure InferInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
+    Prop where
+  /-- I3: the stored type's annotation, carrying its truthfulness -/
+  const_ty : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
+    ConstTypeP m φ
+  /-- the stored leaves are bit-valid (`AnnotOk2`'s companion; the
+  `acval_ok2` field's `AnnotValidV` half) -/
+  acval_valid : ∀ {env : Env} (m : EnvS2UM V μ env), AcvalValidP m
+  /-- I4: the two numeral head facts, unchanged from the canonical
+  lane -/
+  nat_heads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
+    NatHeads2 m φ
+  /-- I5: the `String`-literal clause -/
+  str_lit : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), InferStrLitStepP m μ φ fuel
+  /-- I9: the projection clause -/
+  proj : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), InferProjStepP m μ φ fuel
+  /-- the sort fact, fuel-free -/
+  sort_sem : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
+    SortSemP m μ φ
+  /-- the inferred type reads (dual-success totality residue) -/
+  infer_reads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), InferReadsP m μ φ fuel
+  /-- the head normal form reads (dual-success totality residue) -/
+  whnf_reads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+    (fuel : Nat), WhnfReadsP m μ φ fuel
+
+/-- **The inference quarter, P currency** — `InferStep2D`'s shape with
+the mode pinned: the four claims at `fuel` give the inference claim at
+`fuel + 1`, at a validating mode. -/
+def InferStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
+  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
+    μ.verified = true →
+    WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
+    DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
+    InferClaims2P μ m φ (fuel + 1)
+
+/-- **`InferStepP`, modulo the routed inputs** — the eleven shapes
+dispatched to the eleven clause lemmas, exactly as `inferStep2D_of`
+does.  Nine are theorems of this file; `.lit (.strVal _)` and `.proj`
+route through the input structure. -/
+theorem inferStepP_of (h : InferInputsP V μ) (hμ : μ.verified = true) :
+    InferStepP μ V := by
+  intro env m φ fuel _hv _ihwc ihw ihd ihi
+  intro d e t Δa hrun hws hb hLb ea ta hC hea hta
+  match e, hrun, hws, hb, hLb, hC, hea with
+  | .sort u, hrun, _, _, _, _, hea =>
+    exact infer_sort_claimP m hrun hea hta
+  | .bvar i, hrun, _, _, _, _, hea =>
+    exact infer_bvar_claimP m hrun hea hta
+  | .fvar idx nm ty, hrun, _, _, _, hC, hea =>
+    exact infer_fvar_claimP m hC hrun hea hta
+  | .const nm us, hrun, _, _, _, _, hea =>
+    exact infer_const_claimP m (h.const_ty m φ) (h.acval_valid m) hrun
+      hea hta
+  | .lit (.natVal k), hrun, _, _, _, _, hea =>
+    exact infer_natLit_claimP m (h.nat_heads m φ) (h.acval_valid m)
+      hrun hea hta
+  | .lit (.strVal s), hrun, _, _, _, _, hea =>
+    exact h.str_lit m φ fuel hrun hea hta
+  | .forallE nm ty body mb, hrun, _, _, _, hC, hea =>
+    exact infer_forallE_claimP m hμ (h.sort_sem m φ) hrun hC hea hta
+  | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
+    exact infer_lam_claimP m hμ (h.sort_sem m φ) ihi hrun hws hb hLb
+      hC hea hta
+  | .app fe ae, hrun, hws, hb, hLb, hC, hea =>
+    exact infer_app_claimP m (h.infer_reads m φ fuel)
+      (h.whnf_reads m φ fuel) ihw ihd ihi hrun hws hb hLb hC hea hta
+  | .letE nm ty val bd, hrun, hws, hb, hLb, hC, hea =>
+    exact infer_letE_claimP m (h.sort_sem m φ) (h.infer_reads m φ fuel)
+      ihi hrun hws hb hLb hC hea hta
+  | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
+    exact h.proj m φ fuel hrun hws hb hLb hC hea hta
+
 end Setlec.SetR.Interp2
