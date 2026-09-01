@@ -11333,3 +11333,55 @@ context) → clause batches per quarter → the step assembly →
 install/env tier (`EnvS2` fields for stored-type validity — where the
 three owed `EnvWF` records fold if natural) → the P capstone
 (`no_proof_of_Empty` over the collapse-free model).
+
+### Task #161 P3.5 interim: the infer quarter at 6/11, the campaign map (2026-09-01)
+
+**Landed by the lane lead** (species examples, all proved, standard
+axioms): `infer_{sort,bvar,fvar,const,forallE,lam}_claimP`
+(`Step2/InferP.lean`).  The two binder clauses are the architecture
+validations: the ∀ clause's four moves (run inversion → `SortSemP` →
+one-line establishment → the `piR_zero_agree` numeral bridge), and the
+λ clause's chain case, where `LamCodSort2` dissolves into
+**impredicativity** (`piR_zero_mem_univZero`) via the meta copy — no
+run, the model's own law.  New routed residues, both by design:
+`SortSemP` (the `SortSem2` transpose, becomes available at the top
+induction) and `AcvalValidP` (leaf bit-validity — the `AnnotValidV`
+companion of `acval_ok2`, discharged at the install tier).
+
+**Batch 1 (merged @ `492a9e36`)**: the full `denoteP` lemma surface,
+21/21 — including `denoteP_envExtend` from
+`FindPreserved`+`LitGuardsAgree` alone (the `SortAgree` Θ-residue
+**gone by construction**) and the depth shift without `EnvWF`.
+Deviation recorded in-file: `denoteP_agree_same` collapses to
+`Option.some.inj` (no fuel to reconcile) — kept for its consumers.
+Worker findings recorded in memory: fresh worktrees need
+`SETLEC_INDUCTIVE_MODELS` for the harness, and worktree bases must be
+verified.
+
+**Batch 2 (running)**: CtxOkP open family, `AnnotValidV_inst` pair +
+`AnnotOkP` transports, `denoteP_substFvarAt`/`denoteP_beta` (the
+substitution crossing — `BetaCross2C`'s successor as a *syntactic*
+equation, the interp2/AnnotOk2 slack deleted).
+
+**The remaining map** (canonical-lane mirror mass ≈ 11k lines):
+
+* **Batch 3** — infer quarter completion: `natLit`/`strLit`/`proj`
+  (routed-residue transposes + spine gradings via `AcvalValidP`),
+  `letE` (ζ via `denoteP_beta`), `app` (the β/kind split), and the
+  two `TODO(#161-P3.5)` `hCop` premises replaced by `CtxOkP.openS`.
+* **Batch 4** — the whnf/whnfCore quarters (`Whnf.lean` 3.2k):
+  `Delta2P` stays routed (fuel-free form; the install tier discharges
+  it through the P env structure's `acval_defnP` + the *proved*
+  `denotePInstLevels` — the canonical lane's `delta2_refuted` wall
+  falls with the fuel); ζ/β rows on `denoteP_beta`; iota/nat/str rows
+  currency-mechanical.
+* **Batch 5** — the defeq quarter (`DefEqRun.lean` 4.7k): residue 9's
+  uses replaced by the arm's own check extraction (positive form of
+  the P2 extraction idiom) + `pwBit_eq_of_equiv`; the v1 relational
+  scaffolding (`defeqR_at`, `CtxOkR`) is kept verbatim — it works
+  through erasure, and `denoteP_erase` lands on the same `denote`.
+* **Then**: the step assembly (`checkStep2P_of_quarters`, at
+  `μ.verified = true`), the install/env tier (the P env structure:
+  `acval_defnP` fuel-free, `AcvalValidP` established from the front
+  door; the three owed `EnvWF` records fold here if natural), and the
+  P capstone: `no_proof_of_Empty` over the collapse-free model.
