@@ -119,6 +119,8 @@ import Setlec.SetR.Interp2.Step2.ReadsP
 import Setlec.SetR.Interp2.Step2.NatP
 import Setlec.SetR.Interp2.Step2.TiersP
 import Setlec.SetR.Interp2.InstallP
+import Setlec.SetR.Interp2.NatEqsP
+import Setlec.SetR.Interp2.NatSemP
 import Setlec.SetR.Interp2.CapstoneP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP

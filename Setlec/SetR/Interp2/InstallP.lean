@@ -145,7 +145,17 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
             · rw [acvalWith_ne hn, mp.base2.acval_erase, hag n hn],
          acvalWith_closed mp.base2.acval_closed hAclosed,
          acvalWith_params mp.base2.acval_params hAparams,
-         acvalWith_ok2 mp.base2.acval_ok2 hAok⟩ φ) :
+         acvalWith_ok2 mp.base2.acval_ok2 hAok⟩ φ)
+    (hnat_ops : ∀ φ : Name → Nat,
+      NatOpsP (V := V)
+        (⟨hbase, acvalWith mp.base2.acval c₀.name A,
+         by intro n ψ
+            by_cases hn : n = c₀.name
+            · subst hn; rw [acvalWith_self]; exact hAerase ψ
+            · rw [acvalWith_ne hn, mp.base2.acval_erase, hag n hn],
+         acvalWith_closed mp.base2.acval_closed hAclosed,
+         acvalWith_params mp.base2.acval_params hAparams,
+         acvalWith_ok2 mp.base2.acval_ok2 hAok⟩ : EnvS2Core V _) φ) :
     Nonempty (EnvS2PM V μ ⟨c₀ :: env.consts⟩) := by
   have hbound := envWF_constsBound mp.base2.base.wf
   have hne : ∀ c ∈ env.consts, c.name ≠ c₀.name := by
@@ -254,6 +264,7 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     type_okP := hto
     mem_typeP := hmt
     defn_reads := hdr
-    nat_heads := hnh }⟩
+    nat_heads := hnh
+    nat_ops := hnat_ops }⟩
 
 end Setlec.SetR.Interp2

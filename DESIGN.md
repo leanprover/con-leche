@@ -11951,6 +11951,67 @@ remainder scoped as above; the caps/proj-str/iota notes stand, with
 the caps note CORRECTED: do not attempt the erasure transfer — the
 caps laws need the run-certificate route (the caps certs' defeq runs
 exposed, then the P claims), not the v1 law transfer.
+
+## Task #161 RULING: the pin comparison stays `erasePw`-shaped (2026-09-01)
+
+The pass branch (agent/annot-pass @ c9f865be) made
+`ConstantVal.matchesPin` compare types through a new `Expr.erasePw`
+(pw data normalized to `.never`; `eraseNames` untouched).  The owed
+decision — that form versus threading the mode into `stdAxiomOk` and
+selecting raw-vs-annotated pins — is RULED for `erasePw`, for the
+proof tier's reasons:
+
+1. **The collapse lane pays nothing.**  `denote` reads neither binder
+   names nor binder metas (`Verify/Denote.lean:198-211` — `m` is
+   unbound in both binder clauses), so `denote (erasePw e) = denote e`
+   is a clean structural induction and every v1 consumer of a
+   `matchesPin` hit (`SetR/Install/Axiom.lean`, `SetR/StdAxiomKey.lean`)
+   keeps computing on the pin as before, plus one transparency lemma.
+2. **The P tier never takes bits from pin comparisons.**  The
+   established doctrine (`Claims2P.lean`) is that regime bits are
+   established from the front door's recorded run inversions, never
+   from a match verdict.  At `μ.verified` the stored datum is
+   validated `equiv (zeronessOf …)` against the checker's own sort
+   run (recorded H1-style in `ConstantValR`), and the pin's generated
+   datum is that same zeroness by construction — so `denoteP` of the
+   stored type and the pin's `AVExpr` get **equal** bits (both in
+   `{0,1}`, same zero-ness) exactly where the interpretation reads
+   them.  The pin-tier establishment lemma ("stored reading = pin
+   reading at the verified mode, from the recorded run") is owed WHEN
+   `AxiomStepPB`/`BasisStepPB` land, and is work of exactly the kind
+   those tiers already do.
+3. **Mode-threading would introduce `PropWhen` `==` at pins** — a
+   representation rigidity the validation layer deliberately avoids
+   (every P2 site compares by `equiv`), and a verdict sensitivity to
+   annotation *spelling*, violating the annotation-only-deviation law
+   that motivated the exception in the first place.
+
+Two conditions attach: (a) the pin generator must keep emitting the
+true-zeroness data (consumers compute bits on pins by `decide`);
+(b) `erasePw` must never grow a clause that forgives something
+`interp2`/`AnnotOk2` reads *other than* through the run-validated
+bits — the docstring's rule, kept under the P reading.
+
+## Task #161 DE-GATING ENUMERATION (started 2026-09-01, per user directive)
+
+The phase after the capstone: harvest runtime checks whose licensing
+facts become derivable from the annotation-backed model.  Running log,
+one entry per certificate site the tier work touches — site / what it
+computes at runtime / which P-tier fact would license removal or
+downgrade / expected saving class.  Verdict-neutrality is checked per
+removal when the harvest runs; nothing is removed before the capstone.
+
+| site | runtime computation | licensing P fact | saving class |
+|---|---|---|---|
+| `reduceNat`'s per-hit `natOpGuard`/`natOpStoredOk` re-checks (`Setlec/Kernel/Core.lean:684+`, every literal acceleration) | full guard re-derivation: `natLitSupported` + per-dep `find?`+shape scans, on **every** accelerated application | `NatOpsP`/`DivModP`'s guard conclusion: a stored `natOpNames`/`natDivModNames` definition *always* satisfies its guard (the install enforced it; the fold invariant carries it) — the per-hit check can downgrade to a single `find?`-hit test | per-reduction constant factor on `Nat`-heavy streams; small but hot |
+| `certifyNatEqs` (17 `isDefEqCore` runs per structural-op install, `Checker.lean:426`) | NOT a candidate: the runs are the **establishment source** of `NatOpsP` (the run-certificate route consumes them); deleting them would orphan the model | — | — |
+| `checkDivModCerts` (depth-4 certificate runs per WF-pin install, `Checker.lean:638+`) | NOT a candidate, same reason: `DivModP`'s establishment source | — | — |
+| #141's non-app certificate tax family (14–16×, annotate-side) | certificate checks on non-app nodes during annotate | candidates once the P tiers seal: the validated `pw` + P-tier soundness derive the licensing facts the certs re-check; enumerate per-site when the caps/iota tiers touch them | the named 14–16× family |
+| #71's possibly-Prop-by-inference gates (iota certs) | Prop-ness re-inference behind iota certificates | the iota tier's `RecRulesP` + validated `pw` (the bit IS the Prop-ness datum, validated at the front door) | iota-heavy streams |
+| #109's pt-freshness gates | freshness scans licensing infer_only | P-tier soundness at the validated reading (the set model proves the real checker incl. infer_only via #109 pt-freshness — the gate's fact becomes a theorem) | per-decl scans |
+
+Entries accrete as tier work touches sites; the harvest begins the day
+the capstone seals.
 ## Task #161 P5: the annotate pass (engineering track, 2026-09-01)
 
 The untrusted pass that lets **real (unannotated) streams enter
