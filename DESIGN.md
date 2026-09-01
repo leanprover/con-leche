@@ -11528,6 +11528,19 @@ claim: **validated annotations dissolve the coherence frontier;
 what remains is the ordinary semantic content of the checker's
 features.**
 
+**The thesis in miniature (seal III's measurement, ratified into this
+narrative):** the div/mod certificate mirror
+(`Interp2/DivModCertP.lean`) landed at ~1400 lines against
+`DivModPin.lean`'s 2880 — *because* the P currency demands gradings.
+Paying the grading bill forced the statements' `Nat`-valued fragment
+into a **typed grammar** (`dmNatFrag`) whose one walk returns reading,
+grading, membership and value together, and whose syntactic
+consequences became a lemma instead of ~15 `by decide` side conditions
+per clause block.  A grading is a typing derivation; the tier that had
+to pay for typing got the syntax for free.  The annotations' cost is
+the annotations' payoff — the same trade the frontier table records at
+scale.
+
 ### Task #161 P4 batch 8: the carrier sweep, done + `InferReadsP` repaired (2026-09-01)
 
 **The sweep landed.**  The whole P surface is now stated over
