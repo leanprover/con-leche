@@ -11615,3 +11615,43 @@ Battery at seal: build warning-free (378 jobs), `lake test`, harness
 4 recorded divergences), zero sorries, axioms exactly the standard
 three on `checkSoundAtP` and `TierInputsAtP.ofEnvS2PM`; master
 contained.
+
+## Task #161 P4.4 SEAL: the capstone-status seal (2026-09-01)
+
+**The P4 surface at this seal**, all proved, standard axioms, battery
+green (build warning-free, `lake test`, annot 10/10, no-model sweep
+138+72+10 with the 4 recorded divergences, master contained):
+
+1. `checkSoundAtP` (`Step2/TiersP.lean`) — the four soundness claims
+   at every fuel over `denoteP`/`interp2`/`AnnotOkP`, env-fixed, with
+   every batch-6/7 discharge wired into the induction step; residues
+   = `TierInputsAtP`, sorted by tier.
+2. `EnvS2PM` + `EnvS2Core` (the carrier finding) +
+   `TierInputsAtP.ofEnvS2PM` — the env tier supplies its entries.
+3. `declStepPM_of_cons` (`InstallP.lean`) — the fold's species: the
+   P invariant extends by a fresh constant, crossings by theorem
+   (`denoteP_envExtend`), the new leaf's facts as the front-door
+   harvest.
+
+**The road to `no_proof_of_Empty_P`**, in dependency order:
+
+1. **the harvest layer** (lane-lead design): per declaration kind,
+   `checkDecl`'s run inversions + `checkSoundAtP` at the prefix ⇒
+   `declStepPM_of_cons`'s premises (the leaf `A` := the value's
+   `denoteP` reading; `hAok`/`hAvalid`/`hmemNew` are the claims'
+   conclusions at the checked runs; `hbase`/`hag` from the v1 fold's
+   own step).  Then the conditional fold: accepted stream +
+   `TierInputsAtP` at every prefix ⇒ `Nonempty (EnvS2PM …)`;
+   `no_proof_of_Empty_P` off `mem_typeP` at the `Empty` pin
+   (`EmptyPin2.lean`).
+2. **the semantic tiers** discharging `TierInputsAtP`'s remaining
+   fields (each with a v1 mirror source; the iota install tier is the
+   long pole — the model-artifact derivations at the two-regime
+   interpretation are new mathematics at Prop-motive minors):
+   literal tier (v1 `Sound/NatOps`), caps tier (v1 `Sound/Struct`/
+   `Irrel` + the capability pipeline), proj/str install tier, iota
+   tier (`RecRulesP` freeze → quarter-side discharge → install-side
+   establishment).
+
+Zero sorries stand between here and the capstone: every remaining
+obligation is a named routed `Prop` with its discharge tier recorded.
