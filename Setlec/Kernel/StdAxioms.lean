@@ -109,10 +109,37 @@ soundness proofs, and the type-theory bridge of task #119):
   `matchesPin` hit is usable at all: a consumer may compute on the
   *pin* rather than on whatever spelling the input stream sent.
   Preserve it — a pin comparison must never forgive something the
-  interpretation reads. -/
+  interpretation reads.
+
+**Task #161 P5, the `pw` exception (and why it is not a violation of
+the rule above).**  The comparison is also up to the binder
+*prop-ness datum*: the pins carry the generated (true) datum, while
+the compared side carries whatever the mode produced — the pass's
+written datum at `--set-model`, the parse placeholder `.never` at
+`--no-model`, where nothing reads annotations at all.  Forgiving it
+here is safe *because the consumer computes on the pin*: the pin's
+datum is the generated one, so a consumer never sees a placeholder;
+and at `--set-model` the compared side's datum is independently
+validated against the checker's own inference at the front door
+(a genuinely wrong datum declines there, not here).  Left unforgiven,
+`--no-model` — which writes nothing — would stop matching every
+annotated pin, i.e. an annotation-only deviation would change a
+verdict, exactly what the binder-info paragraph above forbids. -/
+def Expr.erasePw : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar i n ty => .fvar i n ty.erasePw
+  | .sort u => .sort u
+  | .const n us => .const n us
+  | .app f a => .app f.erasePw a.erasePw
+  | .lam n ty b m => .lam n ty.erasePw b.erasePw ⟨m.bi, .never⟩
+  | .forallE n ty b m => .forallE n ty.erasePw b.erasePw ⟨m.bi, .never⟩
+  | .letE n ty v b => .letE n ty.erasePw v.erasePw b.erasePw
+  | .lit l => .lit l
+  | .proj s i e => .proj s i e.erasePw
+
 def ConstantVal.matchesPin (cv pin : ConstantVal) : Bool :=
   cv.name = pin.name && cv.levelParams = pin.levelParams &&
-    cv.type.eraseNames == pin.type.eraseNames
+    cv.type.erasePw.eraseNames == pin.type.erasePw.eraseNames
 
 /-- The raw `Iff` family and `propext`, as the preprocessor emits
 them (dependency order). -/
@@ -136,224 +163,29 @@ def choiceRaw : ConstantVal := ⟨((anonymous |>.str "Classical") |>.str "choice
 /-- Annotated standard-shape pin (generated). -/
 def iffA : ConstantInfo :=
   Setlec.ConstantInfo.indInfo
-  { name := Setlec.Name.str (Setlec.Name.anonymous) "Iff",
-    levelParams := [],
-    type := Setlec.Expr.forallE
-              (Setlec.Name.str (Setlec.Name.anonymous) "a")
-              (Setlec.Expr.sort (Setlec.Level.zero))
-              (Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "b")
+    { name := Setlec.Name.str (Setlec.Name.anonymous) "Iff",
+      levelParams := [],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "a")
                 (Setlec.Expr.sort (Setlec.Level.zero))
-                (Setlec.Expr.sort (Setlec.Level.zero))
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
-  { eta := false,
-    etaCtor := Setlec.Name.anonymous,
-    etaParams := 0,
-    etaFields := 0,
-    unitlike := false,
-    unitParams := 0,
-    ruleK := false }
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "b")
+                  (Setlec.Expr.sort (Setlec.Level.zero))
+                  (Setlec.Expr.sort (Setlec.Level.zero))
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
+    { eta := false,
+      etaCtor := Setlec.Name.anonymous,
+      etaParams := 0,
+      etaFields := 0,
+      unitlike := false,
+      unitParams := 0,
+      ruleK := false }
 
 /-- Annotated standard-shape pin (generated). -/
 def iffIntroA : ConstantInfo :=
   Setlec.ConstantInfo.ctorInfo
-  { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Iff") "intro",
-    levelParams := [],
-    type := Setlec.Expr.forallE
-              (Setlec.Name.str (Setlec.Name.anonymous) "a")
-              (Setlec.Expr.sort (Setlec.Level.zero))
-              (Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "b")
-                (Setlec.Expr.sort (Setlec.Level.zero))
-                (Setlec.Expr.forallE
-                  (Setlec.Name.str (Setlec.Name.anonymous) "mp")
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.anonymous)
-                    (Setlec.Expr.bvar 1)
-                    (Setlec.Expr.bvar 1)
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.str (Setlec.Name.anonymous) "mpr")
-                    (Setlec.Expr.forallE
-                      (Setlec.Name.anonymous)
-                      (Setlec.Expr.bvar 1)
-                      (Setlec.Expr.bvar 3)
-                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                    (Setlec.Expr.app
-                      (Setlec.Expr.app
-                        (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Iff") [])
-                        (Setlec.Expr.bvar 3))
-                      (Setlec.Expr.bvar 2))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
-  2
-  2
-
-/-- Annotated standard-shape pin (generated). -/
-def iffRecA : ConstantInfo :=
-  Setlec.ConstantInfo.recInfo
-  { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Iff") "rec",
-    levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
-    type := Setlec.Expr.forallE
-              (Setlec.Name.str (Setlec.Name.anonymous) "a")
-              (Setlec.Expr.sort (Setlec.Level.zero))
-              (Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "b")
-                (Setlec.Expr.sort (Setlec.Level.zero))
-                (Setlec.Expr.forallE
-                  (Setlec.Name.str (Setlec.Name.anonymous) "motive")
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.str (Setlec.Name.anonymous) "t")
-                    (Setlec.Expr.app
-                      (Setlec.Expr.app
-                        (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Iff") [])
-                        (Setlec.Expr.bvar 1))
-                      (Setlec.Expr.bvar 0))
-                    (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.str (Setlec.Name.anonymous) "intro")
-                    (Setlec.Expr.forallE
-                      (Setlec.Name.str (Setlec.Name.anonymous) "mp")
-                      (Setlec.Expr.forallE
-                        (Setlec.Name.str (Setlec.Name.anonymous) "right")
-                        (Setlec.Expr.bvar 2)
-                        (Setlec.Expr.bvar 2)
-                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                      (Setlec.Expr.forallE
-                        (Setlec.Name.str (Setlec.Name.anonymous) "mpr")
-                        (Setlec.Expr.forallE
-                          (Setlec.Name.anonymous)
-                          (Setlec.Expr.bvar 2)
-                          (Setlec.Expr.bvar 4)
-                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                        (Setlec.Expr.app
-                          (Setlec.Expr.bvar 2)
-                          (Setlec.Expr.app
-                            (Setlec.Expr.app
-                              (Setlec.Expr.app
-                                (Setlec.Expr.app
-                                  (Setlec.Expr.const
-                                    (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Iff") "intro")
-                                    [])
-                                  (Setlec.Expr.bvar 4))
-                                (Setlec.Expr.bvar 3))
-                              (Setlec.Expr.bvar 1))
-                            (Setlec.Expr.bvar 0)))
-                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                    (Setlec.Expr.forallE
-                      (Setlec.Name.str (Setlec.Name.anonymous) "t")
-                      (Setlec.Expr.app
-                        (Setlec.Expr.app
-                          (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Iff") [])
-                          (Setlec.Expr.bvar 3))
-                        (Setlec.Expr.bvar 2))
-                      (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
-  4
-  4
-  []
-
-/-- Annotated standard-shape pin (generated). -/
-def nonemptyA : ConstantInfo :=
-  Setlec.ConstantInfo.indInfo
-  { name := Setlec.Name.str (Setlec.Name.anonymous) "Nonempty",
-    levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
-    type := Setlec.Expr.forallE
-              (Setlec.Name.str (Setlec.Name.anonymous) "α")
-              (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-              (Setlec.Expr.sort (Setlec.Level.zero))
-              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
-  { eta := false,
-    etaCtor := Setlec.Name.anonymous,
-    etaParams := 0,
-    etaFields := 0,
-    unitlike := false,
-    unitParams := 0,
-    ruleK := false }
-
-/-- Annotated standard-shape pin (generated). -/
-def nonemptyIntroA : ConstantInfo :=
-  Setlec.ConstantInfo.ctorInfo
-  { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty") "intro",
-    levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
-    type := Setlec.Expr.forallE
-              (Setlec.Name.str (Setlec.Name.anonymous) "α")
-              (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-              (Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "val")
-                (Setlec.Expr.bvar 0)
-                (Setlec.Expr.app
-                  (Setlec.Expr.const
-                    (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty")
-                    [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                  (Setlec.Expr.bvar 1))
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
-  1
-  1
-
-/-- Annotated standard-shape pin (generated). -/
-def nonemptyRecA : ConstantInfo :=
-  Setlec.ConstantInfo.recInfo
-  { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty") "rec",
-    levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
-    type := Setlec.Expr.forallE
-              (Setlec.Name.str (Setlec.Name.anonymous) "α")
-              (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-              (Setlec.Expr.forallE
-                (Setlec.Name.str (Setlec.Name.anonymous) "motive")
-                (Setlec.Expr.forallE
-                  (Setlec.Name.str (Setlec.Name.anonymous) "t")
-                  (Setlec.Expr.app
-                    (Setlec.Expr.const
-                      (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty")
-                      [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                    (Setlec.Expr.bvar 0))
-                  (Setlec.Expr.sort (Setlec.Level.zero))
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                (Setlec.Expr.forallE
-                  (Setlec.Name.str (Setlec.Name.anonymous) "intro")
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.str (Setlec.Name.anonymous) "val")
-                    (Setlec.Expr.bvar 1)
-                    (Setlec.Expr.app
-                      (Setlec.Expr.bvar 1)
-                      (Setlec.Expr.app
-                        (Setlec.Expr.app
-                          (Setlec.Expr.const
-                            (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty") "intro")
-                            [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                          (Setlec.Expr.bvar 2))
-                        (Setlec.Expr.bvar 0)))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  (Setlec.Expr.forallE
-                    (Setlec.Name.str (Setlec.Name.anonymous) "t")
-                    (Setlec.Expr.app
-                      (Setlec.Expr.const
-                        (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty")
-                        [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
-                      (Setlec.Expr.bvar 2))
-                    (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
-  3
-  3
-  []
-
-/-- Annotated standard-shape pin (generated). -/
-def propextA : ConstantVal :=
-  { name := Setlec.Name.str (Setlec.Name.anonymous) "propext",
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Iff") "intro",
       levelParams := [],
       type := Setlec.Expr.forallE
                 (Setlec.Name.str (Setlec.Name.anonymous) "a")
@@ -362,42 +194,246 @@ def propextA : ConstantVal :=
                   (Setlec.Name.str (Setlec.Name.anonymous) "b")
                   (Setlec.Expr.sort (Setlec.Level.zero))
                   (Setlec.Expr.forallE
-                    (Setlec.Name.anonymous)
-                    (Setlec.Expr.app
-                      (Setlec.Expr.app
-                        (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Iff") [])
-                        (Setlec.Expr.bvar 1))
-                      (Setlec.Expr.bvar 0))
-                    (Setlec.Expr.app
+                    (Setlec.Name.str (Setlec.Name.anonymous) "mp")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.anonymous)
+                      (Setlec.Expr.bvar 1)
+                      (Setlec.Expr.bvar 1)
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "mpr")
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.anonymous)
+                        (Setlec.Expr.bvar 1)
+                        (Setlec.Expr.bvar 3)
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
                       (Setlec.Expr.app
                         (Setlec.Expr.app
-                          (Setlec.Expr.const
-                            (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
-                            [Setlec.Level.succ (Setlec.Level.zero)])
-                          (Setlec.Expr.sort (Setlec.Level.zero)))
+                          (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Iff") [])
+                          (Setlec.Expr.bvar 3))
                         (Setlec.Expr.bvar 2))
-                      (Setlec.Expr.bvar 1))
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] } }
+    2
+    2
 
 /-- Annotated standard-shape pin (generated). -/
-def choiceA : ConstantVal :=
-  { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Classical") "choice",
+def iffRecA : ConstantInfo :=
+  Setlec.ConstantInfo.recInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Iff") "rec",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                (Setlec.Expr.sort (Setlec.Level.zero))
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "b")
+                  (Setlec.Expr.sort (Setlec.Level.zero))
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "motive")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                      (Setlec.Expr.app
+                        (Setlec.Expr.app
+                          (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Iff") [])
+                          (Setlec.Expr.bvar 1))
+                        (Setlec.Expr.bvar 0))
+                      (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "intro")
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "mp")
+                        (Setlec.Expr.forallE
+                          (Setlec.Name.str (Setlec.Name.anonymous) "right")
+                          (Setlec.Expr.bvar 2)
+                          (Setlec.Expr.bvar 2)
+                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                        (Setlec.Expr.forallE
+                          (Setlec.Name.str (Setlec.Name.anonymous) "mpr")
+                          (Setlec.Expr.forallE
+                            (Setlec.Name.anonymous)
+                            (Setlec.Expr.bvar 2)
+                            (Setlec.Expr.bvar 4)
+                            { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                          (Setlec.Expr.app
+                            (Setlec.Expr.bvar 2)
+                            (Setlec.Expr.app
+                              (Setlec.Expr.app
+                                (Setlec.Expr.app
+                                  (Setlec.Expr.app
+                                    (Setlec.Expr.const
+                                      (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Iff") "intro")
+                                      [])
+                                    (Setlec.Expr.bvar 4))
+                                  (Setlec.Expr.bvar 3))
+                                (Setlec.Expr.bvar 1))
+                              (Setlec.Expr.bvar 0)))
+                          { bi := Setlec.BinderInfo.default,
+                            pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                        { bi := Setlec.BinderInfo.default,
+                          pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                        (Setlec.Expr.app
+                          (Setlec.Expr.app
+                            (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Iff") [])
+                            (Setlec.Expr.bvar 3))
+                          (Setlec.Expr.bvar 2))
+                        (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                        { bi := Setlec.BinderInfo.default,
+                          pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                      { bi := Setlec.BinderInfo.default,
+                        pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                    { bi := Setlec.BinderInfo.default,
+                      pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                  { bi := Setlec.BinderInfo.default,
+                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                { bi := Setlec.BinderInfo.default,
+                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] } }
+    4
+    4
+    []
+
+/-- Annotated standard-shape pin (generated). -/
+def nonemptyA : ConstantInfo :=
+  Setlec.ConstantInfo.indInfo
+    { name := Setlec.Name.str (Setlec.Name.anonymous) "Nonempty",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.sort (Setlec.Level.zero))
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
+    { eta := false,
+      etaCtor := Setlec.Name.anonymous,
+      etaParams := 0,
+      etaFields := 0,
+      unitlike := false,
+      unitParams := 0,
+      ruleK := false }
+
+/-- Annotated standard-shape pin (generated). -/
+def nonemptyIntroA : ConstantInfo :=
+  Setlec.ConstantInfo.ctorInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty") "intro",
       levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
       type := Setlec.Expr.forallE
                 (Setlec.Name.str (Setlec.Name.anonymous) "α")
                 (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
                 (Setlec.Expr.forallE
-                  (Setlec.Name.anonymous)
+                  (Setlec.Name.str (Setlec.Name.anonymous) "val")
+                  (Setlec.Expr.bvar 0)
                   (Setlec.Expr.app
                     (Setlec.Expr.const
                       (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty")
                       [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                    (Setlec.Expr.bvar 1))
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] } }
+    1
+    1
+
+/-- Annotated standard-shape pin (generated). -/
+def nonemptyRecA : ConstantInfo :=
+  Setlec.ConstantInfo.recInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty") "rec",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "motive")
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                    (Setlec.Expr.app
+                      (Setlec.Expr.const
+                        (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty")
+                        [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                      (Setlec.Expr.bvar 0))
+                    (Setlec.Expr.sort (Setlec.Level.zero))
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "intro")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "val")
+                      (Setlec.Expr.bvar 1)
+                      (Setlec.Expr.app
+                        (Setlec.Expr.bvar 1)
+                        (Setlec.Expr.app
+                          (Setlec.Expr.app
+                            (Setlec.Expr.const
+                              (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty") "intro")
+                              [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                            (Setlec.Expr.bvar 2))
+                          (Setlec.Expr.bvar 0)))
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                      (Setlec.Expr.app
+                        (Setlec.Expr.const
+                          (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty")
+                          [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                        (Setlec.Expr.bvar 2))
+                      (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] } }
+    3
+    3
+    []
+
+/-- Annotated standard-shape pin (generated). -/
+def propextA : ConstantVal :=
+  { name := Setlec.Name.str (Setlec.Name.anonymous) "propext",
+    levelParams := [],
+    type := Setlec.Expr.forallE
+              (Setlec.Name.str (Setlec.Name.anonymous) "a")
+              (Setlec.Expr.sort (Setlec.Level.zero))
+              (Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "b")
+                (Setlec.Expr.sort (Setlec.Level.zero))
+                (Setlec.Expr.forallE
+                  (Setlec.Name.anonymous)
+                  (Setlec.Expr.app
+                    (Setlec.Expr.app
+                      (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Iff") [])
+                      (Setlec.Expr.bvar 1))
                     (Setlec.Expr.bvar 0))
-                  (Setlec.Expr.bvar 1)
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
+                  (Setlec.Expr.app
+                    (Setlec.Expr.app
+                      (Setlec.Expr.app
+                        (Setlec.Expr.const
+                          (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
+                          [Setlec.Level.succ (Setlec.Level.zero)])
+                        (Setlec.Expr.sort (Setlec.Level.zero)))
+                      (Setlec.Expr.bvar 2))
+                    (Setlec.Expr.bvar 1))
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+              { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] } }
+
+/-- Annotated standard-shape pin (generated). -/
+def choiceA : ConstantVal :=
+  { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Classical") "choice",
+    levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+    type := Setlec.Expr.forallE
+              (Setlec.Name.str (Setlec.Name.anonymous) "α")
+              (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+              (Setlec.Expr.forallE
+                (Setlec.Name.anonymous)
+                (Setlec.Expr.app
+                  (Setlec.Expr.const
+                    (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty")
+                    [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                  (Setlec.Expr.bvar 0))
+                (Setlec.Expr.bvar 1)
+                { bi := Setlec.BinderInfo.default,
+                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+              { bi := Setlec.BinderInfo.default,
+                pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] } }
 
 
 /-- Is this checked axiom one of the two recognized standard axioms,

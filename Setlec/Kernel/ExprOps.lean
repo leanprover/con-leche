@@ -486,11 +486,20 @@ def recRulePlain (recTy : Expr) (mI rP cnP : Nat) : Bool :=
       (List.range cnP).map (fun k => Expr.bvar (mI - 1 - k))
   | _ => false
 
-/-- Convert the first `k` `∀`-binders into `λ`-binders over a body. -/
+/-- Convert the first `k` `∀`-binders into `λ`-binders over a body.
+
+The copied binder metadata keeps only the display info: a ∀'s `pw`
+claims the *codomain*'s prop-ness, which is not the λ's claim (the sort
+of the body's *type*), so carrying it over would be a wrong annotation.
+The result is emitted at the parse placeholder `.never` and **every
+consumer must run the annotate pass over it before storing or using
+it** — audited: `CheckerS.checkProjRule`, `CheckerBase`'s projection
+rule builder and `annotateProjRec` all feed `ops.annotate`
+(DESIGN.md, task #161, manufacture-site audit row 9). -/
 def pisToLams : Nat → Expr → Expr → Option Expr
   | 0, _, body => some body
   | k + 1, .forallE n ty rest m, body =>
-    (pisToLams k rest body).map fun b => .lam n ty b ⟨m.bi, m.pw⟩
+    (pisToLams k rest body).map fun b => .lam n ty b ⟨m.bi, .never⟩
   | _ + 1, _, _ => none
 
 /-- Replace the body under the first `k` `∀`-binders (binder domains and

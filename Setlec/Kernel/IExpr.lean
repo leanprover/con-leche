@@ -1995,7 +1995,7 @@ def pisToLamsI (st : EStore) : Nat → EIdx → EIdx → Option EIdx × EStore
     | some (.forallE n ty rest mb) =>
       match pisToLamsI st k rest body with
       | (some b, st) =>
-        let (r, st) := st.intern (.lam n ty b ⟨mb.bi, mb.pw⟩)
+        let (r, st) := st.intern (.lam n ty b ⟨mb.bi, .never⟩)
         (some r, st)
       | (none, st) => (none, st)
     | _ => (none, st)

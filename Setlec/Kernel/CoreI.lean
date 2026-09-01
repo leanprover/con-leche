@@ -2261,16 +2261,27 @@ abbrev AnnotBinderEntry := NIdx × EIdx × IBinderMeta
 
 /-- Rebuild loop of the annotation binder-telescope loops: fold the
 stack (innermost binder first, `j` its binder level), rebuilding one
-binder node per entry (task #100 stage 6: the annotation pass is a
-pure normalizer at binders — no annotations to compute, no checks). -/
+binder node per entry.
+
+Task #161 P5 — the untrusted write: `pw?` is the telescope's datum,
+computed once in the leaf phase and shared by every node of the
+telescope (`zeronessOf (imax u v) = zeronessOf v` makes every ∀ node's
+codomain-sort zero-ness the leaf's; the λ chain rule makes every λ
+node's datum the innermost one's).  `none` = no write (unverified
+mode).  A node whose input datum is a real annotation (`pwWritten`) is
+left alone — validation judges it. -/
 def annotateBindersOutI (mk : NIdx → EIdx → EIdx → IBinderMeta → ENode)
-    (d : Nat) :
+    (d : Nat) (pw? : Option PropWhen) :
     List AnnotBinderEntry → Nat → EIdx → CheckIM EIdx
   | [], _j, cur => pure cur
-  | (n, ty', bi) :: rest, j, cur => do
+  | (n, ty', mb) :: rest, j, cur => do
     let tyAbs ← abstractRangeM ty' d j
-    let node ← internI (mk n tyAbs cur bi)
-    annotateBindersOutI mk d rest (j - 1) node
+    let mb : IBinderMeta :=
+      match pw? with
+      | some pw => if pwWritten mb.pw then mb else ⟨mb.bi, pw⟩
+      | none => mb
+    let node ← internI (mk n tyAbs cur mb)
+    annotateBindersOutI mk d pw? rest (j - 1) node
 
 /-- Leaf phase of `annotatePisI`: bulk-open and annotate the residual
 body, then rebuild outward. -/
@@ -2278,8 +2289,21 @@ def annotatePisLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
     (fvs : Array EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
   let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
+  -- Task #161 P5: the telescope's datum — the leaf codomain sort's
+  -- zero-ness, shared by every node (`zeronessOf (imax u v) =
+  -- zeronessOf v`).  One inference per telescope, memo-shared with the
+  -- front-door sweep that validates it.
+  let pw? ← if mode.verified then do
+      let bt ← r.infer (d + k) leaf'
+      let wbt ← r.whnf (d + k) bt
+      match ← viewI wbt with
+      | some (.sort v) => do
+        let pv ← withStore fun st => (st.zeronessOfLIGo {} v).1
+        pure (some pv)
+      | _ => throw (.invalid "expected a sort")
+    else pure none
   let cur ← abstractRangeM leaf' d k
-  annotateBindersOutI (fun n ty b mb => .forallE n ty b mb) d
+  annotateBindersOutI (fun n ty b mb => .forallE n ty b mb) d pw?
     stk (k - 1) cur
 
 /-- ∀-telescope annotation loop (task #72; `annotateBodyI`'s forallE
@@ -2296,8 +2320,8 @@ def annotatePisI (r : CoreFnsI) (d : Nat) :
       let fv ← internI (.fvar (d + k) n ty')
       annotatePisI r d fuel body (k + 1) (fvs.push fv)
         ((n, ty', mb) :: stk)
-    | _ => annotatePisLeafI r d t k fvs stk
-  | 0, t, k, fvs, stk => annotatePisLeafI r d t k fvs stk
+    | _ => annotatePisLeafI mode r d t k fvs stk
+  | 0, t, k, fvs, stk => annotatePisLeafI mode r d t k fvs stk
 
 /-- Leaf phase of `annotateLamsI` (as `annotatePisLeafI`, rebuilding
 λ-nodes). -/
@@ -2305,8 +2329,25 @@ def annotateLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
     (fvs : Array EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
   let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
+  -- Task #161 P5: the chain's datum — the zero-ness of the sort of the
+  -- innermost body's TYPE; every λ node of the chain shares it (the
+  -- `(lam-cod-chain)` rule).  A λ residual (the fuel path) supplies its
+  -- own already-written datum, exactly as `inferLamsLeafI` reads it.
+  let pw? ← if mode.verified then do
+      match ← viewI leaf' with
+      | some (.lam _ _ _ mbT) => pure (some mbT.pw)
+      | _ => do
+        let bt ← r.infer (d + k) leaf'
+        let btt ← r.infer (d + k) bt
+        let wbtt ← r.whnf (d + k) btt
+        match ← viewI wbtt with
+        | some (.sort vb) => do
+          let pv ← withStore fun st => (st.zeronessOfLIGo {} vb).1
+          pure (some pv)
+        | _ => throw (.invalid "expected a sort")
+    else pure none
   let cur ← abstractRangeM leaf' d k
-  annotateBindersOutI (fun n ty b mb => .lam n ty b mb) d
+  annotateBindersOutI (fun n ty b mb => .lam n ty b mb) d pw?
     stk (k - 1) cur
 
 /-- λ-telescope annotation loop (task #72; `annotateBodyI`'s lam
@@ -2321,8 +2362,8 @@ def annotateLamsI (r : CoreFnsI) (d : Nat) :
       let fv ← internI (.fvar (d + k) n ty')
       annotateLamsI r d fuel body (k + 1) (fvs.push fv)
         ((n, ty', mb) :: stk)
-    | _ => annotateLamsLeafI r d t k fvs stk
-  | 0, t, k, fvs, stk => annotateLamsLeafI r d t k fvs stk
+    | _ => annotateLamsLeafI mode r d t k fvs stk
+  | 0, t, k, fvs, stk => annotateLamsLeafI mode r d t k fvs stk
 
 /-- Twin of `annotateBody`. -/
 def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
@@ -2353,7 +2394,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       let ty' ← r.annotate depth ty
       let fv ← internI (.fvar depth n ty')
       let fuel ← withStore (·.nodes.size)
-      annotatePisI r depth fuel body 1 #[fv] [(n, ty', mb)]
+      annotatePisI mode r depth fuel body 1 #[fv] [(n, ty', mb)]
     | some (.lam n ty body mb) => do
       -- The λ-loop is chain-identical only on bvar-closed nodes (the
       -- chained tails re-open exactly what they closed); disciplined
@@ -2362,14 +2403,28 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')
         let fuel ← withStore (·.nodes.size)
-        annotateLamsI r depth fuel body 1 #[fv] [(n, ty', mb)]
+        annotateLamsI mode r depth fuel body 1 #[fv] [(n, ty', mb)]
       else do
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')
         let ob ← inst1M body fv
         let body' ← r.annotate (depth + 1) ob
         let bAbs ← abstract1M body' depth
-        internI (.lam n ty' bAbs ⟨mb.bi, mb.pw⟩)
+        -- task #161 P5: the single-binder write (the λ-loop's rule at
+        -- a chain of length one; see `annotateLamsLeafI`)
+        let pw ← if mode.verified && !pwWritten mb.pw then do
+            match ← viewI body' with
+            | some (.lam _ _ _ mbI) => pure mbI.pw
+            | _ => do
+              let bt ← r.infer (depth + 1) body'
+              let btt ← r.infer (depth + 1) bt
+              let wbtt ← r.whnf (depth + 1) btt
+              match ← viewI wbtt with
+              | some (.sort vb) =>
+                withStore fun st => (st.zeronessOfLIGo {} vb).1
+              | _ => throw (.invalid "expected a sort")
+          else pure mb.pw
+        internI (.lam n ty' bAbs ⟨mb.bi, pw⟩)
     | some (.letE _ ty v b) => do
       -- official `infer_let` check order (see the spec body): the
       -- annotation is a type, the value's inferred type matches it,
@@ -2455,7 +2510,7 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       defeq := memoBI
         (fun d a b => defeqBodyI mode (coreKnotI fe fuel) fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI (coreKnotI fe fuel) fe d e) }
+        (fun d e => annotateBodyI mode (coreKnotI fe fuel) fe d e) }
 
 /-! ## Entry runners
 

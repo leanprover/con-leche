@@ -29,7 +29,13 @@ def emptyA : ConstantInfo :=
     { name := Setlec.Name.str (Setlec.Name.anonymous) "Empty",
       levelParams := [],
       type := Setlec.Expr.sort (Setlec.Level.succ (Setlec.Level.zero)) }
-    { eta := false, etaCtor := Setlec.Name.anonymous, etaParams := 0, etaFields := 0, unitlike := false, ruleK := false }
+    { eta := false,
+      etaCtor := Setlec.Name.anonymous,
+      etaParams := 0,
+      etaFields := 0,
+      unitlike := false,
+      unitParams := 0,
+      ruleK := false }
 
 /-- Annotated basis declaration (generated). -/
 def emptyRecA : ConstantInfo :=
@@ -47,8 +53,10 @@ def emptyRecA : ConstantInfo :=
                   (Setlec.Name.str (Setlec.Name.anonymous) "t")
                   (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Empty") [])
                   (Setlec.Expr.app (Setlec.Expr.bvar 1) (Setlec.Expr.bvar 0))
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never })
-                { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.never } }
+                  { bi := Setlec.BinderInfo.default,
+                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                { bi := Setlec.BinderInfo.default,
+                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] } }
     1
     1
     []

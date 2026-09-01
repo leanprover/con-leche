@@ -2109,6 +2109,46 @@ def annotateProjElim (r : CoreFns m) (env : Env) (depth : Nat) (sn : Name)
     else throw (.invalid "projection structure mismatch")
   | _ => throw (.notImplemented "projection on a non-structure type")
 
+/-! ### The untrusted annotation writes (task #161 P5)
+
+The pass is the existing normalizer: at the verified modes its ∀/λ
+clauses *write* the `pw` datum the front door then *validates*.  The
+write is untrusted by design — a wrong datum declines, never
+unsoundness — and it is a no-op wherever the input already carries a
+non-placeholder annotation (`pwWritten`): explicit input annotations
+are judged by validation, never overwritten.  The parser's placeholder
+for an absent `"pw"` field is `.never`, which is also a legitimate
+value; the pass therefore recomputes over `.never` unconditionally
+(harmless: a genuinely never-zero codomain recomputes to `.never`),
+and the *only* input annotations preserved are the `ifAllZero` ones.
+-/
+
+/-- Is this datum a real (non-placeholder) input annotation? -/
+@[inline] def pwWritten : PropWhen → Bool
+  | .never => false
+  | .ifAllZero _ => true
+
+/-- The ∀ node's datum: the zero-ness of the *codomain*'s sort, on the
+already-annotated opened body — exactly the value `inferBody`'s ∀
+clause validates against (`(forall-cod)`). -/
+def annotPwPi (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
+    m PropWhen := do
+  let v ← ensureSort r env depth (← r.infer depth body')
+  pure (Level.zeronessOf v)
+
+/-- The λ node's datum: the zero-ness of the sort of the *body's type*.
+Mirrors `inferBody`'s λ clause exactly — a λ body reuses its inner
+neighbour's datum (the chain rule, no inference), any other body pays
+one leaf computation (`(lam-cod-leaf)`). -/
+def annotPwLam (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
+    m PropWhen := do
+  match body'.lamPw with
+  | some pwI => pure pwI
+  | none => do
+    let bt ← r.infer depth body'
+    let vb ← ensureSort r env depth (← r.infer depth bt)
+    pure (Level.zeronessOf vb)
+
 /-- The annotation body: compute the codomain-sort annotations of every
 binder, bottom-up, by real inference on the opened (already annotated)
 body.  This is the one place binder bodies — and the application rule —
@@ -2152,11 +2192,17 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- body via the ∀/λ rules)
       let ty' ← r.annotate depth ty
       let body' ← r.annotate (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-      pure (.forallE n ty' (body'.abstract1 depth) ⟨mb.bi, mb.pw⟩)
+      let pw ← if mode.verified && !pwWritten mb.pw then
+          annotPwPi r env (depth + 1) body'
+        else pure mb.pw
+      pure (.forallE n ty' (body'.abstract1 depth) ⟨mb.bi, pw⟩)
     | .lam n ty body mb => do
       let ty' ← r.annotate depth ty
       let body' ← r.annotate (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-      pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi, mb.pw⟩)
+      let pw ← if mode.verified && !pwWritten mb.pw then
+          annotPwLam r env (depth + 1) body'
+        else pure mb.pw
+      pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi, pw⟩)
     | .letE _ ty v b => do
       -- The official kernel's `infer_let` check order (`!infer_only`):
       -- the annotation is a type (`ensure_sort_core(infer(type))`), the
@@ -2223,7 +2269,7 @@ def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
         defeq := fun d a b =>
           defeqBody mode (coreKnot mode env wrap fuel) env d a b
         annotate := fun d e =>
-          annotateBody (coreKnot mode env wrap fuel) env d e }
+          annotateBody mode (coreKnot mode env wrap fuel) env d e }
 
 /-- The shared fuel for the checker core: bounds the recursion depth of
 reduction, inference and definitional equality.  Exhaustion is an

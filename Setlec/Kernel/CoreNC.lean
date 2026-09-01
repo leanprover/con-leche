@@ -805,7 +805,7 @@ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
       defeq := memoBI
         (fun d a b => defeqBodyNC (coreKnotNC fe fuel) fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI (coreKnotNC fe fuel) fe d e) }
+        (fun d e => annotateBodyI .noModel (coreKnotNC fe fuel) fe d e) }
 
 /-- The `--no-model` **checking-mode front-door knot** (task #147; the
 task-#134 `coreKnotF` pattern over the cert-skipping internals).
@@ -833,7 +833,7 @@ def coreKnotFNC (fe : FEnv) : Nat → CoreFnsI
       infer := memoEI (·.inferFC) (fun st mp => { st with inferFC := mp })
         (fun d e => inferBodyI .noModel (coreKnotFNC fe fuel) fe d e)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI (coreKnotFNC fe fuel) fe d e) }
+        (fun d e => annotateBodyI .noModel (coreKnotFNC fe fuel) fe d e) }
 
 /-- Drop the checking-mode inference memo.  Its keys are arena
 indices, so it must go wherever the index-carrying memos go: at a
