@@ -117,6 +117,7 @@ import Setlec.SetR.Interp2.Step2.IrrelP
 import Setlec.SetR.Interp2.Step2.StuckP
 import Setlec.SetR.Interp2.Step2.ReadsP
 import Setlec.SetR.Interp2.Step2.NatP
+import Setlec.SetR.Interp2.Step2.CapsRowsP
 import Setlec.SetR.Interp2.Step2.TiersP
 import Setlec.SetR.Interp2.InstallP
 import Setlec.SetR.Interp2.NatEqsP
