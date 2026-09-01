@@ -1,5 +1,6 @@
 import Setlec.SetR.Interp2.CtxOkPKit
 import Setlec.SetR.Annot.BitLemmas
+import Setlec.SetR.Annot.BitInst
 import Setlec.SetR.Annot.ValidVSpine
 import Setlec.Verify.InferLemmas
 import Setlec.SetR.Interp2.Step2.InferQ
@@ -560,5 +561,168 @@ def InferProjStepP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta
+
+/-! ## The threading clauses (T3, T4) and what dual success costs them
+
+### `hainst` is **discharged, not routed**
+
+`denoteP_substFvarAt`/`denoteP_beta` (batch 2) take two leaf premises.
+`hacl` is the structure field `acval_closed`; `hainst` — the stronger
+`inst`-invariance at every cut — is *derivable* from the same single
+closedness fact the module docstring of `Annot/BitInst.lean` predicts:
+`AVExpr.inst_eq_self` wants `VExpr.bvarsBelow k (acval n ψ).erase`,
+the erasure link `acval_erase` turns that into
+`VExpr.bvarsBelow k (base.cval n ψ)`, and `EnvS.cval_closed` is
+`bvarsBelow 0` of exactly that, which `bvarsBelow.mono` weakens.  So
+the P tier pays **no** new environment field for the β/ζ crossing.
+
+### FINDING — dual success charges the threading clauses a *totality*
+residue
+
+`InferClaims2P` puts **both** readings in premises.  A threading
+clause that recurses therefore has to *supply* the recursive call's
+type-side reading, and for the sub-runs the clause makes that reading
+is nowhere in its hypotheses:
+
+* `.letE` infers `val`'s type `tvv` and needs `AnnotOkP ρ vA` (the
+  `letE` clause of `AnnotOk2`/`AnnotValidV` reads the **value's own**
+  grading) — which is `ihi` at `val`, and `ihi` wants
+  `denoteP … d tvv = some _`.  Nothing else supplies it: the type
+  side is reachable through `SortSemP` (the clause runs `ensureSort`
+  on `ty`) but the value side has no sort run.
+* `.app` needs the head's inferred type `tf` (for `ihi` at `f` and
+  then `ihw`), the whnf'd `∀`-type's own reading (for `ihw`'s
+  conclusion and for the domain `Aa`, which does not occur in the
+  returned type at all), and the argument's inferred type `tya` (for
+  `ihd`).
+
+Neither is a gap in the *mathematics* — `denoteP` fails only on an
+unfindable/mis-arity constant, an unsupported literal guard, a
+projection index `≥ 2` or a loose `bvar`, and the checker's own
+outputs have none of those on a well-formed environment.  It is
+exactly the "success premises may later be dischargeable outright"
+upgrade path `Claims2P.lean`'s docstring names, and until that lands
+it is a **routed residue**, in the same currency and at the same fuel
+as the claims it feeds.  Two producers, so two residues. -/
+
+/-- **The stored leaves are `inst`-invariant** — `denoteP_beta`'s
+second leaf premise, discharged from the erasure link and the
+collapse-lane closedness field. -/
+theorem acval_inst_self (m : EnvS2UM V μ env) (n : Name)
+    (ψ : Name → Nat) (y : AVExpr) (k : Nat) :
+    (m.acval n ψ).inst y k = m.acval n ψ :=
+  AVExpr.inst_eq_self _
+    (by rw [m.acval_erase]
+        exact VExpr.bvarsBelow.mono (Nat.zero_le k)
+          (m.base.cval_closed n ψ)) y
+
+/-- **The inferred type reads** (P-tier totality residue; see the
+FINDING above).  Conditioned exactly as the claims are: the run, the
+subject's scoping package, and the subject's own reading. -/
+def InferReadsP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e t : Expr} {ea : AVExpr},
+    inferTypeCore μ env fuel d e = .ok t →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    denoteP m.acval env φ d e = some ea →
+    ∃ ta, denoteP m.acval env φ d t = some ta
+
+/-- **The head normal form reads** (P-tier totality residue, the
+reduction producer). -/
+def WhnfReadsP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e e' : Expr} {ea : AVExpr},
+    whnf μ env fuel d e = .ok e' →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    denoteP m.acval env φ d e = some ea →
+    ∃ ea', denoteP m.acval env φ d e' = some ea'
+
+/-- **`.letE`, P currency.**  The ζ crossing is `denoteP_beta`
+*directly* — no routed `BetaCross2C`, because in the validated
+reading the two sides are literally the same annotation up to `inst`
+and the transport of the grading is `AnnotOkP_inst0`, an
+equivalence, not a per-site truthfulness ledger.
+
+The type's grading comes from the clause's own `ensureSort` run
+through `SortSemP`; the value's is `ihi` at `val`, whose type-side
+reading is the routed `InferReadsP` (the FINDING above). -/
+theorem infer_letE_claimP (m : EnvS2UM V μ env) (hss : SortSemP m μ φ)
+    (hir : InferReadsP m μ φ fuel) (ihi : InferClaims2P μ m φ fuel)
+    {d : Nat} {n : Name} {ty val b t : Expr} {Δa : List AVExpr}
+    {ea ta : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.letE n ty val b) = .ok t)
+    (hws : Expr.WScoped d (.letE n ty val b))
+    (hb : (Expr.letE n ty val b).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.letE n ty val b))
+    (hC : CtxOkP m φ d Δa (.letE n ty val b))
+    (hea : denoteP m.acval env φ d (.letE n ty val b) = some ea)
+    (hta : denoteP m.acval env φ d t = some ta) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  obtain ⟨tty, sv, tvv, hty, hes, hvv, -, hbody⟩ :=
+    Setlec.inferTypeCore_letE_inv h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLval : Expr.LeavesBounded val := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hsubred : ∀ l ∈ (b.instantiate1 val).fvarLeaves,
+      l ∈ (Expr.letE n ty val b).fvarLeaves := by
+    intro l hl
+    rcases Expr.fvarLeaves_instantiate1 b 0 hl with h2 | h2
+    · simp [Expr.fvarLeaves, h2]
+    · simp [Expr.fvarLeaves, h2]
+  have hwred : Expr.WScoped d (b.instantiate1 val) :=
+    Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2
+  have hbred : (b.instantiate1 val).looseBVarsBounded 0 = true :=
+    Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2
+  have hLred : Expr.LeavesBounded (b.instantiate1 val) :=
+    fun l hl => hLb l (hsubred l hl)
+  have hCred : CtxOkP m φ d Δa (b.instantiate1 val) :=
+    hC.of_subset hsubred
+  -- the subject's reading
+  rw [denoteP] at hea
+  rcases htyA : denoteP m.acval env φ d ty with _ | tyA
+  · rw [htyA] at hea; exact nomatch hea
+  rw [htyA] at hea
+  rcases hvA : denoteP m.acval env φ d val with _ | vA
+  · rw [hvA] at hea; exact nomatch hea
+  rw [hvA] at hea
+  rcases hbA : denoteP m.acval env φ (d + 1)
+      (b.instantiate1 (.fvar d n ty)) with _ | bA
+  · rw [hbA] at hea; exact nomatch hea
+  rw [hbA] at hea
+  obtain rfl : ea = .letE tyA vA bA := (Option.some.inj hea).symm
+  -- the ζ crossing: `denoteP_beta`, directly
+  have hcross : denoteP m.acval env φ d (b.instantiate1 val)
+      = some (bA.inst vA) := by
+    rw [denoteP_beta (n := n) (ty := ty) m.acval_closed
+      (acval_inst_self m) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hvA 0, hbA]
+    rfl
+  -- the value's grading (routed reading), the type's (own sort run)
+  obtain ⟨tvvA, htvvA⟩ := hir hvv hws.2.1 hb.1.2 hLval hvA
+  obtain ⟨hrowVE, -, -⟩ :=
+    ihi hvv hws.2.1 hb.1.2 hLval hC.letE_val hvA htvvA
+  have hrowTE : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ tyA :=
+    fun ρ hρ =>
+      (hss hC.letE_ty hty (Setlec.ensureSortCore_inv hes) htyA ρ hρ).1
+  obtain ⟨hrowBE, hrowBT, hrowBM⟩ :=
+    ihi hbody hwred hbred hLred hCred hcross hta
+  refine ⟨?_, hrowBT, ?_⟩
+  · intro ρ hρ
+    have hokv := hrowVE ρ hρ
+    have hokbA : AnnotOkP V (cons (interp2 V ρ vA) ρ) bA :=
+      (AnnotOkP_inst0 hokv).mp (hrowBE ρ hρ)
+    refine ⟨?_, ?_⟩
+    · rw [AnnotOk2_letE]
+      exact ⟨(hrowTE ρ hρ).1, hokv.1, hokbA.1⟩
+    · rw [AnnotValidV_letE]
+      exact ⟨(hrowTE ρ hρ).2, hokv.2, hokbA.2⟩
+  · intro ρ hρ
+    rw [interp2_letE, ← interp2_inst0]
+    exact hrowBM ρ hρ
 
 end Setlec.SetR.Interp2
