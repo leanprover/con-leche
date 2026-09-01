@@ -118,6 +118,7 @@ import Setlec.SetR.Interp2.Step2.StuckP
 import Setlec.SetR.Interp2.Step2.ReadsP
 import Setlec.SetR.Interp2.Step2.TiersP
 import Setlec.SetR.Interp2.InstallP
+import Setlec.SetR.Interp2.CapstoneP
 import Setlec.SetR.Annot.EnvS2U
 import Setlec.SetR.Interp2.EnvS2U
 import Setlec.SetR.Interp2.EnvS2UNe
