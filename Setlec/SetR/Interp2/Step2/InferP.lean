@@ -643,15 +643,99 @@ upgrade path `Claims2P.lean`'s docstring names, and until that lands
 it is a **routed residue**, in the same currency and at the same fuel
 as the claims it feeds.  Two producers, so two residues. -/
 
+/-! ## The leaf side condition the inference residue carries
+
+`LeafReadsP` was born in `Step2/ReadsP.lean` (batch 6) as the walk's
+own hypothesis; batch 8 moved it here, because `InferReadsP` — stated
+below — now carries it as a premise. -/
+
+/-- **Every `fvar` leaf annotation of the subject reads.**  A strict
+weakening of `CtxOkP`: its per-leaf package's third component is
+literally this existential, so `of_ctxOkP` is a projection.
+
+This is the side condition batch 6's FINDING identified as missing
+from `InferReadsP` — without it that residue is REFUTABLE, since
+`inferBody`'s `.fvar` clause returns the leaf's stored annotation and
+`denoteP`'s `fvar` clause never looks at it (witness: `.fvar 0 n
+(.const c [])` at `d = 1` with `c ∉ env`).  Batch 8 repaired the
+statement by adding this premise, so nothing is routed: every consumer
+holds a `CtxOkP` and discharges it by `of_ctxOkP`, and the walk
+(`Step2/ReadsP.lean`) propagates it through the binder clauses
+(`weakenTop`/`openS` below). -/
+def LeafReadsP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
+    (d : Nat) (e : Expr) : Prop :=
+  ∀ l ∈ e.fvarLeaves, ∃ tya, denoteP m.acval env φ d l.2.2 = some tya
+
+namespace LeafReadsP
+
+variable {m : EnvS2Core V env}
+
+/-- **The consumers' discharge**: `CtxOkP`'s leaf package contains the
+reading, so any clause holding a context correspondence holds this. -/
+theorem of_ctxOkP {d : Nat} {Δa : List AVExpr} {e : Expr}
+    (hC : CtxOkP m φ d Δa e) : LeafReadsP m φ d e := by
+  intro l hl
+  obtain ⟨-, -, tya, -, hden, -⟩ := hC.2 l hl
+  exact ⟨tya, hden⟩
+
+/-- Transport along a leaf-closure inclusion — the shape every clause
+uses to reach a subterm (`CtxOkP.of_subset`'s mirror). -/
+theorem of_subset {d : Nat} {e e' : Expr} (h : LeafReadsP m φ d e)
+    (hs : ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves) :
+    LeafReadsP m φ d e' :=
+  fun l hl => h l (hs l hl)
+
+/-- **One more binder.**  `denoteP_weaken_top` is an equality, so a
+leaf that reads at `d` reads at `d + 1` (at the lifted annotation);
+`CtxOkP.weakenTop`'s first conjunct with everything semantic
+dropped. -/
+theorem weakenTop {d : Nat} {e : Expr} (hw : Expr.WScoped d e)
+    (h : LeafReadsP m φ d e) : LeafReadsP m φ (d + 1) e := by
+  intro l hl
+  obtain ⟨hlt, hwl⟩ := Setlec.Expr.WScoped_leaves e hw l hl
+  obtain ⟨tya, hden⟩ := h l hl
+  refine ⟨tya.liftN 1 0, ?_⟩
+  rw [denoteP_weaken_top m.acval_closed (hwl.mono (by omega)), hden]
+  rfl
+
+/-- **Opening a binder**, `CtxOkP.openS`'s shape: the body's own leaves
+weaken, and the *new* leaf `(d, n, ty)` reads because the binder's
+domain does (`hty`, which every clause has from the subject's own
+reading). -/
+theorem openS {d : Nat} {n : Name} {ty body : Expr} {ta : AVExpr}
+    (hwt : Expr.WScoped d ty) (hwb : Expr.WScoped d body)
+    (ht : LeafReadsP m φ d ty) (hbd : LeafReadsP m φ d body)
+    (hty : denoteP m.acval env φ d ty = some ta) :
+    LeafReadsP m φ (d + 1) (body.instantiate1 (.fvar d n ty)) := by
+  intro l hl
+  rcases Setlec.Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+  · exact weakenTop hwb hbd l hl'
+  · rw [Setlec.Expr.fvarLeaves] at hl'
+    rcases List.mem_cons.mp hl' with rfl | hl''
+    · refine ⟨ta.liftN 1 0, ?_⟩
+      rw [denoteP_weaken_top m.acval_closed hwt, hty]
+      rfl
+    · exact weakenTop hwt ht l hl''
+
+end LeafReadsP
+
 /-- **The inferred type reads** (P-tier totality residue; see the
 FINDING above).  Conditioned exactly as the claims are: the run, the
-subject's scoping package, and the subject's own reading. -/
+subject's scoping package, the subject's leaf side condition, and the
+subject's own reading.
+
+The `LeafReadsP` premise is batch 8's repair of batch 6's FINDING:
+without it the residue is *refutable* (the `.fvar` clause returns the
+leaf's stored annotation, which the subject's reading never mentions).
+It costs its consumers nothing — every one of them holds a `CtxOkP` at
+the same depth, and `LeafReadsP.of_ctxOkP` is a projection. -/
 def InferReadsP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {ea : AVExpr},
     inferTypeCore μ env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
+    LeafReadsP m φ d e →
     denoteP m.acval env φ d e = some ea →
     ∃ ta, denoteP m.acval env φ d t = some ta
 
@@ -677,7 +761,8 @@ theorem sortSemAtP_of_claims {env : Env} {m : EnvS2Core V env}
     (hreads : InferReadsP m μ φ fuel) :
     SortSemAtP m μ φ fuel := by
   intro d e t u Δa ea hC hws hb hLb hi hw hea
-  obtain ⟨ta, hta⟩ := hreads hi hws hb hLb hea
+  obtain ⟨ta, hta⟩ :=
+    hreads hi hws hb hLb (LeafReadsP.of_ctxOkP hC) hea
   obtain ⟨hokE, hokT, hmem⟩ := ihi hi hws hb hLb hC hea hta
   have hwt : Expr.WScoped d t :=
     inferTypeCore_WScoped m.base.wf fuel hi hws
@@ -761,7 +846,8 @@ theorem infer_letE_claimP (m : EnvS2Core V env)
       (acval_inst_self m) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hvA 0, hbA]
     rfl
   -- the value's grading (routed reading), the type's (own sort run)
-  obtain ⟨tvvA, htvvA⟩ := hir hvv hws.2.1 hb.1.2 hLval hvA
+  obtain ⟨tvvA, htvvA⟩ :=
+    hir hvv hws.2.1 hb.1.2 hLval (LeafReadsP.of_ctxOkP hC.letE_val) hvA
   obtain ⟨hrowVE, -, -⟩ :=
     ihi hvv hws.2.1 hb.1.2 hLval hC.letE_val hvA htvvA
   have hrowTE : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ tyA :=
@@ -838,7 +924,8 @@ theorem infer_app_claimP (m : EnvS2Core V env)
   rw [haa] at hea
   obtain rfl : ea = .app fa aa := (Option.some.inj hea).symm
   -- the head, and its inferred type's frame
-  obtain ⟨tfa, htfa⟩ := hir htf hws.1 hb.1 hLf hfa
+  obtain ⟨tfa, htfa⟩ :=
+    hir htf hws.1 hb.1 hLf (LeafReadsP.of_ctxOkP hC.app_fn) hfa
   obtain ⟨hrowfE, hrowfT, hrowfM⟩ :=
     ihi htf hws.1 hb.1 hLf hC.app_fn hfa htfa
   have htfsub := inferTypeCore_fvarLeaves m.base.wf fuel htf hws.1
@@ -888,7 +975,8 @@ theorem infer_app_claimP (m : EnvS2Core V env)
     rw [AnnotValidV_pi] at h2
     exact h2.2.2 h0 x hx
   -- the argument, and the domain agreement
-  obtain ⟨tyaA, htyaA⟩ := hir hia hws.2 hb.2 hLa haa
+  obtain ⟨tyaA, htyaA⟩ :=
+    hir hia hws.2 hb.2 hLa (LeafReadsP.of_ctxOkP hC.app_arg) haa
   obtain ⟨hrowaE, hrowaT, hrowaM⟩ :=
     ihi hia hws.2 hb.2 hLa hC.app_arg haa htyaA
   have htasub := inferTypeCore_fvarLeaves m.base.wf fuel hia hws.2

@@ -29,39 +29,21 @@ unfindable or mis-arity `.const`, an unsupported literal guard, or a
 — every output is a subterm, an instantiation, or a stored type of
 something the subject already reads.
 
-## FINDING — `InferReadsP` as stated is REFUTABLE
+## FINDING (batch 6) — `InferReadsP` as stated was REFUTABLE; REPAIRED
 
 `inferBody`'s `.fvar` clause returns the leaf's **stored annotation**
-`ty`, and `denoteP`'s `fvar` clause never looks at `ty`.  So the
-subject reading `denoteP … d (.fvar idx n ty) = some (.bvar (d-1-idx))`
-carries no information about `ty`, and `InferReadsP` — whose premise
-set is exactly the run plus the scoping package plus the subject's
-reading — is *false* on
+`ty`, which `denoteP`'s `fvar` clause never looks at — so the subject's
+reading carries no information about it, and the residue was false on
+`.fvar 0 n (.const c [])` at `d = 1` with `c ∉ env`.  Batch 8 applied
+the sanctioned repair: `InferReadsP` (`Step2/InferP.lean`) now carries
+the leaf premise `LeafReadsP m φ d e`, which its sibling
+`InferExistsP` got for free from its `CtxOkP`.  Nothing is routed —
+every consumer holds a `CtxOkP` at the same depth and discharges the
+premise by `LeafReadsP.of_ctxOkP` — and `inferReadsP_of` below closes
+the residue from `ReadsInputsP` alone.  See DESIGN.md.
 
-    e   := .fvar 0 n (.const c [])      (at d = 1, any c ∉ env)
-    run : inferTypeCore μ env (f+1) 1 e = .ok (.const c [])
-
-which satisfies `WScoped 1 e`, `e.looseBVarsBounded 0`,
-`Expr.LeavesBounded e` and reads, while `.const c []` does not read.
-`Expr.LeavesBounded` bounds the leaf annotations' *bvars*; it says
-nothing about their constants.
-
-The missing side condition is `LeafReadsP` below — a weakening of
-`CtxOkP`, whose leaf package already contains it.  **Every in-tree
-consumer of `InferReadsP` holds a `CtxOkP` at the same `d`**
-(`sortSemAtP_of_claims`, `infer_app_claimP`, `infer_letE_claimP` all
-`intro` it before applying the residue), so the repair is a *statement
-change* in `Step2/InferP.lean`: add `CtxOkP m φ d Δa e` to
-`InferReadsP`'s premises, exactly as its sibling `InferExistsP`
-(`Step2/WhnfP.lean`) already has it.  That file is out of this task's
-edit fence, so the walk is delivered in the leaf-premised form
-(`InferReadsCP`), the `CtxOkP`-carrying residue `InferExistsP` is
-discharged **outright**, and `InferReadsP` itself is supplied from
-`InferReadsCP` plus the flagged `LeafReadsAllP` hypothesis.
-
-`WhnfReadsP` has no such gap: `whnf`/`whnfCore` never return a stored
-leaf annotation, so its walk needs no leaf premise and it *is*
-discharged outright.
+`WhnfReadsP` never had the gap: `whnf`/`whnfCore` never return a stored
+leaf annotation, so its walk needs no leaf premise.
 
 ## What is routed, and to which tier
 
@@ -129,95 +111,30 @@ theorem whnfCoreExistsP_of_reduct {m : EnvS2Core V env}
 
 /-- **`InferReadsP → InferExistsP`, one direction only.**  The two
 differ in their premise sets: `InferExistsP` (`Step2/WhnfP.lean`)
-carries `CtxOkP m φ d Δa e`, `InferReadsP` (`Step2/InferP.lean`) does
-not.  So the conversion holds *from the weaker-premised statement to
-the stronger-premised one* — `InferReadsP` implies `InferExistsP` by
-dropping the context — and the converse does **not** hold as a
-conversion (there is no `Δa` to supply).  See the module FINDING: it
-is the missing `CtxOkP` that makes `InferReadsP` refutable, and
-`InferExistsP` the one of the pair this file discharges outright. -/
+carries the whole `CtxOkP m φ d Δa e`, `InferReadsP`
+(`Step2/InferP.lean`) only its leaf weakening `LeafReadsP`.  So the
+conversion holds *from the weaker-premised statement to the
+stronger-premised one* — the context projects to the leaf package
+(`LeafReadsP.of_ctxOkP`) — and the converse does **not** hold as a
+conversion (there is no `Δa` to supply). -/
 theorem inferExistsP_of_reads {m : EnvS2Core V env}
     (h : InferReadsP m μ φ fuel) : InferExistsP μ m φ fuel := by
-  intro _d _e _t _Δa hrun hws hb hLb _ea _hC hea
-  exact h hrun hws hb hLb hea
+  intro _d _e _t _Δa hrun hws hb hLb _ea hC hea
+  exact h hrun hws hb hLb (LeafReadsP.of_ctxOkP hC) hea
 
 /-! # T2/T3 — the readability walk
 
-## The leaf side condition -/
+The leaf side condition `LeafReadsP` and its kit
+(`of_ctxOkP`/`of_subset`/`weakenTop`/`openS`) now live in
+`Step2/InferP.lean`, next to the residue that carries it (batch 8).
 
-/-- **Every `fvar` leaf annotation of the subject reads.**  A strict
-weakening of `CtxOkP`: its per-leaf package's third component is
-literally this existential, so `of_ctxOkP` is a projection.
+## The walk's three statements
 
-This is the side condition the module FINDING names — the one premise
-`InferReadsP`'s statement is missing and `InferExistsP`'s `CtxOkP`
-supplies.  It is *not* routed to another tier: the walk carries it as
-an ordinary hypothesis and propagates it through the binder clauses
-(`weakenTop`/`openS` below). -/
-def LeafReadsP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (d : Nat) (e : Expr) : Prop :=
-  ∀ l ∈ e.fvarLeaves, ∃ tya, denoteP m.acval env φ d l.2.2 = some tya
-
-namespace LeafReadsP
-
-variable {m : EnvS2Core V env}
-
-/-- **The consumers' discharge**: `CtxOkP`'s leaf package contains the
-reading, so any clause holding a context correspondence holds this. -/
-theorem of_ctxOkP {d : Nat} {Δa : List AVExpr} {e : Expr}
-    (hC : CtxOkP m φ d Δa e) : LeafReadsP m φ d e := by
-  intro l hl
-  obtain ⟨-, -, tya, -, hden, -⟩ := hC.2 l hl
-  exact ⟨tya, hden⟩
-
-/-- Transport along a leaf-closure inclusion — the shape every clause
-uses to reach a subterm (`CtxOkP.of_subset`'s mirror). -/
-theorem of_subset {d : Nat} {e e' : Expr} (h : LeafReadsP m φ d e)
-    (hs : ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves) :
-    LeafReadsP m φ d e' :=
-  fun l hl => h l (hs l hl)
-
-/-- **One more binder.**  `denoteP_weaken_top` is an equality, so a
-leaf that reads at `d` reads at `d + 1` (at the lifted annotation);
-`CtxOkP.weakenTop`'s first conjunct with everything semantic
-dropped. -/
-theorem weakenTop {d : Nat} {e : Expr} (hw : Expr.WScoped d e)
-    (h : LeafReadsP m φ d e) : LeafReadsP m φ (d + 1) e := by
-  intro l hl
-  obtain ⟨hlt, hwl⟩ := Setlec.Expr.WScoped_leaves e hw l hl
-  obtain ⟨tya, hden⟩ := h l hl
-  refine ⟨tya.liftN 1 0, ?_⟩
-  rw [denoteP_weaken_top m.acval_closed (hwl.mono (by omega)), hden]
-  rfl
-
-/-- **Opening a binder**, `CtxOkP.openS`'s shape: the body's own leaves
-weaken, and the *new* leaf `(d, n, ty)` reads because the binder's
-domain does (`hty`, which every clause has from the subject's own
-reading). -/
-theorem openS {d : Nat} {n : Name} {ty body : Expr} {ta : AVExpr}
-    (hwt : Expr.WScoped d ty) (hwb : Expr.WScoped d body)
-    (ht : LeafReadsP m φ d ty) (hbd : LeafReadsP m φ d body)
-    (hty : denoteP m.acval env φ d ty = some ta) :
-    LeafReadsP m φ (d + 1) (body.instantiate1 (.fvar d n ty)) := by
-  intro l hl
-  rcases Setlec.Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
-  · exact weakenTop hwb hbd l hl'
-  · rw [Setlec.Expr.fvarLeaves] at hl'
-    rcases List.mem_cons.mp hl' with rfl | hl''
-    · refine ⟨ta.liftN 1 0, ?_⟩
-      rw [denoteP_weaken_top m.acval_closed hwt, hty]
-      rfl
-    · exact weakenTop hwt ht l hl''
-
-end LeafReadsP
-
-/-! ## The walk's three statements
-
-`WhnfReadsP` (`Step2/InferP.lean`) is used verbatim — the reduction
-walk needs no leaf premise, so the residue's own statement is what the
-induction proves.  Its `whnfCore` companion has no residue of its own
+`WhnfReadsP` and `InferReadsP` (`Step2/InferP.lean`) are used verbatim
+— since batch 8's repair the residues' own statements are exactly what
+the induction proves.  `whnfCore` has no residue of its own
 (`WhnfCoreExistsP`/`WhnfCoreReductExistsP` carry a `CtxOkP` and a
-grading the walk never reads), so it is stated here. -/
+grading the walk never reads), so its statement is made here. -/
 
 /-- **The `whnfCore` reduct reads** — `WhnfCoreExistsP` with the
 `CtxOkP` and grading premises dropped. -/
@@ -230,20 +147,6 @@ def WhnfCoreReadsP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     denoteP m.acval env φ d e = some ea →
     ∃ ea', denoteP m.acval env φ d e' = some ea'
 
-/-- **The inferred type reads, leaf-premised** — `InferReadsP` with the
-side condition the FINDING identifies.  This is the statement the walk
-proves; `InferExistsP` follows outright (`LeafReadsP.of_ctxOkP`), and
-`InferReadsP` needs the flagged `LeafReadsAllP` on top. -/
-def InferReadsCP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
-    (φ : Name → Nat) (fuel : Nat) : Prop :=
-  ∀ {d : Nat} {e t : Expr} {ea : AVExpr},
-    inferTypeCore μ env fuel d e = .ok t →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e →
-    LeafReadsP m φ d e →
-    denoteP m.acval env φ d e = some ea →
-    ∃ ta, denoteP m.acval env φ d t = some ta
-
 /-- **The joint statement.**  The checker's knot is mutual, so the three
 walks are one induction on the shared fuel: `whnfCore` at `fuel + 1`
 calls `whnfCore` and `whnf` at `fuel`; `whnf` at `fuel + 1` calls
@@ -254,7 +157,7 @@ for the verdict only. -/
 def ReadsAllP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   WhnfCoreReadsP m μ φ fuel ∧ WhnfReadsP m μ φ fuel ∧
-    InferReadsCP m μ φ fuel
+    InferReadsP m μ φ fuel
 
 /-! ## The routed leaves
 
@@ -706,7 +609,7 @@ its codomain reading is the induction hypothesis at the opened body,
 transported across the `abstract1`/`instantiate1` round trip — which is
 where the leaf premise has to be *opened* (`LeafReadsP.openS`). -/
 private theorem inferReads_lam {m : EnvS2Core V env}
-    (ihi : InferReadsCP m μ φ fuel)
+    (ihi : InferReadsP m μ φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
     {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.lam n ty body mb) = .ok t)
@@ -764,7 +667,7 @@ the argument — `denoteP_beta` backwards.  The function's type reads by
 the inference hypothesis, its head normal form by the reduction
 hypothesis. -/
 private theorem inferReads_app {m : EnvS2Core V env}
-    (ihi : InferReadsCP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel)
+    (ihi : InferReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel)
     {d : Nat} {f a t : Expr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.app f a) = .ok t)
     (hws : Expr.WScoped d (.app f a))
@@ -805,7 +708,7 @@ private theorem inferReads_app {m : EnvS2Core V env}
 *opened at the value*, whose reading is `denoteP_beta` at the `letE`
 node's own three readings. -/
 private theorem inferReads_letE {m : EnvS2Core V env}
-    (ihi : InferReadsCP m μ φ fuel)
+    (ihi : InferReadsP m μ φ fuel)
     {d : Nat} {nn : Name} {tt vv bb t : Expr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.letE nn tt vv bb) = .ok t)
     (hws : Expr.WScoped d (.letE nn tt vv bb))
@@ -844,11 +747,11 @@ private theorem inferReads_letE {m : EnvS2Core V env}
     (Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
     (fun l hl => hLb l (hsubred l hl)) (hlr.of_subset hsubred) hred
 
-/-- **`InferReadsCP` at `fuel + 1`** — the eleven shapes. -/
-theorem inferReadsCP_succ {m : EnvS2Core V env}
+/-- **`InferReadsP` at `fuel + 1`** — the eleven shapes. -/
+theorem inferReadsP_succ {m : EnvS2Core V env}
     (hct : ConstTypeP m φ) (hproj : InferProjReadsP μ m φ fuel)
-    (ihi : InferReadsCP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
-    InferReadsCP m μ φ (fuel + 1) := by
+    (ihi : InferReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
+    InferReadsP m μ φ (fuel + 1) := by
   intro d e t ea h hws hb hLb hlr hea
   match e with
   | .sort u => exact inferReads_sort h
@@ -930,13 +833,13 @@ theorem readsAllP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
     ⟨whnfCoreReadsP_succ (hin.iota fuel) (hin.whnf_proj fuel) ih.1,
       whnfReadsP_succ ih.1 (hin.nat fuel)
         (deltaP_of m hin.defn),
-      inferReadsCP_succ hin.const_ty (hin.infer_proj fuel) ih.2.2
+      inferReadsP_succ hin.const_ty (hin.infer_proj fuel) ih.2.2
         ih.2.1⟩
 
 /-! # The six residues, supplied
 
-Five outright from `ReadsInputsP`; the sixth (`InferReadsP`) needs the
-flagged leaf hypothesis — see the module FINDING. -/
+All six outright from `ReadsInputsP` — batch 8's repair of the
+`InferReadsP` FINDING (the leaf premise) closed the last one. -/
 
 /-- The `whnfCore` reduct reads, at every fuel. -/
 theorem whnfCoreReadsP_of {m : EnvS2Core V env}
@@ -948,9 +851,13 @@ theorem whnfReadsP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
     WhnfReadsP m μ φ fuel :=
   (readsAllP_of hin fuel).2.1
 
-/-- The leaf-premised inference walk, at every fuel. -/
-theorem inferReadsCP_of {m : EnvS2Core V env}
-    (hin : ReadsInputsP μ m φ) : InferReadsCP m μ φ fuel :=
+/-- **Residue 6/6 — `InferReadsP`, discharged outright.**  Batch 6 could
+only supply this modulo a flagged (and refutable) leaf hypothesis,
+because the residue as then stated omitted the side condition its
+`.fvar` clause needs; batch 8 added the premise, and the walk *is* the
+supplier.  See the module FINDING. -/
+theorem inferReadsP_of {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : InferReadsP m μ φ fuel :=
   (readsAllP_of hin fuel).2.2
 
 /-- **Residue 2/6 — `WhnfCoreExistsP`, discharged outright.**  The
@@ -973,36 +880,12 @@ routed. -/
 theorem inferExistsP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
     InferExistsP μ m φ fuel := by
   intro _d _e _t _Δa hrun hws hb hLb _ea hC hea
-  exact inferReadsCP_of hin hrun hws hb hLb (LeafReadsP.of_ctxOkP hC)
+  exact inferReadsP_of hin hrun hws hb hLb (LeafReadsP.of_ctxOkP hC)
     hea
 
 /-- **Residue 5/6 — `DenotePDeltaP`, discharged outright.** -/
 theorem denotePDeltaP_of {m : EnvS2Core V env}
     (hin : ReadsInputsP μ m φ) : DenotePDeltaP m φ :=
   denotePDeltaP_of_fields m hin.defn
-
-/-- **The flagged residue.**  `LeafReadsAllP` is `LeafReadsP` at *every*
-subject, and it is **REFUTABLE** — the module FINDING's witness
-`.fvar 0 n (.const c [])` with `c ∉ env` falsifies it.  It is stated
-here, and only here, because `InferReadsP`'s premise set (which omits
-`CtxOkP`) leaves no other way to close the residue as literally
-written.
-
-No tier discharges this.  The repair is the sanctioned statement
-change named in the FINDING: give `InferReadsP` the `CtxOkP` premise
-its sibling `InferExistsP` already has, after which
-`inferExistsP_of` *is* the supplier and this definition can be
-deleted. -/
-def LeafReadsAllP {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) : Prop :=
-  ∀ (d : Nat) (e : Expr), LeafReadsP m φ d e
-
-/-- **Residue 6/6 — `InferReadsP`, modulo the flagged hypothesis.**
-Everything except the `.fvar` clause is the walk; `hleaf` is consumed
-at that clause and nowhere else. -/
-theorem inferReadsP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ)
-    (hleaf : LeafReadsAllP m φ) : InferReadsP m μ φ fuel := by
-  intro d e t ea hrun hws hb hLb hea
-  exact inferReadsCP_of hin hrun hws hb hLb (hleaf d e) hea
 
 end Setlec.SetR.Interp2

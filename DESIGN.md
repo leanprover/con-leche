@@ -11482,3 +11482,53 @@ mechanical signature sweep of the P surface (`EnvS2UM V μ env` →
 `EnvS2Core V env`) + re-homing the three `acval` helper lemmas the
 level crossing reads + `EnvS2PM.base2 : EnvS2Core`; runs after
 batches 6/7 merge so the sweep is single-shot.
+
+### Task #161 P4 batch 8: the carrier sweep, done + `InferReadsP` repaired (2026-09-01)
+
+**The sweep landed.**  The whole P surface is now stated over
+`EnvS2Core V env` — `Claims2P` (`CtxOkP`, the four claim families,
+`CheckStep2P`/`checkSound2P`), `CtxOkPKit`, `OkPTransport`,
+`BitLevels`, `InferP`, `WhnfP`, `DefEqP`, `AssemblyP`, `IrrelP`,
+`StuckP`, `ReadsP`, and `EnvS2PM.base2`.  (`BitInstall`/`BitExtend`
+bound no `EnvS2UM` and were untouched.)  Every P theorem is thereby
+strictly *stronger*; no content changed.  `EnvS2UM.toCore` and
+`EnvS2U.toCore` stay for canonical-lane interop.
+
+Canonical helpers the P surface consumed at the fat carrier were
+transposed body-for-body, each beside its consumer, canonical files
+untouched: `AcvalParams2`/`acvalParams2` → `AcvalParamsP`/
+`acvalParamsP` (`Annot/EnvS2Core.lean`); `acval_isEmpty`/
+`acval_oneParam`/`acval_scalar`/`acval_one`/`acval_natPair` → the
+`…P` names in `Step2/BitLevels.lean` (the first two came along because
+`acval_scalar`/`acval_one` call them); `NatHeads2` → `NatHeadsP`
+(`Step2/InferP.lean`).
+
+**Two spots the sweep was not purely mechanical**, both because the
+carrier no longer pins the mode: (i) `DeltaP`'s `μ` became a genuinely
+unused binder (only `m`'s type ever mentioned it) and is dropped —
+`DenotePDeltaP`, its statement-identical twin, never had one; (ii)
+fourteen P-tier `Prop`s whose *bodies* run the checker at `μ` now take
+`μ` explicitly (`DefEqStepAtP`, `ProofIrrelPQ`, `ReduceNatStepPQ`,
+`DefEqSpineP`, `DefEqStuckP`, `StuckIrrelPQ`, `AppCongrStuckP`,
+`EtaCertStepP`, `WhnfCoreReductExistsP`, `PairEtaIrrelP`,
+`StructEtaIrrelP`, `StructUnitIrrelP`, `UnitIrrelPQ`,
+`ReadsInputsP`), as `Claims2P`'s four families already did —
+otherwise `μ` is an unsolvable implicit at every use site.
+
+**The batch-6 `InferReadsP` FINDING is repaired.**  As stated the
+residue was *refutable*: `inferBody`'s `.fvar` clause returns the
+leaf's stored annotation and `denoteP`'s `fvar` clause never reads it,
+so `.fvar 0 n (.const c [])` at `d = 1` with `c ∉ env` satisfies every
+premise while the returned type does not read.  The sanctioned repair
+landed: `InferReadsP` now carries `LeafReadsP m φ d e` (the leaf
+weakening of `CtxOkP`, moved with its kit from `Step2/ReadsP.lean` to
+`Step2/InferP.lean`).  Consequences: `InferReadsCP` — batch 6's
+leaf-premised stand-in — is *deleted*, the walk proves `InferReadsP`
+itself, `inferReadsP_of` closes the residue from `ReadsInputsP`
+**alone**, and the flagged (refutable) `LeafReadsAllP` is deleted.
+Every consumer paid nothing: `sortSemAtP_of_claims`,
+`infer_letE_claimP`, `infer_app_claimP`, `prop_side_pt`/
+`proofIrrelPQ_of_claims`, `etaCertStepP_of_claims` each already held a
+`CtxOkP` at the same depth, and discharge the new premise by
+`LeafReadsP.of_ctxOkP`.  All six totality residues of the batch-6
+consolidation are now discharged outright.

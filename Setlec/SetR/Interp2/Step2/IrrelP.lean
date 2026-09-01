@@ -75,7 +75,8 @@ private theorem prop_side_pt {m : EnvS2Core V env}
     (hda : denoteP m.acval env φ d a = some aa)
     (ρ : Nat → V) (hρ : Sat2 V Δa ρ) :
     interp2 V ρ aa = (pt : V) := by
-  obtain ⟨taa, htaa⟩ := hreads hta hwa hba hLa hda
+  obtain ⟨taa, htaa⟩ :=
+    hreads hta hwa hba hLa (LeafReadsP.of_ctxOkP hCa) hda
   obtain ⟨-, -, hmemA⟩ := ihi hta hwa hba hLa hCa hda htaa
   have hwta : Expr.WScoped d ta :=
     inferTypeCore_WScoped m.base.wf fuel hta hwa

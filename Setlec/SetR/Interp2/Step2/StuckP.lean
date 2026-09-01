@@ -629,7 +629,8 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
         (hokA _ (Sat2_tail hσ)).2).2 (σ 0) (hσ 0 ta rfl)
       rwa [hcons σ] at this
   -- `b`'s inferred type, its reduct, and both readings
-  obtain ⟨tba, htba⟩ := hir htb hwb hbb hLb hdb
+  obtain ⟨tba, htba⟩ :=
+    hir htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
   have htbW : Expr.WScoped d tb :=
     Setlec.inferTypeCore_WScoped m.base.wf fuel htb hwb
   have htbB : tb.looseBVarsBounded 0 = true :=
