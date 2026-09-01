@@ -1,6 +1,7 @@
 import Setlec.SetR.Interp2.Step2.ReadsP
 import Setlec.SetR.Interp2.Step2.CapsRowsP
 import Setlec.SetR.Interp2.Step2.StrLitP
+import Setlec.SetR.Interp2.Step2.ProjRowsP
 
 /-!
 # The tiers assembly (task #161, P4): one env-fixed bundle, one induction
@@ -50,8 +51,6 @@ structure TierInputsAtP (V : Type w) [SetTheory V] (μ : CheckMode)
   acval_valid : AcvalValidP m
   /-- install tier: the numeral heads -/
   nat_heads : NatHeadsP m φ
-  /-- install tier: the projection infer row -/
-  infer_proj : ∀ fuel, InferProjStepP m μ φ fuel
   /-- iota tier: the fired-rule row -/
   iota : ∀ fuel, IotaStepP μ m φ fuel
   /-- install tier: the projection reduction row -/
@@ -166,7 +165,8 @@ theorem checkSoundAtP (hμ : μ.verified = true)
         exact infer_letE_claimP m hss hreads ihi hrun hws hb hLb
           hC hea hta
       | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
-        exact h.infer_proj fuel hrun hws hb hLb hC hea hta
+        exact inferProjStepP_of_claims ihw ihi hreads hwreads hrun hws hb
+          hLb hC hea hta
 
 /-- **The env-tier entries, from the fold's invariant**: an `EnvS2PM`
 supplies the readability bundle, the leaf validity, and the numeral
@@ -176,7 +176,6 @@ by its tier in the frontier-transformation table. -/
 theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
     (hiota_r : ∀ fuel, IotaReadsP μ mp.base2 φ fuel)
     (hnat_r : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel)
-    (hiproj : ∀ fuel, InferProjStepP mp.base2 μ φ fuel)
     (hiota : ∀ fuel, IotaStepP μ mp.base2 φ fuel)
     (hwproj : ∀ fuel, ProjStepP μ mp.base2 φ fuel)
     (hnat : ∀ fuel,
@@ -188,7 +187,6 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
   reads := ReadsInputsP.ofEnvS2PM mp hiota_r hnat_r
   acval_valid := mp.acvalValidP
   nat_heads := mp.nat_heads φ
-  infer_proj := hiproj
   iota := hiota
   whnf_proj := hwproj
   nat_step := hnat
