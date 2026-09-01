@@ -407,6 +407,17 @@ decreasing_by
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
   | (simp [Expr.sizeB])
 
+/-- **The pin comparison's tolerance, as a denotation equality.**  Two
+types that agree after both erasures — exactly what
+`ConstantVal.matchesPin` checks of them — denote equally.  This is the
+form the pinned-family shape facts (`Verify/StdAxiomPin.lean`) hand to
+their consumers. -/
+theorem denote_pinEq {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {a b : Expr} (h : a.erasePw.eraseNames = b.erasePw.eraseNames)
+    (d : Nat) : denote cval env φ d a = denote cval env φ d b := by
+  rw [← denote_erasePw a d, ← denote_erasePw b d]
+  exact denote_erasedEq (erasedEq_of_eraseNames h) d
+
 /-- A `matchesPin` hit lets a stored type be denoted on the pin. -/
 theorem denote_matchesPin {cval : TConstVal} {env : Env} {φ : Name → Nat}
     {cv pin : ConstantVal} (h : ConstantVal.matchesPin cv pin = true)
