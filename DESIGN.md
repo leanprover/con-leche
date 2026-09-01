@@ -12056,6 +12056,85 @@ telescopes.  The telescope collapse is what buys this — one inference
 per ∀ telescope and one per λ chain, on terms the front-door sweep
 re-infers immediately after, so the memo serves the second read.
 
+### Memory: the pass's scratch, and where it lands (follow-up, 2026-09-01)
+
+Instructions are not the whole cost.  Peak RSS, `--set-model`,
+process-tree `ru_maxrss` with the checker run *directly*
+(`SETLEC_SUPERVISED=1`, so the figure is the checking process's own
+peak and not the supervisor's — the recorded sampler lesson; 16 GB
+`ulimit -v`, `timeout`), against the same P1-seal reference:
+
+| stream | P1 reference | this branch | delta |
+|---|---|---|---|
+| init-prelude (3653 decls), max of 3 | 115 412 KB (113 MB) | 117 924 KB (115 MB) | **+2.2 %** (+2.5 MB) |
+| init-full (61 048 decls), 2 runs | 1 745 796 / 1 762 352 KB (≈1.68 GB) | 2 166 932 / 2 168 116 KB (≈2.07 GB) | **+23.6 %** (+404 MB) |
+
+(The tree-`ru_maxrss` variant, with the supervisor in the tree, agrees
+to within 1 % on init-prelude.  Both binaries' init-full peak is far
+above the ~548 MB figure recorded post-#57 — that reference predates
+this stream and several arena changes; it is the *delta* that is the
+measurement here.)
+
+**MATERIAL, and it grows with the stream** — 2 % at init-prelude, 24 %
+at init-full.  That is the signature of *retained* rather than
+transient allocation: the pass's `whnf`/`infer` scratch (reducts of
+domain types, δ-unfoldings of aliases) interns as arena nodes, and
+where the pass runs unbracketed those nodes land in the **persistent
+tier one** and survive every subsequent declaration.
+
+**Phase placement, precisely** (narrower than "install-side" suggests,
+and the difference matters for the fix).  `checkDeclSP`
+(`CheckerS.lean:1751`) — THE default driver — routes every
+def/thm/opaque **value** through `bracketValB4` (`:1679`), and
+`ops.annotate` sits *inside* `openSnapshotM`/`closeSnapshotM`: the
+pass's scratch on values is tier two and is truncated at the close,
+with only the annotated value's sub-DAG promoted.  So the value
+pipeline is already covered by #64.  What is **not** bracketed, and is
+therefore the whole of the regression:
+
+* `checkConstantValP` (`:1435`) — the declaration's **type**.
+  `annotate 0 cv.type` and every sort computation under it run on the
+  retained tier-one store; `jty` itself must persist, but its scratch
+  need not.
+* `checkDeclSPPlain` (`:1543`) — the nat-op/reduce-op pinned-cert
+  branches and every install-only kind (axioms, inductive blocks,
+  basis blocks), where the projection-rule and iota-RHS towers are
+  annotated.
+
+(`checkDefnValP`:1459 is the unbracketed *mirror* of the value
+pipeline, kept for the simulation; it is not the shipped route.)
+
+**Mitigation option — recorded, NOT implemented.**  A *mini-bracket*
+around the pass's sort computations, composing with the existing #64
+machinery rather than extending it: at a ∀-telescope/λ-chain leaf,
+`openSnapshotM`; run the `infer`/`whnf` that yields the codomain sort;
+read the datum out; `closeDiscardM`; then write the annotations into
+the term.  What makes this cheap and safe is that the harvested result
+is **plain small data** — a `PropWhen`, i.e. a constructor plus a list
+of `Name`s — and *not* an arena index, so nothing has to be promoted
+across the close (`closeDiscardM`, not `closeSnapshotM`; contrast
+`bracketValB4`, which must promote `jv`).  The datum is then written
+into the persisted term by the ordinary rebuild, which allocates only
+the binder nodes it was going to allocate anyway.  Costs to weigh
+before doing it: (i) the snapshot flushes the index-carrying memos, so
+the pass would stop sharing its inference memo with the front-door
+sweep that immediately revalidates the same terms — the +2 %
+instruction figure above is *bought* by that sharing and would move;
+(ii) `Verify/BracketB4.lean`'s seam theory would gain a second, inner
+bracket shape to relate.  A `closeDiscardM`-only mini-bracket at the
+`checkConstantValP` type site alone (leaving `checkDeclSPPlain`'s
+bounded content unbracketed) is the smaller first cut.
+
+**And the standing redesign dissolves it.**  The ledger note "the
+implementation phase targets a cached checker variant" (user heads-up,
+this file) retires the two-tier arena in favour of derived fields plus
+hashmaps.  In that world there is no tier-one/tier-two distinction to
+place the pass on either side of: scratch reducts are ordinary heap
+values collected when unreachable, and the phase-placement question —
+including this measurement — goes away entirely.  So the mini-bracket
+is worth building only if `--set-model` memory becomes binding
+*before* the cached variant lands.
+
 **FINDING — the empirical unique-typing question is answered
 negative-free, up to and including init-full.**  The design's top risk
 (§10.1, amendment 1 risk 1) was cross-provenance mismatches surfacing
