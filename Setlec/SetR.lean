@@ -138,6 +138,7 @@ import Setlec.SetR.Annot.BitClosed
 import Setlec.SetR.Annot.BitInstall
 import Setlec.SetR.Annot.BitExtend
 import Setlec.SetR.Annot.ValidV
+import Setlec.SetR.Annot.ValidVSpine
 import Setlec.SetR.Interp2.Step2.BitLevels
 import Setlec.SetR.Annot.SimSubst
 import Setlec.SetR.Annot.PremiseLadder
