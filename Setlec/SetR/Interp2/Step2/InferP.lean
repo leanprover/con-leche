@@ -74,6 +74,76 @@ theorem denoteP_sortQ {acval : Name → (Name → Nat) → AVExpr} {d : Nat}
     denoteP acval env φ d (.sort u) = some (.sort (u.eval φ)) := by
   rw [denoteP]
 
+/-- `.sort`, P currency: both readings are sort nodes, gradings are
+vacuous, the row is `sound_sort`. -/
+theorem infer_sort_claimP (m : EnvS2UM V μ env) {d : Nat} {u : Level}
+    {t : Expr} {Δa : List AVExpr} {ea ta : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.sort u) = .ok t)
+    (hea : denoteP m.acval env φ d (.sort u) = some ea)
+    (hta : denoteP m.acval env φ d t = some ta) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [Setlec.inferBody, Setlec.viewM, Expr.view, pure,
+    Except.pure, Bind.bind, Except.bind, Except.ok.injEq] at h
+  subst h
+  rw [denoteP_sortQ] at hea hta
+  obtain rfl : ea = .sort (u.eval φ) := (Option.some.inj hea).symm
+  obtain rfl : ta = .sort (Level.eval φ (.succ u)) :=
+    (Option.some.inj hta).symm
+  refine ⟨fun _ _ => ⟨by simp, by simp⟩,
+    fun _ _ => ⟨by simp, by simp⟩, ?_⟩
+  intro ρ _
+  exact (sound_sort V ρ (u.eval φ)).2
+
+/-- `.bvar`, P currency: outside the fragment, the checker throws. -/
+theorem infer_bvar_claimP (m : EnvS2UM V μ env) {d i : Nat} {t : Expr}
+    {Δa : List AVExpr} {ea ta : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.bvar i) = .ok t)
+    (_hea : denoteP m.acval env φ d (.bvar i) = some ea)
+    (_hta : denoteP m.acval env φ d t = some ta) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [Setlec.inferBody, Setlec.viewM, Expr.view, pure,
+    Except.pure, Bind.bind, Except.bind] at h
+  simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- `.fvar`, P currency: the leaf package of `CtxOkP` carries the
+fourth conjunct at `AnnotOkP`, so the clause takes no residue —
+`infer_fvar_claim2D`'s improvement inherited by construction. -/
+theorem infer_fvar_claimP (m : EnvS2UM V μ env)
+    {d idx : Nat} {n : Name} {ty t : Expr} {Δa : List AVExpr}
+    {ea ta : AVExpr}
+    (hC : CtxOkP m φ d Δa (.fvar idx n ty))
+    (h : inferTypeCore μ env (fuel + 1) d (.fvar idx n ty) = .ok t)
+    (hea : denoteP m.acval env φ d (.fvar idx n ty) = some ea)
+    (hta : denoteP m.acval env φ d t = some ta) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  obtain ⟨-, -, tya, Aa, hden, hi, hlink, hokP⟩ := CtxOkP.fvar_leaf hC
+  rw [denoteP] at hea
+  obtain rfl : ea = .bvar (d - 1 - idx) := (Option.some.inj hea).symm
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [Setlec.inferBody, Setlec.viewM, Expr.view, pure,
+    Except.pure, Bind.bind, Except.bind] at h
+  split at h
+  · simp only [Except.ok.injEq] at h
+    subst h
+    rw [hden] at hta
+    obtain rfl : ta = tya := (Option.some.inj hta).symm
+    refine ⟨fun _ _ => ⟨by simp, by simp⟩, hokP, ?_⟩
+    intro ρ hρ
+    rw [interp2_bvar, hlink ρ hρ]
+    exact hρ (d - 1 - idx) Aa hi
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+
 /-- **`.forallE`, P currency** — see the module docstring; the four
 moves annotated inline. -/
 theorem infer_forallE_claimP (m : EnvS2UM V μ env)
