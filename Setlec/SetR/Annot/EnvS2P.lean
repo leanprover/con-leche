@@ -114,10 +114,27 @@ tower is made of (the literal-tier seal II finding 1).  See the task
 def EqLawP {V : Type w} [SetTheory V] {env : Env}
     (m : EnvS2Core V env) : Prop :=
   env.find? eqName = some eqA →
-  ∀ (ψ : Name → Nat) (ρ : Nat → V) (A a b : V),
-    A ∈ˢ (univ (ψ uN) : V) → a ∈ˢ A → b ∈ˢ A →
-    SetTheory.app (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval eqName ψ)) A) a) b = eqv a b
+  ∀ ψ : Name → Nat,
+    -- the spine's **value**: the truth set of the equation
+    (∀ (ρ : Nat → V) (A a b : V),
+      A ∈ˢ (univ (ψ uN) : V) → a ∈ˢ A → b ∈ˢ A →
+      SetTheory.app (SetTheory.app (SetTheory.app
+          (interp2 V ρ (m.acval eqName ψ)) A) a) b = eqv a b) ∧
+    -- the spine's **grading**, and that it is a proposition.  (v1
+    -- needs neither: `AnnotOkV` has no bit content and `CtxOkR` asks
+    -- for no grading.  Both are stated here for the same reason v1
+    -- restated `EqLawV` at the two-fold application — an interface
+    -- field is stated at the shape its consumers read, and the
+    -- certificate frame reads exactly these.)
+    ∀ (ρ : Nat → V) (Aa la ra : AVExpr),
+      AnnotOkP V ρ Aa → AnnotOkP V ρ la → AnnotOkP V ρ ra →
+      interp2 V ρ Aa ∈ˢ (univ (ψ uN) : V) →
+      interp2 V ρ la ∈ˢ interp2 V ρ Aa →
+      interp2 V ρ ra ∈ˢ interp2 V ρ Aa →
+      AnnotOkP V ρ
+          (.app (.app (.app (m.acval eqName ψ) Aa) la) ra) ∧
+        interp2 V ρ (.app (.app (.app (m.acval eqName ψ) Aa) la) ra)
+          ∈ˢ (univZero : V)
 
 /-- **The P-tier environment invariant, at one mode** (see the module
 docstring). -/

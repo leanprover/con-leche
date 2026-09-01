@@ -239,14 +239,15 @@ theorem eqLawP_cons_fresh {m : EnvS2Core V env}
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     EqLawP m₂ := by
-  intro hfind ψ ρ A' a b hA ha hb
+  intro hfind ψ
   have hfE : env.find? eqName = some eqA := by
     rw [Setlec.Env.find?_cons] at hfind
     split at hfind
     · next heq => exact absurd heq.symm hne
     · exact hfind
-  rw [hac, show acvalWith m.acval c₀.name A eqName = m.acval eqName
-    from acvalWith_ne hne]
-  exact hprev hfE ψ ρ A' a b hA ha hb
+  have hmove : m₂.acval eqName = m.acval eqName := by
+    rw [hac]; exact acvalWith_ne hne
+  rw [hmove]
+  exact hprev hfE ψ
 
 end Setlec.SetR.Interp2
