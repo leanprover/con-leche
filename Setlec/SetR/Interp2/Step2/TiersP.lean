@@ -53,8 +53,6 @@ structure TierInputsAtP (V : Type w) [SetTheory V] (μ : CheckMode)
   nat_heads : NatHeadsP m φ
   /-- iota tier: the fired-rule row -/
   iota : ∀ fuel, IotaStepP μ m φ fuel
-  /-- install tier: the projection reduction row -/
-  whnf_proj : ∀ fuel, ProjStepP μ m φ fuel
   /-- literal tier: the two acceleration rows, each taking the whnf
   claims at the same fuel (`reduceNat` head-normalises its arguments
   before reading them as literals) -/
@@ -106,7 +104,8 @@ theorem checkSoundAtP (hμ : μ.verified = true)
     · -- the head-normalisation quarter
       exact whnfCore_claimsP m hex
         (betaCertP_of_claims m hexi ihd ihi)
-        (h.iota fuel) (h.whnf_proj fuel) ihwc
+        (h.iota fuel)
+        (projStepP_of_claims ihwc ihw ihd ihi hreads hwreads) ihwc
     · -- the reduction loop
       exact whnf_claimsP m hex ihwc (h.nat_step fuel ihw)
         (deltaP_of m h.reads.defn)
@@ -177,7 +176,6 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
     (hiota_r : ∀ fuel, IotaReadsP μ mp.base2 φ fuel)
     (hnat_r : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel)
     (hiota : ∀ fuel, IotaStepP μ mp.base2 φ fuel)
-    (hwproj : ∀ fuel, ProjStepP μ mp.base2 φ fuel)
     (hnat : ∀ fuel,
       WhnfClaims2P μ mp.base2 φ fuel → ReduceNatStepP μ mp.base2 φ fuel)
     (hnatQ : ∀ fuel,
@@ -188,7 +186,6 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
   acval_valid := mp.acvalValidP
   nat_heads := mp.nat_heads φ
   iota := hiota
-  whnf_proj := hwproj
   nat_step := hnat
   nat_stepQ := hnatQ
   caps_ok := mp.caps_ok
