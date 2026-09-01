@@ -518,6 +518,47 @@ def pisToLams : Nat → ExprC → ExprC → Option ExprC
       | none => none
     | _ => none
 
+/-! ## Level-parameter definedness (the parsed-index driver's guard) -/
+
+/-- Core of `allLevelParamsDefined` (memoized; nodes without a level
+parameter are `true` without traversal — the `hasLP` cutoff). -/
+partial def allLevelParamsDefinedGo (params : List Name)
+    (memo : Std.HashMap ExprC Bool) (e : ExprC) :
+    Bool × Std.HashMap ExprC Bool :=
+  if !e.hasLP then (true, memo) else
+  match memo[e]? with
+  | some r => (r, memo)
+  | none =>
+    let (r, memo) : Bool × Std.HashMap ExprC Bool :=
+      match e with
+      | .bvar .. | .lit .. => (true, memo)
+      | .sort u .. => (Level.allParamsDefined params u, memo)
+      | .const _ us .. => (us.all (Level.allParamsDefined params), memo)
+      | .fvar _ _ ty .. => allLevelParamsDefinedGo params memo ty
+      | .app f a .. =>
+        let (rf, memo) := allLevelParamsDefinedGo params memo f
+        if rf then allLevelParamsDefinedGo params memo a else (false, memo)
+      | .lam _ ty body m .. | .forallE _ ty body m .. =>
+        let (rt, memo) := allLevelParamsDefinedGo params memo ty
+        if rt then
+          let (rb, memo) := allLevelParamsDefinedGo params memo body
+          (rb && m.pw.paramsDefined params, memo)
+        else (false, memo)
+      | .letE _ ty val body .. =>
+        let (rt, memo) := allLevelParamsDefinedGo params memo ty
+        if rt then
+          let (rv, memo) := allLevelParamsDefinedGo params memo val
+          if rv then allLevelParamsDefinedGo params memo body
+          else (false, memo)
+        else (false, memo)
+      | .proj _ _ sub .. => allLevelParamsDefinedGo params memo sub
+    (r, memo.insert e r)
+
+/-- `Expr.allLevelParamsDefined params` on `ExprC` (one memoized DAG
+walk). -/
+def allLevelParamsDefined (params : List Name) (e : ExprC) : Bool :=
+  (allLevelParamsDefinedGo params {} e).1
+
 end ExprC
 
 end Setlec.Cached

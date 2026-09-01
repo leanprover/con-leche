@@ -509,4 +509,70 @@ def CState.flushed (s : CState) : CState :=
 
 def flushC : CheckCM Unit := modify (·.flushed)
 
+
+/-! ## The parsed-index driver's syntactic guards
+
+`Expr.constsResolveF` as a memoized `ExprC` DAG walk (the counterpart
+of `constsResolveFIGo`): the tree-walking `Expr` version is what makes
+the `Expr`-typed driver quadratic — or worse — on shared declarations. -/
+
+/-- Core of `constsResolveFC` (memo per call: the result depends on the
+environment). -/
+partial def constsResolveFCGo (fe : FEnv) (memo : Std.HashMap ExprC Bool)
+    (e : ExprC) : Bool × Std.HashMap ExprC Bool :=
+  match memo[e]? with
+  | some r => (r, memo)
+  | none =>
+    let (r, memo) : Bool × Std.HashMap ExprC Bool :=
+      match e with
+      | .bvar .. | .sort .. => (true, memo)
+      | .lit (.natVal _) .. =>
+        ((fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
+          (fe.find? natSuccName).isSome, memo)
+      | .lit (.strVal _) .. =>
+        ((fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
+          (fe.find? natSuccName).isSome && (fe.find? stringName).isSome &&
+          (fe.find? stringOfListName).isSome &&
+          (fe.find? listName).isSome && (fe.find? listNilName).isSome &&
+          (fe.find? listConsName).isSome && (fe.find? charName).isSome &&
+          (fe.find? charOfNatName).isSome, memo)
+      | .const nm _ .. => ((fe.find? nm).isSome, memo)
+      | .fvar _ _ ty .. => constsResolveFCGo fe memo ty
+      | .app f a .. =>
+        let (rf, memo) := constsResolveFCGo fe memo f
+        if rf then constsResolveFCGo fe memo a else (false, memo)
+      | .lam _ ty body _ .. | .forallE _ ty body _ .. =>
+        let (rt, memo) := constsResolveFCGo fe memo ty
+        if rt then constsResolveFCGo fe memo body else (false, memo)
+      | .letE _ ty val body .. =>
+        let (rt, memo) := constsResolveFCGo fe memo ty
+        if rt then
+          let (rv, memo) := constsResolveFCGo fe memo val
+          if rv then constsResolveFCGo fe memo body else (false, memo)
+        else (false, memo)
+      | .proj sn _ sub .. =>
+        if (fe.find? sn).isSome then constsResolveFCGo fe memo sub
+        else (false, memo)
+    (r, memo.insert e r)
+
+/-- `Expr.constsResolveF fe` on `ExprC` (one memoized DAG walk). -/
+def constsResolveFC (fe : FEnv) (e : ExprC) : Bool :=
+  (constsResolveFCGo fe {} e).1
+
+@[inline] def CStore.constsResolveFI (_ : CStore) (fe : FEnv) (e : ExprC) :
+    Bool := constsResolveFC fe e
+
+@[inline] def CStore.allLevelParamsDefinedI (_ : CStore) (ps : List Name)
+    (e : ExprC) : Bool := ExprC.allLevelParamsDefined ps e
+
+/-- Record an accepted constant's converted type/value, tagged with the
+very `Expr` objects pushed into the environment (the counterpart of
+`recordIConst`). -/
+def recordCConst (n : Name) (tyE : Expr) (ty : ExprC)
+    (val : Option (Expr × ExprC)) : CheckCM Unit :=
+  modify fun s =>
+    let m := s.ienv
+    let s := { s with ienv := {} }
+    { s with ienv := m.insert n ⟨tyE, ty, val⟩ }
+
 end Setlec.Cached

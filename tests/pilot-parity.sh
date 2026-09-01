@@ -8,11 +8,15 @@
 #   interned-shared   checkDeclsShared    (interned core, Expr-typed
 #                                          shared-state driver)
 #   cached            the pilot's clone   (same driver, cached core)
+#   cached-parsed     the clone under its own parsed-declaration
+#                     driver (the configuration to compare with
+#                     production)
 #
 # `production` vs `interned-shared` is the driver control (it must
 # already agree — both are kernel code); `interned-shared` vs `cached`
-# is the pilot's claim.  Both exit codes and the decision-relevant
-# stdout line ("setlec: accepted N declarations") are compared.
+# and `production` vs `cached-parsed` are the pilot's claims.  Both
+# exit codes and the decision-relevant stdout line ("setlec: accepted
+# N declarations") are compared.
 #
 # Usage: tests/pilot-parity.sh [--mode=--set-model|--no-model] [tests-dir]
 set -u
@@ -55,11 +59,15 @@ compare() {
   run_one production "$@";      local p_got=$got p_out=$outline
   run_one interned-shared "$@"; local i_got=$got i_out=$outline
   run_one cached "$@";          local c_got=$got c_out=$outline
+  run_one cached-parsed "$@";   local q_got=$got q_out=$outline
   if [ "$i_got" != "$c_got" ] || [ "$i_out" != "$c_out" ]; then
     echo "PARITY FAIL $label: interned-shared exit $i_got ($i_out) vs cached exit $c_got ($c_out)"
     fail=1
+  elif [ "$c_got" != "$q_got" ] || [ "$c_out" != "$q_out" ]; then
+    echo "PARITY FAIL $label: cached exit $c_got ($c_out) vs cached-parsed exit $q_got ($q_out)"
+    fail=1
   elif [ "$p_got" != "$c_got" ] || [ "$p_out" != "$c_out" ]; then
-    echo "DRIVER DIVERGENCE $label: production exit $p_got ($p_out) vs shared-driver exit $c_got ($c_out)"
+    echo "DRIVER DIVERGENCE $label: production exit $p_got ($p_out) vs clone exit $c_got ($c_out)"
     divergent=$((divergent+1))
   fi
 }

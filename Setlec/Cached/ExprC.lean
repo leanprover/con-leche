@@ -221,27 +221,61 @@ def beqSpec : ExprC → ExprC → Bool
   | .proj s i e .., .proj s' i' e' .. => s == s' && i == i' && beqSpec e e'
   | _, _ => false
 
-/-- The executed equality: pointer test, hash test, structural descent
-(each recursive call taking the same shortcuts). -/
+/-- The executed equality: pointer test, hash test, then a **memoized**
+structural descent.
+
+The memo (keyed by the pair of addresses, storing the decided answer)
+is what keeps equality `O(DAG)` rather than `O(tree)`.  It is not
+optional at this representation: hash-consing identifies structurally
+equal terms *however they arose*, so the arena never compares two
+distinct-but-equal DAGs; the clone does exactly that whenever a
+reduction rebuilds a term the arena would have collapsed, and without
+the memo `good/perf/app-lam` (24 k arena nodes, ~10^1160 unshared
+tree) is unreachable.  Pointer identity and the hash test still carry
+the overwhelming majority of comparisons; the memo is allocated only
+on the descent. -/
+unsafe def beqGo (memo : Std.HashMap (USize × USize) Bool) (a b : ExprC) :
+    Bool × Std.HashMap (USize × USize) Bool :=
+  let pa := ptrAddrUnsafe a
+  let pb := ptrAddrUnsafe b
+  if pa == pb then (true, memo)
+  else if a.hash != b.hash then (false, memo)
+  else
+    match memo[(pa, pb)]? with
+    | some r => (r, memo)
+    | none =>
+      let and2 := fun (memo : Std.HashMap (USize × USize) Bool)
+          (x y : ExprC) (z w : ExprC) =>
+        let (r₁, memo) := beqGo memo x y
+        if r₁ then beqGo memo z w else (false, memo)
+      let (r, memo) : Bool × Std.HashMap (USize × USize) Bool :=
+        match a, b with
+        | .bvar i .., .bvar j .. => (i == j, memo)
+        | .fvar i n t .., .fvar j m u .. =>
+          if i == j && n == m then beqGo memo t u else (false, memo)
+        | .sort u .., .sort v .. => (u == v, memo)
+        | .const n us .., .const m vs .. => (n == m && us == vs, memo)
+        | .app f x .., .app g y .. => and2 memo f g x y
+        | .lam n t b m .., .lam n' t' b' m' .. =>
+          if n == n' && m == m' then and2 memo t t' b b' else (false, memo)
+        | .forallE n t b m .., .forallE n' t' b' m' .. =>
+          if n == n' && m == m' then and2 memo t t' b b' else (false, memo)
+        | .letE n t v b .., .letE n' t' v' b' .. =>
+          if n == n' then
+            let (r₁, memo) := beqGo memo t t'
+            if r₁ then and2 memo v v' b b' else (false, memo)
+          else (false, memo)
+        | .lit l .., .lit l' .. => (l == l', memo)
+        | .proj s i e .., .proj s' i' e' .. =>
+          if s == s' && i == i' then beqGo memo e e' else (false, memo)
+        | _, _ => (false, memo)
+      (r, memo.insert (pa, pb) r)
+
+@[inherit_doc beqGo]
 unsafe def beqFast (a b : ExprC) : Bool :=
   if ptrAddrUnsafe a == ptrAddrUnsafe b then true
   else if a.hash != b.hash then false
-  else
-    match a, b with
-    | .bvar i .., .bvar j .. => i == j
-    | .fvar i n t .., .fvar j m u .. => i == j && n == m && beqFast t u
-    | .sort u .., .sort v .. => u == v
-    | .const n us .., .const m vs .. => n == m && us == vs
-    | .app f a .., .app g b .. => beqFast f g && beqFast a b
-    | .lam n t b m .., .lam n' t' b' m' .. =>
-      n == n' && m == m' && beqFast t t' && beqFast b b'
-    | .forallE n t b m .., .forallE n' t' b' m' .. =>
-      n == n' && m == m' && beqFast t t' && beqFast b b'
-    | .letE n t v b .., .letE n' t' v' b' .. =>
-      n == n' && beqFast t t' && beqFast v v' && beqFast b b'
-    | .lit l .., .lit l' .. => l == l'
-    | .proj s i e .., .proj s' i' e' .. => s == s' && i == i' && beqFast e e'
-    | _, _ => false
+  else (beqGo {} a b).1
 
 @[implemented_by beqFast]
 def beq (a b : ExprC) : Bool := beqSpec a b

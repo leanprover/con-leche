@@ -267,6 +267,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
     let foldF :=
       match core with
       | .cached => Setlec.Cached.checkDeclsSharedC mode
+      | .cachedParsed => Setlec.Cached.checkDeclsSPCached mode
       | .internedShared => Setlec.Cached.checkDeclsSharedI mode
       | .production =>
         if mode == CheckMode.noModel then checkDeclsSPNM else checkDeclsSP mode
@@ -390,7 +391,8 @@ def usage : String := String.intercalate "\n" [
   "                    detection scan and spawn entirely",
   "  --core=V          performance pilot (unverified measurement",
   "                    instrument): V = production (default),",
-  "                    interned-shared, or cached — see DESIGN.md,",
+  "                    interned-shared, cached, or cached-parsed —",
+  "                    see DESIGN.md,",
   "                    \"The cached-clone pilot\"",
   "  --install-only    install the whole stream without checking any",
   "                    declaration (task #108)",
@@ -446,6 +448,7 @@ def parseArgs : List String → Args → Args
     | "production" => parseArgs rest { a with core := .production }
     | "interned-shared" => parseArgs rest { a with core := .internedShared }
     | "cached" => parseArgs rest { a with core := .cached }
+    | "cached-parsed" => parseArgs rest { a with core := .cachedParsed }
     | _ => { a with bad := some s!"unknown core variant {spec}" }
   | "--install-only" :: rest, a =>
     parseArgs rest { a with split? := some (0, some 0) }
@@ -459,6 +462,7 @@ def parseArgs : List String → Args → Args
       | "production" => parseArgs rest { a with core := .production }
       | "interned-shared" => parseArgs rest { a with core := .internedShared }
       | "cached" => parseArgs rest { a with core := .cached }
+      | "cached-parsed" => parseArgs rest { a with core := .cachedParsed }
       | v => { a with bad := some s!"unknown core variant {v}" }
     else if s.startsWith "--check-range=" then
       match parseRangeSpec ((s.drop "--check-range=".length).toString) with
@@ -478,7 +482,8 @@ def childArgs (a : Args) (file : String) : Array String :=
     ++ (match a.core with
         | .production => #[]
         | .internedShared => #["--core=interned-shared"]
-        | .cached => #["--core=cached"])
+        | .cached => #["--core=cached"]
+        | .cachedParsed => #["--core=cached-parsed"])
     ++ (match a.split? with
         | some (0, some 0) => #["--install-only"]
         | some (lo, some hi) => #["--check-range", s!"{lo}:{hi}"]

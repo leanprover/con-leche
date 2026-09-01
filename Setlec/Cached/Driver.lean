@@ -1,4 +1,4 @@
-import Setlec.Cached.CheckerC
+import Setlec.Cached.ParsedC
 import Setlec.Kernel.WFStore
 
 /-!
@@ -14,7 +14,10 @@ Three declaration folds with the *same* signature as the production
   shared-state driver (`Setlec.checkDeclsShared`, already in the
   kernel): declarations are read back from the parse arena first;
 * `checkDeclsSharedC` — the cached-clone core under the same
-  `Expr`-typed shared-state driver.
+  `Expr`-typed shared-state driver;
+* `checkDeclsSPCached` (`Setlec/Cached/ParsedC.lean`) — the
+  cached-clone core under its own parsed-declaration driver, the
+  clone's counterpart of `checkDeclsSP`.
 
 The last two are the pilot's controlled pair: identical declaration
 checker, identical `FEnv` indexing, identical per-declaration state
@@ -62,6 +65,11 @@ inductive CoreVariant where
   | internedShared
   /-- `checkDeclsSharedC`: cached-clone core, same driver. -/
   | cached
+  /-- `checkDeclsSPCached`: cached-clone core under its own
+  parsed-declaration driver (the arena converted once, guards as
+  memoized `ExprC` walks) — the configuration to compare with
+  production. -/
+  | cachedParsed
   deriving DecidableEq, Repr, Inhabited
 
 end Setlec.Cached
