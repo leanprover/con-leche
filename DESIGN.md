@@ -11896,3 +11896,58 @@ deleted from `FoldP.lean`.
 of the five-bundle list is gone; its "proof shape" note is obsolete —
 the remaining literal-tier work is only `SemTierInputsP`'s
 `ReduceNat*` rows.)
+
+## Task #161 LITERAL TIER seal II: one discharge, and THE CAMPAIGN'S FIRST NAMED WALL (2026-09-01)
+
+**Discharged**: `ReduceNatReadsP` (`Step2/NatP.lean`,
+`reduceNatReadsP_of`, premise-free — the reduct is always a leaf;
+`reduceNat_natLeafP` strengthens the inversion to retain each branch's
+guard).  `SemTierInputsP.nat_reads` is dischargeable; the totality
+side of the literal tier is closed.
+
+**WALLED, named, not forced** (the stop-and-name rule, arriving one
+tier early): `ReduceNatStepP`/`PQ` — the semantic step rows.  Three
+independent findings, all machine-checked or corroborated:
+
+1. **The binder-free erasure factoring is REFUTED on the subject
+   side.**  The subject reads as `.app (stored op leaf) …`, and the
+   stored `Nat`-op leaves are λ-towers where `interp2` and the
+   collapse `interp` genuinely diverge (`natSuccV2 = lamR 1 …` vs
+   `lamC …`; `Interp2/Value.lean` records `emptyRec` likewise).  The
+   factoring holds on the *reduct* (a literal spine) — the side that
+   doesn't need it.
+2. **The v1 route cannot transfer**: its row concludes a `Red` whose
+   soundness consumes `Sound/NatOps.lean` (892 lines) at the collapse
+   currency; `Interp2/EnvLaws2.lean:6-14` already records
+   `ReduceNatStep2` as "blocked on environment laws that do not exist
+   over `interp2` — the erasure link cannot carry it".
+3. **A consumer statement gap**: `reduceNatP` whnfs its arguments;
+   v1's row takes the whnf IH, `WhnfInputsP.nat` does not carry it
+   (though `whnfStepP_of` discards exactly that IH).  OWED: widen the
+   field when the tier resumes.
+
+**The wall is exactly one law wide**: `NatOpSemP` isolates the
+`interp2` equality; `reduceNatStepP_of_sem`/`PQ_of_sem` prove every
+other conjunct (reading, grading, frames) unconditionally — flagged
+in-file as NOT discharges per the conditional-forms ruling.
+
+**The tier's remaining bill, correctly scoped**: (a) `NatOpsP` — the
+stored op leaves' defining recurrences at `interp2`, supplied at the
+op installs.  The route exists: `DeclDefnR` carries `NatEqsR` (the
+certified recurrences) relationally; expose the `isDefEqCore` runs
+H1-style, and the P defeq claim converts them to `interp2` equalities
+at the two-variable contexts — establishment from run certificates,
+the campaign's signature move; (b) the numeral-transport induction
+(`Sound/NatOps`' shape at `interp2`, standing on (a) instead of the
+collapse laws); (c) the `WhnfInputsP.nat` widening.  Estimated at a
+focused session; the same shape awaits the caps tier (its `CapsOkV`
+laws are also collapse-currency at stored leaves — the erasure
+factoring refutation applies identically), and iota remains the long
+pole.
+
+**SUCCESSION RECORD delta**: the census is four bundles;
+`SemTierInputsP`'s literal fields are 1/3 discharged with the
+remainder scoped as above; the caps/proj-str/iota notes stand, with
+the caps note CORRECTED: do not attempt the erasure transfer — the
+caps laws need the run-certificate route (the caps certs' defeq runs
+exposed, then the P claims), not the v1 law transfer.
