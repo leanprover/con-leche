@@ -271,11 +271,57 @@ unsafe def beqGo (memo : Std.HashMap (USize × USize) Bool) (a b : ExprC) :
         | _, _ => (false, memo)
       (r, memo.insert (pa, pb) r)
 
+/-- Node budget of the allocation-free descent before the memoized one
+takes over.  Almost every comparison the checker makes is decided by
+the pointer test, the hash test, or a handful of nodes; paying for a
+memo table there was measured at +33 % instructions on `init-prelude`.
+Beyond the budget the term is big enough that `O(tree)` is the real
+risk, and the memoized descent is restarted from scratch. -/
+def beqBudget : Nat := 4096
+
+/-- Allocation-free structural descent on a node budget: `none` when
+the budget runs out (the caller retries under the memo). -/
+unsafe def beqB (fuel : Nat) (a b : ExprC) : Option Bool × Nat :=
+  if ptrAddrUnsafe a == ptrAddrUnsafe b then (some true, fuel)
+  else if a.hash != b.hash then (some false, fuel)
+  else
+    match fuel with
+    | 0 => (none, 0)
+    | fuel + 1 =>
+      let and2 := fun (fuel : Nat) (x y z w : ExprC) =>
+        match beqB fuel x y with
+        | (some true, fuel) => beqB fuel z w
+        | r => r
+      match a, b with
+      | .bvar i .., .bvar j .. => (some (i == j), fuel)
+      | .fvar i n t .., .fvar j m u .. =>
+        if i == j && n == m then beqB fuel t u else (some false, fuel)
+      | .sort u .., .sort v .. => (some (u == v), fuel)
+      | .const n us .., .const m vs .. => (some (n == m && us == vs), fuel)
+      | .app f x .., .app g y .. => and2 fuel f g x y
+      | .lam n t b m .., .lam n' t' b' m' .. =>
+        if n == n' && m == m' then and2 fuel t t' b b' else (some false, fuel)
+      | .forallE n t b m .., .forallE n' t' b' m' .. =>
+        if n == n' && m == m' then and2 fuel t t' b b' else (some false, fuel)
+      | .letE n t v b .., .letE n' t' v' b' .. =>
+        if n == n' then
+          match beqB fuel t t' with
+          | (some true, fuel) => and2 fuel v v' b b'
+          | r => r
+        else (some false, fuel)
+      | .lit l .., .lit l' .. => (some (l == l'), fuel)
+      | .proj s i e .., .proj s' i' e' .. =>
+        if s == s' && i == i' then beqB fuel e e' else (some false, fuel)
+      | _, _ => (some false, fuel)
+
 @[inherit_doc beqGo]
 unsafe def beqFast (a b : ExprC) : Bool :=
   if ptrAddrUnsafe a == ptrAddrUnsafe b then true
   else if a.hash != b.hash then false
-  else (beqGo {} a b).1
+  else
+    match (beqB beqBudget a b).1 with
+    | some r => r
+    | none => (beqGo {} a b).1
 
 @[implemented_by beqFast]
 def beq (a b : ExprC) : Bool := beqSpec a b
