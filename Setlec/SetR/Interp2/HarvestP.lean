@@ -5,6 +5,9 @@ import Setlec.SetR.Install.ValueKinds
 # The harvest, value kinds (task #161, P4 — the fold's species)
 
 The `defn` species below, and then its `thm` mirror (batch H2, T1).
+The `opaque` mirror is **not** here: see the SKIP record at the end of
+this module for the one missing link and the upstream strengthening it
+names.
 
 `harvestDefnP`: from a checked `def`'s harvest relation (`DeclDefnR`,
 the H1-exposed runs included) and the P machinery at the prefix
@@ -623,6 +626,199 @@ theorem harvestThmP (hμ : μ.verified = true)
   · -- `nat_heads` at the extension, from the guard agreement
     exact fun φ => natHeadsP_cons_fresh mp
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value') (A := A)
+      hfresh hlga _ rfl φ
+
+/-! ## The `opaque` kind: SKIPPED, and why (batch H2, T2)
+
+There is **no `harvestOpaqueP` here**, and the wall is one equation.
+
+Everything the species does transfers: `DeclOpaqueR` carries the same
+two front doors, so the leaf `A` (the value's `denoteP` reading), its
+laws, the type's reading and grading, the membership across the defeq
+run, the crossing and `nat_heads` are all available verbatim, and
+`hvalReads`'s two arms are *both* `nomatch` (an `opaque` is stored as
+`.axiomInfo ⟨cv.name, cv.levelParams, type'⟩` — `Decl.lean`'s
+`DeclOpaqueR`, third conjunct — so it is neither a `defnInfo` nor a
+`thmInfo`).  What is missing is `declStepPM_of_cons`'s `hAerase`:
+
+    ∀ ψ, (A ψ).erase = m'.cval cv.name ψ
+
+At a `def` this is the new base's `defn_eq` field and at a `theorem`
+its `thm_ok` field (`harvestDefnP` / `harvestThmP` above).  At an
+`opaque` **neither field speaks**: v1 stores an axiom and keeps no
+equation between the discarded body and the leaf.  The equation is
+*true* — `extendValueS` values the constant by `cvalAt m.cval env
+cv.name value'`, i.e. by the value's own denotation — but
+`declOpaqueS`'s conclusion is `∃ m' : EnvS V env₂, ∀ n, n ≠ cv.name →
+m.cval n = m'.cval n`, and the agreement says nothing *at* `cv.name`.
+The witness that knows the leaf is thrown away at the `∃`-boundary.
+
+This is the same wall the U tier already named: `declStep2_of_value`'s
+`hleaf` premise, whose docstring (`Step2Cons.lean`, `leafEq_defn` /
+`leafEq_thm`) records "a residue only at the `opaque` kind".  The P
+tier hits it in the same place, for the same reason.
+
+**The bill (upstream, `Setlec/SetR/Install/ValueKinds.lean` — not this
+file's to edit).**  `declOpaqueS` should expose its leaf, the way
+`extendValueS` already exposes its agreement:
+
+    theorem declOpaqueS (hrp : ReducePinS V) … :
+      ∃ m' : EnvS V env₂,
+        (∀ n, n ≠ cv.name → m.cval n = m'.cval n) ∧
+        ∀ value', annotateCore μ env F 0 value = .ok value' →
+          ∀ ψ, denoteClosed m.cval env ψ value' = some (m'.cval cv.name ψ)
+
+(the second conjunct quantified over the *annotate output*, which is
+determined, since `value'` is bound inside `DeclOpaqueR`'s `∃`; the
+proof is `cvalAt_self` at the `hkey` reading `extendValueS` already
+has in hand, one `have` inside the existing call).  With that conjunct
+`harvestOpaqueP` is the species with `defn_eq` replaced by it and both
+`hvalReads` arms `nomatch` — no new semantic content, no new premise.
+Landing it here instead as a premise would be a conditional form with
+**no supplier at all** (unlike `harvestAxiomP` below, whose premises
+the pin tier really does discharge), so it is not landed. -/
+
+/-! ## The `axiom` kind (batch H2, T3)
+
+`harvestAxiomP` is not a mirror of the species but of
+`declStep2M_of_axiom` (`Step2Cons.lean`) at the P fields: **an axiom
+has no value**, so the leaf is not a reading of anything the harvest
+can see, and the constructive v1 step (`declAxiomExtS` /
+`declAxiomLeafExtS`, `Install/Axiom.lean`) produces its leaf from the
+pinned families' bespoke keys (`StdAxiomKeyS`, `trustCompilerKeyS`,
+`ofReduceKeyS`).  So the leaf and its facts arrive as **premises** —
+that is the pin tier's bill, and it is a real bill, not a conditional
+form: `declAxiomLeafExtS` already yields `hbase`, `hag`, an `A`,
+`hAerase` and `hAok` constructively; what P adds to that list is
+`hAclosed`, `hAparams`, `hAvalid` and the interp2 membership `hmemA`.
+
+What the harvest still does for free, and why the wrapper is worth
+having: the *type* side is harvested exactly as in the species — the
+type's P reading and its grading come from `ConstantValR`'s own
+`inferType` run through `accepted_reads` and `checkSoundAtP` — the
+crossing to the extension is `denoteP_cons_fresh`, `hvalReads`'s two
+arms are both `nomatch` (an axiom is neither a `def` nor a `thm`), and
+`nat_heads` comes from the routed guard agreement plus freshness.
+`hmemA` is stated at the **prefix** reading, which is where the pin
+tier works; the wrapper crosses it.
+
+`DeclAxiomR`'s fourth branch — the tolerated skip — needs none of
+this: it stores nothing (`env₂ = env`), so its P invariant is `mp`
+itself. -/
+theorem harvestAxiomP (hμ : μ.verified = true)
+    (hsem : SemTierInputsP V μ)
+    (mp : EnvS2PM V μ env)
+    {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → AVExpr}
+    (hcv : ConstantValR μ F env mp.base2.base.cval cv type')
+    (hbase : EnvS V ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+      env.consts⟩)
+    (hag : ∀ n, n ≠ cv.name → mp.base2.base.cval n = hbase.cval n)
+    (hlga : LitGuardsAgree env
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩)
+    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval cv.name ψ)
+    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
+    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂)
+    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ))
+    (hAvalid : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      AnnotValidV V ρ (A ψ))
+    (hmemA : ∀ (ψ : Name → Nat) (ta : AVExpr),
+      denoteP mp.base2.acval env ψ 0 type' = some ta →
+      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta) :
+    Nonempty (EnvS2PM V μ
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
+  obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
+    hrunT, hfrontT⟩ := hcv
+  obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
+  have hfresh : env.find? cv.name = none :=
+    Option.isNone_iff_eq_none.mp hfind
+  -- the type's scoping package
+  have hwt : Expr.WScoped 0 type' := Expr.WScoped.of_not_hasFvar htf'
+  have hLt : Expr.LeavesBounded type' := fun l hl => by
+    rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'] at hl
+    exact absurd hl (List.not_mem_nil)
+  have hnlt : type'.fvarLeaves = [] :=
+    Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'
+  -- the type's reading, per assignment
+  obtain ⟨stype, u, hst, hens⟩ := hrunT
+  have hTex : ∀ ψ : Name → Nat,
+      ∃ ta, denoteP mp.base2.acval env ψ 0 type' = some ta := by
+    intro ψ
+    exact hsem.accepted_reads mp.base2 ψ hst hwt hbt' hLt
+  let Ta : (Name → Nat) → AVExpr :=
+    fun ψ => (denoteP mp.base2.acval env ψ 0 type').getD default
+  have hTa : ∀ ψ : Name → Nat,
+      denoteP mp.base2.acval env ψ 0 type' = some (Ta ψ) := by
+    intro ψ
+    obtain ⟨ta, hta⟩ := hTex ψ
+    show _ = some ((denoteP mp.base2.acval env ψ 0 type').getD default)
+    simp [hta]
+  -- the claims and the reads, per assignment
+  have hclaims := fun ψ =>
+    checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem hsem mp ψ) F
+  have hreads : ∀ ψ, InferReadsP mp.base2 μ ψ F :=
+    fun ψ => inferReadsP_of (TierInputsAtP.ofSem hsem mp ψ).reads
+  -- the type's rows: its own grading as a subject
+  have hrowsT : ∀ ψ : Name → Nat, ∃ sta,
+      denoteP mp.base2.acval env ψ 0 stype = some sta ∧
+      ((∀ ρ : Nat → V, Sat2 V [] ρ → AnnotOkP V ρ (Ta ψ)) ∧
+        (∀ ρ : Nat → V, Sat2 V [] ρ → AnnotOkP V ρ sta) ∧
+        ∀ ρ : Nat → V, Sat2 V [] ρ →
+          interp2 V ρ (Ta ψ) ∈ˢ interp2 V ρ sta) := by
+    intro ψ
+    obtain ⟨-, -, -, ihi⟩ := hclaims ψ
+    obtain ⟨sta, hsta⟩ :=
+      hreads ψ hst hwt hbt' hLt (LeafReadsP.of_ctxOkP (CtxOkP.nil hnlt))
+        (hTa ψ)
+    exact ⟨sta, hsta, ihi hst hwt hbt' hLt (CtxOkP.nil hnlt)
+      (hTa ψ) hsta⟩
+  -- the transfer to the extension
+  have hcbT : ConstsBound env type' := constsBound_of_constsResolve _ htr
+  have hcomp : ∀ (ψ : Name → Nat) (e : Expr), ConstsBound env e →
+      denoteP (acvalWith mp.base2.acval cv.name A)
+          ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+            env.consts⟩ ψ 0 e
+        = denoteP mp.base2.acval env ψ 0 e :=
+    fun ψ e hcb =>
+      denoteP_cons_fresh
+        (acval := mp.base2.acval)
+        (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+        (A := A) hfresh hlga ψ 0 e hcb
+  -- assemble
+  refine declStepPM_of_cons mp
+    (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+    (A := A) hfresh hbase hag hlga hAerase hAclosed
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_
+  · -- `htyReads`
+    intro ψ
+    show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts⟩ ψ 0 type' = some ta
+    exact ⟨Ta ψ, by rw [hcomp ψ type' hcbT]; exact hTa ψ⟩
+  · -- `htyOk`
+    intro ψ ta hta ρ
+    replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
+        ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+          env.consts⟩ ψ 0 type' = some ta := hta
+    rw [hcomp ψ type' hcbT, hTa ψ] at hta
+    obtain rfl : ta = Ta ψ := (Option.some.inj hta).symm
+    obtain ⟨sta, hsta, htE, -, -⟩ := hrowsT ψ
+    exact htE ρ (Sat2_nil V ρ)
+  · -- `hmemNew`: the pin tier's membership, crossed
+    intro ψ ta hta ρ
+    replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
+        ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+          env.consts⟩ ψ 0 type' = some ta := hta
+    rw [hcomp ψ type' hcbT] at hta
+    exact hmemA ψ ta hta ρ
+  · -- `hvalReads`: an axiom is neither a `def` nor a `thm`
+    intro ψ cv2 value2 hmem
+    rcases hmem with ⟨hint2, hdt⟩ | hdt
+    · exact nomatch hdt
+    · exact nomatch hdt
+  · -- `nat_heads` at the extension, from the guard agreement
+    exact fun φ => natHeadsP_cons_fresh mp
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
       hfresh hlga _ rfl φ
 
 end Setlec.SetR.Interp2
