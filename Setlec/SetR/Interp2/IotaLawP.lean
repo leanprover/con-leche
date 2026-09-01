@@ -25,11 +25,13 @@ deviation from the v1 shape is a recorded decision:
   residual as an `AVExpr` spine, which a bare-`V` residual can never
   yield).
 * **The `.nested` pin clause quantifies the pin's own open reading**
-  (`denoteP` at depth `rP`), concluding against `interp2` under
-  `envOfRev` — the `instRevChain` transpose (substitute-then-interp
-  becomes interp-under-the-binding-environment).  The supplier
-  converts the recorded comparand runs through the claims; the
-  consumer feeds exactly those runs.
+  (`denoteP` at depth `rP`), concluding at the reading substituted
+  along the argument prefix — `AVExpr.instRevChain`, the exact v1
+  spelling one currency over.  The consumer's bridge is then the
+  `denoteP` mirror of the existing `denote_openRev`/
+  `denote_openRev_base` pair (`Verify/Denote/OpenRevDenote.lean`);
+  the supplier converts the recorded comparand runs through the
+  claims.
 * **The fired equality is present** (the seal-22 draft omitted it),
   and the transport clause is `RecRuleLawV`'s final conjunct verbatim
   at the new currency.
@@ -73,12 +75,15 @@ inductive TeleFitPA (V : Type w) [SetTheory V] (ρ : Nat → V) :
       TeleFitPA V ρ (cons (interp2 V ρ a) ρT) B as ρ' rest →
       TeleFitPA V ρ ρT (.pi u v A B) (a :: as) ρ' rest
 
-/-- The environment binding de Bruijn index `j` to the `j`-th entry
-of the *reversed* value prefix (the `instRevChain` transpose: index
-`0` is the innermost opened binder), falling back to the ambient
-environment beyond the prefix. -/
-def envOfRev (vs : List V) (ρ : Nat → V) : Nat → V :=
-  fun j => vs.reverse.getD j (ρ (j - vs.length))
+/-- The annotated reverse-opening substitution chain
+(`VExpr.instRevChain`'s `AVExpr` twin, `Verify/Denote/OpenVars.lean:80`
+— outermost argument consumed first, each at cut `0`, lifted past the
+arguments still to come). -/
+def _root_.Setlec.SetR.AVExpr.instRevChain :
+    List AVExpr → AVExpr → AVExpr
+  | [], X => X
+  | v :: vs, X =>
+    Setlec.SetR.AVExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
 
 /-- **The constructor residual's index pin** (`IotaIndexPinV`'s
 mirror at the syntax-carrying fit): the residual decomposes as a
@@ -130,9 +135,9 @@ def RecRuleLawP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
                 ((pins.getD i default).instantiateLevelParams
                   cv.levelParams us)) = some vpa →
             interp2 V ρ (ys.getD i default)
-              = interp2 V
-                  (envOfRev ((xs.take rP).map (interp2 V ρ)) ρ)
-                  vpa) →
+              = interp2 V ρ
+                  (Setlec.SetR.AVExpr.instRevChain (xs.take rP)
+                    vpa)) →
         IotaIndexPinP (V := V) ρ ρC restC (RecRule.ctorParams rl)
           mI rP xs →
         denoteP m.acval env φ 0
