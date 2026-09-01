@@ -1,5 +1,6 @@
 import Setlec.SetR.Interp2.CtxOkPKit
 import Setlec.SetR.Annot.BitLemmas
+import Setlec.SetR.Annot.ValidVSpine
 import Setlec.Verify.InferLemmas
 import Setlec.SetR.Interp2.Step2.InferQ
 
@@ -449,5 +450,75 @@ theorem infer_lam_claimP (m : EnvS2UM V μ env)
       (fun x hx => (hrowE (cons x ρ) (Sat2_cons V hρ hx)).1)
       (fun x hx => hrowM (cons x ρ) (Sat2_cons V hρ hx))
       (fun h0 x hx => hzfib h0 (cons x ρ) (Sat2_cons V hρ hx))).2
+
+/-! ## The numeral clause (task #161, P3 batch 3, T1)
+
+`NatHeads2` is **denote-free** — it speaks only of `interp2` at the
+valuation's own `Nat` leaves — so the P tier consumes it verbatim,
+with no transpose.  What the currency swap costs is one extra
+grading per spine: `natLit_facts2` produces the `AnnotOk2` half of
+the numeral's truthfulness (and the membership row) exactly as in the
+canonical lane, and `AnnotValidV_natLitT2` (batch 2) produces the
+`AnnotValidV` half from the two head leaves' bit validity — which is
+the routed `AcvalValidP`, the same residue `infer_const_claimP`
+takes. -/
+
+/-- **`.lit (.natVal k)`, P currency.**  Dual success: the returned
+type is `.const natName []`, whose reading the support guard pins to
+the `Nat` leaf itself (`natName_levelParams_nil`), so identifying `ta`
+with that leaf is the `denoteP` `const` clause and nothing more. -/
+theorem infer_natLit_claimP (m : EnvS2UM V μ env) (hnh : NatHeads2 m φ)
+    (hval : AcvalValidP m)
+    {d k : Nat} {t : Expr} {Δa : List AVExpr} {ea ta : AVExpr}
+    (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t)
+    (hea : denoteP m.acval env φ d (.lit (.natVal k)) = some ea)
+    (hta : denoteP m.acval env φ d t = some ta) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
+  rw [Setlec.inferTypeCore_succ] at h
+  simp only [Setlec.inferBody, Setlec.viewM, Expr.view, pure,
+    Except.pure, Bind.bind, Except.bind] at h
+  split at h
+  · next hg =>
+    simp only [Except.ok.injEq] at h
+    subst h
+    have hgt : Setlec.natLitSupported env = true := by simpa using hg
+    rw [denoteP, if_pos hgt] at hea
+    obtain rfl : ea = natLitT2
+        (m.acval natZeroName (Level.substFn φ [] []))
+        (m.acval natSuccName (Level.substFn φ [] [])) k :=
+      (Option.some.inj hea).symm
+    cases hf : env.find? natName with
+    | none =>
+      simp only [Setlec.natLitSupported, Bool.and_eq_true] at hgt
+      obtain ⟨⟨h1, -⟩, -⟩ := hgt
+      rw [hf] at h1
+      exact nomatch h1
+    | some ci =>
+      have hlp : ci.toConstantVal.levelParams = [] :=
+        natName_levelParams_nil hgt hf
+      rw [denoteP, hf] at hta
+      dsimp only at hta
+      rw [if_pos (by simp [hlp]), hlp] at hta
+      obtain rfl : ta = m.acval natName (Level.substFn φ [] []) :=
+        (Option.some.inj hta).symm
+      have hrow : ∀ ρ : Nat → V,
+          AnnotOk2 V ρ (natLitT2
+              (m.acval natZeroName (Level.substFn φ [] []))
+              (m.acval natSuccName (Level.substFn φ [] [])) k) ∧
+            interp2 V ρ (natLitT2
+                (m.acval natZeroName (Level.substFn φ [] []))
+                (m.acval natSuccName (Level.substFn φ [] [])) k)
+              ∈ˢ interp2 V ρ
+                (m.acval natName (Level.substFn φ [] [])) :=
+        fun ρ => natLit_facts2 (m.acval_ok2 _ _ ρ) (m.acval_ok2 _ _ ρ)
+          (hnh hgt ρ).1 (hnh hgt ρ).2 k
+      exact ⟨fun ρ _ => ⟨(hrow ρ).1,
+          AnnotValidV_natLitT2 (hval _ _ ρ) (hval _ _ ρ) k⟩,
+        fun ρ _ => ⟨m.acval_ok2 _ _ ρ, hval _ _ ρ⟩,
+        fun ρ _ => (hrow ρ).2⟩
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 end Setlec.SetR.Interp2
