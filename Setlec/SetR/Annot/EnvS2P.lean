@@ -4,9 +4,12 @@ import Setlec.SetR.Interp2.Step2.AssemblyP
 # `EnvS2PM` — the P-tier environment invariant (task #161, P4)
 
 The install tier's target, per the P4 design note in DESIGN.md: the
-canonical mode-indexed invariant (`EnvS2UM`) *contained*, plus the
-fields the P bundles read.  The deltas against the canonical fields,
-each a payoff of the fuel-free reading:
+denote2-free environment carrier (`EnvS2Core`) *contained*, plus the
+fields the P bundles read.  (Batch 8 slimmed the containment from
+`EnvS2UM` to `EnvS2Core` — the FINDING in `Annot/EnvS2Core.lean`: the
+P fold stores `denoteP`-numeraled leaves and so can never supply the
+denote2-currency fields, which the P surface never reads.)  The deltas
+against the canonical fields, each a payoff of the fuel-free reading:
 
 * **existence, not uniqueness** — `defn_reads` is `AcvalDefnInstP`
   (batch 4): a stored definition's or theorem's value *reads*, to the
@@ -44,8 +47,11 @@ variable (V : Type w) [SetTheory V]
 /-- **The P-tier environment invariant, at one mode** (see the module
 docstring). -/
 structure EnvS2PM (μ : CheckMode) (env : Env) where
-  /-- the canonical mode-indexed invariant, contained -/
-  base2 : EnvS2UM V μ env
+  /-- the denote2-free environment carrier, contained (batch 8: the
+  P fold stores `denoteP`-numeraled leaves, so it can never supply the
+  denote2-currency fields `EnvS2UM` carries — and the P surface reads
+  none of them) -/
+  base2 : EnvS2Core V env
   /-- every leaf is bit-valid (`acval_ok2`'s `AnnotValidV` half) -/
   acval_validV : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
     AnnotValidV V ρ (base2.acval n ψ)
@@ -66,7 +72,7 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   leaf (existence — the fuel-free upgrade of `acval_defn`) -/
   defn_reads : AcvalDefnInstP base2
   /-- the two `Nat`-literal head facts, at every assignment -/
-  nat_heads : ∀ φ : Name → Nat, NatHeads2 base2 φ
+  nat_heads : ∀ φ : Name → Nat, NatHeadsP base2 φ
 
 namespace EnvS2PM
 

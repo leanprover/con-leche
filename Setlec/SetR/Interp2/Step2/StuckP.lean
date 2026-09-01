@@ -170,7 +170,7 @@ theorem hoistP_spine {Δa : List AVExpr} :
 
 /-- The frame conditions of every argument of a spine
 (`frame_spineR`, P currency). -/
-theorem frame_spineP {m : EnvS2UM V μ env} {d : Nat} {Δa : List AVExpr}
+theorem frame_spineP {m : EnvS2Core V env} {d : Nat} {Δa : List AVExpr}
     {a : Expr} (hws : Expr.WScoped d a)
     (hb : a.looseBVarsBounded 0 = true) (hLb : Expr.LeavesBounded a)
     (hC : CtxOkP m φ d Δa a) :
@@ -182,7 +182,7 @@ theorem frame_spineP {m : EnvS2UM V μ env} {d : Nat} {Δa : List AVExpr}
     hC.of_subset (fun l hl => Setlec.fvarLeaves_getAppArgs hx l hl)⟩
 
 /-- The frame conditions of a spine's head. -/
-theorem frame_appFnP {m : EnvS2UM V μ env} {d : Nat} {Δa : List AVExpr}
+theorem frame_appFnP {m : EnvS2Core V env} {d : Nat} {Δa : List AVExpr}
     {a : Expr} (hws : Expr.WScoped d a)
     (hb : a.looseBVarsBounded 0 = true) (hLb : Expr.LeavesBounded a)
     (hC : CtxOkP m φ d Δa a) :
@@ -199,7 +199,7 @@ theorem frame_appFnP {m : EnvS2UM V μ env} {d : Nat} {Δa : List AVExpr}
 `defEqL_of_defEqListR`'s P transpose: the list recursion of
 `defEqList` (`Kernel/Core.lean:755`), one `DefEqClaims2P` call per
 certificate, in the checker's own order. -/
-theorem map_interp2_of_defEqListP {m : EnvS2UM V μ env}
+theorem map_interp2_of_defEqListP {m : EnvS2Core V env}
     (ihd : DefEqClaims2P μ m φ fuel) {d : Nat} {Δa : List AVExpr} :
     ∀ {as bs : List Expr} {asa bsa : List AVExpr},
       Setlec.defEqListP μ env fuel d as bs = .ok true →
@@ -246,7 +246,7 @@ theorem map_interp2_of_defEqListP {m : EnvS2UM V μ env}
 `AppCongrStuckP` are this lemma; they differ only in the provenance of
 `hhead` (a reading identity for the constant short-circuit, a
 `DefEqClaims2P` verdict for the stuck congruence). -/
-theorem spine_congrP {m : EnvS2UM V μ env}
+theorem spine_congrP {m : EnvS2Core V env}
     (ihd : DefEqClaims2P μ m φ fuel) {d : Nat} {a b : Expr}
     {Δa : List AVExpr} {aa ba : AVExpr}
     (hlist : Setlec.defEqListP μ env fuel d a.getAppArgs b.getAppArgs
@@ -285,9 +285,9 @@ The head equality is *on the nose*: `Level.isEquiv` is sound for
 `eval`, and a constant's validated annotation reads nothing but its own
 level parameters (`acval_const_congrP`), so the two instantiations are
 indistinguishable to the reading. -/
-theorem defEqSpineP_of_claims {m : EnvS2UM V μ env}
-    (ihd : DefEqClaims2P μ m φ fuel) (hap : AcvalParams2 m) :
-    DefEqSpineP m φ fuel := by
+theorem defEqSpineP_of_claims {m : EnvS2Core V env}
+    (ihd : DefEqClaims2P μ m φ fuel) (hap : AcvalParamsP m) :
+    DefEqSpineP μ m φ fuel := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
   obtain ⟨n, us, us', hfa, hfb, -, hlev, hlist⟩ := Setlec.defeqSpine_inv h
@@ -303,9 +303,9 @@ theorem defEqSpineP_of_claims {m : EnvS2UM V μ env}
 gives equality of the applications.  `frame_spineR`'s argument at
 `interp2`: the head equality is `ihd`'s verdict, and `spine_congrP`
 does the rest. -/
-theorem appCongrStuckP_of_claims {m : EnvS2UM V μ env}
+theorem appCongrStuckP_of_claims {m : EnvS2Core V env}
     (ihd : DefEqClaims2P μ m φ fuel) :
-    AppCongrStuckP m φ fuel := by
+    AppCongrStuckP μ m φ fuel := by
   intro d a b Δa hhd hlist _hlen
     hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb hokA hokB ρ hρ
   obtain ⟨hwfa, hbfa, hLfa, hCfa⟩ := frame_appFnP hwa hba hLa hCa
@@ -330,7 +330,7 @@ pair of `b`'s two projections.  Discharged at the
 **structure-capability tier** (the pinned `PSigma'` block's η law,
 `Interp2/BasisOk.lean`'s neighbourhood), not in the defeq quarter —
 `PairEtaCertStepR` is routed at the same place in the v1 lane. -/
-def PairEtaIrrelP {env : Env} (m : EnvS2UM V μ env)
+def PairEtaIrrelP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.pairEtaCertP μ env fuel d a b = .ok true →
@@ -350,7 +350,7 @@ def PairEtaIrrelP {env : Env} (m : EnvS2UM V μ env)
 constructor applied to `b`'s installed projections.  Discharged at the
 **structure-capability tier** (the stored `EtaLaw` the caps pipeline
 installs), not here — `StructEtaCertStepR`'s exact position. -/
-def StructEtaIrrelP {env : Env} (m : EnvS2UM V μ env)
+def StructEtaIrrelP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.structEtaCertP μ env fuel d a b = .ok true →
@@ -374,7 +374,7 @@ asymmetry with `UnitIrrelPQ` in `Step2/IrrelP.lean`: that one is
 `isUnitLikeTy` on both *whnf'd inferred types*, this one is the
 certificate's own telescope walk — two different obligations of the
 same tier.) -/
-def StructUnitIrrelP {env : Env} (m : EnvS2UM V μ env)
+def StructUnitIrrelP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.structUnitCertP μ env fuel d a b = .ok true →
@@ -393,13 +393,13 @@ def StructUnitIrrelP {env : Env} (m : EnvS2UM V μ env)
 /-- **Residue 6 discharged**, modulo the three structure-tier
 certificates: the cascade's dispatch order, arm for arm, with the
 proof-irrelevance arm closed outright by `proofIrrelPQ_of_claims`. -/
-theorem stuckIrrelP_of_claims {m : EnvS2UM V μ env}
+theorem stuckIrrelP_of_claims {m : EnvS2Core V env}
     (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel) (hunit : UnitIrrelPQ m φ fuel)
-    (hpair : PairEtaIrrelP m φ fuel) (hseta : StructEtaIrrelP m φ fuel)
-    (hsunit : StructUnitIrrelP m φ fuel) :
-    StuckIrrelPQ m φ fuel := by
-  have hpi : ProofIrrelPQ m φ fuel :=
+    (hreads : InferReadsP m μ φ fuel) (hunit : UnitIrrelPQ μ m φ fuel)
+    (hpair : PairEtaIrrelP μ m φ fuel) (hseta : StructEtaIrrelP μ m φ fuel)
+    (hsunit : StructUnitIrrelP μ m φ fuel) :
+    StuckIrrelPQ μ m φ fuel := by
+  have hpi : ProofIrrelPQ μ m φ fuel :=
     proofIrrelPQ_of_claims ihw ihi hreads hunit
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
@@ -555,7 +555,7 @@ private theorem denoteP_strLitListP
 /-- **Residue 7 discharged** — a string literal's constructor form has
 the literal's own validated reading, at every depth, together with the
 four frame conditions (all free: the form is closed). -/
-theorem denotePStrLit_of_guard {m : EnvS2UM V μ env} :
+theorem denotePStrLit_of_guard {m : EnvS2Core V env} :
     DenotePStrLit m φ := by
   intro d st sa hg hsa
   obtain ⟨ciO, nm, mb, hfO, hlpO, -⟩ := stringOfList_shape hg
@@ -591,12 +591,12 @@ rule for the same content; here there is no rule, only the law. -/
 `defeqStuck_claimP` already carries — the bit certificate is only
 written by a verified-mode run — and the two totality factors are the
 routed `InferReadsP`/`WhnfReadsP`; no new residue. -/
-theorem etaCertStepP_of_claims {m : EnvS2UM V μ env}
+theorem etaCertStepP_of_claims {m : EnvS2Core V env}
     (hμ : μ.verified = true)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
     (ihi : InferClaims2P μ m φ fuel)
     (hir : InferReadsP m μ φ fuel) (hwr : WhnfReadsP m μ φ fuel) :
-    EtaCertStepP m φ fuel := by
+    EtaCertStepP μ m φ fuel := by
   intro d n ty bd b mb Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
   obtain ⟨tb, n₂, ty₂, fb, m₂, htb, hwtb, hdty, hdbody, hpw⟩ :=
@@ -629,7 +629,8 @@ theorem etaCertStepP_of_claims {m : EnvS2UM V μ env}
         (hokA _ (Sat2_tail hσ)).2).2 (σ 0) (hσ 0 ta rfl)
       rwa [hcons σ] at this
   -- `b`'s inferred type, its reduct, and both readings
-  obtain ⟨tba, htba⟩ := hir htb hwb hbb hLb hdb
+  obtain ⟨tba, htba⟩ :=
+    hir htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
   have htbW : Expr.WScoped d tb :=
     Setlec.inferTypeCore_WScoped m.base.wf fuel htb hwb
   have htbB : tb.looseBVarsBounded 0 = true :=

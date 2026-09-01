@@ -175,7 +175,7 @@ private theorem hoistP_app_arg {Δa : List AVExpr} {f a : AVExpr}
 /-! ## T1 — the routed definitions -/
 
 /-- The continuation's contract, P currency. -/
-def DefEqContP {env : Env} (m : EnvS2UM V μ env)
+def DefEqContP {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (d : Nat)
     (k : Expr → Expr → CheckM Bool) : Prop :=
   ∀ {a b : Expr} {Δa : List AVExpr}, k a b = .ok true →
@@ -192,7 +192,7 @@ def DefEqContP {env : Env} (m : EnvS2UM V μ env)
       ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ aa = interp2 V ρ ba
 
 /-- **One iteration of the lazy-delta loop**, P currency. -/
-def DefEqStepAtP {env : Env} (m : EnvS2UM V μ env)
+def DefEqStepAtP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {k : Expr → Expr → CheckM Bool},
     DefEqContP m φ d k →
@@ -213,7 +213,7 @@ def DefEqStepAtP {env : Env} (m : EnvS2UM V μ env)
 
 /-- **Residue 3 — proof irrelevance**, P currency.  (`ProofIrrelP`
 would clash with the kernel's `Setlec.proofIrrelP`.) -/
-def ProofIrrelPQ {env : Env} (m : EnvS2UM V μ env)
+def ProofIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.proofIrrelP μ env fuel d a b = .ok true →
@@ -232,7 +232,7 @@ def ProofIrrelPQ {env : Env} (m : EnvS2UM V μ env)
 /-- **Residue 4 — the literal acceleration**, P currency.  The
 existential is over the reduct's *reading* alone: there is no fuel to
 raise. -/
-def ReduceNatStepPQ {env : Env} (m : EnvS2UM V μ env)
+def ReduceNatStepPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e₂ : Expr} {Δa : List AVExpr} {ea : AVExpr},
     Setlec.reduceNatP μ env fuel d e = .ok (some e₂) →
@@ -250,7 +250,7 @@ def ReduceNatStepPQ {env : Env} (m : EnvS2UM V μ env)
       Expr.LeavesBounded e₂ ∧ CtxOkP m φ d Δa e₂
 
 /-- **Residue 5 — the same-head spine short-circuit**, P currency. -/
-def DefEqSpineP {env : Env} (m : EnvS2UM V μ env)
+def DefEqSpineP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.defeqSpineP μ env fuel d a b = .ok true →
@@ -269,7 +269,7 @@ def DefEqSpineP {env : Env} (m : EnvS2UM V μ env)
 /-- **The stuck configuration**, P currency.  `hμ : μ.verified = true`
 is *not* here: it is a hypothesis of the theorem that discharges this
 Prop, so the routed shape stays mode-generic. -/
-def DefEqStuckP {env : Env} (m : EnvS2UM V μ env)
+def DefEqStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δa : List AVExpr} {k : Expr → Expr → CheckM Bool}
     {a b a' b' : Expr},
@@ -300,7 +300,7 @@ def DefEqStuckP {env : Env} (m : EnvS2UM V μ env)
 
 /-- **Residue 6 — `stuckIrrel`**, P currency.  (`StuckIrrelP` would
 clash with the kernel's `Setlec.stuckIrrelP`.) -/
-def StuckIrrelPQ {env : Env} (m : EnvS2UM V μ env)
+def StuckIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     Setlec.stuckIrrelP μ env fuel d a b = .ok true →
@@ -317,7 +317,7 @@ def StuckIrrelPQ {env : Env} (m : EnvS2UM V μ env)
       ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ aa = interp2 V ρ ba
 
 /-- **Residue 10 — the stuck spine congruence**, P currency. -/
-def AppCongrStuckP {env : Env} (m : EnvS2UM V μ env)
+def AppCongrStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     isDefEqCore μ env fuel d a.getAppFn b.getAppFn = .ok true →
@@ -337,7 +337,7 @@ def AppCongrStuckP {env : Env} (m : EnvS2UM V μ env)
       ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ aa = interp2 V ρ ba
 
 /-- **Residue 11 — the η certificate**, P currency. -/
-def EtaCertStepP {env : Env} (m : EnvS2UM V μ env)
+def EtaCertStepP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {n : Name} {ty bd b : Expr} {mb : Setlec.BinderMeta}
     {Δa : List AVExpr},
@@ -358,7 +358,7 @@ def EtaCertStepP {env : Env} (m : EnvS2UM V μ env)
 
 /-- **Residue 7 — the string-literal expansion**, P currency
 (`Denote2StrLit2A`, fuel-free). -/
-def DenotePStrLit {env : Env} (m : EnvS2UM V μ env)
+def DenotePStrLit {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop :=
   ∀ (d : Nat) (st : String) {sa : AVExpr},
     Setlec.strLitSupported env = true →
@@ -373,7 +373,7 @@ def DenotePStrLit {env : Env} (m : EnvS2UM V μ env)
 /-- **Residue 2 — the delta identity**, P currency: unfolding a
 definition head does not move the validated reading.  Fuel-free, so
 `Denote2Delta2A`'s `∃ F' ≥ F` collapses to an equation. -/
-def DenotePDeltaP {env : Env} (m : EnvS2UM V μ env)
+def DenotePDeltaP {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop :=
   ∀ {d : Nat} {x y : Expr} {xa : AVExpr},
     Setlec.unfoldDefinition env x = some y →
@@ -383,7 +383,7 @@ def DenotePDeltaP {env : Env} (m : EnvS2UM V μ env)
 /-- **The dual-success existence factor** the P currency owes: a
 `whnfCore` reduct annotates.  `WhnfCoreExists2E`'s transpose, routed
 for the same reason — no claim of the family concludes definedness. -/
-def WhnfCoreReductExistsP {env : Env} (m : EnvS2UM V μ env)
+def WhnfCoreReductExistsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -398,8 +398,8 @@ def WhnfCoreReductExistsP {env : Env} (m : EnvS2UM V μ env)
 /-! ## T2 — the loop plumbing -/
 
 /-- The loop satisfies the contract at every budget. -/
-theorem defeqLoop_contP {m : EnvS2UM V μ env} {fuel : Nat}
-    (hstep : DefEqStepAtP m φ fuel) :
+theorem defeqLoop_contP {m : EnvS2Core V env} {fuel : Nat}
+    (hstep : DefEqStepAtP μ m φ fuel) :
     ∀ (budget d : Nat),
       DefEqContP m φ d
         (defeqLoop μ (pureFns μ env fuel) env d budget) := by
@@ -415,8 +415,8 @@ theorem defeqLoop_contP {m : EnvS2UM V μ env} {fuel : Nat}
     exact hstep (ih d) h
 
 /-- **`DefEqClaims2P` at `fuel + 1`**, modulo the step. -/
-theorem defeq_claimsP {m : EnvS2UM V μ env} {fuel : Nat}
-    (hstep : DefEqStepAtP m φ fuel) :
+theorem defeq_claimsP {m : EnvS2Core V env} {fuel : Nat}
+    (hstep : DefEqStepAtP μ m φ fuel) :
     DefEqClaims2P μ m φ (fuel + 1) := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
   rw [Setlec.isDefEqCore_succ, defeqBody] at h
@@ -426,9 +426,9 @@ theorem defeq_claimsP {m : EnvS2UM V μ env} {fuel : Nat}
 /-- The `whnfCore` reduct's package, P currency.  `whnfCore_package2D`
 with the fuel bump gone and the annotation's *existence* taken from
 the routed factor instead of from the claim. -/
-theorem dq_whnfCore_packageP (m : EnvS2UM V μ env) {fuel d : Nat}
+theorem dq_whnfCore_packageP (m : EnvS2Core V env) {fuel d : Nat}
     {Δa : List AVExpr} {a a' : Expr} {aa : AVExpr}
-    (hex : WhnfCoreReductExistsP m φ fuel)
+    (hex : WhnfCoreReductExistsP μ m φ fuel)
     (ihwc : WhnfCoreClaims2P μ m φ fuel)
     (hw : whnfCore μ env fuel d a = .ok a')
     (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
@@ -451,7 +451,7 @@ theorem dq_whnfCore_packageP (m : EnvS2UM V μ env) {fuel d : Nat}
 
 /-- The δ package, P currency: neither the annotation nor the fuel
 moves, so only the frame conditions and one `of_subset` remain. -/
-theorem dq_delta_packageP {m : EnvS2UM V μ env}
+theorem dq_delta_packageP {m : EnvS2Core V env}
     (hdel : DenotePDeltaP m φ)
     {d : Nat} {Δa : List AVExpr} {x y : Expr} {xa : AVExpr}
     (hu : Setlec.unfoldDefinition env x = some y)
@@ -475,14 +475,14 @@ reading, so all of them disappear together with the `max Fa Fb` join.
 What is left is the checker's own case tree. -/
 
 /-- **`DefEqStepAtP`**, modulo the routed obligations. -/
-theorem defeqStep_claimP {m : EnvS2UM V μ env} {fuel : Nat}
-    (hex : WhnfCoreReductExistsP m φ fuel)
+theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
+    (hex : WhnfCoreReductExistsP μ m φ fuel)
     (ihwc : WhnfCoreClaims2P μ m φ fuel)
     (hdel : DenotePDeltaP m φ)
-    (hnat : ReduceNatStepPQ m φ fuel) (hpi : ProofIrrelPQ m φ fuel)
-    (hstk : DefEqStuckP m φ fuel)
-    (hspine : DefEqSpineP m φ fuel) :
-    DefEqStepAtP m φ fuel := by
+    (hnat : ReduceNatStepPQ μ m φ fuel) (hpi : ProofIrrelPQ μ m φ fuel)
+    (hstk : DefEqStuckP μ m φ fuel)
+    (hspine : DefEqSpineP μ m φ fuel) :
+    DefEqStepAtP μ m φ fuel := by
   intro d k hk a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb
     hda hdb hokA hokB ρ hρ
   have h0 := h
@@ -655,7 +655,7 @@ theorem defeqStep_claimP {m : EnvS2UM V μ env} {fuel : Nat}
 /-! ## T4 — the binder congruence's two premises -/
 
 /-- An application's argument frame, P currency (`frame_appArg2D`). -/
-private theorem dq_frame_appArgP {m : EnvS2UM V μ env} {d : Nat}
+private theorem dq_frame_appArgP {m : EnvS2Core V env} {d : Nat}
     {Δa : List AVExpr} {f x : Expr}
     (hws : Expr.WScoped d (.app f x))
     (hb : (Expr.app f x).looseBVarsBounded 0 = true)
@@ -677,7 +677,7 @@ both the congruence's first component and `openCongC`'s transport.
 
 The gradings come in at `AnnotOkP`, which is what `CtxOkP`'s leaf
 package and `DefEqClaims2P`'s premises both speak. -/
-theorem binder_congrP {m : EnvS2UM V μ env} {fuel : Nat}
+theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
     (ihd : DefEqClaims2P μ m φ fuel)
     {d : Nat} {Δa : List AVExpr} {n₁ n₂ : Name}
     {ty₁ bd₁ ty₂ bd₂ : Expr} {ta₁ ba₁ ta₂ ba₂ : AVExpr}
@@ -749,12 +749,14 @@ theorem binder_congrP {m : EnvS2UM V μ env} {fuel : Nat}
 /-! ## T5 — the stuck configuration, seventeen cases
 
 `AcvalParams2` mentions no reading at all (it is a statement about
-`m.acval` and two valuations), so it is consumed **verbatim**, and so
-is its discharge `acvalParams2`.  Only its consumer moves. -/
+`m.acval` and two valuations), so it is consumed with its body
+verbatim — only its carrier moves, to `AcvalParamsP`/`acvalParamsP`
+over `EnvS2Core` (`Annot/EnvS2Core.lean`, batch 8).  Its consumer
+moves too. -/
 
 /-- The same constant at level-equivalent instantiations has one
 validated reading (`acval_const_congr2`, fuel-free). -/
-theorem acval_const_congrP {m : EnvS2UM V μ env} (hap : AcvalParams2 m)
+theorem acval_const_congrP {m : EnvS2Core V env} (hap : AcvalParamsP m)
     {d : Nat} {n : Name} {us us' : List Level} {aa ba : AVExpr}
     (hlev : Level.isEquivList us us' = some true)
     (hda : denoteP m.acval env φ d (.const n us) = some aa)
@@ -783,12 +785,12 @@ theorem acval_const_congrP {m : EnvS2UM V μ env} (hap : AcvalParams2 m)
 the run's own certificate, extracted from the ok-true tail of the
 binder arm at `hμ : μ.verified = true` and turned into an equation by
 `pwBit_eq_of_equiv`.  Nothing else in the block changes shape. -/
-theorem defeqStuck_claimP {m : EnvS2UM V μ env} {fuel : Nat}
+theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
     (hμ : μ.verified = true)
-    (ihd : DefEqClaims2P μ m φ fuel) (hsi : StuckIrrelPQ m φ fuel)
-    (hstr : DenotePStrLit m φ) (hap : AcvalParams2 m)
-    (happ : AppCongrStuckP m φ fuel) (heta : EtaCertStepP m φ fuel) :
-    DefEqStuckP m φ fuel := by
+    (ihd : DefEqClaims2P μ m φ fuel) (hsi : StuckIrrelPQ μ m φ fuel)
+    (hstr : DenotePStrLit m φ) (hap : AcvalParamsP m)
+    (happ : AppCongrStuckP μ m φ fuel) (heta : EtaCertStepP μ m φ fuel) :
+    DefEqStuckP μ m φ fuel := by
   intro d Δa _k a b a' b' h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb aa' ba' hCa hCb hda hdb hokA hokB ρ hρ
   simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
@@ -1168,14 +1170,14 @@ theorem defeqStuck_claimP {m : EnvS2UM V μ env} {fuel : Nat}
   the same discipline the infer quarter's `infer_forallE_claimP`
   already follows.
 
-`hap : AcvalParams2` is kept in the structure for symmetry with the D
-lane's hypothesis list even though `acvalParams2` discharges it
+`hap : AcvalParamsP` is kept in the structure for symmetry with the D
+lane's hypothesis list even though `acvalParamsP` discharges it
 outright from the `EnvS2U` field. -/
 
 /-- The quarter's deliverable: the four P claims at `fuel` give the
 defeq claim at `fuel + 1`. -/
 def DefEqStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ (fuel + 1)
@@ -1186,35 +1188,35 @@ dual-success currency's price (see the module docstring). -/
 structure DefEqInputsP (μ : CheckMode) (V : Type w) [SetTheory V] :
     Prop where
   /-- **New at the P tier.**  The `whnfCore` reduct annotates. -/
-  hex : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
-    (fuel : Nat), WhnfCoreReductExistsP m φ fuel
+  hex : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat)
+    (fuel : Nat), WhnfCoreReductExistsP μ m φ fuel
   /-- Residue 2 — the delta identity, fuel-free. -/
-  hdel : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
+  hdel : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat),
     DenotePDeltaP m φ
   /-- Residue 4 — the literal acceleration. -/
-  hnat : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
-    (fuel : Nat), ReduceNatStepPQ m φ fuel
+  hnat : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat)
+    (fuel : Nat), ReduceNatStepPQ μ m φ fuel
   /-- Residue 3 — proof irrelevance. -/
-  hpi : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
-    (fuel : Nat), ProofIrrelPQ m φ fuel
+  hpi : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat)
+    (fuel : Nat), ProofIrrelPQ μ m φ fuel
   /-- Residue 5 — the same-head spine short-circuit. -/
-  hspine : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
-    (fuel : Nat), DefEqSpineP m φ fuel
+  hspine : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat)
+    (fuel : Nat), DefEqSpineP μ m φ fuel
   /-- Residue 6 — `stuckIrrel`. -/
-  hsi : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
-    (fuel : Nat), StuckIrrelPQ m φ fuel
+  hsi : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat)
+    (fuel : Nat), StuckIrrelPQ μ m φ fuel
   /-- Residue 7 — the string-literal expansion. -/
-  hstr : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
+  hstr : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat),
     DenotePStrLit m φ
   /-- Residue 8 — the canonical valuation is level-insensitive.
-  Discharged by `acvalParams2`; kept for symmetry. -/
-  hap : ∀ (env : Env) (m : EnvS2UM V μ env), AcvalParams2 m
+  Discharged by `acvalParamsP`; kept for symmetry. -/
+  hap : ∀ (env : Env) (m : EnvS2Core V env), AcvalParamsP m
   /-- Residue 10 — the stuck spine congruence. -/
-  happ : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
-    (fuel : Nat), AppCongrStuckP m φ fuel
+  happ : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat)
+    (fuel : Nat), AppCongrStuckP μ m φ fuel
   /-- Residue 11 — the η certificate. -/
-  heta : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
-    (fuel : Nat), EtaCertStepP m φ fuel
+  heta : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat)
+    (fuel : Nat), EtaCertStepP μ m φ fuel
 
 /-- **The defeq quarter, P currency.**  Ten routed residues and one
 mode pin; **no `BinderSortAgree`** — residue 9's successor is the run's

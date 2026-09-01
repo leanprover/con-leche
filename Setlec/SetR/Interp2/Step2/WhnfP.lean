@@ -179,7 +179,7 @@ discharge them. -/
 /-- `IotaStep2D` in the P currency.  Kept **producing** (see the module
 docstring): the app clause's ι branch continues into `ihwc` at the
 fired rule's RHS, so the residue must supply that reduct's reading. -/
-def IotaStepP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def IotaStepP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e'' : Expr} {Δa : List AVExpr},
     iotaRecP μ env fuel d e = .ok (some e'') →
@@ -199,7 +199,7 @@ def IotaStepP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
 /-- `ProjStep2D` in the P currency, **dual success**: the clause is the
 whole of the dispatcher's `.proj` case and nothing continues past it,
 so the reduct's reading is a premise here as it is in the claim. -/
-def ProjStepP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def ProjStepP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {sn : Name} {i : Nat} {pe e' : Expr}
     {Δa : List AVExpr},
@@ -218,7 +218,7 @@ def ProjStepP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
 
 /-- `ReduceNatStep2D` in the P currency.  Producing, for the loop's
 sake (the budget induction continues at `e₂`). -/
-def ReduceNatStepP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def ReduceNatStepP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e₂ : Expr} {Δa : List AVExpr},
     reduceNatP μ env fuel d e = .ok (some e₂) →
@@ -237,7 +237,7 @@ def ReduceNatStepP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
 
 /-- `Delta2B` in the P currency: the annotation does not move, and now
 neither does anything else — there is no fuel left to step. -/
-def DeltaP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def DeltaP {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {ea : AVExpr},
     unfoldDefinition env e = some e' →
@@ -262,7 +262,7 @@ Routed.  The install tier discharges it; `acvalDefnInst_noParams`
 (`Step2/Whnf.lean`) is the canonical tier's evidence that the shape is
 inhabited well beyond vacuity, and the P shape asks for *less* than
 that one (no `us`, no instantiation). -/
-def AcvalDefnInstP {env : Env} (m : EnvS2UM V μ env) : Prop :=
+def AcvalDefnInstP {env : Env} (m : EnvS2Core V env) : Prop :=
   ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
     ((∃ hint : ReducibilityHint,
         ConstantInfo.defnInfo cv value hint ∈ env.consts) ∨
@@ -274,7 +274,7 @@ canonical lane routes as `Denote2InstLevels`, and it is one rewrite.
 Note that the arity premise `us.length = cv.levelParams.length` — which
 `AcvalDefnInst` carries — is *not needed*: `denotePInstLevels` is
 unconditional. -/
-theorem acvalDefnInstP_subst {m : EnvS2UM V μ env}
+theorem acvalDefnInstP_subst {m : EnvS2Core V env}
     (hdi : AcvalDefnInstP m) (φ : Name → Nat) {cv : ConstantVal}
     {value : Expr} {us : List Level}
     (hmem : (∃ hint : ReducibilityHint,
@@ -288,7 +288,7 @@ theorem acvalDefnInstP_subst {m : EnvS2UM V μ env}
 
 /-- The shared core of `unfoldDefinition`'s two branches, P currency —
 `delta2B_core` with the fuel move deleted. -/
-private theorem deltaP_core (m : EnvS2UM V μ env)
+private theorem deltaP_core (m : EnvS2Core V env)
     {d : Nat} {e : Expr} {n : Name} {us : List Level}
     {ci : ConstantInfo} {cv : ConstantVal} {value : Expr}
     {ea : AVExpr}
@@ -327,8 +327,8 @@ mirror; the spine (`denoteP_mkAppN_swap`), the depth
 (`denoteP_depth_of_closed`) and now the *level crossing*
 (`denotePInstLevels`, through `acvalDefnInstP_subst`) are all
 theorems. -/
-theorem deltaP_of (m : EnvS2UM V μ env) (hdi : AcvalDefnInstP m) :
-    DeltaP μ m φ := by
+theorem deltaP_of (m : EnvS2Core V env) (hdi : AcvalDefnInstP m) :
+    DeltaP m φ := by
   intro d e e' ea hud hea
   rw [unfoldDefinition] at hud
   split at hud
@@ -370,7 +370,7 @@ reduct annotating, and this quarter reduces the head of an application
 before it can say anything about the application. -/
 
 /-- The head-normalisation existence factor, P currency. -/
-def WhnfCoreExistsP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def WhnfCoreExistsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AVExpr},
     whnfCore μ env fuel d e = .ok e' →
@@ -385,7 +385,7 @@ def WhnfCoreExistsP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
 /-- The inference existence factor, P currency — what the β
 certificate needs and `InferClaims2P`, being dual success, does not
 give. -/
-def InferExistsP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def InferExistsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
     inferTypeCore μ env fuel d e = .ok t →
@@ -399,7 +399,7 @@ def InferExistsP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
 /-! # T4a — the β certificate -/
 
 /-- `BetaCert2D` in the P currency. -/
-def BetaCertP (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
+def BetaCertP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {aa tya : AVExpr},
     inferTypeCore μ env fuel d a = .ok ta →
@@ -421,7 +421,7 @@ mirror.  The two context obligations are kit moves (`CtxOkP.of_subset`
 along `inferTypeCore_fvarLeaves`; the ascribed type keeps its own, with
 no fuel to raise it to), and the one new input is the inference
 existence factor the dual-success claim withholds. -/
-theorem betaCertP_of_claims (m : EnvS2UM V μ env) {fuel : Nat}
+theorem betaCertP_of_claims (m : EnvS2Core V env) {fuel : Nat}
     (hexi : InferExistsP μ m φ fuel)
     (ihd : DefEqClaims2P μ m φ fuel)
     (ihi : InferClaims2P μ m φ fuel) :
@@ -446,7 +446,7 @@ theorem betaCertP_of_claims (m : EnvS2UM V μ env) {fuel : Nat}
 /-- `whnfCore_package2D`'s mirror.  There is no fuel to mediate, so the
 reduct's reading is a premise (dual success) and the package's job is
 the frames and the restricted context. -/
-theorem whnfCore_packageP (m : EnvS2UM V μ env) {fuel d : Nat}
+theorem whnfCore_packageP (m : EnvS2Core V env) {fuel d : Nat}
     {Δa : List AVExpr} {a a' : Expr} {aa aa' : AVExpr}
     (ihwc : WhnfCoreClaims2P μ m φ fuel)
     (hw : whnfCore μ env fuel d a = .ok a')
@@ -467,7 +467,7 @@ theorem whnfCore_packageP (m : EnvS2UM V μ env) {fuel d : Nat}
     hC.of_subset (whnfCore_fvarLeaves m.base.wf fuel hw)⟩
 
 /-- **The `.bvar` clause.**  Vacuous on the annotation side. -/
-theorem whnfCore_bvar_claimP (m : EnvS2UM V μ env) {d i : Nat}
+theorem whnfCore_bvar_claimP (m : EnvS2Core V env) {d i : Nat}
     {ea : AVExpr}
     (hea : denoteP m.acval env φ d (.bvar i) = some ea) : False := by
   rw [denoteP_bvar] at hea; exact nomatch hea
@@ -475,7 +475,7 @@ theorem whnfCore_bvar_claimP (m : EnvS2UM V μ env) {d i : Nat}
 /-- **The six leaf clauses**, at the P claim's own shape: the reduct is
 the subject, so its reading is the subject's (`Option.some.inj`) and
 both conjuncts are reflexivity. -/
-theorem whnfCore_leaf_claimP (m : EnvS2UM V μ env) {fuel d : Nat}
+theorem whnfCore_leaf_claimP (m : EnvS2Core V env) {fuel d : Nat}
     {e e' : Expr} {Δa : List AVExpr} {ea ea' : AVExpr}
     (hleaf : (∃ u, e = .sort u) ∨ (∃ idx n ty, e = .fvar idx n ty) ∨
       (∃ n ty body bi, e = .forallE n ty body bi) ∨
@@ -503,7 +503,7 @@ theorem whnfCore_leaf_claimP (m : EnvS2UM V μ env) {fuel d : Nat}
 /-- **The ζ clause, P currency.**  Where the `…D` lane consumed
 `Denote2Inst1B` (a routed residue with a fuel move), this reads
 `denoteP_beta` — a theorem, and an equality. -/
-theorem whnfCore_letE_claimP (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfCore_letE_claimP (m : EnvS2Core V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2P μ m φ fuel)
     {d : Nat} {nn : Name} {tt vv bb e' : Expr} {Δa : List AVExpr}
     (h : whnfCore μ env (fuel + 1) d (.letE nn tt vv bb) = .ok e')
@@ -564,7 +564,7 @@ in this currency is `pwBit φ mb.pw` — and the two arms are
 `AnnotOkP_beta_zero`/`AnnotOkP_beta_pos`.  The head's reduct reading
 comes from the routed existence factor; every other reading in the
 proof is inverted out of a premise. -/
-theorem whnfCore_app_claimP (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
     (hex : WhnfCoreExistsP μ m φ fuel)
     (hcert : BetaCertP μ m φ fuel) (hiota : IotaStepP μ m φ fuel)
     (ihwc : WhnfCoreClaims2P μ m φ fuel)
@@ -690,7 +690,7 @@ theorem whnfCore_app_claimP (m : EnvS2UM V μ env) {fuel : Nat}
     exact ⟨hokapp, heqapp⟩
 
 /-- **`WhnfCoreClaims2P` at `fuel + 1`** — the eleven shapes. -/
-theorem whnfCore_claimsP (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfCore_claimsP (m : EnvS2Core V env) {fuel : Nat}
     (hex : WhnfCoreExistsP μ m φ fuel)
     (hcert : BetaCertP μ m φ fuel) (hiota : IotaStepP μ m φ fuel)
     (hproj : ProjStepP μ m φ fuel)
@@ -729,10 +729,10 @@ theorem whnfCore_claimsP (m : EnvS2UM V μ env) {fuel : Nat}
 /-- **The budget induction, P currency.**  `DeltaP` is now an equality
 between two readings of the *same* annotation, so the δ branch neither
 moves a fuel nor raises a context. -/
-theorem whnfLoop_claimP (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfLoop_claimP (m : EnvS2Core V env) {fuel : Nat}
     (hex : WhnfCoreExistsP μ m φ fuel)
     (ihwc : WhnfCoreClaims2P μ m φ fuel)
-    (hnat : ReduceNatStepP μ m φ fuel) (hdelta : DeltaP μ m φ) :
+    (hnat : ReduceNatStepP μ m φ fuel) (hdelta : DeltaP m φ) :
     ∀ (budget : Nat) {d : Nat} {Δa : List AVExpr} {e e' : Expr},
       whnfLoop (pureFns μ env fuel) env d budget e = .ok e' →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
@@ -800,10 +800,10 @@ theorem whnfLoop_claimP (m : EnvS2UM V μ env) {fuel : Nat}
         exact ⟨hok', interp2C_trans heq₁ heq'⟩
 
 /-- **`WhnfClaims2P` at `fuel + 1`.** -/
-theorem whnf_claimsP (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnf_claimsP (m : EnvS2Core V env) {fuel : Nat}
     (hex : WhnfCoreExistsP μ m φ fuel)
     (ihwc : WhnfCoreClaims2P μ m φ fuel)
-    (hnat : ReduceNatStepP μ m φ fuel) (hdelta : DeltaP μ m φ) :
+    (hnat : ReduceNatStepP μ m φ fuel) (hdelta : DeltaP m φ) :
     WhnfClaims2P μ m φ (fuel + 1) := by
   intro d e e' Δa h hws hb hLb ea ea' hC hea hea' hok
   rw [Setlec.whnf_succ, whnfBody] at h
@@ -814,14 +814,14 @@ theorem whnf_claimsP (m : EnvS2UM V μ env) {fuel : Nat}
 
 /-- The head-normalisation quarter, P currency. -/
 def WhnfCoreStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
     WhnfCoreClaims2P μ m φ (fuel + 1)
 
 /-- The reduction-loop quarter, P currency. -/
 def WhnfStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat) (fuel : Nat),
+  ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
     WhnfClaims2P μ m φ (fuel + 1)
@@ -836,22 +836,22 @@ actually read — defeq's is empty and `whnf`'s is unused here. -/
 structure WhnfInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
     Prop where
   /-- the head reduct annotates (`WhnfCoreExists2E`'s transpose) -/
-  core_exists : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+  core_exists : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), WhnfCoreExistsP μ m φ fuel
   /-- the inferred type annotates (`InferExists2E`'s transpose) -/
-  infer_exists : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+  infer_exists : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), InferExistsP μ m φ fuel
   /-- the ι clause -/
-  iota : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+  iota : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), IotaStepP μ m φ fuel
   /-- the projection clause -/
-  proj : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+  proj : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), ProjStepP μ m φ fuel
   /-- the `Nat`-literal reduction clause -/
-  nat : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
+  nat : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), ReduceNatStepP μ m φ fuel
   /-- the δ exit's single obligation -/
-  defn : ∀ {env : Env} (m : EnvS2UM V μ env), AcvalDefnInstP m
+  defn : ∀ {env : Env} (m : EnvS2Core V env), AcvalDefnInstP m
 
 /-- **`whnfCoreStepP_of` — the head-normalisation quarter, P
 currency.**  `hμ` is *unused* (flagged in the module docstring); it is

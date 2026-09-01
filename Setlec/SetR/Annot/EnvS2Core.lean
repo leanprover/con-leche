@@ -19,10 +19,16 @@ denote2-free fields below.  So the carrier slims instead of the
 quarters changing content: `EnvS2Core` is `EnvS2U` minus the three
 denote2 fields (and minus the mode index, which existed only for
 them), `toCore` projects, and the P surface is restated over the core
-by a mechanical signature sweep (batch 8).  The three `acval` helper
-lemmas the level crossing reads (`acval_scalar`/`acval_one`/
-`acval_natPair`, `Step2/Levels.lean`) are re-proved here over the
-core, verbatim.
+by a mechanical signature sweep (batch 8).  Canonical helpers the P
+surface consumed at the fat carrier are transposed body-for-body, each
+next to its consumer and leaving the canonical file untouched:
+
+* `AcvalParams2`/`acvalParams2` (`Step2/DefEqRun.lean`) → `AcvalParamsP`
+  /`acvalParamsP`, below;
+* `acval_isEmpty`/`acval_oneParam`/`acval_scalar`/`acval_one`/
+  `acval_natPair` (`Step2/Levels.lean`) → the `…P` names in
+  `Step2/BitLevels.lean`, the level crossing's own file;
+* `NatHeads2` (`Step2/InferQ.lean`) → `NatHeadsP` in `Step2/InferP.lean`.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -78,5 +84,26 @@ def EnvS2U.toCore {env : Env} (m : EnvS2U V env) : EnvS2Core V env where
   acval_closed := m.acval_closed
   acval_params := m.acval_params
   acval_ok2 := m.acval_ok2
+
+/-! ### `AcvalParams2`, transposed to the core (batch 8)
+
+`AcvalParams2`/`acvalParams2` (`Step2/DefEqRun.lean`) are stated over
+`EnvS2UM`; the P surface consumes them at a carrier that has no mode
+index and no `denote2` fields.  The statement is a fact about `acval`
+and two valuations only, so it transposes verbatim. -/
+
+/-- **Residue 8, over the core**: the annotated valuation is
+level-insensitive (the `EnvS2Core` reading of `AcvalParams2`). -/
+def AcvalParamsP {env : Env} (m : EnvS2Core V env) : Prop :=
+  ∀ n ci, env.find? n = some ci →
+    ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
+      m.acval n ψ₁ = m.acval n ψ₂
+
+/-- **Residue 8 is discharged over the core** — it is the
+`acval_params` field, exactly as in the canonical lane. -/
+theorem acvalParamsP {env : Env} (m : EnvS2Core V env) :
+    AcvalParamsP m :=
+  m.acval_params
 
 end Setlec.SetR.Interp2
