@@ -521,4 +521,44 @@ theorem infer_natLit_claimP (m : EnvS2UM V μ env) (hnh : NatHeads2 m φ)
         fun ρ _ => (hrow ρ).2⟩
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
+/-! ## The two clause-granular residues (T2)
+
+`InferStrLitStep2C` and `InferProjStep2C` transposed: the annotation
+fuel `F` and the `∃ F' ≥ F` slack vanish with `denote2`, the reading
+is `denoteP`, both readings sit in **premises** (dual success), and
+the three rows are stated at `AnnotOkP`.  Their discharges belong to
+later tiers exactly as the canonical ones do — the `String` clause is
+`strLit_facts`' volume plus seven head facts, the projection clause
+is the structure-type walk. -/
+
+/-- The `String`-literal clause, P currency. -/
+def InferStrLitStepP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {s : String} {t : Expr} {Δa : List AVExpr}
+    {ea ta : AVExpr},
+    inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t →
+    denoteP m.acval env φ d (.lit (.strVal s)) = some ea →
+    denoteP m.acval env φ d t = some ta →
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta
+
+/-- The projection clause, P currency. -/
+def InferProjStepP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d i : Nat} {sn : Name} {pe t : Expr} {Δa : List AVExpr}
+    {ea ta : AVExpr},
+    inferTypeCore μ env (fuel + 1) d (.proj sn i pe) = .ok t →
+    Expr.WScoped d (.proj sn i pe) →
+    (Expr.proj sn i pe).looseBVarsBounded 0 = true →
+    Expr.LeavesBounded (.proj sn i pe) →
+    CtxOkP m φ d Δa (.proj sn i pe) →
+    denoteP m.acval env φ d (.proj sn i pe) = some ea →
+    denoteP m.acval env φ d t = some ta →
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta
+
 end Setlec.SetR.Interp2
