@@ -109,14 +109,15 @@ theorem declThmS {μ : CheckMode} {F : Nat} {env env₂ : Env}
       injection heq with h1 h2
       subst h1; subst h2
       exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩
-  refine extendValueS m (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩
+  refine Exists.imp (fun m' h => h.1)
+    (extendValueS m (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩
       value') rfl rfl hfresh hwfc hvf' hbv' ?_ ?_
     (fun _ _ _ heq => nomatch heq)
     (fun _ value2 heq => by injection heq with _ h2; exact h2.symm)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) hres
     (fun _ _ _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq)
-    (fun _ heq => nomatch heq)
+    (fun _ heq => nomatch heq))
   · intro ψ
     obtain ⟨Vv, Tv, hVv, hTv, hlaw⟩ :=
       valueKeyS m ⟨hfind, hres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
@@ -132,7 +133,11 @@ obligation; the extension's valuation agreement is exposed. -/
 theorem declOpaqueS (hrp : ReducePinS V) {μ : CheckMode} {F : Nat}
     {env env₂ : Env} {cv : ConstantVal} {value : Expr} (m : EnvS V env)
     (h : DeclOpaqueR μ F env m.cval cv value env₂) :
-    ∃ m' : EnvS V env₂, ∀ n, n ≠ cv.name → m.cval n = m'.cval n := by
+    ∃ m' : EnvS V env₂,
+      (∀ n, n ≠ cv.name → m.cval n = m'.cval n) ∧
+      ∃ value', annotateCore μ env F 0 value = .ok value' ∧
+        ∀ ψ : Name → Nat,
+          denoteClosed m.cval env ψ value' = some (m'.cval cv.name ψ) := by
   obtain ⟨type', value', hcv, hvfr, rfl, hred⟩ := h
   obtain ⟨hfind, hres, hpshape, hnd, hlbt, hitf, hann, htp, htr, hfrontT⟩ :=
     hcv
@@ -147,12 +152,13 @@ theorem declOpaqueS (hrp : ReducePinS V) {μ : CheckMode} {F : Nat}
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP rules heq; exact nomatch heq
     · intro cv2 value2 heq; exact nomatch heq
-  refine extendValueS m (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+  refine Exists.imp (fun m' hh => ⟨hh.1, value', hannv, hh.2⟩)
+    (extendValueS m (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (value := value') rfl rfl hfresh hwfc hvf' hbv' ?_ ?_
     (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) hres
-    (fun _ _ _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) ?_)
   · intro ψ
     obtain ⟨Vv, Tv, hVv, hTv, hlaw⟩ :=
       valueKeyS m ⟨hfind, hres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
@@ -199,13 +205,14 @@ theorem declDefnS (hdm : DivModPinS V) {μ : CheckMode} {F : Nat}
       exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩
     · intro cv2 mI rP rules heq; exact nomatch heq
     · intro cv2 value2 heq; exact nomatch heq
-  refine extendValueS m (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩
+  refine Exists.imp (fun m' h => h.1)
+    (extendValueS m (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩
       value' hint) rfl rfl hfresh hwfc hvf' hbv' ?_ ?_
     (fun _ value2 _ heq => by injection heq with _ h2 _; exact h2.symm)
     (fun _ _ heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) hres
-    ?_ ?_ (fun _ heq => nomatch heq)
+    ?_ ?_ (fun _ heq => nomatch heq))
   · intro ψ
     obtain ⟨Vv, Tv, hVv, hTv, hlaw⟩ :=
       valueKeyS m ⟨hfind, hres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
