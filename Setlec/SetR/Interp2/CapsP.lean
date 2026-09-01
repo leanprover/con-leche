@@ -111,6 +111,82 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
     rw [hdown _ (hnP j hj)] at hf2
     exact ⟨cv2, mI2, rP2, rules2, hf2⟩
 
+/-! ## THE CAPS TIER'S NAMED WALL: the unit half's `EtaFamilyStored`
+premise is not consumable
+
+`CapsOkP`'s docstring says the field is "keyed identically" to
+`CapsOkV` (`Sound/Motives.lean:305`).  It is not: the **unit half**
+gained a fourth premise, `EtaFamilyStored env T caps`, that the v1
+field does not have — and neither does `DefEq.structUnit`
+(`Rel.lean:759`) nor the install-side obligation `MemberUnitS`
+(`Install/IndMembersS.lean:67`), both of which key the unit law on
+exactly `find? = indInfo`, `unitlike`, `¬reserved`.
+
+The premise makes the field **unusable by its own consumer**.
+`StructUnitIrrelP`'s only evidence is `structUnitCertP`'s verdict, and
+`structUnitCert_inv` (`Verify/InferLemmas.lean:2305`) yields nine
+facts, *none* of which mentions `caps.etaCtor` or `projFnName T j`:
+the certificate never looks at a constructor or a projection.  Nor is
+the premise derivable from the environment: `EtaFamilyStored` is a
+statement about what is *stored* under two name families that an
+`indInfo` entry's `caps` record merely *names*, and `EnvWF` relates
+the two not at all.  `indBlockCaps` (`Kernel/Modeled.lean:713`)
+computes `eta` and `unitlike` by two independent checks, so a
+`unitlike`-but-not-`eta` family — whose projection indices install as
+elimination *templates* (`projInfo`), not projection functions
+(`recInfo`) — is exactly the shape the premise excludes and the
+certificate accepts.
+
+`etaFamilyStored_not_derivable` below is that gap, mechanized.
+
+**The wall statement.**  `StructUnitIrrelP` is not a consequence of
+the frozen `CapsOkP` plus the claims.  The fix is one deletion — drop
+`Setlec.EtaFamilyStored env T caps →` from `CapsOkP`'s second
+conjunct, restoring `CapsOkV`'s keying — which *strengthens* the
+field (fewer premises = more obligations) and so cannot weaken any
+downstream statement; establishment is unaffected, since `MemberUnitS`
+already discharges the unpremised form.  Per the batch protocol the
+statement is frozen, so the deletion is NOT taken here: the row stays
+in the census, named, for the lane lead. -/
+
+/-- The witnessing capability record: `unitlike` without `eta`, naming
+a constructor that is stored nowhere. -/
+def unitNoFamilyCaps : IndCaps where
+  eta := false
+  etaCtor := Name.anonymous.str "SetlecCapsWall.mk"
+  etaParams := 0
+  etaFields := 0
+  unitlike := true
+  unitParams := 0
+  ruleK := false
+
+/-- The witnessing environment: one non-reserved `unitlike` former
+carrying `unitNoFamilyCaps`. -/
+def unitNoFamilyEnv : Env :=
+  ⟨[.indInfo ⟨Name.anonymous.str "SetlecCapsWall.T", [], .sort .zero⟩
+      unitNoFamilyCaps]⟩
+
+/-- **The wall, mechanized**: a well-formed environment storing a
+non-reserved `unitlike` family for which `EtaFamilyStored` is FALSE.
+Everything `structUnitCert`'s inversion can ever hand a consumer holds
+here, and the frozen `CapsOkP`'s unit half is vacuous. -/
+theorem etaFamilyStored_not_derivable :
+    ∃ (env : Env) (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+      Setlec.EnvWF env ∧
+      env.find? T = some (.indInfo cvT caps) ∧
+      caps.unitlike = true ∧
+      Setlec.reservedBasisNames.contains T = false ∧
+      ¬ Setlec.EtaFamilyStored env T caps := by
+  refine ⟨unitNoFamilyEnv, Name.anonymous.str "SetlecCapsWall.T",
+    ⟨Name.anonymous.str "SetlecCapsWall.T", [], .sort .zero⟩,
+    unitNoFamilyCaps, ?_, by decide, rfl, by decide, ?_⟩
+  · intro c hc
+    rcases List.mem_singleton.mp hc with rfl
+    exact ⟨rfl, rfl, rfl, rfl, by rintro _ _ _ ⟨⟩,
+      by rintro _ _ _ _ ⟨⟩, by rintro _ _ ⟨⟩⟩
+  · rintro ⟨-, ⟨cvC, hfC⟩, -⟩
+    exact nomatch hfC
+
 /-! ## The crossing -/
 
 /-- **`CapsOkP` at a fresh value-kind cons** — every `defnInfo`,
