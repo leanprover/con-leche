@@ -2281,7 +2281,15 @@ def annotateBindersOutI (mk : NIdx → EIdx → EIdx → IBinderMeta → ENode)
       | some pw => if pwWritten mb.pw then mb else ⟨mb.bi, pw⟩
       | none => mb
     let node ← internI (mk n tyAbs cur mb)
-    annotateBindersOutI mk d pw? rest (j - 1) node
+    -- Task #161 P5 (proof-lane repair): thread the datum *just
+    -- written* outward rather than re-stamping the leaf's.  The two
+    -- differ only above an explicitly-annotated binder, and there the
+    -- chain rule is what the spec's `annotPwPi`/`annotPwLam` read —
+    -- they see the rebuilt inner node, not the leaf.  One fold, one
+    -- rule, both passes.
+    annotateBindersOutI mk d
+      (match pw? with | some _ => some mb.pw | none => none)
+      rest (j - 1) node
 
 /-- Leaf phase of `annotatePisI`: bulk-open and annotate the residual
 body, then rebuild outward. -/

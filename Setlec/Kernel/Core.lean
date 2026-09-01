@@ -2130,11 +2130,30 @@ and the *only* input annotations preserved are the `ifAllZero` ones.
 
 /-- The ∀ node's datum: the zero-ness of the *codomain*'s sort, on the
 already-annotated opened body — exactly the value `inferBody`'s ∀
-clause validates against (`(forall-cod)`). -/
+clause validates against (`(forall-cod)`).
+
+**The chain read (task #161 P5, proof-lane repair).**  A ∀ body that is
+itself a ∀ reuses its inner neighbour's datum instead of inferring:
+`zeronessOf (imax u v) = zeronessOf v`, so every node of a telescope
+carries the *leaf* codomain sort's zero-ness.  This is the same rule
+`annotPwLam` already applies through `lamPw`, and it is what makes the
+spec pass pay **one** inference per ∀ telescope, as the design's
+telescope-collapse paragraph claims — and what makes it agree with the
+interned pass, which computes at the leaf and threads outward
+(`annotateBindersOutI`).
+
+Without it the spec inferred the whole inner telescope at every node,
+so it *failed* on terms the interned pass accepts — e.g.
+`∀ (x : Prop), ∀ (y : Foo), Prop` with `Foo` absent from the
+environment: `annotate` never looks a constant up, but inferring the
+inner ∀ node does.  See DESIGN.md, task #161 P5 proof-lane finding. -/
 def annotPwPi (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
     m PropWhen := do
-  let v ← ensureSort r env depth (← r.infer depth body')
-  pure (Level.zeronessOf v)
+  match body'.forallPw with
+  | some pwI => pure pwI
+  | none => do
+    let v ← ensureSort r env depth (← r.infer depth body')
+    pure (Level.zeronessOf v)
 
 /-- The λ node's datum: the zero-ness of the sort of the *body's type*.
 Mirrors `inferBody`'s λ clause exactly — a λ body reuses its inner

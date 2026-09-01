@@ -306,6 +306,14 @@ def lamPw : Expr → Option PropWhen
   | .lam _ _ _ mbI => some mbI.pw
   | _ => none
 
+/-- The ∀ twin of `lamPw`: a ∀ node's prop-ness datum, read off the
+node.  Task #161 P5 repair — `annotPwPi` reads it to realise the
+telescope collapse (`zeronessOf (imax u v) = zeronessOf v`) as a chain
+rule, exactly as `annotPwLam` reads `lamPw`. -/
+def forallPw : Expr → Option PropWhen
+  | .forallE _ _ _ mbI => some mbI.pw
+  | _ => none
+
 /-- Does the expression contain any free variable (`fvar`)?  Input
 declarations must be `fvar`-free; the checker introduces `fvar`s only
 internally when opening binders. -/
