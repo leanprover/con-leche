@@ -134,8 +134,6 @@ structure SemTierInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
     (fuel : Nat), ProjStepP μ m φ fuel
   infer_proj : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), InferProjStepP m μ φ fuel
-  str_lit : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), InferStrLitStepP m μ φ fuel
   /- caps tier: NO entries.  All four capability rows left this
   census with the tier: `UnitIrrelPQ` (`unitIrrelPQ_of_claims`),
   `PairEtaIrrelP` (`pairEtaIrrelP_of_claims`), `StructEtaIrrelP`
@@ -155,7 +153,6 @@ theorem TierInputsAtP.ofSem (hsem : SemTierInputsP V μ)
     (fun fuel => hsem.whnf_proj_reads mp.base2 φ fuel)
     (fun fuel => hsem.infer_proj_reads mp.base2 φ fuel)
     (fun fuel => reduceNatReadsP_of mp.base2 φ fuel)
-    (fun fuel => hsem.str_lit mp.base2 φ fuel)
     (fun fuel => hsem.infer_proj mp.base2 φ fuel)
     (fun fuel => hsem.iota mp.base2 φ fuel)
     (fun fuel => hsem.whnf_proj mp.base2 φ fuel)

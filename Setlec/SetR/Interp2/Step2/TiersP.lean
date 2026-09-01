@@ -1,5 +1,6 @@
 import Setlec.SetR.Interp2.Step2.ReadsP
 import Setlec.SetR.Interp2.Step2.CapsRowsP
+import Setlec.SetR.Interp2.Step2.StrLitP
 
 /-!
 # The tiers assembly (task #161, P4): one env-fixed bundle, one induction
@@ -49,8 +50,6 @@ structure TierInputsAtP (V : Type w) [SetTheory V] (μ : CheckMode)
   acval_valid : AcvalValidP m
   /-- install tier: the numeral heads -/
   nat_heads : NatHeadsP m φ
-  /-- install tier: the `String`-literal infer row -/
-  str_lit : ∀ fuel, InferStrLitStepP m μ φ fuel
   /-- install tier: the projection infer row -/
   infer_proj : ∀ fuel, InferProjStepP m μ φ fuel
   /-- iota tier: the fired-rule row -/
@@ -154,7 +153,8 @@ theorem checkSoundAtP (hμ : μ.verified = true)
         exact infer_natLit_claimP m h.nat_heads h.acval_valid
           hrun hea hta
       | .lit (.strVal s), hrun, _, _, _, _, hea =>
-        exact h.str_lit fuel hrun hea hta
+        exact inferStrLitStepP_of_claims h.reads.const_ty h.acval_valid
+          h.nat_heads hrun hea hta
       | .forallE nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
         exact infer_forallE_claimP m hμ hss hrun hws hb hLb hC hea hta
       | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
@@ -178,7 +178,6 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
     (hwproj_r : ∀ fuel, WhnfCoreProjReadsP μ mp.base2 φ fuel)
     (hiproj_r : ∀ fuel, InferProjReadsP μ mp.base2 φ fuel)
     (hnat_r : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel)
-    (hstr : ∀ fuel, InferStrLitStepP mp.base2 μ φ fuel)
     (hiproj : ∀ fuel, InferProjStepP mp.base2 μ φ fuel)
     (hiota : ∀ fuel, IotaStepP μ mp.base2 φ fuel)
     (hwproj : ∀ fuel, ProjStepP μ mp.base2 φ fuel)
@@ -191,7 +190,6 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
   reads := ReadsInputsP.ofEnvS2PM mp hiota_r hwproj_r hiproj_r hnat_r
   acval_valid := mp.acvalValidP
   nat_heads := mp.nat_heads φ
-  str_lit := hstr
   infer_proj := hiproj
   iota := hiota
   whnf_proj := hwproj
