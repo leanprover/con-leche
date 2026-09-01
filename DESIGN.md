@@ -10987,3 +10987,99 @@ unchanged (`pw` is plain data in the same `ToExpr`-pinned literals).
 5. *(new)* Hand-annotated pins: a wrong `pw` declines its own basis
    install — loud, local, mechanical; the generated pins compute
    theirs, leaving only the small hand-written set.
+
+## Task #161 P1 SEAL: the representation lands (2026-09-01)
+
+**Landed** (branch `agent/annot-v2`): `BinderMeta`/`IBinderMeta` carry
+`pw : PropWhen`; the walks, the arena, and every proof tier adapted;
+parser and all pinned literals at the placeholder `⟨.default, .never⟩`.
+
+**Amendment 2 — the datum is a raw set, not a sorted canonical form
+(in-flight revision of amendment 1(d), forced by proofs).**  The
+ratified design ordered `ps` sorted and deduplicated so that `=`
+decides zero-ness agreement.  Implementation falsified two things
+about any *normalizing* `substPW`:
+
+* `Expr.instantiateLevelParams_self` (`Verify/InstLevels.lean`, nine
+  consumers in `SetR/Install/BasisS.lean`, `Interp2/Claims2U.lean`,
+  `Interp2/Step2/Whnf.lean`) is FALSE for non-canonical metas — even
+  the empty substitution re-sorts;
+* the composition law is FALSE outright for data with parameters
+  outside the inner substitution's domain — for *any* representation
+  (`pw = ifAllZero [n]`, `n ∉ ps`, `n ∈ ks`: the left side
+  substitutes `n`, the composed right side cannot).
+
+The repairs, both landed:
+
+* **`substPW` is the shape-preserving `PropWhen.bindZ`** (each
+  parameter becomes its replacement's `zeronessOf`, intersected;
+  `inter` is `never`-absorption plus list *append* — no sort, no
+  dedup).  `substPW_self` and `zeronessOf_subst` then hold
+  *unconditionally and syntactically* (`Verify/PropWhen.lean`), and
+  `Name.leb`, `mergeNames` and the sorted-extensionality battery were
+  never needed — deleted before landing.
+* **Completeness moved from `=` to the containment test
+  `PropWhen.equiv`** — `equiv_iff_holds`: `equiv p q = true ↔ ∀ φ,
+  p.holds φ = q.holds φ`, sound AND complete, fuel-free (the
+  separating valuations: all-zeros, and the indicator of a
+  disagreeing name).  The P2 validation and defeq sites compare with
+  `equiv`, never `==`; kernel reduction still never reads `pw`.
+* **`PropWhen.paramsDefined` folded into
+  `Expr.allLevelParamsDefined`** (binder clauses) — the composition
+  counterexample above is exactly the level side's own definedness
+  hypothesis surfacing for the datum; `substPW_comp` holds under it
+  (`Verify/PropWhen.lean`), and `substPW_paramsDefined` mirrors
+  `Level.allParamsDefined_subst`.
+
+**Findings, recorded:**
+
+1. **The has-param shortcut must see `pw`** — `Expr.hasLevelParam`,
+   `ENode.hasLParamOf` (eager `eparamBs`, task #87), `nodeHasLParam`
+   and `allLevelParamsDefinedIGo` all gained the `pw` clause: the
+   interned level-instantiation walk shortcuts on `ehasParamD`
+   (`IExpr.lean`), and with `instantiateLevelParams` now substituting
+   into metas the shortcut's exactness lemmas
+   (`instantiateLevelParams_eq_self`, `ehasParamD_exact`) demanded it.
+   `PropWhen.hasParams=false ⇒ substPW = id` (`substPW_eq_self`,
+   `ArenaWF.lean`) is the meta half of the shortcut's soundness.
+2. **The annotate normalizer must carry the whole meta** —
+   `AnnotBinderEntry`/`AnnotBinderEntryX` now thread `IBinderMeta`/
+   `BinderMeta` (was `BinderInfo`) through
+   `annotatePisI`/`annotateLamsI` and their pure mirrors: a
+   loop that rebuilt `⟨bi⟩` would ERASE input annotations before
+   validation could see them — a P2-blocking bug caught by types at
+   P1.  `DenAStk` relates the entries' metas by `denoteBM`, the
+   `DenILE` precedent.
+3. **The parked SortCoh lane's `CertZip.lam/forallE` were too
+   narrow** — they shared one meta across both sides; instantiation
+   at different level lists now produces different (`substPW`-ed)
+   metas.  Generalized to two metas (`SortCoh/Discharge.lean`,
+   `ZipLamHeadCase`, consumers); no claim strengthened or weakened —
+   the zip never related metas.
+4. The interned pushforward is `substPWI` over the memoized
+   `zeronessOfLIGo` (level DAGs; `PWMemo` per call), with the
+   correspondence battery `PWMemoInv`/`zeronessOfLIGo_spec`/
+   `substPWI_spec`/`substLIBM_spec` (`Verify/IExpr.lean`) feeding the
+   `instantiateLevelParamsIGo` walk spec.  TODO(#161-P5): one shared
+   `PWMemo` per instantiation call if profiling demands.
+
+**The P1 battery** (all green): `lake build` warning-free (352 jobs),
+`lake test`, arena **90/92**, e2e **72/72**, split driver **11/11**,
+mode flags **9/9**, no-model sweep as expected (1 recorded
+divergence, unchanged), zero sorries, axioms exactly
+`[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_R`/`no_proof_of_Empty_input_R`/
+`checkDecls_sound_R` and on the new battery
+(`equiv_iff_holds`, `zeronessOf_sound`, `zeronessOf_subst`,
+`substPW_self`, `substPW_comp`).  **init-prelude (`--pre`, 3653
+declarations) is BYTE-IDENTICAL — stdout, stderr, exit — against the
+master binary in BOTH modes** (`--set-model`, `--no-model`): the
+placeholder representation is verdict-inert, as designed.  Branch base
+= master (`99987a5f`), no divergence to merge.
+
+**Suite policy (ratified with amendment 1, recorded here):** from P2
+until P5, `--set-model`'s arena/init sweeps are suspended in favor of
+the annotated fixture suite (annotated syntax is the checker's input
+language per the goal statement); `--no-model` keeps the full parity
+suite green throughout.  Real streams re-enter `--set-model` when the
+pass lands (P5).
