@@ -45,6 +45,34 @@ universe w
 
 variable (V : Type w) [SetTheory V]
 
+/-- **The structural-`Nat` recurrence law at the validated-annotation
+tier** (task #161, the wall's supplier): every stored structural
+operation's defining equations read under `denoteP` and hold as
+`interp2` equalities at the two-variable `Nat` context — `NatOpsV`
+(`Sound/Motives.lean`) with `denote`/`interp`/`cval` replaced by
+`denoteP`/`interp2`/`acval`, and the level composition normalized to
+the plain assignment (the heads are level-monomorphic).
+
+Supplied as an `EnvS2PM` field: established at the operation's own
+install from the recorded `isDefEqCore` runs (`NatEqsRunR`) through
+`DefEqClaims2P` — the run-certificate route (`Interp2/NatEqsP.lean`)
+— and preserved across every other fresh cons.  Consumed by the
+numeral-transport inductions (`Sound/NatOps`' shape at `interp2`),
+which close `ReduceNatStepP`/`PQ` below. -/
+def NatOpsP {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS2Core V env) (φ : Name → Nat) : Prop :=
+  ∀ c ∈ Setlec.natOpNames, ∀ cv v hint,
+    env.find? c = some (.defnInfo cv v hint) →
+    Setlec.natOpGuard env c = true ∧
+    ∀ eq ∈ Setlec.natOpEquations 0 c, ∃ L R,
+      denoteP m.acval env φ 2 eq.1 = some L ∧
+      denoteP m.acval env φ 2 eq.2 = some R ∧
+      ∀ (ρ : Nat → V) (x y : V),
+        x ∈ˢ interp2 V ρ (m.acval Setlec.natName φ) →
+        y ∈ˢ interp2 V ρ (m.acval Setlec.natName φ) →
+        interp2 V (cons y (cons x ρ)) L
+          = interp2 V (cons y (cons x ρ)) R
+
 /-- **The P-tier environment invariant, at one mode** (see the module
 docstring). -/
 structure EnvS2PM (μ : CheckMode) (env : Env) where
@@ -74,6 +102,10 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   defn_reads : AcvalDefnInstP base2
   /-- the two `Nat`-literal head facts, at every assignment -/
   nat_heads : ∀ φ : Name → Nat, NatHeadsP base2 φ
+  /-- the structural-`Nat` recurrence laws at every assignment (the
+  literal tier's supplier; established at the operations' own installs
+  from the recorded runs — `Interp2/NatEqsP.lean`) -/
+  nat_ops : ∀ φ : Name → Nat, NatOpsP base2 φ
 
 namespace EnvS2PM
 
@@ -142,5 +174,8 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
   nat_heads := fun φ hg => by
     rw [show Setlec.natLitSupported Env.empty = false from rfl] at hg
     exact nomatch hg
+  nat_ops := fun φ c _ cv v hint hf => by
+    rw [show Env.empty.find? c = none from rfl] at hf
+    exact nomatch hf
 
 end Setlec.SetR.Interp2

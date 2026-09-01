@@ -12102,3 +12102,179 @@ fuel monotonicity (`Mono`) and depth-shift (`Deep`) treatment that
 
 Deliberately untouched: `Verify/*`, `SetR/*`, every validation site's
 logic, `eraseNames`/`ErasedEq`, every reduction path.
+
+**STOP-FINDING RESOLVED (2026-09-01, agent/pass-adapt).**  The proof
+lane was adapted and `lake build` / `lake test` are green again; the
+adaptation is recorded in the next section, together with the one
+finding it turned up — the assessment above ("no new *kind* of
+obligation appears") was **wrong**, and not in a way more proof could
+have fixed.
+
+## Task #161 P5 adaptation: the proof lane, and the write rule it forced
+
+The wave-by-wave adaptation is unremarkable and is not re-narrated
+here: the new binds get the `letE`/`proj` clauses' existing treatment
+at each tier (`Deep`'s depth shift, `Disc`'s scoped-call discipline,
+`PairM`/`Fueled`'s cascades, `Mono`'s refinement), `Abstract` grows the
+two binder inversions it was missing, and the `erasePw` comparison is
+met by `denote_erasePw` — `denote` reads binder metadata never, so the
+pin's new tolerance is again matched by the interpretation's blindness
+and `denote_matchesPin` keeps its statement verbatim.
+
+### THE FINDING: the pass shipped two different write algorithms
+
+`annotateBody` (spec) computed each ∀ node's datum by **inferring the
+annotated body**; `annotatePisI` (interned) computed it **once at the
+telescope's leaf** and stamped every node.  These are not the same
+function, so `annotateBodyI`'s simulation of `annotateBody` — which is
+`interned ok ⟹ spec ok` (`Verify/SimI.lean:244`) — was **false**, and
+no amount of proof adaptation recovers a false theorem.  Two measured
+countermodels, `--set-model`, empty environment:
+
+| input | spec | interned |
+|---|---|---|
+| `∀ (x : Prop), ∀ (y : Foo), Prop`, `Foo` absent | error "unknown constant Foo" | **ok** |
+| `∀ (x : Prop), ∀ (y : Prop) {pw := ifAllZero []}, Prop` | error "(forall-cod) mismatch" | **ok** |
+
+`annotate` never looks a constant up; *inferring the inner ∀ node*
+does, and only the spec did that.  The second row is the same cause
+seen from the other side: the interned pass never validates while
+writing, the spec did, because it inferred.
+
+This is not unsoundness — a wrong write is a decline — and it changed
+no verdict on any real stream, because the front door infers the term
+immediately afterwards.  It is a *specification* failure: the object
+the proofs are about had stopped being the object that runs.
+
+### THE REPAIR: one write rule, read locally
+
+`annotPwLam` had always applied the chain rule (`lamPw`); `annotPwPi`
+never did.  Giving it the ∀ twin (`Expr.forallPw`) makes the datum
+rule **local** — each node's datum is its child's, computed once at the
+telescope's leaf — which is exactly what the collapse
+(`zeronessOf (imax u v) = zeronessOf v`) licenses and what the P5 cost
+paragraph already claimed of the pass.  Three hunks:
+
+* `annotPwPi` reads `forallPw`, so a ∀ body that is itself a ∀ reuses
+  its neighbour's datum and the spec pays **one** inference per ∀
+  telescope, as the interned side always did;
+* `annotatePisLeafI` gains the ∀ chain read its λ twin already had, so
+  a `letE` whose zeta reduct is a ∀ is handled identically on both
+  sides;
+* `annotateBindersOutI` threads the datum *just written* outward
+  instead of re-stamping the leaf's — the two differ only above an
+  explicitly annotated binder, and there the chain rule is what the
+  spec reads.
+
+**Verdict-neutral, measured on the whole corpus**: arena tutorial
+90/92 good accepted, e2e 72/72, annot 13/13, split driver 11/11, mode
+flags 9/9, `--no-model` sweep 138 + 72 + 13 with the 3 recorded
+divergences; `--set-model` init-prelude 3653 accepted in 3.42 s and
+init-full 61 048 accepted in 6 m 34.5 s — every counter and both wall
+times identical to the pass seal's.
+
+**Where the collapse now lives.**  Exactly one place:
+`annotatePisLeaf`'s datum *is* `annotPwPi` at the leaf, definitionally.
+Every level above reads (`annotateBindersOut_wrap`'s `hpwf_read`), so
+the inference-shape induction over annotated ∀-chains that the
+unrepaired form would have needed never has to be written.
+
+**What this cost the checker's shape.**  Every write is now one named
+function with one spec counterpart: `annotPwPi`/`annotPwPiI`,
+`annotPwLam`/`annotPwLamI`, `annotBinderMeta`/`annotBinderMetaI`,
+`annotatePisPw`/`annotatePisPwI`.  `annotateBodyI`'s single-binder λ
+branch stops inlining the rule and calls `annotPwLamI`.  No behaviour
+change beyond the three hunks above.
+
+### One test expectation retired
+
+`lake test` ran for the first time since the pass landed and caught a
+P2-era guard: `dependentType` with an unannotated (`.never`) binder was
+a positive `(forall-cod)` decline at `--set-model`.  It is now
+accepted — the pass recomputes the placeholder and the front door
+validates its own write — which is the placeholder rule stated above,
+observed.  Updated with the reason recorded beside it; the falsifiable
+(`ifAllZero`) guards are unchanged.
+
+### The statements that moved, and why
+
+* `Verify/StdAxiomPin.lean` — six shape conclusions read
+  `cv.type.erasePw.eraseNames = pinA.type.erasePw.eraseNames`.  Not a
+  weakening: `matchesPin` itself compares through `erasePw`, so the
+  stronger form is no longer implied by the hypothesis, and
+  `denote_erasePw` means consumers lose nothing.
+* `Verify/OfReducePin.lean`, `SetR/Install/BasisS.lean` — the pinned
+  shape literals now carry the data `AnnotateBasis` actually generated
+  (39 pin types, 6 recursor-rule right-hand sides, read off the pins
+  rather than re-derived).  These are `rfl` facts about the pins; they
+  now state what the pins are.
+* `SetR/Install/Axiom.lean`, `SetR/StdAxiomKey.lean` — no statement
+  moved: the `ErasedEq`-on-a-pin-hit facts existed only to feed
+  `denote_erasedEq`, so they go through `denote_matchesPin` and the new
+  `denote_pinEq` instead.
+
+Capstone axiom audit after the adaptation: `no_proof_of_Empty_P_of`,
+`checkDecls_sound_P_of`, `no_proof_of_Empty_R`, `no_proof_of_Empty_SP_R`,
+`no_proof_of_Empty_input_SP_R` and `no_proof_of_Empty_R2` all depend on
+exactly `[propext, Classical.choice, Quot.sound]`.
+
+## Task #161 RULING: the pin comparison stays `erasePw`-shaped (2026-09-01)
+
+The pass branch (agent/annot-pass @ c9f865be) made
+`ConstantVal.matchesPin` compare types through a new `Expr.erasePw`
+(pw data normalized to `.never`; `eraseNames` untouched).  The owed
+decision — that form versus threading the mode into `stdAxiomOk` and
+selecting raw-vs-annotated pins — is RULED for `erasePw`, for the
+proof tier's reasons:
+
+1. **The collapse lane pays nothing.**  `denote` reads neither binder
+   names nor binder metas (`Verify/Denote.lean:198-211` — `m` is
+   unbound in both binder clauses), so `denote (erasePw e) = denote e`
+   is a clean structural induction and every v1 consumer of a
+   `matchesPin` hit (`SetR/Install/Axiom.lean`, `SetR/StdAxiomKey.lean`)
+   keeps computing on the pin as before, plus one transparency lemma.
+2. **The P tier never takes bits from pin comparisons.**  The
+   established doctrine (`Claims2P.lean`) is that regime bits are
+   established from the front door's recorded run inversions, never
+   from a match verdict.  At `μ.verified` the stored datum is
+   validated `equiv (zeronessOf …)` against the checker's own sort
+   run (recorded H1-style in `ConstantValR`), and the pin's generated
+   datum is that same zeroness by construction — so `denoteP` of the
+   stored type and the pin's `AVExpr` get **equal** bits (both in
+   `{0,1}`, same zero-ness) exactly where the interpretation reads
+   them.  The pin-tier establishment lemma ("stored reading = pin
+   reading at the verified mode, from the recorded run") is owed WHEN
+   `AxiomStepPB`/`BasisStepPB` land, and is work of exactly the kind
+   those tiers already do.
+3. **Mode-threading would introduce `PropWhen` `==` at pins** — a
+   representation rigidity the validation layer deliberately avoids
+   (every P2 site compares by `equiv`), and a verdict sensitivity to
+   annotation *spelling*, violating the annotation-only-deviation law
+   that motivated the exception in the first place.
+
+Two conditions attach: (a) the pin generator must keep emitting the
+true-zeroness data (consumers compute bits on pins by `decide`);
+(b) `erasePw` must never grow a clause that forgives something
+`interp2`/`AnnotOk2` reads *other than* through the run-validated
+bits — the docstring's rule, kept under the P reading.
+
+## Task #161 DE-GATING ENUMERATION (started 2026-09-01, per user directive)
+
+The phase after the capstone: harvest runtime checks whose licensing
+facts become derivable from the annotation-backed model.  Running log,
+one entry per certificate site the tier work touches — site / what it
+computes at runtime / which P-tier fact would license removal or
+downgrade / expected saving class.  Verdict-neutrality is checked per
+removal when the harvest runs; nothing is removed before the capstone.
+
+| site | runtime computation | licensing P fact | saving class |
+|---|---|---|---|
+| `reduceNat`'s per-hit `natOpGuard`/`natOpStoredOk` re-checks (`Setlec/Kernel/Core.lean:684+`, every literal acceleration) | full guard re-derivation: `natLitSupported` + per-dep `find?`+shape scans, on **every** accelerated application | `NatOpsP`/`DivModP`'s guard conclusion: a stored `natOpNames`/`natDivModNames` definition *always* satisfies its guard (the install enforced it; the fold invariant carries it) — the per-hit check can downgrade to a single `find?`-hit test | per-reduction constant factor on `Nat`-heavy streams; small but hot |
+| `certifyNatEqs` (17 `isDefEqCore` runs per structural-op install, `Checker.lean:426`) | NOT a candidate: the runs are the **establishment source** of `NatOpsP` (the run-certificate route consumes them); deleting them would orphan the model | — | — |
+| `checkDivModCerts` (depth-4 certificate runs per WF-pin install, `Checker.lean:638+`) | NOT a candidate, same reason: `DivModP`'s establishment source | — | — |
+| #141's non-app certificate tax family (14–16×, annotate-side) | certificate checks on non-app nodes during annotate | candidates once the P tiers seal: the validated `pw` + P-tier soundness derive the licensing facts the certs re-check; enumerate per-site when the caps/iota tiers touch them | the named 14–16× family |
+| #71's possibly-Prop-by-inference gates (iota certs) | Prop-ness re-inference behind iota certificates | the iota tier's `RecRulesP` + validated `pw` (the bit IS the Prop-ness datum, validated at the front door) | iota-heavy streams |
+| #109's pt-freshness gates | freshness scans licensing infer_only | P-tier soundness at the validated reading (the set model proves the real checker incl. infer_only via #109 pt-freshness — the gate's fact becomes a theorem) | per-decl scans |
+
+Entries accrete as tier work touches sites; the harvest begins the day
+the capstone seals.
