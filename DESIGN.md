@@ -11284,3 +11284,52 @@ naturally stated by P3.1's pieces, so they remain owed.
 10/10, no-model sweep 138+72+10, split 11/11, mode 9/9), zero
 sorries; axioms on the new theorems exactly the standard three or
 fewer.
+
+## Task #161 P3.2/P3.3 statement seal: AnnotValidV frozen, the P-generation claims frozen (2026-09-01)
+
+**Dispatch protocol in force** (user reminder): statements, the
+establishment architecture, first worked example per proof species,
+and review stay on the lane lead; stated-and-recipe'd theorem lists go
+to ONE serial Opus worker per batch, own worktree off the lane branch,
+full battery per report, reviewed before merge.
+
+**Frozen this seal, with worked examples proved:**
+
+* `AnnotValidV` (`Annot/ValidV.lean`) — bit validity, on the bit.
+  The `pi` clause carries the one new fact (`v = 0 →` codomain fibres
+  are truth values — the regime fact `AnnotOk2` has no home for at a
+  bare product); the λ clause carries *nothing* (the λ-side regime
+  facts are `AnnotOk2`'s fibre package, and the chain rule's semantic
+  content is `piR_zero_mem_univZero` — impredicativity, no run);
+  every other clause is the hereditary `AnnotOk2` environment
+  discipline, so the substitution metatheory rides identical
+  rewrites.  Worked examples: `pwBit_zero_mem_univZero` (the
+  establishment species — run conjunct + semantic sort membership ⇒
+  `univZero`) and `AnnotValidV_liftN` (the transport species).
+  Establishment is at checker visit sites from run inversions ONLY;
+  the refuted `ValidInfer` metatheorem shape is off the table by
+  construction.
+* `Claims2P` (`Interp2/Claims2P.lean`) — the ladder's statements over
+  `denoteP`: `AnnotOkP := AnnotOk2 ∧ AnnotValidV` as the currency,
+  `CtxOkP` (fuel-free context discipline; the historical
+  `CtxOk2`/`CtxOk2Ann` split merged), four dual-success claims with
+  the annotation fuels gone, `CheckStep2P`, and `checkSound2P`
+  (proved — the generic induction).  The module docstring carries the
+  residue-transformation ledger: `BinderSortAgree2` → the P2 defeq-arm
+  inversions (bits canonical in `{0,1}`); `LamCodSort2` → the λ front
+  door + impredicativity; `SortOfE/LamSortEInstLevels` →
+  `denotePInstLevels` (proved); `SortAgree` → dropped
+  (`denoteP_envExtend`, batch 1).
+
+**Batch 1 (Opus, running)**: the `denoteP` lemma surface — clause
+equations, inversions, depth shift (minus `EnvWF`), closedness,
+install-tier congruences, environment crossing (minus `SortAgree`) —
+21 mirrors, graded VERIFIED/HINT, two worked examples pre-landed.
+
+**Sequencing from here**: P3.4 `CtxOkP` kit + frame mirrors (next
+batch after review) → P3.5 the lane lead's worked ∀ clause of
+`CheckStep2P`'s infer quarter (the establishment architecture in
+context) → clause batches per quarter → the step assembly →
+install/env tier (`EnvS2` fields for stored-type validity — where the
+three owed `EnvWF` records fold if natural) → the P capstone
+(`no_proof_of_Empty` over the collapse-free model).
