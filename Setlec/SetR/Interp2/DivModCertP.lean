@@ -2052,4 +2052,256 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         = mp.base2.acval Setlec.boolFalseName from acvalWith_ne hnF]
       exact hmemC _ _ _ _ hfF hfB hlpB htyF ρ
 
+/-! ## `DivModP` at the operation's own install
+
+The nine clause blocks.  Each denotes its statement's two sides
+through the graded walk, reads the equation off a certificate
+(`dmClause1P`/`dmClause2P`), and matches it against `DivModClausesV` —
+where the match is definitional, because `dmEvalV` computes the same
+`app`-chain. -/
+
+set_option maxHeartbeats 3200000 in
+/-- **`DivModP` at the operation's own install** — the
+run-certificate conversion for the WF-recursive family. -/
+theorem divModP_install {F : Nat} (mp : EnvS2PM V μ env)
+    {φ : Name → Nat} (hprev : DivModP mp.base2 φ)
+    (heqlaw : EqLawP mp.base2)
+    (hacc : ∀ {d : Nat} {e t : Expr},
+      Setlec.inferTypeCore μ env F d e = .ok t →
+      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded e →
+      ∃ ea, denoteP mp.base2.acval env φ d e = some ea)
+    (hreads : InferReadsP mp.base2 μ φ F)
+    (hinfC : InferClaims2P μ mp.base2 φ F)
+    (hdeC : DefEqClaims2P μ mp.base2 φ F)
+    {c : Name} {lps : List Name} {type' value' : Expr}
+    {hint : ReducibilityHint}
+    (hcmem : c ∈ Setlec.natDivModNames)
+    (hfresh : env.find? c = none)
+    (hgenv : Setlec.divModEnvGuard
+      (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env) c
+      = true)
+    (hcerts : Setlec.checkDivModCerts (m := Setlec.CheckM)
+      (Setlec.fueledOps μ F) env c value'
+      (Setlec.divModCertStmts c) (Setlec.divModCertProofs c)
+      = .ok true)
+    {A Ta : (Name → Nat) → AVExpr}
+    (hA : ∀ ψ, denoteP mp.base2.acval env ψ 0 value' = some (A ψ))
+    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
+    (hvf' : value'.hasFvar = false)
+    (hbv' : value'.looseBVarsBounded 0 = true)
+    (hTa : ∀ ψ, denoteP mp.base2.acval env ψ 0 type' = some (Ta ψ))
+    (hTok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkP V ρ (Ta ψ))
+    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkP V ρ (A ψ))
+    (hmemA : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      interp2 V ρ (A ψ) ∈ˢ interp2 V ρ (Ta ψ))
+    (m₂ : EnvS2Core V
+      ⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩)
+    (hac : m₂.acval = acvalWith mp.base2.acval c A) :
+    DivModP m₂ φ := by
+  intro cq hcqN cv' v' hint' hf₂
+  by_cases hne : cq = c
+  case neg =>
+    exact divModP_entry_cons hprev
+      (c₀ := .defnInfo ⟨c, lps, type'⟩ value' hint)
+      (show env.find? (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
+        hint).name = none from hfresh) m₂ hac hcqN
+      (show cq ≠ (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
+        hint).name from hne) hf₂
+  subst hne
+  clear hf₂ hcqN
+  refine ⟨(Setlec.divModEnvGuard_inv hgenv).1, fun ρ x y hx hy => ?_⟩
+  have hnatNe : Setlec.natName ≠ cq :=
+    (Setlec.natDivModNames_ne_env hcmem).1.symm
+  rw [hac, show acvalWith mp.base2.acval cq A Setlec.natName
+    = mp.base2.acval Setlec.natName from acvalWith_ne hnatNe] at hx hy
+  have fr := dmFrameP_of hcmem hgenv hA hAclosed hvf' hbv' hTa hTok
+    hAok hmemA φ
+  have hruns := Setlec.checkDivModCerts_inv hcerts
+  rw [hac]
+  simp only [Setlec.natDivModNames, List.mem_cons, List.not_mem_nil,
+    or_false] at hcmem
+  rcases hcmem with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
+  all_goals (
+    simp only [Setlec.divModCertStmts, Setlec.divModCertProofs,
+      Setlec.natDivCertProofs, Setlec.natModCertProofs,
+      Setlec.natGcdCertProofs, Setlec.natLandCertProofs,
+      Setlec.natLorCertProofs, Setlec.natXorCertProofs,
+      Setlec.natShiftLeftCertProofs, Setlec.natShiftRightCertProofs,
+      Setlec.natLog2CertProofs, reduceIte] at hruns
+    simp +decide only [DivModClausesV, if_false, if_true])
+  · -- `Nat.div`
+    cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
+      cases r2 with | cons f3 r3 =>
+    refine ⟨fun hg1 hg2 => ?_, fun hg => ?_, fun hg => ?_⟩
+    · have h := dmClause2P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inl rfl) (Or.inl rfl) f1 (by decide) (by decide)
+        (by decide) (by decide) (by decide) (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg1)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg2)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inr rfl) f2 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inr rfl) f3 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+  · -- `Nat.mod`
+    cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
+      cases r2 with | cons f3 r3 =>
+    refine ⟨fun hg1 hg2 => ?_, fun hg => ?_, fun hg => ?_⟩
+    · have h := dmClause2P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inl rfl) (Or.inl rfl) f1 (by decide) (by decide)
+        (by decide) (by decide) (by decide) (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg1)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg2)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inr rfl) f2 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inr rfl) f3 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+  · -- `Nat.gcd`
+    cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
+    refine ⟨fun hg => ?_, fun hg => ?_⟩
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inl rfl) f1 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inr rfl) f2 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+  · -- `Nat.land`
+    cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
+    refine ⟨fun hg => ?_, fun hg => ?_⟩
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inl rfl) f1 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inr rfl) f2 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+  · -- `Nat.lor`
+    cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
+    refine ⟨fun hg => ?_, fun hg => ?_⟩
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inl rfl) f1 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inr rfl) f2 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+  · -- `Nat.xor`
+    cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
+    refine ⟨fun hg => ?_, fun hg => ?_⟩
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inl rfl) f1 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inr rfl) f2 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+  · -- `Nat.shiftLeft`
+    cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
+    refine ⟨fun hg => ?_, fun hg => ?_⟩
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inl rfl) f1 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inr rfl) f2 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+  · -- `Nat.shiftRight`
+    cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
+    refine ⟨fun hg => ?_, fun hg => ?_⟩
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inl rfl) f1 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inr rfl) f2 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+  · -- `Nat.log2`
+    cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
+    refine ⟨fun hg => ?_, fun hg => ?_⟩
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inl rfl) f1 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
+        (Or.inr rfl) f2 (by decide) (by decide) (by decide)
+        (by decide)
+        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
+              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
+      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
+        reduceIte, dmLeaf] using h
+
 end Setlec.SetR.Interp2
