@@ -11517,14 +11517,16 @@ validated-annotation (P) lane after batches 1-7 + the lead's seals.
 | `ProofIrrel2D`'s unit-like branch (routed) | PROVED: `unitIrrelPQ_of_claims` — the pinned `PUnit` at the claims (caps tier) |
 | `PairEtaCertStepR` / `PairEtaIrrelP` (routed in BOTH lanes) | PROVED: `pairEtaIrrelP_of_claims` — pinned leaves by erasure injectivity, `psigmaEta_law2`, and **no regime case split** (v1 needs one: `psigmaMkV` carries a collapse tag, `psigmaMkV2` does not) |
 | `StructEtaCertStepR` / `StructEtaIrrelP` (routed in BOTH lanes) | PROVED: `structEtaIrrelP_of_claims` — v1's two files fused, and v1's `choose_fun` (the campaign's only use of choice) has no counterpart: it existed to inhabit `DefEq.structEta`'s function-valued quantifiers, and that rule is gone |
-| `StructUnitCertStepR` / `StructUnitIrrelP` | STILL ROUTED, and NAMED: the frozen `CapsOkP`'s unit half carries an `EtaFamilyStored` premise `CapsOkV` does not, which `structUnitCert` never establishes (`etaFamilyStored_not_derivable`) |
+| `StructUnitCertStepR` / `StructUnitIrrelP` | PROVED: `structUnitIrrelP_of_claims`, after the ratified one-premise repair of `CapsOkP`'s unit half (the batch found the frozen statement refutable, mechanized it as `etaFamilyStored_not_derivable`, and did NOT edit it — caps seal II) |
+| `InferStrLitStep2C` / `InferStrLitStepP` (routed in BOTH lanes) | PROVED: `inferStrLitStepP_of_claims` (`Step2/StrLitP.lean`) — and *shorter* than `strLit_facts`, because `ConstTypeP` hands over a stored type's reading together with its grading, deleting v1's four hand-built `AnnotOkV_pi` towers |
+| `WhnfCoreProjReadsP` / `InferProjReadsP` (routed) | PROVED: `whnfCoreProjReadsP_of`, `inferProjReadsP_of` — **they were never install-tier obligations**; the projection table's contribution to *readability* is arithmetic (`projPinsP`, `projResidualP`) and the rest is the reads walk's own induction hypothesis |
+| `InferProjStep2C` / `InferProjStepP` (routed in BOTH lanes) | PROVED: `inferProjStepP_of_claims` — no `piResidualV` walk (`projResidualP` computes the residual at the pinned entry), and `mem_psigmaV2_app`'s triple IS `AnnotOk2_proj`'s existential |
+| `ProjStep2D` / `ProjStepP` (routed in BOTH lanes) | PROVED: `projStepP_of_claims` — the one expensive proj proof, and structurally so: `whnfCore`'s clause carries no type for the scrutinee, so `sfst_mk2`'s four typings are walked out of `projCert`'s own infer run (`psigmaMkSpineP`, `tele_of_inferSpineR`'s content at arity four) |
 
 **Still routed in P, by discharge tier** (the literal tier is CLOSED —
-seal III; the caps tier is all but closed — the caps seal):
-install (`InferStrLitStepP`, `InferProjStepP`, proj-reads pair);
-iota (`IotaStepP`, `IotaReadsP`);
-caps/structure (`StructUnitIrrelP` alone, and blocked on a *statement*
-defect rather than on content — see the caps seal).
+seal III; the caps tier is CLOSED — caps seal II; the proj/str install
+tier is CLOSED — the proj/str seal): **iota only**
+(`IotaStepP`, `IotaReadsP`), beside `accepted_reads`.
 These are the P capstone's remaining bill — every one names semantic
 content the canonical lane also never built (it froze earlier, on the
 sort-stability family), so the table above is the design's measured
@@ -11889,15 +11891,22 @@ UNDEMANDED so far — watch inside the semantic tiers.
 
 ### Resume-here
 
-Next action at this record (updated at the CAPS TIER seal): the
-**proj/str install tier** — `InferStrLitStepP`, `InferProjStepP`,
-`ProjStepP`, `WhnfCoreProjReadsP`, `InferProjReadsP`, plus
-`AxiomStepPB`/`BasisStepPB` (bundle 4 below).  Before that, one
-five-second lead action: delete `Setlec.EtaFamilyStored env T caps →`
-from `CapsOkP`'s second conjunct (`Annot/EnvS2P.lean`), which
-*strengthens* the field and lets `StructUnitIrrelP` fall exactly as
-`StructEtaIrrelP` did — the row's proof is `structEtaIrrelP_of_claims`
-minus the fabricated spine.  See the caps seal for the countermodel.
+Next action at this record (updated at the PROJ/STR TIER seal): the
+**IOTA tier** — statement freeze first (`RecRulesP` from `RecRuleLawV`
+with `TeleFitP`, the fired equality present, `IotaIndexPinV`'s
+counterpart designed at the consumer), then `IotaStepP`/`IotaReadsP`
+and `IndStepPB`'s establishment.  Stop-and-name standing; **new
+mathematics is expected at Prop-motive minors**.  After iota the
+`SemTierInputsP` census is empty but for `accepted_reads`, and what
+remains is the three whole-kind install bundles
+(`AxiomStepPB`/`BasisStepPB`/`IndStepPB`) and then the unconditional
+`no_proof_of_Empty_P`.
+
+The literal, caps and proj/str tiers are CLOSED; their seals below are
+the worked precedents for both establishment species (run certificates
+→ laws; environment fields routed to the install that fixes them) and
+for the discipline the campaign runs on (a frozen statement found
+refutable is MECHANIZED and reported, never silently edited).
 
 The older template note, still binding: take the literal tier's shape — it is now the worked
 precedent for *both* establishment species:
@@ -12585,6 +12594,10 @@ removal when the harvest runs; nothing is removed before the capstone.
 | `structUnitCertP`'s certificate run (`Kernel/Core.lean:999+`) | infer + whnf both sides, one `isDefEqCore` between the reducts, one `iotaCerts` telescope run | `UnitLawP` (once its superfluous `EtaFamilyStored` premise is dropped — the caps seal): the law needs only the two memberships, so the telescope run is licensed away by the same `TeleFitP` the law already carries | per-unit-hit |
 | `isUnitLikeTy`'s per-call scan (`Kernel/Core.lean:149`, both `proofIrrel` arms) | a reserved-recursor + capability shape scan on every `whnf`'d inferred type reaching proof irrelevance | `unitLike_eq_punit` at the pinned basis: among the pins only `PUnit` passes, which `unitIrrelPQ_of_claims` already uses — so the scan can downgrade to a single pinned-name test | per proof-irrelevance attempt; hot on Prop-heavy streams |
 
+| `projCert`'s per-hit run pair (`Kernel/Core.lean:1381`, every firing `.proj` reduction) | infer the selected field, infer + whnf its type to a sort, level-compare against `fieldSort`; then the same three for the whole constructor application against `structSort` | `projStepP_of_claims` consumes the run **only** through `psigmaMkSpineP`, i.e. only through the `inferTypeCore` walk on the constructor application — the two *sort* legs (`uT`/`wT` and both `Level.isEquiv` comparisons) are inspected by nothing in the P proof.  The entry's `fieldSort`/`structSort` are pinned (`projEntry_pins`), so the level comparisons re-derive a fact the pin already fixes: candidates for deletion, leaving one infer run | per firing projection; four of the six runs |
+| the `.proj` inference clause's per-hit table scan + `piResidual` (`Kernel/Core.lean`, `inferTypeCore`'s `.proj` case) | `findProj?` on the whnf'd subject type's head, arity checks, then a `piResidual` walk down the entry's stored type | `projResidualP`: at a pinned entry with a two-parameter spine the residual is `A` or `B (pe.1)` — computed, not walked.  A pinned-name test plus a two-way branch replaces the walk | per `.proj` inference |
+| `strLitSupported`'s per-literal scan (`Verify/EnvGuards.lean:114`, every `String` literal read) | seven `find?`s plus seven stored-type shape checks, on **every** string literal the checker meets | `strLitFactsP` consumes the guard once per literal but only through `ConstTypeP` at the seven heads — and `ConstTypeP` is an `EnvS2PM` consequence, i.e. an environment-level invariant.  Once the P fold carries it, the per-literal guard can downgrade to a cached per-environment flag (the same shape as `natLitSupported`'s) | per string literal; hot on `String`-heavy streams |
+
 Entries accrete as tier work touches sites; the harvest begins the day
 the capstone seals.
 
@@ -12633,3 +12646,154 @@ statement-freeze first (`RecRulesP` from `RecRuleLawV` with
 designed at the consumer), stop-and-name standing.  Then the three
 whole-kind bundles + `accepted_reads`, then the unconditional
 `no_proof_of_Empty_P`.
+
+## Task #161 PROJ/STR INSTALL TIER seal: the tier is CLOSED (2026-09-01)
+
+**All five rows are theorems, no frozen statement was touched, and the
+census hit its target exactly**:
+
+  `SemTierInputsP` = `accepted_reads` + `iota_reads` + `iota`.
+
+### What landed, in dependency order
+
+1. **`InferStrLitStepP`** (`Step2/StrLitP.lean`) — `charList_factsP`
+   (the character walk over five head packages, the factoring
+   `natLit_facts2` records), `strLitFactsP` (the walk at the
+   environment) and `inferStrLitStepP_of_claims` (the row).  The row
+   takes `ConstTypeP` + `AcvalValidP` + `NatHeadsP`, all already
+   `TierInputsAtP` entries: **no new `EnvS2PM` field**, as the caps
+   seal's resume-here predicted.
+2. **`WhnfCoreProjReadsP`/`InferProjReadsP`** (`Step2/ReadsP.lean`) —
+   `whnfCoreProjReadsP_of`, `inferProjReadsP_of`, off the reads walk's
+   own induction hypothesis.
+3. **`InferProjStepP`** and **`ProjStepP`** (`Step2/ProjRowsP.lean`) —
+   `inferProjStepP_of_claims`, `projStepP_of_claims`, over the shared
+   pinned kit `Step2/ProjPinsP.lean` (`projPinsP`, `projResidualP`,
+   `piResidual_pairFstA`/`pairSndA`, `DenoteSpineP.mem`).
+
+### FINDING 1 — two of the five rows were never install-tier work
+
+`WhnfCoreProjReadsP` and `InferProjReadsP` were routed on the reading
+that "the reduct is a spine argument of a `whnf`'d scrutinee selected
+by the projection table; reading it needs the table's own
+well-formedness".  The table's contribution to *readability* turns out
+to be **arithmetic only** — `projPinsP`'s `numParams`/`numFields`/level
+arity (every conjunct `rfl` at each pin) plus `projResidualP`'s
+computed residual — and every reading the two clauses need is
+`readsAllP_of`'s own induction hypothesis at `fuel`, which is in scope
+at exactly the point the routed fields were consumed.
+
+The rows therefore stand **verbatim**; what changed is the consumer:
+`ReadsInputsP` loses two fields and `whnfCoreReadsP_succ`/
+`inferReadsP_succ` take `ihw` where they took a residue.  Recorded as a
+finding because it is the campaign's first case of a routed obligation
+being *mis-attributed* rather than mis-stated: the tier that owed it
+discovered the walk already paid.
+
+### FINDING 2 — the residual is computed, not walked
+
+v1's `.proj` inference clause needs `denote_piResidualR`, a generic
+walk, because `Infer.proj` states its conclusion with `piResidualV`.
+The P rows state it with a `denoteP` reading, and `projEntry_pins`
+fixes the entry to `pairFstEntry`/`pairSndEntry` with a two-parameter
+spine — so `piResidual (entry.ty@us) [A, B, pe]` is `A` or
+`B (pe.1)`, by two `simp`s (`piResidual_pairFstA`/`pairSndA`, whose
+only side condition is that the parameters carry no loose `bvar`s — a
+frame fact of the reduced type they are the spine of).
+
+The same collapse runs through `InferProjStepP`: `mem_psigmaV2_app`
+inverts the reduced type's single application into
+`A ∈ univ u`, `B ∈ psigmaFibreSpace v A`, `p ∈ sigmaSet …`, and those
+three facts **are** `AnnotOk2_proj`'s existential, verbatim.  The two
+membership obligations are then `sfst_mem2`/`ssnd_mem2`, already in
+`Interp2/Value.lean`.  The row consults no environment field at all.
+
+### FINDING 3 — `ProjStepP`'s firing branch, and the shortcut that does not exist
+
+`whnfCore`'s projection clause carries **no type for the scrutinee**.
+`sfst_mk2`/`ssnd_mk2` need four typing memberships, and the only place
+they can come from is `projCert`'s own `inferTypeCore` run on the
+constructor application — `psigmaMkSpineP`, which is
+`tele_of_inferSpineR`'s content done **concretely**: `PSigma'.mk` is
+pinned at arity four, each partial type is a syntactic `∀` hence its
+own `whnf` (`whnf_forallE_eq`), and each domain's reading is computed
+from arguments already in hand.  `spineStepP` isolates the one step
+(`InferReadsP` → `InferClaims2P` → `DefEqClaims2P`), which is
+`certs_teleP`'s inner step at an application spine instead of an
+`iotaCerts` walk.
+
+A **rigidity shortcut was looked for and refuted**: the subject's own
+grading puts `interp2 vp` in *some* sigma set, but at
+`Nat.max u v = 0` `psigmaMkV2` collapses the whole tower to `pt`, so an
+ill-typed spine's value inhabits a sigma set exactly as a well-typed
+one's does.  (Contrast the *type* former, where `mem_psigmaV2_app`'s
+rigidity does hold — `psigmaV2`'s result sort is `max u v + 1`, never
+`0`.)  The memberships must come from the run.
+
+The one annotation datum the walk reads is the `x` binder's `never`
+bit, and it is read only through its **zeroness** (`piR_zero_agree`):
+that is what makes the second domain's reading equal
+`psigmaFibreSpace` at an arbitrary stored bit.  Consistent with
+`NatEqsP`'s finding — no bit positivity anywhere in this tier either.
+
+### Convergent duplicate found and NOT reused
+
+`Step2/StrLit.lean` already carries a `charList_facts2`/`strLit_facts2`
+pair — the **denote2-lane** chain.  It is not reusable at the P
+currency and the reason is recorded in `Step2/StrLitP.lean`'s
+docstring: its head memberships are stated at `piR 1 …`, the regime bit
+fixed at `1` on the argument that `Char`/`List Char`/`String`/`Nat` are
+all `Type`-level.  `denoteP` reads the **stored** bit
+`pwBit φ mb.pw` off the annotated binder and `strLitSupported` does not
+pin it, so the P chain keeps the bits abstract and pays for it with
+`TeleFitP`/`annotOkP_mkAppN_of_fit`.  The two chains are the same walk
+at two currencies; neither subsumes the other.  (The P name is
+`charList_factsP`.)
+
+### The measurement
+
+The proj/str tier is the third data point for the frontier table's
+thesis, and the first where the P lane is *shorter across the board*:
+
+* `InferStrLitStepP` deletes v1's four hand-built `AnnotOkV_pi` towers
+  (`hnilOk`, `hconsOk`, `hofOk`, `hOFOk`) and its
+  `hListMem`/`hAppDomOk` apparatus outright, because `ConstTypeP`
+  delivers a stored type's reading **with its grading**.  The grading
+  the P currency charges for is the grading v1 had to build by hand.
+* `InferProjStepP` deletes the `piResidualV` walk.
+* the two reads rows delete themselves.
+* only `ProjStepP` pays, and it pays for the one thing the clause
+  genuinely does not carry.
+
+### Census delta
+
+`SemTierInputsP` loses `str_lit`, `whnf_proj_reads`,
+`infer_proj_reads`, `infer_proj`, `whnf_proj` — five of its eight
+fields.  `TierInputsAtP` loses `str_lit`, `infer_proj`, `whnf_proj`;
+`ReadsInputsP` loses `whnf_proj`, `infer_proj`.  `checkSoundAtP`
+supplies all five from the induction hypotheses in scope.  The
+four-bundle count (`SemTierInputsP`, `AxiomStepPB`, `BasisStepPB`,
+`IndStepPB`) is unchanged.
+
+### Battery at seal
+
+`lake build` warning-free (396 jobs after merging `agent/annot-v2` @
+`82729837`, the iota statement draft), `lake test`, harness with
+`SETLEC_INDUCTIVE_MODELS`: arena tutorial 90/92, e2e 72/72, annot
+13/13, split driver 11/11, mode flags 9/9, no-model sweep 138 arena +
+72 e2e + 13 annot with the 3 recorded divergences.  Zero sorries.
+Axioms exactly `[propext, Classical.choice, Quot.sound]` on
+`charList_factsP`, `strLitFactsP`, `inferStrLitStepP_of_claims`,
+`projPinsP`, `projResidualP`, `whnfCoreProjReadsP_of`,
+`inferProjReadsP_of`, `spineStepP`, `psigmaMkTyShape`,
+`psigmaMkSpineP`, `inferProjStepP_of_claims`, `projStepP_of_claims`,
+`readsAllP_of`, `checkSoundAtP`, `TierInputsAtP.ofSem`, `harvestDefnP`
+and `no_proof_of_Empty_P_of`.
+
+### Files
+
+New: `Step2/StrLitP.lean`, `Step2/ProjPinsP.lean`,
+`Step2/ProjRowsP.lean`.
+Extended: `Step2/ReadsP.lean` (the two reads rows; `ReadsInputsP` and
+the two `_succ` assemblies).
+Shrunk: `Step2/TiersP.lean`, `Interp2/CapstoneP.lean` (the census).
