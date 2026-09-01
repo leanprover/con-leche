@@ -233,11 +233,19 @@ theorem capsOkP_cons_fresh (mp : EnvS2PM V μ env)
       rw [hfab, hac, acvalWith_ne hnC]
       exact hlaw ρ ts rest x hlents hfit hmem
   · -- the unit-like half: no fabricated spine, one leaf to move
-    intro T cvT caps hf hcapu hres hfam φ' us hlen
-    obtain ⟨hfE, hfam₀, hnT, -, -⟩ :=
-      etaFamilyStored_descend hnotind hnotctor hnotrec hf hfam
+    -- (and, post-repair, no family premise: the former's freshness
+    -- disequality comes from the cons head's non-inductive kind)
+    intro T cvT caps hf hcapu hres φ' us hlen
+    have hnT : T ≠ c₀.name := by
+      intro hh
+      subst hh
+      have h0 := (Setlec.Env.find?_cons_self c₀ env).symm.trans hf
+      exact hnotind cvT caps (Option.some.inj h0)
+    have hfE : env.find? T = some (.indInfo cvT caps) := by
+      rw [Setlec.Env.find?_cons, if_neg (fun hh => hnT hh.symm)] at hf
+      exact hf
     obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
-      hprev.2 T cvT caps hfE hcapu hres hfam₀ φ' us hlen
+      hprev.2 T cvT caps hfE hcapu hres φ' us hlen
     refine ⟨TVa, ?_, hokTVa, ?_⟩
     · rw [hac]
       exact denoteP_cons_fresh_mono hfresh _ 0 _

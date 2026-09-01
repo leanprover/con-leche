@@ -266,10 +266,17 @@ def CapsOkP {V : Type w} [SetTheory V] {env : Env}
     Setlec.reservedBasisNames.contains T = false →
     Setlec.EtaFamilyStored env T caps →
     ∀ φ' : Name → Nat, EtaLawP m φ' T cvT caps) ∧
+  -- The unit half carries NO `EtaFamilyStored` premise — exactly as
+  -- v1's `CapsOkV` unit half (`Sound/Motives.lean:315`).  The freeze
+  -- transcribed the eta half's premise here by mistake; the caps
+  -- batch mechanized the refutation (`etaFamilyStored_not_derivable`:
+  -- a WF environment with a non-reserved unitlike-only family where
+  -- the premise is false and the law vacuous), and the deletion was
+  -- ratified — it strengthens the field, consumers and the
+  -- `IndStepPB` establishment unchanged.
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.unitlike = true →
     Setlec.reservedBasisNames.contains T = false →
-    Setlec.EtaFamilyStored env T caps →
     ∀ φ' : Name → Nat, UnitLawP m φ' T cvT caps)
 
 /-- **The P-tier environment invariant, at one mode** (see the module

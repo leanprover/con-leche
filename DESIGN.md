@@ -12587,3 +12587,49 @@ removal when the harvest runs; nothing is removed before the capstone.
 
 Entries accrete as tier work touches sites; the harvest begins the day
 the capstone seals.
+
+## Task #161 CAPS TIER seal II: the tier is CLOSED (2026-09-01)
+
+**All four capability rows are theorems and the caps entries are gone
+from every census structure.**  The batch's wall was resolved by the
+ratified one-premise repair: `CapsOkP`'s unit half carried an
+`EtaFamilyStored` premise transcribed from the eta half — v1's
+`CapsOkV` unit half never had it (`Sound/Motives.lean:315`), the unit
+certificate never inspects a constructor or projection, and the batch
+MECHANIZED the refutation (`etaFamilyStored_not_derivable`).  The
+deletion strengthens the field; `capsOkP_cons_fresh`'s unit half now
+derives the former's freshness disequality from the cons head's
+non-inductive kind directly.  `structUnitIrrelP_of_claims`
+(`Step2/CapsRowsP.lean`) then falls exactly as the batch predicted:
+`structEtaIrrelP_of_claims` minus the fabricated spine, both sides
+identified through the certificate's own `isDefEqCore` run at the
+claims.
+
+**Discipline ledger** (coordinator-directed): the batch worker,
+finding the frozen statement refutable, did NOT silently edit it — it
+mechanized the countermodel, walled the row, and reported.  That
+refusal is the campaign's asset: a silently-"fixed" frozen statement
+is how consumer-validation dies.  Statement repairs go through the
+owner with evidence; this one took a v1 parity check plus the
+mechanized refutation.
+
+**Census after this seal**: `SemTierInputsP` = `accepted_reads` +
+`iota_reads` + `iota` + the five proj/str rows.  Four bundles
+unchanged (`SemTierInputsP`, `AxiomStepPB`, `BasisStepPB`,
+`IndStepPB`); `IndStepPB`'s bill now includes `caps_ok`'s
+establishment (`CapsOkP` at the inductive install) beside the iota
+laws; `BasisStepPB`'s includes `eq_lawP`.
+
+**Resume-here (supersedes the succession record's)**: the PROJ/STR
+install tier — pre-scoped LIGHTER than budgeted: the projection table
+pins to the pinned pair only (`projEntry_pins`), so
+`InferProjStepP`/`ProjStepP` and the two proj-reads rows are
+basis-species (the `unitIrrelPQ`/`pairEta` recipe over
+`psigmaV2`/`piResidual` readings); `InferStrLitStepP`'s head
+memberships ride the `mem_typeP` + validity route (the literal tier's
+move) — likely NO new `EnvS2PM` fields.  Then IOTA (the long pole):
+statement-freeze first (`RecRulesP` from `RecRuleLawV` with
+`TeleFitP`, the fired equality present, `IotaIndexPinV`'s counterpart
+designed at the consumer), stop-and-name standing.  Then the three
+whole-kind bundles + `accepted_reads`, then the unconditional
+`no_proof_of_Empty_P`.

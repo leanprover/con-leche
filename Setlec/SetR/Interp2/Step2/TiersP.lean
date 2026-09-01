@@ -65,16 +65,11 @@ structure TierInputsAtP (V : Type w) [SetTheory V] (μ : CheckMode)
     WhnfClaims2P μ m φ fuel → ReduceNatStepPQ μ m φ fuel
   /-- caps tier: the stored families' fired capability laws — an
   `EnvS2PM` field (`caps_ok`), which is what discharges the stored
-  structure's η fallback (`structEtaIrrelP_of_claims`) -/
+  structure's η and unit fallbacks (`structEtaIrrelP_of_claims`,
+  `structUnitIrrelP_of_claims` — the latter after the ratified
+  one-premise repair of the unit half; all four capability rows are
+  now discharged) -/
   caps_ok : CapsOkP m
-  /-- caps tier, the one row still routed: a stored unit-like family's
-  collapse.  `UnitIrrelPQ` and `PairEtaIrrelP` are discharged at the
-  claims (`unitIrrelPQ_of_claims`, `pairEtaIrrelP_of_claims`) and
-  `StructEtaIrrelP` from `caps_ok`; `StructUnitIrrelP` cannot be —
-  the frozen `CapsOkP`'s unit half is guarded by `EtaFamilyStored`,
-  which `structUnitCert` never establishes
-  (`etaFamilyStored_not_derivable`, `Interp2/CapsP.lean`) -/
-  struct_unit : ∀ fuel, StructUnitIrrelP μ m φ fuel
 
 /-- **The P soundness ladder at one environment**, with every
 of_claims discharge wired in. -/
@@ -124,7 +119,8 @@ theorem checkSoundAtP (hμ : μ.verified = true)
           (pairEtaIrrelP_of_claims ihw ihd ihi hreads hwreads)
           (structEtaIrrelP_of_claims h.caps_ok h.reads.const_ty
             h.acval_valid ihw ihd ihi hreads hwreads)
-          (h.struct_unit fuel)
+          (structUnitIrrelP_of_claims h.caps_ok ihw ihd ihi hreads
+            hwreads)
       have hstep : DefEqStepAtP μ m φ fuel :=
         defeqStep_claimP (whnfCoreReductExistsP_of' h.reads) ihwc
           (denotePDeltaP_of h.reads) (h.nat_stepQ fuel ihw)
@@ -190,8 +186,7 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
       WhnfClaims2P μ mp.base2 φ fuel → ReduceNatStepP μ mp.base2 φ fuel)
     (hnatQ : ∀ fuel,
       WhnfClaims2P μ mp.base2 φ fuel →
-        ReduceNatStepPQ μ mp.base2 φ fuel)
-    (hsunit : ∀ fuel, StructUnitIrrelP μ mp.base2 φ fuel) :
+        ReduceNatStepPQ μ mp.base2 φ fuel) :
     TierInputsAtP V μ mp.base2 φ where
   reads := ReadsInputsP.ofEnvS2PM mp hiota_r hwproj_r hiproj_r hnat_r
   acval_valid := mp.acvalValidP
@@ -203,6 +198,5 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
   nat_step := hnat
   nat_stepQ := hnatQ
   caps_ok := mp.caps_ok
-  struct_unit := hsunit
 
 end Setlec.SetR.Interp2

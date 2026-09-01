@@ -935,4 +935,140 @@ theorem pairEtaIrrelP_of_claims {m : EnvS2Core V env}
     interp2_const, heqα, heqβ, heq1, heq2, hψ]
   exact psigmaEta_law2 V hA hB hsig
 
+/-! ## The unit-like row (post-repair)
+
+`structEtaIrrelP_of_claims` minus the fabricated spine: both sides'
+inferred types whnf to the *same* family instance (the certificate's
+own `isDefEqCore` run identifies them at `interp2`), the telescope
+certificates build the fit, and the repaired `UnitLawP` — its
+superfluous family premise deleted, the ratified fix — collapses the
+two members. -/
+
+/-- **`StructUnitIrrelP`, discharged from the field.** -/
+theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
+    (hcaps : CapsOkP m)
+    (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
+    (ihi : InferClaims2P μ m φ fuel)
+    (hreads : InferReadsP m μ φ fuel)
+    (hwreads : WhnfReadsP m μ φ fuel) :
+    StructUnitIrrelP μ m φ fuel := by
+  intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
+    hokA hokB ρ hρ
+  obtain ⟨ta, wta, T, us', cvT, caps, tb, wtb, hta, hwta, hfn, hfind,
+    hunit, hres, hlenArgs, hlenUs, hstrip, htb, hwtb, hdeq, hcerts⟩ :=
+    Setlec.structUnitCert_inv h
+  -- one side's chain: the reading, membership and reduction package
+  -- of an inferred type, whnf'd
+  have side : ∀ (x tx wtx : Expr) (xa : AVExpr),
+      inferTypeCore μ env fuel d x = .ok tx →
+      whnf μ env fuel d tx = .ok wtx →
+      Expr.WScoped d x → x.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded x → CtxOkP m φ d Δa x →
+      denoteP m.acval env φ d x = some xa →
+      (∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ xa) →
+      ∃ wtxa, denoteP m.acval env φ d wtx = some wtxa ∧
+        (∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ wtxa) ∧
+        (interp2 V ρ xa ∈ˢ interp2 V ρ wtxa) ∧
+        Expr.WScoped d wtx ∧ wtx.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded wtx ∧ CtxOkP m φ d Δa wtx := by
+    intro x tx wtx xa htx hwtx hwx hbx hLx hCx hdx hokX
+    have hwt : Expr.WScoped d tx :=
+      Setlec.inferTypeCore_WScoped m.base.wf fuel htx hwx
+    have hbt : tx.looseBVarsBounded 0 = true :=
+      Setlec.inferTypeCore_looseBVars m.base.wf fuel htx hwx hbx hLx
+    have hLt : Expr.LeavesBounded tx := fun l hl =>
+      hLx l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htx hwx l hl)
+    have hCt : CtxOkP m φ d Δa tx :=
+      hCx.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel
+        htx hwx)
+    obtain ⟨txa, htxa⟩ :=
+      hreads htx hwx hbx hLx (LeafReadsP.of_ctxOkP hCx) hdx
+    obtain ⟨-, hokTx, hmemX⟩ := ihi htx hwx hbx hLx hCx hdx htxa
+    obtain ⟨wtxa, hwtxa⟩ := hwreads hwtx hwt hbt hLt htxa
+    obtain ⟨hokW, heqW⟩ := ihw hwtx hwt hbt hLt hCt htxa hwtxa hokTx
+    refine ⟨wtxa, hwtxa, hokW, ?_,
+      Setlec.whnf_WScoped m.base.wf fuel hwtx hwt,
+      Setlec.whnf_looseBVars m.base.wf fuel hwtx hbt,
+      fun l hl => hLt l (Setlec.whnf_fvarLeaves m.base.wf fuel hwtx l hl),
+      hCt.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hwtx)⟩
+    rw [← heqW ρ hρ]
+    exact hmemX ρ hρ
+  obtain ⟨wtaa, hwtaa, hokWA, hmemAW, hwrA, hbrA, hLrA, hCrA⟩ :=
+    side a ta wta aa hta hwta hwa hba hLa hCa hda hokA
+  obtain ⟨wtba, hwtba, hokWB, hmemBW, hwrB, hbrB, hLrB, hCrB⟩ :=
+    side b tb wtb ba htb hwtb hwb hbb hLb hCb hdb hokB
+  -- the certificate's defeq run identifies the two family instances
+  have hEq : interp2 V ρ wtaa = interp2 V ρ wtba :=
+    ihd hdeq hwrA hbrA hLrA hwrB hbrB hLrB hCrA hCrB hwtaa hwtba
+      hokWA hokWB ρ hρ
+  -- side a's reduct is the family applied to its parameters
+  rw [show wta = Expr.mkAppN wta.getAppFn wta.getAppArgs from
+    (Setlec.Expr.mkAppN_getApp wta).symm, hfn] at hwtaa
+  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denoteP_mkAppN_inv hwtaa
+  rw [denoteP, hfind] at hvT
+  dsimp only at hvT
+  split at hvT
+  case isFalse => exact nomatch hvT
+  case isTrue =>
+  obtain rfl : vT = m.acval T (Level.substFn φ cvT.levelParams us') :=
+    (Option.some.inj hvT).symm
+  -- the (repaired) unit law, and its carried reading at depth `d`
+  obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
+    hcaps.2 T cvT caps hfind hunit hres φ us' hlenUs
+  have hwfT := m.base.wf _ (Setlec.SetR.Env.find?_mem hfind)
+  have hnfT : (cvT.type.instantiateLevelParams cvT.levelParams
+      us').hasFvar = false := by
+    rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfT.1
+  have hbdT : (cvT.type.instantiateLevelParams cvT.levelParams
+      us').looseBVarsBounded 0 = true := by
+    rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+    exact hwfT.2.2.2.1
+  have hTVd : denoteP m.acval env φ d
+      (cvT.type.instantiateLevelParams cvT.levelParams us')
+      = some TVa :=
+    denoteP_depth_of_closed m.acval_closed hnfT
+      (fun k => denoteP_closed m.acval_erase m.base.cval_closed
+        hnfT hbdT hTVa 1 k) hTVa d
+  have hTw : Expr.WScoped d
+      (cvT.type.instantiateLevelParams cvT.levelParams us') :=
+    Setlec.Expr.WScoped.of_not_hasFvar hnfT
+  have hTL : Expr.LeavesBounded
+      (cvT.type.instantiateLevelParams cvT.levelParams us') :=
+    Setlec.Expr.LeavesBounded.of_not_hasFvar hnfT
+  have hTC : CtxOkP m φ d Δa
+      (cvT.type.instantiateLevelParams cvT.levelParams us') :=
+    ⟨hCa.1, fun l hl => by
+      rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfT] at hl
+      exact nomatch hl⟩
+  have hpcT : PiChainP wta.getAppArgs.length TVa := by
+    rw [hlenArgs]
+    exact piChainP_of_stripPis caps.unitParams
+      (Setlec.Expr.stripPis_instantiateLevelParams_isSome
+        cvT.levelParams us' caps.unitParams hstrip) hTVd
+  obtain ⟨rest, hfitT⟩ :=
+    certs_teleP ihd ihi hreads _ wta.getAppArgs tsa TVa hcerts hpcT
+      hTw hbdT hTL hTC hTVd (fun σ _ => hokTVa σ)
+      (frame_spineP hwrA hbrA hLrA hCrA) hspt ρ hρ
+  -- both members, at the folded family instance
+  have hfold : ∀ (l : List AVExpr) (x : V),
+      l.foldl (fun r y => SetTheory.app r (interp2 V ρ y)) x
+        = (l.map (interp2 V ρ)).foldl SetTheory.app x := by
+    intro l x; rw [List.foldl_map]
+  have hmx : interp2 V ρ aa
+      ∈ˢ (tsa.map (interp2 V ρ)).foldl SetTheory.app
+          (interp2 V ρ (m.acval T (Level.substFn φ cvT.levelParams
+            us'))) := by
+    have := hmemAW
+    rwa [interp2_mkAppN, hfold] at this
+  have hmy : interp2 V ρ ba
+      ∈ˢ (tsa.map (interp2 V ρ)).foldl SetTheory.app
+          (interp2 V ρ (m.acval T (Level.substFn φ cvT.levelParams
+            us'))) := by
+    have := hEq ▸ hmemBW
+    rwa [interp2_mkAppN, hfold] at this
+  have hlenTs : (tsa.map (interp2 V ρ)).length = caps.unitParams := by
+    rw [List.length_map, ← hspt.length, hlenArgs]
+  exact hlaw ρ (tsa.map (interp2 V ρ)) rest (interp2 V ρ aa)
+    (interp2 V ρ ba) hlenTs hfitT hmx hmy
+
 end Setlec.SetR.Interp2

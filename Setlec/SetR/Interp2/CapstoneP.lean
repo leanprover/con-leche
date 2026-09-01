@@ -136,17 +136,12 @@ structure SemTierInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
     (fuel : Nat), InferProjStepP m μ φ fuel
   str_lit : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), InferStrLitStepP m μ φ fuel
-  /-- caps tier, the one row still routed.  Three of the four caps
-  entries left this census with the tier: `UnitIrrelPQ`
-  (`unitIrrelPQ_of_claims`), `PairEtaIrrelP`
-  (`pairEtaIrrelP_of_claims`) and `StructEtaIrrelP`
-  (`structEtaIrrelP_of_claims`, off the `EnvS2PM.caps_ok` field).
-  `StructUnitIrrelP` stays because the frozen `CapsOkP`'s unit half
-  carries an `EtaFamilyStored` premise the certificate never
-  establishes — `etaFamilyStored_not_derivable` mechanizes the gap
-  (`Interp2/CapsP.lean`) -/
-  struct_unit : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), StructUnitIrrelP μ m φ fuel
+  /- caps tier: NO entries.  All four capability rows left this
+  census with the tier: `UnitIrrelPQ` (`unitIrrelPQ_of_claims`),
+  `PairEtaIrrelP` (`pairEtaIrrelP_of_claims`), `StructEtaIrrelP`
+  (`structEtaIrrelP_of_claims`, off the `EnvS2PM.caps_ok` field), and
+  `StructUnitIrrelP` with the ratified one-premise repair of the unit
+  half (`structUnitIrrelP_of_claims`): the caps tier is CLOSED. -/
 
 /-- The env-fixed tier bundle, from the semantic inputs + the fold's
 invariant + the one bespoke literal-tier fact (`nat_heads`, an install
@@ -166,6 +161,5 @@ theorem TierInputsAtP.ofSem (hsem : SemTierInputsP V μ)
     (fun fuel => hsem.whnf_proj mp.base2 φ fuel)
     (fun _fuel ihw => reduceNatStepP_of mp ihw)
     (fun _fuel ihw => reduceNatStepPQ_of mp ihw)
-    (fun fuel => hsem.struct_unit mp.base2 φ fuel)
 
 end Setlec.SetR.Interp2
