@@ -77,6 +77,39 @@ theorem liftN_eq_self : ∀ (e : AVExpr) {k : Nat},
   | proj i e ihe =>
     intro k h n; rw [liftN_proj, ihe h n]
 
+/-- **`liftN_eq_self`'s substitution twin.**  `inst` never reads or
+writes a numeral slot either, and it touches a term only at the `bvar`
+whose index *is* the cut — so a term with no bound variable at or
+above `k` is `inst`-invariant at `k`, for every substituend.
+
+Stated with the substituend last (and universally quantified) because
+that is the shape the leaf premise of `denoteP_substFvarAt` wants: the
+stored annotations are invariant under *any* substitution, which is
+what makes the `.const` and `.lit` clauses of the walk close. -/
+theorem inst_eq_self : ∀ (e : AVExpr) {k : Nat},
+    VExpr.bvarsBelow k e.erase → ∀ x : AVExpr, inst e x k = e := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k h x
+    have h' : i < k := h
+    simp [inst, h']
+  | sort u => intro _ _ _; rfl
+  | const c us => intro _ _ _; rfl
+  | prf => intro _ _ _; rfl
+  | app f a ihf iha =>
+    intro k h x; rw [inst_app, ihf h.1 x, iha h.2 x]
+  | lam u A b ihA ihb =>
+    intro k h x; rw [inst_lam, ihA h.1 x, ihb h.2 x]
+  | pi u v A B ihA ihB =>
+    intro k h x; rw [inst_pi, ihA h.1 x, ihB h.2 x]
+  | letE T v b ihT ihv ihb =>
+    intro k h x; rw [inst_letE, ihT h.1 x, ihv h.2.1 x, ihb h.2.2 x]
+  | eqE T a b ihT iha ihb =>
+    intro k h x; rw [inst_eqE, ihT h.1 x, iha h.2.1 x, ihb h.2.2 x]
+  | proj i e ihe =>
+    intro k h x; rw [inst_proj, ihe h x]
+
 end AVExpr
 
 namespace Interp2
