@@ -104,6 +104,7 @@ import Setlec.SetR.Interp2.CtxOk2D
 import Setlec.SetR.Interp2.Step2.SeamMono
 import Setlec.SetR.Interp2.Claims2D
 import Setlec.SetR.Interp2.Claims2E
+import Setlec.SetR.Interp2.Claims2P
 import Setlec.SetR.Annot.EnvS2U
 import Setlec.SetR.Interp2.EnvS2U
 import Setlec.SetR.Interp2.EnvS2UNe
