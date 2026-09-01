@@ -11385,3 +11385,42 @@ equation, the interp2/AnnotOk2 slack deleted).
   `acval_defnP` fuel-free, `AcvalValidP` established from the front
   door; the three owed `EnvWF` records fold here if natural), and the
   P capstone: `no_proof_of_Empty` over the collapse-free model.
+
+### Task #161 P4 design: the P environment invariant (drafted while the quarter batches run, 2026-09-01)
+
+`EnvS2PM (μ) (env)` — the install tier's target, landing as **new
+structure + bridge** (the seal-18 pattern `EnvS2U → EnvS2UM` set):
+
+* kept verbatim: `base : EnvS V env` (v1 containment), `acval`,
+  `acval_erase`, `acval_closed`, `acval_params`;
+* `acval_ainst` — the inst-invariance twin of `acval_closed` (batch
+  2's finding: the two leaf invariances are independent equations on
+  the `AVExpr` side; both discharge at install from one
+  `VExpr.bvarsBelow` fact of the built leaf's erasure);
+* `acval_okP : ∀ n ψ ρ, AnnotOkP V ρ (acval n ψ)` — upgrades
+  `acval_ok2` and **discharges the routed `AcvalValidP`**;
+* `acval_defnP`/`acval_thmP` in **existence form**, fuel-free:
+  `denoteP acval env φ 0 value = some (acval cv.name φ)`.  The
+  canonical fields are uniqueness-form because all-fuel existence was
+  *refuted* (`envS2_defn_lam_refuted` — `denote2` fails on binders at
+  small fuel); `denoteP` has no fuel and fails only out-of-fragment,
+  which a checked value never is.  With existence, `DeltaP`
+  discharges from the field + `denotePInstLevels` — the delta
+  crossing's last conditional piece;
+* `mem_typeP` — the `interp2` membership at `denoteP` readings.
+
+**Establishment (the P `DeclStep`)**: the front-door runs of a
+declaration's type and value, fed to `InferClaims2P`'s conclusions
+(from `checkSound2P` at the step assembly), yield exactly
+`acval_okP`/`mem_typeP` for the new leaf; `AnnotValidV` of the leaf is
+the claims' own conclusion — establishment stays at run inversions,
+never a metatheorem.  The three owed `EnvWF` records (nfields = cnF;
+nat-op stored-value; defnInfo type-value) fold into `EnvWF` when the
+install-tier proofs demand them — that is their natural home, not the
+quarters'.
+
+**Capstone shape**: `checkDecls_sound_P : … → Nonempty (EnvS2PM μ env')`
+by the declaration fold; `no_proof_of_Empty_P` reads `mem_typeP` at
+the `Empty` pin (`Interp2/EmptyPin2.lean`) — the collapse-free model
+consuming the validated annotations, which is the task's goal
+statement.
