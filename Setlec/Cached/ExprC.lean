@@ -256,26 +256,84 @@ shared verbatim with the production checker — the pilot replaces the
 arguments in and its result out.  This is the exact counterpart of the
 interned checker's `internExprM` / `readbackI` at the same seam:
 
-* `ofExpr` is a plain tree walk, `O(1)` per node — the counterpart of
-  `EStore.internExpr` (also a plain tree walk, one cons-table probe
-  per node);
+* `ofExpr` converts bottom-up under a **pointer-keyed** memo, so the
+  input's structure sharing is carried across the boundary intact
+  (`Expr` values reaching the core come from the parse arena's
+  memoized readback and from the environment, both pointer-shared
+  DAGs).  This is load-bearing, not an optimization: `EStore.internExpr`
+  is a plain tree walk that nevertheless *recovers* full sharing,
+  because hash-consing maps every structurally equal node to one
+  index.  The clone has no cons table, so if the conversion did not
+  preserve sharing the DAG would arrive as a tree — measured: the
+  `dag_tower` e2e fixture does not terminate that way, while the
+  interned checker takes it in stride.  The pointer memo is the
+  computed-field representation's answer, and it is exactly what the
+  official kernel does at the same kind of seam;
 * `toExpr` is memoized on `ExprC` keys (`O(1)` hashing, pointer-fast
   equality), so a shared sub-DAG is rebuilt once and the resulting
   `Expr` is shared — the counterpart of the memoized `readbackI`. -/
 
-/-- Convert an `Expr` tree into an `ExprC` tree, computing the derived
-fields bottom-up. -/
-def ofExpr : Expr → ExprC
+/-- Structural conversion, the specification (no sharing memo). -/
+def ofExprSpec : Expr → ExprC
   | .bvar i => mkBVar i
-  | .fvar idx n ty => mkFVar idx n (ofExpr ty)
+  | .fvar idx n ty => mkFVar idx n (ofExprSpec ty)
   | .sort u => mkSort u
   | .const n us => mkConst n us
-  | .app f a => mkApp (ofExpr f) (ofExpr a)
-  | .lam n ty b m => mkLam n (ofExpr ty) (ofExpr b) m
-  | .forallE n ty b m => mkForallE n (ofExpr ty) (ofExpr b) m
-  | .letE n ty v b => mkLetE n (ofExpr ty) (ofExpr v) (ofExpr b)
+  | .app f a => mkApp (ofExprSpec f) (ofExprSpec a)
+  | .lam n ty b m => mkLam n (ofExprSpec ty) (ofExprSpec b) m
+  | .forallE n ty b m => mkForallE n (ofExprSpec ty) (ofExprSpec b) m
+  | .letE n ty v b => mkLetE n (ofExprSpec ty) (ofExprSpec v) (ofExprSpec b)
   | .lit l => mkLit l
-  | .proj s i e => mkProj s i (ofExpr e)
+  | .proj s i e => mkProj s i (ofExprSpec e)
+
+/-- Core of the executed conversion: bottom-up under a pointer-address
+memo.  Sound because the root stays reachable for the whole traversal,
+so every subterm whose address is a key is alive (Lean's collector
+never moves objects). -/
+unsafe def ofExprGo (memo : Std.HashMap USize ExprC) (e : Expr) :
+    ExprC × Std.HashMap USize ExprC :=
+  let k := ptrAddrUnsafe e
+  match memo[k]? with
+  | some r => (r, memo)
+  | none =>
+    let (r, memo) : ExprC × Std.HashMap USize ExprC :=
+      match e with
+      | .bvar i => (mkBVar i, memo)
+      | .fvar idx n ty =>
+        let (t, memo) := ofExprGo memo ty
+        (mkFVar idx n t, memo)
+      | .sort u => (mkSort u, memo)
+      | .const n us => (mkConst n us, memo)
+      | .app f a =>
+        let (f', memo) := ofExprGo memo f
+        let (a', memo) := ofExprGo memo a
+        (mkApp f' a', memo)
+      | .lam n ty b m =>
+        let (t, memo) := ofExprGo memo ty
+        let (b', memo) := ofExprGo memo b
+        (mkLam n t b' m, memo)
+      | .forallE n ty b m =>
+        let (t, memo) := ofExprGo memo ty
+        let (b', memo) := ofExprGo memo b
+        (mkForallE n t b' m, memo)
+      | .letE n ty v b =>
+        let (t, memo) := ofExprGo memo ty
+        let (v', memo) := ofExprGo memo v
+        let (b', memo) := ofExprGo memo b
+        (mkLetE n t v' b', memo)
+      | .lit l => (mkLit l, memo)
+      | .proj s i sub =>
+        let (s', memo) := ofExprGo memo sub
+        (mkProj s i s', memo)
+    (r, memo.insert k r)
+
+@[inherit_doc ofExprSpec]
+unsafe def ofExprFast (e : Expr) : ExprC := (ofExprGo {} e).1
+
+/-- Convert an `Expr` into an `ExprC`, computing the derived fields
+bottom-up and preserving the input's structure sharing. -/
+@[implemented_by ofExprFast]
+def ofExpr (e : Expr) : ExprC := ofExprSpec e
 
 /-- Core of `toExpr`: a memoized readback (shared subterms are rebuilt
 once and share the resulting `Expr` in memory). -/
