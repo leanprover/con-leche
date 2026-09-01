@@ -350,7 +350,17 @@
 # argument, so the unsupported feature is never detected and the
 # stream is accepted (0).  The escape is therefore not confined to
 # reject-vs-accept — a decline can be lost the same way.
-2 yolo_decline_vs_accept.ndjson
+# Task #161 P5: the certified verdict moved from 2 to 1.  The annotate
+# pass infers each binder's codomain sort to write its datum, so the
+# per-argument type error in this purpose-built defective stream
+# ("function expected", theorem PProd'._model.eta) is now found before
+# annotate reaches the unsupported projection shape that used to
+# decline first.  An ordering change on DEFECTIVE input only — a valid
+# stream has no such error — and it makes the certified lane agree with
+# the --no-model lane on this fixture (its override is gone).  The
+# class-B property the fixture pins is unchanged: the defect lives in
+# an application argument.
+1 yolo_decline_vs_accept.ndjson
 # basis_binderinfo{,_rec} (task #142, 2026-08-27 fuzz campaign finding
 # F2): raw lean4export streams that are byte-for-byte a good stream
 # except that one binder of a *pinned basis block* carries a different

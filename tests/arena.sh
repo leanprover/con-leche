@@ -214,16 +214,20 @@ annot_half() {
   done < "$ANNOT_EXPECTED"
 }
 
-# THE CERTIFIED-SWEEP SUSPENSION (task #161, ratified suite policy for
-# P2..P5): the verified mode (--set-model) now validates sort
-# annotations, and the arena/e2e streams are unannotated — they
-# positively decline at their first Prop-codomain binder.  Until the
-# annotate pass lands (P5) and the streams return to --set-model, the
-# certified sweep runs the ANNOTATED suite only; the full arena + e2e
-# suites keep running under --no-model (the official-parity lane, where
-# annotations are ignored) in the mode sweep below, against the same
-# certified expectations — that sweep is the regression gate for
-# everything that is not annotation validation.
+# THE CERTIFIED SWEEP, RESTORED (task #161 P5, 2026-09-01).  The P2..P5
+# suspension is over: the annotate pass writes the `pw` datum for every
+# binder of every unannotated stream, so the arena and e2e suites run at
+# `--set-model` again — validated, not merely checked.  A regression in
+# the pass shows up here as a `sort-annotation mismatch (<site>)`
+# decline against a certified expectation.  The annotated fixture suite
+# stays and is now the pass's *negative* gate: the annot_decline_*
+# streams carry explicit wrong claims the pass must not overwrite.
+arena_half
+echo "arena tutorial: $accepted/$total_good good tests accepted"
+if [ -f "$E2E_EXPECTED" ]; then
+  e2e_half
+  echo "e2e: $e2e_ok/$e2e_total as expected"
+fi
 annot_half
 echo "annot suite: $annot_ok/$annot_total as expected"
 
