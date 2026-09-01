@@ -20,9 +20,12 @@ certificates, the bit laws, and the proved crossings
 routed is of two kinds only:
 
 * **install-tier obligations** — the environment's own facts
-  (`ConstTypeP`, `AcvalValidP`, `AcvalDefnInstP`, `NatHeads2`,
-  `SortSemP`), to be discharged when `EnvS2PM` lands (the P4 design
-  note in DESIGN.md);
+  (`ConstTypeP`, `AcvalValidP`, `AcvalDefnInstP`, `NatHeads2`), to be
+  discharged when `EnvS2PM` lands (the P4 design note in DESIGN.md).
+  `SortSem2`'s successor is *not* here: `sortSemAtP_of_claims`
+  derives it from the claims one fuel down — with the annotation fuel
+  gone its uses are induction-bounded, and one more of
+  `Capstone2E`'s fifteen dissolves;
 * **totality factors** — `denoteP` successes the dual-success claims
   cannot produce themselves (`WhnfCoreExistsP`, `InferExistsP`,
   `InferReadsP`, `WhnfReadsP`, `WhnfCoreReductExistsP`,

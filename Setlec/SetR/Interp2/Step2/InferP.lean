@@ -52,18 +52,24 @@ universe w
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
 
-/-- **The P-tier sort-semantics residue** (`SortSem2` transposed): a
-subject whose inferred type whnfs to a sort is graded (`AnnotOkP`) and
-interprets into that universe — at every checker fuel, in the fuel-free
-reading.  Routed exactly as `SortSem2` is: the top-level induction is
-where it becomes available. -/
-def SortSemP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
-    (φ : Name → Nat) : Prop :=
-  ∀ {F d : Nat} {e t : Expr} {u : Level} {Δa : List AVExpr}
+/-- **The sort fact, at the induction's own fuel** (`SortSem2`'s
+successor).  The canonical lane ROUTES `SortSem2` — "the top-level
+induction is where it becomes available", and in-tree it never does:
+the annotation fuel made its runs off-induction, and it stands among
+`Capstone2E`'s fifteen.  In the P tier the annotation fuel is gone,
+every use in the quarter is at the induction-bounded checker fuel,
+and `sortSemAtP_of_claims` *derives* the fact from the claims one
+level down — another canonical-frontier residue dissolved.  The
+subject's scoping package is carried so the claims can be applied. -/
+def SortSemAtP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e t : Expr} {u : Level} {Δa : List AVExpr}
     {ea : AVExpr},
     CtxOkP m φ d Δa e →
-    inferTypeCore μ env F d e = .ok t →
-    whnf μ env F d t = .ok (.sort u) →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    inferTypeCore μ env fuel d e = .ok t →
+    whnf μ env fuel d t = .ok (.sort u) →
     denoteP m.acval env φ d e = some ea →
     ∀ ρ : Nat → V, Sat2 V Δa ρ →
       AnnotOkP V ρ ea ∧ interp2 V ρ ea ∈ˢ (univ (u.eval φ) : V)
@@ -216,11 +222,14 @@ theorem infer_fvar_claimP (m : EnvS2UM V μ env)
 /-- **`.forallE`, P currency** — see the module docstring; the four
 moves annotated inline. -/
 theorem infer_forallE_claimP (m : EnvS2UM V μ env)
-    (hμ : μ.verified = true) (hss : SortSemP m μ φ)
+    (hμ : μ.verified = true) (hss : SortSemAtP m μ φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.forallE n ty body mb)
       = .ok t)
+    (hws : Expr.WScoped d (.forallE n ty body mb))
+    (hb : (Expr.forallE n ty body mb).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.forallE n ty body mb))
     (hC : CtxOkP m φ d Δa (.forallE n ty body mb))
     (hea : denoteP m.acval env φ d (.forallE n ty body mb) = some ea)
     (hta : denoteP m.acval env φ d t = some ta) :
@@ -232,19 +241,26 @@ theorem infer_forallE_claimP (m : EnvS2UM V μ env)
   obtain ⟨tty, u, bt, v, hty, hwu, hbt, hens, hpw, rfl⟩ :=
     Setlec.inferTypeCore_forall_inv h
   have hz := hpw hμ
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLty : Expr.LeavesBounded ty := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLbody : Expr.LeavesBounded body := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  obtain ⟨hwopen, hbopen, hLopen⟩ :=
+    frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
   obtain ⟨tyA, baA, htyA, hbaA, rfl⟩ := denoteP_forallE_inv hea
   rw [denoteP_sortQ] at hta
   obtain rfl : ta = .sort (Level.eval φ (.imax u v)) :=
     (Option.some.inj hta).symm
-  -- move 2: grade domain and opened codomain through the residue,
-  -- with the opened context built in place (`CtxOkP.openS`; the
-  -- grading it asks for is the residue's own first component)
-  have hdomU := hss hC.forallE_ty hty hwu htyA
+  -- move 2: grade domain and opened codomain through the derived
+  -- sort fact, with the opened context built in place
+  have hdomU := hss hC.forallE_ty hws.1 hb.1 hLty hty hwu htyA
   have hCop : CtxOkP m φ (d + 1) (tyA :: Δa)
       (body.instantiate1 (.fvar d n ty)) :=
     CtxOkP.openS (n := n) hC.forallE_ty hC.forallE_body htyA
       (fun ρ hρ => (hdomU ρ hρ).1)
-  have hcodU := hss hCop hbt
+  have hcodU := hss hCop hwopen hbopen hLopen hbt
     (Setlec.ensureSortCore_inv hens) hbaA
   refine ⟨?_, ?_, ?_⟩
   · -- AnnotOkP of the ∀ node itself
@@ -310,7 +326,7 @@ on the body:
   canonical lane's `LamCodSort2` residue (the per-node sort run the
   #152 chain guard lost) dissolves into the model's own law. -/
 theorem infer_lam_claimP (m : EnvS2UM V μ env)
-    (hμ : μ.verified = true) (hss : SortSemP m μ φ)
+    (hμ : μ.verified = true) (hss : SortSemAtP m μ φ fuel)
     (ihi : InferClaims2P μ m φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
@@ -375,7 +391,7 @@ theorem infer_lam_claimP (m : EnvS2UM V μ env)
     (Option.some.inj hta).symm
   -- the domain and the opened body, graded; the opened context in
   -- place (`CtxOkP.openS` at the residue's own grading)
-  have hdomU := hss hC.lam_ty hty hwu htyA
+  have hdomU := hss hC.lam_ty hws.1 hb.1 hLty hty hwu htyA
   have hCop : CtxOkP m φ (d + 1) (tyA :: Δa)
       (body.instantiate1 (.fvar d n ty)) :=
     CtxOkP.openS (n := n) hC.lam_ty hC.lam_body htyA
@@ -419,7 +435,11 @@ theorem infer_lam_claimP (m : EnvS2UM V μ env)
       obtain ⟨btt, vb, hbtt, hwbtt, hzeq⟩ :=
         hleafC hμ (by simpa using hbl)
       exact pwBit_zero_mem_univZero hzeq hb0
-        (hss hCbt hbtt hwbtt hbtA ρ' hρ').2
+        (hss hCbt (inferTypeCore_WScoped m.base.wf fuel hbt hwopen)
+          hbtb
+          (fun l hl => hLopen l
+            (inferTypeCore_fvarLeaves m.base.wf fuel hbt hwopen l hl))
+          hbtt hwbtt hbtA ρ' hρ').2
   refine ⟨?_, ?_, ?_⟩
   · -- AnnotOkP of the λ
     intro ρ hρ
@@ -628,6 +648,34 @@ def WhnfReadsP {env : Env} (m : EnvS2UM V μ env) (μ : CheckMode)
     denoteP m.acval env φ d e = some ea →
     ∃ ea', denoteP m.acval env φ d e' = some ea'
 
+/-- **`SortSem2`'s discharge** (impossible in the canonical lane): the
+sort fact at `fuel` from the claims at `fuel` plus the one totality
+factor — infer the type (`hreads` says it reads), grade both readings
+(`ihi`), then walk the type to its sort (`ihw`) and the membership
+lands in the universe. -/
+theorem sortSemAtP_of_claims {env : Env} {m : EnvS2UM V μ env}
+    {fuel : Nat}
+    (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
+    (hreads : InferReadsP m μ φ fuel) :
+    SortSemAtP m μ φ fuel := by
+  intro d e t u Δa ea hC hws hb hLb hi hw hea
+  obtain ⟨ta, hta⟩ := hreads hi hws hb hLb hea
+  obtain ⟨hokE, hokT, hmem⟩ := ihi hi hws hb hLb hC hea hta
+  have hwt : Expr.WScoped d t :=
+    inferTypeCore_WScoped m.base.wf fuel hi hws
+  have hbt : t.looseBVarsBounded 0 = true :=
+    inferTypeCore_looseBVars m.base.wf fuel hi hws hb hLb
+  have hLt : Expr.LeavesBounded t := fun l hl =>
+    hLb l (inferTypeCore_fvarLeaves m.base.wf fuel hi hws l hl)
+  have hCt : CtxOkP m φ d Δa t :=
+    hC.of_subset (inferTypeCore_fvarLeaves m.base.wf fuel hi hws)
+  obtain ⟨-, heq⟩ := ihw hw hwt hbt hLt hCt hta denoteP_sortQ hokT
+  intro ρ hρ
+  refine ⟨hokE ρ hρ, ?_⟩
+  have hm := hmem ρ hρ
+  rw [heq ρ hρ, interp2_sort] at hm
+  exact hm
+
 /-- **`.letE`, P currency.**  The ζ crossing is `denoteP_beta`
 *directly* — no routed `BetaCross2C`, because in the validated
 reading the two sides are literally the same annotation up to `inst`
@@ -637,7 +685,8 @@ equivalence, not a per-site truthfulness ledger.
 The type's grading comes from the clause's own `ensureSort` run
 through `SortSemP`; the value's is `ihi` at `val`, whose type-side
 reading is the routed `InferReadsP` (the FINDING above). -/
-theorem infer_letE_claimP (m : EnvS2UM V μ env) (hss : SortSemP m μ φ)
+theorem infer_letE_claimP (m : EnvS2UM V μ env)
+    (hss : SortSemAtP m μ φ fuel)
     (hir : InferReadsP m μ φ fuel) (ihi : InferClaims2P μ m φ fuel)
     {d : Nat} {n : Name} {ty val b t : Expr} {Δa : List AVExpr}
     {ea ta : AVExpr}
@@ -657,6 +706,8 @@ theorem infer_letE_claimP (m : EnvS2UM V μ env) (hss : SortSemP m μ φ)
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLval : Expr.LeavesBounded val := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLty : Expr.LeavesBounded ty := fun l hl =>
     hLb l (by simp [Expr.fvarLeaves, hl])
   have hsubred : ∀ l ∈ (b.instantiate1 val).fvarLeaves,
       l ∈ (Expr.letE n ty val b).fvarLeaves := by
@@ -697,7 +748,8 @@ theorem infer_letE_claimP (m : EnvS2UM V μ env) (hss : SortSemP m μ φ)
     ihi hvv hws.2.1 hb.1.2 hLval hC.letE_val hvA htvvA
   have hrowTE : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ tyA :=
     fun ρ hρ =>
-      (hss hC.letE_ty hty (Setlec.ensureSortCore_inv hes) htyA ρ hρ).1
+      (hss hC.letE_ty hws.1 hb.1.1 hLty hty
+        (Setlec.ensureSortCore_inv hes) htyA ρ hρ).1
   obtain ⟨hrowBE, hrowBT, hrowBM⟩ :=
     ihi hbody hwred hbred hLred hCred hcross hta
   refine ⟨?_, hrowBT, ?_⟩
@@ -873,7 +925,7 @@ P tier's own:
 | `const_ty` (`ConstType2C`) | `const_ty` (`ConstTypeP`) |
 | `nat_heads` (`NatHeads2`) | `nat_heads` — **verbatim**, denote-free |
 | `str_lit`, `proj` | the T2 transposes |
-| `sort_sem` (`SortSem2`) | `sort_sem` (`SortSemP`) |
+| `sort_sem` (`SortSem2`) | **gone** — `sortSemAtP_of_claims` derives it |
 | `beta` (`BetaCross2C`) | **gone** — `denoteP_beta` is a theorem |
 | — | `acval_valid` (`AcvalValidP`), the leaf bit-validity residue |
 | — | `infer_reads`, `whnf_reads` (the FINDING's totality residues) |
@@ -903,9 +955,6 @@ structure InferInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
   /-- I9: the projection clause -/
   proj : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), InferProjStepP m μ φ fuel
-  /-- the sort fact, fuel-free -/
-  sort_sem : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat),
-    SortSemP m μ φ
   /-- the inferred type reads (dual-success totality residue) -/
   infer_reads : ∀ {env : Env} (m : EnvS2UM V μ env) (φ : Name → Nat)
     (fuel : Nat), InferReadsP m μ φ fuel
@@ -930,6 +979,8 @@ route through the input structure. -/
 theorem inferStepP_of (h : InferInputsP V μ) (hμ : μ.verified = true) :
     InferStepP μ V := by
   intro env m φ fuel _hv _ihwc ihw ihd ihi
+  have hss : SortSemAtP m μ φ fuel :=
+    sortSemAtP_of_claims ihw ihi (h.infer_reads m φ fuel)
   intro d e t Δa hrun hws hb hLb ea ta hC hea hta
   match e, hrun, hws, hb, hLb, hC, hea with
   | .sort u, hrun, _, _, _, _, hea =>
@@ -946,16 +997,16 @@ theorem inferStepP_of (h : InferInputsP V μ) (hμ : μ.verified = true) :
       hrun hea hta
   | .lit (.strVal s), hrun, _, _, _, _, hea =>
     exact h.str_lit m φ fuel hrun hea hta
-  | .forallE nm ty body mb, hrun, _, _, _, hC, hea =>
-    exact infer_forallE_claimP m hμ (h.sort_sem m φ) hrun hC hea hta
+  | .forallE nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
+    exact infer_forallE_claimP m hμ hss hrun hws hb hLb hC hea hta
   | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
-    exact infer_lam_claimP m hμ (h.sort_sem m φ) ihi hrun hws hb hLb
+    exact infer_lam_claimP m hμ hss ihi hrun hws hb hLb
       hC hea hta
   | .app fe ae, hrun, hws, hb, hLb, hC, hea =>
     exact infer_app_claimP m (h.infer_reads m φ fuel)
       (h.whnf_reads m φ fuel) ihw ihd ihi hrun hws hb hLb hC hea hta
   | .letE nm ty val bd, hrun, hws, hb, hLb, hC, hea =>
-    exact infer_letE_claimP m (h.sort_sem m φ) (h.infer_reads m φ fuel)
+    exact infer_letE_claimP m hss (h.infer_reads m φ fuel)
       ihi hrun hws hb hLb hC hea hta
   | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
     exact h.proj m φ fuel hrun hws hb hLb hC hea hta
