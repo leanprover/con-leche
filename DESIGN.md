@@ -11083,3 +11083,14 @@ the annotated fixture suite (annotated syntax is the checker's input
 language per the goal statement); `--no-model` keeps the full parity
 suite green throughout.  Real streams re-enter `--set-model` when the
 pass lands (P5).
+
+### Task #161 ledger note: the implementation phase targets a cached checker variant (user heads-up, 2026-09-01)
+
+Binding for the LATER implementation/performance phase (P5+), not for
+P2–P4: the two-tier arena design (task #64) is expected **not** to
+survive the preprocessor era.  The implementation phase should build a
+**cached checker variant** — derived fields + hashmaps,
+official-kernel/lean4lean-style — instead of extending the arena
+machinery.  Consequence recorded for the parked P5 items: the
+`PWMemo`-sharing TODO (`IExpr.lean`, `substPWI`) should assume the
+cached-variant world, not the two-tier arena.  No action in P2–P4.
