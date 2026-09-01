@@ -21,12 +21,10 @@ the η closure and the v1 base at every prefix cost nothing new.
 The routed bundles, by tier:
 
 * `SemTierInputsP` — the four semantic tiers (`CapstoneP.lean`);
-* `LitStabilityP` — the literal guards' stability at a fresh
-  value-kind cons.  NOT free in general: a `def` named
-  `String.ofList` or `Char.ofNat` can complete string support and
-  flip the guard upward; the literal tier discharges the generic
-  case by name-disequality and the two pin installs bespoke
-  (where it establishes the heads anyway);
+* (`LitStabilityP` is GONE: the guard equality it asserted is
+  refutable at a support-completing install, and the monotone
+  crossing + `natLitSupported_cons_back` made the harvests
+  premise-free on the literal guards — the census shrank here);
 * `AxiomStepPB` / `BasisStepPB` / `IndStepPB` — the whole-kind steps
   for the pin/basis/inductive installs (the pin tier's aid is
   `harvestAxiomP`; the basis/inductive tiers mirror the v1
@@ -44,16 +42,6 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode}
-
-/-- The literal guards survive a fresh value-kind cons (see the
-module docstring for why this is the literal tier's, not free). -/
-def LitStabilityP : Prop :=
-  ∀ (env : Env) (c₀ : ConstantInfo),
-    ((∃ cv value hint, c₀ = .defnInfo cv value hint) ∨
-      (∃ cv value, c₀ = .thmInfo cv value) ∨
-      (∃ cv, c₀ = .axiomInfo cv)) →
-    env.find? c₀.name = none →
-    LitGuardsAgree env ⟨c₀ :: env.consts⟩
 
 /-- The axiom kind's whole step, routed (pin tier; assembly aid:
 `harvestAxiomP`). -/
@@ -85,7 +73,7 @@ def EnvSPOk (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env) :
 
 /-- **The per-declaration P step, by dispatch.** -/
 theorem declStepPM (hμ : μ.verified = true)
-    (hsem : SemTierInputsP V μ) (hstab : LitStabilityP)
+    (hsem : SemTierInputsP V μ)
     (hax : AxiomStepPB V μ) (hbas : BasisStepPB V μ)
     (hind : IndStepPB V μ)
     {F : Nat} {env env₂ : Env} {d : Declaration}
@@ -102,33 +90,23 @@ theorem declStepPM (hμ : μ.verified = true)
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
     exact harvestDefnP hμ hsem divModPinS mp h
-      (hstab env
-        (.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-        (.inl ⟨_, _, _, rfl⟩)
-        (Option.isNone_iff_eq_none.mp hcv.1))
   | thmDecl cv value =>
     have hsh := h
     obtain ⟨type', value', hcv, -, -, -, henv2⟩ := hsh
     subst henv2
     exact harvestThmP hμ hsem mp h
-      (hstab env (.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
-        (.inr (.inl ⟨_, _, rfl⟩))
-        (Option.isNone_iff_eq_none.mp hcv.1))
   | opaqueDecl cv value =>
     have hsh := h
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
     exact harvestOpaqueP hμ hsem reducePinS mp h
-      (hstab env (.axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-        (.inr (.inr ⟨_, rfl⟩))
-        (Option.isNone_iff_eq_none.mp hcv.1))
   | axiomDecl cv => exact hax mp h
   | basisDecl kind => exact hbas mp h
   | indDecl block => exact hind mp h
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verified = true)
-    (hsem : SemTierInputsP V μ) (hstab : LitStabilityP)
+    (hsem : SemTierInputsP V μ)
     (hax : AxiomStepPB V μ) (hbas : BasisStepPB V μ)
     (hind : IndStepPB V μ) {F : Nat} :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
@@ -145,21 +123,21 @@ theorem foldPM (hμ : μ.verified = true)
     | ok env1 =>
       rw [hd] at h
       obtain ⟨⟨mp⟩, hE⟩ := hm
-      exact foldPM hμ hsem hstab hax hbas hind ds env1
-        (declStepPM hμ hsem hstab hax hbas hind mp hE
+      exact foldPM hμ hsem  hax hbas hind ds env1
+        (declStepPM hμ hsem  hax hbas hind mp hE
           (checkDeclR_sound mp.base2.base hE hd)) h
 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'
 theorems). -/
 theorem checkDecls_sound_P_of (hμ : μ.verified = true)
-    (hsem : SemTierInputsP V μ) (hstab : LitStabilityP)
+    (hsem : SemTierInputsP V μ)
     (hax : AxiomStepPB V μ) (hbas : BasisStepPB V μ)
     (hind : IndStepPB V μ) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
     Nonempty (EnvS2PM V μ env') :=
-  (foldPM hμ hsem hstab hax hbas hind ds Env.empty
+  (foldPM hμ hsem  hax hbas hind ds Env.empty
     ⟨⟨EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩ h).1
 
 /-- **The capstone, milestone shape**: no proof of `Empty` is ever
@@ -167,14 +145,14 @@ accepted — the collapse-free model of the validated annotations, at
 the frozen final statement's hypotheses plus the named tier
 bundles. -/
 theorem no_proof_of_Empty_P_of (hμ : μ.verified = true)
-    (hsem : SemTierInputsP V μ) (hstab : LitStabilityP)
+    (hsem : SemTierInputsP V μ)
     (hax : AxiomStepPB V μ) (hbas : BasisStepPB V μ)
     (hind : IndStepPB V μ) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ hsem hstab hax
+  obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ hsem  hax
     hbas hind h
   exact no_constant_of_Empty_P mp c hc hty
 
