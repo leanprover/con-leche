@@ -11744,3 +11744,27 @@ caps → proj/str → iota.
 
 The three owed `EnvWF` records: still not demanded (the species
 consumed `EnvWF.cons` + existing `ConstWF` clauses only).
+
+## Task #161 P4.7 SEAL: the assembly is complete — the milestone capstone (2026-09-01)
+
+**`no_proof_of_Empty_P_of` is proved** (`Interp2/FoldP.lean`,
+standard axioms): no proof of `Empty` is ever accepted, over the
+collapse-free model of the validated annotations, at the frozen final
+statement's hypotheses plus **exactly five named tier bundles** —
+`SemTierInputsP` (semantic tiers), `LitStabilityP` (literal-guard
+stability at value-kind conses), `AxiomStepPB`/`BasisStepPB`/
+`IndStepPB` (the pin/basis/inductive whole-kind steps).  Milestone
+shape, never the close.
+
+The assembly beneath it, all proved this seal: all four value-kind
+harvests (the `opaque` unlocked by exposing `extendValueS`'s leaf
+equation — an additive conjunct, the H2 finding's named
+strengthening), `EnvS2PM.empty`, `declStepPM` (dispatch; the v1 half
+rides the discharged v1 fold instances verbatim, so η closure and the
+v1 base cost nothing), `foldPM`, `checkDecls_sound_P_of`.
+
+**What now stands between the milestone and the final
+`no_proof_of_Empty_P`** is exactly the five bundles = the four
+semantic tiers (literal → caps → proj/str → iota, the campaign
+order) + the literal tier's stability lemma.  Every one is a named
+`Prop` with its mirror source recorded; zero sorries anywhere.
