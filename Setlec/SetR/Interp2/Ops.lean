@@ -205,6 +205,16 @@ theorem app_lamR_pos {v : Nat} {A a : V} {F : V → V} (hv : v ≠ 0)
     (ha : a ∈ˢ A) : app (lamR v A F) a = F a := by
   rw [lamR_pos hv]; exact app_graph ha
 
+/-- **Off-domain application in the graph regime** — `app_lamR_pos`'s
+complement.  The rigidity a *type former*'s application is inverted
+with: off its domain a graph-regime abstraction applies to the
+canonical junk `∅`, which has no members, so an inhabited application
+forces its argument into the domain.  Added for the caps tier's
+pinned-pair η row (task #161). -/
+theorem app_lamR_of_not_mem {v : Nat} {A a : V} {F : V → V} (hv : v ≠ 0)
+    (ha : ¬ a ∈ˢ A) : app (lamR v A F) a = (empty : V) := by
+  rw [lamR_pos hv]; exact app_graph_of_not_mem ha
+
 /-- Graph-regime abstractions are graphs, never the proof point. -/
 theorem lamR_ne_pt {v : Nat} {A : V} {F : V → V} (hv : v ≠ 0) :
     lamR v A F ≠ pt := by rw [lamR_pos hv]; exact graph_ne_pt

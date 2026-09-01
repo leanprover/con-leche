@@ -1,6 +1,7 @@
 import Setlec.SetR.Interp2.CapstoneP
 import Setlec.SetR.Interp2.NatEqsP
 import Setlec.SetR.Interp2.DivModCertP
+import Setlec.SetR.Interp2.CapsP
 import Setlec.SetR.Install.ValueKinds
 
 /-!
@@ -339,7 +340,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -499,6 +500,14 @@ theorem harvestDefnP (hμ : μ.verified = true)
     exact eqLawP_cons_valueKind mp.eq_lawP
       (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
       (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
+  · -- `caps_ok` at the extension: a value-kind cons is neither a
+    -- former, nor a capability constructor, nor a projection function,
+    -- so no stored family can be completed here
+    exact capsOkP_cons_fresh mp mp.caps_ok
+      (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
+      (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
 
 /-! ## The `thm` mirror (batch H2, T1)
 
@@ -712,7 +721,7 @@ theorem harvestThmP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -768,6 +777,14 @@ theorem harvestThmP (hμ : μ.verified = true)
   · exact eqLawP_cons_valueKind mp.eq_lawP
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
       (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
+  · -- `caps_ok` at the extension: a value-kind cons is neither a
+    -- former, nor a capability constructor, nor a projection function,
+    -- so no stored family can be completed here
+    exact capsOkP_cons_fresh mp mp.caps_ok
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
 
 /-! ## The `opaque` kind: the H2 SKIP, since unlocked
 
@@ -932,7 +949,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh hbase hag hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -981,6 +998,14 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   · exact eqLawP_cons_valueKind mp.eq_lawP
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
+  · -- `caps_ok` at the extension: a value-kind cons is neither a
+    -- former, nor a capability constructor, nor a projection function,
+    -- so no stored family can be completed here
+    exact capsOkP_cons_fresh mp mp.caps_ok
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+      (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
 
 
 /-! ## The `opaque` kind, unlocked (the exposed leaf equation)
@@ -1161,7 +1186,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -1211,5 +1236,13 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   · exact eqLawP_cons_valueKind mp.eq_lawP
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
+  · -- `caps_ok` at the extension: a value-kind cons is neither a
+    -- former, nor a capability constructor, nor a projection function,
+    -- so no stored family can be completed here
+    exact capsOkP_cons_fresh mp mp.caps_ok
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+      (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
 
 end Setlec.SetR.Interp2

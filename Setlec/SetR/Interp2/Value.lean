@@ -184,6 +184,27 @@ theorem psigmaV2_app {u v : Nat} {A B : V} (hA : A ∈ˢ (univ u : V))
   rw [psigmaV2, app_lamR_pos (Nat.succ_ne_zero _) hA,
     app_lamR_pos (Nat.succ_ne_zero _) hB]
 
+/-- **The pinned pair type's rigidity** (`mem_psigmaV_app`'s mirror at
+`interp2`): an inhabited `PSigma'` application forces both arguments
+into their places and exhibits the inhabitant in the sigma set.  Off
+either domain the application is canonical junk, which has no members
+(`app_lamR_of_not_mem`).  Added for the caps tier's pinned-pair η row
+(task #161). -/
+theorem mem_psigmaV2_app {u v : Nat} {A B x : V}
+    (hx : x ∈ˢ app (app (psigmaV2 V u v) A) B) :
+    A ∈ˢ (univ u : V) ∧ B ∈ˢ psigmaFibreSpace V v A ∧
+      x ∈ˢ sigmaSet (Nat.max u v) A fun y => app B y := by
+  by_cases hA : A ∈ˢ (univ u : V)
+  · rw [psigmaV2, app_lamR_pos (Nat.succ_ne_zero _) hA] at hx
+    by_cases hB : B ∈ˢ psigmaFibreSpace V v A
+    · rw [app_lamR_pos (Nat.succ_ne_zero _) hB] at hx
+      exact ⟨hA, hB, hx⟩
+    · rw [app_lamR_of_not_mem (Nat.succ_ne_zero _) hB] at hx
+      exact absurd hx (not_mem_empty x)
+  · rw [psigmaV2, app_lamR_of_not_mem (Nat.succ_ne_zero _) hA,
+      app_empty] at hx
+    exact absurd hx (not_mem_empty x)
+
 /-- `PSigma'.mk.{u,v}`; result sort `max u v`.  The old value's
 explicit `if max u v = 0 then pt` tag is **gone from the definition**:
 the annotation already squashes the whole tower at `0`, so the body is

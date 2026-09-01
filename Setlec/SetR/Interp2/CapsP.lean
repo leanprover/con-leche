@@ -1,49 +1,33 @@
-import Setlec.SetR.Annot.EnvS2P
+import Setlec.SetR.Interp2.InstallP
 
 /-!
-# The structure-capability laws at `interp2` — statements (task #161,
-caps tier; FROZEN by the lane lead)
+# The structure-capability laws across a fresh cons (task #161, caps
+tier)
 
-`CapsOkV`'s mirror at the validated-annotation currency: the stored
-families' fired η and unit-like laws, value-level, keyed exactly as
-the v1 field (`Sound/Motives.lean:309`) on the stored `indInfo`, the
-capability flag, the non-reserved name, and the completed family
-(`EtaFamilyStored`).
+The statements (`TeleFitP`, `projSpines2`/`etaFabArgs2`, `EtaLawP`,
+`UnitLawP`, `CapsOkP`) live in `Annot/EnvS2P.lean` beside `NatOpsP`,
+`DivModP` and `EqLawP` — the `EnvS2PM` field `caps_ok` must mention
+them, and `EnvS2P` is upstream of everything in `Interp2/`.  This file
+is the *preservation* half: `capsOkP_cons_fresh`, the obligation every
+value-kind harvest discharges.
 
-Design decisions, recorded:
+The shape is `CapsOkV.cons`'s non-head case (`Install/Cons.lean:204`)
+at the P currency, with one addition the value currency does not have:
+the law **carries the instantiated former type's reading**, so the
+crossing must move that reading forward too
+(`denoteP_cons_fresh_mono`, on `ConstsBound` of the instantiated type
+— `constsBound_instType`).  Everything else is `acvalWith_ne` at the
+three families of leaves the law mentions (the former, the capability
+constructor, the documented projection functions), each `≠` the fresh
+name because `EtaFamilyStored` *stores* them at kinds the four
+value-kind harvests never cons.
 
-* **The telescope fit is `TeleFitP`, not `TeleFit2`.**  `TeleFit2`
-  (`Annot/Spine2.lean`) demands every product in the graph regime
-  (`v ≠ 0`), which a `Prop`-valued family's telescope violates.
-  `TeleFitP` mirrors `TeleFitV` instead — memberships only, the
-  peeled body read under the extended environment (the `interp2`
-  analogue of `B.inst a`), no positivity anywhere.  Consumers recover
-  residual memberships through `app_mem_piR`, whose `v = 0` fibre
-  premise is the type reading's `AnnotValidV` — the literal tier's
-  establishment move, reused (`NatEqsP.lean`'s finding: no bit
-  positivity is ever needed).
-* **The laws carry their readings** (`∃ TVa, …`), the `NatOpsP`
-  pattern: establishment stores the instantiated type's reading at
-  its own environment; preservation transfers it *forward*
-  (`denoteP_cons_fresh_mono`); consumers identify it with their own
-  reading by determinism.  The equality-form crossing is refutable
-  at support-completing installs (the `LitStabilityP` lesson), so no
-  backward transfer ever appears.
-* **The fired content is value-level** (the divmod-leg lesson): `ts`,
-  `x`, `y` are bare `V`s, and the fabricated η spine is
-  `projSpines2`/`etaFabArgs2` — `projSpinesV`/`etaFabArgsV`
-  (`Rel.lean:98/106`) with `cval`-leaves replaced by `interp2` values
-  of the `acval` leaves at the same assignment.
-
-**Establishment**: at the inductive install — `IndStepPB`'s bill (the
-routed bundle already owes the whole `EnvS2PM` at an `indDecl` cons;
-this file adds no census entry).  The v1 establishment path is the
-capability pipeline (kernel pin → `EtaPins` → rule_fold → `ModeledOk`
-law → cert+sound, `Install/EtaLawS.lean`); the P path re-runs its
-defeq certificates through the claims — the run-certificate route —
-when the ind tier lands.  Consumers: `StructEtaIrrelP` /
-`StructUnitIrrelP` (`Step2/StuckP.lean:353/377`), discharged from the
-field by the caps batch.
+The head case is therefore not a case at all: a `defnInfo`/`thmInfo`/
+`axiomInfo` cons can be neither the former (an `indInfo` lookup), nor
+the capability constructor (a `ctorInfo` lookup), nor a projection
+function (a `recInfo` lookup), so all three disequalities are
+`ConstantInfo.noConfusion`.  This is *simpler* than
+`natOpsP_cons_fresh`, whose head case needs a disjunctive premise.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -56,92 +40,211 @@ open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
+variable {μ : CheckMode} {env : Env}
 
-/-- **The annotated telescope fit** (`TeleFitV`'s `interp2` mirror):
-each argument value inhabits its progressively-peeled domain, the
-peeled body read under the extended environment.  No positivity — the
-squash-regime products fit too, and consumers recover memberships
-through `app_mem_piR` with the validity fibre facts. -/
-inductive TeleFitP (V : Type w) [SetTheory V] :
-    (Nat → V) → AVExpr → List V → V → Prop where
-  | nil {ρ : Nat → V} {T : AVExpr} : TeleFitP V ρ T [] (interp2 V ρ T)
-  | cons {ρ : Nat → V} {u v : Nat} {A B : AVExpr} {a : V}
-      {as : List V} {rest : V} :
-      a ∈ˢ interp2 V ρ A →
-      TeleFitP V (cons a ρ) B as rest →
-      TeleFitP V ρ (.pi u v A B) (a :: as) rest
+/-! ## The instantiated former type is prefix-bound
 
-/-- The projection spines' values: each stored projection function
-applied to the type arguments and the stuck member
-(`projSpinesV`'s value level). -/
-noncomputable def projSpines2 (val : Name → V) (T : Name)
-    (ts : List V) (b : V) (nF : Nat) : List V :=
-  (List.range nF).map fun j =>
-    (ts ++ [b]).foldl SetTheory.app (val (projFnName T j))
+`CapsOkV.cons` needs the same fact one currency over and gets it from
+`Expr.constsResolve_instantiateLevelParams`; the P side needs it as a
+`ConstsBound`, which is that lemma composed with
+`constsBound_of_constsResolve`. -/
 
-/-- The fabricated η spine's values (`etaFabArgsV`'s value level). -/
-noncomputable def etaFabArgs2 (val : Name → V) (T : Name)
-    (ts : List V) (b : V) (nF : Nat) : List V :=
-  ts ++ projSpines2 val T ts b nF
+/-- **A stored constant's level-instantiated type is prefix-bound.**
+Level instantiation does not move constants, so this is the stored
+type's own `constsResolve` read through `ConstsBound`. -/
+theorem constsBound_instType {env : Env} (hwf : Setlec.EnvWF env)
+    {c : ConstantInfo} (hc : c ∈ env.consts) (us : List Level) :
+    ConstsBound env
+      (c.toConstantVal.type.instantiateLevelParams
+        c.toConstantVal.levelParams us) := by
+  obtain ⟨-, -, hty, -⟩ := hwf c hc
+  refine constsBound_of_constsResolve _ ?_
+  rw [Setlec.Expr.constsResolve_instantiateLevelParams]
+  exact hty
 
-/-- **The fired structural-η law of an η-capable stored family**
-(`EtaLawV`'s mirror; see the module docstring for the shape). -/
-def EtaLawP {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS2Core V env) (φ' : Name → Nat) (T : Name)
-    (cvT : ConstantVal) (caps : IndCaps) : Prop :=
-  ∀ us : List Level, us.length = cvT.levelParams.length →
-  ∃ TVa : AVExpr,
-    denoteP m.acval env φ' 0
-      (cvT.type.instantiateLevelParams cvT.levelParams us)
-      = some TVa ∧
-    (∀ ρ : Nat → V, AnnotOkP V ρ TVa) ∧
-    ∀ (ρ : Nat → V) (ts : List V) (rest : V) (x : V),
-      ts.length = caps.etaParams →
-      TeleFitP V ρ TVa ts rest →
-      x ∈ˢ ts.foldl SetTheory.app
-        (interp2 V ρ (m.acval T (Level.substFn φ' cvT.levelParams us))) →
-      x = (etaFabArgs2
+/-! ## The family descent
+
+An extended-environment family whose three stored members are all of
+kinds the cons is not descends verbatim to the prefix, and its three
+name families miss the fresh name. -/
+
+/-- **The stored family descends past a value-kind cons**, together
+with the three disequalities the law's leaf transport needs. -/
+theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
+    {cvT : ConstantVal} {caps : IndCaps}
+    (hnotind : ∀ cv caps, c₀ ≠ .indInfo cv caps)
+    (hnotctor : ∀ cv np nf, c₀ ≠ .ctorInfo cv np nf)
+    (hnotrec : ∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules)
+    (hf : (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps))
+    (hfam : Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps) :
+    env.find? T = some (.indInfo cvT caps) ∧
+      Setlec.EtaFamilyStored env T caps ∧
+      T ≠ c₀.name ∧ caps.etaCtor ≠ c₀.name ∧
+      ∀ j, j < caps.etaFields → projFnName T j ≠ c₀.name := by
+  obtain ⟨hCres, ⟨cvC, hfC⟩, hfP⟩ := hfam
+  -- the former is not the cons: the cons is not an `indInfo`
+  have hnT : T ≠ c₀.name := by
+    rintro rfl
+    rw [Setlec.Env.find?_cons, if_pos rfl] at hf
+    exact hnotind cvT caps (Option.some.inj hf)
+  -- the capability constructor is not the cons: it is a `ctorInfo`
+  have hnC : caps.etaCtor ≠ c₀.name := by
+    intro heq
+    rw [heq, Setlec.Env.find?_cons, if_pos rfl] at hfC
+    exact hnotctor cvC caps.etaParams caps.etaFields
+      (Option.some.inj hfC)
+  -- no projection function is the cons: they are `recInfo`s
+  have hnP : ∀ j, j < caps.etaFields → projFnName T j ≠ c₀.name := by
+    intro j hj heq
+    obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfP j hj
+    rw [heq, Setlec.Env.find?_cons, if_pos rfl] at hf2
+    exact hnotrec cv2 mI2 rP2 rules2 (Option.some.inj hf2)
+  have hdown : ∀ n : Name, n ≠ c₀.name →
+      (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
+    intro n hn
+    rw [Setlec.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
+  refine ⟨by rwa [hdown _ hnT] at hf, ⟨hCres, ⟨cvC, ?_⟩, ?_⟩,
+    hnT, hnC, hnP⟩
+  · rwa [hdown _ hnC] at hfC
+  · intro j hj
+    obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfP j hj
+    rw [hdown _ (hnP j hj)] at hf2
+    exact ⟨cv2, mI2, rP2, rules2, hf2⟩
+
+/-! ## THE CAPS TIER'S NAMED WALL: the unit half's `EtaFamilyStored`
+premise is not consumable
+
+`CapsOkP`'s docstring says the field is "keyed identically" to
+`CapsOkV` (`Sound/Motives.lean:305`).  It is not: the **unit half**
+gained a fourth premise, `EtaFamilyStored env T caps`, that the v1
+field does not have — and neither does `DefEq.structUnit`
+(`Rel.lean:759`) nor the install-side obligation `MemberUnitS`
+(`Install/IndMembersS.lean:67`), both of which key the unit law on
+exactly `find? = indInfo`, `unitlike`, `¬reserved`.
+
+The premise makes the field **unusable by its own consumer**.
+`StructUnitIrrelP`'s only evidence is `structUnitCertP`'s verdict, and
+`structUnitCert_inv` (`Verify/InferLemmas.lean:2305`) yields nine
+facts, *none* of which mentions `caps.etaCtor` or `projFnName T j`:
+the certificate never looks at a constructor or a projection.  Nor is
+the premise derivable from the environment: `EtaFamilyStored` is a
+statement about what is *stored* under two name families that an
+`indInfo` entry's `caps` record merely *names*, and `EnvWF` relates
+the two not at all.  `indBlockCaps` (`Kernel/Modeled.lean:713`)
+computes `eta` and `unitlike` by two independent checks, so a
+`unitlike`-but-not-`eta` family — whose projection indices install as
+elimination *templates* (`projInfo`), not projection functions
+(`recInfo`) — is exactly the shape the premise excludes and the
+certificate accepts.
+
+`etaFamilyStored_not_derivable` below is that gap, mechanized.
+
+**The wall statement.**  `StructUnitIrrelP` is not a consequence of
+the frozen `CapsOkP` plus the claims.  The fix is one deletion — drop
+`Setlec.EtaFamilyStored env T caps →` from `CapsOkP`'s second
+conjunct, restoring `CapsOkV`'s keying — which *strengthens* the
+field (fewer premises = more obligations) and so cannot weaken any
+downstream statement; establishment is unaffected, since `MemberUnitS`
+already discharges the unpremised form.  Per the batch protocol the
+statement is frozen, so the deletion is NOT taken here: the row stays
+in the census, named, for the lane lead. -/
+
+/-- The witnessing capability record: `unitlike` without `eta`, naming
+a constructor that is stored nowhere. -/
+def unitNoFamilyCaps : IndCaps where
+  eta := false
+  etaCtor := Name.anonymous.str "SetlecCapsWall.mk"
+  etaParams := 0
+  etaFields := 0
+  unitlike := true
+  unitParams := 0
+  ruleK := false
+
+/-- The witnessing environment: one non-reserved `unitlike` former
+carrying `unitNoFamilyCaps`. -/
+def unitNoFamilyEnv : Env :=
+  ⟨[.indInfo ⟨Name.anonymous.str "SetlecCapsWall.T", [], .sort .zero⟩
+      unitNoFamilyCaps]⟩
+
+/-- **The wall, mechanized**: a well-formed environment storing a
+non-reserved `unitlike` family for which `EtaFamilyStored` is FALSE.
+Everything `structUnitCert`'s inversion can ever hand a consumer holds
+here, and the frozen `CapsOkP`'s unit half is vacuous. -/
+theorem etaFamilyStored_not_derivable :
+    ∃ (env : Env) (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+      Setlec.EnvWF env ∧
+      env.find? T = some (.indInfo cvT caps) ∧
+      caps.unitlike = true ∧
+      Setlec.reservedBasisNames.contains T = false ∧
+      ¬ Setlec.EtaFamilyStored env T caps := by
+  refine ⟨unitNoFamilyEnv, Name.anonymous.str "SetlecCapsWall.T",
+    ⟨Name.anonymous.str "SetlecCapsWall.T", [], .sort .zero⟩,
+    unitNoFamilyCaps, ?_, by decide, rfl, by decide, ?_⟩
+  · intro c hc
+    rcases List.mem_singleton.mp hc with rfl
+    exact ⟨rfl, rfl, rfl, rfl, by rintro _ _ _ ⟨⟩,
+      by rintro _ _ _ _ ⟨⟩, by rintro _ _ ⟨⟩⟩
+  · rintro ⟨-, ⟨cvC, hfC⟩, -⟩
+    exact nomatch hfC
+
+/-! ## The crossing -/
+
+/-- **`CapsOkP` at a fresh value-kind cons** — every `defnInfo`,
+`thmInfo` and `axiomInfo` harvest discharges its `caps_ok` obligation
+here.  (An `indInfo`/`ctorInfo`/`recInfo` cons may *complete* a family
+and so genuinely owes the law; those installs supply it bespoke —
+`IndStepPB`'s bill.) -/
+theorem capsOkP_cons_fresh (mp : EnvS2PM V μ env)
+    (hprev : CapsOkP mp.base2)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hnotind : ∀ cv caps, c₀ ≠ .indInfo cv caps)
+    (hnotctor : ∀ cv np nf, c₀ ≠ .ctorInfo cv np nf)
+    (hnotrec : ∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules)
+    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
+    CapsOkP m₂ := by
+  constructor
+  · -- the η half
+    intro T cvT caps hf hcape hres hfam φ' us hlen
+    obtain ⟨hfE, hfam₀, hnT, hnC, hnP⟩ :=
+      etaFamilyStored_descend hnotind hnotctor hnotrec hf hfam
+    obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
+      hprev.1 T cvT caps hfE hcape hres hfam₀ φ' us hlen
+    refine ⟨TVa, ?_, hokTVa, ?_⟩
+    · rw [hac]
+      exact denoteP_cons_fresh_mono hfresh _ 0 _
+        (constsBound_instType mp.base2.base.wf
+          (Setlec.SetR.Env.find?_mem hfE) us) hTVa
+    · intro ρ ts rest x hlents hfit hmem
+      rw [hac, acvalWith_ne hnT] at hmem
+      have hfab : etaFabArgs2
             (fun n => interp2 V ρ
-              (m.acval n (Level.substFn φ' cvT.levelParams us)))
-            T ts x caps.etaFields).foldl SetTheory.app
-          (interp2 V ρ
-            (m.acval caps.etaCtor
-              (Level.substFn φ' cvT.levelParams us)))
-
-/-- **The fired unit-like law of a unit-like stored family**
-(`UnitLawV`'s mirror). -/
-def UnitLawP {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS2Core V env) (φ' : Name → Nat) (T : Name)
-    (cvT : ConstantVal) (caps : IndCaps) : Prop :=
-  ∀ us : List Level, us.length = cvT.levelParams.length →
-  ∃ TVa : AVExpr,
-    denoteP m.acval env φ' 0
-      (cvT.type.instantiateLevelParams cvT.levelParams us)
-      = some TVa ∧
-    (∀ ρ : Nat → V, AnnotOkP V ρ TVa) ∧
-    ∀ (ρ : Nat → V) (ts : List V) (rest : V) (x y : V),
-      ts.length = caps.unitParams →
-      TeleFitP V ρ TVa ts rest →
-      x ∈ˢ ts.foldl SetTheory.app
-        (interp2 V ρ (m.acval T (Level.substFn φ' cvT.levelParams us))) →
-      y ∈ˢ ts.foldl SetTheory.app
-        (interp2 V ρ (m.acval T (Level.substFn φ' cvT.levelParams us))) →
-      x = y
-
-/-- **The stored families' capability laws at `interp2`**
-(`CapsOkV`'s mirror, keyed identically; established at the inductive
-install — `IndStepPB`'s bill). -/
-def CapsOkP {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS2Core V env) : Prop :=
-  (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
-    env.find? T = some (.indInfo cvT caps) → caps.eta = true →
-    Setlec.reservedBasisNames.contains T = false →
-    Setlec.EtaFamilyStored env T caps →
-    ∀ φ' : Name → Nat, EtaLawP m φ' T cvT caps) ∧
-  (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
-    env.find? T = some (.indInfo cvT caps) → caps.unitlike = true →
-    Setlec.reservedBasisNames.contains T = false →
-    Setlec.EtaFamilyStored env T caps →
-    ∀ φ' : Name → Nat, UnitLawP m φ' T cvT caps)
+              (m₂.acval n (Level.substFn φ' cvT.levelParams us)))
+            T ts x caps.etaFields
+          = etaFabArgs2
+            (fun n => interp2 V ρ
+              (mp.base2.acval n (Level.substFn φ' cvT.levelParams us)))
+            T ts x caps.etaFields := by
+        unfold etaFabArgs2 projSpines2
+        refine congrArg _ (List.map_congr_left fun j hj => ?_)
+        dsimp only
+        rw [hac, acvalWith_ne (hnP j (List.mem_range.mp hj))]
+      rw [hfab, hac, acvalWith_ne hnC]
+      exact hlaw ρ ts rest x hlents hfit hmem
+  · -- the unit-like half: no fabricated spine, one leaf to move
+    intro T cvT caps hf hcapu hres hfam φ' us hlen
+    obtain ⟨hfE, hfam₀, hnT, -, -⟩ :=
+      etaFamilyStored_descend hnotind hnotctor hnotrec hf hfam
+    obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
+      hprev.2 T cvT caps hfE hcapu hres hfam₀ φ' us hlen
+    refine ⟨TVa, ?_, hokTVa, ?_⟩
+    · rw [hac]
+      exact denoteP_cons_fresh_mono hfresh _ 0 _
+        (constsBound_instType mp.base2.base.wf
+          (Setlec.SetR.Env.find?_mem hfE) us) hTVa
+    · intro ρ ts rest x y hlents hfit hmx hmy
+      rw [hac, acvalWith_ne hnT] at hmx hmy
+      exact hlaw ρ ts rest x y hlents hfit hmx hmy
 
 end Setlec.SetR.Interp2

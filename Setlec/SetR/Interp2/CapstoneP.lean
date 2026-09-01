@@ -34,8 +34,10 @@ harvest layer builds toward them:
 
 `SemTierInputsP` names the remaining bill in ∀-environment form —
 `TierInputsAtP`'s non-env-tier fields *less the literal tier*, which
-landed (`Interp2/NatStepP.lean`); what remains is iota, caps and the
-proj/str install rows.  The harvest layer proves: accepted stream + `SemTierInputsP`
+landed (`Interp2/NatStepP.lean`) and the caps tier all but closed
+(`Step2/CapsRowsP.lean`, `Interp2/CapsP.lean`); what remains is iota,
+the proj/str install rows, and the one named caps residue
+`StructUnitIrrelP`.  The harvest layer proves: accepted stream + `SemTierInputsP`
 ⇒ `Nonempty (EnvS2PM …)` at the final environment; this file's
 `no_constant_of_Empty_P` then closes the capstone.
 -/
@@ -134,12 +136,15 @@ structure SemTierInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
     (fuel : Nat), InferProjStepP m μ φ fuel
   str_lit : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), InferStrLitStepP m μ φ fuel
-  /-- caps tier (`UnitIrrelPQ` is discharged at the claims —
-  `unitIrrelPQ_of_claims`) -/
-  pair_eta : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), PairEtaIrrelP μ m φ fuel
-  struct_eta : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), StructEtaIrrelP μ m φ fuel
+  /-- caps tier, the one row still routed.  Three of the four caps
+  entries left this census with the tier: `UnitIrrelPQ`
+  (`unitIrrelPQ_of_claims`), `PairEtaIrrelP`
+  (`pairEtaIrrelP_of_claims`) and `StructEtaIrrelP`
+  (`structEtaIrrelP_of_claims`, off the `EnvS2PM.caps_ok` field).
+  `StructUnitIrrelP` stays because the frozen `CapsOkP`'s unit half
+  carries an `EtaFamilyStored` premise the certificate never
+  establishes — `etaFamilyStored_not_derivable` mechanizes the gap
+  (`Interp2/CapsP.lean`) -/
   struct_unit : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), StructUnitIrrelP μ m φ fuel
 
@@ -161,8 +166,6 @@ theorem TierInputsAtP.ofSem (hsem : SemTierInputsP V μ)
     (fun fuel => hsem.whnf_proj mp.base2 φ fuel)
     (fun _fuel ihw => reduceNatStepP_of mp ihw)
     (fun _fuel ihw => reduceNatStepPQ_of mp ihw)
-    (fun fuel => hsem.pair_eta mp.base2 φ fuel)
-    (fun fuel => hsem.struct_eta mp.base2 φ fuel)
     (fun fuel => hsem.struct_unit mp.base2 φ fuel)
 
 end Setlec.SetR.Interp2

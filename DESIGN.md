@@ -11514,13 +11514,17 @@ validated-annotation (P) lane after batches 1-7 + the lead's seals.
 | `ConstType2C` (routed) | DERIVED: `EnvS2PM.constTypeP` |
 | `ReduceNatStep2` (routed; `EnvLaws2` records it as blocked on absent environment laws) | DISCHARGED: `reduceNatStepP_of`/`PQ_of` — the laws built at `interp2` from run certificates (`EnvS2PM.nat_ops`/`div_mod`), never transported |
 | `ReduceNatReadsP` (literal tier) | DISCHARGED: `reduceNatReadsP_of`, premise-free |
+| `ProofIrrel2D`'s unit-like branch (routed) | PROVED: `unitIrrelPQ_of_claims` — the pinned `PUnit` at the claims (caps tier) |
+| `PairEtaCertStepR` / `PairEtaIrrelP` (routed in BOTH lanes) | PROVED: `pairEtaIrrelP_of_claims` — pinned leaves by erasure injectivity, `psigmaEta_law2`, and **no regime case split** (v1 needs one: `psigmaMkV` carries a collapse tag, `psigmaMkV2` does not) |
+| `StructEtaCertStepR` / `StructEtaIrrelP` (routed in BOTH lanes) | PROVED: `structEtaIrrelP_of_claims` — v1's two files fused, and v1's `choose_fun` (the campaign's only use of choice) has no counterpart: it existed to inhabit `DefEq.structEta`'s function-valued quantifiers, and that rule is gone |
+| `StructUnitCertStepR` / `StructUnitIrrelP` | STILL ROUTED, and NAMED: the frozen `CapsOkP`'s unit half carries an `EtaFamilyStored` premise `CapsOkV` does not, which `structUnitCert` never establishes (`etaFamilyStored_not_derivable`) |
 
 **Still routed in P, by discharge tier** (the literal tier is CLOSED —
-seal III):
+seal III; the caps tier is all but closed — the caps seal):
 install (`InferStrLitStepP`, `InferProjStepP`, proj-reads pair);
 iota (`IotaStepP`, `IotaReadsP`);
-caps/structure (`UnitIrrelPQ`, `PairEtaIrrelP`, `StructEtaIrrelP`,
-`StructUnitIrrelP`).
+caps/structure (`StructUnitIrrelP` alone, and blocked on a *statement*
+defect rather than on content — see the caps seal).
 These are the P capstone's remaining bill — every one names semantic
 content the canonical lane also never built (it froze earlier, on the
 sort-stability family), so the table above is the design's measured
@@ -11829,13 +11833,13 @@ recorded divergences):
    `eq_lawP`.  The only residue is `eq_lawP`'s *establishment*, which
    is `BasisStepPB`'s (see the seal for why nothing else can supply
    it).
-3. **caps tier** (NEXT): `UnitIrrelPQ`, `PairEtaIrrelP`,
-   `StructEtaIrrelP`,
-   `StructUnitIrrelP` (v1 mirrors: `Sound/Struct.lean`,
-   `Sound/Irrel.lean`, the capability pipeline `CapsOkV` — at
-   interp2 the unit-like collapse is `mem_univ_zero`-adjacent; the
-   pair/struct η laws ride `sigmaSet`/`sfst`/`ssnd` in
-   `SetTheory/Derive/Sigma.lean` + `Interp2/Ops.lean`).
+3. **caps tier** — **DONE but for one named row** (the caps seal).
+   `UnitIrrelPQ`, `PairEtaIrrelP` and `StructEtaIrrelP` are
+   discharged and removed from `SemTierInputsP`/`TierInputsAtP`;
+   `EnvS2PM` gained `caps_ok : CapsOkP base2`, routed to
+   `IndStepPB` for establishment.  `StructUnitIrrelP` remains,
+   blocked on the frozen `UnitLawP`'s superfluous `EtaFamilyStored`
+   premise — one deletion by the lane lead unblocks it.
 4. **proj/str install tier**: `InferStrLitStepP`, `InferProjStepP`,
    `ProjStepP`, `WhnfCoreProjReadsP`, `InferProjReadsP` (v1 mirrors:
    `Bridge/Proj.lean`, `Bridge/ProjRed.lean`, `Sound/Proj.lean`,
@@ -11885,9 +11889,17 @@ UNDEMANDED so far — watch inside the semantic tiers.
 
 ### Resume-here
 
-Next action at this record (updated at seal III): the **caps tier**.
-`UnitIrrelPQ`, `PairEtaIrrelP`, `StructEtaIrrelP`, `StructUnitIrrelP`.
-Take the literal tier's shape as the template — it is now the worked
+Next action at this record (updated at the CAPS TIER seal): the
+**proj/str install tier** — `InferStrLitStepP`, `InferProjStepP`,
+`ProjStepP`, `WhnfCoreProjReadsP`, `InferProjReadsP`, plus
+`AxiomStepPB`/`BasisStepPB` (bundle 4 below).  Before that, one
+five-second lead action: delete `Setlec.EtaFamilyStored env T caps →`
+from `CapsOkP`'s second conjunct (`Annot/EnvS2P.lean`), which
+*strengthens* the field and lets `StructUnitIrrelP` fall exactly as
+`StructEtaIrrelP` did — the row's proof is `structEtaIrrelP_of_claims`
+minus the fabricated spine.  See the caps seal for the countermodel.
+
+The older template note, still binding: take the literal tier's shape — it is now the worked
 precedent for *both* establishment species:
 
 * an operation-family law that no landed field supplies is built from
@@ -12427,6 +12439,129 @@ true-zeroness data (consumers compute bits on pins by `decide`);
 `interp2`/`AnnotOk2` reads *other than* through the run-validated
 bits — the docstring's rule, kept under the P reading.
 
+## Task #161 CAPS TIER seal: three of four rows down, one statement defect NAMED (2026-09-01)
+
+**The structure-capability tier is complete except for one row, and
+that row is blocked on a statement, not on content.**
+
+### What landed
+
+1. **The field rides the fold.**  `EnvS2PM` gains
+   `caps_ok : CapsOkP base2`.  The frozen statements
+   (`TeleFitP`, `projSpines2`/`etaFabArgs2`, `EtaLawP`, `UnitLawP`,
+   `CapsOkP`) moved from `Interp2/CapsP.lean` into
+   `Annot/EnvS2P.lean` beside `NatOpsP`/`DivModP`/`EqLawP` — the field
+   must mention them and `CapsP` imports `EnvS2P`, so the import
+   direction forced the move.  Statements unchanged; only
+   `projSpines2`/`etaFabArgs2` gained explicit `{V} [SetTheory V]`
+   binders so their signatures survive the new file's *explicit*
+   section variable.  `EnvS2PM.empty` discharges the field vacuously;
+   `declStepPM_of_cons` takes it in the established explicit-core
+   style, appended after `heq_law`.
+   `Interp2/CapsP.lean` is now the *preservation* file:
+   `constsBound_instType`, `etaFamilyStored_descend` and
+   `capsOkP_cons_fresh`.  The head case is not a case — a
+   defn/thm/axiom cons can complete no family, so all three
+   disequalities are `ConstantInfo.noConfusion`, simpler than
+   `natOpsP_cons_fresh`'s disjunctive premise.
+2. **`PairEtaIrrelP`, outright** (`pairEtaIrrelP_of_claims`).  No
+   environment field is consulted: the pair is pinned.  Two named laws
+   were added on the way, `SetTheory/` untouched:
+   `app_lamR_of_not_mem` (`Interp2/Ops.lean`) and `mem_psigmaV2_app`
+   (`Interp2/Value.lean`, `mem_psigmaV_app`'s mirror).
+3. **`StructEtaIrrelP`, from the field** (`structEtaIrrelP_of_claims`),
+   taking `ConstTypeP` and `AcvalValidP` beside `CapsOkP` — both
+   already `TierInputsAtP` entries — because the projection functions'
+   stored types must read and grade, which `EnvS2Core` alone cannot
+   supply.
+4. **The census.**  `SemTierInputsP` and `TierInputsAtP` lose
+   `pair_eta` and `struct_eta`; `TierInputsAtP` gains `caps_ok`,
+   supplied by `ofEnvS2PM`.  `SemTierInputsP` is now
+   accepted_reads + iota_reads + iota + the five proj/str rows +
+   `struct_unit`.
+
+### FINDING 1 — the two fits are not the same shape, and it costs a metatheorem
+
+`certs_teleR` turns an `iotaCerts` run into a `Tele` with **no
+substitution lemma at all**, because `TeleFitV` is *syntactic*: its
+cons peels `.pi A B` to `B.inst a`, exactly as `iotaCerts` peels
+`.forallE _ ty body` to `body.instantiate1 arg`.  The two walks step
+in lockstep.
+
+The frozen `TeleFitP` is *semantic* — its cons peels to `B` under
+`cons a ρ` — so the P walk lands on the reading of
+`body.instantiate1 arg`, which is `bodya.inst aa`, and must recover
+`bodya` under `cons`.  That is a substitution metatheorem, and **it is
+false unguarded**: at `bodya = .bvar 0` the instantiated reading is
+`aa` itself, which may be a `.pi` when `bodya` is not, and the
+checker's walk happily continues into it (`ty = ∀ (X : Sort 1), X`
+certified against `[∀ y : A, B, arg]`).  `teleFitP_bvar_stuck`
+mechanizes the gap.
+
+The guard that closes it is `PiChainP n Ta` — the reading's first `n`
+heads are `.pi` — and the certificate *supplies* it: `stripPis n`
+succeeding IS the guard (`piChainP_of_stripPis`).  So the frozen
+statement is usable and no statement changed; the price is
+`teleFitP_of_inst`, an un-instantiation metatheorem with no v1
+counterpart.  **Recorded as a finding, not a wall.**
+
+Two further consequences of the grading tax, both new:
+`annotOkP_mkAppN_of_fit` (a fit plus the *type's* grading yields the
+applied spine's grading and its residual membership, one
+`app_mem_piR` per argument whose `v = 0` fibre premise is
+`AnnotValidV_pi`'s third clause — the `CapsP` docstring's prediction
+made good), and the completion of the spine kit
+(`DenoteSpineP.take`/`.drop`/`.append`/`.map_list`, `denoteP_mkAppN`).
+
+### FINDING 2 — THE NAMED WALL: `UnitLawP`'s fourth premise
+
+`CapsOkP`'s docstring says the field is "keyed identically" to
+`CapsOkV`.  **It is not.**  The unit half gained a fourth premise,
+`EtaFamilyStored env T caps`, which `CapsOkV`
+(`Sound/Motives.lean:305`), `DefEq.structUnit` (`Rel.lean:759`) and
+the install-side obligation `MemberUnitS`
+(`Install/IndMembersS.lean:67`) all lack.
+
+The premise makes the field **unusable by its own consumer**.
+`structUnitCert_inv` yields nine facts and not one of them mentions
+`caps.etaCtor` or `projFnName T j` — the certificate never looks at a
+constructor or a projection.  Nor does the environment supply it:
+`indBlockCaps` (`Kernel/Modeled.lean:713`) computes `eta` and
+`unitlike` by two independent checks, and `EnvWF` relates an
+`indInfo`'s capability record to what is stored under the names it
+mentions not at all.  `Kernel/Modeled.lean:749` says so in as many
+words: "`unitlike` does not need it".
+
+`etaFamilyStored_not_derivable` (`Interp2/CapsP.lean`) mechanizes the
+gap: a well-formed environment (`unitNoFamilyEnv`) storing a
+non-reserved `unitlike` family for which `EtaFamilyStored` is FALSE.
+Everything `structUnitCert`'s inversion can hand a consumer holds
+there, and the frozen law is vacuous exactly there.
+
+**The fix is one deletion** — drop `Setlec.EtaFamilyStored env T caps →`
+from `CapsOkP`'s second conjunct.  It *strengthens* the field (fewer
+premises = more obligations), so no downstream statement weakens, and
+establishment is untouched because `MemberUnitS` already discharges
+the unpremised form.  The batch protocol freezes the statement, so the
+deletion was NOT taken: the row stays in the census, named, for the
+lane lead.  Once taken, `StructUnitIrrelP` is
+`structEtaIrrelP_of_claims` minus the fabricated spine — the
+membership half of the same argument.
+
+### The measurement
+
+The caps tier is the second data point for the frontier table's thesis
+and it points the same way as the literal tier's.  v1 spends two files
+and a `Classical.choose` per field index on the η certificate
+(`Bridge/EtaCerts.lean` + `Sound/Struct.lean`, with `choose_fun` the
+campaign's only use of choice); the P row is one theorem and no choice
+at all, because the relational way-station whose function-valued
+quantifiers demanded the choice is gone.  What the P currency charges
+instead is *grading*: the fabricated projection spine must be
+`AnnotOkP`, which is why the per-field telescopes survive the
+transposition at all.  Again: the annotations' cost is the
+annotations' payoff.
+
 ## Task #161 DE-GATING ENUMERATION (started 2026-09-01, per user directive)
 
 The phase after the capstone: harvest runtime checks whose licensing
@@ -12444,6 +12579,11 @@ removal when the harvest runs; nothing is removed before the capstone.
 | #141's non-app certificate tax family (14–16×, annotate-side) | certificate checks on non-app nodes during annotate | candidates once the P tiers seal: the validated `pw` + P-tier soundness derive the licensing facts the certs re-check; enumerate per-site when the caps/iota tiers touch them | the named 14–16× family |
 | #71's possibly-Prop-by-inference gates (iota certs) | Prop-ness re-inference behind iota certificates | the iota tier's `RecRulesP` + validated `pw` (the bit IS the Prop-ness datum, validated at the front door) | iota-heavy streams |
 | #109's pt-freshness gates | freshness scans licensing infer_only | P-tier soundness at the validated reading (the set model proves the real checker incl. infer_only via #109 pt-freshness — the gate's fact becomes a theorem) | per-decl scans |
+
+| `pairEtaCertP`'s four per-defeq certificate runs (`Kernel/Core.lean:840+`, every `stuckIrrel` pair attempt) | four `isDefEqCore` runs per attempt, on a subject the cascade has already failed five other ways | the pinned-basis facts `pairEtaIrrelP_of_claims` runs on: the pair's value is fixed by the basis install (`mem_psigmaV2_app` + `psigmaEta_law2`), so what the four runs establish is a *consequence* of the type's shape rather than independent evidence — a shape test could replace the two type-argument runs | per-attempt constant factor in the stuck cascade |
+| `structEtaCertP`'s `defEqList` pair + `structEtaProjCerts` walk (`Kernel/Core.lean:920+`) | two argument-list defeq walks plus one `iotaCerts` telescope run *per field* | `CapsOkP`'s stored η law: the fabricated spine's identity with the constructor's arguments is what the law asserts, so the projection walk's role is reduced to *grading* (`annotOkP_mkAppN_of_fit`) — a `ConstTypeP`-backed grading fact would license dropping the per-field `iotaCerts` runs, keeping only the two `defEqList`s | per-η-hit, scales with field count |
+| `structUnitCertP`'s certificate run (`Kernel/Core.lean:999+`) | infer + whnf both sides, one `isDefEqCore` between the reducts, one `iotaCerts` telescope run | `UnitLawP` (once its superfluous `EtaFamilyStored` premise is dropped — the caps seal): the law needs only the two memberships, so the telescope run is licensed away by the same `TeleFitP` the law already carries | per-unit-hit |
+| `isUnitLikeTy`'s per-call scan (`Kernel/Core.lean:149`, both `proofIrrel` arms) | a reserved-recursor + capability shape scan on every `whnf`'d inferred type reaching proof irrelevance | `unitLike_eq_punit` at the pinned basis: among the pins only `PUnit` passes, which `unitIrrelPQ_of_claims` already uses — so the scan can downgrade to a single pinned-name test | per proof-irrelevance attempt; hot on Prop-heavy streams |
 
 Entries accrete as tier work touches sites; the harvest begins the day
 the capstone seals.

@@ -1,5 +1,5 @@
 import Setlec.SetR.Interp2.Step2.ReadsP
-import Setlec.SetR.Interp2.Step2.StuckP
+import Setlec.SetR.Interp2.Step2.CapsRowsP
 
 /-!
 # The tiers assembly (task #161, P4): one env-fixed bundle, one induction
@@ -63,11 +63,17 @@ structure TierInputsAtP (V : Type w) [SetTheory V] (μ : CheckMode)
   nat_step : ∀ fuel, WhnfClaims2P μ m φ fuel → ReduceNatStepP μ m φ fuel
   nat_stepQ : ∀ fuel,
     WhnfClaims2P μ m φ fuel → ReduceNatStepPQ μ m φ fuel
-  /-- caps tier: the three structure-capability fallbacks
-  (`UnitIrrelPQ` is discharged — `unitIrrelPQ_of_claims`, the pinned
-  `PUnit` at the claims) -/
-  pair_eta : ∀ fuel, PairEtaIrrelP μ m φ fuel
-  struct_eta : ∀ fuel, StructEtaIrrelP μ m φ fuel
+  /-- caps tier: the stored families' fired capability laws — an
+  `EnvS2PM` field (`caps_ok`), which is what discharges the stored
+  structure's η fallback (`structEtaIrrelP_of_claims`) -/
+  caps_ok : CapsOkP m
+  /-- caps tier, the one row still routed: a stored unit-like family's
+  collapse.  `UnitIrrelPQ` and `PairEtaIrrelP` are discharged at the
+  claims (`unitIrrelPQ_of_claims`, `pairEtaIrrelP_of_claims`) and
+  `StructEtaIrrelP` from `caps_ok`; `StructUnitIrrelP` cannot be —
+  the frozen `CapsOkP`'s unit half is guarded by `EtaFamilyStored`,
+  which `structUnitCert` never establishes
+  (`etaFamilyStored_not_derivable`, `Interp2/CapsP.lean`) -/
   struct_unit : ∀ fuel, StructUnitIrrelP μ m φ fuel
 
 /-- **The P soundness ladder at one environment**, with every
@@ -115,7 +121,10 @@ theorem checkSoundAtP (hμ : μ.verified = true)
       have hsi : StuckIrrelPQ μ m φ fuel :=
         stuckIrrelP_of_claims ihw ihi hreads
           (unitIrrelPQ_of_claims ihw ihi hreads hwreads)
-          (h.pair_eta fuel) (h.struct_eta fuel) (h.struct_unit fuel)
+          (pairEtaIrrelP_of_claims ihw ihd ihi hreads hwreads)
+          (structEtaIrrelP_of_claims h.caps_ok h.reads.const_ty
+            h.acval_valid ihw ihd ihi hreads hwreads)
+          (h.struct_unit fuel)
       have hstep : DefEqStepAtP μ m φ fuel :=
         defeqStep_claimP (whnfCoreReductExistsP_of' h.reads) ihwc
           (denotePDeltaP_of h.reads) (h.nat_stepQ fuel ihw)
@@ -182,8 +191,6 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
     (hnatQ : ∀ fuel,
       WhnfClaims2P μ mp.base2 φ fuel →
         ReduceNatStepPQ μ mp.base2 φ fuel)
-    (hpair : ∀ fuel, PairEtaIrrelP μ mp.base2 φ fuel)
-    (hseta : ∀ fuel, StructEtaIrrelP μ mp.base2 φ fuel)
     (hsunit : ∀ fuel, StructUnitIrrelP μ mp.base2 φ fuel) :
     TierInputsAtP V μ mp.base2 φ where
   reads := ReadsInputsP.ofEnvS2PM mp hiota_r hwproj_r hiproj_r hnat_r
@@ -195,8 +202,7 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
   whnf_proj := hwproj
   nat_step := hnat
   nat_stepQ := hnatQ
-  pair_eta := hpair
-  struct_eta := hseta
+  caps_ok := mp.caps_ok
   struct_unit := hsunit
 
 end Setlec.SetR.Interp2
