@@ -11424,3 +11424,45 @@ by the declaration fold; `no_proof_of_Empty_P` reads `mem_typeP` at
 the `Empty` pin (`Interp2/EmptyPin2.lean`) — the collapse-free model
 consuming the validated annotations, which is the task's goal
 statement.
+
+## Task #161 P3.6 SEAL: the quarter campaign lands — `checkSoundP_of_inputs` (2026-09-01)
+
+**The four P-tier soundness claims hold at every fuel** —
+`checkSoundP_of_inputs` (`Step2/AssemblyP.lean`), proved, standard
+axioms — over the validated-annotation reading, at a validating mode,
+conditional on three routed input bundles (`WhnfInputsP`,
+`DefEqInputsP`, `InferInputsP`).
+
+**The campaign in numbers**: three concurrent serial Opus batches
+(infer completion 11/11 clauses; the whnf/whnfCore quarters, 886
+lines; the defeq quarter, 1233 lines), zero skips, zero walls, zero
+kept-against-plan premises; every deviation was a *discharge* the
+canonical lane could not afford (`deltaP_of` outright,
+`Denote2Inst1B` retired, `acval_inst_self` in-file — deduplicated to
+`OkPTransport` at the merge — the app clause needing neither
+`SortSemP` nor the mode).
+
+**Where the canonical frontier stood vs. where the P frontier
+stands**: `Capstone2E`'s fifteen residues included the whole Θ-frozen
+sort-stability family; the P bundles contain NONE of it.  What
+remains: (a) install-tier obligations (`ConstTypeP`, `AcvalValidP`,
+`AcvalDefnInstP`, `NatHeads2`, `SortSemP`, str/proj/iota/nat clause
+residues) — the `EnvS2PM` seal's bill, per the P4 design note; (b)
+the totality factors (`denoteP` successes the dual-success shape
+cannot produce) — heavily overlapping, target of one consolidation
+seal; `denoteP` fails only out of fragment and checker outputs stay
+in fragment, and the fuel mechanism behind the canonical lane's
+existence refutations is gone.
+
+**Findings recorded by the batches**, all accepted at review: the
+defeq extraction's `hμ` is load-bearing (at an unverified mode the
+arm check passes vacuously — the theorem is *correctly* impossible
+there); `AnnotValidV_inst`'s premise is validity of the substituted
+term (the predicates are genuinely independent); the `AVExpr` leaf
+invariances split into a lift/inst pair; dual success charges the
+threading clauses totality residues (`InferReadsP`/`WhnfReadsP`).
+
+**Next**: the `EnvS2PM` install tier (discharges bundle (a),
+establishes `AcvalValidP` from the front door, folds the owed `EnvWF`
+records where demanded), the totality consolidation seal (bundle
+(b)), then the capstone `no_proof_of_Empty_P`.
