@@ -2,8 +2,8 @@ import Setlec.SetR.Annot.EnvS2P
 
 /-!
 # The fired modeled-iota contract at `interp2` — statements (task
-#161, iota tier; DRAFT-FROZEN by the lane lead, consumer validation
-pending)
+#161, iota tier; FROZEN by the lane lead after the consumer
+validation pass)
 
 `RecRuleLawV`/`RecRulesV`'s mirror (`Sound/Motives.lean:145/207`) at
 the validated-annotation currency.  This is the campaign's long pole;

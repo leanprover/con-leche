@@ -12810,3 +12810,42 @@ ill-typed constructor spine inhabits the sigma set exactly as a
 well-typed one does — the model cannot distinguish them, so the
 runtime certificate is load-bearing.  Recorded here so the harvest
 phase never re-litigates it.
+
+## Task #161 IOTA statements FROZEN after consumer validation (2026-09-01)
+
+`RecRuleLawP`/`RecRulesP`/`TeleFitPA`/`IotaIndexPinP`
+(`Interp2/IotaLawP.lean`) are frozen.  The validation pass walked
+every premise of the v1 consumer (`Bridge/Iota.lean`'s `iota_stepR`,
+including its `sndRedIota` hand-off) against the draft and the landed
+P machinery; it caught and fixed ONE defect (the cons-environment
+`TeleFitPA` — its residual diverged from the substituted readings the
+certificate runs compare; substitution-peeling at argument READINGS
+restores v1's shape exactly, `denoteP_beta` supplying the residual
+identity).  Every consumption segment now has either landed machinery
+or a v1-anchored mirror:
+
+* NEW metatheorems owed (batch): `denoteP_openRev`(+`_base`) — the
+  `denote_openRev` pair's mirror (`Verify/Denote/OpenRevDenote.lean`),
+  mechanical because `denoteP`'s recursion parallels `denote`'s and
+  its `fvar` clause ignores the fabricated annotation;
+  `teleFitPA_residual` — `Tele.residual`'s mirror by induction with
+  `denoteP_beta`.
+* Walks owed: `certs_telePA` (`certs_teleR`'s mirror; memberships from
+  `ihi`/`ihd`, recursion through `denoteP_beta` — inherited species);
+  the `majorToCtor`/`litMajorToCtor` block (`ihw`-driven, the literal
+  leg riding the closed literal tier's `natLitP` kit).
+* `RecRulesP` becomes an `EnvS2PM` field: preservation at value-kind
+  conses uses the EQUALITY-form crossing `denoteP_cons_fresh` — legal
+  here because the noConfusion pair (the `natHeadsP_cons_fresh`
+  construction) gives `LitGuardsAgree` at every value-kind cons, so
+  the law's reading PREMISES (`TVa`/`TVja`) transfer backward safely;
+  the `∃ Ra` transfers forward as usual.  Establishment stays
+  `IndStepPB`'s bill (Prop-motive minors conjecture standing).
+
+Resume-here: the iota BATCH (rows `IotaStepP`/`IotaReadsP` + the
+field + preservation + census shrink to `accepted_reads` alone),
+stop-and-name standing; then the three whole-kind bundles
+(`AxiomStepPB` pin tier, `BasisStepPB` basis tier incl. `eq_lawP`,
+`IndStepPB` ind tier incl. `caps_ok` + `RecRulesP` establishment +
+the Prop-motive minors), `accepted_reads`, and the final assembly
+into the unconditional `no_proof_of_Empty_P`.
