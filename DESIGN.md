@@ -14246,6 +14246,21 @@ where a regime bit is *chosen*.  Any future site wanting to choose
 one cites this entry and gets its own review — chosen bits must never
 become a habit.
 
+**RETIRED UNUSED (endgame E, ratified).**  The license was never
+spent: every hand-built tower sits at a constant whose *type* is also
+stored, and `mem_typeP` forces the tower into that type's reading —
+the regime split has disjoint inhabitants (`bit_forced_pos`: a graph
+is never `pt`; `bit_forced_zero` its complement), so the bits are
+READ OFF THE TYPE PINS after all.  `Eq`: forced nonzero (the ratified
+choice, arrived at by force).  `Eq.refl`: forced ZERO — inverting
+this entry's counterfactual; nonzero is what would break *that* law.
+`Eq.rec`: tracking `ψ u_1`.  The fence stands, now guarding a freedom
+that provably does not exist — the strongest possible fence.
+
+**Discipline ledger** (endgame E's entry, ratified): a ratified
+license is also a CLAIM — check whether the freedom still exists
+before spending it.
+
 ## Task #161 frontier narrative: the doctrine's cleanest instance (2026-09-02)
 
 `ReduceOpsP`'s establishment (endgame D, the run-certificate species'
@@ -14255,6 +14270,14 @@ fifth execution) read **no bit anywhere**: all three gradings
 clause).  Five establishments in, the "bits never from a metatheorem"
 doctrine has not merely held — at its cleanest it was never even
 approached.
+
+**THE DOCTRINE, TOTAL (endgame E; the frontier narrative's headline):
+NOT ONE BIT IN THE CAMPAIGN IS CHOSEN.**  After six establishments
+and the hand-built basis towers, every regime bit in the model is
+read off a pin, read off a recorded run, or forced by the model's own
+regime disjointness (`bit_forced_pos`/`bit_forced_zero`).  The
+chosen-bit license — the one ratified exception — was refuted as
+unnecessary before it was ever spent.
 
 ## Task #161 ENDGAME E: the `Eq` wall is not a wall, and the chosen-bit license is not needed (2026-09-02)
 
