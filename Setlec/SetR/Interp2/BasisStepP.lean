@@ -137,4 +137,68 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
   · -- `reduce_ops`
     exact reduceOpsP_cons_fresh mp.reduce_ops hfresh hred _ rfl
 
+/-- **The P step at a basis *recursor* cons** — `declStepPM_of_basis_cons`
+with its `hnotrec` premise traded for the row itself.  Six of the seven
+collapsed rows still collapse; only `rec_rules` becomes bespoke, which
+is exactly what the ENDGAME F seal's §3 established for all six basis
+recursors (`Empty.rec` alone has no rules and so goes through the
+`hnotrec` route).
+
+The row is taken in `natHeadsP_cons_offNat`'s shape — quantified over
+any carrier whose base and `acval` are the extension's — so a caller
+never has to spell `declStepPM_of_cons`'s anonymous-constructor
+carrier. -/
+theorem declStepPM_of_basis_rec_cons (mp : EnvS2PM V μ env)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
+    (hnotthm : ∀ cv v, c₀ ≠ .thmInfo cv v)
+    (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
+    (hnS : c₀.name ≠ natSuccName) (hnEq : eqName ≠ c₀.name)
+    (hres : Setlec.reservedBasisNames.contains c₀.name = true)
+    (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
+      c₀.name ∉ Setlec.reduceOpNames)
+    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
+    (hag : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n)
+    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
+    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
+    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
+      A ψ₁ = A ψ₂)
+    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ))
+    (hAvalid : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      AnnotValidV V ρ (A ψ))
+    (htyReads : ∀ ψ : Name → Nat,
+      ∃ ta : AVExpr,
+        denoteP (acvalWith mp.base2.acval c₀.name A)
+          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta)
+    (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
+      denoteP (acvalWith mp.base2.acval c₀.name A)
+          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+      ∀ ρ : Nat → V, AnnotOkP V ρ ta)
+    (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
+      denoteP (acvalWith mp.base2.acval c₀.name A)
+          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
+    (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+      m₂.acval = acvalWith mp.base2.acval c₀.name A →
+      ∀ φ : Name → Nat, RecRulesP m₂ φ) :
+    Nonempty (EnvS2PM V μ ⟨c₀ :: env.consts⟩) := by
+  refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hbase hag
+    hAerase hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+  · intro _ψ cv2 value2 hmem
+    rcases hmem with ⟨hint2, hdt⟩ | hdt
+    · exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
+    · exact absurd hdt.symm (hnotthm cv2 value2)
+  · exact fun φ => natHeadsP_cons_offNat mp hnN hnZ hnS _ rfl φ
+  · exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ) hfresh
+      (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
+  · exact fun φ => divModP_cons_fresh (mp.div_mod φ) hfresh
+      (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
+  · exact eqLawP_cons_fresh mp.eq_lawP hnEq _ rfl
+  · exact capsOkP_cons_basis mp mp.caps_ok hfresh hres _ rfl
+  · exact fun φ => hrec _ rfl φ
+  · exact reduceOpsP_cons_fresh mp.reduce_ops hfresh hred _ rfl
+
 end Setlec.SetR.Interp2

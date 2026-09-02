@@ -108,10 +108,47 @@ theorem pwBit_never (ψ : Name → Nat) :
     pwBit ψ Setlec.PropWhen.never = 1 := rfl
 
 /-- `pwBit` at a one-parameter `.ifAllZero` pin: zero exactly when the
-parameter is.  This single iff is what every basis binder's
-`BitAgree` obligation reduces to. -/
+parameter is.  One of the *three* shapes every basis binder reduces to
+— see `pwBit_ifAllZero_nil`/`pwBit_ifAllZero_pair` for the other two. -/
 theorem pwBit_ifAllZero_single (ψ : Name → Nat) (n : Name) :
     pwBit ψ (Setlec.PropWhen.ifAllZero [n]) = 0 ↔ ψ n = 0 := by
+  rw [pwBit_eq_zero_iff]
+  simp [Setlec.PropWhen.holds]
+
+/-! ### STOP-AND-NAME: two `pwBit` shapes, not one (ENDGAME G)
+
+The ENDGAME F resume-here's item 1 grants a freedom — "the two `pwBit`
+lemmas cover every binder" — and the discipline ledger's rule is that a
+recorded freedom is a claim.  Re-checked by `#eval` over
+`BasisKind.declsA`'s stored `PropWhen`s, and **it is false**: the
+twenty remaining readings carry *three* pin shapes, not two.
+
+| shape | where | `pwBit` |
+|---|---|---|
+| `.never` | everywhere | `1` (`pwBit_never`) |
+| `.ifAllZero [p]` | `Nat.rec`, `PUnit.rec`, `Empty.rec`, `Eq.rec`, `Quot.mk`, `Quot.lift` | `0 ↔ ψ p = 0` |
+| **`.ifAllZero []`** | `Eq.refl`, `PSigma'.rec`, `Quot.lift`, `Quot.ind`, `Quot.sound` | **`0`, unconditionally** |
+| **`.ifAllZero [u, v]`** | `PSigma'.mk` | **`0 ↔ ψ u = 0 ∧ ψ v = 0`** |
+
+Neither missing shape is a wall — both are one-liners below — but the
+freedom was granted unchecked and the ledger's dual entries are why it
+cost an `#eval` rather than a walled block.  F retired E's granted
+vacuity the same way; this is the third such retirement running. -/
+
+/-- `pwBit` at the *empty* `.ifAllZero` pin: zero unconditionally,
+because `[].all _` is `true`.  The pin the `Prop`-valued basis
+constants carry (`Eq.refl`, `PSigma'.rec`, `Quot.ind`, `Quot.sound`,
+and `Quot.lift`'s invariance binder). -/
+theorem pwBit_ifAllZero_nil (ψ : Name → Nat) :
+    pwBit ψ (Setlec.PropWhen.ifAllZero []) = 0 := by
+  rw [pwBit_eq_zero_iff]
+  simp [Setlec.PropWhen.holds]
+
+/-- `pwBit` at a two-parameter `.ifAllZero` pin: zero exactly when
+*both* parameters are.  `PSigma'.mk`'s pin, and the basis tier's only
+instance. -/
+theorem pwBit_ifAllZero_pair (ψ : Name → Nat) (n m : Name) :
+    pwBit ψ (Setlec.PropWhen.ifAllZero [n, m]) = 0 ↔ (ψ n = 0 ∧ ψ m = 0) := by
   rw [pwBit_eq_zero_iff]
   simp [Setlec.PropWhen.holds]
 
