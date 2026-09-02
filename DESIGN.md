@@ -15131,3 +15131,26 @@ the wall direction: **E retired a ratified licence, F a granted
 vacuity, G a granted coverage — and G additionally retired a recorded
 friction (`Quot.lift`) that two seals had inherited without checking.**
 Each retirement cost one `#eval` or two lines.
+
+## Task #161 record notes at the G merge (2026-09-02; coordinator-ratified)
+
+**Frontier narrative — the API discipline paying**: `denoteP_instLevels`
+(`Interp2/LevelsP.lean`) is UNCONDITIONAL where the denote2 tier's
+level crossing carried an open-metatheorem premise — `denoteP` runs no
+checker, so the crossing is algebra.  `pwBit_substPW`'s docstring had
+named this consumer in advance; the named-API discipline meant the
+lemma was waiting where the tier needed it.
+
+**Discipline ledger — the streak**: THREE consecutive recorded
+freedoms retired by one `#eval` each (E: the chosen-bit license — the
+bits were forced; F: the granted `.inert` vacuity — the annotated
+pins fire `.plain`; G: the two-shape `pwBit` coverage — three shapes,
+`.ifAllZero []` at five constants and `.ifAllZero [u, v]` at
+`PSigma'.mk`).  The dual-claims insurance is now a standing practice:
+every inherited claim of freedom or coverage is re-checked before it
+is spent.
+
+**Carried trap** (G's, for every successor): absorb
+lift-then-instantiate BEFORE unfolding `cons` — with `cons` in the
+same simp set the pattern stops matching and simp silently changes
+nothing.
