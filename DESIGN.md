@@ -13621,3 +13621,45 @@ literal-tier's refuted erasure factoring and the proj tier's
 sought-and-failed rigidity shortcut, now observed at the pin tier.
 The route to the memberships is written in the ENDGAME B seal; its
 one residue closes on `univ_mono`.
+
+## Task #161 SUCCESSION RECORD update (endgame C in flight, 2026-09-02)
+
+Lane `agent/annot-v2` @ b04780e7 (endgameB merged; battery green:
+build 403 warning-free, test 139, arena 90/92 + 72/72 + 13/13 +
+11/11 + 9/9, no-model 138+72+13 with 3 divergences; axioms exactly
+the standard three on the capstone).  ALL FOUR SEMANTIC TIERS CLOSED;
+`SemTierInputsP` DELETED; capstone hypotheses: `hμ` + `AxiomStepPB` +
+`BasisStepPB` + `IndStepPB`.
+
+IN FLIGHT: endgame batch C on `agent/endgameC` (worktree
+`.claude/worktrees/endgameC`), serial Opus, briefed to CLOSE both the
+pin and basis bundles: (1) the four remaining pin memberships on the
+`AxiomBitsP` foundations, with the Iff.rec `u ↦ nonzero` route as
+written in the ENDGAME B seal; (2) `axiomStepPB_of` + FoldP `hax`
+removal; (3) the per-block basis bills over `BasisOk`/`BasisType`/
+`Value` + `BasisConsP`, with the `rec_ctors` resolution
+(`mp.base2.base.rec_ctors`, `Verify/EnvPreds.lean:64`) for every
+stored-entry disequality against ind-kind heads; (4) `basisStepPB_of`
++ FoldP `hbas` removal.  Census target after C: `hμ` + `IndStepPB`.
+
+AFTER C (successor's order): review + merge C per protocol (grants
+from the orchestrator); then `IndStepPB` — the last bundle: all
+`EnvS2PM` fields at `indDecl` conses; `caps_ok` + `rec_rules`
+establishment from the modeled families' certificates (H1-expose the
+caps/iota cert runs, then the claims — the campaign's signature
+move); THE PROP-MOTIVE MINORS (the last place genuinely novel content
+can hide; live precedent: `natRecV2_app`'s squash-regime case in
+`Interp2/Value.lean`; the `Iff.rec` divergence class note applies);
+the `rec_ctors` trick for its preservations; stop-and-name standing.
+Then THE FINAL ASSEMBLY: `no_proof_of_Empty_P` at input-level
+hypotheses only (the frozen statement in `CapstoneP.lean`'s
+docstring), final battery + axiom audit + frontier table finalized +
+master merged.  The de-gating enumeration then triggers per the user
+directive.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal; the discipline ledger's practices (mechanize
+countermodels, never silently edit frozen statements, convergent-
+duplicate checks before writing, sought-and-failed refutations
+recorded) are binding.
