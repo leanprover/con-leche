@@ -16666,3 +16666,378 @@ the checker's own recorded runs, at the first tier and at the last —
 as clean a statement of the design's thesis as the record will
 produce: **the checker's own computation, recorded, is the model's
 whole establishment interface.**
+
+## Task #161 IND TIER part 4 — THE SECOND EXPOSURE: the widening is one
+row short, and the missing row is a *grading* supply (2026-09-02)
+
+**STOP-AND-NAME**, narrower than part 3's and in the same currency.
+The lead's `IotaRunsR` widening (`d7c4c184`) unblocked exactly what it
+promised — the ind tier's comparisons are now recorded runs and the P
+tier consumes them (`defEqAtP_of_run`, landed this batch).  Building
+the first stage on top of it exposed a *second*, independent gap in the
+same statement layer, which no bill anticipated because it is not about
+the comparisons at all.
+
+### The finding
+
+`DefEqClaims2P` converts a run into an `interp2` equality only against
+**both sides' gradings**:
+
+> `(∀ ρ, Sat2 V Δa ρ → AnnotOkP V ρ aa) → (∀ ρ, Sat2 V Δa ρ →`
+> `AnnotOkP V ρ ba) → ∀ ρ, Sat2 V Δa ρ → interp2 V ρ aa = interp2 V ρ ba`
+
+Every iota walk compares a **statement-frame opener's annotation**
+against a **domain of an `instPisAt` run**:
+
+| walk | a-side | b-side |
+| --- | --- | --- |
+| `hdePre` | `(fvs.take rP).map fvarTypeD` | `rdoms` (recursor type, renamed) |
+| `hdeFld` | `(fvs.drop rP).map fvarTypeD` | `cdoms.drop cnP` (constructor type, renamed) |
+| `hdeLam` | `(fvsP ++ xFvsP).map fvarTypeD` | `ldomsL` (the rule's λ-domains) |
+| `hdePars` | `(fvsP.take cnP).map fvarTypeD` | `cdomsP` (constructor type, public) |
+
+The **a**-side is always a slot of the stored `iota_j` theorem's own
+tower, and `hokA_padded` (this batch) grades it from `type_okP`.  The
+**b**-side is a slot of a *different* stored type's tower, instantiated
+at the statement frame, and — **verified against the kernel source, not
+assumed** — nothing in the checker's run record types it:
+`checkIotaThm` compares domains with `checkDefEqList`
+(`Kernel/Modeled.lean:109-135`) and never calls `inferType` on them.
+`InferClaims2P` — the P tier's *only* general grading producer, and the
+one every other P tier uses — therefore has nothing to consume.
+
+So the b-side's grading must be walked out of its **own type's** tower
+(`instPisAt_domsP_graded`, landed this batch).  That lemma's
+load-bearing premise is that each spine element's value **inhabits the
+domain it is substituted into**, which at an arbitrary `ρ'` satisfying
+the padded frame can only come from `Sat2` plus a *checked equality* —
+so the consuming stage runs an induction on the frame position,
+spending the equality at position `i` to earn the grading at position
+`i + 1`.  That induction closes for the **prefix** branch on the rows
+`IotaRunsR` already carries.
+
+### Where it does not close, precisely
+
+The **field** branch's b-side is `cdoms.getD (cnP + j)`, and
+`instPisAt_domsP_graded` must descend past **every** earlier position
+of that run — including the `i < cnP` **parameter** positions.  Those
+positions are never compared against `cdoms`: the checker compares the
+constructor's parameter domains at the *public* frame
+(`hdePars`: `(fvsP.take cnP).map fvarTypeD` ≟ `cdomsP`), and the bridge
+from there to `cdoms` is the renaming (`RenEqT`, readings equal by
+`denoteP_renameConsts`, landed this batch).
+
+**`hdePars`'s run is not recorded.**  `Decl.lean:548` (and `:632` for
+the nested pack) carries it as `DefEqListW` — the v1 derivation form —
+*outside* `IotaWalksR` and therefore outside `IotaRunsR`.  Same for the
+nested pack's `TypedListW` on the pins (`:629-632`), whose run the
+producer also holds (`checkTypedList` genuinely infers) and which is
+the natural supply for `RecRuleLawP`'s pin-grading conjunct.
+
+### The fix, and it is the same shape as the last one
+
+Two more rows on the recorded side, at the producers that already hold
+them:
+
+1. `DefEqListOk μ F envSelf depth ((fvsP.take cnP).map Expr.fvarTypeD)
+   cdomsP` beside the existing `DefEqListW` conjunct in `IotaThmR`
+   (and the `pinsP`-form in `IotaThmNR`);
+2. `TypedListOk μ F envSelf depth pinsP cdomsP` beside `IotaThmNR`'s
+   `TypedListW`.
+
+Blast radius: the same two producer sites the first widening touched
+(`Bridge/Decl.lean`), tuple extensions again, and v1's consumers
+discard with a dash — `hdePars` is **taken and never used** by
+`indBottomPlainS` (checked), so no v1 proof moves.  I have not taken
+it: the statement layer is the lead's.
+
+### What this batch closed anyway
+
+The whole grading sub-theory, which is needed under either shape, plus
+the run conversion and the stage prelude — seven commits, all green.
+See the seal below.
+
+## Task #161 IND TIER, part 4: the run conversion, the stage prelude,
+and the grading sub-theory; the widening's second row is named
+(2026-09-02)
+
+Briefed with the unblocked four-step bill toward `indStepPB_of` and THE
+ASSEMBLY.  **Step 1 is under way and its whole supply layer landed;
+the zipper itself is blocked on the row named above.**  Steps 2–4 and
+the assembly are downstream of it.  `IndStepPB` stays **unstated**
+rather than conditional (the standing ruling), so the census is
+unchanged: `no_proof_of_Empty_P_of` = `hμ` + `IndStepPB`.
+
+### 1. The wall's currency, converted — and what a run does not carry
+
+`defEqAtP_of_run` (`IndRunsP.lean`) is `openWalk_eqS`'s P transpose and
+the pivot every surviving stage turns on.  v1 instantiates a
+`DefEqAtW` derivation at the padded pinned context and reads it through
+`DefEq.sound`; the P tier hands `IotaRunsR`'s recorded run straight to
+`DefEqClaims2P` at the same context, built by `ctxOkP_of_openers`.  The
+two-step **collapses to one** — exactly as part 3's resume-here
+predicted for `annotPFrameEqS` — because the claims conclude the
+semantic equality directly.
+
+**The premise set grows, and structurally** (part 2's lesson, fourth
+meeting): a `DefEqAtW` pack *carries* its two readings, because a
+derivation is a datum about denotations; a run is a datum about
+*syntax* and carries neither the readings nor their gradings.  So the
+conversion takes both readings, both gradings, and both sides'
+syntactic guards as premises.  Every one is available at the calling
+stage; none is free.  **This is the finding that led to the second
+exposure**: the gradings are what the checker does not supply.
+
+### 2. The prelude was cheap; the algebra underneath it was not free
+
+`IndStageKitP.lean` transposes the four semantic pieces the surviving
+stages read and part 3's frame kit deliberately left out, because they
+are the stages' scaffolding rather than the frame's: `PiTeleP.prefix`,
+`TeleFitPA.take`, `teleFitPA_to_chain`, and `sat2_pad_of_mems` — the
+zipper's **introduce** half, whose strip half (`padE2_shiftE`) part 3
+already landed.  One delta, and it is a saving: `PiTeleP.prefix` is a
+*corollary* of `PiTeleP.split` where v1's `PiTele.prefix` needed its
+own induction.
+
+Underneath it, `IndSubstP.lean` had to rebuild
+`Verify/Denote/SubstAlgebra.lean`'s and `TeleOpen.lean`'s absorption
+laws at `AVExpr` — nine of them.  `AVExpr.liftN`/`inst` are `VExpr`'s
+clause for clause with the numerals inert, so each induction is one
+`simp only` plus the IH per clause; but an equation between *readings*
+is strictly stronger than one between their erasures, and
+`interp2_ne_interp_erase` is the standing reminder that no erasure
+argument transports.  All nine come out on `[propext, Quot.sound]`
+alone — the mechanical statement of "syntax only".
+
+**Closedness at `AVExpr` is the lifting equation**, not a `bvarsBelow`
+predicate: that is the currency the carrier stores (`acval_closed`,
+`denoteP_closed`), so `inst_eq_self_of_closed` is `inst_liftN_absorb`
+at `m = 0` rather than an induction, and `instSeqP_eq_self_of_closed`
+consumes the carrier's own field.
+
+### 3. `denoteP_lift` takes `WScoped`, and that propagates
+
+`zipFieldTermEqP` concludes `Expr.WScoped (rP + j)` for the crossed
+domain where v1's `zipFieldTermEq` concludes `Expr.fvarsBelow (rP + j)`.
+The reason is one premise: `denoteP_lift` — the step that turns the
+frame-depth reading into the low-depth one — needs the annotations
+scoped too, hereditarily (`Annot/BitInst.lean`'s own note).  So every
+place a v1 stage sharpens a *bound* from the leaves, a P stage must
+sharpen a `WScoped`; `WScoped_sharpen` (`IndCrossP.lean`) is the
+lemma, and it is one induction, because `WScoped` mentions its depth in
+exactly one place.  The *work* is unchanged; what changes is that the
+conclusion has to say it.
+
+`zipFieldTermEqP` compiled first try.
+
+### 4. The renaming: the resolving form in the tree does not suffice
+
+`Annot/BitRename.lean` proves `denoteP_renameConsts_resolve` under the
+*first and third* `RenameOkT` conjuncts plus a `constsResolve` side
+condition, and its own docstring records why: at the **member** install
+the renamed name is not stored yet.  At the **iota** install it is —
+the whole block is provisioned before any rule fires, which is exactly
+what `provisionRecsPM` is for — and the zipper's prefix branch needs
+the unconditional form, because what it renames are frame *openers'*
+annotations, for which no `constsResolve` is in hand.  `IndRenameP.lean`
+adds `RenameOkP`/`denoteP_renameConsts`/`RenEqT.denoteP`, and
+`blockRenameOkP` establishes the condition from `BlockAcvalInstalled`
+— an installed member's leaf *is* its model's, which is precisely
+`RenameOkP`'s third conjunct.  `blockRenameOkP` lands on `[propext]`
+alone.
+
+### 5. THE HINGE: the frame's gradings, and the wall that wasn't
+
+`ctxOkP_of_openers`'s `hokA` is discharged once, in `IndGradeP.lean`,
+and **the route matters more than the result**.
+
+The obvious route descends the tower along the value *chain*, the way
+`teleFitPA_of_tower` and `teleFitPA_to_chain` do.  It needs the fired
+spine's **arguments** graded, because the chain's step is an `instE` at
+cut `n` and `AnnotOkP_inst` charges for the substituted value.  That
+would have been fatal: `RecRuleLawP`'s interp-equality half is frozen
+with **no** grading premise on `xs`/`ys` (the gradings sit only in the
+truthfulness half, behind their own arrows), so a zipper needing them
+could not establish the frozen statement at all — a STOP-AND-NAME one
+move away.
+
+The route that works descends **top-down along the satisfying
+environment**.  `Sat2` already says every context entry's own value
+inhabits its own reading — exactly the membership the `.pi` split
+consumes — and the environments line up on the nose:
+`cons (ρ q) (fun j => ρ (j + q + 1))` **is** `fun j => ρ (j + q)`.  It
+spends satisfaction the stage already has and asks the arguments for
+nothing.
+
+This is also why v1's `annotOkV_descend` — retired at part 2, and
+therefore not transposed by part 3's survey — is not what was needed:
+it descends along the chain.  Part 3's survey was right that it is dead
+weight; it was dead weight for the *wrong reason*, and the right
+lemma is a different one.
+
+### 6. The b-side, and the second exposure
+
+`instPisAt_domsP_graded` (`IndDomGradeP.lean`) walks the b-side's own
+type's tower.  Its load-bearing premise — each spine element's value
+inhabits the domain it goes into — is cheap where it is used on a
+`.plain` fire, because every spine element is a frame **opener** and an
+opener reads to a `.bvar`, graded by definition; and on a `.nested`
+fire the spine is the instantiated pins, whose open readings
+`RecRuleLawP` **already carries graded** (the ratified iota-seal
+repair).  The conjunct added for the pins' own sake turns out to be
+exactly what this lemma asks for — a second consumer for a premise that
+had one.
+
+The inhabitation premise at an arbitrary `ρ'` is where the walks return
+and where the field branch runs out of recorded rows.  See the entry
+above.
+
+### Census after IND TIER part 4
+
+`no_proof_of_Empty_P_of`: **`hμ` + `IndStepPB`** — unchanged, by
+design.
+
+### WALLS
+
+**One, and it is narrow and actionable**: `IotaRunsR` is one row short
+(two, counting the nested pack's `TypedListW`).  The missing row is
+`hdePars`'s recorded run, and it is missing because the bill treated
+the b-sides as things to *compare* rather than things to *grade*.
+Named in full in the entry above, with the kernel source checked
+(`checkIotaThm` never infers a domain), the blast radius (the same two
+producer sites; `hdePars` is taken and never used by
+`indBottomPlainS`), and the two rows written out.  **The fix is a
+shared-statement decision and is the lead's.**
+
+### IND TIER part 4 battery (verbatim, at `c8c8eab9`)
+
+`lake build` **436 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to parts 1–3 and to the ENDGAME A–H seals', and for the same
+reason: no `Setlec/Kernel/*` file was touched.
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `checkDecls_sound_P_of` and on every new
+theorem — `defEqAtP_of_run`, `defEqListOk_getElem`, `defEqListOk_getD`,
+`defEqListP_of_runs`, `AVExprSubst.liftN_liftN_absorb`,
+`AVExprSubst.inst_liftN_absorb`, `AVExprSubst.inst_liftN_comm`,
+`AVExprSubst.inst_inst_comm`, `AVExprSubst.inst_eq_self_of_closed`,
+`instSeqP_bvar_lt`, `instSeqP_liftN`, `instSeqP_bvar_hit`,
+`instSeqP_append_absorb`, `instSeqP_bvar_full`, `instSeqP_absorb_left`,
+`instSeqP_pi`, `instSeqP_inst0`, `instSeqP_liftN0`,
+`instSeqP_eq_self_of_closed`, `PiTeleP.prefix`, `TeleFitPA.take`,
+`teleFitPA_to_chain`, `sat2_pad_of_mems`, `instPisAt_denoteP_defined`,
+`instPisAt_denoteP_cross`, `WScoped_sharpen`, `zipFieldTermEqP`,
+`RenameOkP`, `denoteP_renameConsts`, `RenEqT.denoteP`,
+`blockRenameOkP`, `annotOkP_tower_slot`, `hokA_padded`,
+`AnnotOkP_pi_dom`, `AnnotOkP_pi_body`, `instPisAt_domsP_graded`
+(the nine `AVExprSubst`/`instSeqP` syntax laws and `WScoped_sharpen` on
+`[propext, Quot.sound]` alone; `blockRenameOkP` on `[propext]` alone).
+Zero sorries.
+
+New files: `Setlec/SetR/Interp2/IndRunsP.lean` (the run conversion),
+`IndSubstP.lean` (the reading's substitution algebra),
+`IndStageKitP.lean` (the stages' semantic prelude), `IndCrossP.lean`
+(the cross-frame instantiation + `WScoped_sharpen`),
+`IndZipFieldP.lean` (`zipFieldTermEqP`), `IndRenameP.lean` (the block
+renaming at the reading), `IndGradeP.lean` (the frame's gradings),
+`IndDomGradeP.lean` (the instantiated domains' gradings).  Edited:
+`Setlec/SetR.lean` (eight imports), `DESIGN.md`.  No landed statement
+moved; no file was deleted.
+
+### Resume-here: the bill after part 4
+
+0. **THE ROW IS THE GATE.**  Add `hdePars`'s recorded run (and the
+   nested pack's `TypedListOk` on the pins) to `IotaThmR`/`IotaThmNR`,
+   in the same parallel-conjunct shape the first widening used.  The
+   producers hold both;  v1's consumers discard with a dash;
+   `indBottomPlainS` takes `hdePars` and never uses it, so no v1 proof
+   moves;
+1. then `zipperP` — the supply layer is **done** (§§1–6 above).  Its
+   shape is v1's `zipperS` plus one inner induction on the frame
+   position at a fixed padded context, carrying the b-side gradings and
+   the domain equalities at **∀ ρ'** and spending position `i`'s
+   equality to earn position `i + 1`'s grading.  Budget the inner
+   induction, not the transposition;
+2. then `pointS`/`reductS`/`annotS` at P — the zipper is the sole
+   `Sat` producer, the other three spend it;
+3. the `.nested` graded-pins establishment; the recursor group's
+   `RecRuleLawP` rows including the per-instantiation Prop-motive case
+   (`eqRecLawP`, `BasisEqP.lean:893`, the sole precedent);
+4. the `rec_rules` half of the projection phase, then `indStepPB_of`,
+   `hind` off `FoldP`, census → `hμ` ALONE, and THE ASSEMBLY.
+
+## Task #161 SUCCESSION RECORD update (ind tier part 4 landed,
+2026-09-02)
+
+Lane `agent/annot-v2` @ `d7c4c184` at batch start **and at batch end**
+(the lane did not move; nothing to merge).  ALL FOUR SEMANTIC TIERS
+CLOSED.  Capstone hypotheses: `hμ` + `IndStepPB`, unchanged.
+
+LANDED: ind tier part 4 on `agent/indtier4` (worktree
+`.claude/worktrees/indtier4`), seven commits.  Briefed with the
+unblocked bill; landed **step 1's entire supply layer** — the run
+conversion, the reading's substitution algebra, the stages' prelude,
+the cross-frame instantiation, the field-branch core, the block
+renaming, and the two grading theories — and **named the second row the
+widening still owes**.  Battery green (build 436 warning-free, test
+exit 0, arena counters unchanged, axioms within the standard three,
+zero sorries).
+
+THE HEADLINES, in order of what they save the successor:
+
+* **THE SECOND EXPOSURE: `IotaRunsR` is one row short, and the missing
+  row is a GRADING supply.**  `DefEqClaims2P` needs both sides graded;
+  the a-sides are the `iota_j` theorem's own tower slots and
+  `hokA_padded` grades them; the b-sides are *other* stored types'
+  tower slots, and `checkIotaThm` **never infers a domain**
+  (`Kernel/Modeled.lean:109-135`, checked), so `InferClaims2P` has
+  nothing to consume.  Walking the b-side's own tower needs the
+  parameter positions bridged, and that bridge is `hdePars` — recorded
+  only as a `DefEqListW` derivation.  **Read this before planning
+  anything**;
+* **a run carries neither reading nor grading, and that is the whole
+  difference.**  Part 2's premise-set lesson, fourth meeting, and this
+  time it changed the *bill* rather than a signature;
+* **the grading route that works descends top-down along the satisfying
+  environment, not along the chain.**  The chain route needs `xs`/`ys`
+  graded, which `RecRuleLawP`'s equality half does not give — one move
+  from a STOP-AND-NAME.  v1's `annotOkV_descend` is the chain route and
+  is *not* what was needed;
+* **`RecRuleLawP`'s pin-grading conjunct has a second consumer.**  The
+  ratified iota-seal repair added it for the pins' own sake; it is
+  exactly `instPisAt_domsP_graded`'s spine premise on a `.nested` fire;
+* **`denoteP_lift` takes `WScoped`, not `fvarsBelow`** — so every
+  leaf-sharpening in a v1 stage becomes a `WScoped_sharpen` in its P
+  twin, and `zipFieldTermEqP`'s conclusion had to change shape to say
+  it;
+* **the resolving renaming law already in the tree does not suffice**
+  at the iota install; the unconditional one does and is now landed,
+  with its condition established from `BlockAcvalInstalled`;
+* **`AVExpr` closedness is the lifting equation**, not `bvarsBelow` —
+  the carrier stores it that way and the `instSeq` laws consume it
+  directly.
+
+Carried trap (still G's, still true): absorb lift-then-instantiate
+BEFORE unfolding `cons` — with `cons` in the same simp set the pattern
+stops matching and simp silently changes nothing.
+
+AFTER THIS BATCH (successor's order): review + merge per protocol;
+**then the second widening row**, which gates the zipper; then
+`zipperP` (supply layer done, budget the inner induction); then the
+other three stages, the graded pins, the recursor rows, the projection
+`rec_rules`, `indStepPB_of` and THE ASSEMBLY.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal.
