@@ -16754,8 +16754,12 @@ it: the statement layer is the lead's.
 ### What this batch closed anyway
 
 The whole grading sub-theory, which is needed under either shape, plus
-the run conversion and the stage prelude — seven commits, all green.
-See the seal below.
+the run conversion and the stage prelude — eight commits, all green.
+And the **positive half of this finding is mechanized**:
+`prefixGradeFireP` runs the position induction for the prefix walk and
+closes on the rows `IotaRunsR` already carries, so "the prefix branch
+closes, the field branch does not" is a theorem on one side rather
+than an argument on both.  See the seal below.
 
 ## Task #161 IND TIER, part 4: the run conversion, the stage prelude,
 and the grading sub-theory; the widening's second row is named
@@ -16892,6 +16896,28 @@ The inhabitation premise at an arbitrary `ρ'` is where the walks return
 and where the field branch runs out of recorded rows.  See the entry
 above.
 
+### 7. The position induction, run — on the branch that has its rows
+
+`prefixGradeFireP` (`IndPrefixGradeP.lean`) is §6's shape executed for
+the recursor-prefix walk: one strong induction on the frame position
+producing, **at every satisfying `ρ'`**, both the b-side grading (the
+recursor's own tower, descended by `annotOkP_tower_slot`, with the
+earlier positions' equalities as its membership premises) and the
+position's own equality (`defEqAtP_of_run` against that grading and
+`hokA_padded`).
+
+The grading has to be produced in ∀-form *inside* the step, because
+that is the form `DefEqClaims2P` consumes; the induction hypothesis is
+then spent at the very `ρ'` the conclusion is asked about.  The
+environment bookkeeping is entirely pointwise, and it turns on one
+coincidence: the recursor tower's environment is `ρ'` shifted by
+`K - rP`, so its slot `q` is `ρ' (q + K - rP)` and slot `rP - 1 - m`
+lands on `ρ' (K - 1 - m)` — the **statement** frame's own slot for
+opener `m`.  That is what lets `Sat2` at the statement frame feed the
+recursor tower's descent at all, and it is why the same construction
+does *not* reach the constructor's parameter positions: there is no
+walk to compose with there.
+
 ### Census after IND TIER part 4
 
 `no_proof_of_Empty_P_of`: **`hμ` + `IndStepPB`** — unchanged, by
@@ -16940,7 +16966,8 @@ theorem — `defEqAtP_of_run`, `defEqListOk_getElem`, `defEqListOk_getD`,
 `instPisAt_denoteP_cross`, `WScoped_sharpen`, `zipFieldTermEqP`,
 `RenameOkP`, `denoteP_renameConsts`, `RenEqT.denoteP`,
 `blockRenameOkP`, `annotOkP_tower_slot`, `hokA_padded`,
-`AnnotOkP_pi_dom`, `AnnotOkP_pi_body`, `instPisAt_domsP_graded`
+`AnnotOkP_pi_dom`, `AnnotOkP_pi_body`, `instPisAt_domsP_graded`,
+`prefixGradeFireP`
 (the nine `AVExprSubst`/`instSeqP` syntax laws and `WScoped_sharpen` on
 `[propext, Quot.sound]` alone; `blockRenameOkP` on `[propext]` alone).
 Zero sorries.
@@ -16951,8 +16978,9 @@ New files: `Setlec/SetR/Interp2/IndRunsP.lean` (the run conversion),
 (the cross-frame instantiation + `WScoped_sharpen`),
 `IndZipFieldP.lean` (`zipFieldTermEqP`), `IndRenameP.lean` (the block
 renaming at the reading), `IndGradeP.lean` (the frame's gradings),
-`IndDomGradeP.lean` (the instantiated domains' gradings).  Edited:
-`Setlec/SetR.lean` (eight imports), `DESIGN.md`.  No landed statement
+`IndDomGradeP.lean` (the instantiated domains' gradings),
+`IndPrefixGradeP.lean` (the position induction, prefix branch).
+Edited: `Setlec/SetR.lean` (nine imports), `DESIGN.md`.  No landed statement
 moved; no file was deleted.
 
 ### Resume-here: the bill after part 4
@@ -16963,12 +16991,11 @@ moved; no file was deleted.
    producers hold both;  v1's consumers discard with a dash;
    `indBottomPlainS` takes `hdePars` and never uses it, so no v1 proof
    moves;
-1. then `zipperP` — the supply layer is **done** (§§1–6 above).  Its
-   shape is v1's `zipperS` plus one inner induction on the frame
-   position at a fixed padded context, carrying the b-side gradings and
-   the domain equalities at **∀ ρ'** and spending position `i`'s
-   equality to earn position `i + 1`'s grading.  Budget the inner
-   induction, not the transposition;
+1. then `zipperP` — the supply layer is **done** (§§1–7 above), and its
+   prefix half is **already a theorem** (`prefixGradeFireP`).  What is
+   left is the field half of the same induction, which is what the new
+   row unblocks, and then v1's `zipperS` transposition around the two.
+   Budget the induction, not the transposition;
 2. then `pointS`/`reductS`/`annotS` at P — the zipper is the sole
    `Sat` producer, the other three spend it;
 3. the `.nested` graded-pins establishment; the recursor group's
@@ -16985,11 +17012,12 @@ Lane `agent/annot-v2` @ `d7c4c184` at batch start **and at batch end**
 CLOSED.  Capstone hypotheses: `hμ` + `IndStepPB`, unchanged.
 
 LANDED: ind tier part 4 on `agent/indtier4` (worktree
-`.claude/worktrees/indtier4`), seven commits.  Briefed with the
+`.claude/worktrees/indtier4`), eight commits.  Briefed with the
 unblocked bill; landed **step 1's entire supply layer** — the run
 conversion, the reading's substitution algebra, the stages' prelude,
 the cross-frame instantiation, the field-branch core, the block
-renaming, and the two grading theories — and **named the second row the
+renaming, the two grading theories, and **the position induction run
+to completion on the prefix branch** — and **named the second row the
 widening still owes**.  Battery green (build 436 warning-free, test
 exit 0, arena counters unchanged, axioms within the standard three,
 zero sorries).
@@ -17004,8 +17032,9 @@ THE HEADLINES, in order of what they save the successor:
   (`Kernel/Modeled.lean:109-135`, checked), so `InferClaims2P` has
   nothing to consume.  Walking the b-side's own tower needs the
   parameter positions bridged, and that bridge is `hdePars` — recorded
-  only as a `DefEqListW` derivation.  **Read this before planning
-  anything**;
+  only as a `DefEqListW` derivation.  The positive half is
+  **mechanized** (`prefixGradeFireP`): the prefix branch closes on the
+  rows that exist.  **Read this before planning anything**;
 * **a run carries neither reading nor grading, and that is the whole
   difference.**  Part 2's premise-set lesson, fourth meeting, and this
   time it changed the *bill* rather than a signature;
