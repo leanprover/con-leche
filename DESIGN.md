@@ -15457,3 +15457,277 @@ non-pinned leaves) is thereby ALREADY CLOSED.
 **Ledger — the confirming round**: five inherited claims re-checked
 at H, all five HELD.  The practice validates in both directions —
 refute or confirm, one `#eval` either way.
+
+## Task #161 IND TIER, part 1: the member phase closes; the census holds at one bundle (2026-09-02)
+
+Briefed to discharge `IndStepPB` — the last routed bundle — with
+leave-to-close-block-by-block if the tier proved too large for one
+session.  **It did, and it was closed block by block**: the *member
+phase* is closed at both tiers on two named laws, and the rest of the
+tier is itemized below.  `IndStepPB` is deliberately left **unstated**
+rather than conditional (the standing ruling), so the census is
+unchanged: `no_proof_of_Empty_P_of` = `hμ` + `IndStepPB`.
+
+### 1. THE NAME FINDING: an inductive block cannot capture a pinned name
+
+The re-check practice (E/F/G/H) paid immediately.  Before spending the
+inherited assumption that the ind tier's mechanical rows would need
+bespoke work, one `#eval`:
+
+```
+reservedBasisNames = [Eq, Eq.refl, Eq.rec, Nat, Nat.zero, Nat.succ,
+  Nat.rec, PSigma', PSigma'.mk, PSigma'.rec, PUnit, PUnit.unit,
+  PUnit.rec, Empty, Empty.rec, Quot, Quot.mk, Quot.lift, Quot.ind,
+  Quot.sound]
+(contains natName, natZeroName, natSuccName, eqName) = (true,true,true,true)
+```
+
+and every block member enters through `MemberValR` → `ConstantValR`,
+whose second conjunct is `reservedBasisNames.contains cv.name = false`.
+Two obligations the bill had allowed for therefore **do not exist**:
+
+* **`nat_heads`** — an inductive block cannot turn the literal-support
+  guard on, because it cannot install a constant named `Nat`,
+  `Nat.zero` or `Nat.succ`.  The feared case (a modeled family that
+  captures the numeral heads, whose leaves would then owe the two
+  membership facts) is unreachable, and `natHeadsP_cons_offNat`
+  discharges every ind-tier cons;
+* **`eq_lawP`** — no block member is named `Eq`, so the pinned spine's
+  law transports by `eqLawP_cons_fresh`.
+
+The projection conses carry no reserved check of their own, but their
+names are `projFnName T i` and `projFnName_ne_reserved` gives the same
+four disequalities.  This is v1's own route: `indMemberS` refutes its
+head obligations "by kind or by non-reservedness".
+
+Result: `declStepPM_of_ind_cons` discharges **six of the eight**
+collapsible rows, leaving `caps_ok` and `rec_rules` — exactly the two
+rows an inductive block genuinely establishes.
+
+### 2. The recursor group is cons-shaped; v1's "swap" is a law transport
+
+Worth recording because the map of v1 suggests otherwise.
+`RecRuleLawV.swapS` and `SwapNResS` read like an install that
+*replaces* rule-less recursors with ruled ones, which the cons-only P
+install API could not express.  Reading `IndRecsR` settles it:
+`IndRecsFoldR` conses `.recInfo c.1 c.2.1 c.2.2.1 rules'` onto the
+accumulator, whose base is `env₂` — the **pre-provisioning**
+environment.  `envSelf` is a scratch environment that exists only as
+the place the rule certificates were checked, and the swap is a
+transport of a *law* between two environments differing in rule lists.
+
+So every cons in `DeclIndR` — members, ruled recursors, projection
+functions, elimination templates — is a genuine cons, and
+`declStepPM_of_ind_cons` covers all four shapes.  **No install-API
+extension is needed for the ind tier.**
+
+### 3. No tower is built by hand
+
+The member's leaf is `acval (n ++ "_model")`, exactly as v1's
+valuation is `cval (n ++ "_model")`.  That one choice makes the
+inductive tier structurally cheaper than the basis tier: the tower's
+five laws (`hAerase`/`hAclosed`/`hAparams`/`hAok`/`hAvalid`) become
+the invariant's **own leaf laws at the model's name**.  The basis tier
+owed twenty-two hand towers and the `PSigma'` block still had to build
+three of them by hand; the inductive tier owes **none**.
+
+### 4. H's strengthening did NOT have to be repeated
+
+The H ledger predicted the ind tier would meet the same gap — "its
+blocks also chain non-pinned leaves" — and recorded it as ALREADY
+CLOSED by the carrier+`acval` exposure.  The prediction held, and the
+route turned out to be cheaper still: the member fold needs the P
+carrier's **v1 valuation** at each step (to state the next
+`MemberValR` and `BlockInstalledTT`), not the v1 carrier, and the
+valuation is *derivable* from the exposed leaf —
+
+> `mp₁.base2.base.cval n ψ = (mp₁.base2.acval n ψ).erase`
+> (`acval_erase`), and `cvalWith`/`acvalWith` agree case for case.
+
+So no second strengthening of `declStepPM_of_cons` was taken.  This is
+the H practice confirming in the other direction: the exposure H was
+forced into is exactly the datum this tier needed, and nothing more.
+
+### 5. `caps_ok` at a member cons: the split is V-free, two rows are live
+
+v1's `memberEtaS` records the finding — the eta head *is* live (an
+`etaFields = 0` structure completes inside the member fold) and the
+non-live rows die on facts the fold carries.  That argument is
+entirely about what is *stored*, so it is V-free, and `memberEtaSplit`
+states it as such: at a member cons every η-capable stored family
+either **descends untouched** — and then the four disequalities the
+transport needs come with it — or **is a block former at
+`etaFields = 0`** carrying the fold's η pins.  One disjunction, proved
+once, and it is the shape both tiers want.
+
+`capsOkP_cons_member` is then the P row: the descending case is
+`capsOkP_cons_fresh`'s transport verbatim, and what is left is exactly
+
+* `EtaLawP` for a block former at `etaFields = 0` (`MemberEtaLawP`),
+* `UnitLawP` for the cons's own former (`MemberUnitLawP`),
+
+which are `etaLawKeyS`/`unitLawKeyS`'s conclusions one currency over.
+The unit half needs no family premise at all (the ratified repair), so
+its split is two-way where the eta half's is four-way.
+
+### 6. `caps_ok` is open at the *projection-function* cons too
+
+Not only at the family's own conses.  `capsOkP_cons_fresh` descends
+the stored-family predicate past a cons of a kind no family mentions,
+and `EtaFamilyStored` mentions **three**: `indInfo` (the former),
+`ctorInfo` (the capability constructor) and **`recInfo` — a projection
+slot**.  So installing a projection function can *complete* a family
+that was not previously stored, which is why the η law's establishment
+sits at the projection install in v1 as well (`etaLawKeyS`, consuming
+`ProjInstallR`'s valuation identification as `hvP`).  The kit keeps
+`caps_ok` open at every ind-tier cons and never guesses a route.
+
+By contrast `declStepPM_of_projTemplate_cons` — the elimination
+templates' `projInfo` conses — has **no open row at all**: a `projInfo`
+is none of the three kinds `EtaFamilyStored` mentions and stores no
+rules.  It is the cheapest cons in the campaign, and its stored type
+is `.sort .zero` by `TemplatesR`'s own pin.
+
+### Census after IND TIER part 1
+
+`no_proof_of_Empty_P_of`: **`hμ` + `IndStepPB`** — unchanged, by
+design.  `IndStepPB` stays unstated rather than conditional; the
+phases below close under their own names.
+
+### WALLS
+
+**None.**  Nothing on the member phase's bill was found unprovable, no
+field is missing, and no frozen statement needed editing.  The two
+laws left open are named obligations with a v1 counterpart each, not
+walls.
+
+### Resume-here: the ind tier's remaining bill, itemized
+
+1. **`MemberEtaLawP` / `MemberUnitLawP`** — the caps content, and the
+   member phase's only remainder.  v1: `Install/EtaLawS.lean`
+   (`EtaLawKeyS`:39 / `etaLawKeyS`:108, `UnitLawKeyS`:568 /
+   `unitLawKeyS`:618).  Both are `fireS` at
+   `rP := caps.etaParams, cnF := 1`; **finding 6 is architectural in
+   both** — the key runs one environment *ahead* of its own model,
+   because `EnvS.cons`'s head obligation wants the law at the
+   extension.  The eta side's fabricated constructor application is
+   typed by no `--set-model` check, so its slot membership comes from
+   `Eq`-slot rigidity (`EqLawV.dom`) — at the P tier that is
+   `EqLawP`'s two halves, the `Quot` block's bridge (H's §3);
+2. **the recursor group's `rec_rules`.**  `provisionRecsPM` already
+   supplies the `EnvS2PM` at `envSelf` that the run-certificate route
+   needs (`checkSoundAtP` runs at `TierInputsAtP.ofEnvS2PM`, and
+   `envSelf` is not on the declaration fold's path).  What remains:
+   the per-rule law (`iotaRuleS`'s transpose, dispatching on
+   `RecRule.fire` — plain → `indBottomPlainS`, nested →
+   `indBottomNestedS`, inert excluded), then the transport across the
+   rule-list difference (`RecRuleLawV.swapS`'s twin; note `FoldUpS` is
+   a *correspondence*, not an inclusion).  **THE PROP-MOTIVE MINORS
+   LIVE HERE** — five precedents now (`PUnit.rec`, `Quot.ind`,
+   `Eq.rec`, `PSigma'.rec`, `natRecV2`'s squash case), the forcing
+   lemmas, and G's observation that the reading's `lamR 0` and the
+   value law's squash regime coincide; the `Iff.rec` divergence-class
+   warning still stands.  The **∃-form pins conjunct** of
+   `RecRuleLawP`'s `.nested` clause is established from the pins'
+   `checkAnnotList` certificates at the install (task #105's
+   machinery is the v1 mirror);
+3. **the projection phase.**  `ProjFnR` conses a `recInfo` and so owes
+   both open rows: `caps_ok` (this is where a family completes — §6)
+   and `rec_rules` (`indBottomProjS`'s transpose, which is reachable
+   only from here — `iotaRuleS` imports the plain and nested bottoms
+   only, so a block's `rec_rules` is established along two independent
+   routes).  `TemplatesR`'s conses need only a tower and a type
+   reading (`declStepPM_of_projTemplate_cons`);
+4. then **`indStepPB_of`** over `DeclIndR`'s two arms (single-ctor and
+   generic), `hind` off `FoldP`, and **THE FINAL ASSEMBLY**
+   (`CapstoneP.lean`'s frozen letter).
+
+### IND TIER part 1 battery (verbatim, at `57b63401`)
+
+`lake build` **422 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to the ENDGAME A–H seals', and for the same reason: no
+`Setlec/Kernel/*` file was touched.
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `checkDecls_sound_P_of`, `basisStepPB_of`
+and on every new theorem — `denoteP_erasedEq`,
+`denoteP_renameConsts_resolve`, `declStepPM_of_ind_cons`,
+`declStepPM_of_ind_member_cons`, `declStepPM_of_ind_rec_cons`,
+`declStepPM_of_projTemplate_cons`, `EnvS2PM.acval_memTypeP`,
+`memberKeyP`, `indMemberP`, `capsOkP_cons_member`, `memberInstallPM`,
+`indMembersPM`, `provisionRecsPM` (`memberEtaSplit` depends on
+`propext` alone; `ne_of_notReserved` on none).  Zero sorries.
+
+New files: `Setlec/SetR/Annot/BitRename.lean` (the reading's two
+blindnesses), `Setlec/SetR/Interp2/IndConsP.lean` (the ind-cons kit),
+`Setlec/SetR/Interp2/IndMemberP.lean` (the member key and the member
+install), `Setlec/SetR/Interp2/IndCapsP.lean` (the η split and the
+`caps_ok` row), `Setlec/SetR/Interp2/IndMembersP.lean` (the joint step
+and the two folds).  Edited: `Setlec/SetR.lean` (five imports).  No
+landed statement moved; no file was deleted.
+
+## Task #161 SUCCESSION RECORD update (ind tier part 1 landed, 2026-09-02)
+
+Lane `agent/annot-v2` @ `878df7ce` at batch start **and at batch end**
+(the lane did not move; nothing to merge).  ALL FOUR SEMANTIC TIERS
+CLOSED; the pin tier closed at D, the basis tier at H.  Capstone
+hypotheses: `hμ` + `IndStepPB`, unchanged.
+
+LANDED: ind tier part 1 on `agent/indtier` (worktree
+`.claude/worktrees/indtier`), six commits.  Briefed to close
+`IndStepPB`; closed the **member phase** of it — the ind-cons kit, the
+member key, the member install, the `caps_ok` split, and both member
+folds (non-recursor members and recursor provisioning) — and itemized
+the rest.  Battery green (build 422 warning-free, test exit 0, arena
+counters unchanged, axioms within the standard three, zero sorries).
+**No walls.**
+
+THE HEADLINES, in order of what they save the successor:
+
+* **an inductive block cannot capture a pinned name.**  One `#eval` on
+  `reservedBasisNames` against `ConstantValR`'s second conjunct, and
+  two obligations the bill allowed for evaporate: `nat_heads` (the
+  literal guard can never flip at an ind block) and `eq_lawP`.  Six of
+  the eight collapsible rows are now mechanical at every ind cons;
+* **the whole `DeclIndR` fold is conses.**  v1's "swap" is a *law*
+  transport between environments differing in rule lists, not an
+  install that replaces entries — `IndRecsFoldR` conses ruled
+  recursors onto the pre-provisioning environment.  No install-API
+  extension is needed;
+* **no tower is built by hand in this tier.**  The leaf is the model's
+  leaf, so the tower's five laws are the invariant's own leaf laws.
+  The basis tier owed twenty-two hand towers; this tier owes none;
+* **H's strengthening was not repeated.**  The fold needs the P
+  carrier's v1 *valuation*, not its carrier, and the valuation is
+  derivable from the exposed leaf through `acval_erase`.  H's exposure
+  was exactly the datum, and nothing more was needed;
+* **`caps_ok` at a member cons reduces to two laws, and the reduction
+  is V-free.**  `memberEtaSplit` is `memberEtaS`'s combinatorics
+  hoisted out of the value tier, so it serves both tiers;
+* **`caps_ok` is open at the projection-function cons too** —
+  `EtaFamilyStored` mentions `recInfo`, so a projection install can
+  complete a family.  Conversely the elimination templates' `projInfo`
+  conses have no open row at all.
+
+Carried trap (still G's, still true): absorb lift-then-instantiate
+BEFORE unfolding `cons` — with `cons` in the same simp set the pattern
+stops matching and simp silently changes nothing.
+
+AFTER THIS BATCH (successor's order): review + merge per protocol;
+then the resume-here's items 1–3 (caps content, recursor group,
+projection phase); then `indStepPB_of` and THE FINAL ASSEMBLY.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal.
