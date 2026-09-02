@@ -166,6 +166,7 @@ import Setlec.SetR.Interp2.IndPlainParamP
 import Setlec.SetR.Interp2.IndZipperP
 import Setlec.SetR.Interp2.IndPointKitP
 import Setlec.SetR.Interp2.IndPointP
+import Setlec.SetR.Interp2.IndTowerReadP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP
