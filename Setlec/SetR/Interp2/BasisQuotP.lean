@@ -110,6 +110,13 @@ theorem bitAgree_quotA (ψ : Name → Nat) :
   exact .pi h1 (.sort _) (.pi h1 (bitAgree_quotRelTyP (ψ uN))
     (.sort _))
 
+/-- `Quot.mk`'s type reading, named: three binders at the pin's bit. -/
+def quotMkTyP (b u : Nat) : AVExpr :=
+  .pi 0 b (.sort u)
+    (.pi 0 b quotRelTyP
+      (.pi 0 b (.bvar 1)
+        (.app (.app (.const .quot [u]) (.bvar 2)) (.bvar 1))))
+
 /-- **`Quot.mk`'s type reading.**  Stated at *any* extension whose cons
 is neither `Quot` nor `Quot.mk` as well, because both recursor rows
 read it as their fired constructor's telescope (`TVja`). -/
@@ -118,11 +125,7 @@ theorem denoteP_quotMkTy {c₀ : ConstantInfo} (ψ : Name → Nat)
     (hQ : env.find? quotName = some quotA) :
     denoteP (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ 0
         quotMkA.toConstantVal.type
-      = some (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.sort (ψ uN))
-          (.pi 0 (pwBit ψ (.ifAllZero [uN])) (quotRelTyP)
-            (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.bvar 1)
-              (.app (.app (.const .quot [ψ uN]) (.bvar 2))
-                (.bvar 1))))) := by
+      = some (quotMkTyP (pwBit ψ (.ifAllZero [uN])) (ψ uN)) := by
   have hQc : ∀ d : Nat,
       denoteP (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d
         (Expr.const (Name.str Name.anonymous "Quot")
@@ -134,28 +137,21 @@ theorem denoteP_quotMkTy {c₀ : ConstantInfo} (ψ : Name → Nat)
       (Level.param uN)
   simp [quotMkA, ConstantInfo.toConstantVal, denoteP_forallE,
     denoteP_sort, denoteP_app, denoteP_fvar, Expr.instantiate1,
-    quotRelTyP, pwBit_never, hQc, Level.eval, uN]
+    quotRelTyP, quotMkTyP, pwBit_never, hQc, Level.eval, uN]
 
 theorem denoteP_quotMkA_type (ψ : Name → Nat)
     (hQ : env.find? quotName = some quotA) :
     denoteP (acvalWith m.acval quotMkA.name A)
         ⟨quotMkA :: env.consts⟩ ψ 0 quotMkA.toConstantVal.type
-      = some (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.sort (ψ uN))
-          (.pi 0 (pwBit ψ (.ifAllZero [uN])) (quotRelTyP)
-            (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.bvar 1)
-              (.app (.app (.const .quot [ψ uN]) (.bvar 2))
-                (.bvar 1))))) :=
+      = some (quotMkTyP (pwBit ψ (.ifAllZero [uN])) (ψ uN)) :=
   denoteP_quotMkTy (m := m) (A := A) ψ (by decide) hQ
 
 theorem bitAgree_quotMkA (ψ : Name → Nat) :
-    AVExpr.BitAgree
-      (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.sort (ψ uN))
-        (.pi 0 (pwBit ψ (.ifAllZero [uN])) (quotRelTyP)
-          (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.bvar 1)
-            (.app (.app (.const .quot [ψ uN]) (.bvar 2)) (.bvar 1)))))
+    AVExpr.BitAgree (quotMkTyP (pwBit ψ (.ifAllZero [uN])) (ψ uN))
       (BConst.type2 .quotMk [ψ uN]) := by
   have hz : pwBit ψ (Setlec.PropWhen.ifAllZero [uN]) = 0 ↔ ψ uN = 0 :=
     pwBit_ifAllZero_single ψ uN
+  rw [quotMkTyP]
   exact .pi hz (.sort _)
     (.pi hz (bitAgree_quotRelTyP (ψ uN))
       (.pi hz (.bvar 1)
@@ -392,18 +388,22 @@ theorem quotIndMinorTyP_interp {u : Nat} {Aset R M : V} (ρ : Nat → V)
 
 /-! ### The type reading -/
 
+/-- `Quot.ind`'s type reading, named: five binders, every numeral the
+literal `0`. -/
+def quotIndTyP (u : Nat) : AVExpr :=
+  .pi 0 0 (.sort u)
+    (.pi 0 0 quotRelTyP
+      (.pi 0 0 (quotIndMotiveTyP u)
+        (.pi 0 0 (quotIndMinorTyP u)
+          (.pi 0 0 (quotAppP u 3 2) (.app (.bvar 2) (.bvar 0))))))
+
 /-- **`Quot.ind`'s type reading.** -/
 theorem denoteP_quotIndA_type (ψ : Name → Nat)
     (hQ : env.find? quotName = some quotA)
     (hM : env.find? quotMkName = some quotMkA) :
     denoteP (acvalWith m.acval quotIndA.name A)
         ⟨quotIndA :: env.consts⟩ ψ 0 quotIndA.toConstantVal.type
-      = some (.pi 0 0 (.sort (ψ uN))
-          (.pi 0 0 (quotRelTyP)
-            (.pi 0 0 (quotIndMotiveTyP (ψ uN))
-              (.pi 0 0 (quotIndMinorTyP (ψ uN))
-                (.pi 0 0 (quotAppP (ψ uN) 3 2)
-                  (.app (.bvar 2) (.bvar 0))))))) := by
+      = some (quotIndTyP (ψ uN)) := by
   have hQc : ∀ d : Nat,
       denoteP (acvalWith m.acval quotIndA.name A)
         ⟨quotIndA :: env.consts⟩ ψ d (.const quotName [.param uN])
@@ -445,17 +445,11 @@ theorem denoteP_quotIndA_type (ψ : Name → Nat)
           { bi := .implicit, pw := .ifAllZero [] } from rfl]
   simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
     Expr.instantiate1, quotRelTyP, quotAppP, quotMkAppP,
-    quotIndMotiveTyP, quotIndMinorTyP, pwBit_never,
+    quotIndMotiveTyP, quotIndMinorTyP, quotIndTyP, pwBit_never,
     pwBit_ifAllZero_nil, hQc, hMc, Level.eval]
 
 theorem bitAgree_quotIndA (ψ : Name → Nat) :
-    AVExpr.BitAgree
-      (.pi 0 0 (.sort (ψ uN))
-        (.pi 0 0 (quotRelTyP)
-          (.pi 0 0 (quotIndMotiveTyP (ψ uN))
-            (.pi 0 0 (quotIndMinorTyP (ψ uN))
-              (.pi 0 0 (quotAppP (ψ uN) 3 2)
-                (.app (.bvar 2) (.bvar 0)))))))
+    AVExpr.BitAgree (quotIndTyP (ψ uN))
       (BConst.type2 .quotInd [ψ uN]) :=
   .pi Iff.rfl (.sort _)
     (.pi Iff.rfl (bitAgree_quotRelTyP (ψ uN))
@@ -623,6 +617,172 @@ theorem quotIndRaP_okP (u : Nat) (ρ : Nat → V) :
   refine AnnotOkP_lam_zero_pt ⟨trivial, trivial⟩ ?_ ?_
   · exact fun a ha => (hbody a (by rwa [hdom] at ha)).1
   · exact fun a ha => (hbody a (by rwa [hdom] at ha)).2
+
+/-- **`Quot.ind`'s rule's RHS reading.** -/
+theorem denoteP_quotInd_rhs (ψ : Name → Nat)
+    (hQ : env.find? quotName = some quotA)
+    (hM : env.find? quotMkName = some quotMkA) :
+    denoteP (acvalWith m.acval quotIndA.name A)
+        ⟨quotIndA :: env.consts⟩ ψ 0 quotIndRule.rhs
+      = some (quotIndRaP (ψ uN)) := by
+  have hQc : ∀ d : Nat,
+      denoteP (acvalWith m.acval quotIndA.name A)
+        ⟨quotIndA :: env.consts⟩ ψ d (.const quotName [.param uN])
+        = some (AVExpr.const .quot [ψ uN]) := fun d =>
+    denoteP_quotLeaf (m := m) (A := A) ψ (by decide) hQ d
+      (Level.param uN)
+  have hMc : ∀ d : Nat,
+      denoteP (acvalWith m.acval quotIndA.name A)
+        ⟨quotIndA :: env.consts⟩ ψ d (.const quotMkName [.param uN])
+        = some (AVExpr.const .quotMk [ψ uN]) := fun d =>
+    denoteP_quotMkLeaf (m := m) (A := A) ψ (by decide) hM d
+      (Level.param uN)
+  simp only [quotIndRule]
+  simp [denoteP_lam, denoteP_forallE, denoteP_sort, denoteP_app,
+    denoteP_fvar, Expr.instantiate1, quotRelTyP, quotAppP, quotMkAppP,
+    quotIndMotiveTyP, quotIndMinorTyP, quotIndRaP, pwBit_never,
+    pwBit_ifAllZero_nil, hQc, hMc, Level.eval]
+
+/-- **`Quot.ind`'s `RecRuleLawP` row.**  The rule is `.plain`, so both
+`.nested` conjuncts are `nomatch`; the fired equality is `pt = pt`
+(`bval2 .quotInd` is the canonical proof and so is the RHS tower), and
+the transport is five `AnnotOkP_app_pt` steps whose domains come
+straight off the two telescope fits — no domain has to be
+identified. -/
+theorem quotIndLawP {m : EnvS2Core V env}
+    (m₂ : EnvS2Core V ⟨quotIndA :: env.consts⟩)
+    (hQ : env.find? quotName = some quotA)
+    (hM : env.find? quotMkName = some quotMkA)
+    (hac : m₂.acval = acvalWith m.acval quotIndA.name
+      (fun ψ => AVExpr.const .quotInd [ψ uN]))
+    (φ : Name → Nat) :
+    RecRuleLawP m₂ φ quotIndA.name quotIndA.toConstantVal 4 4
+      quotIndRule := by
+  refine ⟨Nat.le_refl 4, fun us hus => ?_⟩
+  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
+      ψ = Level.substFn φ quotIndA.toConstantVal.levelParams us :=
+    ⟨_, rfl⟩
+  have hRa : denoteP m₂.acval ⟨quotIndA :: env.consts⟩ φ 0
+      (quotIndRule.rhs.instantiateLevelParams
+        quotIndA.toConstantVal.levelParams us)
+      = some (quotIndRaP (ψ uN)) := by
+    rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac, hψ,
+      denoteP_quotInd_rhs (m := m) _ hQ hM]
+  refine ⟨quotIndRaP (ψ uN), hRa, fun ρ => quotIndRaP_okP _ ρ, ?_, ?_⟩
+  · intro _ _ h
+    exact nomatch h
+  intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
+    hlev hplain hnested hpin hTVa hTVja hfitR hfitC
+  -- the fired constructor is `Quot.mk`, stored in the prefix
+  have hM' : (⟨quotIndA :: env.consts⟩ : Env).find? quotMkName
+      = some quotMkA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hM
+  rw [show RecRule.ctor quotIndRule = quotMkName from rfl, hM'] at hfj
+  obtain ⟨rfl, rfl, rfl⟩ :
+      cvj = quotMkA.toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
+    injection Option.some.inj hfj with a1 a2 a3
+    exact ⟨a1.symm, a2.symm, a3.symm⟩
+  obtain ⟨x1, x2, x3, x4, rfl⟩ : ∃ p q r s, xs = [p, q, r, s] := by
+    match xs, hxs with
+    | [p, q, r, s], _ => exact ⟨p, q, r, s, rfl⟩
+  obtain ⟨y1, y2, y3, rfl⟩ : ∃ p q r, ys = [p, q, r] := by
+    match ys, hys with
+    | [p, q, r], _ => exact ⟨p, q, r, rfl⟩
+  have hTyRead : denoteP m₂.acval ⟨quotIndA :: env.consts⟩ φ 0
+      (quotIndA.toConstantVal.type.instantiateLevelParams
+        quotIndA.toConstantVal.levelParams us)
+      = some (quotIndTyP (ψ uN)) := by
+    rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac,
+      denoteP_quotIndA_type (m := m) _ hQ hM, ← hψ]
+  obtain rfl : TVa = _ :=
+    (Option.some.inj (hTyRead.symm.trans hTVa)).symm
+  have hCtorRead : denoteP m₂.acval ⟨quotIndA :: env.consts⟩ φ 0
+      (quotMkA.toConstantVal.type.instantiateLevelParams
+        quotMkA.toConstantVal.levelParams usj)
+      = some (quotMkTyP
+          (pwBit (Level.substFn φ quotMkA.toConstantVal.levelParams usj)
+            (.ifAllZero [uN]))
+          (Level.substFn φ quotMkA.toConstantVal.levelParams usj uN)) := by
+    rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac,
+      denoteP_quotMkTy (m := m) _ (by decide) hQ]
+  obtain rfl : TVja = _ :=
+    (Option.some.inj (hCtorRead.symm.trans hTVja)).symm
+  have hrecL : m₂.acval quotIndA.name
+      (Level.substFn φ quotIndA.toConstantVal.levelParams us)
+      = AVExpr.const .quotInd [ψ uN] := by
+    rw [hac, acvalWith_self, hψ]
+  rw [quotIndTyP] at hfitR
+  rw [quotMkTyP] at hfitC
+  cases hfitR with | cons f1 hfitR =>
+  cases hfitR with | cons f2 hfitR =>
+  cases hfitR with | cons f3 hfitR =>
+  cases hfitR with | cons f4 hfitR =>
+  cases hfitR with | cons f5 _ =>
+  cases hfitC with | cons g1 hfitC =>
+  cases hfitC with | cons g2 hfitC =>
+  cases hfitC with | cons g3 _ =>
+  refine ⟨?_, ?_⟩
+  · -- the fired equality: both sides are the canonical proof
+    simp only [show RecRule.ctor quotIndRule = quotMkName from rfl,
+      show quotIndRule.ctorParams = 2 from rfl,
+      List.take, List.drop, List.cons_append, List.nil_append,
+      AVExpr.mkAppN_cons, AVExpr.mkAppN_nil,
+      hrecL, interp2_app, interp2_const, bval2, quotIndRaP_interp,
+      app_pt]
+  · -- the transport: five squash-regime applications
+    intro hxsA hysA
+    simp only [show quotIndRule.ctorParams = 2 from rfl,
+      List.take, List.drop, List.cons_append, List.nil_append,
+      AVExpr.mkAppN_cons, AVExpr.mkAppN_nil]
+    have h1 := AnnotOkP_app_pt (quotIndRaP_okP (ψ uN) ρ)
+      (quotIndRaP_interp (ψ uN) ρ) (hxsA x1 (by simp)) f1
+    have h2 := AnnotOkP_app_pt h1.1 h1.2 (hxsA x2 (by simp)) f2
+    have h3 := AnnotOkP_app_pt h2.1 h2.2 (hxsA x3 (by simp)) f3
+    have h4 := AnnotOkP_app_pt h3.1 h3.2 (hxsA x4 (by simp)) f4
+    exact (AnnotOkP_app_pt h4.1 h4.2 (hysA y3 (by simp)) g3).1
+
+/-- **`Quot.ind`, installed at the P tier.** -/
+theorem extendQuotIndP (mp : EnvS2PM V μ env)
+    (hQ : env.find? quotName = some quotA)
+    (hM : env.find? quotMkName = some quotMkA)
+    (hfresh : env.find? quotIndA.name = none)
+    (hbase : EnvS V ⟨quotIndA :: env.consts⟩)
+    (hag : ∀ n, n ≠ quotIndA.name →
+      mp.base2.base.cval n = hbase.cval n)
+    (hcv : ∀ ψ, hbase.cval quotIndA.name ψ
+      = VExpr.const .quotInd [ψ uN]) :
+    Nonempty (EnvS2PM V μ ⟨quotIndA :: env.consts⟩) := by
+  have hty := fun ψ =>
+    denoteP_quotIndA_type (m := mp.base2)
+      (A := fun ψ => AVExpr.const .quotInd [ψ uN]) ψ hQ hM
+  refine declStepPM_of_basis_rec_cons mp
+    (A := fun ψ => AVExpr.const .quotInd [ψ uN]) hfresh
+    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (by decide) (by decide) (by decide) (by decide)
+    (by decide) (Or.inl (fun _ h => nomatch h))
+    hbase hag
+    (fun ψ => by rw [hcv ψ]; rfl)
+    (fun _ _ => rfl) ?_
+    (fun _ _ => trivial) (fun _ _ => trivial)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
+  · intro ψ₁ ψ₂ hp
+    rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    exact (bitAgree_okP (bitAgree_quotIndA ψ) ρ).mpr
+      (AnnotOkP_bconst_type V .quotInd [ψ uN] ρ)
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    rw [AVExpr.BitAgree.interp2_eq V (bitAgree_quotIndA ψ) ρ]
+    exact bval2_mem_type V .quotInd [ψ uN] ρ
+  · intro m₂ hac φ
+    refine recRulesP_cons_rec mp hfresh quotIndA_eq m₂ hac φ ?_
+    intro rl hrl _
+    rcases List.mem_cons.mp hrl with rfl | hr'
+    · exact quotIndLawP (m := mp.base2) m₂ hQ hM hac φ
+    · exact nomatch hr'
 
 end Quot
 
