@@ -13621,3 +13621,232 @@ literal-tier's refuted erasure factoring and the proj tier's
 sought-and-failed rigidity shortcut, now observed at the pin tier.
 The route to the memberships is written in the ENDGAME B seal; its
 one residue closes on `univ_mono`.
+
+## Task #161 ENDGAME C: the two standard axioms cross; the route as written did not (2026-09-02)
+
+`propext` and `Classical.choice` now inhabit their stored types'
+readings, and `DeclAxiomR`'s standard-axiom branch is discharged
+(`axiomStdP`).  **The ENDGAME B seal's route did not survive contact**
+— not in one step but in two, and the class note above needs a
+correction rather than a confirmation.
+
+### 1. THE CORRECTION: the seal instantiated the wrong constant's bits
+
+The seal says: *`Iff.rec` is level-polymorphic and every one of its
+binder metas is `ifAllZero [u]`, so instantiate at `ψ uN ≠ 0`, where
+every bit is `1`.*  Every one of **`iffRecA`**'s metas is
+`ifAllZero [u]` — the *pin*'s.  The bits the argument actually needs
+are the **stored** `Iff.rec`'s, and `matchesPin` compares through
+`erasePw`, which is precisely the comparison that forgives them.
+
+`AxiomBitsP` cannot reach them either, and not for want of trying:
+its bit lemmas read `ConstantValR`'s recorded `inferTypeCore` run, and
+the only run in scope at an axiom install is **the axiom's own**.
+`Iff.rec` was stored many declarations earlier and its run is gone.
+So `propext`'s two halves do not merely have different blockers (the
+ENDGAME A refinement's point) — the membership half has *no bit lemma
+available at all*, and the seal's `ψ uN ≠ 0` instantiation buys
+nothing.
+
+Two consequences followed, and both were closed rather than assumed.
+
+### 2. The lever: a one-directional obligation still refutes
+
+`AnnotValidV`'s `pi` third component is `v = 0 → ∀ x ∈ A, B x ∈ˢ
+univZero`.  The ENDGAME A seal recorded it as the reason the tier
+cannot *pin* a bit.  It can still **refute** one:
+
+> **`pi_sort_bit_ne_zero`** (`Interp2/AxiomMemP.lean`) — a graded
+> `∀`-node whose codomain is a *sort* and whose domain is *inhabited*
+> has a nonzero bit.
+
+because the consequent is then `univ n ∈ˢ univZero`, and
+**`univ_not_mem_univZero`**: no universe is a truth value (`univZero`'s
+members are subsets of `{pt}`, `empty` is in every universe, so
+`empty = pt` — and `empty` *is* a truth value while `pt` is not).  The
+domain's inhabitant is free at both recursors: it is the very witness
+being eliminated.
+
+Both recursors' motive spaces have sort codomains (`Sort u` at
+`Iff.rec`, `Prop` at `Nonempty.rec`), so **the motive is in the graph
+regime at every assignment**, and `app_lamR_pos` computes with no bit
+known.  The seal's `ψ uN ≠ 0` is then not merely unnecessary but
+counter-productive: the recursor is read at `ψ0 = fun _ => 0`,
+`eqv_mem_univ` closes the motive's fibre outright, and **`univ_mono` is
+not used** — the seal's one named residue never arises.
+
+The rest of the seal's §2 is **confirmed**: the companion's bit needs
+no case-split, because `app_mem_piR`'s side condition is
+`AnnotValidV`'s own `pi` component, supplied hereditarily by
+`type_okP` (`app_mem_pi_validV`).  Every elimination of a stored family
+in this file goes through it with no bit knowledge whatsoever.
+
+### 3. The second break: the minor cannot be built positively
+
+Removing the motive's bit is not enough, and this one the seal did not
+see.  v1's `iff_forces_eqS` builds the minor premise *positively*: it
+applies the stored `Iff.intro` to the arguments `Iff.rec`'s own minor
+binder supplies.  Those two implication spaces are binder data of
+**two different stored constants**, both forgiven by `matchesPin`, so
+`piR e A (fun _ => B)` and `piR d A (fun _ => B)` need not agree.  A
+graph is not the canonical proof; off a graph's domain the motive
+applies to `∅`; the minor's fibre is then empty and the premise is
+**unsatisfiable**.  Nothing in the tree relates two stored constants'
+binder data — an invariant gap, the same species as ENDGAME B's
+`rec_rules` wall.
+
+**Routed around, cheaply.**  `Classical.byContradiction` on `A = B`
+makes the minor's *binders* vacuous: the moment an implication and its
+converse are both in hand, `eq_of_impls` gives `A = B` and contradicts
+the assumption.  The minor is a `lamR`-tower over an unreachable body
+and **the stored `Iff.intro` never appears in the argument at all** —
+v1's `iffIntroVal_app₄_memS` has no P counterpart and needs none.
+
+This is why `Classical.choice` was the *easier* half at P and the
+harder one at v1: `Nonempty.rec`'s minor binds a plain element of the
+type, not a function, so there is no second `piR` whose regime would
+have to match `Nonempty.intro`'s.  Its forcing transposes v1 shape for
+shape.
+
+**Correction to the FINDINGS class note.**  The note reads the
+divergence as "the graded interpretation refuses degenerate
+instantiations the collapse interpretation silently absorbs", with
+`u ↦ nonzero` as the fix.  That is not what happened.  The graded
+interpretation refuses *the collapse lane's whole way of using a stored
+recursor* — building the minor out of the sibling constructor — and no
+choice of level assignment repairs it, because the obstruction is
+between two constants and not inside one.  What repairs it is
+restructuring the elimination so the minor is never inhabited.  The
+class is intact; the *mechanism* named in the note is wrong, and the
+corrected mechanism is stronger: **collapse-lane arguments that cross
+two stored constants' binder data do not transpose, and must be
+re-derived so that the crossing does not occur.**
+
+### 4. WALL: `ofReduce*` needs a `ReduceOpsP` field
+
+`ofReduceNat`/`ofReduceBool` are **not** blocked on bits.  Their bits
+are free: the pin's innermost body is `Eq.{1} E (op a) b`, an `Eq`-spine
+over the *nose-pinned* `Eq` (`ofReduceAxOk`'s own first conjunct), so
+`inferTypeCore_eqSpineS` applies verbatim and `propext_bitsP`'s three
+moves transpose unchanged — all three binders carry `0`.  (The ENDGAME
+B seal predicted "their move 2 goes through the stored `Nat`/`Bool`
+families"; it does not — `Nat`/`Bool` appear only as the spine's *type*
+argument, which the peel never reads.)
+
+The block is the membership.  All three bits `0` makes the reading's
+products truth values, the witness is forced to `pt`, and the innermost
+obligation is
+
+> for every `a`, `b` in the element type, `eqv (op a) b` inhabited must
+> force `eqv a b` inhabited — that is, `op a = a`.
+
+which is exactly `ReduceOpsV` (`EnvS.lean:138`), *the trusted operation
+is the identity on its element type*.  The field exists at the **v1
+currency** (`interp`, `cval`); `EnvS2PM` has no mirror, and none can be
+derived — the transfer would be an erasure factoring of `interp2`
+through `interp`, refuted at exactly the λ-nodes the operation's leaf
+is made of (literal-tier seal II finding 1, the same refutation that
+makes `eq_lawP` a field rather than a theorem).
+
+**STOP-AND-NAME**: blocked on a `ReduceOpsP` field of `EnvS2PM` —
+`ReduceOpsV`'s mirror at `interp2`/`acval`, established wherever
+`reduce_ops` is — and on nothing else.  An environment law whose only
+supplier is the install that fixes the leaf, like `eq_lawP` and
+`caps_ok`.  Recorded, not assumed.
+
+### 5. `StdAxiomKey.lean`'s keys, split at the witness
+
+`propextKeyS_mem`/`choiceKeyS_mem`: the sealed keys' `∃ Vf` is one
+currency too coarse for a P leaf, which must know **which** witness was
+installed so its annotated twin can erase to it.  The `trustCompiler`
+branch found that and re-chose its witness by hand (ENDGAME A part 2);
+here it is generalized once.  `propextKeyS`/`choiceKeyS` are
+re-derived from the split forms and their statements are unchanged.
+
+### Census after ENDGAME C
+
+`no_proof_of_Empty_P_of`: **`hμ` + `AxiomStepPB` + `BasisStepPB` +
+`IndStepPB`** — *unchanged*.  `axiomStepPB_of` is **not stated**:
+three of `DeclAxiomR`'s four branches land (`axiomSkipP`,
+`axiomTrustCompilerP`, `axiomStdP`) and the fourth is §4's wall, so a
+bundle would carry a premise for it and that is a conditional form.
+`FoldP.lean` is untouched.  The basis tier (task 2 of this batch) was
+**not started** — see the resume-here.
+
+### Resume-here
+
+1. **`ReduceOpsP`** — the `EnvS2PM` field of §4.  Mirror `ReduceOpsV`
+   at `interp2`/`acval`, thread it through the cons kit
+   (`Interp2/DivModP.lean`'s `eqLawP_cons_*` are the template — the law
+   mentions one leaf, so it crosses every fresh cons that is not that
+   leaf), and establish it at the reduce-op install.  Then
+   `ofReduceNat`/`ofReduceBool` are: `ofReduce_shapeS` (mechanical,
+   `iffRec_shapeS`'s pattern), `ofReduce_bitsP` (`propext_bitsP`
+   verbatim, `inferTypeCore_eqSpineS` and all), and a membership that
+   is three `pt_mem_piR_zero_of`s over `eq_lawP` plus the new field;
+2. `axiomStepPB_of`, assembling the four branches, and the `FoldP`
+   wiring (`hax` off `no_proof_of_Empty_P_of` /
+   `checkDecls_sound_P_of` / `foldPM` / `declStepPM`, capstone
+   docstring updated);
+3. **`BasisStepPB`** — untouched.  ENDGAME B's `rec_rules` row is
+   NOT the wall it was recorded as: the lane lead's review supplies
+   the fact from `EnvS`, not `EnvWF` —
+   `rec_ctors : RecCtorsStored` (`Verify/EnvPreds.lean:64`, reachable
+   as `mp.base2.base.rec_ctors`) says every stored recursor rule's
+   constructor is itself stored, so at a `ctorInfo`/`indInfo`/`recInfo`
+   cons `RecRule.ctor rl ≠ c₀.name` follows from storedness +
+   freshness.  Use it for the basis-cons preservation of `rec_rules`
+   (and note it for `IndStepPB`).  Then per-block bills, structured as
+   `Install/BasisS.lean`'s mirror: every `EnvS2PM` field at each
+   block's conses, `BasisConsP`'s kit for the transferable rows,
+   bespoke `type_reads`/`type_okP`/`mem_typeP` from `BasisType`'s
+   readings + `bval2_mem_*`, `acval_validV` for the leaves,
+   `nat_heads` bespoke at `Nat`, `eq_lawP` bespoke at `Eq`
+   (`eqValT_lawS`'s mirror), `caps_ok` by `capsOkP_cons_basis`,
+   `rec_rules` bespoke for the pinned recursors from `Value.lean`'s
+   firing laws;
+4. `IndStepPB` (the `Prop`-motive minors; §3 above is the warning to
+   carry into it — its recursors' minors *do* take function arguments,
+   so any argument that feeds a recursor's minor binder to the stored
+   constructor will hit the same regime clash, and the by-contradiction
+   restructure is the pattern that survives);
+5. the FINAL ASSEMBLY.
+
+### ENDGAME C battery (verbatim, at `7c61d827`)
+
+`lake build` **404 jobs, warning-free**; `lake test` exit 0 (139
+targets).  `tests/arena.sh`:
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to the ENDGAME A and B seals', and for the same reason: no
+`Setlec/Kernel/*` file was touched.
+
+Axioms exactly `[propext, Classical.choice, Quot.sound]` (or a subset)
+on `no_proof_of_Empty_P_of`, `checkDecls_sound_P_of`, `harvestDefnP`,
+`TierInputsAtP.ofSem`, `no_proof_of_Empty_R2`, `acceptedReadsP_of`,
+`axiomSkipP`, `axiomTrustCompilerP`, `propext_bitsP`, `choice_bitsP`,
+`propextKeyS`/`choiceKeyS`/`stdAxiomKeyS`, and on every new theorem —
+`axiomStdP`, `pi_sort_bit_ne_zero`, `app_mem_pi_validV`,
+`eq_of_impls`, `iffVal_app₂_memP`, `iff_forces_eqP`, `propext_memP`,
+`denoteP_selfParam_constS`, `nonemptyVal_app_memP`,
+`nonemptyIntroVal_app₂_memP`, `nonemptyVal_forcesP`,
+`dneg_eq_nonemptyP`, `choice_memP`, `propextKeyS_mem`,
+`choiceKeyS_mem`; `[propext, Classical.choice]` on
+`univ_not_mem_univZero` and `[propext]` alone on the six shape lemmas
+(`iff_shapeS`, `iffIntro_shapeS`, `iffRec_shapeS`, `nonempty_shapeS`,
+`nonemptyIntro_shapeS`, `nonemptyRec_shapeS` — they are syntactic).
+Zero sorries.
+
+New file: `Interp2/AxiomMemP.lean` (the lever, six shape lemmas, the
+two forcing arguments, the two memberships).  Edited:
+`Interp2/AxiomPinP.lean` (the standard-axiom branch + the second WALL
+record), `SetR/StdAxiomKey.lean` (the two keys split at their
+witnesses; no sealed statement changed).  No file was deleted.
