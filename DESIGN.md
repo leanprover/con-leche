@@ -17578,3 +17578,103 @@ New files: `Setlec/SetR/Interp2/IndReductP.lean`,
 `Setlec/SetR/Interp2/IndLamTowerP.lean`.  Edited: `Setlec/SetR.lean`
 (two more imports), `DESIGN.md`.  Census unchanged:
 `no_proof_of_Empty_P_of` = `hμ` + `IndStepPB`.
+
+## Task #161 IND TIER part 5 — SEAL ADDENDUM II: item 2 closes
+(same batch, 2026-09-02)
+
+The addendum above left `annotMemS`'s transpose as the batch's open
+end and recorded its design.  It landed.  **Item 2 of the bill is
+closed**: `pointP`, `reductP` and the whole transport cluster stand,
+and the *only* outstanding input of any of them is the rule
+right-hand side's grading — the third exposure's row.
+
+| commit | what landed |
+| --- | --- |
+| `de1d2319` | `annotOkP_lamTower_slot`, `ctxOkP_of_walked_openers`; `annotPFrameEqP`, `annotMemP` |
+
+### The design recorded in addendum I was wrong in its *cost*, and the correction is a finding
+
+Addendum I predicted a fresh public-frame context `Δc` (the recursor
+tower on the prefix slots, the constructor's field tower on the rest)
+with satisfaction transported into it.  **None of that was needed**,
+and the reason is a property of the P currency the record had not
+noticed:
+
+> **`CtxOkP`'s per-leaf obligation is an `interp2` *equation*, not a
+> syntactic identity** (`Claims2P.lean:79-81`).  v1 needs a separate
+> `ctxOkR_of_walked_openers` because `CtxOkR`'s obligation is an
+> `Infer.bvar` derivation onto `DefEq.refl` — the leaf's annotation
+> *is* the context entry — so a frame whose openers are only *defeq*
+> to the entries needs its own constructor with slack.  At P the slack
+> is already there: `ctxOkP_of_walked_openers` is `ctxOkP_of_openers`
+> with the equation supplied instead of proved by `interp2_liftN`, and
+> nothing else changes.
+
+So the transport's lam walk fires at the **statement** frame's own
+context — exactly where v1 fires it — even though its subjects' leaves
+are the *public* frame's openers.  No second context, no transport of
+satisfaction, no `Δc`.  **Carry the general form**: when a v1 stage
+needs a slack-carrying variant of a frame predicate, check whether the
+P predicate is already semantic before transposing the variant.
+
+### The other two headlines
+
+* **`annotPFrameEqP` is not a walk.**  v1's `annotPFrameEqS` fires the
+  prefix and field domain walks itself.  At P the two position ladders
+  (`prefixGradeFireP`, `fieldGradeFireP`) have *already* fired them, so
+  the per-position identification is just their equalities composed
+  with the renaming identity of the two runs' domains
+  (`instPisAt_renEq` + `RenEqT.denoteP`) — free for the third time,
+  and for the same reason: the two spines' field openers sit at equal
+  indices (`rP … rP + cnF - 1`).  It compiled first try;
+* **`annotMemP` is the fourth position induction of the identical
+  shape** (after prefix, parameter, field): earlier positions'
+  equalities carry `Sat2`'s memberships into the λ tower,
+  `annotOkP_lamTower_slot` grades slot `k` out of `hokRa`, the
+  recorded lam walk fires, and the equality at `k` comes out.  The
+  ladder pattern is now the ind tier's *only* stage idiom.
+
+### Battery and axioms, re-run at `de1d2319`
+
+`lake build` **448 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of` and on `annotOkP_lamTower_slot`,
+`ctxOkP_of_walked_openers`, `annotPFrameEqP`, `annotMemP`.  Zero
+sorries.  New files: `Setlec/SetR/Interp2/IndAnnotKitP.lean`,
+`Setlec/SetR/Interp2/IndAnnotMemP.lean`.
+
+### The bill, final form for this batch
+
+0. **THE ROW** — `(∃ t, inferTypeCore μ envSelf F 0 rhsA = .ok t)` on
+   `IotaRuleR`, `ProjFnR:804`'s own row one definition up.  It is now
+   the **single** outstanding input of every stage this batch landed:
+   `reductP`'s `hokApp` and `annotMemP`'s `hokRa` are its two
+   consumers, and `lamTowerStepP` composes them;
+1. the two bottoms — `indBottomPlainS`/`indBottomNestedS`'s transposes.
+   **Every stage they call now exists**: `zipperP`, `pointP`,
+   `reductP`, `annotMemP` + `lamTowerStepP`, plus the tower readers and
+   the four ladders.  What the bottoms still do themselves is the
+   plumbing v1's do — opening the statement, assembling the frames,
+   and the fired equality's two halves meeting through the *inhabited*
+   equation (`mem_typeP`), which is the saving part 1 found and which
+   replaces v1's `fireS`;
+2. the `.nested` parameter supply (`fieldGradeFireP`'s `hpar` for a
+   nested fire) from `IotaThmNR`'s `TypedListOk` row.  **Check the RISK
+   FLAG in the main seal first** — `RecRuleLawP`'s nested pin conjunct
+   demands the pins' *open* readings graded unconditionally in `ρ`,
+   and that looks too strong;
+3. the recursor group's `RecRuleLawP` rows (the per-instantiation
+   Prop-motive case on the `eqRecLawP` anchor), the projection
+   `rec_rules` half, `indStepPB_of`, `hind` off `FoldP`, census → `hμ`
+   ALONE, and THE ASSEMBLY.
