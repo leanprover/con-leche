@@ -2,6 +2,7 @@ import Setlec.SetR.Interp2.CapstoneP
 import Setlec.SetR.Interp2.NatEqsP
 import Setlec.SetR.Interp2.DivModCertP
 import Setlec.SetR.Interp2.CapsP
+import Setlec.SetR.Interp2.RecRulesPCons
 import Setlec.SetR.Install.ValueKinds
 
 /-!
@@ -340,7 +341,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -508,6 +509,12 @@ theorem harvestDefnP (hμ : μ.verified = true)
       (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
+  · -- `rec_rules` at the extension: a value-kind cons is neither a
+    -- recursor nor a constructor, so no stored rule moves
+    exact fun φ => recRulesP_cons_fresh mp
+      (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
+      (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 /-! ## The `thm` mirror (batch H2, T1)
 
@@ -721,7 +728,7 @@ theorem harvestThmP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -785,6 +792,12 @@ theorem harvestThmP (hμ : μ.verified = true)
       (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
+  · -- `rec_rules` at the extension: a value-kind cons is neither a
+    -- recursor nor a constructor, so no stored rule moves
+    exact fun φ => recRulesP_cons_fresh mp
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 /-! ## The `opaque` kind: the H2 SKIP, since unlocked
 
@@ -949,7 +962,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh hbase hag hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -1006,6 +1019,12 @@ theorem harvestAxiomP (hμ : μ.verified = true)
       (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
+  · -- `rec_rules` at the extension: a value-kind cons is neither a
+    -- recursor nor a constructor, so no stored rule moves
+    exact fun φ => recRulesP_cons_fresh mp
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+      (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 
 /-! ## The `opaque` kind, unlocked (the exposed leaf equation)
@@ -1186,7 +1205,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -1244,5 +1263,11 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
       (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
+  · -- `rec_rules` at the extension: a value-kind cons is neither a
+    -- recursor nor a constructor, so no stored rule moves
+    exact fun φ => recRulesP_cons_fresh mp
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+      (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 end Setlec.SetR.Interp2

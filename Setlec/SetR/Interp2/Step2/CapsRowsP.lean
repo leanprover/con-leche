@@ -464,45 +464,45 @@ telescopes appear only to *grade* the fabricated projection spine —
 `annotOkP_mkAppN_of_fit`, not through any function-valued
 quantification, so `choose_fun` has no counterpart here. -/
 
-/-- **`StructEtaIrrelP`, discharged from the field.**  The stored
-η law fires at the reduced type's parameter spine; the fabricated
-value spine is `etaFabArgs2`, and the certificate's two `defEqList`
-runs identify it with the constructor application's own arguments. -/
-theorem structEtaIrrelP_of_claims {m : EnvS2Core V env}
+/-- **The η certificate's semantic content, at a given reduced type**
+(`structEtaCertWith_stepR`'s mirror; factored out of
+`structEtaIrrelP_of_claims` for the iota tier's major rescue, which
+holds a `structEtaCertWithP` run whose `tmaj` was computed by
+`majorToCtor` and must not be recomputed — the same reason v1
+factored its own).
+
+The stored η law fires at the reduced type's parameter spine; the
+fabricated value spine is `etaFabArgs2`, and the certificate's two
+`defEqList` runs identify it with the constructor application's own
+arguments. -/
+theorem structEtaCertWithP_step {m : EnvS2Core V env}
     (hcaps : CapsOkP m) (hct : ConstTypeP m φ) (hav : AcvalValidP m)
-    (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
-    (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
-    StructEtaIrrelP μ m φ fuel := by
-  intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
-    hokA hokB ρ hρ
-  obtain ⟨tb, wtb, htb, hwtb, hcw⟩ := Setlec.structEtaCert_inv h
+    (ihd : DefEqClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
+    (hreads : InferReadsP m μ φ fuel)
+    {d : Nat} {Δa : List AVExpr} {a b wtb : Expr}
+    {aa ba wtba : AVExpr}
+    (hcw : Setlec.structEtaCertWithP μ env fuel d a b wtb = .ok true)
+    (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a) (hCa : CtxOkP m φ d Δa a)
+    (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded b) (hCb : CtxOkP m φ d Δa b)
+    (hwr : Expr.WScoped d wtb) (hbr : wtb.looseBVarsBounded 0 = true)
+    (hLr : Expr.LeavesBounded wtb) (hCr : CtxOkP m φ d Δa wtb)
+    (hda : denoteP m.acval env φ d a = some aa)
+    (hdb : denoteP m.acval env φ d b = some ba)
+    (hwtba : denoteP m.acval env φ d wtb = some wtba)
+    (hokA : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ aa)
+    (hokB : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ba)
+    (hokW : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ wtba)
+    (hmemBW : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      interp2 V ρ ba ∈ˢ interp2 V ρ wtba)
+    (ρ : Nat → V) (hρ : Sat2 V Δa ρ) :
+    interp2 V ρ aa = interp2 V ρ ba := by
   obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, hfna, hfc, hlena,
     hfnb, hfT, heta, hectr, hepar, hefld, hresT, hresc, hlenb, hlenus,
     hlpc, hstrip, hlev, hcertT, hprojs, hdefL1, -, hdefL2⟩ :=
     Setlec.structEtaCertWith_inv hcw
-  -- the stuck side's inferred type: frames, reading, membership
-  have hwt : Expr.WScoped d tb :=
-    Setlec.inferTypeCore_WScoped m.base.wf fuel htb hwb
-  have hbt : tb.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.base.wf fuel htb hwb hbb hLb
-  have hLt : Expr.LeavesBounded tb := fun l hl =>
-    hLb l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb l hl)
-  have hCt : CtxOkP m φ d Δa tb :=
-    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb)
-  obtain ⟨tba, htba⟩ :=
-    hreads htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
-  obtain ⟨-, hokTb, hmemB⟩ := ihi htb hwb hbb hLb hCb hdb htba
-  obtain ⟨wtba, hwtba⟩ := hwreads hwtb hwt hbt hLt htba
-  obtain ⟨hokW, heqW⟩ := ihw hwtb hwt hbt hLt hCt htba hwtba hokTb
-  -- the reduct's frames
-  have hwr : Expr.WScoped d wtb := Setlec.whnf_WScoped m.base.wf fuel hwtb hwt
-  have hbr : wtb.looseBVarsBounded 0 = true :=
-    Setlec.whnf_looseBVars m.base.wf fuel hwtb hbt
-  have hLr : Expr.LeavesBounded wtb := fun l hl =>
-    hLt l (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb l hl)
-  have hCr : CtxOkP m φ d Δa wtb :=
-    hCt.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb)
+  have hmemB := hmemBW
   -- the reduced type is the family applied to its parameters
   rw [show wtb = Expr.mkAppN wtb.getAppFn wtb.getAppArgs from
     (Setlec.Expr.mkAppN_getApp wtb).symm, hfnb] at hwtba
@@ -581,15 +581,15 @@ theorem structEtaIrrelP_of_claims {m : EnvS2Core V env}
         = (l.map (interp2 V ρ)).foldl SetTheory.app x := by
     intro l x; rw [List.foldl_map]
   -- the stuck side inhabits the family instance
-  have hmemBW : interp2 V ρ ba
+  have hmemFam : interp2 V ρ ba
       ∈ˢ (tsa.map (interp2 V ρ)).foldl SetTheory.app
           (interp2 V ρ (m.acval T (Level.substFn φ cvT.levelParams us'))) := by
-    have := (heqW ρ hρ) ▸ hmemB ρ hρ
+    have := hmemB ρ hρ
     rwa [interp2_mkAppN, hfold] at this
   have hlenTs : (tsa.map (interp2 V ρ)).length = caps.etaParams := by
     rw [List.length_map, ← hspt.length, hlenb, hepar]
   have hb := hlaw ρ (tsa.map (interp2 V ρ)) rest (interp2 V ρ ba)
-    hlenTs hfitT hmemBW
+    hlenTs hfitT hmemFam
   -- the two argument spines' gradings
   obtain ⟨hohA, hoA⟩ := hoistP_spine asa hokA
   obtain ⟨-, hoT⟩ := hoistP_spine tsa hokW
@@ -712,6 +712,44 @@ theorem structEtaIrrelP_of_claims {m : EnvS2Core V env}
     rfl
   -- assemble
   rw [hb, interp2_mkAppN, hfold, hfab, hψc, hectr]
+
+/-- **`StructEtaIrrelP`, discharged from the field.**  The wrapper's own
+reduction (infer the stuck side, head-normalise, read the claims off
+it) plus `structEtaCertWithP_step`. -/
+theorem structEtaIrrelP_of_claims {m : EnvS2Core V env}
+    (hcaps : CapsOkP m) (hct : ConstTypeP m φ) (hav : AcvalValidP m)
+    (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
+    (ihi : InferClaims2P μ m φ fuel)
+    (hreads : InferReadsP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
+    StructEtaIrrelP μ m φ fuel := by
+  intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
+    hokA hokB ρ hρ
+  obtain ⟨tb, wtb, htb, hwtb, hcw⟩ := Setlec.structEtaCert_inv h
+  -- the stuck side's inferred type: frames, reading, membership
+  have hwt : Expr.WScoped d tb :=
+    Setlec.inferTypeCore_WScoped m.base.wf fuel htb hwb
+  have hbt : tb.looseBVarsBounded 0 = true :=
+    Setlec.inferTypeCore_looseBVars m.base.wf fuel htb hwb hbb hLb
+  have hLt : Expr.LeavesBounded tb := fun l hl =>
+    hLb l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb l hl)
+  have hCt : CtxOkP m φ d Δa tb :=
+    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb)
+  obtain ⟨tba, htba⟩ :=
+    hreads htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
+  obtain ⟨-, hokTb, hmemB⟩ := ihi htb hwb hbb hLb hCb hdb htba
+  obtain ⟨wtba, hwtba⟩ := hwreads hwtb hwt hbt hLt htba
+  obtain ⟨hokW, heqW⟩ := ihw hwtb hwt hbt hLt hCt htba hwtba hokTb
+  -- the reduct's frames
+  have hwr : Expr.WScoped d wtb := Setlec.whnf_WScoped m.base.wf fuel hwtb hwt
+  have hbr : wtb.looseBVarsBounded 0 = true :=
+    Setlec.whnf_looseBVars m.base.wf fuel hwtb hbt
+  have hLr : Expr.LeavesBounded wtb := fun l hl =>
+    hLt l (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb l hl)
+  have hCr : CtxOkP m φ d Δa wtb :=
+    hCt.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb)
+  exact structEtaCertWithP_step hcaps hct hav ihd ihi hreads hcw
+    hwa hba hLa hCa hwb hbb hLb hCb hwr hbr hLr hCr hda hdb hwtba
+    hokA hokB hokW (fun σ hσ => (heqW σ hσ) ▸ hmemB σ hσ) ρ hρ
 
 /-- The frame conditions of an application's two immediate parts —
 `frame_appFnP`'s one-step twin, the shape the pinned pair's fixed
