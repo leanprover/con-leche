@@ -469,3 +469,83 @@ theorem iff_forces_eqP (mp : EnvS2PM V μ env)
   simp only [interp2_app, interp2_bvar, cons_zero, cons_succ] at h5
   rw [hME, app_lamR_pos hc hw] at h5
   exact hne (mem_eqv h5)
+
+/-! ## `propext`'s membership
+
+The leaf is the layer's own `propext` constant, whose `bval2` is `pt`,
+and `propext_bitsP` makes every binder of the stored type carry bit
+`0` — so all three products are truth values and `pt_mem_piR_zero_of`
+descends through them.  The innermost fibre is the `Eq`-spine, whose
+value is `eq_lawP`'s (the field, at the pin's own level instantiation
+`u ↦ 1`), and `iff_forces_eqP` supplies the equation. -/
+
+/-- **`propext` inhabits its stored type's reading.** -/
+theorem propext_memP (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+    {cvA : ConstantVal} (hok : Setlec.stdAxiomOk env cvA = true)
+    (hn : cvA.name = propextName) {F d : Nat} {stype : Expr}
+    (hrun : Setlec.inferTypeCore μ env F d cvA.type = .ok stype)
+    (ψ : Name → Nat) (ta : AVExpr)
+    (hta : denoteP mp.base2.acval env ψ 0 cvA.type = some ta)
+    (ρ : Nat → V) :
+    interp2 V ρ (.const .propext []) ∈ˢ interp2 V ρ ta := by
+  obtain ⟨hEq, ⟨cvI, caps, hfI, hlpI, htyI⟩, ⟨cvIi, hfIi, hlpIi, htyIi⟩,
+    ⟨cvIr, mI, rP, rules, hfIr, hlpIr, htyIr⟩, hApin⟩ :=
+    iff_shapes hok hn
+  have hApinT : cvA.type.erasePw.eraseNames
+      = propextA.type.erasePw.eraseNames := by
+    simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+      beq_iff_eq] at hApin
+    exact hApin.2
+  obtain ⟨n₁, n₂, n₃, m₁, m₂, m₃, hsh⟩ := propext_shapeS hApinT
+  rw [hsh] at hrun hta
+  obtain ⟨hb₁, hb₂, hb₃⟩ := propext_bitsP hμ hEq hrun ψ
+  -- the `Eq` former's one level parameter is pinned to `1`
+  have heqψ : Level.substFn ψ eqA.toConstantVal.levelParams
+      [Level.zero.succ] uN = 1 := rfl
+  have hI : ∀ e, denoteP mp.base2.acval env ψ e (.const iffName [])
+      = some (mp.base2.acval iffName ψ) :=
+    fun e => denoteP_levelless_const hfI (by
+      rw [show (ConstantInfo.indInfo cvI caps).toConstantVal = cvI
+        from rfl, hlpI])
+  have hQ : ∀ e, denoteP mp.base2.acval env ψ e
+      (.const eqName [Level.zero.succ])
+      = some (mp.base2.acval eqName (Level.substFn ψ
+          eqA.toConstantVal.levelParams [Level.zero.succ])) :=
+    fun e => denoteP_const hEq rfl
+  -- the stored type's reading, at the bits the run fixes
+  have hden : denoteP mp.base2.acval env ψ 0
+      (.forallE n₁ (.sort .zero)
+        (.forallE n₂ (.sort .zero)
+          (.forallE n₃
+            (.app (.app (.const iffName []) (.bvar 1)) (.bvar 0))
+            (.app (.app (.app (.const eqName [.succ .zero])
+                (.sort .zero)) (.bvar 2)) (.bvar 1)) m₃) m₂) m₁)
+      = some (.pi 0 0 (.sort 0) (.pi 0 0 (.sort 0)
+          (.pi 0 0
+            (.app (.app (mp.base2.acval iffName ψ) (.bvar 1)) (.bvar 0))
+            (.app (.app (.app (mp.base2.acval eqName
+                (Level.substFn ψ eqA.toConstantVal.levelParams
+                  [Level.zero.succ])) (.sort 0)) (.bvar 2))
+              (.bvar 1))))) := by
+    simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
+      Expr.instantiate1, hI, hQ, Level.eval, hb₁, hb₂, hb₃]
+  obtain rfl : ta = _ := Option.some.inj (hta.symm.trans hden)
+  -- the leaves' interpretations do not read the environment
+  have hIc : ∀ ρ' : Nat → V,
+      interp2 V ρ' (mp.base2.acval iffName ψ)
+        = interp2 V ρ (mp.base2.acval iffName ψ) :=
+    fun ρ' => acval_interp2_closedC mp.base2 _ ψ ρ' ρ
+  -- three `Prop`-level products, all `pt`-inhabited
+  show (pt : V) ∈ˢ _
+  simp only [interp2_pi, interp2_sort, interp2_app, interp2_bvar,
+    cons_zero, cons_succ, hIc]
+  refine pt_mem_piR_zero_of fun A hA => ?_
+  refine pt_mem_piR_zero_of fun B hB => ?_
+  refine pt_mem_piR_zero_of fun w hw => ?_
+  have hAB : A = B :=
+    iff_forces_eqP mp hfI hlpI hfIi hlpIi hfIr htyIr ψ
+      (cons w (cons B (cons A ρ))) hA hB (by
+        simp only [hIc]; exact hw)
+  rw [(mp.eq_lawP hEq _).1 (cons w (cons B (cons A ρ)))
+    (univ 0) A B (by rw [heqψ]; exact univ_mem_univ 0) hA hB]
+  exact hAB ▸ pt_mem_eqv_self A
