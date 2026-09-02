@@ -13850,3 +13850,67 @@ two forcing arguments, the two memberships).  Edited:
 `Interp2/AxiomPinP.lean` (the standard-axiom branch + the second WALL
 record), `SetR/StdAxiomKey.lean` (the two keys split at their
 witnesses; no sealed statement changed).  No file was deleted.
+
+## Task #161 SUCCESSION RECORD update (endgame C landed, 2026-09-02)
+
+Lane `agent/annot-v2` @ b04780e7 (endgameB merged).  ALL FOUR SEMANTIC
+TIERS CLOSED; `SemTierInputsP` DELETED; capstone hypotheses: `hμ` +
+`AxiomStepPB` + `BasisStepPB` + `IndStepPB`.
+
+LANDED: endgame batch C on `agent/endgameC` (worktree
+`.claude/worktrees/endgameC`).  Briefed to close both the pin and the
+basis bundles; **closed neither bundle, and the census is unchanged**
+— but three of four pin branches now land and the two blockers are
+named, not assumed.  Delivered: `pi_sort_bit_ne_zero` +
+`univ_not_mem_univZero` (the lever), the six companion shape lemmas,
+`iff_forces_eqP` and `nonemptyVal_forcesP`, `propext_memP` and
+`choice_memP`, `axiomStdP`, and `StdAxiomKey`'s two keys split at
+their witnesses.  Battery green (build 404 warning-free, test 139,
+arena counters identical to B, axioms exactly the standard three).
+
+Two corrections to the ENDGAME B seal, both mechanized:
+
+* its `Iff.rec` route instantiates the **pin's** bits where the
+  argument needs the **stored constant's**, and no bit lemma can reach
+  those.  `ψ uN ≠ 0` buys nothing; the graph regime comes from the
+  motive's sort codomain at every assignment, and `univ_mono` is not
+  used;
+* v1's minor construction crosses two stored constants' binder data,
+  which `matchesPin` forgives on both sides — unsatisfiable at P.  The
+  by-contradiction restructure removes the crossing.  **Carry this
+  warning into `IndStepPB`**: its recursors' minors do take function
+  arguments.
+
+WALLS NAMED (both invariant additions, neither a proof):
+
+* `ReduceOpsP` — `EnvS2PM` needs `ReduceOpsV`'s mirror at
+  `interp2`/`acval` before `ofReduceNat`/`ofReduceBool` can land, and
+  therefore before `axiomStepPB_of` can be stated;
+* the basis tier was **not started** (context exhausted after the pin
+  memberships).  ENDGAME B's `rec_rules` row is *not* the wall it was
+  recorded as — `mp.base2.base.rec_ctors` supplies it; the full bill is
+  in the ENDGAME C resume-here.
+
+AFTER C (successor's order): review + merge C per protocol (grants
+from the orchestrator); then the ENDGAME C resume-here items 1-3
+(`ReduceOpsP` → `axiomStepPB_of` + FoldP `hax`; then `BasisStepPB`);
+then `IndStepPB` — the last bundle: all
+`EnvS2PM` fields at `indDecl` conses; `caps_ok` + `rec_rules`
+establishment from the modeled families' certificates (H1-expose the
+caps/iota cert runs, then the claims — the campaign's signature
+move); THE PROP-MOTIVE MINORS (the last place genuinely novel content
+can hide; live precedent: `natRecV2_app`'s squash-regime case in
+`Interp2/Value.lean`; the `Iff.rec` divergence class note applies);
+the `rec_ctors` trick for its preservations; stop-and-name standing.
+Then THE FINAL ASSEMBLY: `no_proof_of_Empty_P` at input-level
+hypotheses only (the frozen statement in `CapstoneP.lean`'s
+docstring), final battery + axiom audit + frontier table finalized +
+master merged.  The de-gating enumeration then triggers per the user
+directive.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal; the discipline ledger's practices (mechanize
+countermodels, never silently edit frozen statements, convergent-
+duplicate checks before writing, sought-and-failed refutations
+recorded) are binding.
