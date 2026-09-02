@@ -148,6 +148,9 @@ import Setlec.SetR.Interp2.IndMembersP
 import Setlec.SetR.Interp2.IndTeleP
 import Setlec.SetR.Interp2.IndUnitLawP
 import Setlec.SetR.Interp2.IndEtaLawP
+import Setlec.SetR.Interp2.IndFrameP
+import Setlec.SetR.Interp2.IndProjCapsP
+import Setlec.SetR.Interp2.IndProjEtaP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP
