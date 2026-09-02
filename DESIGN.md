@@ -13392,3 +13392,214 @@ Consequences for the bit lemma:
 
 So the two halves of a pinned branch have *different* blockers, and
 only the first is the run-inversion lemma the seal names.
+
+## Task #161 ENDGAME B: the named fact is a theorem; two rows of the basis kit cross, one does not (2026-09-02)
+
+The ENDGAME A seal named one blocking fact and predicted a
+case-split.  The fact is now a theorem, at both standard axioms; the
+predicted case-split turns out **not to be needed**; and a different
+obstruction — not predicted — sits between the bit lemmas and the
+memberships.  Everything below is mechanized except the section
+explicitly marked *route*, which is analysis and is recorded because
+it is what the next batch executes.
+
+### 1. The named fact, discharged (`Interp2/AxiomBitsP.lean`)
+
+`propext_bitsP` and `choice_bitsP`: every binder of the stored type
+carries the bit the pin's own datum computes, at every assignment.
+Three moves, and the ENDGAME A seal's own resume-here refinement is
+what makes the middle one cheap:
+
+1. **the shape** — four `erasePw ∘ eraseNames` head inversions
+   (`erasePwNames_forallE/sort/app/bvar_invS`, joining
+   `Install/Axiom.lean`'s two constant-head twins).  Every domain and
+   body of the two standard pins is binder-free, hence
+   erasure-rigid, so `propext_shapeS`/`choice_shapeS` leave exactly
+   the binder names and the binder metas free — precisely the freedom
+   the bit lemma removes;
+2. **the innermost codomain's sort**, symbolically.  `stdAxiomOk`
+   pins the stored `Eq` **on the nose**, so `inferTypeCore_eqSpineS`
+   peels the pinned `∀ (α : Sort 1) (a b : α), Prop` with three `app`
+   inversions and lands on `Prop` outright — no erasure chase, and no
+   hypothesis at all on the spine's three arguments.  `choice`'s
+   innermost codomain is the `α` binder's own variable, so its move 2
+   is one step (`inferTypeCore_fvar_outS`).  `whnf_forallE_eq` and
+   its new sort twin `whnf_sort_eq` make both peels **fuel-free**, so
+   the recorded run's fuel never appears in either statement;
+3. **the collapse** — `pwBit_of_equiv_zeronessOf` on the ∀ clause's
+   validation conjunct, and the clause's own result `.sort (.imax u
+   v)` carrying the innermost bit outward (`imax_eq_zero_iff`).  That
+   is why each is **one** fact and not three (resp. two).
+
+`propext`'s three bits are `0` outright; `choice`'s two are an
+*equivalence* — zero exactly when `u` is — because it is
+level-polymorphic and its pin's datum is `ifAllZero [u]`.  Neither
+theorem routes or assumes anything: the hypotheses are the mode, the
+`Eq` pin (propext only), and the recorded run.
+
+`ofReduceNat`/`ofReduceBool` are untouched; their shapes are longer
+and their move 2 goes through the stored `Nat`/`Bool` families rather
+than the nose-pinned `Eq`.
+
+### 2. The membership half: the predicted case-split dissolves, the level assignment does not (*route*)
+
+Two corrections to the ENDGAME A resume-here, both established by
+inspection of the statements involved.
+
+**The companion's bit never needs a case-split.**  The seal expected
+`app_mem_piR` vs `app_mem_piR_pos` to be chosen by a case analysis on
+the stored `Iff`'s binder bits.  It is not a choice: `app_mem_piR`'s
+side condition `hB0 : v = 0 → ∀ x ∈ A, B x ∈ˢ univZero` is *literally*
+`AnnotValidV`'s `pi` clause third component, and `type_okP` hands
+`AnnotOkP` — hence `AnnotValidV`, hereditarily — for every stored
+constant's type reading.  So every elimination of a stored family's
+value goes through with **no** knowledge of that family's bits, and
+the whole worry retires.  (`app_mem_piR_pos` remains the cheaper form
+when a bit is known.)
+
+**The level assignment is a choice, and v1's choice is fatal at P.**
+`Iff.rec` is level-polymorphic (`iffRecA.levelParams = [u]`, motive
+`Iff a b → Sort u`) and *every* one of its binder metas is
+`ifAllZero [u]`.  v1's `iffRecVal_memS` instantiates at `ψ0 uN = 0`,
+which costs nothing there because `piC` cohabits graphs with the
+proof point.  At `interp2` that same choice destroys the argument:
+all five bits become `0`, `⟦Iff.rec⟧ ∈ˢ piR 0 …` **forces**
+`⟦Iff.rec⟧ = pt` (`eq_pt_of_mem_piR_zero`), and every application of
+it is `pt` (`app_pt`) — the elimination says nothing.  The ι rule is
+no substitute: `RecRuleLawP` at `Iff.rec`'s rule then reads
+`pt = pt`.  **The P branch must instantiate at `ψ uN ≠ 0`**, where
+every bit is `1`, the motive space is the graph-regime
+`piR 1 (⟦Iff⟧ A B) (fun _ => univ (ψ uN))`, the constantly-`eqv A B`
+motive inhabits it by `lamR_mem`, and `app_lamR_pos` computes the
+application with no side condition at all.  This is the removal of
+the universe-cohabitation wall seen from the consumer's side, and it
+is why the P memberships are a re-derivation and not a transcription.
+
+**The forcing itself moves from application to the squash regime.**
+`Iff.intro`'s two implication binders carry `PropWhen.ifAllZero []`
+(`Kernel/StdAxioms.lean:202`), whose bit is `0` at *every*
+assignment.  So the minor's domains are `piR 0 A (fun _ => B)` and
+`piR 0 B (fun _ => A)`, and `piR_zero` + `of_mem_truthVal` read them
+directly as "`A` inhabited → `B` inhabited" and its converse;
+`prop_ext` closes.  At P the forcing is not an application argument.
+The minor is then a genuine `lamR`-tower (graph regime at `ψ uN ≠ 0`)
+rather than v1's `pt`.
+
+One residue was checked and is **closed**: the motive step needs
+`eqv A B ∈ˢ univ (ψ uN)` where `eqv_mem_univ` gives `univ 0`, and
+`univ_mono` (`SetTheory/Derive/Univ.lean`) supplies the cumulativity.
+Nothing in `SetTheory/` is implicated, exactly as ENDGAME A predicted
+for the memberships.
+
+### 3. The basis-cons preservation kit (`Interp2/BasisConsP.lean`)
+
+`BasisStepPB` conses inductive-kind heads and three of the six
+`EnvS2PM` preservation lemmas are keyed on the value kinds.  Row by
+row:
+
+| field | at a basis cons |
+| --- | --- |
+| `nat_ops`, `div_mod` | **reusable** — the `Or.inl` disjunct ("not a `defnInfo`") holds at every inductive-kind head |
+| `eq_lawP` | **reusable** — `eqLawP_cons_fresh`'s `Eq` disequality is freshness, except at the `Eq` block, which owes the law |
+| `nat_heads` | **new**: `natHeadsP_cons_offNat` — the guard reads three names, so a cons that is none of them moves neither guard nor leaves.  The `Nat` block is where the guard *becomes* true and owes `nat_heads` bespoke; no back-transfer exists there, and none should |
+| `caps_ok` | **new**: `capsOkP_cons_basis` |
+| `rec_rules` | **BLOCKED** — see below |
+
+**The `caps_ok` replacement was designed in.**  `EtaFamilyStored`'s
+name-only conjunct (`Verify/EnvGuards.lean:49`) says the capability
+constructor is never a reserved name, and its docstring says why:
+"which keeps the basis installs' head obligations vacuous by
+computation".  Both `CapsOkP` halves are premised on a *non*-reserved
+family and `projFnName_ne_reserved` closes the projection slot — so
+at a reserved-named cons all four disequalities `capsOkP_cons_fresh`
+reads off the kind come off the name instead, and the body
+transposes unchanged (`etaFamilyStored_descend_reserved`).
+`basis_declsA_reserved` makes the side condition free by `decide`,
+with one recorded exception: `pairFstA`/`pairSndA` are `.projInfo`
+heads, a kind that is none of the three, so those two conses take the
+*existing* `capsOkP_cons_fresh`.  Between the two lemmas every basis
+cons of every block is covered.
+
+### 4. THE WALL: `rec_rules` does not cross a basis cons
+
+`recRulesP_cons_fresh` needs `RecRule.ctor rl ≠ c₀.name` for every
+rule of every *stored* recursor, and derives it from the cons's kind.
+At a basis cons the kind is exactly a `ctorInfo`, and **no
+environment invariant in the tree supplies the disequality**:
+`EnvWF`'s `recInfo` clause (`Verify/EnvWF.lean:45-70`) records the
+rhs's `constsResolve`, its level parameters, its bvar bound and the
+nested pins' shape — never that `RecRule.ctor` resolves at all.
+
+The fact is true of the *checker* — `checkIndDecl` builds a block's
+rules from that block's own constructors, and a modeled block's
+names are never reserved — but it is not true of `EnvWF`, and the
+forward transfer here is a support-completing install of exactly the
+kind the `LitStabilityP` lesson says is refutable in the equality
+direction.  Closing it is an **invariant addition, not a proof**:
+either an `EnvWF` conjunct ("a stored recursor's rules name stored
+constructors", validated once at `checkIndDecl`) or an `EnvS`/
+`EnvS2PM` field.  `BasisStepPB` is blocked on it and, in this row, on
+nothing else.  Recorded rather than assumed — a premise for it on the
+cons lemma would be a conditional form.
+
+### Census after ENDGAME B
+
+`no_proof_of_Empty_P_of`: **`hμ` + `AxiomStepPB` + `BasisStepPB` +
+`IndStepPB`** — *unchanged*.  No bundle was discharged and none was
+weakened: `axiomStepPB_of` is not stated because two of its four
+branches are open, and `basisStepPB_of` is not stated because the
+`rec_rules` row does not cross.  `FoldP.lean` is untouched.
+
+### Resume-here
+
+1. **`propext`'s membership**, following §2 verbatim: instantiate at
+   `ψ uN ≠ 0`, eliminate the stored `Iff`/`Iff.intro`/`Iff.rec`
+   through `app_mem_piR` with `hB0` read off `type_okP`'s
+   `AnnotValidV`, motive `lamR 1 (⟦Iff⟧ A B) (fun _ => eqv A B)` with
+   `univ_mono` for the fibre, minor a `lamR`-tower whose body reads
+   the squash-regime domains by `of_mem_truthVal` and closes with
+   `prop_ext`.  Then `Classical.choice` (its forcing is
+   `exists_mem_of_dneg2`, and `choiceV2_app` exists);
+2. `ofReduceNat`/`ofReduceBool` — shape + bits first (their move 2 is
+   the stored `Nat`/`Bool` families, not the nose-pinned `Eq`), then
+   the memberships (`ofReduceKeyS` transposed);
+3. `axiomStepPB_of`, assembling the four branches;
+4. **the `EnvWF` conjunct of §4**, which is `BasisStepPB`'s and
+   `IndStepPB`'s shared precondition, then the per-block bills;
+5. `IndStepPB` (the `Prop`-motive minors — and note §2: the squash
+   regime is where the *content* is, not an obstacle to route around);
+6. the FINAL ASSEMBLY.
+
+### ENDGAME B battery (verbatim, at `2296e311`)
+
+`lake build` **403 jobs, warning-free**; `lake test` exit 0 (139
+targets).  `tests/arena.sh`:
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to the ENDGAME A seal's, and for the same reason: no
+`Setlec/Kernel/*` file was touched, so every runtime counter is
+unmoved.
+
+Axioms exactly `[propext, Classical.choice, Quot.sound]` (or a subset)
+on `no_proof_of_Empty_P_of`, `checkDecls_sound_P_of`, `harvestDefnP`,
+`TierInputsAtP.ofSem`, `no_proof_of_Empty_R`, `acceptedReadsP_of`,
+`axiomTrustCompilerP`, `axiomSkipP`, and on every new theorem —
+`propext_bitsP`, `choice_bitsP`, `inferTypeCore_eqSpineS`,
+`capsOkP_cons_basis`, `natHeadsP_cons_offNat` (all three) and
+`propext_shapeS`, `choice_shapeS`, `etaFamilyStored_descend_reserved`,
+`basis_declsA_reserved` (`[propext]` alone — they are syntactic).
+Zero sorries.
+
+New files: `Interp2/AxiomBitsP.lean` (the erasure-inversion kit, the
+two shape lemmas, the two bit lemmas, the fuel-free run identities),
+`Interp2/BasisConsP.lean` (the basis-cons preservation kit + the
+`rec_rules` WALL record).  No file was deleted and no sealed
+statement was edited.
