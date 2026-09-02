@@ -1,4 +1,5 @@
 import Setlec.Verify.Cached.Erase
+import Setlec.Verify.Cached.OpsC
 
 /-!
 # The cached checker variant's verification (task #163)
