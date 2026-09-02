@@ -14255,3 +14255,265 @@ fifth execution) read **no bit anywhere**: all three gradings
 clause).  Five establishments in, the "bits never from a metatheorem"
 doctrine has not merely held — at its cleanest it was never even
 approached.
+
+## Task #161 ENDGAME E: the `Eq` wall is not a wall, and the chosen-bit license is not needed (2026-09-02)
+
+Briefed to close `BasisStepPB`.  **It is not closed**, and the census
+is unchanged — but the ENDGAME D seal's named wall (the `Eq` block has
+no `BConst`) is *gone*, the tier's remaining work is now fifteen named
+one-line goals plus twenty-two computations, and the batch's headline
+finding retires a ratified design decision without using it.
+
+### 1. THE FINDING: no bit is chosen, because `mem_typeP` pins them all
+
+The DESIGN entry "the chosen bits of the hand-built basis towers"
+licensed a *choice* at exactly these towers — graph-regime bits, model
+side data, no establishment doctrine touched — and fenced it as the
+campaign's only such site.  **The license is not exercised, because
+there is nothing left to choose.**
+
+Every one of these towers sits at a constant whose *type* is also
+stored, and `EnvS2PM.mem_typeP` demands the tower inhabit that type's
+reading — a `piR` tower whose numerals are the pinned declaration's own
+`pw` data (`pwBit ψ`).  The two regimes' inhabitants are disjoint, and
+two lines mechanize it:
+
+* `bit_forced_pos` — `lamR v A F ∈ˢ piR 0 A B` is absurd for `v ≠ 0`
+  (`lamR_ne_pt` against `eq_pt_of_mem_piR_zero`: a graph is never the
+  proof point, and a squash product has no other member);
+* `bit_forced_zero` — its complement.
+
+So each λ bit is *forced* to agree in zero-ness with the pinned `pi`
+bit above it.  Reading the pins (`Kernel/Basis/Eq.lean`,
+`Kernel/Basis/PSigma.lean`, annotated forms):
+
+| tower | pinned `pw` | forced bits |
+|---|---|---|
+| `Eq` | `.never` ×3 | all **nonzero** |
+| `Eq.refl` | `.ifAllZero []` ×2 | all **zero** |
+| `Eq.rec` | `.ifAllZero [u_1]` ×6 | zero **iff `ψ u_1 = 0`** |
+| `PSigma'.rec` | `.ifAllZero []` throughout | all **zero** (its motive is `Prop`-valued by pin) |
+
+`Eq`'s three nonzero bits are right for a reason worth naming once
+more: the innermost codomain is `Prop`, and `Prop` *as a type* is
+`Sort 1` — the `v'`-for-a-`Sort` trap of `Interp2/BasisType.lean`'s
+docstring is exactly what keeps the `Eq` former a graph rather than a
+proof point.  The design entry's counterfactual (iii) is therefore
+**right about `Eq` and inverted at `Eq.refl`**: there bit `0` is not
+the collapse, it is the only legal value, and *nonzero* is what would
+break the law.
+
+The doctrine "bits are never taken from a metatheorem" thus holds here
+in its strongest form: the bits come from the **pin**, exactly as at
+the sixteen `pinnedDirectT` blocks, only through `mem_typeP` rather
+than through `pinnedDirectT`.  The scope fence in the DESIGN entry
+should be kept and marked unused — a future hand-built value at a
+constant whose type is *not* stored would still face a genuine choice,
+and this batch is evidence that such a site is hard to reach, not that
+it cannot exist.
+
+### 2. The `Eq` wall, dissolved
+
+`Interp2/EqTowerP.lean` lands `eqValT2`/`eqReflValT2`/`eqRecValT2` —
+v1's hand-built leaves with numerals.  All three erase to their v1
+originals **by `rfl`**, so the `acval_erase` discipline is on the nose
+and no erasure lemma was needed.  With them:
+
+* `eqValT2_interp`/`_app₃` — three `app_lamR_pos`, one per binder;
+* `eqValT2_mem`, `_ok2`, `_validV`, `_okP`, and the `Eq.refl`
+  counterparts (two `pt_mem_piR_zero_of`s bottoming at
+  `pt_mem_eqv_self`);
+* **`eqLawP_of_tower`** — the field the D seal named as `eqK`'s whole
+  content.  Its value clause is `eqValT2_app₃`; its **grading** clause
+  (which v1 has no analogue of) is the `AnnotOk2` `.app` chain over
+  `eqValT2_mem`, and all three of its `v = 0` fibre obligations are
+  **vacuous** because the bits are nonzero.  The clause that was
+  supposed to consume the choice consumes nothing.
+
+`eqLawP_cons_fresh` is still structurally unavailable at this block, as
+D recorded; the tower is the route, and it is now built.
+
+### 3. `BitAgree` — the bridge the twenty-two readings actually need
+
+D's resume-here item 2 read
+`denoteP acval env ψ 0 (basis decl type) = some (BConst.type2 c us)`.
+**That equation is false as stated**, and neither side is at fault:
+`denoteP`'s `forallE` clause emits `.pi 0 (pwBit φ m.pw) ta ba` — the
+domain slot is the literal `0`, because the reading has no sort run to
+take a domain sort from — while `type2` carries the exact domain sort
+(its consumers read it) and the tower's *result* sort in the codomain
+slot rather than a `pwBit`.  Both slots differ as numerals while
+agreeing on everything anything reads.
+
+`Interp2/BitAgree.lean` is the congruence that says so:
+`AVExpr.BitAgree` — same tree, same leaves, codomain numerals agreeing
+on zero-ness, domain numerals unconstrained.  `interp2_eq` (off
+`piR_zero_agree`/`lamR_zero_agree`), `ok2`, `validV`, and
+`bitAgree_okP` carry every P-tier currency across it; `erase_eq`
+records that it strictly refines erasure-equality (it cannot identify a
+`.lam` with a `.pi`).  A basis type reading is now discharged by
+*computing* `denoteP` and exhibiting a `BitAgree` to `type2`.
+
+### 4. `declStepPM_of_basis_cons` — seven rows, once
+
+Of `declStepPM_of_cons`'s eleven premises, seven are the same proof at
+every basis cons: `hvalReads` (vacuous), `nat_heads`
+(`natHeadsP_cons_offNat`), `nat_ops`/`div_mod` (`Or.inl`),
+`eq_lawP` (`eqLawP_cons_fresh`), `caps_ok` (D's item 4 — reserved name
+or the pair's two `projInfo`s), `rec_rules` (`recRulesP_cons_fresh`, on
+`EnvS.rec_ctors`), `reduce_ops`.  Two vary and enter as *disjunctive*
+premises rather than fixed proofs — `caps_ok`'s reserved-vs-`projInfo`
+split, and `reduce_ops`'s at `Quot.sound`, the basis blocks' one stored
+axiom.  What a basis constant owes is now its tower and its type's
+reading, and nothing else.
+
+### 5. STOP-AND-NAME: the fifteen residual bit-validity goals
+
+`AnnotValidV_bconst_type` (v1's `AnnotOkV_bconst_type`'s validity half)
+does **not** close by computation.  `cases c` plus a structural `simp`
+plus three closers — impredicativity (`piR_zero_mem_univZero`), the
+truth set (`eqv_mem_univZero`), and the unsatisfiability of the
+`max u 1 = 0` premises (no universe is a proposition once a relation
+type is in the tower) — takes eighteen cases to **fifteen residual
+goals**, in three shapes, all recorded verbatim in
+`Interp2/BasisTypeOk.lean`'s docstring:
+
+1. `natRec` ×2, `punitRec`, `emptyRec`, `quotLift` ×2, `quotInd` ×2,
+   `quotMk`, `psigmaMk` — `interp2 ρ (.app M a) ∈ˢ univZero` with `M`
+   the bound motive and `v = 0` in scope.  `motive_app_univZero`
+   (landed) is that move; what blocks a *uniform* closer is the
+   **argument** membership, which differs per goal (at `natRec`'s
+   successor row it is `natSucc n` and wants `natSuccV2_mem`; at
+   `quotInd`'s it is a `quotMk` spine and wants `quotMkV2_app`);
+2. `propext` ×2 — the same shape at `Prop`-valued implications;
+3. `choice` ×3 — the same at `dnegSpace2`'s two nested negations.
+
+**None is a wall and none needs a bit lemma**: every one is the
+clause's own `v = 0` premise plus an application law that already
+exists in `Interp2/Value.lean`.  Recorded rather than assumed, and the
+generic closers are in place — what remains is fifteen argument
+memberships.
+
+### Census after ENDGAME E
+
+`no_proof_of_Empty_P_of`: **`hμ` + `BasisStepPB` + `IndStepPB`** —
+*unchanged*.  `basisStepPB_of` is **not stated**: the twenty-two type
+readings are not built, so a bundle would carry premises for them and
+that is a conditional form.
+
+### Resume-here (the basis tier's remaining bill, now fully itemized)
+
+1. the **fifteen residual goals** of §5 — `AnnotValidV_bconst_type`,
+   then `AnnotOk2_bconst_type` beside it (whose `.app` clause wants the
+   numeral `bval2_mem_type` supplies), then `AnnotOkP_bconst_type`;
+2. the **twenty-two type readings**: compute `denoteP` at each basis
+   `ConstantInfo`'s type and exhibit `AVExpr.BitAgree` to
+   `BConst.type2 c us` — with the leaves supplied by
+   `acval_basis_pinned` at sixteen of them and by this batch's towers
+   at the other six.  Then `type_okP` is `bitAgree_okP` + item 1, and
+   `mem_typeP` is `bitAgree_okP`'s `interp2_eq` + `bval2_mem_type`;
+3. `eqRecValT2`'s and `PSigma'.rec`'s tower laws (membership at the
+   pinned type, `AnnotOkP`) — the `Eq`/`Eq.refl` pattern at six and
+   five binders, all bits forced by §1 — plus the pair's two
+   `pairProjValT2`s;
+4. the bespoke rows: `nat_heads` at `natK` (the block where the guard
+   *becomes* true — no back-transfer exists or should) and `rec_rules`
+   for the basis recursors that carry firing rules, from
+   `Interp2/Value.lean`'s laws.  `Eq.rec`'s single rule is `.inert`, so
+   its row is **vacuous** — `RecRulesP` premises `fire ≠ .inert`.  The
+   friction the D seal flagged stands: `quotLiftR_app`/`quotLiftV2_app`
+   are the only two firing laws with a `v ≠ 0` side condition, and the
+   `natRecV2_app` precedent does not transfer;
+5. then `basisStepPB_of`, and the FoldP rewiring (`hbas` off
+   `declStepPM`/`foldPM`/`checkDecls_sound_P_of`/
+   `no_proof_of_Empty_P_of`);
+6. then `IndStepPB` — unchanged from the C and D seals' bill, with D's
+   §3 lesson (check `EnvS`'s V-free fields before recording an
+   invariant gap) and **E's §1 lesson added**: before treating a
+   binder numeral as free, check whether the constant's *stored type*
+   already pins it;
+7. then THE FINAL ASSEMBLY (`CapstoneP.lean`'s frozen statement).
+
+### ENDGAME E battery (verbatim, at `41148ed7`)
+
+`lake build` **411 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh`: see the run recorded below.
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `checkDecls_sound_P_of`, and on every new
+theorem — `eqLawP_of_tower`, `eqValT2_app₃`, `eqValT2_mem`,
+`eqValT2_okP`, `eqReflValT2_mem`, `eqReflValT2_okP`, `bit_forced_pos`,
+`bit_forced_zero`, `declStepPM_of_basis_cons`, `bitAgree_okP`,
+`motive_app_univZero`, `AVExpr.BitAgree.interp2_eq`/`.ok2`/`.validV`,
+and `AVExpr.BitAgree.erase_eq` (`[propext]` alone).  Zero sorries.
+
+New files: `Interp2/EqTowerP.lean` (the towers, their laws,
+`eqLawP_of_tower`, the two forcing lemmas), `Interp2/BitAgree.lean`
+(the congruence and its four transfers), `Interp2/BasisStepP.lean`
+(the seven rows, `bitAgree_okP`), `Interp2/BasisTypeOk.lean`
+(`motive_app_univZero` and the §5 record).  Edited: `Setlec/SetR.lean`
+(four imports).  No file was deleted and no sealed statement was
+edited.
+
+## Task #161 SUCCESSION RECORD update (endgame E landed, 2026-09-02)
+
+Lane `agent/annot-v2` @ `cab015aa` at batch start.  ALL FOUR SEMANTIC
+TIERS CLOSED; the pin tier closed at D; capstone hypotheses: `hμ` +
+`BasisStepPB` + `IndStepPB` — **unchanged**.
+
+LANDED: endgame batch E on `agent/endgameE` (worktree
+`.claude/worktrees/endgameE`).  Briefed to close the basis bundle;
+**did not close it**, but removed the wall D named, built the bridge
+the tier's twenty-two readings need, collapsed seven of eleven
+per-cons obligations into one lemma, and itemized the remainder down
+to fifteen named one-line goals.  Delivered: `eqValT2`/`eqReflValT2`/
+`eqRecValT2` with `rfl` erasures, their laws, `eqLawP_of_tower`,
+`bit_forced_pos`/`bit_forced_zero`, `AVExpr.BitAgree` + four
+transfers + `bitAgree_okP`, `declStepPM_of_basis_cons`,
+`motive_app_univZero`.  Battery green (build 411 warning-free, test
+exit 0, arena counters unchanged, axioms within the standard three,
+zero sorries).
+
+THE HEADLINE, and it retires a ratified design decision:
+
+* **no bit is chosen.**  The chosen-bit entry licensed a choice at
+  exactly these towers; `mem_typeP` pins every one of them, because a
+  tower must inhabit its *stored type's* reading and `lamR`/`piR` have
+  disjoint inhabitants across the regime split (`bit_forced_pos`, two
+  lines).  `Eq`'s bits are nonzero **by force**, `Eq.refl`'s and
+  `PSigma'.rec`'s are **zero** by force, `Eq.rec`'s track `ψ u_1`.
+  The entry's counterfactual is right about `Eq` and inverted at
+  `Eq.refl`.  Keep the entry and its fence, marked unused.
+
+Two corrections to the ENDGAME D seal, both mechanized:
+
+* D's resume-here item 2's equation (`denoteP … = some (type2 c us)`)
+  is **false as stated** — `denoteP` emits `.pi 0 (pwBit …)`, `type2`
+  carries exact domain sorts and result sorts.  The bridge is a
+  congruence, `AVExpr.BitAgree`, not an equation;
+* D called the type readings "mechanical".  Their *grading* is not:
+  `AnnotValidV_bconst_type` leaves fifteen residual goals after every
+  generic closer, each wanting a different argument membership.  Named
+  per goal in `Interp2/BasisTypeOk.lean`; none is a wall.
+
+NO NEW WALL.  `basisStepPB_of` is still not stated, and the reason is
+now arithmetic rather than structural: twenty-two readings and fifteen
+goals of arithmetic, no missing field and no missing law.
+
+AFTER E (successor's order): review + merge E per protocol; then the
+ENDGAME E resume-here items 1-5 (the fifteen goals → the twenty-two
+readings via `BitAgree` → the four remaining towers → the bespoke
+`nat_heads`/`rec_rules` rows → `basisStepPB_of` + the FoldP rewiring);
+then `IndStepPB` — the last bundle, per the C and D seals' bill, with
+D's §3 lesson and **E's §1 lesson** added (before treating a binder
+numeral as free, check whether the constant's stored type already pins
+it); the `Iff.rec` divergence-class warning still stands for its
+Prop-motive minors.  Then THE FINAL ASSEMBLY.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal; the discipline ledger's practices are binding —
+D's addition ("a recorded wall is a claim, and claims are re-checked
+before they are inherited") held for the third batch running, and E
+adds one: **a ratified licence is also a claim.**  Check whether the
+freedom it grants still exists before spending it.
