@@ -60,26 +60,6 @@ theorem PiTeleP.prefix : ∀ {k : Nat} {T : AVExpr} {Γ : List AVExpr}
 
 /-! ## Fits -/
 
-/-- A fit's prefix fits, to some intermediate residual
-(`TeleFitV.take`). -/
-theorem TeleFitPA.take {ρ : Nat → V} :
-    ∀ {T rest : AVExpr} {as : List AVExpr}, TeleFitPA V ρ T as rest →
-      ∀ n : Nat, ∃ mid, TeleFitPA V ρ T (as.take n) mid := by
-  intro T rest as h
-  induction h with
-  | @nil T' =>
-    intro n
-    refine ⟨T', ?_⟩
-    rw [List.take_nil]
-    exact TeleFitPA.nil
-  | @cons u v A B rest' a as' hmem htail ih =>
-    intro n
-    cases n with
-    | zero => exact ⟨_, TeleFitPA.nil⟩
-    | succ n =>
-      obtain ⟨mid, hm⟩ := ih n
-      exact ⟨mid, TeleFitPA.cons hmem hm⟩
-
 /-- **A fit's memberships in chain form** (`teleFitV_to_chain`):
 `teleFitPA_of_tower`'s converse — argument `n`'s reading inhabits the
 tower's `n`-th open domain, read at the chain of the arguments outside

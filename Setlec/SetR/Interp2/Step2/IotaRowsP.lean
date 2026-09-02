@@ -761,8 +761,18 @@ theorem iotaStepP_of {m : EnvS2Core V env}
         obtain ⟨vpa', hvpa', hok'⟩ := hpinsOk lvls pins hn i hi
         obtain rfl : vpa' = vpa :=
           Option.some.inj (hvpa'.symm.trans hvpa)
-        exact fun σ hσ => annotOkP_instRevChain hok'
+        intro σ hσ
+        -- the fit in hand is at `xs.take mI ++ [ctor-app]`; the
+        -- repaired conjunct wants its `rP`-prefix (part-6 probe
+        -- repair: the grading is context-guarded through the fit)
+        obtain ⟨mid, hmid⟩ := (hfitR σ hσ).take rP
+        rw [List.take_append_of_le_length (by
+              rw [List.length_take, hxsLen]; omega),
+            List.take_take, Nat.min_eq_left hrPle] at hmid
+        exact hok' σ (xs.take rP) TVa mid
+          (by rw [List.length_take, hxsLen]; omega)
           (fun v hv => hoX v (List.mem_of_mem_take hv) σ hσ)
+          (hTVaD 0) hmid
       have hstep := ihd hcert hwA hbA hLA hfrPinX.1 hfrPinX.2.1 hfrPinX.2.2.1
         hCA hfrPinX.2.2.2 hgy hcden'
         (hoY _ (Setlec.getD_mem (by rw [← hspy.length]; exact hiy)))

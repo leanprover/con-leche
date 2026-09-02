@@ -18098,3 +18098,64 @@ parallel `indBottomPlainP`, which the refutation does not block.
 Standing: all statements frozen; PropWhen through named laws only;
 annotations never steer; conditional forms are never done; zero
 sorries at every seal; refutation claims are mechanized.
+
+## Task #161 SUCCESSION RECORD update (part 6 merged + THE PROBE
+REPAIR applied, 2026-09-02; coordinator-granted and -ratified)
+
+Lane `agent/annot-v2`: part 6 merged at `70ae22c1` (the probe's
+refutation + `annotOkP_instRevChain_at`), then **the ratified repair
+to `RecRuleLawP`'s nested-pin conjunct applied by the lead's hand** —
+full battery green before AND after (build 449 warning-free, test
+exit 0, arena counters at expectation, zero sorries).
+
+THE REPAIR (as ratified, minimal edit):
+
+* `Annot/EnvS2P.lean`: the false `∀ ρ, AnnotOkP V ρ vpa` half is
+  REPLACED by the context-guarded chain grading — `∀ ρ zs TVa restR,
+  zs.length = rP → (∀ z ∈ zs, AnnotOkP V ρ z) → denoteP … cv.type …
+  = some TVa → TeleFitPA V ρ TVa zs restR → AnnotOkP V ρ
+  (instRevChain zs vpa)`.  The reading half is kept (parallel to
+  `Ra`'s conjunct); the conjunct stays OUTER; no `envChainP` named
+  (`TeleFitPA` is the chain environment's `Sat2` in closed form);
+* `RecRulesPCons.lean` (preservation, the lead's): the guarded
+  grading crosses by the determinism trick on its contravariant type
+  reading — verbatim the inner block's `TVa` move (`mp.constTypeP`
+  produce-at-prefix + forward mono + `Option.some.inj`);
+* `Step2/IotaRowsP.lean` (consumer — pulled forward from part 7's
+  bill because the lane must build at the seal): `hokCmp` becomes a
+  direct application — `hoX` gradings, `hTVaD 0` reading,
+  `(hfitR σ hσ).take rP` for the fit, with two list rewrites
+  (`take_append_of_le_length`, `take_take`) aligning the prefix;
+* the "owed `TeleFitPA` prefix lemma" was ALREADY IN THE TREE —
+  part 4's `TeleFitPA.take` — and only needed relocating upstream
+  (`Annot/EnvS2P.lean`, beside its inductive; `IndStageKitP` would
+  cycle through `IotaRowsP`'s closure).  Nothing new was proved for
+  the consumer beyond two list rewrites.
+
+### Discipline ledger, three entries (coordinator-directed)
+
+1. **The finding's class**: the campaign's FIRST FALSE RATIFIED
+   STATEMENT, distinct from the omission family (all prior walls
+   were omissions repaired by transcription).  A ratified conjunct
+   is a claim.  The probe-before-establishment discipline paid in
+   full: items 1–5 of part 6 were NOT built on a false premise.
+2. **The probe protocol** (reusable): one `dbg_trace` in the copy
+   that EXECUTES (`CheckerS.lean`'s `nestedRuleShapeF`; the
+   `Modeled.lean` Env copy prints nothing — named trap);
+   `lake build setlec` at 74 jobs skips the proof libraries;
+   three fixture runs; revert.
+3. **The object-naming diagnosis**: the certificate is about
+   `pinsP` at the public frame, context-guarded — task #136's rule
+   ("a fact is about an object; a loose name admits two") recurring
+   at STATEMENT level.  When ratifying a conjunct against a checker
+   certificate, name the certificate's object exactly.
+
+AFTER THIS SEAL: PART 7 dispatched — producer discharge at the
+install (the repaired conjunct from the `checkAnnotList` certificate
+through `annotOkP_instRevChain_at`), `indBottomPlainP`, the
+`.nested` establishment, the recursor rows with the `eqRecLawP`
+Prop-motive case (stop-and-name standing), projection `rec_rules`,
+`indStepPB_of`, `hind` off `FoldP`, THE ASSEMBLY at the frozen
+letter — committed ALONE, axiom audit in the message, capstone
+record, finalized frontier table.  Census at this seal: `hμ` +
+`IndStepPB`, never conditional.  The goal is at the end of part 7.

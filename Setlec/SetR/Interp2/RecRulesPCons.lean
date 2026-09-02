@@ -121,12 +121,25 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
         exact hres
       · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
         rfl
-    refine ⟨vpa, ?_, hok⟩
-    rw [hac]
-    exact denoteP_cons_fresh_mono hfresh _ rP _
-      (constsBound_openRev (constsBound_of_constsResolve _ (by
-        rw [Setlec.Expr.constsResolve_instantiateLevelParams]
-        exact hpinCR)) 0 rP) hvpa
+    refine ⟨vpa, ?_, ?_⟩
+    · rw [hac]
+      exact denoteP_cons_fresh_mono hfresh _ rP _
+        (constsBound_openRev (constsBound_of_constsResolve _ (by
+          rw [Setlec.Expr.constsResolve_instantiateLevelParams]
+          exact hpinCR)) 0 rP) hvpa
+    · -- the guarded grading (part-6 probe repair) crosses by the
+      -- determinism trick on its contravariant type reading, exactly
+      -- as the inner block's `TVa` does below
+      intro ρ zs TVa restR hzl hzok hTVa hfit
+      obtain ⟨TVa', hTVa', -, -⟩ :=
+        mp.constTypeP 0 n _ us hfE (by exact hlen)
+      obtain rfl : TVa' = TVa := by
+        refine Option.some.inj (Eq.trans ?_ hTVa)
+        rw [hac]
+        exact (denoteP_cons_fresh_mono hfresh _ 0 _
+          (constsBound_instType mp.base2.base.wf
+            (Setlec.SetR.Env.find?_mem hfE) us) hTVa').symm
+      exact hok ρ zs TVa' restR hzl hzok hTVa' hfit
   · intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl
       hψ hplain hnested hpin hTVa hTVja hfitR hfitC
     -- **the environment invariant, not the cons's kind**: the rule's
