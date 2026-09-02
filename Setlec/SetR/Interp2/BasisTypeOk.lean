@@ -222,6 +222,85 @@ theorem bconst_app_data3 (c : BConst) (us : List Nat) (ρ : Nat → V)
   rw [AnnotValidV_pi] at hv3
   exact hv3.2.2
 
+/-- Three binders in: the constant applied to its first three
+arguments.  ENDGAME G: the basis *recursors*' RHS towers apply their
+head four and five deep (`Nat.rec`'s successor rule, `Quot.lift`), and
+the numeral is read off `type2`'s own binder at every step, exactly as
+at `_data`/`_data2`/`_data3`. -/
+theorem bconst_app_data4 (c : BConst) (us : List Nat) (ρ : Nat → V)
+    {u v u2 v2 u3 v3 u4 v4 : Nat} {A A2 A3 A4 B4 : AVExpr}
+    (h : BConst.type2 c us
+      = .pi u v A (.pi u2 v2 A2 (.pi u3 v3 A3 (.pi u4 v4 A4 B4))))
+    {a1 : V} (ha1 : a1 ∈ˢ interp2 V ρ A)
+    {a2 : V} (ha2 : a2 ∈ˢ interp2 V (cons a1 ρ) A2)
+    {a3 : V} (ha3 : a3 ∈ˢ interp2 V (cons a2 (cons a1 ρ)) A3)
+    {a : V} (ha : a ∈ˢ interp2 V (cons a3 (cons a2 (cons a1 ρ))) A4) :
+    ∃ (w : Nat) (S : V) (F : V → V),
+      app (app (app (bval2 V c us) a1) a2) a3 ∈ˢ piR w S F ∧
+      a ∈ˢ S ∧ (w = 0 → ∀ x, x ∈ˢ S → F x ∈ˢ (univZero : V)) := by
+  have hv := AnnotValidV_bconst_type V c us ρ
+  rw [h, AnnotValidV_pi] at hv
+  have hm := bval2_mem_type V c us ρ
+  rw [h, interp2_pi] at hm
+  have h1 := app_mem_piR hm ha1 hv.2.2
+  rw [interp2_pi] at h1
+  have hv2 := hv.2.1 a1 ha1
+  rw [AnnotValidV_pi] at hv2
+  have h2 := app_mem_piR h1 ha2 hv2.2.2
+  rw [interp2_pi] at h2
+  have hv3 := hv2.2.1 a2 ha2
+  rw [AnnotValidV_pi] at hv3
+  have h3 := app_mem_piR h2 ha3 hv3.2.2
+  rw [interp2_pi] at h3
+  refine ⟨v4, interp2 V (cons a3 (cons a2 (cons a1 ρ))) A4,
+    fun x => interp2 V (cons x (cons a3 (cons a2 (cons a1 ρ)))) B4,
+    h3, ha, ?_⟩
+  have hv4 := hv3.2.1 a3 ha3
+  rw [AnnotValidV_pi] at hv4
+  exact hv4.2.2
+
+/-- Four binders in. -/
+theorem bconst_app_data5 (c : BConst) (us : List Nat) (ρ : Nat → V)
+    {u v u2 v2 u3 v3 u4 v4 u5 v5 : Nat} {A A2 A3 A4 A5 B5 : AVExpr}
+    (h : BConst.type2 c us
+      = .pi u v A (.pi u2 v2 A2 (.pi u3 v3 A3
+          (.pi u4 v4 A4 (.pi u5 v5 A5 B5)))))
+    {a1 : V} (ha1 : a1 ∈ˢ interp2 V ρ A)
+    {a2 : V} (ha2 : a2 ∈ˢ interp2 V (cons a1 ρ) A2)
+    {a3 : V} (ha3 : a3 ∈ˢ interp2 V (cons a2 (cons a1 ρ)) A3)
+    {a4 : V} (ha4 : a4 ∈ˢ
+      interp2 V (cons a3 (cons a2 (cons a1 ρ))) A4)
+    {a : V} (ha : a ∈ˢ
+      interp2 V (cons a4 (cons a3 (cons a2 (cons a1 ρ)))) A5) :
+    ∃ (w : Nat) (S : V) (F : V → V),
+      app (app (app (app (bval2 V c us) a1) a2) a3) a4 ∈ˢ piR w S F ∧
+      a ∈ˢ S ∧ (w = 0 → ∀ x, x ∈ˢ S → F x ∈ˢ (univZero : V)) := by
+  have hv := AnnotValidV_bconst_type V c us ρ
+  rw [h, AnnotValidV_pi] at hv
+  have hm := bval2_mem_type V c us ρ
+  rw [h, interp2_pi] at hm
+  have h1 := app_mem_piR hm ha1 hv.2.2
+  rw [interp2_pi] at h1
+  have hv2 := hv.2.1 a1 ha1
+  rw [AnnotValidV_pi] at hv2
+  have h2 := app_mem_piR h1 ha2 hv2.2.2
+  rw [interp2_pi] at h2
+  have hv3 := hv2.2.1 a2 ha2
+  rw [AnnotValidV_pi] at hv3
+  have h3 := app_mem_piR h2 ha3 hv3.2.2
+  rw [interp2_pi] at h3
+  have hv4 := hv3.2.1 a3 ha3
+  rw [AnnotValidV_pi] at hv4
+  have h4 := app_mem_piR h3 ha4 hv4.2.2
+  rw [interp2_pi] at h4
+  refine ⟨v5, interp2 V (cons a4 (cons a3 (cons a2 (cons a1 ρ)))) A5,
+    fun x => interp2 V
+      (cons x (cons a4 (cons a3 (cons a2 (cons a1 ρ))))) B5,
+    h4, ha, ?_⟩
+  have hv5 := hv4.2.1 a4 ha4
+  rw [AnnotValidV_pi] at hv5
+  exact hv5.2.2
+
 /-- `Quot.mk`'s spine inhabits its quotient — the argument membership
 `quotInd`'s and `quotSound`'s motive rows want. -/
 theorem quotMk_mem_quot {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))

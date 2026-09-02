@@ -62,6 +62,41 @@ theorem denoteP_pinned_const {m : EnvS2Core V env}
   rw [denoteP_const hf' hlen, acvalWith_ne (fun h => hne h.symm),
     acval_basis_pinned (m := m) hf hres hpd]
 
+/-! ### Lift-then-instantiate absorption
+
+`TeleFitPA` peels a `.pi` by `B.inst a`, so a telescope domain that
+mentions an *earlier* argument arrives as that argument's reading
+lifted past the intervening binders and then instantiated.  The two
+instances the basis recursors' step spaces need. -/
+
+/-- The general absorption: lifting past `k + 1` binders and
+instantiating at `k` shifts the environment down by `k`. -/
+theorem interp2_liftN_succ_inst (e a : AVExpr) (k : Nat)
+    (ρ : Nat → V) :
+    interp2 V ρ ((e.liftN (k + 1) 0).inst a k)
+      = interp2 V (fun i => ρ (i + k)) e := by
+  rw [interp2_inst, interp2_liftN]
+  congr 1
+  funext i
+  show (instE k (interp2 V (shiftE k 0 ρ) a) ρ) (if i < 0 then i
+      else i + (k + 1)) = ρ (i + k)
+  rw [if_neg (Nat.not_lt_zero i)]
+  show (if i + (k + 1) < k then ρ (i + (k + 1))
+    else if i + (k + 1) = k then _ else ρ (i + (k + 1) - 1)) = ρ (i + k)
+  rw [if_neg (by omega), if_neg (by omega),
+    show i + (k + 1) - 1 = i + k from by omega]
+
+theorem interp2_liftN2_inst1 (e a : AVExpr) (x : V) (ρ : Nat → V) :
+    interp2 V (cons x ρ) ((e.liftN 2 0).inst a 1) = interp2 V ρ e := by
+  rw [interp2_liftN_succ_inst (k := 1)]
+  rfl
+
+theorem interp2_liftN3_inst2 (e a : AVExpr) (x y : V) (ρ : Nat → V) :
+    interp2 V (cons y (cons x ρ)) ((e.liftN 3 0).inst a 2)
+      = interp2 V ρ e := by
+  rw [interp2_liftN_succ_inst (k := 2)]
+  rfl
+
 /-! ## `PUnit`
 
 Three constants, one firing rule.  The block is the recipe's second
@@ -625,5 +660,1345 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hm3, cvalWith_self])
 
 end PUnit
+
+/-! ## `Nat`
+
+Four constants, two firing rules, and the block's one bespoke row that
+is not a firing law: `nat_heads`, at the cons where the literal guard
+*becomes* true.  The level question does not arise at the constructors
+— `Nat.zero` and `Nat.succ` bind no level parameter — so a fired rule's
+`usj` is forced to `[]`. -/
+
+section Nat
+
+open Setlec (natA natZeroA natSuccA natRecA natName natZeroName
+  natSuccName)
+
+variable {m : EnvS2Core V env} {A : (Name → Nat) → AVExpr}
+
+/-- `Nat`'s type reading: `Sort 1`, `BConst.type2 .nat []` on the
+nose. -/
+theorem denoteP_natA_type
+    {acval : Name → (Name → Nat) → AVExpr} (ψ : Name → Nat) :
+    denoteP acval ⟨natA :: env.consts⟩ ψ 0 natA.toConstantVal.type
+      = some (BConst.type2 .nat []) := by
+  rw [show natA.toConstantVal.type = Expr.sort (.succ .zero) from rfl,
+    denoteP_sort]
+  rfl
+
+/-- The pinned `Nat` leaf at an extension. -/
+theorem denoteP_natLeaf {c₀ : ConstantInfo} (ψ : Name → Nat)
+    (hne : ¬ c₀.name = natName)
+    (hN : env.find? natName = some natA) (d : Nat) :
+    denoteP (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d
+        (.const natName []) = some (AVExpr.const .nat []) := by
+  refine denoteP_pinned_const (m := m) hne hN (by decide) (by rfl) ?_ d
+  simp +decide [Setlec.TTVerify.pinnedDirectT]
+
+/-- `Nat.zero`'s type reading. -/
+theorem denoteP_natZeroA_type (ψ : Name → Nat)
+    (hN : env.find? natName = some natA) :
+    denoteP (acvalWith m.acval natZeroA.name A)
+        ⟨natZeroA :: env.consts⟩ ψ 0 natZeroA.toConstantVal.type
+      = some (BConst.type2 .natZero []) := by
+  rw [show natZeroA.toConstantVal.type = Expr.const natName [] from rfl]
+  exact denoteP_natLeaf (m := m) (A := A) ψ (by decide) hN 0
+
+/-- `Nat.succ`'s type reading — one binder, pinned `.never`, so the
+numeral is `1` on both sides.  Stated at *any* extension whose cons is
+not `Nat`, because the `Nat.rec` row reads it too (its rule's
+constructor is `Nat.succ`). -/
+theorem denoteP_natSuccTy {c₀ : ConstantInfo} (ψ : Name → Nat)
+    (hne : ¬ c₀.name = natName)
+    (hN : env.find? natName = some natA) :
+    denoteP (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ 0
+        natSuccA.toConstantVal.type
+      = some (.pi 0 (pwBit ψ .never) (.const .nat [])
+          (.const .nat [])) := by
+  have hNc := fun d => denoteP_natLeaf (m := m) (A := A) (c₀ := c₀)
+    ψ hne hN d
+  rw [show natSuccA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "n") (.const natName [])
+          (.const natName []) { bi := .default, pw := .never } from rfl]
+  simp [denoteP_forallE, Expr.instantiate1, hNc]
+
+theorem denoteP_natSuccA_type (ψ : Name → Nat)
+    (hN : env.find? natName = some natA) :
+    denoteP (acvalWith m.acval natSuccA.name A)
+        ⟨natSuccA :: env.consts⟩ ψ 0 natSuccA.toConstantVal.type
+      = some (.pi 0 (pwBit ψ .never) (.const .nat [])
+          (.const .nat [])) :=
+  denoteP_natSuccTy (m := m) (A := A) ψ (by decide) hN
+
+theorem bitAgree_natSuccA (ψ : Name → Nat) :
+    AVExpr.BitAgree
+      (.pi 0 (pwBit ψ .never) (.const .nat []) (.const .nat []))
+      (BConst.type2 .natSucc []) := by
+  refine .pi ?_ (.const _ _) (.const _ _)
+  rw [pwBit_never]
+
+/-- The three pinned `Nat` leaves at the `Nat.rec` extension. -/
+theorem denoteP_natRec_leaves (ψ : Name → Nat)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    (∀ d : Nat, denoteP (acvalWith m.acval natRecA.name A)
+        ⟨natRecA :: env.consts⟩ ψ d (.const natName [])
+        = some (AVExpr.const .nat [])) ∧
+    (∀ d : Nat, denoteP (acvalWith m.acval natRecA.name A)
+        ⟨natRecA :: env.consts⟩ ψ d (.const natZeroName [])
+        = some (AVExpr.const .natZero [])) ∧
+    (∀ d : Nat, denoteP (acvalWith m.acval natRecA.name A)
+        ⟨natRecA :: env.consts⟩ ψ d (.const natSuccName [])
+        = some (AVExpr.const .natSucc [])) := by
+  refine ⟨fun d => denoteP_natLeaf (m := m) (A := A) ψ (by decide) hN d,
+    fun d => ?_, fun d => ?_⟩
+  · refine denoteP_pinned_const (m := m) (by decide) hZ (by decide)
+      (by rfl) ?_ d
+    simp +decide [Setlec.TTVerify.pinnedDirectT]
+  · refine denoteP_pinned_const (m := m) (by decide) hS (by decide)
+      (by rfl) ?_ d
+    simp +decide [Setlec.TTVerify.pinnedDirectT]
+
+/-- **`Nat.rec`'s type reading.**  Seven binders; six carry
+`.ifAllZero [u]` and the motive's domain carries `.never`. -/
+theorem denoteP_natRecA_type (ψ : Name → Nat)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    denoteP (acvalWith m.acval natRecA.name A)
+        ⟨natRecA :: env.consts⟩ ψ 0 natRecA.toConstantVal.type
+      = some (.pi 0 (pwBit ψ (.ifAllZero [uN]))
+          (.pi 0 (pwBit ψ .never) (.const .nat []) (.sort (ψ uN)))
+          (.pi 0 (pwBit ψ (.ifAllZero [uN]))
+            (.app (.bvar 0) (.const .natZero []))
+            (.pi 0 (pwBit ψ (.ifAllZero [uN]))
+              (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .nat [])
+                (.pi 0 (pwBit ψ (.ifAllZero [uN]))
+                  (.app (.bvar 2) (.bvar 0))
+                  (.app (.bvar 3)
+                    (.app (.const .natSucc []) (.bvar 1)))))
+              (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .nat [])
+                (.app (.bvar 3) (.bvar 0)))))) := by
+  obtain ⟨hNc, hZc, hSc⟩ :=
+    denoteP_natRec_leaves (m := m) (A := A) ψ hN hZ hS
+  rw [show natRecA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "motive")
+          (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+            (.sort (.param uN)) { bi := .default, pw := .never })
+          (Expr.forallE (Name.anonymous.str "zero")
+            (.app (.bvar 0) (.const natZeroName []))
+            (Expr.forallE (Name.anonymous.str "succ")
+              (Expr.forallE (Name.anonymous.str "n") (.const natName [])
+                (Expr.forallE (Name.anonymous.str "n_ih")
+                  (.app (.bvar 2) (.bvar 0))
+                  (.app (.bvar 3)
+                    (.app (.const natSuccName []) (.bvar 1)))
+                  { bi := .default, pw := .ifAllZero [uN] })
+                { bi := .default, pw := .ifAllZero [uN] })
+              (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+                (.app (.bvar 3) (.bvar 0))
+                { bi := .default, pw := .ifAllZero [uN] })
+              { bi := .default, pw := .ifAllZero [uN] })
+            { bi := .default, pw := .ifAllZero [uN] })
+          { bi := .implicit, pw := .ifAllZero [uN] } from rfl]
+  simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
+    Expr.instantiate1, hNc, hZc, hSc, Level.eval]
+
+theorem bitAgree_natRecA (ψ : Name → Nat) :
+    AVExpr.BitAgree
+      (.pi 0 (pwBit ψ (.ifAllZero [uN]))
+        (.pi 0 (pwBit ψ .never) (.const .nat []) (.sort (ψ uN)))
+        (.pi 0 (pwBit ψ (.ifAllZero [uN]))
+          (.app (.bvar 0) (.const .natZero []))
+          (.pi 0 (pwBit ψ (.ifAllZero [uN]))
+            (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .nat [])
+              (.pi 0 (pwBit ψ (.ifAllZero [uN]))
+                (.app (.bvar 2) (.bvar 0))
+                (.app (.bvar 3)
+                  (.app (.const .natSucc []) (.bvar 1)))))
+            (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .nat [])
+              (.app (.bvar 3) (.bvar 0))))))
+      (BConst.type2 .natRec [ψ uN]) := by
+  have hz : pwBit ψ (Setlec.PropWhen.ifAllZero [uN]) = 0 ↔ ψ uN = 0 :=
+    pwBit_ifAllZero_single ψ uN
+  refine .pi hz (.pi ?_ (.const _ _) (.sort _))
+    (.pi hz (.app (.bvar 0) (.const _ _))
+      (.pi hz
+        (.pi hz (.const _ _)
+          (.pi hz (.app (.bvar 2) (.bvar 0))
+            (.app (.bvar 3) (.app (.const _ _) (.bvar 1)))))
+        (.pi hz (.const _ _) (.app (.bvar 3) (.bvar 0)))))
+  rw [pwBit_never]
+  simp
+
+/-! ### The installs
+
+The first three conses are exactly the three names `nat_heads`'s guard
+reads, so `natHeadsP_cons_offNat` is unavailable at every one of them
+(`declStepPM_of_basis_cons_gen`).  At `Nat` and `Nat.zero` the guard is
+still *false* — `Nat.succ` is not stored yet — and the row is vacuous;
+at `Nat.succ` the guard becomes true and the row is the block's one
+bespoke non-firing obligation, two memberships. -/
+
+/-- **`Nat`, installed at the P tier.** -/
+theorem extendNatP (mp : EnvS2PM V μ env)
+    (hfresh : env.find? natName = none)
+    (hguard : Setlec.natLitSupported ⟨natA :: env.consts⟩ = false)
+    (hbase : EnvS V ⟨natA :: env.consts⟩)
+    (hag : ∀ n, n ≠ natA.name → mp.base2.base.cval n = hbase.cval n)
+    (hcv : ∀ ψ, hbase.cval natA.name ψ = VExpr.const .nat []) :
+    Nonempty (EnvS2PM V μ ⟨natA :: env.consts⟩) := by
+  refine declStepPM_of_basis_cons_gen mp
+    (A := fun _ => AVExpr.const .nat []) hfresh
+    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
+    hbase hag
+    (fun ψ => by rw [hcv ψ]; rfl)
+    (fun _ _ => rfl) (fun _ _ _ => rfl)
+    (fun _ _ => trivial) (fun _ _ => trivial)
+    (fun ψ => ⟨_, denoteP_natA_type ψ⟩) ?_ ?_ ?_ ?_
+  · intro ψ ta h ρ
+    rw [denoteP_natA_type ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    exact AnnotOkP_bconst_type V .nat [] ρ
+  · intro ψ ta h ρ
+    rw [denoteP_natA_type ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    exact bval2_mem_type V .nat [] ρ
+  · intro _ _ _ hg
+    rw [hguard] at hg
+    exact nomatch hg
+  · exact fun m₂ hac φ => recRulesP_cons_fresh mp (c₀ := natA) hfresh
+      (fun _ _ _ _ h => nomatch h) m₂ hac φ
+
+/-- **`Nat.zero`, installed at the P tier.** -/
+theorem extendNatZeroP (mp : EnvS2PM V μ env)
+    (hN : env.find? natName = some natA)
+    (hfresh : env.find? natZeroName = none)
+    (hguard : Setlec.natLitSupported ⟨natZeroA :: env.consts⟩ = false)
+    (hbase : EnvS V ⟨natZeroA :: env.consts⟩)
+    (hag : ∀ n, n ≠ natZeroA.name →
+      mp.base2.base.cval n = hbase.cval n)
+    (hcv : ∀ ψ, hbase.cval natZeroA.name ψ
+      = VExpr.const .natZero []) :
+    Nonempty (EnvS2PM V μ ⟨natZeroA :: env.consts⟩) := by
+  have hty := fun ψ =>
+    denoteP_natZeroA_type (m := mp.base2)
+      (A := fun _ => AVExpr.const .natZero []) ψ hN
+  refine declStepPM_of_basis_cons_gen mp
+    (A := fun _ => AVExpr.const .natZero []) hfresh
+    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
+    hbase hag
+    (fun ψ => by rw [hcv ψ]; rfl)
+    (fun _ _ => rfl) (fun _ _ _ => rfl)
+    (fun _ _ => trivial) (fun _ _ => trivial)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    exact AnnotOkP_bconst_type V .natZero [] ρ
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    exact bval2_mem_type V .natZero [] ρ
+  · intro _ _ _ hg
+    rw [hguard] at hg
+    exact nomatch hg
+  · exact fun m₂ hac φ => recRulesP_cons_fresh mp (c₀ := natZeroA)
+      hfresh (fun _ _ _ _ h => nomatch h) m₂ hac φ
+
+/-- **`Nat.succ`, installed at the P tier** — the cons where the
+literal guard becomes true, so `nat_heads` is bespoke here and nowhere
+else.  Its content is `natzero_mem` and `natSuccV2_mem`. -/
+theorem extendNatSuccP (mp : EnvS2PM V μ env)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hfresh : env.find? natSuccName = none)
+    (hbase : EnvS V ⟨natSuccA :: env.consts⟩)
+    (hag : ∀ n, n ≠ natSuccA.name →
+      mp.base2.base.cval n = hbase.cval n)
+    (hcv : ∀ ψ, hbase.cval natSuccA.name ψ
+      = VExpr.const .natSucc []) :
+    Nonempty (EnvS2PM V μ ⟨natSuccA :: env.consts⟩) := by
+  have hty := fun ψ =>
+    denoteP_natSuccA_type (m := mp.base2)
+      (A := fun _ => AVExpr.const .natSucc []) ψ hN
+  refine declStepPM_of_basis_cons_gen mp
+    (A := fun _ => AVExpr.const .natSucc []) hfresh
+    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
+    hbase hag
+    (fun ψ => by rw [hcv ψ]; rfl)
+    (fun _ _ => rfl) (fun _ _ _ => rfl)
+    (fun _ _ => trivial) (fun _ _ => trivial)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    exact (bitAgree_okP (bitAgree_natSuccA ψ) ρ).mpr
+      (AnnotOkP_bconst_type V .natSucc [] ρ)
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    rw [AVExpr.BitAgree.interp2_eq V (bitAgree_natSuccA ψ) ρ]
+    exact bval2_mem_type V .natSucc [] ρ
+  · -- `nat_heads`, bespoke: the three leaves are the two prefix pins
+    -- and the fresh one
+    intro m₂ hac φ _ ρ
+    have hZl : m₂.acval natZeroName (Level.substFn φ [] [])
+        = AVExpr.const .natZero [] := by
+      rw [hac, acvalWith_ne (by decide)]
+      refine acval_basis_pinned (m := mp.base2) hZ (by decide) ?_
+      simp +decide [Setlec.TTVerify.pinnedDirectT]
+    have hNl : m₂.acval natName (Level.substFn φ [] [])
+        = AVExpr.const .nat [] := by
+      rw [hac, acvalWith_ne (by decide)]
+      refine acval_basis_pinned (m := mp.base2) hN (by decide) ?_
+      simp +decide [Setlec.TTVerify.pinnedDirectT]
+    have hSl : m₂.acval natSuccName (Level.substFn φ [] [])
+        = AVExpr.const .natSucc [] := by
+      rw [hac, show natSuccName = natSuccA.name from rfl,
+        acvalWith_self]
+    rw [hZl, hNl, hSl]
+    exact ⟨by simpa [interp2_const, bval2] using
+        (natzero_mem : (natzero : V) ∈ˢ omega),
+      by simpa [interp2_const, bval2] using natSuccV2_mem V⟩
+  · exact fun m₂ hac φ => recRulesP_cons_fresh mp (c₀ := natSuccA)
+      hfresh (fun _ _ _ _ h => nomatch h) m₂ hac φ
+
+/-! ### The two firing rules
+
+The three telescope domains, named once: their readings are the
+`Interp2/Value.lean` spaces up to `piR_zero_agree`, which is the whole
+content of "the reading's numerals are the pin's". -/
+
+/-- The motive binder's domain reading. -/
+def natMotiveTyP (ψ : Name → Nat) : AVExpr :=
+  .pi 0 (pwBit ψ .never) (.const .nat []) (.sort (ψ uN))
+
+/-- The step binder's domain reading. -/
+def natStepTyP (ψ : Name → Nat) : AVExpr :=
+  .pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .nat [])
+    (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.app (.bvar 2) (.bvar 0))
+      (.app (.bvar 3) (.app (.const .natSucc []) (.bvar 1))))
+
+theorem natMotiveTyP_interp (ψ : Name → Nat) (ρ : Nat → V) :
+    interp2 V ρ (natMotiveTyP ψ) = natMotiveSpace V (ψ uN) := by
+  rw [natMotiveTyP, interp2_pi, natMotiveSpace]
+  refine piR_zero_agree (show pwBit ψ Setlec.PropWhen.never = 0
+      ↔ ψ uN + 1 = 0 by rw [pwBit_never]; simp) (fun _ _ => rfl)
+
+theorem natStepTyP_interp (ψ : Name → Nat) (ρ : Nat → V) (M z : V) :
+    interp2 V (cons z (cons M ρ)) (natStepTyP ψ)
+      = natStepSpace2 V (pwBit ψ (.ifAllZero [uN])) M := by
+  rw [natStepTyP, interp2_pi, natStepSpace2]
+  simp only [interp2_const, bval2]
+  refine piR_congr fun n hn => ?_
+  rw [interp2_pi]
+  simp only [interp2_app, interp2_bvar, interp2_const, cons, bval2]
+  exact piR_congr fun _ _ => by rw [natSuccV2_app V hn]
+
+/-- The `zero` rule's RHS reading. -/
+def natZeroRaP (ψ : Name → Nat) : AVExpr :=
+  .lam (pwBit ψ (.ifAllZero [uN])) (natMotiveTyP ψ)
+    (.lam (pwBit ψ (.ifAllZero [uN]))
+      (.app (.bvar 0) (.const .natZero []))
+      (.lam (pwBit ψ (.ifAllZero [uN])) (natStepTyP ψ) (.bvar 1)))
+
+/-- The `succ` rule's RHS reading — the recursive occurrence is the
+*fresh* leaf, so it reads to `.const .natRec [ψ u]`. -/
+def natSuccRaP (ψ : Name → Nat) : AVExpr :=
+  .lam (pwBit ψ (.ifAllZero [uN])) (natMotiveTyP ψ)
+    (.lam (pwBit ψ (.ifAllZero [uN]))
+      (.app (.bvar 0) (.const .natZero []))
+      (.lam (pwBit ψ (.ifAllZero [uN])) (natStepTyP ψ)
+        (.lam (pwBit ψ (.ifAllZero [uN])) (.const .nat [])
+          (.app (.app (.bvar 1) (.bvar 0))
+            (.app (.app (.app (.app (.const .natRec [ψ uN]) (.bvar 3))
+              (.bvar 2)) (.bvar 1)) (.bvar 0))))))
+
+theorem denoteP_natRec_zeroRhs (ψ : Name → Nat)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    denoteP (acvalWith m.acval natRecA.name A)
+        ⟨natRecA :: env.consts⟩ ψ 0 natRecZeroRule.rhs
+      = some (natZeroRaP ψ) := by
+  obtain ⟨hNc, hZc, hSc⟩ :=
+    denoteP_natRec_leaves (m := m) (A := A) ψ hN hZ hS
+  rw [show natRecZeroRule.rhs = Expr.lam (Name.anonymous.str "motive")
+      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+        (.sort (.param uN)) { bi := .default, pw := .never })
+      (Expr.lam (Name.anonymous.str "zero")
+        (.app (.bvar 0) (.const natZeroName []))
+        (Expr.lam (Name.anonymous.str "succ")
+          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
+            (Expr.forallE (Name.anonymous.str "n_ih")
+              (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
+              { bi := .default, pw := .ifAllZero [uN] })
+            { bi := .default, pw := .ifAllZero [uN] })
+          (.bvar 1) { bi := .default, pw := .ifAllZero [uN] })
+        { bi := .default, pw := .ifAllZero [uN] })
+      { bi := .default, pw := .ifAllZero [uN] } from rfl]
+  simp [denoteP_lam, denoteP_forallE, denoteP_sort, denoteP_app,
+    denoteP_fvar, Expr.instantiate1, hNc, hZc, hSc, Level.eval,
+    natZeroRaP, natMotiveTyP, natStepTyP]
+
+theorem denoteP_natRec_succRhs (ψ : Name → Nat)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA) :
+    denoteP (acvalWith m.acval natRecA.name
+        (fun ψ => AVExpr.const .natRec [ψ uN]))
+        ⟨natRecA :: env.consts⟩ ψ 0 natRecSuccRule.rhs
+      = some (natSuccRaP ψ) := by
+  obtain ⟨hNc, hZc, hSc⟩ :=
+    denoteP_natRec_leaves (m := m)
+      (A := fun ψ => AVExpr.const .natRec [ψ uN]) ψ hN hZ hS
+  have hRc : ∀ d : Nat,
+      denoteP (acvalWith m.acval natRecA.name
+          (fun ψ => AVExpr.const .natRec [ψ uN]))
+        ⟨natRecA :: env.consts⟩ ψ d
+        (.const (natName.str "rec") [.param uN])
+        = some (AVExpr.const .natRec [ψ uN]) := by
+    intro d
+    have hf : (⟨natRecA :: env.consts⟩ : Env).find? (natName.str "rec")
+        = some natRecA := by
+      rw [Setlec.Env.find?_cons]; exact if_pos rfl
+    rw [denoteP_const hf (by rfl),
+      show natName.str "rec" = natRecA.name from rfl, acvalWith_self]
+    show some (AVExpr.const .natRec
+      [Level.substFn ψ natRecA.toConstantVal.levelParams
+        [Level.param uN] uN]) = _
+    rw [show Level.substFn ψ natRecA.toConstantVal.levelParams
+        [Level.param uN] uN = ψ uN from rfl]
+  rw [show natRecSuccRule.rhs = Expr.lam (Name.anonymous.str "motive")
+      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+        (.sort (.param uN)) { bi := .default, pw := .never })
+      (Expr.lam (Name.anonymous.str "zero")
+        (.app (.bvar 0) (.const natZeroName []))
+        (Expr.lam (Name.anonymous.str "succ")
+          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
+            (Expr.forallE (Name.anonymous.str "n_ih")
+              (.app (.bvar 2) (.bvar 0))
+              (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
+              { bi := .default, pw := .ifAllZero [uN] })
+            { bi := .default, pw := .ifAllZero [uN] })
+          (Expr.lam (Name.anonymous.str "n") (.const natName [])
+            (.app (.app (.bvar 1) (.bvar 0))
+              (.app (.app (.app (.app
+                (.const (natName.str "rec") [.param uN]) (.bvar 3))
+                (.bvar 2)) (.bvar 1)) (.bvar 0)))
+            { bi := .default, pw := .ifAllZero [uN] })
+          { bi := .default, pw := .ifAllZero [uN] })
+        { bi := .default, pw := .ifAllZero [uN] })
+      { bi := .default, pw := .ifAllZero [uN] } from rfl]
+  simp [denoteP_lam, denoteP_forallE, denoteP_sort, denoteP_app,
+    denoteP_fvar, Expr.instantiate1, hNc, hZc, hSc, hRc, Level.eval,
+    natSuccRaP, natMotiveTyP, natStepTyP]
+
+/-- The step space's numeral is read only through its zero test. -/
+theorem natStepSpace2_bit_agree {b u : Nat} (hz : b = 0 ↔ u = 0)
+    (M : V) : natStepSpace2 V b M = natStepSpace2 V u M := by
+  rw [natStepSpace2, natStepSpace2]
+  exact piR_zero_agree hz fun _ _ => piR_zero_agree hz fun _ _ => rfl
+
+/-- The motive binder's domain is graded — no numeral is read. -/
+theorem natMotiveTyP_okP (ψ : Name → Nat) (ρ : Nat → V) :
+    AnnotOkP V ρ (natMotiveTyP ψ) :=
+  ⟨⟨trivial, fun _ _ => trivial⟩,
+    ⟨trivial, fun _ _ => trivial, fun h => by
+      rw [pwBit_never] at h; exact nomatch h⟩⟩
+
+/-- The step binder's domain is graded, under a motive membership: the
+three residual fibre obligations are `natMotive_apply` at `n`, at
+`n + 1`, and `piR_zero_mem_univZero`. -/
+theorem natStepTyP_okP (ψ : Name → Nat) (ρ : Nat → V) (M z : V)
+    (hM : M ∈ˢ natMotiveSpace V (ψ uN)) :
+    AnnotOkP V (cons z (cons M ρ)) (natStepTyP ψ) := by
+  have hMn : ∀ n : V, n ∈ˢ (omega : V) → app M n ∈ˢ (univ (ψ uN) : V) :=
+    fun n hn => natMotive_apply V hM hn
+  have hdom : ∀ n : V,
+      interp2 V (cons n (cons z (cons M ρ))) (.app (.bvar 2) (.bvar 0))
+        = app M n := by
+    intro n; simp [interp2_app, interp2_bvar, cons]
+  have hcod : ∀ (n ih : V),
+      interp2 V (cons ih (cons n (cons z (cons M ρ))))
+          (.app (.bvar 3) (.app (.const .natSucc []) (.bvar 1)))
+        = app M (app (natSuccV2 V) n) := by
+    intro n ih; simp [interp2_app, interp2_bvar, interp2_const, cons,
+      bval2]
+  have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V) fun _ => univ (ψ uN) := hM
+  constructor
+  · refine ⟨trivial, fun n hn => ?_⟩
+    have hn' : n ∈ˢ (omega : V) := by
+      simpa [interp2_const, bval2] using hn
+    refine ⟨⟨trivial, trivial, ψ uN + 1, omega, fun _ => univ (ψ uN),
+        by simpa [interp2_bvar, cons] using hM',
+        by simpa [interp2_bvar, cons] using hn',
+        fun h => absurd h (Nat.succ_ne_zero _)⟩,
+      fun ih _ => ⟨trivial, ⟨trivial, trivial, 1, omega,
+        fun _ => omega, natSuccV2_mem V,
+        by simpa [interp2_bvar, cons] using hn',
+        fun h => absurd h Nat.one_ne_zero⟩,
+        ψ uN + 1, omega, fun _ => univ (ψ uN),
+        by simpa [interp2_bvar, cons] using hM',
+        by rw [interp2_app, interp2_const, interp2_bvar]
+           show app (natSuccV2 V) _ ∈ˢ _
+           rw [show cons ih (cons n (cons z (cons M ρ))) 1 = n from rfl,
+             natSuccV2_app V hn']
+           exact natsucc_mem hn',
+        fun h => absurd h (Nat.succ_ne_zero _)⟩⟩
+  · refine ⟨trivial, fun n hn => ?_, fun hz n hn => ?_⟩
+    · have hn' : n ∈ˢ (omega : V) := by
+        simpa [interp2_const, bval2] using hn
+      refine ⟨⟨trivial, trivial⟩,
+        fun _ _ => ⟨trivial, ⟨trivial, trivial⟩⟩, fun hz ih _ => ?_⟩
+      rw [hcod n ih, natSuccV2_app V hn']
+      have := hMn (natsucc n) (natsucc_mem hn')
+      rw [(pwBit_ifAllZero_single ψ uN).mp hz, univ_zero] at this
+      exact this
+    · rw [interp2_pi]
+      rw [hz]
+      exact piR_zero_mem_univZero
+
+/-! ### The two RHS towers, interpreted and graded -/
+
+theorem natZeroRaP_interp (ψ : Name → Nat) (ρ : Nat → V) :
+    interp2 V ρ (natZeroRaP ψ)
+      = lamR (pwBit ψ (.ifAllZero [uN])) (natMotiveSpace V (ψ uN))
+          (fun M => lamR (pwBit ψ (.ifAllZero [uN])) (app M natzero)
+            (fun z => lamR (pwBit ψ (.ifAllZero [uN]))
+              (natStepSpace2 V (pwBit ψ (.ifAllZero [uN])) M)
+              (fun _ => z))) := by
+  simp only [natZeroRaP, interp2_lam, interp2_app, interp2_bvar,
+    interp2_const, cons, bval2, natMotiveTyP_interp, natStepTyP_interp]
+
+theorem natSuccRaP_interp (ψ : Name → Nat) (ρ : Nat → V) :
+    interp2 V ρ (natSuccRaP ψ)
+      = lamR (pwBit ψ (.ifAllZero [uN])) (natMotiveSpace V (ψ uN))
+          (fun M => lamR (pwBit ψ (.ifAllZero [uN])) (app M natzero)
+            (fun z => lamR (pwBit ψ (.ifAllZero [uN]))
+              (natStepSpace2 V (pwBit ψ (.ifAllZero [uN])) M)
+              (fun s => lamR (pwBit ψ (.ifAllZero [uN])) omega
+                (fun n => app (app s n)
+                  (app (app (app (app (natRecV2 V (ψ uN)) M) z) s)
+                    n))))) := by
+  simp only [natSuccRaP, interp2_lam, interp2_app, interp2_bvar,
+    interp2_const, cons, bval2, natMotiveTyP_interp,
+    natStepTyP_interp, Setlec.TT.lv, List.getD_cons_zero]
+
+/-- **The recursive spine is graded**, once and for all: four
+`bconst_app_data` steps at `Nat.rec`'s own `type2` binders, with the
+four domains identified with `Interp2/Value.lean`'s spaces.  Used at
+the `succ` rule, where the RHS mentions the recursor. -/
+theorem natRecSpine_ok2 {u : Nat} (ρ : Nat → V) {e1 e2 e3 e4 : AVExpr}
+    (h1 : AnnotOk2 V ρ e1) (h2 : AnnotOk2 V ρ e2)
+    (h3 : AnnotOk2 V ρ e3) (h4 : AnnotOk2 V ρ e4)
+    (m1 : interp2 V ρ e1 ∈ˢ natMotiveSpace V u)
+    (m2 : interp2 V ρ e2 ∈ˢ app (interp2 V ρ e1) natzero)
+    (m3 : interp2 V ρ e3 ∈ˢ natStepSpace2 V u (interp2 V ρ e1))
+    (m4 : interp2 V ρ e4 ∈ˢ (omega : V)) :
+    AnnotOk2 V ρ
+      (.app (.app (.app (.app (.const .natRec [u]) e1) e2) e3) e4) := by
+  have hlv : Setlec.TT.lv [u] 0 = u := rfl
+  have d1 : interp2 V ρ (arrowA 1 (u + 1) natT2 (.sort u))
+      = natMotiveSpace V u := by
+    simp [arrowA, natT2, AVExpr.lift, AVExpr.liftN, interp2_pi,
+      interp2_const, interp2_sort, bval2, natMotiveSpace]
+  have d2 : ∀ a1 : V, interp2 V (cons a1 ρ)
+      (.app (.bvar 0) natZeroT2) = app a1 natzero := by
+    intro a1
+    simp [natZeroT2, interp2_app, interp2_bvar, interp2_const, cons,
+      bval2]
+  have d3 : ∀ a1 a2 : V, interp2 V (cons a2 (cons a1 ρ))
+      (AVExpr.pi 1 u natT2 (.pi u u (.app (.bvar 2) (.bvar 0))
+        (.app (.bvar 3) (natSuccT2 (.bvar 1)))))
+      = natStepSpace2 V u a1 := by
+    intro a1 a2
+    rw [interp2_pi, natStepSpace2]
+    simp only [natT2, interp2_const, bval2]
+    refine piR_congr fun k hk => ?_
+    rw [interp2_pi]
+    simp only [natSuccT2, interp2_app, interp2_bvar, interp2_const,
+      cons, bval2]
+    exact piR_congr fun _ _ => by rw [natSuccV2_app V hk]
+  have d4 : ∀ a1 a2 a3 : V,
+      interp2 V (cons a3 (cons a2 (cons a1 ρ))) natT2 = (omega : V) := by
+    intro _ _ _; simp [natT2, interp2_const, bval2]
+  rw [AnnotOk2_app]
+  refine ⟨?_, h4, ?_⟩
+  · rw [AnnotOk2_app]
+    refine ⟨?_, h3, ?_⟩
+    · rw [AnnotOk2_app]
+      refine ⟨⟨trivial, h1, ?_⟩, h2, ?_⟩
+      · exact bconst_app_data V .natRec [u] ρ rfl (by rw [hlv, d1]; exact m1)
+      · refine bconst_app_data2 V .natRec [u] ρ rfl
+          (by rw [hlv, d1]; exact m1) ?_
+        rw [d2]; exact m2
+    · refine bconst_app_data3 V .natRec [u] ρ rfl
+        (by rw [hlv, d1]; exact m1) (by rw [d2]; exact m2) ?_
+      rw [hlv, d3]; exact m3
+  · refine bconst_app_data4 V .natRec [u] ρ rfl
+      (by rw [hlv, d1]; exact m1) (by rw [d2]; exact m2)
+      (by rw [hlv, d3]; exact m3) ?_
+    rw [d4]; exact m4
+
+/-- The spine is bit-valid: `AnnotValidV`'s `.app` clause is
+structural. -/
+theorem natRecSpine_validV {u : Nat} (ρ : Nat → V)
+    {e1 e2 e3 e4 : AVExpr}
+    (h1 : AnnotValidV V ρ e1) (h2 : AnnotValidV V ρ e2)
+    (h3 : AnnotValidV V ρ e3) (h4 : AnnotValidV V ρ e4) :
+    AnnotValidV V ρ
+      (.app (.app (.app (.app (.const .natRec [u]) e1) e2) e3) e4) :=
+  ⟨⟨⟨⟨trivial, h1⟩, h2⟩, h3⟩, h4⟩
+
+/-- The `zero` rule's RHS tower is graded. -/
+theorem natZeroRaP_okP (ψ : Name → Nat) (ρ : Nat → V) :
+    AnnotOkP V ρ (natZeroRaP ψ) := by
+  have hb : ∀ M : V, M ∈ˢ natMotiveSpace V (ψ uN) →
+      pwBit ψ (Setlec.PropWhen.ifAllZero [uN]) = 0 →
+      app M natzero ∈ˢ (univZero : V) := by
+    intro M hM hz
+    have hh := natMotive_apply V hM (natzero_mem (V := V))
+    rw [(pwBit_ifAllZero_single ψ uN).mp hz, univ_zero] at hh
+    exact hh
+  have hzty : ∀ M : V, interp2 V (cons M ρ)
+      (AVExpr.app (.bvar 0) (.const .natZero [])) = app M natzero := by
+    intro M; simp [interp2_app, interp2_bvar, interp2_const, cons, bval2]
+  constructor
+  · rw [natZeroRaP, AnnotOk2_lam, natMotiveTyP_interp]
+    refine ⟨(natMotiveTyP_okP ψ ρ).1, fun M hM => ?_, ?_⟩
+    · have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V)
+          fun _ => univ (ψ uN) := hM
+      rw [AnnotOk2_lam, hzty]
+      refine ⟨⟨trivial, trivial, ψ uN + 1, omega, fun _ => univ (ψ uN),
+          by simpa [interp2_bvar, cons] using hM',
+          by simpa [interp2_const, bval2]
+            using (natzero_mem : (natzero : V) ∈ˢ omega),
+          fun h => absurd h (Nat.succ_ne_zero _)⟩,
+        fun z hz => ?_, ?_⟩
+      · rw [AnnotOk2_lam, natStepTyP_interp]
+        exact ⟨(natStepTyP_okP ψ ρ M z hM).1, fun _ _ => trivial,
+          fun _ => app M natzero,
+          fun _ _ => by simpa [interp2_bvar, cons] using hz,
+          fun h _ _ => hb M hM h⟩
+      · refine ⟨fun _ => piR (pwBit ψ (.ifAllZero [uN]))
+            (natStepSpace2 V (pwBit ψ (.ifAllZero [uN])) M)
+            (fun _ => app M natzero),
+          fun z hz => ?_,
+          fun h _ _ => by rw [h]; exact piR_zero_mem_univZero⟩
+        rw [interp2_lam, natStepTyP_interp]
+        exact lamR_mem fun _ _ => by simpa [interp2_bvar, cons] using hz
+    · refine ⟨fun M => piR (pwBit ψ (.ifAllZero [uN])) (app M natzero)
+          (fun _ => piR (pwBit ψ (.ifAllZero [uN]))
+            (natStepSpace2 V (pwBit ψ (.ifAllZero [uN])) M)
+            (fun _ => app M natzero)),
+        fun M hM => ?_,
+        fun h _ _ => by rw [h]; exact piR_zero_mem_univZero⟩
+      rw [interp2_lam, hzty]
+      refine lamR_mem fun z hz => ?_
+      rw [interp2_lam, natStepTyP_interp]
+      exact lamR_mem fun _ _ => by simpa [interp2_bvar, cons] using hz
+  · rw [natZeroRaP, AnnotValidV_lam, natMotiveTyP_interp]
+    refine ⟨(natMotiveTyP_okP ψ ρ).2, fun M hM => ?_⟩
+    rw [AnnotValidV_lam, hzty]
+    exact ⟨⟨trivial, trivial⟩, fun z hz =>
+      ⟨(natStepTyP_okP ψ ρ M z hM).2, fun _ _ => trivial⟩⟩
+
+set_option maxHeartbeats 1000000 in
+/-- The `succ` rule's RHS tower is graded — the extra layer over the
+`zero` rule's is the recursive spine, `natRecSpine_ok2`. -/
+theorem natSuccRaP_okP (ψ : Name → Nat) (ρ : Nat → V) :
+    AnnotOkP V ρ (natSuccRaP ψ) := by
+  have hzty : ∀ M : V, interp2 V (cons M ρ)
+      (AVExpr.app (.bvar 0) (.const .natZero [])) = app M natzero := by
+    intro M; simp [interp2_app, interp2_bvar, interp2_const, cons, bval2]
+  have hfib : ∀ M : V, M ∈ˢ natMotiveSpace V (ψ uN) → ∀ n : V,
+      n ∈ˢ (omega : V) →
+      pwBit ψ (Setlec.PropWhen.ifAllZero [uN]) = 0 →
+      app M n ∈ˢ (univZero : V) := by
+    intro M hM n hn hz
+    have hh := natMotive_apply V hM hn
+    rw [(pwBit_ifAllZero_single ψ uN).mp hz, univ_zero] at hh
+    exact hh
+  -- the fourth λ's body, at a fixed motive/minor/step
+  have body : ∀ (M z s : V), M ∈ˢ natMotiveSpace V (ψ uN) →
+      z ∈ˢ app M natzero →
+      s ∈ˢ natStepSpace2 V (pwBit ψ (.ifAllZero [uN])) M →
+      ∀ n : V, n ∈ˢ (omega : V) →
+      AnnotOk2 V (cons n (cons s (cons z (cons M ρ))))
+          (.app (.app (.bvar 1) (.bvar 0))
+            (.app (.app (.app (.app (.const .natRec [ψ uN]) (.bvar 3))
+              (.bvar 2)) (.bvar 1)) (.bvar 0))) ∧
+        interp2 V (cons n (cons s (cons z (cons M ρ))))
+            (.app (.app (.bvar 1) (.bvar 0))
+              (.app (.app (.app (.app (.const .natRec [ψ uN]) (.bvar 3))
+                (.bvar 2)) (.bvar 1)) (.bvar 0)))
+          ∈ˢ app M (natsucc n) := by
+    intro M z s hM hz hs n hn
+    have hs' : s ∈ˢ natStepSpace2 V (ψ uN) M := by
+      rwa [natStepSpace2_bit_agree (pwBit_ifAllZero_single ψ uN)] at hs
+    have hs'' : s ∈ˢ piR (ψ uN) (omega : V)
+        fun k => piR (ψ uN) (app M k) fun _ => app M (natsucc k) := hs'
+    have hsn : app s n ∈ˢ piR (ψ uN) (app M n)
+        (fun _ => app M (natsucc n)) :=
+      app_mem_piR (B := fun k => piR (ψ uN) (app M k)
+        (fun _ => app M (natsucc k))) hs'' hn
+        (fun h k hk => by rw [h]; exact piR_zero_mem_univZero)
+    have hrec : app (app (app (app (natRecV2 V (ψ uN)) M) z) s) n
+        ∈ˢ app M n := by
+      rw [natRecV2_app V hM hz hs' hn]
+      exact natRecV2_mem_fibre V hM hz hs' hn
+    have espine : interp2 V (cons n (cons s (cons z (cons M ρ))))
+        (.app (.app (.app (.app (.const .natRec [ψ uN]) (.bvar 3))
+          (.bvar 2)) (.bvar 1)) (.bvar 0))
+        = app (app (app (app (natRecV2 V (ψ uN)) M) z) s) n := by
+      simp [interp2_app, interp2_bvar, interp2_const, cons, bval2,
+        Setlec.TT.lv]
+    have eapp : interp2 V (cons n (cons s (cons z (cons M ρ))))
+        (AVExpr.app (.bvar 1) (.bvar 0)) = app s n := by
+      simp [interp2_app, interp2_bvar, cons]
+    refine ⟨?_, ?_⟩
+    · rw [AnnotOk2_app]
+      refine ⟨⟨trivial, trivial, ψ uN, omega,
+          fun k => piR (ψ uN) (app M k) (fun _ => app M (natsucc k)),
+          by simpa [interp2_bvar, cons] using hs'',
+          by simpa [interp2_bvar, cons] using hn,
+          fun h k hk => by rw [h]; exact piR_zero_mem_univZero⟩,
+        ?_, ?_⟩
+      · refine natRecSpine_ok2 (u := ψ uN) _ trivial trivial trivial
+          trivial ?_ ?_ ?_ ?_
+        · simpa [interp2_bvar, cons] using hM
+        · simpa [interp2_bvar, cons] using hz
+        · simpa [interp2_bvar, cons] using hs'
+        · simpa [interp2_bvar, cons] using hn
+      · exact ⟨ψ uN, app M n, fun _ => app M (natsucc n),
+          by rw [eapp]; exact hsn,
+          by rw [espine]; exact hrec,
+          fun h k hk => by
+            have hh := natMotive_apply V hM (natsucc_mem hn)
+            rw [h, univ_zero] at hh
+            exact hh⟩
+    · rw [interp2_app, eapp, espine]
+      exact app_mem_piR hsn hrec (fun h k hk => by
+        have hh := natMotive_apply V hM (natsucc_mem hn)
+        rw [h, univ_zero] at hh
+        exact hh)
+  constructor
+  · rw [natSuccRaP, AnnotOk2_lam, natMotiveTyP_interp]
+    refine ⟨(natMotiveTyP_okP ψ ρ).1, fun M hM => ?_, ?_⟩
+    · have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V)
+          fun _ => univ (ψ uN) := hM
+      rw [AnnotOk2_lam, hzty]
+      refine ⟨⟨trivial, trivial, ψ uN + 1, omega, fun _ => univ (ψ uN),
+          by simpa [interp2_bvar, cons] using hM',
+          by simpa [interp2_const, bval2]
+            using (natzero_mem : (natzero : V) ∈ˢ omega),
+          fun h => absurd h (Nat.succ_ne_zero _)⟩,
+        fun z hz => ?_, ?_⟩
+      · rw [AnnotOk2_lam, natStepTyP_interp]
+        refine ⟨(natStepTyP_okP ψ ρ M z hM).1, fun s hs => ?_, ?_⟩
+        · rw [AnnotOk2_lam]
+          simp only [interp2_const, bval2]
+          exact ⟨trivial, fun n hn => (body M z s hM hz hs n hn).1,
+            fun n => app M (natsucc n),
+            fun n hn => (body M z s hM hz hs n hn).2,
+            fun h n hn => hfib M hM (natsucc n) (natsucc_mem hn) h⟩
+        · refine ⟨fun _ => piR (pwBit ψ (.ifAllZero [uN])) omega
+              (fun n => app M (natsucc n)),
+            fun s hs => ?_,
+            fun h _ _ => by rw [h]; exact piR_zero_mem_univZero⟩
+          rw [interp2_lam]
+          simp only [interp2_const, bval2]
+          exact lamR_mem fun n hn => (body M z s hM hz hs n hn).2
+      · refine ⟨fun _ => piR (pwBit ψ (.ifAllZero [uN]))
+            (natStepSpace2 V (pwBit ψ (.ifAllZero [uN])) M)
+            (fun _ => piR (pwBit ψ (.ifAllZero [uN])) omega
+              (fun n => app M (natsucc n))),
+          fun z hz => ?_,
+          fun h _ _ => by rw [h]; exact piR_zero_mem_univZero⟩
+        rw [interp2_lam, natStepTyP_interp]
+        refine lamR_mem fun s hs => ?_
+        rw [interp2_lam]
+        simp only [interp2_const, bval2]
+        exact lamR_mem fun n hn => (body M z s hM hz hs n hn).2
+    · refine ⟨fun M => piR (pwBit ψ (.ifAllZero [uN])) (app M natzero)
+          (fun _ => piR (pwBit ψ (.ifAllZero [uN]))
+            (natStepSpace2 V (pwBit ψ (.ifAllZero [uN])) M)
+            (fun _ => piR (pwBit ψ (.ifAllZero [uN])) omega
+              (fun n => app M (natsucc n)))),
+        fun M hM => ?_,
+        fun h _ _ => by rw [h]; exact piR_zero_mem_univZero⟩
+      rw [interp2_lam, hzty]
+      refine lamR_mem fun z hz => ?_
+      rw [interp2_lam, natStepTyP_interp]
+      refine lamR_mem fun s hs => ?_
+      rw [interp2_lam]
+      simp only [interp2_const, bval2]
+      exact lamR_mem fun n hn => (body M z s hM hz hs n hn).2
+  · rw [natSuccRaP, AnnotValidV_lam, natMotiveTyP_interp]
+    refine ⟨(natMotiveTyP_okP ψ ρ).2, fun M hM => ?_⟩
+    rw [AnnotValidV_lam, hzty]
+    refine ⟨⟨trivial, trivial⟩, fun z hz => ?_⟩
+    rw [AnnotValidV_lam, natStepTyP_interp]
+    refine ⟨(natStepTyP_okP ψ ρ M z hM).2, fun s hs => ?_⟩
+    rw [AnnotValidV_lam]
+    exact ⟨trivial, fun n hn =>
+      ⟨⟨trivial, trivial⟩, natRecSpine_validV _ trivial trivial trivial
+        trivial⟩⟩
+
+/-! ### The two rows
+
+Both rules are `.plain` (ENDGAME F §3), so the `.nested` conjuncts are
+`nomatch` at both.  What differs from `PUnit.rec` is the shape of the
+fired equality — `natrec_zero` at one rule, `natrec_succ` at the other
+— and that the `succ` rule's right-hand side mentions the recursor
+itself, read through the **fresh** leaf. -/
+
+/-- The recursor's telescope, unpacked into the four memberships
+`Interp2/Value.lean`'s laws are stated with. -/
+theorem natRecTelescope (ψ : Name → Nat) (ρ : Nat → V)
+    {xs : List AVExpr} (hxs : xs.length = 3) (tl rest : AVExpr)
+    (hfit : TeleFitPA V ρ
+      (.pi 0 (pwBit ψ (.ifAllZero [uN])) (natMotiveTyP ψ)
+        (.pi 0 (pwBit ψ (.ifAllZero [uN]))
+          (.app (.bvar 0) (.const .natZero []))
+          (.pi 0 (pwBit ψ (.ifAllZero [uN])) (natStepTyP ψ)
+            (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .nat [])
+              (.app (.bvar 3) (.bvar 0))))))
+      (xs ++ [tl]) rest) :
+    ∃ M z s : AVExpr, xs = [M, z, s] ∧
+      interp2 V ρ M ∈ˢ natMotiveSpace V (ψ uN) ∧
+      interp2 V ρ z ∈ˢ app (interp2 V ρ M) natzero ∧
+      interp2 V ρ s ∈ˢ natStepSpace2 V (ψ uN) (interp2 V ρ M) ∧
+      interp2 V ρ tl ∈ˢ (omega : V) := by
+  obtain ⟨M, z, s, rfl⟩ : ∃ a b c, xs = [a, b, c] := by
+    match xs, hxs with
+    | [a, b, c], _ => exact ⟨a, b, c, rfl⟩
+  cases hfit with | cons h1 hfit =>
+  cases hfit with | cons h2 hfit =>
+  cases hfit with | cons h3 hfit =>
+  cases hfit with | cons h4 _ =>
+  rw [natMotiveTyP_interp] at h1
+  refine ⟨M, z, s, rfl, h1, ?_, ?_, ?_⟩
+  · simpa [AVExpr.inst, AVExpr.liftN_zero, interp2_app, interp2_bvar,
+      interp2_const, cons, bval2] using h2
+  · have h3' : interp2 V ρ s
+        ∈ˢ natStepSpace2 V (pwBit ψ (.ifAllZero [uN])) (interp2 V ρ M) := by
+      have heq : (piR (pwBit ψ (.ifAllZero [uN])) (omega : V) fun x =>
+            piR (pwBit ψ (.ifAllZero [uN])) (app (interp2 V ρ M) x)
+              fun _ => app (interp2 V ρ M) (app (natSuccV2 V) x))
+          = piR (pwBit ψ (.ifAllZero [uN])) omega fun n =>
+            piR (pwBit ψ (.ifAllZero [uN])) (app (interp2 V ρ M) n)
+              fun _ => app (interp2 V ρ M) (natsucc n) :=
+        piR_congr fun n hn =>
+          piR_congr fun _ _ => by rw [natSuccV2_app V hn]
+      rw [natStepSpace2, ← heq]
+      simpa [AVExpr.inst, AVExpr.liftN_zero, natStepTyP,
+        interp2_liftN2_inst1, interp2_liftN3_inst2, interp2_pi,
+        interp2_app, interp2_bvar, interp2_const, cons_zero, cons_succ,
+        bval2] using h3
+    rwa [natStepSpace2_bit_agree (pwBit_ifAllZero_single ψ uN)] at h3'
+  · simpa [AVExpr.inst, AVExpr.liftN_zero, interp2_const, bval2]
+      using h4
+
+/-- The `zero` tower's product membership. -/
+theorem natZeroRaP_mem (ψ : Name → Nat) (ρ : Nat → V) :
+    interp2 V ρ (natZeroRaP ψ)
+      ∈ˢ piR (pwBit ψ (.ifAllZero [uN])) (natMotiveSpace V (ψ uN))
+        (fun M => piR (pwBit ψ (.ifAllZero [uN])) (app M natzero)
+          (fun _ => piR (pwBit ψ (.ifAllZero [uN]))
+            (natStepSpace2 V (pwBit ψ (.ifAllZero [uN])) M)
+            (fun _ => app M natzero))) := by
+  rw [natZeroRaP_interp]
+  exact lamR_mem fun _ _ => lamR_mem fun z hz => lamR_mem fun _ _ => hz
+
+/-- The `succ` tower's product membership. -/
+theorem natSuccRaP_mem (ψ : Name → Nat) (ρ : Nat → V) :
+    interp2 V ρ (natSuccRaP ψ)
+      ∈ˢ piR (pwBit ψ (.ifAllZero [uN])) (natMotiveSpace V (ψ uN))
+        (fun M => piR (pwBit ψ (.ifAllZero [uN])) (app M natzero)
+          (fun _ => piR (pwBit ψ (.ifAllZero [uN]))
+            (natStepSpace2 V (pwBit ψ (.ifAllZero [uN])) M)
+            (fun _ => piR (pwBit ψ (.ifAllZero [uN])) omega
+              (fun n => app M (natsucc n))))) := by
+  rw [natSuccRaP_interp]
+  refine lamR_mem fun M hM => lamR_mem fun z hz =>
+    lamR_mem fun s hs => lamR_mem fun n hn => ?_
+  have hs' : s ∈ˢ natStepSpace2 V (ψ uN) M := by
+    rwa [natStepSpace2_bit_agree (pwBit_ifAllZero_single ψ uN)] at hs
+  have hs'' : s ∈ˢ piR (ψ uN) (omega : V)
+      fun k => piR (ψ uN) (app M k) fun _ => app M (natsucc k) := hs'
+  have hsn := app_mem_piR (B := fun k => piR (ψ uN) (app M k)
+      (fun _ => app M (natsucc k))) hs'' hn
+    (fun h k hk => by rw [h]; exact piR_zero_mem_univZero)
+  refine app_mem_piR hsn ?_ (fun h k hk => by
+    have hh := natMotive_apply V hM (natsucc_mem hn)
+    rw [h, univ_zero] at hh
+    exact hh)
+  rw [natRecV2_app V hM hz hs' hn]
+  exact natRecV2_mem_fibre V hM hz hs' hn
+
+/-- The `zero` rule's transport: three `AnnotOk2_app` steps over
+`natZeroRaP_mem`. -/
+theorem natZeroRaP_transport (ψ : Name → Nat) (ρ : Nat → V)
+    {M z s : AVExpr}
+    (hM : interp2 V ρ M ∈ˢ natMotiveSpace V (ψ uN))
+    (hz : interp2 V ρ z ∈ˢ app (interp2 V ρ M) natzero)
+    (hs : interp2 V ρ s
+      ∈ˢ natStepSpace2 V (ψ uN) (interp2 V ρ M))
+    (okM : AnnotOkP V ρ M) (okz : AnnotOkP V ρ z)
+    (oks : AnnotOkP V ρ s) :
+    AnnotOkP V ρ (.app (.app (.app (natZeroRaP ψ) M) z) s) := by
+  have hs' : interp2 V ρ s
+      ∈ˢ natStepSpace2 V (pwBit ψ (.ifAllZero [uN]))
+        (interp2 V ρ M) := by
+    rwa [natStepSpace2_bit_agree (pwBit_ifAllZero_single ψ uN)]
+  have hzero : ∀ K : V, K ∈ˢ natMotiveSpace V (ψ uN) →
+      pwBit ψ (Setlec.PropWhen.ifAllZero [uN]) = 0 →
+      app K natzero ∈ˢ (univZero : V) := by
+    intro K hK h
+    have hh := natMotive_apply V hK (natzero_mem (V := V))
+    rw [(pwBit_ifAllZero_single ψ uN).mp h, univ_zero] at hh
+    exact hh
+  have h1 := app_mem_piR (natZeroRaP_mem ψ ρ) hM
+    (fun h _ _ => by rw [h]; exact piR_zero_mem_univZero)
+  have h2 := app_mem_piR h1 hz
+    (fun h _ _ => by rw [h]; exact piR_zero_mem_univZero)
+  refine ⟨?_, ?_⟩
+  · rw [AnnotOk2_app]
+    refine ⟨?_, oks.1, _, _, _, h2, hs', fun h _ _ =>
+      hzero _ hM h⟩
+    rw [AnnotOk2_app]
+    refine ⟨?_, okz.1, _, _, _, h1, hz, fun h _ _ => by
+      rw [h]; exact piR_zero_mem_univZero⟩
+    rw [AnnotOk2_app]
+    exact ⟨(natZeroRaP_okP ψ ρ).1, okM.1, _, _, _,
+      natZeroRaP_mem ψ ρ, hM,
+      fun h _ _ => by rw [h]; exact piR_zero_mem_univZero⟩
+  · exact ⟨⟨⟨(natZeroRaP_okP ψ ρ).2, okM.2⟩, okz.2⟩, oks.2⟩
+
+/-- The `succ` rule's transport: four steps. -/
+theorem natSuccRaP_transport (ψ : Name → Nat) (ρ : Nat → V)
+    {M z s n : AVExpr}
+    (hM : interp2 V ρ M ∈ˢ natMotiveSpace V (ψ uN))
+    (hz : interp2 V ρ z ∈ˢ app (interp2 V ρ M) natzero)
+    (hs : interp2 V ρ s
+      ∈ˢ natStepSpace2 V (ψ uN) (interp2 V ρ M))
+    (hn : interp2 V ρ n ∈ˢ (omega : V))
+    (okM : AnnotOkP V ρ M) (okz : AnnotOkP V ρ z)
+    (oks : AnnotOkP V ρ s) (okn : AnnotOkP V ρ n) :
+    AnnotOkP V ρ (.app (.app (.app (.app (natSuccRaP ψ) M) z) s) n) := by
+  have hs' : interp2 V ρ s
+      ∈ˢ natStepSpace2 V (pwBit ψ (.ifAllZero [uN]))
+        (interp2 V ρ M) := by
+    rwa [natStepSpace2_bit_agree (pwBit_ifAllZero_single ψ uN)]
+  have h1 := app_mem_piR (natSuccRaP_mem ψ ρ) hM
+    (fun h _ _ => by rw [h]; exact piR_zero_mem_univZero)
+  have h2 := app_mem_piR h1 hz
+    (fun h _ _ => by rw [h]; exact piR_zero_mem_univZero)
+  have h3 := app_mem_piR h2 hs'
+    (fun h _ _ => by rw [h]; exact piR_zero_mem_univZero)
+  refine ⟨?_, ?_⟩
+  · rw [AnnotOk2_app]
+    refine ⟨?_, okn.1, _, _, _, h3, hn, fun h k hk => ?_⟩
+    · rw [AnnotOk2_app]
+      refine ⟨?_, oks.1, _, _, _, h2, hs', fun h _ _ => by
+        rw [h]; exact piR_zero_mem_univZero⟩
+      rw [AnnotOk2_app]
+      refine ⟨?_, okz.1, _, _, _, h1, hz, fun h _ _ => by
+        rw [h]; exact piR_zero_mem_univZero⟩
+      rw [AnnotOk2_app]
+      exact ⟨(natSuccRaP_okP ψ ρ).1, okM.1, _, _, _,
+        natSuccRaP_mem ψ ρ, hM,
+        fun h _ _ => by rw [h]; exact piR_zero_mem_univZero⟩
+    · have hh := natMotive_apply V hM (natsucc_mem hk)
+      rw [(pwBit_ifAllZero_single ψ uN).mp h, univ_zero] at hh
+      exact hh
+  · exact ⟨⟨⟨⟨(natSuccRaP_okP ψ ρ).2, okM.2⟩, okz.2⟩, oks.2⟩, okn.2⟩
+
+/-- Both rows share this: the recursor's instantiated type reading,
+folded back into the two named domains. -/
+theorem natRecTyRead (m₂ : EnvS2Core V ⟨natRecA :: env.consts⟩)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA)
+    (hac : m₂.acval = acvalWith m.acval natRecA.name A)
+    (φ : Name → Nat) (us : List Level) {ψ : Name → Nat}
+    (hψ : ψ = Level.substFn φ natRecA.toConstantVal.levelParams us) :
+    denoteP m₂.acval ⟨natRecA :: env.consts⟩ φ 0
+        (natRecA.toConstantVal.type.instantiateLevelParams
+          natRecA.toConstantVal.levelParams us)
+      = some (.pi 0 (pwBit ψ (.ifAllZero [uN])) (natMotiveTyP ψ)
+          (.pi 0 (pwBit ψ (.ifAllZero [uN]))
+            (.app (.bvar 0) (.const .natZero []))
+            (.pi 0 (pwBit ψ (.ifAllZero [uN])) (natStepTyP ψ)
+              (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .nat [])
+                (.app (.bvar 3) (.bvar 0)))))) := by
+  rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac,
+    denoteP_natRecA_type (m := m) _ hN hZ hS, ← hψ]
+  rfl
+
+/-- **`Nat.rec`'s `zero` row.** -/
+theorem natRecZeroLawP {m : EnvS2Core V env}
+    (m₂ : EnvS2Core V ⟨natRecA :: env.consts⟩)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA)
+    (hac : m₂.acval = acvalWith m.acval natRecA.name
+      (fun ψ => AVExpr.const .natRec [ψ uN]))
+    (φ : Name → Nat) :
+    RecRuleLawP m₂ φ natRecA.name natRecA.toConstantVal 3 3
+      natRecZeroRule := by
+  refine ⟨Nat.le_refl 3, fun us hus => ?_⟩
+  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
+      ψ = Level.substFn φ natRecA.toConstantVal.levelParams us :=
+    ⟨_, rfl⟩
+  refine ⟨natZeroRaP ψ, ?_, natZeroRaP_okP ψ, ?_, ?_⟩
+  · rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac, hψ,
+      denoteP_natRec_zeroRhs (m := m) _ hN hZ hS]
+  · intro _ _ h; exact nomatch h
+  intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
+    hlev hplain hnested hpin hTVa hTVja hfitR hfitC
+  obtain rfl : ys = [] := List.eq_nil_of_length_eq_zero hys
+  obtain rfl : TVa = _ := (Option.some.inj
+    ((natRecTyRead (m := m) m₂ hN hZ hS hac φ us hψ).symm.trans
+      hTVa)).symm
+  obtain ⟨M, z, s, rfl, hM, hz, hs, -⟩ :=
+    natRecTelescope ψ ρ hxs _ restR hfitR
+  have hctorL : m₂.acval (RecRule.ctor natRecZeroRule)
+      (Level.substFn φ cvj.levelParams usj)
+      = AVExpr.const .natZero [] := by
+    rw [show RecRule.ctor natRecZeroRule = natZeroName from rfl, hac,
+      acvalWith_ne (by decide)]
+    refine acval_basis_pinned (m := m) hZ (by decide) ?_
+    simp +decide [Setlec.TTVerify.pinnedDirectT]
+  have hrecL : m₂.acval natRecA.name
+      (Level.substFn φ natRecA.toConstantVal.levelParams us)
+      = AVExpr.const .natRec [ψ uN] := by
+    rw [hac, acvalWith_self, hψ]
+  refine ⟨?_, ?_⟩
+  · simp only [show natRecZeroRule.ctorParams = 0 from rfl,
+      List.take, List.drop, List.cons_append, List.nil_append,
+      List.append_nil, AVExpr.mkAppN_cons, AVExpr.mkAppN_nil, hrecL,
+      hctorL, interp2_app, interp2_const, bval2, Setlec.TT.lv,
+      List.getD_cons_zero]
+    rw [natRecV2_app V hM hz hs (natzero_mem (V := V)), natrec_zero,
+      natZeroRaP_interp]
+    by_cases hbz : pwBit ψ (Setlec.PropWhen.ifAllZero [uN]) = 0
+    · rw [hbz, lamR_zero, app_pt, app_pt, app_pt]
+      have hh := natMotive_apply V hM (natzero_mem (V := V))
+      rw [(pwBit_ifAllZero_single ψ uN).mp hbz] at hh
+      exact mem_univ_zero hh hz
+    · rw [app_lamR_pos hbz hM, app_lamR_pos hbz hz,
+        app_lamR_pos hbz (by
+          rwa [← natStepSpace2_bit_agree
+            (pwBit_ifAllZero_single ψ uN)] at hs)]
+  · intro hxsA _
+    simp only [List.take]
+    exact natZeroRaP_transport ψ ρ hM hz hs
+      (hxsA M (by simp)) (hxsA z (by simp)) (hxsA s (by simp))
+
+/-- **`Nat.rec`'s `succ` row** — the RHS mentions the recursor, read
+through the *fresh* leaf. -/
+theorem natRecSuccLawP {m : EnvS2Core V env}
+    (m₂ : EnvS2Core V ⟨natRecA :: env.consts⟩)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA)
+    (hac : m₂.acval = acvalWith m.acval natRecA.name
+      (fun ψ => AVExpr.const .natRec [ψ uN]))
+    (φ : Name → Nat) :
+    RecRuleLawP m₂ φ natRecA.name natRecA.toConstantVal 3 3
+      natRecSuccRule := by
+  refine ⟨Nat.le_refl 3, fun us hus => ?_⟩
+  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
+      ψ = Level.substFn φ natRecA.toConstantVal.levelParams us :=
+    ⟨_, rfl⟩
+  refine ⟨natSuccRaP ψ, ?_, natSuccRaP_okP ψ, ?_, ?_⟩
+  · rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac, hψ,
+      denoteP_natRec_succRhs (m := m) _ hN hZ hS]
+  · intro _ _ h; exact nomatch h
+  intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
+    hlev hplain hnested hpin hTVa hTVja hfitR hfitC
+  obtain ⟨n, rfl⟩ : ∃ a, ys = [a] := by
+    match ys, hys with
+    | [a], _ => exact ⟨a, rfl⟩
+  obtain rfl : TVa = _ := (Option.some.inj
+    ((natRecTyRead (m := m) m₂ hN hZ hS hac φ us hψ).symm.trans
+      hTVa)).symm
+  obtain ⟨M, z, s, rfl, hM, hz, hs, -⟩ :=
+    natRecTelescope ψ ρ hxs _ restR hfitR
+  have hctorL : m₂.acval (RecRule.ctor natRecSuccRule)
+      (Level.substFn φ cvj.levelParams usj)
+      = AVExpr.const .natSucc [] := by
+    rw [show RecRule.ctor natRecSuccRule = natSuccName from rfl, hac,
+      acvalWith_ne (by decide)]
+    refine acval_basis_pinned (m := m) hS (by decide) ?_
+    simp +decide [Setlec.TTVerify.pinnedDirectT]
+  have hrecL : m₂.acval natRecA.name
+      (Level.substFn φ natRecA.toConstantVal.levelParams us)
+      = AVExpr.const .natRec [ψ uN] := by
+    rw [hac, acvalWith_self, hψ]
+  -- `n`'s membership comes from the *constructor's* telescope
+  have hcvj : cvj = natSuccA.toConstantVal := by
+    have hS' : (⟨natRecA :: env.consts⟩ : Env).find? natSuccName
+        = some natSuccA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hS
+    rw [show RecRule.ctor natRecSuccRule = natSuccName from rfl,
+      hS'] at hfj
+    injection Option.some.inj hfj with a1 _ _
+    exact a1.symm
+  subst hcvj
+  have hTVja' : TVja = .pi 0 (pwBit
+      (Level.substFn φ natSuccA.toConstantVal.levelParams usj) .never)
+      (.const .nat []) (.const .nat []) := by
+    rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac,
+      denoteP_natSuccTy (m := m) _ (by decide) hN] at hTVja
+    exact (Option.some.inj hTVja).symm
+  subst hTVja'
+  cases hfitC with | cons hn _ =>
+  have hn' : interp2 V ρ n ∈ˢ (omega : V) := by
+    simpa [interp2_const, bval2] using hn
+  have hs' : interp2 V ρ s ∈ˢ natStepSpace2 V (ψ uN) (interp2 V ρ M) :=
+    hs
+  refine ⟨?_, ?_⟩
+  · simp only [List.take, List.drop, List.cons_append, List.nil_append,
+      AVExpr.mkAppN_cons, AVExpr.mkAppN_nil, hrecL,
+      hctorL, interp2_app, interp2_const, bval2, Setlec.TT.lv,
+      List.getD_cons_zero, show natRecSuccRule.ctorParams = 0 from rfl]
+    rw [natSuccV2_app V hn',
+      natRecV2_app V hM hz hs' (natsucc_mem hn'), natrec_succ _ _ hn',
+      natSuccRaP_interp]
+    by_cases hbz : pwBit ψ (Setlec.PropWhen.ifAllZero [uN]) = 0
+    · rw [hbz, lamR_zero, app_pt, app_pt, app_pt, app_pt]
+      have hh := natMotive_apply V hM (natsucc_mem hn')
+      rw [(pwBit_ifAllZero_single ψ uN).mp hbz] at hh
+      have hmem : app (app (interp2 V ρ s) (interp2 V ρ n))
+          (natrec (interp2 V ρ z) (interp2 V ρ s) (interp2 V ρ n))
+          ∈ˢ app (interp2 V ρ M) (natsucc (interp2 V ρ n)) := by
+        have hsn := app_mem_piR (B := fun k =>
+            piR (ψ uN) (app (interp2 V ρ M) k)
+              (fun _ => app (interp2 V ρ M) (natsucc k)))
+          hs' hn' (fun h k hk => by rw [h]; exact piR_zero_mem_univZero)
+        exact app_mem_piR hsn
+          (natRecV2_mem_fibre V hM hz hs' hn')
+          (fun h k hk => by
+            have h2 := natMotive_apply V hM (natsucc_mem hn')
+            rw [h, univ_zero] at h2
+            exact h2)
+      exact mem_univ_zero hh hmem
+    · rw [app_lamR_pos hbz hM, app_lamR_pos hbz hz,
+        app_lamR_pos hbz (by
+          rwa [← natStepSpace2_bit_agree
+            (pwBit_ifAllZero_single ψ uN)] at hs'),
+        app_lamR_pos hbz hn',
+        natRecV2_app V hM hz hs' hn']
+  · intro hxsA hysA
+    simp only [List.take, List.drop,
+      show natRecSuccRule.ctorParams = 0 from rfl]
+    exact natSuccRaP_transport ψ ρ hM hz hs' hn'
+      (hxsA M (by simp)) (hxsA z (by simp)) (hxsA s (by simp))
+      (hysA n (by simp))
+
+/-- **`Nat.rec`, installed at the P tier.** -/
+theorem extendNatRecP (mp : EnvS2PM V μ env)
+    (hN : env.find? natName = some natA)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA)
+    (hfresh : env.find? natRecA.name = none)
+    (hbase : EnvS V ⟨natRecA :: env.consts⟩)
+    (hag : ∀ n, n ≠ natRecA.name → mp.base2.base.cval n = hbase.cval n)
+    (hcv : ∀ ψ, hbase.cval natRecA.name ψ
+      = VExpr.const .natRec [ψ uN]) :
+    Nonempty (EnvS2PM V μ ⟨natRecA :: env.consts⟩) := by
+  have hty := fun ψ =>
+    denoteP_natRecA_type (m := mp.base2)
+      (A := fun ψ => AVExpr.const .natRec [ψ uN]) ψ hN hZ hS
+  refine declStepPM_of_basis_rec_cons mp
+    (A := fun ψ => AVExpr.const .natRec [ψ uN]) hfresh
+    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (by decide) (by decide) (by decide) (by decide)
+    (by decide) (Or.inl (fun _ h => nomatch h))
+    hbase hag
+    (fun ψ => by rw [hcv ψ]; rfl)
+    (fun _ _ => rfl) ?_
+    (fun _ _ => trivial) (fun _ _ => trivial)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
+  · intro ψ₁ ψ₂ hp
+    rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    exact (bitAgree_okP (bitAgree_natRecA ψ) ρ).mpr
+      (AnnotOkP_bconst_type V .natRec [ψ uN] ρ)
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    rw [AVExpr.BitAgree.interp2_eq V (bitAgree_natRecA ψ) ρ]
+    exact bval2_mem_type V .natRec [ψ uN] ρ
+  · intro m₂ hac φ
+    refine recRulesP_cons_rec mp hfresh natRecA_eq m₂ hac φ ?_
+    intro rl hrl _
+    rcases List.mem_cons.mp hrl with rfl | hr'
+    · exact natRecZeroLawP (m := mp.base2) m₂ hN hZ hS hac φ
+    · rcases List.mem_cons.mp hr' with rfl | hr''
+      · exact natRecSuccLawP (m := mp.base2) m₂ hN hZ hS hac φ
+      · exact nomatch hr''
+
+/-- **The `Nat` block, installed at the P tier.**  `BasisStepPB`'s
+`natK` branch. -/
+theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
+    (h : Setlec.SetR.BasisInstallR env
+      Setlec.BasisKind.natK.declsA env₁) :
+    Nonempty (EnvS2PM V μ env₁) := by
+  rw [show Setlec.BasisKind.natK.declsA
+    = [natA, natZeroA, natSuccA, natRecA] from rfl] at h
+  obtain ⟨h1, h2, h3, h4, hnil⟩ := h
+  subst hnil
+  have hf1 : env.find? natA.name = none :=
+    Option.isNone_iff_eq_none.mp h1
+  have hwf1 : EnvWF ⟨natA :: env.consts⟩ :=
+    EnvWF.cons mp.base2.base.wf ⟨rfl, rfl, rfl, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  have hf2 : (⟨natA :: env.consts⟩ : Env).find? natZeroA.name = none :=
+    Option.isNone_iff_eq_none.mp h2
+  obtain ⟨m1, hm1⟩ := extendNatS mp.base2.base hf1 hwf1
+  obtain ⟨mp1⟩ := extendNatP mp hf1
+    (by simp [Setlec.natLitSupported, Setlec.natZeroOk,
+      show (⟨natA :: env.consts⟩ : Env).find? natZeroName = none
+        from hf2]) m1
+    (fun n hn => by rw [hm1, cvalWith_ne hn])
+    (fun ψ => by rw [hm1, cvalWith_self]; rfl)
+  have hN1 : (⟨natA :: env.consts⟩ : Env).find? natName
+      = some natA := by
+    rw [Setlec.Env.find?_cons]; exact if_pos rfl
+  have hwf2 : EnvWF ⟨natZeroA :: natA :: env.consts⟩ := by
+    refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+    show Expr.constsResolve _ natZeroA.toConstantVal.type = true
+    have hf : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natName
+        = some natA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hN1
+    rw [show natZeroA.toConstantVal.type = Expr.const natName []
+      from rfl]
+    simp [Expr.constsResolve, hf]
+  have hf3 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find?
+      natSuccA.name = none := Option.isNone_iff_eq_none.mp h3
+  obtain ⟨m2, hm2⟩ := extendNatZeroS mp1.base2.base hN1 hf2 hwf2
+  obtain ⟨mp2⟩ := extendNatZeroP mp1 hN1 hf2
+    (by simp [Setlec.natLitSupported, Setlec.natSuccOk,
+      show (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natSuccName
+        = none from hf3]) m2
+    (fun n hn => by rw [hm2, cvalWith_ne hn])
+    (fun ψ => by rw [hm2, cvalWith_self]; rfl)
+  have hN2 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natName
+      = some natA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hN1
+  have hZ2 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natZeroName
+      = some natZeroA := by
+    rw [Setlec.Env.find?_cons]; exact if_pos rfl
+  have hwf3 : EnvWF ⟨natSuccA :: natZeroA :: natA :: env.consts⟩ := by
+    refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+    show Expr.constsResolve _ natSuccA.toConstantVal.type = true
+    have hf : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩
+        : Env).find? natName = some natA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hN2
+    rw [show natSuccA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "n") (.const natName [])
+        (.const natName []) { bi := .default, pw := .never } from rfl]
+    simp [Expr.constsResolve, hf]
+  obtain ⟨m3, hm3⟩ := extendNatSuccS mp2.base2.base hN2 hf3 hwf3
+  obtain ⟨mp3⟩ := extendNatSuccP mp2 hN2 hZ2 hf3 m3
+    (fun n hn => by rw [hm3, cvalWith_ne hn])
+    (fun ψ => by rw [hm3, cvalWith_self])
+  have hN3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩
+      : Env).find? natName = some natA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hN2
+  have hZ3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩
+      : Env).find? natZeroName = some natZeroA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hZ2
+  have hS3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩
+      : Env).find? natSuccName = some natSuccA := by
+    rw [Setlec.Env.find?_cons]; exact if_pos rfl
+  have hf4 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩
+      : Env).find? natRecA.name = none :=
+    Option.isNone_iff_eq_none.mp h4
+  have hwf4 : EnvWF ⟨natRecA :: natSuccA :: natZeroA :: natA
+      :: env.consts⟩ := by
+    have hfN : (⟨natRecA :: natSuccA :: natZeroA :: natA
+        :: env.consts⟩ : Env).find? natName = some natA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hN3
+    have hfZ : (⟨natRecA :: natSuccA :: natZeroA :: natA
+        :: env.consts⟩ : Env).find? natZeroName = some natZeroA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hZ3
+    have hfS : (⟨natRecA :: natSuccA :: natZeroA :: natA
+        :: env.consts⟩ : Env).find? natSuccName = some natSuccA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hS3
+    refine EnvWF.cons hwf3 ⟨rfl, rfl, ?_, rfl,
+      (fun _ _ _ heq => nomatch heq), ?_,
+      (fun _ _ heq => nomatch heq)⟩
+    · show Expr.constsResolve _ natRecA.toConstantVal.type = true
+      rw [show natRecA.toConstantVal.type
+          = Expr.forallE (Name.anonymous.str "motive")
+              (Expr.forallE (Name.anonymous.str "t")
+                (.const natName []) (.sort (.param uN))
+                { bi := .default, pw := .never })
+              (Expr.forallE (Name.anonymous.str "zero")
+                (.app (.bvar 0) (.const natZeroName []))
+                (Expr.forallE (Name.anonymous.str "succ")
+                  (Expr.forallE (Name.anonymous.str "n")
+                    (.const natName [])
+                    (Expr.forallE (Name.anonymous.str "n_ih")
+                      (.app (.bvar 2) (.bvar 0))
+                      (.app (.bvar 3)
+                        (.app (.const natSuccName []) (.bvar 1)))
+                      { bi := .default, pw := .ifAllZero [uN] })
+                    { bi := .default, pw := .ifAllZero [uN] })
+                  (Expr.forallE (Name.anonymous.str "t")
+                    (.const natName []) (.app (.bvar 3) (.bvar 0))
+                    { bi := .default, pw := .ifAllZero [uN] })
+                  { bi := .default, pw := .ifAllZero [uN] })
+                { bi := .default, pw := .ifAllZero [uN] })
+              { bi := .implicit, pw := .ifAllZero [uN] } from rfl]
+      simp only [Expr.constsResolve, hfN, hfZ, hfS, Option.isSome_some,
+        Bool.and_self]
+    · intro cv mI rP rules heq
+      injection heq with h1' h2' h3' h4'
+      subst h4'
+      intro r hr
+      rcases List.mem_cons.mp hr with rfl | hr'
+      · refine ⟨rfl, ?_, ?_, rfl, fun lvls pins heqf => nomatch heqf⟩
+        · subst h1'; rfl
+        · show Expr.constsResolve _ natRecZeroRule.rhs = true
+          rw [show natRecZeroRule.rhs = _ from rfl]
+          simp only [natRecZeroRule, Expr.constsResolve, hfN, hfZ, hfS,
+            Option.isSome_some, Bool.and_self]
+      · rcases List.mem_cons.mp hr' with rfl | hr''
+        · refine ⟨rfl, ?_, ?_, rfl, fun lvls pins heqf => nomatch heqf⟩
+          · subst h1'; rfl
+          · show Expr.constsResolve _ natRecSuccRule.rhs = true
+            have hfR : (⟨natRecA :: natSuccA :: natZeroA :: natA
+                :: env.consts⟩ : Env).find? (natName.str "rec")
+                = some natRecA := by
+              rw [Setlec.Env.find?_cons]; exact if_pos rfl
+            simp only [natRecSuccRule, Expr.constsResolve, hfN, hfZ,
+              hfS, hfR, Option.isSome_some, Bool.and_self]
+        · exact nomatch hr''
+  obtain ⟨m4, hm4⟩ := extendNatRecS mp3.base2.base hN3 hZ3 hS3 hf4 hwf4
+  exact extendNatRecP mp3 hN3 hZ3 hS3 hf4 m4
+    (fun n hn => by rw [hm4, cvalWith_ne hn])
+    (fun ψ => by rw [hm4, cvalWith_self])
+
+end Nat
 
 end Setlec.SetR.Interp2
