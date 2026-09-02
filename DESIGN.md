@@ -21209,3 +21209,55 @@ after the last run.
 4. `proofIrrelI`'s unconditional hoisting is the biggest unlisted
    site (80 % of defeq steps, 99.99 % on the failing route).  It
    deserves a list entry and a probe of its own.
+
+## Task #161 HARVEST dispositions after P1 (2026-09-02;
+coordinator-ruled)
+
+**THE SUPPLIER CLASS** (recorded beside the projCert verdict, per
+ruling — never re-litigate): a certificate run whose content is a
+PREMISE of the sealed P tier is a supplier, not a gate.  Members:
+`iotaCerts`' telescope runs (P2 → `RecRuleLawP`'s `TeleFitPA`s via
+`certs_telePA`), `recFireComparands`' `defEqList` (P3),
+`structUnit`/`structEta` telescope runs (P11b/c → `UnitLawP`/
+`EtaLawP`'s `TeleFitP`), the P1-family validation half (sites 2-5 →
+`pwBit_of_equiv_zeronessOf`, consumed by InferP/DefEqP), plus the
+previously recorded `certifyNatEqs`/`checkDivModCerts`/projCert-infer.
+Removing a supplier needs a REPLACEMENT ESTABLISHMENT metatheorem
+(e.g. fit-from-arity), not a license.
+
+**HARVEST TABLE state** (goal: every contribution removed-and-measured
+or measured-with-verdict):
+- MEASURED-WITH-VERDICT (supplier, not removable as-is): P2, P3,
+  P11b/c, P1-validation, certifyNatEqs (0.01%), checkDivModCerts
+  (5.5% prelude / 0.77% full, fixed ~24 G per stream), projCert
+  infer, struct-η defEqList (site 26, 16.7%/9.1% prelude,
+  load-bearing confirmed), majorToCtor-as-block.
+- REMOVAL ROUND A+B+C (approved, in flight): dead tt-gated code
+  (19/20/23); P9 sort legs, P10 piResidual, P7 natOpGuard, P6
+  strLitSupported (licenses confirmed by P1 audit); P8 isUnitLikeTy,
+  site 6 letE check.  Combined prize < 0.15% (hygiene + list
+  retirement).
+- ROUND D (confirmed next scoped design phase, after A+B+C lands):
+  the domain-nonemptiness datum — the pw playbook replayed (datum
+  design + model + preservation + establishment + validation);
+  prize = the measured 20-36% ceiling; supersedes task #75's locked
+  option with a semantic story.  A new `BinderMeta` datum is a
+  kernel-type change: user-facing proposal BEFORE it starts (design
+  brief to the coordinator after the A+B+C battery).
+- ROUND E sizing pending (P2 worker, course-corrected: measured
+  prize + verdict-neutrality + the precise fit-from-arity
+  metatheorem statement).
+- ROUND F → PERFORMANCE ROADMAP (optimization, not de-gating):
+  `proofIrrelI` hoisting (79.6% of defeq steps take the expensive
+  failing route — 12.45M/15.64M on init-full; biggest unlisted
+  site), the ι attempt/fire rate (17.6M attempts, 23.6% fire),
+  `checkDivModCerts`' fixed per-stream cost (optimization target,
+  not removable).
+
+Machine hygiene: stray PID 2643826 (app-lam, superseded
+cached-clone branch, ~23h CPU) KILLED 2026-09-02
+(coordinator-authorized, cmdline-verified, logged in
+`_tmp/degating-p1/schedule.log`).  Wall-clock-sensitive baseline
+legs taken while it ran must be re-run (instruction counts stand);
+P1's tables are instructions-only and stand; P2's wall legs are
+post-kill.
