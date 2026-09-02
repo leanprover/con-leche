@@ -37,28 +37,34 @@ cons that is none of them moves neither the guard nor the three leaves
 `nat_heads` bespoke — that is the block where the guard *becomes*
 true, and no back-transfer exists or should.
 
-## THE GAP, named: `rec_rules` at a basis cons
+## THE GAP THAT WAS NOT ONE: `rec_rules` at a basis cons (CLOSED)
 
-`recRulesP_cons_fresh` needs `RecRule.ctor rl ≠ c₀.name` for every
-rule of every *stored* recursor, and derives it from the cons's kind.
-At a basis cons the kind is exactly a `ctorInfo`, and **no
-environment invariant in the tree forbids a stored recursor's rule
-from naming the fresh basis constructor**: `EnvWF`'s `recInfo` clause
-(`Verify/EnvWF.lean:45-70`) records the *rhs*'s `constsResolve`, its
-level parameters, its bound-variable bound and the nested pins' shape
-— never that `RecRule.ctor` resolves at all.  So the disequality is
-not derivable, and the transfer is a support-completing install of
-exactly the kind the `LitStabilityP` lesson says is refutable in the
-equality direction.
+Recorded here as a wall, and **the record was wrong** — corrected at
+ENDGAME D, mechanized rather than argued.
 
-The fact is *true* — `checkIndDecl` builds a block's rules from that
-block's own constructors, and a modeled block's names are never
-reserved (`reservedBasisNames`) — but it is true of the checker, not
-of `EnvWF`.  Closing it is an environment-invariant addition, not a
-proof: either an `EnvWF` conjunct ("a stored recursor's rules name
-stored constructors") or an `EnvS2PM`/`EnvS` field.  Recorded rather
-than assumed; `BasisStepPB` is blocked on it and on nothing else in
-this row.
+The wall read: `recRulesP_cons_fresh` needs `RecRule.ctor rl ≠ c₀.name`
+for every rule of every *stored* recursor and derives it from the
+cons's kind; at a basis cons the kind is exactly a `ctorInfo`; and
+`EnvWF`'s `recInfo` clause (`Verify/EnvWF.lean:45-70`) records the
+rhs's `constsResolve`, its level parameters, its bound-variable bound
+and the nested pins' shape — never that `RecRule.ctor` resolves.  All
+of that is accurate.  What it missed is that the fact does not have to
+come from `EnvWF` at all: **`EnvS.rec_ctors`** (`RecCtorsStored`,
+`Verify/EnvPreds.lean:64`, reachable as `mp.base2.base.rec_ctors`)
+already says every stored recursor rule's constructor is itself
+stored.  With the cons fresh, the disequality is immediate.
+
+So `recRulesP_cons_fresh` **lost its `hnotctor` premise** rather than
+gaining a hypothesis, and the row is reusable at every basis cons whose
+kind is not a recursor.  A basis *recursor* cons still establishes its
+own rules bespoke from `Interp2/Value.lean`'s firing laws — that was
+never a transport.
+
+The general lesson, worth carrying: before recording an invariant gap,
+check the *semantic* invariant bundle and not only the syntactic one.
+`EnvS` carries five V-free fields (`basis_pinned`, `proj_ok`,
+`rec_ctors`, and the pinned/reserved shape facts) that exist precisely
+to supply facts `EnvWF` does not.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -68,10 +74,48 @@ open Setlec.SetR (AVExpr EnvS)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName RecRule)
 
+
 universe w
 
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode} {env : Env}
+
+/-! ## The P basis leaves are pinned FOR FREE
+
+The obvious reading of the basis bill is that the P tier needs its own
+"basis constants are valued by their direct pins" field, mirroring
+`EnvS.basis_pinned`.  **It does not**, and the reason is one line of
+`AVExpr.erase`'s definition: the erasure is structural and maps
+`.const` to `.const` and *nothing else* to `.const`.  So
+`EnvS2Core.acval_erase` turns v1's equation `cval n ψ = .const c us`
+into the `AVExpr` equation `acval n ψ = .const c us` outright.
+
+Every downstream basis obligation reads the leaf through this — the
+type readings are `BConst.type2` towers over the *pinned* leaves, and
+`BasisOk.lean`'s `bval2_mem_*` memberships are stated at exactly those
+towers.  Recording it here because the missing bridge between the
+checker's pinned `ConstantInfo` blocks and the TT `BConst` alphabet is
+the basis tier's structural crux, and this is its P half. -/
+
+/-- **A stored reserved-basis constant's annotated leaf is its direct
+pin.**  From `EnvS.basis_pinned` and `acval_erase`, by injectivity of
+`erase` at a constant head. -/
+theorem acval_basis_pinned {m : EnvS2Core V env}
+    {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
+    (hres : Setlec.reservedBasisNames.contains n = true)
+    {c : Setlec.TT.BConst} {us : List Nat} {ψ : Name → Nat}
+    (hd : Setlec.TTVerify.pinnedDirectT n ψ
+      = some (VExpr.const c us)) :
+    m.acval n ψ = .const c us := by
+  have h1 := (m.base.basis_pinned n ci hf hres).2 _ ψ hd
+  have h2 := m.acval_erase n ψ
+  rw [h1] at h2
+  cases hh : m.acval n ψ with
+  | const c' us' =>
+    rw [hh] at h2
+    simp only [Setlec.SetR.AVExpr.erase, VExpr.const.injEq] at h2
+    rw [h2.1, h2.2]
+  | _ => rw [hh] at h2; exact nomatch h2
 
 /-- **Every pinned basis constant carries a reserved name, except the
 pair's two projections.**  So the side condition `capsOkP_cons_basis`

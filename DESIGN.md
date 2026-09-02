@@ -13859,6 +13859,303 @@ two forcing arguments, the two memberships).  Edited:
 record), `SetR/StdAxiomKey.lean` (the two keys split at their
 witnesses; no sealed statement changed).  No file was deleted.
 
+## Task #161 ENDGAME D: the pin bundle CLOSES; the basis tier's two recorded walls were not walls (2026-09-02)
+
+Two of the three bundles the capstone routed at ENDGAME C are now
+different objects.  `AxiomStepPB` is a **theorem**.  `BasisStepPB` is
+still a hypothesis — but the two facts recorded as blocking it were
+both mis-recorded, both corrections are mechanized, and the tier's
+structural crux turned out to cost nothing.
+
+### 1. `ReduceOpsP` — the named wall is a field, and it is established
+
+The C seal's §4 named exactly one blocker for `ofReduce*`: the
+innermost membership obligation is `op a = a`, which is `EnvS`'s
+`reduce_ops` (`ReduceOpsV`) — a **v1** field with no `EnvS2PM` mirror
+and none derivable (the transfer would be an erasure factoring of
+`interp2` through `interp`, refuted at the very λ-nodes the operation's
+leaf is made of).  `ReduceOpsP` (`Annot/EnvS2P.lean`) is that mirror,
+verbatim with `interp`/`cval` replaced by `interp2`/`acval`.
+
+**Established at the opaque install** (`reduceOpsP_install`,
+`Interp2/ReduceOpsP.lean`) — the run-certificate route's **FIFTH**
+execution (`NatEqsP` → `DivModCertP` → the two claims files → here).
+`ReducePinR` records the identity certificate's `isDefEqCore` run at
+depth `1` over the one-entry element context; `DefEqClaims2P` at the
+pre-insertion environment converts it into an `interp2` equality of
+`.app (A ψ) (.bvar 0)` and `.bvar 0`, and the law falls out by
+`interp2_app` plus leaf closedness.
+
+**THE FINDING, and it generalizes.**  The species' recurring cost is
+the gradings `DefEqClaims2P` demands.  Here the applied side's
+`AnnotOk2` `.app` clause wants three things — a `piR` membership for
+the operation, its argument's fibre, and the `v = 0` fibre clause —
+and **all three are the install's own obligations**: `hmemA` (which
+`harvestOpaqueP` proves anyway), the context slot, and the type
+reading's `AnnotValidV` `pi` third component, i.e. `htyOk`'s content.
+The pin fixes domain and codomain to the *same bare constant* and both
+erasures fix a `.const` (the `trustCompiler` branch's lesson, reused),
+so the binder's regime datum `mb₀.pw` stays **abstract from beginning
+to end**.  No bit is read.  That is now four independent establishments
+(`NatEqsP`, `DivModCertP`, `AxiomMemP`, `ReduceOpsP`) at which the
+doctrine "bits are never taken from a metatheorem" was not merely
+obeyed but never approached — the gradings have always come from the
+environment invariant.
+
+Preservation is `reduceOpsP_entry_cons`/`reduceOpsP_cons_fresh`
+(`Interp2/DivModP.lean`, beside their `eq_lawP` siblings).  A
+`defn`/`thm` cons supplies the *kind* disjunct; an axiom cons supplies
+the **name** disjunct, so `harvestAxiomP` grew one
+`cv.name ∉ reduceOpNames` premise, discharged by `decide` at each of
+the three pinned names.
+
+`Interp2/ErasePwInv.lean` is new: the five `erasePw ∘ eraseNames` head
+inversions moved out of `AxiomBitsP` **verbatim**, so the reduce pin's
+shape lemma can reach them from *below* `HarvestP`.
+
+### 2. `ofReduce*`: the C seal's predictions held item for item
+
+* `ofReduce_shapeS` — the pinned telescope through both erasures
+  (`propext_shapeS`'s pattern at a longer spine; `ofReducePin_type`
+  reused for the pin's own shape).  Compiled first try;
+* `ofReduce_bitsP` — all three binders carry bit `0`.  **`propext_bitsP`
+  verbatim**: the innermost codomain is an `Eq`-spine over the
+  nose-pinned `Eq`, so `inferTypeCore_eqSpineS` applies unchanged and
+  the telescope collapse carries the bit outward.  The stored
+  `Nat`/`Bool` never enters — it is the spine's *type* argument and the
+  peel does not read it.  The C seal's correction of the B seal's
+  prediction is **confirmed**;
+* `ofReduce_memP` — three `pt_mem_piR_zero_of`s over a `.prf` leaf, and
+  the innermost fibre is where the new field pays: the hypothesis spine
+  reads to `eqv (op x) y`, the conclusion to `eqv x y`, and
+  `ReduceOpsP` makes them the same set.  Nothing else was needed;
+* the **witness ports with no re-choice at all**.  `.prf` denotes `pt`
+  in both lanes, and `Install/Axiom.lean` had *already* refused the
+  η-expanded identity `fun a b h => h` for the annotated lane's sake
+  (its `AnnotOk2` wants `interp2`-lane membership for the `Eq` former
+  and the trusted op, gated on a `denote2` success).  A v1 decision
+  taken for P's benefit paid off at P — the only branch of the four
+  where that happened.  `ofReduceKeyS_mem` splits the key at that
+  witness (the ENDGAME C generalization's third and last application);
+  `ofReduceKeyS` is re-derived and its sealed statement is unchanged.
+
+`axiomStepPB_of` (`Interp2/FoldP.lean`) assembles the four branches.
+`hax` is off `declStepPM`, `foldPM`, `checkDecls_sound_P_of` and
+`no_proof_of_Empty_P_of`.
+
+### 3. THE BASIS TIER: both recorded blockers were mis-recorded
+
+Neither correction is an argument; both are mechanized.
+
+**(a) `rec_rules` at a basis cons.**  `Interp2/BasisConsP.lean`
+recorded this as an invariant gap needing an `EnvWF` conjunct or a new
+field, and named it as the one thing blocking `BasisStepPB` in that
+row.  Everything it said about `EnvWF` is accurate — its `recInfo`
+clause records the rhs's `constsResolve`, level parameters, bvar bound
+and nested pin shape, never that `RecRule.ctor` resolves.  What it
+missed is that the fact need not come from `EnvWF` at all:
+**`EnvS.rec_ctors`** (`RecCtorsStored`, `Verify/EnvPreds.lean:64`)
+already says every stored recursor rule's constructor is itself
+*stored*, and the cons is fresh.  So `recRulesP_cons_fresh` **lost** its
+`hnotctor` premise instead of gaining a hypothesis, and now applies at
+every basis `indInfo`/`ctorInfo` cons.  Its recursor premise was
+further weakened from "the cons is not a recursor" to "if it is one,
+its rule list is empty", so `Empty.rec` — which pins no rules —
+transports through it unchanged.
+
+> **The general lesson, and it is worth carrying into `IndStepPB`:**
+> before recording an invariant gap, check the **semantic** invariant
+> bundle and not only the syntactic one.  `EnvS` carries several V-free
+> fields (`basis_pinned`, `proj_ok`, `rec_ctors`) that exist precisely
+> to supply facts `EnvWF` does not.
+
+**(b) the P basis leaves need no field.**  The obvious reading of the
+basis bill is that the P tier needs its own "basis constants are valued
+by their direct pins", mirroring `EnvS.basis_pinned`.  It does not, and
+the reason is one line of `AVExpr.erase`: the erasure is structural and
+maps `.const` to `.const` and *nothing else* to `.const`.  So
+`EnvS2Core.acval_erase` turns v1's equation `cval n ψ = .const c us`
+into the `AVExpr` equation outright — `acval_basis_pinned`
+(`Interp2/BasisConsP.lean`).  This is the P half of the bridge between
+the checker's pinned `ConstantInfo` blocks and the TT `BConst`
+alphabet, which is the basis tier's structural crux, and it costs
+nothing.
+
+### 4. WALL, named and sharpened: the `Eq` block has no `BConst` at all
+
+`BasisStepPB` was **not closed**, and the reason is not either recorded
+blocker.  It is this, found while building the bill:
+
+`pinnedDirectT` (`Verify/Denote/Pinned.lean:40`) maps sixteen reserved
+names to `BConst` heads.  It has **no entry for `Eq`, `Eq.refl`,
+`Eq.rec`, or `PSigma'.rec`**, and `BConst` has no such constructors —
+`BasisType.lean`'s `type2` and `BasisOk.lean`'s `bval2_mem_*` cover
+eighteen cases and none of them is an equality.  v1 builds those leaves
+**by hand**: `eqValT` (`Install/BasisS.lean:3007`, the `.eqE` former
+η-expanded) with `extendEqS`/`extendEqReflS`/`extendEqRecS`, and
+`extendPSigmaRecS`/`extendPairFstS`/`extendPairSndS` likewise.
+
+So `acval_basis_pinned` — which unlocks five of the six blocks — is
+**empty on `eqK`**, and the P tier needs an *annotated* `eqValT`: an
+`AVExpr` tower carrying regime bits on the `Eq` former's own binders,
+from which `eq_lawP` is then derived exactly as v1 derives `EqLawV`
+from its tower ("`Eq`, installed — and with it `EqLawV`, discharged
+from the tower rather than assumed", `extendEqS`'s docstring).  That
+tower does not exist in `Interp2/Value.lean` and is genuinely new
+content: it is the one place in the basis tier where a bit must be
+*chosen* rather than read off a pin, and `eq_lawP`'s own second
+conjunct (the grading clause, which v1 has no analogue of) is what
+consumes the choice.
+
+Note also that `eqLawP_cons_fresh` is **structurally unavailable** at
+this block: its side condition is `eqName ≠ c₀.name` and the cons *is*
+`Eq`.  There is no transport route; the tower is the only route.
+
+Recorded rather than assumed.  `basisStepPB_of` is **not stated** — a
+premise for the `eqK` block would be a conditional form.
+
+### Census after ENDGAME D
+
+`no_proof_of_Empty_P_of`: **`hμ` + `BasisStepPB` + `IndStepPB`.**
+`AxiomStepPB` is discharged (`axiomStepPB_of`) and gone from every
+downstream signature.  The `ReduceOpsP` species count is **five**.
+
+### Resume-here
+
+1. **the annotated `Eq` tower** (§4) — `eqValT`'s `AVExpr` twin in
+   `Interp2/Value.lean`, its `erase` equal to `eqValT` so
+   `acval_erase` links the lanes, and `eq_lawP` derived from it.  This
+   is `eqK`'s whole content and the basis tier's only genuinely new
+   mathematics; everything else in the tier is mechanical;
+2. **the type readings**, 22 of them:
+   `denoteP acval env ψ 0 (basis decl type) = some (BConst.type2 c us)`
+   at each block's growing prefix.  Mechanical — the pinned types are
+   concrete, `denoteP` computes, the binder metas are *pinned* data
+   (`pwBit ψ .never = 1`, `pwBit ψ (.ifAllZero [u]) = 0 ↔ ψ u = 0`) so
+   no bit lemma is needed at all, and the leaves are supplied by
+   `acval_basis_pinned`.  With them, `type_okP` needs one
+   `AnnotOkP_bconst_type` (v1's `AnnotOkV_bconst_type`'s mirror, 18
+   cases) and `mem_typeP` is `bval2_mem_type` outright;
+3. the bespoke rows: `nat_heads` at `natK` (the block where the guard
+   *becomes* true — no back-transfer exists or should), and
+   `rec_rules` for the four pinned recursors that carry rules, from
+   `Interp2/Value.lean`'s firing laws.  Note the friction: `quotLiftR_app`
+   and `quotLiftV2_app` are the only two firing laws carrying a
+   `v ≠ 0` side condition, so `quotK`'s ι row will need the squash
+   regime handled explicitly — the `natRecV2_app` precedent (no `u ≠ 0`
+   premise) does **not** transfer there;
+4. `caps_ok` is free at every basis block: `CapsOkP`'s two halves both
+   premise `reservedBasisNames.contains T = false`, and every basis
+   constant is reserved (`basis_declsA_reserved`), so the head case is
+   vacuous and `capsOkP_cons_basis` transports the rest;
+5. then `basisStepPB_of`, and `IndStepPB` unchanged from the C seal's
+   bill — with §3's lesson added to it: check `EnvS`'s V-free fields
+   before recording an invariant gap;
+6. then THE FINAL ASSEMBLY (`CapstoneP.lean`'s frozen statement).
+
+### ENDGAME D battery (verbatim, at `cc3c67be`)
+
+`lake build` **407 jobs, warning-free**; `lake test` exit 0 (139
+targets).  `tests/arena.sh`:
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to the ENDGAME A, B and C seals', and for the same reason: no
+`Setlec/Kernel/*` file was touched.
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `checkDecls_sound_P_of`, and on every new
+theorem — `axiomStepPB_of`, `axiomOfReduceP`, `ofReduce_memP`,
+`ofReduce_bitsP`, `ofReduce_gatesS` (`[propext]` alone),
+`ofReduce_shapeS`, `reduceOpsP_install`, `reduceOpsP_entry_cons`,
+`reduceOpsP_cons_fresh`, `reduceOp_shapeS`, `reduceElemTy_constS`
+(`[propext]`), `reduceCertVar_fvarLeaves`, `sat2_elemCtx`,
+`acval_basis_pinned`, `recRulesP_cons_fresh`, and
+`Setlec.SetR.ofReduceKeyS_mem`.  Zero sorries.
+
+New files: `Interp2/ReduceOpsP.lean` (the field's establishment),
+`Interp2/AxiomReduceP.lean` (the branch), `Interp2/ErasePwInv.lean`
+(the five head inversions, moved verbatim).  Edited:
+`Annot/EnvS2P.lean` (the `ReduceOpsP` law + field + empty instance),
+`Interp2/InstallP.lean` and `Interp2/HarvestP.lean` (the field through
+the cons kit and all four harvests), `Interp2/DivModP.lean` (the two
+preservation lemmas), `Interp2/FoldP.lean` (`axiomStepPB_of`; `hax`
+removed throughout), `Interp2/AxiomPinP.lean` (the three
+`hnotreduce` discharges), `Interp2/AxiomBitsP.lean` (inversions moved
+out), `Interp2/RecRulesPCons.lean` (`hnotctor` deleted, recursor
+premise weakened), `Interp2/BasisConsP.lean` (`acval_basis_pinned`;
+the stale wall record corrected), `SetR/Install/Axiom.lean`
+(`ofReduceKeyS_mem`; `ofReduceKeyS` re-derived, statement unchanged).
+No file was deleted.
+
+## Task #161 SUCCESSION RECORD update (endgame D landed, 2026-09-02)
+
+Lane `agent/annot-v2` @ `3574677b`.  ALL FOUR SEMANTIC TIERS CLOSED;
+**the pin tier is now closed too**; capstone hypotheses: `hμ` +
+`BasisStepPB` + `IndStepPB`.
+
+LANDED: endgame batch D on `agent/endgameD` (worktree
+`.claude/worktrees/endgameD`).  Briefed to close both the pin and the
+basis bundles; **closed the pin bundle; did not close the basis
+bundle**, but removed both of the facts that had been recorded as
+blocking it and landed the tier's structural bridge.  Delivered:
+`ReduceOpsP` (field + establishment, the run-certificate species'
+fifth execution), `ofReduce_shapeS`/`ofReduce_bitsP`/`ofReduce_memP`,
+`axiomOfReduceP`, `ofReduceKeyS_mem`, `axiomStepPB_of`, the FoldP
+rewiring, `acval_basis_pinned`, and a `recRulesP_cons_fresh` with one
+fewer premise.  Battery green (build 407 warning-free, test 139, arena
+counters identical to A/B/C, axioms within the standard three).
+
+Three corrections to earlier records, all mechanized:
+
+* the C seal's `ofReduce*` predictions held **item for item** — the
+  bits are `propext_bitsP` verbatim, the membership is three
+  `pt_mem_piR_zero_of`s, the element type never enters.  Nothing in
+  that seal needed revising;
+* `BasisConsP`'s `rec_rules` "invariant gap" is supplied by
+  `EnvS.rec_ctors`.  `recRulesP_cons_fresh` LOST a premise;
+* the P basis leaves need **no field**: `AVExpr.erase` is structural
+  and only `.const` erases to `.const`, so `acval_erase` +
+  `basis_pinned` give them.
+
+WALL NAMED (one, and it is new — neither recorded blocker survived):
+
+* **the `Eq` block has no `BConst`.**  `pinnedDirectT` has no entry for
+  `Eq`/`Eq.refl`/`Eq.rec`/`PSigma'.rec` and `BConst` has no such
+  constructors, so `acval_basis_pinned` — which unlocks five of six
+  blocks — is *empty* on `eqK`.  v1 builds those leaves by hand
+  (`eqValT`, `Install/BasisS.lean:3007`) and derives `EqLawV` from the
+  tower; the P tier needs the **annotated** `eqValT`, an `AVExpr` tower
+  carrying regime bits on the `Eq` former's own binders.  It does not
+  exist and is genuinely new content — the one place in the basis tier
+  where a bit is *chosen* rather than read off a pin, consumed by
+  `eq_lawP`'s grading conjunct (which v1 has no analogue of).  And
+  `eqLawP_cons_fresh` is structurally unavailable there: its side
+  condition is `eqName ≠ c₀.name` and the cons *is* `Eq`.  There is no
+  transport route.  `basisStepPB_of` is therefore **not stated**.
+
+AFTER D (successor's order): review + merge D per protocol; then the
+ENDGAME D resume-here items 1-5 (the annotated `Eq` tower → the 22 type
+readings → the bespoke rows → `basisStepPB_of`); then `IndStepPB` — the
+last bundle, per the C seal's bill, with D's §3 lesson added (check
+`EnvS`'s V-free fields before recording an invariant gap) and the
+`Iff.rec` divergence-class warning still standing for its Prop-motive
+minors.  Then THE FINAL ASSEMBLY.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero sorries
+at every seal; the discipline ledger's practices are binding — and D
+adds one: **a recorded wall is a claim, and claims are re-checked
+before they are inherited.**  Two of the three walls this batch
+inherited dissolved on contact.
+
 ## Task #161 SUCCESSION RECORD update (endgame C landed, 2026-09-02)
 
 Lane `agent/annot-v2` @ b04780e7 (endgameB merged).  ALL FOUR SEMANTIC

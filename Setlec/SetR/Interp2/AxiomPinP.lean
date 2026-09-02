@@ -257,6 +257,9 @@ theorem axiomTrustCompilerP (hμ : μ.verified = true)
   -- the leaf: the stored `True.intro`'s *annotated* valuation
   refine harvestAxiomP (V := V) hμ mp hcv m' hag
     (A := fun ψ => mp.base2.acval Setlec.trueIntroName ψ) ?_ ?_ ?_ ?_ ?_ ?_
+    -- `trustCompiler` is not a compiler-trust *operation*: the pin
+    -- fixes the name, and the two operations are installed as opaques
+    (by rw [hname]; decide)
   · -- `hAerase`: the leaf erases to the installed valuation, which is
     -- `Vf` — the stored `True.intro`'s
     intro ψ
@@ -327,7 +330,7 @@ theorem axiomStdP (hμ : μ.verified = true)
     refine harvestAxiomP (V := V) hμ mp hcv m' hag
       (A := fun _ => .const .propext []) (fun ψ => by rw [hself ψ]; rfl)
       (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ => by simp)
-      (fun _ _ => by simp) ?_
+      (fun _ _ => by simp) ?_ (by rw [hn]; decide)
     intro ψ ta hta ρ
     exact propext_memP hμ mp hok hn hst ψ ta hta ρ
   · by_cases hn2 : cv.name = choiceName
@@ -362,6 +365,7 @@ theorem axiomStdP (hμ : μ.verified = true)
           show AVExpr.const .choice [ψ₁ uN] = AVExpr.const .choice [ψ₂ uN]
           rw [huN ψ₁ ψ₂ hp])
         (fun _ _ => by simp) (fun _ _ => by simp) ?_
+        (by rw [hn2]; decide)
       intro ψ ta hta ρ
       exact choice_memP hμ mp hok hn2 hst ψ ta hta ρ
     · exfalso

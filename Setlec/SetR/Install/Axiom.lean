@@ -543,9 +543,21 @@ component for component (`AnnotOkV`'s `.lam` and `.pi` clauses have the
 same shape), with `trivial` for the `.bvar` tail. -/
 
 set_option maxHeartbeats 3200000 in
-/-- **The `ofReduce*` key.** -/
-theorem ofReduceKeyS : OfReduceKeyS V := by
-  intro env m cvA hok hor hfresh
+/-- **The `ofReduce*` key's membership, at the NAMED witness** (task
+#161 ENDGAME D; `propextKeyS_mem`/`choiceKeyS_mem`'s sibling).  The
+key's `∃ Vf` is one currency too coarse for a P leaf, which must know
+*which* witness was installed so its annotated twin can erase to it —
+and here the witness is `.prf`, the canonical proof: the pinned type
+`∀ a b : E, op a = b → a = b` is a `Prop`.  See the seal's note below
+for why the η-expanded identity is *not* the witness. -/
+theorem ofReduceKeyS_mem {env : Env} (m : EnvS V env)
+    {cvA : ConstantVal} (hok : ofReduceAxOk env cvA = true)
+    (hor : cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName) :
+    ∀ ψ : Name → Nat, ∃ t,
+      denoteClosed m.cval env ψ cvA.type = some t ∧
+      ∀ ρ : Nat → V,
+        interp V ρ (VExpr.prf : VExpr) ∈ˢ interp V ρ t ∧
+        AnnotOkV V ρ t := by
   simp only [ofReduceAxOk, Bool.and_eq_true, decide_eq_true_eq] at hok
   obtain ⟨⟨⟨hEq, helem⟩, hstored⟩, hpin⟩ := hok
   obtain ⟨ciE, hfE, hlpE, htyE⟩ := reduceElem_sort helem
@@ -755,8 +767,6 @@ theorem ofReduceKeyS : OfReduceKeyS V := by
   -- `sortOfE`, i.e. on running `inferTypeCore`/`whnf`.  `prf` carries
   -- no binder for `AnnotOk2` to be about, so the annotated conjunct
   -- is `annotLeaf2_prf` — see the module note above.
-  refine ⟨fun _ => .prf, fun _ => trivial, fun _ _ _ => rfl,
-    fun _ _ => trivial, ?_, fun _ _ => annotLeaf2_prf V⟩
   · intro ψ
     refine ⟨_, hden ψ, fun ρ => ⟨?_, ?_⟩⟩
     · rw [interp_prf, interp_pi]
@@ -818,5 +828,13 @@ theorem ofReduceKeyS : OfReduceKeyS V := by
         show y ∈ˢ _
         rw [← hEc ψ (cons V x ρ)]; exact hy
       exact (hframe2 ψ _ hx3 hy3).1
+
+/-- **The `ofReduce*` key**, re-derived from the split form above; the
+statement is unchanged. -/
+theorem ofReduceKeyS : OfReduceKeyS V := by
+  intro env m cvA hok hor _hfresh
+  exact ⟨fun _ => .prf, fun _ => trivial, fun _ _ _ => rfl,
+    fun _ _ => trivial, ofReduceKeyS_mem m hok hor,
+    fun _ _ => annotLeaf2_prf V⟩
 
 end Setlec.SetR
