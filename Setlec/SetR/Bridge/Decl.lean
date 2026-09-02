@@ -2707,7 +2707,8 @@ theorem projFnR_of {env' env₁ : Env} (m : EnvR env') {μ : CheckMode}
       hrhsb, hrlp, hrres, ⟨rbinders, hrhsAstrip, ?_⟩, ?_,
       ⟨rhsTy, hity⟩,
       tcv, tval, hthmE, htlps,
-      ⟨sbinders, ℓA, tySlot, hSstrip, ?_⟩, fvsO, sbodyO, hopenO, ?_⟩,
+      ⟨sbinders, ℓA, tySlot, hSstrip, ?_⟩, fvsO, sbodyO, hopenO, ?_,
+      hsty1, hsty2⟩,
     henv⟩
   · -- the rule's domains are the constructor's
     intro i0 b b' hlt hb hb'

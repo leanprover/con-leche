@@ -569,7 +569,7 @@ theorem projFnS {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     hrhsb, hrlp, hrres, hrstrip, hrhsKey, -, hthmpack⟩ := hbig
   obtain ⟨rbinders, hrhsAstrip, hrdomsEq⟩ := hrstrip
   obtain ⟨tcv, tval, hthmE, htlps, hsbodyPin, fvsI, sbodyO, hopen,
-    hsidesTy⟩ := hthmpack
+    hsidesTy, -, -⟩ := hthmpack
   obtain ⟨sbinders, ℓA, tySlot, hSstrip, hdomsSC⟩ := hsbodyPin
   subst henv
   have hfresh : env'.find? (projFnName T i) = none :=

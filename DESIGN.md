@@ -19262,3 +19262,52 @@ fixes, is *extract the position-indexed obligation into a stage lemma
 with exactly its premise set* — `projSpineMemP` and `nestedPinRowP`
 are both that shape, and both elaborated in ≤ 2 s while their
 consumers stayed flat.
+
+## Task #161 SUCCESSION RECORD update (part 9 merged + the FIFTH
+widening applied, 2026-09-02; coordinator-granted and -ratified)
+
+Lane `agent/annot-v2`: part 9 merged at `e9b85e1a` (the projection
+bottom + five proj kits + the totality bridge + the rule-law layer),
+then the **fifth application of fix shape 0 applied by the lead's
+hand** — full battery green before AND after (build 463
+warning-free, test exit 0, arena counters at expectation, zero
+sorries).
+
+THE WIDENING (the fifth exposure's rows):
+
+* `ProjFnR` (`SetR/Decl.lean`): the two sides-pack run conjuncts —
+  `(∃ tl, inferTypeCore μ env' F (nP+nF) (getD 1) = .ok tl ∧
+  isDefEqCore … tl (getD 0) = .ok true)` and the `tr`/(getD 2) twin
+  — beside the `∀ φ, IotaSidesTyR` derivation pack
+  (`checkIotaSidesTy`'s body, `Modeled.lean:36-41`);
+* producer (`Bridge/Decl.lean`): `hsty1, hsty2` from
+  `checkProjIota_inv` WERE ALREADY IN HAND — slotted into the refine
+  tuple VERBATIM (zero new proof text; fifth consecutive instance);
+* consumer: `ProjInstallS.lean` one destructure gains two dashes.
+
+### Discipline ledger, three entries (coordinator-directed)
+
+1. **WIDENING-AVOIDED**: `denoteP_isSome_of_denote` (the totality
+   bridge) — the P tier's `∃ Ra` read off the v1 derivation rows
+   because `denoteP` and `denote` share every failure guard.  The
+   limiting-case check (does the statement's own shape carry the
+   material?) is NOW PART OF THE WIDENING PROTOCOL ITSELF: run it
+   before proposing a row.
+2. **The Prop-motive stop-and-name RETIRES UNUSED** — the campaign's
+   last flagged risk: the squash regime is localized to the basis
+   tier, where it was already paid (`eqRecLawP`).  The ind tier's
+   rows fire semantically.
+3. **Recipe amortization**: the elaboration-scaling recipe applied
+   from the start costs 14 s where learning it cost 83 s (and not
+   applying it cost ∞ — the unelaboratable inline nested bottom).
+
+`lamTowerStepP` narrowing endorsed as reviewed.
+
+AFTER THIS SEAL: PART 10 on the remaining bill — the environment
+half (`provisionRecsP`, `RecRuleLawP.swapP`, `indRecsFoldP`,
+`indRecsP` — EnvS2PM construction, not law production), the
+projection install transpose (UNBLOCKED by this widening),
+`DeclIndS`/`SwapS`, `indStepPB_of`, `hind` off `FoldP`, THE
+ASSEMBLY at the frozen letter.  NO FLAGGED RISKS REMAIN ANYWHERE ON
+THE BILL — everything left is construction.  Census: `hμ` +
+`IndStepPB`, never conditional.  The census moves when it moves.
