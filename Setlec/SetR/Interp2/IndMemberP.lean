@@ -121,4 +121,127 @@ theorem memberKeyP (mp : EnvS2PM V μ env) {blockNames : List Name}
   rw [← denoteP_erasedEq (Expr.ErasedEq.of_eqUpToNames hren) 0]
   exact (denoteP_renameConsts_resolve hup hval type' 0 htr).symm
 
+/-! ## The member install -/
+
+/-- **One block member, installed at the model's leaf** —
+`indMemberS`'s transpose, covering the same three kinds (the two
+non-recursor members and provisioning's *rule-less* recursor).
+
+The leaf is `acval (n ++ "_model")`, exactly as v1's valuation is
+`cval (n ++ "_model")`: the tower's five laws are then the invariant's
+own leaf laws at the model's name, and no tower is built by hand
+anywhere in the inductive tier.  The type's reading is `memberKeyP`,
+crossed forward to the extension.
+
+`caps_ok` stays a **parameter**, as v1's two capability head
+obligations do and for v1's reason: at a single member's install the
+family's constructor and projections need not be stored yet, so the
+caller — the block fold, which knows the whole block is in — is the
+only place it can be discharged. -/
+theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
+    {cvA : ConstantVal}
+    (hkind : (∃ caps, c₀ = .indInfo cvA caps) ∨
+      (∃ nP nF, c₀ = .ctorInfo cvA nP nF) ∨
+      (∃ mI rP, c₀ = .recInfo cvA mI rP []))
+    (hfresh : env.find? cvA.name = none)
+    (hnres : Setlec.reservedBasisNames.contains cvA.name = false)
+    -- the model artifact whose leaf the member takes
+    {cvm : ConstantVal} {mval : Expr} {hint : ReducibilityHint}
+    (hmE : env.find? (cvA.name.str "_model")
+      = some (.defnInfo cvm mval hint))
+    (hmlps : cvm.levelParams = cvA.levelParams)
+    -- the member's type resolves in the prefix (`ConstantValR`)
+    (hres : cvA.type.constsResolve env = true)
+    -- the v1 install's output, constructively
+    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
+    (hbcval : hbase.cval = cvalModeled mp.base2.base.cval cvA.name)
+    -- the member's key at the prefix (`memberKeyP`)
+    (hkeyP : ∀ ψ : Name → Nat, ∃ ta,
+      denoteP mp.base2.acval env ψ 0 cvA.type = some ta ∧
+      (∀ ρ : Nat → V, AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V,
+        interp2 V ρ (mp.base2.acval (cvA.name.str "_model") ψ)
+          ∈ˢ interp2 V ρ ta)
+    -- the block fold's row
+    (hcaps : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+      m₂.acval = acvalWith mp.base2.acval cvA.name
+        (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) →
+      CapsOkP m₂) :
+    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval cvA.name
+        (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) := by
+  -- the three kinds share a constant value and a name
+  have hcvA : c₀.toConstantVal = cvA := by
+    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;> rfl
+  have hname : c₀.name = cvA.name := congrArg ConstantVal.name hcvA
+  have hfresh' : env.find? c₀.name = none := by rw [hname]; exact hfresh
+  have hnres' : Setlec.reservedBasisNames.contains c₀.name = false := by
+    rw [hname]; exact hnres
+  -- provisioning's recursor is rule-less, so `rec_rules` transports
+  have hnorules : ∀ cv2 mI2 rP2 rules2,
+      c₀ = .recInfo cv2 mI2 rP2 rules2 → rules2 = [] := by
+    rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+      intro cv2 mI2 rP2 rules2 heq
+    · exact nomatch heq
+    · exact nomatch heq
+    · injection heq with _ _ _ h4
+      exact h4.symm
+  have hleaf : hbase.cval c₀.name
+      = fun ψ => mp.base2.base.cval (cvA.name.str "_model") ψ := by
+    rw [hbcval, hname]
+    exact cvalWith_self
+  have hag : ∀ n, n ≠ c₀.name →
+      mp.base2.base.cval n = hbase.cval n := by
+    intro n hn
+    rw [hbcval]
+    exact (cvalWith_ne (by rw [← hname]; exact hn)).symm
+  have hcb : ConstsBound env cvA.type :=
+    constsBound_of_constsResolve _ hres
+  -- the crossing, forward
+  have hcross : ∀ (ψ : Name → Nat) {ta : AVExpr},
+      denoteP mp.base2.acval env ψ 0 cvA.type = some ta →
+      denoteP (acvalWith mp.base2.acval c₀.name
+          (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ))
+        ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta := by
+    intro ψ ta h
+    rw [hcvA]
+    exact denoteP_cons_fresh_mono hfresh' ψ 0 cvA.type hcb h
+  have hgoal := declStepPM_of_ind_cons mp (c₀ := c₀)
+    (A := fun ψ => mp.base2.acval (cvA.name.str "_model") ψ)
+    hfresh' hnres'
+    (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+          intro _ _ _ h <;> exact nomatch h)
+    (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+          intro _ _ h <;> exact nomatch h)
+    (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+          intro _ h <;> exact nomatch h)
+    hbase hag
+    -- the tower: the invariant's own leaf laws, at the model's name
+    (fun ψ => by rw [mp.base2.acval_erase, hleaf])
+    (fun ψ k => mp.base2.acval_closed _ ψ k)
+    (fun ψ₁ ψ₂ hps =>
+      mp.base2.acval_params _ _ hmE ψ₁ ψ₂ (by
+        intro p hp
+        have hp' : p ∈ cvm.levelParams := hp
+        rw [hmlps] at hp'
+        exact hps p (by rw [hcvA]; exact hp')))
+    (fun ψ ρ => mp.base2.acval_ok2 _ ψ ρ)
+    (fun ψ ρ => mp.acval_validV _ ψ ρ)
+    -- the type's reading, crossed
+    (fun ψ => by
+      obtain ⟨ta, hta, -, -⟩ := hkeyP ψ
+      exact ⟨ta, hcross ψ hta⟩)
+    (fun ψ ta hta ρ => by
+      obtain ⟨ta₀, hta₀, hok, -⟩ := hkeyP ψ
+      obtain rfl : ta₀ = ta := Option.some.inj ((hcross ψ hta₀).symm.trans hta)
+      exact hok ρ)
+    (fun ψ ta hta ρ => by
+      obtain ⟨ta₀, hta₀, -, hmem⟩ := hkeyP ψ
+      obtain rfl : ta₀ = ta := Option.some.inj ((hcross ψ hta₀).symm.trans hta)
+      exact hmem ρ)
+    (fun m₂ hac => hcaps m₂ (by rw [hac, hname]))
+    (fun m₂ hac φ => recRulesP_cons_fresh mp hfresh' hnorules m₂ hac φ)
+  rw [hname] at hgoal
+  exact hgoal
+
 end Setlec.SetR.Interp2
