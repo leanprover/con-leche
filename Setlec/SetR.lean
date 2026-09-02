@@ -145,6 +145,7 @@ import Setlec.SetR.Interp2.IndConsP
 import Setlec.SetR.Interp2.IndMemberP
 import Setlec.SetR.Interp2.IndCapsP
 import Setlec.SetR.Interp2.IndMembersP
+import Setlec.SetR.Interp2.IndTeleP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP
