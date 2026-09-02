@@ -16337,3 +16337,319 @@ row is equational throughout and is where this batch continues.
 
 Unchanged, by design: `no_proof_of_Empty_P_of` = `hμ` + `IndStepPB`.
 `IndStepPB` stays **unstated** rather than conditional.
+
+## Task #161 IND TIER, part 3: the frame kit and the projection row close; the tier's statement layer is named as a wall (2026-09-02)
+
+Briefed with the corrected six-step bill toward `IndStepPB` and THE
+ASSEMBLY.  **Step 1 closed, step 5 closed (row *and* law), and steps
+2, 3, 4, 6 and the assembly are blocked on a wall named above** with
+two countermodels — the ind tier's `R`-predicates carry v1 *derivation
+packs* where every P tier consumes the checker's *recorded runs*, and
+neither the currency nor the datum is recoverable.
+
+`IndStepPB` stays **unstated** rather than conditional (the standing
+ruling), so the census is unchanged: `no_proof_of_Empty_P_of` =
+`hμ` + `IndStepPB`.
+
+### 1. THE WALL — see the entry above for the full statement
+
+Recorded as its own section because it is the batch's main product and
+because it re-frames the campaign's critical path.  In one line:
+`DefEqAtW`/`DefEqListW`/`TypedListW`/`IotaWalksR` have **zero
+occurrences anywhere under `Setlec/SetR/Interp2/`**, and
+`interp2_ne_interp_erase` (already in the tree, `Keys2Probe.lean:94`)
+proves no P proof can ever consume one.  The fix is a statement-layer
+decision with three named shapes and blast radii; I took none of them.
+
+**Both part-2 seals assumed it away**, and the correction — the
+record's own strongest instance of self-correction — named
+`defEqAtP_of_run` and `iotaSidesTyP_of_run` as owed, two names that
+presuppose a run neither predicate carries.  The correction re-checked
+the budget and the locations; it did not re-check the **currency**.
+The survey that found it was one `grep`, and the question it answered
+— *has any P proof ever consumed one of these?* — is the question
+neither seal asked.
+
+### 2. Step 1: the frame kit is a quarter of its estimate, because part 2 had already built its core
+
+The correction budgeted a fresh ~350-line transposition of
+`IndFrameS`.  A per-name survey of the four surviving stages against
+`IndFrameS`'s twenty-five public names moved the budget twice, both
+down:
+
+* **the chain already existed under another name.**  `consN`
+  (`IndTeleP.lean:262`, part 2) is `consChain` *definitionally* — same
+  fold, same cons order — and `consN_shift`/`consN_getElem?` are
+  `chainE_ge`/`chainE_lt`'s content at bare values.  So `chainP` is a
+  wrapper over the spine's *readings* and its two lookups are three
+  lines each, not two inductions.  `chainFrom` and its three lemmas do
+  not transpose at all: through `consN` there is no value/base split
+  to make;
+* **twelve of the twenty-five names are dead weight** and were
+  deliberately not transposed.  `chainFrom_cons`/`_lt`/`_ge`,
+  `padE_zero`, `consChain_nil`/`_cons`, `chainE_eq_consChain`
+  (definitional here) and `TeleFitV.appN_val` have **zero occurrences
+  anywhere in `IndStagesS.lean`**; `annotOkV_descend` is consumed only
+  by `fireS`, which part 2's four-move firing retired.
+
+What the stages actually read, and what therefore landed: `chainP`
+with `chainP_lt`/`_ge`/`_tail`/`_cons_eq_instE`; `AVExpr.instSeq` and
+`interp2_instSeq` (the pivot between chain-reading and
+substituted-reading); `padE2`/`padE2_shiftE`/`sat2_padded` — which
+never appear in a stage's *statement* but are introduced and stripped
+inside the zipper's own strong induction; `ctxInstAtP` (+ append/snoc/
+getD) and `PiTeleP.inst`; and the three producers `sat2_of_tower`,
+`teleFitPA_of_tower`, `ctxOkP_of_openers`.
+
+**Two further re-check payoffs**, both against the correction:
+
+* `denoteP_openRev`/`denoteP_openRev_base` — which the correction
+  treats as owed — are **already landed**
+  (`Step2/IotaKitP.lean:61,98`), and so are `certs_telePA` (`:241`, a
+  fully general-in-`(d, Δa)` certificate walk producing a `TeleFitPA`
+  under `Sat2`), `teleFitPA_residual`, `annotOkP_mkAppN_of_fitA` and
+  `annotOkP_instRevChain`.  The bill lists `IotaKitP.lean` as a
+  *squash precedent* only; it is in fact a large part of item 2's own
+  supply, and no `Step2/*` file imports any `Ind*P` file, so the ind
+  tier may import it with no cycle;
+* the frame kit's `.sort 0`/`empty` padding trick is **shorter** at P
+  than in v1: `interp2` of a sort is `univ` on the nose, so
+  `empty_mem_univ 0` closes the padding slot with no `dummyPropT`
+  detour.
+
+### 3. `ctxOkP_of_openers` is where the premise set grows — part 2's lesson, met again
+
+`CtxOkR`'s per-leaf obligation is a *derivation* (`Infer.bvar` onto
+`DefEq.refl`) and carries its own justification.  `CtxOkP`'s is a
+**semantic equation plus a grading**.  The equation is free; the
+grading is not — nothing about an opener's *index* says its annotation
+reads to a *graded* annotation — so this transpose takes the openers'
+grading as `hokA` where v1 took nothing.  Transposing the conclusion
+alone would have dropped it silently.
+
+Two savings beside it: the equation half needs **no `Sat2` at all**
+(both sides are `fun j => ρ (j + (k - i))` pointwise, so the proof
+never inspects `ρ`), and v1's `n ≤ k` premise is unnecessary — the
+openers' own `WScoped` already bounds each leaf by `k`.  The linter
+found the second.
+
+### 4. The fit's shape was not the risk it looked
+
+`teleFitPA_of_tower` was the piece the bill flagged as shape-novel.
+It is not: `TeleFitPA` peels by *substitution* and so does `TeleFitV`,
+so the two inductions coincide step for step, `PiTeleP.inst` plays
+`PiTele.inst`'s exact role, and only the residual's spelling changes
+(`AVExpr.instSeq` for `VExpr.instSeq`).  Both tower producers compiled
+first try.  `ctxInstAtP` and `PiTeleP.inst` come out on
+`[propext, Quot.sound]` alone — the mechanical statement of "V-free".
+
+### 5. Step 5: the projection cons is the CHEAP one, and its disequalities are free by kind
+
+Part 1's finding 6 discovered this row (`EtaFamilyStored` mentions
+`recInfo`, so a projection install can *complete* a family and
+`capsOkP_cons_fresh` cannot descend past it).  It is **cheaper** than
+the member cons's, not dearer:
+
+`memberEtaSplit` works for four disequalities — a member cons can be a
+family's former *or* its capability constructor — and two of its
+branches are discharged only by importing the fold's closure facts
+(`EtaFamiliesClosedO`, `BlockEtaPinned`).  A projection-function cons
+stores a **`recInfo`**, and that single fact kills both branches:
+`T ≠ c₀.name` because the family's own lookup would otherwise return a
+`recInfo` where `CapsOkP`'s premise says `indInfo`, and
+`caps.etaCtor ≠ c₀.name` by the same argument at `EtaFamilyStored`'s
+second conjunct, which says `ctorInfo`.  So no closure fact is
+imported, no `isProjFnShape` side condition is needed, and the split is
+**two-way**: either every slot misses the cons, or exactly one hits it
+and `projFnName_inj` identifies both the family and the index.
+`projEtaSplit` lands on `[propext, Quot.sound]`.  The unit half needs
+no split at all.
+
+This is part 1's "by kind or by non-reservedness" practice in the third
+of its three positions.
+
+### 6. Step 5b: the returning η half is small, because the member slot is the parameters' own `k = nP` entry
+
+Part 2's §4 predicted `etaFields = 0`'s simplification would not
+transfer here and that "the projection spine is live and
+`hvP`/`projSpines2` come back".  It held exactly.  What it did not say
+is how cheap the returning half is, and the reason is one list
+identity (`projArgSpine_eq`, one `rw`, `[propext]` alone):
+
+> `((range nP).map fun k => bvar (nP - k)) ++ [bvar 0]`
+> **is** `(range (nP+1)).map fun k => bvar (nP - k)`
+
+— the member slot is the `k = nP` entry of the same descending family
+the parameters come from.  So one `instSeq_openSpine` at `nP+1` reads
+the projection argument and one `interp2_bvarSpine` at the spine
+`ts ++ [x]` evaluates it, reusing the parameter spine's own machinery.
+Better: the projection spine's side condition is **reflexivity**,
+because `consN (ts ++ [x]) ρ` *is* the fired environment, where the
+parameter spine's needed an `omega`.
+
+Three deltas from the member key:
+
+* **`hvP` is a premise**, as in v1 (`etaLawKeyS` takes `hvT`/`hvC`/
+  `hvP` and calls all three install-supplied).  Part 2 derived the
+  first two from `BlockAcvalInstalled`; there is **no invariant to
+  derive this one from**, because the family's *earlier* projection
+  slots were installed by earlier `ProjInstallR` steps and that fold is
+  where the identification lives.  Part 2's premise-set lesson applied
+  before it could bite;
+* **`hprojE` is not a new premise**: `EtaPins` already carries the
+  model projections' lookups (`Verify/Extend/Iota.lean:1067-1069`) and
+  the member key destructured them away unused;
+* two of the member key's own obligations **disappear**, for
+  `projEtaSplit`'s reason: `hvT`/`hvC` are one `acvalWith_ne` each with
+  no case split, and `hEqTy`/`hcbT` lose their cons-is-the-former
+  branch.
+
+`capsOkP_cons_proj_of` composes the row and the law with **no
+residue**.
+
+### Census after IND TIER part 3
+
+`no_proof_of_Empty_P_of`: **`hμ` + `IndStepPB`** — unchanged, by
+design.
+
+### WALLS
+
+**One, and it is the batch's main product**: the ind tier's statement
+layer carries v1 derivation packs where the P tier needs recorded
+runs.  Named in full in the section above, with two countermodels
+(`interp2_ne_interp_erase`, already mechanized; and the falsity of
+derivation → run for a fuel-bounded incomplete checker), the producer
+that discards the datum (`defEqAtW_of`, `Bridge/Decl.lean:1478-1483`),
+and three fix shapes with blast radii.  **The fix is a shared-statement
+decision and is the lead's.**
+
+### IND TIER part 3 battery (verbatim, at `82ed8ee4`)
+
+`lake build` **428 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to parts 1 and 2 and to the ENDGAME A–H seals', and for the
+same reason: no `Setlec/Kernel/*` file was touched.
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `checkDecls_sound_P_of` and on every new
+theorem — `chainP_ge`, `chainP_lt`, `chainP_tail`,
+`chainP_cons_eq_instE`, `interp2_instSeq`, `padE2_shiftE`,
+`sat2_padded`, `ctxInstAtP_getD`, `PiTeleP.inst`, `sat2_of_tower`,
+`teleFitPA_of_tower`, `ctxOkP_of_openers`, `projEtaSplit`,
+`capsOkP_cons_proj`, `projArgSpine_eq`, `instSeq_openSpine_list`,
+`interp2_mkAppN_map`, `projEtaLawP`, `capsOkP_cons_proj_of`
+(`ctxInstAtP_getD`, `PiTeleP.inst`, `projEtaSplit` and
+`instSeq_openSpine_list` on `[propext, Quot.sound]` alone;
+`projArgSpine_eq` on `[propext]` alone).  Zero sorries.
+
+New files: `Setlec/SetR/Interp2/IndFrameP.lean` (the P frame kit, 512
+lines), `Setlec/SetR/Interp2/IndProjCapsP.lean` (the projection cons's
+`caps_ok` split and row), `Setlec/SetR/Interp2/IndProjEtaP.lean` (the
+projection η key and the composed row, 580 lines).  Edited:
+`Setlec/SetR.lean` (three imports), `DESIGN.md`.  No landed statement
+moved; no file was deleted.
+
+### Resume-here: the bill after part 3
+
+0. **THE WALL IS THE GATE.**  Nothing in items 1–4 below can start
+   until the statement-layer decision is made.  Recommended shape (the
+   narrowest): a parallel `IotaRunsR` conjunct on `IotaThmR`/
+   `IotaThmNR` carrying the `isDefEqCore`/`inferTypeCore` runs the
+   producer already holds, leaving `DefEqAtW` untouched — it touches
+   two producer sites (`Bridge/Decl.lean:1783,2037`) and v1's
+   `iotaRuleS`, and the `IndBottom*S` files mention `IotaThmR` in prose
+   only, so the bottoms do not move.  `ProjFnR:749-751` needs the same
+   treatment for the projection bottom;
+1. then the surviving mirror stages at P — `zipperS`/`pointS`/
+   `reductS`/`annotS`.  The frame kit they consume is **done**; the
+   survey's per-name map is in §2.  Note the linear dependency: the
+   zipper is the sole `Sat` producer, the other three spend it; and
+   `annotPFrameEqS` (191 lines) is entirely V-free, but its P analogue
+   is *not* a rename — the "produce a `DefEq` derivation, then
+   `DefEq.sound` it" two-step **collapses to one** at P, because
+   `DefEqClaims2P` concludes the semantic equality directly;
+2. the `.nested` graded-pins establishment (bigger than its v1
+   original — no counterpart exists);
+3. the recursor group's `RecRuleLawP` rows including the
+   per-instantiation Prop-motive case (`eqRecLawP`,
+   `BasisEqP.lean:893`, is the sole precedent — the abstract-bit split
+   with `hz : b = 0 ↔ ψ u1N = 0`);
+4. the `rec_rules` half of the projection phase (`indBottomProjS`'s
+   transpose), then `indStepPB_of`, `hind` off `FoldP`, census → `hμ`
+   ALONE, and THE ASSEMBLY.
+
+**`caps_ok` is now closed at every ind-tier cons**: the member cons
+(part 1 row, part 2 laws), the projection-function cons (part 3, this
+batch), and the elimination templates (no open row at all, part 1).
+
+## Task #161 SUCCESSION RECORD update (ind tier part 3 landed, 2026-09-02)
+
+Lane `agent/annot-v2` @ `e0f474ac` at batch start **and at batch end**
+(the lane did not move; nothing to merge).  ALL FOUR SEMANTIC TIERS
+CLOSED.  Capstone hypotheses: `hμ` + `IndStepPB`, unchanged.
+
+LANDED: ind tier part 3 on `agent/indtier3` (worktree
+`.claude/worktrees/indtier3`), five commits.  Briefed with the
+corrected six-step bill; closed **step 1** (the P frame kit) and
+**step 5** (the projection cons's `caps_ok` row *and* its η law, with
+no residue), and **named the wall** that blocks steps 2, 3, 4, 6 and
+the assembly.  Battery green (build 428 warning-free, test exit 0,
+arena counters unchanged, axioms within the standard three, zero
+sorries).
+
+THE HEADLINES, in order of what they save the successor:
+
+* **THE WALL: the ind tier's `R`-predicates carry v1 derivation packs
+  where every P tier consumes recorded runs.**  `DefEqAtW`/
+  `DefEqListW`/`TypedListW`/`IotaWalksR` have zero occurrences under
+  `Setlec/SetR/Interp2/` — no P proof has ever consumed one, because
+  none can.  Two countermodels: `interp2_ne_interp_erase` (already in
+  the tree) refutes the currency transport, and derivation → run is
+  *false* for a fuel-bounded incomplete checker.  The producer holds
+  the datum and discards it.  **Read this before planning anything**;
+* **the frame kit was a quarter of its estimate**, because part 2 had
+  already built its core under another name (`consN` *is*
+  `consChain`), and twelve of `IndFrameS`'s twenty-five names are dead
+  weight with zero occurrences in `IndStagesS.lean`.  Budget the
+  stages from the per-name survey in §2, not from line counts;
+* **`denoteP_openRev` and `certs_telePA` already exist**
+  (`Step2/IotaKitP.lean`), and `Step2/*` imports no `Ind*P` file, so
+  the ind tier can use them.  The correction lists the first as owed;
+* **`ctxOkP_of_openers` grows a premise** (`hokA`, the openers'
+  grading) — `CtxOkR`'s obligation is a derivation and carries its own
+  justification, `CtxOkP`'s is an equation plus a grading.  Part 2's
+  premise-set lesson, met a third time;
+* **the projection cons is the cheap one.**  Its two η disequalities
+  are free *by kind* (a `recInfo` cons is neither a former nor a
+  capability constructor), so the split is two-way where the member's
+  is four-way and imports no closure facts;
+* **the projection η half is small**, because the pinned projection
+  argument's spine is the parameters' own descending family one entry
+  longer — the member slot is its `k = nP` entry — so it reuses
+  `instSeq_openSpine`/`interp2_bvarSpine` and its side condition is
+  reflexivity.  But **`hvP` is a premise**: the family's earlier
+  projection slots were installed by earlier `ProjInstallR` steps, and
+  there is no invariant to derive the identification from.
+
+Carried trap (still G's, still true): absorb lift-then-instantiate
+BEFORE unfolding `cons` — with `cons` in the same simp set the pattern
+stops matching and simp silently changes nothing.
+
+AFTER THIS BATCH (successor's order): review + merge per protocol;
+**then the statement-layer decision on the wall**, which gates
+everything; then the stages, the graded pins, the recursor rows, the
+projection `rec_rules`, `indStepPB_of` and THE ASSEMBLY.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal.
