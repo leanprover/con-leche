@@ -1331,35 +1331,38 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                  if ← defEqList r env depth (margs.take rl.ctorParams)
                     (recFireComparands rl cv.levelParams us
                       cvj.levelParams args rP).2 then
-                  if ← iotaCerts r env depth
-                     (cv.type.instantiateLevelParams cv.levelParams us)
-                     (args.take mI ++ [major]) then
-                   if ← iotaCerts r env depth
-                      (cvj.type.instantiateLevelParams cvj.levelParams usj)
-                      margs then
-                    -- the recursor's index arguments must match the
-                    -- constructor's canonical index tuple (the residual
-                    -- of its telescope, whose head must be the stored
-                    -- family): the model's iota equation only speaks
-                    -- about the canonical indices
-                    match (cvj.type.instantiateLevelParams cvj.levelParams
-                          usj).stripPis (rl.ctorParams + rl.nfields),
-                        piResidual (cvj.type.instantiateLevelParams
-                          cvj.levelParams usj) margs with
-                    | some (_, cbody), some residual =>
-                      match cbody.getAppFn with
-                      | .const _ _ =>
-                        if ← defEqList r env depth
-                            (residual.getAppArgs.drop rl.ctorParams)
-                            ((args.take mI).drop rP) then
-                          pure (some (Expr.mkAppN
-                            (rl.rhs.instantiateLevelParams cv.levelParams us)
-                            (args.take rP ++ margs.drop rl.ctorParams)))
-                        else pure none
-                      | _ => pure none
-                    | _, _ => pure none
-                   else pure none
-                  else pure none
+                  -- P2 DE-GATING (task #161 harvest, branch
+                  -- `agent/degating-p2`): the two per-fire telescope
+                  -- certificate runs — `iotaCerts` on the recursor's
+                  -- instantiated type at `args.take mI ++ [major]` and
+                  -- on the constructor's at `margs` — are REMOVED here.
+                  -- Their arity content is already pinned by the two
+                  -- `stripPis` guards above (a syntactic `∀`-spine of
+                  -- the required depth is preserved by `instantiate1`,
+                  -- so `iotaCerts` never failed for arity once those
+                  -- hold), and the argument-membership content is what
+                  -- the licensing analysis is about.
+                  -- the recursor's index arguments must match the
+                  -- constructor's canonical index tuple (the residual
+                  -- of its telescope, whose head must be the stored
+                  -- family): the model's iota equation only speaks
+                  -- about the canonical indices
+                  match (cvj.type.instantiateLevelParams cvj.levelParams
+                        usj).stripPis (rl.ctorParams + rl.nfields),
+                      piResidual (cvj.type.instantiateLevelParams
+                        cvj.levelParams usj) margs with
+                  | some (_, cbody), some residual =>
+                    match cbody.getAppFn with
+                    | .const _ _ =>
+                      if ← defEqList r env depth
+                          (residual.getAppArgs.drop rl.ctorParams)
+                          ((args.take mI).drop rP) then
+                        pure (some (Expr.mkAppN
+                          (rl.rhs.instantiateLevelParams cv.levelParams us)
+                          (args.take rP ++ margs.drop rl.ctorParams)))
+                      else pure none
+                    | _ => pure none
+                  | _, _ => pure none
                  else pure none
                 else pure none
                else pure none
