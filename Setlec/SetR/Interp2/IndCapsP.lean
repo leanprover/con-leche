@@ -72,7 +72,8 @@ theorem memberEtaSplit {blockNames : List Name}
         T ≠ c₀.name ∧ caps.etaCtor ≠ c₀.name ∧
         ∀ j, j < caps.etaFields → Setlec.projFnName T j ≠ c₀.name) ∨
       (Setlec.EtaPins μ env T cvT.levelParams caps ∧
-        caps.etaFields = 0) := by
+        caps.etaFields = 0 ∧ blockNames.contains T = true ∧
+        blockNames.contains caps.etaCtor = true) := by
   have hdown : ∀ n : Name, n ≠ c₀.name →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
@@ -100,19 +101,20 @@ theorem memberEtaSplit {blockNames : List Name}
       exact Option.some.inj hfT
     have hcvT : cvT = cvA := by rw [hc₀] at hc₀cv; exact hc₀cv
     subst hcvT
-    obtain ⟨hp, -, hj⟩ := hpins caps (by rw [hc₀])
+    obtain ⟨hp, hbc, hj⟩ := hpins caps (by rw [hc₀])
     have hTn : T = cvT.name := by rw [hT0, hc₀name]
-    refine ⟨?_, hzero ?_⟩
+    refine ⟨?_, hzero ?_, ?_, hbc hcape⟩
     · rw [hTn]; exact hp
     · rw [hTn]; exact hj hcape
+    · rw [hT0, hc₀name]; exact hbn
   · have hfE : env.find? T = some (.indInfo cvT caps) := by
       rwa [hdown _ hT0] at hfT
     by_cases hC0 : caps.etaCtor = c₀.name
     · -- the cons is the family's capability constructor
       right
       by_cases hTb : blockNames.contains T = true
-      · obtain ⟨hp, -, hj⟩ := hBP T cvT caps hTb hfE hcape
-        exact ⟨hp, hzero hj⟩
+      · obtain ⟨hp, hbc, hj⟩ := hBP T cvT caps hTb hfE hcape
+        exact ⟨hp, hzero hj, hTb, hbc⟩
       · exfalso
         obtain ⟨cvC, hfC⟩ :=
           hEC T cvT caps hfE hcape hnresT (by simpa using hTb)
@@ -150,13 +152,18 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
       caps.eta = true → Setlec.reservedBasisNames.contains T = false →
       Setlec.EtaPins μ env T cvT.levelParams caps →
       caps.etaFields = 0 →
+      blockNames.contains T = true →
+      blockNames.contains caps.etaCtor = true →
+      Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
       ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
         m₂.acval = acvalWith mp.base2.acval c₀.name A →
         ∀ φ' : Name → Nat, EtaLawP m₂ φ' T cvT caps)
-    -- the live unit row: the cons's own former
+    -- the live unit row: the cons's own former (the pins travel with
+    -- it — see `MemberUnitLawP`'s note; `hpins` is right here)
     (hunitLive : ∀ (cvT : ConstantVal) (caps : IndCaps),
       c₀ = .indInfo cvT caps → caps.unitlike = true →
       Setlec.reservedBasisNames.contains c₀.name = false →
+      Setlec.EtaPins μ env cvA.name cvA.levelParams caps →
       ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
         m₂.acval = acvalWith mp.base2.acval c₀.name A →
         ∀ φ' : Name → Nat, UnitLawP m₂ φ' c₀.name cvT caps)
@@ -168,7 +175,7 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
     intro T cvT caps hf hcape hres hfam φ'
     rcases memberEtaSplit hfresh hc₀cv hc₀name hpshape0 hbn hpins hEC
         hBP hf hcape hres hfam with
-      ⟨hfE, hfam₀, hnT, hnC, hnP⟩ | ⟨hp, h0⟩
+      ⟨hfE, hfam₀, hnT, hnC, hnP⟩ | ⟨hp, h0, hbT, hbC⟩
     · -- the transport (`capsOkP_cons_fresh`'s η branch verbatim)
       intro us hlen
       obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
@@ -195,7 +202,7 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
           rw [hac, acvalWith_ne (hnP j (List.mem_range.mp hj))]
         rw [hfab, hac, acvalWith_ne hnC]
         exact hlaw ρ ts rest x hlents hfit hmem
-    · exact hetaLive T cvT caps hf hcape hres hp h0 m₂ hac φ'
+    · exact hetaLive T cvT caps hf hcape hres hp h0 hbT hbC hfam m₂ hac φ'
   · -- the unit half: two ways, and no family premise
     intro T cvT caps hf hcapu hres φ'
     by_cases hT0 : T = c₀.name
@@ -203,7 +210,9 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
       have hc₀ : c₀ = .indInfo cvT caps := by
         rw [Setlec.Env.find?_cons_self] at hf
         exact Option.some.inj hf
-      exact hunitLive cvT caps hc₀ hcapu hres m₂ hac φ'
+      have hcvT : cvT = cvA := by rw [hc₀] at hc₀cv; exact hc₀cv
+      exact hunitLive cvT caps hc₀ hcapu hres
+        (hpins caps (by rw [hc₀, hcvT])).1 m₂ hac φ'
     · have hfE : env.find? T = some (.indInfo cvT caps) := by
         rw [Setlec.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hf
         exact hf
