@@ -204,8 +204,19 @@ unchanged subterms **by reference**, the pointer test decides most
 comparisons in `O(1)`, which is the arena's index comparison in a
 different mechanism. -/
 
-/-- Structural equality, the specification (no shortcuts). -/
-def beqSpec : ExprC → ExprC → Bool
+/-- Structural equality, the specification: the cached hash fields are
+compared at **every** node, then the payload structurally.  The hash
+test is part of the spec (not just of the fast path) because the
+executed descents (`beqB`, `beqGo`) reject on hash mismatch at every
+level — with it, the `implemented_by` claim is faithful on all inputs,
+not only on field-correct ones, and the hash conjunct is what makes
+`LawfulHashable ExprC` a *theorem* (task #163; the memo-map lemmas
+need it).  On field-correct terms (`WFc`, see
+`Setlec/Verify/Cached/Erase.lean`) the hash test is redundant and
+`beqSpec` decides equality of the erasures exactly. -/
+def beqSpec (a b : ExprC) : Bool :=
+  a.hash == b.hash &&
+  match a, b with
   | .bvar i .., .bvar j .. => i == j
   | .fvar i n t .., .fvar j m u .. => i == j && n == m && beqSpec t u
   | .sort u .., .sort v .. => u == v
@@ -314,7 +325,20 @@ unsafe def beqB (fuel : Nat) (a b : ExprC) : Option Bool × Nat :=
         if s == s' && i == i' then beqB fuel e e' else (some false, fuel)
       | _, _ => (some false, fuel)
 
-@[inherit_doc beqGo]
+/-- The executed equality (see `beqGo`).
+
+**TRUST POINT** (task #163; one of exactly two `implemented_by`
+escapes the verified cached variant rests on).  The pure spec is
+`beqSpec`; the acceleration is faithful to it given two facts about
+the runtime: (a) *pointer equality implies structural equality* —
+Lean objects are immutable, so two references to one address are one
+value (the pointer short-circuits here and in `beqB`/`beqGo`, and the
+address-pair memo keys, all rest on this); (b) *the address-keyed memo
+entries stay valid for the life of one comparison* — both roots are
+live for the whole call, so every keyed subobject is reachable and
+the collector, which never moves objects, cannot reuse a keyed
+address.  The verification (`Setlec/Verify/Cached/*`) consumes only
+`beq`'s pure definition and never this function. -/
 unsafe def beqFast (a b : ExprC) : Bool :=
   if ptrAddrUnsafe a == ptrAddrUnsafe b then true
   else if a.hash != b.hash then false
@@ -407,7 +431,16 @@ unsafe def ofExprGo (memo : Std.HashMap USize ExprC) (e : Expr) :
         (mkProj s i s', memo)
     (r, memo.insert k r)
 
-@[inherit_doc ofExprSpec]
+/-- The executed conversion (see `ofExprGo`).
+
+**TRUST POINT** (task #163; the second of the two `implemented_by`
+escapes).  The pure spec is `ofExprSpec`; the acceleration is faithful
+given the same two runtime facts as `beqFast`'s: the address-keyed
+memo maps each live `Expr` subobject to the conversion of that very
+object (immutability + a non-moving collector + the root keeping every
+keyed subterm alive), so a hit returns exactly what the spec would
+rebuild.  The verification consumes only `ofExpr`'s pure definition
+and never this function. -/
 unsafe def ofExprFast (e : Expr) : ExprC := (ofExprGo {} e).1
 
 /-- Convert an `Expr` into an `ExprC`, computing the derived fields
@@ -416,8 +449,12 @@ bottom-up and preserving the input's structure sharing. -/
 def ofExpr (e : Expr) : ExprC := ofExprSpec e
 
 /-- Core of `toExpr`: a memoized readback (shared subterms are rebuilt
-once and share the resulting `Expr` in memory). -/
-partial def toExprGo (memo : Std.HashMap ExprC Expr) (e : ExprC) :
+once and share the resulting `Expr` in memory).  Structurally
+recursive, hence **not** a trust point: `toExpr_eq`
+(`Setlec/Verify/Cached/Erase.lean`) proves the readback equal to the
+structural erasure outright — a memo hit's key is `beq`-equal to the
+query, and `beq`-equal terms have equal erasures. -/
+def toExprGo (memo : Std.HashMap ExprC Expr) (e : ExprC) :
     Expr × Std.HashMap ExprC Expr :=
   match memo[e]? with
   | some x => (x, memo)
