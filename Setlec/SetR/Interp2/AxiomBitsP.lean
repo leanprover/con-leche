@@ -249,4 +249,89 @@ theorem propext_bitsP (hμ : μ.verified = true)
     (pwBit_of_equiv_zeronessOf (hpw1 hμ) φ).mpr (by simp [Level.eval])
   exact ⟨hb1, hb2, hb3⟩
 
+
+/-! ## `Classical.choice`
+
+The second standard axiom, and the *level-polymorphic* one: its bits
+are not constantly zero but track the pin's own datum
+(`PropWhen.ifAllZero [u]`), so the fact below is an equivalence rather
+than an equation.  It is the same three moves — the innermost
+codomain is the `α` binder's own variable, whose inferred type is its
+stored annotation outright (`inferTypeCore_fvar_outS`), so move 2 is
+one step rather than a spine peel. -/
+
+/-- `inferTypeCore` returns an `fvar`'s stored annotation (a local
+twin of `Annot/SortCoh/Discharge.lean`'s `inferTypeCore_fvar_out`,
+transcribed here so this file's imports stay at the pin tier's). -/
+theorem inferTypeCore_fvar_outS {f d : Nat} {i : Nat} {n : Name}
+    {ty t : Expr}
+    (h : inferTypeCore μ env f d (.fvar i n ty) = .ok t) : t = ty := by
+  cases f with
+  | zero => exact nomatch h
+  | succ f =>
+    rw [Setlec.inferTypeCore_succ] at h
+    unfold Setlec.inferBody at h
+    simp only [Setlec.viewM, Setlec.Expr.view, Bind.bind, Except.bind,
+      pure, Except.pure] at h
+    split at h
+    · exact (Except.ok.inj h).symm
+    · exact nomatch h
+
+/-- **`Classical.choice`'s pinned telescope, inverted through both
+erasures.**  Two binders; the domain `Nonempty α` and the body `α`
+are binder-free, so only the two names and the two metas stay free.
+The level argument is untouched by either erasure, so the stored
+`Nonempty` reference is pinned to `[.param u]` on the nose. -/
+theorem choice_shapeS {type' : Expr}
+    (h : type'.erasePw.eraseNames = choiceA.type.erasePw.eraseNames) :
+    ∃ n₁ n₂ m₁ m₂,
+      type' = .forallE n₁ (.sort (.param uN))
+        (.forallE n₂
+          (.app (.const nonemptyName [.param uN]) (.bvar 0))
+          (.bvar 1) m₂) m₁ := by
+  simp only [choiceA, Expr.erasePw, Expr.eraseNames] at h
+  obtain ⟨n₁, ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain rfl := erasePwNames_sort_invS hty₁
+  obtain ⟨n₂, ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hty₂
+  obtain rfl := erasePwNames_const_invS hf
+  obtain rfl := erasePwNames_bvar_invS ha
+  obtain rfl := erasePwNames_bvar_invS hb₂
+  exact ⟨n₁, n₂, m₁, m₂, rfl⟩
+
+/-- **THE NAMED FACT, at `Classical.choice`.**  Both binders of the
+stored type carry the bit the pin's own datum computes — zero exactly
+when the level parameter is.  The innermost codomain is the outer
+binder's variable, whose sort is `Sort u`, and the telescope collapse
+carries it to the outer binder. -/
+theorem choice_bitsP (hμ : μ.verified = true)
+    {n₁ n₂ : Name} {m₁ m₂ : BinderMeta} {F d : Nat} {stype : Expr}
+    (hrun : inferTypeCore μ env F d
+      (.forallE n₁ (.sort (.param uN))
+        (.forallE n₂
+          (.app (.const nonemptyName [.param uN]) (.bvar 0))
+          (.bvar 1) m₂) m₁) = .ok stype) (φ : Name → Nat) :
+    (pwBit φ m₁.pw = 0 ↔ φ uN = 0) ∧ (pwBit φ m₂.pw = 0 ↔ φ uN = 0) := by
+  match F, hrun with
+  | 0, hrun => rw [Setlec.inferTypeCore_zero] at hrun; exact nomatch hrun
+  | F1 + 1, hrun =>
+  obtain ⟨tty1, u1, bt1, v1, -, -, hbt1, hens1, hpw1, rfl⟩ :=
+    Setlec.inferTypeCore_forall_inv hrun
+  match F1, hbt1 with
+  | 0, hbt1 => rw [Setlec.inferTypeCore_zero] at hbt1; exact nomatch hbt1
+  | F2 + 1, hbt1 =>
+  obtain ⟨tty2, u2, bt2, v2, -, -, hbt2, hens2, hpw2, rfl⟩ :=
+    Setlec.inferTypeCore_forall_inv hbt1
+  -- the innermost codomain is the outer binder's own variable
+  obtain rfl : bt2 = .sort (.param uN) := inferTypeCore_fvar_outS hbt2
+  obtain rfl : v2 = .param uN := ensureSortCore_sort_eq hens2
+  have hb2 : pwBit φ m₂.pw = 0 ↔ φ uN = 0 := by
+    rw [pwBit_of_equiv_zeronessOf (hpw2 hμ) φ]; simp [Level.eval]
+  obtain rfl : v1 = .imax u2 (.param uN) := ensureSortCore_sort_eq hens1
+  have hb1 : pwBit φ m₁.pw = 0 ↔ φ uN = 0 := by
+    rw [pwBit_of_equiv_zeronessOf (hpw1 hμ) φ]
+    simp only [Level.eval]
+    exact imax_eq_zero_iff _ _
+  exact ⟨hb1, hb2⟩
+
 end Setlec.SetR.Interp2
