@@ -13346,3 +13346,39 @@ New files: `Interp2/Step2/AcceptedP.lean` (the totality walk + three
 run inversions), `Interp2/AxiomPinP.lean` (the pin tier's two landed
 branches + the WALL record).  Deleted: `SemTierInputsP`
 (`Interp2/CapstoneP.lean`).
+
+### Resume-here refinement: `stdAxiomOk` pins `Eq` **on the nose**
+
+Recorded because it changes the shape of item 1 above.  `iff_shapes`
+(`Verify/StdAxiomPin.lean:32`) opens with
+`env.find? eqName = some eqA` — an equality of `ConstantInfo`s, not an
+erasure comparison.  The *companion* families (`Iff`, `Iff.intro`,
+`Iff.rec`, and `Nonempty`'s trio) are pinned only up to
+`erasePw ∘ eraseNames`, but `Eq` itself is literal.
+
+Consequences for the bit lemma:
+
+* `propext`'s innermost body is an `Eq`-spine over a **concrete**
+  stored type, so `infer` along it is computable rather than
+  erasure-chased: `.const eqName [.succ .zero]` infers to
+  `eqA.type.instantiateLevelParams`, three `app` clauses peel it, and
+  the residual is `.sort .zero` outright.  Then
+  `ensureSort (.sort .zero) = .zero`, `Level.eval φ .zero = 0`, and
+  the collapse (`imax_eq_zero_iff`) carries the bit to the two outer
+  binders.  The axiom's *own* telescope still needs a three-step
+  `forallE` inversion through both erasures — but its domains and body
+  (`.sort .zero`, an `Iff`-spine, an `Eq`-spine) are all
+  erasure-rigid, so the inversion yields the shape with only the three
+  metas and the three binder names free, which is exactly the wanted
+  form.
+* The **membership** half is where the companion families' erasure
+  slack bites instead: the forcing argument ("⟦Iff a b⟧ inhabited
+  forces a = b") applies the stored `Iff` former, and `mem_typeP`
+  hands its membership at *whatever* bits its own stored type carries.
+  `app_mem_piR` carries a `v = 0` side condition and
+  `app_mem_piR_pos` carries none, so the expected shape is a
+  case-split on the companion's bit rather than a second bit
+  establishment — worth trying before reaching for one.
+
+So the two halves of a pinned branch have *different* blockers, and
+only the first is the run-inversion lemma the seal names.
