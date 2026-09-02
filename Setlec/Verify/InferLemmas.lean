@@ -1486,7 +1486,13 @@ theorem iotaCerts_step_inv {env : Env} {fuel d : Nat} {n : Name}
   simp only [↓reduceIte] at h
   exact ⟨ta, rfl, hde, h⟩
 
-/-- Inversion of the unit-type check. -/
+/-- Inversion of the unit-type check.
+
+Task #161 item C1: the test is now the pinned-name one, so the
+inversion additionally reads off `c = punitName` — the conclusion is
+unchanged (`reservedBasisNames.contains (punitName.str "rec")` is
+`true` by computation), which is what keeps `unitLike_eq_punit` and
+every downstream consumer working verbatim. -/
 theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     (h : isUnitLikeTy env e = true) :
     ∃ c us cvi capsi cvr mI rP r, e = .const c us ∧
@@ -1496,10 +1502,11 @@ theorem isUnitLikeTy_inv {env : Env} {e : Expr}
       reservedBasisNames.contains (c.str "rec") = true := by
   match e, h with
   | .const c us, h =>
-    simp only [isUnitLikeTy, Bool.and_eq_true] at h
-    obtain ⟨⟨h1, h2⟩, hres⟩ := h
+    simp only [isUnitLikeTy, Bool.and_eq_true, beq_iff_eq] at h
+    obtain ⟨⟨hc, h1⟩, h2⟩ := h
+    subst hc
     revert h1
-    match hfc : env.find? c with
+    match hfc : env.find? punitName with
     | none => intro h1; exact nomatch h1
     | some (.axiomInfo _) => intro h1; exact nomatch h1
     | some (.projInfo _) => intro h1; exact nomatch h1
@@ -1510,7 +1517,7 @@ theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     | some (.indInfo cvi capsi) => ?_
     intro _
     revert h2
-    match hfr : env.find? (c.str "rec") with
+    match hfr : env.find? punitRecName with
     | none => intro h2; exact nomatch h2
     | some (.axiomInfo _) => intro h2; exact nomatch h2
     | some (.projInfo _) => intro h2; exact nomatch h2
@@ -1523,8 +1530,8 @@ theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     match rules, h2 with
     | [r], h2 =>
       simp only [Bool.and_eq_true, beq_iff_eq] at h2
-      exact ⟨c, us, cvi, capsi, cvr, mI, rP, r, rfl, hfc, hfr, h2.1, h2.2,
-        hres⟩
+      exact ⟨punitName, us, cvi, capsi, cvr, mI, rP, r, rfl, hfc, hfr,
+        h2.1, h2.2, by decide⟩
     | [], h2 => exact nomatch h2
     | _ :: _ :: _, h2 => exact nomatch h2
 

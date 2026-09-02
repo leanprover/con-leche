@@ -145,19 +145,39 @@ def piResultNeverZero (lps : List Name) (us : List Level) (e : Expr) :
 stored inductive whose recursor (under the `<ind>.rec` naming
 convention) has no indices and a single zero-field rule?  All of its
 inhabitants are then equal (in the model: the proof point; the
-environment invariant supplies the fact for the stored constant). -/
+environment invariant supplies the fact for the stored constant).
+
+Task #161 de-gating round A+B+C, item C1 (harvest site 35, list entry
+P8).  The test used to be a *scan*: two `Env.find?`s on the head's own
+name, a `Name.str "rec"` allocation, and a 20-element
+`reservedBasisNames.contains` walk — run on **every** proof-irrelevance
+attempt (12 453 724 of them on init-full).  It is the same Bool as a
+head-name test against the single pin that can pass it:
+`unitLike_eq_punit` (`Setlec/Verify/PinnedShapes.lean`) proves that
+under `BasisPinnedTT` — the reserved-name pinning the install path
+enforces — **only `PUnit` passes**, every other reserved recursor being
+refuted by one of the three conditions.  So the head-name comparison is
+put first and the rest is the *same* two lookups specialised to
+`punitName`: `false` short-circuits after one `Name` comparison at
+every non-`PUnit` head, which is essentially all of them, and the
+`.str "rec"` allocation and the reserved-list walk are gone.
+
+This is a computation downgrade, not a removal: at `c = punitName` the
+two stored-shape checks still run, so an environment that has not
+installed `PUnit` (or has installed it at the wrong shape) still fails
+the test.  Only the *other* reserved heads are decided by the pin
+rather than by a lookup — which is what `unitLike_eq_punit` licenses.
+-/
 def isUnitLikeTy (env : Env) : Expr → Bool
   | .const c _ =>
-    (match env.find? c with
+    c == punitName &&
+    (match env.find? punitName with
       | some (.indInfo _ _) => true
       | _ => false) &&
-    (match env.find? (c.str "rec") with
+    (match env.find? punitRecName with
       -- no indices: the major's position equals the rule prefix
       | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
-      | _ => false) &&
-    -- native unit semantics: pinned basis blocks only (env-stored
-    -- capability flags will replace this)
-    reservedBasisNames.contains (c.str "rec")
+      | _ => false)
   | _ => false
 
 /-- Unfold the (application of a) definition or theorem at the head,
