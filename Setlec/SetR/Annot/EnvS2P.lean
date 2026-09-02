@@ -380,6 +380,27 @@ inductive TeleFitPA (V : Type w) [SetTheory V] (ρ : Nat → V) :
       TeleFitPA V ρ (B.inst a) as rest →
       TeleFitPA V ρ (.pi u v A B) (a :: as) rest
 
+/-- A fit's prefix fits, to some intermediate residual
+(`TeleFitV.take`).  Lives beside the inductive: the part-6 probe
+repair's consumer (`IotaRowsP`) needs it upstream of the stage kits. -/
+theorem TeleFitPA.take {V : Type w} [SetTheory V] {ρ : Nat → V} :
+    ∀ {T rest : AVExpr} {as : List AVExpr}, TeleFitPA V ρ T as rest →
+      ∀ n : Nat, ∃ mid, TeleFitPA V ρ T (as.take n) mid := by
+  intro T rest as h
+  induction h with
+  | @nil T' =>
+    intro n
+    refine ⟨T', ?_⟩
+    rw [List.take_nil]
+    exact TeleFitPA.nil
+  | @cons u v A B rest' a as' hmem htail ih =>
+    intro n
+    cases n with
+    | zero => exact ⟨_, TeleFitPA.nil⟩
+    | succ n =>
+      obtain ⟨mid, hm⟩ := ih n
+      exact ⟨mid, TeleFitPA.cons hmem hm⟩
+
 /-- The annotated reverse-opening substitution chain
 (`VExpr.instRevChain`'s `AVExpr` twin, `Verify/Denote/OpenVars.lean:80`
 — outermost argument consumed first, each at cut `0`, lifted past the
@@ -417,13 +438,18 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
         ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
         = some Ra ∧
       (∀ ρ : Nat → V, AnnotOkP V ρ Ra) ∧
-      -- The nested pins' open readings are carried GRADED, parallel
-      -- to `Ra`'s conjunct (task #161 iota seal repair, ratified):
-      -- the row must grade the instantiated pin comparands for
-      -- `DefEqClaims2P`, and the pins are stored rule data the ι
-      -- clause only defeqs — no claims route grades them.  The
-      -- supplier is the inductive install, where the pins'
-      -- `checkAnnotList` certificates live, exactly like `Ra`'s.
+      -- The nested pins' open readings are carried with a
+      -- CONTEXT-GUARDED chain grading (task #161 part-6 probe
+      -- repair, ratified: the unconditional `∀ ρ` form was REFUTED —
+      -- `not_uniform_annotOk2_open_app` — because the checker's
+      -- `checkAnnotList` certificate is about `pinsP`, the pins
+      -- instantiated at the public frame, and converts only
+      -- context-guarded).  The grading is stated of the chained term
+      -- the equality half names, at the chain's own environment:
+      -- `TeleFitPA` is that environment's `Sat2` in closed form.
+      -- It stays an OUTER conjunct (the consumer feeds it to
+      -- `DefEqClaims2P` to *produce* the equality clause consumed
+      -- by the inner block — inner placement is circular).
       (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
         ∀ i, i < RecRule.ctorParams rl →
         ∃ vpa : AVExpr,
@@ -431,7 +457,15 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
             (Setlec.TTVerify.openRev 0 rP
               ((pins.getD i default).instantiateLevelParams
                 cv.levelParams us)) = some vpa ∧
-          ∀ ρ : Nat → V, AnnotOkP V ρ vpa) ∧
+          ∀ (ρ : Nat → V) (zs : List AVExpr) (TVa restR : AVExpr),
+            zs.length = rP →
+            (∀ z ∈ zs, AnnotOkP V ρ z) →
+            denoteP m.acval env φ 0
+              (cv.type.instantiateLevelParams cv.levelParams us)
+              = some TVa →
+            TeleFitPA V ρ TVa zs restR →
+            AnnotOkP V ρ
+              (Setlec.SetR.AVExpr.instRevChain zs vpa)) ∧
       ∀ (cvj : ConstantVal) (cnP cnF : Nat),
         env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
       ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AVExpr)

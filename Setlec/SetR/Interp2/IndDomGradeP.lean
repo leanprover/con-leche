@@ -76,8 +76,109 @@ each spine element's value inhabits the domain it goes into.
 The induction is the checker's own order: the head domain is the
 type's `.pi` domain, and the tail is the run on the β-reduct, whose
 reading is the body's reading substituted (`denoteP_beta`) and whose
-grading is `AnnotOkP_inst0` at the head membership. -/
+grading is `AnnotOkP_inst0` at the head membership.
+
+**The membership premise is bounded by the index** (task #161, ind
+tier part 5).  Part 4 stated it over the *whole* spine, which is what
+the prefix branch happens to have; the field branch does not and
+cannot — the position induction earns position `i`'s grading from the
+equalities at positions `< i`, and a premise over the whole spine
+would ask it for the equalities it has not proved yet.  The proof
+never needed more: descending past the head spends exactly the head's
+membership, so the bound `i₀ < i` is the induction's own. -/
 theorem instPisAt_domsP_graded {ρ' : Nat → V}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (acval n ψ).liftN 1 k = acval n ψ)
+    (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AVExpr) (k : Nat),
+      (acval n ψ).inst y k = acval n ψ) :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
+      Expr.instPisAt sp ty = some (ds, rs) →
+      ∀ {D : Nat} {T : AVExpr} (i : Nat),
+      (∀ (i₀ : Nat) (x : Expr), i₀ ≤ i → sp[i₀]? = some x →
+        Expr.WScoped D x ∧ x.looseBVarsBounded 0 = true) →
+      Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
+      denoteP acval env φ D ty = some T →
+      AnnotOkP V ρ' T →
+      (∀ (i₀ : Nat) (x : Expr), i₀ < i → sp[i₀]? = some x →
+        ∃ w, denoteP acval env φ D x = some w ∧ AnnotOkP V ρ' w ∧
+          ∀ dw, denoteP acval env φ D (ds.getD i₀ default) = some dw →
+            interp2 V ρ' w ∈ˢ interp2 V ρ' dw) →
+      i < sp.length → ∀ dw : AVExpr,
+        denoteP acval env φ D (ds.getD i default) = some dw →
+        AnnotOkP V ρ' dw := by
+  intro sp
+  induction sp with
+  | nil => intro ty ds rs h D T i _ _ _ _ _ _ hi; exact absurd hi (by simp)
+  | cons a sp ih =>
+    intro ty ds rs h D T i hsp hfb hb hT hokT hmem hi
+    obtain ⟨hwsa, hba⟩ := hsp 0 a (Nat.zero_le _) rfl
+    match ty, h with
+    | .forallE nmT dom body mb, h =>
+      simp only [Expr.instPisAt] at h
+      cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p => ?_
+      rw [h1] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      have hfb' : Expr.fvarsBelow D dom ∧ Expr.fvarsBelow D body := hfb
+      have hb' : dom.looseBVarsBounded 0 = true ∧
+          body.looseBVarsBounded 1 = true := by
+        revert hb
+        simp [Expr.looseBVarsBounded]
+      rw [denoteP_forallE] at hT
+      cases hA : denoteP acval env φ D dom with
+      | none => rw [hA] at hT; exact nomatch hT
+      | some A => ?_
+      rw [hA] at hT
+      cases hB : denoteP acval env φ (D + 1)
+          (body.instantiate1 (.fvar D nmT dom)) with
+      | none => rw [hB] at hT; exact nomatch hT
+      | some B => ?_
+      rw [hB] at hT
+      obtain rfl : T = .pi 0 (pwBit φ mb.pw) A B :=
+        (Option.some.inj hT).symm
+      have hdom0 : (dom :: p.1).getD 0 default = dom := rfl
+      match i with
+      | 0 =>
+        intro dw hdw
+        rw [hdom0, hA] at hdw
+        obtain rfl := Option.some.inj hdw
+        exact AnnotOkP_pi_dom hokT
+      | i + 1 =>
+        intro dw hdw
+        obtain ⟨w, hw, hokw, hmem0⟩ := hmem 0 a (by omega) rfl
+        -- the head domain
+        have hmemA : interp2 V ρ' w ∈ˢ interp2 V ρ' A :=
+          hmem0 A (by rw [hdom0]; exact hA)
+        -- the tail: the run on the β-reduct
+        have hTI : denoteP acval env φ D (body.instantiate1 a)
+            = some (B.inst w 0) := by
+          rw [denoteP_beta hacl hainst (n := nmT) (ty := dom) hfb'.2
+            hwsa hba hw 0, hB]
+          rfl
+        have hokBI : AnnotOkP V ρ' (B.inst w 0) :=
+          (AnnotOkP_inst0 hokw).mpr (AnnotOkP_pi_body hokT hmemA)
+        refine ih h1 i
+          (fun i₀ x hle hx => hsp (i₀ + 1) x (by omega) (by simpa using hx))
+          (Expr.fvarsBelow_instantiate1_gen hwsa.fvarsBelow 0 hfb'.2)
+          (Expr.looseBVarsBounded_instantiate1_gen hba hb'.2)
+          hTI hokBI ?_ (by simpa using hi) dw (by simpa using hdw)
+        intro i₀ x hlt hx
+        obtain ⟨w0, hw0, hok0, hm0⟩ :=
+          hmem (i₀ + 1) x (by omega) (by simpa using hx)
+        exact ⟨w0, hw0, hok0, fun dw0 hdw0 =>
+          hm0 dw0 (by simpa using hdw0)⟩
+
+set_option maxHeartbeats 1600000 in
+/-- **An `instPisAt` run's residual is graded** — the same descent as
+`instPisAt_domsP_graded`, read off at the end instead of at an index.
+The membership premise is over the whole spine here, and that costs
+nothing: the residual comes *after* every position, so a consumer of
+this lemma has already earned them all (task #161, ind tier part 5 —
+the point stage's index walk compares the residual's own
+arguments). -/
+theorem instPisAt_resP_graded {ρ' : Nat → V}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ)
     (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AVExpr) (k : Nat),
@@ -94,14 +195,19 @@ theorem instPisAt_domsP_graded {ρ' : Nat → V}
         ∃ w, denoteP acval env φ D x = some w ∧ AnnotOkP V ρ' w ∧
           ∀ dw, denoteP acval env φ D (ds.getD i default) = some dw →
             interp2 V ρ' w ∈ˢ interp2 V ρ' dw) →
-      ∀ (i : Nat), i < sp.length → ∀ dw : AVExpr,
-        denoteP acval env φ D (ds.getD i default) = some dw →
-        AnnotOkP V ρ' dw := by
+      ∀ rw : AVExpr, denoteP acval env φ D rs = some rw →
+        AnnotOkP V ρ' rw := by
   intro sp
   induction sp with
-  | nil => intro ty ds rs h D T _ _ _ _ _ _ i hi; exact absurd hi (by simp)
+  | nil =>
+    intro ty ds rs h D T _ _ _ hT hokT _ rw hrw
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    rw [hT] at hrw
+    obtain rfl := Option.some.inj hrw
+    exact hokT
   | cons a sp ih =>
-    intro ty ds rs h D T hsp hfb hb hT hokT hmem i hi
+    intro ty ds rs h D T hsp hfb hb hT hokT hmem rw hrw
     obtain ⟨hwsa, hba⟩ := hsp 0 a rfl
     obtain ⟨w, hw, hokw, hmem0⟩ := hmem 0 a rfl
     match ty, h with
@@ -131,33 +237,64 @@ theorem instPisAt_domsP_graded {ρ' : Nat → V}
       obtain rfl : T = .pi 0 (pwBit φ mb.pw) A B :=
         (Option.some.inj hT).symm
       have hdom0 : (dom :: p.1).getD 0 default = dom := rfl
-      -- the head domain
       have hmemA : interp2 V ρ' w ∈ˢ interp2 V ρ' A :=
         hmem0 A (by rw [hdom0]; exact hA)
-      match i with
-      | 0 =>
-        intro dw hdw
-        rw [hdom0, hA] at hdw
-        obtain rfl := Option.some.inj hdw
-        exact AnnotOkP_pi_dom hokT
-      | i + 1 =>
-        intro dw hdw
-        -- the tail: the run on the β-reduct
-        have hTI : denoteP acval env φ D (body.instantiate1 a)
-            = some (B.inst w 0) := by
-          rw [denoteP_beta hacl hainst (n := nmT) (ty := dom) hfb'.2
-            hwsa hba hw 0, hB]
-          rfl
-        have hokBI : AnnotOkP V ρ' (B.inst w 0) :=
-          (AnnotOkP_inst0 hokw).mpr (AnnotOkP_pi_body hokT hmemA)
-        refine ih h1
-          (fun i0 x hx => hsp (i0 + 1) x (by simpa using hx))
-          (Expr.fvarsBelow_instantiate1_gen hwsa.fvarsBelow 0 hfb'.2)
-          (Expr.looseBVarsBounded_instantiate1_gen hba hb'.2)
-          hTI hokBI ?_ i (by simpa using hi) dw (by simpa using hdw)
-        intro i0 x hx
-        obtain ⟨w0, hw0, hok0, hm0⟩ := hmem (i0 + 1) x (by simpa using hx)
-        exact ⟨w0, hw0, hok0, fun dw0 hdw0 =>
-          hm0 dw0 (by simpa using hdw0)⟩
+      have hTI : denoteP acval env φ D (body.instantiate1 a)
+          = some (B.inst w 0) := by
+        rw [denoteP_beta hacl hainst (n := nmT) (ty := dom) hfb'.2
+          hwsa hba hw 0, hB]
+        rfl
+      have hokBI : AnnotOkP V ρ' (B.inst w 0) :=
+        (AnnotOkP_inst0 hokw).mpr (AnnotOkP_pi_body hokT hmemA)
+      refine ih h1 (fun i x hx => hsp (i + 1) x (by simpa using hx))
+        (Expr.fvarsBelow_instantiate1_gen hwsa.fvarsBelow 0 hfb'.2)
+        (Expr.looseBVarsBounded_instantiate1_gen hba hb'.2)
+        hTI hokBI ?_ rw hrw
+      intro i x hx
+      obtain ⟨w0, hw0, hok0, hm0⟩ := hmem (i + 1) x (by simpa using hx)
+      exact ⟨w0, hw0, hok0, fun dw0 hdw0 => hm0 dw0 (by simpa using hdw0)⟩
+
+/-! ## Application spines, graded backwards
+
+`annotOkP_mkAppN_of_fitA` (`Step2/IotaKitP.lean`) builds an
+application's grading from a fit; the point stage needs the *inverse*,
+because the index walk compares arguments of a spine whose whole
+grading it already has (the checker's own `inferTypeCore` verdict on
+the statement's left-hand side).  `AnnotOk2`/`AnnotValidV` are
+conjunctive at `.app`, so both directions are one projection. -/
+
+/-- An application's function part is graded when the application
+is. -/
+theorem AnnotOkP_app_fn {ρ : Nat → V} {g a : AVExpr}
+    (h : AnnotOkP V ρ (.app g a)) : AnnotOkP V ρ g :=
+  ⟨((AnnotOk2_app V ρ g a) ▸ h.1).1, ((AnnotValidV_app V ρ g a) ▸ h.2).1⟩
+
+/-- An application's argument is graded when the application is. -/
+theorem AnnotOkP_app_arg {ρ : Nat → V} {g a : AVExpr}
+    (h : AnnotOkP V ρ (.app g a)) : AnnotOkP V ρ a :=
+  ⟨((AnnotOk2_app V ρ g a) ▸ h.1).2.1,
+    ((AnnotValidV_app V ρ g a) ▸ h.2).2⟩
+
+/-- The head of a graded application spine is graded. -/
+theorem AnnotOkP_mkAppN_head {ρ : Nat → V} :
+    ∀ (as : List AVExpr) {g : AVExpr},
+      AnnotOkP V ρ (AVExpr.mkAppN g as) → AnnotOkP V ρ g := by
+  intro as
+  induction as with
+  | nil => intro g h; exact h
+  | cons x xs ih => intro g h; exact AnnotOkP_app_fn (ih (g := .app g x) h)
+
+/-- **Every argument of a graded application spine is graded.** -/
+theorem AnnotOkP_mkAppN_args {ρ : Nat → V} :
+    ∀ (as : List AVExpr) {g : AVExpr},
+      AnnotOkP V ρ (AVExpr.mkAppN g as) → ∀ a ∈ as, AnnotOkP V ρ a := by
+  intro as
+  induction as with
+  | nil => intro g _ a ha; exact nomatch ha
+  | cons x xs ih =>
+    intro g h a ha
+    rcases List.mem_cons.mp ha with rfl | ha'
+    · exact AnnotOkP_app_arg (AnnotOkP_mkAppN_head xs h)
+    · exact ih (g := .app g x) h a ha'
 
 end Setlec.SetR.Interp2
