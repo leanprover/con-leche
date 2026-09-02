@@ -503,4 +503,28 @@ theorem annotOkP_instRevChain {ρ : Nat → V} {vs : List AVExpr}
     (AnnotValidV_instRevChain ρ vs (fun v hv => (hvs v hv).2) X).mpr
       (hX _).2⟩
 
+/-- **The closure at the chain's own environment** — the honest
+strength of `annotOkP_instRevChain`, and the currency the nested-pin
+conjunct's repair needs (task #161 ind tier part 6, THE PROBE).
+
+`annotOkP_instRevChain` asks for the body graded at *every* `σ`, and
+`Interp2/IndPinProbeP.lean` shows that no open application-headed
+reading — which is exactly what a stored `.nested` pin reads to on the
+streams the suite accepts — ever is.  The two iffs above are stated at
+a **generalized body**, so the `∀ σ` was never needed: grading at the
+single environment `envChainP ρ vs` suffices, and that environment is
+the one the arguments themselves build.  A supplier whose certificate
+is guarded by a context (`checkAnnotList` at the recursor frame, whose
+claims-layer conversion is always `∀ σ, Sat2 V Δ σ → …`) can discharge
+this form and can never discharge the `∀ σ` one.  (`annotOkP_
+instRevChain` is *this* lemma at `σ := envChainP ρ vs`; nothing is
+lost by moving to it.) -/
+theorem annotOkP_instRevChain_at {ρ : Nat → V} {vs : List AVExpr}
+    {X : AVExpr} (hX : AnnotOkP V (envChainP ρ vs) X)
+    (hvs : ∀ v ∈ vs, AnnotOkP V ρ v) :
+    AnnotOkP V ρ (Setlec.SetR.AVExpr.instRevChain vs X) :=
+  ⟨(AnnotOk2_instRevChain ρ vs (fun v hv => (hvs v hv).1) X).mpr hX.1,
+    (AnnotValidV_instRevChain ρ vs (fun v hv => (hvs v hv).2) X).mpr
+      hX.2⟩
+
 end Setlec.SetR.Interp2
