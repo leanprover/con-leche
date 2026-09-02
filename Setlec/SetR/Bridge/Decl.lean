@@ -2483,7 +2483,7 @@ theorem iotaRuleR_of {env' envSelf : Env} (m : EnvR envSelf)
   have hcvC' : ciC.toConstantVal = cvj := hcvC
   refine ⟨cvj, cnP0, cnF, rhsA0, hfc, hnf, hrb, hrnf,
     hann0, hrlp, hrres, (by rw [hstripEq]; rfl), hRden,
-    fire0, rfl, ?_⟩
+    ⟨rhsTy, hity⟩, fire0, rfl, ?_⟩
   by_cases hplain :
       Expr.recRulePlain cvA.type mI rP cnP0 = true
   · refine Or.inl ⟨hplain, hplainIff.mpr hplain, ?_⟩

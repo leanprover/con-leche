@@ -54,7 +54,7 @@ theorem iotaRuleS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     RecRuleLawV V envSelf mS.cval φ cvA.name cvA mI rP r' := by
   unfold RecRuleLawV
   obtain ⟨cvjK, cnPK, cnFK, rhsA, hfcK, hnfK, hrb, hrf, hann, hrlp,
-    hrres, hstripRhs, hkey, fire, hr'eq, hbranch⟩ := hkit
+    hrres, hstripRhs, hkey, -, fire, hr'eq, hbranch⟩ := hkit
   -- the rule's stored shape
   have hr'rhs : RecRule.rhs r' = rhsA := by rw [hr'eq]
   have hr'ctor : RecRule.ctor r' = RecRule.ctor r := by rw [hr'eq]

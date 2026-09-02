@@ -675,6 +675,10 @@ def IotaRuleR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
     (∀ φ : Name → Nat, ∃ Rv t,
       denoteClosed cval envSelf φ rhsA = some Rv ∧
       Infer μ envSelf cval φ [] Rv t) ∧
+    -- ... and its recorded run (the H1 exposure; `ProjFnR`'s own row
+    -- transcribed one definition up — the P tier grades `Ra` through
+    -- the claims)
+    (∃ t', inferTypeCore μ envSelf F 0 rhsA = .ok t') ∧
     ∃ fire,
       r' = { r with rhs := rhsA, ctorParams := cnP, fire := fire } ∧
       ((Expr.recRulePlain tyA mI rP cnP = true ∧ fire = .plain ∧

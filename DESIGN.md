@@ -17678,3 +17678,55 @@ sorries.  New files: `Setlec/SetR/Interp2/IndAnnotKitP.lean`,
    Prop-motive case on the `eqRecLawP` anchor), the projection
    `rec_rules` half, `indStepPB_of`, `hind` off `FoldP`, census → `hμ`
    ALONE, and THE ASSEMBLY.
+
+## Task #161 SUCCESSION RECORD update (part 5 merged + the FOURTH
+widening applied, 2026-09-02; coordinator-granted and -ratified)
+
+Lane `agent/annot-v2`: part 5 merged at `d05a3fc3` (items 1–2 of the
+bill: `zipperP` on both branches, the three spending stages, eleven
+new Interp2 files), then the **fourth application of fix shape 0
+applied by the lead's hand** — full battery green before AND after
+(build 448 warning-free, test exit 0, arena counters at expectation,
+zero sorries).
+
+THE WIDENING (the third exposure's row):
+
+* `IotaRuleR` (`SetR/Decl.lean`): `(∃ t', inferTypeCore μ envSelf F 0
+  rhsA = .ok t')` as a parallel conjunct after the ∀φ `Infer`
+  derivation — `ProjFnR`'s own row transcribed one definition up;
+* producer (`Bridge/Decl.lean`, `iotaRuleR_of`): discharged by
+  `⟨rhsTy, hity⟩` VERBATIM — the pack was in hand, converted once,
+  dropped;
+* consumers: `IotaRuleS.lean` gains a dash; `IndRecsS.lean` was a
+  RECONSTRUCTION site, not a discard site — it re-packs `IotaRuleR`
+  to feed `iotaRuleS`, so the row is *carried through* (`hityK`),
+  the first consumer in four applications that keeps the row rather
+  than dashing it.  The build enumerated it exactly.
+
+Part 5's audit claim ("this is the last row owed") SURVIVES the
+widening's build: every consumer site compiled with the row supplied
+or carried.  The claim's final test is part 6 itself.
+
+RISK FLAG standing (coordinator-endorsed disposition): part 6 opens
+with the mechanization probe on `RecRuleLawP`'s ∃-form nested-pin
+conjunct (unconditional-in-ρ grading of open readings) BEFORE any
+establishment effort; a real countermodel is a statement-layer
+defect of the lead's ratified conjunct → stop-and-name + repair
+proposal for coordinator ratification (iota-seal precedent).
+
+Ledger addition (coordinator-directed): the within-batch
+self-refutation — part 5's worker refuted its own addendum-I design
+(`Δc`) inside the same batch, the honesty law running inside a
+single batch; extends the claims family.  Brief-template note: fresh
+worktrees lack gitignored `_tmp/` (preprocessor missing → inductive
+declines); cite the agent-branch protocol in briefs so they inherit
+the symlink step.
+
+AFTER THIS SEAL: PART 6 dispatched — the probe, the `.nested`
+graded-pins establishment, the `RecRuleLawP` recursor rows with the
+`eqRecLawP` Prop-motive case (stop-and-name standing), the
+projection `rec_rules` half, `indStepPB_of`, `hind` off `FoldP`,
+THE ASSEMBLY at the frozen letter — committed ALONE, axiom audit in
+the commit message, capstone record, finalized frontier table.
+Census at this seal: `hμ` + `IndStepPB`.  The goal is at the end of
+part 6.

@@ -407,7 +407,7 @@ theorem iotaRulesS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     · -- the head rule
       rw [heqrl]
       obtain ⟨cvjK, cnPK, cnFK, rhsA, hfcK, hnfK, hrb, hrf, hann, hrlp,
-        hrres, hstripRhs, hkey, fire, hr'eq, hbranch⟩ := hkit
+        hrres, hstripRhs, hkey, hityK, fire, hr'eq, hbranch⟩ := hkit
       have hr'rhs : RecRule.rhs r' = rhsA := by rw [hr'eq]
       have hr'ctor : RecRule.ctor r' = RecRule.ctor r := by rw [hr'eq]
       have hr'fire : RecRule.fire r' = fire := by rw [hr'eq]
@@ -441,7 +441,7 @@ theorem iotaRulesS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
         intro hfire φ
         exact iotaRuleS mS hf hro hIS hup hbnA hself heqfind
           ⟨cvjK, cnPK, cnFK, rhsA, hfcK, hnfK, hrb, hrf, hann, hrlp,
-            hrres, hstripRhs, hkey, fire, hr'eq, hbranch⟩ hfire φ
+            hrres, hstripRhs, hkey, hityK, fire, hr'eq, hbranch⟩ hfire φ
     · exact ih (j + 1) rest' hrec rl hrl'
 
 /-! ## The two folds, in step -/
