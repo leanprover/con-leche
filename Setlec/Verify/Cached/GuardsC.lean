@@ -1861,4 +1861,52 @@ theorem ofStore_spec_denote {st : EStore} (hwf : st.WF) {s : OfStoreS}
       OfStoreS.Inv st (ofStore st s e).2 :=
   ofStore_spec hwf.toTWF hs (by rw [hwf.denoteT_eq]; exact hx)
 
+/-! ### The zero-ness readout's memo (task #163, batch 9)
+
+The binder-telescope loops read `CStore.zeronessOfLIGo` through
+`withStore`, threading a `PWMemo` across the `inferPisOutI` fold.  The
+port of `PWMemoInv`/`zeronessOfLIGo_spec` (`Setlec/Verify/IExpr.lean`):
+the keys are structural `Level`s here, so the invariant loses both the
+range clause and the denotation quantifier — an entry simply *is* the
+readout of its key — and there is no `mono` (nothing is
+state-indexed). -/
+
+/-- Memo invariant of the cached `zeronessOfLIGo`: every entry is the
+readout of its key. -/
+def PWMemoInvC (memo : CStore.PWMemo) : Prop :=
+  ∀ (u : Level) (pw : PropWhen), memo[u]? = some pw → pw = Level.zeronessOf u
+
+theorem PWMemoInvC.empty : PWMemoInvC {} := by
+  intro u pw hpw
+  simp at hpw
+
+theorem PWMemoInvC.insert {memo : CStore.PWMemo} {u : Level}
+    (h : PWMemoInvC memo) :
+    PWMemoInvC (memo.insert u (Level.zeronessOf u)) := by
+  intro u' pw' hpw'
+  rw [Std.HashMap.getElem?_insert] at hpw'
+  by_cases hk : u = u'
+  · subst hk
+    rw [if_pos (by simp)] at hpw'
+    cases hpw'
+    rfl
+  · rw [if_neg (by simpa using hk)] at hpw'
+    exact h u' pw' hpw'
+
+/-- The cached zero-ness readout agrees with the tree readout and
+maintains its memo invariant (the transposition of
+`zeronessOfLIGo_spec`; no store, no denotation). -/
+theorem zeronessOfLIGoC_spec {st : CStore} (v : Level)
+    {memo : CStore.PWMemo} {p : PropWhen} {memo' : CStore.PWMemo}
+    (hminv : PWMemoInvC memo)
+    (hgo : st.zeronessOfLIGo memo v = (p, memo')) :
+    PWMemoInvC memo' ∧ p = Level.zeronessOf v := by
+  unfold CStore.zeronessOfLIGo at hgo
+  split at hgo
+  · rename_i r hhit
+    cases hgo
+    exact ⟨hminv, hminv v _ hhit⟩
+  · cases hgo
+    exact ⟨hminv.insert, rfl⟩
+
 end Setlec.Cached
