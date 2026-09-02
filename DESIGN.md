@@ -13614,13 +13614,21 @@ absorbs it) but FATAL under `piR` (all five bits go to `0`,
 `pt = pt` — the model would stop *distinguishing* the eliminator from
 junk).  The graded model demands `u ↦ nonzero`, moving the forcing
 into the squash regime where `of_mem_truthVal` reads `Iff.intro`'s
-implication binders.  CLASS, for the publishable findings ledger:
-**the graded interpretation refuses degenerate instantiations the
-collapse interpretation silently absorbs** — the same species as the
+implication binders.  CLASS, for the publishable findings ledger — CORRECTED at endgame C
+(the worker's evidence-backed strengthening, ratified): the mechanism
+is NOT "degenerate instantiations the collapse absorbs" — no level
+assignment repairs it, because the breakage crosses constants:
+**collapse-lane arguments that cross two stored constants' binder
+data do not transpose, and must be re-derived so the crossing does
+not occur** (`matchesPin` forgives each constant's data separately,
+so two forgiven constants need not share a regime).  Endgame C's
+crossing-free re-derivation supplies the two P-native proof moves now
+in the frontier narrative: `pi_sort_bit_ne_zero` (validity cannot PIN
+a bit, but at a sort codomain it REFUTES zero — no universe is a
+truth value) and the `Classical.byContradiction` vacuization of the
+minor (`Iff.intro` never appears).  Same species family as the
 literal-tier's refuted erasure factoring and the proj tier's
 sought-and-failed rigidity shortcut, now observed at the pin tier.
-The route to the memberships is written in the ENDGAME B seal; its
-one residue closes on `univ_mono`.
 
 ## Task #161 ENDGAME C: the two standard axioms cross; the route as written did not (2026-09-02)
 
