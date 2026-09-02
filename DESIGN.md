@@ -15434,3 +15434,26 @@ AFTER H (successor's order): review + merge H per protocol; then
 Standing: all statements frozen; PropWhen through named laws only;
 annotations never steer; conditional forms are never done; zero
 sorries at every seal.
+
+## Task #161 THE CENSUS MOVES: one bundle wide (2026-09-02, H merged)
+
+**`no_proof_of_Empty_P_of` = `hμ` + `IndStepPB`.**  The first census
+movement since endgame D, and the largest of the campaign: the basis
+bundle closed whole (all six branches, `basisStepPB_of`, `hbas` off
+the fold).  Everything between the input hypotheses and the goal is
+now ONE bundle: the inductive tier.
+
+**Ledger — the carrier+acval strengthening** (H's structural finding):
+the Eq block could not be chained by the landed install API (no `Eq`
+constant is `pinnedDirectT`; `acval_erase` fixes leaves only up to
+numerals), so `declStepPM_of_cons` and the four basis variants now
+conclude with the carrier AND ITS `acval` — a strict strengthening,
+dropped by `nonempty_of_exists` at the fourteen sites that never
+needed it (the four value-kind harvests' assemble steps, the axiom
+wrapper, and the nine basis-branch driver exits — H's seal lists
+them).  The inductive tier's twin gap (its blocks also chain
+non-pinned leaves) is thereby ALREADY CLOSED.
+
+**Ledger — the confirming round**: five inherited claims re-checked
+at H, all five HELD.  The practice validates in both directions —
+refute or confirm, one `#eval` either way.
