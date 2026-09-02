@@ -1,6 +1,8 @@
 import Setlec.Verify.Cached.Erase
 import Setlec.Verify.Cached.GuardsC
 import Setlec.Verify.Cached.OpsC
+import Setlec.Verify.Cached.SimC
+import Setlec.Verify.Cached.SimCEff
 
 /-!
 # The cached checker variant's verification (task #163)
