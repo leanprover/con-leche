@@ -65,13 +65,50 @@ fact per pin rather than one per binder — `imax x y = 0 ↔ y = 0`, so
 every binder of a chain carries the innermost codomain's bit — but it
 is one genuine symbolic-inference lemma per pinned family.
 
-**STOP-AND-NAME**: `propext`, `Classical.choice`, `ofReduceNat` and
-`ofReduceBool` are blocked on exactly that lemma, and on nothing else
-— their `interp2` memberships need no set-theoretic content beyond
-`Interp2/Ops.lean`'s `piR` laws (`pt_mem_piR_zero`,
-`not_pt_mem_piR_pos`, `app_mem_piR`) and `Interp2/Value.lean`'s
-`choiceV2_app`/`exists_mem_of_dneg2`, all of which exist.  Nothing in
-`SetTheory/` is implicated.
+That lemma is `AxiomBitsP`'s, and the two standard axioms' memberships
+are `AxiomMemP`'s, so `axiomStdP` below closes the branch that record
+named.  Read the ENDGAME C seal for what the memberships actually cost:
+the *companions'* bits are not reachable by any bit lemma, and two of
+the three obstructions that follow from that were removed
+(`pi_sort_bit_ne_zero`, the vacuous minor) rather than assumed.
+
+## THE SECOND WALL: `ofReduce*` needs a `ReduceOpsP` field
+
+`ofReduceNat`/`ofReduceBool` are **not** blocked on their bits.  Their
+bits are the easy half: the pin's innermost body is
+`Eq.{1} E (op a) b`, an `Eq`-spine over the *nose-pinned* `Eq`
+(`ofReduceAxOk`'s own first conjunct), so `inferTypeCore_eqSpineS`
+applies verbatim and `propext_bitsP`'s three moves transpose
+unchanged — all three binders carry bit `0`.  (The ENDGAME B seal
+predicted "their move 2 goes through the stored `Nat`/`Bool` families";
+it does not — the codomain is the `Eq`, and `Nat`/`Bool` appear only as
+the spine's *type* argument, which `inferTypeCore_eqSpineS` never
+looks at.)
+
+The block is the **membership**, and it is an invariant gap.  With all
+three bits `0` the reading's products are truth values, the witness is
+forced to `pt`, and the innermost obligation is
+
+> for every `a`, `b` in the element type, `eqv (op a) b` inhabited must
+> force `eqv a b` inhabited — that is, `op a = a`.
+
+That is exactly `EnvS.reduce_ops` (`ReduceOpsV`, `EnvS.lean:138`): *the
+trusted operation is the identity on its element type*.  The field
+exists, at the **v1 currency** — `interp`, `cval` — and `EnvS2PM` has
+no mirror.  Nor can one be derived: the transfer would be an erasure
+factoring of `interp2` through `interp`, refuted at exactly the λ-nodes
+the operation's leaf is made of (the literal-tier seal II finding 1,
+the same refutation that makes `eq_lawP` a field rather than a
+theorem).
+
+**STOP-AND-NAME**: `ofReduceNat`/`ofReduceBool` are blocked on a
+`ReduceOpsP` field of `EnvS2PM` — `ReduceOpsV`'s mirror at `interp2`
+and `acval` — established wherever `reduce_ops` is, and on nothing
+else.  This is the same species as ENDGAME B's `rec_rules` wall and as
+`eq_lawP`/`caps_ok`'s own existence: an environment law whose only
+supplier is the install that fixes the leaf.  Recorded rather than
+assumed; a premise for it would be a conditional form, and
+`axiomStepPB_of` is therefore **not stated**.
 
 ## What lands here
 
@@ -87,10 +124,15 @@ is one genuine symbolic-inference lemma per pinned family.
   `EnvS2PM.mem_typeP` at that constant, both readings being the same
   `acval trueName ψ`.
 
-That is also why this branch is worth landing first: it exercises the
-whole `harvestAxiomP` bill end to end — extension, agreement, the four
-syntactic leaf facts and the membership — so the three blocked
-branches inherit tested scaffolding and owe only their bits.
+That is also why this branch was landed first: it exercises the whole
+`harvestAxiomP` bill end to end — extension, agreement, the four
+syntactic leaf facts and the membership — so the remaining branches
+inherit tested scaffolding;
+* **the two standard axioms** — `axiomStdP`, both halves, on
+  `AxiomBitsP`'s bits and `AxiomMemP`'s memberships.
+
+Three of `DeclAxiomR`'s four branches, then.  The fourth is the second
+WALL above.
 -/
 
 namespace Setlec.SetR.Interp2
