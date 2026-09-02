@@ -16653,3 +16653,16 @@ projection `rec_rules`, `indStepPB_of` and THE ASSEMBLY.
 Standing: all statements frozen; PropWhen through named laws only;
 annotations never steer; conditional forms are never done; zero
 sorries at every seal.
+
+## Task #161 frontier narrative: the symmetry (2026-09-02; coordinator-ratified)
+
+The campaign's FIRST move and its LAST wall are the same move.
+Commit one widened `DeclDefnR` to record the runs `certifyNatEqs`
+held and discarded (`NatEqsRunR`); the final tier's wall is
+`IotaThmR`/`IotaThmNR`/`ProjFnR` carrying v1 derivation packs where
+the P tier consumes recorded runs, resolved by the same parallel
+conjunct (`IotaRunsR`, ruled and ratified).  Derivations replaced by
+the checker's own recorded runs, at the first tier and at the last —
+as clean a statement of the design's thesis as the record will
+produce: **the checker's own computation, recorded, is the model's
+whole establishment interface.**
