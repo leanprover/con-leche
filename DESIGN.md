@@ -16937,7 +16937,7 @@ shared-statement decision and is the lead's.**
 
 ### IND TIER part 4 battery (verbatim, at `c8c8eab9`)
 
-`lake build` **436 jobs, warning-free**; `lake test` exit 0.
+`lake build` **437 jobs, warning-free**; `lake test` exit 0.
 `tests/arena.sh` (exit 0):
 
 ```
