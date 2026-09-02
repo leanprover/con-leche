@@ -21261,3 +21261,22 @@ cached-clone branch, ~23h CPU) KILLED 2026-09-02
 legs taken while it ran must be re-run (instruction counts stand);
 P1's tables are instructions-only and stand; P2's wall legs are
 post-kill.
+
+## Task #161 ROUND D REFRAMED (2026-09-02; user-directed):
+totalized-functions probe BEFORE any datum design
+
+The "unsound-to-model" verdict on the pw-gate is about the CURRENT
+encoding (app off-domain = ∅, β needs membership).  ROUND D PART 1 =
+the model-side feasibility probe: totalized functions — lam
+interpreted over a level-bounded carrier (the level's universe-set),
+app total on the carrier, β UNCONDITIONAL — the masked check's
+soundness obligation would evaporate (full 20–36% prize, no
+BinderMeta change, no pass change).  Probe deliverables: (a) the
+encoding sketch incl. where the carrier bound comes from; (b) the
+law-battery re-check (hold verbatim / hold with membership dropped /
+BREAK — extensionality consumers enumerated); (c) universe placement
+(carrier-sized rank vs U_ℓ; cross-level application); (d) swap
+modularity behind the named-law API.  Probe-first: β-unconditional
+and one extensionality consumer MECHANIZED, not asserted.  Output =
+the two-route comparison (totalized model vs nonemptiness datum) for
+the user-facing ruling.  A+B+C and P2 continue in parallel.
