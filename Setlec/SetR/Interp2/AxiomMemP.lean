@@ -549,3 +549,383 @@ theorem propext_memP (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   rw [(mp.eq_lawP hEq _).1 (cons w (cons B (cons A ρ)))
     (univ 0) A B (by rw [heqψ]; exact univ_mem_univ 0) hA hB]
   exact hAB ▸ pt_mem_eqv_self A
+
+/-! ## The stored `Nonempty` family
+
+`Classical.choice`'s companions.  The regime clash that forced
+`propext`'s restructuring **does not arise here**: `Nonempty.rec`'s
+minor binds a plain element of `α`, not a function, so there is no
+second `piR` whose bit would have to agree with `Nonempty.intro`'s.
+The one bit still out of reach — the motive space's — is again removed
+by `pi_sort_bit_ne_zero`, this time at the codomain `Prop`, where the
+refuted consequent is `univZero ∈ˢ univZero`. -/
+
+/-- The stored `Nonempty` former's shape. -/
+theorem nonempty_shapeS {ty : Expr}
+    (h : ty.erasePw.eraseNames
+      = nonemptyA.toConstantVal.type.erasePw.eraseNames) :
+    ∃ n₁ m₁, ty = .forallE n₁ (.sort (.param uN)) (.sort .zero) m₁ := by
+  simp only [nonemptyA, ConstantInfo.toConstantVal, Expr.erasePw,
+    Expr.eraseNames] at h
+  obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain rfl := erasePwNames_sort_invS ht₁
+  obtain rfl := erasePwNames_sort_invS hb₁
+  exact ⟨n₁, m₁, rfl⟩
+
+/-- The stored `Nonempty.intro`'s shape. -/
+theorem nonemptyIntro_shapeS {ty : Expr}
+    (h : ty.erasePw.eraseNames
+      = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames) :
+    ∃ n₁ n₂ m₁ m₂, ty = .forallE n₁ (.sort (.param uN))
+      (.forallE n₂ (.bvar 0)
+        (.app (.const nonemptyName [.param uN]) (.bvar 1)) m₂) m₁ := by
+  simp only [nonemptyIntroA, ConstantInfo.toConstantVal, Expr.erasePw,
+    Expr.eraseNames] at h
+  obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain rfl := erasePwNames_sort_invS ht₁
+  obtain ⟨n₂, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain rfl := erasePwNames_bvar_invS ht₂
+  obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hb₂
+  obtain rfl := erasePwNames_const_invS hf
+  obtain rfl := erasePwNames_bvar_invS ha
+  exact ⟨n₁, n₂, m₁, m₂, rfl⟩
+
+/-- The stored `Nonempty.rec`'s shape. -/
+theorem nonemptyRec_shapeS {ty : Expr}
+    (h : ty.erasePw.eraseNames
+      = nonemptyRecA.toConstantVal.type.erasePw.eraseNames) :
+    ∃ nα nmo nt nin nv nma m₁ m₂ m₃ m₄ mt mv,
+      ty = .forallE nα (.sort (.param uN))
+        (.forallE nmo
+          (.forallE nt
+            (.app (.const nonemptyName [.param uN]) (.bvar 0))
+            (.sort .zero) mt)
+          (.forallE nin
+            (.forallE nv (.bvar 1)
+              (.app (.bvar 1)
+                (.app (.app (.const nonemptyIntroName [.param uN])
+                  (.bvar 2)) (.bvar 0))) mv)
+            (.forallE nma
+              (.app (.const nonemptyName [.param uN]) (.bvar 2))
+              (.app (.bvar 2) (.bvar 0)) m₄) m₃) m₂) m₁ := by
+  simp only [nonemptyRecA, ConstantInfo.toConstantVal, Expr.erasePw,
+    Expr.eraseNames] at h
+  obtain ⟨nα, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain rfl := erasePwNames_sort_invS ht₁
+  obtain ⟨nmo, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  -- the motive's type
+  obtain ⟨nt, tt, bt, mt, rfl, htt, hbt⟩ := erasePwNames_forallE_invS ht₂
+  obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS htt
+  obtain rfl := erasePwNames_const_invS hf
+  obtain rfl := erasePwNames_bvar_invS ha
+  obtain rfl := erasePwNames_sort_invS hbt
+  -- the minor
+  obtain ⟨nin, t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
+  obtain ⟨nv, tv, bv, mv, rfl, htv, hbv⟩ := erasePwNames_forallE_invS ht₃
+  obtain rfl := erasePwNames_bvar_invS htv
+  obtain ⟨g, c, rfl, hg, hc⟩ := erasePwNames_app_invS hbv
+  obtain rfl := erasePwNames_bvar_invS hg
+  obtain ⟨g₁, c₁, rfl, hg₁, hc₁⟩ := erasePwNames_app_invS hc
+  obtain ⟨g₂, c₂, rfl, hg₂, hc₂⟩ := erasePwNames_app_invS hg₁
+  obtain rfl := erasePwNames_const_invS hg₂
+  obtain rfl := erasePwNames_bvar_invS hc₂
+  obtain rfl := erasePwNames_bvar_invS hc₁
+  -- the major
+  obtain ⟨nma, tm, bm, m₄, rfl, htm, hbm⟩ := erasePwNames_forallE_invS hb₃
+  obtain ⟨p, q, rfl, hp, hq⟩ := erasePwNames_app_invS htm
+  obtain rfl := erasePwNames_const_invS hp
+  obtain rfl := erasePwNames_bvar_invS hq
+  obtain ⟨r, s, rfl, hr, hs⟩ := erasePwNames_app_invS hbm
+  obtain rfl := erasePwNames_bvar_invS hr
+  obtain rfl := erasePwNames_bvar_invS hs
+  exact ⟨nα, nmo, nt, nin, nv, nma, m₁, m₂, m₃, m₄, mt, mv, rfl⟩
+
+/-- A member of the `Nonempty` family, referenced at its own level
+parameter, reads to its leaf at the plain assignment. -/
+theorem denoteP_selfParam_constS {acval : Name → (Name → Nat) → AVExpr}
+    {ψ : Name → Nat} {d : Nat} {n : Name} {ci : ConstantInfo}
+    (hf : env.find? n = some ci)
+    (hlp : ci.toConstantVal.levelParams = [uN]) :
+    denoteP acval env ψ d (.const n [.param uN]) = some (acval n ψ) := by
+  have h : denoteP acval env ψ d (.const n [.param uN])
+      = some (acval n (Level.substFn ψ
+          ci.toConstantVal.levelParams [Level.param uN])) :=
+    denoteP_const hf (by rw [hlp]; rfl)
+  rwa [hlp, show Level.substFn ψ [uN] [Level.param uN] = ψ from
+    funext fun _ => Level.substFn_map_param] at h
+
+/-- The interpreted `Nonempty A` is a truth value. -/
+theorem nonemptyVal_app_memP (mp : EnvS2PM V μ env)
+    {cvN : ConstantVal} {capsN : Setlec.IndCaps}
+    (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
+    (htyN : cvN.type.erasePw.eraseNames
+      = nonemptyA.toConstantVal.type.erasePw.eraseNames)
+    (ψ : Name → Nat) (ρ : Nat → V) {A : V} (hA : A ∈ˢ univ (ψ uN)) :
+    SetTheory.app (interp2 V ρ (mp.base2.acval nonemptyName ψ)) A
+      ∈ˢ (univ 0 : V) := by
+  obtain ⟨n₁, m₁, hsh⟩ := nonempty_shapeS htyN
+  have hden : denoteP mp.base2.acval env ψ 0
+      (ConstantInfo.indInfo cvN capsN).toConstantVal.type
+      = some (.pi 0 (pwBit ψ m₁.pw) (.sort (ψ uN)) (.sort 0)) := by
+    show denoteP mp.base2.acval env ψ 0 cvN.type = _
+    rw [hsh]
+    simp [denoteP_forallE, denoteP_sort, Expr.instantiate1, Level.eval]
+  have hmem := mp.mem_typeP _ (Env.find?_mem hfN) ψ _ hden ρ
+  have hval := (mp.type_okP _ (Env.find?_mem hfN) ψ _ hden ρ).2
+  rw [Env.find?_name hfN] at hmem
+  have h1 := app_mem_pi_validV hmem (by rw [interp2_sort]; exact hA) hval
+  rwa [interp2_sort] at h1
+
+/-- The interpreted `Nonempty.intro A a` inhabits `Nonempty A`. -/
+theorem nonemptyIntroVal_app₂_memP (mp : EnvS2PM V μ env)
+    {cvN : ConstantVal} {capsN : Setlec.IndCaps} {cvNi : ConstantVal}
+    (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
+    (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
+    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
+    (htyNi : cvNi.type.erasePw.eraseNames
+      = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames)
+    (ψ : Name → Nat) (ρ : Nat → V) {A a : V} (hA : A ∈ˢ univ (ψ uN))
+    (ha : a ∈ˢ A) :
+    SetTheory.app (SetTheory.app
+        (interp2 V ρ (mp.base2.acval nonemptyIntroName ψ)) A) a
+      ∈ˢ SetTheory.app (interp2 V ρ (mp.base2.acval nonemptyName ψ)) A := by
+  obtain ⟨n₁, n₂, m₁, m₂, hsh⟩ := nonemptyIntro_shapeS htyNi
+  have hN : ∀ e, denoteP mp.base2.acval env ψ e
+      (.const nonemptyName [.param uN])
+      = some (mp.base2.acval nonemptyName ψ) :=
+    fun e => denoteP_selfParam_constS hfN (by
+      show cvN.levelParams = [uN]; rw [hlpN]; rfl)
+  have hden : denoteP mp.base2.acval env ψ 0
+      (ConstantInfo.ctorInfo cvNi 1 1).toConstantVal.type
+      = some (.pi 0 (pwBit ψ m₁.pw) (.sort (ψ uN))
+          (.pi 0 (pwBit ψ m₂.pw) (.bvar 0)
+            (.app (mp.base2.acval nonemptyName ψ) (.bvar 1)))) := by
+    show denoteP mp.base2.acval env ψ 0 cvNi.type = _
+    rw [hsh]
+    simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
+      Expr.instantiate1, hN, Level.eval]
+  have hmem := mp.mem_typeP _ (Env.find?_mem hfNi) ψ _ hden ρ
+  have hval := (mp.type_okP _ (Env.find?_mem hfNi) ψ _ hden ρ).2
+  rw [Env.find?_name hfNi] at hmem
+  have hNc : ∀ ρ' : Nat → V,
+      interp2 V ρ' (mp.base2.acval nonemptyName ψ)
+        = interp2 V ρ (mp.base2.acval nonemptyName ψ) :=
+    fun ρ' => acval_interp2_closedC mp.base2 _ ψ ρ' ρ
+  have hAd : A ∈ˢ interp2 V ρ (AVExpr.sort (ψ uN)) := by
+    rw [interp2_sort]; exact hA
+  have h1 := app_mem_pi_validV hmem hAd hval
+  have hvald := hval
+  rw [AnnotValidV_pi] at hvald
+  have hval1 := hvald.2.1 A hAd
+  have had : a ∈ˢ interp2 V (cons A ρ) (AVExpr.bvar 0) := ha
+  have h2 := app_mem_pi_validV h1 had hval1
+  simpa only [interp2_app, interp2_bvar, cons_zero, cons_succ, hNc]
+    using h2
+
+/-- **A witness of the interpreted `Nonempty A` forces `A`
+inhabited.**  The constantly-`∅` motive, as in v1 — and here the minor
+really *is* vacuous by the ambient contradiction hypothesis rather than
+by restructuring, because `Nonempty.rec`'s minor binds a plain element
+of `α`.  The motive space's regime is `pi_sort_bit_ne_zero`'s, at the
+codomain `Prop`. -/
+theorem nonemptyVal_forcesP (mp : EnvS2PM V μ env)
+    {cvN : ConstantVal} {capsN : Setlec.IndCaps}
+    {cvNi cvNr : ConstantVal} {mI rP : Nat}
+    {rulesN : List Setlec.RecRule}
+    (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
+    (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
+    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
+    (hlpNi : cvNi.levelParams
+      = nonemptyIntroA.toConstantVal.levelParams)
+    (hfNr : env.find? nonemptyRecName
+      = some (.recInfo cvNr mI rP rulesN))
+    (htyNr : cvNr.type.erasePw.eraseNames
+      = nonemptyRecA.toConstantVal.type.erasePw.eraseNames)
+    (ψ : Name → Nat) (ρ : Nat → V) {A h : V} (hA : A ∈ˢ univ (ψ uN))
+    (hh : h ∈ˢ SetTheory.app
+      (interp2 V ρ (mp.base2.acval nonemptyName ψ)) A) :
+    ∃ x, x ∈ˢ A := by
+  refine Classical.byContradiction fun hno => ?_
+  obtain ⟨nα, nmo, nt, nin, nv, nma, m₁, m₂, m₃, m₄, mt, mv, hsh⟩ :=
+    nonemptyRec_shapeS htyNr
+  have hN : ∀ e, denoteP mp.base2.acval env ψ e
+      (.const nonemptyName [.param uN])
+      = some (mp.base2.acval nonemptyName ψ) :=
+    fun e => denoteP_selfParam_constS hfN (by
+      show cvN.levelParams = [uN]; rw [hlpN]; rfl)
+  have hNi : ∀ e, denoteP mp.base2.acval env ψ e
+      (.const nonemptyIntroName [.param uN])
+      = some (mp.base2.acval nonemptyIntroName ψ) :=
+    fun e => denoteP_selfParam_constS hfNi (by
+      show cvNi.levelParams = [uN]; rw [hlpNi]; rfl)
+  have hden : denoteP mp.base2.acval env ψ 0
+      (ConstantInfo.recInfo cvNr mI rP rulesN).toConstantVal.type
+      = some (.pi 0 (pwBit ψ m₁.pw) (.sort (ψ uN))
+        (.pi 0 (pwBit ψ m₂.pw)
+          (.pi 0 (pwBit ψ mt.pw)
+            (.app (mp.base2.acval nonemptyName ψ) (.bvar 0)) (.sort 0))
+          (.pi 0 (pwBit ψ m₃.pw)
+            (.pi 0 (pwBit ψ mv.pw) (.bvar 1)
+              (.app (.bvar 1)
+                (.app (.app (mp.base2.acval nonemptyIntroName ψ)
+                  (.bvar 2)) (.bvar 0))))
+            (.pi 0 (pwBit ψ m₄.pw)
+              (.app (mp.base2.acval nonemptyName ψ) (.bvar 2))
+              (.app (.bvar 2) (.bvar 0)))))) := by
+    show denoteP mp.base2.acval env ψ 0 cvNr.type = _
+    rw [hsh]
+    simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
+      Expr.instantiate1, hN, hNi, Level.eval]
+  have hmem := mp.mem_typeP _ (Env.find?_mem hfNr) ψ _ hden ρ
+  have hval := (mp.type_okP _ (Env.find?_mem hfNr) ψ _ hden ρ).2
+  rw [Env.find?_name hfNr] at hmem
+  have hNc : ∀ ρ' : Nat → V,
+      interp2 V ρ' (mp.base2.acval nonemptyName ψ)
+        = interp2 V ρ (mp.base2.acval nonemptyName ψ) :=
+    fun ρ' => acval_interp2_closedC mp.base2 _ ψ ρ' ρ
+  -- ARG 1: the type
+  have hAd : A ∈ˢ interp2 V ρ (AVExpr.sort (ψ uN)) := by
+    rw [interp2_sort]; exact hA
+  have h1 := app_mem_pi_validV hmem hAd hval
+  have hvald := hval
+  rw [AnnotValidV_pi] at hvald
+  have hval1 := hvald.2.1 A hAd
+  -- ARG 2: the constantly-`∅` motive
+  have hval1d := hval1
+  rw [AnnotValidV_pi] at hval1d
+  have hhd : h ∈ˢ interp2 V (cons A ρ)
+      (.app (mp.base2.acval nonemptyName ψ) (.bvar 0)) := by
+    simp only [interp2_app, interp2_bvar, cons_zero, hNc]; exact hh
+  have hdt : pwBit ψ mt.pw ≠ 0 := pi_sort_bit_ne_zero hval1d.1 hhd
+  obtain ⟨M, hME⟩ : ∃ M : V, M = lamR (pwBit ψ mt.pw)
+      (SetTheory.app (interp2 V ρ (mp.base2.acval nonemptyName ψ)) A)
+      (fun _ => (empty : V)) := ⟨_, rfl⟩
+  have hMd : M ∈ˢ interp2 V (cons A ρ)
+      (.pi 0 (pwBit ψ mt.pw)
+        (.app (mp.base2.acval nonemptyName ψ) (.bvar 0)) (.sort 0)) := by
+    rw [hME, interp2_pi]
+    simp only [interp2_app, interp2_bvar, cons_zero, cons_succ,
+      interp2_sort, hNc]
+    exact lamR_mem fun _ _ => empty_mem_univ 0
+  have h2 := app_mem_pi_validV h1 hMd hval1
+  have hval2 := hval1d.2.1 M hMd
+  -- ARG 3: the minor, vacuous over an empty `A`
+  have hval2d := hval2
+  rw [AnnotValidV_pi] at hval2d
+  obtain ⟨Min, hMinE⟩ : ∃ Min : V,
+      Min = lamR (pwBit ψ mv.pw) A (fun _ => (empty : V)) := ⟨_, rfl⟩
+  have hMind : Min ∈ˢ interp2 V (cons M (cons A ρ))
+      (.pi 0 (pwBit ψ mv.pw) (.bvar 1)
+        (.app (.bvar 1)
+          (.app (.app (mp.base2.acval nonemptyIntroName ψ)
+            (.bvar 2)) (.bvar 0)))) := by
+    rw [hMinE]
+    simp only [interp2_pi, interp2_bvar, cons_zero, cons_succ]
+    exact lamR_mem fun v hv => absurd ⟨v, hv⟩ hno
+  have h3 := app_mem_pi_validV h2 hMind hval2
+  have hval3 := hval2d.2.1 Min hMind
+  -- ARG 4: the major, and the motive's β
+  have hhd' : h ∈ˢ interp2 V (cons Min (cons M (cons A ρ)))
+      (.app (mp.base2.acval nonemptyName ψ) (.bvar 2)) := by
+    simp only [interp2_app, interp2_bvar, cons_zero, cons_succ, hNc]
+    exact hh
+  have h4 := app_mem_pi_validV h3 hhd' hval3
+  simp only [interp2_app, interp2_bvar, cons_zero, cons_succ] at h4
+  rw [hME, app_lamR_pos hdt hh] at h4
+  exact not_mem_empty _ h4
+
+/-- **The two domains agree.**  The layer's `¬¬A` and the checker's
+stored `Nonempty A` are propositions with the same inhabitation, hence
+the same set. -/
+theorem dneg_eq_nonemptyP (mp : EnvS2PM V μ env)
+    {cvN : ConstantVal} {capsN : Setlec.IndCaps}
+    {cvNi cvNr : ConstantVal} {mI rP : Nat}
+    {rulesN : List Setlec.RecRule}
+    (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
+    (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
+    (htyN : cvN.type.erasePw.eraseNames
+      = nonemptyA.toConstantVal.type.erasePw.eraseNames)
+    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
+    (hlpNi : cvNi.levelParams
+      = nonemptyIntroA.toConstantVal.levelParams)
+    (htyNi : cvNi.type.erasePw.eraseNames
+      = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames)
+    (hfNr : env.find? nonemptyRecName
+      = some (.recInfo cvNr mI rP rulesN))
+    (htyNr : cvNr.type.erasePw.eraseNames
+      = nonemptyRecA.toConstantVal.type.erasePw.eraseNames)
+    (ψ : Name → Nat) (ρ : Nat → V) {A : V} (hA : A ∈ˢ univ (ψ uN)) :
+    dnegSpace2 V A
+      = SetTheory.app (interp2 V ρ (mp.base2.acval nonemptyName ψ)) A := by
+  have hNE := nonemptyVal_app_memP mp hfN htyN ψ ρ hA
+  have hdn : dnegSpace2 V A ∈ˢ (univ 0 : V) := by
+    rw [univ_zero, dnegSpace2]; exact piR_zero_mem_univZero
+  refine prop_ext hdn hNE (fun hpt => ?_) (fun hpt => ?_)
+  · obtain ⟨x, hx⟩ := exists_mem_of_dneg2 V hpt
+    have hi := nonemptyIntroVal_app₂_memP mp hfN hlpN hfNi htyNi ψ ρ hA hx
+    rwa [mem_univ_zero hNE hi] at hi
+  · obtain ⟨x, hx⟩ := nonemptyVal_forcesP mp hfN hlpN hfNi hlpNi hfNr
+      htyNr ψ ρ hA hpt
+    rw [dnegSpace2]
+    exact pt_mem_piR_zero fun g hg =>
+      absurd (app_mem_piR hg hx (fun _ _ _ =>
+        univ_zero (V := V) ▸ empty_mem_univ 0)) (not_mem_empty _)
+
+/-- **`Classical.choice` inhabits its stored type's reading.**  The
+leaf is the layer's own `choice` constant, and `choice_bitsP` makes
+both binders of the stored type carry the pin's own datum — so the
+witness's two `lamR`s and the reading's two `piR`s agree on zero-ness
+and `lamR_mem_zero_agree` crosses each.  `dneg_eq_nonemptyP` identifies
+the witness's double-negation domain with the checker's stored
+`Nonempty`. -/
+theorem choice_memP (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+    {cvA : ConstantVal} (hok : Setlec.stdAxiomOk env cvA = true)
+    (hn : cvA.name = choiceName) {F d : Nat} {stype : Expr}
+    (hrun : Setlec.inferTypeCore μ env F d cvA.type = .ok stype)
+    (ψ : Name → Nat) (ta : AVExpr)
+    (hta : denoteP mp.base2.acval env ψ 0 cvA.type = some ta)
+    (ρ : Nat → V) :
+    interp2 V ρ (.const .choice [ψ uN]) ∈ˢ interp2 V ρ ta := by
+  obtain ⟨⟨cvN, capsN, hfN, hlpN, htyN⟩, ⟨cvNi, hfNi, hlpNi, htyNi⟩,
+    ⟨cvNr, mI, rP, rulesN, hfNr, hlpNr, htyNr⟩, hApin⟩ :=
+    nonempty_shapes hok hn
+  have hApinT : cvA.type.erasePw.eraseNames
+      = choiceA.type.erasePw.eraseNames := by
+    simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+      beq_iff_eq] at hApin
+    exact hApin.2
+  obtain ⟨n₁, n₂, m₁, m₂, hsh⟩ := choice_shapeS hApinT
+  rw [hsh] at hrun hta
+  obtain ⟨hb₁, hb₂⟩ := choice_bitsP hμ hrun ψ
+  have hN : ∀ e, denoteP mp.base2.acval env ψ e
+      (.const nonemptyName [.param uN])
+      = some (mp.base2.acval nonemptyName ψ) :=
+    fun e => denoteP_selfParam_constS hfN (by
+      show cvN.levelParams = [uN]; rw [hlpN]; rfl)
+  have hden : denoteP mp.base2.acval env ψ 0
+      (.forallE n₁ (.sort (.param uN))
+        (.forallE n₂
+          (.app (.const nonemptyName [.param uN]) (.bvar 0))
+          (.bvar 1) m₂) m₁)
+      = some (.pi 0 (pwBit ψ m₁.pw) (.sort (ψ uN))
+          (.pi 0 (pwBit ψ m₂.pw)
+            (.app (mp.base2.acval nonemptyName ψ) (.bvar 0))
+            (.bvar 1))) := by
+    simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
+      Expr.instantiate1, hN, Level.eval]
+  obtain rfl : ta = _ := Option.some.inj (hta.symm.trans hden)
+  have hNc : ∀ ρ' : Nat → V,
+      interp2 V ρ' (mp.base2.acval nonemptyName ψ)
+        = interp2 V ρ (mp.base2.acval nonemptyName ψ) :=
+    fun ρ' => acval_interp2_closedC mp.base2 _ ψ ρ' ρ
+  show choiceV2 V (ψ uN) ∈ˢ _
+  simp only [interp2_pi, interp2_sort, interp2_app, interp2_bvar,
+    cons_zero, cons_succ, hNc]
+  rw [choiceV2]
+  refine lamR_mem_zero_agree hb₁.symm fun A hA => ?_
+  rw [dneg_eq_nonemptyP mp hfN hlpN htyN hfNi hlpNi htyNi hfNr htyNr
+    ψ ρ hA]
+  refine lamR_mem_zero_agree hb₂.symm fun hx hhx => ?_
+  obtain ⟨x, hxA⟩ := nonemptyVal_forcesP mp hfN hlpN hfNi hlpNi hfNr
+    htyNr ψ ρ hA hhx
+  exact schoice_mem hxA
