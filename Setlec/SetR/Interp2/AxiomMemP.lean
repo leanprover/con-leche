@@ -33,15 +33,43 @@ value (`univ_not_mem_univZero`, one line from `mem_univZero` +
 `pt_not_mem_univZero`).  The domain's inhabitant is free at both
 recursors — it is the very witness being eliminated.
 
-That is the whole of the difference, and it makes the memberships
-**bit-agnostic in the companions**: every elimination of a stored
-family goes through `app_mem_piR` with its side condition read off
-`type_okP` (the seal's dissolved case-split, confirmed), and the one
-place a *computation* is needed — the motive's β — is licensed by
-`pi_sort_bit_ne_zero` rather than by a known bit.  `Iff.rec` is still
-instantiated at `ψ uN ≠ 0`, but now only because `eqv A B` must inhabit
-`univ (ψ uN)`; the graph regime comes from the sort codomain, at every
-assignment.
+That makes the memberships **bit-agnostic in the companions**: every
+elimination of a stored family goes through `app_mem_piR` with its side
+condition read off `type_okP` (the seal's dissolved case-split,
+confirmed), and the one place a *computation* is needed — the motive's
+β — is licensed by `pi_sort_bit_ne_zero` rather than by a known bit.
+
+## The second unpredicted step: the minor cannot be built positively
+
+Removing the motive's bit is not enough.  v1's `iff_forces_eqS` builds
+the recursor's minor premise *positively*: it applies the stored
+`Iff.intro` to the arguments the recursor's own minor binder supplies.
+Those two domains are binder data of **two different stored
+constants** — `Iff.intro`'s implication binders and `Iff.rec`'s — and
+`matchesPin` forgives both, so `piR e A (fun _ => B)` and
+`piR d A (fun _ => B)` are not the same set unless `e` and `d` agree
+in zero-ness, which nothing in the tree says.  A graph is not the
+canonical proof; off a graph's domain the motive applies to `∅`; the
+minor's fibre is then empty and the premise is *unsatisfiable*.  This
+is not a gap in the proof, it is a gap in the invariant — the same
+species as ENDGAME B's `rec_rules` wall.
+
+It is routed around rather than closed, and the route is cheap:
+`Classical.byContradiction` on `A = B` makes the minor's **binders**
+vacuous.  The moment an implication and its converse are both in hand,
+`eq_of_impls` gives `A = B` and contradicts the assumption — so the
+minor is a `lamR`-tower over an unreachable body, and the stored
+`Iff.intro` never appears in the argument at all.  Two consequences
+worth recording:
+
+* the level assignment stops being a choice.  The ENDGAME B seal
+  requires `ψ uN ≠ 0` (all bits `1`) and pays a `univ_mono` residue for
+  `eqv A B ∈ˢ univ (ψ uN)`.  Here the recursor is read at `ψ0 = fun _
+  => 0`, `eqv_mem_univ` closes the fibre outright, and **`univ_mono` is
+  not used**.  The graph regime comes from the sort codomain at *every*
+  assignment;
+* `Iff.intro`'s membership — v1's `iffIntroVal_app₄_memS` — has no
+  P-tier counterpart and needs none.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -99,4 +127,345 @@ theorem app_mem_pi_validV {ρ : Nat → V} {u v : Nat} {Aa Ba : AVExpr}
   rw [AnnotValidV_pi] at hv
   exact app_mem_piR hf ha hv.2.2
 
-end Setlec.SetR.Interp2
+/-! ## The stored `Iff` family's shapes
+
+Every domain and body of the three pins is binder-free, so the double
+erasure fixes the whole telescope and leaves exactly the binder names
+and the binder metas free — the same mechanical inversion
+`AxiomBitsP`'s `propext_shapeS` runs, at three longer shapes. -/
+
+/-- The stored `Iff` former's shape. -/
+theorem iff_shapeS {ty : Expr}
+    (h : ty.erasePw.eraseNames
+      = iffA.toConstantVal.type.erasePw.eraseNames) :
+    ∃ n₁ n₂ m₁ m₂, ty = .forallE n₁ (.sort .zero)
+      (.forallE n₂ (.sort .zero) (.sort .zero) m₂) m₁ := by
+  simp only [iffA, ConstantInfo.toConstantVal, Expr.erasePw,
+    Expr.eraseNames] at h
+  obtain ⟨n₁, ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain rfl := erasePwNames_sort_invS hty₁
+  obtain ⟨n₂, ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain rfl := erasePwNames_sort_invS hty₂
+  obtain rfl := erasePwNames_sort_invS hb₂
+  exact ⟨n₁, n₂, m₁, m₂, rfl⟩
+
+/-- The stored `Iff.intro`'s shape. -/
+theorem iffIntro_shapeS {ty : Expr}
+    (h : ty.erasePw.eraseNames
+      = iffIntroA.toConstantVal.type.erasePw.eraseNames) :
+    ∃ n₁ n₂ n₃ n₄ n₅ n₆ m₁ m₂ m₃ m₄ m₅ m₆,
+      ty = .forallE n₁ (.sort .zero)
+        (.forallE n₂ (.sort .zero)
+          (.forallE n₃ (.forallE n₄ (.bvar 1) (.bvar 1) m₄)
+            (.forallE n₅ (.forallE n₆ (.bvar 1) (.bvar 3) m₆)
+              (.app (.app (.const iffName []) (.bvar 3)) (.bvar 2))
+              m₅) m₃) m₂) m₁ := by
+  simp only [iffIntroA, ConstantInfo.toConstantVal, Expr.erasePw,
+    Expr.eraseNames] at h
+  obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain rfl := erasePwNames_sort_invS ht₁
+  obtain ⟨n₂, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain rfl := erasePwNames_sort_invS ht₂
+  obtain ⟨n₃, t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
+  obtain ⟨n₄, t₄, b₄, m₄, rfl, ht₄, hb₄⟩ := erasePwNames_forallE_invS ht₃
+  obtain rfl := erasePwNames_bvar_invS ht₄
+  obtain rfl := erasePwNames_bvar_invS hb₄
+  obtain ⟨n₅, t₅, b₅, m₅, rfl, ht₅, hb₅⟩ := erasePwNames_forallE_invS hb₃
+  obtain ⟨n₆, t₆, b₆, m₆, rfl, ht₆, hb₆⟩ := erasePwNames_forallE_invS ht₅
+  obtain rfl := erasePwNames_bvar_invS ht₆
+  obtain rfl := erasePwNames_bvar_invS hb₆
+  obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hb₅
+  obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
+  obtain rfl := erasePwNames_const_invS hf'
+  obtain rfl := erasePwNames_bvar_invS ha'
+  obtain rfl := erasePwNames_bvar_invS ha
+  exact ⟨n₁, n₂, n₃, n₄, n₅, n₆, m₁, m₂, m₃, m₄, m₅, m₆, rfl⟩
+
+/-- The stored `Iff.rec`'s shape.  Five telescope binders and four
+nested ones; the motive's codomain `Sort u` is what
+`pi_sort_bit_ne_zero` later fires on. -/
+theorem iffRec_shapeS {ty : Expr}
+    (h : ty.erasePw.eraseNames
+      = iffRecA.toConstantVal.type.erasePw.eraseNames) :
+    ∃ na nb nmo nt nin nmp nr nmpr nan nma
+      m₁ m₂ m₃ m₄ m₅ mt mmp mr mmpr ma,
+      ty = .forallE na (.sort .zero)
+        (.forallE nb (.sort .zero)
+          (.forallE nmo
+            (.forallE nt
+              (.app (.app (.const iffName []) (.bvar 1)) (.bvar 0))
+              (.sort (.param uN)) mt)
+            (.forallE nin
+              (.forallE nmp (.forallE nr (.bvar 2) (.bvar 2) mr)
+                (.forallE nmpr (.forallE nan (.bvar 2) (.bvar 4) ma)
+                  (.app (.bvar 2)
+                    (.app (.app (.app (.app (.const iffIntroName [])
+                      (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0)))
+                  mmpr) mmp)
+              (.forallE nma
+                (.app (.app (.const iffName []) (.bvar 3)) (.bvar 2))
+                (.app (.bvar 2) (.bvar 0)) m₅) m₄) m₃) m₂) m₁ := by
+  simp only [iffRecA, ConstantInfo.toConstantVal, Expr.erasePw,
+    Expr.eraseNames] at h
+  obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain rfl := erasePwNames_sort_invS ht₁
+  obtain ⟨n₂, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain rfl := erasePwNames_sort_invS ht₂
+  obtain ⟨n₃, t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
+  -- the motive's type
+  obtain ⟨nt, tt, bt, mt, rfl, htt, hbt⟩ := erasePwNames_forallE_invS ht₃
+  obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS htt
+  obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
+  obtain rfl := erasePwNames_const_invS hf'
+  obtain rfl := erasePwNames_bvar_invS ha'
+  obtain rfl := erasePwNames_bvar_invS ha
+  obtain rfl := erasePwNames_sort_invS hbt
+  -- the minor
+  obtain ⟨n₄, t₄, b₄, m₄, rfl, ht₄, hb₄⟩ := erasePwNames_forallE_invS hb₃
+  obtain ⟨n₅, t₅, b₅, m₅, rfl, ht₅, hb₅⟩ := erasePwNames_forallE_invS ht₄
+  obtain ⟨nr, tr, br, mr, rfl, htr, hbr⟩ := erasePwNames_forallE_invS ht₅
+  obtain rfl := erasePwNames_bvar_invS htr
+  obtain rfl := erasePwNames_bvar_invS hbr
+  obtain ⟨na, ta, ba, ma, rfl, hta, hba⟩ := erasePwNames_forallE_invS hb₅
+  obtain ⟨nt', tt', bt', mt', rfl, htt', hbt'⟩ :=
+    erasePwNames_forallE_invS hta
+  obtain rfl := erasePwNames_bvar_invS htt'
+  obtain rfl := erasePwNames_bvar_invS hbt'
+  obtain ⟨g, c, rfl, hg, hc⟩ := erasePwNames_app_invS hba
+  obtain rfl := erasePwNames_bvar_invS hg
+  obtain ⟨g₁, c₁, rfl, hg₁, hc₁⟩ := erasePwNames_app_invS hc
+  obtain ⟨g₂, c₂, rfl, hg₂, hc₂⟩ := erasePwNames_app_invS hg₁
+  obtain ⟨g₃, c₃, rfl, hg₃, hc₃⟩ := erasePwNames_app_invS hg₂
+  obtain ⟨g₄, c₄, rfl, hg₄, hc₄⟩ := erasePwNames_app_invS hg₃
+  obtain rfl := erasePwNames_const_invS hg₄
+  obtain rfl := erasePwNames_bvar_invS hc₄
+  obtain rfl := erasePwNames_bvar_invS hc₃
+  obtain rfl := erasePwNames_bvar_invS hc₂
+  obtain rfl := erasePwNames_bvar_invS hc₁
+  -- the major
+  obtain ⟨nt'', tt'', bt'', mt'', rfl, htt'', hbt''⟩ :=
+    erasePwNames_forallE_invS hb₄
+  obtain ⟨p, q, rfl, hp, hq⟩ := erasePwNames_app_invS htt''
+  obtain ⟨p', q', rfl, hp', hq'⟩ := erasePwNames_app_invS hp
+  obtain rfl := erasePwNames_const_invS hp'
+  obtain rfl := erasePwNames_bvar_invS hq'
+  obtain rfl := erasePwNames_bvar_invS hq
+  obtain ⟨r, s, rfl, hr, hs⟩ := erasePwNames_app_invS hbt''
+  obtain rfl := erasePwNames_bvar_invS hr
+  obtain rfl := erasePwNames_bvar_invS hs
+  exact ⟨n₁, n₂, n₃, nt, n₄, n₅, nr, na, nt', nt'',
+    m₁, m₂, m₃, m₄, mt'', mt, m₅, mr, ma, mt', rfl⟩
+
+/-! ## The stored `Iff` family's `interp2` memberships
+
+Each is `mem_typeP` at the stored constant, its reading computed off
+the shape, and `app_mem_pi_validV` once per argument — the side
+conditions read off `type_okP`, never off a bit. -/
+
+/-- The stored `Iff`, applied to two propositions, is a proposition. -/
+theorem iffVal_app₂_memP (mp : EnvS2PM V μ env)
+    {cvI : ConstantVal} {caps : Setlec.IndCaps}
+    (hfI : env.find? iffName = some (.indInfo cvI caps))
+    (htyI : cvI.type.erasePw.eraseNames
+      = iffA.toConstantVal.type.erasePw.eraseNames)
+    (ψ : Name → Nat) (ρ : Nat → V) {A B : V}
+    (hA : A ∈ˢ (univ 0 : V)) (hB : B ∈ˢ (univ 0 : V)) :
+    SetTheory.app (SetTheory.app
+        (interp2 V ρ (mp.base2.acval iffName ψ)) A) B
+      ∈ˢ (univ 0 : V) := by
+  obtain ⟨n₁, n₂, m₁, m₂, hsh⟩ := iff_shapeS htyI
+  have hden : denoteP mp.base2.acval env ψ 0
+      (ConstantInfo.indInfo cvI caps).toConstantVal.type
+      = some (.pi 0 (pwBit ψ m₁.pw) (.sort 0)
+          (.pi 0 (pwBit ψ m₂.pw) (.sort 0) (.sort 0))) := by
+    show denoteP mp.base2.acval env ψ 0 cvI.type = _
+    rw [hsh]
+    simp [denoteP_forallE, denoteP_sort, Expr.instantiate1, Level.eval]
+  have hmem := mp.mem_typeP _ (Env.find?_mem hfI) ψ _ hden ρ
+  have hval := (mp.type_okP _ (Env.find?_mem hfI) ψ _ hden ρ).2
+  rw [Env.find?_name hfI] at hmem
+  have h1 := app_mem_pi_validV hmem (by rw [interp2_sort]; exact hA) hval
+  rw [AnnotValidV_pi] at hval
+  have hval2 := hval.2.1 A (by rw [interp2_sort]; exact hA)
+  have h2 := app_mem_pi_validV h1 (by rw [interp2_sort]; exact hB) hval2
+  rw [interp2_sort] at h2
+  exact h2
+
+/-- **Two mutually inverse implications identify their propositions.**
+The regime bits play no part: `app_mem_piR`'s side condition at a
+`Prop` codomain is `B ∈ˢ univZero`, which is the hypothesis itself. -/
+theorem eq_of_impls {A B f g : V} (hA : A ∈ˢ (univ 0 : V))
+    (hB : B ∈ˢ (univ 0 : V)) {d e : Nat}
+    (hf : f ∈ˢ piR d A fun _ => B) (hg : g ∈ˢ piR e B fun _ => A) :
+    A = B := by
+  refine prop_ext hA hB (fun hptA => ?_) (fun hptB => ?_)
+  · have h1 := app_mem_piR hf hptA
+      (fun _ _ _ => univ_zero (V := V) ▸ hB)
+    rwa [mem_univ_zero hB h1] at h1
+  · have h1 := app_mem_piR hg hptB
+      (fun _ _ _ => univ_zero (V := V) ▸ hA)
+    rwa [mem_univ_zero hA h1] at h1
+
+/-- **Interpreted `Iff` forces equality of truth values, at the graded
+currency.**
+
+Not a transcription of `iff_forces_eqS`, and the difference is the
+finding this file records.  v1 builds the minor *positively*: it
+applies the stored `Iff.intro` to the recursor's own minor arguments.
+At `interp2` that step does not exist — `Iff.intro`'s implication
+binders and `Iff.rec`'s implication binders are binder data of **two
+different stored constants**, agreeing only up to `erasePw`, so
+`piR e A (fun _ => B)` and `piR d A (fun _ => B)` need not be the same
+set, and a graph in one regime is not the canonical proof in the
+other.  Nothing in the tree relates two stored constants' binder data.
+
+The argument is restructured instead: `Classical.byContradiction` on
+`A = B` makes the minor's *binders* vacuous — the moment both an
+implication and its converse are in hand, `eq_of_impls` closes, so the
+minor is `lamR`-of-`lamR` over an unreachable body and the stored
+`Iff.intro` never appears at all.  The only computation needed is the
+motive's β, licensed by `pi_sort_bit_ne_zero`.  The level assignment
+is then free: this instantiates at `ψ0 uN = 0`, where `eqv A B ∈ˢ
+univ 0` is `eqv_mem_univ` outright and the ENDGAME B seal's `univ_mono`
+residue does not arise. -/
+theorem iff_forces_eqP (mp : EnvS2PM V μ env)
+    {cvI : ConstantVal} {caps : Setlec.IndCaps} {cvIi cvIr : ConstantVal}
+    {mI rP : Nat} {rules : List Setlec.RecRule}
+    (hfI : env.find? iffName = some (.indInfo cvI caps))
+    (hlpI : cvI.levelParams = [])
+    (hfIi : env.find? iffIntroName = some (.ctorInfo cvIi 2 2))
+    (hlpIi : cvIi.levelParams = [])
+    (hfIr : env.find? iffRecName = some (.recInfo cvIr mI rP rules))
+    (htyIr : cvIr.type.erasePw.eraseNames
+      = iffRecA.toConstantVal.type.erasePw.eraseNames)
+    (ψ : Name → Nat) (ρ : Nat → V) {A B w : V}
+    (hA : A ∈ˢ (univ 0 : V)) (hB : B ∈ˢ (univ 0 : V))
+    (hw : w ∈ˢ SetTheory.app (SetTheory.app
+      (interp2 V ρ (mp.base2.acval iffName ψ)) A) B) :
+    A = B := by
+  refine Classical.byContradiction fun hne => ?_
+  obtain ⟨na, nb, nmo, nt, nin, nmp, nr, nmpr, nan, nma,
+    m₁, m₂, m₃, m₄, m₅, mt, mmp, mr, mmpr, ma, hsh⟩ := iffRec_shapeS htyIr
+  -- the parameterless family members do not read the assignment, so
+  -- the recursor may be read at **any** level assignment
+  have hIval : mp.base2.acval iffName (fun _ => 0)
+      = mp.base2.acval iffName ψ :=
+    mp.base2.acval_params _ _ hfI _ _ (by
+      rw [show (ConstantInfo.indInfo cvI caps).toConstantVal = cvI
+        from rfl, hlpI]
+      intro p hp; cases hp)
+  have hI : ∀ d, denoteP mp.base2.acval env (fun _ => 0) d
+      (.const iffName []) = some (mp.base2.acval iffName (fun _ => 0)) :=
+    fun d => denoteP_levelless_const hfI (by
+      rw [show (ConstantInfo.indInfo cvI caps).toConstantVal = cvI
+        from rfl, hlpI])
+  have hIi : ∀ d, denoteP mp.base2.acval env (fun _ => 0) d
+      (.const iffIntroName [])
+        = some (mp.base2.acval iffIntroName (fun _ => 0)) :=
+    fun d => denoteP_levelless_const hfIi (by
+      rw [show (ConstantInfo.ctorInfo cvIi 2 2).toConstantVal = cvIi
+        from rfl, hlpIi])
+  -- the recursor's stored type, read at the zero assignment
+  have hden : denoteP mp.base2.acval env (fun _ => 0) 0
+      (ConstantInfo.recInfo cvIr mI rP rules).toConstantVal.type
+      = some (.pi 0 (pwBit (fun _ => 0) m₁.pw) (.sort 0)
+        (.pi 0 (pwBit (fun _ => 0) m₂.pw) (.sort 0)
+          (.pi 0 (pwBit (fun _ => 0) m₃.pw)
+            (.pi 0 (pwBit (fun _ => 0) mt.pw)
+              (.app (.app (mp.base2.acval iffName (fun _ => 0))
+                (.bvar 1)) (.bvar 0)) (.sort 0))
+            (.pi 0 (pwBit (fun _ => 0) m₄.pw)
+              (.pi 0 (pwBit (fun _ => 0) mmp.pw)
+                (.pi 0 (pwBit (fun _ => 0) mr.pw) (.bvar 2) (.bvar 2))
+                (.pi 0 (pwBit (fun _ => 0) mmpr.pw)
+                  (.pi 0 (pwBit (fun _ => 0) ma.pw) (.bvar 2) (.bvar 4))
+                  (.app (.bvar 2)
+                    (.app (.app (.app (.app
+                      (mp.base2.acval iffIntroName (fun _ => 0))
+                      (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0)))))
+              (.pi 0 (pwBit (fun _ => 0) m₅.pw)
+                (.app (.app (mp.base2.acval iffName (fun _ => 0))
+                  (.bvar 3)) (.bvar 2))
+                (.app (.bvar 2) (.bvar 0))))))) := by
+    show denoteP mp.base2.acval env (fun _ => 0) 0 cvIr.type = _
+    rw [hsh]
+    simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
+      Expr.instantiate1, hI, hIi, Level.eval]
+  have hmem := mp.mem_typeP _ (Env.find?_mem hfIr) _ _ hden ρ
+  have hval := (mp.type_okP _ (Env.find?_mem hfIr) _ _ hden ρ).2
+  rw [Env.find?_name hfIr] at hmem
+  rw [hIval] at hmem hval
+  -- the family leaf's interpretation does not read the environment
+  have hIc : ∀ ρ' : Nat → V,
+      interp2 V ρ' (mp.base2.acval iffName ψ)
+        = interp2 V ρ (mp.base2.acval iffName ψ) :=
+    fun ρ' => acval_interp2_closedC mp.base2 _ ψ ρ' ρ
+  -- ARG 1 and 2: the two propositions
+  have hAd : A ∈ˢ interp2 V ρ (AVExpr.sort 0) := by
+    rw [interp2_sort]; exact hA
+  have h1 := app_mem_pi_validV hmem hAd hval
+  rw [AnnotValidV_pi] at hval
+  have hval1 := hval.2.1 A hAd
+  have hBd : B ∈ˢ interp2 V (cons A ρ) (AVExpr.sort 0) := by
+    rw [interp2_sort]; exact hB
+  have h2 := app_mem_pi_validV h1 hBd hval1
+  rw [AnnotValidV_pi] at hval1
+  have hval2 := hval1.2.1 B hBd
+  -- ARG 3: the constantly-`eqv A B` motive.  Its space is the graph
+  -- regime by `pi_sort_bit_ne_zero`, with the major premise `w` as the
+  -- domain's inhabitant — **no bit of the stored recursor is known**
+  have hval2d := hval2
+  rw [AnnotValidV_pi] at hval2d
+  have hwd : w ∈ˢ interp2 V (cons B (cons A ρ))
+      (.app (.app (mp.base2.acval iffName ψ) (.bvar 1)) (.bvar 0)) := by
+    simp only [interp2_app, interp2_bvar, cons_zero, cons_succ, hIc]
+    exact hw
+  have hc : pwBit (fun _ => 0) mt.pw ≠ 0 :=
+    pi_sort_bit_ne_zero hval2d.1 hwd
+  obtain ⟨M, hME⟩ : ∃ M : V, M = lamR (pwBit (fun _ => 0) mt.pw)
+      (SetTheory.app (SetTheory.app
+        (interp2 V ρ (mp.base2.acval iffName ψ)) A) B)
+      (fun _ => eqv A B) := ⟨_, rfl⟩
+  have hMd : M ∈ˢ interp2 V (cons B (cons A ρ))
+      (.pi 0 (pwBit (fun _ => 0) mt.pw)
+        (.app (.app (mp.base2.acval iffName ψ) (.bvar 1)) (.bvar 0))
+        (.sort 0)) := by
+    rw [hME, interp2_pi]
+    simp only [interp2_app, interp2_bvar, cons_zero, cons_succ,
+      interp2_sort, hIc]
+    exact lamR_mem fun _ _ => eqv_mem_univ A B
+  have h3 := app_mem_pi_validV h2 hMd hval2
+  have hval3 := hval2d.2.1 M hMd
+  -- ARG 4: the minor.  **Vacuous**: an implication and its converse in
+  -- hand contradict `hne`, so the stored `Iff.intro` never appears
+  have hval3d := hval3
+  rw [AnnotValidV_pi] at hval3d
+  obtain ⟨Min, hMinE⟩ : ∃ Min : V, Min = lamR (pwBit (fun _ => 0) mmp.pw)
+      (piR (pwBit (fun _ => 0) mr.pw) A fun _ => B)
+      (fun _ => lamR (pwBit (fun _ => 0) mmpr.pw)
+        (piR (pwBit (fun _ => 0) ma.pw) B fun _ => A) fun _ => pt) :=
+    ⟨_, rfl⟩
+  have hMind : Min ∈ˢ interp2 V (cons M (cons B (cons A ρ)))
+      (.pi 0 (pwBit (fun _ => 0) mmp.pw)
+        (.pi 0 (pwBit (fun _ => 0) mr.pw) (.bvar 2) (.bvar 2))
+        (.pi 0 (pwBit (fun _ => 0) mmpr.pw)
+          (.pi 0 (pwBit (fun _ => 0) ma.pw) (.bvar 2) (.bvar 4))
+          (.app (.bvar 2)
+            (.app (.app (.app (.app
+              (mp.base2.acval iffIntroName (fun _ => 0))
+              (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0))))) := by
+    rw [hMinE]
+    simp only [interp2_pi, interp2_bvar, cons_zero, cons_succ]
+    refine lamR_mem fun x hx => ?_
+    exact lamR_mem fun y hy => absurd (eq_of_impls hA hB hx hy) hne
+  have h4 := app_mem_pi_validV h3 hMind hval3
+  have hval4 := hval3d.2.1 Min hMind
+  -- ARG 5: the major, and the motive's β
+  have hwd' : w ∈ˢ interp2 V (cons Min (cons M (cons B (cons A ρ))))
+      (.app (.app (mp.base2.acval iffName ψ) (.bvar 3)) (.bvar 2)) := by
+    simp only [interp2_app, interp2_bvar, cons_zero, cons_succ, hIc]
+    exact hw
+  have h5 := app_mem_pi_validV h4 hwd' hval4
+  simp only [interp2_app, interp2_bvar, cons_zero, cons_succ] at h5
+  rw [hME, app_lamR_pos hc hw] at h5
+  exact hne (mem_eqv h5)
