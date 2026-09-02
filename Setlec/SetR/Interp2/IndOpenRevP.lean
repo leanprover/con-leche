@@ -213,7 +213,16 @@ Stated at an arbitrary opener spine `os` of length `rP` (v1 states it
 at the *statement* frame and bakes in the renaming); the producer
 spends it at the **public** frame `fvsP`, which is where the checker's
 `checkAnnotList`/`checkTypedList` certificates on `pinsP` live
-(`Kernel/Modeled.lean:282`). -/
+(`Kernel/Modeled.lean:282`).
+
+The fired spine is likewise arbitrary (task #161 part 8, kit
+generalization — the exposure is `indBottomNestedP`, the lemma's
+second caller): any `vals` of length `n ∈ [rP, rP + cnF]` whose prefix
+is `zs`, padded to the frame's width.  The producer spends it at
+`n = rP` (all padding), the nested bottom at `n = rP + cnF` (no
+padding, `vals` the fired statement spine).  `nestedChainP` was
+already generic in exactly this way; only `pinCrossP`'s own statement
+had baked the producer's instance in. -/
 theorem pinCrossP
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ)
@@ -231,11 +240,14 @@ theorem pinCrossP
     (hpb : p.looseBVarsBounded rP = true)
     {vpa : AVExpr}
     (hvpden : denoteP acval env φ rP (openRev 0 rP p) = some vpa)
-    {zs : List AVExpr} (hzslen : zs.length = rP) :
+    {zs : List AVExpr} (hzslen : zs.length = rP)
+    {vals : List AVExpr} {n : Nat} (hvalslen : vals.length = n)
+    (hrPn : rP ≤ n) (hn : n ≤ rP + cnF)
+    (hvalspre : vals.take rP = zs) :
     ∃ w0, denoteP acval env φ (rP + cnF)
         (Expr.instSpine os (rP - 1) p) = some w0 ∧
       Setlec.SetR.AVExpr.instSeq
-          (zs ++ List.replicate cnF q) (rP + cnF - 1) w0
+          (vals ++ List.replicate (rP + cnF - n) q) (rP + cnF - 1) w0
         = Setlec.SetR.AVExpr.instRevChain zs vpa := by
   -- the frame's prefix openers read to the canonical bvar spine
   have hbvslen : ((List.range rP).map
@@ -285,9 +297,9 @@ theorem pinCrossP
     · exact openRev_bounded rP 0 (by simpa using hpb)
   have hchain := nestedChainP (rP := rP) (cnF := cnF) (xs := zs) q
     (by rw [List.take_of_length_le (Nat.le_of_eq hzslen)]; exact hzslen)
-    zs rP vpa hzslen (by omega) (Nat.le_refl _) rfl hbv
-  rw [show rP + cnF - rP = cnF from by omega,
-    List.take_of_length_le (Nat.le_of_eq hzslen)] at hchain
+    vals n vpa hvalslen hn hrPn
+    (by rw [hvalspre, List.take_of_length_le (Nat.le_of_eq hzslen)]) hbv
+  rw [List.take_of_length_le (Nat.le_of_eq hzslen)] at hchain
   exact hchain
 
 end Setlec.SetR.Interp2

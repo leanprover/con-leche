@@ -253,7 +253,10 @@ theorem nestedPinGradeP {acval : Name → (Name → Nat) → AVExpr}
     AnnotOkP V ρ (Setlec.SetR.AVExpr.instRevChain zs vpa) := by
   obtain ⟨w0, hw0, hcross⟩ := pinCrossP (acval := acval) (cval := cval)
     (env := env) (φ := φ) (cnF := cnF) hacl hainst hlink hcl padA hoslen
-    hshape hwsOs hbOs hpw hpb hvpden hzslen
+    hshape hwsOs hbOs hpw hpb hvpden hzslen (vals := zs) (n := rP)
+    hzslen (Nat.le_refl _) (by omega)
+    (List.take_of_length_le (Nat.le_of_eq hzslen))
+  rw [show rP + cnF - rP = cnF from by omega] at hcross
   rw [← hcross]
   have hZlen : (zs ++ List.replicate cnF padA).length
       = rP + cnF := by
