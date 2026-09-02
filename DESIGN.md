@@ -14830,3 +14830,304 @@ raw-vs-annotated misread: **read the pin the CONSUMER conses, not the
 pin the file shows** — `BasisStepPB` conses `BasisKind.declsA`, and
 `declsA`'s rewritten `fire` fields, not the raw pins', are the ones
 every downstream row sees.
+
+## Task #161 ENDGAME G: three of the six basis blocks close, and the reading tier's level crossing is unconditional (2026-09-02)
+
+Briefed to close `BasisStepPB` on the ENDGAME F seal's re-itemized
+checklist.  **It is not closed**, and the census is unchanged — but
+the tier went from **one** discharged branch to **three**, the
+checklist's one remaining granted freedom is retired, the friction
+flagged at D and E is retired, and the general lemma that made the
+difference is landed and reusable by every remaining block.
+
+### 1. THE LEVER: `denoteP` crosses level instantiation, unconditionally
+
+Every remaining item on the basis bill is stated at an **instantiated**
+subject.  `RecRuleLawP` reads `rhs.instantiateLevelParams` and
+`cv.type.instantiateLevelParams`; `EnvS2PM.type_reads` reads the stored
+type.  Walking a substituted tree with the `denoteP_*` clause equations
+does not work: every `.sort` carries a `Level.subst`, every `.const` a
+`List.map (Level.subst …)`, every binder a `Level.substPW`, so neither
+the clause equations nor `acval_basis_pinned` see through any of it.
+`BasisEmptyP.lean` never met this because `Empty` binds no level
+parameter and `Empty.rec` has no rules — the recipe's smallest instance
+is also the one instance where the problem is invisible.
+
+`Interp2/LevelsP.lean`'s **`denoteP_instLevels`** is the crossing:
+
+> `denoteP acval env φ d (e.instantiateLevelParams ks us)`
+> `= denoteP acval env (Level.substFn φ ks us) d e`
+
+and for the reading tier it is **unconditional**.  v1 has it
+(`denote_instLevels`).  The denote2 tier has it only *conditionally*
+(`denote2_instLevels_of`, premised on the checker's two sort
+computations commuting with instantiation — an open metatheorem, and
+`Step2/Levels.lean`'s closing note is explicit that no witness exists
+either way).  `denoteP` runs no checker, so neither premise exists and
+the proof is v1's induction clause for clause.  This is the reading
+tier's whole point seen once more, and it is the reason the seal's
+"one reading lemma per constant" is now literally true: the *same*
+lemma serves `type_reads` (raw type) and the row's `TVa`
+(instantiated, at the substituted assignment).
+
+The binder step is `pwBit_substPW`, **whose own docstring already
+names this theorem as its consumer** — the lemma was built for it and
+then not built.  `AcvalParamsAt` restates `acval_params` without a
+carrier so the four literal-slot lemmas (`Step2/Levels.lean` states
+them at `EnvS2UM`, which the P tier cannot reach) are available here.
+
+### 2. The freedom the checklist granted is not one: THREE `pwBit` shapes
+
+F's resume-here item 1 reads "the two `pwBit` lemmas cover every
+binder".  Re-checked by one `#eval` over `BasisKind.declsA`'s stored
+`PropWhen`s, per the ledger, and **it is false**:
+
+| shape | where | `pwBit` |
+|---|---|---|
+| `.never` | everywhere | `1` |
+| `.ifAllZero [p]` | `Nat.rec`, `PUnit.rec`, `Empty.rec`, `Eq.rec`, `Quot.mk`, `Quot.lift` | `0 ↔ ψ p = 0` |
+| **`.ifAllZero []`** | `Eq.refl`, `PSigma'.rec`, `Quot.ind`, `Quot.sound`, `Quot.lift` | **`0`, unconditionally** |
+| **`.ifAllZero [u, v]`** | `PSigma'.mk` | **`0 ↔ ψ u = 0 ∧ ψ v = 0`** |
+
+`pwBit_ifAllZero_nil` and `pwBit_ifAllZero_pair` are one line each, so
+this is not a wall — but it is the **third** consecutive batch in
+which a recorded freedom did not survive its re-check (E retired a
+ratified licence, F a granted vacuity, G a granted coverage), and each
+retirement cost exactly one `#eval`.
+
+### 3. The blocks: `punitK` and `natK` close
+
+`Interp2/BasisBlocksP.lean` mirrors v1's single `Install/BasisS.lean`
+rather than splitting per block, because the leaf kit is shared.
+`declBasisPB_punitK` and `declBasisPB_natK` join F's
+`declBasisPB_emptyK`: **three of `BasisStepPB`'s six branches are
+discharged.**
+
+`PUnit.rec`'s is the tier's first `RecRuleLawP` row, and it confirms
+F's §3 from both sides: the rule fires `.plain`, so both `.nested`
+conjuncts are `nomatch`, and the live content is the fired equality
+plus the transport.  Its `Prop`-valued-motive branch — the case the
+succession bill flags as THE PROP-MOTIVE MINORS — **needed no new
+mathematics at the basis**: at `pwBit ψ (.ifAllZero [u_1]) = 0` the
+reading's `lamR 0` and `punitRecV2`'s own squash regime are both `pt`,
+and `mem_univ_zero` identifies the minor premise with it.  The same
+shape recurs at both `Nat.rec` rows.  That is evidence about the
+*basis*; the `Iff.rec` divergence-class warning for the inductive
+tier's minors still stands, and nothing here bears on it.
+
+`Nat` is the tier's hardest block and it moved two recorded items:
+
+* **`nat_heads` is bespoke at exactly one cons, not three.**  The
+  block's first three conses *are* the three names the literal guard
+  reads, so `natHeadsP_cons_offNat` is unavailable at every one of them
+  (hence `declStepPM_of_basis_cons_gen`, which leaves both varying
+  rows open).  But at `Nat` and `Nat.zero` the guard is still **false**
+  — `Nat.succ` is not stored yet, and the *next* cons's own freshness
+  premise says so — and the row is vacuous.  Only at `Nat.succ`, where
+  the guard becomes true, is there content, and it is `natzero_mem`
+  plus `natSuccV2_mem`;
+* the `succ` rule's right-hand side **mentions the recursor**, read
+  through the *fresh* leaf.  `natRecSpine_ok2` grades that occurrence
+  once, by four `bconst_app_data` steps at `Nat.rec`'s own `type2`
+  binders — which is why this batch added `bconst_app_data4`/`_data5`
+  beside F's `_data`/`_data2`/`_data3`.  Nothing is chosen at arity
+  four or five either; the numeral is still the pin's.
+
+### 4. STOP-AND-NAME retired: `Quot.lift`'s `v ≠ 0` is not a wall
+
+The D and E seals both flag `quotLiftR_app`/`quotLiftV2_app` as "the
+only two firing laws with a `v ≠ 0` side condition", with E adding that
+the `natRecV2_app` precedent does not transfer.  It does not have to.
+**At `v = 0` both sides are `pt`**: `quotLiftV2` is a `lamR v` tower
+and `quotLiftR` is itself a `lamR v`, so `lamR_zero` collapses each
+independently and they meet on the nose — no membership, no squash
+argument, no premise.  `quotLiftV2_app_zero` is two lines and
+`quotLiftV2_app_any` packages both branches, so the `quotK` row can be
+written with no case split at all.  The row is still owed; what is
+retired is the reason it was expected to be hard.
+
+### 5. Two mechanical notes that cost this batch time
+
+* **`TeleFitPA` peels `.pi` by `B.inst a`**, so a telescope domain
+  mentioning an *earlier* argument arrives lifted-then-instantiated
+  (`(M.liftN 2).inst z 1`).  `interp2_liftN_succ_inst` absorbs it;
+  `interp2_liftN2_inst1`/`_liftN3_inst2` are the two instances the
+  basis recursors need.  Every remaining recursor row will meet this;
+* **absorb before unfolding `cons`.**  With `cons` in the same
+  `simp` set the environment is rewritten to a match-lambda first, the
+  absorption pattern stops matching, and simp *silently does nothing*
+  — an unchanged goal with no error, which is the worst failure mode
+  there is.  Use `cons_zero`/`cons_succ`, or split the passes.
+
+### Census after ENDGAME G
+
+`no_proof_of_Empty_P_of`: **`hμ` + `BasisStepPB` + `IndStepPB`** —
+*unchanged*.  `basisStepPB_of` is **not stated**: three of its six
+branches are discharged (`emptyK`, `punitK`, `natK`) and three are not
+(`quotK`, `eqK`, `psigmaK`); a bundle carrying premises for the other
+three is a conditional form.
+
+### WALLS
+
+**None.**  No item on F's checklist was found unprovable, no field is
+missing, and no statement needed editing.  The three open blocks are
+open because the batch ran out of batch, not because anything in them
+resisted — and each is now cheaper than `natK` was, because
+`denoteP_instLevels`, `declStepPM_of_basis_rec_cons`/`_cons_gen`,
+`recRulesP_cons_rec`, `bconst_app_data4`/`_data5` and the two
+absorption lemmas are all landed and general.
+
+### Resume-here (the basis tier's bill, re-itemized after G)
+
+1. **`quotK`** — five readings, two `RecRuleLawP` rows (`Quot.lift`,
+   `Quot.ind`), and `reduce_ops` at `Quot.sound`, the basis blocks'
+   one stored axiom (the `hred` disjunct's second branch, unused so
+   far).  All five leaves are `pinnedDirectT`, so no hand-built tower
+   is needed anywhere in the block, and §4 removes the one flagged
+   friction.  `Quot.lift` applies its head **five** deep —
+   `bconst_app_data5` is landed for exactly that;
+2. **`eqK`** — three readings and one row.  Its leaves are *not*
+   pinned (`pinnedDirectT` has no `Eq` entry, the ENDGAME D finding),
+   so each reading's `Eq`/`Eq.refl` leaf comes from the install's own
+   leaf equation and `eqValT2_congr`.  The block's `eq_lawP` is
+   **already built** (`eqLawP_of_tower`, ENDGAME E) and its `Eq`/
+   `Eq.refl` tower laws with it; what is owed is `eqRecValT2`'s
+   membership and grading, the three readings, and `Eq.rec`'s row.
+   Note the pins: `Eq`'s three binders are `.never` (all bits nonzero,
+   E §1) and `Eq.refl`'s two are `.ifAllZero []` (both bits **zero**,
+   and this is where `pwBit_ifAllZero_nil` is first needed);
+3. **`psigmaK`** — five readings, one row, and the three hand-built
+   towers E's item 3 left (`psigmaRecValT2` and the pair's two
+   `pairProjValT2`s).  The pair's two projections are `.projInfo`, so
+   their `caps_ok` goes through `capsOkP_cons_fresh`, not the reserved
+   route (`basis_declsA_reserved` records the split), and
+   `PSigma'.mk`'s binder is the tier's only `.ifAllZero [u, v]`;
+4. then `basisStepPB_of` (six branches, `cases kind`, exactly
+   `declBasisS`'s dispatch shape) and the FoldP rewiring (`hbas` off
+   `declStepPM`/`foldPM`/`checkDecls_sound_P_of`/
+   `no_proof_of_Empty_P_of`);
+5. then **`IndStepPB`** — unchanged from the C, D, E and F seals'
+   bill, now with **four** inherited lessons: D's §3 (check `EnvS`'s
+   V-free fields before recording an invariant gap), E's §1 (before
+   treating a binder numeral as free, check whether the constant's
+   stored type pins it), F's §3 (before treating a stored row as
+   vacuous, evaluate the *annotated* pin), and **G's §2 (before
+   treating a stated coverage as complete, evaluate the pins it
+   claims to cover)**.  The `Iff.rec` divergence-class warning still
+   stands for its Prop-motive minors — G's §3 is evidence about the
+   basis only;
+6. then THE FINAL ASSEMBLY (`CapstoneP.lean`'s frozen statement).
+
+### ENDGAME G battery (verbatim, at `d85e01ed`)
+
+`lake build` **414 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to the ENDGAME A, B, C, D, E and F seals', and for the same
+reason: no `Setlec/Kernel/*` file was touched.
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `checkDecls_sound_P_of`, and on every new
+theorem — `denoteP_instLevels`, `AcvalParamsAt` and its four slot
+lemmas, `pwBit_ifAllZero_nil` (`[propext]` alone),
+`pwBit_ifAllZero_pair`, `declStepPM_of_basis_rec_cons`,
+`declStepPM_of_basis_cons_gen`, `recRuleLawP_cons_prefix`,
+`recRulesP_cons_rec`, `bconst_app_data4`, `bconst_app_data5`,
+`denoteP_pinned_const`, `interp2_liftN_succ_inst`, the `PUnit` and
+`Nat` blocks' readings/rows/installs, `declBasisPB_punitK`,
+`declBasisPB_natK`, `natRecSpine_ok2`, `quotLiftV2_app_zero` and
+`quotLiftV2_app_any`.  Zero sorries.
+
+New files: `Interp2/LevelsP.lean` (the crossing and its leaf kit),
+`Interp2/BasisBlocksP.lean` (the shared leaf kit, the absorption
+lemmas, and the `PUnit` and `Nat` blocks end to end).  Edited:
+`Interp2/BasisEmptyP.lean` (the two missing `pwBit` shapes),
+`Interp2/BasisStepP.lean` (the two cons variants),
+`Interp2/RecRulesPCons.lean` (`recRuleLawP_cons_prefix` factored out
+of `recRulesP_cons_fresh`, which is unchanged as a statement, plus
+`recRulesP_cons_rec`), `Interp2/BasisTypeOk.lean` (`bconst_app_data4`/
+`_data5`), `Interp2/Value.lean` (§4's two lemmas), `Setlec/SetR.lean`
+(two imports).  No file was deleted and **no sealed statement was
+edited**.
+
+## Task #161 SUCCESSION RECORD update (endgame G landed, 2026-09-02)
+
+Lane `agent/annot-v2` @ `18532366` at batch start.  ALL FOUR SEMANTIC
+TIERS CLOSED; the pin tier closed at D; capstone hypotheses: `hμ` +
+`BasisStepPB` + `IndStepPB` — **unchanged**.
+
+LANDED: endgame batch G on `agent/endgameG` (worktree
+`.claude/worktrees/endgameG`).  Briefed to close the basis bundle on
+F's re-itemized checklist; **did not close it**, but took the tier from
+one discharged branch to **three** (`emptyK` from F, plus `punitK` and
+`natK`), built the general lemma the remaining three now depend on,
+and retired both of the checklist's inherited claims.  Delivered:
+`Interp2/LevelsP.lean` (`denoteP_instLevels` + `AcvalParamsAt`),
+`Interp2/BasisBlocksP.lean` (the shared leaf kit, the two
+lift-then-instantiate absorptions, and the `PUnit` and `Nat` blocks end
+to end — five type readings, three `RecRuleLawP` rows, the bespoke
+`nat_heads`, `declBasisPB_punitK`, `declBasisPB_natK`),
+`declStepPM_of_basis_rec_cons`/`_cons_gen`, `recRuleLawP_cons_prefix`
++ `recRulesP_cons_rec`, `bconst_app_data4`/`_data5`,
+`pwBit_ifAllZero_nil`/`_pair`, `quotLiftV2_app_zero`/`_any`.  Battery
+green (build 414 warning-free, test exit 0, arena counters unchanged,
+axioms within the standard three, zero sorries).  **No walls.**
+
+THE HEADLINES, in order of what they save the successor:
+
+* **`denoteP` crosses level instantiation unconditionally**
+  (`denoteP_instLevels`).  Every remaining basis obligation is stated
+  at an instantiated subject, and without the crossing each one has to
+  be walked through `Level.subst`/`substPW`/`List.map` by hand.  v1 has
+  the law; the denote2 tier has it only conditionally (an open
+  metatheorem); the reading tier runs no checker, so it is free.  With
+  it, **one reading lemma per constant serves both `type_reads` and the
+  row's `TVa`** — which is what the recipe always claimed and could not
+  previously deliver.  `pwBit_substPW`'s docstring already named this
+  theorem as its consumer;
+* **the checklist's granted coverage is not one.**  "The two `pwBit`
+  lemmas cover every binder" is false: there are **three** shapes, and
+  the two missing ones (`.ifAllZero []` at five constants,
+  `.ifAllZero [u, v]` at `PSigma'.mk`) are needed by all three
+  remaining blocks.  Third consecutive batch in which a recorded
+  freedom did not survive one `#eval`;
+* **`Quot.lift`'s `v ≠ 0` side condition is not a wall.**  D and E both
+  flagged it; at `v = 0` both sides are `pt` by `lamR_zero` on each
+  independently.  Two lines.  The `quotK` row can now be written with
+  no case split;
+* **`nat_heads` is bespoke at one cons, not three**, and the
+  `Prop`-valued-motive branch of a basis firing law needed **no new
+  mathematics** — the reading's `lamR 0` and the value law's own squash
+  regime are the same point, `mem_univ_zero` closes it.  Evidence about
+  the basis only; the `Iff.rec` warning for the inductive tier stands.
+
+One mechanical trap that should not cost the next batch an hour:
+**absorb lift-then-instantiate before unfolding `cons`.**  With `cons`
+in the same `simp` set the environment becomes a match-lambda, the
+absorption pattern stops matching, and simp reports no error and
+changes nothing.
+
+AFTER G (successor's order): review + merge G per protocol; then the
+ENDGAME G resume-here items 1-3 (`quotK` → `eqK` → `psigmaK`, in that
+order: `quotK` needs no hand-built tower at all, `eqK` has its towers
+and `eq_lawP` already built by E, `psigmaK` owes three towers); then
+`basisStepPB_of` + the FoldP rewiring; then `IndStepPB`; then THE
+FINAL ASSEMBLY.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal.  The discipline ledger's dual entries have now
+held for three batches running in the freedom direction and five in
+the wall direction: **E retired a ratified licence, F a granted
+vacuity, G a granted coverage — and G additionally retired a recorded
+friction (`Quot.lift`) that two seals had inherited without checking.**
+Each retirement cost one `#eval` or two lines.
