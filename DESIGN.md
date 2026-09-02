@@ -14437,7 +14437,19 @@ that is a conditional form.
 ### ENDGAME E battery (verbatim, at `41148ed7`)
 
 `lake build` **411 jobs, warning-free**; `lake test` exit 0.
-`tests/arena.sh`: see the run recorded below.
+`tests/arena.sh`:
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to the ENDGAME A, B, C and D seals', and for the same reason:
+no `Setlec/Kernel/*` file was touched.
 
 Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
 `no_proof_of_Empty_P_of`, `checkDecls_sound_P_of`, and on every new
