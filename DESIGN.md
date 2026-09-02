@@ -18526,3 +18526,43 @@ part 8 on bill items 3–8, opening with `indBottomNestedP` and its new
 `.nested` parameter-supply stage.  The remaining transposition is
 measured in the seal above: 4041 S-lines, ≈ 8000 P-lines, three to
 four batches at this batch's rate.
+
+## Task #161 SUCCESSION RECORD update (part 7 merged, 2026-09-02;
+coordinator-granted)
+
+Lane `agent/annot-v2`: part 7 merged at `d125f163` (five new Interp2
+files, 2652 insertions).  Full battery green (build 454 warning-free,
+test exit 0, arena counters at expectation, zero sorries).
+
+THE HEADLINES:
+
+* **The repaired nested-pin conjunct IS ESTABLISHABLE** —
+  `nestedPinGradeP` from the checker's `checkTypedList` certificate;
+  the part-6 repair sound at BOTH ends; the refutation → repair →
+  producer arc closed in two batches;
+* **the plain bottom is closed** (`indBottomPlainP`) — the first
+  whole install step at P;
+* **the bill is MEASURED**: 4041 S-lines across seven install files
+  ≈ 8000 P-lines at the observed 2× expansion — three to four more
+  batches.  CADENCE CORRECTION (mutual, coordinator-matched): no
+  end-of-part-N goal claims from either side until `indStepPB_of`
+  exists.  The census moves when it moves;
+* `zipperP`'s `hpar` kit repair reviewed and approved (lower bound
+  `rP ≤ N`; kit lemmas are not frozen statements; single call site).
+
+### Discipline ledger entry (coordinator-directed): the producer-side
+premise lesson
+
+**A stage written before its first consumer carries over-general
+premises** — beside the premise-set lesson, same lesson from the
+producer side.  `zipperP`'s `hpar` was the instance; part 7 therefore
+DECLINED to start the `.nested` parameter stage without the nested
+bottom in hand, and part 8 writes the stage alongside its consumer.
+
+AFTER THIS SEAL: PART 8 — the nested bottom (`IndBottomNestedS`'s
+transpose, 785 S-lines, the largest single step) TOGETHER WITH its
+owed parameter stage, written alongside its consumer.  Parts 9–10 as
+billed: `IndBottomProjS` + the recursor rows (`eqRecLawP` Prop-motive
+case, stop-and-name standing), `ProjInstallS`/`DeclIndS`/`SwapS`,
+`indStepPB_of`, `hind` off `FoldP`, THE ASSEMBLY at the frozen
+letter.  Census: `hμ` + `IndStepPB`, never conditional.
