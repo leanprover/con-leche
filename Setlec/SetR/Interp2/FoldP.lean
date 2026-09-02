@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.HarvestP
+import Setlec.SetR.Interp2.AxiomReduceP
 import Setlec.SetR.Bridge.Sound
 
 /-!
@@ -24,10 +24,10 @@ The routed bundles, by tier:
   refutable at a support-completing install, and the monotone
   crossing + `natLitSupported_cons_back` made the harvests
   premise-free on the literal guards — the census shrank here);
-* `AxiomStepPB` / `BasisStepPB` / `IndStepPB` — the whole-kind steps
-  for the pin/basis/inductive installs (the pin tier's aid is
-  `harvestAxiomP`; the basis/inductive tiers mirror the v1
-  `declBasisS`/`declIndS` machinery at the P fields).
+* `BasisStepPB` / `IndStepPB` — the whole-kind steps for the
+  basis/inductive installs, mirroring the v1 `declBasisS`/`declIndS`
+  machinery at the P fields.  (`AxiomStepPB` is **no longer routed**:
+  ENDGAME D closed it — `axiomStepPB_of`.)
 -/
 
 namespace Setlec.SetR.Interp2
@@ -42,13 +42,31 @@ universe w
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode}
 
-/-- The axiom kind's whole step, routed (pin tier; assembly aid:
-`harvestAxiomP`). -/
+/-- The axiom kind's whole step — **no longer routed** (ENDGAME D):
+`axiomStepPB_of` below discharges it.  The definition is kept because
+the pin tier's four branches are stated against it and the census is
+read off these signatures. -/
 def AxiomStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {F : Nat} {env : Env} (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {env₂ : Env},
     DeclAxiomR μ F env mp.base2.base.cval cv env₂ →
     Nonempty (EnvS2PM V μ env₂)
+
+/-- **`AxiomStepPB`, discharged — THE PIN BUNDLE IS CLOSED.**  All four
+`DeclAxiomR` branches: the two standard axioms (`axiomStdP`, ENDGAME
+C), `Lean.trustCompiler` (`axiomTrustCompilerP`, ENDGAME A part 2),
+`ofReduceNat`/`ofReduceBool` (`axiomOfReduceP`, ENDGAME D, on the new
+`ReduceOpsP` field), and the tolerated skip (`axiomSkipP`, which stores
+nothing). -/
+theorem axiomStepPB_of (hμ : μ.verified = true) : AxiomStepPB V μ := by
+  intro _F _env mp _cv _env₂ hR
+  obtain ⟨type', hcv, hbranch⟩ := hR
+  rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
+    ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
+  · exact axiomStdP hμ mp hcv hok
+  · exact axiomTrustCompilerP hμ mp hcv hname hok
+  · exact axiomOfReduceP hμ mp hcv hor hok
+  · exact axiomSkipP mp
 
 /-- The basis kind's whole step, routed (basis tier). -/
 def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
@@ -72,7 +90,7 @@ def EnvSPOk (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env) :
 
 /-- **The per-declaration P step, by dispatch.** -/
 theorem declStepPM (hμ : μ.verified = true)
-    (hax : AxiomStepPB V μ) (hbas : BasisStepPB V μ)
+    (hbas : BasisStepPB V μ)
     (hind : IndStepPB V μ)
     {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
@@ -98,13 +116,13 @@ theorem declStepPM (hμ : μ.verified = true)
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
     exact harvestOpaqueP hμ reducePinS mp h
-  | axiomDecl cv => exact hax mp h
+  | axiomDecl cv => exact axiomStepPB_of hμ mp h
   | basisDecl kind => exact hbas mp h
   | indDecl block => exact hind mp h
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verified = true)
-    (hax : AxiomStepPB V μ) (hbas : BasisStepPB V μ)
+    (hbas : BasisStepPB V μ)
     (hind : IndStepPB V μ) {F : Nat} :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       EnvSPOk V μ env →
@@ -120,20 +138,20 @@ theorem foldPM (hμ : μ.verified = true)
     | ok env1 =>
       rw [hd] at h
       obtain ⟨⟨mp⟩, hE⟩ := hm
-      exact foldPM hμ hax hbas hind ds env1
-        (declStepPM hμ hax hbas hind mp hE
+      exact foldPM hμ hbas hind ds env1
+        (declStepPM hμ hbas hind mp hE
           (checkDeclR_sound mp.base2.base hE hd)) h
 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'
 theorems). -/
 theorem checkDecls_sound_P_of (hμ : μ.verified = true)
-    (hax : AxiomStepPB V μ) (hbas : BasisStepPB V μ)
+    (hbas : BasisStepPB V μ)
     (hind : IndStepPB V μ) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
     Nonempty (EnvS2PM V μ env') :=
-  (foldPM hμ hax hbas hind ds Env.empty
+  (foldPM hμ hbas hind ds Env.empty
     ⟨⟨EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩ h).1
 
 /-- **The capstone, milestone shape**: no proof of `Empty` is ever
@@ -141,14 +159,13 @@ accepted — the collapse-free model of the validated annotations, at
 the frozen final statement's hypotheses plus the named tier
 bundles. -/
 theorem no_proof_of_Empty_P_of (hμ : μ.verified = true)
-    (hax : AxiomStepPB V μ) (hbas : BasisStepPB V μ)
+    (hbas : BasisStepPB V μ)
     (hind : IndStepPB V μ) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ hax
-    hbas hind h
+  obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ hbas hind h
   exact no_constant_of_Empty_P mp c hc hty
 
 end Setlec.SetR.Interp2

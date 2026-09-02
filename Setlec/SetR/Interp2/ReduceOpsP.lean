@@ -106,6 +106,14 @@ theorem sat2_elemCtx (m : EnvS2Core V env) {c : Name} {ψ : Name → Nat}
 
 /-! ## The pinned operation type, inverted -/
 
+/-- The element type expression is the element inductive's bare
+constant (`Verify/OfReducePin.lean`'s `ofReduce_elemTy` at the
+*operation*'s index rather than the axiom's). -/
+theorem reduceElemTy_constS (c : Name) :
+    Setlec.reduceElemTy c = .const (Setlec.reduceElemName c) [] := by
+  unfold Setlec.reduceElemTy Setlec.reduceElemName
+  split <;> simp [Setlec.natName, Setlec.boolName]
+
 /-- **The reduce operation's pinned type, inverted through both
 erasures.**  The domain and the codomain are the *same* bare constant,
 and both erasures fix a `.const`, so the pin leaves exactly the binder
@@ -129,50 +137,16 @@ theorem reduceOp_shapeS {c : Name} {type' : Expr}
         Expr.erasePw, Expr.eraseNames]
   rw [hshape] at h
   obtain ⟨n', ty', b', m', rfl, hty', hb'⟩ := erasePwNames_forallE_invS h
-  have hE : Setlec.reduceElemTy c
-      = .const (Setlec.reduceElemName c) [] := by
-    rcases hcases with rfl | rfl <;>
-      simp [Setlec.reduceElemTy, Setlec.reduceElemName,
-        Setlec.reduceNatName, Setlec.reduceBoolName, Setlec.natName,
-        Setlec.boolName]
+  have hE := reduceElemTy_constS c
   rw [hE] at hty' hb'
   obtain rfl := erasePwNames_const_invS hty'
   obtain rfl := erasePwNames_const_invS hb'
   exact ⟨n', m', by rw [hE]⟩
 
-/-- **The element inductive is stored level-free.**  `reduceElemOk`'s
-two branches: the pinned `Nat` basis, and a `Bool` matching its shape
-pin (whose `levelParams` conjunct `matchesPin` compares on the
-nose). -/
-theorem reduceElem_storedS {c : Name} (hc : c ∈ Setlec.reduceOpNames)
-    (h : Setlec.reduceElemOk env c = true) :
-    ∃ ciE, env.find? (Setlec.reduceElemName c) = some ciE ∧
-      ciE.toConstantVal.levelParams = [] := by
-  have hcases : c = Setlec.reduceNatName ∨ c = Setlec.reduceBoolName := by
-    simpa [Setlec.reduceOpNames] using hc
-  rcases hcases with rfl | rfl
-  · rw [show Setlec.reduceElemName Setlec.reduceNatName
-        = Setlec.natName from by simp [Setlec.reduceElemName]]
-    simp only [Setlec.reduceElemOk, reduceIte, decide_eq_true_eq] at h
-    exact ⟨Setlec.natA, h, rfl⟩
-  · rw [show Setlec.reduceElemName Setlec.reduceBoolName
-        = Setlec.boolName from by
-      simp [Setlec.reduceElemName, Setlec.reduceNatName,
-        Setlec.reduceBoolName]]
-    simp only [Setlec.reduceElemOk,
-      if_neg (show Setlec.reduceBoolName ≠ Setlec.reduceNatName from by
-        simp [Setlec.reduceNatName, Setlec.reduceBoolName])] at h
-    cases hfB : env.find? Setlec.boolName with
-    | none => rw [hfB] at h; exact nomatch h
-    | some ciB =>
-      rw [hfB] at h
-      cases ciB with
-      | indInfo cvB caps =>
-        refine ⟨.indInfo cvB caps, rfl, ?_⟩
-        simp only [ConstantVal.matchesPin, Bool.and_eq_true,
-          decide_eq_true_eq] at h
-        exact h.1.2
-      | _ => exact nomatch h
+-- (`reduceElem_sort` in `Verify/OfReducePin.lean` already says the
+-- element inductive is stored level-free at `Sort 1`; the earlier
+-- draft of this file restated its first two conjuncts and the
+-- duplicate was deleted before landing.)
 
 /-! ## The certificate variable's syntactic package -/
 
@@ -182,10 +156,7 @@ recursion stops there). -/
 theorem reduceCertVar_fvarLeaves (c : Name) :
     (Setlec.reduceCertVar c).fvarLeaves
       = [(0, Setlec.Name.anonymous.str "a", Setlec.reduceElemTy c)] := by
-  have hE : Setlec.reduceElemTy c
-      = .const (Setlec.reduceElemName c) [] := by
-    unfold Setlec.reduceElemTy Setlec.reduceElemName
-    split <;> simp [Setlec.natName, Setlec.boolName]
+  have hE := reduceElemTy_constS c
   simp [Setlec.reduceCertVar, hE, Expr.fvarLeaves]
 
 /-! ## The establishment -/
@@ -234,13 +205,10 @@ theorem reduceOpsP_install (hμ : μ.verified = true)
     hred (List.contains_iff_mem.mpr hcN)
   obtain rfl : valA = value' := Except.ok.inj (hannA.symm.trans hannv)
   -- the element inductive is stored, level-free, and is not the cons
-  obtain ⟨ciE, hfE, hlpE⟩ := reduceElem_storedS hcN helemOk
+  obtain ⟨ciE, hfE, hlpE, -⟩ := Setlec.TTVerify.reduceElem_sort helemOk
   have hneE : Setlec.reduceElemName cv.name ≠ cv.name := by
     intro h; rw [h, hfresh] at hfE; exact nomatch hfE
-  have hEty : Setlec.reduceElemTy cv.name
-      = .const (Setlec.reduceElemName cv.name) [] := by
-    unfold Setlec.reduceElemTy Setlec.reduceElemName
-    split <;> simp [Setlec.natName, Setlec.boolName]
+  have hEty := reduceElemTy_constS cv.name
   have hdenE : ∀ (ψ : Name → Nat) (d : Nat),
       denoteP mp.base2.acval env ψ d (Setlec.reduceElemTy cv.name)
         = some (mp.base2.acval (Setlec.reduceElemName cv.name) ψ) := by
