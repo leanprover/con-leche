@@ -233,4 +233,50 @@ theorem eqReflValT2_okP (ψ : Name → Nat) (ρ : Nat → V) :
     AnnotOkP V ρ (eqReflValT2 ψ) :=
   ⟨eqReflValT2_ok2 ψ ρ, eqReflValT2_validV ψ ρ⟩
 
+/-! ## `EqLawP`, discharged from the tower
+
+The field the ENDGAME D seal named as `eqK`'s whole content, and the
+reason `eqLawP_cons_fresh` is structurally unavailable at this block
+(its side condition is `eqName ≠ c₀.name` and the cons *is* `Eq`).
+Both conjuncts come off `eqValT2` directly:
+
+* the **value** clause is `eqValT2_app₃` — three `app_lamR_pos`, one
+  per binder, each on its own domain.  v1 needs two `app_lamC`s and
+  states the law at the two-fold application because its η/unit
+  consumers want the rigidity clause; the P consumers read the
+  three-fold form, so all three fire here;
+* the **grading** clause — which v1 has no analogue of — is the
+  `AnnotOk2` `.app` chain over `eqValT2_mem`, whose three `v = 0`
+  fibre obligations are all vacuous (the bits are nonzero), plus
+  `eqv_mem_univZero` for the propositionhood half. -/
+
+/-- **`EqLawP` from the tower.**  Any environment carrier whose `Eq`
+leaf is the annotated tower satisfies the field. -/
+theorem eqLawP_of_tower {env : Setlec.Env} (m : EnvS2Core V env)
+    (hleaf : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT2 ψ) :
+    EqLawP m := by
+  intro _hf ψ
+  refine ⟨fun ρ A a b hA ha hb => ?_, fun ρ Aa la ra hAa hla hra
+    hA ha hb => ?_⟩
+  · rw [hleaf]; exact eqValT2_app₃ ψ ρ A a b hA ha hb
+  · have hmem := eqValT2_mem (V := V) ψ ρ
+    rw [hleaf]
+    -- the three application memberships, peeled outward
+    have h1 : SetTheory.app (interp2 V ρ (eqValT2 ψ)) (interp2 V ρ Aa)
+        ∈ˢ piR 1 (interp2 V ρ Aa)
+          (fun _ => piR 1 (interp2 V ρ Aa) (fun _ => univZero)) :=
+      app_mem_piR_pos Nat.one_ne_zero hmem hA
+    have h2 : SetTheory.app (SetTheory.app (interp2 V ρ (eqValT2 ψ))
+          (interp2 V ρ Aa)) (interp2 V ρ la)
+        ∈ˢ piR 1 (interp2 V ρ Aa) (fun _ => univZero) :=
+      app_mem_piR_pos Nat.one_ne_zero h1 ha
+    refine ⟨⟨⟨⟨⟨eqValT2_ok2 ψ ρ, hAa.1, 1, _, _, hmem, hA,
+        fun h => nomatch h⟩, hla.1, 1, _, _, h1, ha,
+        fun h => nomatch h⟩, hra.1, 1, _, _, h2, hb,
+        fun h => nomatch h⟩,
+      ⟨⟨eqValT2_validV ψ ρ, hAa.2⟩, hla.2⟩, hra.2⟩, ?_⟩
+    rw [interp2_app, interp2_app, interp2_app,
+      eqValT2_app₃ ψ ρ _ _ _ hA ha hb]
+    exact eqv_mem_univZero _ _
+
 end Setlec.SetR.Interp2
