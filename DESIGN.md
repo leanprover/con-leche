@@ -16185,3 +16185,207 @@ successor architecture.
 
 Reproduce: `tests/pilot-parity.sh [--mode=…]`, `tests/pilot-measure.sh`,
 `tests/pilot-scale.sh --deep`, on branch `agent/cached-clone`.
+
+## Task #163 CACHED-LIVE P1: the verification seam, statements frozen (2026-09-02)
+
+Task #163 promotes the cached-clone pilot to a **supported, verified
+variant**: `--core=cached-parsed` stays selectable (default unchanged),
+and its acceptance is covered by the same consistency theorems as the
+production checker's — as a *corollary of a simulation*, not a
+re-proof.  This section freezes the seam design and the statements.
+Branch: `agent/cached-live` (pilot merged at df42d50b).
+
+### The central design fact: `WFc` collapses the arena tier
+
+Define the erasure and the field invariant:
+
+```
+def ExprC.eraseC : ExprC → Expr          -- structural; drops the four fields
+def ExprC.WFc (e : ExprC) : Prop := ExprC.ofExpr (eraseC e) = e
+```
+
+`ofExpr` (= `ofExprSpec`, the pure smart-constructor conversion) is a
+*section* of `eraseC` (`eraseC_ofExpr : eraseC (ofExpr x) = x`), so
+`WFc e` says exactly "every field of every node equals the smart
+constructor's recurrence on the erased term".  Three consequences do
+all the work the arena's `EStore.WF` + `denote_inj` used to do:
+
+1. **Injectivity on the invariant.**  `eraseC_inj : WFc a → WFc b →
+   eraseC a = eraseC b → a = b` — one line (`a = ofExpr (eraseC a)`).
+   The fields are *functions of the structure*, so a well-formed
+   `ExprC` is uniquely determined by its erasure.  This is `denote_inj`
+   without a table.
+2. **Equality is decided correctly.**  With the equality spec below,
+   `beq_iff : WFc a → WFc b → ((a == b) = true ↔ eraseC a = eraseC b)`.
+3. **Memo hits are exact.**  A `Std.HashMap ExprC α` hit at a `WFc`
+   query key, against an invariant whose entries have `WFc` keys, pins
+   the stored key *equal* to the query (via 1+2) — the same one-index-
+   one-term argument the arena makes, without canonicity, tiers,
+   promotion or brackets.  The whole `ArenaWF`/`WFStore`/`Promote`/
+   `BracketB4` tier has **no counterpart** in this verification.
+
+The non-injectivity the pilot's assessment worried about is real but
+harmless: `eraseC` is non-injective on *raw* `ExprC` (garbage fields),
+and nothing the checker builds is raw — every constructor call goes
+through the smart constructors, every conversion through `ofExpr`, and
+the invariant carries `WFc` through every cache.
+
+### The equality spec (statement-sensitive; P1 decision)
+
+`ExprC.beq`'s pure spec becomes the **hash-checking structural
+descent** (`beqSpec` gains an `a.hash == b.hash` test at every node,
+mirroring what `beqB`/`beqGo` actually test).  This makes:
+
+* the `implemented_by` claim faithful on *all* inputs, not just
+  field-correct ones (the executed descent rejects on hash mismatch;
+  so does the spec);
+* `LawfulHashable ExprC` and `EquivBEq ExprC` **provable instances**
+  (beq-equal terms have equal hash fields by the spec's own first
+  conjunct; reflexivity/symmetry/transitivity are structural) — which
+  is what unlocks the `Std.HashMap` lemmas every invariant-preservation
+  proof needs;
+* under `WFc` on both sides, `beq = (eraseC · = eraseC ·)` exactly
+  (completeness uses hash exactness: equal erasures + `WFc` force equal
+  hashes node by node).
+
+### The trust points (all of them; each named in its docstring)
+
+Exactly **two** `unsafe` `implemented_by` escapes survive, both in
+`Setlec/Cached/ExprC.lean`; the proof consumes only the pure specs:
+
+1. `ExprC.beqFast` for `ExprC.beq`: (a) pointer equality implies
+   structural equality (object identity; Lean objects are immutable),
+   used by the pointer short-circuit and by keying the descent memo on
+   addresses; (b) the address-keyed memo entries stay valid for the
+   life of one comparison (the roots keep every keyed subterm alive;
+   the collector does not move objects).
+2. `ExprC.ofExprFast` for `ExprC.ofExpr`: the pointer-address memo maps
+   each *live* `Expr` subobject to the conversion of that very object
+   (same two facts).
+
+`toExpr` is **not** a trust point: `toExprGo` is safe and structurally
+recursive once de-`partial`ed, and `toExpr_eq : toExpr e = eraseC e` is
+proved outright (the memo invariant "every stored value is its key's
+erasure" survives insert by `beq → equal erasure`, no `WFc` needed).
+Likewise every memoized traversal in `ExprOpsC.lean`/`StateC.lean`/
+`ParsedC.lean` that is `partial` but safe (`instantiate1Go`,
+`instantiateListGo`, `abstract*`, `instLevelParams*`,
+`constsResolveFCGo`, `ofStoreGo`, …) is converted to
+structural/well-founded/fueled recursion and *proved*, not trusted:
+memo-hit exactness comes from consequence 3 above.  (`instantiateListGo`
+terminates lexicographically on (live prefix `k`, node size): the bvar
+arm re-enters at `i - d < k`; `ofStoreGo` follows `readbackI`'s fuel
+pattern.)  If any of these resists de-`partial`ing, that is a
+stop-and-name, not a silent `implemented_by`.
+
+### The frozen statement inventory
+
+New files under `Setlec/Verify/Cached/` (implementation imports
+none of them; the capstone file may import `Setlec/SetR/Main*.lean` —
+additive only, the #161 lane owns those files' contents).
+
+**`Erase.lean`** — the seam floor:
+* `eraseC`, `WFc` as above; `eraseC_mk*` (10, near-rfl);
+  `eraseC_ofExpr`, `WFc_ofExpr`; `WFc.mk*` closure (10) and per-
+  constructor inversions (`WFc` of a node gives `WFc` children + the
+  field values);
+* field exactness, reader form (the consumable shape, mirroring what
+  the interned walks take from `TWF`):
+  `WFc e → e.bvarB ≤ d → (eraseC e).looseBVarsBounded d = true` and
+  its exactness converse; the `fvarB`/`abstractRange`-cutoff analogue;
+  `WFc e → e.hasLP = false → (eraseC e).instantiateLevelParams`-
+  invisibility (match the exact Expr-side lemma shapes the `IExpr`
+  verification consumes from `bvarBs`/`fvarBs`/`eparamBs` exactness —
+  reuse its spec functions where they exist);
+* hash exactness: `WFc a → WFc b → eraseC a = eraseC b → a.hash = b.hash`
+  (the completeness leg; per-node, by the recurrences);
+* `beq_iff`, `eraseC_inj`; instances `EquivBEq ExprC`,
+  `LawfulHashable ExprC`; `toExpr_eq`.
+
+**`OpsC.lean`** (split as needed) — for every `ExprC` operation `O`
+with `Expr` counterpart `o`: erasure commutation + invariant
+preservation on `WFc` inputs, e.g.
+`WFc e → WFc v → eraseC (ExprC.instantiate1 e v d) = (eraseC e).instantiate1 (eraseC v) d ∧ WFc (…)`;
+Bool/Option-valued twins commute on the nose
+(`WFc e → ExprC.wscopedB d e = (eraseC e).wscopedB d`, …).  Memoized
+walks get their memo-soundness lemma here (invariant: entries are
+`WFc`-keyed and store the spec value).
+
+**`SimC.lean`** — the invariant and the species:
+```
+def RelC (v' : ExprC) (v : Expr) : Prop := WFc v' ∧ eraseC v' = v   -- state-free
+structure CSOK (mode env) (s : CState) : Prop   -- ISOK minus the arena:
+  -- constTyAt/constValAt/ruleRhsAt: Name/Level-keyed (no denoteN/denoteL legs),
+  --   entry RelC-related to the level-instantiated stored datum;
+  -- whnfCoreC/whnfC/inferC/annotC: WFc key ∧ WFc val ∧
+  --   ∃ F, ∀ d, (eraseC k).wscopedB d → entry mode env F d (eraseC k) = .ok (eraseC v);
+  -- defeqC: the pair form; lsimpC/lnzC/eqvC: the ILevel memo invariants
+  --   restated on tree keys; ienv: RelC per tag (self-certifying, env-free);
+  -- instC: RelC to instantiateList of the erased key.
+def SimC (mode env) (s₀ : CState) (P : β → α → Prop)
+    (c : CheckCM β) (p : FueledM α) : Prop :=
+  ∀ v' s', c s₀ = .ok (v', s') → CSOK mode env s' ∧ ∃ v, P v' v ∧ ∃ F, p.val F = .ok v
+def CEff  (mode env) s₀ (Q : β → Prop) (c : CheckCM β) : Prop := …  -- twin-only effect
+```
+plus the combinator set (`pure`/`throw`/`bind`/`bindR`/`wp`/`wr`/
+`mono`/`liftFueled`, ports of `SimAt`'s) — **no `Ext`, no state in the
+value relation**: the two systematic simplifications every ported walk
+inherits.  Effect lemmas for the `*M` wrappers (`inst1M_eff`, …) are
+one-liners over `OpsC`.  `CSOKF` = the env-free residue (`ienv` +
+level memos), `flushC`'s preservation, `CState.flushed` transitions —
+ports of the `ISOKF` kit.
+
+**`KnotC.lean`, `DiscC1..6.lean`, `BridgeC.lean`** — the walk volume:
+ports of `SimIKnot`/`DiscI1..6`/`BridgeI` (the clone mirrors `CoreI`
+clause by clause, so the walk structure transfers; the memoized-knot
+layer (`memoEI`/`memoBI`) re-proves `SimIKnot`'s cache-backing
+argument with consequence 3 replacing `denote`-determinism).  Final
+shape (port of `BridgeI`'s): the cached knot's five entry points
+`SimC`-simulate the pure fueled families on `WFc`, well-scoped inputs,
+value relation `RelEC d v' v := RelC v' v ∧ WScoped d v`.
+
+**`BridgeCS.lean`, `BridgeCDecl.lean`** — the checker layer: ports of
+`SimS`/`BridgeS1..4` (`sharedOpsC`'s `opE`/`opB`/`opS` convert at the
+boundary via `ofExpr`/`toExpr`, discharged by `WFc_ofExpr` +
+`toExpr_eq`), the `checkDeclSPC` walk (port of the `checkDeclSPPlain`
+sim), landing on the step lemma, the exact `checkDeclSPStep_run`
+mirror:
+```
+theorem checkDeclSPStepC_run :
+    CSOKF s₀ → DeclCRel pd d →
+    checkDeclSPStepC mode (mkFEnv env) pd s₀ = .ok (fe', s') →
+    CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
+    ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env
+```
+with `DeclCRel : DeclC → Declaration → Prop` the per-field erasure
+relation (`WFc` + `eraseC` on every `ExprC` slot; equality on the
+rest).
+
+**`OfStoreC.lean`** — the conversion boundary:
+`ofStore`/`declsCOfP` on a `WF` parse store produce `DeclC`s
+`DeclCRel`-related to the `denoteDeclP` denotations (acceptance
+direction only), so the fold's per-step premise is supplied exactly
+where `foldSP_R` supplies `denoteDeclP … = some d`.
+
+**`MainC.lean`** — the capstone, corollaries only:
+```
+theorem checkDeclsSPCached_sound_R  (V) [SetTheory V] :
+    checkDeclsSPCached μ st pds = .ok env' → Nonempty (EnvS V env')
+theorem no_proof_of_Empty_SPC_R    (V) [SetTheory V] : … → False
+```
+mirroring `no_proof_of_Empty_SP_R`'s fold (`foldSP_R` minus the
+`Ext`/`ISOKF`-store legs), consuming `checkDeclSPStepC_run` +
+`declStepS`/`checkDeclR_sound` **unchanged**; plus the `Main2`
+(`_R2M`) siblings in the same premise style, stated at that batch
+after reading their SP forms.  No re-proof: each corollary is the
+fold plus the existing per-decl soundness.
+
+### Discipline riders
+
+* Axioms on everything the chain consumes: exactly
+  `[propext, Classical.choice, Quot.sound]` (`#print axioms` per seal).
+* The proof never consumes `beqFast`/`ofExprFast` — only `beq`'s and
+  `ofExpr`'s pure definitions.
+* Statement changes after this freeze go through the lane lead only.
+* Default core unchanged (`--core=production`) until the orchestrator
+  ratifies a flip; the flag is documented at P3.
