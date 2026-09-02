@@ -175,6 +175,74 @@ theorem inst_liftN_comm : ∀ (e : AVExpr) {j k m : Nat}, j + m ≤ k →
     intro j k m hjk a
     simp only [liftN_proj, inst_proj, ihe hjk a]
 
+/-- Two instantiations commute, with the cuts adjusted
+(`VExpr.inst_inst_comm`). -/
+theorem inst_inst_comm : ∀ (e : AVExpr) {j k : Nat}, j ≤ k →
+    ∀ a b : AVExpr,
+    inst (inst e b j) a k = inst (inst e a (k + 1)) (inst b a (k - j)) j := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro j k hjk a b
+    by_cases h1 : i < j
+    · simp only [inst_bvar, if_pos h1, if_pos (show i < k by omega),
+        if_pos (show i < k + 1 by omega)]
+    · by_cases h2 : i = j
+      · simp only [inst_bvar, if_neg h1, if_pos h2,
+          if_pos (show i < k + 1 by omega)]
+        rw [inst_liftN_comm b (show 0 + j ≤ k by omega) a]
+      · by_cases h3 : i < k + 1
+        · simp only [inst_bvar, if_neg h1, if_neg h2, if_pos h3,
+            if_pos (show i - 1 < k by omega)]
+        · by_cases h4 : i = k + 1
+          · simp only [inst_bvar, if_neg h1, if_neg h2, if_neg h3,
+              if_pos h4, if_neg (show ¬ i - 1 < k by omega),
+              if_pos (show i - 1 = k by omega)]
+            rw [inst_liftN_absorb a (Nat.zero_le j)
+              (show j ≤ 0 + k by omega)]
+          · simp only [inst_bvar, if_neg h1, if_neg h2, if_neg h3,
+              if_neg h4, if_neg (show ¬ i - 1 < k by omega),
+              if_neg (show ¬ i - 1 = k by omega),
+              if_neg (show ¬ i - 1 < j by omega),
+              if_neg (show ¬ i - 1 = j by omega)]
+  | sort u => intro _ _ _ _ _; rfl
+  | const c us => intro _ _ _ _ _; rfl
+  | prf => intro _ _ _ _ _; rfl
+  | app f c ihf ihc =>
+    intro j k hjk a b
+    simp only [inst_app, ihf hjk, ihc hjk]
+  | lam u A c ihA ihc =>
+    intro j k hjk a b
+    simp only [inst_lam, ihA hjk, ihc (show j + 1 ≤ k + 1 by omega)]
+    rw [show k + 1 - (j + 1) = k - j by omega]
+  | pi u v A B ihA ihB =>
+    intro j k hjk a b
+    simp only [inst_pi, ihA hjk, ihB (show j + 1 ≤ k + 1 by omega)]
+    rw [show k + 1 - (j + 1) = k - j by omega]
+  | letE T v c ihT ihv ihc =>
+    intro j k hjk a b
+    simp only [inst_letE, ihT hjk, ihv hjk,
+      ihc (show j + 1 ≤ k + 1 by omega)]
+    rw [show k + 1 - (j + 1) = k - j by omega]
+  | eqE T c d ihT ihc ihd =>
+    intro j k hjk a b
+    simp only [inst_eqE, ihT hjk, ihc hjk, ihd hjk]
+  | proj i e ihe =>
+    intro j k hjk a b
+    simp only [inst_proj, ihe hjk]
+
+/-- A reading closed in the lifting sense is fixed by any
+instantiation.  The `AVExpr` closedness currency is the lifting
+equation the carrier stores (`EnvS2Core.acval_closed`,
+`denoteP_closed`), not a `bvarsBelow` predicate — so this is
+`inst_liftN_absorb` at `m = 0` rather than a `bvarsBelow` induction. -/
+theorem inst_eq_self_of_closed {X : AVExpr} (h : ∀ k, liftN 1 X k = X)
+    (a : AVExpr) (k : Nat) : inst X a k = X := by
+  have h1 : inst (liftN 1 X k) a k = liftN 0 X k :=
+    inst_liftN_absorb X (m := 0) (Nat.le_refl k) (Nat.le_refl k) a
+  rw [h k, Setlec.SetR.AVExpr.liftN_zero] at h1
+  exact h1
+
 end AVExprSubst
 
 /-! ## `instSeq` corollaries -/
@@ -339,5 +407,98 @@ theorem instSeqP_absorb_left {vals : List AVExpr} {K n : Nat}
     show (vals.take n).length = n from by
       rw [List.length_take, hlen]
       omega]
+
+open Setlec.SetR.AVExpr in
+/-- `instSeq` through a `pi` (`instSeq_pi`).  The numerals ride along:
+they are not read by either operation. -/
+theorem instSeqP_pi : ∀ (as : List AVExpr) (t : Nat) (u v : Nat)
+    (A B : AVExpr), as.length ≤ t + 1 →
+    Setlec.SetR.AVExpr.instSeq as t (.pi u v A B)
+      = .pi u v (Setlec.SetR.AVExpr.instSeq as t A)
+          (Setlec.SetR.AVExpr.instSeq as (t + 1) B) := by
+  intro as
+  induction as with
+  | nil => intro t u v A B _; rfl
+  | cons x xs ih =>
+    intro t u v A B hlen
+    simp only [List.length_cons] at hlen
+    rw [AVExpr.instSeq_cons, inst_pi,
+      ih (t - 1) u v (A.inst x t) (B.inst x (t + 1)) (by omega)]
+    rw [AVExpr.instSeq_cons (t := t) (e := A),
+      AVExpr.instSeq_cons (t := t + 1) (e := B)]
+    cases xs with
+    | nil => rfl
+    | cons y ys =>
+      simp only [List.length_cons] at hlen
+      rw [show t - 1 + 1 = t + 1 - 1 from by omega]
+
+open Setlec.SetR.AVExpr in
+/-- `instSeq` past an innermost instantiation (`VExpr.instSeq_inst0`). -/
+theorem instSeqP_inst0 : ∀ (as : List AVExpr) (t : Nat) (X b : AVExpr),
+    as.length ≤ t + 1 →
+    Setlec.SetR.AVExpr.instSeq as t (X.inst b 0)
+      = (Setlec.SetR.AVExpr.instSeq as (t + 1) X).inst
+          (Setlec.SetR.AVExpr.instSeq as t b) 0 := by
+  intro as
+  induction as with
+  | nil => intro t X b _; rfl
+  | cons w as ih =>
+    intro t X b hlen
+    simp only [List.length_cons] at hlen
+    rw [AVExpr.instSeq_cons (e := X.inst b 0),
+      AVExprSubst.inst_inst_comm X (Nat.zero_le t) w b, Nat.sub_zero]
+    cases as with
+    | nil =>
+      simp only [AVExpr.instSeq_nil]
+      rw [AVExpr.instSeq_cons, AVExpr.instSeq_cons, Nat.add_sub_cancel]
+      simp
+    | cons y ys =>
+      have h := ih (t - 1) (X.inst w (t + 1)) (b.inst w t)
+        (by simp only [List.length_cons] at hlen ⊢; omega)
+      rw [h, AVExpr.instSeq_cons (t := t + 1) (e := X),
+        AVExpr.instSeq_cons (t := t) (e := b), Nat.add_sub_cancel,
+        show t - 1 + 1 = t from by
+          simp only [List.length_cons] at hlen; omega]
+
+open Setlec.SetR.AVExpr in
+/-- `instSeq` past a lift at the top (`VExpr.instSeq_liftN0`). -/
+theorem instSeqP_liftN0 : ∀ (vs : List AVExpr) (t m : Nat) (Y : AVExpr),
+    vs.length ≤ t + 1 →
+    Setlec.SetR.AVExpr.instSeq vs (t + m) (liftN m Y 0)
+      = liftN m (Setlec.SetR.AVExpr.instSeq vs t Y) 0 := by
+  intro vs
+  induction vs with
+  | nil => intro t m Y _; rfl
+  | cons a vs ih =>
+    intro t m Y h
+    show Setlec.SetR.AVExpr.instSeq vs (t + m - 1)
+        ((liftN m Y 0).inst a (t + m)) = _
+    rw [AVExprSubst.inst_liftN_comm Y (by omega) a, Nat.add_sub_cancel]
+    cases t with
+    | zero =>
+      obtain rfl : vs = [] := by
+        simp only [List.length_cons] at h
+        exact List.eq_nil_of_length_eq_zero (by omega)
+      rfl
+    | succ t' =>
+      rw [show t' + 1 + m - 1 = t' + m from by omega]
+      exact ih t' m (Y.inst a (t' + 1))
+        (by simp only [List.length_cons] at h; omega)
+
+open Setlec.SetR.AVExpr in
+/-- A closed reading is fixed by a whole `instSeq` — the P currency of
+`VExpr.instSeq_eq_self_of_closed`, stated at the lifting equation the
+carrier actually stores. -/
+theorem instSeqP_eq_self_of_closed {X : AVExpr}
+    (h : ∀ k, liftN 1 X k = X) :
+    ∀ (vs : List AVExpr) (t : Nat),
+      Setlec.SetR.AVExpr.instSeq vs t X = X := by
+  intro vs
+  induction vs with
+  | nil => intro t; rfl
+  | cons a vs ih =>
+    intro t
+    rw [AVExpr.instSeq_cons, AVExprSubst.inst_eq_self_of_closed h a t]
+    exact ih (t - 1)
 
 end Setlec.SetR.Interp2
