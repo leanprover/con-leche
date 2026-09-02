@@ -18853,3 +18853,51 @@ notes the planner should carry:
 estimating.  Every remaining file carries more spines than the plain
 bottom, so plan the extraction of arithmetic-heavy blocks *as part of*
 the transposition rather than after it.
+
+## Task #161 SUCCESSION RECORD update (part 8 merged, 2026-09-02;
+coordinator-granted)
+
+Lane `agent/annot-v2`: part 8 merged at `1218d955` (the nested bottom
++ its parameter stage + `annotOpenersP` + the `pinCrossP`
+generalization).  Full battery green (build 457 warning-free, test
+exit 0, arena counters at expectation, zero sorries).
+
+### Discipline ledger entry (coordinator-directed): the
+elaboration-scaling recipe
+
+**The tier's first cost wall is elaboration, not mathematics**, and
+the named pattern for parts 9–10 is: (1) `omega` case-splits on
+every `List.take`/`drop`/`append`/`replicate` LENGTH ATOM in the
+local context (each becomes `min`/`Nat.sub`) — its cost is
+exponential in the atom count, and big bottoms accumulate atoms;
+(2) fix A: name the big syntactic objects ONCE as opaque locals;
+(3) fix B: extract the arithmetic-heaviest block into a stage lemma
+(`annotOpenersP`: 1.7 s as a lemma, > 500 s inline; the nested
+bottom: unelaboratable inline at 35 GB, 83 s with both fixes).
+Write this into every remaining install-transpose brief.
+
+### Frontier narrative: the run-certificate doctrine's limiting case
+(coordinator-directed)
+
+**The statement carries its own establishment material.**  The P
+tier's pin ROW is a run (`TypedListOk`), and a run carries neither
+reading nor grading — yet the nested bottom owed the pins' readings.
+They came from the only other place the checked statement mentions
+the pins: its own MAJOR argument, pinned to the pin application up
+to `ErasedEq`.  No new row, no premise, no wall — the doctrine's
+limiting case: when the recorded runs seem short of material, the
+statement's own shape may already carry it.
+
+Endorsed as reviewed: the `pinCrossP` kit generalization; the
+deliberate inline residue in the plain bottom (housekeeping fold
+waits).
+
+AFTER THIS SEAL: PART 9 — `indBottomProjP` with the five named kit
+transpositions (`stripLams_denotePTele`, `towerCtxEq`/`towerCtxEqD`,
+`projBodyValue`/`projRhsValue`, `PiTeleP.det`) written ALONGSIDE the
+bottom per the producer-side trap; the pre-fixed `hspMem` route
+(no walks recorded — syntactic `Γs = Γj` + constructor fit crossed
+by `instPisAt_denoteP_cross`); then the recursor rows with the
+`eqRecLawP` Prop-motive case (stop-and-name standing).  Census:
+`hμ` + `IndStepPB`, never conditional.  The census moves when it
+moves.
