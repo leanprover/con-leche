@@ -14219,3 +14219,39 @@ sorries at every seal; the discipline ledger's practices (mechanize
 countermodels, never silently edit frozen statements, convergent-
 duplicate checks before writing, sought-and-failed refutations
 recorded) are binding.
+
+## Task #161 DESIGN DECISION: the chosen bits of the hand-built basis towers (2026-09-02; coordinator-ratified template)
+
+(i) **The choice.**  The annotated hand-built basis values — `eqValT`'s
+annotated tower and its family (`Eq.refl`/`Eq.rec`, `PSigma'.rec`),
+the constants with no `BConst` and no `pinnedDirectT` entry — carry
+**graph-regime (nonzero) λ bits**, chosen by the model, not read from
+any pin or run.
+
+(ii) **Legality.**  `AnnotValidV`'s `lam` clause is bit-free
+(`Annot/ValidV.lean:92` — components only); the `pi` clause's bit
+obligation is one-directional (`v = 0 →` …), so a nonzero bit incurs
+none; and these towers are model-side data — the checker never
+validates a basis *value*'s bits against a stream, so no establishment
+doctrine is touched.
+
+(iii) **The counterfactual.**  Bit `0` collapses the tower:
+`lamR 0 … = pt`, every application is junk, and the `Eq` former stops
+being a function — the `Iff.rec` divergence class
+(the corrected FINDINGS class note above) observed at a hand-built
+value instead of an instantiation.
+
+(iv) **The scope fence.**  This is the ONLY place in the campaign
+where a regime bit is *chosen*.  Any future site wanting to choose
+one cites this entry and gets its own review — chosen bits must never
+become a habit.
+
+## Task #161 frontier narrative: the doctrine's cleanest instance (2026-09-02)
+
+`ReduceOpsP`'s establishment (endgame D, the run-certificate species'
+fifth execution) read **no bit anywhere**: all three gradings
+`DefEqClaims2P` demands were the opaque install's own obligations
+(`hmemA`, the context slot, the type reading's `AnnotValidV` `pi`
+clause).  Five establishments in, the "bits never from a metatheorem"
+doctrine has not merely held — at its cleanest it was never even
+approached.
