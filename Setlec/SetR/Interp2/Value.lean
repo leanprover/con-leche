@@ -406,6 +406,39 @@ theorem quotLiftV2_app {u v : Nat} (hv : v ≠ 0) {A R B f h : V}
   rw [quotLiftV2, app_lamR_pos hv hA, app_lamR_pos hv hR, app_lamR_pos hv hB,
     app_lamR_pos hv hf, app_lamR_pos hv hh]
 
+/-- **ι for `Quot.lift` at a `Prop`-valued target** — the case
+`quotLiftV2_app`'s `v ≠ 0` side condition excludes, and it needs no
+premises at all.
+
+The ENDGAME D and E seals both flagged `quotLiftR_app`/`quotLiftV2_app`
+as "the only two firing laws with a `v ≠ 0` side condition", with the
+`natRecV2_app` precedent recorded as not transferring.  It does not
+have to: at `v = 0` **both sides are `pt`**, because `lamR 0` is `pt`
+by `lamR_zero` and `quotLiftR` is itself a `lamR v`.  There is no
+squash-regime reasoning to do, no motive membership to consume, and no
+premise to discharge — the two collapses meet on the nose.
+
+Recorded here rather than in a seal because the ledger's rule is that
+a claim about a wall is re-checked, not inherited: this is the check,
+and it costs two lines. -/
+theorem quotLiftV2_app_zero {u : Nat} (A R B f h : V) :
+    app (app (app (app (app (quotLiftV2 V u 0) A) R) B) f) h =
+      quotLiftR V u 0 A R f := by
+  rw [quotLiftV2, lamR_zero, app_pt, app_pt, app_pt, app_pt, app_pt,
+    quotLiftR, lamR_zero]
+
+/-- The two branches, packaged: `Quot.lift` fires at **every**
+numeral. -/
+theorem quotLiftV2_app_any {u v : Nat} {A R B f h : V}
+    (hA : A ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace2 V u A)
+    (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piR v A fun _ => B)
+    (hh : h ∈ˢ quotInvSpace2 V A R f) :
+    app (app (app (app (app (quotLiftV2 V u v) A) R) B) f) h =
+      quotLiftR V u v A R f := by
+  by_cases hv : v = 0
+  · subst hv; exact quotLiftV2_app_zero V A R B f h
+  · exact quotLiftV2_app V hv hA hR hB hf hh
+
 /-! ## `Classical.choice` -/
 
 /-- `¬¬A`, i.e. `(A → False) → False`: `Prop`-valued, annotations `0`. -/
