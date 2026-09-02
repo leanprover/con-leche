@@ -8,6 +8,7 @@ import Setlec.Verify.Cached.DiscC2
 import Setlec.Verify.Cached.DiscC3
 import Setlec.Verify.Cached.BinderLoopC
 import Setlec.Verify.Cached.DiscC4
+import Setlec.Verify.Cached.DiscC5
 
 /-!
 # The cached checker variant's verification (task #163)

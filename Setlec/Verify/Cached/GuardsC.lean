@@ -1270,6 +1270,113 @@ theorem isCtorAppI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}
   rw [isCtorAppI, isCtorAppC_spec hw, h]
 
 open ExprC in
+/-- The reducibility-hint readout agrees with the spec's `headHint` on
+the erasure — like `isCtorAppC_spec` it reads the *spine head*, so the
+node invariant is needed (`getAppFn_spec`). -/
+theorem headHintC_spec {env : Env} {e : ExprC} (hw : WFc e) :
+    headHintC (mkFEnv env) e = headHint env (eraseC e) := by
+  obtain ⟨-, hfn⟩ := ExprC.getAppFn_spec hw
+  show (match ExprC.getAppFn e with
+      | .const nm _ _ _ _ _ =>
+        match (mkFEnv env).find? nm with
+        | some (.defnInfo _ _ hint) => hint
+        | _ => .opaque
+      | _ => .opaque) = _
+  rw [headHint, ← hfn]
+  cases ExprC.getAppFn e with
+  | const nm us h bb fb lp =>
+    dsimp only [eraseC]
+    rw [mkFEnv_find?]
+    cases env.find? nm with
+    | none => rfl
+    | some ci => cases ci <;> rfl
+  | _ => rfl
+
+open ExprC in
+/-- The store-shaped spelling the core bodies use (`withStore (fun st =>
+headHintI fe st e)`) — the transposition of `headHintI_spec`
+(`Setlec/Verify/IExprOps.lean`). -/
+theorem headHintI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}
+    (hw : WFc e) (h : eraseC e = ex) :
+    headHintI (mkFEnv env) st e = headHint env ex := by
+  rw [headHintI, headHintC_spec hw, h]
+
+open ExprC in
+/-- The lazy-delta unfoldability decision agrees with the spec's
+`unfoldableHead` on the erasure (again a spine-head read). -/
+theorem unfoldableHeadC_spec {env : Env} {e : ExprC} (hw : WFc e) :
+    unfoldableHeadC (mkFEnv env) e = unfoldableHead env (eraseC e) := by
+  obtain ⟨-, hfn⟩ := ExprC.getAppFn_spec hw
+  show (match ExprC.getAppFn e with
+      | .const nm us _ _ _ _ =>
+        match (mkFEnv env).find? nm with
+        | some (.defnInfo cv _ _) => us.length == cv.levelParams.length
+        | some (.thmInfo cv _) => us.length == cv.levelParams.length
+        | _ => false
+      | _ => false) = _
+  rw [unfoldableHead, ← hfn]
+  cases ExprC.getAppFn e with
+  | const nm us h bb fb lp =>
+    dsimp only [eraseC]
+    rw [mkFEnv_find?]
+    cases env.find? nm with
+    | none => rfl
+    | some ci => cases ci <;> rfl
+  | _ => rfl
+
+open ExprC in
+/-- The store-shaped spelling the core bodies use — the transposition
+of `unfoldableHeadI_spec` (`Setlec/Verify/IExprOps.lean`). -/
+theorem unfoldableHeadI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}
+    (hw : WFc e) (h : eraseC e = ex) :
+    unfoldableHeadI (mkFEnv env) st e = unfoldableHead env ex := by
+  rw [unfoldableHeadI, unfoldableHeadC_spec hw, h]
+
+open ExprC in
+/-- The same-constant-head short-circuit agrees with the spec's
+`sameConstHeads` on the erasures: both sides must be applications, and
+then the two *function parts'* spine heads are compared. -/
+theorem sameConstHeadsC_spec {a b : ExprC} (ha : WFc a) (hb : WFc b) :
+    sameConstHeadsC a b = sameConstHeads (eraseC a) (eraseC b) := by
+  cases a with
+  | app f₁ a₁ h₁ bb₁ fb₁ lp₁ =>
+    obtain ⟨hwf₁, -, -⟩ := ha.app_inv
+    cases b with
+    | app f₂ a₂ h₂ bb₂ fb₂ lp₂ =>
+      obtain ⟨hwf₂, -, -⟩ := hb.app_inv
+      obtain ⟨-, hfn₁⟩ := ExprC.getAppFn_spec hwf₁
+      obtain ⟨-, hfn₂⟩ := ExprC.getAppFn_spec hwf₂
+      show (match ExprC.getAppFn f₁, ExprC.getAppFn f₂ with
+          | .const n₁ _ _ _ _ _, .const n₂ _ _ _ _ _ => n₁ == n₂
+          | _, _ => false) = _
+      rw [show sameConstHeads (eraseC (ExprC.app f₁ a₁ h₁ bb₁ fb₁ lp₁))
+              (eraseC (ExprC.app f₂ a₂ h₂ bb₂ fb₂ lp₂))
+            = (match (eraseC f₁).getAppFn, (eraseC f₂).getAppFn with
+              | .const n₁ _, .const n₂ _ => n₁ == n₂
+              | _, _ => false) from rfl, ← hfn₁, ← hfn₂]
+      cases ExprC.getAppFn f₁ <;> cases ExprC.getAppFn f₂ <;> rfl
+    | _ => rfl
+  | _ => cases b <;> rfl
+
+open ExprC in
+/-- The store-shaped spelling the core bodies use — the transposition
+of `sameConstHeadsI_spec` (`Setlec/Verify/IExprOps.lean`). -/
+theorem sameConstHeadsI_spec {st : CStore} {a b : ExprC} {xa xb : Expr}
+    (ha : WFc a) (hb : WFc b) (h₁ : eraseC a = xa) (h₂ : eraseC b = xb) :
+    sameConstHeadsI st a b = sameConstHeads xa xb := by
+  rw [sameConstHeadsI, sameConstHeadsC_spec ha hb, h₁, h₂]
+
+open ExprC in
+/-- Store-shaped `hasFvar`: the `O(1)` eager fvar-range field is exact
+on the invariant (`fvarB_exact`), so its non-zeroness is the spec's
+`Expr.hasFvar` — the transposition of `hasFvarI_spec`
+(`Setlec/Verify/IExpr.lean`). -/
+theorem hasFvarI_spec {st : CStore} {e : ExprC} {ex : Expr}
+    (hw : WFc e) (h : eraseC e = ex) : st.hasFvarI e = ex.hasFvar := by
+  show (e.fvarB != 0) = _
+  rw [fvarB_exact hw, h, fvarRange_bne_zero]
+
+open ExprC in
 /-- Store-shaped `wscopedB`. -/
 theorem wscopedBI_spec {st : CStore} {d : Nat} {e : ExprC} {ex : Expr}
     (hw : WFc e) (h : eraseC e = ex) :
