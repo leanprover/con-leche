@@ -1,5 +1,6 @@
 import Setlec.SetR.CtxOkR
 import Setlec.Verify.Denote.Install
+import Setlec.Verify.IotaWalkInv
 
 /-!
 # `DeclR`: the per-declaration relation (task #148, T2 — statements)
@@ -479,10 +480,35 @@ def IotaWalksR (μ : CheckMode) (envSelf : Env) (cval : TConstVal)
     DefEqAtW μ envSelf cval φ depth rhsS rhsApplied ∧
     IotaSidesTyR μ envSelf cval φ depth alphaS lhsS rhsS
 
+/-- **The walks' recorded runs** (task #161 ind tier, the H1 exposure
+at the last tier — the campaign's first move returned): the
+checker-verdict forms the producer holds at the walk conversion
+(`DefEqListOk` per comparison list, the raw `isDefEqCore` verdict at
+the rhs comparison, and `checkIotaSidesTy`'s literal run pair,
+`Modeled.lean:34-41`), recorded beside the derivation walks.  The P
+tier's establishment consumes these through the claims
+(`interp2_ne_interp_erase` refutes the currency transport, and
+derivation → run is false for a fuel-bounded checker — the part-3
+wall's two countermodels); the derivation walks stay for the v1
+installs. -/
+def IotaRunsR (μ : CheckMode) (F : Nat) (envSelf : Env) (depth : Nat)
+    (idxL idxR domL domR preL preR lamL lamR : List Expr)
+    (rhsS rhsApplied alphaS lhsS : Expr) : Prop :=
+  DefEqListOk μ F envSelf depth idxL idxR ∧
+  DefEqListOk μ F envSelf depth domL domR ∧
+  DefEqListOk μ F envSelf depth preL preR ∧
+  DefEqListOk μ F envSelf depth lamL lamR ∧
+  isDefEqCore μ envSelf F depth rhsS rhsApplied = .ok true ∧
+  (∃ tl, inferTypeCore μ envSelf F depth lhsS = .ok tl ∧
+    isDefEqCore μ envSelf F depth tl alphaS = .ok true) ∧
+  (∃ tr, inferTypeCore μ envSelf F depth rhsS = .ok tr ∧
+    isDefEqCore μ envSelf F depth tr alphaS = .ok true)
+
 /-- A *canonical* rule's `iota_j` theorem pack — the transpose of
 `checkIotaThm` (`Modeled.lean:62-143`): the stored theorem's shape
-pins (pure equations over stored data) plus the walks. -/
-def IotaThmR (μ : CheckMode) (_F : Nat) (env' envSelf : Env)
+pins (pure equations over stored data) plus the walks **and their
+recorded runs** (task #161). -/
+def IotaThmR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
     (cval : TConstVal) (f : Name → Name) (cvName : Name)
     (lps : List Name) (tyA : Expr) (mI rP j : Nat) (r : RecRule)
     (cvj : ConstantVal) (cnP cnF : Nat) (rhsA : Expr) : Prop :=
@@ -521,6 +547,13 @@ def IotaThmR (μ : CheckMode) (_F : Nat) (env' envSelf : Env)
            DefEqListW μ envSelf cval φ depth
              ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP) ∧
          IotaWalksR μ envSelf cval depth
+           ((largs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP)
+           (xFvs.map Expr.fvarTypeD) (cdoms.drop cnP)
+           ((fvs.take rP).map Expr.fvarTypeD) rdoms
+           ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldomsL
+           rhsS (Expr.mkAppN (rhsA.renameConsts f) fvs)
+           (targs.getD 0 (.bvar 0)) lhsS ∧
+         IotaRunsR μ F envSelf depth
            ((largs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP)
            (xFvs.map Expr.fvarTypeD) (cdoms.drop cnP)
            ((fvs.take rP).map Expr.fvarTypeD) rdoms
@@ -598,6 +631,13 @@ def IotaThmNR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
              (pins.map fun p =>
                Expr.instSpine (fvsP.take rP) (rP - 1) p) cdomsP) ∧
          IotaWalksR μ envSelf cval depth
+           ((largs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP)
+           (xFvs.map Expr.fvarTypeD) (cdoms.drop cnP)
+           ((fvs.take rP).map Expr.fvarTypeD) rdoms
+           ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldomsL
+           rhsS (Expr.mkAppN (rhsA.renameConsts f) fvs)
+           (targs.getD 0 (.bvar 0)) lhsS ∧
+         IotaRunsR μ F envSelf depth
            ((largs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP)
            (xFvs.map Expr.fvarTypeD) (cdoms.drop cnP)
            ((fvs.take rP).map Expr.fvarTypeD) rdoms
@@ -711,7 +751,7 @@ stay untransposed: the projection bottom reaches its λ-tower context
 through the syntactic domain pins (`towerCtxEq`), so no consumer
 exercises them, and the house rule forbids freezing a statement no
 consumer has exercised. -/
-def ProjFnR (μ : CheckMode) (_F : Nat) (env' : Env) (cval : TConstVal)
+def ProjFnR (μ : CheckMode) (F : Nat) (env' : Env) (cval : TConstVal)
     (T ctorName : Name) (lps : List Name) (nP nF i : Nat)
     (env'' : Env) : Prop :=
   ∃ cvj mcv mval mhint pty rhsA,
@@ -745,10 +785,14 @@ def ProjFnR (μ : CheckMode) (_F : Nat) (env' : Env) (cval : TConstVal)
         ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta), i0 < nP + nF →
           rbinders[i0]? = some b → cbinders[i0]? = some b' →
           b.2.1 = b'.2.1) ∧
-      -- the rule's front door (`ops.inferType env' 0 rhsA`)
+      -- the rule's front door (`ops.inferType env' 0 rhsA`) — the
+      -- derivation for the v1 install, AND its recorded run (task
+      -- #161, the H1 exposure: the P tier consumes the run through
+      -- the claims)
       (∀ φ : Name → Nat, ∃ Rv t,
         denoteClosed cval env' φ rhsA = some Rv ∧
         Infer μ env' cval φ [] Rv t) ∧
+      (∃ t', inferTypeCore μ env' F 0 rhsA = .ok t') ∧
       -- the `proj_i.iota` theorem's shape pins and sides pack
       (∃ tcv tval,
         env'.find? ((projModelName T i).str "iota")

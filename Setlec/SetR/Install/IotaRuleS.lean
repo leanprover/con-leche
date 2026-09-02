@@ -131,7 +131,7 @@ theorem iotaRuleS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       hlhead0, hlarity0, hlpre0, hmaj0, hCstrips,
       cdoms, cres, rdoms, fvsP, cdomsP, crestP, xFvsP, crest2, ldoms,
       lrest, hcinst, hclen, hrinst, hopenP, hcinstP, hopenXP,
-      ldomsL, lrest2, hinstLam, hdePars, hwalks⟩ := hthmR
+      ldomsL, lrest2, hinstLam, hdePars, hwalks, -⟩ := hthmR
     -- the statement's stored entry and front doors
     -- only the stored `ConstantVal` matters, so a swapped entry
     -- (were the statement's name a recursor's) serves just as well
@@ -222,7 +222,7 @@ theorem iotaRuleS {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
         cdoms, cres, rdoms, lrest, fvsP, crest2, cdomsP, crestP, xFvsP,
         ldoms, hcinst, hclen, hrinst, hopenP,
         ⟨hpinAnn, hcinstP, hopenXP, hldomsAr⟩,
-        ldomsL, lrest2, hinstLam, hTypedP, hwalks⟩ := hthmN
+        ldomsL, lrest2, hinstLam, hTypedP, hwalks, -⟩ := hthmN
       obtain ⟨hrPmI, -, hpinsWf0, -⟩ := nestedRuleShape_inv hshape
       obtain ⟨-, -, -, pre, nmD, domD, bodyD, bmD, D,
         -, -, -, hpinsLen⟩ := nestedRuleShape_inv hshape

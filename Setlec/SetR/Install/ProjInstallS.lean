@@ -566,7 +566,7 @@ theorem projFnS {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
     hilt, hstripP, hbig, henv⟩ := hR
   obtain ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
-    hrhsb, hrlp, hrres, hrstrip, hrhsKey, hthmpack⟩ := hbig
+    hrhsb, hrlp, hrres, hrstrip, hrhsKey, -, hthmpack⟩ := hbig
   obtain ⟨rbinders, hrhsAstrip, hrdomsEq⟩ := hrstrip
   obtain ⟨tcv, tval, hthmE, htlps, hsbodyPin, fvsI, sbodyO, hopen,
     hsidesTy⟩ := hthmpack
