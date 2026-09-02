@@ -267,4 +267,86 @@ theorem eqLawP_cons_valueKind {m : EnvS2Core V env}
     exact hnotind _ _ (Option.some.inj hfind)
   · exact eqLawP_cons_fresh hprev hn m₂ hac
 
+/-! ## The compiler-trust identity law at a fresh cons
+
+`ReduceOpsP` mentions exactly two stored leaves — the operation and
+its element type — and both are stored in the *prefix* whenever the
+law's own premise fires there, so the transport is two `acvalWith_ne`s
+and a monotone `find?`.  The one case the transport cannot cover is
+the operation's **own** install, which is the establishment
+(`Interp2/ReduceOpsP.lean`); it is excluded here by the disjunctive
+premise, exactly as `divModP_cons_fresh` excludes a WF operation's
+own install. -/
+
+/-- **`ReduceOpsP` crosses every fresh cons that is not a reduce
+operation's own opaque install.**  The head disjunct is what a
+`defn`/`thm` cons supplies (its kind is not `axiomInfo`); the name
+disjunct is what an axiom cons supplies (its pinned name is one of the
+standard/`trustCompiler`/`ofReduce*` family, none of which is a reduce
+operation). -/
+theorem reduceOpsP_entry_cons {m : EnvS2Core V env}
+    (hprev : ReduceOpsP m)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith m.acval c₀.name A)
+    {c : Name} (hcN : c ∈ Setlec.reduceOpNames) (hne : c ≠ c₀.name)
+    {cv : ConstantVal}
+    (hf₂ : (⟨c₀ :: env.consts⟩ : Env).find? c = some (.axiomInfo cv))
+    (hpin : ConstantVal.matchesPin cv (Setlec.reduceOpCvA c) = true) :
+    ((⟨c₀ :: env.consts⟩ : Env).find?
+        (Setlec.reduceElemName c)).isSome = true ∧
+      ∀ (ψ : Name → Nat) (ρ : Nat → V) (x : V),
+        x ∈ˢ interp2 V ρ (m₂.acval (Setlec.reduceElemName c) ψ) →
+        SetTheory.app (interp2 V ρ (m₂.acval c ψ)) x = x := by
+  have hf : env.find? c = some (.axiomInfo cv) := by
+    rw [Setlec.Env.find?_cons, if_neg (fun h => hne h.symm)] at hf₂
+    exact hf₂
+  obtain ⟨helem, hid⟩ := hprev c hcN cv hf hpin
+  -- the element type is stored in the prefix, hence is not the fresh
+  -- cons either
+  have hneE : Setlec.reduceElemName c ≠ c₀.name := by
+    intro heq
+    rw [heq, hfresh] at helem
+    exact nomatch helem
+  have hmoveC : m₂.acval c = m.acval c := by
+    rw [hac]; exact acvalWith_ne hne
+  have hmoveE : m₂.acval (Setlec.reduceElemName c)
+      = m.acval (Setlec.reduceElemName c) := by
+    rw [hac]; exact acvalWith_ne hneE
+  refine ⟨?_, fun ψ ρ x hx => ?_⟩
+  · cases hfe : env.find? (Setlec.reduceElemName c) with
+    | none => rw [hfe] at helem; exact nomatch helem
+    | some ci =>
+      rw [Setlec.Env.find?_cons, if_neg (fun h => hneE h.symm), hfe]
+      rfl
+  · rw [hmoveC]
+    rw [hmoveE] at hx
+    exact hid ψ ρ x hx
+
+/-- **`ReduceOpsP` crosses every fresh cons that is not a reduce
+operation's own opaque install.**  The head disjunct is what a
+`defn`/`thm` cons supplies (its kind is not `axiomInfo`); the name
+disjunct is what an axiom cons supplies (its pinned name is one of the
+standard/`trustCompiler`/`ofReduce*` family, none of which is a reduce
+operation). -/
+theorem reduceOpsP_cons_fresh {m : EnvS2Core V env}
+    (hprev : ReduceOpsP m)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hnothead : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
+      c₀.name ∉ Setlec.reduceOpNames)
+    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith m.acval c₀.name A) :
+    ReduceOpsP m₂ := by
+  intro c hcN cv hf₂ hpin
+  have hne : c ≠ c₀.name := by
+    intro heq
+    subst heq
+    rw [Setlec.Env.find?_cons_self] at hf₂
+    rcases hnothead with hnd | hnn
+    · exact absurd (Option.some.inj hf₂) (hnd cv)
+    · exact absurd hcN hnn
+  exact reduceOpsP_entry_cons hprev hfresh m₂ hac hcN hne hf₂ hpin
+
 end Setlec.SetR.Interp2

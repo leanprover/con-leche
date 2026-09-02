@@ -137,6 +137,40 @@ def EqLawP {V : Type w} [SetTheory V] {env : Env}
         interp2 V ρ (.app (.app (.app (m.acval eqName ψ) Aa) la) ra)
           ∈ˢ (univZero : V)
 
+/-- **The compiler-trust opaques are the identity, at `interp2`** —
+`EnvS.reduce_ops` (`ReduceOpsV`, `SetR/EnvS.lean:138`) one currency
+over, with `interp`/`cval` replaced by `interp2`/`acval`.  The stored
+`Lean.reduceNat`/`Lean.reduceBool` leaf, applied to a member of its
+element type's reading, *is* that member.
+
+**This is an environment law, exactly as `eq_lawP` is**: the opaque's
+leaf value is fixed by its own install (`checkReducePin`'s identity
+certificate) and by nothing else, so the only possible supplier is
+that install.  The v1 field cannot be imported — the transfer would
+be an erasure factoring of `interp2` through `interp`, refuted at
+exactly the λ-nodes the operation's leaf is made of (the literal-tier
+seal II finding 1, the same refutation that makes `EqLawP` a field).
+
+**Establishment**: `reduceOpsP_install` (`Interp2/ReduceOpsP.lean`),
+at the opaque cons, from `ReducePinR`'s *recorded* identity-certificate
+run (`isDefEqCore μ env F 1 (.app valA (reduceCertVar c))
+(reduceCertVar c) = .ok true`) through `DefEqClaims2P` at the
+one-entry element context — the run-certificate route's fifth
+execution.  **Preservation**: `reduceOpsP_cons_fresh` at every other
+fresh cons (the law mentions two stored leaves, so it crosses).
+**Consumer**: the `ofReduceNat`/`ofReduceBool` axiom branch
+(`Interp2/AxiomReduceP.lean`), whose innermost membership obligation
+is exactly `op a = a`. -/
+def ReduceOpsP {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS2Core V env) : Prop :=
+  ∀ c ∈ Setlec.reduceOpNames, ∀ cv : ConstantVal,
+    env.find? c = some (.axiomInfo cv) →
+    ConstantVal.matchesPin cv (Setlec.reduceOpCvA c) = true →
+    (env.find? (Setlec.reduceElemName c)).isSome = true ∧
+    ∀ (ψ : Name → Nat) (ρ : Nat → V) (x : V),
+      x ∈ˢ interp2 V ρ (m.acval (Setlec.reduceElemName c) ψ) →
+      SetTheory.app (interp2 V ρ (m.acval c ψ)) x = x
+
 /-! ## The structure-capability laws (task #161, caps tier)
 
 `CapsOkV`'s mirror at the validated-annotation currency: the stored
@@ -518,6 +552,12 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   else, so the supplier is `IndStepPB`).  Consumed by the ι row
   (`Step2/IotaRowsP.lean`) -/
   rec_rules : ∀ φ : Name → Nat, RecRulesP base2 φ
+  /-- every stored compiler-trust opaque is the identity on its
+  element type (`EnvS.reduce_ops`'s mirror; an *environment law* for
+  the same reason `eq_lawP` is — the opaque's leaf is fixed by its own
+  install's identity certificate and by nothing else, so the supplier
+  is `harvestOpaqueP`.  Consumed by the `ofReduce*` axiom branch) -/
+  reduce_ops : ReduceOpsP base2
 
 namespace EnvS2PM
 
@@ -601,6 +641,9 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
         exact nomatch hf
   rec_rules := fun _ n _ _ _ _ hf => by
     rw [show Env.empty.find? n = none from rfl] at hf
+    exact nomatch hf
+  reduce_ops := fun c _ cv hf => by
+    rw [show Env.empty.find? c = none from rfl] at hf
     exact nomatch hf
 
 end Setlec.SetR.Interp2

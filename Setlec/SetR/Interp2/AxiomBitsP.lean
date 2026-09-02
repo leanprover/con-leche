@@ -1,3 +1,4 @@
+import Setlec.SetR.Interp2.ErasePwInv
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.StdAxiomKey
 
@@ -58,50 +59,10 @@ inversions; the pinned telescopes need the four remaining heads, and
 composing the two erasures once here keeps every consumer's chain one
 step per node. -/
 
-/-- `erasePw ∘ eraseNames` inversion at a `∀`: the head is a `∀`, and
-its name and meta are exactly what the comparison forgives. -/
-theorem erasePwNames_forallE_invS {e : Expr} {n : Name} {ty b : Expr}
-    {m : BinderMeta}
-    (h : e.erasePw.eraseNames = .forallE n ty b m) :
-    ∃ n' ty' b' m', e = .forallE n' ty' b' m' ∧
-      ty'.erasePw.eraseNames = ty ∧ b'.erasePw.eraseNames = b := by
-  cases e with
-  | forallE n' ty' b' m' =>
-    simp only [Expr.erasePw, Expr.eraseNames, Expr.forallE.injEq] at h
-    exact ⟨n', ty', b', m', rfl, h.2.1, h.2.2.1⟩
-  | _ => simp only [Expr.erasePw, Expr.eraseNames] at h; exact nomatch h
-
-/-- `erasePw ∘ eraseNames` inversion at a sort (both erasures fix
-it). -/
-theorem erasePwNames_sort_invS {e : Expr} {u : Level}
-    (h : e.erasePw.eraseNames = .sort u) : e = .sort u := by
-  cases e with
-  | sort u' => simp only [Expr.erasePw, Expr.eraseNames] at h; rw [h]
-  | _ => simp only [Expr.erasePw, Expr.eraseNames] at h; exact nomatch h
-
-/-- `erasePw ∘ eraseNames` inversion at an application. -/
-theorem erasePwNames_app_invS {e : Expr} {f a : Expr}
-    (h : e.erasePw.eraseNames = .app f a) :
-    ∃ f' a', e = .app f' a' ∧ f'.erasePw.eraseNames = f ∧
-      a'.erasePw.eraseNames = a := by
-  cases e with
-  | app f' a' =>
-    simp only [Expr.erasePw, Expr.eraseNames, Expr.app.injEq] at h
-    exact ⟨f', a', rfl, h.1, h.2⟩
-  | _ => simp only [Expr.erasePw, Expr.eraseNames] at h; exact nomatch h
-
-/-- `erasePw ∘ eraseNames` inversion at a constant (the composite of
-`Install/Axiom.lean`'s two head inversions). -/
-theorem erasePwNames_const_invS {e : Expr} {n : Name} {us : List Level}
-    (h : e.erasePw.eraseNames = .const n us) : e = .const n us :=
-  erasePw_const_invS (eraseNames_const_invS h)
-
-/-- `erasePw ∘ eraseNames` inversion at a bound variable. -/
-theorem erasePwNames_bvar_invS {e : Expr} {i : Nat}
-    (h : e.erasePw.eraseNames = .bvar i) : e = .bvar i := by
-  cases e with
-  | bvar i' => simp only [Expr.erasePw, Expr.eraseNames] at h; rw [h]
-  | _ => simp only [Expr.erasePw, Expr.eraseNames] at h; exact nomatch h
+-- The five `erasePw ∘ eraseNames` head inversions moved to
+-- `Interp2/ErasePwInv.lean` at ENDGAME D: the reduce-operation pin
+-- (`Interp2/ReduceOpsP.lean`) needs them and sits *below* `HarvestP`,
+-- which this file imports.  Statements unchanged.
 
 /-! ## Fuel-free run identities -/
 

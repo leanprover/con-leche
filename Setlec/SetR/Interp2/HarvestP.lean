@@ -3,6 +3,7 @@ import Setlec.SetR.Interp2.NatEqsP
 import Setlec.SetR.Interp2.DivModCertP
 import Setlec.SetR.Interp2.CapsP
 import Setlec.SetR.Interp2.RecRulesPCons
+import Setlec.SetR.Interp2.ReduceOpsP
 import Setlec.SetR.Install.ValueKinds
 
 /-!
@@ -344,7 +345,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -518,6 +519,12 @@ theorem harvestDefnP (hμ : μ.verified = true)
       (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
       (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
+  · -- `reduce_ops` at the extension: a definition is not an
+    -- `axiomInfo`, so no reduce operation can be this cons
+    exact reduceOpsP_cons_fresh mp.reduce_ops
+      (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
+      (A := A) hfresh
+      (Or.inl (fun _ h => ConstantInfo.noConfusion h)) _ rfl
 
 /-! ## The `thm` mirror (batch H2, T1)
 
@@ -730,7 +737,7 @@ theorem harvestThmP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -800,6 +807,11 @@ theorem harvestThmP (hμ : μ.verified = true)
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
       (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
+  · -- `reduce_ops` at the extension: a theorem is not an `axiomInfo`
+    exact reduceOpsP_cons_fresh mp.reduce_ops
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (A := A) hfresh
+      (Or.inl (fun _ h => ConstantInfo.noConfusion h)) _ rfl
 
 /-! ## The `opaque` kind: the H2 SKIP, since unlocked
 
@@ -899,7 +911,13 @@ theorem harvestAxiomP (hμ : μ.verified = true)
       AnnotValidV V ρ (A ψ))
     (hmemA : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP mp.base2.acval env ψ 0 type' = some ta →
-      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta) :
+      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
+    -- an axiom cons *is* an `axiomInfo`, so `reduce_ops`' preservation
+    -- cannot go through the kind; it goes through the name.  Every
+    -- `DeclAxiomR` branch pins `cv.name` (`matchesPin` compares it on
+    -- the nose), and none of the pinned names is a reduce operation —
+    -- the operations are installed as `opaque`s, never as axioms.
+    (hnotreduce : cv.name ∉ Setlec.reduceOpNames) :
     Nonempty (EnvS2PM V μ
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
@@ -963,7 +981,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh hbase hag hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -1026,6 +1044,12 @@ theorem harvestAxiomP (hμ : μ.verified = true)
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
+  · -- `reduce_ops` at the extension: the cons *is* an `axiomInfo`, so
+    -- the preservation goes through the pinned name (the branch's
+    -- hypothesis), not the kind
+    exact reduceOpsP_cons_fresh mp.reduce_ops
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+      (A := A) hfresh (Or.inr hnotreduce) _ rfl
 
 
 /-! ## The `opaque` kind, unlocked (the exposed leaf equation)
@@ -1045,7 +1069,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨m', hag, value'', hannv2, hleafEq⟩ :=
     declOpaqueS hrp mp.base2.base hR
-  obtain ⟨type', value', hcv, hvfr, rfl, -⟩ := hR
+  obtain ⟨type', value', hcv, hvfr, rfl, hred⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hfrontT⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩,
@@ -1206,7 +1230,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   refine declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -1270,5 +1294,16 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
+  · -- `reduce_ops` at the extension: **this is the establishment**.
+    -- An `opaque` cons is the only place a compiler-trust operation is
+    -- ever stored, and `ReducePinR`'s recorded identity-certificate run
+    -- is what makes the law true of it (`Interp2/ReduceOpsP.lean`);
+    -- every *other* stored operation crosses by the transport inside.
+    exact reduceOpsP_install hμ mp hfresh hvf' hbv' hannv hA hAclosed
+      hAok hAvalid hTa
+      (fun ψ ρ => by
+        obtain ⟨sta, hsta, htE, -, -⟩ := hrowsT ψ
+        exact htE ρ (Sat2_nil V ρ))
+      hmemA hred _ rfl
 
 end Setlec.SetR.Interp2
