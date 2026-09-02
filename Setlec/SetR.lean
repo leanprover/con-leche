@@ -182,6 +182,7 @@ import Setlec.SetR.Interp2.IndBottomNestedP
 import Setlec.SetR.Annot.BitReads
 import Setlec.SetR.Interp2.IndProjKitP
 import Setlec.SetR.Interp2.IndBottomProjP
+import Setlec.SetR.Interp2.IotaRulePlainP
 import Setlec.SetR.Interp2.IndPinProbeP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
