@@ -1898,6 +1898,257 @@ theorem quotLiftRaP_okP {E : AVExpr} {b u v : Nat} (hz : b = 0 ↔ v = 0)
   · rw [AnnotValidV_lam, interp2_sort]
     exact ⟨trivial, fun Aset hAset => (h2 Aset hAset).1.2⟩
 
+/-! ### The two sides of the fired equality -/
+
+/-- **`Quot.lift` fires against a class, at every numeral.**  At
+`v ≠ 0` this is `quotLiftV2_app_any` + `quotLiftR_app` + the
+quotient's own `app_eq_of_quotClass_eq`; at `v = 0` both sides are the
+canonical proof, because a `piR 0`-valued function *is* one. -/
+theorem quotLiftV2_fired {u v : Nat} {Aset R B f h a : V}
+    (hAset : Aset ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace2 V u Aset)
+    (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piR v Aset fun _ => B)
+    (hh : h ∈ˢ quotInvSpace2 V Aset R f) (ha : a ∈ˢ Aset) :
+    app (app (app (app (app (app (quotLiftV2 V u v) Aset) R) B) f) h)
+        (quotClass u Aset R a) = app f a := by
+  rw [quotLiftV2_app_any V hAset hR hB hf hh]
+  by_cases hv : v = 0
+  · subst hv
+    rw [quotLiftR, lamR_zero, app_pt, eq_pt_of_mem_piR_zero hf, app_pt]
+  · rw [quotLiftR_app V hv (quotClass_mem ha)]
+    obtain ⟨hrep, hcls⟩ :=
+      qrep_spec (u := u) (R := R) (quotClass_mem (u := u) ha)
+    exact app_eq_of_quotClass_eq hAset hrep ha (quotInv_of_mem2 V hh)
+      hcls.symm
+
+/-- …and the RHS tower's own six-fold application is the same value.
+
+Note what is **absent**: the bit/level correspondence `b = 0 ↔ v = 0`.
+The tower's own collapse is driven by its bit alone — at `b = 0` both
+the tower and its argument `f` are the canonical proof — so the two
+sides meet without ever comparing the reading's numeral to the
+constant's sort.  The correspondence is needed only where the
+*recursor's* value law is read (`quotLiftV2_fired`'s `hf`). -/
+theorem quotLiftRaP_app {E : AVExpr} {b u v : Nat}
+    (hval : ∀ (ρ' : Nat → V) (T x y : V), T ∈ˢ (univ v : V) →
+      x ∈ˢ T → y ∈ˢ T →
+      app (app (app (interp2 V ρ' E) T) x) y = eqv x y)
+    (hgr : ∀ (ρ' : Nat → V) (Aa la ra : AVExpr),
+      AnnotOkP V ρ' Aa → AnnotOkP V ρ' la → AnnotOkP V ρ' ra →
+      interp2 V ρ' Aa ∈ˢ (univ v : V) →
+      interp2 V ρ' la ∈ˢ interp2 V ρ' Aa →
+      interp2 V ρ' ra ∈ˢ interp2 V ρ' Aa →
+      AnnotOkP V ρ' (.app (.app (.app E Aa) la) ra) ∧
+        interp2 V ρ' (.app (.app (.app E Aa) la) ra)
+          ∈ˢ (univZero : V))
+    (ρ : Nat → V) {Aset R B f h a : V}
+    (hAset : Aset ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace2 V u Aset)
+    (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piR b Aset fun _ => B)
+    (hh : h ∈ˢ quotInvSpace2 V Aset R f) (ha : a ∈ˢ Aset) :
+    app (app (app (app (app (app (interp2 V ρ (quotLiftRaP E b u v))
+        Aset) R) B) f) h) a = app f a := by
+  by_cases hb : b = 0
+  · rw [quotLiftRaP, interp2_lam, hb, lamR_zero, app_pt, app_pt,
+      app_pt, app_pt, app_pt, app_pt]
+    rw [hb] at hf
+    rw [eq_pt_of_mem_piR_zero hf, app_pt]
+  have hdom : interp2 V (cons B (cons R (cons Aset ρ)))
+      (AVExpr.pi 0 b (.bvar 2) (.bvar 1)) = piR b Aset (fun _ => B) := by
+    rw [interp2_pi]; simp only [interp2_bvar, cons]
+  obtain ⟨hinvint, -⟩ := quotLiftInvTyP_data (u := u) ρ hval hgr hR hB
+    hf (fun hb0 => absurd hb0 hb)
+  rw [quotLiftRaP, interp2_lam, interp2_sort, app_lamR_pos hb hAset,
+    interp2_lam, quotRelTyP_interp u, app_lamR_pos hb hR,
+    interp2_lam, interp2_sort, app_lamR_pos hb hB,
+    interp2_lam, hdom, app_lamR_pos hb hf,
+    interp2_lam, hinvint, app_lamR_pos hb hh,
+    interp2_lam,
+    show interp2 V (cons h (cons f (cons B (cons R (cons Aset ρ)))))
+      (AVExpr.bvar 4) = Aset from by simp [interp2_bvar, cons],
+    app_lamR_pos hb ha]
+  simp [interp2_app, interp2_bvar, cons]
+
+/-! ### The row -/
+
+set_option maxHeartbeats 1000000 in
+/-- **`Quot.lift`'s `RecRuleLawP` row.**  The rule is `.plain`, so both
+`.nested` conjuncts are `nomatch`.  The two telescope fits are peeled
+with `interp2_inst_cons1`..`_cons4`, which put every substituted domain
+at exactly the `cons` environment its space lemma is stated at; the
+fired equality is `quotLiftV2_fired` against `quotLiftRaP_app`; the
+transport is six `AnnotOkP_app_of` steps over `quotLiftRaSpace`. -/
+theorem quotLiftLawP {m : EnvS2Core V env}
+    (m₂ : EnvS2Core V ⟨quotLiftA :: env.consts⟩)
+    (hQ : env.find? quotName = some quotA)
+    (hM : env.find? quotMkName = some quotMkA)
+    (hE : env.find? eqName = some eqA) (heq : EqLawP m)
+    (hac : m₂.acval = acvalWith m.acval quotLiftA.name
+      (fun ψ => AVExpr.const .quotLift [ψ uN, ψ vN]))
+    (φ : Name → Nat) :
+    RecRuleLawP m₂ φ quotLiftA.name quotLiftA.toConstantVal 5 5
+      quotLiftRule := by
+  refine ⟨Nat.le_refl 5, fun us hus => ?_⟩
+  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
+      ψ = Level.substFn φ quotLiftA.toConstantVal.levelParams us :=
+    ⟨_, rfl⟩
+  have hEuN : Level.substFn ψ [uN] [Level.param vN] uN = ψ vN := by
+    simp [Level.substFn, Level.eval]
+  obtain ⟨hval0, hgr0⟩ :=
+    heq hE (Level.substFn ψ [uN] [Level.param vN])
+  rw [hEuN] at hval0 hgr0
+  have hz : pwBit ψ (Setlec.PropWhen.ifAllZero [vN]) = 0 ↔ ψ vN = 0 :=
+    pwBit_ifAllZero_single ψ vN
+  have hRa : denoteP m₂.acval ⟨quotLiftA :: env.consts⟩ φ 0
+      (quotLiftRule.rhs.instantiateLevelParams
+        quotLiftA.toConstantVal.levelParams us)
+      = some (quotLiftRaP
+          (m.acval eqName (Level.substFn ψ [uN] [Level.param vN]))
+          (pwBit ψ (.ifAllZero [vN])) (ψ uN) (ψ vN)) := by
+    rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac, hψ,
+      denoteP_quotLift_rhs (m := m) _ hE]
+  refine ⟨_, hRa,
+    fun ρ => quotLiftRaP_okP hz hval0 hgr0 ρ, ?_, ?_⟩
+  · intro _ _ h
+    exact nomatch h
+  intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
+    hlev hplain hnested hpin hTVa hTVja hfitR hfitC
+  have hM' : (⟨quotLiftA :: env.consts⟩ : Env).find? quotMkName
+      = some quotMkA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hM
+  rw [show RecRule.ctor quotLiftRule = quotMkName from rfl, hM'] at hfj
+  obtain ⟨rfl, rfl, rfl⟩ :
+      cvj = quotMkA.toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
+    injection Option.some.inj hfj with a1 a2 a3
+    exact ⟨a1.symm, a2.symm, a3.symm⟩
+  obtain ⟨x1, x2, x3, x4, x5, rfl⟩ :
+      ∃ p q r s t, xs = [p, q, r, s, t] := by
+    match xs, hxs with
+    | [p, q, r, s, t], _ => exact ⟨p, q, r, s, t, rfl⟩
+  obtain ⟨y1, y2, y3, rfl⟩ : ∃ p q r, ys = [p, q, r] := by
+    match ys, hys with
+    | [p, q, r], _ => exact ⟨p, q, r, rfl⟩
+  -- the constructor's level is the recursor's own `u`
+  have hulev : Level.substFn φ quotMkA.toConstantVal.levelParams usj uN
+      = ψ uN := by
+    rw [congrFun hlev uN, hψ]
+    show Level.eval φ (Level.subst quotLiftA.toConstantVal.levelParams
+      us (.param uN)) = _
+    rw [Level.subst, Level.eval_subst_go]
+  -- the two readings, identified
+  have hTyRead : denoteP m₂.acval ⟨quotLiftA :: env.consts⟩ φ 0
+      (quotLiftA.toConstantVal.type.instantiateLevelParams
+        quotLiftA.toConstantVal.levelParams us)
+      = some (quotLiftTyP
+          (m.acval eqName (Level.substFn ψ [uN] [Level.param vN]))
+          (pwBit ψ (.ifAllZero [vN])) (ψ uN) (ψ vN)) := by
+    rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac, hψ,
+      denoteP_quotLiftA_type (m := m) _ hQ hE]
+  obtain rfl : TVa = _ :=
+    (Option.some.inj (hTyRead.symm.trans hTVa)).symm
+  have hCtorRead : denoteP m₂.acval ⟨quotLiftA :: env.consts⟩ φ 0
+      (quotMkA.toConstantVal.type.instantiateLevelParams
+        quotMkA.toConstantVal.levelParams usj)
+      = some (quotMkTyP
+          (pwBit (Level.substFn φ quotMkA.toConstantVal.levelParams usj)
+            (.ifAllZero [uN]))
+          (Level.substFn φ quotMkA.toConstantVal.levelParams usj uN)) := by
+    rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac,
+      denoteP_quotMkTy (m := m) _ (by decide) hQ]
+  obtain rfl : TVja = _ :=
+    (Option.some.inj (hCtorRead.symm.trans hTVja)).symm
+  -- peel the recursor's telescope
+  rw [quotLiftTyP] at hfitR
+  cases hfitR with | cons f1 hfitR =>
+  cases hfitR with | cons f2 hfitR =>
+  cases hfitR with | cons f3 hfitR =>
+  cases hfitR with | cons f4 hfitR =>
+  cases hfitR with | cons f5 hfitR =>
+  cases hfitR with | cons f6 _ =>
+  rw [interp2_sort] at f1
+  rw [interp2_inst0, quotRelTyP_interp (ψ uN)] at f2
+  rw [interp2_inst0, interp2_inst_cons1, interp2_sort] at f3
+  rw [interp2_inst0, interp2_inst_cons1, interp2_inst_cons2,
+    interp2_pi] at f4
+  simp only [interp2_bvar, cons] at f4
+  rw [interp2_inst0, interp2_inst_cons1, interp2_inst_cons2,
+    interp2_inst_cons3,
+    (quotLiftInvTyP_data (u := ψ uN) ρ hval0 hgr0 f2 f3 f4
+      (fun hb0 => by
+        rw [← univ_zero, ← hz.mp hb0]; exact f3)).1] at f5
+  rw [interp2_inst0, interp2_inst_cons1, interp2_inst_cons2,
+    interp2_inst_cons3, interp2_inst_cons4,
+    (quotApp_data (u := ψ uN) (i := 4) (j := 3)
+      (ρ := cons (interp2 V ρ x5) (cons (interp2 V ρ x4)
+        (cons (interp2 V ρ x3) (cons (interp2 V ρ x2)
+          (cons (interp2 V ρ x1) ρ)))))
+      (by simp [cons]) (by simp [cons]) f1 f2).2.2] at f6
+  -- peel the constructor's telescope
+  rw [quotMkTyP] at hfitC
+  cases hfitC with | cons g1 hfitC =>
+  cases hfitC with | cons g2 hfitC =>
+  cases hfitC with | cons g3 _ =>
+  rw [hulev, interp2_sort] at g1
+  rw [interp2_inst0, quotRelTyP_interp (ψ uN)] at g2
+  rw [interp2_inst0, interp2_inst_cons1] at g3
+  simp only [interp2_bvar, cons] at g3
+  -- the plain firing conditions identify the constructor's parameters
+  have hp0 : interp2 V ρ y1 = interp2 V ρ x1 :=
+    hplain rfl 0 (by decide) (by decide)
+  have hp1 : interp2 V ρ y2 = interp2 V ρ x2 :=
+    hplain rfl 1 (by decide) (by decide)
+  have hg3 : interp2 V ρ y3 ∈ˢ interp2 V ρ x1 := by
+    rw [← hp0]; exact g3
+  -- the two leaves
+  have hrecL : m₂.acval quotLiftA.name
+      (Level.substFn φ quotLiftA.toConstantVal.levelParams us)
+      = AVExpr.const .quotLift [ψ uN, ψ vN] := by
+    rw [hac, acvalWith_self, hψ]
+  have hctorL0 : m₂.acval quotMkName
+      (Level.substFn φ quotMkA.toConstantVal.levelParams usj)
+      = AVExpr.const .quotMk
+        [Level.substFn φ quotMkA.toConstantVal.levelParams usj uN] := by
+    rw [hac, acvalWith_ne (by decide)]
+    refine acval_basis_pinned (m := m) hM (by decide) ?_
+    simp +decide [Setlec.TTVerify.pinnedDirectT]
+  have hctorL : m₂.acval quotMkName
+      (Level.substFn φ quotMkA.toConstantVal.levelParams usj)
+      = AVExpr.const .quotMk [ψ uN] := by rw [hctorL0, hulev]
+  have hfv : interp2 V ρ x4
+      ∈ˢ piR (ψ vN) (interp2 V ρ x1) fun _ => interp2 V ρ x3 := by
+    rwa [piR_zero_agree hz (fun _ _ => rfl)] at f4
+  refine ⟨?_, ?_⟩
+  · -- the fired equality
+    simp only [show RecRule.ctor quotLiftRule = quotMkName from rfl,
+      show quotLiftRule.ctorParams = 2 from rfl,
+      List.take, List.drop, List.cons_append, List.nil_append,
+      AVExpr.mkAppN_cons, AVExpr.mkAppN_nil, hrecL, hctorL,
+      interp2_app, interp2_const, bval2, Setlec.TT.lv,
+      List.getD_cons_zero, List.getD_cons_succ]
+    rw [quotMkV2_app V g1 g2 g3, hp0, hp1,
+      quotLiftV2_fired f1 f2 f3 hfv f5 hg3,
+      quotLiftRaP_app hval0 hgr0 ρ f1 f2 f3 f4 f5 hg3]
+  · -- the transport
+    intro hxsA hysA
+    simp only [show quotLiftRule.ctorParams = 2 from rfl,
+      List.take, List.drop, List.cons_append, List.nil_append,
+      AVExpr.mkAppN_cons, AVExpr.mkAppN_nil]
+    have hRm := quotLiftRaP_mem (u := ψ uN) hz hval0 hgr0 ρ
+    rw [quotLiftRaSpace] at hRm
+    have h1 := AnnotOkP_app_of
+      (quotLiftRaP_okP (u := ψ uN) hz hval0 hgr0 ρ)
+      (hxsA x1 (by simp)) hRm f1
+      (fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero)
+    have h2 := AnnotOkP_app_of h1.1 (hxsA x2 (by simp)) h1.2 f2
+      (fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero)
+    have h3 := AnnotOkP_app_of h2.1 (hxsA x3 (by simp)) h2.2 f3
+      (fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero)
+    have h4 := AnnotOkP_app_of h3.1 (hxsA x4 (by simp)) h3.2 f4
+      (fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero)
+    have h5 := AnnotOkP_app_of h4.1 (hxsA x5 (by simp)) h4.2 f5
+      (fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero)
+    exact (AnnotOkP_app_of h5.1 (hysA y3 (by simp)) h5.2 hg3
+      (fun hb0 _ _ => by
+        rw [← univ_zero, ← hz.mp hb0]; exact f3)).1
+
 end Quot
 
 end Setlec.SetR.Interp2
