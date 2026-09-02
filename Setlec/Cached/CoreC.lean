@@ -666,32 +666,32 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                     (← isEquivListLM usj cmpLvls) then do
                  if ← defEqListI r fe depth (margs.take rl.ctorParams)
                     cmpArgs then do
-                  let tyRec ← constTyAtM fe c cn us
-                  if ← iotaCertsI r fe depth tyRec
-                     (args.take mI ++ [major]) then do
-                   let tyCtor ← constTyAtM fe cj cjn usj
-                   if ← iotaCertsI r fe depth tyCtor margs then do
+                  -- P2 DE-GATING (task #161 harvest, branch
+                  -- `agent/degating-p2`): the clone's twin of the
+                  -- `CoreI`/`Core` removal — the recursor-spine and
+                  -- constructor-spine `iotaCertsI` runs are gone; the
+                  -- `stripPis` arity pins above stay, and `tyRec` (used
+                  -- by nothing else) is no longer materialised.
+                  let tyCtor ← constTyAtM fe cj cjn usj
+                  match ← withStore (fun st =>
+                        st.stripPisBodyI (rl.ctorParams + rl.nfields)
+                          tyCtor),
+                      ← piResidualM tyCtor margs with
+                  | some cbody, some residual =>
                     match ← withStore (fun st =>
-                          st.stripPisBodyI (rl.ctorParams + rl.nfields)
-                            tyCtor),
-                        ← piResidualM tyCtor margs with
-                    | some cbody, some residual =>
-                      match ← withStore (fun st =>
-                          st.getNode (st.getAppFnI cbody)) with
-                      | some (.const _ _) => do
-                        let resArgs ← withStore (·.getAppArgsI residual)
-                        if ← defEqListI r fe depth
-                            (resArgs.drop rl.ctorParams)
-                            ((args.take mI).drop rP) then do
-                          let rhs ← ruleRhsAtM fe c cj cn cjn us
-                          let red ← mkAppNM rhs
-                            (args.take rP ++ margs.drop rl.ctorParams)
-                          pure (some red)
-                        else pure none
-                      | _ => pure none
-                    | _, _ => pure none
-                   else pure none
-                  else pure none
+                        st.getNode (st.getAppFnI cbody)) with
+                    | some (.const _ _) => do
+                      let resArgs ← withStore (·.getAppArgsI residual)
+                      if ← defEqListI r fe depth
+                          (resArgs.drop rl.ctorParams)
+                          ((args.take mI).drop rP) then do
+                        let rhs ← ruleRhsAtM fe c cj cn cjn us
+                        let red ← mkAppNM rhs
+                          (args.take rP ++ margs.drop rl.ctorParams)
+                        pure (some red)
+                      else pure none
+                    | _ => pure none
+                  | _, _ => pure none
                  else pure none
                 else pure none
                else pure none
