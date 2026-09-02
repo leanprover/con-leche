@@ -295,12 +295,23 @@ theorem iff_forces_eqS {env : Env} (m : EnvS V env)
   exact mem_eqv r5
 
 set_option maxHeartbeats 1600000 in
-/-- **The `propext` half of the key.**  The witness is the layer's own
-`propext` constant, whose value is `pt`; the pinned type's three
-`Prop`-level products are `pt`-inhabited because `Iff a b` forces
-`a = b`. -/
-theorem propextKeyS : PropextKeyS V := by
-  intro env m cvA hok hn hfresh
+/-- **The `propext` half of the key, at the *named* witness.**  The
+witness is the layer's own `propext` constant, whose value is `pt`; the
+pinned type's three `Prop`-level products are `pt`-inhabited because
+`Iff a b` forces `a = b`.
+
+Stated separately from `propextKeyS` because the key's `∃ Vf` is one
+currency too coarse for the P tier's leaf: `harvestAxiomP` needs an
+*annotated* twin erasing to whatever valuation was installed, so the P
+branch must know **which** witness this is (the `trustCompiler`
+branch's lesson, ENDGAME A part 2). -/
+theorem propextKeyS_mem {env : Env} (m : EnvS V env) {cvA : ConstantVal}
+    (hok : stdAxiomOk env cvA = true) (hn : cvA.name = propextName)
+    (ψ : Name → Nat) :
+    ∃ t, denoteClosed m.cval env ψ cvA.type = some t ∧
+      ∀ ρ : Nat → V,
+        interp V ρ (VExpr.const .propext []) ∈ˢ interp V ρ t ∧
+        AnnotOkV V ρ t := by
   obtain ⟨hEq, ⟨cvI, caps, hfI, hlpI, htyI⟩, ⟨cvIi, hfIi, hlpIi, htyIi⟩,
     ⟨cvIr, mI, rP, rules, hfIr, hlpIr, htyIr⟩, hApin⟩ :=
     iff_shapes hok hn
@@ -346,9 +357,6 @@ theorem propextKeyS : PropextKeyS V := by
     intro ψ
     rw [denoteClosed, htyA ψ]
     exact denote_propext_typeS hfI hlpI hEq ψ
-  refine ⟨fun _ => .const .propext [], fun _ => trivial,
-    fun _ _ _ => rfl, fun _ _ => trivial, fun ψ => ?_,
-    fun _ _ => annotLeaf2_const V .propext fun _ => []⟩
   refine ⟨_, hden ψ, fun ρ => ⟨?_, ?_⟩⟩
   · -- the value is `pt`, and every fibre is `pt`-inhabited
     rw [interp_const]
@@ -415,6 +423,14 @@ theorem propextKeyS : PropextKeyS V := by
       exact ⟨e1, trivial, _, _, h1m, hA⟩
     rw [AnnotOkV_app]
     exact ⟨e2, trivial, _, _, h2m, hB⟩
+
+/-- **The `propext` half of the key**, at the key's `∃` shape. -/
+theorem propextKeyS : PropextKeyS V := by
+  intro env m cvA hok hn _
+  exact ⟨fun _ => .const .propext [], fun _ => trivial,
+    fun _ _ _ => rfl, fun _ _ => trivial,
+    fun ψ => propextKeyS_mem m hok hn ψ,
+    fun _ _ => annotLeaf2_const V .propext fun _ => []⟩
 
 /-! ## `Classical.choice`
 
@@ -689,16 +705,20 @@ theorem denote_choice_typeS {cval : TConstVal} {env : Env}
   exact ⟨rfl, rfl⟩
 
 set_option maxHeartbeats 1600000 in
-/-- **The `Classical.choice` half of the key.**  The witness is the
-layer's own `choice` constant; `dneg_eq_nonemptyS` identifies its
-double-negation domain with the checker's stored `Nonempty`. -/
-theorem choiceKeyS : ChoiceKeyS V := by
-  intro env m cvA hok hn hfresh
+/-- **The `Classical.choice` half of the key, at the *named* witness.**
+The witness is the layer's own `choice` constant; `dneg_eq_nonemptyS`
+identifies its double-negation domain with the checker's stored
+`Nonempty`.  Split out for the reason `propextKeyS_mem` is. -/
+theorem choiceKeyS_mem {env : Env} (m : EnvS V env) {cvA : ConstantVal}
+    (hok : stdAxiomOk env cvA = true) (hn : cvA.name = choiceName)
+    (ψ : Name → Nat) :
+    ∃ t, denoteClosed m.cval env ψ cvA.type = some t ∧
+      ∀ ρ : Nat → V,
+        interp V ρ (VExpr.const .choice [ψ uN]) ∈ˢ interp V ρ t ∧
+        AnnotOkV V ρ t := by
   obtain ⟨⟨cvN, capsN, hfN, hlpN, htyN⟩, ⟨cvNi, hfNi, hlpNi, htyNi⟩,
     ⟨cvNr, mI, rP, rulesN, hfNr, hlpNr, htyNr⟩, hApin⟩ :=
     nonempty_shapes hok hn
-  have hlpA : cvA.levelParams = choiceA.levelParams :=
-    (matchesPin_invT hApin).2
   -- as at `propextKeyS`: the pin hit gives the denotation equality
   -- directly (task #161 P5).
   have htyA : ∀ ψ : Name → Nat,
@@ -712,16 +732,6 @@ theorem choiceKeyS : ChoiceKeyS V := by
     intro ψ
     rw [denoteClosed, htyA ψ]
     exact denote_choice_typeS hfN hlpN ψ
-  refine ⟨fun ψ => .const .choice [ψ uN], fun _ => trivial, ?_,
-    fun _ _ => trivial, fun ψ => ?_,
-    fun _ _ => annotLeaf2_const V .choice fun ψ => [ψ uN]⟩
-  · intro φ₁ φ₂ hp
-    have : φ₁ uN = φ₂ uN := by
-      refine hp uN ?_
-      rw [hlpA, show choiceA.levelParams = [uN] from rfl]
-      exact List.Mem.head _
-    dsimp only
-    rw [this]
   refine ⟨_, hden ψ, fun ρ => ⟨?_, ?_⟩⟩
   · rw [interp_const]
     show choiceV V (ψ uN) ∈ˢ _
@@ -745,6 +755,24 @@ theorem choiceKeyS : ChoiceKeyS V := by
     rw [AnnotOkV_app]
     exact ⟨m.annot_okV _ _ _, trivial, _, _,
       nonemptyVal_memS m hfN htyN ψ _, hA⟩
+
+/-- **The `Classical.choice` half of the key**, at the key's `∃`
+shape. -/
+theorem choiceKeyS : ChoiceKeyS V := by
+  intro env m cvA hok hn _
+  obtain ⟨-, -, -, hApin⟩ := nonempty_shapes hok hn
+  have hlpA : cvA.levelParams = choiceA.levelParams :=
+    (matchesPin_invT hApin).2
+  refine ⟨fun ψ => .const .choice [ψ uN], fun _ => trivial, ?_,
+    fun _ _ => trivial, fun ψ => choiceKeyS_mem m hok hn ψ,
+    fun _ _ => annotLeaf2_const V .choice fun ψ => [ψ uN]⟩
+  intro φ₁ φ₂ hp
+  have : φ₁ uN = φ₂ uN := by
+    refine hp uN ?_
+    rw [hlpA, show choiceA.levelParams = [uN] from rfl]
+    exact List.Mem.head _
+  dsimp only
+  rw [this]
 
 /-- **`StdAxiomKeyS`, discharged.** -/
 theorem stdAxiomKeyS : StdAxiomKeyS V :=
