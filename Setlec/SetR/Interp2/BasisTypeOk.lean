@@ -1,5 +1,6 @@
 import Setlec.SetR.Interp2.BasisOk
 import Setlec.SetR.Interp2.BitAgree
+import Setlec.SetR.Interp2.Claims2P
 
 /-!
 # Towards `AnnotOkP` at every built-in type (task #161, ENDGAME E)
@@ -26,33 +27,35 @@ exactly what is left.
   `pi` slot is zero exactly when the tower's result is a proposition,
   and then every suffix of the tower is one too.
 
-## STOP-AND-NAME: the residue of `AnnotValidV_bconst_type`
+## How the two computations close
 
-A `cases c` + structural `simp` + three closers (impredicativity
-`piR_zero_mem_univZero`, the truth set `eqv_mem_univZero`, and the
-`max u 1 = 0` premises' unsatisfiability — no universe is a
-proposition once a relation type is in the tower) takes the eighteen
-cases down to **fifteen residual goals**, in three shapes:
+`AnnotValidV_bconst_type` is one `cases c` plus one **contextual**
+`simp only` (the `v = 0` antecedents have to be usable on their own
+consequents, which is exactly what `+contextual` buys) with three
+closers folded into the simp set — impredicativity
+(`piR_zero_mem_univZero`), the truth set (`eqv_mem_univZero`), and the
+unsatisfiability of the `n + 1 = 0` premises.  That leaves **fifteen
+residual goals in nine cases**, and every one is the clause's own
+`v = 0` premise plus one argument membership:
 
-1. **`natRec` ×2, `punitRec`, `emptyRec`, `quotLift` ×2, `quotInd` ×2,
-   `quotMk`, `psigmaMk`** — `interp2 ρ (.app M a) ∈ˢ univZero` where
-   `M` is the bound motive and `v = 0` is in scope.
-   `motive_app_univZero` below is exactly this move; what blocks the
-   uniform closer is the **argument** membership, which differs per
-   goal: at `natRec`'s successor row the argument is
-   `natSucc n` and needs `natSuccV2_mem`, at `quotInd`'s it is a
-   `quotMk` spine and needs `quotMkV2_app`, and so on.  Each is one
-   line, and none is a new fact — they are `Interp2/Value.lean`'s
-   existing application laws;
-2. **`propext` ×2** — the same shape at `Prop`-valued implications;
-3. **`choice` ×3** — the same at `dnegSpace2`'s two nested negations.
+1. `natRec` ×2, `punitRec`, `emptyRec`, `quotInd` ×2, `psigmaMk`,
+   `quotMk` — `motive_app_univZero` below, with the argument supplied
+   by `natSuccV2_mem`, `quotClass_mem`, `sigma_mem_univ`, … one per
+   goal, as the ENDGAME E seal forecast;
+2. `quotLift` ×2, `propext` ×2, `choice` ×3 — `univ 0 = univZero` at a
+   binder already known to land in `univ v`.
 
-None of the fifteen is a wall, and none needs a bit lemma: every one is
-the clause's own `v = 0` premise plus an application law that already
-exists.  Recorded here rather than assumed, per the standing
-discipline, and left for the successor with its shape named — the
-generic closers are in place, so what remains is fifteen argument
-memberships.
+`AnnotOk2_bconst_type` is the same `cases c` + `simp only`, and its
+residue is uniformly the `.app` clause's `∃ v A B, f ∈ˢ piR v A B ∧
+a ∈ˢ A ∧ (v = 0 → …)`.  **The numeral is never chosen**: at a bound
+motive it is the binder's own hypothesis, and at a basis constant's
+head it is the codomain slot of `BConst.type2`'s own binder —
+`bconst_app_data`/`_data2`/`_data3` read the `piR` fact off
+`bval2_mem_type` and the fibre obligation off `AnnotValidV_bconst_type`
+at the *same* binder, so both halves come from the pin.  The two
+bespoke suppliers are `rel_app_data` (a relation applied once is still
+a graph, numeral `1`, because `Prop` as a type is `Sort 1`) and
+`quotMk_mem_quot`.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -78,5 +81,208 @@ theorem motive_app_univZero {u : Nat} {A M a : V} (hu : u = 0)
   have h := app_mem_piR_pos (Nat.succ_ne_zero u) hM ha
   rw [hu, univ_zero] at h
   exact h
+
+/-! ## The two grading predicates at every built-in type -/
+
+variable (V)
+
+set_option maxHeartbeats 4000000 in
+theorem AnnotValidV_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
+    AnnotValidV V ρ (BConst.type2 c us) := by
+  cases c
+  all_goals
+    simp +contextual +decide only [BConst.type2, arrowA, relT2, negT2,
+      natT2, natZeroT2, natSuccT2, punitT2, punitUnitT2, emptyT2,
+      psigmaT2, quotT2, quotMkT2, AVExpr.mkAppN, AVExpr.lift,
+      AVExpr.liftN, AnnotValidV_pi, AnnotValidV_app, AnnotValidV_eqE,
+      AnnotValidV_bvar, AnnotValidV_sort, AnnotValidV_const,
+      interp2_pi, interp2_app, interp2_eqE, interp2_sort,
+      interp2_const, interp2_bvar, cons_zero, cons_succ,
+      piR_zero_mem_univZero, eqv_mem_univZero, Nat.succ_ne_zero,
+      Nat.max_eq_zero_iff, Nat.max_self, true_and, and_true, and_self,
+      implies_true, false_implies, forall_const, and_false, ite_false]
+  case natRec =>
+    refine fun M hM z _ => ⟨fun n hn hu _ _ => ?_,
+      fun _s _ hu n hn => motive_app_univZero hu hM hn⟩
+    exact motive_app_univZero hu hM
+      (app_mem_piR_pos Nat.one_ne_zero (natSuccV2_mem V) hn)
+  case punitRec =>
+    exact fun _M hM _m _ hu _t ht => motive_app_univZero hu hM ht
+  case emptyRec =>
+    exact fun _M hM hu _t ht => motive_app_univZero hu hM ht
+  case psigmaMk =>
+    intro A hA B hB a _ h b _
+    obtain ⟨hu, hv⟩ := h
+    rw [hu] at hA
+    rw [hv] at hB
+    have hmem := sigma_mem_univ (u := 0) (v := 0) hA
+      (fun x hx => psigmaFibre_apply V hB hx)
+    rw [show Nat.max 0 0 = 0 from rfl, univ_zero] at hmem
+    show app (app (psigmaV2 V 0 0) A) B ∈ˢ _
+    rw [psigmaV2_app V hA hB]
+    exact hmem
+  case quotMk =>
+    intro A hA R hR hu a _
+    rw [hu] at hA hR
+    have h := quotSet_mem_univ (u := 0) (A := A) (R := R) hA
+    rw [univ_zero] at h
+    show app (app (quotV2 V 0) A) R ∈ˢ _
+    rw [quotV2_app V hA hR]
+    exact h
+  case quotLift =>
+    intro A hA R hR B hB
+    have hB0 : lv us 1 = 0 → B ∈ˢ (univZero : V) := by
+      intro hv; rw [hv, univ_zero] at hB; exact hB
+    exact ⟨fun hv _ _ => hB0 hv, fun _f _ _h _ hv _q _ => hB0 hv⟩
+  case quotInd =>
+    intro A hA R hR M hM
+    refine ⟨fun a ha => motive_app_univZero (u := 0) rfl hM ?_,
+      fun _mi _ q hq => motive_app_univZero (u := 0) rfl hM hq⟩
+    show app (app (app (quotMkV2 V (lv us 0)) A) R) a
+      ∈ˢ app (app (quotV2 V (lv us 0)) A) R
+    rw [quotMkV2_app V hA hR ha, quotV2_app V hA hR]
+    exact quotClass_mem ha
+  case propext =>
+    exact fun _A hA _B hB => ⟨fun _ _ => univ_zero (V := V) ▸ hB,
+      fun _ _ _ _ => univ_zero (V := V) ▸ hA⟩
+  case choice =>
+    intro A hA
+    refine ⟨⟨fun _ _ => univ_zero (V := V) ▸ empty_mem_univ 0,
+      fun _ _ => univ_zero (V := V) ▸ empty_mem_univ 0⟩, fun hu _ _ => ?_⟩
+    rw [hu, univ_zero] at hA
+    exact hA
+
+
+/-- **The `.app` clause's witness at a basis constant's head.**  The
+numeral is not chosen: it is the codomain slot of `type2`'s own outer
+binder, the `piR` fact is `bval2_mem_type` at that binder, and the
+fibre obligation is `AnnotValidV_bconst_type`'s `pi` clause verbatim. -/
+theorem bconst_app_data (c : BConst) (us : List Nat) (ρ : Nat → V)
+    {u v : Nat} {A B : AVExpr} (h : BConst.type2 c us = .pi u v A B)
+    {a : V} (ha : a ∈ˢ interp2 V ρ A) :
+    ∃ (w : Nat) (S : V) (F : V → V), bval2 V c us ∈ˢ piR w S F ∧
+      a ∈ˢ S ∧ (w = 0 → ∀ x, x ∈ˢ S → F x ∈ˢ (univZero : V)) := by
+  refine ⟨v, interp2 V ρ A, fun x => interp2 V (cons x ρ) B, ?_, ha, ?_⟩
+  · have hm := bval2_mem_type V c us ρ
+    rw [h, interp2_pi] at hm; exact hm
+  · have hv := AnnotValidV_bconst_type V c us ρ
+    rw [h, AnnotValidV_pi] at hv; exact hv.2.2
+
+/-- The same one binder in: a basis constant applied to its first
+argument.  `app_mem_piR`'s fibre premise is again the outer binder's
+own `AnnotValidV` clause, so nothing is chosen here either. -/
+theorem bconst_app_data2 (c : BConst) (us : List Nat) (ρ : Nat → V)
+    {u v u2 v2 : Nat} {A A2 B2 : AVExpr}
+    (h : BConst.type2 c us = .pi u v A (.pi u2 v2 A2 B2))
+    {a1 : V} (ha1 : a1 ∈ˢ interp2 V ρ A)
+    {a : V} (ha : a ∈ˢ interp2 V (cons a1 ρ) A2) :
+    ∃ (w : Nat) (S : V) (F : V → V),
+      app (bval2 V c us) a1 ∈ˢ piR w S F ∧
+      a ∈ˢ S ∧ (w = 0 → ∀ x, x ∈ˢ S → F x ∈ˢ (univZero : V)) := by
+  have hv := AnnotValidV_bconst_type V c us ρ
+  rw [h, AnnotValidV_pi] at hv
+  have hm := bval2_mem_type V c us ρ
+  rw [h, interp2_pi] at hm
+  have h1 := app_mem_piR hm ha1 hv.2.2
+  rw [interp2_pi] at h1
+  refine ⟨v2, interp2 V (cons a1 ρ) A2,
+    fun x => interp2 V (cons x (cons a1 ρ)) B2, h1, ha, ?_⟩
+  have h2 := hv.2.1 a1 ha1
+  rw [AnnotValidV_pi] at h2
+  exact h2.2.2
+
+/-- A membership at a zero level lands in `univZero`. -/
+theorem mem_univZero_of_zero {u : Nat} {X : V} (hu : u = 0)
+    (h : X ∈ˢ (univ u : V)) : X ∈ˢ (univZero : V) := by
+  rw [hu, univ_zero] at h; exact h
+
+/-- Two binders in: the constant applied to its first two arguments. -/
+theorem bconst_app_data3 (c : BConst) (us : List Nat) (ρ : Nat → V)
+    {u v u2 v2 u3 v3 : Nat} {A A2 A3 B3 : AVExpr}
+    (h : BConst.type2 c us = .pi u v A (.pi u2 v2 A2 (.pi u3 v3 A3 B3)))
+    {a1 : V} (ha1 : a1 ∈ˢ interp2 V ρ A)
+    {a2 : V} (ha2 : a2 ∈ˢ interp2 V (cons a1 ρ) A2)
+    {a : V} (ha : a ∈ˢ interp2 V (cons a2 (cons a1 ρ)) A3) :
+    ∃ (w : Nat) (S : V) (F : V → V),
+      app (app (bval2 V c us) a1) a2 ∈ˢ piR w S F ∧
+      a ∈ˢ S ∧ (w = 0 → ∀ x, x ∈ˢ S → F x ∈ˢ (univZero : V)) := by
+  have hv := AnnotValidV_bconst_type V c us ρ
+  rw [h, AnnotValidV_pi] at hv
+  have hm := bval2_mem_type V c us ρ
+  rw [h, interp2_pi] at hm
+  have h1 := app_mem_piR hm ha1 hv.2.2
+  rw [interp2_pi] at h1
+  have hv2 := hv.2.1 a1 ha1
+  rw [AnnotValidV_pi] at hv2
+  have h2 := app_mem_piR h1 ha2 hv2.2.2
+  rw [interp2_pi] at h2
+  refine ⟨v3, interp2 V (cons a2 (cons a1 ρ)) A3,
+    fun x => interp2 V (cons x (cons a2 (cons a1 ρ))) B3, h2, ha, ?_⟩
+  have hv3 := hv2.2.1 a2 ha2
+  rw [AnnotValidV_pi] at hv3
+  exact hv3.2.2
+
+/-- `Quot.mk`'s spine inhabits its quotient — the argument membership
+`quotInd`'s and `quotSound`'s motive rows want. -/
+theorem quotMk_mem_quot {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
+    (hR : R ∈ˢ relSpace2 V u A) (ha : a ∈ˢ A) :
+    app (app (app (quotMkV2 V u) A) R) a ∈ˢ app (app (quotV2 V u) A) R := by
+  rw [quotMkV2_app V hA hR ha, quotV2_app V hA hR]
+  exact quotClass_mem ha
+
+/-- A relation applied to one argument is still a graph: the `.app`
+clause's data at `relT2`'s inner binder, whose numeral is `1` because
+`Prop` as a type is `Sort 1`. -/
+theorem rel_app_data {u : Nat} {A R a b : V}
+    (hR : R ∈ˢ piR (Nat.max u 1) A fun _ => piR 1 A fun _ => (univ 0 : V))
+    (ha : a ∈ˢ A) (hb : b ∈ˢ A) :
+    ∃ (w : Nat) (S : V) (F : V → V), app R a ∈ˢ piR w S F ∧ b ∈ˢ S ∧
+      (w = 0 → ∀ x, x ∈ˢ S → F x ∈ˢ (univZero : V)) :=
+  ⟨1, A, fun _ => univ 0, app_mem_piR_pos (maxOne_ne_zero u) hR ha, hb,
+    fun h => absurd h Nat.one_ne_zero⟩
+
+set_option maxHeartbeats 4000000 in
+theorem AnnotOk2_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
+    AnnotOk2 V ρ (BConst.type2 c us) := by
+  cases c
+  all_goals
+    simp +contextual +decide only [BConst.type2, arrowA, relT2, negT2,
+      natT2, natZeroT2, natSuccT2, punitT2, punitUnitT2, emptyT2,
+      psigmaT2, quotT2, quotMkT2, AVExpr.mkAppN, AVExpr.lift,
+      AVExpr.liftN, AnnotOk2_pi, AnnotOk2_app, AnnotOk2_eqE,
+      AnnotOk2_bvar, AnnotOk2_sort, AnnotOk2_const,
+      interp2_pi, interp2_app, interp2_eqE, interp2_sort,
+      interp2_const, interp2_bvar, cons_zero, cons_succ,
+      true_and, and_true, and_self, implies_true, ite_false]
+  all_goals
+    (repeat' first
+      | exact ⟨_, _, _, ‹_›, ‹_›, fun h => absurd h (Nat.succ_ne_zero _)⟩
+      | exact ⟨_, _, _, ‹_›, ‹_›, fun h => absurd h Nat.one_ne_zero⟩
+      | exact ⟨_, _, _, ‹_›, ‹_›, fun h => absurd h (maxOne_ne_zero _)⟩
+      | exact ⟨_, _, _, ‹_›, natzero_mem, fun h => absurd h (Nat.succ_ne_zero _)⟩
+      | exact ⟨_, _, _, ‹_›, pt_mem_unitSet, fun h => absurd h (Nat.succ_ne_zero _)⟩
+      | exact ⟨_, _, _, ‹_›,
+          app_mem_piR_pos Nat.one_ne_zero (natSuccV2_mem V) ‹_›,
+          fun h => absurd h (Nat.succ_ne_zero _)⟩
+      | exact ⟨_, _, _, ‹_›, ‹_›,
+          fun hz _ _ => mem_univZero_of_zero V hz ‹_›⟩
+      | (apply rel_app_data V <;> assumption)
+      | (refine ⟨_, _, _, ‹_›, quotMk_mem_quot V ?_ ?_ ?_,
+            fun h => absurd h Nat.one_ne_zero⟩ <;> assumption)
+      | (refine bconst_app_data V _ _ ρ rfl ?_; assumption)
+      | (refine bconst_app_data2 V _ _ ρ rfl ?_ ?_ <;> assumption)
+      | (refine bconst_app_data3 V _ _ ρ rfl ?_ ?_ ?_ <;> assumption)
+      | apply And.intro
+      | intro _
+      | trivial)
+
+/-- **Every built-in constant's annotated type is `AnnotOkP`.**  v1's
+`AnnotOkV_bconst_type`, in the P tier's currency: truthfulness and bit
+validity together.  This is the grading half of the twenty-two basis
+type readings — the other half is `AVExpr.BitAgree` (`BitAgree.lean`),
+which carries this across to whatever `denoteP` actually emits. -/
+theorem AnnotOkP_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
+    AnnotOkP V ρ (BConst.type2 c us) :=
+  ⟨AnnotOk2_bconst_type V c us ρ, AnnotValidV_bconst_type V c us ρ⟩
 
 end Setlec.SetR.Interp2
