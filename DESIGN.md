@@ -21280,3 +21280,200 @@ modularity behind the named-law API.  Probe-first: β-unconditional
 and one extensionality consumer MECHANIZED, not asserted.  Output =
 the two-route comparison (totalized model vs nonemptiness datum) for
 the user-facing ruling.  A+B+C and P2 continue in parallel.
+
+## Task #161 ROUND D RETIRED (2026-09-02; user ruling) — the
+application-argument defeq is the app typing rule
+
+**The ruling, verbatim:** *"a front door check where the official
+kernel also does a defeq, and rightly so."*
+
+Round D — the pw-gated application-argument re-check, harvest sites
+9/10/11/12, measured ceiling 19.99 % / 24.78 % prelude and 23.31 % /
+35.64 % init-full — is **withdrawn from the de-gating harvest**.  The
+`inferSpineI` domain `defeq` is not certificate tax: it is the
+application typing rule's own premise.  Masking it lowers the checker
+below the semantics it is supposed to implement.  The harvest's
+definition of "gate" had drifted; this row is the drift.
+
+Both design routes that were opened to rescue the lever are **closed
+without being pursued**: the domain-nonemptiness `BinderMeta` datum
+(never started) and the totalized function space (probe in flight when
+the retirement landed; its no-go theorems are kept below).  Neither is
+to be re-opened for this site.
+
+### The sequent table — why the site is legitimate checking
+
+Read the mask first (`_tmp/degating-p1/patch.py`, sites 9-12; the gate
+is `cpNever _mb.pw` / `cpNever _mt.pw`, i.e. the *validated* task-#161
+prop-ness bit reporting "codomain sort is nonzero at every valuation").
+
+**Sites 9 (`whnfAppI`, `CoreI.lean:1527`) and 10 (`betaPeelI`,
+`:1559`) — β inside `whnfCore`.**
+
+    -- before                          -- after (gate fires)
+    | some (.lam _ ty body _mb) => do  | some (.lam _ ty body _mb) => do
+        let ta ← r.infer depth a       |     if ← (if … cpNever _mb.pw
+        if ← r.defeq depth ta ty then  |           then pure true else do
+                                       |             let ta ← r.infer depth a
+                                       |             r.defeq depth ta ty) then
+
+(site 10 additionally skips `instListM ty acc`).  Skipped: the
+argument's `infer` and its `defeq` against the λ's domain.
+
+*Frozen P-claim*: `WhnfCoreClaims2P` (`Interp2/Claims2P.lean:85`) —
+here `AnnotOkP V ρ ea` of the **subject is a HYPOTHESIS**.  The row is
+`whnfCore_app_claimP` (`Step2/WhnfP.lean:565`); its β case reads, in
+the tree today:
+
+    by_cases hz : pwBit φ mm.pw = 0
+    · exact AnnotOkP_beta_zero (hokapp ρ hρ) (hcert hta hde …)
+    · exact AnnotOkP_beta_pos hz (hokapp ρ hρ)
+
+GOAL: `⟦.app (.lam v tya ba) aa⟧ = ⟦ba.inst aa⟧` together with
+`AnnotOkP (ba.inst aa)`.  **Arrow cut at a positive kind: none.**  The
+runtime certificate (`hta`, `hde`, produced by `whnf_app_inv`) is
+already unconsumed in the `pwBit φ mm.pw ≠ 0` branch — which is
+exactly the branch the gate fires in.  The domain membership comes
+from `annotOk2_beta_dom_pos` (`Step2/WhnfP.lean:108`), which derives
+`⟦a⟧ ∈ˢ ⟦A⟧` from the subject's own `AnnotOk2` slot by
+`lamR_ne_pt` + `piR_dom_unique`.
+
+*Where empty domains would enter, and why they cannot.*
+`piR_dom_unique` (`Interp2/Ops.lean:282`) is **unconditional** — no
+`≠ pt` side condition, no nonemptiness premise, empty domains
+included.  If `⟦A⟧ = ∅` then the app node's slot (`⟦a⟧ ∈ˢ A'` with
+`⟦λ⟧ ∈ˢ piR v' A' B'`) forces `A' = ∅` and the slot is unsatisfiable:
+the subject has **no** `AnnotOk2`, and the row is vacuous.  The #100
+countermodel `(fun (x : ∀ p : Prop, p) => Prop) Prop` dies there:
+`⟦∀ p : Prop, p⟧ = piR 0 univZero id = ∅`, and
+`⟦fun (x : …) => Prop⟧ = lamR 1 ∅ _ = ∅` by `lamR_pos_empty` — the
+**empty graph, not `pt`**.  `∅ ∈ˢ piSet A' B'` forces `A' = ∅`, so
+`⟦Prop⟧ = univZero ∈ˢ A'` fails and the application has no slot.
+**`ptFresh_piC_of`'s nonemptiness conjunct (P1 FINDING 7) belongs to
+the RETIRED collapse lane** (`piC`/`lamC`, `Setlec/Model/*`, retired
+at #148 T7); under `piR`/`lamR` the graph regime never collapses and
+the premise is not the obstruction.  FINDING 7's stated soundness gap
+therefore does **not** apply to sites 9/10 in the sealed tier.
+
+**Sites 11 (`inferSpineI` syntactic Π, `CoreI.lean:1673`) and 12
+(whnf'd Π, `:1684`) — the application typing rule.**
+
+    -- before
+    let dom' ← instListRevM dom acc
+    let ta ← r.infer depth a
+    unless ← r.defeq depth ta dom' do
+      throw (.invalid "application type mismatch")
+    -- after (gate fires)
+    unless ← (if … cpNever _mt.pw then pure true else do
+              … r.defeq depth ta dom') do
+      throw (.invalid "application type mismatch")
+
+i.e. **the `throw` becomes unreachable**.
+
+*Frozen P-claim*: `InferClaims2P` (`Interp2/Claims2P.lean:137`) —
+here `AnnotOkP V ρ ea` of the subject is a **CONCLUSION**.  The row is
+`infer_app_claimP` (`Step2/InferP.lean:893`).  GIVENS: `hde` (the
+runtime defeq, out of `inferTypeCore_app_inv`), `hrowaM : ⟦aa⟧ ∈ˢ
+⟦tyaA⟧` (the argument's *own* inferred type), `hrowfM`/`hredf`
+putting `⟦fa⟧` in `⟦.pi 0 (pwBit φ mb'.pw) Aa Ba⟧`, and the ∀'s
+`AnnotValidV` components.  The chain, verbatim:
+
+    have hdom := ihd hde …                 -- ⟦tyaA⟧ = ⟦Aa⟧
+    have ha2  : ⟦aa⟧ ∈ˢ ⟦Aa⟧               -- rw [← hdom]; exact hrowaM
+
+GOALS: `AnnotOkP (.app fa aa)` — whose slot is built by
+`appSlot_of_pi`/`AnnotOk2_app_of` (`Annot/Ok2.lean:358/372`) and
+whose `ha` **is** `ha2` — and `⟦.app fa aa⟧ ∈ˢ ⟦Ba.inst aa⟧`, which
+is `app_mem_piR`'s conclusion and again needs `ha2`.
+
+**The arrow the mask cuts: `hde → hdom → ha2`, the sole producer of
+`ha2`.**  Nothing else in the row relates `aa` to `Aa`.
+
+*Why nonemptiness is not the missing premise.*  The missing fact is
+**domain membership**, and it is missing as a **supplier**, not as a
+bridge.  At sites 9/10 the bridge `⟦a⟧ ∈ A' ⟹ ⟦a⟧ ∈ A` is
+`piR_dom_unique` and the *supplier* of `⟦a⟧ ∈ A'` is the subject's
+hereditary `AnnotOk2`; at sites 11/12 that very `AnnotOk2` is the
+conclusion, so there is no slot to bridge from and the argument is
+circular.  A nonemptiness datum cannot close it (a nonempty **wrong**
+domain is still wrong — the coordinator's diagnosis, confirmed), and
+neither can any model swap: see `no_membership_free_elim` below.
+
+### Verdict-neutrality: precise scope
+
+P1's "verdict-neutral everywhere" is **neutral on the measured
+well-typed streams**, not language preservation.  With the mask at
+sites 11/12 the `.invalid "application type mismatch"` throw is
+unreachable at 92.0 % / 80.0 % of application argument positions
+(P1 FINDING 7's capture rates).  Adversarial shape: `def bad : Nat :=
+f true` with `f : Nat → Nat` — the Π's codomain sort is `Type`, so
+`pw = .never`, the gate fires, `inferSpineI` returns `Nat`, the
+declared type matches, **accept**; the unmasked checker rejects at
+exactly that throw.  The masked checker is therefore strictly weaker,
+which is the cleanest possible receipt for the retirement.
+
+**The empirical run was NOT performed** (it needs a fresh worktree at
+`abc92524`, `python3 _tmp/degating-p1/patch.py .`, then
+`lake build SetlecPinCerts && lake build setlec` — the heavy leg P1's
+own record calls out — while A+B+C and P2 hold the machine).  The
+divergence is a code-level certainty: `unless ← pure true do throw …`
+leaves no reachable rejection path for an argument type mismatch at
+that site.  Recipe recorded here for anyone who wants the receipt.
+
+### Left on the table by the block retirement (not re-litigated)
+
+Sites 9/10 are **not** the application typing rule: they are
+`whnfCore`'s per-redex *re*-certification of an argument the enclosing
+inference already certified, and the sealed proof **already ignores
+their certificate at a positive kind** (`AnnotOkP_beta_pos` takes no
+certificate; `annotOk2_beta_dom_pos` supplies the membership).  Their
+measured share is 4.61 % production / 8.16 % cached of init-prelude.
+The retirement is a block ruling over 9-12; a separate ruling would be
+needed to treat 9/10 on their own, and this note exists only so the
+distinction is on the record.
+
+### Mechanized artifacts (ARCHIVE — retired routes)
+
+`_probe/TotalizeD1.lean` on branch `agent/degating-d1`.  Not in any
+`lake` library root; nothing imports it; check with
+`lake env lean _probe/TotalizeD1.lean`.  Zero `sorry`s; every result
+audited at exactly `[propext, Classical.choice, Quot.sound]` or less.
+
+| theorem | content |
+|---|---|
+| `app_lamT` | β for the totalized encoding: `app (lamT U F) a = F a` for `a ∈ˢ U` — the domain `A` is gone from the statement |
+| `app_lamT_off_carrier` | **the kill-note, mechanized**: off the carrier the value is `empty`, exactly as `lamR` off its domain.  Totalization *relocates* the side condition (`a ∈ˢ A` ↦ `a ∈ˢ U`); it never discharges one, and the masked checker learns `a ∈ˢ U` no more than it learns `a ∈ˢ A` |
+| `no_membership_free_elim` | **the encoding-independent no-go**: for *any* `piX`/`lamX`/`appX` on any `SetTheory V` with the ordinary introduction rule, membership-free elimination `f ∈ˢ piX A B → ∀ a, appX f a ∈ˢ B a` is FALSE (witness: empty domain, empty fibres).  So the goal the site-11/12 mask leaves open is unreachable by **any** model swap |
+| `app_mem_piR_pos_needs_ha` | the same, instantiated at the sealed tier's own operators: `app_mem_piR_pos` cannot have its `ha` premise dropped |
+| `dom_subset_sUnion_sUnion_graph` | `A ⊆ˢ ⋃⋃ (graph F A)` |
+| `graph_not_mem_of_isTGUniverse` | **the universe-placement no-go**: `graph F U ∉ˢ U` for a Grothendieck universe `U` (closure under `⋃` and under subsets of members would give `U ∈ˢ U`) |
+| `lamT_not_mem_univ` | in tower terms: a λ totalized over the level-`n+1` carrier does not live at level `n+1`.  Every abstraction would jump a universe and the whole placement battery (`piC_mem_univ`, the 75 `piR_zero_mem_univZero` consumers) would need restating |
+
+### The carrier bound never existed (deliverable (a), answered negatively)
+
+The user's critical sub-question — *`pw` gives prop-ness, not the
+level; where does the carrier bound come from?* — has a flat answer:
+**nowhere.**  `AVExpr.lam` carries exactly one numeral, the
+**codomain** sort `v` (`Annot/Syntax.lean:81`), and `interp2`'s
+`.lam` clause reads only it (`Interp2/Interp.lean:153`).  The
+domain's sort was deliberately dropped from the annotation ("no
+consumer reads it", the A3 ruling's follow-up in
+`Annot/Pass.lean`'s `Annotates.lam` docstring); `.pi u v A B` keeps a
+domain slot `u` which `interp2` also never reads.  And
+`Red.beta`'s subject `.app (.lam A b) a` has a λ whose domain sort
+**no premise supplies** (`Annot/Pass.lean`, the existence-theorem
+docstring: "Reduction is therefore annotation-opaque at this tier").
+Supplying a carrier bound is an `AVExpr` + `Annotates` + tier-A/B/C
+change — a bigger campaign than the datum route it was meant to
+avoid, on top of the two no-go theorems above.
+
+### Disposition
+
+* Harvest row D: **RETIRED**, not "blocked".  Do not re-cost it.
+* Totalized function space: **CLOSED** (kill-note + two no-go
+  theorems).  Never re-opened for this site.
+* Domain-nonemptiness `BinderMeta` datum: **CLOSED**, never started.
+* P1 FINDING 7's soundness analysis: **superseded** for the current
+  tier — its `ptFresh_piC_of` premise is the retired collapse lane's,
+  and the real obstruction at 11/12 is that the check *is* the typing
+  rule.
