@@ -32,7 +32,10 @@ assembled end to end:
 * `nat_heads` at the extension derives from guard reflection
   (`natLitSupported_cons_back`) + freshness — no bespoke premise.
 
-One routed premise: `hsem : SemTierInputsP` (the semantic bill).
+No routed semantic premise any more: the subject-side totality leaf
+is `acceptedReadsP_of` (`Step2/AcceptedP.lean`, task #161 ENDGAME A),
+so the harvests take the environment invariant and the install-tier
+pins alone.
 `LitGuardsAgree` is GONE from every harvest: the guard equality is
 refutable at a support-completing install, and the monotone crossing
 (`denoteP_cons_fresh_mono`) plus guard reflection replace every use —
@@ -149,7 +152,7 @@ theorem natHeadsP_cons_fresh (mp : EnvS2PM V μ env)
 
 /-- **The `defn` harvest** (see the module docstring). -/
 theorem harvestDefnP (hμ : μ.verified = true)
-    (hsem : SemTierInputsP V μ) (hdm : DivModPinS V)
+    (hdm : DivModPinS V)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     {env₂ : Env}
@@ -184,7 +187,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
   have hAex : ∀ ψ : Name → Nat,
       ∃ va, denoteP mp.base2.acval env ψ 0 value' = some va := by
     intro ψ
-    exact hsem.accepted_reads mp.base2 ψ hvrun hwv hbv' hLv
+    exact acceptedReadsP_of mp.base2 ψ hvrun hwv hbv' hLv
   let A : (Name → Nat) → AVExpr :=
     fun ψ => (denoteP mp.base2.acval env ψ 0 value').getD default
   have hA : ∀ ψ : Name → Nat,
@@ -198,7 +201,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
   have hTex : ∀ ψ : Name → Nat,
       ∃ ta, denoteP mp.base2.acval env ψ 0 type' = some ta := by
     intro ψ
-    exact hsem.accepted_reads mp.base2 ψ hst hwt hbt' hLt
+    exact acceptedReadsP_of mp.base2 ψ hst hwt hbt' hLt
   let Ta : (Name → Nat) → AVExpr :=
     fun ψ => (denoteP mp.base2.acval env ψ 0 type').getD default
   have hTa : ∀ ψ : Name → Nat,
@@ -209,9 +212,9 @@ theorem harvestDefnP (hμ : μ.verified = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem hsem mp ψ) F
+    checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem mp ψ) F
   have hreads : ∀ ψ, InferReadsP mp.base2 μ ψ F :=
-    fun ψ => inferReadsP_of (TierInputsAtP.ofSem hsem mp ψ).reads
+    fun ψ => inferReadsP_of (TierInputsAtP.ofSem mp ψ).reads
   -- the value's rows: gradings and the membership at its own type
   have hrowsV : ∀ ψ : Name → Nat, ∃ vta,
       denoteP mp.base2.acval env ψ 0 vtype = some vta ∧
@@ -485,7 +488,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
     · obtain ⟨hgenv, -, -, pinA, -, hcerts⟩ := hdmc hno
       exact divModP_install mp (mp.div_mod φ) mp.eq_lawP
         (fun {d} {e} {t} hrun hw hb hL =>
-          hsem.accepted_reads mp.base2 φ hrun hw hb hL)
+          acceptedReadsP_of mp.base2 φ hrun hw hb hL)
         (hreads φ) ((hclaims φ).2.2.2) ((hclaims φ).2.2.1)
         (List.contains_iff_mem.mp hno) hfresh hgenv hcerts
         hA hAclosed hvf' hbv'
@@ -539,7 +542,6 @@ its grading come from `ConstantValR`'s own run, exactly as in the
 species, and the P invariant stores no is-a-proposition field.  They
 are destructured away with `-`. -/
 theorem harvestThmP (hμ : μ.verified = true)
-    (hsem : SemTierInputsP V μ)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclThmR μ F env mp.base2.base.cval cv value env₂) :
@@ -571,7 +573,7 @@ theorem harvestThmP (hμ : μ.verified = true)
   have hAex : ∀ ψ : Name → Nat,
       ∃ va, denoteP mp.base2.acval env ψ 0 value' = some va := by
     intro ψ
-    exact hsem.accepted_reads mp.base2 ψ hvrun hwv hbv' hLv
+    exact acceptedReadsP_of mp.base2 ψ hvrun hwv hbv' hLv
   let A : (Name → Nat) → AVExpr :=
     fun ψ => (denoteP mp.base2.acval env ψ 0 value').getD default
   have hA : ∀ ψ : Name → Nat,
@@ -585,7 +587,7 @@ theorem harvestThmP (hμ : μ.verified = true)
   have hTex : ∀ ψ : Name → Nat,
       ∃ ta, denoteP mp.base2.acval env ψ 0 type' = some ta := by
     intro ψ
-    exact hsem.accepted_reads mp.base2 ψ hst hwt hbt' hLt
+    exact acceptedReadsP_of mp.base2 ψ hst hwt hbt' hLt
   let Ta : (Name → Nat) → AVExpr :=
     fun ψ => (denoteP mp.base2.acval env ψ 0 type').getD default
   have hTa : ∀ ψ : Name → Nat,
@@ -596,9 +598,9 @@ theorem harvestThmP (hμ : μ.verified = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem hsem mp ψ) F
+    checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem mp ψ) F
   have hreads : ∀ ψ, InferReadsP mp.base2 μ ψ F :=
-    fun ψ => inferReadsP_of (TierInputsAtP.ofSem hsem mp ψ).reads
+    fun ψ => inferReadsP_of (TierInputsAtP.ofSem mp ψ).reads
   -- the value's rows: gradings and the membership at its own type
   have hrowsV : ∀ ψ : Name → Nat, ∃ vta,
       denoteP mp.base2.acval env ψ 0 vtype = some vta ∧
@@ -882,7 +884,6 @@ tier works; the wrapper crosses it.
 this: it stores nothing (`env₂ = env`), so its P invariant is `mp`
 itself. -/
 theorem harvestAxiomP (hμ : μ.verified = true)
-    (hsem : SemTierInputsP V μ)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → AVExpr}
     (hcv : ConstantValR μ F env mp.base2.base.cval cv type')
@@ -918,7 +919,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   have hTex : ∀ ψ : Name → Nat,
       ∃ ta, denoteP mp.base2.acval env ψ 0 type' = some ta := by
     intro ψ
-    exact hsem.accepted_reads mp.base2 ψ hst hwt hbt' hLt
+    exact acceptedReadsP_of mp.base2 ψ hst hwt hbt' hLt
   let Ta : (Name → Nat) → AVExpr :=
     fun ψ => (denoteP mp.base2.acval env ψ 0 type').getD default
   have hTa : ∀ ψ : Name → Nat,
@@ -929,9 +930,9 @@ theorem harvestAxiomP (hμ : μ.verified = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem hsem mp ψ) F
+    checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem mp ψ) F
   have hreads : ∀ ψ, InferReadsP mp.base2 μ ψ F :=
-    fun ψ => inferReadsP_of (TierInputsAtP.ofSem hsem mp ψ).reads
+    fun ψ => inferReadsP_of (TierInputsAtP.ofSem mp ψ).reads
   -- the type's rows: its own grading as a subject
   have hrowsT : ∀ ψ : Name → Nat, ∃ sta,
       denoteP mp.base2.acval env ψ 0 stype = some sta ∧
@@ -1037,7 +1038,7 @@ link read **directly** off the exposed equation — no `denote_install`,
 no `defn_eq`/`thm_ok` detour. -/
 
 theorem harvestOpaqueP (hμ : μ.verified = true)
-    (hsem : SemTierInputsP V μ) (hrp : ReducePinS V)
+    (hrp : ReducePinS V)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclOpaqueR μ F env mp.base2.base.cval cv value env₂) :
@@ -1070,7 +1071,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   have hAex : ∀ ψ : Name → Nat,
       ∃ va, denoteP mp.base2.acval env ψ 0 value' = some va := by
     intro ψ
-    exact hsem.accepted_reads mp.base2 ψ hvrun hwv hbv' hLv
+    exact acceptedReadsP_of mp.base2 ψ hvrun hwv hbv' hLv
   let A : (Name → Nat) → AVExpr :=
     fun ψ => (denoteP mp.base2.acval env ψ 0 value').getD default
   have hA : ∀ ψ : Name → Nat,
@@ -1084,7 +1085,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   have hTex : ∀ ψ : Name → Nat,
       ∃ ta, denoteP mp.base2.acval env ψ 0 type' = some ta := by
     intro ψ
-    exact hsem.accepted_reads mp.base2 ψ hst hwt hbt' hLt
+    exact acceptedReadsP_of mp.base2 ψ hst hwt hbt' hLt
   let Ta : (Name → Nat) → AVExpr :=
     fun ψ => (denoteP mp.base2.acval env ψ 0 type').getD default
   have hTa : ∀ ψ : Name → Nat,
@@ -1095,9 +1096,9 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem hsem mp ψ) F
+    checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem mp ψ) F
   have hreads : ∀ ψ, InferReadsP mp.base2 μ ψ F :=
-    fun ψ => inferReadsP_of (TierInputsAtP.ofSem hsem mp ψ).reads
+    fun ψ => inferReadsP_of (TierInputsAtP.ofSem mp ψ).reads
   -- the value's rows: gradings and the membership at its own type
   have hrowsV : ∀ ψ : Name → Nat, ∃ vta,
       denoteP mp.base2.acval env ψ 0 vtype = some vta ∧

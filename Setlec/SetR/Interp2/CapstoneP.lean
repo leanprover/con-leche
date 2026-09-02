@@ -1,6 +1,7 @@
 import Setlec.SetR.Interp2.InstallP
 import Setlec.SetR.Interp2.NatStepP
 import Setlec.SetR.Interp2.EmptyPin2
+import Setlec.SetR.Interp2.Step2.AcceptedP
 
 /-!
 # The P capstone's shape (task #161, P4 — frozen early, per the ruling)
@@ -29,17 +30,20 @@ harvest layer builds toward them:
   its type — plus the validating mode, which is part of the goal's
   letter (the annotated checker IS the verified mode; `--no-model`
   ignores annotations by design).  No residue hypotheses: the
-  intermediate, `SemTierInputsP`-conditional form below is a
-  *milestone shape*, never the close (the conditional-forms ruling).
+  intermediate, install-tier-conditional form is a *milestone shape*,
+  never the close (the conditional-forms ruling).
 
-`SemTierInputsP` names the remaining bill in ∀-environment form —
-`TierInputsAtP`'s non-env-tier fields *less the literal tier*, which
-landed (`Interp2/NatStepP.lean`) and the caps tier all but closed
-(`Step2/CapsRowsP.lean`, `Interp2/CapsP.lean`); what remains is iota,
-the proj/str install rows, and the one named caps residue
-`StructUnitIrrelP`.  The harvest layer proves: accepted stream + `SemTierInputsP`
-⇒ `Nonempty (EnvS2PM …)` at the final environment; this file's
-`no_constant_of_Empty_P` then closes the capstone.
+**The semantic bill is empty** (task #161, ENDGAME A).  This file used
+to carry `SemTierInputsP`, the ∀-environment form of `TierInputsAtP`'s
+non-env-tier fields.  The four semantic tiers emptied it — literal,
+caps, the proj/str install rows, iota — and its last field,
+`accepted_reads`, is now `acceptedReadsP_of`
+(`Step2/AcceptedP.lean`): a syntactic totality walk over `inferBody`'s
+clauses, where every `denoteP` failure mode is one of the front door's
+own acceptance guards.  So the structure is deleted, and the harvest
+layer proves: accepted stream ⇒ `Nonempty (EnvS2PM …)` at the final
+environment, with only the *install-tier* bundles as premises; this
+file's `no_constant_of_Empty_P` then closes the capstone.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -100,61 +104,28 @@ theorem no_constant_of_Empty_P (mp : EnvS2PM V μ env)
       rw [if_neg hlen] at hta
       exact nomatch hta
 
-/-! ## The remaining bill, in ∀-environment form -/
+/-! ## The remaining bill: none
 
-/-- **The semantic-tier inputs** — `TierInputsAtP`'s non-env-tier
-fields, ∀-environment: what the four semantic tiers discharge
-(literal → caps → proj/str → iota).  The harvest layer's conditional
-fold consumes this; the final capstone consumes nothing (the tiers
-land as theorems). -/
-structure SemTierInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
-    Prop where
-  /-- subject-side totality: whatever inference accepts, reads —
-  the harvest layer's per-declaration readings (the primed forms),
-  discharged with the proj/literal tiers' completion (`denoteP`'s
-  fragment guards are the front door's acceptance guards) -/
-  accepted_reads : ∀ {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) {F d : Nat} {e t : Expr},
-    Setlec.inferTypeCore μ env F d e = .ok t →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e →
-    ∃ ea, denoteP m.acval env φ d e = some ea
-  /- iota tier: NO entries.  Both rows are discharged (`iotaStepP_of`
-  off `EnvS2PM.rec_rules`, `iotaReadsP_of` off `rec_rules` +
-  `accepted_reads`); the `.nested` pin wall was resolved by the
-  ratified one-conjunct repair to `RecRuleLawP`
-  (`Step2/IotaRowsP.lean`'s record). -/
-  /- caps tier: NO entries.  All four capability rows left this
-  census with the tier: `UnitIrrelPQ` (`unitIrrelPQ_of_claims`),
-  `PairEtaIrrelP` (`pairEtaIrrelP_of_claims`), `StructEtaIrrelP`
-  (`structEtaIrrelP_of_claims`, off the `EnvS2PM.caps_ok` field), and
-  `StructUnitIrrelP` with the ratified one-premise repair of the unit
-  half (`structUnitIrrelP_of_claims`): the caps tier is CLOSED.
-
-  proj/str install tier: NO entries either.  All five rows left this
-  census with that tier — `InferStrLitStepP`
-  (`inferStrLitStepP_of_claims`, `Step2/StrLitP.lean`),
-  `WhnfCoreProjReadsP`/`InferProjReadsP` (`whnfCoreProjReadsP_of`,
-  `inferProjReadsP_of`, `Step2/ReadsP.lean`: routed by mistake, the
-  walk's own induction hypothesis discharges them), and
-  `InferProjStepP`/`ProjStepP` (`inferProjStepP_of_claims`,
-  `projStepP_of_claims`, `Step2/ProjRowsP.lean`).
-
-  iota tier: BOTH ROWS ARE DISCHARGED — `IotaStepP` by `iotaStepP_of`,
-  `IotaReadsP` by `iotaReadsP_of` (`Step2/IotaRowsP.lean`), off the
-  new `EnvS2PM` field `rec_rules` and, for the reads row,
-  `accepted_reads` above.  The `.nested` pin wall fell to the
-  ratified one-conjunct repair.  The bill is `accepted_reads`,
-  ALONE. -/
+**`SemTierInputsP` is gone.**  The structure named `TierInputsAtP`'s
+non-env-tier fields in ∀-environment form, and the four semantic tiers
+emptied it one by one — literal (`Interp2/NatStepP.lean`), caps
+(`Step2/CapsRowsP.lean`, `Interp2/CapsP.lean`), the proj/str install
+rows (`Step2/StrLitP.lean`, `Step2/ReadsP.lean`,
+`Step2/ProjRowsP.lean`) and iota (`Step2/IotaRowsP.lean`).  Its last
+field, `accepted_reads`, is `acceptedReadsP_of`
+(`Step2/AcceptedP.lean`), so the bundle has nothing left to carry and
+is **deleted** rather than left as an empty structure: an empty
+hypothesis is still a hypothesis in every downstream signature, and
+the milestone capstone's census is read off those signatures. -/
 
 /-- The env-fixed tier bundle, from the semantic inputs + the fold's
 invariant + the one bespoke literal-tier fact (`nat_heads`, an install
 product of the `Nat` basis — supplied by the fold at that install and
 carried by `EnvS2PM`). -/
-theorem TierInputsAtP.ofSem (hsem : SemTierInputsP V μ)
-    (mp : EnvS2PM V μ env) (φ : Name → Nat) :
+theorem TierInputsAtP.ofSem (mp : EnvS2PM V μ env) (φ : Name → Nat) :
     TierInputsAtP V μ mp.base2 φ :=
-  TierInputsAtP.ofEnvS2PM mp (hsem.accepted_reads mp.base2 φ)
+  TierInputsAtP.ofEnvS2PM mp
+    (@fun _ _ _ _ h hw hb hL => acceptedReadsP_of mp.base2 φ h hw hb hL)
     (fun fuel => reduceNatReadsP_of mp.base2 φ fuel)
     (fun _fuel ihw => reduceNatStepP_of mp ihw)
     (fun _fuel ihw => reduceNatStepPQ_of mp ihw)

@@ -13140,3 +13140,69 @@ inductive installs (all fields; `caps_ok` + `rec_rules`
 establishment; THE PROP-MOTIVE MINORS — the last place genuinely
 novel content can hide; stop-and-name standing); (5) the FINAL
 ASSEMBLY: `no_proof_of_Empty_P` unconditional.
+
+## Task #161 ENDGAME A, part 1: `accepted_reads` is a theorem, `SemTierInputsP` is deleted (2026-09-02)
+
+**The semantic bill is empty.**  `SemTierInputsP`'s last field —
+subject-side totality, "whatever inference accepts, the reading
+reads" — is `acceptedReadsP_of` (`Interp2/Step2/AcceptedP.lean`), and
+the structure is deleted rather than left as an empty carrier: an
+empty hypothesis is still a hypothesis in every downstream signature,
+and the milestone capstone's census is read off those signatures.
+
+### The walk is a coincidence of guards
+
+A plain fuel induction over `inferBody`'s ten clauses.  `denoteP`
+fails on exactly four things, and the front door has already checked
+each of them:
+
+| `denoteP` failure | the checker's own guard |
+| --- | --- |
+| a loose `.bvar` | outside the fragment (`.notImplemented`); the subject's `looseBVarsBounded 0` closes it before the run is consulted |
+| `.const` unfindable / mis-arity | the `.const` clause's two `throw`s |
+| a literal without its basis | `natLitSupported` / `strLitSupported` |
+| `.proj i`, `2 ≤ i` | a `native` table entry is one of the two pinned pair entries, so `i < 2` (`projPinsP` at `EnvS.proj_ok`) |
+
+The `.fvar` clause reads **unconditionally** — `denoteP` never looks
+at the leaf's stored annotation.  That is batch 6's FINDING seen from
+the other side: the same blindness that made *`InferReadsP`*
+refutable (the checker *returns* the annotation) makes *this*
+statement free of a `LeafReadsP` premise.
+
+**The one clause that is not a guard coincidence is `letE`.**
+`inferBody` recurses on the ζ reduct `b.instantiate1 v`; `denoteP`
+*opens* the binder, `b.instantiate1 (.fvar d n ty)`.  The induction
+hypothesis lands on the wrong term.  `denoteP_beta`
+(`Annot/BitInst.lean`) is the bridge and points the right way: it
+states the ζ reading as the opened reading mapped through
+`AVExpr.inst`, so `some` on the left forces `some` inside the map.
+The `x` it instantiates at is the induction hypothesis at `v`, which
+the same clause infers.  No new lemma was needed — the P3 batch-2
+substitution kit already had it.
+
+### What the walk does *not* need
+
+No environment field beyond `EnvS.proj_ok` (syntactic, `V`-free), no
+`EnvWF`, no claims, no fuel monotonicity: the statement is about the
+*checker*, not the model, which is why it lands at `EnvS2Core` rather
+than as a bundle entry.  Three run inversions were added
+(`inferTypeCore_const_inv_len`, `inferTypeCore_natLit_inv`,
+`inferTypeCore_strLit_inv`) — `Verify/InferLemmas.lean`'s `.const`
+inversion consumes the arity equation inside its own `split`, and the
+two literal clauses had no inversion at all, because no previous
+consumer needed the guard.
+
+### The census after this commit
+
+`no_proof_of_Empty_P_of`'s hypotheses are **`hμ` + `AxiomStepPB` +
+`BasisStepPB` + `IndStepPB`** — three install-tier bundles and the
+validating mode.  `TierInputsAtP.ofSem` loses its `hsem` argument;
+`harvestDefnP`/`ThmP`/`OpaqueP`/`AxiomP`, `declStepPM`, `foldPM` and
+`checkDecls_sound_P_of` lose it with them.
+
+### Battery
+
+`lake build` 400 jobs warning-free, `lake test` 139.  Axioms exactly
+`[propext, Classical.choice, Quot.sound]` on `no_proof_of_Empty_P_of`,
+`acceptedReadsP_of`, `TierInputsAtP.ofSem`, `checkDecls_sound_P_of`,
+`harvestDefnP` and `no_proof_of_Empty_R`.  Zero sorries.
