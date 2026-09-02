@@ -445,4 +445,45 @@ theorem iotaRuleP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     exact iotaRuleNestedP mp hdeq hinf hreadsP hf hroT hIS hup hbnA
       hself heqfind hkit hfm φ
 
+set_option maxHeartbeats 1600000 in
+/-- **Every rule the per-recursor fold returns carries its fired law**
+(`iotaRulesS`'s P half).  The syntactic clauses of `RuleFactsS` are
+V-free and the v1 fold already establishes them; what the P tier owes
+is the row. -/
+theorem iotaRulesP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
+    (mp : EnvS2PM V μ envSelf)
+    (hdeq : ∀ ψ : Name → Nat, DefEqClaims2P μ mp.base2 ψ F)
+    (hinf : ∀ ψ : Name → Nat, InferClaims2P μ mp.base2 ψ F)
+    (hreadsP : ∀ ψ : Name → Nat, InferReadsP mp.base2 μ ψ F)
+    {blockNames : List Name} {f : Name → Name}
+    (hf : f = fun n =>
+      if blockNames.contains n then n.str "_model" else n)
+    (hroT : RenameOkP mp.base2.acval envSelf f)
+    (hIS : BlockInstalledTT blockNames envSelf mp.base2.base.cval)
+    (hup : FoldUpS env₂ envSelf)
+    {cvA : ConstantVal} {mI rP : Nat}
+    (hbnA : blockNames.contains cvA.name = true)
+    (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
+    (heqfind : env₂.find? eqName = some eqA) :
+    ∀ (j : Nat) (rules rules' : List RecRule),
+      IotaRulesR μ F env₂ envSelf mp.base2.base.cval f cvA.name
+        cvA.levelParams cvA.type mI rP j rules rules' →
+      ∀ rl ∈ rules', RecRule.fire rl ≠ .inert → ∀ φ : Name → Nat,
+        RecRuleLawP mp.base2 φ cvA.name cvA mI rP rl := by
+  intro j rules
+  induction rules generalizing j with
+  | nil =>
+    intro rules' h rl hrl
+    rw [h] at hrl
+    exact nomatch hrl
+  | cons r rest ih =>
+    intro rules' h rl hrl
+    obtain ⟨r', rest', hkit, hrec, rfl⟩ := h
+    rcases List.mem_cons.mp hrl with heqrl | hrl'
+    · intro hfire φ
+      rw [heqrl] at hfire ⊢
+      exact iotaRuleP mp hdeq hinf hreadsP hf hroT hIS hup hbnA hself
+        heqfind hkit hfire φ
+    · exact ih (j + 1) rest' hrec rl hrl'
+
 end Setlec.SetR.Interp2
