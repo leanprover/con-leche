@@ -850,7 +850,12 @@ Task #130's extra check — the pair type's two arguments certified
 against the projection entry's telescope (`projParamCert`) — was a
 TT-lane check, statically dead since #148 T7b (`CheckMode.ttChecks ≡
 false`) and deleted with the rest of that code at task #161's de-gating
-round A+B+C (item A, harvest site 23). -/
+round A+B+C (item A, harvest site 23).  It was the clause's only reader
+of the mode, so the first parameter is now `_mode`: kept, deliberately,
+because the whole `stuckIrrel` cascade and its verification family
+(`pairEtaCertP`, `_inv`, `_mono`, `_disc`, `_atF`, `_fst/snd_proj`,
+`_sim` in both twins) share one signature shape, and narrowing this
+member alone would churn ~40 proof sites for no statement change. -/
 def pairEtaCert (_mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (a b : Expr) :
     m Bool := do

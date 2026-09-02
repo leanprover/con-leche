@@ -520,7 +520,7 @@ private theorem pairEtaCertC_unfold (env : Env) (d : Nat) (a b : Expr) :
     | _ => pure false) := rfl
 
 /-- Port of `pairEtaCertI_sim`. -/
-theorem pairEtaCertC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
+theorem pairEtaCertC_sim (ih : SSimC mode env f)
     {d : Nat} {i j : ExprC} {a b : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
@@ -1429,14 +1429,14 @@ theorem stuckIrrelC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       structUnitCert (fueledFns mode env) env d a b >>= fun r₅ =>
       if r₅ then pure true else
       proofIrrel (fueledFns mode env) env d a b)
-  refine SimC.bind (pairEtaCertC_sim ih henv hs hdena hdenb hwa hwb)
+  refine SimC.bind (pairEtaCertC_sim ih hs hdena hdenb hwa hwb)
     (fun s₁ r₁ r₁' hs₁ hP₁ => ?_)
   obtain rfl : r₁ = r₁' := hP₁
   cases r₁ with
   | true => simp only [↓reduceIte]; exact SimC.pure hs₁ rfl
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte]
-    refine SimC.bind (pairEtaCertC_sim ih henv hs₁ hdenb hdena hwb hwa)
+    refine SimC.bind (pairEtaCertC_sim ih hs₁ hdenb hdena hwb hwa)
       (fun s₂ r₂ r₂' hs₂ hP₂ => ?_)
     obtain rfl : r₂ = r₂' := hP₂
     cases r₂ with

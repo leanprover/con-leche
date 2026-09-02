@@ -579,7 +579,7 @@ private theorem pairEtaCert_unfold (env : Env) (d : Nat) (a b : Expr) :
       | _ => pure false
     | _ => pure false) := rfl
 
-theorem pairEtaCertI_sim (ih : SSimI mode env f) (_henv : EnvWF env)
+theorem pairEtaCertI_sim (ih : SSimI mode env f)
     {d : Nat} {i j : EIdx}
     {a b : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hdena : s₀.store.denoteT i = some a)
@@ -1726,14 +1726,14 @@ theorem stuckIrrelI_sim (ih : SSimI mode env f) (henv : EnvWF env)
       structUnitCert (fueledFns mode env) env d a b >>= fun r₅ =>
       if r₅ then pure true else
       proofIrrel (fueledFns mode env) env d a b)
-  refine SimAt.bind (pairEtaCertI_sim ih henv hs hdena hdenb hwa hwb)
+  refine SimAt.bind (pairEtaCertI_sim ih hs hdena hdenb hwa hwb)
     (fun s₁ r₁ r₁' hs₁ hext₁ hP₁ => ?_)
   obtain rfl : r₁ = r₁' := hP₁
   cases r₁ with
   | true => simp only [↓reduceIte]; exact SimAt.pure hs₁ rfl
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte]
-    refine SimAt.bind (pairEtaCertI_sim ih henv hs₁
+    refine SimAt.bind (pairEtaCertI_sim ih hs₁
       (denoteT_mono hext₁ hdenb) (denoteT_mono hext₁ hdena) hwb hwa)
       (fun s₂ r₂ r₂' hs₂ hext₂ hP₂ => ?_)
     obtain rfl : r₂ = r₂' := hP₂

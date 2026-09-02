@@ -1120,8 +1120,7 @@ private theorem stuckIrrel_shift (henv : EnvWF env)
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   exact proofIrrel_shift henv ih hpd hwa hwb
 
-private theorem projCert_shift (_henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e₂ : Expr}
+private theorem projCert_shift (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e₂ : Expr}
     (hwe₂ : WScoped d e₂) (i : Nat) (nP : Nat) :
     projCert (pureFns mode env fuel) env (d + 1) (shiftFrom p e₂) i nP =
       projCert (pureFns mode env fuel) env d e₂ i nP := by
@@ -2010,7 +2009,7 @@ private theorem whnfCore_step (henv : EnvWF env)
       have hwarg : WScoped d
           (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
         WScoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
-      refine bind_rel_eq _ (projCert_shift henv ih hpd hwe₃ i
+      refine bind_rel_eq _ (projCert_shift ih hpd hwe₃ i
         entry.numParams) ?_
       intro bb _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
