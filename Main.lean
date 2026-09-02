@@ -1,5 +1,6 @@
 import Setlec.Kernel.CheckerS
 import Setlec.Kernel.CheckerNC
+import Setlec.Cached.Driver
 import Setlec.Kernel.Split
 import Setlec.Frontend.Export
 
@@ -218,7 +219,8 @@ preprocessed (`--pre`), skipping preprocessor detection and spawn;
 (`--install-only` / `--check-range`, task #108) with the requested
 half-open check range. -/
 def checkMain (file : String) (mode : CheckMode) (pre : Bool)
-    (split? : Option (Nat × Option Nat)) : IO UInt32 := do
+    (split? : Option (Nat × Option Nat))
+    (core : Setlec.Cached.CoreVariant := .production) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
     -- readable off the invocation (task #147).
@@ -250,10 +252,25 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
     -- T7b); `--no-model` runs the unverified lane
     -- (Setlec/Kernel/CheckerNC.lean — checking-mode front door over
     -- the cert-skipping internals).
+    -- The performance pilot's core selector (`--core=…`): the two
+    -- non-production variants run the *same* `Expr`-typed shared-state
+    -- declaration driver, one over the interned core and one over the
+    -- cached-clone core, so a comparison between them isolates the
+    -- representation.  They are measurement instruments: unverified,
+    -- and refused in combination with the split driver.
+    if core != .production && split?.isSome then
+      IO.eprintln "setlec: --core=… cannot be combined with \
+        --install-only/--check-range"
+      return 3
     let stepF :=
       if mode == .noModel then checkDeclSPStepNM else checkDeclSPStep mode
     let foldF :=
-      if mode == .noModel then checkDeclsSPNM else checkDeclsSP mode
+      match core with
+      | .cached => Setlec.Cached.checkDeclsSharedC mode
+      | .cachedParsed => Setlec.Cached.checkDeclsSPCached mode
+      | .internedShared => Setlec.Cached.checkDeclsSharedI mode
+      | .production =>
+        if mode == CheckMode.noModel then checkDeclsSPNM else checkDeclsSP mode
     -- Streaming frontend (task #57): the preprocessor writes to a temp
     -- file and the parse reads line by line — no wholesale text buffer
     -- in this process; retained memory is the parse arena plus the
@@ -315,7 +332,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
               IO.eprintln s!"setlec: declined: partial check \
                 ({hi - min lo hi} of {decls.size} declarations checked)"
               return 2
-        if (← IO.getEnv "SETLEC_PROGRESS").isSome then
+        if (← IO.getEnv "SETLEC_PROGRESS").isSome ∧ core == .production then
           -- the parse arena is well-formed by construction (task #103);
           -- no validation sweep before checking
           let stats := (← IO.getEnv "SETLEC_STATS").isSome
@@ -372,6 +389,11 @@ def usage : String := String.intercalate "\n" [
   "  --pre             assert FILE is already preprocessed output of",
   "                    lean-inductive-models: skip the preprocessor",
   "                    detection scan and spawn entirely",
+  "  --core=V          performance pilot (unverified measurement",
+  "                    instrument): V = production (default),",
+  "                    interned-shared, cached, or cached-parsed —",
+  "                    see DESIGN.md,",
+  "                    \"The cached-clone pilot\"",
   "  --install-only    install the whole stream without checking any",
   "                    declaration (task #108)",
   "  --check-range A:B check only declarations [A, B) of the stream,",
@@ -396,6 +418,8 @@ def parseRangeSpec (s : String) : Option (Nat × Option Nat) :=
 
 structure Args where
   mode : Setlec.CheckMode := .setModel
+  /-- performance-pilot core selector (`--core=…`) -/
+  core : Setlec.Cached.CoreVariant := .production
   pre : Bool := false
   /-- the split driver's check range (`some (0, some 0)` for
   `--install-only`) -/
@@ -419,6 +443,13 @@ def parseArgs : List String → Args → Args
         of --no-model, and the certified mode is --set-model \
         (default) (task #147)" }
   | "--pre" :: rest, a => parseArgs rest { a with pre := true }
+  | "--core" :: spec :: rest, a =>
+    match spec with
+    | "production" => parseArgs rest { a with core := .production }
+    | "interned-shared" => parseArgs rest { a with core := .internedShared }
+    | "cached" => parseArgs rest { a with core := .cached }
+    | "cached-parsed" => parseArgs rest { a with core := .cachedParsed }
+    | _ => { a with bad := some s!"unknown core variant {spec}" }
   | "--install-only" :: rest, a =>
     parseArgs rest { a with split? := some (0, some 0) }
   | "--check-range" :: spec :: rest, a =>
@@ -426,7 +457,14 @@ def parseArgs : List String → Args → Args
     | some r => parseArgs rest { a with split? := some r }
     | none => { a with bad := some s!"malformed --check-range {spec}" }
   | s :: rest, a =>
-    if s.startsWith "--check-range=" then
+    if s.startsWith "--core=" then
+      match (s.drop "--core=".length).toString with
+      | "production" => parseArgs rest { a with core := .production }
+      | "interned-shared" => parseArgs rest { a with core := .internedShared }
+      | "cached" => parseArgs rest { a with core := .cached }
+      | "cached-parsed" => parseArgs rest { a with core := .cachedParsed }
+      | v => { a with bad := some s!"unknown core variant {v}" }
+    else if s.startsWith "--check-range=" then
       match parseRangeSpec ((s.drop "--check-range=".length).toString) with
       | some r => parseArgs rest { a with split? := some r }
       | none => { a with bad := some s!"malformed {s}" }
@@ -441,6 +479,11 @@ def childArgs (a : Args) (file : String) : Array String :=
         | .setModel => #[]
         | .noModel => #["--no-model"])
     ++ (if a.pre then #["--pre"] else #[])
+    ++ (match a.core with
+        | .production => #[]
+        | .internedShared => #["--core=interned-shared"]
+        | .cached => #["--core=cached"]
+        | .cachedParsed => #["--core=cached-parsed"])
     ++ (match a.split? with
         | some (0, some 0) => #["--install-only"]
         | some (lo, some hi) => #["--check-range", s!"{lo}:{hi}"]
@@ -480,7 +523,7 @@ def main (args : List String) : IO UInt32 := do
     -- input proof".  Progress output streams through (stdout is
     -- inherited); stderr is buffered for inspection and re-printed.
     if (← IO.getEnv "SETLEC_SUPERVISED").isSome then
-      checkMain file a.mode pre a.split?
+      checkMain file a.mode pre a.split? a.core
     else
       let child ← IO.Process.spawn {
         cmd := (← IO.appPath).toString
