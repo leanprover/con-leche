@@ -195,4 +195,29 @@ theorem no_proof_of_Empty_P_of (V : Type w) [SetTheory V]
   obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ h
   exact no_constant_of_Empty_P mp c hc hty
 
+/-- **THE CAPSTONE, at the frozen letter** (`CapstoneP.lean`'s
+docstring, checked against the goal's own words): *the checker,
+running in a validating mode, never accepts a declaration stream in
+which some stored constant has type `Empty`.*
+
+Hypotheses are **input-level only** — the accepted run, the stored
+constant, its type, plus the validating mode, which is part of the
+goal's letter (the annotated checker *is* the verified mode;
+`--no-model` ignores annotations by design).  No residue: every tier
+step is discharged (`axiomStepPB_of`, `basisStepPB_of`,
+`indStepPB_of`), so the conditional milestone form
+`no_proof_of_Empty_P_of` above now carries nothing either.  The #16
+hypothesis-minimal precedent, met.
+
+`SetTheory V` is the standing parametricity of the consistency
+argument (project rule: consistency proofs stay parametric in the
+`SetTheory` interface), not a hypothesis about the input. -/
+theorem no_proof_of_Empty_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verified = true) {F : Nat}
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+    ∀ c ∈ env'.consts,
+      c.toConstantVal.type = .const emptyName [] → False :=
+  fun c hc hty => no_proof_of_Empty_P_of V hμ h c hc hty
+
 end Setlec.SetR.Interp2
