@@ -218,7 +218,7 @@ def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     let tb ← r.infer depth b
     let wtb ← r.whnf depth tb
     if ← withStore (fun st => isUnitLikeTyI fe st wtb) then
-      pure true
+      r.defeq depth ta tb
     else
       pure false
   else do
@@ -235,7 +235,7 @@ def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
       | some (.sort vT) => do
         let z ← internLM .zero
         let okB ← liftFueled "level comparison" (← isEquivLM vT z)
-        pure (okA && okB)
+        if okA && okB then r.defeq depth ta tb else pure false
       | _ => pure false
     | _ => pure false
 

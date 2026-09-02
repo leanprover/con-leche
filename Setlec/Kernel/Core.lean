@@ -763,21 +763,36 @@ def defEqList (r : CoreFns m) (env : Env) (depth : Nat) :
 
 /-- Proof irrelevance certification: both sides' types whnf to the
 basis unit type (all of whose inhabitants are the proof point in the
-model), or both sides' types' *sorts* are `Prop`.  In the model
-everything inhabiting a proposition is the proof point, so any two such
-terms are equal — no common-type check is needed: soundness holds
-without it, and the annotation-first discipline (every subterm is
-checked before definitional equality compares it; congruence compares
-argument pairs only after the earlier arguments matched) makes a
-heterogeneous comparison unreachable, so the official kernel's check is
-implied (see DESIGN.md, design-review triage). -/
+model), or both sides' types' *sorts* are `Prop` — **and** the two
+types are definitionally equal.
+
+Soundness needs no common-type check (in the model everything
+inhabiting a proposition is the proof point, so any two such terms are
+equal outright), and the check was omitted between tasks #33 and #161
+on an *unreachability* argument (the annotation-first discipline).
+Task #161 REFUTED that argument with a fixture
+(`tests/e2e/proof_irrel_hetero.ndjson`): the discipline forces
+compared terms to have types the *algorithm* related, and algorithmic
+conversion is not congruent — `Acc`'s large elimination makes
+`Acc.rec … x a` (stuck) and its iota reduct `Ps x` inhabit the
+argument slot of one and the same function without being defeq.
+Omitting the comparison is therefore an ACCEPT-SUPERSET over the
+official kernel (`type_checker.cpp:938`, lean4lean
+`TypeChecker.lean:680`), which both reject the fixture; the check is
+restored here.
+
+The comparison runs LAST, after the two sort legs, so it is paid only
+on the certifying route (the failing route — 99.99 % of the calls —
+is untouched).  The unit-like branch gets it too: official's
+`isDefEqUnitLike` ends with the same `isDefEqCore tType (inferType s)`,
+and two *different* unit-like families are the same superset. -/
 def proofIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
   let ta ← r.infer depth a
   if isUnitLikeTy env (← r.whnf depth ta) then
     let tb ← r.infer depth b
     if isUnitLikeTy env (← r.whnf depth tb) then
-      pure true
+      r.defeq depth ta tb
     else
       pure false
   else
@@ -788,7 +803,7 @@ def proofIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
       match ← r.whnf depth (← r.infer depth tb) with
       | .sort vT =>
         let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
-        pure (okA && okB)
+        if okA && okB then r.defeq depth ta tb else pure false
       | _ => pure false
     | _ => pure false
 

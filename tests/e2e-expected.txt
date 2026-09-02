@@ -373,3 +373,18 @@
 # deviation cannot exist downstream at all.
 0 basis_binderinfo.ndjson raw
 0 basis_binderinfo_rec.ndjson raw
+# proof_irrel_hetero (task #161 verdict-relevance round, THE PROOF-IRREL
+# OMISSION): the fixture that refutes the 2026-08-20 design-review
+# unreachability argument for dropping `proofIrrel`'s common-type check.
+# `Acc`'s large elimination breaks algorithmic congruence, so a single
+# stuck function `E` legitimately takes `h1 : Acc.rec … x a` (stuck) and
+# `h2 : Ps x` (its iota reduct's spelling) in the SAME argument slot;
+# the two propositions are NOT defeq, and the congruence step
+# `E a h1 ≡ E (Acc.intro x g) h2` reduces to `proofIrrel h1 h2`.
+# The official kernel REJECTS (verified: Lean v4.33.0 "(kernel)
+# declaration type mismatch"; lean4lean throws a kernel exception),
+# because `is_def_eq_proof_irrel` ends with `is_def_eq(t_type, s_type)`
+# (type_checker.cpp:938, lean4lean TypeChecker.lean:680).  Before the
+# restored comparison setlec ACCEPTED it (exit 0) — an accept-superset.
+# Expectation 1 pins the restored check.
+1 proof_irrel_hetero.ndjson
