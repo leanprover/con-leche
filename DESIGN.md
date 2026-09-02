@@ -19907,3 +19907,464 @@ nothing).  Saving: per-hit constants in the stuck cascade.
 deleting them orphans the model); `projCert`'s infer run (the
 ratified squash countermodel); `majorToCtor` as a block
 (`MajorStepP` consumes every run).
+
+## Task #161 DE-GATING HARVEST P1: the sized itemization (2026-09-02)
+
+**Measurement only — no checker change landed.**  Every probe was
+applied to a throwaway branch, measured, and reverted; the branch this
+record sits on carries no kernel diff.
+
+### What was measured, where, and at which SHAs
+
+| lane | SHA | note |
+|---|---|---|
+| canonical master | `a81cb95c` | the harvest's base |
+| measurement build | `agent/degating-p1c` off `agent/cached-live` `abc92524` | `git diff a81cb95c abc92524 -- Setlec/Kernel/` is **empty** — the production core measured here IS master's; only `Main.lean` differs (the `--core=` selector) |
+| seal branch | `agent/degating-p1` off `a81cb95c` | this record; worktree clean |
+
+Both term representations were measured in the **same binary**, so the
+dual-core comparison is free of build skew:
+`--core=production` (the interned arena) and `--core=cached-parsed`
+(task #163's cached clone, `Setlec/Cached/*`).  The instrumentation was
+applied to **both** cores (`Setlec/Kernel/CoreI.lean` and
+`Setlec/Cached/CoreC.lean`) plus the two install-side drivers
+(`Kernel/CheckerS.lean`, `Cached/CheckerC.lean`).
+
+**Instrument** — task #141's `CPMASK` pattern
+(`_tmp/certprof-141/instrumentation.patch`) extended from 12 families
+to **40 individually-addressed sites**, plus two new knobs:
+
+* `CPCENSUS=1` — one `FIRE <site>` line per fire (per-site counts);
+* `CPMASK=<bits>` — leave-one-out: skip site `i`, measure the delta;
+* `CPGATE=<bits>` — **new**: consult the *stored, validated* `pw`
+  annotation as a skip gate (`pw = .never` ⇒ the binder's codomain
+  sort is nonzero at every valuation ⇒ the task-#49/#71 `codNonZero`
+  condition).  This is the #100-stage-2 gate re-armed off the task-#161
+  annotation, and it is the harvest's single largest lever (below).
+
+Streams: `_tmp/arena-tests/good/init-prelude.ndjson` (3 653
+declarations, accepted; **median of 3** `perf stat -e instructions:u`)
+and `_tmp/init-exports/init-full.ndjson` (61 048 declarations,
+accepted; single runs, the heavy lane).  Every run under
+`ulimit -v 32 GiB` and `timeout`.
+
+**Both cores produce identical per-site fire counts** on
+init-prelude — 30 sites, every count equal — which is independent
+evidence for the clone's clause-by-clause parity claim.
+
+### Scheduling log (the machine-solo protocol)
+
+* 17:19–17:44 — worktrees, static survey, instrumentation, builds
+  (`nice`d; the concurrent `agent/cached-live` baseline matrix was
+  running, so builds after 17:30 were `nice -n 19`).
+* 17:44 — `mkdir _tmp/measure.lock.d` attempted; **WAITED 25 min**
+  (`_tmp/degating-p1/schedule.log`) while the cached-live lane's
+  `perf stat` runs on init-full finished.  Census and verdict-screen
+  runs (no `perf`) were taken during the wait — init-prelude runs are
+  "anytime" per the protocol.
+* 18:09 — lock acquired; init-prelude LOO matrix, both cores.
+* 18:35 — init-full batch, both cores, lock still held.
+
+**Machine-hygiene finding**: PID 2643826,
+`worktrees/cached-clone/.lake/build/bin/setlec … app-lam.ndjson
+--core=interned-shared`, has been burning one core continuously for
+**19 h 47 m** (CPU time ≈ elapsed).  It is a runaway from an earlier
+session on a superseded branch.  It makes "the machine is quiet"
+unattainable and perturbs every wall-clock number on this box; the
+instruction counts reported here are per-process and unaffected.  Not
+killed — outside this worker's scope; reported for the coordinator.
+
+### Per-site fire counts (init-prelude, identical on both cores)
+
+| site | fires | site | fires | site | fires |
+|---|---|---|---|---|---|
+| 0 `annotPwPi` write | 11 298 | 13 ι rec telescope | 33 004 | 29 K synth telescope | 649 |
+| 1 `annotPwLam` write | 9 443 | 14 ι ctor telescope | 33 004 | 30 `to_cnstr_when_K` | 649 |
+| 2 lam-cod-leaf validate | 48 138 | 15 comparand `defEqList` | 33 004 | 31 K `proofIrrel` | 28 |
+| 3 forall-cod validate | 189 378 | 16 residual `defEqList` | 33 004 | 32 η synth telescope | 19 |
+| 4 lam-cod-chain validate | 89 962 | 17 `projCert` | 1 964 | 33 η `proofIrrel` | 0 |
+| 6 annotate `letE` | 63 | 21 `piResidual` walk | 3 288 | 34 `proofIrrel` calls | **135 842** |
+| 7 annotate `.proj` | 530 | 22 pair-η type args | 1 082 | 35 `isUnitLikeTy` scans | 135 842 |
+| 8 annotate lit guard | 597 | 24 struct-η telescope | 147 | 36 `proofIrrel` Prop route | 135 368 |
+| 9 `whnfApp` β | 148 717 | 25 struct-η per-field | 147 | 40 `certifyNatEqs` | 7 |
+| 10 `betaPeel` β | 204 934 | 26 struct-η `defEqList` | 147 | 41 `checkDivModCerts` | 2 |
+| 11 `inferSpine` (syntactic Π) | **600 817** | 27 struct-unit telescope | 0 | 42 `stuckIrrel` entries | 1 360 |
+| 12 `inferSpine` (whnf'd Π) | 10 237 | 28 struct-unit certificate | 0 | 43 `structEtaCert` entries | 449 |
+| 19/20/23 tt-gated | **0 (dead)** | 46 defeq steps past `a==b` | 168 794 | 44 `etaCert` entries | 55 |
+| | | 47 ι *attempts* | 167 856 | 50 major-rescue attempts | 6 981 |
+
+### The site register (what each probe is)
+
+Line numbers are master `a81cb95c`, `Setlec/Kernel/CoreI.lean` unless
+noted; the cached-clone twin `Setlec/Cached/CoreC.lean` carries every
+core site clause-by-clause (verified: identical fire counts, below).
+
+| id | site (file:line) | node kind | what the certificate re-checks |
+|---|---|---|---|
+| 0 | `CoreI.lean:2302` `annotPwPiI` leaf | ∀ telescope leaf (annotate) | writes the ∀ chain's `pw`: `infer` body + `ensureSort` + `zeronessOf` |
+| 1 | `CoreI.lean:2351` `annotPwLamI` leaf | λ telescope leaf (annotate) | writes the λ chain's `pw`: two `infer`s + `ensureSort` + `zeronessOf` |
+| 2 | `CoreI.lean:1774` `inferLamsLeafI` | λ chain leaf (infer) | validates the innermost λ's `pw` against the body-type sort: extra `infer` + `whnf` + `zeronessOf` + `equiv` |
+| 3 | `CoreI.lean:1836` `inferPisOutI` | every ∀ node (infer) | validates the node's `pw` against the inferred codomain sort: `zeronessOfLIGo` + `equiv` |
+| 4 | `CoreI.lean:1753` `inferLamsOutI` | every λ node (infer) | the `(lam-cod-chain)` neighbour agreement, `equiv` only |
+| 5 | `CoreI.lean:1234,2096,2106` | `etaCert` + both defeq binder arms | `m₁.pw.equiv m₂.pw`, `equiv` only |
+| 6 | `CoreI.lean:2455` `annotateBodyI` `.letE` | `let` (annotate) | `infer` the annotation, `ensureSort`, `infer` the value, `defeq` — the same check `inferBodyI`'s `.letE` clause runs again |
+| 7 | `CoreI.lean:2461` `annotateBodyI` `.proj` | `.proj` (annotate) | `infer` + `whnf` of the subject to find the structure head |
+| 8 | `CoreI.lean:2406,2472` `annotateBodyI` `.lit` | literals (annotate) | `natLitSupportedF` / `strLitSupportedF` environment scans |
+| 9 | `CoreI.lean:1527` `whnfAppI` | β redex (spine head λ) | `infer` arg + `defeq` against the λ domain (#141 family 2a) |
+| 10 | `CoreI.lean:1559` `betaPeelI` | β redex (peel loop) | `instList` domain + `infer` arg + `defeq` (#141 family 2b) |
+| 11 | `CoreI.lean:1673` `inferSpineI` | application arg, syntactic Π | `instListRev` domain + `infer` arg + `defeq` (#141 family 11a) |
+| 12 | `CoreI.lean:1684` `inferSpineI` | application arg, whnf'd Π | `infer` arg + `defeq` (#141 family 11b) |
+| 13 | `CoreI.lean:1437` `iotaRecI` | firing ι, recursor telescope | `iotaCerts` over `args.take mI ++ [major]` (P2a) |
+| 14 | `CoreI.lean:1440` `iotaRecI` | firing ι, constructor telescope | `iotaCerts` over the major's spine (P2b) |
+| 15 | `CoreI.lean:1434` `iotaRecI` | firing ι, comparands | `defEqList (margs.take ctorParams) cmpArgs` (P3a) |
+| 16 | `CoreI.lean:1451` `iotaRecI` | firing ι, residual indices | `defEqList (resArgs.drop ctorParams) (indices)` (P3b) |
+| 17 | `CoreI.lean:1474` `projCertI` (whole) | firing `.proj` | six runs: infer field, infer+whnf its type to a sort, level-compare vs `fieldSort`; same three for the whole ctor app vs `structSort` |
+| 18 | `CoreI.lean:1478-1494` | firing `.proj`, sort legs | the five legs `projStepP_of_claims` discards (P9) |
+| 19 | `CoreI.lean:1626` `projTeleCertI` call | firing `.proj` | **statically dead** (`mode.ttChecks ≡ false`) |
+| 20 | `CoreI.lean:1953` `projParamCertI` call | `.proj` inference | **statically dead** (`mode.ttChecks ≡ false`) |
+| 21 | `CoreI.lean:1959` `piResidualM` | `.proj` inference | walks the entry's stored type for the residual (P10) |
+| 22 | `CoreI.lean:1056` `pairEtaCertI` | stuck pair η | the two type-argument `defeq`s `pα≡A`, `pβ≡B` (P11a) |
+| 23 | `CoreI.lean:1069` `projParamCertI` call | stuck pair η | **statically dead** (`mode.ttChecks ≡ false`) |
+| 24 | `CoreI.lean:1155` `structEtaCertWithI` | stuck struct η | `iotaCerts` of the structure's own telescope on `targs` |
+| 25 | `CoreI.lean:1156` `structEtaProjCertsI` | stuck struct η, per field | one `iotaCerts` telescope run per field (P11c) |
+| 26 | `CoreI.lean:1158,1170` | stuck struct η | the two `defEqList`s (P11c's *keepers*) |
+| 27 | `CoreI.lean:1213` `structUnitCertI` | stuck unit η | `iotaCerts` of the structure telescope (P11b) |
+| 28 | `CoreI.lean:1208` `structUnitCertI` | stuck unit η | the certificate proper: `infer`+`whnf` both sides + `defeq` |
+| 29 | `CoreI.lean:1284` `majorToCtorI` K | ι major rescue (K) | synthetic-spine `iotaCerts` (task #71) |
+| 30 | `CoreI.lean:1291` `majorToCtorI` K | ι major rescue (K) | `to_cnstr_when_K`: `infer fab` + `defeq tmaj tfab` (P11d) |
+| 31 | `CoreI.lean:1293` `majorToCtorI` K | ι major rescue (K) | `proofIrrel fab major` |
+| 32 | `CoreI.lean:1331` `majorToCtorI` η | ι major rescue (η) | synthetic-spine `iotaCerts` |
+| 33 | `CoreI.lean:1338` `majorToCtorI` η | ι major rescue (η) | `proofIrrel fab major` |
+| 34 | `CoreI.lean:980` `proofIrrelI` (entry) | every defeq step | **not on the candidate list** — hoisted before lazy delta in `defeqStepI` |
+| 35 | `CoreI.lean:984,988` `isUnitLikeTyI` | proof-irrelevance attempt | reserved-recursor + capability shape scan (P8) |
+| 36 | `CoreI.lean:995-1010` | proof-irrelevance, Prop route | 4 `infer`s + 2 `whnf`s + 2 `Level.isEquiv` |
+| 37 | `CoreI.lean:853,863,892` `natOpGuardF` | accelerated `Nat` reduction | per-hit guard re-derivation (P7) |
+| 38 | `CoreI.lean:1358,1369,1903,2066,2074,2409` `strLitSupportedF` | every `String` literal | seven `find?`s + shape checks (P6) |
+| 40 | `CheckerS.lean:1306,1563` + `Cached/CheckerC.lean:256` `certifyNatEqs` | structural-`Nat`-op install | 17 `isDefEq` runs (**recorded non-candidate**) |
+| 41 | `CheckerS.lean:836` `checkDivModCertsF` | WF-pin install | depth-4 certificate runs (**recorded non-candidate**) |
+| 42 | `CoreI.lean:1241` `stuckIrrelI` (entry) | stuck defeq pair | the six-way cascade |
+| 43 | `CoreI.lean:1187` `structEtaCertI` (entry) | stuck defeq pair | `infer b` + `whnf` prelude, twice per cascade |
+| 44 | `CoreI.lean:1221` `etaCertI` (entry) | λ-vs-non-λ defeq | `infer b` + `whnf` |
+| 46 | `CoreI.lean:1983` `defeqStepI` (entry) | every defeq step past `a == b` | — |
+| 47 | `CoreI.lean:1388` `iotaRecI` (entry) | every ι *attempt* | — |
+| 50 | `CoreI.lean:1255` `majorToCtorI` (entry) | ι major rescue attempt | — |
+
+### Per-site fire counts on init-full (production core, 61 048 decls)
+
+| site | fires | site | fires | site | fires |
+|---|---|---|---|---|---|
+| 0 `annotPwPi` write | 179 487 | 13/14/15/16 ι (each) | 4 164 026 | 31 K `proofIrrel` | 126 |
+| 1 `annotPwLam` write | 278 768 | 17 `projCert` | 6 459 | 32 η synth telescope | 6 126 |
+| 2 lam-cod-leaf validate | 3 813 231 | 21 `piResidual` walk | 9 204 | 33 η `proofIrrel` | **1** |
+| 3 forall-cod validate | 11 323 701 | 22 pair-η type args | 2 442 | 34 `proofIrrel` calls | **12 453 724** |
+| 4 lam-cod-chain validate | 5 583 971 | 24/25/26 struct-η (each) | 8 589 | 35 `isUnitLikeTy` scans | 12 453 724 |
+| 6 annotate `letE` | 11 776 | 27/28 struct-unit | **3** | 36 `proofIrrel` Prop route | 12 452 329 |
+| 7 annotate `.proj` | 10 224 | 29/30 K-rescue | 5 347 | 40 `certifyNatEqs` | 7 |
+| 8 annotate lit guard | 50 431 | 42 `stuckIrrel` entries | 12 561 | 41 `checkDivModCerts` | 9 |
+| 9 `whnfApp` β | 22 029 739 | 43 `structEtaCert` entries | 18 629 | 46 defeq steps past `a==b` | 15 638 166 |
+| 10 `betaPeel` β | 34 468 760 | 44 `etaCert` entries | 1 402 | 47 ι *attempts* | 17 612 533 |
+| 11 `inferSpine` (syntactic Π) | **58 696 073** | 12 `inferSpine` (whnf'd Π) | 954 259 | 50 major-rescue attempts | 417 248 |
+
+The stuck cascade is the same nothing at 61 048 declarations that it is
+at 3 653: `structUnitCert` fires **three** times in the whole stream,
+the η-rescue's `proofIrrel` **once**.  `proofIrrelI` runs on
+**79.6 %** of all defeq steps (12.45 M of 15.64 M) and takes the
+expensive route in **99.99 %** of them.  ι is attempted 17.6 M times
+and fires 4.16 M (23.6 %).
+
+### The sized table (init-prelude, median of 3)
+
+Baselines: **38.70 G** instructions production, **33.15 G**
+cached-parsed.  `Δ%` = share of the whole run recovered by masking the
+site alone.  "verdict" = the masked run's outcome on init-prelude.
+
+| site | P-entry | Δ% prod | Δ% cached | verdict at mask | license audit |
+|---|---|---|---|---|---|
+| 11 `inferSpineI` syntactic-Π arg check | (#141 fam 11) | **50.16** | **50.34** | accept | app family — #132-refuted for classification; see the gate row |
+| 10 `betaPeelI` β arg check | (#141 fam 2b) | 4.81 | 7.97 | accept | as above |
+| 9 `whnfAppI` β arg check | (#141 fam 2a) | 0.73 | 1.53 | accept | as above |
+| 12 `inferSpineI` whnf'd-Π arg check | (#141 fam 11b) | 0.10 | 0.13 | accept | as above |
+| **`pw`-gate on 9/10/11/12** | **P4+P5** | **19.99** | **24.78** | **accept** | FINDINGS 6+7 — P4 has no runtime site; the lever is a *re-gating* and its soundness datum is missing |
+| 41 `checkDivModCertsF` | non-candidate | 5.52 | 4.85 | accept | establishment source of `DivModP` — confirmed not removable |
+| 40 `certifyNatEqs` | non-candidate | 0.01 | 0.00 | accept | establishment source of `NatOpsP` |
+| 13 ι recursor telescope | P2a | 0.95 | 2.68 | accept | **supplier** (FINDING 3) |
+| 14 ι constructor telescope | P2b | 0.23 | 0.42 | accept | **supplier** (FINDING 3) |
+| 15 comparand `defEqList` | P3a | 0.07 | 0.08 | accept | **supplier** (FINDING 3) |
+| 16 residual `defEqList` | P3b | 0.11 | 0.12 | accept | **supplier** (FINDING 3) |
+| 0+1 annotate-side `pw` writes | P1 write half | 1.80 | 1.90 | accept **only if both masked** | not a certificate: the *untrusted write* |
+| 2 lam-cod-leaf validation | P1 | 0.35 | 0.31 | accept | **supplier** — `pwBit_of_equiv_zeronessOf` (FINDING 1) |
+| 3 forall-cod validation | P1 | 0.63 | 0.77 | accept | **supplier** — ditto |
+| 4 lam-cod-chain validation | P1 | 0.01 | 0.00 | accept | **supplier** |
+| 5 the three `pw.equiv` sites | P1 | 0.01 | −0.00 | accept | **supplier** — `pwBit_eq_of_equiv`, `DefEqP.lean` |
+| 6 annotate-side `letE` check | P1 | 0.02 | −0.04 | accept | genuinely redundant with `inferBodyI`'s `.letE` |
+| **P1 family as a whole (0–6)** | **P1** | **1.89** | **1.94** | accept | — |
+| 17 `projCert` (whole) | (P9's host) | 0.06 | 0.17 | accept | infer run ratified non-candidate |
+| 18 `projCert` sort legs | P9 | 0.06 | 0.02 | accept | **license CONFIRMED, and stronger than recorded** (FINDING 4) |
+| 21 `.proj` `piResidual` walk | P10 | (tick only) | — | — | license confirmed (`projResidualP`); 3 288 fires |
+| 22 pair-η type-argument runs | P11a | 0.01 | 0.01 | accept | — |
+| 24 struct-η structure telescope | P11c | 0.01 | −0.02 | accept | **supplier** of `EtaLawP`'s `TeleFitP` |
+| 25 struct-η per-field telescopes | P11c | 0.01 | 0.01 | accept | plausible (grading only) |
+| 26 struct-η `defEqList` pair | P11c keepers | 16.71 | 9.13 | **REJECT** | load-bearing, as the list says |
+| 27 struct-unit telescope | P11b | 0.00 | −0.02 | accept | **supplier** of `UnitLawP`'s `TeleFitP` (FINDING 5) |
+| 29/30/31 K-rescue trio | P11d | ≤0.01 | ≤0.00 | accept | `MajorStepP` consumes the block |
+| 32/33 η-rescue pair | P11 | ≤0.00 | ≤0.00 | accept | — |
+| **P11 family as a whole** (22,24,25,27,29–33) | **P11** | **−0.01** | **−0.08** | accept | below the noise floor |
+| 35 `isUnitLikeTy` scan | P8 | (69.27) | (63.77) | **REJECT** | number is a truncated run, not a saving — see below |
+| 37 `natOpGuardF` → `natLitSupported` | P7 | 0.01 | −0.01 | accept | license confirmed (env invariant) |
+| 38 `strLitSupportedF` → cached flag | P6 | −0.00 | −0.02 | accept | license confirmed |
+| **P6+P7 together** | | 0.02 | −0.01 | accept | below the noise floor |
+| 19/20/23 `mode.ttChecks` sites | — | **0 (dead)** | 0 | — | `CheckMode.ttChecks ≡ false` since #148 T7b |
+| **everything maskable at once** | | **60.74** | **59.39** | accept | the certificate tax's measured ceiling |
+
+### The same groups on init-full (61 048 declarations, single runs)
+
+Baselines: **3175.72 G** instructions / 392 s production, **3016.31 G** / 331 s
+cached-parsed.  Every masked run below still **accepts 61 048
+declarations** — including the `pw`-gate probe.
+
+| group | Δ% prod (init-full) | Δ% prod (init-prelude) | Δ% cached (init-full) |
+|---|---|---|---|
+| site 11 `inferSpineI` alone | **71.99** | 50.16 | 74.21 |
+| the app family 9/10/11/12 | **77.06** | 51.82 | 78.33 |
+| **`pw`-gate on 9/10/11/12** | **23.31** | 19.99 | 35.64 |
+| P1 family (0–6) | 1.54 | 1.89 | **−0.68** (see note) |
+| P1 validation half (2–5) | 0.78 | 0.99 | 0.83 |
+| P2+P3 (13–16) | 3.22 | 1.55 | 8.98 |
+| P11 family | 0.01 | −0.01 | 0.02 |
+| P6+P7 guards | 0.02 | 0.02 | 0.03 |
+| non-candidates (40+41) | 0.77 | 5.60 | 0.60 |
+| everything maskable | **78.96** | 60.74 | 80.33 |
+
+One anomaly, recorded rather than smoothed: on the **cached** core at
+init-full, masking the P1 family as a whole is a *loss* (−0.68 %) while
+masking only its validation half is a gain (+0.83 %) — i.e. suppressing
+the annotate-side `pw` **writes** costs the cached core about 1.5 % on
+that stream.  The likely mechanism is node sharing: forcing every
+binder to `.never` changes `ExprC` structural identity and the memo
+hit rates the clone depends on.  Production's baseline reproduced to
+0.014 % across two independent runs, so this is not run-to-run noise.
+Not chased further — the P1 family is a sub-2 % item either way.
+
+The shape is the same on both streams and both cores, sharpened: on
+the full stream the application-argument certificate family is **77 %
+of the entire run**, one site (11) is **72 %**, and the *whole*
+certificate tax is 78.96 % — a 4.75× factor, against #141's 15.6× on
+the `Std.Time` cone at the much slower 2026-08 master.  Every listed
+harvest candidate other than the app family and the two non-candidates
+sums to under 4 %.
+
+**Read the app-family numbers as a ceiling, not a prize.**  Sites
+9–12 are the *application typing rule* — `⊢ a : dom` at every argument
+of every spine.  They are not a licensing re-derivation and no P-tier
+fact deletes them; the only thing the harvest can do to them is
+**gate** them (skip the check where a cheap datum proves it
+unnecessary), which is what the `CPGATE` row measures and FINDING 7
+prices.  The 71.99 %/77.06 % rows exist to say where the checker's
+time actually goes, and to bound what a gate could ever recover.
+
+Sites 26 and 35 change the verdict when masked (the run *rejects*
+early), so their `Δ` is a truncated-run artefact, not a saving.  Both
+are recorded as **not removable**; 35 is not a removal candidate at all
+(P8 asks for a cheaper *computation* of the same Bool, and the
+computation is already below the noise floor: masking the whole
+`natOpGuard`+`strLitSupported` pair moves 0.02 %).
+
+### The findings
+
+**FINDING 1 — P1's license is backwards for the validation half.**
+The harvest entry licenses the #141 non-app family by "validated `pw`
++ the sealed P tiers".  The audit inverts it: `pwBit_of_equiv_zeronessOf`
+(`SetR/Annot/Bit.lean`) is documented as *"the establishment reading:
+a datum the checker validated against a computed codomain sort … the
+run inversions' conjunct"* and is consumed by `Step2/InferP.lean`
+(the ∀/λ inference rows) and, through `pwBit_eq_of_equiv`, by
+`Step2/DefEqP.lean` (the binder arms).  The validated `pw` is the
+**product** of sites 2/3/4/5, not a license to delete them.  What
+*can* move is the untrusted write (sites 0/1) — and that is not a
+certificate, it is the annotate pass supplying a datum the front door
+then judges; removing it means changing the input contract.
+
+**FINDING 2 — P1's headline number is a mis-transcription, and the
+family is small.**  The enumeration row reads "#141's non-app
+certificate tax family (14–16×, annotate-side)".  #141's data
+(`_tmp/certprof-141/`) records no such family: its 14–16× is the
+**whole** certificate tax (808.0 G baseline → 51.7 G with all twelve
+families masked = 15.6×), and it is dominated by family 2, the
+*application* argument re-check, which #132 then refuted as
+classifiable.  Itemized and measured, the actual annotate-side non-app
+family costs **1.89 % / 1.94 %** of init-prelude and **1.54 %** of
+init-full — two orders of magnitude below the label.  The 14–16×
+lives, as #141 said it did, in the app family: site 11 alone is
+**50 %** of init-prelude on both cores and **72 %** of init-full.
+
+**FINDING 3 — P2 and P3 are premise-suppliers, not re-derivations.**
+`RecRuleLawP` (`SetR/Annot/EnvS2P.lean:428`) states the fired ι
+equality under, among others, `TeleFitPA V ρ TVa (xs ++ [ctor spine])
+restR`, `TeleFitPA V ρ TVja ys restC`, the `.plain` comparand
+agreement `interp2 (ys[i]) = interp2 (xs[i])`, and `IotaIndexPinP`.
+Those four hypotheses are supplied by sites 13, 14, 15 and 16
+respectively, and by nothing else: `certs_telePA`
+(`Step2/IotaKitP.lean:241`) takes `iotaCertsP … = .ok true` as a
+hypothesis.  Deleting the runs orphans the law in exactly the way
+`projCert`'s infer run does (the ratified negative verdict).  P2/P3
+are removable only behind a **new** fit-from-arity metatheorem, which
+the sealed tier does not contain.  Their measured value if it existed:
+1.55 % / 3.56 % (all four sites together).
+
+**FINDING 4 — P9's license is real and *stronger* than recorded.**
+`projStepP_of_claims` (`Step2/ProjRowsP.lean:588`) destructures
+`projCert_inv` as `⟨…, -, -, -, -, hite, -, -, -⟩`: it keeps conjunct
+5, `inferTypeCore … e₂ = .ok te`, and discards **seven of the eight**
+— including conjunct 1, the field argument's own inference, which P9's
+text keeps.  So the entry undercounts: six of the seven runs are
+inspected by nothing, not four of six.  Measured value: 0.06 % / 0.02 %
+— the license is clean but the prize is nil on these streams (1 964
+firing projections).
+
+**FINDING 5 — P11(b)'s license is backwards.**  The entry says
+`UnitLawP` "already carries" the `TeleFitP` the telescope run
+re-derives.  `UnitLawP` (`EnvS2P.lean:275`) and `EtaLawP` (`:251`)
+both take `TeleFitP V ρ TVa ts rest` as a **hypothesis**; sites 27 and
+24 are its suppliers.  Same class as FINDING 3.  Measured value: nil
+(0 fires on init-prelude).
+
+**FINDING 6 — P4 has no runtime sites at all.**  `#109`'s
+pt-freshness is a *model-side* battery (`Derive/PtFresh.lean`); the
+task's own record states "no kernel file changed", and `grep -rn
+'ptFresh\|PtFresh' Setlec/Kernel/ Main.lean` is empty.  There are no
+per-decl freshness scans to harvest.  What #109 actually buys is the
+soundness premise for **restoring** the gates that task #100 stage 2
+removed — which makes P4 and P5 one item, and that item a
+**re-gating**, not a de-gating.  (`codNonZero`/`iotaCertsG` are gone
+from the kernel; only `piResultNeverZero`, the task-#61 η-rescue
+guard, survives.)
+
+**FINDING 7 — the re-gating lever, measured, and its soundness gap.**
+The `CPGATE` probe arms the removed gate off the *validated* task-#161
+annotation: at a binder whose stored `pw` is `.never`, skip the
+argument certificate.  On init-prelude it captures
+
+| site | fires | fires under the gate | captured |
+|---|---|---|---|
+| 9 `whnfApp` β | 148 717 | 6 169 | 95.9 % |
+| 10 `betaPeel` β | 204 934 | 13 898 | 93.2 % |
+| 11 `inferSpine` | 600 817 | 48 335 | 92.0 % |
+| 12 `inferSpine` (whnf'd) | 10 237 | 2 051 | 80.0 % |
+
+and saves **19.99 % (production) / 24.78 % (cached)** of init-prelude
+and **23.31 % (production) / 35.64 % (cached)** of init-full,
+**verdict-neutral everywhere** (3 653 resp. 61 048 accepted, identical
+to baseline in all four cells).  Split on
+init-prelude: the infer-app half is 13.37 % / 15.93 %, the β half
+4.61 % / 8.16 %.  For scale, task #100 stage 2 measured the *removal*
+of these gates at +24.7 % init-prelude / +55.1 % init-full — the same
+order, from the other side.
+
+**But the naive gate is unsound-to-model, and the annotation does not
+fix that.**  #109's sufficient condition is `ptFresh_piC_of`:
+uniformly fresh fibres **over a nonempty domain**.  `pw = .never` says
+the *codomain sort* is nonzero; it says nothing about the domain being
+inhabited — and the #100 countermodel
+`(fun (x : ∀ p : Prop, p) => Prop) Prop` is exactly a nonzero-codomain
+λ with an **empty** domain.  `BinderMeta` carries `bi` and `pw` and
+nothing else, so the missing datum has no slot.  The measured 20–25 %
+is therefore the lever's **ceiling**, not a landable saving: a sound
+restoration needs a second annotation (domain inhabitance) or a
+domain-inhabitance certificate, both of which cost, and both of which
+capture less.  Recorded as the harvest's largest open design question.
+
+**FINDING 8 — an unlisted site bigger than most listed ones:
+`proofIrrelI`.**  `defeqStepI` runs proof irrelevance on **every**
+defeq step that survives `a == b`, hoisted before lazy delta.  On
+init-prelude that is 135 842 calls out of 168 794 steps (80.5 %), and
+135 368 of them (99.7 %) take the expensive route — four `infer`s,
+two `whnf`s, two `Level.isEquiv` — which then, overwhelmingly, fails.
+On init-full: **12 453 724 calls out of 15 638 166 steps (79.6 %),
+99.99 % of them on the expensive route.**  Masking it is not
+verdict-neutral (the s35 run rejects), so no LOO number is available;
+the site is recorded as **measured by count, un-costed, and
+unlisted**.  A cheap pre-filter (both sides already known
+non-`Prop` — and the checker now *has* a validated prop-ness datum on
+every binder) is the obvious probe and belongs on the list.
+Related unlisted counts: ι is *attempted* 167 856 / 17 612 533 times
+and fires 33 004 / 4 164 026 (19.7 % / 23.6 %) — four out of five ι
+attempts pay `whnf major` + `majorToCtor` for nothing; the stuck
+cascade is entered 1 360 / 12 561 times.
+
+**FINDING 9 — the two recorded non-candidates are not free.**
+`checkDivModCertsF` fires **twice** on init-prelude and costs
+**5.52 % / 4.85 %** of the whole run — the most expensive
+per-fire site in the checker by four orders of magnitude
+(≈1.07 G instructions per fire).  `certifyNatEqs` (7 fires) costs
+0.01 %.  Neither is removable (they establish `DivModP`/`NatOpsP`),
+but the div/mod certificate's *cost* is a legitimate optimization
+target in its own right, and it is the reason a 3 653-declaration
+stream spends a twentieth of its budget on two declarations.  On
+init-full the same absolute cost amortizes to 0.77 % — the pair is a
+fixed ~24 G tax per stream, so it dominates short streams and
+disappears on long ones.
+
+**FINDING 10 — the cached clone is a faithful measurement twin.**
+Every one of the 30 instrumented sites fires exactly the same number
+of times on both cores, and the per-site shares track within a factor
+of ~2 everywhere (the clone pays relatively more for β and ι
+telescopes, relatively less for the div/mod install).  Baselines:
+38.70 G production vs 33.15 G cached-parsed on init-prelude (−14.3 %,
+reproducing the pilot's headline).
+
+### Removal-round grouping (suggested)
+
+| round | sites | shared license | prize: prelude prod/cached — init-full prod | risk |
+|---|---|---|---|---|
+| **A — dead code** | 19, 20, 23 | `CheckMode.ttChecks ≡ false` | 0 (already dead) | none; a deletion, not a de-gating |
+| **B — pins re-derived** | 18 (P9), 21 (P10), 37 (P7), 38 (P6) | `projCert_inv`'s discard pattern; `projResidualP`; `natOpGuard` as an `EnvS2PM` conjunct; `ConstTypeP` as an env invariant | 0.09 % / 0.03 % — 0.02 % | low: four independent licenses, each verified above |
+| **C — computation downgrades** | 35 (P8), 6 | `unitLike_eq_punit`; `inferBodyI`'s own `.letE` clause | ≤0.02 % — ≤0.02 % | low, but the prize is nil |
+| **D — the re-gating** | 9, 10, 11, 12 under a *sound* gate | #109 `ptFresh_piC_of` + validated `pw` **+ a missing domain-inhabitance datum** | ceiling 19.99 % / 24.78 % — **23.31 % / 35.64 %** | HIGH: the datum does not exist yet (FINDING 7); this is a design task, not a removal |
+| **E — needs new metatheorems** | 13, 14, 15, 16 (P2/P3), 24, 25, 27 (P11b/c) | a fit-from-arity supplier for `TeleFitP`/`TeleFitPA` | 1.56 % / 3.54 % — 3.22 % / 8.98 % | HIGH: FINDINGS 3 and 5 — at the frozen statements these are suppliers |
+| **F — unlisted, investigate** | 34/36 (`proofIrrel` hoisting), 47 (ι attempt rate), 41 (div/mod certificate cost) | none yet | un-costed — 5.5 % (prelude) / 0.77 % (full) for 41 | the div/mod row is an optimization, not a de-gating |
+| **never** | 17's infer run, 26, 40, 41 | ratified / measured verdict-breaking | — | — |
+
+Rounds A, B and C are mutually independent and could land as **one**
+grant round with one verdict-neutrality battery; their combined
+measured prize is under 0.15 %, which is itself the finding.  Round D
+is where the money is and it is blocked on a soundness datum.  Round E
+is blocked on statements that are frozen.
+
+### Reproduction
+
+Artifacts (all under `_tmp/degating-p1/`, gitignored): `patch.py` (the
+instrumentation, re-appliable to a fresh worktree off `abc92524`),
+`specs.txt` (the mask/gate specs), `run.sh` (the perf harness),
+`lock.sh` + `schedule.log` (the machine-solo protocol),
+`loo-prelude-prod.tsv` / `loo-prelude-cached.tsv` / `loo-full.tsv`
+(raw TSV: stream, core, spec, instructions, wall, exit, verdict),
+`census*-*.txt` (fire counts), `report.py`, `sites.md`.
+
+Reproduce: `git worktree add … abc92524`, `ln -s … _tmp`,
+`python3 _tmp/degating-p1/patch.py .` plus the two follow-up edits
+recorded in `patch.py`'s header, `lake build SetlecPinCerts && lake
+build setlec`, then `bash _tmp/degating-p1/run.sh <stream> <label>
+<core> <reps> <spec…>`.
+
+**Nothing from this record is on any checker branch.**  The
+measurement worktree `agent/degating-p1c` was reverted to `abc92524`
+after the last run.
+
+### Resume-here for the coordinator
+
+1. The harvest list's *sizes* are now known and most listed candidates
+   are worth ~0.1 % together.  Rounds A/B/C should be granted as one
+   round if at all, for hygiene rather than speed.
+2. Three list entries have licenses that the audit reverses (P1's
+   validation half, P2/P3, P11b) and one that has no runtime site at
+   all (P4).  Those rows want editing before anyone spends a session
+   on them.
+3. The money is in the application-argument certificate and it is a
+   **gating** problem, not a de-gating one.  The next task is the
+   soundness design for a restored gate: `pw = .never` alone is
+   refuted by the #100 countermodel; what is needed is a domain-
+   inhabitance datum, and `BinderMeta` has no slot for it.  Measured
+   ceiling if it can be built: 20–36 %.
+4. `proofIrrelI`'s unconditional hoisting is the biggest unlisted
+   site (80 % of defeq steps, 99.99 % on the failing route).  It
+   deserves a list entry and a probe of its own.
