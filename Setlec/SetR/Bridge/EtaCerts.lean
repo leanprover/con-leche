@@ -13,9 +13,11 @@ takes them in that order; the only work is reading the constructor's
 four-argument spine and the reduced type's two-argument spine off their
 denotations (`denote_mkAppN_inv` twice) and denoting the two projection
 comparands (`denote_proj`, whose `i < 2` guard is discharged by the
-literal indices).  Task #130's `projParamCert` conjunct arrives under
-`mode.ttChecks = true` and is discarded — premise-exactness, visible at
-the `-` in the `obtain` pattern.
+literal indices).  Task #130's `projParamCert` conjunct used to arrive
+under `mode.ttChecks = true` and be discarded; the check itself was
+deleted at task #161's de-gating round (item A, harvest site 23), so
+the inversion no longer produces it — premise-exactness, now by
+construction.
 
 **D10** is the widest `DefEq` rule and the first consumer of
 `certs_teleR` at *function-valued* data: `structEtaProjCerts_inv` gives
@@ -231,7 +233,7 @@ theorem pairEtaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
   intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
     mI, rP, rr, rfl, hfc, htb, hwtb, hfc', hfrec, hrct, hrnf, hmrp, hres,
-    hlev, hdα, hdβ, hd₁, hd₂, -⟩ := pairEtaCert_inv h
+    hlev, hdα, hdβ, hd₁, hd₂⟩ := pairEtaCert_inv h
   -- the constructor spine's denotation, through `mkAppN`
   rw [show (Expr.app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂)
       = Expr.mkAppN (.const c us) [pα, pβ, s₁, s₂] from rfl] at hva hwa hba hLa hCa

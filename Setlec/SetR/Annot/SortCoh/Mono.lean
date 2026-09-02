@@ -274,25 +274,6 @@ theorem defeqSpine_mono (hs : CoreSub r₁ r₂) {d : Nat}
   | lit l => rw [hga] at h; exact h
   | bvar i => rw [hga] at h; exact h
 
-/-- `projTeleCert` respects the order. -/
-theorem projTeleCert_mono (hs : CoreSub r₁ r₂) {d : Nat}
-    {c : Name} {us : List Level} {args : List Expr} {v : Bool}
-    (h : Setlec.projTeleCert r₁ env d c us args = .ok v) :
-    Setlec.projTeleCert r₂ env d c us args = .ok v := by
-  unfold Setlec.projTeleCert at h ⊢
-  cases hf : env.find? c with
-  | none => rw [hf] at h; exact h
-  | some ci =>
-    rw [hf] at h
-    cases ci with
-    | ctorInfo cvj na nb => exact iotaCerts_mono hs h
-    | axiomInfo cv => exact h
-    | defnInfo cv vl hint => exact h
-    | thmInfo cv vl => exact h
-    | indInfo cv caps => exact h
-    | recInfo cv mi rp rules => exact h
-    | projInfo entry => exact h
-
 /-- `projLitToCtor` respects the order. -/
 theorem projLitToCtor_mono (hs : CoreSub r₁ r₂) {d : Nat}
     {e x : Expr}
@@ -348,7 +329,6 @@ theorem isPropType_mono (hs : CoreSub r₁ r₂) {d : Nat} {ty : Expr}
         rw [ensureSort_mono hs hes]
         simp only [] at h ⊢
         exact h
-
 
 /-- `projCert` respects the order. -/
 theorem projCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {e₂ : Expr}
@@ -406,7 +386,6 @@ theorem projCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {e₂ : Expr}
   | const n us => exact h
   | forallE n ty b bi => exact h
   | bvar i' => exact h
-
 
 /-- `proofIrrel` respects the order. -/
 theorem proofIrrel_mono (hs : CoreSub r₁ r₂) {d : Nat} {a b : Expr}
@@ -530,14 +509,6 @@ theorem etaCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {n₁ : Name}
   | const n us => exact h
   | bvar i' => exact h
 
-/-- `projParamCert` respects the order (an `iotaCerts` wrapper). -/
-theorem projParamCert_mono (hs : CoreSub r₁ r₂) {d : Nat}
-    {entry : Setlec.ProjEntry} {us : List Level} {ps : List Expr}
-    {v : Bool}
-    (h : Setlec.projParamCert r₁ env d entry us ps = .ok v) :
-    Setlec.projParamCert r₂ env d entry us ps = .ok v :=
-  iotaCerts_mono hs h
-
 /-- `structEtaProjCerts` respects the order. -/
 theorem structEtaProjCerts_mono (hs : CoreSub r₁ r₂) {d : Nat}
     {T : Name} {us' : List Level} {targs : List Expr} {b : Expr}
@@ -653,18 +624,7 @@ theorem pairEtaCert_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
                       rw [h7] at h; rw [hs.2.2.2.1 h7]
                       simp only [] at h ⊢
                       split at h
-                      · next hc₇ =>
-                        rw [if_pos hc₇]
-                        split at h
-                        · next htt =>
-                          rw [if_pos htt]
-                          split at h
-                          · next entry heq4 =>
-                            exact projParamCert_mono hs h
-                          · exact h
-                        · next htt =>
-                          rw [if_neg htt]
-                          exact h
+                      · next hc₇ => rw [if_pos hc₇]; exact h
                       · next hc₇ => rw [if_neg hc₇]; exact h
                     · next hc₆ => rw [if_neg hc₆]; exact h
                   · next hc₅ => rw [if_neg hc₅]; exact h
@@ -1585,19 +1545,7 @@ theorem whnfCoreBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
           | false => exact h
           | true =>
           simp only [if_true] at h ⊢
-          by_cases htt : μ.ttChecks = true
-          · rw [if_pos htt] at h ⊢
-            cases h4 : Setlec.projTeleCert r₁ env d c us
-                w₂.getAppArgs with
-            | error err => rw [h4] at h; exact nomatch h
-            | ok c₄ =>
-            rw [h4] at h; rw [projTeleCert_mono hs h4]
-            simp only [] at h ⊢
-            cases c₄ with
-            | true => exact hs.1 h
-            | false => exact h
-          · rw [if_neg htt] at h ⊢
-            exact hs.1 (by simpa [pure, Except.pure] using h)
+          exact hs.1 h
         · next hg => rw [if_neg hg]; exact h
       · next => exact h
     · next => exact h
@@ -1735,17 +1683,7 @@ theorem inferBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
         split at h
         · next hg =>
           rw [if_pos hg]
-          by_cases htt : μ.ttChecks = true
-          · rw [if_pos htt] at h ⊢
-            cases h3 : Setlec.projParamCert r₁ env d entry us
-                te.getAppArgs with
-            | error err => rw [h3] at h; exact nomatch h
-            | ok c₃ =>
-            rw [h3] at h; rw [projParamCert_mono hs h3]
-            simp only [] at h ⊢
-            exact h
-          · rw [if_neg htt] at h ⊢
-            exact h
+          exact h
         · next hg => rw [if_neg hg]; exact h
       · next => exact h
     · next => exact h

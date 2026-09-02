@@ -280,7 +280,7 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
         Setlec.whnf_looseBVars m.base.wf fuel hred hbc,
         fun l hl => hLc l (Setlec.whnf_fvarLeaves m.base.wf fuel hred l hl)⟩
   rcases hcase with rfl | ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU,
-    hwcf, -, -⟩
+    hwcf, -⟩
   · exact ⟨.proj i v₃, by rw [denoteP_proj, hv₃]; exact if_pos hi2⟩
   · -- the table fires: the reduct is a head-normalised spine argument
     have hmem : e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)
@@ -310,7 +310,7 @@ theorem inferProjReadsP_of {m : EnvS2Core V env}
     InferProjReadsP μ m φ fuel := by
   intro d i sn pe t ea h hws hb hLb hlr hea
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, -, hres⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, hres⟩ := Setlec.inferTypeCore_proj_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
   have hLpe : Expr.LeavesBounded pe := fun l hl =>

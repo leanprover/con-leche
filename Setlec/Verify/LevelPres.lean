@@ -378,7 +378,7 @@ theorem whnfPres_lvlParams {env : Env} (henv : EnvWF env)
           · exact hbe₂
           · exact ihLoop hred (strLitToConstructor_lvlParams s)
         rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -, -⟩
+          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
         · simpa [allLevelParamsDefined] using hbe₃
         · exact ihCore hred
             (allLevelParamsDefined_getAppArgs hbe₃ _
@@ -584,7 +584,7 @@ theorem inferTypeCore_lvlParams {env : Env} (henv : EnvWF env)
       exact Expr.allLevelParamsDefined_instantiate1_gen hp.2 0 hPi.1.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, -, hres⟩ := inferTypeCore_proj_inv h
+        hus, hres⟩ := inferTypeCore_proj_inv h
       simp only [allLevelParamsDefined] at hp
       have hte' := whnf_lvlParams henv fuel hiota hwt (ihI hte hp)
       have hfnp :

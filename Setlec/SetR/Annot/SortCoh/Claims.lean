@@ -1733,20 +1733,7 @@ theorem whnfCore_reidem_const {μ : CheckMode} {env : Env}
             cases pc with
             | true =>
               simp only [if_true] at h
-              cases htc : (if μ.ttChecks then Setlec.projTeleCert
-                  (Setlec.pureFns μ env f) env d c us₂
-                  w₂.getAppArgs else pure true) with
-              | error err => rw [htc] at h; exact nomatch h
-              | ok tc =>
-              rw [htc] at h
-              cases tc with
-              | true =>
-                simp only [if_true] at h
-                exact hm.2.2.1 (Nat.le_succ f) (ih h hshape)
-              | false =>
-                simp only [Bool.false_eq_true, if_false] at h
-                obtain rfl : Expr.proj sn i w₂ = e' := Except.ok.inj h
-                exact nomatch hshape
+              exact hm.2.2.1 (Nat.le_succ f) (ih h hshape)
             | false =>
               simp only [Bool.false_eq_true, if_false] at h
               obtain rfl : Expr.proj sn i w₂ = e' := Except.ok.inj h

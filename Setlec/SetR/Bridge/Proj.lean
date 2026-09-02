@@ -25,8 +25,9 @@ what `certs_teleR` is for `iotaCerts` — and, like it, it needed no
 conversion: the rule was already shaped to take what the checker
 computes.
 
-Task #129's `projParamCert` arrives `mode.ttChecks`-gated and is
-discarded — the `-` in the `obtain` pattern, as in D10/D12.
+Task #129's `projParamCert` used to arrive `mode.ttChecks`-gated and
+be discarded; the check was deleted at task #161's de-gating round
+(item A, harvest site 20), so the inversion no longer produces it.
 -/
 
 namespace Setlec.SetR
@@ -151,15 +152,14 @@ theorem denote_entryTyR {env : Env} (m : EnvR env) (φ : Name → Nat)
     exact ⟨_, denote_pairSndTy_eq hpsig l0 l1, hc, hd⟩
 
 /-- **`InferProjStepR`, proved** (I9).  Head-match only — task #129's
-`projParamCert` arrives `mode.ttChecks`-gated and is discarded (the `-`
-in the `obtain`). -/
+`projParamCert` was TT-lane-only and is deleted (task #161, item A). -/
 theorem inferProj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihi : InferClaimsR mode m φ fuel) :
     InferProjStepR (mode := mode) m φ fuel := by
   intro d Δ sn i pe t h hws hb hLb hC
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, -, hres⟩ := inferTypeCore_proj_inv h
+    hlenUs, hres⟩ := inferTypeCore_proj_inv h
   obtain ⟨hpin, rfl, hidx, hpsig, hpsigMk⟩ := projEntry_pins m.proj_ok hfe hnat
   -- the subject's frames, and its type reduced to the family application
   simp only [Expr.WScoped] at hws

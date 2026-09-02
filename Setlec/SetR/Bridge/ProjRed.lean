@@ -324,7 +324,7 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     obtain ⟨v₃, hv₃, hR₃, hw₃, hb₃, hL₃, hC₃⟩ :=
       proj_scrutineeR m φ hcl ihw hwpe hlit hws hb hLpe hCpe hvp
     rcases hcase with rfl |
-      ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert, -⟩
+      ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
     · -- stuck: the reduced scrutinee under the projection — `Red.projArg`
       refine ⟨.proj i v₃, ?_, Red.projArg hR₃⟩
       rw [denote_proj, hv₃]

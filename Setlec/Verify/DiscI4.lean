@@ -50,12 +50,7 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
               (Level.subst entry.levelParams us entry.structSort)
               entry.numParams >>= fun b =>
             if b then
-              (if mode.ttChecks then
-                  projTeleCert (fueledFns mode env) env d c us e'.getAppArgs
-                else pure true) >>= fun b₂ =>
-              if b₂ then
-                kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-              else pure (.proj sn i e')
+              kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
             else pure (.proj sn i e')
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
@@ -733,46 +728,12 @@ theorem whnfCoreStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
           cases b with
           | true =>
             simp only [↓reduceIte]
-            -- task #147: the telescope certification is mode-gated;
-            -- the gate is the same on both sides
-            refine SimAt.bind (P := RelV) ?_
-              (fun s₄ b₂ b₂' hs₄ hext₄ hPb₂ => ?_)
-            case _ =>
-              cases htt : mode.ttChecks with
-              | false =>
-                simp only [Bool.false_eq_true, ↓reduceIte]
-                exact SimAt.pure hs₃ rfl
-              | true =>
-                simp only [↓reduceIte]
-                exact projTeleCertI_sim ih henv hs₃
-                  (denoteN_mono (hextb.trans (((hext₁m.trans hext₂).trans
-                    hext₂f).trans hext₃)) hcDen)
-                  (denoteLList_mono (((hext₁m.trans hext₂).trans
-                    hext₂f).trans hext₃) hlusDen')
-                  (hargs.mono (((hext₁m.trans hext₂).trans
-                    hext₂f).trans hext₃)) hwe'.getAppArgs
-            case _ =>
-            obtain rfl : b₂ = b₂' := hPb₂
-            cases b₂ with
-            | true =>
-              simp only [↓reduceIte]
-              exact hk hs₄
-                (DenL.getD
-                  (denoteT_mono ((hext₂f.trans hext₃).trans hext₄) hQ0)
-                  (entry.numParams + ip)
-                  (hargs.mono ((((hext₁m.trans hext₂).trans
-                    hext₂f).trans hext₃).trans hext₄))) hwarg
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              refine SimAt.of_eff (internI_eff hs₄
-                (x := .proj sn ip e'x) ?_) _
-                (fun s pr hQ => ⟨hQ, hwproj⟩)
-              rw [denoteNode,
-                denoteT_mono ((((hext₁m.trans hext₂).trans
-                  hext₂f).trans hext₃).trans hext₄) he'd,
-                denoteN_mono ((((hext₁m.trans hext₂).trans
-                  hext₂f).trans hext₃).trans hext₄) hsnDen]
-              rfl
+            exact hk hs₃
+              (DenL.getD
+                (denoteT_mono (hext₂f.trans hext₃) hQ0)
+                (entry.numParams + ip)
+                (hargs.mono (((hext₁m.trans hext₂).trans
+                  hext₂f).trans hext₃))) hwarg
           | false =>
             simp only [Bool.false_eq_true, ↓reduceIte]
             refine SimAt.of_eff (internI_eff hs₃
@@ -1971,35 +1932,9 @@ theorem inferBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
             (fun s₃ pty hs₃ hext₃' hQty => ?_)
           have hext₃ := hextp.trans hext₃'
           simp only [ConstantInfo.toConstantVal] at hQty
-          -- task #129: the parameter-telescope certification, at the
-          -- same stored type `piResidualM` then peels
-          have hwty : WScoped d
-              (entry.ty.instantiateLevelParams entry.levelParams lus) :=
-            wscoped_instLevels_of_not_hasFvar
-              (henv _ (find?_mem (Env.findProj?_some hfp))).1 _ _
-          refine SimAt.bind (P := RelV) ?_
-            (fun s₃c bp bp' hs₃c hext₃c hPbp => ?_)
-          case _ =>
-            -- task #147: the certification is mode-gated; the gate is
-            -- the same on both sides
-            cases htt : mode.ttChecks with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimAt.pure hs₃ rfl
-            | true =>
-              simp only [↓reduceIte]
-              exact projParamCertI_sim ih hs₃ hQty hwty
-                (htargs.mono hext₃) hwte.getAppArgs
-          case _ =>
-          obtain rfl : bp = bp' := hPbp
-          cases bp with
-          | false => exact SimAt.throw
-          | true =>
-          simp only [↓reduceIte]
-          replace hQty := denoteT_mono hext₃c hQty
-          replace htargs := htargs.mono (hext₃.trans hext₃c)
-          replace hpe := denoteT_mono (hext₃.trans hext₃c) hpe
-          refine SimAt.bind_left (piResidualM_eff hs₃c hQty
+          replace htargs := htargs.mono hext₃
+          replace hpe := denoteT_mono hext₃ hpe
+          refine SimAt.bind_left (piResidualM_eff hs₃ hQty
             (htargs.append (DenL.cons hpe DenL.nil)))
             (fun s₄ ores hs₄ hext₄ hQres => ?_)
           cases hres : piResidual

@@ -381,7 +381,6 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
   · rw [if_neg hz] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
-
 /-- Inversion for `ensureSortCore`: the subject whnfs to the sort. -/
 theorem ensureSortCore_inv {env : Env} {fuel d : Nat} {t : Expr} {u : Level}
     (h : ensureSortCore mode env fuel d t = .ok u) :
@@ -668,15 +667,10 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
           projCertP mode env fuel d e₃ i
             (Level.subst entry.levelParams us entry.fieldSort)
             (Level.subst entry.levelParams us entry.structSort)
-            entry.numParams = .ok true ∧
-          -- TT-lane conjunct (task #147): delivered only at
-          -- `mode.ttChecks`; at `--set-model` it is vacuous.
-          (mode.ttChecks = true →
-            projTeleCertP mode env fuel d entry.ctor us e₃.getAppArgs =
-              .ok true)) := by
+            entry.numParams = .ok true) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
-  simp only [whnfCore_def, whnf_def, projCert_fold, projTeleCert_fold,
+  simp only [whnfCore_def, whnf_def, projCert_fold,
     projLitToCtor_fold] at h
   cases he : whnf mode env fuel d e with
   | error err => rw [he] at h; exact nomatch h
@@ -714,32 +708,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       | true =>
         simp only [if_true] at h
         try dsimp only at h
-        -- task #147: the constructor-telescope certification is gated
-        -- on the mode; split on the gate first
-        cases htt : mode.ttChecks with
-        | false =>
-          simp only [htt, Bool.false_eq_true, if_false, pure, Except.pure,
-            Bind.bind, Except.bind, if_true] at h
-          try dsimp only at h
-          exact Or.inr ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, h, hcert,
-            fun hc => absurd hc (by simp [htt])⟩
-        | true =>
-          simp only [htt, if_true] at h
-          try dsimp only at h
-          cases hcert₂ : projTeleCertP mode env fuel d entry.ctor us e₃.getAppArgs with
-          | error err => rw [hcert₂] at h; exact nomatch h
-          | ok b₂ =>
-          rw [hcert₂] at h
-          cases b₂ with
-          | true =>
-            simp only [if_true] at h
-            try dsimp only at h
-            exact Or.inr
-              ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, h, hcert,
-                fun _ => hcert₂⟩
-          | false =>
-            simp only [Bool.false_eq_true, if_false] at h
-            exact Or.inl (Except.ok.inj h).symm
+        exact Or.inr ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, h, hcert⟩
       | false =>
         simp only [Bool.false_eq_true, if_false] at h
         exact Or.inl (Except.ok.inj h).symm
@@ -754,48 +723,6 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
   | letE n2 t2 v2 b2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | lit l2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | proj s2 i2 e3 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
-
-/-- Inversion for a successful constructor-telescope certification at a
-projection redex (task #126): the head is a stored constructor, and its
-level-instantiated telescope certified the whole spine.  This is what
-turns the checker's record into the projection rules' four premises —
-one `infer`+`defeq` pair per telescope domain, through `certs_fit` on
-the model side and `certs_typed` on the derivation side. -/
-theorem projTeleCert_inv {env : Env} {fuel d : Nat} {c : Name}
-    {us : List Level} {args : List Expr}
-    (h : projTeleCertP mode env fuel d c us args = .ok true) :
-    ∃ cvj nP nF, env.find? c = some (.ctorInfo cvj nP nF) ∧
-      iotaCertsP mode env fuel d
-        (cvj.type.instantiateLevelParams cvj.levelParams us) args
-        = .ok true := by
-  dsimp only [projTeleCertP] at h
-  simp only [projTeleCert, iotaCerts_fold] at h
-  cases hf : env.find? c with
-  | none => rw [hf] at h; exact nomatch h
-  | some ci =>
-    rw [hf] at h
-    cases ci with
-    | ctorInfo cvj nP nF => exact ⟨cvj, nP, nF, rfl, h⟩
-    | axiomInfo cv => exact nomatch h
-    | projInfo _ => exact nomatch h
-    | defnInfo cv value => exact nomatch h
-    | thmInfo cv value => exact nomatch h
-    | indInfo cv caps => exact nomatch h
-    | recInfo cv mI rP rules => exact nomatch h
-
-/-- Inversion for a successful parameter-telescope certification at a
-projection *inference* (task #129): the entry's level-instantiated
-pinned type certified the subject type's parameter spine.  The direct
-entry point for the bridge — the first `numParams` domains of
-`entry.ty` are the projection rules' first two premises (`⊢ A : Sort u`
-and `⊢ B : A → Sort v` at the pinned pair), so `certs_typed` turns this
-into them without replicating the call. -/
-theorem projParamCert_inv {env : Env} {fuel d : Nat} {entry : ProjEntry}
-    {us : List Level} {params : List Expr}
-    (h : projParamCertP mode env fuel d entry us params = .ok true) :
-    iotaCertsP mode env fuel d
-      (entry.ty.instantiateLevelParams entry.levelParams us) params
-      = .ok true := h
 
 /-- Inversion for a successful projection certification. -/
 theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
@@ -1533,7 +1460,6 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
         harE1, harE2, rfl, hcertE,
         Or.inl hse⟩⟩
 
-
 /-- Inversion of one pairwise-defeq step. -/
 theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
     {as bs : List Expr}
@@ -1782,13 +1708,12 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
       cases okA <;> cases okB <;> simp_all
     exact Or.inr ⟨sta, uT, tb, stb, vT, rfl, hwta, heq1, rfl, hstb, hwtb, heq2⟩
 
+/-- Inversion of a successful pair-eta certification.
 
-/-- Inversion of a successful pair-eta certification.  The last
-conjunct is task #130's: the pair type's own parameters `A` and `B`
-were certified against the projection entry's telescope, which is what
-`psigmaEta`'s first two premises ask for — a TT-lane check (task #147),
-so it is delivered under `mode.ttChecks = true` and vacuous at
-`--set-model`. -/
+Task #161 de-gating item A (harvest site 23): the former last conjunct
+— task #130's parameter-telescope certification, delivered only under
+`mode.ttChecks = true` and therefore vacuous since #148 T7b — is gone
+with the code that produced it. -/
 theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : pairEtaCertP mode env fuel d a b = .ok true) :
     ∃ c us pα pβ s₁ s₂ cvm tb c' us' A B cvi capsi cvr mI rP rr,
@@ -1804,13 +1729,10 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       isDefEqCore mode env fuel d pα A = .ok true ∧
       isDefEqCore mode env fuel d pβ B = .ok true ∧
       isDefEqCore mode env fuel d s₁ (.proj c' 0 b) = .ok true ∧
-      isDefEqCore mode env fuel d s₂ (.proj c' 1 b) = .ok true ∧
-      (mode.ttChecks = true → ∃ entry,
-        env.findProj? c' 0 = some entry ∧
-        projParamCertP mode env fuel d entry us' [A, B] = .ok true) := by
+      isDefEqCore mode env fuel d s₂ (.proj c' 1 b) = .ok true := by
   dsimp only [pairEtaCertP] at h
   simp only [pairEtaCert, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def, defeq_def, projParamCert_fold] at h
+  simp only [infer_def, whnf_def, defeq_def] at h
   revert h
   match a with
   | .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ => ?_
@@ -2019,26 +1941,9 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   cases b2 with
   | false => simp [pure, Except.pure] at h
   | true =>
-  simp only [↓reduceIte] at h
-  -- task #147: the projection-entry telescope certification is gated
-  -- on the mode; split on the gate first
-  cases htt : mode.ttChecks with
-  | false =>
-    exact ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
-      mI, rP, rr, rfl, hfc, rfl, hwtb, hfi, hfr, hrc, hrf, hmirp, hres,
-      hlev, hdA, hdB, hd1, hd2, fun hc => absurd hc (by simp [htt])⟩
-  | true =>
-  rw [htt] at h
-  simp only [↓reduceIte] at h
-  revert h
-  match hpe : env.findProj? c' 0 with
-  | none => intro h; simp [pure, Except.pure] at h
-  | some entry => ?_
-  intro h
   exact ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
     mI, rP, rr, rfl, hfc, rfl, hwtb, hfi, hfr, hrc, hrf, hmirp, hres,
-    hlev, hdA, hdB, hd1, hd2, fun _ => ⟨entry, hpe, h⟩⟩
-
+    hlev, hdA, hdB, hd1, hd2⟩
 
 /-- Invert the per-projection telescope certificates. -/
 theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
@@ -2090,7 +1995,6 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
     rcases List.mem_cons.mp hi with rfl | hi'
     · exact ⟨cvp, mIp, rPp, rulesp, hfp, hlps, hstrp, hic⟩
     · exact structEtaProjCerts_inv rest h i hi'
-
 
 set_option maxHeartbeats 3200000 in
 /-- Inversion of a successful structural eta certification. -/
@@ -2470,15 +2374,11 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       env.findProj? T i = some entry ∧ entry.native = true ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
-      -- task #129's parameter-telescope certification is a TT-lane
-      -- check (task #147): delivered only at `mode.ttChecks`
-      (mode.ttChecks = true →
-        projParamCertP mode env fuel d entry us te.getAppArgs = .ok true) ∧
       piResidual (entry.ty.instantiateLevelParams entry.levelParams us)
         (te.getAppArgs ++ [e]) = some t := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def, projParamCert_fold] at h
+  simp only [infer_def, whnf_def] at h
   cases hte : inferTypeCore mode env fuel d e with
   | error err => rw [hte] at h; exact nomatch h
   | ok tpe =>
@@ -2513,44 +2413,16 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
   case isFalse => exact nomatch h
   case isTrue hcond =>
     obtain ⟨hnat, hlen, hus⟩ := hcond
-    -- task #147: the certification is gated on the mode
-    cases htt : mode.ttChecks with
-    | false =>
-      rw [htt] at h
-      simp only [Bool.false_eq_true, if_false, pure, Except.pure,
-        Bind.bind, Except.bind, if_true] at h
-      revert h
-      cases hres : piResidual
-          (entry.ty.instantiateLevelParams entry.levelParams us)
-          (te.getAppArgs ++ [e]) with
-      | none => intro h; exact nomatch h
-      | some resTy =>
-        intro h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h
-        exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-          fun hc => absurd hc (by simp [htt]), hres⟩
-    | true =>
-    rw [htt] at h
-    simp only [if_true] at h
     revert h
-    cases hpc : projParamCertP mode env fuel d entry us te.getAppArgs with
-    | error err => intro h; exact nomatch h
-    | ok b =>
-    cases b with
-    | false => intro h; exact nomatch h
-    | true =>
-    dsimp only
     cases hres : piResidual
         (entry.ty.instantiateLevelParams entry.levelParams us)
         (te.getAppArgs ++ [e]) with
     | none => intro h; exact nomatch h
     | some resTy =>
       intro h
-      simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
       subst h
-      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-        fun _ => hpc, hres⟩
+      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus, hres⟩
 
 /-! ## Well-scopedness preservation through reduction -/
 
@@ -3093,7 +2965,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           · exact hwe₂
           · exact ihLoop hred (strLitToConstructor_WScoped s d)
         rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -, -⟩
+          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
         · simpa [WScoped] using hwe₃
         · exact ihCore hred (hwe₃.getAppArgs _ (getD_mem (by omega)))
     · -- whnf loop: the reduction chain is iteration on the loop's own

@@ -823,29 +823,7 @@ private theorem pairEtaCert_shift (henv : EnvWF env)
             (show WScoped d (Expr.proj c' 1 b) by
               simpa only [WScoped] using hwb)) ?_
         intro bb₂ _
-        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-        -- task #147: the certification is mode-gated; the gate is the
-        -- same on both sides
-        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-        -- task #130: the parameter-telescope certification, shift-invariant
-        -- by `iotaCerts_shift` at the entry's (closed) stored type
-        cases hfp : env.findProj? c' 0 with
-        | none => rfl
-        | some entry =>
-          have hclosed : (entry.ty.instantiateLevelParams entry.levelParams
-              us').hasFvar = false := by
-            rw [hasFvar_instantiateLevelParams]
-            exact (henv _ (find?_mem (Env.findProj?_some hfp))).1
-          have hpc := iotaCerts_shift henv ih hpd
-            (ty := entry.ty.instantiateLevelParams entry.levelParams us')
-            (WScoped.of_not_hasFvar hclosed) (args := [A, B])
-            (fun x hx => by
-              rcases List.mem_cons.mp hx with rfl | hx
-              · exact hwAB.1
-              · rw [List.mem_singleton.mp hx]; exact hwAB.2)
-          rw [shiftFrom_eq_self_of_not_hasFvar hclosed] at hpc
-          simp only [List.map] at hpc
-          exact hpc
+        refine ite_congr' (fun _ => rfl) (fun _ => rfl)
 
 private theorem structEtaProjCerts_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (T : Name)
@@ -1176,28 +1154,6 @@ private theorem projCert_shift (henv : EnvWF env)
   intro w₂ _
   cases w₂ <;> try rfl
   case fvar => rw [shiftFrom_fvar]
-
-private theorem projTeleCert_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (c : Name)
-    (us : List Level) {args : List Expr}
-    (hwargs : ∀ x ∈ args, WScoped d x) :
-    projTeleCert (pureFns mode env fuel) env (d + 1) c us
-        (args.map (shiftFrom p)) =
-      projTeleCert (pureFns mode env fuel) env d c us args := by
-  simp only [projTeleCert]
-  cases hf : env.find? c with
-  | none => rfl
-  | some ci =>
-    cases ci <;> try rfl
-    case ctorInfo cvj cnP cnF =>
-    have htel : (cvj.type.instantiateLevelParams cvj.levelParams
-        us).hasFvar = false := by
-      rw [hasFvar_instantiateLevelParams]
-      exact (henv _ (find?_mem hf)).1
-    have h := iotaCerts_shift henv ih hpd
-      (ty := cvj.type.instantiateLevelParams cvj.levelParams us)
-      (WScoped.of_not_hasFvar htel) (args := args) hwargs
-    rwa [shiftFrom_eq_self_of_not_hasFvar htel] at h
 
 private theorem majorToCtor_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
@@ -2080,16 +2036,6 @@ private theorem whnfCore_step (henv : EnvWF env)
         entry.numParams) ?_
       intro bb _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-      -- task #147: the certification is mode-gated; the gate is the
-      -- same on both sides
-      refine bind_rel_eq _ ?_ ?_
-      · cases htt : mode.ttChecks
-        · rfl
-        · simpa using projTeleCert_shift henv ih hpd c us₂
-            (args := e₃.getAppArgs)
-            (fun x hx => hwe₃.getAppArgs x hx)
-      intro bb₂ _
-      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       exact ih.whnfCore hpd hwarg
 
 /-- The reduction *loop* commutes with the shift, by induction on its
@@ -2328,20 +2274,6 @@ private theorem infer_step (henv : EnvWF env)
           us₂).hasFvar = false := by
         rw [hasFvar_instantiateLevelParams]
         exact (henv _ (find?_mem (Env.findProj?_some hfp))).1
-      -- task #129: the parameter-telescope certification, shift-invariant
-      -- by `iotaCerts_shift` at the entry's (closed) stored type
-      have hww' : WScoped d w :=
-        whnf_WScoped henv fuel hww (inferTypeCore_WScoped henv fuel hte hw)
-      have hpc := iotaCerts_shift henv ih hpd
-        (ty := entry.ty.instantiateLevelParams entry.levelParams us₂)
-        (WScoped.of_not_hasFvar hclosed) (args := w.getAppArgs)
-        (fun x hx => hww'.getAppArgs x hx)
-      rw [shiftFrom_eq_self_of_not_hasFvar hclosed] at hpc
-      -- task #147: the certification is mode-gated; the gate is the
-      -- same on both sides
-      refine bind_rel_eq _ (ite_congr' (fun _ => hpc) (fun _ => rfl)) ?_
-      intro bb _
-      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       have hres := piResidual_shiftFrom (p := p) (w.getAppArgs ++ [pe])
         (entry.ty.instantiateLevelParams entry.levelParams us₂)
       rw [shiftFrom_eq_self_of_not_hasFvar hclosed, List.map_append] at hres
@@ -2916,7 +2848,6 @@ private theorem annotate_step (henv : EnvWF env)
       exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
 
 end Helpers
-
 
 /-- The bisimulation: every core entry point commutes with the fvar
 shift, at every fuel. -/

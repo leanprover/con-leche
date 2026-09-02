@@ -62,12 +62,7 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
               (Level.subst entry.levelParams us entry.structSort)
               entry.numParams >>= fun b =>
             if b then
-              (if mode.ttChecks then
-                  projTeleCert (fueledFns mode env) env d c us e'.getAppArgs
-                else pure true) >>= fun b₂ =>
-              if b₂ then
-                kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-              else pure (.proj sn i e')
+              kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
             else pure (.proj sn i e')
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
@@ -611,30 +606,8 @@ theorem whnfCoreStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           cases b with
           | true =>
             simp only [↓reduceIte]
-            -- task #147: the telescope certification is mode-gated;
-            -- the gate is the same on both sides
-            refine SimC.bind (P := RelVC) ?_
-              (fun s₄ b₂ b₂' hs₄ hPb₂ => ?_)
-            case _ =>
-              cases htt : mode.ttChecks with
-              | false =>
-                simp only [Bool.false_eq_true, ↓reduceIte]
-                exact SimC.pure hs₃ rfl
-              | true =>
-                simp only [↓reduceIte]
-                exact projTeleCertC_sim ih henv hs₃ hargs hwe'.getAppArgs
-            case _ =>
-            obtain rfl : b₂ = b₂' := hPb₂
-            cases b₂ with
-            | true =>
-              simp only [↓reduceIte]
-              exact hk hs₄
-                (RelCL.getD hQ0 (entry.numParams + ip) hargs) hwarg
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimC.of_eff
-                (internI_eff hs₄ (n := ExprView.proj sn ip e') he'wf) _
-                (fun pr hQ => ⟨hQ, hwproj⟩)
+            exact hk hs₃
+              (RelCL.getD hQ0 (entry.numParams + ip) hargs) hwarg
           | false =>
             simp only [Bool.false_eq_true, ↓reduceIte]
             exact SimC.of_eff
@@ -1593,32 +1566,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             (constTyAtM_eff hs₂ (Env.findProj?_some hfp))
             (fun s₃ pty hs₃ hQty => ?_)
           simp only [ConstantInfo.toConstantVal] at hQty
-          -- task #129: the parameter-telescope certification, at the
-          -- same stored type `piResidualM` then peels
-          have hwty : Expr.WScoped d
-              (entry.ty.instantiateLevelParams entry.levelParams us) :=
-            wscoped_instLevels_of_not_hasFvar
-              (henv _ (find?_mem (Env.findProj?_some hfp))).1 _ _
-          refine SimC.bind (P := RelVC) ?_
-            (fun s₃c bp bp' hs₃c hPbp => ?_)
-          case _ =>
-            -- task #147: the certification is mode-gated; the gate is
-            -- the same on both sides
-            cases htt : mode.ttChecks with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimC.pure hs₃ rfl
-            | true =>
-              simp only [↓reduceIte]
-              exact projParamCertC_sim ih hs₃ hQty hwty htargs
-                hwte.getAppArgs
-          case _ =>
-          obtain rfl : bp = bp' := hPbp
-          cases bp with
-          | false => exact SimC.throw
-          | true =>
-          simp only [↓reduceIte]
-          refine SimC.bind_left (piResidualM_eff hs₃c hQty
+          refine SimC.bind_left (piResidualM_eff hs₃ hQty
             (htargs.append (RelCL.cons ⟨hwpec, rfl⟩ RelCL.nil)))
             (fun s₄ ores hs₄ hQres => ?_)
           cases hres : Setlec.piResidual

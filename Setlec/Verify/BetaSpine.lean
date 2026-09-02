@@ -252,12 +252,7 @@ def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
           if ← projCert r env depth e' i
               (Level.subst entry.levelParams us entry.fieldSort)
               mx entry.numParams then
-            -- TT-lane check (task #147), mirroring `whnfCoreStepI`
-            if ← (if mode.ttChecks then
-                projTeleCert r env depth c us args
-              else pure true) then
-              k arg
-            else pure (.proj sn i e')
+            k arg
           else pure (.proj sn i e')
         else pure (.proj sn i e')
       | _ => pure (.proj sn i e')
@@ -440,13 +435,6 @@ theorem projCert_mono {d : Nat} {e : Expr} {i : Nat} {fl sl : Level}
     projCert (pureFns mode env F') env d e i fl sl nP = .ok b := by
   rw [← projCert_atF] at h ⊢
   exact (projCert (fueledFns mode env) env d e i fl sl nP).property hle h
-
-theorem projTeleCert_mono {d : Nat} {c : Name} {us : List Level}
-    {args : List Expr} {F F' : Nat} (hle : F ≤ F') {b : Bool}
-    (h : projTeleCert (pureFns mode env F) env d c us args = .ok b) :
-    projTeleCert (pureFns mode env F') env d c us args = .ok b := by
-  rw [← projTeleCert_atF] at h ⊢
-  exact (projTeleCert (fueledFns mode env) env d c us args).property hle h
 
 theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {o : Option Expr}
@@ -1021,7 +1009,6 @@ decreasing_by
 
 end
 
-
 /-- One loop *step* whose continuation is sound is reproduced by the
 chained specification body `whnfCoreBody` at some knot fuel. -/
 theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
@@ -1081,56 +1068,18 @@ theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
           simpa only [Bool.false_eq_true, ↓reduceIte] using H
         | true =>
           simp only [↓reduceIte] at H
-          -- task #147: the telescope certification is mode-gated;
-          -- split on the gate before destructuring the bind
-          cases htt : mode.ttChecks with
-          | false =>
-            rw [htt] at H
-            simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure,
-              ok_bind] at H
-            obtain ⟨M, hM⟩ := hks F _ _ H
-            refine ⟨max F M, ?_⟩
-            simp only [whnfCoreBody]
-            rw [whnf_def, whnf_mono (Nat.le_max_left F M) hw, ok_bind,
-              projLitToCtor_mono (Nat.le_max_left F M) hw', ok_bind,
-              hfp, hfn]
-            dsimp only
-            rw [if_pos hcond,
-              projCert_mono (Nat.le_max_left F M) hb, ok_bind]
-            simp only [↓reduceIte, htt, Bool.false_eq_true, pure,
-              Except.pure, ok_bind]
-            rw [whnfCore_def]
-            exact whnfCore_mono (Nat.le_max_right F M) hM
-          | true =>
-            rw [htt] at H
-            simp only [↓reduceIte] at H
-            obtain ⟨b₂, hb₂, H⟩ := bind_ok H
-            cases b₂ with
-            | false =>
-              refine ⟨F, ?_⟩
-              simp only [whnfCoreBody]
-              rw [hw, ok_bind, hw', ok_bind, hfp, hfn]
-              dsimp only
-              rw [if_pos hcond, hb, ok_bind]
-              simp only [↓reduceIte, htt]
-              rw [hb₂, ok_bind]
-              simpa only [Bool.false_eq_true, ↓reduceIte] using H
-            | true =>
-              simp only [↓reduceIte] at H
-              obtain ⟨M, hM⟩ := hks F _ _ H
-              refine ⟨max F M, ?_⟩
-              simp only [whnfCoreBody]
-              rw [whnf_def, whnf_mono (Nat.le_max_left F M) hw, ok_bind,
-                projLitToCtor_mono (Nat.le_max_left F M) hw', ok_bind,
-                hfp, hfn]
-              dsimp only
-              rw [if_pos hcond,
-                projCert_mono (Nat.le_max_left F M) hb, ok_bind]
-              simp only [↓reduceIte, htt]
-              rw [projTeleCert_mono (Nat.le_max_left F M) hb₂, ok_bind]
-              simp only [↓reduceIte]
-              rw [whnfCore_def]
-              exact whnfCore_mono (Nat.le_max_right F M) hM
+          obtain ⟨M, hM⟩ := hks F _ _ H
+          refine ⟨max F M, ?_⟩
+          simp only [whnfCoreBody]
+          rw [whnf_def, whnf_mono (Nat.le_max_left F M) hw, ok_bind,
+            projLitToCtor_mono (Nat.le_max_left F M) hw', ok_bind,
+            hfp, hfn]
+          dsimp only
+          rw [if_pos hcond,
+            projCert_mono (Nat.le_max_left F M) hb, ok_bind]
+          simp only [↓reduceIte]
+          rw [whnfCore_def]
+          exact whnfCore_mono (Nat.le_max_right F M) hM
       · rename_i hcond
         intro H
         refine ⟨F, ?_⟩

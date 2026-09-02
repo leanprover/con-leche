@@ -52,7 +52,7 @@ double application certifies the arguments' canonical domains and the
 `sigmaSet` fold — or there is no member at all.  This is the
 "membership self-certifies the domains" discharge of I9/D12 (the T4
 architecture record); its off-domain branches replace the tt-only
-`projParamCert` (#129/#130). -/
+`projParamCert` (#129/#130), deleted at task #161's de-gating round. -/
 theorem mem_psigmaV_app {u v : Nat} {vA vB x : V}
     (hx : x ∈ˢ SetTheory.app (SetTheory.app (psigmaV V u v) vA) vB) :
     vA ∈ˢ (univ u : V) ∧ vB ∈ˢ piC vA (fun _ => (univ v : V)) ∧

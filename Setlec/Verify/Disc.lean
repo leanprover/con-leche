@@ -91,7 +91,6 @@ theorem annotPwLam_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     refine DiscV.bind (ensureSort_disc ih henv hbtt) (fun vb _ => ?_)
     exact DiscV.pure trivial
 
-
 theorem reduceNat_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
     DiscV mode env (WScopedO d) (reduceNat C env d e)
@@ -329,19 +328,6 @@ theorem proofIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okB _ => ?_)
         exact DiscV.pure trivial
 
-/-- Twin of `projTeleCert_disc` on the inference path (task #129); the
-entry's stored type is closed because the table entry is a stored
-constant.  Task #130 runs it at the pair-eta certificate too. -/
-theorem projParamCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} {T : Name} {i : Nat} {entry : ProjEntry} {us : List Level}
-    {params : List Expr} (hfp : env.findProj? T i = some entry)
-    (hwargs : ∀ x ∈ params, WScoped d x) :
-    DiscV mode env (fun _ => True) (projParamCert C env d entry us params)
-      (projParamCert G env d entry us params) :=
-  iotaCerts_disc ih henv
-    (wscoped_instLevels_of_not_hasFvar
-      (henv _ (find?_mem (Env.findProj?_some hfp))).1 _ _) hwargs
-
 theorem pairEtaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
     DiscV mode env (fun _ => True) (pairEtaCert mode C env d a b)
@@ -386,19 +372,7 @@ theorem pairEtaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                           (fun r₂ _ => ?_)
                         · simpa only [WScoped] using hwb
                         · split
-                          · split
-                            -- task #147: the mode gate, then the
-                            -- projection-entry match
-                            · split
-                              · rename_i entry hfp
-                                exact projParamCert_disc ih henv hfp (by
-                                  intro x hx
-                                  rcases List.mem_cons.mp hx with rfl | hx
-                                  · exact hwAB.1
-                                  · rw [List.mem_singleton.mp hx]
-                                    exact hwAB.2)
-                              · exact DiscV.pure trivial
-                            · exact DiscV.pure trivial
+                          · exact DiscV.pure trivial
                           · exact DiscV.pure trivial
                       · exact DiscV.pure trivial
                   · exact DiscV.pure trivial
@@ -623,21 +597,6 @@ theorem projCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     case sort wT =>
       refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okW _ => ?_)
       exact DiscV.pure trivial
-
-theorem projTeleCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} {c : Name} {us : List Level} {args : List Expr}
-    (hwargs : ∀ x ∈ args, WScoped d x) :
-    DiscV mode env (fun _ => True) (projTeleCert C env d c us args)
-      (projTeleCert G env d c us args) := by
-  unfold projTeleCert
-  cases hf : env.find? c with
-  | none => exact DiscV.pure trivial
-  | some ci =>
-    cases ci <;> try exact DiscV.pure trivial
-    case ctorInfo cvj cnP cnF =>
-    obtain ⟨htf, -⟩ := henv _ (find?_mem hf)
-    exact iotaCerts_disc ih henv
-      (wscoped_instLevels_of_not_hasFvar htf _ _) hwargs
 
 theorem stuckIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
@@ -1072,13 +1031,8 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 (Level.subst entry.levelParams us entry.structSort)
                 entry.numParams >>= fun b =>
               if b then
-                (if mode.ttChecks then
-                    projTeleCert C env d c us e'.getAppArgs
-                  else pure true) >>= fun b₂ =>
-                if b₂ then
-                  (C : CoreFns CheckSM).whnfCore d
-                    (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-                else pure (.proj sn i e')
+                (C : CoreFns CheckSM).whnfCore d
+                  (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
               else pure (.proj sn i e')
             else pure (.proj sn i e')
           | _ => pure (.proj sn i e')
@@ -1097,13 +1051,8 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 (Level.subst entry.levelParams us entry.structSort)
                 entry.numParams >>= fun b =>
               if b then
-                (if mode.ttChecks then
-                    projTeleCert G env d c us e'.getAppArgs
-                  else pure true) >>= fun b₂ =>
-                if b₂ then
-                  (G : CoreFns CheckSM).whnfCore d
-                    (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-                else pure (.proj sn i e')
+                (G : CoreFns CheckSM).whnfCore d
+                  (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
               else pure (.proj sn i e')
             else pure (.proj sn i e')
           | _ => pure (.proj sn i e')
@@ -1120,15 +1069,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split <;> try exact DiscV.pure hwproj
     refine DiscV.bind (projCert_disc ih henv he') (fun b _ => ?_)
     split
-    · refine DiscV.bind (P := fun _ => True) ?_ (fun b₂ _ => ?_)
-      · -- task #147: the telescope certification is mode-gated
-        split
-        · exact projTeleCert_disc ih henv
-            (args := e'.getAppArgs) he'.getAppArgs
-        · exact DiscV.pure trivial
-      · split
-        · exact ih.site_whnfCore henv (hwarg _)
-        · exact DiscV.pure hwproj
+    · exact ih.site_whnfCore henv (hwarg _)
     · exact DiscV.pure hwproj
 
 /-- One iteration of the reduction loop, with the continuation
@@ -1485,30 +1426,19 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     rename_i entry hfpw
     split <;> try exact DiscV.throw _
     rename_i hcond
-    -- task #129: the parameter-telescope certification (mode-gated,
-    -- task #147), then the residual
-    refine DiscV.bind (P := fun _ => True) ?_ (fun bp _ => ?_)
-    · split
-      · exact projParamCert_disc ih henv hfpw hww.getAppArgs
-      · exact DiscV.pure trivial
     split
-    · split
-      · rename_i resTy hres
-        refine DiscV.pure ?_
-        have hclosed := (henv _ (find?_mem (Env.findProj?_some hfpw))).1
-        exact piResidual_WScoped hres
-          (WScoped.of_not_hasFvar (by
-            rw [hasFvar_instantiateLevelParams]; exact hclosed))
-          (fun x hx => by
-            rcases List.mem_append.mp hx with hx | hx
-            · exact hww.getAppArgs x hx
-            · rcases List.mem_singleton.mp hx with rfl
-              exact hwpe)
-      · exact DiscV.throw _
-    · first
-        | exact DiscV.throw _
-        | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
-            (fun _ h => h.elim)
+    · rename_i resTy hres
+      refine DiscV.pure ?_
+      have hclosed := (henv _ (find?_mem (Env.findProj?_some hfpw))).1
+      exact piResidual_WScoped hres
+        (WScoped.of_not_hasFvar (by
+          rw [hasFvar_instantiateLevelParams]; exact hclosed))
+        (fun x hx => by
+          rcases List.mem_append.mp hx with hx | hx
+          · exact hww.getAppArgs x hx
+          · rcases List.mem_singleton.mp hx with rfl
+            exact hwpe)
+    · exact DiscV.throw _
 
 set_option maxHeartbeats 1600000 in
 theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)

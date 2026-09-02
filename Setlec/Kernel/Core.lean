@@ -792,36 +792,6 @@ def proofIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
       | _ => pure false
     | _ => pure false
 
-/-- Certify a projection entry's *parameters* against its own pinned
-telescope (task #129): each parameter's inferred type is defeq to the
-telescope domain the projection rules name for it.
-
-The projection typing rules carry three premises: `⊢ A : Sort u`,
-`⊢ B : A → Sort v` and `⊢ p : PSigma' u v A B`.  The `.proj` clause of
-`inferBody` establishes the third (it whnfs the subject's inferred type
-and matches the head against the table) and, before this call, none of
-the first two — it *certified less than its rule needs*.  Nothing here
-says the inference is wrong; the checker simply did not write down
-enough for a typing derivation to be rebuilt from it (see
-`Setlec/TTVerify/DESIGN.md` §10.3).
-
-The two missing premises are exactly the first `numParams` telescope
-domains of the entry's stored type `entry.ty` — for the pinned pair,
-`∀ (α : Sort u) (β : α → Sort v), PSigma' α β → …` — so the same
-`iotaCerts` call `projTeleCert` makes for the constructor's telescope
-supplies both, at the domains the rule names rather than at some
-inferred sort.
-
-`pairEtaCert` below runs the same call (task #130): its rule
-`psigmaEta` names the *same* two premises about the *same* pair type,
-and the pair type is precisely this entry, so the two certificates of
-the pinned pair consume the same evidence. -/
-def projParamCert (r : CoreFns m) (env : Env) (depth : Nat)
-    (entry : ProjEntry) (us : List Level) (params : List Expr) :
-    m Bool :=
-  iotaCerts r env depth
-    (entry.ty.instantiateLevelParams entry.levelParams us) params
-
 /-- Pair eta certification: `a` is a fully applied structure
 constructor (a stored constructor that is the single rule of an
 index-free recursor, under the `<ind>.rec` naming convention), `b`
@@ -831,13 +801,13 @@ are then the pair of `b`'s components (or the proof point at the Prop
 collapse); the environment invariant supplies the facts for the stored
 constants.
 
-Task #130 adds the last check: the pair type's two arguments are
-certified against the projection entry's telescope (`projParamCert`),
-because the η rule this certificate justifies asks for `⊢ A : Sort u`
-and `⊢ B : arrow A (Sort v)` and the four `defeq`s establish neither —
-the certificate *certified less than its rule needs*.  It runs last, so
-it only fires on runs that would otherwise have succeeded. -/
-def pairEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+Task #130's extra check — the pair type's two arguments certified
+against the projection entry's telescope (`projParamCert`) — was a
+TT-lane check, statically dead since #148 T7b (`CheckMode.ttChecks ≡
+false`) and deleted with the rest of that code at task #161's de-gating
+round A+B+C (item A, harvest site 23). -/
+def pairEtaCert (_mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+    (a b : Expr) :
     m Bool := do
   match a with
   | .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ =>
@@ -865,21 +835,7 @@ def pairEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
                   if ← r.defeq depth pβ B then
                     if ← r.defeq depth s₁ (.proj c' 0 b) then
                       if ← r.defeq depth s₂ (.proj c' 1 b) then
-                        -- Task #130: certify the pair type's own
-                        -- parameters against the projection entry's
-                        -- telescope, so `psigmaEta`'s first two
-                        -- premises (`⊢ A : Sort u`,
-                        -- `⊢ B : arrow A (Sort v)`) are recorded where
-                        -- the rule fires.  The levels are the *type*'s
-                        -- (`us'`), which is where `A` and `B` sit.
-                        -- TT-lane check (task #147): skipped unless
-                        -- `mode.ttChecks`.
-                        if mode.ttChecks then
-                          match env.findProj? c' 0 with
-                          | some entry =>
-                            projParamCert r env depth entry us' [A, B]
-                          | none => pure false
-                        else pure true
+                        pure true
                       else pure false
                     else pure false
                   else pure false
@@ -1395,24 +1351,6 @@ def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
     | _ => pure false
   | _ => pure false
 
-/-- Certify the reduct's constructor spine against the constructor's
-own stored telescope (task #126): each spine argument's inferred type
-is defeq to the corresponding instantiated domain.  This is the same
-call `iotaRec` makes for its constructor telescope, and it is what
-records the four premises the projection rules name — the sorts of the
-parameters and the typings of the fields, each at the domain the rule
-fires at.  Without it the clause *certifies less than its rule needs*
-(nothing here says the reduction is wrong; the checker simply did not
-write down enough for a typing derivation to be rebuilt from it — see
-`Setlec/TTVerify/DESIGN.md` §10). -/
-def projTeleCert (r : CoreFns m) (env : Env) (depth : Nat)
-    (c : Name) (us : List Level) (args : List Expr) : m Bool := do
-  match env.find? c with
-  | some (.ctorInfo cvj _ _) =>
-    iotaCerts r env depth
-      (cvj.type.instantiateLevelParams cvj.levelParams us) args
-  | _ => pure false
-
 /-- The head-normalization body: beta (with the per-redex argument
 certificate, unconditional since the task-#100 de-gating), iota (with
 the stuck-major machinery) and the native basis pair projection — but
@@ -1476,17 +1414,7 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             if ← projCert r env depth e' i
                 (Level.subst entry.levelParams us entry.fieldSort)
                 mx entry.numParams then
-              -- Task #126: also certify the spine against the
-              -- constructor's stored telescope, so the reduction's
-              -- typing premises (the parameters' sorts and the fields'
-              -- typings, at the domains the rule names) are recorded
-              -- where the rule fires.  TT-lane check (task #147):
-              -- skipped unless `mode.ttChecks`.
-              if ← (if mode.ttChecks then
-                  projTeleCert r env depth c us args
-                else pure true) then
-                r.whnfCore depth arg
-              else pure (.proj sn i e')
+              r.whnfCore depth arg
             else pure (.proj sn i e')
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
@@ -1684,16 +1612,6 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         | some entry =>
           if entry.native ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            -- Task #129: certify the type former's parameters against
-            -- the entry's own telescope, so the two premises the
-            -- projection rules name about them (`⊢ A : Sort u` and
-            -- `⊢ B : A → Sort v`) are recorded where the rule fires.
-            -- TT-lane check (task #147): skipped unless
-            -- `mode.ttChecks`.
-            unless ← (if mode.ttChecks then
-                projParamCert r env depth entry us te.getAppArgs
-              else pure true) do
-              throw (.invalid "projection parameter type mismatch")
             match piResidual
                 (entry.ty.instantiateLevelParams entry.levelParams us)
                 (te.getAppArgs ++ [pe]) with

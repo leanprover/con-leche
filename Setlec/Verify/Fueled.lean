@@ -256,7 +256,7 @@ theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
 theorem pairEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
     (pairEtaCert mode (fueledFns mode env) env d a b).val F =
       pairEtaCert mode (pureFns mode env F) env d a b := by
-  unfold pairEtaCert projParamCert
+  unfold pairEtaCert
   atF_tac
 
 theorem structEtaCertWith_atF (d : Nat) (a b wtb : Expr) (F : Nat) :
@@ -283,29 +283,6 @@ theorem projCert_atF (d : Nat) (e₂ : Expr) (i : Nat)
       projCert (pureFns mode env F) env d e₂ i fieldLvl structLvl nP := by
   unfold projCert
   atF_tac
-
-theorem projTeleCert_atF (d : Nat) (c : Name) (us : List Level)
-    (args : List Expr) (F : Nat) :
-    (projTeleCert (fueledFns mode env) env d c us args).val F =
-      projTeleCert (pureFns mode env F) env d c us args := by
-  unfold projTeleCert
-  cases hf : env.find? c with
-  | none => rfl
-  | some ci =>
-    cases ci with
-    | ctorInfo cvj nP nF => exact iotaCerts_atF d F _ args
-    | axiomInfo cv => rfl
-    | projInfo _ => rfl
-    | defnInfo cv value => rfl
-    | thmInfo cv value => rfl
-    | indInfo cv caps => rfl
-    | recInfo cv mI rP rules => rfl
-
-theorem projParamCert_atF (d : Nat) (entry : ProjEntry) (us : List Level)
-    (params : List Expr) (F : Nat) :
-    (projParamCert (fueledFns mode env) env d entry us params).val F =
-      projParamCert (pureFns mode env F) env d entry us params :=
-  iotaCerts_atF d F _ params
 
 macro "atF_step2" : tactic =>
   `(tactic| repeat (first
@@ -501,8 +478,6 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [structUnitCert_atF])
     | (rw [etaCert_atF])
     | (rw [projCert_atF])
-    | (rw [projTeleCert_atF])
-    | (rw [projParamCert_atF])
     | (rw [structEtaCert_atF])
     | (rw [majorToCtor_atF])
     | (rw [annotateProjElim_atF])

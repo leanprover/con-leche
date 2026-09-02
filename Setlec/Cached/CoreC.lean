@@ -239,21 +239,14 @@ def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
       | _ => pure false
     | _ => pure false
 
-/-- Twin of `projParamCert` (task #129).  The pinned projection type
-`pty` is the caller's — the same interned expression `piResidual`
-peels, and the same one `constTyAtM` caches for the η certificate
-below (task #130) — so this adds a telescope walk and no lookup. -/
-def projParamCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (pty : ExprC) (params : List ExprC) : CheckCM Bool :=
-  iotaCertsI r fe depth pty params
-
 /- Task #147: functions below that mention `mode` take the
 three-mode setting as their first explicit argument; only the seven
 TT-lane check sites branch on it (`CheckMode.ttChecks`). -/
 variable (mode : CheckMode)
 
 /-- Twin of `pairEtaCert`. -/
-def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
+def pairEtaCertI (_mode : CheckMode) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (a b : ExprC) :
     CheckCM Bool := do
   match ← viewI a with
   | some (.app f₄ s₂) =>
@@ -292,22 +285,7 @@ def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
                                 if ← r.defeq depth s₁ p₀ then do
                                   let p₁ ← internI (.proj c' 1 b)
                                   if ← r.defeq depth s₂ p₁ then do
-                                    -- Task #130: certify the pair
-                                    -- type's parameters against the
-                                    -- projection entry's telescope
-                                    -- (twin of `pairEtaCert`'s call).
-                                    -- TT-lane check (task #147):
-                                    -- skipped unless `mode.ttChecks`.
-                                    if mode.ttChecks then
-                                      match fe.findProj? c'n 0 with
-                                      | some _ => do
-                                        let pf ← projFnIdxM c' 0
-                                        let pty ← constTyAtM fe pf
-                                          (projFnName c'n 0) us'
-                                        projParamCertI r fe depth pty
-                                          [A, B]
-                                      | none => pure false
-                                    else pure true
+                                    pure true
                                   else pure false
                                 else pure false
                               else pure false
@@ -727,16 +705,6 @@ def projCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
     | _ => pure false
   | _ => pure false
 
-/-- Twin of `projTeleCert` (task #126). -/
-def projTeleCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (cI : Name) (c : Name) (us : List Level) (args : List ExprC) :
-    CheckCM Bool := do
-  match fe.find? c with
-  | some (.ctorInfo _ _ _) => do
-    let tyCtor ← constTyAtM fe cI c us
-    iotaCertsI r fe depth tyCtor args
-  | _ => pure false
-
 mutual
 
 /-- Bulk-beta argument loop (task #50): consume the whole application
@@ -852,14 +820,7 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
             if ← projCertI r fe depth e' i fl
                 mx entry.numParams then
-              -- task #126: the constructor-telescope certification.
-              -- TT-lane check (task #147): skipped unless
-              -- `mode.ttChecks`.
-              if ← (if mode.ttChecks then
-                  projTeleCertI r fe depth c entry.ctor us args
-                else pure true) then
-                k arg
-              else internI (.proj sn i e')
+              k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
@@ -1181,14 +1142,6 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
               us.length = entry.levelParams.length then do
             let pf ← projFnIdxM T i
             let pty ← constTyAtM fe pf (projFnName Tn i) us
-            -- Task #129: certify the type former's parameters against
-            -- the entry's own telescope (twin of `projParamCert`).
-            -- TT-lane check (task #147): skipped unless
-            -- `mode.ttChecks`.
-            unless ← (if mode.ttChecks then
-                projParamCertI r fe depth pty targs
-              else pure true) do
-              throw (.invalid "projection parameter type mismatch")
             match ← piResidualM pty (targs ++ [pe]) with
             | some resTy => pure resTy
             | none => throw (.internal "malformed projection entry")

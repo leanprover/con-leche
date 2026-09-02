@@ -156,8 +156,9 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
   /-- R6: the native structural projection
   `proj_i (ctor p⃗ x⃗) ↦ x_i`, driven by the projection table
   (`whnfCoreBody`'s `.proj` clause, `Core.lean:1431-1475`), with the
-  `projCert` pack (`Core.lean:1363-1378`) — and **no `projTeleCert`**
-  (#126 is tt-only).  `sn` is the node's struct-name slot, which the
+  `projCert` pack — and **no constructor-telescope certification**
+  (#126's `projTeleCert` was TT-lane-only; deleted at task #161's
+  de-gating round, item A).  `sn` is the node's struct-name slot, which the
   denotation does not carry; it is quantified, and soundness pins what
   a native entry can be through `ProjOk`.
 
@@ -496,9 +497,10 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       Red μ env cval φ Δ (.proj i e) (.proj i e')
 
 /-- **Inference** (design §1.3, I1–I10): successful `inferTypeCore`
-runs (`inferBody`, `Core.lean:1546-1658`), premise-exact at
-`--set-model` — the proj rule carries **no `projParamCert`** (#129 is
-tt-only). -/
+runs (`inferBody`), premise-exact at `--set-model` — the proj rule
+carries **no parameter-telescope certification** (#129's
+`projParamCert` was TT-lane-only; deleted at task #161's de-gating
+round, item A). -/
 inductive Infer (μ : CheckMode) (env : Env) (cval : TConstVal)
     (φ : Name → Nat) : List VExpr → VExpr → VExpr → Prop where
   /-- I1: sorts (`Core.lean:1549`). -/
@@ -578,7 +580,8 @@ inductive Infer (μ : CheckMode) (env : Env) (cval : TConstVal)
   whnfs to a native entry's family application; the conclusion type is
   the entry's stored type peeled along the arguments and the subject
   (`piResidualV`, the `VExpr`-level `piResidual`).  Head-match only —
-  **no `projParamCert`** (#129 is tt-only). -/
+  **no parameter-telescope certification** (#129's `projParamCert` was
+  TT-lane-only; deleted at task #161's de-gating round, item A). -/
   | proj {Δ : List VExpr} {p tp TP resV : VExpr} {i : Nat} {T : Name}
       {entry : ProjEntry} {ciT : ConstantInfo} {us : List Level}
       {ps : List VExpr} :
@@ -775,10 +778,10 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
           (cval T (Level.substFn φ cvT.levelParams us')) ts) TB →
       Tele μ env cval φ Δ TFv ts rest →
       DefEq μ env cval φ Δ a b
-  /-- D12: pair eta for the pinned basis pair (`pairEtaCert`,
-  `Core.lean:839-892`), premise-exact at `--set-model`: **no
-  `projParamCert` premise** (#130 is tt-only).  The mirrored direction
-  is D2. -/
+  /-- D12: pair eta for the pinned basis pair (`pairEtaCert`),
+  premise-exact at `--set-model`: **no parameter-telescope premise**
+  (#130's `projParamCert` was TT-lane-only; deleted at task #161's
+  de-gating round, item A).  The mirrored direction is D2. -/
   | pairEta {Δ : List VExpr} {pα pβ s₁ s₂ b tb A B : VExpr}
       {c c' : Name} {cvm : ConstantVal} {cvi : ConstantVal}
       {caps' : IndCaps} {cvr : ConstantVal} {mI rP : Nat} {rr : RecRule}

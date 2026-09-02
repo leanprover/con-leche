@@ -734,7 +734,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
             simp [Setlec.Expr.getAppArgs] at h2
       rw [he₃] at hbranch
       rcases hbranch with rfl |
-        ⟨us₂, entry₂, hfn₂, hf₂, hnat₂, -, -, -, -, -, -⟩
+        ⟨us₂, entry₂, hfn₂, hf₂, hnat₂, -, -, -, -, -⟩
       · exact Or.inr (Or.inl (Or.inr (Or.inl ⟨sn, i, e₂w, rfl⟩)))
       · exfalso
         rcases hdead with ⟨n, ty, b, m, h1, h2⟩ |
@@ -763,7 +763,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
           · exact nomatch hlit
         rw [he₃] at hbranch
         rcases hbranch with rfl |
-          ⟨us₂, entry₂, hfn₂, -, -, -, -, -, -, -, -⟩
+          ⟨us₂, entry₂, hfn₂, -, -, -, -, -, -, -⟩
         · exact Or.inr (Or.inl (Or.inr (Or.inl ⟨sn, i, _, rfl⟩)))
         · simp [Setlec.Expr.getAppFn] at hfn₂
       · subst hWeq
@@ -1157,7 +1157,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
           simp [Setlec.Expr.getAppFn] at hfn
       rw [he₃] at hbranch
       rcases hbranch with rfl |
-        ⟨us₂, entry₂, hfn₂, hf₂, -, -, -, -, hred₂, -, -⟩
+        ⟨us₂, entry₂, hfn₂, hf₂, -, -, -, -, hred₂, -⟩
       · exact Or.inr (Or.inl (Or.inr (Or.inl ⟨sn, i, _, rfl⟩)))
       · obtain rfl : entry₂ = entry := by
           rw [hf] at hf₂

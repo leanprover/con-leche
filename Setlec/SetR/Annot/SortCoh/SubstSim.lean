@@ -1420,7 +1420,7 @@ theorem substSim_core_succ {env : Env} {fuel : Nat}
       (.proj sn i (substAK d 0 a pe)) (substAK d 0 a e')
     refine RawReach.projC sn i (htrPe.trans hstep.1) ?_
     rcases hcase with rfl |
-      ⟨us, entry, hfn2, hf2, hnat, hi, hlen2, hus, hred2, -, -⟩
+      ⟨us, entry, hfn2, hf2, hnat, hi, hlen2, hus, hred2, -⟩
     · exact .refl _
     · have hilt : entry.numParams + i < e₃.getAppArgs.length := by
         omega

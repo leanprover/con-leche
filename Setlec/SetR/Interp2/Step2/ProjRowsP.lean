@@ -351,7 +351,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     InferProjStepP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, -, hres⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, hres⟩ := Setlec.inferTypeCore_proj_inv h
   -- the subject's frames
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
@@ -531,7 +531,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
         fun l hl => hLc l (Setlec.whnf_fvarLeaves m.base.wf fuel hred l hl),
         hCc.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hred)⟩
   rcases hcase with rfl |
-    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert, -⟩
+    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
   · -- stuck: the projection of the reduced scrutinee
     obtain ⟨v₃', hv₃', -, rfl⟩ := denoteP_proj_inv hea'
     obtain rfl : v₃' = v₃ := Option.some.inj (hv₃'.symm.trans hv₃)

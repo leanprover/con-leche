@@ -442,67 +442,6 @@ theorem projCertI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx} {e₂ : Expr}
 
   | proj s'ᵢ j' e' => invert_node hd; exact SimAt.pure hs₄ rfl
 
-/-- Twin walk for the constructor-telescope certification at a
-projection redex (task #126). -/
-theorem projTeleCertI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
-    {cI : NIdx} {c : Name} {us : List LIdx} {lus : List Level}
-    {args : List EIdx} {xs : List Expr} {s₀ : IState} (hs : ISOK mode env s₀)
-    (hcI : s₀.store.denoteN cI = some c)
-    (hus : denoteLList s₀.store.denoteL us = some lus)
-    (hargs : DenL s₀.store args xs) (hwargs : ∀ x ∈ xs, WScoped d x) :
-    SimAt mode env s₀ RelV
-      (projTeleCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d cI c us args)
-      (projTeleCert (fueledFns mode env) env d c lus xs) := by
-  show SimAt mode env s₀ RelV
-    (match (mkFEnv env).find? c with
-      | some (.ctorInfo _ _ _) =>
-        constTyAtM (mkFEnv env) cI c us >>= fun tyCtor =>
-        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d tyCtor args
-      | _ => pure false)
-    (match env.find? c with
-      | some (.ctorInfo cvj _ _) =>
-        iotaCerts (fueledFns mode env) env d
-          (cvj.type.instantiateLevelParams cvj.levelParams lus) xs
-      | _ => pure false)
-  rw [mkFEnv_find?]
-  cases hf : env.find? c with
-  | none => exact SimAt.pure hs rfl
-  | some ci =>
-    cases ci with
-    | ctorInfo cvj cnP cnF =>
-      dsimp only
-      refine SimAt.bind_left (constTyAtM_eff hs hcI hus hf)
-        (fun s₁ tyCtor hs₁ hext₁ hQty => ?_)
-      have htyw : WScoped d
-          (cvj.type.instantiateLevelParams cvj.levelParams lus) := by
-        obtain ⟨htf, -⟩ := henv _ (find?_mem hf)
-        exact wscoped_instLevels_of_not_hasFvar htf _ _
-      exact iotaCertsI_sim ih hs₁ hQty htyw (hargs.mono hext₁) hwargs
-    | axiomInfo cv => exact SimAt.pure hs rfl
-    | projInfo e => exact SimAt.pure hs rfl
-    | defnInfo cv v h => exact SimAt.pure hs rfl
-    | thmInfo cv v => exact SimAt.pure hs rfl
-    | indInfo cv caps => exact SimAt.pure hs rfl
-    | recInfo cv mI rP rules => exact SimAt.pure hs rfl
-
-/-- Twin walk for the parameter-telescope certification at a projection
-*inference* (task #129).  Both sides are the telescope walk at the
-entry's stored type — the interned side already holds it (`pty`, the
-expression `piResidualM` then peels), so this is `iotaCertsI_sim` with
-no lookup of its own. -/
-theorem projParamCertI_sim (ih : SSimI mode env f) {d : Nat}
-    {entry : ProjEntry} {pty : EIdx} {lus : List Level}
-    {params : List EIdx} {xs : List Expr} {s₀ : IState} (hs : ISOK mode env s₀)
-    (hty : s₀.store.denoteT pty =
-      some (entry.ty.instantiateLevelParams entry.levelParams lus))
-    (hwty : WScoped d
-      (entry.ty.instantiateLevelParams entry.levelParams lus))
-    (hargs : DenL s₀.store params xs) (hwargs : ∀ x ∈ xs, WScoped d x) :
-    SimAt mode env s₀ RelV
-      (projParamCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d pty params)
-      (projParamCert (fueledFns mode env) env d entry lus xs) :=
-  iotaCertsI_sim ih hs hty hwty hargs hwargs
-
 theorem structUnitCertI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hdena : s₀.store.denoteT i = some a)
@@ -721,14 +660,7 @@ private theorem pairEtaCert_unfold (env : Env) (d : Nat) (a b : Expr) :
                       if r₁ then
                         (fueledFns mode env).defeq d xs₂ (.proj c' 1 b) >>=
                           fun r₂ =>
-                        if r₂ then
-                          if mode.ttChecks then
-                            match env.findProj? c' 0 with
-                            | some entry =>
-                              projParamCert (fueledFns mode env) env d entry
-                                us' [_A, _B]
-                            | none => pure false
-                          else pure true
+                        if r₂ then pure true
                         else pure false
                       else pure false
                     else pure false
@@ -741,7 +673,7 @@ private theorem pairEtaCert_unfold (env : Env) (d : Nat) (a b : Expr) :
       | _ => pure false
     | _ => pure false) := rfl
 
-theorem pairEtaCertI_sim (ih : SSimI mode env f) (henv : EnvWF env)
+theorem pairEtaCertI_sim (ih : SSimI mode env f) (_henv : EnvWF env)
     {d : Nat} {i j : EIdx}
     {a b : Expr} {s₀ : IState} (hs : ISOK mode env s₀)
     (hdena : s₀.store.denoteT i = some a)
@@ -804,20 +736,7 @@ theorem pairEtaCertI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                                       internI (.proj c' 1 j) >>= fun p₁ =>
                                       (coreKnotI mode (mkFEnv env) f).defeq d s₂
                                         p₁ >>= fun r₂ =>
-                                      if r₂ then
-                                        if mode.ttChecks then
-                                          match (mkFEnv env).findProj? c'n 0
-                                            with
-                                          | some _ =>
-                                            projFnIdxM c' 0 >>= fun pf =>
-                                            constTyAtM (mkFEnv env) pf
-                                              (projFnName c'n 0) us' >>=
-                                              fun pty =>
-                                            projParamCertI
-                                              (coreKnotI mode (mkFEnv env) f)
-                                              (mkFEnv env) d pty [A, B]
-                                          | none => pure false
-                                        else pure true
+                                      if r₂ then pure true
                                       else pure false
                                     else pure false
                                   else pure false
@@ -1095,64 +1014,7 @@ theorem pairEtaCertI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                                           exact SimAt.pure hs₇' rfl
                                         | true =>
                                         simp only [↓reduceIte]
-                                        -- task #147: the mode gate first
-                                        cases htt : mode.ttChecks with
-                                        | false =>
-                                          simp only [Bool.false_eq_true,
-                                            ↓reduceIte]
-                                          exact SimAt.pure hs₇' rfl
-                                        | true =>
-                                        simp only [↓reduceIte]
-                                        -- task #130: the pair type's
-                                        -- parameters against the projection
-                                        -- entry's telescope
-                                        rw [mkFEnv_findProj?]
-                                        cases hfp : env.findProj? c'v 0 with
-                                        | none => exact SimAt.pure hs₇' rfl
-                                        | some entry =>
-                                          dsimp only
-                                          have hextc₇ :=
-                                            (((hextc₅.trans hext₄).trans
-                                              hext₅).trans hext₆).trans hext₇
-                                          refine SimAt.bind_left
-                                            (projFnIdxM_eff hs₇'
-                                              (denoteN_mono hextc₇ hc'Den) 0)
-                                            (fun s₈' pf hs₈' hextp
-                                              hQpf => ?_)
-                                          refine SimAt.bind_left
-                                            (constTyAtM_eff hs₈' hQpf
-                                              (denoteLList_mono
-                                                (hextc₇.trans hextp)
-                                                hlusDen4')
-                                              (Env.findProj?_some hfp))
-                                            (fun s₉' pty hs₉' hextt
-                                              hQty => ?_)
-                                          simp only
-                                            [ConstantInfo.toConstantVal]
-                                            at hQty
-                                          have hwty : WScoped d
-                                              (entry.ty.instantiateLevelParams
-                                                entry.levelParams lus') :=
-                                            wscoped_instLevels_of_not_hasFvar
-                                              (henv _ (find?_mem
-                                                (Env.findProj?_some hfp))).1
-                                              _ _
-                                          have hextAB :=
-                                            ((hext₂''.trans hextc₇).trans
-                                              hextp).trans hextt
-                                          refine projParamCertI_sim ih hs₉'
-                                            hQty hwty ?_ ?_
-                                          · exact DenL.cons
-                                              (denoteT_mono hextAB hA)
-                                              (DenL.cons
-                                                (denoteT_mono hextAB hB)
-                                                DenL.nil)
-                                          · intro x hx
-                                            rcases List.mem_cons.mp hx
-                                              with rfl | hx
-                                            · exact hwABx.1
-                                            · rw [List.mem_singleton.mp hx]
-                                              exact hwABx.2
+                                        exact SimAt.pure hs₇' rfl
                                   · exact SimAt.pure hs₂' rfl
                                 | _ :: _ :: _ => exact SimAt.pure hs₂' rfl
                               | axiomInfo cv => exact SimAt.pure hs₂' rfl

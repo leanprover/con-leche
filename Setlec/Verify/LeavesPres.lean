@@ -241,7 +241,7 @@ theorem whnfPres_leaves {env : Env} (henv : EnvWF env) :
             rw [strLitToConstructor_leaves_nil] at hnil
             exact absurd hnil List.not_mem_nil
         rcases hcase with rfl |
-          ⟨us, entry, hfn2, hf2, hnat, hi, hlen2, hus, hred2, -, -⟩
+          ⟨us, entry, hfn2, hf2, hnat, hi, hlen2, hus, hred2, -⟩
         · intro l hl
           simp only [fvarLeaves] at hl ⊢
           exact hsub₃ l hl
