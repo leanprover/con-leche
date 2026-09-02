@@ -135,6 +135,7 @@ import Setlec.SetR.Interp2.BitAgree
 import Setlec.SetR.Interp2.BasisTypeOk
 import Setlec.SetR.Interp2.EqTowerP
 import Setlec.SetR.Interp2.BasisStepP
+import Setlec.SetR.Interp2.BasisEmptyP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP
