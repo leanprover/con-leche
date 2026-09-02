@@ -17070,3 +17070,70 @@ other three stages, the graded pins, the recursor rows, the projection
 Standing: all statements frozen; PropWhen through named laws only;
 annotations never steer; conditional forms are never done; zero
 sorries at every seal.
+
+## Task #161 SUCCESSION RECORD update (part 4 merged + the second
+widening applied, 2026-09-02; coordinator-granted and -approved)
+
+Lane `agent/annot-v2`: part 4 merged at `89597d25` (grant on the
+review), then the **second two-row widening applied by the lead's
+hand** per the approved d7c4c184 species — full battery green before
+AND after (build 437 warning-free, test exit 0, arena counters at
+expectation, zero sorries).
+
+THE WIDENING (fix shape 0, third application, coordinator-approved
+not countermanded):
+
+* `IotaThmR` (plain site, `SetR/Decl.lean`): `DefEqListOk μ F envSelf
+  depth ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP` as a parallel
+  conjunct beside the `DefEqListW` derivation (`hdePars`'s run);
+* `IotaThmNR` (nested site): `TypedListOk μ F envSelf depth (pins.map
+  fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p) cdomsP` beside
+  the `TypedListW` conjunct;
+* producers (`Bridge/Decl.lean`): the packs were ALREADY IN HAND —
+  `hdeP` and `htypedP` in the `PlainChecked`/`NestedChecked`
+  destructures are the run packs themselves, previously converted to
+  derivations and dropped; both slotted into the refine tuples
+  VERBATIM (depths and list expressions matched exactly, zero new
+  proof text);
+* consumers: `IotaRuleS.lean` two destructures gain a `-`.  No v1
+  proof moved, as predicted (`hdePars`'s only live use consumes the
+  surviving derivation conjunct).
+
+### Frontier narrative: the design's closing figure
+(coordinator-directed)
+
+**Rows arrive to theorems already holding out their hands** — now two
+instances, and the campaign's closing figure.  At d7c4c184 the
+`IotaRunsR` rows arrived and the unused `_F` parameters of
+`IotaThmR`/`ProjFnR` began doing their work; at this widening the
+`DefEqListOk`/`TypedListOk` rows arrive and `prefixGradeFireP` — the
+position induction, ALREADY MECHANIZED on the prefix branch — is the
+waiting consumer.  In both instances the producer held the run all
+along and the statement merely stopped discarding it.  That is the
+run-certificate route's terminal form: by the end, widening a frozen
+statement costs two tuple insertions and two dashes, because every
+run the checker performs is already carried to the statement's door.
+
+### Discipline ledger entry (coordinator-directed): a route named
+unwalkable BEFORE walking it
+
+Part 4's near-STOP: the grading descent must go top-down along the
+satisfying environment, not along the value chain — the chain route
+(v1's `annotOkV_descend` shape) needs `xs`/`ys` graded, and
+`RecRuleLawP`'s frozen interp-equality half carries no such premise.
+The worker named the route as one that COULD NOT HAVE ESTABLISHED THE
+FROZEN STATEMENT before spending a single lemma on it.  This is the
+ledger's route-selection dual to "a recorded wall is a claim": a
+route is a claim about the frozen statement's premises, and it is
+checked against the statement's letter first, walked second.
+
+AFTER THIS SEAL (successor's order): PART 5 dispatched on the exact
+position — `zipperP` through the gate (the field half of the
+induction; budget the induction, not the transposition), the
+`zipperS` transposition, `pointS`/`reductS`/`annotS` at P, the
+`.nested` graded-pins establishment, the recursor group's
+`RecRuleLawP` rows (per-instantiation Prop-motive case on the
+`eqRecLawP` anchor, `BasisEqP.lean:893`), the projection `rec_rules`
+half, `indStepPB_of`, `hind` off `FoldP`, census → `hμ` ALONE, and
+THE ASSEMBLY of `no_proof_of_Empty_P` at the frozen letter.  Census
+at this seal: `hμ` + `IndStepPB`.  The goal is at the end of part 5.

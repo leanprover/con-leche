@@ -1799,7 +1799,7 @@ theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
       by simpa using hlpre, by simpa using hmaj,
       hcstrip, cdoms, cres, rdoms, fvsP, cdomsP, crestP, xFvsP, restP,
       crest2, rrest, hcinst, hclen, hrinst, hopenP, hcinstP, hopenX,
-      ldoms, lrest, hlinst, fun φ => ?_, ?_,
+      ldoms, lrest, hlinst, fun φ => ?_, hdeP, ?_,
       ⟨hdeIdx, hdeFld, hdePre, hdeLam, hdeRhs, hty1, hty2⟩⟩
     · exact stmtWalk_of m hrecSelf hcvRR hctorSelf hcvC hopenP
         (by omega) hcinstP hdeP
@@ -2055,7 +2055,7 @@ theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
       cdoms, cres, rdoms, rrest, fvsP, restP, cdomsP, crestP, xFvsP,
       crest2, hcinst, hclen, hrinst, hopenP,
       ⟨hannP, hcinstP, hopenX, by simpa using hcrestLen⟩,
-      ldoms, lrest, hlinst, ?_, ?_,
+      ldoms, lrest, hlinst, ?_, htypedP, ?_,
       ⟨hdeIdx, hdeFld, hdePre, hdeLam, hdeRhs, hty1, hty2⟩⟩
     · obtain ⟨bsC0, cbody0, Dc, usc, hs1, hs2⟩ := hcstrip
       exact ⟨bsC0, cbody0, hs1, by rw [hs2]⟩
