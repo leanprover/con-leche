@@ -15154,3 +15154,283 @@ is spent.
 lift-then-instantiate BEFORE unfolding `cons` — with `cons` in the
 same simp set the pattern stops matching and simp silently changes
 nothing.
+
+## Task #161 ENDGAME H: the basis bundle CLOSES — the census moves for the first time since D (2026-09-02)
+
+Briefed to close `BasisStepPB` on the ENDGAME G seal's re-itemized
+checklist.  **It is closed.**  All three remaining blocks landed
+(`quotK`, `eqK`, `psigmaK`), `basisStepPB_of` dispatches all six, and
+`hbas` is off `declStepPM`/`foldPM`/`checkDecls_sound_P_of`/
+`no_proof_of_Empty_P_of`.  The capstone's hypotheses are `hμ` and
+`IndStepPB`, and nothing else.
+
+### 1. THE FINDING: the `Eq` block cannot be chained by the landed install API
+
+G's checklist treats the three blocks as three instances of one
+recipe.  Two of them are.  The `Eq` block is not, and the reason is
+structural rather than mathematical:
+
+> every other block's later conses recover their earlier leaves from
+> `acval_basis_pinned`, because those leaves are `pinnedDirectT`.  No
+> `Eq` constant is (the ENDGAME D finding), and `Eq.refl`'s and
+> `Eq.rec`'s stored types both mention `Eq`.
+
+So `declBasisPB_eqK` needs `mp₁.base2.acval eqName ψ = eqValT2 ψ`
+from the *previous install*, and the landed install lemmas conclude
+`Nonempty (EnvS2PM …)` — the carrier is discarded.  There is no way
+to recover the equation afterwards: `acval_erase` fixes the leaf only
+up to numerals, and the tier's own forcing lemmas
+(`bit_forced_pos`/`_zero`) do not turn a membership into a numeral.
+
+**Resolution, and it is a strict strengthening**: `declStepPM_of_cons`
+and the four basis-cons variants now conclude
+
+> `∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,`
+> `  mp'.base2.acval = acvalWith mp.base2.acval c₀.name A`
+
+— which is exactly the carrier they already build.  `nonempty_of_exists`
+drops the leaf again for the fourteen call sites that never needed it,
+so no landed *statement* moved and no census entry changed.  **The
+successor's `IndStepPB` will want this for the same reason**: a
+modeled family's members read each other's leaves, and none of them is
+pinned either.
+
+The alternative — reading every `Eq` leaf abstractly, through
+`EqLawP`'s two halves alone — is also sound and is what the `Quot`
+block does (§3); it was rejected here only because it costs a
+parameter on every definition in the block while the API change costs
+one line per call site.
+
+### 2. The re-check streak breaks — by confirming
+
+The discipline ledger's standing practice is that every inherited
+claim of freedom or coverage is re-checked before it is spent.  Five
+were, and this time **all five held**:
+
+| claim | source | verdict |
+|---|---|---|
+| all five `Quot` leaves are `pinnedDirectT` | G item 1 | **holds** |
+| `pinnedDirectT` has no `Eq` entry | D | **holds** |
+| `psigmaK` owes exactly three hand towers | E item 3 | **holds** |
+| `PSigma'.mk` is the tier's only `.ifAllZero [u, v]` | G §2 | **holds** |
+| `BasisKind` has exactly the six kinds the dispatch covers | G item 4 | **holds** |
+
+Three consecutive batches (E, F, G) had each retired a recorded
+freedom for the cost of one `#eval`.  The fourth found nothing, which
+is what insurance looks like when it is working: the checks cost one
+`#eval` each and the batch spent the claims without risk.  **The
+streak that continues is the practice, not the retirements.**
+
+### 3. `Quot`: the `Eq` bridge crosses at the P tier, both halves at once
+
+`Quot.lift`'s and `Quot.sound`'s stored types conclude at the pinned
+`Eq` former.  v1 crosses that gap with `EnvS.eq_lawV` (`quotInv_interpS`,
+`quotSoundTy_interpS`); the P tier crosses it with **`EqLawP`** — the
+`EnvS2PM` field whose supplier is this very bundle — and it crosses
+*both* halves at once:
+
+* the **value** half computes the spine (`eqv`), as v1's does;
+* the **grading** half, which v1 has no analogue of because `AnnotOkV`
+  has no bit content, **is** the reading's `htyOk` obligation at that
+  slot.
+
+Both consumers take the halves as plain hypotheses, so no reading in
+the block depends on the `Eq` leaf *being* the tower.  `Quot.sound` is
+also the basis blocks' one stored axiom, hence the first and only use
+of the `reduce_ops` disjunct's second branch.
+
+**Second finding, recorded in the lemma's own docstring**:
+`quotLiftRaP_app` — the RHS tower's six-fold application — needs **no
+bit/level correspondence** `b = 0 ↔ v = 0`.  Its collapse is driven by
+its own bit alone (at `b = 0` both the tower and `f` are the canonical
+proof), so the correspondence is consumed only where the *recursor's*
+value law is read.  One hypothesis fewer than the shape of the problem
+suggested; G's §4 retired the same row's other inherited friction.
+
+### 4. The substitution-peeling kit — the general shape behind G's §5
+
+`Quot.lift`'s row is the tier's hardest firing, and the reason is the
+telescope: `TeleFitPA` peels by `B.inst a` at cut `0`, so after `k`
+peels a domain carries a *chain* of instantiations at cuts
+`k-1, …, 0`.  `interp2_inst0` turns the outermost into a `cons`;
+`interp2_inst_cons1`..`_cons4` turn the rest into `cons`es too, and
+the result is that a `k`-deep domain's reading is read at exactly the
+`k`-fold `cons` environment its space lemma is stated at — the
+invariance premise's four slots line up with `quotLiftInvTyP_data`'s
+on the nose.  `BasisBlocksP.lean`'s `interp2_liftN_succ_inst` (G §5)
+is the special case where the domain is a *lifted earlier argument*;
+this is the general shape.  `acval_inst_eq_self` is the leaf half:
+`EnvS.cval_closed` through `acval_erase` and `AVExpr.inst_eq_self`, so
+a stored leaf inside a peeled domain is untouched.
+
+### 5. `Eq` and `PSigma'`: two `Prop`-motive rows and no new mathematics
+
+* **`Eq.rec`** returns its *minor premise*, so its fired equality is an
+  identity between two collapsed towers.  Its whole content is
+  `eqRec_major_collapse`: an inhabitant of `eqv a b` identifies `a`
+  with `b` (`mem_eqv`) and is itself the canonical proof
+  (`mem_univ_zero`, because `eqv` is a truth value).  `eqRecValT2`'s
+  membership and grading — the two items the E seal recorded as owed —
+  land together in one `AnnotOkP_lam_mem` walk; the distance between
+  E's tower and the block's walk is **one numeral** (the tower carries
+  the motive's result sort where the reading carries `pwBit … .never`),
+  and the two are `BitAgree`;
+* **`PSigma'.rec`**'s motive lands in `Sort 0` and all five of its
+  binders are pinned `.ifAllZero []`, so the `Quot.ind` squash kit
+  applied **verbatim** — its tower's value is the canonical proof and
+  its row's fired equality is `pt = pt`.  The only content is that the
+  major premise's fibre is inhabited, which is structure η
+  (`psigmaEta_law2`) at the minor premise and the subject's two
+  projections.  This is the **fourth** `Prop`-motive row in the tier
+  (`PUnit.rec` at G, `Quot.ind`, `Eq.rec`, `PSigma'.rec`) and the
+  fourth to need no new mathematics — evidence about the *basis*
+  only; the `Iff.rec` divergence-class warning for the inductive tier
+  still stands.
+
+The pair's two projections are the block's `projInfo` conses — the
+tier's only ones — so `caps_ok` goes through `capsOkP_cons_fresh`'s
+*kind* disjunct rather than the reserved-name route, exactly as
+`basis_declsA_reserved` records.  `PSigma'.snd`'s stored type is the
+tier's one `.proj` node, and its grading is the `.proj` clause's own
+sigma witness, read off the third binder's domain.
+
+### Census after ENDGAME H
+
+`no_proof_of_Empty_P_of`: **`hμ` + `IndStepPB`** — `BasisStepPB` is
+**gone**.  `basisStepPB_of` is stated and proved unconditionally
+(`Interp2/FoldP.lean`), so the basis tier is closed and the capstone
+routes exactly one bundle.
+
+This is the first census move since ENDGAME D.
+
+### WALLS
+
+**None.**  No item on G's checklist was found unprovable, no field is
+missing, and no *frozen* statement needed editing.  The one statement
+that did move — `declStepPM_of_cons`'s conclusion — is a helper's, the
+move is a strict strengthening, and §1 records why it was forced.
+
+### Resume-here (the bill after H)
+
+1. **`IndStepPB`** — the last routed bundle, unchanged from the C, D,
+   E, F and G seals' bill, now with **five** inherited lessons: D's §3
+   (check `EnvS`'s V-free fields before recording an invariant gap),
+   E's §1 (before treating a binder numeral as free, check whether the
+   constant's stored type pins it), F's §3 (before treating a stored
+   row as vacuous, evaluate the *annotated* pin), G's §2 (before
+   treating a stated coverage as complete, evaluate the pins it claims
+   to cover), and **H's §1 (before treating a block's conses as
+   independent, check whether a later one reads an earlier leaf that
+   is not pinned)**.  The bill:
+   * all `EnvS2PM` fields at `indDecl` conses;
+   * `caps_ok` + `rec_rules` from the modeled families' certificates
+     via H1-expose-then-claims;
+   * **THE PROP-MOTIVE MINORS** — precedents now four deep
+     (`punitRecV2`'s squash case at G, `Quot.ind`, `Eq.rec`,
+     `PSigma'.rec`), plus the corrected findings class, the forcing
+     lemmas, `basis_rec_rules_plain`, and G's observation that the
+     reading's `lamR 0` and the value law's squash regime coincide.
+     The `Iff.rec` divergence-class warning still stands;
+   * `rec_ctors` for preservations;
+   * and note that the install API now **exposes the extended
+     carrier's leaf** (§1) — the ind tier's members read each other's
+     leaves and none of them is pinned, so this is the same gap in
+     the same shape, already closed;
+2. then **THE FINAL ASSEMBLY** (`CapstoneP.lean`'s frozen letter):
+   `no_proof_of_Empty_P` at input-level hypotheses only.
+
+### ENDGAME H battery (verbatim, at `01ad7681`)
+
+`lake build` **417 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to the ENDGAME A, B, C, D, E, F and G seals', and for the
+same reason: no `Setlec/Kernel/*` file was touched.
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `checkDecls_sound_P_of`, `basisStepPB_of`,
+and on every new theorem — `declBasisPB_quotK`, `declBasisPB_eqK`,
+`declBasisPB_psigmaK`, `quotLiftLawP`, `quotIndLawP`, `eqRecLawP`,
+`psigmaRecLawP`, `extendQuotSoundP`, `quotSoundTyP_mem`,
+`quotLiftTyP_mem`, `eqRecRaTower_data`, `psigmaRecValT2_data`,
+`pairProjTyP_data`, `interp2_inst_cons1`..`_cons4`,
+`acval_inst_eq_self`, `AnnotOkP_lam_mem`, `AnnotOkP_app_pt`,
+`AnnotOkP_pi_zero`/`_pi_bit`, `AnnotOkP_lam_zero_pt`,
+`declStepPM_of_basis_cons_eqrow`, `eqValT2_app₃_okP`
+(`nonempty_of_exists` depends on none).  Zero sorries.
+
+New files: `Interp2/BasisQuotP.lean` (the `Quot` block end to end,
+the `Eq` bridge, the squash and substitution-peeling kits),
+`Interp2/BasisEqP.lean` (the `Eq` block, `eqRecValT2`'s owed
+membership and grading), `Interp2/BasisPSigmaP.lean` (the `PSigma'`
+block, three hand towers).  Edited: `Interp2/InstallP.lean` (the
+install's exposed leaf, §1), `Interp2/BasisStepP.lean` (the same on
+the four variants, plus `declStepPM_of_basis_cons_eqrow` and
+`nonempty_of_exists`), `Interp2/EqTowerP.lean` (`eqValT2_app₃_okP`
+factored out of `eqLawP_of_tower`, whose statement is unchanged),
+`Interp2/HarvestP.lean` (four call sites), `Interp2/BasisEmptyP.lean`
+and `Interp2/BasisBlocksP.lean` (fourteen call sites),
+`Interp2/FoldP.lean` (`basisStepPB_of`, and `hbas` off four
+statements), `Setlec/SetR.lean` (three imports).  No file was deleted.
+
+## Task #161 SUCCESSION RECORD update (endgame H landed, 2026-09-02)
+
+Lane `agent/annot-v2` @ `7c7506ff` at batch start.  ALL FOUR SEMANTIC
+TIERS CLOSED; the pin tier closed at D; **the basis tier closes here**.
+Capstone hypotheses: `hμ` + `IndStepPB`.
+
+LANDED: endgame batch H on `agent/endgameH` (worktree
+`.claude/worktrees/endgameH`).  Briefed to close the basis bundle on
+G's re-itemized checklist; **closed it**.  Delivered the three
+remaining blocks (`quotK` five conses with two `.plain` rows and one
+stored axiom; `eqK` three conses with the tier's one `eq_lawP`-bespoke
+cons; `psigmaK` five conses with three hand towers and the tier's only
+`projInfo` conses), `basisStepPB_of`, and the FoldP rewiring.  Battery
+green (build 417 warning-free, test exit 0, arena counters unchanged,
+axioms within the standard three, zero sorries).  **No walls.**
+
+THE HEADLINES, in order of what they save the successor:
+
+* **the install now exposes the extended carrier's leaf.**  G's
+  checklist treated a block's conses as independent; the `Eq` block is
+  not, because none of its constants is `pinnedDirectT` and its later
+  types mention its earlier ones.  `declStepPM_of_cons` and the four
+  basis variants now conclude with the carrier *and its `acval`*.  The
+  ind tier has the same gap in the same shape and it is already
+  closed;
+* **the `Eq` bridge crosses at the P tier with both `EqLawP` halves at
+  once** — the value half computes the spine, and the grading half
+  (which v1 has no analogue of) *is* the reading's `htyOk` obligation.
+  Both `Quot` consumers take the halves as hypotheses, so no reading
+  depends on the leaf being the tower;
+* **the substitution-peeling kit** (`interp2_inst_cons1`..`_cons4`) is
+  the general shape behind G's `interp2_liftN_succ_inst`: it puts a
+  `k`-deep telescope domain at exactly the `k`-fold `cons` environment
+  its space lemma is stated at.  Every remaining row in the campaign
+  will meet this;
+* **four `Prop`-motive rows, four times no new mathematics**
+  (`PUnit.rec`, `Quot.ind`, `Eq.rec`, `PSigma'.rec`).  Evidence about
+  the basis only; the `Iff.rec` warning for the ind tier stands;
+* **the re-check practice found nothing, and that is the point.**  Five
+  inherited claims re-checked, five held.  Three batches running had
+  each retired one; the insurance is cheap either way.
+
+Carried trap (still G's, still true): absorb lift-then-instantiate
+BEFORE unfolding `cons` — with `cons` in the same simp set the pattern
+stops matching and simp silently changes nothing.
+
+AFTER H (successor's order): review + merge H per protocol; then
+`IndStepPB` (the resume-here's item 1); then THE FINAL ASSEMBLY.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal.
