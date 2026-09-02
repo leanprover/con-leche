@@ -1120,40 +1120,20 @@ private theorem stuckIrrel_shift (henv : EnvWF env)
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   exact proofIrrel_shift henv ih hpd hwa hwb
 
-private theorem projCert_shift (henv : EnvWF env)
+private theorem projCert_shift (_henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e₂ : Expr}
-    (hwe₂ : WScoped d e₂) (i : Nat) (fieldLvl structLvl : Level)
-    (nP : Nat) :
-    projCert (pureFns mode env fuel) env (d + 1) (shiftFrom p e₂) i
-        fieldLvl structLvl nP =
-      projCert (pureFns mode env fuel) env d e₂ i fieldLvl structLvl nP := by
+    (hwe₂ : WScoped d e₂) (i : Nat) (nP : Nat) :
+    projCert (pureFns mode env fuel) env (d + 1) (shiftFrom p e₂) i nP =
+      projCert (pureFns mode env fuel) env d e₂ i nP := by
   simp only [projCert]
   rw [getAppArgs_shiftFrom, getD_map_shiftFrom]
   have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
     WScoped_getD (fun x hx => hwe₂.getAppArgs x hx) _
   refine bind_congr _ (ih.infer hpd hwarg) ?_
-  intro ta hta
-  have hwta : WScoped d ta := inferTypeCore_WScoped henv fuel hta hwarg
-  refine bind_congr _ (ih.infer hpd hwta) ?_
-  intro tta htta
-  have hwtta : WScoped d tta := inferTypeCore_WScoped henv fuel htta hwta
-  refine bind_congr _ (ih.whnf hpd hwtta) ?_
-  intro w _
-  cases w <;> try rfl
-  case fvar => rw [shiftFrom_fvar]
-  case sort uT =>
-  refine bind_congr_eq rfl ?_
-  intro okT _
+  intro ta _
   refine bind_congr _ (ih.infer hpd hwe₂) ?_
-  intro te hte
-  have hwte : WScoped d te := inferTypeCore_WScoped henv fuel hte hwe₂
-  refine bind_congr _ (ih.infer hpd hwte) ?_
-  intro tte htte
-  have hwtte : WScoped d tte := inferTypeCore_WScoped henv fuel htte hwte
-  refine bind_congr _ (ih.whnf hpd hwtte) ?_
-  intro w₂ _
-  cases w₂ <;> try rfl
-  case fvar => rw [shiftFrom_fvar]
+  intro te _
+  rfl
 
 private theorem majorToCtor_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
@@ -2031,8 +2011,6 @@ private theorem whnfCore_step (henv : EnvWF env)
           (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
         WScoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
       refine bind_rel_eq _ (projCert_shift henv ih hpd hwe₃ i
-        (Level.subst entry.levelParams us₂ entry.fieldSort)
-        (Level.subst entry.levelParams us₂ entry.structSort)
         entry.numParams) ?_
       intro bb _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)

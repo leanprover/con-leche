@@ -683,27 +683,13 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
 
 /-- Twin of `projCert`. -/
 def projCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
-    (e₂ : ExprC) (i : Nat) (fieldLvl structLvl : Level) (nP : Nat) :
-    CheckCM Bool := do
+    (e₂ : ExprC) (i : Nat) (nP : Nat) : CheckCM Bool := do
   let bvar0 ← internI (.bvar 0)
   let args ← withStore (·.getAppArgsI e₂)
   let arg := args.getD (nP + i) bvar0
-  let ta ← r.infer depth arg
-  let tta ← r.infer depth ta
-  let wtta ← r.whnf depth tta
-  match ← viewI wtta with
-  | some (.sort uT) => do
-    let okT ← liftFueled "level comparison" (← isEquivLM uT fieldLvl)
-    let te ← r.infer depth e₂
-    let tte ← r.infer depth te
-    let wtte ← r.whnf depth tte
-    match ← viewI wtte with
-    | some (.sort wT) => do
-      let okW ← liftFueled "level comparison"
-        (← isEquivLM wT structLvl)
-      pure (okT && okW)
-    | _ => pure false
-  | _ => pure false
+  let _ta ← r.infer depth arg
+  let _te ← r.infer depth e₂
+  pure true
 
 mutual
 
@@ -810,16 +796,15 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           if entry.native ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then do
-            let mx ← substLevelTreeM entry.levelParams us
-              entry.structSort
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
             -- task #100 de-gating: the certificate runs
             -- unconditionally (the former nonzero-sort gate is
-            -- unsound-to-model under the domain-relative collapse)
-            let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
-            if ← projCertI r fe depth e' i fl
-                mx entry.numParams then
+            -- unsound-to-model under the domain-relative collapse).
+            -- Task #161 item B1: the two sort legs, their two
+            -- `Level` arguments and the two `substLevelTreeM` calls
+            -- that fed them are gone (see `projCert`).
+            if ← projCertI r fe depth e' i entry.numParams then
               k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')

@@ -584,8 +584,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
       intro σ hσ; rw [← hveq]; exact hok₃ σ hσ
     obtain ⟨-, hoA⟩ := hoistP_spine [A0, A1, A2, A3] hok₃'
     -- the four typings, from the certificate's own infer run
-    obtain ⟨ta, sta, uT, te, ste, wT, -, -, -, -, hite, -, -, -⟩ :=
-      Setlec.projCert_inv hcert
+    obtain ⟨ta, te, -, hite⟩ := Setlec.projCert_inv hcert
     rw [he₃] at hite
     have hpack := psigmaMkSpineP ihd ihi hreads hfmk hite
       (hfr a0 (by simp)) (hfr a1 (by simp)) (hfr a2 (by simp))

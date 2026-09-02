@@ -172,8 +172,7 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
   (`Infer.const` overlaps app-shaped subjects), so the rule exposes
   them as a `Tele` walk over the constructor's denoted stored type —
   the same premise-exactness argument as repair A. -/
-  | projRed {Δ : List VExpr} {p P fv ta ta' tta te te' tte TC restC :
-        VExpr}
+  | projRed {Δ : List VExpr} {p P fv ta ta' te te' TC restC : VExpr}
       {i : Nat} {sn : Name} {entry : ProjEntry} {ci : ConstantInfo}
       {us : List Level} {vs : List VExpr} :
       -- side conditions (V-free), read off the clause's guards
@@ -199,23 +198,21 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       -- the constructor spine's telescope certificate (the infer run's
       -- own argument re-checks, exposed — see the docstring)
       Tele μ env cval φ Δ TC vs restC →
-      -- `projCert`: the projected field's type's sort is the entry's
-      -- instantiated field sort …  (`DefEq`, not `Red`: the checker
-      -- whnfs its own inferred type; the bridge's infer-claim is up to
-      -- `DefEq`, so the normalization premise absorbs the slack — the
-      -- 2026-08-27 amendment, `Setlec/SetR/DESIGN.md`.  The chained
-      -- `Infer`s carry a linking `DefEq` — finding 3, 2026-08-28.)
+      -- `projCert`, task #161 item B1 (harvest site 18 / P9): the
+      -- clause runs two `inferTypeCore`s and nothing else.  The four
+      -- sort legs it used to run — infer *that* type, whnf it to a
+      -- sort, `Level.isEquiv` against the entry's instantiated
+      -- `fieldSort`/`structSort`, for the field and for the subject —
+      -- are deleted, so this rule states only the two runs.  The Prop
+      -- collapse that used the field's sort leg is re-derived from the
+      -- constructor telescope certificate (`Tele` above, the R6
+      -- amendment): `mem_univ_zero` on the pinned pair's own component
+      -- memberships.  (`DefEq`, not `Red`: the bridge's infer-claim is
+      -- up to `DefEq`, the 2026-08-27 amendment.)
       Infer μ env cval φ Δ fv ta →
       DefEq μ env cval φ Δ ta ta' →
-      Infer μ env cval φ Δ ta' tta →
-      DefEq μ env cval φ Δ tta
-        (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)) →
-      -- … and the subject's type's sort is the instantiated struct sort
       Infer μ env cval φ Δ P te →
       DefEq μ env cval φ Δ te te' →
-      Infer μ env cval φ Δ te' tte →
-      DefEq μ env cval φ Δ tte
-        (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ)) →
       Red μ env cval φ Δ (.proj i p) fv
   /-- R7/R16: a `String` literal steps to (the reduction of) its
   denoted constructor form — `projLitToCtor` (`Core.lean:1224-1229`)

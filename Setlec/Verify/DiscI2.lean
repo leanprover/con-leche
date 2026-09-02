@@ -317,41 +317,23 @@ theorem etaCertI_sim (ih : SSimI mode env f) {d : Nat} {n₁ : NIdx}
 
   | proj s'ᵢ j' e' => invert_node hd; exact SimAt.pure hs₂ rfl
 
-theorem projCertI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx} {e₂ : Expr}
-    {idx : Nat} {fl sl : LIdx} {fieldLvl structLvl : Level} {nP : Nat}
+theorem projCertI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
+    {e₂ : Expr} {idx : Nat} {nP : Nat}
     {s₀ : IState} (hs : ISOK mode env s₀)
-    (hden : s₀.store.denoteT i = some e₂) (hw : WScoped d e₂)
-    (hfl : s₀.store.denoteL fl = some fieldLvl)
-    (hsl : s₀.store.denoteL sl = some structLvl) :
+    (hden : s₀.store.denoteT i = some e₂) (hw : WScoped d e₂) :
     SimAt mode env s₀ RelV
-      (projCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i idx
-        fl sl nP)
-      (projCert (fueledFns mode env) env d e₂ idx fieldLvl structLvl nP) := by
+      (projCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i idx nP)
+      (projCert (fueledFns mode env) env d e₂ idx nP) := by
   show SimAt mode env s₀ RelV
     (internI (.bvar 0) >>= fun bvar0 =>
       Setlec.withStore (·.getAppArgsI i) >>= fun args =>
       (coreKnotI mode (mkFEnv env) f).infer d (args.getD (nP + idx) bvar0) >>=
-        fun ta =>
-      (coreKnotI mode (mkFEnv env) f).infer d ta >>= fun tta =>
-      (coreKnotI mode (mkFEnv env) f).whnf d tta >>= fun wtta =>
-      viewI wtta >>= fun n =>
-      match n with
-      | some (.sort uT) =>
-        isEquivLM uT fl >>= fun oT =>
-        liftFueled "level comparison" oT >>= fun okT =>
-        (coreKnotI mode (mkFEnv env) f).infer d i >>= fun te =>
-        (coreKnotI mode (mkFEnv env) f).infer d te >>= fun tte =>
-        (coreKnotI mode (mkFEnv env) f).whnf d tte >>= fun wtte =>
-        viewI wtte >>= fun n' =>
-        match n' with
-        | some (.sort wT) =>
-          isEquivLM wT sl >>= fun oW =>
-          liftFueled "level comparison" oW >>= fun okW =>
-          pure (okT && okW)
-        | _ => pure false
-      | _ => pure false)
-    (projCert (fueledFns mode env) env d e₂ idx fieldLvl structLvl nP)
-  have hbv : denoteNode s₀.store.denoteT s₀.store.denoteL s₀.store.denoteN (.bvar 0) = some (.bvar 0) := rfl
+        fun _ta =>
+      (coreKnotI mode (mkFEnv env) f).infer d i >>= fun _te =>
+      pure true)
+    (projCert (fueledFns mode env) env d e₂ idx nP)
+  have hbv : denoteNode s₀.store.denoteT s₀.store.denoteL s₀.store.denoteN
+      (.bvar 0) = some (.bvar 0) := rfl
   refine SimAt.bind_left (internI_eff hs hbv)
     (fun s₁ bvar0 hs₁ hext₁ hQ0 => ?_)
   refine SimAt.withStore ?_
@@ -361,86 +343,10 @@ theorem projCertI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx} {e₂ : Expr}
     wscoped_getD hw.getAppArgs _
   refine SimAt.bind (ih.infer hs₁ hargd hwarg)
     (fun s₂ ta tax hs₂ hext₂ hP₂ => ?_)
-  obtain ⟨htad, hwta⟩ := hP₂
-  refine SimAt.bind (ih.infer hs₂ htad hwta)
-    (fun s₃ tta ttax hs₃ hext₃ hP₃ => ?_)
-  obtain ⟨httad, hwtta⟩ := hP₃
-  refine SimAt.bind (ih.whnf hs₃ httad hwtta)
-    (fun s₄ wtta wttax hs₄ hext₄ hP₄ => ?_)
-  obtain ⟨hwttad, hwwtta⟩ := hP₄
-  refine SimAt.view ?_
-  obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv hwttad
-  rw [hn]
-  cases n with
-  | sort uT =>
-    rw [denoteNode, Option.map_eq_some_iff] at hd
-    obtain ⟨luT, hluT, rfl⟩ := hd
-    refine SimAt.bind_left
-      (isEquivLM_eff hs₄ hluT
-        (denoteL_mono (((hext₁.trans hext₂).trans hext₃).trans hext₄) hfl))
-      (fun s₄o oT hs₄o hext₄o hoT => ?_)
-    subst hoT
-    refine SimAt.bind (SimAt.liftFueled _ _ hs₄o)
-      (fun s₅ okT okT' hs₅ hext₅ hPok => ?_)
-    obtain rfl : okT = okT' := hPok
-    refine SimAt.bind (ih.infer hs₅
-      (denoteT_mono ((((((hext₁.trans hext₂).trans hext₃).trans
-        hext₄).trans hext₄o).trans hext₅)) hden) hw)
-      (fun s₆ te tex hs₆ hext₆ hP₆ => ?_)
-    obtain ⟨hted, hwte⟩ := hP₆
-    refine SimAt.bind (ih.infer hs₆ hted hwte)
-      (fun s₇ tte ttex hs₇ hext₇ hP₇ => ?_)
-    obtain ⟨htted, hwtte⟩ := hP₇
-    refine SimAt.bind (ih.whnf hs₇ htted hwtte)
-      (fun s₈ wtte wttex hs₈ hext₈ hP₈ => ?_)
-    obtain ⟨hwtted, hwwtte⟩ := hP₈
-    refine SimAt.view ?_
-    obtain ⟨n', hn', hc', hd'⟩ := denoteT_some_inv hwtted
-    rw [hn']
-    cases n' with
-    | sort wT =>
-      rw [denoteNode, Option.map_eq_some_iff] at hd'
-      obtain ⟨lwT, hlwT, rfl⟩ := hd'
-      refine SimAt.bind_left
-        (isEquivLM_eff hs₈ hlwT
-          (denoteL_mono ((((((((hext₁.trans hext₂).trans hext₃).trans
-            hext₄).trans hext₄o).trans hext₅).trans hext₆).trans
-            hext₇).trans hext₈) hsl))
-        (fun s₈o oW hs₈o hext₈o hoW => ?_)
-      subst hoW
-      refine SimAt.bind (SimAt.liftFueled _ _ hs₈o)
-        (fun s₉ okW okW' hs₉ hext₉ hPok' => ?_)
-      obtain rfl : okW = okW' := hPok'
-      exact SimAt.pure hs₉ rfl
-    | bvar k => invert_node hd'; exact SimAt.pure hs₈ rfl
-    | const nmᵢ us => invert_node hd'; exact SimAt.pure hs₈ rfl
-
-    | lit l => invert_node hd'; exact SimAt.pure hs₈ rfl
-    | fvar idx' nmᵢ t => invert_node hd'; exact SimAt.pure hs₈ rfl
-
-    | app f' a' => invert_node hd'; exact SimAt.pure hs₈ rfl
-    | lam nmᵢ t b' m => invert_node hd'; exact SimAt.pure hs₈ rfl
-
-    | forallE nmᵢ t b' m => invert_node hd'; exact SimAt.pure hs₈ rfl
-
-    | letE nmᵢ t v b' => invert_node hd'; exact SimAt.pure hs₈ rfl
-
-    | proj s'ᵢ j' e' => invert_node hd'; exact SimAt.pure hs₈ rfl
-
-  | bvar k => invert_node hd; exact SimAt.pure hs₄ rfl
-  | const nmᵢ us => invert_node hd; exact SimAt.pure hs₄ rfl
-
-  | lit l => invert_node hd; exact SimAt.pure hs₄ rfl
-  | fvar idx' nmᵢ t => invert_node hd; exact SimAt.pure hs₄ rfl
-
-  | app f' a' => invert_node hd; exact SimAt.pure hs₄ rfl
-  | lam nmᵢ t b' m => invert_node hd; exact SimAt.pure hs₄ rfl
-
-  | forallE nmᵢ t b' m => invert_node hd; exact SimAt.pure hs₄ rfl
-
-  | letE nmᵢ t v b' => invert_node hd; exact SimAt.pure hs₄ rfl
-
-  | proj s'ᵢ j' e' => invert_node hd; exact SimAt.pure hs₄ rfl
+  refine SimAt.bind (ih.infer hs₂
+      (denoteT_mono (hext₁.trans hext₂) hden) hw)
+    (fun s₃ te tex hs₃ hext₃ hP₃ => ?_)
+  exact SimAt.pure hs₃ rfl
 
 theorem structUnitCertI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     {d : Nat} {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK mode env s₀)

@@ -1329,27 +1329,33 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
 
 /-- Certification for a possibly-Prop structural projection
 `proj_i (ctor p⃗ x⃗)` (the subject `e₂` is the whnf'd constructor
-application): the projected argument's *type's sort* matches the
-entry's instantiated field sort, and the subject's type's sort matches
-the entry's instantiated result sort.  At Prop instances this
-collapses both the argument and the subject to the proof point, which
-is exactly what the reduction's soundness needs there. -/
+application): the projected argument and the subject are both typed.
+
+Task #161 de-gating round A+B+C, item B1 (harvest site 18, list entry
+P9).  The clause used to run six things: infer the field, infer *its*
+type and whnf it to a sort, compare that sort with the entry's
+instantiated `fieldSort`; then the same three for the subject against
+`structSort`.  `projStepP_of_claims` (`SetR/Interp2/Step2/ProjRowsP.lean`)
+destructures `projCert_inv` as `⟨…, -, -, -, -, hite, -, -, -⟩`: it
+consumes **conjunct 5 only**, the subject's own `inferTypeCore` run.
+The four sort legs — the two `infer`+`whnf`-to-a-sort runs and the two
+`Level.isEquiv` comparisons — are inspected by nothing, and they cannot
+become load-bearing later either: `projEntry_pins` (`SetR/ProjPins.lean`)
+pins a `native` entry to one of the two basis pair entries, so
+`fieldSort`/`structSort` are *concrete* and carry no information the
+model does not already have.  They are deleted, and with them the two
+`Level` arguments and the callers' `Level.subst`/`substLevelTreeM` of
+the pinned sorts.
+
+THE FIELD-INFER RUN STAYS (the ratified negative verdict of the harvest
+list): it is not licensed by anything, it is simply not on the removal
+list. -/
 def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
-    (e₂ : Expr) (i : Nat) (fieldLvl structLvl : Level) (nP : Nat) :
-    m Bool := do
+    (e₂ : Expr) (i : Nat) (nP : Nat) : m Bool := do
   let arg := e₂.getAppArgs.getD (nP + i) (.bvar 0)
-  let ta ← r.infer depth arg
-  match ← r.whnf depth (← r.infer depth ta) with
-  | .sort uT =>
-    let okT ← liftFueled "level comparison" (Level.isEquiv uT fieldLvl)
-    let te ← r.infer depth e₂
-    match ← r.whnf depth (← r.infer depth te) with
-    | .sort wT =>
-      let okW ← liftFueled "level comparison"
-        (Level.isEquiv wT structLvl)
-      pure (okT && okW)
-    | _ => pure false
-  | _ => pure false
+  let _ta ← r.infer depth arg
+  let _te ← r.infer depth e₂
+  pure true
 
 /-- The head-normalization body: beta (with the per-redex argument
 certificate, unconditional since the task-#100 de-gating), iota (with
@@ -1402,18 +1408,16 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then
-            let mx : Level := Level.subst entry.levelParams us
-              entry.structSort
             let arg := args.getD (entry.numParams + i) (.bvar 0)
             -- Certify the reduction: at Prop instances both the
             -- projected argument and the subject collapse to the
             -- proof point (see DESIGN.md on beta certification).
             -- Task #100 de-gating: the former nonzero-sort gate is
             -- unsound-to-model under the domain-relative collapse,
-            -- so the certificate runs unconditionally.
-            if ← projCert r env depth e' i
-                (Level.subst entry.levelParams us entry.fieldSort)
-                mx entry.numParams then
+            -- so the certificate runs unconditionally.  Task #161
+            -- item B1: the two sort legs and their `Level.subst`s are
+            -- gone (see `projCert`).
+            if ← projCert r env depth e' i entry.numParams then
               r.whnfCore depth arg
             else pure (.proj sn i e')
           else pure (.proj sn i e')

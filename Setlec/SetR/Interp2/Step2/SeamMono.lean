@@ -680,6 +680,17 @@ theorem spineGuard_flips_to_false :
 | `defeqStep` | 1858 | `isEquivList` direct | refuted (item 2) |
 | `isPropType` | 1944 | `isEquiv _ .zero` | **settled** (item 3) |
 
+**AMENDMENT (task #161 de-gating round A+B+C, item B1).**  The two
+`projCert` rows are gone from the checker: `projCert`'s four sort legs
+— including both `isEquiv` comparisons listed above — were deleted
+because `projStepP_of_claims` consumed only the subject's
+`inferTypeCore` run, and `projEntry_pins` makes the stored sorts
+concrete.  The tally below is the historical one; the live site count
+is two smaller, and the "mapped" shape now has exactly one instance
+(`iotaRec` 1311).  The refutations themselves stand unchanged and are
+kept because the mapped statement's analysis is still the reference for
+that remaining site.
+
 "Direct" means both comparands are subject-side, so instantiation
 substitutes both; "mapped" means the right one is a stored level read
 at the subject's level arguments, so instantiation maps the

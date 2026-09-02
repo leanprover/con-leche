@@ -246,12 +246,8 @@ def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
         if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
             args.length = entry.numParams + entry.numFields ∧
             us.length = entry.levelParams.length then
-          let mx : Level := Level.subst entry.levelParams us
-            entry.structSort
           let arg := args.getD (entry.numParams + i) (.bvar 0)
-          if ← projCert r env depth e' i
-              (Level.subst entry.levelParams us entry.fieldSort)
-              mx entry.numParams then
+          if ← projCert r env depth e' i entry.numParams then
             k arg
           else pure (.proj sn i e')
         else pure (.proj sn i e')
@@ -429,12 +425,12 @@ theorem projLitToCtor_mono {d : Nat} {e : Expr} {F F' : Nat}
   rw [← projLitToCtor_atF] at h ⊢
   exact (projLitToCtor (fueledFns mode env) env d e).property hle h
 
-theorem projCert_mono {d : Nat} {e : Expr} {i : Nat} {fl sl : Level}
+theorem projCert_mono {d : Nat} {e : Expr} {i : Nat}
     {nP : Nat} {F F' : Nat} (hle : F ≤ F') {b : Bool}
-    (h : projCert (pureFns mode env F) env d e i fl sl nP = .ok b) :
-    projCert (pureFns mode env F') env d e i fl sl nP = .ok b := by
+    (h : projCert (pureFns mode env F) env d e i nP = .ok b) :
+    projCert (pureFns mode env F') env d e i nP = .ok b := by
   rw [← projCert_atF] at h ⊢
-  exact (projCert (fueledFns mode env) env d e i fl sl nP).property hle h
+  exact (projCert (fueledFns mode env) env d e i nP).property hle h
 
 theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {o : Option Expr}

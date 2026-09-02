@@ -150,7 +150,7 @@ abbrev projLitToCtorP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr
     CheckM Expr := projLitToCtor (pureFns mode env fuel) env
 
 abbrev projCertP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Nat →
-    Level → Level → Nat → CheckM Bool := projCert (pureFns mode env fuel) env
+    Nat → CheckM Bool := projCert (pureFns mode env fuel) env
 
 abbrev isPropTypeP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → CheckM Bool :=
   isPropType (pureFns mode env fuel) env

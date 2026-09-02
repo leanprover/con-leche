@@ -46,8 +46,6 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
               e'.getAppArgs.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then
             projCert (fueledFns mode env) env d e' i
-              (Level.subst entry.levelParams us entry.fieldSort)
-              (Level.subst entry.levelParams us entry.structSort)
               entry.numParams >>= fun b =>
             if b then
               kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -707,22 +705,13 @@ theorem whnfCoreStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
         split
         · rename_i hcond
           obtain ⟨-, rfl, -, -, -⟩ := hcond
-          refine SimAt.bind_left (substLevelTreeM_eff hs₁
-            (ks := entry.levelParams) entry.structSort hlusDen')
-            (fun s₁m mx hs₁m hext₁m hQmx => ?_)
-          have hbv : denoteNode s₁m.store.denoteT s₁m.store.denoteL
-              s₁m.store.denoteN
+          have hbv : denoteNode s₁.store.denoteT s₁.store.denoteL
+              s₁.store.denoteN
               (.bvar 0) = some (.bvar 0) := rfl
-          refine SimAt.bind_left (internI_eff hs₁m hbv)
+          refine SimAt.bind_left (internI_eff hs₁ hbv)
             (fun s₂ bvar0 hs₂ hext₂ hQ0 => ?_)
-          refine SimAt.bind_left (substLevelTreeM_eff hs₂
-            (ks := entry.levelParams) entry.fieldSort
-            (denoteLList_mono (hext₁m.trans hext₂) hlusDen'))
-            (fun s₂f fl hs₂f hext₂f hQfl => ?_)
-          refine SimAt.bind (projCertI_sim ih hs₂f
-            (denoteT_mono ((hext₁m.trans hext₂).trans hext₂f) he'd)
-            hwe' hQfl
-            (denoteL_mono (hext₂.trans hext₂f) hQmx))
+          refine SimAt.bind (projCertI_sim ih hs₂
+            (denoteT_mono hext₂ he'd) hwe')
             (fun s₃ b b' hs₃ hext₃ hPb => ?_)
           obtain rfl : b = b' := hPb
           cases b with
@@ -730,20 +719,17 @@ theorem whnfCoreStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
             simp only [↓reduceIte]
             exact hk hs₃
               (DenL.getD
-                (denoteT_mono (hext₂f.trans hext₃) hQ0)
+                (denoteT_mono hext₃ hQ0)
                 (entry.numParams + ip)
-                (hargs.mono (((hext₁m.trans hext₂).trans
-                  hext₂f).trans hext₃))) hwarg
+                (hargs.mono (hext₂.trans hext₃))) hwarg
           | false =>
             simp only [Bool.false_eq_true, ↓reduceIte]
             refine SimAt.of_eff (internI_eff hs₃
               (x := .proj sn ip e'x) ?_) _
               (fun s pr hQ => ⟨hQ, hwproj⟩)
             rw [denoteNode,
-              denoteT_mono (((hext₁m.trans hext₂).trans
-                hext₂f).trans hext₃) he'd,
-              denoteN_mono (((hext₁m.trans hext₂).trans
-                hext₂f).trans hext₃) hsnDen]
+              denoteT_mono (hext₂.trans hext₃) he'd,
+              denoteN_mono (hext₂.trans hext₃) hsnDen]
             rfl
         · refine SimAt.of_eff (internI_eff hs₁
             (x := .proj sn ip e'x) ?_) _

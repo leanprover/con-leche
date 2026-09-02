@@ -575,28 +575,16 @@ theorem etaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   · exact DiscV.pure trivial
 
 theorem projCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} {e₂ : Expr} {i : Nat} {fieldLvl structLvl : Level}
-    {nP : Nat}
+    {d : Nat} {e₂ : Expr} {i : Nat} {nP : Nat}
     (hwe : WScoped d e₂) :
     DiscV mode env (fun _ => True)
-      (projCert C env d e₂ i fieldLvl structLvl nP)
-      (projCert G env d e₂ i fieldLvl structLvl nP) := by
+      (projCert C env d e₂ i nP) (projCert G env d e₂ i nP) := by
   unfold projCert
   have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
     wscoped_getD hwe.getAppArgs _
   refine DiscV.bind (ih.site_infer henv hwarg) (fun ta hta => ?_)
-  refine DiscV.bind (ih.site_infer henv hta) (fun tta htta => ?_)
-  refine DiscV.bind (ih.site_whnf henv htta) (fun w _ => ?_)
-  cases w <;> try exact DiscV.pure trivial
-  case sort uT =>
-    refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okT _ => ?_)
-    refine DiscV.bind (ih.site_infer henv hwe) (fun te hte => ?_)
-    refine DiscV.bind (ih.site_infer henv hte) (fun tte htte => ?_)
-    refine DiscV.bind (ih.site_whnf henv htte) (fun w' _ => ?_)
-    cases w' <;> try exact DiscV.pure trivial
-    case sort wT =>
-      refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okW _ => ?_)
-      exact DiscV.pure trivial
+  refine DiscV.bind (ih.site_infer henv hwe) (fun te hte => ?_)
+  exact DiscV.pure trivial
 
 theorem stuckIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
@@ -1026,10 +1014,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
             if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length then
-              projCert C env d e' i
-                (Level.subst entry.levelParams us entry.fieldSort)
-                (Level.subst entry.levelParams us entry.structSort)
-                entry.numParams >>= fun b =>
+              projCert C env d e' i entry.numParams >>= fun b =>
               if b then
                 (C : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -1046,10 +1031,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
             if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length then
-              projCert G env d e' i
-                (Level.subst entry.levelParams us entry.fieldSort)
-                (Level.subst entry.levelParams us entry.structSort)
-                entry.numParams >>= fun b =>
+              projCert G env d e' i entry.numParams >>= fun b =>
               if b then
                 (G : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))

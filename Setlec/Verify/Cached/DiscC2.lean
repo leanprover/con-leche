@@ -293,37 +293,20 @@ theorem RelCL.getD {dflt : ExprC} {dfltx : Expr} (hd : RelC dflt dfltx) :
 
 /-- Port of `projCertI_sim`. -/
 theorem projCertC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
-    {e₂ : Expr} {idx : Nat} {fl sl : Level} {nP : Nat}
+    {e₂ : Expr} {idx : Nat} {nP : Nat}
     {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e₂) (hw : Expr.WScoped d e₂) :
     SimC mode env s₀ RelVC
-      (projCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i idx
-        fl sl nP)
-      (projCert (fueledFns mode env) env d e₂ idx fl sl nP) := by
+      (projCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i idx nP)
+      (projCert (fueledFns mode env) env d e₂ idx nP) := by
   show SimC mode env s₀ RelVC
     (internI (.bvar 0) >>= fun bvar0 =>
       Setlec.Cached.withStore (·.getAppArgsI i) >>= fun args =>
       (coreKnotI mode (mkFEnv env) f).infer d (args.getD (nP + idx) bvar0) >>=
-        fun ta =>
-      (coreKnotI mode (mkFEnv env) f).infer d ta >>= fun tta =>
-      (coreKnotI mode (mkFEnv env) f).whnf d tta >>= fun wtta =>
-      viewI wtta >>= fun n =>
-      match n with
-      | some (.sort uT) =>
-        isEquivLM uT fl >>= fun oT =>
-        liftFueled "level comparison" oT >>= fun okT =>
-        (coreKnotI mode (mkFEnv env) f).infer d i >>= fun te =>
-        (coreKnotI mode (mkFEnv env) f).infer d te >>= fun tte =>
-        (coreKnotI mode (mkFEnv env) f).whnf d tte >>= fun wtte =>
-        viewI wtte >>= fun n' =>
-        match n' with
-        | some (.sort wT) =>
-          isEquivLM wT sl >>= fun oW =>
-          liftFueled "level comparison" oW >>= fun okW =>
-          pure (okT && okW)
-        | _ => pure false
-      | _ => pure false)
-    (projCert (fueledFns mode env) env d e₂ idx fl sl nP)
+        fun _ta =>
+      (coreKnotI mode (mkFEnv env) f).infer d i >>= fun _te =>
+      pure true)
+    (projCert (fueledFns mode env) env d e₂ idx nP)
   refine SimC.bind_left (internI_eff hs (n := ExprView.bvar 0) trivial)
     (fun s₁ bvar0 hs₁ hQ0 => ?_)
   refine SimC.withStore ?_
@@ -337,58 +320,9 @@ theorem projCertC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     wscoped_getD hw.getAppArgs _
   refine SimC.bind (ih.infer hs₁ hargd hwarg)
     (fun s₂ ta tax hs₂ hP₂ => ?_)
-  obtain ⟨htad, hwta⟩ := hP₂
-  refine SimC.bind (ih.infer hs₂ htad hwta) (fun s₃ tta ttax hs₃ hP₃ => ?_)
-  obtain ⟨httad, hwtta⟩ := hP₃
-  refine SimC.bind (ih.whnf hs₃ httad hwtta) (fun s₄ wtta wttax hs₄ hP₄ => ?_)
-  obtain ⟨hwttad, hwwtta⟩ := hP₄
-  refine SimC.view ?_
-  obtain ⟨hwc₄, rfl⟩ := hwttad
-  cases wtta with
-  | sort uT h bb fb lp =>
-    refine SimC.bind_left (isEquivLM_eff hs₄ uT fl)
-      (fun s₄o oT hs₄o hoT => ?_)
-    subst hoT
-    refine SimC.bind (SimC.liftFueled _ _ hs₄o)
-      (fun s₅ okT okT' hs₅ hPok => ?_)
-    obtain rfl : okT = okT' := hPok
-    refine SimC.bind (ih.infer hs₅ ⟨hwc, rfl⟩ hw)
-      (fun s₆ te tex hs₆ hP₆ => ?_)
-    obtain ⟨hted, hwte⟩ := hP₆
-    refine SimC.bind (ih.infer hs₆ hted hwte) (fun s₇ tte ttex hs₇ hP₇ => ?_)
-    obtain ⟨htted, hwtte⟩ := hP₇
-    refine SimC.bind (ih.whnf hs₇ htted hwtte)
-      (fun s₈ wtte wttex hs₈ hP₈ => ?_)
-    obtain ⟨hwtted, hwwtte⟩ := hP₈
-    refine SimC.view ?_
-    obtain ⟨hwc₈, rfl⟩ := hwtted
-    cases wtte with
-    | sort wT h' bb' fb' lp' =>
-      refine SimC.bind_left (isEquivLM_eff hs₈ wT sl)
-        (fun s₈o oW hs₈o hoW => ?_)
-      subst hoW
-      refine SimC.bind (SimC.liftFueled _ _ hs₈o)
-        (fun s₉ okW okW' hs₉ hPok' => ?_)
-      obtain rfl : okW = okW' := hPok'
-      exact SimC.pure hs₉ rfl
-    | bvar k h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-    | const nm us h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-    | lit l h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-    | fvar idx' nm t h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-    | app f' a' h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-    | lam nm t b' m h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-    | forallE nm t b' m h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-    | letE nm t v b' h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-    | proj sn j' e' h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-  | bvar k h bb fb lp => exact SimC.pure hs₄ rfl
-  | const nm us h bb fb lp => exact SimC.pure hs₄ rfl
-  | lit l h bb fb lp => exact SimC.pure hs₄ rfl
-  | fvar idx' nm t h bb fb lp => exact SimC.pure hs₄ rfl
-  | app f' a' h bb fb lp => exact SimC.pure hs₄ rfl
-  | lam nm t b' m h bb fb lp => exact SimC.pure hs₄ rfl
-  | forallE nm t b' m h bb fb lp => exact SimC.pure hs₄ rfl
-  | letE nm t v b' h bb fb lp => exact SimC.pure hs₄ rfl
-  | proj sn j' e' h bb fb lp => exact SimC.pure hs₄ rfl
+  refine SimC.bind (ih.infer hs₂ ⟨hwc, rfl⟩ hw)
+    (fun s₃ te tex hs₃ hP₃ => ?_)
+  exact SimC.pure hs₃ rfl
 
 /-- Port of `structUnitCertI_sim`. -/
 theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)

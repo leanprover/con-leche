@@ -478,17 +478,15 @@ theorem etaCert_snd_proj (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta)
   unfold etaCert
   snd_tac
 
-theorem projCert_fst_proj (d : Nat) (e₂ : Expr) (i : Nat)
-    (fieldLvl structLvl : Level) (nP : Nat) :
-    (projCert (pairFns r₁ r₂ h) env d e₂ i fieldLvl structLvl nP).val.1 =
-      projCert r₁ env d e₂ i fieldLvl structLvl nP := by
+theorem projCert_fst_proj (d : Nat) (e₂ : Expr) (i : Nat) (nP : Nat) :
+    (projCert (pairFns r₁ r₂ h) env d e₂ i nP).val.1 =
+      projCert r₁ env d e₂ i nP := by
   unfold projCert
   fst_tac
 
-theorem projCert_snd_proj (d : Nat) (e₂ : Expr) (i : Nat)
-    (fieldLvl structLvl : Level) (nP : Nat) :
-    (projCert (pairFns r₁ r₂ h) env d e₂ i fieldLvl structLvl nP).val.2 =
-      projCert r₂ env d e₂ i fieldLvl structLvl nP := by
+theorem projCert_snd_proj (d : Nat) (e₂ : Expr) (i : Nat) (nP : Nat) :
+    (projCert (pairFns r₁ r₂ h) env d e₂ i nP).val.2 =
+      projCert r₂ env d e₂ i nP := by
   unfold projCert
   snd_tac
 

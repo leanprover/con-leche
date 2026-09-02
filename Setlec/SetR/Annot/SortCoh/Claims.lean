@@ -1726,7 +1726,7 @@ theorem whnfCore_reidem_const {μ : CheckMode} {env : Env}
           split at h
           · next hguard =>
             cases hpc : Setlec.projCert (Setlec.pureFns μ env f) env d
-                w₂ i _ _ entry.numParams with
+                w₂ i entry.numParams with
             | error err => rw [hpc] at h; exact nomatch h
             | ok pc =>
             rw [hpc] at h

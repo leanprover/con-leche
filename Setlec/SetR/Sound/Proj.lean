@@ -179,7 +179,7 @@ theorem sndInfProj (henv : EnvSHyp V env cval φ)
 /-! ### R6: native projection reduction -/
 
 theorem sndRedProjRed (henv : EnvSHyp V env cval φ)
-    {Δ : List VExpr} {p P fv ta ta' tta te te' tte TC restC : VExpr}
+    {Δ : List VExpr} {p P fv ta ta' te te' TC restC : VExpr}
     {i : Nat} {sn : Name} {entry : ProjEntry} {ci : ConstantInfo}
     {us : List Level} {vs : List VExpr}
     (h1 : env.findProj? sn i = some entry) (h2 : entry.native = true)
@@ -200,26 +200,14 @@ theorem sndRedProjRed (henv : EnvSHyp V env cval φ)
     (_ : Tele μ env cval φ Δ TC vs restC)
     (_ : Infer μ env cval φ Δ fv ta)
     (_ : DefEq μ env cval φ Δ ta ta')
-    (_ : Infer μ env cval φ Δ ta' tta)
-    (_ : DefEq μ env cval φ Δ tta
-      (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)))
     (_ : Infer μ env cval φ Δ P te)
     (_ : DefEq μ env cval φ Δ te te')
-    (_ : Infer μ env cval φ Δ te' tte)
-    (_ : DefEq μ env cval φ Δ tte
-      (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ)))
     (ihp : RedS V Δ p P)
     (ihTele : TeleS V Δ TC vs restC)
-    (ihfv : InfS V Δ fv ta)
-    (ihlta : DeqS V Δ ta ta')
-    (ihta : InfS V Δ ta' tta)
-    (ihtta : DeqS V Δ tta
-      (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)))
+    (_ : InfS V Δ fv ta)
+    (_ : DeqS V Δ ta ta')
     (_ : InfS V Δ P te)
-    (_ : DeqS V Δ te te')
-    (_ : InfS V Δ te' tte)
-    (_ : DeqS V Δ tte
-      (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ))) :
+    (_ : DeqS V Δ te te') :
     RedS V Δ (.proj i p) fv := by
   intro ρ hΔ
   obtain ⟨hpin, hT, hidx, hpsig, hpsigMk⟩ :=
@@ -286,43 +274,33 @@ theorem sndRedProjRed (henv : EnvSHyp V env cval φ)
       exact Or.inr ⟨rfl, by simpa using (Option.some.inj h9).symm⟩
   have hfvA : AnnotOkV V ρ fv := by
     rcases hfv with ⟨-, rfl⟩ | ⟨-, rfl⟩ <;> exact hargs _ (by simp)
-  -- the field certificate's sort, computed off the pin
-  have hfsort : (Level.subst entry.levelParams [l0, l1]
-      entry.fieldSort).eval φ
-      = (if i = 0 then Level.eval φ l0 else Level.eval φ l1) := by
-    rcases hpin with rfl | rfl
-    · obtain rfl : i = 0 := hidx.symm
-      simp [pairFstEntry, Level.subst, Level.subst.go]
-    · obtain rfl : i = 1 := hidx.symm
-      have hne : uN ≠ vN := by decide
-      simp [pairSndEntry, Level.subst, Level.subst.go]
+  have hm3' : interp V ρ x ∈ˢ interp V ρ α := hm3
   refine ⟨?_, fun _ => hfvA⟩
   by_cases hw : Nat.max (Level.eval φ l0) (Level.eval φ l1) = 0
-  · -- the Prop collapse: everything is the proof point
+  · -- the Prop collapse: everything is the proof point.  Task #161
+    -- item B1: this used to read the field's *sort leg* (`ihtta`, the
+    -- deleted `Level.isEquiv` against `fieldSort`).  It is re-derived
+    -- from the constructor telescope certificate the rule already
+    -- carries: at a zero level the pinned pair's own component
+    -- memberships (`hm1'`–`hm4'`) put the field in a `univ 0` member,
+    -- and `mem_univ_zero` collapses it.
+    have h1 : Level.eval φ l0 = 0 :=
+      Nat.le_zero.mp
+        (Nat.le_trans (Nat.le_max_left _ _) (Nat.le_of_eq hw))
+    have h2 : Level.eval φ l1 = 0 :=
+      Nat.le_zero.mp
+        (Nat.le_trans (Nat.le_max_right _ _) (Nat.le_of_eq hw))
     have hPpt : interp V ρ P = pt := by
       rw [hPv, psigmaMkV_zero hw, app_pt, app_pt, app_pt, app_pt]
     have hfpt : interp V ρ fv = pt := by
-      have hta : interp V ρ ta' ∈ˢ (univ 0 : V) := by
-        have h := ihtta ρ hΔ
-        rw [interp_sort, hfsort] at h
-        have h0 : (if i = 0 then Level.eval φ l0 else Level.eval φ l1)
-            = 0 := by
-          have h1 : Level.eval φ l0 = 0 :=
-            Nat.le_zero.mp
-              (Nat.le_trans (Nat.le_max_left _ _) (Nat.le_of_eq hw))
-          have h2 : Level.eval φ l1 = 0 :=
-            Nat.le_zero.mp
-              (Nat.le_trans (Nat.le_max_right _ _) (Nat.le_of_eq hw))
-          split <;> assumption
-        rw [h0] at h
-        exact h ▸ (ihta ρ hΔ).2
-      exact mem_univ_zero hta ((ihlta ρ hΔ) ▸ (ihfv ρ hΔ).2)
+      rcases hfv with ⟨-, rfl⟩ | ⟨-, rfl⟩
+      · exact mem_univ_zero (h1 ▸ hm1') hm3'
+      · exact mem_univ_zero (h2 ▸ app_mem_piC hm2' hm3') hm4'
     rw [hfpt]
     rcases hfv with ⟨rfl, -⟩ | ⟨rfl, -⟩
     · rw [interp_proj, if_pos rfl, hp_eq, hPpt, sfst_pt]
     · rw [interp_proj, if_neg (by omega), hp_eq, hPpt, ssnd_pt]
   · -- no collapse: the constructor value folds to the pair
-    have hm3' : interp V ρ x ∈ˢ interp V ρ α := hm3
     have hPfold : interp V ρ P = spair (interp V ρ x) (interp V ρ y) := by
       rw [hPv, psigmaMkV_app V hm1' hm2' hm3' hm4', if_neg hw]
     rcases hfv with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩

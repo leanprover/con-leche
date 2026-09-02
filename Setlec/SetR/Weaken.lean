@@ -248,7 +248,7 @@ private theorem wkRedZeta {Δ : List VExpr} {T v b : VExpr} :
   exact .zeta
 
 private theorem wkRedProjRed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
-    {Δ : List VExpr} {p P fv ta ta' tta te te' tte TC restC : VExpr}
+    {Δ : List VExpr} {p P fv ta ta' te te' TC restC : VExpr}
     {i : Nat} {sn : Name} {entry : ProjEntry} {ci : ConstantInfo}
     {us : List Level} {vs : List VExpr}
     (h1 : env.findProj? sn i = some entry) (h2 : entry.native = true)
@@ -269,32 +269,20 @@ private theorem wkRedProjRed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (_ : Tele μ env cval φ Δ TC vs restC)
     (_ : Infer μ env cval φ Δ fv ta)
     (_ : DefEq μ env cval φ Δ ta ta')
-    (_ : Infer μ env cval φ Δ ta' tta)
-    (_ : DefEq μ env cval φ Δ tta
-      (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)))
     (_ : Infer μ env cval φ Δ P te)
     (_ : DefEq μ env cval φ Δ te te')
-    (_ : Infer μ env cval φ Δ te' tte)
-    (_ : DefEq μ env cval φ Δ tte
-      (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ)))
     (ihp : RedW μ env cval φ Δ p P)
     (ihTele : TeleW μ env cval φ Δ TC vs restC)
     (ihfv : InfW μ env cval φ Δ fv ta)
     (ihlta : DeqW μ env cval φ Δ ta ta')
-    (ihta : InfW μ env cval φ Δ ta' tta)
-    (ihtta : DeqW μ env cval φ Δ tta
-      (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)))
     (ihP : InfW μ env cval φ Δ P te)
-    (ihlte : DeqW μ env cval φ Δ te te')
-    (ihte : InfW μ env cval φ Δ te' tte)
-    (ihtte : DeqW μ env cval φ Δ tte
-      (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ))) :
+    (ihlte : DeqW μ env cval φ Δ te te') :
     RedW μ env cval φ Δ (.proj i p) fv := by
   intro n k Δ' H
   refine Red.projRed (vs := vs.map (·.liftN n k))
     (restC := restC.liftN n k) h1 h2 h3
     (by simpa using h4) h5 h6 h7 ?_ ?_ hTC hTCc (ihp H) ?_ (ihfv H)
-    (ihlta H) (ihta H) (ihtta H) (ihP H) (ihlte H) (ihte H) (ihtte H)
+    (ihlta H) (ihP H) (ihlte H)
   · rw [h8, liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _)]
   · rw [List.getElem?_map, h9]
     rfl

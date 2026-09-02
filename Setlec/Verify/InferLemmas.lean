@@ -664,10 +664,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
           us.length = entry.levelParams.length ∧
           whnfCore mode env fuel d
             (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
-          projCertP mode env fuel d e₃ i
-            (Level.subst entry.levelParams us entry.fieldSort)
-            (Level.subst entry.levelParams us entry.structSort)
-            entry.numParams = .ok true) := by
+          projCertP mode env fuel d e₃ i entry.numParams = .ok true) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
   simp only [whnfCore_def, whnf_def, projCert_fold,
@@ -697,10 +694,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       obtain ⟨hnat, rfl, hi, hlen, hus⟩ := hcond
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
-      cases hcert : projCertP mode env fuel d e₃ i
-          (Level.subst entry.levelParams us entry.fieldSort)
-          (Level.subst entry.levelParams us entry.structSort)
-          entry.numParams with
+      cases hcert : projCertP mode env fuel d e₃ i entry.numParams with
       | error err => rw [hcert] at h; exact nomatch h
       | ok b =>
       rw [hcert] at h
@@ -724,91 +718,36 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
   | lit l2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | proj s2 i2 e3 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
 
-/-- Inversion for a successful projection certification. -/
+/-- Inversion for a successful projection certification.
+
+Task #161 de-gating item B1 (harvest site 18 / list entry P9): the
+clause's four sort legs — the two `infer`+`whnf`-to-a-sort runs and the
+two `Level.isEquiv` comparisons — are deleted, so the inversion now
+delivers exactly the two `inferTypeCore` runs the clause still makes.
+Conjunct 5 of the old statement (the subject's own run) is the only one
+`projStepP_of_claims` ever consumed; the field's run is kept because it
+is still performed (the ratified negative verdict of the harvest
+list). -/
 theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
-    {fieldLvl structLvl : Level} {nP : Nat}
-    (h : projCertP mode env fuel d e₂ i fieldLvl structLvl nP = .ok true) :
-    ∃ ta sta uT te ste wT,
-      inferTypeCore mode env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) = .ok ta ∧
-      inferTypeCore mode env fuel d ta = .ok sta ∧
-      whnf mode env fuel d sta = .ok (.sort uT) ∧
-      Level.isEquiv uT fieldLvl = some true ∧
-      inferTypeCore mode env fuel d e₂ = .ok te ∧
-      inferTypeCore mode env fuel d te = .ok ste ∧
-      whnf mode env fuel d ste = .ok (.sort wT) ∧
-      Level.isEquiv wT structLvl = some true := by
+    {nP : Nat}
+    (h : projCertP mode env fuel d e₂ i nP = .ok true) :
+    ∃ ta te,
+      inferTypeCore mode env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0))
+        = .ok ta ∧
+      inferTypeCore mode env fuel d e₂ = .ok te := by
   dsimp only [projCertP] at h
   simp only [projCert, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def] at h
-  cases hta : inferTypeCore mode env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) with
+  simp only [infer_def] at h
+  cases hta : inferTypeCore mode env fuel d
+      (e₂.getAppArgs.getD (nP + i) (.bvar 0)) with
   | error err => rw [hta] at h; exact nomatch h
   | ok ta =>
   rw [hta] at h
   dsimp only at h
-  cases hsta : inferTypeCore mode env fuel d ta with
-  | error err => rw [hsta] at h; exact nomatch h
-  | ok sta =>
-  rw [hsta] at h
-  dsimp only at h
-  cases hwta : whnf mode env fuel d sta with
-  | error err => rw [hwta] at h; exact nomatch h
-  | ok wta =>
-  rw [hwta] at h
-  match wta, h with
-  | .sort uT, h => ?_
-  | .bvar i2, h => exact nomatch h
-  | .fvar i2 n2 t2, h => exact nomatch h
-  | .const n2 us2, h => exact nomatch h
-  | .app f2 a2, h => exact nomatch h
-  | .lam n2 t2 b2 m2, h => exact nomatch h
-  | .forallE n2 t2 b2 m2, h => exact nomatch h
-  | .letE n2 t2 v2 b2, h => exact nomatch h
-  | .lit l2, h => exact nomatch h
-  | .proj s2 i2 e3, h => exact nomatch h
-  dsimp only at h
-  cases heq1 : Level.isEquiv uT fieldLvl with
-  | none => rw [heq1] at h; simp [liftFueled] at h
-  | some okT =>
-  rw [heq1] at h
-  try dsimp only [liftFueled] at h
-  try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
-  try dsimp only at h
   cases hte : inferTypeCore mode env fuel d e₂ with
   | error err => rw [hte] at h; exact nomatch h
   | ok te =>
-  rw [hte] at h
-  dsimp only at h
-  cases hste : inferTypeCore mode env fuel d te with
-  | error err => rw [hste] at h; exact nomatch h
-  | ok ste =>
-  rw [hste] at h
-  dsimp only at h
-  cases hwte : whnf mode env fuel d ste with
-  | error err => rw [hwte] at h; exact nomatch h
-  | ok wte =>
-  rw [hwte] at h
-  match wte, h with
-  | .sort wT, h => ?_
-  | .bvar i2, h => exact nomatch h
-  | .fvar i2 n2 t2, h => exact nomatch h
-  | .const n2 us2, h => exact nomatch h
-  | .app f2 a2, h => exact nomatch h
-  | .lam n2 t2 b2 m2, h => exact nomatch h
-  | .forallE n2 t2 b2 m2, h => exact nomatch h
-  | .letE n2 t2 v2 b2, h => exact nomatch h
-  | .lit l2, h => exact nomatch h
-  | .proj s2 i2 e3, h => exact nomatch h
-  dsimp only at h
-  cases heq2 : Level.isEquiv wT structLvl with
-  | none => rw [heq2] at h; simp [liftFueled] at h
-  | some okW =>
-  rw [heq2] at h
-  try dsimp only [liftFueled] at h
-  try simp only [pure, Except.pure, Except.ok.injEq] at h
-  obtain ⟨rfl, rfl⟩ : okT = true ∧ okW = true := by
-    have := h
-    cases okT <;> cases okW <;> simp_all
-  exact ⟨ta, sta, uT, te, ste, wT, rfl, hsta, hwta, heq1, rfl, hste, hwte, heq2⟩
+  exact ⟨ta, te, rfl, rfl⟩
 
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}

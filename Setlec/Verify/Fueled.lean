@@ -277,10 +277,9 @@ theorem etaCert_atF (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta) (b :
   unfold etaCert
   atF_tac
 
-theorem projCert_atF (d : Nat) (e₂ : Expr) (i : Nat)
-    (fieldLvl structLvl : Level) (nP : Nat) (F : Nat) :
-    (projCert (fueledFns mode env) env d e₂ i fieldLvl structLvl nP).val F =
-      projCert (pureFns mode env F) env d e₂ i fieldLvl structLvl nP := by
+theorem projCert_atF (d : Nat) (e₂ : Expr) (i : Nat) (nP : Nat) (F : Nat) :
+    (projCert (fueledFns mode env) env d e₂ i nP).val F =
+      projCert (pureFns mode env F) env d e₂ i nP := by
   unfold projCert
   atF_tac
 

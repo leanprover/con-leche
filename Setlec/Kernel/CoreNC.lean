@@ -524,15 +524,12 @@ def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           if entry.native ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then do
-            let mx ← substLevelTreeM entry.levelParams us
-              entry.structSort
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
             -- task #100 de-gating: ungated, as in `whnfCoreBodyI`
-            -- (`projCertI` stays — outside the task-#76 skip list)
-            let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
-            if ← projCertI r fe depth e' i fl
-                mx entry.numParams then
+            -- (`projCertI` stays — outside the task-#76 skip list;
+            -- task #161 item B1 shrank it to its two `infer` runs)
+            if ← projCertI r fe depth e' i entry.numParams then
               r.whnfCore depth arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')
