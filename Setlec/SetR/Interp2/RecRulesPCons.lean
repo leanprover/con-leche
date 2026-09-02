@@ -81,22 +81,30 @@ what lets the **basis** tier use this lemma at its `indInfo`/`ctorInfo`
 conses, where the kind premise is false (`Interp2/BasisConsP.lean`'s
 `rec_rules` row recorded that as a wall; it is not one).
 
-A recursor cons still establishes its *own* rules bespoke — that is the
-firing-law work, not a transport. -/
+A recursor cons with rules still establishes its *own* rules bespoke —
+that is the firing-law work, not a transport.  A recursor cons with
+**no** rules (`Empty.rec`) transports here unchanged, which is why the
+premise is `rules = []` rather than "not a recursor". -/
 theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hnotrec : ∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules)
+    (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
+      rules = [])
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) : RecRulesP m₂ φ := by
   intro n cv mI rP rules hf rl hmem hfire
-  -- the recursor is stored in the prefix
+  -- the recursor is stored in the prefix: either the cons is not a
+  -- recursor at all (the value kinds' `noConfusion`), or it is one
+  -- with no rules (a basis recursor whose block installs its ι
+  -- content elsewhere), and then `rl ∈ rules` is impossible
   have hnN : n ≠ c₀.name := by
     intro hh
     subst hh
-    exact hnotrec cv mI rP rules
+    have hrl := hnotrec cv mI rP rules
       (Option.some.inj ((Setlec.Env.find?_cons_self c₀ env).symm.trans hf))
+    rw [hrl] at hmem
+    exact nomatch hmem
   have hfE : env.find? n = some (.recInfo cv mI rP rules) := by
     rw [Setlec.Env.find?_cons, if_neg (fun hh => hnN hh.symm)] at hf
     exact hf

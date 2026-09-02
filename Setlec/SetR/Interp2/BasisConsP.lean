@@ -74,10 +74,48 @@ open Setlec.SetR (AVExpr EnvS)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName RecRule)
 
+
 universe w
 
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode} {env : Env}
+
+/-! ## The P basis leaves are pinned FOR FREE
+
+The obvious reading of the basis bill is that the P tier needs its own
+"basis constants are valued by their direct pins" field, mirroring
+`EnvS.basis_pinned`.  **It does not**, and the reason is one line of
+`AVExpr.erase`'s definition: the erasure is structural and maps
+`.const` to `.const` and *nothing else* to `.const`.  So
+`EnvS2Core.acval_erase` turns v1's equation `cval n ψ = .const c us`
+into the `AVExpr` equation `acval n ψ = .const c us` outright.
+
+Every downstream basis obligation reads the leaf through this — the
+type readings are `BConst.type2` towers over the *pinned* leaves, and
+`BasisOk.lean`'s `bval2_mem_*` memberships are stated at exactly those
+towers.  Recording it here because the missing bridge between the
+checker's pinned `ConstantInfo` blocks and the TT `BConst` alphabet is
+the basis tier's structural crux, and this is its P half. -/
+
+/-- **A stored reserved-basis constant's annotated leaf is its direct
+pin.**  From `EnvS.basis_pinned` and `acval_erase`, by injectivity of
+`erase` at a constant head. -/
+theorem acval_basis_pinned {m : EnvS2Core V env}
+    {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
+    (hres : Setlec.reservedBasisNames.contains n = true)
+    {c : Setlec.TT.BConst} {us : List Nat} {ψ : Name → Nat}
+    (hd : Setlec.TTVerify.pinnedDirectT n ψ
+      = some (VExpr.const c us)) :
+    m.acval n ψ = .const c us := by
+  have h1 := (m.base.basis_pinned n ci hf hres).2 _ ψ hd
+  have h2 := m.acval_erase n ψ
+  rw [h1] at h2
+  cases hh : m.acval n ψ with
+  | const c' us' =>
+    rw [hh] at h2
+    simp only [Setlec.SetR.AVExpr.erase, VExpr.const.injEq] at h2
+    rw [h2.1, h2.2]
+  | _ => rw [hh] at h2; exact nomatch h2
 
 /-- **Every pinned basis constant carries a reserved name, except the
 pair's two projections.**  So the side condition `capsOkP_cons_basis`
