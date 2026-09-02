@@ -1,6 +1,7 @@
 import Setlec.SetR.Interp2.EqTowerP
 import Setlec.SetR.Interp2.DivModP
 import Setlec.SetR.Interp2.NatEqsP
+import Setlec.SetR.Interp2.BasisTypeOk
 
 /-!
 # The basis cons, P tier: the seven rows discharged once (task #161, ENDGAME E)
@@ -48,6 +49,15 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode} {env : Env}
+
+/-- **`AnnotOkP` is `BitAgree`-invariant** — both halves are
+(`AVExpr.BitAgree.ok2`/`.validV`), so the P currency crosses the
+bridge between a `denoteP` reading and the `BConst.type2` tower it
+agrees with.  This is what makes a basis type reading's grading a
+*computation* rather than a re-derivation. -/
+theorem bitAgree_okP {e e' : AVExpr} (h : e.BitAgree e')
+    (ρ : Nat → V) : AnnotOkP V ρ e ↔ AnnotOkP V ρ e' :=
+  and_congr (h.ok2 V ρ) (h.validV V ρ)
 
 /-- **The P step at a basis cons.**  Seven of `declStepPM_of_cons`'s
 eleven premises are discharged here; what remains is the tower and its
