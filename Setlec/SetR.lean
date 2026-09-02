@@ -152,6 +152,8 @@ import Setlec.SetR.Interp2.IndFrameP
 import Setlec.SetR.Interp2.IndProjCapsP
 import Setlec.SetR.Interp2.IndProjEtaP
 import Setlec.SetR.Interp2.IndRunsP
+import Setlec.SetR.Interp2.IndSubstP
+import Setlec.SetR.Interp2.IndStageKitP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP
