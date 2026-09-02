@@ -11522,11 +11522,14 @@ validated-annotation (P) lane after batches 1-7 + the lead's seals.
 | `WhnfCoreProjReadsP` / `InferProjReadsP` (routed) | PROVED: `whnfCoreProjReadsP_of`, `inferProjReadsP_of` — **they were never install-tier obligations**; the projection table's contribution to *readability* is arithmetic (`projPinsP`, `projResidualP`) and the rest is the reads walk's own induction hypothesis |
 | `InferProjStep2C` / `InferProjStepP` (routed in BOTH lanes) | PROVED: `inferProjStepP_of_claims` — no `piResidualV` walk (`projResidualP` computes the residual at the pinned entry), and `mem_psigmaV2_app`'s triple IS `AnnotOk2_proj`'s existential |
 | `ProjStep2D` / `ProjStepP` (routed in BOTH lanes) | PROVED: `projStepP_of_claims` — the one expensive proj proof, and structurally so: `whnfCore`'s clause carries no type for the scrutinee, so `sfst_mk2`'s four typings are walked out of `projCert`'s own infer run (`psigmaMkSpineP`, `tele_of_inferSpineR`'s content at arity four) |
+| `IotaReadsP` (routed, iota tier) | PROVED: `iotaReadsP_of` — but *not* from the reads walk: the rescued major is not a subterm of the subject, so its arguments read because the clause's own `iotaCerts` run inferred them (`accepted_reads`).  The row is charged to a census entry that was already there |
+| `IotaStepR` / `IotaStepP` (routed in BOTH lanes) | PROVED: `iotaStepP_of` — the widest rule of the family, at one flagged premise.  The law's `rP ≤ mI` and carried `Ra` replace `EnvR.rec_params_le`/`rec_rhs_denotes`, so the row adds no environment field; `certs_telePA` needs none of the caps tier's un-instantiation apparatus; the rescues' gradings come free from the certificate that was going to run anyway |
 
 **Still routed in P, by discharge tier** (the literal tier is CLOSED —
 seal III; the caps tier is CLOSED — caps seal II; the proj/str install
-tier is CLOSED — the proj/str seal): **iota only**
-(`IotaStepP`, `IotaReadsP`), beside `accepted_reads`.
+tier is CLOSED — the proj/str seal; the iota tier is CLOSED but for
+one named premise — the iota seal): **`iota_pins` only**, beside
+`accepted_reads`.
 These are the P capstone's remaining bill — every one names semantic
 content the canonical lane also never built (it froze earlier, on the
 sort-stability family), so the table above is the design's measured
@@ -11890,6 +11893,12 @@ suite policy (annot fixtures at `--set-model`, full parity at
 UNDEMANDED so far — watch inside the semantic tiers.
 
 ### Resume-here
+
+(Superseded at the IOTA TIER seal, 2026-09-02 — see that seal's own
+resume-here: the semantic tiers are done, `SemTierInputsP` is
+`accepted_reads` + the named `iota_pins`, and what remains is the
+wall's one-conjunct repair, the three whole-kind install bundles,
+`accepted_reads`, and the final assembly.)
 
 Next action at this record (updated at the PROJ/STR TIER seal): the
 **IOTA tier** — statement freeze first (`RecRulesP` from `RecRuleLawV`
@@ -12598,6 +12607,8 @@ removal when the harvest runs; nothing is removed before the capstone.
 | the `.proj` inference clause's per-hit table scan + `piResidual` (`Kernel/Core.lean`, `inferTypeCore`'s `.proj` case) | `findProj?` on the whnf'd subject type's head, arity checks, then a `piResidual` walk down the entry's stored type | `projResidualP`: at a pinned entry with a two-parameter spine the residual is `A` or `B (pe.1)` — computed, not walked.  A pinned-name test plus a two-way branch replaces the walk | per `.proj` inference |
 | `strLitSupported`'s per-literal scan (`Verify/EnvGuards.lean:114`, every `String` literal read) | seven `find?`s plus seven stored-type shape checks, on **every** string literal the checker meets | `strLitFactsP` consumes the guard once per literal but only through `ConstTypeP` at the seven heads — and `ConstTypeP` is an `EnvS2PM` consequence, i.e. an environment-level invariant.  Once the P fold carries it, the per-literal guard can downgrade to a cached per-environment flag (the same shape as `natLitSupported`'s) | per string literal; hot on `String`-heavy streams |
 
+| the ι clause's `iotaCerts`, `recFireComparands` `defEqList` and `majorToCtor` sites | (three entries) | see the **iota tier seal**'s de-gating table, 2026-09-02 — the hottest certificate site in the checker is the per-fire telescope pair | per firing ι reduction |
+
 Entries accrete as tier work touches sites; the harvest begins the day
 the capstone seals.
 
@@ -12849,3 +12860,238 @@ stop-and-name standing; then the three whole-kind bundles
 `IndStepPB` ind tier incl. `caps_ok` + `RecRulesP` establishment +
 the Prop-motive minors), `accepted_reads`, and the final assembly
 into the unconditional `no_proof_of_Empty_P`.
+
+## Task #161 IOTA TIER seal: both rows are theorems, one wall named (2026-09-02)
+
+**The campaign's last semantic tier is complete but for a single
+flagged premise**, and the census hit its target within one entry:
+
+  `SemTierInputsP` = `accepted_reads` + `iota_pins`.
+
+### What landed, in dependency order
+
+1. **The frozen statements move** (`Annot/EnvS2P.lean`).
+   `RecRuleLawP`/`RecRulesP`/`TeleFitPA`/`IotaIndexPinP`/
+   `AVExpr.instRevChain` travelled verbatim from
+   `Interp2/IotaLawP.lean` (deleted, with its umbrella import) into
+   `Annot/EnvS2P.lean` beside `TeleFitP`/`EtaLawP`/`CapsOkP` — the
+   caps precedent, forced by the same import direction: the `EnvS2PM`
+   field must mention them.  Only the explicit `{V : Type w}
+   [SetTheory V]` binders changed, as `projSpines2`/`etaFabArgs2`'s
+   did.
+2. **The kit** (`Step2/IotaKitP.lean`): `denoteP_openRev_base`,
+   `denoteP_openRev`, `teleFitPA_residual`, `certs_telePA`,
+   `annotOkP_mkAppN_of_fitA`.
+3. **The η certificate's content, factored** (`Step2/CapsRowsP.lean`):
+   `structEtaCertWithP_step` — `structEtaIrrelP_of_claims`'s body at
+   the certificate's own shape, v1's `structEtaCertWith_stepR`
+   factoring for v1's reason (the major rescue holds a certificate
+   stated at the `tmaj` it already computed).  No statement moved.
+4. **The rescues** (`Step2/MajorP.lean`): `denoteP_litToCtorIfNat`,
+   `frame_litToCtorIfNatP`, `litMajorToCtorP_stepP`, `MajorStepP`,
+   `majorToCtorP_stepP`.
+5. **The rows** (`Step2/IotaRowsP.lean`): `iotaCertsP_infers`,
+   `frame_majorChainP`, `recRhsP_depth`, `denoteP_const_arity`,
+   `piResidual_frameP`, `constTypeP_pkg`, the `getD`/`take`/`drop`
+   kit at `AVExpr`, `IotaNestedPinP` (the wall), `iotaReadsP_of`,
+   `iotaStepP_of`.
+6. **The field and its preservation**: `EnvS2PM.rec_rules`,
+   `recRulesP_cons_fresh` + `constsBound_openRev`
+   (`Interp2/RecRulesPCons.lean`), the `declStepPM_of_cons`
+   obligation, the four harvests.
+7. **The census**: `TiersP`/`CapstoneP` as below.
+
+### FINDING 1 — `certs_telePA` is SHORTER than its value-fit sibling
+
+The consumer-validation pass chose substitution-peeling for
+`TeleFitPA` to keep the residual syntactically aligned with the
+certificate's `defEqList` comparands.  The dividend is larger than the
+freeze predicted: the fit peels `B.inst a` exactly where `iotaCerts`
+peels `body.instantiate1 arg`, so the two walks step in lockstep and
+the caps tier's whole un-instantiation apparatus — `teleFitP_of_inst`,
+`teleFitP_of_inst0`, the `PiChainP` guard and its supply from
+`stripPis` — has **no counterpart here**.  `teleFitPA_residual` is
+three lines per clause for the same reason.  The residual also hoists
+out of the `∀ ρ` (it is an `AVExpr` fixed by the walk, not a `V` fixed
+by the valuation), which is what lets the consumer feed one `restC` to
+both the fit and `IotaIndexPinP`.
+
+### FINDING 2 — the grading tax refunds itself at the rescues
+
+`ProofIrrelPQ` and `structEtaCertWithP_step` both demand `AnnotOkP` of
+the fabricated spine, which v1 never had to produce.  But
+`InferClaims2P` *produces* a subject's grading from its reading, so
+`certs_telePA` was strengthened to return the gradings of every
+argument it certifies — and each fabrication's own `iotaCerts` run is
+a certificate of exactly its arguments.  One `certs_telePA` call plus
+`annotOkP_mkAppN_of_fitA` therefore grades all three rescues uniformly
+(`majorToCtorP_stepP`'s `hfab`), and the caps tier's per-field
+`hokProj` apparatus has no counterpart here: the projection spines are
+graded because the certificate inferred them, not because their
+telescopes were re-walked.
+
+### FINDING 3 — `IotaReadsP`'s supplier is `accepted_reads`
+
+The freeze's recipe for the reads row (the law's carried `Ra`
+depth-shifted, plus `denoteP_mkAppN` over the argument spine) is right
+about the right-hand side and about `e.getAppArgs.take rP`, and wrong
+about the reduct's other half, `major.getAppArgs.drop cnP`.  `major`
+is not a subterm of the subject: in the rescued branches it is
+fabricated out of `whnf (infer major₁)`, and reading *that* needs
+`InferReadsP`, whose `LeafReadsP` premise — batch 8's repair, because
+`inferBody`'s `.fvar` clause returns the leaf's stored annotation and
+`denoteP` never looks at it — is exactly what `IotaReadsP` cannot
+carry, its consumer `whnfCoreReads_app` having no `CtxOkP`.
+
+**No statement was touched.**  The row is provable from a census entry
+already present and staying: the reduct's major-side arguments are
+each certified by the clause's own `iotaCerts` run, hence *inferred*,
+and `accepted_reads` says whatever inference accepts, reads
+(`iotaCertsP_infers` extracts the runs).  Recorded because it is the
+second time a P row's routing was decided by the leaf-annotation gap,
+and because it fixes which census entry the row is charged to.
+
+### FINDING 4 — the preservation crossing is FORWARD, and the freeze's
+justification for a backward one would not have held
+
+The freeze expected `RecRuleLawP`'s reading premises (`TVa`, `TVja`,
+the `.nested` clause's `vpa`) to move *backward* across a value-kind
+cons through the equality-form `denoteP_cons_fresh`, licensed by the
+`noConfusion` pair supplying `LitGuardsAgree`.  Neither is needed, and
+the licence is not available: the literal tier's seal I established
+that `LitGuardsAgree` is **refutable** at a value-kind cons (a `def`
+named `String.ofList` completes string support and flips the `str`
+half — the very reason `LitStabilityP` was deleted); the `noConfusion`
+pair frees the `nat` half only.
+
+What removes the need is that those readings sit in *premise*
+position, so their transfer is contravariant.  `TVa`/`TVja` are
+produced at the prefix from `EnvS2PM.constTypeP`, moved **forward**
+(`denoteP_cons_fresh_mono`) and identified by determinism — the idiom
+`declStepPM_of_cons` already uses three times; and proving the prefix
+form of the `.nested` clause *consumes* the extension form, so a
+prefix pin reading is moved forward and fed to the hypothesis in hand.
+`recRulesP_cons_fresh` therefore runs on `denoteP_cons_fresh_mono`
+alone and carries no literal-tier premise, matching what the literal
+tier's seal established for the harvests.
+
+### THE NAMED WALL — the `.nested` pin comparand has no grading source
+
+`DefEqClaims2P` demands `AnnotOkP` of **both** comparands where
+`DefEqClaimsR` demands nothing, and in this lane a term's grading
+comes from exactly one place: `InferClaims2P` produces it from a
+successful `inferTypeCore` run.  Every comparand the ι clause compares
+is inferred — the constructor's arguments by the constructor
+telescope's certificate, the subject's by the recursor's — **except**
+the `.nested` fire branch's right-hand comparands, which are
+`pins.map (fun p => instSpine (args.take rP) (rP-1) (p@us))`: stored
+rule data that the clause only ever `defeq`s.  Nothing infers them, so
+nothing grades them.
+
+The gap is an **asymmetry inside the frozen law**.  `RecRuleLawP`
+carries `∀ ρ, AnnotOkP V ρ Ra` for the rule's right-hand side — the
+same species of fact, for the same reason — and carries nothing for
+the pins, although its own `.nested` premise is precisely what forces
+the consumer to grade them.  The fact is true (the recursor install
+validates the pins through the front door, `checkAnnotList` — task
+#105's nested-aux certificates), it is simply not carried.
+
+Per the standing discipline the statement was **not edited**.  The row
+is landed with the gap flagged as one explicit premise,
+`IotaNestedPinP` (`Step2/IotaRowsP.lean`), so the wall is one
+hypothesis wide and visible in the census.  Two repairs are open to
+the lane lead, both one conjunct:
+
+* carry it in `RecRuleLawP` beside `Ra`'s grading — needs, in
+  addition, an `instRevChain` closure from `AnnotOkP_liftN` +
+  `AnnotOkP_inst0`; note the naive induction does **not** go through
+  at a ρ-local argument list (`instRevChain` consumes the outermost
+  argument first, so the induction hypothesis is applied to a
+  non-ρ-uniform body), which is why the flag is stated at the
+  *substituted* comparand instead;
+* or make it an `EnvS2PM` field routed to `IndStepPB`, where the pins
+  are checked — the `eq_lawP`/`caps_ok` precedent.
+
+Nothing in the row touches the Prop-motive-minors conjecture: the
+squash regime never appears in `iotaStepP_of`, which consumes the law
+as a black box.  That conjecture remains entirely `IndStepPB`'s.
+
+### Census delta
+
+`SemTierInputsP` loses `iota_reads` and `iota` and gains `iota_pins`
+(the wall): the bill is `accepted_reads` + `iota_pins`.
+`TierInputsAtP` loses `iota` and gains `rec_rules` (an `EnvS2PM`
+consequence) and `iota_pins`; `checkSoundAtP` wires
+`iotaStepP_of` itself.  `ReadsInputsP` is unchanged in shape but its
+`iota` field is now supplied by `TierInputsAtP.ofEnvS2PM` from
+`accepted_reads`, which is why that assembly takes the totality leaf
+directly.  `EnvS2PM` gains `rec_rules`; the four-bundle count
+(`SemTierInputsP`, `AxiomStepPB`, `BasisStepPB`, `IndStepPB`) is
+unchanged, and `IndStepPB`'s bill now includes `rec_rules`'
+establishment beside `caps_ok`'s.
+
+### The measurement
+
+The iota tier is the fourth data point for the frontier table's
+thesis, and the first where the P lane's savings come from a
+*statement* decision rather than from the currency: substitution-
+peeling deletes the caps tier's un-instantiation apparatus outright
+(finding 1), and the grading tax the caps tier paid per field is paid
+here once, by the certificate that was going to run anyway (finding
+2).  What the tier pays for is exactly one fact the frozen law forgot
+to carry.
+
+### De-gating candidates (enumeration entries)
+
+| site | runtime computation | licensing P fact | saving class |
+|---|---|---|---|
+| `iotaCerts`' two per-fire telescope runs (`Kernel/Core.lean:1412` and the recursor-side call) | a full `infer`+`defeq` pass per argument of the recursor's spine *and* of the constructor's, on every firing ι reduction | `RecRulesP`'s two `TeleFitPA` premises: what the runs establish is precisely the fit the law asks for, and `certs_telePA` shows the fit is their *only* content the semantics reads.  A law carrying the fits (or an install-time fit record) would license dropping the per-fire runs, keeping the arity checks | per firing ι reduction, scales with recursor arity + constructor arity — the hottest certificate site in the checker |
+| `recFireComparands`' per-fire `defEqList` (`Kernel/Core.lean`, both fire branches) | one `isDefEqCore` per constructor parameter, per firing ι reduction | `RecRuleLawP`'s `.plain`/`.nested` premises are exactly these comparisons.  At `.plain` the licensing fact is the rule's own install-time check that the parameters are the recursor's; at `.nested` it is the pin equation — but see the wall: the pins' *grading* is not carried, so this entry cannot be harvested before the repair | per firing ι reduction, scales with `ctorParams` |
+| `majorToCtor`'s rescue attempts (`Kernel/Core.lean:1073+`) | on every stuck major: one `infer`, one `whnf`, then a K/η/unit fabrication with its own `iotaCerts` telescope and a proof-irrelevance or η certificate | NOT a candidate as a block — `MajorStepP` consumes every one of the runs (`ProofIrrelPQ` and `structEtaCertWithP_step` are stated *at* them).  The gradings, however, come from the `iotaCerts` run alone (finding 2), so the *separate* `to_cnstr_when_K` type check (`hitfab`/`hdefab`) is inspected by nothing in the P proof: one infer + one defeq per K rescue are candidates for deletion | per stuck-major K rescue |
+
+### Battery at seal
+
+`lake build` warning-free (399 jobs); `lake test`; harness with
+`SETLEC_INDUCTIVE_MODELS`: arena tutorial 90/92,
+e2e 72/72, annot 13/13, split driver 11/11, mode flags 9/9, no-model
+sweep 138 arena + 72 e2e + 13 annot with the 3 recorded divergences.
+Zero sorries.  Axioms exactly `[propext, Classical.choice, Quot.sound]`
+on `denoteP_openRev`, `denoteP_openRev_base`, `teleFitPA_residual`,
+`certs_telePA`, `annotOkP_mkAppN_of_fitA`, `structEtaCertWithP_step`,
+`structEtaIrrelP_of_claims`, `denoteP_litToCtorIfNat`,
+`litMajorToCtorP_stepP`, `majorToCtorP_stepP`, `iotaCertsP_infers`,
+`recRhsP_depth`, `iotaReadsP_of`, `iotaStepP_of`,
+`recRulesP_cons_fresh`, `checkSoundAtP`, `TierInputsAtP.ofSem`,
+`harvestDefnP` and `no_proof_of_Empty_P_of` (`constsBound_openRev`
+uses the subset `[propext, Quot.sound]`).
+
+### Files
+
+New: `Step2/IotaKitP.lean`, `Step2/MajorP.lean`,
+`Step2/IotaRowsP.lean`, `Interp2/RecRulesPCons.lean`.
+Deleted: `Interp2/IotaLawP.lean` (contents moved to
+`Annot/EnvS2P.lean`).
+Extended: `Annot/EnvS2P.lean` (the statements + the field),
+`Step2/CapsRowsP.lean` (the factoring), `Interp2/InstallP.lean` (the
+obligation), `Interp2/HarvestP.lean` (four wirings).
+Shrunk: `Step2/TiersP.lean`, `Interp2/CapstoneP.lean` (the census).
+
+Convergent duplicates found and **reused, not duplicated**:
+`recFireComparands_fst_nil`, `defEqListP_get` and `defEqListP_length`
+from `Bridge/Iota.lean` — all three currency-free (about the kernel
+functions alone), so `Step2/IotaRowsP.lean` imports the v1 bridge
+rather than restating them, as `FoldP`/`NatEqsP` already import
+`Bridge/Sound` and `Bridge/Decl`.
+
+### Resume-here (supersedes the succession record's)
+
+The `SemTierInputsP` census is `accepted_reads` + `iota_pins`, and
+`iota_pins` is a lane-lead decision, not a batch's.  What remains:
+
+1. **the wall's repair** (one conjunct, two shapes, above);
+2. **the three whole-kind install bundles** — `AxiomStepPB` (pin
+   tier), `BasisStepPB` (basis tier incl. `eq_lawP`), `IndStepPB`
+   (ind tier incl. `caps_ok` **and now `rec_rules`**, plus the
+   Prop-motive minors, still expected to be new mathematics);
+3. **`accepted_reads`**;
+4. the final assembly into the unconditional `no_proof_of_Empty_P`.
