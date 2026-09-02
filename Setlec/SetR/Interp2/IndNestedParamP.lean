@@ -440,12 +440,13 @@ theorem nestedParamSupplyP {m : EnvS2Core V env} {F : Nat}
     {TVjP : AVExpr}
     (hTVjP : denoteP m.acval env φ (rP + cnF) ctyP = some TVjP)
     (hokTVjP : ∀ σ : Nat → V, AnnotOkP V σ TVjP)
+    -- the public frame's pin spine, named (the bottom keeps it atomic;
+    -- see `indBottomNestedP`'s note on term size)
+    {psP : List Expr}
+    (hpsPdef : psP = pins.map (Expr.instSpine (fvsP.take rP) (rP - 1)))
     {cdomsP : List Expr} {crestP : Expr}
-    (hcinstP : Expr.instPisAt
-      (pins.map (Expr.instSpine (fvsP.take rP) (rP - 1))) ctyP
-      = some (cdomsP, crestP))
-    (hTyped : TypedListOk μ F env (rP + cnF)
-      (pins.map (Expr.instSpine (fvsP.take rP) (rP - 1))) cdomsP)
+    (hcinstP : Expr.instPisAt psP ctyP = some (cdomsP, crestP))
+    (hTyped : TypedListOk μ F env (rP + cnF) psP cdomsP)
     -- the statement-frame run, whose parameter spine is the renamed pins
     {sp : List Expr} (hsplen : sp.length = cnP + cnF)
     (hspPar : ∀ q, q < cnP → sp[q]?
@@ -470,6 +471,7 @@ theorem nestedParamSupplyP {m : EnvS2Core V env} {F : Nat}
         ∀ dw, denoteP m.acval env φ (rP + cnF)
             (cdoms.getD q default) = some dw →
           interp2 V ρ' w ∈ˢ interp2 V ρ' dw := by
+  subst hpsPdef
   have hΓPlen : ΓP.length = rP := htowerP.length
   have hspgetD : ∀ q, q < cnP → sp.getD q default
       = Expr.instSpine (fvs.take rP) (rP - 1)
