@@ -18566,3 +18566,290 @@ billed: `IndBottomProjS` + the recursor rows (`eqRecLawP` Prop-motive
 case, stop-and-name standing), `ProjInstallS`/`DeclIndS`/`SwapS`,
 `indStepPB_of`, `hind` off `FoldP`, THE ASSEMBLY at the frozen
 letter.  Census: `hμ` + `IndStepPB`, never conditional.
+
+## Task #161 IND TIER, part 8: the nested bottom closes, and the
+tier's first COST wall (2026-09-02)
+
+Briefed with the nested bottom (`IndBottomNestedS`'s transpose, 785
+S-lines — the largest single step of the measured bill) **together
+with** its owed `.nested` parameter stage, written alongside its
+consumer per the part-7 ledger.  **Both close.**  Nothing conditional
+was landed, zero sorries, axioms exactly the standard three.
+
+### Per-commit table
+
+| commit | what landed |
+| --- | --- |
+| `743c1674` | **the `.nested` parameter stage** — `typedListOk_getD`, `nestedPinFireP`, `nestedParamSupplyP` (`Interp2/IndNestedParamP.lean`, new); `pinCrossP` generalized to an arbitrary padded fired spine (`Interp2/IndOpenRevP.lean`, kit repair) |
+| `bbc0189a` | **the nested bottom** — `indBottomNestedP` (`Interp2/IndBottomNestedP.lean`, new, 1361 lines); `annotOpenersP` (`Interp2/IndOpenerGradeP.lean`, new) |
+
+### THE HEADLINES, in order of what they save the successor
+
+* **THE NESTED BOTTOM CLOSES.**  785 S-lines → 1361 P-lines, the same
+  stage composition as the plain bottom at the **pin** parameter
+  spine, with v1's own deltas (no `cnP ≤ rP`; the constructor walks at
+  the level-instantiated renamed type; the major pinned only up to
+  `ErasedEq`; the parameter positions from `nestedParamSupplyP`).
+  Bill item 3 is done and item 4's two smaller pieces are what remain
+  before the recursor group's fold;
+
+* **the P tier's own delta is WHERE THE PINS' READINGS COME FROM, and
+  it is the part-4 lesson paying out a fourth time.**  v1 reads them
+  off `IotaThmNR`'s `TypedListW` — a derivation pack, which carries
+  denotations.  The P tier's row is the *recorded run*
+  (`TypedListOk`), and **a run carries neither reading nor grading**.
+  The readings therefore come from the only other place the checked
+  statement mentions the pins — its own **major argument**, which
+  `IotaThmNR` pins to the pin application up to `ErasedEq`:
+
+  ```
+     hvl0  (the statement's lhs reads)
+       ⇒ denoteP_mkAppN_inv        the lhs spine's readings
+       ⇒ getLastD ↦ index mI       the major's reading
+       ⇒ denoteP_erasedEq hmaj     … is the pin application's reading
+       ⇒ denoteP_mkAppN_inv        the PIN SPINE's readings
+       ⇒ denoteP_openRev/_base     each pin's canonical `openRev` form
+       ⇒ pinCrossP                 the crossing datum `RecRuleLawP`
+                                    quantifies its parameter premise over
+  ```
+
+  Nothing is routed and no premise is owed.  **Whenever a v1 stage
+  reads a datum off a walk, ask what the P tier's run does *not*
+  carry, and find the statement's own reading of the same object;**
+
+* **THE TIER'S FIRST COST WALL, and it is `omega`.**  Written inline
+  the way the plain bottom is written, the nested bottom **does not
+  elaborate at all**: 35 GB of elaborator memory and no completion at
+  25.6M heartbeats.  The mathematics is not the problem.  `omega`
+  case-**splits** on every `List.take`/`List.drop`/`List.append`/
+  `List.replicate` length atom in scope (each becomes a `min` or a
+  `Nat.sub`), so its cost is **exponential in how many such atoms the
+  local context carries**.  The nested spines put about four more of
+  them there than the plain bottom's do, and the tail's `omega` calls
+  go 0.2s → 1s → 5s → 50s, with memory to match.  Two fixes, both
+  applied and both reusable:
+
+  1. **name the big syntactic objects once** — `psP`, `psR`, `ctyL`
+     introduced as opaque locals with defining equations
+     (`obtain ⟨x, hx⟩ : ∃ y, y = … := ⟨_, rfl⟩`), which keeps every
+     downstream type the plain bottom's size and removes their inner
+     `take`/`map` from the length atoms;
+  2. **extract the block with the most arithmetic side conditions** —
+     `annotOpenersP` (`reductP`'s `hokApp`), whose context is then
+     exactly its premise set.  Inline it costs > 500 s and does not
+     finish; as a stage lemma it costs **1.7 s**.
+
+  Result: 83 s, warning-free.  **The measured-bill arithmetic in the
+  part-7 seal should be read with this in mind: at this tier a
+  transposition's cost is set by its context's arithmetic atoms, not
+  by its line count.**  The remaining bottoms and folds carry more
+  spines, not fewer;
+
+* **`nestedParamSupplyP` is `plainParamSupplyP`'s mirror with the
+  ladder replaced, and the replacement is the one place in the ind
+  tier where `InferClaims2P` does the work `DefEqClaims2P` does
+  everywhere else.**  The `.nested` fire's parameter positions are the
+  stored pins, which no `DefEqListOk` row compares; `IotaThmNR`'s
+  `TypedListOk` row types them, and its conversion runs
+  `TypedListOk.getD` → `InferReadsP` (the inferred type reads) →
+  `InferClaims2P` (the pin is graded and inhabits its inferred type) →
+  `defEqAtP_of_run` (that type reads to the run's domain).  The ladder
+  stays a strong induction for `paramGradeFireP`'s reason — the
+  *b-side* grading is `instPisAt_domsP_graded`, which walks the
+  constructor tower past every earlier position — but the membership
+  at `q` now comes from the inference claim rather than from the
+  frame's own `Sat2` slot;
+
+* **the context swap and the renaming bridge are the plain supply's,
+  unchanged**: the pins mention only the *public* frame's openers,
+  whose annotations are the recursor tower's domains, so the ladder
+  runs at `Δb = Δa.take cnF ++ ΓP` and the consumer transports into it
+  on `prefixGradeFireP`'s equalities.  What the nested wrapper adds is
+  that the renaming bridge now carries the **subjects** too (the
+  statement frame's pins are the public frame's, renamed), which
+  `RenEqT.denoteP` does with nothing to prove;
+
+* **`pinCrossP` needed a kit generalization, and `nestedChainP` had
+  already anticipated it.**  Part 7 stated the bridge at the
+  producer's fired spine (`zs` of length `rP`, padded to the frame's
+  width).  The bottom fires it at the *full* spine (`xs.take rP ++
+  ys.drop cnP`, length `rP + cnF`, no padding).  `nestedChainP` was
+  already generic in exactly that way; only `pinCrossP`'s own
+  statement had baked the producer's instance in.  Now generic in
+  `vals`/`n` with `vals.take rP = zs`; the one call site
+  (`nestedPinGradeP`) passes `n := rP`.  **Strictly more general, no
+  proof changed.**
+
+### The bill, item by item
+
+1. **`indBottomNestedP` — DONE** (`bbc0189a`), with
+2. **its `.nested` parameter stage — DONE** (`743c1674`).
+3. `indBottomProjP` — not started (`Install/IndBottomProjS.lean`, 484
+   S-lines, the cheapest of the three bottoms: no walks, no P-frame,
+   no ladders).
+4. `IndRecsS`/`IotaRuleS` (the recursor group's fold and the per-rule
+   dispatch), the recursor group's `RecRuleLawP` rows with the
+   `eqRecLawP` Prop-motive case (stop-and-name standing) — not
+   started.
+5. `ProjInstallS`, `DeclIndS`, `SwapS` — not started.
+6. `indStepPB_of`, `hind` off `FoldP`, THE ASSEMBLY — not reached.
+   Census unchanged: `hμ` + `IndStepPB`.
+
+### Reuse: what already existed and was not rebuilt
+
+Every part 4–7 stage, spent unchanged: `zipperP`, `fireP`, `reductP`,
+`pointP`, `annotPFrameEqP`, `annotMemP`, `annotTransportP`,
+`prefixGradeFireP`, `fieldGradeFireP`, `zipFieldTermEqP`,
+`sidesMemP`, `eqFormerKeyP`, `annotOkP_tower_body_sat`,
+`teleFitPA_to_chain`, `hokA_padded`, `ctxOkP_of_openers`,
+`defEqAtP_of_run`, `instPisAt_domsP_graded`, `instPisAt_denoteP_defined`,
+`instPisAt_renEq`, `RenEqT.denoteP`, `denoteP_renameConsts`,
+`denoteP_erasedEq`, `denoteP_openRev`/`_base`, `nestedChainP`,
+`padHitP`, `DenoteSpineP.of_getD`, `denoteSpineP_getElem?'`,
+`instSpine_WScoped`/`_closed`, `fvarLeaves_instSpine`,
+`instPisAt_WScoped`/`_bounded`/`_leaves`,
+`Expr.instSeq_renameConsts`, `Expr.instSeq_erasedEq_args`,
+`instPisAt_residual_arity_const`, `stripPis_denotePTele`,
+`Expr.stripPis_instantiateLevelParams_isSome`/`_eq`,
+`inferTypeCore_WScoped`/`_fvarLeaves`/`_looseBVars`.  **Nothing in
+`Setlec/Kernel/*`, `Main.lean`, `Verify/`, `Setlec/SetR/Install/` or
+any frozen statement file was touched.**
+
+### IND TIER part 8 battery (verbatim, at `bbc0189a`)
+
+`lake build` **457 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to parts 1–7's, and for the same reason: the batch's diff
+touches no `Setlec/Kernel/*` file.  Zero sorries.
+
+Axiom audit, verbatim:
+
+```
+'Setlec.SetR.Interp2.no_proof_of_Empty_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.checkDecls_sound_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indBottomNestedP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.nestedParamSupplyP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.nestedPinFireP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.typedListOk_getD' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.annotOpenersP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.pinCrossP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.nestedPinGradeP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indBottomPlainP' depends on axioms: [propext, Classical.choice, Quot.sound]
+```
+
+New files: `Setlec/SetR/Interp2/IndNestedParamP.lean`,
+`Interp2/IndOpenerGradeP.lean`, `Interp2/IndBottomNestedP.lean`.
+Edited: `Setlec/SetR.lean` (three imports),
+`Interp2/IndOpenRevP.lean` (the `pinCrossP` generalization),
+`Interp2/IndPinGradeP.lean` (its one call site), `DESIGN.md`.  No
+frozen statement moved; no file was deleted.
+
+### Walls: none
+
+Every row the bottom needed was present.  The two candidates that
+looked like walls at the planning stage were not:
+
+* the pins' readings — supplied by the statement's own major (see the
+  headline above), not owed by a widening;
+* the pins' gradings — supplied by `IotaThmNR`'s `TypedListOk` row,
+  which the second widening recorded for exactly this purpose ("the P
+  tier's grading supply for the instantiated pins", `SetR/Decl.lean`).
+
+### Carried traps, plus this batch's three
+
+Unchanged: grading descends TOP-DOWN along the satisfying environment;
+trap G (absorb lift-then-instantiate before unfolding `cons`);
+`denoteP_lift` takes `WScoped`; `instPisAt_domsP_graded`'s membership
+premise is bounded by the index; `CtxOkP`'s per-leaf obligation is a
+semantic equation; the renaming bridge is free at equal opener
+indices; **a run carries neither reading nor grading**; the
+determinism trick for contravariant readings; `.prf` is not a padding
+element; `chainP V σ (opener spine) ≠ σ`; `Option.getD` after
+`rw [List.getD, h]` needs an explicit `rfl` (paid twice again this
+batch); a stage written before its first consumer carries over-general
+premises.
+
+New:
+
+1. **`omega`'s cost is exponential in the number of `take`/`drop`/
+   `append`/`replicate` length atoms in the local context.**  This is
+   the tier's first *cost* wall and it is invisible in the
+   mathematics.  Symptom: elaboration that grows from seconds to
+   minutes as the proof gets longer, then eats tens of gigabytes.
+   Diagnosis: `set_option profiler true` + `profiler.threshold`, then
+   bisect with truncated copies (`prefix + sorry`) — the profiler's
+   own output has no positions, so the bisection is what localizes.
+   Fixes: name big list objects as opaque locals; extract
+   arithmetic-heavy blocks into stage lemmas.
+2. **`obtain rfl : a = b` may eliminate EITHER side.**  It eliminated
+   the *later* variable here, so the text after it must be written in
+   the surviving name — a one-line failure that costs a full rebuild
+   to find in a 1400-line proof.
+3. **When bisecting elaboration cost, a truncated proof's inner
+   tactics are also profiled.**  Two of this batch's measurements were
+   read wrong that way before the probe was made explicit (a trivial
+   `have hprobe : rP ≤ rP + cnF := by omega` appended after the cut).
+
+### Inventory for `indBottomProjP` (measured at this seal, unstarted)
+
+The projection bottom is the cheapest of the three *at v1* (484
+S-lines, no walks, no P-frame, no ladders — its zipper is syntactic
+and its reduct is a β-contraction), but it is the first bottom whose
+kit is NOT already at P.  What it calls, and what exists:
+
+| v1 lemma | at P? |
+| --- | --- |
+| `openPisAtFvars_denoteTele`, `stripPis_denoteTele` | yes (`…denotePTele`) |
+| `teleFitV_to_chain`, `sat_of_tower`, `teleFitV_of_tower` | yes (`teleFitPA_to_chain`, `sat2_of_tower`, `teleFitPA_of_tower`) |
+| `lamTowerStepS`, `fireS`, `sidesMemS`, `pointS` | yes (`lamTowerStepP`, `fireP`, `sidesMemP`, `pointP`) |
+| `instPisAt_fvar_residual_arity`, `instPisAt_isSome_of_stripPis` | yes (Expr-level, nothing to transpose) |
+| `denote_erasedEq` | yes (`denoteP_erasedEq`) |
+| **`stripLams_denoteTele`** | **NO** |
+| **`towerCtxEq` / `towerCtxEqD`** | **NO** (v1 currency, `Verify/Denote/IndFrame.lean`) |
+| **`projBodyValue` / `projRhsValue`** | **NO** (same file, same reason) |
+| **`PiTele.det`** | **NO** (`PiTeleP.det` does not exist) |
+
+So the batch is five kit transpositions plus the bottom.  Two further
+notes the planner should carry:
+
+* the projection statement records **no walks**, so `pointP`'s
+  `hspMem` cannot come from a ladder.  It must come from the
+  *syntactic* identification the projection install checks
+  (`hdomsSC`: the statement's telescope domains ARE the constructor's,
+  renamed) — i.e. from `Γs = Γj` plus the constructor fit `hfitC`,
+  crossed to the run's domains by `instPisAt_denoteP_cross` (which
+  exists).  That is the projection bottom's one piece of genuinely new
+  P-tier reasoning;
+* apply part 8's cost lesson from the start: the block with the
+  arithmetic side conditions belongs in a stage lemma, not inline.
+
+### Resume-here: the bill after part 8
+
+0. Review + merge per protocol.  The one item needing a look is the
+   `pinCrossP` generalization (strictly stronger; no proof changed)
+   and the `annotOpenersP` extraction (new stage; the plain bottom
+   still has its own inline copy — folding it onto the stage is a
+   free follow-up, deliberately not taken here to leave part 7's
+   landed proof untouched).
+1. **`indBottomProjP`** (bill item 3's remainder) — the cheapest
+   bottom, 484 S-lines, no walks and no P-frame.
+2. `IotaRuleS`/`IndRecsS` (item 4) — the per-rule dispatch and the
+   recursor group's fold, where the three bottoms meet and where the
+   `eqRecLawP` Prop-motive case lands (stop-and-name standing).
+3. `ProjInstallS` (item 5), `DeclIndS`/`SwapS` (item 6), `hind` off
+   `FoldP` (item 7), THE ASSEMBLY (item 8).
+
+**Budget note for the planner**: apply the cost lesson before
+estimating.  Every remaining file carries more spines than the plain
+bottom, so plan the extraction of arithmetic-heavy blocks *as part of*
+the transposition rather than after it.
