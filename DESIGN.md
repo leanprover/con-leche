@@ -21345,3 +21345,43 @@ P-tier build (the finalized frontier table is the receipts).  Round
 F stays on the performance roadmap (official also pays proofIrrel
 re-inference — optimization, not de-gating).  The re-bucketed table
 and A+B+C's numbers report together.
+
+## Task #161 HARVEST SCOPE REFINED (2026-09-02; user-binding,
+supersedes the two-way correction): THREE-WAY bucketing + THE REAL
+ROUND D = VERIFIED INFER_ONLY
+
+**The bucketing is three-way**: (1) FRONT-DOOR official-full-
+equivalent (the app rule at declaration checking — out of scope);
+(2) INTERNAL INFERENCE DURING REDUCTION/DEFEQ where the official
+kernel runs inferOnly-style (skipping domain comparisons) and setlec
+runs FULL infer — THIS IS THE CERTIFICATION TAX, the #124/#141
+family (14–16× on heavy workloads), concentrated at
+reduction-adjacent sites (proofIrrel's 4-infer route at 79.6% of
+defeq steps, iota-cert telescope inference per firing, eta's
+function-type inference); (3) pure certificate machinery (~2%
+annotate family).  Bucket boundaries verified against the official/
+lean4lean sources — the inferOnly=true internal call sites QUOTED.
+Bucket-2 per-site attribution (both cores) is the P1 worker's main
+deliverable (re-dispatched).
+
+**THE REAL ROUND D — VERIFIED INFER_ONLY** (assessment dispatched,
+agent/degating-d2): does the P tier license internal
+inferOnly-style inference?  The ground truth changed since #124's
+closure (rendered under the collapsed model): the campaign IS the
+machine-checked validity-preservation proof through every run — the
+invariant official assumes informally and Lean's theory cannot
+state (SR fails).  Assessment: (a) internal call sites + what each
+full infer's result is used for; (b) per-site: existing P fact
+(AnnotOkP preservation / validated pw / ConstTypeP / the claims'
+conclusions) or the new invariant needed; (c) HONEST CAVEAT
+FIRST-CLASS — the sealed claims are about the full-inference
+checker; re-proof shapes estimated (#147-style mode-indexed knot /
+second claims family / per-site surgical swaps with simulation);
+(d) old refutations probed FIRST (#138's parked DeqC, #124's
+closure — name the countermodels, check against interp2; a
+refutation the new model dissolves is the strongest evidence).
+Output: sized assessment + bucket-2 table → user ruling on whether
+verified infer_only becomes the next campaign.
+
+The harvest table closes over buckets 2+3; bucket 2's removability
+pends the assessment.  A+B+C unaffected.
