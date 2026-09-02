@@ -16079,3 +16079,132 @@ were NOT reached, so part 1's framing stands), then item 3
 Standing: all statements frozen; PropWhen through named laws only;
 annotations never steer; conditional forms are never done; zero
 sorries at every seal.
+
+## Task #161 IND TIER part 2 — CORRECTION to the seal above (same batch, 2026-09-02)
+
+A route-map survey of item 2 finished *after* the seal was written and
+**partly refutes its own headline**.  Recording the correction rather
+than the flattering version, because the successor budgets from this.
+
+### The headline was right about the firing and wrong about the budget
+
+§1 above says the P tier needs none of v1's firing apparatus, and
+concludes "budget items 2–3 by content, not by v1's 8379 lines".  The
+first half is correct and item 1 is its proof.  **The second half is
+too strong**, and the survey quantifies it: at the P tier items 2–3
+still need roughly **6000 of those 8379 lines** — a real saving, but
+about 25%, not the order-of-magnitude the phrasing invites.
+
+What item 1's four moves genuinely kill is `fireS` and its immediate
+inputs — `IndStagesS.lean:1003-1279` (`sidesMemS`, `EqFormerKeyV`,
+`EnvSHyp.eqFormerKey`, `fireS`), roughly **275 lines** — plus a large
+part of the *statements*, because `RecRuleLawP` is already frozen in
+`Annot/EnvS2P.lean` and a P bottom can conclude it directly instead of
+re-spelling its body (that is most of `IndBottomS.lean`'s 423).
+
+What it does **not** kill, and the seal above failed to say:
+
+* **`zipperS` (`IndStagesS.lean:515-966`), `pointS` (`:1486-1922`),
+  `reductS` (`:1304-1445`) and the `annotS` cluster (`:2091-2845`)** —
+  about **1785 lines**.  These are not about firing a theorem.  They
+  are about crossing the *renaming* `f` between the model-side
+  statement and the stored-side rule, and about the open frame.  That
+  work is currency-independent and transposes at close to full cost;
+* **the `.nested` branch additionally owes the graded-pins conjunct**
+  (`EnvS2P.lean:427-434`), which has **no v1 counterpart at all** —
+  v1's `RecRuleLawV` does not carry it.  So `IndBottomNestedS`'s
+  transpose is *bigger* than its original, not smaller, and it is the
+  highest-risk item on the bill.
+
+### THE MISSING PREREQUISITE: there is no P-tier frame kit
+
+The seal above did not know this and it blocks everything in item 2.
+`IndFrameS.lean` (522 lines) builds `chainE`/`padE` — the padded
+satisfying chain (`.sort 0` slots, `empty ∈ˢ univ 0`, `sat_padded`)
+that every stage's context manipulation runs on.  **No P twin exists**:
+`grep` finds `padE` only at `IndFrameS.lean:174`, and no
+`chainE2`/`chain2`/`padE2` anywhere under `Interp2/` or `Annot/`.
+`Sat2` (`Annot/EnvS2.lean:98`) and the `CtxOkPKit.lean` restriction
+family are the raw material, but the kit itself must be **written
+fresh** (~350 lines) before any bottom can be attempted.
+
+Note this is *not* the same gap as `fireS`: the frame kit is what
+`zipperS`/`pointS` consume, and those survive.
+
+### Two factual errors in the seal above, corrected
+
+* **`RecRuleLawV.swapS` is at `Install/IndRecsS.lean:653-678`, not
+  `Install/SwapS.lean`.**  `SwapS.lean` holds the *environment*-level
+  `EnvS.swap` (`:43-200`), which takes `RecRulesV` at the target as a
+  hypothesis.  The per-rule law's transport is the 21-line theorem in
+  `IndRecsS.lean`, and it is entirely V-free (it touches no `interp`,
+  no `AnnotOkV`, no `SetTheory` axiom) — so its P transpose is a
+  mechanical rename needing only **`denoteP_env_ext`, which does not
+  exist** (`grep`: 0 hits).  That one missing lemma is the whole cost.
+* **`IotaRuleR`'s `:626-628` conjunct is not a recorded run.**  The
+  seal's item-2 paragraph implies the whole kit is runs plus syntax.
+  That conjunct is the v1 *model-tier conclusion* (`denoteClosed` +
+  `Infer` at `Δ = []`), produced by `iotaRuleR_of`
+  (`Bridge/Decl.lean:2452`) from `RuleChecked`'s recorded
+  `inferTypeCore` verdict through `InferClaimsR`.  At the P tier that
+  is the **`InferClaims2P`** slot, not `DefEqClaims2P`.
+
+### The Prop-motive minors: the answer is sharper than "five precedents"
+
+The survey settled what §2's optimism could not.  The regime splits
+three ways, and only the third is work:
+
+* **both sides collapse** — `quotLiftV2_app_zero`
+  (`Interp2/Value.lean:424`, whose docstring says it outright: "at
+  `v = 0` both sides are `pt`… there is no squash-regime reasoning to
+  do, no motive membership to consume, and no premise to discharge"),
+  `emptyRecV2_zero` (`:505`), and the worked row `quotIndLawP`
+  (`BasisQuotP.lean:652`) — fired equality is one `simp only` ending in
+  `app_pt`, transport is five `AnnotOkP_app_pt`;
+* **one side collapses** — `natRecV2_app`'s squash case
+  (`Value.lean:133-137`), `punitRecV2_app` (`:153`), `choiceV2_app`
+  (`:471`): LHS folds to `pt` by `lamR_zero`/`app_pt`, RHS is placed in
+  a `univ 0` fibre and `mem_univ_zero` closes it.  **No statement grew
+  a premise** — the fibre fact is already in the fit;
+* **THE DANGEROUS CASE, and it is the general one**: the motive's
+  regime is `pwBit φ (.ifAllZero [u_1])` — a numeral test on a level
+  parameter, decidable only per instantiation.  Then neither collapse
+  is available a priori and `interp2_beta_pos` (`Kit.lean:275`) has
+  exactly the false premise.  **`eqRecLawP` is the only existing
+  precedent** (`BasisEqP.lean:893`): its two firing lemmas are stated
+  at an *abstract* bit `b` with `hz : b = 0 ↔ ψ u1N = 0` and split
+  `by_cases hb : b = 0` internally — positive side six
+  `app_lamR_pos` (`eqRecRaTower_app₆`, `:818-850`), zero side
+  `mem_univ_zero` (`eqRecRaP_app₄`, `:853-874`).  **A general
+  inductive block's fired equality will have to take that shape.**
+  The generic zero-side β lemma is `interp2_beta_zero`
+  (`Kit.lean:283-288`), whose `hbody`/`hB` premises say the body's
+  fibres are truth values.
+
+So the minors are *not* new mathematics — §2's instinct was right that
+the regime tends to refute rather than obstruct — but they are not
+free either: the abstract-bit split has to be carried through the
+whole fired-equality conjunct, and `eqRecLawP` is the only map.
+
+### Revised order for the successor (supersedes the order above)
+
+1. **the P frame kit** (`chainE`/`padE` twins over `Sat2` + `CtxOkP`)
+   — the missing prerequisite, blocks everything;
+2. the two run-conversion lemmas, `defEqAtP_of_run` and
+   `iotaSidesTyP_of_run`, on the `natEqLawP_of_run`
+   (`NatEqsP.lean:655-687`, a 7-line body) / `certValueP`
+   (`DivModCertP.lean:421-470`) template;
+3. **`indBottomProjS`'s transpose first** — cheapest by a wide margin
+   (no domain walks at all, `mI = rP = cnP`, syntactic domain
+   identification, `lamTowerStepS` delivers equality *and* transport in
+   one step) *and* it hits the second independent route to `rec_rules`,
+   so it validates the whole approach on the easy end;
+4. then plain, then nested (the graded-pins conjunct is the risk);
+5. `RecRuleLawV.swapS` + `EnvS.swap` early — risk-free, unblocks
+   `indRecsS`; the only new asset needed is `denoteP_env_ext`;
+6. keep `eqRecLawP` open beside you for the regime split.
+
+**The practice, once more.**  The seal above was written from my own
+reading and was wrong in two facts and one budget.  The survey that
+corrected it cost one delegated pass.  Re-check the seal you are
+resuming from, not just the bill it hands you.
