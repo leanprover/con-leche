@@ -153,10 +153,12 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
       ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
         m₂.acval = acvalWith mp.base2.acval c₀.name A →
         ∀ φ' : Name → Nat, EtaLawP m₂ φ' T cvT caps)
-    -- the live unit row: the cons's own former
+    -- the live unit row: the cons's own former (the pins travel with
+    -- it — see `MemberUnitLawP`'s note; `hpins` is right here)
     (hunitLive : ∀ (cvT : ConstantVal) (caps : IndCaps),
       c₀ = .indInfo cvT caps → caps.unitlike = true →
       Setlec.reservedBasisNames.contains c₀.name = false →
+      Setlec.EtaPins μ env cvA.name cvA.levelParams caps →
       ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
         m₂.acval = acvalWith mp.base2.acval c₀.name A →
         ∀ φ' : Name → Nat, UnitLawP m₂ φ' c₀.name cvT caps)
@@ -203,7 +205,9 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
       have hc₀ : c₀ = .indInfo cvT caps := by
         rw [Setlec.Env.find?_cons_self] at hf
         exact Option.some.inj hf
-      exact hunitLive cvT caps hc₀ hcapu hres m₂ hac φ'
+      have hcvT : cvT = cvA := by rw [hc₀] at hc₀cv; exact hc₀cv
+      exact hunitLive cvT caps hc₀ hcapu hres
+        (hpins caps (by rw [hc₀, hcvT])).1 m₂ hac φ'
     · have hfE : env.find? T = some (.indInfo cvT caps) := by
         rw [Setlec.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hf
         exact hf

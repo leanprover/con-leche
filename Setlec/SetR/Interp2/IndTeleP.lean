@@ -288,6 +288,79 @@ theorem teleFitP_residual :
     cases hfit with
     | @cons _ _ _ _ _ _ _ _ _ hfit' => exact ih hT' hfit'
 
+omit [SetTheory V] in
+/-- Above the spine `consN` is the ambient environment, shifted. -/
+theorem consN_append (as bs : List V) (ρ : Nat → V) :
+    consN (as ++ bs) ρ = consN bs (consN as ρ) := by
+  induction as generalizing ρ with
+  | nil => rfl
+  | cons a asr ih => simpa using ih (cons a ρ)
+
+omit [SetTheory V] in
+/-- Above the spine `consN` is the ambient environment, shifted. -/
+theorem consN_shift : ∀ (ts : List V) (ρ : Nat → V) (j : Nat),
+    consN ts ρ (j + ts.length) = ρ j := by
+  intro ts
+  induction ts with
+  | nil => intro ρ j; rfl
+  | cons t tsr ih =>
+    intro ρ j
+    rw [consN_cons,
+      show j + (t :: tsr).length = (j + 1) + tsr.length from by
+        simp only [List.length_cons]; omega,
+      ih (cons t ρ) (j + 1)]
+    rfl
+
+omit [SetTheory V] in
+/-- `consN`'s action below the spine: index `j` names argument
+`ts.length - 1 - j` (the last argument consed is `.bvar 0`). -/
+theorem consN_getElem? : ∀ (ts : List V) (ρ : Nat → V) (j : Nat),
+    j < ts.length → ts[ts.length - 1 - j]? = some (consN ts ρ j) := by
+  intro ts
+  induction ts with
+  | nil => intro ρ j hj; exact absurd hj (by simp)
+  | cons t tsr ih =>
+    intro ρ j hj
+    rw [consN_cons]
+    rcases Nat.lt_or_ge j tsr.length with h | h
+    · rw [show (t :: tsr).length - 1 - j = (tsr.length - 1 - j) + 1 from by
+        simp only [List.length_cons]; omega,
+        List.getElem?_cons_succ]
+      exact ih (cons t ρ) j h
+    · have hj' : j = tsr.length := by
+        simp only [List.length_cons] at hj; omega
+      subst hj'
+      have hs := consN_shift tsr (cons t ρ) 0
+      rw [Nat.zero_add] at hs
+      rw [hs, show (t :: tsr).length - 1 - tsr.length = 0 from by
+        simp only [List.length_cons]; omega]
+      rfl
+
+/-! ## Splitting a telescope -/
+
+/-- A telescope of length `a + b` is an `a`-telescope onto a
+`b`-telescope.  The domain lists concatenate the *other* way round —
+`PiTeleP`'s cons appends, so the outermost domain sits last. -/
+theorem PiTeleP.split :
+    ∀ (a b : Nat) {E : AVExpr} {Γ : List AVExpr} {C : AVExpr},
+      PiTeleP (a + b) E Γ C →
+      ∃ (Γ₁ Γ₂ : List AVExpr) (M : AVExpr),
+        Γ = Γ₁ ++ Γ₂ ∧ Γ₂.length = a ∧ Γ₁.length = b ∧
+        PiTeleP a E Γ₂ M ∧ PiTeleP b M Γ₁ C := by
+  intro a
+  induction a with
+  | zero =>
+    intro b E Γ C h
+    rw [Nat.zero_add] at h
+    exact ⟨Γ, [], E, by simp, rfl, h.length, .nil, h⟩
+  | succ a ih =>
+    intro b E Γ C h
+    rw [show a + 1 + b = (a + b) + 1 from by omega] at h
+    obtain ⟨u, v, A, B, Γ', rfl, hΓ, h'⟩ := h.succ_inv
+    obtain ⟨Γ₁, Γ₂, M, rfl, hl2, hl1, hA, hB⟩ := ih b h'
+    exact ⟨Γ₁, Γ₂ ++ [A], M, by rw [hΓ, List.append_assoc],
+      by simp [hl2], hl1, .cons hA, hB⟩
+
 /-- **The fit, moved across two telescopes with equal domains.** -/
 theorem teleFitP_congr :
     ∀ (ts : List V) {ρ : Nat → V} {Ta Sa : AVExpr}
@@ -326,5 +399,138 @@ theorem teleFitP_congr :
         rwa [hΓ, hΔ, List.getD, List.getD,
           List.getElem?_append_left (by omega),
           List.getElem?_append_left (by omega)] at h
+
+/-- **The fit, moved across and then continued.**  `teleFitP_congr`
+with the second telescope's *remaining* binders fitted too — the shape
+the keys consume, since a capability statement's telescope is the
+family former's parameters followed by the statement's own members. -/
+theorem teleFitP_congr_ext :
+    ∀ (ts : List V) {ρ : Nat → V} {Ta Sa : AVExpr}
+      {Γ Δ : List AVExpr} {R M : AVExpr} {rest : V}
+      {more : List V} {r : V},
+      PiTeleP ts.length Ta Γ R →
+      PiTeleP ts.length Sa Δ M →
+      (∀ i, i < ts.length → Γ.getD i default = Δ.getD i default) →
+      TeleFitP V ρ Ta ts rest →
+      TeleFitP V (consN ts ρ) M more r →
+      TeleFitP V ρ Sa (ts ++ more) r := by
+  intro ts
+  induction ts with
+  | nil =>
+    intro ρ Ta Sa Γ Δ R M rest more r _ hS _ _ hmore
+    cases hS
+    exact hmore
+  | cons t tsr ih =>
+    intro ρ Ta Sa Γ Δ R M rest more r hT hS hdoms hfit hmore
+    obtain ⟨u₁, v₁, A₁, B₁, Γ', rfl, hΓ, hT'⟩ := hT.succ_inv
+    obtain ⟨u₂, v₂, A₂, B₂, Δ', rfl, hΔ, hS'⟩ := hS.succ_inv
+    have hΓl : Γ'.length = tsr.length := hT'.length
+    have hΔl : Δ'.length = tsr.length := hS'.length
+    cases hfit with
+    | @cons _ _ _ _ _ _ _ _ ht hfit' =>
+      refine TeleFitP.cons ?_ (ih hT' hS' ?_ hfit' hmore)
+      · have h := hdoms tsr.length (by simp)
+        rw [hΓ, hΔ, List.getD, List.getD,
+          List.getElem?_append_right (by omega),
+          List.getElem?_append_right (by omega), hΓl, hΔl,
+          Nat.sub_self] at h
+        simp only [List.getElem?_cons_zero, Option.getD_some] at h
+        rw [← h]
+        exact ht
+      · intro i hi
+        have h := hdoms i (by simp only [List.length_cons]; omega)
+        rwa [hΓ, hΔ, List.getD, List.getD,
+          List.getElem?_append_left (by omega),
+          List.getElem?_append_left (by omega)] at h
+
+/-- The residual of a fitted telescope is graded, at the environment
+the fit ends in. -/
+theorem teleFitP_okP_residual :
+    ∀ (ts : List V) {ρ : Nat → V} {Ta : AVExpr} {Γ : List AVExpr}
+      {R : AVExpr} {rest : V},
+      PiTeleP ts.length Ta Γ R → AnnotOkP V ρ Ta →
+      TeleFitP V ρ Ta ts rest → AnnotOkP V (consN ts ρ) R := by
+  intro ts
+  induction ts with
+  | nil =>
+    intro ρ Ta Γ R rest hT hok _
+    cases hT
+    exact hok
+  | cons t tsr ih =>
+    intro ρ Ta Γ R rest hT hok hfit
+    obtain ⟨u, v, A, B, Γ', rfl, hΓ, hT'⟩ := hT.succ_inv
+    cases hfit with
+    | @cons _ _ _ _ _ _ _ _ ht hfit' =>
+      refine ih hT' ⟨?_, ?_⟩ hfit'
+      · exact ((AnnotOk2_pi V ρ u v A B) ▸ hok.1).2 t ht
+      · exact ((AnnotValidV_pi V ρ u v A B) ▸ hok.2).2.1 t ht
+
+/-! ## The opened parameter spine
+
+Every capability statement pins its type slot to the model former
+applied to the telescope's parameters, and the *same* opened spine
+appears at three depths (the η/unit statements' member binders and the
+equation's type slot).  These two lemmas read it and evaluate it once
+and for all, with the depth carried as an offset `m`. -/
+
+/-- The canonical opener, read: `openFvars j k` denotes to the
+descending bound variables at depth `d`. -/
+theorem denoteSpineP_openFvars :
+    ∀ (k j d : Nat), j + k ≤ d →
+      DenoteSpineP acval env φ d (openFvars j k)
+        ((List.range k).map fun q => AVExpr.bvar (d - 1 - (j + q))) := by
+  intro k
+  induction k with
+  | zero => intro j d _; exact DenoteSpineP.nil
+  | succ k ih =>
+    intro j d hd
+    have hlist : ((List.range (k + 1)).map fun q =>
+          (AVExpr.bvar (d - 1 - (j + q)) : AVExpr))
+        = AVExpr.bvar (d - 1 - j)
+            :: ((List.range k).map fun q =>
+              (AVExpr.bvar (d - 1 - (j + 1 + q)) : AVExpr)) := by
+      rw [List.range_succ_eq_map, List.map_cons, List.map_map]
+      refine congrArg (fun l => (AVExpr.bvar (d - 1 - (j + 0)) : AVExpr) :: l)
+        (List.map_congr_left fun q _ => ?_)
+      dsimp only [Function.comp]
+      congr 1
+      omega
+    rw [show openFvars j (k + 1)
+      = Setlec.Expr.fvar j Name.anonymous (.sort .zero)
+        :: openFvars (j + 1) k from rfl, hlist]
+    exact DenoteSpineP.cons
+      (denoteP_fvar acval d j Name.anonymous (.sort .zero))
+      (ih (j + 1) d (by omega))
+
+/-- The opened parameter spine, evaluated: it applies the head to the
+fit's own arguments, at every one of the three depths. -/
+theorem interp2_bvarSpine :
+    ∀ (ts : List V) {ρ σ : Nat → V} {K : AVExpr} (g : Nat → Nat),
+      (∀ q, q < ts.length → σ (g q) = consN ts ρ (ts.length - 1 - q)) →
+      interp2 V σ K = interp2 V ρ K →
+      interp2 V σ (AVExpr.mkAppN K
+          ((List.range ts.length).map fun q => AVExpr.bvar (g q)))
+        = ts.foldl SetTheory.app (interp2 V ρ K) := by
+  intro ts ρ σ K g hσ hK
+  have hmap : ((List.range ts.length).map fun q =>
+      (AVExpr.bvar (g q) : AVExpr)).map (interp2 V σ) = ts := by
+    refine List.ext_getElem (by simp) ?_
+    intro q h1 h2
+    have hq : q < ts.length := by simpa using h1
+    rw [List.getElem_map, List.getElem_map, List.getElem_range,
+      interp2_bvar, hσ q hq]
+    have := consN_getElem? ts ρ (ts.length - 1 - q) (by omega)
+    rw [show ts.length - 1 - (ts.length - 1 - q) = q from by omega,
+      List.getElem?_eq_getElem hq] at this
+    exact (Option.some.inj this).symm
+  rw [interp2_mkAppN, hK,
+    show ∀ (as : List AVExpr) (b : V),
+      as.foldl (fun r a => SetTheory.app r (interp2 V σ a)) b
+        = (as.map (interp2 V σ)).foldl SetTheory.app b from by
+      intro as
+      induction as with
+      | nil => intro b; rfl
+      | cons a asr ihas => intro b; simpa using ihas _,
+    hmap]
 
 end Setlec.SetR.Interp2

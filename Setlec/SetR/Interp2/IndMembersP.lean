@@ -68,7 +68,18 @@ def MemberEtaLawP (V : Type w) [SetTheory V] : Prop :=
         ∀ φ' : Name → Nat, EtaLawP m₂ φ' T cvT caps
 
 /-- **The member cons's live unit-like law** (`unitLawKeyS`'s
-transpose's obligation): the cons's own former. -/
+transpose's obligation): the cons's own former.
+
+**The pins are a premise** (task #161 IND TIER part 2, a repair of
+part 1's landing).  `capsOkP_cons_member`'s unit row carries no family
+premise — the ratified deletion — and part 1 read that as "no premise
+at all", but the *pins* are a different datum: `MemberValR` records
+`checkMemberVal`'s output and says nothing about `checkUnitThm`, so
+without `EtaPins` the law's own statement (`T._model.unitlike` is
+stored, its telescope is pinned) is unreachable.  The caller has them
+— `memberInstallPM`'s `hpins`, at exactly this `cvA` and these `caps`
+— so this is a threading fix, not a strengthening of what the fold
+must prove. -/
 def MemberUnitLawP (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {F : Nat} {blockNames : List Name} {env : Env}
     (mp : EnvS2PM V μ env) {cv cvA : ConstantVal} {c₀ : ConstantInfo},
@@ -79,6 +90,7 @@ def MemberUnitLawP (V : Type w) [SetTheory V] : Prop :=
     ∀ (cvT : ConstantVal) (caps : IndCaps),
       c₀ = .indInfo cvT caps → caps.unitlike = true →
       Setlec.reservedBasisNames.contains c₀.name = false →
+      Setlec.EtaPins μ env cvA.name cvA.levelParams caps →
       ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
         m₂.acval = acvalWith mp.base2.acval c₀.name
           (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) →
@@ -156,9 +168,9 @@ theorem memberInstallPM (hkey : MemberKeyS V) (hetaP : MemberEtaLawP V)
         (fun T cvT caps hfT hcape hresT hp h0 m₃ hac₃ φ' =>
           hetaP mp hmv hI hIA hc₀cv hc₀name T cvT caps hfT hcape hresT
             hp h0 m₃ hac₃ φ')
-        (fun cvT caps hceq hcapu hresT m₃ hac₃ φ' =>
+        (fun cvT caps hceq hcapu hresT hpT m₃ hac₃ φ' =>
           hunitP mp hmv hI hIA hc₀cv hc₀name cvT caps hceq hcapu hresT
-            m₃ hac₃ φ')
+            hpT m₃ hac₃ φ')
         m₂ (by rw [hac, hc₀name]))
   -- the v1 valuation at the extension, read off the leaf equation
   -- through `acval_erase` (no install-API change: the *base* carrier
