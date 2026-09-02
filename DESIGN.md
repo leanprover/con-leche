@@ -19599,3 +19599,104 @@ by `instPisAt_denoteP_cross`); then the recursor rows with the
 `eqRecLawP` Prop-motive case (stop-and-name standing).  Census:
 `hμ` + `IndStepPB`, never conditional.  The census moves when it
 moves.
+
+## Task #163 CACHED-LIVE: the campaign record (sealed 2026-09-02)
+
+**The cached checker variant is live and verified.**  `--core=
+cached-parsed` is a supported configuration whose acceptance is
+covered by the same consistency corollaries as production's, on all
+three carriers (`Setlec/Verify/Cached/MainC.lean`:
+`checkDeclsSPCached_sound_R{,2,2M}` and the twelve
+`no_proof_of_Empty_SPC_*` forms, corollaries of
+`checkDeclSPStepC_run` + the *unchanged* `declStepS`/
+`checkDeclR_sound`/`no_constant_of_Empty_R` — never re-proofs).
+Axioms on every capstone theorem: exactly `[propext,
+Classical.choice, Quot.sound]`.  The default core stays `production`
+until the orchestrator ratifies a flip.
+
+### The verification, by the numbers
+
+Twenty-one sealed batches; ~11.5k new proof lines in
+`Setlec/Verify/Cached/` (16 modules, lib target `SetlecCachedV`):
+the seam floor (`Erase`), the op/guard tier (`OpsC`, `GuardsC`), the
+species (`SimC`, `SimCEff`), the seven walk files (`DiscC1-6`,
+`BinderLoopC` — complete ports of `DiscI1-6` + `BinderLoopI`), the
+knot (`KnotC`: `ssimC` at every fuel), the checker layer (`SimCS`,
+`BridgeCS1-4`, `BridgeCSDecl`, `BridgeCP`:
+`checkDeclSPStepC_run` verbatim as frozen), the conversion boundary
+(`OfStoreC`) and the capstone (`MainC`).
+
+### What the ArenaWF-tier deletion bought (measured, not argued)
+
+The P1 prediction — "the whole `ArenaWF`/`WFStore`/`Promote`/
+`BracketB4` tier gets DELETED rather than replaced" — held, and the
+price of the walks fell with it:
+
+* every `Ext`/`denoteT_mono`/`.mono hext` transport chain vanishes;
+  value relations are **state-free**;
+* every name/level/binder-meta denotation bridge (`denoteN_eq_iff`,
+  `denoteLList_length`, `denoteBM*`) vanishes — those layers are
+  on-the-nose in the clone;
+* elaboration cost collapses: files whose interned originals need
+  `maxHeartbeats` 2M-12.8M all compile at the **default** budget
+  (e.g. `iotaRecI_sim` at 8M → whole-file default in 4.0s;
+  `defeqStepI_sim` at 12M → default).  The transport chains were the
+  elaborator's cost, and they are gone;
+* the memo story is one lemma: `WFc e := ofExpr (eraseC e) = e`
+  makes `eraseC` injective on the invariant (`eraseC_inj` — the
+  arena's `denote_inj` without a table), and the binding discipline
+  "memo clauses are erasure-functions of keys, never key-WFc"
+  survives every beq-collision.
+
+### The drift finding, and the enforcement the pilot lacked
+
+Batch 9 stop-and-named a real clone-drift bug: `CoreC.lean` was cut
+from a `CoreI` base predating the #161 P5 annotate repair — the
+annotation binder loops threaded the wrong `pw` datum and lost the
+∀-residual head read.  223-fixture parity had never noticed; **the
+walk port did**, because the transposed statement was false.
+Batch 10 re-synced (nine sites), and the severity was then
+*corrected downward* with a structural argument: every `pw`
+comparison on the verdict path is `PropWhen.equiv`, a telescope pins
+one zeroness datum, and spelling differences are set-invisible — so
+the drift produced different annotated *terms*, never a different
+verdict.  The probe landed as `tests/annot/annot_pw_thread.ndjson`
+(the suite's first mixed written/unwritten telescope; parity counts
+223 → 224).  Two standing consequences:
+
+1. **The simulation proof is the drift-enforcement mechanism** the
+   pilot's own section said nothing provided.  Any future `CoreI`
+   change that isn't mirrored breaks a `DiscC` statement.
+2. The audit recipe (slice `CoreI`, apply the renames, diff) is
+   recorded in the batch-10 subsection above; post-re-sync the whole
+   `CoreC` diff is 8 substantive lines, every one a documented
+   deviation.
+
+### The trust points (final)
+
+Exactly **two** `unsafe implemented_by` escapes, both in
+`Setlec/Cached/ExprC.lean`, both docstring-named: `beqFast` (pointer
+equality ⟹ structural equality; address-memo validity for one
+comparison's lifetime) and `ofExprFast` (the same two facts at the
+conversion memo).  Everything else that was `partial` or pilot-trusted
+is now *proved*: `toExpr` equals the erasure outright, all 13
+memoized walks are total and spec-equal, `ofStoreGo`'s `emlt` guards
+never fire on a WF arena, and conversion *success* replaces the range
+check (`ofStore_denote_of_some` — a one-step unfold, no completeness
+proof of the conversion needed).
+
+### Loose ends (named, deferred)
+
+* `fueledOpsM` lives in `BridgeDecl.lean`, whose closure pulls the
+  interned walk stack into the cached tier's build (direct-import
+  independence holds; transitive does not).  Cheap fix identified —
+  move `fueledOpsM` + four `*_wscopedB` lemmas to a walk-free module
+  — deferred because it edits shared interned-tier files.
+* The pilot's other production-izing items stand as before: cached
+  `Level`/`Name` (the one structural regression), the spine-exponent
+  choice, and the `--no-model` front door (`CheckerNC`), which this
+  campaign did not clone or verify (the recorded no-model divergence
+  `yolo_decline_vs_accept` is expected and unchanged).
+* A flip of the default core is a separate decision: the performance
+  case (pilot) and the verification case (this campaign) are both in;
+  the spine-shaped asymptotic loss is the one open judgement.

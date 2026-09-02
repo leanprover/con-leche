@@ -56,19 +56,22 @@ def checkDeclsSharedI (mode : CheckMode) (st : WFStore)
   let ds ← declsOfP st.raw pds
   Setlec.checkDeclsShared mode ds
 
-/-- Which core/driver pair the binary runs (the pilot's measurement
-knob; the default is the production one). -/
+/-- Which core/driver pair the binary runs (`--core=…`; the default is
+the production one). -/
 inductive CoreVariant where
-  /-- `checkDeclsSP`: the production parsed-index driver. -/
+  /-- `checkDeclsSP`: the production parsed-index driver (verified). -/
   | production
-  /-- `checkDeclsSharedI`: interned core, `Expr`-typed shared driver. -/
+  /-- `checkDeclsSharedI`: interned core, `Expr`-typed shared driver
+  (pilot measurement instrument, unverified). -/
   | internedShared
-  /-- `checkDeclsSharedC`: cached-clone core, same driver. -/
+  /-- `checkDeclsSharedC`: cached core, same driver (pilot measurement
+  instrument, unverified). -/
   | cached
-  /-- `checkDeclsSPCached`: cached-clone core under its own
+  /-- `checkDeclsSPCached`: the cached core under its own
   parsed-declaration driver (the arena converted once, guards as
-  memoized `ExprC` walks) — the configuration to compare with
-  production. -/
+  memoized `ExprC` walks).  **Supported and verified** (task #163):
+  acceptance is covered by the same consistency corollaries as
+  production's (`Setlec/Verify/Cached/MainC.lean`). -/
   | cachedParsed
   deriving DecidableEq, Repr, Inhabited
 

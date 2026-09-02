@@ -252,12 +252,17 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
     -- T7b); `--no-model` runs the unverified lane
     -- (Setlec/Kernel/CheckerNC.lean — checking-mode front door over
     -- the cert-skipping internals).
-    -- The performance pilot's core selector (`--core=…`): the two
-    -- non-production variants run the *same* `Expr`-typed shared-state
-    -- declaration driver, one over the interned core and one over the
-    -- cached-clone core, so a comparison between them isolates the
-    -- representation.  They are measurement instruments: unverified,
-    -- and refused in combination with the split driver.
+    -- The core selector (`--core=…`, task #163): `cached-parsed` is a
+    -- SUPPORTED, VERIFIED variant — its acceptance is covered by the
+    -- same consistency corollaries as production's
+    -- (`Setlec/Verify/Cached/MainC.lean`:
+    -- `checkDeclsSPCached_sound_R` + the `no_proof_of_Empty_SPC_*`
+    -- family, all three carriers).  `interned-shared` and `cached`
+    -- remain the pilot's unverified measurement instruments (they run
+    -- the `Expr`-typed shared driver, isolating the representation).
+    -- All non-production variants are refused in combination with the
+    -- split driver.  The default stays `production` until the flip is
+    -- ratified.
     if core != .production && split?.isSome then
       IO.eprintln "setlec: --core=… cannot be combined with \
         --install-only/--check-range"
@@ -389,11 +394,12 @@ def usage : String := String.intercalate "\n" [
   "  --pre             assert FILE is already preprocessed output of",
   "                    lean-inductive-models: skip the preprocessor",
   "                    detection scan and spawn entirely",
-  "  --core=V          performance pilot (unverified measurement",
-  "                    instrument): V = production (default),",
-  "                    interned-shared, cached, or cached-parsed —",
-  "                    see DESIGN.md,",
-  "                    \"The cached-clone pilot\"",
+  "  --core=V          core selector: V = production (default) or",
+  "                    cached-parsed (supported, verified: the",
+  "                    computed-field core; same consistency theorems",
+  "                    as production — task #163); interned-shared and",
+  "                    cached remain unverified pilot instruments.",
+  "                    See DESIGN.md, \"Task #163 CACHED-LIVE\"",
   "  --install-only    install the whole stream without checking any",
   "                    declaration (task #108)",
   "  --check-range A:B check only declarations [A, B) of the stream,",
