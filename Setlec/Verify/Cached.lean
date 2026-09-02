@@ -1,4 +1,5 @@
 import Setlec.Verify.Cached.Erase
+import Setlec.Verify.Cached.GuardsC
 import Setlec.Verify.Cached.OpsC
 
 /-!
