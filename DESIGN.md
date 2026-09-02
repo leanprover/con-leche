@@ -17137,3 +17137,544 @@ induction; budget the induction, not the transposition), the
 half, `indStepPB_of`, `hind` off `FoldP`, census → `hμ` ALONE, and
 THE ASSEMBLY of `no_proof_of_Empty_P` at the frozen letter.  Census
 at this seal: `hμ` + `IndStepPB`.  The goal is at the end of part 5.
+
+## Task #161 IND TIER part 5 — THE THIRD EXPOSURE: `IotaRuleR` is
+missing the row `ProjFnR` already has (2026-09-02)
+
+**STOP-AND-NAME**, the narrowest of the three and the only one whose
+fix is already *written down elsewhere in the same file*.  The zipper
+went through the gate on the second widening's two rows (`zipperP`,
+this batch, both branches).  The next stage — the reduct — needs a
+datum the statement layer discards, and the asymmetry that proves it is
+an omission rather than a decision is one screen away in `SetR/Decl.lean`.
+
+### The finding
+
+`RecRuleLawP` (`Annot/EnvS2P.lean:409`) owes three things about the
+rule's right-hand side reading `Ra`:
+
+* `∀ ρ, AnnotOkP V ρ Ra` — a *conjunct of the frozen statement*;
+* the fired equality, whose rhs walk (`IotaRunsR`'s
+  `isDefEqCore … rhsS (Expr.mkAppN (rhsA.renameConsts f) fvs)`) can only
+  be converted by `DefEqClaims2P` against **both** sides' gradings, and
+  the b-side is the applied form of `Ra`;
+* the truthfulness transport, `AnnotOkP V ρ (AVExpr.mkAppN Ra …)`.
+
+All three need `Ra` graded, and the b-side ones need it *first*: an
+application's grading has content (`AnnotOk2` of `.app` carries
+`∃ v A B, interp2 f ∈ˢ piR v A B ∧ interp2 a ∈ˢ A ∧ …`,
+`Annot/Ok2.lean:87-91`), so no spine grading is derivable from the
+statement side, and `annotOkP_mkAppN_of_fitA`
+(`Step2/IotaKitP.lean:362`) — the P tier's only application-grading
+lemma — takes the head's grading as a premise.
+
+**The P tier's only general grading producer is `InferClaims2P`, from a
+recorded `inferTypeCore` run.**  The checker performs exactly the
+needed run: `checkIotaRule` (`Kernel/Modeled.lean:340`) does
+`let _rhsTy ← ops.inferType envSelf 0 rhsA`, with the comment "soundness
+interprets the (λ-tower) right-hand side through this inference".  The
+verification layer keeps it: `RuleChecked`
+(`Verify/Extend/Iota.lean:847`) carries
+`inferTypeCore mode env₀ F 0 (RecRule.rhs r) = .ok rhsTy`.  And
+`iotaRuleR_of` (`Bridge/Decl.lean:2460`) destructures it as `hity`,
+consumes it into the *derivation* `hRden` (`:2467-2476`) and **drops the
+run**.  `IotaRuleR` (`SetR/Decl.lean:666`) records only
+
+```
+(∀ φ : Name → Nat, ∃ Rv t,
+  denoteClosed cval envSelf φ rhsA = some Rv ∧
+  Infer μ envSelf cval φ [] Rv t)
+```
+
+— the v1 currency, which part 3's two countermodels rule out for good.
+
+### Why this is an omission and not a decision: the projection already has it
+
+`ProjFnR` (`SetR/Decl.lean:801-804`) states the **same** front door for
+the projection rule's right-hand side, and states it **twice**:
+
+```
+(∀ φ : Name → Nat, ∃ Rv t,
+  denoteClosed cval env' φ rhsA = some Rv ∧ Infer μ env' cval φ [] Rv t) ∧
+(∃ t', inferTypeCore μ env' F 0 rhsA = .ok t') ∧
+```
+
+with the comment "the derivation for the v1 install, AND its recorded
+run (task #161, the H1 exposure: the P tier consumes the run through
+the claims)".  The first widening added that row for the projection
+bottom.  The recursor's rule is the identical front door — same
+`ops.inferType … 0 rhsA`, same purpose — and was left at the derivation
+alone.  So the fix is not a new design: it is `ProjFnR`'s own row,
+transcribed one definition up.
+
+### The row, and its blast radius
+
+One parallel conjunct on `IotaRuleR`, beside the derivation:
+
+```
+(∃ t, inferTypeCore μ envSelf F 0 rhsA = .ok t)
+```
+
+* **producer**: `iotaRuleR_of` (`Bridge/Decl.lean:2484`) — `hity` is
+  already in scope and already has exactly this type; one insertion in
+  the `refine` tuple, zero new proof text (the same "the packs were
+  ALREADY IN HAND" the second widening recorded);
+* **v1 consumers**: one destructure, `IotaRuleS.lean:56` — a dash.
+  `IndBottomS.lean:71` mentions the front door in prose only;
+* **the P consumer**: `InferClaims2P` at `Δa = []` (so `Sat2 V [] ρ` is
+  `Sat2_nil` and the grading comes out `∀ ρ` on the nose), then
+  `denotePInstLevels` for the level-instantiated form — the identical
+  two moves the projection bottom will make on its own row.
+
+**I have not taken it.**  The statement layer is the lead's, and this
+is the third application of the same ratified fix shape.
+
+### What is blocked, and what this batch landed anyway
+
+Blocked: `reductS`'s transpose (the rhs walk), the `annotS` cluster
+(the transport), the `RecRuleLawP` rows for both fire modes,
+`indStepPB_of`, the census reduction and THE ASSEMBLY.
+
+Not blocked, and landed this batch: the whole position induction at
+**both** branches (`paramGradeFireP`, `fieldGradeFireP`,
+`plainParamSupplyP`) and **`zipperP` itself** — the stage the second
+widening was applied for, now a theorem.
+
+### Census
+
+Unchanged, by design: `no_proof_of_Empty_P_of` = `hμ` + `IndStepPB`.
+`IndStepPB` stays **unstated** rather than conditional.
+
+## Task #161 IND TIER, part 5: the zipper through the gate, both
+branches; the point stage; and the third row named (2026-09-02)
+
+Briefed with the eight-item bill toward `no_proof_of_Empty_P` at the
+frozen letter.  **Item 1 is closed** — the field half of the position
+induction *and* the `zipperS` transposition — and **item 2's first
+stage (`pointP`) is closed**.  Items 2's other two stages (`reductP`,
+`annotP`) and everything after them are blocked on the wall named in
+the entry above, which is one row and whose fix is already written
+down elsewhere in the same file.  `IndStepPB` stays **unstated** rather
+than conditional (the standing ruling), so the census is unchanged:
+`no_proof_of_Empty_P_of` = `hμ` + `IndStepPB`.
+
+### Per-commit table
+
+| commit | what landed |
+| --- | --- |
+| `2dae91d8` | `paramGradeFireP` (the parameter ladder); `instPisAt_domsP_graded`'s membership premise bounded by the index |
+| `52d0510d` | `fieldGradeFireP` (the field ladder) |
+| `f14fa18a` | `plainParamSupplyP` (the canonical fire's parameter supply) |
+| `8a7fd5c3` | **`zipperP`** |
+| `e85d3875` | DESIGN: the third exposure (the wall) |
+| `a20ba3e1` | `instPisAt_resP_graded`; `AnnotOkP_app_fn`/`_app_arg`/`_mkAppN_head`/`_mkAppN_args` |
+| `9545d9c4` | the point kit + **`pointP`** |
+| `1839dc78` | `openPisAtFvars_denotePTele`; `LamTeleP`; `instLamsAt_denotePTele` |
+
+### THE HEADLINES, in order of what they save the successor
+
+* **THE THIRD EXPOSURE: `IotaRuleR` is missing the row `ProjFnR`
+  already has.**  `RecRuleLawP` owes `Ra`'s grading three times over
+  (its own conjunct, the rhs walk's b-side, the transport); an
+  application's grading has *content* (`AnnotOk2` of `.app` carries
+  `∃ v A B, interp2 f ∈ˢ piR v A B ∧ …`), so nothing derives it from
+  the statement side; and the P tier's only grading producer is
+  `InferClaims2P` from a recorded `inferTypeCore` run.  `checkIotaRule`
+  performs that run (`Kernel/Modeled.lean:340`), `RuleChecked` carries
+  it (`Verify/Extend/Iota.lean:847`), `iotaRuleR_of` converts it to a
+  derivation and drops it — while `ProjFnR` (`SetR/Decl.lean:801-804`)
+  states the *identical* front door twice, derivation AND run.  Full
+  statement, blast radius and the exact insertion point in the entry
+  above.  **Read it before planning anything**;
+* **the position induction closes at BOTH branches, and the field
+  branch needs a context it cannot fire at.**  `hdePars`' two sides
+  have the *recursor* frame's openers as leaves, and `CtxOkP`
+  identifies a leaf's *annotation* with the context entry — so the
+  parameter ladder cannot run at the statement frame at all.  It runs
+  at its own context `Δb` (the ambient context's low half with `ΓP` on
+  top; `K - rP = cnF` makes that exact), and `plainParamSupplyP`
+  transports satisfaction into it on `prefixGradeFireP`'s equalities.
+  **The separate context is a saving, not a cost**: `Sat2 V Δb` alone
+  grades every `ΓP` slot by `annotOkP_tower_slot`, so the ladder is
+  self-feeding and takes no external input;
+* **`instPisAt_domsP_graded`'s membership premise had to be bounded by
+  the index.**  Part 4 stated it over the whole spine — which the
+  prefix branch happens to have and the field branch can *never* have,
+  because a position induction cannot be asked for the equalities
+  above the position it is proving.  The proof never needed more.  A
+  premise set that fits one branch is not evidence it fits the other;
+* **the renaming bridge is free.**  `cdomsP` (the public frame's
+  unrenamed run) and `cdoms`' first `cnP` domains (the statement
+  frame's renamed run) are related pointwise by `instPisAt_renEq` —
+  the two spines are openers at *equal indices*, `RenEqT.fvar` — and
+  `RenEqT.denoteP` turns that into equality of *readings*, so grading
+  and membership cross with nothing to prove;
+* **`zipperP` needed no new stage design.**  v1's construction
+  survives verbatim (one strong induction, `sat2_pad_of_mems` in,
+  `padE2_shiftE` out); only the *firing* is replaced, and the two-step
+  collapses to one.  Budget the successor's remaining stages by their
+  walks, not by their line counts;
+* **`pointP` cost two premises and no new mathematics.**  Both index-walk
+  gradings are projections: the a-side off the statement's own
+  (`AnnotOkP_mkAppN_args` on `hokLhs`), the b-side off
+  `instPisAt_resP_graded` at the zipper's completed spine memberships.
+  The *other* P tax is part 4's: a run carries no syntactic frame, so
+  the comparands' `WScoped`/`looseBVarsBounded`/`LeavesBounded` are
+  premises, descending from `Expr.WScoped.getAppArgs` and from
+  `instPisAt_WScoped`/`instPisAt_bounded`'s **residual** halves;
+* **the two owed tower readers are landed and both compiled first
+  try** (`openPisAtFvars_denotePTele`, `instLamsAt_denotePTele`), for
+  the reason part 2 predicted: the reading is blind to an opener.  One
+  shape delta — the λ tower is a `LamTeleP` *relation*, because
+  `AVExpr`'s `.lam` carries a bit and there is no bit-free `lamCtx` to
+  equate against;
+* **RISK FLAG, not a wall (unmechanized): `RecRuleLawP`'s nested
+  pin-grading conjunct may be too strong.**  It demands
+  `∀ ρ : Nat → V, AnnotOkP V ρ vpa` **unconditionally in `ρ`**, where
+  `vpa` is the pin's *open* reading at depth `rP` (the pins carry up to
+  `rP` loose bvars, `pin.looseBVarsBounded rP`).  A pin of the shape
+  `T (bvar k)` reads to `.app (acval T ψ) (.bvar (rP-1-k))`, and
+  `AnnotOk2` of `.app` then demands `ρ (rP-1-k) ∈ˢ A` for the leaf's
+  actual domain `A` — which no `ρ` satisfies uniformly.  The
+  *supplier* (`TypedListOk`, through `InferClaims2P`) produces the
+  grading only at environments satisfying the recursor frame's
+  context, which is the shape `plainParamSupplyP` already consumes.  I
+  did **not** mechanize a countermodel and am not claiming a
+  refutation; the successor should build one *before* spending effort
+  on the nested establishment, and if it holds up the conjunct is a
+  statement-layer decision (its consumer is `Step2/IotaRowsP.lean`).
+
+### Reuse: what already existed and was not rebuilt
+
+`prefixGradeFireP`, `hokA_padded`, `annotOkP_tower_slot`,
+`ctxOkP_of_openers`, `defEqAtP_of_run`, `defEqListOk_getD`,
+`sat2_pad_of_mems`, `padE2_shiftE`, `chainP`/`chainP_lt`/`_ge`,
+`interp2_instSeq`, `instSeqP_*` (nine laws), `zipFieldTermEqP`,
+`instPisAt_denoteP_defined`/`_cross`, `RenameOkP`/`denoteP_renameConsts`/
+`RenEqT.denoteP`, `teleFitPA_of_tower`/`_to_chain`, `sat2_of_tower`,
+`PiTeleP.prefix`, `interp2_mkAppN_map` (part 3's projection key),
+`annotOkP_mkAppN_of_fitA` (`Step2/IotaKitP.lean`), `denoteP_mkAppN_inv`
+and `DenoteSpineP` (`Step2/StuckP.lean`), and the whole `Verify/`
+syntax layer (`instPisAt_renEq`, `instPisAt_take`, `instPisAt_leaves`,
+`instPisAt_WScoped`, `instPisAt_bounded`, `instPisAt_index_WScoped`,
+`fvarLeaves_getAppArgs`, `Expr.WScoped.getAppArgs`,
+`looseBVarsBounded_getAppArgs`, `instLamsAt_length`).  **Nothing in
+`Verify/` or `Setlec/SetR/Install/` was touched.**
+
+### IND TIER part 5 battery (verbatim, at `1839dc78`)
+
+`lake build` **444 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to parts 1–4 and to the ENDGAME A–H seals', and for the same
+reason: no `Setlec/Kernel/*` file was touched (`git diff --name-only`
+against the lane lists ten files: `DESIGN.md`, `Setlec/SetR.lean` and
+eight under `Setlec/SetR/Interp2/`).
+
+**Worktree gotcha, recorded because it cost a false alarm.**  A fresh
+worktree has no `_tmp/` (gitignored), so `findPreprocessor`
+(`Main.lean:28`) misses `_tmp/lean-inductive-models/...` and *every*
+inductive arena test declines (exit 2) — `arena tutorial: 46/92`,
+`e2e: 53/72`, and the script exits 1.  The fix is one symlink:
+`ln -s /home/joachim/setlec/_tmp/lean-inductive-models _tmp/`.  Note
+also that `./tests/arena.sh | tail -20` reports **`tail`'s** exit
+status, not the script's — check the counters, not `$?` after a pipe.
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `checkDecls_sound_P_of` and on every new
+theorem — `instPisAt_domsP_graded`, `instPisAt_resP_graded`,
+`AnnotOkP_app_fn`, `AnnotOkP_app_arg`, `AnnotOkP_mkAppN_head`,
+`AnnotOkP_mkAppN_args`, `paramGradeFireP`, `fieldGradeFireP`,
+`plainParamSupplyP`, `zipperP`, `denoteSpineP_getElem?'`,
+`instSeqP_app`, `instSeqP_mkAppN`, `AVExpr.mkAppN_inj`,
+`teleFitPA_rest_eq`, `pointP`, `openPisAtFvars_denotePTele`,
+`LamTeleP.length`, `LamTeleP.succ_inv`, `instLamsAt_denotePTele`
+(`instSeqP_app` and `instSeqP_mkAppN` on **no axioms at all**;
+`AVExpr.mkAppN_inj`, `LamTeleP.length` and `LamTeleP.succ_inv` on
+`[propext]` alone).  Zero sorries.
+
+New files: `Setlec/SetR/Interp2/IndParamGradeP.lean` (the parameter
+ladder), `IndFieldGradeP.lean` (the field ladder),
+`IndPlainParamP.lean` (the canonical fire's parameter supply),
+`IndZipperP.lean` (**the zipper**), `IndPointKitP.lean` (the point
+stage's five spine facts), `IndPointP.lean` (**the point stage**),
+`IndTowerReadP.lean` (the two owed tower readers).  Edited:
+`Setlec/SetR.lean` (seven imports), `IndDomGradeP.lean` (the index
+bound + the residual + the app inversions), `DESIGN.md`.  No landed
+statement moved; no file was deleted.
+
+### Resume-here: the bill after part 5
+
+0. **THE ROW IS THE GATE**, and it is the smallest of the three:
+   `(∃ t, inferTypeCore μ envSelf F 0 rhsA = .ok t)` on `IotaRuleR`,
+   beside the derivation conjunct — `ProjFnR:804`'s own row transcribed
+   one definition up.  `hity` is already in scope at
+   `Bridge/Decl.lean:2484`; `IotaRuleS.lean:56` gains a dash.  **The
+   audit says this is the LAST one**: `reductP` and `annotP` need
+   nothing else the statement layer does not already carry (the lam
+   walk's a-side gradings come from the recursor tower and from the
+   constructor residual's tower through `openPisAtFvars_denotePTele` +
+   `instPisAt_resP_graded`, its b-side from `Ra`'s own λ-tower through
+   `instLamsAt_denotePTele`, and its context transports exactly as
+   `plainParamSupplyP`'s does);
+1. then **`reductP`** — the rhs walk fired at the full frame.  The
+   a-side's grading is `IotaRunsR`'s own `inferTypeCore rhsS` run
+   through `InferClaims2P`; the b-side is the applied form, which is
+   item 2's output.  Note the *saving* part 1 found: the fired equality
+   does **not** need a walk between the two statement sides — the
+   `iota_j` theorem is inhabited (`mem_typeP`) and an inhabited
+   equation's two sides have equal readings, so `pointP` and `reductP`
+   meet through the statement, not through a comparison;
+2. then **`annotP`** — `annotMemS` + `lamTowerStepS` at P.  The
+   λ-tower descent needs `lamR ∈ˢ piR` at each layer (v1's
+   `lamC_mem_upair`); `annotMemS`'s lam walk fires at a *public-frame*
+   context, transported from the ambient one exactly as
+   `plainParamSupplyP` transports (prefix positions by
+   `prefixGradeFireP`, field positions by `fieldGradeFireP` composed
+   with the same `instPisAt_renEq` bridge);
+3. the `.nested` parameter supply (`fieldGradeFireP`'s `hpar` for a
+   nested fire) from `IotaThmNR`'s `TypedListOk` row through
+   `InferClaims2P`/`DefEqClaims2P` — needs `InferReadsP` and
+   `inferTypeCore_fvarLeaves` (`Verify/InferLeaves.lean:840`) for the
+   inferred type's context.  **Check the RISK FLAG above first**;
+4. the two bottoms, the recursor group's `RecRuleLawP` rows (the
+   per-instantiation Prop-motive case on the `eqRecLawP` anchor,
+   `BasisEqP.lean:893`), the `rec_rules` half of the projection phase,
+   `indStepPB_of`, `hind` off `FoldP`, census → `hμ` ALONE, and THE
+   ASSEMBLY.
+
+## Task #161 SUCCESSION RECORD update (ind tier part 5 landed,
+2026-09-02)
+
+Lane `agent/annot-v2` @ `2cee346b` at batch start **and at batch end**
+(the lane did not move; nothing to merge).  ALL FOUR SEMANTIC TIERS
+CLOSED.  Capstone hypotheses: `hμ` + `IndStepPB`, unchanged.
+
+LANDED: ind tier part 5 on `agent/indtier5` (worktree
+`.claude/worktrees/indtier5`), eight commits.  Briefed with the
+eight-item bill through THE ASSEMBLY; closed **item 1 entire** (the
+field half of the position induction, its parameter supply, and
+`zipperP` — the stage the second widening was applied for) and
+**item 2's first stage** (`pointP`), landed the two tower readers part
+2 named as owed, and **named the third and (by audit) last missing
+row**.  Battery green (build 444 warning-free, test exit 0, arena
+counters at expectation, axioms within the standard three, zero
+sorries).
+
+THE HEADLINES are listed in the seal above, in order of what they save
+the successor; the first is the wall and the last is a risk flag on a
+frozen conjunct that the successor should mechanize before spending
+effort on the nested establishment.
+
+Carried trap (still G's, still true): absorb lift-then-instantiate
+BEFORE unfolding `cons` — with `cons` in the same simp set the pattern
+stops matching and simp silently changes nothing.
+
+AFTER THIS BATCH (successor's order): review + merge per protocol;
+**then the third row**, which gates the reduct; then `reductP`,
+`annotP`, the nested parameter supply, the two bottoms, the recursor
+rows, the projection `rec_rules`, `indStepPB_of` and THE ASSEMBLY.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal.
+
+## Task #161 IND TIER part 5 — SEAL ADDENDUM: the reduct stage and the
+λ-tower descent also landed (same batch, 2026-09-02)
+
+The seal above was written when `pointP` was the batch's last stage.
+Two more landed after it, and the resume-here bill above is corrected
+here rather than left stale.
+
+### What the addendum adds
+
+| commit | what landed |
+| --- | --- |
+| `082223ca` | `denoteSpineP_of_all`, `denoteP_mkAppN_of`, **`reductP`**; `AVExpr.mkAppN_snoc`, `chainP_snoc`, **`lamTowerStepP`** |
+
+* **`reductP`** (`Interp2/IndReductP.lean`) is `reductS`'s transpose and
+  is complete except for **one premise, which is the third exposure's**:
+  `DefEqClaims2P` converts the rhs run only against the *applied form's*
+  grading, and that needs `Ra`'s.  It enters as `hokApp`, in the `∀ ba`
+  form the reading's existence is derived in, and is named in the file
+  as the row's consumer.  When the row lands, `hokApp` is
+  `lamTowerStepP`'s output at the frame's openers and `reductP` needs
+  no further work;
+* **`lamTowerStepP`** (`Interp2/IndLamTowerP.lean`) is the descent that
+  produces exactly that: a read λ-tower applied along readings that
+  inhabit its layer domains walks by β, and the application's
+  hereditary grading assembles by `lamR_mem`.  **The one shape delta is
+  forced by the bits**: v1's value half is unconditional because
+  `app_lamC` needs only domain membership, while `app_lamR` needs the
+  *fibres* as well (at `v = 0` a product is a truth value, so β must
+  know the codomain is one) — and the fibres are `AnnotOk2`'s `.lam`
+  clause, so at P the value half rides under the tower's grading.
+  Both halves are consumed together, so it costs nothing.
+
+Both compiled with no structural surprises; `lamTowerStepP` compiled
+first try.
+
+### The corrected resume-here
+
+Item 2 is **one stage short**, not three: `reductP` and the descent are
+in, and what remains of the `annotS` cluster is **`annotMemS`'s
+transpose alone** — the layer memberships, i.e. the lam walk fired at a
+*public-frame* context.  Its design is settled by precedent and is
+recorded here so the successor does not re-derive it:
+
+> The context is `Δc`: the recursor tower `ΓP` at the prefix slots
+> (`K - 1 - i`, `i < rP`) and the constructor's *field* tower at the
+> rest — the latter read by `openPisAtFvars_denotePTele` on `crestP`
+> (whose reading comes from `instPisAt_denoteP_defined` at `D = rP` and
+> whose grading from `instPisAt_resP_graded`, both landed).
+> Satisfaction transports from the ambient context exactly as
+> `plainParamSupplyP` transports it: prefix slots on
+> `prefixGradeFireP`'s equalities, field slots on `fieldGradeFireP`'s
+> composed with the same `instPisAt_renEq`/`RenEqT.denoteP` bridge —
+> the field openers of the two runs sit at *equal indices*
+> (`rP … rP + cnF - 1`), which is the whole reason the bridge is free.
+> The b-side of the lam walk is `ldomsL`, whose readings are the
+> λ-tower's own slots by `instLamsAt_denotePTele` (landed) and whose
+> gradings descend from `Ra`'s by the same `.lam` clause
+> `lamTowerStepP` uses.
+
+So the bill after this addendum is: **the row**; then `annotMemP`;
+then the two bottoms (`indBottomPlainS`/`indBottomNestedS`'s
+transposes, which now have every stage they call), the `.nested`
+parameter supply, the recursor group's `RecRuleLawP` rows, the
+projection `rec_rules` half, `indStepPB_of`, `hind` off `FoldP`,
+census → `hμ` ALONE, and THE ASSEMBLY.
+
+### Battery and axioms, re-run at `082223ca`
+
+`lake build` **446 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of` and on the addendum's theorems —
+`denoteSpineP_of_all`, `denoteP_mkAppN_of`, `reductP`, `chainP_snoc`,
+`lamTowerStepP` (`AVExpr.mkAppN_snoc` on **no axioms at all**).  Zero
+sorries.
+
+New files: `Setlec/SetR/Interp2/IndReductP.lean`,
+`Setlec/SetR/Interp2/IndLamTowerP.lean`.  Edited: `Setlec/SetR.lean`
+(two more imports), `DESIGN.md`.  Census unchanged:
+`no_proof_of_Empty_P_of` = `hμ` + `IndStepPB`.
+
+## Task #161 IND TIER part 5 — SEAL ADDENDUM II: item 2 closes
+(same batch, 2026-09-02)
+
+The addendum above left `annotMemS`'s transpose as the batch's open
+end and recorded its design.  It landed.  **Item 2 of the bill is
+closed**: `pointP`, `reductP` and the whole transport cluster stand,
+and the *only* outstanding input of any of them is the rule
+right-hand side's grading — the third exposure's row.
+
+| commit | what landed |
+| --- | --- |
+| `de1d2319` | `annotOkP_lamTower_slot`, `ctxOkP_of_walked_openers`; `annotPFrameEqP`, `annotMemP` |
+
+### The design recorded in addendum I was wrong in its *cost*, and the correction is a finding
+
+Addendum I predicted a fresh public-frame context `Δc` (the recursor
+tower on the prefix slots, the constructor's field tower on the rest)
+with satisfaction transported into it.  **None of that was needed**,
+and the reason is a property of the P currency the record had not
+noticed:
+
+> **`CtxOkP`'s per-leaf obligation is an `interp2` *equation*, not a
+> syntactic identity** (`Claims2P.lean:79-81`).  v1 needs a separate
+> `ctxOkR_of_walked_openers` because `CtxOkR`'s obligation is an
+> `Infer.bvar` derivation onto `DefEq.refl` — the leaf's annotation
+> *is* the context entry — so a frame whose openers are only *defeq*
+> to the entries needs its own constructor with slack.  At P the slack
+> is already there: `ctxOkP_of_walked_openers` is `ctxOkP_of_openers`
+> with the equation supplied instead of proved by `interp2_liftN`, and
+> nothing else changes.
+
+So the transport's lam walk fires at the **statement** frame's own
+context — exactly where v1 fires it — even though its subjects' leaves
+are the *public* frame's openers.  No second context, no transport of
+satisfaction, no `Δc`.  **Carry the general form**: when a v1 stage
+needs a slack-carrying variant of a frame predicate, check whether the
+P predicate is already semantic before transposing the variant.
+
+### The other two headlines
+
+* **`annotPFrameEqP` is not a walk.**  v1's `annotPFrameEqS` fires the
+  prefix and field domain walks itself.  At P the two position ladders
+  (`prefixGradeFireP`, `fieldGradeFireP`) have *already* fired them, so
+  the per-position identification is just their equalities composed
+  with the renaming identity of the two runs' domains
+  (`instPisAt_renEq` + `RenEqT.denoteP`) — free for the third time,
+  and for the same reason: the two spines' field openers sit at equal
+  indices (`rP … rP + cnF - 1`).  It compiled first try;
+* **`annotMemP` is the fourth position induction of the identical
+  shape** (after prefix, parameter, field): earlier positions'
+  equalities carry `Sat2`'s memberships into the λ tower,
+  `annotOkP_lamTower_slot` grades slot `k` out of `hokRa`, the
+  recorded lam walk fires, and the equality at `k` comes out.  The
+  ladder pattern is now the ind tier's *only* stage idiom.
+
+### Battery and axioms, re-run at `de1d2319`
+
+`lake build` **448 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of` and on `annotOkP_lamTower_slot`,
+`ctxOkP_of_walked_openers`, `annotPFrameEqP`, `annotMemP`.  Zero
+sorries.  New files: `Setlec/SetR/Interp2/IndAnnotKitP.lean`,
+`Setlec/SetR/Interp2/IndAnnotMemP.lean`.
+
+### The bill, final form for this batch
+
+0. **THE ROW** — `(∃ t, inferTypeCore μ envSelf F 0 rhsA = .ok t)` on
+   `IotaRuleR`, `ProjFnR:804`'s own row one definition up.  It is now
+   the **single** outstanding input of every stage this batch landed:
+   `reductP`'s `hokApp` and `annotMemP`'s `hokRa` are its two
+   consumers, and `lamTowerStepP` composes them;
+1. the two bottoms — `indBottomPlainS`/`indBottomNestedS`'s transposes.
+   **Every stage they call now exists**: `zipperP`, `pointP`,
+   `reductP`, `annotMemP` + `lamTowerStepP`, plus the tower readers and
+   the four ladders.  What the bottoms still do themselves is the
+   plumbing v1's do — opening the statement, assembling the frames,
+   and the fired equality's two halves meeting through the *inhabited*
+   equation (`mem_typeP`), which is the saving part 1 found and which
+   replaces v1's `fireS`;
+2. the `.nested` parameter supply (`fieldGradeFireP`'s `hpar` for a
+   nested fire) from `IotaThmNR`'s `TypedListOk` row.  **Check the RISK
+   FLAG in the main seal first** — `RecRuleLawP`'s nested pin conjunct
+   demands the pins' *open* readings graded unconditionally in `ρ`,
+   and that looks too strong;
+3. the recursor group's `RecRuleLawP` rows (the per-instantiation
+   Prop-motive case on the `eqRecLawP` anchor), the projection
+   `rec_rules` half, `indStepPB_of`, `hind` off `FoldP`, census → `hμ`
+   ALONE, and THE ASSEMBLY.
