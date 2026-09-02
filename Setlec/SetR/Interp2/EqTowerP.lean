@@ -250,6 +250,37 @@ Both conjuncts come off `eqValT2` directly:
   fibre obligations are all vacuous (the bits are nonzero), plus
   `eqv_mem_univZero` for the propositionhood half. -/
 
+/-- **The `Eq` spine over the tower is graded, and is a proposition.**
+`EqLawP`'s second conjunct, factored out: the `Eq.refl` and `Eq.rec`
+type readings both mention the spine directly, not through the
+field. -/
+theorem eqValT2_app₃_okP (ψ : Name → Nat) (ρ : Nat → V)
+    {Aa la ra : AVExpr} (hAa : AnnotOkP V ρ Aa) (hla : AnnotOkP V ρ la)
+    (hra : AnnotOkP V ρ ra)
+    (hA : interp2 V ρ Aa ∈ˢ (univ (ψ uN) : V))
+    (ha : interp2 V ρ la ∈ˢ interp2 V ρ Aa)
+    (hb : interp2 V ρ ra ∈ˢ interp2 V ρ Aa) :
+    AnnotOkP V ρ (.app (.app (.app (eqValT2 ψ) Aa) la) ra) ∧
+      interp2 V ρ (.app (.app (.app (eqValT2 ψ) Aa) la) ra)
+        ∈ˢ (univZero : V) := by
+  have hmem := eqValT2_mem (V := V) ψ ρ
+  have h1 : SetTheory.app (interp2 V ρ (eqValT2 ψ)) (interp2 V ρ Aa)
+      ∈ˢ piR 1 (interp2 V ρ Aa)
+        (fun _ => piR 1 (interp2 V ρ Aa) (fun _ => univZero)) :=
+    app_mem_piR_pos Nat.one_ne_zero hmem hA
+  have h2 : SetTheory.app (SetTheory.app (interp2 V ρ (eqValT2 ψ))
+        (interp2 V ρ Aa)) (interp2 V ρ la)
+      ∈ˢ piR 1 (interp2 V ρ Aa) (fun _ => univZero) :=
+    app_mem_piR_pos Nat.one_ne_zero h1 ha
+  refine ⟨⟨⟨⟨⟨eqValT2_ok2 ψ ρ, hAa.1, 1, _, _, hmem, hA,
+      fun h => nomatch h⟩, hla.1, 1, _, _, h1, ha,
+      fun h => nomatch h⟩, hra.1, 1, _, _, h2, hb,
+      fun h => nomatch h⟩,
+    ⟨⟨eqValT2_validV ψ ρ, hAa.2⟩, hla.2⟩, hra.2⟩, ?_⟩
+  rw [interp2_app, interp2_app, interp2_app,
+    eqValT2_app₃ ψ ρ _ _ _ hA ha hb]
+  exact eqv_mem_univZero _ _
+
 /-- **`EqLawP` from the tower.**  Any environment carrier whose `Eq`
 leaf is the annotated tower satisfies the field. -/
 theorem eqLawP_of_tower {env : Setlec.Env} (m : EnvS2Core V env)
@@ -259,24 +290,7 @@ theorem eqLawP_of_tower {env : Setlec.Env} (m : EnvS2Core V env)
   refine ⟨fun ρ A a b hA ha hb => ?_, fun ρ Aa la ra hAa hla hra
     hA ha hb => ?_⟩
   · rw [hleaf]; exact eqValT2_app₃ ψ ρ A a b hA ha hb
-  · have hmem := eqValT2_mem (V := V) ψ ρ
-    rw [hleaf]
-    -- the three application memberships, peeled outward
-    have h1 : SetTheory.app (interp2 V ρ (eqValT2 ψ)) (interp2 V ρ Aa)
-        ∈ˢ piR 1 (interp2 V ρ Aa)
-          (fun _ => piR 1 (interp2 V ρ Aa) (fun _ => univZero)) :=
-      app_mem_piR_pos Nat.one_ne_zero hmem hA
-    have h2 : SetTheory.app (SetTheory.app (interp2 V ρ (eqValT2 ψ))
-          (interp2 V ρ Aa)) (interp2 V ρ la)
-        ∈ˢ piR 1 (interp2 V ρ Aa) (fun _ => univZero) :=
-      app_mem_piR_pos Nat.one_ne_zero h1 ha
-    refine ⟨⟨⟨⟨⟨eqValT2_ok2 ψ ρ, hAa.1, 1, _, _, hmem, hA,
-        fun h => nomatch h⟩, hla.1, 1, _, _, h1, ha,
-        fun h => nomatch h⟩, hra.1, 1, _, _, h2, hb,
-        fun h => nomatch h⟩,
-      ⟨⟨eqValT2_validV ψ ρ, hAa.2⟩, hla.2⟩, hra.2⟩, ?_⟩
-    rw [interp2_app, interp2_app, interp2_app,
-      eqValT2_app₃ ψ ρ _ _ _ hA ha hb]
-    exact eqv_mem_univZero _ _
+  · rw [hleaf]
+    exact eqValT2_app₃_okP ψ ρ hAa hla hra hA ha hb
 
 end Setlec.SetR.Interp2

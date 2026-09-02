@@ -1162,6 +1162,22 @@ theorem AnnotOkP_pi_bit {ρ : Nat → V} {b : Nat} {Aa B : AVExpr}
   ⟨⟨hA.1, fun x hx => (hB x hx).1⟩,
     ⟨hA.2, fun x hx => (hB x hx).2, hz⟩⟩
 
+/-- **A `λ` at a pin's bit, graded and placed at once** — the combined
+step every basis tower's walk takes: the fibre named once serves both
+`AnnotOk2`'s existential and `lamR_mem`'s hypothesis. -/
+theorem AnnotOkP_lam_mem {ρ : Nat → V} {b : Nat} {Aa bd : AVExpr}
+    {F : V → V} (hA : AnnotOkP V ρ Aa)
+    (hb : ∀ x, x ∈ˢ interp2 V ρ Aa → AnnotOkP V (cons x ρ) bd ∧
+      interp2 V (cons x ρ) bd ∈ˢ F x)
+    (hz : b = 0 → ∀ x, x ∈ˢ interp2 V ρ Aa → F x ∈ˢ (univZero : V)) :
+    AnnotOkP V ρ (.lam b Aa bd) ∧
+      interp2 V ρ (.lam b Aa bd) ∈ˢ piR b (interp2 V ρ Aa) F := by
+  refine ⟨⟨⟨hA.1, fun x hx => (hb x hx).1.1, F,
+      fun x hx => (hb x hx).2, hz⟩,
+    ⟨hA.2, fun x hx => (hb x hx).1.2⟩⟩, ?_⟩
+  rw [interp2_lam]
+  exact lamR_mem fun x hx => (hb x hx).2
+
 /-- `Quot.lift`'s invariance premise, read. -/
 def quotLiftInvTyP (E : AVExpr) : AVExpr :=
   .pi 0 0 (.bvar 3)
