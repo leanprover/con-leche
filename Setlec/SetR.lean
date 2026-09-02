@@ -151,6 +151,15 @@ import Setlec.SetR.Interp2.IndEtaLawP
 import Setlec.SetR.Interp2.IndFrameP
 import Setlec.SetR.Interp2.IndProjCapsP
 import Setlec.SetR.Interp2.IndProjEtaP
+import Setlec.SetR.Interp2.IndRunsP
+import Setlec.SetR.Interp2.IndSubstP
+import Setlec.SetR.Interp2.IndStageKitP
+import Setlec.SetR.Interp2.IndCrossP
+import Setlec.SetR.Interp2.IndZipFieldP
+import Setlec.SetR.Interp2.IndRenameP
+import Setlec.SetR.Interp2.IndGradeP
+import Setlec.SetR.Interp2.IndDomGradeP
+import Setlec.SetR.Interp2.IndPrefixGradeP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP
