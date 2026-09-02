@@ -21385,3 +21385,32 @@ verified infer_only becomes the next campaign.
 
 The harvest table closes over buckets 2+3; bucket 2's removability
 pends the assessment.  A+B+C unaffected.
+
+## Task #161 HARVEST SPLIT (2026-09-02; user split directive,
+supersedes the combined tasking): inventory and feasibility run as
+SEPARATE agents
+
+**This thread owns THE INVENTORY** — the definitive
+certification-tax cost inventory, defined as CALLS TO INFER WHERE
+INFER_ONLY OR NOTHING WOULD DO.  Per internal call site, five
+columns: (a) the setlec call quoted (file:line, what it computes);
+(b) the official-kernel classification with QUOTED lean4lean/_tmp
+source evidence (inferOnly=true / nothing / genuinely full);
+(c) the result's setlec consumer quoted (claims-fed membership /
+sort / shape test / certificate); (d) measured cost per site, both
+cores, init-prelude + init-full + one heavy reduction fixture;
+(e) bucket verdict: official-inferOnly-equivalent / official-none /
+official-full (out of scope).  Measurement + classification ONLY;
+feasibility observations go to a RAW NOTES FOR HANDOFF heading.
+The inventory worker is the (resumed) P1 agent under the definitive
+spec.
+
+**The feasibility half (verified infer_only) leaves this thread** —
+a separate agent owns it per the directive.  The D2 worker was
+stopped with a seal-as-handoff instruction (site notes,
+old-refutation probe results, anything mechanized — committed to
+agent/degating-d2 as raw handoff material for the feasibility
+owner).
+
+Continuing unchanged on this thread: A+B+C (in flight) and the
+bucket-3 closing table.
