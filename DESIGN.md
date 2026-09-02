@@ -17137,3 +17137,110 @@ induction; budget the induction, not the transposition), the
 half, `indStepPB_of`, `hind` off `FoldP`, census → `hμ` ALONE, and
 THE ASSEMBLY of `no_proof_of_Empty_P` at the frozen letter.  Census
 at this seal: `hμ` + `IndStepPB`.  The goal is at the end of part 5.
+
+## Task #161 IND TIER part 5 — THE THIRD EXPOSURE: `IotaRuleR` is
+missing the row `ProjFnR` already has (2026-09-02)
+
+**STOP-AND-NAME**, the narrowest of the three and the only one whose
+fix is already *written down elsewhere in the same file*.  The zipper
+went through the gate on the second widening's two rows (`zipperP`,
+this batch, both branches).  The next stage — the reduct — needs a
+datum the statement layer discards, and the asymmetry that proves it is
+an omission rather than a decision is one screen away in `SetR/Decl.lean`.
+
+### The finding
+
+`RecRuleLawP` (`Annot/EnvS2P.lean:409`) owes three things about the
+rule's right-hand side reading `Ra`:
+
+* `∀ ρ, AnnotOkP V ρ Ra` — a *conjunct of the frozen statement*;
+* the fired equality, whose rhs walk (`IotaRunsR`'s
+  `isDefEqCore … rhsS (Expr.mkAppN (rhsA.renameConsts f) fvs)`) can only
+  be converted by `DefEqClaims2P` against **both** sides' gradings, and
+  the b-side is the applied form of `Ra`;
+* the truthfulness transport, `AnnotOkP V ρ (AVExpr.mkAppN Ra …)`.
+
+All three need `Ra` graded, and the b-side ones need it *first*: an
+application's grading has content (`AnnotOk2` of `.app` carries
+`∃ v A B, interp2 f ∈ˢ piR v A B ∧ interp2 a ∈ˢ A ∧ …`,
+`Annot/Ok2.lean:87-91`), so no spine grading is derivable from the
+statement side, and `annotOkP_mkAppN_of_fitA`
+(`Step2/IotaKitP.lean:362`) — the P tier's only application-grading
+lemma — takes the head's grading as a premise.
+
+**The P tier's only general grading producer is `InferClaims2P`, from a
+recorded `inferTypeCore` run.**  The checker performs exactly the
+needed run: `checkIotaRule` (`Kernel/Modeled.lean:340`) does
+`let _rhsTy ← ops.inferType envSelf 0 rhsA`, with the comment "soundness
+interprets the (λ-tower) right-hand side through this inference".  The
+verification layer keeps it: `RuleChecked`
+(`Verify/Extend/Iota.lean:847`) carries
+`inferTypeCore mode env₀ F 0 (RecRule.rhs r) = .ok rhsTy`.  And
+`iotaRuleR_of` (`Bridge/Decl.lean:2460`) destructures it as `hity`,
+consumes it into the *derivation* `hRden` (`:2467-2476`) and **drops the
+run**.  `IotaRuleR` (`SetR/Decl.lean:666`) records only
+
+```
+(∀ φ : Name → Nat, ∃ Rv t,
+  denoteClosed cval envSelf φ rhsA = some Rv ∧
+  Infer μ envSelf cval φ [] Rv t)
+```
+
+— the v1 currency, which part 3's two countermodels rule out for good.
+
+### Why this is an omission and not a decision: the projection already has it
+
+`ProjFnR` (`SetR/Decl.lean:801-804`) states the **same** front door for
+the projection rule's right-hand side, and states it **twice**:
+
+```
+(∀ φ : Name → Nat, ∃ Rv t,
+  denoteClosed cval env' φ rhsA = some Rv ∧ Infer μ env' cval φ [] Rv t) ∧
+(∃ t', inferTypeCore μ env' F 0 rhsA = .ok t') ∧
+```
+
+with the comment "the derivation for the v1 install, AND its recorded
+run (task #161, the H1 exposure: the P tier consumes the run through
+the claims)".  The first widening added that row for the projection
+bottom.  The recursor's rule is the identical front door — same
+`ops.inferType … 0 rhsA`, same purpose — and was left at the derivation
+alone.  So the fix is not a new design: it is `ProjFnR`'s own row,
+transcribed one definition up.
+
+### The row, and its blast radius
+
+One parallel conjunct on `IotaRuleR`, beside the derivation:
+
+```
+(∃ t, inferTypeCore μ envSelf F 0 rhsA = .ok t)
+```
+
+* **producer**: `iotaRuleR_of` (`Bridge/Decl.lean:2484`) — `hity` is
+  already in scope and already has exactly this type; one insertion in
+  the `refine` tuple, zero new proof text (the same "the packs were
+  ALREADY IN HAND" the second widening recorded);
+* **v1 consumers**: one destructure, `IotaRuleS.lean:56` — a dash.
+  `IndBottomS.lean:71` mentions the front door in prose only;
+* **the P consumer**: `InferClaims2P` at `Δa = []` (so `Sat2 V [] ρ` is
+  `Sat2_nil` and the grading comes out `∀ ρ` on the nose), then
+  `denotePInstLevels` for the level-instantiated form — the identical
+  two moves the projection bottom will make on its own row.
+
+**I have not taken it.**  The statement layer is the lead's, and this
+is the third application of the same ratified fix shape.
+
+### What is blocked, and what this batch landed anyway
+
+Blocked: `reductS`'s transpose (the rhs walk), the `annotS` cluster
+(the transport), the `RecRuleLawP` rows for both fire modes,
+`indStepPB_of`, the census reduction and THE ASSEMBLY.
+
+Not blocked, and landed this batch: the whole position induction at
+**both** branches (`paramGradeFireP`, `fieldGradeFireP`,
+`plainParamSupplyP`) and **`zipperP` itself** — the stage the second
+widening was applied for, now a theorem.
+
+### Census
+
+Unchanged, by design: `no_proof_of_Empty_P_of` = `hμ` + `IndStepPB`.
+`IndStepPB` stays **unstated** rather than conditional.
