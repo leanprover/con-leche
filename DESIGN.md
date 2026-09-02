@@ -19700,3 +19700,1008 @@ proof of the conversion needed).
 * A flip of the default core is a separate decision: the performance
   case (pilot) and the verification case (this campaign) are both in;
   the spine-shaped asymptotic loss is the one open judgement.
+## Task #161 IND TIER, part 9: the projection bottom, the totality
+bridge, and the per-rule bridge — with the tier's next WALL named
+(2026-09-02)
+
+Briefed with `indBottomProjP` and its five owed kit transpositions
+(bill item 3's remainder), then "if budget remains, continue down the
+bill".  **Item 3 closes, and item 4's per-rule half closes with it**:
+`iotaRuleP` — the transpose of `iotaRuleS`, *both* branches, with
+`RecRuleLawP`'s repaired pin conjunct produced rather than routed —
+and `iotaRulesP`, the per-recursor rule fold's P half.  Nothing
+conditional was landed, zero sorries, axioms exactly the standard
+three.
+
+### Per-commit table
+
+| commit | what landed |
+| --- | --- |
+| `60431fd8` | **the projection bottom's kit** — `stripLams_denotePTele`, `PiTeleP.det`, `towerCtxEqDP`/`towerCtxEqP`, `projBodyValueP`/`projRhsValueP`, plus the new `instPisAt_openerDomsP` + `projSpineMemP` (`Interp2/IndProjKitP.lean`, new, 499 lines); `lamTowerStepP` generalized (`Interp2/IndLamTowerP.lean`, kit repair) and `annotTransportP` adapted |
+| `7a52e29a` | **the projection bottom** — `indBottomProjP` (`Interp2/IndBottomProjP.lean`, new, 736 lines, 14 s) |
+| `01d01f7e` | **the reading's totality bridge** — `denoteP_isSome_of_denote`, `denotePClosed_isSome_of_denoteClosed` (`Annot/BitReads.lean`, new) |
+| `8e2cfb13` | **the per-rule bridge, canonical branch** — `iotaRulePlainP` (`Interp2/IotaRulePlainP.lean`, new) |
+| `25b2628a` | **the per-rule bridge, nested branch and dispatch** — `nestedPinRowP` (`Interp2/IndPinRowP.lean`, new), `pinOpenRevReadsP` (`Interp2/IndOpenRevP.lean`, kit addition), `typedListW_denote_getD`, `iotaRuleNestedP`, `iotaRuleP` (`Interp2/IotaRuleNestedP.lean`, new) |
+| `f52868e6` | **the per-recursor rule fold's P half** — `iotaRulesP` (same file) |
+
+### THE HEADLINES, in order of what they save the successor
+
+* **THE PROJECTION BOTTOM CLOSES**, 484 S-lines → 736 P-lines, **14 s**
+  (the nested bottom was 83 s).  Both of v1's deltas survive the
+  transposition verbatim: the zipper is *syntactic* (`towerCtxEqDP` +
+  `PiTeleP.det` identify the two read contexts — no ladder, no strong
+  induction, no `DefEqListOk` row), and the reduct is a
+  β-contraction (`towerCtxEqP` + `projBodyValueP` + `lamTowerStepP`
+  give the value equality **and** the truthfulness transport in one
+  descent).  The part-8 cost recipe was applied from the start and the
+  measured cost shows it;
+
+* **the pre-fixed `hspMem` route is real, and it is CHEAPER than the
+  ladder it replaces.**  With `cnP = rP` the fire spine **is** the
+  statement frame's openers (`fvs.take cnP ++ fvs.drop rP = fvs`,
+  `List.take_append_drop`), so the constructor run's `q`-th domain
+  reads *at depth `q`* to the tower slot `Γs.getD (K - 1 - q)` and the
+  membership is the frame's own `Sat2` slot moved to the frame depth by
+  `denoteP_lift`.  Two new pieces carry it:
+  `instPisAt_openerDomsP` (`stripPis_denotePTele`'s move run at an
+  `instPisAt` rather than a `stripPis`; **no carrier equation is
+  consumed** — the only step that touches the spine is
+  `denoteP_erasedEq`, and the reading is blind to an opener) and
+  `projSpineMemP`.  The domains' own-depth scoping, which the plain
+  bottom's field branch earns through `zipFieldTermEqP`'s leaf
+  analysis, is here **one application of `instPisAt_index_WScoped` at
+  `d := 0`** — the run's `q`-th domain is `WScoped q` because the
+  spine's `i`-th element is `WScoped (i + 1)` and the type is closed.
+  Prefer that to the leaf route wherever the spine is the frame;
+
+* **THE TOTALITY BRIDGE, and it makes the recursor rows possible.**
+  `RecRuleLawP` opens with `∃ Ra, denoteP … = some Ra`, and the
+  install statements carry the rule right-hand side's front door only
+  as a v1 **derivation** row (`denoteClosed cval env ψ rhsA = some
+  Rv`).  A run says nothing about whether the subject reads, and the
+  H1 widenings recorded runs, not readings — so the existence looked
+  owed.  It is not: **`denoteP` and `denote` are clause for clause the
+  same recursion and their four failure guards — a loose `.bvar`, an
+  unfindable or mis-arity `.const`, a `.proj` index `≥ 2`, an
+  unsupported literal — are all syntactic or environmental**, so
+  neither can fail where the other succeeds
+  (`denoteP_isSome_of_denote`, `Annot/BitReads.lean`, ~110 lines of
+  `denoteP.induct`).  Whenever the P tier needs a *reading's
+  existence* and v1 has a denotation, this is the answer;
+
+* **THE PER-RULE BRIDGE CLOSES, BOTH BRANCHES.**  `iotaRuleP` turns
+  one checked `IotaRuleR` kit into its `RecRuleLawP` row.  Everything
+  the bottoms need beyond the kit comes from the P environment
+  invariant, and the file shows exactly where:
+
+  | bottom premise | P supplier |
+  | --- | --- |
+  | `hthm` (statement's front doors) | `type_reads` + `mem_typeP` + `type_okP` at the `iota_j` entry |
+  | `htyOk` (recursor type graded) | `type_okP` at the **provisioned** entry (`hself`) — the plain bottom's own caveat does not bite here |
+  | `hrhsKey` (rule rhs's front door) | three parts: the reading by `denoteP_isSome_of_denote` on the kit's v1 derivation row; the inferred type's reading by `InferReadsP` on the recorded run; the grading and membership by `InferClaims2P` at `Sat2_nil` |
+  | `hsideL`/`hsideR`, the five walk rows | `IotaRunsR`, verbatim |
+
+* **`RecRuleLawP`'s repaired pin conjunct is PRODUCED, not routed** —
+  part 6 refuted its unconditional form, part 7 landed the producer
+  (`nestedPinGradeP`), and this batch supplies the producer's three
+  inputs from the checker's own two recorded rows:
+
+  ```
+     IotaThmNR's TypedListW row   ⇒ denote of the instantiated pin
+       ⇒ denoteP_isSome_of_denote   ⇒ its READING
+       ⇒ pinOpenRevReadsP           ⇒ the openRev reading the conjunct
+                                      existentially quantifies
+     IotaThmNR's TypedListOk row  ⇒ nestedPinFireP at the PADDED
+                                      recursor-frame context
+                                      (replicate cnF (.sort 0) ++ ΓP)
+       ⇒ nestedPinGradeP's hcert   ⇒ the conjunct
+  ```
+
+  `pinOpenRevReadsP` is `pinCrossP`'s **reading direction**:
+  `denoteP_openRev` presents the instantiated reading as an
+  `Option.map` of the `openRev` one, so the former being `some` forces
+  the latter.  The one step the bridge adds on top is the level
+  crossing — the row is produced at `Level.substFn φ lps us` on the
+  stored pin and the conjunct is stated at `φ` on the `us`-instantiated
+  one; `openRev_instantiateLevelParams` + `denotePInstLevels` identify
+  them;
+
+* **`lamTowerStepP` needed a kit repair, and it is v1's own shape.**
+  Its `hokws` premise (`∀ w ∈ ws, AnnotOkP V ρ w`) was a premise of the
+  *whole* conclusion, but only the fourth component uses it: the value
+  equality and the residual's grading run on the tower's grading alone.
+  The projection bottom needs the value half **unconditionally** — its
+  first conclusion carries no annotation hypotheses — so `hokws` now
+  guards only the fourth conjunct, exactly as `lamTowerStepS` states
+  it.  Strictly more general; the one call site (`annotTransportP`)
+  applies it and nothing else changed.
+
+### The bill, item by item
+
+1. `indBottomPlainP` — done (part 7).
+2. `indBottomNestedP` + its `.nested` parameter stage — done (part 8).
+3. **`indBottomProjP` — DONE** (`7a52e29a`), with its five kit
+   transpositions and the new `hspMem` route (`60431fd8`).
+4. `IotaRuleS`/`IndRecsS` (the recursor group): **the per-rule and
+   per-recursor halves are DONE** — `iotaRuleP` (`25b2628a`) and
+   `iotaRulesP` (`f52868e6`).  What remains of item 4 is the
+   *environment* layer: `provisionRecsP`, `indRecsFoldP`,
+   `RecRuleLawP.swapP`, `indRecsP` — i.e. constructing `EnvS2PM V μ
+   env₃` at the group's output and transporting the rows across the
+   swap.  **The `eqRecLawP` Prop-motive case did not arise**: the
+   inductive tier's rows are fired semantically through
+   `fireP`/`pointP`, and the squash regime `pwBit φ (.ifAllZero [u_1])`
+   is a *basis*-tier phenomenon (the basis rows are built by hand from
+   explicit `AVExpr` values; the ind tier's are not).  No stop-and-name
+   was needed there.
+5. `ProjInstallS` — **NOT STARTED, AND WALLED** (see below).
+6. `DeclIndS`, `SwapS` — not started.
+7. `indStepPB_of`, `hind` off `FoldP`, THE ASSEMBLY — not reached.
+   Census unchanged: `hμ` + `IndStepPB`.
+
+### THE WALL (STOP-AND-NAME): `ProjFnR` does not record the sides
+pack's runs
+
+**Exact wall.**  `indBottomProjP` takes the equation sides' two
+*recorded runs* (`hsideL`/`hsideR`), because `sidesMemP` — the stage
+that produces the lhs's grading and both sides' memberships in the
+type slot, which `pointP` and `fireP` consume — converts runs through
+`InferClaims2P`/`DefEqClaims2P` and nothing else.  Its would-be
+producer, `ProjFnR`, records only the **derivation** pack:
+
+```
+  Setlec/SetR/Decl.lean:844-850
+        ∃ fvsI sbodyO,
+          openPisAtFvars (nP + nF) tcv.type 0 = some (fvsI, sbodyO) ∧
+          (∀ φ : Name → Nat,
+            IotaSidesTyR μ env' cval φ (nP + nF)
+              (sbodyO.getAppArgs.getD 0 (.bvar 0))
+              (sbodyO.getAppArgs.getD 1 (.bvar 0))
+              (sbodyO.getAppArgs.getD 2 (.bvar 0)))
+```
+
+`IotaSidesTyR` (`SetR/Decl.lean:111`) is `Infer`/`DefEq` derivations at
+every correlating context.  Derivation → run is **false** for a
+fuel-bounded checker (the part-3 wall's countermodel), so the row
+cannot be recovered.
+
+**Kernel location — the run exists and is recordable.**
+`checkProjIota` calls `checkIotaSidesTy` at `Setlec/Kernel/Modeled.lean:551-553`,
+and that function's first four lines *are* the two runs:
+
+```
+  Setlec/Kernel/Modeled.lean:36-41
+    let tl ← ops.inferType envSelf depth lhsS
+    unless ← ops.isDefEq envSelf depth tl alphaS do …
+    let tr ← ops.inferType envSelf depth rhsS
+    unless ← ops.isDefEq envSelf depth tr alphaS do …
+```
+
+**The missing row, verbatim** (the same two conjuncts `IotaRunsR`
+already carries for the iota install, `SetR/Decl.lean:503-507`), to sit
+beside `ProjFnR`'s derivation pack:
+
+```
+  (∃ tl, inferTypeCore μ env' F (nP + nF)
+      (sbodyO.getAppArgs.getD 1 (.bvar 0)) = .ok tl ∧
+    isDefEqCore μ env' F (nP + nF) tl
+      (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true) ∧
+  (∃ tr, inferTypeCore μ env' F (nP + nF)
+      (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
+    isDefEqCore μ env' F (nP + nF) tr
+      (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true)
+```
+
+**Species.** The same H1 exposure as the third widening (`IotaRuleR`'s
+rhs run) and the fourth (`ProjFnR`'s own rhs run, already present at
+`SetR/Decl.lean:808`): the checker runs it, the v1 install did not need
+it, the P tier does.  `ProjFnR` is frozen, so **no edit was made**;
+this is the wall, named.  Nothing else in item 5 was inspected.
+
+**What is NOT blocked.**  `indBottomProjP` itself is complete and
+unconditional — it takes the rows as premises, in the honest currency
+every P bottom takes them in.  Only the projection *install's*
+transpose (bill item 5) cannot supply them.
+
+### IND TIER part 9 battery (verbatim, at `f52868e6`)
+
+`lake build` **463 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to parts 1–8's, and for the same reason: the batch's diff
+touches no `Setlec/Kernel/*` file.  Zero sorries.
+
+Axiom audit, verbatim:
+
+```
+'Setlec.SetR.Interp2.no_proof_of_Empty_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.checkDecls_sound_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.denoteP_isSome_of_denote' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.denotePClosed_isSome_of_denoteClosed' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.PiTeleP.det' depends on axioms: [propext]
+'Setlec.SetR.Interp2.stripLams_denotePTele' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.towerCtxEqDP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.towerCtxEqP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.projBodyValueP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.projRhsValueP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.instPisAt_openerDomsP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.projSpineMemP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.lamTowerStepP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indBottomProjP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.pinOpenRevReadsP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.nestedPinRowP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.typedListW_denote_getD' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.iotaRulePlainP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.iotaRuleNestedP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.iotaRuleP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.iotaRulesP' depends on axioms: [propext, Classical.choice, Quot.sound]
+```
+
+New files: `Setlec/SetR/Annot/BitReads.lean` (183),
+`Interp2/IndProjKitP.lean` (499), `Interp2/IndBottomProjP.lean` (736),
+`Interp2/IndPinRowP.lean` (170), `Interp2/IotaRulePlainP.lean` (276),
+`Interp2/IotaRuleNestedP.lean` (489).  Edited: `Setlec/SetR.lean`
+(six imports), `Interp2/IndLamTowerP.lean` (the `lamTowerStepP`
+generalization), `Interp2/IndTransportP.lean` (its one call site),
+`Interp2/IndOpenRevP.lean` (`pinOpenRevReadsP`, added), `DESIGN.md`.
+**No frozen statement moved; nothing in `Setlec/Kernel/*`, `Main.lean`,
+`Verify/` or `Setlec/SetR/Install/` was touched; no file was deleted.**
+
+Elaboration cost, measured cold: `BitReads` 1 s, `IndProjKitP` 2 s,
+`IndBottomProjP` **14 s**, `IndPinRowP` 1 s, `IotaRulePlainP` 2 s,
+`IotaRuleNestedP` 2 s.
+
+### Reuse: what already existed and was not rebuilt
+
+Every part 4–8 stage, spent unchanged: `zipperP`, `fireP`, `reductP`,
+`pointP`, `sidesMemP`, `eqFormerKeyP`, `annotOkP_tower_body_sat`,
+`hokA_padded`, `ctxOkP_of_openers`, `sat2_of_tower`,
+`teleFitPA_of_tower`, `teleFitPA_to_chain`, `annotTransportP`,
+`nestedPinFireP`, `nestedPinGradeP`, `pinCrossP`, `nestedChainP`,
+`instPisAt_denoteP_defined`, `instPisAt_denoteP_cross`,
+`instPisAt_domsP_graded`, `stripPis_denotePTele`,
+`openPisAtFvars_denotePTele`, `instLamsAt_denotePTele`, `LamTeleP`,
+`denoteP_openRev`/`_base`, `denoteP_erasedEq`, `denoteP_renameConsts`,
+`denoteP_lift`, `denoteP_depth_of_closed`, `denotePInstLevels`,
+`denoteP_mkAppN_inv`, `instSeqP_bvar_full`, `WScoped_sharpen`,
+`instPisAt_index_WScoped`, `instPisAt_fvar_residual_arity`,
+`instPisAt_isSome_of_stripPis`, `stripPis_renameConsts`,
+`Expr.instSeq_renameConsts`, `Expr.instSpine_eq_instSeq`,
+`openRev_instantiateLevelParams`, `nestedLvlsLength`,
+`nestedRuleShape_inv`, `annotate_syntax`, `recRulePlain_le_mIT`,
+`recRulePlain_leT`, `recFireComparands_plain`/`_nested`,
+`blockRenameOkP`, `inferTypeCore_WScoped`/`_fvarLeaves`/`_looseBVars`.
+
+### Carried traps, plus this batch's three
+
+Unchanged: grading descends TOP-DOWN along the satisfying environment;
+trap G (absorb lift-then-instantiate before unfolding `cons`);
+`denoteP_lift` takes `WScoped`; `instPisAt_domsP_graded`'s membership
+premise is bounded by the index; `CtxOkP`'s per-leaf obligation is a
+semantic equation; the renaming bridge is free at equal opener
+indices; **a run carries neither reading nor grading**; the statement
+carries its own establishment material; the determinism trick for
+contravariant readings; `.prf` is not a padding element;
+`chainP V σ (opener spine) ≠ σ`; `Option.getD` after `rw [List.getD,
+h]` needs an explicit `rfl`; a stage written before its first consumer
+carries over-general premises; `omega`'s cost is exponential in the
+`take`/`drop`/`append`/`replicate` length atoms in the local context;
+**`obtain rfl : a = b` may eliminate EITHER side** (paid three times
+this batch — in `PiTeleP.det`'s `succ` case, at `vR1 = vr0`, and at
+`instPisAt_openerDomsP`'s `A' = A ∧ B' = Bv`, where the text after the
+`obtain` has to be written in the *surviving* names).
+
+New:
+
+1. **`(a :: sp).length` does not reduce to `sp.length + 1` for `rw`.**
+   An induction over a spine whose conclusion mentions the spine's
+   length needs `simp only [List.length_cons]` in *each* branch before
+   any `show`/`rw` on the arithmetic; the goal displays as
+   `(x :: sp).length - 1 - q` and no `omega`-shaped rewrite matches it.
+2. **`EnvWF`'s destructuring gives facts about
+   `c.toConstantVal.type`, not about the `ConstantVal` you named it
+   with.**  Passing them as arguments is fine (defeq), but any `rw`
+   with them fails.  Re-`have` them at the spelled-out type once, at
+   the top: `have htyw : cvA.type.hasFvar = false := htyw0`.  The same
+   applies to `mp.type_reads`/`mem_typeP`/`type_okP` outputs.
+3. **`swap` is not available; use an `obtain … : <type> := by rcases`
+   to dispose of the impossible branch first.**  Spelling the surviving
+   branch's type out (here `IotaThmR …`) costs three lines and keeps
+   the long branch at bullet depth 0.
+
+### Inventory for item 4's remainder (measured at this seal)
+
+What `indRecsFoldP`/`indRecsP` need that does **not** yet exist:
+
+| v1 piece | at P? |
+| --- | --- |
+| `iotaRuleS` | **yes** — `iotaRuleP` |
+| `iotaRulesS` (the row half) | **yes** — `iotaRulesP` |
+| `blockRenameOkT` | yes — `blockRenameOkP` (part 4) |
+| `RuleFactsS`'s syntactic clauses | V-free; the v1 fold establishes them |
+| `provisionRecsS` (builds the provisional `EnvS`) | **NO** — the P twin must build `EnvS2PM V μ envSelf`, i.e. *all* twelve fields at the rule-less provisioned group |
+| `RecRuleLawV.swapS` | **NO** — `RecRuleLawP.swapP`; the statement reads the environment only through `denoteP` and `acval`, so `SwapCongr` should carry it as in v1 |
+| `indRecsFoldS` | **NO** |
+| `indRecsS` | **NO** |
+
+The shape of the remaining work is therefore **environment
+construction, not law production**: every *law* the group owes is now
+produced by `iotaRulesP`, and what is missing is the `EnvS2PM` cons/
+swap machinery that carries it to the group's output environment.  The
+`rec_rules` field is where it lands.
+
+### Resume-here: the bill after part 9
+
+0. Review + merge per protocol.  Three items want a look: the
+   `lamTowerStepP` generalization (strictly stronger, v1's own shape,
+   one call site adapted); the new `Annot/BitReads.lean` (a base-tier
+   file, additive only — `denoteP`'s definition was not touched); and
+   the `ProjFnR` wall above, which is a **statement widening the
+   coordinator must rule on** before item 5 can start.
+1. **Item 4's environment layer** — `provisionRecsP`,
+   `RecRuleLawP.swapP`, `indRecsFoldP`, `indRecsP`.  All the laws are
+   in hand; this is `EnvS2PM` construction.
+2. Item 5 (`ProjInstallS`) — **blocked on the `ProjFnR` widening**.
+   Everything else it needs is landed (`indBottomProjP`).
+3. Items 6–8: `DeclIndS`/`SwapS`, `hind` off `FoldP`, THE ASSEMBLY.
+
+**Budget note for the planner**: the cost recipe kept every file in
+this batch under 15 s.  The pattern that did it, beyond part 8's two
+fixes, is *extract the position-indexed obligation into a stage lemma
+with exactly its premise set* — `projSpineMemP` and `nestedPinRowP`
+are both that shape, and both elaborated in ≤ 2 s while their
+consumers stayed flat.
+
+## Task #161 SUCCESSION RECORD update (part 9 merged + the FIFTH
+widening applied, 2026-09-02; coordinator-granted and -ratified)
+
+Lane `agent/annot-v2`: part 9 merged at `e9b85e1a` (the projection
+bottom + five proj kits + the totality bridge + the rule-law layer),
+then the **fifth application of fix shape 0 applied by the lead's
+hand** — full battery green before AND after (build 463
+warning-free, test exit 0, arena counters at expectation, zero
+sorries).
+
+THE WIDENING (the fifth exposure's rows):
+
+* `ProjFnR` (`SetR/Decl.lean`): the two sides-pack run conjuncts —
+  `(∃ tl, inferTypeCore μ env' F (nP+nF) (getD 1) = .ok tl ∧
+  isDefEqCore … tl (getD 0) = .ok true)` and the `tr`/(getD 2) twin
+  — beside the `∀ φ, IotaSidesTyR` derivation pack
+  (`checkIotaSidesTy`'s body, `Modeled.lean:36-41`);
+* producer (`Bridge/Decl.lean`): `hsty1, hsty2` from
+  `checkProjIota_inv` WERE ALREADY IN HAND — slotted into the refine
+  tuple VERBATIM (zero new proof text; fifth consecutive instance);
+* consumer: `ProjInstallS.lean` one destructure gains two dashes.
+
+### Discipline ledger, three entries (coordinator-directed)
+
+1. **WIDENING-AVOIDED**: `denoteP_isSome_of_denote` (the totality
+   bridge) — the P tier's `∃ Ra` read off the v1 derivation rows
+   because `denoteP` and `denote` share every failure guard.  The
+   limiting-case check (does the statement's own shape carry the
+   material?) is NOW PART OF THE WIDENING PROTOCOL ITSELF: run it
+   before proposing a row.
+2. **The Prop-motive stop-and-name RETIRES UNUSED** — the campaign's
+   last flagged risk: the squash regime is localized to the basis
+   tier, where it was already paid (`eqRecLawP`).  The ind tier's
+   rows fire semantically.
+3. **Recipe amortization**: the elaboration-scaling recipe applied
+   from the start costs 14 s where learning it cost 83 s (and not
+   applying it cost ∞ — the unelaboratable inline nested bottom).
+
+`lamTowerStepP` narrowing endorsed as reviewed.
+
+AFTER THIS SEAL: PART 10 on the remaining bill — the environment
+half (`provisionRecsP`, `RecRuleLawP.swapP`, `indRecsFoldP`,
+`indRecsP` — EnvS2PM construction, not law production), the
+projection install transpose (UNBLOCKED by this widening),
+`DeclIndS`/`SwapS`, `indStepPB_of`, `hind` off `FoldP`, THE
+ASSEMBLY at the frozen letter.  NO FLAGGED RISKS REMAIN ANYWHERE ON
+THE BILL — everything left is construction.  Census: `hμ` +
+`IndStepPB`, never conditional.  The census moves when it moves.
+
+## Task #161 IND TIER, part 10: THE CAMPAIGN CLOSES — the environment
+half, the projection install, the block assembly, and
+`no_proof_of_Empty_P` at the frozen letter (2026-09-02)
+
+Briefed with the whole remaining bill, all construction, no flagged
+risks.  **Every item landed.**  The inductive tier's routed bundle
+`IndStepPB` is discharged, `hind` is off `FoldP`, and the capstone
+stands at the frozen letter with axioms exactly the standard three.
+Nothing conditional was landed; zero sorries.
+
+### Per-commit table
+
+| commit | what landed |
+| --- | --- |
+| `7435268e` | **the P swap** — `denoteP_env_ext`, `denoteP_swap`, `RecRuleLawP.swapP`, `EnvS2PM.swapP` (`Interp2/SwapP.lean`, new, 330 lines) |
+| `eb605c11` | **item 1** — `indRecsFoldP`, `indRecsP`, `RecLawsAtP`, `blockAcvalInstalled_swap` (`Interp2/IndRecsP.lean`, new, 225 lines) |
+| `165ca89c` | **item 2** — `ProjPhaseAcvalP`, `projFwd_renameOkP`, `projPhaseAcvalP_cons` (`Interp2/ProjRenameP.lean`, new, 152); `blockAcvalInstalled_fresh_cons`, `projConsP` (`Interp2/ProjConsP.lean`, new, 262); `projFnP`, `projInstallP`, `templateValP`, `templateConsP`, `templatesP` (`Interp2/ProjInstallP.lean`, new, 593) |
+| `e150b0fc` | **items 3-5** — `declIndP` (`Interp2/DeclIndP.lean`, new, 301); `IndStepPB` re-shaped + `indStepPB_of`; `hind` removed from `declStepPM`/`foldPM`/`checkDecls_sound_P_of`/`no_proof_of_Empty_P_of` (`Interp2/FoldP.lean`) |
+| `2e91e9f9` | **THE ASSEMBLY** — `no_proof_of_Empty_P` at the frozen letter (`Interp2/FoldP.lean`) |
+
+### THE HEADLINES, in order of what they save the successor
+
+* **THE CAPSTONE STANDS, UNCONDITIONALLY.**  Elaborated signature,
+  verbatim:
+
+  ```
+    Setlec.SetR.Interp2.no_proof_of_Empty_P :
+      ∀ (V : Type u_1) [Setlec.SetTheory V] {μ : Setlec.CheckMode},
+        μ.verified = true →
+          ∀ {F : Nat} {ds : List Setlec.Declaration} {env' : Setlec.Env},
+            Setlec.checkDecls μ (Setlec.fueledOps μ F) ds = Except.ok env' →
+              ∀ (c : Setlec.ConstantInfo),
+                c ∈ env'.consts →
+                  c.toConstantVal.type = Setlec.Expr.const Setlec.emptyName [] → False
+  ```
+
+  Letter for letter what `CapstoneP.lean`'s docstring froze before the
+  harvest layer was built.  Hypotheses are input-level only; `SetTheory
+  V` is the project's standing parametricity, not an input assumption.
+  **Census: `hμ` alone, and `hμ` is part of the goal's own words.**
+
+* **THE P SWAP IS AN EQUATION, AND THAT IS WHY THE ENVIRONMENT HALF IS
+  CHEAP.**  `denoteP_env_ext` — the `denote_env_ext` mirror — has **no
+  `ConstsBound` premise**, unlike every crossing the campaign has used
+  so far (`denoteP_envExtend_mono`).  A swap changes no stored *name*,
+  so the reading's three environment consultations (the `.const`
+  clause's `find?`, consulted only through the stored level parameters;
+  the two literal guards; the string spine's `levelParamsAt`) are all
+  congruent, and every field of `EnvS2PM` crosses in **both**
+  directions.  The determinism trick — the campaign's standard device
+  for contravariant readings — is *not needed anywhere in this file*.
+  Whenever a P-tier obligation crosses a name-preserving environment
+  correspondence, reach for this and not for the cons machinery;
+
+* **THE P FOLD THREADS ONE INVARIANT WHERE v1's THREADS SEVEN.**
+  `indRecsFoldS` carries `SwapShList`, `SwapNResS`, two `FoldUpS`es, the
+  `Eq` lookup, the member list and the entry list because it must build
+  `EnvS.swap`'s inputs (`EnvWF`, `RecCtorsStored`, `RecRulesV`) and the
+  swap data.  **None of that is V-tier content**: it is all V-free, the
+  install runs `indRecsFoldS` anyway, and `EnvS2PM.swapP` was therefore
+  re-aimed to take the *v1 carrier at the swapped environment* as a
+  premise rather than rebuild it.  What is left for the P fold is one
+  row — `RecLawsAtP` at the accumulator — and the induction is 25 lines.
+  832 v1 lines → 225 P lines, **0.7 s**.  The recipe: when a v1 fold's
+  outputs split into "V-free bookkeeping" and "rows", transpose only the
+  rows and *call the v1 fold* for the rest;
+
+* **`provisionRecsP` NEEDED NOTHING**: `provisionRecsPM` (part 2) is
+  already the joint provisioning fold, because `memberInstallPM`'s
+  `hkind` disjunct covers the rule-less recursor shape — the same
+  economy `memberInstallS` gives v1.  Bill item 1's first name was
+  already spent;
+
+* **THE PROJECTION INSTALL: the fifth widening cashes in two lines
+  each.**  `indBottomProjP`'s `hsideL`/`hsideR` are `ProjFnR`'s new
+  rows after one `rw [hargs3]; simpa` apiece — the fifth consecutive
+  instance of fix shape 0 landing at zero new proof text on the
+  consumer side.  Everything else in `projFnP` is v1's own script with
+  the P currency substituted:
+
+  | v1 move | P move |
+  | --- | --- |
+  | `projFwd_renameOkT hinv` | `projFwd_renameOkP hinv hinvA` — **first two clauses are literally v1's** (`RenameOkT` and `RenameOkP` share them); only the valuation clause is re-proved |
+  | `m.mem_type` at the model defn | `EnvS2PM.acval_memTypeP` — reading, grading and membership in one call |
+  | `hiA.denoteUp` (the rhs reading up) | `denoteP_cons_fresh_mono` |
+  | `hiA.denoteDown` (`hTV`, `hTVj` down) | **the determinism trick** — produce the prefix reading, move it forward, identify by `Option.some.inj`.  `pty`'s prefix reading comes from the roundtrip pin + `denotePInstLevels`; the constructor type's from `constTypeP` |
+  | `Infer.sound` at `hrhsKeyS` | `iotaRulePlainP`'s three-part `hrhsKey`: `denotePClosed_isSome_of_denoteClosed` on the v1 derivation, `InferReadsP` on the recorded run, `InferClaims2P` at `Sat2_nil` |
+
+* **`ProjPhaseAcvalP`: the phase invariant splits the way the block
+  invariant did.**  v1's `ProjPhaseInvS` has three conjuncts, each
+  pairing a *lookup* (the model artifact is stored, with matching level
+  parameters) with a *valuation* identification.  The lookups are
+  V-free and are consumed from the v1 predicate directly; the P tier
+  stores only the three `acval` equations — the exact
+  `BlockInstalledTT`/`BlockAcvalInstalled` split part 2 introduced for
+  the member phase.  **Do this at every v1 predicate that mixes lookups
+  with valuations**; it halves the transposition and makes the cons
+  lemma a name-distinctness argument;
+
+* **THE ELIMINATION TEMPLATE'S LEAF IS FORCED, AND `.prf` IS FINE
+  HERE.**  The entry has no model artifact, so the install chooses a
+  leaf; v1 chose `VExpr.eqE (.sort 0) .prf .prf`, and the reading must
+  *erase* to it, so `templateValP := .eqE (.sort 0) .prf .prf` is the
+  only choice.  The standing trap ("`.prf` is not a valid padding
+  element") does **not** bite: it is about the *spine* padding of part
+  4, where `annotOkP_instSeq` charges the padding a membership
+  (`pt_not_mem_univZero`).  Here the `.prf`s sit inside `eqv`'s
+  arguments, which no membership obligation reads, and the entry's own
+  obligation is `eqv pt pt ∈ˢ univ 0` — `eqv_mem_univ`, blind to its
+  arguments.  Record the distinction: **the padding trap is about
+  positions, not about the constructor**;
+
+* **THE PROJECTION FOLD IS THE ONE PLACE THE TWO TIERS ARE COUPLED.**
+  Everywhere else the P phase can take the v1 carrier as a premise and
+  let the install supply it.  Not here: `projConsP` needs
+  `EnvS V ⟨c₀ :: env'.consts⟩` *constructively*, and the **next** step's
+  v1 premises (`ProjPhaseInvS`, `BlockInstalledTT`) are the **previous**
+  step's v1 outputs — so a separate v1 fold would have to be re-run from
+  scratch at every index.  `projFnP`/`projInstallP` therefore call
+  `projFnS`/`projInstallS` and carry both tiers.  The member phase
+  (`memberInstallPM`, part 2) discovered the same coupling and solved it
+  the same way; the recursor group did **not** need it, because its P
+  half consumes the v1 fold only through V-free outputs;
+
+* **`IndStepPB` gained a premise, and it is a shape not a residue.**
+  `EtaFamiliesClosed env` is what the inductive install consumes
+  (`EtaFamiliesClosedO` at the block, the member fold's η side
+  condition), it is not derivable from `EnvS2PM`, and `declStepPM`
+  already **owns** it — it is the v1 fold's second half, carried
+  through `EnvSPOk` at every prefix.  Adding it to the bundle's
+  signature and passing it at the call site costs nothing and reaches
+  the capstone not at all.  The general rule the campaign should keep:
+  *a routed bundle may name any fact the fold already carries; only
+  facts the fold cannot produce are census entries.*
+
+### The bill, item by item
+
+1. **`provisionRecsP`, `RecRuleLawP.swapP`, `indRecsFoldP`, `indRecsP`
+   — DONE** (`7435268e`, `eb605c11`).  `provisionRecsP` was already
+   `provisionRecsPM`.
+2. **`ProjInstallS` — DONE** (`165ca89c`), unblocked by the fifth
+   widening and consuming it verbatim.
+3. **`DeclIndS` + `SwapS` — DONE** (`7435268e`, `e150b0fc`).
+4. **`indStepPB_of` — DONE** (`e150b0fc`).  `IndStepPB` was already
+   stated in `FoldP.lean`; it was re-shaped with the
+   `EtaFamiliesClosed` premise (see the headline) and then discharged.
+   **No stop-and-name arose**: the re-shaped bundle is exactly what
+   `no_proof_of_Empty_P_of` consumes, since `declStepPM` supplies the
+   premise from `EnvSPOk`.
+5. **`hind` off `FoldP` — DONE** (`e150b0fc`).  Census: `hμ` alone.
+6. **THE ASSEMBLY — DONE** (`2e91e9f9`), at the frozen letter.
+
+### IND TIER part 10 battery (verbatim, at `2e91e9f9`)
+
+`lake build` **469 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to parts 1-9's, and for the same reason: the batch's diff
+touches no `Setlec/Kernel/*` file.  Zero sorries (the only `sorry`
+hits in the tree are the `sorryAx` *name* in the taint machinery and
+`tests/e2e/src/sorry_use.lean`, both pre-existing).
+
+Axiom audit, verbatim:
+
+```
+'Setlec.SetR.Interp2.no_proof_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.no_proof_of_Empty_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.checkDecls_sound_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indStepPB_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.declIndP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.denoteP_env_ext' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.denoteP_swap' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.RecRuleLawP.swapP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.EnvS2PM.swapP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indRecsFoldP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indRecsP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.blockAcvalInstalled_swap' depends on axioms: [propext]
+'Setlec.SetR.Interp2.projFwd_renameOkP' depends on axioms: [propext, Quot.sound]
+'Setlec.SetR.Interp2.projPhaseAcvalP_cons' depends on axioms: [propext, Quot.sound]
+'Setlec.SetR.Interp2.blockAcvalInstalled_fresh_cons' depends on axioms: [propext, Quot.sound]
+'Setlec.SetR.Interp2.projConsP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.projFnP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.projInstallP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.templateConsP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.templatesP' depends on axioms: [propext, Classical.choice, Quot.sound]
+```
+
+New files: `Interp2/SwapP.lean` (330), `Interp2/IndRecsP.lean` (225),
+`Interp2/ProjRenameP.lean` (152), `Interp2/ProjConsP.lean` (262),
+`Interp2/ProjInstallP.lean` (593), `Interp2/DeclIndP.lean` (301).
+Edited: `Setlec/SetR.lean` (six imports), `Interp2/FoldP.lean` (the
+`IndStepPB` re-shape, `indStepPB_of`, the `hind` removals, the
+capstone), `DESIGN.md`.  **No frozen statement moved; nothing in
+`Setlec/Kernel/*`, `Main.lean`, `Verify/` or `Setlec/SetR/Install/`
+was touched; no file was deleted.**
+
+Elaboration cost, measured cold: `SwapP` 0.9 s, `IndRecsP` 0.7 s,
+`ProjRenameP` 0.7 s, `ProjConsP` 0.8 s, `ProjInstallP` **1.3 s**,
+`DeclIndP` 0.9 s, `FoldP` 0.7 s.  **The whole batch elaborates in
+under 6 s**, against part 8's single 83 s file: the scaling recipe
+applied from the first line, plus the "transpose the rows, call the v1
+fold for the bookkeeping" economy, which keeps every proof's local
+context small.
+
+Transposition ratio, measured: 2442 v1 lines
+(`IndRecsS` 832 + `ProjInstallS` 1044 + `DeclIndS` 352 +
+`SwapS` 214) → **1863 P lines**, i.e. **0.76×** — the campaign's first
+sub-unity batch, and the reason is exactly the two economies above.
+
+### Reuse: what already existed and was not rebuilt
+
+Every part 1-9 product, spent unchanged: `iotaRuleP`, `iotaRulesP`,
+`indBottomProjP`, `indBottomPlainP`, `indBottomNestedP`,
+`memberInstallPM`, `indMembersPM`, `provisionRecsPM`, `memberKeyP`,
+`memberEtaLawP`, `memberUnitLawP`, `projEtaLawP`,
+`capsOkP_cons_proj`, `capsOkP_cons_member`, `recRulesP_cons_fresh`,
+`recRulesP_cons_rec`, `recRuleLawP_cons_prefix`,
+`declStepPM_of_ind_cons`/`_ind_rec_cons`/`_projTemplate_cons`/
+`_ind_member_cons`, `blockRenameOkP`, `denoteP_renameConsts`,
+`denoteP_cons_fresh_mono`, `denoteP_envExtend_mono`,
+`denotePInstLevels`, `denoteP_isSome_of_denote`,
+`denotePClosed_isSome_of_denoteClosed`, `EnvS2PM.acval_memTypeP`,
+`EnvS2PM.constTypeP`, `acvalWith_self`/`_ne`,
+`constsBound_of_constsResolve`, `constsBound_instType`,
+`checkSoundAtP`, `TierInputsAtP.ofSem`, `inferReadsP_of`,
+`acceptedReadsP_of`, `eqv_mem_univ`, `AnnotOk2_eqE`,
+`AnnotValidV_eqE`, `interp2_eqE`/`_sort`/`_prf`.
+From v1, called rather than transposed: `indRecsFoldS`, `indRecsS`,
+`projFnS`, `projInstallS`, `projConsS`, `templateConsS`,
+`projFwd_renameOkT`, `projPhaseInvS_cons`, `projStmtParts`,
+`etaPins_of_indBlockCaps`, `etaPins_empty`, `EtaPins.step`/
+`.transport`, `provisionRecsS_mono`/`_mem`/`_stored`/`_fresh`/
+`_nameGuards`, `indRecsR_mono`/`_fresh`/`_noInd`/`_nameGuards`,
+`indMembersR_mono`/`_fresh`/`_stored`/`_indEntry`/`_ctorEntry`/
+`_indNew`/`_nameGuards`, `blockRenameOkT`, `SwapShList.congr`,
+`swapSh_find?_corr`, `swapSh_mem_corr`, `EnvS.swap`, `levelParamsAt_ext`.
+
+### Walls: none
+
+No row was missing, no premise was owed, and the fifth widening was
+the last one the campaign needed.  Every `STOP-AND-NAME` slot on the
+bill retired unused.
+
+### Carried traps, plus this batch's three
+
+Unchanged: grading descends TOP-DOWN along the satisfying environment;
+trap G; `denoteP_lift` takes `WScoped`; `instPisAt_domsP_graded`'s
+membership premise is bounded by the index; `CtxOkP`'s per-leaf
+obligation is semantic; the renaming bridge is free at equal opener
+indices; a run carries neither reading nor grading; the statement
+carries its own establishment material; the determinism trick for
+contravariant readings; `.prf` is not a *spine* padding element (see
+the headline for the position-vs-constructor refinement); a stage
+written before its first consumer carries over-general premises;
+`omega`'s cost is exponential in the length atoms; `obtain rfl` may
+eliminate EITHER side (paid once here, at `cnP' = nP` in `projFnP`,
+where `nP` is the side that dies).
+
+New:
+
+1. **`obtain ⟨…⟩ := f … ?_ …` does NOT reliably create goals for the
+   `?_` holes.**  Paid twice (in `projConsP` and in `templateConsP`):
+   the bullets after the `obtain` either say "No goals to be solved"
+   or focus the wrong goal, depending on where the main goal lands.
+   The fix is mechanical and also *reads* better: name every
+   obligation as a `have` **before** the application, then apply it
+   with all arguments explicit.  Never write `?_` inside an `obtain`'s
+   right-hand side.
+2. **Inserting a binder into a theorem signature before the binders it
+   mentions silently auto-bounds a fresh variable.**  Adding
+   `{c₀} (hc₀ : c₀ = projEntry T lps pty nP i rules)` above
+   `{pty : Expr}` produced `pty✝` and a `rfl` failure two hundred
+   lines later.  When a proof mentions a shadowed-looking name
+   (`pty✝`) in an error, check binder *order* first.
+3. **To name a big syntactic object opaquely in a theorem's own
+   conclusion, take it as a parameter with its defining equation**
+   (`{c₀ : ConstantInfo} (hc₀ : c₀ = …)`), not as an `obtain` inside
+   the proof: an `obtain`-introduced local cannot appear in the goal,
+   so the conclusion stays written out and every `rw` on it fails.
+   The caller instantiates with `rfl` and gets the spelled-out
+   statement back.
+
+### Succession position, and the measured inventory
+
+**The ind tier is CLOSED.  The P4 campaign is CLOSED.**  There is no
+next item on the bill: `IndStepPB` was the last routed bundle, and
+with `indStepPB_of` the fold's census is `hμ`, which is part of the
+capstone's own letter.
+
+Measured at this seal:
+
+| tier | routed bundles | status |
+| --- | --- | --- |
+| pin/axiom (`AxiomStepPB`) | 0 | closed, ENDGAME D |
+| basis (`BasisStepPB`) | 0 | closed, ENDGAME H |
+| inductive (`IndStepPB`) | 0 | **closed, part 10** |
+| literal / caps / proj-str / iota | 0 | closed at their seals |
+| totality (`accepted_reads`) | 0 | closed, `acceptedReadsP_of` |
+
+## Task #161 CAPSTONE RECORD: `no_proof_of_Empty_P` (2026-09-02)
+
+**What is proved.**  For any model `V` of the `SetTheory` interface:
+if the checker runs in a *validating* mode (`μ.verified = true`) and
+accepts a declaration stream at some fuel — `checkDecls μ (fueledOps μ
+F) ds = .ok env'` — then no constant stored in `env'` has type
+`Empty`.  In particular the accepted stream contains no proof of
+`False` under the preprocessor's `Empty` encoding, and the checker is
+consistent on sort-annotated syntax.
+
+**Where it lives.**  `Setlec/SetR/Interp2/FoldP.lean`, beside the
+milestone form `no_proof_of_Empty_P_of` (which now also carries no
+bundle).  The statement was frozen in `Interp2/CapstoneP.lean`'s
+docstring *before* the harvest layer existed, and it landed letter for
+letter.
+
+**Axioms**: `[propext, Classical.choice, Quot.sound]` — exactly the
+three standard ones.  No custom axiom, no `sorry`, no conditional
+form, at any point of the chain.
+
+**The chain, in one line each.**
+
+1. `EnvS2PM.empty` — the empty environment carries the P invariant.
+2. `declStepPM` — one accepted declaration steps it, by kind:
+   value kinds through the harvests, axioms through `axiomStepPB_of`,
+   basis blocks through `basisStepPB_of`, inductive blocks through
+   `indStepPB_of`.
+3. `foldPM` — `foldlM_R`'s recursion at the invariant.
+4. `checkDecls_sound_P_of` — an accepted stream ends at an environment
+   carrying it.
+5. `no_constant_of_Empty_P` (`CapstoneP.lean`) — such an environment
+   stores no constant of type `Empty`: the membership is `mem_typeP`
+   at the `denoteP` reading, the reading of `.const emptyName []` is
+   the leaf by the constant clause, and the leaf's `interp2` value is
+   the empty set by erasure injectivity plus `EnvS.empty_pinned`.
+
+**What the hypotheses are, and are not.**  `μ.verified = true` is part
+of the goal's letter — the annotated checker *is* the verified mode,
+and `--no-model` ignores annotations by design.  `[SetTheory V]` is the
+project's standing parametricity rule (consistency proofs stay
+parametric in the interface), not an assumption about the input.
+Everything else is the input: the run, the constant, its type.
+
+## Task #161 P4 FRONTIER TABLE, FINALIZED (2026-09-02)
+
+The running tally at DESIGN.md §"Task #161 P4 frontier-transformation
+record" is hereby **closed**.  Its last standing line —
+
+> **Still routed in P, by discharge tier**: `iota_pins` only, beside
+> `accepted_reads`.
+
+— is now empty.  The final ledger:
+
+| canonical lane (sort-run `interp2`) | validated-annotation lane (P) |
+| --- | --- |
+| froze at `Capstone2E`'s **fifteen** routed residues, on the sort-stability family (`BinderSortAgree2`, `SortSem2`, `SortAgree`, `SortOfE/LamSortEInstLevels`, `EnvExtendStable`, …) | **all fifteen dissolved or proved** — see the running tally's table, unchanged |
+| the semantic tiers were never reached (the lane froze earlier) | literal, caps, proj/str, iota, totality: **all closed**, each at its own seal |
+| the install tier was never reached | pin/axiom, basis, **inductive**: all three closed (`axiomStepPB_of`, `basisStepPB_of`, `indStepPB_of`) |
+| capstone: conditional, on fifteen coherence residues | capstone: **unconditional**, `hμ` alone |
+
+**The measured claim, final.**  Validated annotations did not merely
+move the frontier; they *dissolved* it.  What replaced the coherence
+frontier was the ordinary semantic content of the checker's features —
+and that content was payable, tier by tier, in 10 batches, with five
+applications of fix shape 0 (the H1 widenings: `IotaThmNR`'s typed
+walks, `IotaRunsR`'s side runs, `IotaRuleR`'s rhs run, `ProjFnR`'s rhs
+run, `ProjFnR`'s sides-pack runs), each of which cost **zero new proof
+text at the producer** because the checker had already run what the P
+tier needed and the v1 install simply had not recorded it.
+
+**The three lessons, for the successor campaign.**
+
+1. **Record runs, not just derivations.**  Every one of the five
+   widenings was the same species: the checker performs a run, the v1
+   install needs only its *derivation*, and the P tier needs the run.
+   Derivation → run is refuted for a fuel-bounded checker (the part-3
+   countermodel), so the row cannot be recovered after the fact.  A
+   relation that records what the checker *did* costs nothing and
+   saves a wall.
+2. **The limiting-case check comes before the widening.**  Ratified as
+   part of the protocol at part 9's seal, and it retired one proposed
+   row on the spot (`denoteP_isSome_of_denote`: the P tier's `∃ Ra`
+   was already implied by v1's derivation, because `denoteP` and
+   `denote` share every failure guard).
+3. **A grading is a typing derivation, and the tier that pays for
+   typing gets the syntax for free.**  The div/mod mirror measured it
+   (~1400 P lines against 2880 v1), and this batch measured it again
+   at the install layer: 2442 v1 lines → 1863 P lines.
+
+## Task #161 THE CLOSING RECORD (2026-09-02; coordinator-granted
+final merge)
+
+Lane `agent/annot-v2`: part 10 merged at `0ab7632f`.  Full lane
+battery green (build 469 warning-free, test exit 0, arena exit 0,
+all counters at expectation, zero sorries).
+
+**The capstone axiom audit, re-run on the merged lane, verbatim:**
+
+```
+Setlec.SetR.Interp2.no_proof_of_Empty_P : ∀ (V : Type u_1) [Setlec.SetTheory V] {μ : Setlec.CheckMode},
+  μ.verified = true →
+    ∀ {F : Nat} {ds : List Setlec.Declaration} {env' : Setlec.Env},
+      Setlec.checkDecls μ (Setlec.fueledOps μ F) ds = Except.ok env' →
+        ∀ (c : Setlec.ConstantInfo),
+          c ∈ env'.consts → c.toConstantVal.type = Setlec.Expr.const Setlec.emptyName [] → False
+'Setlec.SetR.Interp2.no_proof_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.no_proof_of_Empty_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.checkDecls_sound_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indStepPB_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+```
+
+The frozen letter (CapstoneP.lean §the letter) is matched verbatim.
+Census: `hμ` alone — the mode bit, the accepted run, the stored
+constant, its type.  Nothing else.
+
+## Task #161 CAMPAIGN RECORD (the publishable artifact's spine)
+
+**The claim.**  The annotated checker's verified mode is consistent:
+no accepted stream stores a constant of type `Empty`.  Unconditional,
+input-level hypotheses only, on the three standard axioms, zero
+sorries, machine-checked end to end against the executing checker
+(not a model of it — the arena batteries ran at every seal).
+
+**The route.**  The run-certificate doctrine: every fact the P tier
+needs is read off a pin, a recorded checker run, or forced by regime
+disjointness — NOT ONE BIT CHOSEN (the endgame-E total form).  The
+checker's own executions, recorded as statement rows, are converted
+through the claims layers (`DefEqClaims2P`/`InferClaims2P`) at
+pre-insertion environments.  The refuted alternative (v1 law
+transfer, `interp2_ne_interp_erase`) is mechanized in the tree.
+
+**The widening count: FIVE APPLIED, ONE AVOIDED.**
+1. `IotaRunsR` + `ProjFnR`'s front-door run (d7c4c184) — the H1
+   exposure's first transcription;
+2. `DefEqListOk`/`TypedListOk` beside the derivation walks
+   (2cee346b) — the grading supply;
+3. `IotaRuleR`'s rhs run (17b1855b);
+4. (= widening 3's sibling at `ProjFnR`, recorded there from the
+   start — the docstring named the species before the campaign met
+   it again);
+5. `ProjFnR`'s sides-pack runs (85c16651) — the last.
+AVOIDED: the `∃ Ra` row — `denoteP_isSome_of_denote` read totality
+off the v1 derivation rows; the limiting-case check (part 8's
+ErasedEq readings, part 9's totality bridge) is now part of the
+widening protocol.  Every applied widening was producer-discharged
+VERBATIM: the checker's runs were always in hand, converted once and
+dropped — the statements merely stopped discarding them.  By the
+end, a widening cost two tuple insertions and two dashes.
+
+**The retired stop-and-name slots.**  Every one retired unused or
+dissolved: the eqRecLawP Prop-motive case (squash localized to the
+basis tier, already paid); the IndStepPB shape conflict (none — the
+bundle re-shaped to what its consumer supplies); the repaired
+conjunct's establishability (proved, `nestedPinGradeP`); the
+chosen-bit license (RETIRED-UNUSED, endgame E).
+
+**The false-conjunct arc** (the campaign's hardest lesson, in three
+batches): the iota-seal ∃-form pin conjunct was ratified on a note
+that named the wrong object ("the install validates the pins" — the
+install validates `pinsP`, the instantiated pins, context-guarded).
+Part 6's coordinator-endorsed probe REFUTED it before one
+establishment lemma was spent — measured on the executing checker,
+mechanized in syntax and semantics.  The ratified repair (the
+context-guarded chain grading, `TeleFitPA` as the chain
+environment's `Sat2` in closed form) was proved sound at BOTH ends
+by part 7 (`nestedPinGradeP`).  Probe-before-establishment is the
+campaign's exportable discipline.
+
+**The ledger's claims family** (each entry a way a "fact" was only a
+claim until checked): a recorded wall is a claim; a ratified
+license/seal is a claim (re-check by #eval); a route is a claim
+(check against the frozen letter before walking); a ratified
+conjunct is a claim (probe before establishment); an audit
+("this is the last row") is a claim (its test is the next batch);
+a stage written before its first consumer carries over-general
+premises (the producer-side dual).  The honesty law ran in both
+directions and, twice, within a single batch.
+
+**The residue narrative, before → after.**  Before: the census
+carried named tier bundles — literal, caps, proj/str, iota,
+AxiomStepPB, BasisStepPB, IndStepPB — each a summit IOU.  The
+campaign discharged them in order, each species' first example
+proved by the lead, each batch sealed with full battery and zero
+sorries, every statement frozen before its establishment.  After:
+`no_proof_of_Empty_P_of` = `hμ`; the assembly is one commit alone;
+the P4 frontier-transformation table's last line (`iota_pins`) is
+EMPTY.  There is no residue.  The conditional-forms ruling was never
+breached: no intermediate conditional shape was ever offered as
+done.
+
+**Cost telemetry** (for successors): S→P expansion 2× early
+(bottoms with the scaling recipe unlearned), 0.76× late (the recipe
++ mature kits); the recipe (opaque locals + stage-lemma extraction
+vs omega's atom-count splitting) took the nested bottom from
+unelaboratable (35 GB) to 83 s, and the projection bottom to 14 s,
+part 10's whole batch under 6 s cold.
+
+NEXT: the master sequence per protocol (master merged INTO the
+lane, full gates, master-merge grant requested separately, push
+stays with the user), then the de-gating harvest per the standing
+directive.
+
+## Task #161 SUCCESSION RECORD: canonical home is MASTER (2026-09-02)
+
+The campaign landed: master fast-forwarded to `771f2fed` (223 files,
++70838).  `agent/annot-v2` is retired as a lane; this file on MASTER
+is the canonical record.  The capstone is
+`Setlec.SetR.Interp2.no_proof_of_Empty_P` (`Interp2/FoldP.lean`),
+audited in the closing record above.  Push pending with the user.
+
+## Task #161 DE-GATING HARVEST: the prioritized candidate list
+(2026-09-02; opens the harvest phase — NO gate is removed before its
+own grant round)
+
+Promoted from the enumeration record (`DESIGN.md` §DE-GATING
+ENUMERATION + the iota-tier table + the ratified negative verdict).
+Status changes since enumeration: the `.nested` grading wall that
+gated entry P3 is RESOLVED (the part-6 repair + `nestedPinGradeP`);
+`UnitLawP`'s premise drop (P11b's license) LANDED at the caps seal.
+Each removal is a checker change: measure first (perf counters on
+init-prelude/init-full + `tests/scale.sh`), remove behind its own
+grant, verdict-neutrality battery per removal.
+
+**P1 — #141's non-app certificate tax family** (annotate-side,
+the named 14–16×).  License: validated `pw` + the sealed P tiers.
+Needs per-site enumeration as its first step (the family is named,
+not itemized).  Expected saving: the largest named multiplier in
+the record; annotate is on every declaration.
+
+**P2 — `iotaCerts`' two per-fire telescope runs**
+(`Kernel/Core.lean:1412` + recursor-side; the hottest certificate
+site in the checker).  License: `RecRulesP`'s two `TeleFitPA`
+premises; `certs_telePA` shows the fit is the runs' only content the
+semantics reads.  Keep the arity checks.  Saving: per firing ι
+reduction × (recursor arity + constructor arity).
+
+**P3 — `recFireComparands`' per-fire `defEqList`** (both fire
+branches).  License: `RecRuleLawP`'s `.plain`/`.nested` premises;
+the `.nested` caveat is resolved (repair + producer landed).
+Saving: per firing ι reduction × `ctorParams`.
+
+**P4 — #109's pt-freshness gates** (per-decl freshness scans
+licensing infer_only).  License: P-tier soundness at the validated
+reading (the gate's fact is now a theorem).  Saving: per-decl scans
+on every stream.
+
+**P5 — #71's possibly-Prop-by-inference gates** (iota certs).
+License: `RecRulesP` + validated `pw` (the bit IS the Prop-ness
+datum).  Saving: iota-heavy streams.
+
+**P6 — `strLitSupported` per-literal scan → per-environment flag**
+(`Verify/EnvGuards.lean:114`; seven `find?`s + shape checks per
+literal).  License: `strLitFactsP` reads only `ConstTypeP`, an
+environment-level invariant.  Saving: per string literal.
+
+**P7 — `reduceNat` per-hit guard → single `find?`-hit test**
+(`Core.lean:684+`).  License: `NatOpsP`/`DivModP` guard conclusions
+carried by the fold invariant.  Saving: per accelerated Nat
+reduction (small, hot).
+
+**P8 — `isUnitLikeTy` per-call scan → pinned-name test**
+(`Core.lean:149`).  License: `unitLike_eq_punit`.  Saving: per
+proof-irrelevance attempt (Prop-heavy streams).
+
+**P9 — `projCert`'s four sort-leg runs** (`Core.lean:1381`; 4 of 6
+runs per firing projection: the `uT`/`wT` legs + both `Level.isEquiv`
+comparisons).  License: `projEntry_pins` fixes what they re-derive;
+nothing in `projStepP_of_claims` inspects them.  THE INFER RUN
+STAYS — ratified negative verdict (squash countermodel), never
+re-litigate.
+
+**P10 — `.proj` inference's `piResidual` walk → pinned two-way
+branch** (license: `projResidualP`).  Saving: per `.proj` inference.
+
+**P11 — the stuck-cascade constants**: (a) `pairEtaCertP`'s two
+type-argument runs → shape test (`mem_psigmaV2_app` +
+`psigmaEta_law2`); (b) `structUnitCertP`'s telescope run
+(`UnitLawP`, premise-drop landed); (c) `structEtaCertP`'s per-field
+`iotaCerts` runs (keep the two `defEqList`s); (d) `majorToCtor`'s
+K-rescue `to_cnstr_when_K` pair (`hitfab`/`hdefab`, inspected by
+nothing).  Saving: per-hit constants in the stuck cascade.
+
+**RECORDED NON-CANDIDATES** (never re-litigate): `certifyNatEqs` and
+`checkDivModCerts` (establishment sources of `NatOpsP`/`DivModP` —
+deleting them orphans the model); `projCert`'s infer run (the
+ratified squash countermodel); `majorToCtor` as a block
+(`MajorStepP` consumes every run).

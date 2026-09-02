@@ -846,7 +846,19 @@ def ProjFnR (μ : CheckMode) (F : Nat) (env' : Env) (cval : TConstVal)
             IotaSidesTyR μ env' cval φ (nP + nF)
               (sbodyO.getAppArgs.getD 0 (.bvar 0))
               (sbodyO.getAppArgs.getD 1 (.bvar 0))
-              (sbodyO.getAppArgs.getD 2 (.bvar 0))))) ∧
+              (sbodyO.getAppArgs.getD 2 (.bvar 0))) ∧
+          -- ... and the sides pack's recorded runs (the H1 exposure,
+          -- fifth widening: `checkIotaSidesTy`'s body,
+          -- `Modeled.lean:36-41` — the P tier converts runs, and
+          -- derivation → run is refuted for a fuel-bounded checker)
+          (∃ tl, inferTypeCore μ env' F (nP + nF)
+              (sbodyO.getAppArgs.getD 1 (.bvar 0)) = .ok tl ∧
+            isDefEqCore μ env' F (nP + nF) tl
+              (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true) ∧
+          (∃ tr, inferTypeCore μ env' F (nP + nF)
+              (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
+            isDefEqCore μ env' F (nP + nF) tr
+              (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true))) ∧
     env'' = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
       [⟨ctorName, nF, nP,
         if Expr.recRulePlain pty nP nP nP then .plain else .inert,

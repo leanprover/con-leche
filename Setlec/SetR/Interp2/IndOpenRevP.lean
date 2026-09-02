@@ -204,6 +204,78 @@ theorem DenoteSpineP.of_getD {d : Nat} :
 /-! ## The composite -/
 
 set_option maxHeartbeats 1600000 in
+/-- **`pinCrossP`'s reading direction** (task #161 part 9): the
+`openRev` reading `RecRuleLawP`'s repaired conjunct *existentially
+quantifies* comes from the instantiated pin's own reading, which is
+the object the checker's certificate is about.
+
+The composite below takes the `openRev` reading as a premise and
+produces the instantiated one; the consumer (`iotaRuleNestedP`) has
+the instantiated one — the `TypedListW` row's own denotation, read
+through `denoteP_isSome_of_denote` — and needs the `openRev` one.  The
+same two laws run backwards: `denoteP_openRev` presents the
+instantiated reading as an `Option.map` of the `openRev` one, so the
+former being `some` forces the latter. -/
+theorem pinOpenRevReadsP
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (acval n ψ).liftN 1 k = acval n ψ)
+    (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AVExpr) (k : Nat),
+      (acval n ψ).inst y k = acval n ψ)
+    (hlink : ∀ n ψ, (acval n ψ).erase = cval n ψ)
+    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    {rP cnF : Nat}
+    {os : List Expr} (hoslen : os.length = rP)
+    (hshape : ∀ (i : Nat) (x : Expr), os[i]? = some x →
+      ∃ nm ty, x = Expr.fvar i nm ty)
+    (hwsOs : ∀ x ∈ os, Expr.WScoped (rP + cnF) x)
+    (hbOs : ∀ x ∈ os, x.looseBVarsBounded 0 = true)
+    {p : Expr} (hpw : p.hasFvar = false)
+    (hpb : p.looseBVarsBounded rP = true)
+    {w0 : AVExpr}
+    (hw0 : denoteP acval env φ (rP + cnF)
+      (Expr.instSpine os (rP - 1) p) = some w0) :
+    ∃ vpa, denoteP acval env φ rP (openRev 0 rP p) = some vpa := by
+  have hbvslen : ((List.range rP).map
+      (fun j => AVExpr.bvar (rP + cnF - 1 - j))).length = rP := by
+    rw [List.length_map, List.length_range]
+  have hsp : DenoteSpineP acval env φ (rP + cnF) os
+      ((List.range rP).map (fun j => AVExpr.bvar (rP + cnF - 1 - j))) := by
+    refine DenoteSpineP.of_getD os _ (by rw [hoslen, hbvslen]) ?_
+    intro q hq
+    rw [hoslen] at hq
+    rcases hx : os[q]? with _ | x
+    · rw [List.getElem?_eq_none_iff, hoslen] at hx
+      omega
+    obtain ⟨nm, ty, rfl⟩ := hshape q x hx
+    have h1 : os.getD q default = Expr.fvar q nm ty := by
+      rw [List.getD, hx]
+      rfl
+    have h2 : ((List.range rP).map
+        (fun j => AVExpr.bvar (rP + cnF - 1 - j))).getD q default
+        = AVExpr.bvar (rP + cnF - 1 - q) := by
+      rw [List.getD, List.getElem?_map, List.getElem?_range hq]
+      rfl
+    rw [h1, h2]
+    exact denoteP_fvar acval (rP + cnF) q nm ty
+  have hkey := denoteP_openRev (acval := acval) (env := env) (φ := φ)
+    hacl hainst os (e := p) (d := rP + cnF)
+    (fun a ha => ⟨hwsOs a ha, hbOs a ha⟩)
+    (Expr.fvarsBelow_of_fvarLeaves (fun l hl => by
+      rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hpw] at hl
+      exact nomatch hl))
+    (by rw [hoslen]; exact hpb) hsp
+  rw [hoslen] at hkey
+  have hbase := denoteP_openRev_base (acval := acval) (cval := cval)
+    (env := env) (φ := φ) hacl hlink hcl hpw hpb (rP + cnF)
+  rw [hbase] at hkey
+  rw [Expr.instSpine_eq_instSeq] at hw0
+  rw [hw0] at hkey
+  rcases hv : denoteP acval env φ rP (openRev 0 rP p) with _ | vpa
+  · rw [hv] at hkey
+    exact nomatch hkey
+  · exact ⟨vpa, rfl⟩
+
+set_option maxHeartbeats 1600000 in
 /-- **The nested pin bridge, at the reading** (`pinCrossS`): a stored
 pin, instantiated at a frame's prefix openers and read at the frame
 depth, instantiates along the padded fired prefix to the pin's own
