@@ -1408,18 +1408,14 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     rename_i entry hfpw
     split <;> try exact DiscV.throw _
     rename_i hcond
+    -- task #161 item B2: the computed two-way residual
     split
-    · rename_i resTy hres
+    · rename_i A _ heq
+      exact DiscV.pure (hww.getAppArgs A (by rw [heq]; simp))
+    · rename_i _ B heq
       refine DiscV.pure ?_
-      have hclosed := (henv _ (find?_mem (Env.findProj?_some hfpw))).1
-      exact piResidual_WScoped hres
-        (WScoped.of_not_hasFvar (by
-          rw [hasFvar_instantiateLevelParams]; exact hclosed))
-        (fun x hx => by
-          rcases List.mem_append.mp hx with hx | hx
-          · exact hww.getAppArgs x hx
-          · rcases List.mem_singleton.mp hx with rfl
-            exact hwpe)
+      simp only [WScoped]
+      exact ⟨hww.getAppArgs B (by rw [heq]; simp), hwpe⟩
     · exact DiscV.throw _
 
 set_option maxHeartbeats 1600000 in

@@ -351,7 +351,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     InferProjStepP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hres⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, A, B, hAB, hcase⟩ := Setlec.inferTypeCore_proj_inv h
   -- the subject's frames
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
@@ -382,9 +382,6 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
   -- the entry's pins, and the returned type
   obtain ⟨rfl, -, -, -, -, -, hlU, -, hpsig, -⟩ :=
     projPinsP m.base.proj_ok hfe hnat
-  obtain ⟨A, B, hAB, hcase⟩ :=
-    projResidualP m.base.proj_ok hfe hnat hlenArgs hlenUs
-      (fun x hx => Setlec.looseBVarsBounded_getAppArgs hbte x hx) hres
   -- the reduced type's spine
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Setlec.Expr.mkAppN_getApp te).symm, hfn] at htea

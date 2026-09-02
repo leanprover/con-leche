@@ -75,68 +75,20 @@ theorem DenoteSpineP.mem {acval : Name → (Name → Nat) → AVExpr} {d : Nat}
     · exact ⟨_, ha⟩
     · exact ih x hx'
 
-/-! ## The residual, computed -/
+/-! ## The residual, computed — RETIRED (task #161 item B2)
 
-/-- The first pinned entry's residual at a full spine is the type
-argument (`piResidualV_pairFst`'s syntactic counterpart). -/
-theorem piResidual_pairFstA (l0 l1 : Level) {A B pe : Expr}
-    (hA : ∀ k, Expr.looseBVarsBounded k A = true) :
-    Setlec.piResidual
-      (Setlec.pairFstEntry.ty.instantiateLevelParams
-        Setlec.pairFstEntry.levelParams [l0, l1]) [A, B, pe] = some A := by
-  simp +decide [Setlec.piResidual, Setlec.pairFstEntry, Setlec.pairFstTyA,
-    Expr.instantiateLevelParams, Level.subst, Level.subst.go,
-    Expr.instantiate1]
-  rw [Setlec.Expr.instantiate1_eq_self (hA 1),
-    Setlec.Expr.instantiate1_eq_self (hA 0)]
+This section held `piResidual_pairFstA`/`piResidual_pairSndA` and their
+packaging `projResidualP`: at a pinned entry with a two-parameter spine
+the `.proj` inference clause's `piResidual` walk collapses to `A` or
+`B (pe.1)`.  De-gating item B2 (harvest site 21 / list entry P10) moved
+that collapse into the **checker**: the clause now returns the branch
+outright, so `inferTypeCore_proj_inv` delivers `projResidualP`'s
+conclusion verbatim and the derivation has no consumer left.
 
-/-- The second pinned entry's residual at a full spine is the fibre at
-the first projection (`piResidualV_pairSnd`'s syntactic counterpart). -/
-theorem piResidual_pairSndA (l0 l1 : Level) {A B pe : Expr}
-    (hB : ∀ k, Expr.looseBVarsBounded k B = true) :
-    Setlec.piResidual
-      (Setlec.pairSndEntry.ty.instantiateLevelParams
-        Setlec.pairSndEntry.levelParams [l0, l1]) [A, B, pe]
-      = some (.app B (.proj Setlec.psigmaName 0 pe)) := by
-  simp +decide [Setlec.piResidual, Setlec.pairSndEntry, Setlec.pairSndTyA,
-    Expr.instantiateLevelParams, Level.subst, Level.subst.go,
-    Expr.instantiate1]
-  rw [Setlec.Expr.instantiate1_eq_self (hB 0)]
-
-/-- **The `.proj` inference clause's returned type, identified.**  At a
-pinned entry the parameter spine has exactly two members and the
-residual is one of two concrete expressions. -/
-theorem projResidualP {sn : Name} {i : Nat} {entry : ProjEntry}
-    {us : List Level} {args : List Expr} {t pe : Expr}
-    (hpo : Setlec.ProjOkT env)
-    (hfe : env.findProj? sn i = some entry) (hnat : entry.native = true)
-    (hlenArgs : args.length = entry.numParams)
-    (hlenUs : us.length = entry.levelParams.length)
-    (hbargs : ∀ x ∈ args, Expr.looseBVarsBounded 0 x = true)
-    (hres : Setlec.piResidual
-      (entry.ty.instantiateLevelParams entry.levelParams us) (args ++ [pe])
-      = some t) :
-    ∃ A B, args = [A, B] ∧
-      ((i = 0 ∧ t = A) ∨
-        (i = 1 ∧ t = .app B (.proj Setlec.psigmaName 0 pe))) := by
-  obtain ⟨-, hidx, -, hnP, -, -, hlU, hpin, -, -⟩ := projPinsP hpo hfe hnat
-  obtain ⟨A, B, rfl⟩ := Setlec.List.length_two (by rw [hlenArgs, hnP])
-  obtain ⟨l0, l1, rfl⟩ := Setlec.List.length_two (by rw [hlenUs, hlU])
-  have hAk : ∀ k, Expr.looseBVarsBounded k A = true := fun k =>
-    Setlec.Expr.looseBVarsBounded_mono (Nat.zero_le k)
-      (hbargs A (by simp))
-  have hBk : ∀ k, Expr.looseBVarsBounded k B = true := fun k =>
-    Setlec.Expr.looseBVarsBounded_mono (Nat.zero_le k)
-      (hbargs B (by simp))
-  refine ⟨A, B, rfl, ?_⟩
-  rcases hpin with rfl | rfl
-  · refine Or.inl ⟨by rw [← hidx]; rfl, ?_⟩
-    rw [show ([A, B] ++ [pe] : List Expr) = [A, B, pe] from rfl,
-      piResidual_pairFstA l0 l1 hAk] at hres
-    exact (Option.some.inj hres).symm
-  · refine Or.inr ⟨by rw [← hidx]; rfl, ?_⟩
-    rw [show ([A, B] ++ [pe] : List Expr) = [A, B, pe] from rfl,
-      piResidual_pairSndA l0 l1 hBk] at hres
-    exact (Option.some.inj hres).symm
+The v1 relational tier still states its `.proj` conclusion with the
+walk (`piResidualV`), so the *converse* direction — the walk, from the
+computed residual — lives on as `piResidual_of_computed`
+(`Setlec/SetR/ProjPins.lean`), with the same two `simp`s and the same
+single side condition (the two parameters carry no loose `bvar`s). -/
 
 end Setlec.SetR.Interp2

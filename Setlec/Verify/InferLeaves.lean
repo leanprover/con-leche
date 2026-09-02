@@ -812,22 +812,19 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, hres⟩ := inferTypeCore_proj_inv h
+        hus, A, B, hargs, hres⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       have hwte := inferTypeCore_WScoped henv fuel hte hw
       have hwPi := whnf_WScoped henv fuel hwt hwte
-      -- the entry's type is a stored constant's type, hence closed
-      obtain ⟨hef, -, -, -, -, -⟩ :=
-        henv _ (find?_mem (Env.findProj?_some hfp))
-      have hwty : WScoped d (entry.ty.instantiateLevelParams
-          entry.levelParams us) :=
-        WScoped.of_not_hasFvar (by
-          rw [hasFvar_instantiateLevelParams]; exact hef)
-      exact piResidual_WScoped hres hwty (fun x hx => by
-        rcases List.mem_append.mp hx with hx | hx
-        · exact hwPi.getAppArgs x hx
-        · rcases List.mem_singleton.mp hx with rfl
-          exact hw)
+      -- task #161 item B2: the returned type is one of the two
+      -- computed residuals, both built from the reduced type's own
+      -- spine and the subject
+      have hwA : WScoped d A := hwPi.getAppArgs A (by rw [hargs]; simp)
+      have hwB : WScoped d B := hwPi.getAppArgs B (by rw [hargs]; simp)
+      rcases hres with ⟨-, rfl⟩ | ⟨-, rfl⟩
+      · exact hwA
+      · simp only [WScoped]
+        exact ⟨hwB, hw⟩
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
@@ -945,24 +942,22 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       · exact Or.inr hb
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, hres⟩ := inferTypeCore_proj_inv h
+        hus, A, B, hargs, hres⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       intro l hl
       simp only [fvarLeaves]
-      obtain ⟨hef, -, -, -, -, -⟩ :=
-        henv _ (find?_mem (Env.findProj?_some hfp))
       have hsub : ∀ l', l' ∈ te.fvarLeaves → l' ∈ pe.fvarLeaves :=
         fun l' hl' =>
         inferTypeCore_fvarLeaves henv fuel hte hw l'
           (whnf_fvarLeaves henv fuel hwt l' hl')
-      rcases piResidual_fvarLeaves hres l hl with hb | ⟨x, hx, hlx⟩
-      · rw [fvarLeaves_eq_nil_of_not_hasFvar (by
-          rw [hasFvar_instantiateLevelParams]; exact hef)] at hb
-        exact nomatch hb
-      · rcases List.mem_append.mp hx with hx | hx
-        · exact hsub l (fvarLeaves_getAppArgs hx l hlx)
-        · rcases List.mem_singleton.mp hx with rfl
-          exact hlx
+      -- task #161 item B2: the computed residual's leaves are the
+      -- spine's and the subject's
+      rcases hres with ⟨-, rfl⟩ | ⟨-, rfl⟩
+      · exact hsub l (fvarLeaves_getAppArgs (by rw [hargs]; simp) l hl)
+      · simp only [fvarLeaves, List.mem_append] at hl
+        rcases hl with hl | hl
+        · exact hsub l (fvarLeaves_getAppArgs (by rw [hargs]; simp) l hl)
+        · simpa only [fvarLeaves] using hl
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
@@ -1083,23 +1078,23 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, hres⟩ := inferTypeCore_proj_inv h
+        hus, A, B, hargs, hres⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded] at hb
       have hLbe : Expr.LeavesBounded pe := fun l hl => hLb l (by
         simp only [fvarLeaves]; exact hl)
       have hbte := inferTypeCore_looseBVars henv fuel hte hw hb hLbe
       have hbPi := whnf_looseBVars henv fuel hwt hbte
-      obtain ⟨-, -, -, hbty, -, -⟩ :=
-        henv _ (find?_mem (Env.findProj?_some hfp))
-      refine piResidual_looseBVars hres ?_ ?_
-      · rw [looseBVarsBounded_instantiateLevelParams]
-        exact hbty
-      · intro x hx
-        rcases List.mem_append.mp hx with hx | hx
-        · exact looseBVarsBounded_getAppArgs hbPi _ hx
-        · rcases List.mem_singleton.mp hx with rfl
-          exact hb
+      -- task #161 item B2: the computed residual's bounds are the
+      -- spine's and the subject's
+      have hbA : A.looseBVarsBounded 0 = true :=
+        looseBVarsBounded_getAppArgs hbPi _ (by rw [hargs]; simp)
+      have hbB : B.looseBVarsBounded 0 = true :=
+        looseBVarsBounded_getAppArgs hbPi _ (by rw [hargs]; simp)
+      rcases hres with ⟨-, rfl⟩ | ⟨-, rfl⟩
+      · exact hbA
+      · simp only [looseBVarsBounded, Bool.and_eq_true]
+        exact ⟨hbB, hb⟩
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h

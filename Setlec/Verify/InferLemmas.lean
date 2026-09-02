@@ -2320,8 +2320,13 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       env.findProj? T i = some entry ∧ entry.native = true ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
-      piResidual (entry.ty.instantiateLevelParams entry.levelParams us)
-        (te.getAppArgs ++ [e]) = some t := by
+      -- task #161 item B2 (harvest site 21 / P10): the returned type
+      -- is *computed*, not walked, so the inversion reads it off the
+      -- two-way branch.  `projResidualP`'s conclusion, verbatim — see
+      -- `SetR/Interp2/Step2/ProjPinsP.lean`, where the same shape used
+      -- to be *derived* from a `piResidual` premise.
+      (∃ A B, te.getAppArgs = [A, B] ∧
+        ((i = 0 ∧ t = A) ∨ (i = 1 ∧ t = .app B (.proj T 0 e)))) := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def] at h
@@ -2360,15 +2365,23 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
   case isTrue hcond =>
     obtain ⟨hnat, hlen, hus⟩ := hcond
     revert h
-    cases hres : piResidual
-        (entry.ty.instantiateLevelParams entry.levelParams us)
-        (te.getAppArgs ++ [e]) with
-    | none => intro h; exact nomatch h
-    | some resTy =>
-      intro h
+    match hargs : te.getAppArgs, i with
+    | [A, B], 0 => ?_
+    | [A, B], 1 => ?_
+    | [], _ => intro h; exact nomatch h
+    | [_], _ => intro h; exact nomatch h
+    | _ :: _ :: _ :: _, _ => intro h; exact nomatch h
+    | [_, _], _ + 2 => intro h; exact nomatch h
+    · intro h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       subst h
-      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus, hres⟩
+      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+        A, B, hargs, Or.inl ⟨rfl, rfl⟩⟩
+    · intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+        A, B, hargs, Or.inr ⟨rfl, rfl⟩⟩
 
 /-! ## Well-scopedness preservation through reduction -/
 

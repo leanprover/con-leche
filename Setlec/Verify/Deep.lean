@@ -2248,18 +2248,25 @@ private theorem infer_step (henv : EnvWF env)
       dsimp only
       simp only [getAppArgs_shiftFrom, List.length_map]
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-      have hclosed : (entry.ty.instantiateLevelParams entry.levelParams
-          us₂).hasFvar = false := by
-        rw [hasFvar_instantiateLevelParams]
-        exact (henv _ (find?_mem (Env.findProj?_some hfp))).1
-      have hres := piResidual_shiftFrom (p := p) (w.getAppArgs ++ [pe])
-        (entry.ty.instantiateLevelParams entry.levelParams us₂)
-      rw [shiftFrom_eq_self_of_not_hasFvar hclosed, List.map_append] at hres
-      simp only [List.map] at hres
-      rw [hres]
-      cases hr : piResidual
-          (entry.ty.instantiateLevelParams entry.levelParams us₂)
-          (w.getAppArgs ++ [pe]) <;> rfl
+      -- task #161 item B2: the computed residual commutes with the
+      -- shift by `List.map`'s own shape — the two-element match sees
+      -- the same list on both sides
+      cases hargs : w.getAppArgs with
+      | nil => rfl
+      | cons A rest =>
+        cases rest with
+        | nil => rfl
+        | cons B rest2 =>
+          cases rest2 with
+          | cons _ _ => rfl
+          | nil =>
+            match i with
+            | 0 => rfl
+            | 1 =>
+              simp only [List.map, pure, Except.pure, map_ok]
+              rw [shiftFrom]
+              rfl
+            | _ + 2 => rfl
 
 /-- The lazy-delta *loop* is shift-invariant, by induction on its own
 step budget (task #106); the per-step `whnfCore`, proof irrelevance

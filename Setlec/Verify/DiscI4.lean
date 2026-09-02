@@ -1910,44 +1910,37 @@ theorem inferBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
           show lus.length = us.length from
             (denoteLList_length hlusDen).symm]
         split
-        · refine SimAt.bind_left (projFnIdxM_eff hs₂ hTDen ip)
-            (fun s₂p pf hs₂ hextp hQpf => ?_)
-          refine SimAt.bind_left (constTyAtM_eff hs₂ hQpf
-            (denoteLList_mono hextp hlusDen)
-            (Env.findProj?_some hfp))
-            (fun s₃ pty hs₃ hext₃' hQty => ?_)
-          have hext₃ := hextp.trans hext₃'
-          simp only [ConstantInfo.toConstantVal] at hQty
-          replace htargs := htargs.mono hext₃
-          replace hpe := denoteT_mono hext₃ hpe
-          refine SimAt.bind_left (piResidualM_eff hs₃ hQty
-            (htargs.append (DenL.cons hpe DenL.nil)))
-            (fun s₄ ores hs₄ hext₄ hQres => ?_)
-          cases hres : piResidual
-              (entry.ty.instantiateLevelParams entry.levelParams lus)
-              (tex.getAppArgs ++ [pex]) with
-          | some resTy =>
-            rw [hres] at hQres
-            cases ores with
-            | none => exact absurd hQres (by simp [OptDen])
-            | some res =>
-              refine SimAt.pure hs₄ ⟨hQres, ?_⟩
-              have hclosed := (henv _ (find?_mem
-                (Env.findProj?_some hfp))).1
-              refine piResidual_WScoped hres
-                (WScoped.of_not_hasFvar (by
-                  rw [hasFvar_instantiateLevelParams]
-                  exact hclosed)) ?_
-              intro x hx
-              rcases List.mem_append.mp hx with hx | hx
-              · exact hwte.getAppArgs x hx
-              · rcases List.mem_singleton.mp hx with rfl
-                exact hwpe
-          | none =>
-            rw [hres] at hQres
-            cases ores with
-            | some res => exact absurd hQres (by simp [OptDen])
-            | none => exact SimAt.throw
+        · -- task #161 item B2 (harvest site 21 / P10): the residual is
+          -- the *computed* two-way branch on both sides.  `DenL` puts
+          -- the two lists in lockstep, so the match reduces the same
+          -- way; the second branch's node is built with two `internI`s
+          -- whose denotations are exactly the spec's `Expr`.
+          match hgt : s₂'.store.getAppArgsI te, texx : tex.getAppArgs,
+              htargs, ip with
+          | [], [], _, _ => exact SimAt.throw
+          | _ :: _, [], h, _ => exact absurd h (by simp [DenL])
+          | [], _ :: _, h, _ => exact absurd h (by simp [DenL])
+          | [_], [_], _, _ => exact SimAt.throw
+          | [_], _ :: _ :: _, h, _ => exact absurd h (by simp [DenL])
+          | _ :: _ :: _, [_], h, _ => exact absurd h (by simp [DenL])
+          | _ :: _ :: _ :: _, [_, _], h, _ => exact absurd h (by simp [DenL])
+          | [_, _], _ :: _ :: _ :: _, h, _ => exact absurd h (by simp [DenL])
+          | _ :: _ :: _ :: _, _ :: _ :: _ :: _, _, _ => exact SimAt.throw
+          | [Ai, Bi], [Ax, Bx], h, 0 =>
+            exact SimAt.pure hs₂ ⟨h.1,
+              hwte.getAppArgs Ax (by rw [texx]; simp)⟩
+          | [Ai, Bi], [Ax, Bx], h, 1 =>
+            refine SimAt.bind_left (internI_eff hs₂
+              (n := .proj Tᵢ 0 pe) (x := .proj T 0 pex) ?_)
+              (fun s₃ p₀ hs₃ hext₃ hQ₀ => ?_)
+            · rw [denoteNode, hpe, hTDen]; rfl
+            · refine SimAt.of_eff (internI_eff hs₃
+                (n := .app Bi p₀) (x := .app Bx (.proj T 0 pex)) ?_) _
+                (fun s pr hQ => ⟨hQ, ?_⟩)
+              · rw [denoteNode, denoteT_mono hext₃ h.2.1, hQ₀]; rfl
+              · simp only [WScoped]
+                exact ⟨hwte.getAppArgs Bx (by rw [texx]; simp), hwpe⟩
+          | [Ai, Bi], [Ax, Bx], _, _ + 2 => exact SimAt.throw
         · exact SimAt.throw
     | bvar k => invert_head hd'; exact SimAt.throw
     | sort u => invert_head hd'; exact SimAt.throw

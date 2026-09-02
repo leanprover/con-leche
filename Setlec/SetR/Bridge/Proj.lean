@@ -159,7 +159,7 @@ theorem inferProj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     InferProjStepR (mode := mode) m φ fuel := by
   intro d Δ sn i pe t h hws hb hLb hC
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hres⟩ := inferTypeCore_proj_inv h
+    hlenUs, A₀, B₀, hargs₀, hcomp⟩ := inferTypeCore_proj_inv h
   obtain ⟨hpin, rfl, hidx, hpsig, hpsigMk⟩ := projEntry_pins m.proj_ok hfe hnat
   -- the subject's frames, and its type reduced to the family application
   simp only [Expr.WScoped] at hws
@@ -198,6 +198,17 @@ theorem inferProj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           (frame_spineR hwr hbr hLr hCr x hx').2.1⟩
       · rcases List.mem_singleton.mp hx' with rfl
         exact ⟨hws, hb⟩
+    -- task #161 item B2 (harvest site 21 / P10): the clause returns
+    -- the *computed* residual; `piResidual_of_computed` turns it back
+    -- into the walk this tier's `Infer.proj` states, using the pin and
+    -- the two parameters' frames (which `hframes` already supplies).
+    have hres : Setlec.piResidual
+        (entry.ty.instantiateLevelParams entry.levelParams us)
+        (te.getAppArgs ++ [pe]) = some t := by
+      rw [hargs₀]
+      exact piResidual_of_computed m.proj_ok hfe hnat hlenUs
+        (hframes A₀ (by rw [hargs₀]; simp)).2
+        (hframes B₀ (by rw [hargs₀]; simp)).2 hcomp
     obtain ⟨RV, hRV, hpres⟩ :=
       denote_piResidualR hcl hres (hTPd d)
         (hspt.append (DenoteSpine.cons hvp DenoteSpine.nil))

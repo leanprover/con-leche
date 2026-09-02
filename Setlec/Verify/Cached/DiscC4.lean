@@ -1549,41 +1549,44 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           ExprC.getAppArgs_spec htewf
         rw [htargs.length]
         split
-        · refine SimC.bind_left (projFnIdxM_eff hs₂ T ip)
-            (fun s₂p pf hs₂ hQpf => ?_)
-          subst pf
-          refine SimC.bind_left
-            (constTyAtM_eff hs₂ (Env.findProj?_some hfp))
-            (fun s₃ pty hs₃ hQty => ?_)
-          simp only [ConstantInfo.toConstantVal] at hQty
-          refine SimC.bind_left (piResidualM_eff hs₃ hQty
-            (htargs.append (RelCL.cons ⟨hwpec, rfl⟩ RelCL.nil)))
-            (fun s₄ ores hs₄ hQres => ?_)
-          cases hres : Setlec.piResidual
-              (entry.ty.instantiateLevelParams entry.levelParams us)
-              ((eraseC te).getAppArgs ++ [eraseC pe]) with
-          | some resTy =>
-            rw [hres] at hQres
-            cases ores with
-            | none => exact absurd hQres (by simp [OptEr])
-            | some res =>
-              refine SimC.pure hs₄ ⟨hQres, ?_⟩
-              have hclosed := (henv _ (find?_mem
-                (Env.findProj?_some hfp))).1
-              refine piResidual_WScoped hres
-                (Expr.WScoped.of_not_hasFvar (by
-                  rw [Expr.hasFvar_instantiateLevelParams]
-                  exact hclosed)) ?_
-              intro x hx
-              rcases List.mem_append.mp hx with hx | hx
-              · exact hwte.getAppArgs x hx
-              · rcases List.mem_singleton.mp hx with rfl
-                exact hwpe
-          | none =>
-            rw [hres] at hQres
-            cases ores with
-            | some res => exact absurd hQres (by simp [OptEr])
-            | none => exact SimC.throw
+        · -- task #161 item B2 (harvest site 21 / P10): the residual is
+          -- the *computed* two-way branch on both sides.  `RelCL` maps
+          -- the interned spine onto the spec's, so matching the
+          -- interned list fixes both; the second branch's node is two
+          -- `internI`s whose erasure is the spec's `Expr`.
+          match hgt : ExprC.getAppArgs te, ip with
+          | [], _ => exact SimC.throw
+          | [_], _ => exact SimC.throw
+          | _ :: _ :: _ :: _, _ => exact SimC.throw
+          | [Ai, Bi], 0 =>
+            rw [hgt] at htargs
+            have hspec := htargs.2
+            simp only [List.map] at hspec
+            rw [← hspec]
+            have hwA : WFc Ai := htargs.1.head
+            refine SimC.pure hs₂ ⟨⟨hwA, rfl⟩, ?_⟩
+            exact hwte.getAppArgs (eraseC Ai) (by rw [← hspec]; simp)
+          | [Ai, Bi], 1 =>
+            rw [hgt] at htargs
+            have hspec := htargs.2
+            simp only [List.map] at hspec
+            rw [← hspec]
+            have hwB : WFc Bi := htargs.1.tail.head
+            refine SimC.bind_left
+              (internI_eff hs₂ (n := ExprView.proj T 0 pe) hwpec)
+              (fun s₃ p₀ hs₃ hQ₀ => ?_)
+            refine SimC.of_eff
+              (internI_eff hs₃ (n := ExprView.app Bi p₀)
+                ⟨hwB, hQ₀.1⟩) _
+              (fun pr hQ => ⟨⟨hQ.1, ?_⟩, ?_⟩)
+            · rw [hQ.2]
+              show Expr.app (eraseC Bi) (eraseC p₀) = _
+              rw [hQ₀.2]
+              rfl
+            · simp only [Expr.WScoped]
+              exact ⟨hwte.getAppArgs (eraseC Bi) (by rw [← hspec]; simp),
+                hwpe⟩
+          | [Ai, Bi], _ + 2 => exact SimC.throw
         · exact SimC.throw
     | bvar k' hc bbc fbc lpc => exact SimC.throw
     | sort u' hc bbc fbc lpc => exact SimC.throw

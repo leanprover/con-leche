@@ -1899,11 +1899,18 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           let targs ← withStore (·.getAppArgsI te)
           if entry.native ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            let pf ← projFnIdxM T i
-            let pty ← constTyAtM fe pf (projFnName Tn i) us
-            match ← piResidualM pty (targs ++ [pe]) with
-            | some resTy => pure resTy
-            | none => throw (.internal "malformed projection entry")
+            -- Task #161 item B2 (harvest site 21 / P10): the
+            -- residual is computed, not walked — see the spec body.
+            -- With the walk gone, so are the entry type's
+            -- materialisation (`projFnIdxM` + `constTyAtM`, a
+            -- level-instantiated intern) and the `projFnName` name
+            -- build that fed it.
+            match targs, i with
+            | [A, _], 0 => pure A
+            | [_, B], 1 => do
+              let p₀ ← internI (.proj T 0 pe)
+              internI (.app B p₀)
+            | _, _ => throw (.internal "malformed projection entry")
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")

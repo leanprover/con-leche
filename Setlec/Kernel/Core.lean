@@ -1661,11 +1661,22 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         | some entry =>
           if entry.native ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            match piResidual
-                (entry.ty.instantiateLevelParams entry.levelParams us)
-                (te.getAppArgs ++ [pe]) with
-            | some resTy => pure resTy
-            | none => throw (.internal "malformed projection entry")
+            -- Task #161 de-gating round A+B+C, item B2 (harvest site
+            -- 21, list entry P10): the residual is **computed**, not
+            -- walked.  `projEntry_pins` (`SetR/ProjPins.lean`) pins a
+            -- `native` entry to one of the two basis pair entries, so
+            -- the parameter spine has exactly two members and the
+            -- entry type's residual at `[A, B, pe]` is `A` (first
+            -- projection) or `B (pe.1)` (second) — which is precisely
+            -- what `projResidualP`
+            -- (`SetR/Interp2/Step2/ProjPinsP.lean`) proves the walk
+            -- collapses to.  The `Expr` walk peeled three binders with
+            -- three `instantiate1`s per `.proj` inference; the branch
+            -- below is a list match.
+            match te.getAppArgs, i with
+            | [A, _], 0 => pure A
+            | [_, B], 1 => pure (.app B (.proj T 0 pe))
+            | _, _ => throw (.internal "malformed projection entry")
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")

@@ -584,23 +584,17 @@ theorem inferTypeCore_lvlParams {env : Env} (henv : EnvWF env)
       exact Expr.allLevelParamsDefined_instantiate1_gen hp.2 0 hPi.1.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, hres⟩ := inferTypeCore_proj_inv h
+        hus, A, B, hargs, hres⟩ := inferTypeCore_proj_inv h
       simp only [allLevelParamsDefined] at hp
       have hte' := whnf_lvlParams henv fuel hiota hwt (ihI hte hp)
-      have hfnp :
-          (Expr.const T us).allLevelParamsDefined ps = true := by
-        rw [← hfn]; exact allLevelParamsDefined_getAppFn hte'
-      obtain ⟨-, hep, -, -, -, -, -⟩ :=
-        henv _ (find?_mem (Env.findProj?_some hfp))
-      refine piResidual_lvlParams hres
-        (allLevelParamsDefined_instantiateLevelParams hus
-          (by simpa [allLevelParamsDefined, List.all_eq_true]
-            using hfnp) hep) ?_
-      intro x hx
-      rcases List.mem_append.mp hx with hx | hx
-      · exact allLevelParamsDefined_getAppArgs hte' x hx
-      · rcases List.mem_singleton.mp hx with rfl
-        exact hp
+      -- task #161 item B2: the computed residual's level parameters
+      -- are the spine's and the subject's
+      have hA := allLevelParamsDefined_getAppArgs hte' A (by rw [hargs]; simp)
+      have hB := allLevelParamsDefined_getAppArgs hte' B (by rw [hargs]; simp)
+      rcases hres with ⟨-, rfl⟩ | ⟨-, rfl⟩
+      · exact hA
+      · simp only [allLevelParamsDefined, Bool.and_eq_true]
+        exact ⟨hB, hp⟩
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
