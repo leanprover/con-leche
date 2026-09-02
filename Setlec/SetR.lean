@@ -179,6 +179,7 @@ import Setlec.SetR.Interp2.IndBottomPlainP
 import Setlec.SetR.Interp2.IndOpenerGradeP
 import Setlec.SetR.Interp2.IndNestedParamP
 import Setlec.SetR.Interp2.IndBottomNestedP
+import Setlec.SetR.Interp2.IndProjKitP
 import Setlec.SetR.Interp2.IndPinProbeP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
