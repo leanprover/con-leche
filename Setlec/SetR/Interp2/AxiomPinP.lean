@@ -1,5 +1,4 @@
-import Setlec.SetR.Interp2.HarvestP
-import Setlec.SetR.StdAxiomKey
+import Setlec.SetR.Interp2.AxiomMemP
 
 /-!
 # The pin tier, at the validated-annotation currency (task #161,
@@ -240,5 +239,94 @@ theorem axiomTrustCompilerP (hμ : μ.verified = true)
       (mp.base2.acval Setlec.trueName ψ)
       (by rw [htyTi]; exact denoteP_levelless_const hfT hlpT) ρ
     rwa [hnameTi] at hmem
+
+/-! ## The two standard axioms
+
+`DeclAxiomR`'s first branch, both halves.  The bits come from
+`AxiomBitsP` (the axiom's *own* recorded run) and the memberships from
+`AxiomMemP`; the v1 extension is `extendAxiomS` at the **named**
+witness, which `StdAxiomKey.lean`'s `propextKeyS_mem`/`choiceKeyS_mem`
+now expose — the `trustCompiler` branch's lesson, that the key's `∃` is
+one currency too coarse for a P leaf, generalized. -/
+
+/-- **The standard-axiom branch, discharged.**  The leaf is the layer's
+own constant in both halves, so every syntactic obligation is `rfl` or
+a `const` clause, and the whole content is the membership. -/
+theorem axiomStdP (hμ : μ.verified = true)
+    (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
+    (hcv : ConstantValR μ F env mp.base2.base.cval cv type')
+    (hok : Setlec.stdAxiomOk env ⟨cv.name, cv.levelParams, type'⟩
+      = true) :
+    Nonempty (EnvS2PM V μ
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
+  have hcv' := hcv
+  obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
+    hrunT, hfrontT⟩ := hcv'
+  obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
+  have hfresh : env.find? cv.name = none :=
+    Option.isNone_iff_eq_none.mp hfind
+  obtain ⟨stype, usort, hst, hens⟩ := hrunT
+  have hwfc : Setlec.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+      env.consts⟩ := by
+    refine Setlec.EnvWF.cons mp.base2.base.wf
+      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_⟩
+    · intro cv2 value2 hint2 heq; exact nomatch heq
+    · intro cv2 mI rP rules heq; exact nomatch heq
+    · intro cv2 value2 heq; exact nomatch heq
+  by_cases hn : cv.name = propextName
+  · obtain ⟨m', hag, hself⟩ :=
+      extendAxiomS mp.base2.base (cv := ⟨cv.name, cv.levelParams, type'⟩)
+        (Vf := fun _ => .const .propext [])
+        hfresh hwfc (fun _ => trivial) (fun _ _ _ => rfl)
+        (fun _ _ => trivial)
+        (fun ψ => propextKeyS_mem mp.base2.base hok hn ψ) hnres
+        (by rw [show (⟨cv.name, cv.levelParams, type'⟩ :
+          ConstantVal).name = cv.name from rfl, hn]; decide)
+    refine harvestAxiomP (V := V) hμ mp hcv m' hag
+      (A := fun _ => .const .propext []) (fun ψ => by rw [hself ψ]; rfl)
+      (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ => by simp)
+      (fun _ _ => by simp) ?_
+    intro ψ ta hta ρ
+    exact propext_memP hμ mp hok hn hst ψ ta hta ρ
+  · by_cases hn2 : cv.name = choiceName
+    · -- the pin fixes the axiom's one level parameter, so both the v1
+      -- witness and the P leaf read only `ψ uN`
+      have huN : ∀ ψ₁ ψ₂ : Name → Nat,
+          (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → ψ₁ uN = ψ₂ uN := by
+        intro ψ₁ ψ₂ hp
+        obtain ⟨-, -, -, hApin⟩ := nonempty_shapes hok hn2
+        have hlpA : cv.levelParams = choiceA.levelParams :=
+          (matchesPin_invT hApin).2
+        refine hp uN ?_
+        rw [hlpA, show choiceA.levelParams = [uN] from rfl]
+        exact List.Mem.head _
+      obtain ⟨m', hag, hself⟩ :=
+        extendAxiomS mp.base2.base
+          (cv := ⟨cv.name, cv.levelParams, type'⟩)
+          (Vf := fun ψ => .const .choice [ψ uN])
+          hfresh hwfc (fun _ => trivial)
+          (fun ψ₁ ψ₂ hp => by
+            show VExpr.const .choice [ψ₁ uN] = VExpr.const .choice [ψ₂ uN]
+            rw [huN ψ₁ ψ₂ hp])
+          (fun _ _ => trivial)
+          (fun ψ => choiceKeyS_mem mp.base2.base hok hn2 ψ) hnres
+          (by rw [show (⟨cv.name, cv.levelParams, type'⟩ :
+            ConstantVal).name = cv.name from rfl, hn2]; decide)
+      refine harvestAxiomP (V := V) hμ mp hcv m' hag
+        (A := fun ψ => .const .choice [ψ uN])
+        (fun ψ => by rw [hself ψ]; rfl)
+        (fun _ _ => rfl)
+        (fun ψ₁ ψ₂ hp => by
+          show AVExpr.const .choice [ψ₁ uN] = AVExpr.const .choice [ψ₂ uN]
+          rw [huN ψ₁ ψ₂ hp])
+        (fun _ _ => by simp) (fun _ _ => by simp) ?_
+      intro ψ ta hta ρ
+      exact choice_memP hμ mp hok hn2 hst ψ ta hta ρ
+    · exfalso
+      unfold Setlec.stdAxiomOk at hok
+      rw [show (⟨cv.name, cv.levelParams, type'⟩ : ConstantVal).name
+        = cv.name from rfl] at hok
+      rw [if_neg hn, if_neg hn2] at hok
+      exact nomatch hok
 
 end Setlec.SetR.Interp2

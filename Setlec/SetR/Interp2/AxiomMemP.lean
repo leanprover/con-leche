@@ -804,8 +804,7 @@ theorem nonemptyVal_forcesP (mp : EnvS2PM V μ env)
       (.pi 0 (pwBit ψ mt.pw)
         (.app (mp.base2.acval nonemptyName ψ) (.bvar 0)) (.sort 0)) := by
     rw [hME, interp2_pi]
-    simp only [interp2_app, interp2_bvar, cons_zero, cons_succ,
-      interp2_sort, hNc]
+    simp only [interp2_app, interp2_bvar, cons_zero, interp2_sort, hNc]
     exact lamR_mem fun _ _ => empty_mem_univ 0
   have h2 := app_mem_pi_validV h1 hMd hval1
   have hval2 := hval1d.2.1 M hMd
