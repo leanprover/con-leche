@@ -13206,3 +13206,116 @@ validating mode.  `TierInputsAtP.ofSem` loses its `hsem` argument;
 `[propext, Classical.choice, Quot.sound]` on `no_proof_of_Empty_P_of`,
 `acceptedReadsP_of`, `TierInputsAtP.ofSem`, `checkDecls_sound_P_of`,
 `harvestDefnP` and `no_proof_of_Empty_R`.  Zero sorries.
+
+## Task #161 ENDGAME A, part 2: the pin tier — two branches down, ONE FACT NAMED (2026-09-02)
+
+`AxiomStepPB` is `DeclAxiomR`'s four branches at the P invariant.
+Two land (`Interp2/AxiomPinP.lean`); the other three constants are
+blocked on **one** fact, and the fact is named rather than assumed.
+
+### THE WALL: `denoteP_matchesPin` does not exist, and cannot
+
+The erasePw RULING (2026-09-01) promised the pin tier a bit-agreement
+lemma as its condition-(b) owed item.  Discharging that promise starts
+by recording what the lemma is **not**.
+
+At v1 the chain is `denote_erasePw` → `denote_pinEq` →
+`denote_matchesPin` (`Verify/Denote/Inst.lean:372/415/422`): `denote`
+reads neither binder names nor binder metas, so a `matchesPin` hit is
+an equality of denotations and every consumer computes on the pin.
+
+**At the P currency the first link is FALSE.**  `denoteP`'s binder
+clauses read `pwBit φ mb.pw`; `Expr.erasePw` normalizes every datum to
+`.never`, whose bit is `1`.  So `denoteP (e.erasePw) = denoteP e`
+fails at the first Prop-codomain binder, and every lemma downstream of
+it fails with it.  This is not a gap in the tree — it is the ruling's
+own point 2 restated as a mechanized fact: *the P tier must take the
+bits from the front door's recorded run, never from a match verdict.*
+
+**And the tier's own grading does not rescue it.**  The obvious hope
+is that `AnnotValidV`/`AnnotOkP` — which the harvest supplies for the
+stored type anyway — pins the bit semantically.  It does not:
+`AnnotValidV_pi`'s third component is `v = 0 → (the codomain really is
+a proposition)`, a **one-directional** obligation.  A Prop-codomain
+binder carrying the bit `1` is perfectly `AnnotValidV`; what rejects
+it is the *checker*, at the ∀ clause's `(zeronessOf v).equiv mb.pw`
+decline.  So the validation run is not one route among several; it is
+the only one.
+
+### The named fact, and why it is one fact and not many
+
+For each pinned axiom family:
+
+> **the innermost codomain sort**: `Level.eval φ v = 0` (resp. the
+> pin's own level condition), where `v` is `ensureSort` of the
+> inferred type of the innermost opened body, as recorded by
+> `ConstantValR`'s run conjunct.
+
+Everything else follows mechanically: `inferTypeCore_forall_inv` at
+each binder yields `(Level.zeronessOf v).equiv mb.pw = true`, and
+`pwBit_of_equiv_zeronessOf` converts it to
+`pwBit φ mb.pw = 0 ↔ Level.eval φ v = 0`.  **The telescope collapse
+makes it one fact per pin, not one per binder**: `imax x y = 0 ↔
+y = 0` (`Interp2/Ops.lean`'s `imax_eq_zero_iff`), so every binder of a
+∀-chain carries the innermost codomain's bit.
+
+Obtaining it means executing the checker's inference symbolically
+along the pinned telescope — for `propext`, that `a = b` infers to
+`Prop`, read off the stored `Eq`'s own pin.  That is a real lemma per
+family and it is the pin tier's remaining content.
+
+**STOP-AND-NAME**: `propext`, `Classical.choice`, `ofReduceNat` and
+`ofReduceBool` are blocked on that and on **nothing else**.  Their
+`interp2` memberships need no new set-theoretic content: the `piR`
+laws (`pt_mem_piR_zero`, `not_pt_mem_piR_pos`, `app_mem_piR`),
+`choiceV2_app` and `exists_mem_of_dneg2` all exist, and `SetTheory/`
+is not implicated.  The v1 forcing arguments (`StdAxiomKey.lean`'s
+`propextKeyS`/`choiceKeyS`, `Install/Axiom.lean`'s `ofReduceKeyS`)
+transpose one currency over once the bits are in hand.
+
+### What landed
+
+* **`axiomSkipP`** — the tolerated skip.  `env₂ = env`, so there is no
+  leaf, no extension, no crossing: the invariant at the successor
+  environment *is* the one held.
+* **`axiomTrustCompilerP`** — `Lean.trustCompiler`, in full.  It is
+  the one pinned axiom whose type is a **bare constant**, and a
+  `.const` carries no binder and therefore no datum: `erasePw`'s
+  forgiveness is *empty* on it, so the pin fixes
+  `type' = .const trueName []` on the nose
+  (`erasePw_const_invS ∘ eraseNames_const_invS`) and the wall above
+  simply is not there.  The leaf is the stored `True.intro`'s
+  annotated valuation; `hmemA` is `EnvS2PM.mem_typeP` at that
+  constant, both readings being the same `acval trueName ψ`.
+
+**Why that branch first**: it exercises the whole `harvestAxiomP`
+bill end to end — the v1 extension and its agreement, `hAerase`,
+`hAclosed`, `hAparams`, `hAok`, `hAvalid`, `hmemA` — so the three
+blocked branches inherit tested scaffolding and owe only their bits.
+One thing it taught, recorded because the other branches will hit it:
+`trustCompilerKeyS` supplies its witness under an `∃`, and the P tier
+needs to know *which* leaf was installed (the annotated twin must
+erase to it), so the branch re-chooses the witness rather than
+unpacking the key.  The three remaining branches will want the same
+shape — the v1 keys' `∃` is one currency too coarse for the P leaf.
+
+### Census after ENDGAME A
+
+`no_proof_of_Empty_P_of`: **`hμ` + `AxiomStepPB` + `BasisStepPB` +
+`IndStepPB`**.  Unchanged by part 2 — `axiomStepPB_of` is not stated,
+because three of its four branches are open and a bundle with a
+premise for them would be a conditional form.
+
+### Resume-here
+
+1. **the bit lemma, per family** — the named fact above, starting with
+   `propext` (its telescope is three binders and its innermost body is
+   an `Eq`-spine over the stored, pinned `Eq`).  Expect to need
+   `erasePw`/`eraseNames` commutation with `instantiateLevelParams`
+   (`Expr.erasePw_instantiate1` exists; the level twin does not) and
+   forallE-inversions for both erasures;
+2. `propext` and `Classical.choice` memberships (transpose
+   `StdAxiomKey.lean`);
+3. `ofReduceNat`/`ofReduceBool` (transpose `ofReduceKeyS`);
+4. `axiomStepPB_of`, assembling the four branches;
+5. then `BasisStepPB`, `IndStepPB`, and the FINAL ASSEMBLY.
