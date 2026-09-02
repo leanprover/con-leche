@@ -1209,6 +1209,34 @@ theorem rawNatLitI?_spec {st : CStore} {w : ExprC} {wx : Expr}
     (h : eraseC w = wx) : rawNatLitI? st w = rawNatLit? wx := by
   rw [rawNatLitI?, rawNatLitC?_spec, h]
 
+open ExprC in
+/-- The unit-like-type guard agrees with the spec's `isUnitLikeTy` on
+the erasure — again a top-level match on the (whnf'd) node, so no
+invariant is needed; only the `FEnv` index has to be resolved. -/
+theorem isUnitLikeTyC_spec {env : Env} (e : ExprC) :
+    isUnitLikeTyC (mkFEnv env) e = isUnitLikeTy env (eraseC e) := by
+  cases e with
+  | const cn us h bb fb lp =>
+    show ((match (mkFEnv env).find? cn with
+        | some (.indInfo _ _) => true
+        | _ => false) &&
+      (match (mkFEnv env).find? (cn.str "rec") with
+        | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
+        | _ => false) &&
+      reservedBasisNames.contains (cn.str "rec")) = _
+    rw [mkFEnv_find?, mkFEnv_find?]
+    rfl
+  | _ => rfl
+
+open ExprC in
+/-- The store-shaped spelling the core bodies use (`withStore (fun st =>
+isUnitLikeTyI fe st w)`) — the transposition of `isUnitLikeTyI_spec`
+(`Setlec/Verify/IExprOps.lean`). -/
+theorem isUnitLikeTyI_spec {env : Env} {st : CStore} {w : ExprC} {wx : Expr}
+    (h : eraseC w = wx) :
+    isUnitLikeTyI (mkFEnv env) st w = isUnitLikeTy env wx := by
+  rw [isUnitLikeTyI, isUnitLikeTyC_spec, h]
+
 /-! ## Constant resolution
 
 `constsResolveFCGo` (`Setlec/Cached/StateC.lean`) is the clone's
