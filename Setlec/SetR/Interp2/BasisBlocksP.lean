@@ -453,7 +453,7 @@ theorem extendPUnitP (mp : EnvS2PM V μ env)
     (hcv : ∀ ψ, hbase.cval punitA.name ψ
       = VExpr.const .punit [ψ uN]) :
     Nonempty (EnvS2PM V μ ⟨punitA :: env.consts⟩) := by
-  refine declStepPM_of_basis_cons mp
+  refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := fun ψ => AVExpr.const .punit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -463,7 +463,7 @@ theorem extendPUnitP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, denoteP_punitA_type ψ⟩) ?_ ?_
+    (fun ψ => ⟨_, denoteP_punitA_type ψ⟩) ?_ ?_)
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -488,7 +488,7 @@ theorem extendPUnitUnitP (mp : EnvS2PM V μ env)
   have hty := fun ψ =>
     denoteP_punitUnitA_type (m := mp.base2)
       (A := fun ψ => AVExpr.const .punitUnit [ψ uN]) ψ hP
-  refine declStepPM_of_basis_cons mp
+  refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := fun ψ => AVExpr.const .punitUnit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -498,7 +498,7 @@ theorem extendPUnitUnitP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -525,7 +525,7 @@ theorem extendPUnitRecP (mp : EnvS2PM V μ env)
   have hty := fun ψ =>
     denoteP_punitRecA_type (m := mp.base2)
       (A := fun ψ => AVExpr.const .punitRec [ψ uN, ψ u1N]) ψ hP hU
-  refine declStepPM_of_basis_rec_cons mp
+  refine nonempty_of_exists (declStepPM_of_basis_rec_cons mp
     (A := fun ψ => AVExpr.const .punitRec [ψ uN, ψ u1N]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -534,7 +534,7 @@ theorem extendPUnitRecP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by
         show uN ∈ [u1N, uN]
@@ -849,7 +849,7 @@ theorem extendNatP (mp : EnvS2PM V μ env)
     (hag : ∀ n, n ≠ natA.name → mp.base2.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval natA.name ψ = VExpr.const .nat []) :
     Nonempty (EnvS2PM V μ ⟨natA :: env.consts⟩) := by
-  refine declStepPM_of_basis_cons_gen mp
+  refine nonempty_of_exists (declStepPM_of_basis_cons_gen mp
     (A := fun _ => AVExpr.const .nat []) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
@@ -857,7 +857,7 @@ theorem extendNatP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, denoteP_natA_type ψ⟩) ?_ ?_ ?_ ?_
+    (fun ψ => ⟨_, denoteP_natA_type ψ⟩) ?_ ?_ ?_ ?_)
   · intro ψ ta h ρ
     rw [denoteP_natA_type ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -886,7 +886,7 @@ theorem extendNatZeroP (mp : EnvS2PM V μ env)
   have hty := fun ψ =>
     denoteP_natZeroA_type (m := mp.base2)
       (A := fun _ => AVExpr.const .natZero []) ψ hN
-  refine declStepPM_of_basis_cons_gen mp
+  refine nonempty_of_exists (declStepPM_of_basis_cons_gen mp
     (A := fun _ => AVExpr.const .natZero []) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
@@ -894,7 +894,7 @@ theorem extendNatZeroP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_)
   · intro ψ ta h ρ
     rw [hty ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -925,7 +925,7 @@ theorem extendNatSuccP (mp : EnvS2PM V μ env)
   have hty := fun ψ =>
     denoteP_natSuccA_type (m := mp.base2)
       (A := fun _ => AVExpr.const .natSucc []) ψ hN
-  refine declStepPM_of_basis_cons_gen mp
+  refine nonempty_of_exists (declStepPM_of_basis_cons_gen mp
     (A := fun _ => AVExpr.const .natSucc []) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
@@ -933,7 +933,7 @@ theorem extendNatSuccP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_)
   · intro ψ ta h ρ
     rw [hty ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -1820,7 +1820,7 @@ theorem extendNatRecP (mp : EnvS2PM V μ env)
   have hty := fun ψ =>
     denoteP_natRecA_type (m := mp.base2)
       (A := fun ψ => AVExpr.const .natRec [ψ uN]) ψ hN hZ hS
-  refine declStepPM_of_basis_rec_cons mp
+  refine nonempty_of_exists (declStepPM_of_basis_rec_cons mp
     (A := fun ψ => AVExpr.const .natRec [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -1829,7 +1829,7 @@ theorem extendNatRecP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ

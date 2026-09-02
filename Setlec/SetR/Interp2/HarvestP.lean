@@ -342,10 +342,10 @@ theorem harvestDefnP (hμ : μ.verified = true)
     rw [denoteClosed, hden2] at hde
     exact (Option.some.inj hde)
   -- assemble
-  refine declStepPM_of_cons mp
+  refine ⟨(declStepPM_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -734,10 +734,10 @@ theorem harvestThmP (hμ : μ.verified = true)
     rw [denoteClosed, hden2] at hde
     exact (Option.some.inj hde)
   -- assemble
-  refine declStepPM_of_cons mp
+  refine ⟨(declStepPM_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -978,10 +978,10 @@ theorem harvestAxiomP (hμ : μ.verified = true)
         (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
         (A := A) hfresh ψ 0 e hcb h
   -- assemble
-  refine declStepPM_of_cons mp
+  refine ⟨(declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh hbase hag hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -1227,10 +1227,10 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
     rw [denoteClosed, hden] at hle
     exact Option.some.inj hle
   -- assemble
-  refine declStepPM_of_cons mp
+  refine ⟨(declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)

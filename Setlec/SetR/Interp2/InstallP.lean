@@ -200,7 +200,8 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
          acvalWith_closed mp.base2.acval_closed hAclosed,
          acvalWith_params mp.base2.acval_params hAparams,
          acvalWith_ok2 mp.base2.acval_ok2 hAok⟩ : EnvS2Core V _)) :
-    Nonempty (EnvS2PM V μ ⟨c₀ :: env.consts⟩) := by
+    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   have hbound := envWF_constsBound mp.base2.base.wf
   have hne : ∀ c ∈ env.consts, c.name ≠ c₀.name := by
     have h0 := hfresh
@@ -314,6 +315,6 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     eq_lawP := heq_law
     caps_ok := hcaps_ok
     rec_rules := hrec_rules
-    reduce_ops := hreduce_ops }⟩
+    reduce_ops := hreduce_ops }, rfl⟩
 
 end Setlec.SetR.Interp2
