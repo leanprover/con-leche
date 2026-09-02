@@ -77,7 +77,7 @@ inductive RawReach (μ : CheckMode) (env : Env) (d G : Nat) :
       RawReach μ env d G (.app (.const Setlec.natSuccName []) x) w
   | natU1 (c : Name) (x : Expr) {ax : Expr} (n : Nat) {res w : Expr}
       (hc : c = Setlec.natPredName ∨ c = Setlec.natLog2Name)
-      (hg : Setlec.natOpGuard env c = true)
+      (hg : Setlec.natOpStored env c = true)
       (hx : RawReach μ env d G x ax)
       (hnl : Setlec.rawNatLit? ax = some n)
       (hres : Setlec.natOpResult c n 0 = some res)
@@ -92,7 +92,7 @@ inductive RawReach (μ : CheckMode) (env : Env) (d G : Nat) :
         c = Setlec.natGcdName ∨ c = Setlec.natLandName ∨
         c = Setlec.natLorName ∨ c = Setlec.natXorName ∨
         c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName)
-      (hg : Setlec.natOpGuard env c = true)
+      (hg : Setlec.natOpStored env c = true)
       (hx : RawReach μ env d G x ax)
       (hy : RawReach μ env d G y ay)
       (hnx : Setlec.rawNatLit? ax = some n₁)
@@ -537,7 +537,7 @@ theorem reduceNat_decompose {env : Env} {fuel d : Nat} {e e₂ : Expr}
       e₂ = .lit (.natVal (n + 1))) ∨
     (∃ c x wx n, e = .app (.const c []) x ∧
       (c = Setlec.natPredName ∨ c = Setlec.natLog2Name) ∧
-      Setlec.natOpGuard env c = true ∧
+      Setlec.natOpStored env c = true ∧
       whnf μ env fuel d x = .ok wx ∧
       Setlec.rawNatLit? wx = some n ∧
       Setlec.natOpResult c n 0 = some e₂) ∨
@@ -550,7 +550,7 @@ theorem reduceNat_decompose {env : Env} {fuel d : Nat} {e e₂ : Expr}
         c = Setlec.natLorName ∨ c = Setlec.natXorName ∨
         c = Setlec.natShiftLeftName ∨
         c = Setlec.natShiftRightName) ∧
-      Setlec.natOpGuard env c = true ∧
+      Setlec.natOpStored env c = true ∧
       whnf μ env fuel d x = .ok wx ∧
       Setlec.rawNatLit? wx = some n₁ ∧
       whnf μ env fuel d y = .ok wy ∧

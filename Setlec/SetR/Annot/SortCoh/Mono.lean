@@ -94,7 +94,7 @@ theorem reduceNat_mono (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
       | ok w => rw [hw] at h; rw [hs.2.1 hw]; exact h
     · rw [if_neg h1] at h ⊢
       by_cases h2 : c = Setlec.natPredName ∧
-          Setlec.natOpGuard env c = true
+          Setlec.natOpStored env c = true
       · rw [if_pos h2] at h ⊢
         simp only [Bind.bind, Except.bind] at h ⊢
         cases hw : r₁.whnf d a with
@@ -102,7 +102,7 @@ theorem reduceNat_mono (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
         | ok w => rw [hw] at h; rw [hs.2.1 hw]; exact h
       · rw [if_neg h2] at h ⊢
         by_cases h3 : c = Setlec.natLog2Name ∧
-            Setlec.natOpGuard env c = true
+            Setlec.natOpStored env c = true
         · rw [if_pos h3] at h ⊢
           simp only [Bind.bind, Except.bind] at h ⊢
           cases hw : r₁.whnf d a with
@@ -127,7 +127,7 @@ theorem reduceNat_mono (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
         c = Setlec.natGcdName ∨ c = Setlec.natLandName ∨
         c = Setlec.natLorName ∨ c = Setlec.natXorName ∨
         c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName) ∧
-        Setlec.natOpGuard env c = true
+        Setlec.natOpStored env c = true
     · rw [if_pos h1] at h ⊢
       simp only [Bind.bind, Except.bind] at h ⊢
       cases hwa : r₁.whnf d a with
@@ -2377,7 +2377,7 @@ theorem reduceNat_some_shape {env : Env}
         · exact nomatch h
     · rw [if_neg h1] at h
       by_cases h2 : c = Setlec.natPredName ∧
-          Setlec.natOpGuard env c = true
+          Setlec.natOpStored env c = true
       · rw [if_pos h2] at h
         simp only [Bind.bind, Except.bind] at h
         cases hw : r.whnf d a with
@@ -2390,7 +2390,7 @@ theorem reduceNat_some_shape {env : Env}
           · exact nomatch h
       · rw [if_neg h2] at h
         by_cases h3 : c = Setlec.natLog2Name ∧
-            Setlec.natOpGuard env c = true
+            Setlec.natOpStored env c = true
         · rw [if_pos h3] at h
           simp only [Bind.bind, Except.bind] at h
           cases hw : r.whnf d a with
@@ -2424,7 +2424,7 @@ theorem reduceNat_some_shape {env : Env}
         c = Setlec.natGcdName ∨ c = Setlec.natLandName ∨
         c = Setlec.natLorName ∨ c = Setlec.natXorName ∨
         c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName) ∧
-        Setlec.natOpGuard env c = true
+        Setlec.natOpStored env c = true
     · rw [if_pos h1] at h
       simp only [Bind.bind, Except.bind] at h
       cases hwa : r.whnf d a with

@@ -83,7 +83,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
             let r ← internExprM (.lit (.natVal (n + 1)))
             pure (some r)
           | none => pure none
-        else if cn = natPredName ∧ natOpGuardF fe cn = true then do
+        else if cn = natPredName ∧ natOpStoredF fe cn = true then do
           let w ← r.whnf depth b
           match ← withStore (rawNatLitI? · w) with
           | some n =>
@@ -93,7 +93,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
               pure (some r)
             | none => pure none
           | none => pure none
-        else if cn = natLog2Name ∧ natOpGuardF fe cn = true then do
+        else if cn = natLog2Name ∧ natOpStoredF fe cn = true then do
           let w ← r.whnf depth b
           match ← withStore (rawNatLitI? · w) with
           | some n =>
@@ -122,7 +122,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
               cn = natDivName ∨ cn = natModName ∨ cn = natGcdName ∨
               cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
               cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
-              natOpGuardF fe cn = true then do
+              natOpStoredF fe cn = true then do
             let w₁ ← r.whnf depth a
             let w₂ ← r.whnf depth b
             match ← withStore (rawNatLitI? · w₁),

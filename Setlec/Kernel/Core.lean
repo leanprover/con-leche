@@ -696,6 +696,31 @@ def natOpStoredOk (env : Env) (n : Name) : Bool :=
     cv.levelParams.isEmpty && natOpTyPinned env n cv.type
   | _ => false
 
+/-- **The reduction-time test for a certified `Nat` operation** (task
+#161 de-gating round A+B+C, item B3; harvest site 37, list entry P7):
+is `c` stored as a definition at all?
+
+`reduceNat` used to re-derive the whole `natOpGuard` at every literal
+hit — `natLitSupported` (three `Env.find?`s), a `natOpDeps c` list
+build plus a lookup per dependency (up to seven), and two more lookups
+for the `Bool` constructors.  That conclusion is *carried by the
+install fold invariant*, in both verification tiers and for every one
+of the sixteen guarded names: `NatOpsP`/`NatOpsV` (the seven structural
+ops, `natOpNames`) and `DivModP`/`DivModV` (the nine WF-pinned ops,
+`natDivModNames`) both read
+
+  `env.find? c = some (.defnInfo cv v hint) → natOpGuard env c = true ∧ …`
+
+and `checkDecl` is what establishes them: it *declines* a stream that
+stores one of these names without `natOpGuard env₂ c` (Checker.lean's
+`.defnDecl` clause).  The converse is by computation — `c ∈ natOpDeps
+c` for all sixteen — so on every environment the checker builds the two
+tests agree, and the cheap one is a single `find?`. -/
+def natOpStored (env : Env) (c : Name) : Bool :=
+  match env.find? c with
+  | some (.defnInfo _ _ _) => true
+  | _ => false
+
 /-- Literal acceleration (the official kernel's `reduceNat`, run in the
 `whnf` loop *before* delta-unfolding): pack `Nat.succ` applied to a
 literal back into a literal.  Binary operations on literal arguments
@@ -713,11 +738,11 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (some (.lit (.natVal (n + 1))))
       | none => pure none
-    else if c = natPredName ∧ natOpGuard env c = true then
+    else if c = natPredName ∧ natOpStored env c = true then
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (natOpResult c n 0)
       | none => pure none
-    else if c = natLog2Name ∧ natOpGuard env c = true then
+    else if c = natLog2Name ∧ natOpStored env c = true then
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (natOpResult c n 0)
       | none => pure none
@@ -735,7 +760,7 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
         c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
         c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
         c = natShiftLeftName ∨ c = natShiftRightName) ∧
-        natOpGuard env c = true then
+        natOpStored env c = true then
       match rawNatLit? (← r.whnf depth a),
           rawNatLit? (← r.whnf depth b) with
       | some n₁, some n₂ => pure (natOpResult c n₁ n₂)

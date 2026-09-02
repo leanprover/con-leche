@@ -2075,6 +2075,11 @@ theorem strLitSupportedF_eq (env : Env) :
   simp only [strLitSupportedF, strLitSupported, mkFEnv_find?,
     natLitSupportedF_eq]
 
+theorem natOpStoredF_eq (env : Env) (c : Name) :
+    natOpStoredF (mkFEnv env) c = natOpStored env c := by
+  simp only [natOpStoredF, natOpStored, mkFEnv_find?]
+  rfl
+
 theorem natOpGuardF_eq (env : Env) (c : Name) :
     natOpGuardF (mkFEnv env) c = natOpGuard env c := by
   simp only [natOpGuardF, natOpGuard, mkFEnv_find?, natLitSupportedF_eq]

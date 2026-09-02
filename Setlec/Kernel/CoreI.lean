@@ -140,6 +140,12 @@ def natOpGuardF (fe : FEnv) (c : Name) : Bool :=
       | none => false)
    else true)
 
+/-- `natOpStored` through the index (task #161 item B3). -/
+def natOpStoredF (fe : FEnv) (c : Name) : Bool :=
+  match fe.find? c with
+  | some (.defnInfo _ _ _) => true
+  | _ => false
+
 /-- `isUnitLikeTy` through the index, on an interned (whnf'd) type. -/
 def isUnitLikeTyI (fe : FEnv) (st : EStore) (e : EIdx) : Bool :=
   match st.getNode e with
@@ -851,7 +857,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
             let r ← internExprM (.lit (.natVal (n + 1)))
             pure (some r)
           | none => pure none
-        else if cn = natPredName ∧ natOpGuardF fe cn = true then do
+        else if cn = natPredName ∧ natOpStoredF fe cn = true then do
           let w ← r.whnf depth b
           match ← withStore (rawNatLitI? · w) with
           | some n =>
@@ -861,7 +867,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
               pure (some r)
             | none => pure none
           | none => pure none
-        else if cn = natLog2Name ∧ natOpGuardF fe cn = true then do
+        else if cn = natLog2Name ∧ natOpStoredF fe cn = true then do
           let w ← r.whnf depth b
           match ← withStore (rawNatLitI? · w) with
           | some n =>
@@ -890,7 +896,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
               cn = natDivName ∨ cn = natModName ∨ cn = natGcdName ∨
               cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
               cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
-              natOpGuardF fe cn = true then do
+              natOpStoredF fe cn = true then do
             let w₁ ← r.whnf depth a
             let w₂ ← r.whnf depth b
             match ← withStore (rawNatLitI? · w₁),
