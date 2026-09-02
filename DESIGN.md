@@ -15746,3 +15746,336 @@ same practice FOUND a missing row — `EtaFamilyStored` mentions
 `caps_ok` is live at the projFn cons, which no bill had listed.  The
 practice finds missing rows as readily as it kills feared ones; that
 is exactly why it is trustworthy.
+
+## Task #161 IND TIER, part 2: the caps content closes; item 1 is done (2026-09-02)
+
+Briefed with the four-item bill part 1 left, and with leave to close
+item by item.  **Item 1 closed** — both capability keys are proved, so
+the member phase is complete at both tiers and `caps_ok` has no open
+row anywhere in the member fold.  Items 2–4 are itemized below with a
+route, not a guess.
+
+`IndStepPB` stays **unstated** rather than conditional (the standing
+ruling), so the census is unchanged: `no_proof_of_Empty_P_of` =
+`hμ` + `IndStepPB`.
+
+### 1. THE HEADLINE: the P tier fires a checked theorem in four moves
+
+v1 fires a checked model theorem through `fireS`
+(`Install/IndStagesS.lean:1108`), which wants `PiTele`, `Sat`,
+`chainE`, `openPisAtFvars`, an `EqFormerKeyV` narrowed out of the
+bundle, and a `RenameOkT`/`RenEqT` renaming discipline.  The survey
+confirmed that **none of that exists at the P currency** — no
+`stripPis_denoteP…`, no `SatP` for towers, no `RenameOkP`, no
+`fireP` — and the bill read that as the tier's cost.
+
+It is not.  None of it is needed, because the P reading is *already*
+the shape the firing wants:
+
+* `denoteP` of a `∀` **is** a `.pi` (`denoteP_forallE`), so a
+  syntactic ∀-telescope reads to a telescope of `.pi` nodes directly
+  — `stripPis_denotePTele`, and the transposition of v1's
+  `stripPis_denoteTele` is *near-verbatim* because part 1's
+  `denoteP_erasedEq` supplies exactly the fvar-blindness the induction
+  re-opens with;
+* `TeleFitP`/`TeleFitPA` peel `.pi`s, so the fit is the telescope's
+  own eliminator;
+* `interp2` of a `.pi` **is** a `piR`, so applying along the fit is
+  `app_mem_piR`, once per argument;
+* the stored theorem's inhabitation is not a tower fact at all — it is
+  the `EnvS2PM` field `mem_typeP`, read off by
+  `EnvS2PM.acval_memTypeP`.
+
+So the firing is: read the statement's type to a `PiTeleP`; move the
+*given* fit from the family former's telescope to the statement's
+across the pins' domain equalities (`teleFitP_congr_ext`) and continue
+it at the member slots; apply the inhabitant along the whole spine
+(`memFoldl_of_teleFitP`); and read the opened body — the pinned `Eq`
+spine — through `eq_lawP` to `eqv`.  **Four moves, and the `Eq` former
+is consumed as an environment law rather than a narrowed bundle.**
+
+This is the ENDGAME lesson in a new place: the P tier is not v1 with
+harder bookkeeping; where v1 had to *build* a structure the reading
+already has, the P tier just reads it.
+
+### 2. Rigidity, twice — and the regime side condition is refuted, not assumed
+
+`EqLawP` computes only after `⟦α⟧ ∈ univ (χ uN)`, exactly as `EqLawV`
+does.  v1 gets it inside `fireS` by graph rigidity of the pinned `Eq`
+former against the statement's own truthfulness (`EqLawV.dom`); the P
+tier does the same twice, and both are new lemmas:
+
+* `eqSlot_univ` — the **type slot**'s universe membership, which every
+  `Eq` statement needs;
+* `eqThird_mem` — the **third argument**'s membership in the type
+  slot, which is v1's *finding 4* one currency over: `checkEtaThm` is
+  a pure `Bool` shape match with no side certification, so nothing
+  types the fabricated constructor application, and what types it is
+  the pinned former's own graph.
+
+Both run `piR_dom_unique` against the reading of `eqA`'s pinned type
+(`eqTyP`, graph regime at bit 1, via a general-environment
+`denoteP_eqA_type_gen`).  **The `v ≠ 0` side condition is not an
+assumption**: a squash-regime member is `pt`
+(`eq_pt_of_mem_piR_zero`) and `pt` lies in no graph-regime product
+(`not_pt_mem_piR_pos`), so `v = 0` is refuted outright.  v1 needed a
+whole `EqLawV` field (`interp (cval eqName ψ) ≠ pt`) for this; at P it
+falls out of the pinned type.
+
+### 3. TWO REPAIRS: part 1's two law statements were unprovable as landed
+
+Honesty in both directions again, and this time about part 1's own
+work.  Both named obligations had premise sets that could not reach
+their own subjects.  Neither is a strengthening of what the fold must
+prove — the callers had the data all along — but both had to be found
+before either key could be stated, let alone proved.
+
+* **`MemberUnitLawP` carried no `EtaPins`.**  Part 1 read the ratified
+  deletion of the unit half's *family* premise as "no premise at all".
+  But `MemberValR` records `checkMemberVal`'s output and says nothing
+  whatever about `checkUnitThm`, so without the pins the law cannot
+  name the theorem it is supposed to fire.  `memberInstallPM`'s
+  `hpins` is at exactly the right `cvA` and `caps`; threaded through
+  `capsOkP_cons_member`'s `hunitLive`.
+* **`MemberEtaLawP` carried no bridge from the public leaf to the
+  model's.**  The law's subject is `acval T` and every pin names
+  `acval (T ++ "_model")`; `BlockAcvalInstalled` is the only bridge,
+  and it is keyed on `blockNames.contains`.  These are precisely v1's
+  `hvT`/`hvC` — `etaLawKeyS` takes the public/model valuation
+  identifications as *install-supplied premises* — so the P law needs
+  the same datum in the form its own invariant carries it.
+  `memberEtaSplit`'s right disjunct already had both facts available
+  (from `hpins` when the cons is the former, from `BlockEtaPinned`
+  when it is the capability constructor); it now hands them out.
+
+The lesson to carry: **when a P law is stated by transposing a v1
+law's *conclusion*, its premise set must be re-derived from the v1
+law's premises, not from the v1 field's.**  `etaLawKeyS` has twenty-odd
+premises and three of them are valuation identifications; a transpose
+that copies only the conclusion silently drops them.
+
+### 4. `etaFields = 0` deletes half of `etaLawKeyS`
+
+`capsOkP_cons_member` only ever leaves the η row open at a block
+former with **no projection slots** (part 1's finding 5, and
+`memberEtaSplit`'s `hzero` is what forces it).  So
+`etaFabArgs2 val T ts x 0 = ts ++ [] = ts`: the fabricated spine *is*
+the parameter spine, no projection leaf is ever read, and
+`etaLawKeyS`'s entire `hvP`/`projSpinesV`/`hprojE` half evaporates.
+The η key is consequently *shorter* than the unit key's firing, not
+longer, despite the extra rigidity step.
+
+### 5. One opened spine, three depths
+
+Every capability statement pins its type slot to the model former
+applied to the telescope's parameters, and the same opened expression
+appears at three different depths (the η/unit member binders and the
+equation's own type slot).  `instSeq_openSpine` reads it once,
+parameterised by the cut, and `interp2_bvarSpine` evaluates it once,
+parameterised by the index function — so the three occurrences cost
+one lemma each rather than three.  `consN` names the environment a
+fit ends in, which is what lets the second telescope's residual be
+spoken about at all.
+
+### Census after IND TIER part 2
+
+`no_proof_of_Empty_P_of`: **`hμ` + `IndStepPB`** — unchanged, by
+design.  `MemberEtaLawP` and `MemberUnitLawP` are now **theorems**
+(`memberEtaLawP`, `memberUnitLawP`), checked to discharge
+`memberInstallPM`'s two hypotheses with no residue, so the member
+fold's caps side adds nothing to any signature.
+
+### WALLS
+
+**None.**  Nothing on item 1's bill was found unprovable, and the two
+premise-set repairs are recorded above as findings, not walls.  The
+Prop-motive minors were not reached — they live in item 2.
+
+### IND TIER part 2 battery (verbatim, at `1109abd8`)
+
+`lake build` **425 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to part 1's and to the ENDGAME A–H seals', and for the same
+reason: no `Setlec/Kernel/*` file was touched (`git diff --name-only`
+against the lane lists six files, all under `Setlec/SetR/`).
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `checkDecls_sound_P_of` and on every new
+theorem — `memberEtaLawP`, `memberUnitLawP`, `eqSlot_univ`,
+`eqThird_mem`, `denoteP_eqA_type_gen`, `blockTypeReadEq`,
+`memberTypeReadEq`, `stripPis_denotePTele`, `memFoldl_of_teleFitP`,
+`teleFitP_congr`, `teleFitP_congr_ext`, `teleFitP_residual`,
+`teleFitP_okP_residual`, `denoteSpineP_openFvars`,
+`interp2_bvarSpine`, `denoteP_openSpine`, `instSeq_openSpine`
+(the last two and `PiTeleP.split` on `[propext, Quot.sound]` alone;
+`memberEtaSplit` still on `propext` alone).  Zero sorries.
+
+New files: `Setlec/SetR/Interp2/IndTeleP.lean` (the reading's
+telescope and the fit's movers), `Setlec/SetR/Interp2/IndUnitLawP.lean`
+(the unit key + the shared `Eq`/renaming kit),
+`Setlec/SetR/Interp2/IndEtaLawP.lean` (the η key).  Edited:
+`Setlec/SetR.lean` (three imports), `Setlec/SetR/Interp2/IndCapsP.lean`
+and `Setlec/SetR/Interp2/IndMembersP.lean` (the two premise-set
+repairs, §3).  No landed statement moved; no file was deleted.
+
+### Resume-here: the ind tier's remaining bill, re-itemized
+
+Item 1 is **done**.  What follows is items 2–4 with the route item 1
+established, and with the one delta that route does *not* cover named
+up front.
+
+2. **the recursor group's `rec_rules`.**  `provisionRecsPM` already
+   supplies the `EnvS2PM` at `envSelf`.  The dispatch is
+   `IotaRuleR` (`SetR/Decl.lean:611`): `.plain` → `IotaThmR` (`:485`),
+   `.nested` → `IotaThmNR` (`:536`), `.inert` excluded — and **the
+   `iota_j` theorem is looked up by `findCV?`, i.e. by its *type*
+   alone**, so its inhabitation at P is `mem_typeP` exactly as the
+   capability keys' was.  Item 1's four moves therefore apply
+   verbatim, with **one delta, and it is the whole difference**:
+
+   > `checkEtaThm`/`checkUnitThm` pin the statement's parameter domains
+   > to be *literally* the model former's (`hsdoms` is an `Expr`
+   > equality, so the readings are the same `AVExpr`).  `IotaThmR`'s
+   > corresponding conjuncts are `DefEqListW` walks — recorded
+   > `isDefEq` runs — so the two telescopes agree only up to a
+   > *certificate*, which at the P currency is an `interp2` equality
+   > and not an `AVExpr` one.
+
+   That delta is **already paid**: `teleFitP_congr_extS`
+   (`Interp2/IndTeleP.lean`) is `teleFitP_congr_ext` with semantic
+   domain agreement, landed in this batch precisely so item 2 does not
+   discover it mid-proof.  The certificates themselves convert through
+   `DefEqClaims2P` — the run-certificate route, whose worked examples
+   are `Interp2/NatEqsP.lean` and `Interp2/DivModCertP.lean`.
+
+   The one genuinely new lemma the plain case still needs is
+   `openPisAtFvars_denotePTele` — v1's `openPisAtFvars_denoteTele`
+   (`Verify/Denote/IndFrame.lean:202`) transposed, and it will be
+   near-verbatim for the same reason `stripPis_denotePTele` was
+   (`denoteP_erasedEq` is blind to the opener).
+
+   **THE PROP-MOTIVE MINORS LIVE HERE** and were *not* reached this
+   batch — no evidence either way was gathered, so part 1's framing
+   stands unchanged.  Precedents to spend before assuming work:
+   `quotIndLawP` (`Interp2/BasisQuotP.lean:653`, the pure-squash row —
+   fired equality is `pt = pt`, transport is five `AnnotOkP_app_pt`),
+   the named squash kit at `BasisQuotP.lean:467-515`
+   (`unitPropR`, `AnnotOkP_lam_zero_pt`, `AnnotOkP_app_pt`),
+   `psigmaRecLawP` (`BasisPSigmaP.lean:1431`, both sides `pt`),
+   `punitRecLawP` (`BasisBlocksP.lean:323`), `quotLiftV2_app_zero` and
+   `emptyRecV2_zero : emptyRecV2 V 0 = pt := lamR_zero`
+   (`Interp2/Value.lean:424,505`), and the forcing lemmas
+   `eq_pt_of_mem_piR_zero` / `pt_mem_piR_zero` / `piR_zero_subsingleton`
+   (`Interp2/Ops.lean:150,160,316`).  **Note this batch's own
+   experience with the regime**: in both keys the `v ≠ 0` side
+   condition looked like a hypothesis and turned out to be *refutable*
+   from the pinned type (§2).  Re-check whether the Prop-motive minors
+   are the same shape before treating them as new mathematics — and if
+   content appears that none of the precedents covers, STOP-AND-NAME
+   with the countermodel.
+
+   The **∃-form pins conjunct** of `RecRuleLawP`'s `.nested` clause is
+   established from `IotaThmNR`'s `checkAnnotList` certificates (task
+   #105's machinery is the v1 mirror).  The transport across the
+   rule-list difference is `RecRuleLawV.swapS`'s twin
+   (`Install/SwapS.lean`, 214 lines; note `FoldUpS` is a
+   *correspondence*, not an inclusion).
+
+3. **the projection phase.**  `ProjFnR` conses a `recInfo` and so owes
+   both open rows: `caps_ok` (part 1's finding 6 — this is where a
+   family completes; the η key is already proved and is the same
+   `EtaLawP`, so what is needed is the *routing*, not new semantics,
+   though `etaFields = 0` will **not** hold here and item 1's §4
+   simplification therefore does **not** transfer — the projection
+   spine is live and `hvP`/`projSpines2` come back) and `rec_rules`
+   (`indBottomProjS`'s transpose, reachable only from here).
+   `TemplatesR`'s `projInfo` conses need only a tower and a type
+   reading (`declStepPM_of_projTemplate_cons`, already landed).
+
+4. then **`indStepPB_of`** over `DeclIndR`'s two arms, `hind` off
+   `FoldP` (`declStepPM`/`foldPM`/`checkDecls_sound_P_of`/
+   `no_proof_of_Empty_P_of`), census → `hμ` ALONE, and **THE FINAL
+   ASSEMBLY** (`CapstoneP.lean`'s frozen letter).  `memberInstallPM`
+   still takes `MemberEtaLawP V`/`MemberUnitLawP V` as hypotheses by
+   design (layering: `IndMembersP` must not import the key files);
+   `indStepPB_of` supplies `memberEtaLawP`/`memberUnitLawP` and the
+   census gains nothing — checked this batch by `example`.
+
+**Size, honestly.**  v1's recursor + projection phases are 8379 lines
+(`IndBottomS` 423, `IndBottomPlainS` 548, `IndBottomNestedS` 785,
+`IndBottomProjS` 484, `IotaRuleS` 330, `SwapS` 214, `IndRecsS` 832,
+`ProjInstallS` 1044, `IndStagesS` 2845, `IndFrameS` 522, `DeclIndS`
+352).  Items 2–3 are therefore **multi-session on their own**, which
+is why this batch closed item 1 and stopped rather than starting item
+2 and leaving it half-built.  But the bulk is not indicative: a large
+part of `IndStagesS` and `IndFrameS` is the tower/`Sat`/`chainE`
+firing apparatus, and item 1's headline is that the P tier needs
+**none** of it.  Budget by the *content* — the walks, the pins, the
+regime — not by v1's line count.
+
+## Task #161 SUCCESSION RECORD update (ind tier part 2, item 1 landed, 2026-09-02)
+
+Lane `agent/annot-v2` @ `c45ad345` at batch start **and at batch end**
+(the lane did not move; nothing to merge).  ALL FOUR SEMANTIC TIERS
+CLOSED.  Capstone hypotheses: `hμ` + `IndStepPB`, unchanged.
+
+LANDED: ind tier part 2 **item 1** on `agent/indtier2` (worktree
+`.claude/worktrees/indtier2`), three commits.  Briefed with the
+four-item bill and leave to close item by item; closed **item 1** —
+both capability keys, the campaign's first `EtaLawP`/`UnitLawP`
+producers — plus the telescope kit they run on and one lemma landed
+ahead for item 2.  Battery green (build 425 warning-free, test exit 0,
+arena counters unchanged, axioms within the standard three, zero
+sorries).  **No walls.**
+
+THE HEADLINES, in order of what they save the successor:
+
+* **the P tier fires a checked theorem in four moves.**  v1's whole
+  `fireS`/`PiTele`/`Sat`/`chainE`/`openPisAtFvars`/`EqFormerKeyV`/
+  `RenameOkT` apparatus is unnecessary, because `denoteP` of a `∀` IS
+  a `.pi`, `TeleFitP` peels `.pi`s, `interp2` of a `.pi` IS a `piR`,
+  and the theorem's inhabitation is the `mem_typeP` field.  Budget
+  items 2–3 by content, not by v1's 8379 lines;
+* **rigidity twice, and the regime condition is refuted not assumed.**
+  `eqSlot_univ` and `eqThird_mem` (the latter is v1's finding 4 — the
+  fabricated constructor application is typed by no `--set-model`
+  check).  Both run `piR_dom_unique` against `eqTyP`; the `v ≠ 0` side
+  condition falls out because a squash member is `pt` and `pt` is in
+  no graph product.  v1 needed an `EqLawV` field for this;
+* **TWO REPAIRS: part 1's two law statements were unprovable as
+  landed** — `MemberUnitLawP` had no `EtaPins` (so it could not name
+  the theorem it fires) and `MemberEtaLawP` had no bridge from the
+  public leaf to the model's (v1's `hvT`/`hvC`).  Both are threading
+  fixes with the data already at the call site.  **Carry the lesson**:
+  when a P law is stated by transposing a v1 law's *conclusion*, its
+  premise set must be re-derived from the v1 law's *premises*, not
+  from the v1 field's;
+* **`etaFields = 0` deletes half of `etaLawKeyS`** at a member cons —
+  but NOT at the projection cons (item 3), where the projection spine
+  is live again;
+* **item 2's one real delta is already paid**: its telescopes agree
+  only up to `DefEqListW` certificates, not syntactically, so
+  `teleFitP_congr_extS` (semantic domain agreement) was landed ahead.
+
+Carried trap (still G's, still true): absorb lift-then-instantiate
+BEFORE unfolding `cons` — with `cons` in the same simp set the pattern
+stops matching and simp silently changes nothing.
+
+AFTER THIS BATCH (successor's order): review + merge per protocol;
+then item 2 (recursor group — the Prop-motive minors are in it and
+were NOT reached, so part 1's framing stands), then item 3
+(projection phase), then `indStepPB_of` and THE FINAL ASSEMBLY.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal.

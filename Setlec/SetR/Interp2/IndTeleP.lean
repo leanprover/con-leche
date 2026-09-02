@@ -443,6 +443,62 @@ theorem teleFitP_congr_ext :
           List.getElem?_append_left (by omega),
           List.getElem?_append_left (by omega)] at h
 
+/-- **The fit moved across *semantically* agreeing domains** (task
+#161 IND TIER part 2, landed for item 2).
+
+The capability keys need only the syntactic form above: `checkEtaThm`
+and `checkUnitThm` pin the statement's parameter domains to be
+*literally* the model former's (`hsdoms` is an `Expr` equality), so
+their readings are the same `AVExpr`.  **The recursor group is not like
+that**: `IotaThmR`'s corresponding conjuncts are `DefEqListW` walks —
+recorded `isDefEq` runs — so the two telescopes' domains agree only up
+to the certificate, which at the P currency is an `interp2` equality
+and not an `AVExpr` one.
+
+The fit never inspects a domain except through `∈ˢ interp2`, so the
+weakening is free; recording it here means item 2 does not have to
+discover it mid-proof.  `teleFitP_congr_ext` is the special case where
+the readings coincide. -/
+theorem teleFitP_congr_extS :
+    ∀ (ts : List V) {ρ : Nat → V} {Ta Sa : AVExpr}
+      {Γ Δ : List AVExpr} {R M : AVExpr} {rest : V}
+      {more : List V} {r : V},
+      PiTeleP ts.length Ta Γ R →
+      PiTeleP ts.length Sa Δ M →
+      (∀ i, i < ts.length → ∀ σ : Nat → V,
+        interp2 V σ (Γ.getD i default) = interp2 V σ (Δ.getD i default)) →
+      TeleFitP V ρ Ta ts rest →
+      TeleFitP V (consN ts ρ) M more r →
+      TeleFitP V ρ Sa (ts ++ more) r := by
+  intro ts
+  induction ts with
+  | nil =>
+    intro ρ Ta Sa Γ Δ R M rest more r _ hS _ _ hmore
+    cases hS
+    exact hmore
+  | cons t tsr ih =>
+    intro ρ Ta Sa Γ Δ R M rest more r hT hS hdoms hfit hmore
+    obtain ⟨u₁, v₁, A₁, B₁, Γ', rfl, hΓ, hT'⟩ := hT.succ_inv
+    obtain ⟨u₂, v₂, A₂, B₂, Δ', rfl, hΔ, hS'⟩ := hS.succ_inv
+    have hΓl : Γ'.length = tsr.length := hT'.length
+    have hΔl : Δ'.length = tsr.length := hS'.length
+    cases hfit with
+    | @cons _ _ _ _ _ _ _ _ ht hfit' =>
+      refine TeleFitP.cons ?_ (ih hT' hS' ?_ hfit' hmore)
+      · have h := hdoms tsr.length (by simp) ρ
+        rw [hΓ, hΔ, List.getD, List.getD,
+          List.getElem?_append_right (by omega),
+          List.getElem?_append_right (by omega), hΓl, hΔl,
+          Nat.sub_self] at h
+        simp only [List.getElem?_cons_zero, Option.getD_some] at h
+        rw [← h]
+        exact ht
+      · intro i hi σ
+        have h := hdoms i (by simp only [List.length_cons]; omega) σ
+        rwa [hΓ, hΔ, List.getD, List.getD,
+          List.getElem?_append_left (by omega),
+          List.getElem?_append_left (by omega)] at h
+
 /-- The residual of a fitted telescope is graded, at the environment
 the fit ends in. -/
 theorem teleFitP_okP_residual :
