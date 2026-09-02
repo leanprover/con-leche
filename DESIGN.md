@@ -21306,3 +21306,42 @@ off-domain VALUE, but the Π-set constrains f only ON ⟦A⟧ — the
 MEMBERSHIP goal still fails off-domain; totalization moves the
 failure without removing it; dead for this site unless the table
 shows a different goal shape.
+
+## Task #161 HARVEST SCOPE CORRECTION (2026-09-02; user-binding):
+the definition restored, ROUND D RETIRED
+
+**THE DEFINITION, restored**: certificate tax = work present in
+--set-model runs BEYOND official-kernel-equivalent full checking —
+the model-feeding extras (#141's own infer_only→yolo framing).  The
+full→infer_only delta is LEGITIMATE CHECKING, permanently out of
+scope.
+
+**Round D is RETIRED**: the inferSpine domain defeq family (sites
+9-12, the 72-77% "ceiling" and the 20-36% pw-gate lever) is the APP
+TYPING RULE — the official kernel performs it in full checking;
+masking it weakens the checker below official semantics and changes
+the accepted language on adversarial streams.  The user's diagnosis,
+verbatim: **"a front door check where the official kernel also does
+a defeq, and rightly so."**  The nonemptiness/totalization route
+question is CLOSED as out-of-scope (kill-note above stands as the
+model-side receipt).  The D1 worker delivers the sequent table (or a
+one-paragraph note) as DOCUMENTATION of why the site is legitimate
+checking, then stops.
+
+**Re-bucketing dispatched** (P1 worker resumed with its inventory in
+context): every site tagged OFFICIAL-EQUIVALENT (out of scope; the
+operational test — does official full checking do the equivalent
+work? checked against the lean4lean/_tmp reference sources where
+uncertain) vs CERTIFICATE (the harvest's domain); the two headline
+numbers recomputed over the CERTIFICATE bucket only.  Special
+attention: the annotate-side family's removable-vs-supplier split;
+excess-over-official splits at shared rules.
+
+**The goal's expected closure**: A+B+C's landed removals + the
+re-bucketed table + the supplier-class verdicts + round E's sizing
+(if in-bucket) likely CLOSE the goal — the true tax was always
+small because the campaign already deleted most of it during the
+P-tier build (the finalized frontier table is the receipts).  Round
+F stays on the performance roadmap (official also pays proofIrrel
+re-inference — optimization, not de-gating).  The re-bucketed table
+and A+B+C's numbers report together.
