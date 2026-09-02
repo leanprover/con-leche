@@ -13603,3 +13603,21 @@ two shape lemmas, the two bit lemmas, the fuel-free run identities),
 `Interp2/BasisConsP.lean` (the basis-cons preservation kit + the
 `rec_rules` WALL record).  No file was deleted and no sealed
 statement was edited.
+
+## Task #161 FINDINGS class note: collapse-vs-graded divergences (2026-09-02)
+
+Endgame B's wall 2 is the campaign's first MECHANIZED
+collapse-vs-graded divergence at a *pinned axiom*: `Iff.rec`'s v1
+instantiation at `u ↦ 0` is free under `piC` (the collapse regime
+absorbs it) but FATAL under `piR` (all five bits go to `0`,
+`piR 0` forces the value to `pt`, and the ι law degenerates to
+`pt = pt` — the model would stop *distinguishing* the eliminator from
+junk).  The graded model demands `u ↦ nonzero`, moving the forcing
+into the squash regime where `of_mem_truthVal` reads `Iff.intro`'s
+implication binders.  CLASS, for the publishable findings ledger:
+**the graded interpretation refuses degenerate instantiations the
+collapse interpretation silently absorbs** — the same species as the
+literal-tier's refuted erasure factoring and the proj tier's
+sought-and-failed rigidity shortcut, now observed at the pin tier.
+The route to the memberships is written in the ENDGAME B seal; its
+one residue closes on `univ_mono`.
