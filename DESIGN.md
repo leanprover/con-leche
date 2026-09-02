@@ -18857,3 +18857,410 @@ Prop-motive case (stop-and-name standing), projection `rec_rules`,
 letter — committed ALONE, axiom audit in the message, capstone
 record, finalized frontier table.  Census at this seal: `hμ` +
 `IndStepPB`, never conditional.  The goal is at the end of part 7.
+
+## Task #161 IND TIER, part 7: the repair's PRODUCER lands and the
+plain bottom CLOSES (2026-09-02)
+
+Briefed with the eight-item bill through THE ASSEMBLY.  **Items 1 and
+2 close**; items 3–8 do not, and the batch seals at the exact position
+the brief sanctions for that case.  Nothing conditional was landed,
+zero sorries, axioms exactly the standard three.
+
+### The ordering deviation, and why
+
+The bill said "strict order": `indBottomPlainP` (item 1) first, then
+the producer discharge (item 2).  **Item 2 was taken first**, on part
+6's own ratified discipline — probe/settle the RISK before spending
+effort downstream of it — and the coordinator's part-6 ledger entry 1
+("the probe-before-establishment discipline paid in full: items 1–5 of
+part 6 were NOT built on a false premise") is the precedent.  The
+repaired conjunct was a *repair to a refuted statement*; whether it is
+establishable at all was the campaign's open question, and answering
+it costs a fraction of a bottom.  Both items then landed, so the
+deviation cost nothing and de-risked everything after it.
+
+### Per-commit table
+
+| commit | what landed |
+| --- | --- |
+| `d03e5f87` | **the firing stage** — `annotOkP_tower_body`, `annotOkP_tower_body_sat`, `teleFitPA_nonempty`, `EqFormerKeyP`, `eqFormerKeyP`, `fireP`, `sidesMemP` (`Interp2/IndFireP.lean`, new) |
+| `25c2d5da` | **the truthfulness transport** — `annotTransportP` (`Interp2/IndTransportP.lean`, new) |
+| `1a0db615` | **THE PRODUCER** — `instSeqP_eq_self_of_bvarsBelow`, `instSeqP_instRevChain`, `padHitP`, `nestedChainP`, `DenoteSpineP.of_getD`, `pinCrossP` (`Interp2/IndOpenRevP.lean`, new); `padA`, `interp2_padA`, `annotOkP_padA`, `shiftE_chainP`, `annotOkP_instSeq`, `sat2_padded_chainP`, `nestedPinGradeP` (`Interp2/IndPinGradeP.lean`, new) |
+| `c462512d` | **the plain bottom** — `indBottomPlainP` (`Interp2/IndBottomPlainP.lean`, new, 1148 lines); `IndZipperP.lean`'s `hpar` premise weakened (see below) |
+
+### THE HEADLINES, in order of what they save the successor
+
+* **THE REPAIRED CONJUNCT IS ESTABLISHABLE, and the route is the one
+  the repair was designed for.**  `nestedPinGradeP`
+  (`Interp2/IndPinGradeP.lean`) concludes `AnnotOkP V ρ
+  (AVExpr.instRevChain zs vpa)` — `RecRuleLawP`'s repaired conjunct
+  verbatim — from the claims-layer form of `checkTypedList ops
+  envSelf depth pinsP cdomsP` (`Kernel/Modeled.lean:290`).  The chain:
+
+  ```
+     checkTypedList … pinsP cdomsP
+       ⇒ TypedListOk.infer_of_mem     ⇒ InferClaims2P
+       ⇒ ∀ σ, Sat2 V (replicate cnF (.sort 0) ++ ΓP) σ → AnnotOkP V σ w0
+       ⇒ at σ := chainP V ρ (zs ++ replicate cnF padA)  [sat2_padded_chainP]
+       ⇒ annotOkP_instSeq                               [grading crosses]
+       ⇒ pinCrossP                                      [objects identified]
+  ```
+
+  Part 6's diagnosis was that the certificate is about a *different
+  object*; `pinCrossP` is the object bridge, and it is a **syntactic**
+  identity (`instSeq (zs ++ padding) (K-1) w0 = instRevChain zs vpa`),
+  so nothing semantic is lost crossing it;
+
+* **the repair's two halves are discharged by two different
+  mechanisms, and each is the only one available to it.**  The
+  *grading* half crosses the substitution ONLY because the fired
+  prefix is graded — `AnnotOk2_inst`/`AnnotValidV_inst` charge for the
+  substituted value at every cut, and the repaired conjunct
+  hypothesises `∀ z ∈ zs, AnnotOkP V ρ z` precisely so that it can.
+  The *equality* half has no such hypothesis, which is why part 4
+  routed it through the top-down descent instead.  Read the two
+  together before touching either;
+
+* **the spine's padding is charged a grading, and `.prf` FAILS.**  v1
+  pads a fired spine with `dummyPropT`, which only has to inhabit its
+  `.sort 0` context slot.  The reading tier's padding is *also* an
+  argument of `annotOkP_instSeq`, so it must be graded — and the
+  obvious candidate `.prf` is refuted on the first obligation:
+  `pt_not_mem_univZero`.  The padding that works is
+  `padA := .eqE (.sort 0) (.sort 0) (.sort 0)` — reading
+  `eqv (univ 0) (univ 0) ∈ˢ univ 0` (`eqv_mem_univ`), grading
+  `True ∧ True`.  `padHitP`/`nestedChainP`/`pinCrossP` are stated
+  generic in the padding element so the choice stays the producer's;
+
+* **THE PLAIN BOTTOM CLOSES.**  `indBottomPlainP` is
+  `Install/IndBottomPlainS.lean` (548 lines) at `denoteP`/`interp2`
+  (1148 lines), with the stage composition verbatim in v1's order:
+  `prefixGradeFireP` → `plainParamSupplyP` → `zipperP` → `fireP` →
+  `reductP` → `pointP`, and `zipFieldTermEqP` → `fieldGradeFireP` →
+  `annotPFrameEqP` → `annotMemP` → `annotTransportP` on the transport
+  side, with `sidesMemP` supplying the equation sides.  **The ambient
+  context is the statement tower itself** (`Δa := Γs`): the entry
+  condition every stage carries becomes a length fact, and the
+  zipper's own `Sat2 V Γs (chainP V ρ zs)` output *is* the downstream
+  stages' input.  Part 5's refutation of its own second context was
+  the right call and this is the proof of it;
+
+* **`fireS`'s transpose needed a WEAKENING, not a transcription, and
+  the weakening is the interesting part.**  v1 applies the theorem's
+  inhabitant along the fit (`TeleFitV.appN_val`, on `app_mem_piC`,
+  which has no regime).  `app_mem_piR`'s **squash** branch needs the
+  codomain fibres to be truth values — a fact that rides
+  `AnnotValidV`'s `.pi` clause and **cannot cross `.inst`** without
+  the substituted argument's own grading, which `RecRuleLawP`'s
+  interp-equality half deliberately does not carry.  `teleFitPA_nonempty`
+  weakens the conclusion from "the application lands in the residual"
+  to "**the residual is inhabited**", which needs none of it (at
+  `v = 0` the product *is* the truth value of "every fibre is
+  inhabited") and is *exactly* what the firing spends: `mem_eqv` reads
+  the equation off ANY member.  Whenever a v1 stage's transpose stalls
+  on a regime premise, ask what the consumer actually spends;
+
+* **the equation slot's universe membership is a COMPUTATION at P.**
+  v1 recovers it by `annotOkV_descend` (retired at part 2) plus graph
+  rigidity.  `fireP` gets the descent from `annotOkP_tower_body_sat`
+  (top-down along the satisfying environment — part 4's route, now
+  with a body clause beside its slot clause) and the rigidity from the
+  fact that the pinned `Eq` type's outer binder carries
+  `PropWhen.never`, so `pwBit ψ .never = 1` **by `rfl`**.  The squash
+  branch of the app package is then refuted exactly as the part-6
+  probe refutes it (`eq_pt_of_mem_piR_zero` + `not_pt_mem_piR_pos`),
+  and `piR_dom_unique` applies with no side condition;
+
+* **`sidesMemS` collapses to two claims-layer conversions.**  v1
+  rebuilds three `CtxOkR`s and fires the quantified-context packs;
+  `IotaRunsR` carries the two `checkIotaSidesTy` runs outright, so
+  `sidesMemP` is `InferClaims2P` + `DefEqClaims2P` at the frame's own
+  context.  The one thing it needs that v1 does not is the **inferred
+  type's reading** — derivations carry their values, runs do not — so
+  the P bottom routes `InferReadsP` (`inferReadsP_of` at the caller).
+  Its syntactic frame is free: `inferTypeCore_WScoped`/`_fvarLeaves`/
+  `_looseBVars` (`Verify/InferLeaves.lean`) put the inferred type's
+  leaves inside the subject's;
+
+* **`hokApp` — the third exposure's premise — is the transport fired
+  at the frame's OWN OPENERS.**  `reductP`'s docstring predicted this
+  ("once the row lands, `hokApp` is the truthfulness transport's own
+  output at the frame's openers") and it is exactly right, with one
+  cost the docstring did not name: the opener chain `chainP V σ bvs`
+  is **not** `σ` (it agrees with `σ` below `K` and shifts above it), so
+  two environment congruences are owed.  Both are free once the
+  statement tower's slot `K - 1 - m` is known bounded by `m`
+  (`denote_bvarsBelow` on the erasure, via `denoteP_erase`), because
+  every environment the congruence touches sits below that bound:
+  `interp2_congr_below` crosses them.  **`annotTransportP` is
+  therefore used twice** — at the opener spine to feed `reductP`, and
+  at the fired spine for the conclusion;
+
+* **A LANDED PART-5 STATEMENT WAS WEAKENED** (`IndZipperP.lean`,
+  flagged for review): `zipperP`'s `hpar` premise asked for the
+  parameter supply at *every* padding level `N ≤ rP + cnF`.  Its only
+  consumer is the field branch, which always holds `rP ≤ n`, and its
+  only supplier — `plainParamSupplyP` — needs exactly that bound,
+  because it transports the *prefix* equalities and so needs the
+  recursor tower's whole prefix present in the context.  The premise
+  now reads `∀ N, rP ≤ N → N ≤ rP + cnF → …`; one hypothesis added,
+  one argument (`hnrP`) passed at the single call site.  This is a
+  **strictly stronger lemma** — no proof changed — and it is recorded
+  here because it is an edit to landed part-5 work, not because it is
+  a risk.  The bottom is `zipperP`'s first caller and is what exposed
+  it.
+
+### The bill, item by item
+
+1. **`indBottomPlainP` — DONE** (`c462512d`).
+2. **The producer discharge of the repaired nested-pin conjunct —
+   DONE** (`1a0db615`), as `nestedPinGradeP`.
+3. `indBottomNestedP` — **not started**.  Its shape is now fully
+   determined (see the inventory below): the plain bottom with the pin
+   spine, plus **one new stage** — the `.nested` fire's parameter
+   supply, `plainParamSupplyP`'s sibling with `paramGradeFireP`
+   replaced by the pins' `TypedListOk` run through `InferClaims2P`.
+   `pinCrossP` (landed) is its pin bridge, at the *statement* frame
+   (the producer spends it at the *public* frame; the lemma is generic
+   in the opener spine for exactly this reason).
+4. the recursor group's `RecRuleLawP` rows — not started.
+5. the projection `rec_rules` half — not started.
+6. `indStepPB_of` — not started.
+7. `hind` off `FoldP` — not started.
+8. THE ASSEMBLY — not reached.  Census unchanged: `hμ` + `IndStepPB`.
+
+### The remaining transposition, MEASURED
+
+The honest scale, so part 8+ can be planned rather than estimated.
+S-tier install files with no P counterpart, in bill order:
+
+| item | S file | lines | note |
+| --- | --- | --- | --- |
+| 3 | `Install/IndBottomNestedS.lean` | 785 | + the new `.nested` param stage |
+| 4 | `Install/IndBottomProjS.lean` | 484 | the *simplest* bottom: no walks, no P-frame, no ladders |
+| 4 | `Install/IndRecsS.lean` | 832 | the recursor group's fold, all three bottoms |
+| 4 | `Install/IotaRuleS.lean` | 330 | per-rule dispatch into the bottoms |
+| 5 | `Install/ProjInstallS.lean` | 1044 | the projection phase |
+| 6 | `Install/DeclIndS.lean` | 352 | the whole-kind step |
+| 6 | `Install/SwapS.lean` | 214 | glue |
+| — | **total** | **4041** | |
+
+This batch turned 548 S-lines (plus the four stages, which have no
+single S file) into 2273 P-lines — a ~2× expansion that is the tier's
+constant, because every stage's premise set gains the gradings and the
+run-conversion frames.  At that ratio items 3–6 are ≈ 8000 P-lines,
+i.e. **three to four more batches at this batch's rate**; items 7–8
+are small.  The census cannot move before item 6.
+
+### Reuse: what already existed and was not rebuilt
+
+`denoteP_openRev` and `denoteP_openRev_base` — **already in the tree**
+(`Step2/IotaKitP.lean:61,98`, landed with the ι row); part 6's "the
+consumer's bridge is the `denoteP` mirror of the `denote_openRev`
+pair" was already paid for and this batch only spent it.  Also:
+`annotOkP_instRevChain_at` (part 6), `annotOkP_tower_slot`,
+`hokA_padded` (part 4), `sat2_of_tower`, `teleFitPA_to_chain`,
+`sat2_padded`, `chainP_*`, `interp2_instSeq`, `instSeqP_*`
+(`IndSubstP`), `AVExpr.liftN_eq_self` / `AVExpr.inst_eq_self`
+(`Interp2/Denote2Closed.lean`), `interp2_congr_below` (`Interp2/Kit.lean`),
+`piR_dom_unique`, `not_pt_mem_piR_pos`, `eq_pt_of_mem_piR_zero`,
+`app_mem_piR_pos`, `of_mem_truthVal`, `eqv_mem_univ`, `mem_eqv`,
+`denoteP_lift`/`_beta`/`_shiftFrom`/`_closed`/`_depth_of_closed`/
+`_renameConsts`/`_erase`, `denote_bvarsBelow`, `inferTypeCore_WScoped`/
+`_fvarLeaves`/`_looseBVars`, `instPisAt_*`, `openPisAtFvars_*`,
+`stripPis_denotePTele`, `instLamsAt_denotePTele`, and every part 4–5
+stage.  **Nothing in `Setlec/Kernel/*`, `Main.lean`, `Verify/`,
+`Setlec/SetR/Install/` or any frozen statement file was touched.**
+
+### IND TIER part 7 battery (verbatim, at `c462512d`)
+
+`lake build` **454 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to parts 1–6's, and for the same reason: the batch's diff
+touches no `Setlec/Kernel/*` file.  Zero sorries
+(`grep -rn sorry Setlec/` returns only docstring prose).
+
+Axiom audit, verbatim:
+
+```
+'Setlec.SetR.Interp2.no_proof_of_Empty_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.checkDecls_sound_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indBottomPlainP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.nestedPinGradeP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.pinCrossP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.fireP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.sidesMemP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.eqFormerKeyP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.annotTransportP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.annotOkP_tower_body' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.annotOkP_tower_body_sat' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.teleFitPA_nonempty' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.annotOkP_instSeq' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.sat2_padded_chainP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.shiftE_chainP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.annotOkP_padA' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.interp2_padA' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.instSeqP_instRevChain' depends on axioms: [propext, Quot.sound]
+'Setlec.SetR.Interp2.instSeqP_eq_self_of_bvarsBelow' depends on axioms: [propext, Quot.sound]
+'Setlec.SetR.Interp2.padHitP' depends on axioms: [propext, Quot.sound]
+'Setlec.SetR.Interp2.nestedChainP' depends on axioms: [propext, Quot.sound]
+'Setlec.SetR.Interp2.DenoteSpineP.of_getD' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.zipperP' depends on axioms: [propext, Classical.choice, Quot.sound]
+```
+
+New files: `Setlec/SetR/Interp2/IndFireP.lean`,
+`Interp2/IndTransportP.lean`, `Interp2/IndOpenRevP.lean`,
+`Interp2/IndPinGradeP.lean`, `Interp2/IndBottomPlainP.lean`.  Edited:
+`Setlec/SetR.lean` (five imports), `Interp2/IndZipperP.lean` (the
+premise weakening above), `DESIGN.md`.  No frozen statement moved; no
+file was deleted.
+
+### Carried traps, plus this batch's four
+
+Unchanged: grading descends TOP-DOWN along the satisfying environment;
+trap G (absorb lift-then-instantiate before unfolding `cons`);
+`denoteP_lift` takes `WScoped`; `instPisAt_domsP_graded`'s membership
+premise is bounded by the index; `CtxOkP`'s per-leaf obligation is a
+semantic equation and there is **no second context**; the renaming
+bridge is free at equal opener indices; a run carries neither reading
+nor grading; read the pin the *consumer* conses; the determinism
+trick for contravariant readings; `nestedRuleShapeF` (not
+`Modeled.lean`'s `Env` copy) is what executes.
+
+New:
+
+1. **`.prf` is not a padding element at the reading tier**
+   (`pt_not_mem_univZero`).  Use `padA`, and keep the padding
+   *generic* in any lemma that only needs its length.
+2. **`chainP V σ (opener spine) ≠ σ`** — it agrees below `K` and
+   shifts above it.  Every "fire the transport at the frame's own
+   openers" step owes two `interp2_congr_below` steps, and both are
+   free from the tower slots' boundedness.
+3. **`Option.getD` after `rw [List.getD, h]` needs an explicit
+   `rfl`** — the single most frequent one-line failure in a 1000-line
+   frame transcription.  Budget for it.
+4. **A stage's premise may be over-general in a way only its first
+   caller sees.**  `zipperP`'s `hpar` is the instance; when a stage is
+   written before any consumer exists, its bounds are guesses.
+
+### Resume-here: the bill after part 7
+
+0. Review + merge per protocol.  The one item needing a look is the
+   `IndZipperP.lean` premise weakening (strictly stronger; no proof
+   changed).
+1. **`indBottomNestedP`** (bill item 3), with the new `.nested`
+   parameter-supply stage.  `indBottomPlainP` is the template and
+   `pinCrossP`/`nestedPinGradeP` are the pin machinery; the deltas
+   against the plain bottom are exactly v1's (`IndBottomNestedS.lean`'s
+   docstring): the pin spine, the `TypedListOk` row in place of
+   `hdePars`, no `cnP ≤ rP`, the major pin up to `ErasedEq`, and the
+   constructor run at the level-instantiated renamed type.
+2. `indBottomProjP` — the cheapest of the three bottoms, and item 4
+   needs it.
+3. then `IndRecsS`/`IotaRuleS` (item 4), `ProjInstallS` (item 5),
+   `DeclIndS` (item 6), `hind` off `FoldP` (item 7), THE ASSEMBLY
+   (item 8).
+
+## Task #161 SUCCESSION RECORD update (ind tier part 7 landed,
+2026-09-02)
+
+Lane `agent/annot-v2` @ `eb9d797b` at batch start **and at batch end**
+(the lane did not move; nothing to merge).  Capstone hypotheses:
+`hμ` + `IndStepPB`, unchanged — the census cannot move before the
+whole-kind step (bill item 6).
+
+LANDED: ind tier part 7 on `agent/indtier7` (worktree
+`.claude/worktrees/indtier7`), four commits, five new files, 2273 new
+lines.  **Bill items 1 and 2 close.**
+
+* **item 2, taken first (declared deviation, part-6 precedent): THE
+  REPAIRED CONJUNCT IS ESTABLISHABLE.**  `nestedPinGradeP` produces
+  `RecRuleLawP`'s repaired nested-pin grading from
+  `checkTypedList … pinsP cdomsP` through `TypedListOk.infer_of_mem`,
+  `InferClaims2P`, `sat2_padded_chainP`, `annotOkP_instSeq` and
+  `pinCrossP`.  The part-6 repair is *sound at both ends*: the
+  consumer was already done at the lead's hand, the producer is done
+  now, and the two halves of the conjunct are discharged by two
+  different mechanisms (substitution-crossing for the grading, the
+  top-down descent for the equality) — each the only one available;
+* **item 1: the plain bottom closes**, 548 S-lines → 1148 P-lines,
+  the whole stage composition in v1's order, ambient context
+  `Δa := Γs`;
+* four new stages the bottom needed and part 6 had not built:
+  `fireP` + `sidesMemP` + `eqFormerKeyP` + the top-down body grading,
+  and `annotTransportP`;
+* the object bridge the part-6 diagnosis called for: `pinCrossP` and
+  its `instSeq`/`instRevChain` kit.
+
+Battery green (build 454 warning-free, test exit 0, arena counters at
+expectation, axioms within the standard three on every new theorem,
+zero sorries).
+
+Ledger additions: (a) **a weakening can be the right transpose** —
+`teleFitPA_nonempty` is `TeleFitV.appN_val` with the conclusion cut
+down to what the consumer spends, and that is what makes the firing
+stage transposable at all; (b) **the padding element is a semantic
+choice at the reading tier**, and the obvious one is refuted; (c) **a
+stage written before its first consumer can carry an over-general
+premise** — `zipperP`'s `hpar`, weakened here.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal; refutation claims are mechanized.
+
+AFTER THIS BATCH (successor's order): review + merge per protocol
+(the one item to look at is the `IndZipperP` premise weakening); then
+part 8 on bill items 3–8, opening with `indBottomNestedP` and its new
+`.nested` parameter-supply stage.  The remaining transposition is
+measured in the seal above: 4041 S-lines, ≈ 8000 P-lines, three to
+four batches at this batch's rate.
+
+## Task #161 SUCCESSION RECORD update (part 7 merged, 2026-09-02;
+coordinator-granted)
+
+Lane `agent/annot-v2`: part 7 merged at `d125f163` (five new Interp2
+files, 2652 insertions).  Full battery green (build 454 warning-free,
+test exit 0, arena counters at expectation, zero sorries).
+
+THE HEADLINES:
+
+* **The repaired nested-pin conjunct IS ESTABLISHABLE** —
+  `nestedPinGradeP` from the checker's `checkTypedList` certificate;
+  the part-6 repair sound at BOTH ends; the refutation → repair →
+  producer arc closed in two batches;
+* **the plain bottom is closed** (`indBottomPlainP`) — the first
+  whole install step at P;
+* **the bill is MEASURED**: 4041 S-lines across seven install files
+  ≈ 8000 P-lines at the observed 2× expansion — three to four more
+  batches.  CADENCE CORRECTION (mutual, coordinator-matched): no
+  end-of-part-N goal claims from either side until `indStepPB_of`
+  exists.  The census moves when it moves;
+* `zipperP`'s `hpar` kit repair reviewed and approved (lower bound
+  `rP ≤ N`; kit lemmas are not frozen statements; single call site).
+
+### Discipline ledger entry (coordinator-directed): the producer-side
+premise lesson
+
+**A stage written before its first consumer carries over-general
+premises** — beside the premise-set lesson, same lesson from the
+producer side.  `zipperP`'s `hpar` was the instance; part 7 therefore
+DECLINED to start the `.nested` parameter stage without the nested
+bottom in hand, and part 8 writes the stage alongside its consumer.
+
+AFTER THIS SEAL: PART 8 — the nested bottom (`IndBottomNestedS`'s
+transpose, 785 S-lines, the largest single step) TOGETHER WITH its
+owed parameter stage, written alongside its consumer.  Parts 9–10 as
+billed: `IndBottomProjS` + the recursor rows (`eqRecLawP` Prop-motive
+case, stop-and-name standing), `ProjInstallS`/`DeclIndS`/`SwapS`,
+`indStepPB_of`, `hind` off `FoldP`, THE ASSEMBLY at the frozen
+letter.  Census: `hμ` + `IndStepPB`, never conditional.
