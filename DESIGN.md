@@ -21414,3 +21414,51 @@ owner).
 
 Continuing unchanged on this thread: A+B+C (in flight) and the
 bucket-3 closing table.
+
+## Task #161 HARVEST: the P2 round's verdict (2026-09-02; branches
+parked as evidence — agent/degating-p2 @ 1c476329, /p2b @ 4838888f)
+
+**Variant A (both per-fire telescope runs removed): DECLINED — the
+round-E license is REFUTED twice, and the supplier-class verdict is
+now evidence-complete:**
+1. Fit-from-arity is FALSE, not merely missing: `TeleFitPA.cons`
+   demands a MEMBERSHIP, and the ι row retains only `AnnotOkP` (the
+   pw grading) about the arguments — the row is stated at an untyped
+   subject BY DESIGN.
+2. The spine's READINGS were not on any list: `iotaReadsP_of`
+   (IotaRowsP.lean:358) gets the major-side readings solely from
+   `iotaCertsP_infers … hcertC` — the major is fabricated, not a
+   subterm.  Replacing that is a frozen-statement change to
+   `IotaReadsP` (M3-shaped).  Round E's task: M3; M1 is closed.
+
+**Variant B (recursor-side run truncated to the rP prefix): a
+licensable subset found in-round.**  All three bottoms already
+consume only the rP-prefix fit (`TeleFitPA.take rP`); the swap needs
+ONE frozen-statement edit (weaken the recursor-side premise to the
+prefix fit).  Prize: −1.20% prod / −2.73% cached on init-full;
+verdict-neutral (896 byte-identity runs, 0 divergences, both
+variants).  Pending: the inventory's bucket classification of the ι
+site + coordinator ratification of the statement edit.
+
+**Numbers** (all measured, 3 binaries, both cores, lock-protocol):
+variant A init-full −2.96% prod / −8.36% cached; init-prelude
+−1.56%/−3.92%; grind-ring-5 −2.74%/−6.24%; app-lam/beta/let/all 10
+scale shapes 0.00%, exponents unchanged, RSS flat.  P2 alone is
+essentially all of the previously-attributed P2+P3 share.
+**init-full is ~2× more ι-dense than init-prelude — prelude-only
+sizing understates ι entries by ~2×.**
+
+**Proof bill at variant A** (the STOP rule honored — nothing
+weakened, zero sorries): ~12 mechanical sites, then two unpayable
+(`iota_stepR`, `iotaStepP_of`/`iotaReadsP_of`).
+
+**Operational law (three lessons, binding on all future rounds):**
+1. A kernel de-gating is a THREE-core edit — `Setlec/Cached/
+   CoreC.lean` carries function twins; patching only Core/CoreI
+   makes the cached-core cell measure the UNCHANGED checker.
+2. Measurement wrappers must be `setsid`-detached (a wrapper dying
+   with its harness silently kills the matrix).
+3. Stamp `_tmp/measure.lock.d` with pid + lane inside — a bare
+   directory cannot be told from a stale lock.
+Post-merge counters: annot suite is now 14/14 (annot_pw_thread);
+no-model 138+72+14.
