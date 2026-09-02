@@ -1177,6 +1177,38 @@ theorem leafGuard_spec {fab base : ExprC} (hf : WFc fab) (hb : WFc base) :
 
 end ExprC
 
+/-! ## Store-guard agreement
+
+The store-shaped guard twins of `Setlec/Cached/StateC.lean` are pure
+functions of the node, so each agrees with its `Expr`-side original on
+the erasure.  (Only the ones the body walks consume are proved; more
+land with the walks that need them.) -/
+
+open ExprC in
+/-- The `Nat`-literal readout agrees with the spec's `rawNatLit?` on
+the erasure — a top-level match, so no invariant is needed. -/
+theorem rawNatLitC?_spec (e : ExprC) :
+    rawNatLitC? e = rawNatLit? (eraseC e) := by
+  cases e with
+  | lit l h bb fb lp => cases l <;> rfl
+  | const c us h bb fb lp =>
+    cases us with
+    | nil =>
+      show (if c == natZeroName then some 0 else none)
+        = (if c = natZeroName then some 0 else none)
+      by_cases hc : c = natZeroName <;> simp [hc]
+    | cons u us => rfl
+  | _ => rfl
+
+open ExprC in
+/-- The store-shaped spelling the core bodies use (`withStore
+(rawNatLitI? · w)`), stated against the erasure of the queried node —
+the transposition of `rawNatLitI?_spec` (`Setlec/Verify/IExprOps.lean`),
+whose arena denotation hypothesis becomes the erasure equation. -/
+theorem rawNatLitI?_spec {st : CStore} {w : ExprC} {wx : Expr}
+    (h : eraseC w = wx) : rawNatLitI? st w = rawNatLit? wx := by
+  rw [rawNatLitI?, rawNatLitC?_spec, h]
+
 /-! ## Constant resolution
 
 `constsResolveFCGo` (`Setlec/Cached/StateC.lean`) is the clone's
