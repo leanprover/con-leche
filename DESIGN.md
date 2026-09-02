@@ -19708,3 +19708,116 @@ tier needed and the v1 install simply had not recorded it.
    typing gets the syntax for free.**  The div/mod mirror measured it
    (~1400 P lines against 2880 v1), and this batch measured it again
    at the install layer: 2442 v1 lines → 1863 P lines.
+
+## Task #161 THE CLOSING RECORD (2026-09-02; coordinator-granted
+final merge)
+
+Lane `agent/annot-v2`: part 10 merged at `0ab7632f`.  Full lane
+battery green (build 469 warning-free, test exit 0, arena exit 0,
+all counters at expectation, zero sorries).
+
+**The capstone axiom audit, re-run on the merged lane, verbatim:**
+
+```
+Setlec.SetR.Interp2.no_proof_of_Empty_P : ∀ (V : Type u_1) [Setlec.SetTheory V] {μ : Setlec.CheckMode},
+  μ.verified = true →
+    ∀ {F : Nat} {ds : List Setlec.Declaration} {env' : Setlec.Env},
+      Setlec.checkDecls μ (Setlec.fueledOps μ F) ds = Except.ok env' →
+        ∀ (c : Setlec.ConstantInfo),
+          c ∈ env'.consts → c.toConstantVal.type = Setlec.Expr.const Setlec.emptyName [] → False
+'Setlec.SetR.Interp2.no_proof_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.no_proof_of_Empty_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.checkDecls_sound_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indStepPB_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+```
+
+The frozen letter (CapstoneP.lean §the letter) is matched verbatim.
+Census: `hμ` alone — the mode bit, the accepted run, the stored
+constant, its type.  Nothing else.
+
+## Task #161 CAMPAIGN RECORD (the publishable artifact's spine)
+
+**The claim.**  The annotated checker's verified mode is consistent:
+no accepted stream stores a constant of type `Empty`.  Unconditional,
+input-level hypotheses only, on the three standard axioms, zero
+sorries, machine-checked end to end against the executing checker
+(not a model of it — the arena batteries ran at every seal).
+
+**The route.**  The run-certificate doctrine: every fact the P tier
+needs is read off a pin, a recorded checker run, or forced by regime
+disjointness — NOT ONE BIT CHOSEN (the endgame-E total form).  The
+checker's own executions, recorded as statement rows, are converted
+through the claims layers (`DefEqClaims2P`/`InferClaims2P`) at
+pre-insertion environments.  The refuted alternative (v1 law
+transfer, `interp2_ne_interp_erase`) is mechanized in the tree.
+
+**The widening count: FIVE APPLIED, ONE AVOIDED.**
+1. `IotaRunsR` + `ProjFnR`'s front-door run (d7c4c184) — the H1
+   exposure's first transcription;
+2. `DefEqListOk`/`TypedListOk` beside the derivation walks
+   (2cee346b) — the grading supply;
+3. `IotaRuleR`'s rhs run (17b1855b);
+4. (= widening 3's sibling at `ProjFnR`, recorded there from the
+   start — the docstring named the species before the campaign met
+   it again);
+5. `ProjFnR`'s sides-pack runs (85c16651) — the last.
+AVOIDED: the `∃ Ra` row — `denoteP_isSome_of_denote` read totality
+off the v1 derivation rows; the limiting-case check (part 8's
+ErasedEq readings, part 9's totality bridge) is now part of the
+widening protocol.  Every applied widening was producer-discharged
+VERBATIM: the checker's runs were always in hand, converted once and
+dropped — the statements merely stopped discarding them.  By the
+end, a widening cost two tuple insertions and two dashes.
+
+**The retired stop-and-name slots.**  Every one retired unused or
+dissolved: the eqRecLawP Prop-motive case (squash localized to the
+basis tier, already paid); the IndStepPB shape conflict (none — the
+bundle re-shaped to what its consumer supplies); the repaired
+conjunct's establishability (proved, `nestedPinGradeP`); the
+chosen-bit license (RETIRED-UNUSED, endgame E).
+
+**The false-conjunct arc** (the campaign's hardest lesson, in three
+batches): the iota-seal ∃-form pin conjunct was ratified on a note
+that named the wrong object ("the install validates the pins" — the
+install validates `pinsP`, the instantiated pins, context-guarded).
+Part 6's coordinator-endorsed probe REFUTED it before one
+establishment lemma was spent — measured on the executing checker,
+mechanized in syntax and semantics.  The ratified repair (the
+context-guarded chain grading, `TeleFitPA` as the chain
+environment's `Sat2` in closed form) was proved sound at BOTH ends
+by part 7 (`nestedPinGradeP`).  Probe-before-establishment is the
+campaign's exportable discipline.
+
+**The ledger's claims family** (each entry a way a "fact" was only a
+claim until checked): a recorded wall is a claim; a ratified
+license/seal is a claim (re-check by #eval); a route is a claim
+(check against the frozen letter before walking); a ratified
+conjunct is a claim (probe before establishment); an audit
+("this is the last row") is a claim (its test is the next batch);
+a stage written before its first consumer carries over-general
+premises (the producer-side dual).  The honesty law ran in both
+directions and, twice, within a single batch.
+
+**The residue narrative, before → after.**  Before: the census
+carried named tier bundles — literal, caps, proj/str, iota,
+AxiomStepPB, BasisStepPB, IndStepPB — each a summit IOU.  The
+campaign discharged them in order, each species' first example
+proved by the lead, each batch sealed with full battery and zero
+sorries, every statement frozen before its establishment.  After:
+`no_proof_of_Empty_P_of` = `hμ`; the assembly is one commit alone;
+the P4 frontier-transformation table's last line (`iota_pins`) is
+EMPTY.  There is no residue.  The conditional-forms ruling was never
+breached: no intermediate conditional shape was ever offered as
+done.
+
+**Cost telemetry** (for successors): S→P expansion 2× early
+(bottoms with the scaling recipe unlearned), 0.76× late (the recipe
++ mature kits); the recipe (opaque locals + stage-lemma extraction
+vs omega's atom-count splitting) took the nested bottom from
+unelaboratable (35 GB) to 83 s, and the projection bottom to 14 s,
+part 10's whole batch under 6 s cold.
+
+NEXT: the master sequence per protocol (master merged INTO the
+lane, full gates, master-merge grant requested separately, push
+stays with the user), then the de-gating harvest per the standing
+directive.
