@@ -21581,3 +21581,173 @@ differs from `f1ac3162`.  Cited artifacts live elsewhere:
 `agent/degating-d1` `_probe/TotalizeD1.lean` (the totalization no-gos),
 `_tmp/census-124/` (the guard census), `_tmp/degating-p1/sites.md` (the
 harvest site register the numbering above cross-references).
+
+### APPENDIX to the handoff notes: two surveys that landed at the stop
+
+Both arrived after the seal commit above and are recorded here as raw
+material.  **Quotes and locations only — no verdicts are drawn.**
+
+#### A. The official comparison — where the reference kernels set
+inferOnly on internal calls
+
+*C++, `_tmp/lean4-master-kernel/type_checker.cpp`.*  The flag is fixed
+by which public entry point is used (`:360-372`):
+
+    expr type_checker::infer_type(expr const & e) {
+        return infer_type_core(e, true);
+    }
+    expr type_checker::check(expr const & e, names const & lps) {
+        flet<names const *> updt(m_lparams, &lps);
+        return infer_type_core(e, false);
+    }
+
+**Every** internal caller uses the no-argument `infer_type`, i.e.
+`infer_only = true`; the only `false` sites in the file are `:366` and
+`:371` (the declaration-checking entry points).  The flag indexes the
+cache directly (`:333`: `m_st->m_infer_type[infer_only].find(e)`), so
+the modes never share results.  The internal callers, with lines:
+`is_prop` `:383-390`; `reduce_recursor`'s callbacks into
+`inductive_reduce_rec` (K-like and struct-η) `:392-405`;
+`try_eta_expansion_core` `:875-877`; `try_eta_struct_core` `:897`
+(`if (!is_def_eq(infer_type(t), infer_type(s))) return false;`);
+`is_def_eq_proof_irrel` `:931-938`; `is_def_eq_unit_like` `:1160`,
+`:1168`; `eta_expand` `:1265`.
+
+What `infer_only` **skips**: the application-argument
+`is_def_eq(a_type, d_type)` (`infer_app`, `:173-206` — the true branch
+is a *different algorithm*, spine-decomposing with `get_app_args` and
+calling `infer_type_core(f, true)` on the head only, `:191`); the
+lambda domain `ensure_sort_core` (`:125-141`); the `letE` value
+conformance and its type's sort check (`:208-228`); `infer_constant`'s
+unsafe/partial safety tests and `check_level` (`:101-122`); `.sort`'s
+`check_level` (`:344`).
+
+What `infer_only` does **not** skip: `infer_pi`'s domain *and* body
+`ensure_sort_core` — no guard anywhere in `:144-158`, because the
+result universe `imax` needs them; `infer_proj`'s `whnf` and all
+structural validity checks (`:247-248`); `check_nat_size` on literals
+(`:863-868`); the universe-parameter *arity* check on constants; the
+loose-bvar rejection and the recursion-depth guard.  **So lambda
+domains are unchecked at infer_only while pi domains always are** —
+the asymmetry is in the reference kernel itself.
+
+*lean4lean, `_tmp/lean4lean/Lean4Lean/TypeChecker.lean`.*  Same shape,
+with the default flipping the burden (`:136-141`):
+`def inferType (e : Expr) (inferOnly := true) : RecM Expr`, twin caches
+`inferTypeI`/`inferTypeC` (`:16-19`), cache selection at `:269`
+(`cond inferOnly state.inferTypeI state.inferTypeC`), the `.app` branch
+at `:290-305` guarding the `isDefEq dType aType`, and `inferApp`
+(`:187-202`) as the infer-only spine walker.  Its docstring at
+`:170-179` is the **informal invariant, written out by the reference
+implementation itself** — worth having verbatim because it is exactly
+the thing the P tier would be replacing with a proof:
+
+    NOTE: This function does not do any typechecking of its own on `t`
+    and `s`. So, when this is used as part of a typechecking routine,
+    it is expected that they are already well-typed (that is, that
+    `checkType t` and `checkType s` did not/would not throw an error).
+    This is what justifies the internal uses of `inferType` at its
+    default `inferOnly := true`: on a well-typed subterm the fast path
+    returns the same type the checking path would have.
+
+Its internal `inferOnly = true` sites: `getSortLevel`/`isProp`
+`:224-230`; `reduceRecursor` `:331`; `tryEtaExpansionCore` `:624`;
+`tryEtaStructCore` `:644`; `isDefEqProofIrrel` `:677-680`;
+`isDefEqUnitLike` `:832`, `:838`; `etaExpand` `:954`; `ensureType`
+`:944`.  `Lean4Lean/Inductive/Reduce.lean:29-41` (`toCtorWhenK`) and
+`:58-65` (`toCtorWhenStruct`) take `inferType` as an abstracted
+callback, supplied infer-only from `TypeChecker.lean:331`.
+
+*nanoda, `_tmp/nanoda_lib/src/tc.rs`.*  A two-valued enum `InferFlag`
+(`:46-56`) with the same guard structure (`infer_app` `:525-562` guards
+the `assert_def_eq` behind `if flag == Check`; `infer_pi` `:621-629`
+unguarded).  One difference worth flagging: the caches are asymmetric
+(`:479-517`) — the `Check` cache is consulted for *both* flags, the
+`InferOnly` cache only at `InferOnly`.
+
+*Correspondence readings, for the feasibility owner to confirm — these
+are pairings by role, not verified equivalences.*  setlec sites 2-6
+(`proofIrrelI`) pair with `is_def_eq_proof_irrel`/`is_prop`; sites
+9/10 (`structUnitCertI`) with `is_def_eq_unit_like`; site 11
+(`etaCertI`) with `try_eta_expansion_core`; site 8
+(`structEtaCertI`) with `try_eta_struct_core`; sites 12/13/14
+(`majorToCtorI`) with `toCtorWhenK`/`toCtorWhenStruct`; sites 15-18
+(`projCertI`) with `infer_proj` **only in part** — official's
+`infer_proj` is unguarded but does not perform setlec's two
+field-sort/struct-sort level comparisons, so this pairing needs a
+per-leg comparison and is NOT settled here.  Two sites appear to have
+**no official counterpart at all**: sites 19/20 (the β re-certification
+in `whnfAppI`/`betaPeelI` — official's `whnf_core` beta does not
+re-infer the argument) and site 1 (`iotaCertsIAux`'s per-argument
+telescope walk — `inductive_reduce_rec` infers the major's type for
+the K index match but does not walk the recursor/constructor telescope
+re-checking each argument).  Note that site 1 is nonetheless classified
+by the harvest as a **supplier** (`RecRuleLawP`'s `TeleFitPA`s via
+`certs_telePA`), so "no official counterpart" and "removable" are
+different questions there.
+
+#### B. The P-tier statements the feasibility owner will need
+
+Locations corrected against the tree: the four claim bundles are all in
+`Setlec/SetR/Interp2/Claims2P.lean`; `EnvS2P.lean` is at
+`Setlec/SetR/Annot/EnvS2P.lean` (not under `Interp2/`); `ConstTypeP`
+lives in `Step2/InferP.lean`, not in `EnvS2P.lean`.
+
+`InferClaims2P` (`Claims2P.lean:137-150`) concludes a **membership**,
+`interp2 V ρ ea ∈ˢ interp2 V ρ ta`, plus `AnnotOkP` of both the subject
+and the inferred type — all three are *conclusions*; both readings
+(`denoteP … = some ea`, `… = some ta`) are *premises* (dual success).
+`DefEqClaims2P` (`:117-133`) concludes `interp2 V ρ aa = interp2 V ρ ba`
+and takes `AnnotOkP` of both sides as *premises*.
+`WhnfCoreClaims2P`/`WhnfClaims2P` (`:85-114`) conclude the reduct's
+`AnnotOkP` **and** denotation equality — so whnf-preservation of the
+grading is inside the claim, not a side lemma.  `AnnotOkP` itself
+(`:64`) is `AnnotOk2 V ρ e ∧ AnnotValidV V ρ e`.
+
+The three internal-infer discharge sites, which are the concrete
+subjects any inferOnly swap would have to re-prove:
+
+* **β** — `BetaCertP` (`Step2/WhnfP.lean:402-417`), discharged by
+  `betaCertP_of_claims` (`:424-442`); consumed at the β arm of
+  `whnfCore_app_claimP` (`:664-669`) *only* to feed
+  `AnnotOkP_beta_zero`'s membership premise at `pwBit φ mm.pw = 0`.
+* **ι telescope** — `certs_telePA` (`IotaKitP.lean:241-257`), whose own
+  docstring names the pattern: "One step is `InferReadsP` (the
+  argument's type reads), `InferClaims2P` (it is graded and the
+  argument inhabits it) and `DefEqClaims2P` (it is the domain) — the
+  checker's own order."
+* **proof irrelevance** — `prop_side_pt` (`IrrelP.lean:64-94`) and
+  `unit_side_pt` (`:106-163`), closed by `proofIrrelPQ_of_claims`
+  (`:182`) / `unitIrrelPQ_of_claims` (`:168`).  Both consume `ihi`
+  (`InferClaims2P`) for the membership and `sortSemAtP_of_claims` for
+  the sort fact; the double-inference chain `a : ta : sta` (sites 2/4
+  and 5/6) is exactly `hta` + `hsta` in `prop_side_pt`'s signature.
+
+The generic bridge is `SortSemAtP` (`InferP.lean:64-75`), proved by
+`sortSemAtP_of_claims` (`:758`) — the archetype of "the certificate's
+infer returned `t`, so `InferClaims2P` gives `⟦e⟧ ∈ ⟦t⟧`".  The
+existence residue that dual success withholds is `InferExistsP`
+(`WhnfP.lean:388-397`) / `InferReadsP`.
+
+`AnnotOkP` transport (`Interp2/OkPTransport.lean`): `AnnotOkP_liftN`
+(`:52`), `AnnotOkP_inst0` (`:60`), `AnnotOkP.hoist_lift` (`:69`),
+`acval_inst_self` (`:82`).  Reduction-step forms
+(`Step2/WhnfP.lean`): `annotOk2_beta_dom_pos` (`:108`),
+`AnnotOkP.lam_dom` (`:131`), `AnnotOkP_zeta` (`:138`),
+`AnnotOkP_beta_pos` (`:149`), `AnnotOkP_beta_zero` (`:162`).
+`ConstTypeP` (`InferP.lean:97-110`) holds at **every** `ρ` with no
+`Sat2` guard, and is projected from `EnvS2PM.constTypeP`
+(`Annot/EnvS2P.lean:609`) out of `type_reads`/`type_okP`/`mem_typeP`.
+Assembly: `checkStep2P_of_quarters` (`Step2/AssemblyP.lean:52`),
+`checkSoundP_of_inputs` (`:65`), `checkSoundAtP`
+(`Step2/TiersP.lean:75`).
+
+**One structural observation, stated as an observation**: the step
+theorems take the four claims *at fuel* and produce one *at fuel+1*
+(`InferStepP` `InferP.lean:1074`, `DefEqStepP` `DefEqP.lean:1179`,
+`WhnfCoreStepP`/`WhnfStepP` `WhnfP.lean:816/823`).  Any second claims
+family for an infer-only inference would have to enter this mutual
+induction, since the internal infers appear inside the whnf and defeq
+steps.  Whether that is one knot indexed by a mode (the #147 shape), a
+second family beside the first, or per-site simulation is deliverable
+(c), and deliverable (c) is not delivered.
