@@ -1197,6 +1197,136 @@ theorem extendEqRecP (mp : EnvS2PM V μ env)
     · exact eqRecLawP (m := mp.base2) m₂ hE hR hEv hRv hac φ
     · exact nomatch hr'
 
+/-- **The `Eq` block, installed at the P tier.**  `BasisStepPB`'s
+`eqK` branch — the block whose chain reads its own earlier leaves, and
+so the one that consumes the install's exposed `acval`. -/
+theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
+    (h : Setlec.SetR.BasisInstallR env
+      Setlec.BasisKind.eqK.declsA env₁) :
+    Nonempty (EnvS2PM V μ env₁) := by
+  rw [show Setlec.BasisKind.eqK.declsA = [eqA, eqReflA, eqRecA]
+    from rfl] at h
+  obtain ⟨h1, h2, h3, hnil⟩ := h
+  subst hnil
+  have hf1 : env.find? eqName = none := Option.isNone_iff_eq_none.mp h1
+  have hwf1 : EnvWF ⟨eqA :: env.consts⟩ :=
+    EnvWF.cons mp.base2.base.wf ⟨rfl, rfl, rfl, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  obtain ⟨m1, hm1⟩ := extendEqS mp.base2.base hf1 hwf1
+  obtain ⟨mp1, hac1⟩ := extendEqP mp hf1 m1
+    (fun n hn => by rw [hm1, cvalWith_ne hn])
+    (fun ψ => by rw [hm1, cvalWith_self])
+  have hEv1 : ∀ ψ : Name → Nat, mp1.base2.acval eqName ψ
+      = eqValT2 ψ := by
+    intro ψ
+    rw [hac1, show eqName = eqA.name from rfl, acvalWith_self]
+  have hE1 : (⟨eqA :: env.consts⟩ : Env).find? eqName = some eqA := by
+    rw [Setlec.Env.find?_cons]; exact if_pos rfl
+  have hf2 : (⟨eqA :: env.consts⟩ : Env).find? eqReflA.name = none :=
+    Option.isNone_iff_eq_none.mp h2
+  have hwf2 : EnvWF ⟨eqReflA :: eqA :: env.consts⟩ := by
+    refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+    show Expr.constsResolve _ eqReflA.toConstantVal.type = true
+    have hf : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
+        = some eqA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hE1
+    rw [show eqReflA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+            (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+              (.app (.app (.app (.const eqName [.param uN]) (.bvar 1))
+                (.bvar 0)) (.bvar 0))
+              { bi := .default, pw := .ifAllZero [] })
+            { bi := .implicit, pw := .ifAllZero [] } from rfl]
+    simp [Expr.constsResolve, hf]
+  obtain ⟨m2, hm2⟩ := extendEqReflS mp1.base2.base hE1
+    (fun ψ => by
+      rw [← mp1.base2.acval_erase eqName ψ, hEv1 ψ]
+      exact eqValT2_erase ψ)
+    hf2 hwf2
+  obtain ⟨mp2, hac2⟩ := extendEqReflP mp1 hE1 hEv1 hf2 m2
+    (fun n hn => by rw [hm2, cvalWith_ne hn])
+    (fun ψ => by rw [hm2, cvalWith_self])
+  have hE2 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
+      = some eqA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hE1
+  have hR2 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqReflName
+      = some eqReflA := by
+    rw [Setlec.Env.find?_cons]; exact if_pos rfl
+  have hEv2 : ∀ ψ : Name → Nat, mp2.base2.acval eqName ψ
+      = eqValT2 ψ := by
+    intro ψ
+    rw [hac2, acvalWith_ne (by decide)]
+    exact hEv1 ψ
+  have hRv2 : ∀ ψ : Name → Nat, mp2.base2.acval eqReflName ψ
+      = eqReflValT2 ψ := by
+    intro ψ
+    rw [hac2, show eqReflName = eqReflA.name from rfl, acvalWith_self]
+  have hf3 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find?
+      eqRecA.name = none := Option.isNone_iff_eq_none.mp h3
+  have hwf3 : EnvWF ⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ := by
+    have hfE : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
+        eqName = some eqA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hE2
+    have hfR : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
+        eqReflName = some eqReflA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hR2
+    refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
+      (fun _ _ _ heq => nomatch heq), ?_,
+      (fun _ _ heq => nomatch heq)⟩
+    · show Expr.constsResolve _ eqRecA.toConstantVal.type = true
+      rw [show eqRecA.toConstantVal.type
+          = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+              (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+                (Expr.forallE (Name.anonymous.str "motive")
+                  (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
+                    (Expr.forallE (Name.anonymous.str "t")
+                      (.app (.app (.app (.const eqName [.param uN])
+                        (.bvar 2)) (.bvar 1)) (.bvar 0))
+                      (.sort (.param u1N))
+                      { bi := .default, pw := .never })
+                    { bi := .default, pw := .never })
+                  (Expr.forallE (Name.anonymous.str "refl")
+                    (.app (.app (.bvar 0) (.bvar 1))
+                      (.app (.app (.const eqReflName [.param uN])
+                        (.bvar 2)) (.bvar 1)))
+                    (Expr.forallE (Name.anonymous.str "b") (.bvar 3)
+                      (Expr.forallE (Name.anonymous.str "t")
+                        (.app (.app (.app (.const eqName [.param uN])
+                          (.bvar 4)) (.bvar 3)) (.bvar 0))
+                        (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))
+                        { bi := .default, pw := .ifAllZero [u1N] })
+                      { bi := .implicit, pw := .ifAllZero [u1N] })
+                    { bi := .default, pw := .ifAllZero [u1N] })
+                  { bi := .implicit, pw := .ifAllZero [u1N] })
+                { bi := .implicit, pw := .ifAllZero [u1N] })
+              { bi := .implicit, pw := .ifAllZero [u1N] } from rfl]
+      simp [Expr.constsResolve, hfE, hfR]
+    · intro cv mI rP rules heq
+      injection heq with h1' _ _ h4'
+      subst h1'; subst h4'
+      intro r hr
+      rcases List.mem_cons.mp hr with rfl | hr'
+      · exact ⟨rfl, rfl, by
+          show Expr.constsResolve _ (RecRule.rhs eqRecRule) = true
+          simp [Expr.constsResolve, eqRecRule, hfE, hfR], rfl,
+          fun lvls pins heqf => nomatch heqf⟩
+      · exact nomatch hr'
+  obtain ⟨m3, hm3⟩ := extendEqRecS mp2.base2.base hE2 hR2
+    (fun ψ => by
+      rw [← mp2.base2.acval_erase eqName ψ, hEv2 ψ]
+      exact eqValT2_erase ψ)
+    (fun ψ => by
+      rw [← mp2.base2.acval_erase eqReflName ψ, hRv2 ψ]
+      exact eqReflValT2_erase ψ)
+    hf3 hwf3
+  obtain ⟨mp3, -⟩ := extendEqRecP mp2 hE2 hR2 hEv2 hRv2 hf3 m3
+    (fun n hn => by rw [hm3, cvalWith_ne hn])
+    (fun ψ => by rw [hm3, cvalWith_self])
+  exact ⟨mp3⟩
+
 end Eq
 
 end Setlec.SetR.Interp2
