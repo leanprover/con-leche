@@ -13,6 +13,7 @@ import Setlec.Verify.Cached.DiscC6
 import Setlec.Verify.Cached.KnotC
 import Setlec.Verify.Cached.SimCS
 import Setlec.Verify.Cached.BridgeCS1
+import Setlec.Verify.Cached.BridgeCS2
 
 /-!
 # The cached checker variant's verification (task #163)
