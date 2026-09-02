@@ -171,6 +171,11 @@ import Setlec.SetR.Interp2.IndReductP
 import Setlec.SetR.Interp2.IndLamTowerP
 import Setlec.SetR.Interp2.IndAnnotKitP
 import Setlec.SetR.Interp2.IndAnnotMemP
+import Setlec.SetR.Interp2.IndFireP
+import Setlec.SetR.Interp2.IndTransportP
+import Setlec.SetR.Interp2.IndOpenRevP
+import Setlec.SetR.Interp2.IndPinGradeP
+import Setlec.SetR.Interp2.IndBottomPlainP
 import Setlec.SetR.Interp2.IndPinProbeP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP

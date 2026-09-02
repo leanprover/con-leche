@@ -121,7 +121,12 @@ theorem zipperP {m : EnvS2Core V env} {F : Nat}
     (hdeFld : DefEqListOk μ F env (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
     -- the constructor run's parameter positions, at every padding
-    (hpar : ∀ N, N ≤ rP + cnF → ∀ q, q < cnP → ∀ ρ' : Nat → V,
+    -- (the padding level is bounded below by `rP`: the field branch is
+    -- the only consumer, and its supplier — `plainParamSupplyP` —
+    -- transports the *prefix* equalities, which need the tower's whole
+    -- prefix present in the context.  Part 7's bottom, the first
+    -- caller, is what exposed this.)
+    (hpar : ∀ N, rP ≤ N → N ≤ rP + cnF → ∀ q, q < cnP → ∀ ρ' : Nat → V,
       Sat2 V (List.replicate (rP + cnF - N) (.sort 0)
         ++ Γs.drop (rP + cnF - N)) ρ' →
       ∃ w, denoteP m.acval env φ (rP + cnF) (sp.getD q default)
@@ -280,7 +285,7 @@ theorem zipperP {m : EnvS2Core V env} {F : Nat}
             hTVjK hokTVj hsplen hspScope hspFld hcinst
             (fun j hj => (hzipAll j hj).1)
             (fun j hj => (hzipAll j hj).2.1) hdeFld
-            (N := n) (by omega) (hpar n (by omega))
+            (N := n) (by omega) (hpar n hnrP (by omega))
             n (Nat.le_refl _) hnrP (by omega) _ hsat _ hdw
           rw [hstrip, interp2_liftN,
             show shiftE ((rP + cnF) - n) 0 (padE2 V (rP + cnF - n)
