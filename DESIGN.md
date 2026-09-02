@@ -15731,3 +15731,18 @@ projection phase); then `indStepPB_of` and THE FINAL ASSEMBLY.
 Standing: all statements frozen; PropWhen through named laws only;
 annotations never steer; conditional forms are never done; zero
 sorries at every seal.
+
+## Task #161 ledger at the ind-part-1 merge (2026-09-02; coordinator-ratified)
+
+**The retirement streak extends**: the reserved-name `#eval` (ind
+part 1) killed TWO feared obligations at once — an inductive block
+can never capture a reserved name (`MemberValR` → `ConstantValR`'s
+non-reserved conjunct; all twenty pinned names reserved), so
+`nat_heads` and `eq_lawP` have NO obligation at ind conses.
+
+**Honesty in both directions** (beside it, ratified framing): the
+same practice FOUND a missing row — `EtaFamilyStored` mentions
+`recInfo`, so a projection-function install can complete a family and
+`caps_ok` is live at the projFn cons, which no bill had listed.  The
+practice finds missing rows as readily as it kills feared ones; that
+is exactly why it is trustworthy.
