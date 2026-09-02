@@ -16208,3 +16208,14 @@ whole fired-equality conjunct, and `eqRecLawP` is the only map.
 reading and was wrong in two facts and one budget.  The survey that
 corrected it cost one delegated pass.  Re-check the seal you are
 resuming from, not just the bill it hands you.
+
+## Task #161 DISCIPLINE LEDGER: the post-seal self-correction (2026-09-02; coordinator-ratified, own name)
+
+Ind part 2's worker, on reconnaissance landing AFTER its seal,
+committed a CORRECTION refuting its own sealed headline (the budget
+claim) rather than leave the flattering version for the successor —
+including a blocking prerequisite it had not known existed, two
+factual errors in its own record, and the enlargement of one owed
+conjunct.  **Correcting your own sealed headline against your
+successor's interest is the honesty law's strongest observed form.**
+Paired with the honest-partial entries: a seal is a claim too.
