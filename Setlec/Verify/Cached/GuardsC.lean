@@ -1237,6 +1237,69 @@ theorem isUnitLikeTyI_spec {env : Env} {st : CStore} {w : ExprC} {wx : Expr}
     isUnitLikeTyI (mkFEnv env) st w = isUnitLikeTy env wx := by
   rw [isUnitLikeTyI, isUnitLikeTyC_spec, h]
 
+open ExprC in
+/-- The constructor-application guard agrees with the spec's
+`isCtorApp` on the erasure.  Unlike the two above it reads the
+*spine head*, so the node invariant is needed (`getAppFn_spec`). -/
+theorem isCtorAppC_spec {env : Env} {e : ExprC} (hw : WFc e) :
+    isCtorAppC (mkFEnv env) e = isCtorApp env (eraseC e) := by
+  obtain ⟨-, hfn⟩ := ExprC.getAppFn_spec hw
+  show (match ExprC.getAppFn e with
+      | .const cn _ _ _ _ _ =>
+        match (mkFEnv env).find? cn with
+        | some (.ctorInfo _ _ _) => true
+        | _ => false
+      | _ => false) = _
+  rw [isCtorApp, ← hfn]
+  cases ExprC.getAppFn e with
+  | const cn us h bb fb lp =>
+    show (match (mkFEnv env).find? cn with
+        | some (.ctorInfo _ _ _) => true
+        | _ => false) = _
+    rw [mkFEnv_find?]
+    rfl
+  | _ => rfl
+
+open ExprC in
+/-- The store-shaped spelling the core bodies use (`withStore (fun st =>
+isCtorAppI fe st e)`) — the transposition of `isCtorAppI_spec`
+(`Setlec/Verify/IExprOps.lean`). -/
+theorem isCtorAppI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}
+    (hw : WFc e) (h : eraseC e = ex) :
+    isCtorAppI (mkFEnv env) st e = isCtorApp env ex := by
+  rw [isCtorAppI, isCtorAppC_spec hw, h]
+
+open ExprC in
+/-- Store-shaped `wscopedB`. -/
+theorem wscopedBI_spec {st : CStore} {d : Nat} {e : ExprC} {ex : Expr}
+    (hw : WFc e) (h : eraseC e = ex) :
+    st.wscopedBI d e = ex.wscopedB d := by
+  rw [CStore.wscopedBI, ExprC.wscopedB_spec hw, h]
+
+open ExprC in
+/-- Store-shaped `looseBVarsBounded`. -/
+theorem looseBVarsBoundedI_spec {st : CStore} {k : Nat} {e : ExprC}
+    {ex : Expr} (hw : WFc e) (h : eraseC e = ex) :
+    st.looseBVarsBoundedI k e = ex.looseBVarsBounded k := by
+  rw [CStore.looseBVarsBoundedI, ExprC.looseBVarsBounded_spec hw, h]
+
+open ExprC in
+/-- Store-shaped fabrication leaf guard. -/
+theorem leafGuardI_spec {st : CStore} {fab base : ExprC} {fx bx : Expr}
+    (hf : WFc fab) (hb : WFc base) (h₁ : eraseC fab = fx)
+    (h₂ : eraseC base = bx) :
+    st.leafGuardI fab base
+      = (fx.fvarLeaves.all fun l => bx.fvarLeaves.contains l) := by
+  rw [CStore.leafGuardI, ExprC.leafGuard_spec hf hb, h₁, h₂]
+
+open ExprC in
+/-- Store-shaped `∀`-telescope body strip. -/
+theorem stripPisBodyI_spec {st : CStore} {k : Nat} {e : ExprC} {ex : Expr}
+    (hw : WFc e) (h : eraseC e = ex) :
+    OptEr (st.stripPisBodyI k e) ((ex.stripPis k).map (·.2)) := by
+  rw [CStore.stripPisBodyI, ← h]
+  exact ExprC.stripPisBody_spec hw
+
 /-! ## Constant resolution
 
 `constsResolveFCGo` (`Setlec/Cached/StateC.lean`) is the clone's
