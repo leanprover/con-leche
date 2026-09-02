@@ -141,6 +141,7 @@ import Setlec.SetR.Interp2.BasisBlocksP
 import Setlec.SetR.Interp2.BasisQuotP
 import Setlec.SetR.Interp2.BasisEqP
 import Setlec.SetR.Interp2.BasisPSigmaP
+import Setlec.SetR.Interp2.IndConsP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP
