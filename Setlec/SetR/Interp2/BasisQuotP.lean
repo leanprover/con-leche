@@ -1141,6 +1141,180 @@ theorem extendQuotSoundP (mp : EnvS2PM V μ env)
     show (pt : V) ∈ˢ _
     exact quotSoundTyP_mem ρ (mp.eq_lawP hE ψ).1
 
+/-! ## `Quot.lift`
+
+The block's last constant, and the only one whose type reading is not
+`Prop`-valued: its six binders carry `.ifAllZero [v]`, so their bit is
+`0` exactly when the target sort is — which is precisely the condition
+`quotLiftV2`'s own two regimes are separated by (`quotLiftV2_app_any`,
+ENDGAME G §4).  The invariance premise is `Prop`-valued throughout and
+concludes at the `Eq` former read **at `v`**, so the bridge is
+`EqLawP` at the substituted assignment. -/
+
+/-- A `.pi` at a pin's bit: graded when the domain and body are, with
+the squash clause conditional on the bit. -/
+theorem AnnotOkP_pi_bit {ρ : Nat → V} {b : Nat} {Aa B : AVExpr}
+    (hA : AnnotOkP V ρ Aa)
+    (hB : ∀ x, x ∈ˢ interp2 V ρ Aa → AnnotOkP V (cons x ρ) B)
+    (hz : b = 0 → ∀ x, x ∈ˢ interp2 V ρ Aa →
+      interp2 V (cons x ρ) B ∈ˢ (univZero : V)) :
+    AnnotOkP V ρ (.pi 0 b Aa B) :=
+  ⟨⟨hA.1, fun x hx => (hB x hx).1⟩,
+    ⟨hA.2, fun x hx => (hB x hx).2, hz⟩⟩
+
+/-- `Quot.lift`'s invariance premise, read. -/
+def quotLiftInvTyP (E : AVExpr) : AVExpr :=
+  .pi 0 0 (.bvar 3)
+    (.pi 0 0 (.bvar 4)
+      (.pi 0 0 (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0))
+        (.app (.app (.app E (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
+          (.app (.bvar 3) (.bvar 1)))))
+
+/-- `Quot.lift`'s type reading, named. -/
+def quotLiftTyP (E : AVExpr) (b u v : Nat) : AVExpr :=
+  .pi 0 b (.sort u)
+    (.pi 0 b quotRelTyP
+      (.pi 0 b (.sort v)
+        (.pi 0 b (.pi 0 b (.bvar 2) (.bvar 1))
+          (.pi 0 b (quotLiftInvTyP E)
+            (.pi 0 b (quotAppP u 4 3) (.bvar 3))))))
+
+/-- **The invariance premise's reading is `quotInvSpace2`, and it is
+graded** — the `Eq` bridge's two halves, at the three-binder
+`Prop`-valued telescope `Interp2/Value.lean` states the law at. -/
+theorem quotLiftInvTyP_data {E : AVExpr} {u v : Nat} {Aset R B f : V}
+    (ρ : Nat → V)
+    (hval : ∀ (ρ' : Nat → V) (T x y : V), T ∈ˢ (univ v : V) →
+      x ∈ˢ T → y ∈ˢ T →
+      app (app (app (interp2 V ρ' E) T) x) y = eqv x y)
+    (hgr : ∀ (ρ' : Nat → V) (Aa la ra : AVExpr),
+      AnnotOkP V ρ' Aa → AnnotOkP V ρ' la → AnnotOkP V ρ' ra →
+      interp2 V ρ' Aa ∈ˢ (univ v : V) →
+      interp2 V ρ' la ∈ˢ interp2 V ρ' Aa →
+      interp2 V ρ' ra ∈ˢ interp2 V ρ' Aa →
+      AnnotOkP V ρ' (.app (.app (.app E Aa) la) ra) ∧
+        interp2 V ρ' (.app (.app (.app E Aa) la) ra)
+          ∈ˢ (univZero : V))
+    (hR : R ∈ˢ relSpace2 V u Aset) (hB : B ∈ˢ (univ v : V))
+    {bf : Nat} (hf : f ∈ˢ piR bf Aset fun _ => B)
+    (hbf : bf = 0 → B ∈ˢ (univZero : V)) :
+    interp2 V (cons f (cons B (cons R (cons Aset ρ))))
+        (quotLiftInvTyP E) = quotInvSpace2 V Aset R f ∧
+      AnnotOkP V (cons f (cons B (cons R (cons Aset ρ))))
+        (quotLiftInvTyP E) := by
+  have hfm : ∀ a : V, a ∈ˢ Aset → app f a ∈ˢ B := fun a ha =>
+    app_mem_piR hf ha fun h _ _ => hbf h
+  have hd1 : interp2 V (cons f (cons B (cons R (cons Aset ρ)))) (AVExpr.bvar 3) = Aset := by
+    simp [interp2_bvar, cons]
+  have hd2 : ∀ a : V, interp2 V (cons a (cons f (cons B (cons R (cons Aset ρ))))) (AVExpr.bvar 4) = Aset := by
+    intro a; simp [interp2_bvar, cons]
+  have hbody : ∀ a b : V, a ∈ˢ Aset → b ∈ˢ Aset → ∀ w : V,
+      interp2 V (cons w (cons b (cons a (cons f (cons B (cons R (cons Aset ρ)))))))
+          (.app (.app (.app E (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
+            (.app (.bvar 3) (.bvar 1)))
+        = eqv (app f a) (app f b) ∧
+      AnnotOkP V (cons w (cons b (cons a (cons f (cons B (cons R (cons Aset ρ)))))))
+          (.app (.app (.app E (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
+            (.app (.bvar 3) (.bvar 1))) ∧
+      interp2 V (cons w (cons b (cons a (cons f (cons B (cons R (cons Aset ρ)))))))
+          (.app (.app (.app E (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
+            (.app (.bvar 3) (.bvar 1))) ∈ˢ (univZero : V) := by
+    intro a b ha hb w
+    have hB' : interp2 V (cons w (cons b (cons a (cons f (cons B (cons R (cons Aset ρ))))))) (AVExpr.bvar 4)
+        = B := by simp [interp2_bvar, cons]
+    have hfa : interp2 V (cons w (cons b (cons a (cons f (cons B (cons R (cons Aset ρ)))))))
+        (.app (.bvar 3) (.bvar 2)) = app f a := by
+      simp [interp2_app, interp2_bvar, cons]
+    have hfb : interp2 V (cons w (cons b (cons a (cons f (cons B (cons R (cons Aset ρ)))))))
+        (.app (.bvar 3) (.bvar 1)) = app f b := by
+      simp [interp2_app, interp2_bvar, cons]
+    have hfslot : interp2 V (cons w (cons b (cons a
+        (cons f (cons B (cons R (cons Aset ρ))))))) (AVExpr.bvar 3)
+        = f := by simp [interp2_bvar, cons]
+    have haslot : interp2 V (cons w (cons b (cons a
+        (cons f (cons B (cons R (cons Aset ρ))))))) (AVExpr.bvar 2)
+        = a := by simp [interp2_bvar, cons]
+    have hbslot : interp2 V (cons w (cons b (cons a
+        (cons f (cons B (cons R (cons Aset ρ))))))) (AVExpr.bvar 1)
+        = b := by simp [interp2_bvar, cons]
+    have hokfa : AnnotOk2 V (cons w (cons b (cons a
+        (cons f (cons B (cons R (cons Aset ρ)))))))
+        (.app (.bvar 3) (.bvar 2)) := by
+      rw [AnnotOk2_app]
+      exact ⟨trivial, trivial, bf, Aset, fun _ => B,
+        by rw [hfslot]; exact hf, by rw [haslot]; exact ha,
+        fun h _ _ => hbf h⟩
+    have hokfb : AnnotOk2 V (cons w (cons b (cons a
+        (cons f (cons B (cons R (cons Aset ρ)))))))
+        (.app (.bvar 3) (.bvar 1)) := by
+      rw [AnnotOk2_app]
+      exact ⟨trivial, trivial, bf, Aset, fun _ => B,
+        by rw [hfslot]; exact hf, by rw [hbslot]; exact hb,
+        fun h _ _ => hbf h⟩
+    have hspine := hgr _ (.bvar 4) (.app (.bvar 3) (.bvar 2))
+      (.app (.bvar 3) (.bvar 1)) ⟨trivial, trivial⟩
+      ⟨hokfa, ⟨trivial, trivial⟩⟩
+      ⟨hokfb, ⟨trivial, trivial⟩⟩
+      (by rw [hB']; exact hB)
+      (by rw [hB', hfa]; exact hfm a ha)
+      (by rw [hB', hfb]; exact hfm b hb)
+    refine ⟨?_, hspine.1, hspine.2⟩
+    rw [interp2_app, interp2_app, interp2_app, hB', hfa, hfb,
+      hval _ _ _ _ hB (hfm a ha) (hfm b hb)]
+  constructor
+  · rw [quotLiftInvTyP, interp2_pi, quotInvSpace2, hd1]
+    refine piR_congr fun a ha => ?_
+    rw [interp2_pi, hd2 a]
+    refine piR_congr fun b hb => ?_
+    obtain ⟨-, -, hrint⟩ := relApp_data (u := u) (i := 4) (j := 1)
+      (k := 0) (ρ := cons b (cons a (cons f (cons B (cons R (cons Aset ρ))))))
+      (by simp [cons]) (by simp [cons]) (by simp [cons])
+      hR ha hb
+    rw [interp2_pi, hrint]
+    exact piR_congr fun w _ => (hbody a b ha hb w).1
+  · rw [quotLiftInvTyP]
+    refine (AnnotOkP_pi_zero (Aa := .bvar 3) ⟨trivial, trivial⟩ ?_ ?_).1
+    all_goals (
+      intro a ha
+      rw [hd1] at ha
+      have hstep : ∀ b : V, b ∈ˢ Aset →
+          AnnotOkP V (cons b (cons a (cons f (cons B (cons R (cons Aset ρ))))))
+              (.pi 0 0 (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0))
+                (.app (.app (.app E (.bvar 4))
+                  (.app (.bvar 3) (.bvar 2)))
+                  (.app (.bvar 3) (.bvar 1)))) ∧
+            interp2 V (cons b (cons a (cons f (cons B (cons R (cons Aset ρ))))))
+              (.pi 0 0 (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0))
+                (.app (.app (.app E (.bvar 4))
+                  (.app (.bvar 3) (.bvar 2)))
+                  (.app (.bvar 3) (.bvar 1)))) ∈ˢ (univZero : V) := by
+        intro b hb
+        obtain ⟨hrok, hrval, -⟩ := relApp_data (u := u) (i := 4)
+          (j := 1) (k := 0) (ρ := cons b (cons a (cons f (cons B (cons R (cons Aset ρ))))))
+          (by simp [cons]) (by simp [cons])
+          (by simp [cons]) hR ha hb
+        exact AnnotOkP_pi_zero ⟨hrok, hrval⟩
+          (fun w _ => (hbody a b ha hb w).2.1)
+          (fun w _ => (hbody a b ha hb w).2.2)
+      have hlev : AnnotOkP V (cons a (cons f (cons B (cons R (cons Aset ρ)))))
+            (.pi 0 0 (.bvar 4)
+              (.pi 0 0 (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0))
+                (.app (.app (.app E (.bvar 4))
+                  (.app (.bvar 3) (.bvar 2)))
+                  (.app (.bvar 3) (.bvar 1))))) ∧
+          interp2 V (cons a (cons f (cons B (cons R (cons Aset ρ)))))
+            (.pi 0 0 (.bvar 4)
+              (.pi 0 0 (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0))
+                (.app (.app (.app E (.bvar 4))
+                  (.app (.bvar 3) (.bvar 2)))
+                  (.app (.bvar 3) (.bvar 1)))))
+            ∈ˢ (univZero : V) :=
+        AnnotOkP_pi_zero (Aa := .bvar 4) ⟨trivial, trivial⟩
+          (fun b hb => (hstep b (by rwa [hd2 a] at hb)).1)
+          (fun b hb => (hstep b (by rwa [hd2 a] at hb)).2))
+    case _ => exact hlev.1
+    case _ => exact hlev.2
+
 end Quot
 
 end Setlec.SetR.Interp2
