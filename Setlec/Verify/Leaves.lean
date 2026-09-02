@@ -496,7 +496,7 @@ theorem annotateCore_leaves_sub {env : Env} :
   | fuel + 1, .letE n ty v b, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    obtain ⟨ty', v', -, -, hbody, -⟩ := annotateCore_letE_inv h
+    obtain ⟨ty', v', -, -, hbody⟩ := annotateCore_letE_inv h
     have hsub := annotateCore_leaves_sub fuel _ hbody
       (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
       (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)

@@ -394,54 +394,34 @@ theorem annotateCore_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
   simp only [pure, Except.pure, Except.ok.injEq] at h
   exact ⟨f', a', rfl, rfl, h.symm⟩
 
-/-- Inversion for `annotate` on let-expressions: the annotation is
-checked to be a type, the value against the annotation, and the body is
-annotated with the value transparent (as its zeta reduct). -/
+/-- Inversion for `annotate` on let-expressions: the annotation and the
+value are traversed, and the body is annotated with the value
+transparent (as its zeta reduct).
+
+Task #161 de-gating item C2 (harvest site 6): the clause used to re-run
+the official `infer_let` triple (`ensure_sort_core(infer(ty'))`,
+`infer(v')`, `is_def_eq(tv, ty')`) — the very checks `inferBody`'s own
+`.letE` clause runs.  They were redundant, so the four extra conjuncts
+are gone from this inversion; every consumer takes them from the
+inference side (`inferCore_letE_inv`). -/
 theorem annotateCore_letE_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty v b e' : Expr}
     (h : annotateCore mode env (fuel + 1) d (.letE n ty v b) = .ok e') :
     ∃ ty' v', annotateCore mode env fuel d ty = .ok ty' ∧
       annotateCore mode env fuel d v = .ok v' ∧
-      annotateCore mode env fuel d (b.instantiate1 v) = .ok e' ∧
-      ∃ tty u tv,
-        inferTypeCore mode env fuel d ty' = .ok tty ∧
-        ensureSortCore mode env fuel d tty = .ok u ∧
-        inferTypeCore mode env fuel d v' = .ok tv ∧
-        isDefEqCore mode env fuel d tv ty' = .ok true := by
+      annotateCore mode env fuel d (b.instantiate1 v) = .ok e' := by
   rw [annotateCore_succ] at h
   simp only [annotateBody, Bind.bind, Except.bind] at h
-  simp only [annotate_def, infer_def, defeq_def, ensureSort_def] at h
+  simp only [annotate_def] at h
   cases hty : annotateCore mode env fuel d ty with
   | error e => rw [hty] at h; exact nomatch h
   | ok ty' =>
   rw [hty] at h; dsimp only at h
-  cases hit : inferTypeCore mode env fuel d ty' with
-  | error e => rw [hit] at h; exact nomatch h
-  | ok tty =>
-  rw [hit] at h; dsimp only at h
-  cases hes : ensureSortCore mode env fuel d tty with
-  | error e => rw [hes] at h; exact nomatch h
-  | ok u =>
-  rw [hes] at h; dsimp only at h
   cases hv : annotateCore mode env fuel d v with
   | error e => rw [hv] at h; exact nomatch h
   | ok v' =>
   rw [hv] at h; dsimp only at h
-  cases hiv : inferTypeCore mode env fuel d v' with
-  | error e => rw [hiv] at h; exact nomatch h
-  | ok tv =>
-  rw [hiv] at h; dsimp only at h
-  cases hde : isDefEqCore mode env fuel d tv ty' with
-  | error e => rw [hde] at h; exact nomatch h
-  | ok bl =>
-  rw [hde] at h; dsimp only at h
-  cases bl with
-  | false =>
-    simp only [Bool.false_eq_true, if_false] at h
-    exact nomatch h
-  | true =>
-  simp only [if_true] at h
-  exact ⟨ty', v', rfl, rfl, h, tty, u, tv, hit, hes, hiv, hde⟩
+  exact ⟨ty', v', rfl, rfl, h⟩
 
 /-! ### The binder clauses' inversion (task #161 P5)
 
@@ -606,7 +586,7 @@ theorem annotateCore_WScoped {env : Env} :
     exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩
   | fuel + 1, .letE n ty v b, d, e', h, hw => by
     simp only [WScoped] at hw
-    obtain ⟨ty', v', -, -, hb, -⟩ := annotateCore_letE_inv h
+    obtain ⟨ty', v', -, -, hb⟩ := annotateCore_letE_inv h
     exact annotateCore_WScoped fuel _ hb
       (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
 
@@ -694,7 +674,7 @@ theorem annotateCore_looseBVars {env : Env} :
       (annotateCore_looseBVars fuel _ hbody (looseBVarsBounded_instantiate1 body 0 hb.2))
   | fuel + 1, .letE n ty v bd, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    obtain ⟨ty', v', -, -, hbody, -⟩ := annotateCore_letE_inv h
+    obtain ⟨ty', v', -, -, hbody⟩ := annotateCore_letE_inv h
     exact annotateCore_looseBVars fuel _ hbody
       (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
 

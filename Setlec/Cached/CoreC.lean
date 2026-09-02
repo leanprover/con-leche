@@ -1677,17 +1677,13 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
           else pure mb.pw
         internI (.lam n ty' bAbs ⟨mb.bi, pw⟩)
     | some (.letE _ ty v b) => do
-      -- official `infer_let` check order (see the spec body): the
-      -- annotation is a type, the value's inferred type matches it,
-      -- then the body with the value transparent (zeta at annotate;
-      -- `inst1M` keeps the substitution sharing-preserving)
-      let ty' ← r.annotate depth ty
-      let tty ← r.infer depth ty'
-      let _ ← ensureSortI r depth tty
-      let v' ← r.annotate depth v
-      let tv ← r.infer depth v'
-      unless ← r.defeq depth tv ty' do
-        throw (.invalid "let value type mismatch")
+      -- the body with the value transparent (zeta at annotate;
+      -- `inst1M` keeps the substitution sharing-preserving).  Task #161
+      -- item C2 (harvest site 6): the redundant `infer_let` triple was
+      -- deleted here — `inferBodyC`'s own `.letE` clause runs it (see
+      -- the spec body).
+      let _ ← r.annotate depth ty
+      let _ ← r.annotate depth v
       let ob ← inst1M b v
       r.annotate depth ob
     | some (.proj sn i pe) => do

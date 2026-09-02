@@ -2231,22 +2231,25 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         else pure mb.pw
       pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi, pw⟩)
     | .letE _ ty v b => do
-      -- The official kernel's `infer_let` check order (`!infer_only`):
-      -- the annotation is a type (`ensure_sort_core(infer(type))`), the
-      -- value's inferred type matches it (`is_def_eq(val_type, type)`),
-      -- then the body *with the value transparent* — nanoda's
+      -- The body is annotated *with the value transparent* — nanoda's
       -- `infer_let` instantiates the body with the value and recurses
       -- (the official kernel gets the same transparency from valued
       -- let-fvars in its local context).  Setlec fvars carry no value,
       -- so the body is annotated as its zeta reduct; an opened opaque
       -- variable was tried and rejects real streams (elaborated `let`
       -- bodies rely on the value definitionally — see DESIGN.md).
-      let ty' ← r.annotate depth ty
-      let _ ← ensureSort r env depth (← r.infer depth ty')
-      let v' ← r.annotate depth v
-      let tv ← r.infer depth v'
-      unless ← r.defeq depth tv ty' do
-        throw (.invalid "let value type mismatch")
+      --
+      -- Task #161 de-gating round A+B+C (item C2, harvest site 6): the
+      -- official `infer_let` triple — `ensure_sort_core(infer(type))`,
+      -- `infer(val)`, `is_def_eq(val_type, type)` — used to run *here*
+      -- as well.  It is redundant: `inferBody`'s own `.letE` clause
+      -- runs exactly those three checks on the same `letE` node during
+      -- the driver's inference sweep, and nothing in the annotation
+      -- pass's contract reads them.  The two `annotate` traversals stay
+      -- — they are the pass itself (leaf scope checks, literal support
+      -- verdicts), not a certificate.
+      let _ ← r.annotate depth ty
+      let _ ← r.annotate depth v
       r.annotate depth (b.instantiate1 v)
     | .proj sn i pe => do
       let e' ← r.annotate depth pe

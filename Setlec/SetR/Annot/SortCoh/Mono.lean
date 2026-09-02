@@ -1466,34 +1466,12 @@ theorem annotateBody_mono (hs : CoreSub r₁ r₂) {μ : Setlec.CheckMode}
     | ok ty' =>
     rw [h1] at h; rw [hs.2.2.2.2 h1]
     simp only [] at h ⊢
-    cases h2 : r₁.infer d ty' with
-    | error err => rw [h2] at h; exact nomatch h
-    | ok tty =>
-    rw [h2] at h; rw [hs.2.2.1 h2]
-    simp only [] at h ⊢
-    cases h3 : Setlec.ensureSort r₁ env d tty with
-    | error err => rw [h3] at h; exact nomatch h
-    | ok s =>
-    rw [h3] at h; rw [ensureSort_mono hs h3]
-    simp only [] at h ⊢
     cases h4 : r₁.annotate d v with
     | error err => rw [h4] at h; exact nomatch h
     | ok v' =>
     rw [h4] at h; rw [hs.2.2.2.2 h4]
     simp only [] at h ⊢
-    cases h5 : r₁.infer d v' with
-    | error err => rw [h5] at h; exact nomatch h
-    | ok tv =>
-    rw [h5] at h; rw [hs.2.2.1 h5]
-    simp only [] at h ⊢
-    cases h6 : r₁.defeq d tv ty' with
-    | error err => rw [h6] at h; exact nomatch h
-    | ok c₆ =>
-    rw [h6] at h; rw [hs.2.2.2.1 h6]
-    simp only [] at h ⊢
-    cases c₆ with
-    | false => exact h
-    | true => exact hs.2.2.2.2 (by simpa using h)
+    exact hs.2.2.2.2 h
   | proj sn i pe =>
     simp only [Bind.bind, Except.bind] at h ⊢
     cases h1 : r₁.annotate d pe with
