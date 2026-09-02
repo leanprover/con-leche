@@ -408,7 +408,7 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
   -- the right-hand side reads at the ambient depth
   obtain ⟨-, hlaw0⟩ := hrec c cv mI rP rules hfrec r
     (List.mem_of_find?_eq_some hrfind) hfire
-  obtain ⟨Ra, hRa0, -, -⟩ := hlaw0 us hlenU
+  obtain ⟨Ra, hRa0, -, -, -⟩ := hlaw0 us hlenU
   obtain ⟨hRa, hRnf, hRbd⟩ :=
     recRhsP_depth hfrec (List.mem_of_find?_eq_some hrfind) hRa0
   -- the reduct
@@ -454,28 +454,15 @@ consumer to grade them.  It is true (the recursor install validates
 the pins through the front door, `checkAnnotList`); it is simply not
 carried.
 
-Pending the lane lead's ruling it is flagged as an explicit premise,
-`IotaNestedPinP`, so that the rest of the row is landed and the wall
-is one hypothesis wide.  The repair is one conjunct in `RecRuleLawP`,
-parallel to `Ra`'s, plus the `AnnotOkP_liftN`/`AnnotOkP_inst0`
-closure for `instRevChain` — or, equivalently, an `EnvS2PM` field
-routed to `IndStepPB`, where the pins are checked. -/
-
-/-- **The flagged premise** (see above): a stored nested-rule pin,
-instantiated at a fire site's argument prefix, reads to a graded
-annotation. -/
-def IotaNestedPinP {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) : Prop :=
-  ∀ {d : Nat} {Δa : List AVExpr} {cmp : Expr} {cmpa : AVExpr},
-    (∃ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule)
-        (rl : RecRule) (lvls : List Level) (pins : List Expr)
-        (us : List Level) (args : List Expr) (i : Nat),
-      env.find? n = some (.recInfo cv mI rP rules) ∧ rl ∈ rules ∧
-      RecRule.fire rl = .nested lvls pins ∧
-      cmp = Expr.instSpine args (rP - 1)
-        ((pins.getD i default).instantiateLevelParams cv.levelParams us)) →
-    denoteP m.acval env φ d cmp = some cmpa →
-    ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ cmpa
+RESOLVED (the lane lead's ratified one-conjunct repair, 2026-09-02):
+`RecRuleLawP` now carries the open pins' readings graded at every
+environment, parallel to `Ra`'s conjunct, and the row grades the
+instantiated comparand through the `instRevChain` closure
+(`annotOkP_instRevChain`, `Step2/IotaKitP.lean` — proved as an iff at
+a generalized body because the grading flows outside-in; the
+arguments' gradings are needed at the ambient environment only, each
+`liftN` popping the chain back down).  `IotaNestedPinP` is deleted;
+the wall stood for one worker-session. -/
 
 /-! ## `IotaStepP` -/
 
@@ -483,7 +470,7 @@ def IotaNestedPinP {env : Env} (m : EnvS2Core V env)
 is its one flagged premise). -/
 theorem iotaStepP_of {m : EnvS2Core V env}
     (hrec : RecRulesP m φ) (hcaps : CapsOkP m) (hct : ConstTypeP m φ)
-    (hav : AcvalValidP m) (hpin : IotaNestedPinP m φ)
+    (hav : AcvalValidP m)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
     (ihi : InferClaims2P μ m φ fuel)
     (hreads : InferReadsP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
@@ -497,7 +484,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   have hrmem : r ∈ rules := List.mem_of_find?_eq_some hrfind
   -- the law, and the right-hand side's reading at the ambient depth
   obtain ⟨hrPle, hlaw0⟩ := hrec c cv mI rP rules hfrec r hrmem hfire
-  obtain ⟨Ra, hRa0, hokRa, hlaw⟩ := hlaw0 us hlenU
+  obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlenU
   obtain ⟨hRaD, hRnf, hRbd⟩ := recRhsP_depth hfrec hrmem hRa0
   -- the recursor spine, read
   rw [show e = Expr.mkAppN e.getAppFn e.getAppArgs from
@@ -769,9 +756,13 @@ theorem iotaStepP_of {m : EnvS2Core V env}
           · exact absurd hl' (by
               rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hpinF']; simp)
           · exact ((hfrE y (List.mem_of_mem_take hy)).2.2.2).2 l hly
-      have hokCmp := hpin (Δa := Δa)
-        ⟨c, cv, mI, rP, rules, r, lvls, pins, us, e.getAppArgs.take rP, i,
-          hfrec, hrmem, hn, rfl⟩ hcden'
+      have hokCmp : ∀ σ : Nat → V, Sat2 V Δa σ →
+          AnnotOkP V σ (AVExpr.instRevChain (xs.take rP) vpa) := by
+        obtain ⟨vpa', hvpa', hok'⟩ := hpinsOk lvls pins hn i hi
+        obtain rfl : vpa' = vpa :=
+          Option.some.inj (hvpa'.symm.trans hvpa)
+        exact fun σ hσ => annotOkP_instRevChain hok'
+          (fun v hv => hoX v (List.mem_of_mem_take hv) σ hσ)
       have hstep := ihd hcert hwA hbA hLA hfrPinX.1 hfrPinX.2.1 hfrPinX.2.2.1
         hCA hfrPinX.2.2.2 hgy hcden'
         (hoY _ (Setlec.getD_mem (by rw [← hspy.length]; exact hiy)))

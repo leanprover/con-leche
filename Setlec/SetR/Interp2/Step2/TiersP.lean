@@ -56,11 +56,6 @@ structure TierInputsAtP (V : Type w) [SetTheory V] (μ : CheckMode)
   field (`rec_rules`), which with the claims discharges both ι rows
   (`iotaStepP_of`, `iotaReadsP_of`) -/
   rec_rules : RecRulesP m φ
-  /-- iota tier: THE NAMED WALL — the `.nested` fire branch's stored
-  pin comparands have no grading source (`Step2/IotaRowsP.lean`'s
-  finding).  Routed until the lane lead takes the one-conjunct repair
-  to `RecRuleLawP` -/
-  iota_pins : IotaNestedPinP m φ
   /-- literal tier: the two acceleration rows, each taking the whnf
   claims at the same fuel (`reduceNat` head-normalises its arguments
   before reading them as literals) -/
@@ -113,7 +108,7 @@ theorem checkSoundAtP (hμ : μ.verified = true)
       exact whnfCore_claimsP m hex
         (betaCertP_of_claims m hexi ihd ihi)
         (iotaStepP_of h.rec_rules h.caps_ok h.reads.const_ty
-          h.acval_valid h.iota_pins ihw ihd ihi hreads hwreads)
+          h.acval_valid ihw ihd ihi hreads hwreads)
         (projStepP_of_claims ihwc ihw ihd ihi hreads hwreads) ihwc
     · -- the reduction loop
       exact whnf_claimsP m hex ihwc (h.nat_step fuel ihw)
@@ -187,7 +182,6 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
       Expr.WScoped d x → x.looseBVarsBounded 0 = true →
       Expr.LeavesBounded x →
       ∃ xa, denoteP mp.base2.acval env φ d x = some xa)
-    (hpins : IotaNestedPinP mp.base2 φ)
     (hnat_r : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel)
     (hnat : ∀ fuel,
       WhnfClaims2P μ mp.base2 φ fuel → ReduceNatStepP μ mp.base2 φ fuel)
@@ -200,7 +194,6 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
   acval_valid := mp.acvalValidP
   nat_heads := mp.nat_heads φ
   rec_rules := mp.rec_rules φ
-  iota_pins := hpins
   nat_step := hnat
   nat_stepQ := hnatQ
   caps_ok := mp.caps_ok

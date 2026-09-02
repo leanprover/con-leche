@@ -94,16 +94,35 @@ theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
     exact hf
   obtain ⟨hrPle, hlaw0⟩ := mp.rec_rules φ n cv mI rP rules hfE rl hmem hfire
   refine ⟨hrPle, fun us hlen => ?_⟩
-  obtain ⟨Ra, hRa0, hokRa, hlaw⟩ := hlaw0 us hlen
+  obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlen
   obtain ⟨-, -, -, -, -, hrec', -⟩ :=
     mp.base2.base.wf _ (Setlec.SetR.Env.find?_mem hfE)
   obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP rules rfl rl hmem
-  refine ⟨Ra, ?_, hokRa, ?_⟩
+  refine ⟨Ra, ?_, hokRa, ?_, ?_⟩
   · rw [hac]
     exact denoteP_cons_fresh_mono hfresh _ 0 _
       (constsBound_of_constsResolve _ (by
         rw [Setlec.Expr.constsResolve_instantiateLevelParams]
         exact hRres)) hRa0
+  · -- the pins' carried readings, moved forward (the iota seal's
+    -- ratified repair: the grading conjunct in the ∃-form crosses
+    -- exactly as `Ra`'s does)
+    intro lvls pins hn i hi
+    obtain ⟨vpa, hvpa, hok⟩ := hpinsOk lvls pins hn i hi
+    obtain ⟨-, -, hpinsWf, -⟩ := hnest lvls pins hn
+    have hpinCR : Setlec.Expr.constsResolve env (pins.getD i default)
+        = true := by
+      by_cases hilt : i < pins.length
+      · obtain ⟨-, -, hres, -⟩ := hpinsWf _ (Setlec.getD_mem hilt)
+        exact hres
+      · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
+        rfl
+    refine ⟨vpa, ?_, hok⟩
+    rw [hac]
+    exact denoteP_cons_fresh_mono hfresh _ rP _
+      (constsBound_openRev (constsBound_of_constsResolve _ (by
+        rw [Setlec.Expr.constsResolve_instantiateLevelParams]
+        exact hpinCR)) 0 rP) hvpa
   · intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl
       hψ hplain hnested hpin hTVa hTVja hfitR hfitC
     -- the constructor is stored in the prefix too

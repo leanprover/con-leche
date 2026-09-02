@@ -401,4 +401,106 @@ theorem annotOkP_mkAppN_of_fitA {ρ : Nat → V} :
       exact ih ((AnnotOkP_inst0 hokx).mpr (hokB _ hx)) hstep
         (fun y hy => hoks y (List.mem_cons_of_mem x hy)) hmem' hfit'
 
+
+/-! ## The `instRevChain` grading closure (the iota seal's ratified
+repair, consumption side)
+
+The strengthened `RecRuleLawP` carries the open pins' readings graded
+at **every** environment; the row grades the *instantiated* comparand
+by unfolding the chain through the `AnnotOk2_inst`/`AnnotValidV_inst`
+iffs.  The unfolding flows outside-in, so the closure is proved as an
+**iff at a generalized body** (the structural induction with a
+one-directional statement traps itself: the tail's hypothesis would
+need the head argument graded at every environment, which an
+open-context argument reading never is). -/
+
+/-- The cons-chain environment the unfolding lands in.  Its shape is
+irrelevant to consumers — the substituted body is `∀ σ`-graded — but
+the arguments' gradings are needed at the *ambient* environment only,
+because each `liftN` pops the chain back down (`shiftE_envChainP`). -/
+noncomputable def envChainP (ρ : Nat → V) : List AVExpr → Nat → V
+  | [] => ρ
+  | v :: vs => cons (interp2 V ρ v) (envChainP ρ vs)
+
+theorem shiftE_envChainP (ρ : Nat → V) :
+    ∀ vs : List AVExpr, shiftE vs.length 0 (envChainP ρ vs) = ρ := by
+  intro vs
+  induction vs with
+  | nil => funext i; simp [shiftE, envChainP]
+  | cons v vs ih =>
+    funext i
+    have h := congrFun ih (i)
+    simp only [envChainP, List.length_cons, shiftE] at h ⊢
+    simp only [Nat.not_lt_zero, if_false] at h ⊢
+    show (cons (interp2 V ρ v) (envChainP ρ vs)) (i + (vs.length + 1))
+      = ρ i
+    rw [show i + (vs.length + 1) = (i + vs.length) + 1 from by omega,
+      cons_succ]
+    simpa [shiftE] using h
+
+/-- Truthfulness through the reverse substitution chain, as an iff at
+a generalized body. -/
+theorem AnnotOk2_instRevChain (ρ : Nat → V) :
+    ∀ (vs : List AVExpr), (∀ v ∈ vs, AnnotOk2 V ρ v) →
+      ∀ X : AVExpr,
+        (AnnotOk2 V ρ (Setlec.SetR.AVExpr.instRevChain vs X) ↔
+          AnnotOk2 V (envChainP ρ vs) X) := by
+  intro vs
+  induction vs with
+  | nil => intro _ X; exact Iff.rfl
+  | cons v vs ih =>
+    intro hvs X
+    show AnnotOk2 V ρ (Setlec.SetR.AVExpr.instRevChain vs
+        (X.inst (v.liftN vs.length) 0)) ↔ _
+    rw [ih (fun v' hv' => hvs v' (List.mem_cons_of_mem _ hv'))]
+    have hva : AnnotOk2 V (shiftE 0 0 (envChainP ρ vs))
+        (v.liftN vs.length) := by
+      rw [shiftE_zero_zero, AnnotOk2_liftN, shiftE_envChainP]
+      exact hvs v List.mem_cons_self
+    rw [AnnotOk2_inst V X (v.liftN vs.length) 0 (envChainP ρ vs) hva]
+    rw [show instE 0 (interp2 V (shiftE 0 0 (envChainP ρ vs))
+          (v.liftN vs.length)) (envChainP ρ vs)
+        = envChainP ρ (v :: vs) from by
+      rw [shiftE_zero_zero, instE_zero, interp2_liftN,
+        shiftE_envChainP]
+      rfl]
+
+/-- Bit validity through the chain — the identical unfolding. -/
+theorem AnnotValidV_instRevChain (ρ : Nat → V) :
+    ∀ (vs : List AVExpr), (∀ v ∈ vs, AnnotValidV V ρ v) →
+      ∀ X : AVExpr,
+        (AnnotValidV V ρ (Setlec.SetR.AVExpr.instRevChain vs X) ↔
+          AnnotValidV V (envChainP ρ vs) X) := by
+  intro vs
+  induction vs with
+  | nil => intro _ X; exact Iff.rfl
+  | cons v vs ih =>
+    intro hvs X
+    show AnnotValidV V ρ (Setlec.SetR.AVExpr.instRevChain vs
+        (X.inst (v.liftN vs.length) 0)) ↔ _
+    rw [ih (fun v' hv' => hvs v' (List.mem_cons_of_mem _ hv'))]
+    have hva : AnnotValidV V (shiftE 0 0 (envChainP ρ vs))
+        (v.liftN vs.length) := by
+      rw [shiftE_zero_zero, AnnotValidV_liftN, shiftE_envChainP]
+      exact hvs v List.mem_cons_self
+    rw [AnnotValidV_inst V X (v.liftN vs.length) 0 (envChainP ρ vs)
+      hva]
+    rw [show instE 0 (interp2 V (shiftE 0 0 (envChainP ρ vs))
+          (v.liftN vs.length)) (envChainP ρ vs)
+        = envChainP ρ (v :: vs) from by
+      rw [shiftE_zero_zero, instE_zero, interp2_liftN,
+        shiftE_envChainP]
+      rfl]
+
+/-- **The closure**: an `∀ σ`-graded body substituted along
+ambient-graded arguments is graded at the ambient environment. -/
+theorem annotOkP_instRevChain {ρ : Nat → V} {vs : List AVExpr}
+    {X : AVExpr} (hX : ∀ σ : Nat → V, AnnotOkP V σ X)
+    (hvs : ∀ v ∈ vs, AnnotOkP V ρ v) :
+    AnnotOkP V ρ (Setlec.SetR.AVExpr.instRevChain vs X) :=
+  ⟨(AnnotOk2_instRevChain ρ vs (fun v hv => (hvs v hv).1) X).mpr
+      (hX _).1,
+    (AnnotValidV_instRevChain ρ vs (fun v hv => (hvs v hv).2) X).mpr
+      (hX _).2⟩
+
 end Setlec.SetR.Interp2

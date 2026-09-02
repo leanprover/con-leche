@@ -383,6 +383,21 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
         ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
         = some Ra ∧
       (∀ ρ : Nat → V, AnnotOkP V ρ Ra) ∧
+      -- The nested pins' open readings are carried GRADED, parallel
+      -- to `Ra`'s conjunct (task #161 iota seal repair, ratified):
+      -- the row must grade the instantiated pin comparands for
+      -- `DefEqClaims2P`, and the pins are stored rule data the ι
+      -- clause only defeqs — no claims route grades them.  The
+      -- supplier is the inductive install, where the pins'
+      -- `checkAnnotList` certificates live, exactly like `Ra`'s.
+      (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+        ∀ i, i < RecRule.ctorParams rl →
+        ∃ vpa : AVExpr,
+          denoteP m.acval env φ rP
+            (Setlec.TTVerify.openRev 0 rP
+              ((pins.getD i default).instantiateLevelParams
+                cv.levelParams us)) = some vpa ∧
+          ∀ ρ : Nat → V, AnnotOkP V ρ vpa) ∧
       ∀ (cvj : ConstantVal) (cnP cnF : Nat),
         env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
       ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AVExpr)

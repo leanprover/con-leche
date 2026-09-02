@@ -119,23 +119,11 @@ structure SemTierInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∃ ea, denoteP m.acval env φ d e = some ea
-  /-- iota tier: **THE NAMED WALL**, and all that is left of the tier.
-  `DefEqClaims2P` demands `AnnotOkP` of both comparands, and in this
-  lane a term's grading comes from exactly one place — `InferClaims2P`
-  produces it from a successful `inferTypeCore` run.  Every comparand
-  the ι clause compares is inferred *except* the `.nested` fire
-  branch's, which are `pins.map (instSpine … ·)`: stored rule data the
-  clause only ever defeqs.  The gap is an asymmetry inside the frozen
-  `RecRuleLawP`, which carries `∀ ρ, AnnotOkP V ρ Ra` for the rule's
-  right-hand side and nothing for the pins although its own `.nested`
-  premise forces the consumer to grade them.  Routed until the lane
-  lead takes the one-conjunct repair (see `Step2/IotaRowsP.lean`).
-
-  Both ι *rows* are discharged: `IotaStepP` by `iotaStepP_of` off
-  `EnvS2PM.rec_rules` plus this, `IotaReadsP` by `iotaReadsP_of` off
-  `rec_rules` plus `accepted_reads` above. -/
-  iota_pins : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat),
-    IotaNestedPinP m φ
+  /- iota tier: NO entries.  Both rows are discharged (`iotaStepP_of`
+  off `EnvS2PM.rec_rules`, `iotaReadsP_of` off `rec_rules` +
+  `accepted_reads`); the `.nested` pin wall was resolved by the
+  ratified one-conjunct repair to `RecRuleLawP`
+  (`Step2/IotaRowsP.lean`'s record). -/
   /- caps tier: NO entries.  All four capability rows left this
   census with the tier: `UnitIrrelPQ` (`unitIrrelPQ_of_claims`),
   `PairEtaIrrelP` (`pairEtaIrrelP_of_claims`), `StructEtaIrrelP`
@@ -155,9 +143,9 @@ structure SemTierInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
   iota tier: BOTH ROWS ARE DISCHARGED — `IotaStepP` by `iotaStepP_of`,
   `IotaReadsP` by `iotaReadsP_of` (`Step2/IotaRowsP.lean`), off the
   new `EnvS2PM` field `rec_rules` and, for the reads row,
-  `accepted_reads` above.  What remains of the tier is the single
-  named wall `iota_pins`.  The bill is now `accepted_reads` +
-  `iota_pins`. -/
+  `accepted_reads` above.  The `.nested` pin wall fell to the
+  ratified one-conjunct repair.  The bill is `accepted_reads`,
+  ALONE. -/
 
 /-- The env-fixed tier bundle, from the semantic inputs + the fold's
 invariant + the one bespoke literal-tier fact (`nat_heads`, an install
@@ -167,7 +155,6 @@ theorem TierInputsAtP.ofSem (hsem : SemTierInputsP V μ)
     (mp : EnvS2PM V μ env) (φ : Name → Nat) :
     TierInputsAtP V μ mp.base2 φ :=
   TierInputsAtP.ofEnvS2PM mp (hsem.accepted_reads mp.base2 φ)
-    (hsem.iota_pins mp.base2 φ)
     (fun fuel => reduceNatReadsP_of mp.base2 φ fuel)
     (fun _fuel ihw => reduceNatStepP_of mp ihw)
     (fun _fuel ihw => reduceNatStepPQ_of mp ihw)

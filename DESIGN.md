@@ -13095,3 +13095,48 @@ The `SemTierInputsP` census is `accepted_reads` + `iota_pins`, and
    Prop-motive minors, still expected to be new mathematics);
 3. **`accepted_reads`**;
 4. the final assembly into the unconditional `no_proof_of_Empty_P`.
+
+## Task #161 IOTA TIER seal II: the tier is CLOSED (2026-09-02)
+
+**The last semantic tier is complete.**  The `.nested` pin wall fell
+to the ratified repair, amended once during consumption: the pins'
+gradings are carried in the **∃-form** (reading + `∀ σ` grading),
+parallel to `Ra` — the ∀-form's covariant grading conjunct would have
+forced a backward reading transfer at preservation; the carried
+existence crosses forward exactly as `Ra` does.  The consumption
+closure is `annotOkP_instRevChain` (`Step2/IotaKitP.lean`): proved as
+an **iff at a generalized body** — a one-directional structural
+induction traps itself (the tail's hypothesis wants the head argument
+graded at every environment, which an open-context reading never is);
+the iff unfolds outside-in through `AnnotOk2_inst`/`AnnotValidV_inst`,
+each `liftN` popping the cons-chain back to the ambient environment
+(`shiftE_envChainP`), so the arguments' gradings are needed at the
+ambient environment only.  `IotaNestedPinP` is deleted; the wall
+stood for one worker-session.
+
+**Discipline ledger** (coordinator-directed): TWO of the lead's
+freeze-record predictions were refuted by the iota batch — the
+backward preservation crossing (unnecessary: the determinism trick)
+and its `LitGuardsAgree` justification (unsound: seal I's own
+refutation applies at value-kind conses).  The worker's catches,
+corrected in-seal; the bidirectional discipline working.
+
+**THE CENSUS**: `SemTierInputsP` = `accepted_reads`, ALONE.  Four
+bundles: `SemTierInputsP` (one field), `AxiomStepPB`, `BasisStepPB`
+(+ `eq_lawP`), `IndStepPB` (+ `caps_ok`, + `rec_rules` incl. the
+∃-form pins conjunct, + the Prop-motive minors).
+
+**Resume-here**: (1) `accepted_reads` — a syntactic totality walk
+over `inferBody`'s clauses (accepted subjects read; the `fvar` clause
+reads unconditionally, the `const`/`lit`/`proj` clauses' guards are
+the front door's own acceptance guards); (2) `AxiomStepPB` — the pin
+tier (`harvestAxiomP` is the wrapper; the bill is the pinned leaves'
+`A`-families with bit validity and the `mem_typeP` memberships at
+`interp2`, mirroring `StdAxiomKeyS`); (3) `BasisStepPB` — the basis
+installs (pinned-block `RecRulesP` = the basis iota laws at `interp2`
+over `natRecV2`/`punitRecV2`/…, `eq_lawP` from the annotated `Eq`
+pin, `nat_heads` bespoke at the `Nat` block); (4) `IndStepPB` — the
+inductive installs (all fields; `caps_ok` + `rec_rules`
+establishment; THE PROP-MOTIVE MINORS — the last place genuinely
+novel content can hide; stop-and-name standing); (5) the FINAL
+ASSEMBLY: `no_proof_of_Empty_P` unconditional.
