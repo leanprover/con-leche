@@ -2,6 +2,7 @@ import Setlec.SetR.Interp2.Step2.ReadsP
 import Setlec.SetR.Interp2.Step2.CapsRowsP
 import Setlec.SetR.Interp2.Step2.StrLitP
 import Setlec.SetR.Interp2.Step2.ProjRowsP
+import Setlec.SetR.Interp2.Step2.IotaRowsP
 
 /-!
 # The tiers assembly (task #161, P4): one env-fixed bundle, one induction
@@ -51,8 +52,15 @@ structure TierInputsAtP (V : Type w) [SetTheory V] (μ : CheckMode)
   acval_valid : AcvalValidP m
   /-- install tier: the numeral heads -/
   nat_heads : NatHeadsP m φ
-  /-- iota tier: the fired-rule row -/
-  iota : ∀ fuel, IotaStepP μ m φ fuel
+  /-- iota tier: the stored recursors' fired contracts — an `EnvS2PM`
+  field (`rec_rules`), which with the claims discharges both ι rows
+  (`iotaStepP_of`, `iotaReadsP_of`) -/
+  rec_rules : RecRulesP m φ
+  /-- iota tier: THE NAMED WALL — the `.nested` fire branch's stored
+  pin comparands have no grading source (`Step2/IotaRowsP.lean`'s
+  finding).  Routed until the lane lead takes the one-conjunct repair
+  to `RecRuleLawP` -/
+  iota_pins : IotaNestedPinP m φ
   /-- literal tier: the two acceleration rows, each taking the whnf
   claims at the same fuel (`reduceNat` head-normalises its arguments
   before reading them as literals) -/
@@ -104,7 +112,8 @@ theorem checkSoundAtP (hμ : μ.verified = true)
     · -- the head-normalisation quarter
       exact whnfCore_claimsP m hex
         (betaCertP_of_claims m hexi ihd ihi)
-        (h.iota fuel)
+        (iotaStepP_of h.rec_rules h.caps_ok h.reads.const_ty
+          h.acval_valid h.iota_pins ihw ihd ihi hreads hwreads)
         (projStepP_of_claims ihwc ihw ihd ihi hreads hwreads) ihwc
     · -- the reduction loop
       exact whnf_claimsP m hex ihwc (h.nat_step fuel ihw)
@@ -173,19 +182,25 @@ heads; what remains as arguments is exactly the semantic-content bill
 (iota / proj / literal / caps / the two infer clause rows), each named
 by its tier in the frontier-transformation table. -/
 theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
-    (hiota_r : ∀ fuel, IotaReadsP μ mp.base2 φ fuel)
+    (hacc : ∀ {F d : Nat} {x t : Expr},
+      Setlec.inferTypeCore μ env F d x = .ok t →
+      Expr.WScoped d x → x.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded x →
+      ∃ xa, denoteP mp.base2.acval env φ d x = some xa)
+    (hpins : IotaNestedPinP mp.base2 φ)
     (hnat_r : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel)
-    (hiota : ∀ fuel, IotaStepP μ mp.base2 φ fuel)
     (hnat : ∀ fuel,
       WhnfClaims2P μ mp.base2 φ fuel → ReduceNatStepP μ mp.base2 φ fuel)
     (hnatQ : ∀ fuel,
       WhnfClaims2P μ mp.base2 φ fuel →
         ReduceNatStepPQ μ mp.base2 φ fuel) :
     TierInputsAtP V μ mp.base2 φ where
-  reads := ReadsInputsP.ofEnvS2PM mp hiota_r hnat_r
+  reads := ReadsInputsP.ofEnvS2PM mp
+    (fun _fuel => iotaReadsP_of (mp.rec_rules φ) hacc) hnat_r
   acval_valid := mp.acvalValidP
   nat_heads := mp.nat_heads φ
-  iota := hiota
+  rec_rules := mp.rec_rules φ
+  iota_pins := hpins
   nat_step := hnat
   nat_stepQ := hnatQ
   caps_ok := mp.caps_ok
