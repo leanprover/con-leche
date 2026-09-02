@@ -66,8 +66,16 @@ established survives into the clone's representation.  This is the
 clone's counterpart of "the parse arena seeds the run's `IState`". -/
 
 /-- Core of `ofStore` (memoized on the arena index; the level memo is
-shared across the traversal). -/
-partial def ofStoreGo (st : EStore) (memo : Std.HashMap EIdx ExprC)
+shared across the traversal).
+
+Non-`partial`: termination is the arena readback's own, copied verbatim
+from `EStore.readbackGo` (`Setlec/Kernel/IExpr.lean`) — the traversal
+order `(etier e, epos e)` with an `emlt` guard on every child index.
+The guards are exactly the ones the interned readback performs, so on a
+well-formed parse arena (children are `emlt`-below their parent) no
+guard ever fires and the conversion is unchanged; on an ill-formed one
+the clause returns `none`, which is what `readbackGo` does too. -/
+def ofStoreGo (st : EStore) (memo : Std.HashMap EIdx ExprC)
     (lmemo : Std.HashMap LIdx Level) (e : EIdx) :
     Option ExprC × Std.HashMap EIdx ExprC × Std.HashMap LIdx Level :=
   match memo[e]? with
@@ -81,12 +89,14 @@ partial def ofStoreGo (st : EStore) (memo : Std.HashMap EIdx ExprC)
         match n with
         | .bvar i => (some (ExprC.mkBVar i), memo, lmemo)
         | .fvar idx nm ty =>
-          match ofStoreGo st memo lmemo ty with
-          | (some t, memo, lmemo) =>
-            match st.readbackN nm with
-            | some n' => (some (ExprC.mkFVar idx n' t), memo, lmemo)
-            | none => (none, memo, lmemo)
-          | (none, memo, lmemo) => (none, memo, lmemo)
+          if _h : emlt ty e then
+            match ofStoreGo st memo lmemo ty with
+            | (some t, memo, lmemo) =>
+              match st.readbackN nm with
+              | some n' => (some (ExprC.mkFVar idx n' t), memo, lmemo)
+              | none => (none, memo, lmemo)
+            | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
         | .sort u =>
           match EStore.readbackLGo st lmemo u with
           | (some l, lmemo) => (some (ExprC.mkSort l), memo, lmemo)
@@ -99,59 +109,72 @@ partial def ofStoreGo (st : EStore) (memo : Std.HashMap EIdx ExprC)
             | none => (none, memo, lmemo)
           | (none, lmemo) => (none, memo, lmemo)
         | .app f a =>
-          match ofStoreGo st memo lmemo f with
-          | (some xf, memo, lmemo) =>
-            match ofStoreGo st memo lmemo a with
-            | (some xa, memo, lmemo) => (some (ExprC.mkApp xf xa), memo, lmemo)
+          if _h : emlt f e ∧ emlt a e then
+            match ofStoreGo st memo lmemo f with
+            | (some xf, memo, lmemo) =>
+              match ofStoreGo st memo lmemo a with
+              | (some xa, memo, lmemo) =>
+                (some (ExprC.mkApp xf xa), memo, lmemo)
+              | (none, memo, lmemo) => (none, memo, lmemo)
             | (none, memo, lmemo) => (none, memo, lmemo)
-          | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
         | .lam nm ty body mb =>
-          match ofStoreGo st memo lmemo ty with
-          | (some xt, memo, lmemo) =>
-            match ofStoreGo st memo lmemo body with
-            | (some xb, memo, lmemo) =>
-              match st.readbackN nm with
-              | some n' =>
-                (some (ExprC.mkLam n' xt xb ⟨mb.bi, mb.pw⟩), memo, lmemo)
-              | none => (none, memo, lmemo)
-            | (none, memo, lmemo) => (none, memo, lmemo)
-          | (none, memo, lmemo) => (none, memo, lmemo)
-        | .forallE nm ty body mb =>
-          match ofStoreGo st memo lmemo ty with
-          | (some xt, memo, lmemo) =>
-            match ofStoreGo st memo lmemo body with
-            | (some xb, memo, lmemo) =>
-              match st.readbackN nm with
-              | some n' =>
-                (some (ExprC.mkForallE n' xt xb ⟨mb.bi, mb.pw⟩), memo, lmemo)
-              | none => (none, memo, lmemo)
-            | (none, memo, lmemo) => (none, memo, lmemo)
-          | (none, memo, lmemo) => (none, memo, lmemo)
-        | .letE nm ty val body =>
-          match ofStoreGo st memo lmemo ty with
-          | (some xt, memo, lmemo) =>
-            match ofStoreGo st memo lmemo val with
-            | (some xv, memo, lmemo) =>
+          if _h : emlt ty e ∧ emlt body e then
+            match ofStoreGo st memo lmemo ty with
+            | (some xt, memo, lmemo) =>
               match ofStoreGo st memo lmemo body with
               | (some xb, memo, lmemo) =>
                 match st.readbackN nm with
                 | some n' =>
-                  (some (ExprC.mkLetE n' xt xv xb), memo, lmemo)
+                  (some (ExprC.mkLam n' xt xb ⟨mb.bi, mb.pw⟩), memo, lmemo)
                 | none => (none, memo, lmemo)
               | (none, memo, lmemo) => (none, memo, lmemo)
             | (none, memo, lmemo) => (none, memo, lmemo)
-          | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
+        | .forallE nm ty body mb =>
+          if _h : emlt ty e ∧ emlt body e then
+            match ofStoreGo st memo lmemo ty with
+            | (some xt, memo, lmemo) =>
+              match ofStoreGo st memo lmemo body with
+              | (some xb, memo, lmemo) =>
+                match st.readbackN nm with
+                | some n' =>
+                  (some (ExprC.mkForallE n' xt xb ⟨mb.bi, mb.pw⟩), memo, lmemo)
+                | none => (none, memo, lmemo)
+              | (none, memo, lmemo) => (none, memo, lmemo)
+            | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
+        | .letE nm ty val body =>
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
+            match ofStoreGo st memo lmemo ty with
+            | (some xt, memo, lmemo) =>
+              match ofStoreGo st memo lmemo val with
+              | (some xv, memo, lmemo) =>
+                match ofStoreGo st memo lmemo body with
+                | (some xb, memo, lmemo) =>
+                  match st.readbackN nm with
+                  | some n' =>
+                    (some (ExprC.mkLetE n' xt xv xb), memo, lmemo)
+                  | none => (none, memo, lmemo)
+                | (none, memo, lmemo) => (none, memo, lmemo)
+              | (none, memo, lmemo) => (none, memo, lmemo)
+            | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
         | .lit l => (some (ExprC.mkLit l), memo, lmemo)
         | .proj s i sub =>
-          match ofStoreGo st memo lmemo sub with
-          | (some xs, memo, lmemo) =>
-            match st.readbackN s with
-            | some sn => (some (ExprC.mkProj sn i xs), memo, lmemo)
-            | none => (none, memo, lmemo)
-          | (none, memo, lmemo) => (none, memo, lmemo)
+          if _h : emlt sub e then
+            match ofStoreGo st memo lmemo sub with
+            | (some xs, memo, lmemo) =>
+              match st.readbackN s with
+              | some sn => (some (ExprC.mkProj sn i xs), memo, lmemo)
+              | none => (none, memo, lmemo)
+            | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
       match r with
       | some x => (some x, memo.insert e x, lmemo)
       | none => (none, memo, lmemo)
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- The conversion state threaded across the whole declaration list. -/
 structure OfStoreS where

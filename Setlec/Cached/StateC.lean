@@ -518,7 +518,7 @@ the `Expr`-typed driver quadratic — or worse — on shared declarations. -/
 
 /-- Core of `constsResolveFC` (memo per call: the result depends on the
 environment). -/
-partial def constsResolveFCGo (fe : FEnv) (memo : Std.HashMap ExprC Bool)
+def constsResolveFCGo (fe : FEnv) (memo : Std.HashMap ExprC Bool)
     (e : ExprC) : Bool × Std.HashMap ExprC Bool :=
   match memo[e]? with
   | some r => (r, memo)

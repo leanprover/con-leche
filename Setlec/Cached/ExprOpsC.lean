@@ -89,7 +89,7 @@ abbrev MemoNL := Std.HashMap (ExprC × Nat × Nat) ExprC
 
 /-- Core of `instantiate1` (memoized; nodes whose cached bound is at or
 below the cursor are returned unchanged). -/
-partial def instantiate1Go (v : ExprC) (memo : MemoN) (e : ExprC) (d : Nat) :
+def instantiate1Go (v : ExprC) (memo : MemoN) (e : ExprC) (d : Nat) :
     ExprC × MemoN :=
   if e.bvarB ≤ d then (e, memo) else
   match memo[(e, d)]? with
@@ -128,8 +128,16 @@ def instantiate1 (e v : ExprC) (d : Nat := 0) : ExprC :=
   if e.bvarB ≤ d then e else (instantiate1Go v {} e d).1
 
 /-- Core of `instantiateList` (task #50): `vs` innermost binder first,
-`k` the live prefix length. -/
-partial def instantiateListGo (vs : Array ExprC) (memo : MemoNL)
+`k` the live prefix length.
+
+Not structural (the `bvar` arm re-enters at the replacement with the
+shorter prefix `i - d`), so it carries the arena twin's lexicographic
+measure `(k, sizeOf e)`: the subterm calls keep `k`, the `bvar` call
+decreases it.  The prefix test is written as a dependent `if` — as in
+`instantiateListIGo` — only to put `i - d < k` in scope for that
+obligation; `dite` on the same `Decidable Nat.lt` instance compiles to
+the same code as the `ite` did. -/
+def instantiateListGo (vs : Array ExprC) (memo : MemoNL)
     (e : ExprC) (k : Nat) (d : Nat) : ExprC × MemoNL :=
   if k = 0 then (e, memo)
   else if e.bvarB ≤ d then (e, memo)
@@ -141,7 +149,7 @@ partial def instantiateListGo (vs : Array ExprC) (memo : MemoNL)
         match e with
         | .bvar i .. =>
           if i < d then (e, memo)
-          else if i - d < k then
+          else if _h : i - d < k then
             if h : i - d < vs.size then
               instantiateListGo vs memo vs[i - d] (i - d) d
             else (e, memo)
@@ -168,6 +176,11 @@ partial def instantiateListGo (vs : Array ExprC) (memo : MemoNL)
           let (s', memo) := instantiateListGo vs memo sub k d
           (mkProj s i s', memo)
       (r, memo.insert (e, k, d) r)
+termination_by (k, sizeOf e)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; omega)
+    | (apply Prod.Lex.right; simp +arith +decide)
 
 /-- `Expr.instantiateList` on `ExprC` (bulk, one memoized DAG pass). -/
 def instantiateList (e : ExprC) (vs : List ExprC) (d : Nat := 0) : ExprC :=
@@ -179,8 +192,9 @@ def instantiateList (e : ExprC) (vs : List ExprC) (d : Nat := 0) : ExprC :=
 
 /-- Core of `instantiateRev`: as `instantiateListGo`, but the
 replacement array holds the innermost binder **last** (the binder
-loops' push order — lean4lean's `instantiateRev`). -/
-partial def instantiateRevGo (vs : Array ExprC) (memo : MemoNL)
+loops' push order — lean4lean's `instantiateRev`).  Same
+`(k, sizeOf e)` measure, same dependent prefix test. -/
+def instantiateRevGo (vs : Array ExprC) (memo : MemoNL)
     (e : ExprC) (k : Nat) (d : Nat) : ExprC × MemoNL :=
   if k = 0 then (e, memo)
   else if e.bvarB ≤ d then (e, memo)
@@ -192,7 +206,7 @@ partial def instantiateRevGo (vs : Array ExprC) (memo : MemoNL)
         match e with
         | .bvar i .. =>
           if i < d then (e, memo)
-          else if i - d < k then
+          else if _h : i - d < k then
             if h : i - d < vs.size then
               instantiateRevGo vs memo
                 (vs[vs.size - 1 - (i - d)]'(by omega)) (i - d) d
@@ -220,6 +234,11 @@ partial def instantiateRevGo (vs : Array ExprC) (memo : MemoNL)
           let (s', memo) := instantiateRevGo vs memo sub k d
           (mkProj s i s', memo)
       (r, memo.insert (e, k, d) r)
+termination_by (k, sizeOf e)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; omega)
+    | (apply Prod.Lex.right; simp +arith +decide)
 
 /-- Bulk instantiation on a reversed accumulator array. -/
 def instantiateRev (e : ExprC) (vs : Array ExprC) (d : Nat := 0) : ExprC :=
@@ -239,7 +258,7 @@ not need the cutoff — its rebuild re-interns to the *same index* — but
 the clone's rebuild allocates, so returning the node itself is how the
 computed-field representation recovers the arena's idempotence.  Same
 value either way. -/
-partial def abstract1Go (d : Nat) (memo : MemoN) (e : ExprC) (k : Nat) :
+def abstract1Go (d : Nat) (memo : MemoN) (e : ExprC) (k : Nat) :
     ExprC × MemoN :=
   if e.fvarB ≤ d then (e, memo) else
   match memo[(e, k)]? with
@@ -276,7 +295,7 @@ def abstract1 (e : ExprC) (d : Nat) (k : Nat := 0) : ExprC :=
   if e.fvarB ≤ d then e else (abstract1Go d {} e k).1
 
 /-- Core of `abstractRange` (bulk abstraction, task #72). -/
-partial def abstractRangeGo (d k : Nat) (memo : MemoN) (e : ExprC) (c : Nat) :
+def abstractRangeGo (d k : Nat) (memo : MemoN) (e : ExprC) (c : Nat) :
     ExprC × MemoN :=
   if e.fvarB ≤ d then (e, memo) else
   match memo[(e, c)]? with
@@ -324,7 +343,7 @@ abbrev Memo0 := Std.HashMap ExprC ExprC
 
 /-- Core of `instantiateLevelParams` (memoized; nodes without a level
 parameter are returned unchanged — the arena's `eparamBs` cutoff). -/
-partial def instLevelParamsGo (ks : List Name) (us : List Level)
+def instLevelParamsGo (ks : List Name) (us : List Level)
     (memo : Memo0) (e : ExprC) : ExprC × Memo0 :=
   if !e.hasLP then (e, memo) else
   match memo[e]? with
@@ -372,7 +391,7 @@ def instLevelParams (ks : List Name) (us : List Level) (e : ExprC) : ExprC :=
 
 /-- Core of `wscopedB` (memoized; `fvar` annotations are descended,
 so the cached fvar range does not decide it). -/
-partial def wscopedBGo (memo : Std.HashMap (ExprC × Nat) Bool) (d : Nat)
+def wscopedBGo (memo : Std.HashMap (ExprC × Nat) Bool) (d : Nat)
     (e : ExprC) : Bool × Std.HashMap (ExprC × Nat) Bool :=
   if e.fvarB == 0 then (true, memo) else
   match memo[(e, d)]? with
@@ -402,7 +421,7 @@ partial def wscopedBGo (memo : Std.HashMap (ExprC × Nat) Bool) (d : Nat)
 def wscopedB (d : Nat) (e : ExprC) : Bool := (wscopedBGo {} d e).1
 
 /-- Core of `fvarLeaves` (memoized set accumulation). -/
-partial def fvarLeavesGo (acc : List (Nat × Name × ExprC))
+def fvarLeavesGo (acc : List (Nat × Name × ExprC))
     (seen : Std.HashMap ExprC Unit) (e : ExprC) :
     List (Nat × Name × ExprC) × Std.HashMap ExprC Unit :=
   if e.fvarB == 0 then (acc, seen) else
@@ -437,7 +456,7 @@ def leafMem : List (Nat × Name × ExprC) → Nat → Name → ExprC → Bool
     (i == idx && n == nm && t == ty) || leafMem rest idx nm ty
 
 /-- Core of the fabrication-side leaf-subset test (task #86). -/
-partial def leavesSubGo (bl : List (Nat × Name × ExprC))
+def leavesSubGo (bl : List (Nat × Name × ExprC))
     (memo : Std.HashMap ExprC Bool) (e : ExprC) :
     Bool × Std.HashMap ExprC Bool :=
   if e.fvarB == 0 then (true, memo) else
@@ -491,8 +510,13 @@ def instSpine (args : List ExprC) (t : Nat) (e : ExprC) : ExprC :=
   if args.length = t + 1 then instantiateList e args.reverse 0
   else instSpineChain args t e
 
-/-- Core of `piResidual` (bulk form, task #50). -/
-partial def piResidualAcc : List ExprC → ExprC → List ExprC → Option ExprC
+/-- Core of `piResidual` (bulk form, task #50).
+
+Not structural: the `bvar` arm re-enters on the same argument list with
+the accumulator flushed.  Measure `(as.length, acc.length)` — the
+`forallE` arm consumes an argument, the `bvar` arm keeps the arguments
+and empties a nonempty accumulator. -/
+def piResidualAcc : List ExprC → ExprC → List ExprC → Option ExprC
   | acc, e, [] => some (instantiateList e acc 0)
   | acc, e, a :: as =>
     match e with
@@ -502,6 +526,11 @@ partial def piResidualAcc : List ExprC → ExprC → List ExprC → Option ExprC
       | [] => none
       | _ :: _ => piResidualAcc [] (instantiateList e acc 0) (a :: as)
     | _ => none
+termination_by acc _ as => (as.length, acc.length)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.right; simp +arith +decide)
+    | (apply Prod.Lex.left; simp +arith +decide)
 
 @[inherit_doc piResidualAcc]
 def piResidual (e : ExprC) (args : List ExprC) : Option ExprC :=
@@ -522,7 +551,7 @@ def pisToLams : Nat → ExprC → ExprC → Option ExprC
 
 /-- Core of `allLevelParamsDefined` (memoized; nodes without a level
 parameter are `true` without traversal — the `hasLP` cutoff). -/
-partial def allLevelParamsDefinedGo (params : List Name)
+def allLevelParamsDefinedGo (params : List Name)
     (memo : Std.HashMap ExprC Bool) (e : ExprC) :
     Bool × Std.HashMap ExprC Bool :=
   if !e.hasLP then (true, memo) else
