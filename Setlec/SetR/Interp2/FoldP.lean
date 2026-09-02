@@ -1,5 +1,6 @@
 import Setlec.SetR.Interp2.AxiomReduceP
 import Setlec.SetR.Interp2.BasisPSigmaP
+import Setlec.SetR.Interp2.DeclIndP
 import Setlec.SetR.Bridge.Sound
 
 /-!
@@ -7,11 +8,10 @@ import Setlec.SetR.Bridge.Sound
 
 `foldPM` carries `EnvSPOk` — the P invariant plus the η-family
 closure — through an accepted stream, and
-`no_proof_of_Empty_P_of` is the **milestone-shaped** capstone: the
-frozen final statement (`CapstoneP.lean`) conditional on exactly the
-named tier bundles.  The conditional form is a milestone, never the
-close (the standing ruling); the final `no_proof_of_Empty_P` is this
-theorem with the bundles replaced by the tiers' theorems.
+`no_proof_of_Empty_P` is the campaign's **close**, at the frozen letter
+(`CapstoneP.lean`'s docstring): input-level hypotheses only.  The
+milestone-shaped `no_proof_of_Empty_P_of` is kept beside it, now
+carrying no bundle at all — every tier step is discharged.
 
 The v1 half of the invariant rides the *discharged* v1 fold
 machinery verbatim (`declStepS` at the concrete instances
@@ -25,10 +25,10 @@ The routed bundles, by tier:
   refutable at a support-completing install, and the monotone
   crossing + `natLitSupported_cons_back` made the harvests
   premise-free on the literal guards — the census shrank here);
-* `BasisStepPB` / `IndStepPB` — the whole-kind steps for the
-  basis/inductive installs, mirroring the v1 `declBasisS`/`declIndS`
-  machinery at the P fields.  (`AxiomStepPB` is **no longer routed**:
-  ENDGAME D closed it — `axiomStepPB_of`.)
+* nothing.  `AxiomStepPB` (ENDGAME D, `axiomStepPB_of`),
+  `BasisStepPB` (ENDGAME H, `basisStepPB_of`) and `IndStepPB`
+  (IND TIER part 10, `indStepPB_of`) are all discharged; the census
+  is `hμ` alone.
 -/
 
 namespace Setlec.SetR.Interp2
@@ -92,12 +92,30 @@ theorem basisStepPB_of : BasisStepPB V μ := by
   | emptyK => exact declBasisPB_emptyK mp hchain
   | quotK => exact declBasisPB_quotK mp (hEq rfl) hchain
 
-/-- The inductive kind's whole step, routed (inductive tier). -/
+/-- The inductive kind's whole step — **no longer routed** (task #161,
+IND TIER part 10): `indStepPB_of` below discharges it.  The definition
+is kept because the census is read off these signatures.
+
+The `EtaFamiliesClosed` premise is part of the bundle's *shape*, not a
+residue: `declStepPM` carries it as the v1 fold's second half and hands
+it over at the call site, and the inductive install genuinely consumes
+it (`EtaFamiliesClosedO` at the block, the member fold's η side
+condition).  It is an environment fact the fold already owns, never a
+hypothesis of the capstone. -/
 def IndStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {F : Nat} {env : Env} (mp : EnvS2PM V μ env)
     {block : List ConstantInfo} {env₂ : Env},
+    Setlec.EtaFamiliesClosed env →
     DeclIndR μ F env mp.base2.base.cval block env₂ →
     Nonempty (EnvS2PM V μ env₂)
+
+/-- **`IndStepPB`, discharged — THE INDUCTIVE TIER IS CLOSED**
+(`declIndP`, `Interp2/DeclIndP.lean`): the member fold, the recursor
+group (provision/fire/swap), the projection functions and the
+elimination templates, all four at the reading. -/
+theorem indStepPB_of (hμ : μ.verified = true) : IndStepPB V μ := by
+  intro _F _env mp _block _env₂ hE h
+  exact declIndP hμ mp hE h
 
 /-- **The P fold invariant**: the P environment invariant plus the
 η-family closure (the v1 fold's second half, reused verbatim). -/
@@ -106,9 +124,7 @@ def EnvSPOk (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env) :
   Nonempty (EnvS2PM V μ env) ∧ EtaFamiliesClosed env
 
 /-- **The per-declaration P step, by dispatch.** -/
-theorem declStepPM (hμ : μ.verified = true)
-    (hind : IndStepPB V μ)
-    {F : Nat} {env env₂ : Env} {d : Declaration}
+theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
     (h : DeclR μ F mp.base2.base.cval env d env₂) :
     EnvSPOk V μ env₂ := by
@@ -134,11 +150,10 @@ theorem declStepPM (hμ : μ.verified = true)
     exact harvestOpaqueP hμ reducePinS mp h
   | axiomDecl cv => exact axiomStepPB_of hμ mp h
   | basisDecl kind => exact basisStepPB_of mp h
-  | indDecl block => exact hind mp h
+  | indDecl block => exact indStepPB_of hμ mp hE h
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
-theorem foldPM (hμ : μ.verified = true)
-    (hind : IndStepPB V μ) {F : Nat} :
+theorem foldPM (hμ : μ.verified = true) {F : Nat} :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       EnvSPOk V μ env →
       ds.foldlM (checkDecl μ (fueledOps μ F)) env = .ok env' →
@@ -153,32 +168,31 @@ theorem foldPM (hμ : μ.verified = true)
     | ok env1 =>
       rw [hd] at h
       obtain ⟨⟨mp⟩, hE⟩ := hm
-      exact foldPM hμ hind ds env1
-        (declStepPM hμ hind mp hE
+      exact foldPM hμ ds env1
+        (declStepPM hμ mp hE
           (checkDeclR_sound mp.base2.base hE hd)) h
 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'
 theorems). -/
-theorem checkDecls_sound_P_of (hμ : μ.verified = true)
-    (hind : IndStepPB V μ) {F : Nat}
+theorem checkDecls_sound_P_of (hμ : μ.verified = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
     Nonempty (EnvS2PM V μ env') :=
-  (foldPM hμ hind ds Env.empty
+  (foldPM hμ ds Env.empty
     ⟨⟨EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩ h).1
 
 /-- **The capstone, milestone shape**: no proof of `Empty` is ever
 accepted — the collapse-free model of the validated annotations, at
 the frozen final statement's hypotheses plus the named tier
 bundles. -/
-theorem no_proof_of_Empty_P_of (hμ : μ.verified = true)
-    (hind : IndStepPB V μ) {F : Nat}
+theorem no_proof_of_Empty_P_of (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verified = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ hind h
+  obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ h
   exact no_constant_of_Empty_P mp c hc hty
 
 end Setlec.SetR.Interp2
