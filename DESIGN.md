@@ -21280,3 +21280,29 @@ modularity behind the named-law API.  Probe-first: β-unconditional
 and one extensionality consumer MECHANIZED, not asserted.  Output =
 the two-route comparison (totalized model vs nonemptiness datum) for
 the user-facing ruling.  A+B+C and P2 continue in parallel.
+
+## Task #161 ROUND D RE-SCOPED (2026-09-02; user-driven): the exact
+sequent table BEFORE any route work
+
+Both routes (totalized encoding AND nonemptiness datum) WAIT on the
+table.  The coordinator's gap: on the naive reading the mask deletes
+defeq(A',A) and the bridge ⟦a⟧∈⟦A'⟧ ⟹ ⟦a⟧∈⟦A⟧ — then nonemptiness
+alone would not restore soundness (a nonempty WRONG domain is still
+wrong) and wholesale skipping would change verdicts on adversarial
+streams (`f true : Nat`), contradicting the measured neutrality; so
+the actual CPGATE mask must be finer.  Table per masked site
+(9/10/11/12 + beta-row siblings): (1) before/after checker code
+QUOTED; (2) the frozen P-claim: GIVENS by name + GOAL; (3) the cut
+arrow; (4) exactly where ∅ enters (why nonemptiness rather than
+domain-membership; the surviving route vs ptFresh_piC_of + the #100
+countermodel); (5) the verdict-neutrality claim's precise scope —
+neutral-on-well-typed vs language-preserving, TESTED with an
+adversarial stream against the masked binary; an accept-what-unmasked-
+rejects outcome reframes the lever as a soundness/completeness trade
+for a user ruling.
+
+**Totalization kill-note (coordinator)**: totalized app defines the
+off-domain VALUE, but the Π-set constrains f only ON ⟦A⟧ — the
+MEMBERSHIP goal still fails off-domain; totalization moves the
+failure without removing it; dead for this site unless the table
+shows a different goal shape.
