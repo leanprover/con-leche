@@ -85,29 +85,17 @@ A recursor cons with rules still establishes its *own* rules bespoke —
 that is the firing-law work, not a transport.  A recursor cons with
 **no** rules (`Empty.rec`) transports here unchanged, which is why the
 premise is `rules = []` rather than "not a recursor". -/
-theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
+theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
-      rules = [])
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
-    (φ : Name → Nat) : RecRulesP m₂ φ := by
-  intro n cv mI rP rules hf rl hmem hfire
-  -- the recursor is stored in the prefix: either the cons is not a
-  -- recursor at all (the value kinds' `noConfusion`), or it is one
-  -- with no rules (a basis recursor whose block installs its ι
-  -- content elsewhere), and then `rl ∈ rules` is impossible
-  have hnN : n ≠ c₀.name := by
-    intro hh
-    subst hh
-    have hrl := hnotrec cv mI rP rules
-      (Option.some.inj ((Setlec.Env.find?_cons_self c₀ env).symm.trans hf))
-    rw [hrl] at hmem
-    exact nomatch hmem
-  have hfE : env.find? n = some (.recInfo cv mI rP rules) := by
-    rw [Setlec.Env.find?_cons, if_neg (fun hh => hnN hh.symm)] at hf
-    exact hf
+    (φ : Name → Nat) {n : Name} {cv : ConstantVal} {mI rP : Nat}
+    {rules : List RecRule} (hnN : n ≠ c₀.name)
+    (hfE : env.find? n = some (.recInfo cv mI rP rules))
+    {rl : RecRule} (hmem : rl ∈ rules)
+    (hfire : RecRule.fire rl ≠ .inert) :
+    RecRuleLawP m₂ φ n cv mI rP rl := by
   obtain ⟨hrPle, hlaw0⟩ := mp.rec_rules φ n cv mI rP rules hfE rl hmem hfire
   refine ⟨hrPle, fun us hlen => ?_⟩
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlen
@@ -201,5 +189,63 @@ theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
     rw [hac, acvalWith_ne hnN, acvalWith_ne hnC]
     exact hlaw cvj cnP cnF hfcjE usj ρ xs ys _ _ restR restC hxl hyl
       hujl hψ hplain hnested' hpin hTVa' hTVja' hfitR hfitC
+
+/-- **The fired modeled-iota contract survives a fresh cons that is
+not itself a recursor** — `recRuleLawP_cons_prefix` at every stored
+row, the freshness supplying the disequality. -/
+theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
+      rules = [])
+    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
+    (φ : Name → Nat) : RecRulesP m₂ φ := by
+  intro n cv mI rP rules hf rl hmem hfire
+  -- the recursor is stored in the prefix: either the cons is not a
+  -- recursor at all (the value kinds' `noConfusion`), or it is one
+  -- with no rules (a basis recursor whose block installs its ι
+  -- content elsewhere), and then `rl ∈ rules` is impossible
+  have hnN : n ≠ c₀.name := by
+    intro hh
+    subst hh
+    have hrl := hnotrec cv mI rP rules
+      (Option.some.inj ((Setlec.Env.find?_cons_self c₀ env).symm.trans hf))
+    rw [hrl] at hmem
+    exact nomatch hmem
+  exact recRuleLawP_cons_prefix mp hfresh m₂ hac φ hnN
+    (by rw [Setlec.Env.find?_cons, if_neg (fun hh => hnN hh.symm)] at hf
+        exact hf) hmem hfire
+
+/-- **The fired modeled-iota contract at a *recursor* cons.**  The
+prefix rows are `recRuleLawP_cons_prefix` unchanged; the new
+constant's own rows are the block's bespoke firing work, taken here as
+a premise.  ENDGAME F's §3 established that all six basis recursors
+owe theirs (`Empty.rec` alone has no rules and goes through
+`recRulesP_cons_fresh`). -/
+theorem recRulesP_cons_rec (mp : EnvS2PM V μ env)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    {cv₀ : ConstantVal} {mI₀ rP₀ : Nat} {rules₀ : List RecRule}
+    (hfresh : env.find? c₀.name = none)
+    (hkind : c₀ = .recInfo cv₀ mI₀ rP₀ rules₀)
+    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
+    (φ : Name → Nat)
+    (hnew : ∀ rl ∈ rules₀, RecRule.fire rl ≠ .inert →
+      RecRuleLawP m₂ φ c₀.name cv₀ mI₀ rP₀ rl) :
+    RecRulesP m₂ φ := by
+  intro n cv mI rP rules hf rl hmem hfire
+  by_cases hnN : n = c₀.name
+  · subst hnN
+    have hself : c₀ = .recInfo cv mI rP rules :=
+      Option.some.inj ((Setlec.Env.find?_cons_self c₀ env).symm.trans hf)
+    have heq : ConstantInfo.recInfo cv₀ mI₀ rP₀ rules₀
+        = .recInfo cv mI rP rules := hkind.symm.trans hself
+    injection heq with h1 h2 h3 h4
+    subst h1; subst h2; subst h3; subst h4
+    exact hnew rl hmem hfire
+  · exact recRuleLawP_cons_prefix mp hfresh m₂ hac φ hnN
+      (by rw [Setlec.Env.find?_cons, if_neg (fun hh => hnN hh.symm)] at hf
+          exact hf) hmem hfire
 
 end Setlec.SetR.Interp2
