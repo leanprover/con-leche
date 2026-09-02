@@ -2149,6 +2149,338 @@ theorem quotLiftLawP {m : EnvS2Core V env}
       (fun hb0 _ _ => by
         rw [← univ_zero, ← hz.mp hb0]; exact f3)).1
 
+/-- The two `EqLawP` halves at the assignment `Quot.lift` reads the
+`Eq` former at — `v`, not the constant's own first parameter. -/
+theorem quotLift_eqLaws (mp : EnvS2PM V μ env)
+    (hE : env.find? eqName = some eqA) (ψ : Name → Nat) :
+    (∀ (ρ : Nat → V) (T x y : V), T ∈ˢ (univ (ψ vN) : V) →
+      x ∈ˢ T → y ∈ˢ T →
+      app (app (app (interp2 V ρ (mp.base2.acval eqName
+        (Level.substFn ψ [uN] [Level.param vN]))) T) x) y = eqv x y) ∧
+    (∀ (ρ : Nat → V) (Aa la ra : AVExpr),
+      AnnotOkP V ρ Aa → AnnotOkP V ρ la → AnnotOkP V ρ ra →
+      interp2 V ρ Aa ∈ˢ (univ (ψ vN) : V) →
+      interp2 V ρ la ∈ˢ interp2 V ρ Aa →
+      interp2 V ρ ra ∈ˢ interp2 V ρ Aa →
+      AnnotOkP V ρ (.app (.app (.app (mp.base2.acval eqName
+          (Level.substFn ψ [uN] [Level.param vN])) Aa) la) ra) ∧
+        interp2 V ρ (.app (.app (.app (mp.base2.acval eqName
+          (Level.substFn ψ [uN] [Level.param vN])) Aa) la) ra)
+          ∈ˢ (univZero : V)) := by
+  have hEuN : Level.substFn ψ [uN] [Level.param vN] uN = ψ vN := by
+    simp [Level.substFn, Level.eval]
+  obtain ⟨hval0, hgr0⟩ :=
+    mp.eq_lawP hE (Level.substFn ψ [uN] [Level.param vN])
+  rw [hEuN] at hval0 hgr0
+  exact ⟨hval0, hgr0⟩
+
+/-- **`Quot.lift`, installed at the P tier.** -/
+theorem extendQuotLiftP (mp : EnvS2PM V μ env)
+    (hQ : env.find? quotName = some quotA)
+    (hM : env.find? quotMkName = some quotMkA)
+    (hE : env.find? eqName = some eqA)
+    (hfresh : env.find? quotLiftA.name = none)
+    (hbase : EnvS V ⟨quotLiftA :: env.consts⟩)
+    (hag : ∀ n, n ≠ quotLiftA.name →
+      mp.base2.base.cval n = hbase.cval n)
+    (hcv : ∀ ψ, hbase.cval quotLiftA.name ψ
+      = VExpr.const .quotLift [ψ uN, ψ vN]) :
+    Nonempty (EnvS2PM V μ ⟨quotLiftA :: env.consts⟩) := by
+  have hty := fun ψ =>
+    denoteP_quotLiftA_type (m := mp.base2)
+      (A := fun ψ => AVExpr.const .quotLift [ψ uN, ψ vN]) ψ hQ hE
+  have hz : ∀ ψ : Name → Nat,
+      pwBit ψ (Setlec.PropWhen.ifAllZero [vN]) = 0 ↔ ψ vN = 0 :=
+    fun ψ => pwBit_ifAllZero_single ψ vN
+  refine declStepPM_of_basis_rec_cons mp
+    (A := fun ψ => AVExpr.const .quotLift [ψ uN, ψ vN]) hfresh
+    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (by decide) (by decide) (by decide) (by decide)
+    (by decide) (Or.inl (fun _ h => nomatch h))
+    hbase hag
+    (fun ψ => by rw [hcv ψ]; rfl)
+    (fun _ _ => rfl) ?_
+    (fun _ _ => trivial) (fun _ _ => trivial)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
+  · intro ψ₁ ψ₂ hp
+    rw [hp uN (by
+        show uN ∈ [uN, vN]
+        exact List.mem_cons_self),
+      hp vN (by
+        show vN ∈ [uN, vN]
+        exact List.mem_cons_of_mem _ List.mem_cons_self)]
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    exact quotLiftTyP_okP (hz ψ) (quotLift_eqLaws mp hE ψ).1
+      (quotLift_eqLaws mp hE ψ).2 ρ
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    rw [interp2_const]
+    exact quotLiftTyP_mem (hz ψ) (quotLift_eqLaws mp hE ψ).1
+      (quotLift_eqLaws mp hE ψ).2 ρ
+  · intro m₂ hac φ
+    refine recRulesP_cons_rec mp hfresh quotLiftA_eq m₂ hac φ ?_
+    intro rl hrl _
+    rcases List.mem_cons.mp hrl with rfl | hr'
+    · exact quotLiftLawP (m := mp.base2) m₂ hQ hM hE mp.eq_lawP hac φ
+    · exact nomatch hr'
+
+/-- **The `Quot` block, installed at the P tier.**  `BasisStepPB`'s
+`quotK` branch — the one branch whose `DeclBasisR` premise is not
+vacuous: `Eq` must already be stored, and that is exactly what the
+`Eq` bridge consumes. -/
+theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
+    (hEq : env.find? eqName = some eqA)
+    (h : Setlec.SetR.BasisInstallR env
+      Setlec.BasisKind.quotK.declsA env₁) :
+    Nonempty (EnvS2PM V μ env₁) := by
+  rw [show Setlec.BasisKind.quotK.declsA
+    = [quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] from rfl] at h
+  obtain ⟨h1, h2, h3, h4, h5, hnil⟩ := h
+  subst hnil
+  have hf1 : env.find? quotA.name = none :=
+    Option.isNone_iff_eq_none.mp h1
+  have hwf1 : EnvWF ⟨quotA :: env.consts⟩ :=
+    EnvWF.cons mp.base2.base.wf ⟨rfl, rfl, rfl, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+  obtain ⟨m1, hm1⟩ := extendQuotS mp.base2.base hf1 hwf1
+  obtain ⟨mp1⟩ := extendQuotP mp hf1 m1
+    (fun n hn => by rw [hm1, cvalWith_ne hn])
+    (fun ψ => by rw [hm1, cvalWith_self])
+  have hQ1 : (⟨quotA :: env.consts⟩ : Env).find? quotName
+      = some quotA := by
+    rw [Setlec.Env.find?_cons]; exact if_pos rfl
+  have hE1 : (⟨quotA :: env.consts⟩ : Env).find? eqName = some eqA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hEq
+  have hf2 : (⟨quotA :: env.consts⟩ : Env).find? quotMkA.name = none :=
+    Option.isNone_iff_eq_none.mp h2
+  have hwf2 : EnvWF ⟨quotMkA :: quotA :: env.consts⟩ := by
+    refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+    show Expr.constsResolve _ quotMkA.toConstantVal.type = true
+    have hf : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
+        = some quotA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hQ1
+    rw [show quotMkA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+          (Expr.forallE (Name.anonymous.str "r")
+            (Expr.forallE Name.anonymous (.bvar 0)
+              (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
+                { bi := .default, pw := .never })
+              { bi := .default, pw := .never })
+            (Expr.forallE (Name.anonymous.str "a") (.bvar 1)
+              (.app (.app (.const quotName [.param uN]) (.bvar 2))
+                (.bvar 1)) { bi := .default, pw := .ifAllZero [uN] })
+            { bi := .default, pw := .ifAllZero [uN] })
+          { bi := .implicit, pw := .ifAllZero [uN] } from rfl]
+    simp [Expr.constsResolve, hf]
+  obtain ⟨m2, hm2⟩ := extendQuotMkS mp1.base2.base hQ1 hf2 hwf2
+  obtain ⟨mp2⟩ := extendQuotMkP mp1 hQ1 hf2 m2
+    (fun n hn => by rw [hm2, cvalWith_ne hn])
+    (fun ψ => by rw [hm2, cvalWith_self])
+  have hQ2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
+      = some quotA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hQ1
+  have hM2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotMkName
+      = some quotMkA := by
+    rw [Setlec.Env.find?_cons]; exact if_pos rfl
+  have hE2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? eqName
+      = some eqA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hE1
+  have hf3 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find?
+      quotLiftA.name = none := Option.isNone_iff_eq_none.mp h3
+  have hwf3 : EnvWF ⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ := by
+    have hfQ : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
+        : Env).find? quotName = some quotA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hQ2
+    have hfE : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
+        : Env).find? eqName = some eqA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hE2
+    refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
+      (fun _ _ _ heq => nomatch heq), ?_,
+      (fun _ _ heq => nomatch heq)⟩
+    · show Expr.constsResolve _ quotLiftA.toConstantVal.type = true
+      rw [show quotLiftA.toConstantVal.type
+          = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+              (Expr.forallE (Name.anonymous.str "r")
+                (Expr.forallE Name.anonymous (.bvar 0)
+                  (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
+                    { bi := .default, pw := .never })
+                  { bi := .default, pw := .never })
+                (Expr.forallE (Name.anonymous.str "β")
+                  (.sort (.param vN))
+                  (Expr.forallE (Name.anonymous.str "f")
+                    (Expr.forallE (Name.anonymous.str "a") (.bvar 2)
+                      (.bvar 1)
+                      { bi := .default, pw := .ifAllZero [vN] })
+                    (Expr.forallE (Name.anonymous.str "a")
+                      (Expr.forallE (Name.anonymous.str "a") (.bvar 3)
+                        (Expr.forallE (Name.anonymous.str "b") (.bvar 4)
+                          (Expr.forallE (Name.anonymous.str "a")
+                            (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0))
+                            (.app (.app (.app
+                              (.const eqName [.param vN]) (.bvar 4))
+                              (.app (.bvar 3) (.bvar 2)))
+                              (.app (.bvar 3) (.bvar 1)))
+                            { bi := .default, pw := .ifAllZero [] })
+                          { bi := .default, pw := .ifAllZero [] })
+                        { bi := .default, pw := .ifAllZero [] })
+                      (Expr.forallE (Name.anonymous.str "a")
+                        (.app (.app (.const quotName [.param uN])
+                          (.bvar 4)) (.bvar 3))
+                        (.bvar 3)
+                        { bi := .default, pw := .ifAllZero [vN] })
+                      { bi := .default, pw := .ifAllZero [vN] })
+                    { bi := .default, pw := .ifAllZero [vN] })
+                  { bi := .implicit, pw := .ifAllZero [vN] })
+                { bi := .implicit, pw := .ifAllZero [vN] })
+              { bi := .implicit, pw := .ifAllZero [vN] } from rfl]
+      simp [Expr.constsResolve, hfQ, hfE]
+    · intro cv mI rP rules heq
+      injection heq with h1' _ _ h4'
+      subst h1'; subst h4'
+      intro r hr
+      rcases List.mem_cons.mp hr with rfl | hr'
+      · exact ⟨rfl, rfl, by
+          show Expr.constsResolve _ (RecRule.rhs quotLiftRule) = true
+          simp [Expr.constsResolve, quotLiftRule, hfE], rfl,
+          fun lvls pins heqf => nomatch heqf⟩
+      · exact nomatch hr'
+  obtain ⟨m3, hm3⟩ := extendQuotLiftS mp2.base2.base hQ2 hM2 hE2 hf3 hwf3
+  obtain ⟨mp3⟩ := extendQuotLiftP mp2 hQ2 hM2 hE2 hf3 m3
+    (fun n hn => by rw [hm3, cvalWith_ne hn])
+    (fun ψ => by rw [hm3, cvalWith_self])
+  have hQ3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
+      : Env).find? quotName = some quotA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hQ2
+  have hM3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
+      : Env).find? quotMkName = some quotMkA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hM2
+  have hE3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
+      : Env).find? eqName = some eqA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hE2
+  have hf4 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
+      : Env).find? quotIndA.name = none :=
+    Option.isNone_iff_eq_none.mp h4
+  have hwf4 : EnvWF ⟨quotIndA :: quotLiftA :: quotMkA :: quotA
+      :: env.consts⟩ := by
+    have hfQ : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
+        :: env.consts⟩ : Env).find? quotName = some quotA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hQ3
+    have hfM : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
+        :: env.consts⟩ : Env).find? quotMkName = some quotMkA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hM3
+    refine EnvWF.cons hwf3 ⟨rfl, rfl, ?_, rfl,
+      (fun _ _ _ heq => nomatch heq), ?_,
+      (fun _ _ heq => nomatch heq)⟩
+    · show Expr.constsResolve _ quotIndA.toConstantVal.type = true
+      rw [show quotIndA.toConstantVal.type
+          = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+              (Expr.forallE (Name.anonymous.str "r")
+                (Expr.forallE Name.anonymous (.bvar 0)
+                  (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
+                    { bi := .default, pw := .never })
+                  { bi := .default, pw := .never })
+                (Expr.forallE (Name.anonymous.str "β")
+                  (Expr.forallE (Name.anonymous.str "a")
+                    (.app (.app (.const quotName [.param uN]) (.bvar 1))
+                      (.bvar 0)) (.sort .zero)
+                    { bi := .default, pw := .never })
+                  (Expr.forallE (Name.anonymous.str "mk")
+                    (Expr.forallE (Name.anonymous.str "a") (.bvar 2)
+                      (.app (.bvar 1)
+                        (.app (.app (.app
+                          (.const quotMkName [.param uN])
+                          (.bvar 3)) (.bvar 2)) (.bvar 0)))
+                      { bi := .default, pw := .ifAllZero [] })
+                    (Expr.forallE (Name.anonymous.str "q")
+                      (.app (.app (.const quotName [.param uN])
+                        (.bvar 3)) (.bvar 2))
+                      (.app (.bvar 2) (.bvar 0))
+                      { bi := .default, pw := .ifAllZero [] })
+                    { bi := .default, pw := .ifAllZero [] })
+                  { bi := .implicit, pw := .ifAllZero [] })
+                { bi := .implicit, pw := .ifAllZero [] })
+              { bi := .implicit, pw := .ifAllZero [] } from rfl]
+      simp [Expr.constsResolve, hfQ, hfM]
+    · intro cv mI rP rules heq
+      injection heq with h1' _ _ h4'
+      subst h1'; subst h4'
+      intro r hr
+      rcases List.mem_cons.mp hr with rfl | hr'
+      · exact ⟨rfl, rfl, by
+          show Expr.constsResolve _ (RecRule.rhs quotIndRule) = true
+          simp [Expr.constsResolve, quotIndRule, hfQ, hfM], rfl,
+          fun lvls pins heqf => nomatch heqf⟩
+      · exact nomatch hr'
+  obtain ⟨m4, hm4⟩ := extendQuotIndS mp3.base2.base hQ3 hM3 hf4 hwf4
+  obtain ⟨mp4⟩ := extendQuotIndP mp3 hQ3 hM3 hf4 m4
+    (fun n hn => by rw [hm4, cvalWith_ne hn])
+    (fun ψ => by rw [hm4, cvalWith_self])
+  have hQ4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
+      :: env.consts⟩ : Env).find? quotName = some quotA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hQ3
+  have hM4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
+      :: env.consts⟩ : Env).find? quotMkName = some quotMkA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hM3
+  have hE4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
+      :: env.consts⟩ : Env).find? eqName = some eqA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hE3
+  have hf5 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
+      :: env.consts⟩ : Env).find? quotSoundA.name = none :=
+    Option.isNone_iff_eq_none.mp h5
+  have hwf5 : EnvWF ⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA
+      :: quotA :: env.consts⟩ := by
+    have hfQ : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA
+        :: quotA :: env.consts⟩ : Env).find? quotName
+        = some quotA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hQ4
+    have hfM : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA
+        :: quotA :: env.consts⟩ : Env).find? quotMkName
+        = some quotMkA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hM4
+    have hfE : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA
+        :: quotA :: env.consts⟩ : Env).find? eqName = some eqA := by
+      rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hE4
+    refine EnvWF.cons hwf4 ⟨rfl, rfl, ?_, rfl,
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ heq => nomatch heq)⟩
+    show Expr.constsResolve _ quotSoundA.toConstantVal.type = true
+    rw [show quotSoundA.toConstantVal.type
+        = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+            (Expr.forallE (Name.anonymous.str "r")
+              (Expr.forallE Name.anonymous (.bvar 0)
+                (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
+                  { bi := .default, pw := .never })
+                { bi := .default, pw := .never })
+              (Expr.forallE (Name.anonymous.str "a") (.bvar 1)
+                (Expr.forallE (Name.anonymous.str "b") (.bvar 2)
+                  (Expr.forallE Name.anonymous
+                    (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0))
+                    (.app (.app (.app (.const eqName [.param uN])
+                      (.app (.app (.const quotName [.param uN])
+                        (.bvar 4)) (.bvar 3)))
+                      (.app (.app (.app
+                        (.const quotMkName [.param uN])
+                        (.bvar 4)) (.bvar 3)) (.bvar 2)))
+                      (.app (.app (.app
+                        (.const quotMkName [.param uN])
+                        (.bvar 4)) (.bvar 3)) (.bvar 1)))
+                    { bi := .default, pw := .ifAllZero [] })
+                  { bi := .implicit, pw := .ifAllZero [] })
+                { bi := .implicit, pw := .ifAllZero [] })
+              { bi := .implicit, pw := .ifAllZero [] })
+            { bi := .implicit, pw := .ifAllZero [] } from rfl]
+    simp [Expr.constsResolve, hfQ, hfM, hfE]
+  obtain ⟨m5, hm5⟩ := extendQuotSoundS mp4.base2.base hQ4 hM4 hE4 hf5 hwf5
+  exact extendQuotSoundP mp4 hQ4 hM4 hE4 hf5 m5
+    (fun n hn => by rw [hm5, cvalWith_ne hn])
+    (fun ψ => by rw [hm5, cvalWith_self])
+
 end Quot
 
 end Setlec.SetR.Interp2
