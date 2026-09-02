@@ -76,7 +76,16 @@ each spine element's value inhabits the domain it goes into.
 The induction is the checker's own order: the head domain is the
 type's `.pi` domain, and the tail is the run on the β-reduct, whose
 reading is the body's reading substituted (`denoteP_beta`) and whose
-grading is `AnnotOkP_inst0` at the head membership. -/
+grading is `AnnotOkP_inst0` at the head membership.
+
+**The membership premise is bounded by the index** (task #161, ind
+tier part 5).  Part 4 stated it over the *whole* spine, which is what
+the prefix branch happens to have; the field branch does not and
+cannot — the position induction earns position `i`'s grading from the
+equalities at positions `< i`, and a premise over the whole spine
+would ask it for the equalities it has not proved yet.  The proof
+never needed more: descending past the head spends exactly the head's
+membership, so the bound `i₀ < i` is the induction's own. -/
 theorem instPisAt_domsP_graded {ρ' : Nat → V}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ)
@@ -84,26 +93,25 @@ theorem instPisAt_domsP_graded {ρ' : Nat → V}
       (acval n ψ).inst y k = acval n ψ) :
     ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
       Expr.instPisAt sp ty = some (ds, rs) →
-      ∀ {D : Nat} {T : AVExpr},
-      (∀ (i : Nat) (x : Expr), sp[i]? = some x →
+      ∀ {D : Nat} {T : AVExpr} (i : Nat),
+      (∀ (i₀ : Nat) (x : Expr), i₀ ≤ i → sp[i₀]? = some x →
         Expr.WScoped D x ∧ x.looseBVarsBounded 0 = true) →
       Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
       denoteP acval env φ D ty = some T →
       AnnotOkP V ρ' T →
-      (∀ (i : Nat) (x : Expr), sp[i]? = some x →
+      (∀ (i₀ : Nat) (x : Expr), i₀ < i → sp[i₀]? = some x →
         ∃ w, denoteP acval env φ D x = some w ∧ AnnotOkP V ρ' w ∧
-          ∀ dw, denoteP acval env φ D (ds.getD i default) = some dw →
+          ∀ dw, denoteP acval env φ D (ds.getD i₀ default) = some dw →
             interp2 V ρ' w ∈ˢ interp2 V ρ' dw) →
-      ∀ (i : Nat), i < sp.length → ∀ dw : AVExpr,
+      i < sp.length → ∀ dw : AVExpr,
         denoteP acval env φ D (ds.getD i default) = some dw →
         AnnotOkP V ρ' dw := by
   intro sp
   induction sp with
-  | nil => intro ty ds rs h D T _ _ _ _ _ _ i hi; exact absurd hi (by simp)
+  | nil => intro ty ds rs h D T i _ _ _ _ _ _ hi; exact absurd hi (by simp)
   | cons a sp ih =>
-    intro ty ds rs h D T hsp hfb hb hT hokT hmem i hi
-    obtain ⟨hwsa, hba⟩ := hsp 0 a rfl
-    obtain ⟨w, hw, hokw, hmem0⟩ := hmem 0 a rfl
+    intro ty ds rs h D T i hsp hfb hb hT hokT hmem hi
+    obtain ⟨hwsa, hba⟩ := hsp 0 a (Nat.zero_le _) rfl
     match ty, h with
     | .forallE nmT dom body mb, h =>
       simp only [Expr.instPisAt] at h
@@ -131,9 +139,6 @@ theorem instPisAt_domsP_graded {ρ' : Nat → V}
       obtain rfl : T = .pi 0 (pwBit φ mb.pw) A B :=
         (Option.some.inj hT).symm
       have hdom0 : (dom :: p.1).getD 0 default = dom := rfl
-      -- the head domain
-      have hmemA : interp2 V ρ' w ∈ˢ interp2 V ρ' A :=
-        hmem0 A (by rw [hdom0]; exact hA)
       match i with
       | 0 =>
         intro dw hdw
@@ -142,6 +147,10 @@ theorem instPisAt_domsP_graded {ρ' : Nat → V}
         exact AnnotOkP_pi_dom hokT
       | i + 1 =>
         intro dw hdw
+        obtain ⟨w, hw, hokw, hmem0⟩ := hmem 0 a (by omega) rfl
+        -- the head domain
+        have hmemA : interp2 V ρ' w ∈ˢ interp2 V ρ' A :=
+          hmem0 A (by rw [hdom0]; exact hA)
         -- the tail: the run on the β-reduct
         have hTI : denoteP acval env φ D (body.instantiate1 a)
             = some (B.inst w 0) := by
@@ -150,13 +159,14 @@ theorem instPisAt_domsP_graded {ρ' : Nat → V}
           rfl
         have hokBI : AnnotOkP V ρ' (B.inst w 0) :=
           (AnnotOkP_inst0 hokw).mpr (AnnotOkP_pi_body hokT hmemA)
-        refine ih h1
-          (fun i0 x hx => hsp (i0 + 1) x (by simpa using hx))
+        refine ih h1 i
+          (fun i₀ x hle hx => hsp (i₀ + 1) x (by omega) (by simpa using hx))
           (Expr.fvarsBelow_instantiate1_gen hwsa.fvarsBelow 0 hfb'.2)
           (Expr.looseBVarsBounded_instantiate1_gen hba hb'.2)
-          hTI hokBI ?_ i (by simpa using hi) dw (by simpa using hdw)
-        intro i0 x hx
-        obtain ⟨w0, hw0, hok0, hm0⟩ := hmem (i0 + 1) x (by simpa using hx)
+          hTI hokBI ?_ (by simpa using hi) dw (by simpa using hdw)
+        intro i₀ x hlt hx
+        obtain ⟨w0, hw0, hok0, hm0⟩ :=
+          hmem (i₀ + 1) x (by omega) (by simpa using hx)
         exact ⟨w0, hw0, hok0, fun dw0 hdw0 =>
           hm0 dw0 (by simpa using hdw0)⟩
 

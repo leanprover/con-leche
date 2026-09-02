@@ -160,6 +160,7 @@ import Setlec.SetR.Interp2.IndRenameP
 import Setlec.SetR.Interp2.IndGradeP
 import Setlec.SetR.Interp2.IndDomGradeP
 import Setlec.SetR.Interp2.IndPrefixGradeP
+import Setlec.SetR.Interp2.IndParamGradeP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP
