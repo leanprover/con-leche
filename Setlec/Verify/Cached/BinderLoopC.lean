@@ -24,29 +24,33 @@ so the clone's constant `peelFuel` and the arena's node count are both
 instances, and no proof below reads a property of the fuel value.  The
 documented deviation costs nothing here.
 
-**The annotation half is NOT ported — a finding, not a proof wall.**
-`Setlec/Cached/CoreC.lean` was cloned (commit `796360e1`) from a `CoreI`
-that predates the task #161 P5 write repair (`CoreI`/`BinderLoop`
-commits `6ecbc79c`..`03710c8c`, which reached this branch only through
-the later `agent/annot-v2` merges), so the cached annotation loops are
-an *older program* than the frozen comparand:
+**The annotation half is not ported yet — but it is no longer
+blocked.**  `Setlec/Cached/CoreC.lean` had been cloned (commit
+`796360e1`) from a `CoreI` predating the task #161 P5 write repair
+(`CoreI`/`BinderLoop` commits `6ecbc79c`..`03710c8c`, which reached
+this branch only through the later `agent/annot-v2` merges), so the
+cached annotation loops were an *older program* than the frozen
+comparand:
 
-1. `annotateBindersOutI`: the clone threads the leaf's `pw?` unchanged
+1. `annotateBindersOutI`: the clone threaded the leaf's `pw?` unchanged
    through the rebuild fold; `annotateBindersOut` (and the interned
    twin) thread `pw?.map fun _ => (annotBinderMeta pw? mb).pw` — the
    datum *just written*.  The two differ above an explicitly annotated
    binder (`pwWritten mb.pw`), i.e. they write different terms.
-2. `annotatePisLeafI`: the clone always infers the leaf's sort; the
+2. `annotatePisLeafI`: the clone always inferred the leaf's sort; the
    comparand's `annotPwPi` first reads a `∀` residual's own datum and
    performs no knot call in that branch.
 
-Both are genuine code-shape differences, so the transposed statements
-would be false (1) or unsimulable (2).  The clone must be re-synced
-with `CoreI` before `annotateBindersOutC_sim`, `annotatePisLeafC_sim`,
-`annotatePisC_sim`, `annotateLamsLeafC_sim`, `annotateLamsC_sim` and
-the two annotation tail compositions can be written; the four
-`annotPwPiI`/`annotPwLamI`/`annotatePisPwI`/`annotateLamsPwI` walks
-have no cached subject at all (the clone has no such helpers).
+Both were genuine code-shape differences, so the transposed statements
+would have been false (1) or unsimulable (2).  Batch 10 re-synced the
+clone's annotation half with `CoreI` clause by clause: `annotBinderMetaI`
+and the four `annotPwPiI`/`annotatePisPwI`/`annotPwLamI`/
+`annotateLamsPwI` helpers now exist on the cached side with the same
+bodies, and the CoreI/CoreC diff over the annotation block is empty
+again.  So `annotateBindersOutC_sim`, `annotatePisLeafC_sim`,
+`annotatePisC_sim`, `annotateLamsLeafC_sim`, `annotateLamsC_sim`, the
+four helper walks and the two annotation tail compositions are all
+writable as transpositions now.
 `RelAStk` below is the prepared stack relation for that resumption.
 -/
 

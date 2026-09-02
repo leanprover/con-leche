@@ -57,6 +57,28 @@
 # type is a proposition by impredicativity.
 0 annot_fill_lam_leaf.ndjson
 
+# The write's OUTWARD THREAD (task #161 P5; task #163 clone-drift
+# regression).  Two declarations, each a telescope that MIXES a written
+# and an unwritten binder — the shape whose annotated output tells the
+# repaired fold (`annotateBindersOutI` threads the datum just written,
+# via `annotBinderMetaI`) apart from the pre-repair one (which
+# re-stamped the leaf's datum at every node).  Nothing in the suite
+# exercised it before, which is how a clone of the pre-repair fold
+# survived 223-fixture parity.
+#  * idmDrift.{u,v} : ∀ (α : Sort (max u v)) (a : α), α — the INNER ∀
+#    and λ spell the datum "[v,u]", the outer binders are unannotated,
+#    so the leaf computes "[u,v]" and the two folds write different
+#    outer spellings of the same zero-ness.
+#  * fDrift.{u} : ∀ (α : Sort u), let z := α; ∀ (b : z), z — the ∀
+#    telescope's residual is a `letE` whose zeta reduct is a ∀, so the
+#    leaf phase takes `annotPwPiI`'s forall-residual head read (the
+#    other half of the drift) and picks up that node's written "[u,u]".
+# Both accept: every datum reaching a node under either fold is in the
+# same `PropWhen.equiv` class (the codomain rule gives one true datum
+# per telescope), so the spellings differ but no verdict does — which
+# is the fact this fixture pins.
+0 annot_pw_thread.ndjson
+
 # Declines: one per stream-reachable validation site.  (The three
 # defensive sites — defeq-forall, defeq-lam, eta — cannot be reached
 # by any input that got past the front door; they are unit-tested in

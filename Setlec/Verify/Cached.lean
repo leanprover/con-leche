@@ -4,6 +4,9 @@ import Setlec.Verify.Cached.OpsC
 import Setlec.Verify.Cached.SimC
 import Setlec.Verify.Cached.SimCEff
 import Setlec.Verify.Cached.DiscC1
+import Setlec.Verify.Cached.DiscC2
+import Setlec.Verify.Cached.DiscC3
+import Setlec.Verify.Cached.BinderLoopC
 
 /-!
 # The cached checker variant's verification (task #163)

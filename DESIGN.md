@@ -16399,6 +16399,52 @@ fold plus the existing per-decl soundness.
 * Default core unchanged (`--core=production`) until the orchestrator
   ratifies a flip; the flag is documented at P3.
 
+### The clone-drift re-sync, and what the drift was actually worth (batch 10)
+
+Batch 9's proof walk found what 223 fixtures of verdict parity could
+not: `Setlec/Cached/CoreC.lean` had been cloned from a `CoreI`
+predating the task #161 P5 write repair, so its *annotation* half was
+an older program (the infer half was in sync).  Batch 10 re-synced it.
+Method, and the thing worth keeping: the clone's literalness makes the
+audit a **diff**.  Slice `CoreI.lean` at the core (`structure CoreFnsI`
+… end of `coreKnotI`), apply the six documented renames (`EIdx→ExprC`,
+`NIdx→Name`, `LIdx→Level`, `IBinderMeta→BinderMeta`, `CheckIM→CheckCM`,
+`IState→CState`) and diff against `Setlec/Cached/CoreC.lean` lines
+28–end.  Post-re-sync that diff is **eight lines**, every one a
+documented deviation: `EStore.PWMemo→CStore.PWMemo`, four
+`withStore (·.nodes.size)→peelFuelM` (deviation 2), `ENode→ExprView
+ExprC`, and the namespace ender.  Run it whenever `CoreI` moves; it is
+the enforcement the pilot's section said nothing provided.  The same
+recipe clears `CheckerC.lean` (against `CheckerS.lean` 1117–1393, only
+`flushS→flushC`) and `ParsedC.lean` (against `CheckerS.lean`
+1393–1636, only the arena-walk↔`ExprC`-walk substitutions the
+representation forces).
+
+**The drift was real code-shape drift and NOT a verdict risk** — batch
+9's "hence a different verdict" is an overstatement, and the reason is
+worth recording because it is a property of the P5 design, not luck.
+The two folds differ only *above an explicitly annotated binder*, where
+one propagates the written datum `w` and the other the leaf's computed
+datum `p`.  But (i) every validation and defeq site compares data with
+`PropWhen.equiv` — mutual containment, a genuine equivalence relation —
+never with `==`; (ii) `zeronessOf (imax u v) = zeronessOf v` gives a
+binder telescope **one** true datum, so `inferPisOutI`'s per-node
+absolute check and `inferLamsOutI`'s neighbour chain check (anchored by
+`inferLamsLeafI`'s leaf check) force every node of the telescope into
+that one `equiv` class.  Hence `w ≡ p` whenever either fold's output is
+accepted at all, and the two outputs differ only in the *spelling*
+(order and duplication) of an `ifAllZero` list.  Nothing on the verdict
+path reads that spelling: `hasParams`/`paramsDefined` depend on the
+parameter set, and `Level.substPW`'s `bindZ` is set-preserving too.
+An attempt to build a divergence fixture therefore fails by design; the
+attempt is preserved as `tests/annot/annot_pw_thread.ndjson`, which
+exercises both drifted paths (a mixed written/unwritten ∀ and λ
+telescope; a ∀ telescope whose residual is a `letE` zeta-reducing to a
+∀, i.e. `annotPwPiI`'s forall-residual head read) and pins that all
+four cores agree.  It is the first fixture in the suite to mix written
+and unwritten binders in one telescope — which is precisely why the
+clone of the pre-repair fold survived parity for so long.
+
 ## Task #161 IND TIER, part 2: the caps content closes; item 1 is done (2026-09-02)
 
 Briefed with the four-item bill part 1 left, and with leave to close

@@ -379,19 +379,19 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
         recordCConst cvA.name cvA.type jty none
         pure (fe.push (.axiomInfo cvA))
       else throw (.notImplemented
-        s!"unsupported Lean.trustCompiler shape ({cvA.name})")
+        s!"unsupported Lean.trustCompiler shape ({cv.name})")
     else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
       if ofReduceAxOkF fe cvA then do
         recordCConst cvA.name cvA.type jty none
         pure (fe.push (.axiomInfo cvA))
       else throw (.notImplemented
-        s!"unsupported compiler-trust axiom environment ({cvA.name})")
+        s!"unsupported compiler-trust axiom environment ({cv.name})")
     else if cvA.name = propextName ∨ cvA.name = choiceName then
-      throw (.notImplemented s!"standard axiom shape mismatch ({cvA.name})")
+      throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
     else if toleratedAxiomNames.contains cvA.name then
       pure fe
     else
-      throw (.notImplemented s!"non-standard axiom ({cvA.name})")
+      throw (.notImplemented s!"non-standard axiom ({cv.name})")
   | .basisDecl kind => do
     if kind = .quotK then
       unless fe.find? eqName = some eqA do
