@@ -11550,6 +11550,16 @@ to pay for typing got the syntax for free.  The annotations' cost is
 the annotations' payoff — the same trade the frontier table records at
 scale.
 
+**The thesis at the totality layer (endgame A, ratified into this
+narrative):** `accepted_reads`' discharge found that nine of
+`inferBody`'s ten clauses need no argument at all — the front door's
+own acceptance checks (`find?`+arity, the literal support guards, the
+projection table's `i < 2`) are exactly `denoteP`'s failure modes,
+clause for clause.  The validated reading was *designed* as the front
+door's semantics, and the totality walk is the measurement: what the
+checker accepts, the reading reads, by construction rather than by
+repair.
+
 ### Task #161 P4 batch 8: the carrier sweep, done + `InferReadsP` repaired (2026-09-01)
 
 **The sweep landed.**  The whole P surface is now stated over
