@@ -497,6 +497,12 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   `stuckIrrel` cascade's two stored-family arms
   (`Step2/CapsRowsP.lean`) -/
   caps_ok : CapsOkP base2
+  /-- the stored recursors' fired modeled-iota contracts (`RecRulesV`'s
+  mirror; an *environment law* for the same reason `caps_ok` is — a
+  recursor's rules are fixed by the inductive install and by nothing
+  else, so the supplier is `IndStepPB`).  Consumed by the ι row
+  (`Step2/IotaRowsP.lean`) -/
+  rec_rules : ∀ φ : Name → Nat, RecRulesP base2 φ
 
 namespace EnvS2PM
 
@@ -578,5 +584,8 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
     refine ⟨fun T cvT caps hf => ?_, fun T cvT caps hf => ?_⟩ <;>
       · rw [show Env.empty.find? T = none from rfl] at hf
         exact nomatch hf
+  rec_rules := fun _ n _ _ _ _ hf => by
+    rw [show Env.empty.find? n = none from rfl] at hf
+    exact nomatch hf
 
 end Setlec.SetR.Interp2
