@@ -68,16 +68,24 @@ theorem constsBound_openRev {env₀ : Env} {e : Expr}
       (.fvar (d + n) Name.anonymous (.sort .zero)) 0)
     exact ConstsBound.instantiate1 (by simp) _ 0 ih
 
-/-- **The fired modeled-iota contract survives a fresh value-kind
-cons.**  The head case is not a case: a `defnInfo`/`thmInfo`/
-`axiomInfo` cons can be neither the recursor (a `recInfo` lookup) nor
-the rule's constructor (a `ctorInfo` lookup), so both freshness
-disequalities are `ConstantInfo.noConfusion` — `capsOkP_cons_fresh`'s
-shape exactly. -/
+/-- **The fired modeled-iota contract survives a fresh cons that is
+not itself a recursor.**
+
+The recursor disequality is the cons's kind.  The *constructor*
+disequality was a second premise until ENDGAME D, and it is not
+needed: `EnvS.rec_ctors` (`RecCtorsStored`, `Verify/EnvPreds.lean:64`)
+says every stored recursor rule's constructor is itself **stored**, and
+the cons is fresh — so `RecRule.ctor rl ≠ c₀.name` follows from the
+environment invariant rather than from the cons's kind.  Dropping it is
+what lets the **basis** tier use this lemma at its `indInfo`/`ctorInfo`
+conses, where the kind premise is false (`Interp2/BasisConsP.lean`'s
+`rec_rules` row recorded that as a wall; it is not one).
+
+A recursor cons still establishes its *own* rules bespoke — that is the
+firing-law work, not a transport. -/
 theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hnotctor : ∀ cv np nf, c₀ ≠ .ctorInfo cv np nf)
     (hnotrec : ∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
@@ -125,13 +133,14 @@ theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
         exact hpinCR)) 0 rP) hvpa
   · intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl
       hψ hplain hnested hpin hTVa hTVja hfitR hfitC
-    -- the constructor is stored in the prefix too
+    -- **the environment invariant, not the cons's kind**: the rule's
+    -- constructor is stored, and the cons is fresh
     have hnC : RecRule.ctor rl ≠ c₀.name := by
+      obtain ⟨cvj', cnP', cnF', hst⟩ :=
+        mp.base2.base.rec_ctors n cv mI rP rules hfE rl hmem
       intro hh
-      rw [hh] at hfcj
-      exact hnotctor cvj cnP cnF
-        (Option.some.inj
-          ((Setlec.Env.find?_cons_self c₀ env).symm.trans hfcj))
+      rw [hh, hfresh] at hst
+      exact nomatch hst
     have hfcjE : env.find? (RecRule.ctor rl)
         = some (.ctorInfo cvj cnP cnF) := by
       rw [Setlec.Env.find?_cons, if_neg (fun hh => hnC hh.symm)] at hfcj

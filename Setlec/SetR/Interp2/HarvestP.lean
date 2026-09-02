@@ -517,7 +517,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRulesP_cons_fresh mp
       (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-      (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (A := A) hfresh
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: a definition is not an
     -- `axiomInfo`, so no reduce operation can be this cons
@@ -805,7 +805,7 @@ theorem harvestThmP (hμ : μ.verified = true)
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRulesP_cons_fresh mp
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
-      (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (A := A) hfresh
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: a theorem is not an `axiomInfo`
     exact reduceOpsP_cons_fresh mp.reduce_ops
@@ -1042,7 +1042,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRulesP_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-      (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (A := A) hfresh
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: the cons *is* an `axiomInfo`, so
     -- the preservation goes through the pinned name (the branch's
@@ -1292,7 +1292,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRulesP_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-      (A := A) hfresh (fun _ _ _ h => ConstantInfo.noConfusion h)
+      (A := A) hfresh
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: **this is the establishment**.
     -- An `opaque` cons is the only place a compiler-trust operation is
