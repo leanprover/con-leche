@@ -14,6 +14,8 @@ import Setlec.Verify.Cached.KnotC
 import Setlec.Verify.Cached.SimCS
 import Setlec.Verify.Cached.BridgeCS1
 import Setlec.Verify.Cached.BridgeCS2
+import Setlec.Verify.Cached.BridgeCS3
+import Setlec.Verify.Cached.BridgeCS4
 
 /-!
 # The cached checker variant's verification (task #163)
