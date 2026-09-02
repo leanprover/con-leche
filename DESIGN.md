@@ -21462,3 +21462,25 @@ weakened, zero sorries): ~12 mechanical sites, then two unpayable
    directory cannot be told from a stale lock.
 Post-merge counters: annot suite is now 14/14 (annot_pw_thread);
 no-model 138+72+14.
+
+## Task #161 HARVEST: verdict-relevant finding promoted — the
+proofIrrel omission (2026-09-02; jumps the queue)
+
+The inventory verified: setlec's proofIrrel path omits official's
+FINAL type comparison (official type_checker.cpp:938, lean4lean:680
+end proof irrelevance with `is_def_eq(t_type, s_type)`; setlec
+checks both types sort-0 and never compares them).  Sound over
+interp2 (all proofs interp to pt) but potentially MORE PERMISSIVE
+than official — an accept-superset colliding with the no-supersets
+ruling and restrictions-are-findings.  Scoped verification
+dispatched (agent/proofirrel-check): (1) control flow both sides
+QUOTED first (the omission may be subsumed by the caller — or
+official's proofIrrel failure may fall through to another accepting
+route, in which case no divergence); (2) the divergence fixture if
+reachable (two proofs of non-defeq Props at a forced defeq;
+setlec's verdict vs official's, both cores); (3) if real: the
+checker-change candidate (ADD the comparison — a restriction toward
+official; three-core edit; measured cost with the ~80%-of-defeq-
+steps fire rate in mind; coordinator + user grant per protocol); if
+unreachable: the argument recorded next to the omission.  A+B+C and
+the combined report continue as planned.
