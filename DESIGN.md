@@ -14814,3 +14814,19 @@ ratified licence by re-checking whether the freedom still existed; F
 retired a granted vacuity the same way.  Both cost one `#eval`.  D's
 "a recorded wall is a claim" has now held for four batches running,
 and its converse has held for two.
+
+## Task #161 DISCIPLINE LEDGER: the dual claims, paired (2026-09-02; coordinator-ratified)
+
+Endgames E and F together: **a ratified LICENSE is also a claim** (E
+retired the chosen-bit license by re-checking it — the bits were
+forced) and **a recorded FREEDOM is also a claim** (F retired the
+granted `.inert` vacuity the same way — the annotated pins fire
+`.plain`).  Both retirements cost one `#eval`; both would have cost a
+walled batch if spent unchecked.  The campaign's cheapest and best
+insurance.
+
+And the quote-the-statement rule gains its pin corollary, from F's
+raw-vs-annotated misread: **read the pin the CONSUMER conses, not the
+pin the file shows** — `BasisStepPB` conses `BasisKind.declsA`, and
+`declsA`'s rewritten `fire` fields, not the raw pins', are the ones
+every downstream row sees.
