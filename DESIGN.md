@@ -12446,6 +12446,15 @@ compares exit codes **and** the decision-relevant stdout line.
   did not clone; both clone variants agree with the interned core
   under the front door they do share.
 
+The existing checker is confirmed untouched by its own suite, run on
+this branch: `tests/arena.sh` gives arena tutorial 90/92, e2e 72/72,
+annot 13/13, split driver 11/11, mode flags 9/9 and the `--no-model`
+sweep with its three recorded divergences — exactly the recorded
+state.  The whole branch is `Setlec/Cached/*`, three `tests/pilot-*.sh`
+harnesses, this section, and 48 added lines of flag plumbing in
+`Main.lean`; the `--core=production` path is behaviourally identical
+to before.
+
 ### Measured
 
 Method: retired instructions (`perf stat -e instructions:u`, median of
