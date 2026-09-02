@@ -50,6 +50,13 @@ universe w
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode} {env : Env}
 
+/-- The install lemmas below expose the extended carrier's leaf (the
+`Eq` block's chain reads it: its constants' types mention each other
+and none of them is `pinnedDirectT`).  Consumers that do not need the
+leaf drop it here. -/
+theorem nonempty_of_exists {α : Sort u} {p : α → Prop} (h : ∃ x, p x) :
+    Nonempty α := h.elim fun x _ => ⟨x⟩
+
 /-- **`AnnotOkP` is `BitAgree`-invariant** — both halves are
 (`AVExpr.BitAgree.ok2`/`.validV`), so the P currency crosses the
 bridge between a `denoteP` reading and the `BConst.type2` tower it
@@ -108,7 +115,8 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
       denoteP (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta) :
-    Nonempty (EnvS2PM V μ ⟨c₀ :: env.consts⟩) := by
+    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hbase hag
     hAerase hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
@@ -183,7 +191,8 @@ theorem declStepPM_of_basis_rec_cons (mp : EnvS2PM V μ env)
     (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRulesP m₂ φ) :
-    Nonempty (EnvS2PM V μ ⟨c₀ :: env.consts⟩) := by
+    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hbase hag
     hAerase hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
@@ -243,7 +252,8 @@ theorem declStepPM_of_basis_cons_eqrow (mp : EnvS2PM V μ env)
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
     (heq : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A → EqLawP m₂) :
-    Nonempty (EnvS2PM V μ ⟨c₀ :: env.consts⟩) := by
+    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hbase hag
     hAerase hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
@@ -303,7 +313,8 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
     (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRulesP m₂ φ) :
-    Nonempty (EnvS2PM V μ ⟨c₀ :: env.consts⟩) := by
+    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hbase hag
     hAerase hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_

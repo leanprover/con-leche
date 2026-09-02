@@ -203,7 +203,9 @@ theorem extendEqP (mp : EnvS2PM V μ env)
     (hbase : EnvS V ⟨eqA :: env.consts⟩)
     (hag : ∀ n, n ≠ eqA.name → mp.base2.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval eqA.name ψ = eqValT ψ) :
-    Nonempty (EnvS2PM V μ ⟨eqA :: env.consts⟩) := by
+    ∃ mp' : EnvS2PM V μ ⟨eqA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval eqA.name eqValT2 := by
   refine declStepPM_of_basis_cons_eqrow mp (A := eqValT2) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide)
@@ -239,7 +241,9 @@ theorem extendEqReflP (mp : EnvS2PM V μ env)
     (hbase : EnvS V ⟨eqReflA :: env.consts⟩)
     (hag : ∀ n, n ≠ eqReflA.name → mp.base2.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval eqReflA.name ψ = eqReflValT ψ) :
-    Nonempty (EnvS2PM V μ ⟨eqReflA :: env.consts⟩) := by
+    ∃ mp' : EnvS2PM V μ ⟨eqReflA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval eqReflA.name eqReflValT2 := by
   have hty := fun ψ =>
     denoteP_eqReflTy (m := mp.base2) (A := eqReflValT2) (c₀ := eqReflA)
       ψ (by decide) hE hEv
@@ -869,6 +873,329 @@ theorem eqRecRaP_app₄ {b : Nat} (ψ : Name → Nat)
       interp2_lam, hmoint, app_lamR_pos hb hM,
       interp2_lam, hmint, app_lamR_pos hb hmn]
     simp [interp2_bvar, cons]
+
+/-! ### The row -/
+
+theorem eqRecValT2_congr {ψ₁ ψ₂ : Name → Nat} (hu : ψ₁ uN = ψ₂ uN)
+    (hu1 : ψ₁ u1N = ψ₂ u1N) : eqRecValT2 ψ₁ = eqRecValT2 ψ₂ := by
+  have hb : pwBit ψ₁ (Setlec.PropWhen.ifAllZero [u1N])
+      = pwBit ψ₂ (Setlec.PropWhen.ifAllZero [u1N]) := by
+    unfold pwBit
+    simp [Setlec.PropWhen.holds, hu1]
+  rw [eqRecValT2, eqRecValT2, hb, hu, hu1, eqValT2_congr hu,
+    eqReflValT2_congr hu]
+
+set_option maxHeartbeats 1000000 in
+/-- **`Eq.rec`'s `RecRuleLawP` row.**  The rule is `.plain`, so both
+`.nested` conjuncts are `nomatch`; the fired equality is the minor
+premise on both sides (`eqRecRaTower_app₆` against `eqRecRaP_app₄`),
+and the transport is four `AnnotOkP_app_of` steps. -/
+theorem eqRecLawP {m : EnvS2Core V env}
+    (m₂ : EnvS2Core V ⟨eqRecA :: env.consts⟩)
+    (hE : env.find? eqName = some eqA)
+    (hR : env.find? eqReflName = some eqReflA)
+    (hEv : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT2 ψ)
+    (hRv : ∀ ψ : Name → Nat, m.acval eqReflName ψ = eqReflValT2 ψ)
+    (hac : m₂.acval = acvalWith m.acval eqRecA.name eqRecValT2)
+    (φ : Name → Nat) :
+    RecRuleLawP m₂ φ eqRecA.name eqRecA.toConstantVal 5 4
+      eqRecRule := by
+  refine ⟨by decide, fun us hus => ?_⟩
+  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
+      ψ = Level.substFn φ eqRecA.toConstantVal.levelParams us :=
+    ⟨_, rfl⟩
+  have hz : pwBit ψ (Setlec.PropWhen.ifAllZero [u1N]) = 0 ↔ ψ u1N = 0 :=
+    pwBit_ifAllZero_single ψ u1N
+  have hRa : denoteP m₂.acval ⟨eqRecA :: env.consts⟩ φ 0
+      (eqRecRule.rhs.instantiateLevelParams
+        eqRecA.toConstantVal.levelParams us)
+      = some (eqRecRaP (pwBit ψ (.ifAllZero [u1N])) ψ) := by
+    rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac, hψ,
+      denoteP_eqRec_rhs (m := m) _ hE hR hEv hRv]
+  refine ⟨_, hRa, fun ρ => (eqRecRaP_data ψ hz ρ).1, ?_, ?_⟩
+  · intro _ _ h
+    exact nomatch h
+  intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
+    hlev hplain hnested hpin hTVa hTVja hfitR hfitC
+  have hR' : (⟨eqRecA :: env.consts⟩ : Env).find? eqReflName
+      = some eqReflA := by
+    rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hR
+  rw [show RecRule.ctor eqRecRule = eqReflName from rfl, hR'] at hfj
+  obtain ⟨rfl, rfl, rfl⟩ :
+      cvj = eqReflA.toConstantVal ∧ cnP = 2 ∧ cnF = 0 := by
+    injection Option.some.inj hfj with a1 a2 a3
+    exact ⟨a1.symm, a2.symm, a3.symm⟩
+  obtain ⟨x1, x2, x3, x4, x5, rfl⟩ :
+      ∃ p q r s t, xs = [p, q, r, s, t] := by
+    match xs, hxs with
+    | [p, q, r, s, t], _ => exact ⟨p, q, r, s, t, rfl⟩
+  obtain ⟨y1, y2, rfl⟩ : ∃ p q, ys = [p, q] := by
+    match ys, hys with
+    | [p, q], _ => exact ⟨p, q, rfl⟩
+  have hulev : Level.substFn φ eqReflA.toConstantVal.levelParams usj uN
+      = ψ uN := by
+    rw [congrFun hlev uN, hψ]
+    show Level.eval φ (Level.subst eqRecA.toConstantVal.levelParams
+      us (.param uN)) = _
+    rw [Level.subst, Level.eval_subst_go]
+  have hTyRead : denoteP m₂.acval ⟨eqRecA :: env.consts⟩ φ 0
+      (eqRecA.toConstantVal.type.instantiateLevelParams
+        eqRecA.toConstantVal.levelParams us)
+      = some (eqRecTyP (pwBit ψ (.ifAllZero [u1N])) ψ) := by
+    rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac, hψ,
+      denoteP_eqRecA_type (m := m) _ hE hR hEv hRv]
+  obtain rfl : TVa = _ :=
+    (Option.some.inj (hTyRead.symm.trans hTVa)).symm
+  have hCtorRead : denoteP m₂.acval ⟨eqRecA :: env.consts⟩ φ 0
+      (eqReflA.toConstantVal.type.instantiateLevelParams
+        eqReflA.toConstantVal.levelParams usj)
+      = some (eqReflTyP
+          (Level.substFn φ eqReflA.toConstantVal.levelParams usj)) := by
+    rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac,
+      denoteP_eqReflTy (m := m) _ (by decide) hE hEv]
+  obtain rfl : TVja = _ :=
+    (Option.some.inj (hCtorRead.symm.trans hTVja)).symm
+  rw [eqRecTyP] at hfitR
+  cases hfitR with | cons f1 hfitR =>
+  cases hfitR with | cons f2 hfitR =>
+  cases hfitR with | cons f3 hfitR =>
+  cases hfitR with | cons f4 hfitR =>
+  cases hfitR with | cons f5 hfitR =>
+  cases hfitR with | cons f6 _ =>
+  rw [interp2_sort] at f1
+  rw [interp2_inst0] at f2
+  simp only [interp2_bvar, cons] at f2
+  rw [interp2_inst0, interp2_inst_cons1,
+    (eqRecMotiveTyP_data ρ f1 f2).1] at f3
+  rw [interp2_inst0, interp2_inst_cons1, interp2_inst_cons2,
+    (eqRecMinorTyP_data ρ f1 f2 f3).1] at f4
+  rw [interp2_inst0, interp2_inst_cons1, interp2_inst_cons2,
+    interp2_inst_cons3] at f5
+  simp only [interp2_bvar, cons] at f5
+  rw [interp2_inst0, interp2_inst_cons1, interp2_inst_cons2,
+    interp2_inst_cons3, interp2_inst_cons4,
+    (eqSpineP_interp (ρ := cons (interp2 V ρ x5) (cons (interp2 V ρ x4)
+        (cons (interp2 V ρ x3) (cons (interp2 V ρ x2)
+          (cons (interp2 V ρ x1) ρ))))) (i := 4) (j := 3) (k := 0)
+      (by simp [cons]) (by simp [cons]) (by simp [cons])
+      f1 f2 f5).1] at f6
+  rw [eqReflTyP] at hfitC
+  cases hfitC with | cons g1 hfitC =>
+  cases hfitC with | cons g2 _ =>
+  rw [hulev, interp2_sort] at g1
+  rw [interp2_inst0] at g2
+  simp only [interp2_bvar, cons] at g2
+  have hp0 : interp2 V ρ y1 = interp2 V ρ x1 :=
+    hplain rfl 0 (by decide) (by decide)
+  have hp1 : interp2 V ρ y2 = interp2 V ρ x2 :=
+    hplain rfl 1 (by decide) (by decide)
+  have hrecL : m₂.acval eqRecA.name
+      (Level.substFn φ eqRecA.toConstantVal.levelParams us)
+      = eqRecValT2 ψ := by
+    rw [hac, acvalWith_self, hψ]
+  have hctorL : m₂.acval eqReflName
+      (Level.substFn φ eqReflA.toConstantVal.levelParams usj)
+      = eqReflValT2
+        (Level.substFn φ eqReflA.toConstantVal.levelParams usj) := by
+    rw [hac, acvalWith_ne (by decide), hRv]
+  simp only [show RecRule.ctor eqRecRule = eqReflName from rfl,
+    AVExpr.mkAppN_cons, AVExpr.mkAppN_nil, interp2_app, hctorL,
+    eqReflValT2_interp, app_pt] at f6
+  refine ⟨?_, ?_⟩
+  · -- the fired equality
+    simp only [show RecRule.ctor eqRecRule = eqReflName from rfl,
+      show eqRecRule.ctorParams = 2 from rfl,
+      List.take, List.drop, List.cons_append, List.nil_append,
+      List.append_nil, AVExpr.mkAppN_cons, AVExpr.mkAppN_nil, hrecL,
+      interp2_app, hctorL, eqReflValT2_interp, app_pt]
+    rw [← AVExpr.BitAgree.interp2_eq V (bitAgree_eqRecValT2 ψ) ρ,
+      eqRecRaTower_app₆ ψ hz ρ f1 f2 f3 f4 f5 f6,
+      eqRecRaP_app₄ ψ hz ρ f1 f2 f3 f4]
+  · -- the transport
+    intro hxsA _
+    simp only [show eqRecRule.ctorParams = 2 from rfl,
+      List.take, List.drop, List.append_nil,
+      AVExpr.mkAppN_cons, AVExpr.mkAppN_nil]
+    have hRm := (eqRecRaP_data ψ hz ρ).2
+    rw [eqRecRaSpace] at hRm
+    have h1 := AnnotOkP_app_of ((eqRecRaP_data ψ hz ρ).1)
+      (hxsA x1 (by simp)) hRm f1
+      (fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero)
+    have h2 := AnnotOkP_app_of h1.1 (hxsA x2 (by simp)) h1.2 f2
+      (fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero)
+    have h3 := AnnotOkP_app_of h2.1 (hxsA x3 (by simp)) h2.2 f3
+      (fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero)
+    exact (AnnotOkP_app_of h3.1 (hxsA x4 (by simp)) h3.2 f4
+      (fun hb0 _ _ => by
+        rw [← univ_zero, ← hz.mp hb0]
+        exact (eqRecMinorTyP_data ρ f1 f2 f3).2.2)).1
+
+/-- **`Eq.rec`'s type reading is graded** — six `AnnotOkP_pi_bit`
+steps; the innermost body is the motive applied to the major premise,
+whose fibre is a truth value exactly when the bit is zero. -/
+theorem eqRecTyP_okP {b : Nat} (ψ : Name → Nat)
+    (hz : b = 0 ↔ ψ u1N = 0) (ρ : Nat → V) :
+    AnnotOkP V ρ (eqRecTyP b ψ) := by
+  have h6 : ∀ Aset a M mn bb : V, Aset ∈ˢ (univ (ψ uN) : V) →
+      a ∈ˢ Aset → M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
+      bb ∈ˢ Aset →
+      AnnotOkP V (cons bb (cons mn (cons M (cons a (cons Aset ρ)))))
+        (.pi 0 b (eqSpineP ψ 4 3 0)
+          (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))) := by
+    intro Aset a M mn bb hA ha hM hbb
+    obtain ⟨hsint, hsok, -⟩ := eqSpineP_interp
+      (ρ := cons bb (cons mn (cons M (cons a (cons Aset ρ)))))
+      (i := 4) (j := 3) (k := 0)
+      (by simp [cons]) (by simp [cons]) (by simp [cons]) hA ha hbb
+    have hM0 : M ∈ˢ piR 1 Aset (fun x => piR 1 (eqv a x)
+        fun _ => (univ (ψ u1N) : V)) := hM
+    have hMb : app M bb ∈ˢ piR 1 (eqv a bb)
+        fun _ => (univ (ψ u1N) : V) :=
+      app_mem_piR_pos Nat.one_ne_zero hM0 hbb
+    refine AnnotOkP_pi_bit hsok (fun h hh => ?_) (fun hb h hh => ?_)
+    · rw [hsint] at hh
+      refine ⟨?_, ⟨⟨trivial, trivial⟩, trivial⟩⟩
+      rw [AnnotOk2_app]
+      refine ⟨?_, trivial, 1, eqv a bb, fun _ => (univ (ψ u1N) : V),
+        ?_, ?_, fun hx => absurd hx Nat.one_ne_zero⟩
+      · rw [AnnotOk2_app]
+        refine ⟨trivial, trivial, 1, Aset,
+          fun x => piR 1 (eqv a x) fun _ => (univ (ψ u1N) : V), ?_, ?_,
+          fun hx => absurd hx Nat.one_ne_zero⟩
+        · rw [show interp2 V (cons h (cons bb (cons mn (cons M
+              (cons a (cons Aset ρ)))))) (AVExpr.bvar 3) = M
+            from by simp [interp2_bvar, cons]]
+          exact hM0
+        · rw [show interp2 V (cons h (cons bb (cons mn (cons M
+              (cons a (cons Aset ρ)))))) (AVExpr.bvar 1) = bb
+            from by simp [interp2_bvar, cons]]
+          exact hbb
+      · rw [interp2_app,
+          show interp2 V (cons h (cons bb (cons mn (cons M
+              (cons a (cons Aset ρ)))))) (AVExpr.bvar 3) = M
+            from by simp [interp2_bvar, cons],
+          show interp2 V (cons h (cons bb (cons mn (cons M
+              (cons a (cons Aset ρ)))))) (AVExpr.bvar 1) = bb
+            from by simp [interp2_bvar, cons]]
+        exact hMb
+      · rw [show interp2 V (cons h (cons bb (cons mn (cons M
+            (cons a (cons Aset ρ)))))) (AVExpr.bvar 0) = h
+          from by simp [interp2_bvar, cons]]
+        exact hh
+    · rw [hsint] at hh
+      rw [interp2_app, interp2_app,
+        show interp2 V (cons h (cons bb (cons mn (cons M
+            (cons a (cons Aset ρ)))))) (AVExpr.bvar 3) = M
+          from by simp [interp2_bvar, cons],
+        show interp2 V (cons h (cons bb (cons mn (cons M
+            (cons a (cons Aset ρ)))))) (AVExpr.bvar 1) = bb
+          from by simp [interp2_bvar, cons],
+        show interp2 V (cons h (cons bb (cons mn (cons M
+            (cons a (cons Aset ρ)))))) (AVExpr.bvar 0) = h
+          from by simp [interp2_bvar, cons],
+        ← univ_zero, ← hz.mp hb]
+      exact app_mem_piR_pos Nat.one_ne_zero hMb hh
+  have h5 : ∀ Aset a M mn : V, Aset ∈ˢ (univ (ψ uN) : V) →
+      a ∈ˢ Aset → M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
+      AnnotOkP V (cons mn (cons M (cons a (cons Aset ρ))))
+        (.pi 0 b (.bvar 3) (.pi 0 b (eqSpineP ψ 4 3 0)
+          (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))) := by
+    intro Aset a M mn hA ha hM
+    have hdom : interp2 V (cons mn (cons M (cons a (cons Aset ρ))))
+        (AVExpr.bvar 3) = Aset := by simp [interp2_bvar, cons]
+    refine AnnotOkP_pi_bit (Aa := .bvar 3) ⟨trivial, trivial⟩
+      (fun bb hbb => h6 Aset a M mn bb hA ha hM (by rwa [hdom] at hbb))
+      (fun hb _ _ => by rw [interp2_pi, hb]; exact piR_zero_mem_univZero)
+  have h4 : ∀ Aset a M : V, Aset ∈ˢ (univ (ψ uN) : V) → a ∈ˢ Aset →
+      M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
+      AnnotOkP V (cons M (cons a (cons Aset ρ)))
+        (.pi 0 b (eqRecMinorTyP ψ)
+          (.pi 0 b (.bvar 3) (.pi 0 b (eqSpineP ψ 4 3 0)
+            (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))))) := by
+    intro Aset a M hA ha hM
+    obtain ⟨-, hmok, -⟩ := eqRecMinorTyP_data ρ hA ha hM
+    refine AnnotOkP_pi_bit hmok (fun mn _ => h5 Aset a M mn hA ha hM)
+      (fun hb _ _ => by rw [interp2_pi, hb]; exact piR_zero_mem_univZero)
+  have h3 : ∀ Aset a : V, Aset ∈ˢ (univ (ψ uN) : V) → a ∈ˢ Aset →
+      AnnotOkP V (cons a (cons Aset ρ))
+        (.pi 0 b (eqRecMotiveTyP ψ) (.pi 0 b (eqRecMinorTyP ψ)
+          (.pi 0 b (.bvar 3) (.pi 0 b (eqSpineP ψ 4 3 0)
+            (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))))) := by
+    intro Aset a hA ha
+    obtain ⟨hmint, hmok⟩ := eqRecMotiveTyP_data ρ hA ha
+    refine AnnotOkP_pi_bit hmok
+      (fun M hM => h4 Aset a M hA ha (by rwa [hmint] at hM))
+      (fun hb _ _ => by rw [interp2_pi, hb]; exact piR_zero_mem_univZero)
+  have h2 : ∀ Aset : V, Aset ∈ˢ (univ (ψ uN) : V) →
+      AnnotOkP V (cons Aset ρ)
+        (.pi 0 b (.bvar 0) (.pi 0 b (eqRecMotiveTyP ψ)
+          (.pi 0 b (eqRecMinorTyP ψ)
+            (.pi 0 b (.bvar 3) (.pi 0 b (eqSpineP ψ 4 3 0)
+              (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))))))) := by
+    intro Aset hA
+    have hdom : interp2 V (cons Aset ρ) (AVExpr.bvar 0) = Aset := by
+      simp [interp2_bvar, cons]
+    refine AnnotOkP_pi_bit (Aa := .bvar 0) ⟨trivial, trivial⟩
+      (fun a ha => h3 Aset a hA (by rwa [hdom] at ha))
+      (fun hb _ _ => by rw [interp2_pi, hb]; exact piR_zero_mem_univZero)
+  rw [eqRecTyP]
+  refine AnnotOkP_pi_bit (Aa := .sort (ψ uN)) ⟨trivial, trivial⟩
+    (fun Aset hA => h2 Aset (by rwa [interp2_sort] at hA))
+    (fun hb _ _ => by rw [interp2_pi, hb]; exact piR_zero_mem_univZero)
+
+/-- **`Eq.rec`, installed at the P tier.** -/
+theorem extendEqRecP (mp : EnvS2PM V μ env)
+    (hE : env.find? eqName = some eqA)
+    (hR : env.find? eqReflName = some eqReflA)
+    (hEv : ∀ ψ : Name → Nat, mp.base2.acval eqName ψ = eqValT2 ψ)
+    (hRv : ∀ ψ : Name → Nat,
+      mp.base2.acval eqReflName ψ = eqReflValT2 ψ)
+    (hfresh : env.find? eqRecA.name = none)
+    (hbase : EnvS V ⟨eqRecA :: env.consts⟩)
+    (hag : ∀ n, n ≠ eqRecA.name → mp.base2.base.cval n = hbase.cval n)
+    (hcv : ∀ ψ, hbase.cval eqRecA.name ψ = eqRecValT ψ) :
+    ∃ mp' : EnvS2PM V μ ⟨eqRecA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval eqRecA.name eqRecValT2 := by
+  have hty := fun ψ =>
+    denoteP_eqRecA_type (m := mp.base2) (A := eqRecValT2) ψ hE hR hEv hRv
+  have hz : ∀ ψ : Name → Nat,
+      pwBit ψ (Setlec.PropWhen.ifAllZero [u1N]) = 0 ↔ ψ u1N = 0 :=
+    fun ψ => pwBit_ifAllZero_single ψ u1N
+  refine declStepPM_of_basis_rec_cons mp (A := eqRecValT2) hfresh
+    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+    (by decide) (by decide) (by decide) (by decide)
+    (by decide) (Or.inl (fun _ h => nomatch h))
+    hbase hag
+    (fun ψ => by rw [hcv ψ]; exact eqRecValT2_erase ψ)
+    (fun ψ k => AVExpr.liftN_eq_self _
+      (VExpr.bvarsBelow.mono (Nat.zero_le k)
+        (by rw [eqRecValT2_erase]; exact eqRecValT_closed ψ)) 1)
+    (fun ψ₁ ψ₂ hp => eqRecValT2_congr
+      (hp uN (by
+        show uN ∈ [u1N, uN]
+        exact List.mem_cons_of_mem _ List.mem_cons_self))
+      (hp u1N (by show u1N ∈ [u1N, uN]; exact List.mem_cons_self)))
+    (fun ψ ρ => ((bitAgree_okP (bitAgree_eqRecValT2 ψ) ρ).mp
+      (eqRecRaTower_data ψ (hz ψ) ρ).1).1)
+    (fun ψ ρ => ((bitAgree_okP (bitAgree_eqRecValT2 ψ) ρ).mp
+      (eqRecRaTower_data ψ (hz ψ) ρ).1).2)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    exact eqRecTyP_okP ψ (hz ψ) ρ
+  · intro ψ ta h ρ
+    rw [hty ψ] at h
+    obtain rfl := (Option.some.inj h).symm
+    rw [← AVExpr.BitAgree.interp2_eq V (bitAgree_eqRecValT2 ψ) ρ]
+    exact (eqRecRaTower_data ψ (hz ψ) ρ).2
+  · intro m₂ hac φ
+    refine recRulesP_cons_rec mp hfresh eqRecA_eq m₂ hac φ ?_
+    intro rl hrl _
+    rcases List.mem_cons.mp hrl with rfl | hr'
+    · exact eqRecLawP (m := mp.base2) m₂ hE hR hEv hRv hac φ
+    · exact nomatch hr'
 
 end Eq
 

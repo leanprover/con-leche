@@ -166,7 +166,7 @@ theorem extendQuotP (mp : EnvS2PM V μ env)
     (hag : ∀ n, n ≠ quotA.name → mp.base2.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval quotA.name ψ = VExpr.const .quot [ψ uN]) :
     Nonempty (EnvS2PM V μ ⟨quotA :: env.consts⟩) := by
-  refine declStepPM_of_basis_cons mp
+  refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := fun ψ => AVExpr.const .quot [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -176,7 +176,7 @@ theorem extendQuotP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, denoteP_quotA_type ψ⟩) ?_ ?_
+    (fun ψ => ⟨_, denoteP_quotA_type ψ⟩) ?_ ?_)
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -202,7 +202,7 @@ theorem extendQuotMkP (mp : EnvS2PM V μ env)
   have hty := fun ψ =>
     denoteP_quotMkA_type (m := mp.base2)
       (A := fun ψ => AVExpr.const .quotMk [ψ uN]) ψ hQ
-  refine declStepPM_of_basis_cons mp
+  refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := fun ψ => AVExpr.const .quotMk [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -212,7 +212,7 @@ theorem extendQuotMkP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -755,7 +755,7 @@ theorem extendQuotIndP (mp : EnvS2PM V μ env)
   have hty := fun ψ =>
     denoteP_quotIndA_type (m := mp.base2)
       (A := fun ψ => AVExpr.const .quotInd [ψ uN]) ψ hQ hM
-  refine declStepPM_of_basis_rec_cons mp
+  refine nonempty_of_exists (declStepPM_of_basis_rec_cons mp
     (A := fun ψ => AVExpr.const .quotInd [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -764,7 +764,7 @@ theorem extendQuotIndP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -1117,7 +1117,7 @@ theorem extendQuotSoundP (mp : EnvS2PM V μ env)
   have hty := fun ψ =>
     denoteP_quotSoundA_type (m := mp.base2)
       (A := fun ψ => AVExpr.const .quotSound [ψ uN]) ψ hQ hM hE
-  refine declStepPM_of_basis_cons mp
+  refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := fun ψ => AVExpr.const .quotSound [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -1127,7 +1127,7 @@ theorem extendQuotSoundP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -2208,7 +2208,7 @@ theorem extendQuotLiftP (mp : EnvS2PM V μ env)
   have hz : ∀ ψ : Name → Nat,
       pwBit ψ (Setlec.PropWhen.ifAllZero [vN]) = 0 ↔ ψ vN = 0 :=
     fun ψ => pwBit_ifAllZero_single ψ vN
-  refine declStepPM_of_basis_rec_cons mp
+  refine nonempty_of_exists (declStepPM_of_basis_rec_cons mp
     (A := fun ψ => AVExpr.const .quotLift [ψ uN, ψ vN]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -2217,7 +2217,7 @@ theorem extendQuotLiftP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by
         show uN ∈ [uN, vN]

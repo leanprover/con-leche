@@ -78,7 +78,7 @@ theorem extendEmptyP (mp : EnvS2PM V μ env)
     (hag : ∀ n, n ≠ emptyA.name → mp.base2.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval emptyA.name ψ = VExpr.const .empty [1]) :
     Nonempty (EnvS2PM V μ ⟨emptyA :: env.consts⟩) := by
-  refine declStepPM_of_basis_cons mp
+  refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := fun _ => AVExpr.const .empty [1]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -88,7 +88,7 @@ theorem extendEmptyP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, denoteP_emptyA_type ψ⟩) ?_ ?_
+    (fun ψ => ⟨_, denoteP_emptyA_type ψ⟩) ?_ ?_)
   · intro ψ ta h ρ
     rw [denoteP_emptyA_type ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -221,7 +221,7 @@ theorem extendEmptyRecP (mp : EnvS2PM V μ env)
   have hty := fun ψ =>
     denoteP_emptyRecA_type (m := mp.base2)
       (A := fun ψ => AVExpr.const .emptyRec [1, ψ uN]) ψ hE
-  refine declStepPM_of_basis_cons mp
+  refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := fun ψ => AVExpr.const .emptyRec [1, ψ uN]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -231,7 +231,7 @@ theorem extendEmptyRecP (mp : EnvS2PM V μ env)
     (fun ψ => by rw [hcv ψ]; rfl)
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
