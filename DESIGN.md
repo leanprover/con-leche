@@ -17487,3 +17487,94 @@ rows, the projection `rec_rules`, `indStepPB_of` and THE ASSEMBLY.
 Standing: all statements frozen; PropWhen through named laws only;
 annotations never steer; conditional forms are never done; zero
 sorries at every seal.
+
+## Task #161 IND TIER part 5 — SEAL ADDENDUM: the reduct stage and the
+λ-tower descent also landed (same batch, 2026-09-02)
+
+The seal above was written when `pointP` was the batch's last stage.
+Two more landed after it, and the resume-here bill above is corrected
+here rather than left stale.
+
+### What the addendum adds
+
+| commit | what landed |
+| --- | --- |
+| `082223ca` | `denoteSpineP_of_all`, `denoteP_mkAppN_of`, **`reductP`**; `AVExpr.mkAppN_snoc`, `chainP_snoc`, **`lamTowerStepP`** |
+
+* **`reductP`** (`Interp2/IndReductP.lean`) is `reductS`'s transpose and
+  is complete except for **one premise, which is the third exposure's**:
+  `DefEqClaims2P` converts the rhs run only against the *applied form's*
+  grading, and that needs `Ra`'s.  It enters as `hokApp`, in the `∀ ba`
+  form the reading's existence is derived in, and is named in the file
+  as the row's consumer.  When the row lands, `hokApp` is
+  `lamTowerStepP`'s output at the frame's openers and `reductP` needs
+  no further work;
+* **`lamTowerStepP`** (`Interp2/IndLamTowerP.lean`) is the descent that
+  produces exactly that: a read λ-tower applied along readings that
+  inhabit its layer domains walks by β, and the application's
+  hereditary grading assembles by `lamR_mem`.  **The one shape delta is
+  forced by the bits**: v1's value half is unconditional because
+  `app_lamC` needs only domain membership, while `app_lamR` needs the
+  *fibres* as well (at `v = 0` a product is a truth value, so β must
+  know the codomain is one) — and the fibres are `AnnotOk2`'s `.lam`
+  clause, so at P the value half rides under the tower's grading.
+  Both halves are consumed together, so it costs nothing.
+
+Both compiled with no structural surprises; `lamTowerStepP` compiled
+first try.
+
+### The corrected resume-here
+
+Item 2 is **one stage short**, not three: `reductP` and the descent are
+in, and what remains of the `annotS` cluster is **`annotMemS`'s
+transpose alone** — the layer memberships, i.e. the lam walk fired at a
+*public-frame* context.  Its design is settled by precedent and is
+recorded here so the successor does not re-derive it:
+
+> The context is `Δc`: the recursor tower `ΓP` at the prefix slots
+> (`K - 1 - i`, `i < rP`) and the constructor's *field* tower at the
+> rest — the latter read by `openPisAtFvars_denotePTele` on `crestP`
+> (whose reading comes from `instPisAt_denoteP_defined` at `D = rP` and
+> whose grading from `instPisAt_resP_graded`, both landed).
+> Satisfaction transports from the ambient context exactly as
+> `plainParamSupplyP` transports it: prefix slots on
+> `prefixGradeFireP`'s equalities, field slots on `fieldGradeFireP`'s
+> composed with the same `instPisAt_renEq`/`RenEqT.denoteP` bridge —
+> the field openers of the two runs sit at *equal indices*
+> (`rP … rP + cnF - 1`), which is the whole reason the bridge is free.
+> The b-side of the lam walk is `ldomsL`, whose readings are the
+> λ-tower's own slots by `instLamsAt_denotePTele` (landed) and whose
+> gradings descend from `Ra`'s by the same `.lam` clause
+> `lamTowerStepP` uses.
+
+So the bill after this addendum is: **the row**; then `annotMemP`;
+then the two bottoms (`indBottomPlainS`/`indBottomNestedS`'s
+transposes, which now have every stage they call), the `.nested`
+parameter supply, the recursor group's `RecRuleLawP` rows, the
+projection `rec_rules` half, `indStepPB_of`, `hind` off `FoldP`,
+census → `hμ` ALONE, and THE ASSEMBLY.
+
+### Battery and axioms, re-run at `082223ca`
+
+`lake build` **446 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of` and on the addendum's theorems —
+`denoteSpineP_of_all`, `denoteP_mkAppN_of`, `reductP`, `chainP_snoc`,
+`lamTowerStepP` (`AVExpr.mkAppN_snoc` on **no axioms at all**).  Zero
+sorries.
+
+New files: `Setlec/SetR/Interp2/IndReductP.lean`,
+`Setlec/SetR/Interp2/IndLamTowerP.lean`.  Edited: `Setlec/SetR.lean`
+(two more imports), `DESIGN.md`.  Census unchanged:
+`no_proof_of_Empty_P_of` = `hμ` + `IndStepPB`.
