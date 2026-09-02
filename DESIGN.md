@@ -13319,3 +13319,30 @@ premise for them would be a conditional form.
 3. `ofReduceNat`/`ofReduceBool` (transpose `ofReduceKeyS`);
 4. `axiomStepPB_of`, assembling the four branches;
 5. then `BasisStepPB`, `IndStepPB`, and the FINAL ASSEMBLY.
+
+### ENDGAME A battery (verbatim, at `8bf2f1ea`)
+
+`lake build` **401 jobs, warning-free**; `lake test` exit 0 (139
+targets).  `tests/arena.sh`:
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Axioms exactly `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `checkDecls_sound_P_of`, `harvestDefnP`,
+`TierInputsAtP.ofSem`, `no_proof_of_Empty_R`, and on both new
+theorems `acceptedReadsP_of` and `axiomTrustCompilerP` (and
+`axiomSkipP`).  Zero sorries.  No `Setlec/Kernel/*` file was touched,
+which is why every runtime counter is identical to the IOTA TIER
+seal II's.
+
+New files: `Interp2/Step2/AcceptedP.lean` (the totality walk + three
+run inversions), `Interp2/AxiomPinP.lean` (the pin tier's two landed
+branches + the WALL record).  Deleted: `SemTierInputsP`
+(`Interp2/CapstoneP.lean`).
