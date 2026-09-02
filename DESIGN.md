@@ -19311,3 +19311,400 @@ projection install transpose (UNBLOCKED by this widening),
 ASSEMBLY at the frozen letter.  NO FLAGGED RISKS REMAIN ANYWHERE ON
 THE BILL — everything left is construction.  Census: `hμ` +
 `IndStepPB`, never conditional.  The census moves when it moves.
+
+## Task #161 IND TIER, part 10: THE CAMPAIGN CLOSES — the environment
+half, the projection install, the block assembly, and
+`no_proof_of_Empty_P` at the frozen letter (2026-09-02)
+
+Briefed with the whole remaining bill, all construction, no flagged
+risks.  **Every item landed.**  The inductive tier's routed bundle
+`IndStepPB` is discharged, `hind` is off `FoldP`, and the capstone
+stands at the frozen letter with axioms exactly the standard three.
+Nothing conditional was landed; zero sorries.
+
+### Per-commit table
+
+| commit | what landed |
+| --- | --- |
+| `7435268e` | **the P swap** — `denoteP_env_ext`, `denoteP_swap`, `RecRuleLawP.swapP`, `EnvS2PM.swapP` (`Interp2/SwapP.lean`, new, 330 lines) |
+| `eb605c11` | **item 1** — `indRecsFoldP`, `indRecsP`, `RecLawsAtP`, `blockAcvalInstalled_swap` (`Interp2/IndRecsP.lean`, new, 225 lines) |
+| `165ca89c` | **item 2** — `ProjPhaseAcvalP`, `projFwd_renameOkP`, `projPhaseAcvalP_cons` (`Interp2/ProjRenameP.lean`, new, 152); `blockAcvalInstalled_fresh_cons`, `projConsP` (`Interp2/ProjConsP.lean`, new, 262); `projFnP`, `projInstallP`, `templateValP`, `templateConsP`, `templatesP` (`Interp2/ProjInstallP.lean`, new, 593) |
+| `e150b0fc` | **items 3-5** — `declIndP` (`Interp2/DeclIndP.lean`, new, 301); `IndStepPB` re-shaped + `indStepPB_of`; `hind` removed from `declStepPM`/`foldPM`/`checkDecls_sound_P_of`/`no_proof_of_Empty_P_of` (`Interp2/FoldP.lean`) |
+| `2e91e9f9` | **THE ASSEMBLY** — `no_proof_of_Empty_P` at the frozen letter (`Interp2/FoldP.lean`) |
+
+### THE HEADLINES, in order of what they save the successor
+
+* **THE CAPSTONE STANDS, UNCONDITIONALLY.**  Elaborated signature,
+  verbatim:
+
+  ```
+    Setlec.SetR.Interp2.no_proof_of_Empty_P :
+      ∀ (V : Type u_1) [Setlec.SetTheory V] {μ : Setlec.CheckMode},
+        μ.verified = true →
+          ∀ {F : Nat} {ds : List Setlec.Declaration} {env' : Setlec.Env},
+            Setlec.checkDecls μ (Setlec.fueledOps μ F) ds = Except.ok env' →
+              ∀ (c : Setlec.ConstantInfo),
+                c ∈ env'.consts →
+                  c.toConstantVal.type = Setlec.Expr.const Setlec.emptyName [] → False
+  ```
+
+  Letter for letter what `CapstoneP.lean`'s docstring froze before the
+  harvest layer was built.  Hypotheses are input-level only; `SetTheory
+  V` is the project's standing parametricity, not an input assumption.
+  **Census: `hμ` alone, and `hμ` is part of the goal's own words.**
+
+* **THE P SWAP IS AN EQUATION, AND THAT IS WHY THE ENVIRONMENT HALF IS
+  CHEAP.**  `denoteP_env_ext` — the `denote_env_ext` mirror — has **no
+  `ConstsBound` premise**, unlike every crossing the campaign has used
+  so far (`denoteP_envExtend_mono`).  A swap changes no stored *name*,
+  so the reading's three environment consultations (the `.const`
+  clause's `find?`, consulted only through the stored level parameters;
+  the two literal guards; the string spine's `levelParamsAt`) are all
+  congruent, and every field of `EnvS2PM` crosses in **both**
+  directions.  The determinism trick — the campaign's standard device
+  for contravariant readings — is *not needed anywhere in this file*.
+  Whenever a P-tier obligation crosses a name-preserving environment
+  correspondence, reach for this and not for the cons machinery;
+
+* **THE P FOLD THREADS ONE INVARIANT WHERE v1's THREADS SEVEN.**
+  `indRecsFoldS` carries `SwapShList`, `SwapNResS`, two `FoldUpS`es, the
+  `Eq` lookup, the member list and the entry list because it must build
+  `EnvS.swap`'s inputs (`EnvWF`, `RecCtorsStored`, `RecRulesV`) and the
+  swap data.  **None of that is V-tier content**: it is all V-free, the
+  install runs `indRecsFoldS` anyway, and `EnvS2PM.swapP` was therefore
+  re-aimed to take the *v1 carrier at the swapped environment* as a
+  premise rather than rebuild it.  What is left for the P fold is one
+  row — `RecLawsAtP` at the accumulator — and the induction is 25 lines.
+  832 v1 lines → 225 P lines, **0.7 s**.  The recipe: when a v1 fold's
+  outputs split into "V-free bookkeeping" and "rows", transpose only the
+  rows and *call the v1 fold* for the rest;
+
+* **`provisionRecsP` NEEDED NOTHING**: `provisionRecsPM` (part 2) is
+  already the joint provisioning fold, because `memberInstallPM`'s
+  `hkind` disjunct covers the rule-less recursor shape — the same
+  economy `memberInstallS` gives v1.  Bill item 1's first name was
+  already spent;
+
+* **THE PROJECTION INSTALL: the fifth widening cashes in two lines
+  each.**  `indBottomProjP`'s `hsideL`/`hsideR` are `ProjFnR`'s new
+  rows after one `rw [hargs3]; simpa` apiece — the fifth consecutive
+  instance of fix shape 0 landing at zero new proof text on the
+  consumer side.  Everything else in `projFnP` is v1's own script with
+  the P currency substituted:
+
+  | v1 move | P move |
+  | --- | --- |
+  | `projFwd_renameOkT hinv` | `projFwd_renameOkP hinv hinvA` — **first two clauses are literally v1's** (`RenameOkT` and `RenameOkP` share them); only the valuation clause is re-proved |
+  | `m.mem_type` at the model defn | `EnvS2PM.acval_memTypeP` — reading, grading and membership in one call |
+  | `hiA.denoteUp` (the rhs reading up) | `denoteP_cons_fresh_mono` |
+  | `hiA.denoteDown` (`hTV`, `hTVj` down) | **the determinism trick** — produce the prefix reading, move it forward, identify by `Option.some.inj`.  `pty`'s prefix reading comes from the roundtrip pin + `denotePInstLevels`; the constructor type's from `constTypeP` |
+  | `Infer.sound` at `hrhsKeyS` | `iotaRulePlainP`'s three-part `hrhsKey`: `denotePClosed_isSome_of_denoteClosed` on the v1 derivation, `InferReadsP` on the recorded run, `InferClaims2P` at `Sat2_nil` |
+
+* **`ProjPhaseAcvalP`: the phase invariant splits the way the block
+  invariant did.**  v1's `ProjPhaseInvS` has three conjuncts, each
+  pairing a *lookup* (the model artifact is stored, with matching level
+  parameters) with a *valuation* identification.  The lookups are
+  V-free and are consumed from the v1 predicate directly; the P tier
+  stores only the three `acval` equations — the exact
+  `BlockInstalledTT`/`BlockAcvalInstalled` split part 2 introduced for
+  the member phase.  **Do this at every v1 predicate that mixes lookups
+  with valuations**; it halves the transposition and makes the cons
+  lemma a name-distinctness argument;
+
+* **THE ELIMINATION TEMPLATE'S LEAF IS FORCED, AND `.prf` IS FINE
+  HERE.**  The entry has no model artifact, so the install chooses a
+  leaf; v1 chose `VExpr.eqE (.sort 0) .prf .prf`, and the reading must
+  *erase* to it, so `templateValP := .eqE (.sort 0) .prf .prf` is the
+  only choice.  The standing trap ("`.prf` is not a valid padding
+  element") does **not** bite: it is about the *spine* padding of part
+  4, where `annotOkP_instSeq` charges the padding a membership
+  (`pt_not_mem_univZero`).  Here the `.prf`s sit inside `eqv`'s
+  arguments, which no membership obligation reads, and the entry's own
+  obligation is `eqv pt pt ∈ˢ univ 0` — `eqv_mem_univ`, blind to its
+  arguments.  Record the distinction: **the padding trap is about
+  positions, not about the constructor**;
+
+* **THE PROJECTION FOLD IS THE ONE PLACE THE TWO TIERS ARE COUPLED.**
+  Everywhere else the P phase can take the v1 carrier as a premise and
+  let the install supply it.  Not here: `projConsP` needs
+  `EnvS V ⟨c₀ :: env'.consts⟩` *constructively*, and the **next** step's
+  v1 premises (`ProjPhaseInvS`, `BlockInstalledTT`) are the **previous**
+  step's v1 outputs — so a separate v1 fold would have to be re-run from
+  scratch at every index.  `projFnP`/`projInstallP` therefore call
+  `projFnS`/`projInstallS` and carry both tiers.  The member phase
+  (`memberInstallPM`, part 2) discovered the same coupling and solved it
+  the same way; the recursor group did **not** need it, because its P
+  half consumes the v1 fold only through V-free outputs;
+
+* **`IndStepPB` gained a premise, and it is a shape not a residue.**
+  `EtaFamiliesClosed env` is what the inductive install consumes
+  (`EtaFamiliesClosedO` at the block, the member fold's η side
+  condition), it is not derivable from `EnvS2PM`, and `declStepPM`
+  already **owns** it — it is the v1 fold's second half, carried
+  through `EnvSPOk` at every prefix.  Adding it to the bundle's
+  signature and passing it at the call site costs nothing and reaches
+  the capstone not at all.  The general rule the campaign should keep:
+  *a routed bundle may name any fact the fold already carries; only
+  facts the fold cannot produce are census entries.*
+
+### The bill, item by item
+
+1. **`provisionRecsP`, `RecRuleLawP.swapP`, `indRecsFoldP`, `indRecsP`
+   — DONE** (`7435268e`, `eb605c11`).  `provisionRecsP` was already
+   `provisionRecsPM`.
+2. **`ProjInstallS` — DONE** (`165ca89c`), unblocked by the fifth
+   widening and consuming it verbatim.
+3. **`DeclIndS` + `SwapS` — DONE** (`7435268e`, `e150b0fc`).
+4. **`indStepPB_of` — DONE** (`e150b0fc`).  `IndStepPB` was already
+   stated in `FoldP.lean`; it was re-shaped with the
+   `EtaFamiliesClosed` premise (see the headline) and then discharged.
+   **No stop-and-name arose**: the re-shaped bundle is exactly what
+   `no_proof_of_Empty_P_of` consumes, since `declStepPM` supplies the
+   premise from `EnvSPOk`.
+5. **`hind` off `FoldP` — DONE** (`e150b0fc`).  Census: `hμ` alone.
+6. **THE ASSEMBLY — DONE** (`2e91e9f9`), at the frozen letter.
+
+### IND TIER part 10 battery (verbatim, at `2e91e9f9`)
+
+`lake build` **469 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh` (exit 0):
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to parts 1-9's, and for the same reason: the batch's diff
+touches no `Setlec/Kernel/*` file.  Zero sorries (the only `sorry`
+hits in the tree are the `sorryAx` *name* in the taint machinery and
+`tests/e2e/src/sorry_use.lean`, both pre-existing).
+
+Axiom audit, verbatim:
+
+```
+'Setlec.SetR.Interp2.no_proof_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.no_proof_of_Empty_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.checkDecls_sound_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indStepPB_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.declIndP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.denoteP_env_ext' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.denoteP_swap' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.RecRuleLawP.swapP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.EnvS2PM.swapP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indRecsFoldP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.indRecsP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.blockAcvalInstalled_swap' depends on axioms: [propext]
+'Setlec.SetR.Interp2.projFwd_renameOkP' depends on axioms: [propext, Quot.sound]
+'Setlec.SetR.Interp2.projPhaseAcvalP_cons' depends on axioms: [propext, Quot.sound]
+'Setlec.SetR.Interp2.blockAcvalInstalled_fresh_cons' depends on axioms: [propext, Quot.sound]
+'Setlec.SetR.Interp2.projConsP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.projFnP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.projInstallP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.templateConsP' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Setlec.SetR.Interp2.templatesP' depends on axioms: [propext, Classical.choice, Quot.sound]
+```
+
+New files: `Interp2/SwapP.lean` (330), `Interp2/IndRecsP.lean` (225),
+`Interp2/ProjRenameP.lean` (152), `Interp2/ProjConsP.lean` (262),
+`Interp2/ProjInstallP.lean` (593), `Interp2/DeclIndP.lean` (301).
+Edited: `Setlec/SetR.lean` (six imports), `Interp2/FoldP.lean` (the
+`IndStepPB` re-shape, `indStepPB_of`, the `hind` removals, the
+capstone), `DESIGN.md`.  **No frozen statement moved; nothing in
+`Setlec/Kernel/*`, `Main.lean`, `Verify/` or `Setlec/SetR/Install/`
+was touched; no file was deleted.**
+
+Elaboration cost, measured cold: `SwapP` 0.9 s, `IndRecsP` 0.7 s,
+`ProjRenameP` 0.7 s, `ProjConsP` 0.8 s, `ProjInstallP` **1.3 s**,
+`DeclIndP` 0.9 s, `FoldP` 0.7 s.  **The whole batch elaborates in
+under 6 s**, against part 8's single 83 s file: the scaling recipe
+applied from the first line, plus the "transpose the rows, call the v1
+fold for the bookkeeping" economy, which keeps every proof's local
+context small.
+
+Transposition ratio, measured: 2442 v1 lines
+(`IndRecsS` 832 + `ProjInstallS` 1044 + `DeclIndS` 352 +
+`SwapS` 214) → **1863 P lines**, i.e. **0.76×** — the campaign's first
+sub-unity batch, and the reason is exactly the two economies above.
+
+### Reuse: what already existed and was not rebuilt
+
+Every part 1-9 product, spent unchanged: `iotaRuleP`, `iotaRulesP`,
+`indBottomProjP`, `indBottomPlainP`, `indBottomNestedP`,
+`memberInstallPM`, `indMembersPM`, `provisionRecsPM`, `memberKeyP`,
+`memberEtaLawP`, `memberUnitLawP`, `projEtaLawP`,
+`capsOkP_cons_proj`, `capsOkP_cons_member`, `recRulesP_cons_fresh`,
+`recRulesP_cons_rec`, `recRuleLawP_cons_prefix`,
+`declStepPM_of_ind_cons`/`_ind_rec_cons`/`_projTemplate_cons`/
+`_ind_member_cons`, `blockRenameOkP`, `denoteP_renameConsts`,
+`denoteP_cons_fresh_mono`, `denoteP_envExtend_mono`,
+`denotePInstLevels`, `denoteP_isSome_of_denote`,
+`denotePClosed_isSome_of_denoteClosed`, `EnvS2PM.acval_memTypeP`,
+`EnvS2PM.constTypeP`, `acvalWith_self`/`_ne`,
+`constsBound_of_constsResolve`, `constsBound_instType`,
+`checkSoundAtP`, `TierInputsAtP.ofSem`, `inferReadsP_of`,
+`acceptedReadsP_of`, `eqv_mem_univ`, `AnnotOk2_eqE`,
+`AnnotValidV_eqE`, `interp2_eqE`/`_sort`/`_prf`.
+From v1, called rather than transposed: `indRecsFoldS`, `indRecsS`,
+`projFnS`, `projInstallS`, `projConsS`, `templateConsS`,
+`projFwd_renameOkT`, `projPhaseInvS_cons`, `projStmtParts`,
+`etaPins_of_indBlockCaps`, `etaPins_empty`, `EtaPins.step`/
+`.transport`, `provisionRecsS_mono`/`_mem`/`_stored`/`_fresh`/
+`_nameGuards`, `indRecsR_mono`/`_fresh`/`_noInd`/`_nameGuards`,
+`indMembersR_mono`/`_fresh`/`_stored`/`_indEntry`/`_ctorEntry`/
+`_indNew`/`_nameGuards`, `blockRenameOkT`, `SwapShList.congr`,
+`swapSh_find?_corr`, `swapSh_mem_corr`, `EnvS.swap`, `levelParamsAt_ext`.
+
+### Walls: none
+
+No row was missing, no premise was owed, and the fifth widening was
+the last one the campaign needed.  Every `STOP-AND-NAME` slot on the
+bill retired unused.
+
+### Carried traps, plus this batch's three
+
+Unchanged: grading descends TOP-DOWN along the satisfying environment;
+trap G; `denoteP_lift` takes `WScoped`; `instPisAt_domsP_graded`'s
+membership premise is bounded by the index; `CtxOkP`'s per-leaf
+obligation is semantic; the renaming bridge is free at equal opener
+indices; a run carries neither reading nor grading; the statement
+carries its own establishment material; the determinism trick for
+contravariant readings; `.prf` is not a *spine* padding element (see
+the headline for the position-vs-constructor refinement); a stage
+written before its first consumer carries over-general premises;
+`omega`'s cost is exponential in the length atoms; `obtain rfl` may
+eliminate EITHER side (paid once here, at `cnP' = nP` in `projFnP`,
+where `nP` is the side that dies).
+
+New:
+
+1. **`obtain ⟨…⟩ := f … ?_ …` does NOT reliably create goals for the
+   `?_` holes.**  Paid twice (in `projConsP` and in `templateConsP`):
+   the bullets after the `obtain` either say "No goals to be solved"
+   or focus the wrong goal, depending on where the main goal lands.
+   The fix is mechanical and also *reads* better: name every
+   obligation as a `have` **before** the application, then apply it
+   with all arguments explicit.  Never write `?_` inside an `obtain`'s
+   right-hand side.
+2. **Inserting a binder into a theorem signature before the binders it
+   mentions silently auto-bounds a fresh variable.**  Adding
+   `{c₀} (hc₀ : c₀ = projEntry T lps pty nP i rules)` above
+   `{pty : Expr}` produced `pty✝` and a `rfl` failure two hundred
+   lines later.  When a proof mentions a shadowed-looking name
+   (`pty✝`) in an error, check binder *order* first.
+3. **To name a big syntactic object opaquely in a theorem's own
+   conclusion, take it as a parameter with its defining equation**
+   (`{c₀ : ConstantInfo} (hc₀ : c₀ = …)`), not as an `obtain` inside
+   the proof: an `obtain`-introduced local cannot appear in the goal,
+   so the conclusion stays written out and every `rw` on it fails.
+   The caller instantiates with `rfl` and gets the spelled-out
+   statement back.
+
+### Succession position, and the measured inventory
+
+**The ind tier is CLOSED.  The P4 campaign is CLOSED.**  There is no
+next item on the bill: `IndStepPB` was the last routed bundle, and
+with `indStepPB_of` the fold's census is `hμ`, which is part of the
+capstone's own letter.
+
+Measured at this seal:
+
+| tier | routed bundles | status |
+| --- | --- | --- |
+| pin/axiom (`AxiomStepPB`) | 0 | closed, ENDGAME D |
+| basis (`BasisStepPB`) | 0 | closed, ENDGAME H |
+| inductive (`IndStepPB`) | 0 | **closed, part 10** |
+| literal / caps / proj-str / iota | 0 | closed at their seals |
+| totality (`accepted_reads`) | 0 | closed, `acceptedReadsP_of` |
+
+## Task #161 CAPSTONE RECORD: `no_proof_of_Empty_P` (2026-09-02)
+
+**What is proved.**  For any model `V` of the `SetTheory` interface:
+if the checker runs in a *validating* mode (`μ.verified = true`) and
+accepts a declaration stream at some fuel — `checkDecls μ (fueledOps μ
+F) ds = .ok env'` — then no constant stored in `env'` has type
+`Empty`.  In particular the accepted stream contains no proof of
+`False` under the preprocessor's `Empty` encoding, and the checker is
+consistent on sort-annotated syntax.
+
+**Where it lives.**  `Setlec/SetR/Interp2/FoldP.lean`, beside the
+milestone form `no_proof_of_Empty_P_of` (which now also carries no
+bundle).  The statement was frozen in `Interp2/CapstoneP.lean`'s
+docstring *before* the harvest layer existed, and it landed letter for
+letter.
+
+**Axioms**: `[propext, Classical.choice, Quot.sound]` — exactly the
+three standard ones.  No custom axiom, no `sorry`, no conditional
+form, at any point of the chain.
+
+**The chain, in one line each.**
+
+1. `EnvS2PM.empty` — the empty environment carries the P invariant.
+2. `declStepPM` — one accepted declaration steps it, by kind:
+   value kinds through the harvests, axioms through `axiomStepPB_of`,
+   basis blocks through `basisStepPB_of`, inductive blocks through
+   `indStepPB_of`.
+3. `foldPM` — `foldlM_R`'s recursion at the invariant.
+4. `checkDecls_sound_P_of` — an accepted stream ends at an environment
+   carrying it.
+5. `no_constant_of_Empty_P` (`CapstoneP.lean`) — such an environment
+   stores no constant of type `Empty`: the membership is `mem_typeP`
+   at the `denoteP` reading, the reading of `.const emptyName []` is
+   the leaf by the constant clause, and the leaf's `interp2` value is
+   the empty set by erasure injectivity plus `EnvS.empty_pinned`.
+
+**What the hypotheses are, and are not.**  `μ.verified = true` is part
+of the goal's letter — the annotated checker *is* the verified mode,
+and `--no-model` ignores annotations by design.  `[SetTheory V]` is the
+project's standing parametricity rule (consistency proofs stay
+parametric in the interface), not an assumption about the input.
+Everything else is the input: the run, the constant, its type.
+
+## Task #161 P4 FRONTIER TABLE, FINALIZED (2026-09-02)
+
+The running tally at DESIGN.md §"Task #161 P4 frontier-transformation
+record" is hereby **closed**.  Its last standing line —
+
+> **Still routed in P, by discharge tier**: `iota_pins` only, beside
+> `accepted_reads`.
+
+— is now empty.  The final ledger:
+
+| canonical lane (sort-run `interp2`) | validated-annotation lane (P) |
+| --- | --- |
+| froze at `Capstone2E`'s **fifteen** routed residues, on the sort-stability family (`BinderSortAgree2`, `SortSem2`, `SortAgree`, `SortOfE/LamSortEInstLevels`, `EnvExtendStable`, …) | **all fifteen dissolved or proved** — see the running tally's table, unchanged |
+| the semantic tiers were never reached (the lane froze earlier) | literal, caps, proj/str, iota, totality: **all closed**, each at its own seal |
+| the install tier was never reached | pin/axiom, basis, **inductive**: all three closed (`axiomStepPB_of`, `basisStepPB_of`, `indStepPB_of`) |
+| capstone: conditional, on fifteen coherence residues | capstone: **unconditional**, `hμ` alone |
+
+**The measured claim, final.**  Validated annotations did not merely
+move the frontier; they *dissolved* it.  What replaced the coherence
+frontier was the ordinary semantic content of the checker's features —
+and that content was payable, tier by tier, in 10 batches, with five
+applications of fix shape 0 (the H1 widenings: `IotaThmNR`'s typed
+walks, `IotaRunsR`'s side runs, `IotaRuleR`'s rhs run, `ProjFnR`'s rhs
+run, `ProjFnR`'s sides-pack runs), each of which cost **zero new proof
+text at the producer** because the checker had already run what the P
+tier needed and the v1 install simply had not recorded it.
+
+**The three lessons, for the successor campaign.**
+
+1. **Record runs, not just derivations.**  Every one of the five
+   widenings was the same species: the checker performs a run, the v1
+   install needs only its *derivation*, and the P tier needs the run.
+   Derivation → run is refuted for a fuel-bounded checker (the part-3
+   countermodel), so the row cannot be recovered after the fact.  A
+   relation that records what the checker *did* costs nothing and
+   saves a wall.
+2. **The limiting-case check comes before the widening.**  Ratified as
+   part of the protocol at part 9's seal, and it retired one proposed
+   row on the spot (`denoteP_isSome_of_denote`: the P tier's `∃ Ra`
+   was already implied by v1's derivation, because `denoteP` and
+   `denote` share every failure guard).
+3. **A grading is a typing derivation, and the tier that pays for
+   typing gets the syntax for free.**  The div/mod mirror measured it
+   (~1400 P lines against 2880 v1), and this batch measured it again
+   at the install layer: 2442 v1 lines → 1863 P lines.
