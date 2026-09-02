@@ -19821,3 +19821,89 @@ NEXT: the master sequence per protocol (master merged INTO the
 lane, full gates, master-merge grant requested separately, push
 stays with the user), then the de-gating harvest per the standing
 directive.
+
+## Task #161 SUCCESSION RECORD: canonical home is MASTER (2026-09-02)
+
+The campaign landed: master fast-forwarded to `771f2fed` (223 files,
++70838).  `agent/annot-v2` is retired as a lane; this file on MASTER
+is the canonical record.  The capstone is
+`Setlec.SetR.Interp2.no_proof_of_Empty_P` (`Interp2/FoldP.lean`),
+audited in the closing record above.  Push pending with the user.
+
+## Task #161 DE-GATING HARVEST: the prioritized candidate list
+(2026-09-02; opens the harvest phase — NO gate is removed before its
+own grant round)
+
+Promoted from the enumeration record (`DESIGN.md` §DE-GATING
+ENUMERATION + the iota-tier table + the ratified negative verdict).
+Status changes since enumeration: the `.nested` grading wall that
+gated entry P3 is RESOLVED (the part-6 repair + `nestedPinGradeP`);
+`UnitLawP`'s premise drop (P11b's license) LANDED at the caps seal.
+Each removal is a checker change: measure first (perf counters on
+init-prelude/init-full + `tests/scale.sh`), remove behind its own
+grant, verdict-neutrality battery per removal.
+
+**P1 — #141's non-app certificate tax family** (annotate-side,
+the named 14–16×).  License: validated `pw` + the sealed P tiers.
+Needs per-site enumeration as its first step (the family is named,
+not itemized).  Expected saving: the largest named multiplier in
+the record; annotate is on every declaration.
+
+**P2 — `iotaCerts`' two per-fire telescope runs**
+(`Kernel/Core.lean:1412` + recursor-side; the hottest certificate
+site in the checker).  License: `RecRulesP`'s two `TeleFitPA`
+premises; `certs_telePA` shows the fit is the runs' only content the
+semantics reads.  Keep the arity checks.  Saving: per firing ι
+reduction × (recursor arity + constructor arity).
+
+**P3 — `recFireComparands`' per-fire `defEqList`** (both fire
+branches).  License: `RecRuleLawP`'s `.plain`/`.nested` premises;
+the `.nested` caveat is resolved (repair + producer landed).
+Saving: per firing ι reduction × `ctorParams`.
+
+**P4 — #109's pt-freshness gates** (per-decl freshness scans
+licensing infer_only).  License: P-tier soundness at the validated
+reading (the gate's fact is now a theorem).  Saving: per-decl scans
+on every stream.
+
+**P5 — #71's possibly-Prop-by-inference gates** (iota certs).
+License: `RecRulesP` + validated `pw` (the bit IS the Prop-ness
+datum).  Saving: iota-heavy streams.
+
+**P6 — `strLitSupported` per-literal scan → per-environment flag**
+(`Verify/EnvGuards.lean:114`; seven `find?`s + shape checks per
+literal).  License: `strLitFactsP` reads only `ConstTypeP`, an
+environment-level invariant.  Saving: per string literal.
+
+**P7 — `reduceNat` per-hit guard → single `find?`-hit test**
+(`Core.lean:684+`).  License: `NatOpsP`/`DivModP` guard conclusions
+carried by the fold invariant.  Saving: per accelerated Nat
+reduction (small, hot).
+
+**P8 — `isUnitLikeTy` per-call scan → pinned-name test**
+(`Core.lean:149`).  License: `unitLike_eq_punit`.  Saving: per
+proof-irrelevance attempt (Prop-heavy streams).
+
+**P9 — `projCert`'s four sort-leg runs** (`Core.lean:1381`; 4 of 6
+runs per firing projection: the `uT`/`wT` legs + both `Level.isEquiv`
+comparisons).  License: `projEntry_pins` fixes what they re-derive;
+nothing in `projStepP_of_claims` inspects them.  THE INFER RUN
+STAYS — ratified negative verdict (squash countermodel), never
+re-litigate.
+
+**P10 — `.proj` inference's `piResidual` walk → pinned two-way
+branch** (license: `projResidualP`).  Saving: per `.proj` inference.
+
+**P11 — the stuck-cascade constants**: (a) `pairEtaCertP`'s two
+type-argument runs → shape test (`mem_psigmaV2_app` +
+`psigmaEta_law2`); (b) `structUnitCertP`'s telescope run
+(`UnitLawP`, premise-drop landed); (c) `structEtaCertP`'s per-field
+`iotaCerts` runs (keep the two `defEqList`s); (d) `majorToCtor`'s
+K-rescue `to_cnstr_when_K` pair (`hitfab`/`hdefab`, inspected by
+nothing).  Saving: per-hit constants in the stuck cascade.
+
+**RECORDED NON-CANDIDATES** (never re-litigate): `certifyNatEqs` and
+`checkDivModCerts` (establishment sources of `NatOpsP`/`DivModP` —
+deleting them orphans the model); `projCert`'s infer run (the
+ratified squash countermodel); `majorToCtor` as a block
+(`MajorStepP` consumes every run).
