@@ -18,6 +18,8 @@ import Setlec.Verify.Cached.BridgeCS3
 import Setlec.Verify.Cached.BridgeCS4
 import Setlec.Verify.Cached.BridgeCSDecl
 import Setlec.Verify.Cached.BridgeCP
+import Setlec.Verify.Cached.OfStoreC
+import Setlec.Verify.Cached.MainC
 
 /-!
 # The cached checker variant's verification (task #163)
