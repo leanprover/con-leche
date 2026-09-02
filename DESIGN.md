@@ -16219,3 +16219,121 @@ factual errors in its own record, and the enlargement of one owed
 conjunct.  **Correcting your own sealed headline against your
 successor's interest is the honesty law's strongest observed form.**
 Paired with the honest-partial entries: a seal is a claim too.
+
+## Task #161 IND TIER part 3 — THE WALL: the ind tier's statement layer speaks a currency the P tier cannot read (2026-09-02)
+
+**STOP-AND-NAME.**  Step 1 of the corrected bill closed (the P frame
+kit, below).  Step 2 is blocked, and so is every step after it, on
+content no bill anticipated and that two seals in a row assumed away.
+Naming it with the countermodel rather than building around it.
+
+### The finding
+
+Every P tier that has ever been discharged consumes the checker's
+**raw recorded runs** — `isDefEqCore … = .ok true`,
+`inferTypeCore … = .ok t` — and converts them through
+`DefEqClaims2P`/`InferClaims2P`.  `DeclR` exposes exactly that for
+defns (`Decl.lean:149,179-180`), `NatOpsR` for the equations (`:213`),
+the reduce pin (`:270`), the axiom arm (`:315`).  That is the whole
+run-certificate route, and its worked examples are `natEqLawP_of_run`
+and `certValueP`.
+
+**The inductive tier is the one R-predicate family that has erased its
+runs.**  `IotaThmR`/`IotaThmNR` reach the comparisons only through
+`IotaWalksR` (`Decl.lean:470-479`), which is six rows of `DefEqListW`
+/ `DefEqAtW` / `IotaSidesTyR` — and each of those is a **quantified-
+context derivation pack** at the *v1* currency:
+
+> `DefEqAtW … a b := ∃ Av Bv, denote … = some Av ∧ denote … = some Bv ∧`
+> `∀ Δ, CtxOkR … Δ a → CtxOkR … Δ b → DefEq μ env cval φ Δ Av Bv`
+
+`ProjFnR` (`:749-751`) and `IotaRuleR`'s `:626-628` conjunct are the
+same shape one constructor over — `Infer μ env' cval φ [] Rv t`, a
+derivation, not a run.  `grep` confirms the consequence directly:
+**`DefEqAtW`/`DefEqListW`/`TypedListW`/`IotaWalksR` have ZERO
+occurrences anywhere under `Setlec/SetR/Interp2/`.**  No P-tier proof
+has ever consumed one, because none can.
+
+### Why it is a wall and not a detour — two countermodels
+
+* **No transport from `interp` to `interp2`.**  Already mechanized, in
+  the campaign's own files: `interp2_ne_interp_erase`
+  (`Interp2/Keys2Probe.lean:94`) exhibits `lam 1 (const empty [0])
+  (bvar 0)`, where the collapse gives `pt` and the two-regime reading
+  gives the empty graph.  Its docstring states the doctrine that this
+  batch has now met from the other side: *"a v1 key's proof is a
+  shape, never a transport.  Every discharge over `interp2` must be
+  rebuilt from interp2-side suppliers."*  A `DefEq` derivation's only
+  soundness is `DefEq.sound` at `interp`; there is no `interp2`
+  soundness for it and there cannot be one.
+* **No recovery of the run from the derivation.**  `checkBridge` maps
+  runs → derivations, and the reverse is not merely absent but
+  **false**: `isDefEqCore` is fuel-bounded and incomplete, so `DefEq`
+  derivations exist that no run at any fuel produces.  Completeness is
+  the wrong direction and is not a theorem of this checker.
+
+So the P ind tier cannot be built from `DeclIndR` as it stands.  This
+is not a missing lemma; it is a missing *datum*.
+
+### The two seals that assumed it away, named
+
+* the part-2 seal's item-2 paragraph says the certificates "convert
+  through `DefEqClaims2P` — the run-certificate route".  They do not;
+  the ind tier has no certificates to convert, only derivations;
+* the part-2 **correction** — the record's own strongest instance of
+  self-correction — names as its item 2 "the two run-conversion
+  lemmas, `defEqAtP_of_run` and `iotaSidesTyP_of_run`".  Both names
+  presuppose a run that `DefEqAtW` and `IotaSidesTyR` do not carry.
+  The correction re-checked the *budget* and the *locations* and did
+  not re-check the *currency*.
+
+Recording this in the same voice the correction used: the survey that
+found it cost one targeted `grep` over `Setlec/SetR/Interp2/`, and the
+question it answered — "has any P proof ever consumed one of these?" —
+is the question neither seal asked.
+
+### The fix is a statement-layer decision, and it is the lead's
+
+The datum exists at the producer and is thrown away there:
+`defEqAtW_of` (`Bridge/Decl.lean:1478-1483`) takes
+`h : isDefEqCore μ env F d a b = .ok true` and consumes it into a
+derivation via `checkBridge`.  So exposing the runs is mechanical **at
+the producer**; what it is not is free at the statement layer, which
+both lanes read.  Three shapes, in increasing blast radius:
+
+1. **a parallel run conjunct on `IotaThmR`/`IotaThmNR`** (a new
+   `IotaRunsR`), leaving `DefEqAtW` untouched.  Breaks only the two
+   producer sites (`Bridge/Decl.lean:1783,2037`) and v1's `iotaRuleS`
+   destructuring.  `IndBottom*S` mention `IotaThmR` in prose only —
+   they take the walks as separate hypotheses — so the bottoms do not
+   move;
+2. **the run inside `DefEqAtW`/`TypedAtW`/`IotaSidesTyR`** — smaller
+   to state, but breaks every anonymous-constructor destructuring of
+   those three across the v1 install lane;
+3. re-cutting `DeclIndR` to the run currency throughout — cleanest,
+   largest.
+
+I have not taken any of them.  Changing what the shared statement
+layer promises is a design decision affecting both lanes and the
+capstone's meaning, and the standing instruction is that statements
+are frozen.
+
+### What remains reachable, and what does not
+
+Blocked on the wall: the surviving mirror stages (step 2), the
+`.nested` graded-pins establishment (step 3), the recursor group's
+`RecRuleLawP` rows including the Prop-motive case (step 4), the
+`rec_rules` half of the projection phase, `indStepPB_of` (step 6) and
+THE ASSEMBLY.  Every one of them needs a comparison the checker ran.
+
+**Not blocked**: the `caps_ok` half of the projection-function cons
+(step 5, part 1's finding 6).  `checkEtaThm` is a pure `Bool` shape
+match with no side certification (part 2's finding 4, re-confirmed),
+`ProjInstallR`'s valuation identification (`Decl.lean:813-814`) is an
+*equation*, and `EtaLawP` is already a theorem from part 2.  So that
+row is equational throughout and is where this batch continues.
+
+### Census
+
+Unchanged, by design: `no_proof_of_Empty_P_of` = `hμ` + `IndStepPB`.
+`IndStepPB` stays **unstated** rather than conditional.
