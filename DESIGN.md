@@ -16317,7 +16317,16 @@ def RelC (v' : ExprC) (v : Expr) : Prop := WFc v' ∧ eraseC v' = v   -- state-f
 structure CSOK (mode env) (s : CState) : Prop   -- ISOK minus the arena:
   -- constTyAt/constValAt/ruleRhsAt: Name/Level-keyed (no denoteN/denoteL legs),
   --   entry RelC-related to the level-instantiated stored datum;
-  -- whnfCoreC/whnfC/inferC/annotC: WFc key ∧ WFc val ∧
+  -- whnfCoreC/whnfC/inferC/annotC: WFc val ∧
+  --   (NOTE, binding for every memo clause and every walk's memo
+  --   invariant: a clause may assert WFc of *stored values* and any
+  --   fact that is a function of the key's ERASURE — never WFc of
+  --   keys.  A lookup returns the stored value exactly, so value
+  --   facts transfer; but insert-preservation sees a beq-collision
+  --   key equal to the stored one only up to erasure+hash, so
+  --   key-WFc would not be preserved.  beq-equal keys have equal
+  --   erasures (beqSpec_sound), which is exactly what
+  --   erasure-function clauses need.)
   --   ∃ F, ∀ d, (eraseC k).wscopedB d → entry mode env F d (eraseC k) = .ok (eraseC v);
   -- defeqC: the pair form; lsimpC/lnzC/eqvC: the ILevel memo invariants
   --   restated on tree keys; ienv: RelC per tag (self-certifying, env-free);
