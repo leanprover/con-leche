@@ -112,8 +112,9 @@ theorem annotTransportP {m : EnvS2Core V env} {F : Nat}
     exact hmemZ k hk
   -- descend the λ-tower along the fired spine
   obtain ⟨-, -, -, -, hok⟩ := lamTowerStepP (V := V) (C := C) K
-    (Nat.le_refl _) htowerLam hzslen hmemLam (hokRa ρ) hzsAnnot
+    (Nat.le_refl _) htowerLam hzslen hmemLam (hokRa ρ)
+  have hok' := hok hzsAnnot
   rwa [show zs.take K = zs from
-    List.take_of_length_le (Nat.le_of_eq hzslen)] at hok
+    List.take_of_length_le (Nat.le_of_eq hzslen)] at hok'
 
 end Setlec.SetR.Interp2

@@ -19,6 +19,15 @@ half is under the tower's grading too.  That costs nothing where it is
 used: the transport has the grading in hand by construction, and the
 reduct stage consumes both halves together.
 
+**Part-9 generalization (kit repair).**  The `hokws` premise
+(`∀ w ∈ ws, AnnotOkP V ρ w`) was a *premise* of the whole conclusion,
+but only the fourth component uses it: the value equality and the
+residual's grading run on the tower's own grading alone.  The
+projection bottom needs the value half **unconditionally** (its first
+conclusion carries no annotation hypotheses), so `hokws` now guards
+only the fourth conjunct — v1's own shape (`lamTowerStepS`).  Strictly
+more general; the one call site (`annotTransportP`) applies it.
+
 The other delta is cosmetic: the tower is a `LamTeleP` relation rather
 than a `lamCtx` constructor (see `IndTowerReadP.lean`), so the residual
 is produced existentially instead of by `List.take` on a constructor
@@ -77,17 +86,18 @@ theorem lamTowerStepP :
         (∀ k, k < K → interp2 V ρ (ws.getD k default)
           ∈ˢ interp2 V (chainP V ρ (ws.take k))
               (Γl.getD (K - 1 - k) default)) →
-        AnnotOkP V ρ L → (∀ w ∈ ws, AnnotOkP V ρ w) →
+        AnnotOkP V ρ L →
         ∃ L' : AVExpr,
           LamTeleP (K - n) L' (Γl.take (K - n)) C ∧
           interp2 V ρ (AVExpr.mkAppN L (ws.take n))
             = interp2 V (chainP V ρ (ws.take n)) L' ∧
           AnnotOkP V (chainP V ρ (ws.take n)) L' ∧
-          AnnotOkP V ρ (AVExpr.mkAppN L (ws.take n)) := by
+          ((∀ w ∈ ws, AnnotOkP V ρ w) →
+            AnnotOkP V ρ (AVExpr.mkAppN L (ws.take n))) := by
   intro n
   induction n with
   | zero =>
-    intro K hn L C Γl htele ws ρ hw hmem hokL hokws
+    intro K hn L C Γl htele ws ρ hw hmem hokL
     have hΓlen : Γl.length = K := htele.length
     refine ⟨L, ?_, ?_, ?_, ?_⟩
     · rw [Nat.sub_zero, List.take_of_length_le (by omega)]
@@ -96,14 +106,15 @@ theorem lamTowerStepP :
       rfl
     · rw [List.take_zero, chainP_nil]
       exact hokL
-    · rw [List.take_zero]
+    · intro _
+      rw [List.take_zero]
       exact hokL
   | succ n ih =>
-    intro K hn L C Γl htele ws ρ hw hmem hokL hokws
+    intro K hn L C Γl htele ws ρ hw hmem hokL
     have hΓlen : Γl.length = K := htele.length
     have hnK : n < K := by omega
     obtain ⟨L', htele', hval', hokL', hokApp'⟩ :=
-      ih (by omega) htele hw hmem hokL hokws
+      ih (by omega) htele hw hmem hokL
     -- the residual tower exposes its head λ
     have hKn : K - n = (K - (n + 1)) + 1 := by omega
     rw [hKn] at htele'
@@ -168,14 +179,15 @@ theorem lamTowerStepP :
       exact htele''
     · rw [htk, chainP_snoc]
       exact hokB _ hmemn
-    · rw [htk, AVExpr.mkAppN_snoc]
+    · intro hokws
+      rw [htk, AVExpr.mkAppN_snoc]
       refine ⟨?_, ?_⟩
       · rw [AnnotOk2_app]
-        refine ⟨hokApp'.1, (hokws _ (List.mem_of_getElem? hwn)).1,
+        refine ⟨(hokApp' hokws).1, (hokws _ (List.mem_of_getElem? hwn)).1,
           v, interp2 V (chainP V ρ (ws.take n)) A, Bf, ?_, hmemn, hBf0⟩
         rw [hval', interp2_lam]
         exact lamR_mem hBf
       · rw [AnnotValidV_app]
-        exact ⟨hokApp'.2, (hokws _ (List.mem_of_getElem? hwn)).2⟩
+        exact ⟨(hokApp' hokws).2, (hokws _ (List.mem_of_getElem? hwn)).2⟩
 
 end Setlec.SetR.Interp2
