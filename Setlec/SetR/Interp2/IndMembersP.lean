@@ -271,4 +271,51 @@ theorem indMembersPM (hkey : MemberKeyS V) (hetaP : MemberEtaLawP V)
     | recInfo cv mI rP rules => exact nomatch hmatch
     | projInfo e => exact nomatch hmatch
 
+/-- **The recursor provisioning fold, both tiers** —
+`provisionRecsS`'s joint twin.  The group's recursors install
+rule-less, giving the **self** environment the rule certificates were
+checked against *together with a `EnvS2PM` at it* — which is what the
+iota phase's run-certificate route needs, since `checkSoundAtP` runs
+at `TierInputsAtP.ofEnvS2PM` and there is no other way to get one at
+`envSelf`. -/
+theorem provisionRecsPM (hkey : MemberKeyS V) (hetaP : MemberEtaLawP V)
+    (hunitP : MemberUnitLawP V)
+    {μ : CheckMode} {F : Nat} {blockNames : List Name} :
+    ∀ (recs : List ConstantInfo) {envAcc : Env}
+      (mp : EnvS2PM V μ envAcc)
+      {envSelf : Env} {cvalSelf : TConstVal}
+      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
+      (∀ ci ∈ recs, blockNames.contains ci.name = true) →
+      Setlec.SetR.ProvisionRecsR μ F blockNames envAcc
+        mp.base2.base.cval recs envSelf cvalSelf checked →
+      BlockInstalledTT blockNames envAcc mp.base2.base.cval →
+      BlockAcvalInstalled blockNames envAcc mp.base2.acval →
+      Setlec.EtaFamiliesClosedO blockNames envAcc →
+      Setlec.BlockEtaPinned μ blockNames envAcc →
+      ∃ mS : EnvS2PM V μ envSelf,
+        mS.base2.base.cval = cvalSelf ∧
+        BlockInstalledTT blockNames envSelf cvalSelf ∧
+        BlockAcvalInstalled blockNames envSelf mS.base2.acval ∧
+        Setlec.EtaFamiliesClosedO blockNames envSelf ∧
+        Setlec.BlockEtaPinned μ blockNames envSelf := by
+  intro recs
+  induction recs with
+  | nil =>
+    intro envAcc mp envSelf cvalSelf checked hbn h hI hIA hEC hBP
+    obtain ⟨rfl, rfl, -⟩ := h
+    exact ⟨mp, rfl, hI, hIA, hEC, hBP⟩
+  | cons ci rest ih =>
+    intro envAcc mp envSelf cvalSelf checked hbn h hI hIA hEC hBP
+    obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hrec, -⟩ := h
+    obtain ⟨type', hcv, hcvA, -⟩ := id hmv
+    have hnameA : cvA.name = ci.toConstantVal.name := by rw [hcvA]
+    obtain ⟨mp₁, hcval₁, hac₁, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
+      memberInstallPM hkey hetaP hunitP mp hmv hI hIA
+        (by rw [hnameA]; exact hbn ci List.mem_cons_self)
+        (fun _ heq => ConstantInfo.noConfusion heq)
+        hEC hBP rfl rfl (Or.inr (Or.inr ⟨mI, rP, rfl⟩))
+    exact ih mp₁
+      (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
+      (by rw [hcval₁]; exact hrec) hI₁ hIA₁ hEC₁ hBP₁
+
 end Setlec.SetR.Interp2
