@@ -171,6 +171,7 @@ import Setlec.SetR.Interp2.IndReductP
 import Setlec.SetR.Interp2.IndLamTowerP
 import Setlec.SetR.Interp2.IndAnnotKitP
 import Setlec.SetR.Interp2.IndAnnotMemP
+import Setlec.SetR.Interp2.IndPinProbeP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP
