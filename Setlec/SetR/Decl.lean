@@ -546,6 +546,10 @@ def IotaThmR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
          (∀ φ : Name → Nat,
            DefEqListW μ envSelf cval φ depth
              ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP) ∧
+         -- ... and its recorded run (the H1 exposure; the P tier's
+         -- grading supply for the parameter positions)
+         DefEqListOk μ F envSelf depth
+           ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP ∧
          IotaWalksR μ envSelf cval depth
            ((largs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP)
            (xFvs.map Expr.fvarTypeD) (cdoms.drop cnP)
@@ -630,6 +634,11 @@ def IotaThmNR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
            TypedListW μ envSelf cval φ depth
              (pins.map fun p =>
                Expr.instSpine (fvsP.take rP) (rP - 1) p) cdomsP) ∧
+         -- ... and its recorded run (the H1 exposure; the P tier's
+         -- grading supply for the instantiated pins)
+         TypedListOk μ F envSelf depth
+           (pins.map fun p =>
+             Expr.instSpine (fvsP.take rP) (rP - 1) p) cdomsP ∧
          IotaWalksR μ envSelf cval depth
            ((largs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP)
            (xFvs.map Expr.fvarTypeD) (cdoms.drop cnP)
