@@ -1315,6 +1315,589 @@ theorem quotLiftInvTyP_data {E : AVExpr} {u v : Nat} {Aset R B f : V}
     case _ => exact hlev.1
     case _ => exact hlev.2
 
+/-- **`Quot.lift`'s type reading is graded.**  Six
+`AnnotOkP_pi_bit` steps; every squash clause is discharged by the
+product below it being a `piR 0`, except the innermost, where the
+target sort itself is `0`. -/
+theorem quotLiftTyP_okP {E : AVExpr} {b u v : Nat} (hz : b = 0 ↔ v = 0)
+    (hval : ∀ (ρ' : Nat → V) (T x y : V), T ∈ˢ (univ v : V) →
+      x ∈ˢ T → y ∈ˢ T →
+      app (app (app (interp2 V ρ' E) T) x) y = eqv x y)
+    (hgr : ∀ (ρ' : Nat → V) (Aa la ra : AVExpr),
+      AnnotOkP V ρ' Aa → AnnotOkP V ρ' la → AnnotOkP V ρ' ra →
+      interp2 V ρ' Aa ∈ˢ (univ v : V) →
+      interp2 V ρ' la ∈ˢ interp2 V ρ' Aa →
+      interp2 V ρ' ra ∈ˢ interp2 V ρ' Aa →
+      AnnotOkP V ρ' (.app (.app (.app E Aa) la) ra) ∧
+        interp2 V ρ' (.app (.app (.app E Aa) la) ra)
+          ∈ˢ (univZero : V))
+    (ρ : Nat → V) :
+    AnnotOkP V ρ (quotLiftTyP E b u v) := by
+  have h6 : ∀ Aset R B f h : V, Aset ∈ˢ (univ u : V) →
+      R ∈ˢ relSpace2 V u Aset → B ∈ˢ (univ v : V) →
+      AnnotOkP V (cons h (cons f (cons B (cons R (cons Aset ρ)))))
+        (.pi 0 b (quotAppP u 4 3) (.bvar 3)) := by
+    intro Aset R B f h hAset hR hB
+    obtain ⟨hqok, hqval, -⟩ := quotApp_data (u := u) (i := 4) (j := 3)
+      (ρ := cons h (cons f (cons B (cons R (cons Aset ρ)))))
+      (by simp [cons]) (by simp [cons]) hAset hR
+    refine AnnotOkP_pi_bit ⟨hqok, hqval⟩ (fun _ _ => ⟨trivial, trivial⟩)
+      (fun hb0 q _ => ?_)
+    rw [show interp2 V (cons q (cons h (cons f (cons B
+        (cons R (cons Aset ρ)))))) (AVExpr.bvar 3) = B
+      from by simp [interp2_bvar, cons], ← univ_zero, ← hz.mp hb0]
+    exact hB
+  have h5 : ∀ Aset R B f : V, Aset ∈ˢ (univ u : V) →
+      R ∈ˢ relSpace2 V u Aset → B ∈ˢ (univ v : V) →
+      f ∈ˢ piR b Aset (fun _ => B) →
+      AnnotOkP V (cons f (cons B (cons R (cons Aset ρ))))
+        (.pi 0 b (quotLiftInvTyP E)
+          (.pi 0 b (quotAppP u 4 3) (.bvar 3))) := by
+    intro Aset R B f hAset hR hB hf
+    obtain ⟨-, hinv⟩ := quotLiftInvTyP_data (u := u) ρ hval hgr hR hB
+      hf (fun hb0 => by rw [← univ_zero, ← hz.mp hb0]; exact hB)
+    refine AnnotOkP_pi_bit hinv
+      (fun h _ => h6 Aset R B f h hAset hR hB) (fun hb0 h _ => ?_)
+    rw [interp2_pi, hb0]
+    exact piR_zero_mem_univZero
+  have h4 : ∀ Aset R B : V, Aset ∈ˢ (univ u : V) →
+      R ∈ˢ relSpace2 V u Aset → B ∈ˢ (univ v : V) →
+      AnnotOkP V (cons B (cons R (cons Aset ρ)))
+        (.pi 0 b (.pi 0 b (.bvar 2) (.bvar 1))
+          (.pi 0 b (quotLiftInvTyP E)
+            (.pi 0 b (quotAppP u 4 3) (.bvar 3)))) := by
+    intro Aset R B hAset hR hB
+    have hdom : interp2 V (cons B (cons R (cons Aset ρ)))
+        (AVExpr.pi 0 b (.bvar 2) (.bvar 1))
+        = piR b Aset (fun _ => B) := by
+      rw [interp2_pi]
+      simp only [interp2_bvar, cons]
+    refine AnnotOkP_pi_bit ?_ (fun f hf => ?_) (fun hb0 f _ => ?_)
+    · refine AnnotOkP_pi_bit (Aa := .bvar 2) ⟨trivial, trivial⟩
+        (fun _ _ => ⟨trivial, trivial⟩) (fun hb0 a _ => ?_)
+      rw [show interp2 V (cons a (cons B (cons R (cons Aset ρ))))
+          (AVExpr.bvar 1) = B from by simp [interp2_bvar, cons],
+        ← univ_zero, ← hz.mp hb0]
+      exact hB
+    · exact h5 Aset R B f hAset hR hB (by rwa [hdom] at hf)
+    · rw [interp2_pi, hb0]
+      exact piR_zero_mem_univZero
+  have h3 : ∀ Aset R : V, Aset ∈ˢ (univ u : V) →
+      R ∈ˢ relSpace2 V u Aset →
+      AnnotOkP V (cons R (cons Aset ρ))
+        (.pi 0 b (.sort v)
+          (.pi 0 b (.pi 0 b (.bvar 2) (.bvar 1))
+            (.pi 0 b (quotLiftInvTyP E)
+              (.pi 0 b (quotAppP u 4 3) (.bvar 3))))) := by
+    intro Aset R hAset hR
+    refine AnnotOkP_pi_bit (Aa := .sort v) ⟨trivial, trivial⟩
+      (fun B hB => h4 Aset R B hAset hR (by rwa [interp2_sort] at hB))
+      (fun hb0 B _ => ?_)
+    rw [interp2_pi, hb0]
+    exact piR_zero_mem_univZero
+  have h2 : ∀ Aset : V, Aset ∈ˢ (univ u : V) →
+      AnnotOkP V (cons Aset ρ)
+        (.pi 0 b quotRelTyP
+          (.pi 0 b (.sort v)
+            (.pi 0 b (.pi 0 b (.bvar 2) (.bvar 1))
+              (.pi 0 b (quotLiftInvTyP E)
+                (.pi 0 b (quotAppP u 4 3) (.bvar 3)))))) := by
+    intro Aset hAset
+    refine AnnotOkP_pi_bit (Aa := quotRelTyP) (quotRelTyP_okP _)
+      (fun R hR => h3 Aset R hAset (by rwa [quotRelTyP_interp u] at hR))
+      (fun hb0 R _ => ?_)
+    rw [interp2_pi, hb0]
+    exact piR_zero_mem_univZero
+  rw [quotLiftTyP]
+  refine AnnotOkP_pi_bit (Aa := .sort u) ⟨trivial, trivial⟩
+    (fun Aset hAset => h2 Aset (by rwa [interp2_sort] at hAset))
+    (fun hb0 Aset _ => ?_)
+  rw [interp2_pi, hb0]
+  exact piR_zero_mem_univZero
+
+/-- **`Quot.lift` inhabits its type's reading.**  Six
+`lamR_mem_zero_agree` steps against `quotLiftV2`'s own tower, with
+`quotLiftR_mem` at the bottom; the bit/level conversion is `hz` at
+every level, which is the same fact that makes `quotLiftV2_app_any`
+premise-free. -/
+theorem quotLiftTyP_mem {E : AVExpr} {b u v : Nat} (hz : b = 0 ↔ v = 0)
+    (hval : ∀ (ρ' : Nat → V) (T x y : V), T ∈ˢ (univ v : V) →
+      x ∈ˢ T → y ∈ˢ T →
+      app (app (app (interp2 V ρ' E) T) x) y = eqv x y)
+    (hgr : ∀ (ρ' : Nat → V) (Aa la ra : AVExpr),
+      AnnotOkP V ρ' Aa → AnnotOkP V ρ' la → AnnotOkP V ρ' ra →
+      interp2 V ρ' Aa ∈ˢ (univ v : V) →
+      interp2 V ρ' la ∈ˢ interp2 V ρ' Aa →
+      interp2 V ρ' ra ∈ˢ interp2 V ρ' Aa →
+      AnnotOkP V ρ' (.app (.app (.app E Aa) la) ra) ∧
+        interp2 V ρ' (.app (.app (.app E Aa) la) ra)
+          ∈ˢ (univZero : V))
+    (ρ : Nat → V) :
+    quotLiftV2 V u v ∈ˢ interp2 V ρ (quotLiftTyP E b u v) := by
+  have hzv : v = 0 ↔ b = 0 := hz.symm
+  rw [quotLiftTyP, quotLiftV2, interp2_pi, interp2_sort]
+  refine lamR_mem_zero_agree hzv fun Aset hAset => ?_
+  rw [interp2_pi, quotRelTyP_interp u]
+  refine lamR_mem_zero_agree hzv fun R hR => ?_
+  rw [interp2_pi, interp2_sort]
+  refine lamR_mem_zero_agree hzv fun B hB => ?_
+  have hdom : interp2 V (cons B (cons R (cons Aset ρ)))
+      (AVExpr.pi 0 b (.bvar 2) (.bvar 1))
+      = piR v Aset (fun _ => B) := by
+    rw [interp2_pi]
+    simp only [interp2_bvar, cons]
+    exact piR_zero_agree hz fun _ _ => rfl
+  rw [interp2_pi, hdom]
+  refine lamR_mem_zero_agree hzv fun f hf => ?_
+  have hfb : f ∈ˢ piR b Aset fun _ => B := by
+    rwa [piR_zero_agree hz (fun _ _ => rfl) (B := fun _ => B)]
+  obtain ⟨hinvint, -⟩ := quotLiftInvTyP_data (u := u) ρ hval hgr hR hB
+    hfb (fun hb0 => by rw [← univ_zero, ← hz.mp hb0]; exact hB)
+  rw [interp2_pi, hinvint]
+  refine lamR_mem_zero_agree hzv fun h hh => ?_
+  obtain ⟨-, -, hqint⟩ := quotApp_data (u := u) (i := 4) (j := 3)
+    (ρ := cons h (cons f (cons B (cons R (cons Aset ρ)))))
+    (by simp [cons]) (by simp [cons]) hAset hR
+  rw [interp2_pi, hqint]
+  have hfib : ∀ q : V, q ∈ˢ quotSet u Aset R →
+      interp2 V (cons q (cons h (cons f (cons B
+        (cons R (cons Aset ρ)))))) (AVExpr.bvar 3) = B := by
+    intro q _; simp [interp2_bvar, cons]
+  rw [piR_congr hfib,
+    show (piR b (quotSet u Aset R) fun _ => B)
+      = piR v (quotSet u Aset R) (fun _ => B)
+      from piR_zero_agree hz fun _ _ => rfl]
+  exact quotLiftR_mem V hf fun hv0 => by
+    rw [← univ_zero, ← hv0]; exact hB
+
+/-! ### The substitution-peeling kit
+
+`TeleFitPA` peels by `B.inst a` at cut `0`, so after `k` peels a
+domain carries a *chain* of instantiations at cuts `k-1, …, 0`.
+`interp2_inst0` turns the outermost into a `cons`; these four turn the
+rest into `cons`es too, so a `k`-deep telescope domain's reading is
+read at the `k`-fold `cons` environment — which is the environment
+every space lemma above is stated at.  (`BasisBlocksP.lean`'s
+`interp2_liftN_succ_inst` is the special case where the domain is a
+*lifted* earlier argument; this is the general shape.) -/
+
+theorem interp2_inst_cons1 (e a : AVExpr) (x1 : V) (ρ : Nat → V) :
+    interp2 V (cons x1 ρ) (e.inst a 1)
+      = interp2 V (cons x1 (cons (interp2 V ρ a) ρ)) e := by
+  have hsh : shiftE 1 0 (cons x1 ρ) = ρ := by
+    funext j; simp [shiftE, cons]
+  rw [interp2_inst, hsh]
+  congr 1
+  funext i
+  match i with
+  | 0 => rfl
+  | 1 => rfl
+  | (_ + 2) => rfl
+
+theorem interp2_inst_cons2 (e a : AVExpr) (x1 x2 : V) (ρ : Nat → V) :
+    interp2 V (cons x2 (cons x1 ρ)) (e.inst a 2)
+      = interp2 V (cons x2 (cons x1 (cons (interp2 V ρ a) ρ))) e := by
+  have hsh : shiftE 2 0 (cons x2 (cons x1 ρ)) = ρ := by
+    funext j; simp [shiftE, cons]
+  rw [interp2_inst, hsh]
+  congr 1
+  funext i
+  match i with
+  | 0 => rfl
+  | 1 => rfl
+  | 2 => rfl
+  | (_ + 3) => rfl
+
+theorem interp2_inst_cons3 (e a : AVExpr) (x1 x2 x3 : V) (ρ : Nat → V) :
+    interp2 V (cons x3 (cons x2 (cons x1 ρ))) (e.inst a 3)
+      = interp2 V (cons x3 (cons x2 (cons x1 (cons (interp2 V ρ a) ρ))))
+          e := by
+  have hsh : shiftE 3 0 (cons x3 (cons x2 (cons x1 ρ))) = ρ := by
+    funext j; simp [shiftE, cons]
+  rw [interp2_inst, hsh]
+  congr 1
+  funext i
+  match i with
+  | 0 => rfl
+  | 1 => rfl
+  | 2 => rfl
+  | 3 => rfl
+  | (_ + 4) => rfl
+
+theorem interp2_inst_cons4 (e a : AVExpr) (x1 x2 x3 x4 : V)
+    (ρ : Nat → V) :
+    interp2 V (cons x4 (cons x3 (cons x2 (cons x1 ρ)))) (e.inst a 4)
+      = interp2 V (cons x4 (cons x3 (cons x2 (cons x1
+          (cons (interp2 V ρ a) ρ))))) e := by
+  have hsh : shiftE 4 0 (cons x4 (cons x3 (cons x2 (cons x1 ρ)))) = ρ := by
+    funext j; simp [shiftE, cons]
+  rw [interp2_inst, hsh]
+  congr 1
+  funext i
+  match i with
+  | 0 => rfl
+  | 1 => rfl
+  | 2 => rfl
+  | 3 => rfl
+  | 4 => rfl
+  | (_ + 5) => rfl
+
+/-- Every stored leaf absorbs instantiation: `EnvS.cval_closed`
+through `EnvS2Core.acval_erase` and `AVExpr.inst_eq_self`. -/
+theorem acval_inst_eq_self (m : EnvS2Core V env) (n : Name)
+    (ψ : Name → Nat) (a : AVExpr) (k : Nat) :
+    (m.acval n ψ).inst a k = m.acval n ψ :=
+  AVExpr.inst_eq_self _
+    (VExpr.bvarsBelow.mono (Nat.zero_le k)
+      (by rw [m.acval_erase]; exact m.base.cval_closed n ψ)) a
+
+/-! ### `Quot.lift`'s type reading, and its rule -/
+
+/-- **`Quot.lift`'s type reading.** -/
+theorem denoteP_quotLiftA_type (ψ : Name → Nat)
+    (hQ : env.find? quotName = some quotA)
+    (hE : env.find? eqName = some eqA) :
+    denoteP (acvalWith m.acval quotLiftA.name A)
+        ⟨quotLiftA :: env.consts⟩ ψ 0 quotLiftA.toConstantVal.type
+      = some (quotLiftTyP
+          (m.acval eqName (Level.substFn ψ [uN] [Level.param vN]))
+          (pwBit ψ (.ifAllZero [vN])) (ψ uN) (ψ vN)) := by
+  have hQc : ∀ d : Nat,
+      denoteP (acvalWith m.acval quotLiftA.name A)
+        ⟨quotLiftA :: env.consts⟩ ψ d (.const quotName [.param uN])
+        = some (AVExpr.const .quot [ψ uN]) := fun d =>
+    denoteP_quotLeaf (m := m) (A := A) ψ (by decide) hQ d
+      (Level.param uN)
+  have hEc : ∀ d : Nat,
+      denoteP (acvalWith m.acval quotLiftA.name A)
+        ⟨quotLiftA :: env.consts⟩ ψ d (.const eqName [.param vN])
+        = some (m.acval eqName
+            (Level.substFn ψ [uN] [Level.param vN])) := fun d =>
+    denoteP_eqLeaf (m := m) (A := A) ψ (Level.param vN) (by decide)
+      hE d
+  rw [show quotLiftA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
+          (Expr.forallE (Name.anonymous.str "r")
+            (Expr.forallE Name.anonymous (.bvar 0)
+              (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
+                { bi := .default, pw := .never })
+              { bi := .default, pw := .never })
+            (Expr.forallE (Name.anonymous.str "β") (.sort (.param vN))
+              (Expr.forallE (Name.anonymous.str "f")
+                (Expr.forallE (Name.anonymous.str "a") (.bvar 2)
+                  (.bvar 1) { bi := .default, pw := .ifAllZero [vN] })
+                (Expr.forallE (Name.anonymous.str "a")
+                  (Expr.forallE (Name.anonymous.str "a") (.bvar 3)
+                    (Expr.forallE (Name.anonymous.str "b") (.bvar 4)
+                      (Expr.forallE (Name.anonymous.str "a")
+                        (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0))
+                        (.app (.app (.app (.const eqName [.param vN])
+                          (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
+                          (.app (.bvar 3) (.bvar 1)))
+                        { bi := .default, pw := .ifAllZero [] })
+                      { bi := .default, pw := .ifAllZero [] })
+                    { bi := .default, pw := .ifAllZero [] })
+                  (Expr.forallE (Name.anonymous.str "a")
+                    (.app (.app (.const quotName [.param uN]) (.bvar 4))
+                      (.bvar 3))
+                    (.bvar 3) { bi := .default, pw := .ifAllZero [vN] })
+                  { bi := .default, pw := .ifAllZero [vN] })
+                { bi := .default, pw := .ifAllZero [vN] })
+              { bi := .implicit, pw := .ifAllZero [vN] })
+            { bi := .implicit, pw := .ifAllZero [vN] })
+          { bi := .implicit, pw := .ifAllZero [vN] } from rfl]
+  simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
+    Expr.instantiate1, quotRelTyP, quotAppP, quotLiftInvTyP,
+    quotLiftTyP, pwBit_never, pwBit_ifAllZero_nil, hQc, hEc,
+    Level.eval]
+
+/-- `Quot.lift`'s rule's RHS reading. -/
+def quotLiftRaP (E : AVExpr) (b u v : Nat) : AVExpr :=
+  .lam b (.sort u)
+    (.lam b quotRelTyP
+      (.lam b (.sort v)
+        (.lam b (.pi 0 b (.bvar 2) (.bvar 1))
+          (.lam b (quotLiftInvTyP E)
+            (.lam b (.bvar 4) (.app (.bvar 2) (.bvar 0)))))))
+
+/-- **`Quot.lift`'s rule's RHS reading.** -/
+theorem denoteP_quotLift_rhs (ψ : Name → Nat)
+    (hE : env.find? eqName = some eqA) :
+    denoteP (acvalWith m.acval quotLiftA.name A)
+        ⟨quotLiftA :: env.consts⟩ ψ 0 quotLiftRule.rhs
+      = some (quotLiftRaP
+          (m.acval eqName (Level.substFn ψ [uN] [Level.param vN]))
+          (pwBit ψ (.ifAllZero [vN])) (ψ uN) (ψ vN)) := by
+  have hEc : ∀ d : Nat,
+      denoteP (acvalWith m.acval quotLiftA.name A)
+        ⟨quotLiftA :: env.consts⟩ ψ d (.const eqName [.param vN])
+        = some (m.acval eqName
+            (Level.substFn ψ [uN] [Level.param vN])) := fun d =>
+    denoteP_eqLeaf (m := m) (A := A) ψ (Level.param vN) (by decide)
+      hE d
+  simp only [quotLiftRule]
+  simp [denoteP_lam, denoteP_forallE, denoteP_sort, denoteP_app,
+    denoteP_fvar, Expr.instantiate1, quotRelTyP, quotLiftInvTyP,
+    quotLiftRaP, pwBit_never, pwBit_ifAllZero_nil, hEc, Level.eval]
+
+/-! ### The RHS tower's space, membership and grading -/
+
+/-- The product the RHS tower inhabits. -/
+noncomputable def quotLiftRaSpace (V : Type w) [SetTheory V]
+    (b u v : Nat) : V :=
+  piR b (univ u : V) fun Aset =>
+    piR b (relSpace2 V u Aset) fun R =>
+      piR b (univ v : V) fun B =>
+        piR b (piR b Aset fun _ => B) fun f =>
+          piR b (quotInvSpace2 V Aset R f) fun _ =>
+            piR b Aset fun _ => B
+
+/-- One application step, with the fibre named — the shape every
+`RecRuleLawP` transport peels with. -/
+theorem AnnotOkP_app_of {ρ : Nat → V} {f a : AVExpr} {w : Nat} {S : V}
+    {F : V → V} (hf : AnnotOkP V ρ f) (ha : AnnotOkP V ρ a)
+    (hfm : interp2 V ρ f ∈ˢ piR w S F) (ham : interp2 V ρ a ∈ˢ S)
+    (hfib : w = 0 → ∀ x, x ∈ˢ S → F x ∈ˢ (univZero : V)) :
+    AnnotOkP V ρ (.app f a) ∧
+      interp2 V ρ (.app f a) ∈ˢ F (interp2 V ρ a) :=
+  ⟨⟨by rw [AnnotOk2_app]; exact ⟨hf.1, ha.1, w, S, F, hfm, ham, hfib⟩,
+      ⟨hf.2, ha.2⟩⟩,
+    by rw [interp2_app]; exact app_mem_piR hfm ham hfib⟩
+
+theorem quotLiftRaP_mem {E : AVExpr} {b u v : Nat} (hz : b = 0 ↔ v = 0)
+    (hval : ∀ (ρ' : Nat → V) (T x y : V), T ∈ˢ (univ v : V) →
+      x ∈ˢ T → y ∈ˢ T →
+      app (app (app (interp2 V ρ' E) T) x) y = eqv x y)
+    (hgr : ∀ (ρ' : Nat → V) (Aa la ra : AVExpr),
+      AnnotOkP V ρ' Aa → AnnotOkP V ρ' la → AnnotOkP V ρ' ra →
+      interp2 V ρ' Aa ∈ˢ (univ v : V) →
+      interp2 V ρ' la ∈ˢ interp2 V ρ' Aa →
+      interp2 V ρ' ra ∈ˢ interp2 V ρ' Aa →
+      AnnotOkP V ρ' (.app (.app (.app E Aa) la) ra) ∧
+        interp2 V ρ' (.app (.app (.app E Aa) la) ra)
+          ∈ˢ (univZero : V))
+    (ρ : Nat → V) :
+    interp2 V ρ (quotLiftRaP E b u v) ∈ˢ quotLiftRaSpace V b u v := by
+  rw [quotLiftRaP, quotLiftRaSpace, interp2_lam, interp2_sort]
+  refine lamR_mem fun Aset hAset => ?_
+  rw [interp2_lam, quotRelTyP_interp u]
+  refine lamR_mem fun R hR => ?_
+  rw [interp2_lam, interp2_sort]
+  refine lamR_mem fun B hB => ?_
+  have hdom : interp2 V (cons B (cons R (cons Aset ρ)))
+      (AVExpr.pi 0 b (.bvar 2) (.bvar 1)) = piR b Aset (fun _ => B) := by
+    rw [interp2_pi]; simp only [interp2_bvar, cons]
+  rw [interp2_lam, hdom]
+  refine lamR_mem fun f hf => ?_
+  obtain ⟨hinvint, -⟩ := quotLiftInvTyP_data (u := u) ρ hval hgr hR hB
+    hf (fun hb0 => by rw [← univ_zero, ← hz.mp hb0]; exact hB)
+  rw [interp2_lam, hinvint]
+  refine lamR_mem fun h hh => ?_
+  rw [interp2_lam,
+    show interp2 V (cons h (cons f (cons B (cons R (cons Aset ρ)))))
+      (AVExpr.bvar 4) = Aset from by simp [interp2_bvar, cons]]
+  refine lamR_mem fun a ha => ?_
+  rw [show interp2 V (cons a (cons h (cons f (cons B
+      (cons R (cons Aset ρ)))))) (.app (.bvar 2) (.bvar 0))
+    = app f a from by simp [interp2_app, interp2_bvar, cons]]
+  exact app_mem_piR hf ha fun hb0 _ _ => by
+    rw [← univ_zero, ← hz.mp hb0]; exact hB
+
+theorem quotLiftRaP_okP {E : AVExpr} {b u v : Nat} (hz : b = 0 ↔ v = 0)
+    (hval : ∀ (ρ' : Nat → V) (T x y : V), T ∈ˢ (univ v : V) →
+      x ∈ˢ T → y ∈ˢ T →
+      app (app (app (interp2 V ρ' E) T) x) y = eqv x y)
+    (hgr : ∀ (ρ' : Nat → V) (Aa la ra : AVExpr),
+      AnnotOkP V ρ' Aa → AnnotOkP V ρ' la → AnnotOkP V ρ' ra →
+      interp2 V ρ' Aa ∈ˢ (univ v : V) →
+      interp2 V ρ' la ∈ˢ interp2 V ρ' Aa →
+      interp2 V ρ' ra ∈ˢ interp2 V ρ' Aa →
+      AnnotOkP V ρ' (.app (.app (.app E Aa) la) ra) ∧
+        interp2 V ρ' (.app (.app (.app E Aa) la) ra)
+          ∈ˢ (univZero : V))
+    (ρ : Nat → V) :
+    AnnotOkP V ρ (quotLiftRaP E b u v) := by
+  have hB0 : ∀ B : V, B ∈ˢ (univ v : V) → b = 0 →
+      B ∈ˢ (univZero : V) := fun B hB hb0 => by
+    rw [← univ_zero, ← hz.mp hb0]; exact hB
+  have h6 : ∀ Aset R B f h : V, Aset ∈ˢ (univ u : V) →
+      R ∈ˢ relSpace2 V u Aset → B ∈ˢ (univ v : V) →
+      f ∈ˢ piR b Aset (fun _ => B) →
+      AnnotOkP V (cons h (cons f (cons B (cons R (cons Aset ρ)))))
+          (.lam b (.bvar 4) (.app (.bvar 2) (.bvar 0))) ∧
+        interp2 V (cons h (cons f (cons B (cons R (cons Aset ρ)))))
+          (.lam b (.bvar 4) (.app (.bvar 2) (.bvar 0)))
+          ∈ˢ piR b Aset (fun _ => B) := by
+    intro Aset R B f h hAset hR hB hf
+    have hdom : interp2 V (cons h (cons f (cons B
+        (cons R (cons Aset ρ))))) (AVExpr.bvar 4) = Aset := by
+      simp [interp2_bvar, cons]
+    have hbody : ∀ a : V, a ∈ˢ Aset →
+        interp2 V (cons a (cons h (cons f (cons B
+          (cons R (cons Aset ρ)))))) (.app (.bvar 2) (.bvar 0))
+          = app f a := by
+      intro a _; simp [interp2_app, interp2_bvar, cons]
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · rw [AnnotOk2_lam, hdom]
+      refine ⟨trivial, fun a ha => ?_, fun _ => B, fun a ha => ?_,
+        fun hb0 _ _ => hB0 B hB hb0⟩
+      · rw [AnnotOk2_app]
+        refine ⟨trivial, trivial, b, Aset, fun _ => B, ?_, ?_,
+          fun hb0 _ _ => hB0 B hB hb0⟩
+        · rw [show interp2 V (cons a (cons h (cons f (cons B
+              (cons R (cons Aset ρ)))))) (AVExpr.bvar 2) = f
+            from by simp [interp2_bvar, cons]]
+          exact hf
+        · rw [show interp2 V (cons a (cons h (cons f (cons B
+              (cons R (cons Aset ρ)))))) (AVExpr.bvar 0) = a
+            from by simp [interp2_bvar, cons]]
+          exact ha
+      · rw [hbody a ha]
+        exact app_mem_piR hf ha fun hb0 _ _ => hB0 B hB hb0
+    · rw [AnnotValidV_lam, hdom]
+      exact ⟨trivial, fun _ _ => ⟨trivial, trivial⟩⟩
+    · rw [interp2_lam, hdom]
+      refine lamR_mem fun a ha => ?_
+      rw [hbody a ha]
+      exact app_mem_piR hf ha fun hb0 _ _ => hB0 B hB hb0
+  have h5 : ∀ Aset R B f : V, Aset ∈ˢ (univ u : V) →
+      R ∈ˢ relSpace2 V u Aset → B ∈ˢ (univ v : V) →
+      f ∈ˢ piR b Aset (fun _ => B) →
+      AnnotOkP V (cons f (cons B (cons R (cons Aset ρ))))
+          (.lam b (quotLiftInvTyP E)
+            (.lam b (.bvar 4) (.app (.bvar 2) (.bvar 0)))) ∧
+        interp2 V (cons f (cons B (cons R (cons Aset ρ))))
+          (.lam b (quotLiftInvTyP E)
+            (.lam b (.bvar 4) (.app (.bvar 2) (.bvar 0))))
+          ∈ˢ piR b (quotInvSpace2 V Aset R f)
+            (fun _ => piR b Aset (fun _ => B)) := by
+    intro Aset R B f hAset hR hB hf
+    obtain ⟨hinvint, hinvok⟩ := quotLiftInvTyP_data (u := u) ρ hval hgr
+      hR hB hf (fun hb0 => hB0 B hB hb0)
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · rw [AnnotOk2_lam, hinvint]
+      exact ⟨hinvok.1,
+        fun h _ => (h6 Aset R B f h hAset hR hB hf).1.1,
+        fun _ => piR b Aset (fun _ => B),
+        fun h _ => (h6 Aset R B f h hAset hR hB hf).2,
+        fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero⟩
+    · rw [AnnotValidV_lam, hinvint]
+      exact ⟨hinvok.2, fun h _ => (h6 Aset R B f h hAset hR hB hf).1.2⟩
+    · rw [interp2_lam, hinvint]
+      exact lamR_mem fun h _ => (h6 Aset R B f h hAset hR hB hf).2
+  have h4 : ∀ Aset R B : V, Aset ∈ˢ (univ u : V) →
+      R ∈ˢ relSpace2 V u Aset → B ∈ˢ (univ v : V) →
+      AnnotOkP V (cons B (cons R (cons Aset ρ)))
+          (.lam b (.pi 0 b (.bvar 2) (.bvar 1))
+            (.lam b (quotLiftInvTyP E)
+              (.lam b (.bvar 4) (.app (.bvar 2) (.bvar 0))))) ∧
+        interp2 V (cons B (cons R (cons Aset ρ)))
+          (.lam b (.pi 0 b (.bvar 2) (.bvar 1))
+            (.lam b (quotLiftInvTyP E)
+              (.lam b (.bvar 4) (.app (.bvar 2) (.bvar 0)))))
+          ∈ˢ piR b (piR b Aset (fun _ => B))
+            (fun f => piR b (quotInvSpace2 V Aset R f)
+              (fun _ => piR b Aset (fun _ => B))) := by
+    intro Aset R B hAset hR hB
+    have hdom : interp2 V (cons B (cons R (cons Aset ρ)))
+        (AVExpr.pi 0 b (.bvar 2) (.bvar 1))
+        = piR b Aset (fun _ => B) := by
+      rw [interp2_pi]; simp only [interp2_bvar, cons]
+    have hdok : AnnotOkP V (cons B (cons R (cons Aset ρ)))
+        (AVExpr.pi 0 b (.bvar 2) (.bvar 1)) := by
+      refine AnnotOkP_pi_bit (Aa := .bvar 2) ⟨trivial, trivial⟩
+        (fun _ _ => ⟨trivial, trivial⟩) (fun hb0 a _ => ?_)
+      rw [show interp2 V (cons a (cons B (cons R (cons Aset ρ))))
+        (AVExpr.bvar 1) = B from by simp [interp2_bvar, cons]]
+      exact hB0 B hB hb0
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · rw [AnnotOk2_lam, hdom]
+      exact ⟨hdok.1, fun f hf => (h5 Aset R B f hAset hR hB hf).1.1,
+        fun f => piR b (quotInvSpace2 V Aset R f)
+          (fun _ => piR b Aset (fun _ => B)),
+        fun f hf => (h5 Aset R B f hAset hR hB hf).2,
+        fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero⟩
+    · rw [AnnotValidV_lam, hdom]
+      exact ⟨hdok.2, fun f hf => (h5 Aset R B f hAset hR hB hf).1.2⟩
+    · rw [interp2_lam, hdom]
+      exact lamR_mem fun f hf => (h5 Aset R B f hAset hR hB hf).2
+  have h3 : ∀ Aset R : V, Aset ∈ˢ (univ u : V) →
+      R ∈ˢ relSpace2 V u Aset →
+      AnnotOkP V (cons R (cons Aset ρ))
+          (.lam b (.sort v)
+            (.lam b (.pi 0 b (.bvar 2) (.bvar 1))
+              (.lam b (quotLiftInvTyP E)
+                (.lam b (.bvar 4) (.app (.bvar 2) (.bvar 0)))))) ∧
+        interp2 V (cons R (cons Aset ρ))
+          (.lam b (.sort v)
+            (.lam b (.pi 0 b (.bvar 2) (.bvar 1))
+              (.lam b (quotLiftInvTyP E)
+                (.lam b (.bvar 4) (.app (.bvar 2) (.bvar 0))))))
+          ∈ˢ piR b (univ v : V) (fun B =>
+            piR b (piR b Aset (fun _ => B))
+              (fun f => piR b (quotInvSpace2 V Aset R f)
+                (fun _ => piR b Aset (fun _ => B)))) := by
+    intro Aset R hAset hR
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · rw [AnnotOk2_lam, interp2_sort]
+      exact ⟨trivial, fun B hB => (h4 Aset R B hAset hR hB).1.1,
+        fun B => piR b (piR b Aset (fun _ => B))
+          (fun f => piR b (quotInvSpace2 V Aset R f)
+            (fun _ => piR b Aset (fun _ => B))),
+        fun B hB => (h4 Aset R B hAset hR hB).2,
+        fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero⟩
+    · rw [AnnotValidV_lam, interp2_sort]
+      exact ⟨trivial, fun B hB => (h4 Aset R B hAset hR hB).1.2⟩
+    · rw [interp2_lam, interp2_sort]
+      exact lamR_mem fun B hB => (h4 Aset R B hAset hR hB).2
+  have h2 : ∀ Aset : V, Aset ∈ˢ (univ u : V) →
+      AnnotOkP V (cons Aset ρ)
+          (.lam b quotRelTyP
+            (.lam b (.sort v)
+              (.lam b (.pi 0 b (.bvar 2) (.bvar 1))
+                (.lam b (quotLiftInvTyP E)
+                  (.lam b (.bvar 4) (.app (.bvar 2) (.bvar 0))))))) ∧
+        interp2 V (cons Aset ρ)
+          (.lam b quotRelTyP
+            (.lam b (.sort v)
+              (.lam b (.pi 0 b (.bvar 2) (.bvar 1))
+                (.lam b (quotLiftInvTyP E)
+                  (.lam b (.bvar 4) (.app (.bvar 2) (.bvar 0)))))))
+          ∈ˢ piR b (relSpace2 V u Aset) (fun R =>
+            piR b (univ v : V) (fun B =>
+              piR b (piR b Aset (fun _ => B))
+                (fun f => piR b (quotInvSpace2 V Aset R f)
+                  (fun _ => piR b Aset (fun _ => B))))) := by
+    intro Aset hAset
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · rw [AnnotOk2_lam, quotRelTyP_interp u]
+      exact ⟨(quotRelTyP_okP _).1,
+        fun R hR => (h3 Aset R hAset hR).1.1,
+        fun R => piR b (univ v : V) (fun B =>
+          piR b (piR b Aset (fun _ => B))
+            (fun f => piR b (quotInvSpace2 V Aset R f)
+              (fun _ => piR b Aset (fun _ => B)))),
+        fun R hR => (h3 Aset R hAset hR).2,
+        fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero⟩
+    · rw [AnnotValidV_lam, quotRelTyP_interp u]
+      exact ⟨(quotRelTyP_okP _).2,
+        fun R hR => (h3 Aset R hAset hR).1.2⟩
+    · rw [interp2_lam, quotRelTyP_interp u]
+      exact lamR_mem fun R hR => (h3 Aset R hAset hR).2
+  rw [quotLiftRaP]
+  refine ⟨?_, ?_⟩
+  · rw [AnnotOk2_lam, interp2_sort]
+    exact ⟨trivial, fun Aset hAset => (h2 Aset hAset).1.1,
+      fun Aset => piR b (relSpace2 V u Aset) (fun R =>
+        piR b (univ v : V) (fun B =>
+          piR b (piR b Aset (fun _ => B))
+            (fun f => piR b (quotInvSpace2 V Aset R f)
+              (fun _ => piR b Aset (fun _ => B))))),
+      fun Aset hAset => (h2 Aset hAset).2,
+      fun hb0 _ _ => by rw [hb0]; exact piR_zero_mem_univZero⟩
+  · rw [AnnotValidV_lam, interp2_sort]
+    exact ⟨trivial, fun Aset hAset => (h2 Aset hAset).1.2⟩
+
 end Quot
 
 end Setlec.SetR.Interp2
