@@ -163,6 +163,7 @@ import Setlec.SetR.Interp2.IndPrefixGradeP
 import Setlec.SetR.Interp2.IndParamGradeP
 import Setlec.SetR.Interp2.IndFieldGradeP
 import Setlec.SetR.Interp2.IndPlainParamP
+import Setlec.SetR.Interp2.IndZipperP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP
