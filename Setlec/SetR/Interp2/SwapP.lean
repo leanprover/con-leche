@@ -178,18 +178,15 @@ valuation. -/
 theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     (mp : EnvS2PM V μ env₀)
     (hsw : Setlec.SwapShList env₀.consts env₃.consts)
-    (hwf : Setlec.EnvWF env₃)
-    (hctors : Setlec.RecCtorsStored env₃)
-    (hrecV : ∀ φ : Name → Nat,
-      Setlec.SetR.RecRulesV V env₃ mp.base2.base.cval φ)
-    (hnres : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
-      (rules : List RecRule),
-      env₀.find? n = some (.recInfo cv mI rP []) →
-      env₃.find? n = some (.recInfo cv mI rP rules) →
-      rules = [] ∨ Setlec.reservedBasisNames.contains n = false)
+    -- the v1 carrier at the swapped environment, install-supplied
+    -- (`EnvS.swap`'s output at the group install): taking it rather
+    -- than rebuilding it keeps `EnvWF`/`RecCtorsStored`/`RecRulesV`
+    -- out of this file entirely
+    (hbase₃ : EnvS V env₃) (hbcval : hbase₃.cval = mp.base2.base.cval)
     (hrecP : ∀ (m₃ : EnvS2Core V env₃), m₃.acval = mp.base2.acval →
       ∀ φ : Name → Nat, RecRulesP m₃ φ) :
-    ∃ mp₃ : EnvS2PM V μ env₃, mp₃.base2.acval = mp.base2.acval := by
+    ∃ mp₃ : EnvS2PM V μ env₃, mp₃.base2.acval = mp.base2.acval ∧
+      mp₃.base2.base.cval = hbase₃.cval := by
   have hcg : Setlec.SwapCongr env₀ env₃ := Setlec.SwapShList.congr hsw
   have hcorr := Setlec.swapSh_find?_corr hsw
   have hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
@@ -202,12 +199,6 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
       (env₃.find? n = some ci ↔ env₀.find? n = some ci) :=
     fun n ci hnr =>
       ⟨fun h => hcg.findDown n ci h hnr, fun h => hcg.findUp n ci h hnr⟩
-  -- the v1 carrier at the swapped environment
-  obtain ⟨hbase₃, hbcval⟩ : ∃ b : EnvS V env₃,
-      b.cval = mp.base2.base.cval :=
-    ⟨mp.base2.base.swap hsw hwf hctors hrecV hnres,
-      Setlec.SetR.EnvS.swap_cval mp.base2.base hsw hwf hctors hrecV
-        hnres⟩
   -- the member correspondence, at the level of `toConstantVal`
   have hmemcorr : ∀ c₃ ∈ env₃.consts, ∃ c₀ ∈ env₀.consts,
       c₀.toConstantVal = c₃.toConstantVal ∧ c₀.name = c₃.name := by
@@ -245,7 +236,7 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
             eq_lawP := ?_
             caps_ok := ?_
             rec_rules := hrecP _ rfl
-            reduce_ops := ?_ }, rfl⟩
+            reduce_ops := ?_ }, rfl, rfl⟩
   · -- `type_reads`
     intro c hc ψ
     obtain ⟨c₀, hc₀, hcv, -⟩ := hmemcorr c hc
