@@ -130,6 +130,7 @@ import Setlec.SetR.Interp2.NatStepP
 import Setlec.SetR.Interp2.DivModCertP
 import Setlec.SetR.Interp2.CapstoneP
 import Setlec.SetR.Interp2.AxiomBitsP
+import Setlec.SetR.Interp2.BasisConsP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
 import Setlec.SetR.Interp2.FoldP
