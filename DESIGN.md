@@ -19907,3 +19907,46 @@ nothing).  Saving: per-hit constants in the stuck cascade.
 deleting them orphans the model); `projCert`'s infer run (the
 ratified squash countermodel); `majorToCtor` as a block
 (`MajorStepP` consumes every run).
+
+## Task #161 HARVEST PHASE GOAL (user-set, session-scoped;
+2026-09-02) — succession-critical
+
+**THE GOAL: every cert-tax contribution is MEASURED and, if possible
+with the new interp (the landed P tiers), REMOVED.**  The goal
+closes when the final harvest table shows every contribution either
+REMOVED-AND-MEASURED or MEASURED-WITH-VERDICT ("measured, not
+removable, because X" is a completed outcome).
+
+Phase structure (coordinator-set):
+1. **Complete itemization** (P1 worker, scope WIDENED beyond the
+   #141 family): every certificate/guard/re-check site in the
+   executing paths — the P1–P11 candidates, the recorded
+   non-candidates, and anything the sweep finds off-list — each with
+   measured per-site cost on BOTH cores (interned production +
+   cached; the #163 pilot harnesses `tests/pilot-*.sh` + `--core=`
+   selector are the shared instruments; reuse the cached-live
+   baseline matrix, record SHAs per cell).
+2. **Removal rounds in measured-payoff order** (P2 = iotaCerts
+   dispatched first): each round = branch build → both-cores matrix
+   vs baseline → verdict-neutrality battery (byte-identity, both
+   cores, both modes, §9377 precedent) → grant request with the
+   table → coordinator grant → land.  Small compatible removals
+   with independent licenses batch into shared rounds.
+3. **The non-removable set** (certifyNatEqs/checkDivModCerts =
+   establishment sources; projCert's infer run = ratified squash
+   verdict; majorToCtor-as-block; + anything unlicensed the
+   enumeration finds): measured cost + necessity verdict in the
+   final table.
+
+Proof discipline unchanged: every removal RE-PROVES its consumers
+(the P tier licenses the deletion; the theorems must still build),
+zero sorries, axioms standard, full battery per land.
+
+Machine discipline: heavy runs (init-full, perf counters) are
+machine-solo — shared lock `_tmp/measure.lock.d` + foreign-process
+polling; the cached-live lane's baseline runs have priority in the
+opening round.
+
+Standing state at phase open: master @ a81cb95c (push pending with
+the user); P1 (widened) and P2 workers dispatched on
+agent/degating-p1 / agent/degating-p2.
