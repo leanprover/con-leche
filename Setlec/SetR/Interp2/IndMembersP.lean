@@ -62,6 +62,13 @@ def MemberEtaLawP (V : Type w) [SetTheory V] : Prop :=
       caps.eta = true → Setlec.reservedBasisNames.contains T = false →
       Setlec.EtaPins μ env T cvT.levelParams caps →
       caps.etaFields = 0 →
+      -- the block-membership facts, v1's `hvT`/`hvC` in P form: they
+      -- are what turns `acval T` into `acval (T ++ "_model")` through
+      -- `BlockAcvalInstalled`, which is the only bridge between the
+      -- law's *subject* and the model artifacts the pins name
+      blockNames.contains T = true →
+      blockNames.contains caps.etaCtor = true →
+      Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
       ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
         m₂.acval = acvalWith mp.base2.acval c₀.name
           (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) →
@@ -165,9 +172,9 @@ theorem memberInstallPM (hkey : MemberKeyS V) (hetaP : MemberEtaLawP V)
       (memberKeyP mp hmv hI hIA)
       (fun m₂ hac => capsOkP_cons_member mp hfresh0 hc₀cv hc₀name
         hpshape0 hbn hpinsA hEC hBP
-        (fun T cvT caps hfT hcape hresT hp h0 m₃ hac₃ φ' =>
+        (fun T cvT caps hfT hcape hresT hp h0 hbT hbC hfamT m₃ hac₃ φ' =>
           hetaP mp hmv hI hIA hc₀cv hc₀name T cvT caps hfT hcape hresT
-            hp h0 m₃ hac₃ φ')
+            hp h0 hbT hbC hfamT m₃ hac₃ φ')
         (fun cvT caps hceq hcapu hresT hpT m₃ hac₃ φ' =>
           hunitP mp hmv hI hIA hc₀cv hc₀name cvT caps hceq hcapu hresT
             hpT m₃ hac₃ φ')

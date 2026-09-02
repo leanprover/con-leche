@@ -111,22 +111,17 @@ type whose telescope the pins speak about.  Same two-move argument
 (`denoteP_renameConsts_resolve` past `denoteP_erasedEq`), stated as
 the equality. -/
 
-theorem memberTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
-    {cv cvA : ConstantVal}
-    (hmv : MemberValR μ F env mp.base2.base.cval blockNames cv cvA)
+theorem blockTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
     (hIB : BlockInstalledTT blockNames env mp.base2.base.cval)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
-    {cvm : ConstantVal} {mval : Expr} {hint : ReducibilityHint}
-    (hfm : env.find? (cvA.name.str "_model")
-      = some (.defnInfo cvm mval hint))
+    {ty : Expr} (htr : ty.constsResolve env = true)
+    {cvm : ConstantVal}
+    (hren : Expr.eqUpToNames (ty.renameConsts (fun n' =>
+      if blockNames.contains n' then n'.str "_model" else n')) cvm.type
+      = true)
     (ψ : Name → Nat) :
-    denoteP mp.base2.acval env ψ 0 cvA.type
+    denoteP mp.base2.acval env ψ 0 ty
       = denoteP mp.base2.acval env ψ 0 cvm.type := by
-  obtain ⟨type', hcv, rfl, -, cvm', mval', hint', hfm', hlpm, hren⟩ := hmv
-  obtain ⟨-, -, -, -, -, -, -, -, htr, -⟩ := hcv
-  obtain rfl : cvm' = cvm := by
-    rw [hfm'] at hfm
-    exact (Setlec.ConstantInfo.defnInfo.inj (Option.some.inj hfm)).1
   have hup : ∀ n ci, env.find? n = some ci →
       ∃ ci', env.find? ((fun n =>
           if blockNames.contains n then n.str "_model" else n) n)
@@ -149,9 +144,27 @@ theorem memberTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
     by_cases hb : blockNames.contains n = true
     · rw [if_pos hb]; exact hIA n hb ci hfn ψ'
     · rw [if_neg hb]
-  show denoteP mp.base2.acval env ψ 0 type' = _
   rw [← denoteP_erasedEq (Expr.ErasedEq.of_eqUpToNames hren) 0]
-  exact (denoteP_renameConsts_resolve hup hval type' 0 htr).symm
+  exact (denoteP_renameConsts_resolve hup hval ty 0 htr).symm
+
+/-- The member cons's instance: `MemberValR` supplies both data. -/
+theorem memberTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
+    {cv cvA : ConstantVal}
+    (hmv : MemberValR μ F env mp.base2.base.cval blockNames cv cvA)
+    (hIB : BlockInstalledTT blockNames env mp.base2.base.cval)
+    (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
+    {cvm : ConstantVal} {mval : Expr} {hint : ReducibilityHint}
+    (hfm : env.find? (cvA.name.str "_model")
+      = some (.defnInfo cvm mval hint))
+    (ψ : Name → Nat) :
+    denoteP mp.base2.acval env ψ 0 cvA.type
+      = denoteP mp.base2.acval env ψ 0 cvm.type := by
+  obtain ⟨type', hcv, rfl, -, cvm', mval', hint', hfm', hlpm, hren⟩ := hmv
+  obtain ⟨-, -, -, -, -, -, -, -, htr, -⟩ := hcv
+  obtain rfl : cvm' = cvm := by
+    rw [hfm'] at hfm
+    exact (Setlec.ConstantInfo.defnInfo.inj (Option.some.inj hfm)).1
+  exact blockTypeReadEq mp hIB hIA htr hren ψ
 
 /-! ## `Eq`'s pinned type, at any environment storing it -/
 
